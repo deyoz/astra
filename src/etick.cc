@@ -40,6 +40,8 @@ using namespace AstraLocale;
 using namespace BASIC;
 using namespace EXCEPTIONS;
 
+#define MAX_TICKETS_IN_TLG 100
+
 void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   string tick_no=NodeAsString("TickNoEdit",reqNode);
@@ -99,7 +101,12 @@ void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNod
   else
   {
     if ( strcmp((char *)reqNode->name, "SearchETByTickNo") == 0 )
-      NewTextChild(resNode,"connect_error");
+    {
+      if (!TReqInfo::Instance()->desk.compatible(WEB_CHECKIN_VERSION))
+        NewTextChild(resNode,"connect_error");
+      else
+        AstraLocale::showProgError("MSG.ETS_CONNECT_ERROR"); //это из-за упущения в терминале!
+    }
     else
       AstraLocale::showProgError("MSG.ETS_CONNECT_ERROR");
   };
@@ -218,7 +225,7 @@ void ChangeAreaStatus(TETCheckStatusArea area, XMLRequestCtxt *ctxt, xmlNodePtr 
     only_one=true;
   };
   bool processed=false;
-  map<TTicketListKey,TTicketListCtxt> mtick;
+  TChangeStatusList mtick;
   for(;segNode!=NULL;segNode=segNode->next)
   {
     int id;
@@ -596,7 +603,7 @@ void ETStatusInterface::ETRollbackStatus(xmlDocPtr ediResDocPtr,
       point_ids.push_back(point_id);
   };
 
-  map<TTicketListKey,TTicketListCtxt> mtick;
+  TChangeStatusList mtick;
   for(vector<int>::iterator i=point_ids.begin();i!=point_ids.end();i++)
   {
     ProgTrace(TRACE5,"ETRollbackStatus: rollback point_id=%d",*i);
@@ -608,7 +615,7 @@ void ETStatusInterface::ETRollbackStatus(xmlDocPtr ediResDocPtr,
 bool ETStatusInterface::ETCheckStatus(int point_id,
                                       xmlDocPtr ediResDocPtr,
                                       bool check_connect,
-                                      map<TTicketListKey,TTicketListCtxt> &mtick)
+                                      TChangeStatusList &mtick)
 {
   bool result=false;
 
@@ -681,7 +688,14 @@ bool ETStatusInterface::ETCheckStatus(int point_id,
         };
         key.coupon_status=prior_status->codeInt();
 
-        TTicketListCtxt &ltick=mtick[key];
+        if (mtick[key].empty() ||
+            mtick[key].back().first.size()>=MAX_TICKETS_IN_TLG)
+        {
+          TTicketListCtxt ltick;
+          mtick[key].push_back(ltick);
+        };
+
+        TTicketListCtxt &ltick=mtick[key].back();
         if (ltick.second.docPtr()==NULL)
         {
           ltick.second.set("UTF-8","context");
@@ -744,7 +758,7 @@ bool ETStatusInterface::ETCheckStatus(int id,
                                       TETCheckStatusArea area,
                                       int check_point_id,
                                       bool check_connect,
-                                      map<TTicketListKey, TTicketListCtxt> &mtick,
+                                      TChangeStatusList &mtick,
                                       bool before_checkin)
 {
   bool result=false;
@@ -892,7 +906,14 @@ bool ETStatusInterface::ETCheckStatus(int id,
             };
             key.coupon_status=real_status->codeInt();
 
-            TTicketListCtxt &ltick=mtick[key];
+            if (mtick[key].empty() ||
+                mtick[key].back().first.size()>=MAX_TICKETS_IN_TLG)
+            {
+              TTicketListCtxt ltick;
+              mtick[key].push_back(ltick);
+            };
+
+            TTicketListCtxt &ltick=mtick[key].back();
             if (ltick.second.docPtr()==NULL)
             {
               ltick.second.set("UTF-8","context");
@@ -1007,7 +1028,14 @@ bool ETStatusInterface::ETCheckStatus(int id,
 
             CouponStatus status=CouponStatus::fromDispCode(Qry.FieldAsString("coupon_status"));
 
-            TTicketListCtxt &ltick=mtick[key];
+            if (mtick[key].empty() ||
+                mtick[key].back().first.size()>=MAX_TICKETS_IN_TLG)
+            {
+              TTicketListCtxt ltick;
+              mtick[key].push_back(ltick);
+            };
+
+            TTicketListCtxt &ltick=mtick[key].back();
             if (ltick.second.docPtr()==NULL)
             {
               ltick.second.set("UTF-8","context");
@@ -1057,58 +1085,61 @@ bool ETStatusInterface::ETCheckStatus(int id,
 }
 
 bool ETStatusInterface::ETChangeStatus(const int reqCtxtId,
-                                       const map<TTicketListKey, TTicketListCtxt> &mtick)
+                                       const TChangeStatusList &mtick)
 {
   bool result=false;
 
   string oper_carrier;
-  for(map<TTicketListKey,TTicketListCtxt>::const_iterator i=mtick.begin();i!=mtick.end();i++)
+  for(TChangeStatusList::const_iterator i=mtick.begin();i!=mtick.end();i++)
   {
-    const TTicketList &ltick=i->second.first;
-    if (ltick.empty()) continue;
-
-    if (i->first.airline_oper.empty())
-      throw EXCEPTIONS::Exception("ETChangeStatus: unkown operation carrier");
-    oper_carrier=i->first.airline_oper;
-    try
+    for(vector<TTicketListCtxt>::const_iterator j=i->second.begin();j!=i->second.end();j++)
     {
-      TAirlinesRow& row=(TAirlinesRow&)base_tables.get("airlines").get_row("code",oper_carrier);
-      if (!row.code_lat.empty()) oper_carrier=row.code_lat;
-    }
-    catch(EBaseTableError) {};
+      const TTicketList &ltick=j->first;
+      if (ltick.empty()) continue;
 
-    if (i->first.addrs.first.empty() ||
-        i->first.addrs.second.empty())
-      throw EXCEPTIONS::Exception("ETChangeStatus: edifact UNB-adresses not defined");
-    set_edi_addrs(i->first.addrs);
+      if (i->first.airline_oper.empty())
+        throw EXCEPTIONS::Exception("ETChangeStatus: unkown operation carrier");
+      oper_carrier=i->first.airline_oper;
+      try
+      {
+        TAirlinesRow& row=(TAirlinesRow&)base_tables.get("airlines").get_row("code",oper_carrier);
+        if (!row.code_lat.empty()) oper_carrier=row.code_lat;
+      }
+      catch(EBaseTableError) {};
 
-    ProgTrace(TRACE5,"ETChangeStatus: oper_carrier=%s edi_addr=%s edi_own_addr=%s",
-                     oper_carrier.c_str(),get_edi_addr().c_str(),get_edi_own_addr().c_str());
+      if (i->first.addrs.first.empty() ||
+          i->first.addrs.second.empty())
+        throw EXCEPTIONS::Exception("ETChangeStatus: edifact UNB-adresses not defined");
+      set_edi_addrs(i->first.addrs);
 
-    TReqInfo& reqInfo = *(TReqInfo::Instance());
-    xmlNodePtr rootNode=NodeAsNode("/context",i->second.second.docPtr());
+      ProgTrace(TRACE5,"ETChangeStatus: oper_carrier=%s edi_addr=%s edi_own_addr=%s",
+                       oper_carrier.c_str(),get_edi_addr().c_str(),get_edi_own_addr().c_str());
 
-    if (reqCtxtId!=ASTRA::NoExists)
-      SetProp(rootNode,"req_ctxt_id",reqCtxtId);
-    SetProp(rootNode,"desk",reqInfo.desk.code);
-    SetProp(rootNode,"user",reqInfo.user.descr);
-    SetProp(rootNode,"screen",reqInfo.screen.name);
+      TReqInfo& reqInfo = *(TReqInfo::Instance());
+      xmlNodePtr rootNode=NodeAsNode("/context",j->second.docPtr());
 
-    string ediCtxt=XMLTreeToText(i->second.second.docPtr());
+      if (reqCtxtId!=ASTRA::NoExists)
+        SetProp(rootNode,"req_ctxt_id",reqCtxtId);
+      SetProp(rootNode,"desk",reqInfo.desk.code);
+      SetProp(rootNode,"user",reqInfo.user.descr);
+      SetProp(rootNode,"screen",reqInfo.screen.name);
 
-    if (reqInfo.desk.code.empty())
-    {
-      //не запрос
-      OrigOfRequest org(oper_carrier);
-      ChangeStatus::ETChangeStatus(org, ltick, ediCtxt, reqCtxtId);
-    }
-    else
-    {
-      OrigOfRequest org(oper_carrier,reqInfo);
-      ChangeStatus::ETChangeStatus(org, ltick, ediCtxt, reqCtxtId);
+      string ediCtxt=XMLTreeToText(j->second.docPtr());
+
+      if (reqInfo.desk.code.empty())
+      {
+        //не запрос
+        OrigOfRequest org(oper_carrier);
+        ChangeStatus::ETChangeStatus(org, ltick, ediCtxt, reqCtxtId);
+      }
+      else
+      {
+        OrigOfRequest org(oper_carrier,reqInfo);
+        ChangeStatus::ETChangeStatus(org, ltick, ediCtxt, reqCtxtId);
+      };
+
+      result=true;
     };
-
-    result=true;
   };
   return result;
 };

@@ -48,6 +48,8 @@ class TTicketListKey
     };
 };
 
+typedef std::map<TTicketListKey, std::vector<TTicketListCtxt> > TChangeStatusList;
+
 class ETStatusInterface : public JxtInterface
 {
 public:
@@ -73,17 +75,17 @@ public:
   static bool ETCheckStatus(int point_id,
                             xmlDocPtr ediResDocPtr,
                             bool check_connect,
-                            std::map<TTicketListKey,TTicketListCtxt> &mtick);
+                            TChangeStatusList &mtick);
   static bool ETCheckStatus(int id,
                             TETCheckStatusArea area,
                             int check_point_id,
                             bool check_connect,
-                            std::map<TTicketListKey, TTicketListCtxt> &mtick,
+                            TChangeStatusList &mtick,
                             bool before_checkin=false);
   static void ETRollbackStatus(xmlDocPtr ediResDocPtr,
                                bool check_connect);
   static bool ETChangeStatus(const int reqCtxtId,
-                             const std::map<TTicketListKey, TTicketListCtxt> &mtick);
+                             const TChangeStatusList &mtick);
 };
 
 

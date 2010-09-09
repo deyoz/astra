@@ -446,14 +446,29 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
 void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+  xmlNodePtr dataNode=NewTextChild( resNode, "data" );
+  GetSegInfo(reqNode, resNode, dataNode);
+  //обработка многосегментного запроса
+  xmlNodePtr node=GetNode("segments",reqNode);
+  if (node!=NULL)
+  {
+    xmlNodePtr segsNode=NewTextChild(dataNode,"segments");
+    for(node=node->children;node!=NULL;node=node->next)
+      GetSegInfo(node, NULL, NewTextChild(segsNode,"segment"));
+  };
+  //ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
+};
+
+void TripsInterface::GetSegInfo(xmlNodePtr reqNode, xmlNodePtr resNode, xmlNodePtr dataNode)
+{
   TReqInfo *reqInfo = TReqInfo::Instance();
   int point_id = NodeAsInteger( "point_id", reqNode );
-  xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   NewTextChild( dataNode, "point_id", point_id );
 
   if ( GetNode( "tripheader", reqNode ) )
     if ( !readTripHeader( point_id, dataNode ) )
       showErrorMessage( "Информация о рейсе недоступна" );
+
 
   if (reqInfo->screen.name == "BRDBUS.EXE" ||
       reqInfo->screen.name == "EXAM.EXE" )
@@ -462,7 +477,7 @@ void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
           BrdInterface::readTripCounters( point_id, dataNode );
       if ( GetNode( "tripdata", reqNode ) )
           BrdInterface::readTripData( point_id, dataNode );
-      if ( GetNode( "paxdata", reqNode ) ) {
+      if ( GetNode( "paxdata", reqNode ) && resNode!=NULL ) {
           BrdInterface::GetPax(reqNode,resNode);
       }
   };
@@ -472,6 +487,9 @@ void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       CheckInInterface::readTripCounters( point_id, dataNode );
     if ( GetNode( "tripdata", reqNode ) )
       CheckInInterface::readTripData( point_id, dataNode );
+    if ( GetNode( "tripsets", reqNode ) )
+      CheckInInterface::readTripSets( point_id, dataNode );
+
     xmlNodePtr node;
     node=GetNode( "tripBPpectabs", reqNode );
     if (node!=NULL)
@@ -519,7 +537,33 @@ void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     if ( GetNode( "ckin_zones", reqNode ) )
         DocsInterface::GetZoneList(point_id, dataNode);
   };
-  ProgTrace(TRACE5, "%s", GetXMLDocText(dataNode->doc).c_str());
+};
+
+void TripsInterface::readOperFltHeader( TTripInfo &info, xmlNodePtr node )
+{
+  TReqInfo *reqInfo = TReqInfo::Instance();
+
+  if ( reqInfo->screen.name == "AIR.EXE" ) //!!!vlad
+    NewTextChild( node, "flight", GetTripName(info,true,false) );
+
+  NewTextChild( node, "airline", info.airline );
+  try
+  {
+    TAirlinesRow &row = (TAirlinesRow&)base_tables.get("airlines").get_row("code",info.airline);
+    NewTextChild( node, "airline_lat", row.code_lat );
+    NewTextChild( node, "aircode", row.aircode );
+  }
+  catch(EBaseTableError) {};
+
+  NewTextChild( node, "flt_no", info.flt_no );
+  NewTextChild( node, "suffix", info.suffix );
+  NewTextChild( node, "airp", info.airp );
+  if ( reqInfo->screen.name == "AIR.EXE" ||
+       reqInfo->screen.name == "KASSA.EXE" )
+  {
+    //внимание! локальная дата порта
+    NewTextChild( node, "scd_out_local", DateTimeToStr(UTCToLocal(info.scd_out,AirpTZRegion(info.airp))) );
+  };
 };
 
 bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
@@ -544,45 +588,34 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   if (Qry.Eof) return false;
+  TTripInfo info(Qry);
   xmlNodePtr node = NewTextChild( dataNode, "tripheader" );
   NewTextChild( node, "point_id", Qry.FieldAsInteger( "point_id" ) );
-  string airline=Qry.FieldAsString( "airline" );
-  NewTextChild( node, "airline", airline );
-  try
-  {
-    TAirlinesRow &row = (TAirlinesRow&)base_tables.get("airlines").get_row("code",airline);
-    NewTextChild( node, "airline_lat", row.code_lat );
-    NewTextChild( node, "aircode", row.aircode );
-  }
-  catch(EBaseTableError) {};
 
-  NewTextChild( node, "flt_no", Qry.FieldAsInteger( "flt_no" ) );
-  NewTextChild( node, "suffix", Qry.FieldAsString( "suffix" ) );
-  NewTextChild( node, "craft", Qry.FieldAsString( "craft" ) );
-  NewTextChild( node, "airp", Qry.FieldAsString( "airp" ) );
-  TDateTime scd_out,scd_out_local,act_out,real_out;
-  string &tz_region=AirpTZRegion(Qry.FieldAsString( "airp" ));
-  scd_out_local= UTCToLocal(Qry.FieldAsDateTime("scd_out"),tz_region);
-  scd_out= UTCToClient(Qry.FieldAsDateTime("scd_out"),tz_region);
-  real_out=UTCToClient(Qry.FieldAsDateTime("real_out"),tz_region);
-  if ( reqInfo->screen.name == "AIR.EXE" ||
-       reqInfo->screen.name == "KASSA.EXE" )
-  {
-    //внимание! локальная дата порта
-    NewTextChild( node, "scd_out_local", DateTimeToStr(scd_out_local) );
-  }
-  NewTextChild( node, "scd_out", DateTimeToStr(scd_out) );
-  NewTextChild( node, "real_out", DateTimeToStr(real_out,"hh:nn") );
+  readOperFltHeader(info,node);
+
+  string &tz_region=AirpTZRegion(info.airp);
+  TDateTime scd_out_client,
+            act_out_client,
+            real_out_client;
+
+  scd_out_client= UTCToClient(info.scd_out,tz_region);
+  real_out_client=UTCToClient(info.real_out,tz_region);
+
+  NewTextChild( node, "scd_out", DateTimeToStr(scd_out_client) );
+  NewTextChild( node, "real_out", DateTimeToStr(real_out_client,"hh:nn") );
   if (!Qry.FieldIsNULL("act_out"))
   {
-    act_out= UTCToClient(Qry.FieldAsDateTime("act_out"),tz_region);
-    NewTextChild( node, "act_out", DateTimeToStr(scd_out) );
+    act_out_client= UTCToClient(Qry.FieldAsDateTime("act_out"),tz_region);
+    NewTextChild( node, "act_out", DateTimeToStr(act_out_client) );
   }
   else
   {
-    act_out= 0;
+    act_out_client= ASTRA::NoExists;
     NewTextChild( node, "act_out" );
   };
+
+  NewTextChild( node, "craft", Qry.FieldAsString( "craft" ) );
   NewTextChild( node, "bort", Qry.FieldAsString( "bort" ) );
   NewTextChild( node, "park", Qry.FieldAsString( "park_out" ) );
   NewTextChild( node, "classes", Qry.FieldAsString( "classes" ) );
@@ -593,8 +626,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   NewTextChild( node, "remark", Qry.FieldAsString( "remark" ) );
   NewTextChild( node, "pr_tranzit", (int)Qry.FieldAsInteger( "pr_tranzit" )!=0 );
 
-  TTripInfo info(Qry);
-  NewTextChild( node, "trip", GetTripName(info,reqInfo->screen.name=="TLG.EXE",true) );
+  //!!!vladNewTextChild( node, "trip", GetTripName(info,reqInfo->screen.name=="TLG.EXE",true) );
 
   TTripStages tripStages( point_id );
   TStagesRules *stagesRules = TStagesRules::Instance();
@@ -623,14 +655,14 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   };
   if ( reqInfo->screen.name == "DOCS.EXE" )
   {
-    if (act_out==0)
+    if (act_out_client==ASTRA::NoExists)
       status = stagesRules->status( stCheckIn, tripStages.getStage( stCheckIn ) );
     else
       status = stagesRules->status( stCheckIn, sTakeoff );
   };
   if ( reqInfo->screen.name == "TLG.EXE" )
   {
-    if (act_out==0)
+    if (act_out_client==ASTRA::NoExists)
       status = stagesRules->status( stCraft, tripStages.getStage( stCraft ) );
     else
       status = stagesRules->status( stCraft, sTakeoff );
@@ -827,6 +859,39 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
 
   return true;
 }
+
+void TripsInterface::readHalls( std::string airp_dep, std::string work_mode, xmlNodePtr dataNode)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT halls2.id,halls2.name "
+    "FROM station_halls,halls2,stations "
+    "WHERE station_halls.hall=halls2.id AND halls2.airp=:airp_dep AND "
+    "     station_halls.airp=stations.airp AND "
+    "     station_halls.station=stations.name AND "
+    "     stations.desk=:desk AND stations.work_mode=:work_mode";
+  Qry.CreateVariable("airp_dep",otString,airp_dep);
+  Qry.CreateVariable("desk",otString, TReqInfo::Instance()->desk.code);
+  Qry.CreateVariable("work_mode",otString,work_mode);
+  Qry.Execute();
+  if (Qry.Eof)
+  {
+    Qry.Clear();
+    Qry.SQLText =
+      "SELECT id,name FROM halls2 WHERE airp=:airp_dep";
+    Qry.CreateVariable("airp_dep",otString,airp_dep);
+    Qry.Execute();
+  };
+  xmlNodePtr node = NewTextChild( dataNode, "halls" );
+  for(;!Qry.Eof;Qry.Next())
+  {
+    xmlNodePtr itemNode = NewTextChild( node, "hall" );
+    NewTextChild( itemNode, "id", Qry.FieldAsInteger( "id" ) );
+    NewTextChild( itemNode, "name", Qry.FieldAsString( "name" ) );
+  };
+};
+
 
 string convertLastTrfer(string s)
 {
@@ -1338,9 +1403,13 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   }
   TPaxSeats priorSeats( point_id );
   Qry.Clear();
-  Qry.SQLText=
+  ostringstream sql;
+
+  sql <<
      "SELECT "
      "      ckin.get_pnr_addr(crs_pnr.pnr_id) AS pnr_ref, "
+     "      crs_pnr.status AS pnr_status, "
+     "      crs_pnr.priority AS pnr_priority, "
      "      RTRIM(crs_pax.surname||' '||crs_pax.name) full_name, "
      "      crs_pax.pers_type, "
      "      crs_pnr.class,crs_pnr.subclass, "
@@ -1363,69 +1432,16 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
      "      pax.grp_id, "
      "      pax.wl_type "
      "FROM crs_pnr,crs_pax,pax,pax_grp,"
-     "       ( "
-     "        SELECT DISTINCT crs_pnr.pnr_id,:ps_ok AS status "
-     "        FROM crs_pnr, "
-     "         (SELECT b2.point_id_tlg, "
-     "                 airp_arv_tlg,class_tlg,status "
-     "          FROM crs_displace2,tlg_binding b1,tlg_binding b2 "
-     "          WHERE crs_displace2.point_id_tlg=b1.point_id_tlg AND "
-     "                b1.point_id_spp=b2.point_id_spp AND "
-     "                crs_displace2.point_id_spp=:point_id AND "
-     "                b1.point_id_spp<>:point_id) crs_displace "
-     "        WHERE crs_pnr.point_id=crs_displace.point_id_tlg AND "
-     "              crs_pnr.target=crs_displace.airp_arv_tlg AND "
-     "              crs_pnr.class=crs_displace.class_tlg AND "
-     "              crs_displace.status=:ps_ok AND "
-     "              crs_pnr.wl_priority IS NULL "
-     "        UNION "
-     "        SELECT DISTINCT crs_pnr.pnr_id,:ps_ok "
-     "        FROM crs_pnr,tlg_binding "
-     "        WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND "
-     "              tlg_binding.point_id_spp= :point_id AND "
-     "              crs_pnr.wl_priority IS NULL "
-     "        UNION "
-     "        SELECT DISTINCT crs_pnr.pnr_id,:ps_goshow "
-     "        FROM crs_pnr, "
-     "         (SELECT b2.point_id_tlg, "
-     "                 airp_arv_tlg,class_tlg,status "
-     "          FROM crs_displace2,tlg_binding b1,tlg_binding b2 "
-     "          WHERE crs_displace2.point_id_tlg=b1.point_id_tlg AND "
-     "                b1.point_id_spp=b2.point_id_spp AND "
-     "                crs_displace2.point_id_spp=:point_id AND "
-     "                b1.point_id_spp<>:point_id) crs_displace "
-     "        WHERE crs_pnr.point_id=crs_displace.point_id_tlg AND "
-     "              crs_pnr.target=crs_displace.airp_arv_tlg AND "
-     "              crs_pnr.class=crs_displace.class_tlg AND "
-     "              crs_displace.status=:ps_goshow AND "
-     "              crs_pnr.wl_priority IS NULL "
-     "        MINUS "
-     "        SELECT DISTINCT crs_pnr.pnr_id,:ps_goshow "
-     "        FROM crs_pnr,tlg_binding "
-     "        WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND "
-     "              tlg_binding.point_id_spp= :point_id AND "
-     "              crs_pnr.wl_priority IS NULL "
-     "        UNION "
-     "        SELECT DISTINCT crs_pnr.pnr_id,:ps_transit "
-     "        FROM crs_pnr, "
-     "         (SELECT b2.point_id_tlg, "
-     "                 airp_arv_tlg,class_tlg,status "
-     "          FROM crs_displace2,tlg_binding b1,tlg_binding b2 "
-     "          WHERE crs_displace2.point_id_tlg=b1.point_id_tlg AND "
-     "                b1.point_id_spp=b2.point_id_spp AND "
-     "                crs_displace2.point_id_spp=:point_id AND "
-     "                b1.point_id_spp<>:point_id) crs_displace "
-     "        WHERE crs_pnr.point_id=crs_displace.point_id_tlg AND "
-     "              crs_pnr.target=crs_displace.airp_arv_tlg AND "
-     "              crs_pnr.class=crs_displace.class_tlg AND "
-     "              crs_displace.status=:ps_transit AND "
-     "              crs_pnr.wl_priority IS NULL "
-     "        MINUS "
-     "        SELECT DISTINCT crs_pnr.pnr_id,:ps_transit "
-     "        FROM crs_pnr,tlg_binding "
-     "        WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND "
-     "              tlg_binding.point_id_spp= :point_id AND "
-     "              crs_pnr.wl_priority IS NULL "
+     "       ( ";
+
+
+  sql << CheckInInterface::GetSearchPaxSubquery(psCheckin, true, false, false, false, "")
+      << "UNION \n"
+      << CheckInInterface::GetSearchPaxSubquery(psGoshow,  true, false, false, false, "")
+      << "UNION \n"
+      << CheckInInterface::GetSearchPaxSubquery(psTransit, true, false, false, false, "");
+
+  sql <<
      "       ) ids "
      "WHERE crs_pnr.pnr_id=ids.pnr_id AND "
      "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
@@ -1433,11 +1449,12 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
      "      pax.grp_id=pax_grp.grp_id(+) AND "
      "      crs_pax.pr_del=0 "
      "ORDER BY crs_pnr.point_id";
+
+  Qry.SQLText=sql.str().c_str();
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.CreateVariable( "ps_ok", otString, EncodePaxStatus(ASTRA::psCheckin) );
   Qry.CreateVariable( "ps_goshow", otString, EncodePaxStatus(ASTRA::psGoshow) );
   Qry.CreateVariable( "ps_transit", otString, EncodePaxStatus(ASTRA::psTransit) );
-  Qry.Execute();
   // места пассажира
   TQuery SQry( &OraSession );
   SQry.SQLText =
@@ -1496,6 +1513,8 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   int point_id_tlg=-1;
   xmlNodePtr tripNode,paxNode,node;
   int col_pnr_ref=Qry.FieldIndex("pnr_ref");
+  int col_pnr_status=Qry.FieldIndex("pnr_status");
+  int col_pnr_priority=Qry.FieldIndex("pnr_priority");
   int col_full_name=Qry.FieldIndex("full_name");
   int col_pers_type=Qry.FieldIndex("pers_type");
   int col_class=Qry.FieldIndex("class");
@@ -1550,12 +1569,12 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     node = NewTextChild(paxNode,"pax");
 
     NewTextChild( node, "pnr_ref", Qry.FieldAsString( col_pnr_ref ), "" );
+    NewTextChild( node, "pnr_status", Qry.FieldAsString( col_pnr_status ), "" );
+    NewTextChild( node, "pnr_priority", Qry.FieldAsString( col_pnr_priority ), "" );
     NewTextChild( node, "full_name", Qry.FieldAsString( col_full_name ) );
     NewTextChild( node, "pers_type", Qry.FieldAsString( col_pers_type ), EncodePerson(ASTRA::adult) );
     NewTextChild( node, "class", Qry.FieldAsString( col_class ), EncodeClass(ASTRA::Y) );
     NewTextChild( node, "subclass", Qry.FieldAsString( col_subclass ) );
-    //NewTextChild( node, "crs_seat_no", Qry.FieldAsString( col_crs_seat_no ), "" );
-    //NewTextChild( node, "preseat_no", Qry.FieldAsString( col_preseat_no ), "" );
     NewTextChild( node, "seats", Qry.FieldAsInteger( col_seats ), 1 );
     NewTextChild( node, "target", Qry.FieldAsString( col_target ) );
     if (!Qry.FieldIsNULL(col_last_target))

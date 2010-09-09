@@ -71,6 +71,13 @@ public:
 
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 
+  static std::string GetSearchPaxSubquery(ASTRA::TPaxStatus pax_status,
+                                          bool return_pnr_ids,
+                                          bool exclude_checked,
+                                          bool exclude_deleted,
+                                          bool select_pad_with_ok,
+                                          std::string sql_filter);
+
   static bool CheckCkinFlight(const int point_dep,
                               const std::string& airp_dep,
                               const int point_arv,
@@ -104,6 +111,9 @@ public:
 
   static void readTripCounters( int point_id, xmlNodePtr dataNode );
   static void readTripData( int point_id, xmlNodePtr dataNode );
+  static void readTripSets( int point_id, xmlNodePtr dataNode );
+  static void readTripSets( int point_id, TTripInfo &fltInfo, xmlNodePtr tripSetsNode );
+  static void readTripSets( TTripInfo &fltInfo, int pr_etstatus, xmlNodePtr tripSetsNode);
 };
 
 

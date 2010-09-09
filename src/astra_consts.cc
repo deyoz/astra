@@ -27,4 +27,26 @@ const char* CompLayerTypeS[] = {"BLOCK_CENT","TRANZIT","CHECKIN","TCHECKIN","GOS
 
 const char* BagNormTypeS[] = {"Åè", "éÅ", "èã", "Åè/ëç", "Åè/éÅ", "Åè/èã", "éÅ/èã", ""};
 
+const char *RptTypeS[rtTypeNum] = {
+    "PTM",
+    "PTMTXT",
+    "BTM",
+    "BTMTXT",
+    "WEB",
+    "WEBTXT",
+    "REFUSE",
+    "REFUSETXT",
+    "NOTPRES",
+    "NOTPRESTXT",
+    "REM",
+    "REMTXT",
+    "CRS",
+    "CRSTXT",
+    "CRSUNREG",
+    "CRSUNREGTX",
+    "EXAM",
+    "EXAMTXT",
+    "?"
+};
+
 };

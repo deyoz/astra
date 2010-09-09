@@ -301,7 +301,7 @@ void ETCheckStatusFlt(void)
           try
           {
           	ProgTrace(TRACE5,"ETCheckStatusFlt.ETCheckStatus: point_id=%d",point_id);
-            map<TTicketListKey,TTicketListCtxt> mtick;
+            TChangeStatusList mtick;
             ETStatusInterface::ETCheckStatus(point_id,csaFlt,point_id,true,mtick);
             if (!ETStatusInterface::ETChangeStatus(ASTRA::NoExists,mtick))
             {

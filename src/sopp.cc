@@ -4421,15 +4421,24 @@ void SoppInterface::ReadCrew(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
 {
 	int point_id = NodeAsInteger( "point_id", reqNode );
 	TQuery Qry(&OraSession);
-	Qry.SQLText = "SELECT commander FROM trip_crew WHERE point_id=:point_id";
+	Qry.SQLText =
+	  "SELECT commander, cockpit, cabin "
+	  "FROM trip_crew WHERE point_id=:point_id";
 	Qry.CreateVariable( "point_id", otInteger, point_id );
 	Qry.Execute();
-	xmlNodePtr dataNode = NewTextChild( resNode, "data" );
-	dataNode = NewTextChild( dataNode, "crew" );
-	if ( Qry.Eof )
-		NewTextChild( dataNode, "commander" );
-	else
-		NewTextChild( dataNode, "commander", Qry.FieldAsString( "commander" ) );
+	xmlNodePtr dataNode = NewTextChild( NewTextChild( resNode, "data" ), "crew" );
+  NewTextChild( dataNode, "commander" );
+  NewTextChild( dataNode, "cockpit" );
+  NewTextChild( dataNode, "cabin" );
+
+	if ( !Qry.Eof )
+	{
+		ReplaceTextChild( dataNode, "commander", Qry.FieldAsString( "commander" ) );
+		if (!Qry.FieldIsNULL("cockpit"))
+		  ReplaceTextChild( dataNode, "cockpit", Qry.FieldAsInteger( "cockpit" ) );
+		if (!Qry.FieldIsNULL("cabin"))
+		  ReplaceTextChild( dataNode, "cabin", Qry.FieldAsInteger( "cabin" ) );
+  };
 }
 
 void SoppInterface::WriteCrew(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -4437,14 +4446,25 @@ void SoppInterface::WriteCrew(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 	TQuery Qry(&OraSession);
 	Qry.SQLText =
 	  "BEGIN "
-	  " UPDATE trip_crew SET commander=:commander WHERE point_id=:point_id; "
-	  " IF SQL%NOTFOUND THEN "
-	  "  INSERT INTO trip_crew(point_id, commander) VALUES(:point_id,:commander); "
-	  " END IF;"
+	  "  UPDATE trip_crew "
+	  "  SET commander=:commander, cockpit=:cockpit, cabin=:cabin "
+	  "  WHERE point_id=:point_id; "
+	  "  IF SQL%NOTFOUND THEN "
+	  "    INSERT INTO trip_crew(point_id, commander, cockpit, cabin) "
+	  "    VALUES(:point_id, :commander, :cockpit, :cabin); "
+	  "  END IF;"
 	  "END;";
-	xmlNodePtr dataNode = NodeAsNode( "data", reqNode );
-	Qry.CreateVariable( "point_id", otInteger, NodeAsInteger( "crew/point_id", dataNode ) );
-	Qry.CreateVariable( "commander", otString, NodeAsString( "crew/commander", dataNode )  );
+	xmlNodePtr dataNode = NodeAsNode( "data/crew", reqNode );
+	Qry.CreateVariable( "point_id", otInteger, NodeAsInteger( "point_id", dataNode ) );
+	Qry.CreateVariable( "commander", otString, NodeAsString( "commander", dataNode ) );
+	if (GetNode( "cockpit", dataNode )!=NULL && !NodeIsNULL( "cockpit", dataNode ))
+	  Qry.CreateVariable( "cockpit", otInteger, NodeAsInteger( "cockpit", dataNode ) );
+	else
+	  Qry.CreateVariable( "cockpit", otInteger, FNull );
+	if (GetNode( "cabin", dataNode )!=NULL && !NodeIsNULL( "cabin", dataNode ))
+	  Qry.CreateVariable( "cabin", otInteger, NodeAsInteger( "cabin", dataNode ) );
+	else
+	  Qry.CreateVariable( "cabin", otInteger, FNull );
 	Qry.Execute();
 }
 

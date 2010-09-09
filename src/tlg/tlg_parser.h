@@ -409,7 +409,8 @@ class TPnrItem
     long grp_seats;
     std::vector<TPnrAddrItem> addrs;
     std::string grp_name;
-    char wl_priority[7];
+    char status[4];
+    std::string priority;
     std::vector<TNameElement> ne;
     std::vector<TTransferItem> transfer;
     TSegmentItem market_flt;
@@ -417,7 +418,7 @@ class TPnrItem
     {
       *grp_ref=0;
       grp_seats=0;
-      *wl_priority=0;
+      *status=0;
     };
     void Clear()
     {
@@ -425,7 +426,8 @@ class TPnrItem
       grp_seats=0;
       addrs.clear();
       grp_name.clear();
-      *wl_priority=0;
+      *status=0;
+      priority.clear();
       ne.clear();
       transfer.clear();
       market_flt.Clear();

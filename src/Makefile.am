@@ -27,7 +27,8 @@ astra_SOURCES = \
 	obrnosir.c		 convert.cc      dev_tuning.cc            astra_context.cc \
 	salons2.cc		 salonform2.cc	 seats2.cc		  seats_utils.cc \
 	empty_proc.cc            dev_consts.cc   dev_utils.cc             access.cc \
-	arx_daily.cc		 crypt.cc        web_main.cc		  astra_locale.cc
+	arx_daily.cc		 crypt.cc        web_main.cc		  astra_locale.cc \
+	docs2.cc
 
 astra_LDADD = $(all_libraries) \
 	tlg/libtlg.a \
