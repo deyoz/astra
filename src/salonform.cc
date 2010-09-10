@@ -628,7 +628,7 @@ void SalonFormInterface::WaitList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
       while ( !Qry.Eof ) {
       	xmlNodePtr lNode = NewTextChild( dataNode, "status" );
       	SetProp( lNode, "code", Qry.FieldAsString( "code" ) );
-      	SetProp( lNode, "name", ElemIdToElemName(etGrpStatusTypes,Qry.FieldAsString( "code" )) );
+      	SetProp( lNode, "name", ElemIdToElemName(etGrpStatusType,Qry.FieldAsString( "code" )) );
       	SetProp( lNode, "layer_type", Qry.FieldAsString( "layer_type" ) );
       	Qry.Next();
       }

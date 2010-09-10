@@ -1052,7 +1052,7 @@ void buildSOPP( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
     if ( fact_in > NoExists )
       NewTextChild( tripNode, "act_in", DateTimeToStr( fact_in, ServerFormatDateTimeAsString ) );
     if ( tr->triptype_in != tr->triptype_out && !tr->triptype_in.empty() )
-      NewTextChild( tripNode, "triptype_in", ElemIdToElem(etTripTypes,tr->triptype_in) );
+      NewTextChild( tripNode, "triptype_in", ElemIdToElem(etTripType,tr->triptype_in) );
     if ( tr->litera_in != tr->litera_out && !tr->litera_in.empty() )
       NewTextChild( tripNode, "litera_in", tr->litera_in );
     if ( !tr->park_in.empty() )
@@ -1090,7 +1090,7 @@ void buildSOPP( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
     if ( fact_out > NoExists )
       NewTextChild( tripNode, "act_out", DateTimeToStr( fact_out, ServerFormatDateTimeAsString ) );
     if ( !tr->triptype_out.empty() )
-      NewTextChild( tripNode, "triptype_out", ElemIdToElem(etTripTypes,tr->triptype_out) );
+      NewTextChild( tripNode, "triptype_out", ElemIdToElem(etTripType,tr->triptype_out) );
     if ( !tr->litera_out.empty() )
       NewTextChild( tripNode, "litera_out", tr->litera_out );
     if ( !tr->park_out.empty() )
@@ -1293,7 +1293,7 @@ void buildISG( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
     if ( fact_in > NoExists )
       NewTextChild( tripNode, "act_in", DateTimeToStr( fact_in, ServerFormatDateTimeAsString ) );
     if ( tr->triptype_in != tr->triptype_out && !tr->triptype_in.empty() )
-      NewTextChild( tripNode, "triptype_in", ElemIdToElem(etTripTypes,tr->triptype_in) );
+      NewTextChild( tripNode, "triptype_in", ElemIdToElem(etTripType,tr->triptype_in) );
     if ( tr->litera_in != tr->litera_out && !tr->litera_in.empty() )
       NewTextChild( tripNode, "litera_in", tr->litera_in );
     if ( !tr->park_in.empty() )
@@ -1362,7 +1362,7 @@ void buildISG( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
     if ( fact_out > NoExists )
       NewTextChild( tripNode, "act_out", DateTimeToStr( fact_out, ServerFormatDateTimeAsString ) );
     if ( !tr->triptype_out.empty() )
-      NewTextChild( tripNode, "triptype_out", ElemIdToElem(etTripTypes,tr->triptype_out) );
+      NewTextChild( tripNode, "triptype_out", ElemIdToElem(etTripType,tr->triptype_out) );
     if ( !tr->litera_out.empty() )
       NewTextChild( tripNode, "litera_out", tr->litera_out );
     if ( !tr->park_out.empty() )
@@ -2631,7 +2631,7 @@ void SoppInterface::ReadDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   		NewTextChild( fnode, "time", DateTimeToStr( UTCToClient( delay->time, d->region ), ServerFormatDateTimeAsString ) );
     }
   	if ( !d->triptype.empty() )
-  	  NewTextChild( snode, "trip_type", ElemIdToElem(etTripTypes,d->triptype) );
+  	  NewTextChild( snode, "trip_type", ElemIdToElem(etTripType,d->triptype) );
   	if ( !d->litera.empty() )
   	  NewTextChild( snode, "litera", d->litera );
   	if ( !d->park_in.empty() )
@@ -3724,7 +3724,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 		fnode = GetNodeFast( "trip_type", snode );
 		int fmt;
 		if ( fnode ) {
-			d.triptype = ElemToElemId(etTripTypes,NodeAsString( fnode ),fmt); //!!!
+			d.triptype = ElemToElemId(etTripType,NodeAsString( fnode ),fmt); //!!!
 			if ( fmt == -1 )
 				throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.INVALID_TYPE" );
 		}

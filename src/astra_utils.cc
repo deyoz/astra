@@ -125,10 +125,7 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
 	if ( execute_time.is_not_a_date_time() )
 		setPerform();
   clear();
-  if ( InitData.lang.empty() )
-  	desk.lang = "RU"; //!!! работаем по старому - по русски
-  else
-    desk.lang = InitData.lang; //!!! пришло с клиента
+
   TQuery Qry(&OraSession);
   ProgTrace( TRACE5, "screen=%s, pult=|%s|, opr=|%s|, checkCrypt=%d, pr_web=%d",
             InitData.screen.c_str(), InitData.pult.c_str(), InitData.opr.c_str(), InitData.checkCrypt, InitData.pr_web );
@@ -172,7 +169,7 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   	return; //???*/
   Qry.Clear();
   Qry.SQLText =
-    "SELECT city,airp,airline,NVL(lang,'RU') lang,version,NVL(under_constr,0) AS under_constr,desks.grp_id "
+    "SELECT city,airp,airline,version,NVL(under_constr,0) AS under_constr,desks.grp_id "
     "FROM desks,desk_grp "
     "WHERE desks.code = UPPER(:pult) AND desks.grp_id = desk_grp.grp_id ";
   Qry.DeclareVariable( "pult", otString );
@@ -185,10 +182,12 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   desk.city = Qry.FieldAsString( "city" );
   desk.airp = Qry.FieldAsString( "airp" );
   desk.airline = Qry.FieldAsString( "airline" );
-  if ( InitData.lang.empty() ) //!!! пришло с клиента
-    desk.lang = Qry.FieldAsString( "lang" );
   desk.version = Qry.FieldAsString( "version" );
   desk.grp_id = Qry.FieldAsInteger( "grp_id" );
+  if (desk.compatible(LATIN_VERSION))
+    desk.lang=InitData.lang;
+  else
+    desk.lang=AstraLocale::LANG_RU;
 
   ProgTrace( TRACE5, "terminal version='%s'", desk.version.c_str() );
 
@@ -1542,35 +1541,35 @@ inline void DoElemEConvertError( TElemContext ctxt,TElemType type, string code )
     case etSuffix:
   		msg2 = "etSuffix";
   		break;
-  	case etTripTypes:
-  		msg2 = "etTripTypes";
+  	case etTripType:
+  		msg2 = "etTripType";
   		break;
-  	case etCompElemTypes:
-  		msg2 = "etCompElemTypes";
+  	case etCompElemType:
+  		msg2 = "etCompElemType";
   		break;
-  	case etGrpStatusTypes:
-  		msg2 = "etGrpStatusTypes";
+  	case etGrpStatusType:
+  		msg2 = "etGrpStatusType";
   		break;
-  	case etClientTypes:
-  		msg2 = "etClientTypes";
+  	case etClientType:
+  		msg2 = "etClientType";
   		break;
-  	case etCompLayerTypes:
-  		msg2 = "etCompLayerTypes";
+  	case etCompLayerType:
+  		msg2 = "etCompLayerType";
   		break;
-  	case etCrs2:
-  		msg2 = "etCrs2";
+  	case etCrs:
+  		msg2 = "etCrs";
   		break;
-  	case etDevModels:
-  		msg2 = "etDevModels";
+  	case etDevModel:
+  		msg2 = "etDevModel";
   		break;
-    case etDevSessTypes:
-  		msg2 = "etDevSessTypes";
+    case etDevSessType:
+  		msg2 = "etDevSessType";
   		break;
-    case etDevFmtTypes:
-  		msg2 = "etDevFmtTypes";
+    case etDevFmtType:
+  		msg2 = "etDevFmtType";
   		break;
-  	case etDevOperTypes:
-  		msg2 = "etDevOperTypes";
+  	case etDevOperType:
+  		msg2 = "etDevOperType";
   		break;
   	default:;
   }
@@ -1801,34 +1800,34 @@ string getTableName(TElemType type)
     case etCurrency:
       table_name="currency";
       break;
-    case etTripTypes:
+    case etTripType:
       table_name="trip_types";
       break;
-    case etCompElemTypes:
+    case etCompElemType:
       table_name="comp_elem_types";
       break;
-    case etGrpStatusTypes:
+    case etGrpStatusType:
     	table_name="grp_status_types";
     	break;
-    case etClientTypes:
+    case etClientType:
     	table_name="client_types";
     	break;
-    case etCompLayerTypes:
+    case etCompLayerType:
     	table_name="comp_layer_types";
     	break;
-    case etCrs2:
+    case etCrs:
     	table_name="crs2";
     	break;
-    case etDevModels:
+    case etDevModel:
     	table_name="dev_models";
     	break;
-    case etDevSessTypes:
+    case etDevSessType:
   		table_name="dev_sess_types";
   		break;
-    case etDevFmtTypes:
+    case etDevFmtType:
   		table_name="dev_fmt_types";
   		break;
-  	case etDevOperTypes:
+  	case etDevOperType:
   		table_name="dev_oper_types";
   		break;
     default: ;
@@ -1979,11 +1978,11 @@ string ElemIdToElem(TElemType type, string id, int fmt, int only_lat, bool with_
     return ElemIdToElem(type, id, fmt, with_deleted);
 }
 
-void ElemIdToElem(TElemType type, string id, int fmt, const std::string lang, bool with_deleted, string &value)
+void IntElemIdToElemLang(TElemType type, string id, int fmt, const std::string lang, bool with_deleted, string &value)
 {
 	value.clear();
 
-	if ( lang != "RU" ) { // заглушка перевод на анг. язык
+	if ( lang != AstraLocale::LANG_RU ) { // заглушка перевод на анг. язык
 		if(fmt == 0) fmt = 1;
 		if(fmt == 2) fmt = 3;
   }
@@ -2086,7 +2085,7 @@ string ElemIdToElem(TElemType type, string id)
 string ElemIdToElem(TElemType type, string id, int fmt, bool with_deleted)
 {
 	string code;
-	ElemIdToElem(type,id,fmt,TReqInfo::Instance()->desk.lang,with_deleted,code);
+	IntElemIdToElemLang(type,id,fmt,TReqInfo::Instance()->desk.lang,with_deleted,code);
 	if ( code.empty() )
     code=id;
   return code;
@@ -2107,7 +2106,7 @@ std::string IntElemIdToElemName(TElemType type, std::string id, const std::strin
       try
       {
         TCodeBaseTableRow& row=dynamic_cast<TCodeBaseTableRow&>(BaseTableRow);
-        if (lang!="RU")
+        if (lang!=LANG_RU)
         {
         	try {
         	  if ( pr_short_name )

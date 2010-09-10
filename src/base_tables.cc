@@ -600,6 +600,16 @@ void TTripTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **re
   TTIDBaseTable::create_row(Qry,row,replaced_row);
 };
 
+void TClsGrp::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+{
+  *row = new TClsGrpRow;
+  ((TClsGrpRow*)*row)->airline=Qry.FieldAsInteger("airline");
+  ((TClsGrpRow*)*row)->airp=Qry.FieldAsInteger("airp");
+  ((TClsGrpRow*)*row)->cl=Qry.FieldAsInteger("class");
+  ((TClsGrpRow*)*row)->priority=Qry.FieldAsInteger("priority");
+  TTIDBaseTable::create_row(Qry,row,replaced_row);
+};
+
 void TCompElemTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row) {
 	*row = new TCompElemTypesRow;
   TCodeBaseTable::create_row(Qry, row, replaced_row);

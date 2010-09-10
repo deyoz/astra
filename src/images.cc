@@ -87,7 +87,7 @@ void ImagesInterface::GetImages( xmlNodePtr reqNode, xmlNodePtr resNode )
    while ( !Qry->Eof ) {
      xmlNodePtr imageNode = NewTextChild( imagesNode, "image" );
      NewTextChild( imageNode, "code", Qry->FieldAsString( "code" ) );
-     NewTextChild( imageNode, "name", ElemIdToElemName(etCompElemTypes,Qry->FieldAsString( "code" )) );
+     NewTextChild( imageNode, "name", ElemIdToElemName(etCompElemType,Qry->FieldAsString( "code" )) );
      NewTextChild( imageNode, "pr_seat", Qry->FieldAsInteger( "pr_seat" ) );
      if ( sendImages ) {
        if ( len != Qry->GetSizeLongField( "image" ) ) {

@@ -48,7 +48,6 @@ public:
   static void setSQLTripInfo( TQuery &Qry, TReqInfo &info );
 };
 
-std::string convertLastTrfer(std::string s);
 int GetFltLoad( int point_id, const TTripInfo &fltInfo);
 void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode );
 void viewCRSList( int point_id, xmlNodePtr dataNode );

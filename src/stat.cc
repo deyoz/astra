@@ -1222,7 +1222,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         Qry.SQLText = SQLText;
 
         Qry.CreateVariable("point_id", otInteger, point_id);
-        Qry.CreateVariable("pr_lat", otInteger, TReqInfo::Instance()->desk.lang!="RU");
+        Qry.CreateVariable("pr_lat", otInteger, TReqInfo::Instance()->desk.lang!=AstraLocale::LANG_RU);
 
         TPerfTimer tm;
         tm.Init();

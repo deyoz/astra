@@ -201,14 +201,14 @@ string DefaultTripType( bool pr_lang = true )
 {
 	string res = "п";
 	if (pr_lang)
-		res = ElemIdToElem(etTripTypes,res);
+		res = ElemIdToElem(etTripType,res);
 	return res;
 }
 
 bool isDefaultTripType( const string &triptype )
 {
 	int fmt;
-  return ElemToElemId(etTripTypes,triptype,fmt) == DefaultTripType(false);
+  return ElemToElemId(etTripType,triptype,fmt) == DefaultTripType(false);
 }
 
 string GetPrintName( TDest *PDest, TDest *NDest )
@@ -895,7 +895,7 @@ void TFilter::Parse( xmlNodePtr filterNode )
   node = GetNode( "triptype", filterNode );
   if ( node ) {
   	int fmt;
-    triptype = ElemToElemId( etTripTypes, NodeAsString( node ), fmt );
+    triptype = ElemToElemId( etTripType, NodeAsString( node ), fmt );
 		if ( fmt == -1 )
     	throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.INVALID_TYPE" );
   }
@@ -1282,7 +1282,7 @@ void createTrips( TDateTime utc_spp_date, TDateTime localdate, TFilter &filter, 
       createAirportTrip( *s, NoExists, filter, offset, ds, utc_spp_date, false, true, err_airp );
       int fmt;
       for ( int i=vcount; i<(int)ds.trips.size(); i++ ) {
-      	ds.trips[ i ].trap = stagetimes.GetTime( *s, ds.trips[ i ].owncraft, ElemToElemId(etTripTypes,ds.trips[ i ].triptype,fmt), ds.trips[ i ].scd_out );
+      	ds.trips[ i ].trap = stagetimes.GetTime( *s, ds.trips[ i ].owncraft, ElemToElemId(etTripType,ds.trips[ i ].triptype,fmt), ds.trips[ i ].scd_out );
       }
     }
   }
@@ -1795,7 +1795,7 @@ bool ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TD
         	int fmt;
           dest.triptype = NodeAsString( node );
           if ( !dest.triptype.empty() ) {
-            dest.triptype = ElemToElemId( etTripTypes, dest.triptype, fmt );
+            dest.triptype = ElemToElemId( etTripType, dest.triptype, fmt );
         		if ( fmt == -1 )
             	throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.INVALID_TYPE" );
           }
@@ -2554,11 +2554,11 @@ bool createAirportTrip( string airp, int trip_id, TFilter filter, int offset, TD
 
         if ( OwnDest == NDest ) {
           tr.owncraft = ElemIdToElemCtxt( ecDisp, etCraft, PriorDest->craft, PriorDest->craft_fmt ); // local format
-          tr.triptype = ElemIdToElem(etTripTypes,PriorDest->triptype);
+          tr.triptype = ElemIdToElem(etTripType,PriorDest->triptype);
         }
         else {
           tr.owncraft = ElemIdToElemCtxt( ecDisp, etCraft, OwnDest->craft, OwnDest->craft_fmt );
-          tr.triptype = ElemIdToElem(etTripTypes,OwnDest->triptype);
+          tr.triptype = ElemIdToElem(etTripType,OwnDest->triptype);
         }
         tr.pr_del = OwnDest->pr_del; //!!! неправильно так, надо расчитывать
         /* переводим времена вылета прилета в локальные */ //!!! error tz
@@ -2634,7 +2634,7 @@ bool createAirlineTrip( int trip_id, TFilter &filter, int offset, TDestList &ds,
       tr.crafts += craft_format;
     }
 
-    str_trip_type = ElemIdToElem(etTripTypes,NDest->triptype);
+    str_trip_type = ElemIdToElem(etTripType,NDest->triptype);
     if ( tr.triptype.find( str_trip_type ) == string::npos ) {
       if ( !tr.triptype.empty() )
         tr.triptype += "/";
@@ -3544,7 +3544,7 @@ ProgTrace( TRACE5, "edit canrange move_id=%d", move_id );
       	      if ( !id->litera.empty() )
                 NewTextChild( destNode, "litera", id->litera );
       	      if ( !isDefaultTripType(id->triptype) )
-      	        NewTextChild( destNode, "triptype", ElemIdToElem(etTripTypes,id->triptype) );
+      	        NewTextChild( destNode, "triptype", ElemIdToElem(etTripType,id->triptype) );
       	      if ( id->scd_out > NoExists ) {
                 f2 = modf( (double)id->scd_out, &f3 );
                 f3 += utcf + fabs( f2 );
@@ -3701,7 +3701,7 @@ void SeasonInterface::convert(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   			 if ( !DQry.FieldIsNULL( "litera" ) )
   			 	NewTextChild( d, "litera", DQry.FieldAsString( "litera" ) );
   			 if ( !DQry.FieldIsNULL( "trip_type" ) )
-  			 	NewTextChild( d, "triptype", ElemIdToElem(etTripTypes,DQry.FieldAsString( "trip_type" )) );
+  			 	NewTextChild( d, "triptype", ElemIdToElem(etTripType,DQry.FieldAsString( "trip_type" )) );
   			 if ( !DQry.FieldIsNULL( "scd_out" ) )
   			 	NewTextChild( d, "takeoff", DateTimeToStr( DQry.FieldAsDateTime( "scd_out" ) ) );
   			 if ( DQry.FieldAsInteger( "f" ) )

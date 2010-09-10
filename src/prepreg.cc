@@ -210,7 +210,7 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
     if ( Qry.FieldAsInteger( "sort" ) == 0 )
     	NewTextChild( itemNode, "name", getLocaleText( Qry.FieldAsString( "name" ) ) );
     else
-      NewTextChild( itemNode, "name", ElemIdToElemName(etCrs2,Qry.FieldAsString("code")) );
+      NewTextChild( itemNode, "name", ElemIdToElemName(etCrs,Qry.FieldAsString("code")) );
     NewTextChild( itemNode, "pr_charge", Qry.FieldAsInteger( "pr_charge" ) );
     NewTextChild( itemNode, "pr_list", Qry.FieldAsInteger( "pr_list" ) );
     NewTextChild( itemNode, "pr_crs_main", Qry.FieldAsInteger( "pr_crs_main" ) );

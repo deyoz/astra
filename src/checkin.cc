@@ -1708,6 +1708,8 @@ void CheckInInterface::ArrivalPaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 
 void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+  TReqInfo *reqInfo = TReqInfo::Instance();
+
   int point_id=NodeAsInteger("point_id",reqNode);
   readPaxLoad( point_id, reqNode, resNode );
 
@@ -1723,12 +1725,24 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
   NewTextChild(resNode,"flight",GetTripName(operFlt,ecCkin,true,false)); //djek08.07.2010
 
+  bool createDefaults=false;
+  string def_pers_type=ElemIdToElem(etPersType, EncodePerson(ASTRA::adult));
+  string def_class=ElemIdToElem(etClass, EncodeClass(ASTRA::Y));
+  int def_client_type_id=(int)ctTerm;
+  int def_status_id=(int)psCheckin;
+
   ostringstream sql;
   sql <<
     "SELECT "
     "  reg_no,surname,name,pax_grp.airp_arv, "
-    "  report.get_last_trfer(pax.grp_id) AS last_trfer, "
-    "  report.get_last_tckin_seg(pax.grp_id) AS last_tckin_seg, "
+    "  v_last_trfer.airline AS trfer_airline, "
+    "  v_last_trfer.flt_no AS trfer_flt_no, "
+    "  v_last_trfer.suffix AS trfer_suffix, "
+    "  v_last_trfer.airp_arv AS trfer_airp_arv, "
+    "  v_last_tckin_seg.airline AS tckin_seg_airline, "
+    "  v_last_tckin_seg.flt_no AS tckin_seg_flt_no, "
+    "  v_last_tckin_seg.suffix AS tckin_seg_suffix, "
+    "  v_last_tckin_seg.airp_arv AS tckin_seg_airp_arv, "
     "  class,pax.subclass,pax_grp.status, "
     "  salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum) AS seat_no, "
     "  seats,wl_type,pers_type,document,ticket_rem, "
@@ -1755,9 +1769,11 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "  kassa.pr_payment(pax.grp_id) AS pr_payment ";
 
   sql <<
-    "FROM pax_grp,pax,market_flt "
+    "FROM pax_grp,pax,market_flt,v_last_trfer,v_last_tckin_seg "
     "WHERE pax_grp.grp_id=pax.grp_id AND "
     "      pax_grp.grp_id=market_flt.grp_id(+) AND "
+    "      pax_grp.grp_id=v_last_trfer.grp_id(+) AND "
+    "      pax_grp.grp_id=v_last_tckin_seg.grp_id(+) AND "
     "      point_dep=:point_id AND pr_brd IS NOT NULL ";
   if (strcmp((char *)reqNode->name, "BagPaxList")==0)
     sql <<
@@ -1772,154 +1788,190 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Qry.SQLText=sql.str().c_str();
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
-
-  int col_pax_id=Qry.FieldIndex("pax_id");
-  int col_reg_no=Qry.FieldIndex("reg_no");
-  int col_surname=Qry.FieldIndex("surname");
-  int col_name=Qry.FieldIndex("name");
-  int col_airp_arv=Qry.FieldIndex("airp_arv");
-  int col_last_trfer=Qry.FieldIndex("last_trfer");
-  int col_last_tckin_seg=Qry.FieldIndex("last_tckin_seg");
-  int col_class=Qry.FieldIndex("class");
-  int col_subclass=Qry.FieldIndex("subclass");
-  int col_status=Qry.FieldIndex("status");
-  int col_seat_no=Qry.FieldIndex("seat_no");
-  int col_seats=Qry.FieldIndex("seats");
-  int col_wl_type=Qry.FieldIndex("wl_type");
-  int col_pers_type=Qry.FieldIndex("pers_type");
-  int col_document=Qry.FieldIndex("document");
-  int col_ticket_rem=Qry.FieldIndex("ticket_rem");
-  int col_ticket_no=Qry.FieldIndex("ticket_no");
-  int col_bag_amount=Qry.FieldIndex("bag_amount");
-  int col_bag_weight=Qry.FieldIndex("bag_weight");
-  int col_rk_weight=Qry.FieldIndex("rk_weight");
-  int col_excess=Qry.FieldIndex("excess");
-  int col_tags=Qry.FieldIndex("tags");
-  int col_rems=Qry.FieldIndex("rems");
-
-  int col_airline_mark=Qry.FieldIndex("airline_mark");
-  int col_flt_no_mark=Qry.FieldIndex("flt_no_mark");
-  int col_suffix_mark=Qry.FieldIndex("suffix_mark");
-  int col_scd_local_mark=Qry.FieldIndex("scd_local_mark");
-  int col_airp_dep_mark=Qry.FieldIndex("airp_dep_mark");
-
-  int col_grp_id=Qry.FieldIndex("grp_id");
-  int col_cl_grp_id=Qry.FieldIndex("cl_grp_id");
-  int col_hall_id=Qry.FieldIndex("hall_id");
-  int col_point_arv=Qry.FieldIndex("point_arv");
-  int col_user_id=Qry.FieldIndex("user_id");
-  int col_client_type=Qry.FieldIndex("client_type");
-  int col_receipts=-1;
-  int col_pr_payment=-1;
-  if (strcmp((char *)reqNode->name, "BagPaxList")==0)
-  {
-    col_receipts=Qry.FieldIndex("receipts");
-    col_pr_payment=Qry.FieldIndex("pr_payment");
-  };
-
-  int grp_id = -1;
-  bool rcpt_exists = false;
   xmlNodePtr node=NewTextChild(resNode,"passengers");
-  vector<xmlNodePtr> v_rcpt_complete;
-  // В вектор v_rcpt_complete записываются указатели на узлы, в которых хранится признак
-  // все ли квитанции распечатаны 0 - частично напечатаны, 1 - все напечатаны, 2 - нет ни одной квитанции
-  // Поскольку инфа по квитанциям есть только у одного пассажира из группы, понять значение
-  // признака можно только пробежав группу до конца. Отсюда такой гемор.
-  // При смене группы (и после отработки цикла) происходит инициализация признака у всех пассажиров предыдущей группы.
-  int rcpt_complete = 0;
-  TPaxSeats priorSeats(point_id);
-  for(;!Qry.Eof;Qry.Next())
+  if (!Qry.Eof)
   {
-    int tmp_grp_id = Qry.FieldAsInteger("grp_id");
-    if(grp_id != tmp_grp_id) {
-        if(!v_rcpt_complete.empty()) {
-            for(vector<xmlNodePtr>::iterator iv = v_rcpt_complete.begin(); iv != v_rcpt_complete.end(); iv++)
-                NodeSetContent(*iv, rcpt_exists ? rcpt_complete : 2);
-            v_rcpt_complete.clear();
-            rcpt_exists = false;
-        }
-        grp_id = tmp_grp_id;
-    }
+    createDefaults=true;
 
-    xmlNodePtr paxNode=NewTextChild(node,"pax");
-    NewTextChild(paxNode,"reg_no",Qry.FieldAsInteger(col_reg_no));
-    NewTextChild(paxNode,"surname",Qry.FieldAsString(col_surname));
-    NewTextChild(paxNode,"name",Qry.FieldAsString(col_name));
-    NewTextChild(paxNode,"airp_arv",Qry.FieldAsString(col_airp_arv));
-    NewTextChild(paxNode,"last_trfer",
-                 convertLastTrfer(Qry.FieldAsString(col_last_trfer)),"");
-    NewTextChild(paxNode,"last_tckin_seg",
-                 convertLastTrfer(Qry.FieldAsString(col_last_tckin_seg)),"");
-    NewTextChild(paxNode,"class",Qry.FieldAsString(col_class));
-    NewTextChild(paxNode,"subclass",Qry.FieldAsString(col_subclass),"");
-    if (Qry.FieldIsNULL(col_wl_type))
+    int col_pax_id=Qry.FieldIndex("pax_id");
+    int col_reg_no=Qry.FieldIndex("reg_no");
+    int col_surname=Qry.FieldIndex("surname");
+    int col_name=Qry.FieldIndex("name");
+    int col_airp_arv=Qry.FieldIndex("airp_arv");
+    int col_class=Qry.FieldIndex("class");
+    int col_subclass=Qry.FieldIndex("subclass");
+    int col_status=Qry.FieldIndex("status");
+    int col_seat_no=Qry.FieldIndex("seat_no");
+    int col_seats=Qry.FieldIndex("seats");
+    int col_wl_type=Qry.FieldIndex("wl_type");
+    int col_pers_type=Qry.FieldIndex("pers_type");
+    int col_document=Qry.FieldIndex("document");
+    int col_ticket_rem=Qry.FieldIndex("ticket_rem");
+    int col_ticket_no=Qry.FieldIndex("ticket_no");
+    int col_bag_amount=Qry.FieldIndex("bag_amount");
+    int col_bag_weight=Qry.FieldIndex("bag_weight");
+    int col_rk_weight=Qry.FieldIndex("rk_weight");
+    int col_excess=Qry.FieldIndex("excess");
+    int col_tags=Qry.FieldIndex("tags");
+    int col_rems=Qry.FieldIndex("rems");
+
+    int col_airline_mark=Qry.FieldIndex("airline_mark");
+    int col_flt_no_mark=Qry.FieldIndex("flt_no_mark");
+    int col_suffix_mark=Qry.FieldIndex("suffix_mark");
+    int col_scd_local_mark=Qry.FieldIndex("scd_local_mark");
+    int col_airp_dep_mark=Qry.FieldIndex("airp_dep_mark");
+
+    int col_grp_id=Qry.FieldIndex("grp_id");
+    int col_cl_grp_id=Qry.FieldIndex("cl_grp_id");
+    int col_hall_id=Qry.FieldIndex("hall_id");
+    int col_point_arv=Qry.FieldIndex("point_arv");
+    int col_user_id=Qry.FieldIndex("user_id");
+    int col_client_type=Qry.FieldIndex("client_type");
+    int col_receipts=-1;
+    int col_pr_payment=-1;
+    if (strcmp((char *)reqNode->name, "BagPaxList")==0)
     {
-      //не на листе ожидания, но возможно потерял место при смене компоновки
-      if (Qry.FieldIsNULL(col_seat_no) && Qry.FieldAsInteger(col_seats)>0)
+      col_receipts=Qry.FieldIndex("receipts");
+      col_pr_payment=Qry.FieldIndex("pr_payment");
+    };
+
+    int grp_id = -1;
+    bool rcpt_exists = false;
+    vector<xmlNodePtr> v_rcpt_complete;
+    // В вектор v_rcpt_complete записываются указатели на узлы, в которых хранится признак
+    // все ли квитанции распечатаны 0 - частично напечатаны, 1 - все напечатаны, 2 - нет ни одной квитанции
+    // Поскольку инфа по квитанциям есть только у одного пассажира из группы, понять значение
+    // признака можно только пробежав группу до конца. Отсюда такой гемор.
+    // При смене группы (и после отработки цикла) происходит инициализация признака у всех пассажиров предыдущей группы.
+    int rcpt_complete = 0;
+    TPaxSeats priorSeats(point_id);
+    for(;!Qry.Eof;Qry.Next())
+    {
+      int tmp_grp_id = Qry.FieldAsInteger("grp_id");
+      if(grp_id != tmp_grp_id) {
+          if(!v_rcpt_complete.empty()) {
+              for(vector<xmlNodePtr>::iterator iv = v_rcpt_complete.begin(); iv != v_rcpt_complete.end(); iv++)
+                  NodeSetContent(*iv, rcpt_exists ? rcpt_complete : 2);
+              v_rcpt_complete.clear();
+              rcpt_exists = false;
+          }
+          grp_id = tmp_grp_id;
+      }
+
+      xmlNodePtr paxNode=NewTextChild(node,"pax");
+      NewTextChild(paxNode,"reg_no",Qry.FieldAsInteger(col_reg_no));
+      NewTextChild(paxNode,"surname",Qry.FieldAsString(col_surname));
+
+      if (reqInfo->desk.compatible(LATIN_VERSION))
+        NewTextChild(paxNode,"name",Qry.FieldAsString(col_name));
+      else
+        NewTextChild(paxNode,"name",Qry.FieldAsString(col_name),"");
+
+      NewTextChild(paxNode,"airp_arv",ElemIdToElem(etAirp, Qry.FieldAsString(col_airp_arv)));
+
+      TLastTrferInfo trferInfo(Qry);
+      NewTextChild(paxNode,"last_trfer",trferInfo.str(),"");
+      TLastTCkinSegInfo tckinSegInfo(Qry);
+      NewTextChild(paxNode,"last_tckin_seg",tckinSegInfo.str(),"");
+
+      if (reqInfo->desk.compatible(LATIN_VERSION))
+        NewTextChild(paxNode,"class",ElemIdToElem(etClass, Qry.FieldAsString(col_class)), def_class);
+      else
+        NewTextChild(paxNode,"class",ElemIdToElem(etClass, Qry.FieldAsString(col_class)));
+
+      NewTextChild(paxNode,"subclass",ElemIdToElem(etSubcls, Qry.FieldAsString(col_subclass)));
+
+      if (Qry.FieldIsNULL(col_wl_type))
       {
-        ostringstream seat_no_str;
-        seat_no_str << "("
-                    << priorSeats.getSeats(Qry.FieldAsInteger(col_pax_id),"seats")
-                    << ")";
-        NewTextChild(paxNode,"seat_no_str",seat_no_str.str());
+        //не на листе ожидания, но возможно потерял место при смене компоновки
+        if (Qry.FieldIsNULL(col_seat_no) && Qry.FieldAsInteger(col_seats)>0)
+        {
+          ostringstream seat_no_str;
+          seat_no_str << "("
+                      << priorSeats.getSeats(Qry.FieldAsInteger(col_pax_id),"seats")
+                      << ")";
+          NewTextChild(paxNode,"seat_no_str",seat_no_str.str());
+          NewTextChild(paxNode,"seat_no_alarm",(int)true);
+        };
+      }
+      else
+      {
+        NewTextChild(paxNode,"seat_no_str","ЛО");
         NewTextChild(paxNode,"seat_no_alarm",(int)true);
       };
-    }
-    else
-    {
-      NewTextChild(paxNode,"seat_no_str","ЛО");
-      NewTextChild(paxNode,"seat_no_alarm",(int)true);
-    };
-    NewTextChild(paxNode,"seat_no",Qry.FieldAsString(col_seat_no));
-    NewTextChild(paxNode,"seats",Qry.FieldAsInteger(col_seats),1);
-    NewTextChild(paxNode,"pers_type",Qry.FieldAsString(col_pers_type));
-    NewTextChild(paxNode,"document",Qry.FieldAsString(col_document));
-    NewTextChild(paxNode,"ticket_rem",Qry.FieldAsString(col_ticket_rem),"");
-    NewTextChild(paxNode,"ticket_no",Qry.FieldAsString(col_ticket_no),"");
-    NewTextChild(paxNode,"bag_amount",Qry.FieldAsInteger(col_bag_amount),0);
-    NewTextChild(paxNode,"bag_weight",Qry.FieldAsInteger(col_bag_weight),0);
-    NewTextChild(paxNode,"rk_weight",Qry.FieldAsInteger(col_rk_weight),0);
-    NewTextChild(paxNode,"excess",Qry.FieldAsInteger(col_excess),0);
-    NewTextChild(paxNode,"tags",Qry.FieldAsString(col_tags),"");
-    NewTextChild(paxNode,"rems",Qry.FieldAsString(col_rems),"");
+      NewTextChild(paxNode,"seat_no",Qry.FieldAsString(col_seat_no));
+      NewTextChild(paxNode,"seats",Qry.FieldAsInteger(col_seats),1);
 
-    if (!Qry.FieldIsNULL(col_airline_mark))
-    {
-      //коммерческий рейс
-      TTripInfo markFlt;
-      markFlt.airline=Qry.FieldAsString(col_airline_mark);
-      markFlt.flt_no=Qry.FieldAsInteger(col_flt_no_mark);
-      markFlt.suffix=Qry.FieldAsString(col_suffix_mark);
-      markFlt.scd_out=Qry.FieldAsDateTime(col_scd_local_mark);
-      markFlt.airp=Qry.FieldAsString(col_airp_dep_mark);
-      NewTextChild(paxNode,"mark_flt_str",GetMktFlightStr(operFlt,markFlt));
-    };
+      if (reqInfo->desk.compatible(LATIN_VERSION))
+      {
+        NewTextChild(paxNode,"pers_type",ElemIdToElem(etPersType, Qry.FieldAsString(col_pers_type)), def_pers_type);
+        NewTextChild(paxNode,"document",Qry.FieldAsString(col_document),"");
+      }
+      else
+      {
+        NewTextChild(paxNode,"pers_type",ElemIdToElem(etPersType, Qry.FieldAsString(col_pers_type)));
+        NewTextChild(paxNode,"document",Qry.FieldAsString(col_document));
+      };
 
-    if(col_receipts != -1)
-    {
-      NewTextChild(paxNode,"rcpt_no_list",Qry.FieldAsString(col_receipts));
-      v_rcpt_complete.push_back(NewTextChild(paxNode,"rcpt_complete"));
-      rcpt_complete = Qry.FieldAsInteger(col_pr_payment);
-      rcpt_exists = rcpt_exists || !Qry.FieldIsNULL(col_receipts);
+      NewTextChild(paxNode,"ticket_rem",Qry.FieldAsString(col_ticket_rem),"");
+      NewTextChild(paxNode,"ticket_no",Qry.FieldAsString(col_ticket_no),"");
+      NewTextChild(paxNode,"bag_amount",Qry.FieldAsInteger(col_bag_amount),0);
+      NewTextChild(paxNode,"bag_weight",Qry.FieldAsInteger(col_bag_weight),0);
+      NewTextChild(paxNode,"rk_weight",Qry.FieldAsInteger(col_rk_weight),0);
+      NewTextChild(paxNode,"excess",Qry.FieldAsInteger(col_excess),0);
+      NewTextChild(paxNode,"tags",Qry.FieldAsString(col_tags),"");
+      NewTextChild(paxNode,"rems",Qry.FieldAsString(col_rems),"");
+
+      if (!Qry.FieldIsNULL(col_airline_mark))
+      {
+        //коммерческий рейс
+        TTripInfo markFlt;
+        markFlt.airline=Qry.FieldAsString(col_airline_mark);
+        markFlt.flt_no=Qry.FieldAsInteger(col_flt_no_mark);
+        markFlt.suffix=Qry.FieldAsString(col_suffix_mark);
+        markFlt.scd_out=Qry.FieldAsDateTime(col_scd_local_mark);
+        markFlt.airp=Qry.FieldAsString(col_airp_dep_mark);
+        NewTextChild(paxNode,"mark_flt_str",GetMktFlightStr(operFlt,markFlt));
+      };
+
+      if(col_receipts != -1)
+      {
+        NewTextChild(paxNode,"rcpt_no_list",Qry.FieldAsString(col_receipts));
+        v_rcpt_complete.push_back(NewTextChild(paxNode,"rcpt_complete"));
+        rcpt_complete = Qry.FieldAsInteger(col_pr_payment);
+        rcpt_exists = rcpt_exists || !Qry.FieldIsNULL(col_receipts);
+      };
+      //идентификаторы
+      NewTextChild(paxNode,"grp_id",Qry.FieldAsInteger(col_grp_id));
+      NewTextChild(paxNode,"cl_grp_id",Qry.FieldAsInteger(col_cl_grp_id));
+      if (!Qry.FieldIsNULL(col_hall_id))
+        NewTextChild(paxNode,"hall_id",Qry.FieldAsInteger(col_hall_id));
+      else
+        NewTextChild(paxNode,"hall_id",-1);
+      NewTextChild(paxNode,"point_arv",Qry.FieldAsInteger(col_point_arv));
+      NewTextChild(paxNode,"user_id",Qry.FieldAsInteger(col_user_id));
+      if (reqInfo->desk.compatible(LATIN_VERSION))
+      {
+        NewTextChild(paxNode,"client_type_id",
+                             (int)DecodeClientType(Qry.FieldAsString(col_client_type)),
+                             def_client_type_id);
+        NewTextChild(paxNode,"status_id",
+                             (int)DecodePaxStatus(Qry.FieldAsString(col_status)),
+                             def_status_id);
+      }
+      else
+      {
+        NewTextChild(paxNode,"client_type_id",(int)DecodeClientType(Qry.FieldAsString(col_client_type)));
+        NewTextChild(paxNode,"status_id",(int)DecodePaxStatus(Qry.FieldAsString(col_status)));
+      };
     };
-    //идентификаторы
-    NewTextChild(paxNode,"grp_id",Qry.FieldAsInteger(col_grp_id));
-    NewTextChild(paxNode,"cl_grp_id",Qry.FieldAsInteger(col_cl_grp_id));
-    if (!Qry.FieldIsNULL(col_hall_id))
-      NewTextChild(paxNode,"hall_id",Qry.FieldAsInteger(col_hall_id));
-    else
-      NewTextChild(paxNode,"hall_id",-1);
-    NewTextChild(paxNode,"point_arv",Qry.FieldAsInteger(col_point_arv));
-    NewTextChild(paxNode,"user_id",Qry.FieldAsInteger(col_user_id));
-    NewTextChild(paxNode,"client_type_id",(int)DecodeClientType(Qry.FieldAsString(col_client_type)));
-    NewTextChild(paxNode,"status_id",(int)DecodePaxStatus(Qry.FieldAsString(col_status)));
+    if(!v_rcpt_complete.empty()) {
+        for(vector<xmlNodePtr>::iterator iv = v_rcpt_complete.begin(); iv != v_rcpt_complete.end(); iv++)
+            NodeSetContent(*iv, rcpt_exists ? rcpt_complete : 2);
+        v_rcpt_complete.clear();
+        rcpt_exists = false;
+    };
   };
-  if(!v_rcpt_complete.empty()) {
-      for(vector<xmlNodePtr>::iterator iv = v_rcpt_complete.begin(); iv != v_rcpt_complete.end(); iv++)
-          NodeSetContent(*iv, rcpt_exists ? rcpt_complete : 2);
-      v_rcpt_complete.clear();
-      rcpt_exists = false;
-  }
 
   //несопровождаемый багаж
   sql.str("");
@@ -1927,7 +1979,14 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   sql <<
     "SELECT "
     "  pax_grp.airp_arv,pax_grp.status, "
-    "  report.get_last_trfer(pax_grp.grp_id) AS last_trfer, "
+    "  v_last_trfer.airline AS trfer_airline, "
+    "  v_last_trfer.flt_no AS trfer_flt_no, "
+    "  v_last_trfer.suffix AS trfer_suffix, "
+    "  v_last_trfer.airp_arv AS trfer_airp_arv, "
+    "  v_last_tckin_seg.airline AS tckin_seg_airline, "
+    "  v_last_tckin_seg.flt_no AS tckin_seg_flt_no, "
+    "  v_last_tckin_seg.suffix AS tckin_seg_suffix, "
+    "  v_last_tckin_seg.airp_arv AS tckin_seg_airp_arv, "
     "  report.get_last_tckin_seg(pax_grp.grp_id) AS last_tckin_seg, "
     "  ckin.get_bagAmount2(pax_grp.grp_id,NULL,NULL) AS bag_amount, "
     "  ckin.get_bagWeight2(pax_grp.grp_id,NULL,NULL) AS bag_weight, "
@@ -1943,8 +2002,10 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "  kassa.pr_payment(pax_grp.grp_id) AS pr_payment ";
 
   sql <<
-    "FROM pax_grp "
-    "WHERE point_dep=:point_id AND class IS NULL ";
+    "FROM pax_grp, v_last_trfer, v_last_tckin_seg "
+    "WHERE pax_grp.grp_id=v_last_trfer.grp_id(+) AND "
+    "      pax_grp.grp_id=v_last_tckin_seg.grp_id(+) AND "
+    "      point_dep=:point_id AND class IS NULL ";
 
   if (strcmp((char *)reqNode->name, "BagPaxList")==0)
     sql <<
@@ -1956,43 +2017,86 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Qry.SQLText=sql.str().c_str();
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
-
   node=NewTextChild(resNode,"unaccomp_bag");
-  for(;!Qry.Eof;Qry.Next())
+  if (!Qry.Eof)
   {
-    xmlNodePtr paxNode=NewTextChild(node,"bag");
-    NewTextChild(paxNode,"airp_arv",Qry.FieldAsString("airp_arv"));
-    NewTextChild(paxNode,"last_trfer",
-                 convertLastTrfer(Qry.FieldAsString("last_trfer")),"");
-    NewTextChild(paxNode,"last_tckin_seg",
-                 convertLastTrfer(Qry.FieldAsString("last_tckin_seg")),"");
-    NewTextChild(paxNode,"bag_amount",Qry.FieldAsInteger("bag_amount"),0);
-    NewTextChild(paxNode,"bag_weight",Qry.FieldAsInteger("bag_weight"),0);
-    NewTextChild(paxNode,"rk_weight",Qry.FieldAsInteger("rk_weight"),0);
-    NewTextChild(paxNode,"excess",Qry.FieldAsInteger("excess"),0);
-    NewTextChild(paxNode,"tags",Qry.FieldAsString("tags"),"");
-    if (strcmp((char *)reqNode->name, "BagPaxList")==0)
+    createDefaults=true;
+    for(;!Qry.Eof;Qry.Next())
     {
-      NewTextChild(paxNode,"rcpt_no_list",Qry.FieldAsString("receipts"));
-      // все ли квитанции распечатаны 0 - частично напечатаны, 1 - все напечатаны, 2 - нет ни одной квитанции
-      if (!Qry.FieldIsNULL("receipts"))
-        NewTextChild(paxNode,"rcpt_complete",Qry.FieldAsInteger("pr_payment"));
+      xmlNodePtr paxNode=NewTextChild(node,"bag");
+      NewTextChild(paxNode,"airp_arv",ElemIdToElem(etAirp, Qry.FieldAsString("airp_arv")));
+
+      TLastTrferInfo trferInfo(Qry);
+      NewTextChild(paxNode,"last_trfer",trferInfo.str(),"");
+      TLastTCkinSegInfo tckinSegInfo(Qry);
+      NewTextChild(paxNode,"last_tckin_seg",tckinSegInfo.str(),"");
+
+      NewTextChild(paxNode,"bag_amount",Qry.FieldAsInteger("bag_amount"),0);
+      NewTextChild(paxNode,"bag_weight",Qry.FieldAsInteger("bag_weight"),0);
+      NewTextChild(paxNode,"rk_weight",Qry.FieldAsInteger("rk_weight"),0);
+      NewTextChild(paxNode,"excess",Qry.FieldAsInteger("excess"),0);
+      NewTextChild(paxNode,"tags",Qry.FieldAsString("tags"),"");
+      if (strcmp((char *)reqNode->name, "BagPaxList")==0)
+      {
+        NewTextChild(paxNode,"rcpt_no_list",Qry.FieldAsString("receipts"));
+        // все ли квитанции распечатаны 0 - частично напечатаны, 1 - все напечатаны, 2 - нет ни одной квитанции
+        if (!Qry.FieldIsNULL("receipts"))
+          NewTextChild(paxNode,"rcpt_complete",Qry.FieldAsInteger("pr_payment"));
+        else
+          NewTextChild(paxNode,"rcpt_complete",2);
+      };
+      //идентификаторы
+      NewTextChild(paxNode,"grp_id",Qry.FieldAsInteger("grp_id"));
+      if (!Qry.FieldIsNULL("hall_id"))
+        NewTextChild(paxNode,"hall_id",Qry.FieldAsInteger("hall_id"));
       else
-        NewTextChild(paxNode,"rcpt_complete",2);
+        NewTextChild(paxNode,"hall_id",-1);
+      NewTextChild(paxNode,"point_arv",Qry.FieldAsInteger("point_arv"));
+      NewTextChild(paxNode,"user_id",Qry.FieldAsInteger("user_id"));
+      if (reqInfo->desk.compatible(LATIN_VERSION))
+      {
+        NewTextChild(paxNode,"client_type_id",
+                             (int)DecodeClientType(Qry.FieldAsString("client_type")),
+                             def_client_type_id);
+        NewTextChild(paxNode,"status_id",
+                             (int)DecodePaxStatus(Qry.FieldAsString("status")),
+                             def_status_id);
+      }
+      else
+      {
+        NewTextChild(paxNode,"client_type_id",(int)DecodeClientType(Qry.FieldAsString("client_type")));
+        NewTextChild(paxNode,"status_id",(int)DecodePaxStatus(Qry.FieldAsString("status")));
+      };
     };
-    //идентификаторы
-    NewTextChild(paxNode,"grp_id",Qry.FieldAsInteger("grp_id"));
-    if (!Qry.FieldIsNULL("hall_id"))
-      NewTextChild(paxNode,"hall_id",Qry.FieldAsInteger("hall_id"));
-    else
-      NewTextChild(paxNode,"hall_id",-1);
-    NewTextChild(paxNode,"point_arv",Qry.FieldAsInteger("point_arv"));
-    NewTextChild(paxNode,"user_id",Qry.FieldAsInteger("user_id"));
-    NewTextChild(paxNode,"client_type_id",(int)DecodeClientType(Qry.FieldAsString("client_type")));
-    NewTextChild(paxNode,"status_id",(int)DecodePaxStatus(Qry.FieldAsString("status")));
   };
 
   Qry.Close();
+
+  if (createDefaults)
+  {
+    xmlNodePtr defNode = NewTextChild( resNode, "defaults" );
+    NewTextChild(defNode, "last_trfer", "");
+    NewTextChild(defNode, "last_tckin_seg", "");
+    NewTextChild(defNode, "bag_amount", 0);
+    NewTextChild(defNode, "bag_weight", 0);
+    NewTextChild(defNode, "rk_weight", 0);
+    NewTextChild(defNode, "excess", 0);
+    NewTextChild(defNode, "tags", "");
+    //не для несопровождаемого багажа
+    NewTextChild(defNode, "name", "");
+    NewTextChild(defNode, "class", def_class);
+    NewTextChild(defNode, "seats", 1);
+    NewTextChild(defNode, "seat_no_alarm", (int)false);
+    NewTextChild(defNode, "pers_type", def_pers_type);
+    NewTextChild(defNode, "document", "");
+    NewTextChild(defNode, "ticket_rem", "");
+    NewTextChild(defNode, "ticket_no", "");
+    NewTextChild(defNode, "rems", "");
+    NewTextChild(defNode, "mark_flt_str", "");
+    //идентификаторы
+    NewTextChild(defNode, "client_type_id", def_client_type_id);
+    NewTextChild(defNode, "status_id", def_status_id);
+  };
 
   if ( GetNode( "LoadForm", reqNode ) )
       get_report_form("ArrivalPaxList", resNode);
@@ -5696,14 +5800,21 @@ void CheckInInterface::readTripData( int point_id, xmlNodePtr dataNode )
     try
     {
       TAirpsRow& airpsRow=(TAirpsRow&)base_tables.get("airps").get_row("code",r->airp);
-      TCitiesRow& citiesRow=(TCitiesRow&)base_tables.get("cities").get_row("code",airpsRow.city);
 
       itemNode = NewTextChild( node, "airp" );
       NewTextChild( itemNode, "point_id", r->point_id );
       NewTextChild( itemNode, "airp_code", airpsRow.code );
-      NewTextChild( itemNode, "airp_name", airpsRow.name );
-      NewTextChild( itemNode, "city_code", citiesRow.code );
-      NewTextChild( itemNode, "city_name", citiesRow.name );
+      NewTextChild( itemNode, "city_code", airpsRow.city );
+      if (TReqInfo::Instance()->desk.compatible(LATIN_VERSION))
+      {
+        NewTextChild( itemNode, "airp_code_view", ElemIdToElem(etAirp, airpsRow.code) );
+        NewTextChild( itemNode, "city_name_view", ElemIdToElemName(etCity, airpsRow.city) );
+      }
+      else
+      {
+        NewTextChild( itemNode, "airp_name", ElemIdToElemName(etAirp, airpsRow.code) );
+        NewTextChild( itemNode, "city_name", ElemIdToElemName(etCity, airpsRow.city) );
+      };
       airps.push_back(airpsRow.code);
     }
     catch(EBaseTableError) {};
@@ -5712,7 +5823,6 @@ void CheckInInterface::readTripData( int point_id, xmlNodePtr dataNode )
   Qry.Clear();
   Qry.SQLText =
     "SELECT class AS class_code, "
-    "       name AS class_name, "
     "       cfg "
     "FROM trip_classes,classes "
     "WHERE classes.code=trip_classes.class AND point_id= :point_id "
@@ -5723,8 +5833,12 @@ void CheckInInterface::readTripData( int point_id, xmlNodePtr dataNode )
   for(;!Qry.Eof;Qry.Next())
   {
     itemNode = NewTextChild( node, "class" );
-    NewTextChild( itemNode, "code", Qry.FieldAsString( "class_code" ) );
-    NewTextChild( itemNode, "name", Qry.FieldAsString( "class_name" ) );
+    const char* cl=Qry.FieldAsString( "class_code" );
+    NewTextChild( itemNode, "code", cl );
+    if (TReqInfo::Instance()->desk.compatible(LATIN_VERSION))
+      NewTextChild( itemNode, "name_view", ElemIdToElemName(etClass, cl) );
+    else
+      NewTextChild( itemNode, "name", ElemIdToElemName(etClass, cl) );
     NewTextChild( itemNode, "cfg", Qry.FieldAsInteger( "cfg" ) );
   };
 

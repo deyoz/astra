@@ -94,6 +94,67 @@ class TTripInfo
 std::string GetTripName( TTripInfo &info, TElemContext ctxt, bool showAirp=false, bool prList=false );
 std::string GetTripName( TTripInfo &info, bool showAirp=false, bool prList=false );
 
+class TLastTrferInfo
+{
+  public:
+    std::string airline, suffix, airp_arv;
+    int flt_no;
+    TLastTrferInfo()
+    {
+      Clear();
+    };
+    TLastTrferInfo( TQuery &Qry )
+    {
+      Init(Qry);
+    };
+    void Clear()
+    {
+      airline.clear();
+      flt_no=ASTRA::NoExists;
+      suffix.clear();
+      airp_arv.clear();
+    };
+    virtual void Init( TQuery &Qry )
+    {
+      airline=Qry.FieldAsString("trfer_airline");
+      if (!Qry.FieldIsNULL("trfer_flt_no"))
+        flt_no=Qry.FieldAsInteger("trfer_flt_no");
+      else
+        flt_no=ASTRA::NoExists;
+      suffix=Qry.FieldAsString("trfer_suffix");
+      airp_arv=Qry.FieldAsString("trfer_airp_arv");
+    };
+    bool IsNULL()
+    {
+      return (airline.empty() &&
+              flt_no==ASTRA::NoExists &&
+              suffix.empty() &&
+              airp_arv.empty());
+    };
+    std::string str();
+    virtual ~TLastTrferInfo() {};
+};
+
+class TLastTCkinSegInfo : public TLastTrferInfo
+{
+  public:
+    TLastTCkinSegInfo():TLastTrferInfo() {};
+    TLastTCkinSegInfo( TQuery &Qry ):TLastTrferInfo()
+    {
+      Init(Qry);
+    };
+    virtual void Init( TQuery &Qry )
+    {
+      airline=Qry.FieldAsString("tckin_seg_airline");
+      if (!Qry.FieldIsNULL("tckin_seg_flt_no"))
+        flt_no=Qry.FieldAsInteger("tckin_seg_flt_no");
+      else
+        flt_no=ASTRA::NoExists;
+      suffix=Qry.FieldAsString("tckin_seg_suffix");
+      airp_arv=Qry.FieldAsString("tckin_seg_airp_arv");
+    };
+};
+
 //настройки рейса
 enum TTripSetType { tsOutboardTrfer=10,
                     tsETLOnly=11,

@@ -146,7 +146,7 @@ TSalons::TSalons( int id, TReadStyle vreadStyle )
   while ( !Qry.Eof ) {
   	TCompLayerType l = DecodeCompLayerType( Qry.FieldAsString( "code" ) );
   	if ( l != cltUnknown ) {
-  		layers_priority[ l ].name = ElemIdToElemName(etCompLayerTypes,Qry.FieldAsString( "code" ));
+  		layers_priority[ l ].name = ElemIdToElemName(etCompLayerType,Qry.FieldAsString( "code" ));
   	  layers_priority[ l ].priority = Qry.FieldAsInteger( "priority" );
   	}
   	Qry.Next();

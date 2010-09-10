@@ -101,9 +101,7 @@ std::string TLocaleMessages::getText( const std::string &lexema_id, const std::s
 	tst();
 	string vlang = upperc(lang);
 	string vid = lexema_id;
-	if ( vlang.empty() ) {
-		vlang = "EN";
-	}
+
 	ProgTrace( TRACE5, "id=%s, lang=%s", vid.c_str(), vlang.c_str() );
 	if ( server_msgs.msgs.find( vid ) == server_msgs.msgs.end() )
 		throw EXCEPTIONS::Exception( "TMessages::getText: message id=%s not found", vid.c_str() );
@@ -119,8 +117,8 @@ std::string TLocaleMessages::getText( const std::string &lexema_id, const std::s
 TLocaleMessages::TLocaleMessages()
 {
 	Clear();
-	Invalidate("RU",false);
-	Invalidate("EN",false);
+	Invalidate(LANG_RU,false);
+	Invalidate(LANG_EN,false);
 }
 
 int TLocaleMessages::checksum(const std::string &lang)

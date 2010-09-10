@@ -549,6 +549,35 @@ class TTripTypes: public TTIDBaseTable {
   	}
 };
 
+class TClsGrpRow: public TTIDBaseTableRow {
+  public:
+    std::string airline,airp,cl;
+    int priority;
+    const char *get_row_name() { return "TClsGrpRow"; };
+    int AsInteger(std::string field)
+    {
+      if (lowerc(field)=="priority") return priority;
+      return TTIDBaseTableRow::AsInteger(field);
+    };
+    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU)
+    {
+      if (lowerc(field)=="airline") return airline;
+      if (lowerc(field)=="airp") return airp;
+      if (lowerc(field)=="cl") return cl;
+      return TCodeBaseTableRow::AsString(field,lang);
+    };
+};
+
+class TClsGrp: public TTIDBaseTable {
+  protected:
+    const char *get_table_name() { return "TClsGrp"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+  public:
+  	TClsGrp() {
+  		Init( "cls_grp" );
+  	}
+};
+
 class TCompElemTypesRow: public TCodeBaseTableRow {
 	public:
 	  const char *get_row_name() { return "TCompElemTypesRow"; };

@@ -28,7 +28,7 @@ const TReferCacheTable ReferCacheTable[8] = { {"COUNTRIES",  etCountry},
                                               {"CRAFTS",     etCraft},
                                               {"CLASSES",    etClass},
                                               {"SUBCLS",     etSubcls},
-                                              {"TRIP_TYPES", etTripTypes} };
+                                              {"TRIP_TYPES", etTripType} };
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -491,23 +491,25 @@ bool TCacheTable::refreshData()
                 if ( i->Scale > 0 || i->DataSize > 9 )
                   row.cols.push_back( Qry->FieldAsString( vecFieldIdx[ j ] ) );
                 else
-                  row.cols.push_back( IntToString( Qry->FieldAsInteger( vecFieldIdx[ j ] ) ) );
+                {
+                  switch (i->ElemCategory)
+                  {
+                  //  case cecCode: row.cols.push_back( ElemIdToElem( i->ElemType, Qry->FieldAsInteger( vecFieldIdx[ j ] ) ) ) ); break;
+                  //  case cecName: row.cols.push_back( ElemIdToElemName( i->ElemType, Qry->FieldAsInteger( vecFieldIdx[ j ] ) ) ) ); break;
+                         default: row.cols.push_back( IntToString( Qry->FieldAsInteger( vecFieldIdx[ j ] ) ) ); break;
+                  };
+                };
                 break;
               case ftBoolean:
                   row.cols.push_back( IntToString( (int)(Qry->FieldAsInteger( vecFieldIdx[ j ] ) !=0 ) ) );
                 break;
               default:
-                  if (TReqInfo::Instance()->desk.compatible(CACHE_LATIN_VERSION))
+                  switch (i->ElemCategory)
                   {
-                    switch (i->ElemCategory)
-                    {
-                      case cecCode: row.cols.push_back( ElemIdToElem( i->ElemType, Qry->FieldAsString(vecFieldIdx[ j ]) ) ); break;
-                      case cecName: row.cols.push_back( ElemIdToElemName( i->ElemType, Qry->FieldAsString(vecFieldIdx[ j ]) ) ); break;
-                           default: row.cols.push_back( Qry->FieldAsString(vecFieldIdx[ j ]) ); break;
-                    };
-                  }
-                  else
-                    row.cols.push_back( Qry->FieldAsString(vecFieldIdx[ j ]) );
+                    case cecCode: row.cols.push_back( ElemIdToElem( i->ElemType, Qry->FieldAsString(vecFieldIdx[ j ]) ) ); break;
+                    case cecName: row.cols.push_back( ElemIdToElemName( i->ElemType, Qry->FieldAsString(vecFieldIdx[ j ]) ) ); break;
+                         default: row.cols.push_back( Qry->FieldAsString(vecFieldIdx[ j ]) ); break;
+                  };
                   break;
             }
         }

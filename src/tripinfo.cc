@@ -31,23 +31,6 @@ using namespace EXCEPTIONS;
 using namespace AstraLocale;
 using namespace ASTRA;
 
-struct TTrferItem {
-  std::string last_trfer;
-  int hall_id;
-  std::string hall_name;
-  int seats,adult,child,baby,foreigner;
-  int umnr,vip,rkWeight,bagAmount,bagWeight,excess;
-};
-
-
-struct TCounterItem {
-  std::string cl;
-  std::string target;
-  std::vector<TTrferItem> trfer;
-  int cfg,resa,tranzit;
-};
-
-
 void TSQLParams::addVariable( TVar &var )
 {
   vars.push_back( var );
@@ -569,7 +552,7 @@ void TripsInterface::readOperFltHeader( TTripInfo &info, xmlNodePtr node )
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
 
-  if ( reqInfo->screen.name == "AIR.EXE" ) //!!!vlad
+  if ( reqInfo->screen.name == "AIR.EXE" )
     NewTextChild( node, "flight", GetTripName(info,true,false) );
 
   NewTextChild( node, "airline", info.airline );
@@ -647,12 +630,10 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   NewTextChild( node, "classes", Qry.FieldAsString( "classes" ) );
   NewTextChild( node, "route", Qry.FieldAsString( "route" ) );
   NewTextChild( node, "places", Qry.FieldAsString( "route" ) );
-  NewTextChild( node, "trip_type", ElemIdToElem(etTripTypes,Qry.FieldAsString( "trip_type" )) );
+  NewTextChild( node, "trip_type", ElemIdToElem(etTripType,Qry.FieldAsString( "trip_type" )) );
   NewTextChild( node, "litera", Qry.FieldAsString( "litera" ) );
   NewTextChild( node, "remark", Qry.FieldAsString( "remark" ) );
   NewTextChild( node, "pr_tranzit", (int)Qry.FieldAsInteger( "pr_tranzit" )!=0 );
-
-  //!!!vladNewTextChild( node, "trip", GetTripName(info,reqInfo->screen.name=="TLG.EXE",true) );
 
   TTripStages tripStages( point_id );
   TStagesRules *stagesRules = TStagesRules::Instance();
@@ -891,7 +872,8 @@ void TripsInterface::readHalls( std::string airp_dep, std::string work_mode, xml
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText =
-    "SELECT halls2.id,halls2.name "
+    "SELECT halls2.id, "
+    "       DECODE(:lang,'RU',halls2.name,NVL(halls2.name_lat,system.transliter(halls2.name,1,1))) AS name "
     "FROM station_halls,halls2,stations "
     "WHERE station_halls.hall=halls2.id AND halls2.airp=:airp_dep AND "
     "     station_halls.airp=stations.airp AND "
@@ -900,13 +882,17 @@ void TripsInterface::readHalls( std::string airp_dep, std::string work_mode, xml
   Qry.CreateVariable("airp_dep",otString,airp_dep);
   Qry.CreateVariable("desk",otString, TReqInfo::Instance()->desk.code);
   Qry.CreateVariable("work_mode",otString,work_mode);
+  Qry.CreateVariable("lang",otString, TReqInfo::Instance()->desk.lang);
   Qry.Execute();
   if (Qry.Eof)
   {
     Qry.Clear();
     Qry.SQLText =
-      "SELECT id,name FROM halls2 WHERE airp=:airp_dep";
+      "SELECT id, "
+      "       DECODE(:lang,'RU',halls2.name,NVL(halls2.name_lat,system.transliter(halls2.name,1,1))) AS name "
+      "FROM halls2 WHERE airp=:airp_dep";
     Qry.CreateVariable("airp_dep",otString,airp_dep);
+    Qry.CreateVariable("lang",otString, TReqInfo::Instance()->desk.lang);
     Qry.Execute();
   };
   xmlNodePtr node = NewTextChild( dataNode, "halls" );
@@ -916,18 +902,6 @@ void TripsInterface::readHalls( std::string airp_dep, std::string work_mode, xml
     NewTextChild( itemNode, "id", Qry.FieldAsInteger( "id" ) );
     NewTextChild( itemNode, "name", Qry.FieldAsString( "name" ) );
   };
-};
-
-
-string convertLastTrfer(string s)
-{
-  string res;
-  string::size_type i;
-  if ((i=s.find('/'))!=string::npos)
-    res=s.substr(i+1)+'('+s.substr(0,i)+')';
-  else
-    res=s;
-  return res;
 };
 
 int GetFltLoad( int point_id, const TTripInfo &fltInfo)
@@ -1024,7 +998,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     if (strcmp((char*)node->name,"trfer")==0)
     {
       pr_trfer=true;
-      order_by << ", a.last_trfer";
+      order_by << ", a.trfer_airline, a.trfer_flt_no, a.trfer_suffix, a.trfer_airp_arv";
     };
     if (strcmp((char*)node->name,"user")==0)
     {
@@ -1142,7 +1116,11 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   if (pr_cl_grp) select << ", NVL(class_grp,-1) AS class_grp";
   if (pr_hall) select << ", NVL(hall,-1) AS hall";
   if (pr_airp_arv) select << ", point_arv";
-  if (pr_trfer) select << ", NVL(last_trfer,' ') AS last_trfer"; //!!!vlad
+  if (pr_trfer) select
+                       << ", NVL(v_last_trfer.airline,' ') AS trfer_airline"
+                       << ", NVL(v_last_trfer.flt_no,-1) AS trfer_flt_no"
+                       << ", NVL(v_last_trfer.suffix,' ') AS trfer_suffix"
+                       << ", NVL(v_last_trfer.airp_arv,' ') AS trfer_airp_arv";
   if (pr_user) select << ", user_id";
   if (pr_client_type) select << ", client_type";
   if (pr_status) select << ", status";
@@ -1155,7 +1133,10 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   if (pr_cl_grp) group_by << ", NVL(class_grp,-1)";
   if (pr_hall) group_by << ", NVL(hall,-1)";
   if (pr_airp_arv) group_by << ", point_arv";
-  if (pr_trfer) group_by << ", NVL(last_trfer,' ')";
+  if (pr_trfer) group_by << ", NVL(v_last_trfer.airline,' ')"
+                         << ", NVL(v_last_trfer.flt_no,-1)"
+                         << ", NVL(v_last_trfer.suffix,' ')"
+                         << ", NVL(v_last_trfer.airp_arv,' ')";
   if (pr_user) group_by << ", user_id";
   if (pr_client_type) group_by << ", client_type";
   if (pr_status) group_by << ", status";
@@ -1184,7 +1165,12 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   if (pr_hall)        sql << ",DECODE(a.hall,-1,NULL,a.hall) AS hall_id"
                              ",DECODE(a.hall,-1,NULL,halls2.name||DECODE(halls2.airp,:airp_dep,'','('||halls2.airp||')')) AS hall_name" << endl;
   if (pr_airp_arv)    sql << ",a.point_arv,points.airp AS airp_arv" << endl;
-  if (pr_trfer)       sql << ",DECODE(a.last_trfer,' ',NULL,a.last_trfer) AS last_trfer" << endl;
+
+  if (pr_trfer)       sql << ",DECODE(a.trfer_airline,' ',NULL,a.trfer_airline) AS trfer_airline" << endl
+                          << ",DECODE(a.trfer_flt_no,-1,NULL,a.trfer_flt_no) AS trfer_flt_no" << endl
+                          << ",DECODE(a.trfer_suffix,' ',NULL,a.trfer_suffix) AS trfer_suffix" << endl
+                          << ",DECODE(a.trfer_airp_arv,' ',NULL,a.trfer_airp_arv) AS trfer_airp_arv" << endl;
+
   if (pr_user)        sql << ",a.user_id,users2.descr AS user_descr" << endl;
   if (pr_client_type) sql << ",a.client_type" << endl;
   if (pr_status)      sql << ",a.status" << endl;
@@ -1301,7 +1287,16 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     if (pr_cl_grp)      where << " AND a.class_grp=b.class_grp(+) AND a.class_grp=e.class_grp(+)" << endl;
     if (pr_hall)        where << " AND a.hall=b.hall(+) AND a.hall=e.hall(+)" << endl;
     if (pr_airp_arv)    where << " AND a.point_arv=b.point_arv(+) AND a.point_arv=e.point_arv(+)" << endl;
-    if (pr_trfer)       where << " AND a.last_trfer=b.last_trfer(+) AND a.last_trfer=e.last_trfer(+)" << endl;
+
+    if (pr_trfer)       where << " AND a.trfer_airline=b.trfer_airline(+)" << endl
+                              << " AND a.trfer_flt_no=b.trfer_flt_no(+)" << endl
+                              << " AND a.trfer_suffix=b.trfer_suffix(+)" << endl
+                              << " AND a.trfer_airp_arv=b.trfer_airp_arv(+)" << endl
+                              << " AND a.trfer_airline=e.trfer_airline(+)" << endl
+                              << " AND a.trfer_flt_no=e.trfer_flt_no(+)" << endl
+                              << " AND a.trfer_suffix=e.trfer_suffix(+)" << endl
+                              << " AND a.trfer_airp_arv=e.trfer_airp_arv(+)" << endl;
+
     if (pr_user)        where << " AND a.user_id=b.user_id(+) AND a.user_id=e.user_id(+)" << endl;
     if (pr_client_type) where << " AND a.client_type=b.client_type(+) AND a.client_type=e.client_type(+)" << endl;
     if (pr_status)      where << " AND a.status=b.status(+) AND a.status=e.status(+)" << endl;
@@ -1387,8 +1382,8 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     };
     if (pr_trfer)
     {
-      NewTextChild(rowNode,"trfer",
-                   convertLastTrfer(Qry.FieldAsString("last_trfer")));
+      TLastTrferInfo trferInfo(Qry);
+      NewTextChild(rowNode,"trfer",trferInfo.str());
     };
     if (pr_user)
     {
@@ -1397,12 +1392,12 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     };
     if (pr_client_type)
     {
-      node=NewTextChild(rowNode,"client_type",ElemIdToElemShortName(etClientTypes,Qry.FieldAsString("client_type")));
+      node=NewTextChild(rowNode,"client_type",ElemIdToElemShortName(etClientType,Qry.FieldAsString("client_type")));
       SetProp(node,"id",(int)DecodeClientType(Qry.FieldAsString("client_type")));
     };
     if (pr_status)
     {
-      node=NewTextChild(rowNode,"status",ElemIdToElemName(etGrpStatusTypes,Qry.FieldAsString("status")));
+      node=NewTextChild(rowNode,"status",ElemIdToElemName(etGrpStatusType,Qry.FieldAsString("status")));
       SetProp(node,"id",(int)DecodePaxStatus(Qry.FieldAsString("status")));
     };
     if (pr_ticket_rem)
@@ -1528,8 +1523,33 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     "SELECT point_dep AS point_id FROM pax_grp WHERE grp_id=:grp_id";
   PointsQry.DeclareVariable("grp_id",otInteger);
 
+  xmlNodePtr tripsNode = NewTextChild( dataNode, "tlg_trips" );
   Qry.Execute();
-  dataNode = NewTextChild( dataNode, "tlg_trips" );
+  if (Qry.Eof) return;
+
+  string def_pers_type=ElemIdToElem(etPersType, EncodePerson(ASTRA::adult));
+  string def_class=ElemIdToElem(etClass, EncodeClass(ASTRA::Y));
+  string def_status=EncodePaxStatus(ASTRA::psCheckin);
+
+  xmlNodePtr defNode = NewTextChild( dataNode, "defaults" );
+  NewTextChild(defNode, "pnr_ref", "");
+  NewTextChild(defNode, "pnr_status", "");
+  NewTextChild(defNode, "pnr_priority", "");
+  NewTextChild(defNode, "pers_type", def_pers_type);
+  NewTextChild(defNode, "class", def_class);
+  NewTextChild(defNode, "seats", 1);
+  NewTextChild(defNode, "last_target", "");
+  NewTextChild(defNode, "ticket", "");
+  NewTextChild(defNode, "document", "");
+  NewTextChild(defNode, "status", def_status);
+  NewTextChild(defNode, "rem", "");
+  NewTextChild(defNode, "nseat_no", "");
+  NewTextChild(defNode, "wl_type", "");
+  NewTextChild(defNode, "layer_type", "");
+  NewTextChild(defNode, "isseat", 1);
+  NewTextChild(defNode, "reg_no", "");
+  NewTextChild(defNode, "refuse", "");
+
   int point_id_tlg=-1;
   xmlNodePtr tripNode,paxNode,node;
   int col_pnr_ref=Qry.FieldIndex("pnr_ref");
@@ -1573,7 +1593,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     if (point_id_tlg!=Qry.FieldAsInteger(col_point_id_tlg))
     {
       point_id_tlg=Qry.FieldAsInteger(col_point_id_tlg);
-      tripNode = NewTextChild( dataNode, "tlg_trip" );
+      tripNode = NewTextChild( tripsNode, "tlg_trip" );
       TlgTripsQry.SetVariable("point_id",point_id_tlg);
       TlgTripsQry.Execute();
       if (TlgTripsQry.Eof) throw AstraLocale::UserException("MSG.FLT.NOT_FOUND.REPEAT_QRY");
@@ -1592,27 +1612,32 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     NewTextChild( node, "pnr_status", Qry.FieldAsString( col_pnr_status ), "" );
     NewTextChild( node, "pnr_priority", Qry.FieldAsString( col_pnr_priority ), "" );
     NewTextChild( node, "full_name", Qry.FieldAsString( col_full_name ) );
-    NewTextChild( node, "pers_type", ElemIdToElem(etPersType,Qry.FieldAsString( col_pers_type )), EncodePerson(ASTRA::adult) ); //!!!locale
-    NewTextChild( node, "class", ElemIdToElem(etClass,Qry.FieldAsString( col_class )), EncodeClass(ASTRA::Y) );//!!!locale
-    NewTextChild( node, "subclass", ElemIdToElem(etSubcls,Qry.FieldAsString( col_subclass ) ));//!!!locale
+    NewTextChild( node, "pers_type", ElemIdToElem(etPersType,Qry.FieldAsString( col_pers_type )), def_pers_type );
+    NewTextChild( node, "class", ElemIdToElem(etClass,Qry.FieldAsString( col_class )), def_class );
+    NewTextChild( node, "subclass", ElemIdToElem(etSubcls,Qry.FieldAsString( col_subclass ) ));
     NewTextChild( node, "seats", Qry.FieldAsInteger( col_seats ), 1 );
-    NewTextChild( node, "target", ElemIdToElem(etAirp,Qry.FieldAsString( col_target ) )); //!!!locale
+    NewTextChild( node, "target", ElemIdToElem(etAirp,Qry.FieldAsString( col_target ) ));
     if (!Qry.FieldIsNULL(col_last_target))
     {
       try
       {
         TAirpsRow &row=(TAirpsRow&)(base_tables.get("airps").get_row("code/code_lat",Qry.FieldAsString( col_last_target )));
-        NewTextChild( node, "last_target", ElemIdToElem(etAirp,row.code)); //!!!locale
+        NewTextChild( node, "last_target", ElemIdToElem(etAirp,row.code));
       }
       catch(EBaseTableError)
       {
-        NewTextChild( node, "last_target", ElemIdToElem(etAirp,Qry.FieldAsString( col_last_target ) ));//!!!locale
+        NewTextChild( node, "last_target", ElemIdToElem(etAirp,Qry.FieldAsString( col_last_target ) ));
       };
     };
 
     NewTextChild( node, "ticket", Qry.FieldAsString( col_ticket ), "" );
-    NewTextChild( node, "document", Qry.FieldAsString( col_document ) );
-    NewTextChild( node, "status", Qry.FieldAsString( col_status ), EncodePaxStatus(ASTRA::psCheckin) );
+
+    if (TReqInfo::Instance()->desk.compatible(LATIN_VERSION))
+      NewTextChild( node, "document", Qry.FieldAsString( col_document ), "" );
+    else
+      NewTextChild( node, "document", Qry.FieldAsString( col_document ) );
+
+    NewTextChild( node, "status", Qry.FieldAsString( col_status ), def_status );
 
     RQry.SetVariable( "pax_id", Qry.FieldAsInteger( col_pax_id ) );
     RQry.Execute();
@@ -1645,9 +1670,9 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
       SQry.SetVariable( "seats", Qry.FieldAsInteger(col_pax_seats)  );
       SQry.SetVariable( "point_id", point_id );
       SQry.SetVariable( "pax_row", pax_row );
-    ProgTrace( TRACE5, "mode=%d, pax_id=%d, seats=%d, point_id=%d, pax_row=%d, layer_type=%s",
-                       mode, Qry.FieldAsInteger( col_pax_id ), Qry.FieldAsInteger(col_pax_seats), point_id,
-                       pax_row, Qry.FieldAsString( col_grp_status ) );
+      ProgTrace( TRACE5, "mode=%d, pax_id=%d, seats=%d, point_id=%d, pax_row=%d, layer_type=%s",
+                         mode, Qry.FieldAsInteger( col_pax_id ), Qry.FieldAsInteger(col_pax_seats), point_id,
+                         pax_row, Qry.FieldAsString( col_grp_status ) );
     }
     else {
     	mode = 1;
@@ -1657,9 +1682,9 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     	SQry.SetVariable( "seats", Qry.FieldAsInteger(col_seats)  );
     	SQry.SetVariable( "point_id", Qry.FieldAsInteger(col_point_id_tlg) );
     	SQry.SetVariable( "crs_row", crs_row );
-    ProgTrace( TRACE5, "mode=%d, pax_id=%d, seats=%d, point_id=%d, crs_row=%d, layer_type=%s",
-                       mode, Qry.FieldAsInteger( col_pax_id ), Qry.FieldAsInteger(col_seats), point_id,
-                       crs_row, "" );
+      ProgTrace( TRACE5, "mode=%d, pax_id=%d, seats=%d, point_id=%d, crs_row=%d, layer_type=%s",
+                         mode, Qry.FieldAsInteger( col_pax_id ), Qry.FieldAsInteger(col_seats), point_id,
+                         crs_row, "" );
     }
     SQry.SetVariable( "mode", mode );
     SQry.SetVariable( "pax_id", Qry.FieldAsInteger( col_pax_id ) );

@@ -584,25 +584,25 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
       SetProp( newoperNode, "type", operation );
       string sess_name, fmt_name;
       if ( !variant_model.empty() ) {
-      	sess_name = ElemIdToElemName( etDevSessTypes, DefQry.FieldAsString("sess_type") );
-      	fmt_name = ElemIdToElemName( etDevFmtTypes, DefQry.FieldAsString("fmt_type") );
+      	sess_name = ElemIdToElemName( etDevSessType, DefQry.FieldAsString("sess_type") );
+      	fmt_name = ElemIdToElemName( etDevFmtType, DefQry.FieldAsString("fmt_type") );
       }
       if ( !sess_name.empty() && !fmt_name.empty() ) { //???
 //      if ( !DefQry.FieldIsNULL( "sess_name" ) && !DefQry.FieldIsNULL( "fmt_name" ) ) {
         SetProp( newoperNode, "variant_name", sess_name + "/" + fmt_name );
       }
       pNode = NewTextChild( newoperNode, "dev_model_code", dev_model );
-      SetProp( pNode, "dev_model_name", ElemIdToElemName(etDevModels,dev_model) );
-     	sess_name = ElemIdToElemName( etDevSessTypes, Qry.FieldAsString("sess_type") );
+      SetProp( pNode, "dev_model_name", ElemIdToElemName(etDevModel,dev_model) );
+     	sess_name = ElemIdToElemName( etDevSessType, Qry.FieldAsString("sess_type") );
      	ProgTrace( TRACE5, "sess_type=%s, sess_name=%s", Qry.FieldAsString("sess_type"), sess_name.c_str() );
-     	fmt_name = ElemIdToElemName( etDevFmtTypes, Qry.FieldAsString("fmt_type") );
+     	fmt_name = ElemIdToElemName( etDevFmtType, Qry.FieldAsString("fmt_type") );
 
       if ( !sess_name.empty() && !fmt_name.empty() ) { //???
       //if (  !Qry.FieldIsNULL( "sess_name" ) && !Qry.FieldIsNULL( "fmt_name" ) ) {
       	SetProp( pNode, "sess_fmt_name", sess_name + "/" + "fmt_name" );
       }
       if (!reqInfo->desk.compatible(NEW_TERM_VERSION))
-        NewTextChild( newoperNode, "dev_model_name", IntElemIdToElemName(etDevModels,dev_model,AstraLocale::LANG_RU));
+        NewTextChild( newoperNode, "dev_model_name", ElemIdToElemName(etDevModel,dev_model));
 
       SessParamsQry.SetVariable("dev_model",dev_model);
       SessParamsQry.SetVariable("sess_type",sess_type);
@@ -1396,14 +1396,14 @@ void MainDCSInterface::GetDeviceList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
       op_type=Qry.FieldAsString("op_type");
       operNode=NewTextChild(opersNode,"operation");
       NewTextChild(operNode,"type",op_type);
-      NewTextChild(operNode,"name",ElemIdToElemName(etDevOperTypes,Qry.FieldAsString("op_type")));
+      NewTextChild(operNode,"name",ElemIdToElemName(etDevOperType,Qry.FieldAsString("op_type")));
       devsNode=NewTextChild(operNode,"devices");
     };
     if (!Qry.FieldIsNULL("dev_model_code"))
     {
       devNode=NewTextChild(devsNode,"device");
       NewTextChild(devNode,"code",Qry.FieldAsString("dev_model_code"));
-      NewTextChild(devNode,"name",ElemIdToElemName(etDevModels,Qry.FieldAsString("dev_model_code")));
+      NewTextChild(devNode,"name",ElemIdToElemName(etDevModel,Qry.FieldAsString("dev_model_code")));
     };
   };
   opersNode=NewTextChild(resNode,"encodings");

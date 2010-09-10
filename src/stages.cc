@@ -392,7 +392,7 @@ void TStagesRules::Update()
 string getLocaleName( const string &name, const string &name_lat, bool pr_locale )
 {
 	string res;
-	if ( !pr_locale || TReqInfo::Instance()->desk.lang == "RU" || name_lat.empty() )
+	if ( !pr_locale || TReqInfo::Instance()->desk.lang == AstraLocale::LANG_RU || name_lat.empty() )
 		res = name;
 	else
 		res = name_lat;
