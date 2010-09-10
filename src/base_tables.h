@@ -101,6 +101,8 @@ class TNameBaseTableRow: public TBaseTableRow { //name, name_lat
 
 class TNameBaseTable: public TBaseTable {
   private:
+  	bool pr_name;
+  	bool pr_name_lat;
   protected:
 		virtual void create_variables(TQuery &Qry, bool pr_refresh) {};
     virtual void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);

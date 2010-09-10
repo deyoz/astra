@@ -161,6 +161,8 @@ void TNameBaseTable::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow 
     ((TNameBaseTableRow*)*row)->name=Qry.FieldAsString(idx);
   if ( (idx=Qry.GetFieldIndex( "name_lat" )) >= 0 )
     ((TNameBaseTableRow*)*row)->name_lat=Qry.FieldAsString(idx);
+  else
+  	((TNameBaseTableRow*)*row)->name_lat=((TNameBaseTableRow*)*row)->name;
 }
 /////////////////////////////////////////////////////////////
 void TIdBaseTable::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
@@ -217,6 +219,8 @@ void TCodeBaseTable::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow 
   ((TCodeBaseTableRow*)*row)->code=Qry.FieldAsString("code");
   if ( (idx=Qry.GetFieldIndex( "code_lat" )) >= 0 )
     ((TCodeBaseTableRow*)*row)->code_lat=Qry.FieldAsString(idx);
+  else
+  	((TCodeBaseTableRow*)*row)->code_lat=((TCodeBaseTableRow*)*row)->code;
   if (*replaced_row==NULL)
   {
     map<string, TBaseTableRow*>::iterator i;
