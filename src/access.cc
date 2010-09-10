@@ -268,8 +268,22 @@ void TUserData::del()
         "END;";
     Qry.CreateVariable("SYS_user_id", otInteger, TReqInfo::Instance()->user.user_id);
     Qry.CreateVariable("OLD_user_id", otInteger, user_id);
-    Qry.Execute();
+    try {
+        Qry.Execute();
+    }
+    catch(EOracleError &E)
+    {
+        if ( E.Code > 20000 )
+        {
+            string str = E.what();
+            throw AstraLocale::UserException(EOracleError2UserException(str));
+        }
+        else
+            throw;
+    };
 }
+
+
 
 void TUserData::update()
 {
@@ -281,7 +295,52 @@ void TUserData::update()
         "END;";
     create_vars(Qry, true);
     Qry.CreateVariable("OLD_user_id", otInteger, user_id);
+    try {
+        Qry.Execute();
+    }
+    catch(EOracleError &E)
+    {
+        if ( E.Code > 20000 )
+        {
+            string str = E.what();
+            throw AstraLocale::UserException(EOracleError2UserException(str));
+        }
+        else
+            throw;
+    };
+    Qry.Clear();
+    Qry.SQLText =
+        "begin "
+        "  delete from aro_airlines where aro_id = :user_id; "
+        "  delete from aro_airps where aro_id = :user_id; "
+        "  delete from user_roles where user_id = :user_id; "
+        "end;";
+    Qry.CreateVariable("user_id", otInteger, user_id);
     Qry.Execute();
+    Qry.Clear();
+    Qry.SQLText = "insert into aro_airlines(aro_id, airline) values(:user_id, :airline)";
+    Qry.CreateVariable("user_id", otInteger, user_id);
+    Qry.DeclareVariable("airline", otString);
+    for(vector<string>::iterator iv = airlines.begin(); iv != airlines.end(); iv++) {
+        Qry.SetVariable("airline", *iv);
+        Qry.Execute();
+    }
+    Qry.Clear();
+    Qry.SQLText = "insert into aro_airps(aro_id, airp) values(:user_id, :airp)";
+    Qry.CreateVariable("user_id", otInteger, user_id);
+    Qry.DeclareVariable("airp", otString);
+    for(vector<string>::iterator iv = airps.begin(); iv != airps.end(); iv++) {
+        Qry.SetVariable("airp", *iv);
+        Qry.Execute();
+    }
+    Qry.Clear();
+    Qry.SQLText = "insert into user_roles(user_id, role_id) values(:user_id, :role)";
+    Qry.CreateVariable("user_id", otInteger, user_id);
+    Qry.DeclareVariable("role", otInteger);
+    for(vector<int>::iterator iv = roles.begin(); iv != roles.end(); iv++) {
+        Qry.SetVariable("role", *iv);
+        Qry.Execute();
+    }
 }
 
 void TUserData::insert()
@@ -295,7 +354,19 @@ void TUserData::insert()
         "END;";
     create_vars(Qry);
     Qry.DeclareVariable("user_id", otInteger);
-    Qry.Execute();
+    try {
+        Qry.Execute();
+    }
+    catch(EOracleError &E)
+    {
+        if ( E.Code > 20000 )
+        {
+            string str = E.what();
+            throw AstraLocale::UserException(EOracleError2UserException(str));
+        }
+        else
+            throw;
+    };
     user_id = Qry.GetVariableAsInteger("user_id");
 }
 
@@ -323,132 +394,84 @@ void TUserData::initXML(xmlNodePtr node)
             for(; node2; node2 = node2->next)
                 airlines.push_back(NodeAsString(node2));
         }
+        node2 = GetNodeFast("roles", node);
+        if(node2 != NULL) {
+            node2 = node2->children;
+            for(; node2; node2 = node2->next)
+                roles.push_back(NodeAsInteger(node2));
+        }
         pr_denial = NodeAsIntegerFast("pr_denial", node, -1);
     }
 }
 
-class TAirps:vector<string> {
-    public:
-        bool cmp(vector<string> val) {
-            bool Result;
-            if(size() != val.size())
-                Result = false;
-            else {
-                Result = true;
-                for(vector<string>::iterator iv = begin(); iv != end(); iv++) {
-                    vector<string>::iterator iv1 = val.begin();
-                    for(; iv1 != val.end(); iv1++) {
-                        if(*iv == *iv1)
-                            break;
-                    }
-                    if(iv1 == val.end()) {
-                        Result = false;
-                        break;
-                    }
-                }
-            }
-            return Result;
+void airps_to_xml(xmlNodePtr node, vector<string> &items) {
+    if(not items.empty()) {
+        node = NewTextChild(node, "airps");
+        for(vector<string>::iterator iv = items.begin(); iv != items.end(); iv++) {
+            NewTextChild(node, "item", *iv);
         }
-        void to_xml(xmlNodePtr node) {
-            if(not empty()) {
-                node = NewTextChild(node, "airps");
-                for(vector<string>::iterator iv = begin(); iv != end(); iv++) {
-                    NewTextChild(node, "item", *iv);
-                }
-            }
-        }
-        void get(int user_id) {
-            ProgTrace(TRACE5, "WITHIN TAIRPS");
-            TQuery Qry(&OraSession);
-            Qry.SQLText = "select airp from aro_airps where aro_id = :user_id";
-            Qry.CreateVariable("user_id", otInteger, user_id);
-            Qry.Execute();
-            for(; !Qry.Eof; Qry.Next()) {
-                push_back(Qry.FieldAsString(0));
-                ProgTrace(TRACE5, "AIRP: %s", back().c_str());
-            }
-        }
-};
+    }
+}
 
-class TAirlines:vector<string> {
-    public:
-        bool cmp(vector<string> val) {
-            bool Result;
-            if(size() != val.size())
-                Result = false;
-            else {
-                Result = true;
-                for(vector<string>::iterator iv = begin(); iv != end(); iv++) {
-                    vector<string>::iterator iv1 = val.begin();
-                    for(; iv1 != val.end(); iv1++) {
-                        if(*iv == *iv1)
-                            break;
-                    }
-                    if(iv1 == val.end()) {
-                        Result = false;
-                        break;
-                    }
-                }
-            }
-            return Result;
+void airlines_to_xml(xmlNodePtr node, vector<string> &items) {
+    if(not items.empty()) {
+        node = NewTextChild(node, "airlines");
+        for(vector<string>::iterator iv = items.begin(); iv != items.end(); iv++) {
+            NewTextChild(node, "item", *iv);
         }
-        void to_xml(xmlNodePtr node) {
-            if(not empty()) {
-                node = NewTextChild(node, "airlines");
-                for(vector<string>::iterator iv = begin(); iv != end(); iv++) {
-                    NewTextChild(node, "item", *iv);
-                }
-            }
-        }
-        TAirlines(int user_id) {
-            TQuery Qry(&OraSession);
-            Qry.SQLText = "select airline from aro_airlines where aro_id = :user_id";
-            Qry.CreateVariable("user_id", otInteger, user_id);
-            Qry.Execute();
-            for(; Qry.Eof; Qry.Next())
-                push_back(Qry.FieldAsString(0));
-        }
-};
+    }
+}
 
-class TRoles:vector<int> {
-    public:
-        bool cmp(vector<int> val) {
-            bool Result;
-            if(size() != val.size())
-                Result = false;
-            else {
-                Result = true;
-                for(vector<int>::iterator iv = begin(); iv != end(); iv++) {
-                    vector<int>::iterator iv1 = val.begin();
-                    for(; iv1 != val.end(); iv1++) {
-                        if(*iv == *iv1)
-                            break;
-                    }
-                    if(iv1 == val.end()) {
-                        Result = false;
-                        break;
-                    }
-                }
-            }
-            return Result;
+void roles_to_xml(xmlNodePtr node, vector<int> items) {
+    if(not items.empty()) {
+        node = NewTextChild(node, "roles");
+        for(vector<int>::iterator iv = items.begin(); iv != items.end(); iv++) {
+            NewTextChild(node, "item", *iv);
         }
-        void to_xml(xmlNodePtr node) {
-            if(not empty()) {
-                node = NewTextChild(node, "roles");
-                for(vector<int>::iterator iv = begin(); iv != end(); iv++) {
-                    NewTextChild(node, "item", *iv);
-                }
-            }
-        }
-        TRoles(int user_id) {
-            TQuery Qry(&OraSession);
-            Qry.SQLText = "select role_id from user_roles where user_id = :user_id";
-            Qry.CreateVariable("user_id", otInteger, user_id);
-            Qry.Execute();
-            for(; Qry.Eof; Qry.Next())
-                push_back(Qry.FieldAsInteger(0));
-        }
-};
+    }
+}
+
+void get_roles(vector<int> &roles, int user_id)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText = "select role_id from user_roles where user_id = :user_id";
+    Qry.CreateVariable("user_id", otInteger, user_id);
+    ProgTrace(TRACE5, "ROLES");
+    Qry.Execute();
+    for(; !Qry.Eof; Qry.Next()) {
+        roles.push_back(Qry.FieldAsInteger(0));
+        ProgTrace(TRACE5, "item: %d", roles.back());
+    }
+    ProgTrace(TRACE5, "--------------");
+}
+
+void get_airlines(vector<string> &airlines, int user_id)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText = "select airline from aro_airlines where aro_id = :user_id";
+    Qry.CreateVariable("user_id", otInteger, user_id);
+    Qry.Execute();
+    ProgTrace(TRACE5, "AIRLINES");
+    for(; !Qry.Eof; Qry.Next()) {
+        airlines.push_back(Qry.FieldAsString(0));
+        ProgTrace(TRACE5, "item: %s", airlines.back().c_str());
+    }
+    ProgTrace(TRACE5, "--------------");
+}
+
+void get_airps(vector<string> &airps, int user_id)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText = "select airp from aro_airps where aro_id = :user_id";
+    Qry.CreateVariable("user_id", otInteger, user_id);
+    Qry.Execute();
+    ProgTrace(TRACE5, "AIRPS");
+    for(; !Qry.Eof; Qry.Next()) {
+        airps.push_back(Qry.FieldAsString(0));
+        ProgTrace(TRACE5, "item: %s", airps.back().c_str());
+    }
+    ProgTrace(TRACE5, "--------------");
+}
 
 void AccessInterface::ApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -489,12 +512,54 @@ void AccessInterface::ApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
         xmlNodePtr itemNode = NewTextChild(usersNode, "item");
         SetProp(itemNode, "index", im->first);
         NewTextChild(itemNode, "user_id", im->second.user_id);
-        TAirps airps;
-        airps.get(im->second.user_id);
-        TAirlines airlines(im->second.user_id);
-        airps.to_xml(itemNode);
-        airlines.to_xml(itemNode);
+        vector<string> airlines, airps;
+        get_airlines(airlines, im->second.user_id);
+        get_airps(airps, im->second.user_id);
+        airlines_to_xml(itemNode, airlines);
+        airps_to_xml(itemNode, airps);
     }
+}
+
+bool roles_cmp(vector<int> &a, vector<int> &b) {
+    bool Result;
+    if(a.size() != b.size())
+        Result = false;
+    else {
+        Result = true;
+        for(vector<int>::iterator iv = a.begin(); iv != a.end(); iv++) {
+            vector<int>::iterator iv1 = b.begin();
+            for(; iv1 != b.end(); iv1++) {
+                if(*iv == *iv1)
+                    break;
+            }
+            if(iv1 == b.end()) {
+                Result = false;
+                break;
+            }
+        }
+    }
+    return Result;
+}
+
+bool aro_cmp(vector<string> &a, vector<string> &b) {
+    bool Result;
+    if(a.size() != b.size())
+        Result = false;
+    else {
+        Result = true;
+        for(vector<string>::iterator iv = a.begin(); iv != a.end(); iv++) {
+            vector<string>::iterator iv1 = b.begin();
+            for(; iv1 != b.end(); iv1++) {
+                if(*iv == *iv1)
+                    break;
+            }
+            if(iv1 == b.end()) {
+                Result = false;
+                break;
+            }
+        }
+    }
+    return Result;
 }
 
 void AccessInterface::SearchUsers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -561,6 +626,7 @@ void AccessInterface::SearchUsers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
         SQLText += " and users2.pr_denial = :pr_denial ";
         Qry.CreateVariable("pr_denial", otInteger, user_data.pr_denial);
     }
+    ProgTrace(TRACE5, "SQLText: %s", SQLText.c_str());
     Qry.SQLText = SQLText;
     Qry.CreateVariable("SYS_user_id", otInteger, TReqInfo::Instance()->user.user_id);
     Qry.Execute();
@@ -579,50 +645,34 @@ void AccessInterface::SearchUsers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
         for(; !Qry.Eof; Qry.Next()) {
             ProgTrace(TRACE5, "CHECK 0");
             int user_id = Qry.FieldAsInteger(col_user_id);
-//            ProgTrace(TRACE5, "user_id: %d", user_id);
-            TAirps airps;
-//            airps.get(user_id);
-//            TAirlines airlines(user_id);
-//            TRoles roles(user_id);
-//            ProgTrace(TRACE5, "CHECK 1");
-//            if(
-//                    not (
-//                        airps.cmp(user_data.airps) and
-//                        airlines.cmp(user_data.airlines) and
-//                        roles.cmp(user_data.roles)
-//                        )
-//              )
-//                continue;
-            ProgTrace(TRACE5, "CHECK 2");
+            vector<string> airps, airlines;
+            vector<int> roles;
+            get_airps(airps, user_id);
+            get_airlines(airlines, user_id);
+            get_roles(roles, user_id);
+/*            if(
+                    not(
+                        aro_cmp(airps, user_data.airps) and
+                        aro_cmp(airps, user_data.airps) //and
+//                        roles_cmp(roles, user_data.roles)
+                       )
+              )
+                continue;
+                */
             xmlNodePtr rowNode = NewTextChild(rowsNode, "item");
-            tst();
             NewTextChild(rowNode, "user_id", user_id);
-            tst();
             NewTextChild(rowNode, "descr", Qry.FieldAsString(col_descr));
-            tst();
             NewTextChild(rowNode, "login", Qry.FieldAsString(col_login));
-            tst();
             NewTextChild(rowNode, "type", Qry.FieldAsString(col_type));
-            tst();
             NewTextChild(rowNode, "pr_denial", Qry.FieldAsString(col_pr_denial));
-            tst();
             NewTextChild(rowNode, "time_fmt_code", Qry.FieldAsString(col_time_fmt_code));
-            tst();
             NewTextChild(rowNode, "disp_airline_fmt_code", Qry.FieldAsString(col_disp_airline_fmt_code));
-            tst();
             NewTextChild(rowNode, "disp_airp_fmt_code", Qry.FieldAsString(col_disp_airp_fmt_code));
-            tst();
             NewTextChild(rowNode, "disp_craft_fmt_code", Qry.FieldAsString(col_disp_craft_fmt_code));
-            tst();
             NewTextChild(rowNode, "disp_suffix_fmt_code", Qry.FieldAsString(col_disp_suffix_fmt_code));
-            tst();
-            ProgTrace(TRACE5, "CHECK 3");
-//            airps.to_xml(rowNode);
-//            ProgTrace(TRACE5, "CHECK 4");
-//            airlines.to_xml(rowNode);
-//            ProgTrace(TRACE5, "CHECK 5");
-//            roles.to_xml(rowNode);
-//            ProgTrace(TRACE5, "CHECK 6");
+            airps_to_xml(rowNode, airps);
+            airlines_to_xml(rowNode, airlines);
+            roles_to_xml(rowNode, roles);
         }
     }
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
