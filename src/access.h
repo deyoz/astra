@@ -18,8 +18,14 @@ public:
      AddEvent("clone",evHandle);
      evHandle=JxtHandler<AccessInterface>::CreateHandler(&AccessInterface::CmpRole);
      AddEvent("cmp_role",evHandle);
+     evHandle=JxtHandler<AccessInterface>::CreateHandler(&AccessInterface::ApplyUpdates);
+     AddEvent("apply_updates",evHandle);
+     evHandle=JxtHandler<AccessInterface>::CreateHandler(&AccessInterface::SearchUsers);
+     AddEvent("search_users",evHandle);
   };
 
+  void ApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void SearchUsers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void CmpRole(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void Clone(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void SaveRoleRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);

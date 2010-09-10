@@ -4,6 +4,7 @@
 #include "astra_utils.h"
 #define NICKNAME "DENIS"
 #include "serverlib/test.h"
+#include "cache.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -200,6 +201,281 @@ void AccessInterface::RoleRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         xmlNodePtr itemNode = NewTextChild(roleRightsNode, "item");
         NewTextChild(itemNode, "id", Qry.FieldAsInteger("ida"));
         NewTextChild(itemNode, "name", Qry.FieldAsString("name"));
+    }
+    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
+}
+
+struct TUserData {
+    int user_id;
+    string descr;
+    string login;
+    int user_type;
+    int time_fmt;
+    int airline_fmt;
+    int airp_fmt;
+    int craft_fmt;
+    int suff_fmt;
+    vector<string> airps, airlines;
+    vector<int> roles;
+    int pr_denial;
+    void initXML(xmlNodePtr node);
+    void insert();
+    void update();
+    void del();
+    void create_vars(TQuery &Qry, bool pr_update = false);
+    void create_var(TQuery &Qry, string name, int val);
+    TUserData():
+        user_id(-1),
+        user_type(-1),
+        time_fmt(-1),
+        airline_fmt(-1),
+        airp_fmt(-1),
+        craft_fmt(-1),
+        suff_fmt(-1),
+        pr_denial(-1)
+    {};
+};
+
+void TUserData::create_vars(TQuery &Qry, bool pr_update)
+{
+    Qry.CreateVariable("login", otString, login);
+    if(not pr_update)
+        Qry.CreateVariable("descr", otString, descr);
+    Qry.CreateVariable("type_code", otString, user_type);
+    Qry.CreateVariable("pr_denial", otString, pr_denial);
+    Qry.CreateVariable("SYS_user_id", otInteger, TReqInfo::Instance()->user.user_id);
+    create_var(Qry, "time_fmt_code", time_fmt);
+    create_var(Qry, "disp_airline_fmt_code", airline_fmt);
+    create_var(Qry, "disp_airp_fmt_code", airp_fmt);
+    create_var(Qry, "disp_craft_fmt_code", craft_fmt);
+    create_var(Qry, "disp_suffix_fmt_code", suff_fmt);
+}
+
+void TUserData::create_var(TQuery &Qry, string name, int val)
+{
+    if(val < 0)
+        Qry.CreateVariable(name, otInteger, FNull);
+    else
+        Qry.CreateVariable(name, otInteger, val);
+}
+
+void TUserData::del()
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "BEGIN "
+        "  adm.delete_user(:OLD_user_id,:SYS_user_id); "
+        "END;";
+    Qry.CreateVariable("SYS_user_id", otInteger, TReqInfo::Instance()->user.user_id);
+    Qry.CreateVariable("OLD_user_id", otInteger, user_id);
+    Qry.Execute();
+}
+
+void TUserData::update()
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "BEGIN "
+        "  adm.update_user(:OLD_user_id,:login,:type_code,:pr_denial,:SYS_user_id, "
+        "                  :time_fmt_code,:disp_airline_fmt_code,:disp_airp_fmt_code,:disp_craft_fmt_code,:disp_suffix_fmt_code); "
+        "END;";
+    create_vars(Qry, true);
+    Qry.CreateVariable("OLD_user_id", otInteger, user_id);
+    Qry.Execute();
+}
+
+void TUserData::insert()
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "BEGIN "
+        "  adm.insert_user(:login,:descr,:type_code,:pr_denial,:SYS_user_id, "
+        "                  :time_fmt_code,:disp_airline_fmt_code,:disp_airp_fmt_code,:disp_craft_fmt_code,:disp_suffix_fmt_code); "
+        "  select user_id into :user_id from users2 where login = :login; "
+        "END;";
+    create_vars(Qry);
+    Qry.DeclareVariable("user_id", otInteger);
+    Qry.Execute();
+    user_id = Qry.GetVariableAsInteger("user_id");
+}
+
+void TUserData::initXML(xmlNodePtr node)
+{
+    if(node != NULL) {
+        user_id = NodeAsIntegerFast("user_id", node, -1);
+        descr = NodeAsStringFast("descr", node, "");
+        login = NodeAsStringFast("login", node, "");
+        user_type = NodeAsIntegerFast("user_type", node, -1);
+        time_fmt = NodeAsIntegerFast("time_fmt", node, -1);
+        airline_fmt = NodeAsIntegerFast("airline_fmt", node, -1);
+        airp_fmt = NodeAsIntegerFast("airp_fmt", node, -1);
+        craft_fmt = NodeAsIntegerFast("craft_fmt", node, -1);
+        suff_fmt = NodeAsIntegerFast("suff_fmt", node, -1);
+        xmlNodePtr node2 = GetNodeFast("airps", node);
+        if(node2 != NULL) {
+            node2 = node2->children;
+            for(; node2; node2 = node2->next)
+                airps.push_back(NodeAsString(node2));
+        }
+        node2 = GetNodeFast("airlines", node);
+        if(node2 != NULL) {
+            node2 = node2->children;
+            for(; node2; node2 = node2->next)
+                airlines.push_back(NodeAsString(node2));
+        }
+        pr_denial = NodeAsIntegerFast("pr_denial", node, -1);
+    }
+}
+
+void fill_airps(xmlNodePtr node, int user_id)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText = "select airp from aro_airps where aro_id = :user_id";
+    Qry.CreateVariable("user_id", otInteger, user_id);
+    Qry.Execute();
+    if(!Qry.Eof) {
+        xmlNodePtr airpsNode = NewTextChild(node, "airps");
+        for(; !Qry.Eof; Qry.Next())
+            NewTextChild(airpsNode, "item", Qry.FieldAsString(0));
+    }
+}
+
+void fill_airlines(xmlNodePtr node, int user_id)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText = "select airline from aro_airlines where aro_id = :user_id";
+    Qry.CreateVariable("user_id", otInteger, user_id);
+    Qry.Execute();
+    if(!Qry.Eof) {
+        xmlNodePtr airlinesNode = NewTextChild(node, "airlines");
+        for(; !Qry.Eof; Qry.Next())
+            NewTextChild(airlinesNode, "item", Qry.FieldAsString(0));
+    }
+}
+
+void fill_roles(xmlNodePtr node, int user_id)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText = "select role_id from user_roles where user_id = :user_id";
+    Qry.CreateVariable("user_id", otInteger, user_id);
+    Qry.Execute();
+    if(!Qry.Eof) {
+        xmlNodePtr rolesNode = NewTextChild(node, "roles");
+        for(; !Qry.Eof; Qry.Next())
+            NewTextChild(rolesNode, "item", Qry.FieldAsString(0));
+    }
+}
+
+void AccessInterface::ApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    xmlNodePtr node = reqNode->children->children;
+    map<int, TUserData> inserted;
+    for(; node; node = node->next) {
+        string buf = NodeAsString("@status", node);
+        TCacheUpdateStatus status;
+        if(buf == "inserted")
+            status = usInserted;
+        else if(buf == "modified")
+            status = usModified;
+        else if(buf == "deleted")
+            status = usDeleted;
+        else
+            throw Exception("AccessInterface::ApplyUpdates: unknown status '%s'", buf.c_str());
+        TUserData user_data;
+        user_data.initXML(node->children);
+        switch(status) {
+            case usInserted:
+                user_data.insert();
+                inserted[NodeAsInteger("@index", node)] = user_data;
+                break;
+            case usUnmodified:
+                break;
+            case usModified:
+                user_data.update();
+                break;
+            case usDeleted:
+                user_data.del();
+                break;
+        }
+    }
+    xmlNodePtr usersNode = NULL;
+    for(map<int, TUserData>::iterator im = inserted.begin(); im != inserted.end(); im++) {
+        if(usersNode == NULL)
+            usersNode = NewTextChild(resNode, "users");
+        xmlNodePtr itemNode = NewTextChild(usersNode, "item");
+        SetProp(itemNode, "index", im->first);
+        NewTextChild(itemNode, "user_id", im->second.user_id);
+        fill_airps(itemNode, im->second.user_id);
+        fill_airlines(itemNode, im->second.user_id);
+    }
+}
+
+void AccessInterface::SearchUsers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    TUserData user_data;
+    user_data.initXML(reqNode->children);
+
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "SELECT "
+        "       users2.user_id, "
+        "       login, "
+        "       descr, "
+        "       user_types.code AS type, "
+        "       pr_denial, "
+        "       time_fmt.code AS time_fmt_code, "
+        "       disp_airline_fmt.code AS disp_airline_fmt_code, "
+        "       disp_airp_fmt.code AS disp_airp_fmt_code, "
+        "       disp_craft_fmt.code AS disp_craft_fmt_code, "
+        "       disp_suffix_fmt.code AS disp_suffix_fmt_code "
+        "FROM users2,user_types,user_sets, "
+        "     user_set_types time_fmt, "
+        "     user_set_types disp_airline_fmt, "
+        "     user_set_types disp_airp_fmt, "
+        "     user_set_types disp_craft_fmt, "
+        "     user_set_types disp_suffix_fmt  "
+        "WHERE users2.type=user_types.code AND  "
+        "      users2.user_id=user_sets.user_id(+) AND "
+        "      DECODE(user_sets.time,        00,00,01,01,02,02,01)=time_fmt.code AND  "
+        "      DECODE(user_sets.disp_airline,05,05,06,06,07,07,08,08,09,09,09)=disp_airline_fmt.code AND  "
+        "      DECODE(user_sets.disp_airp,   05,05,06,06,07,07,08,08,09,09,09)=disp_airp_fmt.code AND "
+        "      DECODE(user_sets.disp_craft,  05,05,06,06,07,07,08,08,09,09,09)=disp_craft_fmt.code AND "
+        "      DECODE(user_sets.disp_suffix, 15,15,16,16,17,17,17)=disp_suffix_fmt.code AND "
+        "      adm.check_user_view_access(users2.user_id,:SYS_user_id)<>0 "
+        "      and users2.login = '’Ž†…' ";
+//        "      and users2.user_id = 5020 ";
+//        "      and rownum <= 100 "; //!!!
+    Qry.CreateVariable("SYS_user_id", otInteger, TReqInfo::Instance()->user.user_id);
+    Qry.Execute();
+    if(!Qry.Eof) {
+        xmlNodePtr rowsNode = NewTextChild(resNode, "users");
+        int col_user_id = Qry.FieldIndex("user_id");
+        int col_login = Qry.FieldIndex("login");
+        int col_descr = Qry.FieldIndex("descr");
+        int col_type = Qry.FieldIndex("type");
+        int col_pr_denial = Qry.FieldIndex("pr_denial");
+        int col_time_fmt_code = Qry.FieldIndex("time_fmt_code");
+        int col_disp_airline_fmt_code = Qry.FieldIndex("disp_airline_fmt_code");
+        int col_disp_airp_fmt_code = Qry.FieldIndex("disp_airp_fmt_code");
+        int col_disp_craft_fmt_code = Qry.FieldIndex("disp_craft_fmt_code");
+        int col_disp_suffix_fmt_code = Qry.FieldIndex("disp_suffix_fmt_code");
+        for(; !Qry.Eof; Qry.Next()) {
+            xmlNodePtr rowNode = NewTextChild(rowsNode, "item");
+            int user_id = Qry.FieldAsInteger(col_user_id);
+            NewTextChild(rowNode, "user_id", user_id);
+            NewTextChild(rowNode, "descr", Qry.FieldAsString(col_descr));
+            NewTextChild(rowNode, "login", Qry.FieldAsString(col_login));
+            NewTextChild(rowNode, "type", Qry.FieldAsString(col_type));
+            NewTextChild(rowNode, "pr_denial", Qry.FieldAsString(col_pr_denial));
+            NewTextChild(rowNode, "time_fmt_code", Qry.FieldAsString(col_time_fmt_code));
+            NewTextChild(rowNode, "disp_airline_fmt_code", Qry.FieldAsString(col_disp_airline_fmt_code));
+            NewTextChild(rowNode, "disp_airp_fmt_code", Qry.FieldAsString(col_disp_airp_fmt_code));
+            NewTextChild(rowNode, "disp_craft_fmt_code", Qry.FieldAsString(col_disp_craft_fmt_code));
+            NewTextChild(rowNode, "disp_suffix_fmt_code", Qry.FieldAsString(col_disp_suffix_fmt_code));
+            fill_airps(rowNode, user_id);
+            fill_airlines(rowNode, user_id);
+            fill_roles(rowNode, user_id);
+        }
     }
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
