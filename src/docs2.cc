@@ -43,6 +43,10 @@ void DocsInterface::RunReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     string target;
     if(node)
         target = NodeAsString(node);
+    node = GetNode("pr_brd_pax", reqNode);
+    int pr_brd = 0;
+    if(node)
+        pr_brd = NodeAsInteger(node);
     node = GetNode("pr_vip", reqNode);
     int grp_hall_id = -1;
     if(node)
@@ -99,6 +103,7 @@ void DocsInterface::RunReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     NewTextChild(reqNode, "pr_trfer", pr_trfer, 0);
     if(grp_hall_id >= 0)
         NewTextChild(reqNode, "ckin_zone", get_ckin_zone(grp_hall_id));
+    NewTextChild(reqNode, "pr_brd", pr_brd, 0);
     NewTextChild(reqNode, "pr_et", pr_et, 0);
     ProgTrace(TRACE5, "%s", GetXMLDocText(reqNode->doc).c_str());
     RunReport2(ctxt, reqNode, resNode);

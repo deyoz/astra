@@ -28,6 +28,7 @@ public:
      AddEvent("GetFonts",evHandle);
 
      evHandle=JxtHandler<DocsInterface>::CreateHandler(&DocsInterface::GetSegList);
+     AddEvent("GetSegList2",evHandle);
      AddEvent("GetSegList",evHandle);
      evHandle=JxtHandler<DocsInterface>::CreateHandler(&DocsInterface::RunReport);
      AddEvent("run_report",evHandle);
