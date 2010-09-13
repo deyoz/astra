@@ -1726,8 +1726,8 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   NewTextChild(resNode,"flight",GetTripName(operFlt,ecCkin,true,false)); //djek08.07.2010
 
   bool createDefaults=false;
-  string def_pers_type=ElemIdToElem(etPersType, EncodePerson(ASTRA::adult));
-  string def_class=ElemIdToElem(etClass, EncodeClass(ASTRA::Y));
+  string def_pers_type=ElemIdToCodeNative(etPersType, EncodePerson(ASTRA::adult));
+  string def_class=ElemIdToCodeNative(etClass, EncodeClass(ASTRA::Y));
   int def_client_type_id=(int)ctTerm;
   int def_status_id=(int)psCheckin;
 
@@ -1867,7 +1867,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       else
         NewTextChild(paxNode,"name",Qry.FieldAsString(col_name),"");
 
-      NewTextChild(paxNode,"airp_arv",ElemIdToElem(etAirp, Qry.FieldAsString(col_airp_arv)));
+      NewTextChild(paxNode,"airp_arv",ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp_arv)));
 
       TLastTrferInfo trferInfo(Qry);
       NewTextChild(paxNode,"last_trfer",trferInfo.str(),"");
@@ -1875,11 +1875,11 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       NewTextChild(paxNode,"last_tckin_seg",tckinSegInfo.str(),"");
 
       if (reqInfo->desk.compatible(LATIN_VERSION))
-        NewTextChild(paxNode,"class",ElemIdToElem(etClass, Qry.FieldAsString(col_class)), def_class);
+        NewTextChild(paxNode,"class",ElemIdToCodeNative(etClass, Qry.FieldAsString(col_class)), def_class);
       else
-        NewTextChild(paxNode,"class",ElemIdToElem(etClass, Qry.FieldAsString(col_class)));
+        NewTextChild(paxNode,"class",ElemIdToCodeNative(etClass, Qry.FieldAsString(col_class)));
 
-      NewTextChild(paxNode,"subclass",ElemIdToElem(etSubcls, Qry.FieldAsString(col_subclass)));
+      NewTextChild(paxNode,"subclass",ElemIdToCodeNative(etSubcls, Qry.FieldAsString(col_subclass)));
 
       if (Qry.FieldIsNULL(col_wl_type))
       {
@@ -1904,12 +1904,12 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
       if (reqInfo->desk.compatible(LATIN_VERSION))
       {
-        NewTextChild(paxNode,"pers_type",ElemIdToElem(etPersType, Qry.FieldAsString(col_pers_type)), def_pers_type);
+        NewTextChild(paxNode,"pers_type",ElemIdToCodeNative(etPersType, Qry.FieldAsString(col_pers_type)), def_pers_type);
         NewTextChild(paxNode,"document",Qry.FieldAsString(col_document),"");
       }
       else
       {
-        NewTextChild(paxNode,"pers_type",ElemIdToElem(etPersType, Qry.FieldAsString(col_pers_type)));
+        NewTextChild(paxNode,"pers_type",ElemIdToCodeNative(etPersType, Qry.FieldAsString(col_pers_type)));
         NewTextChild(paxNode,"document",Qry.FieldAsString(col_document));
       };
 
@@ -2024,7 +2024,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     for(;!Qry.Eof;Qry.Next())
     {
       xmlNodePtr paxNode=NewTextChild(node,"bag");
-      NewTextChild(paxNode,"airp_arv",ElemIdToElem(etAirp, Qry.FieldAsString("airp_arv")));
+      NewTextChild(paxNode,"airp_arv",ElemIdToCodeNative(etAirp, Qry.FieldAsString("airp_arv")));
 
       TLastTrferInfo trferInfo(Qry);
       NewTextChild(paxNode,"last_trfer",trferInfo.str(),"");
@@ -2881,10 +2881,10 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
               flt << "/" << markFltInfo.airp;
 
             string str;
-            int fmt;
+            TElemFmt fmt;
 
             str=ElemToElemId(etAirline,markFltInfo.airline,fmt);
-            if (!(fmt==0 || fmt==1))
+            if (!(fmt==efmtCodeNative || fmt==efmtCodeInter))
               throw UserException("MSG.COMMERCIAL_FLIGHT.AIRLINE.UNKNOWN_CODE",
                                   LParams()<<LParam("airline",markFltInfo.airline)
                                            <<LParam("flight", flt.str()));  //WEB
@@ -2893,7 +2893,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
             if (!markFltInfo.suffix.empty())
             {
               str=ElemToElemId(etSuffix,markFltInfo.suffix,fmt);
-              if (!(fmt==0 || fmt==1))
+              if (!(fmt==efmtCodeNative || fmt==efmtCodeInter))
                 throw UserException("MSG.COMMERCIAL_FLIGHT.SUFFIX.INVALID",
                                     LParams()<<LParam("suffix",markFltInfo.suffix)
                                              <<LParam("flight",flt.str())); //WEB
@@ -2901,7 +2901,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
             };
 
             str=ElemToElemId(etAirp,markFltInfo.airp,fmt);
-            if (!(fmt==0 || fmt==1))
+            if (!(fmt==efmtCodeNative || fmt==efmtCodeInter))
               throw UserException("MSG.COMMERCIAL_FLIGHT.UNKNOWN_AIRP",
                                   LParams()<<LParam("airp",markFltInfo.airp)
                                            <<LParam("flight",flt.str())); //WEB
@@ -4283,7 +4283,8 @@ void CheckInInterface::SavePaxTransfer(int pax_id, xmlNodePtr paxNode, xmlNodePt
   TrferQry.DeclareVariable("subclass_fmt",otInteger);
 
   xmlNodePtr node2;
-  int num=1,fmt;
+  int num=1;
+  TElemFmt fmt;
   string str,strh;
   trferNode=trferNode->children;
   for(;trferNode!=NULL&&seg_no>1;trferNode=trferNode->next,seg_no--);
@@ -4295,7 +4296,7 @@ void CheckInInterface::SavePaxTransfer(int pax_id, xmlNodePtr paxNode, xmlNodePt
     //подкласс
     strh=NodeAsStringFast("subclass",node2);
     str=ElemToElemId(etSubcls,strh,fmt);
-    if (!(fmt==0 || fmt==1))
+    if (!(fmt==efmtCodeNative || fmt==efmtCodeInter))
       throw UserException("MSG.TRANSFER_LEG.UNKNOWN_SUBCLASS",
                           LParams()<<LParam("subclass",strh)
                                    <<LParam("leg",num));
@@ -4332,8 +4333,8 @@ void CheckInInterface::LoadPaxTransfer(int pax_id, xmlNodePtr paxNode, xmlNodePt
     for(;!TrferQry.Eof;TrferQry.Next())
     {
       xmlNodePtr trferNode=NewTextChild(node,"segment");
-      str=ElemIdToElem(etSubcls,TrferQry.FieldAsString("subclass"),
-                                TrferQry.FieldAsInteger("subclass_fmt"));
+      str=ElemIdToClientElem(etSubcls,TrferQry.FieldAsString("subclass"),
+                                (TElemFmt)TrferQry.FieldAsInteger("subclass_fmt"));
       NewTextChild(trferNode,"subclass",str);
       //для совместимости со старым форматом 27.01.09 !!!
       if (trferNode2!=NULL)
@@ -4735,7 +4736,8 @@ string CheckInInterface::SaveTransfer(int grp_id, xmlNodePtr transferNode, bool 
   TrferQry.DeclareVariable("airp_arv",otString);
   TrferQry.DeclareVariable("airp_arv_fmt",otInteger);
   TrferQry.DeclareVariable("pr_final",otInteger);
-  int i,num=1,fmt;
+  int i,num=1;
+  TElemFmt fmt;
   string str,strh;
   TDateTime base_date=local_scd-1; //патамушта можем из Японии лететь в Америку во вчерашний день
   ostringstream msg;
@@ -4756,7 +4758,7 @@ string CheckInInterface::SaveTransfer(int grp_id, xmlNodePtr transferNode, bool 
     //авиакомпания
     strh=NodeAsStringFast("airline",node2);
     str=ElemToElemId(etAirline,strh,fmt);
-    if (!(fmt==0 || fmt==1))
+    if (!(fmt==efmtCodeNative || fmt==efmtCodeInter))
       throw UserException("MSG.TRANSFER_FLIGHT.UNKNOWN_AIRLINE",
                           LParams()<<LParam("airline",strh)
                                    <<LParam("flight",flt.str()));
@@ -4781,7 +4783,7 @@ string CheckInInterface::SaveTransfer(int grp_id, xmlNodePtr transferNode, bool 
     {
       strh=NodeAsStringFast("suffix",node2);
       str=ElemToElemId(etSuffix,strh,fmt);
-      if (!(fmt==0 || fmt==1))
+      if (!(fmt==efmtCodeNative || fmt==efmtCodeInter))
         throw UserException("MSG.TRANSFER_FLIGHT.INVALID_SUFFIX",
                             LParams()<<LParam("suffix",strh)
                                      <<LParam("flight",flt.str()));
@@ -4814,7 +4816,7 @@ string CheckInInterface::SaveTransfer(int grp_id, xmlNodePtr transferNode, bool 
     //аэропорт вылета
     strh=NodeAsStringFast("airp_dep",node2,(char*)airp_arv.c_str());
     str=ElemToElemId(etAirp,strh,fmt);
-    if (!(fmt==0 || fmt==1))
+    if (!(fmt==efmtCodeNative || fmt==efmtCodeInter))
       throw UserException("MSG.TRANSFER_FLIGHT.UNKNOWN_AIRP_DEP",
                           LParams()<<LParam("airp",strh)
                                    <<LParam("flight",flt.str()));
@@ -4834,7 +4836,7 @@ string CheckInInterface::SaveTransfer(int grp_id, xmlNodePtr transferNode, bool 
     //аэропорт прилета
     airp_arv=NodeAsStringFast("airp_arv",node2);
     str=ElemToElemId(etAirp,airp_arv,fmt);
-    if (!(fmt==0 || fmt==1))
+    if (!(fmt==efmtCodeNative || fmt==efmtCodeInter))
       throw UserException("MSG.TRANSFER_FLIGHT.UNKNOWN_AIRP_ARR",
                           LParams()<<LParam("airp",airp_arv)
                                    <<LParam("flight",flt.str()));
@@ -4896,16 +4898,16 @@ void CheckInInterface::LoadTransfer(int grp_id, xmlNodePtr transferNode)
   {
     xmlNodePtr trferNode=NewTextChild(node,"segment");
     NewTextChild(trferNode,"airline",
-                 ElemIdToElem(etAirline,
-                              TrferQry.FieldAsString("airline"),
-                              TrferQry.FieldAsInteger("airline_fmt")));
+                 ElemIdToClientElem(etAirline,
+                                    TrferQry.FieldAsString("airline"),
+                                    (TElemFmt)TrferQry.FieldAsInteger("airline_fmt")));
     NewTextChild(trferNode,"flt_no",TrferQry.FieldAsInteger("flt_no"));
 
     if (!TrferQry.FieldIsNULL("suffix"))
       NewTextChild(trferNode,"suffix",
-                   ElemIdToElem(etSuffix,
-                                TrferQry.FieldAsString("suffix"),
-                                TrferQry.FieldAsInteger("suffix_fmt")));
+                   ElemIdToClientElem(etSuffix,
+                                      TrferQry.FieldAsString("suffix"),
+                                      (TElemFmt)TrferQry.FieldAsInteger("suffix_fmt")));
     else
       NewTextChild(trferNode,"suffix");
 
@@ -4914,13 +4916,13 @@ void CheckInInterface::LoadTransfer(int grp_id, xmlNodePtr transferNode)
     NewTextChild(trferNode,"local_date",iDay);
 
     NewTextChild(trferNode,"airp_dep",
-                 ElemIdToElem(etAirp,
-                              TrferQry.FieldAsString("airp_dep"),
-                              TrferQry.FieldAsInteger("airp_dep_fmt")));
+                 ElemIdToClientElem(etAirp,
+                                    TrferQry.FieldAsString("airp_dep"),
+                                    (TElemFmt)TrferQry.FieldAsInteger("airp_dep_fmt")));
     NewTextChild(trferNode,"airp_arv",
-                 ElemIdToElem(etAirp,
-                              TrferQry.FieldAsString("airp_arv"),
-                              TrferQry.FieldAsInteger("airp_arv_fmt")));
+                 ElemIdToClientElem(etAirp,
+                                    TrferQry.FieldAsString("airp_arv"),
+                                    (TElemFmt)TrferQry.FieldAsInteger("airp_arv_fmt")));
 
     NewTextChild(trferNode,"city_dep",
                  base_tables.get("airps").get_row("code",TrferQry.FieldAsString("airp_dep")).AsString("city"));
@@ -5807,13 +5809,13 @@ void CheckInInterface::readTripData( int point_id, xmlNodePtr dataNode )
       NewTextChild( itemNode, "city_code", airpsRow.city );
       if (TReqInfo::Instance()->desk.compatible(LATIN_VERSION))
       {
-        NewTextChild( itemNode, "airp_code_view", ElemIdToElem(etAirp, airpsRow.code) );
-        NewTextChild( itemNode, "city_name_view", ElemIdToElemName(etCity, airpsRow.city) );
+        NewTextChild( itemNode, "airp_code_view", ElemIdToCodeNative(etAirp, airpsRow.code) );
+        NewTextChild( itemNode, "city_name_view", ElemIdToNameLong(etCity, airpsRow.city) );
       }
       else
       {
-        NewTextChild( itemNode, "airp_name", ElemIdToElemName(etAirp, airpsRow.code) );
-        NewTextChild( itemNode, "city_name", ElemIdToElemName(etCity, airpsRow.city) );
+        NewTextChild( itemNode, "airp_name", ElemIdToNameLong(etAirp, airpsRow.code) );
+        NewTextChild( itemNode, "city_name", ElemIdToNameLong(etCity, airpsRow.city) );
       };
       airps.push_back(airpsRow.code);
     }
@@ -5836,9 +5838,9 @@ void CheckInInterface::readTripData( int point_id, xmlNodePtr dataNode )
     const char* cl=Qry.FieldAsString( "class_code" );
     NewTextChild( itemNode, "code", cl );
     if (TReqInfo::Instance()->desk.compatible(LATIN_VERSION))
-      NewTextChild( itemNode, "name_view", ElemIdToElemName(etClass, cl) );
+      NewTextChild( itemNode, "name_view", ElemIdToNameLong(etClass, cl) );
     else
-      NewTextChild( itemNode, "name", ElemIdToElemName(etClass, cl) );
+      NewTextChild( itemNode, "name", ElemIdToNameLong(etClass, cl) );
     NewTextChild( itemNode, "cfg", Qry.FieldAsInteger( "cfg" ) );
   };
 
@@ -6105,7 +6107,8 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   bool is_edi=false;
   bool tckin_route_confirm=true;
   string strh;
-  int local_date, fmt, trfer_num=1;
+  int local_date, trfer_num=1;
+  TElemFmt fmt;
   TDateTime base_date=local_scd-1; //патамушта можем из Японии лететь в Америку во вчерашний день
   for(;trferNode!=NULL;trferNode=trferNode->next,trfer_num++)
   {
@@ -6120,7 +6123,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     //авиакомпания
     strh=NodeAsStringFast("airline",node2);
     fltInfo.airline=ElemToElemId(etAirline,strh,fmt);
-    if (!(fmt==0 || fmt==1))
+    if (!(fmt==efmtCodeNative || fmt==efmtCodeInter))
       throw UserException("MSG.TRANSFER_FLIGHT.UNKNOWN_AIRLINE",
                           LParams()<<LParam("airline",strh)
                                    <<LParam("flight",flt.str()));
@@ -6131,7 +6134,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     {
       strh=NodeAsStringFast("suffix",node2);
       fltInfo.suffix=ElemToElemId(etSuffix,strh,fmt);
-      if (!(fmt==0 || fmt==1))
+      if (!(fmt==efmtCodeNative || fmt==efmtCodeInter))
         throw UserException("MSG.TRANSFER_FLIGHT.INVALID_SUFFIX",
                             LParams()<<LParam("suffix",strh)
                                      <<LParam("flight",flt.str()));
@@ -6152,7 +6155,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     //аэропорт вылета
     strh=NodeAsStringFast("airp_dep",node2,(char*)airp_arv.c_str());
     fltInfo.airp=ElemToElemId(etAirp,strh,fmt);
-    if (!(fmt==0 || fmt==1))
+    if (!(fmt==efmtCodeNative || fmt==efmtCodeInter))
       throw UserException("MSG.TRANSFER_FLIGHT.UNKNOWN_AIRP_DEP",
                           LParams()<<LParam("airp",strh)
                                    <<LParam("flight",flt.str()));
@@ -6160,7 +6163,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     //аэропорт прилета
     strh=NodeAsStringFast("airp_arv",node2);
     airp_arv=ElemToElemId(etAirp,strh,fmt);
-    if (!(fmt==0 || fmt==1))
+    if (!(fmt==efmtCodeNative || fmt==efmtCodeInter))
       throw UserException("MSG.TRANSFER_FLIGHT.UNKNOWN_AIRP_ARR",
                           LParams()<<LParam("airp",airp_arv)
                                    <<LParam("flight",flt.str()));
@@ -6384,7 +6387,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
               {
                 strh=NodeAsString("subclass",paxTrferNode);
                 paxInfo.subclass=ElemToElemId(etSubcls,strh,fmt);
-                if (!(fmt==0 || fmt==1))
+                if (!(fmt==efmtCodeNative || fmt==efmtCodeInter))
                   throw UserException("MSG.TRANSFER_FLIGHT.UNKNOWN_SUBCLASS",
                                       LParams()<<LParam("subclass",strh)
                                                <<LParam("flight",flt.str()));
@@ -6544,7 +6547,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
                 {
                   strh=NodeAsString("subclass",paxTrferNode);
                   paxInfo.subclass=ElemToElemId(etSubcls,strh,fmt);
-                  if (!(fmt==0 || fmt==1))
+                  if (!(fmt==efmtCodeNative || fmt==efmtCodeInter))
                     throw UserException("MSG.TRANSFER_FLIGHT.UNKNOWN_SUBCLASS",
                                         LParams()<<LParam("subclass",strh)
                                                  <<LParam("flight",flt.str()));

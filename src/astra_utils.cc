@@ -370,9 +370,9 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
               user.sets.time=(TUserSettingType)Qry.FieldAsInteger(field);
             break;
           case ustCodeNative:
-          case ustCodeIATA:
-          case ustCodeNativeICAO:
-          case ustCodeIATAICAO:
+          case ustCodeInter:
+          case ustCodeICAONative:
+          case ustCodeICAOInter:
           case ustCodeMixed:
             if (i==1)
               user.sets.disp_airline=(TUserSettingType)Qry.FieldAsInteger(field);
@@ -1538,6 +1538,9 @@ inline void DoElemEConvertError( TElemContext ctxt,TElemType type, string code )
   	case etCurrency:
   		msg2 = "etCurrency";
   		break;
+  	case etRefusalType:
+  	  msg2 = "etRefusalType";
+  	  break;
     case etSuffix:
   		msg2 = "etSuffix";
   		break;
@@ -1571,7 +1574,9 @@ inline void DoElemEConvertError( TElemContext ctxt,TElemType type, string code )
   	case etDevOperType:
   		msg2 = "etDevOperType";
   		break;
-  	default:;
+  	case etGraphStage:
+  		msg2 = "etGraphStage";
+  		break;
   }
   msg1 = string("Can't convert elem to id ") + msg1 + "," + msg2 + " ,values=" + code;
   throw EConvertError( msg1.c_str() );
@@ -1581,11 +1586,12 @@ string ElemCtxtToElemId(TElemContext ctxt,TElemType type, string code, int &fmt,
                         bool hard_verify, bool with_deleted)
 {
   string id;
-  fmt=-1;
+  fmt=efmtUnknown;
 
   if (code.empty()) return id;
 
-  id = ElemToElemId(type,code,fmt,with_deleted);
+  TElemFmt elemFmt=(TElemFmt)fmt;
+  id = ElemToElemId(type,code,elemFmt,"",with_deleted);
 
   //далее проверим а вообще имели ли мы право вводить в таком формате
   if ( hard_verify ) {
@@ -1631,11 +1637,11 @@ string ElemCtxtToElemId(TElemContext ctxt,TElemType type, string code, int &fmt,
           type==etCraft)
       {
       	if ( hard_verify || fmt == -1 ) {
-          if (!(user_fmt==ustCodeNative && fmt==0 ||
-                user_fmt==ustCodeIATA && fmt==1 ||
-                user_fmt==ustCodeNativeICAO && fmt==2 ||
-                user_fmt==ustCodeIATAICAO && fmt==3 ||
-                user_fmt==ustCodeMixed && (fmt==0||fmt==1||fmt==2||fmt==3)))
+          if (!(user_fmt==ustCodeNative     && fmt==0 ||
+                user_fmt==ustCodeInter      && fmt==1 ||
+                user_fmt==ustCodeICAONative && fmt==2 ||
+                user_fmt==ustCodeICAOInter  && fmt==3 ||
+                user_fmt==ustCodeMixed      && (fmt==0||fmt==1||fmt==2||fmt==3)))
           {
             //проблемы
             DoElemEConvertError( ctxt, type, code );
@@ -1646,13 +1652,13 @@ string ElemCtxtToElemId(TElemContext ctxt,TElemType type, string code, int &fmt,
           	case ustCodeNative:
           		fmt = 0;
           		break;
-          	case ustCodeIATA:
+          	case ustCodeInter:
           		fmt = 1;
           		break;
-          	case ustCodeNativeICAO:
+          	case ustCodeICAONative:
           		fmt = 2;
           		break;
-          	case ustCodeIATAICAO:
+          	case ustCodeICAOInter:
           		fmt = 3;
           		break;
           	default:;
@@ -1736,9 +1742,9 @@ string ElemIdToElemCtxt(TElemContext ctxt,TElemType type, string id,
         switch(user_fmt)
         {
           case ustCodeNative:     fmt2=0; break;
-          case ustCodeIATA:       fmt2=1; break;
-          case ustCodeNativeICAO: fmt2=2; break;
-          case ustCodeIATAICAO:   fmt2=3; break;
+          case ustCodeInter:      fmt2=1; break;
+          case ustCodeICAONative: fmt2=2; break;
+          case ustCodeICAOInter:  fmt2=3; break;
           case ustCodeMixed:      fmt2=fmt; break;
           default: ;
         };
@@ -1756,7 +1762,7 @@ string ElemIdToElemCtxt(TElemContext ctxt,TElemType type, string id,
     };
   };
 
-  return ElemIdToElem(type,id,fmt2,with_deleted);
+  return ElemIdToElem(type,id,(TElemFmt)fmt2,"",with_deleted);
 };
 
 string getTableName(TElemType type)
@@ -1800,8 +1806,14 @@ string getTableName(TElemType type)
     case etCurrency:
       table_name="currency";
       break;
+    case etRefusalType:
+      table_name="refusal_types";
+      break;
     case etTripType:
       table_name="trip_types";
+      break;
+    case etSuffix:
+      table_name="trip_suffixes";
       break;
     case etCompElemType:
       table_name="comp_elem_types";
@@ -1830,17 +1842,19 @@ string getTableName(TElemType type)
   	case etDevOperType:
   		table_name="dev_oper_types";
   		break;
-    default: ;
+    case etGraphStage:
+  		table_name="graph_stages";
+  		break;
   };
   return table_name;
 }
 
-string ElemToElemId(TElemType type, string code, int &fmt, bool with_deleted)
+string ElemToElemId(TElemType type, const string &elem, TElemFmt &fmt, const std::string &lang, bool with_deleted)
 {
-  string id;
-  fmt=-1;
+  if (elem.empty()/* || lang.empty()*/) return "";
 
-  if (code.empty()) return id;
+  string id;
+  fmt=efmtUnknown;
 
   string table_name=getTableName(type);
 
@@ -1854,15 +1868,15 @@ string ElemToElemId(TElemType type, string code, int &fmt, bool with_deleted)
       //это code/code_lat
       try
       {
-        id=((TCodeBaseTableRow&)CodeBaseTable.get_row("code",code,with_deleted)).code;
-        fmt=0;
+        id=((TCodeBaseTableRow&)CodeBaseTable.get_row("code",elem,with_deleted)).code;
+        fmt=efmtCodeNative;
         return id;
       }
       catch (EBaseTableError) {};
       try
       {
-        id=((TCodeBaseTableRow&)CodeBaseTable.get_row("code_lat",code,with_deleted)).code;
-        fmt=1;
+        id=((TCodeBaseTableRow&)CodeBaseTable.get_row("code_lat",elem,with_deleted)).code;
+        fmt=efmtCodeInter;
         return id;
       }
       catch (EBaseTableError) {};
@@ -1875,15 +1889,15 @@ string ElemToElemId(TElemType type, string code, int &fmt, bool with_deleted)
       //это code_icao,code_icao_lat
       try
       {
-        id=((TICAOBaseTableRow&)ICAOBaseTable.get_row("code_icao",code,with_deleted)).code;
-        fmt=2;
+        id=((TICAOBaseTableRow&)ICAOBaseTable.get_row("code_icao",elem,with_deleted)).code;
+        fmt=efmtCodeICAONative;
         return id;
       }
       catch (EBaseTableError) {};
       try
       {
-        id=((TICAOBaseTableRow&)ICAOBaseTable.get_row("code_icao_lat",code,with_deleted)).code;
-        fmt=3;
+        id=((TICAOBaseTableRow&)ICAOBaseTable.get_row("code_icao_lat",elem,with_deleted)).code;
+        fmt=efmtCodeICAOInter;
         return id;
       }
       catch (EBaseTableError) {};
@@ -1896,45 +1910,265 @@ string ElemToElemId(TElemType type, string code, int &fmt, bool with_deleted)
       //это code_iso
       try
       {
-        id=((TCountriesRow&)Countries.get_row("code_iso",code,with_deleted)).code;
-        fmt=4;
+        id=((TCountriesRow&)Countries.get_row("code_iso",elem,with_deleted)).code;
+        fmt=efmtCodeISOInter;
         return id;
       }
       catch (EBaseTableError) {};
     }
     catch (bad_cast) {};
-  }
-  else
+  };
+/*  else !!!vlad
   {
     //это просто данные
     switch(type)
     {
       case etSuffix:
-        if (code.size()==1)
+        if (elem.size()==1)
         {
           const char *p;
-          p=strchr(rus_suffix,*code.c_str());
+          p=strchr(rus_suffix,*elem.c_str());
           if (p!=NULL)
           {
             id=*p;
-            fmt=0;
+            fmt=efmtCodeNative;
             return id;
           };
-          p=strchr(lat_suffix,*code.c_str());
+          p=strchr(lat_suffix,*elem.c_str());
           if (p!=NULL)
           {
             id=rus_suffix[p-lat_suffix];
-            fmt=1;
+            fmt=efmtCodeInter;
             return id;
           };
         };
         break;
       default: ;
     };
-  };
+  };*/
   return id;
 };
 
+string ElemToElemId(TElemType type, const string &elem, TElemFmt &fmt, bool with_deleted)
+{
+  return ElemToElemId(type, elem, fmt, "", with_deleted);
+};
+
+void getElem(TElemFmt fmt, const std::string &lang, const TBaseTableRow &row, string &elem)
+{
+  if (fmt==efmtNameShort)
+  try
+  {
+    elem=row.AsString("short_name", lang);
+    return;
+  }
+  catch (EBaseTableError) {};
+
+  if (fmt==efmtNameLong)
+  try
+  {
+    TNameBaseTableRow& row=dynamic_cast<TNameBaseTableRow&>(row);
+    if (fmt==efmtCodeNative && lang==AstraLocale::LANG_RU)
+      elem=row.name;
+    else
+      elem=row.name_lat;
+    return;
+  }
+  catch (bad_cast) {};
+
+  if (fmt==efmtCodeNative || fmt==efmtCodeInter)
+  try
+  {
+    TCodeBaseTableRow& row=dynamic_cast<TCodeBaseTableRow&>(row);
+    if (fmt==efmtCodeNative && lang==AstraLocale::LANG_RU)
+    {
+      elem=row.code;
+      return;
+    };
+    if (fmt==efmtCodeInter ||
+        fmt==efmtCodeNative && lang!=AstraLocale::LANG_RU)
+    {
+      elem=row.code_lat;
+      return;
+    };
+  }
+  catch (bad_cast) {};
+
+  if (fmt==efmtCodeICAONative || fmt==efmtCodeICAOInter)
+  try
+  {
+    TICAOBaseTableRow& row=dynamic_cast<TICAOBaseTableRow&>(row);
+    if (fmt==efmtCodeICAONative && lang==AstraLocale::LANG_RU)
+    {
+      elem=row.code_icao;
+      return;
+    };
+    if (fmt==efmtCodeICAOInter ||
+        fmt==efmtCodeICAONative && lang!=AstraLocale::LANG_RU)
+    {
+      elem=row.code_icao_lat;
+      return;
+    };
+
+  }
+  catch (bad_cast) {};
+
+  if (fmt==efmtCodeISOInter)
+  try
+  {
+    TCountriesRow& row=dynamic_cast<TCountriesRow&>(row);
+    if (fmt==efmtCodeISOInter)
+    {
+      elem=row.code_iso;
+      return;
+    };
+  }
+  catch (bad_cast) {};
+};
+
+string ElemIdToElem(TElemType type, const string &id, TElemFmt fmt, const std::string &lang, bool with_deleted)
+{
+  if (id.empty() || fmt==efmtUnknown) return "";
+
+  string elem;
+
+  string table_name=getTableName(type);
+
+  if (!table_name.empty())
+  {
+    try
+    {
+      TBaseTableRow& BaseTableRow=base_tables.get(table_name).get_row("code",id,with_deleted);
+
+      getElem(fmt, lang, BaseTableRow, elem);
+    }
+    catch (EBaseTableError) {};
+  };
+/*  else
+  {
+    //это просто данные
+    switch(type)
+    {
+      case etSuffix:
+        if (id.size()==1)
+        {
+          const char *p = strchr(rus_suffix,*id.c_str());
+          if (p!=NULL)
+          {
+            if (fmt==0)
+            {
+              value=*p;
+              return;
+            };
+            if (fmt==1)
+            {
+              value=lat_suffix[p-rus_suffix];
+              return;
+            };
+          };
+        };
+        break;
+      default: ;
+    };
+  };*/
+  return elem;
+};
+
+string ElemIdToElem(TElemType type, int id, TElemFmt fmt, const std::string &lang, bool with_deleted)
+{
+  if (id==NoExists || fmt==efmtUnknown) return "";
+
+  string elem;
+
+  string table_name=getTableName(type);
+
+  if (!table_name.empty())
+  {
+    try
+    {
+      TBaseTableRow& BaseTableRow=base_tables.get(table_name).get_row("id",id,with_deleted);
+
+      getElem(fmt, lang, BaseTableRow, elem);
+    }
+    catch (EBaseTableError) {};
+  };
+
+  return elem;
+};
+
+string ElemIdToClientElem(TElemType type, const string &id, TElemFmt fmt, bool with_deleted)
+{
+   return ElemIdToElem(type, id, fmt, TReqInfo::Instance()->desk.lang, with_deleted);
+};
+
+string ElemIdToCodeNative(TElemType type, const string &id)
+{
+  string code;
+  code=ElemIdToElem(type, id, efmtCodeNative, TReqInfo::Instance()->desk.lang, true);
+  if (code.empty()) code=id;
+  return code;
+};
+
+string ElemIdToCodeNative(TElemType type, int id)
+{
+  string code;
+  code=ElemIdToElem(type, id, efmtCodeNative, TReqInfo::Instance()->desk.lang, true);
+  return code;
+};
+
+string ElemIdToNameLong(TElemType type, const string &id)
+{
+  string name;
+  name=ElemIdToElem(type, id, efmtNameLong, TReqInfo::Instance()->desk.lang, true);
+  if (name.empty() &&
+      TReqInfo::Instance()->desk.lang!=AstraLocale::LANG_RU)
+    name=ElemIdToElem(type, id, efmtNameLong, AstraLocale::LANG_RU, true);
+	return name;
+};
+
+string ElemIdToNameLong(TElemType type, int id)
+{
+  string name;
+  name=ElemIdToElem(type, id, efmtNameLong, TReqInfo::Instance()->desk.lang, true);
+  if (name.empty() &&
+      TReqInfo::Instance()->desk.lang!=AstraLocale::LANG_RU)
+    name=ElemIdToElem(type, id, efmtNameLong, AstraLocale::LANG_RU, true);
+	return name;
+};
+
+string ElemIdToNameShort(TElemType type, const string &id)
+{
+	string name;
+  name=ElemIdToElem(type, id, efmtNameShort, TReqInfo::Instance()->desk.lang, true);
+  if (name.empty() &&
+      TReqInfo::Instance()->desk.lang!=AstraLocale::LANG_RU)
+    name=ElemIdToElem(type, id, efmtNameShort, AstraLocale::LANG_RU, true);
+	return name;
+};
+
+string ElemIdToNameShort(TElemType type, int id)
+{
+	string name;
+  name=ElemIdToElem(type, id, efmtNameShort, TReqInfo::Instance()->desk.lang, true);
+  if (name.empty() &&
+      TReqInfo::Instance()->desk.lang!=AstraLocale::LANG_RU)
+    name=ElemIdToElem(type, id, efmtNameShort, AstraLocale::LANG_RU, true);
+	return name;
+};
+
+TElemFmt prLatToElemFmt(TElemFmt fmt, bool pr_lat)
+{
+  TElemFmt res=fmt;
+  if (pr_lat)
+  {
+    if (fmt==efmtCodeNative) res=efmtCodeInter;
+    if (fmt==efmtCodeICAONative) res=efmtCodeICAOInter;
+  };
+  return res;
+};
+
+
+/*
 string ElemIdToElem(TElemType type, int id, int fmt, bool with_deleted)
 {
     if(!(fmt == 0 || fmt == 1))
@@ -1968,7 +2202,9 @@ string ElemIdToElem(TElemType type, int id, int fmt, bool with_deleted)
         result = code_lat;
     return result;
 }
+*/
 
+/*
 string ElemIdToElem(TElemType type, string id, int fmt, int only_lat, bool with_deleted)
 {
     if(only_lat) {
@@ -1977,111 +2213,10 @@ string ElemIdToElem(TElemType type, string id, int fmt, int only_lat, bool with_
     }
     return ElemIdToElem(type, id, fmt, with_deleted);
 }
-
-void IntElemIdToElemLang(TElemType type, string id, int fmt, const std::string lang, bool with_deleted, string &value)
-{
-	value.clear();
-
-	if ( lang != AstraLocale::LANG_RU ) { // заглушка перевод на анг. язык
-		if(fmt == 0) fmt = 1;
-		if(fmt == 2) fmt = 3;
-  }
+*/
 
 
-  if (id.empty()||fmt==0) {
-  	value = id;
-  	return;
-  }
-
-  string table_name=getTableName(type);
-
-  if (!table_name.empty())
-  {
-    //это коды
-    try
-    {
-      TBaseTableRow& BaseTableRow=base_tables.get(table_name).get_row("code",id,with_deleted);
-
-      try
-      {
-        TCodeBaseTableRow& row=dynamic_cast<TCodeBaseTableRow&>(BaseTableRow);
-        if (fmt==0)
-        {
-          value=row.code;
-          return;
-        };
-        if (fmt==1)
-        {
-          value=row.code_lat;
-          return;
-        };
-
-      }
-      catch (bad_cast) {};
-      try
-      {
-        TICAOBaseTableRow& row=dynamic_cast<TICAOBaseTableRow&>(BaseTableRow);
-        if (fmt==2)
-        {
-          value=row.code_icao;
-          return;
-        };
-        if (fmt==3)
-        {
-          value=row.code_icao_lat;
-          return;
-        };
-
-      }
-      catch (bad_cast) {};
-      try
-      {
-        TCountriesRow& row=dynamic_cast<TCountriesRow&>(BaseTableRow);
-        if (fmt==4)
-        {
-          value=row.code_iso;
-          return;
-        };
-      }
-      catch (bad_cast) {};
-    }
-    catch (EBaseTableError) {};
-  }
-  else
-  {
-    //это просто данные
-    switch(type)
-    {
-      case etSuffix:
-        if (id.size()==1)
-        {
-          const char *p = strchr(rus_suffix,*id.c_str());
-          if (p!=NULL)
-          {
-            if (fmt==0)
-            {
-              value=*p;
-              return;
-            };
-            if (fmt==1)
-            {
-              value=lat_suffix[p-rus_suffix];
-              return;
-            };
-          };
-        };
-        break;
-      default: ;
-    };
-  };
-  return;
-}
-
-string ElemIdToElem(TElemType type, string id)
-{
-	return ElemIdToElem(type,id,0);
-}
-
+/*
 string ElemIdToElem(TElemType type, string id, int fmt, bool with_deleted)
 {
 	string code;
@@ -2090,8 +2225,8 @@ string ElemIdToElem(TElemType type, string id, int fmt, bool with_deleted)
     code=id;
   return code;
 
-};
-
+};*/
+/*
 std::string IntElemIdToElemName(TElemType type, std::string id, const std::string &lang, bool pr_short_name )
 {
 	string name;
@@ -2133,17 +2268,7 @@ std::string IntElemIdToElemName(TElemType type, std::string id, const std::strin
   if ( name.empty() )
   	name = id;
   return name;
-}
-
-std::string ElemIdToElemName(TElemType type, std::string id)
-{
-	return IntElemIdToElemName( type, id, TReqInfo::Instance()->desk.lang, false );
-}
-
-std::string ElemIdToElemShortName(TElemType type, std::string id)
-{
-	return IntElemIdToElemName( type, id, TReqInfo::Instance()->desk.lang, true );
-}
+}*/
 
 bool is_dst(TDateTime d, string region)
 {

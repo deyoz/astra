@@ -112,9 +112,9 @@ void SalonsInterface::SalonFormShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
       		compsNode = NewTextChild( dataNode, "comps"  );
         xmlNodePtr compNode = NewTextChild( compsNode, "comp" );
         if ( !Qry.FieldIsNULL( "airline" ) )
-        	StrVal = ElemIdToElem( etAirline, Qry.FieldAsString( "airline" ) );
+        	StrVal = ElemIdToCodeNative( etAirline, Qry.FieldAsString( "airline" ) );
         else
-        	StrVal = ElemIdToElem( etAirp, Qry.FieldAsString( "airp" ) );
+        	StrVal = ElemIdToCodeNative( etAirp, Qry.FieldAsString( "airp" ) );
         if ( StrVal.length() == 2 )
           StrVal += "  ";
         else
@@ -131,7 +131,7 @@ void SalonsInterface::SalonFormShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         NewTextChild( compNode, "name", StrVal );
         NewTextChild( compNode, "comp_id", Qry.FieldAsInteger( "comp_id" ) );
         NewTextChild( compNode, "pr_comp", Qry.FieldAsInteger( "pr_comp" ) );
-        NewTextChild( compNode, "craft", ElemIdToElem( etCraft, Qry.FieldAsString( "craft" ) ) );
+        NewTextChild( compNode, "craft", ElemIdToCodeNative( etCraft, Qry.FieldAsString( "craft" ) ) );
         NewTextChild( compNode, "bort", Qry.FieldAsString( "bort" ) );
         NewTextChild( compNode, "classes", Qry.FieldAsString( "classes" ) );
         NewTextChild( compNode, "descr", Qry.FieldAsString( "descr" ) );
@@ -528,11 +528,11 @@ void SalonsInterface::BaseComponFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
       else
         throw Exception( string( "Error in tag modify " ) + smodify );
   TReqInfo *r = TReqInfo::Instance();
-  int fmt;
+  TElemFmt fmt;
   xmlNodePtr a = GetNode( "airline", reqNode );
   if ( a ) {
      Salons.airline = ElemToElemId( etAirline, NodeAsString( a ), fmt );
-     if ( fmt == -1 )
+     if ( fmt == efmtUnknown )
      	 throw AstraLocale::UserException( "MSG.AIRLINE.INVALID_INPUT" );
   }
   else
@@ -541,7 +541,7 @@ void SalonsInterface::BaseComponFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
  	a = GetNode( "airp", reqNode );
  	if ( a ) {
  		Salons.airp = ElemToElemId( etAirp, NodeAsString( a ), fmt );
- 		if ( fmt == -1 )
+ 		if ( fmt == efmtUnknown )
  			throw AstraLocale::UserException( "MSG.AIRP.INVALID_SET_CODE" );
  		Salons.airline.clear();
  	}
@@ -595,7 +595,7 @@ void SalonsInterface::BaseComponFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
     }
   }
   Salons.craft = ElemToElemId( etCraft, NodeAsString( "craft", reqNode ), fmt );
-  if ( fmt == -1 )
+  if ( fmt == efmtUnknown )
   	throw AstraLocale::UserException( "MSG.CRAFT.WRONG_SPECIFIED" );
   Salons.bort = NodeAsString( "bort", reqNode );
   Salons.descr = NodeAsString( "descr", reqNode );
@@ -721,13 +721,13 @@ void SalonsInterface::BaseComponsRead(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
            r->user.user_type != utAirline &&
            ( r->user.access.airlines.empty() || r->user.access.airlines.size() > 1 ) ||
            r->user.user_type == utSupport && r->user.access.airlines.size() >= 1 && r->user.access.airps.size() >= 1 )
-        NewTextChild( rnode, "airline", ElemIdToElem( etAirline, Qry.FieldAsString( "airline" ) ) );
+        NewTextChild( rnode, "airline", ElemIdToCodeNative( etAirline, Qry.FieldAsString( "airline" ) ) );
       if ( r->user.user_type == utAirport && r->user.access.airps.size() > 1 ||
            r->user.user_type == utSupport &&
            ( r->user.access.airps.empty() || r->user.access.airps.size() > 1 ||
              r->user.access.airlines.size() >= 1 && r->user.access.airps.size() >= 1 ) )
-    	  NewTextChild( rnode, "airp", ElemIdToElem( etAirp, Qry.FieldAsString( "airp" ) ) );
-      NewTextChild( rnode, "craft", ElemIdToElem( etCraft, Qry.FieldAsString( "craft" ) ) );
+    	  NewTextChild( rnode, "airp", ElemIdToCodeNative( etAirp, Qry.FieldAsString( "airp" ) ) );
+      NewTextChild( rnode, "craft", ElemIdToCodeNative( etCraft, Qry.FieldAsString( "craft" ) ) );
       NewTextChild( rnode, "bort", Qry.FieldAsString( "bort" ) );
       NewTextChild( rnode, "descr", Qry.FieldAsString( "descr" ) );
       NewTextChild( rnode, "classes", Qry.FieldAsString( "classes" ) );

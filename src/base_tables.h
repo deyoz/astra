@@ -28,19 +28,19 @@ class EBaseTableError:public EXCEPTIONS::Exception
 class TBaseTableRow {
   public:
     virtual ~TBaseTableRow() {};
-    virtual const char *get_row_name() = 0;
+    virtual const char *get_row_name() const = 0;
     virtual bool deleted() = 0;
-    virtual std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU)
+    virtual std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU) const
     {
       throw EBaseTableError("%s::AsString: wrong field '%s'",
                              get_row_name(),field.c_str());
     };
-    virtual int AsInteger(std::string field)
+    virtual int AsInteger(std::string field) const
     {
       throw EBaseTableError("%s::AsInteger: wrong field '%s'",
                              get_row_name(),field.c_str());
     };
-    virtual bool AsBoolean(std::string field)
+    virtual bool AsBoolean(std::string field) const
     {
       throw EBaseTableError("%s::AsBoolean: wrong field '%s'",
                              get_row_name(),field.c_str());
@@ -92,7 +92,7 @@ class TNameBaseTableRow: public TBaseTableRow { //name, name_lat
 	public:
 		std::string name, name_lat;
     virtual bool deleted() { return false; };
-    virtual std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU)
+    virtual std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU) const
     {
       if (lowerc(field)=="name") return lang!=AstraLocale::LANG_RU?name_lat:name;
       return TBaseTableRow::AsString(field,lang);
@@ -113,7 +113,7 @@ class TNameBaseTable: public TBaseTable {
 class TIdBaseTableRow : public TNameBaseTableRow {
   public:
     int id;
-    virtual int AsInteger(std::string field)
+    virtual int AsInteger(std::string field) const
     {
       if (lowerc(field)=="id") return id;
       return TNameBaseTableRow::AsInteger(field);
@@ -135,7 +135,7 @@ class TIdBaseTable: public TNameBaseTable {
 class TCodeBaseTableRow : public TNameBaseTableRow {
   public:
     std::string code,code_lat;
-    virtual std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU)
+    virtual std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU) const
     {
       if (lowerc(field)=="code") return lang!=AstraLocale::LANG_RU?code_lat:code;
       return TNameBaseTableRow::AsString(field,lang);
@@ -159,12 +159,12 @@ class TTIDBaseTableRow : public TCodeBaseTableRow {
     int id;
     bool pr_del;
     virtual bool deleted() { return pr_del; };
-    virtual int AsInteger(std::string field)
+    virtual int AsInteger(std::string field) const
     {
       if (lowerc(field)=="id") return id;
       return TCodeBaseTableRow::AsInteger(field);
     };
-    virtual bool AsBoolean(std::string field)
+    virtual bool AsBoolean(std::string field) const
     {
       if (lowerc(field)=="pr_del") return pr_del;
       return TCodeBaseTableRow::AsBoolean(field);
@@ -199,7 +199,7 @@ class TTIDBaseTable: public TCodeBaseTable {
 class TICAOBaseTableRow : public TTIDBaseTableRow {
   public:
     std::string code_icao,code_icao_lat;
-    virtual std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU)
+    virtual std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU) const
     {
       if (lowerc(field)=="code_icao") return lang!=AstraLocale::LANG_RU?code_icao_lat:code_icao;
       return TTIDBaseTableRow::AsString(field,lang);
@@ -221,8 +221,8 @@ class TICAOBaseTable: public TTIDBaseTable {
 class TCountriesRow: public TTIDBaseTableRow {
   public:
     std::string code_iso;
-    const char *get_row_name() { return "TCountriesRow"; };
-    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU)
+    const char *get_row_name() const { return "TCountriesRow"; };
+    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU) const
     {
       if (lowerc(field)=="code_iso") return code_iso;
       return TTIDBaseTableRow::AsString(field,lang);
@@ -244,8 +244,8 @@ class TCountries: public TTIDBaseTable {
 class TAirpsRow: public TICAOBaseTableRow {
   public:
     std::string city;
-    const char *get_row_name() { return "TAirpsRow"; };
-    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU)
+    const char *get_row_name() const { return "TAirpsRow"; };
+    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU) const
     {
       if (lowerc(field)=="city") return city;
       return TICAOBaseTableRow::AsString(field,lang);
@@ -265,8 +265,8 @@ class TAirps: public TICAOBaseTable {
 class TPersTypesRow: public TCodeBaseTableRow {
   public:
     int priority,weight_win,weight_sum;
-    const char *get_row_name() { return "TPersTypesRow"; };
-    int AsInteger(std::string field)
+    const char *get_row_name() const { return "TPersTypesRow"; };
+    int AsInteger(std::string field) const
     {
       if (lowerc(field)=="priority") return priority;
       if (lowerc(field)=="weight_win") return weight_win;
@@ -289,8 +289,8 @@ class TPersTypes: public TCodeBaseTable {
 class TGenderTypesRow: public TCodeBaseTableRow {
   public:
     bool pr_inf;
-    const char *get_row_name() { return "TGenderTypesRow"; };
-    bool AsBoolean(std::string field)
+    const char *get_row_name() const { return "TGenderTypesRow"; };
+    bool AsBoolean(std::string field) const
     {
       if (lowerc(field)=="pr_inf") return pr_inf;
       return TCodeBaseTableRow::AsBoolean(field);
@@ -310,7 +310,7 @@ class TGenderTypes: public TCodeBaseTable {
 
 class TTagColorsRow: public TCodeBaseTableRow {
   public:
-    const char *get_row_name() { return "TTagColorsRow"; };
+    const char *get_row_name() const { return "TTagColorsRow"; };
 };
 
 class TTagColors: public TCodeBaseTable {
@@ -326,7 +326,7 @@ class TTagColors: public TCodeBaseTable {
 
 class TPaxDocTypesRow: public TCodeBaseTableRow {
   public:
-    const char *get_row_name() { return "TPaxDocTypesRow"; };
+    const char *get_row_name() const { return "TPaxDocTypesRow"; };
 };
 
 class TPaxDocTypes: public TCodeBaseTable {
@@ -344,14 +344,14 @@ class TCitiesRow: public TTIDBaseTableRow {
   public:
     std::string country,region;
     int tz;
-    const char *get_row_name() { return "TCitiesRow"; };
-    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU)
+    const char *get_row_name() const { return "TCitiesRow"; };
+    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU) const
     {
       if (lowerc(field)=="country") return country;
       if (lowerc(field)=="region") return region;
       return TTIDBaseTableRow::AsString(field,lang);
     };
-    int AsInteger(std::string field)
+    int AsInteger(std::string field) const
     {
       if (lowerc(field)=="tz") return tz;
       return TTIDBaseTableRow::AsInteger(field);
@@ -400,8 +400,8 @@ class TCities: public TTIDBaseTable {
 class TAirlinesRow: public TICAOBaseTableRow {
   public:
     std::string aircode,short_name,short_name_lat;
-    const char *get_row_name() { return "TAirlinesRow"; };
-    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU)
+    const char *get_row_name() const { return "TAirlinesRow"; };
+    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU) const
     {
       if (lowerc(field)=="short_name") return lang!=AstraLocale::LANG_RU?short_name_lat:short_name;
       if (lowerc(field)=="aircode") return aircode;
@@ -427,8 +427,8 @@ class TAirlines: public TICAOBaseTable {
 class TClassesRow: public TCodeBaseTableRow {
   public:
     int priority;
-    const char *get_row_name() { return "TClassesRow"; };
-    int AsInteger(std::string field)
+    const char *get_row_name() const { return "TClassesRow"; };
+    int AsInteger(std::string field) const
     {
       if (lowerc(field)=="priority") return priority;
       return TCodeBaseTableRow::AsInteger(field);
@@ -449,8 +449,8 @@ class TClasses: public TCodeBaseTable {
 class TSubclsRow: public TCodeBaseTableRow {
   public:
     std::string cl;
-    const char *get_row_name() { return "TSubclsRow"; };
-    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU)
+    const char *get_row_name() const { return "TSubclsRow"; };
+    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU) const
     {
       if (lowerc(field)=="cl") return cl;
       return TCodeBaseTableRow::AsString(field,lang);
@@ -470,7 +470,7 @@ class TSubcls: public TCodeBaseTable {
 
 class TCraftsRow: public TICAOBaseTableRow {
   public:
-    const char *get_row_name() { return "TCraftsRow"; };
+    const char *get_row_name() const { return "TCraftsRow"; };
 };
 
 class TCrafts: public TICAOBaseTable {
@@ -485,7 +485,7 @@ class TCrafts: public TICAOBaseTable {
 
 class TCurrencyRow: public TTIDBaseTableRow {
   public:
-    const char *get_row_name() { return "TCurrencyRow"; };
+    const char *get_row_name() const { return "TCurrencyRow"; };
 };
 
 class TCurrency: public TTIDBaseTable {
@@ -500,7 +500,7 @@ class TCurrency: public TTIDBaseTable {
 
 class TRefusalTypesRow: public TTIDBaseTableRow {
   public:
-    const char *get_row_name() { return "TRefusalTypesRow"; };
+    const char *get_row_name() const { return "TRefusalTypesRow"; };
 };
 
 class TRefusalTypes: public TTIDBaseTable {
@@ -515,7 +515,7 @@ class TRefusalTypes: public TTIDBaseTable {
 
 class TPayTypesRow: public TTIDBaseTableRow {
   public:
-    const char *get_row_name() { return "TPayTypesRow"; };
+    const char *get_row_name() const { return "TPayTypesRow"; };
 };
 
 class TPayTypes: public TTIDBaseTable {
@@ -531,8 +531,8 @@ class TPayTypes: public TTIDBaseTable {
 class TTripTypesRow: public TTIDBaseTableRow {
   public:
     int pr_reg;
-    const char *get_row_name() { return "TTripTypesRow"; };
-    int AsInteger(std::string field)
+    const char *get_row_name() const { return "TTripTypesRow"; };
+    int AsInteger(std::string field) const
     {
       if (lowerc(field)=="pr_reg") return pr_reg;
       return TTIDBaseTableRow::AsInteger(field);
@@ -553,13 +553,13 @@ class TClsGrpRow: public TTIDBaseTableRow {
   public:
     std::string airline,airp,cl;
     int priority;
-    const char *get_row_name() { return "TClsGrpRow"; };
-    int AsInteger(std::string field)
+    const char *get_row_name() const { return "TClsGrpRow"; };
+    int AsInteger(std::string field) const
     {
       if (lowerc(field)=="priority") return priority;
       return TTIDBaseTableRow::AsInteger(field);
     };
-    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU)
+    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU) const
     {
       if (lowerc(field)=="airline") return airline;
       if (lowerc(field)=="airp") return airp;
@@ -580,7 +580,7 @@ class TClsGrp: public TTIDBaseTable {
 
 class TCompElemTypesRow: public TCodeBaseTableRow {
 	public:
-	  const char *get_row_name() { return "TCompElemTypesRow"; };
+	  const char *get_row_name() const { return "TCompElemTypesRow"; };
 };
 
 class TCompElemTypes: public TCodeBaseTable {
@@ -596,7 +596,7 @@ class TCompElemTypes: public TCodeBaseTable {
 
 class TCrs2Row: public TCodeBaseTableRow {
 	public:
-	  const char *get_row_name() { return "TCrs2Row"; };
+	  const char *get_row_name() const { return "TCrs2Row"; };
 };
 
 class TCrs2: public TCodeBaseTable {
@@ -611,7 +611,7 @@ class TCrs2: public TCodeBaseTable {
 
 class TDevModelsRow: public TCodeBaseTableRow {
 	public:
-	  const char *get_row_name() { return "TDevModelsRow"; };
+	  const char *get_row_name() const { return "TDevModelsRow"; };
 };
 
 class TDevModels: public TCodeBaseTable {
@@ -626,7 +626,7 @@ class TDevModels: public TCodeBaseTable {
 
 class TDevSessTypesRow: public TCodeBaseTableRow {
 	public:
-	  const char *get_row_name() { return "TDevSessTypesRow"; };
+	  const char *get_row_name() const { return "TDevSessTypesRow"; };
 };
 
 class TDevSessTypes: public TCodeBaseTable {
@@ -641,7 +641,7 @@ class TDevSessTypes: public TCodeBaseTable {
 
 class TDevFmtTypesRow: public TCodeBaseTableRow {
 	public:
-	  const char *get_row_name() { return "TDevFmtTypesRow"; };
+	  const char *get_row_name() const { return "TDevFmtTypesRow"; };
 };
 
 class TDevFmtTypes: public TCodeBaseTable {
@@ -656,7 +656,7 @@ class TDevFmtTypes: public TCodeBaseTable {
 
 class TDevOperTypesRow: public TCodeBaseTableRow {
 	public:
-	  const char *get_row_name() { return "TDevOperTypesRow"; };
+	  const char *get_row_name() const { return "TDevOperTypesRow"; };
 };
 
 class TDevOperTypes: public TCodeBaseTable {
@@ -673,13 +673,13 @@ class TGrpStatusTypesRow: public TCodeBaseTableRow {
   public:
     std::string layer_type;
     int priority;
-    const char *get_row_name() { return "TGrpStatusTypesRow"; };
-    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU)
+    const char *get_row_name() const { return "TGrpStatusTypesRow"; };
+    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU) const
     {
       if (lowerc(field)=="layer_type") return layer_type;
       return TCodeBaseTableRow::AsString(field,lang);
     };
-    int AsInteger(std::string field)
+    int AsInteger(std::string field) const
     {
       if (lowerc(field)=="priority") return priority;
       return TCodeBaseTableRow::AsInteger(field);
@@ -701,13 +701,13 @@ class TClientTypesRow: public TCodeBaseTableRow {
   public:
     std::string short_name,short_name_lat;
     int priority;
-    const char *get_row_name() { return "TClientTypesRow"; };
-    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU)
+    const char *get_row_name() const { return "TClientTypesRow"; };
+    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU) const
     {
       if (lowerc(field)=="short_name") return lang!=AstraLocale::LANG_RU?short_name_lat:short_name;
       return TCodeBaseTableRow::AsString(field,lang);
     };
-    int AsInteger(std::string field)
+    int AsInteger(std::string field) const
     {
       if (lowerc(field)=="priority") return priority;
       return TCodeBaseTableRow::AsInteger(field);
@@ -728,8 +728,8 @@ class TClientTypes: public TCodeBaseTable {
 class TCompLayerTypesRow: public TCodeBaseTableRow {
   public:
     int priority;
-    const char *get_row_name() { return "TCompLayerTypesRow"; };
-    int AsInteger(std::string field)
+    const char *get_row_name() const { return "TCompLayerTypesRow"; };
+    int AsInteger(std::string field) const
     {
       if (lowerc(field)=="priority") return priority;
       return TCodeBaseTableRow::AsInteger(field);
@@ -751,13 +751,13 @@ class TGraphStagesRow: public TIdBaseTableRow {
 	  public:
     int stage_time;
     bool pr_auto;
-    const char *get_row_name() { return "TGraphStagesRow"; };
-    int AsInteger(std::string field)
+    const char *get_row_name() const { return "TGraphStagesRow"; };
+    int AsInteger(std::string field) const
     {
       if (lowerc(field)=="time") return stage_time;
       return TIdBaseTableRow::AsInteger(field);
     }
-    bool AsBoolean(std::string field)
+    bool AsBoolean(std::string field) const
     {
       if (lowerc(field)=="pr_auto") return pr_auto;
       return TIdBaseTableRow::AsBoolean(field);
@@ -778,7 +778,7 @@ class TGraphStages: public TIdBaseTable {
 
 class TBagNormTypesRow: public TCodeBaseTableRow {
 	public:
-    const char *get_row_name() { return "TBagNormTypesRow"; };
+    const char *get_row_name() const { return "TBagNormTypesRow"; };
 };
 
 class TBagNormTypes: public TCodeBaseTable {

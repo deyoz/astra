@@ -1289,16 +1289,16 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger(col_rk_weight));
                 NewTextChild(paxNode, "excess", Qry.FieldAsInteger(col_excess));
                 NewTextChild(paxNode, "grp_id", Qry.FieldAsInteger(col_grp_id));
-                NewTextChild(paxNode, "airp_arv", ElemIdToElem(etAirp, Qry.FieldAsString(col_airp_arv)));
+                NewTextChild(paxNode, "airp_arv", ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp_arv)));
                 NewTextChild(paxNode, "tags", Qry.FieldAsString(col_tags));
                 string status;
                 if(Qry.FieldIsNULL(col_refuse))
                     status = getLocaleText(Qry.FieldAsInteger(col_pr_brd) == 0 ? "Зарег." : "Посаж.");
                 else
                     status = getLocaleText("MSG.CANCEL_REG.REFUSAL",
-                            LParams() << LParam("refusal", ElemIdToElem(etRefusalType, Qry.FieldAsString(col_refuse))));
+                            LParams() << LParam("refusal", ElemIdToCodeNative(etRefusalType, Qry.FieldAsString(col_refuse))));
                 NewTextChild(paxNode, "status", status);
-                NewTextChild(paxNode, "class", ElemIdToElem(etClass, Qry.FieldAsString(col_class)));
+                NewTextChild(paxNode, "class", ElemIdToCodeNative(etClass, Qry.FieldAsString(col_class)));
                 NewTextChild(paxNode, "seat_no", Qry.FieldAsString(col_seat_no));
                 NewTextChild(paxNode, "document", Qry.FieldAsString(col_document));
                 NewTextChild(paxNode, "ticket_no", Qry.FieldAsString(col_ticket_no));
@@ -1430,7 +1430,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
             NewTextChild(paxNode, "excess", Qry.FieldAsInteger("excess"));
             NewTextChild(paxNode, "grp_id", Qry.FieldAsInteger("grp_id"));
-            NewTextChild(paxNode, "airp_arv", ElemIdToElem(etAirp, Qry.FieldAsString("airp_arv")));
+            NewTextChild(paxNode, "airp_arv", ElemIdToCodeNative(etAirp, Qry.FieldAsString("airp_arv")));
             NewTextChild(paxNode, "tags", Qry.FieldAsString("tags"));
             NewTextChild(paxNode, "status");
             NewTextChild(paxNode, "class");
@@ -1607,7 +1607,7 @@ void TStatPlaces::set(string aval, bool pr_locale)
         }
         tokens.push_back(aval);
         for(vector<string>::iterator is = tokens.begin(); is != tokens.end(); is++)
-            result += (result.empty() ? "" : "-") + ElemIdToElem(etAirp, *is);
+            result += (result.empty() ? "" : "-") + ElemIdToCodeNative(etAirp, *is);
     } else
         result = aval;
 }
@@ -2153,12 +2153,12 @@ void RunTrferFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
                 key.seance = Qry.FieldAsString(col_seance);
                 key.airp = Qry.FieldAsString(col_airp);
                 if(!params.ap.empty()) {
-                    key.col1 = ElemIdToElem(etAirp, Qry.FieldAsString(col_airp));
-                    key.col2 = ElemIdToElem(etAirline, Qry.FieldAsString(col_airline));
+                    key.col1 = ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp));
+                    key.col2 = ElemIdToCodeNative(etAirline, Qry.FieldAsString(col_airline));
                     airline.check(key.col2);
                 } else {
-                    key.col1 = ElemIdToElem(etAirline, Qry.FieldAsString(col_airline));
-                    key.col2 = ElemIdToElem(etAirp, Qry.FieldAsString(col_airp));
+                    key.col1 = ElemIdToCodeNative(etAirline, Qry.FieldAsString(col_airline));
+                    key.col2 = ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp));
                     airline.check(key.col1);
                 }
                 key.flt_no = Qry.FieldAsInteger(col_flt_no);
@@ -2387,12 +2387,12 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
                 key.seance = Qry.FieldAsString(col_seance);
                 key.airp = Qry.FieldAsString(col_airp);
                 if(!params.ap.empty()) {
-                    key.col1 = ElemIdToElem(etAirp, Qry.FieldAsString(col_airp));
-                    key.col2 = ElemIdToElem(etAirline, Qry.FieldAsString(col_airline));
+                    key.col1 = ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp));
+                    key.col2 = ElemIdToCodeNative(etAirline, Qry.FieldAsString(col_airline));
                     airline.check(key.col2);
                 } else {
-                    key.col1 = ElemIdToElem(etAirline, Qry.FieldAsString(col_airline));
-                    key.col2 = ElemIdToElem(etAirp, Qry.FieldAsString(col_airp));
+                    key.col1 = ElemIdToCodeNative(etAirline, Qry.FieldAsString(col_airline));
+                    key.col2 = ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp));
                     airline.check(key.col1);
                 }
                 key.flt_no = Qry.FieldAsInteger(col_flt_no);
@@ -2697,7 +2697,7 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         for(; !Qry.Eof; Qry.Next()) {
             TShortStatKey key;
             key.seance = Qry.FieldAsString(0);
-            key.col1 = ElemIdToElem((params.ap.size() ? etAirp: etAirline), Qry.FieldAsString(1));
+            key.col1 = ElemIdToCodeNative((params.ap.size() ? etAirp: etAirline), Qry.FieldAsString(1));
             if(params.ap.empty())
                 airline.check(key.col1);
             TShortStatRow &row = ShortStat[key];
@@ -2834,12 +2834,12 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
             TDetailStatKey key;
             key.seance = Qry.FieldAsString("seance");
             if(!params.ap.empty()) {
-                key.col1 = ElemIdToElem(etAirp, Qry.FieldAsString("airp"));
-                key.col2 = ElemIdToElem(etAirline, Qry.FieldAsString("airline"));
+                key.col1 = ElemIdToCodeNative(etAirp, Qry.FieldAsString("airp"));
+                key.col2 = ElemIdToCodeNative(etAirline, Qry.FieldAsString("airline"));
                 airline.check(key.col2);
             } else {
-                key.col1 = ElemIdToElem(etAirline, Qry.FieldAsString("airline"));
-                key.col2 = ElemIdToElem(etAirp, Qry.FieldAsString("airp"));
+                key.col1 = ElemIdToCodeNative(etAirline, Qry.FieldAsString("airline"));
+                key.col2 = ElemIdToCodeNative(etAirp, Qry.FieldAsString("airp"));
                 airline.check(key.col1);
             }
             TShortStatRow &row = DetailStat[key];

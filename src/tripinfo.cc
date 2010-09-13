@@ -630,7 +630,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   NewTextChild( node, "classes", Qry.FieldAsString( "classes" ) );
   NewTextChild( node, "route", Qry.FieldAsString( "route" ) );
   NewTextChild( node, "places", Qry.FieldAsString( "route" ) );
-  NewTextChild( node, "trip_type", ElemIdToElem(etTripType,Qry.FieldAsString( "trip_type" )) );
+  NewTextChild( node, "trip_type", ElemIdToCodeNative(etTripType,Qry.FieldAsString( "trip_type" )) );
   NewTextChild( node, "litera", Qry.FieldAsString( "litera" ) );
   NewTextChild( node, "remark", Qry.FieldAsString( "remark" ) );
   NewTextChild( node, "pr_tranzit", (int)Qry.FieldAsInteger( "pr_tranzit" )!=0 );
@@ -1356,13 +1356,13 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
 
     if (pr_class)
     {
-      NewTextChild(rowNode,"class",ElemIdToElem(etClass,Qry.FieldAsString("class")));
+      NewTextChild(rowNode,"class",ElemIdToCodeNative(etClass,Qry.FieldAsString("class")));
       if (Qry.FieldIsNULL("class"))
         ReplaceTextChild(rowNode,"title",AstraLocale::getLocaleText("Несопр"));
     };
     if (pr_cl_grp)
     {
-      node=NewTextChild(rowNode,"cl_grp",ElemIdToElem(etClass,Qry.FieldAsString("cl_grp_code")));
+      node=NewTextChild(rowNode,"cl_grp",ElemIdToCodeNative(etClass,Qry.FieldAsString("cl_grp_code")));
       SetProp(node,"id",Qry.FieldAsInteger("cl_grp_id"));
       if (Qry.FieldIsNULL("cl_grp_id"))
         ReplaceTextChild(rowNode,"title",AstraLocale::getLocaleText("Несопр"));
@@ -1377,7 +1377,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     };
     if (pr_airp_arv)
     {
-      node=NewTextChild(rowNode,"airp_arv",ElemIdToElem(etAirp,Qry.FieldAsString("airp_arv")));
+      node=NewTextChild(rowNode,"airp_arv",ElemIdToCodeNative(etAirp,Qry.FieldAsString("airp_arv")));
       SetProp(node,"id",Qry.FieldAsInteger("point_arv"));
     };
     if (pr_trfer)
@@ -1392,12 +1392,12 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     };
     if (pr_client_type)
     {
-      node=NewTextChild(rowNode,"client_type",ElemIdToElemShortName(etClientType,Qry.FieldAsString("client_type")));
+      node=NewTextChild(rowNode,"client_type",ElemIdToNameShort(etClientType,Qry.FieldAsString("client_type")));
       SetProp(node,"id",(int)DecodeClientType(Qry.FieldAsString("client_type")));
     };
     if (pr_status)
     {
-      node=NewTextChild(rowNode,"status",ElemIdToElemName(etGrpStatusType,Qry.FieldAsString("status")));
+      node=NewTextChild(rowNode,"status",ElemIdToNameLong(etGrpStatusType,Qry.FieldAsString("status")));
       SetProp(node,"id",(int)DecodePaxStatus(Qry.FieldAsString("status")));
     };
     if (pr_ticket_rem)
@@ -1527,8 +1527,8 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   Qry.Execute();
   if (Qry.Eof) return;
 
-  string def_pers_type=ElemIdToElem(etPersType, EncodePerson(ASTRA::adult));
-  string def_class=ElemIdToElem(etClass, EncodeClass(ASTRA::Y));
+  string def_pers_type=ElemIdToCodeNative(etPersType, EncodePerson(ASTRA::adult));
+  string def_class=ElemIdToCodeNative(etClass, EncodeClass(ASTRA::Y));
   string def_status=EncodePaxStatus(ASTRA::psCheckin);
 
   xmlNodePtr defNode = NewTextChild( dataNode, "defaults" );
@@ -1598,11 +1598,11 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
       TlgTripsQry.Execute();
       if (TlgTripsQry.Eof) throw AstraLocale::UserException("MSG.FLT.NOT_FOUND.REPEAT_QRY");
       ostringstream trip;
-      trip << ElemIdToElem(etAirline,TlgTripsQry.FieldAsString("airline") ) //!!!
+      trip << ElemIdToCodeNative(etAirline,TlgTripsQry.FieldAsString("airline") ) //!!!
            << setw(3) << setfill('0') << TlgTripsQry.FieldAsInteger("flt_no")
-           << ElemIdToElem(etSuffix,TlgTripsQry.FieldAsString("suffix")) //!!!
+           << ElemIdToCodeNative(etSuffix,TlgTripsQry.FieldAsString("suffix")) //!!!
            << "/" << DateTimeToStr(TlgTripsQry.FieldAsDateTime("scd"),"ddmmm",TReqInfo::Instance()->desk.lang!="RU") //!!!
-           << " " << ElemIdToElem(etAirp,TlgTripsQry.FieldAsString("airp_dep")); //!!!
+           << " " << ElemIdToCodeNative(etAirp,TlgTripsQry.FieldAsString("airp_dep")); //!!!
       NewTextChild(tripNode,"name",trip.str());
       paxNode = NewTextChild(tripNode,"passengers");
     };
@@ -1612,21 +1612,21 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     NewTextChild( node, "pnr_status", Qry.FieldAsString( col_pnr_status ), "" );
     NewTextChild( node, "pnr_priority", Qry.FieldAsString( col_pnr_priority ), "" );
     NewTextChild( node, "full_name", Qry.FieldAsString( col_full_name ) );
-    NewTextChild( node, "pers_type", ElemIdToElem(etPersType,Qry.FieldAsString( col_pers_type )), def_pers_type );
-    NewTextChild( node, "class", ElemIdToElem(etClass,Qry.FieldAsString( col_class )), def_class );
-    NewTextChild( node, "subclass", ElemIdToElem(etSubcls,Qry.FieldAsString( col_subclass ) ));
+    NewTextChild( node, "pers_type", ElemIdToCodeNative(etPersType,Qry.FieldAsString( col_pers_type )), def_pers_type );
+    NewTextChild( node, "class", ElemIdToCodeNative(etClass,Qry.FieldAsString( col_class )), def_class );
+    NewTextChild( node, "subclass", ElemIdToCodeNative(etSubcls,Qry.FieldAsString( col_subclass ) ));
     NewTextChild( node, "seats", Qry.FieldAsInteger( col_seats ), 1 );
-    NewTextChild( node, "target", ElemIdToElem(etAirp,Qry.FieldAsString( col_target ) ));
+    NewTextChild( node, "target", ElemIdToCodeNative(etAirp,Qry.FieldAsString( col_target ) ));
     if (!Qry.FieldIsNULL(col_last_target))
     {
       try
       {
         TAirpsRow &row=(TAirpsRow&)(base_tables.get("airps").get_row("code/code_lat",Qry.FieldAsString( col_last_target )));
-        NewTextChild( node, "last_target", ElemIdToElem(etAirp,row.code));
+        NewTextChild( node, "last_target", ElemIdToCodeNative(etAirp,row.code));
       }
       catch(EBaseTableError)
       {
-        NewTextChild( node, "last_target", ElemIdToElem(etAirp,Qry.FieldAsString( col_last_target ) ));
+        NewTextChild( node, "last_target", ElemIdToCodeNative(etAirp,Qry.FieldAsString( col_last_target ) ));
       };
     };
 

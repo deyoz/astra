@@ -39,29 +39,50 @@ struct TLogMsg {
 
 enum TUserType { utSupport=0, utAirport=1, utAirline=2 };
 enum TUserSettingType { ustTimeUTC=0, ustTimeLocalDesk=1, ustTimeLocalAirp=2,
-                        ustCodeNative=5, ustCodeIATA=6,
-                        ustCodeNativeICAO=7, ustCodeIATAICAO=8, ustCodeMixed=9,
+                        ustCodeNative=5, ustCodeInter=6,
+                        ustCodeICAONative=7, ustCodeICAOInter=8, ustCodeMixed=9,
                         ustEncNative=15, ustEncLatin=16, ustEncMixed=17 };
 
 enum TElemType { etCountry,etCity,etAirline,etAirp,etCraft,etClass,etSubcls,
                  etPersType,etGenderType,etPaxDocType,etPayType,etCurrency,
                  etRefusalType,etSuffix,etClsGrp,etTripType, etCompElemType,
                  etGrpStatusType,etClientType,etCompLayerType,etCrs,
-                 etDevModel,etDevSessType,etDevFmtType,etDevOperType };
+                 etDevModel,etDevSessType,etDevFmtType,etDevOperType,
+                 etGraphStage };
 enum TElemContext { ecDisp, ecCkin, ecTrfer, ecTlgTypeB, ecNone };
+
 //форматы:
-//  fmt=0 вн.код (рус. кодировка)
-//  fmt=1 IATA код (лат. кодировка)
-//  fmt=2 код ИКАО вн.
-//  fmt=3 код ИKAO IATA
-//  fmt=4 код ISO
-std::string ElemToElemId(TElemType type, std::string code, int &fmt, bool with_deleted=false);
+enum TElemFmt {efmtUnknown=-1,
+               efmtCodeNative=0,     //вн. код IATA
+               efmtCodeInter=1,      //меж. код IATA
+               efmtCodeICAONative=2, //вн. код ICAO
+               efmtCodeICAOInter=3,  //меж. код ICAO
+               efmtCodeISOInter=4,   //меж. код ISO
+               efmtNameLong=10,      //длинное название
+               efmtNameShort=12};    //сокращенное название
+
+std::string ElemToElemId(TElemType type, const std::string &elem, TElemFmt &fmt, const std::string &lang, bool with_deleted=false);
+std::string ElemToElemId(TElemType type, const std::string &elem, TElemFmt &fmt, bool with_deleted=false);
 
 
+std::string ElemIdToElem(TElemType type, const std::string &id, TElemFmt fmt, const std::string &lang, bool with_deleted=true);
+std::string ElemIdToElem(TElemType type, int id, TElemFmt fmt, const std::string &lang, bool with_deleted=true);
+std::string ElemIdToClientElem(TElemType type, const std::string &id, TElemFmt fmt, bool with_deleted=true);
+
+
+std::string ElemIdToCodeNative(TElemType type, const std::string &id);
+std::string ElemIdToCodeNative(TElemType type, int id);
+std::string ElemIdToNameLong(TElemType type, const std::string &id);
+std::string ElemIdToNameLong(TElemType type, int id);
+std::string ElemIdToNameShort(TElemType type, const std::string &id);
+std::string ElemIdToNameShort(TElemType type, int id);
+
+TElemFmt prLatToElemFmt(TElemFmt fmt, bool pr_lat);
+/*
 //1. пытается найти по id значение code, если не найдено, возвращается id
 //   Если язык не русский то fmt приводится соответственно к 1 и 3
 std::string ElemIdToElem(TElemType type, std::string id, int fmt, bool with_deleted=true);
-//2. вызывается 1. с параметром fmt=0, with_deleted-по умолчанию=true */
+//2. вызывается 1. с параметром fmt=0, with_deleted-по умолчанию=true
 std::string ElemIdToElem(TElemType type, std::string id);
 // внимание 3+4 было объединено в одну функцию
 //3. пытается найти по id значение name, если не найдено, возвращается id
@@ -69,9 +90,10 @@ std::string ElemIdToElemName(TElemType type, std::string id);
 //>>>std::string ElemIdToElemShortName(TElemType type, int id);
 //4. пытается найти по id значение short_name, если не найдено, возвращается id
 std::string ElemIdToElemShortName(TElemType type, std::string id);
+*/
 
 
-std::string ElemIdToElem(TElemType type, int id, int fmt, bool with_deleted=true);
+//std::string ElemIdToElem(TElemType type, int id, int fmt, bool with_deleted=true);
 
 //перекодировки в контексте
 std::string ElemCtxtToElemId(TElemContext ctxt,TElemType type, std::string code,
@@ -79,7 +101,7 @@ std::string ElemCtxtToElemId(TElemContext ctxt,TElemType type, std::string code,
 std::string ElemIdToElemCtxt( TElemContext ctxt,TElemType type, std::string id,
                              int fmt, bool with_deleted=true);
 
-std::string ElemIdToElem(TElemType type, std::string id, int fmt, int only_lat, bool with_deleted=true);
+//std::string ElemIdToElem(TElemType type, std::string id, int fmt, int only_lat, bool with_deleted=true);
 
 template <class T>
 class BitSet

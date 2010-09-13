@@ -21,14 +21,15 @@ struct TReferCacheTable
   TElemType ElemType;
 };
 
-const TReferCacheTable ReferCacheTable[8] = { {"COUNTRIES",  etCountry},
-                                              {"CITIES",     etCity},
-                                              {"AIRLINES",   etAirline},
-                                              {"AIRPS",      etAirp},
-                                              {"CRAFTS",     etCraft},
-                                              {"CLASSES",    etClass},
-                                              {"SUBCLS",     etSubcls},
-                                              {"TRIP_TYPES", etTripType} };
+const TReferCacheTable ReferCacheTable[9] = { {"COUNTRIES",       etCountry},
+                                              {"CITIES",          etCity},
+                                              {"AIRLINES",        etAirline},
+                                              {"AIRPS",           etAirp},
+                                              {"CRAFTS",          etCraft},
+                                              {"CLASSES",         etClass},
+                                              {"SUBCLS",          etSubcls},
+                                              {"TRIP_TYPES",      etTripType},
+                                              {"GRAPH_STAGES",    etGraphStage} };
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -494,8 +495,8 @@ bool TCacheTable::refreshData()
                 {
                   switch (i->ElemCategory)
                   {
-                  //  case cecCode: row.cols.push_back( ElemIdToElem( i->ElemType, Qry->FieldAsInteger( vecFieldIdx[ j ] ) ) ) ); break;
-                  //  case cecName: row.cols.push_back( ElemIdToElemName( i->ElemType, Qry->FieldAsInteger( vecFieldIdx[ j ] ) ) ) ); break;
+                    case cecCode: row.cols.push_back( ElemIdToCodeNative( i->ElemType, Qry->FieldAsInteger( vecFieldIdx[ j ] ) ) ); break;
+                    case cecName: row.cols.push_back( ElemIdToNameLong( i->ElemType, Qry->FieldAsInteger( vecFieldIdx[ j ] ) ) ); break;
                          default: row.cols.push_back( IntToString( Qry->FieldAsInteger( vecFieldIdx[ j ] ) ) ); break;
                   };
                 };
@@ -506,8 +507,8 @@ bool TCacheTable::refreshData()
               default:
                   switch (i->ElemCategory)
                   {
-                    case cecCode: row.cols.push_back( ElemIdToElem( i->ElemType, Qry->FieldAsString(vecFieldIdx[ j ]) ) ); break;
-                    case cecName: row.cols.push_back( ElemIdToElemName( i->ElemType, Qry->FieldAsString(vecFieldIdx[ j ]) ) ); break;
+                    case cecCode: row.cols.push_back( ElemIdToCodeNative( i->ElemType, Qry->FieldAsString(vecFieldIdx[ j ]) ) ); break;
+                    case cecName: row.cols.push_back( ElemIdToNameLong( i->ElemType, Qry->FieldAsString(vecFieldIdx[ j ] ) ) ); break;
                          default: row.cols.push_back( Qry->FieldAsString(vecFieldIdx[ j ]) ); break;
                   };
                   break;

@@ -79,11 +79,11 @@ string TLastTrferInfo::str()
 {
   ostringstream trip;
   if (IsNULL()) return "";
-  trip << ElemIdToElem(etAirp, airp_arv)
+  trip << ElemIdToCodeNative(etAirp, airp_arv)
        << '('
-       << ElemIdToElem(etAirline, airline)
+       << ElemIdToCodeNative(etAirline, airline)
        << setw(3) << setfill('0') << flt_no
-       << ElemIdToElem(etSuffix, suffix)
+       << ElemIdToCodeNative(etSuffix, suffix)
        << ')';
   return trip.str();
 };
@@ -863,13 +863,13 @@ string GetMktFlightStr( const TTripInfo &operFlt, const TTripInfo &markFlt )
   modf(scd_local_mark,&scd_local_mark);
 
   ostringstream trip;
-  trip << ElemIdToElem(etAirline, markFlt.airline)
+  trip << ElemIdToCodeNative(etAirline, markFlt.airline)
        << setw(3) << setfill('0') << markFlt.flt_no
-       << ElemIdToElem(etSuffix, markFlt.suffix);
+       << ElemIdToCodeNative(etSuffix, markFlt.suffix);
   if (scd_local_oper!=scd_local_mark)
     trip << "/" << DateTimeToStr(markFlt.scd_out,"dd");
   if (operFlt.airp!=markFlt.airp)
-    trip << " " << ElemIdToElem(etAirp, markFlt.airp);
+    trip << " " << ElemIdToCodeNative(etAirp, markFlt.airp);
   return trip.str();
 };
 

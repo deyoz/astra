@@ -83,6 +83,8 @@ struct TTlgInfo {
     std::string extra;
     //разные настройки
     bool pr_lat;
+    TElemFmt elem_fmt;
+    std::string lang;
     bool operator == (const TMktFlight &s) const;
     /*TTlgInfo(const TCodeShareInfo &aCodeShareInfo): mark_info(aCodeShareInfo) {
     	TTlgInfo();

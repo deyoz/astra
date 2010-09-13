@@ -982,7 +982,7 @@ string PrintDataParser::t_field_map::FQT(bool pr_lat)
         Qry.CreateVariable("pax_id", otInteger, di->second.IntegerVal);
         Qry.Execute();
         if(!Qry.Eof) {
-            result += ElemIdToElem(etAirline, Qry.FieldAsString("airline"), pr_lat) + " " +Qry.FieldAsString("no");
+            result += ElemIdToClientElem(etAirline, Qry.FieldAsString("airline"), prLatToElemFmt(efmtCodeNative, pr_lat)) + " " +Qry.FieldAsString("no");
             if(not Qry.FieldIsNULL("extra")) {
                 result += " " + transliter(Qry.FieldAsString("extra"), 1, pr_lat);
             }

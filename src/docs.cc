@@ -1175,9 +1175,9 @@ void PTM(const TRptParams &rpt_params, xmlNodePtr resNode)
     Qry.Execute();
     if(Qry.Eof) throw Exception("RunPM: variables fetch failed for point_id " + IntToString(rpt_params.point_id));
 
-    int airline_fmt = Qry.FieldAsInteger("airline_fmt");
-    int suffix_fmt = Qry.FieldAsInteger("suffix_fmt");
-    int craft_fmt = Qry.FieldAsInteger("craft_fmt");
+    TElemFmt airline_fmt = (TElemFmt)Qry.FieldAsInteger("airline_fmt");
+    TElemFmt suffix_fmt = (TElemFmt)Qry.FieldAsInteger("suffix_fmt");
+    TElemFmt craft_fmt = (TElemFmt)Qry.FieldAsInteger("craft_fmt");
 
     string airp = Qry.FieldAsString("airp");
     string airline, suffix;
@@ -1190,6 +1190,9 @@ void PTM(const TRptParams &rpt_params, xmlNodePtr resNode)
         airline = rpt_params.mkt_flt.airline;
         flt_no = rpt_params.mkt_flt.flt_no;
         suffix = rpt_params.mkt_flt.suffix;
+        airline_fmt = efmtCodeNative;
+        suffix_fmt = efmtCodeNative;
+        craft_fmt = efmtCodeNative;
     }
     string craft = Qry.FieldAsString("craft");
     string tz_region = AirpTZRegion(Qry.FieldAsString("airp"));
@@ -1208,12 +1211,12 @@ void PTM(const TRptParams &rpt_params, xmlNodePtr resNode)
     NewTextChild(variablesNode, "airline_name", airlineRow.AsString("name", pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU));
 
     NewTextChild(variablesNode, "flt",
-            ElemIdToElem(etAirline, airline, airline_fmt, pr_lat) +
+            ElemIdToClientElem(etAirline, airline, prLatToElemFmt(airline_fmt, pr_lat)) +
             IntToString(flt_no) +
-            ElemIdToElem(etSuffix, suffix, suffix_fmt, pr_lat)
+            ElemIdToClientElem(etSuffix, suffix, prLatToElemFmt(suffix_fmt, pr_lat))
             );
     NewTextChild(variablesNode, "bort", Qry.FieldAsString("bort"));
-    NewTextChild(variablesNode, "craft", ElemIdToElem(etCraft, craft, craft_fmt, pr_lat)); //???
+    NewTextChild(variablesNode, "craft", ElemIdToClientElem(etCraft, craft, prLatToElemFmt(craft_fmt, pr_lat))); //???
     NewTextChild(variablesNode, "park", Qry.FieldAsString("park"));
     TDateTime scd_out = UTCToLocal(Qry.FieldAsDateTime("scd_out"), tz_region);
     NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm", pr_lat));
@@ -1616,9 +1619,9 @@ void BTM(const TRptParams &rpt_params, xmlNodePtr resNode)
     Qry.Execute();
     if(Qry.Eof) throw Exception("RunBM: variables fetch failed for point_id " + IntToString(rpt_params.point_id));
 
-    int airline_fmt = Qry.FieldAsInteger("airline_fmt");
-    int suffix_fmt = Qry.FieldAsInteger("suffix_fmt");
-    int craft_fmt = Qry.FieldAsInteger("craft_fmt");
+    TElemFmt airline_fmt = (TElemFmt)Qry.FieldAsInteger("airline_fmt");
+    TElemFmt suffix_fmt = (TElemFmt)Qry.FieldAsInteger("suffix_fmt");
+    TElemFmt craft_fmt = (TElemFmt)Qry.FieldAsInteger("craft_fmt");
 
     string airline, suffix;
     int flt_no = NoExists;
@@ -1643,12 +1646,12 @@ void BTM(const TRptParams &rpt_params, xmlNodePtr resNode)
     NewTextChild(variablesNode, "airp_dep_name", airpRow.AsString("name", pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU));
     NewTextChild(variablesNode, "airline_name", airlineRow.AsString("name", pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU));
     NewTextChild(variablesNode, "flt",
-            ElemIdToElem(etAirline, airline, airline_fmt, pr_lat) +
+            ElemIdToClientElem(etAirline, airline, prLatToElemFmt(airline_fmt, pr_lat)) +
             IntToString(flt_no) +
-            ElemIdToElem(etSuffix, suffix, suffix_fmt, pr_lat)
+            ElemIdToClientElem(etSuffix, suffix, prLatToElemFmt(suffix_fmt, pr_lat))
             );
     NewTextChild(variablesNode, "bort", Qry.FieldAsString("bort"));
-    NewTextChild(variablesNode, "craft", ElemIdToElem(etCraft, craft, craft_fmt, pr_lat));
+    NewTextChild(variablesNode, "craft", ElemIdToClientElem(etCraft, craft, prLatToElemFmt(craft_fmt, pr_lat)));
     NewTextChild(variablesNode, "park", Qry.FieldAsString("park"));
     TDateTime scd_out = UTCToLocal(Qry.FieldAsDateTime("scd_out"), tz_region);
     NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm", pr_lat));
@@ -2772,7 +2775,7 @@ void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
                 << right << setw(3) << (row == 0 ? NodeAsString("reg_no", rowNode) : "") << col_sym
                 << left << setw(pr_web ? 18 : 20) << (!fields["surname"].empty() ? *(fields["surname"].begin()) : "") << col_sym
                 << left << setw(8) << (!fields["user_descr"].empty() ? *(fields["user_descr"].begin()) : "") << col_sym
-                << right <<  setw(3) << (row == 0 ? NodeAsString("pers_type", rowNode, ElemIdToElem(etPersType, "ВЗ").c_str()) : "") << col_sym;
+                << right <<  setw(3) << (row == 0 ? NodeAsString("pers_type", rowNode, ElemIdToCodeNative(etPersType, EncodePerson(adult)).c_str()) : "") << col_sym;
             if(pr_web) {
                 s
                     << left <<  setw(8) << (row == 0 ? NodeAsString("seat_no", rowNode, "") : "") << col_sym;
@@ -2815,12 +2818,12 @@ void WEBTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 
 void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    int fmt;
+    TElemFmt fmt;
     xmlNodePtr node = reqNode->children;
     TRptParams rpt_params;
     rpt_params.point_id = NodeAsIntegerFast("point_id", node);
     rpt_params.rpt_type = DecodeRptType(NodeAsStringFast("rpt_type", node));
-    rpt_params.airp_arv = ElemToElemId(etAirp, NodeAsStringFast("airp_arv", node, ""), fmt);
+    rpt_params.airp_arv = ElemToElemId(etAirp, NodeAsStringFast("airp_arv", node, ""), fmt);  //!!!den а где проверка fmt?
     rpt_params.ckin_zone = NodeAsStringFast("ckin_zone", node, " ");
     rpt_params.pr_et = NodeAsIntegerFast("pr_et", node, 0) != 0;
     rpt_params.pr_trfer = NodeAsIntegerFast("pr_trfer", node, 0) != 0;

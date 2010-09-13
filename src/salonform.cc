@@ -115,19 +115,19 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     	comp.craft = Qry.FieldAsString("craft");
     	comp.bort = Qry.FieldAsString("bort");
     	if (Qry.FieldAsInteger("f")) {
-    	  comp.classes += ElemIdToElem(etClass,"");
+    	  comp.classes += ElemIdToCodeNative(etClass,"");
     	  comp.classes += IntToString(Qry.FieldAsInteger("f"));
     	};
     	if (Qry.FieldAsInteger("c")) {
     		if ( !comp.classes.empty() )
     			comp.classes += " ";
-    	  comp.classes += ElemIdToElem(etClass,"");
+    	  comp.classes += ElemIdToCodeNative(etClass,"");
     	  comp.classes += IntToString(Qry.FieldAsInteger("c"));
       }
     	if (Qry.FieldAsInteger("y")) {
     		if ( !comp.classes.empty() )
     			comp.classes += " ";
-    	  comp.classes += ElemIdToElem(etClass,"");
+    	  comp.classes += ElemIdToCodeNative(etClass,"");
     	  comp.classes += IntToString(Qry.FieldAsInteger("y"));
       }
 	    comp.pr_comp = 1;
@@ -173,9 +173,9 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
       		compsNode = NewTextChild( dataNode, "comps"  );
          xmlNodePtr compNode = NewTextChild( compsNode, "comp" );
         if ( !i->airline.empty() )
-         	StrVal = ElemIdToElem(etAirline,i->airline);
+         	StrVal = ElemIdToCodeNative(etAirline,i->airline);
          else
-        	StrVal = ElemIdToElem(etAirp,i->airp);
+        	StrVal = ElemIdToCodeNative(etAirp,i->airp);
         if ( StrVal.length() == 2 )
           StrVal += "  ";
         else
@@ -628,7 +628,7 @@ void SalonFormInterface::WaitList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
       while ( !Qry.Eof ) {
       	xmlNodePtr lNode = NewTextChild( dataNode, "status" );
       	SetProp( lNode, "code", Qry.FieldAsString( "code" ) );
-      	SetProp( lNode, "name", ElemIdToElemName(etGrpStatusType,Qry.FieldAsString( "code" )) );
+      	SetProp( lNode, "name", ElemIdToNameLong(etGrpStatusType,Qry.FieldAsString( "code" )) );
       	SetProp( lNode, "layer_type", Qry.FieldAsString( "layer_type" ) );
       	Qry.Next();
       }

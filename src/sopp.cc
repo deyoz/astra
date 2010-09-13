@@ -1052,7 +1052,7 @@ void buildSOPP( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
     if ( fact_in > NoExists )
       NewTextChild( tripNode, "act_in", DateTimeToStr( fact_in, ServerFormatDateTimeAsString ) );
     if ( tr->triptype_in != tr->triptype_out && !tr->triptype_in.empty() )
-      NewTextChild( tripNode, "triptype_in", ElemIdToElem(etTripType,tr->triptype_in) );
+      NewTextChild( tripNode, "triptype_in", ElemIdToCodeNative(etTripType,tr->triptype_in) );
     if ( tr->litera_in != tr->litera_out && !tr->litera_in.empty() )
       NewTextChild( tripNode, "litera_in", tr->litera_in );
     if ( !tr->park_in.empty() )
@@ -1090,7 +1090,7 @@ void buildSOPP( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
     if ( fact_out > NoExists )
       NewTextChild( tripNode, "act_out", DateTimeToStr( fact_out, ServerFormatDateTimeAsString ) );
     if ( !tr->triptype_out.empty() )
-      NewTextChild( tripNode, "triptype_out", ElemIdToElem(etTripType,tr->triptype_out) );
+      NewTextChild( tripNode, "triptype_out", ElemIdToCodeNative(etTripType,tr->triptype_out) );
     if ( !tr->litera_out.empty() )
       NewTextChild( tripNode, "litera_out", tr->litera_out );
     if ( !tr->park_out.empty() )
@@ -1123,7 +1123,7 @@ void buildSOPP( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
     if ( !tr->classes.empty() ) {
     	lNode = NewTextChild( tripNode, "classes" );
     	for ( vector<TSoppClass>::iterator icl=tr->classes.begin(); icl!=tr->classes.end(); icl++ ) {
-    		SetProp( NewTextChild( lNode, "class", ElemIdToElem( etClass, icl->cl ) ), "cfg", icl->cfg );
+    		SetProp( NewTextChild( lNode, "class", ElemIdToCodeNative( etClass, icl->cl ) ), "cfg", icl->cfg );
     	}
     }
     if ( tr->reg )
@@ -1293,7 +1293,7 @@ void buildISG( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
     if ( fact_in > NoExists )
       NewTextChild( tripNode, "act_in", DateTimeToStr( fact_in, ServerFormatDateTimeAsString ) );
     if ( tr->triptype_in != tr->triptype_out && !tr->triptype_in.empty() )
-      NewTextChild( tripNode, "triptype_in", ElemIdToElem(etTripType,tr->triptype_in) );
+      NewTextChild( tripNode, "triptype_in", ElemIdToCodeNative(etTripType,tr->triptype_in) );
     if ( tr->litera_in != tr->litera_out && !tr->litera_in.empty() )
       NewTextChild( tripNode, "litera_in", tr->litera_in );
     if ( !tr->park_in.empty() )
@@ -1362,7 +1362,7 @@ void buildISG( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
     if ( fact_out > NoExists )
       NewTextChild( tripNode, "act_out", DateTimeToStr( fact_out, ServerFormatDateTimeAsString ) );
     if ( !tr->triptype_out.empty() )
-      NewTextChild( tripNode, "triptype_out", ElemIdToElem(etTripType,tr->triptype_out) );
+      NewTextChild( tripNode, "triptype_out", ElemIdToCodeNative(etTripType,tr->triptype_out) );
     if ( !tr->litera_out.empty() )
       NewTextChild( tripNode, "litera_out", tr->litera_out );
     if ( !tr->park_out.empty() )
@@ -2631,7 +2631,7 @@ void SoppInterface::ReadDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   		NewTextChild( fnode, "time", DateTimeToStr( UTCToClient( delay->time, d->region ), ServerFormatDateTimeAsString ) );
     }
   	if ( !d->triptype.empty() )
-  	  NewTextChild( snode, "trip_type", ElemIdToElem(etTripType,d->triptype) );
+  	  NewTextChild( snode, "trip_type", ElemIdToCodeNative(etTripType,d->triptype) );
   	if ( !d->litera.empty() )
   	  NewTextChild( snode, "litera", d->litera );
   	if ( !d->park_in.empty() )
@@ -3722,10 +3722,10 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 		  }
 		}
 		fnode = GetNodeFast( "trip_type", snode );
-		int fmt;
+		TElemFmt fmt;
 		if ( fnode ) {
 			d.triptype = ElemToElemId(etTripType,NodeAsString( fnode ),fmt); //!!!
-			if ( fmt == -1 )
+			if ( fmt == efmtUnknown )
 				throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.INVALID_TYPE" );
 		}
 		else
@@ -3847,15 +3847,15 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
   	if ( !displnode )
   		displnode = NewTextChild( crsdNode, "displaces" );
   	xmlNodePtr snode = NewTextChild( displnode, "displace" );
-		NewTextChild( snode, "airp_arv_spp", ElemIdToElem( etAirp, Qry.FieldAsString( "airp_arv_spp" ) ) );//!!!locale19.07.2010
-		NewTextChild( snode, "class_spp", ElemIdToElem( etClass, Qry.FieldAsString( "class_spp" ) ) );//!!!locale19.07.2010
-		NewTextChild( snode, "airline", ElemIdToElem( etAirline, Qry.FieldAsString( "airline" ) ) );//!!!locale19.07.2010
+		NewTextChild( snode, "airp_arv_spp", ElemIdToCodeNative( etAirp, Qry.FieldAsString( "airp_arv_spp" ) ) );//!!!locale19.07.2010
+		NewTextChild( snode, "class_spp", ElemIdToCodeNative( etClass, Qry.FieldAsString( "class_spp" ) ) );//!!!locale19.07.2010
+		NewTextChild( snode, "airline", ElemIdToCodeNative( etAirline, Qry.FieldAsString( "airline" ) ) );//!!!locale19.07.2010
 		NewTextChild( snode, "flt_no", Qry.FieldAsString( "flt_no" ) );
-		NewTextChild( snode, "suffix", ElemIdToElem( etSuffix, Qry.FieldAsString( "suffix" ) ) );//!!!locale19.07.2010
+		NewTextChild( snode, "suffix", ElemIdToCodeNative( etSuffix, Qry.FieldAsString( "suffix" ) ) );//!!!locale19.07.2010
 		NewTextChild( snode, "scd", DateTimeToStr( Qry.FieldAsDateTime( "scd" ) ) );
-		NewTextChild( snode, "airp_dep", ElemIdToElem( etAirp, Qry.FieldAsString( "airp_dep" ) ) );//!!!locale19.07.2010
-		NewTextChild( snode, "airp_arv_tlg", ElemIdToElem( etAirp, Qry.FieldAsString( "airp_arv_tlg" ) ) );//!!!locale19.07.2010
-		NewTextChild( snode, "class_tlg", ElemIdToElem( etClass, Qry.FieldAsString( "class_tlg" ) ) );//!!!locale19.07.2010
+		NewTextChild( snode, "airp_dep", ElemIdToCodeNative( etAirp, Qry.FieldAsString( "airp_dep" ) ) );//!!!locale19.07.2010
+		NewTextChild( snode, "airp_arv_tlg", ElemIdToCodeNative( etAirp, Qry.FieldAsString( "airp_arv_tlg" ) ) );//!!!locale19.07.2010
+		NewTextChild( snode, "class_tlg", ElemIdToCodeNative( etClass, Qry.FieldAsString( "class_tlg" ) ) );//!!!locale19.07.2010
     NewTextChild( snode, "pr_goshow", (int)(DecodePaxStatus( Qry.FieldAsString( "status" ) ) != ASTRA::psCheckin) ); //!!!убрат
 	  NewTextChild( snode, "status", Qry.FieldAsString( "status" ) );
   	Qry.Next();
@@ -3875,9 +3875,9 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 		if ( !displnode )
 			displnode = NewTextChild( crsdNode, "targets" );
 		xmlNodePtr snode = NewTextChild( displnode, "target" );
-		NewTextChild( snode, "airline", ElemIdToElem(etAirline, Qry.FieldAsString( "airline" ) ) );
+		NewTextChild( snode, "airline", ElemIdToCodeNative(etAirline, Qry.FieldAsString( "airline" ) ) );
 		NewTextChild( snode, "flt_no", Qry.FieldAsString( "flt_no" ) );
-		NewTextChild( snode, "suffix", ElemIdToElem(etSuffix, Qry.FieldAsString( "suffix" ) ) );
+		NewTextChild( snode, "suffix", ElemIdToCodeNative(etSuffix, Qry.FieldAsString( "suffix" ) ) );
 		NewTextChild( snode, "scd", DateTimeToStr( Qry.FieldAsDateTime( "scd" ) ) );	  	//???
 	  Qry.Next();
 	}
@@ -3903,9 +3903,9 @@ string getCrsDisplace( int point_id, TDateTime local_time, bool to_local, TQuery
   			ch_dest = true;
   	}
   	else {
-  		trip = ElemIdToElem( etAirline, Qry.FieldAsString( "airline" ) ) +
+  		trip = ElemIdToCodeNative( etAirline, Qry.FieldAsString( "airline" ) ) +
   		       Qry.FieldAsString( "flt_no" ) +
-  		       ElemIdToElem( etSuffix, Qry.FieldAsString( "suffix" ) );
+  		       ElemIdToCodeNative( etSuffix, Qry.FieldAsString( "suffix" ) );
   		TDateTime  f1, f2;
   		modf( local_time, &f1 );
   		modf( scd, &f2 );
@@ -4017,17 +4017,17 @@ void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   xmlNodePtr airp_depNode;
   string to_airp_dep;
-  int fmt;
+  TElemFmt fmt;
   while ( node ) {
   	snode = node->children;
   	airp_arv_spp = ElemToElemId( etAirp, NodeAsStringFast( "airp_arv_spp", snode ), fmt );
-  	if ( fmt == -1 )
+  	if ( fmt == efmtUnknown )
   		throw AstraLocale::UserException( "MSG.INVALID_ARRIVAL_AIRP" );
   	class_spp = ElemToElemId( etClass, NodeAsStringFast( "class_spp", snode ), fmt );
-    if ( fmt == -1 )
+    if ( fmt == efmtUnknown )
   		throw AstraLocale::UserException( "MSG.INVALID_CLASS" );
   	airline = ElemToElemId( etAirline, NodeAsStringFast( "airline", snode ), fmt );
-    if ( fmt == -1 )
+    if ( fmt == efmtUnknown )
   		throw AstraLocale::UserException( "MSG.INVALID_AIRLINE" );
   	flt_no = NodeAsIntegerFast( "flt_no", snode );
   	if ( flt_no <= 0 || flt_no > 99999 )
@@ -4035,22 +4035,22 @@ void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   	suffix = NodeAsStringFast( "suffix", snode );
   	if ( !suffix.empty() )
   		suffix = ElemToElemId( etSuffix, suffix, fmt );
-    if ( fmt == -1 )
+    if ( fmt == efmtUnknown )
   		throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.INVALID_SUFFIX" );
   	scd = NodeAsDateTimeFast( "scd", snode );
   	airp_depNode = GetNodeFast( "airp_dep", snode );
   	if ( airp_depNode ) {
   		to_airp_dep = ElemToElemId( etAirp, NodeAsString( airp_depNode ), fmt );
-  	  if ( fmt == -1 )
+  	  if ( fmt == efmtUnknown )
   		  throw AstraLocale::UserException( "MSG.AIRP.INVALID_DEPARTURE" );
   	}
   	else
   		to_airp_dep = airp_dep;
   	airp_arv_tlg = ElemToElemId( etAirp, NodeAsStringFast( "airp_arv_tlg", snode ), fmt );
-  	if ( fmt == -1 )
+  	if ( fmt == efmtUnknown )
   		throw AstraLocale::UserException( "MSG.INVALID_ARRIVAL_AIRP" );
   	class_tlg = ElemToElemId( etClass, NodeAsStringFast( "class_tlg", snode ), fmt );
-    if ( fmt == -1 )
+    if ( fmt == efmtUnknown )
   		throw AstraLocale::UserException( "MSG.INVALID_CLASS" );
   	if ( GetNodeFast( "pr_goshow", snode ) )
   		status = EncodePaxStatus( (TPaxStatus)NodeAsIntegerFast( "pr_goshow", snode ) );
