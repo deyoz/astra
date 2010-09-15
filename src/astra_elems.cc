@@ -102,12 +102,13 @@ string ElemCtxtToElemId(TElemContext ctxt,TElemType type, string code, int &fmt,
                         bool hard_verify, bool with_deleted)
 {
   string id;
-  fmt=efmtUnknown;
+  fmt=-1;
 
   if (code.empty()) return id;
 
   TElemFmt elemFmt=(TElemFmt)fmt;
   id = ElemToElemId(type,code,elemFmt,"",with_deleted);
+  fmt=(int)elemFmt;
 
   //далее проверим а вообще имели ли мы право вводить в таком формате
   if ( hard_verify ) {

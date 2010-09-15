@@ -95,13 +95,13 @@ void TBaseTable::load_table()
     TQuery Qry(&OraSession);
     if (!pr_init)
     {
-      ProgTrace(TRACE5,"Qry.SQLText = get_select_sql_text=%s",get_select_sql_text() );
+      ProgTrace(TRACE5,"%s: Qry.SQLText = get_select_sql_text=%s",get_table_name(), get_select_sql_text() );
       Qry.SQLText = get_select_sql_text();
       create_variables(Qry,false);
     }
     else
     {
-      ProgTrace(TRACE5,"Qry.SQLText = get_refresh_sql_text=%s",get_refresh_sql_text() );
+      ProgTrace(TRACE5,"%s: Qry.SQLText = get_refresh_sql_text=%s",get_table_name(), get_refresh_sql_text() );
       Qry.SQLText = get_refresh_sql_text();
       create_variables(Qry,true);
     };

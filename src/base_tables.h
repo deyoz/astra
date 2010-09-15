@@ -239,6 +239,9 @@ class TCountries: public TTIDBaseTable {
     void add_row(TBaseTableRow *row);
   public:
     TBaseTableRow& get_row(std::string field, std::string value, bool with_deleted=false);
+    TCountries( ) {
+ 		  Init("countries");
+  	}
 };
 
 class TAirpsRow: public TICAOBaseTableRow {
