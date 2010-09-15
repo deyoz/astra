@@ -98,29 +98,28 @@ void DoElemEConvertError( TElemContext ctxt, TElemType type, const string &elem 
   throw EConvertError( msg.str().c_str() );
 }
 
-string ElemCtxtToElemId(TElemContext ctxt,TElemType type, string code, int &fmt,
+string ElemCtxtToElemId(TElemContext ctxt,TElemType type, string code, TElemFmt &fmt,
                         bool hard_verify, bool with_deleted)
 {
   string id;
-  fmt=-1;
+  fmt=efmtUnknown;
 
   if (code.empty()) return id;
 
-  TElemFmt elemFmt=(TElemFmt)fmt;
-  id = ElemToElemId(type,code,elemFmt,"",with_deleted);
-  fmt=(int)elemFmt;
+  id = ElemToElemId(type,code,fmt,"",with_deleted);
 
   //далее проверим а вообще имели ли мы право вводить в таком формате
+  /*
   if ( hard_verify ) {
     if (ctxt==ecTlgTypeB && (type!=etCountry && fmt!=0 && fmt!=1 ||
-                             type==etCountry && fmt!=0 && fmt!=1 && fmt!=4) /*||
+                             type==etCountry && fmt!=0 && fmt!=1 && fmt!=4) ||
         ctxt==ecCkin && (fmt!=0) ||
-        ctxt==ecTrfer && (fmt!=0)!!!vlad*/)
+        ctxt==ecTrfer && (fmt!=0))
     {
       //проблемы
       DoElemEConvertError( ctxt, type, code );
     };
-  }
+  } !!!vlad */
   if ( ctxt==ecDisp || ctxt==ecCkin )
   {
     if(type==etAirline ||
@@ -153,12 +152,15 @@ string ElemCtxtToElemId(TElemContext ctxt,TElemType type, string code, int &fmt,
           type==etAirp ||
           type==etCraft)
       {
-      	if ( hard_verify || fmt == -1 ) {
-          if (!(user_fmt==ustCodeNative     && fmt==0 ||
-                user_fmt==ustCodeInter      && fmt==1 ||
-                user_fmt==ustCodeICAONative && fmt==2 ||
-                user_fmt==ustCodeICAOInter  && fmt==3 ||
-                user_fmt==ustCodeMixed      && (fmt==0||fmt==1||fmt==2||fmt==3)))
+      	if ( hard_verify || fmt == efmtUnknown ) {
+          if (!(user_fmt==ustCodeNative     && fmt==efmtCodeNative ||
+                user_fmt==ustCodeInter      && fmt==efmtCodeInter ||
+                user_fmt==ustCodeICAONative && fmt==efmtCodeICAONative ||
+                user_fmt==ustCodeICAOInter  && fmt==efmtCodeICAOInter ||
+                user_fmt==ustCodeMixed      && (fmt==efmtCodeNative||
+                                                fmt==efmtCodeInter||
+                                                fmt==efmtCodeICAONative||
+                                                fmt==efmtCodeICAOInter)))
           {
             //проблемы
             DoElemEConvertError( ctxt, type, code );
@@ -167,16 +169,16 @@ string ElemCtxtToElemId(TElemContext ctxt,TElemType type, string code, int &fmt,
         else {
           switch( user_fmt )  {
           	case ustCodeNative:
-          		fmt = 0;
+          		fmt = efmtCodeNative;
           		break;
           	case ustCodeInter:
-          		fmt = 1;
+          		fmt = efmtCodeInter;
           		break;
           	case ustCodeICAONative:
-          		fmt = 2;
+          		fmt = efmtCodeICAONative;
           		break;
           	case ustCodeICAOInter:
-          		fmt = 3;
+          		fmt = efmtCodeICAOInter;
           		break;
           	default:;
           }
@@ -184,10 +186,10 @@ string ElemCtxtToElemId(TElemContext ctxt,TElemType type, string code, int &fmt,
       }
       else
       {
-      	if ( hard_verify || fmt == -1 ) {
-          if (!(user_fmt==ustEncNative && fmt==0 ||
-                user_fmt==ustEncLatin && fmt==1 ||
-                user_fmt==ustEncMixed && (fmt==0||fmt==1)))
+      	if ( hard_verify || fmt == efmtUnknown ) {
+          if (!(user_fmt==ustEncNative && fmt==efmtCodeNative ||
+                user_fmt==ustEncLatin && fmt==efmtCodeInter ||
+                user_fmt==ustEncMixed && (fmt==efmtCodeNative||fmt==efmtCodeInter)))
           {
             //проблемы
             DoElemEConvertError( ctxt, type, code );
@@ -196,10 +198,10 @@ string ElemCtxtToElemId(TElemContext ctxt,TElemType type, string code, int &fmt,
         else {
           switch( user_fmt )  {
           	case ustEncNative:
-          		fmt = 0;
+          		fmt = efmtCodeNative;
           		break;
           	case ustEncLatin:
-          		fmt = 1;
+          		fmt = efmtCodeInter;
           		break;
           	default:;
           }
@@ -209,15 +211,15 @@ string ElemCtxtToElemId(TElemContext ctxt,TElemType type, string code, int &fmt,
 
     }
     else
-    	if ( hard_verify || fmt == -1 ) {
-        if (fmt!=0)
+    	if ( hard_verify || fmt == efmtUnknown ) {
+        if (fmt!=efmtCodeNative)
         {
           //проблемы
             DoElemEConvertError( ctxt, type, code );
         };
       }
       else {
-      	fmt = 0;
+      	fmt = efmtCodeNative;
       }
   };
 
@@ -225,7 +227,7 @@ string ElemCtxtToElemId(TElemContext ctxt,TElemType type, string code, int &fmt,
 };
 
 string ElemIdToElemCtxt(TElemContext ctxt,TElemType type, string id,
-                        int fmt, bool with_deleted)
+                        TElemFmt fmt, bool with_deleted)
 {
 	TElemFmt fmt2=efmtCodeNative;
   if ( ctxt==ecDisp || ctxt==ecCkin )
@@ -262,7 +264,7 @@ string ElemIdToElemCtxt(TElemContext ctxt,TElemType type, string id,
           case ustCodeInter:      fmt2=efmtCodeInter; break;
           case ustCodeICAONative: fmt2=efmtCodeICAONative; break;
           case ustCodeICAOInter:  fmt2=efmtCodeICAOInter; break;
-          case ustCodeMixed:      fmt2=(TElemFmt)fmt; break;
+          case ustCodeMixed:      fmt2=fmt; break;
           default: ;
         };
       }
@@ -272,7 +274,7 @@ string ElemIdToElemCtxt(TElemContext ctxt,TElemType type, string id,
         {
           case ustEncNative: fmt2=efmtCodeNative; break;
           case ustEncLatin:  fmt2=efmtCodeInter; break;
-          case ustEncMixed:  fmt2=(TElemFmt)fmt; break;
+          case ustEncMixed:  fmt2=fmt; break;
           default: ;
         };
       };

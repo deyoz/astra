@@ -64,9 +64,9 @@ TElemFmt prLatToElemFmt(TElemFmt fmt, bool pr_lat);
 
 //перекодировки в контексте
 std::string ElemCtxtToElemId(TElemContext ctxt,TElemType type, std::string code,
-                             int &fmt, bool hard_verify, bool with_deleted=false);
+                             TElemFmt &fmt, bool hard_verify, bool with_deleted=false);
 std::string ElemIdToElemCtxt(TElemContext ctxt,TElemType type, std::string id,
-                             int fmt, bool with_deleted=true);
+                             TElemFmt fmt, bool with_deleted=true);
 
 
 #endif /*_ASTRA_ELEMS_H_*/

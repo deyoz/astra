@@ -997,13 +997,13 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   string document = NodeAsString( "document", reqNode, "" );
 
   TTripInfo flt;
-  int fmt;
+  TElemFmt fmt;
   flt.airline = NodeAsString( "airline", reqNode, "" );
 	flt.airline = TrimString( flt.airline );
   if ( flt.airline.empty() )
    	throw UserException( "MSG.AIRLINE.NOT_SET" );
   try {
-    flt.airline = ElemCtxtToElemId( ecDisp, etAirline, flt.airline, fmt, false );
+    flt.airline = ElemCtxtToElemId( ecDisp, etAirline, flt.airline, fmt, false ); //!!!vlad лучше бы использовать ElemToElemId
   }
   catch( EXCEPTIONS::EConvertError &e ) {
   	throw UserException( "MSG.AIRLINE.INVALID",
@@ -1016,11 +1016,8 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 			                   LParams()<<LParam("flt_no", str_flt_no) );
 	flt.suffix = NodeAsString( "suffix", reqNode, "" );
 	flt.suffix = TrimString( flt.suffix );
-	if ( flt.suffix.size() > 1 )
-		throw UserException( "MSG.SUFFIX.INVALID",
-			                   LParams()<<LParam("suffix", flt.suffix) );
   try {
-   flt.suffix = ElemCtxtToElemId( ecDisp, etSuffix, flt.suffix, fmt, false );
+   flt.suffix = ElemCtxtToElemId( ecDisp, etSuffix, flt.suffix, fmt, false ); //!!!vlad лучше бы использовать ElemToElemId
   }
   catch( EXCEPTIONS::EConvertError &e ) {
 		throw UserException( "MSG.SUFFIX.INVALID",

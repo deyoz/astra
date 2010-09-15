@@ -41,9 +41,9 @@ string GetTripName( TTripInfo &info, TElemContext ctxt, bool showAirp, bool prLi
          << setw(3) << setfill('0') << info.flt_no
          << info.suffix;
   else
-    trip << ElemIdToElemCtxt(ctxt, etAirline, info.airline, info.airline_fmt)
+    trip << ElemIdToElemCtxt(ctxt, etAirline, info.airline, info.airline_fmt2)
          << setw(3) << setfill('0') << info.flt_no
-         << ElemIdToElemCtxt(ctxt, etSuffix, info.suffix, info.suffix_fmt);
+         << ElemIdToElemCtxt(ctxt, etSuffix, info.suffix, info.suffix_fmt2);
 
   if (prList)
   {
@@ -66,7 +66,7 @@ string GetTripName( TTripInfo &info, TElemContext ctxt, bool showAirp, bool prLi
    if ( ctxt == ecNone)
      trip << " " << info.airp;
    else
-   	 trip << " " << ElemIdToElemCtxt(ctxt, etAirp, info.airp, info.airp_fmt);
+   	 trip << " " << ElemIdToElemCtxt(ctxt, etAirp, info.airp, info.airp_fmt2);
   }
   if(info.pr_del != ASTRA::NoExists and info.pr_del != 0) {
       trip << " " << (info.pr_del < 0 ? string("(")+AstraLocale::getLocaleText("удл.")+")" : string("(")+AstraLocale::getLocaleText("отм.")+")");

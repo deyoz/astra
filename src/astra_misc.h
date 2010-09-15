@@ -43,7 +43,7 @@ class TTripInfo
   public:
     std::string airline,suffix,airp;
     int flt_no, pr_del;
-    int airline_fmt, suffix_fmt, airp_fmt;
+    TElemFmt airline_fmt2, suffix_fmt2, airp_fmt2;
     BASIC::TDateTime scd_out,real_out,real_out_local_date;
     TTripInfo()
     {
@@ -63,9 +63,9 @@ class TTripInfo
       real_out=ASTRA::NoExists;
       real_out_local_date=ASTRA::NoExists; //GetTripName устанавливает значение
       pr_del = ASTRA::NoExists;
-      airline_fmt = 0;
-      suffix_fmt = 0;
-      airp_fmt = 0;
+      airline_fmt2 = efmtUnknown;
+      suffix_fmt2 = efmtUnknown;
+      airp_fmt2 = efmtUnknown;
     };
     void Init( TQuery &Qry )
     {
@@ -84,11 +84,11 @@ class TTripInfo
       else
         pr_del = ASTRA::NoExists;
       if (Qry.GetFieldIndex("airline_fmt")>=0)
-          airline_fmt = Qry.FieldAsInteger("airline_fmt");
+          airline_fmt2 = (TElemFmt)Qry.FieldAsInteger("airline_fmt");
       if (Qry.GetFieldIndex("suffix_fmt")>=0)
-          suffix_fmt = Qry.FieldAsInteger("suffix_fmt");
+          suffix_fmt2 = (TElemFmt)Qry.FieldAsInteger("suffix_fmt");
       if (Qry.GetFieldIndex("airp_fmt")>=0)
-          airp_fmt = Qry.FieldAsInteger("airp_fmt");
+          airp_fmt2 = (TElemFmt)Qry.FieldAsInteger("airp_fmt");
     };
 };
 

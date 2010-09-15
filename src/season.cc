@@ -76,17 +76,17 @@ typedef vector<timeDiff> TTimeDiff;
 struct TDest {
   int num;
   string airp;
-  int airp_fmt;
+  TElemFmt airp_fmt;
   string city;
-  int city_fmt;
+  TElemFmt city_fmt;
   int pr_del;
   TDateTime scd_in;
   string airline;
-  int airline_fmt;
+  TElemFmt airline_fmt;
   string region;
   int trip;
   string craft;
-  int craft_fmt;
+  TElemFmt craft_fmt;
   string litera;
   string triptype;
   TDateTime scd_out;
@@ -95,7 +95,7 @@ struct TDest {
   int y;
   string unitrip;
   string suffix;
-  int suffix_fmt;
+  TElemFmt suffix_fmt;
 };
 
 struct trip {
@@ -1051,7 +1051,7 @@ void CreateSPP( BASIC::TDateTime localdate )
       for ( TDests::iterator d=im->second.dests.begin(); d!=im->second.dests.end(); d++ ) {
         PQry.SetVariable( "point_num", d->num );
         PQry.SetVariable( "airp", ElemToElemId( etAirp, d->airp, fmt ) );
-        PQry.SetVariable( "airp_fmt", d->airp_fmt );
+        PQry.SetVariable( "airp_fmt", (int)d->airp_fmt );
 
         pr_tranzit=( d != im->second.dests.begin() ) &&
                    ( p->airline + IntToString( p->trip ) + p->suffix + p->triptype ==
@@ -1071,7 +1071,7 @@ void CreateSPP( BASIC::TDateTime localdate )
         }
         else {
           PQry.SetVariable( "airline", ElemToElemId( etAirline, d->airline, fmt ) );
-          PQry.SetVariable( "airline_fmt", d->airline_fmt );
+          PQry.SetVariable( "airline_fmt", (int)d->airline_fmt );
         }
         if ( d->trip == NoExists )
           PQry.SetVariable( "flt_no", FNull );
@@ -1083,7 +1083,7 @@ void CreateSPP( BASIC::TDateTime localdate )
         }
         else {
           PQry.SetVariable( "suffix", ElemToElemId( etSuffix, d->suffix, fmt ) );
-          PQry.SetVariable( "suffix_fmt", d->suffix_fmt );
+          PQry.SetVariable( "suffix_fmt", (int)d->suffix_fmt );
         }
         if ( d->craft.empty() ) {
           PQry.SetVariable( "craft", FNull );
@@ -1091,7 +1091,7 @@ void CreateSPP( BASIC::TDateTime localdate )
         }
         else {
           PQry.SetVariable( "craft", ElemToElemId( etCraft, d->craft, fmt ) );
-          PQry.SetVariable( "craft_fmt", d->craft_fmt );
+          PQry.SetVariable( "craft_fmt", (int)d->craft_fmt );
         }
         if ( d->scd_in == NoExists )
           PQry.SetVariable( "scd_in", FNull );
@@ -1195,7 +1195,7 @@ bool insert_points( double da, int move_id, TFilter &filter, TDateTime first_day
     TDest d;
     d.num = Qry.FieldAsInteger( "num" );
     d.airp = Qry.FieldAsString( "airp" );
-    d.airp_fmt = Qry.FieldAsInteger( "airp_fmt" );
+    d.airp_fmt = (TElemFmt)Qry.FieldAsInteger( "airp_fmt" );
     d.city = Qry.FieldAsString( "city" );
     d.pr_del = Qry.FieldAsInteger( "pr_del" );
     if ( !d.pr_del )
@@ -1214,7 +1214,7 @@ bool insert_points( double da, int move_id, TFilter &filter, TDateTime first_day
       }
     }
     d.airline = Qry.FieldAsString( "airline" );
-    d.airline_fmt = Qry.FieldAsInteger( "airline_fmt" );
+    d.airline_fmt = (TElemFmt)Qry.FieldAsInteger( "airline_fmt" );
 
     d.region = AirpTZRegion( Qry.FieldAsString( "airp" ), false );
     if ( Qry.FieldIsNULL( "flt_no" ) )
@@ -1222,7 +1222,7 @@ bool insert_points( double da, int move_id, TFilter &filter, TDateTime first_day
     else
     d.trip = Qry.FieldAsInteger( "flt_no" );
     d.craft = Qry.FieldAsString( "craft" );
-    d.craft_fmt = Qry.FieldAsInteger( "craft_fmt" );
+    d.craft_fmt = (TElemFmt)Qry.FieldAsInteger( "craft_fmt" );
     d.litera = Qry.FieldAsString( "litera" );
     d.triptype = Qry.FieldAsString( "trip_type" );
     if ( Qry.FieldIsNULL( "scd_out" ) )
@@ -1242,7 +1242,7 @@ bool insert_points( double da, int move_id, TFilter &filter, TDateTime first_day
     d.c = Qry.FieldAsInteger( "c" );
     d.y = Qry.FieldAsInteger( "y" );
     d.suffix = Qry.FieldAsString( "suffix" );
-    d.suffix_fmt = Qry.FieldAsInteger( "suffix_fmt" );
+    d.suffix_fmt = (TElemFmt)Qry.FieldAsInteger( "suffix_fmt" );
     if ( reqInfo->CheckAirp( d.airp ) ) // new
     	canUseAirp = true; //new
     if ( reqInfo->CheckAirline( d.airline ) ) //new
@@ -2253,7 +2253,7 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         RQry.SetVariable( "move_id", new_move_id );
         RQry.SetVariable( "num", dnum );
         RQry.SetVariable( "airp", id->airp );
-        RQry.SetVariable( "airp_fmt", id->airp_fmt );
+        RQry.SetVariable( "airp_fmt", (int)id->airp_fmt );
         if ( !log.empty() )
         	log += "-";
         else
@@ -2275,7 +2275,7 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         }
         else {
           RQry.SetVariable( "airline", id->airline );
-          RQry.SetVariable( "airline_fmt", id->airline_fmt );
+          RQry.SetVariable( "airline_fmt", (int)id->airline_fmt );
         }
         if ( id->trip > NoExists )
           RQry.SetVariable( "flt_no", id->trip );
@@ -2287,7 +2287,7 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         }
         else {
           RQry.SetVariable( "craft", id->craft );
-          RQry.SetVariable( "craft_fmt", id->craft_fmt );
+          RQry.SetVariable( "craft_fmt", (int)id->craft_fmt );
         }
         if ( id->scd_out > NoExists ) {
           RQry.SetVariable( "scd_out", modf( (double)id->scd_out, &ff ) ); // удаляем delta_out
@@ -2328,7 +2328,7 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         }
         else {
           RQry.SetVariable( "suffix", id->suffix );
-          RQry.SetVariable( "suffix_fmt", id->suffix_fmt );
+          RQry.SetVariable( "suffix_fmt", (int)id->suffix_fmt );
         }
         RQry.Execute();
         dnum++;
@@ -2363,11 +2363,11 @@ string GetTrip( TDest *PriorDest, TDest *OwnDest )
   int flt_no;
   string suffix;
   string airline;
-  int airline_fmt, suffix_fmt;
+  TElemFmt airline_fmt, suffix_fmt;
   if ( !PriorDest ) {
     flt_no = NoExists;
-    airline_fmt = 0;
-    suffix_fmt = 0;
+    airline_fmt = efmtCodeNative;
+    suffix_fmt = efmtCodeNative;
   }
   else {
     flt_no = PriorDest->trip;
@@ -2920,10 +2920,10 @@ void GetDests( map<int,TDestList> &mapds, const TFilter &filter, int vmove_id )
     }
     d.num = RQry.FieldAsInteger( idx_num );
     d.airp = RQry.FieldAsString( idx_airp );
-    d.airp_fmt = RQry.FieldAsInteger( idx_airp_fmt );
+    d.airp_fmt = (TElemFmt)RQry.FieldAsInteger( idx_airp_fmt );
     airpKey = airpKey || d.airp == filter.airp;
     d.airline = RQry.FieldAsString( idx_airline );
-    d.airline_fmt = RQry.FieldAsInteger( idx_airline_fmt );
+    d.airline_fmt = (TElemFmt)RQry.FieldAsInteger( idx_airline_fmt );
     compKey = compKey  || d.airline == filter.airline;
     if ( reqInfo->CheckAirp( d.airp ) )
      	canUseAirp = true;
@@ -2944,7 +2944,7 @@ void GetDests( map<int,TDestList> &mapds, const TFilter &filter, int vmove_id )
     else
       d.trip = RQry.FieldAsInteger( idx_trip );
     d.craft = RQry.FieldAsString( idx_craft );
-    d.craft_fmt = RQry.FieldAsInteger( idx_craft_fmt );
+    d.craft_fmt = (TElemFmt)RQry.FieldAsInteger( idx_craft_fmt );
     d.litera = RQry.FieldAsString( idx_litera );
     d.triptype = RQry.FieldAsString( idx_triptype );
     triptypeKey = triptypeKey || d.triptype == filter.triptype;
@@ -2958,7 +2958,7 @@ void GetDests( map<int,TDestList> &mapds, const TFilter &filter, int vmove_id )
     d.y = RQry.FieldAsInteger( idx_y );
     d.unitrip = RQry.FieldAsString( idx_unitrip );
     d.suffix = RQry.FieldAsString( idx_suffix );
-    d.suffix_fmt = RQry.FieldAsInteger( idx_suffix_fmt );
+    d.suffix_fmt = (TElemFmt)RQry.FieldAsInteger( idx_suffix_fmt );
     //!!!! неправильно фильтровать по времени UTC && LOCAL - зависит от настройки пульта
   /* фильтр по времени работает в случаях:
      1. Представитель порта (ед. порт) фильтр по времени прилета/вылета по этому порту

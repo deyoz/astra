@@ -533,7 +533,7 @@ void createParam( xmlNodePtr paramsNode, const string &name, const string &value
   	NewTextChild( Nparam, "type", type );
 }
 
-string getPNR( const string airline, int airline_fmt, int flt_no, const string suffix, int suffix_fmt )
+string getPNR( const string airline, TElemFmt airline_fmt, int flt_no, const string suffix, TElemFmt suffix_fmt )
 {
 	string pnr;
 	if ( airline == "œœ" )

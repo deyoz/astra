@@ -1276,7 +1276,7 @@ void GetTripParams( int trip_id, xmlNodePtr dataNode )
   TTripInfo info( Qry );
 
   NewTextChild( dataNode, "trip", GetTripName( info, ecCkin ) );
-  NewTextChild( dataNode, "craft", ElemIdToElemCtxt( ecDisp, etCraft, Qry.FieldAsString( "craft" ), Qry.FieldAsInteger( "craft_fmt" ) ) );
+  NewTextChild( dataNode, "craft", ElemIdToElemCtxt( ecDisp, etCraft, Qry.FieldAsString( "craft" ), (TElemFmt)Qry.FieldAsInteger( "craft_fmt" ) ) );
   NewTextChild( dataNode, "bort", Qry.FieldAsString( "bort" ) );
 
   Qry.Clear();

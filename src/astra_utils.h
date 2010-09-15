@@ -96,7 +96,7 @@ class TUserSettings {
       ckin_airline=ustCodeNative;
       ckin_airp=ustCodeNative;
       ckin_craft=ustCodeNative;
-      ckin_suffix=ustCodeNative;
+      ckin_suffix=ustEncNative;
     };
 };
 

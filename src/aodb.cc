@@ -995,17 +995,17 @@ try {
 	if ( fl.flt_no > 99999 || fl.flt_no <= 0 )
 		throw Exception( "Ошибка формата номера рейса, значение=%s", tmp.c_str() );
 	err++;
-	int fmt;
+	TElemFmt fmt;
   try {
-   fl.suffix = ElemCtxtToElemId( ecDisp, etSuffix, fl.suffix, fmt, false );
+   fl.suffix = ElemCtxtToElemId( ecDisp, etSuffix, fl.suffix, fmt, false ); //!!!vlad лучше бы  использовать ElemToElemId
   }
   catch( EConvertError &e ) {
   	throw Exception( "Ошибка формата номера рейса, значение=%s", tmp.c_str() );
   }
  	try {
-    fl.airline = ElemCtxtToElemId( ecDisp, etAirline, fl.airline, fmt, false );
-	  if ( fmt == 1 || fmt == 3 )
-		  fl.trip_type = "м";
+    fl.airline = ElemCtxtToElemId( ecDisp, etAirline, fl.airline, fmt, false ); //!!!vlad лучше бы  использовать ElemToElemId
+	  if ( fmt == efmtCodeInter || fmt == efmtCodeICAOInter )
+		  fl.trip_type = "м";  //!!!vlad а правильно ли так определять тип рейса? не уверен
     else
   	  fl.trip_type = "п";
   }

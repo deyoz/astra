@@ -16,7 +16,7 @@ struct Cargo {
 	int mail;
 	int point_arv;
 	std::string airp_arv;
-	int airp_arv_fmt;
+	TElemFmt airp_arv_fmt;
 	int dosbag_weight;
 	Cargo() {
 		cargo = 0;
@@ -78,16 +78,16 @@ struct TSOPPDest {
   int point_id;
   int point_num;
   std::string airp;
-  int airp_fmt;
+  TElemFmt airp_fmt;
   std::string city;
   int first_point;
   std::string airline;
-  int airline_fmt;
+  TElemFmt airline_fmt;
   int flt_no;
   std::string suffix;
-  int suffix_fmt;
+  TElemFmt suffix_fmt;
   std::string craft;
-  int craft_fmt;
+  TElemFmt craft_fmt;
   std::string bort;
   BASIC::TDateTime scd_in;
   BASIC::TDateTime est_in;
@@ -144,12 +144,12 @@ struct TSOPPTrip {
   std::string ref;
 
   std::string airline_in;
-  int airline_in_fmt;
+  TElemFmt airline_in_fmt;
   int flt_no_in;
   std::string suffix_in;
-  int suffix_in_fmt;
+  TElemFmt suffix_in_fmt;
   std::string craft_in;
-  int craft_in_fmt;
+  TElemFmt craft_in_fmt;
   std::string bort_in;
   BASIC::TDateTime scd_in;
   BASIC::TDateTime est_in;
@@ -162,16 +162,16 @@ struct TSOPPTrip {
   TSOPPDests places_in;
 
   std::string airp;
-  int airp_fmt;
+  TElemFmt airp_fmt;
   std::string city;
 
   std::string airline_out;
-  int airline_out_fmt;
+  TElemFmt airline_out_fmt;
   int flt_no_out;
   std::string suffix_out;
-  int suffix_out_fmt;
+  TElemFmt suffix_out_fmt;
   std::string craft_out;
-  int craft_out_fmt;
+  TElemFmt craft_out_fmt;
   std::string bort_out;
   BASIC::TDateTime scd_out;
   BASIC::TDateTime est_out;

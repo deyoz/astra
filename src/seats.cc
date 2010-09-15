@@ -2412,9 +2412,9 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p, bool pr_exists )
     	QryTCkinTrip.Execute();
     	if ( !QryTCkinTrip.Eof ) {
     		pass.trip_from =
-    		ElemIdToElemCtxt( ecDisp, etAirline, QryTCkinTrip.FieldAsString( "airline" ), QryTCkinTrip.FieldAsInteger( "airline_fmt" ) ) +
+    		ElemIdToElemCtxt( ecDisp, etAirline, QryTCkinTrip.FieldAsString( "airline" ), (TElemFmt)QryTCkinTrip.FieldAsInteger( "airline_fmt" ) ) +
     		QryTCkinTrip.FieldAsString( "flt_no" ) +
-    		ElemIdToElemCtxt( ecDisp, etSuffix, QryTCkinTrip.FieldAsString( "suffix" ), QryTCkinTrip.FieldAsInteger( "suffix_fmt" ) ) + "/" +
+    		ElemIdToElemCtxt( ecDisp, etSuffix, QryTCkinTrip.FieldAsString( "suffix" ), (TElemFmt)QryTCkinTrip.FieldAsInteger( "suffix_fmt" ) ) + "/" +
     		DateTimeToStr( QryTCkinTrip.FieldAsDateTime( "scd_out" ), "dd" );
 
     	}

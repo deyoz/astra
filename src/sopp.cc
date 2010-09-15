@@ -763,7 +763,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
     d.point_num = PointsQry.FieldAsInteger( col_point_num );
 
     d.airp = PointsQry.FieldAsString( col_airp );
-    d.airp_fmt = PointsQry.FieldAsInteger( col_airp_fmt );
+    d.airp_fmt = (TElemFmt)PointsQry.FieldAsInteger( col_airp_fmt );
     d.city = ((TAirpsRow&)airps.get_row( "code", d.airp, true )).city;
 
     if ( PointsQry.FieldIsNULL( col_first_point ) )
@@ -771,15 +771,15 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
     else
       d.first_point = PointsQry.FieldAsInteger( col_first_point );
     d.airline = PointsQry.FieldAsString( col_airline );
-    d.airline_fmt = PointsQry.FieldAsInteger( col_airline_fmt );
+    d.airline_fmt = (TElemFmt)PointsQry.FieldAsInteger( col_airline_fmt );
     if ( PointsQry.FieldIsNULL( col_flt_no ) )
       d.flt_no = NoExists;
     else
       d.flt_no = PointsQry.FieldAsInteger( col_flt_no );
     d.suffix = PointsQry.FieldAsString( col_suffix );
-    d.suffix_fmt = PointsQry.FieldAsInteger( col_suffix_fmt );
+    d.suffix_fmt = (TElemFmt)PointsQry.FieldAsInteger( col_suffix_fmt );
     d.craft = PointsQry.FieldAsString( col_craft );
-    d.craft_fmt = PointsQry.FieldAsInteger( col_craft_fmt );
+    d.craft_fmt = (TElemFmt)PointsQry.FieldAsInteger( col_craft_fmt );
     d.bort = PointsQry.FieldAsString( col_bort );
     if ( PointsQry.FieldIsNULL( col_scd_in ) )
       d.scd_in = NoExists;
@@ -2307,7 +2307,7 @@ void GetLuggage( int point_id, Luggage &lug, bool pr_brd )
   	cargo.mail = Qry.FieldAsInteger( "mail" );
   	cargo.point_arv = Qry.FieldAsInteger( "point_arv" );
   	cargo.airp_arv =  Qry.FieldAsString( "airp_arv" );
-  	cargo.airp_arv_fmt = Qry.FieldAsInteger( "airp_arv_fmt" );
+  	cargo.airp_arv_fmt = (TElemFmt)Qry.FieldAsInteger( "airp_arv_fmt" );
   	lug.vcargo.push_back( cargo );
   	Qry.Next();
   }
@@ -2503,17 +2503,17 @@ void internal_ReadDests( int move_id, TSOPPDests &dests, string &reference, TDat
   	else
   		d.first_point = NoExists;
   	d.airp = Qry.FieldAsString( "airp" );
-  	d.airp_fmt = Qry.FieldAsInteger( "airp_fmt" );
+  	d.airp_fmt = (TElemFmt)Qry.FieldAsInteger( "airp_fmt" );
  	  d.airline = Qry.FieldAsString( "airline" );
- 	  d.airline_fmt = Qry.FieldAsInteger( "airline_fmt" );
+ 	  d.airline_fmt = (TElemFmt)Qry.FieldAsInteger( "airline_fmt" );
   	if ( !Qry.FieldIsNULL( "flt_no" ) )
   	  d.flt_no = Qry.FieldAsInteger( "flt_no" );
   	else
   		d.flt_no = NoExists;
  	  d.suffix = Qry.FieldAsString( "suffix" );
- 	  d.suffix_fmt = Qry.FieldAsInteger( "suffix_fmt" );
+ 	  d.suffix_fmt = (TElemFmt)Qry.FieldAsInteger( "suffix_fmt" );
  	  d.craft = Qry.FieldAsString( "craft" );
- 	  d.craft_fmt = Qry.FieldAsInteger( "craft_fmt" );
+ 	  d.craft_fmt = (TElemFmt)Qry.FieldAsInteger( "craft_fmt" );
  	  d.bort = Qry.FieldAsString( "bort" );
   	if ( reqInfo->user.sets.time == ustTimeLocalAirp )
   	  d.region = AirpTZRegion( Qry.FieldAsString( "airp" ) );
@@ -3163,7 +3163,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	else
   		Qry.CreateVariable( "point_num", otInteger, id->point_num );
   	Qry.CreateVariable( "airp", otString, id->airp );
-  	Qry.CreateVariable( "airp_fmt", otInteger, id->airp_fmt );
+  	Qry.CreateVariable( "airp_fmt", otInteger, (int)id->airp_fmt );
   	Qry.CreateVariable( "pr_tranzit", otInteger, id->pr_tranzit );
   	if ( id->first_point == NoExists )
   		Qry.CreateVariable( "first_point", otInteger, FNull );
@@ -3175,7 +3175,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     }
   	else {
   	  Qry.CreateVariable( "airline", otString, id->airline );
-  	  Qry.CreateVariable( "airline_fmt", otInteger, id->airline_fmt );
+  	  Qry.CreateVariable( "airline_fmt", otInteger, (int)id->airline_fmt );
   	}
   	if ( id->flt_no == NoExists )
   		Qry.CreateVariable( "flt_no", otInteger, FNull );
@@ -3187,7 +3187,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     }
   	else {
   		Qry.CreateVariable( "suffix", otString, id->suffix );
-  		Qry.CreateVariable( "suffix_fmt", otInteger, id->suffix_fmt );
+  		Qry.CreateVariable( "suffix_fmt", otInteger, (int)id->suffix_fmt );
   	}
   	if ( id->craft.empty() ) {
   		Qry.CreateVariable( "craft", otString, FNull );
@@ -3195,7 +3195,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	}
   	else {
   		Qry.CreateVariable( "craft", otString, id->craft );
-  		Qry.CreateVariable( "craft_fmt", otInteger, id->craft_fmt );
+  		Qry.CreateVariable( "craft_fmt", otInteger, (int)id->craft_fmt );
   	}
   	if ( id->bort.empty() )
   		Qry.CreateVariable( "bort", otString, FNull );
@@ -3809,7 +3809,7 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 		throw AstraLocale::UserException( "MSG.FLIGHT.NOT_FOUND" );
 	int pr_tranzit = ( !Qry.FieldIsNULL( "first_point" ) && Qry.FieldAsInteger( "pr_tranzit" ) );
 	string airp_dep = Qry.FieldAsString( "airp" );
-	int airp_fmt = Qry.FieldAsInteger( "airp_fmt" );//!!!locale1919.07.2010
+	TElemFmt airp_fmt = (TElemFmt)Qry.FieldAsInteger( "airp_fmt" );//!!!locale1919.07.2010
 	string region = AirpTZRegion( airp_dep, true );
 	TDateTime local_time;
 	modf(UTCToLocal( NowUTC(), region ),&local_time);
@@ -3827,7 +3827,7 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 	while ( !Qry.Eof ) {
 		if ( !displnode )
 			displnode = NewTextChild( crsdNode, "airps_arv" );
-		NewTextChild( displnode, "airp_arv", ElemIdToElemCtxt( ecDisp, etAirp, Qry.FieldAsString( "airp" ), Qry.FieldAsInteger( "airp_fmt" ) ) ); //!!!19.07.2010
+		NewTextChild( displnode, "airp_arv", ElemIdToElemCtxt( ecDisp, etAirp, Qry.FieldAsString( "airp" ), (TElemFmt)Qry.FieldAsInteger( "airp_fmt" ) ) ); //!!!19.07.2010
 		Qry.Next();
 	}
 	NewTextChild( crsdNode, "airp_dep", ElemIdToElemCtxt( ecDisp, etAirp, airp_dep, airp_fmt ) ); //!!!locale19.07.2010
@@ -4512,7 +4512,7 @@ void SoppInterface::GetTime(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
 	TQuery Qry(&OraSession);
 	Qry.SQLText = "SELECT system.UTCSYSDATE time FROM dual";
 	Qry.Execute();
-	int airp_fmt;
+	TElemFmt airp_fmt;
 	string airp = ElemCtxtToElemId( ecDisp, etAirp, NodeAsString( "airp", reqNode ), airp_fmt, true );
 	string region = AirpTZRegion( airp, true );
 	TDateTime time = UTCToClient( Qry.FieldAsDateTime( "time" ), region );
