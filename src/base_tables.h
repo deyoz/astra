@@ -468,6 +468,22 @@ class TSubcls: public TCodeBaseTable {
   	}
 };
 
+class TTripSuffixesRow: public TCodeBaseTableRow {
+  public:
+    const char *get_row_name() const { return "TTripSuffixesRow"; };
+};
+
+class TTripSuffixes: public TCodeBaseTable {
+  protected:
+    const char *get_table_name() { return "TTripSuffixes"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+    void Invalidate() {}; //всегда актуальна
+  public:
+  	TTripSuffixes() {
+  		Init( "trip_suffixes" );
+  	}
+};
+
 class TCraftsRow: public TICAOBaseTableRow {
   public:
     const char *get_row_name() const { return "TCraftsRow"; };

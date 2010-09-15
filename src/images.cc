@@ -3,6 +3,7 @@
 #include "exceptions.h"
 #include "xml_unit.h"
 #include "oralib.h"
+#include "astra_elems.h"
 #include "astra_utils.h"
 #include "base_tables.h"
 #include "stl_utils.h"

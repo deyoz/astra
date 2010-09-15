@@ -5,6 +5,7 @@
 #include <map>
 #include <libxml/tree.h>
 #include "oralib.h"
+#include "astra_elems.h"
 #include "astra_utils.h"
 
 #include "jxtlib/JxtInterface.h"

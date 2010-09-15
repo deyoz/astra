@@ -3,6 +3,7 @@
 #include <fstream>
 #include "maindcs.h"
 #include "basic.h"
+#include "astra_elems.h"
 #include "astra_utils.h"
 #include "astra_consts.h"
 #include "base_tables.h"

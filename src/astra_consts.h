@@ -45,9 +45,6 @@ enum tmodify { fnochange, fchange, finsert, fdelete };
 const char rus_pnr[]="0123456789‚ƒ„Š‹Œ‘’”•–†˜";
 const char lat_pnr[]="0123456789BVGDKLMNPRSTFXCZW";
 
-const char rus_suffix[]="€‚‘„…”†•ˆ‰Š‹ŒŸ‘’“˜œ›‡";
-const char lat_suffix[]="ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-
 const char rus_seat[]="€‚ƒ„…†‡ˆŠ‹Œ‘’“”•–—˜™";
 const char lat_seat[]="ABCDEFGHJKLMNOPQRSTUVWXYZ";
 

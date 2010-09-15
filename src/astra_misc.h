@@ -7,6 +7,7 @@
 #include "astra_consts.h"
 #include "oralib.h"
 #include "astra_utils.h"
+#include "astra_elems.h"
 #include "astra_locale.h"
 #include "stages.h"
 

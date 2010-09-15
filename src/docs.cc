@@ -463,13 +463,22 @@ string get_last_target(TQuery &Qry, const int pr_lat)
                 airline = tmp_airline;
         } catch(...) {
         }
+        string suffix = Qry.FieldAsString("trfer_suffix");
+        if (!suffix.empty())
+        try {
+            TBaseTableRow &suffixRow = base_tables.get("TRIP_SUFFIXES").get_row("code",suffix);
+            string tmp_suffix = suffixRow.AsString("code", pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU);
+            if(!tmp_suffix.empty())
+                suffix = tmp_suffix;
+        } catch(...) {
+        }
         ostringstream buf;
         buf
             << airp
             << "("
             << airline
             << setw(3) << setfill('0') << Qry.FieldAsInteger("trfer_flt_no")
-            << convert_suffix(Qry.FieldAsString("trfer_suffix"), pr_lat)
+            << suffix
             << ")/" << DateTimeToStr(Qry.FieldAsDateTime("trfer_scd"), "dd");
         result = buf.str();
     }

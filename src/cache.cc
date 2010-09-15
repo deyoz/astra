@@ -316,9 +316,15 @@ void TCacheTable::initFields()
           for(;i>=0;i--)
             if (ReferCacheTable[i].CacheCode==FField.ReferCode) break;
           if (i>=0)
+          {
             FField.ElemType=ReferCacheTable[i].ElemType;
+            ProgTrace(TRACE5,"initFields: name=%s, elem_type=%d", FField.Name.c_str(), (int)FField.ElemType);
+          }
           else
+          {
             FField.ElemCategory=cecNone;
+            ProgTrace(TRACE5,"initFields: name=%s, elem_type unknown", FField.Name.c_str());
+          };
         };
 
         FFields.push_back(FField);
@@ -492,26 +498,28 @@ bool TCacheTable::refreshData()
                 if ( i->Scale > 0 || i->DataSize > 9 )
                   row.cols.push_back( Qry->FieldAsString( vecFieldIdx[ j ] ) );
                 else
-                {
-                  switch (i->ElemCategory)
-                  {
-                    case cecCode: row.cols.push_back( ElemIdToCodeNative( i->ElemType, Qry->FieldAsInteger( vecFieldIdx[ j ] ) ) ); break;
-                    case cecName: row.cols.push_back( ElemIdToNameLong( i->ElemType, Qry->FieldAsInteger( vecFieldIdx[ j ] ) ) ); break;
-                         default: row.cols.push_back( IntToString( Qry->FieldAsInteger( vecFieldIdx[ j ] ) ) ); break;
-                  };
-                };
+                  row.cols.push_back( IntToString( Qry->FieldAsInteger( vecFieldIdx[ j ] ) ) );
                 break;
               case ftBoolean:
                   row.cols.push_back( IntToString( (int)(Qry->FieldAsInteger( vecFieldIdx[ j ] ) !=0 ) ) );
                 break;
               default:
-                  switch (i->ElemCategory)
-                  {
-                    case cecCode: row.cols.push_back( ElemIdToCodeNative( i->ElemType, Qry->FieldAsString(vecFieldIdx[ j ]) ) ); break;
-                    case cecName: row.cols.push_back( ElemIdToNameLong( i->ElemType, Qry->FieldAsString(vecFieldIdx[ j ] ) ) ); break;
-                         default: row.cols.push_back( Qry->FieldAsString(vecFieldIdx[ j ]) ); break;
-                  };
-                  break;
+                switch (i->ElemCategory)
+                {
+                  case cecCode: if (Qry->FieldType( vecFieldIdx[ j ] ) == otInteger)
+                                  row.cols.push_back( ElemIdToCodeNative( i->ElemType, Qry->FieldAsInteger( vecFieldIdx[ j ] ) ) );
+                                else
+                                  row.cols.push_back( ElemIdToCodeNative( i->ElemType, Qry->FieldAsString(vecFieldIdx[ j ]) ) );
+                                break;
+                  case cecName: if (Qry->FieldType( vecFieldIdx[ j ] ) == otInteger)
+                                  row.cols.push_back( ElemIdToNameLong( i->ElemType, Qry->FieldAsInteger( vecFieldIdx[ j ] ) ) );
+                                else
+                                  row.cols.push_back( ElemIdToNameLong( i->ElemType, Qry->FieldAsString(vecFieldIdx[ j ] ) ) );
+                                break;
+                       default: row.cols.push_back( Qry->FieldAsString(vecFieldIdx[ j ]) );
+                                break;
+                };
+                break;
             }
         }
       }

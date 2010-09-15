@@ -1303,7 +1303,14 @@ void PrintDataParser::t_field_map::fillBTBPMap()
         airline_name_lat = airlineRow.AsString("name", AstraLocale::LANG_EN);
         airline_short = airlineRow.AsString("short_name", LANG_RU);
         airline_short_lat = airlineRow.AsString("short_name", LANG_EN);
-        suffix_lat = convert_suffix(suffix, 1);
+        if (!suffix.empty())
+        {
+          TBaseTableRow &suffixRow = base_tables.get("TRIP_SUFFIXES").get_row("code",suffix);
+          suffix_lat = suffixRow.AsString("code", AstraLocale::LANG_EN);
+        }
+        else
+          suffix_lat = "";
+
         ostringstream buf;
         buf << setw(3) << setfill('0') << sel_flt_no;
         flt_no = buf.str() + suffix;
@@ -2040,9 +2047,10 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
   {
       ostringstream flt_no, flt_no_lat;
 
+      TTripSuffixesRow &suffixRow = (TTripSuffixesRow&)base_tables.get("trip_suffixes").get_row("code", rcpt.suffix);
       if(rcpt.flt_no != -1) {
-              flt_no << setw(3) << setfill('0') << rcpt.flt_no << convert_suffix(rcpt.suffix, false);
-              flt_no_lat << setw(3) << setfill('0') << rcpt.flt_no << convert_suffix(rcpt.suffix, true);
+              flt_no << setw(3) << setfill('0') << rcpt.flt_no << suffixRow.code;
+              flt_no_lat << setw(3) << setfill('0') << rcpt.flt_no << suffixRow.code_lat;
 
       }
       add_tag("flt_no", flt_no.str());
@@ -2916,7 +2924,7 @@ void get_bt_forms(string tag_type, int prn_type, xmlNodePtr pectabsNode, vector<
 struct TBTRouteItem {
     string airline, airline_lat;
     int flt_no;
-    string suffix;
+    string suffix, suffix_lat;
     string airp_arv, airp_arv_lat;
     int local_date;
     string fltdate, fltdate_lat;
@@ -2931,6 +2939,7 @@ void DumpRoute(vector<TBTRouteItem> &route)
         ProgTrace(TRACE5, "airline_lat: %s", iv->airline_lat.c_str());
         ProgTrace(TRACE5, "flt_no: %d", iv->flt_no);
         ProgTrace(TRACE5, "suffix: %s", iv->suffix.c_str());
+        ProgTrace(TRACE5, "suffix_lat: %s", iv->suffix_lat.c_str());
         ProgTrace(TRACE5, "airp_arv: %s", iv->airp_arv.c_str());
         ProgTrace(TRACE5, "airp_arv_lat: %s", iv->airp_arv_lat.c_str());
         ProgTrace(TRACE5, "local_date: %d", iv->local_date);
@@ -2949,8 +2958,8 @@ void set_via_fields(PrintDataParser &parser, vector<TBTRouteItem> &route, int st
         string str_via_idx = IntToString(via_idx);
         ostringstream flt_no;
         flt_no << setw(3) << setfill('0') << route[j].flt_no;
-        parser.add_tag("flt_no" + str_via_idx, flt_no.str() + convert_suffix(route[j].suffix, 0));
-        parser.add_tag("flt_no" + str_via_idx + "_lat", flt_no.str() + convert_suffix(route[j].suffix, 1));
+        parser.add_tag("flt_no" + str_via_idx, flt_no.str() + route[j].suffix);
+        parser.add_tag("flt_no" + str_via_idx + "_lat", flt_no.str() + route[j].suffix_lat);
         parser.add_tag("flt_no" + str_via_idx, flt_no.str());
         parser.add_tag("local_date" + str_via_idx, route[j].local_date);
         parser.add_tag("airline" + str_via_idx, route[j].airline);
@@ -2984,6 +2993,7 @@ void get_route(TTagKey &tag_key, vector<TBTRouteItem> &route, string airp_dep)
         "   airlines.code_lat airline_lat,  "
         "   points.flt_no,  "
         "   points.suffix,  "
+        "   trip_suffixes.code_lat suffix_lat, "
         "   pax_grp.airp_arv,  "
         "   airps.code_lat airp_arv_lat, "
         "   airps.name airp_arv_name, "
@@ -2993,12 +3003,14 @@ void get_route(TTagKey &tag_key, vector<TBTRouteItem> &route, string airp_dep)
         "   pax_grp,  "
         "   points,  "
         "   airlines,  "
-        "   airps  "
+        "   airps,  "
+        "   trip_suffixes "
         "where  "
         "   pax_grp.grp_id = :grp_id and  "
         "   pax_grp.point_dep = points.point_id and points.pr_del>=0 and  "
         "   points.airline = airlines.code and  "
-        "   pax_grp.airp_arv = airps.code "
+        "   pax_grp.airp_arv = airps.code and "
+        "   points.suffix = trip_suffixes.code(+) "
         "union  "
         "select  "
         "   trfer_trips.scd,  "
@@ -3006,6 +3018,7 @@ void get_route(TTagKey &tag_key, vector<TBTRouteItem> &route, string airp_dep)
         "   airlines.code_lat airline_lat,  "
         "   trfer_trips.flt_no,  "
         "   trfer_trips.suffix,  "
+        "   trip_suffixes.code_lat suffix_lat, "
         "   transfer.airp_arv,  "
         "   airps.code_lat airp_arv_lat,  "
         "   airps.name airp_arv_name, "
@@ -3015,12 +3028,14 @@ void get_route(TTagKey &tag_key, vector<TBTRouteItem> &route, string airp_dep)
         "   transfer,  "
         "   trfer_trips, "
         "   airlines,  "
-        "   airps  "
+        "   airps,  "
+        "   trip_suffixes "
         "where  "
         "   transfer.point_id_trfer = trfer_trips.point_id and "
         "   transfer.grp_id = :grp_id and  "
         "   trfer_trips.airline = airlines.code and  "
-        "   transfer.airp_arv = airps.code "
+        "   transfer.airp_arv = airps.code and "
+        "   trfer_trips.suffix = trip_suffixes.code(+) "
         "order by "
         "   transfer_num ";
     Qry.CreateVariable("grp_id", otInteger, tag_key.grp_id);
@@ -3034,6 +3049,7 @@ void get_route(TTagKey &tag_key, vector<TBTRouteItem> &route, string airp_dep)
         RouteItem.airline_lat = Qry.FieldAsString("airline_lat");
         RouteItem.flt_no = Qry.FieldAsInteger("flt_no");
         RouteItem.suffix = Qry.FieldAsString("suffix");
+        RouteItem.suffix_lat = Qry.FieldAsString("suffix_lat");
         RouteItem.airp_arv = Qry.FieldAsString("airp_arv");
         RouteItem.airp_arv_lat = Qry.FieldAsString("airp_arv_lat");
         RouteItem.airp_arv_name = Qry.FieldAsString("airp_arv_name");

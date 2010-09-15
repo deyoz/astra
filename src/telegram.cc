@@ -1609,6 +1609,7 @@ string TelegramInterface::CreateBSMBody(TBSMContent& con, bool pr_lat)
 {
   TBaseTable &airlines=base_tables.get("airlines");
   TBaseTable &airps=base_tables.get("airps");
+  TBaseTable &trip_suffixes=base_tables.get("trip_suffixes");
   TBaseTable &subcls=base_tables.get("subcls");
 
   ostringstream body;
@@ -1635,7 +1636,7 @@ string TelegramInterface::CreateBSMBody(TBSMContent& con, bool pr_lat)
   body << ".F/"
        << airlines.get_row("code",con.OutFlt.airline).AsString("code",pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU)
        << setw(3) << setfill('0') << con.OutFlt.flt_no
-       << convert_suffix(con.OutFlt.suffix,pr_lat) << '/'
+       << (*con.OutFlt.suffix==0 ? "" : trip_suffixes.get_row("code",con.OutFlt.suffix).AsString("code",pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU)) << '/'
        << DateTimeToStr( con.OutFlt.scd, "ddmmm", pr_lat) << '/'
        << airps.get_row("code",con.OutFlt.airp_arv).AsString("code",pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU);
   if (*(con.OutFlt.subcl)!=0)
@@ -1648,7 +1649,7 @@ string TelegramInterface::CreateBSMBody(TBSMContent& con, bool pr_lat)
     body << ".O/"
          << airlines.get_row("code",i->airline).AsString("code",pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU)
          << setw(3) << setfill('0') << i->flt_no
-         << convert_suffix(i->suffix,pr_lat) << '/'
+         << (*i->suffix==0 ? "" : trip_suffixes.get_row("code",i->suffix).AsString("code",pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU)) << '/'
          << DateTimeToStr( i->scd, "ddmmm", pr_lat) << '/'
          << airps.get_row("code",i->airp_arv).AsString("code",pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU);
     if (*(i->subcl)!=0)

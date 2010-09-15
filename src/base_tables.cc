@@ -80,6 +80,8 @@ TBaseTable &TBaseTables::get(string name)
         	  base_tables[name] = new TDevOperTypes();
         else if(name == "GRAPH_STAGES")
         	  base_tables[name] = new TGraphStages();
+        else if(name == "TRIP_SUFFIXES")
+        	  base_tables[name] = new TTripSuffixes();
         else
             throw Exception("TBaseTables::get_base_table: " + name + " not found");
     }
@@ -167,7 +169,6 @@ void TNameBaseTable::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow 
 /////////////////////////////////////////////////////////////
 void TIdBaseTable::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
-	TNameBaseTable::create_row( Qry, row, replaced_row );
   ((TIdBaseTableRow*)*row)->id=Qry.FieldAsInteger("id");
   if (*replaced_row==NULL)
   {
@@ -175,6 +176,7 @@ void TIdBaseTable::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **
     i=id.find(((TIdBaseTableRow*)*row)->id);
     if (i!=id.end()) *replaced_row=i->second;
   };
+  TNameBaseTable::create_row( Qry, row, replaced_row );
 }
 
 void TIdBaseTable::delete_row(TBaseTableRow *row)
@@ -215,7 +217,6 @@ TBaseTableRow& TIdBaseTable::get_row(std::string field, int value, bool with_del
 void TCodeBaseTable::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
 	int idx;
-	TNameBaseTable::create_row( Qry, row, replaced_row );
   ((TCodeBaseTableRow*)*row)->code=Qry.FieldAsString("code");
   if ( (idx=Qry.GetFieldIndex( "code_lat" )) >= 0 )
     ((TCodeBaseTableRow*)*row)->code_lat=Qry.FieldAsString(idx);
@@ -227,6 +228,7 @@ void TCodeBaseTable::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow 
     i=code.find(((TCodeBaseTableRow*)*row)->code);
     if (i!=code.end()) *replaced_row=i->second;
   };
+  TNameBaseTable::create_row( Qry, row, replaced_row );
 }
 
 void TCodeBaseTable::delete_row(TBaseTableRow *row)
@@ -566,6 +568,12 @@ void TSubcls::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **repla
 {
   *row = new TSubclsRow;
   ((TSubclsRow*)*row)->cl=Qry.FieldAsString("class");
+  TCodeBaseTable::create_row(Qry,row,replaced_row);
+};
+
+void TTripSuffixes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+{
+  *row = new TTripSuffixesRow;
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 
