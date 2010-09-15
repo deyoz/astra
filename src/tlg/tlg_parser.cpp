@@ -232,11 +232,14 @@ char* GetSubcl(char* subcl)
 
 char GetSuffix(char &suffix)
 {
-  char suffixh[2];
-  suffixh[0]=suffix;
-  suffixh[1]=0;
-  TlgElemToElemId(etSuffix,suffixh,suffixh);
-  suffix=suffixh[0];
+  if (suffix!=0)
+  {
+    char suffixh[2];
+    suffixh[0]=suffix;
+    suffixh[1]=0;
+    TlgElemToElemId(etSuffix,suffixh,suffixh);
+    suffix=suffixh[0];
+  };
   return suffix;
 };
 

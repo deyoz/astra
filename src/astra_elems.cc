@@ -602,7 +602,7 @@ void getElemFmts(TElemFmt fmt, vector< pair<TElemFmt,string> > &fmts)
     string lang;
     if (pass==0)
     {
-      if (!lang.empty())
+      if (!TReqInfo::Instance()->desk.lang.empty())
         lang=TReqInfo::Instance()->desk.lang;
       else
         continue;
