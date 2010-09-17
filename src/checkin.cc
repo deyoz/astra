@@ -5809,8 +5809,10 @@ void CheckInInterface::readTripData( int point_id, xmlNodePtr dataNode )
       NewTextChild( itemNode, "city_code", airpsRow.city );
       if (TReqInfo::Instance()->desk.compatible(LATIN_VERSION))
       {
-        NewTextChild( itemNode, "airp_code_view", ElemIdToCodeNative(etAirp, airpsRow.code) );
-        NewTextChild( itemNode, "city_name_view", ElemIdToNameLong(etCity, airpsRow.city) );
+        ostringstream target_view;
+        target_view << ElemIdToNameLong(etCity, airpsRow.city)
+                    << " (" << ElemIdToCodeNative(etAirp, airpsRow.code) << ")";
+        NewTextChild( itemNode, "target_view", target_view.str() );
       }
       else
       {
@@ -5838,7 +5840,7 @@ void CheckInInterface::readTripData( int point_id, xmlNodePtr dataNode )
     const char* cl=Qry.FieldAsString( "class_code" );
     NewTextChild( itemNode, "code", cl );
     if (TReqInfo::Instance()->desk.compatible(LATIN_VERSION))
-      NewTextChild( itemNode, "name_view", ElemIdToNameLong(etClass, cl) );
+      NewTextChild( itemNode, "class_view", ElemIdToNameLong(etClass, cl) );
     else
       NewTextChild( itemNode, "name", ElemIdToNameLong(etClass, cl) );
     NewTextChild( itemNode, "cfg", Qry.FieldAsInteger( "cfg" ) );

@@ -873,7 +873,7 @@ void TripsInterface::readHalls( std::string airp_dep, std::string work_mode, xml
   Qry.Clear();
   Qry.SQLText =
     "SELECT halls2.id, "
-    "       DECODE(:lang,'RU',halls2.name,NVL(halls2.name_lat,system.transliter(halls2.name,1,1))) AS name "
+    "       DECODE(:lang,'RU',halls2.name,NVL(halls2.name_lat,halls2.name)) AS name "
     "FROM station_halls,halls2,stations "
     "WHERE station_halls.hall=halls2.id AND halls2.airp=:airp_dep AND "
     "     station_halls.airp=stations.airp AND "
@@ -889,7 +889,7 @@ void TripsInterface::readHalls( std::string airp_dep, std::string work_mode, xml
     Qry.Clear();
     Qry.SQLText =
       "SELECT id, "
-      "       DECODE(:lang,'RU',halls2.name,NVL(halls2.name_lat,system.transliter(halls2.name,1,1))) AS name "
+      "       DECODE(:lang,'RU',halls2.name,NVL(halls2.name_lat,halls2.name)) AS name "
       "FROM halls2 WHERE airp=:airp_dep";
     Qry.CreateVariable("airp_dep",otString,airp_dep);
     Qry.CreateVariable("lang",otString, TReqInfo::Instance()->desk.lang);

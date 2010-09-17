@@ -370,10 +370,10 @@ string getTableName(TElemType type)
 
 string ElemToElemId(TElemType type, const string &elem, TElemFmt &fmt, const std::string &lang, bool with_deleted)
 {
+  fmt=efmtUnknown;
   if (elem.empty()/* || lang.empty()*/) return "";
 
   string id;
-  fmt=efmtUnknown;
 
   string table_name=getTableName(type);
 
@@ -673,6 +673,8 @@ void getElemFmts(TElemFmt fmt, vector< pair<TElemFmt,string> > &fmts)
 
 string ElemIdToClientElem(TElemType type, const string &id, TElemFmt fmt, bool with_deleted)
 {
+  if (id.empty()) return "";
+
   vector< pair<TElemFmt,string> > fmts;
   getElemFmts(fmt, fmts);
   return ElemIdToElem(type, id, fmts, with_deleted);
@@ -680,6 +682,8 @@ string ElemIdToClientElem(TElemType type, const string &id, TElemFmt fmt, bool w
 
 string ElemIdToClientElem(TElemType type, int id, TElemFmt fmt, bool with_deleted)
 {
+  if (id==ASTRA::NoExists) return "";
+
   vector< pair<TElemFmt,string> > fmts;
   getElemFmts(fmt, fmts);
   return ElemIdToElem(type, id, fmts, with_deleted);
