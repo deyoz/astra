@@ -553,7 +553,7 @@ void TripsInterface::readOperFltHeader( TTripInfo &info, xmlNodePtr node )
   TReqInfo *reqInfo = TReqInfo::Instance();
 
   if ( reqInfo->screen.name == "AIR.EXE" )
-    NewTextChild( node, "flight", GetTripName(info,true,false) );
+    NewTextChild( node, "flight", GetTripName(info,ecCkin,true,false) );
 
   NewTextChild( node, "airline", info.airline );
   try
