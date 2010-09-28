@@ -6334,11 +6334,12 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
 
           //вывод рейса
           ostringstream flight;
-          flight << fltSPPInfo.airline
+          flight << ElemIdToCodeNative(etAirline, fltSPPInfo.airline)
                  << setw(3) << setfill('0') << fltSPPInfo.flt_no
-                 << fltSPPInfo.suffix << "/"
+                 << ElemIdToCodeNative(etSuffix, fltSPPInfo.suffix) << "/"
                  << setw(2) << setfill('0') << local_date << " "
-                 << fltSPPInfo.airp << "-" << airp_arv;
+                 << ElemIdToCodeNative(etAirp, fltSPPInfo.airp) << "-"
+                 << ElemIdToCodeNative(etAirp, airp_arv);
           NewTextChild(segNode,"flight",flight.str());
           if (tckin_route_confirm)
           {
@@ -6367,8 +6368,9 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
 
           //начитаем компоновку
           Qry.Clear();
-          Qry.SQLText="SELECT ckin.get_classes(:point_id) AS classes FROM dual";
+          Qry.SQLText="SELECT ckin.get_classes(:point_id, :lang) AS classes FROM dual";
           Qry.CreateVariable("point_id",otInteger,point_dep);
+          Qry.CreateVariable("lang",otString,reqInfo->desk.lang);
           Qry.Execute();
           if (Qry.Eof || Qry.FieldIsNULL("classes"))
           {
@@ -6637,7 +6639,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
 
           if (cl.size()==1)
           {
-            NewTextChild(segNode,"class",cl);
+            NewTextChild(segNode,"class",ElemIdToCodeNative(etClass,cl));
 
             //запишем класс если подтверждение маршрута
             if (tckin_route_confirm)
@@ -6657,7 +6659,12 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
             if (cl.empty())
               SetProp(NewTextChild(segNode,"class","Нет"),"error","CRITICAL");
             else
-              SetProp(NewTextChild(segNode,"class",cl),"error","CRITICAL");
+            {
+              string cl_view;
+              for(string::iterator c=cl.begin();c!=cl.end();c++)
+               cl_view.append(ElemIdToCodeNative(etClass,*c));
+              SetProp(NewTextChild(segNode,"class",cl_view),"error","CRITICAL");
+            };
           };
 
           //наличие мест
@@ -6703,11 +6710,12 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
       //не нашли ни одного рейса
       //вывод рейса
       ostringstream flight;
-      flight << fltInfo.airline
+      flight << ElemIdToCodeNative(etAirline, fltInfo.airline)
              << setw(3) << setfill('0') << fltInfo.flt_no
-             << fltInfo.suffix << "/"
+             << ElemIdToCodeNative(etSuffix, fltInfo.suffix) << "/"
              << setw(2) << setfill('0') << local_date << " "
-             << fltInfo.airp << "-" << airp_arv;
+             << ElemIdToCodeNative(etAirp, fltInfo.airp) << "-"
+             << ElemIdToCodeNative(etAirp, airp_arv);
       NewTextChild(segNode,"flight",flight.str());
 
       if (!is_edi)

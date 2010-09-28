@@ -559,7 +559,8 @@ void TripsInterface::readOperFltHeader( TTripInfo &info, xmlNodePtr node )
   try
   {
     TAirlinesRow &row = (TAirlinesRow&)base_tables.get("airlines").get_row("code",info.airline);
-    NewTextChild( node, "airline_lat", row.code_lat );
+    if (!reqInfo->desk.compatible(LATIN_VERSION))
+      NewTextChild( node, "airline_lat", row.code_lat );
     NewTextChild( node, "aircode", row.aircode );
   }
   catch(EBaseTableError) {};
