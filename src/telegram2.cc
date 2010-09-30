@@ -213,7 +213,7 @@ string TlgElemIdToElem(TElemType type, int id, TElemFmt fmt, const std::string &
 string TlgElemIdToElem(TElemType type, string id, TElemFmt fmt, const std::string &lang)
 {
     string result = ElemIdToElem(type, id, fmt, lang);
-    if(result.empty() ||
+    if(type!=etSuffix && result.empty() ||
        (fmt==efmtCodeInter ||
         fmt==efmtCodeICAOInter ||
         fmt==efmtCodeISOInter) &&!is_lat(result)) {
