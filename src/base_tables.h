@@ -613,21 +613,6 @@ class TCompElemTypes: public TCodeBaseTable {
     }
 };
 
-class TCrs2Row: public TCodeBaseTableRow {
-	public:
-	  const char *get_row_name() const { return "TCrs2Row"; };
-};
-
-class TCrs2: public TCodeBaseTable {
-  protected:
-		const char *get_table_name() { return "TCrs2"; };
-    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
-  public:
-  	TCrs2() {
-  		Init( "crs2" );
-  	}
-};
-
 class TDevModelsRow: public TCodeBaseTableRow {
 	public:
 	  const char *get_row_name() const { return "TDevModelsRow"; };

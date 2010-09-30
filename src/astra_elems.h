@@ -6,7 +6,7 @@
 
 enum TElemType { etCountry,etCity,etAirline,etAirp,etCraft,etClass,etSubcls,
                  etPersType,etGenderType,etPaxDocType,etPayType,etCurrency,
-                 etRefusalType,etSuffix,etClsGrp,etTripType, etCompElemType,
+                 etRefusalType,etSuffix,etClsGrp,etTripType,etCompElemType,
                  etGrpStatusType,etClientType,etCompLayerType,etCrs,
                  etDevModel,etDevSessType,etDevFmtType,etDevOperType,
                  etGraphStage };

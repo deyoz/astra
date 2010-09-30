@@ -346,9 +346,6 @@ string getTableName(TElemType type)
     case etCompLayerType:
     	table_name="comp_layer_types";
     	break;
-    case etCrs:
-    	table_name="crs2";
-    	break;
     case etDevModel:
     	table_name="dev_models";
     	break;
@@ -443,6 +440,57 @@ string ElemToElemId(TElemType type, const string &elem, TElemFmt &fmt, const std
 string ElemToElemId(TElemType type, const string &elem, TElemFmt &fmt, bool with_deleted)
 {
   return ElemToElemId(type, elem, fmt, "", with_deleted);
+};
+
+void getElem(TElemFmt fmt, const std::string &lang, TQuery& Qry, string &elem)
+{
+  elem.clear();
+  int field_idx=-1;
+  switch(fmt)
+  {
+    case efmtNameShort:
+      if (lang==AstraLocale::LANG_RU)
+        field_idx=Qry.GetFieldIndex("short_name");
+      else
+        field_idx=Qry.GetFieldIndex("short_name_lat");
+      break;
+
+    case efmtNameLong:
+      if (lang==AstraLocale::LANG_RU)
+        field_idx=Qry.GetFieldIndex("name");
+      else
+        field_idx=Qry.GetFieldIndex("name_lat");
+      break;
+
+    case efmtCodeNative:
+    case efmtCodeInter:
+      if (fmt==efmtCodeNative && lang==AstraLocale::LANG_RU)
+        field_idx=Qry.GetFieldIndex("code");
+      if (fmt==efmtCodeInter ||
+          fmt==efmtCodeNative && lang!=AstraLocale::LANG_RU)
+        field_idx=Qry.GetFieldIndex("code_lat");
+      break;
+
+    case efmtCodeICAONative:
+    case efmtCodeICAOInter:
+      if (fmt==efmtCodeICAONative && lang==AstraLocale::LANG_RU)
+        field_idx=Qry.GetFieldIndex("code_icao");
+      if (fmt==efmtCodeICAOInter ||
+          fmt==efmtCodeICAONative && lang!=AstraLocale::LANG_RU)
+        field_idx=Qry.GetFieldIndex("code_icao_lat");
+      break;
+
+    case efmtCodeISOInter:
+      if (fmt==efmtCodeISOInter)
+        field_idx=Qry.GetFieldIndex("code_iso");
+      break;
+
+    case efmtUnknown:
+      break;
+  };
+  if (field_idx>=0)
+    elem=Qry.FieldAsString(field_idx);
+  return;
 };
 
 void getElem(TElemFmt fmt, const std::string &lang, const TBaseTableRow& BaseTableRow, string &elem)
@@ -552,6 +600,23 @@ string ElemIdToElem(TElemType type, const string &id, const vector< pair<TElemFm
       };
     }
     catch (EBaseTableError) {};
+  }
+  else
+  {
+    TQuery Qry(&OraSession);
+    //не base_table
+    switch(type)
+    {
+      case etCrs: Qry.SQLText="SELECT name,name_lat FROM crs2 WHERE code=:id"; break;
+      default: ;
+    };
+    Qry.CreateVariable("id",otString,id);
+    Qry.Execute();
+    for(vector< pair<TElemFmt,string> >::const_iterator i=fmts.begin();i!=fmts.end();i++)
+    {
+      getElem(i->first, i->second, Qry, elem);
+      if (!elem.empty()) break;
+    };
   };
 
   return elem;
