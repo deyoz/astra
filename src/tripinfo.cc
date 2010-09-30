@@ -626,7 +626,8 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   NewTextChild( node, "remark", Qry.FieldAsString( "remark" ) );
   NewTextChild( node, "pr_tranzit", (int)Qry.FieldAsInteger( "pr_tranzit" )!=0 );
 
-  //!!!vladNewTextChild( node, "trip", GetTripName(info,reqInfo->screen.name=="TLG.EXE",true) );
+  //trip нужен для ChangeTrip клиента:
+  NewTextChild( node, "trip", GetTripName(info,reqInfo->screen.name=="TLG.EXE",true) );
 
   TTripStages tripStages( point_id );
   TStagesRules *stagesRules = TStagesRules::Instance();
