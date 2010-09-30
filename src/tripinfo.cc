@@ -636,6 +636,9 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   NewTextChild( node, "remark", Qry.FieldAsString( "remark" ) );
   NewTextChild( node, "pr_tranzit", (int)Qry.FieldAsInteger( "pr_tranzit" )!=0 );
 
+  //trip нужен для ChangeTrip клиента:
+  NewTextChild( node, "trip", GetTripName(info,ecCkin,reqInfo->screen.name=="TLG.EXE",true)); //ecCkin? !!!vlad
+
   TTripStages tripStages( point_id );
   TStagesRules *stagesRules = TStagesRules::Instance();
 
@@ -1528,7 +1531,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   Qry.Execute();
   if (Qry.Eof) return;
 
-  string def_pers_type=ElemIdToCodeNative(etPersType, EncodePerson(ASTRA::adult));
+  string def_pers_type=EncodePerson(ASTRA::adult); //специально не перекодируем, так как идет подсчет по типам
   string def_class=ElemIdToCodeNative(etClass, EncodeClass(ASTRA::Y));
   string def_status=EncodePaxStatus(ASTRA::psCheckin);
 
@@ -1613,7 +1616,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     NewTextChild( node, "pnr_status", Qry.FieldAsString( col_pnr_status ), "" );
     NewTextChild( node, "pnr_priority", Qry.FieldAsString( col_pnr_priority ), "" );
     NewTextChild( node, "full_name", Qry.FieldAsString( col_full_name ) );
-    NewTextChild( node, "pers_type", ElemIdToCodeNative(etPersType,Qry.FieldAsString( col_pers_type )), def_pers_type );
+    NewTextChild( node, "pers_type", Qry.FieldAsString( col_pers_type ), def_pers_type ); //специально не перекодируем, так как идет подсчет по типам
     NewTextChild( node, "class", ElemIdToCodeNative(etClass,Qry.FieldAsString( col_class )), def_class );
     NewTextChild( node, "subclass", ElemIdToCodeNative(etSubcls,Qry.FieldAsString( col_subclass ) ));
     NewTextChild( node, "seats", Qry.FieldAsInteger( col_seats ), 1 );
