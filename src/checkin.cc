@@ -1761,7 +1761,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "  ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_weight, "
     "  ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS rk_weight, "
     "  ckin.get_excess(pax.grp_id,pax.pax_id) AS excess, "
-    "  ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num) AS tags, "
+    "  ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags, "
     "  report.get_remarks(pax_id,0) AS rems, "
     "  market_flt.airline AS airline_mark, "
     "  market_flt.flt_no AS flt_no_mark, "
@@ -1797,6 +1797,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Qry.Clear();
   Qry.SQLText=sql.str().c_str();
   Qry.CreateVariable("point_id",otInteger,point_id);
+  Qry.CreateVariable("lang",otString,reqInfo->desk.lang);
   Qry.Execute();
   xmlNodePtr node=NewTextChild(resNode,"passengers");
   if (!Qry.Eof)
@@ -2002,7 +2003,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "  ckin.get_bagWeight2(pax_grp.grp_id,NULL,NULL) AS bag_weight, "
     "  ckin.get_rkWeight2(pax_grp.grp_id,NULL,NULL) AS rk_weight, "
     "  ckin.get_excess(pax_grp.grp_id,NULL) AS excess, "
-    "  ckin.get_birks2(pax_grp.grp_id,NULL,NULL) AS tags, "
+    "  ckin.get_birks2(pax_grp.grp_id,NULL,NULL,:lang) AS tags, "
     "  pax_grp.grp_id, "
     "  pax_grp.hall AS hall_id, "
     "  pax_grp.point_arv,pax_grp.user_id,pax_grp.client_type ";
@@ -2026,6 +2027,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Qry.Clear();
   Qry.SQLText=sql.str().c_str();
   Qry.CreateVariable("point_id",otInteger,point_id);
+  Qry.CreateVariable("lang",otString,reqInfo->desk.lang);
   Qry.Execute();
   node=NewTextChild(resNode,"unaccomp_bag");
   if (!Qry.Eof)
@@ -2976,10 +2978,10 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
             "  END IF; "
             "  INSERT INTO pax(pax_id,grp_id,surname,name,pers_type,seat_type,seats,pr_brd, "
             "                  wl_type,refuse,reg_no,ticket_no,coupon_no,ticket_rem,ticket_confirm, "
-            "                  document,pr_exam,doc_check,subclass,bag_pool_num,tid) "
+            "                  document,pr_exam,subclass,bag_pool_num,tid) "
             "  VALUES(:pax_id,pax_grp__seq.currval,:surname,:name,:pers_type,:seat_type,:seats,:pr_brd, "
             "         :wl_type,NULL,:reg_no,:ticket_no,:coupon_no,:ticket_rem,:ticket_confirm, "
-            "         :document,:pr_exam,0,:subclass,:bag_pool_num,tid__seq.currval); "
+            "         :document,:pr_exam,:subclass,:bag_pool_num,tid__seq.currval); "
             "END;";
           Qry.DeclareVariable("pax_id",otInteger);
           Qry.DeclareVariable("surname",otString);
@@ -5596,10 +5598,11 @@ void CheckInInterface::SaveBagToLog(int point_id, int grp_id, xmlNodePtr bagtagN
       "       NVL(ckin.get_bagWeight(grp_id,NULL),0) AS bagWeight, "
       "       NVL(ckin.get_rkAmount(grp_id,NULL),0) AS rkAmount, "
       "       NVL(ckin.get_rkWeight(grp_id,NULL),0) AS rkWeight, "
-      "       ckin.get_birks(grp_id,NULL) AS tags, "
+      "       ckin.get_birks(grp_id,NULL,:lang) AS tags, "
       "       excess "
       "FROM pax_grp where grp_id=:grp_id";
     Qry.CreateVariable("grp_id",otInteger,grp_id);
+    Qry.CreateVariable("lang",otString,AstraLocale::LANG_RU); //пока в лог пишем всегда на русском
     Qry.Execute();
     if (!Qry.Eof)
     {
