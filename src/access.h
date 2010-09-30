@@ -22,9 +22,12 @@ public:
      AddEvent("apply_updates",evHandle);
      evHandle=JxtHandler<AccessInterface>::CreateHandler(&AccessInterface::SearchUsers);
      AddEvent("search_users",evHandle);
+     evHandle=JxtHandler<AccessInterface>::CreateHandler(&AccessInterface::SaveUser);
+     AddEvent("save_user",evHandle);
   };
 
   void ApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void SaveUser(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void SearchUsers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void CmpRole(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void Clone(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
