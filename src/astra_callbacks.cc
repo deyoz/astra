@@ -102,6 +102,16 @@ void AstraJxtCallbacks::UserBefore(/*const char *body, int blen, const char *hea
     if ( GetNode( "@lang", node ) )
     	reqInfoData.lang = NodeAsString("@lang",node);
 
+   if (reqInfoData.lang.empty())
+   {
+    if (reqInfoData.lang==AstraLocale::LANG_RU)
+      xmlRC->setLang(RUSSIAN);
+    else
+      xmlRC->setLang(ENGLISH);
+   }
+   else xmlRC->setLang(RUSSIAN);
+
+
     reqInfoData.checkUserLogon =
         GetNode( "CheckUserLogon", node ) == NULL &&
         GetNode( "UserLogon", node ) == NULL &&

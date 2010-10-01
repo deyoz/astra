@@ -205,11 +205,11 @@ OrigOfRequest OrigOfRequestEdiR::operator ( )(ReaderData &RData) const
 
     string AuthCode = GetDBNum(pMes, 9904);
     string Pult = GetDBNum(pMes, 3148);
-    if(Pult.size()>6){
+  /*  if(Pult.size()>6){
         ProgError(STDLOG, "Invalid length of the communication number %s [%d/6 max]",
                                Pult.c_str(), Pult.size());
         throw Exception("Invalid length of the communication number");
-    }
+    }*/
 
     PopEdiPointG(pMes);
     PopEdiPointG(pMes);
