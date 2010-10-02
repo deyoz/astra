@@ -208,21 +208,6 @@ int NodeAsInteger(xmlNodePtr node)
   return Value;
 };
 
-int PropAsInteger(const char* expr, xmlNodePtr cur)
-{
-    int Result;
-    xmlChar *val = xmlGetProp(cur, BAD_CAST expr);
-    try {
-        if ( StrToInt( (char *)val, Result ) == EOF )
-            throw EXMLError(string("Cannot get property '") + expr + "' as Integer");
-        xmlFree(val);
-        return Result;
-    } catch(...) {
-        xmlFree(val);
-        throw;
-    }
-}
-
 int NodeAsInteger(const char* expr, xmlDocPtr data, xmlNodePtr cur)
 {
   int Value;
@@ -383,7 +368,7 @@ bool NodeIsNULLFast(const char *expr, xmlNodePtr &node, bool nvl)
         return NodeIsNULL(NodeAsNodeFast(expr,node));
 }
 
-const char* NodeAsStringFast(const char *expr, xmlNodePtr &node, char* nvl)
+const char* NodeAsStringFast(const char *expr, xmlNodePtr &node, const char* nvl)
 {
     if(GetNodeFast(expr, node) == NULL)
         return nvl;

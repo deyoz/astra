@@ -61,7 +61,7 @@ void TelegramInterface::readTripData( int point_id, xmlNodePtr dataNode )
       if (*i==r->airp) break;
     if (i!=airps.end()) continue;
 
-    NewTextChild( node, "airp", ElemIdToCodeNative(etAirp, r->airp) );
+    NewTextChild( node, "airp", r->airp );
 
     airps.push_back(r->airp);
   };
@@ -633,9 +633,8 @@ void TelegramInterface::GetAddrs(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     info.pr_tranzit=Qry.FieldAsInteger("pr_tranzit")!=0;
 
     //с клиента
-    TElemFmt fmt;
     info.tlg_type=NodeAsStringFast( "tlg_type", node);
-    info.airp_trfer=ElemToElemId(etAirp,NodeAsStringFast( "airp_arv", node, ""),fmt); //!!!locale30.08.2010
+    info.airp_trfer=NodeAsStringFast( "airp_arv", node, "");
     info.crs=NodeAsStringFast( "crs", node, "");
     info.pr_lat=NodeAsIntegerFast( "pr_lat", node)!=0;
     info.mark_info.init(reqNode);

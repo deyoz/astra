@@ -538,8 +538,8 @@ void TripsInterface::GetSegInfo(xmlNodePtr reqNode, xmlNodePtr resNode, xmlNodeP
     if ( GetNode( "crsdata", reqNode ) )
       PrepRegInterface::readTripData( point_id, dataNode );
   };
-  if (reqInfo->screen.name == "TLG.EXE" or
-          reqInfo->screen.name == "DOCS.EXE")
+  if (reqInfo->screen.name == "TLG.EXE" ||
+      reqInfo->screen.name == "DOCS.EXE")
   {
     if ( GetNode( "tripdata", reqNode ) && point_id != -1 )
       TelegramInterface::readTripData( point_id, dataNode );
@@ -611,6 +611,15 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
 
   scd_out_client= UTCToClient(info.scd_out,tz_region);
   real_out_client=UTCToClient(info.real_out,tz_region);
+
+  if ( reqInfo->screen.name == "TLG.EXE" )
+  {
+    ostringstream trip;
+    trip << ElemIdToCodeNative(etAirline,info.airline)
+         << setw(3) << setfill('0') << info.flt_no
+         << ElemIdToCodeNative(etSuffix,info.suffix);
+    NewTextChild( node, "flight", trip.str() );
+  };
 
   NewTextChild( node, "scd_out", DateTimeToStr(scd_out_client) );
   NewTextChild( node, "real_out", DateTimeToStr(real_out_client,"hh:nn") );

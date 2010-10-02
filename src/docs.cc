@@ -2823,22 +2823,21 @@ void WEBTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 
 void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    TElemFmt fmt;
     xmlNodePtr node = reqNode->children;
     TRptParams rpt_params;
     rpt_params.point_id = NodeAsIntegerFast("point_id", node);
     rpt_params.rpt_type = DecodeRptType(NodeAsStringFast("rpt_type", node));
-    rpt_params.airp_arv = ElemToElemId(etAirp, NodeAsStringFast("airp_arv", node, ""), fmt);  //!!!den а где проверка fmt?
-    rpt_params.ckin_zone = NodeAsStringFast("ckin_zone", node, " ");
+    rpt_params.airp_arv = NodeAsStringFast("airp_arv", node, "");
+    rpt_params.ckin_zone = NodeAsStringFast("ckin_zone", node, ALL_CKIN_ZONES.c_str());
     rpt_params.pr_et = NodeAsIntegerFast("pr_et", node, 0) != 0;
     rpt_params.pr_trfer = NodeAsIntegerFast("pr_trfer", node, 0) != 0;
     rpt_params.pr_brd = NodeAsIntegerFast("pr_brd", node, 0) != 0;
     xmlNodePtr mktFltNode = GetNodeFast("mkt_flight", node);
     if(mktFltNode != NULL) {
         xmlNodePtr node = mktFltNode->children;
-        rpt_params.mkt_flt.airline = ElemToElemId(etAirline, NodeAsStringFast("airline", node), fmt);
+        rpt_params.mkt_flt.airline = NodeAsStringFast("airline", node);
         rpt_params.mkt_flt.flt_no = NodeAsIntegerFast("flt_no", node);
-        rpt_params.mkt_flt.suffix = ElemToElemId(etSuffix, NodeAsStringFast("suffix", node, ""), fmt);
+        rpt_params.mkt_flt.suffix = NodeAsStringFast("suffix", node, "");
     }
     xmlNodePtr clientTypeNode = GetNodeFast("client_type", node);
     if(clientTypeNode != NULL)
@@ -2950,7 +2949,7 @@ vector<string> get_grp_zone_list(int point_id)
     for(; !Qry.Eof; Qry.Next())
         result.push_back(Qry.FieldAsString("rpt_grp"));
     if(result.size() == 1 and result[0].empty())
-        result[0] = " "; // группа залов "все залы"
+        result[0] = ALL_CKIN_ZONES; // группа залов "все залы"
     if(result.size() > 1 or result.empty())
         result.insert(result.begin(), " ");
     return result;
@@ -2965,7 +2964,7 @@ void DocsInterface::GetZoneList(int point_id, xmlNodePtr dataNode)
         if(iv->empty()) {
             NewTextChild(itemNode, "code");
             NewTextChild(itemNode, "name", "Др. залы");
-        } else if(*iv == " ") {
+        } else if(*iv == ALL_CKIN_ZONES) {
             NewTextChild(itemNode, "code", *iv);
             NewTextChild(itemNode, "name");
         } else {

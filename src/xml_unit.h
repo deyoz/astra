@@ -49,7 +49,7 @@ BASIC::TDateTime NodeAsDateTimeFast(const char *expr, xmlNodePtr &node);
 
 // Если узел не найден, возвращается nvl
 bool NodeIsNULLFast(const char *expr, xmlNodePtr &node, bool nvl);
-const char* NodeAsStringFast(const char *expr, xmlNodePtr &node, char* nvl);
+const char* NodeAsStringFast(const char *expr, xmlNodePtr &node, const char* nvl);
 int NodeAsIntegerFast(const char *expr, xmlNodePtr &node, int nvl);
 double NodeAsFloatFast(const char *expr, xmlNodePtr &node, double nvl);
 BASIC::TDateTime NodeAsDateTimeFast(const char *expr, xmlNodePtr &node, BASIC::TDateTime nvl);
@@ -74,7 +74,6 @@ xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const double conten
 xmlNodePtr ReplaceTextChild(xmlNodePtr parent, const char *name, const char *content = NULL);
 xmlNodePtr ReplaceTextChild(xmlNodePtr parent, const char *name, const std::string content);
 xmlNodePtr ReplaceTextChild(xmlNodePtr parent, const char *name, const int content);
-int PropAsInteger(char* expr, xmlNodePtr cur);
 xmlAttrPtr SetProp(xmlNodePtr node, const char *name, const char *value = NULL);
 xmlAttrPtr SetProp(xmlNodePtr node, const char *name, const std::string value);
 xmlAttrPtr SetProp(xmlNodePtr node, const char *name, const int value);
