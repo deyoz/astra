@@ -30,6 +30,29 @@ const char* EncodeElemContext(const TElemContext ctxt)
 	return "";
 };
 
+const char* EncodeElemFmt(const TElemFmt type)
+{
+    switch( type ) {
+        case efmtUnknown:
+            return "efmtUnknown";
+        case efmtCodeNative:
+            return "efmtCodeNative";
+        case efmtCodeInter:
+            return "efmtCodeInter";
+        case efmtCodeICAONative:
+            return "efmtCodeICAONative";
+        case efmtCodeICAOInter:
+            return "efmtCodeICAOInter";
+        case efmtCodeISOInter:
+            return "efmtCodeISOInter";
+        case efmtNameLong:
+            return "efmtNameLong";
+        case efmtNameShort:
+            return "efmtNameShort";
+    }
+    return "";
+};
+
 const char* EncodeElemType(const TElemType type)
 {
   switch( type ) {
@@ -57,6 +80,8 @@ const char* EncodeElemType(const TElemType type)
   		return "etPayType";
   	case etCurrency:
   		return "etCurrency";
+  	case etClsGrp:
+  		return "etClsGrp";
   	case etRefusalType:
   	  return "etRefusalType";
     case etSuffix:
@@ -321,6 +346,9 @@ string getTableName(TElemType type)
       break;
     case etPayType:
       table_name="pay_types";
+      break;
+    case etClsGrp:
+      table_name="cls_grp";
       break;
     case etCurrency:
       table_name="currency";
@@ -608,7 +636,7 @@ string ElemIdToElem(TElemType type, const string &id, const vector< pair<TElemFm
     switch(type)
     {
       case etCrs: Qry.SQLText="SELECT name,name_lat FROM crs2 WHERE code=:id"; break;
-      default: ;
+      default: throw Exception("Unexpected elem type %s", EncodeElemType(type));
     };
     Qry.CreateVariable("id",otString,id);
     Qry.Execute();

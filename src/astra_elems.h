@@ -24,6 +24,7 @@ enum TElemFmt {efmtUnknown=-1,
 
 const char* EncodeElemContext(const TElemContext ctxt);
 const char* EncodeElemType(const TElemType type);
+const char* EncodeElemFmt(const TElemFmt type);
 
 std::string ElemToElemId(TElemType type, const std::string &elem, TElemFmt &fmt, const std::string &lang, bool with_deleted=false);
 std::string ElemToElemId(TElemType type, const std::string &elem, TElemFmt &fmt, bool with_deleted=false);
