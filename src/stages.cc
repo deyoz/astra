@@ -442,7 +442,10 @@ void TStagesRules::Build( xmlNodePtr dataNode )
   }
   node = NewTextChild( dataNode, "StageStatuses" );
   for ( TMapStatuses::iterator m=StageStatuses.begin(); m!=StageStatuses.end(); m++ ) {
-  	if ( m->first == stWEB && !TReqInfo::Instance()->desk.compatible( WEB_CHECKIN_VERSION ) )
+  	if ( m->first != stCheckIn &&
+  		   m->first != stBoarding &&
+  		   m->first != stCraft &&
+  		   !TReqInfo::Instance()->desk.compatible( WEB_CHECKIN_VERSION ) )
   		continue;
     snode = NewTextChild( node, "stage_type" );
     SetProp( snode, "type", m->first );
