@@ -190,8 +190,12 @@ void simple_split(ostringstream &heading, size_t part_len, TTlgDraft &tlg_draft,
         }
 }
 
-string TlgElemIdToElem(TElemType type, int id, TElemFmt fmt, const std::string &lang)
+string TTlgInfo::TlgElemIdToElem(TElemType type, int id, TElemFmt fmt)
 {
+    if(fmt == efmtUnknown)
+        fmt = elem_fmt;
+    if(not(fmt==efmtCodeNative || fmt==efmtCodeInter))
+        throw Exception("Wrong fmt: %s. tlg_type: %s, elem_type: %s", EncodeElemFmt(fmt), tlg_type.c_str(), EncodeElemType(type));
     string result = ElemIdToElem(type, id, fmt, lang);
     if(result.empty() ||
        (fmt==efmtCodeInter ||
@@ -201,19 +205,26 @@ string TlgElemIdToElem(TElemType type, int id, TElemFmt fmt, const std::string &
         switch(type)
         {
             case etClsGrp:
-                code_name = "класса";  //!!!den что бы это значило?
+                code_name = "CLS_GRP";
                 break;
             default:
-                throw Exception("Unsupported int elem type %d", type);
+                throw Exception("Unsupported int elem type %s, tlg_type: %s", EncodeElemType(type), tlg_type.c_str());
         }
+        throw AstraLocale::UserException((string)"MSG." + code_name + "_LAT_CODE_NOT_FOUND", LParams() << LParam("id", id));
     }
     return result;
 }
 
-string TlgElemIdToElem(TElemType type, string id, TElemFmt fmt, const std::string &lang)
+string TTlgInfo::TlgElemIdToElem(TElemType type, string id, TElemFmt fmt)
 {
+    if(fmt == efmtUnknown)
+        fmt = elem_fmt;
+    if(id.empty())
+        throw Exception("id is empty. tlg_type: %s, elem_type: %s", tlg_type.c_str(), EncodeElemType(type));
+    if(not(fmt==efmtCodeNative || fmt==efmtCodeInter))
+        throw Exception("Wrong fmt: %s. tlg_type: %s, elem_type: %s", EncodeElemFmt(fmt), tlg_type.c_str(), EncodeElemType(type));
     string result = ElemIdToElem(type, id, fmt, lang);
-    if(type!=etSuffix && result.empty() ||
+    if(result.empty() ||
        (fmt==efmtCodeInter ||
         fmt==efmtCodeICAOInter ||
         fmt==efmtCodeISOInter) &&!is_lat(result)) {
@@ -260,7 +271,7 @@ string TlgElemIdToElem(TElemType type, string id, TElemFmt fmt, const std::strin
                 code_name="SUFFIX";
                 break;
             default:
-                throw Exception("Unsupported elem type %d", type);
+                throw Exception("Unsupported elem type %s, tlg_type: %s", EncodeElemType(type), tlg_type.c_str());
         };
         throw AstraLocale::UserException((string)"MSG." + code_name + "_LAT_CODE_NOT_FOUND", LParams() << LParam("id", id));
     }
@@ -360,13 +371,13 @@ void TMItem::ToTlg(TTlgInfo &info, vector<string> &body)
     ostringstream result;
     result
         << ".M/"
-        << ElemIdToElem(etAirline, m_flight.airline, info.elem_fmt, info.lang)
+        << info.TlgElemIdToElem(etAirline, m_flight.airline)
         << setw(3) << setfill('0') << m_flight.flt_no
-        << ElemIdToElem(etSuffix, m_flight.suffix, info.elem_fmt, info.lang)
-        << ElemIdToElem(etSubcls, m_flight.subcls, info.elem_fmt, info.lang)
+        << info.TlgElemIdToElem(etSuffix, m_flight.suffix)
+        << info.TlgElemIdToElem(etSubcls, m_flight.subcls)
         << setw(2) << setfill('0') << m_flight.scd_day_local
-        << ElemIdToElem(etAirp, m_flight.airp_dep, info.elem_fmt, info.lang)
-        << ElemIdToElem(etAirp, m_flight.airp_arv, info.elem_fmt, info.lang);
+        << info.TlgElemIdToElem(etAirp, m_flight.airp_dep)
+        << info.TlgElemIdToElem(etAirp, m_flight.airp_arv);
     body.push_back(result.str());
 }
 
@@ -388,7 +399,7 @@ namespace PRL_SPACE {
 
     void TPNRItem::ToTlg(TTlgInfo &info, vector<string> &body)
     {
-        body.push_back(".L/" + convert_pnr_addr(addr, info.pr_lat) + '/' + ElemIdToElem(etAirline, airline, info.elem_fmt, info.lang));
+        body.push_back(".L/" + convert_pnr_addr(addr, info.pr_lat) + '/' + info.TlgElemIdToElem(etAirline, airline));
     }
 
     struct TPNRList {
@@ -625,7 +636,7 @@ namespace PRL_SPACE {
                 line
                     << ".N/" << fixed << setprecision(0) << setw(10) << setfill('0') << (prev_item.no - num + 1)
                     << setw(3) << setfill('0') << num
-                    << '/' << ElemIdToElem(etAirp, prev_item.airp_arv, info.elem_fmt, info.lang);
+                    << '/' << info.TlgElemIdToElem(etAirp, prev_item.airp_arv);
             }
     };
 
@@ -744,17 +755,17 @@ namespace PRL_SPACE {
                 ostringstream line;
                 line
                     << ".O/"
-                    << ElemIdToElem(etAirline, item.airline, info.elem_fmt, info.lang)
+                    << info.TlgElemIdToElem(etAirline, item.airline)
                     << setw(3) << setfill('0') << item.flt_no
-                    << ElemIdToElem(etSuffix, item.suffix, info.elem_fmt, info.lang)
+                    << info.TlgElemIdToElem(etSuffix, item.suffix)
                     << '/'
                     << DateTimeToStr(item.scd, "ddmmm", info.pr_lat)
                     << '/'
-                    << ElemIdToElem(etAirp, item.airp_arv, info.elem_fmt, info.lang);
+                    << info.TlgElemIdToElem(etAirp, item.airp_arv);
                 if(not item.trfer_cls.empty())
                     line
                         << '/'
-                        << ElemIdToElem(etClass, item.trfer_cls, info.elem_fmt, info.lang);
+                        << info.TlgElemIdToElem(etClass, item.trfer_cls);
                 return line.str();
             }
     };
@@ -766,12 +777,12 @@ namespace PRL_SPACE {
                 ostringstream line;
                 line
                     << " "
-                    << ElemIdToElem(etAirline, item.airline, info.elem_fmt, info.lang)
+                    << info.TlgElemIdToElem(etAirline, item.airline)
                     << setw(3) << setfill('0') << item.flt_no
-                    << ElemIdToElem(etSuffix, item.suffix, info.elem_fmt, info.lang)
-                    << ElemIdToElem(etSubcls, item.trfer_subcls, info.elem_fmt, info.lang)
+                    << info.TlgElemIdToElem(etSuffix, item.suffix)
+                    << info.TlgElemIdToElem(etSubcls, item.trfer_subcls)
                     << DateTimeToStr(item.scd, "dd", info.pr_lat)
-                    << ElemIdToElem(etAirp, item.airp_arv, info.elem_fmt, info.lang);
+                    << info.TlgElemIdToElem(etAirp, item.airp_arv);
                 return line.str();
             }
         public:
@@ -792,12 +803,12 @@ namespace PRL_SPACE {
                     line << i;
                 line
                     << '/'
-                    << ElemIdToElem(etAirline, item.airline, info.elem_fmt, info.lang)
+                    << info.TlgElemIdToElem(etAirline, item.airline)
                     << setw(3) << setfill('0') << item.flt_no
-                    << ElemIdToElem(etSuffix, item.suffix, info.elem_fmt, info.lang)
-                    << ElemIdToElem(etSubcls, item.trfer_subcls, info.elem_fmt, info.lang)
+                    << info.TlgElemIdToElem(etSuffix, item.suffix)
+                    << info.TlgElemIdToElem(etSubcls, item.trfer_subcls)
                     << DateTimeToStr(item.scd, "dd", info.pr_lat)
-                    << ElemIdToElem(etAirp, item.airp_arv, info.elem_fmt, info.lang);
+                    << info.TlgElemIdToElem(etAirp, item.airp_arv);
                 return line.str();
             }
     };
@@ -1434,7 +1445,7 @@ namespace PRL_SPACE {
             int col_y_add_pax = Qry.FieldIndex("y_add_pax");
             for(; !Qry.Eof; Qry.Next()) {
                 TCOMStatsItem item;
-                item.target = ElemIdToElem(etAirp, Qry.FieldAsString(col_target), info.elem_fmt, info.lang);
+                item.target = info.TlgElemIdToElem(etAirp, Qry.FieldAsString(col_target));
                 item.f = Qry.FieldAsInteger(col_f);
                 item.c = Qry.FieldAsInteger(col_c);
                 item.y = Qry.FieldAsInteger(col_y);
@@ -1531,7 +1542,7 @@ namespace PRL_SPACE {
             int col_av = Qry.FieldIndex("av");
             for(; !Qry.Eof; Qry.Next()) {
                 TCOMClassesItem item;
-                item.cls = ElemIdToElem(etSubcls, Qry.FieldAsString(col_class), info.elem_fmt, info.lang);
+                item.cls = info.TlgElemIdToElem(etSubcls, Qry.FieldAsString(col_class));
                 item.cfg = Qry.FieldAsInteger(col_cfg);
                 item.av = Qry.FieldAsInteger(col_av);
                 items.push_back(item);
@@ -1821,17 +1832,17 @@ struct TPLine {
     string get_line(TTlgInfo &info, TFItem &FItem) {
         ostringstream result;
         result
-            << ElemIdToElem(etAirline, FItem.airline, info.elem_fmt, info.lang)
+            << info.TlgElemIdToElem(etAirline, FItem.airline)
             << setw(3) << setfill('0') << FItem.flt_no
-            << ElemIdToElem(etSuffix, FItem.suffix, info.elem_fmt, info.lang)
+            << info.TlgElemIdToElem(etSuffix, FItem.suffix)
             << "/"
             << DateTimeToStr(FItem.scd, "dd", info.pr_lat)
             << " "
-            << ElemIdToElem(etAirp, FItem.airp_arv, info.elem_fmt, info.lang)
+            << info.TlgElemIdToElem(etAirp, FItem.airp_arv)
             << " "
             << seats
             << " "
-            << ElemIdToElem(etSubcls, FItem.trfer_cls, info.elem_fmt, info.lang)
+            << info.TlgElemIdToElem(etSubcls, FItem.trfer_cls)
             << " ";
         if(print_bag)
             result
@@ -2241,17 +2252,17 @@ struct TBTMFItem:TFItem {
         ostringstream line;
         line
             << ".F/"
-            << ElemIdToElem(etAirline, airline, info.elem_fmt, info.lang)
+            << info.TlgElemIdToElem(etAirline, airline)
             << setw(3) << setfill('0') << flt_no
-            << ElemIdToElem(etSuffix, suffix, info.elem_fmt, info.lang)
+            << info.TlgElemIdToElem(etSuffix, suffix)
             << "/"
             << DateTimeToStr(scd, "ddmmm", info.pr_lat)
             << "/"
-            << ElemIdToElem(etAirp, airp_arv, info.elem_fmt, info.lang);
+            << info.TlgElemIdToElem(etAirp, airp_arv);
         if(not trfer_cls.empty())
             line
                 << "/"
-                << ElemIdToElem(etClass, trfer_cls, info.elem_fmt, info.lang);
+                << info.TlgElemIdToElem(etClass, trfer_cls);
         body.push_back(line.str());
     }
 };
@@ -2264,13 +2275,13 @@ struct TPTMFItem:TFItem {
         if(info.tlg_type == "PTMN") {
             ostringstream result;
             result
-                << ElemIdToElem(etAirline, airline, info.elem_fmt, info.lang)
+                << info.TlgElemIdToElem(etAirline, airline)
                 << setw(3) << setfill('0') << flt_no
-                << ElemIdToElem(etSuffix, suffix, info.elem_fmt, info.lang)
+                << info.TlgElemIdToElem(etSuffix, suffix)
                 << "/"
                 << DateTimeToStr(scd, "dd", info.pr_lat)
                 << " "
-                << ElemIdToElem(etAirp, airp_arv, info.elem_fmt, info.lang)
+                << info.TlgElemIdToElem(etAirp, airp_arv)
                 << " ";
             int seats = 0;
             int baggage = 0;
@@ -2294,7 +2305,7 @@ struct TPTMFItem:TFItem {
             result
                 << seats
                 << " "
-                << ElemIdToElem(etClass, trfer_cls, info.elem_fmt, info.lang)
+                << info.TlgElemIdToElem(etClass, trfer_cls)
                 << " "
                 << baggage
                 << "B";
@@ -2578,7 +2589,7 @@ void TSSRCodes::ToTlg(TTlgInfo &info, vector<string> &body)
         TPSMSSRItem &SSRItem = i_items->second;
         for(vector<TCFGItem>::iterator i_cfg = cfg.items.begin(); i_cfg != cfg.items.end(); i_cfg++) {
             TCounter &counter = SSRItem[i_cfg->cls];
-            buf << " " << setw(3) << setfill('0') << right << counter.val << TlgElemIdToElem(etClass, i_cfg->cls, info.elem_fmt, info.lang);
+            buf << " " << setw(3) << setfill('0') << right << counter.val << info.TlgElemIdToElem(etClass, i_cfg->cls);
         }
         body.push_back(buf.str());
     }
@@ -2609,7 +2620,7 @@ void TPSM::ToTlg(TTlgInfo &info, vector<string> &body)
             target_ssr += ssr;
             ostringstream buf;
             buf
-                << TlgElemIdToElem(etClass, i_cfg->cls, info.elem_fmt, info.lang)
+                << info.TlgElemIdToElem(etClass, i_cfg->cls)
                 << " CLASS ";
             if(pax_list.empty())
                 buf << "NIL";
@@ -2624,7 +2635,7 @@ void TPSM::ToTlg(TTlgInfo &info, vector<string> &body)
         }
         ostringstream buf;
         buf
-            << "-" << ElemIdToElem(etAirp, iv->airp, info.elem_fmt, info.lang)
+            << "-" << info.TlgElemIdToElem(etAirp, iv->airp)
             << " ";
         if(target_pax == 0) {
             buf << "NIL";
@@ -2756,7 +2767,7 @@ void TPIL::get(TTlgInfo &info)
 void TPIL::ToTlg(TTlgInfo &info, string &body)
 {
     for(vector<TCFGItem>::iterator iv = cfg.items.begin(); iv != cfg.items.end(); iv++) {
-        body += ElemIdToElem(etClass, iv->cls, info.elem_fmt, info.lang) + "CLASS" + br;
+        body += info.TlgElemIdToElem(etClass, iv->cls) + "CLASS" + br;
         const TPILPaxLst &pax_lst = items[iv->cls];
         if(pax_lst.empty())
             body += "NIL" + br;
@@ -2765,7 +2776,7 @@ void TPIL::ToTlg(TTlgInfo &info, string &body)
                 vector<string> seat_list = i_lst->seat_no.get_seat_vector(info.pr_lat);
                 ostringstream pax_str;
                 pax_str
-                    << TlgElemIdToElem(etAirp, i_lst->airp_arv, info.elem_fmt, info.lang)
+                    << info.TlgElemIdToElem(etAirp, i_lst->airp_arv)
                     << " "
                     << i_lst->name.ToPILTlg(info);
                 string ssr_str = i_lst->ssr.ToPILTlg(info);
@@ -3526,7 +3537,7 @@ void TTlgSeatList::get(TTlgInfo &info)
         string item;
         int point_id = Qry.FieldAsInteger("point_id");
         string airp = Qry.FieldAsString("airp");
-        item = "-" + TlgElemIdToElem(etAirp, airp, info.elem_fmt, info.lang) + ".";
+        item = "-" + info.TlgElemIdToElem(etAirp, airp) + ".";
         if(list[point_id].empty())
             item += "NIL";
         else {
@@ -3741,11 +3752,11 @@ void TRemList::internal_get(TTlgInfo &info, int pax_id, string subcls)
             string subclass = Qry.FieldAsString(col_subclass);
             item +=
                 rem_code + " " +
-                ElemIdToElem(etAirline, airline, info.elem_fmt, info.lang) + " " +
+                info.TlgElemIdToElem(etAirline, airline) + " " +
                 transliter(no, 1, info.pr_lat);
             if(rem_code == "FQTV") {
                 if(not subclass.empty() and subclass != subcls)
-                    item += "-" + ElemIdToElem(etSubcls, subclass, info.elem_fmt, info.lang);
+                    item += "-" + info.TlgElemIdToElem(etSubcls, subclass);
             } else {
                 if(not extra.empty())
                     item += "-" + transliter(extra, 1, info.pr_lat);
@@ -3785,9 +3796,9 @@ void TFTLBody::ToTlg(TTlgInfo &info, vector<string> &body)
         for(vector<TFTLDest>::iterator iv = items.begin(); iv != items.end(); iv++) {
             ostringstream buf;
             buf
-                << "-" << TlgElemIdToElem(etAirp, iv->target, info.elem_fmt, info.lang)
+                << "-" << info.TlgElemIdToElem(etAirp, iv->target)
                 << setw(2) << setfill('0') << iv->PaxList.size()
-                << TlgElemIdToElem(etSubcls, iv->subcls, info.elem_fmt, info.lang);
+                << info.TlgElemIdToElem(etSubcls, iv->subcls);
             body.push_back(buf.str());
             iv->ToTlg(info, body);
         }
@@ -4032,16 +4043,16 @@ void TDestList<T>::ToTlg(TTlgInfo &info, vector<string> &body)
         if(iv->PaxList.empty()) {
             line.str("");
             line
-                << "-" << TlgElemIdToElem(etAirp, iv->airp, info.elem_fmt, info.lang)
-                << "00" << TlgElemIdToElem(etSubcls, iv->cls, prLatToElemFmt(efmtCodeNative,true), info.lang); //всегда на латинице - так надо
+                << "-" << info.TlgElemIdToElem(etAirp, iv->airp)
+                << "00" << info.TlgElemIdToElem(etSubcls, iv->cls, prLatToElemFmt(efmtCodeNative,true)); //всегда на латинице - так надо
             body.push_back(line.str());
         } else {
             pr_empty = false;
             line.str("");
             line
-                << "-" << TlgElemIdToElem(etAirp, iv->airp, info.elem_fmt, info.lang)
+                << "-" << info.TlgElemIdToElem(etAirp, iv->airp)
                 << setw(2) << setfill('0') << iv->PaxList.size()
-                << TlgElemIdToElem(etClsGrp, iv->PaxList[0].cls_grp_id, prLatToElemFmt(efmtCodeNative,true), info.lang); //всегда на латинице - так надо
+                << info.TlgElemIdToElem(etClsGrp, iv->PaxList[0].cls_grp_id, prLatToElemFmt(efmtCodeNative,true)); //всегда на латинице - так надо
             body.push_back(line.str());
             iv->PaxListToTlg(info, body);
         }
@@ -4144,7 +4155,7 @@ struct TETLCFG:TCFG {
             {
                 cfg
                     << setw(3) << setfill('0') << iv->cfg
-                    << ElemIdToElem(etClass, iv->cls, info.elem_fmt, info.lang);
+                    << info.TlgElemIdToElem(etClass, iv->cls);
             }
         }
         if(not cfg.str().empty())
@@ -4277,7 +4288,7 @@ void TLDMDests::ToTlg(TTlgInfo &info, bool &vcompleted, vector<string> &body)
     for(vector<TLDMDest>::iterator iv = items.begin(); iv != items.end(); iv++) {
         row.str("");
         row
-            << "-" << ElemIdToElem(etAirp, iv->target, info.elem_fmt, info.lang)
+            << "-" << info.TlgElemIdToElem(etAirp, iv->target)
             << "." << iv->adl << "/" << iv->chd << "/" << iv->inf
             << ".T"
             << iv->bag.baggage + iv->bag.cargo + iv->bag.mail;
@@ -4488,7 +4499,7 @@ void TMVTABody::ToTlg(TTlgInfo &info, bool &vcompleted, vector<string> &body)
                 buf << "????";
             } else
                 buf << DateTimeToStr(i->est_in, "hhnn");
-            buf << " " << ElemIdToElem(etAirp, i->target, info.elem_fmt, info.lang);
+            buf << " " << info.TlgElemIdToElem(etAirp, i->target);
             body.push_back(buf.str());
             buf.str("");
             buf << "PX" << i->seats;
@@ -4710,9 +4721,9 @@ int FTL(TTlgInfo &info)
     string suffix_view = info.suffix_view;
 
     if(not info.mark_info.IsNULL() and info.mark_info.pr_mark_header) {
-        airline_view = TlgElemIdToElem(etAirline, info.mark_info.airline, info.elem_fmt, info.lang);
+        airline_view = info.TlgElemIdToElem(etAirline, info.mark_info.airline);
         flt_no_view = info.mark_info.flt_no;
-        suffix_view = TlgElemIdToElem(etSuffix, info.mark_info.suffix, info.elem_fmt, info.lang);
+        suffix_view = info.TlgElemIdToElem(etSuffix, info.mark_info.suffix);
     }
     ostringstream heading;
     heading
@@ -4750,9 +4761,9 @@ int ETL(TTlgInfo &info)
     string suffix_view = info.suffix_view;
 
     if(not info.mark_info.IsNULL() and info.mark_info.pr_mark_header) {
-        airline_view = TlgElemIdToElem(etAirline, info.mark_info.airline, info.elem_fmt, info.lang);
+        airline_view = info.TlgElemIdToElem(etAirline, info.mark_info.airline);
         flt_no_view = info.mark_info.flt_no;
-        suffix_view = TlgElemIdToElem(etSuffix, info.mark_info.suffix, info.elem_fmt, info.lang);
+        suffix_view = info.TlgElemIdToElem(etSuffix, info.mark_info.suffix);
     }
     ostringstream heading;
     heading
@@ -4833,7 +4844,7 @@ void TNumByDestItem::ToTlg(TTlgInfo &info, string airp, vector<string> &body)
 {
     ostringstream buf;
     buf
-        << ElemIdToElem(etAirp, airp, info.elem_fmt, info.lang)
+        << info.TlgElemIdToElem(etAirp, airp)
         << " "
         << setw(2) << setfill('0') << f << "/"
         << setw(3) << setfill('0') << c << "/"
@@ -5208,13 +5219,13 @@ void TPFSBody::ToTlg(TTlgInfo &info, vector<string> &body)
             TPFSCtgryList &CtgryList = items[iv->airp];
             if(CtgryList.empty())
                 continue;
-            category_lst.push_back((string)"-" + ElemIdToElem(etAirp, iv->airp, info.elem_fmt, info.lang));
+            category_lst.push_back((string)"-" + info.TlgElemIdToElem(etAirp, iv->airp));
             for(TPFSCtgryList::iterator ctgry = CtgryList.begin(); ctgry != CtgryList.end(); ctgry++) {
                 TPFSClsList &ClsList = ctgry->second;
                 for(TPFSClsList::iterator cls = ClsList.begin(); cls != ClsList.end(); cls++) {
                     ostringstream buf;
                     TPFSPaxList &pax_list = cls->second;
-                    buf << ctgry->first << " " << pax_list.size() << ElemIdToElem(etSubcls, cls->first, info.elem_fmt, info.lang);
+                    buf << ctgry->first << " " << pax_list.size() << info.TlgElemIdToElem(etSubcls, cls->first);
                     category_lst.push_back(buf.str());
                     for(TPFSPaxList::iterator pax = pax_list.begin(); pax != pax_list.end(); pax++)
                         pax->ToTlg(info, category_lst);
@@ -5429,9 +5440,9 @@ int PFS(TTlgInfo &info)
     string suffix_view = info.suffix_view;
 
     if(not info.mark_info.IsNULL() and info.mark_info.pr_mark_header) {
-        airline_view = TlgElemIdToElem(etAirline, info.mark_info.airline, info.elem_fmt, info.lang);
+        airline_view = info.TlgElemIdToElem(etAirline, info.mark_info.airline);
         flt_no_view = info.mark_info.flt_no;
-        suffix_view = TlgElemIdToElem(etSuffix, info.mark_info.suffix, info.elem_fmt, info.lang);
+        suffix_view = info.TlgElemIdToElem(etSuffix, info.mark_info.suffix);
     }
     ostringstream heading;
     heading
@@ -5471,9 +5482,9 @@ int PRL(TTlgInfo &info)
     string suffix_view = info.suffix_view;
 
     if(not info.mark_info.IsNULL() and info.mark_info.pr_mark_header) {
-        airline_view = TlgElemIdToElem(etAirline, info.mark_info.airline, info.elem_fmt, info.lang);
+        airline_view = info.TlgElemIdToElem(etAirline, info.mark_info.airline);
         flt_no_view = info.mark_info.flt_no;
-        suffix_view = TlgElemIdToElem(etSuffix, info.mark_info.suffix, info.elem_fmt, info.lang);
+        suffix_view = info.TlgElemIdToElem(etSuffix, info.mark_info.suffix);
     }
     ostringstream heading;
     heading
@@ -5582,9 +5593,9 @@ int TelegramInterface::create_tlg(
         info.first_point = Qry.FieldAsInteger("first_point");
         info.pr_tranzit = Qry.FieldAsInteger("pr_tranzit")!=0;
 
-        info.airline_view = TlgElemIdToElem(etAirline, info.airline, info.elem_fmt, info.lang);
-        info.suffix_view = TlgElemIdToElem(etSuffix, info.suffix, info.elem_fmt, info.lang);
-        info.airp_dep_view = TlgElemIdToElem(etAirp, info.airp_dep, info.elem_fmt, info.lang);
+        info.airline_view = info.TlgElemIdToElem(etAirline, info.airline);
+        info.suffix_view = info.TlgElemIdToElem(etSuffix, info.suffix);
+        info.airp_dep_view = info.TlgElemIdToElem(etAirp, info.airp_dep);
 
         info.pr_lat_seat = Qry.FieldAsInteger("pr_lat_seat") != 0;
 
@@ -5610,7 +5621,7 @@ int TelegramInterface::create_tlg(
         vbasic_type == "BTM")
     {
         info.airp_arv = createInfo.airp_trfer;
-        info.airp_arv_view = TlgElemIdToElem(etAirp, info.airp_arv, info.elem_fmt, info.lang);
+        info.airp_arv_view = info.TlgElemIdToElem(etAirp, info.airp_arv);
         if (!info.airp_arv.empty())
           extra << info.airp_arv << " ";
     }
@@ -5621,7 +5632,7 @@ int TelegramInterface::create_tlg(
       if (route.GetNextAirp(info.point_id, trtNotCancelled, next_airp))
       {
         info.airp_arv = next_airp.airp;
-        info.airp_arv_view = TlgElemIdToElem(etAirp, info.airp_arv, info.elem_fmt, info.lang);
+        info.airp_arv_view = info.TlgElemIdToElem(etAirp, info.airp_arv);
       };
     };
     if (vbasic_type == "PFS" or
