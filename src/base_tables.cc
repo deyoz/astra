@@ -52,6 +52,8 @@ TBaseTable &TBaseTables::get(string name)
             base_tables[name] = new TPayTypes();
         else if(name == "CURRENCY")
             base_tables[name] = new TCurrency();
+        else if(name == "CLS_GRP")
+            base_tables[name] = new TClsGrp();
         else if(name == "REFUSAL_TYPES")
             base_tables[name] = new TRefusalTypes();
         else if(name == "SUBCLS")
