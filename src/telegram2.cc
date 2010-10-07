@@ -196,11 +196,14 @@ string TTlgInfo::TlgElemIdToElem(TElemType type, int id, TElemFmt fmt)
         fmt = elem_fmt;
     if(not(fmt==efmtCodeNative || fmt==efmtCodeInter))
         throw Exception("Wrong fmt: %s. tlg_type: %s, elem_type: %s", EncodeElemFmt(fmt), tlg_type.c_str(), EncodeElemType(type));
-    string result = ElemIdToElem(type, id, fmt, lang);
-    if(result.empty() ||
-       (fmt==efmtCodeInter ||
-        fmt==efmtCodeICAOInter ||
-        fmt==efmtCodeISOInter) &&!is_lat(result)) {
+
+    vector< pair<TElemFmt,string> > fmts;
+    fmts.push_back( make_pair(fmt, lang) );
+    if(fmt == efmtCodeNative)
+        fmts.push_back( make_pair(efmtCodeInter, lang) );
+
+    string result = ElemIdToElem(type, id, fmts);
+    if(result.empty() || fmt==efmtCodeInter &&!is_lat(result)) {
         string code_name;
         switch(type)
         {
@@ -223,11 +226,14 @@ string TTlgInfo::TlgElemIdToElem(TElemType type, string id, TElemFmt fmt)
         throw Exception("id is empty. tlg_type: %s, elem_type: %s", tlg_type.c_str(), EncodeElemType(type));
     if(not(fmt==efmtCodeNative || fmt==efmtCodeInter))
         throw Exception("Wrong fmt: %s. tlg_type: %s, elem_type: %s", EncodeElemFmt(fmt), tlg_type.c_str(), EncodeElemType(type));
-    string result = ElemIdToElem(type, id, fmt, lang);
-    if(result.empty() ||
-       (fmt==efmtCodeInter ||
-        fmt==efmtCodeICAOInter ||
-        fmt==efmtCodeISOInter) &&!is_lat(result)) {
+
+    vector< pair<TElemFmt,string> > fmts;
+    fmts.push_back( make_pair(fmt, lang) );
+    if(fmt == efmtCodeNative)
+        fmts.push_back( make_pair(efmtCodeInter, lang) );
+
+    string result = ElemIdToElem(type, id, fmts);
+    if(result.empty() || fmt==efmtCodeInter &&!is_lat(result)) {
         string code_name;
         switch(type)
         {
@@ -373,7 +379,7 @@ void TMItem::ToTlg(TTlgInfo &info, vector<string> &body)
         << ".M/"
         << info.TlgElemIdToElem(etAirline, m_flight.airline)
         << setw(3) << setfill('0') << m_flight.flt_no
-        << info.TlgElemIdToElem(etSuffix, m_flight.suffix)
+        << (m_flight.suffix.empty() ? "" : info.TlgElemIdToElem(etSuffix, m_flight.suffix))
         << info.TlgElemIdToElem(etSubcls, m_flight.subcls)
         << setw(2) << setfill('0') << m_flight.scd_day_local
         << info.TlgElemIdToElem(etAirp, m_flight.airp_dep)
@@ -757,7 +763,7 @@ namespace PRL_SPACE {
                     << ".O/"
                     << info.TlgElemIdToElem(etAirline, item.airline)
                     << setw(3) << setfill('0') << item.flt_no
-                    << info.TlgElemIdToElem(etSuffix, item.suffix)
+                    << (item.suffix.empty() ? "" : info.TlgElemIdToElem(etSuffix, item.suffix))
                     << '/'
                     << DateTimeToStr(item.scd, "ddmmm", info.pr_lat)
                     << '/'
@@ -779,7 +785,7 @@ namespace PRL_SPACE {
                     << " "
                     << info.TlgElemIdToElem(etAirline, item.airline)
                     << setw(3) << setfill('0') << item.flt_no
-                    << info.TlgElemIdToElem(etSuffix, item.suffix)
+                    << (item.suffix.empty() ? "" : info.TlgElemIdToElem(etSuffix, item.suffix))
                     << info.TlgElemIdToElem(etSubcls, item.trfer_subcls)
                     << DateTimeToStr(item.scd, "dd", info.pr_lat)
                     << info.TlgElemIdToElem(etAirp, item.airp_arv);
@@ -805,7 +811,7 @@ namespace PRL_SPACE {
                     << '/'
                     << info.TlgElemIdToElem(etAirline, item.airline)
                     << setw(3) << setfill('0') << item.flt_no
-                    << info.TlgElemIdToElem(etSuffix, item.suffix)
+                    << (item.suffix.empty() ? "" : info.TlgElemIdToElem(etSuffix, item.suffix))
                     << info.TlgElemIdToElem(etSubcls, item.trfer_subcls)
                     << DateTimeToStr(item.scd, "dd", info.pr_lat)
                     << info.TlgElemIdToElem(etAirp, item.airp_arv);
@@ -1019,7 +1025,7 @@ namespace PRL_SPACE {
             "    pax_rem "
             "where "
             "    pax_rem.pax_id = :pax_id and "
-            "    pax_rem.rem_code not in (/*'PSPT',*/ 'OTHS', /*'DOCS'*/, 'CHD', 'CHLD', 'INF', 'INFT', 'FQTV', 'FQTU', 'FQTR') ";
+            "    pax_rem.rem_code not in (/*'PSPT',*/ 'OTHS', /*'DOCS', */'CHD', 'CHLD', 'INF', 'INFT', 'FQTV', 'FQTU', 'FQTR') ";
         Qry.CreateVariable("pax_id", otInteger, pax.pax_id);
         Qry.Execute();
         if(!Qry.Eof) {
@@ -1834,7 +1840,7 @@ struct TPLine {
         result
             << info.TlgElemIdToElem(etAirline, FItem.airline)
             << setw(3) << setfill('0') << FItem.flt_no
-            << info.TlgElemIdToElem(etSuffix, FItem.suffix)
+            << (FItem.suffix.empty() ? "" : info.TlgElemIdToElem(etSuffix, FItem.suffix))
             << "/"
             << DateTimeToStr(FItem.scd, "dd", info.pr_lat)
             << " "
@@ -2254,7 +2260,7 @@ struct TBTMFItem:TFItem {
             << ".F/"
             << info.TlgElemIdToElem(etAirline, airline)
             << setw(3) << setfill('0') << flt_no
-            << info.TlgElemIdToElem(etSuffix, suffix)
+            << (suffix.empty() ? "" : info.TlgElemIdToElem(etSuffix, suffix))
             << "/"
             << DateTimeToStr(scd, "ddmmm", info.pr_lat)
             << "/"
@@ -2277,7 +2283,7 @@ struct TPTMFItem:TFItem {
             result
                 << info.TlgElemIdToElem(etAirline, airline)
                 << setw(3) << setfill('0') << flt_no
-                << info.TlgElemIdToElem(etSuffix, suffix)
+                << (suffix.empty() ? "" : info.TlgElemIdToElem(etSuffix, suffix))
                 << "/"
                 << DateTimeToStr(scd, "dd", info.pr_lat)
                 << " "
@@ -4723,7 +4729,7 @@ int FTL(TTlgInfo &info)
     if(not info.mark_info.IsNULL() and info.mark_info.pr_mark_header) {
         airline_view = info.TlgElemIdToElem(etAirline, info.mark_info.airline);
         flt_no_view = info.mark_info.flt_no;
-        suffix_view = info.TlgElemIdToElem(etSuffix, info.mark_info.suffix);
+        suffix_view = info.mark_info.suffix.empty() ? "" : info.TlgElemIdToElem(etSuffix, info.mark_info.suffix);
     }
     ostringstream heading;
     heading
@@ -4763,7 +4769,7 @@ int ETL(TTlgInfo &info)
     if(not info.mark_info.IsNULL() and info.mark_info.pr_mark_header) {
         airline_view = info.TlgElemIdToElem(etAirline, info.mark_info.airline);
         flt_no_view = info.mark_info.flt_no;
-        suffix_view = info.TlgElemIdToElem(etSuffix, info.mark_info.suffix);
+        suffix_view = info.mark_info.suffix.empty() ? "" : info.TlgElemIdToElem(etSuffix, info.mark_info.suffix);
     }
     ostringstream heading;
     heading
@@ -5442,7 +5448,7 @@ int PFS(TTlgInfo &info)
     if(not info.mark_info.IsNULL() and info.mark_info.pr_mark_header) {
         airline_view = info.TlgElemIdToElem(etAirline, info.mark_info.airline);
         flt_no_view = info.mark_info.flt_no;
-        suffix_view = info.TlgElemIdToElem(etSuffix, info.mark_info.suffix);
+        suffix_view = info.mark_info.suffix.empty() ? "" : info.TlgElemIdToElem(etSuffix, info.mark_info.suffix);
     }
     ostringstream heading;
     heading
@@ -5484,7 +5490,7 @@ int PRL(TTlgInfo &info)
     if(not info.mark_info.IsNULL() and info.mark_info.pr_mark_header) {
         airline_view = info.TlgElemIdToElem(etAirline, info.mark_info.airline);
         flt_no_view = info.mark_info.flt_no;
-        suffix_view = info.TlgElemIdToElem(etSuffix, info.mark_info.suffix);
+        suffix_view = info.mark_info.suffix.empty() ? "" : info.TlgElemIdToElem(etSuffix, info.mark_info.suffix);
     }
     ostringstream heading;
     heading
@@ -5594,7 +5600,7 @@ int TelegramInterface::create_tlg(
         info.pr_tranzit = Qry.FieldAsInteger("pr_tranzit")!=0;
 
         info.airline_view = info.TlgElemIdToElem(etAirline, info.airline);
-        info.suffix_view = info.TlgElemIdToElem(etSuffix, info.suffix);
+        info.suffix_view = info.suffix.empty() ? "" : info.TlgElemIdToElem(etSuffix, info.suffix);
         info.airp_dep_view = info.TlgElemIdToElem(etAirp, info.airp_dep);
 
         info.pr_lat_seat = Qry.FieldAsInteger("pr_lat_seat") != 0;
