@@ -249,10 +249,12 @@ void TCodeBaseTable::add_row(TBaseTableRow *row)
   TBaseTable::add_row(row);
   if (row!=NULL && !row->deleted())
   {
-    if (!((TCodeBaseTableRow*)row)->code.empty())
-      code[((TCodeBaseTableRow*)row)->code]=row;
-    if (!((TCodeBaseTableRow*)row)->code_lat.empty())
-      code_lat[((TCodeBaseTableRow*)row)->code_lat]=row;
+    if(strcmp(get_table_name(), "TClsGrp") != 0) {   //!!!vlad
+      if (!((TCodeBaseTableRow*)row)->code.empty())
+        code[((TCodeBaseTableRow*)row)->code]=row;
+      if (!((TCodeBaseTableRow*)row)->code_lat.empty())
+        code_lat[((TCodeBaseTableRow*)row)->code_lat]=row;
+    }
   };
 }
 
