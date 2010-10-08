@@ -1155,7 +1155,7 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     NewTextChild( node, "scd_in", DateTimeToStr( SearchPnrData.scd_in, ServerFormatDateTimeAsString ) );
   NewTextChild( node, "airp_arv", SearchPnrData.airp_arv );
   NewTextChild( node, "city_arv", SearchPnrData.city_arv );
-  if ( SearchPnrData.act_out > NoExists )
+  if ( SearchPnrData.act_out != NoExists )
   	NewTextChild( node, "status", "sTakeoff" );
   else
     switch ( SearchPnrData.web_stage ) {
@@ -1428,11 +1428,11 @@ void IntLoadPnr( int point_id, int pnr_id, xmlNodePtr resNode )
   for ( vector<TWebPax>::iterator i=pnr.begin(); i!=pnr.end(); i++ ) {
   	xmlNodePtr paxNode = NewTextChild( node, "pax" );
   	NewTextChild( paxNode, "crs_pax_id", i->crs_pax_id );
-  	if ( i->crs_pax_id_parent > NoExists )
+  	if ( i->crs_pax_id_parent != NoExists )
   		NewTextChild( paxNode, "crs_pax_id_parent", i->crs_pax_id_parent );
   	NewTextChild( paxNode, "surname", i->surname );
   	NewTextChild( paxNode, "name", i->name );
-  	if ( i->birth_date > NoExists )
+  	if ( i->birth_date != NoExists )
   		NewTextChild( paxNode, "birth_date", DateTimeToStr( i->birth_date, ServerFormatDateTimeAsString ) );
   	NewTextChild( paxNode, "pers_type", i->pers_type_extended );
   	if ( !i->seat_no.empty() )
@@ -1452,9 +1452,9 @@ void IntLoadPnr( int point_id, int pnr_id, xmlNodePtr resNode )
    	xmlNodePtr tidsNode = NewTextChild( paxNode, "tids" );
    	NewTextChild( tidsNode, "crs_pnr_tid", i->crs_pnr_tid );
    	NewTextChild( tidsNode, "crs_pax_tid", i->crs_pax_tid );
-   	if ( i->pax_grp_tid > NoExists )
+   	if ( i->pax_grp_tid != NoExists )
    		NewTextChild( tidsNode, "pax_grp_tid", i->pax_grp_tid );
-   	if ( i->pax_tid > NoExists )
+   	if ( i->pax_tid != NoExists )
    		NewTextChild( tidsNode, "pax_tid", i->pax_tid );
   }
 }
@@ -1471,7 +1471,7 @@ bool isOwnerFreePlace( int pax_id, const vector<TWebPax> &pnr )
 {
   bool res = false;
   for ( vector<TWebPax>::const_iterator i=pnr.begin(); i!=pnr.end(); i++ ) {
-  	if ( i->pax_id > NoExists )
+  	if ( i->pax_id != NoExists )
   		continue;
   	if ( i->crs_pax_id == pax_id ) {
   		res = true;
@@ -1485,7 +1485,7 @@ bool isOwnerPlace( int pax_id, const vector<TWebPax> &pnr )
 {
   bool res = false;
   for ( vector<TWebPax>::const_iterator i=pnr.begin(); i!=pnr.end(); i++ ) {
-  	if ( i->pax_id > NoExists && pax_id == i->pax_id ) {
+  	if ( i->pax_id != NoExists && pax_id == i->pax_id ) {
   		res = true;
   		break;
   	}
@@ -1683,7 +1683,7 @@ void WebRequestsIface::ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       	status = 2;
       }
       NewTextChild( placeNode, "status", status );
-      if ( wp->pax_id > NoExists )
+      if ( wp->pax_id != NoExists )
       	NewTextChild( placeNode, "pax_id", wp->pax_id );
     }
   }
