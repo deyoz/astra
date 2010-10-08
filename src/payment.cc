@@ -923,11 +923,11 @@ void PaymentInterface::GetReceipt(xmlNodePtr reqNode, TBagReceipt &rcpt)
   if (rcpt.pay_types.size() > 2)
     throw AstraLocale::UserException("MSG.PAY_TYPE.NO_MORE_2");
   if (none_count > 1)
-    throw AstraLocale::UserException("MSG.PAY_TYPE.ONLY_ONCE", LParams() << LParam("pay_type", NONE_PAY_TYPE));
+    throw AstraLocale::UserException("MSG.PAY_TYPE.ONLY_ONCE", LParams() << LParam("pay_type", NONE_PAY_TYPE));//!!!param
   if (none_count > 0 && rcpt.pay_types.size() > none_count)
-    throw AstraLocale::UserException("MSG.PAY_TYPE.NO_MIX", LParams() << LParam("pay_type", NONE_PAY_TYPE));
+    throw AstraLocale::UserException("MSG.PAY_TYPE.NO_MIX", LParams() << LParam("pay_type", NONE_PAY_TYPE));//!!!param
   if (cash_count > 1)
-    throw AstraLocale::UserException("MSG.PAY_TYPE.ONLY_ONCE", LParams() << LParam("pay_type", CASH_PAY_TYPE));
+    throw AstraLocale::UserException("MSG.PAY_TYPE.ONLY_ONCE", LParams() << LParam("pay_type", CASH_PAY_TYPE));//!!!param
 
 
   if (rcpt.pay_types.empty())

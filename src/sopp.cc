@@ -2625,7 +2625,7 @@ void SoppInterface::ReadDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   	}
   	catch( Exception &e ) {
   		ProgError( STDLOG, "Exception %s, move_id=%d", e.what(), move_id );
-  		throw AstraLocale::UserException( "MSG.REGION_NOT_FOUND_IN_ROUTE", LParams() << LParam("airp", d->airp));
+  		throw AstraLocale::UserException( "MSG.REGION_NOT_FOUND_IN_ROUTE", LParams() << LParam("airp", ElemIdToCodeNative(etAirp,d->airp)));
   	}
   	dnode = NULL;
   	for ( vector<TSOPPDelay>::iterator delay=d->delays.begin(); delay!=d->delays.end(); delay++ ) {
@@ -2701,7 +2701,8 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
       if ( !pr_last &&
       	   !reqInfo->CheckAirline( id->airline ) ) {
         if ( !id->airline.empty() )
-          throw AstraLocale::UserException( "MSG.AIRLINE.ACCESS_DENIED", LParams() << LParam("airline", ElemIdToElemCtxt(ecDisp,etAirline,id->airline,id->airline_fmt)) );
+          throw AstraLocale::UserException( "MSG.AIRLINE.ACCESS_DENIED",
+          	                                LParams() << LParam("airline", ElemIdToElemCtxt(ecDisp,etAirline,id->airline,id->airline_fmt)) );
         else
         	throw AstraLocale::UserException( "MSG.AIRLINE.NOT_SET" );
       }
@@ -2709,13 +2710,14 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     if ( !canDo )
     	if ( reqInfo->user.access.airps_permit ) {
     	  if ( reqInfo->user.access.airps.size() == 1 )
-    	    throw AstraLocale::UserException( "MSG.ROUTE.MUST_CONTAIN_AIRP", LParams() << LParam("airp", *reqInfo->user.access.airps.begin()));
+    	    throw AstraLocale::UserException( "MSG.ROUTE.MUST_CONTAIN_AIRP",
+    	    	                                LParams() << LParam("airp", ElemIdToCodeNative(etAirp,*reqInfo->user.access.airps.begin())));
     	  else {
     		  string airps;
     		  for ( vector<string>::iterator s=reqInfo->user.access.airps.begin(); s!=reqInfo->user.access.airps.end(); s++ ) {
     		    if ( !airps.empty() )
     		      airps += " ";
-    		    airps += *s;
+    		    airps += ElemIdToCodeNative(etAirp,*s);
     		  }
     		  if ( airps.empty() )
     		  	throw AstraLocale::UserException( "MSG.AIRP.ALL_ACCESS_DENIED" );
@@ -2728,7 +2730,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     		for ( vector<string>::iterator s=reqInfo->user.access.airps.begin(); s!=reqInfo->user.access.airps.end(); s++ ) {
     		  if ( !airps.empty() )
     		    airps += " ";
-    		  airps += *s;
+    		  airps += ElemIdToCodeNative(etAirp,*s);
     		}
             throw AstraLocale::UserException( "MSG.ROUTE.MUST_CONTAIN_ONE_OF_AIRPS_OTHER_THAN", LParams() << LParam("list", airps));
     	}
@@ -3432,9 +3434,11 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   		Qry.Execute();
   		if ( Qry.FieldAsInteger( "c" ) )
   			if ( id->pr_del == -1 )
-  				throw AstraLocale::UserException( "MSG.ROUTE.UNABLE_DEL_AIRP.PAX_EXISTS", LParams() << LParam("airp", id->airp));
+  				throw AstraLocale::UserException( "MSG.ROUTE.UNABLE_DEL_AIRP.PAX_EXISTS",
+  					                                 LParams() << LParam("airp", ElemIdToCodeNative(etAirp,id->airp)));
   			else
-  				throw AstraLocale::UserException( "MSG.ROUTE.UNABLE_CANCEL_AIRP.PAX_EXISTS", LParams() << LParam("airp", id->airp));
+  				throw AstraLocale::UserException( "MSG.ROUTE.UNABLE_CANCEL_AIRP.PAX_EXISTS",
+  					                                 LParams() << LParam("airp", ElemIdToCodeNative(etAirp,id->airp)));
   	}
    if ( reSetCraft ) {
    	 if ( SALONS::AutoSetCraft( id->point_id, id->craft, -1 ) > 0 )

@@ -17,7 +17,6 @@ namespace AstraLocale {
 
 TLocaleMessages *TLocaleMessages::Instance()
 {
-	tst();
   static TLocaleMessages *instance_ = 0;
   if ( !instance_ )
     instance_ = new TLocaleMessages();
@@ -58,7 +57,6 @@ void TLocaleMessages::Invalidate( std::string lang, bool pr_term )
 	Qry.CreateVariable( "lang", otString, lang );
 	Qry.CreateVariable( "pr_term", otInteger, pr_term );
 	Qry.Execute();
-	tst();
   while ( !Qry.Eof ) {
   	if ( pr_term )
   		client_msgs.Add( Qry.FieldAsString( "id" ), lang, Qry.FieldAsString( "text" ), Qry.FieldAsInteger( "pr_del" ) );
@@ -98,11 +96,8 @@ void TLocaleMessages::Invalidate( std::string lang, bool pr_term )
 
 std::string TLocaleMessages::getText( const std::string &lexema_id, const std::string &lang )
 {
-	tst();
 	string vlang = upperc(lang);
 	string vid = lexema_id;
-
-	ProgTrace( TRACE5, "id=%s, lang=%s", vid.c_str(), vlang.c_str() );
 	if ( server_msgs.msgs.find( vid ) == server_msgs.msgs.end() )
 		throw EXCEPTIONS::Exception( "TMessages::getText: message id=%s not found", vid.c_str() );
 	TLocaleMessage msg = server_msgs.msgs[ vid ];
@@ -110,7 +105,7 @@ std::string TLocaleMessages::getText( const std::string &lexema_id, const std::s
 		throw EXCEPTIONS::Exception( "TMessages::getText: message in lang='%s', id='%s' not found", vlang.c_str(), vid.c_str() );
 	if ( msg.lang_messages[ vlang ].pr_del )
 		throw EXCEPTIONS::Exception( "TMessages::getText: msg delete invalid lang='%s', id='%s', pr_del=%d", vlang.c_str(), vid.c_str(), msg.lang_messages[ vlang ].pr_del );
-	ProgTrace( TRACE5, "TLocaleMessages::getText return '%s'", msg.lang_messages[ vlang ].value.c_str() );
+	//ProgTrace( TRACE5, "TLocaleMessages::getText return '%s'", msg.lang_messages[ vlang ].value.c_str() );
 	return msg.lang_messages[ vlang ].value;
 }
 
@@ -154,7 +149,6 @@ LexemaData LParams::LexemaDataValue( const std::string &name, const boost::any &
 
 void buildMsg( const std::string &lang, LexemaData &lexemaData, std::string &text, std::string &master_lexema )
 {
-    tst();
     if ( master_lexema.empty() && lexemaData.lexema_id.find( FORMAT_MSG ) != string::npos )
         master_lexema = lexemaData.lexema_id;
     char vval[500];
@@ -165,7 +159,7 @@ void buildMsg( const std::string &lang, LexemaData &lexemaData, std::string &tex
     LParser parser( lexema );
     text = lexema;
     for ( std::map<int, ElemData>::iterator i=parser.begin(); i!=parser.end(); i++ ) {
-        ProgTrace( TRACE5, "variable pos=%d, name='%s'", i->first, i->second.var_name.c_str() );
+        //ProgTrace( TRACE5, "variable pos=%d, name='%s'", i->first, i->second.var_name.c_str() );
         lp = lexemaData.lparams.find( i->second.var_name );
         if ( lp == lexemaData.lparams.end() and i->second.var_name != FORMAT_LINE_BREAK)
             throw EXCEPTIONS::Exception( "variable '%s' not found in lexemaData.lparams", i->second.var_name.c_str() );
@@ -195,9 +189,7 @@ void buildMsg( const std::string &lang, LexemaData &lexemaData, std::string &tex
                 throw EXCEPTIONS::Exception( "Invalid format '%s', variable name=%s", i->second.format.c_str(), i->second.var_name.c_str() );
         };
         text.replace( i->second.first_elem, i->second.last_elem - i->second.first_elem + 1, str_val );
-        ProgTrace( TRACE5, "master_lexema=%s, text=%s", master_lexema.c_str(), text.c_str() );
     }
-tst();
 }
 
 
@@ -214,7 +206,6 @@ tst();
 
 UserException::~UserException() throw()
 {
-	tst();
 };
 
 TLocaleFormat LParser::getFormat( std::string &format_val )
@@ -241,7 +232,7 @@ LParser::LParser( const string &lexema )
 {
     if ( lexema.empty() )
         throw EXCEPTIONS::Exception( "LParser: lexema is empty" );
-    ProgTrace( TRACE5, "lexema=%s", lexema.c_str() );
+    //ProgTrace( TRACE5, "lexema=%s", lexema.c_str() );
     string::size_type first_elem_idx = lexema.find( VARIABLE_FIRST_ELEM );
     while ( first_elem_idx != string::npos ) {
         string::size_type first_format_idx = lexema.find( FORMAT_FIRST_ELEM, first_elem_idx + VARIABLE_FIRST_ELEM.size() );
@@ -263,8 +254,8 @@ LParser::LParser( const string &lexema )
         ed.last_elem = end_elem_idx;
         insert( make_pair( ed.first_elem, ed ) );
         /* table. */
-        ProgTrace( TRACE5, "var_name=%s, format=%s, first_elem=%d, last_elem=%d, lformat=%d",
-                ed.var_name.c_str(), ed.format.c_str(), ed.first_elem, ed.last_elem, ed.lformat );
+        //ProgTrace( TRACE5, "var_name=%s, format=%s, first_elem=%d, last_elem=%d, lformat=%d",
+          //      ed.var_name.c_str(), ed.format.c_str(), ed.first_elem, ed.last_elem, ed.lformat );
         first_elem_idx = lexema.find( VARIABLE_FIRST_ELEM, first_elem_idx + 1 );
     }
 }

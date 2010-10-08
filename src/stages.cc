@@ -146,7 +146,7 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
      catch( boost::local_time::ambiguous_result ) {
        throw AstraLocale::UserException( "MSG.STAGE.EST_TIME_NOT_EXACTLY_DEFINED_FOR_AIRP",
                LParams() << LParam("stage", TStagesRules::Instance()->stage_name( i->first, airp, true ))
-               << LParam("airp", airp));
+               << LParam("airp", ElemIdToCodeNative(etAirp,airp)));
      }
     if ( i->second.act == NoExists )
       Qry.SetVariable( "act", FNull );
@@ -157,7 +157,7 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
       catch( boost::local_time::ambiguous_result ) {
        throw AstraLocale::UserException( "MSG.STAGE.ACT_TIME_NOT_EXACTLY_DEFINED_FOR_AIRP",
                LParams() << LParam("stage", TStagesRules::Instance()->stage_name( i->first, airp, true ))
-               << LParam("airp", airp));
+               << LParam("airp", ElemIdToCodeNative(etAirp,airp)));
       }
     if ( i->second.old_act > NoExists && i->second.act == NoExists )
        Qry.SetVariable( "pr_auto", 0 );

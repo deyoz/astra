@@ -3271,7 +3271,8 @@ void internalRead( TFilter &filter, vector<TViewPeriod> &viewp, int trip_id = No
     }
   }
  if ( errtz != NoExists )
-    AstraLocale::showErrorMessage( "MSG.REGION_NOT_SPECIFIED_FOR_COUNTRY_WITH_ZONE.NOT_ALL_FLIGHTS_ARE_SHOWN", LParams() << LParam("country", "”") << LParam("zone", errtz));
+    AstraLocale::showErrorMessage( "MSG.REGION_NOT_SPECIFIED_FOR_COUNTRY_WITH_ZONE.NOT_ALL_FLIGHTS_ARE_SHOWN",
+    	                             LParams() << LParam("country", ElemIdToCodeNative(etCountry,"”")) << LParam("zone", errtz));
  if ( !err_city.empty() )
     showErrorMessage( "MSG.CITY.REGION_NOT_DEFINED.NOT_ALL_FLIGHTS_ARE_SHOWN",
                       LParams() << LParam("city", ElemIdToCodeNative(etCity,err_city)));
@@ -3444,7 +3445,8 @@ void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dat
 //    string pregion = SQry.FieldAsString( idx_region );
     string pregion = GetRegionFromTZ( ptz, mapreg );
     if ( pregion.empty() )
-    	throw AstraLocale::UserException( "MSG.REGION_NOT_SPECIFIED_FOR_COUNTRY_WITH_ZONE", LParams() << LParam("country", "”") << LParam("zone", errtz));
+    	throw AstraLocale::UserException( "MSG.REGION_NOT_SPECIFIED_FOR_COUNTRY_WITH_ZONE",
+    		                                LParams() << LParam("country", ElemIdToCodeNative(etCountry,"”")) << LParam("zone", errtz));
 /*    TDateTime hours = GetTZTimeDiff( NowUTC(), first, last, ptz, v );
     first += hours; //???
     last += hours;*/

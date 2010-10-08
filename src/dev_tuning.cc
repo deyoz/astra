@@ -33,7 +33,7 @@ void BeforeApplyUpdates(TCacheTable &cache, const TRow &row, TQuery &applyQry, c
             Qry.CreateVariable("id", otString, ToInt(cache.FieldOldValue("id", row)));
             Qry.Execute();
             if(!Qry.Eof)
-                throw AstraLocale::UserException("MSG.TUNE.VERS_LIST_EXISTS_FOR_FORM", LParams() << LParam("form", cache.FieldOldValue("name", row)));
+                throw AstraLocale::UserException("MSG.TUNE.VERS_LIST_EXISTS_FOR_FORM", LParams() << LParam("form", cache.FieldOldValue("name", row)));//!!!param
         }
     }
     if(cache.code() == "PRN_FORM_VERS") {
@@ -114,10 +114,10 @@ void BeforeApplyUpdates(TCacheTable &cache, const TRow &row, TQuery &applyQry, c
                 if(!Qry.Eof) {
                     throw AstraLocale::UserException("MSG.TUNE.BLANK_ALREADY_ASSIGNED_BY_FORM",
                             LParams()
-                            << LParam("form_type", cache.FieldValue("form_type", row))
+                            << LParam("form_type", cache.FieldValue("form_type", row))  //!!!param
                             << LParam("dev_model", dev_model)
                             << LParam("fmt_type", fmt_type)
-                            << LParam("form_name", Qry.FieldAsString("form_name"))
+                            << LParam("form_name", Qry.FieldAsString("form_name")) //!!!param
                             << LParam("vers", IntToString(version))
                             );
                 }
@@ -991,7 +991,7 @@ void TBRTypes::add(string type)
     Qry.CreateVariable("code", otString, type);
     Qry.Execute();
     if(Qry.Eof)
-        throw AstraLocale::UserException("MSG.TUNE.BLANK_NOT_ACCESSIBLE.REFRES_DATA", LParams() << LParam("blank", type));
+        throw AstraLocale::UserException("MSG.TUNE.BLANK_NOT_ACCESSIBLE.REFRES_DATA", LParams() << LParam("blank", type));//!!!param
     TBRTypesItem item;
     item.code = type;
     item.name = Qry.FieldAsString("name");
@@ -1019,7 +1019,7 @@ void TBPTypes::add(string type)
     Qry.CreateVariable("code", otString, type);
     Qry.Execute();
     if(Qry.Eof)
-        throw AstraLocale::UserException("MSG.TUNE.BLANK_NOT_ACCESSIBLE.REFRES_DATA", LParams() << LParam("blank", type));
+        throw AstraLocale::UserException("MSG.TUNE.BLANK_NOT_ACCESSIBLE.REFRES_DATA", LParams() << LParam("blank", type));//!!!param
     TBPTypesItem item;
     item.code = type;
     item.airline = Qry.FieldAsString("airline");
