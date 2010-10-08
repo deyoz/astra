@@ -1488,14 +1488,14 @@ string get_mso_point(const string &aairp, bool pr_lat)
     TBaseTable &cities = base_tables.get("cities");
     string city = airps.get_row("code", aairp).AsString("city");
     string point = cities.get_row("code", city).AsString("name", pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU);
-    if(point.empty()) throw AstraLocale::UserException((pr_lat ? "MSG.LAT_CITY_NAME_IS_NULL" : "MSG.CITY_NAME_IS_NULL"), LParams() << LParam("city", city));
+    if(point.empty()) throw AstraLocale::UserException((pr_lat ? "MSG.LAT_CITY_NAME_IS_NULL" : "MSG.CITY_NAME_IS_NULL"), LParams() << LParam("city", ElemIdToCodeNative(etCity,city)));
     TQuery airpsQry(&OraSession);
     airpsQry.SQLText =  "select count(*) from airps where city = :city";
     airpsQry.CreateVariable("city", otString, city);
     airpsQry.Execute();
     if(!airpsQry.Eof && airpsQry.FieldAsInteger(0) != 1) {
         string airp = airps.get_row("code", aairp).AsString("code", pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU);
-        if(airp.empty()) throw AstraLocale::UserException((pr_lat ? "MSG.LAT_AIRP_CODE_IS_NULL" : "MSG.AIRP_CODE_IS_NULL"), LParams() << LParam("airp", aairp));
+        if(airp.empty()) throw AstraLocale::UserException((pr_lat ? "MSG.LAT_AIRP_CODE_IS_NULL" : "MSG.AIRP_CODE_IS_NULL"), LParams() << LParam("airp", ElemIdToCodeNative(etAirp,aairp)));
         point += "(" + airp + ")";
     }
     return point;
@@ -2033,14 +2033,14 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
   else if(!airline.name.empty())
       add_tag("airline", airline.name);
   else
-      add_err_tag("airline", getLocaleText("MSG.AIRLINE_NAME_IS_NULL", LParams() << LParam("airline", rcpt.airline)));
+      add_err_tag("airline", getLocaleText("MSG.AIRLINE_NAME_IS_NULL", LParams() << LParam("airline", ElemIdToCodeNative(etAirline,rcpt.airline))));
 
   if(!airline.short_name_lat.empty())
       add_tag("airline_lat", airline.short_name_lat);
   else if(!airline.name_lat.empty())
       add_tag("airline_lat", airline.name_lat);
   else
-      add_err_tag("airline_lat", getLocaleText("MSG.LAT_AIRLINE_NAME_IS_NULL", LParams() << LParam("airline", rcpt.airline)));
+      add_err_tag("airline_lat", getLocaleText("MSG.LAT_AIRLINE_NAME_IS_NULL", LParams() << LParam("airline", rcpt.airline))); //!!!param
 
   add_tag("aircode", rcpt.aircode);
 
@@ -2099,7 +2099,7 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
 
           ostringstream airline_code_lat;
           if(airline.code_lat.empty())
-              throw AstraLocale::UserException("MSG.LAT_AIRLINE_CODE_IS_NULL", LParams() << LParam("airline", rcpt.airline));
+              throw AstraLocale::UserException("MSG.LAT_AIRLINE_CODE_IS_NULL", LParams() << LParam("airline", rcpt.airline));//!!!param
           airline_code_lat << airline.code_lat;
 
           if(rcpt.flt_no != -1)

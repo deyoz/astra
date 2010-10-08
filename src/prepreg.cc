@@ -701,7 +701,7 @@ void PrepRegInterface::ViewCRSList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   string scd_out = NodeAsString("scd_out", formDataNode);
   string date = real_out + (real_out == scd_out ? "" : "(" + scd_out + ")");
   NewTextChild(formDataNode, "caption", getLocaleText("CAP.DOC.PNL_PAX_LIST",
-              LParams() << LParam("trip", NodeAsString("trip", formDataNode))
+              LParams() << LParam("trip", NodeAsString("trip", formDataNode))//!!!param den
                   << LParam("date", date)
               ));
 }

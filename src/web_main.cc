@@ -998,16 +998,18 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
   TTripInfo flt;
   TElemFmt fmt;
-  flt.airline = NodeAsString( "airline", reqNode, "" );
-	flt.airline = TrimString( flt.airline );
-  if ( flt.airline.empty() )
+  string value;
+  value = NodeAsString( "airline", reqNode, "" );
+  value = TrimString( value );
+  if ( value.empty() )
    	throw UserException( "MSG.AIRLINE.NOT_SET" );
+
   try {
-    flt.airline = ElemCtxtToElemId( ecDisp, etAirline, flt.airline, fmt, false ); //!!!vlad лучше бы использовать ElemToElemId
+    flt.airline = ElemCtxtToElemId( ecDisp, etAirline, value, fmt, false ); //!!!vlad лучше бы использовать ElemToElemId
   }
   catch( EXCEPTIONS::EConvertError &e ) {
   	throw UserException( "MSG.AIRLINE.INVALID",
-  		                   LParams()<<LParam("airline", flt.airline ) );
+  		                   LParams()<<LParam("airline", value ) );
   }
   string str_flt_no = NodeAsString( "flt_no", reqNode, "" );
 	if ( StrToInt( str_flt_no.c_str(), flt.flt_no ) == EOF ||
@@ -1030,7 +1032,7 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 	else
 		if ( StrToDateTime( str_scd_out.c_str(), "dd.mm.yyyy hh:nn:ss", flt.scd_out ) == EOF )
 			throw UserException( "MSG.FLIGHT_DATE.INVALID",
-				                   LParams()<<LParam("suffix", str_scd_out) );
+				                   LParams()<<LParam("scd_out", str_scd_out) );
 
 
 	vector<TPnrInfo> pnr;

@@ -1047,6 +1047,7 @@ void TSalons::Parse( xmlNodePtr salonsNode )
   TRem rem;
   int lat_count=0, rus_count=0;
   string rus_lines = rus_seat, lat_lines = lat_seat;
+  TElemFmt fmt;
   while ( salonNode ) {
     TPlaceList *placeList = new TPlaceList();
     placeList->num = NodeAsInteger( "@num", salonNode );
@@ -1070,7 +1071,10 @@ void TSalons::Parse( xmlNodePtr salonsNode )
         place.agle = 0;
       else
         place.agle = NodeAsIntegerFast( "agle", node );
-      place.clname = NodeAsStringFast( "class", node );
+      place.clname = ElemToElemId( etClass, NodeAsStringFast( "class", node ), fmt );
+      if ( fmt == efmtUnknown )
+      	throw UserException( "MSG.INVALID_CLASS" );
+
       place.xname = NodeAsStringFast( "xname", node );
 
       if ( !pr_lat_seat_init ) {
@@ -1132,7 +1136,7 @@ void TSalons::verifyValidRem( std::string rem_name, std::string class_name )
       for ( vector<TRem>::iterator irem=place->rems.begin(); irem!=place->rems.end(); irem++ ) {
       	if ( irem->rem == rem_name )
       		throw UserException( "MSG.SALONS.REMARK_NOT_SET_IN_CLASS",
-      		                     LParams()<<LParam("remark", rem_name )<<LParam("class", place->clname) );
+      		                     LParams()<<LParam("remark", rem_name )<<LParam("class", ElemIdToCodeNative(etClass,place->clname) ));
       }
     }
   }

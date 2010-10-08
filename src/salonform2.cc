@@ -550,29 +550,12 @@ void SalonsInterface::BaseComponFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
   		Salons.airp = *r->user.access.airps.begin();
   		Salons.airline.clear();
     }
-  TQuery Qry( &OraSession );
   if ( Salons.modify != mDelete ) {
-    if ( !Salons.airline.empty() ) {
-      Qry.SQLText = "SELECT code FROM airlines WHERE code=:airline";
-      Qry.CreateVariable( "airline", otString, Salons.airline );
-      Qry.Execute();
-      if ( !Qry.RowCount() )
-        throw AstraLocale::UserException( "MSG.AIRLINE.INVALID_INPUT" );
-    }
-    if ( !Salons.airp.empty() ) {
-      Qry.Clear();
-      Qry.SQLText = "SELECT code FROM airps WHERE code=:airp";
-      Qry.CreateVariable( "airp", otString, Salons.airp );
-      Qry.Execute();
-      if ( !Qry.RowCount() )
-        throw AstraLocale::UserException( "MSG.AIRP.INVALID_SET_CODE" );
-    }
-
     if ( (int)Salons.airline.empty() + (int)Salons.airp.empty() != 1 ) {
     	if ( Salons.airline.empty() )
     	  throw AstraLocale::UserException( "MSG.AIRLINE_OR_AIRP_MUST_BE_SET" );
     	else
-    		throw AstraLocale::UserException( "MSG.NOT_SET_ONE_TIME_AIRLINE_AND_AIRP" ); // ??? почему?
+    		throw AstraLocale::UserException( "MSG.NOT_SET_ONE_TIME_AIRLINE_AND_AIRP" ); // птому что компоновка принадлежит или авиакомпании или порту
     }
 
     if ( ( r->user.user_type == utAirline ||
@@ -594,22 +577,16 @@ void SalonsInterface::BaseComponFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
  	  	  throw AstraLocale::UserException( "MSG.SALONS.OPER_WRITE_DENIED_FOR_THIS_AIRP" );
     }
   }
-  Salons.craft = ElemToElemId( etCraft, NodeAsString( "craft", reqNode ), fmt );
+  Salons.craft = NodeAsString( "craft", reqNode );
+  if ( Salons.craft.empty() )
+    throw AstraLocale::UserException( "MSG.CRAFT.NOT_SET" );
+  Salons.craft = ElemToElemId( etCraft, Salons.craft, fmt );
   if ( fmt == efmtUnknown )
   	throw AstraLocale::UserException( "MSG.CRAFT.WRONG_SPECIFIED" );
   Salons.bort = NodeAsString( "bort", reqNode );
   Salons.descr = NodeAsString( "descr", reqNode );
   string classes = NodeAsString( "classes", reqNode );
   Salons.classes = RTrimString( classes );
-  if ( Salons.craft.empty() )
-    throw AstraLocale::UserException( "MSG.CRAFT.NOT_SET" );
-  Qry.Clear();
-  Qry.SQLText = "SELECT code FROM crafts WHERE code=:craft";
-  Qry.DeclareVariable( "craft", otString );
-  Qry.SetVariable( "craft", Salons.craft );
-  Qry.Execute();
-  if ( !Qry.RowCount() )
-    throw AstraLocale::UserException( "MSG.CRAFT.WRONG_SPECIFIED" );
   Salons.verifyValidRem( "MCLS", "Э" );
   Salons.Write();
   string msg;
@@ -650,9 +627,9 @@ void SalonsInterface::BaseComponFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   NewTextChild( dataNode, "comp_id", Salons.comp_id );
   if ( !Salons.airline.empty() )
-    NewTextChild( dataNode, "airline", Salons.airline );
+    NewTextChild( dataNode, "airline", ElemIdToCodeNative( etAirline, Salons.airline ) );
   if ( !Salons.airp.empty() )
-    NewTextChild( dataNode, "airp", Salons.airp );
+    NewTextChild( dataNode, "airp", ElemIdToCodeNative( etAirp, Salons.airp ) );
   AstraLocale::showMessage( "MSG.CHANGED_DATA_COMMIT" );
 }
 

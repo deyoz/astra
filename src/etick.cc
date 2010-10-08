@@ -62,7 +62,8 @@ void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNod
 
   pair<string,string> edi_addrs;
   if (!get_et_addr_set(info.airline,info.flt_no,edi_addrs))
-    throw AstraLocale::UserException("MSG.ETICK.ETS_ADDR_NOT_DEFINED_FOR_FLIGHT", LParams() << LParam("flight", info.airline + IntToString(info.flt_no)));
+    throw AstraLocale::UserException("MSG.ETICK.ETS_ADDR_NOT_DEFINED_FOR_FLIGHT",
+    	                               LParams() << LParam("flight", ElemIdToCodeNative(etAirline,info.airline) + IntToString(info.flt_no)));
 
   set_edi_addrs(edi_addrs);
 
@@ -637,7 +638,8 @@ bool ETStatusInterface::ETCheckStatus(int point_id,
         {
           key.airline_oper=fltInfo.airline;
           if (!get_et_addr_set(fltInfo.airline,fltInfo.flt_no,key.addrs))
-            throw AstraLocale::UserException("MSG.ETICK.ETS_ADDR_NOT_DEFINED_FOR_FLIGHT", LParams() << LParam("flight", fltInfo.airline + IntToString(fltInfo.flt_no)));
+            throw AstraLocale::UserException("MSG.ETICK.ETS_ADDR_NOT_DEFINED_FOR_FLIGHT",
+            	                               LParams() << LParam("flight", fltInfo.airline + IntToString(fltInfo.flt_no))); //!!!param
           init_edi_addrs=true;
         };
         key.coupon_status=prior_status->codeInt();
@@ -854,7 +856,8 @@ bool ETStatusInterface::ETCheckStatus(int id,
             {
               key.airline_oper=fltInfo.airline;
               if (!get_et_addr_set(fltInfo.airline,fltInfo.flt_no,key.addrs))
-                  throw AstraLocale::UserException("MSG.ETICK.ETS_ADDR_NOT_DEFINED_FOR_FLIGHT", LParams() << LParam("flight", fltInfo.airline + IntToString(fltInfo.flt_no)));
+                  throw AstraLocale::UserException("MSG.ETICK.ETS_ADDR_NOT_DEFINED_FOR_FLIGHT",
+                  	                               LParams() << LParam("flight", fltInfo.airline + IntToString(fltInfo.flt_no)));//!!!param
               init_edi_addrs=true;
             };
             key.coupon_status=real_status->codeInt();
@@ -970,7 +973,8 @@ bool ETStatusInterface::ETCheckStatus(int id,
           TTicketListKey key;
           key.airline_oper=fltInfo.airline;
           if (!get_et_addr_set(fltInfo.airline,fltInfo.flt_no,key.addrs))
-              throw AstraLocale::UserException("MSG.ETICK.ETS_ADDR_NOT_DEFINED_FOR_FLIGHT", LParams() << LParam("flight", fltInfo.airline + IntToString(fltInfo.flt_no)));
+              throw AstraLocale::UserException("MSG.ETICK.ETS_ADDR_NOT_DEFINED_FOR_FLIGHT",
+              	                               LParams() << LParam("flight", fltInfo.airline + IntToString(fltInfo.flt_no)));//!!!param
           key.coupon_status=real_status->codeInt();
 
           for(;!Qry.Eof;Qry.Next())

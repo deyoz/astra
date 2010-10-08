@@ -94,7 +94,9 @@ void AdmInterface::SetDefaultPasswd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
   Qry.Execute();
   reqInfo->MsgToLog( string( "Сброшен пароль пользователя " ) +
                                   Qry.FieldAsString( "descr" ), evtAccess );
-  AstraLocale::showMessage("MSG.PASSWORD.ASSIGNED_DEFAULT", LParams() << LParam("user", (string)Qry.FieldAsString( "descr" )));
+  AstraLocale::showMessage("MSG.PASSWORD.ASSIGNED_DEFAULT",
+  	                       LParams() << LParam("user", (string)Qry.FieldAsString( "descr" ))<<
+  	                                    LParam("passwd",string("'ПАРОЛЬ'")) );
 }
 
 

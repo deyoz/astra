@@ -25,6 +25,8 @@ using namespace BASIC;
 using namespace AstraLocale;
 using namespace ASTRA;
 
+//new terminal
+
 bool filterCompons( const string &airline, const string &airp )
 {
 	TReqInfo *r = TReqInfo::Instance();

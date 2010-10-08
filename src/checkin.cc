@@ -2114,7 +2114,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       get_report_form("ArrivalPaxList", resNode);
   xmlNodePtr variablesNode = STAT::set_variables(resNode);
   PaxListVars(point_id, 0, variablesNode);
-  NewTextChild(variablesNode, "caption", getLocaleText("CAP.DOC.ARRIVAL_PAX_LIST", LParams() << LParam("flight", get_flight(variablesNode))));
+  NewTextChild(variablesNode, "caption", getLocaleText("CAP.DOC.ARRIVAL_PAX_LIST", LParams() << LParam("flight", get_flight(variablesNode)))); //!!!param 100%русский!!!
 };
 
 bool GetUsePS()
@@ -2800,7 +2800,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
             		throw;
               throw UserException( "WRAP.SEATS.ERROR_AUTO_SEATS",
                                    LParams()<<LParam("text", E.getLexemaData( ))
-                                            <<LParam("airp",fltInfo.airp) ); //WEB
+                                            <<LParam("airp",fltInfo.airp) ); //WEB//!!!param
             }
             /*!!! иногда True - возможна рассажка на забронированные места, когда */
             /* есть право на регистрацию, статус рейса окончание, есть право сажать на чужие заброн. места */
@@ -2898,7 +2898,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
             str=ElemToElemId(etAirline,markFltInfo.airline,fmt);
             if (fmt==efmtUnknown)
               throw UserException("MSG.COMMERCIAL_FLIGHT.AIRLINE.UNKNOWN_CODE",
-                                  LParams()<<LParam("airline",markFltInfo.airline)
+                                  LParams()<<LParam("airline",markFltInfo.airline)//!!!param
                                            <<LParam("flight", flt.str()));  //WEB
             markFltInfo.airline=str;
 
@@ -2907,7 +2907,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
               str=ElemToElemId(etSuffix,markFltInfo.suffix,fmt);
               if (fmt==efmtUnknown)
                 throw UserException("MSG.COMMERCIAL_FLIGHT.SUFFIX.INVALID",
-                                    LParams()<<LParam("suffix",markFltInfo.suffix)
+                                    LParams()<<LParam("suffix",markFltInfo.suffix)//!!!param
                                              <<LParam("flight",flt.str())); //WEB
               markFltInfo.suffix=str;
             };
@@ -2916,7 +2916,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
             if (fmt==efmtUnknown)
               throw UserException("MSG.COMMERCIAL_FLIGHT.UNKNOWN_AIRP",
                                   LParams()<<LParam("airp",markFltInfo.airp)
-                                           <<LParam("flight",flt.str())); //WEB
+                                           <<LParam("flight",flt.str())); //WEB//!!!param
             markFltInfo.airp=str;
 
             if (markFltInfo.airline!=fltInfo.airline ||
@@ -3828,10 +3828,10 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
             {
               if (!PaxQry.FieldIsNULL("subclass"))
                 throw UserException("MSG.CHECKIN.NOT_MADE_IN_SUBCLASS",
-                                    LParams()<<LParam("subclass",PaxQry.FieldAsString("subclass")));
+                                    LParams()<<LParam("subclass",ElemIdToCodeNative(etSubcls,PaxQry.FieldAsString("subclass"))));
               else
                 throw UserException("MSG.CHECKIN.NOT_MADE_IN_CLASS",
-                                    LParams()<<LParam("subclass",PaxQry.FieldAsString("class")));
+                                    LParams()<<LParam("class",ElemIdToCodeNative(etClass,PaxQry.FieldAsString("class"))));
             };
             if (class_grp==-1) class_grp=Qry.FieldAsInteger("id");
             else
@@ -4784,7 +4784,7 @@ string CheckInInterface::SaveTransfer(int grp_id, xmlNodePtr transferNode, bool 
       TAirlinesRow& row=(TAirlinesRow&)base_tables.get("airlines").get_row("code",str);
       if (row.code_lat.empty())
         throw UserException("MSG.TRANSFER_FLIGHT.LAT_AIRLINE_NOT_FOUND",
-                            LParams()<<LParam("airline",str)
+                            LParams()<<LParam("airline",str)//!!!param
                                      <<LParam("flight",flt.str()));
     };
     TrferQry.SetVariable("airline",str);
@@ -4842,7 +4842,7 @@ string CheckInInterface::SaveTransfer(int grp_id, xmlNodePtr transferNode, bool 
       TAirpsRow& row=(TAirpsRow&)base_tables.get("airps").get_row("code",str);
       if (row.code_lat.empty())
         throw UserException("MSG.TRANSFER_FLIGHT.LAT_AIRP_DEP_NOT_FOUND",
-                            LParams()<<LParam("airp",str)
+                            LParams()<<LParam("airp",str)//!!!param
                                      <<LParam("flight",flt.str()));
     };
     TrferQry.SetVariable("airp_dep",str);
@@ -4862,7 +4862,7 @@ string CheckInInterface::SaveTransfer(int grp_id, xmlNodePtr transferNode, bool 
       TAirpsRow& row=(TAirpsRow&)base_tables.get("airps").get_row("code",str);
       if (row.code_lat.empty())
         throw UserException("MSG.TRANSFER_FLIGHT.LAT_AIRP_ARR_NOT_FOUND",
-                            LParams()<<LParam("airp",str)
+                            LParams()<<LParam("airp",str)//!!!param
                                      <<LParam("flight",flt.str()));
     };
     TrferQry.SetVariable("airp_arv",str);
@@ -6201,7 +6201,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     airp_arv=ElemToElemId(etAirp,strh,fmt);
     if (fmt==efmtUnknown)
       throw UserException("MSG.TRANSFER_FLIGHT.UNKNOWN_AIRP_ARR",
-                          LParams()<<LParam("airp",airp_arv)
+                          LParams()<<LParam("airp",strh)
                                    <<LParam("flight",flt.str()));
 
 

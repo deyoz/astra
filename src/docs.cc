@@ -2135,7 +2135,7 @@ void REFUSE(TRptParams &rpt_params, xmlNodePtr resNode)
     // Теперь переменные отчета
     xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
     PaxListVars(rpt_params.point_id, pr_lat, variablesNode);
-    NewTextChild(variablesNode, "caption", translateDocCap(pr_lat, "CAP.DOC.REFUSE", LParams() << LParam("flight", get_flight(variablesNode))));
+    NewTextChild(variablesNode, "caption", translateDocCap(pr_lat, "CAP.DOC.REFUSE", LParams() << LParam("flight", get_flight(variablesNode)))); //!!!param 100%error
     populate_doc_cap(variablesNode, pr_lat);
 }
 
@@ -2276,7 +2276,7 @@ void NOTPRES(TRptParams &rpt_params, xmlNodePtr resNode)
     xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
     PaxListVars(rpt_params.point_id, pr_lat, variablesNode);
     NewTextChild(variablesNode, "caption", translateDocCap(pr_lat, "CAP.DOC.NOTPRES",
-                LParams() << LParam("flight", get_flight(variablesNode))));
+                LParams() << LParam("flight", get_flight(variablesNode)))); //!!!params 100%error
     populate_doc_cap(variablesNode, pr_lat);
 }
 
@@ -2398,7 +2398,7 @@ void REM(TRptParams &rpt_params, xmlNodePtr resNode)
     xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
     PaxListVars(rpt_params.point_id, pr_lat, variablesNode);
     NewTextChild(variablesNode, "caption", translateDocCap(pr_lat, "CAP.DOC.REM",
-                LParams() << LParam("flight", get_flight(variablesNode))));
+                LParams() << LParam("flight", get_flight(variablesNode)))); //!!!param 100%error
     populate_doc_cap(variablesNode, pr_lat);
 }
 
@@ -2545,10 +2545,10 @@ void CRS(TRptParams &rpt_params, xmlNodePtr resNode)
     PaxListVars(rpt_params.point_id, pr_lat, variablesNode);
     if(pr_unreg)
         NewTextChild(variablesNode, "caption", translateDocCap(pr_lat, "CAP.DOC.CRSUNREG",
-                    LParams() << LParam("flight", get_flight(variablesNode))));
+                    LParams() << LParam("flight", get_flight(variablesNode))));//!!!param 100%error
     else
         NewTextChild(variablesNode, "caption", translateDocCap(pr_lat, "CAP.DOC.CRS",
-                    LParams() << LParam("flight", get_flight(variablesNode))));
+                    LParams() << LParam("flight", get_flight(variablesNode))));//!!!param 100%error
     populate_doc_cap(variablesNode, pr_lat);
 }
 
@@ -2685,13 +2685,13 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     if(pr_web and rpt_params.client_type.empty())
         NewTextChild(variablesNode, "caption", translateDocCap(pr_lat, "CAP.DOC.PAX_LIST.SELF_CKIN",
                     LParams()
-                    << LParam("flight", get_flight(variablesNode)))
+                    << LParam("flight", get_flight(variablesNode)))//!!!param%100error
                 );
     else
         NewTextChild(variablesNode, "caption", translateDocCap(pr_lat, "CAP.DOC.PAX_LIST",
                     LParams()
-                    << LParam("list_type", NodeAsString("paxlist_type", variablesNode))
-                    << LParam("flight", get_flight(variablesNode)))
+                    << LParam("list_type", NodeAsString("paxlist_type", variablesNode))//!!!param
+                    << LParam("flight", get_flight(variablesNode)))//!!!param%100error
                 );
     currNode = variablesNode->children;
     xmlNodePtr totalNode = NodeAsNodeFast("total", currNode);

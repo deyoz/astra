@@ -9,7 +9,7 @@ enum TElemType { etCountry,etCity,etAirline,etAirp,etCraft,etClass,etSubcls,
                  etRefusalType,etSuffix,etClsGrp,etTripType,etCompElemType,
                  etGrpStatusType,etClientType,etCompLayerType,etCrs,
                  etDevModel,etDevSessType,etDevFmtType,etDevOperType,
-                 etGraphStage };
+                 etGraphStage, etDelayType, etTripLiter };
 enum TElemContext { ecDisp, ecCkin, ecTrfer, ecTlgTypeB, ecNone };
 
 //форматы:

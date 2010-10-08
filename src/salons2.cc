@@ -757,6 +757,7 @@ void TSalons::Parse( xmlNodePtr salonsNode )
   TRem rem;
   int lat_count=0, rus_count=0;
   string rus_lines = rus_seat, lat_lines = lat_seat;
+  TElemFmt fmt;
   while ( salonNode ) {
     TPlaceList *placeList = new TPlaceList();
     placeList->num = NodeAsInteger( "@num", salonNode );
@@ -780,7 +781,9 @@ void TSalons::Parse( xmlNodePtr salonsNode )
         place.agle = 0;
       else
         place.agle = NodeAsIntegerFast( "agle", node );
-      place.clname = NodeAsStringFast( "class", node );
+      place.clname = ElemToElemId( etClass, NodeAsStringFast( "class", node ), fmt );
+      if ( fmt == efmtUnknown )
+      	throw UserException( "MSG.INVALID_CLASS" );
       place.pr_smoke = GetNodeFast( "pr_smoke", node );
       place.not_good = GetNodeFast( "not_good", node );
       place.xname = NodeAsStringFast( "xname", node );

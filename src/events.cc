@@ -152,7 +152,7 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     } else {
         PaxListVars(point_id, 0, logNode, part_key);
         NewTextChild(logNode, "caption", getLocaleText("CAP.DOC.EVENTS_LOG",
-                    LParams() << LParam("flight", get_flight(logNode))
+                    LParams() << LParam("flight", get_flight(logNode)) //!!!param 100%error
                     << LParam("day_issue", NodeAsString("day_issue", logNode)
                         )));
     }

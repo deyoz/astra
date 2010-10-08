@@ -108,6 +108,10 @@ const char* EncodeElemType(const TElemType type)
   		return "etDevOperType";
   	case etGraphStage:
   		return "etGraphStage";
+  	case etDelayType:
+  		return "etDelayType";
+  	case etTripLiter:
+  		return "etTripLiter";
   }
   return "";
 };
@@ -254,7 +258,7 @@ string ElemCtxtToElemId(TElemContext ctxt,TElemType type, string code, TElemFmt 
 string ElemIdToElemCtxt(TElemContext ctxt,TElemType type, string id,
                         TElemFmt fmt, bool with_deleted)
 {
-	TElemFmt fmt2=efmtCodeNative;
+	TElemFmt fmt2=fmt;  //efmtCodeNative;
   if ( ctxt==ecDisp || ctxt==ecCkin )
   {
     if(type==etAirline ||
@@ -389,6 +393,7 @@ string getTableName(TElemType type)
     case etGraphStage:
   		table_name="graph_stages";
   		break;
+  	default:;
   };
   return table_name;
 }
@@ -461,7 +466,42 @@ string ElemToElemId(TElemType type, const string &elem, TElemFmt &fmt, const std
       catch (EBaseTableError) {};
     }
     catch (bad_cast) {};
+  }
+  else
+  {
+  	TQuery Qry(&OraSession);
+  	switch (type) {
+  		case etDelayType:
+  			Qry.SQLText =
+  		    "SELECT code AS id, code, code_lat FROM delays where :code IN (code, code_lat)";
+  		  Qry.CreateVariable( "code", otString, elem );
+  		  Qry.Execute();
+  		  if ( !Qry.Eof ) {
+  		  	id = Qry.FieldAsString( "id" );
+          if ( elem == Qry.FieldAsString( "code_lat" ) )
+          	fmt = efmtCodeInter;
+          else
+          	fmt = efmtCodeNative;
+  		  }
+  			break;
+  		case etTripLiter:
+  			Qry.SQLText =
+  		    "SELECT code AS id, code, code_lat FROM trip_liters where :code IN (code, code_lat)";
+  		  Qry.CreateVariable( "code", otString, elem );
+  		  Qry.Execute();
+  		  if ( !Qry.Eof ) {
+  		  	id = Qry.FieldAsString( "id" );
+          if ( elem == Qry.FieldAsString( "code_lat" ) )
+          	fmt = efmtCodeInter;
+          else
+          	fmt = efmtCodeNative;
+  		  }
+  			break;
+  		default:;
+  	}
+
   };
+
   return id;
 };
 
@@ -636,6 +676,8 @@ string ElemIdToElem(TElemType type, const string &id, const vector< pair<TElemFm
     switch(type)
     {
       case etCrs: Qry.SQLText="SELECT name,name_lat FROM crs2 WHERE code=:id"; break;
+      case etDelayType: Qry.SQLText="SELECT code,code_lat,name,name_lat FROM delays WHERE code=:id";break;
+      case etTripLiter: Qry.SQLText="SELECT code,code_lat,name,name_lat FROM trip_liters WHERE code=:id";break;
       default: throw Exception("Unexpected elem type %s", EncodeElemType(type));
     };
     Qry.CreateVariable("id",otString,id);

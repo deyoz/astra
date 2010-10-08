@@ -27,7 +27,7 @@ using namespace ASTRA;
 using namespace SALONS2;
 
 
-namespace SEATS2
+namespace SEATS2 //new terminal
 {
 
 

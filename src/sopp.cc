@@ -230,7 +230,7 @@ string GetRemark( string remark, TDateTime scd_out, TDateTime est_out, string re
 {
 	string rem = remark;
 	if ( est_out > NoExists && scd_out != est_out ) {
-		rem = string( "задержка до " ) + DateTimeToStr( UTCToClient( est_out, region ), "dd hh:nn" ) + remark;
+		rem = AstraLocale::getLocaleText( "задержка до" ) + " " + DateTimeToStr( UTCToClient( est_out, region ), "dd hh:nn" ) + remark;
 	}
 	return rem;
 }
@@ -1054,7 +1054,7 @@ void buildSOPP( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
     if ( tr->triptype_in != tr->triptype_out && !tr->triptype_in.empty() )
       NewTextChild( tripNode, "triptype_in", ElemIdToCodeNative(etTripType,tr->triptype_in) );
     if ( tr->litera_in != tr->litera_out && !tr->litera_in.empty() )
-      NewTextChild( tripNode, "litera_in", tr->litera_in );
+      NewTextChild( tripNode, "litera_in", ElemIdToCodeNative(etTripLiter,tr->litera_in) );
     if ( !tr->park_in.empty() )
       NewTextChild( tripNode, "park_in", tr->park_in );
     if ( tr->remark_in != tr->remark_out && !tr->remark_in.empty() )
@@ -1092,7 +1092,7 @@ void buildSOPP( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
     if ( !tr->triptype_out.empty() )
       NewTextChild( tripNode, "triptype_out", ElemIdToCodeNative(etTripType,tr->triptype_out) );
     if ( !tr->litera_out.empty() )
-      NewTextChild( tripNode, "litera_out", tr->litera_out );
+      NewTextChild( tripNode, "litera_out", ElemIdToCodeNative(etTripLiter,tr->litera_out) );
     if ( !tr->park_out.empty() )
       NewTextChild( tripNode, "park_out", tr->park_out );
     if ( !tr->remark_out.empty() )
@@ -1295,7 +1295,7 @@ void buildISG( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
     if ( tr->triptype_in != tr->triptype_out && !tr->triptype_in.empty() )
       NewTextChild( tripNode, "triptype_in", ElemIdToCodeNative(etTripType,tr->triptype_in) );
     if ( tr->litera_in != tr->litera_out && !tr->litera_in.empty() )
-      NewTextChild( tripNode, "litera_in", tr->litera_in );
+      NewTextChild( tripNode, "litera_in", ElemIdToCodeNative(etTripLiter,tr->litera_in) );
     if ( !tr->park_in.empty() )
       NewTextChild( tripNode, "park_in", tr->park_in );
     if ( tr->remark_in != tr->remark_out && !tr->remark_in.empty() )
@@ -1326,7 +1326,7 @@ void buildISG( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
   	  	if ( !dnode )
   		  	dnode = NewTextChild( destNode, "delays" );
   		  xmlNodePtr fnode = NewTextChild( dnode, "delay" );
-  		  NewTextChild( fnode, "delay_code", delay->code );
+  		  NewTextChild( fnode, "delay_code", ElemIdToCodeNative(etDelayType,delay->code) );
   		  NewTextChild( fnode, "time", DateTimeToStr( delay->time, ServerFormatDateTimeAsString ) );
       }
     }
@@ -1339,7 +1339,7 @@ void buildISG( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
  	  	if ( !dnode )
  		  	dnode = NewTextChild( tripNode, "delays" );
  		  xmlNodePtr fnode = NewTextChild( dnode, "delay" );
- 		  NewTextChild( fnode, "delay_code", delay->code );
+ 		  NewTextChild( fnode, "delay_code", ElemIdToCodeNative(etDelayType,delay->code) );
  		  NewTextChild( fnode, "time", DateTimeToStr( delay->time, ServerFormatDateTimeAsString ) );
     }
 
@@ -1364,7 +1364,7 @@ void buildISG( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
     if ( !tr->triptype_out.empty() )
       NewTextChild( tripNode, "triptype_out", ElemIdToCodeNative(etTripType,tr->triptype_out) );
     if ( !tr->litera_out.empty() )
-      NewTextChild( tripNode, "litera_out", tr->litera_out );
+      NewTextChild( tripNode, "litera_out", ElemIdToCodeNative(etTripLiter,tr->litera_out) );
     if ( !tr->park_out.empty() )
       NewTextChild( tripNode, "park_out", tr->park_out );
     if ( !tr->remark_out.empty() )
@@ -1413,7 +1413,7 @@ void buildISG( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
   	  	if ( !dnode )
   		  	dnode = NewTextChild( destNode, "delays" );
   		  xmlNodePtr fnode = NewTextChild( dnode, "delay" );
-  		  NewTextChild( fnode, "delay_code", delay->code );
+  		  NewTextChild( fnode, "delay_code", ElemIdToCodeNative(etDelayType,delay->code) );
   		  NewTextChild( fnode, "time", DateTimeToStr( delay->time, ServerFormatDateTimeAsString ) );
       }
     }
@@ -1515,7 +1515,8 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   else
     buildSOPP( trips, errcity, dataNode );
   if ( !errcity.empty() )
-    AstraLocale::showErrorMessage( "MSG.CITY.REGION_NOT_DEFINED.NOT_ALL_FLIGHTS_ARE_SHOWN", LParams() << LParam("city", errcity));
+    AstraLocale::showErrorMessage( "MSG.CITY.REGION_NOT_DEFINED.NOT_ALL_FLIGHTS_ARE_SHOWN",
+    	                             LParams() << LParam("city", ElemIdToCodeNative(etCity,errcity)));
 }
 
 void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode,
@@ -2007,7 +2008,8 @@ void SoppInterface::DeleteAllPassangers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   buildSOPP( trips, errcity, dataNode );
   if ( !errcity.empty() )
-    AstraLocale::showErrorMessage( "MSG.CITY.REGION_NOT_DEFINED.NOT_ALL_FLIGHTS_ARE_SHOWN", LParams() << LParam("city", errcity));
+    AstraLocale::showErrorMessage( "MSG.CITY.REGION_NOT_DEFINED.NOT_ALL_FLIGHTS_ARE_SHOWN",
+    	                             LParams() << LParam("city", ElemIdToCodeNative(etCity,errcity)));
   else
     AstraLocale::showMessage( "MSG.UNREGISTRATION_ALL_PASSENGERS" );
 }
@@ -2159,10 +2161,11 @@ void GetBirks( int point_id, xmlNodePtr dataNode )
 {
 	TQuery Qry(&OraSession);
 	Qry.SQLText =
-	 "SELECT COUNT(*) AS nobrd, sopp.get_birks( :point_id ) AS birks "\
-	 " FROM pax_grp,pax "\
-	 "WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_id AND pr_brd=0 ";
+	 "SELECT COUNT(*) AS nobrd, sopp.get_birks(:point_id,:vlang) AS birks "
+	 " FROM pax_grp,pax "
+	 "WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_id AND pr_brd=0";
 	Qry.CreateVariable( "point_id", otInteger, point_id );
+	Qry.CreateVariable( "vlang", otString, TReqInfo::Instance()->desk.lang.empty() );
 	Qry.Execute();
 	xmlNodePtr node = NewTextChild( dataNode, "birks", Qry.FieldAsString( "birks" ) );
 	NewTextChild( node, "nobrd", Qry.FieldAsInteger( "nobrd" ) );
@@ -2384,7 +2387,8 @@ void SoppInterface::ReadTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   string errcity = internal_ReadData( trips, NoExists, NoExists, false, tSOPP, point_id );
 
   if ( !errcity.empty() )
-    AstraLocale::showErrorMessage( "MSG.CITY.REGION_NOT_DEFINED.NOT_ALL_FLIGHTS_ARE_SHOWN", LParams() << LParam("city", errcity));
+    AstraLocale::showErrorMessage( "MSG.CITY.REGION_NOT_DEFINED.NOT_ALL_FLIGHTS_ARE_SHOWN",
+    	                             LParams() << LParam("city", ElemIdToCodeNative(etCity,errcity)));
 
 	TQuery Qry(&OraSession );
  	Qry.SQLText = "SELECT airp FROM points WHERE point_id=:point_id";
@@ -2465,7 +2469,7 @@ void internal_ReadDests( int move_id, TSOPPDests &dests, string &reference, TDat
   if ( part_key > NoExists ) {
 	  Qry.SQLText =
     "SELECT point_id,point_num,first_point,airp,airp_fmt,airline,airline_fmt,flt_no,suffix,suffix_fmt,craft,craft_fmt,bort,"
-    "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
+    "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,DECODE(remark,"
     "       pr_tranzit,pr_reg,arx_points.pr_del pr_del "
     " FROM arx_points "
     " WHERE arx_points.part_key=:part_key AND arx_points.move_id=:move_id AND "
@@ -2594,6 +2598,7 @@ void SoppInterface::ReadDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   	if ( d->first_point > NoExists )
   	  NewTextChild( snode, "first_point", d->first_point );
   	NewTextChild( snode, "airp", ElemIdToElemCtxt( ecDisp, etAirp, d->airp, d->airp_fmt ) );
+  	NewTextChild( snode, "airpId", d->airp );
   	if ( !d->airline.empty() )
   	  NewTextChild( snode, "airline", ElemIdToElemCtxt( ecDisp, etAirline, d->airline, d->airline_fmt ) );
   	if ( d->flt_no > NoExists )
@@ -2627,13 +2632,13 @@ void SoppInterface::ReadDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   		if ( !dnode )
   			dnode = NewTextChild( snode, "delays" );
   		xmlNodePtr fnode = NewTextChild( dnode, "delay" );
-  		NewTextChild( fnode, "delay_code", delay->code );
+  		NewTextChild( fnode, "delay_code", ElemIdToCodeNative(etDelayType,delay->code) );
   		NewTextChild( fnode, "time", DateTimeToStr( UTCToClient( delay->time, d->region ), ServerFormatDateTimeAsString ) );
     }
   	if ( !d->triptype.empty() )
   	  NewTextChild( snode, "trip_type", ElemIdToCodeNative(etTripType,d->triptype) );
   	if ( !d->litera.empty() )
-  	  NewTextChild( snode, "litera", d->litera );
+  	  NewTextChild( snode, "litera", ElemIdToCodeNative(etTripLiter,d->litera) );
   	if ( !d->park_in.empty() )
   	  NewTextChild( snode, "park_in", d->park_in );
   	if ( !d->park_out.empty() )
@@ -2696,7 +2701,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
       if ( !pr_last &&
       	   !reqInfo->CheckAirline( id->airline ) ) {
         if ( !id->airline.empty() )
-          throw AstraLocale::UserException( "MSG.AIRLINE.ACCESS_DENIED", LParams() << LParam("airline", id->airline));
+          throw AstraLocale::UserException( "MSG.AIRLINE.ACCESS_DENIED", LParams() << LParam("airline", ElemIdToElemCtxt(ecDisp,etAirline,id->airline,id->airline_fmt)) );
         else
         	throw AstraLocale::UserException( "MSG.AIRLINE.NOT_SET" );
       }
@@ -3706,10 +3711,13 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 		if ( fnode ) {
 			fnode = fnode->children;
 			xmlNodePtr dnode;
+			TElemFmt fmt;
 			while ( fnode ) {
 				dnode = fnode->children;
 				TSOPPDelay delay;
-				delay.code = NodeAsStringFast( "delay_code", dnode );
+				delay.code = ElemToElemId( etDelayType, NodeAsStringFast( "delay_code", dnode ), fmt );
+				if ( fmt == efmtUnknown )
+					throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.INVALID_DELAY" );
 				try {
 				  delay.time = ClientToUTC( NodeAsDateTimeFast( "time", dnode ), region );
 				}
@@ -3732,8 +3740,11 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 			d.triptype.clear();
 
 		fnode = GetNodeFast( "litera", snode );
-		if ( fnode )
-			d.litera = NodeAsString( fnode );
+		if ( fnode ) {
+			d.litera = ElemToElemId(etTripLiter,NodeAsString( fnode ),fmt);
+			if ( fmt == efmtUnknown )
+				throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.INVALID_LITERA" );
+		}
 		else
 			d.litera.clear();
 		fnode = GetNodeFast( "park_in", snode );
@@ -3809,7 +3820,7 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 		throw AstraLocale::UserException( "MSG.FLIGHT.NOT_FOUND" );
 	int pr_tranzit = ( !Qry.FieldIsNULL( "first_point" ) && Qry.FieldAsInteger( "pr_tranzit" ) );
 	string airp_dep = Qry.FieldAsString( "airp" );
-	TElemFmt airp_fmt = (TElemFmt)Qry.FieldAsInteger( "airp_fmt" );//!!!locale1919.07.2010
+//	TElemFmt airp_fmt = (TElemFmt)Qry.FieldAsInteger( "airp_fmt" );//!!!locale1919.07.2010
 	string region = AirpTZRegion( airp_dep, true );
 	TDateTime local_time;
 	modf(UTCToLocal( NowUTC(), region ),&local_time);
@@ -3817,7 +3828,7 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 
 	Qry.Clear();
 	Qry.SQLText =
-   "SELECT p2.airp, p2.airp_fmt FROM points p1, points p2 "
+   "SELECT p2.airp FROM points p1, points p2 "
    "WHERE p1.point_id=:point_id AND p1.pr_del!=-1 AND "
    "      p2.first_point IN (p1.first_point,p1.point_id) AND "
    "      p2.point_num>p1.point_num AND p2.pr_del!=-1 "
@@ -3827,10 +3838,10 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 	while ( !Qry.Eof ) {
 		if ( !displnode )
 			displnode = NewTextChild( crsdNode, "airps_arv" );
-		NewTextChild( displnode, "airp_arv", ElemIdToElemCtxt( ecDisp, etAirp, Qry.FieldAsString( "airp" ), (TElemFmt)Qry.FieldAsInteger( "airp_fmt" ) ) ); //!!!19.07.2010
+		NewTextChild( displnode, "airp_arv", ElemIdToCodeNative( etAirp, Qry.FieldAsString( "airp" ) ) ); //!!!19.07.2010
 		Qry.Next();
 	}
-	NewTextChild( crsdNode, "airp_dep", ElemIdToElemCtxt( ecDisp, etAirp, airp_dep, airp_fmt ) ); //!!!locale19.07.2010
+	NewTextChild( crsdNode, "airp_dep", ElemIdToCodeNative( etAirp, airp_dep ) ); //!!!locale19.07.2010
 	if ( pr_tranzit )
 	  NewTextChild( crsdNode, "pr_tranzit", pr_tranzit );
 	Qry.Clear();
@@ -4240,6 +4251,7 @@ void SoppInterface::WriteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 	    		if ( snode ) {
 	    			snode = snode->children;
 	    			xmlNodePtr tmNode;
+	    			TElemFmt fmt;
 	    			while ( snode ) {
 	    				xmlNodePtr destNode = snode->children;
  	    				point_id = NodeAsIntegerFast( "point_id", destNode );
@@ -4264,7 +4276,9 @@ void SoppInterface::WriteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 	    	        		while ( tmNode ) {
                       TSOPPDelay delay;
 	    	        		  xmlNodePtr N = tmNode->children;
-	    	    	    		delay.code = NodeAsStringFast( "code", N );
+	    	    	    		delay.code = ElemToElemId( etDelayType, NodeAsStringFast( "code", N ), fmt );
+    	    						if ( fmt == efmtUnknown )
+              					throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.INVALID_DELAY" );
 	    	        			setDestTime( GetNodeFast( "time", N ), delay.time, d->region );
 	    	        			d->delays.push_back( delay );
 	    	        			tmNode = tmNode->next;
