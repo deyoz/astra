@@ -871,8 +871,8 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry,  xmlNodePtr resNode)
       if (!TrferQry.Eof)
       {
         //данные рейса на прилет
-        string airline_in=tlgTripsFlt.airline;
-        int flt_no_in=tlgTripsFlt.flt_no;
+        string airline_in=operFlt.airline;
+        int flt_no_in=operFlt.flt_no;
         string airp_in=PaxQry.FieldAsString("target");
         //данные рейса на вылет
         string airline_out;
@@ -883,8 +883,8 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry,  xmlNodePtr resNode)
 
         string airline_view,suffix_view,airp_dep_view,airp_arv_view,subclass_view;
 
-        bool without_trfer_set=GetTripSets( tsIgnoreTrferSet, tlgTripsFlt );
-        bool outboard_trfer=GetTripSets( tsOutboardTrfer, tlgTripsFlt );
+        bool without_trfer_set=GetTripSets( tsIgnoreTrferSet, operFlt );
+        bool outboard_trfer=GetTripSets( tsOutboardTrfer, operFlt );
 
 
         bool pr_permit=true;   //этот тэг потом удалить потому как он не будет реально отрабатывать
@@ -935,6 +935,8 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry,  xmlNodePtr resNode)
 
           if (!without_trfer_set)
           {
+            //ProgTrace(TRACE5, "CreateSearchResponse: airline_in=%s flt_no_id=%d airp_out=%s airline_out=%s flt_no_out=%d outboard_trfer=%d",
+            //                  airline_in.c_str(), flt_no_in, airp_out.c_str(), airline_out.c_str(), flt_no_out, (int)outboard_trfer);
             if (prior_transfer_num+1==TrferQry.FieldAsInteger("transfer_num") &&
                 (airline_in.empty() || airp_out.empty() || airline_out.empty() ||
                 !CheckTrferPermit(airline_in,flt_no_in,airp_out,airline_out,flt_no_out,outboard_trfer)))

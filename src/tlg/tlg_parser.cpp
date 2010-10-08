@@ -2581,7 +2581,8 @@ void ParseRemarks(TTlgParser &tlg, TPnrItem &pnr, TNameElement &ne)
         }
         else
         {
-          if (strcmp(iRemItem->code,"DOCS")==0)
+          if (strcmp(iRemItem->code,"DOCS")==0 ||
+              strcmp(iRemItem->code,"PSPT")==0)
           {
             TDocItem doc;
             if (ParseDOCSRem(tlg,iRemItem->text,doc))
@@ -2883,7 +2884,8 @@ void ParseRemarks(TTlgParser &tlg, TPnrItem &pnr, TNameElement &ne)
           continue;
         };
 
-        if (strcmp(iRemItem->code,"DOCS")==0)
+        if (strcmp(iRemItem->code,"DOCS")==0 ||
+            strcmp(iRemItem->code,"PSPT")==0)
         {
           if (ne.pax.size()==1)
           {
@@ -3512,7 +3514,7 @@ bool ParseDOCSRem(TTlgParser &tlg,string &rem_text,TDocItem &doc)
             break;
         }
       }
-      catch(logic_error &E)
+      catch(exception &E)
       {
         switch(k)
         {
@@ -3615,7 +3617,7 @@ bool ParseDOCSRem(TTlgParser &tlg,string &rem_text,TDocItem &doc)
             break;
         }
       }
-      catch(logic_error &E)
+      catch(exception &E)
       {
         switch(k)
         {
@@ -3710,7 +3712,7 @@ bool ParseTKNRem(TTlgParser &tlg,string &rem_text,TTKNItem &tkn)
             break;
         };
       }
-      catch(logic_error &E)
+      catch(exception &E)
       {
         switch(k)
         {
@@ -3789,7 +3791,7 @@ bool ParseFQTRem(TTlgParser &tlg,string &rem_text,TFQTItem &fqt)
             break;
         };
       }
-      catch(logic_error &E)
+      catch(exception &E)
       {
         switch(k)
         {
