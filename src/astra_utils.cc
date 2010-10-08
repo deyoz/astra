@@ -8,6 +8,7 @@
 #include "stl_utils.h"
 #include "xml_unit.h"
 #include "misc.h"
+#include "astra_elems.h"
 #include "base_tables.h"
 #include "term_version.h"
 #include "tclmon/tcl_utils.h"
@@ -182,8 +183,11 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   desk.airline = Qry.FieldAsString( "airline" );
   desk.version = Qry.FieldAsString( "version" );
   desk.grp_id = Qry.FieldAsInteger( "grp_id" );
-  if (desk.compatible(LATIN_VERSION))
+  if (desk.compatible(LATIN_VERSION)) {
+
     desk.lang=InitData.lang;
+    ProgTrace(TRACE5, "LANGG:%s", InitData.lang.c_str() );
+  }
   else
     desk.lang=AstraLocale::LANG_RU;
 
@@ -203,7 +207,7 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   if (Qry.Eof)
     throw AstraLocale::UserException("MSG.DESK_CITY_NOT_DEFINED");
   if (Qry.FieldIsNULL("region"))
-    throw AstraLocale::UserException("MSG.CITY.REGION_NOT_DEFINED", LParams() << LParam("city", desk.city));
+    throw AstraLocale::UserException("MSG.CITY.REGION_NOT_DEFINED", LParams() << LParam("city", ElemIdToCodeNative(etCity,desk.city)));
   desk.tz_region = Qry.FieldAsString( "region" );
   desk.time = UTCToLocal( NowUTC(), desk.tz_region );
   if ( !screen.pr_logon ||
