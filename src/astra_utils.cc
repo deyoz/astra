@@ -182,6 +182,7 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   desk.airp = Qry.FieldAsString( "airp" );
   desk.airline = Qry.FieldAsString( "airline" );
   desk.version = Qry.FieldAsString( "version" );
+  ProgTrace(TRACE5, "desk.version%d", desk.version );
   desk.grp_id = Qry.FieldAsInteger( "grp_id" );
   if (desk.compatible(LATIN_VERSION)) {
 
