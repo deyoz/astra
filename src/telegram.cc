@@ -499,14 +499,12 @@ void TelegramInterface::GetTlgOut(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
   string tz_region;
   string sql="SELECT point_id,id,num,addr,heading,body,ending,extra, "
              "       pr_lat,completed,time_create,time_send_scd,time_send_act, "
-             "       typeb_types.code AS tlg_type,typeb_types.short_name AS tlg_short_name, "
-             "       typeb_types.basic_type, typeb_types.editable "
-             "FROM tlg_out,typeb_types "
-             "WHERE tlg_out.type=typeb_types.code ";
+             "       type AS tlg_type "
+             "FROM tlg_out ";
   if (node==NULL)
   {
     int tlg_id = NodeAsInteger( "tlg_id", reqNode );
-    sql+="AND id=:tlg_id ";
+    sql+="WHERE id=:tlg_id ";
     Qry.CreateVariable("tlg_id",otInteger,tlg_id);
   }
   else
@@ -514,12 +512,12 @@ void TelegramInterface::GetTlgOut(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     point_id = NodeAsInteger( node );
     if (point_id!=-1)
     {
-      sql+="AND point_id=:point_id ";
+      sql+="WHERE point_id=:point_id ";
       Qry.CreateVariable("point_id",otInteger,point_id);
     }
     else
     {
-      sql+="AND point_id IS NULL AND time_create>=TRUNC(system.UTCSYSDATE)-2 ";
+      sql+="WHERE point_id IS NULL AND time_create>=TRUNC(system.UTCSYSDATE)-2 ";
     };
 
   };
@@ -551,14 +549,17 @@ void TelegramInterface::GetTlgOut(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
   for(;!Qry.Eof;Qry.Next())
   {
     node = NewTextChild( tlgsNode, "tlg" );
-    string basic_type = Qry.FieldAsString("basic_type");
+    string tlg_type = Qry.FieldAsString("tlg_type");
+
+    TTypeBTypesRow& row = (TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",tlg_type));
+    string basic_type = row.basic_type;
 
     NewTextChild( node, "id", Qry.FieldAsInteger("id") );
     NewTextChild( node, "num", Qry.FieldAsInteger("num") );
-    NewTextChild( node, "tlg_type", Qry.FieldAsString("tlg_type"), basic_type );
-    NewTextChild( node, "tlg_short_name", Qry.FieldAsString("tlg_short_name"), basic_type );
+    NewTextChild( node, "tlg_type", tlg_type, basic_type );
+    NewTextChild( node, "tlg_short_name", ElemIdToNameShort(etTypeBType, tlg_type), basic_type );
     NewTextChild( node, "basic_type", basic_type );
-    NewTextChild( node, "editable", (int)Qry.FieldAsInteger("editable")!=0, (int)false );
+    NewTextChild( node, "editable", (int)row.editable, (int)false );
 
     //потом удалить !!! (обновление терминала 13.03.08)
 
@@ -661,8 +662,6 @@ void TelegramInterface::GetAddrs(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   NewTextChild(resNode,"addrs",addrs);
   return;
 };
-
-#include "base_tables.h"
 
 void TelegramInterface::LoadTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {

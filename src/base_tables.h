@@ -343,6 +343,36 @@ class TPaxDocTypes: public TCodeBaseTable {
     }
 };
 
+class TTypeBTypesRow: public TCodeBaseTableRow {
+  public:
+    std::string basic_type;
+    bool editable;
+    std::string short_name,short_name_lat;
+    const char *get_row_name() const { return "TTypeBTypesRow"; };
+    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU) const
+    {
+      if (lowerc(field)=="short_name") return lang!=AstraLocale::LANG_RU?short_name_lat:short_name;
+      if (lowerc(field)=="basic_type") return basic_type;
+      return TCodeBaseTableRow::AsString(field,lang);
+    };
+    virtual bool AsBoolean(std::string field) const
+    {
+      if (lowerc(field)=="editable") return editable;
+      return TCodeBaseTableRow::AsBoolean(field);
+    };
+};
+
+class TTypeBTypes: public TCodeBaseTable {
+  protected:
+    const char *get_table_name() { return "TTypeBTypes"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+    void Invalidate() {}; //всегда актуальна
+  public:
+    TTypeBTypes() {
+ 		  Init("typeb_types");
+ 	  }
+};
+
 class TCitiesRow: public TTIDBaseTableRow {
   public:
     std::string country,region;

@@ -112,6 +112,8 @@ const char* EncodeElemType(const TElemType type)
   		return "etDelayType";
   	case etTripLiter:
   		return "etTripLiter";
+  	case etTypeBType:
+  		return "etTypeBType";
   }
   return "";
 };
@@ -392,6 +394,9 @@ string getTableName(TElemType type)
   		break;
     case etGraphStage:
   		table_name="graph_stages";
+  		break;
+    case etTypeBType:
+  		table_name="typeb_types";
   		break;
   	default:;
   };

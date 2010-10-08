@@ -82,6 +82,8 @@ TBaseTable &TBaseTables::get(string name)
         	  base_tables[name] = new TGraphStages();
         else if(name == "TRIP_SUFFIXES")
         	  base_tables[name] = new TTripSuffixes();
+        else if(name == "TYPEB_TYPES")
+        	  base_tables[name] = new TTypeBTypes();
         else
             throw Exception("TBaseTables::get_base_table: " + name + " not found");
     }
@@ -506,6 +508,16 @@ void TPaxDocTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **
   *row = new TPaxDocTypesRow;
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
+
+void TTypeBTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+{
+  *row = new TTypeBTypesRow;
+  ((TTypeBTypesRow*)*row)->basic_type=Qry.FieldAsString("basic_type");
+  ((TTypeBTypesRow*)*row)->editable=Qry.FieldAsInteger("editable")!=0;
+  ((TTypeBTypesRow*)*row)->short_name=Qry.FieldAsString("short_name");
+  ((TTypeBTypesRow*)*row)->short_name_lat=Qry.FieldAsString("short_name_lat");
+  TCodeBaseTable::create_row(Qry,row,replaced_row);
+}
 
 void TCities::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
