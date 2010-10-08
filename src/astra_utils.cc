@@ -182,13 +182,9 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   desk.airp = Qry.FieldAsString( "airp" );
   desk.airline = Qry.FieldAsString( "airline" );
   desk.version = Qry.FieldAsString( "version" );
-  ProgTrace(TRACE5, "desk.version%d", desk.version );
   desk.grp_id = Qry.FieldAsInteger( "grp_id" );
-  if (desk.compatible(LATIN_VERSION)) {
-
+  if (desk.compatible(LATIN_VERSION))
     desk.lang=InitData.lang;
-    ProgTrace(TRACE5, "LANGG:%s", InitData.lang.c_str() );
-  }
   else
     desk.lang=AstraLocale::LANG_RU;
 
