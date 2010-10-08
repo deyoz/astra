@@ -441,6 +441,7 @@ xmlDocPtr prepareKickXMLDoc(string iface, int reqCtxtId)
   SetProp(node,"ver","1");
   SetProp(node,"opr",reqInfo->user.login);
   SetProp(node,"screen",reqInfo->screen.name);
+  SetProp(node,"lang",reqInfo->desk.lang);
   if (reqCtxtId!=ASTRA::NoExists)
     SetProp(NewTextChild(node,"kick"),"req_ctxt_id",reqCtxtId);
   else

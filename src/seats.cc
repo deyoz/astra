@@ -1687,7 +1687,9 @@ void TPassenger::build( xmlNodePtr pNode, const TDefaults& def )
     NewTextChild( pNode, "grp_layer_type",
                          EncodeCompLayerType(grp_status),
                          EncodeCompLayerType(def.grp_status) );
-    NewTextChild( pNode, "pers_type", pers_type, def.pers_type );
+    NewTextChild( pNode, "pers_type",
+                         ElemIdToCodeNative(etPersType, pers_type),
+                         ElemIdToCodeNative(etPersType, def.pers_type) );
   }
   else
   {
@@ -3081,7 +3083,7 @@ void TPassengers::Build( xmlNodePtr dataNode )
     xmlNodePtr defNode = NewTextChild( dataNode, "defaults" );
     NewTextChild( defNode, "clname", def.clname );
     NewTextChild( defNode, "grp_layer_type", EncodeCompLayerType(def.grp_status) );
-    NewTextChild( defNode, "pers_type", def.pers_type );
+    NewTextChild( defNode, "pers_type", ElemIdToCodeNative(etPersType, def.pers_type) );
     NewTextChild( defNode, "seat_no", def.placeName );
     NewTextChild( defNode, "wl_type", def.wl_type );
     NewTextChild( defNode, "seats", def.countPlace );
