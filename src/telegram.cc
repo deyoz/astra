@@ -1773,7 +1773,10 @@ void TelegramInterface::SaveTlgOutPart( TTlgOutPartInfo &info )
   Qry.CreateVariable("id",otInteger,info.id);
   Qry.CreateVariable("num",otInteger,info.num);
   Qry.CreateVariable("type",otString,info.tlg_type);
-  Qry.CreateVariable("point_id",otInteger,info.point_id);
+  if (info.point_id!=-1)
+    Qry.CreateVariable("point_id",otInteger,info.point_id);
+  else
+    Qry.CreateVariable("point_id",otInteger,FNull);
   Qry.CreateVariable("addr",otString,info.addr);
   Qry.CreateVariable("heading",otString,info.heading);
   Qry.CreateVariable("body",otString,info.body);
