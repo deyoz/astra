@@ -1003,7 +1003,7 @@ namespace PRL_SPACE {
             "    pax_rem "
             "where "
             "    pax_rem.pax_id = :pax_id and "
-            "    pax_rem.rem_code not in (/*'PSPT',*/ 'OTHS', 'DOCS', 'CHD', 'CHLD', 'INF', 'INFT', 'FQTV', 'FQTU', 'FQTR') ";
+            "    pax_rem.rem_code not in (/*'PSPT',*/ 'OTHS', /*'DOCS',*/ 'CHD', 'CHLD', 'INF', 'INFT', 'FQTV', 'FQTU', 'FQTR') ";
         Qry.CreateVariable("pax_id", otInteger, pax.pax_id);
         Qry.Execute();
         if(!Qry.Eof) {
