@@ -510,9 +510,7 @@ string TStagesRules::stage_name( TStage stage, std::string airp, bool pr_locale 
 bool TStagesRules::canClientStage( const TCkinClients &ckin_clients, int stage_id )
 {
 	for ( TCkinClients::const_iterator i=ckin_clients.begin(); i!=ckin_clients.end(); i++ ) {
-	 ProgTrace( TRACE5, "stage_id=%d, TCkinClients::const_iterator i=%s, clientstages.size()=%d", stage_id, (*i).c_str(), ClientStages[ stage_id ].size() );
-	 if ( find( ClientStages[ stage_id ].begin(), ClientStages[ stage_id ].end(), *i ) !=  ClientStages[ stage_id ].end() ) {
-	 	 tst();
+	 if ( find( ClientStages[ stage_id ].begin(), ClientStages[ stage_id ].end(), *i ) != ClientStages[ stage_id ].end() ) {
 	 	 return true;
 	 }
 	}

@@ -913,7 +913,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
         }
         ///////////////////////// resa ///////////////////////////
         if ( !arx ) {
-        	ProgTrace( TRACE5, "tr->point_id=%d", tr->point_id );
+//        	ProgTrace( TRACE5, "tr->point_id=%d", tr->point_id );
         	ResaQry.SetVariable( "point_id", tr->point_id );
         	ResaQry.Execute();
           if ( !ResaQry.Eof ) {
