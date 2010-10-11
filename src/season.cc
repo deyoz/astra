@@ -2844,7 +2844,7 @@ bool ConvertPeriodToLocal( TDateTime &first, TDateTime &last, string &days, stri
    return true;
   /* сдвиг даты произошел и у нас не все дни выполнения */
   days = AddDays( days, m );
-  ProgTrace( TRACE5, "ConvertPeriodToLocal have move range" );
+//  ProgTrace( TRACE5, "ConvertPeriodToLocal have move range" );
   return true;
 }
 
@@ -3462,7 +3462,7 @@ void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dat
           canTrips = false;
         }
         else {*/
-          ProgTrace( TRACE5, "create trip with trip_id=%d, move_id=%d", trip_id, move_id );
+//          ProgTrace( TRACE5, "create trip with trip_id=%d, move_id=%d", trip_id, move_id );
           mapds[ move_id ].flight_time = first;
           mapds[ move_id ].tz = ptz;
           mapds[ move_id ].region = pregion;
