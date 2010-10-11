@@ -847,6 +847,8 @@ void getLexemaText( LexemaData lexemaData, string &text, string &master_lexema_i
 {
   text.clear();
   master_lexema_id.clear();
+  if ( lexemaData.lexema_id.empty() )
+  	return;
   try {
 	  buildMsg( (lang.empty() ? TReqInfo::Instance()->desk.lang : lang), lexemaData, text, master_lexema_id );
 	}
