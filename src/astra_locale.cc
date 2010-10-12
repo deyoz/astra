@@ -166,7 +166,7 @@ void buildMsg( const std::string &lang, LexemaData &lexemaData, std::string &tex
 
         switch( i->second.lformat ) {
             case lfLineBreak:
-                str_val = "\n"; //!!! UNIX & DOS handling problem?
+                str_val = "\n";
                 break;
             case lfString:
                 snprintf( vval, sizeof(vval), i->second.format.c_str(), lexemaData.lparams.StringValue( lp->first, lp->second ).c_str() );
