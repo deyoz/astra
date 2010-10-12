@@ -76,7 +76,7 @@ void TCacheTable::Init(xmlNodePtr cacheNode)
 
   Qry->Clear();
   Qry->SQLText = "SELECT title, select_sql, refresh_sql, insert_sql, update_sql, delete_sql, "
-                 "       logging, keep_locally, event_type, tid, "
+                 "       logging, keep_locally, event_type, tid, need_refresh, "
                  "       select_right, insert_right, update_right, delete_right "
                  " FROM cache_tables WHERE code = :code";
   Qry->DeclareVariable("code", otString);
@@ -94,6 +94,7 @@ void TCacheTable::Init(xmlNodePtr cacheNode)
   Keep_Locally = Qry->FieldAsInteger("keep_locally") != 0;
   EventType = DecodeEventType( Qry->FieldAsString( "event_type" ) );
   curVerIface = Qry->FieldAsInteger( "tid" ); /* текущая версия интерфейса */
+  pr_dconst = !Qry->FieldAsInteger( "need_refresh" );
   //получим права доступа до операций
   if (!Qry->FieldIsNULL("select_right"))
     SelectRight=Qry->FieldAsInteger("select_right");
@@ -544,7 +545,7 @@ void TCacheTable::refresh()
     }
     else
         pr_irefresh = false;
-    if(Params.find(TAG_REFRESH_DATA) != Params.end() || pr_irefresh ) {
+    if ( Params.find(TAG_REFRESH_DATA) != Params.end() && !pr_dconst || pr_irefresh ) {
         if ( pr_irefresh )
           clientVerData = -1;
         pr_drefresh = refreshData();

@@ -135,7 +135,7 @@ class TCacheTable {
         std::vector<std::string> vars;
 
         void getPerms( );
-        bool pr_irefresh, pr_drefresh;
+        bool pr_irefresh, pr_drefresh, pr_dconst;
         void getParams(xmlNodePtr paramNode, TParams &vparams);
         bool refreshInterface();
         bool refreshData();
