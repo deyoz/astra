@@ -26,11 +26,16 @@ const string br = "\xa";
 const size_t PART_SIZE = 2000;
 const size_t LINE_SIZE = 64;
 int TST_TLG_ID; // for test purposes
+const string ERR_TAG_OPEN = "<ERROR>";
+const string ERR_TAG_CLOSE = "</ERROR>";
+const string DEFAULT_ERR = "?";
+const string ERR_FIELD = ERR_TAG_OPEN + DEFAULT_ERR + ERR_TAG_CLOSE;
 
 bool TTlgInfo::operator == (const TMktFlight &s) const
 {
     return
         airline == s.airline and
+
         flt_no == s.flt_no and
         suffix == s.suffix and
         airp_dep == s.airp_dep and
@@ -127,10 +132,42 @@ struct TTlgDraftPart {
 };
 
 struct TTlgDraft {
-    vector<TTlgDraftPart> parts;
-    void Save(TTlgOutPartInfo &info);
-    void Commit(TTlgOutPartInfo &info);
+    private:
+        TTlgInfo &tlg_info;
+    public:
+        vector<TTlgDraftPart> parts;
+        void Save(TTlgOutPartInfo &info);
+        void Commit(TTlgOutPartInfo &info);
+        TTlgDraft(TTlgInfo &tlg_info_val): tlg_info(tlg_info_val) {}
+        void check(string &val);
 };
+
+void TTlgDraft::check(string &value)
+{
+    bool opened = false;
+    string result;
+    for(string::const_iterator i=value.begin();i!=value.end();i++)
+    {
+        char c=*i;
+        if ((unsigned char)c>=0x80) {
+            // rus
+            tlg_info.vcompleted = false;
+            if(not opened) {
+                opened = true;
+                result += ERR_TAG_OPEN;
+            }
+        } else {
+            // lat
+            if(opened) {
+                opened = false;
+                result += ERR_TAG_CLOSE;
+            }
+        }
+        result += *i;
+    }
+    if(opened) result += ERR_TAG_CLOSE;
+    value = result;
+}
 
 void TTlgDraft::Commit(TTlgOutPartInfo &tlg_row)
 {
@@ -146,27 +183,17 @@ void TTlgDraft::Commit(TTlgOutPartInfo &tlg_row)
 
 void TTlgDraft::Save(TTlgOutPartInfo &info)
 {
-    if(info.pr_lat) {
-        string err_text;
-        if(not is_lat(info.addr)) err_text = info.addr;
-        else if(not is_lat(info.heading)) err_text = info.heading;
-        else if(not is_lat(info.body)) err_text = info.body;
-        else if(not is_lat(info.ending)) err_text = info.ending;
-        if(not err_text.empty()) {
-            ostringstream buf;
-            buf
-                << "telegram is not lat. point_id: " << info.point_id
-                << "; tlg_type: " << info.tlg_type
-                << "; extra: " << info.extra << endl
-                << "text: " << err_text;
-            throw Exception(buf.str());
-        }
-    }
     TTlgDraftPart part;
     part.addr = info.addr;
     part.heading = info.heading;
     part.body = info.body;
     part.ending = info.ending;
+    if(info.pr_lat) {
+        check(part.addr);
+        check(part.heading);
+        check(part.body);
+        check(part.ending);
+    }
     parts.push_back(part);
     info.num++;
 }
@@ -190,30 +217,79 @@ void simple_split(ostringstream &heading, size_t part_len, TTlgDraft &tlg_draft,
         }
 }
 
+
+void TTlgInfo::dump_err_lst()
+{
+    int i = 1;
+    ProgTrace(TRACE5, "-----------TLG ERR_LST-----------");
+    for(vector<string>::iterator iv = err_lst.begin(); iv != err_lst.end(); iv++)
+        ProgTrace(TRACE5, "ERR_NO: %d, %s", i++, iv->c_str());
+    ProgTrace(TRACE5, "--------END OF TLG ERR_LST-------");
+}
+
+string TTlgInfo::get_err_tag(std::string val)
+{
+    ostringstream buf;
+    buf << "<ERROR" << err_lst.size() << ">" << val << "</ERROR" << err_lst.size() << ">";
+    return buf.str();
+}
+
+string TTlgInfo::add_err(string err, std::string val)
+{
+    vcompleted = false;
+    err_lst.push_back(val);
+    return get_err_tag(err);
+}
+
+string TTlgInfo::add_err(string err, const char *format, ...)
+{
+    char Message[500];
+    va_list ap;
+    va_start(ap, format);
+    vsnprintf(Message, sizeof(Message), format, ap);
+    Message[sizeof(Message)-1]=0;
+    va_end(ap);
+    return add_err(err, Message);
+}
+
 string TTlgInfo::TlgElemIdToElem(TElemType type, int id, TElemFmt fmt)
 {
     if(fmt == efmtUnknown)
         fmt = elem_fmt;
-    if(not(fmt==efmtCodeNative || fmt==efmtCodeInter))
-        throw Exception("Wrong fmt: %s. tlg_type: %s, elem_type: %s", EncodeElemFmt(fmt), tlg_type.c_str(), EncodeElemType(type));
+    string result;
+    try {
+        if(not(fmt==efmtCodeNative || fmt==efmtCodeInter))
+            throw Exception("Wrong fmt");
 
-    vector< pair<TElemFmt,string> > fmts;
-    fmts.push_back( make_pair(fmt, lang) );
-    if(fmt == efmtCodeNative)
-        fmts.push_back( make_pair(efmtCodeInter, lang) );
+        vector< pair<TElemFmt,string> > fmts;
+        fmts.push_back( make_pair(fmt, lang) );
+        if(fmt == efmtCodeNative)
+            fmts.push_back( make_pair(efmtCodeInter, lang) );
 
-    string result = ElemIdToElem(type, id, fmts);
-    if(result.empty() || fmt==efmtCodeInter &&!is_lat(result)) {
-        string code_name;
-        switch(type)
-        {
-            case etClsGrp:
-                code_name = "CLS_GRP";
-                break;
-            default:
-                throw Exception("Unsupported int elem type %s, tlg_type: %s", EncodeElemType(type), tlg_type.c_str());
+        result = ElemIdToElem(type, id, fmts);
+        if(result.empty() || fmt==efmtCodeInter &&!is_lat(result)) {
+            string code_name;
+            switch(type)
+            {
+                case etClsGrp:
+                    code_name = "CLS_GRP";
+                    break;
+                default:
+                    throw Exception("Unsupported int elem type");
+            }
+            throw AstraLocale::UserException((string)"MSG." + code_name + "_LAT_CODE_NOT_FOUND", LParams() << LParam("id", id));
         }
-        throw AstraLocale::UserException((string)"MSG." + code_name + "_LAT_CODE_NOT_FOUND", LParams() << LParam("id", id));
+    } catch(UserException E) {
+        vcompleted = false;
+        result = ERR_FIELD;
+    } catch(exception E) {
+        vcompleted = false;
+        result = ERR_FIELD;
+        ProgError(STDLOG, "TTlgInfo::TlgElemIdToElem: tlg_type: %s, elem_type: %s, fmt: %s, what: %s", tlg_type.c_str(), EncodeElemType(type), EncodeElemFmt(fmt), E.what());
+    } catch(...) {
+        vcompleted = false;
+        result = ERR_FIELD;
+        ProgError(STDLOG, "TTlgInfo::TlgElemIdToElem: unknown except caught. tlg_type: %s, elem_type: %s, fmt: %s", tlg_type.c_str(), EncodeElemType(type), EncodeElemFmt(fmt));
     }
     return result;
 }
@@ -222,117 +298,167 @@ string TTlgInfo::TlgElemIdToElem(TElemType type, string id, TElemFmt fmt)
 {
     if(fmt == efmtUnknown)
         fmt = elem_fmt;
-    if(id.empty())
-        throw Exception("id is empty. tlg_type: %s, elem_type: %s", tlg_type.c_str(), EncodeElemType(type));
-    if(not(fmt==efmtCodeNative || fmt==efmtCodeInter))
-        throw Exception("Wrong fmt: %s. tlg_type: %s, elem_type: %s", EncodeElemFmt(fmt), tlg_type.c_str(), EncodeElemType(type));
+    string result;
+    try {
+        if(id.empty())
+            throw Exception("id is empty.");
+        if(not(fmt==efmtCodeNative || fmt==efmtCodeInter))
+            throw Exception("Wrong fmt.");
 
-    vector< pair<TElemFmt,string> > fmts;
-    fmts.push_back( make_pair(fmt, lang) );
-    if(fmt == efmtCodeNative)
-        fmts.push_back( make_pair(efmtCodeInter, lang) );
+        vector< pair<TElemFmt,string> > fmts;
+        fmts.push_back( make_pair(fmt, lang) );
+        if(fmt == efmtCodeNative)
+            fmts.push_back( make_pair(efmtCodeInter, lang) );
 
-    string result = ElemIdToElem(type, id, fmts);
-    if(result.empty() || fmt==efmtCodeInter &&!is_lat(result)) {
-        string code_name;
-        switch(type)
-        {
-            case etCountry:
-                code_name="COUNTRY";
-                break;
-            case etCity:
-                code_name="CITY";
-                break;
-            case etAirline:
-                code_name="AIRLINE";
-                break;
-            case etAirp:
-                code_name="AIRP";
-                break;
-            case etCraft:
-                code_name="CRAFT";
-                break;
-            case etClass:
-                code_name="CLS";
-                break;
-            case etSubcls:
-                code_name="SUBCLS";
-                break;
-            case etPersType:
-                code_name="PAX_TYPE";
-                break;
-            case etGenderType:
-                code_name="GENDER";
-                break;
-            case etPaxDocType:
-                code_name="DOC";
-                break;
-            case etPayType:
-                code_name="PAY_TYPE";
-                break;
-            case etCurrency:
-                code_name="CURRENCY";
-                break;
-            case etSuffix:
-                code_name="SUFFIX";
-                break;
-            default:
-                throw Exception("Unsupported elem type %s, tlg_type: %s", EncodeElemType(type), tlg_type.c_str());
-        };
-        throw AstraLocale::UserException((string)"MSG." + code_name + "_LAT_CODE_NOT_FOUND", LParams() << LParam("id", id));
+        string result = ElemIdToElem(type, id, fmts);
+        if(result.empty() || fmt==efmtCodeInter &&!is_lat(result)) {
+            string code_name;
+            switch(type)
+            {
+                case etCountry:
+                    code_name="COUNTRY";
+                    break;
+                case etCity:
+                    code_name="CITY";
+                    break;
+                case etAirline:
+                    code_name="AIRLINE";
+                    break;
+                case etAirp:
+                    code_name="AIRP";
+                    break;
+                case etCraft:
+                    code_name="CRAFT";
+                    break;
+                case etClass:
+                    code_name="CLS";
+                    break;
+                case etSubcls:
+                    code_name="SUBCLS";
+                    break;
+                case etPersType:
+                    code_name="PAX_TYPE";
+                    break;
+                case etGenderType:
+                    code_name="GENDER";
+                    break;
+                case etPaxDocType:
+                    code_name="DOC";
+                    break;
+                case etPayType:
+                    code_name="PAY_TYPE";
+                    break;
+                case etCurrency:
+                    code_name="CURRENCY";
+                    break;
+                case etSuffix:
+                    code_name="SUFFIX";
+                    break;
+                default:
+                    throw Exception("Unsupported elem type.");
+            };
+            throw AstraLocale::UserException((string)"MSG." + code_name + "_LAT_CODE_NOT_FOUND", LParams() << LParam("id", id));
+        }
+    } catch(UserException E) {
+        vcompleted = false;
+        result = ERR_FIELD;
+    } catch(exception E) {
+        vcompleted = false;
+        result = ERR_FIELD;
+        ProgError(STDLOG, "TTlgInfo::TlgElemIdToElem: tlg_type: %s, elem_type: %s, fmt: %s, what: %s", tlg_type.c_str(), EncodeElemType(type), EncodeElemFmt(fmt), E.what());
+    } catch(...) {
+        vcompleted = false;
+        result = ERR_FIELD;
+        ProgError(STDLOG, "TTlgInfo::TlgElemIdToElem: unknown except caught. tlg_type: %s, elem_type: %s, fmt: %s", tlg_type.c_str(), EncodeElemType(type), EncodeElemFmt(fmt));
     }
     return result;
 }
 
-string fetch_addr(string &addr)
+string fetch_addr(string &addr, TTlgInfo *info)
 {
     string result;
     // пропускаем все символы не относящиеся к слову
     size_t i = 0;
     size_t len = 0;
-    for(i = 0; i < addr.size() && (u_char)addr[i] <= 0x20; i++) ;
-    for(len = 0; i + len < addr.size() && (u_char)addr[i + len] > 0x20; len++) ;
-    result = addr.substr(i, len);
-    if(addr.size() == len)
-        addr.erase();
-    else
-        addr = addr.substr(len + i);
-    if(not(result.empty() or result.size() == 7))
-        throw AstraLocale::UserException("MSG.TLG.INVALID_SITA_ADDR", LParams() << LParam("addr", result));
-    for(i = 0; i < result.size(); i++) {
-        // c BETWEEN 'A' AND 'Z' OR c BETWEEN '0' AND '9'
-        u_char c = result[i];
-        if((c > 0x40 and c < 0x5b) or (c > 0x2f and c < 0x3a))
-            continue;
-        throw AstraLocale::UserException("MSG.TLG.INVALID_SITA_ADDR", LParams() << LParam("addr", result));
+    try {
+        for(i = 0; i < addr.size() && (u_char)addr[i] <= 0x20; i++) ;
+        for(len = 0; i + len < addr.size() && (u_char)addr[i + len] > 0x20; len++) ;
+        result = addr.substr(i, len);
+        if(addr.size() == len)
+            addr.erase();
+        else
+            addr = addr.substr(len + i);
+        ProgTrace(TRACE5, "addr: %s, result: %s", addr.c_str(), result.c_str());
+        if(not(result.empty() or result.size() == 7))
+            throw AstraLocale::UserException("MSG.TLG.INVALID_SITA_ADDR", LParams() << LParam("addr", result));
+        for(i = 0; i < result.size(); i++) {
+            // c BETWEEN 'A' AND 'Z' OR c BETWEEN '0' AND '9'
+            u_char c = result[i];
+            if((c > 0x40 and c < 0x5b) or (c > 0x2f and c < 0x3a))
+                continue;
+            throw AstraLocale::UserException("MSG.TLG.INVALID_SITA_ADDR", LParams() << LParam("addr", result));
+        }
+    } catch(UserException E) {
+        if(not info)
+            throw;
+        else
+            result = info->add_err(result, getLocaleText(E.getLexemaData()));
+    } catch(exception E) {
+        if(not info)
+            throw;
+        else
+            result = info->add_err(result, "fetch_addr failed: %s", E.what());
+    } catch(...) {
+        if(not info)
+            throw;
+        else
+            result = info->add_err(result, "fetch_addr failed. unknown exception");
     }
     return result;
 }
 
-string format_addr_line(string vaddrs)
+string format_addr_line(string vaddrs, TTlgInfo *info)
 {
     string result, addr_line;
-    int n = 0;
-    string addr = fetch_addr(vaddrs);
-    while(!addr.empty()) {
-        if(result.find(addr) == string::npos && addr_line.find(addr) == string::npos) {
-            n++;
-            if(n > 32)
-                throw AstraLocale::UserException("MSG.TLG.MORE_THEN_32_ADDRS");
-            if(addr_line.size() + addr.size() + 1 > 64) {
-                result += addr_line + br;
-                addr_line = addr;
-            } else {
-                if(addr_line.empty())
+    try {
+        int n = 0;
+        string addr = fetch_addr(vaddrs, info);
+        while(!addr.empty()) {
+            if(result.find(addr) == string::npos && addr_line.find(addr) == string::npos) {
+                n++;
+                if(n > 32)
+                    throw AstraLocale::UserException("MSG.TLG.MORE_THEN_32_ADDRS");
+                if(addr_line.size() + addr.size() + 1 > 64) {
+                    result += addr_line + br;
                     addr_line = addr;
-                else
-                    addr_line += " " + addr;
+                } else {
+                    if(addr_line.empty())
+                        addr_line = addr;
+                    else
+                        addr_line += " " + addr;
+                }
             }
+            addr = fetch_addr(vaddrs, info);
         }
-        addr = fetch_addr(vaddrs);
+        if(!addr_line.empty())
+            result += addr_line;
+    } catch(UserException E) {
+        if(not info)
+            throw;
+        else
+            result = info->add_err(DEFAULT_ERR, getLocaleText(E.getLexemaData()));
+    } catch(exception E) {
+        if(not info)
+            throw;
+        else
+            result = info->add_err(DEFAULT_ERR, "format_addr_line failed: %s", E.what());
+    } catch(...) {
+        if(not info)
+            throw;
+        else
+            result = info->add_err(DEFAULT_ERR, "format_addr_line failed. unknown exception");
     }
-    if(!addr_line.empty())
-        result += addr_line + br;
+    result += br;
     return result;
 }
 
@@ -1561,7 +1687,7 @@ using namespace PRL_SPACE;
 
 int COM(TTlgInfo &info)
 {
-    TTlgDraft tlg_draft;
+    TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
@@ -2801,7 +2927,7 @@ void TPIL::ToTlg(TTlgInfo &info, string &body)
 
 int PIL(TTlgInfo &info)
 {
-    TTlgDraft tlg_draft;
+    TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
@@ -2900,7 +3026,7 @@ void TTPM::ToTlg(TTlgInfo &info, vector<string> &body)
 
 int TPM(TTlgInfo &info)
 {
-    TTlgDraft tlg_draft;
+    TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
@@ -2931,7 +3057,7 @@ int TPM(TTlgInfo &info)
 
 int PSM(TTlgInfo &info)
 {
-    TTlgDraft tlg_draft;
+    TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
@@ -2962,7 +3088,7 @@ int PSM(TTlgInfo &info)
 
 int BTM(TTlgInfo &info)
 {
-    TTlgDraft tlg_draft;
+    TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
@@ -3032,7 +3158,7 @@ int BTM(TTlgInfo &info)
 
 int PTM(TTlgInfo &info)
 {
-    TTlgDraft tlg_draft;
+    TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
@@ -3575,7 +3701,7 @@ void TTlgSeatList::get(TTlgInfo &info)
 
 int SOM(TTlgInfo &info)
 {
-    TTlgDraft tlg_draft;
+    TTlgDraft tlg_draft(info);
     ProgTrace(TRACE5, "SOM started");
     TTlgOutPartInfo tlg_row;
     tlg_row.num = 1;
@@ -4562,11 +4688,11 @@ void TMVTABody::get(TTlgInfo &info)
     }
 }
 
-int CPM(TTlgInfo &info, bool &vcompleted)
+int CPM(TTlgInfo &info)
 {
-    TTlgDraft tlg_draft;
+    TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row;
-    vcompleted = false;
+    info.vcompleted = false;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
     tlg_row.point_id = info.point_id;
@@ -4581,7 +4707,7 @@ int CPM(TTlgInfo &info, bool &vcompleted)
     tlg_row.heading = buf.str();
     tlg_row.ending = "PART " + IntToString(tlg_row.num) + " END" + br;
     if(info.bort.empty())
-        vcompleted = false;
+        info.vcompleted = false;
     buf.str("");
     buf
         << info.airline_view << setw(3) << setfill('0') << info.flt_no << info.suffix_view << "/"
@@ -4598,11 +4724,11 @@ int CPM(TTlgInfo &info, bool &vcompleted)
     return tlg_row.id;
 }
 
-int MVT(TTlgInfo &info, bool &vcompleted)
+int MVT(TTlgInfo &info)
 {
-    TTlgDraft tlg_draft;
+    TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row;
-    vcompleted = true;
+    info.vcompleted = true;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
     tlg_row.point_id = info.point_id;
@@ -4617,7 +4743,7 @@ int MVT(TTlgInfo &info, bool &vcompleted)
     tlg_row.heading = buf.str();
     tlg_row.ending = "PART " + IntToString(tlg_row.num) + " END" + br;
     if(info.bort.empty())
-        vcompleted = false;
+        info.vcompleted = false;
     buf.str("");
     buf
         << info.airline_view << setw(3) << setfill('0') << info.flt_no << info.suffix_view << "/"
@@ -4630,11 +4756,11 @@ int MVT(TTlgInfo &info, bool &vcompleted)
     if(info.tlg_type == "MVTA") {
         TMVTABody MVTABody;
         MVTABody.get(info);
-        MVTABody.ToTlg(info, vcompleted, body);
+        MVTABody.ToTlg(info, info.vcompleted, body);
     } else {
         TMVTBBody MVTBBody;
         MVTBBody.get(info);
-        MVTBBody.ToTlg(vcompleted, body);
+        MVTBBody.ToTlg(info.vcompleted, body);
     }
 
     for(vector<string>::iterator iv = body.begin(); iv != body.end(); iv++)
@@ -4644,11 +4770,11 @@ int MVT(TTlgInfo &info, bool &vcompleted)
     return tlg_row.id;
 }
 
-int LDM(TTlgInfo &info, bool &vcompleted)
+int LDM(TTlgInfo &info)
 {
-    TTlgDraft tlg_draft;
+    TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row;
-    vcompleted = true;
+    info.vcompleted = true;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
     tlg_row.point_id = info.point_id;
@@ -4665,7 +4791,7 @@ int LDM(TTlgInfo &info, bool &vcompleted)
     vector<string> body;
     TLDMDests LDM;
     LDM.get(info);
-    LDM.ToTlg(info, vcompleted, body);
+    LDM.ToTlg(info, info.vcompleted, body);
     for(vector<string>::iterator iv = body.begin(); iv != body.end(); iv++)
         tlg_row.body += *iv + br;
     tlg_draft.Save(tlg_row);
@@ -4673,11 +4799,11 @@ int LDM(TTlgInfo &info, bool &vcompleted)
     return tlg_row.id;
 }
 
-int AHL(TTlgInfo &info, bool &vcompleted)
+int AHL(TTlgInfo &info)
 {
-    TTlgDraft tlg_draft;
+    TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row;
-    vcompleted = false;
+    info.vcompleted = false;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
     tlg_row.point_id = info.point_id;
@@ -4713,7 +4839,7 @@ int AHL(TTlgInfo &info, bool &vcompleted)
 
 int FTL(TTlgInfo &info)
 {
-    TTlgDraft tlg_draft;
+    TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
@@ -4753,7 +4879,7 @@ int FTL(TTlgInfo &info)
 
 int ETL(TTlgInfo &info)
 {
-    TTlgDraft tlg_draft;
+    TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
@@ -5431,7 +5557,7 @@ void TPFSBody::get(TTlgInfo &info)
 
 int PFS(TTlgInfo &info)
 {
-    TTlgDraft tlg_draft;
+    TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
@@ -5473,7 +5599,7 @@ int PFS(TTlgInfo &info)
 
 int PRL(TTlgInfo &info)
 {
-    TTlgDraft tlg_draft;
+    TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
@@ -5516,11 +5642,11 @@ int PRL(TTlgInfo &info)
     return tlg_row.id;
 }
 
-int Unknown(TTlgInfo &info, bool &vcompleted)
+int Unknown(TTlgInfo &info)
 {
-    TTlgDraft tlg_draft;
+    TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row;
-    vcompleted = false;
+    info.vcompleted = false;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
     tlg_row.point_id = info.point_id;
@@ -5624,33 +5750,33 @@ int TelegramInterface::create_tlg(
     }
     ostringstream extra;
     if (vbasic_type == "PTM" ||
-        vbasic_type == "BTM")
+            vbasic_type == "BTM")
     {
         info.airp_arv = createInfo.airp_trfer;
         info.airp_arv_view = info.TlgElemIdToElem(etAirp, info.airp_arv);
         if (!info.airp_arv.empty())
-          extra << info.airp_arv << " ";
+            extra << info.airp_arv << " ";
     }
     if (vbasic_type == "CPM")
     {
-      TTripRoute route;
-      TTripRouteItem next_airp;
-      if (route.GetNextAirp(info.point_id, trtNotCancelled, next_airp))
-      {
-        info.airp_arv = next_airp.airp;
-        info.airp_arv_view = info.TlgElemIdToElem(etAirp, info.airp_arv);
-      };
+        TTripRoute route;
+        TTripRouteItem next_airp;
+        if (route.GetNextAirp(info.point_id, trtNotCancelled, next_airp))
+        {
+            info.airp_arv = next_airp.airp;
+            info.airp_arv_view = info.TlgElemIdToElem(etAirp, info.airp_arv);
+        };
     };
     if (vbasic_type == "PFS" or
-        vbasic_type == "FTL" or
-        vbasic_type == "ETL" or
-        vbasic_type == "PRL")
+            vbasic_type == "FTL" or
+            vbasic_type == "ETL" or
+            vbasic_type == "PRL")
     {
         info.crs = createInfo.crs;
         if (!info.crs.empty())
-          extra << info.crs << " ";
+            extra << info.crs << " ";
         if (!info.mark_info.IsNULL())
-          extra << info.mark_info.airline
+            extra << info.mark_info.airline
                 << setw(3) << setfill('0') << info.mark_info.flt_no
                 << info.mark_info.suffix << " ";
     }
@@ -5658,20 +5784,32 @@ int TelegramInterface::create_tlg(
     {
         info.extra = createInfo.extra;
         if (!info.extra.empty())
-          extra << info.extra << " ";
+            extra << info.extra << " ";
     }
     info.extra = extra.str();
-    info.addrs = format_addr_line(createInfo.addrs);
+
+    info.vcompleted = !veditable;
+
+    if(true) { //!!!
+        string test_addrs;
+        for(int i = 0; i < 40; i++) {
+            test_addrs += "QQQQQQ" + IntToString(i) + " ";
+        }
+        ProgTrace(TRACE5, "before format_addr_line. info.vcompleted: %s", (info.vcompleted ? "true": "false"));
+        info.addrs = format_addr_line(test_addrs, &info);
+        ProgTrace(TRACE5, "info.addrs: %s, info.vcompleted: %s", info.addrs.c_str(), (info.vcompleted ? "true": "false"));
+    } else
+        info.addrs = format_addr_line(createInfo.addrs, &info);
+
     if(info.addrs.empty())
         throw AstraLocale::UserException("MSG.TLG.DST_ADDRS_NOT_SET");
-    bool vcompleted = !veditable;
     int vid = NoExists;
 
     if(vbasic_type == "PTM") vid = PTM(info);
-    else if(vbasic_type == "LDM") vid = LDM(info, vcompleted);
-    else if(vbasic_type == "MVT") vid = MVT(info, vcompleted);
-    else if(vbasic_type == "AHL") vid = AHL(info, vcompleted);
-    else if(vbasic_type == "CPM") vid = CPM(info, vcompleted);
+    else if(vbasic_type == "LDM") vid = LDM(info);
+    else if(vbasic_type == "MVT") vid = MVT(info);
+    else if(vbasic_type == "AHL") vid = AHL(info);
+    else if(vbasic_type == "CPM") vid = CPM(info);
     else if(vbasic_type == "BTM") vid = BTM(info);
     else if(vbasic_type == "PRL") vid = PRL(info);
     else if(vbasic_type == "TPM") vid = TPM(info);
@@ -5682,11 +5820,13 @@ int TelegramInterface::create_tlg(
     else if(vbasic_type == "FTL") vid = FTL(info);
     else if(vbasic_type == "COM") vid = COM(info);
     else if(vbasic_type == "SOM") vid = SOM(info);
-    else vid = Unknown(info, vcompleted);
+    else vid = Unknown(info);
+
+    info.dump_err_lst();
 
     Qry.Clear();
     Qry.SQLText = "update tlg_out set completed = :vcompleted where id = :vid";
-    Qry.CreateVariable("vcompleted", otInteger, vcompleted);
+    Qry.CreateVariable("vcompleted", otInteger, info.vcompleted);
     Qry.CreateVariable("vid", otInteger, vid);
     Qry.Execute();
 
@@ -5760,6 +5900,7 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     createInfo.addrs = NodeAsStringFast( "addrs", node);
     createInfo.mark_info.init(reqNode);
     createInfo.mark_info.dump();
+    createInfo.pr_alarm = false;
     Qry.Clear();
     Qry.SQLText="SELECT short_name FROM typeb_types WHERE code=:tlg_type";
     Qry.CreateVariable("tlg_type",otString,createInfo.type);

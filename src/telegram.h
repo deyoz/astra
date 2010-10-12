@@ -42,6 +42,7 @@ struct TCreateTlgInfo {
     bool        pr_lat;
     std::string addrs;
     TCodeShareInfo mark_info;
+    bool pr_alarm;
 };
 
 struct TTlgInfo {
@@ -83,8 +84,16 @@ struct TTlgInfo {
     std::string extra;
     //разные настройки
     bool pr_lat;
+    bool vcompleted;
     TElemFmt elem_fmt;
     std::string lang;
+    // список ошибок телеграммы
+    std::vector<std::string> err_lst;
+    std::string add_err(std::string err, std::string val);
+    std::string add_err(std::string err, const char *format, ...);
+    std::string get_err_tag(std::string val = "?");
+    void dump_err_lst();
+
     std::string TlgElemIdToElem(TElemType type, int id, TElemFmt fmt = efmtUnknown);
     std::string TlgElemIdToElem(TElemType type, std::string id, TElemFmt fmt = efmtUnknown);
     bool operator == (const TMktFlight &s) const;
@@ -102,6 +111,7 @@ struct TTlgInfo {
         first_point = -1;
         point_num = -1;
         pr_lat = false;
+        vcompleted = false;
     }
 };
 
@@ -331,8 +341,8 @@ public:
   static void SendBSM(int point_dep, int grp_id, TBSMContent &con1, std::map<bool,std::string> &addrs );
 };
 
-std::string fetch_addr(std::string &addr);
-std::string format_addr_line(std::string vaddrs);
+std::string fetch_addr(std::string &addr, TTlgInfo *info = NULL);
+std::string format_addr_line(std::string vaddrs, TTlgInfo *info = NULL);
 
 void ReadSalons( TTlgInfo &info, std::vector<TTlgCompLayer> &complayers, bool pr_blocked = false );
 

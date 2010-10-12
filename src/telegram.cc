@@ -1257,6 +1257,7 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
               createInfo.extra="";
               createInfo.pr_lat=addrInfo.pr_lat;
               createInfo.mark_info=addrInfo.mark_info;
+              createInfo.pr_alarm = true;
 
               createInfo.addrs=GetTypeBAddrs(addrInfo);
               if (createInfo.addrs.empty()) continue;
