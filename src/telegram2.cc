@@ -388,7 +388,6 @@ string fetch_addr(string &addr, TTlgInfo *info)
             addr.erase();
         else
             addr = addr.substr(len + i);
-        ProgTrace(TRACE5, "addr: %s, result: %s", addr.c_str(), result.c_str());
         if(not(result.empty() or result.size() == 7))
             throw AstraLocale::UserException("MSG.TLG.INVALID_SITA_ADDR", LParams() << LParam("addr", result));
         for(i = 0; i < result.size(); i++) {
@@ -5790,16 +5789,7 @@ int TelegramInterface::create_tlg(
 
     info.vcompleted = !veditable;
 
-    if(true) { //!!!
-        string test_addrs;
-        for(int i = 0; i < 40; i++) {
-            test_addrs += "QQQQQQ" + IntToString(i) + " ";
-        }
-        ProgTrace(TRACE5, "before format_addr_line. info.vcompleted: %s", (info.vcompleted ? "true": "false"));
-        info.addrs = format_addr_line(test_addrs, &info);
-        ProgTrace(TRACE5, "info.addrs: %s, info.vcompleted: %s", info.addrs.c_str(), (info.vcompleted ? "true": "false"));
-    } else
-        info.addrs = format_addr_line(createInfo.addrs, &info);
+    info.addrs = format_addr_line(createInfo.addrs, &info);
 
     if(info.addrs.empty())
         throw AstraLocale::UserException("MSG.TLG.DST_ADDRS_NOT_SET");
