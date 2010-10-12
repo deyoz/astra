@@ -130,6 +130,7 @@ class TDesk {
     std::string tz_region;
     std::string lang;
     std::string version;
+    std::string currency;
     BASIC::TDateTime time;
     ASTRA::TOperMode mode;
     int grp_id;
@@ -146,6 +147,7 @@ class TDesk {
       tz_region.clear();
       lang.clear();
       version.clear();
+      currency.clear();
       time = 0;
       mode = ASTRA::omSTAND;
       grp_id = -1;

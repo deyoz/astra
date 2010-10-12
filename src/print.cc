@@ -2047,12 +2047,19 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
   {
       ostringstream flt_no, flt_no_lat;
 
-      TTripSuffixesRow &suffixRow = (TTripSuffixesRow&)base_tables.get("trip_suffixes").get_row("code", rcpt.suffix);
-      if(rcpt.flt_no != -1) {
-              flt_no << setw(3) << setfill('0') << rcpt.flt_no << suffixRow.code;
-              flt_no_lat << setw(3) << setfill('0') << rcpt.flt_no << suffixRow.code_lat;
+      if(rcpt.flt_no != -1)
+      {
+        flt_no << setw(3) << setfill('0') << rcpt.flt_no;
+        flt_no_lat << setw(3) << setfill('0') << rcpt.flt_no;
 
-      }
+        if (!rcpt.suffix.empty())
+        {
+          TTripSuffixesRow &suffixRow = (TTripSuffixesRow&)base_tables.get("trip_suffixes").get_row("code", rcpt.suffix);
+
+          flt_no << suffixRow.code;
+          flt_no_lat << suffixRow.code_lat;
+        };
+      };
       add_tag("flt_no", flt_no.str());
       add_tag("flt_no_lat", flt_no_lat.str());
 

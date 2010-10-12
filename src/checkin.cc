@@ -1947,7 +1947,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         NewTextChild(paxNode,"mark_flt_str",GetMktFlightStr(operFlt,markFlt));
       };
 
-      if(col_receipts != -1)
+      if (strcmp((char *)reqNode->name, "BagPaxList")==0)
       {
         NewTextChild(paxNode,"rcpt_no_list",Qry.FieldAsString(col_receipts));
         v_rcpt_complete.push_back(NewTextChild(paxNode,"rcpt_complete"));
@@ -2107,6 +2107,11 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     NewTextChild(defNode, "ticket_no", "");
     NewTextChild(defNode, "rems", "");
     NewTextChild(defNode, "mark_flt_str", "");
+    if (strcmp((char *)reqNode->name, "BagPaxList")==0)
+    {
+      NewTextChild(defNode, "rcpt_no_list", "");
+      NewTextChild(defNode, "rcpt_complete", 0);
+    };
     //идентификаторы
     NewTextChild(defNode, "client_type_id", def_client_type_id);
     NewTextChild(defNode, "status_id", def_status_id);

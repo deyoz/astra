@@ -168,7 +168,7 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   	return; //???*/
   Qry.Clear();
   Qry.SQLText =
-    "SELECT city,airp,airline,version,NVL(under_constr,0) AS under_constr,desks.grp_id "
+    "SELECT city,airp,airline,version,NVL(under_constr,0) AS under_constr,currency,desks.grp_id "
     "FROM desks,desk_grp "
     "WHERE desks.code = UPPER(:pult) AND desks.grp_id = desk_grp.grp_id ";
   Qry.DeclareVariable( "pult", otString );
@@ -182,6 +182,7 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   desk.airp = Qry.FieldAsString( "airp" );
   desk.airline = Qry.FieldAsString( "airline" );
   desk.version = Qry.FieldAsString( "version" );
+  desk.currency = Qry.FieldAsString( "currency" );
   desk.grp_id = Qry.FieldAsInteger( "grp_id" );
   if (desk.compatible(LATIN_VERSION))
     desk.lang=InitData.lang;
@@ -1183,7 +1184,9 @@ void showBasicInfo(void)
   {
     node = NewTextChild(resNode,"desk");
     NewTextChild(node,"city",reqInfo->desk.city);
-    NewTextChild(node,"lang",reqInfo->desk.lang);
+    if (!reqInfo->desk.compatible(LATIN_VERSION))
+      NewTextChild(node,"lang",reqInfo->desk.lang);
+    NewTextChild(node,"currency",reqInfo->desk.currency);
     NewTextChild(node,"time",DateTimeToStr( reqInfo->desk.time ) );
     NewTextChild(node,"time_utc",DateTimeToStr(NowUTC()) );
     //настройки пользователя
