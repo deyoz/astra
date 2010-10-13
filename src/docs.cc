@@ -1,3 +1,4 @@
+#include <set>
 #include "docs.h"
 #include "stat.h"
 #include "telegram.h"
@@ -503,7 +504,7 @@ bool lessBagTagRow(const TBagTagRow &p1, const TBagTagRow &p2)
                         if(p1.tag_type == p2.tag_type) {
                             result = p1.color < p2.color;
                         } else
-                            result = p1.tag_type < p2.tag_type;
+                            result = p1.tag_type > p2.tag_type;
                     } else
                         result = p1.bag_name_priority < p2.bag_name_priority;
                 } else
@@ -1212,7 +1213,6 @@ void BTM(const TRptParams &rpt_params, xmlNodePtr resNode)
     string airp = Qry.FieldAsString(0);
     bag_names.init(airp);
     vector<TBagTagRow> bag_tags;
-    map<int, vector<int> > grps;
     Qry.Clear();
     string SQLText =
         "select ";
@@ -1287,6 +1287,7 @@ void BTM(const TRptParams &rpt_params, xmlNodePtr resNode)
     Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
     ProgTrace(TRACE5, "SQLText: %s", SQLText.c_str());
     Qry.Execute();
+    set<int> grps;
     for(; !Qry.Eof; Qry.Next()) {
         if(not rpt_params.mkt_flt.IsNULL()) {
             TMktFlight mkt_flt;
@@ -1331,18 +1332,20 @@ void BTM(const TRptParams &rpt_params, xmlNodePtr resNode)
         tagsQry.CreateVariable("grp_id", otInteger, cur_grp_id);
         tagsQry.CreateVariable("bag_num", otInteger, cur_bag_num);
         tagsQry.Execute();
-        int bound_tags_amount = 0;
-        for(; !tagsQry.Eof; tagsQry.Next()) {
+        if(tagsQry.Eof) {
             bag_tags.push_back(bag_tag_row);
-            bag_tags.back().tag_type = tagsQry.FieldAsString("tag_type");
-            bag_tags.back().color = tagsQry.FieldAsString("color");
-            bag_tags.back().no = tagsQry.FieldAsFloat("no");
-            bound_tags_amount++;
-        }
+            bag_tags.back().bag_name_priority = -1;
+            bag_tags.back().bag_name.clear();
+        } else
+            for(; !tagsQry.Eof; tagsQry.Next()) {
+                bag_tags.push_back(bag_tag_row);
+                bag_tags.back().tag_type = tagsQry.FieldAsString("tag_type");
+                bag_tags.back().color = tagsQry.FieldAsString("color");
+                bag_tags.back().no = tagsQry.FieldAsFloat("no");
+            }
 
-        if(bound_tags_amount < bag_tag_row.amount) { // остались непривязанные бирки
             if(grps.find(cur_grp_id) == grps.end()) {
-                grps[cur_grp_id]; // Создаем пустой вектор, чтобы в след разы if который выше не срабатывал
+                grps.insert(cur_grp_id);
                 // ищем непривязанные бирки для каждой группы
                 TQuery tagsQry(&OraSession);
                 tagsQry.SQLText =
@@ -1359,24 +1362,16 @@ void BTM(const TRptParams &rpt_params, xmlNodePtr resNode)
                 tagsQry.Execute();
                 for(; !tagsQry.Eof; tagsQry.Next()) {
                     bag_tags.push_back(bag_tag_row);
+                    bag_tags.back().bag_num = -1;
+                    bag_tags.back().amount = 0;
+                    bag_tags.back().weight = 0;
                     bag_tags.back().bag_name_priority = -1;
                     bag_tags.back().bag_name = "";
                     bag_tags.back().tag_type = tagsQry.FieldAsString("tag_type");
                     bag_tags.back().color = tagsQry.FieldAsString("color");
                     bag_tags.back().no = tagsQry.FieldAsFloat("no");
-                    // запоминаем список ссылок на непривязанные бирки для данной группы
-                    grps[cur_grp_id].push_back(bag_tags.size() - 1);
                 }
-            } else if(grps[cur_grp_id].size()) {
-                // если встретилась группа со списком непривязанных бирок
-                // привязываем текущий багаж к одной из бирок и удаляем ее
-                // (на самом деле в базе она не привязана, просто чтоб багажка правильно выводилась)
-                bag_tags[grps[cur_grp_id].back()].bag_num = bag_tag_row.bag_num;
-                bag_tags[grps[cur_grp_id].back()].amount = bag_tag_row.amount;
-                bag_tags[grps[cur_grp_id].back()].weight = bag_tag_row.weight;
-                grps[cur_grp_id].pop_back();
             }
-        }
     }
     sort(bag_tags.begin(), bag_tags.end(), lessBagTagRow);
     dump_bag_tags(bag_tags);
@@ -1473,6 +1468,7 @@ void BTM(const TRptParams &rpt_params, xmlNodePtr resNode)
     int TotAmount = 0;
     int TotWeight = 0;
     for(vector<TBagTagRow>::iterator iv = bm_table.begin(); iv != bm_table.end(); iv++) {
+        if(iv->tag_type.empty()) continue;
         xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
         string airp_arv = iv->airp_arv;
         TBaseTableRow &airpRow = base_tables.get("AIRPS").get_row("code",airp_arv);
