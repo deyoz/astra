@@ -397,6 +397,9 @@ string getTableName(TElemType type)
     case etGraphStage:
   		table_name="graph_stages";
   		break;
+    case etTypeBType:
+  		table_name="typeb_types";
+  		break;
     case etBagNormType:
   		table_name="bag_norm_types";
   		break;
