@@ -82,7 +82,7 @@ void AccessInterface::SaveRoleRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
         Qry.SQLText = SQLText;
         try {
         Qry.Execute();
-        } catch(EOracleError E) {
+        } catch(EOracleError &E) {
           if ( E.Code >= 20000 ) {
             string str = E.what();
             EOracleError2UserException(str);
@@ -164,7 +164,7 @@ void AccessInterface::Clone(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
     Qry.CreateVariable("pr_force", otInteger, pr_force);
     try {
         Qry.Execute();
-    } catch(EOracleError E) {
+    } catch(EOracleError &E) {
         if ( E.Code == 20000 )
             NewTextChild(resNode, "alert");
         else

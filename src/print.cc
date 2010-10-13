@@ -1645,7 +1645,7 @@ void PrintDataParser::t_field_map::add_mso_point(std::string name, std::string a
 {
     try {
         add_tag(name, get_mso_point(airp, pr_lat));
-    } catch(Exception E) {
+    } catch(Exception &E) {
         add_err_tag(name, E.what());
     }
 
@@ -2089,7 +2089,7 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
           buf << airline_code.str();
           add_tag("airline_code", airline_code.str());
           add_tag("to", buf.str());
-      } catch(Exception E) {
+      } catch(Exception &E) {
           add_err_tag("airline_code", E.what());
           add_err_tag("to", E.what());
       }
@@ -2116,7 +2116,7 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
           buf << airline_code_lat.str();
           add_tag("airline_code_lat", airline_code_lat.str());
           add_tag("to_lat", buf.str());
-      } catch(Exception E) {
+      } catch(Exception &E) {
           add_err_tag("airline_code_lat", E.what());
           add_err_tag("to_lat", E.what());
       }

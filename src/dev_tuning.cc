@@ -1661,7 +1661,7 @@ void TVersionType::update()
         Qry.CreateVariable("version", otInteger, dst_vers->version);
         try {
             Qry.Execute();
-        } catch(Exception E) {
+        } catch(Exception &E) {
             throw Exception("Не могу сапдейтить версию %s: %s", name.c_str(), E.what());
         }
     }
@@ -1688,7 +1688,7 @@ void TVersionType::del()
     Qry.CreateVariable("version", otInteger, version);
     try {
         Qry.Execute();
-    } catch(Exception E) {
+    } catch(Exception &E) {
         throw Exception("Не могу удалить версию %s: %s", name.c_str(), E.what());
     }
 }
@@ -1815,7 +1815,7 @@ void TBPFormType::insert(TVersionType &vers)
     Qry.CreateVariable("version", otInteger, vers.version);
     try {
         Qry.Execute();
-    } catch(Exception E) {
+    } catch(Exception &E) {
         throw Exception("Не могу назначить пектаб на пос. талон %s: %s", str().c_str(), E.what());
     }
 }
@@ -1844,7 +1844,7 @@ void TBRFormType::insert(TVersionType &vers)
     Qry.CreateVariable("version", otInteger, vers.version);
     try {
         Qry.Execute();
-    } catch(Exception E) {
+    } catch(Exception &E) {
         throw Exception("Не могу назначить пектаб на баг. квитанцию %s: %s", str().c_str(), E.what());
     }
 }
@@ -1876,7 +1876,7 @@ void TBTFormType::insert(TVersionType &vers)
     Qry.CreateVariable("version", otInteger, vers.version);
     try {
         Qry.Execute();
-    } catch(Exception E) {
+    } catch(Exception &E) {
         throw Exception("Не могу назначить пектаб на баг. бирку %s: %s", str().c_str(), E.what());
     }
 }
@@ -1902,7 +1902,7 @@ void TBPFormType::del()
         tst();
         Qry.Execute();
         tst();
-    } catch(Exception E) {
+    } catch(Exception &E) {
         throw Exception("Не могу удалить бланк пос. талона %s: %s", str().c_str(), E.what());
     }
 }
@@ -1920,7 +1920,7 @@ void TBRFormType::del()
     Qry.CreateVariable("fmt_type", otString, fmt_type);
     try {
         Qry.Execute();
-    } catch(Exception E) {
+    } catch(Exception &E) {
         throw Exception("Не могу удалить бланк баг. квитанции %s: %s", str().c_str(), E.what());
     }
 }
@@ -1940,7 +1940,7 @@ void TBTFormType::del()
     Qry.CreateVariable("num", otInteger, num);
     try {
         Qry.Execute();
-    } catch(Exception E) {
+    } catch(Exception &E) {
         throw Exception("Не могу удалить бланк баг. бирки %s: %s", str().c_str(), E.what());
     }
 }
@@ -2216,7 +2216,7 @@ void TVersionType::insert()
     Qry.DeclareVariable("id", otInteger);
     try {
         Qry.Execute();
-    } catch(Exception E) {
+    } catch(Exception &E) {
         throw Exception("Не могу вставить версию %s: %s", name.c_str(), E.what());
     }
     id = Qry.GetVariableAsInteger("id");

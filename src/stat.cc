@@ -291,7 +291,7 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
             Qry.SQLText = SQLText;
             try {
                 Qry.Execute();
-            } catch (EOracleError E) {
+            } catch (EOracleError &E) {
                 if(E.Code == 376)
                     throw AstraLocale::UserException("MSG.ONE_OF_DB_FILES_UNAVAILABLE.CALL_ADMIN");
                 else
@@ -372,7 +372,7 @@ void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
 
     try {
         Qry.Execute();
-    } catch (EOracleError E) {
+    } catch (EOracleError &E) {
         if(E.Code == 376)
             throw AstraLocale::UserException("MSG.ONE_OF_DB_FILES_UNAVAILABLE.CALL_ADMIN");
         else
@@ -541,7 +541,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             Qry.CreateVariable("part_key", otDate, part_key);
         try {
             Qry.Execute();
-        } catch (EOracleError E) {
+        } catch (EOracleError &E) {
             if(E.Code == 376)
                 throw AstraLocale::UserException("MSG.ONE_OF_DB_FILES_UNAVAILABLE.CALL_ADMIN");
             else
@@ -718,7 +718,7 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
     tm.Init();
     try {
         Qry.Execute();
-    } catch (EOracleError E) {
+    } catch (EOracleError &E) {
         if(E.Code == 376)
             throw AstraLocale::UserException("MSG.ONE_OF_DB_FILES_UNAVAILABLE.CALL_ADMIN");
         else
@@ -954,7 +954,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         tm.Init();
         try {
             Qry.Execute();
-        } catch (EOracleError E) {
+        } catch (EOracleError &E) {
             if(E.Code == 376)
                 throw AstraLocale::UserException("MSG.ONE_OF_DB_FILES_UNAVAILABLE.CALL_ADMIN");
             else
@@ -2957,7 +2957,7 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         else if(name == "Детализированная") RunDetailStat(reqNode, resNode);
         else if(name == "Трансфер") RunTrferFullStat(reqNode, resNode);
         else throw Exception("Unknown stat mode " + name);
-    } catch (EOracleError E) {
+    } catch (EOracleError &E) {
         if(E.Code == 376)
             throw AstraLocale::UserException("MSG.ONE_OF_DB_FILES_UNAVAILABLE.CALL_ADMIN");
         else
@@ -3181,7 +3181,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             tm.Init();
             Qry.Execute();
             ProgTrace(TRACE5, "EXEC QRY%d: %s", i, tm.PrintWithMessage().c_str());
-        } catch (EOracleError E) {
+        } catch (EOracleError &E) {
             if(E.Code == 376)
                 throw AstraLocale::UserException("MSG.ONE_OF_DB_FILES_UNAVAILABLE.CALL_ADMIN");
             else
