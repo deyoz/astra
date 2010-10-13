@@ -1281,7 +1281,7 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
                       msg << "Телеграмма " << short_name
                           << " (ид=" << tlg_id << ") сформирована: ";
                   }
-                  catch(AstraLocale::UserException E)
+                  catch(AstraLocale::UserException &E)
                   {
                       msg << "Ошибка формирования телеграммы " << short_name
                           << ": " << getLocaleText(E.getLexemaData()) << ", ";
