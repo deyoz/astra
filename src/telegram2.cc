@@ -44,6 +44,27 @@ bool TTlgInfo::operator == (const TMktFlight &s) const
 
 
 
+void ExceptionFilter(string &body, TTlgInfo &info)
+{
+    try {
+        throw;
+    } catch(UserException &E) {
+        body = info.add_err(DEFAULT_ERR, getLocaleText(E.getLexemaData()));
+    } catch(exception &E) {
+        body = info.add_err(DEFAULT_ERR, E.what());
+    } catch(...) {
+        body = info.add_err(DEFAULT_ERR, "unknown error");
+    }
+}
+
+void ExceptionFilter(vector<string> &body, TTlgInfo &info)
+{
+    string buf;
+    ExceptionFilter(buf, info);
+    body.clear();
+    body.push_back(buf);
+}
+
 
 bool CompareCompLayers( TTlgCompLayer t1, TTlgCompLayer t2 )
 {
@@ -134,38 +155,39 @@ struct TTlgDraftPart {
 struct TTlgDraft {
     private:
         TTlgInfo &tlg_info;
+        bool no_errors;
     public:
         vector<TTlgDraftPart> parts;
         void Save(TTlgOutPartInfo &info);
         void Commit(TTlgOutPartInfo &info);
-        TTlgDraft(TTlgInfo &tlg_info_val): tlg_info(tlg_info_val) {}
+        TTlgDraft(TTlgInfo &tlg_info_val): tlg_info(tlg_info_val), no_errors(tlg_info_val.vcompleted) {}
         void check(string &val);
 };
 
 void TTlgDraft::check(string &value)
 {
     bool opened = false;
-    string result;
+    string result, err;
     for(string::const_iterator i=value.begin();i!=value.end();i++)
     {
         char c=*i;
         if ((unsigned char)c>=0x80) {
             // rus
-            tlg_info.vcompleted = false;
             if(not opened) {
                 opened = true;
-                result += ERR_TAG_OPEN;
-            }
+                err = c;
+            } else
+                err += c;
         } else {
             // lat
             if(opened) {
                 opened = false;
-                result += ERR_TAG_CLOSE;
+                result += tlg_info.add_err(err, "non lat chars encountered");
             }
+            result += *i;
         }
-        result += *i;
     }
-    if(opened) result += ERR_TAG_CLOSE;
+    if(opened) result += tlg_info.add_err(err, "non lat chars encountered");
     value = result;
 }
 
@@ -173,6 +195,12 @@ void TTlgDraft::Commit(TTlgOutPartInfo &tlg_row)
 {
     tlg_row.num = 1;
     for(vector<TTlgDraftPart>::iterator iv = parts.begin(); iv != parts.end(); iv++){
+        if(tlg_info.pr_lat and no_errors) {
+            check(iv->addr);
+            check(iv->heading);
+            check(iv->body);
+            check(iv->ending);
+        }
         tlg_row.addr = iv->addr;
         tlg_row.heading = iv->heading;
         tlg_row.body = iv->body;
@@ -188,12 +216,6 @@ void TTlgDraft::Save(TTlgOutPartInfo &info)
     part.heading = info.heading;
     part.body = info.body;
     part.ending = info.ending;
-    if(info.pr_lat) {
-        check(part.addr);
-        check(part.heading);
-        check(part.body);
-        check(part.ending);
-    }
     parts.push_back(part);
     info.num++;
 }
@@ -236,9 +258,7 @@ string TTlgInfo::get_err_tag(std::string val)
 
 string TTlgInfo::add_err(string err, std::string val)
 {
-    vcompleted = false;
-    err_lst.push_back(val);
-    return get_err_tag(err);
+    return add_err(err, val.c_str());
 }
 
 string TTlgInfo::add_err(string err, const char *format, ...)
@@ -249,7 +269,9 @@ string TTlgInfo::add_err(string err, const char *format, ...)
     vsnprintf(Message, sizeof(Message), format, ap);
     Message[sizeof(Message)-1]=0;
     va_end(ap);
-    return add_err(err, Message);
+    vcompleted = false;
+    err_lst.push_back(Message);
+    return get_err_tag(err);
 }
 
 string TTlgInfo::TlgElemIdToElem(TElemType type, int id, TElemFmt fmt)
@@ -279,17 +301,12 @@ string TTlgInfo::TlgElemIdToElem(TElemType type, int id, TElemFmt fmt)
             }
             throw AstraLocale::UserException((string)"MSG." + code_name + "_LAT_CODE_NOT_FOUND", LParams() << LParam("id", id));
         }
-    } catch(UserException E) {
-        vcompleted = false;
-        result = ERR_FIELD;
-    } catch(exception E) {
-        vcompleted = false;
-        result = ERR_FIELD;
-        ProgError(STDLOG, "TTlgInfo::TlgElemIdToElem: tlg_type: %s, elem_type: %s, fmt: %s, what: %s", tlg_type.c_str(), EncodeElemType(type), EncodeElemFmt(fmt), E.what());
+    } catch(UserException &E) {
+        result = add_err(DEFAULT_ERR, getLocaleText(E.getLexemaData()));
+    } catch(exception &E) {
+        result = add_err(DEFAULT_ERR, "TTlgInfo::TlgElemIdToElem: tlg_type: %s, elem_type: %s, fmt: %s, what: %s", tlg_type.c_str(), EncodeElemType(type), EncodeElemFmt(fmt), E.what());
     } catch(...) {
-        vcompleted = false;
-        result = ERR_FIELD;
-        ProgError(STDLOG, "TTlgInfo::TlgElemIdToElem: unknown except caught. tlg_type: %s, elem_type: %s, fmt: %s", tlg_type.c_str(), EncodeElemType(type), EncodeElemFmt(fmt));
+        result = add_err(DEFAULT_ERR, "TTlgInfo::TlgElemIdToElem: unknown except caught. tlg_type: %s, elem_type: %s, fmt: %s", tlg_type.c_str(), EncodeElemType(type), EncodeElemFmt(fmt));
     }
     return result;
 }
@@ -359,17 +376,12 @@ string TTlgInfo::TlgElemIdToElem(TElemType type, string id, TElemFmt fmt)
             };
             throw AstraLocale::UserException((string)"MSG." + code_name + "_LAT_CODE_NOT_FOUND", LParams() << LParam("id", id));
         }
-    } catch(UserException E) {
-        vcompleted = false;
-        result = ERR_FIELD;
-    } catch(exception E) {
-        vcompleted = false;
-        result = ERR_FIELD;
-        ProgError(STDLOG, "TTlgInfo::TlgElemIdToElem: tlg_type: %s, elem_type: %s, fmt: %s, what: %s", tlg_type.c_str(), EncodeElemType(type), EncodeElemFmt(fmt), E.what());
+    } catch(UserException &E) {
+        result = add_err(id, getLocaleText(E.getLexemaData()));
+    } catch(exception &E) {
+        result = add_err(id, "TTlgInfo::TlgElemIdToElem: tlg_type: %s, elem_type: %s, fmt: %s, what: %s", tlg_type.c_str(), EncodeElemType(type), EncodeElemFmt(fmt), E.what());
     } catch(...) {
-        vcompleted = false;
-        result = ERR_FIELD;
-        ProgError(STDLOG, "TTlgInfo::TlgElemIdToElem: unknown except caught. tlg_type: %s, elem_type: %s, fmt: %s", tlg_type.c_str(), EncodeElemType(type), EncodeElemFmt(fmt));
+        result = add_err(id, "TTlgInfo::TlgElemIdToElem: unknown except caught. tlg_type: %s, elem_type: %s, fmt: %s", tlg_type.c_str(), EncodeElemType(type), EncodeElemFmt(fmt));
     }
     return result;
 }
@@ -397,12 +409,12 @@ string fetch_addr(string &addr, TTlgInfo *info)
                 continue;
             throw AstraLocale::UserException("MSG.TLG.INVALID_SITA_ADDR", LParams() << LParam("addr", result));
         }
-    } catch(UserException E) {
+    } catch(UserException &E) {
         if(not info)
             throw;
         else
             result = info->add_err(result, getLocaleText(E.getLexemaData()));
-    } catch(exception E) {
+    } catch(exception &E) {
         if(not info)
             throw;
         else
@@ -441,12 +453,12 @@ string format_addr_line(string vaddrs, TTlgInfo *info)
         }
         if(!addr_line.empty())
             result += addr_line;
-    } catch(UserException E) {
+    } catch(UserException &E) {
         if(not info)
             throw;
         else
             result = info->add_err(DEFAULT_ERR, getLocaleText(E.getLexemaData()));
-    } catch(exception E) {
+    } catch(exception &E) {
         if(not info)
             throw;
         else
@@ -482,6 +494,7 @@ struct TMItem {
 
 void TMItem::get(TTlgInfo &info, int pax_id)
 {
+//!!!    throw Exception("TMItem::get failed");
         m_flight.getByPaxId(pax_id);
 }
 
@@ -1701,18 +1714,22 @@ int COM(TTlgInfo &info)
         << "COM" << br;
     tlg_row.heading = heading.str();
     tlg_row.ending = "ENDCOM" + br;
-    ostringstream body;
-    body
-        << info.airline_view << setw(3) << setfill('0') << info.flt_no << info.suffix_view << "/"
-        << DateTimeToStr(info.scd_local, "ddmmm", 1) << " " << info.airp_dep_view
-        << "/0 OP/NAM" << br;
-    TCOMClasses classes;
-    TCOMStats stats;
-    classes.get(info);
-    stats.get(info);
-    classes.ToTlg(info, body);
-    stats.ToTlg(body);
-    tlg_row.body = body.str();
+    try {
+        ostringstream body;
+        body
+            << info.airline_view << setw(3) << setfill('0') << info.flt_no << info.suffix_view << "/"
+            << DateTimeToStr(info.scd_local, "ddmmm", 1) << " " << info.airp_dep_view
+            << "/0 OP/NAM" << br;
+        TCOMClasses classes;
+        TCOMStats stats;
+        classes.get(info);
+        stats.get(info);
+        classes.ToTlg(info, body);
+        stats.ToTlg(body);
+        tlg_row.body = body.str();
+    } catch(...) {
+        ExceptionFilter(tlg_row.body, info);
+    }
     ProgTrace(TRACE5, "COM: before save");
     tlg_draft.Save(tlg_row);
     tlg_draft.Commit(tlg_row);
@@ -2944,8 +2961,12 @@ int PIL(TTlgInfo &info)
     tlg_row.ending = "ENDPIL" + br;
 
     TPIL pil;
-    pil.get(info);
-    pil.ToTlg(info, tlg_row.body);
+    try {
+        pil.get(info);
+        pil.ToTlg(info, tlg_row.body);
+    } catch(...) {
+        ExceptionFilter(tlg_row.body, info);
+    }
 
     tlg_draft.Save(tlg_row);
     tlg_draft.Commit(tlg_row);
@@ -3044,9 +3065,13 @@ int TPM(TTlgInfo &info)
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
     size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
     vector<string> body;
-    TTPM tpm;
-    tpm.get(info);
-    tpm.ToTlg(info, body);
+    try {
+        TTPM tpm;
+        tpm.get(info);
+        tpm.ToTlg(info, body);
+    } catch(...) {
+        ExceptionFilter(body, info);
+    }
     simple_split(heading, part_len, tlg_draft, tlg_row, body);
     tlg_row.ending = "ENDTPM" + br;
     tlg_draft.Save(tlg_row);
@@ -3075,9 +3100,13 @@ int PSM(TTlgInfo &info)
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
     size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
     vector<string> body;
-    TPSM psm;
-    psm.get(info);
-    psm.ToTlg(info, body);
+    try {
+        TPSM psm;
+        psm.get(info);
+        psm.ToTlg(info, body);
+    } catch(...) {
+        ExceptionFilter(body, info);
+    }
     simple_split(heading, part_len, tlg_draft, tlg_row, body);
     tlg_row.ending = "ENDPSM" + br;
     tlg_draft.Save(tlg_row);
@@ -3109,10 +3138,14 @@ int BTM(TTlgInfo &info)
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
     size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
 
-    TFList<TBTMFItem> FList;
-    FList.get(info);
     vector<string> body;
-    FList.ToTlg(info, body);
+    try {
+        TFList<TBTMFItem> FList;
+        FList.get(info);
+        FList.ToTlg(info, body);
+    } catch(...) {
+        ExceptionFilter(body, info);
+    }
     string part_begin;
     bool P_found = false;
     for(vector<string>::iterator iv = body.begin(); iv != body.end(); iv++) {
@@ -3175,10 +3208,14 @@ int PTM(TTlgInfo &info)
     tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + br;
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
     size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
-    TFList<TPTMFItem> FList;
-    FList.get(info);
     vector<string> body;
-    FList.ToTlg(info, body);
+    try {
+        TFList<TPTMFItem> FList;
+        FList.get(info);
+        FList.ToTlg(info, body);
+    } catch(...) {
+        ExceptionFilter(body, info);
+    }
     simple_split(heading, part_len, tlg_draft, tlg_row, body);
     tlg_row.ending = "ENDPTM" + br;
     tlg_draft.Save(tlg_row);
@@ -3720,7 +3757,11 @@ int SOM(TTlgInfo &info)
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
     size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
     TTlgSeatList SOMList;
-    SOMList.get(info);
+    try {
+        SOMList.get(info);
+    } catch(...) {
+        ExceptionFilter(SOMList.items, info);
+    }
     for(vector<string>::iterator iv = SOMList.items.begin(); iv != SOMList.items.end(); iv++) {
         part_len += iv->size() + br.size();
         if(part_len > PART_SIZE) {
@@ -4752,16 +4793,19 @@ int MVT(TTlgInfo &info)
     vector<string> body;
     body.push_back(buf.str());
     buf.str("");
-    if(info.tlg_type == "MVTA") {
-        TMVTABody MVTABody;
-        MVTABody.get(info);
-        MVTABody.ToTlg(info, info.vcompleted, body);
-    } else {
-        TMVTBBody MVTBBody;
-        MVTBBody.get(info);
-        MVTBBody.ToTlg(info.vcompleted, body);
+    try {
+        if(info.tlg_type == "MVTA") {
+            TMVTABody MVTABody;
+            MVTABody.get(info);
+            MVTABody.ToTlg(info, info.vcompleted, body);
+        } else {
+            TMVTBBody MVTBBody;
+            MVTBBody.get(info);
+            MVTBBody.ToTlg(info.vcompleted, body);
+        }
+    } catch(...) {
+        ExceptionFilter(body, info);
     }
-
     for(vector<string>::iterator iv = body.begin(); iv != body.end(); iv++)
         tlg_row.body += *iv + br;
     tlg_draft.Save(tlg_row);
@@ -4788,9 +4832,13 @@ int LDM(TTlgInfo &info)
     tlg_row.heading = buf.str();
     tlg_row.ending = "PART " + IntToString(tlg_row.num) + " END" + br;
     vector<string> body;
-    TLDMDests LDM;
-    LDM.get(info);
-    LDM.ToTlg(info, info.vcompleted, body);
+    try {
+        TLDMDests LDM;
+        LDM.get(info);
+        LDM.ToTlg(info, info.vcompleted, body);
+    } catch(...) {
+        ExceptionFilter(body, info);
+    }
     for(vector<string>::iterator iv = body.begin(); iv != body.end(); iv++)
         tlg_row.body += *iv + br;
     tlg_draft.Save(tlg_row);
@@ -4866,9 +4914,13 @@ int FTL(TTlgInfo &info)
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
     size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
     vector<string> body;
-    TFTLBody FTL;
-    FTL.get(info);
-    FTL.ToTlg(info, body);
+    try {
+        TFTLBody FTL;
+        FTL.get(info);
+        FTL.ToTlg(info, body);
+    } catch(...) {
+        ExceptionFilter(body, info);
+    }
     split_n_save(heading, part_len, tlg_draft, tlg_row, body);
     tlg_row.ending = "ENDFTL" + br;
     tlg_draft.Save(tlg_row);
@@ -4906,17 +4958,21 @@ int ETL(TTlgInfo &info)
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
     size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
     vector<string> body;
-    TETLCFG cfg;
-    cfg.get(info);
-    cfg.ToTlg(info, body);
-    if(info.act_local != 0) {
-        body.push_back("ATD/" + DateTimeToStr(info.act_local, "ddhhnn"));
-    }
+    try {
+        TETLCFG cfg;
+        cfg.get(info);
+        cfg.ToTlg(info, body);
+        if(info.act_local != 0) {
+            body.push_back("ATD/" + DateTimeToStr(info.act_local, "ddhhnn"));
+        }
 
-    vector<TTlgCompLayer> complayers;
-    TDestList<TETLDest> dests;
-    dests.get(info,complayers);
-    dests.ToTlg(info, body);
+        vector<TTlgCompLayer> complayers;
+        TDestList<TETLDest> dests;
+        dests.get(info,complayers);
+        dests.ToTlg(info, body);
+    } catch(...) {
+        ExceptionFilter(body, info);
+    }
     split_n_save(heading, part_len, tlg_draft, tlg_row, body);
     tlg_row.ending = "ENDETL" + br;
     tlg_draft.Save(tlg_row);
@@ -5585,9 +5641,13 @@ int PFS(TTlgInfo &info)
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
     size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
     vector<string> body;
-    TPFSBody pfs;
-    pfs.get(info);
-    pfs.ToTlg(info, body);
+    try {
+        TPFSBody pfs;
+        pfs.get(info);
+        pfs.ToTlg(info, body);
+    } catch(...) {
+        ExceptionFilter(body, info);
+    }
     simple_split(heading, part_len, tlg_draft, tlg_row, body);
     tlg_row.ending = "ENDPFS" + br;
     tlg_draft.Save(tlg_row);
@@ -5627,13 +5687,18 @@ int PRL(TTlgInfo &info)
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
     size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
 
-    vector<TTlgCompLayer> complayers;
-    ReadSalons( info, complayers );
-    ProgTrace( TRACE5, "complayers.size()=%d", complayers.size() );
-    TDestList<TPRLDest> dests;
-    dests.get(info,complayers);
     vector<string> body;
-    dests.ToTlg(info, body);
+    try {
+        vector<TTlgCompLayer> complayers;
+        ReadSalons( info, complayers );
+        ProgTrace( TRACE5, "complayers.size()=%d", complayers.size() );
+        TDestList<TPRLDest> dests;
+        dests.get(info,complayers);
+        dests.ToTlg(info, body);
+    } catch(...) {
+        ExceptionFilter(body, info);
+    }
+
     split_n_save(heading, part_len, tlg_draft, tlg_row, body);
     tlg_row.ending = "ENDPRL" + br;
     tlg_draft.Save(tlg_row);
@@ -5901,7 +5966,7 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     int tlg_id = NoExists;
     try {
         tlg_id = create_tlg(createInfo);
-    } catch(AstraLocale::UserException E) {
+    } catch(AstraLocale::UserException &E) {
         throw AstraLocale::UserException( "MSG.TLG.CREATE_ERROR", LParams() << LParam("what", getLocaleText(E.getLexemaData())));
     }
 
