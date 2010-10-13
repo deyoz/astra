@@ -114,6 +114,8 @@ const char* EncodeElemType(const TElemType type)
   		return "etTripLiter";
   	case etTypeBType:
   		return "etTypeBType";
+  	case etBagNormType:
+  		return "etBagNormType";
   }
   return "";
 };
@@ -395,8 +397,8 @@ string getTableName(TElemType type)
     case etGraphStage:
   		table_name="graph_stages";
   		break;
-    case etTypeBType:
-  		table_name="typeb_types";
+    case etBagNormType:
+  		table_name="bag_norm_types";
   		break;
   	default:;
   };

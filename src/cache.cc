@@ -21,15 +21,18 @@ struct TReferCacheTable
   TElemType ElemType;
 };
 
-const TReferCacheTable ReferCacheTable[9] = { {"COUNTRIES",       etCountry},
-                                              {"CITIES",          etCity},
-                                              {"AIRLINES",        etAirline},
-                                              {"AIRPS",           etAirp},
-                                              {"CRAFTS",          etCraft},
-                                              {"CLASSES",         etClass},
-                                              {"SUBCLS",          etSubcls},
-                                              {"TRIP_TYPES",      etTripType},
-                                              {"GRAPH_STAGES",    etGraphStage} };
+const TReferCacheTable ReferCacheTable[11] = { {"COUNTRIES",       etCountry},
+                                               {"CITIES",          etCity},
+                                               {"AIRLINES",        etAirline},
+                                               {"AIRPS",           etAirp},
+                                               {"CRAFTS",          etCraft},
+                                               {"CLASSES",         etClass},
+                                               {"SUBCLS",          etSubcls},
+                                               {"TRIP_TYPES",      etTripType},
+                                               {"GRAPH_STAGES",    etGraphStage},
+                                               {"BAG_NORM_TYPES",  etBagNormType},
+                                               {"CURRENCY",        etCurrency}
+                                             };
 
 using namespace std;
 using namespace EXCEPTIONS;

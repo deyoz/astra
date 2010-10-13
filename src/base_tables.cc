@@ -84,6 +84,8 @@ TBaseTable &TBaseTables::get(string name)
         	  base_tables[name] = new TTripSuffixes();
         else if(name == "TYPEB_TYPES")
         	  base_tables[name] = new TTypeBTypes();
+        else if(name == "BAG_NORM_TYPES")
+        	  base_tables[name] = new TBagNormTypes();
         else
             throw Exception("TBaseTables::get_base_table: " + name + " not found");
     }
