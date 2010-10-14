@@ -14,6 +14,7 @@
 #include "convert.h"
 #include "tlg/tlg_parser.h" // only for convert_salons
 #include "seats2.h" // only for convert_salons
+#include "term_version.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -630,6 +631,8 @@ void SalonsInterface::BaseComponFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
     NewTextChild( dataNode, "airline", ElemIdToCodeNative( etAirline, Salons.airline ) );
   if ( !Salons.airp.empty() )
     NewTextChild( dataNode, "airp", ElemIdToCodeNative( etAirp, Salons.airp ) );
+  if (TReqInfo::Instance()->desk.compatible(LATIN_VERSION))
+    NewTextChild( dataNode, "craft", ElemIdToCodeNative( etCraft, Salons.craft ) );
   AstraLocale::showMessage( "MSG.CHANGED_DATA_COMMIT" );
 }
 
