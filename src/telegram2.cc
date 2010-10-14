@@ -327,7 +327,7 @@ string TTlgInfo::TlgElemIdToElem(TElemType type, string id, TElemFmt fmt)
         if(fmt == efmtCodeNative)
             fmts.push_back( make_pair(efmtCodeInter, lang) );
 
-        string result = ElemIdToElem(type, id, fmts);
+        result = ElemIdToElem(type, id, fmts);
         if(result.empty() || fmt==efmtCodeInter &&!is_lat(result)) {
             string code_name;
             switch(type)
@@ -5788,7 +5788,6 @@ int TelegramInterface::create_tlg(
         info.point_num = Qry.FieldAsInteger("point_num");
         info.first_point = Qry.FieldAsInteger("first_point");
         info.pr_tranzit = Qry.FieldAsInteger("pr_tranzit")!=0;
-
         info.airline_view = info.TlgElemIdToElem(etAirline, info.airline);
         info.suffix_view = info.suffix.empty() ? "" : info.TlgElemIdToElem(etSuffix, info.suffix);
         info.airp_dep_view = info.TlgElemIdToElem(etAirp, info.airp_dep);
