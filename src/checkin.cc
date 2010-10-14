@@ -6249,7 +6249,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
                           fltInfo.flt_no,
                           outboard_trfer))
     {
-      SetProp(NewTextChild(segNode,"trfer_permit","Нет"),"value",(int)false);
+      SetProp(NewTextChild(segNode,"trfer_permit",AstraLocale::getLocaleText("Нет")),"value",(int)false);
       if (tckin_route_confirm)
         SetProp(NewTextChild(seg2Node,"trfer_permit"),"value",(int)false);
     }
@@ -6269,17 +6269,17 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
                      fltInfo.flt_no,
                      tckinSets);
     if (!tckinSets.pr_permit)
-      NewTextChild(segNode,"tckin_permit","Нет");
+      NewTextChild(segNode,"tckin_permit",AstraLocale::getLocaleText("Нет"));
     else
       NewTextChild(segNode,"tckin_permit","+");
     if (!is_edi)
     {
       if (!tckinSets.pr_waitlist)
-        NewTextChild(segNode,"tckin_waitlist","Нет");
+        NewTextChild(segNode,"tckin_waitlist",AstraLocale::getLocaleText("Нет"));
       else
         NewTextChild(segNode,"tckin_waitlist","+");
       if (!tckinSets.pr_norec)
-        NewTextChild(segNode,"tckin_norec","Нет");
+        NewTextChild(segNode,"tckin_norec",AstraLocale::getLocaleText("Нет"));
       else
         NewTextChild(segNode,"tckin_norec","+");
     }
@@ -6331,7 +6331,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
         //компоновка
         if (point_dep!=-1)
         {
-          SetProp(ReplaceTextChild(segNode,"classes","Дубль в СПП"),"error","CRITICAL");
+          SetProp(ReplaceTextChild(segNode,"classes",AstraLocale::getLocaleText("Дубль в СПП")),"error","CRITICAL");
           SetProp(ReplaceTextChild(segNode,"pnl"),"error");
           SetProp(ReplaceTextChild(segNode,"class"),"error");
           SetProp(ReplaceTextChild(segNode,"free"),"error");
@@ -6385,7 +6385,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
           if (Qry.Eof || Qry.FieldIsNULL("classes"))
           {
             //компоновка не назначена
-            xmlNodePtr wlNode=NewTextChild(segNode,"classes","Нет");
+            xmlNodePtr wlNode=NewTextChild(segNode,"classes",AstraLocale::getLocaleText("Нет"));
             SetProp(wlNode,"error","WL");
             SetProp(wlNode,"wl_type","C");
           }
@@ -6638,11 +6638,11 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
           //наличие в PNL
           if (paxCountInPNL<paxCount)
             SetProp(NewTextChild(segNode,"pnl",
-                                 IntToString(paxCountInPNL)+" из "+IntToString(paxCount)),
+                                 IntToString(paxCountInPNL)+" "+AstraLocale::getLocaleText("из")+" "+IntToString(paxCount)),
                     "error","NOREC");
           else
             if (doublePax)
-              SetProp(NewTextChild(segNode,"pnl","Дубль в PNL"),"error","DOUBLE");
+              SetProp(NewTextChild(segNode,"pnl",AstraLocale::getLocaleText("Дубль в PNL")),"error","DOUBLE");
             else
               NewTextChild(segNode,"pnl","+");
 
@@ -6667,7 +6667,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
           else
           {
             if (cl.empty())
-              SetProp(NewTextChild(segNode,"class","Нет"),"error","CRITICAL");
+              SetProp(NewTextChild(segNode,"class",AstraLocale::getLocaleText("Нет")),"error","CRITICAL");
             else
             {
               string cl_view;
@@ -6680,13 +6680,13 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
           //наличие мест
           if (fltSPPInfo.pr_del!=0)
           {
-            SetProp(NewTextChild(segNode,"free","Рейс отменен"),"error","CRITICAL"); //???
+            SetProp(NewTextChild(segNode,"free",AstraLocale::getLocaleText("Рейс отменен")),"error","CRITICAL"); //???
           }
           else
             if (point_arv==ASTRA::NoExists)
             {
               //не нашли пункта в маршруте
-              SetProp(NewTextChild(segNode,"free","Нет п/н"),"error","CRITICAL");
+              SetProp(NewTextChild(segNode,"free",AstraLocale::getLocaleText("Нет п/н")),"error","CRITICAL");
             }
             else
               if (cl.size()==1)
@@ -6698,10 +6698,10 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
                 {
                   xmlNodePtr wlNode;
                   if (free<=0)
-                    wlNode=NewTextChild(segNode,"free","Нет");
+                    wlNode=NewTextChild(segNode,"free",AstraLocale::getLocaleText("Нет"));
                   else
                     wlNode=NewTextChild(segNode,"free",
-                                        IntToString(free)+" из "+IntToString(seatsSum));
+                                        IntToString(free)+" "+AstraLocale::getLocaleText("из")+" "+IntToString(seatsSum));
                   SetProp(wlNode,"error","WL");
                   SetProp(wlNode,"wl_type","O");
                 }
@@ -6709,7 +6709,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
                   NewTextChild(segNode,"free","+");
               }
               else
-                SetProp(NewTextChild(segNode,"free","Неопред. кл."),"error","CRITICAL");
+                SetProp(NewTextChild(segNode,"free",AstraLocale::getLocaleText("Неопред. кл.")),"error","CRITICAL");
         };
 
       }; //цикл по PointsQry
@@ -6729,7 +6729,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
       NewTextChild(segNode,"flight",flight.str());
 
       if (!is_edi)
-        SetProp(NewTextChild(segNode,"classes","Нет в СПП"),"error","CRITICAL");
+        SetProp(NewTextChild(segNode,"classes",AstraLocale::getLocaleText("Нет в СПП")),"error","CRITICAL");
       else
         NewTextChild(segNode,"classes","EDIFACT"); //не является ошибкой
       NewTextChild(segNode,"pnl");
@@ -6777,18 +6777,18 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     {
       if (total_waitlist)
       {
-        NewTextChild(segNode,"total","ЛО");
+        NewTextChild(segNode,"total",AstraLocale::getLocaleText("ЛО"));
         NewTextChild(segNode,"calc_status","WL");
       }
       else
       {
-        NewTextChild(segNode,"total","Рег");
+        NewTextChild(segNode,"total",AstraLocale::getLocaleText("Рег"));
         NewTextChild(segNode,"calc_status","CHECKIN");
       };
     }
     else
     {
-      NewTextChild(segNode,"total","Нет");
+      NewTextChild(segNode,"total",AstraLocale::getLocaleText("Нет"));
       NewTextChild(segNode,"calc_status","NONE");
     };
 
