@@ -2300,7 +2300,7 @@ void RunTrferFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
                     );
             NewTextChild(rowNode, "col", im->first.places.get());
             if (USE_SEANCES())
-              NewTextChild(rowNode, "col", im->first.seance);
+              NewTextChild(rowNode, "col", getLocaleText(im->first.seance));
             NewTextChild(rowNode, "col", im->second.pax_amount);
             NewTextChild(rowNode, "col", im->second.adult);
             NewTextChild(rowNode, "col", im->second.child);
@@ -2549,7 +2549,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
                     );
             NewTextChild(rowNode, "col", im->first.places.get());
             if (USE_SEANCES())
-              NewTextChild(rowNode, "col", im->first.seance);
+              NewTextChild(rowNode, "col", getLocaleText(im->first.seance));
             NewTextChild(rowNode, "col", im->second.pax_amount);
             NewTextChild(rowNode, "col", im->second.web);
             NewTextChild(rowNode, "col", im->second.kiosk);
@@ -2766,7 +2766,7 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
             total_web += si->second.web;
             total_kiosk += si->second.kiosk;
             if (USE_SEANCES())
-              NewTextChild(rowNode, "col", si->first.seance);
+              NewTextChild(rowNode, "col", getLocaleText(si->first.seance));
             NewTextChild(rowNode, "col", si->second.flt_amount);
             NewTextChild(rowNode, "col", si->second.pax_amount);
             NewTextChild(rowNode, "col", si->second.web);
@@ -2919,7 +2919,7 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
             total_kiosk += si->second.kiosk;
 
             if (USE_SEANCES())
-              NewTextChild(rowNode, "col", si->first.seance);
+              NewTextChild(rowNode, "col", getLocaleText(si->first.seance));
             NewTextChild(rowNode, "col", si->second.flt_amount);
             NewTextChild(rowNode, "col", si->second.pax_amount);
             NewTextChild(rowNode, "col", si->second.web);
