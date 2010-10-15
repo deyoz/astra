@@ -304,11 +304,6 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   SALONS2::GetTripParams( trip_id, dataNode );
   vector<SEATS2::TSalonSeat> seats;
-/*  if ( getSalonChanges( OSalons, Salons, seats ) ) { // tolog
-  	//!!!tolog change
-  	//SALONS2::BuildSalonChanges( dataNode, seats );
-  	tst();
-  };*/
   // надо перечитать заново
   Salons.Clear();
   Salons.Read();
@@ -447,13 +442,8 @@ void IntChangeSeats( int point_id, int pax_id, int tid, string xname, string yna
    " WHERE pax_id=:pax_id AND pax.grp_id=pax_grp.grp_id AND pax_grp.status=grp_status_types.code ";
   Qry.CreateVariable( "pax_id", otInteger, pax_id );
   Qry.Execute();
-//  TCompLayerType layer_type;
   if ( !Qry.Eof ) {
   	layer_type = DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) );
-  }
-  else {
-//  	throw UserException( "MSG.PASSENGER.NOT_FOUND" );!!!
-  //	layer_type = DecodeCompLayerType( NodeAsString( "layer", reqNode ) );
   }
 
   ProgTrace(TRACE5, "SalonsInterface::Reseat, point_id=%d, pax_id=%d, tid=%d, layer=%s", point_id, pax_id, tid, EncodeCompLayerType( layer_type ) );
@@ -461,7 +451,7 @@ void IntChangeSeats( int point_id, int pax_id, int tid, string xname, string yna
   SALONS2::TSalons Salons( point_id, SALONS2::rTripSalons );
   Salons.Read();
 
-  // если место у пассажира имеет предварительную рассадку для этого пассажира, и мы еще не спрашивали, то спросить!!!
+  // если место у пассажира имеет предварительную рассадку для этого пассажира, и мы еще не спрашивали, то спросить!
   if ( seat_type != SEATS2::stDropseat && !pr_waitlist && pr_question_reseat ) {
     Qry.Clear();
     Qry.SQLText =

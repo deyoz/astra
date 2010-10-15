@@ -820,7 +820,7 @@ void TSalons::Read( )
       num = Qry.FieldAsInteger( col_num );
       placeList->num = num;
     }
-    // повторение мест!!! - разные слои
+    // повторение мест! - разные слои
     TPlace place;
     point_p.x = Qry.FieldAsInteger( col_x );
     point_p.y = Qry.FieldAsInteger( col_y );
@@ -1320,7 +1320,6 @@ void GetCompParams( int comp_id, xmlNodePtr dataNode )
 bool InternalExistsRegPassenger( int trip_id, bool SeatNoIsNull )
 {
   TQuery Qry( &OraSession );
-  //!!!
   string sql = "SELECT pax.pax_id FROM pax_grp, pax "\
                " WHERE pax_grp.grp_id=pax.grp_id AND "\
                "       point_dep=:point_id AND "\

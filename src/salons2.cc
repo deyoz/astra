@@ -479,7 +479,7 @@ void TSalons::Write()
         }
       }
       if ( !place->layers.empty() ) {
-      	//!!! надо вставить слой
+      	//!надо вставить слой
       	QryLayers.SetVariable( "first_xname", place->xname );
       	QryLayers.SetVariable( "last_xname", place->xname );
       	QryLayers.SetVariable( "first_yname", place->yname );
@@ -644,7 +644,7 @@ void TSalons::Read( bool wo_invalid_seat_no )
       num = Qry.FieldAsInteger( col_num );
       placeList->num = num;
     }
-    // повторение мест!!! - разные слои
+    // повторение мест! - разные слои
     TPlace place;
     point_p.x = Qry.FieldAsInteger( col_x );
     point_p.y = Qry.FieldAsInteger( col_y );
@@ -801,7 +801,7 @@ void TSalons::Parse( xmlNodePtr salonsNode )
       if ( !GetNodeFast( "status", node ) )
         place.status = "FP";
       else
-        place.status = NodeAsStringFast( "status", node ); //!!!
+        place.status = NodeAsStringFast( "status", node );
       place.pr_free = !GetNodeFast( "pr_notfree", node );
       place.block = GetNodeFast( "block", node );
 
@@ -1078,7 +1078,6 @@ void GetCompParams( int comp_id, xmlNodePtr dataNode )
 bool InternalExistsRegPassenger( int trip_id, bool SeatNoIsNull )
 {
   TQuery Qry( &OraSession );
-  //!!!
   string sql = "SELECT pax.pax_id FROM pax_grp, pax "\
                " WHERE pax_grp.grp_id=pax.grp_id AND "\
                "       point_dep=:point_id AND "\
