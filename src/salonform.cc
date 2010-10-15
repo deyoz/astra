@@ -319,7 +319,7 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   if ( SEATS2::GetPassengersForWaitList( trip_id, p, true ) ) {
   	tst();
     AstraLocale::showErrorMessage( "MSG.SEATS.PAX_SEATS_NOT_FULL" );
-    SetProp(NewTextChild( dataNode, "passengers" ), "pr_exists", 1);
+    SetProp(NewTextChild( dataNode, "passengers" ), "pr_waitlist", 1);
   }
   else
   	AstraLocale::showMessage( "MSG.DATA_SAVED" );
