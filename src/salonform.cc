@@ -225,7 +225,7 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     SEATS2::TPassengers p;
     if ( SEATS2::GetPassengersForWaitList( trip_id, p, true ) ) {
     	AstraLocale::showErrorMessage( "MSG.SEATS.PAX_SEATS_NOT_FULL" );
-    	NewTextChild( dataNode, "passengers" );
+    	SetProp(NewTextChild( dataNode, "passengers" ), "pr_waitlist", 1);
     }
  	}
  	if ( pr_images ) {
@@ -318,7 +318,7 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   SEATS2::TPassengers p;
   if ( SEATS2::GetPassengersForWaitList( trip_id, p, true ) ) {
     AstraLocale::showErrorMessage( "MSG.SEATS.PAX_SEATS_NOT_FULL" );
-  	NewTextChild( dataNode, "passengers" );
+    SetProp(NewTextChild( dataNode, "passengers" ), "pr_exists", 1);
   }
   else
   	AstraLocale::showMessage( "MSG.DATA_SAVED" );
