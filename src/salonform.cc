@@ -317,6 +317,7 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Salons.Build( salonsNode );
   SEATS2::TPassengers p;
   if ( SEATS2::GetPassengersForWaitList( trip_id, p, true ) ) {
+  	tst();
     AstraLocale::showErrorMessage( "MSG.SEATS.PAX_SEATS_NOT_FULL" );
     SetProp(NewTextChild( dataNode, "passengers" ), "pr_exists", 1);
   }
