@@ -1102,7 +1102,6 @@ void TSalons::Parse( xmlNodePtr salonsNode )
       }
       remsNode = GetNodeFast( "layers", node );
       if ( remsNode ) {
-      	tst();
       	remsNode = remsNode->children; //layer
       	while( remsNode ) {
       		remNode = remsNode->children;
