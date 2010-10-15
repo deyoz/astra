@@ -560,7 +560,6 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 	  STRAO.pax_id = Qry.FieldAsInteger( "pax_id" );
 	  STRAO.reg_no = Qry.FieldAsInteger( "reg_no" );
 		aodb_pax.push_back( STRAO );
-//!!!		record<<setw(1)<<";"; // конец записи по пассажиру
 		// ручная кладь
 		if ( pr_unaccomp || Qry.FieldAsInteger( "main_pax_id" ) == Qry.FieldAsInteger( "pax_id" ) ) {
 		  BagQry.SetVariable( "grp_id", Qry.FieldAsInteger( "grp_id" ) );
@@ -583,7 +582,6 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 		  	aodb_bag.push_back( STRAO );
 		  	BagQry.Next();
 		  }
-//!!!		  record<<setw(1)<<";";
 		  // багаж
 		  BagQry.SetVariable( "pr_cabin", 0 );
 		  BagQry.Execute();
@@ -609,10 +607,8 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 		  	aodb_bag.push_back( STRAO );
 		  	BagQry.Next();
 		  }
-//		  record<<setw(1)<<";";
 		}
 		else {
-//			record<<setw(1)<<";"<<";"; // нет ручной клади и багажа
 	  }
 		Qry.Next();
 	}
@@ -790,7 +786,7 @@ void createRecord( int point_id, int pax_id, int reg_no, const string &point_add
   int num=0;
   vector<string> bags;
 	vector<string> delbags;
-	for ( int pr_cabin=1; pr_cabin>=0 /*!!!&& d != aodb_pax.end()*/; pr_cabin-- ) {
+	for ( int pr_cabin=1; pr_cabin>=0; pr_cabin-- ) {
 		if ( d != aodb_pax.end() ) {
 		  PQry.SetVariable( "pr_cabin", pr_cabin );
 	    for ( vector<AODB_STRUCT>::iterator i=aodb_bag.begin(); i!= aodb_bag.end(); i++ ) {
@@ -807,33 +803,11 @@ void createRecord( int point_id, int pax_id, int reg_no, const string &point_add
 	  			  f=true;
 	  			  i->doit=true;
 	  			  j->doit=true;
-/*!!!!!	  			if ( pr_unaccomp ) {
-            ostringstream r;
-            r<<setfill(' ')<<std::fixed<<setw(6)<<bag_num++<<unaccomp_header;
- 	          //res_checkin += r.str();
- 	          bags += r.str();
-	  			}*/
-   			  //res_checkin += i->record + "0;";
-   			  //!!!!!bags += i->record + "0;"; //???
    			    bags.push_back( i->record + "0;" );
-   			  //!!!!!if ( pr_unaccomp )
-   			  	//res_checkin += "\n";
-   			  	//!!!!!bags += "\n";
 	  		  }
 	      }
 	      if ( !f ) {
-	  		/*!!!!!if ( pr_unaccomp ) {
-          ostringstream r;
-          r<<setfill(' ')<<std::fixed<<setw(6)<<bag_num++<<unaccomp_header;
- 	        //res_checkin += r.str();
- 	        bags += r.str();
-	  		}*/
-	    	//res_checkin += i->record + "0;";
-	    	//!!!!!bags += i->record + "0;";
 	    	  bags.push_back( i->record + "0;" );
-/*!!!!!   			if ( pr_unaccomp )
-   				//res_checkin += "\n";
-   				bags += "\n";*/
 	      }
   	  }
   	}
@@ -849,31 +823,15 @@ void createRecord( int point_id, int pax_id, int reg_no, const string &point_add
 	    		}
 	      }
 	      if ( !f ) {
-/*!!!!!	  		if ( pr_unaccomp ) {
-          ostringstream r;
-          r<<setfill(' ')<<std::fixed<<setw(6)<<bag_num++<<unaccomp_header;
-//          ProgTrace( TRACE5, "bag_num=%d, point_id=%d", bag_num, point_id );
-         //!!!delbags += r.str();
-         ProgTrace( TRACE5, "res_checkin=%s, r=%s, delbags=%s", res_checkin.c_str(), r.str().c_str(), delbags.c_str() );
- 	       res_checkin += r.str();
-	  		}*/
-	    	//res_checkin += i->record + "1;";
-	    	//!!!!!delbags += i->record + "1;";
-	    	//!!!!!delbags += i->record + "1;";
 	    	  delbags.push_back(i->record + "1;");
-/*!!!!!   			if ( pr_unaccomp )
-   				//res_checkin += "\n";
-   				delbags += "\n";*/
 	      }
   	  }
   	}
 	} // end for
-	//!!!!!!if ( !pr_unaccomp ) {
 	  if ( d != aodb_pax.end() )
 	  	d->doit = true;
 	  if ( n != prior_aodb_pax.end() )
 	  	n->doit = true;
-	//!!!!!!}
 
 	for (vector<string>::iterator si=delbags.begin(); si!=delbags.end(); si++ ) {
 		if ( pr_unaccomp ) {
@@ -892,10 +850,6 @@ void createRecord( int point_id, int pax_id, int reg_no, const string &point_add
     }
     else res_checkin += *si;
 	}
-
-	//ProgTrace( TRACE5, "res_checkin=%s", res_checkin.c_str() );
-
-/*!!!!!	  res_checkin += delbags + bags; */
 
 	PQry.Clear();
 	if ( pr_unaccomp ) {
@@ -997,15 +951,15 @@ try {
 	err++;
 	TElemFmt fmt;
   try {
-   fl.suffix = ElemCtxtToElemId( ecDisp, etSuffix, fl.suffix, fmt, false ); //!!!vlad лучше бы  использовать ElemToElemId
+   fl.suffix = ElemToElemId( etSuffix, fl.suffix, fmt, false );
   }
   catch( EConvertError &e ) {
   	throw Exception( "Ошибка формата номера рейса, значение=%s", tmp.c_str() );
   }
  	try {
-    fl.airline = ElemCtxtToElemId( ecDisp, etAirline, fl.airline, fmt, false ); //!!!vlad лучше бы  использовать ElemToElemId
+    fl.airline = ElemToElemId( etAirline, fl.airline, fmt, false );
 	  if ( fmt == efmtCodeInter || fmt == efmtCodeICAOInter )
-		  fl.trip_type = "м";  //!!!vlad а правильно ли так определять тип рейса? не уверен
+		  fl.trip_type = "м";  //!!!vlad а правильно ли так определять тип рейса? не уверен. Проверка при помощи маршрута. Если в маршруте все п.п. принадлежат одной стране то "п" иначе "м"
     else
   	  fl.trip_type = "п";
   }
@@ -2004,13 +1958,6 @@ bool BuildAODBTimes( int point_id, const std::string &point_addr, TFileDatas &fd
 	boarding = ( stages[ sOpenBoarding ].act > NoExists && stages[ sCloseBoarding ].act == NoExists );
 	record<<setw(1)<<checkin<<setw(1)<<boarding<<setw(1)<<Qry.FieldAsInteger( "overload_alarm" );
 	TQuery StationsQry( &OraSession );
-	// добавляется признак итогов.
-/*	StationsQry.SQLText =
-	 "SELECT  COUNT(*) c FROM trip_stations "
-	 " WHERE point_id=:point_id AND trip_stations.work_mode='П' AND start_time IS NOT NULL AND rownum<2";
-	StationsQry.CreateVariable( "point_id", otInteger, point_id );
-	StationsQry.Execute();
-	record<<setw(1)<<(int)!StationsQry.FieldIsNULL( "c" );*/
 
 	StationsQry.Clear();
 	StationsQry.SQLText =
@@ -2023,8 +1970,6 @@ bool BuildAODBTimes( int point_id, const std::string &point_addr, TFileDatas &fd
     string term = StationsQry.FieldAsString( "name" );
     if ( !term.empty() && term[0] == 'R' )
     	term = term.substr( 1, term.length() - 1 );
-/*!!!den//!!!04.08.2010    if ( !term.empty() && term[0] == '0' )
-    	term = term.substr( 1, term.length() - 1 );*/
 		record<<";"<<"Р"<<setw(4)<<term.substr(0,4)<<setw(1)<<(int)!StationsQry.FieldIsNULL( "start_time" );
 		StationsQry.Next();
 	}
