@@ -80,6 +80,8 @@ TBaseTable &TBaseTables::get(string name)
         	  base_tables[name] = new TDevOperTypes();
         else if(name == "GRAPH_STAGES")
         	  base_tables[name] = new TGraphStages();
+        else if(name == "MISC_SET_TYPES")
+        	  base_tables[name] = new TMiscSetTypes();
         else if(name == "TRIP_SUFFIXES")
         	  base_tables[name] = new TTripSuffixes();
         else if(name == "TYPEB_TYPES")
@@ -688,6 +690,12 @@ void TGraphStages::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **
   *row = new TGraphStagesRow;
   ((TGraphStagesRow*)*row)->stage_time=Qry.FieldAsInteger("time");
   ((TGraphStagesRow*)*row)->pr_auto=(Qry.FieldAsInteger("pr_auto")!=0);
+  TIdBaseTable::create_row(Qry,row,replaced_row);
+};
+
+void TMiscSetTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+{
+  *row = new TMiscSetTypesRow;
   TIdBaseTable::create_row(Qry,row,replaced_row);
 };
 

@@ -108,6 +108,8 @@ const char* EncodeElemType(const TElemType type)
   		return "etDevOperType";
   	case etGraphStage:
   		return "etGraphStage";
+  	case etMiscSetType:
+  		return "etMiscSetType";
   	case etDelayType:
   		return "etDelayType";
   	case etTripLiter:
@@ -396,6 +398,9 @@ string getTableName(TElemType type)
   		break;
     case etGraphStage:
   		table_name="graph_stages";
+  		break;
+  	case etMiscSetType:
+  		table_name="misc_set_types";
   		break;
     case etTypeBType:
   		table_name="typeb_types";

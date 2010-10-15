@@ -810,6 +810,23 @@ class TGraphStages: public TIdBaseTable {
   	};
 };
 
+class TMiscSetTypesRow: public TIdBaseTableRow {
+	  public:
+    const char *get_row_name() const { return "TMiscSetTypesRow"; };
+};
+
+class TMiscSetTypes: public TIdBaseTable {
+  protected:
+    const char *get_table_name() { return "TMiscSetTypes"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+    void Invalidate() {}; //всегда актуальна
+  public:
+  	TMiscSetTypes() {
+  		Init();
+  		select_sql = "SELECT code id,name,name_lat FROM misc_set_types";
+  	};
+};
+
 class TBagNormTypesRow: public TCodeBaseTableRow {
 	public:
     const char *get_row_name() const { return "TBagNormTypesRow"; };
