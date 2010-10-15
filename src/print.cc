@@ -1988,7 +1988,7 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
     i=rcpt.pay_types.begin();
     pay_types     << payTypeCodes.get_row("code", i->pay_type).AsString("code", AstraLocale::LANG_RU);
     pay_types_lat << payTypeCodes.get_row("code", i->pay_type).AsString("code", AstraLocale::LANG_EN);
-    if (i->pay_type!=CASH_PAY_TYPE && !i->extra.empty())
+    if (i->pay_type!=CASH_PAY_TYPE_ID && !i->extra.empty())
     {
       pay_types     << ' ' << i->extra;
       pay_types_lat << ' ' << i->extra;
@@ -2002,8 +2002,8 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
     {
       for(i=rcpt.pay_types.begin();i!=rcpt.pay_types.end();i++)
       {
-        if (k==0 && i->pay_type!=CASH_PAY_TYPE ||
-            k!=0 && i->pay_type==CASH_PAY_TYPE) continue;
+        if (k==0 && i->pay_type!=CASH_PAY_TYPE_ID ||
+            k!=0 && i->pay_type==CASH_PAY_TYPE_ID) continue;
 
         if (!pay_types.str().empty())
         {
@@ -2015,7 +2015,7 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
 
         pay_types_lat << payTypeCodes.get_row("code", i->pay_type).AsString("code", AstraLocale::LANG_EN)
                       << RateToString(i->pay_rate_sum, rcpt.pay_rate_cur, true, 0);
-        if (i->pay_type!=CASH_PAY_TYPE && !i->extra.empty())
+        if (i->pay_type!=CASH_PAY_TYPE_ID && !i->extra.empty())
         {
           pay_types     << ' ' << i->extra;
           pay_types_lat << ' ' << i->extra;

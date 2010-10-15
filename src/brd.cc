@@ -469,7 +469,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode, bool used_for_
           if (!FltQry.Eof)
           {
             TTripInfo info(FltQry);
-            throw AstraLocale::UserException(100, "MSG.PASSENGER.FROM_FLIGHT", LParams() << LParam("flt", GetTripName(info)));
+            throw AstraLocale::UserException(100, "MSG.PASSENGER.FROM_FLIGHT", LParams() << LParam("flt", GetTripName(info,ecCkin)));
           }
           else
             throw AstraLocale::UserException(100, "MSG.PASSENGER.OTHER_FLIGHT");

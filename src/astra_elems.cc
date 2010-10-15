@@ -143,18 +143,6 @@ string ElemCtxtToElemId(TElemContext ctxt,TElemType type, string code, TElemFmt 
 
   id = ElemToElemId(type,code,fmt,"",with_deleted);
 
-  //далее проверим а вообще имели ли мы право вводить в таком формате
-  /*
-  if ( hard_verify ) {
-    if (ctxt==ecTlgTypeB && (type!=etCountry && fmt!=0 && fmt!=1 ||
-                             type==etCountry && fmt!=0 && fmt!=1 && fmt!=4) ||
-        ctxt==ecCkin && (fmt!=0) ||
-        ctxt==ecTrfer && (fmt!=0))
-    {
-      //проблемы
-      DoElemEConvertError( ctxt, type, code );
-    };
-  } !!!vlad */
   if ( ctxt==ecDisp || ctxt==ecCkin )
   {
     if(type==etAirline ||

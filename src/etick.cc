@@ -289,7 +289,7 @@ void ChangeAreaStatus(TETCheckStatusArea area, XMLRequestCtxt *ctxt, xmlNodePtr 
         {
           TTripInfo fltInfo(Qry);
           throw AstraLocale::UserException("WRAP.FLIGHT",
-                                           LParams()<<LParam("flight",GetTripName(fltInfo,true,false))
+                                           LParams()<<LParam("flight",GetTripName(fltInfo,ecNone,true,false))
                                                     <<LParam("text",e.getLexemaData( )));
         }
         else
@@ -638,8 +638,13 @@ bool ETStatusInterface::ETCheckStatus(int point_id,
         {
           key.airline_oper=fltInfo.airline;
           if (!get_et_addr_set(fltInfo.airline,fltInfo.flt_no,key.addrs))
+          {
+            ostringstream flt;
+            flt << ElemIdToCodeNative(etAirline,fltInfo.airline)
+                << setw(3) << setfill('0') << fltInfo.flt_no;
             throw AstraLocale::UserException("MSG.ETICK.ETS_ADDR_NOT_DEFINED_FOR_FLIGHT",
-            	                               LParams() << LParam("flight", fltInfo.airline + IntToString(fltInfo.flt_no))); //!!!param
+            	                               LParams() << LParam("flight", flt.str()));
+          };
           init_edi_addrs=true;
         };
         key.coupon_status=prior_status->codeInt();
@@ -689,7 +694,7 @@ bool ETStatusInterface::ETCheckStatus(int point_id,
         NewTextChild(node,"point_id",point_id);
         NewTextChild(node,"airp_dep",airp_dep);
         NewTextChild(node,"airp_arv",airp_arv);
-        NewTextChild(node,"flight",GetTripName(fltInfo,true,false));
+        NewTextChild(node,"flight",GetTripName(fltInfo,ecNone,true,false));
         if (GetNodeFast("grp_id",node2)!=NULL)
         {
           NewTextChild(node,"grp_id",NodeAsIntegerFast("grp_id",node2));
@@ -856,8 +861,13 @@ bool ETStatusInterface::ETCheckStatus(int id,
             {
               key.airline_oper=fltInfo.airline;
               if (!get_et_addr_set(fltInfo.airline,fltInfo.flt_no,key.addrs))
-                  throw AstraLocale::UserException("MSG.ETICK.ETS_ADDR_NOT_DEFINED_FOR_FLIGHT",
-                  	                               LParams() << LParam("flight", fltInfo.airline + IntToString(fltInfo.flt_no)));//!!!param
+              {
+                ostringstream flt;
+                flt << ElemIdToCodeNative(etAirline,fltInfo.airline)
+                    << setw(3) << setfill('0') << fltInfo.flt_no;
+                throw AstraLocale::UserException("MSG.ETICK.ETS_ADDR_NOT_DEFINED_FOR_FLIGHT",
+                	                               LParams() << LParam("flight", flt.str()));
+              };
               init_edi_addrs=true;
             };
             key.coupon_status=real_status->codeInt();
@@ -907,7 +917,7 @@ bool ETStatusInterface::ETCheckStatus(int id,
             NewTextChild(node,"point_id",point_id);
             NewTextChild(node,"airp_dep",airp_dep);
             NewTextChild(node,"airp_arv",airp_arv);
-            NewTextChild(node,"flight",GetTripName(fltInfo,true,false));
+            NewTextChild(node,"flight",GetTripName(fltInfo,ecNone,true,false));
             NewTextChild(node,"grp_id",Qry.FieldAsInteger("grp_id"));
             NewTextChild(node,"pax_id",Qry.FieldAsInteger("pax_id"));
             if (!before_checkin)
@@ -973,8 +983,13 @@ bool ETStatusInterface::ETCheckStatus(int id,
           TTicketListKey key;
           key.airline_oper=fltInfo.airline;
           if (!get_et_addr_set(fltInfo.airline,fltInfo.flt_no,key.addrs))
-              throw AstraLocale::UserException("MSG.ETICK.ETS_ADDR_NOT_DEFINED_FOR_FLIGHT",
-              	                               LParams() << LParam("flight", fltInfo.airline + IntToString(fltInfo.flt_no)));//!!!param
+          {
+            ostringstream flt;
+            flt << ElemIdToCodeNative(etAirline,fltInfo.airline)
+                << setw(3) << setfill('0') << fltInfo.flt_no;
+            throw AstraLocale::UserException("MSG.ETICK.ETS_ADDR_NOT_DEFINED_FOR_FLIGHT",
+             	                               LParams() << LParam("flight", flt.str()));
+          };
           key.coupon_status=real_status->codeInt();
 
           for(;!Qry.Eof;Qry.Next())
@@ -1025,7 +1040,7 @@ bool ETStatusInterface::ETCheckStatus(int id,
             NewTextChild(node,"point_id",check_point_id);
             NewTextChild(node,"airp_dep",Qry.FieldAsString("airp_dep"));
             NewTextChild(node,"airp_arv",Qry.FieldAsString("airp_arv"));
-            NewTextChild(node,"flight",GetTripName(fltInfo,true,false));
+            NewTextChild(node,"flight",GetTripName(fltInfo,ecNone,true,false));
             NewTextChild(node,"prior_coupon_status",status->dispCode());
 
             ProgTrace(TRACE5,"ETCheckStatus %s/%d->%s",

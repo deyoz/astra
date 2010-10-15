@@ -18,10 +18,6 @@ using namespace EXCEPTIONS;
 using namespace std;
 using namespace ASTRA;
 
-std::string GetTripName( TTripInfo &info, bool showAirp, bool prList ) //удалить в будущем !!!vlad
-{
-	return GetTripName( info, ecNone, showAirp, prList );
-}
 //для сохранения совместимости вводим AstraLocale::TLocaleType
 string GetTripName( TTripInfo &info, TElemContext ctxt, bool showAirp, bool prList )
 {

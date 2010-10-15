@@ -1561,7 +1561,7 @@ void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   info.scd_out=Qry.FieldAsDateTime("scd_out");
   info.real_out=Qry.FieldAsDateTime("real_out");
 
-  NewTextChild(resNode,"trip",GetTripName(info));
+  NewTextChild(resNode,"trip",GetTripName(info,ecDisp));
 
   Qry.Clear();
   if (pr_tlg)

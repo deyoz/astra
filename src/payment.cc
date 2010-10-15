@@ -180,9 +180,9 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       {
         TTripInfo info(FltQry);
         if (!pr_unaccomp)
-          msg=getLocaleText("MSG.PASSENGER.FROM_FLIGHT", LParams() << LParam("flt", GetTripName(info)));
+          msg=getLocaleText("MSG.PASSENGER.FROM_FLIGHT", LParams() << LParam("flt", GetTripName(info,ecCkin)));
         else
-          msg=getLocaleText("MSG.BAGGAGE.FROM_FLIGHT", LParams() << LParam("flt", GetTripName(info)));
+          msg=getLocaleText("MSG.BAGGAGE.FROM_FLIGHT", LParams() << LParam("flt", GetTripName(info,ecCkin)));
       }
       else
       {
@@ -917,24 +917,24 @@ void PaymentInterface::GetReceipt(xmlNodePtr reqNode, TBagReceipt &rcpt)
     payType.extra=NodeAsString("extra",node);
     rcpt.pay_types.push_back(payType);
 
-    if (payType.pay_type==NONE_PAY_TYPE) none_count++;
-    if (payType.pay_type==CASH_PAY_TYPE) cash_count++;
+    if (payType.pay_type==NONE_PAY_TYPE_ID) none_count++;
+    if (payType.pay_type==CASH_PAY_TYPE_ID) cash_count++;
   };
   if (rcpt.pay_types.size() > 2)
     throw AstraLocale::UserException("MSG.PAY_TYPE.NO_MORE_2");
   if (none_count > 1)
-    throw AstraLocale::UserException("MSG.PAY_TYPE.ONLY_ONCE", LParams() << LParam("pay_type", NONE_PAY_TYPE));//!!!param
+    throw AstraLocale::UserException("MSG.PAY_TYPE.ONLY_ONCE", LParams() << LParam("pay_type", ElemIdToCodeNative(etPayType,NONE_PAY_TYPE_ID)));
   if (none_count > 0 && rcpt.pay_types.size() > none_count)
-    throw AstraLocale::UserException("MSG.PAY_TYPE.NO_MIX", LParams() << LParam("pay_type", NONE_PAY_TYPE));//!!!param
+    throw AstraLocale::UserException("MSG.PAY_TYPE.NO_MIX", LParams() << LParam("pay_type", ElemIdToCodeNative(etPayType,NONE_PAY_TYPE_ID)));
   if (cash_count > 1)
-    throw AstraLocale::UserException("MSG.PAY_TYPE.ONLY_ONCE", LParams() << LParam("pay_type", CASH_PAY_TYPE));//!!!param
+    throw AstraLocale::UserException("MSG.PAY_TYPE.ONLY_ONCE", LParams() << LParam("pay_type", ElemIdToCodeNative(etPayType,CASH_PAY_TYPE_ID)));
 
 
   if (rcpt.pay_types.empty())
   {
     //не заданы формы оплаты - скорее всего первое превью
     TBagPayType payType;
-    payType.pay_type=CASH_PAY_TYPE;
+    payType.pay_type=CASH_PAY_TYPE_ID;
     payType.pay_rate_sum=CalcPayRateSum(rcpt);
     payType.extra="";
     rcpt.pay_types.push_back(payType);

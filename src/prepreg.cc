@@ -90,9 +90,9 @@ void PrepRegInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
     	NewTextChild( itemNode, "firstcol", getLocaleText( Qry.FieldAsString( "firstcol" ) ) );
     else
     	if ( Qry.FieldAsInteger( "num" ) < 0 ) // классы
-        NewTextChild( itemNode, "firstcol", ElemIdToCodeNative(etClass,Qry.FieldAsString( "firstcol" )) ); /*!!!djek Ctxt*/
+        NewTextChild( itemNode, "firstcol", ElemIdToCodeNative(etClass,Qry.FieldAsString( "firstcol" )) );
       else // аэропорты
-      	NewTextChild( itemNode, "firstcol", ElemIdToCodeNative(etAirp,Qry.FieldAsString( "firstcol" )) ); /*!!!djek Ctxt*/
+      	NewTextChild( itemNode, "firstcol", ElemIdToCodeNative(etAirp,Qry.FieldAsString( "firstcol" )) );
     NewTextChild( itemNode, "cfg", Qry.FieldAsInteger( "cfg" ) );
     NewTextChild( itemNode, "resa", Qry.FieldAsInteger( "resa" ) );
     NewTextChild( itemNode, "tranzit", Qry.FieldAsInteger( "tranzit" ) );
@@ -135,7 +135,7 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
   xmlNodePtr node;
   node = NewTextChild( tripdataNode, "airps" );
   while ( !Qry.Eof ) {
-    NewTextChild( node, "airp", Qry.FieldAsString( "airp" ) );//!!!ElemIdToCodeNative(etAirp,Qry.FieldAsString( "airp" )) );
+    NewTextChild( node, "airp", Qry.FieldAsString( "airp" ) );
     Qry.Next();
   }
   Qry.Clear();
@@ -301,8 +301,8 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
          Qry.FieldAsString( "class" ) != old_class ) {
       itemNode = NewTextChild( node, "itemcrs" );
       NewTextChild( itemNode, "crs" );
-      NewTextChild( itemNode, "target", Qry.FieldAsString( "target" ) ); //!!!ElemIdToCodeNative(etAirp,Qry.FieldAsString( "target" )) );
-      NewTextChild( itemNode, "class", Qry.FieldAsString( "class" ) ); //!!!ElemIdToCodeNative(etClass,Qry.FieldAsString( "class" )) );
+      NewTextChild( itemNode, "target", Qry.FieldAsString( "target" ) );
+      NewTextChild( itemNode, "class", Qry.FieldAsString( "class" ) );
       NewTextChild( itemNode, "resa", Qry.FieldAsInteger( "resa" ) );
       NewTextChild( itemNode, "tranzit", Qry.FieldAsInteger( "tranzit" ) );
       old_target = Qry.FieldAsString( "target" );
@@ -701,7 +701,7 @@ void PrepRegInterface::ViewCRSList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   string scd_out = NodeAsString("scd_out", formDataNode);
   string date = real_out + (real_out == scd_out ? "" : "(" + scd_out + ")");
   NewTextChild(formDataNode, "caption", getLocaleText("CAP.DOC.PNL_PAX_LIST",
-              LParams() << LParam("trip", NodeAsString("trip", formDataNode))//!!!param den
+              LParams() << LParam("trip", NodeAsString("trip", formDataNode))//!!!den param
                   << LParam("date", date)
               ));
 }

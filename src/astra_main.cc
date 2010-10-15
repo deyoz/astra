@@ -88,7 +88,6 @@ class AstraApplication : public ApplicationCallbacks
               ->add("edi_handler", main_edi_handler_tcl)
               ->add("timer",main_timer_tcl)
               ->add("empty_proc",main_empty_proc_tcl)
-//!!!              ->add("file_srv",main_file_srv_tcl)
               ->setApplicationCallbacks(this);
     }
     virtual int jxt_proc(const char *body, int blen, const char *head, int hlen,

@@ -1036,7 +1036,7 @@ void GetTripParams( int trip_id, xmlNodePtr dataNode )
   info.scd_out=Qry.FieldAsDateTime("scd_out");
   info.real_out=Qry.FieldAsDateTime("real_out");
 
-  NewTextChild( dataNode, "trip", GetTripName(info) );
+  NewTextChild( dataNode, "trip", GetTripName(info,ecCkin) );
   NewTextChild( dataNode, "craft", Qry.FieldAsString( "craft" ) );
   NewTextChild( dataNode, "bort", Qry.FieldAsString( "bort" ) );
 

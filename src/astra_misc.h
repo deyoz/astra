@@ -93,7 +93,6 @@ class TTripInfo
 };
 
 std::string GetTripName( TTripInfo &info, TElemContext ctxt, bool showAirp=false, bool prList=false );
-std::string GetTripName( TTripInfo &info, bool showAirp=false, bool prList=false );
 
 class TLastTrferInfo
 {

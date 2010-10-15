@@ -80,7 +80,7 @@ void PaymentOldInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
           if (!FltQry.Eof)
           {
             TTripInfo info(FltQry);
-            throw AstraLocale::UserException("MSG.PASSENGER.FROM_FLIGHT", LParams() << LParam("flt", GetTripName(info)));
+            throw AstraLocale::UserException("MSG.PASSENGER.FROM_FLIGHT", LParams() << LParam("flt", GetTripName(info,ecCkin)));
           }
           else
             throw AstraLocale::UserException("MSG.PASSENGER.FROM_OTHER_FLIGHT");
