@@ -834,15 +834,12 @@ bool CreateCommonFileData( int id, const std::string type, const std::string &ai
             }
             /* ну не получилось сформировать файл, остальные файлы имеют тоже право попробовать сформироваться */
             catch( Exception &e) {
-                ///try OraSession.RollBack(); catch(...){};//!!!
                 ProgError(STDLOG, "file_type=%s, id=%d, what=%s", type.c_str(), id, e.what());
             }
             catch( std::exception &e) {
-                ///try OraSession.RollBack(); catch(...){};//!!!
                 ProgError(STDLOG, "file_type=%s, id=%d, what=%s", type.c_str(), id, e.what());
             }
             catch(...) {
-                ///try OraSession.RollBack(); catch(...){}; //!!!
                 ProgError(STDLOG, "putFile: Unknown error while trying to put file");
             };
             inparams.clear();
@@ -950,7 +947,6 @@ void sync_sppcek( void )
 	 "       ( file_param_sets.flt_no IS NULL OR file_param_sets.flt_no=points.flt_no ) ";
 	Qry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
 	Qry.CreateVariable( "file_type", otString, FILE_SPPCEK_TYPE );
-//!!!	Qry.CreateVariable( "spp_days", otInteger, CREATE_SPP_DAYS() );
 	Qry.Execute();
 	while ( !Qry.Eof ) {
 		CreateCommonFileData( Qry.FieldAsInteger( "point_id" ), FILE_SPPCEK_TYPE, Qry.FieldAsString( "airp" ),
