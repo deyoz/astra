@@ -223,7 +223,7 @@ void createFileParams( int point_id, map<string,string> &params )
 	if ( !FlightQry.RowCount() )
 		throw Exception( "Flight not found in createFileParams" );
 	ProgTrace( TRACE5, "stage=%d", FlightQry.FieldAsInteger( "st" ) );
-	if ( FlightQry.FieldAsInteger( "st" ) != 20 ) //!!!
+	if ( FlightQry.FieldAsInteger( "st" ) != 20 ) //!!! потом переделать работу со статусом
     params[ PARAM_FILE_NAME ] = string( FlightQry.FieldAsString( "airline" ) ) +
 	                              FlightQry.FieldAsString( "flt_no" ) +
 	                              FlightQry.FieldAsString( "suffix" ) + ".dbf";

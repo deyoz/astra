@@ -21,7 +21,7 @@ struct TReferCacheTable
   TElemType ElemType;
 };
 
-const TReferCacheTable ReferCacheTable[12] = { {"COUNTRIES",       etCountry},
+const TReferCacheTable ReferCacheTable[11] = { {"COUNTRIES",       etCountry},
                                                {"CITIES",          etCity},
                                                {"AIRLINES",        etAirline},
                                                {"AIRPS",           etAirp},
@@ -31,8 +31,7 @@ const TReferCacheTable ReferCacheTable[12] = { {"COUNTRIES",       etCountry},
                                                {"TRIP_TYPES",      etTripType},
                                                {"GRAPH_STAGES",    etGraphStage},
                                                {"BAG_NORM_TYPES",  etBagNormType},
-                                               {"CURRENCY",        etCurrency},
-                                               {"MISC_SET_TYPES",  etMiscSetType}
+                                               {"CURRENCY",        etCurrency}
                                              };
 
 using namespace std;
@@ -384,7 +383,7 @@ void TCacheTable::DeclareSysVariables(std::vector<string> &vars, TQuery *Qry)
     }
 };
 
-bool TCacheTable::refreshData()
+TUpdateDataType TCacheTable::refreshData()
 {
     Clear();
     string code = Params[TAG_CODE].Value;
@@ -537,7 +536,13 @@ bool TCacheTable::refreshData()
       Qry->Next();
     }
     ProgTrace( TRACE5, "Server version data: %d", clientVerData );
-    return !table.empty();
+    if ( !table.empty() ) // начитали изменения
+    	return upExists;
+    else
+    	if ( clientVerData >= 0 ) // нет изменений
+    		return upNone;
+    	else
+    		return upClearAll; // все удалили
 }
 
 void TCacheTable::refresh()
@@ -549,13 +554,15 @@ void TCacheTable::refresh()
     }
     else
         pr_irefresh = false;
-    if ( Params.find(TAG_REFRESH_DATA) != Params.end() && !pr_dconst || pr_irefresh ) {
+    if ( Params.find(TAG_REFRESH_DATA) != Params.end() &&
+    	    (!TReqInfo::Instance()->desk.compatible(LATIN_VERSION) || !pr_dconst) ||
+    	   pr_irefresh ) {
         if ( pr_irefresh )
           clientVerData = -1;
-        pr_drefresh = refreshData();
+        refresh_data_type = refreshData();
     }
     else
-        pr_drefresh = false;
+        refresh_data_type = upNone;
 }
 
 void TCacheTable::buildAnswer(xmlNodePtr resNode)
@@ -583,8 +590,15 @@ void TCacheTable::buildAnswer(xmlNodePtr resNode)
 
     if(pr_irefresh)
         XMLInterface(dataNode);
-    if(pr_drefresh)
-        XMLData(dataNode);
+
+    if ( TReqInfo::Instance()->desk.compatible(LATIN_VERSION) ) {
+    	if ( refresh_data_type != upNone || pr_irefresh )
+    		XMLData(dataNode);
+    }
+    else {
+    	if ( refresh_data_type == upExists )
+    		XMLData(dataNode);
+    }
 }
 
 void TCacheTable::XMLInterface(const xmlNodePtr dataNode)
@@ -892,7 +906,7 @@ void TCacheTable::OnLogging( const TRow &row, TCacheUpdateStatus UpdateStatus )
     for(vector<TCacheField2>::iterator iv = FFields.begin(); iv != FFields.end(); iv++, Idx++) {
       ProgTrace( TRACE5, "l=%d, Ident=%d, Idx=%d, iv->VarIdx[0]=%d, iv->VarIdx[1]=%d",
                  l, iv->Ident, Idx, iv->VarIdx[0], iv->VarIdx[1] );
-      if ( !l && !iv->Ident ||  /* new variable value !!!iv->VarIdx[i] */
+      if ( !l && !iv->Ident ||
            UpdateStatus == usInserted && iv->VarIdx[ 0 ] < 0 ||
            UpdateStatus != usInserted && iv->VarIdx[ 1 ] < 0 )
         continue;

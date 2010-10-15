@@ -449,7 +449,7 @@ void TFilter::InsertSectsPeriods( map<int,TDestList> &mapds,
 ProgTrace( TRACE5, "p.move_id=%d, ip->move_id=%d, psummer=%d, issummer=%d",
            p.move_id, ip->move_id, psummer, issummer );
     if ( p.move_id == ip->move_id && psummer != issummer ) {
-        //имеется ссылка на один и тот же маршрут, а периоды принадлежат разным сезонам - разбить к чертовой матери!!!
+        //имеется ссылка на один и тот же маршрут, а периоды принадлежат разным сезонам - разбить к чертовой матери
       diff = getDiff( dst_offset, issummer, psummer );
       ProgTrace( TRACE5, "IsSummer(p.first)=%d, issummer=%d, diff=%f",
                  isSummer( p.first ), issummer, diff );
@@ -558,7 +558,7 @@ bool TFilter::isFilteredUTCTime( TDateTime vd, TDateTime first, TDateTime dest_t
   else
     l = f3 - f1 + f2;
 
-  //!!!!!!!! надо вvделять только время, без учета числа и перехода суток
+  // надо вvделять только время, без учета числа и перехода суток
   f = modf( (double)f, &f1 );
   l = modf( (double)l, &f1 );
 
@@ -585,7 +585,6 @@ bool TFilter::isFilteredUTCTime( TDateTime vd, TDateTime first, TDateTime dest_t
 
   //учет перехода времени
   TDateTime diff = GetTZTimeDiff( vd, first, tz );
-  //!!!! 01.04.2008 TDateTime diff = getDiff( dst_offset, isSummer( first ), isSummer( vd ) );
   f1 += diff;
 
   return ( f1 >= f && f1 <= l );
@@ -618,7 +617,6 @@ bool TFilter::isFilteredTime( TDateTime vd, TDateTime first_day, TDateTime scd_i
   catch( boost::local_time::ambiguous_result ) {
   	f2 = modf( (double)ClientToUTC( f1 + 1 + firstTime, vregion ), &f3  );
   	f3--;
-/*!!! 	  throw UserException( string("Время начала выполнения рейса не определено однозначно ") + DateTimeToStr( f1 + firstTime, "dd.mm hh:nn" ).c_str() );*/
   }
   catch( boost::local_time::time_label_invalid ) {
     throw AstraLocale::UserException( "MSG.FLIGHT_BEGINNING_TIME_NOT_EXISTS",
@@ -635,7 +633,6 @@ bool TFilter::isFilteredTime( TDateTime vd, TDateTime first_day, TDateTime scd_i
   catch( boost::local_time::ambiguous_result ) {
   	f2 = modf( (double)ClientToUTC( f1 + 1 + lastTime, vregion ), &f3 );
   	f3--;
- 	  /*!!!throw UserException( string("Время окончания выполнения рейса не определено однозначно ") + DateTimeToStr( f1 + lastTime, "dd.mm hh:nn" ).c_str() );*/
   }
   catch( boost::local_time::time_label_invalid ) {
     throw AstraLocale::UserException( "MSG.FLIGHT_ENDING_TIME_NOT_EXISTS",
@@ -646,7 +643,7 @@ bool TFilter::isFilteredTime( TDateTime vd, TDateTime first_day, TDateTime scd_i
   else
     l = f3 - f1 + f2;
 
-  //!!!!!!!! надо вvделять только время, без учета числа и перехода суток
+  // надо вvделять только время, без учета числа и перехода суток
   f = modf( (double)f, &f1 );
   l = modf( (double)l, &f1 );
 
@@ -876,7 +873,7 @@ void TFilter::Parse( xmlNodePtr filterNode )
   }
   node = GetNode( "time", filterNode );
   if ( node ) {
-      /* будем переводить в UTC относительно порта в маршруте !!!! */
+      /* будем переводить в UTC относительно порта в маршруте */
       firstTime = NodeAsDateTime( "first", node );
       lastTime = NodeAsDateTime( "last", node );
   }
@@ -1038,7 +1035,7 @@ void CreateSPP( BASIC::TDateTime localdate )
       	}
       }
       if ( exists ) {
- 	      //!!! А строка уже вставлена в таблицу move_ref!!!
+ 	      // А строка уже вставлена в таблицу move_ref
         continue;
       }
 
@@ -1258,7 +1255,7 @@ bool insert_points( double da, int move_id, TFilter &filter, TDateTime first_day
   return !ds.dests.empty();
 }
 
-// времена в фильтре хранятся в UTC!!!
+// времена в фильтре хранятся в UTC
 void createTrips( TDateTime utc_spp_date, TDateTime localdate, TFilter &filter, int offset,
                   TDestList &ds, string &err_city )
 {
@@ -1321,7 +1318,6 @@ void createSPP( TDateTime localdate, TSpp &spp, bool createViewer, string &err_c
              DateTimeToStr( d1, "dd.mm.yy hh:nn" ).c_str(),
              DateTimeToStr( d2, "dd.mm.yy hh:nn" ).c_str() );
   // для начала надо получить список периодов, которые выполняются в эту дату, пока без учета времени
-  //!!!
   Qry.SQLText =
   " SELECT DISTINCT move_id,first_day,last_day,:vd-delta AS qdate,pr_del,d.tz tz "
   "  FROM "
@@ -1850,7 +1846,7 @@ bool ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TD
       if ( !canUseAirline || !canUseAirp )
         throw AstraLocale::UserException( "MSG.INSUFFICIENT_RIGHTS.NOT_ACCESS" );
 //      ProgTrace( TRACE5, "first_dest=%d", ds.first_dest );
-      if ( mapds.find( period.move_id ) == mapds.end() ) //!!! ввели новый период (рейс) и сразу расширили его новой датой
+      if ( mapds.find( period.move_id ) == mapds.end() ) //! ввели новый период (рейс) и сразу расширили его новой датой
         mapds.insert(std::make_pair( period.move_id, ds ) );
       else
       	newdests = false; // используем старый маршрут
@@ -1876,16 +1872,7 @@ bool ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TD
       period.first = ClientToUTC( (double)period.first, filter_region );
  	  }
     catch( boost::local_time::ambiguous_result ) {
-    	period.first = ClientToUTC( (double)period.first + 1, filter_region ) - 1; //!!!djek
-/*    	if ( !ambiguous_timeNode ) {
-    	  showErrorMessage( string("Время выполнения рейса не определено однозначно ") + DateTimeToStr( period.first, "dd.mm hh:nn" ).c_str() );
-     	  return fale;
-     	}
-     	else {
-     		period.first = ClientToUTC( (double)period.first + 1, filter_region ) - 1; //!!!djek
-     	}*/
-/*      throw UserException( "Время выполнения рейса не определено однозначно %s",
-                            DateTimeToStr( period.first, "dd.mm hh:nn" ).c_str() );!!!*/
+    	period.first = ClientToUTC( (double)period.first + 1, filter_region ) - 1;
     }
     catch( boost::local_time::time_label_invalid ) {
       throw AstraLocale::UserException( "MSG.FLIGHT_TIME_NOT_EXISTS",
@@ -1913,9 +1900,6 @@ bool ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TD
       	  }
           catch( boost::local_time::ambiguous_result ) {
           	f2 = modf( (double)ClientToUTC( f3 + 1, id->region ) - 1, &f3 );
-/*!!!            throw UserException( "Время прилета рейса в пункте %s не определено однозначно %s",
-                                 id->airp.c_str(),
-                                 DateTimeToStr( first_day, "dd.mm" ).c_str() );*/
           }
           catch( boost::local_time::time_label_invalid ) {
             throw AstraLocale::UserException( "MSG.ARV_TIME_FOR_POINT_NOT_EXISTS",
@@ -2438,7 +2422,7 @@ TDateTime TDateTimeToClient( TDateTime flight_time, TDateTime dest_time, const s
   modf( (double)flight_time, &f1 );
   if ( dest_time > NoExists ) {
     f3 = modf( (double)dest_time, &f2 );
-    f2 = modf( (double)UTCToClient( f1 + fabs( f3 ), dest_region ), &f3 ); //!!!
+    f2 = modf( (double)UTCToClient( f1 + fabs( f3 ), dest_region ), &f3 );
     if ( f3 < f1 )
       return f3 - f1 - f2;
     else
@@ -2475,17 +2459,14 @@ bool createAirportTrip( string airp, int trip_id, TFilter filter, int offset, TD
       if ( OwnDest == NULL && NDest->airp == airp ) {
         PriorDest = PDest;
         OwnDest = NDest;
-  /*      // Den was here!!!*/
         if ( viewOwnPort ) {
         	TDest d = *NDest;
         	d.scd_in = TDateTimeToClient( ds.flight_time, d.scd_in, d.region );
         	d.scd_out = TDateTimeToClient( ds.flight_time, d.scd_out, d.region );
           vecportsFrom.push_back( d );
         }
-  /*      // end of Den was here*/
       }
       else { /* наш порт в маршруте не надо отображать */
-  //!!!      if ( ports.find( NDest->airp ) == string::npos ) {
           if ( !OwnDest ) {
           	TDest d = *NDest;
         	  d.scd_in = TDateTimeToClient( ds.flight_time, d.scd_in, d.region );
@@ -2498,7 +2479,6 @@ bool createAirportTrip( string airp, int trip_id, TFilter filter, int offset, TD
           	d.scd_out = TDateTimeToClient( ds.flight_time, d.scd_out, d.region );
             vecportsTo.push_back( d );
           }
-//      }
         createTrip = ( OwnDest && ( PDest->trip != NDest->trip || PDest->airline != NDest->airline ) );
       }
     }
@@ -2640,7 +2620,6 @@ bool createAirlineTrip( int trip_id, TFilter &filter, int offset, TDestList &ds,
         tr.triptype += "/";
       tr.triptype += str_trip_type;
     }
-    //!!!if ( tr.ports.find( NDest->airp ) == string::npos ) {
       if ( !tr.portsForAirline.empty() ) {
          tr.portsForAirline += "/";
          str_dests += "/";
@@ -2661,7 +2640,7 @@ bool createAirlineTrip( int trip_id, TFilter &filter, int offset, TDestList &ds,
 
         f3 = modf( (double)NDest->scd_in, &utc_date_scd_in );
         try {
-          f2 = modf( (double)UTCToClient( first_day + fabs( f3 ), NDest->region ), &f3 ); //!!!
+          f2 = modf( (double)UTCToClient( first_day + fabs( f3 ), NDest->region ), &f3 );
         }
         catch( Exception &e ) {
         	if ( err_city.empty() )
@@ -2712,7 +2691,7 @@ bool createAirlineTrip( int trip_id, TFilter &filter, int offset, TDestList &ds,
         TDateTime scd_out;
         f3 = modf( (double)NDest->scd_out, &utc_date_scd_out );
         try {
-          f2 = modf( (double)UTCToClient( first_day + fabs( f3 ), NDest->region ), &f3 ); //!!!
+          f2 = modf( (double)UTCToClient( first_day + fabs( f3 ), NDest->region ), &f3 );
         }
         catch( Exception &e ) {
         	if ( err_city.empty() )
@@ -3071,7 +3050,7 @@ TDateTime TFilter::GetTZTimeDiff( TDateTime utcnow, TDateTime first, int tz )
     ProgTrace( TRACE5, "periodDiff - seasonDiff =%d", periodDiff - seasonDiff );
     return (double)( periodDiff - seasonDiff )*3600000/(double)MSecsPerDay;
   }
- /* ПРАВИЛО!!! ПЕРЕВОДИТ ОСУЩЕСТВЛЯЕТСЯ ОТНОСИТЕЛЬНО ПЕРВОГО ДНЯ ВЫПОЛНЕНИЯ ДИАПАЗОНА
+ /* ПРАВИЛО: ПЕРЕВОДИТ ОСУЩЕСТВЛЯЕТСЯ ОТНОСИТЕЛЬНО ПЕРВОГО ДНЯ ВЫПОЛНЕНИЯ ДИАПАЗОНА
    период ЗИМА (3) = 0 сегодня ЛЕТО(4) = 1 =>  1
    период ЛЕТО(4) = 1 сегодня ЗИМА(3) = -1 => -1
  */
@@ -3201,14 +3180,14 @@ void internalRead( TFilter &filter, vector<TViewPeriod> &viewp, int trip_id = No
         time_period p( DateTimeToBoost( first ), DateTimeToBoost( last ) );
         time_period df( DateTimeToBoost( filter.range.first ), DateTimeToBoost( filter.range.last ) );
         /* фильтр по диапазонам, дням и временам вылета, если пользователь портовой */
-  /* !!! надо ли переводить у фильтра дни выполнения в UTC */
+  /* ??? надо ли переводить у фильтра дни выполнения в UTC */
         ds.flight_time = utc_first;
         ds.region = pregion;
 //        ProgTrace( TRACE5, "move_id=%d, pregion=%s", move_id, pregion.c_str() );
         if ( df.intersects( p ) &&
              /* переводим диапазон выполнения в локальный формат - может быть сдвиг */
              ConvertPeriodToLocal( first, last, days, pregion, ptz, errtz ) &&
-             CommonDays( days, filter.range.days ) && /* !!! в df.intersects надо посмотреть есть ли дни выполнения */
+             CommonDays( days, filter.range.days ) && /* ??? в df.intersects надо посмотреть есть ли дни выполнения */
             ( ds.dests.empty() ||
               TReqInfo::Instance()->user.user_type == utAirport &&
               createAirportTrip( viewperiod.trip_id, filter, GetTZOffSet( first, ptz, v ), ds, true, err_city ) /*??? isfiltered */ ||
@@ -3859,7 +3838,7 @@ TDoubleTrip::~TDoubleTrip()
            else
             l = f3 - f1 + f2;
 
-           //!!!!!!!! надо вvделять только время, без учета числа и перехода суток
+           //! надо вvделять только время, без учета числа и перехода суток
            f = modf( (double)f, &f1 );
            l = modf( (double)l, &f1 );
 

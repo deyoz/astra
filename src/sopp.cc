@@ -1459,11 +1459,6 @@ TDateTime Approached_ClientUTC( TDateTime f, string tz_region, bool pr_max )
 
 void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-
-  //VerifyParseFlight( ); //!!!
-
-
-
 //  createCentringFile( 13672, "ASTRA", "DMDTST" );
   ProgTrace( TRACE5, "ReadTrips" );
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
@@ -1561,7 +1556,7 @@ void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   info.scd_out=Qry.FieldAsDateTime("scd_out");
   info.real_out=Qry.FieldAsDateTime("real_out");
 
-  NewTextChild(resNode,"trip",GetTripName(info,ecDisp));
+  NewTextChild(resNode,"trip",GetTripName(info));
 
   Qry.Clear();
   if (pr_tlg)
@@ -2812,8 +2807,6 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
 
   if ( existsTrip )
     throw AstraLocale::UserException( "MSG.FLIGHT.DUPLICATE.ALREADY_EXISTS" );
-  /*!!! не только для нового */
-//  if ( move_id == NoExists ) {
   // задание параметров pr_tranzit, pr_reg, first_point
   TSOPPDests::iterator pid=dests.end();
   for( TSOPPDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
@@ -2845,7 +2838,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   Qry.Clear();
   bool insert = ( move_id == NoExists );
   if ( insert ) {
-  /* необходимо сделать проверку на не существование рейса !!!*/
+  /* необходимо сделать проверку на не существование рейса*/
     Qry.SQLText =
      "BEGIN "\
      " SELECT move_id.nextval INTO :move_id from dual; "\
@@ -2903,7 +2896,6 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     		id->point_id = Qry.FieldAsInteger( "point_id" );
     	}
     }
-/* !!! */
     if ( id->pr_del != -1 ) {
  		  if ( pr_begin ) {
  		  	  pr_begin = false;
@@ -2927,7 +2919,6 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
             id->modify = true;
           }
     }
-/*!!!end of*/
 
     if ( !id->modify ) { //??? remark
   	  voldDests.push_back( *id );
@@ -3396,7 +3387,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
       }
     }
     if ( set_act_out ) {
-    	//!!! еще point_num не записан
+    	// еще point_num не записан
        try
        {
          exec_stage( id->point_id, sTakeoff );
@@ -3736,7 +3727,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 		fnode = GetNodeFast( "trip_type", snode );
 		TElemFmt fmt;
 		if ( fnode ) {
-			d.triptype = ElemToElemId(etTripType,NodeAsString( fnode ),fmt); //!!!
+			d.triptype = ElemToElemId(etTripType,NodeAsString( fnode ),fmt);
 			if ( fmt == efmtUnknown )
 				throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.INVALID_TYPE" );
 		}
@@ -3824,7 +3815,6 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 		throw AstraLocale::UserException( "MSG.FLIGHT.NOT_FOUND" );
 	int pr_tranzit = ( !Qry.FieldIsNULL( "first_point" ) && Qry.FieldAsInteger( "pr_tranzit" ) );
 	string airp_dep = Qry.FieldAsString( "airp" );
-//	TElemFmt airp_fmt = (TElemFmt)Qry.FieldAsInteger( "airp_fmt" );//!!!locale1919.07.2010
 	string region = AirpTZRegion( airp_dep, true );
 	TDateTime local_time;
 	modf(UTCToLocal( NowUTC(), region ),&local_time);
@@ -3842,10 +3832,10 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 	while ( !Qry.Eof ) {
 		if ( !displnode )
 			displnode = NewTextChild( crsdNode, "airps_arv" );
-		NewTextChild( displnode, "airp_arv", ElemIdToCodeNative( etAirp, Qry.FieldAsString( "airp" ) ) ); //!!!19.07.2010
+		NewTextChild( displnode, "airp_arv", ElemIdToCodeNative( etAirp, Qry.FieldAsString( "airp" ) ) );
 		Qry.Next();
 	}
-	NewTextChild( crsdNode, "airp_dep", ElemIdToCodeNative( etAirp, airp_dep ) ); //!!!locale19.07.2010
+	NewTextChild( crsdNode, "airp_dep", ElemIdToCodeNative( etAirp, airp_dep ) );
 	if ( pr_tranzit )
 	  NewTextChild( crsdNode, "pr_tranzit", pr_tranzit );
 	Qry.Clear();
@@ -3862,20 +3852,20 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
   	if ( !displnode )
   		displnode = NewTextChild( crsdNode, "displaces" );
   	xmlNodePtr snode = NewTextChild( displnode, "displace" );
-		NewTextChild( snode, "airp_arv_spp", ElemIdToCodeNative( etAirp, Qry.FieldAsString( "airp_arv_spp" ) ) );//!!!locale19.07.2010
-		NewTextChild( snode, "class_spp", ElemIdToCodeNative( etClass, Qry.FieldAsString( "class_spp" ) ) );//!!!locale19.07.2010
-		NewTextChild( snode, "airline", ElemIdToCodeNative( etAirline, Qry.FieldAsString( "airline" ) ) );//!!!locale19.07.2010
+		NewTextChild( snode, "airp_arv_spp", ElemIdToCodeNative( etAirp, Qry.FieldAsString( "airp_arv_spp" ) ) );
+		NewTextChild( snode, "class_spp", ElemIdToCodeNative( etClass, Qry.FieldAsString( "class_spp" ) ) );
+		NewTextChild( snode, "airline", ElemIdToCodeNative( etAirline, Qry.FieldAsString( "airline" ) ) );
 		NewTextChild( snode, "flt_no", Qry.FieldAsString( "flt_no" ) );
-		NewTextChild( snode, "suffix", ElemIdToCodeNative( etSuffix, Qry.FieldAsString( "suffix" ) ) );//!!!locale19.07.2010
+		NewTextChild( snode, "suffix", ElemIdToCodeNative( etSuffix, Qry.FieldAsString( "suffix" ) ) );
 		NewTextChild( snode, "scd", DateTimeToStr( Qry.FieldAsDateTime( "scd" ) ) );
-		NewTextChild( snode, "airp_dep", ElemIdToCodeNative( etAirp, Qry.FieldAsString( "airp_dep" ) ) );//!!!locale19.07.2010
-		NewTextChild( snode, "airp_arv_tlg", ElemIdToCodeNative( etAirp, Qry.FieldAsString( "airp_arv_tlg" ) ) );//!!!locale19.07.2010
-		NewTextChild( snode, "class_tlg", ElemIdToCodeNative( etClass, Qry.FieldAsString( "class_tlg" ) ) );//!!!locale19.07.2010
-    NewTextChild( snode, "pr_goshow", (int)(DecodePaxStatus( Qry.FieldAsString( "status" ) ) != ASTRA::psCheckin) ); //!!!убрат
+		NewTextChild( snode, "airp_dep", ElemIdToCodeNative( etAirp, Qry.FieldAsString( "airp_dep" ) ) );
+		NewTextChild( snode, "airp_arv_tlg", ElemIdToCodeNative( etAirp, Qry.FieldAsString( "airp_arv_tlg" ) ) );
+		NewTextChild( snode, "class_tlg", ElemIdToCodeNative( etClass, Qry.FieldAsString( "class_tlg" ) ) );
+    NewTextChild( snode, "pr_goshow", (int)(DecodePaxStatus( Qry.FieldAsString( "status" ) ) != ASTRA::psCheckin) ); //!!!потом убрат
 	  NewTextChild( snode, "status", Qry.FieldAsString( "status" ) );
   	Qry.Next();
   }
-  /* !!! pr_utc */
+  /* pr_utc */
 	Qry.Clear();
 	Qry.SQLText =
 	 "SELECT DISTINCT airline,flt_no,suffix,scd,airp_arv FROM tlg_trips "
@@ -4470,6 +4460,7 @@ void ChangeTrip( int point_id, TSOPPTrip tr1, TSOPPTrip tr2, BitSet<TSOPPTripCha
   }
 	//Влад!!!
 	//внимательно смотри переменные. Может случится так, что scd_out=NoExists
+	// Отвязка телеграмм - это к Владу
 }
 
 

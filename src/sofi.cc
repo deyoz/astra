@@ -25,7 +25,6 @@ using namespace BASIC;
 
 void createFileParamsSofi( int point_id, int receipt_id, string pult, const string &point_addr, map<string,string> &params )
 {
-	//!!! надо считать
 	TQuery Qry( &OraSession );
 	Qry.SQLText =
      "declare "

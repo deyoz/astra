@@ -109,6 +109,8 @@ class TCacheTable;
 typedef void  (*TBeforeRefreshEvent)(TCacheTable &, TQuery &, const TCacheQueryType);
 typedef void  (*TBeforeApplyEvent)(TCacheTable &, const TRow &, TQuery &, const TCacheQueryType);
 
+enum TUpdateDataType {upNone, upExists, upClearAll};
+
 class TCacheTable {
     protected:
         TQuery *Qry;
@@ -135,10 +137,11 @@ class TCacheTable {
         std::vector<std::string> vars;
 
         void getPerms( );
-        bool pr_irefresh, pr_drefresh, pr_dconst;
+        bool pr_irefresh, pr_dconst;
+        TUpdateDataType refresh_data_type;
         void getParams(xmlNodePtr paramNode, TParams &vparams);
         bool refreshInterface();
-        bool refreshData();
+        TUpdateDataType refreshData();
         virtual void initFields();
         void XMLInterface(const xmlNodePtr resNode);
         void XMLData(const xmlNodePtr resNode);
