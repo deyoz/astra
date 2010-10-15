@@ -299,7 +299,7 @@ void TCrypt::Init( const std::string &desk )
 
 void IntGetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  // проверка на то, что это сертификат (возможно это запрос на сертификат!!!)
+  // проверка на то, что это сертификат (возможно это запрос на сертификат?)
   TCrypt Crypt;
   Crypt.Init( TReqInfo::Instance()->desk.code );
   xmlNodePtr node = NewTextChild( resNode, "crypt" );
