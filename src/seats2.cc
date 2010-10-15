@@ -1339,7 +1339,7 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
       for ( VPassengers::iterator ipass=npass.begin(); ipass!=npass.end(); ipass++ ) {
       	/* когда пассажир посажен или рассадка на бронь и у пассажира статус не бронь или нет предвар. рассадки или у пассажира указано не то место */
         if ( ipass->InUse || PlaceStatus == "PS" && !CanUse_PS &&
-        	                   ( ipass->placeStatus != PlaceStatus || ipass->preseat.empty() || ipass->preseat != ipass->placeName ) ) // ???!!!
+        	                   ( ipass->placeStatus != PlaceStatus || ipass->preseat.empty() || ipass->preseat != ipass->placeName ) )
           continue;
         Passengers.Clear();
         ipass->placeList = NULL;
@@ -1369,7 +1369,7 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
         ipass->index = old_index;
 
         if ( SeatGrpOnBasePlace( ) ||
-             ( CanUseRems == sNotUse || CanUseRems == sIgnoreUse || CanUseRems == sNotUseDenial /*!!!*/ ) &&
+             ( CanUseRems == sNotUse || CanUseRems == sIgnoreUse || CanUseRems == sNotUseDenial ) &&
              ( !CanUseStatus || PlaceStatus == "PS" && CanUse_PS || PlaceStatus != "PS" ) && SeatsGrp( ) ) {
           if ( seatplaces.begin()->Step == sLeft || seatplaces.begin()->Step == sUp )
             throw Exception( "Недопустимое значение направления рассадки" );
@@ -1848,7 +1848,6 @@ void SeatsPassengers( TSalons *Salons, int SeatAlgo /* 0 - умолчание */, bool FU
   		pr_MCLS = true;
     }
   }
-  /*!!!*/
   bool SeatOnlyBasePlace=true;
   for ( int i=0; i<Passengers.getCount(); i++ ) {
   	TPassenger &pass = Passengers.Get( i );
@@ -1856,7 +1855,7 @@ void SeatsPassengers( TSalons *Salons, int SeatAlgo /* 0 - умолчание */, bool FU
   		SeatOnlyBasePlace=false;
   		break;
   	}
-  }  /*!!!*/
+  }
 
 
   try {
@@ -1867,7 +1866,7 @@ void SeatsPassengers( TSalons *Salons, int SeatAlgo /* 0 - умолчание */, bool FU
    for ( int FSeatAlg=0; FSeatAlg<seatAlgLength; FSeatAlg++ ) {
      SeatAlg = (TSeatAlg)FSeatAlg;
      /* если есть в группе предварительная рассадка, то тогда сажаем всех отдельно */
-     if ( ( Status_preseat || Status_seat_no_BR || SeatOnlyBasePlace /*!!!*/ ) && SeatAlg != sSeatPassengers )
+     if ( ( Status_preseat || Status_seat_no_BR || SeatOnlyBasePlace ) && SeatAlg != sSeatPassengers )
      	 continue;
      for ( int FCanUseRems=0; FCanUseRems<useremLength; FCanUseRems++ ) {
         CanUseRems = (TUseRem)FCanUseRems;
@@ -1993,7 +1992,7 @@ bool GetPassengersForManualSeat( int point_id, TCompLayerType layer_type, TPasse
 	p.Clear();
   TQuery Qry( &OraSession );
   TQuery QrySeat( &OraSession );
-  Qry.SQLText = //!!!
+  Qry.SQLText =
      "SELECT points.airline,"
      "       pax_grp.grp_id,"
      "       pax.pax_id,"
@@ -2044,7 +2043,6 @@ bool GetPassengersForManualSeat( int point_id, TCompLayerType layer_type, TPasse
       	QrySeat.SetVariable( "pax_id", pass.pax_id );
       	QrySeat.Execute();
       	if ( !QrySeat.Eof )
-      		//!!!pass.PrevPlaceName =
       		pass.placeName = denorm_iata_row( QrySeat.FieldAsString( "first_yname" ) ) +
       		                 denorm_iata_line( QrySeat.FieldAsString( "first_xname" ), pr_lat_seat );
       }
@@ -2151,7 +2149,7 @@ void CanChangeLayer( int point_id, int pax_id, int crs_pax_id, TCompLayerType Ne
 	// 2. Определить имеем ли мы право заменять этот слой новым слоем
 	// условия в Qry1 могут быть неправильные, т.к. проверка на неравенство first_xname может не выполняться т.к. может быть задан диапазон
 	if ( !seats_count )
-	  throw AstraLocale::UserException( "MSG.SEATS.NOT_AVAIL_AUTO_SEATS" ); //!!!
+	  throw AstraLocale::UserException( "MSG.SEATS.NOT_AVAIL_AUTO_SEATS" );
 	seats.clear();
 	TQuery Qry( &OraSession );
   TQuery Qry0( &OraSession );
@@ -2491,9 +2489,6 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
     Qry.CreateVariable( "pax_id", otInteger, pax_id );
     Qry.CreateVariable( "layer_type", otString, EncodeCompLayerType( layer_type ) );
     Qry.Execute();
-/*!!!    if ( !Qry.RowCount() == seats ) { // пытаемся удалить слой, которого нет в БД
-      throw UserException( "Исходное место не найдено" );
-    }*/
   }
   // назначение нового слоя
   if ( seat_type != stDropseat ) { // посадка на новое место
@@ -2665,7 +2660,6 @@ void AutoReSeatsPassengers( TSalons &Salons, TPassengers &APass, int SeatAlgo )
             	break;
             }
           }
-        //!!!}
       }
     }
     TQuery QryPax( &OraSession );
