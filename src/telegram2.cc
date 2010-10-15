@@ -494,7 +494,6 @@ struct TMItem {
 
 void TMItem::get(TTlgInfo &info, int pax_id)
 {
-//!!!    throw Exception("TMItem::get failed");
         m_flight.getByPaxId(pax_id);
 }
 

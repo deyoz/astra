@@ -1043,7 +1043,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                         SQLText += (j == 0 ? "points" : "arx_points");
                         SQLText +=
                             " where "
-                            "   point_id = :point_id "; //!!!!!
+                            "   point_id = :point_id ";
                         if(j == 1) {
                             SQLText += " and part_key = :part_key ";
                             tripQry.CreateVariable("part_key", otDate,  Qry.FieldAsDateTime(col_part_key));
@@ -2331,7 +2331,6 @@ void RunTrferFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         throw AstraLocale::UserException("MSG.NOT_DATA");
     xmlNodePtr variablesNode = STAT::set_variables(resNode);
     NewTextChild(variablesNode, "caption", getLocaleText("Трансферная сводка"));
-    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str()); //!!!
 }
 
 void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
