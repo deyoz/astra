@@ -766,7 +766,7 @@ void PaymentOldInterface::GetReceipt(xmlNodePtr reqNode, TBagReceipt &rcpt)
   {
     //не заданы формы оплаты - скорее всего первое превью
     TBagPayType payType;
-    payType.pay_type=CASH_PAY_TYPE;
+    payType.pay_type=CASH_PAY_TYPE_ID;
     payType.pay_rate_sum=CalcPayRateSum(rcpt);
     payType.extra="";
     rcpt.pay_types.push_back(payType);
