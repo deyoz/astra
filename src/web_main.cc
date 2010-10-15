@@ -1004,13 +1004,11 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   if ( value.empty() )
    	throw UserException( "MSG.AIRLINE.NOT_SET" );
 
-  try {
-    flt.airline = ElemCtxtToElemId( ecDisp, etAirline, value, fmt, false ); //!!!vlad лучше бы использовать ElemToElemId
-  }
-  catch( EXCEPTIONS::EConvertError &e ) {
+  flt.airline = ElemToElemId( etAirline, value, fmt );
+  if (fmt==efmtUnknown)
   	throw UserException( "MSG.AIRLINE.INVALID",
   		                   LParams()<<LParam("airline", value ) );
-  }
+
   string str_flt_no = NodeAsString( "flt_no", reqNode, "" );
 	if ( StrToInt( str_flt_no.c_str(), flt.flt_no ) == EOF ||
 		   flt.flt_no > 99999 || flt.flt_no <= 0 )
@@ -1018,13 +1016,13 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 			                   LParams()<<LParam("flt_no", str_flt_no) );
 	flt.suffix = NodeAsString( "suffix", reqNode, "" );
 	flt.suffix = TrimString( flt.suffix );
-  try {
-   flt.suffix = ElemCtxtToElemId( ecDisp, etSuffix, flt.suffix, fmt, false ); //!!!vlad лучше бы использовать ElemToElemId
-  }
-  catch( EXCEPTIONS::EConvertError &e ) {
-		throw UserException( "MSG.SUFFIX.INVALID",
-			                   LParams()<<LParam("suffix", flt.suffix) );
-  }
+  if (!flt.suffix.empty())
+  {
+    flt.suffix = ElemToElemId( etSuffix, flt.suffix, fmt );
+    if (fmt==efmtUnknown)
+  		throw UserException( "MSG.SUFFIX.INVALID",
+  			                   LParams()<<LParam("suffix", flt.suffix) );
+  };
   string str_scd_out = NodeAsString( "scd_out", reqNode, "" );
 	str_scd_out = TrimString( str_scd_out );
   if ( str_scd_out.empty() )
@@ -1051,7 +1049,7 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   if (pnr.begin()->point_dep.empty())
     throw UserException( "MSG.FLIGHT.NOT_FOUND" );
   if (pnr.begin()->point_dep.size()>1)
-    throw UserException( "MSG.FLIGHT.FOUND_MORE" ); //добавить в locale_messages !!!vlad
+    throw UserException( "MSG.FLIGHT.FOUND_MORE" );
 
 	TSearchPnrData SearchPnrData;
 	getTripData(pnr.begin()->point_dep.begin()->first, SearchPnrData, true);

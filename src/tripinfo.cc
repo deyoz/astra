@@ -1611,11 +1611,11 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
       TlgTripsQry.Execute();
       if (TlgTripsQry.Eof) throw AstraLocale::UserException("MSG.FLT.NOT_FOUND.REPEAT_QRY");
       ostringstream trip;
-      trip << ElemIdToCodeNative(etAirline,TlgTripsQry.FieldAsString("airline") ) //!!!
+      trip << ElemIdToCodeNative(etAirline,TlgTripsQry.FieldAsString("airline") )
            << setw(3) << setfill('0') << TlgTripsQry.FieldAsInteger("flt_no")
-           << ElemIdToCodeNative(etSuffix,TlgTripsQry.FieldAsString("suffix")) //!!!
-           << "/" << DateTimeToStr(TlgTripsQry.FieldAsDateTime("scd"),"ddmmm",TReqInfo::Instance()->desk.lang!="RU") //!!!
-           << " " << ElemIdToCodeNative(etAirp,TlgTripsQry.FieldAsString("airp_dep")); //!!!
+           << ElemIdToCodeNative(etSuffix,TlgTripsQry.FieldAsString("suffix"))
+           << "/" << DateTimeToStr(TlgTripsQry.FieldAsDateTime("scd"),"ddmmm",TReqInfo::Instance()->desk.lang!=AstraLocale::LANG_RU)
+           << " " << ElemIdToCodeNative(etAirp,TlgTripsQry.FieldAsString("airp_dep"));
       NewTextChild(tripNode,"name",trip.str());
       paxNode = NewTextChild(tripNode,"passengers");
     };
