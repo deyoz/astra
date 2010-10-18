@@ -1235,7 +1235,7 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     else
      if (reqInfo->desk.code != Qry.FieldAsString("desk"))
        AstraLocale::showMessage("MSG.PULT_SWAP");
-    if (Qry.FieldAsString("passwd")==(string)"èÄêéãú" )
+    if (Qry.FieldAsString("passwd")==(string)Qry.FieldAsString("login") )
       AstraLocale::showErrorMessage("MSG.USER_NEED_TO_CHANGE_PASSWD");
 
     string lang;

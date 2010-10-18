@@ -79,7 +79,7 @@ void AdmInterface::SetDefaultPasswd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
   TQuery Qry(&OraSession);
   int user_id = NodeAsInteger( "user_id", reqNode );
   Qry.SQLText =
-    "UPDATE users2 SET passwd='èÄêéãú' WHERE user_id=:user_id";
+    "UPDATE users2 SET passwd=login WHERE user_id=:user_id";
   Qry.DeclareVariable( "user_id", otInteger );
   Qry.SetVariable( "user_id", user_id );
   Qry.Execute();
@@ -88,7 +88,7 @@ void AdmInterface::SetDefaultPasswd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
   SetProp( resNode, "handle", "1" );
   Qry.Clear();
   Qry.SQLText =
-    "SELECT descr FROM users2 WHERE user_id=:user_id";
+    "SELECT descr, login FROM users2 WHERE user_id=:user_id";
   Qry.DeclareVariable( "user_id", otInteger );
   Qry.SetVariable( "user_id", user_id );
   Qry.Execute();
@@ -96,7 +96,7 @@ void AdmInterface::SetDefaultPasswd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                                   Qry.FieldAsString( "descr" ), evtAccess );
   AstraLocale::showMessage("MSG.PASSWORD.ASSIGNED_DEFAULT",
   	                       LParams() << LParam("user", (string)Qry.FieldAsString( "descr" ))<<
-  	                                    LParam("passwd",string("'èÄêéãú'")) );
+  	                                    LParam("passwd",(string)Qry.FieldAsString( "login" )) );
 }
 
 
