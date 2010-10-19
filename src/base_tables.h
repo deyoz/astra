@@ -843,6 +843,23 @@ class TBagNormTypes: public TCodeBaseTable {
   	};
 };
 
+class TLangTypesRow: public TCodeBaseTableRow {
+	public:
+    const char *get_row_name() const { return "TLangTypesRow"; };
+};
+
+class TLangTypes: public TCodeBaseTable {
+  protected:
+    const char *get_table_name() { return "TLangTypes"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+    void Invalidate() {}; //всегда актуальна
+  public:
+  	TLangTypes() {
+  		Init( "lang_types" );
+  	};
+};
+
+
 
 class TBaseTables {
     private:

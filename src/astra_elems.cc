@@ -118,6 +118,8 @@ const char* EncodeElemType(const TElemType type)
   		return "etTypeBType";
   	case etBagNormType:
   		return "etBagNormType";
+  	case etLangType:
+  		return "etLangType";
   }
   return "";
 };
@@ -395,6 +397,9 @@ string getTableName(TElemType type)
   		break;
     case etBagNormType:
   		table_name="bag_norm_types";
+  		break;
+  	case etLangType:
+  		table_name="lang_types";
   		break;
   	default:;
   };

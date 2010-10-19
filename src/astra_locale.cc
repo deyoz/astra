@@ -122,7 +122,7 @@ int TLocaleMessages::checksum(const std::string &lang)
 	if ( dicts.find(lang) != dicts.end() )
 		return dicts[ lang ].checksum;
 	else
-		return -1;
+		return 0;
 }
 
 std::string TLocaleMessages::getDictionary(const std::string &lang)

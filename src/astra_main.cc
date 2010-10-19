@@ -193,7 +193,7 @@ int AstraApplication::nosir_proc(int argc, char ** argv)
 
 //     InitLogTime(NULL);
 
- /* !!!Den  Oci7Init(get_connect_string(),1);
+/*!!! for Den   Oci7Init(get_connect_string(),1);
 
     int res = main_nosir_user(argc,argv);
     if(res != 0) {

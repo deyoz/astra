@@ -35,6 +35,7 @@
 #include "xml_unit.h"
 #include "base_tables.h"
 #include "web_main.h"
+#include "astra_locale.h"
 #include "jxtlib/jxtlib.h"
 #include "serverlib/query_runner.h"
 #include "serverlib/ocilocal.h"
@@ -98,8 +99,23 @@ void AstraJxtCallbacks::UserBefore(const std::string &head, const std::string &b
     std::string mode;
     if (modeNode!=NULL)
       reqInfoData.mode = NodeAsString(modeNode);
-    if ( GetNode( "@lang", node ) )
+
+    if ( GetNode( "@lang", node ) ) {
     	reqInfoData.lang = NodeAsString("@lang",node);
+    	ProgTrace( TRACE5, "reqInfoData.lang=%s", reqInfoData.lang.c_str() );
+    	if ( GetNode( "UserLogon", node ) != NULL && reqInfoData.lang != AstraLocale::LANG_DEFAULT ) {
+    		TLangTypes langs = (TLangTypes&)base_tables.get("lang_types");
+    		try {
+      		langs.get_row("code",reqInfoData.lang);
+          if (AstraLocale::TLocaleMessages::Instance()->checksum( reqInfoData.lang ) == 0) // нет данных для словаря
+          	throw EBaseTableError("");
+      	}
+        catch( EBaseTableError ) {
+        	ProgTrace( TRACE5, "Unknown client lang=%s", reqInfoData.lang.c_str() );
+        	reqInfoData.lang = AstraLocale::LANG_DEFAULT;
+        }
+      }
+    }
 
    if (!reqInfoData.lang.empty())
    {

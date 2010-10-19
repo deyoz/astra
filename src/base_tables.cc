@@ -88,6 +88,8 @@ TBaseTable &TBaseTables::get(string name)
         	  base_tables[name] = new TTypeBTypes();
         else if(name == "BAG_NORM_TYPES")
         	  base_tables[name] = new TBagNormTypes();
+        else if(name == "LANG_TYPES")
+        	  base_tables[name] = new TLangTypes();
         else
             throw Exception("TBaseTables::get_base_table: " + name + " not found");
     }
@@ -702,6 +704,12 @@ void TMiscSetTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow *
 void TBagNormTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
 	*row = new TBagNormTypesRow;
+	TCodeBaseTable::create_row(Qry,row,replaced_row);
+};
+
+void TLangTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+{
+	*row = new TLangTypesRow;
 	TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 

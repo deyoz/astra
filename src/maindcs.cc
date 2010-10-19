@@ -1238,10 +1238,6 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     if (Qry.FieldAsString("passwd")==(string)Qry.FieldAsString("login") )
       AstraLocale::showErrorMessage("MSG.USER_NEED_TO_CHANGE_PASSWD");
 
-    string lang;
-    if ( GetNode("lang",reqNode) )
-      lang = NodeAsString("lang",reqNode);
-
     Qry.Clear();
     Qry.SQLText =
       "BEGIN "
@@ -1274,6 +1270,7 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     reqInfoData.screen = NodeAsString("@screen", node);
     reqInfoData.pult = ctxt->pult;
     reqInfoData.opr = NodeAsString("@opr", node);
+  	reqInfoData.lang = reqInfo->desk.lang; //!определение языка вынесено в astracallbacks.cc::UserBefore т.к. там задается контекст xmlRC->setLang(RUSSIAN) и не требуется делать повторно эту долгую операцию
     xmlNodePtr modeNode = GetNode("@mode", node);
     if (modeNode!=NULL)
       reqInfoData.mode = NodeAsString(modeNode);
@@ -1286,14 +1283,20 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     ConvertDevOldFormat(reqNode,resNode);
     GetDevices(reqNode,resNode);
 
-    if ( !lang.empty() ) { // передаем словарь
-      string lang = NodeAsString("lang",reqNode);
+    if ( GetNode("lang",reqNode) ) { //!!!необходимо, чтобы был словарь для языка по умолчанию - здесь нет этой проверки!!!
+    	ProgTrace( TRACE5, "desk.lang=%s, dict.lang=%s", reqInfo->desk.lang.c_str(), NodeAsString( "lang/@dictionary_lang",reqNode) );
       int client_checksum = NodeAsInteger("lang/@dictionary_checksum",reqNode);
-      if ( client_checksum == 0 || AstraLocale::TLocaleMessages::Instance()->checksum( lang ) != client_checksum ) {
+      int server_checksum = AstraLocale::TLocaleMessages::Instance()->checksum( reqInfo->desk.lang );
+      if ( NodeAsString( "lang/@dictionary_lang",reqNode) != reqInfo->desk.lang ||
+      	   client_checksum == 0 ||
+      	   server_checksum != client_checksum ) {
         ProgTrace( TRACE5, "Send dictionary: lang=%s, client_checksum=%d, server_checksum=%d",
-                   lang.c_str(), client_checksum,
-                   AstraLocale::TLocaleMessages::Instance()->checksum( NodeAsString("lang",reqNode) ) );
-        NewTextChild(resNode, "dictionary", AstraLocale::TLocaleMessages::Instance()->getDictionary(lang));
+                   reqInfo->desk.lang.c_str(), client_checksum,
+                   AstraLocale::TLocaleMessages::Instance()->checksum( reqInfo->desk.lang ) );
+        SetProp(NewTextChild( resNode, "lang", reqInfo->desk.lang ), "dictionary", AstraLocale::TLocaleMessages::Instance()->getDictionary(reqInfo->desk.lang));
+      }
+      else {
+      	NewTextChild( resNode, "lang", reqInfo->desk.lang );
       }
     }
     showBasicInfo();

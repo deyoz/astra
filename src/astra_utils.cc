@@ -125,9 +125,14 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
 		setPerform();
   clear();
 
+  if (!InitData.lang.empty() /*desk.compatible(LATIN_VERSION)*/)
+    desk.lang=InitData.lang;
+  else
+    desk.lang=AstraLocale::LANG_RU;
+
   TQuery Qry(&OraSession);
-  ProgTrace( TRACE5, "screen=%s, pult=|%s|, opr=|%s|, checkCrypt=%d, pr_web=%d",
-            InitData.screen.c_str(), InitData.pult.c_str(), InitData.opr.c_str(), InitData.checkCrypt, InitData.pr_web );
+  ProgTrace( TRACE5, "screen=%s, pult=|%s|, opr=|%s|, checkCrypt=%d, pr_web=%d, desk.lang=%s",
+            InitData.screen.c_str(), InitData.pult.c_str(), InitData.opr.c_str(), InitData.checkCrypt, InitData.pr_web, desk.lang.c_str() );
   screen.name = upperc( InitData.screen );
   desk.code = InitData.pult;
   desk.mode = DecodeOperMode(InitData.mode);
@@ -184,10 +189,6 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   desk.version = Qry.FieldAsString( "version" );
   desk.currency = Qry.FieldAsString( "currency" );
   desk.grp_id = Qry.FieldAsInteger( "grp_id" );
-  if (desk.compatible(LATIN_VERSION))
-    desk.lang=InitData.lang;
-  else
-    desk.lang=AstraLocale::LANG_RU;
 
   ProgTrace( TRACE5, "terminal version='%s'", desk.version.c_str() );
 
