@@ -82,8 +82,7 @@ void AstraJxtCallbacks::InitInterfaces()
     new AstraWeb::WebRequestsIface();
 };
 
-void AstraJxtCallbacks::UserBefore(/*const char *body, int blen, const char *head,
-        int hlen, char **res, int len*/)
+void AstraJxtCallbacks::UserBefore(const std::string &head, const std::string &body)
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
 	  reqInfo->setPerform();
@@ -121,14 +120,14 @@ void AstraJxtCallbacks::UserBefore(/*const char *body, int blen, const char *hea
         GetNode( "RequestCertificateData", node ) == NULL &&
         GetNode( "PutRequestCertificate", node ) == NULL;
 
-  /*  reqInfoData.checkCrypt =
+    reqInfoData.checkCrypt =
         GetNode( "kick", node ) == NULL &&
         GetNode( "GetCertificates", node ) == NULL &&
         GetNode( "RequestCertificateData", node ) == NULL &&
         GetNode( "PutRequestCertificate", node ) == NULL &&
         !((head)[getGrp3ParamsByte()+1]&MSG_MESPRO_CRYPT);
 
-    reqInfoData.pr_web = (head[0]==2);*/
+    reqInfoData.pr_web = (head[0]==2);
 
     try
     {

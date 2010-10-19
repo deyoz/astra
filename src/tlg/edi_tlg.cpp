@@ -320,7 +320,7 @@ int init_edifact()
 {
     InitEdiLogger(ProgError,WriteLog,ProgTrace);
 
-    if(CreateTemplateMessagesCur(LD,NULL)){
+    if(CreateTemplateMessagesCur(OciCpp::mainSession().getLd()/*  LD*/,NULL)){
         return -1;
     }
     if(InitEdiTypes(edi_msg_proc, edi_proc_sz)){

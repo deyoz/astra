@@ -111,7 +111,7 @@ class AstraApplication : public ApplicationCallbacks
     virtual void connect_db()
     {
     	ApplicationCallbacks::connect_db();
-    	OraSession.Initialize(LD);
+    	OraSession.Initialize(OciCpp::mainSession().getLd());
     }
 /*    virtual void disconnect_db()
     {
@@ -193,7 +193,7 @@ int AstraApplication::nosir_proc(int argc, char ** argv)
 
 //     InitLogTime(NULL);
 
-    Oci7Init(get_connect_string(),1);
+ /* !!!Den  Oci7Init(get_connect_string(),1);
 
     int res = main_nosir_user(argc,argv);
     if(res != 0) {
@@ -202,7 +202,7 @@ int AstraApplication::nosir_proc(int argc, char ** argv)
         make_curs("commit").exec();
     }
 
-    return res;
+    return res;*/
 }
 
 
