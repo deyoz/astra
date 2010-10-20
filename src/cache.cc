@@ -79,7 +79,7 @@ void TCacheTable::Init(xmlNodePtr cacheNode)
 
   Qry->Clear();
   Qry->SQLText = "SELECT title, select_sql, refresh_sql, insert_sql, update_sql, delete_sql, "
-                 "       logging, keep_locally, event_type, tid, need_refresh, "
+                 "       logging, keep_locally, keep_deleted_rows, event_type, tid, need_refresh, "
                  "       select_right, insert_right, update_right, delete_right "
                  " FROM cache_tables WHERE code = :code";
   Qry->DeclareVariable("code", otString);
@@ -94,7 +94,9 @@ void TCacheTable::Init(xmlNodePtr cacheNode)
   UpdateSQL = Qry->FieldAsString("update_sql");
   DeleteSQL = Qry->FieldAsString("delete_sql");
   Logging = Qry->FieldAsInteger("logging") != 0;
-  Keep_Locally = Qry->FieldAsInteger("keep_locally") != 0;
+  KeepLocally = Qry->FieldAsInteger("keep_locally") != 0;
+  KeepDeletedRows = Qry->FieldAsInteger("keep_deleted_rows") != 0;
+
   EventType = DecodeEventType( Qry->FieldAsString( "event_type" ) );
   curVerIface = Qry->FieldAsInteger( "tid" ); /* текущая версия интерфейса */
   pr_dconst = !Qry->FieldAsInteger( "need_refresh" );
@@ -294,7 +296,7 @@ void TCacheTable::initFields()
             FField.ReferName == "CODE_LAT/CODE" )
         {
           FField.ElemCategory=cecCode;
-          if (!TReqInfo::Instance()->desk.compatible(CACHE_LATIN_VERSION))
+          if (!TReqInfo::Instance()->desk.compatible(LATIN_VERSION))
             FField.ReferName="CODE";
         };
 
@@ -302,7 +304,7 @@ void TCacheTable::initFields()
             FField.ReferName == "NAME_LAT/NAME" )
         {
           FField.ElemCategory=cecName;
-          if (!TReqInfo::Instance()->desk.compatible(CACHE_LATIN_VERSION))
+          if (!TReqInfo::Instance()->desk.compatible(LATIN_VERSION))
             FField.ReferName="NAME";
         };
 
@@ -310,7 +312,7 @@ void TCacheTable::initFields()
             FField.ReferName == "DESCR_LAT/DESCR" )
         {
           FField.ElemCategory=cecNone;
-          if (!TReqInfo::Instance()->desk.compatible(CACHE_LATIN_VERSION))
+          if (!TReqInfo::Instance()->desk.compatible(LATIN_VERSION))
             FField.ReferName="DESCR";
         };
 
@@ -571,7 +573,11 @@ void TCacheTable::buildAnswer(xmlNodePtr resNode)
     NewTextChild( dataNode, "code", code() );
     NewTextChild(dataNode, "Forbidden", Forbidden);
     NewTextChild(dataNode, "ReadOnly", ReadOnly);
-    NewTextChild( dataNode, "Keep_Locally", Keep_Locally );
+    if (TReqInfo::Instance()->desk.compatible(LATIN_VERSION))
+      NewTextChild(dataNode, "keep_locally", KeepLocally );
+    else
+      NewTextChild(dataNode, "Keep_Locally", KeepLocally );
+    NewTextChild(dataNode, "keep_deleted_rows", KeepDeletedRows );
     vector<string> sql_vars;
     bool user_depend = false;
     if (!user_depend)

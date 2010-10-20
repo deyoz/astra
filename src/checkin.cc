@@ -2276,7 +2276,7 @@ bool CheckInInterface::ParseFQTRem(TTlgParser &tlg,string &rem_text,TFQTItem &fq
             break;
         };
       }
-      catch(logic_error)
+      catch(std::exception)
       {
         switch(k)
         {
@@ -5733,7 +5733,7 @@ void CheckInInterface::TestDateTime(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
       //ud = UTCToLocal(ud,reqInfo->desk.tz_region);
       ReplaceTextChild(resNode,"LocalDateTime",DateTimeToStr(ud,"dd.mm.yyyy hh:nn:ss"));
     }
-    catch(std::logic_error e)
+    catch(std::exception &e)
     {
       ASTRA::showErrorMessage(e.what());
     };
@@ -5748,7 +5748,7 @@ void CheckInInterface::TestDateTime(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
       //ld = LocalToUTC(ld,reqInfo->desk.tz_region);
       ReplaceTextChild(resNode,"UTCDateTime",DateTimeToStr(ld,"dd.mm.yyyy hh:nn:ss"));
     }
-    catch(std::logic_error e)
+    catch(std::exception &e)
     {
       ASTRA::showErrorMessage(e.what());
     };
