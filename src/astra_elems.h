@@ -7,10 +7,10 @@
 enum TElemType { etCountry,etCity,etAirline,etAirp,etCraft,etClass,etSubcls,
                  etPersType,etGenderType,etPaxDocType,etPayType,etCurrency,
                  etRefusalType,etSuffix,etClsGrp,etTripType,etCompElemType,
-                 etGrpStatusType,etClientType,etCompLayerType,etCrs,
+                 etGrpStatusType,etClientType,etCompLayerType,etCrs,etHall,
                  etDevModel,etDevSessType,etDevFmtType,etDevOperType,
                  etGraphStage, etMiscSetType, etDelayType, etTripLiter, etTypeBType,
-                 etBagNormType, etLangType };
+                 etBagNormType, etLangType, etTagColor };
 enum TElemContext { ecDisp, ecCkin, ecTrfer, ecTlgTypeB, ecNone };
 
 //форматы:
@@ -70,5 +70,6 @@ std::string ElemCtxtToElemId(TElemContext ctxt,TElemType type, std::string code,
 std::string ElemIdToElemCtxt(TElemContext ctxt,TElemType type, std::string id,
                              TElemFmt fmt, bool with_deleted=true);
 
+void getElemFmts(TElemFmt fmt, std::string basic_lang, std::vector< std::pair<TElemFmt,std::string> > &fmts);
 
 #endif /*_ASTRA_ELEMS_H_*/

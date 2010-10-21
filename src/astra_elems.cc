@@ -96,6 +96,8 @@ const char* EncodeElemType(const TElemType type)
   		return "etClientType";
   	case etCompLayerType:
   		return "etCompLayerType";
+  	case etHall:
+  		return "etHall";
   	case etCrs:
   		return "etCrs";
   	case etDevModel:
@@ -120,6 +122,8 @@ const char* EncodeElemType(const TElemType type)
   		return "etBagNormType";
   	case etLangType:
   		return "etLangType";
+  	case etTagColor:
+  		return "etTagColor";
   }
   return "";
 };
@@ -400,6 +404,9 @@ string getTableName(TElemType type)
   		break;
   	case etLangType:
   		table_name="lang_types";
+  		break;
+    case etTagColor:
+  		table_name="tag_colors";
   		break;
   	default:;
   };
@@ -728,6 +735,22 @@ string ElemIdToElem(TElemType type, int id, const vector< pair<TElemFmt,string> 
       };
     }
     catch (EBaseTableError) {};
+  } else
+  {
+    TQuery Qry(&OraSession);
+    //не base_table
+    switch(type)
+    {
+      case etHall: Qry.SQLText="SELECT name,nvl(name_lat, system.transliter(name, 1, 1)) name_lat FROM halls2 WHERE id=:id"; break; // !!! а надо ли транслитер
+      default: throw Exception("Unexpected elem type %s", EncodeElemType(type));
+    };
+    Qry.CreateVariable("id",otInteger,id);
+    Qry.Execute();
+    for(vector< pair<TElemFmt,string> >::const_iterator i=fmts.begin();i!=fmts.end();i++)
+    {
+      getElem(i->first, i->second, Qry, elem);
+      if (!elem.empty()) break;
+    };
   };
 
   return elem;
@@ -740,7 +763,7 @@ string ElemIdToElem(TElemType type, int id, TElemFmt fmt, const std::string &lan
   return ElemIdToElem(type, id, fmts, with_deleted);
 };
 
-void getElemFmts(TElemFmt fmt, vector< pair<TElemFmt,string> > &fmts)
+void getElemFmts(TElemFmt fmt, string basic_lang, vector< pair<TElemFmt,string> > &fmts)
 {
   fmts.clear();
   for(int pass=0; pass<=1; pass++)
@@ -748,14 +771,14 @@ void getElemFmts(TElemFmt fmt, vector< pair<TElemFmt,string> > &fmts)
     string lang;
     if (pass==0)
     {
-      if (!TReqInfo::Instance()->desk.lang.empty())
-        lang=TReqInfo::Instance()->desk.lang;
+      if (!basic_lang.empty())
+        lang=basic_lang;
       else
         continue;
     }
     else
     {
-      if (TReqInfo::Instance()->desk.lang!=AstraLocale::LANG_RU)
+      if (basic_lang!=AstraLocale::LANG_RU)
         lang=AstraLocale::LANG_RU;
       else
         continue;
@@ -819,7 +842,7 @@ string ElemIdToClientElem(TElemType type, const string &id, TElemFmt fmt, bool w
   if (id.empty()) return "";
 
   vector< pair<TElemFmt,string> > fmts;
-  getElemFmts(fmt, fmts);
+  getElemFmts(fmt, TReqInfo::Instance()->desk.lang, fmts);
   return ElemIdToElem(type, id, fmts, with_deleted);
 };
 
@@ -828,7 +851,7 @@ string ElemIdToClientElem(TElemType type, int id, TElemFmt fmt, bool with_delete
   if (id==ASTRA::NoExists) return "";
 
   vector< pair<TElemFmt,string> > fmts;
-  getElemFmts(fmt, fmts);
+  getElemFmts(fmt, TReqInfo::Instance()->desk.lang, fmts);
   return ElemIdToElem(type, id, fmts, with_deleted);
 };
 
