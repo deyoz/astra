@@ -7,7 +7,7 @@
 #include "basic.h"
 
 void get_report_form(const std::string name, xmlNodePtr node);
-void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode,
+void PaxListVars(int point_id, std::string lang, xmlNodePtr variablesNode,
                  BASIC::TDateTime part_key = ASTRA::NoExists);
 void SeasonListVars(int trip_id, int pr_lat, xmlNodePtr variablesNode, xmlNodePtr reqNode);
 std::string get_flight(xmlNodePtr variablesNode);

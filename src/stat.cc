@@ -1522,8 +1522,10 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-xmlNodePtr STAT::set_variables(xmlNodePtr resNode)
+xmlNodePtr STAT::set_variables(xmlNodePtr resNode, string lang)
 {
+    if(lang.empty())
+        lang = TReqInfo::Instance()->desk.lang;
 
     xmlNodePtr formDataNode = GetNode("form_data", resNode);
     if(!formDataNode)
@@ -1549,13 +1551,14 @@ xmlNodePtr STAT::set_variables(xmlNodePtr resNode)
     NewTextChild(variablesNode, "print_term", reqInfo->desk.code);
     NewTextChild(variablesNode, "use_seances", USE_SEANCES());
     NewTextChild(variablesNode, "test_server", get_test_server());
-    NewTextChild(variablesNode, "cap_test", getLocaleText("CAP.TEST"));
-    NewTextChild(variablesNode, "page_number_fmt", getLocaleText("CAP.PAGE_NUMBER_FMT"));
-    NewTextChild(variablesNode, "short_page_number_fmt", getLocaleText("CAP.SHORT_PAGE_NUMBER_FMT"));
+    NewTextChild(variablesNode, "cap_test", getLocaleText("CAP.TEST", lang));
+    NewTextChild(variablesNode, "page_number_fmt", getLocaleText("CAP.PAGE_NUMBER_FMT", lang));
+    NewTextChild(variablesNode, "short_page_number_fmt", getLocaleText("CAP.SHORT_PAGE_NUMBER_FMT", lang));
     NewTextChild(variablesNode, "oper_info", getLocaleText("CAP.DOC.OPER_INFO", LParams()
                 << LParam("date", DateTimeToStr(issued, "dd.mm.yyyy hh:nn:ss ") + tz)
                 << LParam("oper", reqInfo->user.login)
-                << LParam("term", reqInfo->desk.code)
+                << LParam("term", reqInfo->desk.code),
+                lang
                 ));
     return variablesNode;
 }

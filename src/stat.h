@@ -5,7 +5,7 @@
 #include "jxtlib/JxtInterface.h"
 
 namespace STAT {
-    xmlNodePtr set_variables(xmlNodePtr resNode);
+    xmlNodePtr set_variables(xmlNodePtr resNode, std::string lang = "");
 }
 
 class StatInterface : public JxtInterface
