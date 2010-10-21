@@ -1754,9 +1754,9 @@ void TWItem::get(int grp_id)
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "SELECT "
-        "  NVL(ckin.get_bagAmount(:grp_id,NULL),0) bagAmount, "
-        "  NVL(ckin.get_bagWeight(:grp_id,NULL),0) bagWeight, "
-        "  NVL(ckin.get_rkWeight(:grp_id,NULL),0) rkWeight "
+        "  NVL(ckin.get_bagAmount2(:grp_id,NULL,NULL),0) bagAmount, "
+        "  NVL(ckin.get_bagWeight2(:grp_id,NULL,NULL),0) bagWeight, "
+        "  NVL(ckin.get_rkWeight2(:grp_id,NULL,NULL),0) rkWeight "
         "FROM dual ";
     Qry.CreateVariable("grp_id", otInteger, grp_id);
     Qry.Execute();

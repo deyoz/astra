@@ -1018,9 +1018,9 @@ void PTM(TRptParams &rpt_params, xmlNodePtr resNode)
             " SUBSTR(report.get_remarks(pax_id,0),1,250) AS remarks, \n";
     }
     SQLText +=
-        "   NVL(ckin.get_rkWeight(pax.grp_id,pax.pax_id),0) AS rk_weight, \n"
+        "   NVL(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS rk_weight, \n"
         "   NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS bag_amount, \n"
-        "   NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id, pax.bag_pool_num),0) AS bag_weight, \n"
+        "   NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS bag_weight, \n"
         "   NVL(ckin.get_excess(pax.grp_id,pax.pax_id),0) AS excess, \n"
         "   ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags, \n"
         "   reg_no, \n"

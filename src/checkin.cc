@@ -5601,11 +5601,11 @@ void CheckInInterface::SaveBagToLog(int point_id, int grp_id, xmlNodePtr bagtagN
     Qry.Clear();
     Qry.SQLText=
       "SELECT "
-      "       NVL(ckin.get_bagAmount(grp_id,NULL),0) AS bagAmount, "
-      "       NVL(ckin.get_bagWeight(grp_id,NULL),0) AS bagWeight, "
-      "       NVL(ckin.get_rkAmount(grp_id,NULL),0) AS rkAmount, "
-      "       NVL(ckin.get_rkWeight(grp_id,NULL),0) AS rkWeight, "
-      "       ckin.get_birks(grp_id,NULL,:lang) AS tags, "
+      "       NVL(ckin.get_bagAmount2(grp_id,NULL,NULL),0) AS bagAmount, "
+      "       NVL(ckin.get_bagWeight2(grp_id,NULL,NULL),0) AS bagWeight, "
+      "       NVL(ckin.get_rkAmount2(grp_id,NULL,NULL),0) AS rkAmount, "
+      "       NVL(ckin.get_rkWeight2(grp_id,NULL,NULL),0) AS rkWeight, "
+      "       ckin.get_birks2(grp_id,NULL,NULL,:lang) AS tags, "
       "       excess "
       "FROM pax_grp where grp_id=:grp_id";
     Qry.CreateVariable("grp_id",otInteger,grp_id);
