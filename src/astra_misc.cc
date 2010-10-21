@@ -885,3 +885,31 @@ void GetCrsList(int point_id, std::vector<std::string> &crs)
 };
 
 
+//bt
+
+// pr_lat с клиента || стыковочные пункты grp_id не в РФ || пункт вылета grp_id не в РФ
+
+// bp
+
+// pr_lat c клиента || пункт вылета grp_id не в РФ || пункт прилета grp_id не в РФ
+
+bool IsRouteInter(int point_id, string &country)
+{
+    country.clear();
+    string first_country;
+    TBaseTable &airps = base_tables.get("AIRPS");
+    TBaseTable &cities = base_tables.get("CITIES");
+    TTripRoute route;
+    if (!route.GetRouteAfter(point_id,trtWithCurrent,trtNotCancelled))
+        throw Exception("TTripRoute::GetRouteAfter: flight not found for point_id %d", point_id);
+    for(vector<TTripRouteItem>::iterator iv = route.begin(); iv != route.end(); iv++)
+    {
+        string c = cities.get_row("code",airps.get_row("code",iv->airp).AsString("city")).AsString("country");
+        if(iv == route.begin())
+            first_country = c;
+        else if(first_country != c) return true;
+    };
+    country = first_country;
+    return false;
+}
+
