@@ -222,10 +222,6 @@ int FuncAfterEdiSend(edi_mes_head *pHead, void *udata, int *err)
         sendTlg(get_canon_name(edi_addr).c_str(), OWN_CANON_NAME(), true, 20, tlg);
         registerHookAfter(sendCmdTlgSnd);
     }
-    catch (Exception &x){
-        ProgError(STDLOG, "%s", x.what());
-        *err=1;//PROG_ERR;
-    }
     catch (std::exception &x){
         ProgError(STDLOG, "%s", x.what());
         *err=1;//PROG_ERR;
@@ -1027,12 +1023,6 @@ int ProcEDIREQ (edi_mes_head *pHead, void *udata, void *data, int *err)
       *err=1;
       return -1;
   }
-  catch(Exception &e)
-  {
-      ProgError(STDLOG, "Exception: %s", e.what());
-      *err=2;
-      return -1;
-  }
   catch(std::exception &e)
   {
       ProgError(STDLOG, "std::exception: %s", e.what());
@@ -1076,11 +1066,6 @@ int CreateEDIREQ (edi_mes_head *pHead, void *udata, void *data, int *err)
                                   "+::"+td->org().langStr()+
                                   "+"+td->org().pult());
         mes_funcs.collect_req(pHead, *ed, td);
-    }
-    catch(Exception &e)
-    {
-        ProgError(STDLOG, e.what());
-        *err = 1;
     }
     catch(std::exception &e)
     {

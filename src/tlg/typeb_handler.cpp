@@ -69,10 +69,6 @@ int main_typeb_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
   {
     ProgError(STDLOG,"EOracleError %d: %s\nSQL: %s)",E.Code,E.what(),E.SQLText());
   }
-  catch(Exception &E)
-  {
-    ProgError(STDLOG,"Exception: %s",E.what());
-  }
   catch(std::exception &E)
   {
     ProgError(STDLOG,"std::exception: %s",E.what());

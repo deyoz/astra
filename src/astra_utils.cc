@@ -854,11 +854,6 @@ void getLexemaText( LexemaData lexemaData, string &text, string &master_lexema_i
   try {
 	  buildMsg( (lang.empty() ? TReqInfo::Instance()->desk.lang : lang), lexemaData, text, master_lexema_id );
 	}
-	catch( Exception &e ) {
-   	text = lexemaData.lexema_id;
-   	ProgError( STDLOG, "showError buildMsg e.what()=%s, id=%s, lang=%s",
-   	           e.what(), lexemaData.lexema_id.c_str(), TReqInfo::Instance()->desk.lang.c_str() );
-  }
   catch( std::exception &e ) {
    	text = lexemaData.lexema_id;
    	ProgError( STDLOG, "showError buildMsg e.what()=%s, id=%s, lang=%s",
@@ -1012,12 +1007,6 @@ int getTCLParam(const char* name, int min, int max, int def)
          min!=NoExists && res<min ||
          max!=NoExists && res>max)
       throw EXCEPTIONS::Exception( "Wrong TCL param %s=%s", name, r );
-  }
-  catch(Exception &e)
-  {
-    if (def==NoExists) throw;
-    res=def;
-    ProgError( STDLOG, e.what() );
   }
   catch(std::exception &e)
   {

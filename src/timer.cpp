@@ -74,9 +74,6 @@ int main_timer_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
       sleep( sleepsec );
     };
   }
-  catch( Exception &E ) {
-    ProgError( STDLOG, "Exception: %s", E.what() );
-  }
   catch( std::exception &E ) {
     ProgError( STDLOG, "std::exception: %s", E.what() );
   }
@@ -165,11 +162,6 @@ void exec_tasks( const char *proc_name )
       ProgError( STDLOG, "EOracleError %d: %s", E.Code, E.what());
       ProgError( STDLOG, "SQL: %s", E.SQLText());
       ProgError( STDLOG, "task name=%s", name.c_str() );
-    }
-    catch( Exception &E )
-    {
-      try { OraSession.Rollback(); } catch(...) {};
-      ProgError( STDLOG, "Exception: %s, task name=%s", E.what(), name.c_str() );
     }
     catch( std::exception &E )
     {
@@ -298,10 +290,6 @@ void ETCheckStatusFlt(void)
             UpdQry.Execute();
             OraSession.Commit();
           }
-          catch(Exception &E)
-          {
-            ProgError(STDLOG,"ETCheckStatusFlt.SendTlg (point_id=%d): %s",point_id,E.what());
-          }
           catch(std::exception &E)
           {
             ProgError(STDLOG,"ETCheckStatusFlt.SendTlg (point_id=%d): %s",point_id,E.what());
@@ -334,10 +322,6 @@ void ETCheckStatusFlt(void)
               };
             };
             OraSession.Commit();
-          }
-          catch(Exception &E)
-          {
-            ProgError(STDLOG,"ETCheckStatusFlt.ETCheckStatus (point_id=%d): %s",point_id,E.what());
           }
           catch(std::exception &E)
           {

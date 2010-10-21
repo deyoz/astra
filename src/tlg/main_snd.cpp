@@ -79,10 +79,6 @@ int main_snd_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
   {
     ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.what());
   }
-  catch(Exception &E)
-  {
-    ProgError(STDLOG,"Exception: %s",E.what());
-  }
   catch(std::exception &E)
   {
     ProgError(STDLOG,"std::exception: %s",E.what());

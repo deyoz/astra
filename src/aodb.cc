@@ -1559,9 +1559,6 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
             try {
             	exec_stage( point_id, sTakeoff );
             }
-            catch( Exception &E ) {
-                ProgError( STDLOG, "AODB exec_stage: Takeoff. Exception: %s", E.what() );
-            }
             catch( std::exception &E ) {
                 ProgError( STDLOG, "AODB exec_stage: Takeoff. std::exception: %s", E.what() );
             }

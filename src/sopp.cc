@@ -3392,9 +3392,6 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
        {
          exec_stage( id->point_id, sTakeoff );
        }
-       catch( Exception &E ) {
-         ProgError( STDLOG, "Exception: %s", E.what() );
-       }
        catch( std::exception &E ) {
          ProgError( STDLOG, "std::exception: %s", E.what() );
        }
@@ -4357,10 +4354,6 @@ void ChangeACT_OUT( int point_id, TDateTime old_act, TDateTime act )
       tlg_types.push_back("MVTA");
       TelegramInterface::SendTlg(point_id,tlg_types);
     }
-    catch(Exception &E)
-    {
-      ProgError(STDLOG,"ChangeACT_OUT.SendTlg (point_id=%d): %s",point_id,E.what());
-    }
     catch(std::exception &E)
     {
       ProgError(STDLOG,"ChangeACT_OUT.SendTlg (point_id=%d): %s",point_id,E.what());
@@ -4376,10 +4369,6 @@ void ChangeACT_OUT( int point_id, TDateTime old_act, TDateTime act )
   	    "UPDATE trip_sets SET pr_etstatus=0,et_final_attempt=0 WHERE point_id=:point_id";
       Qry.CreateVariable("point_id",otInteger,point_id);
       Qry.Execute();
-    }
-    catch(Exception &E)
-    {
-      ProgError(STDLOG,"ChangeACT_OUT.ETStatus (point_id=%d): %s",point_id,E.what());
     }
     catch(std::exception &E)
     {
@@ -4413,10 +4402,6 @@ void ChangeACT_IN( int point_id, TDateTime old_act, TDateTime act )
         tlg_types.push_back("MVTB");
         TelegramInterface::SendTlg(point_dep,tlg_types);
       };
-    }
-    catch(Exception &E)
-    {
-      ProgError(STDLOG,"ChangeACT_IN.SendTlg (point_id=%d): %s",point_id,E.what());
     }
     catch(std::exception &E)
     {

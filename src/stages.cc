@@ -179,9 +179,6 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
       try {
          exec_stage( point_id, (int)i->first );
       }
-      catch( Exception &E ) {
-        ProgError( STDLOG, "Exception: %s", E.what() );
-      }
       catch( std::exception &E ) {
         ProgError( STDLOG, "std::exception: %s", E.what() );
       }
@@ -776,10 +773,6 @@ void CloseCheckIn( int point_id )
     tlg_types.push_back("PRLC");
     TelegramInterface::SendTlg(point_id,tlg_types);
   }
-  catch(Exception &E)
-  {
-    ProgError(STDLOG,"CloseCheckIn.SendTlg (point_id=%d): %s",point_id,E.what());
-  }
   catch(std::exception &E)
   {
     ProgError(STDLOG,"CloseCheckIn.SendTlg (point_id=%d): %s",point_id,E.what());
@@ -788,10 +781,6 @@ void CloseCheckIn( int point_id )
   try
   {
     CreateCentringFileDATA( point_id );
-  }
-  catch(Exception &E)
-  {
-    ProgError(STDLOG,"CloseCheckIn.CreateCentringFileDATA (point_id=%d): %s",point_id,E.what());
   }
   catch(std::exception &E)
   {
@@ -808,10 +797,6 @@ void CloseBoarding( int point_id )
     tlg_types.push_back("COM");
     TelegramInterface::SendTlg(point_id,tlg_types);
   }
-  catch(Exception &E)
-  {
-    ProgError(STDLOG,"CloseBoarding.SendTlg (point_id=%d): %s",point_id,E.what());
-  }
   catch(std::exception &E)
   {
     ProgError(STDLOG,"CloseBoarding.SendTlg (point_id=%d): %s",point_id,E.what());
@@ -820,10 +805,6 @@ void CloseBoarding( int point_id )
   try
   {
     CreateCentringFileDATA( point_id );
-  }
-  catch(Exception &E)
-  {
-    ProgError(STDLOG,"CloseBoarding.CreateCentringFileDATA (point_id=%d): %s",point_id,E.what());
   }
   catch(std::exception &E)
   {
@@ -846,10 +827,6 @@ void Takeoff( int point_id )
   	  "END;";
   	Qry.CreateVariable( "point_id", otInteger, point_id );
   	Qry.Execute();
-  }
-  catch(Exception &E)
-  {
-    ProgError(STDLOG,"Takeoff.get_full_stat (point_id=%d): %s",point_id,E.what());
   }
   catch(std::exception &E)
   {
@@ -879,10 +856,6 @@ void Takeoff( int point_id )
     tlg_types.push_back("CPM");
     TelegramInterface::SendTlg(point_id,tlg_types);
   }
-  catch(Exception &E)
-  {
-    ProgError(STDLOG,"Takeoff.SendTlg (point_id=%d): %s",point_id,E.what());
-  }
   catch(std::exception &E)
   {
     ProgError(STDLOG,"Takeoff.SendTlg (point_id=%d): %s",point_id,E.what());
@@ -897,10 +870,6 @@ void Takeoff( int point_id )
   {
     create_czech_police_file(point_id,true);
     create_czech_police_file(point_id,false);
-  }
-  catch(Exception &E)
-  {
-    ProgError(STDLOG,"Takeoff.create_czech_police_file (point_id=%d): %s",point_id,E.what());
   }
   catch(std::exception &E)
   {

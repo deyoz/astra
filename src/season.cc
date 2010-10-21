@@ -3640,9 +3640,6 @@ void SeasonInterface::convert(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     	  try {
   	      Write( ctxt, reqn, resNode );
         }
-        catch( Exception &E ) {
-          ProgError( STDLOG, "Exception: %s, trip_id=%d", E.what(), trip_id );
-        }
         catch( std::exception &E ) {
           ProgError( STDLOG, "std::exception: %s, trip_id=%d", E.what(), trip_id );
         }
@@ -3706,9 +3703,6 @@ void SeasonInterface::convert(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
  if ( trip_id > NoExists ) {
  	try {
   	Write( ctxt, reqn, resNode );
-  }
-  catch( Exception &E ) {
-    ProgError( STDLOG, "Exception: %s, trip_id=%d", E.what(), trip_id );
   }
   catch( std::exception &E ) {
     ProgError( STDLOG, "std::exception: %s, trip_id=%d", E.what(), trip_id );

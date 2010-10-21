@@ -1035,11 +1035,7 @@ bool CreateDateTimeStr( string& res, const BASIC::TDateTime& dt,
     {
         res = BASIC::DateTimeToStr( dt, format );
     }
-    catch( EXCEPTIONS::Exception& e )
-    {
-        return false;
-    }
-    catch( std::exception& e )
+    catch( std::exception &e )
     {
         return false;
     }
