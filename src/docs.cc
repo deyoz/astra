@@ -272,22 +272,6 @@ bool ru_desk()
     return TReqInfo::Instance()->desk.lang == "RU";
 }
 
-std::string translateDocCap(bool pr_lat, const std::string &vlexema)
-{
-    if(ru_desk())
-        return getLocaleText(vlexema, (pr_lat ? "EN" : "RU"));
-    else
-        return getLocaleText(vlexema);
-}
-
-std::string translateDocCap(bool pr_lat, const std::string &vlexema, LParams &aparams)
-{
-    if(ru_desk())
-        return getLocaleText(vlexema, aparams, (pr_lat ? "EN" : "RU"));
-    else
-        return getLocaleText(vlexema, aparams);
-}
-
 void populate_doc_cap(xmlNodePtr variablesNode, string lang)
 {
     NewTextChild(variablesNode, "doc_cap_no", getLocaleText("№", lang));
@@ -1714,6 +1698,14 @@ void BTM(TRptParams &rpt_params, xmlNodePtr resNode)
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
+string get_test_str(int page_width, string lang)
+{
+    string result;
+    for(int i=0;i<page_width/6;i++) result += " " + getLocaleText("CAP.TEST", lang) + " ";
+    return result;
+}
+
+
 void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr resNode)
 {
   if (rpt_params.rpt_type==rtPTMTXT)
@@ -1735,7 +1727,7 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr resNode)
   NewTextChild(variablesNode, "test_server", get_test_server());
 
   s.str("");
-  for(int i=0;i<page_width/6;i++) s << " " << getLocaleText("CAP.TEST", rpt_params.GetLang()) << " ";
+  s << get_test_str(page_width, rpt_params.GetLang());
   NewTextChild(variablesNode, "test_str", s.str());
 
 
@@ -2148,15 +2140,8 @@ void REFUSE(TRptParams &rpt_params, xmlNodePtr resNode)
     // Теперь переменные отчета
     xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
     PaxListVars(rpt_params.point_id, rpt_params.GetLang(), variablesNode);
-    NewTextChild(variablesNode, "caption", translateDocCap(pr_lat, "CAP.DOC.REFUSE", LParams() << LParam("flight", get_flight(variablesNode)))); //!!!param 100%error
+    NewTextChild(variablesNode, "caption", getLocaleText("CAP.DOC.REFUSE", LParams() << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang())); //!!!param 100%error
     populate_doc_cap(variablesNode, rpt_params.GetLang());
-}
-
-string get_test_str(int page_width, bool lat)
-{
-    string result;
-    for(int i=0;i<page_width/6;i++) result += " " + translateDocCap(lat, "CAP.TEST") + " ";
-    return result;
 }
 
 void REFUSETXT(TRptParams &rpt_params, xmlNodePtr resNode)
@@ -2170,7 +2155,7 @@ void REFUSETXT(TRptParams &rpt_params, xmlNodePtr resNode)
     int max_symb_count=lat?page_width:60;
     NewTextChild(variablesNode, "page_width", page_width);
     NewTextChild(variablesNode, "test_server", get_test_server());
-    NewTextChild(variablesNode, "test_str", get_test_str(page_width, lat));
+    NewTextChild(variablesNode, "test_str", get_test_str(page_width, rpt_params.GetLang()));
     ostringstream s;
     s.str("");
     s << NodeAsString("caption", variablesNode);
@@ -2180,16 +2165,16 @@ void REFUSETXT(TRptParams &rpt_params, xmlNodePtr resNode)
     NewTextChild(variablesNode, "page_header_top", s.str());
     s.str("");
     s
-        << right << setw(3)  << translateDocCap(lat, "№") << " "
+        << right << setw(3)  << getLocaleText("№", rpt_params.GetLang()) << " "
         << left
-        << setw(21) << translateDocCap(lat, "Ф.И.О.")
-        << setw(5)  << translateDocCap(lat, "Тип")
-        << setw(10) << translateDocCap(lat, "№ Билета")
-        << setw(24)  << translateDocCap(lat, "Причина невылета")
-        << setw(16) << translateDocCap(lat, "№ б/б");
+        << setw(21) << getLocaleText("Ф.И.О.", rpt_params.GetLang())
+        << setw(5)  << getLocaleText("Тип", rpt_params.GetLang())
+        << setw(10) << getLocaleText("№ Билета", rpt_params.GetLang())
+        << setw(24)  << getLocaleText("Причина невылета", rpt_params.GetLang())
+        << setw(16) << getLocaleText("№ б/б", rpt_params.GetLang());
     NewTextChild(variablesNode, "page_header_bottom", s.str() );
     NewTextChild(variablesNode, "page_footer_top",
-            translateDocCap(lat, "CAP.ISSUE_DATE", LParams() << LParam("date", NodeAsString("date_issue",variablesNode))));
+            getLocaleText("CAP.ISSUE_DATE", LParams() << LParam("date", NodeAsString("date_issue",variablesNode)), rpt_params.GetLang()));
     xmlNodePtr dataSetNode = NodeAsNode("v_ref", dataSetsNode);
     xmlNodeSetName(dataSetNode, BAD_CAST "table");
     vector<string> rows;
@@ -2288,8 +2273,8 @@ void NOTPRES(TRptParams &rpt_params, xmlNodePtr resNode)
     // Теперь переменные отчета
     xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
     PaxListVars(rpt_params.point_id, rpt_params.GetLang(), variablesNode);
-    NewTextChild(variablesNode, "caption", translateDocCap(pr_lat, "CAP.DOC.NOTPRES",
-                LParams() << LParam("flight", get_flight(variablesNode)))); //!!!params 100%error
+    NewTextChild(variablesNode, "caption", getLocaleText("CAP.DOC.NOTPRES",
+                LParams() << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang())); //!!!params 100%error
     populate_doc_cap(variablesNode, rpt_params.GetLang());
 }
 
@@ -2304,7 +2289,7 @@ void NOTPRESTXT(TRptParams &rpt_params, xmlNodePtr resNode)
     int max_symb_count=lat?page_width:60;
     NewTextChild(variablesNode, "page_width", page_width);
     NewTextChild(variablesNode, "test_server", get_test_server());
-    NewTextChild(variablesNode, "test_str", get_test_str(page_width, lat));
+    NewTextChild(variablesNode, "test_str", get_test_str(page_width, rpt_params.GetLang()));
     ostringstream s;
     s.str("");
     s << NodeAsString("caption", variablesNode);
@@ -2314,16 +2299,16 @@ void NOTPRESTXT(TRptParams &rpt_params, xmlNodePtr resNode)
     NewTextChild(variablesNode, "page_header_top", s.str());
     s.str("");
     s
-        << right << setw(3)  << translateDocCap(lat, "№") << " "
+        << right << setw(3)  << getLocaleText("№", rpt_params.GetLang()) << " "
         << left
-        << setw(38) << translateDocCap(lat, "Ф.И.О.")
-        << setw(5)  << translateDocCap(lat, "Тип")
-        << setw(8)  << translateDocCap(lat, "№ м")
-        << setw(6) << translateDocCap(lat, "Баг.")
-        << " " << setw(19) << translateDocCap(lat, "№ б/б");
+        << setw(38) << getLocaleText("Ф.И.О.", rpt_params.GetLang())
+        << setw(5)  << getLocaleText("Тип", rpt_params.GetLang())
+        << setw(8)  << getLocaleText("№ м", rpt_params.GetLang())
+        << setw(6) << getLocaleText("Баг.", rpt_params.GetLang())
+        << " " << setw(19) << getLocaleText("№ б/б", rpt_params.GetLang());
     NewTextChild(variablesNode, "page_header_bottom", s.str() );
     NewTextChild(variablesNode, "page_footer_top",
-            translateDocCap(lat, "CAP.ISSUE_DATE", LParams() << LParam("date", NodeAsString("date_issue",variablesNode))));
+            getLocaleText("CAP.ISSUE_DATE", LParams() << LParam("date", NodeAsString("date_issue",variablesNode)), rpt_params.GetLang()));
     xmlNodePtr dataSetNode = NodeAsNode("v_notpres", dataSetsNode);
     xmlNodeSetName(dataSetNode, BAD_CAST "table");
     vector<string> rows;
@@ -2410,8 +2395,8 @@ void REM(TRptParams &rpt_params, xmlNodePtr resNode)
     // Теперь переменные отчета
     xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
     PaxListVars(rpt_params.point_id, rpt_params.GetLang(), variablesNode);
-    NewTextChild(variablesNode, "caption", translateDocCap(pr_lat, "CAP.DOC.REM",
-                LParams() << LParam("flight", get_flight(variablesNode)))); //!!!param 100%error
+    NewTextChild(variablesNode, "caption", getLocaleText("CAP.DOC.REM",
+                LParams() << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang())); //!!!param 100%error
     populate_doc_cap(variablesNode, rpt_params.GetLang());
 }
 
@@ -2426,7 +2411,7 @@ void REMTXT(TRptParams &rpt_params, xmlNodePtr resNode)
     int max_symb_count=lat?page_width:60;
     NewTextChild(variablesNode, "page_width", page_width);
     NewTextChild(variablesNode, "test_server", get_test_server());
-    NewTextChild(variablesNode, "test_str", get_test_str(page_width, lat));
+    NewTextChild(variablesNode, "test_str", get_test_str(page_width, rpt_params.GetLang()));
     ostringstream s;
     s.str("");
     s << NodeAsString("caption", variablesNode);
@@ -2436,15 +2421,15 @@ void REMTXT(TRptParams &rpt_params, xmlNodePtr resNode)
     NewTextChild(variablesNode, "page_header_top", s.str());
     s.str("");
     s
-        << right << setw(3)  << translateDocCap(lat, "№") << " "
+        << right << setw(3)  << getLocaleText("№", rpt_params.GetLang()) << " "
         << left
-        << setw(38) << translateDocCap(lat, "Ф.И.О.")
-        << setw(5)  << translateDocCap(lat, "Тип")
-        << setw(8)  << translateDocCap(lat, "№ м")
-        << setw(25) << translateDocCap(lat, "Ремарки");
+        << setw(38) << getLocaleText("Ф.И.О.", rpt_params.GetLang())
+        << setw(5)  << getLocaleText("Тип", rpt_params.GetLang())
+        << setw(8)  << getLocaleText("№ м", rpt_params.GetLang())
+        << setw(25) << getLocaleText("Ремарки", rpt_params.GetLang());
     NewTextChild(variablesNode, "page_header_bottom", s.str() );
     NewTextChild(variablesNode, "page_footer_top",
-            translateDocCap(lat, "CAP.ISSUE_DATE", LParams() << LParam("date", NodeAsString("date_issue",variablesNode))));
+            getLocaleText("CAP.ISSUE_DATE", LParams() << LParam("date", NodeAsString("date_issue",variablesNode)), rpt_params.GetLang()));
     xmlNodePtr dataSetNode = NodeAsNode("v_rem", dataSetsNode);
     xmlNodeSetName(dataSetNode, BAD_CAST "table");
     vector<string> rows;
@@ -2557,11 +2542,11 @@ void CRS(TRptParams &rpt_params, xmlNodePtr resNode)
     xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
     PaxListVars(rpt_params.point_id, rpt_params.GetLang(), variablesNode);
     if(pr_unreg)
-        NewTextChild(variablesNode, "caption", translateDocCap(pr_lat, "CAP.DOC.CRSUNREG",
-                    LParams() << LParam("flight", get_flight(variablesNode))));//!!!param 100%error
+        NewTextChild(variablesNode, "caption", getLocaleText("CAP.DOC.CRSUNREG",
+                    LParams() << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang()));//!!!param 100%error
     else
-        NewTextChild(variablesNode, "caption", translateDocCap(pr_lat, "CAP.DOC.CRS",
-                    LParams() << LParam("flight", get_flight(variablesNode))));//!!!param 100%error
+        NewTextChild(variablesNode, "caption", getLocaleText("CAP.DOC.CRS",
+                    LParams() << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang()));//!!!param 100%error
     populate_doc_cap(variablesNode, rpt_params.GetLang());
 }
 
@@ -2576,7 +2561,7 @@ void CRSTXT(TRptParams &rpt_params, xmlNodePtr resNode)
     int max_symb_count=lat?page_width:60;
     NewTextChild(variablesNode, "page_width", page_width);
     NewTextChild(variablesNode, "test_server", get_test_server());
-    NewTextChild(variablesNode, "test_str", get_test_str(page_width, lat));
+    NewTextChild(variablesNode, "test_str", get_test_str(page_width, rpt_params.GetLang()));
     ostringstream s;
     vector<string> rows;
     string str;
@@ -2590,20 +2575,20 @@ void CRSTXT(TRptParams &rpt_params, xmlNodePtr resNode)
     NewTextChild(variablesNode, "page_header_top", s.str());
     s.str("");
     s
-        << right << setw(3)  << translateDocCap(lat, "№") << " "
+        << right << setw(3)  << getLocaleText("№", rpt_params.GetLang()) << " "
         << left
         << setw(7)  << "PNR"
-        << setw(22) << translateDocCap(lat, "Ф.И.О.")
-        << setw(5)  << translateDocCap(lat, "Пас")
-        << setw(3) << translateDocCap(lat, "Кл")
-        << setw(8)  << translateDocCap(lat, "№ м")
-        << setw(4)  << translateDocCap(lat, "CAP.DOC.AIRP_ARV")
-        << setw(7)  << translateDocCap(lat, "CAP.DOC.TO")
-        << setw(10) << translateDocCap(lat, "Билет")
-        << setw(10) << translateDocCap(lat, "Документ");
+        << setw(22) << getLocaleText("Ф.И.О.", rpt_params.GetLang())
+        << setw(5)  << getLocaleText("Пас", rpt_params.GetLang())
+        << setw(3) << getLocaleText("Кл", rpt_params.GetLang())
+        << setw(8)  << getLocaleText("№ м", rpt_params.GetLang())
+        << setw(4)  << getLocaleText("CAP.DOC.AIRP_ARV", rpt_params.GetLang())
+        << setw(7)  << getLocaleText("CAP.DOC.TO", rpt_params.GetLang())
+        << setw(10) << getLocaleText("Билет", rpt_params.GetLang())
+        << setw(10) << getLocaleText("Документ", rpt_params.GetLang());
     NewTextChild(variablesNode, "page_header_bottom", s.str() );
     NewTextChild(variablesNode, "page_footer_top",
-            translateDocCap(lat, "CAP.ISSUE_DATE", LParams() << LParam("date", NodeAsString("date_issue",variablesNode))));
+            getLocaleText("CAP.ISSUE_DATE", LParams() << LParam("date", NodeAsString("date_issue",variablesNode)), rpt_params.GetLang()));
     xmlNodePtr dataSetNode = NodeAsNode("v_crs", dataSetsNode);
     xmlNodeSetName(dataSetNode, BAD_CAST "table");
     map< string, vector<string> > fields;
@@ -2716,19 +2701,18 @@ void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     EXAM(rpt_params, reqNode, resNode);
     const char col_sym = ' '; //символ разделителя столбцов
-    bool lat = GetRPEncoding(rpt_params)!=0;
     bool pr_web = rpt_params.rpt_type == rtWEBTXT;
 
     xmlNodePtr variablesNode=NodeAsNode("form_data/variables",resNode);
     xmlNodePtr dataSetsNode=NodeAsNode("form_data/datasets",resNode);
     int page_width=80;
-    int max_symb_count=lat?page_width:60;
+    int max_symb_count=rpt_params.IsInter()?page_width:60;
     NewTextChild(variablesNode, "page_width", page_width);
     NewTextChild(variablesNode, "test_server", get_test_server());
     string str;
     ostringstream s;
     s.str("");
-    NewTextChild(variablesNode, "test_str", get_test_str(page_width, lat));
+    NewTextChild(variablesNode, "test_str", get_test_str(page_width, rpt_params.GetLang()));
     s.str("");
     s << NodeAsString("caption", variablesNode);
     str = s.str().substr(0, max_symb_count);
@@ -2737,26 +2721,26 @@ void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     NewTextChild(variablesNode, "page_header_top", s.str());
     s.str("");
     s
-        << right << setw(3)  << translateDocCap(lat, "№") << col_sym
-        << left << setw(pr_web ? 19 : 21) << translateDocCap(lat, "Фамилия")
-        << setw(9)  << translateDocCap(lat, "Оператор")
-        << setw(4)  << translateDocCap(lat, "Пас");
+        << right << setw(3)  << getLocaleText("№", rpt_params.GetLang()) << col_sym
+        << left << setw(pr_web ? 19 : 21) << getLocaleText("Фамилия", rpt_params.GetLang())
+        << setw(9)  << getLocaleText("Оператор", rpt_params.GetLang())
+        << setw(4)  << getLocaleText("Пас", rpt_params.GetLang());
     if(pr_web)
         s
-            << setw(9)  << translateDocCap(lat, "№ м");
+            << setw(9)  << getLocaleText("№ м", rpt_params.GetLang());
     else
         s
-            << setw(3)  << translateDocCap(lat, "Дс")
-            << setw(4)  << translateDocCap(lat, "Пс");
+            << setw(3)  << getLocaleText("Дс", rpt_params.GetLang())
+            << setw(4)  << getLocaleText("Пс", rpt_params.GetLang());
     s
-        << setw(11) << translateDocCap(lat, "Документ")
-        << setw(14) << translateDocCap(lat, "Билет")
-        << setw(10) << translateDocCap(lat, "№ б/б");
+        << setw(11) << getLocaleText("Документ", rpt_params.GetLang())
+        << setw(14) << getLocaleText("Билет", rpt_params.GetLang())
+        << setw(10) << getLocaleText("№ б/б", rpt_params.GetLang());
     NewTextChild(variablesNode, "page_header_bottom", s.str() );
     s.str("");
     s
         << NodeAsString("total", variablesNode) << endl
-        << translateDocCap(lat, "CAP.ISSUE_DATE", LParams() << LParam("date", NodeAsString("date_issue",variablesNode)));
+        << getLocaleText("CAP.ISSUE_DATE", LParams() << LParam("date", NodeAsString("date_issue",variablesNode)), rpt_params.GetLang());
     NewTextChild(variablesNode, "page_footer_top", s.str() );
 
     xmlNodePtr dataSetNode = NodeAsNode("passengers", dataSetsNode);
