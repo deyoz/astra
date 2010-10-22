@@ -5,9 +5,44 @@
 #include "jxtlib/JxtInterface.h"
 #include "astra_consts.h"
 #include "basic.h"
+#include "telegram.h"
+
+struct TRptParams {
+    private:
+        bool route_inter;
+        std::string route_country_lang; //язык страны, где выполняется внутренний рейс
+        std::string req_lang; // Язык, затребованный с клиента, если пустой, то вычисляем язык на основе маршрута
+        std::string GetLang(TElemFmt &fmt, std::string firm_lang);
+    public:
+        int point_id;
+        ASTRA::TRptType rpt_type;
+        std::string airp_arv;
+        std::string ckin_zone;
+        bool pr_et;
+        bool pr_trfer;
+        bool pr_brd;
+        TCodeShareInfo mkt_flt;
+        std::string client_type;
+        std::string ElemIdToReportElem(TElemType type, const std::string &id, TElemFmt fmt, std::string firm_lang = "");
+        std::string ElemIdToReportElem(TElemType type, int id, TElemFmt fmt, std::string firm_lang = "");
+        bool IsInter();
+        std::string GetLang();
+        std::string dup_lang() { return GetLang()==AstraLocale::LANG_EN ? AstraLocale::LANG_RU : GetLang(); }; // lang for duplicated captions
+        void Init(xmlNodePtr node);
+        TRptParams(std::string lang) {
+            req_lang = lang;
+        };
+        TRptParams():
+            route_inter(true),
+            point_id(ASTRA::NoExists),
+            pr_et(false),
+            pr_trfer(false),
+            pr_brd(false)
+    {};
+};
 
 void get_report_form(const std::string name, xmlNodePtr node);
-void PaxListVars(int point_id, std::string lang, xmlNodePtr variablesNode,
+void PaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode,
                  BASIC::TDateTime part_key = ASTRA::NoExists);
 void SeasonListVars(int trip_id, int pr_lat, xmlNodePtr variablesNode, xmlNodePtr reqNode);
 std::string get_flight(xmlNodePtr variablesNode);

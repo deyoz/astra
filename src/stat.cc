@@ -82,7 +82,7 @@ void GetSystemLogAgentSQL(TQuery &Qry);
 void GetSystemLogStationSQL(TQuery &Qry);
 void GetSystemLogModuleSQL(TQuery &Qry);
 
-enum TScreenState {None,Log,PaxList,FltLog,SystemLog,PaxSrc};
+enum TScreenState {ssNone,ssLog,ssPaxList,ssFltLog,ssSystemLog,ssPaxSrc};
 enum TDROPScreenState {dssNone,dssStat,dssPax,dssLog,dssDepStat,dssBagTagStat,dssPaxList,dssFltLog,dssSystemLog,dssPaxSrc,dssTlgArch};
 
 void GetSystemLogAgentSQL(TQuery &Qry)
@@ -158,29 +158,29 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     xmlNodePtr prDelNode = GetNode("pr_del", reqNode);
     if(prDelNode)
         pr_show_del = NodeAsInteger(prDelNode) == 1;
-    TScreenState scr = None;
+    TScreenState scr = ssNone;
     if (TReqInfo::Instance()->desk.compatible(NEW_TERM_VERSION))
         scr = TScreenState(NodeAsInteger("scr", reqNode));
     else {
         TDROPScreenState drop_scr = TDROPScreenState(NodeAsInteger("scr", reqNode));
         switch(drop_scr) {
             case dssNone:
-                scr = None;
+                scr = ssNone;
                 break;
             case dssLog:
-                scr = Log;
+                scr = ssLog;
                 break;
             case dssPaxList:
-                scr = PaxList;
+                scr = ssPaxList;
                 break;
             case dssFltLog:
-                scr = FltLog;
+                scr = ssFltLog;
                 break;
             case dssSystemLog:
-                scr = SystemLog;
+                scr = ssSystemLog;
                 break;
             case dssPaxSrc:
-                scr = PaxSrc;
+                scr = ssPaxSrc;
                 break;
             default:
                 throw Exception("StatInterface::FltCBoxDropDown: unexpected drop_scr: %d", drop_scr);
@@ -224,9 +224,9 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                     "    points "
                     "WHERE "
                     "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
-                if(scr == PaxList)
+                if(scr == ssPaxList)
                     SQLText += " and points.pr_del = 0 ";
-                if(scr == FltLog and !pr_show_del)
+                if(scr == ssFltLog and !pr_show_del)
                     SQLText += " and points.pr_del >= 0 ";
                 if (!reqInfo.user.access.airlines.empty()) {
                     if (reqInfo.user.access.airlines_permit)
@@ -267,9 +267,9 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                     "    arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
                     "    arx_points.part_key >= :FirstDate and arx_points.part_key < :LastDate + :arx_trip_date_range ";
                 Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
-                if(scr == PaxList)
+                if(scr == ssPaxList)
                     SQLText += " and arx_points.pr_del = 0 ";
-                if(scr == FltLog and !pr_show_del)
+                if(scr == ssFltLog and !pr_show_del)
                     SQLText += " and arx_points.pr_del >= 0 ";
                 if (!reqInfo.user.access.airlines.empty()) {
                     if (reqInfo.user.access.airlines_permit)

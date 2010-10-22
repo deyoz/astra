@@ -150,7 +150,8 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         NewTextChild(logNode, "caption", getLocaleText("CAP.DOC.SEASON_EVENTS_LOG",
                     LParams() << LParam("trip", NodeAsString("trip", logNode))));
     } else {
-        PaxListVars(point_id, TReqInfo::Instance()->desk.lang, logNode, part_key);
+        TRptParams rpt_params(TReqInfo::Instance()->desk.lang);
+        PaxListVars(point_id, rpt_params, logNode, part_key);
         NewTextChild(logNode, "caption", getLocaleText("CAP.DOC.EVENTS_LOG",
                     LParams() << LParam("flight", get_flight(logNode)) //!!!den param 100%error
                     << LParam("day_issue", NodeAsString("day_issue", logNode)

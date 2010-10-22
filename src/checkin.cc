@@ -2120,7 +2120,8 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   if ( GetNode( "LoadForm", reqNode ) )
       get_report_form("ArrivalPaxList", resNode);
   xmlNodePtr variablesNode = STAT::set_variables(resNode);
-  PaxListVars(point_id, TReqInfo::Instance()->desk.lang, variablesNode);
+  TRptParams rpt_params(reqInfo->desk.lang);
+  PaxListVars(point_id, rpt_params, variablesNode);
   NewTextChild(variablesNode, "caption", getLocaleText("CAP.DOC.ARRIVAL_PAX_LIST", LParams() << LParam("flight", get_flight(variablesNode)))); //!!!den param 100%русский
 };
 

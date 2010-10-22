@@ -695,7 +695,8 @@ void PrepRegInterface::ViewCRSList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   viewCRSList( point_id, dataNode );
   get_report_form("PNLPaxList", resNode);
   xmlNodePtr formDataNode = STAT::set_variables(resNode);
-  PaxListVars(point_id, AstraLocale::LANG_RU, formDataNode);
+  TRptParams rpt_params(TReqInfo::Instance()->desk.lang);
+  PaxListVars(point_id, rpt_params, formDataNode);
   string real_out = NodeAsString("real_out", formDataNode);
   string scd_out = NodeAsString("scd_out", formDataNode);
   string date = real_out + (real_out == scd_out ? "" : "(" + scd_out + ")");
