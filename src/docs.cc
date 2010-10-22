@@ -2634,18 +2634,35 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     else
         get_report_form(pr_web ? "web" : "exam", resNode);
 
-    BrdInterface::GetPax(reqNode, resNode, pr_web);
-    xmlNodePtr currNode = resNode->children;
-    xmlNodePtr formDataNode = NodeAsNodeFast("form_data", currNode);
-    xmlNodePtr dataNode = NodeAsNodeFast("data", currNode);
-    currNode = formDataNode->children;
-    xmlNodePtr variablesNode = NodeAsNodeFast("variables", currNode);
+    TQuery Qry(&OraSession);
+    BrdInterface::GetPaxQuery(Qry, rpt_params.point_id, NoExists, rpt_params.GetLang(), pr_web, rpt_params.client_type);
+    Qry.Execute();
+    xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
+    xmlNodePtr datasetsNode = NewTextChild(formDataNode, "datasets");
+    xmlNodePtr passengersNode = NewTextChild(datasetsNode, "passengers");
+    for( ; !Qry.Eof; Qry.Next()) {
+        xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
+        NewTextChild(paxNode, "reg_no", Qry.FieldAsInteger("reg_no"));
+        NewTextChild(paxNode, "surname", transliter(Qry.FieldAsString("surname"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+        NewTextChild(paxNode, "user_descr", transliter(Qry.FieldAsString("user_descr"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+        NewTextChild(paxNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, Qry.FieldAsString("pers_type"), efmtCodeNative));
+        NewTextChild(paxNode, "seat_no", Qry.FieldAsString("seat_no"));
+        NewTextChild(paxNode, "document", Qry.FieldAsString("document"));
+        NewTextChild(paxNode, "ticket_no", Qry.FieldAsString("ticket_no"));
+        NewTextChild(paxNode, "coupon_no", Qry.FieldAsInteger("coupon_no"));
+        NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
+        NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger("bag_weight"));
+        NewTextChild(paxNode, "rk_amount", Qry.FieldAsInteger("rk_amount"));
+        NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
+        NewTextChild(paxNode, "excess", Qry.FieldAsInteger("excess"));
+        NewTextChild(paxNode, "pr_payment", Qry.FieldAsInteger("pr_payment"));
+        NewTextChild(paxNode, "tags", Qry.FieldAsString("tags"));
+        NewTextChild(paxNode, "remarks", Qry.FieldAsString("remarks"));
+    }
 
-    xmlUnlinkNode(dataNode);
-
-    xmlNodeSetName(dataNode, (xmlChar *)"datasets");
-    xmlAddChild(formDataNode, dataNode);
     // Теперь переменные отчета
+    xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
+    BrdInterface::readTripCounters(rpt_params.point_id, rpt_params, variablesNode, pr_web, rpt_params.client_type);
     PaxListVars(rpt_params.point_id, rpt_params, variablesNode);
     if ( pr_web) {
         if(!rpt_params.client_type.empty()) {
@@ -2675,7 +2692,7 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
                     << LParam("list_type", NodeAsString("paxlist_type", variablesNode))//!!!param
                     << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang())//!!!param%100error
                 );
-    currNode = variablesNode->children;
+    xmlNodePtr currNode = variablesNode->children;
     xmlNodePtr totalNode = NodeAsNodeFast("total", currNode);
     NodeSetContent(totalNode, getLocaleText("CAP.TOTAL.VAL", LParams() << LParam("total", NodeAsString(totalNode)), rpt_params.GetLang()));
     populate_doc_cap(variablesNode, rpt_params.GetLang());
