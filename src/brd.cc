@@ -387,7 +387,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode, bool used_for_
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
     xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
     if ( GetNode( "LoadVars", reqNode ) ) {
-        PaxListVars(point_id, 0, variablesNode);
+        PaxListVars(point_id, TReqInfo::Instance()->desk.lang, variablesNode);
         STAT::set_variables(resNode);
         NewTextChild(variablesNode, "page_number_fmt", getLocaleText("CAP.PAGE_NUMBER_FMT"));
         NewTextChild(variablesNode, "short_page_number_fmt", getLocaleText("CAP.SHORT_PAGE_NUMBER_FMT"));
