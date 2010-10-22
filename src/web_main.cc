@@ -1209,6 +1209,7 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     xmlNodePtr fltNode=NewTextChild( fltsNode, "flight" );
     NewTextChild( fltNode, "airline", m->airline );
     NewTextChild( fltNode, "flt_no", m->flt_no );
+    NewTextChild( fltNode, "suffix", m->suffix );
   };
 
   NewTextChild( node, "pnr_id", SearchPnrData.pnr_id );
@@ -1471,6 +1472,7 @@ void IntLoadPnr( int point_id, int pnr_id, xmlNodePtr segNode )
   VerifyPNR( point_id, pnr_id );
   vector<TWebPax> pnr;
   getPnr( pnr_id, pnr );
+  NewTextChild( segNode, "point_id", point_id );
   xmlNodePtr node = NewTextChild( segNode, "passengers" );
   for ( vector<TWebPax>::iterator i=pnr.begin(); i!=pnr.end(); i++ ) {
   	xmlNodePtr paxNode = NewTextChild( node, "pax" );
