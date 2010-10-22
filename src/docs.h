@@ -12,7 +12,7 @@ struct TRptParams {
         bool route_inter;
         std::string route_country_lang; //язык страны, где выполняется внутренний рейс
         std::string req_lang; // Язык, затребованный с клиента, если пустой, то вычисляем язык на основе маршрута
-        std::string GetLang(TElemFmt &fmt, std::string firm_lang);
+        std::string GetLang(TElemFmt &fmt, std::string firm_lang) const;
     public:
         int point_id;
         ASTRA::TRptType rpt_type;
@@ -23,9 +23,9 @@ struct TRptParams {
         bool pr_brd;
         TCodeShareInfo mkt_flt;
         std::string client_type;
-        std::string ElemIdToReportElem(TElemType type, const std::string &id, TElemFmt fmt, std::string firm_lang = "");
-        std::string ElemIdToReportElem(TElemType type, int id, TElemFmt fmt, std::string firm_lang = "");
-        bool IsInter();
+        std::string ElemIdToReportElem(TElemType type, const std::string &id, TElemFmt fmt, std::string firm_lang = "") const;
+        std::string ElemIdToReportElem(TElemType type, int id, TElemFmt fmt, std::string firm_lang = "") const;
+        bool IsInter() const;
         std::string GetLang();
         std::string dup_lang() { return GetLang()==AstraLocale::LANG_EN ? AstraLocale::LANG_RU : GetLang(); }; // lang for duplicated captions
         void Init(xmlNodePtr node);

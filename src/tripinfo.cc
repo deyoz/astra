@@ -463,7 +463,10 @@ void TripsInterface::GetSegInfo(xmlNodePtr reqNode, xmlNodePtr resNode, xmlNodeP
       reqInfo->screen.name == "EXAM.EXE" )
   {
       if ( GetNode( "counters", reqNode ) )
-          BrdInterface::readTripCounters( point_id, dataNode, false, "" );
+      {
+          TRptParams rpt_params(reqInfo->desk.lang);
+          BrdInterface::readTripCounters( point_id, rpt_params, dataNode, false, "" );
+      };
       if ( GetNode( "tripdata", reqNode ) )
           BrdInterface::readTripData( point_id, dataNode );
       if ( GetNode( "paxdata", reqNode ) && resNode!=NULL ) {

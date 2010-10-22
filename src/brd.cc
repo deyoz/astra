@@ -37,7 +37,11 @@ void BrdInterface::readTripData( int point_id, xmlNodePtr dataNode )
   TripsInterface::readHalls(Qry.FieldAsString("airp"), "П", tripdataNode);
 }
 
-void BrdInterface::readTripCounters( int point_id, xmlNodePtr dataNode, bool used_for_web_rpt, string client_type )
+void BrdInterface::readTripCounters( const int point_id,
+                                     const TRptParams &rpt_params,
+                                     xmlNodePtr dataNode,
+                                     const bool used_for_web_rpt,
+                                     const string &client_type )
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
   TQuery ClassesQry(&OraSession);
@@ -84,25 +88,25 @@ void BrdInterface::readTripCounters( int point_id, xmlNodePtr dataNode, bool use
   int reg=0,brd=0;
   for(;!ClassesQry.Eof;ClassesQry.Next())
   {
-    char* cl=ClassesQry.FieldAsString("class");
+    const char* cl=ClassesQry.FieldAsString("class");
     Qry.SetVariable("class",cl);
     Qry.Execute();
     if(Qry.Eof) continue;
+    string class_client_view=ElemIdToCodeNative(etClass,cl);
+    string class_report_view=rpt_params.ElemIdToReportElem(etClass,cl,efmtCodeNative);
+
     int vreg = Qry.FieldAsInteger("reg");
     int vbrd = Qry.FieldAsInteger("brd");
-    reg_str << cl << vreg << " ";
-    brd_str << cl << vbrd << " ";
+    reg_str << class_client_view << vreg << " ";
+    brd_str << class_client_view << vbrd << " ";
     reg+=vreg;
     brd+=vbrd;
-    if(fr_reg_str.str().size())
-        fr_reg_str << "/";
-    fr_reg_str << cl << vreg;
-    if(fr_brd_str.str().size())
-        fr_brd_str << "/";
-    fr_brd_str << cl << vbrd;
-    if(fr_not_brd_str.str().size())
-        fr_not_brd_str << "/";
-    fr_not_brd_str << cl << vreg - vbrd;
+    if(!fr_reg_str.str().empty()) fr_reg_str << "/";
+    fr_reg_str << class_report_view << vreg;
+    if(!fr_brd_str.str().empty()) fr_brd_str << "/";
+    fr_brd_str << class_report_view << vbrd;
+    if(!fr_not_brd_str.str().empty()) fr_not_brd_str << "/";
+    fr_not_brd_str << class_report_view << vreg - vbrd;
   };
 
   xmlNodePtr countersNode = GetNode("counters", dataNode);
@@ -370,6 +374,87 @@ void BrdInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
   GetPax(reqNode,resNode,false);
 };
 
+void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
+                                            const int reg_no,
+                                            const string &lang,
+                                            const bool used_for_web_rpt,
+                                            const string &client_type)
+{
+  Qry.Clear();
+  ostringstream sql;
+  sql << "SELECT "
+         "    pax_id, "
+         "    pax_grp.grp_id, "
+         "    pr_brd, "
+         "    pr_exam, "
+         "    reg_no, "
+         "    surname, "
+         "    pax.name, "
+         "    pers_type, "
+         "    class, "
+         "    pax_grp.status, "
+         "    NVL(report.get_last_trfer_airp(pax_grp.grp_id),pax_grp.airp_arv) AS airp_arv, "
+         "    salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum) AS seat_no, "
+         "    seats, "
+         "    wl_type, "
+         "    ticket_no, "
+         "    coupon_no, "
+         "    document, "
+         "    pax.tid, "
+         "    ckin.get_remarks(pax_id,', ',0) AS remarks, "
+         "    NVL(ckin.get_bagAmount2(pax_grp.grp_id,NULL,NULL,rownum),0) AS bag_amount, "
+         "    NVL(ckin.get_bagWeight2(pax_grp.grp_id,NULL,NULL,rownum),0) AS bag_weight, "
+         "    NVL(ckin.get_rkAmount2(pax_grp.grp_id,NULL,NULL,rownum),0) AS rk_amount, "
+         "    NVL(ckin.get_rkWeight2(pax_grp.grp_id,NULL,NULL,rownum),0) AS rk_weight, "
+         "    NVL(pax_grp.excess,0) AS excess, "
+         "    kassa.get_value_bag_count(pax_grp.grp_id) AS value_bag_count, "
+         "    ckin.get_birks2(pax_grp.grp_id,NULL,NULL,:lang) AS tags, "
+         "    kassa.pr_payment(pax_grp.grp_id) AS pr_payment, "
+         "    client_type, "
+         "    tckin_id, seg_no ";
+
+  if (used_for_web_rpt)
+    sql << ", users2.descr AS user_descr ";
+
+  sql << "FROM "
+         "    pax_grp, "
+         "    pax, "
+         "    tckin_pax_grp ";
+
+  if (used_for_web_rpt)
+    sql << ", users2 ";
+
+  sql << "WHERE "
+         "    pax_grp.grp_id=pax.grp_id AND "
+         "    pax_grp.grp_id=tckin_pax_grp.grp_id(+) AND ";
+
+  if (used_for_web_rpt)
+    sql << "  pax_grp.user_id=users2.user_id AND ";
+
+  sql << "    point_dep= :point_id AND pr_brd IS NOT NULL ";
+
+  if (used_for_web_rpt) {
+      if(!client_type.empty()) {
+          sql << " AND pax_grp.client_type = :client_type ";
+          Qry.CreateVariable("client_type",otString,client_type);
+      } else {
+          sql << " AND pax_grp.client_type IN (:ctWeb, :ctKiosk) ";
+          Qry.CreateVariable("ctWeb", otString, EncodeClientType(ctWeb));
+          Qry.CreateVariable("ctKiosk", otString, EncodeClientType(ctKiosk));
+      }
+  };
+  if (reg_no!=NoExists)
+  {
+    sql << " AND reg_no=:reg_no ";
+    Qry.CreateVariable("reg_no",otInteger,reg_no);
+  };
+  sql << " ORDER BY reg_no ";
+
+  Qry.CreateVariable("point_id",otInteger,point_id);
+  Qry.CreateVariable("lang",otString,lang);
+  Qry.SQLText = sql.str().c_str();
+};
+
 void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode, bool used_for_web_rpt)
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
@@ -379,7 +464,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode, bool used_for_
 
 
     int point_id=NodeAsInteger("point_id",reqNode);
-    int reg_no=-1;
+    int reg_no=NoExists;
     int hall=-1;
 
     if ( GetNode( "LoadForm", reqNode ) )
@@ -393,10 +478,10 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode, bool used_for_
         NewTextChild(variablesNode, "page_number_fmt", getLocaleText("CAP.PAGE_NUMBER_FMT"));
         NewTextChild(variablesNode, "short_page_number_fmt", getLocaleText("CAP.SHORT_PAGE_NUMBER_FMT"));
     }
-    string client_type;
+ /*   string client_type;
 
     if (used_for_web_rpt)
-      client_type = NodeAsString( "client_type", reqNode );
+      client_type = NodeAsString( "client_type", reqNode );*/
 
     xmlNodePtr dataNode=GetNode("data",resNode);
     if (dataNode==NULL)
@@ -411,8 +496,6 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode, bool used_for_
     FltQry.DeclareVariable("point_id",otInteger);
 
     TQuery Qry(&OraSession);
-    Qry.Clear();
-    string condition;
     if(strcmp((char *)reqNode->name, "PaxByPaxId") == 0)
     {
       if (!NodeIsNULL("hall",reqNode))
@@ -430,14 +513,12 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode, bool used_for_
       reg_no=Qry.FieldAsInteger("reg_no");
       if (point_id==Qry.FieldAsInteger("point_dep"))
       {
-        condition+=" AND reg_no=:reg_no ";
-        Qry.Clear();
-        Qry.CreateVariable("reg_no",otInteger,reg_no);
+        GetPaxQuery(Qry, point_id, reg_no, reqInfo->desk.lang, false, "");
       }
       else
       {
         point_id=Qry.FieldAsInteger("point_dep");
-        Qry.Clear();
+
         if (reqInfo->screen.name != "BRDBUS.EXE" &&
             TripsInterface::readTripHeader( point_id, dataNode ))
         {
@@ -460,7 +541,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode, bool used_for_
                        HallQry.FieldAsString("flt_airp"))!=0) hall=-1;
           };
 
-          readTripCounters( point_id, dataNode, false, "" );
+          //readTripCounters( point_id, dataNode, false, "" );!!!
           readTripData( point_id, dataNode );
         }
         else
@@ -475,6 +556,8 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode, bool used_for_
           else
             throw AstraLocale::UserException(100, "MSG.PASSENGER.OTHER_FLIGHT");
         };
+
+        GetPaxQuery(Qry, point_id, NoExists, reqInfo->desk.lang, false, "");
       };
     }
     else if(strcmp((char *)reqNode->name, "PaxByRegNo") == 0)
@@ -482,81 +565,17 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode, bool used_for_
       if (!NodeIsNULL("hall",reqNode))
         hall=NodeAsInteger("hall",reqNode);
       reg_no=NodeAsInteger("reg_no",reqNode);
-      condition+=" AND reg_no=:reg_no ";
-      Qry.Clear();
-      Qry.CreateVariable("reg_no",otInteger,reg_no);
+
+      GetPaxQuery(Qry, point_id, reg_no, reqInfo->desk.lang, false, "");
+    }
+    else
+    {
+      //общий список
+      GetPaxQuery(Qry, point_id, NoExists, reqInfo->desk.lang, false, "");
     };
 
-    ostringstream sql;
-    sql << "SELECT "
-           "    pax_id, "
-           "    pax_grp.grp_id, "
-           "    pr_brd, "
-           "    pr_exam, "
-           "    reg_no, "
-           "    surname, "
-           "    pax.name, "
-           "    pers_type, "
-           "    class, "
-           "    pax_grp.status, "
-           "    NVL(report.get_last_trfer_airp(pax_grp.grp_id),pax_grp.airp_arv) AS airp_arv, "
-           "    salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum) AS seat_no, "
-           "    seats, "
-           "    wl_type, "
-           "    ticket_no, "
-           "    coupon_no, "
-           "    document, "
-           "    pax.tid, "
-           "    ckin.get_remarks(pax_id,', ',0) AS remarks, "
-           "    NVL(ckin.get_bagAmount2(pax_grp.grp_id,NULL,NULL,rownum),0) AS bag_amount, "
-           "    NVL(ckin.get_bagWeight2(pax_grp.grp_id,NULL,NULL,rownum),0) AS bag_weight, "
-           "    NVL(ckin.get_rkAmount2(pax_grp.grp_id,NULL,NULL,rownum),0) AS rk_amount, "
-           "    NVL(ckin.get_rkWeight2(pax_grp.grp_id,NULL,NULL,rownum),0) AS rk_weight, "
-           "    NVL(pax_grp.excess,0) AS excess, "
-           "    kassa.get_value_bag_count(pax_grp.grp_id) AS value_bag_count, "
-           "    ckin.get_birks2(pax_grp.grp_id,NULL,NULL,:lang) AS tags, "
-           "    kassa.pr_payment(pax_grp.grp_id) AS pr_payment, "
-           "    client_type, "
-           "    tckin_id, seg_no ";
-
-    if (used_for_web_rpt)
-      sql << ", users2.descr AS user_descr ";
-
-    sql << "FROM "
-           "    pax_grp, "
-           "    pax, "
-           "    tckin_pax_grp ";
-
-    if (used_for_web_rpt)
-      sql << ", users2 ";
-
-    sql << "WHERE "
-           "    pax_grp.grp_id=pax.grp_id AND "
-           "    pax_grp.grp_id=tckin_pax_grp.grp_id(+) AND ";
-
-    if (used_for_web_rpt)
-      sql << "  pax_grp.user_id=users2.user_id AND ";
-
-    sql << "    point_dep= :point_id AND pr_brd IS NOT NULL ";
-
-    if (used_for_web_rpt) {
-        if(!client_type.empty()) {
-            sql << " AND pax_grp.client_type = :client_type ";
-            Qry.CreateVariable("client_type",otString,client_type);
-        } else {
-            sql << " AND pax_grp.client_type IN (:ctWeb, :ctKiosk) ";
-            Qry.CreateVariable("ctWeb", otString, EncodeClientType(ctWeb));
-            Qry.CreateVariable("ctKiosk", otString, EncodeClientType(ctKiosk));
-        }
-    };
-    sql << condition;
-    sql << " ORDER BY reg_no ";
-
-    Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.CreateVariable("lang",otString,reqInfo->desk.lang);
-    Qry.SQLText = sql.str().c_str();
     Qry.Execute();
-    if (reg_no!=-1 && Qry.Eof)
+    if (reg_no!=NoExists && Qry.Eof)
       throw AstraLocale::UserException("MSG.PASSENGER.NOT_CHECKIN");
 
     TQuery TCkinQry(&OraSession);
@@ -620,8 +639,8 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode, bool used_for_
       int col_client_type=Qry.FieldIndex("client_type");
       int col_tckin_id=Qry.FieldIndex("tckin_id");
       int col_seg_no=Qry.FieldIndex("seg_no");
-      int col_user_descr=NoExists;
-      if (used_for_web_rpt) col_user_descr=Qry.FieldIndex("user_descr");
+   //   int col_user_descr=NoExists;
+   //   if (used_for_web_rpt) col_user_descr=Qry.FieldIndex("user_descr");
 
 
       TPaxSeats priorSeats(point_id);
@@ -676,9 +695,9 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode, bool used_for_
           if (DecodeClientType(Qry.FieldAsString(col_client_type))!=ctTerm)
             NewTextChild(paxNode, "client_name", ElemIdToNameShort(etClientType, Qry.FieldAsString(col_client_type)));
 
-          if (used_for_web_rpt)
+      /*    if (used_for_web_rpt)
             NewTextChild(paxNode, "user_descr", Qry.FieldAsString(col_user_descr)); //login не надо использовать, так как он м.б. пустым
-
+      */
 
           if (!Qry.FieldIsNULL(col_tckin_id))
           {
@@ -919,7 +938,8 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode, bool used_for_
           };
       };//for(;!Qry.Eof;Qry.Next())
     };
-    readTripCounters(point_id, dataNode, used_for_web_rpt, client_type);
+    TRptParams rpt_params(reqInfo->desk.lang);
+    readTripCounters(point_id, rpt_params, dataNode, false, "");
 };
 
 

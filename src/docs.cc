@@ -369,7 +369,7 @@ void PaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode,
     NewTextChild(variablesNode, "own_airp_name_lat", getLocaleText("CAP.DOC.AIRP_NAME",  LParams() << LParam("airp", ElemIdToElem(etAirp, airp, efmtNameLong, AstraLocale::LANG_EN)), AstraLocale::LANG_EN));
     TAirpsRow &airpRow = (TAirpsRow&)base_tables.get("AIRPS").get_row("code",airp);
     NewTextChild(variablesNode, "airp_dep_name", rpt_params.ElemIdToReportElem(etAirp, airp, efmtNameLong));
-    NewTextChild(variablesNode, "airp_dep_city", rpt_params.ElemIdToReportElem(etCity, airpRow.city, efmtCodeNative)); 
+    NewTextChild(variablesNode, "airp_dep_city", rpt_params.ElemIdToReportElem(etCity, airpRow.city, efmtCodeNative));
     NewTextChild(variablesNode, "airline_name", airline_name);
     NewTextChild(variablesNode, "flt", trip);
     NewTextChild(variablesNode, "bort", Qry.FieldAsString("bort"));
@@ -417,7 +417,7 @@ void TRptParams::Init(xmlNodePtr node)
         req_lang = TReqInfo::Instance()->desk.lang;
 }
 
-bool TRptParams::IsInter()
+bool TRptParams::IsInter() const
 {
     return route_inter || route_country_lang.empty() || route_country_lang!=TReqInfo::Instance()->desk.lang;
 }
@@ -426,18 +426,18 @@ string TRptParams::GetLang()
 {
   string lang = req_lang;
   if (lang.empty())
-  {        
+  {
     lang = TReqInfo::Instance()->desk.lang;
     if (IsInter()) lang=AstraLocale::LANG_EN;
   }
   return lang;
 }
 
-string TRptParams::GetLang(TElemFmt &fmt, string firm_lang)
+string TRptParams::GetLang(TElemFmt &fmt, string firm_lang) const
 {
   string lang = firm_lang.empty()? req_lang : firm_lang;
   if (lang.empty())
-  {    
+  {
      lang = TReqInfo::Instance()->desk.lang;
      if (IsInter())
      {
@@ -445,11 +445,11 @@ string TRptParams::GetLang(TElemFmt &fmt, string firm_lang)
        if (fmt==efmtCodeNative) fmt=efmtCodeInter;
        if (fmt==efmtCodeICAONative) fmt=efmtCodeICAOInter;
      };
-  };   
+  };
   return lang;
 }
 
-string TRptParams::ElemIdToReportElem(TElemType type, const string &id, TElemFmt fmt, string firm_lang)
+string TRptParams::ElemIdToReportElem(TElemType type, const string &id, TElemFmt fmt, string firm_lang) const
 {
   if (id.empty()) return "";
 
@@ -460,7 +460,7 @@ string TRptParams::ElemIdToReportElem(TElemType type, const string &id, TElemFmt
   return ElemIdToElem(type, id, fmts, true);
 };
 
-string TRptParams::ElemIdToReportElem(TElemType type, int id, TElemFmt fmt, string firm_lang)
+string TRptParams::ElemIdToReportElem(TElemType type, int id, TElemFmt fmt, string firm_lang) const
 {
   if (id==ASTRA::NoExists) return "";
 
