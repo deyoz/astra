@@ -245,7 +245,7 @@ void SeasonListVars(int trip_id, int pr_lat, xmlNodePtr variablesNode, xmlNodePt
 {
     NewTextChild(variablesNode, "test_server", get_test_server());
 	vector<SEASON::TViewPeriod> viewp;
-	SEASON::ReadTripInfo( trip_id, viewp, reqNode );
+	SEASON::ReadTripInfo( trip_id, viewp, GetNode( "seasonvars", reqNode ) );
   for ( vector<SEASON::TViewPeriod>::const_iterator i=viewp.begin(); i!=viewp.end(); i++ ) {
 /*    NewTextChild( variablesNode, "exec", i->exec );
     NewTextChild( variablesNode, "noexec", i->noexec );*/
@@ -402,7 +402,7 @@ void PaxListVars(int point_id, string lang, xmlNodePtr variablesNode, TDateTime 
 struct TRptParams {
     private:
         bool route_inter;
-        string route_country_lang; //язык страны, где выполняется внутренний рейс 
+        string route_country_lang; //язык страны, где выполняется внутренний рейс
         string GetLang(TElemFmt &fmt);
     public:
         int point_id;
@@ -472,7 +472,7 @@ string TRptParams::GetLang(TElemFmt &fmt)
 {
   string lang = TReqInfo::Instance()->desk.lang;
   if (IsInter())
-  {    
+  {
     if (fmt==efmtNameShort || fmt==efmtNameLong) lang=AstraLocale::LANG_EN;
     if (fmt==efmtCodeNative) fmt=efmtCodeInter;
     if (fmt==efmtCodeICAONative) fmt=efmtCodeICAOInter;
@@ -498,7 +498,7 @@ string TRptParams::ElemIdToReportElem(TElemType type, int id, TElemFmt fmt)
   string lang=GetLang(fmt); //специально вынесено, так как fmt в процедуре может измениться
 
   vector< pair<TElemFmt,string> > fmts;
- 
+
   getElemFmts(fmt, lang, fmts);
   return ElemIdToElem(type, id, fmts, true);
 };
