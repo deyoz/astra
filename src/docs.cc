@@ -2632,7 +2632,8 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
         NewTextChild(paxNode, "reg_no", Qry.FieldAsInteger("reg_no"));
         NewTextChild(paxNode, "surname", transliter(Qry.FieldAsString("surname"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
-        NewTextChild(paxNode, "user_descr", transliter(Qry.FieldAsString("user_descr"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+        if(pr_web)
+            NewTextChild(paxNode, "user_descr", transliter(Qry.FieldAsString("user_descr"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
         NewTextChild(paxNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, Qry.FieldAsString("pers_type"), efmtCodeNative));
         NewTextChild(paxNode, "seat_no", Qry.FieldAsString("seat_no"));
         NewTextChild(paxNode, "document", Qry.FieldAsString("document"));
@@ -2712,9 +2713,11 @@ void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     s.str("");
     s
         << right << setw(3)  << getLocaleText("№", rpt_params.GetLang()) << col_sym
-        << left << setw(pr_web ? 19 : 21) << getLocaleText("Фамилия", rpt_params.GetLang())
-        << setw(9)  << getLocaleText("Оператор", rpt_params.GetLang())
-        << setw(4)  << getLocaleText("Пас", rpt_params.GetLang());
+        << left << setw(pr_web ? 19 : 30) << getLocaleText("Фамилия", rpt_params.GetLang());
+    if(pr_web)
+        s
+            << setw(9)  << getLocaleText("Оператор", rpt_params.GetLang());
+    s << setw(4)  << getLocaleText("Пас", rpt_params.GetLang());
     if(pr_web)
         s
             << setw(9)  << getLocaleText("№ м", rpt_params.GetLang());
@@ -2742,7 +2745,7 @@ void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     for(; rowNode != NULL; rowNode = rowNode->next)
     {
         //рабиваем фамилию, документ, билет, бирки, ремарки
-        SeparateString(((string)NodeAsString("surname",rowNode) + " " + NodeAsString("name", rowNode, "")).c_str(),(pr_web ? 18 : 20),rows);
+        SeparateString(((string)NodeAsString("surname",rowNode) + " " + NodeAsString("name", rowNode, "")).c_str(),(pr_web ? 18 : 29),rows);
         fields["surname"]=rows;
 
         SeparateString(NodeAsString("document",rowNode, ""),10,rows);
@@ -2764,8 +2767,11 @@ void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             if (row != 0) s << endl;
             s
                 << right << setw(3) << (row == 0 ? NodeAsString("reg_no", rowNode) : "") << col_sym
-                << left << setw(pr_web ? 18 : 20) << (!fields["surname"].empty() ? *(fields["surname"].begin()) : "") << col_sym
-                << left << setw(8) << (!fields["user_descr"].empty() ? *(fields["user_descr"].begin()) : "") << col_sym
+                << left << setw(pr_web ? 18 : 29) << (!fields["surname"].empty() ? *(fields["surname"].begin()) : "") << col_sym;
+            if(pr_web)
+                s
+                    << left << setw(8) << (!fields["user_descr"].empty() ? *(fields["user_descr"].begin()) : "") << col_sym;
+            s
                 << right <<  setw(3) << (row == 0 ? NodeAsString("pers_type", rowNode, ElemIdToCodeNative(etPersType, EncodePerson(adult)).c_str()) : "") << col_sym;
             if(pr_web) {
                 s
