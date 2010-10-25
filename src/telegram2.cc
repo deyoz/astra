@@ -155,12 +155,11 @@ struct TTlgDraftPart {
 struct TTlgDraft {
     private:
         TTlgInfo &tlg_info;
-        bool no_errors;
     public:
         vector<TTlgDraftPart> parts;
         void Save(TTlgOutPartInfo &info);
         void Commit(TTlgOutPartInfo &info);
-        TTlgDraft(TTlgInfo &tlg_info_val): tlg_info(tlg_info_val), no_errors(tlg_info_val.vcompleted) {}
+        TTlgDraft(TTlgInfo &tlg_info_val): tlg_info(tlg_info_val) {}
         void check(string &val);
 };
 
@@ -193,6 +192,7 @@ void TTlgDraft::check(string &value)
 
 void TTlgDraft::Commit(TTlgOutPartInfo &tlg_row)
 {
+    bool no_errors = tlg_info.err_lst.empty();
     tlg_row.num = 1;
     for(vector<TTlgDraftPart>::iterator iv = parts.begin(); iv != parts.end(); iv++){
         if(tlg_info.pr_lat and no_errors) {
