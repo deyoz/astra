@@ -976,8 +976,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr resNode)
         "   DECODE(pax_grp.status, 'T', pax_grp.status, 'N') status, \n"
         "   surname||' '||pax.name AS full_name, \n"
         "   pax.pers_type, \n"
-        "   salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum,0) AS seat_no, \n"
-        "   salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum,1) AS seat_no_lat, \n"
+        "   salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum) AS seat_no, \n"
         "   pax.seats, \n";
     if(rpt_params.pr_et) { //ЭБ
         SQLText +=
@@ -1140,10 +1139,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr resNode)
         NewTextChild(rowNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
         NewTextChild(rowNode, "excess", Qry.FieldAsInteger("excess"));
         NewTextChild(rowNode, "tags", Qry.FieldAsString("tags"));
-        if (rpt_params.IsInter())
-            NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
-        else
-            NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no_lat"));
+        NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
         NewTextChild(rowNode, "remarks", Qry.FieldAsString("remarks"));
     }
 
@@ -2084,26 +2080,24 @@ void REFUSE(TRptParams &rpt_params, xmlNodePtr resNode)
         get_report_form("docTxt", resNode);
     else
         get_report_form("ref", resNode);
-    int pr_lat = GetRPEncoding(rpt_params);
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "SELECT point_dep AS point_id, "
         "       reg_no, "
-        "       decode(:pr_lat, 0, surname||' '||pax.name, system.transliter(surname||' '||pax.name,1)) family, "
-        "       decode(:pr_lat, 0, pers_types.code, pers_types.code_lat) pers_type, "
+        "       surname||' '||pax.name family, "
+        "       pax.pers_type, "
         "       ticket_no, "
-        "       decode(:pr_lat, 0, refusal_types.name, NVL(refusal_types.name_lat,refusal_types.name)) refuse, "
-        "       ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:pr_lat) AS tags "
-        "FROM   pax_grp,pax,pers_types,refusal_types "
+        "       refusal_types.code refuse, "
+        "       ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags "
+        "FROM   pax_grp,pax,refusal_types "
         "WHERE  pax_grp.grp_id=pax.grp_id AND "
-        "       pax.pers_type=pers_types.code AND "
         "       pax.refuse = refusal_types.code AND "
         "       pax.refuse IS NOT NULL and "
         "       point_dep = :point_id "
         "order by "
         "       reg_no ";
     Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
-    Qry.CreateVariable("pr_lat", otString, pr_lat);
+    Qry.CreateVariable("lang", otString, rpt_params.GetLang());
     Qry.Execute();
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
@@ -2113,10 +2107,10 @@ void REFUSE(TRptParams &rpt_params, xmlNodePtr resNode)
 
         NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("point_id"));
         NewTextChild(rowNode, "reg_no", Qry.FieldAsInteger("reg_no"));
-        NewTextChild(rowNode, "family", Qry.FieldAsString("family"));
-        NewTextChild(rowNode, "pers_type", Qry.FieldAsString("pers_type"));
+        NewTextChild(rowNode, "family", transliter(Qry.FieldAsString("family"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+        NewTextChild(rowNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, Qry.FieldAsString("pers_type"), efmtCodeNative));
         NewTextChild(rowNode, "ticket_no", Qry.FieldAsString("ticket_no"));
-        NewTextChild(rowNode, "refuse", Qry.FieldAsString("refuse"));
+        NewTextChild(rowNode, "refuse", rpt_params.ElemIdToReportElem(etRefusalType, Qry.FieldAsString("refuse"), efmtNameLong));
         NewTextChild(rowNode, "tags", Qry.FieldAsString("tags"));
 
         Qry.Next();
@@ -2132,12 +2126,11 @@ void REFUSE(TRptParams &rpt_params, xmlNodePtr resNode)
 void REFUSETXT(TRptParams &rpt_params, xmlNodePtr resNode)
 {
     REFUSE(rpt_params, resNode);
-    bool lat = GetRPEncoding(rpt_params)!=0;
 
     xmlNodePtr variablesNode=NodeAsNode("form_data/variables",resNode);
     xmlNodePtr dataSetsNode=NodeAsNode("form_data/datasets",resNode);
     int page_width=80;
-    int max_symb_count=lat?page_width:60;
+    int max_symb_count=rpt_params.IsInter()?page_width:60;
     NewTextChild(variablesNode, "page_width", page_width);
     NewTextChild(variablesNode, "test_server", get_test_server());
     NewTextChild(variablesNode, "test_str", get_test_str(page_width, rpt_params.GetLang()));
@@ -2189,7 +2182,6 @@ void REFUSETXT(TRptParams &rpt_params, xmlNodePtr resNode)
             s
                 << right << setw(3) << (row == 0 ? NodeAsString("reg_no", rowNode) : "") << col_sym
                 << left << setw(20) << (!fields["surname"].empty() ? *(fields["surname"].begin()) : "") << col_sym
-//                << right <<  setw(3) << (row == 0 ? NodeAsString("pers_type", rowNode, нафига вот это??? -> "ВЗ") : "") << " " << col_sym
                 << right <<  setw(3) << (row == 0 ? NodeAsString("pers_type", rowNode) : "") << " " << col_sym
                 << left << setw(9) << (!fields["tkts"].empty() ? *(fields["tkts"].begin()) : "") << col_sym
                 << left << setw(23) << (!fields["refuse"].empty() ? *(fields["refuse"].begin()) : "") << col_sym
@@ -2214,39 +2206,35 @@ void NOTPRES(TRptParams &rpt_params, xmlNodePtr resNode)
         get_report_form("docTxt", resNode);
     else
         get_report_form("notpres", resNode);
-    int pr_lat = GetRPEncoding(rpt_params);
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "SELECT point_dep AS point_id, "
         "       reg_no, "
-        "       decode(:pr_lat, 0, surname||' '||pax.name, system.transliter(surname||' '||pax.name,1)) family, "
-        "       pers_types.code pers_type, "
+        "       surname||' '||pax.name family, "
+        "       pax.pers_type, "
         "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum) AS seat_no, "
         "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bagAmount, "
         "       ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bagWeight, "
-        "       ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:pr_lat) AS tags "
-        "FROM   pax_grp,pax,pers_types "
+        "       ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags "
+        "FROM   pax_grp,pax "
         "WHERE  pax_grp.grp_id=pax.grp_id AND "
-        "       pax.pers_type=pers_types.code AND "
         "       pax.pr_brd=0 and "
         "       point_dep = :point_id "
         "order by "
         "       reg_no ";
     Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
-    Qry.CreateVariable("pr_lat", otString, pr_lat);
+    Qry.CreateVariable("lang", otString, rpt_params.GetLang());
     Qry.Execute();
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
     xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_notpres");
-    TBaseTable &pers_types = base_tables.get("PERS_TYPES");
     while(!Qry.Eof) {
         xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
 
         NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("point_id"));
         NewTextChild(rowNode, "reg_no", Qry.FieldAsInteger("reg_no"));
-        NewTextChild(rowNode, "family", Qry.FieldAsString("family"));
-        NewTextChild(rowNode, "pers_type",
-          pers_types.get_row("code",Qry.FieldAsString("pers_type")).AsString("code",pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU));
+        NewTextChild(rowNode, "family", transliter(Qry.FieldAsString("family"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+        NewTextChild(rowNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, Qry.FieldAsString("pers_type"), efmtCodeNative));
         NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
         NewTextChild(rowNode, "bagamount", Qry.FieldAsInteger("bagamount"));
         NewTextChild(rowNode, "bagweight", Qry.FieldAsInteger("bagweight"));
@@ -2259,7 +2247,7 @@ void NOTPRES(TRptParams &rpt_params, xmlNodePtr resNode)
     xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
     PaxListVars(rpt_params.point_id, rpt_params, variablesNode);
     NewTextChild(variablesNode, "caption", getLocaleText("CAP.DOC.NOTPRES",
-                LParams() << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang())); //!!!params 100%error
+                LParams() << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang()));
     populate_doc_cap(variablesNode, rpt_params.GetLang());
 }
 
