@@ -5753,6 +5753,7 @@ int TelegramInterface::create_tlg(
     if(vsender.size() != 7 || !is_lat(vsender))
         throw AstraLocale::UserException("MSG.TLG.SRC_ADDR_WRONG_SET");
     info.sender = vsender;
+    info.vcompleted = !veditable;
     if(createInfo.point_id != -1) {
         TQuery Qry(&OraSession);
         Qry.SQLText =
@@ -5849,8 +5850,6 @@ int TelegramInterface::create_tlg(
             extra << info.extra << " ";
     }
     info.extra = extra.str();
-
-    info.vcompleted = !veditable;
 
     info.addrs = format_addr_line(createInfo.addrs, &info);
 
