@@ -470,7 +470,7 @@ void TripsInterface::GetSegInfo(xmlNodePtr reqNode, xmlNodePtr resNode, xmlNodeP
       if ( GetNode( "tripdata", reqNode ) )
           BrdInterface::readTripData( point_id, dataNode );
       if ( GetNode( "paxdata", reqNode ) && resNode!=NULL ) {
-          BrdInterface::GetPax(reqNode,resNode,false);
+          BrdInterface::GetPax(reqNode,resNode);
           xmlNodePtr variablesNode = GetNode("/term/answer/form_data/variables", dataNode->doc);
           if(variablesNode) {
               NewTextChild(variablesNode, "exam_totals", getLocaleText("CAP.DOC.EXAMBRD.EXAM_TOTALS",

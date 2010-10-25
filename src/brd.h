@@ -43,7 +43,7 @@ public:
                                        const bool used_for_web_rpt,
                                        const std::string &client_type);
 
-  static void GetPax(xmlNodePtr reqNode, xmlNodePtr resNode, bool used_for_web_rpt);
+  static void GetPax(xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 
 #endif

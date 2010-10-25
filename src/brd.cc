@@ -260,7 +260,7 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     check_brd_alarm( point_id );
   };
 
-  GetPax(reqNode,resNode,false);
+  GetPax(reqNode,resNode);
 
   ASTRA::showMessage(msg);
 };
@@ -371,7 +371,7 @@ bool ChckSt(int pax_id, string& curr_seat_no)
 
 void BrdInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  GetPax(reqNode,resNode,false);
+  GetPax(reqNode,resNode);
 };
 
 void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
@@ -455,7 +455,7 @@ void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
   Qry.SQLText = sql.str().c_str();
 };
 
-void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode, bool used_for_web_rpt)
+void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
 
@@ -478,10 +478,6 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode, bool used_for_
         NewTextChild(variablesNode, "page_number_fmt", getLocaleText("CAP.PAGE_NUMBER_FMT"));
         NewTextChild(variablesNode, "short_page_number_fmt", getLocaleText("CAP.SHORT_PAGE_NUMBER_FMT"));
     }
- /*   string client_type;
-
-    if (used_for_web_rpt)
-      client_type = NodeAsString( "client_type", reqNode );*/
 
     xmlNodePtr dataNode=GetNode("data",resNode);
     if (dataNode==NULL)
@@ -541,7 +537,8 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode, bool used_for_
                        HallQry.FieldAsString("flt_airp"))!=0) hall=-1;
           };
 
-          //readTripCounters( point_id, dataNode, false, "" );!!!
+          TRptParams rpt_params(reqInfo->desk.lang);
+          readTripCounters(point_id, rpt_params, dataNode, false, "");
           readTripData( point_id, dataNode );
         }
         else
@@ -639,9 +636,6 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode, bool used_for_
       int col_client_type=Qry.FieldIndex("client_type");
       int col_tckin_id=Qry.FieldIndex("tckin_id");
       int col_seg_no=Qry.FieldIndex("seg_no");
-   //   int col_user_descr=NoExists;
-   //   if (used_for_web_rpt) col_user_descr=Qry.FieldIndex("user_descr");
-
 
       TPaxSeats priorSeats(point_id);
       for(;!Qry.Eof;Qry.Next())
@@ -694,10 +688,6 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode, bool used_for_
           NewTextChild(paxNode, "remarks", Qry.FieldAsString(col_remarks), "");
           if (DecodeClientType(Qry.FieldAsString(col_client_type))!=ctTerm)
             NewTextChild(paxNode, "client_name", ElemIdToNameShort(etClientType, Qry.FieldAsString(col_client_type)));
-
-      /*    if (used_for_web_rpt)
-            NewTextChild(paxNode, "user_descr", Qry.FieldAsString(col_user_descr)); //login не надо использовать, так как он м.б. пустым
-      */
 
           if (!Qry.FieldIsNULL(col_tckin_id))
           {
