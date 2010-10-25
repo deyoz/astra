@@ -1042,6 +1042,14 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
       } /* end for */
     } /* end if */
   } /* end for  0..2 */
+  Qry->Clear();
+  Qry->SQLText =
+    "SELECT tid FROM cache_tables WHERE code=:code";
+  Qry->CreateVariable( "code", otString, code() );
+  Qry->Execute();
+  if ( !Qry->Eof ) {
+    curVerIface = Qry->FieldAsInteger( "tid" );
+  }
   if ( pr_dconst && TReqInfo::Instance()->desk.compatible(LATIN_VERSION) ) {
   	Params[ TAG_REFRESH_INTERFACE ].Value.clear();
     Params[ TAG_REFRESH_DATA ].Value.clear();
