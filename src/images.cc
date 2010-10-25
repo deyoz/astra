@@ -178,11 +178,6 @@ void ImagesInterface::GetImages(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   GetImages( reqNode, resNode );
 };
 
-void ImagesInterface::GetDrawSalonData(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-	GetDrawSalonProp( reqNode, resNode );
-}
-
 void GetDrawSalonProp( xmlNodePtr reqNode, xmlNodePtr resNode )
 {
 	ImagesInterface::GetImages( reqNode, resNode );
@@ -203,6 +198,54 @@ void GetDrawSalonProp( xmlNodePtr reqNode, xmlNodePtr resNode )
   }
 }
 
+void GetDrawWebTariff( xmlNodePtr reqNode, xmlNodePtr resNode )
+{
+	TReqInfo *reqInfo = TReqInfo::Instance();
+  if ( find( reqInfo->user.access.rights.begin(), reqInfo->user.access.rights.end(), 431) == reqInfo->user.access.rights.end() )
+  	return;
+
+	xmlNodePtr tariffsNode = GetNode( "data", resNode );
+	if ( !tariffsNode ) {
+		tariffsNode = NewTextChild( resNode, "data" );
+	}
+	tariffsNode = GetNode( "data/images", resNode );
+	if ( !tariffsNode ) {
+		tariffsNode = NewTextChild( tariffsNode, "images" );
+	}
+	tariffsNode = NewTextChild( tariffsNode, "web_tariff_property" );
+	xmlNodePtr n = NewTextChild( tariffsNode, "tarif" );
+	SetProp( n, "color", "$00CECF00" );
+	SetProp( n, "figure", "rurect" );
+  n = NewTextChild( tariffsNode, "tarif" );
+	SetProp( n, "color", "$004646FF" );
+	SetProp( n, "figure", "rurect" );
+  n = NewTextChild( tariffsNode, "tarif" );
+	SetProp( n, "color", "$000DCAA4" );
+	SetProp( n, "figure", "rurect" );
+  n = NewTextChild( tariffsNode, "tarif" );
+	SetProp( n, "color", "$00FF64FF" );
+	SetProp( n, "figure", "rurect" );
+  n = NewTextChild( tariffsNode, "tarif" );
+	SetProp( n, "color", "$00000000" );
+	SetProp( n, "figure", "rurect" );
+  n = NewTextChild( tariffsNode, "tarif" );
+	SetProp( n, "color", "$001C66FF" );
+	SetProp( n, "figure", "rurect" );
+  n = NewTextChild( tariffsNode, "tarif" );
+	SetProp( n, "color", "$00FD2D71" );
+	SetProp( n, "figure", "rurect" );
+}
+
+void GetDataForDrawSalon( xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+	GetDrawSalonProp( reqNode, resNode );
+	GetDrawWebTariff( reqNode, resNode );
+}
+
+void ImagesInterface::GetDrawSalonData(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+	GetDataForDrawSalon( reqNode, resNode );
+}
 
 void ImagesInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {

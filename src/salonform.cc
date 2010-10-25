@@ -16,6 +16,7 @@
 #include "convert.h"
 #include "tlg/tlg_parser.h" // only for convert_salons
 #include "serverlib/str_utils.h"
+#include "term_version.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -229,7 +230,7 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     }
  	}
  	if ( pr_images ) {
- 		GetDrawSalonProp( reqNode, resNode );
+ 		GetDataForDrawSalon( reqNode, resNode );
  	}
 }
 
@@ -256,8 +257,6 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Salons.trip_id = trip_id;
   Salons.ClName = "";
   Qry.Execute();
-  //SALONS2::TSalons OSalons( trip_id, SALONS2::rTripSalons );
-  //OSalons.Read();
   Salons.Write();
   bool pr_initcomp = NodeAsInteger( "initcomp", reqNode );
   /* инициализация VIP */
@@ -265,7 +264,16 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   xmlNodePtr refcompNode = NodeAsNode( "refcompon", reqNode );
   string msg = string( "Изменена компоновка рейса. Классы: " ) +
                NodeAsString( "classes", refcompNode );
-  msg += string( ", кодировка: " ) + NodeAsString( "lang", refcompNode ); //???
+  string comp_lang;
+  if (TReqInfo::Instance()->desk.compatible(LATIN_VERSION)) {
+  	if ( NodeAsInteger( "pr_lat", refcompNode ) != 0 )
+  	  comp_lang = "лат.";
+  	else
+  		comp_lang = "рус.";
+  }
+  else
+  	comp_lang = NodeAsString( "lang", refcompNode );
+  msg += string( ", кодировка: " ) + comp_lang;
   TReqInfo::Instance()->MsgToLog( msg, evtFlt, trip_id );
 
   if ( pr_initcomp ) { /* изменение компоновки */
@@ -290,7 +298,7 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         msg = string( "Назначена компоновка рейса. Классы: " ) +
               NodeAsString( "classes", refcompNode );
     }
-    msg += string( ", кодировка: " ) + NodeAsString( "lang", refcompNode );
+    msg += string( ", кодировка: " ) + comp_lang;
     TReqInfo::Instance()->MsgToLog( msg, evtFlt, trip_id );
   }
   SALONS2::setTRIP_CLASSES( trip_id );

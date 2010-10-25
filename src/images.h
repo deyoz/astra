@@ -30,8 +30,7 @@ public:
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 
-void GetDrawSalonProp( xmlNodePtr reqNode, xmlNodePtr resNode );
-
+void GetDataForDrawSalon( xmlNodePtr reqNode, xmlNodePtr resNode);
 
 #endif /*_IMAGES_H_*/
 
