@@ -2393,7 +2393,7 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p, bool pr_exists )
     		  	old_seat_no = "(" + old_seat_no + ")";
     		}
     		else
-    			old_seat_no = "‹Ž";
+    			old_seat_no = AstraLocale::getLocaleText("‹Ž");
     		if ( !old_seat_no.empty() )
     			pass.placeName = old_seat_no;
     }

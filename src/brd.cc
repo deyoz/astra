@@ -676,7 +676,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode, bool used_for_
           }
           else
           {
-            NewTextChild(paxNode,"seat_no_str","‹Ž");
+            NewTextChild(paxNode,"seat_no_str",AstraLocale::getLocaleText("‹Ž"));
             NewTextChild(paxNode,"seat_no_alarm",(int)true);
           };
           NewTextChild(paxNode, "ticket_no", Qry.FieldAsString(col_ticket_no), "");

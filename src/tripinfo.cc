@@ -1744,7 +1744,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     		  	old_seat_no = "(" + old_seat_no + ")";
     		}
     		else
-    			old_seat_no = "‹Ž";
+    			old_seat_no = AstraLocale::getLocaleText("‹Ž");
     		if ( !old_seat_no.empty() )
     		  NewTextChild( node, "nseat_no", old_seat_no );
    		}

@@ -396,9 +396,9 @@ void IntRequestCertificateData(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   if ( !Qry.FieldIsNULL( "title" ) )
    	NewTextChild( node, "Title", Qry.FieldAsString( "title" ) );
   if ( Qry.FieldIsNULL( "user_name" ) ) {
-  	string str = "Астра";
+  	string str = "Astra";
   	if ( pr_grp )
-  		str += "(Группа)";
+  		str += "(Group)";
    	NewTextChild( node, "CommonName", str + TReqInfo::Instance()->desk.code +
     		                                BASIC::DateTimeToStr( udate, "ddmmyyhhnn" )  );
   }

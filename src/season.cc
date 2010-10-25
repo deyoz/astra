@@ -1586,7 +1586,7 @@ void SeasonInterface::ViewSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
       NewTextChild( tripNode, "trap", DateTimeToStr( tr->trap ) );
     }
     if ( tr->pr_del )
-      NewTextChild( tripNode, "ref", "Žâ¬¥­ " );
+      NewTextChild( tripNode, "ref", AstraLocale::getLocaleText("Žâ¬¥­ ") );
   }
  if ( !err_city.empty() )
     AstraLocale::showErrorMessage( "MSG.CITY.REGION_NOT_DEFINED.NOT_ALL_FLIGHTS_ARE_SHOWN",

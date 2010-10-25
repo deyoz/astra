@@ -3054,7 +3054,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	  	if ( !old_dest.craft.empty() ) {
   	  		if ( !id->remark.empty() )
   	  			id->remark += " ";
-  	  	  id->remark += "изм. типа ВС с " + old_dest.craft;
+  	  	  id->remark += "изм. типа ВС с " + old_dest.craft; //!!!locale
   	  	  if ( !id->craft.empty() )
   	  	    reqInfo->MsgToLog( string( "Изменение типа ВС на " ) + id->craft + " порт " + id->airp, evtDisp, move_id, id->point_id );
   	  	}
@@ -3067,7 +3067,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	  	if ( !old_dest.bort.empty() ) {
   	  		if ( !id->remark.empty() )
   	  			id->remark += " ";
-  	  	  id->remark += "изм. борта с " + old_dest.bort;
+  	  	  id->remark += "изм. борта с " + old_dest.bort; //!!!locale
   	  	  if ( !id->bort.empty() )
   	  	    reqInfo->MsgToLog( string( "Изменение борта на " ) + id->bort + " порт " + id->airp, evtDisp, move_id, id->point_id );
   	  	}
