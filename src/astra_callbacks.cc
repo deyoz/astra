@@ -35,6 +35,7 @@
 #include "xml_unit.h"
 #include "base_tables.h"
 #include "web_main.h"
+#include "astra_locale.h"
 #include "jxtlib/jxtlib.h"
 #include "serverlib/query_runner.h"
 #include "serverlib/ocilocal.h"
@@ -82,8 +83,7 @@ void AstraJxtCallbacks::InitInterfaces()
     new AstraWeb::WebRequestsIface();
 };
 
-void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
-        int hlen, char **res, int len)
+void AstraJxtCallbacks::UserBefore(const std::string &head, const std::string &body)
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
 	  reqInfo->setPerform();
@@ -99,6 +99,33 @@ void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
     std::string mode;
     if (modeNode!=NULL)
       reqInfoData.mode = NodeAsString(modeNode);
+
+    if ( GetNode( "@lang", node ) ) {
+    	reqInfoData.lang = NodeAsString("@lang",node);
+    	ProgTrace( TRACE5, "reqInfoData.lang=%s", reqInfoData.lang.c_str() );
+    	if ( GetNode( "UserLogon", node ) != NULL && reqInfoData.lang != AstraLocale::LANG_DEFAULT ) {
+    		TLangTypes langs = (TLangTypes&)base_tables.get("lang_types");
+    		try {
+      		langs.get_row("code",reqInfoData.lang);
+          if (AstraLocale::TLocaleMessages::Instance()->checksum( reqInfoData.lang ) == 0) // нет данных для словаря
+          	throw EBaseTableError("");
+      	}
+        catch( EBaseTableError ) {
+        	ProgTrace( TRACE5, "Unknown client lang=%s", reqInfoData.lang.c_str() );
+        	reqInfoData.lang = AstraLocale::LANG_DEFAULT;
+        }
+      }
+    }
+
+   if (!reqInfoData.lang.empty())
+   {
+    if (reqInfoData.lang==AstraLocale::LANG_RU)
+      xmlRC->setLang(RUSSIAN);
+    else
+      xmlRC->setLang(ENGLISH);
+   }
+   else xmlRC->setLang(RUSSIAN);
+
 
     reqInfoData.checkUserLogon =
         GetNode( "CheckUserLogon", node ) == NULL &&
@@ -122,7 +149,7 @@ void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
     {
       reqInfo->Initialize( reqInfoData );
     }
-    catch(EXCEPTIONS::UserException)
+    catch(AstraLocale::UserException)
     {
       if (GetNode( "UserLogoff", node ) != NULL)
       {
@@ -188,12 +215,13 @@ void AstraJxtCallbacks::UserAfter()
 	  XMLRequestCtxt *xmlRC = getXmlCtxt();
 	  xmlNodePtr node=NodeAsNode("/term/answer",xmlRC->resDoc);
 	  SetProp(node, "execute_time", TReqInfo::Instance()->getExecuteMSec() );
-	  if ( TReqInfo::Instance()->client_type == ctWeb )
+	  if ( TReqInfo::Instance()->client_type == ctWeb ||
+	       TReqInfo::Instance()->client_type == ctKiosk )
 	  	RevertWebResDoc( (const char*)xmlRC->reqDoc->children->children->children->name, node );
 }
 
 
-void AstraJxtCallbacks::HandleException(std::exception *e)
+void AstraJxtCallbacks::HandleException(ServerFramework::Exception *e)
 {
     ProgTrace(TRACE3, "AstraJxtCallbacks::HandleException");
 
@@ -227,12 +255,12 @@ void AstraJxtCallbacks::HandleException(std::exception *e)
           switch( orae->Code ) {
           	case 4061:
           	case 4068:
-          		showError("Версия системы была обновлена. Повторите действие");
+          		AstraLocale::showError("MSG.SYSTEM_VERS_UPDATED.REPEAT");
           		break;
           	default:
           	  ProgError(STDLOG,"EOracleError %d: %s",orae->Code,orae->what());
           	  ProgError(STDLOG,"SQL: %s",orae->SQLText());
-              showProgError("Ошибка обработки запроса. Обратитесь к разработчикам");
+              showProgError("MSG.QRY_HANDLER_ERR.CALL_ADMIN");
           }
           throw 1;
       };
@@ -242,20 +270,20 @@ void AstraJxtCallbacks::HandleException(std::exception *e)
           AstraLocale::showError( lue->getLexemaData(), lue->Code() );
           throw 1;
       }
-      EXCEPTIONS::UserException *ue = dynamic_cast<EXCEPTIONS::UserException*>(e);
+      /*EXCEPTIONS::UserException *ue = dynamic_cast<EXCEPTIONS::UserException*>(e);
       if (ue)
       {
           ProgTrace( TRACE5, "UserException: %s", ue->what() );
           showError(ue->what(), ue->Code());
           throw 1;
-      }
+      }*/
       std::logic_error *exp = dynamic_cast<std::logic_error*>(e);
       if (exp)
           ProgError(STDLOG,"std::logic_error: %s",exp->what());
       else
-          ProgError(STDLOG,"std::exception: %s",e->what());
+          ProgError(STDLOG,"ServerFramework::Exception: %s",e->what());
 
-      showProgError("Ошибка обработки запроса. Обратитесь к разработчикам");
+      AstraLocale::showProgError("MSG.QRY_HANDLER_ERR.CALL_ADMIN");
       throw 1;
     }
     catch( int ) {

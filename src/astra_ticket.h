@@ -165,7 +165,7 @@ public:
                         'Y',
                         req.desk.code,
                         "",
-                        Lang::RUSSIAN)
+                        req.desk.lang == AstraLocale::LANG_RU?RUSSIAN:ENGLISH)
     {
     }
 
@@ -178,7 +178,7 @@ public:
                         'Y',
                         "SYSTEM",
                         "",
-                        Lang::RUSSIAN)
+                        RUSSIAN)
     {
     }
 
@@ -190,7 +190,7 @@ public:
                   char type,
                   const std::string &pult,
                   const std::string &authCode,
-                  Lang::Language lang=Lang::ENGLISH)
+                  Language lang)
     :BaseOrigOfRequest(
                   airline,
                   location,

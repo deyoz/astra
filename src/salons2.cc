@@ -17,6 +17,7 @@
 
 using namespace std;
 using namespace EXCEPTIONS;
+using namespace AstraLocale;
 using namespace BASIC;
 using namespace ASTRA;
 
@@ -478,7 +479,7 @@ void TSalons::Write()
         }
       }
       if ( !place->layers.empty() ) {
-      	//!!! надо вставить слой
+      	//!надо вставить слой
       	QryLayers.SetVariable( "first_xname", place->xname );
       	QryLayers.SetVariable( "last_xname", place->xname );
       	QryLayers.SetVariable( "first_yname", place->yname );
@@ -531,7 +532,7 @@ void TSalons::Read( bool wo_invalid_seat_no )
      "SELECT pr_lat_seat FROM trip_sets WHERE point_id=:point_id";
     Qry.CreateVariable( "point_id", otInteger, trip_id );
     Qry.Execute();
-    if ( Qry.Eof ) throw UserException("Рейс не найден. Обновите данные");
+    if ( Qry.Eof ) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
     pr_lat_seat = Qry.FieldAsInteger( "pr_lat_seat" );
   }
   else {
@@ -539,7 +540,7 @@ void TSalons::Read( bool wo_invalid_seat_no )
      "SELECT pr_lat_seat FROM comps WHERE comp_id=:comp_id";
     Qry.CreateVariable( "comp_id", otInteger, comp_id );
     Qry.Execute();
-    if ( Qry.Eof ) throw UserException("Компоновка не найдена. Обновите данные");
+    if ( Qry.Eof ) throw AstraLocale::UserException("MSG.SALONS.NOT_FOUND.REFRESH_DATA");
     pr_lat_seat = Qry.FieldAsInteger( "pr_lat_seat" );
   }
   Qry.Clear();
@@ -592,9 +593,9 @@ void TSalons::Read( bool wo_invalid_seat_no )
   Qry.Execute();
   if ( Qry.RowCount() == 0 )
     if ( readStyle == rTripSalons )
-      throw UserException( "На рейс не назначен салон" );
+      throw AstraLocale::UserException( "MSG.SALONS.NOT_SET" );
     else
-      throw UserException( "Не найдена компоновка" );
+      throw AstraLocale::UserException( "MSG.SALONS.NOT_FOUND" );
   tst();
   int col_num = Qry.FieldIndex( "num" );
   int col_x = Qry.FieldIndex( "x" );
@@ -643,7 +644,7 @@ void TSalons::Read( bool wo_invalid_seat_no )
       num = Qry.FieldAsInteger( col_num );
       placeList->num = num;
     }
-    // повторение мест!!! - разные слои
+    // повторение мест! - разные слои
     TPlace place;
     point_p.x = Qry.FieldAsInteger( col_x );
     point_p.y = Qry.FieldAsInteger( col_y );
@@ -756,6 +757,7 @@ void TSalons::Parse( xmlNodePtr salonsNode )
   TRem rem;
   int lat_count=0, rus_count=0;
   string rus_lines = rus_seat, lat_lines = lat_seat;
+  TElemFmt fmt;
   while ( salonNode ) {
     TPlaceList *placeList = new TPlaceList();
     placeList->num = NodeAsInteger( "@num", salonNode );
@@ -779,7 +781,9 @@ void TSalons::Parse( xmlNodePtr salonsNode )
         place.agle = 0;
       else
         place.agle = NodeAsIntegerFast( "agle", node );
-      place.clname = NodeAsStringFast( "class", node );
+      place.clname = ElemToElemId( etClass, NodeAsStringFast( "class", node ), fmt );
+      if ( fmt == efmtUnknown )
+      	throw UserException( "MSG.INVALID_CLASS" );
       place.pr_smoke = GetNodeFast( "pr_smoke", node );
       place.not_good = GetNodeFast( "not_good", node );
       place.xname = NodeAsStringFast( "xname", node );
@@ -797,7 +801,7 @@ void TSalons::Parse( xmlNodePtr salonsNode )
       if ( !GetNodeFast( "status", node ) )
         place.status = "FP";
       else
-        place.status = NodeAsStringFast( "status", node ); //!!!
+        place.status = NodeAsStringFast( "status", node );
       place.pr_free = !GetNodeFast( "pr_notfree", node );
       place.block = GetNodeFast( "block", node );
 
@@ -855,7 +859,7 @@ void TSalons::verifyValidRem( std::string rem_name, std::string class_name )
        continue;
       for ( vector<TRem>::iterator irem=place->rems.begin(); irem!=place->rems.end(); irem++ ) {
       	if ( irem->rem == rem_name )
-      		throw UserException( string( "Ремарка " ) + rem_name + " не может быть задана в классе " + place->clname );
+      		throw AstraLocale::UserException( "MSG.SALONS.NOT_FOUND", LParams() << LParam("remark", rem_name) << LParam("class", place->clname));
       }
     }
   }
@@ -947,7 +951,7 @@ string TPlaceList::GetYsName( int y )
 
 bool TPlaceList::GetisPlaceXY( string placeName, TPoint &p )
 {
-	placeName = trim( placeName );
+	TrimString(placeName);
 	if ( placeName.empty() )
 		return false;
   /* конвертация номеров мест в зависимости от лат. или рус. салона */
@@ -1022,7 +1026,7 @@ void GetTripParams( int trip_id, xmlNodePtr dataNode )
     "WHERE point_id=:point_id ";
   Qry.CreateVariable( "point_id", otInteger, trip_id );
   Qry.Execute();
-  if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
+  if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
 
   TTripInfo info;
   info.airline=Qry.FieldAsString("airline");
@@ -1032,7 +1036,7 @@ void GetTripParams( int trip_id, xmlNodePtr dataNode )
   info.scd_out=Qry.FieldAsDateTime("scd_out");
   info.real_out=Qry.FieldAsDateTime("real_out");
 
-  NewTextChild( dataNode, "trip", GetTripName(info) );
+  NewTextChild( dataNode, "trip", GetTripName(info,ecCkin) );
   NewTextChild( dataNode, "craft", Qry.FieldAsString( "craft" ) );
   NewTextChild( dataNode, "bort", Qry.FieldAsString( "bort" ) );
 
@@ -1048,7 +1052,7 @@ void GetTripParams( int trip_id, xmlNodePtr dataNode )
                 " WHERE trip_sets.point_id = :point_id AND trip_sets.comp_id = comp.comp_id(+) ";
   Qry.CreateVariable( "point_id", otInteger, trip_id );
   Qry.Execute();
-  if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
+  if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
 
   /* comp_id>0 - базовый; comp_id=-1 - измененный; comp_id=-2 - не задан */
   NewTextChild( dataNode, "comp_id", Qry.FieldAsInteger( "comp_id" ) );
@@ -1074,7 +1078,6 @@ void GetCompParams( int comp_id, xmlNodePtr dataNode )
 bool InternalExistsRegPassenger( int trip_id, bool SeatNoIsNull )
 {
   TQuery Qry( &OraSession );
-  //!!!
   string sql = "SELECT pax.pax_id FROM pax_grp, pax "\
                " WHERE pax_grp.grp_id=pax.grp_id AND "\
                "       point_dep=:point_id AND "\
@@ -1583,14 +1586,14 @@ void getSalonChanges( TSalons &OldSalons, vector<TSalonSeat> &seats )
 	Salons.Read();
 	if ( Salons.getLatSeat() != OldSalons.getLatSeat() ||
 		   Salons.placelists.size() != OldSalons.placelists.size() )
-		throw UserException( "Изменена компоновка рейса. Обновите данные" );
+		throw AstraLocale::UserException( "MSG.SALONS.COMPON_CHANGED.REFRESH_DATA" );
 	for ( vector<TPlaceList*>::iterator so=OldSalons.placelists.begin(),
 		    /*vector<TPlaceList*>::iterator */sn=Salons.placelists.begin();
 		    so!=OldSalons.placelists.end(),
 		    sn!=Salons.placelists.end();
 		    so++, sn++ ) {
 		if ( (*so)->places.size() != (*sn)->places.size() )
-			throw UserException( "Изменена компоновка рейса. Обновите данные" );
+			throw AstraLocale::UserException( "MSG.SALONS.COMPON_CHANGED.REFRESH_DATA" );
     for ( TPlaces::iterator po = (*so)->places.begin(),
     	    /*TPlaces::iterator*/ pn = (*sn)->places.begin();
           po != (*so)->places.end(),
@@ -1610,7 +1613,7 @@ void getSalonChanges( TSalons &OldSalons, vector<TSalonSeat> &seats )
              po->clname != pn->clname ||
              po->xname != pn->xname ||
              po->yname != pn->yname ) )
-        throw UserException( "Изменена компоновка рейса. Обновите данные" );
+        throw AstraLocale::UserException( "MSG.SALONS.COMPON_CHANGED.REFRESH_DATA" );
       if ( !po->visible )
       	continue;
       if ( po->pr_smoke != pn->pr_smoke ||

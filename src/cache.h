@@ -5,6 +5,7 @@
 #include <map>
 #include <libxml/tree.h>
 #include "oralib.h"
+#include "astra_elems.h"
 #include "astra_utils.h"
 
 #include "jxtlib/JxtInterface.h"
@@ -38,7 +39,7 @@ enum TCacheFieldType {ftSignedNumber, ftUnsignedNumber, ftDate, ftTime, ftString
 enum TCacheConvertType {ctInteger,ctDouble,ctDateTime,ctString};
 enum TCacheUpdateStatus {usUnmodified, usModified, usInserted, usDeleted};
 enum TCacheQueryType {cqtSelect,cqtRefresh,cqtInsert,cqtUpdate,cqtDelete};
-
+enum TCacheElemCategory {cecNone, cecCode, cecName};
 
 struct TCacheField2 {
     std::string Name;
@@ -55,7 +56,11 @@ struct TCacheField2 {
     std::string ReferCode;
     std::string ReferName;
     int ReferLevel;
+    int ReferIdent;
     int VarIdx[2];
+    int num;
+    TCacheElemCategory ElemCategory;
+    TElemType ElemType;
     TCacheField2()
     {
         Width = 0;
@@ -65,8 +70,10 @@ struct TCacheField2 {
         Ident = false;
         ReadOnly = true;
         ReferLevel = 0;
+        ReferIdent = -1;
         VarIdx[0] = -1;
         VarIdx[1] = -1;
+        ElemCategory = cecNone;
     }
 };
 
@@ -102,6 +109,8 @@ class TCacheTable;
 typedef void  (*TBeforeRefreshEvent)(TCacheTable &, TQuery &, const TCacheQueryType);
 typedef void  (*TBeforeApplyEvent)(TCacheTable &, const TRow &, TQuery &, const TCacheQueryType);
 
+enum TUpdateDataType {upNone, upExists, upClearAll};
+
 class TCacheTable {
     protected:
         TQuery *Qry;
@@ -114,7 +123,8 @@ class TCacheTable {
         std::string DeleteSQL;
         TEventType EventType;
         bool Logging;
-        bool Keep_Locally;
+        bool KeepLocally;
+        bool KeepDeletedRows;
         int SelectRight;
         int InsertRight;
         int UpdateRight;
@@ -128,10 +138,11 @@ class TCacheTable {
         std::vector<std::string> vars;
 
         void getPerms( );
-        bool pr_irefresh, pr_drefresh;
+        bool pr_irefresh, pr_dconst;
+        TUpdateDataType refresh_data_type;
         void getParams(xmlNodePtr paramNode, TParams &vparams);
         bool refreshInterface();
-        bool refreshData();
+        TUpdateDataType refreshData();
         virtual void initFields();
         void XMLInterface(const xmlNodePtr resNode);
         void XMLData(const xmlNodePtr resNode);

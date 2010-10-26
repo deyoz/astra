@@ -13,7 +13,6 @@
 #include "tripinfo.h"
 #include "astra_locale.h"
 //#include "seats.h"
-#include "tripinfo.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -142,12 +141,12 @@ TSalons::TSalons( int id, TReadStyle vreadStyle )
   modify = mNone;
 	TQuery Qry(&OraSession);
   Qry.SQLText =
-    "SELECT code,name,priority FROM comp_layer_types ORDER BY priority";
+    "SELECT code,priority FROM comp_layer_types ORDER BY priority";
   Qry.Execute();
   while ( !Qry.Eof ) {
   	TCompLayerType l = DecodeCompLayerType( Qry.FieldAsString( "code" ) );
   	if ( l != cltUnknown ) {
-  		layers_priority[ l ].name = Qry.FieldAsString( "name" );
+  		layers_priority[ l ].name = ElemIdToNameLong(etCompLayerType,Qry.FieldAsString( "code" ));
   	  layers_priority[ l ].priority = Qry.FieldAsInteger( "priority" );
   	}
   	Qry.Next();
@@ -183,9 +182,9 @@ TSalons::TSalons( int id, TReadStyle vreadStyle )
     if ( FilterLayers.isFlag( cltTranzit ) ||
     	   FilterLayers.isFlag( cltSOMTrzt ) ||
     	   FilterLayers.isFlag( cltPRLTrzt ) ) {
-      layers_priority[ cltBlockTrzt ].name_view = "Транзит";
+      layers_priority[ cltBlockTrzt ].name_view = AstraLocale::getLocaleText("Транзит");
     }
-    layers_priority[ cltCheckin ].name_view = "Регистрация";
+    layers_priority[ cltCheckin ].name_view = AstraLocale::getLocaleText("Регистрация");
     if ( FilterLayers.isFlag( cltProtTrzt ) ) {
     	layers_priority[ cltProtTrzt ].name_view = layers_priority[ cltProtTrzt ].name;
       layers_priority[ cltProtTrzt ].func_key = "Shift+F3";
@@ -310,7 +309,7 @@ void TSalons::Build( xmlNodePtr salonsNode )
  	SetProp( n, "name", "LAYER_CLEAR_ALL" );
  	SetProp( n, "priority", 10000 );
  	SetProp( n, "edit", 1 );
-  SetProp( n, "name_view_help", "Очистить все статусы мест" );
+  SetProp( n, "name_view_help", AstraLocale::getLocaleText("Очистить все статусы мест") );
   SetProp( n, "func_key", "Shift+F8" );
 }
 
@@ -821,7 +820,7 @@ void TSalons::Read( )
       num = Qry.FieldAsInteger( col_num );
       placeList->num = num;
     }
-    // повторение мест!!! - разные слои
+    // повторение мест! - разные слои
     TPlace place;
     point_p.x = Qry.FieldAsInteger( col_x );
     point_p.y = Qry.FieldAsInteger( col_y );
@@ -1048,6 +1047,7 @@ void TSalons::Parse( xmlNodePtr salonsNode )
   TRem rem;
   int lat_count=0, rus_count=0;
   string rus_lines = rus_seat, lat_lines = lat_seat;
+  TElemFmt fmt;
   while ( salonNode ) {
     TPlaceList *placeList = new TPlaceList();
     placeList->num = NodeAsInteger( "@num", salonNode );
@@ -1071,7 +1071,10 @@ void TSalons::Parse( xmlNodePtr salonsNode )
         place.agle = 0;
       else
         place.agle = NodeAsIntegerFast( "agle", node );
-      place.clname = NodeAsStringFast( "class", node );
+      place.clname = ElemToElemId( etClass, NodeAsStringFast( "class", node ), fmt );
+      if ( fmt == efmtUnknown )
+      	throw UserException( "MSG.INVALID_CLASS" );
+
       place.xname = NodeAsStringFast( "xname", node );
 
       if ( !pr_lat_seat_init ) {
@@ -1099,7 +1102,6 @@ void TSalons::Parse( xmlNodePtr salonsNode )
       }
       remsNode = GetNodeFast( "layers", node );
       if ( remsNode ) {
-      	tst();
       	remsNode = remsNode->children; //layer
       	while( remsNode ) {
       		remNode = remsNode->children;
@@ -1133,7 +1135,7 @@ void TSalons::verifyValidRem( std::string rem_name, std::string class_name )
       for ( vector<TRem>::iterator irem=place->rems.begin(); irem!=place->rems.end(); irem++ ) {
       	if ( irem->rem == rem_name )
       		throw UserException( "MSG.SALONS.REMARK_NOT_SET_IN_CLASS",
-      		                     LParams()<<LParam("remark", rem_name )<<LParam("class", place->clname) );
+      		                     LParams()<<LParam("remark", rem_name )<<LParam("class", ElemIdToCodeNative(etClass,place->clname) ));
       }
     }
   }
@@ -1200,7 +1202,7 @@ string TPlaceList::GetYsName( int y )
 
 bool TPlaceList::GetisPlaceXY( string placeName, TPoint &p )
 {
-	placeName = trim( placeName );
+	TrimString(placeName);
 	if ( placeName.empty() )
 		return false;
   /* конвертация номеров мест в зависимости от лат. или рус. салона */
@@ -1266,24 +1268,18 @@ void GetTripParams( int trip_id, xmlNodePtr dataNode )
 
   TQuery Qry( &OraSession );
   Qry.SQLText =
-    "SELECT airp,airline,flt_no,suffix,craft,bort,scd_out, "
-    "       NVL(act_out,NVL(est_out,scd_out)) AS real_out "
+    "SELECT airp,airp_fmt,airline,airline_fmt,flt_no,suffix,suffix_fmt,craft,craft_fmt,bort,scd_out, "
+    "       NVL(act_out,NVL(est_out,scd_out)) AS real_out, pr_del "
     "FROM points "
     "WHERE point_id=:point_id ";
   Qry.CreateVariable( "point_id", otInteger, trip_id );
   Qry.Execute();
   if (Qry.Eof) throw UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
 
-  TTripInfo info;
-  info.airline=Qry.FieldAsString("airline");
-  info.flt_no=Qry.FieldAsInteger("flt_no");
-  info.suffix=Qry.FieldAsString("suffix");
-  info.airp=Qry.FieldAsString("airp");
-  info.scd_out=Qry.FieldAsDateTime("scd_out");
-  info.real_out=Qry.FieldAsDateTime("real_out");
+  TTripInfo info( Qry );
 
-  NewTextChild( dataNode, "trip", GetTripName(info) );
-  NewTextChild( dataNode, "craft", Qry.FieldAsString( "craft" ) );
+  NewTextChild( dataNode, "trip", GetTripName( info, ecCkin ) );
+  NewTextChild( dataNode, "craft", ElemIdToElemCtxt( ecDisp, etCraft, Qry.FieldAsString( "craft" ), (TElemFmt)Qry.FieldAsInteger( "craft_fmt" ) ) );
   NewTextChild( dataNode, "bort", Qry.FieldAsString( "bort" ) );
 
   Qry.Clear();
@@ -1314,7 +1310,7 @@ void GetCompParams( int comp_id, xmlNodePtr dataNode )
   Qry.SetVariable( "comp_id", comp_id );
   Qry.Execute();
   NewTextChild( dataNode, "trip" );
-  NewTextChild( dataNode, "craft", Qry.FieldAsString( "craft" ) );
+  NewTextChild( dataNode, "craft", ElemIdToCodeNative( etCraft, Qry.FieldAsString( "craft" ) ) );
   NewTextChild( dataNode, "bort", Qry.FieldAsString( "bort" ) );
   NewTextChild( dataNode, "comp_id", comp_id );
   NewTextChild( dataNode, "descr", Qry.FieldAsString( "descr" ) );
@@ -1324,7 +1320,6 @@ void GetCompParams( int comp_id, xmlNodePtr dataNode )
 bool InternalExistsRegPassenger( int trip_id, bool SeatNoIsNull )
 {
   TQuery Qry( &OraSession );
-  //!!!
   string sql = "SELECT pax.pax_id FROM pax_grp, pax "\
                " WHERE pax_grp.grp_id=pax.grp_id AND "\
                "       point_dep=:point_id AND "\

@@ -3,15 +3,15 @@
 namespace ASTRA
 {
 
-const char * ClientTypeS[ ctTypeNum ] =
+const char * ClientTypeS[] =
     {"TERM", "WEB", "KIOSK"};
 
-const char * OperModeS[ omTypeNum ] =
+const char * OperModeS[] =
     {"CUSE", "CUTE", "MUSE", "STAND"};
 
 const char * TDocTypeS[] = {"BP", "BT", "Receipt", "FltDoc", "Archiv", "Disp", "Tlg", ""};
 
-const char * EventTypeS[ evtTypeNum ] =
+const char * EventTypeS[] =
     {"‘…‡","„ˆ‘","…‰","ƒ”","€‘","‹","ŠŒ","’‹ƒ","„‘’","‘ˆ‘","Š„","„","!","?"};
 
 const char* TClassS[] = {"","","",""};
@@ -27,7 +27,7 @@ const char* CompLayerTypeS[] = {"BLOCK_CENT","TRANZIT","CHECKIN","TCHECKIN","GOS
 
 const char* BagNormTypeS[] = {"", "", "‹", "/‘", "/", "/‹", "/‹", ""};
 
-const char *RptTypeS[rtTypeNum] = {
+const char *RptTypeS[] = {
     "PTM",
     "PTMTXT",
     "BTM",

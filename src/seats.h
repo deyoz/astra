@@ -37,6 +37,35 @@ class TCounters {
     void Add_p_Count( int Count, TSeatStep Step = sRight );
 };
 
+struct TDefaults {
+  ASTRA::TCompLayerType grp_status;
+  std::string pers_type;
+  std::string clname;
+  std::string placeName;
+  std::string wl_type;
+  int countPlace;
+  bool isSeat;
+  std::string ticket_no;
+  std::string document;
+  int bag_weight;
+  int bag_amount;
+  int excess;
+  std::string trip_from;
+  std::string pass_rem;
+  std::string comp_rem;
+  bool pr_down;
+  TDefaults() {
+    grp_status = ASTRA::cltCheckin;
+    pers_type = EncodePerson( ASTRA::adult );
+    clname = EncodeClass( ASTRA::Y );
+    countPlace = 1;
+    isSeat = true;
+    bag_weight = 0;
+    bag_amount = 0;
+    excess = 0;
+    pr_down = false;
+  };
+};
 
 struct TPassenger {
 	private:
@@ -104,7 +133,7 @@ struct TPassenger {
   void get_remarks( std::vector<std::string> &vrems );
   bool isRemark( std::string code );
   bool is_valid_seats( const std::vector<SALONS2::TPlace> &places );
-  void build( xmlNodePtr pNode );
+  void build( xmlNodePtr pNode, const TDefaults& def);
 };
 
 typedef std::vector<TPassenger> VPassengers;

@@ -14,6 +14,7 @@
 
 using namespace std;
 using namespace BASIC;
+using namespace AstraLocale;
 using namespace EXCEPTIONS;
 using namespace ASTRA;
 
@@ -143,16 +144,21 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         NewTextChild(rowNode,"msg",Qry.FieldAsString("msg"));
         NewTextChild(rowNode,"ev_order",Qry.FieldAsInteger("ev_order"));
     };
-    if(GetNode("LoadForm", reqNode)) {
-        if ( GetNode( "seasonvars", reqNode ) )
-            get_report_form("SeasonEventsLog", resNode);
-        else
-            get_report_form("EventsLog", resNode);
-    }
     logNode = NewTextChild(resNode, "variables");
-    if ( GetNode( "seasonvars", reqNode ) )
+    if ( GetNode( "seasonvars", reqNode ) ) {
         SeasonListVars( point_id, 0, logNode, reqNode );
-    else
-        PaxListVars(point_id, 0, logNode, part_key);
+        NewTextChild(logNode, "caption", getLocaleText("CAP.DOC.SEASON_EVENTS_LOG",
+                    LParams() << LParam("trip", NodeAsString("trip", logNode))));
+    } else {
+        TRptParams rpt_params(TReqInfo::Instance()->desk.lang);
+        PaxListVars(point_id, rpt_params, logNode, part_key);
+        NewTextChild(logNode, "caption", getLocaleText("CAP.DOC.EVENTS_LOG",
+                    LParams() << LParam("flight", get_flight(logNode)) //!!!den param 100%error
+                    << LParam("day_issue", NodeAsString("day_issue", logNode)
+                        )));
+    }
+    if(GetNode("LoadForm", reqNode))
+            get_report_form("EventsLog", resNode);
+    NewTextChild(logNode, "short_page_number_fmt", getLocaleText("CAP.SHORT_PAGE_NUMBER_FMT"));
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 };

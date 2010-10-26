@@ -16,6 +16,7 @@
 
 using namespace std;
 using namespace EXCEPTIONS;
+using namespace AstraLocale;
 using namespace BASIC;
 using namespace boost::local_time;
 using namespace ASTRA;
@@ -25,11 +26,16 @@ const string br = "\xa";
 const size_t PART_SIZE = 2000;
 const size_t LINE_SIZE = 64;
 int TST_TLG_ID; // for test purposes
+const string ERR_TAG_OPEN = "<ERROR>";
+const string ERR_TAG_CLOSE = "</ERROR>";
+const string DEFAULT_ERR = "?";
+const string ERR_FIELD = ERR_TAG_OPEN + DEFAULT_ERR + ERR_TAG_CLOSE;
 
 bool TTlgInfo::operator == (const TMktFlight &s) const
 {
     return
         airline == s.airline and
+
         flt_no == s.flt_no and
         suffix == s.suffix and
         airp_dep == s.airp_dep and
@@ -37,6 +43,27 @@ bool TTlgInfo::operator == (const TMktFlight &s) const
 }
 
 
+
+void ExceptionFilter(string &body, TTlgInfo &info)
+{
+    try {
+        throw;
+    } catch(UserException &E) {
+        body = info.add_err(DEFAULT_ERR, getLocaleText(E.getLexemaData()));
+    } catch(exception &E) {
+        body = info.add_err(DEFAULT_ERR, E.what());
+    } catch(...) {
+        body = info.add_err(DEFAULT_ERR, "unknown error");
+    }
+}
+
+void ExceptionFilter(vector<string> &body, TTlgInfo &info)
+{
+    string buf;
+    ExceptionFilter(buf, info);
+    body.clear();
+    body.push_back(buf);
+}
 
 
 bool CompareCompLayers( TTlgCompLayer t1, TTlgCompLayer t2 )
@@ -126,15 +153,54 @@ struct TTlgDraftPart {
 };
 
 struct TTlgDraft {
-    vector<TTlgDraftPart> parts;
-    void Save(TTlgOutPartInfo &info);
-    void Commit(TTlgOutPartInfo &info);
+    private:
+        TTlgInfo &tlg_info;
+    public:
+        vector<TTlgDraftPart> parts;
+        void Save(TTlgOutPartInfo &info);
+        void Commit(TTlgOutPartInfo &info);
+        TTlgDraft(TTlgInfo &tlg_info_val): tlg_info(tlg_info_val) {}
+        void check(string &val);
 };
+
+void TTlgDraft::check(string &value)
+{
+    bool opened = false;
+    string result, err;
+    for(string::const_iterator i=value.begin();i!=value.end();i++)
+    {
+        char c=*i;
+        if ((unsigned char)c>=0x80) {
+            // rus
+            if(not opened) {
+                opened = true;
+                err = c;
+            } else
+                err += c;
+        } else {
+            // lat
+            if(opened) {
+                opened = false;
+                result += tlg_info.add_err(err, "non lat chars encountered");
+            }
+            result += *i;
+        }
+    }
+    if(opened) result += tlg_info.add_err(err, "non lat chars encountered");
+    value = result;
+}
 
 void TTlgDraft::Commit(TTlgOutPartInfo &tlg_row)
 {
+    bool no_errors = tlg_info.err_lst.empty();
     tlg_row.num = 1;
     for(vector<TTlgDraftPart>::iterator iv = parts.begin(); iv != parts.end(); iv++){
+        if(tlg_info.pr_lat and no_errors) {
+            check(iv->addr);
+            check(iv->heading);
+            check(iv->body);
+            check(iv->ending);
+        }
         tlg_row.addr = iv->addr;
         tlg_row.heading = iv->heading;
         tlg_row.body = iv->body;
@@ -145,22 +211,6 @@ void TTlgDraft::Commit(TTlgOutPartInfo &tlg_row)
 
 void TTlgDraft::Save(TTlgOutPartInfo &info)
 {
-    if(info.pr_lat) {
-        string err_text;
-        if(not is_lat(info.addr)) err_text = info.addr;
-        else if(not is_lat(info.heading)) err_text = info.heading;
-        else if(not is_lat(info.body)) err_text = info.body;
-        else if(not is_lat(info.ending)) err_text = info.ending;
-        if(not err_text.empty()) {
-            ostringstream buf;
-            buf
-                << "telegram is not lat. point_id: " << info.point_id
-                << "; tlg_type: " << info.tlg_type
-                << "; extra: " << info.extra << endl
-                << "text: " << err_text;
-            throw Exception(buf.str());
-        }
-    }
     TTlgDraftPart part;
     part.addr = info.addr;
     part.heading = info.heading;
@@ -189,128 +239,237 @@ void simple_split(ostringstream &heading, size_t part_len, TTlgDraft &tlg_draft,
         }
 }
 
-string TlgElemIdToElem(TElemType type, int id, bool pr_lat)
+
+void TTlgInfo::dump_err_lst()
 {
-    string result = ElemIdToElem(type, id, pr_lat);
-    if(pr_lat && !is_lat(result)) {
-        string code_name;
-        switch(type)
-        {
-            case etClsGrp:
-                code_name = "класса";
-                break;
-            default:
-                throw Exception("Unsupported int elem type %d", type);
-                throw UserException("Не найден латинский код " + code_name + " '" + result + "'");
+    int i = 1;
+    ProgTrace(TRACE5, "-----------TLG ERR_LST-----------");
+    for(vector<string>::iterator iv = err_lst.begin(); iv != err_lst.end(); iv++)
+        ProgTrace(TRACE5, "ERR_NO: %d, %s", i++, iv->c_str());
+    ProgTrace(TRACE5, "--------END OF TLG ERR_LST-------");
+}
+
+string TTlgInfo::get_err_tag(std::string val)
+{
+    ostringstream buf;
+    buf << "<ERROR" << err_lst.size() << ">" << val << "</ERROR" << err_lst.size() << ">";
+    return buf.str();
+}
+
+string TTlgInfo::add_err(string err, std::string val)
+{
+    return add_err(err, val.c_str());
+}
+
+string TTlgInfo::add_err(string err, const char *format, ...)
+{
+    char Message[500];
+    va_list ap;
+    va_start(ap, format);
+    vsnprintf(Message, sizeof(Message), format, ap);
+    Message[sizeof(Message)-1]=0;
+    va_end(ap);
+    vcompleted = false;
+    err_lst.push_back(Message);
+    return get_err_tag(err);
+}
+
+string TTlgInfo::TlgElemIdToElem(TElemType type, int id, TElemFmt fmt)
+{
+    if(fmt == efmtUnknown)
+        fmt = elem_fmt;
+    string result;
+    try {
+        if(not(fmt==efmtCodeNative || fmt==efmtCodeInter))
+            throw Exception("Wrong fmt");
+
+        vector< pair<TElemFmt,string> > fmts;
+        fmts.push_back( make_pair(fmt, lang) );
+        if(fmt == efmtCodeNative)
+            fmts.push_back( make_pair(efmtCodeInter, lang) );
+
+        result = ElemIdToElem(type, id, fmts);
+        if(result.empty() || fmt==efmtCodeInter &&!is_lat(result)) {
+            string code_name;
+            switch(type)
+            {
+                case etClsGrp:
+                    code_name = "CLS_GRP";
+                    break;
+                default:
+                    throw Exception("Unsupported int elem type");
+            }
+            throw AstraLocale::UserException((string)"MSG." + code_name + "_LAT_CODE_NOT_FOUND", LParams() << LParam("id", id));
         }
+    } catch(UserException &E) {
+        result = add_err(DEFAULT_ERR, getLocaleText(E.getLexemaData()));
+    } catch(exception &E) {
+        result = add_err(DEFAULT_ERR, "TTlgInfo::TlgElemIdToElem: tlg_type: %s, elem_type: %s, fmt: %s, what: %s", tlg_type.c_str(), EncodeElemType(type), EncodeElemFmt(fmt), E.what());
+    } catch(...) {
+        result = add_err(DEFAULT_ERR, "TTlgInfo::TlgElemIdToElem: unknown except caught. tlg_type: %s, elem_type: %s, fmt: %s", tlg_type.c_str(), EncodeElemType(type), EncodeElemFmt(fmt));
     }
     return result;
 }
 
-string TlgElemIdToElem(TElemType type, string id, bool pr_lat)
+string TTlgInfo::TlgElemIdToElem(TElemType type, string id, TElemFmt fmt)
 {
-    if(!pr_lat) return id;
-    string id1 = ElemIdToElem(type, id, 1);
-    if(!is_lat(id1)) {
-        string code_name;
-        switch(type)
-        {
-            case etCountry:
-                code_name="государства";
-                break;
-            case etCity:
-                code_name="города";
-                break;
-            case etAirline:
-                code_name="а/к";
-                break;
-            case etAirp:
-                code_name="а/п";
-                break;
-            case etCraft:
-                code_name="ВС";
-                break;
-            case etClass:
-                code_name="класса";
-                break;
-            case etSubcls:
-                code_name="подкласса";
-                break;
-            case etPersType:
-                code_name="типа пассажира";
-                break;
-            case etGenderType:
-                code_name="пола пассажира";
-                break;
-            case etPaxDocType:
-                code_name="типа документа";
-                break;
-            case etPayType:
-                code_name="формы оплаты";
-                break;
-            case etCurrency:
-                code_name="валюты";
-                break;
-            case etSuffix:
-                code_name="суффикса";
-                break;
-            default:
-                throw Exception("Unsupported elem type %d", type);
-        };
-        throw UserException("Не найден латинский код " + code_name + " '" + id + "'");
+    if(fmt == efmtUnknown)
+        fmt = elem_fmt;
+    string result;
+    try {
+        if(id.empty())
+            throw Exception("id is empty.");
+        if(not(fmt==efmtCodeNative || fmt==efmtCodeInter))
+            throw Exception("Wrong fmt.");
+
+        vector< pair<TElemFmt,string> > fmts;
+        fmts.push_back( make_pair(fmt, lang) );
+        if(fmt == efmtCodeNative)
+            fmts.push_back( make_pair(efmtCodeInter, lang) );
+
+        result = ElemIdToElem(type, id, fmts);
+        if(result.empty() || fmt==efmtCodeInter &&!is_lat(result)) {
+            string code_name;
+            switch(type)
+            {
+                case etCountry:
+                    code_name="COUNTRY";
+                    break;
+                case etCity:
+                    code_name="CITY";
+                    break;
+                case etAirline:
+                    code_name="AIRLINE";
+                    break;
+                case etAirp:
+                    code_name="AIRP";
+                    break;
+                case etCraft:
+                    code_name="CRAFT";
+                    break;
+                case etClass:
+                    code_name="CLS";
+                    break;
+                case etSubcls:
+                    code_name="SUBCLS";
+                    break;
+                case etPersType:
+                    code_name="PAX_TYPE";
+                    break;
+                case etGenderType:
+                    code_name="GENDER";
+                    break;
+                case etPaxDocType:
+                    code_name="DOC";
+                    break;
+                case etPayType:
+                    code_name="PAY_TYPE";
+                    break;
+                case etCurrency:
+                    code_name="CURRENCY";
+                    break;
+                case etSuffix:
+                    code_name="SUFFIX";
+                    break;
+                default:
+                    throw Exception("Unsupported elem type.");
+            };
+            throw AstraLocale::UserException((string)"MSG." + code_name + "_LAT_CODE_NOT_FOUND", LParams() << LParam("id", id));
+        }
+    } catch(UserException &E) {
+        result = add_err(id, getLocaleText(E.getLexemaData()));
+    } catch(exception &E) {
+        result = add_err(id, "TTlgInfo::TlgElemIdToElem: tlg_type: %s, elem_type: %s, fmt: %s, what: %s", tlg_type.c_str(), EncodeElemType(type), EncodeElemFmt(fmt), E.what());
+    } catch(...) {
+        result = add_err(id, "TTlgInfo::TlgElemIdToElem: unknown except caught. tlg_type: %s, elem_type: %s, fmt: %s", tlg_type.c_str(), EncodeElemType(type), EncodeElemFmt(fmt));
     }
-    return id1;
+    return result;
 }
 
-string fetch_addr(string &addr)
+string fetch_addr(string &addr, TTlgInfo *info)
 {
     string result;
     // пропускаем все символы не относящиеся к слову
     size_t i = 0;
     size_t len = 0;
-    for(i = 0; i < addr.size() && (u_char)addr[i] <= 0x20; i++) ;
-    for(len = 0; i + len < addr.size() && (u_char)addr[i + len] > 0x20; len++) ;
-    result = addr.substr(i, len);
-    if(addr.size() == len)
-        addr.erase();
-    else
-        addr = addr.substr(len + i);
-    if(not(result.empty() or result.size() == 7))
-        throw UserException("Неверно указан SITA-адрес " + result);
-    for(i = 0; i < result.size(); i++) {
-        // c BETWEEN 'A' AND 'Z' OR c BETWEEN '0' AND '9'
-        u_char c = result[i];
-        if((c > 0x40 and c < 0x5b) or (c > 0x2f and c < 0x3a))
-            continue;
-        throw UserException("Неверно указан SITA-адрес " + result);
+    try {
+        for(i = 0; i < addr.size() && (u_char)addr[i] <= 0x20; i++) ;
+        for(len = 0; i + len < addr.size() && (u_char)addr[i + len] > 0x20; len++) ;
+        result = addr.substr(i, len);
+        if(addr.size() == len)
+            addr.erase();
+        else
+            addr = addr.substr(len + i);
+        if(not(result.empty() or result.size() == 7))
+            throw AstraLocale::UserException("MSG.TLG.INVALID_SITA_ADDR", LParams() << LParam("addr", result));
+        for(i = 0; i < result.size(); i++) {
+            // c BETWEEN 'A' AND 'Z' OR c BETWEEN '0' AND '9'
+            u_char c = result[i];
+            if((c > 0x40 and c < 0x5b) or (c > 0x2f and c < 0x3a))
+                continue;
+            throw AstraLocale::UserException("MSG.TLG.INVALID_SITA_ADDR", LParams() << LParam("addr", result));
+        }
+    } catch(UserException &E) {
+        if(not info)
+            throw;
+        else
+            result = info->add_err(result, getLocaleText(E.getLexemaData()));
+    } catch(exception &E) {
+        if(not info)
+            throw;
+        else
+            result = info->add_err(result, "fetch_addr failed: %s", E.what());
+    } catch(...) {
+        if(not info)
+            throw;
+        else
+            result = info->add_err(result, "fetch_addr failed. unknown exception");
     }
     return result;
 }
 
-string format_addr_line(string vaddrs)
+string format_addr_line(string vaddrs, TTlgInfo *info)
 {
     string result, addr_line;
-    int n = 0;
-    string addr = fetch_addr(vaddrs);
-    while(!addr.empty()) {
-        if(result.find(addr) == string::npos && addr_line.find(addr) == string::npos) {
-            n++;
-            if(n > 32)
-                throw UserException("Возможно указать не более 32 различных адресов получателей");
-            if(addr_line.size() + addr.size() + 1 > 64) {
-                result += addr_line + br;
-                addr_line = addr;
-            } else {
-                if(addr_line.empty())
+    try {
+        int n = 0;
+        string addr = fetch_addr(vaddrs, info);
+        while(!addr.empty()) {
+            if(result.find(addr) == string::npos && addr_line.find(addr) == string::npos) {
+                n++;
+                if(n > 32)
+                    throw AstraLocale::UserException("MSG.TLG.MORE_THEN_32_ADDRS");
+                if(addr_line.size() + addr.size() + 1 > 64) {
+                    result += addr_line + br;
                     addr_line = addr;
-                else
-                    addr_line += " " + addr;
+                } else {
+                    if(addr_line.empty())
+                        addr_line = addr;
+                    else
+                        addr_line += " " + addr;
+                }
             }
+            addr = fetch_addr(vaddrs, info);
         }
-        addr = fetch_addr(vaddrs);
+        if(!addr_line.empty())
+            result += addr_line;
+    } catch(UserException &E) {
+        if(not info)
+            throw;
+        else
+            result = info->add_err(DEFAULT_ERR, getLocaleText(E.getLexemaData()));
+    } catch(exception &E) {
+        if(not info)
+            throw;
+        else
+            result = info->add_err(DEFAULT_ERR, "format_addr_line failed: %s", E.what());
+    } catch(...) {
+        if(not info)
+            throw;
+        else
+            result = info->add_err(DEFAULT_ERR, "format_addr_line failed. unknown exception");
     }
-    if(!addr_line.empty())
-        result += addr_line + br;
+    result += br;
     return result;
 }
 
@@ -355,13 +514,13 @@ void TMItem::ToTlg(TTlgInfo &info, vector<string> &body)
     ostringstream result;
     result
         << ".M/"
-        << ElemIdToElem(etAirline, m_flight.airline, info.pr_lat)
+        << info.TlgElemIdToElem(etAirline, m_flight.airline)
         << setw(3) << setfill('0') << m_flight.flt_no
-        << ElemIdToElem(etSuffix, m_flight.suffix, info.pr_lat)
-        << ElemIdToElem(etSubcls, m_flight.subcls, info.pr_lat)
+        << (m_flight.suffix.empty() ? "" : info.TlgElemIdToElem(etSuffix, m_flight.suffix))
+        << info.TlgElemIdToElem(etSubcls, m_flight.subcls)
         << setw(2) << setfill('0') << m_flight.scd_day_local
-        << ElemIdToElem(etAirp, m_flight.airp_dep, info.pr_lat)
-        << ElemIdToElem(etAirp, m_flight.airp_arv, info.pr_lat);
+        << info.TlgElemIdToElem(etAirp, m_flight.airp_dep)
+        << info.TlgElemIdToElem(etAirp, m_flight.airp_arv);
     body.push_back(result.str());
 }
 
@@ -383,7 +542,7 @@ namespace PRL_SPACE {
 
     void TPNRItem::ToTlg(TTlgInfo &info, vector<string> &body)
     {
-        body.push_back(".L/" + convert_pnr_addr(addr, info.pr_lat) + '/' + ElemIdToElem(etAirline, airline, info.pr_lat));
+        body.push_back(".L/" + convert_pnr_addr(addr, info.pr_lat) + '/' + info.TlgElemIdToElem(etAirline, airline));
     }
 
     struct TPNRList {
@@ -620,7 +779,7 @@ namespace PRL_SPACE {
                 line
                     << ".N/" << fixed << setprecision(0) << setw(10) << setfill('0') << (prev_item.no - num + 1)
                     << setw(3) << setfill('0') << num
-                    << '/' << ElemIdToElem(etAirp, prev_item.airp_arv, info.pr_lat);
+                    << '/' << info.TlgElemIdToElem(etAirp, prev_item.airp_arv);
             }
     };
 
@@ -739,17 +898,17 @@ namespace PRL_SPACE {
                 ostringstream line;
                 line
                     << ".O/"
-                    << ElemIdToElem(etAirline, item.airline, info.pr_lat)
+                    << info.TlgElemIdToElem(etAirline, item.airline)
                     << setw(3) << setfill('0') << item.flt_no
-                    << ElemIdToElem(etSuffix, item.suffix, info.pr_lat)
+                    << (item.suffix.empty() ? "" : info.TlgElemIdToElem(etSuffix, item.suffix))
                     << '/'
                     << DateTimeToStr(item.scd, "ddmmm", info.pr_lat)
                     << '/'
-                    << ElemIdToElem(etAirp, item.airp_arv, info.pr_lat);
+                    << info.TlgElemIdToElem(etAirp, item.airp_arv);
                 if(not item.trfer_cls.empty())
                     line
                         << '/'
-                        << ElemIdToElem(etClass, item.trfer_cls, info.pr_lat);
+                        << info.TlgElemIdToElem(etClass, item.trfer_cls);
                 return line.str();
             }
     };
@@ -761,12 +920,12 @@ namespace PRL_SPACE {
                 ostringstream line;
                 line
                     << " "
-                    << ElemIdToElem(etAirline, item.airline, info.pr_lat)
+                    << info.TlgElemIdToElem(etAirline, item.airline)
                     << setw(3) << setfill('0') << item.flt_no
-                    << ElemIdToElem(etSuffix, item.suffix, info.pr_lat)
-                    << ElemIdToElem(etSubcls, item.trfer_subcls, info.pr_lat)
+                    << (item.suffix.empty() ? "" : info.TlgElemIdToElem(etSuffix, item.suffix))
+                    << info.TlgElemIdToElem(etSubcls, item.trfer_subcls)
                     << DateTimeToStr(item.scd, "dd", info.pr_lat)
-                    << ElemIdToElem(etAirp, item.airp_arv, info.pr_lat);
+                    << info.TlgElemIdToElem(etAirp, item.airp_arv);
                 return line.str();
             }
         public:
@@ -787,12 +946,12 @@ namespace PRL_SPACE {
                     line << i;
                 line
                     << '/'
-                    << ElemIdToElem(etAirline, item.airline, info.pr_lat)
+                    << info.TlgElemIdToElem(etAirline, item.airline)
                     << setw(3) << setfill('0') << item.flt_no
-                    << ElemIdToElem(etSuffix, item.suffix, info.pr_lat)
-                    << ElemIdToElem(etSubcls, item.trfer_subcls, info.pr_lat)
+                    << (item.suffix.empty() ? "" : info.TlgElemIdToElem(etSuffix, item.suffix))
+                    << info.TlgElemIdToElem(etSubcls, item.trfer_subcls)
                     << DateTimeToStr(item.scd, "dd", info.pr_lat)
-                    << ElemIdToElem(etAirp, item.airp_arv, info.pr_lat);
+                    << info.TlgElemIdToElem(etAirp, item.airp_arv);
                 return line.str();
             }
     };
@@ -1003,7 +1162,7 @@ namespace PRL_SPACE {
             "    pax_rem "
             "where "
             "    pax_rem.pax_id = :pax_id and "
-            "    pax_rem.rem_code not in (/*'PSPT',*/ 'OTHS', /*'DOCS',*/ 'CHD', 'CHLD', 'INF', 'INFT', 'FQTV', 'FQTU', 'FQTR') ";
+            "    pax_rem.rem_code not in (/*'PSPT',*/ 'OTHS', /*'DOCS', */'CHD', 'CHLD', 'INF', 'INFT', 'FQTV', 'FQTU', 'FQTR') ";
         Qry.CreateVariable("pax_id", otInteger, pax.pax_id);
         Qry.Execute();
         if(!Qry.Eof) {
@@ -1429,7 +1588,7 @@ namespace PRL_SPACE {
             int col_y_add_pax = Qry.FieldIndex("y_add_pax");
             for(; !Qry.Eof; Qry.Next()) {
                 TCOMStatsItem item;
-                item.target = ElemIdToElem(etAirp, Qry.FieldAsString(col_target), info.pr_lat);
+                item.target = info.TlgElemIdToElem(etAirp, Qry.FieldAsString(col_target));
                 item.f = Qry.FieldAsInteger(col_f);
                 item.c = Qry.FieldAsInteger(col_c);
                 item.y = Qry.FieldAsInteger(col_y);
@@ -1526,7 +1685,7 @@ namespace PRL_SPACE {
             int col_av = Qry.FieldIndex("av");
             for(; !Qry.Eof; Qry.Next()) {
                 TCOMClassesItem item;
-                item.cls = ElemIdToElem(etSubcls, Qry.FieldAsString(col_class), info.pr_lat);
+                item.cls = info.TlgElemIdToElem(etSubcls, Qry.FieldAsString(col_class));
                 item.cfg = Qry.FieldAsInteger(col_cfg);
                 item.av = Qry.FieldAsInteger(col_av);
                 items.push_back(item);
@@ -1539,7 +1698,7 @@ using namespace PRL_SPACE;
 
 int COM(TTlgInfo &info)
 {
-    TTlgDraft tlg_draft;
+    TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
@@ -1554,18 +1713,22 @@ int COM(TTlgInfo &info)
         << "COM" << br;
     tlg_row.heading = heading.str();
     tlg_row.ending = "ENDCOM" + br;
-    ostringstream body;
-    body
-        << info.airline_view << setw(3) << setfill('0') << info.flt_no << info.suffix_view << "/"
-        << DateTimeToStr(info.scd_local, "ddmmm", 1) << " " << info.airp_dep_view
-        << "/0 OP/NAM" << br;
-    TCOMClasses classes;
-    TCOMStats stats;
-    classes.get(info);
-    stats.get(info);
-    classes.ToTlg(info, body);
-    stats.ToTlg(body);
-    tlg_row.body = body.str();
+    try {
+        ostringstream body;
+        body
+            << info.airline_view << setw(3) << setfill('0') << info.flt_no << info.suffix_view << "/"
+            << DateTimeToStr(info.scd_local, "ddmmm", 1) << " " << info.airp_dep_view
+            << "/0 OP/NAM" << br;
+        TCOMClasses classes;
+        TCOMStats stats;
+        classes.get(info);
+        stats.get(info);
+        classes.ToTlg(info, body);
+        stats.ToTlg(body);
+        tlg_row.body = body.str();
+    } catch(...) {
+        ExceptionFilter(tlg_row.body, info);
+    }
     ProgTrace(TRACE5, "COM: before save");
     tlg_draft.Save(tlg_row);
     tlg_draft.Commit(tlg_row);
@@ -1591,9 +1754,9 @@ void TWItem::get(int grp_id)
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "SELECT "
-        "  NVL(ckin.get_bagAmount(:grp_id,NULL),0) bagAmount, "
-        "  NVL(ckin.get_bagWeight(:grp_id,NULL),0) bagWeight, "
-        "  NVL(ckin.get_rkWeight(:grp_id,NULL),0) rkWeight "
+        "  NVL(ckin.get_bagAmount2(:grp_id,NULL,NULL),0) bagAmount, "
+        "  NVL(ckin.get_bagWeight2(:grp_id,NULL,NULL),0) bagWeight, "
+        "  NVL(ckin.get_rkWeight2(:grp_id,NULL,NULL),0) rkWeight "
         "FROM dual ";
     Qry.CreateVariable("grp_id", otInteger, grp_id);
     Qry.Execute();
@@ -1816,17 +1979,17 @@ struct TPLine {
     string get_line(TTlgInfo &info, TFItem &FItem) {
         ostringstream result;
         result
-            << ElemIdToElem(etAirline, FItem.airline, info.pr_lat)
+            << info.TlgElemIdToElem(etAirline, FItem.airline)
             << setw(3) << setfill('0') << FItem.flt_no
-            << ElemIdToElem(etSuffix, FItem.suffix, info.pr_lat)
+            << (FItem.suffix.empty() ? "" : info.TlgElemIdToElem(etSuffix, FItem.suffix))
             << "/"
             << DateTimeToStr(FItem.scd, "dd", info.pr_lat)
             << " "
-            << ElemIdToElem(etAirp, FItem.airp_arv, info.pr_lat)
+            << info.TlgElemIdToElem(etAirp, FItem.airp_arv)
             << " "
             << seats
             << " "
-            << ElemIdToElem(etSubcls, FItem.trfer_cls, info.pr_lat)
+            << info.TlgElemIdToElem(etSubcls, FItem.trfer_cls)
             << " ";
         if(print_bag)
             result
@@ -2236,17 +2399,17 @@ struct TBTMFItem:TFItem {
         ostringstream line;
         line
             << ".F/"
-            << ElemIdToElem(etAirline, airline, info.pr_lat)
+            << info.TlgElemIdToElem(etAirline, airline)
             << setw(3) << setfill('0') << flt_no
-            << ElemIdToElem(etSuffix, suffix, info.pr_lat)
+            << (suffix.empty() ? "" : info.TlgElemIdToElem(etSuffix, suffix))
             << "/"
             << DateTimeToStr(scd, "ddmmm", info.pr_lat)
             << "/"
-            << ElemIdToElem(etAirp, airp_arv, info.pr_lat);
+            << info.TlgElemIdToElem(etAirp, airp_arv);
         if(not trfer_cls.empty())
             line
                 << "/"
-                << ElemIdToElem(etClass, trfer_cls, info.pr_lat);
+                << info.TlgElemIdToElem(etClass, trfer_cls);
         body.push_back(line.str());
     }
 };
@@ -2259,13 +2422,13 @@ struct TPTMFItem:TFItem {
         if(info.tlg_type == "PTMN") {
             ostringstream result;
             result
-                << ElemIdToElem(etAirline, airline, info.pr_lat)
+                << info.TlgElemIdToElem(etAirline, airline)
                 << setw(3) << setfill('0') << flt_no
-                << ElemIdToElem(etSuffix, suffix, info.pr_lat)
+                << (suffix.empty() ? "" : info.TlgElemIdToElem(etSuffix, suffix))
                 << "/"
                 << DateTimeToStr(scd, "dd", info.pr_lat)
                 << " "
-                << ElemIdToElem(etAirp, airp_arv, info.pr_lat)
+                << info.TlgElemIdToElem(etAirp, airp_arv)
                 << " ";
             int seats = 0;
             int baggage = 0;
@@ -2289,7 +2452,7 @@ struct TPTMFItem:TFItem {
             result
                 << seats
                 << " "
-                << ElemIdToElem(etClass, trfer_cls, info.pr_lat)
+                << info.TlgElemIdToElem(etClass, trfer_cls)
                 << " "
                 << baggage
                 << "B";
@@ -2573,7 +2736,7 @@ void TSSRCodes::ToTlg(TTlgInfo &info, vector<string> &body)
         TPSMSSRItem &SSRItem = i_items->second;
         for(vector<TCFGItem>::iterator i_cfg = cfg.items.begin(); i_cfg != cfg.items.end(); i_cfg++) {
             TCounter &counter = SSRItem[i_cfg->cls];
-            buf << " " << setw(3) << setfill('0') << right << counter.val << TlgElemIdToElem(etClass, i_cfg->cls, info.pr_lat);
+            buf << " " << setw(3) << setfill('0') << right << counter.val << info.TlgElemIdToElem(etClass, i_cfg->cls);
         }
         body.push_back(buf.str());
     }
@@ -2604,7 +2767,7 @@ void TPSM::ToTlg(TTlgInfo &info, vector<string> &body)
             target_ssr += ssr;
             ostringstream buf;
             buf
-                << TlgElemIdToElem(etClass, i_cfg->cls, info.pr_lat)
+                << info.TlgElemIdToElem(etClass, i_cfg->cls)
                 << " CLASS ";
             if(pax_list.empty())
                 buf << "NIL";
@@ -2619,7 +2782,7 @@ void TPSM::ToTlg(TTlgInfo &info, vector<string> &body)
         }
         ostringstream buf;
         buf
-            << "-" << ElemIdToElem(etAirp, iv->airp, info.pr_lat)
+            << "-" << info.TlgElemIdToElem(etAirp, iv->airp)
             << " ";
         if(target_pax == 0) {
             buf << "NIL";
@@ -2751,7 +2914,7 @@ void TPIL::get(TTlgInfo &info)
 void TPIL::ToTlg(TTlgInfo &info, string &body)
 {
     for(vector<TCFGItem>::iterator iv = cfg.items.begin(); iv != cfg.items.end(); iv++) {
-        body += ElemIdToElem(etClass, iv->cls, info.pr_lat) + "CLASS" + br;
+        body += info.TlgElemIdToElem(etClass, iv->cls) + "CLASS" + br;
         const TPILPaxLst &pax_lst = items[iv->cls];
         if(pax_lst.empty())
             body += "NIL" + br;
@@ -2760,7 +2923,7 @@ void TPIL::ToTlg(TTlgInfo &info, string &body)
                 vector<string> seat_list = i_lst->seat_no.get_seat_vector(info.pr_lat);
                 ostringstream pax_str;
                 pax_str
-                    << TlgElemIdToElem(etAirp, i_lst->airp_arv, info.pr_lat)
+                    << info.TlgElemIdToElem(etAirp, i_lst->airp_arv)
                     << " "
                     << i_lst->name.ToPILTlg(info);
                 string ssr_str = i_lst->ssr.ToPILTlg(info);
@@ -2779,7 +2942,7 @@ void TPIL::ToTlg(TTlgInfo &info, string &body)
 
 int PIL(TTlgInfo &info)
 {
-    TTlgDraft tlg_draft;
+    TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
@@ -2797,8 +2960,12 @@ int PIL(TTlgInfo &info)
     tlg_row.ending = "ENDPIL" + br;
 
     TPIL pil;
-    pil.get(info);
-    pil.ToTlg(info, tlg_row.body);
+    try {
+        pil.get(info);
+        pil.ToTlg(info, tlg_row.body);
+    } catch(...) {
+        ExceptionFilter(tlg_row.body, info);
+    }
 
     tlg_draft.Save(tlg_row);
     tlg_draft.Commit(tlg_row);
@@ -2878,7 +3045,7 @@ void TTPM::ToTlg(TTlgInfo &info, vector<string> &body)
 
 int TPM(TTlgInfo &info)
 {
-    TTlgDraft tlg_draft;
+    TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
@@ -2897,9 +3064,13 @@ int TPM(TTlgInfo &info)
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
     size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
     vector<string> body;
-    TTPM tpm;
-    tpm.get(info);
-    tpm.ToTlg(info, body);
+    try {
+        TTPM tpm;
+        tpm.get(info);
+        tpm.ToTlg(info, body);
+    } catch(...) {
+        ExceptionFilter(body, info);
+    }
     simple_split(heading, part_len, tlg_draft, tlg_row, body);
     tlg_row.ending = "ENDTPM" + br;
     tlg_draft.Save(tlg_row);
@@ -2909,7 +3080,7 @@ int TPM(TTlgInfo &info)
 
 int PSM(TTlgInfo &info)
 {
-    TTlgDraft tlg_draft;
+    TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
@@ -2928,9 +3099,13 @@ int PSM(TTlgInfo &info)
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
     size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
     vector<string> body;
-    TPSM psm;
-    psm.get(info);
-    psm.ToTlg(info, body);
+    try {
+        TPSM psm;
+        psm.get(info);
+        psm.ToTlg(info, body);
+    } catch(...) {
+        ExceptionFilter(body, info);
+    }
     simple_split(heading, part_len, tlg_draft, tlg_row, body);
     tlg_row.ending = "ENDPSM" + br;
     tlg_draft.Save(tlg_row);
@@ -2940,7 +3115,7 @@ int PSM(TTlgInfo &info)
 
 int BTM(TTlgInfo &info)
 {
-    TTlgDraft tlg_draft;
+    TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
@@ -2962,10 +3137,14 @@ int BTM(TTlgInfo &info)
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
     size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
 
-    TFList<TBTMFItem> FList;
-    FList.get(info);
     vector<string> body;
-    FList.ToTlg(info, body);
+    try {
+        TFList<TBTMFItem> FList;
+        FList.get(info);
+        FList.ToTlg(info, body);
+    } catch(...) {
+        ExceptionFilter(body, info);
+    }
     string part_begin;
     bool P_found = false;
     for(vector<string>::iterator iv = body.begin(); iv != body.end(); iv++) {
@@ -3010,7 +3189,7 @@ int BTM(TTlgInfo &info)
 
 int PTM(TTlgInfo &info)
 {
-    TTlgDraft tlg_draft;
+    TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
@@ -3028,10 +3207,14 @@ int PTM(TTlgInfo &info)
     tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + br;
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
     size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
-    TFList<TPTMFItem> FList;
-    FList.get(info);
     vector<string> body;
-    FList.ToTlg(info, body);
+    try {
+        TFList<TPTMFItem> FList;
+        FList.get(info);
+        FList.ToTlg(info, body);
+    } catch(...) {
+        ExceptionFilter(body, info);
+    }
     simple_split(heading, part_len, tlg_draft, tlg_row, body);
     tlg_row.ending = "ENDPTM" + br;
     tlg_draft.Save(tlg_row);
@@ -3521,7 +3704,7 @@ void TTlgSeatList::get(TTlgInfo &info)
         string item;
         int point_id = Qry.FieldAsInteger("point_id");
         string airp = Qry.FieldAsString("airp");
-        item = "-" + TlgElemIdToElem(etAirp, airp, info.pr_lat) + ".";
+        item = "-" + info.TlgElemIdToElem(etAirp, airp) + ".";
         if(list[point_id].empty())
             item += "NIL";
         else {
@@ -3553,7 +3736,7 @@ void TTlgSeatList::get(TTlgInfo &info)
 
 int SOM(TTlgInfo &info)
 {
-    TTlgDraft tlg_draft;
+    TTlgDraft tlg_draft(info);
     ProgTrace(TRACE5, "SOM started");
     TTlgOutPartInfo tlg_row;
     tlg_row.num = 1;
@@ -3573,7 +3756,11 @@ int SOM(TTlgInfo &info)
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
     size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
     TTlgSeatList SOMList;
-    SOMList.get(info);
+    try {
+        SOMList.get(info);
+    } catch(...) {
+        ExceptionFilter(SOMList.items, info);
+    }
     for(vector<string>::iterator iv = SOMList.items.begin(); iv != SOMList.items.end(); iv++) {
         part_len += iv->size() + br.size();
         if(part_len > PART_SIZE) {
@@ -3736,11 +3923,11 @@ void TRemList::internal_get(TTlgInfo &info, int pax_id, string subcls)
             string subclass = Qry.FieldAsString(col_subclass);
             item +=
                 rem_code + " " +
-                ElemIdToElem(etAirline, airline, info.pr_lat) + " " +
+                info.TlgElemIdToElem(etAirline, airline) + " " +
                 transliter(no, 1, info.pr_lat);
             if(rem_code == "FQTV") {
                 if(not subclass.empty() and subclass != subcls)
-                    item += "-" + ElemIdToElem(etSubcls, subclass, info.pr_lat);
+                    item += "-" + info.TlgElemIdToElem(etSubcls, subclass);
             } else {
                 if(not extra.empty())
                     item += "-" + transliter(extra, 1, info.pr_lat);
@@ -3780,9 +3967,9 @@ void TFTLBody::ToTlg(TTlgInfo &info, vector<string> &body)
         for(vector<TFTLDest>::iterator iv = items.begin(); iv != items.end(); iv++) {
             ostringstream buf;
             buf
-                << "-" << TlgElemIdToElem(etAirp, iv->target, info.pr_lat)
+                << "-" << info.TlgElemIdToElem(etAirp, iv->target)
                 << setw(2) << setfill('0') << iv->PaxList.size()
-                << TlgElemIdToElem(etSubcls, iv->subcls, info.pr_lat);
+                << info.TlgElemIdToElem(etSubcls, iv->subcls);
             body.push_back(buf.str());
             iv->ToTlg(info, body);
         }
@@ -4027,16 +4214,16 @@ void TDestList<T>::ToTlg(TTlgInfo &info, vector<string> &body)
         if(iv->PaxList.empty()) {
             line.str("");
             line
-                << "-" << TlgElemIdToElem(etAirp, iv->airp, info.pr_lat)
-                << "00" << TlgElemIdToElem(etSubcls, iv->cls, true); //всегда на латинице - так надо
+                << "-" << info.TlgElemIdToElem(etAirp, iv->airp)
+                << "00" << info.TlgElemIdToElem(etSubcls, iv->cls, prLatToElemFmt(efmtCodeNative,true)); //всегда на латинице - так надо
             body.push_back(line.str());
         } else {
             pr_empty = false;
             line.str("");
             line
-                << "-" << TlgElemIdToElem(etAirp, iv->airp, info.pr_lat)
+                << "-" << info.TlgElemIdToElem(etAirp, iv->airp)
                 << setw(2) << setfill('0') << iv->PaxList.size()
-                << TlgElemIdToElem(etClsGrp, iv->PaxList[0].cls_grp_id, true); //всегда на латинице - так надо
+                << info.TlgElemIdToElem(etClsGrp, iv->PaxList[0].cls_grp_id, prLatToElemFmt(efmtCodeNative,true)); //всегда на латинице - так надо
             body.push_back(line.str());
             iv->PaxListToTlg(info, body);
         }
@@ -4139,7 +4326,7 @@ struct TETLCFG:TCFG {
             {
                 cfg
                     << setw(3) << setfill('0') << iv->cfg
-                    << ElemIdToElem(etClass, iv->cls, info.pr_lat);
+                    << info.TlgElemIdToElem(etClass, iv->cls);
             }
         }
         if(not cfg.str().empty())
@@ -4272,7 +4459,7 @@ void TLDMDests::ToTlg(TTlgInfo &info, bool &vcompleted, vector<string> &body)
     for(vector<TLDMDest>::iterator iv = items.begin(); iv != items.end(); iv++) {
         row.str("");
         row
-            << "-" << ElemIdToElem(etAirp, iv->target, info.pr_lat)
+            << "-" << info.TlgElemIdToElem(etAirp, iv->target)
             << "." << iv->adl << "/" << iv->chd << "/" << iv->inf
             << ".T"
             << iv->bag.baggage + iv->bag.cargo + iv->bag.mail;
@@ -4483,7 +4670,7 @@ void TMVTABody::ToTlg(TTlgInfo &info, bool &vcompleted, vector<string> &body)
                 buf << "????";
             } else
                 buf << DateTimeToStr(i->est_in, "hhnn");
-            buf << " " << ElemIdToElem(etAirp, i->target, info.pr_lat);
+            buf << " " << info.TlgElemIdToElem(etAirp, i->target);
             body.push_back(buf.str());
             buf.str("");
             buf << "PX" << i->seats;
@@ -4540,11 +4727,11 @@ void TMVTABody::get(TTlgInfo &info)
     }
 }
 
-int CPM(TTlgInfo &info, bool &vcompleted)
+int CPM(TTlgInfo &info)
 {
-    TTlgDraft tlg_draft;
+    TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row;
-    vcompleted = false;
+    info.vcompleted = false;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
     tlg_row.point_id = info.point_id;
@@ -4559,7 +4746,7 @@ int CPM(TTlgInfo &info, bool &vcompleted)
     tlg_row.heading = buf.str();
     tlg_row.ending = "PART " + IntToString(tlg_row.num) + " END" + br;
     if(info.bort.empty())
-        vcompleted = false;
+        info.vcompleted = false;
     buf.str("");
     buf
         << info.airline_view << setw(3) << setfill('0') << info.flt_no << info.suffix_view << "/"
@@ -4576,11 +4763,11 @@ int CPM(TTlgInfo &info, bool &vcompleted)
     return tlg_row.id;
 }
 
-int MVT(TTlgInfo &info, bool &vcompleted)
+int MVT(TTlgInfo &info)
 {
-    TTlgDraft tlg_draft;
+    TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row;
-    vcompleted = true;
+    info.vcompleted = true;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
     tlg_row.point_id = info.point_id;
@@ -4595,7 +4782,7 @@ int MVT(TTlgInfo &info, bool &vcompleted)
     tlg_row.heading = buf.str();
     tlg_row.ending = "PART " + IntToString(tlg_row.num) + " END" + br;
     if(info.bort.empty())
-        vcompleted = false;
+        info.vcompleted = false;
     buf.str("");
     buf
         << info.airline_view << setw(3) << setfill('0') << info.flt_no << info.suffix_view << "/"
@@ -4605,16 +4792,19 @@ int MVT(TTlgInfo &info, bool &vcompleted)
     vector<string> body;
     body.push_back(buf.str());
     buf.str("");
-    if(info.tlg_type == "MVTA") {
-        TMVTABody MVTABody;
-        MVTABody.get(info);
-        MVTABody.ToTlg(info, vcompleted, body);
-    } else {
-        TMVTBBody MVTBBody;
-        MVTBBody.get(info);
-        MVTBBody.ToTlg(vcompleted, body);
+    try {
+        if(info.tlg_type == "MVTA") {
+            TMVTABody MVTABody;
+            MVTABody.get(info);
+            MVTABody.ToTlg(info, info.vcompleted, body);
+        } else {
+            TMVTBBody MVTBBody;
+            MVTBBody.get(info);
+            MVTBBody.ToTlg(info.vcompleted, body);
+        }
+    } catch(...) {
+        ExceptionFilter(body, info);
     }
-
     for(vector<string>::iterator iv = body.begin(); iv != body.end(); iv++)
         tlg_row.body += *iv + br;
     tlg_draft.Save(tlg_row);
@@ -4622,11 +4812,11 @@ int MVT(TTlgInfo &info, bool &vcompleted)
     return tlg_row.id;
 }
 
-int LDM(TTlgInfo &info, bool &vcompleted)
+int LDM(TTlgInfo &info)
 {
-    TTlgDraft tlg_draft;
+    TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row;
-    vcompleted = true;
+    info.vcompleted = true;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
     tlg_row.point_id = info.point_id;
@@ -4641,9 +4831,13 @@ int LDM(TTlgInfo &info, bool &vcompleted)
     tlg_row.heading = buf.str();
     tlg_row.ending = "PART " + IntToString(tlg_row.num) + " END" + br;
     vector<string> body;
-    TLDMDests LDM;
-    LDM.get(info);
-    LDM.ToTlg(info, vcompleted, body);
+    try {
+        TLDMDests LDM;
+        LDM.get(info);
+        LDM.ToTlg(info, info.vcompleted, body);
+    } catch(...) {
+        ExceptionFilter(body, info);
+    }
     for(vector<string>::iterator iv = body.begin(); iv != body.end(); iv++)
         tlg_row.body += *iv + br;
     tlg_draft.Save(tlg_row);
@@ -4651,11 +4845,11 @@ int LDM(TTlgInfo &info, bool &vcompleted)
     return tlg_row.id;
 }
 
-int AHL(TTlgInfo &info, bool &vcompleted)
+int AHL(TTlgInfo &info)
 {
-    TTlgDraft tlg_draft;
+    TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row;
-    vcompleted = false;
+    info.vcompleted = false;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
     tlg_row.point_id = info.point_id;
@@ -4691,7 +4885,7 @@ int AHL(TTlgInfo &info, bool &vcompleted)
 
 int FTL(TTlgInfo &info)
 {
-    TTlgDraft tlg_draft;
+    TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
@@ -4705,9 +4899,9 @@ int FTL(TTlgInfo &info)
     string suffix_view = info.suffix_view;
 
     if(not info.mark_info.IsNULL() and info.mark_info.pr_mark_header) {
-        airline_view = TlgElemIdToElem(etAirline, info.mark_info.airline, info.pr_lat);
+        airline_view = info.TlgElemIdToElem(etAirline, info.mark_info.airline);
         flt_no_view = info.mark_info.flt_no;
-        suffix_view = TlgElemIdToElem(etSuffix, info.mark_info.suffix, info.pr_lat);
+        suffix_view = info.mark_info.suffix.empty() ? "" : info.TlgElemIdToElem(etSuffix, info.mark_info.suffix);
     }
     ostringstream heading;
     heading
@@ -4719,9 +4913,13 @@ int FTL(TTlgInfo &info)
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
     size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
     vector<string> body;
-    TFTLBody FTL;
-    FTL.get(info);
-    FTL.ToTlg(info, body);
+    try {
+        TFTLBody FTL;
+        FTL.get(info);
+        FTL.ToTlg(info, body);
+    } catch(...) {
+        ExceptionFilter(body, info);
+    }
     split_n_save(heading, part_len, tlg_draft, tlg_row, body);
     tlg_row.ending = "ENDFTL" + br;
     tlg_draft.Save(tlg_row);
@@ -4731,7 +4929,7 @@ int FTL(TTlgInfo &info)
 
 int ETL(TTlgInfo &info)
 {
-    TTlgDraft tlg_draft;
+    TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
@@ -4745,9 +4943,9 @@ int ETL(TTlgInfo &info)
     string suffix_view = info.suffix_view;
 
     if(not info.mark_info.IsNULL() and info.mark_info.pr_mark_header) {
-        airline_view = TlgElemIdToElem(etAirline, info.mark_info.airline, info.pr_lat);
+        airline_view = info.TlgElemIdToElem(etAirline, info.mark_info.airline);
         flt_no_view = info.mark_info.flt_no;
-        suffix_view = TlgElemIdToElem(etSuffix, info.mark_info.suffix, info.pr_lat);
+        suffix_view = info.mark_info.suffix.empty() ? "" : info.TlgElemIdToElem(etSuffix, info.mark_info.suffix);
     }
     ostringstream heading;
     heading
@@ -4759,17 +4957,21 @@ int ETL(TTlgInfo &info)
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
     size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
     vector<string> body;
-    TETLCFG cfg;
-    cfg.get(info);
-    cfg.ToTlg(info, body);
-    if(info.act_local != 0) {
-        body.push_back("ATD/" + DateTimeToStr(info.act_local, "ddhhnn"));
-    }
+    try {
+        TETLCFG cfg;
+        cfg.get(info);
+        cfg.ToTlg(info, body);
+        if(info.act_local != 0) {
+            body.push_back("ATD/" + DateTimeToStr(info.act_local, "ddhhnn"));
+        }
 
-    vector<TTlgCompLayer> complayers;
-    TDestList<TETLDest> dests;
-    dests.get(info,complayers);
-    dests.ToTlg(info, body);
+        vector<TTlgCompLayer> complayers;
+        TDestList<TETLDest> dests;
+        dests.get(info,complayers);
+        dests.ToTlg(info, body);
+    } catch(...) {
+        ExceptionFilter(body, info);
+    }
     split_n_save(heading, part_len, tlg_draft, tlg_row, body);
     tlg_row.ending = "ENDETL" + br;
     tlg_draft.Save(tlg_row);
@@ -4828,7 +5030,7 @@ void TNumByDestItem::ToTlg(TTlgInfo &info, string airp, vector<string> &body)
 {
     ostringstream buf;
     buf
-        << ElemIdToElem(etAirp, airp, info.pr_lat)
+        << info.TlgElemIdToElem(etAirp, airp)
         << " "
         << setw(2) << setfill('0') << f << "/"
         << setw(3) << setfill('0') << c << "/"
@@ -5203,13 +5405,13 @@ void TPFSBody::ToTlg(TTlgInfo &info, vector<string> &body)
             TPFSCtgryList &CtgryList = items[iv->airp];
             if(CtgryList.empty())
                 continue;
-            category_lst.push_back((string)"-" + ElemIdToElem(etAirp, iv->airp, info.pr_lat));
+            category_lst.push_back((string)"-" + info.TlgElemIdToElem(etAirp, iv->airp));
             for(TPFSCtgryList::iterator ctgry = CtgryList.begin(); ctgry != CtgryList.end(); ctgry++) {
                 TPFSClsList &ClsList = ctgry->second;
                 for(TPFSClsList::iterator cls = ClsList.begin(); cls != ClsList.end(); cls++) {
                     ostringstream buf;
                     TPFSPaxList &pax_list = cls->second;
-                    buf << ctgry->first << " " << pax_list.size() << ElemIdToElem(etSubcls, cls->first, info.pr_lat);
+                    buf << ctgry->first << " " << pax_list.size() << info.TlgElemIdToElem(etSubcls, cls->first);
                     category_lst.push_back(buf.str());
                     for(TPFSPaxList::iterator pax = pax_list.begin(); pax != pax_list.end(); pax++)
                         pax->ToTlg(info, category_lst);
@@ -5409,7 +5611,7 @@ void TPFSBody::get(TTlgInfo &info)
 
 int PFS(TTlgInfo &info)
 {
-    TTlgDraft tlg_draft;
+    TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
@@ -5424,9 +5626,9 @@ int PFS(TTlgInfo &info)
     string suffix_view = info.suffix_view;
 
     if(not info.mark_info.IsNULL() and info.mark_info.pr_mark_header) {
-        airline_view = TlgElemIdToElem(etAirline, info.mark_info.airline, info.pr_lat);
+        airline_view = info.TlgElemIdToElem(etAirline, info.mark_info.airline);
         flt_no_view = info.mark_info.flt_no;
-        suffix_view = TlgElemIdToElem(etSuffix, info.mark_info.suffix, info.pr_lat);
+        suffix_view = info.mark_info.suffix.empty() ? "" : info.TlgElemIdToElem(etSuffix, info.mark_info.suffix);
     }
     ostringstream heading;
     heading
@@ -5438,9 +5640,13 @@ int PFS(TTlgInfo &info)
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
     size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
     vector<string> body;
-    TPFSBody pfs;
-    pfs.get(info);
-    pfs.ToTlg(info, body);
+    try {
+        TPFSBody pfs;
+        pfs.get(info);
+        pfs.ToTlg(info, body);
+    } catch(...) {
+        ExceptionFilter(body, info);
+    }
     simple_split(heading, part_len, tlg_draft, tlg_row, body);
     tlg_row.ending = "ENDPFS" + br;
     tlg_draft.Save(tlg_row);
@@ -5451,7 +5657,7 @@ int PFS(TTlgInfo &info)
 
 int PRL(TTlgInfo &info)
 {
-    TTlgDraft tlg_draft;
+    TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
@@ -5466,9 +5672,9 @@ int PRL(TTlgInfo &info)
     string suffix_view = info.suffix_view;
 
     if(not info.mark_info.IsNULL() and info.mark_info.pr_mark_header) {
-        airline_view = TlgElemIdToElem(etAirline, info.mark_info.airline, info.pr_lat);
+        airline_view = info.TlgElemIdToElem(etAirline, info.mark_info.airline);
         flt_no_view = info.mark_info.flt_no;
-        suffix_view = TlgElemIdToElem(etSuffix, info.mark_info.suffix, info.pr_lat);
+        suffix_view = info.mark_info.suffix.empty() ? "" : info.TlgElemIdToElem(etSuffix, info.mark_info.suffix);
     }
     ostringstream heading;
     heading
@@ -5480,13 +5686,18 @@ int PRL(TTlgInfo &info)
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
     size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
 
-    vector<TTlgCompLayer> complayers;
-    ReadSalons( info, complayers );
-    ProgTrace( TRACE5, "complayers.size()=%d", complayers.size() );
-    TDestList<TPRLDest> dests;
-    dests.get(info,complayers);
     vector<string> body;
-    dests.ToTlg(info, body);
+    try {
+        vector<TTlgCompLayer> complayers;
+        ReadSalons( info, complayers );
+        ProgTrace( TRACE5, "complayers.size()=%d", complayers.size() );
+        TDestList<TPRLDest> dests;
+        dests.get(info,complayers);
+        dests.ToTlg(info, body);
+    } catch(...) {
+        ExceptionFilter(body, info);
+    }
+
     split_n_save(heading, part_len, tlg_draft, tlg_row, body);
     tlg_row.ending = "ENDPRL" + br;
     tlg_draft.Save(tlg_row);
@@ -5494,11 +5705,11 @@ int PRL(TTlgInfo &info)
     return tlg_row.id;
 }
 
-int Unknown(TTlgInfo &info, bool &vcompleted)
+int Unknown(TTlgInfo &info)
 {
-    TTlgDraft tlg_draft;
+    TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row;
-    vcompleted = false;
+    info.vcompleted = false;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
     tlg_row.point_id = info.point_id;
@@ -5518,28 +5729,31 @@ int TelegramInterface::create_tlg(
 {
     ProgTrace(TRACE5, "createInfo.type: %s", createInfo.type.c_str());
     if(createInfo.type.empty())
-        throw UserException("Не указан тип телеграммы");
+        throw AstraLocale::UserException("MSG.TLG.UNSPECIFY_TYPE");
     TQuery Qry(&OraSession);
     Qry.SQLText = "select basic_type, editable from typeb_types where code = :vtype";
     Qry.CreateVariable("vtype", otString, createInfo.type);
     Qry.Execute();
     if(Qry.Eof)
-        throw UserException("Неверно указан тип телеграммы");
+        throw AstraLocale::UserException("MSG.TLG.TYPE_WRONG_SPECIFIED");
     string vbasic_type = Qry.FieldAsString("basic_type");
     bool veditable = Qry.FieldAsInteger("editable") != 0;
     TTlgInfo info;
     info.mark_info = createInfo.mark_info;
     info.tlg_type = createInfo.type;
     if((vbasic_type == "PTM" || vbasic_type == "BTM") && createInfo.airp_trfer.empty())
-        throw UserException("Не указан аэропорт назначения");
+        throw AstraLocale::UserException("MSG.AIRP.DST_UNSPECIFIED");
     info.point_id = createInfo.point_id;
     info.pr_lat = createInfo.pr_lat;
+    info.lang = AstraLocale::LANG_RU;
+    info.elem_fmt = prLatToElemFmt(efmtCodeNative, info.pr_lat);
     string vsender = OWN_SITA_ADDR();
     if(vsender.empty())
-        throw UserException("Не указан адрес отправителя");
+        throw AstraLocale::UserException("MSG.TLG.SRC_ADDR_NOT_SET");
     if(vsender.size() != 7 || !is_lat(vsender))
-        throw UserException("Неверно указан адрес отправителя");
+        throw AstraLocale::UserException("MSG.TLG.SRC_ADDR_WRONG_SET");
     info.sender = vsender;
+    info.vcompleted = !veditable;
     if(createInfo.point_id != -1) {
         TQuery Qry(&OraSession);
         Qry.SQLText =
@@ -5564,7 +5778,7 @@ int TelegramInterface::create_tlg(
         Qry.CreateVariable("vpoint_id", otInteger, createInfo.point_id);
         Qry.Execute();
         if(Qry.Eof)
-            throw UserException("Рейс не найден");
+            throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND");
         info.airline = Qry.FieldAsString("airline");
         info.flt_no = Qry.FieldAsInteger("flt_no");
         info.suffix = Qry.FieldAsString("suffix");
@@ -5574,10 +5788,9 @@ int TelegramInterface::create_tlg(
         info.point_num = Qry.FieldAsInteger("point_num");
         info.first_point = Qry.FieldAsInteger("first_point");
         info.pr_tranzit = Qry.FieldAsInteger("pr_tranzit")!=0;
-
-        info.airline_view = TlgElemIdToElem(etAirline, info.airline, info.pr_lat);
-        info.suffix_view = TlgElemIdToElem(etSuffix, info.suffix, info.pr_lat);
-        info.airp_dep_view = TlgElemIdToElem(etAirp, info.airp_dep, info.pr_lat);
+        info.airline_view = info.TlgElemIdToElem(etAirline, info.airline);
+        info.suffix_view = info.suffix.empty() ? "" : info.TlgElemIdToElem(etSuffix, info.suffix);
+        info.airp_dep_view = info.TlgElemIdToElem(etAirp, info.airp_dep);
 
         info.pr_lat_seat = Qry.FieldAsInteger("pr_lat_seat") != 0;
 
@@ -5600,33 +5813,33 @@ int TelegramInterface::create_tlg(
     }
     ostringstream extra;
     if (vbasic_type == "PTM" ||
-        vbasic_type == "BTM")
+            vbasic_type == "BTM")
     {
         info.airp_arv = createInfo.airp_trfer;
-        info.airp_arv_view = TlgElemIdToElem(etAirp, info.airp_arv, info.pr_lat);
+        info.airp_arv_view = info.TlgElemIdToElem(etAirp, info.airp_arv);
         if (!info.airp_arv.empty())
-          extra << info.airp_arv << " ";
+            extra << info.airp_arv << " ";
     }
     if (vbasic_type == "CPM")
     {
-      TTripRoute route;
-      TTripRouteItem next_airp;
-      if (route.GetNextAirp(info.point_id, trtNotCancelled, next_airp))
-      {
-        info.airp_arv = next_airp.airp;
-        info.airp_arv_view = TlgElemIdToElem(etAirp, info.airp_arv, info.pr_lat);
-      };
+        TTripRoute route;
+        TTripRouteItem next_airp;
+        if (route.GetNextAirp(info.point_id, trtNotCancelled, next_airp))
+        {
+            info.airp_arv = next_airp.airp;
+            info.airp_arv_view = info.TlgElemIdToElem(etAirp, info.airp_arv);
+        };
     };
     if (vbasic_type == "PFS" or
-        vbasic_type == "FTL" or
-        vbasic_type == "ETL" or
-        vbasic_type == "PRL")
+            vbasic_type == "FTL" or
+            vbasic_type == "ETL" or
+            vbasic_type == "PRL")
     {
         info.crs = createInfo.crs;
         if (!info.crs.empty())
-          extra << info.crs << " ";
+            extra << info.crs << " ";
         if (!info.mark_info.IsNULL())
-          extra << info.mark_info.airline
+            extra << info.mark_info.airline
                 << setw(3) << setfill('0') << info.mark_info.flt_no
                 << info.mark_info.suffix << " ";
     }
@@ -5634,20 +5847,21 @@ int TelegramInterface::create_tlg(
     {
         info.extra = createInfo.extra;
         if (!info.extra.empty())
-          extra << info.extra << " ";
+            extra << info.extra << " ";
     }
     info.extra = extra.str();
-    info.addrs = format_addr_line(createInfo.addrs);
+
+    info.addrs = format_addr_line(createInfo.addrs, &info);
+
     if(info.addrs.empty())
-        throw UserException("Не указаны адреса получателей телеграммы");
-    bool vcompleted = !veditable;
+        throw AstraLocale::UserException("MSG.TLG.DST_ADDRS_NOT_SET");
     int vid = NoExists;
 
     if(vbasic_type == "PTM") vid = PTM(info);
-    else if(vbasic_type == "LDM") vid = LDM(info, vcompleted);
-    else if(vbasic_type == "MVT") vid = MVT(info, vcompleted);
-    else if(vbasic_type == "AHL") vid = AHL(info, vcompleted);
-    else if(vbasic_type == "CPM") vid = CPM(info, vcompleted);
+    else if(vbasic_type == "LDM") vid = LDM(info);
+    else if(vbasic_type == "MVT") vid = MVT(info);
+    else if(vbasic_type == "AHL") vid = AHL(info);
+    else if(vbasic_type == "CPM") vid = CPM(info);
     else if(vbasic_type == "BTM") vid = BTM(info);
     else if(vbasic_type == "PRL") vid = PRL(info);
     else if(vbasic_type == "TPM") vid = TPM(info);
@@ -5658,11 +5872,13 @@ int TelegramInterface::create_tlg(
     else if(vbasic_type == "FTL") vid = FTL(info);
     else if(vbasic_type == "COM") vid = COM(info);
     else if(vbasic_type == "SOM") vid = SOM(info);
-    else vid = Unknown(info, vcompleted);
+    else vid = Unknown(info);
+
+    info.dump_err_lst();
 
     Qry.Clear();
     Qry.SQLText = "update tlg_out set completed = :vcompleted where id = :vid";
-    Qry.CreateVariable("vcompleted", otInteger, vcompleted);
+    Qry.CreateVariable("vcompleted", otInteger, info.vcompleted);
     Qry.CreateVariable("vid", otInteger, vid);
     Qry.Execute();
 
@@ -5736,6 +5952,7 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     createInfo.addrs = NodeAsStringFast( "addrs", node);
     createInfo.mark_info.init(reqNode);
     createInfo.mark_info.dump();
+    createInfo.pr_alarm = false;
     Qry.Clear();
     Qry.SQLText="SELECT short_name FROM typeb_types WHERE code=:tlg_type";
     Qry.CreateVariable("tlg_type",otString,createInfo.type);
@@ -5746,8 +5963,8 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     int tlg_id = NoExists;
     try {
         tlg_id = create_tlg(createInfo);
-    } catch(UserException E) {
-        throw UserException( "Ошибка формирования. %s", E.what());
+    } catch(AstraLocale::UserException &E) {
+        throw AstraLocale::UserException( "MSG.TLG.CREATE_ERROR", LParams() << LParam("what", getLocaleText(E.getLexemaData())));
     }
 
     if (tlg_id == NoExists) throw Exception("create_tlg without result");

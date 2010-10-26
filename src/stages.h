@@ -12,15 +12,17 @@ enum TStage { sNoActive = 0, /*не активен*/
               sPrepCheckIn = 10, /*Подготовка к регистрации*/
               sOpenCheckIn = 20, /*Открытие регистрации*/
               sOpenWEBCheckIn = 25, /*Открытие WEB-регистрации*/
+              sOpenKIOSKCheckIn = 26, /*Открытие само-регистрации*/
               sCloseCheckIn = 30, /*Закрытие регистрации*/
               sCloseWEBCheckIn = 35, /*Закрытие WEB-регистрации*/
+              sCloseKIOSKCheckIn = 36, /*Закрытие само-регистрации*/
               sOpenBoarding = 40, /*Начало посадки*/
               sCloseBoarding = 50, /*Окончание посадки*/
 //              sRegDoc = 60, /*Оформление документации*/
               sRemovalGangWay = 70, /*Уборка трапа*/
               sTakeoff = 99 /*Вылетел*/ };
 
-enum TStage_Type { stCheckIn = 1, stBoarding = 2, stCraft = 3, stWEB = 4 };
+enum TStage_Type { stCheckIn = 1, stBoarding = 2, stCraft = 3, stWEB = 4, stKIOSK = 5 };
 enum TStageStep { stPrior, stNext };
 
 struct TTripStage {
@@ -75,6 +77,7 @@ struct TRule {
 struct TStage_Status {
   TStage stage;
   std::string status;
+  std::string status_lat;
   int lvl;
 };
 
@@ -86,6 +89,7 @@ typedef std::map<TStage_Type,TStage_Statuses> TMapStatuses;
 struct TStage_name {
 	TStage stage;
 	std::string name;
+	std::string name_lat;
 	std::string airp;
 };
 
@@ -100,8 +104,8 @@ class TStagesRules {
     TMapStatuses StageStatuses;
     TStagesRules();
     bool CanStatus( TStage_Type stage_type, TStage stage );
-    std::string status( TStage_Type stage_type, TStage stage );
-    std::string stage_name( TStage stage, std::string airp );
+    std::string status( TStage_Type stage_type, TStage stage, bool pr_locale );
+    std::string stage_name( TStage stage, std::string airp, bool pr_locale );
     void Build( xmlNodePtr dataNode );
     void UpdateGraph_Stages( );
     void BuildGraph_Stages( const std::string airp, xmlNodePtr dataNode );

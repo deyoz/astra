@@ -22,8 +22,8 @@
 using namespace std;
 using namespace BASIC;
 using namespace EXCEPTIONS;
+using namespace AstraLocale;
 using namespace ASTRA;
-
 
 void PrepRegInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
 {
@@ -86,7 +86,13 @@ void PrepRegInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
   xmlNodePtr node = NewTextChild( dataNode, "tripcounters" );
   while ( !Qry.Eof ) {
     xmlNodePtr itemNode = NewTextChild( node, "item" );
-    NewTextChild( itemNode, "firstcol", Qry.FieldAsString( "firstcol" ) );
+    if ( Qry.FieldAsInteger( "num" ) == -100 ) // Всего
+    	NewTextChild( itemNode, "firstcol", getLocaleText( Qry.FieldAsString( "firstcol" ) ) );
+    else
+    	if ( Qry.FieldAsInteger( "num" ) < 0 ) // классы
+        NewTextChild( itemNode, "firstcol", ElemIdToCodeNative(etClass,Qry.FieldAsString( "firstcol" )) );
+      else // аэропорты
+      	NewTextChild( itemNode, "firstcol", ElemIdToCodeNative(etAirp,Qry.FieldAsString( "firstcol" )) );
     NewTextChild( itemNode, "cfg", Qry.FieldAsInteger( "cfg" ) );
     NewTextChild( itemNode, "resa", Qry.FieldAsInteger( "resa" ) );
     NewTextChild( itemNode, "tranzit", Qry.FieldAsInteger( "tranzit" ) );
@@ -95,6 +101,7 @@ void PrepRegInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
     NewTextChild( itemNode, "prot", Qry.FieldAsInteger( "prot" ) );
     Qry.Next();
   }
+  tst();
 }
 
 void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
@@ -162,7 +169,8 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
              airline.c_str(), flt_no, airp.c_str(), empty_priority, priority );
   Qry.Clear();
   Qry.SQLText =
-    "SELECT crs2.code,crs2.name,1 AS sort, "\
+    "SELECT crs2.code,"
+    "       name,1 AS sort, "\
     "       DECODE(crs_data.crs,NULL,0,1) AS pr_charge, "\
     "       DECODE(crs_pnr.crs,NULL,0,1) AS pr_list, "\
     "       DECODE(NVL(:priority,0),0,0, "\
@@ -199,7 +207,10 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
   while ( !Qry.Eof ) {
     itemNode = NewTextChild( node, "itemcrs" );
     NewTextChild( itemNode, "code", Qry.FieldAsString( "code" ) );
-    NewTextChild( itemNode, "name", Qry.FieldAsString( "name" ) );
+    if ( Qry.FieldAsInteger( "sort" ) == 0 )
+    	NewTextChild( itemNode, "name", getLocaleText( Qry.FieldAsString( "name" ) ) );
+    else
+      NewTextChild( itemNode, "name", ElemIdToNameLong(etCrs,Qry.FieldAsString("code")) );
     NewTextChild( itemNode, "pr_charge", Qry.FieldAsInteger( "pr_charge" ) );
     NewTextChild( itemNode, "pr_list", Qry.FieldAsInteger( "pr_list" ) );
     NewTextChild( itemNode, "pr_crs_main", Qry.FieldAsInteger( "pr_crs_main" ) );
@@ -363,7 +374,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
       "FROM points WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0 FOR UPDATE ";
     Qry.CreateVariable("point_id",otInteger,point_id);
     Qry.Execute();
-    if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
+    if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
 
     TQuery SetsQry( &OraSession );
     SetsQry.Clear();
@@ -467,7 +478,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
   		    	ProgTrace( TRACE5, "question=%d", question );
   		    	if ( question ) {
   		    		xmlNodePtr dataNode = NewTextChild( resNode, "data" );
-  		    		NewTextChild( dataNode, "question", "Отмена режима перерегистрации транзита приведет к отмене регистрации всех транзитных пассажиров. Отменить режим перерегистрации?" );
+  		    		NewTextChild( dataNode, "question", getLocaleText("QST.TRANZIT_RECHECKIN_CAUTION.CANCEL") );
   		    		return;
   		      }
   		      tst();
@@ -548,7 +559,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
   		  Qry.CreateVariable("point_id",otInteger,point_id);
         Qry.Execute();
   		  if (!Qry.Eof)
-  		    throw UserException("Для изменения сеанса регистрации необходима отмена регистрации всех пассажиров");
+  		    throw AstraLocale::UserException("MSG.NEED_TO_CANCEL_CKIN_ALL_PAX_TO_MODIFY_CKIN_SEANCE");
       };
 
       Qry.Clear();
@@ -678,15 +689,21 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
 void PrepRegInterface::ViewCRSList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   int point_id = NodeAsInteger( "point_id", reqNode );
-  int pr_lat = 0;
   ProgTrace(TRACE5, "PrepRegInterface::ViewPNL, point_id=%d", point_id );
   //TReqInfo::Instance()->user.check_access( amRead );
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   viewCRSList( point_id, dataNode );
   get_report_form("PNLPaxList", resNode);
-  STAT::set_variables(resNode);
-  xmlNodePtr formDataNode = GetNode("form_data/variables", resNode);
-  PaxListVars(point_id, pr_lat, formDataNode);
+  xmlNodePtr formDataNode = STAT::set_variables(resNode);
+  TRptParams rpt_params(TReqInfo::Instance()->desk.lang);
+  PaxListVars(point_id, rpt_params, formDataNode);
+  string real_out = NodeAsString("real_out", formDataNode);
+  string scd_out = NodeAsString("scd_out", formDataNode);
+  string date = real_out + (real_out == scd_out ? "" : "(" + scd_out + ")");
+  NewTextChild(formDataNode, "caption", getLocaleText("CAP.DOC.PNL_PAX_LIST",
+              LParams() << LParam("trip", NodeAsString("trip", formDataNode))//!!!den param
+                  << LParam("date", date)
+              ));
 }
 
 

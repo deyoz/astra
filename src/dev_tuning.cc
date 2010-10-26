@@ -17,6 +17,7 @@
 
 using namespace std;
 using namespace EXCEPTIONS;
+using namespace AstraLocale;
 using namespace BASIC;
 using namespace ASTRA;
 using namespace boost;
@@ -32,27 +33,27 @@ void BeforeApplyUpdates(TCacheTable &cache, const TRow &row, TQuery &applyQry, c
             Qry.CreateVariable("id", otString, ToInt(cache.FieldOldValue("id", row)));
             Qry.Execute();
             if(!Qry.Eof)
-                throw UserException("Для формы " + cache.FieldOldValue("name", row) + " задан список версий.");
+                throw AstraLocale::UserException("MSG.TUNE.VERS_LIST_EXISTS_FOR_FORM", LParams() << LParam("form", cache.FieldOldValue("name", row)));//!!!param
         }
     }
     if(cache.code() == "PRN_FORM_VERS") {
         if(row.status == usInserted) {
             if(cache.FieldValue("read_only", row) == "0")
-                throw UserException("Версия " + cache.FieldValue("version", row) + ". При создании версии, редактирование должно быть включено.");
+                throw AstraLocale::UserException("MSG.TUNE.EDIT_MODE_SHOULD_BE_ON_WHILE_CREATING_VERS", LParams() << LParam("vers", cache.FieldValue("version", row)));
         }
         if(
                 row.status == usModified or
                 row.status == usDeleted
           ) {
             if(cache.FieldOldValue("version", row) == "0")
-                throw UserException("Редактирование версии 0 запрещено.");
+                throw AstraLocale::UserException("MSG.TUNE.ZERO_VERS_EDIT_DENIED");
             if(row.status == usModified)
                 if(cache.FieldOldValue("read_only", row) == cache.FieldValue("read_only", row) and
                         cache.FieldOldValue("read_only", row) == "0")
-                    throw UserException("Редактирование версии " + cache.FieldOldValue("version", row) + " запрещено.");
+                    throw AstraLocale::UserException("MSG.TUNE.VERS_EDIT_DENIED", LParams() << LParam("vers", cache.FieldOldValue("version", row)));
             if(row.status == usDeleted) {
                 if(cache.FieldOldValue("read_only", row) == "0")
-                    throw UserException("Редактирование версии " + cache.FieldOldValue("version", row) + " запрещено.");
+                    throw AstraLocale::UserException("MSG.TUNE.VERS_EDIT_DENIED", LParams() << LParam("vers", cache.FieldOldValue("version", row)));
                 TQuery Qry(&OraSession);
                 Qry.SQLText =
                     "select * from bp_models where id = :id and version = :version";
@@ -60,7 +61,7 @@ void BeforeApplyUpdates(TCacheTable &cache, const TRow &row, TQuery &applyQry, c
                 Qry.CreateVariable("version", otString, ToInt(cache.FieldOldValue("version", row)));
                 Qry.Execute();
                 if(!Qry.Eof)
-                    throw UserException("Для версии " + cache.FieldOldValue("version", row) + " задан список бланков.");
+                    throw AstraLocale::UserException("MSG.TUNE.BLANK_LIST_EXISTS_FOR_VERS", LParams() << LParam("vers", cache.FieldOldValue("version", row)));
             }
         }
     }
@@ -85,8 +86,8 @@ void BeforeApplyUpdates(TCacheTable &cache, const TRow &row, TQuery &applyQry, c
             if(!Qry.Eof) {
                 string err;
                 if(cache.code() == "BLANK_LIST")
-                    err = "Вер. " + IntToString(version) + ". ";
-                err += "Форма не заполнена.";
+                    err = getLocaleText("MSG.TUNE.VER_NO", LParams() << LParam("ver", IntToString(version)));
+                err += getLocaleText("MSG.TUNE.FORM_NOT_FILLED");
                 throw UserException(err);
             }
             if(
@@ -111,10 +112,13 @@ void BeforeApplyUpdates(TCacheTable &cache, const TRow &row, TQuery &applyQry, c
                 Qry.CreateVariable("fmt_type", otString, fmt_type);
                 Qry.Execute();
                 if(!Qry.Eof) {
-                    throw UserException(
-                            "На бланк " + cache.FieldValue("form_type", row) + " " +
-                            dev_model + " " + fmt_type + " уже назначена форма " +
-                            Qry.FieldAsString("form_name") + " Вер. " + IntToString(version) + "."
+                    throw AstraLocale::UserException("MSG.TUNE.BLANK_ALREADY_ASSIGNED_BY_FORM",
+                            LParams()
+                            << LParam("form_type", cache.FieldValue("form_type", row))  //!!!param
+                            << LParam("dev_model", dev_model)
+                            << LParam("fmt_type", fmt_type)
+                            << LParam("form_name", Qry.FieldAsString("form_name")) //!!!param
+                            << LParam("vers", IntToString(version))
                             );
                 }
             }
@@ -128,7 +132,7 @@ void DevTuningInterface::ApplyCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     TCacheTable cache;
     cache.Init(reqNode);
     if ( cache.changeIfaceVer() )
-        throw UserException( "Версия интерфейса изменилась. Обновите данные." );
+        throw AstraLocale::UserException( "MSG.IFACE_VERS_CHANGED.REFRESH_DATA" );
     cache.OnBeforeApply = BeforeApplyUpdates;
     cache.ApplyUpdates( reqNode );
     cache.refresh();
@@ -138,7 +142,7 @@ void DevTuningInterface::ApplyCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     SetProp(ifaceNode, "id", "cache");
     SetProp(ifaceNode, "ver", "1");
     cache.buildAnswer(resNode);
-    showMessage( "Изменения успешно сохранены" );
+    AstraLocale::showMessage( "MSG.CHANGED_DATA_COMMIT" );
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
@@ -157,8 +161,6 @@ void DevTuningInterface::Cache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     cache.buildAnswer(resNode);
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
-
-const char *not_avail_err = "Информация по форме недоступна. Обновите данные.";
 
 void DevTuningInterface::Load(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -183,7 +185,7 @@ void DevTuningInterface::Load(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     Qry.CreateVariable("version", otInteger, version);
     Qry.Execute();
     if(Qry.Eof)
-        throw UserException(not_avail_err);
+        throw AstraLocale::UserException("MSG.TUNE.FORM_NOT_ACCESSIBLE.REFRES_DATA");
     xmlNodePtr prnFormNode = NewTextChild(resNode, "prn_form");
     NewTextChild(prnFormNode, "fmt_type", Qry.FieldAsString("fmt_type"));
     NewTextChild(prnFormNode, "form", Qry.FieldAsString("form"));
@@ -195,14 +197,14 @@ void DevTuningInterface::Load(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     Qry.CreateVariable("id", otInteger, id);
     Qry.Execute();
     if(Qry.Eof)
-        throw UserException(not_avail_err);
+        throw AstraLocale::UserException("MSG.TUNE.FORM_NOT_ACCESSIBLE.REFRES_DATA");
     NewTextChild(prnFormNode, "name", Qry.FieldAsString("name"));
     Qry.Clear();
     Qry.SQLText = "select id, version, descr, read_only from prn_form_vers where id = :id order by version";
     Qry.CreateVariable("id", otInteger, id);
     Qry.Execute();
     if(Qry.Eof)
-        throw UserException(not_avail_err);
+        throw AstraLocale::UserException("MSG.TUNE.FORM_NOT_ACCESSIBLE.REFRES_DATA");
     xmlNodePtr verLstNode = NewTextChild(prnFormNode, "verLst");
     for(; not Qry.Eof; Qry.Next()) {
         xmlNodePtr itemNode = NewTextChild(verLstNode, "item");
@@ -236,7 +238,7 @@ void DevTuningInterface::UpdateCopy(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     Qry.CreateVariable("descr", otString, descr);
     Qry.Execute();
     if(Qry.RowsProcessed() == 0)
-        throw UserException(not_avail_err);
+        throw AstraLocale::UserException("MSG.TUNE.FORM_NOT_ACCESSIBLE.REFRES_DATA");
     ostringstream msg;
     if(*(char*)reqNode->name == 'U') // Update
         msg << "Изменены данные пектаба.";
@@ -989,7 +991,7 @@ void TBRTypes::add(string type)
     Qry.CreateVariable("code", otString, type);
     Qry.Execute();
     if(Qry.Eof)
-        throw UserException("Информация по типу бланка %s недоступна. Обновите данные.", type.c_str());
+        throw AstraLocale::UserException("MSG.TUNE.BLANK_NOT_ACCESSIBLE.REFRES_DATA", LParams() << LParam("blank", type));//!!!param
     TBRTypesItem item;
     item.code = type;
     item.name = Qry.FieldAsString("name");
@@ -1017,7 +1019,7 @@ void TBPTypes::add(string type)
     Qry.CreateVariable("code", otString, type);
     Qry.Execute();
     if(Qry.Eof)
-        throw UserException("Информация по типу бланка %s недоступна. Обновите данные.", type.c_str());
+        throw AstraLocale::UserException("MSG.TUNE.BLANK_NOT_ACCESSIBLE.REFRES_DATA", LParams() << LParam("blank", type));//!!!param
     TBPTypesItem item;
     item.code = type;
     item.airline = Qry.FieldAsString("airline");
@@ -1312,7 +1314,7 @@ void TTagTypes::add(string type)
     Qry.CreateVariable("code", otString, type);
     Qry.Execute();
     if(Qry.Eof)
-        throw UserException("Информация по типу бирки %s недоступна. Обновите данные.", type.c_str());
+        throw AstraLocale::UserException("MSG.TUNE.BAG_TAG_NOT_ACCESSIBLE.REFRES_DATA", LParams() << LParam("tag", type));
     TTagTypesItem item;
     item.code = Qry.FieldAsString("code");
     item.airline = Qry.FieldAsString("airline");
@@ -1342,7 +1344,7 @@ void TPrnForms::add(int id)
         PrnFormQry.CreateVariable("id", otInteger, id);
         PrnFormQry.Execute();
         if(PrnFormQry.Eof)
-            throw UserException("Информация по форме недоступна. Обновите данные.");
+            throw AstraLocale::UserException("MSG.TUNE.FORM_NOT_ACCESSIBLE.REFRES_DATA");
         TPrnFormsItem &prn_form = items[id];
         prn_form.op_type = PrnFormQry.FieldAsString("op_type");
         prn_form.fmt_type = PrnFormQry.FieldAsString("fmt_type");
@@ -1372,7 +1374,7 @@ void TPrnFormVers::add(int id, int version)
         VersQry.CreateVariable("version", otInteger, version);
         VersQry.Execute();
         if(VersQry.Eof)
-            throw UserException("Информация по форме недоступна. Обновите данные.");
+            throw AstraLocale::UserException("MSG.TUNE.FORM_NOT_ACCESSIBLE.REFRES_DATA");
         TPrnFormVersRow &row = items[vers_key];
         row.descr = VersQry.FieldAsString("descr");
         row.form = VersQry.FieldAsString("form");
@@ -1626,7 +1628,7 @@ void TVersionType::update()
       ) {
 
         TQuery Qry(&OraSession);
-        Qry.SQLText =
+        string SQLText =
             "declare "
             "  new_name prn_forms.name%type; "
             "  copy_num number; "
@@ -1637,7 +1639,7 @@ void TVersionType::update()
             "  loop "
             "    select count(*) into names_count from prn_forms where name = new_name and id <> :id; "
             "    if names_count = 0 then exit; end if; "
-            "    new_name := :name || ' копия ' || copy_num; "
+            "    new_name := :name || ' " + getLocaleText("CAP.COPY") + "' || copy_num; "
             "    copy_num := copy_num + 1; "
             "  end loop; "
             "  :name := new_name; "
@@ -1650,6 +1652,7 @@ void TVersionType::update()
             "    data = :data "
             "  where id = :id and version = :version; "
             "end; ";
+        Qry.SQLText = SQLText;
         Qry.CreateVariable("form", otString, form);
         Qry.CreateVariable("data", otString, data);
         Qry.CreateVariable("fmt_type", otString, fmt_type);
@@ -1658,7 +1661,7 @@ void TVersionType::update()
         Qry.CreateVariable("version", otInteger, dst_vers->version);
         try {
             Qry.Execute();
-        } catch(Exception E) {
+        } catch(Exception &E) {
             throw Exception("Не могу сапдейтить версию %s: %s", name.c_str(), E.what());
         }
     }
@@ -1685,7 +1688,7 @@ void TVersionType::del()
     Qry.CreateVariable("version", otInteger, version);
     try {
         Qry.Execute();
-    } catch(Exception E) {
+    } catch(Exception &E) {
         throw Exception("Не могу удалить версию %s: %s", name.c_str(), E.what());
     }
 }
@@ -1812,7 +1815,7 @@ void TBPFormType::insert(TVersionType &vers)
     Qry.CreateVariable("version", otInteger, vers.version);
     try {
         Qry.Execute();
-    } catch(Exception E) {
+    } catch(Exception &E) {
         throw Exception("Не могу назначить пектаб на пос. талон %s: %s", str().c_str(), E.what());
     }
 }
@@ -1841,7 +1844,7 @@ void TBRFormType::insert(TVersionType &vers)
     Qry.CreateVariable("version", otInteger, vers.version);
     try {
         Qry.Execute();
-    } catch(Exception E) {
+    } catch(Exception &E) {
         throw Exception("Не могу назначить пектаб на баг. квитанцию %s: %s", str().c_str(), E.what());
     }
 }
@@ -1873,7 +1876,7 @@ void TBTFormType::insert(TVersionType &vers)
     Qry.CreateVariable("version", otInteger, vers.version);
     try {
         Qry.Execute();
-    } catch(Exception E) {
+    } catch(Exception &E) {
         throw Exception("Не могу назначить пектаб на баг. бирку %s: %s", str().c_str(), E.what());
     }
 }
@@ -1899,7 +1902,7 @@ void TBPFormType::del()
         tst();
         Qry.Execute();
         tst();
-    } catch(Exception E) {
+    } catch(Exception &E) {
         throw Exception("Не могу удалить бланк пос. талона %s: %s", str().c_str(), E.what());
     }
 }
@@ -1917,7 +1920,7 @@ void TBRFormType::del()
     Qry.CreateVariable("fmt_type", otString, fmt_type);
     try {
         Qry.Execute();
-    } catch(Exception E) {
+    } catch(Exception &E) {
         throw Exception("Не могу удалить бланк баг. квитанции %s: %s", str().c_str(), E.what());
     }
 }
@@ -1937,7 +1940,7 @@ void TBTFormType::del()
     Qry.CreateVariable("num", otInteger, num);
     try {
         Qry.Execute();
-    } catch(Exception E) {
+    } catch(Exception &E) {
         throw Exception("Не могу удалить бланк баг. бирки %s: %s", str().c_str(), E.what());
     }
 }
@@ -2183,7 +2186,7 @@ void TVersionType::insert()
     }
     ProgTrace(TRACE5, "insert version");
     TQuery Qry(&OraSession);
-    Qry.SQLText =
+    string SQLText =
         "declare "
         "  new_name prn_forms.name%type; "
         "  copy_num number; "
@@ -2194,7 +2197,7 @@ void TVersionType::insert()
         "  loop "
         "    select count(*) into names_count from prn_forms where name = new_name; "
         "    if names_count = 0 then exit; end if; "
-        "    new_name := :name || ' копия ' || copy_num; "
+        "    new_name := :name || ' " + getLocaleText("CAP.COPY") + "' || copy_num; "
         "    copy_num := copy_num + 1; "
         "  end loop; "
         "  :name := new_name; "
@@ -2204,6 +2207,7 @@ void TVersionType::insert()
         "  insert into prn_form_vers(id, version, descr, form, data, read_only) "
         "    values(:id, 0, 'Inserted by prnc', :form, :data, 1); "
         "end; ";
+    Qry.SQLText = SQLText;
     Qry.CreateVariable("op_type", otString, EncodeDevOperType(op_type));
     Qry.CreateVariable("fmt_type", otString, fmt_type);
     Qry.CreateVariable("name", otString, name);
@@ -2212,7 +2216,7 @@ void TVersionType::insert()
     Qry.DeclareVariable("id", otInteger);
     try {
         Qry.Execute();
-    } catch(Exception E) {
+    } catch(Exception &E) {
         throw Exception("Не могу вставить версию %s: %s", name.c_str(), E.what());
     }
     id = Qry.GetVariableAsInteger("id");

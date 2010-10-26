@@ -3,7 +3,7 @@
 #include "tclmon/tclmon.h"
 #include "jxtlib/xml_stuff.h"
 #include "serverlib/sirena_queue.h"
-#include "serverlib/helpcpp.h"
+#include "serverlib/string_cast.h"
 #include "crypt.h"
 #include "oralib.h"
 #include "basic.h"
@@ -28,7 +28,6 @@ using namespace ASTRA;
 using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace std;
-using namespace JxtContext;
 
 
 int form_crypt_error(char *res, char *head, int hlen, int error)
@@ -290,9 +289,9 @@ void TCrypt::Init( const std::string &desk )
   bool pr_exists = GetClientCertificate( &Qry, grp_id, desk, client_cert );
   if ( client_cert.empty() ) {
   	if ( !pr_exists )
-  	  showProgError("Шифрованное соединение: сертификат клиента не найден. Обратитесь к администратору");
+  	  AstraLocale::showProgError("MSG.MESSAGEPRO.CRYPT_CONNECT_CERT_NOT_FOUND.CALL_ADMIN");
   	else
-  		showProgError("Шифрованное соединение: сертификат клиента просрочен. Обратитесь к администратору");
+  		AstraLocale::showProgError("MSG.MESSAGEPRO.CRYPT_CONNECT_CERT_OUTDATED.CALL_ADMIN");
   	throw UserException2();
   }
 };
@@ -300,7 +299,7 @@ void TCrypt::Init( const std::string &desk )
 
 void IntGetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  // проверка на то, что это сертификат (возможно это запрос на сертификат!!!)
+  // проверка на то, что это сертификат (возможно это запрос на сертификат?)
   TCrypt Crypt;
   Crypt.Init( TReqInfo::Instance()->desk.code );
   xmlNodePtr node = NewTextChild( resNode, "crypt" );
@@ -348,7 +347,7 @@ void IntRequestCertificateData(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   while ( !Qry.Eof ) {
   	if ( Qry.FieldIsNULL( "desk" ) && pr_grp ||
   		  !Qry.FieldIsNULL( "desk" ) && !pr_grp )
-  	  throw UserException( "Запрос на сертификат был создан ранее. На данный момент не обработан" );
+  	  throw AstraLocale::UserException( "MSG.MESSAGEPRO.CERT_QRY_CREATED_EARLIER.NOT_PROCESSED_YET" );
   	Qry.Next();
   }
   Qry.Clear();
@@ -380,7 +379,7 @@ void IntRequestCertificateData(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 	NewTextChild( node, "server_id", SERVER_ID() );
 	NewTextChild( node, "FileKey", "astra"+BASIC::DateTimeToStr( udate, "ddmmyyhhnn" ) );
 	if ( Qry.Eof )
-		throw UserException( "Нет данных для запроса на сертификат" );
+		throw AstraLocale::UserException( "MSG.MESSAGEPRO.NO_DATA_FOR_CERT_QRY" );
   NewTextChild( node, "Country", Qry.FieldAsString( "country" ) );
 	if ( !Qry.FieldIsNULL( "key_algo" ) )
 	  NewTextChild( node, "Algo", Qry.FieldAsString( "key_algo" ) );
@@ -397,9 +396,9 @@ void IntRequestCertificateData(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   if ( !Qry.FieldIsNULL( "title" ) )
    	NewTextChild( node, "Title", Qry.FieldAsString( "title" ) );
   if ( Qry.FieldIsNULL( "user_name" ) ) {
-  	string str = "Астра";
+  	string str = "Astra";
   	if ( pr_grp )
-  		str += "(Группа)";
+  		str += "(Group)";
    	NewTextChild( node, "CommonName", str + TReqInfo::Instance()->desk.code +
     		                                BASIC::DateTimeToStr( udate, "ddmmyyhhnn" )  );
   }
@@ -458,7 +457,7 @@ void CryptInterface::GetRequestsCertificate(XMLRequestCtxt *ctxt, xmlNodePtr req
   }
   Qry.Execute();
   if ( Qry.Eof )
-  	throw UserException( "Нет запросов на сертификат" );
+  	throw AstraLocale::UserException( "MSG.MESSAGEPRO.NO_CERT_QRYS" );
   vector<TSearchData> reqs;
   string grp_name;
   xmlNodePtr desksNode = NULL, grpsNode = NULL, reqsNode = NULL;
@@ -622,7 +621,7 @@ bool pr_search = GetNode( "search", reqNode );
   }
   Qry.Execute();
   if ( Qry.Eof )
-  	throw UserException( "Нет сертификатов" );
+  	throw AstraLocale::UserException( "MSG.MESSAGEPRO.NO_CERTS" );
   vector<TSearchData> certs;
   string grp_name;
   xmlNodePtr desksNode = NULL, grpsNode = NULL, reqsNode = NULL;

@@ -15,6 +15,7 @@
 #include "images.h"
 #include "serverlib/str_utils.h"
 #include "tripinfo.h"
+#include "term_version.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -26,7 +27,7 @@ using namespace ASTRA;
 using namespace SALONS2;
 
 
-namespace SEATS2
+namespace SEATS2 //new terminal
 {
 
 
@@ -142,7 +143,7 @@ bool CanUseTube; /* поиск через проходы */
 TUseAlone CanUseAlone; /* можно ли использовать посадку одного в ряду - может посадить
                           группу друг за другом */
 TSeatAlg SeatAlg;
-bool FindSUBCLS=false; // исходим из того, что в группе не может быть пассажиров с разными подклассами!!!
+bool FindSUBCLS=false; // исходим из того, что в группе не может быть пассажиров с разными подклассами!
 bool canUseSUBCLS=false;
 string SUBCLS_REM;
 
@@ -1487,7 +1488,7 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
              ( CanUseRems == sNotUse_NotUseDenial ||
                CanUseRems == sNotUse ||
                CanUseRems == sIgnoreUse ||
-               CanUseRems == sNotUseDenial /*!!!*/ ) &&
+               CanUseRems == sNotUseDenial ) &&
              ( !CanUseLayers ||
                PlaceLayer == cltProtCkin && CanUse_PS ||
                PlaceLayer != cltProtCkin ) &&
@@ -1676,51 +1677,53 @@ bool TPassenger::is_valid_seats( const std::vector<SALONS2::TPlace> &places )
   return true;
 }
 
-void TPassenger::build( xmlNodePtr pNode )
+void TPassenger::build( xmlNodePtr pNode, const TDefaults& def )
 {
   NewTextChild( pNode, "grp_id", grpId );
   NewTextChild( pNode, "pax_id", pax_id );
-  NewTextChild( pNode, "grp_layer_type", EncodeCompLayerType(grp_status) );
-  NewTextChild( pNode, "pers_type", pers_type );
+  if (TReqInfo::Instance()->desk.compatible(LATIN_VERSION))
+  {
+    NewTextChild( pNode, "clname", clname, def.clname );
+    NewTextChild( pNode, "grp_layer_type",
+                         EncodeCompLayerType(grp_status),
+                         EncodeCompLayerType(def.grp_status) );
+    NewTextChild( pNode, "pers_type",
+                         ElemIdToCodeNative(etPersType, pers_type),
+                         ElemIdToCodeNative(etPersType, def.pers_type) );
+  }
+  else
+  {
+    NewTextChild( pNode, "clname", clname );
+    NewTextChild( pNode, "grp_layer_type",
+                         EncodeCompLayerType(grp_status) );
+    NewTextChild( pNode, "pers_type", pers_type );
+  };
   NewTextChild( pNode, "reg_no", regNo );
   NewTextChild( pNode, "name", fullName );
-  NewTextChild( pNode, "clname", clname );
-  if ( !placeName.empty() )
-    NewTextChild( pNode, "seat_no", placeName );
-  if ( !wl_type.empty() )
-  	NewTextChild( pNode, "wl_type", wl_type );
-  if ( countPlace != 1 )
-    NewTextChild( pNode, "seats", countPlace );
+  NewTextChild( pNode, "seat_no", placeName, def.placeName );
+  NewTextChild( pNode, "wl_type", wl_type, def.wl_type );
+  NewTextChild( pNode, "seats", countPlace, def.countPlace );
   NewTextChild( pNode, "tid", tid );
-  if ( !isSeat )
-    NewTextChild( pNode, "isseat", isSeat );
-  if ( !ticket_no.empty() )
-    NewTextChild( pNode, "ticket_no", ticket_no );
-  if ( !document.empty() )
-    NewTextChild( pNode, "document", document );
-  if ( bag_weight )
-    NewTextChild( pNode, "bag_weight", bag_weight );
-  if ( bag_amount )
-    NewTextChild( pNode, "bag_amount", bag_amount );
-  if ( excess )
-    NewTextChild( pNode, "excess", excess );
-  if ( !trip_from.empty() )
-  	NewTextChild( pNode, "trip_from", trip_from );
+  NewTextChild( pNode, "isseat", (int)isSeat, (int)def.isSeat );
+  NewTextChild( pNode, "ticket_no", ticket_no, def.ticket_no );
+  NewTextChild( pNode, "document", document, def.document );
+  NewTextChild( pNode, "bag_weight", bag_weight, def.bag_weight );
+  NewTextChild( pNode, "bag_amount", bag_amount, def.bag_amount );
+  NewTextChild( pNode, "excess", excess, def.excess );
+  NewTextChild( pNode, "trip_from", trip_from, def.trip_from );
 
+  string comp_rem;
+  bool pr_down = false;
   if ( !rems.empty() ) {
-  	string rem;
-  	bool pr_down = false;
   	for ( vector<string>::iterator r=rems.begin(); r!=rems.end(); r++ ) {
-  		rem += *r + " ";
+  		comp_rem += *r + " ";
   		if ( *r == "STCR" )
   			pr_down = true;
-  	}
-  	NewTextChild( pNode, "comp_rem", rem );
-  	if ( pr_down )
-  	  NewTextChild( pNode, "pr_down", 1 );
-  }
-  if ( !pass_rem.empty() )
-  	NewTextChild( pNode, "pass_rem", pass_rem );
+  	};
+  };
+  NewTextChild( pNode, "comp_rem", comp_rem, def.comp_rem );
+  NewTextChild( pNode, "pr_down", (int)pr_down, (int)def.pr_down );
+  NewTextChild( pNode, "pass_rem", pass_rem, def.pass_rem );
 }
 
 
@@ -1793,10 +1796,10 @@ void TPassengers::Add( TPassenger &pass )
 	if ( !pass.agent_seat.empty() )
 	 pass.placeName = pass.agent_seat;
   if ( !pass.preseat.empty() && !pass.placeName.empty() && pass.preseat != pass.placeName ) {
-    pass.placeName = pass.preseat; //!!! при регистрации нельзя изменить предварительно назначенное место
+    pass.placeName = pass.preseat; //! при регистрации нельзя изменить предварительно назначенное место
   }
   if ( pass.layer == cltPNLCkin && !pass.preseat.empty() && pass.preseat == pass.placeName )
-  	pass.layer = cltProtCkin; //!!!
+  	pass.layer = cltProtCkin; //!
 
   bool Pr_PLC = false;
   if ( pass.countPlace > 1 && pass.isRemark( string( "STCR" ) )	 ) {
@@ -1939,7 +1942,6 @@ void GET_LINE_ARRAY( )
   }
 }
 
-// !!! вычисляем на основе данных из БД
 void SetLayers( vector<TCompLayerType> &Layers, bool &CanUseMutiLayer, TCompLayerType layer, int Step, bool use_PS )
 {
   Layers.clear();
@@ -2104,7 +2106,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons, int SeatAlgo /* 0 - умолчание */
   bool Status_seat_no_BR=false, pr_all_pass_SUBCLS=true, pr_SUBCLS=false;
   for ( int i=0; i<passengers.getCount(); i++ ) {
   	TPassenger &pass = passengers.Get( i );
-  	if ( pass.layer == cltProtCkin ) { // !!!
+  	if ( pass.layer == cltProtCkin ) {
   		Status_preseat = true;
   	}
   	if ( !pass.SUBCLS_REM.empty() ) {
@@ -2120,7 +2122,6 @@ void SeatsPassengers( SALONS2::TSalons *Salons, int SeatAlgo /* 0 - умолчание */
 
   ProgTrace( TRACE5, "pr_SUBCLS=%d,pr_all_pass_SUBCLS=%d, SUBCLS_REM=%s", pr_SUBCLS, pr_all_pass_SUBCLS, SUBCLS_REM.c_str() );
 
-  /*!!!*/
   bool SeatOnlyBasePlace=true;
   for ( int i=0; i<passengers.getCount(); i++ ) {
   	TPassenger &pass = passengers.Get( i );
@@ -2128,7 +2129,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons, int SeatAlgo /* 0 - умолчание */
   		SeatOnlyBasePlace=false;
   		break;
   	}
-  }  /*!!!*/
+  }
 
   try {
    for ( int FCanUserSUBCLS=(int)pr_SUBCLS; FCanUserSUBCLS>=0; FCanUserSUBCLS-- ) {
@@ -2313,19 +2314,9 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p, bool pr_exists )
   if ( Qry.Eof )
   	throw UserException( "MSG.FLIGHT.NOT_FOUND" );
   string airline = Qry.FieldAsString( "airline" );
-  map<string,TCompLayerType> statuses;
-  if ( !pr_exists ) {
-    Qry.Clear();
-    Qry.SQLText =
-      "SELECT code,layer_type FROM grp_status_types";
-    Qry.Execute();
-    while ( !Qry.Eof ) {
-    	statuses[ Qry.FieldAsString( "code" ) ] = DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) );
-    	Qry.Next();
-    }
-  }
+  TGrpStatusTypes &grp_status_types = (TGrpStatusTypes &)base_tables.get("GRP_STATUS_TYPES");
   QryTCkinTrip.SQLText =
-    "SELECT airline,flt_no,suffix,scd_out,airline_fmt,suffix_fmt "
+    "SELECT airline,flt_no,suffix,airp,scd_out,airline_fmt,suffix_fmt "
     " FROM points, pax_grp, "
     " (SELECT MAX(tckin2.seg_no), tckin2.grp_id FROM tckin_pax_grp tckin1, tckin_pax_grp tckin2 "
     "   WHERE tckin1.grp_id=:grp_id AND tckin2.tckin_id=tckin1.tckin_id AND tckin2.seg_no<tckin1.seg_no "
@@ -2347,8 +2338,8 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p, bool pr_exists )
     "       pax.pers_type, "
     "       pax.ticket_no, "
     "       pax.document, "
-    "       ckin.get_bagWeight(pax.grp_id,pax.pax_id,rownum) AS bag_weight,"
-    "       ckin.get_bagAmount(pax.grp_id,pax.pax_id,rownum) AS bag_amount, "
+    "       ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_weight,"
+    "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_amount, "
     "       ckin.get_excess(pax.grp_id,pax.pax_id) AS excess,"
     "       pax.tid,"
     "       pax.wl_type, "
@@ -2388,7 +2379,7 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p, bool pr_exists )
     pass.bag_weight = Qry.FieldAsInteger( "bag_weight" );
     pass.bag_amount = Qry.FieldAsInteger( "bag_amount" );
     pass.excess = Qry.FieldAsInteger( "excess" );
-    pass.grp_status = statuses[ Qry.FieldAsString( "status" ) ];
+    pass.grp_status = DecodeCompLayerType(((TGrpStatusTypesRow&)grp_status_types.get_row("code",Qry.FieldAsString( "status" ))).layer_type.c_str());
     pass.pers_type = Qry.FieldAsString( "pers_type" );
     pass.wl_type = Qry.FieldAsString( "wl_type" );
     pass.InUse = ( !pass.placeName.empty() );
@@ -2402,7 +2393,7 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p, bool pr_exists )
     		  	old_seat_no = "(" + old_seat_no + ")";
     		}
     		else
-    			old_seat_no = "ЛО";
+    			old_seat_no = AstraLocale::getLocaleText("ЛО");
     		if ( !old_seat_no.empty() )
     			pass.placeName = old_seat_no;
     }
@@ -2421,12 +2412,16 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p, bool pr_exists )
     	QryTCkinTrip.SetVariable( "grp_id", pass.grpId );
     	QryTCkinTrip.Execute();
     	if ( !QryTCkinTrip.Eof ) {
-    		pass.trip_from =
-    		ElemIdToElemCtxt( ecDisp, etAirline, QryTCkinTrip.FieldAsString( "airline" ), QryTCkinTrip.FieldAsInteger( "airline_fmt" ) ) +
-    		QryTCkinTrip.FieldAsString( "flt_no" ) +
-    		ElemIdToElemCtxt( ecDisp, etSuffix, QryTCkinTrip.FieldAsString( "suffix" ), QryTCkinTrip.FieldAsInteger( "suffix_fmt" ) ) + "/" +
-    		DateTimeToStr( QryTCkinTrip.FieldAsDateTime( "scd_out" ), "dd" );
+    	  TTripInfo fltInfo(QryTCkinTrip);
+    	  TDateTime local_scd_out = UTCToClient(fltInfo.scd_out,AirpTZRegion(fltInfo.airp));
 
+    	  ostringstream trip;
+    	  trip << ElemIdToElemCtxt( ecDisp, etAirline, fltInfo.airline, fltInfo.airline_fmt )
+    	       << setw(3) << setfill('0') << fltInfo.flt_no
+    	       << ElemIdToElemCtxt( ecDisp, etSuffix, fltInfo.suffix, fltInfo.suffix_fmt )
+    	       << "/" << DateTimeToStr( local_scd_out, "dd" );
+
+    	  pass.trip_from = trip.str();
     	}
     }
     p.Add( pass );
@@ -2601,7 +2596,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   string prior_seat = Qry.FieldAsString( "seat_no" );
   if ( !seats_count ) {
     ProgTrace( TRACE5, "!!! Passenger has count seats=0 in funct ChangeLayer" );
-    throw UserException( "MSG.SEATS.NOT_RESEATS_SEATS_ZERO" ); //!!!
+    throw UserException( "MSG.SEATS.NOT_RESEATS_SEATS_ZERO" );
   }
 
   if ( Qry.FieldAsInteger( "tid" ) != tid  ) {
@@ -3045,7 +3040,6 @@ bool CompGrp( TPassenger item1, TPassenger item2 )
 
 void TPassengers::Build( xmlNodePtr dataNode )
 {
-	tst();
   if ( !getCount() )
     return;
   for (VPassengers::iterator p=FPassengers.begin(); p!=FPassengers.end(); p++ ) {
@@ -3057,6 +3051,9 @@ void TPassengers::Build( xmlNodePtr dataNode )
   Qry.SQLText =
     "SELECT code,layer_type,name FROM grp_status_types ORDER BY priority";
   Qry.Execute();
+
+  TDefaults def;
+  bool createDefaults=false;
   vector<TPassenger> ps;
   while ( !Qry.Eof ) {
     for (VPassengers::iterator p=FPassengers.begin(); p!=FPassengers.end(); p++ ) {
@@ -3068,16 +3065,37 @@ void TPassengers::Build( xmlNodePtr dataNode )
     sort(ps.begin(),ps.end(),CompGrp);
     ProgTrace( TRACE5, "ps.size()=%d, layer_type=%s", ps.size(), Qry.FieldAsString( "layer_type" ) );
     if ( !ps.empty() ) {
+      createDefaults=true;
     	xmlNodePtr pNode = NewTextChild( passNode, "layer_type", Qry.FieldAsString( "layer_type" ) );
     	SetProp( pNode, "name", Qry.FieldAsString( "name" ) );
     	for ( vector<TPassenger>::iterator ip=ps.begin(); ip!=ps.end(); ip++ ) {
-    		ip->build( NewTextChild( pNode, "pass" ) );
+    		ip->build( NewTextChild( pNode, "pass" ), def );
     		ip->InUse = true;
     	}
     	ps.clear();
     }
   	Qry.Next();
   }
+  if (createDefaults)
+  {
+    xmlNodePtr defNode = NewTextChild( dataNode, "defaults" );
+    NewTextChild( defNode, "clname", def.clname );
+    NewTextChild( defNode, "grp_layer_type", EncodeCompLayerType(def.grp_status) );
+    NewTextChild( defNode, "pers_type", ElemIdToCodeNative(etPersType, def.pers_type) );
+    NewTextChild( defNode, "seat_no", def.placeName );
+    NewTextChild( defNode, "wl_type", def.wl_type );
+    NewTextChild( defNode, "seats", def.countPlace );
+    NewTextChild( defNode, "isseat", (int)def.isSeat );
+    NewTextChild( defNode, "ticket_no", def.ticket_no );
+    NewTextChild( defNode, "document", def.document );
+    NewTextChild( defNode, "bag_weight", def.bag_weight );
+    NewTextChild( defNode, "bag_amount", def.bag_amount );
+    NewTextChild( defNode, "excess", def.excess );
+    NewTextChild( defNode, "trip_from", def.trip_from );
+    NewTextChild( defNode, "comp_rem", def.comp_rem );
+    NewTextChild( defNode, "pr_down", (int)def.pr_down );
+    NewTextChild( defNode, "pass_rem", def.pass_rem );
+  };
 }
 
 bool TPassengers::existsNoSeats()

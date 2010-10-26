@@ -14,6 +14,7 @@ using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC;
 using namespace ASTRA;
+using namespace AstraLocale;
 
 void AdmInterface::LoadAdm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -48,7 +49,7 @@ void AdmInterface::LoadAdm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
   {
     rowNode = NewTextChild( node, "CacheTable" );
     NewTextChild( rowNode, "cache", Qry.FieldAsString("cache") );
-    NewTextChild( rowNode, "title", Qry.FieldAsString("title") );
+    NewTextChild( rowNode, "title", AstraLocale::getLocaleText(Qry.FieldAsString("title")) );
     NewTextChild( rowNode, "depth", Qry.FieldAsInteger("depth") );
   };
   Qry.Close();
@@ -78,23 +79,24 @@ void AdmInterface::SetDefaultPasswd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
   TQuery Qry(&OraSession);
   int user_id = NodeAsInteger( "user_id", reqNode );
   Qry.SQLText =
-    "UPDATE users2 SET passwd='ПАРОЛЬ' WHERE user_id=:user_id";
+    "UPDATE users2 SET passwd=login WHERE user_id=:user_id";
   Qry.DeclareVariable( "user_id", otInteger );
   Qry.SetVariable( "user_id", user_id );
   Qry.Execute();
   if ( Qry.RowsProcessed() == 0 )
-    throw Exception( "Невозможно сбросить пароль" );
+    throw Exception("Невозможно сбросить пароль");
   SetProp( resNode, "handle", "1" );
   Qry.Clear();
   Qry.SQLText =
-    "SELECT descr FROM users2 WHERE user_id=:user_id";
+    "SELECT descr, login FROM users2 WHERE user_id=:user_id";
   Qry.DeclareVariable( "user_id", otInteger );
   Qry.SetVariable( "user_id", user_id );
   Qry.Execute();
   reqInfo->MsgToLog( string( "Сброшен пароль пользователя " ) +
                                   Qry.FieldAsString( "descr" ), evtAccess );
-  showMessage( string( "Пользователю " ) + Qry.FieldAsString( "descr" ) +
-                        " назначен пароль по умолчанию 'ПАРОЛЬ'" );
+  AstraLocale::showMessage("MSG.PASSWORD.ASSIGNED_DEFAULT",
+  	                       LParams() << LParam("user", (string)Qry.FieldAsString( "descr" ))<<
+  	                                    LParam("passwd",(string)Qry.FieldAsString( "login" )) );
 }
 
 

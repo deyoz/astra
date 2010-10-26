@@ -36,6 +36,7 @@ AM_PATH_XML2
 #MRJ_CHECK_SOCKET_T
 AX_BOOST_BASE(1.31)
 AX_BOOST_SYSTEM
+AX_BOOST_REGEX
 
 AC_ARG_ENABLE([xp-testing],
         [  --enable-xp-testing       Enable xp testing],

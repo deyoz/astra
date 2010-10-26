@@ -5,16 +5,38 @@
 #include "stl_utils.h"
 #include "astra_utils.h"
 #include "astra_consts.h"
+#include "astra_locale.h"
 #include "tlg/tlg.h"
 #include "astra_service.h"
+#include "term_version.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
 
 const char * CacheFieldTypeS[NumFieldType] = {"NS","NU","D","T","S","B","SL",""};
 
+struct TReferCacheTable
+{
+  const char* CacheCode;
+  TElemType ElemType;
+};
+
+const TReferCacheTable ReferCacheTable[11] = { {"COUNTRIES",       etCountry},
+                                               {"CITIES",          etCity},
+                                               {"AIRLINES",        etAirline},
+                                               {"AIRPS",           etAirp},
+                                               {"CRAFTS",          etCraft},
+                                               {"CLASSES",         etClass},
+                                               {"SUBCLS",          etSubcls},
+                                               {"TRIP_TYPES",      etTripType},
+                                               {"GRAPH_STAGES",    etGraphStage},
+                                               {"BAG_NORM_TYPES",  etBagNormType},
+                                               {"CURRENCY",        etCurrency}
+                                             };
+
 using namespace std;
 using namespace EXCEPTIONS;
+using namespace AstraLocale;
 using namespace BASIC;
 
 /* все названия тегов params переводятся в вверхний регистр - переменные в sql в верхнем регистре*/
@@ -57,7 +79,7 @@ void TCacheTable::Init(xmlNodePtr cacheNode)
 
   Qry->Clear();
   Qry->SQLText = "SELECT title, select_sql, refresh_sql, insert_sql, update_sql, delete_sql, "
-                 "       logging, keep_locally, event_type, tid, "
+                 "       logging, keep_locally, keep_deleted_rows, event_type, tid, need_refresh, "
                  "       select_right, insert_right, update_right, delete_right "
                  " FROM cache_tables WHERE code = :code";
   Qry->DeclareVariable("code", otString);
@@ -72,9 +94,12 @@ void TCacheTable::Init(xmlNodePtr cacheNode)
   UpdateSQL = Qry->FieldAsString("update_sql");
   DeleteSQL = Qry->FieldAsString("delete_sql");
   Logging = Qry->FieldAsInteger("logging") != 0;
-  Keep_Locally = Qry->FieldAsInteger("keep_locally") != 0;
+  KeepLocally = Qry->FieldAsInteger("keep_locally") != 0;
+  KeepDeletedRows = Qry->FieldAsInteger("keep_deleted_rows") != 0;
+
   EventType = DecodeEventType( Qry->FieldAsString( "event_type" ) );
   curVerIface = Qry->FieldAsInteger( "tid" ); /* текущая версия интерфейса */
+  pr_dconst = !Qry->FieldAsInteger( "need_refresh" );
   //получим права доступа до операций
   if (!Qry->FieldIsNULL("select_right"))
     SelectRight=Qry->FieldAsInteger("select_right");
@@ -121,6 +146,13 @@ bool TCacheTable::refreshInterface()
   return true;
 }
 
+
+bool lf( const TCacheField2 &item1, const TCacheField2 &item2 )
+{
+	return item1.num<item2.num;
+}
+
+
 void TCacheTable::initFields()
 {
     string code = Params[TAG_CODE].Value;
@@ -129,18 +161,25 @@ void TCacheTable::initFields()
     Qry->SQLText =
         "SELECT name,title,width,char_case,align,data_type, "
         "       data_size,scale,nullable,pr_ident,read_only, "
-        "       refer_code,refer_name,refer_level "
+        "       refer_code,refer_name,refer_level,refer_ident,lang,num "
         "FROM cache_fields "
-        "WHERE code=:code "
-        "ORDER BY num ";
-    Qry->DeclareVariable("code",otString);
-    Qry->SetVariable("code",code);
+        "WHERE code=:code AND (lang IS NULL OR lang=:lang)"
+        "ORDER BY name, lang NULLS LAST ";
+    Qry->CreateVariable("code",otString,code);
+    Qry->CreateVariable("lang",otString,TReqInfo::Instance()->desk.lang);
     Qry->Execute();
 
     if(Qry->Eof)
         throw Exception((string)"Fields of table '"+code+"' not found");
-
+    string prior_name;
     while(!Qry->Eof) {
+
+    	  if ( !prior_name.empty() && prior_name == Qry->FieldAsString("name") ) { // повторение поля с более низким приоритетом
+    	  	Qry->Next();
+    	  	continue;
+    	  }
+    	  prior_name = Qry->FieldAsString("name");
+
         TCacheField2 FField;
 
         FField.Name = Qry->FieldAsString("name");
@@ -225,7 +264,10 @@ void TCacheTable::initFields()
 
         FField.ReadOnly = Qry->FieldAsInteger("read_only") != 0;
         FField.ReferCode = Qry->FieldAsString("refer_code");
+        FField.ReferCode = upperc( FField.ReferCode );
         FField.ReferName = Qry->FieldAsString("refer_name");
+        FField.ReferName = upperc( FField.ReferName );
+        FField.num = Qry->FieldAsInteger("num");
 
         if (FField.ReferCode.empty() ^ FField.ReferName.empty())
             throw Exception((string)"Wrong reference of field '"+code+"."+FField.Name+"'");
@@ -236,12 +278,67 @@ void TCacheTable::initFields()
             if(FField.ReferLevel<0)
                 throw Exception((string)"Wrong reference of field '"+code+"."+FField.Name+"'");
         }
+        if(Qry->FieldIsNULL("refer_ident"))
+            FField.ReferIdent = 0;
+        else {
+            FField.ReferIdent = Qry->FieldAsInteger("refer_ident");
+            if(FField.ReferIdent<0)
+                throw Exception((string)"Wrong reference of field '"+code+"."+FField.Name+"'");
+        }
+
         /* проверим, чтобы имена полей не дублировались */
         for(vector<TCacheField2>::iterator i = FFields.begin(); i != FFields.end(); i++)
             if(FField.Name == i->Name)
                 throw Exception((string)"Duplicate field name '"+code+"."+FField.Name+"'");
+
+        /* проверим, надо ли переводить содержимое поля в соответствии с LANG */
+        if (FField.ReferName == "CODE/CODE_LAT" ||
+            FField.ReferName == "CODE_LAT/CODE" )
+        {
+          FField.ElemCategory=cecCode;
+          if (!TReqInfo::Instance()->desk.compatible(LATIN_VERSION))
+            FField.ReferName="CODE";
+        };
+
+        if (FField.ReferName == "NAME/NAME_LAT" ||
+            FField.ReferName == "NAME_LAT/NAME" )
+        {
+          FField.ElemCategory=cecName;
+          if (!TReqInfo::Instance()->desk.compatible(LATIN_VERSION))
+            FField.ReferName="NAME";
+        };
+
+        if (FField.ReferName == "DESCR/DESCR_LAT" ||
+            FField.ReferName == "DESCR_LAT/DESCR" )
+        {
+          FField.ElemCategory=cecNone;
+          if (!TReqInfo::Instance()->desk.compatible(LATIN_VERSION))
+            FField.ReferName="DESCR";
+        };
+
+        if (FField.ElemCategory!=cecNone)
+        {
+          int i=sizeof(ReferCacheTable)/sizeof(ReferCacheTable[0])-1;
+          for(;i>=0;i--)
+            if (ReferCacheTable[i].CacheCode==FField.ReferCode) break;
+          if (i>=0)
+          {
+            FField.ElemType=ReferCacheTable[i].ElemType;
+            ProgTrace(TRACE5,"initFields: name=%s, elem_type=%d", FField.Name.c_str(), (int)FField.ElemType);
+          }
+          else
+          {
+            FField.ElemCategory=cecNone;
+            ProgTrace(TRACE5,"initFields: name=%s, elem_type unknown", FField.Name.c_str());
+          };
+        };
+
         FFields.push_back(FField);
         Qry->Next();
+    }
+    sort(FFields.begin(),FFields.end(),lf);
+    for (vector<TCacheField2>::iterator i=FFields.begin(); i!=FFields.end(); i++ ) {
+    	ProgTrace( TRACE5, "cache field: name=%s, num=%d, read_only=%d", i->Name.c_str(), i->num, i->ReadOnly );
     }
 }
 
@@ -272,9 +369,23 @@ void TCacheTable::DeclareSysVariables(std::vector<string> &vars, TQuery *Qry)
       Qry->SetVariable( "SYS_point_addr", OWN_POINT_ADDR() );
       vars.erase( f );
     }
+
+    f = find( vars.begin(), vars.end(), "SYS_DESK_LANG" );
+    if ( f != vars.end() ) {
+      Qry->DeclareVariable("SYS_desk_lang", otString);
+      Qry->SetVariable( "SYS_desk_lang", TReqInfo::Instance()->desk.lang );
+      vars.erase( f );
+    }
+
+    f = find( vars.begin(), vars.end(), "SYS_DESK_VERSION" );
+    if ( f != vars.end() ) {
+      Qry->DeclareVariable("SYS_desk_version", otString);
+      Qry->SetVariable( "SYS_desk_version", TReqInfo::Instance()->desk.version );
+      vars.erase( f );
+    }
 };
 
-bool TCacheTable::refreshData()
+TUpdateDataType TCacheTable::refreshData()
 {
     Clear();
     string code = Params[TAG_CODE].Value;
@@ -355,10 +466,21 @@ bool TCacheTable::refreshData()
 
     // ищем, чтобы все поля, которые описаны в кэше были в запросе
     vector<int> vecFieldIdx;
-    for(vector<TCacheField2>::iterator i = FFields.begin(); i != FFields.end(); i++) {
+    for(vector<TCacheField2>::iterator i = FFields.begin(); i != FFields.end(); i++)
+    {
         int FieldIdx = Qry->GetFieldIndex(i->Name);
         if( FieldIdx < 0)
+        {
+          if (i->ElemCategory!=cecNone)
+          {
+            //проверим - поле может быть _VIEW
+            if (i->Name.size()>5 && i->Name.substr(i->Name.size()-5)=="_VIEW")
+              FieldIdx = Qry->GetFieldIndex(i->Name.substr(0,i->Name.size()-5));
+          };
+
+          if( FieldIdx < 0)
             throw Exception("Field '" + code + "." + i->Name + "' not found in select_sql");
+        };
         vecFieldIdx.push_back( FieldIdx );
     }
 
@@ -388,8 +510,22 @@ bool TCacheTable::refreshData()
                   row.cols.push_back( IntToString( (int)(Qry->FieldAsInteger( vecFieldIdx[ j ] ) !=0 ) ) );
                 break;
               default:
-                  row.cols.push_back( Qry->FieldAsString(vecFieldIdx[ j ]) );
-                  break;
+                switch (i->ElemCategory)
+                {
+                  case cecCode: if (Qry->FieldType( vecFieldIdx[ j ] ) == otInteger)
+                                  row.cols.push_back( ElemIdToCodeNative( i->ElemType, Qry->FieldAsInteger( vecFieldIdx[ j ] ) ) );
+                                else
+                                  row.cols.push_back( ElemIdToCodeNative( i->ElemType, Qry->FieldAsString(vecFieldIdx[ j ]) ) );
+                                break;
+                  case cecName: if (Qry->FieldType( vecFieldIdx[ j ] ) == otInteger)
+                                  row.cols.push_back( ElemIdToNameLong( i->ElemType, Qry->FieldAsInteger( vecFieldIdx[ j ] ) ) );
+                                else
+                                  row.cols.push_back( ElemIdToNameLong( i->ElemType, Qry->FieldAsString(vecFieldIdx[ j ] ) ) );
+                                break;
+                       default: row.cols.push_back( Qry->FieldAsString(vecFieldIdx[ j ]) );
+                                break;
+                };
+                break;
             }
         }
       }
@@ -402,7 +538,13 @@ bool TCacheTable::refreshData()
       Qry->Next();
     }
     ProgTrace( TRACE5, "Server version data: %d", clientVerData );
-    return !table.empty();
+    if ( !table.empty() ) // начитали изменения
+    	return upExists;
+    else
+    	if ( clientVerData >= 0 ) // нет изменений
+    		return upNone;
+    	else
+    		return upClearAll; // все удалили
 }
 
 void TCacheTable::refresh()
@@ -414,13 +556,15 @@ void TCacheTable::refresh()
     }
     else
         pr_irefresh = false;
-    if(Params.find(TAG_REFRESH_DATA) != Params.end() || pr_irefresh ) {
+    if ( Params.find(TAG_REFRESH_DATA) != Params.end() &&
+    	    (!TReqInfo::Instance()->desk.compatible(LATIN_VERSION) || !pr_dconst) ||
+    	   pr_irefresh ) {
         if ( pr_irefresh )
           clientVerData = -1;
-        pr_drefresh = refreshData();
+        refresh_data_type = refreshData();
     }
     else
-        pr_drefresh = false;
+        refresh_data_type = upNone;
 }
 
 void TCacheTable::buildAnswer(xmlNodePtr resNode)
@@ -429,7 +573,11 @@ void TCacheTable::buildAnswer(xmlNodePtr resNode)
     NewTextChild( dataNode, "code", code() );
     NewTextChild(dataNode, "Forbidden", Forbidden);
     NewTextChild(dataNode, "ReadOnly", ReadOnly);
-    NewTextChild( dataNode, "Keep_Locally", Keep_Locally );
+    if (TReqInfo::Instance()->desk.compatible(LATIN_VERSION))
+      NewTextChild(dataNode, "keep_locally", KeepLocally );
+    else
+      NewTextChild(dataNode, "Keep_Locally", KeepLocally );
+    NewTextChild(dataNode, "keep_deleted_rows", KeepDeletedRows );
     vector<string> sql_vars;
     bool user_depend = false;
     if (!user_depend)
@@ -448,15 +596,22 @@ void TCacheTable::buildAnswer(xmlNodePtr resNode)
 
     if(pr_irefresh)
         XMLInterface(dataNode);
-    if(pr_drefresh)
-        XMLData(dataNode);
+
+    if ( TReqInfo::Instance()->desk.compatible(LATIN_VERSION) ) {
+    	if ( refresh_data_type != upNone || pr_irefresh )
+    		XMLData(dataNode);
+    }
+    else {
+    	if ( refresh_data_type == upExists )
+    		XMLData(dataNode);
+    }
 }
 
 void TCacheTable::XMLInterface(const xmlNodePtr dataNode)
 {
     xmlNodePtr ifaceNode = NewTextChild(dataNode, "iface");
 
-    NewTextChild(ifaceNode, "title", Title);
+    NewTextChild(ifaceNode, "title", AstraLocale::getLocaleText(  Title ) );
     NewTextChild(ifaceNode, "CanRefresh", !RefreshSQL.empty());
     NewTextChild(ifaceNode, "CanInsert", !(InsertSQL.empty()||InsertRight<0) );
     NewTextChild(ifaceNode, "CanUpdate", !(UpdateSQL.empty()||UpdateRight<0) );
@@ -472,7 +627,7 @@ void TCacheTable::XMLInterface(const xmlNodePtr dataNode)
 
         NewTextChild(ffieldNode, "Name", iv->Name);
 
-        NewTextChild( ffieldNode, "Title", iv->Title );
+        NewTextChild( ffieldNode, "Title", AstraLocale::getLocaleText( iv->Title ) );
         NewTextChild( ffieldNode, "Width", iv->Width );
         char *charCase;
         switch(iv->CharCase) {
@@ -496,6 +651,7 @@ void TCacheTable::XMLInterface(const xmlNodePtr dataNode)
         NewTextChild(ffieldNode, "ReferCode",    iv->ReferCode);
         NewTextChild(ffieldNode, "ReferName",    iv->ReferName);
         NewTextChild(ffieldNode, "ReferLevel",   iv->ReferLevel);
+        NewTextChild(ffieldNode, "ReferIdent",   iv->ReferIdent);
     }
 }
 
@@ -756,7 +912,7 @@ void TCacheTable::OnLogging( const TRow &row, TCacheUpdateStatus UpdateStatus )
     for(vector<TCacheField2>::iterator iv = FFields.begin(); iv != FFields.end(); iv++, Idx++) {
       ProgTrace( TRACE5, "l=%d, Ident=%d, Idx=%d, iv->VarIdx[0]=%d, iv->VarIdx[1]=%d",
                  l, iv->Ident, Idx, iv->VarIdx[0], iv->VarIdx[1] );
-      if ( !l && !iv->Ident ||  /* new variable value !!!iv->VarIdx[i] */
+      if ( !l && !iv->Ident ||
            UpdateStatus == usInserted && iv->VarIdx[ 0 ] < 0 ||
            UpdateStatus != usInserted && iv->VarIdx[ 1 ] < 0 )
         continue;
@@ -874,11 +1030,11 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
           }
           else {
             switch( E.Code ) {
-              case 1: throw UserException("Нарушена уникальность данных");
+              case 1: throw AstraLocale::UserException("MSG.UNIQUE_CONSTRAINT_VIOLATED");
               case 1400:
-              case 1407: throw UserException("Не указано значение в одном из обязательных для заполнения полей");
-              case 2291: throw UserException("Значение одного из полей ссылается на несуществующие данные");
-              case 2292: throw UserException("Невозможно изменить/удалить значение, на которое ссылаются другие данные");
+              case 1407: throw AstraLocale::UserException("MSG.CANNOT_INSERT_NULL");
+              case 2291: throw AstraLocale::UserException("MSG.INTEGRITY_VIOLATED_PARENT_KEY_NOT_FOUND");
+              case 2292: throw AstraLocale::UserException("MSG.INTEGRITY_VIOLATED_CHILD_RECORD_FOUND");
               default: throw;
             }
           } /* end else */
@@ -886,6 +1042,18 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
       } /* end for */
     } /* end if */
   } /* end for  0..2 */
+  Qry->Clear();
+  Qry->SQLText =
+    "SELECT tid FROM cache_tables WHERE code=:code";
+  Qry->CreateVariable( "code", otString, code() );
+  Qry->Execute();
+  if ( !Qry->Eof ) {
+    curVerIface = Qry->FieldAsInteger( "tid" );
+  }
+  if ( pr_dconst && TReqInfo::Instance()->desk.compatible(LATIN_VERSION) ) {
+  	Params[ TAG_REFRESH_INTERFACE ].Value.clear();
+    Params[ TAG_REFRESH_DATA ].Value.clear();
+  }
 }
 
 void TCacheTable::SetVariables(TRow &row, const std::vector<std::string> &vars)
@@ -1121,7 +1289,7 @@ void CacheInterface::SaveCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   TCacheTable cache;
   cache.Init(reqNode);
   if ( cache.changeIfaceVer() )
-    throw UserException( "Версия интерфейса изменилась. Обновите данные." );
+    throw AstraLocale::UserException( "MSG.CACHE.IFACE_VERSION_CHANGED.REFRESH" );
   cache.OnBeforeApply = BeforeApply;
   cache.ApplyUpdates( reqNode );
   cache.refresh();
@@ -1130,7 +1298,7 @@ void CacheInterface::SaveCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   SetProp(ifaceNode, "id", "cache");
   SetProp(ifaceNode, "ver", "1");
   cache.buildAnswer(resNode);
-  showMessage( "Изменения успешно сохранены" );
+  AstraLocale::showMessage( "MSG.CHANGED_DATA_COMMIT" );
   //ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 };
 

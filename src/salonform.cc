@@ -16,16 +16,17 @@
 #include "convert.h"
 #include "tlg/tlg_parser.h" // only for convert_salons
 #include "serverlib/str_utils.h"
+#include "term_version.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
-
-const char CurrName[] = " (ТЕК.)";
 
 using namespace std;
 using namespace BASIC;
 using namespace AstraLocale;
 using namespace ASTRA;
+
+//new terminal
 
 bool filterCompons( const string &airline, const string &airp )
 {
@@ -65,6 +66,17 @@ bool filterCompons( const string &airline, const string &airp )
   		 );
 }
 
+struct TShowComps {
+	int comp_id;
+	string craft;
+	string bort;
+	string classes;
+	string descr;
+	int pr_comp;
+	string airline;
+	string airp;
+};
+
 void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   ProgTrace(TRACE5, "SalonFormInterface::Show" );
@@ -83,79 +95,117 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     if ( !Qry.RowCount() )
     	throw UserException( "MSG.FLIGHT.NOT_FOUND" );
     string trip_airline = Qry.FieldAsString( "airline" );
+  	vector<TShowComps> comps;
     Qry.Clear();
-    Qry.SQLText = "SELECT comps.comp_id,comps.craft,comps.bort,comps.classes, "\
-                  "       comps.descr,0 as pr_comp, comps.airline, comps.airp "\
-                  " FROM comps, points "\
-                  "WHERE points.craft = comps.craft AND points.point_id = :point_id "\
-                  "UNION "\
-                  "SELECT comps.comp_id,comps.craft,comps.bort,comps.classes, "\
-                  "       comps.descr,1 as pr_comp, null, null "\
-                  " FROM comps, points, trip_sets "\
-                  "WHERE points.point_id=trip_sets.point_id AND "\
-                  "      points.craft = comps.craft AND points.point_id = :point_id AND "\
-                  "      trip_sets.comp_id = comps.comp_id "\
-                  "UNION "\
-                  "SELECT -1, craft, bort, "\
-                  "        LTRIM(RTRIM( DECODE( a.f, 0, '', ' П'||a.f)||"\
-                  "        DECODE( a.c, 0, '', ' Б'||a.c)|| "\
-                  "        DECODE( a.y, 0, '', ' Э'||a.y) )) classes, "\
-                  "        null,1, null, null "\
-                  "FROM "\
-                  "(SELECT -1, craft, bort, "\
-                  "        NVL( SUM( DECODE( class, 'П', 1, 0 ) ), 0 ) as f, "\
-                  "        NVL( SUM( DECODE( class, 'Б', 1, 0 ) ), 0 ) as c, "\
-                  "        NVL( SUM( DECODE( class, 'Э', 1, 0 ) ), 0 ) as y "\
-                  "  FROM trip_comp_elems, comp_elem_types, points, trip_sets "\
-                  " WHERE trip_comp_elems.elem_type = comp_elem_types.code AND "
-                  "       comp_elem_types.pr_seat <> 0 AND "\
-                  "       trip_comp_elems.point_id = points.point_id AND "\
-                  "       points.point_id = :point_id AND "\
-                  "       trip_sets.point_id(+) = points.point_id AND "\
-                  "       trip_sets.comp_id IS NULL "\
-                  "GROUP BY craft, bort) a "\
-                  "ORDER BY comp_id, craft, bort, classes, descr";
-    Qry.DeclareVariable( "point_id", otInteger );
-    Qry.SetVariable( "point_id", trip_id );
+    Qry.SQLText =
+      "SELECT craft, bort, "
+      "       NVL( SUM( DECODE( class, 'П', 1, 0 ) ), 0 ) as f, "
+      "       NVL( SUM( DECODE( class, 'Б', 1, 0 ) ), 0 ) as c, "
+      "       NVL( SUM( DECODE( class, 'Э', 1, 0 ) ), 0 ) as y "
+      "  FROM trip_comp_elems, comp_elem_types, points, trip_sets "
+      " WHERE trip_comp_elems.elem_type = comp_elem_types.code AND "
+      "       comp_elem_types.pr_seat <> 0 AND "
+      "       trip_comp_elems.point_id = points.point_id AND "
+      "       points.point_id = :point_id AND "
+      "       trip_sets.point_id(+) = points.point_id AND "
+      "       trip_sets.comp_id IS NULL "
+      " GROUP BY craft, bort ";
+    Qry.CreateVariable( "point_id", otInteger, trip_id );
     Qry.Execute();
+    while ( !Qry.Eof ) {
+    	TShowComps comp;
+    	comp.comp_id = -1;
+    	comp.craft = Qry.FieldAsString("craft");
+    	comp.bort = Qry.FieldAsString("bort");
+    	if (Qry.FieldAsInteger("f")) {
+    	  comp.classes += ElemIdToCodeNative(etClass,"П");
+    	  comp.classes += IntToString(Qry.FieldAsInteger("f"));
+    	};
+    	if (Qry.FieldAsInteger("c")) {
+    		if ( !comp.classes.empty() )
+    			comp.classes += " ";
+    	  comp.classes += ElemIdToCodeNative(etClass,"Б");
+    	  comp.classes += IntToString(Qry.FieldAsInteger("c"));
+      }
+    	if (Qry.FieldAsInteger("y")) {
+    		if ( !comp.classes.empty() )
+    			comp.classes += " ";
+    	  comp.classes += ElemIdToCodeNative(etClass,"Э");
+    	  comp.classes += IntToString(Qry.FieldAsInteger("y"));
+      }
+	    comp.pr_comp = 1;
+	    comps.push_back( comp );
+    	Qry.Next();
+    }
+    Qry.Clear();
+    Qry.SQLText =
+      "SELECT comps.comp_id,comps.craft,comps.bort,comps.classes, "
+      "       comps.descr,0 as pr_comp, comps.airline, comps.airp "
+      " FROM comps, points "
+      "WHERE points.craft = comps.craft AND points.point_id = :point_id "
+      " UNION "
+      "SELECT comps.comp_id,comps.craft,comps.bort,comps.classes, "
+      "       comps.descr,1 as pr_comp, null, null "
+      " FROM comps, points, trip_sets "
+      "WHERE points.point_id=trip_sets.point_id AND "
+      "      points.craft = comps.craft AND points.point_id = :point_id AND "
+      "      trip_sets.comp_id = comps.comp_id "
+      "ORDER BY craft, bort, classes, descr";
+    Qry.CreateVariable( "point_id", otInteger, trip_id );
+    Qry.Execute();
+    while ( !Qry.Eof ) {
+    	TShowComps comp;
+      comp.comp_id = Qry.FieldAsInteger( "comp_id" );
+	    comp.craft = Qry.FieldAsString( "craft" );
+	    comp.bort = Qry.FieldAsString( "bort" );
+	    comp.classes = Qry.FieldAsString( "classes" );
+	    comp.descr = Qry.FieldAsString( "descr" );
+	    comp.pr_comp = Qry.FieldAsInteger( "pr_comp" );
+	    comp.airline = Qry.FieldAsString( "airline" );
+	    comp.airp = Qry.FieldAsString( "airp" );
+	    comps.push_back( comp );
+    	Qry.Next();
+    }
     xmlNodePtr compsNode = NULL;
     string StrVal;
-    while ( !Qry.Eof ) {
-    	if ( Qry.FieldAsInteger( "pr_comp" ) || /* поиск компоновки только по компоновкам нужной А/К или портовым компоновкам */
-    		   ( Qry.FieldIsNULL( "airline" ) || trip_airline == Qry.FieldAsString( "airline" ) ) &&
-    		   filterCompons( Qry.FieldAsString( "airline" ), Qry.FieldAsString( "airp" ) ) ) {
+    for (vector<TShowComps>::iterator i=comps.begin(); i!=comps.end(); i++ ) {
+    	if ( i->pr_comp || /* поиск компоновки только по компоновкам нужной А/К или портовым компоновкам */
+    		   ( i->airline.empty() || trip_airline == i->airline ) &&
+    		   filterCompons( i->airline, i->airp ) ) {
       	if ( !compsNode )
       		compsNode = NewTextChild( dataNode, "comps"  );
          xmlNodePtr compNode = NewTextChild( compsNode, "comp" );
-        if ( !Qry.FieldIsNULL( "airline" ) )
-         	StrVal = Qry.FieldAsString( "airline" );
+        if ( !i->airline.empty() )
+         	StrVal = ElemIdToCodeNative(etAirline,i->airline);
          else
-        	StrVal = Qry.FieldAsString( "airp" );
+        	StrVal = ElemIdToCodeNative(etAirp,i->airp);
         if ( StrVal.length() == 2 )
           StrVal += "  ";
         else
       	  StrVal += " ";
-        if ( !Qry.FieldIsNULL( "bort" ) && Qry.FieldAsInteger( "pr_comp" ) != 1 )
-          StrVal += Qry.FieldAsString( "bort" );
+        if ( !i->bort.empty() && i->pr_comp != 1 )
+          StrVal += i->bort;
         else
           StrVal += "  ";
-        StrVal += string( "  " ) + Qry.FieldAsString( "classes" );
-        if ( !Qry.FieldIsNULL( "descr" ) && Qry.FieldAsInteger( "pr_comp" ) != 1 )
-          StrVal += string( "  " ) + Qry.FieldAsString( "descr" );
-        if ( Qry.FieldAsInteger( "pr_comp" ) == 1 )
-          StrVal += CurrName;
+        StrVal += string( "  " ) + i->classes;
+        if ( !i->descr.empty() && i->pr_comp != 1 )
+          StrVal += string( "  " ) + i->descr;
+        if ( i->pr_comp == 1 ) {
+          StrVal += " (";
+          StrVal += AstraLocale::getLocaleText( "ТЕК." );
+          StrVal += ")";
+        }
         NewTextChild( compNode, "name", StrVal );
-        NewTextChild( compNode, "comp_id", Qry.FieldAsInteger( "comp_id" ) );
-        NewTextChild( compNode, "pr_comp", Qry.FieldAsInteger( "pr_comp" ) );
-        NewTextChild( compNode, "craft", Qry.FieldAsString( "craft" ) );
-        NewTextChild( compNode, "bort", Qry.FieldAsString( "bort" ) );
-        NewTextChild( compNode, "classes", Qry.FieldAsString( "classes" ) );
-        NewTextChild( compNode, "descr", Qry.FieldAsString( "descr" ) );
+        NewTextChild( compNode, "comp_id", i->comp_id );
+        NewTextChild( compNode, "pr_comp", i->pr_comp );
+        NewTextChild( compNode, "craft", i->craft );
+        NewTextChild( compNode, "bort", i->bort );
+        NewTextChild( compNode, "classes", i->classes );
+        NewTextChild( compNode, "descr", i->descr );
       }
-     Qry.Next();
     }
     if ( !compsNode ) {
-    	ASTRA::showErrorMessage( "Нет компоновок по данному типу ВС" );
+    	AstraLocale::showErrorMessage( "MSG.SALONS.NOT_FOUND_FOR_THIS_CRAFT" );
     	return;
     }
   }
@@ -167,20 +217,20 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   try {
     Salons.Read();
   }
-  catch( UserException ue ) {
-    ASTRA::showErrorMessage( ue.what() );
+  catch( AstraLocale::UserException ue ) {
+    AstraLocale::showErrorMessage( ue.getLexemaData() );
   }
   xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
   Salons.Build( salonsNode );
   if ( pr_comps ) {
     SEATS2::TPassengers p;
     if ( SEATS2::GetPassengersForWaitList( trip_id, p, true ) ) {
-    	ASTRA::showErrorMessage( "Рассадка пассажиров с местами произведена не полностью" );
-    	NewTextChild( dataNode, "passengers" );
+    	AstraLocale::showErrorMessage( "MSG.SEATS.PAX_SEATS_NOT_FULL" );
+    	SetProp(NewTextChild( dataNode, "passengers" ), "pr_waitlist", 1);
     }
  	}
  	if ( pr_images ) {
- 		GetDrawSalonProp( reqNode, resNode );
+ 		GetDataForDrawSalon( reqNode, resNode );
  	}
 }
 
@@ -207,8 +257,6 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Salons.trip_id = trip_id;
   Salons.ClName = "";
   Qry.Execute();
-  //SALONS2::TSalons OSalons( trip_id, SALONS2::rTripSalons );
-  //OSalons.Read();
   Salons.Write();
   bool pr_initcomp = NodeAsInteger( "initcomp", reqNode );
   /* инициализация VIP */
@@ -216,7 +264,16 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   xmlNodePtr refcompNode = NodeAsNode( "refcompon", reqNode );
   string msg = string( "Изменена компоновка рейса. Классы: " ) +
                NodeAsString( "classes", refcompNode );
-  msg += string( ", кодировка: " ) + NodeAsString( "lang", refcompNode ); //???
+  string comp_lang;
+  if (TReqInfo::Instance()->desk.compatible(LATIN_VERSION)) {
+  	if ( NodeAsInteger( "pr_lat", refcompNode ) != 0 )
+  	  comp_lang = "лат.";
+  	else
+  		comp_lang = "рус.";
+  }
+  else
+  	comp_lang = NodeAsString( "lang", refcompNode );
+  msg += string( ", кодировка: " ) + comp_lang;
   TReqInfo::Instance()->MsgToLog( msg, evtFlt, trip_id );
 
   if ( pr_initcomp ) { /* изменение компоновки */
@@ -241,7 +298,7 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         msg = string( "Назначена компоновка рейса. Классы: " ) +
               NodeAsString( "classes", refcompNode );
     }
-    msg += string( ", кодировка: " ) + NodeAsString( "lang", refcompNode );
+    msg += string( ", кодировка: " ) + comp_lang;
     TReqInfo::Instance()->MsgToLog( msg, evtFlt, trip_id );
   }
   SALONS2::setTRIP_CLASSES( trip_id );
@@ -255,11 +312,6 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   SALONS2::GetTripParams( trip_id, dataNode );
   vector<SEATS2::TSalonSeat> seats;
-/*  if ( getSalonChanges( OSalons, Salons, seats ) ) { // tolog
-  	//!!!tolog change
-  	//SALONS2::BuildSalonChanges( dataNode, seats );
-  	tst();
-  };*/
   // надо перечитать заново
   Salons.Clear();
   Salons.Read();
@@ -268,11 +320,12 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Salons.Build( salonsNode );
   SEATS2::TPassengers p;
   if ( SEATS2::GetPassengersForWaitList( trip_id, p, true ) ) {
-  	ASTRA::showErrorMessage( "Рассадка пассажиров с местами произведена не полностью" );
-  	NewTextChild( dataNode, "passengers" );
+  	tst();
+    AstraLocale::showErrorMessage( "MSG.SEATS.PAX_SEATS_NOT_FULL" );
+    SetProp(NewTextChild( dataNode, "passengers" ), "pr_waitlist", 1);
   }
   else
-  	showMessage( "Данные успешно сохранены" );
+  	AstraLocale::showMessage( "MSG.DATA_SAVED" );
 }
 
 void getSeat_no( int pax_id, bool pr_pnl, const string &format, string &seat_no, string &slayer_type, int &tid )
@@ -362,12 +415,11 @@ void getSeat_no( int pax_id, bool pr_pnl, const string &format, string &seat_no,
 	seat_no = SQry.GetVariableAsString( "seat_no" );
 	if ( !seat_no.empty() ) {
 		if ( pr_grp_id ) {
-			SQry.Clear();
-			SQry.SQLText = "SELECT layer_type FROM grp_status_types WHERE code=:code";
-			SQry.CreateVariable( "code", otString, grp_status );
-			SQry.Execute();
-			if ( !SQry.Eof )
-			  slayer_type = SQry.FieldAsString( "layer_type" );
+			TGrpStatusTypes &grp_status_types = (TGrpStatusTypes &)base_tables.get("GRP_STATUS_TYPES");
+			try {
+			  slayer_type = ((TGrpStatusTypesRow&)grp_status_types.get_row("code",grp_status)).layer_type;
+			}
+			catch(EBaseTableError){};
 		}
 		else
 			slayer_type = SQry.GetVariableAsString( "layer_type" );
@@ -398,13 +450,8 @@ void IntChangeSeats( int point_id, int pax_id, int tid, string xname, string yna
    " WHERE pax_id=:pax_id AND pax.grp_id=pax_grp.grp_id AND pax_grp.status=grp_status_types.code ";
   Qry.CreateVariable( "pax_id", otInteger, pax_id );
   Qry.Execute();
-//  TCompLayerType layer_type;
   if ( !Qry.Eof ) {
   	layer_type = DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) );
-  }
-  else {
-//  	throw UserException( "MSG.PASSENGER.NOT_FOUND" );!!!
-  //	layer_type = DecodeCompLayerType( NodeAsString( "layer", reqNode ) );
   }
 
   ProgTrace(TRACE5, "SalonsInterface::Reseat, point_id=%d, pax_id=%d, tid=%d, layer=%s", point_id, pax_id, tid, EncodeCompLayerType( layer_type ) );
@@ -412,7 +459,7 @@ void IntChangeSeats( int point_id, int pax_id, int tid, string xname, string yna
   SALONS2::TSalons Salons( point_id, SALONS2::rTripSalons );
   Salons.Read();
 
-  // если место у пассажира имеет предварительную рассадку для этого пассажира, и мы еще не спрашивали, то спросить!!!
+  // если место у пассажира имеет предварительную рассадку для этого пассажира, и мы еще не спрашивали, то спросить!
   if ( seat_type != SEATS2::stDropseat && !pr_waitlist && pr_question_reseat ) {
     Qry.Clear();
     Qry.SQLText =
@@ -429,7 +476,7 @@ void IntChangeSeats( int point_id, int pax_id, int tid, string xname, string yna
     ProgTrace( TRACE5, "Qry.Eof=%d, pax_id=%d,point_id=%d,layer1=%s,layer2=%s", Qry.Eof,pax_id,point_id,EncodeCompLayerType( cltProtCkin ),EncodeCompLayerType(layer_type) );
     if ( !Qry.Eof && string(Qry.FieldAsString( "seat_no1" )) == Qry.FieldAsString( "seat_no2" ) ) {
     	ProgTrace( TRACE5, "seat_no1=%s, seat_no2=%s", Qry.FieldAsString( "seat_no1" ), Qry.FieldAsString( "seat_no2" ) );
-    	NewTextChild( resNode, "question_reseat", "Пассажир имеет предварительную рассадку. Пересадить пассажира?" );
+    	NewTextChild( resNode, "question_reseat", getLocaleText("QST.PAX_HAS_PRESEAT_SEATS.RESEAT"));
     	return;
     }
   }
@@ -459,7 +506,7 @@ void IntChangeSeats( int point_id, int pax_id, int tid, string xname, string yna
     if ( pr_waitlist ) {
     	SEATS2::TPassengers p;
     	if ( !SEATS2::GetPassengersForWaitList( point_id, p ) )
-      	ASTRA::showErrorMessage( "Рассадка пассажиров завершена" );
+      	AstraLocale::showErrorMessage( "MSG.SEATS.SEATS_FINISHED" );
       p.Build( dataNode );
     }
   }
@@ -575,13 +622,14 @@ void SalonFormInterface::WaitList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     p.Build( dataNode );
     if ( pr_filter ) {
       TQuery Qry( &OraSession );
-      Qry.SQLText = "SELECT code, name, layer_type FROM grp_status_types";
+      Qry.SQLText =
+        "SELECT code, layer_type FROM grp_status_types";
       Qry.Execute();
       dataNode = NewTextChild( dataNode, "filter" );
       while ( !Qry.Eof ) {
       	xmlNodePtr lNode = NewTextChild( dataNode, "status" );
       	SetProp( lNode, "code", Qry.FieldAsString( "code" ) );
-      	SetProp( lNode, "name", Qry.FieldAsString( "name" ) );
+      	SetProp( lNode, "name", ElemIdToNameLong(etGrpStatusType,Qry.FieldAsString( "code" )) );
       	SetProp( lNode, "layer_type", Qry.FieldAsString( "layer_type" ) );
       	Qry.Next();
       }
@@ -625,9 +673,9 @@ void SalonFormInterface::AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     if ( pr_waitlist ) {
     	p.Clear();
     	if ( SEATS2::GetPassengersForWaitList( point_id, p ) )
-    		ASTRA::showErrorMessage( "Рассадка пассажиров с местами произведена не полностью" );
+            AstraLocale::showErrorMessage( "MSG.SEATS.PAX_SEATS_NOT_FULL" );
       else
-      	ASTRA::showErrorMessage( "Рассадка пассажиров завершена" );
+          AstraLocale::showErrorMessage( "MSG.SEATS.SEATS_FINISHED" );
       p.Build( dataNode );
     }
   }
@@ -641,9 +689,9 @@ void SalonFormInterface::AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     if ( pr_waitlist ) {
       p.Clear();
     	if ( SEATS2::GetPassengersForWaitList( point_id, p ) )
-    		ASTRA::showErrorMessage( "Рассадка пассажиров с местами произведена не полностью" );
+            AstraLocale::showErrorMessage( "MSG.SEATS.PAX_SEATS_NOT_FULL" );
       else
-      	ASTRA::showErrorMessage( "Рассадка пассажиров завершена" );
+          AstraLocale::showErrorMessage( "MSG.SEATS.SEATS_FINISHED" );
       p.Build( dataNode );
     }
   	showErrorMessageAndRollback( ue.getLexemaData( ) );

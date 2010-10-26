@@ -137,7 +137,7 @@ void DocsInterface::GetSegList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         "FROM points WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.Execute();
-    if(Qry.Eof) throw EXCEPTIONS::UserException("Рейс не найден. Обновите данные.");
+    if(Qry.Eof) throw UserException("Рейс не найден. Обновите данные.");
 
     int first_point = Qry.FieldAsInteger("first_point");
     int point_num = Qry.FieldAsInteger("point_num");

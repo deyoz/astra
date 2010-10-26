@@ -8,7 +8,6 @@
 #include "oralib.h"
 #include "tlg.h"
 #include "tlg_parser.h"
-#include "serverlib/daemon.h"
 #include "serverlib/ourtime.h"
 
 #define NICKNAME "VLAD"
@@ -70,9 +69,9 @@ int main_typeb_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
   {
     ProgError(STDLOG,"EOracleError %d: %s\nSQL: %s)",E.Code,E.what(),E.SQLText());
   }
-  catch(Exception &E)
+  catch(std::exception &E)
   {
-    ProgError(STDLOG,"Exception: %s",E.what());
+    ProgError(STDLOG,"std::exception: %s",E.what());
   }
   catch(...)
   {

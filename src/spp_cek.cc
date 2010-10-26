@@ -533,7 +533,7 @@ void createParam( xmlNodePtr paramsNode, const string &name, const string &value
   	NewTextChild( Nparam, "type", type );
 }
 
-string getPNR( const string airline, int airline_fmt, int flt_no, const string suffix, int suffix_fmt )
+string getPNR( const string airline, TElemFmt airline_fmt, int flt_no, const string suffix, TElemFmt suffix_fmt )
 {
 	string pnr;
 	if ( airline == "ЬЬ" )
@@ -1023,7 +1023,7 @@ void createDBF( xmlDocPtr &sqldoc, xmlDocPtr old_doc, xmlDocPtr doc, const strin
      	createParam( paramsNode, "PVV", NodeAsString( "PVV", *nodeNK ), DBF_TYPE_NUMBER );
      	createParam( paramsNode, "RDV", NodeAsString( "RDV", *nodeNK ), DBF_TYPE_DATE );
      	createParam( paramsNode, "RVV", NodeAsString( "RVV", *nodeNK ), DBF_TYPE_NUMBER );
-     	//!!!createParam( paramsNode, "FDV", NodeAsString( "FDV", *nodeNK ), DBF_TYPE_DATE );
+     	//createParam( paramsNode, "FDV", NodeAsString( "FDV", *nodeNK ), DBF_TYPE_DATE );
      	createParam( paramsNode, "FDV", NodeAsString( "DPP", *nodeNK ), DBF_TYPE_DATE );
      	createParam( paramsNode, "FVV", NodeAsString( "FVV", *nodeNK ), DBF_TYPE_NUMBER );
       createParam( paramsNode, "PR", NodeAsString( "PR", *nodeNK ), DBF_TYPE_CHAR );
@@ -1038,38 +1038,6 @@ void createDBF( xmlDocPtr &sqldoc, xmlDocPtr old_doc, xmlDocPtr doc, const strin
   	if ( nodeNK != nodesNK.end() )
   		nodeNK++;
   } // end while
-}
-
-void put_string_into_snapshot( int point_id, string type, string point_addr, xmlDocPtr old_doc, xmlDocPtr doc )
-{
-	TQuery Qry( &OraSession );
- 	Qry.SQLText =
- 	  "DELETE snapshot_points "
- 	  " WHERE point_id=:point_id AND file_type=:file_type AND point_addr=:point_addr";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.CreateVariable( "file_type", otString, type );
-  Qry.CreateVariable( "point_addr", otString, point_addr );
-  Qry.Execute();
- 	if ( old_doc && !doc )
- 		return;
- 	Qry.Clear();
-  Qry.SQLText =
-    "INSERT INTO snapshot_points(point_id,file_type,point_addr,record,page_no ) "
-    "                VALUES(:point_id,:file_type,:point_addr,:record,:page_no) ";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.CreateVariable( "file_type", otString, FILE_SPPCEK_TYPE );
-  Qry.CreateVariable( "point_addr", otString, point_addr );
-  Qry.DeclareVariable( "record", otString );
-  Qry.DeclareVariable( "page_no", otInteger );
-  string sres = XMLTreeToText( doc );
-  int i=0;
-  while ( !sres.empty() ) {
-  	Qry.SetVariable( "record", sres.substr( 0, 1000 ) );
-  	Qry.SetVariable( "page_no", i );
-  	Qry.Execute();
-  	i++;
-  	sres.erase( 0, 1000 );
-  }
 }
 
 bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
@@ -1131,22 +1099,7 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
   if ( !doc && !trips.empty() ) // рейс не удален
   	return fds.size();
   ProgTrace( TRACE5, "CEK point_id=%d", point_id );
-	Qry.Clear();
-	Qry.SQLText =
-	 "SELECT record FROM points, snapshot_points "
-	 " WHERE points.point_id=:point_id AND "
-	 "       points.point_id=snapshot_points.point_id AND "
-	 "       snapshot_points.point_addr=:point_addr AND "
-	 "       snapshot_points.file_type=:file_type "
-	 " ORDER BY page_no";
-	Qry.CreateVariable( "point_id", otInteger, point_id );
-	Qry.CreateVariable( "point_addr", otString, point_addr );
-	Qry.CreateVariable( "file_type", otString, file_type );
-	Qry.Execute();
-	while ( !Qry.Eof ) {
-		record += Qry.FieldAsString( "record" );
-		Qry.Next();
-	}
+  get_string_into_snapshot_points( point_id, file_type, point_addr, record );
   string strdoc;
   if ( doc )
   	strdoc = XMLTreeToText( doc );
@@ -1205,7 +1158,7 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
   	xmlFreeDoc( sqldoc );
   }
   //CREATE INSERT UPDATE DELETE Querys
-  put_string_into_snapshot( point_id, FILE_SPPCEK_TYPE, point_addr, old_doc, doc );
+  put_string_into_snapshot_points( point_id, FILE_SPPCEK_TYPE, point_addr, old_doc, XMLTreeToText( doc ) );
   //ProgTrace( TRACE5, "doc=%p, old_doc=%p", doc, old_doc );
   if ( doc )
   	xmlFreeDoc( doc );
