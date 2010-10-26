@@ -87,7 +87,7 @@ int internet_main(const char *body, int blen, const char *head,
     if(pos!=string::npos)
     {
     	if ( new_body.find("<kick") == string::npos )
-        new_body=new_body.substr(0,pos+sss.size())+" id='"+client.client_type+"' screen='AIR.EXE' opr='"+CP866toUTF8(client.opr)+"'"+new_body.substr(pos+sss.size());
+        new_body=new_body.substr(0,pos+sss.size())+" id='"+"WEB"/*client.client_type*/+"' screen='AIR.EXE' opr='"+CP866toUTF8(client.opr)+"'"+new_body.substr(pos+sss.size());
     }
     else
       ProgTrace(TRACE1,"Unable to find <query> tag!");
