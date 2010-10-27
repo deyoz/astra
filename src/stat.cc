@@ -788,7 +788,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         xmlNodePtr moduleNode = GetNode("module", reqNode);
         if(not moduleNode)
             ;
-        if(NodeIsNULL(moduleNode))
+        else if(NodeIsNULL(moduleNode))
             module = SYSTEM_USER;
         else {
             Qry.SQLText = "select exe from screen where id = :module";
