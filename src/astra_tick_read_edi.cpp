@@ -950,6 +950,7 @@ void FrequentPassEdiR::operator () (ReaderData &RData, list<FrequentPass> &lFti)
         return;
     }
 
+    PushEdiPointG(pMes); // на FTI
     unsigned num = GetNumComposite(pMes, "C326", "INV_FTI");
     for(unsigned i=0;i<num;i++){
         SetEdiPointToCompositeG(pMes, "C326",i, "PROG_ERR");
@@ -962,7 +963,9 @@ void FrequentPassEdiR::operator () (ReaderData &RData, list<FrequentPass> &lFti)
             throw Exception("Bad length of FQTV number");
         }
         lFti.push_back(FrequentPass(Data.currTicket().first, Data.currCoupon(), comp, docnum));
+        PopEdiPoint_wdG(pMes);
     }
+    PopEdiPointG(pMes);
     PopEdiPointG(pMes);
 }
 
