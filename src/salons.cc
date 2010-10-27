@@ -270,6 +270,11 @@ void TSalons::Build( xmlNodePtr salonsNode )
       		NewTextChild( remNode, "layer_type", EncodeCompLayerType( l->layer_type ) );
       	}
       }
+      if ( place->WebTariff.value != 0.0 ) {
+      	remNode = NewTextChild( placeNode, "tariff", place->WebTariff.value );
+      	SetProp( remNode, "color", place->WebTariff.color );
+      	SetProp( remNode, "currency_id", place->WebTariff.currency_id );
+      }
     }
     SetProp( placeListNode, "xcount", xcount + 1 );
     SetProp( placeListNode, "ycount", ycount + 1 );
@@ -346,12 +351,12 @@ void TSalons::Write()
   QryLayers.DeclareVariable( "last_xname", otString );
   QryLayers.DeclareVariable( "first_yname", otString );
   QryLayers.DeclareVariable( "last_yname", otString );
-
   if ( readStyle == rTripSalons ) {
     Qry.SQLText = "BEGIN "\
                   " UPDATE points SET point_id=point_id WHERE point_id=:point_id; "
                   " UPDATE trip_sets SET pr_lat_seat=:pr_lat_seat WHERE point_id=:point_id; "
                   " DELETE trip_comp_rem WHERE point_id=:point_id; "
+                  " DELETE trip_comp_rates WHERE point_id=:point_id; "
                   " DELETE trip_comp_elems WHERE point_id=:point_id; "
                   "END;";
 
@@ -386,6 +391,7 @@ void TSalons::Write()
                        "        time_create=system.UTCSYSDATE,classes=:classes,pr_lat_seat=:pr_lat_seat "\
                        "  WHERE comp_id=:comp_id; "\
                        " DELETE comp_rem WHERE comp_id=:comp_id; "\
+                       " DELETE comp_rates WHERE comp_id=:comp_id; "\
                        " DELETE comp_elems WHERE comp_id=:comp_id; "\
                        "END; ";
          break;
@@ -395,10 +401,11 @@ void TSalons::Write()
          break;
       case mDelete:
          Qry.SQLText = "BEGIN "\
-                       " UPDATE trip_sets SET comp_id=NULL WHERE comp_id=:comp_id; "\
-                       " DELETE comp_rem WHERE comp_id=:comp_id; "\
-                       " DELETE comp_elems WHERE comp_id=:comp_id; "\
-                       " DELETE comps WHERE comp_id=:comp_id; "\
+                       " UPDATE trip_sets SET comp_id=NULL WHERE comp_id=:comp_id; "
+                       " DELETE comp_rem WHERE comp_id=:comp_id; "
+                       " DELETE comp_rates WHERE comp_id=:comp_id; "
+                       " DELETE comp_elems WHERE comp_id=:comp_id; "
+                       " DELETE comps WHERE comp_id=:comp_id; "
                        "END; ";
          break;
     }
@@ -418,18 +425,28 @@ void TSalons::Write()
   if ( readStyle == rComponSalons && modify == mDelete )
     return; /* удалили компоновку */
 
+  TQuery QryWebTariff( &OraSession );
   TQuery RQry( &OraSession );
   if ( readStyle == rTripSalons ) {
-    RQry.SQLText = "INSERT INTO trip_comp_rem(point_id,num,x,y,rem,pr_denial) "\
-                   " VALUES(:point_id,:num,:x,:y,:rem,:pr_denial)";
+    RQry.SQLText =
+      "INSERT INTO trip_comp_rem(point_id,num,x,y,rem,pr_denial) "
+      " VALUES(:point_id,:num,:x,:y,:rem,:pr_denial)";
     RQry.DeclareVariable( "point_id", otInteger );
     RQry.SetVariable( "point_id", trip_id );
+    QryWebTariff.SQLText =
+      "INSERT INTO trip_comp_rates(point_id,num,x,y,color,rate,rate_cur) "
+      " VALUES(:point_id,:num,:x,:y,:color,:rate,:rate_cur)";
+    QryWebTariff.CreateVariable( "point_id", otInteger, trip_id );
   }
   else {
-    RQry.SQLText = "INSERT INTO comp_rem(comp_id,num,x,y,rem,pr_denial) "\
+    RQry.SQLText = "INSERT INTO comp_rem(comp_id,num,x,y,rem,pr_denial) "
                    " VALUES(:comp_id,:num,:x,:y,:rem,:pr_denial)";
     RQry.DeclareVariable( "comp_id", otInteger );
     RQry.SetVariable( "comp_id", comp_id );
+    QryWebTariff.SQLText =
+      "INSERT INTO comp_rates(comp_id,num,x,y,color,rate,rate_cur) "
+      " VALUES(:comp_id,:num,:x,:y,:color,:rate,:rate_cur)";
+    QryWebTariff.CreateVariable( "comp_id", otInteger, comp_id );
   }
 
   RQry.DeclareVariable( "num", otInteger );
@@ -437,6 +454,14 @@ void TSalons::Write()
   RQry.DeclareVariable( "y", otInteger );
   RQry.DeclareVariable( "rem", otString );
   RQry.DeclareVariable( "pr_denial", otInteger );
+
+  QryWebTariff.DeclareVariable( "num", otInteger );
+  QryWebTariff.DeclareVariable( "x", otInteger );
+  QryWebTariff.DeclareVariable( "y", otInteger );
+  QryWebTariff.DeclareVariable( "color", otString );
+  QryWebTariff.DeclareVariable( "rate", otFloat );
+  QryWebTariff.DeclareVariable( "rate_cur", otString );
+
 
   Qry.Clear();
   if ( readStyle == rTripSalons ) {
@@ -519,7 +544,6 @@ void TSalons::Write()
         }
       }
       if ( !place->layers.empty() ) {
-      	tst();
       	QryLayers.SetVariable( "first_xname", place->xname );
       	QryLayers.SetVariable( "last_xname", place->xname );
       	QryLayers.SetVariable( "first_yname", place->yname );
@@ -531,6 +555,15 @@ void TSalons::Write()
       		QryLayers.SetVariable( "layer_type", EncodeCompLayerType( l->layer_type ) );
       		QryLayers.Execute();
       	}
+      }
+      if ( place->WebTariff.value != 0.0 ) {
+        QryWebTariff.SetVariable( "num", (*plist)->num );
+        QryWebTariff.SetVariable( "x", place->x );
+        QryWebTariff.SetVariable( "y", place->y );
+        QryWebTariff.SetVariable( "color", place->WebTariff.color );
+        QryWebTariff.SetVariable( "rate", place->WebTariff.value );
+        QryWebTariff.SetVariable( "rate_cur", place->WebTariff.currency_id );
+        QryWebTariff.Execute();
       }
     } //for place
   }
@@ -691,6 +724,7 @@ void TSalons::Read( )
   ImagesInterface::GetisPlaceMap( ispl );
   TQuery Qry( &OraSession );
   TQuery RQry( &OraSession );
+  TQuery QryWebTariff( &OraSession );
   TQuery PaxQry( &OraSession );
 
 
@@ -747,10 +781,11 @@ void TSalons::Read( )
     Qry.CreateVariable( "point_id", otInteger, trip_id );
   }
   else {
-    Qry.SQLText = "SELECT num,x,y,elem_type,xprior,yprior,agle,pr_smoke,not_good,xname,yname,class "
-                  " FROM comp_elems "\
-                  "WHERE comp_id=:comp_id "
-                  "ORDER BY num, x desc, y desc ";
+    Qry.SQLText =
+      "SELECT num,x,y,elem_type,xprior,yprior,agle,pr_smoke,not_good,xname,yname,class "
+      " FROM comp_elems "
+      "WHERE comp_id=:comp_id "
+      "ORDER BY num, x desc, y desc ";
     Qry.CreateVariable( "comp_id", otInteger, comp_id );
   }
   Qry.Execute();
@@ -773,20 +808,41 @@ void TSalons::Read( )
   int col_yname = Qry.FieldIndex( "yname" );
   int col_class = Qry.FieldIndex( "class" );
   if ( readStyle == rTripSalons ) {
-    RQry.SQLText = "SELECT num,x,y,rem,pr_denial FROM trip_comp_rem "
-                   " WHERE point_id=:point_id "
-                   "ORDER BY num, x desc, y desc ";
-    RQry.DeclareVariable( "point_id", otInteger );
-    RQry.SetVariable( "point_id", trip_id );
+    RQry.SQLText =
+      "SELECT num,x,y,rem,pr_denial FROM trip_comp_rem "
+      " WHERE point_id=:point_id "
+      "ORDER BY num, x desc, y desc ";
+    RQry.CreateVariable( "point_id", otInteger, trip_id );
+    QryWebTariff.SQLText =
+      "SELECT num,x,y,color,rate,rate_cur FROM trip_comp_rates "
+      " WHERE point_id=:point_id "
+      "ORDER BY num,x desc, y desc ";
+    QryWebTariff.CreateVariable( "point_id", otInteger, trip_id );
   }
   else {
     RQry.SQLText = "SELECT num,x,y,rem,pr_denial FROM comp_rem "
                    " WHERE comp_id=:comp_id "
                    "ORDER BY num, x desc, y desc ";
-    RQry.DeclareVariable( "comp_id", otInteger );
-    RQry.SetVariable( "comp_id", comp_id );
+    RQry.CreateVariable( "comp_id", otInteger, comp_id );
+    QryWebTariff.SQLText =
+      "SELECT num,x,y,color,rate,rate_cur FROM comp_rates "
+      " WHERE comp_id=:comp_id "
+      "ORDER BY num,x desc, y desc ";
+    QryWebTariff.CreateVariable( "comp_id", otInteger, comp_id );
   }
   RQry.Execute();
+  int rem_col_num = RQry.FieldIndex( "num" );
+  int rem_col_x = RQry.FieldIndex( "x" );
+  int rem_col_y = RQry.FieldIndex( "y" );
+  int rem_col_rem = RQry.FieldIndex( "rem" );
+  int rem_col_pr_denial = RQry.FieldIndex( "pr_denial" );
+  QryWebTariff.Execute();
+  int webtariff_col_num = QryWebTariff.FieldIndex( "num" );
+  int webtariff_col_x = QryWebTariff.FieldIndex( "x" );
+  int webtariff_col_y = QryWebTariff.FieldIndex( "y" );
+  int webtariff_col_color = QryWebTariff.FieldIndex( "color" );
+  int webtariff_col_rate = QryWebTariff.FieldIndex( "rate" );
+  int webtariff_col_rate_cur = QryWebTariff.FieldIndex( "rate_cur" );
   string ClName = ""; /* перечисление всех классов, которые есть в салоне */
   TPlaceList *placeList = NULL;
   int num = -1;
@@ -851,14 +907,23 @@ void TSalons::Read( )
       	place.AddLayerToPlace( cltUncomfort, 0, 0, NoExists, NoExists, layers_priority[ cltUncomfort ].priority );
       place.xname = Qry.FieldAsString( col_xname );
       place.yname = Qry.FieldAsString( col_yname );
-      while ( !RQry.Eof && RQry.FieldAsInteger( col_num ) == num &&
-              RQry.FieldAsInteger( col_x ) == place.x &&
-              RQry.FieldAsInteger( col_y ) == place.y ) {
+      while ( !RQry.Eof && RQry.FieldAsInteger( rem_col_num ) == num &&
+              RQry.FieldAsInteger( rem_col_x ) == place.x &&
+              RQry.FieldAsInteger( rem_col_y ) == place.y ) {
         TRem rem;
-        rem.rem = RQry.FieldAsString( "rem" );
-        rem.pr_denial = RQry.FieldAsInteger( "pr_denial" );
+        rem.rem = RQry.FieldAsString( rem_col_rem );
+        rem.pr_denial = RQry.FieldAsInteger( rem_col_pr_denial );
         place.rems.push_back( rem );
         RQry.Next();
+      }
+      if ( !QryWebTariff.Eof &&
+      	    QryWebTariff.FieldAsInteger( webtariff_col_num ) == num &&
+            QryWebTariff.FieldAsInteger( webtariff_col_x ) == place.x &&
+            QryWebTariff.FieldAsInteger( webtariff_col_y ) == place.y ) {
+        place.WebTariff.color = QryWebTariff.FieldAsString( webtariff_col_color );
+        place.WebTariff.value = QryWebTariff.FieldAsFloat( webtariff_col_rate );
+        place.WebTariff.currency_id = QryWebTariff.FieldAsString( webtariff_col_rate_cur );
+        QryWebTariff.Next();
       }
       if ( ClName.find( Qry.FieldAsString( col_class ) ) == string::npos )
         ClName += Qry.FieldAsString(col_class );
@@ -1111,6 +1176,12 @@ void TSalons::Parse( xmlNodePtr salonsNode )
       			 place.AddLayerToPlace( l, 0, 0, NoExists, NoExists, layers_priority[ l ].priority );
       		remsNode = remsNode->next;
       	}
+      }
+      remNode = GetNodeFast( "tarif", node );
+      if ( remNode ) {
+      	place.WebTariff.color = NodeAsString( "@color", remNode );
+      	place.WebTariff.value = NodeAsFloat( remNode );
+      	place.WebTariff.currency_id = NodeAsString( "@currency_id", remNode );
       }
       place.visible = true;
       placeList->Add( place );

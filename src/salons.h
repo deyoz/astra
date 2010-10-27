@@ -69,6 +69,15 @@ struct TPlaceLayer {
   }
 };
 
+struct TPlaceWebTariff {
+	std::string color;
+	double value;
+	std::string currency_id;
+	TPlaceWebTariff() {
+		value = 0.0;
+	};
+};
+
 class TPlace {
   public:
     bool selected;
@@ -84,6 +93,7 @@ class TPlace {
     bool passSel;
     std::vector<TRem> rems;
     std::vector<TPlaceLayer> layers;
+    TPlaceWebTariff WebTariff;
     bool isPax;
     TPlace() {
       x = -1;
@@ -115,6 +125,7 @@ class TPlace {
       yname = pl.yname;
       layers = pl.layers;
       rems = pl.rems;
+      WebTariff = pl.WebTariff;
       isPax = pl.isPax;
     }
     bool isLayer( ASTRA::TCompLayerType layer ) {
