@@ -23,6 +23,8 @@ using namespace EXCEPTIONS;
 using namespace AstraLocale;
 using namespace BASIC;
 
+const string SYSTEM_USER = "Система";
+
 const string AIRP_PERIODS =
 " (SELECT DECODE(SIGN(period_first_date-:FirstDate),1,period_first_date,:FirstDate) AS period_first_date, \n"
 "        DECODE(SIGN(period_last_date- :LastDate),-1,period_last_date, :LastDate) AS period_last_date \n"
@@ -87,40 +89,61 @@ enum TDROPScreenState {dssNone,dssStat,dssPax,dssLog,dssDepStat,dssBagTagStat,ds
 
 void GetSystemLogAgentSQL(TQuery &Qry)
 {
-    Qry.SQLText =
-        "select null agent, -1 view_order from dual "
+    string SQLText =
+        "select -1, null agent, -1 view_order from dual "
         "union "
-        "select 'Система' agent, 0 view_order from dual "
+        "select 0, '";
+    if(TReqInfo::Instance()->desk.compatible(ARX_MODULE_LST_VERSION))
+        SQLText += getLocaleText(SYSTEM_USER);
+    else
+        SQLText += SYSTEM_USER;
+    SQLText +=
+        "' agent, 0 view_order from dual "
         "union "
-        "select descr agent, 1 view_order from users2 where "
+        "select 1, descr agent, 1 view_order from users2 where "
         "  (adm.check_user_access(user_id,:SYS_user_id)<>0 or user_id=:SYS_user_id) "
         "order by "
         "   view_order, agent";
+    Qry.SQLText = SQLText;
     Qry.CreateVariable("SYS_user_id", otInteger, TReqInfo::Instance()->user.user_id);
 }
 
 void GetSystemLogStationSQL(TQuery &Qry)
 {
-    Qry.SQLText =
-        "select null station, -1 view_order from dual "
+    string SQLText =
+        "select -1, null station, -1 view_order from dual "
         "union "
-        "select 'Система' station, 0 view_order from dual "
+        "select 0, '";
+    if(TReqInfo::Instance()->desk.compatible(ARX_MODULE_LST_VERSION))
+        SQLText += getLocaleText(SYSTEM_USER);
+    else
+        SQLText += SYSTEM_USER;
+    SQLText += 
+        "' station, 0 view_order from dual "
         "union "
-        "select code, 1 from desks where "
+        "select 1, code, 1 from desks where "
         "   adm.check_desk_view_access(code, :SYS_user_id) <> 0 "
         "order by "
         "   view_order, station";
+    Qry.SQLText = SQLText;
     Qry.CreateVariable("SYS_user_id", otInteger, TReqInfo::Instance()->user.user_id);
 }
 
 void GetSystemLogModuleSQL(TQuery &Qry)
 {
-    Qry.SQLText =
-        "select null module, -1 view_order from dual "
+    string SQLText =
+        "select -1, null module, -1 view_order from dual "
         "union "
-        "select 'Система' module, 0 view_order from dual "
+        "select 0, '";
+    if(TReqInfo::Instance()->desk.compatible(ARX_MODULE_LST_VERSION))
+        SQLText += getLocaleText(SYSTEM_USER);
+    else
+        SQLText += SYSTEM_USER;
+    SQLText += 
+        "' module, 0 view_order from dual "
         "union "
-        "select name, view_order from screen where view_order is not null order by view_order";
+        "select id, name, view_order from screen where view_order is not null order by view_order";
+    Qry.SQLText = SQLText;
 }
 
 
@@ -381,8 +404,13 @@ void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     xmlNodePtr cboxNode = NewTextChild(resNode, "cbox");
     while(!Qry.Eof) {
         xmlNodePtr fNode = NewTextChild(cboxNode, "f");
-        NewTextChild(fNode, "key", 0);
-        NewTextChild(fNode, "value", Qry.FieldAsString(0));
+        if(TReqInfo::Instance()->desk.compatible(ARX_MODULE_LST_VERSION)) {
+                NewTextChild(fNode, "key", Qry.FieldAsInteger(0));
+                NewTextChild(fNode, "value", getLocaleText(Qry.FieldAsString(1)));
+        } else {
+            NewTextChild(fNode, "key", 0);
+            NewTextChild(fNode, "value", Qry.FieldAsString(1));
+        }
         Qry.Next();
     }
 }
@@ -414,32 +442,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 
     xmlNodePtr paxLogNode = NewTextChild(resNode, "PaxLog");
     xmlNodePtr headerNode = NewTextChild(paxLogNode, "header");
-    xmlNodePtr colNode;
-
-
-    colNode = NewTextChild(headerNode, "col", "Агент");
-    SetProp(colNode, "width", 73);
-    SetProp(colNode, "align", taLeftJustify);
-
-    colNode = NewTextChild(headerNode, "col", "Стойка");
-    SetProp(colNode, "width", 60);
-    SetProp(colNode, "align", taLeftJustify);
-
-    colNode = NewTextChild(headerNode, "col", "Время");
-    SetProp(colNode, "width", 90);
-    SetProp(colNode, "align", taLeftJustify);
-
-    colNode = NewTextChild(headerNode, "col", "Рейс");
-    SetProp(colNode, "width", 90);
-    SetProp(colNode, "align", taLeftJustify);
-
-    colNode = NewTextChild(headerNode, "col", "Рег №");
-    SetProp(colNode, "width", 45);
-    SetProp(colNode, "align", taRightJustify);
-
-    colNode = NewTextChild(headerNode, "col", "Операция");
-    SetProp(colNode, "width", 750);
-    SetProp(colNode, "align", taLeftJustify);
+    NewTextChild(headerNode, "col", "Агент"); // для совместимости со старой версией терминала
 
     Qry.Clear();
     string qry1, qry2;
@@ -600,7 +603,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                         Qry.CreateVariable("exe", otString, screen);
                         Qry.Execute();
                         if(Qry.Eof) throw Exception("FltLogRun: screen name fetch failed for " + screen);
-                        screen_map[screen] = Qry.FieldAsString(0);
+                        screen_map[screen] = getLocaleText(Qry.FieldAsString(0));
                     }
                     screen = screen_map[screen];
                 }
@@ -649,33 +652,7 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
 
     xmlNodePtr paxLogNode = NewTextChild(resNode, "PaxLog");
     xmlNodePtr headerNode = NewTextChild(paxLogNode, "header");
-    xmlNodePtr colNode;
-
-
-    colNode = NewTextChild(headerNode, "col", "Агент");
-    SetProp(colNode, "width", 73);
-    SetProp(colNode, "align", taLeftJustify);
-
-    colNode = NewTextChild(headerNode, "col", "Стойка");
-    SetProp(colNode, "width", 60);
-    SetProp(colNode, "align", taLeftJustify);
-
-    colNode = NewTextChild(headerNode, "col", "Время");
-    SetProp(colNode, "width", 90);
-    SetProp(colNode, "align", taLeftJustify);
-
-    colNode = NewTextChild(headerNode, "col", "Рейс");
-    SetProp(colNode, "width", 90);
-    SetProp(colNode, "align", taLeftJustify);
-
-    colNode = NewTextChild(headerNode, "col", "Рег №");
-    SetProp(colNode, "width", 45);
-    SetProp(colNode, "align", taRightJustify);
-
-    colNode = NewTextChild(headerNode, "col", "Операция");
-    SetProp(colNode, "width", 750);
-    SetProp(colNode, "align", taLeftJustify);
-
+    NewTextChild(headerNode, "col", "Агент"); // Для совместимости со старой версией терминала
     Qry.Clear();
     TQuery AirlineQry(&OraSession);
     AirlineQry.CreateVariable("point_id", otInteger, point_id);
@@ -804,42 +781,61 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     STAT::set_variables(resNode);
     xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
     NewTextChild(variablesNode, "report_title", getLocaleText("Операции в системе"));
-    string module = NodeAsString("module", reqNode);
+    string module;
+
     TQuery Qry(&OraSession);
-    Qry.SQLText = "select exe from screen where name = :module";
-    Qry.CreateVariable("module", otString, module);
-    Qry.Execute();
-    if(!Qry.Eof) module = Qry.FieldAsString("exe");
+    if(TReqInfo::Instance()->desk.compatible(ARX_MODULE_LST_VERSION)) {
+        xmlNodePtr moduleNode = GetNode("module", reqNode);
+        if(not moduleNode)
+            ;
+        if(NodeIsNULL(moduleNode))
+            module = SYSTEM_USER;
+        else {
+            Qry.SQLText = "select exe from screen where id = :module";
+            Qry.CreateVariable("module", otInteger, NodeAsInteger(moduleNode));
+            Qry.Execute();
+            if(!Qry.Eof) module = Qry.FieldAsString("exe");
+        }
+    } else {
+        module = NodeAsString("module", reqNode);
+        TQuery Qry(&OraSession);
+        Qry.SQLText = "select exe from screen where name = :module";
+        Qry.CreateVariable("module", otString, module);
+        Qry.Execute();
+        if(!Qry.Eof) module = Qry.FieldAsString("exe");
+    }
+
+    string agent, station;
+    if(TReqInfo::Instance()->desk.compatible(ARX_MODULE_LST_VERSION)) {
+    xmlNodePtr agentNode = GetNode("agent", reqNode);
+    if(not agentNode)
+        ;
+    else if(NodeIsNULL(agentNode))
+        agent = SYSTEM_USER;
+    else
+        agent = NodeAsString(agentNode);
+
+    xmlNodePtr stationNode = GetNode("station", reqNode);
+    if(not stationNode)
+        ;
+    else if(NodeIsNULL(stationNode))
+        station = SYSTEM_USER;
+    else
+        station = NodeAsString(stationNode);
+    } else {
+        agent = NodeAsString("agent", reqNode);
+        station = NodeAsString("station", reqNode);
+    }
+
+    ProgTrace(TRACE5, "module: '%s'", module.c_str());
+    ProgTrace(TRACE5, "agent: '%s'", agent.c_str());
+    ProgTrace(TRACE5, "station: '%s'", station.c_str());
+
     int count = 0;
 
     xmlNodePtr paxLogNode = NewTextChild(resNode, "PaxLog");
     xmlNodePtr headerNode = NewTextChild(paxLogNode, "header");
-    xmlNodePtr colNode;
-
-
-    colNode = NewTextChild(headerNode, "col", "Агент");
-    SetProp(colNode, "width", 73);
-    SetProp(colNode, "align", taLeftJustify);
-
-    colNode = NewTextChild(headerNode, "col", "Стойка");
-    SetProp(colNode, "width", 60);
-    SetProp(colNode, "align", taLeftJustify);
-
-    colNode = NewTextChild(headerNode, "col", "Время");
-    SetProp(colNode, "width", 90);
-    SetProp(colNode, "align", taLeftJustify);
-
-    colNode = NewTextChild(headerNode, "col", "Рейс");
-    SetProp(colNode, "width", 90);
-    SetProp(colNode, "align", taLeftJustify);
-
-    colNode = NewTextChild(headerNode, "col", "Рег №");
-    SetProp(colNode, "width", 45);
-    SetProp(colNode, "align", taRightJustify);
-
-    colNode = NewTextChild(headerNode, "col", "Операция");
-    SetProp(colNode, "width", 750);
-    SetProp(colNode, "align", taLeftJustify);
+    NewTextChild(headerNode, "col", "Агент"); // для совместимости со старой версией терминала
 
     map<int, string> TripItems;
     xmlNodePtr rowsNode = NULL;
@@ -859,9 +855,9 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                 "WHERE "
                 "  events.time >= :FirstDate and "
                 "  events.time < :LastDate and "
-                "  (:agent is null or nvl(ev_user, 'Система') = :agent) and "
-                "  (:module is null or nvl(screen, 'Система') = :module) and "
-                "  (:station is null or nvl(station, 'Система') = :station) and "
+                "  (:agent is null or nvl(ev_user, :system_user) = :agent) and "
+                "  (:module is null or nvl(screen, :system_user) = :module) and "
+                "  (:station is null or nvl(station, :system_user) = :station) and "
                 "  events.type IN ( "
                 "    :evtFlt, "
                 "    :evtPax, "
@@ -892,9 +888,9 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                 "  arx_events.part_key < :LastDate + 10 and "   // разных типов событий
                 "  arx_events.time >= :FirstDate and "         // поэтому для part_key берем больший диапазон time
                 "  arx_events.time < :LastDate and "
-                "  (:agent is null or nvl(ev_user, 'Система') = :agent) and "
-                "  (:module is null or nvl(screen, 'Система') = :module) and "
-                "  (:station is null or nvl(station, 'Система') = :station) and "
+                "  (:agent is null or nvl(ev_user, :system_user) = :agent) and "
+                "  (:module is null or nvl(screen, :system_user) = :module) and "
+                "  (:station is null or nvl(station, :system_user) = :station) and "
                 "  arx_events.type IN ( "
                 "    :evtFlt, "
                 "    :evtPax, "
@@ -913,6 +909,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
         Qry.CreateVariable("evtFlt", otString, NodeAsString("evtFlt", reqNode));
         Qry.CreateVariable("evtPax", otString, NodeAsString("evtPax", reqNode));
+        Qry.CreateVariable("system_user", otString, SYSTEM_USER);
         {
             xmlNodePtr node = GetNode("evtPay", reqNode);
             string evtPay;
@@ -944,8 +941,8 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
         Qry.CreateVariable("FirstDate", otDate, ClientToUTC(NodeAsDateTime("FirstDate", reqNode), reqInfo->desk.tz_region));
         Qry.CreateVariable("LastDate", otDate, ClientToUTC(NodeAsDateTime("LastDate", reqNode), reqInfo->desk.tz_region));
-        Qry.CreateVariable("agent", otString, NodeAsString("agent", reqNode));
-        Qry.CreateVariable("station", otString, NodeAsString("station", reqNode));
+        Qry.CreateVariable("agent", otString, agent);
+        Qry.CreateVariable("station", otString, station);
         Qry.CreateVariable("module", otString, module);
 
         ProgTrace(TRACE5, "SQLText %d: %s", j, Qry.SQLText.SQLText());
@@ -1134,21 +1131,19 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   NVL(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) rk_weight, "
                 "   NVL(ckin.get_excess(pax.grp_id,pax.pax_id),0) excess, "
                 "   pax_grp.grp_id, "
-                "   ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,0) tags, "
+                "   ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:pr_lat) tags, "
                 "   pax.refuse, "
                 "   pax.pr_brd, "
-                "   cls_grp.code class, "
+                "   pax_grp.class_grp, "
                 "   salons.get_seat_no(pax.pax_id, pax.seats, pax_grp.status, pax_grp.point_dep, 'seats', rownum) seat_no, "
-                "   decode(:pr_lat,0,halls2.name,NVL(halls2.name_lat,system.transliter(halls2.name,1,1))) hall, "
+                "   pax_grp.hall, "
                 "   pax.document, "
                 "   pax.ticket_no "
-                "FROM  pax_grp,pax, points, cls_grp, halls2 "
+                "FROM  pax_grp,pax, points "
                 "WHERE "
                 "   points.point_id = :point_id and points.pr_del>=0 and "
                 "   points.point_id = pax_grp.point_dep and "
-                "   pax_grp.grp_id=pax.grp_id AND "
-                "   pax_grp.class_grp = cls_grp.id and "
-                "   pax_grp.hall = halls2.id(+) ";
+                "   pax_grp.grp_id=pax.grp_id ";
             if (!info.user.access.airps.empty()) {
                 if (info.user.access.airps_permit)
                     SQLText += " AND points.airp IN "+GetSQLEnum(info.user.access.airps);
@@ -1184,26 +1179,24 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   NVL(arch.get_rkWeight(arx_pax.part_key,arx_pax.grp_id,arx_pax.pax_id,rownum),0) rk_weight, "
                 "   NVL(arch.get_excess(arx_pax.part_key,arx_pax.grp_id,arx_pax.pax_id),0) excess, "
                 "   arx_pax_grp.grp_id, "
-                "   arch.get_birks(arx_pax.part_key,arx_pax.grp_id,arx_pax.pax_id,0) tags, "
+                "   arch.get_birks(arx_pax.part_key,arx_pax.grp_id,arx_pax.pax_id,:pr_lat) tags, "
                 "   arx_pax.refuse, "
                 "   arx_pax.pr_brd, "
-                "   cls_grp.code class, "
+                "   arx_pax_grp.class_grp, "
                 "   LPAD(seat_no,3,'0')|| "
                 "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') seat_no, "
-                "   decode(:pr_lat,0,halls2.name,NVL(halls2.name_lat,system.transliter(halls2.name,1,1))) hall, "
+                "   arx_pax_grp.hall, "
                 "   arx_pax.document, "
                 "   arx_pax.ticket_no "
-                "FROM  arx_pax_grp,arx_pax, arx_points, cls_grp, halls2 "
+                "FROM  arx_pax_grp,arx_pax, arx_points "
                 "WHERE "
                 "   arx_points.point_id = :point_id and arx_points.pr_del>=0 and "
                 "   arx_points.part_key = arx_pax_grp.part_key and "
                 "   arx_points.point_id = arx_pax_grp.point_dep and "
                 "   arx_pax_grp.part_key=arx_pax.part_key AND "
                 "   arx_pax_grp.grp_id=arx_pax.grp_id AND "
-                "   arx_pax_grp.class_grp = cls_grp.id and "
                 "   arx_points.part_key = :part_key and "
-                "   pr_brd IS NOT NULL  and "
-                "   arx_pax_grp.hall = halls2.id(+) ";
+                "   pr_brd IS NOT NULL  ";
             if (!info.user.access.airps.empty()) {
                 if (info.user.access.airps_permit)
                     SQLText += " AND arx_points.airp IN "+GetSQLEnum(info.user.access.airps);
@@ -1253,7 +1246,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             int col_tags = Qry.FieldIndex("tags");
             int col_refuse = Qry.FieldIndex("refuse");
             int col_pr_brd = Qry.FieldIndex("pr_brd");
-            int col_class = Qry.FieldIndex("class");
+            int col_class_grp = Qry.FieldIndex("class_grp");
             int col_seat_no = Qry.FieldIndex("seat_no");
             int col_document = Qry.FieldIndex("document");
             int col_ticket_no = Qry.FieldIndex("ticket_no");
@@ -1298,11 +1291,11 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                     status = getLocaleText("MSG.CANCEL_REG.REFUSAL",
                             LParams() << LParam("refusal", ElemIdToCodeNative(etRefusalType, Qry.FieldAsString(col_refuse))));
                 NewTextChild(paxNode, "status", status);
-                NewTextChild(paxNode, "class", ElemIdToCodeNative(etClass, Qry.FieldAsString(col_class)));
+                NewTextChild(paxNode, "class", ElemIdToCodeNative(etClsGrp, Qry.FieldAsInteger(col_class_grp)));
                 NewTextChild(paxNode, "seat_no", Qry.FieldAsString(col_seat_no));
                 NewTextChild(paxNode, "document", Qry.FieldAsString(col_document));
                 NewTextChild(paxNode, "ticket_no", Qry.FieldAsString(col_ticket_no));
-                NewTextChild(paxNode, "hall", Qry.FieldAsString(col_hall));
+                NewTextChild(paxNode, "hall", ElemIdToNameLong(etHall, Qry.FieldAsInteger(col_hall)));
 
                 Qry.Next();
             }
@@ -1329,16 +1322,15 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   ckin.get_bagWeight2(pax_grp.grp_id,NULL,null) AS bag_weight, "
                 "   ckin.get_rkWeight2(pax_grp.grp_id,NULL,null) AS rk_weight, "
                 "   ckin.get_excess(pax_grp.grp_id,NULL) AS excess, "
-                "   ckin.get_birks2(pax_grp.grp_id,NULL,null) AS tags, "
+                "   ckin.get_birks2(pax_grp.grp_id,NULL,null, :pr_lat) AS tags, "
                 "   pax_grp.grp_id, "
-                "   decode(:pr_lat,0,halls2.name,NVL(halls2.name_lat,system.transliter(halls2.name,1,1))) hall_id, "
+                "   pax_grp.hall, "
                 "   pax_grp.point_arv,pax_grp.user_id "
-                "FROM pax_grp, points, halls2 "
+                "FROM pax_grp, points "
                 "WHERE "
                 "   pax_grp.point_dep=:point_id AND "
                 "   pax_grp.class IS NULL and "
-                "   pax_grp.point_dep = points.point_id and points.pr_del>=0 and "
-                "   pax_grp.hall = halls2.id(+) ";
+                "   pax_grp.point_dep = points.point_id and points.pr_del>=0 ";
             if (!info.user.access.airps.empty()) {
                 if (info.user.access.airps_permit)
                     SQLText += " AND points.airp IN "+GetSQLEnum(info.user.access.airps);
@@ -1370,16 +1362,15 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "  arch.get_bagWeight(arx_pax_grp.part_key,arx_pax_grp.grp_id,NULL) AS bag_weight, "
                 "  arch.get_rkWeight(arx_pax_grp.part_key,arx_pax_grp.grp_id,NULL) AS rk_weight, "
                 "  arch.get_excess(arx_pax_grp.part_key,arx_pax_grp.grp_id,NULL) AS excess, "
-                "  arch.get_birks(arx_pax_grp.part_key,arx_pax_grp.grp_id,NULL) AS tags, "
+                "  arch.get_birks(arx_pax_grp.part_key,arx_pax_grp.grp_id,NULL, :pr_lat) AS tags, "
                 "  arx_pax_grp.grp_id, "
-                "  decode(:pr_lat,0,halls2.name,NVL(halls2.name_lat,system.transliter(halls2.name,1,1))) hall_id, "
+                "  arx_pax_grp.hall, "
                 "  arx_pax_grp.point_arv,arx_pax_grp.user_id "
-                "FROM arx_pax_grp, arx_points, halls2 "
+                "FROM arx_pax_grp, arx_points "
                 "WHERE point_dep=:point_id AND class IS NULL and "
                 "   arx_pax_grp.part_key = arx_points.part_key and "
                 "   arx_pax_grp.point_dep = arx_points.point_id and arx_points.pr_del>=0 and "
-                "   arx_pax_grp.part_key = :part_key and "
-                "   arx_pax_grp.hall = halls2.id(+) ";
+                "   arx_pax_grp.part_key = :part_key ";
             if (!info.user.access.airps.empty()) {
                 if (info.user.access.airps_permit)
                     SQLText += " AND arx_points.airp IN "+GetSQLEnum(info.user.access.airps);
@@ -1437,76 +1428,11 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             NewTextChild(paxNode, "seat_no");
             NewTextChild(paxNode, "document");
             NewTextChild(paxNode, "ticket_no");
-            NewTextChild(paxNode, "hall", Qry.FieldAsString("hall_id"));
+            NewTextChild(paxNode, "hall", ElemIdToNameLong(etHall, Qry.FieldAsInteger("hall")));
         };
-
-        if(paxListNode) {
+        if(paxListNode) { // для совместимости со старой версией терминала
             xmlNodePtr headerNode = NewTextChild(paxListNode, "header");
-            xmlNodePtr colNode;
-
-            colNode = NewTextChild(headerNode, "col", "Рейс");
-            SetProp(colNode, "width", 53);
-            SetProp(colNode, "align", taLeftJustify);
-
-            colNode = NewTextChild(headerNode, "col", "Дата");
-            SetProp(colNode, "width", 61);
-            SetProp(colNode, "align", taLeftJustify);
-
-            colNode = NewTextChild(headerNode, "col", "№");
-            SetProp(colNode, "width", 25);
-            SetProp(colNode, "align", taRightJustify);
-
-            colNode = NewTextChild(headerNode, "col", "Фамилия");
-            SetProp(colNode, "width", 173);
-            SetProp(colNode, "align", taLeftJustify);
-
-            colNode = NewTextChild(headerNode, "col", "П/Н");
-            SetProp(colNode, "width", 32);
-            SetProp(colNode, "align", taLeftJustify);
-
-            colNode = NewTextChild(headerNode, "col", "Мест");
-            SetProp(colNode, "width", 40);
-            SetProp(colNode, "align", taRightJustify);
-
-            colNode = NewTextChild(headerNode, "col", "Вес");
-            SetProp(colNode, "width", 40);
-            SetProp(colNode, "align", taRightJustify);
-
-            colNode = NewTextChild(headerNode, "col", "Р/к");
-            SetProp(colNode, "width", 40);
-            SetProp(colNode, "align", taRightJustify);
-
-            colNode = NewTextChild(headerNode, "col", "Плат");
-            SetProp(colNode, "width", 40);
-            SetProp(colNode, "align", taRightJustify);
-
-            colNode = NewTextChild(headerNode, "col", "Бирки");
-            SetProp(colNode, "width", 163);
-            SetProp(colNode, "align", taLeftJustify);
-
-            colNode = NewTextChild(headerNode, "col", "Статус");
-            SetProp(colNode, "width", 93);
-            SetProp(colNode, "align", taLeftJustify);
-
-            colNode = NewTextChild(headerNode, "col", "Кл.");
-            SetProp(colNode, "width", 25);
-            SetProp(colNode, "align", taLeftJustify);
-
-            colNode = NewTextChild(headerNode, "col", "№ м");
-            SetProp(colNode, "width", 40);
-            SetProp(colNode, "align", taLeftJustify);
-
-            colNode = NewTextChild(headerNode, "col", "Зал");
-            SetProp(colNode, "width", 78);
-            SetProp(colNode, "align", taLeftJustify);
-
-            colNode = NewTextChild(headerNode, "col", "Документ");
-            SetProp(colNode, "width", 114);
-            SetProp(colNode, "align", taLeftJustify);
-
-            colNode = NewTextChild(headerNode, "col", "№ билета");
-            SetProp(colNode, "width", 101);
-            SetProp(colNode, "align", taLeftJustify);
+            NewTextChild(headerNode, "col", "Рейс");
         } else
             throw AstraLocale::UserException("MSG.PASSENGERS.NOT_FOUND");
         tm.Init();
@@ -2986,6 +2912,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     TQuery Qry(&OraSession);
     Qry.CreateVariable("FirstDate", otDate, FirstDate);
     Qry.CreateVariable("LastDate", otDate, LastDate);
+    Qry.CreateVariable("pr_lat", otInteger, info.desk.lang != AstraLocale::LANG_RU);
     xmlNodePtr paramNode = reqNode->children;
     string airline = NodeAsStringFast("airline", paramNode, "");
     if(!airline.empty())
@@ -3045,14 +2972,15 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 "   NVL(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) rk_weight, "
                 "   NVL(ckin.get_excess(pax.grp_id,pax.pax_id),0) excess, "
                 "   pax_grp.grp_id, "
-                "   ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,0) tags, "
-                "   DECODE(pax.refuse,NULL,DECODE(pax.pr_brd,0,'Зарег.','Посажен'),'Разрег.('||pax.refuse||')') AS status, "
-                "   cls_grp.code class, "
+                "   ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:pr_lat) tags, "
+                "   pax.pr_brd, "
+                "   pax.refuse, "
+                "   pax_grp.class_grp, "
                 "   salons.get_seat_no(pax.pax_id, pax.seats, pax_grp.status, pax_grp.point_dep, 'seats', rownum) seat_no, "
-                "   halls2.name hall, "
+                "   pax_grp.hall, "
                 "   pax.document, "
                 "   pax.ticket_no "
-                "FROM  pax_grp,halls2,pax, points, cls_grp ";
+                "FROM  pax_grp,pax, points ";
             if(!tag_no.empty())
                 SQLText +=
                     " , bag_tags ";
@@ -3060,9 +2988,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 "WHERE "
                 "   points.scd_out >= :FirstDate AND points.scd_out < :LastDate and "
                 "   points.point_id = pax_grp.point_dep and points.pr_del>=0 and "
-                "   pax_grp.grp_id=pax.grp_id AND "
-                "   pax_grp.hall = halls2.id(+) and "
-                "   pax_grp.class_grp = cls_grp.id ";
+                "   pax_grp.grp_id=pax.grp_id ";
             if(!tag_no.empty())
                 SQLText +=
                     " and pax_grp.grp_id = bag_tags.grp_id and "
@@ -3118,16 +3044,16 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 "   NVL(arch.get_rkWeight(arx_pax.part_key,arx_pax.grp_id,arx_pax.pax_id,rownum),0) rk_weight, "
                 "   NVL(arch.get_excess(arx_pax.part_key,arx_pax.grp_id,arx_pax.pax_id),0) excess, "
                 "   arx_pax_grp.grp_id, "
-                "   arch.get_birks(arx_pax.part_key,arx_pax.grp_id,arx_pax.pax_id,0) tags, "
-                "   DECODE(arx_pax.refuse,NULL,DECODE(arx_pax.pr_brd,0,'Зарег.','Посажен'), "
-                "       'Разрег.('||arx_pax.refuse||')') AS status, "
-                "   cls_grp.code class, "
+                "   arch.get_birks(arx_pax.part_key,arx_pax.grp_id,arx_pax.pax_id,:pr_lat) tags, "
+                "   arx_pax.refuse, "
+                "   arx_pax.pr_brd, "
+                "   arx_pax_grp.class_grp, "
                 "   LPAD(seat_no,3,'0')|| "
                 "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') seat_no, "
-                "   halls2.name hall, "
+                "   arx_pax_grp.hall, "
                 "   arx_pax.document, "
                 "   arx_pax.ticket_no "
-                "FROM  arx_pax_grp,halls2,arx_pax, arx_points, cls_grp ";
+                "FROM  arx_pax_grp,arx_pax, arx_points ";
             if(!tag_no.empty())
                 SQLText +=
                     " , arx_bag_tags ";
@@ -3138,8 +3064,6 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 "   arx_points.point_id = arx_pax_grp.point_dep and arx_points.pr_del>=0 and "
                 "   arx_pax_grp.part_key = arx_pax.part_key and "
                 "   arx_pax_grp.grp_id=arx_pax.grp_id AND "
-                "   arx_pax_grp.class_grp = cls_grp.id and "
-                "   arx_pax_grp.hall = halls2.id(+) and "
                 "   arx_points.part_key >= :FirstDate and arx_points.part_key < :LastDate + :arx_trip_date_range and "
                 "   pr_brd IS NOT NULL ";
             Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
@@ -3209,8 +3133,9 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             int col_grp_id = Qry.FieldIndex("grp_id");
             int col_airp_arv = Qry.FieldIndex("airp_arv");
             int col_tags = Qry.FieldIndex("tags");
-            int col_status = Qry.FieldIndex("status");
-            int col_class = Qry.FieldIndex("class");
+            int col_pr_brd = Qry.FieldIndex("pr_brd");
+            int col_refuse = Qry.FieldIndex("refuse");
+            int col_class_grp = Qry.FieldIndex("class_grp");
             int col_seat_no = Qry.FieldIndex("seat_no");
             int col_document = Qry.FieldIndex("document");
             int col_ticket_no = Qry.FieldIndex("ticket_no");
@@ -3252,14 +3177,20 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger(col_rk_weight));
                 NewTextChild(paxNode, "excess", Qry.FieldAsInteger(col_excess));
                 NewTextChild(paxNode, "grp_id", Qry.FieldAsInteger(col_grp_id));
-                NewTextChild(paxNode, "airp_arv", Qry.FieldAsString(col_airp_arv));
+                NewTextChild(paxNode, "airp_arv", ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp_arv)));
                 NewTextChild(paxNode, "tags", Qry.FieldAsString(col_tags));
-                NewTextChild(paxNode, "status", Qry.FieldAsString(col_status));
-                NewTextChild(paxNode, "class", Qry.FieldAsString(col_class));
+                string status;
+                if(Qry.FieldIsNULL(col_refuse))
+                    status = getLocaleText(Qry.FieldAsInteger(col_pr_brd) == 0 ? "Зарег." : "Посаж.");
+                else
+                    status = getLocaleText("MSG.CANCEL_REG.REFUSAL",
+                            LParams() << LParam("refusal", ElemIdToCodeNative(etRefusalType, Qry.FieldAsString(col_refuse))));
+                NewTextChild(paxNode, "status", status);
+                NewTextChild(paxNode, "class", ElemIdToCodeNative(etClsGrp, Qry.FieldAsInteger(col_class_grp)));
                 NewTextChild(paxNode, "seat_no", Qry.FieldAsString(col_seat_no));
                 NewTextChild(paxNode, "document", Qry.FieldAsString(col_document));
                 NewTextChild(paxNode, "ticket_no", Qry.FieldAsString(col_ticket_no));
-                NewTextChild(paxNode, "hall", Qry.FieldAsString(col_hall));
+                NewTextChild(paxNode, "hall", ElemIdToNameLong(etHall, Qry.FieldAsInteger(col_hall)));
 
                 count++;
                 if(count >= MAX_STAT_ROWS) {
@@ -3275,72 +3206,8 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     if(count == 0)
         throw AstraLocale::UserException("MSG.PASSENGERS.NOT_FOUND");
 
-    xmlNodePtr headerNode = NewTextChild(paxListNode, "header");
-    xmlNodePtr colNode;
-
-    colNode = NewTextChild(headerNode, "col", "Рейс");
-    SetProp(colNode, "width", 53);
-    SetProp(colNode, "align", taLeftJustify);
-
-    colNode = NewTextChild(headerNode, "col", "Дата");
-    SetProp(colNode, "width", 61);
-    SetProp(colNode, "align", taLeftJustify);
-
-    colNode = NewTextChild(headerNode, "col", "№");
-    SetProp(colNode, "width", 25);
-    SetProp(colNode, "align", taRightJustify);
-
-    colNode = NewTextChild(headerNode, "col", "Фамилия");
-    SetProp(colNode, "width", 173);
-    SetProp(colNode, "align", taLeftJustify);
-
-    colNode = NewTextChild(headerNode, "col", "П/Н");
-    SetProp(colNode, "width", 32);
-    SetProp(colNode, "align", taLeftJustify);
-
-    colNode = NewTextChild(headerNode, "col", "Мест");
-    SetProp(colNode, "width", 40);
-    SetProp(colNode, "align", taRightJustify);
-
-    colNode = NewTextChild(headerNode, "col", "Вес");
-    SetProp(colNode, "width", 40);
-    SetProp(colNode, "align", taRightJustify);
-
-    colNode = NewTextChild(headerNode, "col", "Р/к");
-    SetProp(colNode, "width", 40);
-    SetProp(colNode, "align", taRightJustify);
-
-    colNode = NewTextChild(headerNode, "col", "Плат");
-    SetProp(colNode, "width", 40);
-    SetProp(colNode, "align", taRightJustify);
-
-    colNode = NewTextChild(headerNode, "col", "Бирки");
-    SetProp(colNode, "width", 163);
-    SetProp(colNode, "align", taLeftJustify);
-
-    colNode = NewTextChild(headerNode, "col", "Статус");
-    SetProp(colNode, "width", 93);
-    SetProp(colNode, "align", taLeftJustify);
-
-    colNode = NewTextChild(headerNode, "col", "Кл.");
-    SetProp(colNode, "width", 25);
-    SetProp(colNode, "align", taLeftJustify);
-
-    colNode = NewTextChild(headerNode, "col", "№ м");
-    SetProp(colNode, "width", 40);
-    SetProp(colNode, "align", taLeftJustify);
-
-    colNode = NewTextChild(headerNode, "col", "Зал");
-    SetProp(colNode, "width", 78);
-    SetProp(colNode, "align", taLeftJustify);
-
-    colNode = NewTextChild(headerNode, "col", "Документ");
-    SetProp(colNode, "width", 114);
-    SetProp(colNode, "align", taLeftJustify);
-
-    colNode = NewTextChild(headerNode, "col", "№ билета");
-    SetProp(colNode, "width", 101);
-    SetProp(colNode, "align", taLeftJustify);
+    xmlNodePtr headerNode = NewTextChild(paxListNode, "header"); // для совместимости со старым терминалом
+    NewTextChild(headerNode, "col", "Рейс");
 
     STAT::set_variables(resNode);
     get_report_form("ArxPaxList", resNode);
