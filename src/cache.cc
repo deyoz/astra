@@ -21,7 +21,7 @@ struct TReferCacheTable
   TElemType ElemType;
 };
 
-const TReferCacheTable ReferCacheTable[11] = { {"COUNTRIES",       etCountry},
+const TReferCacheTable ReferCacheTable[12] = { {"COUNTRIES",       etCountry},
                                                {"CITIES",          etCity},
                                                {"AIRLINES",        etAirline},
                                                {"AIRPS",           etAirp},
@@ -31,7 +31,8 @@ const TReferCacheTable ReferCacheTable[11] = { {"COUNTRIES",       etCountry},
                                                {"TRIP_TYPES",      etTripType},
                                                {"GRAPH_STAGES",    etGraphStage},
                                                {"BAG_NORM_TYPES",  etBagNormType},
-                                               {"CURRENCY",        etCurrency}
+                                               {"CURRENCY",        etCurrency},
+                                               {"MISC_SET_TYPES",  etMiscSetType}
                                              };
 
 using namespace std;
