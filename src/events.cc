@@ -156,8 +156,8 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
                     LParams() << LParam("flight", get_flight(logNode)) //!!!den param 100%error
                     << LParam("day_issue", NodeAsString("day_issue", logNode)
                         )));
-        NewTextChild(logNode, "cap_test", getLocaleText("CAP.TEST", TReqInfo::Instance()->desk.lang));
     }
+    NewTextChild(logNode, "cap_test", getLocaleText("CAP.TEST", TReqInfo::Instance()->desk.lang));
     if(GetNode("LoadForm", reqNode))
             get_report_form("EventsLog", resNode);
     NewTextChild(logNode, "short_page_number_fmt", getLocaleText("CAP.SHORT_PAGE_NUMBER_FMT"));
