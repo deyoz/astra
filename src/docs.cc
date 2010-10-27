@@ -247,29 +247,11 @@ void SeasonListVars(int trip_id, int pr_lat, xmlNodePtr variablesNode, xmlNodePt
 	vector<SEASON::TViewPeriod> viewp;
 	SEASON::ReadTripInfo( trip_id, viewp, GetNode( "seasonvars", reqNode ) );
   for ( vector<SEASON::TViewPeriod>::const_iterator i=viewp.begin(); i!=viewp.end(); i++ ) {
-/*    NewTextChild( variablesNode, "exec", i->exec );
-    NewTextChild( variablesNode, "noexec", i->noexec );*/
     for ( vector<SEASON::TViewTrip>::const_iterator j=i->trips.begin(); j!=i->trips.end(); j++ ) {
-/*    	xmlNodePtr tripsNode = NULL;
-    	if ( !tripsNode )
-        tripsNode = NewTextChild( variablesNode, "trips" );
-      xmlNodePtr tripNode = NewTextChild( tripsNode, "trip" );
-      NewTextChild( tripNode, "move_id", j->move_id );*/
       NewTextChild( variablesNode, "trip", j->name );
-/*      NewTextChild( tripNode, "crafts", j->crafts );
-      NewTextChild( tripNode, "ports", j->ports );
-      if ( j->land > NoExists )
-        NewTextChild( tripNode, "land", DateTimeToStr( j->land ) );
-      if ( j->takeoff > NoExists )
-        NewTextChild( tripNode, "takeoff", DateTimeToStr( j->takeoff ) );*/
       break;
     }
   }
-}
-
-bool ru_desk()
-{
-    return TReqInfo::Instance()->desk.lang == "RU";
 }
 
 void populate_doc_cap(xmlNodePtr variablesNode, string lang)
@@ -365,8 +347,8 @@ void PaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode,
 
 
     NewTextChild(variablesNode, "lang", TReqInfo::Instance()->desk.lang );
-    NewTextChild(variablesNode, "own_airp_name", getLocaleText("CAP.DOC.AIRP_NAME",  LParams() << LParam("airp", ElemIdToElem(etAirp, airp, efmtNameLong, rpt_params.dup_lang())), rpt_params.dup_lang()));
-    NewTextChild(variablesNode, "own_airp_name_lat", getLocaleText("CAP.DOC.AIRP_NAME",  LParams() << LParam("airp", ElemIdToElem(etAirp, airp, efmtNameLong, AstraLocale::LANG_EN)), AstraLocale::LANG_EN));
+    NewTextChild(variablesNode, "own_airp_name", getLocaleText("CAP.DOC.AIRP_NAME",  LParams() << LParam("airp", rpt_params.ElemIdToReportElem(etAirp, airp, efmtNameLong, rpt_params.dup_lang())), rpt_params.dup_lang()));
+    NewTextChild(variablesNode, "own_airp_name_lat", getLocaleText("CAP.DOC.AIRP_NAME",  LParams() << LParam("airp", rpt_params.ElemIdToReportElem(etAirp, airp, efmtNameLong, AstraLocale::LANG_EN)), AstraLocale::LANG_EN));
     TAirpsRow &airpRow = (TAirpsRow&)base_tables.get("AIRPS").get_row("code",airp);
     NewTextChild(variablesNode, "airp_dep_name", rpt_params.ElemIdToReportElem(etAirp, airp, efmtNameLong));
     NewTextChild(variablesNode, "airp_dep_city", rpt_params.ElemIdToReportElem(etCity, airpRow.city, efmtCodeNative));
@@ -471,28 +453,6 @@ string TRptParams::ElemIdToReportElem(TElemType type, int id, TElemFmt fmt, stri
   getElemFmts(fmt, lang, fmts);
   return ElemIdToElem(type, id, fmts, true);
 };
-
-int GetRPEncoding(const TRptParams &rpt_params)
-{
-    int result = 0;
-    if(ru_desk()) {
-        TBaseTable &airps = base_tables.get("AIRPS");
-        TBaseTable &cities = base_tables.get("CITIES");
-        //определяем encoding по всему маршруту! независимо от фильтра по аэропорту
-        TTripRoute route;
-        if (!route.GetRouteAfter(rpt_params.point_id,trtWithCurrent,trtNotCancelled))
-            throw Exception("TTripRoute::GetRouteAfter: flight not found for point_id %d", rpt_params.point_id);
-        for(vector<TTripRouteItem>::iterator iv = route.begin(); iv != route.end(); iv++)
-        {
-            ProgTrace(TRACE5, "%s", cities.get_row("code",
-                        airps.get_row("code",iv->airp).AsString("city")).AsString("country").c_str());
-            result = result or cities.get_row("code",
-                    airps.get_row("code",iv->airp).AsString("city")).AsString("country") != "РФ";
-        };
-    } else
-        result = 1;
-    return result;
-}
 
 
 string get_last_target(TQuery &Qry, TRptParams &rpt_params)
@@ -2254,12 +2214,11 @@ void NOTPRES(TRptParams &rpt_params, xmlNodePtr resNode)
 void NOTPRESTXT(TRptParams &rpt_params, xmlNodePtr resNode)
 {
     NOTPRES(rpt_params, resNode);
-    bool lat = GetRPEncoding(rpt_params)!=0;
 
     xmlNodePtr variablesNode=NodeAsNode("form_data/variables",resNode);
     xmlNodePtr dataSetsNode=NodeAsNode("form_data/datasets",resNode);
     int page_width=80;
-    int max_symb_count=lat?page_width:60;
+    int max_symb_count=rpt_params.IsInter()?page_width:60;
     NewTextChild(variablesNode, "page_width", page_width);
     NewTextChild(variablesNode, "test_server", get_test_server());
     NewTextChild(variablesNode, "test_str", get_test_str(page_width, rpt_params.GetLang()));
@@ -2757,7 +2716,7 @@ void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
                 s
                     << left << setw(8) << (!fields["user_descr"].empty() ? *(fields["user_descr"].begin()) : "") << col_sym;
             s
-                << right <<  setw(3) << (row == 0 ? NodeAsString("pers_type", rowNode, ElemIdToCodeNative(etPersType, EncodePerson(adult)).c_str()) : "") << col_sym;
+                << right <<  setw(3) << (row == 0 ? NodeAsString("pers_type", rowNode) : "") << col_sym;
             if(pr_web) {
                 s
                     << left <<  setw(8) << (row == 0 ? NodeAsString("seat_no", rowNode, "") : "") << col_sym;
