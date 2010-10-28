@@ -741,7 +741,7 @@ string ElemIdToElem(TElemType type, int id, const vector< pair<TElemFmt,string> 
     //не base_table
     switch(type)
     {
-      case etHall: Qry.SQLText="SELECT name,nvl(name_lat, system.transliter(name, 1, 1)) name_lat FROM halls2 WHERE id=:id"; break; // !!! а надо ли транслитер
+      case etHall: Qry.SQLText="SELECT name,name_lat FROM halls2 WHERE id=:id"; break;
       default: throw Exception("Unexpected elem type %s", EncodeElemType(type));
     };
     Qry.CreateVariable("id",otInteger,id);
