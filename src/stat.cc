@@ -1469,7 +1469,7 @@ xmlNodePtr STAT::set_variables(xmlNodePtr resNode, string lang)
             reqInfo->user.sets.time == ustTimeLocalDesk ||
             reqInfo->user.sets.time == ustTimeLocalAirp
            )
-        tz = "(" + reqInfo->desk.city + ")";
+        tz = "(" + ElemIdToCodeNative(etCity, reqInfo->desk.city) + ")";
 
     NewTextChild(variablesNode, "print_date",
             DateTimeToStr(issued, "dd.mm.yyyy hh:nn:ss ") + tz);
