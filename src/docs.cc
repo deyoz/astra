@@ -2885,7 +2885,7 @@ void DocsInterface::GetZoneList(int point_id, xmlNodePtr dataNode)
         xmlNodePtr itemNode = NewTextChild(ckin_zonesNode, "item");
         if(iv->empty()) {
             NewTextChild(itemNode, "code");
-            NewTextChild(itemNode, "name", "Др. залы");
+            NewTextChild(itemNode, "name", getLocaleText("Др. залы"));
         } else if(*iv == ALL_CKIN_ZONES) {
             NewTextChild(itemNode, "code", *iv);
             NewTextChild(itemNode, "name");
