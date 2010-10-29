@@ -1187,11 +1187,12 @@ void PTM(TRptParams &rpt_params, xmlNodePtr resNode)
     NewTextChild(variablesNode, "airp_dep_name", rpt_params.ElemIdToReportElem(etAirp, airp, efmtNameLong));
     NewTextChild(variablesNode, "airline_name", rpt_params.ElemIdToReportElem(etAirline, airline, efmtNameLong));
 
-    NewTextChild(variablesNode, "flt",
-            rpt_params.ElemIdToReportElem(etAirline, airline, airline_fmt) +
-            IntToString(flt_no) +
-            rpt_params.ElemIdToReportElem(etSuffix, suffix, suffix_fmt)
-            );
+    ostringstream flt;
+    flt
+        << rpt_params.ElemIdToReportElem(etAirline, airline, airline_fmt)
+        << setw(3) << setfill('0') << flt_no
+        << rpt_params.ElemIdToReportElem(etSuffix, suffix, suffix_fmt);
+    NewTextChild(variablesNode, "flt", flt.str());
     NewTextChild(variablesNode, "bort", Qry.FieldAsString("bort"));
     NewTextChild(variablesNode, "craft", rpt_params.ElemIdToReportElem(etCraft, craft, craft_fmt));
     NewTextChild(variablesNode, "park", Qry.FieldAsString("park"));
@@ -1602,11 +1603,12 @@ void BTM(TRptParams &rpt_params, xmlNodePtr resNode)
     NewTextChild(variablesNode, "own_airp_name_lat", getLocaleText("CAP.DOC.AIRP_NAME",  LParams() << LParam("airp", rpt_params.ElemIdToReportElem(etAirp, airp, efmtNameLong, AstraLocale::LANG_EN)), AstraLocale::LANG_EN));
     NewTextChild(variablesNode, "airp_dep_name", rpt_params.ElemIdToReportElem(etAirp, airp, efmtNameLong));
     NewTextChild(variablesNode, "airline_name", rpt_params.ElemIdToReportElem(etAirline, airline, efmtNameLong));
-    NewTextChild(variablesNode, "flt",
-            rpt_params.ElemIdToReportElem(etAirline, airline, airline_fmt) +
-            IntToString(flt_no) +
-            rpt_params.ElemIdToReportElem(etSuffix, suffix, suffix_fmt)
-            );
+    ostringstream flt;
+    flt
+        << rpt_params.ElemIdToReportElem(etAirline, airline, airline_fmt)
+        << setw(3) << setfill('0') << flt_no
+        << rpt_params.ElemIdToReportElem(etSuffix, suffix, suffix_fmt);
+    NewTextChild(variablesNode, "flt", flt.str());
     NewTextChild(variablesNode, "bort", Qry.FieldAsString("bort"));
     NewTextChild(variablesNode, "craft", rpt_params.ElemIdToReportElem(etCraft, craft, craft_fmt));
     NewTextChild(variablesNode, "park", Qry.FieldAsString("park"));
