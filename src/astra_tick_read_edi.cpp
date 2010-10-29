@@ -916,16 +916,8 @@ void FormOfIdEdiR::operator ( )(ReaderData &RData, std::list< FormOfId > & lfoid
 
             std::string DocNum = GetDBNum(pMes,1154);
             std::string Owner  = GetDBNum(pMes,3036);
-
-            if(DocNum.length() > FormOfId::MaxNumberLen)
-            {
-                throw Exception("Invalid FOID document length");
-            }
-
-            if(Owner.length() > FormOfId::MaxOwnerLen)
-            {
-                throw Exception("Invalid FOID owner length");
-            }
+            DocNum = DocNum.substr(0, FormOfId::MaxNumberLen);
+            Owner  = Owner.substr(0, FormOfId::MaxOwnerLen);
 
             lfoid.push_back(FormOfId(TFoid, DocNum, Owner));
             PopEdiPoint_wdG(pMes);
@@ -950,19 +942,22 @@ void FrequentPassEdiR::operator () (ReaderData &RData, list<FrequentPass> &lFti)
         return;
     }
 
+    PushEdiPointG(pMes); // на FTI
     unsigned num = GetNumComposite(pMes, "C326", "INV_FTI");
-    for(unsigned i=0;i<num;i++){
+    for(unsigned i=0;i<num;i++)
+    {
         SetEdiPointToCompositeG(pMes, "C326",i, "PROG_ERR");
 
-        string comp = GetDBNum(pMes, 9906,0, "INV_FTI");
-        string docnum = GetDBNum(pMes, 9948,0, "INV_FTI");
-        if(docnum.size() > 20 || docnum.size() < 1){
-            ProgError(STDLOG, "Bad length of FQTV number len=%d, num=%s",
-                                   docnum.size(), docnum.c_str());
-            throw Exception("Bad length of FQTV number");
-        }
-        lFti.push_back(FrequentPass(Data.currTicket().first, Data.currCoupon(), comp, docnum));
+        string comp = GetDBNum(pMes, 9906,0);
+        string docnum = GetDBNum(pMes, 9948,0);
+        docnum = docnum.substr(0, 20);
+
+        if(!docnum.empty())
+            lFti.push_back(FrequentPass(Data.currTicket().first, Data.currCoupon(), comp, docnum));
+
+        PopEdiPoint_wdG(pMes);
     }
+    PopEdiPointG(pMes);
     PopEdiPointG(pMes);
 }
 
