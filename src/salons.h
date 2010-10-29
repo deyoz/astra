@@ -265,6 +265,7 @@ class TSalons {
     };
 
     bool getLatSeat() { return pr_lat_seat; };
+    void BuildLayersInfo( xmlNodePtr salonsNode );
     void Build( xmlNodePtr salonsNode );
     void Read( );
     void Write( );

@@ -222,6 +222,46 @@ void TSalons::SetCurrPlaceList( TPlaceList *newPlaceList )
   FCurrPlaceList = newPlaceList;
 }
 
+void TSalons::BuildLayersInfo( xmlNodePtr salonsNode )
+{
+  xmlNodePtr editNode = NewTextChild( salonsNode, "layers_prop" );
+  TReqInfo *r = TReqInfo::Instance();
+  for( map<TCompLayerType,TLayerProp>::iterator i=layers_priority.begin(); i!=layers_priority.end(); i++ ) {
+  	xmlNodePtr n = NewTextChild( editNode, "layer", EncodeCompLayerType( i->first ) );
+  	SetProp( n, "name", i->second.name );
+  	SetProp( n, "priority", i->second.priority );
+  	if ( i->second.editable ) { // надо еще проверить на права редактирования того или иного слоя
+  		bool pr_edit = true;
+    	if ( (i->first == cltBlockTrzt || i->first == cltProtTrzt )&&
+  		   find( r->user.access.rights.begin(),  r->user.access.rights.end(), 430 ) == r->user.access.rights.end() )
+  		  pr_edit = false;
+  	if ( i->first == cltBlockCent &&
+  		   find( r->user.access.rights.begin(),  r->user.access.rights.end(), 420 ) == r->user.access.rights.end() )
+   	  pr_edit = false;
+    if ( (i->first == cltUncomfort || i->first == cltProtect || i->first == cltSmoke) &&
+    	   find( r->user.access.rights.begin(),  r->user.access.rights.end(), 410 ) == r->user.access.rights.end() )
+    	pr_edit = false;
+    	if ( pr_edit ) {
+  		  SetProp( n, "edit", 1 );
+  		  if ( i->first == cltSmoke || i->first == cltUncomfort )
+  		  	SetProp( n, "base_edit", 1 );
+  		}
+  	}
+  	if ( i->second.notfree )
+  		SetProp( n, "notfree", 1 );
+  	if ( !i->second.name_view.empty() ) {
+  		SetProp( n, "name_view_help", i->second.name_view );
+  		if ( !i->second.func_key.empty() )
+  			SetProp( n, "func_key", i->second.func_key );
+  	}
+  }
+ 	xmlNodePtr n = NewTextChild( editNode, "layer",  EncodeCompLayerType( cltUnknown ) );
+ 	SetProp( n, "name", "LAYER_CLEAR_ALL" );
+ 	SetProp( n, "priority", 10000 );
+ 	SetProp( n, "edit", 1 );
+  SetProp( n, "name_view_help", AstraLocale::getLocaleText("Очистить все статусы мест") );
+  SetProp( n, "func_key", "Shift+F8" );
+}
 
 void TSalons::Build( xmlNodePtr salonsNode )
 {
@@ -279,43 +319,9 @@ void TSalons::Build( xmlNodePtr salonsNode )
     SetProp( placeListNode, "xcount", xcount + 1 );
     SetProp( placeListNode, "ycount", ycount + 1 );
   }
-  xmlNodePtr editNode = NewTextChild( salonsNode, "layers_prop" );
-  TReqInfo *r = TReqInfo::Instance();
-  for( map<TCompLayerType,TLayerProp>::iterator i=layers_priority.begin(); i!=layers_priority.end(); i++ ) {
-  	xmlNodePtr n = NewTextChild( editNode, "layer", EncodeCompLayerType( i->first ) );
-  	SetProp( n, "name", i->second.name );
-  	SetProp( n, "priority", i->second.priority );
-  	if ( i->second.editable ) { // надо еще проверить на права редактирования того или иного слоя
-  		bool pr_edit = true;
-    	if ( (i->first == cltBlockTrzt || i->first == cltProtTrzt )&&
-  		   find( r->user.access.rights.begin(),  r->user.access.rights.end(), 430 ) == r->user.access.rights.end() )
-  		  pr_edit = false;
-  	if ( i->first == cltBlockCent &&
-  		   find( r->user.access.rights.begin(),  r->user.access.rights.end(), 420 ) == r->user.access.rights.end() )
-   	  pr_edit = false;
-    if ( (i->first == cltUncomfort || i->first == cltProtect || i->first == cltSmoke) &&
-    	   find( r->user.access.rights.begin(),  r->user.access.rights.end(), 410 ) == r->user.access.rights.end() )
-    	pr_edit = false;
-    	if ( pr_edit ) {
-  		  SetProp( n, "edit", 1 );
-  		  if ( i->first == cltSmoke || i->first == cltUncomfort )
-  		  	SetProp( n, "base_edit", 1 );
-  		}
-  	}
-  	if ( i->second.notfree )
-  		SetProp( n, "notfree", 1 );
-  	if ( !i->second.name_view.empty() ) {
-  		SetProp( n, "name_view_help", i->second.name_view );
-  		if ( !i->second.func_key.empty() )
-  			SetProp( n, "func_key", i->second.func_key );
-  	}
+  if ( readStyle == rTripSalons ) {
+  	BuildLayersInfo( salonsNode );
   }
- 	xmlNodePtr n = NewTextChild( editNode, "layer",  EncodeCompLayerType( cltUnknown ) );
- 	SetProp( n, "name", "LAYER_CLEAR_ALL" );
- 	SetProp( n, "priority", 10000 );
- 	SetProp( n, "edit", 1 );
-  SetProp( n, "name_view_help", AstraLocale::getLocaleText("Очистить все статусы мест") );
-  SetProp( n, "func_key", "Shift+F8" );
 }
 
 void TSalons::Write()

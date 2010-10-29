@@ -338,6 +338,10 @@ void SalonFormInterface::ComponShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
   xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
   SALONS2::GetCompParams( comp_id, dataNode );
   Salons.Build( salonsNode );
+  if ( xmlNodePtr pNode = GetNode( "point_id", reqNode ) ) {
+    SALONS2::TSalons SalonsL( NodeAsInteger( pNode ), SALONS2::rTripSalons );
+    	SalonsL.BuildLayersInfo( salonsNode );
+  }
 }
 
 
@@ -693,7 +697,6 @@ void SalonFormInterface::DropSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 void SalonFormInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   ChangeSeats( reqNode, resNode, SEATS2::stReseat );
-
 };
 
 void SalonFormInterface::DeleteProtCkinSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
