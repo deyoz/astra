@@ -433,9 +433,9 @@ void CouponXmlView::operator () (ViewerData &Data, const list<Coupon> &lcpn) con
 
     ostringstream ebd;
     if(itin.luggage().haveLuggage()){
-        ebd<<itin.luggage()->quantity()<<itin.luggage()->code();
+        ebd<<itin.luggage()->quantity()<<AstraLocale::getLocaleText(itin.luggage()->code());
     } else {
-        ebd<<"…’";
+        ebd<<AstraLocale::getLocaleText("…’");
     }
     xmlSetProp(xmlNewTextChild(rowNode,NULL,"lugg_norm",ebd.str()),"index",col_num++); // ®à¬  ¡ £ ¦ 
 

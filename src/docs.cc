@@ -1206,8 +1206,8 @@ void PTM(TRptParams &rpt_params, xmlNodePtr resNode)
 
     NewTextChild(variablesNode, "pr_vip", 2);
     string pr_brd_pax_str = (string)"ПАССАЖИРЫ " + (rpt_params.pr_brd ? "(посаж)" : "(зарег)");
-    NewTextChild(variablesNode, "pr_brd_pax_lat", getLocaleText(pr_brd_pax_str, AstraLocale::LANG_EN));
     NewTextChild(variablesNode, "pr_brd_pax", getLocaleText(pr_brd_pax_str, rpt_params.dup_lang()));
+    NewTextChild(variablesNode, "pr_brd_pax_lat", getLocaleText(pr_brd_pax_str, AstraLocale::LANG_EN));
     populate_doc_cap(variablesNode, rpt_params.GetLang());
     STAT::set_variables(resNode, rpt_params.GetLang());
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str()); //!!!
@@ -1630,8 +1630,8 @@ void BTM(TRptParams &rpt_params, xmlNodePtr resNode)
     TDateTime issued = UTCToLocal(NowUTC(),TReqInfo::Instance()->desk.tz_region);
     NewTextChild(variablesNode, "date_issue", DateTimeToStr(issued, "dd.mm.yy hh:nn", rpt_params.IsInter()));
     string pr_brd_pax_str = (string)"Номера багажных бирок " + (rpt_params.pr_brd ? "(посаж)" : "(зарег)");
-    NewTextChild(variablesNode, "pr_brd_pax_lat", getLocaleText(pr_brd_pax_str, AstraLocale::LANG_EN));
     NewTextChild(variablesNode, "pr_brd_pax", getLocaleText(pr_brd_pax_str, rpt_params.dup_lang()));
+    NewTextChild(variablesNode, "pr_brd_pax_lat", getLocaleText(pr_brd_pax_str, AstraLocale::LANG_EN));
     if(rpt_params.ckin_zone != ALL_CKIN_ZONES) {
         NewTextChild(variablesNode, "zone", get_hall_list(airp, rpt_params));
     } else
