@@ -118,7 +118,7 @@ void GetSystemLogStationSQL(TQuery &Qry)
         SQLText += getLocaleText(SYSTEM_USER);
     else
         SQLText += SYSTEM_USER;
-    SQLText += 
+    SQLText +=
         "' station, 0 view_order from dual "
         "union "
         "select 1, code, 1 from desks where "
@@ -139,7 +139,7 @@ void GetSystemLogModuleSQL(TQuery &Qry)
         SQLText += getLocaleText(SYSTEM_USER);
     else
         SQLText += SYSTEM_USER;
-    SQLText += 
+    SQLText +=
         "' module, 0 view_order from dual "
         "union "
         "select id, name, view_order from screen where view_order is not null order by view_order";
@@ -1489,116 +1489,20 @@ xmlNodePtr STAT::set_variables(xmlNodePtr resNode, string lang)
     return variablesNode;
 }
 
-struct TFullStatRow {
-    int pax_amount;
-    int web;
-    int kiosk;
-    int adult;
-    int child;
-    int baby;
-    int rk_weight;
-    int bag_amount;
-    int bag_weight;
-    int excess;
-    TFullStatRow():
-        pax_amount(NoExists),
-        web(NoExists),
-        kiosk(NoExists),
-        adult(NoExists),
-        child(NoExists),
-        baby(NoExists),
-        rk_weight(NoExists),
-        bag_amount(NoExists),
-        bag_weight(NoExists),
-        excess(NoExists)
-    {}
-};
-
-struct TStatPlaces {
-    private:
-        string result;
-    public:
-        void set(string aval, bool pr_locale = true);
-        string get() const;
-};
-
-void TStatPlaces::set(string aval, bool pr_locale)
-{
-    if(not result.empty())
-        throw Exception("TStatPlaces::set(): already set");
-    if(pr_locale) {
-        vector<string> tokens;
-        while(true) {
-            size_t idx = aval.find('-');
-            if(idx == string::npos) break;
-            tokens.push_back(aval.substr(0, idx));
-            aval.erase(0, idx + 1);
-        }
-        tokens.push_back(aval);
-        for(vector<string>::iterator is = tokens.begin(); is != tokens.end(); is++)
-            result += (result.empty() ? "" : "-") + ElemIdToCodeNative(etAirp, *is);
-    } else
-        result = aval;
-}
-
-string TStatPlaces::get() const
-{
-    return result;
-}
-
-struct TFullStatKey {
-    string seance, col1, col2;
-    string airp; // в сортировке не участвует, нужен для AirpTZRegion
-    int flt_no;
-    TDateTime scd_out;
-    int point_id;
-    TStatPlaces places;
-    TFullStatKey():
-        flt_no(NoExists),
-        scd_out(NoExists),
-        point_id(NoExists)
-    {}
-};
-struct TFullCmp {
-    bool operator() (const TFullStatKey &lr, const TFullStatKey &rr) const
-    {
-        if(lr.seance == rr.seance)
-            if(lr.col1 == rr.col1)
-                if(lr.col2 == rr.col2)
-                    if(lr.flt_no == rr.flt_no)
-                        if(lr.scd_out == rr.scd_out)
-                            if(lr.point_id == rr.point_id)
-                                return lr.places.get() < rr.places.get();
-                            else
-                                return lr.point_id < rr.point_id;
-                        else
-                            return lr.scd_out < rr.scd_out;
-                    else
-                        return lr.flt_no < rr.flt_no;
-                else
-                    return lr.col2 < rr.col2;
-            else
-                return lr.col1 < rr.col1;
-        else
-            return lr.seance < rr.seance;
-    };
-};
-typedef map<TFullStatKey, TFullStatRow, TFullCmp> TFullStat;
-
 enum TStatType { statTrferFull, statFull, statShort, statDetail };
 
 enum TSeanceType { seanceAirline, seanceAirport, seanceAll };
 
 struct TStatParams {
-    string ak, ap;
+    vector<string> airlines,airps;
+    bool airlines_permit,airps_permit;
+    bool airp_column_first;
     TSeanceType seance;
     void get(TQuery &Qry, xmlNodePtr resNode);
 };
 
 string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_arx)
 {
-    TReqInfo &info = *(TReqInfo::Instance());
-
     if (!pr_arx)
     {
         string mainSQLText =
@@ -1649,7 +1553,7 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
         };
         if (statType==statShort)
         {
-            if(params.ap.size())
+            if(params.airp_column_first)
                 mainSQLText +=
                     "    points.airp,  \n";
             else
@@ -1688,9 +1592,9 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
           mainSQLText += ", trip_sets \n";
         else
         {
-          if(!params.ap.empty() && params.seance==seanceAirport)
+          if(params.seance==seanceAirport)
               mainSQLText += ", " + AIRP_PERIODS;
-          if(!params.ak.empty() && params.seance==seanceAirline)
+          if(params.seance==seanceAirline)
               mainSQLText += ", " + AIRLINE_PERIODS;
         };
         mainSQLText +=
@@ -1719,39 +1623,50 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
         }
         else
         {
-          if (!params.ap.empty() && params.seance==seanceAirport ||
-              !params.ak.empty() && params.seance==seanceAirline)
+          if (params.seance==seanceAirport ||
+              params.seance==seanceAirline)
               mainSQLText +=
                   "  points.scd_out >= periods.period_first_date AND points.scd_out < periods.period_last_date  \n";
           else
               mainSQLText +=
                   "  points.scd_out >= :FirstDate AND points.scd_out < :LastDate \n";
         };
-        if (!info.user.access.airps.empty()) {
-            if (info.user.access.airps_permit)
-                mainSQLText += " AND points.airp IN "+GetSQLEnum(info.user.access.airps);
-            else
-                mainSQLText += " AND points.airp NOT IN "+GetSQLEnum(info.user.access.airps);
+        if (!USE_SEANCES() && params.seance==seanceAirport)
+        {
+          mainSQLText +=
+              " AND points.airp = :ap \n";
         }
-        if (!info.user.access.airlines.empty()) {
-            if (info.user.access.airlines_permit)
-                mainSQLText += " AND points.airline IN "+GetSQLEnum(info.user.access.airlines);
-            else
-                mainSQLText += " AND points.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
+        else
+        {
+          if (!params.airps.empty()) {
+              if (params.airps_permit)
+                  mainSQLText += " AND points.airp IN "+GetSQLEnum(params.airps)+"\n";
+              else
+                  mainSQLText += " AND points.airp NOT IN "+GetSQLEnum(params.airps)+"\n";
+          };
+        };
+
+        if (!USE_SEANCES() && params.seance==seanceAirline)
+        {
+          mainSQLText +=
+              " AND points.airline = :ak \n";
         }
-        if(params.ap.size())
-            mainSQLText +=
-              " and points.airp = :ap \n";
-        if(params.ak.size())
-            mainSQLText +=
-              " and points.airline = :ak \n";
+        else
+        {
+          if (!params.airlines.empty()) {
+              if (params.airlines_permit)
+                  mainSQLText += " AND points.airline IN "+GetSQLEnum(params.airlines)+"\n";
+              else
+                  mainSQLText += " AND points.airline NOT IN "+GetSQLEnum(params.airlines)+"\n";
+          }
+        };
 
         if (!USE_SEANCES())
         {
-          if(!params.ap.empty() && params.seance==seanceAirport)
+          if(params.seance==seanceAirport)
             mainSQLText +=
               " and points.airline not in " + AIRLINE_LIST + "\n";
-          if(!params.ak.empty() && params.seance==seanceAirline)
+          if(params.seance==seanceAirline)
             mainSQLText +=
               " and points.airp in " + AIRP_LIST + "\n";
         };
@@ -1777,7 +1692,7 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
             if (USE_SEANCES())
               mainSQLText +=
                 "  trip_sets.pr_airp_seance, \n";
-            if(params.ap.size())
+            if(params.airp_column_first)
                 mainSQLText +=
                     "    points.airp \n";
             else
@@ -1847,7 +1762,7 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
         };
         if (statType==statShort)
         {
-            if(params.ap.size())
+            if(params.airp_column_first)
                 arxSQLText +=
                     "    arx_points.airp,  \n";
             else
@@ -1886,9 +1801,9 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
           arxSQLText += ", arx_trip_sets \n";
         else
         {
-          if(!params.ap.empty() && params.seance==seanceAirport)
+          if(params.seance==seanceAirport)
               arxSQLText += ", " + AIRP_PERIODS;
-          if(!params.ak.empty() && params.seance==seanceAirline)
+          if(params.seance==seanceAirline)
               arxSQLText += ", " + AIRLINE_PERIODS;
         };
         arxSQLText +=
@@ -1910,8 +1825,8 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
         }
         else
         {
-          if (!params.ap.empty() && params.seance==seanceAirport ||
-              !params.ak.empty() && params.seance==seanceAirline)
+          if (params.seance==seanceAirport ||
+              params.seance==seanceAirline)
             arxSQLText +=
               "  arx_points.part_key >= periods.period_first_date AND arx_points.part_key < periods.period_last_date + :arx_trip_date_range AND "
               "  arx_points.scd_out >= periods.period_first_date AND arx_points.scd_out < periods.period_last_date  AND ";
@@ -1936,31 +1851,42 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
                 "  arx_points.part_key = arx_stat.part_key AND \n"
                 "  arx_points.point_id = arx_stat.point_id \n";
         };
-        if (!info.user.access.airps.empty()) {
-            if (info.user.access.airps_permit)
-                arxSQLText += " AND arx_points.airp IN "+GetSQLEnum(info.user.access.airps);
-            else
-                arxSQLText += " AND arx_points.airp NOT IN "+GetSQLEnum(info.user.access.airps);
-        }
-        if (!info.user.access.airlines.empty()) {
-            if (info.user.access.airlines_permit)
-                arxSQLText += " AND arx_points.airline IN "+GetSQLEnum(info.user.access.airlines);
-            else
-                arxSQLText += " AND arx_points.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
-        }
-        if(params.ap.size())
-            arxSQLText +=
+        if (!USE_SEANCES() && params.seance==seanceAirport)
+        {
+          arxSQLText +=
                 " and arx_points.airp = :ap \n";
-        if(params.ak.size())
-            arxSQLText +=
+        }
+        else
+        {
+          if (!params.airps.empty()) {
+              if (params.airps_permit)
+                  arxSQLText += " AND arx_points.airp IN "+GetSQLEnum(params.airps);
+              else
+                  arxSQLText += " AND arx_points.airp NOT IN "+GetSQLEnum(params.airps);
+          }
+        };
+
+        if (!USE_SEANCES() && params.seance==seanceAirline)
+        {
+          arxSQLText +=
                 " and arx_points.airline = :ak \n";
+        }
+        else
+        {
+          if (!params.airlines.empty()) {
+              if (params.airlines_permit)
+                  arxSQLText += " AND arx_points.airline IN "+GetSQLEnum(params.airlines);
+              else
+                  arxSQLText += " AND arx_points.airline NOT IN "+GetSQLEnum(params.airlines);
+          }
+        };
 
         if (!USE_SEANCES())
         {
-          if(!params.ap.empty() && params.seance==seanceAirport)
+          if(params.seance==seanceAirport)
             arxSQLText +=
               " and arx_points.airline not in " + AIRLINE_LIST + "\n";
-          if(!params.ak.empty() && params.seance==seanceAirline)
+          if(params.seance==seanceAirline)
             arxSQLText +=
               " and arx_points.airp in " + AIRP_LIST + "\n";
         };
@@ -1986,7 +1912,7 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
             if (USE_SEANCES())
               arxSQLText +=
                 "  arx_trip_sets.pr_airp_seance, \n";
-            if(params.ap.size())
+            if(params.airp_column_first)
                 arxSQLText +=
                     "    arx_points.airp \n";
             else
@@ -2034,516 +1960,54 @@ void TPrintAirline::check(string val)
         multi_airlines = true;
 }
 
-void RunTrferFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    TReqInfo &info = *(TReqInfo::Instance());
-    if (info.user.access.airlines.empty() && info.user.access.airlines_permit ||
-            info.user.access.airps.empty() && info.user.access.airps_permit)
-        throw AstraLocale::UserException("MSG.NOT_DATA");
-    get_report_form("TrferFullStat", resNode);
-
-    TQuery Qry(&OraSession);
-    TStatParams params;
-    params.get(Qry, reqNode);
-
-    TDateTime FirstDate = NodeAsDateTime("FirstDate", reqNode);
-    TDateTime LastDate = NodeAsDateTime("LastDate", reqNode);
-    if(IncMonth(FirstDate, 1) < LastDate)
-        throw AstraLocale::UserException("MSG.SEARCH_PERIOD_SHOULD_NOT_EXCEED_ONE_MONTH");
-    Qry.CreateVariable("FirstDate", otDate, FirstDate);
-    Qry.CreateVariable("LastDate", otDate, LastDate);
-    TFullStat FullStat;
-    TPrintAirline airline;
-
-    for(int i = 0; i < 2; i++) {
-        Qry.SQLText = GetStatSQLText(statTrferFull,params,i!=0).c_str();
-        if(i != 0)
-            Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
-        ProgTrace(TRACE5, "RunTrferFullStat: SQL=\n%s", Qry.SQLText.SQLText());
-        Qry.Execute();
-        if(!Qry.Eof) {
-            int col_seance = Qry.FieldIndex("seance");
-            int col_point_id = Qry.FieldIndex("point_id");
-            int col_airp = Qry.FieldIndex("airp");
-            int col_airline = Qry.FieldIndex("airline");
-            int col_pax_amount = Qry.FieldIndex("pax_amount");
-            int col_adult = Qry.FieldIndex("adult");
-            int col_child = Qry.FieldIndex("child");
-            int col_baby = Qry.FieldIndex("baby");
-            int col_rk_weight = Qry.FieldIndex("rk_weight");
-            int col_bag_amount = Qry.FieldIndex("bag_amount");
-            int col_bag_weight = Qry.FieldIndex("bag_weight");
-            int col_excess = Qry.FieldIndex("excess");
-            int col_flt_no = Qry.FieldIndex("flt_no");
-            int col_scd_out = Qry.FieldIndex("scd_out");
-            int col_places = Qry.FieldIndex("places");
-            for(; !Qry.Eof; Qry.Next()) {
-                TFullStatKey key;
-                key.seance = Qry.FieldAsString(col_seance);
-                key.airp = Qry.FieldAsString(col_airp);
-                if(!params.ap.empty()) {
-                    key.col1 = ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp));
-                    key.col2 = ElemIdToCodeNative(etAirline, Qry.FieldAsString(col_airline));
-                    airline.check(key.col2);
-                } else {
-                    key.col1 = ElemIdToCodeNative(etAirline, Qry.FieldAsString(col_airline));
-                    key.col2 = ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp));
-                    airline.check(key.col1);
-                }
-                key.flt_no = Qry.FieldAsInteger(col_flt_no);
-                key.scd_out = Qry.FieldAsDateTime(col_scd_out);
-                key.point_id = Qry.FieldAsInteger(col_point_id);
-                key.places.set(Qry.FieldAsString(col_places));
-                TFullStatRow &row = FullStat[key];
-                if(row.pax_amount == NoExists) {
-                    row.pax_amount = Qry.FieldAsInteger(col_pax_amount);
-                    row.adult = Qry.FieldAsInteger(col_adult);
-                    row.child = Qry.FieldAsInteger(col_child);
-                    row.baby = Qry.FieldAsInteger(col_baby);
-                    row.rk_weight = Qry.FieldAsInteger(col_rk_weight);
-                    row.bag_amount = Qry.FieldAsInteger(col_bag_amount);
-                    row.bag_weight = Qry.FieldAsInteger(col_bag_weight);
-                    row.excess = Qry.FieldAsInteger(col_excess);
-                } else {
-                    row.pax_amount += Qry.FieldAsInteger(col_pax_amount);
-                    row.adult += Qry.FieldAsInteger(col_adult);
-                    row.child += Qry.FieldAsInteger(col_child);
-                    row.baby += Qry.FieldAsInteger(col_baby);
-                    row.rk_weight += Qry.FieldAsInteger(col_rk_weight);
-                    row.bag_amount += Qry.FieldAsInteger(col_bag_amount);
-                    row.bag_weight += Qry.FieldAsInteger(col_bag_weight);
-                    row.excess += Qry.FieldAsInteger(col_excess);
-                }
-            }
-        }
-    }
-
-    if(!FullStat.empty()) {
-        NewTextChild(resNode, "airline", airline.get(), "");
-        xmlNodePtr grdNode = NewTextChild(resNode, "grd");
-        xmlNodePtr headerNode = NewTextChild(grdNode, "header");
-        xmlNodePtr colNode;
-        if(params.ap.size()) {
-            colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/п"));
-            SetProp(colNode, "width", 50);
-            SetProp(colNode, "align", taLeftJustify);
-
-            colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
-            SetProp(colNode, "width", 50);
-            SetProp(colNode, "align", taLeftJustify);
-        } else {
-            colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
-            SetProp(colNode, "width", 50);
-            SetProp(colNode, "align", taLeftJustify);
-
-            colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/п"));
-            SetProp(colNode, "width", 50);
-            SetProp(colNode, "align", taLeftJustify);
-        }
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Номер рейса"));
-        SetProp(colNode, "width", 75);
-        SetProp(colNode, "align", taRightJustify);
-
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Дата"));
-        SetProp(colNode, "width", 50);
-        SetProp(colNode, "align", taLeftJustify);
-
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Направление"));
-        SetProp(colNode, "width", 90);
-        SetProp(colNode, "align", taLeftJustify);
-
-        if (USE_SEANCES())
-        {
-          colNode = NewTextChild(headerNode, "col", getLocaleText("Сеанс"));
-          SetProp(colNode, "width", 40);
-          SetProp(colNode, "align", taLeftJustify);
-        };
-
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во пасс."));
-        SetProp(colNode, "width", 75);
-        SetProp(colNode, "align", taRightJustify);
-
-        colNode = NewTextChild(headerNode, "col", getLocaleText("ВЗ"));
-        SetProp(colNode, "width", 30);
-        SetProp(colNode, "align", taRightJustify);
-
-        colNode = NewTextChild(headerNode, "col", getLocaleText("РБ"));
-        SetProp(colNode, "width", 30);
-        SetProp(colNode, "align", taRightJustify);
-
-        colNode = NewTextChild(headerNode, "col", getLocaleText("РМ"));
-        SetProp(colNode, "width", 30);
-        SetProp(colNode, "align", taRightJustify);
-
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Р/кладь (вес)"));
-        SetProp(colNode, "width", 80);
-        SetProp(colNode, "align", taRightJustify);
-
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Багаж (мест/вес)"));
-        SetProp(colNode, "width", 100);
-        SetProp(colNode, "align", taCenter);
-
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Платн. (вес)"));
-        SetProp(colNode, "width", 70);
-        SetProp(colNode, "align", taRightJustify);
-
-        xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
-        xmlNodePtr rowNode;
-        int total_pax_amount = 0;
-        int total_adult = 0;
-        int total_child = 0;
-        int total_baby = 0;
-        int total_rk_weight = 0;
-        int total_bag_amount = 0;
-        int total_bag_weight = 0;
-        int total_excess = 0;
-        for(TFullStat::iterator im = FullStat.begin(); im != FullStat.end(); im++) {
-            string region;
-            try
-            {
-                region = AirpTZRegion(im->first.airp);
-            }
-            catch(AstraLocale::UserException &E)
-            {
-                AstraLocale::showErrorMessage("MSG.ERR_MSG.NOT_ALL_FLIGHTS_ARE_SHOWN", LParams() << LParam("msg", getLocaleText(E.getLexemaData())));
-                Qry.Next();
-                continue;
-            };
-
-            rowNode = NewTextChild(rowsNode, "row");
-            NewTextChild(rowNode, "col", im->first.col1);
-            NewTextChild(rowNode, "col", im->first.col2);
-
-            total_pax_amount += im->second.pax_amount;
-            total_adult += im->second.adult;
-            total_child += im->second.child;
-            total_baby += im->second.baby;
-            total_rk_weight += im->second.rk_weight;
-            total_bag_amount += im->second.bag_amount;
-            total_bag_weight += im->second.bag_weight;
-            total_excess += im->second.excess;
-
-            NewTextChild(rowNode, "col", im->first.flt_no);
-            NewTextChild(rowNode, "col", DateTimeToStr(
-                        UTCToClient(im->first.scd_out, region), "dd.mm.yy")
-                    );
-            NewTextChild(rowNode, "col", im->first.places.get());
-            if (USE_SEANCES())
-              NewTextChild(rowNode, "col", getLocaleText(im->first.seance));
-            NewTextChild(rowNode, "col", im->second.pax_amount);
-            NewTextChild(rowNode, "col", im->second.adult);
-            NewTextChild(rowNode, "col", im->second.child);
-            NewTextChild(rowNode, "col", im->second.baby);
-            NewTextChild(rowNode, "col", im->second.rk_weight);
-            NewTextChild(rowNode, "col", IntToString(im->second.bag_amount) + "/" + IntToString(im->second.bag_weight));
-            NewTextChild(rowNode, "col", im->second.excess);
-            NewTextChild(rowNode, "col", im->first.point_id);
-        }
-        rowNode = NewTextChild(rowsNode, "row");
-        NewTextChild(rowNode, "col", getLocaleText("Итого:"));
-        NewTextChild(rowNode, "col");
-        NewTextChild(rowNode, "col");
-        NewTextChild(rowNode, "col");
-        NewTextChild(rowNode, "col");
-        if (USE_SEANCES())
-        {
-          NewTextChild(rowNode, "col");
-        };
-        NewTextChild(rowNode, "col", total_pax_amount);
-        NewTextChild(rowNode, "col", total_adult);
-        NewTextChild(rowNode, "col", total_child);
-        NewTextChild(rowNode, "col", total_baby);
-        NewTextChild(rowNode, "col", total_rk_weight);
-        NewTextChild(rowNode, "col", IntToString(total_bag_amount) + "/" + IntToString(total_bag_weight));
-        NewTextChild(rowNode, "col", total_excess);
-    } else
-        throw AstraLocale::UserException("MSG.NOT_DATA");
-    xmlNodePtr variablesNode = STAT::set_variables(resNode);
-    NewTextChild(variablesNode, "caption", getLocaleText("Трансферная сводка"));
-}
-
-void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    TReqInfo &info = *(TReqInfo::Instance());
-    if (info.user.access.airlines.empty() && info.user.access.airlines_permit ||
-            info.user.access.airps.empty() && info.user.access.airps_permit)
-        throw AstraLocale::UserException("MSG.NOT_DATA");
-    get_report_form("FullStat", resNode);
-
-    TQuery Qry(&OraSession);
-    TStatParams params;
-    params.get(Qry, reqNode);
-
-    TDateTime FirstDate = NodeAsDateTime("FirstDate", reqNode);
-    TDateTime LastDate = NodeAsDateTime("LastDate", reqNode);
-    if(IncMonth(FirstDate, 1) < LastDate)
-        throw AstraLocale::UserException("MSG.SEARCH_PERIOD_SHOULD_NOT_EXCEED_ONE_MONTH");
-    Qry.CreateVariable("FirstDate", otDate, FirstDate);
-    Qry.CreateVariable("LastDate", otDate, LastDate);
-    Qry.CreateVariable("web", otString, EncodeClientType(ctWeb));
-    Qry.CreateVariable("kiosk", otString, EncodeClientType(ctKiosk));
-    Qry.CreateVariable( "vlang", otString, TReqInfo::Instance()->desk.lang );
-    TFullStat FullStat;
-    TPrintAirline airline;
-
-    for(int i = 0; i < 2; i++) {
-        Qry.SQLText = GetStatSQLText(statFull,params,i!=0).c_str();
-        if(i != 0)
-            Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
-        ProgTrace(TRACE5, "RunFullStat: SQL=\n%s", Qry.SQLText.SQLText());
-        Qry.Execute();
-        if(!Qry.Eof) {
-            int col_seance = Qry.FieldIndex("seance");
-            int col_point_id = Qry.FieldIndex("point_id");
-            int col_airp = Qry.FieldIndex("airp");
-            int col_airline = Qry.FieldIndex("airline");
-            int col_pax_amount = Qry.FieldIndex("pax_amount");
-            int col_web = Qry.FieldIndex("web");
-            int col_kiosk = Qry.FieldIndex("kiosk");
-            int col_adult = Qry.FieldIndex("adult");
-            int col_child = Qry.FieldIndex("child");
-            int col_baby = Qry.FieldIndex("baby");
-            int col_rk_weight = Qry.FieldIndex("rk_weight");
-            int col_bag_amount = Qry.FieldIndex("bag_amount");
-            int col_bag_weight = Qry.FieldIndex("bag_weight");
-            int col_excess = Qry.FieldIndex("excess");
-            int col_flt_no = Qry.FieldIndex("flt_no");
-            int col_scd_out = Qry.FieldIndex("scd_out");
-            int col_places = Qry.FieldIndex("places");
-            for(; !Qry.Eof; Qry.Next()) {
-                TFullStatKey key;
-                key.seance = Qry.FieldAsString(col_seance);
-                key.airp = Qry.FieldAsString(col_airp);
-                if(!params.ap.empty()) {
-                    key.col1 = ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp));
-                    key.col2 = ElemIdToCodeNative(etAirline, Qry.FieldAsString(col_airline));
-                    airline.check(key.col2);
-                } else {
-                    key.col1 = ElemIdToCodeNative(etAirline, Qry.FieldAsString(col_airline));
-                    key.col2 = ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp));
-                    airline.check(key.col1);
-                }
-                key.flt_no = Qry.FieldAsInteger(col_flt_no);
-                key.scd_out = Qry.FieldAsDateTime(col_scd_out);
-                key.point_id = Qry.FieldAsInteger(col_point_id);
-                key.places.set(Qry.FieldAsString(col_places), false);
-                TFullStatRow &row = FullStat[key];
-                if(row.pax_amount == NoExists) {
-                    row.pax_amount = Qry.FieldAsInteger(col_pax_amount);
-                    row.web = Qry.FieldAsInteger(col_web);
-                    row.kiosk = Qry.FieldAsInteger(col_kiosk);
-                    row.adult = Qry.FieldAsInteger(col_adult);
-                    row.child = Qry.FieldAsInteger(col_child);
-                    row.baby = Qry.FieldAsInteger(col_baby);
-                    row.rk_weight = Qry.FieldAsInteger(col_rk_weight);
-                    row.bag_amount = Qry.FieldAsInteger(col_bag_amount);
-                    row.bag_weight = Qry.FieldAsInteger(col_bag_weight);
-                    row.excess = Qry.FieldAsInteger(col_excess);
-                } else {
-                    row.pax_amount += Qry.FieldAsInteger(col_pax_amount);
-                    row.web += Qry.FieldAsInteger(col_web);
-                    row.kiosk += Qry.FieldAsInteger(col_kiosk);
-                    row.adult += Qry.FieldAsInteger(col_adult);
-                    row.child += Qry.FieldAsInteger(col_child);
-                    row.baby += Qry.FieldAsInteger(col_baby);
-                    row.rk_weight += Qry.FieldAsInteger(col_rk_weight);
-                    row.bag_amount += Qry.FieldAsInteger(col_bag_amount);
-                    row.bag_weight += Qry.FieldAsInteger(col_bag_weight);
-                    row.excess += Qry.FieldAsInteger(col_excess);
-                }
-            }
-        }
-    }
-
-    if(!FullStat.empty()) {
-        NewTextChild(resNode, "airline", airline.get(), "");
-        xmlNodePtr grdNode = NewTextChild(resNode, "grd");
-        xmlNodePtr headerNode = NewTextChild(grdNode, "header");
-        xmlNodePtr colNode;
-        if(params.ap.size()) {
-            colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/п"));
-            SetProp(colNode, "width", 50);
-            SetProp(colNode, "align", taLeftJustify);
-
-            colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
-            SetProp(colNode, "width", 50);
-            SetProp(colNode, "align", taLeftJustify);
-        } else {
-            colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
-            SetProp(colNode, "width", 50);
-            SetProp(colNode, "align", taLeftJustify);
-
-            colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/п"));
-            SetProp(colNode, "width", 50);
-            SetProp(colNode, "align", taLeftJustify);
-        }
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Номер рейса"));
-        SetProp(colNode, "width", 75);
-        SetProp(colNode, "align", taRightJustify);
-
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Дата"));
-        SetProp(colNode, "width", 50);
-        SetProp(colNode, "align", taLeftJustify);
-
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Направление"));
-        SetProp(colNode, "width", 90);
-        SetProp(colNode, "align", taLeftJustify);
-
-        if (USE_SEANCES())
-        {
-          colNode = NewTextChild(headerNode, "col", getLocaleText("Сеанс"));
-          SetProp(colNode, "width", 40);
-          SetProp(colNode, "align", taLeftJustify);
-        };
-
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во пасс."));
-        SetProp(colNode, "width", 75);
-        SetProp(colNode, "align", taRightJustify);
-
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Web"));
-        SetProp(colNode, "width", 35);
-        SetProp(colNode, "align", taRightJustify);
-
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Киоски"));
-        SetProp(colNode, "width", 40);
-        SetProp(colNode, "align", taRightJustify);
-
-        colNode = NewTextChild(headerNode, "col", getLocaleText("ВЗ"));
-        SetProp(colNode, "width", 30);
-        SetProp(colNode, "align", taRightJustify);
-
-        colNode = NewTextChild(headerNode, "col", getLocaleText("РБ"));
-        SetProp(colNode, "width", 30);
-        SetProp(colNode, "align", taRightJustify);
-
-        colNode = NewTextChild(headerNode, "col", getLocaleText("РМ"));
-        SetProp(colNode, "width", 30);
-        SetProp(colNode, "align", taRightJustify);
-
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Р/кладь (вес)"));
-        SetProp(colNode, "width", 80);
-        SetProp(colNode, "align", taRightJustify);
-
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Багаж (мест/вес)"));
-        SetProp(colNode, "width", 100);
-        SetProp(colNode, "align", taCenter);
-
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Платн. (вес)"));
-        SetProp(colNode, "width", 70);
-        SetProp(colNode, "align", taRightJustify);
-
-        xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
-        xmlNodePtr rowNode;
-        int total_pax_amount = 0;
-        int total_web = 0;
-        int total_kiosk = 0;
-        int total_adult = 0;
-        int total_child = 0;
-        int total_baby = 0;
-        int total_rk_weight = 0;
-        int total_bag_amount = 0;
-        int total_bag_weight = 0;
-        int total_excess = 0;
-        for(TFullStat::iterator im = FullStat.begin(); im != FullStat.end(); im++) {
-            string region;
-            try
-            {
-                region = AirpTZRegion(im->first.airp);
-            }
-            catch(AstraLocale::UserException &E)
-            {
-                AstraLocale::showErrorMessage("MSG.ERR_MSG.NOT_ALL_FLIGHTS_ARE_SHOWN", LParams() << LParam("msg", getLocaleText(E.getLexemaData())));
-                continue;
-            };
-
-            rowNode = NewTextChild(rowsNode, "row");
-            NewTextChild(rowNode, "col", im->first.col1);
-            NewTextChild(rowNode, "col", im->first.col2);
-
-            total_pax_amount += im->second.pax_amount;
-            total_web += im->second.web;
-            total_kiosk += im->second.kiosk;
-            total_adult += im->second.adult;
-            total_child += im->second.child;
-            total_baby += im->second.baby;
-            total_rk_weight += im->second.rk_weight;
-            total_bag_amount += im->second.bag_amount;
-            total_bag_weight += im->second.bag_weight;
-            total_excess += im->second.excess;
-
-            NewTextChild(rowNode, "col", im->first.flt_no);
-            NewTextChild(rowNode, "col", DateTimeToStr(
-                        UTCToClient(im->first.scd_out, region), "dd.mm.yy")
-                    );
-            NewTextChild(rowNode, "col", im->first.places.get());
-            if (USE_SEANCES())
-              NewTextChild(rowNode, "col", getLocaleText(im->first.seance));
-            NewTextChild(rowNode, "col", im->second.pax_amount);
-            NewTextChild(rowNode, "col", im->second.web);
-            NewTextChild(rowNode, "col", im->second.kiosk);
-            NewTextChild(rowNode, "col", im->second.adult);
-            NewTextChild(rowNode, "col", im->second.child);
-            NewTextChild(rowNode, "col", im->second.baby);
-            NewTextChild(rowNode, "col", im->second.rk_weight);
-            NewTextChild(rowNode, "col", IntToString(im->second.bag_amount) + "/" + IntToString(im->second.bag_weight));
-            NewTextChild(rowNode, "col", im->second.excess);
-        }
-        rowNode = NewTextChild(rowsNode, "row");
-        NewTextChild(rowNode, "col", getLocaleText("Итого:"));
-        NewTextChild(rowNode, "col");
-        NewTextChild(rowNode, "col");
-        NewTextChild(rowNode, "col");
-        NewTextChild(rowNode, "col");
-        if (USE_SEANCES())
-        {
-          NewTextChild(rowNode, "col");
-        };
-        NewTextChild(rowNode, "col", total_pax_amount);
-        NewTextChild(rowNode, "col", total_web);
-        NewTextChild(rowNode, "col", total_kiosk);
-        NewTextChild(rowNode, "col", total_adult);
-        NewTextChild(rowNode, "col", total_child);
-        NewTextChild(rowNode, "col", total_baby);
-        NewTextChild(rowNode, "col", total_rk_weight);
-        NewTextChild(rowNode, "col", IntToString(total_bag_amount) + "/" + IntToString(total_bag_weight));
-        NewTextChild(rowNode, "col", total_excess);
-    } else
-        throw AstraLocale::UserException("MSG.NOT_DATA");
-    xmlNodePtr variablesNode = STAT::set_variables(resNode);
-    NewTextChild(variablesNode, "caption", getLocaleText("Подробная сводка"));
-}
-
-struct TShortStatRow {
-    int flt_amount, pax_amount, web, kiosk;
-    TShortStatRow():
-        flt_amount(NoExists),
-        pax_amount(NoExists),
-        web(NoExists),
-        kiosk(NoExists)
-    {}
-};
-struct TShortStatKey {
-    string seance, col1;
-};
-struct TShortCmp {
-    bool operator() (const TShortStatKey &lr, const TShortStatKey &rr) const
-    {
-        if(lr.seance == rr.seance)
-            return lr.col1 < rr.col1;
-        else
-            return lr.seance < rr.seance;
-    };
-};
-typedef map<TShortStatKey, TShortStatRow, TShortCmp> TShortStat;
-
 void TStatParams::get(TQuery &Qry, xmlNodePtr reqNode)
 {
+    TReqInfo &info = *(TReqInfo::Instance());
+
     xmlNodePtr curNode = reqNode->children;
 
-    ak = NodeAsStringFast("ak", curNode);
-    ap = NodeAsStringFast("ap", curNode);
-    if (!ap.empty()) Qry.CreateVariable("ap", otString, ap);
-    if (!ak.empty()) Qry.CreateVariable("ak", otString, ak);
+    string ak = NodeAsStringFast("ak", curNode);
+    string ap = NodeAsStringFast("ap", curNode);
+
+    //составим вектор доступных компаний
+    if (ak.empty())
+    {
+      //не указан фильтр по компании
+      airlines.assign(info.user.access.airlines.begin(),info.user.access.airlines.end());
+      airlines_permit=info.user.access.airlines_permit;
+    }
+    else
+    {
+      //проверим среди запрещенных/разрешенных
+      bool found=find( info.user.access.airlines.begin(),
+                       info.user.access.airlines.end(), ak ) != info.user.access.airlines.end();
+      if ( info.user.access.airlines_permit &&  found ||
+          !info.user.access.airlines_permit && !found) airlines.push_back(ak);
+      airlines_permit=true;
+    };
+
+    //составим вектор доступных портов
+    if (ap.empty())
+    {
+      //не указан фильтр по компании
+      airps.assign(info.user.access.airps.begin(),info.user.access.airps.end());
+      airps_permit=info.user.access.airps_permit;
+    }
+    else
+    {
+      //проверим среди запрещенных/разрешенных
+      bool found=find( info.user.access.airps.begin(),
+                       info.user.access.airps.end(), ap ) != info.user.access.airps.end();
+      if ( info.user.access.airps_permit &&  found ||
+          !info.user.access.airps_permit && !found) airps.push_back(ap);
+      airps_permit=true;
+    };
+
+    if (airlines.empty() && airlines_permit ||
+        airps.empty() && airps_permit)
+      throw AstraLocale::UserException("MSG.NOT_DATA");
+
+    airp_column_first = (info.user.user_type == utAirport);
 
     //сеансы (договоры)
     string seance_str = NodeAsStringFast("seance", curNode, "");
@@ -2551,169 +2015,45 @@ void TStatParams::get(TQuery &Qry, xmlNodePtr reqNode)
     if (seance_str=="АК") seance=seanceAirline;
     if (seance_str=="АП") seance=seanceAirport;
 
-    TReqInfo &info = *(TReqInfo::Instance());
+    bool all_seances_permit = find( info.user.access.rights.begin(),
+                                    info.user.access.rights.end(), 615 ) != info.user.access.rights.end();
 
-    bool all_seances = find( info.user.access.rights.begin(),
-                             info.user.access.rights.end(), 615 ) != info.user.access.rights.end();
-    if (USE_SEANCES())
+    if (USE_SEANCES() || info.desk.compatible(AIRL_AIRP_STAT_VERSION))
     {
-      if (info.user.user_type != utSupport && !all_seances)
+      if (info.user.user_type != utSupport && !all_seances_permit)
       {
         if (info.user.user_type == utAirline)
           seance=seanceAirline;
         else
           seance=seanceAirport;
       };
-      if (seance!=seanceAll)
-        Qry.CreateVariable("pr_airp_seance", otInteger, (int)(seance==seanceAirport));
     }
     else
     {
-      if (!info.desk.compatible(AIRL_AIRP_STAT_VERSION))
-      {
-        if (!ak.empty()) seance=seanceAirline;
-        if (!ap.empty()) seance=seanceAirport;
-      }
-      else
-      {
-        if (!all_seances)
-        {
-          switch(info.user.user_type)
-          {
-            case utSupport: seance=seanceAll; break;
-            case utAirline: if (!ak.empty())
-                              seance=seanceAirline;
-                            else
-                              seance=seanceAll;
-                            break;
-            case utAirport: if (!ap.empty())
-                              seance=seanceAirport;
-                            else
-                              seance=seanceAll;
-                            break;
-          };
-        };
-      };
+      if (!ak.empty()) seance=seanceAirline;
+      if (!ap.empty()) seance=seanceAirport;
+    };
+
+    if (!USE_SEANCES() && seance==seanceAirline)
+    {
+      if (!airlines_permit) throw UserException("MSG.NEED_SET_CODE_AIRLINE");
+    };
+
+    if (!USE_SEANCES() && seance==seanceAirport)
+    {
+      if (!airps_permit) throw UserException("MSG.NEED_SET_CODE_AIRP");
     };
 };
 
-void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    TReqInfo &info = *(TReqInfo::Instance());
-    if (info.user.access.airlines.empty() && info.user.access.airlines_permit ||
-            info.user.access.airps.empty() && info.user.access.airps_permit)
-        throw AstraLocale::UserException("MSG.NOT_DATA");
-    get_report_form("ShortStat", resNode);
-
-    TQuery Qry(&OraSession);
-    TStatParams params;
-    params.get(Qry, reqNode);
-    TPrintAirline airline;
-
-    Qry.CreateVariable("FirstDate", otDate, NodeAsDateTime("FirstDate", reqNode));
-    Qry.CreateVariable("LastDate", otDate, NodeAsDateTime("LastDate", reqNode));
-    Qry.CreateVariable("web", otString, EncodeClientType(ctWeb));
-    Qry.CreateVariable("kiosk", otString, EncodeClientType(ctKiosk));
-
-    TShortStat ShortStat;
-    for(int i = 0; i < 2; i++) {
-        Qry.SQLText = GetStatSQLText(statShort,params,i!=0).c_str();
-        if(i != 0)
-            Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
-        ProgTrace(TRACE5, "RunShortStat: SQL=\n%s", Qry.SQLText.SQLText());
-        Qry.Execute();
-        for(; !Qry.Eof; Qry.Next()) {
-            TShortStatKey key;
-            key.seance = Qry.FieldAsString(0);
-            key.col1 = ElemIdToCodeNative((params.ap.size() ? etAirp: etAirline), Qry.FieldAsString(1));
-            if(params.ap.empty())
-                airline.check(key.col1);
-            TShortStatRow &row = ShortStat[key];
-            if(row.flt_amount == NoExists) {
-                row.flt_amount = Qry.FieldAsInteger("flt_amount");
-                row.pax_amount = Qry.FieldAsInteger("pax_amount");
-                row.web = Qry.FieldAsInteger("web");
-                row.kiosk = Qry.FieldAsInteger("kiosk");
-            } else {
-                row.flt_amount += Qry.FieldAsInteger("flt_amount");
-                row.pax_amount += Qry.FieldAsInteger("pax_amount");
-                row.web += Qry.FieldAsInteger("web");
-                row.kiosk += Qry.FieldAsInteger("kiosk");
-            }
-        }
-    }
-    if(!ShortStat.empty()) {
-        NewTextChild(resNode, "airline", airline.get(), "");
-        xmlNodePtr grdNode = NewTextChild(resNode, "grd");
-        xmlNodePtr headerNode = NewTextChild(grdNode, "header");
-        xmlNodePtr colNode;
-        if(params.ap.size()) {
-            colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/п"));
-            SetProp(colNode, "width", 50);
-            SetProp(colNode, "align", taLeftJustify);
-        } else {
-            colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
-            SetProp(colNode, "width", 50);
-            SetProp(colNode, "align", taLeftJustify);
-        }
-        if (USE_SEANCES())
-        {
-          colNode = NewTextChild(headerNode, "col", getLocaleText("Сеанс"));
-          SetProp(colNode, "width", 40);
-          SetProp(colNode, "align", taLeftJustify);
-        }
-
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во рейсов"));
-        SetProp(colNode, "width", 85);
-        SetProp(colNode, "align", taRightJustify);
-
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во пасс."));
-        SetProp(colNode, "width", 85);
-        SetProp(colNode, "align", taRightJustify);
-
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Web"));
-        SetProp(colNode, "width", 85);
-        SetProp(colNode, "align", taRightJustify);
-
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Киоски"));
-        SetProp(colNode, "width", 85);
-        SetProp(colNode, "align", taRightJustify);
-
-        xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
-        xmlNodePtr rowNode;
-        int total_flt_amount = 0;
-        int total_pax_amount = 0;
-        int total_web = 0;
-        int total_kiosk = 0;
-
-        for(TShortStat::iterator si = ShortStat.begin(); si != ShortStat.end(); si++) {
-            rowNode = NewTextChild(rowsNode, "row");
-            NewTextChild(rowNode, "col", si->first.col1);
-            total_flt_amount += si->second.flt_amount;
-            total_pax_amount += si->second.pax_amount;
-            total_web += si->second.web;
-            total_kiosk += si->second.kiosk;
-            if (USE_SEANCES())
-              NewTextChild(rowNode, "col", getLocaleText(si->first.seance));
-            NewTextChild(rowNode, "col", si->second.flt_amount);
-            NewTextChild(rowNode, "col", si->second.pax_amount);
-            NewTextChild(rowNode, "col", si->second.web);
-            NewTextChild(rowNode, "col", si->second.kiosk);
-        }
-        rowNode = NewTextChild(rowsNode, "row");
-        NewTextChild(rowNode, "col", getLocaleText("Итого:"));
-        if (USE_SEANCES())
-        {
-          NewTextChild(rowNode, "col");
-        };
-        NewTextChild(rowNode, "col", total_flt_amount);
-        NewTextChild(rowNode, "col", total_pax_amount);
-        NewTextChild(rowNode, "col", total_web);
-        NewTextChild(rowNode, "col", total_kiosk);
-    } else
-        throw AstraLocale::UserException("MSG.NOT_DATA");
-    STAT::set_variables(resNode);
-}
+struct TDetailStatRow {
+    int flt_amount, pax_amount, web, kiosk;
+    TDetailStatRow():
+        flt_amount(NoExists),
+        pax_amount(NoExists),
+        web(NoExists),
+        kiosk(NoExists)
+    {}
+};
 
 struct TDetailStatKey {
     string seance, col1, col2;
@@ -2730,15 +2070,56 @@ struct TDetailCmp {
             return lr.seance < rr.seance;
     };
 };
-typedef map<TDetailStatKey, TShortStatRow, TDetailCmp> TDetailStat;
+typedef map<TDetailStatKey, TDetailStatRow, TDetailCmp> TDetailStat;
 
-void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
+void GetDetailStat(TStatType statType, const TStatParams &params, TQuery &Qry,
+                   TDetailStat &DetailStat, TPrintAirline &airline)
+{
+  Qry.Execute();
+  for(; !Qry.Eof; Qry.Next()) {
+      TDetailStatKey key;
+      key.seance = Qry.FieldAsString("seance");
+      if(params.airp_column_first) {
+          key.col1 = ElemIdToCodeNative(etAirp, Qry.FieldAsString("airp"));
+          if (statType==statDetail)
+          {
+            key.col2 = ElemIdToCodeNative(etAirline, Qry.FieldAsString("airline"));
+            airline.check(key.col2);
+          };
+      } else {
+          key.col1 = ElemIdToCodeNative(etAirline, Qry.FieldAsString("airline"));
+          if (statType==statDetail)
+          {
+            key.col2 = ElemIdToCodeNative(etAirp, Qry.FieldAsString("airp"));
+          };
+          airline.check(key.col1);
+      }
+      TDetailStatRow &row = DetailStat[key];
+      if(row.flt_amount == NoExists) {
+          row.flt_amount = Qry.FieldAsInteger("flt_amount");
+          row.pax_amount = Qry.FieldAsInteger("pax_amount");
+          row.web = Qry.FieldAsInteger("web");
+          row.kiosk = Qry.FieldAsInteger("kiosk");
+      } else {
+          row.flt_amount += Qry.FieldAsInteger("flt_amount");
+          row.pax_amount += Qry.FieldAsInteger("pax_amount");
+          row.web += Qry.FieldAsInteger("web");
+          row.kiosk += Qry.FieldAsInteger("kiosk");
+      }
+  }
+};
+
+void RunDetailStat(TStatType statType, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo &info = *(TReqInfo::Instance());
     if (info.user.access.airlines.empty() && info.user.access.airlines_permit ||
             info.user.access.airps.empty() && info.user.access.airps_permit)
         throw AstraLocale::UserException("MSG.NOT_DATA");
-    get_report_form("DetailStat", resNode);
+
+    if (statType==statShort)
+      get_report_form("ShortStat", resNode);
+    else
+      get_report_form("DetailStat", resNode);
 
     TQuery Qry(&OraSession);
     TStatParams params;
@@ -2748,41 +2129,50 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     Qry.CreateVariable("LastDate", otDate, NodeAsDateTime("LastDate", reqNode));
     Qry.CreateVariable("web", otString, EncodeClientType(ctWeb));
     Qry.CreateVariable("kiosk", otString, EncodeClientType(ctKiosk));
+    if (!USE_SEANCES() && params.seance==seanceAirline) Qry.DeclareVariable("ak",otString);
+    if (!USE_SEANCES() && params.seance==seanceAirport) Qry.DeclareVariable("ap",otString);
+    if (USE_SEANCES() && params.seance!=seanceAll)
+        Qry.CreateVariable("pr_airp_seance", otInteger, (int)(params.seance==seanceAirport));
 
     TDetailStat DetailStat;
     TPrintAirline airline;
 
-    for(int i = 0; i < 2; i++) {
-        Qry.SQLText = GetStatSQLText(statDetail,params,i!=0).c_str();
-        if(i != 0)
+    for(int pass = 0; pass < 2; pass++) {
+        Qry.SQLText = GetStatSQLText(statType,params,pass!=0).c_str();
+        if(pass != 0)
             Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
         ProgTrace(TRACE5, "RunDetailStat: SQL=\n%s", Qry.SQLText.SQLText());
-        Qry.Execute();
-        for(; !Qry.Eof; Qry.Next()) {
-            TDetailStatKey key;
-            key.seance = Qry.FieldAsString("seance");
-            if(!params.ap.empty()) {
-                key.col1 = ElemIdToCodeNative(etAirp, Qry.FieldAsString("airp"));
-                key.col2 = ElemIdToCodeNative(etAirline, Qry.FieldAsString("airline"));
-                airline.check(key.col2);
-            } else {
-                key.col1 = ElemIdToCodeNative(etAirline, Qry.FieldAsString("airline"));
-                key.col2 = ElemIdToCodeNative(etAirp, Qry.FieldAsString("airp"));
-                airline.check(key.col1);
-            }
-            TShortStatRow &row = DetailStat[key];
-            if(row.flt_amount == NoExists) {
-                row.flt_amount = Qry.FieldAsInteger("flt_amount");
-                row.pax_amount = Qry.FieldAsInteger("pax_amount");
-                row.web = Qry.FieldAsInteger("web");
-                row.kiosk = Qry.FieldAsInteger("kiosk");
-            } else {
-                row.flt_amount += Qry.FieldAsInteger("flt_amount");
-                row.pax_amount += Qry.FieldAsInteger("pax_amount");
-                row.web += Qry.FieldAsInteger("web");
-                row.kiosk += Qry.FieldAsInteger("kiosk");
-            }
-        }
+
+        if (!USE_SEANCES() && params.seance==seanceAirline)
+        {
+          //цикл по компаниям
+          if (params.airlines_permit)
+          {
+            for(vector<string>::iterator i=params.airlines.begin();
+                                         i!=params.airlines.end(); i++)
+            {
+              Qry.SetVariable("ak",*i);
+              GetDetailStat(statType, params, Qry, DetailStat, airline);
+            };
+          };
+          continue;
+        };
+
+        if (!USE_SEANCES() && params.seance==seanceAirport)
+        {
+          //цикл по портам
+          if (params.airps_permit)
+          {
+            for(vector<string>::iterator i=params.airps.begin();
+                                         i!=params.airps.end(); i++)
+            {
+              Qry.SetVariable("ap",*i);
+              GetDetailStat(statType, params, Qry, DetailStat, airline);
+            };
+          };
+          continue;
+        };
+        GetDetailStat(statType, params, Qry, DetailStat, airline);
     }
 
     if(!DetailStat.empty()) {
@@ -2790,22 +2180,26 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         xmlNodePtr grdNode = NewTextChild(resNode, "grd");
         xmlNodePtr headerNode = NewTextChild(grdNode, "header");
         xmlNodePtr colNode;
-        if(params.ap.size()) {
+        if(params.airp_column_first) {
             colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/п"));
             SetProp(colNode, "width", 50);
             SetProp(colNode, "align", taLeftJustify);
-
-            colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
-            SetProp(colNode, "width", 50);
-            SetProp(colNode, "align", taLeftJustify);
+            if (statType==statDetail)
+            {
+              colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
+              SetProp(colNode, "width", 50);
+              SetProp(colNode, "align", taLeftJustify);
+            };
         } else {
             colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
             SetProp(colNode, "width", 50);
             SetProp(colNode, "align", taLeftJustify);
-
-            colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/п"));
-            SetProp(colNode, "width", 50);
-            SetProp(colNode, "align", taLeftJustify);
+            if (statType==statDetail)
+            {
+              colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/п"));
+              SetProp(colNode, "width", 50);
+              SetProp(colNode, "align", taLeftJustify);
+            };
         }
         if (USE_SEANCES())
         {
@@ -2839,7 +2233,8 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         for(TDetailStat::iterator si = DetailStat.begin(); si != DetailStat.end(); si++) {
             rowNode = NewTextChild(rowsNode, "row");
             NewTextChild(rowNode, "col", si->first.col1);
-            NewTextChild(rowNode, "col", si->first.col2);
+            if (statType==statDetail)
+              NewTextChild(rowNode, "col", si->first.col2);
 
             total_flt_amount += si->second.flt_amount;
             total_pax_amount += si->second.pax_amount;
@@ -2856,7 +2251,8 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         }
         rowNode = NewTextChild(rowsNode, "row");
         NewTextChild(rowNode, "col", getLocaleText("Итого:"));
-        NewTextChild(rowNode, "col");
+        if (statType==statDetail)
+          NewTextChild(rowNode, "col");
         if (USE_SEANCES())
         {
           NewTextChild(rowNode, "col");
@@ -2870,6 +2266,428 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     STAT::set_variables(resNode);
 }
 
+struct TFullStatRow {
+    int pax_amount;
+    int web;
+    int kiosk;
+    int adult;
+    int child;
+    int baby;
+    int rk_weight;
+    int bag_amount;
+    int bag_weight;
+    int excess;
+    TFullStatRow():
+        pax_amount(NoExists),
+        web(NoExists),
+        kiosk(NoExists),
+        adult(NoExists),
+        child(NoExists),
+        baby(NoExists),
+        rk_weight(NoExists),
+        bag_amount(NoExists),
+        bag_weight(NoExists),
+        excess(NoExists)
+    {}
+};
+
+struct TStatPlaces {
+    private:
+        string result;
+    public:
+        void set(string aval, bool pr_locale);
+        string get() const;
+};
+
+void TStatPlaces::set(string aval, bool pr_locale)
+{
+    if(not result.empty())
+        throw Exception("TStatPlaces::set(): already set");
+    if(pr_locale) {
+        vector<string> tokens;
+        while(true) {
+            size_t idx = aval.find('-');
+            if(idx == string::npos) break;
+            tokens.push_back(aval.substr(0, idx));
+            aval.erase(0, idx + 1);
+        }
+        tokens.push_back(aval);
+        for(vector<string>::iterator is = tokens.begin(); is != tokens.end(); is++)
+            result += (result.empty() ? "" : "-") + ElemIdToCodeNative(etAirp, *is);
+    } else
+        result = aval;
+}
+
+string TStatPlaces::get() const
+{
+    return result;
+}
+
+struct TFullStatKey {
+    string seance, col1, col2;
+    string airp; // в сортировке не участвует, нужен для AirpTZRegion
+    int flt_no;
+    TDateTime scd_out;
+    int point_id;
+    TStatPlaces places;
+    TFullStatKey():
+        flt_no(NoExists),
+        scd_out(NoExists),
+        point_id(NoExists)
+    {}
+};
+struct TFullCmp {
+    bool operator() (const TFullStatKey &lr, const TFullStatKey &rr) const
+    {
+        if(lr.seance == rr.seance)
+            if(lr.col1 == rr.col1)
+                if(lr.col2 == rr.col2)
+                    if(lr.flt_no == rr.flt_no)
+                        if(lr.scd_out == rr.scd_out)
+                            if(lr.point_id == rr.point_id)
+                                return lr.places.get() < rr.places.get();
+                            else
+                                return lr.point_id < rr.point_id;
+                        else
+                            return lr.scd_out < rr.scd_out;
+                    else
+                        return lr.flt_no < rr.flt_no;
+                else
+                    return lr.col2 < rr.col2;
+            else
+                return lr.col1 < rr.col1;
+        else
+            return lr.seance < rr.seance;
+    };
+};
+typedef map<TFullStatKey, TFullStatRow, TFullCmp> TFullStat;
+
+void GetFullStat(TStatType statType, const TStatParams &params, TQuery &Qry,
+                 TFullStat &FullStat, TPrintAirline &airline)
+{
+  Qry.Execute();
+  if(!Qry.Eof) {
+      int col_seance = Qry.FieldIndex("seance");
+      int col_point_id = Qry.FieldIndex("point_id");
+      int col_airp = Qry.FieldIndex("airp");
+      int col_airline = Qry.FieldIndex("airline");
+      int col_pax_amount = Qry.FieldIndex("pax_amount");
+      int col_web = -1;
+      int col_kiosk = -1;
+      if (statType==statFull)
+      {
+        col_web = Qry.FieldIndex("web");
+        col_kiosk = Qry.FieldIndex("kiosk");
+      };
+      int col_adult = Qry.FieldIndex("adult");
+      int col_child = Qry.FieldIndex("child");
+      int col_baby = Qry.FieldIndex("baby");
+      int col_rk_weight = Qry.FieldIndex("rk_weight");
+      int col_bag_amount = Qry.FieldIndex("bag_amount");
+      int col_bag_weight = Qry.FieldIndex("bag_weight");
+      int col_excess = Qry.FieldIndex("excess");
+      int col_flt_no = Qry.FieldIndex("flt_no");
+      int col_scd_out = Qry.FieldIndex("scd_out");
+      int col_places = Qry.FieldIndex("places");
+      for(; !Qry.Eof; Qry.Next()) {
+          TFullStatKey key;
+          key.seance = Qry.FieldAsString(col_seance);
+          key.airp = Qry.FieldAsString(col_airp);
+          if(params.airp_column_first) {
+              key.col1 = ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp));
+              key.col2 = ElemIdToCodeNative(etAirline, Qry.FieldAsString(col_airline));
+              airline.check(key.col2);
+          } else {
+              key.col1 = ElemIdToCodeNative(etAirline, Qry.FieldAsString(col_airline));
+              key.col2 = ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp));
+              airline.check(key.col1);
+          }
+          key.flt_no = Qry.FieldAsInteger(col_flt_no);
+          key.scd_out = Qry.FieldAsDateTime(col_scd_out);
+          key.point_id = Qry.FieldAsInteger(col_point_id);
+          key.places.set(Qry.FieldAsString(col_places), statType==statTrferFull);
+          TFullStatRow &row = FullStat[key];
+          if(row.pax_amount == NoExists) {
+              row.pax_amount = Qry.FieldAsInteger(col_pax_amount);
+              if (statType==statFull)
+              {
+                row.web = Qry.FieldAsInteger(col_web);
+                row.kiosk = Qry.FieldAsInteger(col_kiosk);
+              };
+              row.adult = Qry.FieldAsInteger(col_adult);
+              row.child = Qry.FieldAsInteger(col_child);
+              row.baby = Qry.FieldAsInteger(col_baby);
+              row.rk_weight = Qry.FieldAsInteger(col_rk_weight);
+              row.bag_amount = Qry.FieldAsInteger(col_bag_amount);
+              row.bag_weight = Qry.FieldAsInteger(col_bag_weight);
+              row.excess = Qry.FieldAsInteger(col_excess);
+          } else {
+              row.pax_amount += Qry.FieldAsInteger(col_pax_amount);
+              if (statType==statFull)
+              {
+                row.web += Qry.FieldAsInteger(col_web);
+                row.kiosk += Qry.FieldAsInteger(col_kiosk);
+              };
+              row.adult += Qry.FieldAsInteger(col_adult);
+              row.child += Qry.FieldAsInteger(col_child);
+              row.baby += Qry.FieldAsInteger(col_baby);
+              row.rk_weight += Qry.FieldAsInteger(col_rk_weight);
+              row.bag_amount += Qry.FieldAsInteger(col_bag_amount);
+              row.bag_weight += Qry.FieldAsInteger(col_bag_weight);
+              row.excess += Qry.FieldAsInteger(col_excess);
+          }
+      }
+  }
+};
+
+void RunFullStat(TStatType statType, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    TReqInfo &info = *(TReqInfo::Instance());
+    if (info.user.access.airlines.empty() && info.user.access.airlines_permit ||
+            info.user.access.airps.empty() && info.user.access.airps_permit)
+        throw AstraLocale::UserException("MSG.NOT_DATA");
+    if (statType==statFull)
+      get_report_form("FullStat", resNode);
+    else
+      get_report_form("TrferFullStat", resNode);
+
+    TQuery Qry(&OraSession);
+    TStatParams params;
+    params.get(Qry, reqNode);
+
+    TDateTime FirstDate = NodeAsDateTime("FirstDate", reqNode);
+    TDateTime LastDate = NodeAsDateTime("LastDate", reqNode);
+    if(IncMonth(FirstDate, 1) < LastDate)
+        throw AstraLocale::UserException("MSG.SEARCH_PERIOD_SHOULD_NOT_EXCEED_ONE_MONTH");
+    Qry.CreateVariable("FirstDate", otDate, FirstDate);
+    Qry.CreateVariable("LastDate", otDate, LastDate);
+    if (statType==statFull)
+    {
+      Qry.CreateVariable("web", otString, EncodeClientType(ctWeb));
+      Qry.CreateVariable("kiosk", otString, EncodeClientType(ctKiosk));
+      Qry.CreateVariable("vlang", otString, TReqInfo::Instance()->desk.lang );
+    };
+    if (!USE_SEANCES() && params.seance==seanceAirline) Qry.DeclareVariable("ak",otString);
+    if (!USE_SEANCES() && params.seance==seanceAirport) Qry.DeclareVariable("ap",otString);
+    if (USE_SEANCES() && params.seance!=seanceAll)
+        Qry.CreateVariable("pr_airp_seance", otInteger, (int)(params.seance==seanceAirport));
+
+    TFullStat FullStat;
+    TPrintAirline airline;
+
+    for(int pass = 0; pass < 2; pass++) {
+        Qry.SQLText = GetStatSQLText(statType,params,pass!=0).c_str();
+        if(pass != 0)
+            Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
+        ProgTrace(TRACE5, "RunFullStat: SQL=\n%s", Qry.SQLText.SQLText());
+
+        if (!USE_SEANCES() && params.seance==seanceAirline)
+        {
+          //цикл по компаниям
+          if (params.airlines_permit)
+          {
+            for(vector<string>::iterator i=params.airlines.begin();
+                                         i!=params.airlines.end(); i++)
+            {
+              Qry.SetVariable("ak",*i);
+              GetFullStat(statType, params, Qry, FullStat, airline);
+            };
+          };
+          continue;
+        };
+
+        if (!USE_SEANCES() && params.seance==seanceAirport)
+        {
+          //цикл по портам
+          if (params.airps_permit)
+          {
+            for(vector<string>::iterator i=params.airps.begin();
+                                         i!=params.airps.end(); i++)
+            {
+              Qry.SetVariable("ap",*i);
+              GetFullStat(statType, params, Qry, FullStat, airline);
+            };
+          };
+          continue;
+        };
+        GetFullStat(statType, params, Qry, FullStat, airline);
+    }
+
+    if(!FullStat.empty()) {
+        NewTextChild(resNode, "airline", airline.get(), "");
+        xmlNodePtr grdNode = NewTextChild(resNode, "grd");
+        xmlNodePtr headerNode = NewTextChild(grdNode, "header");
+        xmlNodePtr colNode;
+        if(params.airp_column_first) {
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/п"));
+            SetProp(colNode, "width", 50);
+            SetProp(colNode, "align", taLeftJustify);
+
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
+            SetProp(colNode, "width", 50);
+            SetProp(colNode, "align", taLeftJustify);
+        } else {
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
+            SetProp(colNode, "width", 50);
+            SetProp(colNode, "align", taLeftJustify);
+
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/п"));
+            SetProp(colNode, "width", 50);
+            SetProp(colNode, "align", taLeftJustify);
+        }
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Номер рейса"));
+        SetProp(colNode, "width", 75);
+        SetProp(colNode, "align", taRightJustify);
+
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Дата"));
+        SetProp(colNode, "width", 50);
+        SetProp(colNode, "align", taLeftJustify);
+
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Направление"));
+        SetProp(colNode, "width", 90);
+        SetProp(colNode, "align", taLeftJustify);
+
+        if (USE_SEANCES())
+        {
+          colNode = NewTextChild(headerNode, "col", getLocaleText("Сеанс"));
+          SetProp(colNode, "width", 40);
+          SetProp(colNode, "align", taLeftJustify);
+        };
+
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во пасс."));
+        SetProp(colNode, "width", 75);
+        SetProp(colNode, "align", taRightJustify);
+
+        if (statType==statFull)
+        {
+          colNode = NewTextChild(headerNode, "col", getLocaleText("Web"));
+          SetProp(colNode, "width", 35);
+          SetProp(colNode, "align", taRightJustify);
+
+          colNode = NewTextChild(headerNode, "col", getLocaleText("Киоски"));
+          SetProp(colNode, "width", 40);
+          SetProp(colNode, "align", taRightJustify);
+        };
+
+        colNode = NewTextChild(headerNode, "col", getLocaleText("ВЗ"));
+        SetProp(colNode, "width", 30);
+        SetProp(colNode, "align", taRightJustify);
+
+        colNode = NewTextChild(headerNode, "col", getLocaleText("РБ"));
+        SetProp(colNode, "width", 30);
+        SetProp(colNode, "align", taRightJustify);
+
+        colNode = NewTextChild(headerNode, "col", getLocaleText("РМ"));
+        SetProp(colNode, "width", 30);
+        SetProp(colNode, "align", taRightJustify);
+
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Р/кладь (вес)"));
+        SetProp(colNode, "width", 80);
+        SetProp(colNode, "align", taRightJustify);
+
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Багаж (мест/вес)"));
+        SetProp(colNode, "width", 100);
+        SetProp(colNode, "align", taCenter);
+
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Платн. (вес)"));
+        SetProp(colNode, "width", 70);
+        SetProp(colNode, "align", taRightJustify);
+
+        xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
+        xmlNodePtr rowNode;
+        int total_pax_amount = 0;
+        int total_web = 0;
+        int total_kiosk = 0;
+        int total_adult = 0;
+        int total_child = 0;
+        int total_baby = 0;
+        int total_rk_weight = 0;
+        int total_bag_amount = 0;
+        int total_bag_weight = 0;
+        int total_excess = 0;
+        for(TFullStat::iterator im = FullStat.begin(); im != FullStat.end(); im++) {
+            string region;
+            try
+            {
+                region = AirpTZRegion(im->first.airp);
+            }
+            catch(AstraLocale::UserException &E)
+            {
+                AstraLocale::showErrorMessage("MSG.ERR_MSG.NOT_ALL_FLIGHTS_ARE_SHOWN", LParams() << LParam("msg", getLocaleText(E.getLexemaData())));
+                continue;
+            };
+
+            rowNode = NewTextChild(rowsNode, "row");
+            NewTextChild(rowNode, "col", im->first.col1);
+            NewTextChild(rowNode, "col", im->first.col2);
+
+            total_pax_amount += im->second.pax_amount;
+            if (statType==statFull)
+            {
+              total_web += im->second.web;
+              total_kiosk += im->second.kiosk;
+            };
+            total_adult += im->second.adult;
+            total_child += im->second.child;
+            total_baby += im->second.baby;
+            total_rk_weight += im->second.rk_weight;
+            total_bag_amount += im->second.bag_amount;
+            total_bag_weight += im->second.bag_weight;
+            total_excess += im->second.excess;
+
+            NewTextChild(rowNode, "col", im->first.flt_no);
+            NewTextChild(rowNode, "col", DateTimeToStr(
+                        UTCToClient(im->first.scd_out, region), "dd.mm.yy")
+                    );
+            NewTextChild(rowNode, "col", im->first.places.get());
+            if (USE_SEANCES())
+              NewTextChild(rowNode, "col", getLocaleText(im->first.seance));
+            NewTextChild(rowNode, "col", im->second.pax_amount);
+            if (statType==statFull)
+            {
+              NewTextChild(rowNode, "col", im->second.web);
+              NewTextChild(rowNode, "col", im->second.kiosk);
+            };
+            NewTextChild(rowNode, "col", im->second.adult);
+            NewTextChild(rowNode, "col", im->second.child);
+            NewTextChild(rowNode, "col", im->second.baby);
+            NewTextChild(rowNode, "col", im->second.rk_weight);
+            NewTextChild(rowNode, "col", IntToString(im->second.bag_amount) + "/" + IntToString(im->second.bag_weight));
+            NewTextChild(rowNode, "col", im->second.excess);
+            if (statType==statTrferFull)
+              NewTextChild(rowNode, "col", im->first.point_id);
+        }
+        rowNode = NewTextChild(rowsNode, "row");
+        NewTextChild(rowNode, "col", getLocaleText("Итого:"));
+        NewTextChild(rowNode, "col");
+        NewTextChild(rowNode, "col");
+        NewTextChild(rowNode, "col");
+        NewTextChild(rowNode, "col");
+        if (USE_SEANCES())
+        {
+          NewTextChild(rowNode, "col");
+        };
+        NewTextChild(rowNode, "col", total_pax_amount);
+        if (statType==statFull)
+        {
+          NewTextChild(rowNode, "col", total_web);
+          NewTextChild(rowNode, "col", total_kiosk);
+        };
+        NewTextChild(rowNode, "col", total_adult);
+        NewTextChild(rowNode, "col", total_child);
+        NewTextChild(rowNode, "col", total_baby);
+        NewTextChild(rowNode, "col", total_rk_weight);
+        NewTextChild(rowNode, "col", IntToString(total_bag_amount) + "/" + IntToString(total_bag_weight));
+        NewTextChild(rowNode, "col", total_excess);
+    } else
+        throw AstraLocale::UserException("MSG.NOT_DATA");
+    xmlNodePtr variablesNode = STAT::set_variables(resNode);
+    if (statType==statFull)
+      NewTextChild(variablesNode, "caption", getLocaleText("Подробная сводка"));
+    else
+      NewTextChild(variablesNode, "caption", getLocaleText("Трансферная сводка"));
+}
+
 void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
 	TReqInfo *reqInfo = TReqInfo::Instance();
@@ -2880,10 +2698,10 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
     string name = NodeAsString("stat_mode", reqNode);
 
     try {
-        if(name == "Подробная") RunFullStat(reqNode, resNode);
-        else if(name == "Общая") RunShortStat(reqNode, resNode);
-        else if(name == "Детализированная") RunDetailStat(reqNode, resNode);
-        else if(name == "Трансфер") RunTrferFullStat(reqNode, resNode);
+        if(name == "Подробная") RunFullStat(statFull, reqNode, resNode);
+        else if(name == "Общая") RunDetailStat(statShort, reqNode, resNode);
+        else if(name == "Детализированная") RunDetailStat(statDetail, reqNode, resNode);
+        else if(name == "Трансфер") RunFullStat(statTrferFull, reqNode, resNode);
         else throw Exception("Unknown stat mode " + name);
     } catch (EOracleError &E) {
         if(E.Code == 376)
