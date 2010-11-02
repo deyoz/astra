@@ -577,7 +577,7 @@ void filterPax( const string &pnr_addr,
   string pnr_addr_lat;
 	if ( !pnr_addr.empty() ) {
 	  pnr_addr_lat = convert_pnr_addr( pnr_addr, true );
-	  //ProgTrace( TRACE5, "convert_pnr_addr=%s", pnr_addr_lat.c_str() );
+	  ProgTrace( TRACE5, "convert_pnr_addr=%s", pnr_addr_lat.c_str() );
 	}
 
 	TQuery QryPnrAddr(&OraSession);
@@ -1316,7 +1316,7 @@ void getPnr( int pnr_id, vector<TWebPax> &pnr )
 
   TQuery CrsTKNQry(&OraSession);
   CrsTKNQry.SQLText =
-    "SELECT rem_code AS ticekt_rem, "
+    "SELECT rem_code AS ticket_rem, "
     "       ticket_no, "
     "       DECODE(rem_code,'TKNE',coupon_no,NULL) AS coupon_no "
     "FROM crs_pax_tkn "
