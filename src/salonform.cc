@@ -328,6 +328,147 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   	AstraLocale::showMessage( "MSG.DATA_SAVED" );
 }
 
+void SalonFormInterface::ComponShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  int comp_id = NodeAsInteger( "comp_id", reqNode );
+  //TReqInfo::Instance()->user.check_access( amRead );
+  SALONS2::TSalons Salons( comp_id, SALONS2::rComponSalons );
+  Salons.Read( );
+  xmlNodePtr dataNode = NewTextChild( resNode, "data" );
+  xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
+  SALONS2::GetCompParams( comp_id, dataNode );
+  Salons.Build( salonsNode );
+  if ( xmlNodePtr pNode = GetNode( "point_id", reqNode ) ) {
+    SALONS2::TSalons SalonsL( NodeAsInteger( pNode ), SALONS2::rTripSalons );
+    	SalonsL.BuildLayersInfo( salonsNode );
+  }
+}
+
+
+void SalonFormInterface::ComponWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  int comp_id = NodeAsInteger( "comp_id", reqNode );
+  ProgTrace( TRACE5, "SalonsInterface::ComponWrite, comp_id=%d", comp_id );
+  //TReqInfo::Instance()->user.check_access( amWrite );
+  SALONS2::TSalons Salons( NodeAsInteger( "comp_id", reqNode ), SALONS2::rComponSalons );
+  Salons.Parse( GetNode( "salons", reqNode ) );
+  string smodify = NodeAsString( "modify", reqNode );
+  if ( smodify == "delete" )
+    Salons.modify = SALONS2::mDelete;
+  else
+    if ( smodify == "add" )
+      Salons.modify = SALONS2::mAdd;
+    else
+      if ( smodify == "change" )
+        Salons.modify = SALONS2::mChange;
+  TReqInfo *r = TReqInfo::Instance();
+  TElemFmt fmt;
+  xmlNodePtr a = GetNode( "airline", reqNode );
+  if ( a ) {
+     Salons.airline = ElemToElemId( etAirline, NodeAsString( a ), fmt );
+     if ( fmt == efmtUnknown )
+     	 throw AstraLocale::UserException( "MSG.AIRLINE.INVALID_INPUT" );
+  }
+  else
+  	if ( r->user.access.airlines.size() == 1 )
+  		Salons.airline = *r->user.access.airlines.begin();
+ 	a = GetNode( "airp", reqNode );
+ 	if ( a ) {
+ 		Salons.airp = ElemToElemId( etAirp, NodeAsString( a ), fmt );
+ 		if ( fmt == efmtUnknown )
+ 			throw AstraLocale::UserException( "MSG.AIRP.INVALID_SET_CODE" );
+ 		Salons.airline.clear();
+ 	}
+ 	else
+  	if ( r->user.user_type != utAirline && r->user.access.airps.size() == 1 && !GetNode( "airline", reqNode ) ) {
+  		Salons.airp = *r->user.access.airps.begin();
+  		Salons.airline.clear();
+    }
+  if ( Salons.modify != SALONS2::mDelete ) {
+    if ( (int)Salons.airline.empty() + (int)Salons.airp.empty() != 1 ) {
+    	if ( Salons.airline.empty() )
+    	  throw AstraLocale::UserException( "MSG.AIRLINE_OR_AIRP_MUST_BE_SET" );
+    	else
+    		throw AstraLocale::UserException( "MSG.NOT_SET_ONE_TIME_AIRLINE_AND_AIRP" ); // птому что компоновка принадлежит или авиакомпании или порту
+    }
+
+    if ( ( r->user.user_type == utAirline ||
+           r->user.user_type == utSupport && Salons.airp.empty() && !r->user.access.airlines.empty() ) &&
+    	   find( r->user.access.airlines.begin(),
+    	         r->user.access.airlines.end(), Salons.airline ) == r->user.access.airlines.end() ) {
+ 	  	if ( Salons.airline.empty() )
+ 		  	throw AstraLocale::UserException( "MSG.AIRLINE.UNDEFINED" );
+  	  else
+    		throw AstraLocale::UserException( "MSG.SALONS.OPER_WRITE_DENIED_FOR_THIS_AIRLINE" );
+    }
+    if ( ( r->user.user_type == utAirport ||
+    	     r->user.user_type == utSupport && Salons.airline.empty() && !r->user.access.airps.empty() ) &&
+    	   find( r->user.access.airps.begin(),
+    	         r->user.access.airps.end(), Salons.airp ) == r->user.access.airps.end() ) {
+ 	  	if ( Salons.airp.empty() )
+ 	  		throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.NOT_SET_AIRP" );
+ 	  	else
+ 	  	  throw AstraLocale::UserException( "MSG.SALONS.OPER_WRITE_DENIED_FOR_THIS_AIRP" );
+    }
+  }
+  Salons.craft = NodeAsString( "craft", reqNode );
+  if ( Salons.craft.empty() )
+    throw AstraLocale::UserException( "MSG.CRAFT.NOT_SET" );
+  Salons.craft = ElemToElemId( etCraft, Salons.craft, fmt );
+  if ( fmt == efmtUnknown )
+  	throw AstraLocale::UserException( "MSG.CRAFT.WRONG_SPECIFIED" );
+  Salons.bort = NodeAsString( "bort", reqNode );
+  Salons.descr = NodeAsString( "descr", reqNode );
+  string classes = NodeAsString( "classes", reqNode );
+  Salons.classes = RTrimString( classes );
+  Salons.verifyValidRem( "MCLS", "Э" );
+  Salons.Write();
+  string msg;
+  switch ( Salons.modify ) {
+    case SALONS2::mDelete:
+      msg = string( "Удалена базовая компоновка (ид=" ) + IntToString( comp_id ) + ").";
+      Salons.comp_id = -1;
+      break;
+    default:
+      if ( Salons.modify == SALONS2::mAdd )
+        msg = "Создана базовая компоновка (ид=";
+      else
+        msg = "Изменена базовая компоновка (ид=";
+      msg += IntToString( Salons.comp_id );
+      msg += "). Код а/к: ";
+      if ( Salons.airline.empty() )
+      	msg += "не указан";
+      else
+      	msg += Salons.airline;
+      msg += ", код а/п: ";
+      if ( Salons.airp.empty() )
+      	msg += "не указан";
+      else
+      	msg += Salons.airp;
+      msg += ", тип ВС: " + Salons.craft + ", борт: ";
+      if ( Salons.bort.empty() )
+        msg += "не указан";
+      else
+        msg += Salons.bort;
+      msg += ", классы: " + Salons.classes + ", описание: ";
+      if ( Salons.descr.empty() )
+        msg += "не указано";
+      else
+        msg += Salons.descr;
+      break;
+  }
+  r->MsgToLog( msg, evtComp, comp_id );
+  xmlNodePtr dataNode = NewTextChild( resNode, "data" );
+  NewTextChild( dataNode, "comp_id", Salons.comp_id );
+  if ( !Salons.airline.empty() )
+    NewTextChild( dataNode, "airline", ElemIdToCodeNative( etAirline, Salons.airline ) );
+  if ( !Salons.airp.empty() )
+    NewTextChild( dataNode, "airp", ElemIdToCodeNative( etAirp, Salons.airp ) );
+  if (TReqInfo::Instance()->desk.compatible(LATIN_VERSION))
+    NewTextChild( dataNode, "craft", ElemIdToCodeNative( etCraft, Salons.craft ) );
+  AstraLocale::showMessage( "MSG.CHANGED_DATA_COMMIT" );
+}
+
 void getSeat_no( int pax_id, bool pr_pnl, const string &format, string &seat_no, string &slayer_type, int &tid )
 {
 	seat_no.clear();
@@ -556,7 +697,6 @@ void SalonFormInterface::DropSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 void SalonFormInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   ChangeSeats( reqNode, resNode, SEATS2::stReseat );
-
 };
 
 void SalonFormInterface::DeleteProtCkinSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

@@ -888,8 +888,7 @@ void TripsInterface::readHalls( std::string airp_dep, std::string work_mode, xml
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText =
-    "SELECT halls2.id, "
-    "       DECODE(:lang,'RU',halls2.name,NVL(halls2.name_lat,halls2.name)) AS name "
+    "SELECT halls2.id "
     "FROM station_halls,halls2,stations "
     "WHERE station_halls.hall=halls2.id AND halls2.airp=:airp_dep AND "
     "     station_halls.airp=stations.airp AND "
@@ -898,17 +897,14 @@ void TripsInterface::readHalls( std::string airp_dep, std::string work_mode, xml
   Qry.CreateVariable("airp_dep",otString,airp_dep);
   Qry.CreateVariable("desk",otString, TReqInfo::Instance()->desk.code);
   Qry.CreateVariable("work_mode",otString,work_mode);
-  Qry.CreateVariable("lang",otString, TReqInfo::Instance()->desk.lang);
+
   Qry.Execute();
   if (Qry.Eof)
   {
     Qry.Clear();
     Qry.SQLText =
-      "SELECT id, "
-      "       DECODE(:lang,'RU',halls2.name,NVL(halls2.name_lat,halls2.name)) AS name "
-      "FROM halls2 WHERE airp=:airp_dep";
+      "SELECT id FROM halls2 WHERE airp=:airp_dep";
     Qry.CreateVariable("airp_dep",otString,airp_dep);
-    Qry.CreateVariable("lang",otString, TReqInfo::Instance()->desk.lang);
     Qry.Execute();
   };
   xmlNodePtr node = NewTextChild( dataNode, "halls" );
@@ -916,7 +912,7 @@ void TripsInterface::readHalls( std::string airp_dep, std::string work_mode, xml
   {
     xmlNodePtr itemNode = NewTextChild( node, "hall" );
     NewTextChild( itemNode, "id", Qry.FieldAsInteger( "id" ) );
-    NewTextChild( itemNode, "name", Qry.FieldAsString( "name" ) );
+    NewTextChild( itemNode, "name", ElemIdToNameLong( etHall, Qry.FieldAsInteger( "id" ) ) );
   };
 };
 
@@ -1004,7 +1000,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     if (strcmp((char*)node->name,"hall")==0)
     {
       pr_hall=true;
-      order_by << ", halls2.name";
+      order_by << ", DECODE(hall_airp,NULL,2,:airp_dep,0,1), hall_airp, hall_name";
     };
     if (strcmp((char*)node->name,"airp_arv")==0)
     {
@@ -1179,7 +1175,8 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   if (pr_cl_grp)      sql << ",DECODE(a.class_grp,-1,NULL,a.class_grp) AS cl_grp_id"
                              ",cls_grp.code AS cl_grp_code" << endl;
   if (pr_hall)        sql << ",DECODE(a.hall,-1,NULL,a.hall) AS hall_id"
-                             ",DECODE(a.hall,-1,NULL,halls2.name||DECODE(halls2.airp,:airp_dep,'','('||halls2.airp||')')) AS hall_name" << endl;
+                             ",DECODE(a.hall,-1,NULL,halls2.name) AS hall_name"
+                             ",DECODE(a.hall,-1,NULL,halls2.airp) AS hall_airp" << endl;
   if (pr_airp_arv)    sql << ",a.point_arv,points.airp AS airp_arv" << endl;
 
   if (pr_trfer)       sql << ",DECODE(a.trfer_airline,' ',NULL,a.trfer_airline) AS trfer_airline" << endl
@@ -1385,11 +1382,21 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     };
     if (pr_hall)
     {
-      node=NewTextChild(rowNode,"hall",Qry.FieldAsString("hall_name"));
       if (!Qry.FieldIsNULL("hall_id"))
-        SetProp(node,"id",Qry.FieldAsInteger("hall_id"));
+      {
+        int hall_id=Qry.FieldAsInteger("hall_id");
+        ostringstream hall_name;
+        hall_name << ElemIdToNameLong(etHall, hall_id);
+        if (Qry.FieldAsString("hall_airp")!=fltInfo.airp)
+          hall_name << "(" << ElemIdToCodeNative(etAirp, Qry.FieldAsString("hall_airp")) << ")";
+        node=NewTextChild(rowNode,"hall",hall_name.str());
+        SetProp(node,"id",hall_id);
+      }
       else
+      {
+        node=NewTextChild(rowNode,"hall");
         SetProp(node,"id",-1);
+      };
     };
     if (pr_airp_arv)
     {

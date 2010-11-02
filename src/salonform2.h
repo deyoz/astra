@@ -13,23 +13,23 @@ public:
   SalonsInterface() : JxtInterface("","salons")
   {
      Handler *evHandle;
-     evHandle=JxtHandler<SalonsInterface>::CreateHandler(&SalonsInterface::CheckInShow);
+     evHandle=JxtHandler<SalonsInterface>::CreateHandler(&SalonsInterface::CheckInShow); // !!!old terminal
      AddEvent("CheckInShow",evHandle);
-     evHandle=JxtHandler<SalonsInterface>::CreateHandler(&SalonsInterface::SalonFormShow);
+     evHandle=JxtHandler<SalonsInterface>::CreateHandler(&SalonsInterface::SalonFormShow); //!!old terminal
      AddEvent("SalonFormShow",evHandle);
      evHandle=JxtHandler<SalonsInterface>::CreateHandler(&SalonsInterface::SalonFormWrite);
      AddEvent("SalonFormWrite",evHandle);
      evHandle=JxtHandler<SalonsInterface>::CreateHandler(&SalonsInterface::ExistsRegPassenger);
      AddEvent("ExistsRegPassenger",evHandle);
-     evHandle=JxtHandler<SalonsInterface>::CreateHandler(&SalonsInterface::Reseat);
+     evHandle=JxtHandler<SalonsInterface>::CreateHandler(&SalonsInterface::Reseat); //!!old terminal
      AddEvent("Reseat",evHandle);
-     evHandle=JxtHandler<SalonsInterface>::CreateHandler(&SalonsInterface::DeleteReserveSeat);
+     evHandle=JxtHandler<SalonsInterface>::CreateHandler(&SalonsInterface::DeleteReserveSeat); //!!old terminal
      AddEvent("DeleteReserveSeat",evHandle);
-     evHandle=JxtHandler<SalonsInterface>::CreateHandler(&SalonsInterface::AutoReseatsPassengers);
+     evHandle=JxtHandler<SalonsInterface>::CreateHandler(&SalonsInterface::AutoReseatsPassengers);  //!!old terminal
      AddEvent("AutoReseatsPassengers",evHandle);
-     evHandle=JxtHandler<SalonsInterface>::CreateHandler(&SalonsInterface::BaseComponFormShow);
+     evHandle=JxtHandler<SalonsInterface>::CreateHandler(&SalonsInterface::BaseComponFormShow); //!!old terminal
      AddEvent("BaseComponFormShow",evHandle);
-     evHandle=JxtHandler<SalonsInterface>::CreateHandler(&SalonsInterface::BaseComponFormWrite);
+     evHandle=JxtHandler<SalonsInterface>::CreateHandler(&SalonsInterface::BaseComponFormWrite);//!!old terminal
      AddEvent("BaseComponFormWrite",evHandle);
      evHandle=JxtHandler<SalonsInterface>::CreateHandler(&SalonsInterface::BaseComponsRead);
      AddEvent("BaseComponsRead",evHandle);
