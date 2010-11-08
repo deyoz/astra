@@ -2005,7 +2005,7 @@ void TStatParams::get(TQuery &Qry, xmlNodePtr reqNode)
 
     if (airlines.empty() && airlines_permit ||
         airps.empty() && airps_permit)
-      throw AstraLocale::UserException("MSG.NOT_DATA");
+      throw AstraLocale::UserException("MSG.NO_ACCESS");
 
     airp_column_first = (info.user.user_type == utAirport);
 
