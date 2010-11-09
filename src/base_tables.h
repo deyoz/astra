@@ -827,6 +827,22 @@ class TMiscSetTypes: public TIdBaseTable {
   	};
 };
 
+class TSeatAlgoTypesRow: public TIdBaseTableRow {
+	  public:
+    const char *get_row_name() const { return "TSeatAlgoTypesRow"; };
+};
+
+class TSeatAlgoTypes: public TIdBaseTable {
+  protected:
+    const char *get_table_name() { return "TSeatAlgoTypes"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+    void Invalidate() {}; //всегда актуальна
+  public:
+  	TSeatAlgoTypes() {
+  		Init( "seat_algo_types" );
+  	};
+};
+
 class TBagNormTypesRow: public TCodeBaseTableRow {
 	public:
     const char *get_row_name() const { return "TBagNormTypesRow"; };

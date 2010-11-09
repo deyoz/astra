@@ -4,13 +4,42 @@
 #include <string>
 #include <vector>
 
-enum TElemType { etCountry,etCity,etAirline,etAirp,etCraft,etClass,etSubcls,
-                 etPersType,etGenderType,etPaxDocType,etPayType,etCurrency,
-                 etRefusalType,etSuffix,etClsGrp,etTripType,etCompElemType,
-                 etGrpStatusType,etClientType,etCompLayerType,etCrs,etHall,
-                 etDevModel,etDevSessType,etDevFmtType,etDevOperType,
-                 etGraphStage, etMiscSetType, etDelayType, etTripLiter, etTypeBType,
-                 etBagNormType, etLangType, etTagColor };
+enum TElemType { etCountry,
+                 etCity,
+                 etAirline,
+                 etAirp,
+                 etCraft,
+                 etClass,
+                 etSubcls,
+                 etPersType,
+                 etGenderType,
+                 etPaxDocType,
+                 etPayType,
+                 etCurrency,
+                 etRefusalType,
+                 etSuffix,
+                 etClsGrp,
+                 etTripType,
+                 etCompElemType,
+                 etGrpStatusType,
+                 etClientType,
+                 etCompLayerType,
+                 etCrs,
+                 etHall,
+                 etDevModel,
+                 etDevSessType,
+                 etDevFmtType,
+                 etDevOperType,
+                 etGraphStage,
+                 etMiscSetType,
+                 etDelayType,
+                 etTripLiter,
+                 etTypeBType,
+                 etBagNormType,
+                 etLangType,
+                 etTagColor,
+                 etSeatAlgoType };
+
 enum TElemContext { ecDisp, ecCkin, ecTrfer, ecTlgTypeB, ecNone };
 
 //форматы:

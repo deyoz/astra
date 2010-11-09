@@ -82,6 +82,8 @@ TBaseTable &TBaseTables::get(string name)
         	  base_tables[name] = new TGraphStages();
         else if(name == "MISC_SET_TYPES")
         	  base_tables[name] = new TMiscSetTypes();
+        else if(name == "SEAT_ALGO_TYPES")
+        	  base_tables[name] = new TSeatAlgoTypes();
         else if(name == "TRIP_SUFFIXES")
         	  base_tables[name] = new TTripSuffixes();
         else if(name == "TYPEB_TYPES")
@@ -698,6 +700,12 @@ void TGraphStages::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **
 void TMiscSetTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TMiscSetTypesRow;
+  TIdBaseTable::create_row(Qry,row,replaced_row);
+};
+
+void TSeatAlgoTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+{
+  *row = new TSeatAlgoTypesRow;
   TIdBaseTable::create_row(Qry,row,replaced_row);
 };
 
