@@ -2798,7 +2798,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
             Salons.Read();
             #ifdef NEWSEATS
             //определим алгоритм рассадки
-            int algo=SEATS2::GetSeatAlgo(Qry,fltInfo.airline,fltInfo.flt_no,fltInfo.airp);
+            SEATS2::TSeatAlgoParams algo=SEATS2::GetSeatAlgo(Qry,fltInfo.airline,fltInfo.flt_no,fltInfo.airp);
             //рассадка
             try {
               SEATS2::SeatsPassengers( &Salons, algo, SEATS2::Passengers, GetUsePS() );

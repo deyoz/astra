@@ -16,6 +16,23 @@ enum TSeatStep { sLeft, sRight, sUp, sDown };
 enum TWhere { sLeftRight, sUpDown, sEveryWhere };
 enum TSeatsType { stSeat, stReseat, stDropseat };
 
+/* алгоритм рассадки пассажиров
+	   sdUpDown_Row - сверху вниз в ряд
+	   sdUpDown_Line - сверху вниз в линию
+	   sdDownUp_Row - снизу вверх в ряд
+	   sdDownUp_Line - снизу вверх в линию
+*/
+enum TSeatAlgoTypes { sdUpDown_Line, sdDownUp_Line, sdUpDown_Row, sdDownUp_Row };
+
+struct TSeatAlgoParams {
+	 TSeatAlgoTypes SeatAlgoType;
+	 bool pr_canUseOneRow;
+	 TSeatAlgoParams() {
+	 	 SeatAlgoType = sdUpDown_Line;
+	 	 pr_canUseOneRow = false;
+	 }
+};
+
 class TCounters {
   private:
     int p_Count_3G;
@@ -223,14 +240,14 @@ bool isREM_SUBCLS( std::string rem );
 
 /* тут описаны будут доступные ф-ции */
 /* автоматическая пересадка пассажиров при изменении компоновки */
-void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &passengers, int SeatAlgo );
-void SeatsPassengers( SALONS2::TSalons *Salons, int SeatAlgo, TPassengers &passengers, bool FUse_BR=false );
+void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &passengers, TSeatAlgoParams ASeatAlgoParams );
+void SeatsPassengers( SALONS2::TSalons *Salons, TSeatAlgoParams ASeatAlgoParams, TPassengers &passengers, bool FUse_BR=false );
 void ChangeLayer( ASTRA::TCompLayerType layer_type, int point_id, int pax_id, int &tid,
                   std::string first_xname, std::string first_yname, TSeatsType seat_type, bool pr_lat_seat );
 void SaveTripSeatRanges( int point_id, ASTRA::TCompLayerType layer_type, std::vector<TSeatRange> &seats,
 	                       int pax_id, int point_dep, int point_arv );
 bool GetPassengersForWaitList( int point_id, TPassengers &p, bool pr_exists=false );
-int GetSeatAlgo(TQuery &Qry, std::string airline, int flt_no, std::string airp_dep);
+TSeatAlgoParams GetSeatAlgo(TQuery &Qry, std::string airline, int flt_no, std::string airp_dep);
 bool IsSubClsRem( const std::string &airline, const std::string &subclass, std::string &rem );
 extern TPassengers Passengers;
 } // end namespace SEATS2
