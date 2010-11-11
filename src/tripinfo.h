@@ -69,7 +69,7 @@ public:
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 
   void GetSegInfo(xmlNodePtr reqNode, xmlNodePtr resNode, xmlNodePtr dataNode);
-  static void readOperFltHeader( TTripInfo &info, xmlNodePtr node );
+  static void readOperFltHeader( const TTripInfo &info, xmlNodePtr node );
   static bool readTripHeader( int point_id, xmlNodePtr dataNode );
   static void readHalls( std::string airp_dep, std::string work_mode, xmlNodePtr dataNode);
 };

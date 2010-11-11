@@ -19,6 +19,11 @@ struct TSegInfo
   TTripInfo fltInfo;
 };
 
+struct TCkinSegFlts
+{
+  std::vector<TSegInfo> flts;
+  bool is_edi;
+};
 
 class CheckInInterface : public JxtInterface
 {
@@ -84,6 +89,9 @@ public:
                               const std::string& airp_arv,
                               bool lock,
                               TSegInfo& segInfo);
+  static void GetTCkinFlights(const TTripInfo &fltInfo,
+                              const std::vector<TTransferItem> &trfer,
+                              std::vector< TCkinSegFlts > &segs);
 
   static void SavePaxRem(xmlNodePtr paxNode);
   static void SavePaxTransfer(int pax_id, xmlNodePtr paxNode, xmlNodePtr transferNode, int seg_no);

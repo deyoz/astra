@@ -372,12 +372,12 @@ class TTripListItem
   public:
     int point_id;
     string trip_name;
-    TDateTime real_out_local_date;
+    TDateTime real_out_client;
 };
 
 bool lessTripListItem(const TTripListItem& item1,const TTripListItem& item2)
 {
-  return item1.real_out_local_date>item2.real_out_local_date;
+  return item1.real_out_client>item2.real_out_client;
 };
 
 /*******************************************************************************/
@@ -407,6 +407,7 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   for(;!Qry.Eof;Qry.Next())
   {
     TTripListItem listItem;
+    TDateTime scd_out_client;
 
     TTripInfo info(Qry);
 
@@ -414,7 +415,7 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     {
       listItem.point_id=Qry.FieldAsInteger("point_id");
       listItem.trip_name=GetTripName(info,ecCkin,reqInfo->screen.name=="TLG.EXE",true); //ecCkin? !!!vlad
-      listItem.real_out_local_date=info.real_out_local_date;
+      info.get_client_dates(scd_out_client,listItem.real_out_client);
       list.push_back(listItem);
     }
     catch(AstraLocale::UserException &E)
@@ -551,7 +552,7 @@ void TripsInterface::GetSegInfo(xmlNodePtr reqNode, xmlNodePtr resNode, xmlNodeP
   };
 };
 
-void TripsInterface::readOperFltHeader( TTripInfo &info, xmlNodePtr node )
+void TripsInterface::readOperFltHeader( const TTripInfo &info, xmlNodePtr node )
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
 
