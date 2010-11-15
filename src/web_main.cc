@@ -1409,6 +1409,7 @@ void getPnr( int pnr_id, vector<TWebPax> &pnr )
    		pax.pr_eticket = strcmp(Qry.FieldAsString("ticket_rem"),"TKNE")==0;
    		pax.ticket_no	= Qry.FieldAsString("ticket_no");
    		FQTQry.SQLText=PaxFQTQrySQL;
+   		FQTQry.SetVariable( "pax_id", pax.pax_id );
    	}
    	else {
   		pax.checkin_status = "not_checked";
@@ -1442,6 +1443,7 @@ void getPnr( int pnr_id, vector<TWebPax> &pnr )
    		  pax.ticket_no	= CrsTKNQry.FieldAsString("ticket_no");
    		};
    		FQTQry.SQLText=CrsFQTQrySQL;
+   		FQTQry.SetVariable( "pax_id", pax.crs_pax_id );
    	}
    	FQTQry.Execute();
  		for(; !FQTQry.Eof; FQTQry.Next())
@@ -1749,14 +1751,45 @@ void WebRequestsIface::ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   }
 }
 
-void VerifyPax(xmlNodePtr segNode, xmlDocPtr emulReqDoc, int &pnr_id)
+void CreateEmulXMLDoc(xmlNodePtr reqNode, XMLDoc &emulDoc)
+{
+  emulDoc.set("UTF-8","term");
+  if (emulDoc.docPtr()==NULL)
+    throw EXCEPTIONS::Exception("CreateEmulXMLDoc: CreateXMLDoc failed");
+  CopyNode(NodeAsNode("/term",emulDoc.docPtr()),
+           NodeAsNode("/term/query",reqNode->doc), true); //копируем полностью тег query
+  xmlNodePtr node=NodeAsNode("/term/query",emulDoc.docPtr())->children;
+  if (node!=NULL)
+  {
+    xmlUnlinkNode(node);
+    xmlFreeNode(node);
+  };
+};
+
+void CreateEmulRems(xmlNodePtr paxNode, TQuery &RemQry, const vector<string> &fqtv_rems)
+{
+  xmlNodePtr remsNode=NewTextChild(paxNode,"rems");
+  for(;!RemQry.Eof;RemQry.Next())
+  {
+    if (strcmp(RemQry.FieldAsString("rem_code"),"FQTV")==0) continue;
+    xmlNodePtr remNode=NewTextChild(remsNode,"rem");
+    NewTextChild(remNode,"rem_code",RemQry.FieldAsString("rem_code"));
+    NewTextChild(remNode,"rem_text",RemQry.FieldAsString("rem"));
+  };
+  //добавим переданные fqtv_rems
+  for(vector<string>::const_iterator r=fqtv_rems.begin();r!=fqtv_rems.end();r++)
+  {
+    xmlNodePtr remNode=NewTextChild(remsNode,"rem");
+    NewTextChild(remNode,"rem_code","FQTV");
+    NewTextChild(remNode,"rem_text",*r);
+  };
+};
+
+void VerifyPax(xmlNodePtr reqNode, XMLDoc &emulCkinDoc, map<int,XMLDoc> &emulChngDocs, int &pnr_id)
 {
 	pnr_id=ASTRA::NoExists;
-  if (emulReqDoc==NULL)
-    throw EXCEPTIONS::Exception("VerifyPax: emulReqDoc=NULL");
-  xmlNodePtr emulReqNode=NodeAsNode("/term/query",emulReqDoc);
-  emulReqNode=NewTextChild(emulReqNode,"TCkinSavePax");
 
+  xmlNodePtr segNode = NodeAsNode( "segments/segment", reqNode );
   int point_id=NodeAsInteger("point_id",segNode);
   TSearchPnrData PnrData;
 	getTripData( point_id, PnrData, true );
@@ -1766,42 +1799,51 @@ void VerifyPax(xmlNodePtr segNode, xmlDocPtr emulReqDoc, int &pnr_id)
 	if ( PnrData.web_stage != sOpenWEBCheckIn && PnrData.web_stage != sOpenKIOSKCheckIn )
 	  throw UserException( "MSG.CHECKIN.NOT_OPEN" );
 
-	NewTextChild(emulReqNode,"transfer"); //пустой тег - трансфера нет
+	const char* PaxQrySQL=
+	    "SELECT point_dep,point_arv,airp_dep,airp_arv,class,excess,bag_refuse, "
+	    "       pax_grp.grp_id,pax.surname,pax.name,pax.seats, "
+	    "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'one',rownum) AS seat_no, "
+	    "       pax_grp.tid AS pax_grp_tid, "
+	    "       pax.tid AS pax_tid, "
+	    "       crs_pax.pnr_id, crs_pax.pr_del "
+	    "FROM pax_grp,pax,crs_pax "
+	    "WHERE pax_grp.grp_id=pax.grp_id AND "
+	    "      pax.pax_id=crs_pax.pax_id(+) AND "
+	    "      pax.pax_id=:pax_id";
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
+  const char* CrsPaxQrySQL=
       "SELECT tlg_trips.airline,tlg_trips.flt_no,tlg_trips.suffix, "
       "       tlg_trips.scd AS scd_out,tlg_trips.airp_dep AS airp, "
-      "       crs_pax.pax_id,crs_pnr.point_id,crs_pnr.target,crs_pnr.subclass, "
+      "       crs_pnr.point_id,crs_pnr.target,crs_pnr.subclass, "
       "       crs_pnr.class,crs_pax.surname,crs_pax.name,crs_pax.pers_type, "
       "       salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS seat_no, "
       "       salons.get_crs_seat_no(crs_pax.pax_id,:protckin_layer,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS preseat_no, "
       "       crs_pax.seat_type, "
       "       crs_pax.seats, "
-      "       pax.seats pax_seats, "
-      "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'one',rownum) AS pax_seat_no, "
       "       crs_pnr.pnr_id, "
       "       report.get_PSPT(crs_pax.pax_id) AS document, "
       "       report.get_TKNO(crs_pax.pax_id,'/',0) AS ticket, "
       "       report.get_TKNO(crs_pax.pax_id,'/',1) AS eticket, "
       "       crs_pnr.tid AS crs_pnr_tid, "
       "       crs_pax.tid AS crs_pax_tid, "
-      "       pax_grp.tid AS pax_grp_tid, "
-      "       pax.tid AS pax_tid "
-      "FROM tlg_trips,crs_pnr,crs_pax,pax,pax_grp "
+      "       DECODE(pax.pax_id,NULL,0,1) AS checked "
+      "FROM tlg_trips,crs_pnr,crs_pax,pax "
       "WHERE tlg_trips.point_id=crs_pnr.point_id AND "
       "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
       "      crs_pax.pax_id=pax.pax_id(+) AND "
-      "      pax.grp_id=pax_grp.grp_id(+) AND "
       "      crs_pax.pax_id=:crs_pax_id AND "
       "      crs_pax.pr_del=0 ";
-  Qry.CreateVariable( "protckin_layer", otString, EncodeCompLayerType(ASTRA::cltProtCkin) );
-  Qry.DeclareVariable("crs_pax_id",otInteger);
+  TQuery Qry(&OraSession);
+
+  const char* PaxRemQrySQL=
+      "SELECT rem_code,rem FROM pax_rem "
+      "WHERE pax_id=:pax_id AND rem_code NOT IN ('FQTV')";
+
+  const char* CrsPaxRemQrySQL=
+      "SELECT rem_code,rem FROM crs_pax_rem "
+      "WHERE pax_id=:pax_id AND rem_code NOT IN ('FQTV')";
 
   TQuery RemQry(&OraSession);
-  RemQry.SQLText =
-    "SELECT rem_code,rem FROM crs_pax_rem WHERE pax_id=:pax_id AND rem_code NOT IN ('FQTV')";
   RemQry.DeclareVariable("pax_id",otInteger);
 
   xmlNodePtr node,reqPaxNode=NodeAsNode("passengers/pax",segNode);
@@ -1811,15 +1853,41 @@ void VerifyPax(xmlNodePtr segNode, xmlDocPtr emulReqDoc, int &pnr_id)
   xmlNodePtr paxsNode;
   for(;reqPaxNode!=NULL;reqPaxNode=reqPaxNode->next)
   {
-    Qry.SetVariable("crs_pax_id",NodeAsInteger("crs_pax_id",reqPaxNode));
-    Qry.Execute();
-    if (Qry.Eof)
-      throw UserException("MSG.PASSENGER.NOT_FOUND.REFRESH_DATA");
-
+    int crs_pax_id=NodeAsInteger("crs_pax_id",reqPaxNode);
     xmlNodePtr tidsNode=NodeAsNode("tids",reqPaxNode)->children;
-    if (NodeAsIntegerFast("crs_pnr_tid",tidsNode)!=Qry.FieldAsInteger("crs_pnr_tid") ||
-        NodeAsIntegerFast("crs_pax_tid",tidsNode)!=Qry.FieldAsInteger("crs_pax_tid"))
-      throw UserException("MSG.PASSENGER.CHANGED.REFRESH_DATA");
+    bool not_checked=(NodeIsNULLFast("pax_grp_tid",tidsNode,true) ||
+                      NodeIsNULLFast("pax_tid",tidsNode,true)); //определяем, зарегистрирован ли пассажир
+
+    Qry.Clear();
+    if (not_checked)
+    {
+      //пассажир не зарегистрирован
+      Qry.SQLText=CrsPaxQrySQL;
+      Qry.CreateVariable("protckin_layer", otString, EncodeCompLayerType(ASTRA::cltProtCkin) );
+      Qry.CreateVariable("crs_pax_id", otInteger, crs_pax_id);
+      Qry.Execute();
+      if (Qry.Eof)
+        throw UserException("MSG.PASSENGER.NOT_FOUND.REFRESH_DATA");
+      if (Qry.FieldAsInteger("checked")!=0)
+        throw UserException("MSG.PASSENGER.CHECKED.REFRESH_DATA");
+      if (NodeAsIntegerFast("crs_pnr_tid",tidsNode)!=Qry.FieldAsInteger("crs_pnr_tid") ||
+          NodeAsIntegerFast("crs_pax_tid",tidsNode)!=Qry.FieldAsInteger("crs_pax_tid"))
+        throw UserException("MSG.PASSENGER.CHANGED.REFRESH_DATA");
+    }
+    else
+    {
+      //пассажир зарегистрирован
+      Qry.SQLText=PaxQrySQL;
+      Qry.CreateVariable("pax_id", otInteger, crs_pax_id);
+      Qry.Execute();
+      if (Qry.Eof)
+        throw UserException("MSG.PASSENGER.CHANGED.REFRESH_DATA");
+      if (Qry.FieldIsNULL("pnr_id") || Qry.FieldAsInteger("pr_del")!=0)
+        throw UserException("MSG.PASSENGER.NOT_FOUND.REFRESH_DATA");
+      if (NodeAsIntegerFast("pax_grp_tid",tidsNode)!=Qry.FieldAsInteger("pax_grp_tid") ||
+          NodeAsIntegerFast("pax_tid",tidsNode)!=Qry.FieldAsInteger("pax_tid"))
+        throw UserException("MSG.PASSENGER.CHANGED.REFRESH_DATA");
+    };
 
     if (PnrData.pnr_id==ASTRA::NoExists)
     {
@@ -1834,42 +1902,108 @@ void VerifyPax(xmlNodePtr segNode, xmlDocPtr emulReqDoc, int &pnr_id)
         throw EXCEPTIONS::Exception("VerifyPax: passengers from different PNR");
     };
 
-    if (!Qry.FieldIsNULL("pax_tid"))
-    {
-      //пассажир зарегистрирован
-      if (NodeIsNULLFast("pax_grp_tid",tidsNode,true) ||
-          NodeIsNULLFast("pax_tid",tidsNode,true))
-        throw UserException("MSG.PASSENGER.CHECKED.REFRESH_DATA");
 
-      if (NodeAsIntegerFast("pax_grp_tid",tidsNode)!=Qry.FieldAsInteger("pax_grp_tid") ||
-          NodeAsIntegerFast("pax_tid",tidsNode)!=Qry.FieldAsInteger("pax_tid"))
-        throw UserException("MSG.PASSENGER.CHANGED.REFRESH_DATA");
+    vector<string> curr_fqt_rems;
+    xmlNodePtr fqtNode = GetNode("fqt_rems",reqPaxNode);
+    bool FQTRemUpdatesPending=(fqtNode!=NULL); //если тег <fqt_rems> пришел, то изменяем и перезаписываем ремарки FQTV
+    if (fqtNode!=NULL)
+    {
+      //читаем пришедшие ремарки
+      for(fqtNode=fqtNode->children; fqtNode!=NULL; fqtNode=fqtNode->next)
+      {
+        ostringstream rem_text;
+        rem_text << "FQTV "
+                 << NodeAsString("airline",fqtNode) << " "
+                 << NodeAsString("no",fqtNode);
+        curr_fqt_rems.push_back(rem_text.str());
+      };
+    };
+
+    if (!not_checked)
+    {
+      int pax_tid=NodeAsIntegerFast("pax_tid",tidsNode);
 
       if (GetNode("seat_no",reqPaxNode)!=NULL &&
       	  !NodeIsNULL("seat_no",reqPaxNode) &&
-      	  Qry.FieldAsInteger( "pax_seats" ) > 0)
+      	  Qry.FieldAsInteger( "seats" ) > 0)
       {
       	string prior_xname, prior_yname;
       	string curr_xname, curr_yname;
       	// надо номализовать старое и новое место, сравнить их, если изменены, то вызвать пересадку
-      	getXYName( point_id, Qry.FieldAsString( "pax_seat_no" ), prior_xname, prior_yname );
+      	getXYName( point_id, Qry.FieldAsString( "seat_no" ), prior_xname, prior_yname );
       	getXYName( point_id, NodeAsString( "seat_no", reqPaxNode), curr_xname, curr_yname );
       	if ( curr_xname.empty() && curr_yname.empty() )
       		throw UserException( "MSG.SEATS.SEAT_NO.NOT_FOUND" );
       	if ( prior_xname + prior_yname != curr_xname + curr_yname ) {
-          IntChangeSeats( point_id, Qry.FieldAsInteger( "pax_id" ),
-                          Qry.FieldAsInteger("pax_tid"), curr_xname, curr_yname,
+          IntChangeSeats( point_id, crs_pax_id,
+                          pax_tid,
+                          curr_xname, curr_yname,
 	                        SEATS2::stReseat,
 	                        cltUnknown,
                           false, false,
                           NULL );
       	}
       };
+      if (FQTRemUpdatesPending) //тег <fqt_rems> пришел
+      {
+        vector<string> prior_fqt_rems;
+        //читаем уже записанные ремарки FQTV
+        RemQry.SQLText="SELECT rem FROM pax_rem WHERE pax_id=:pax_id AND rem_code='FQTV'";
+        RemQry.SetVariable("pax_id",crs_pax_id);
+        RemQry.Execute();
+        for(;!RemQry.Eof;RemQry.Next()) prior_fqt_rems.push_back(RemQry.FieldAsString("rem"));
+        //сортируем и сравниваем
+        sort(prior_fqt_rems.begin(),prior_fqt_rems.end());
+        sort(curr_fqt_rems.begin(),curr_fqt_rems.end());
+        if (prior_fqt_rems.size()==curr_fqt_rems.size())
+          FQTRemUpdatesPending=!equal(prior_fqt_rems.begin(),prior_fqt_rems.end(),
+                                      curr_fqt_rems.begin());
+        else
+          FQTRemUpdatesPending=true;
+      };
+      if (FQTRemUpdatesPending)
+      {
+        //придется вызвать транзакцию на запись изменений
+        int grp_id=Qry.FieldAsInteger("grp_id");
+        XMLDoc &emulChngDoc=emulChngDocs[grp_id];
+        if (emulChngDoc.docPtr()==NULL)
+        {
+          CreateEmulXMLDoc(reqNode, emulChngDoc);
+
+          xmlNodePtr emulChngNode=NodeAsNode("/term/query",emulChngDoc.docPtr());
+          emulChngNode=NewTextChild(emulChngNode,"TCkinSavePax");
+
+          xmlNodePtr segNode=NewTextChild(NewTextChild(emulChngNode,"segments"),"segment");
+          NewTextChild(segNode,"point_dep",Qry.FieldAsInteger("point_dep"));
+          NewTextChild(segNode,"point_arv",Qry.FieldAsInteger("point_arv"));
+          NewTextChild(segNode,"airp_dep",Qry.FieldAsString("airp_dep"));
+          NewTextChild(segNode,"airp_arv",Qry.FieldAsString("airp_arv"));
+          NewTextChild(segNode,"class",Qry.FieldAsString("class"));
+          NewTextChild(segNode,"grp_id",grp_id);
+          NewTextChild(segNode,"tid",NodeAsIntegerFast("pax_grp_tid",tidsNode));
+
+          paxsNode=NewTextChild(segNode,"passengers");
+
+          NewTextChild(emulChngNode,"excess",Qry.FieldAsInteger("excess"));
+          NewTextChild(emulChngNode,"bag_refuse",Qry.FieldAsInteger("bag_refuse"));
+        };
+        xmlNodePtr paxNode=NewTextChild(paxsNode,"pax");
+        NewTextChild(paxNode,"pax_id",crs_pax_id);
+        NewTextChild(paxNode,"surname",Qry.FieldAsString("surname"));
+        NewTextChild(paxNode,"name",Qry.FieldAsString("name"));
+        NewTextChild(paxNode,"tid",pax_tid);
+
+        //ремарки
+        RemQry.SQLText=PaxRemQrySQL;
+        RemQry.SetVariable("pax_id",crs_pax_id);
+        RemQry.Execute();
+        CreateEmulRems(paxNode, RemQry, curr_fqt_rems);
+      };
     }
     else
     {
       //пассажир не зарегистрирован
-      if (GetNode("segments",emulReqNode)==NULL)
+      if (emulCkinDoc.docPtr()==NULL)
       {
         //найдем пункт посдки PNR
         TTripRoute route;
@@ -1885,7 +2019,13 @@ void VerifyPax(xmlNodePtr segNode, xmlDocPtr emulReqDoc, int &pnr_id)
         if (i==route.end())
           throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
 
-        xmlNodePtr segNode=NewTextChild(NewTextChild(emulReqNode,"segments"),"segment");
+        CreateEmulXMLDoc(reqNode, emulCkinDoc);
+
+        xmlNodePtr emulCkinNode=NodeAsNode("/term/query",emulCkinDoc.docPtr());
+        emulCkinNode=NewTextChild(emulCkinNode,"TCkinSavePax");
+      	NewTextChild(emulCkinNode,"transfer"); //пустой тег - трансфера нет
+
+        xmlNodePtr segNode=NewTextChild(NewTextChild(emulCkinNode,"segments"),"segment");
 
         NewTextChild(segNode,"point_dep",PnrData.point_id);
         NewTextChild(segNode,"point_arv",i->point_id);
@@ -1908,10 +2048,13 @@ void VerifyPax(xmlNodePtr segNode, xmlDocPtr emulReqDoc, int &pnr_id)
         NewTextChild(node,"pr_mark_norms",(int)codeshareSets.pr_mark_norms);
 
         paxsNode=NewTextChild(segNode,"passengers");
+
+        NewTextChild(emulCkinNode,"excess",(int)0);
+        NewTextChild(emulCkinNode,"hall");
       };
 
       xmlNodePtr paxNode=NewTextChild(paxsNode,"pax");
-      NewTextChild(paxNode,"pax_id",Qry.FieldAsInteger("pax_id"));
+      NewTextChild(paxNode,"pax_id",crs_pax_id);
       NewTextChild(paxNode,"surname",Qry.FieldAsString("surname"));
       NewTextChild(paxNode,"name",Qry.FieldAsString("name"));
       NewTextChild(paxNode,"pers_type",Qry.FieldAsString("pers_type"));
@@ -1965,29 +2108,12 @@ void VerifyPax(xmlNodePtr segNode, xmlDocPtr emulReqDoc, int &pnr_id)
       NewTextChild(paxNode,"document",Qry.FieldAsString("document"));
       NewTextChild(paxNode,"subclass",Qry.FieldAsString("subclass"));
       NewTextChild(paxNode,"transfer"); //пустой тег - трансфера нет
+
       //ремарки
-      RemQry.SetVariable("pax_id",Qry.FieldAsInteger("pax_id"));
+      RemQry.SQLText=CrsPaxRemQrySQL;
+      RemQry.SetVariable("pax_id",crs_pax_id);
       RemQry.Execute();
-      xmlNodePtr remsNode=NewTextChild(paxNode,"rems");
-      for(;!RemQry.Eof;RemQry.Next())
-      {
-        xmlNodePtr remNode=NewTextChild(remsNode,"rem");
-        NewTextChild(remNode,"rem_code",RemQry.FieldAsString("rem_code"));
-        NewTextChild(remNode,"rem_text",RemQry.FieldAsString("rem"));
-      };
-      //добавим переданные fqt_rems
-      xmlNodePtr fqtNode = GetNode("fqt_rems",reqPaxNode);
-      if (fqtNode!=NULL) fqtNode=fqtNode->children;
-      for(; fqtNode!=NULL; fqtNode=fqtNode->next)
-      {
-        xmlNodePtr remNode=NewTextChild(remsNode,"rem");
-        NewTextChild(remNode,"rem_code","FQTV");
-        ostringstream rem_text;
-        rem_text << "FQTV "
-                 << NodeAsString("airline",fqtNode) << " "
-                 << NodeAsString("no",fqtNode);
-        NewTextChild(remNode,"rem_text",rem_text.str());
-      };
+      CreateEmulRems(paxNode, RemQry, curr_fqt_rems);
 
       NewTextChild(paxNode,"norms"); //пустой тег - норм нет
 
@@ -1997,9 +2123,6 @@ void VerifyPax(xmlNodePtr segNode, xmlDocPtr emulReqDoc, int &pnr_id)
       if (p==ASTRA::baby && seats==0) without_seat_count++;
     };
   };
-
-  NewTextChild(emulReqNode,"excess",(int)0);
-  NewTextChild(emulReqNode,"hall");
 
   if (without_seat_count>adult_count)
     throw UserException("MSG.CHECKIN.BABY_WO_SEATS_MORE_ADULT_FOR_GRP");
@@ -2016,37 +2139,43 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
 
 {
 	ProgTrace(TRACE1,"WebRequestsIface::SavePax");
-	xmlNodePtr segNode = NodeAsNode( "segments/segment", reqNode );
-	int point_id = NodeAsInteger( "point_id", segNode );
+	int point_id = NodeAsInteger( "segments/segment/point_id", reqNode );
 	int pnr_id;
-	XMLDoc emulReqDoc("UTF-8","term");
-  if (emulReqDoc.docPtr()==NULL)
-    throw EXCEPTIONS::Exception("WebRequestsIface::SavePax: CreateXMLDoc failed");
-  CopyNode(NodeAsNode("/term",emulReqDoc.docPtr()),
-           NodeAsNode("/term/query",reqNode->doc), true); //копируем полностью тег query
-  xmlNodePtr node=NodeAsNode("/term/query",emulReqDoc.docPtr())->children;
-  if (node!=NULL)
-  {
-    xmlUnlinkNode(node);
-    xmlFreeNode(node);
-  };
+	XMLDoc emulCkinDoc;
+	map<int,XMLDoc> emulChngDocs;
 
-  VerifyPax(segNode, emulReqDoc.docPtr(), pnr_id);
+  VerifyPax(reqNode, emulCkinDoc, emulChngDocs, pnr_id);
   if (pnr_id==ASTRA::NoExists)
     throw EXCEPTIONS::Exception("WebRequestsIface::SavePax: pnr_id not defined");
 
-  xmlNodePtr emulReqNode=NodeAsNode("/term/query",emulReqDoc.docPtr())->children;
-  if (emulReqNode==NULL)
-    throw EXCEPTIONS::Exception("WebRequestsIface::SavePax: emulReqNode=NULL");
 
   bool result=true;
-
-  if (GetNode("segments",emulReqNode)!=NULL) //не только пересадка, но и регистрация
-    result=CheckInInterface::SavePax(reqNode, emulReqNode, ediResNode, resNode);
+  if (emulCkinDoc.docPtr()!=NULL) //регистрация новой группы
+  {
+    xmlNodePtr emulReqNode=NodeAsNode("/term/query",emulCkinDoc.docPtr())->children;
+    if (emulReqNode==NULL)
+      throw EXCEPTIONS::Exception("WebRequestsIface::SavePax: emulReqNode=NULL");
+    if (!CheckInInterface::SavePax(reqNode, emulReqNode, ediResNode, resNode)) result=false;
+  };
+  if (result)
+  {
+    for(map<int,XMLDoc>::iterator i=emulChngDocs.begin();i!=emulChngDocs.end();i++)
+    {
+      XMLDoc &emulChngDoc=i->second;
+      xmlNodePtr emulReqNode=NodeAsNode("/term/query",emulChngDoc.docPtr())->children;
+      if (emulReqNode==NULL)
+        throw EXCEPTIONS::Exception("WebRequestsIface::SavePax: emulReqNode=NULL");
+      if (!CheckInInterface::SavePax(reqNode, emulReqNode, ediResNode, resNode))
+      {
+        result=false;
+        break;
+      };
+    };
+  };
 
   if (result)
   {
-    segNode = NewTextChild( NewTextChild( NewTextChild( resNode, "SavePax" ), "segments" ), "segment" );
+    xmlNodePtr segNode = NewTextChild( NewTextChild( NewTextChild( resNode, "SavePax" ), "segments" ), "segment" );
     IntLoadPnr( point_id, pnr_id, segNode );
   };
   return result;
