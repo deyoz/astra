@@ -567,7 +567,7 @@ void getSeat_no( int pax_id, bool pr_pnl, const string &format, string &seat_no,
 	}
 };
 
-void IntChangeSeats( int point_id, int pax_id, int tid, string xname, string yname,
+void IntChangeSeats( int point_id, int pax_id, int &tid, string xname, string yname,
                      SEATS2::TSeatsType seat_type,
                      TCompLayerType layer_type,
                      bool pr_waitlist, bool pr_question_reseat,
