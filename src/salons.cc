@@ -1142,9 +1142,12 @@ void TSalons::Parse( xmlNodePtr salonsNode )
         place.agle = 0;
       else
         place.agle = NodeAsIntegerFast( "agle", node );
-      place.clname = ElemToElemId( etClass, NodeAsStringFast( "class", node ), fmt );
-      if ( fmt == efmtUnknown )
-      	throw UserException( "MSG.INVALID_CLASS" );
+      place.clname = NodeAsStringFast( "class", node );
+      if ( !place.clname.empty() ) {
+        place.clname = ElemToElemId( etClass, place.clname, fmt );
+        if ( fmt == efmtUnknown )
+      	  throw UserException( "MSG.INVALID_CLASS" );
+      }
 
       place.xname = NodeAsStringFast( "xname", node );
 
@@ -1847,6 +1850,116 @@ bool CompareLayers( const vector<TPlaceLayer> &layer1, const vector<TPlaceLayer>
   }
   return true;
 }
+
+bool salonChangesToText( TSalons &OldSalons, TSalons &NewSalons, std::vector<std::string> logs )
+{
+	logs.clear();
+	map<string,TPlaces> mapChanges;
+	string str_code;
+	if ( NewSalons.getLatSeat() )
+		str_code="EN";
+	else
+		str_code="RU";
+	logs.push_back( string( "Изменена компоновка. Кодировка="+str_code ) );
+  // поиск в новой компоновки нужного салона
+  for ( vector<TPlaceList*>::iterator so=OldSalons.placelists.begin(); so!=OldSalons.placelists.begin(); so++ ) {
+  	bool pr_find_salon = true;
+  	for ( vector<TPlaceList*>::iterator sn=NewSalons.placelists.begin(); sn!=NewSalons.placelists.begin(); sn++ ) {
+  		if ( (*so)->places.size() == (*sn)->places.size() &&
+  			   (*so)->GetXsCount() == (*sn)->GetXsCount() &&
+  			   (*so)->GetYsCount() == (*sn)->GetYsCount() ) { //возможно это нужный салон
+  			//!!!возможно более тонко оценивать салон: удаление мест из ряда/линии - это места становятся невидимые, но при этом теряется само название ряда/линии
+  			for ( int x=0; x<(*so)->GetXsCount(); x++ ) {
+  				if ( (*so)->GetXsName( x ) != (*sn)->GetXsName( x ) ) {
+  					pr_find_salon = false;
+  					break;
+  				}
+  			}
+  			if ( !pr_find_salon ) break;
+  			for ( int y=0; y<(*so)->GetYsCount(); y++ ) {
+  				if ( (*so)->GetYsName( y ) != (*sn)->GetYsName( y ) ) {
+  					pr_find_salon = false;
+  					break;
+  				}
+  			}
+  	  }
+  	  if ( pr_find_salon ) {// это нужный салон
+        for ( TPlaces::iterator po = (*so)->places.begin(),
+    	                          pn = (*sn)->places.begin();
+              po != (*so)->places.end(),
+              pn != (*sn)->places.end();
+              po++, pn++ ) {
+          if ( po->x != pn->x ||
+          	   po->y != pn->y ) {
+          	pr_find_salon = false;
+          	break;
+          }
+          if ( po->visible != pn->visible ||
+          	   po->elem_type != pn->elem_type ) {
+          	if ( po->visible != pn->visible ) {
+          	  if ( pn->visible )
+                mapChanges[ "ADD_SEATS" + pn->elem_type ].push_back( *pn );
+              else
+              	mapChanges[ "DEL_SEATS" + po->elem_type ].push_back( *po );
+            }
+            else
+            	if ( pn->visible ) { // разные типы мест = старый удаляем, новый добавляем
+            		mapChanges[ "DEL_SEATS" ].push_back( *po );
+            		mapChanges[ "ADD_SEATS" + pn->elem_type ].push_back( *pn );
+              }
+          }
+          if ( !CompareRems( po->rems, pn->rems ) ) { // разные ремарки
+          	bool pr_find_rem=false;
+          	for ( vector<TRem>::const_iterator ro=po->rems.begin(); ro!=po->rems.end(); ro++ ) { // пробег по старым ремаркам
+          		for ( vector<TRem>::const_iterator rn=pn->rems.begin(); rn!=pn->rems.end(); rn++ ) { // пробег по новым - поиск старых
+          			if ( ro->rem == rn->rem && ro->pr_denial == rn->pr_denial ) {
+          				pr_find_rem = true;
+          				break;
+          			}
+          	  }
+          	  if ( !pr_find_rem ) { // старую ремарку не нашли
+          	  	if ( ro->pr_denial )
+          	  	  mapChanges[ "DEL_REMS!" + ro->rem ].push_back( *po );
+          	  	else
+          	  		mapChanges[ "DEL_REMS" + ro->rem ].push_back( *po );
+          	  }
+          	}
+          	for ( vector<TRem>::const_iterator rn=pn->rems.begin(); rn!=pn->rems.end(); rn++ ) {
+          		for ( vector<TRem>::const_iterator ro=po->rems.begin(); ro!=po->rems.end(); ro++ ) {
+          			if ( ro->rem == rn->rem && ro->pr_denial == rn->pr_denial ) {
+          				pr_find_rem = true;
+          				break;
+          			}
+          	  }
+          	  if ( !pr_find_rem ) { // старую ремарку не нашли
+          	  	if ( rn->pr_denial )
+          	  	  mapChanges[ "ADD_REMS" + rn->rem ].push_back( *pn );
+          	  	else
+          	  		mapChanges[ "ADD_REMS!" + rn->rem ].push_back( *pn );
+          	  }
+          	}
+          }
+          if ( !CompareLayers( po->layers, pn->layers ) ) { // разные слои
+          	//bool pr_find_layer=false;
+          	for ( vector<TPlaceLayer>::const_iterator lo=po->layers.begin(); lo!=po->layers.end(); lo++ ) {
+          		for ( vector<TPlaceLayer>::const_iterator ln=pn->layers.begin(); ln!=pn->layers.end(); ln++ ) {
+          			// надо сравнивать только редактируемые слои
+          			//if ( lo->layer_type
+          	  }
+          	}
+          }
+        }
+  	  }
+
+  	  if ( !pr_find_salon ) { // не нашли салон - считаем что удалии его и возможно добавили новый
+  	  }
+    }
+
+  }
+  return false;
+
+}
+
 
 bool getSalonChanges( TSalons &OldSalons, TSalons &NewSalons, vector<TSalonSeat> &seats )
 {

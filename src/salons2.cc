@@ -781,9 +781,12 @@ void TSalons::Parse( xmlNodePtr salonsNode )
         place.agle = 0;
       else
         place.agle = NodeAsIntegerFast( "agle", node );
-      place.clname = ElemToElemId( etClass, NodeAsStringFast( "class", node ), fmt );
-      if ( fmt == efmtUnknown )
-      	throw UserException( "MSG.INVALID_CLASS" );
+      place.clname = NodeAsStringFast( "class", node );
+      if ( !place.clname.empty() ) {
+        place.clname = ElemToElemId( etClass, place.clname, fmt );
+        if ( fmt == efmtUnknown )
+      	  throw UserException( "MSG.INVALID_CLASS" );
+      }
       place.pr_smoke = GetNodeFast( "pr_smoke", node );
       place.not_good = GetNodeFast( "not_good", node );
       place.xname = NodeAsStringFast( "xname", node );
