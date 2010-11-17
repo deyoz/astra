@@ -2257,6 +2257,8 @@ BPTags::BPTags()
 	addField( "excess" );
 	addField( "flt_no" );
 	addField( "flt_no_lat", "lat" );
+	addField( "fqt" );
+	addField( "fqt_lat", "lat" );
 	addField( "fullname" );
 	addField( "fullname_lat", "lat" );
 	addField( "list_seat_no" );
