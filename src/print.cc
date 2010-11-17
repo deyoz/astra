@@ -850,7 +850,10 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
         add_tag(name, LONG_ARV(field_lat));
 
     if(name == "FQT")
-        add_tag(name, FQT(field_lat));
+        add_tag(name, FQT(false));
+
+    if(name == "FQT_LAT")
+        add_tag(name, FQT(true));
 
     TData::iterator di, di_ru;
     di = data.find(name);
