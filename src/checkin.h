@@ -99,7 +99,7 @@ public:
   static std::string SaveTransfer(int grp_id, xmlNodePtr transferNode, bool pr_unaccomp, int seg_no);
   static std::string SaveTCkinSegs(int grp_id, xmlNodePtr segsNode, const std::map<int,TSegInfo> &segs, int seg_no);
   static bool SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode);
-  static void SaveBag(int point_id, int grp_id, xmlNodePtr bagtagNode);
+  static void SaveBag(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode);
   static void SavePaidBag(int grp_id, xmlNodePtr paidbagNode);
 
   static void SaveBagToLog(int point_id, int grp_id, xmlNodePtr bagtagNode);

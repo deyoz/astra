@@ -28,7 +28,6 @@ using namespace std;
 using namespace EXCEPTIONS;
 using namespace AstraLocale;
 using namespace BASIC;
-using namespace JxtContext;
 
 const double WAIT_ANSWER_SEC = 30.0;   // ждем ответа 30 секунд
 const string PARAM_FILE_ID = "file_id";
@@ -371,7 +370,7 @@ int buildSaveFileData( xmlNodePtr resNode, const std::string &client_canon_name,
 
 void buildLoadFileData( xmlNodePtr resNode, const std::string &client_canon_name )
 { /* теперь есть разделение по а/к */
-	JxtCont *sysCont = getJxtContHandler()->sysContext();
+	JxtContext::JxtCont *sysCont = JxtContext::getJxtContHandler()->sysContext();
 	int prior_id = sysCont->readInt( client_canon_name + "_" + OWN_POINT_ADDR() + "_file_param_sets.id", -1 ); // for sort request
 	ProgTrace( TRACE5, "get prior_id=%d", prior_id );
 	TQuery Qry( &OraSession );
@@ -993,7 +992,7 @@ void AstraServiceInterface::saveFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNo
       catch( EConvertError &E ) {
         ProgError(STDLOG, E.what());
       }
-  JxtCont *sysCont = getJxtContHandler()->sysContext();
+  JxtContext::JxtCont *sysCont = JxtContext::getJxtContHandler()->sysContext();
   string airline = sysCont->read( fileparams[ "canon_name" ] + "_" + OWN_POINT_ADDR() + "_file_param_sets.airline" );
   ParseAndSaveSPP( fileparams[ PARAM_FILE_NAME ], fileparams[ "canon_name" ], airline, file_data, convert_aodb );
 }

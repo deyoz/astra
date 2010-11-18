@@ -24,6 +24,7 @@
 #include "stat.h"
 #include "etick.h"
 #include "term_version.h"
+#include "jxtlib/jxt_cont.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -2526,7 +2527,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                   flagCBBG=true;
                   break;
                 };*/
-            if (!flagCBBG&&NodeIsNULLFast("document",node2,true))
+             if (!flagCBBG&&NodeIsNULLFast("document",node2,true))
               throw UserException("MSG.CHECKIN.PASSENGERS_DOCUMENTS_NOT_SET"); //WEB
           };
         };
@@ -2535,6 +2536,57 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
       //определим - новая регистрация или запись изменений
       node = GetNode("grp_id",segNode);
       bool new_checkin=(node==NULL||NodeIsNULL(node));
+      if (reqInfo->client_type == ctTerm)
+      {
+        if (reqInfo->desk.compatible(BAG_WITH_HALL_VERSION))
+        {
+          hall=NodeAsInteger("hall",reqNode);
+        }
+        else
+        {
+          if (new_checkin)
+          {
+            hall=NodeAsInteger("hall",reqNode);
+            JxtContext::getJxtContHandler()->sysContext()->write("last_hall_id", hall);
+          }
+          else
+          {
+            //попробуем считать зал из контекста пульта
+            hall=JxtContext::getJxtContHandler()->sysContext()->readInt("last_hall_id", ASTRA::NoExists);
+            if (hall==ASTRA::NoExists)
+            {
+              //ничего в контексте нет - берем зал из station_halls, но только если он один
+              Qry.Clear();
+              Qry.SQLText=
+                "SELECT station_halls.hall "
+                "FROM station_halls,stations "
+                "WHERE station_halls.airp=stations.airp AND "
+                "      station_halls.station=stations.name AND "
+                "      stations.desk=:desk AND stations.work_mode=:work_mode";
+              Qry.CreateVariable("desk",otString, TReqInfo::Instance()->desk.code);
+              Qry.CreateVariable("work_mode",otString,"Р");
+              Qry.Execute();
+              if (!Qry.Eof)
+              {
+                hall=Qry.FieldAsInteger("hall");
+                Qry.Next();
+                if (!Qry.Eof) hall=ASTRA::NoExists;
+              };
+            };
+            if (hall==ASTRA::NoExists)
+            {
+              //берем зал из pax_grp для этой группы
+              Qry.Clear();
+              Qry.SQLText="SELECT hall FROM pax_grp WHERE grp_id=:grp_id";
+              Qry.CreateVariable("grp_id", otInteger, NodeAsInteger(node));
+              Qry.Execute();
+              if (!Qry.Eof && !Qry.FieldIsNULL("hall"))
+                hall=Qry.FieldAsInteger("hall");
+            };
+          };
+        };
+      };
+
       if (new_checkin)
       {
         cl=NodeAsString("class",segNode);
@@ -2542,7 +2594,6 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
         bool addVIP=false;
         if (reqInfo->client_type == ctTerm)
         {
-          hall=NodeAsInteger("hall",reqNode);
           if (first_segment)
           {
             Qry.Clear();
@@ -3522,7 +3573,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
 
       if (first_segment)
       {
-        CheckInInterface::SaveBag(point_dep,grp_id,reqNode);
+        CheckInInterface::SaveBag(point_dep,grp_id,hall,reqNode);
         CheckInInterface::SavePaidBag(grp_id,reqNode);
         SaveTagPacks(reqNode);
         first_grp_id=grp_id;
@@ -3541,8 +3592,8 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
           "  INSERT INTO value_bag(grp_id,num,value,value_cur,tax_id,tax,tax_trfer) "
           "  SELECT :grp_id,num,value,value_cur,NULL,NULL,NULL "
           "  FROM value_bag WHERE grp_id=:first_grp_id; "
-          "  INSERT INTO bag2(grp_id,num,bag_type,pr_cabin,amount,weight,value_bag_num,pr_liab_limit,bag_pool_num) "
-          "  SELECT :grp_id,num,99,pr_cabin,amount,weight,value_bag_num,pr_liab_limit,bag_pool_num "
+          "  INSERT INTO bag2(grp_id,num,id,bag_type,pr_cabin,amount,weight,value_bag_num,pr_liab_limit,bag_pool_num,hall,user_id) "
+          "  SELECT :grp_id,num,id,99,pr_cabin,amount,weight,value_bag_num,pr_liab_limit,bag_pool_num,hall,user_id "
           "  FROM bag2 WHERE grp_id=:first_grp_id; "
           "  IF SQL%FOUND THEN "
           "    INSERT INTO paid_bag(grp_id,bag_type,weight,rate_id,rate_trfer) "
@@ -5175,7 +5226,41 @@ void GetNextTagNo(int grp_id, int tag_count, vector< pair<int,int> >& tag_ranges
   };
 };
 
-void CheckInInterface::SaveBag(int point_id, int grp_id, xmlNodePtr bagtagNode)
+class TBagItem
+{
+  public:
+    int id,num;
+    int bag_type;
+    bool pr_cabin;
+    int amount;
+    int weight;
+    int hall,user_id; //для old_bag
+    int value_bag_num,bag_pool_num; //для new_bag
+    bool pr_liab_limit;  //для new_bag
+    TBagItem()
+    {
+      id=ASTRA::NoExists;
+      num=ASTRA::NoExists;
+      bag_type=ASTRA::NoExists;
+      pr_cabin=false;
+      amount=ASTRA::NoExists;
+      weight=ASTRA::NoExists;
+      hall=ASTRA::NoExists;
+      user_id=ASTRA::NoExists;
+      value_bag_num=ASTRA::NoExists;
+      bag_pool_num=ASTRA::NoExists;
+      pr_liab_limit=false;
+    };
+    bool operator < (const TBagItem &bag) const
+    {
+      return num < bag.num;
+    };
+};
+/*
+bool CompareBagTagRow(const TBagTagRow &p1, const TBagTagRow &p2)
+{*/
+
+void CheckInInterface::SaveBag(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode)
 {
   if (bagtagNode==NULL) return;
   xmlNodePtr node,node2;
@@ -5312,14 +5397,129 @@ void CheckInInterface::SaveBag(int point_id, int grp_id, xmlNodePtr bagtagNode)
   };
   if (bagNode!=NULL)
   {
+    vector<TBagItem> old_bag,new_bag;
+
+    BagQry.Clear();
+    BagQry.SQLText=
+      "SELECT id,num,bag_type,pr_cabin,amount,weight,hall,user_id "
+      "FROM bag2 "
+      "WHERE grp_id=:grp_id "
+      "ORDER BY num FOR UPDATE";
+    BagQry.CreateVariable("grp_id",otInteger,grp_id);
+    BagQry.Execute();
+    for(;!BagQry.Eof;BagQry.Next())
+    {
+      TBagItem bag;
+      bag.id=BagQry.FieldAsInteger("id");
+      bag.num=BagQry.FieldAsInteger("num");
+      if (!BagQry.FieldIsNULL("bag_type"))
+        bag.bag_type=BagQry.FieldAsInteger("bag_type");
+      bag.pr_cabin=BagQry.FieldAsInteger("pr_cabin")!=0;
+      bag.amount=BagQry.FieldAsInteger("amount");
+      bag.weight=BagQry.FieldAsInteger("weight");
+      if (!BagQry.FieldIsNULL("hall"))
+        bag.hall=BagQry.FieldAsInteger("hall");
+      bag.user_id=BagQry.FieldAsInteger("user_id");
+      old_bag.push_back(bag);
+    };
+    sort(old_bag.begin(), old_bag.end());
+    for(node=bagNode->children;node!=NULL;node=node->next)
+    {
+      node2=node->children;
+      TBagItem bag;
+      bag.id=NodeAsIntegerFast("id",node2,ASTRA::NoExists);
+      bag.num=NodeAsIntegerFast("num",node2);
+      if (!NodeIsNULLFast("bag_type",node2))
+        bag.bag_type=NodeAsIntegerFast("bag_type",node2);
+      bag.pr_cabin=NodeAsIntegerFast("pr_cabin",node2)!=0;
+      bag.amount=NodeAsIntegerFast("amount",node2);
+      bag.weight=NodeAsIntegerFast("weight",node2);
+      if (!NodeIsNULLFast("value_bag_num",node2))
+        bag.value_bag_num=NodeAsIntegerFast("value_bag_num",node2);
+      if (GetNodeFast("pr_liab_limit",node2)!=NULL)  //потом убрать!!!
+        bag.pr_liab_limit=NodeAsIntegerFast("pr_liab_limit",node2)!=0;
+
+      if (reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS))
+      {
+        if (!NodeIsNULLFast("bag_pool_num",node2))
+          bag.bag_pool_num=NodeAsIntegerFast("bag_pool_num",node2);
+      };
+      new_bag.push_back(bag);
+    };
+    sort(new_bag.begin(), new_bag.end());
+    //пробегаемся по сортированным массивам с целью заполнения старых hall и user_id в массиве нового багажа
+    if (reqInfo->desk.compatible(BAG_WITH_HALL_VERSION))
+    {
+      for(vector<TBagItem>::iterator nb=new_bag.begin();nb!=new_bag.end();nb++)
+      {
+        if (nb->id==ASTRA::NoExists)
+        {
+          //вновь введенный багаж
+          nb->hall=hall;
+          nb->user_id=reqInfo->user.user_id;
+        }
+        else
+        {
+          //старый багаж
+          vector<TBagItem>::iterator ob=old_bag.begin();
+          for(;ob!=old_bag.end();ob++)
+            if (ob->id==nb->id) break;
+          if (ob!=old_bag.end())
+          {
+            nb->hall=ob->hall;
+            nb->user_id=ob->user_id;
+          }
+          else
+          {
+            nb->hall=hall;
+            nb->user_id=reqInfo->user.user_id;
+          };
+        };
+      };
+    }
+    else
+    {
+      vector<TBagItem>::iterator ob=old_bag.begin();
+      for(vector<TBagItem>::iterator nb=new_bag.begin();nb!=new_bag.end();nb++)
+      {
+        for(;ob!=old_bag.end();ob++)
+        {
+          if (ob->bag_type==nb->bag_type &&
+              ob->pr_cabin==nb->pr_cabin &&
+              ob->amount==  nb->amount &&
+              ob->weight==  nb->weight) break;
+        };
+        if (ob!=old_bag.end())
+        {
+          nb->id=ob->id;
+          nb->hall=ob->hall;
+          nb->user_id=ob->user_id;
+          ob++;
+        }
+        else
+        {
+          if (hall==ASTRA::NoExists)
+            throw EXCEPTIONS::Exception("CheckInInterface::SaveBag: unknown hall");
+          nb->hall=hall;
+          nb->user_id=reqInfo->user.user_id;
+        };
+      };
+    };
+
     BagQry.Clear();
     BagQry.SQLText="DELETE FROM bag2 WHERE grp_id=:grp_id";
     BagQry.CreateVariable("grp_id",otInteger,grp_id);
     BagQry.Execute();
     BagQry.SQLText=
-      "INSERT INTO bag2 (grp_id,num,bag_type,pr_cabin,amount,weight,value_bag_num,pr_liab_limit,bag_pool_num) "
-      "VALUES (:grp_id,:num,:bag_type,:pr_cabin,:amount,:weight,:value_bag_num,:pr_liab_limit,:bag_pool_num)";
+      "BEGIN "
+      "  IF :id IS NULL THEN "
+      "    SELECT id__seq.nextval INTO :id FROM dual; "
+      "  END IF; "
+      "  INSERT INTO bag2 (grp_id,num,id,bag_type,pr_cabin,amount,weight,value_bag_num,pr_liab_limit,bag_pool_num,hall,user_id) "
+      "  VALUES (:grp_id,:num,:id,:bag_type,:pr_cabin,:amount,:weight,:value_bag_num,:pr_liab_limit,:bag_pool_num,:hall,:user_id); "
+      "END;";
     BagQry.DeclareVariable("num",otInteger);
+    BagQry.DeclareVariable("id",otInteger);
     BagQry.DeclareVariable("bag_type",otInteger);
     BagQry.DeclareVariable("pr_cabin",otInteger);
     BagQry.DeclareVariable("amount",otInteger);
@@ -5327,33 +5527,37 @@ void CheckInInterface::SaveBag(int point_id, int grp_id, xmlNodePtr bagtagNode)
     BagQry.DeclareVariable("value_bag_num",otInteger);
     BagQry.DeclareVariable("pr_liab_limit",otInteger);
     BagQry.DeclareVariable("bag_pool_num",otInteger);
-    for(node=bagNode->children;node!=NULL;node=node->next)
+    BagQry.DeclareVariable("hall",otInteger);
+    BagQry.DeclareVariable("user_id",otInteger);
+    for(vector<TBagItem>::iterator nb=new_bag.begin();nb!=new_bag.end();nb++)
     {
-      node2=node->children;
-      BagQry.SetVariable("num",NodeAsIntegerFast("num",node2));
-      if (!NodeIsNULLFast("bag_type",node2))
-        BagQry.SetVariable("bag_type",NodeAsIntegerFast("bag_type",node2));
+      if (nb->id!=ASTRA::NoExists)
+        BagQry.SetVariable("id",nb->id);
+      else
+        BagQry.SetVariable("id",FNull);
+      BagQry.SetVariable("num",nb->num);
+      if (nb->bag_type!=ASTRA::NoExists)
+        BagQry.SetVariable("bag_type",nb->bag_type);
       else
         BagQry.SetVariable("bag_type",FNull);
-      BagQry.SetVariable("pr_cabin",NodeAsIntegerFast("pr_cabin",node2));
-      BagQry.SetVariable("amount",NodeAsIntegerFast("amount",node2));
-      BagQry.SetVariable("weight",NodeAsIntegerFast("weight",node2));
-      if (!NodeIsNULLFast("value_bag_num",node2))
-        BagQry.SetVariable("value_bag_num",NodeAsIntegerFast("value_bag_num",node2));
+      BagQry.SetVariable("pr_cabin",(int)nb->pr_cabin);
+      BagQry.SetVariable("amount",nb->amount);
+      BagQry.SetVariable("weight",nb->weight);
+      if (nb->value_bag_num!=ASTRA::NoExists)
+        BagQry.SetVariable("value_bag_num",nb->value_bag_num);
       else
         BagQry.SetVariable("value_bag_num",FNull);
-      if (GetNodeFast("pr_liab_limit",node2)!=NULL)  //потом убрать!!!
-        BagQry.SetVariable("pr_liab_limit",NodeAsIntegerFast("pr_liab_limit",node2));
+      BagQry.SetVariable("pr_liab_limit",(int)nb->pr_liab_limit);
+      if (nb->bag_pool_num!=ASTRA::NoExists)
+        BagQry.SetVariable("bag_pool_num",nb->bag_pool_num);
       else
-        BagQry.SetVariable("pr_liab_limit",(int)0);
-      if (reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS))
-      {
-        if (!NodeIsNULLFast("bag_pool_num",node2))
-          BagQry.SetVariable("bag_pool_num",NodeAsIntegerFast("bag_pool_num",node2));
-        else
-          BagQry.SetVariable("bag_pool_num",FNull);
-      }
-      else BagQry.SetVariable("bag_pool_num",FNull);
+        BagQry.SetVariable("bag_pool_num",FNull);
+      if (nb->hall!=ASTRA::NoExists)
+        BagQry.SetVariable("hall",nb->hall);
+      else
+        BagQry.SetVariable("hall",FNull);
+      BagQry.SetVariable("user_id",nb->user_id);
+
       BagQry.Execute();
     };
   };
@@ -5447,7 +5651,7 @@ void CheckInInterface::LoadBag(int grp_id, xmlNodePtr bagtagNode)
   };
   node=NewTextChild(bagtagNode,"bags");
   BagQry.Clear();
-  BagQry.SQLText="SELECT num,bag_type,pr_cabin,amount,weight, "
+  BagQry.SQLText="SELECT id,num,bag_type,pr_cabin,amount,weight, "
                  "       value_bag_num,pr_liab_limit,bag_pool_num "
                  "FROM bag2 WHERE grp_id=:grp_id ORDER BY num";
   BagQry.CreateVariable("grp_id",otInteger,grp_id);
@@ -5455,6 +5659,7 @@ void CheckInInterface::LoadBag(int grp_id, xmlNodePtr bagtagNode)
   for(;!BagQry.Eof;BagQry.Next())
   {
     xmlNodePtr bagNode=NewTextChild(node,"bag");
+    NewTextChild(bagNode,"id",BagQry.FieldAsInteger("id"));
     NewTextChild(bagNode,"num",BagQry.FieldAsInteger("num"));
     if (!BagQry.FieldIsNULL("bag_type"))
       NewTextChild(bagNode,"bag_type",BagQry.FieldAsInteger("bag_type"));
@@ -5638,7 +5843,7 @@ void CheckInInterface::SaveBagToLog(int point_id, int grp_id, xmlNodePtr bagtagN
       "       NVL(SUM(bag2.weight),0) AS bag_weight "
       "FROM paid_bag,bag2 "
       "WHERE paid_bag.grp_id=bag2.grp_id(+) AND  "
-      "      NVL(paid_bag.bag_type,-1)=NVL(bag2.bag_type(+),-1) AND  "
+      "      NVL(paid_bag.bag_type,-1)=NVL( bag2.bag_type(+),-1) AND  "
       "      paid_bag.grp_id=:grp_id "
       "GROUP BY paid_bag.bag_type "
       "ORDER BY DECODE(paid_bag.bag_type,NULL,0,1),paid_bag.bag_type ";

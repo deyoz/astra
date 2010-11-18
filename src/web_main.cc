@@ -1985,6 +1985,7 @@ void VerifyPax(xmlNodePtr reqNode, XMLDoc &emulCkinDoc, map<int,XMLDoc> &emulChn
           paxsNode=NewTextChild(segNode,"passengers");
 
           NewTextChild(emulChngNode,"excess",Qry.FieldAsInteger("excess"));
+          NewTextChild(emulChngNode,"hall");
           NewTextChild(emulChngNode,"bag_refuse",Qry.FieldAsInteger("bag_refuse"));
         };
         xmlNodePtr paxNode=NewTextChild(paxsNode,"pax");
