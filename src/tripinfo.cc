@@ -1127,14 +1127,14 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   ostringstream select;
   if (pr_class) select << ", NVL(class,' ') AS class";
   if (pr_cl_grp) select << ", NVL(class_grp,-1) AS class_grp";
-  if (pr_hall) select << ", NVL(hall,-1) AS hall";
+  if (pr_hall) select << ", NVL(pax_grp.hall,-1) AS hall";
   if (pr_airp_arv) select << ", point_arv";
   if (pr_trfer) select
                        << ", NVL(v_last_trfer.airline,' ') AS trfer_airline"
                        << ", NVL(v_last_trfer.flt_no,-1) AS trfer_flt_no"
                        << ", NVL(v_last_trfer.suffix,' ') AS trfer_suffix"
                        << ", NVL(v_last_trfer.airp_arv,' ') AS trfer_airp_arv";
-  if (pr_user) select << ", user_id";
+  if (pr_user) select << ", pax_grp.user_id";
   if (pr_client_type) select << ", client_type";
   if (pr_status) select << ", status";
   if (pr_ticket_rem) select << ", ticket_rem";
@@ -1144,13 +1144,13 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   ostringstream group_by;
   if (pr_class) group_by << ", NVL(class,' ')";
   if (pr_cl_grp) group_by << ", NVL(class_grp,-1)";
-  if (pr_hall) group_by << ", NVL(hall,-1)";
+  if (pr_hall) group_by << ", NVL(pax_grp.hall,-1)";
   if (pr_airp_arv) group_by << ", point_arv";
   if (pr_trfer) group_by << ", NVL(v_last_trfer.airline,' ')"
                          << ", NVL(v_last_trfer.flt_no,-1)"
                          << ", NVL(v_last_trfer.suffix,' ')"
                          << ", NVL(v_last_trfer.airp_arv,' ')";
-  if (pr_user) group_by << ", user_id";
+  if (pr_user) group_by << ", pax_grp.user_id";
   if (pr_client_type) group_by << ", client_type";
   if (pr_status) group_by << ", status";
   if (pr_ticket_rem) group_by << ", ticket_rem";
@@ -1334,6 +1334,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   {
     sql << "ORDER BY " << order_by.str().erase(0,1);
   };
+  ProgTrace(TRACE5,"readPaxLoad: SQL=\n%s",sql.str().c_str());
 
 
   Qry.Clear();
