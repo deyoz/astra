@@ -510,7 +510,7 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
       }
       else {
         if ( psTCheckin == DecodePaxStatus( Qry.FieldAsString( "status" ) ) )
-        	term = "99";
+        	term = "999";
         else
         	if ( DecodeClientType( Qry.FieldAsString( "client_type" ) ) == ctWeb )
          		term = "777";
