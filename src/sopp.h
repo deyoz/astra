@@ -298,5 +298,7 @@ public:
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 };
 
+void ChangeACT_OUT( int point_id, BASIC::TDateTime old_act, BASIC::TDateTime act );
+
 #endif /*_SOPP_H_*/
 

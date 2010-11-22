@@ -27,6 +27,7 @@ alter table aodb_bag add pr_cabin NUMBER(1) NOT NULL;
 #include "stages.h"
 #include "tripinfo.h"
 #include "salons2.h"
+#include "sopp.h"
 #include "serverlib/helpcpp.h"
 
 #define NICKNAME "DJEK"
@@ -1568,6 +1569,7 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
             tl += string("Проставление факт. времени вылета ") + DateTimeToStr( fl.act, "hh:nn dd.mm.yy" ) + string(" (UTC)");
         } else
  	  		tl += "Отмена факта вылета";
+ 	  	ChangeACT_OUT( point_id, old_fl.act, 	fl.act );
  	  }
  	  if ( fl.litera != old_fl.litera ) {
  	  	if ( !tl.empty() )
