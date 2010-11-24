@@ -855,8 +855,8 @@ void getLexemaText( LexemaData lexemaData, string &text, string &master_lexema_i
 	}
   catch( std::exception &e ) {
    	text = lexemaData.lexema_id;
-   	ProgError( STDLOG, "showError buildMsg e.what()=%s, id=%s, lang=%s",
-   	           e.what(), lexemaData.lexema_id.c_str(), TReqInfo::Instance()->desk.lang.c_str() );
+   	//ProgError( STDLOG, "showError buildMsg e.what()=%s, id=%s, lang=%s",
+   	           //e.what(), lexemaData.lexema_id.c_str(), TReqInfo::Instance()->desk.lang.c_str() );
   }
   catch( ... ) {
    	text = lexemaData.lexema_id;
