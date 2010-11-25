@@ -1345,7 +1345,9 @@ void SysReqInterface::ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   for(;node!=NULL;node=node->next)
   {
     if (strcmp((char*)node->name,"msg")==0)
-      ProgError( STDLOG, "Client error: %s.", NodeAsString(node) ) ;
+      ProgError( STDLOG, "Client error (ver. %s): %s.",
+                         TReqInfo::Instance()->desk.version.c_str(),
+                         NodeAsString(node) ) ;
   };
 }
 
