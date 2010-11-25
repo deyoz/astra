@@ -4511,7 +4511,7 @@ void SoppInterface::GetTime(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
 	if ( fmt == efmtUnknown )
 		throw AstraLocale::UserException( "MSG.AIRP.INVALID_GIVEN_CODE" );
 	string region = AirpTZRegion( airp, true );
-	TDateTime time = UTCToClient( Qry.FieldAsDateTime( "time" ), region );
+ 	TDateTime time = UTCToClient( Qry.FieldAsDateTime( "time" ), region );
 	NewTextChild( resNode, "time", DateTimeToStr( time, ServerFormatDateTimeAsString ) );
 }
 
