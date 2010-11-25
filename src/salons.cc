@@ -2405,8 +2405,8 @@ void getXYName( int point_id, std::string seat_no, std::string &xname, std::stri
 	Qry.SQLText =
 	  "SELECT xname, yname FROM trip_comp_elems "
 	  " WHERE point_id=:point_id AND "
-	  "       (salons.denormalize_yname(yname)||salons.denormalize_xname(xname,0)=:seat_no OR "
-	  "        salons.denormalize_yname(yname)||salons.denormalize_xname(xname,1)=:seat_no)";
+	  "       (salons.denormalize_yname(yname,NULL)||salons.denormalize_xname(xname,0)=:seat_no OR "
+	  "        salons.denormalize_yname(yname,NULL)||salons.denormalize_xname(xname,1)=:seat_no)";
 	Qry.CreateVariable( "point_id", otInteger, point_id );
 	Qry.CreateVariable( "seat_no", otString, seat_no );
 	Qry.Execute();
