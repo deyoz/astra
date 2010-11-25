@@ -1330,17 +1330,17 @@ void BTM(TRptParams &rpt_params, xmlNodePtr resNode)
         bag_tag_row.point_num = Qry.FieldAsInteger("point_num");
         bag_tag_row.grp_id = cur_grp_id;
         bag_tag_row.airp_arv = Qry.FieldAsString("airp_arv");
+        bag_tag_row.bag_type = Qry.FieldAsInteger("bag_type");
 
         if(Qry.FieldIsNULL("class"))
             bag_tag_row.class_priority = 100;
         else {
             string class_code = Qry.FieldAsString("class");
+            bag_tag_row.bag_name = bag_names.get(class_code, bag_tag_row.bag_type, rpt_params.IsInter());
             bag_tag_row.class_priority = ((TClassesRow&)base_tables.get("classes").get_row( "code", class_code)).priority;
             bag_tag_row.class_code = rpt_params.ElemIdToReportElem(etClass, class_code, efmtCodeNative);
             bag_tag_row.class_name = rpt_params.ElemIdToReportElem(etClass, class_code, efmtNameLong);
         }
-        bag_tag_row.bag_type = Qry.FieldAsInteger("bag_type");
-        bag_tag_row.bag_name = bag_names.get(bag_tag_row.class_code, bag_tag_row.bag_type, rpt_params.IsInter());
         if(!bag_tag_row.bag_name.empty())
             bag_tag_row.bag_name_priority = bag_tag_row.bag_type;
         bag_tag_row.bag_num = cur_bag_num;
