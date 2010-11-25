@@ -239,8 +239,8 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   TQuery Qry( &OraSession );
   int trip_id = NodeAsInteger( "trip_id", reqNode );
   int comp_id = NodeAsInteger( "comp_id", reqNode );
-  Qry.CreateVariable( "point_id", otInteger, trip_id );
   Qry.SQLText = "UPDATE points SET point_id=point_id WHERE point_id=:point_id";
+  Qry.CreateVariable( "point_id", otInteger, trip_id );
   Qry.Execute();
   Qry.SQLText = "UPDATE trip_sets SET comp_id=:comp_id WHERE point_id=:point_id";
   Qry.DeclareVariable( "comp_id", otInteger );
@@ -257,7 +257,17 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Salons.trip_id = trip_id;
   Salons.ClName = "";
   Qry.Execute();
+  SALONS2::TSalons OldSalons( trip_id, SALONS2::rTripSalons );
+  // может вызвать ошибку, если салон не был назначен на рейс
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT point_id FROM trip_comp_elems WHERE point_id=:point_id AND rownum<2";
+  Qry.CreateVariable( "point_id", otInteger, trip_id );
+  Qry.Execute();
+  if ( !Qry.Eof )
+    OldSalons.Read();
   Salons.Write();
+
   bool pr_initcomp = NodeAsInteger( "initcomp", reqNode );
   /* инициализация VIP */
   SALONS2::InitVIP( trip_id );
@@ -275,11 +285,11 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   	comp_lang = NodeAsString( "lang", refcompNode );
   msg += string( ", кодировка: " ) + comp_lang;
   TReqInfo::Instance()->MsgToLog( msg, evtFlt, trip_id );
+  bool cBase = false;
+  bool cChange = false;
 
   if ( pr_initcomp ) { /* изменение компоновки */
     xmlNodePtr ctypeNode = NodeAsNode( "ctype", refcompNode );
-    bool cBase = false;
-    bool cChange = false;
     if ( ctypeNode ) {
       ctypeNode = ctypeNode->children; /* value */
       while ( ctypeNode ) {
@@ -315,6 +325,14 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   // надо перечитать заново
   Salons.Clear();
   Salons.Read();
+  vector<string> referStrs;
+  salonChangesToText( OldSalons, Salons, referStrs, cBase, 100 );
+  referStrs.insert( referStrs.begin(), msg );
+  string ssss;
+  for ( vector<string>::iterator i=referStrs.begin(); i!=referStrs.end(); i++ ) {
+  	ssss += *i + char(10) + char(13);
+  }
+  NewTextChild( dataNode, "refer", ssss );
   // конец перечитки
   xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
   Salons.Build( salonsNode );

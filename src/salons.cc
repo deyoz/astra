@@ -12,7 +12,7 @@
 #include "convert.h"
 #include "tripinfo.h"
 #include "astra_locale.h"
-//#include "seats.h"
+#include "base_tables.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -1013,89 +1013,10 @@ void TSalons::Read( )
 	        }
 	      }
   	  }
-			if ( r->valid == 1 )
- 			  ProgTrace( TRACE5, "layer ok" );
- 			else
+			if ( r->valid != 1 )
   			ProgTrace( TRACE5, "invalid layer, result=%d", r->valid );
     }
   }
-
-
-
-/*
-
-  bool pr_valid;
-  for ( std::vector<TPlaceList*>::iterator iplaces = placelists.begin(); iplaces != placelists.end(); iplaces++ ) {
-  	for ( TPlaces::iterator ip= iplaces->places.begin(); ip!=iplaces->places.end(); ip++ ) {
-  		if ( !ip->isPax )
-  			continue;
-  		for ( vector<TPlaceLayer>::iterator il=ip->layers.begin(); il!=ip->layers.end(); il++ ) {
-  			if ( il->pax_id <= 0 )
-  				continue;
-  			// имеем пассажирский слой наиболее приоритетный
-  			// определяем правильность этого слоя
-  			TPaxLayers::iterator ipax = pax_layers.find( l->pax_id ); // список всех слоев пассажира
-  			for (vector<TPaxLayer>::iterator r=ipax->second.paxLayers.begin(); r!=ipax->second.paxLayers.end(); r++ ) { // пробег по слоям пассажира
-  				if ( !r->inwork )
-      		  continue;
-  				if ( r->layer_type == il->layer_type && r->time_create == il->time_create ) {
-           if ( pr_valid = r->isValid( ipax->second.seats, ipax->second.cl, p->first ) ) { // если проверка прошла успешно, то надо удалить все остальные слои у места по пассажирам
-      			tst();
-      			for( vector<TPlaceLayer>::iterator l1=p->second.begin();l1!=p->second.end(); l1++ ) {
-      				if ( l1 != l ) {
-      					ClearPaxLayer( pax_layers, l1->pax_id, l1->layer_type, l1->time_create );
-      				}
-      			}
-      		}
-      		else {
-      			ClearPaxLayer( pax_layers, l->pax_id, l->layer_type, l->time_create );
-      		}
-          r->inwork = false;
-      		break;
-        }
-  				}
-  		  }
-  		}
-  	}
-  }
-
-  for (TPlacePaxs::iterator p=PaxsOnPlaces.begin(); p!=PaxsOnPlaces.end(); p++ ) { // пробег по всем местам на которых есть pax_id
-    if ( p->second.size() > 1 ) {
-  		sort( p->second.begin(), p->second.end(), ComparePlaceLayers );
-    }
-    ProgTrace( TRACE5, "placename=%s, p->second.size()=%d", string(p->first->yname+p->first->xname).c_str(), p->second.size() );
-    for (vector<TPlaceLayer>::iterator l=p->second.begin();l!=p->second.end(); l++) { // пробег по слоям места
-    	ProgTrace( TRACE5, "pax_id=%d, layer_type=%s, priority=%d", l->pax_id, EncodeCompLayerType( l->layer_type ), l->priority );
-      TPaxLayers::iterator ipax = pax_layers.find( l->pax_id );
-      // поиск нужного слоя
-      ProgTrace( TRACE5, "ipax find=%d, ipax->second.paxLayers.size()=%d", ipax != pax_layers.end(), ipax->second.paxLayers.size() );
-      for (vector<TPaxLayer>::iterator r=ipax->second.paxLayers.begin(); r!=ipax->second.paxLayers.end(); r++ ) { // пробег по слоям пассажира
-      	ProgTrace( TRACE5, "pax_id=%d, l->layer_type=%s, l->time_create=%f, r->layer_type=%s, r->time_create=%f, inwork=%d",
-      	           l->pax_id, EncodeCompLayerType( l->layer_type ), l->time_create, EncodeCompLayerType( r->layer_type ), r->time_create, r->inwork );
-      	if ( !r->inwork )
-      		continue;
-      	tst();
-      	if ( r->layer_type == l->layer_type && r->time_create == l->time_create ) {
-      		if ( pr_valid = r->isValid( ipax->second.seats, ipax->second.cl, p->first ) ) { // если проверка прошла успешно, то надо удалить все остальные слои у места по пассажирам
-      			tst();
-      			for( vector<TPlaceLayer>::iterator l1=p->second.begin();l1!=p->second.end(); l1++ ) {
-      				if ( l1 != l ) {
-      					ClearPaxLayer( pax_layers, l1->pax_id, l1->layer_type, l1->time_create );
-      				}
-      			}
-      		}
-      		else {
-      			ClearPaxLayer( pax_layers, l->pax_id, l->layer_type, l->time_create );
-      		}
-          r->inwork = false;
-      		break;
-        }
-      }
-      // со всеми слоями у места разобрались, переходим на новое место
-      if ( pr_valid ) // если нашли нормальный слой, то обработка места закончилась, иначе переходим на другой слой у места
-        break;
-    }
-  }*/
 }
 
 void TSalons::Parse( xmlNodePtr salonsNode )
@@ -1851,115 +1772,537 @@ bool CompareLayers( const vector<TPlaceLayer> &layer1, const vector<TPlaceLayer>
   return true;
 }
 
-bool salonChangesToText( TSalons &OldSalons, TSalons &NewSalons, std::vector<std::string> logs )
+bool EqualSalon( TPlaceList* oldsalon, TPlaceList* newsalon )
 {
-	logs.clear();
-	map<string,TPlaces> mapChanges;
-	string str_code;
-	if ( NewSalons.getLatSeat() )
-		str_code="EN";
-	else
-		str_code="RU";
-	logs.push_back( string( "Изменена компоновка. Кодировка="+str_code ) );
-  // поиск в новой компоновки нужного салона
-  for ( vector<TPlaceList*>::iterator so=OldSalons.placelists.begin(); so!=OldSalons.placelists.begin(); so++ ) {
-  	bool pr_find_salon = true;
-  	for ( vector<TPlaceList*>::iterator sn=NewSalons.placelists.begin(); sn!=NewSalons.placelists.begin(); sn++ ) {
-  		if ( (*so)->places.size() == (*sn)->places.size() &&
-  			   (*so)->GetXsCount() == (*sn)->GetXsCount() &&
-  			   (*so)->GetYsCount() == (*sn)->GetYsCount() ) { //возможно это нужный салон
-  			//!!!возможно более тонко оценивать салон: удаление мест из ряда/линии - это места становятся невидимые, но при этом теряется само название ряда/линии
-  			for ( int x=0; x<(*so)->GetXsCount(); x++ ) {
-  				if ( (*so)->GetXsName( x ) != (*sn)->GetXsName( x ) ) {
-  					pr_find_salon = false;
-  					break;
-  				}
-  			}
-  			if ( !pr_find_salon ) break;
-  			for ( int y=0; y<(*so)->GetYsCount(); y++ ) {
-  				if ( (*so)->GetYsName( y ) != (*sn)->GetYsName( y ) ) {
-  					pr_find_salon = false;
-  					break;
-  				}
-  			}
-  	  }
-  	  if ( pr_find_salon ) {// это нужный салон
-        for ( TPlaces::iterator po = (*so)->places.begin(),
-    	                          pn = (*sn)->places.begin();
-              po != (*so)->places.end(),
-              pn != (*sn)->places.end();
-              po++, pn++ ) {
-          if ( po->x != pn->x ||
-          	   po->y != pn->y ) {
-          	pr_find_salon = false;
-          	break;
-          }
-          if ( po->visible != pn->visible ||
-          	   po->elem_type != pn->elem_type ) {
-          	if ( po->visible != pn->visible ) {
-          	  if ( pn->visible )
-                mapChanges[ "ADD_SEATS" + pn->elem_type ].push_back( *pn );
-              else
-              	mapChanges[ "DEL_SEATS" + po->elem_type ].push_back( *po );
-            }
-            else
-            	if ( pn->visible ) { // разные типы мест = старый удаляем, новый добавляем
-            		mapChanges[ "DEL_SEATS" ].push_back( *po );
-            		mapChanges[ "ADD_SEATS" + pn->elem_type ].push_back( *pn );
-              }
-          }
-          if ( !CompareRems( po->rems, pn->rems ) ) { // разные ремарки
-          	bool pr_find_rem=false;
-          	for ( vector<TRem>::const_iterator ro=po->rems.begin(); ro!=po->rems.end(); ro++ ) { // пробег по старым ремаркам
-          		for ( vector<TRem>::const_iterator rn=pn->rems.begin(); rn!=pn->rems.end(); rn++ ) { // пробег по новым - поиск старых
-          			if ( ro->rem == rn->rem && ro->pr_denial == rn->pr_denial ) {
-          				pr_find_rem = true;
-          				break;
-          			}
-          	  }
-          	  if ( !pr_find_rem ) { // старую ремарку не нашли
-          	  	if ( ro->pr_denial )
-          	  	  mapChanges[ "DEL_REMS!" + ro->rem ].push_back( *po );
-          	  	else
-          	  		mapChanges[ "DEL_REMS" + ro->rem ].push_back( *po );
-          	  }
-          	}
-          	for ( vector<TRem>::const_iterator rn=pn->rems.begin(); rn!=pn->rems.end(); rn++ ) {
-          		for ( vector<TRem>::const_iterator ro=po->rems.begin(); ro!=po->rems.end(); ro++ ) {
-          			if ( ro->rem == rn->rem && ro->pr_denial == rn->pr_denial ) {
-          				pr_find_rem = true;
-          				break;
-          			}
-          	  }
-          	  if ( !pr_find_rem ) { // старую ремарку не нашли
-          	  	if ( rn->pr_denial )
-          	  	  mapChanges[ "ADD_REMS" + rn->rem ].push_back( *pn );
-          	  	else
-          	  		mapChanges[ "ADD_REMS!" + rn->rem ].push_back( *pn );
-          	  }
-          	}
-          }
-          if ( !CompareLayers( po->layers, pn->layers ) ) { // разные слои
-          	//bool pr_find_layer=false;
-          	for ( vector<TPlaceLayer>::const_iterator lo=po->layers.begin(); lo!=po->layers.end(); lo++ ) {
-          		for ( vector<TPlaceLayer>::const_iterator ln=pn->layers.begin(); ln!=pn->layers.end(); ln++ ) {
-          			// надо сравнивать только редактируемые слои
-          			//if ( lo->layer_type
-          	  }
-          	}
-          }
-        }
-  	  }
+	//!!!возможно более тонко оценивать салон: удаление мест из ряда/линии - это места становятся невидимые, но при этом теряется само название ряда/линии
+	bool res = ( oldsalon->places.size() == newsalon->places.size() &&
+  			       oldsalon->GetXsCount() == newsalon->GetXsCount() &&
+  			       oldsalon->GetYsCount() == newsalon->GetYsCount() );
+  if ( !res )
+  	return false;
 
-  	  if ( !pr_find_salon ) { // не нашли салон - считаем что удалии его и возможно добавили новый
-  	  }
+  for ( TPlaces::iterator po = oldsalon->places.begin(),
+    	                    pn = newsalon->places.begin();
+        po != oldsalon->places.end(),
+        pn != newsalon->places.end();
+        po++, pn++ )
+    if ( po->visible && pn->visible &&
+    	   ( po->x != pn->x ||
+     	     po->y != pn->y ||
+     	     po->xname != pn->xname ||
+       	   po->yname != pn->yname ) ) {
+     	ProgTrace( TRACE5, "po(%d,%d), oname=%s, pn(%d,%d) nname=%s", po->x, po->y, string(po->xname+po->yname).c_str(),
+     	           pn->x, pn->y, string(pn->xname+pn->yname).c_str() );
+
+     	return false;
     }
-
-  }
-  return false;
-
+  return true;
 }
 
+struct TRowRef {
+	string yname;
+	string xnames;
+};
+
+typedef map<int,TRowRef,std::less<int> > RowsRef;
+
+struct TStringRef {
+	string value;
+	bool pr_header;
+	TStringRef( string vvalue, bool vpr_header ) {
+		value = vvalue;
+		pr_header = vpr_header;
+	}
+};
+
+
+void SeparateEvents( vector<TStringRef> referStrs, vector<string> &eventsStrs, unsigned int line_len )
+{
+	for ( vector<TStringRef>::iterator i=referStrs.begin(); i!=referStrs.end(); i++ ) {
+		ProgTrace( TRACE5, "i->value=%s, i->pr_header=%d",i->value.c_str(), i->pr_header);
+  }
+	eventsStrs.clear();
+	if ( referStrs.empty() )
+		return;
+
+	string headStr, lineStr, prior_lineStr;
+	bool pr_prior_header;
+	if ( referStrs.begin()->pr_header )
+		headStr = referStrs.begin()->value;
+	lineStr = headStr;
+	for ( vector<TStringRef>::iterator i=referStrs.begin(); i!=referStrs.end(); i++ ) {
+		if ( i == referStrs.begin() && i->pr_header )
+			continue;
+		ProgTrace( TRACE5, "lineStr=%s, lineStr.size()=%d, i->value=%s, i->pr_header=%d,i->size()=%d, line_len=%d",
+		           lineStr.c_str(),lineStr.size(),i->value.c_str(), i->pr_header, i->value.size(),line_len);
+		if ( i->pr_header )
+		  headStr = i->value;
+		if ( lineStr.size() + i->value.size() >= line_len ) {
+			if ( pr_prior_header )
+				lineStr = prior_lineStr;
+			tst();
+			if ( lineStr.size() <= line_len ) {
+				ProgTrace( TRACE5, "eventsStrs.push_back(%s)",lineStr.c_str() );
+	      eventsStrs.push_back( lineStr );
+	      lineStr.clear();
+	    }
+	    else
+	    	while ( !lineStr.empty() ) {
+	    		if ( lineStr.size() > line_len ) {
+	    		  ProgTrace( TRACE5, "eventsStrs.push_back(%s)",lineStr.substr(0,line_len).c_str() );
+	    		  eventsStrs.push_back( lineStr.substr(0,line_len) );
+	    		  lineStr = lineStr.substr(line_len);
+	    		  ProgTrace( TRACE5, "lineStr=%s)",lineStr.c_str() );
+	    		}
+	    		else {
+	    		  eventsStrs.push_back( lineStr );
+	    		  lineStr.clear();
+	    		  tst();
+	    		}
+	    	}
+	   prior_lineStr = lineStr;
+	   if ( !i->pr_header )
+	   	lineStr = headStr;
+		}
+		else
+		  prior_lineStr = lineStr;
+		if ( !lineStr.empty() )
+	    lineStr += " ";
+    lineStr += i->value;
+    pr_prior_header = i->pr_header;
+	}
+	ProgTrace( TRACE5, "eventsStrs.push_back(%s)",lineStr.c_str() );
+	eventsStrs.push_back( lineStr );
+}
+
+
+bool RightRows( const string &row1, const string &row2 )
+{
+	int r1, r2;
+	if ( StrToInt( row1.c_str(), r1 ) == EOF || StrToInt( row2.c_str(), r2 ) == EOF )
+		return false;
+	ProgTrace( TRACE5, "r1=%d, r2=%d, EOF=%d, row1=%s, row2=%s", r1, r2, EOF, row1.c_str(), row2.c_str() );
+	return ( r1 == r2 - 1 );
+}
+
+
+
+void getStrSeats( const RowsRef &rows, vector<TStringRef> &referStrs, bool pr_lat )
+{
+	for ( RowsRef::const_iterator i=rows.begin(); i!=rows.end(); i++ ) {
+		 ProgTrace( TRACE5, "i->first=%d, i->second.yname=%s, i->second.xnames=%s", i->first, i->second.yname.c_str(), i->second.xnames.c_str() );
+	}
+	vector<TStringRef> strs1, strs2;
+  string str, max_lines, denorm_max_lines;
+  int var1_size=0, var2_size=0;
+  bool pr_rr, pr_right_rows=true;
+  for ( int i=0; i<=1; i++ ) {
+    RowsRef::const_iterator first_isr=rows.begin();
+    RowsRef::const_iterator prior_isr=rows.begin();
+    RowsRef::const_iterator isr=rows.begin();
+    while ( !rows.empty() ) {
+    	if ( isr == rows.end() ||
+    		   ( prior_isr != isr && !(pr_rr=RightRows( prior_isr->second.yname, isr->second.yname )) ) ||
+    		   i == 0 && first_isr->second.xnames != isr->second.xnames || //описание блока мест с одинаковыми линиями
+    		   i != 0 && first_isr->second.xnames.find_first_of( isr->second.xnames ) != string::npos ) { //описание блока мест с пересекающимися линиями
+        if ( !pr_rr )
+        	pr_right_rows = false;
+    		for ( string::const_iterator sp=prior_isr->second.xnames.begin(); sp!=prior_isr->second.xnames.end(); sp++ ) {
+    		  if ( max_lines.find( *sp ) == string::npos ) {
+    			  max_lines += *sp;
+    			  denorm_max_lines += denorm_iata_line( string(1,*sp), pr_lat );
+    			}
+    	  }
+    		if ( i == 0 ) {
+ 	  	    str += denorm_iata_row( first_isr->second.yname );
+    		  if ( prior_isr->first != first_isr->first )
+ 	  		    str += "-" + denorm_iata_row( prior_isr->second.yname );
+ 	  		  for ( string::const_iterator sp=first_isr->second.xnames.begin(); sp!=first_isr->second.xnames.end(); sp++ ) {
+ 	  	      str += denorm_iata_line( string(1,*sp), pr_lat );
+ 	  	    }
+ 	  	    var1_size += str.size();
+ 	  	    strs1.push_back( TStringRef(str,false) );
+     	  	first_isr = isr;
+     	  	str.clear();
+     	  }
+     	  else
+     	  	if ( isr == rows.end() ) {
+     	  		if ( first_isr->first != prior_isr->first )
+     	  		  str = denorm_iata_row( first_isr->second.yname ) + "-" + denorm_iata_row( prior_isr->second.yname );
+     	  		else
+     	  			str = denorm_iata_row( first_isr->second.yname );
+     	  		str += denorm_max_lines;
+     	  		// пишем те места, кот нет
+     	  		string minus_lines;
+     	  		for ( RowsRef::const_iterator isr=rows.begin(); isr!=rows.end(); isr++ ) {
+     	  			minus_lines.clear();
+     	  			for ( string::iterator sp=max_lines.begin(); sp!=max_lines.end(); sp++ ) {
+     	  				if ( isr->second.xnames.find( *sp ) == string::npos )
+     	  					minus_lines += denorm_iata_line( string(1,*sp), pr_lat );
+     	  			}
+     	  			if ( !minus_lines.empty() ) {
+     	  				str += " -" + denorm_iata_row( isr->second.yname ) + minus_lines;
+     	  			}
+     	  		}
+     	  		var2_size += str.size();
+     	  		strs2.push_back( TStringRef(str,false) );
+     	  	}
+   	  }
+   	  if ( isr == rows.end() )
+   		  break;
+   	  prior_isr = isr;
+   	  isr++;
+    }
+  }
+  for ( vector<TStringRef>::iterator i=strs1.begin(); i!=strs1.end(); i++ ) {
+    ProgTrace( TRACE5, "getStrSeats: str1=%s", i->value.c_str() );
+  }
+  for ( vector<TStringRef>::iterator i=strs2.begin(); i!=strs2.end(); i++ ) {
+    ProgTrace( TRACE5, "getStrSeats: str2=%s", i->value.c_str() );
+  }
+  if ( var1_size < var2_size || !pr_right_rows )
+    referStrs.insert(	referStrs.end(), strs1.begin(), strs1.end() );
+  else
+  	referStrs.insert(	referStrs.end(), strs2.begin(), strs2.end() );
+}
+
+void ReferPlaces( string name, TPlaces places, std::vector<TStringRef> &referStrs, bool pr_lat )
+{
+	referStrs.clear();
+	ProgTrace( TRACE5, "ReferPlacesRow: name=%s", name.c_str() );
+	string str, tmp;
+	if ( places.empty() )
+		return;
+	tmp = "ADD_COMMON_SALON_REF";
+  if ( name.find( tmp ) != string::npos ) {
+  	tst();
+  	TCompElemTypes &comp_elem_types = (TCompElemTypes&)base_tables.get( "comp_elem_types" );
+  	referStrs.push_back( TStringRef("+Cалон "+name.substr(name.find( tmp )+tmp.size() ) + " " + places.begin()->clname + " " +
+  	                     ((TCompElemTypesRow&)comp_elem_types.get_row( "code", places.begin()->elem_type, true )).name.c_str() + ":", true) );
+  	name.clear();
+  }
+	tmp = "ADD_SALON";
+  if ( name.find( tmp ) != string::npos ) {
+  	referStrs.push_back( TStringRef("+Cалон "+name.substr(name.find( tmp )+tmp.size() ) + ":", true) );
+  }
+  tmp = string("DEL_SALON" );
+  if ( name.find( tmp ) != string::npos ) {
+  	referStrs.push_back( TStringRef("-Cалон "+name.substr(name.find( tmp )+tmp.size() ) + ":", true) );
+  }
+  tmp = "ADD_SEATS";
+  if ( name.find( tmp ) != string::npos ) {
+  	TCompElemTypes &comp_elem_types = (TCompElemTypes&)base_tables.get( "comp_elem_types" );
+  	referStrs.push_back( TStringRef("+" + ((TCompElemTypesRow&)comp_elem_types.get_row( "code", places.begin()->elem_type, true )).name+ " " + places.begin()->clname + ":", true) );
+  }
+  tmp = "DEL_SEATS";
+  if ( name.find( tmp ) != string::npos ) {
+  	TCompElemTypes &comp_elem_types = (TCompElemTypes&)base_tables.get( "comp_elem_types" );
+  	referStrs.push_back( TStringRef("-" + ((TCompElemTypesRow&)comp_elem_types.get_row( "code", places.begin()->elem_type, true )).name+ " " + places.begin()->clname + ":", true) );
+  }
+  tmp = "ADD_REMS";
+  if ( name.find( tmp ) != string::npos ) {
+  	string rem = name.substr( name.find( tmp )+tmp.size() );
+  	referStrs.push_back( TStringRef("+" + rem + ":",true) );
+  }
+  tmp = "DEL_REMS";
+  if ( name.find( tmp ) != string::npos ) {
+  	string rem = name.substr( name.find( tmp )+tmp.size() );
+  	referStrs.push_back( TStringRef("-" + rem + ":", true) );
+  }
+  tmp = "ADD_LAYERS";
+  if ( name.find( tmp ) != string::npos ) {
+  	string layer_type = name.substr( name.find( tmp )+tmp.size() );
+  	TCompLayerTypes &comp_layer_types = (TCompLayerTypes&)base_tables.get("comp_layer_types");
+  	referStrs.push_back( TStringRef("+" + ((TCompLayerTypesRow&)comp_layer_types.get_row( "code", layer_type, true )).name + ":", true) );
+  }
+  tmp = "DEL_LAYERS";
+  if ( name.find( tmp ) != string::npos ) {
+  	string layer_type = name.substr( name.find( tmp )+tmp.size() );
+  	TCompLayerTypes &comp_layer_types = (TCompLayerTypes&)base_tables.get("comp_layer_types");
+  	referStrs.push_back( TStringRef("-" + ((TCompLayerTypesRow&)comp_layer_types.get_row( "code", layer_type, true )).name + ":",true) );
+  }
+  tmp = "ADD_WEB_TARIFF";
+  if ( name.find( tmp ) != string::npos ) {
+  	ostringstream str;
+  	str << std::fixed << std::setprecision(2) << places.begin()->WebTariff.value << places.begin()->WebTariff.currency_id;
+  	referStrs.push_back( TStringRef("+Web-тариф " + str.str() + ":",true) );
+  }
+  tmp = "DEL_WEB_TARIFF";
+  if ( name.find( tmp ) != string::npos ) {
+  	ostringstream str;
+  	str << std::fixed << std::setprecision(2) << places.begin()->WebTariff.value << places.begin()->WebTariff.currency_id;
+  	referStrs.push_back( TStringRef("-Web-тариф " + str.str() + ":",true) );
+  }
+
+	RowsRef rows;
+	SALONS2::TPlace first_in_row;
+	TPlaces::iterator priorip;
+  // имеем набор одиноких мест - попробуем сделать из них объединение по линии
+	//собираем одну группу мест
+  for ( TPlaces::iterator ip=places.begin(), priorip=places.begin(); ip!=places.end(); ip++ ) {
+  	//ProgTrace( TRACE5, "ReferPlacesRow: name=%s, place(%d,%d)=%s", name.c_str(), ip->x, ip->y, string(ip->xname+ip->yname).c_str() );
+  	if ( ip == priorip ) {
+  		first_in_row = *ip;
+  		rows[ ip->y ].xnames += ip->xname;
+  		rows[ ip->y ].yname = ip->yname;
+  		continue;
+    }
+  	if ( priorip->y == ip->y/*priorip->x == ip->x - 1*/ ) {
+  		rows[ ip->y ].xnames += ip->xname;
+  		rows[ ip->y ].yname = ip->yname;
+  	}
+  	else { // в ряду подряд идущие места закончились
+  		if ( first_in_row.y == ip->y - 1 ) {
+  			ProgTrace( TRACE5, "new row, ip, first_in_row (%d,%d)=%s", ip->x, ip->y, string(ip->xname+ip->yname).c_str() );
+  			priorip = ip;
+  			first_in_row = *ip;
+  			rows[ ip->y ].xnames += ip->xname;
+  			rows[ ip->y ].yname = ip->yname;
+  	  }
+      else { // время собирать строки
+      	getStrSeats( rows, referStrs, pr_lat );
+      	//ProgTrace( TRACE5, "str=%s, single=%d", str.c_str(), pr_single_place );
+      	rows.clear();
+    		first_in_row = *ip;
+    		rows[ ip->y ].xnames += ip->xname;
+    		rows[ ip->y ].yname = ip->yname;
+  	  	priorip = ip;
+      }
+  	}
+  }
+ 	getStrSeats( rows, referStrs, pr_lat );
+}
+
+struct TRP {
+	TPlaces places;
+	vector<TStringRef> refs;
+};
+
+struct TRefPlaces {
+	vector<TPlaceList*>::iterator salonIter;
+	map<string,TRP> mapRef;
+};
+
+
+bool salonChangesToText( TSalons &OldSalons, TSalons &NewSalons, std::vector<std::string> &referStrs, bool pr_set_base, int line_len )
+{
+	ProgTrace( TRACE5, "OldSalons->placelists.size()=%d, NewSalons->placelists.size()=%d", OldSalons.placelists.size(), NewSalons.placelists.size() );
+	typedef vector<string> TVecStrs;
+	map<string,TVecStrs>  mapStrs;
+	referStrs.clear();
+	vector<TRefPlaces> vecChanges;
+	map<string,TRP> mapChanges;
+	vector<int> salonNums;
+  // поиск в новой компоновки нужного салона
+  ProgTrace( TRACE5, "pr_set_base=%d", pr_set_base );
+  if ( !pr_set_base ) {
+    for ( vector<TPlaceList*>::iterator so=OldSalons.placelists.begin(); so!=OldSalons.placelists.end(); so++ ) {
+    	bool pr_find_salon=false;
+    	for ( vector<TPlaceList*>::iterator sn=NewSalons.placelists.begin(); sn!=NewSalons.placelists.end(); sn++ ) {
+  	  	pr_find_salon = EqualSalon( *so, *sn );
+  		  ProgTrace( TRACE5, "so->num=%d, pr_find_salon=%d", (*so)->num, pr_find_salon );
+  		  if ( !pr_find_salon )
+  			  continue;
+  		  salonNums.push_back( (*sn)->num );
+  		  // это нужный салон
+        for ( TPlaces::iterator po = (*so)->places.begin(), // бежим по местам
+  	                            pn = (*sn)->places.begin();
+                                po != (*so)->places.end(),
+                                pn != (*sn)->places.end();
+                                po++, pn++ ) {
+          if ( pn->visible && !pn->visible || pn->visible && ( po->elem_type != pn->elem_type || po->clname != pn->clname ) )
+            mapChanges[ "ADD_SEATS" + pn->clname + pn->elem_type ].places.push_back( *pn );
+          if ( po->visible && !pn->visible || po->visible && ( po->elem_type != pn->elem_type || po->clname != pn->clname ) ) {
+         	  mapChanges[ "DEL_SEATS" + po->clname + po->elem_type ].places.push_back( *po );
+         	  // не надо больше никакой информации о месте
+         	  continue;
+         	}
+
+          if ( !CompareRems( po->rems, pn->rems ) ) { // разные ремарки
+           	bool pr_find_rem=false;
+           	for ( vector<TRem>::const_iterator ro=po->rems.begin(); ro!=po->rems.end(); ro++ ) { // пробег по старым ремаркам
+           		for ( vector<TRem>::const_iterator rn=pn->rems.begin(); rn!=pn->rems.end(); rn++ ) { // пробег по новым - поиск старых
+           			if ( ro->rem == rn->rem && ro->pr_denial == rn->pr_denial ) {
+         	  			pr_find_rem = true;
+         		  		break;
+           			}
+           	  }
+           	  if ( !pr_find_rem ) { // старую ремарку не нашли
+           	  	if ( ro->pr_denial )
+          	  	  mapChanges[ "DEL_REMS!" + ro->rem ].places.push_back( *po );
+          	  	else
+         	    		mapChanges[ "DEL_REMS" + ro->rem ].places.push_back( *po );
+         	    }
+         	  }
+            pr_find_rem=false;
+            for ( vector<TRem>::const_iterator rn=pn->rems.begin(); rn!=pn->rems.end(); rn++ ) {
+            	for ( vector<TRem>::const_iterator ro=po->rems.begin(); ro!=po->rems.end(); ro++ ) {
+            		if ( ro->rem == rn->rem && ro->pr_denial == rn->pr_denial ) {
+            			pr_find_rem = true;
+            			break;
+            		}
+              }
+              if ( !pr_find_rem ) { // старую ремарку не нашли
+              	if ( rn->pr_denial )
+              	  mapChanges[ "ADD_REMS!" + rn->rem ].places.push_back( *pn );
+              	else
+              		mapChanges[ "ADD_REMS" + rn->rem ].places.push_back( *pn );
+              }
+            }
+          }
+
+          if ( !CompareLayers( po->layers, pn->layers ) ) { // разные слои
+           	bool pr_find_layer=false;
+           	for ( vector<TPlaceLayer>::const_iterator lo=po->layers.begin(); lo!=po->layers.end(); lo++ ) {
+           		if ( !NewSalons.isEditableLayer( lo->layer_type ) )
+           			continue;
+           		for ( vector<TPlaceLayer>::const_iterator ln=pn->layers.begin(); ln!=pn->layers.end(); ln++ ) {
+         	  		// надо сравнивать только редактируемые слои
+         		    if ( !NewSalons.isEditableLayer( ln->layer_type ) )
+         		 	    continue;
+         		    if ( lo->layer_type == ln->layer_type ) {
+         		 	    pr_find_layer = true;
+         		 	    break;
+         		    }
+         	    }
+         	    if ( !pr_find_layer ) {
+         	  	  mapChanges[ "DEL_LAYERS" + string(EncodeCompLayerType(lo->layer_type)) ].places.push_back( *po );
+         	    }
+         	  }
+            pr_find_layer=false;
+            for ( vector<TPlaceLayer>::const_iterator ln=pn->layers.begin(); ln!=pn->layers.end(); ln++ ) {
+            	if ( !NewSalons.isEditableLayer( ln->layer_type ) )
+            		continue;
+            	for ( vector<TPlaceLayer>::const_iterator lo=po->layers.begin(); lo!=po->layers.end(); lo++ ) {
+            		// надо сравнивать только редактируемые слои
+            	  if ( !NewSalons.isEditableLayer( lo->layer_type ) )
+            	 	  continue;
+          	    if ( lo->layer_type == ln->layer_type ) {
+          	 	    pr_find_layer = true;
+          	 	    break;
+          	    }
+              }
+              if ( !pr_find_layer ) {
+            	  mapChanges[ "ADD_LAYERS" + string(EncodeCompLayerType(ln->layer_type)) ].places.push_back( *pn );
+              }
+            }
+          }
+
+          if ( po->WebTariff.color != pn->WebTariff.color ||
+         	     po->WebTariff.value != pn->WebTariff.value ||
+         	     po->WebTariff.currency_id != pn->WebTariff.currency_id ) {
+         	  if ( po->WebTariff.value != 0.0 ) // старый тариф был
+         		  mapChanges[ "DEL_WEB_TARIFF"+po->WebTariff.color+FloatToString(po->WebTariff.value)+po->WebTariff.currency_id ].places.push_back( *po );
+         	  if ( pn->WebTariff.value != 0.0 )
+         		  mapChanges[ "ADD_WEB_TARIFF"+pn->WebTariff.color+FloatToString(pn->WebTariff.value)+pn->WebTariff.currency_id ].places.push_back( *pn );
+          }
+        } // end for places
+        break;
+      } // end for NewSalons
+
+      if ( !pr_find_salon ) {
+  	    // не нашли салон - считаем что удалии его и возможно добавили новый
+        for ( TPlaces::iterator po = (*so)->places.begin(); po != (*so)->places.end(); po++ ) {
+      	  if ( po->visible )
+   	  	    mapChanges[ "DEL_SALON"+IntToString((*so)->num+1) ].places.push_back( *po ); //+описание салона
+ 	    	}
+      }
+
+      TRefPlaces refp;
+      refp.salonIter = so;
+      refp.mapRef = mapChanges;
+      vecChanges.push_back( refp );
+      mapChanges.clear();
+
+    } // end for OldSalon
+  } // не надо выдавать изменения если назначили базовую компоновку
+  mapChanges.clear();
+  // надо добавить все салоны из NewSalons, которые не нашлись в OldSalons
+  ProgTrace( TRACE5, "NewSalons->placelists.size()=%d", NewSalons.placelists.size() );
+  for ( vector<TPlaceList*>::iterator sn=NewSalons.placelists.begin(); sn!=NewSalons.placelists.end(); sn++ ) {
+  	ProgTrace( TRACE5, "(*sn)->num=%d", (*sn)->num );
+    if ( find( salonNums.begin(), salonNums.end(), (*sn)->num ) != salonNums.end() )
+    	continue; // этот салон уже описан
+    	bool pr_equal_salon_and_seats=true;
+    	string clname, elem_type, name;
+      for ( TPlaces::iterator pn = (*sn)->places.begin(); pn != (*sn)->places.end(); pn++ ) {
+      	if ( pn->visible ) {
+      		if ( clname.empty() ) {
+      			clname = pn->clname;
+      			elem_type = pn->elem_type;
+      			ProgTrace( TRACE5, "clname=%s, elem_type=%s", clname.c_str(), elem_type.c_str() );
+      		}
+ 	  	    mapChanges[ "ADD_SALON"+IntToString((*sn)->num+1) ].places.push_back( *pn ); //+описание салона
+ 	  	    mapChanges[ "ADD_SEATS" + pn->clname + pn->elem_type ].places.push_back( *pn );
+ 	  	    if ( clname != pn->clname ||
+ 	  	    	   elem_type != pn->elem_type )
+            pr_equal_salon_and_seats = false;
+ 	  	    for ( vector<TRem>::const_iterator rn=pn->rems.begin(); rn!=pn->rems.end(); rn++ )
+  	        if ( rn->pr_denial )
+              mapChanges[ "ADD_REMS!" + rn->rem ].places.push_back( *pn );
+            else
+            	mapChanges[ "ADD_REMS" + rn->rem ].places.push_back( *pn );
+          for ( vector<TPlaceLayer>::const_iterator ln=pn->layers.begin(); ln!=pn->layers.end(); ln++ )
+          	if ( NewSalons.isEditableLayer( ln->layer_type ) )
+            	mapChanges[ "ADD_LAYERS" + string(EncodeCompLayerType(ln->layer_type)) ].places.push_back( *pn );
+          if ( pn->WebTariff.value != 0.0 )
+         		mapChanges[ "ADD_WEB_TARIFF"+pn->WebTariff.color+FloatToString(pn->WebTariff.value)+pn->WebTariff.currency_id ].places.push_back( *pn );
+ 	  	  }
+ 	  	}
+ 	  	if ( pr_equal_salon_and_seats && !mapChanges[ "ADD_SALON"+IntToString((*sn)->num+1) ].places.empty() ) {
+ 	  		mapChanges[ "ADD_COMMON_SALON_REF"+IntToString((*sn)->num+1) ].places.assign( mapChanges[ "ADD_SALON"+IntToString((*sn)->num+1) ].places.begin(),
+ 	  		                                                                              mapChanges[ "ADD_SALON"+IntToString((*sn)->num+1) ].places.end() );
+ 	  		mapChanges.erase( "ADD_SALON"+IntToString((*sn)->num+1) );
+ 	  		mapChanges.erase( "ADD_SEATS" + clname + elem_type );
+ 	  	}
+      TRefPlaces refp;
+      refp.salonIter = sn;
+      refp.mapRef = mapChanges;
+      vecChanges.push_back( refp );
+      mapChanges.clear();
+  }
+  // имеем массив названий с местами и салонами
+  //необходимо сортировать по салонам и действиям
+  bool pr_lat;
+  vector<string> eventsStrs;
+  vector<TStringRef> Refs;
+  // пробег по салонам
+  for ( vector<TRefPlaces>::iterator iref=vecChanges.begin(); iref!=vecChanges.end(); iref++ ) {
+  	// вначале все удаленные свойства
+  	for ( int i=0; i<=1; i++ ) {
+  		for ( int j=0; j<5; j++ ) {
+    		// пробег по изменениям
+    		Refs.clear();
+    	  for ( map<string,TRP>::iterator im=iref->mapRef.begin(); im!=iref->mapRef.end(); im++ ) {
+    		  if ( im->second.places.empty() )
+            		continue;
+          if ( i == 0 && im->first.find( "DEL" ) == string::npos ||
+        	     i == 1 && im->first.find( "DEL" ) != string::npos )
+ 	        	continue;
+          if ( j == 0 && im->first.find( "SALON" ) == string::npos ||
+    	    	   j == 1 && im->first.find( "SEATS" ) == string::npos ||
+    	     	   j == 2 && im->first.find( "LAYERS" ) == string::npos ||
+    	     	   j == 3 && im->first.find( "REMS" ) == string::npos ||
+    	     	   j == 4 && im->first.find( "WEB_TARIFF" ) == string::npos )
+    	     	continue;
+ 	        if ( i == 0 )
+ 	        	pr_lat = OldSalons.getLatSeat();
+ 	        else
+ 	      	  pr_lat = NewSalons.getLatSeat();
+    		  ReferPlaces( im->first, im->second.places, im->second.refs, pr_lat );
+    		  Refs.insert( Refs.end(), im->second.refs.begin(), im->second.refs.end() );
+   		    // деление по строкам
+    	  }
+    	  if ( !Refs.empty() ) {
+          SeparateEvents( Refs, eventsStrs, line_len );
+    		  referStrs.insert( referStrs.end(), eventsStrs.begin(), eventsStrs.end() );
+    		}
+      }
+    }
+  }
+  // хорошо было бы проанализировать на совпадение мест по нескольким добавленным/удаленным св-вам
+  return !referStrs.empty();
+}
 
 bool getSalonChanges( TSalons &OldSalons, TSalons &NewSalons, vector<TSalonSeat> &seats )
 {

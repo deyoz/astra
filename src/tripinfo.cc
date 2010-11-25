@@ -957,8 +957,10 @@ int GetFltLoad( int point_id, const TTripInfo &fltInfo)
   Qry.SQLText=
     "SELECT NVL(SUM(cargo),0) AS cargo, "
     "       NVL(SUM(mail),0) AS mail "
-    "FROM trip_load "
-    "WHERE point_dep=:point_id";
+    "FROM trip_load, points "
+    "WHERE trip_load.point_dep=:point_id AND "
+    "      points.point_id=trip_load.point_arv AND "
+    "      points.pr_del=0";
   Qry.Execute();
   if (!Qry.Eof)
     load+=Qry.FieldAsInteger("cargo")+Qry.FieldAsInteger("mail");

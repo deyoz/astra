@@ -392,6 +392,18 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 	 " WHERE type='èÄë' AND id1=:point_id AND id2=:reg_no AND events.station=stations.desk(+) AND stations.work_mode(+)=:work_mode "
 	 " AND screen=:screen "
 	 " ORDER BY time DESC,ev_order DESC";
+
+/*
+	 "SELECT time as mtime,NVL(stations.name,events.station) station FROM events,stations "
+	 " WHERE type='èÄë' AND id1=:point_id AND id2=:reg_no AND id3=:grp_id AND events.station=stations.desk(+) AND stations.work_mode(+)=:work_mode "
+	 " AND screen=:screen "
+	 union
+	 SELECT ...
+	 "WHERE type='èÄë' AND id1=:point_id AND id2 IS NULL AND id3=:grp_id AND msg like 'Å†£†¶%' AND events.station=stations.desk(+) AND stations.work_mode(+)=:work_mode "
+	 " AND screen=:screen "
+	 " ORDER BY time DESC,ev_order DESC";
+*/
+
 	TimeQry.CreateVariable( "point_id", otInteger, point_id );
 	TimeQry.DeclareVariable( "reg_no", otInteger );
 	TimeQry.DeclareVariable( "screen", otString );

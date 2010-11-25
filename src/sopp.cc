@@ -4506,8 +4506,10 @@ void SoppInterface::GetTime(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
 	TQuery Qry(&OraSession);
 	Qry.SQLText = "SELECT system.UTCSYSDATE time FROM dual";
 	Qry.Execute();
-	TElemFmt airp_fmt;
-	string airp = ElemCtxtToElemId( ecDisp, etAirp, NodeAsString( "airp", reqNode ), airp_fmt, true );
+	TElemFmt fmt;
+	string airp = ElemToElemId( etAirp, NodeAsString( "airp", reqNode ), fmt, true);
+	if ( fmt == efmtUnknown )
+		throw AstraLocale::UserException( "MSG.AIRP.INVALID_GIVEN_CODE" );
 	string region = AirpTZRegion( airp, true );
 	TDateTime time = UTCToClient( Qry.FieldAsDateTime( "time" ), region );
 	NewTextChild( resNode, "time", DateTimeToStr( time, ServerFormatDateTimeAsString ) );

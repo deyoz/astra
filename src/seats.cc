@@ -121,8 +121,7 @@ TCompLayerType PlaceLayer; /* сам слой */
 vector<TCompLayerType> SeatsLayers;
 bool CanUse_PS; /* можно ли использовать статус предвю рассадки для пассажиров с другими статусами */
 bool CanUseSmoke; /* поиск курящих мест */
-bool CanUseElem_Type; /* поиск мест по типу (табуретка) */
-string PlaceElem_Type; /* сам тип места */
+vector<string> PlaceElem_Types; /* разрешенные типы мест поиск мест по типу (табуретка)*/
 TUseRem CanUseRems; /* поиск по ремарке */
 vector<string> Remarks; /* сама ремарка */
 bool CanUseTube; /* поиск через проходы */
@@ -141,19 +140,31 @@ int MAXPLACE() {
 	return (canUseOneRow)?1000:CONST_MAXPLACE; // при рассадке в один ряд кол-во мест в ряду неограничено иначе 3 места
 };
 
+void getValidChildElem_Types( vector<string> &elem_types ) {
+	elem_types.clear();
+  elem_types.push_back( "Д" ); //!!! здесь коды разрешенных мест
+  elem_types.push_back( "К" ); //!!!
+}
+
+bool is_valid_seat_elem_type( const string &pers_type, const std::vector<SALONS2::TPlace> &places )
+{
+  if ( pers_type != "ВЗ" ) { // проверка на места у аварийного выхода
+    vector<string> elem_types;
+    getValidChildElem_Types( elem_types );
+    for(std::vector<SALONS2::TPlace>::const_iterator ipl=places.begin(); ipl!=places.end(); ipl++ ) {
+      if ( find( elem_types.begin(), elem_types.end(), ipl->elem_type ) == elem_types.end() )
+      	return false;
+    }
+  }
+  return true;
+}
+
 bool getCanUseOneRow() {
 	return FSeatAlgoParams.pr_canUseOneRow;
 }
 
 vecSeatCoordsVars &TSeatCoordsClass::getSeatCoordsVars( )
 {
-	ProgTrace( TRACE5, "vecSeatCoords.size()=%d", vecSeatCoords.size() );
-	for (vector<TSeatCoordsSalon>::iterator i=vecSeatCoords.begin(); i!=vecSeatCoords.end(); i++ ) {
-		tst();
-		for (map<int,TSeatCoords>::iterator j=i->coords.begin(); j!=i->coords.end(); j++) {
-			ProgTrace( TRACE5, "j->first=%d, j->second.size=%d", j->first, j->second.size() );
-		}
-	}
 	return vecSeatCoords;
 }
 
@@ -673,7 +684,7 @@ bool VerifyUseLayer( TPlace *place )
   Глобальные переменные:
    CanUselayer, Placelayer - поиск строго по статусу мест,
    CanUseSmoke - поиск курящих мест,
-   CanUseElem_Type, PlaceElem_Type - поиск строго по типу места (табуретка),
+   PlaceElem_Types - поиск строго по типу места (табуретка),
    CanUseRem, PlaceRem - поиск строго по ремарке места */
 int TSeatPlaces::FindPlaces_From( SALONS2::TPoint FP, int foundCount, TSeatStep Step )
 {
@@ -697,7 +708,7 @@ int TSeatPlaces::FindPlaces_From( SALONS2::TPoint FP, int foundCount, TSeatStep 
             place->isLayer( PlaceLayer ) ||
             PlaceLayer == cltUnknown && place->layers.empty() )*/ &&
           ( !CanUseSmoke || place->isLayer( cltSmoke ) ) &&
-          ( !CanUseElem_Type || place->elem_type == PlaceElem_Type ) ) {
+          ( PlaceElem_Types.empty() || find( PlaceElem_Types.begin(), PlaceElem_Types.end(), place->elem_type ) != PlaceElem_Types.end() ) ) {
 
     if ( canUseSUBCLS ) {
       for ( prem = place->rems.begin(); prem != place->rems.end(); prem++ ) {
@@ -1229,6 +1240,14 @@ TSeatPlace &TSeatPlaces::GetEqualSeatPlace( TPassenger &pass )
       } /* конец пробега по местам */
     } /* конец пробега по ремаркам пассажира */
 
+    // тип места
+    ProgTrace( TRACE5, "pass.pers_type=%s, isp->oldPlaces->begin=%s, is_valid_seat_elem_type=%d", pass.pers_type.c_str(),
+               string(isp->oldPlaces.begin()->xname + isp->oldPlaces.begin()->yname).c_str(), is_valid_seat_elem_type( pass.pers_type, isp->oldPlaces ) );
+    if ( is_valid_seat_elem_type( pass.pers_type, isp->oldPlaces ) )
+    	EqualQ += PR_REM_TO_REM;
+    else
+    	EqualQ -= PR_REM_TO_REM;
+
     if ( pass.placeName == ispPlaceName_lat || pass.placeName == ispPlaceName_rus ||
     	   pass.preseat == ispPlaceName_lat || pass.preseat == ispPlaceName_rus )
       EqualQ += PR_EQUAL_N_PLACE;
@@ -1256,7 +1275,7 @@ TSeatPlace &TSeatPlaces::GetEqualSeatPlace( TPassenger &pass )
         }
       }
     }
-//    ProgTrace( TRACE5, "EqualQ=%d", EqualQ );
+    ProgTrace( TRACE5, "EqualQ=%d", EqualQ );
     if ( MaxEqualQ < EqualQ ) {
       MaxEqualQ = EqualQ;
       misp = isp;
@@ -1508,8 +1527,8 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
 
   bool pr_seat = false;
 
-
   try {
+  	for ( int FCanUseElem_Type=1; FCanUseElem_Type>=0; FCanUseElem_Type-- ) { // вслучае автомат. рассадки 2 прохода: с учетом типа места и без учета типа места
     for ( /*int i=(int)!pr_autoreseats; i<=1+(int)pr_autoreseats; i++*/ int i=0; i<=2; i++ ) {
       for ( VPassengers::iterator ipass=npass.begin(); ipass!=npass.end(); ipass++ ) {
       	/* когда пассажир посажен или рассадка на бронь и у пассажира статус не бронь или нет предвар. рассадки или у пассажира указано не то место */
@@ -1522,6 +1541,12 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
         ipass->placeList = NULL;
         ipass->seat_no.clear();
         int old_index = ipass->index;
+
+        PlaceElem_Types.clear();
+        if ( FCanUseElem_Type == 1 && ipass->countPlace > 0 && ipass->pers_type != "ВЗ" ) {
+         	getValidChildElem_Types( PlaceElem_Types );
+        }
+
         if ( pr_autoreseats ) {
           if ( i == 0 ) {
           	  if ( ipass->SUBCLS_REM.empty() )
@@ -1556,6 +1581,8 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
         Passengers.Add( *ipass );
         ipass->index = old_index;
 
+
+
         if ( SeatGrpOnBasePlace( ) ||
              ( CanUseRems == sNotUse_NotUseDenial ||
                CanUseRems == sNotUse ||
@@ -1582,7 +1609,8 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
           }
         }
       } // for passengers
-    }
+    } // end for i=0..2
+    } // end for FCanUseElem_Type
   }
   catch( ... ) {
     FindSUBCLS = OLDFindSUBCLS;
@@ -1746,7 +1774,7 @@ bool TPassenger::is_valid_seats( const std::vector<SALONS2::TPlace> &places )
        	  return false;
     }
   }
-  return true;
+  return is_valid_seat_elem_type( pers_type, places );
 }
 
 void TPassenger::build( xmlNodePtr pNode, const TDefaults& def )
@@ -2115,15 +2143,18 @@ void SeatsPassengers( SALONS2::TSalons *Salons, TSeatAlgoParams ASeatAlgoParams 
 	ProgTrace( TRACE5, "NEWSEATS" );
   if ( !passengers.getCount() )
     return;
+
+  int param1,param2,param4,param5,param6,param7,param9,param10,param11;
+  string param3,param8,param12;
+
   FSeatAlgoParams = ASeatAlgoParams;
   SeatPlaces.Clear();
   SeatPlaces.grp_status = passengers.Get( 0 ).grp_status;
-  ProgTrace( TRACE5, "SeatPlaces.grp_status=%s,counters.p_Count_3( sDown )=%d", EncodeCompLayerType(SeatPlaces.grp_status), passengers.counters.p_Count_3( sDown ) );
   CurrSalon = Salons;
   CanUseLayers = true;
 	CanUse_PS = FUse_PS;
   CanUseSmoke = false; /* пока не будем работать с курящими местами */
-  CanUseElem_Type = false; /* пока не будем работать с типами мест */
+  vector<string> PElemTypes;
   bool Status_preseat = FUse_PS;//!!!false;
   Passengers.KWindow = ( Passengers.KWindow && !Passengers.KTube );
   Passengers.KTube = ( !Passengers.KWindow && Passengers.KTube );
@@ -2143,6 +2174,9 @@ void SeatsPassengers( SALONS2::TSalons *Salons, TSeatAlgoParams ASeatAlgoParams 
   	TPassenger &pass = passengers.Get( i );
   	if ( pass.layer == cltProtCkin ) {
   		Status_preseat = true;
+  	}
+  	if ( PElemTypes.size() == 0 && pass.countPlace > 0 && pass.pers_type != "ВЗ"  ) {
+  		getValidChildElem_Types( PElemTypes );
   	}
   	if ( !pass.SUBCLS_REM.empty() ) {
   		pr_SUBCLS = true;
@@ -2169,18 +2203,30 @@ void SeatsPassengers( SALONS2::TSalons *Salons, TSeatAlgoParams ASeatAlgoParams 
   try {
    for ( int FCanUserSUBCLS=(int)pr_SUBCLS; FCanUserSUBCLS>=0; FCanUserSUBCLS-- ) {
    	if ( pr_SUBCLS && FCanUserSUBCLS == 0 )
-   	  ProgError( STDLOG, "SeatsPassengers: error FCanUserSUBCLS=false" );
+   	  ProgError( STDLOG, "SeatsPassengers: error FCanUserSUBCLS=false, pr_SUBCLS=%d,pr_all_pass_SUBCLS=%d, SUBCLS_REM=%s", pr_SUBCLS, pr_all_pass_SUBCLS, SUBCLS_REM.c_str() );
     FindSUBCLS = FCanUserSUBCLS;
     canUseSUBCLS = FCanUserSUBCLS;
+   // ??? что важнее для пассажиров с детьми: сохранить группу или сесть раздельно, но на разрешенные места ???
+   // пока разбиваем
+   for ( int FCanUseElem_Type=!PElemTypes.empty(); FCanUseElem_Type>=0; FCanUseElem_Type-- ) { // поиск по типам мест + игнорирование типа мест
+   	 PlaceElem_Types.clear();
+   	 if ( FCanUseElem_Type != 0 ) {
+       PlaceElem_Types.assign( PElemTypes.begin(), PElemTypes.end() );
+       //ProgTrace( TRACE5, "FCanUseElem_Type=%d, PlaceElem_Types.size()=%d", FCanUseElem_Type, PlaceElem_Types.size() );
+   	 }
 
    for ( int FSeatAlg=0; FSeatAlg<seatAlgLength; FSeatAlg++ ) {
      SeatAlg = (TSeatAlg)FSeatAlg;
+     if ( SeatAlg == sSeatPassengers && !PElemTypes.empty() && FCanUseElem_Type == 0 )
+       continue;
+
+
      /* если есть в группе предварительная рассадка, то тогда сажаем всех отдельно */
      /* если есть в группе подкласс С и он не у всех пассажиров, то тогда сажаем всех отдельно */
      if ( ( Status_preseat || Status_seat_no_BR || SeatOnlyBasePlace || canUseSUBCLS && pr_SUBCLS && !pr_all_pass_SUBCLS )
      	   &&
      	   SeatAlg != sSeatPassengers ) {
-     	 ProgTrace( TRACE5, "continue: SeatAlg=%d, pr_SUBCLS=%d, pr_all_pass_SUBCLS=%d", SeatAlg, pr_SUBCLS, pr_all_pass_SUBCLS );
+     	 //ProgTrace( TRACE5, "continue: SeatAlg=%d, pr_SUBCLS=%d, pr_all_pass_SUBCLS=%d", SeatAlg, pr_SUBCLS, pr_all_pass_SUBCLS );
      	 continue;
      }
      for ( int FCanUseRems=0; FCanUseRems<useremLength; FCanUseRems++ ) {
@@ -2192,7 +2238,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons, TSeatAlgoParams ASeatAlgoParams 
                case sNotUse_NotUseDenial:
                case sNotUseDenial:
                case sNotUse:
-               	 ProgTrace( TRACE5, "continue: SeatAlg=%d, CanUseRems=%s", SeatAlg, DecodeCanUseRems( CanUseRems ).c_str() );
+               	 //ProgTrace( TRACE5, "continue: SeatAlg=%d, CanUseRems=%s", SeatAlg, DecodeCanUseRems( CanUseRems ).c_str() );
                  continue;
              }
              break;
@@ -2203,7 +2249,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons, TSeatAlgoParams ASeatAlgoParams 
                case sOnlyUse:
                case sIgnoreUse:
                case sNotUseDenial: //???
-               	 ProgTrace( TRACE5, "continue: SeatAlg=%d, CanUseRems=%s", SeatAlg, DecodeCanUseRems( CanUseRems ).c_str() );
+               	 //ProgTrace( TRACE5, "continue: SeatAlg=%d, CanUseRems=%s", SeatAlg, DecodeCanUseRems( CanUseRems ).c_str() );
                  continue; /*??? что главнее группа или места с ремарками, кот не надо учитывать */
              }
              break;
@@ -2224,17 +2270,17 @@ void SeatsPassengers( SALONS2::TSalons *Salons, TSeatAlgoParams ASeatAlgoParams 
           	continue;
           }
           if ( CanUseAlone == uTrue && SeatAlg == sSeatPassengers ) {
-          	ProgTrace( TRACE5, "continue: SeatAlg=%d, CanUseRems=%s, CanUseAlone=%d", SeatAlg, DecodeCanUseRems( CanUseRems ).c_str(), CanUseAlone );
+          	//ProgTrace( TRACE5, "continue: SeatAlg=%d, CanUseRems=%s, CanUseAlone=%d", SeatAlg, DecodeCanUseRems( CanUseRems ).c_str(), CanUseAlone );
             continue;
           }
           /* использование статусов мест */
           for ( int KeyLayers=1; KeyLayers>=-1; KeyLayers-- ) {
             if ( !KeyLayers && CanUseAlone == uFalse3 ) {
-            	ProgTrace( TRACE5, "continue: SeatAlg=%d, CanUseRems=%s, CanUseAlone=%d, KeyLayers=%d", SeatAlg, DecodeCanUseRems( CanUseRems ).c_str(), CanUseAlone, KeyLayers );
+            	//ProgTrace( TRACE5, "continue: SeatAlg=%d, CanUseRems=%s, CanUseAlone=%d, KeyLayers=%d", SeatAlg, DecodeCanUseRems( CanUseRems ).c_str(), CanUseAlone, KeyLayers );
               continue;
             }
             if ( !KeyLayers && ( SeatAlg == sSeatGrpOnBasePlace || SeatAlg == sSeatGrp ) ) {
-            	ProgTrace( TRACE5, "continue: SeatAlg=%d, CanUseRems=%s, CanUseAlone=%d, KeyLayers=%d", SeatAlg, DecodeCanUseRems( CanUseRems ).c_str(), CanUseAlone, KeyLayers );
+            	//ProgTrace( TRACE5, "continue: SeatAlg=%d, CanUseRems=%s, CanUseAlone=%d, KeyLayers=%d", SeatAlg, DecodeCanUseRems( CanUseRems ).c_str(), CanUseAlone, KeyLayers );
             	continue;
             }
 
@@ -2250,25 +2296,34 @@ void SeatsPassengers( SALONS2::TSalons *Salons, TSeatAlgoParams ASeatAlgoParams 
                 for ( int FCanUseTube=0; FCanUseTube<=1; FCanUseTube++ ) {
                   /* для рассадки отдельных пассажиров не надо учитывать проходы */
                   if ( FCanUseTube && SeatAlg == sSeatPassengers ) {
-                  	ProgTrace( TRACE5, "continue: SeatAlg=%d, CanUseRems=%s, CanUseAlone=%d, KeyLayers=%d,FCanUseTube=%d,FCanUseOneRow=%d", SeatAlg, DecodeCanUseRems( CanUseRems ).c_str(), CanUseAlone, KeyLayers,FCanUseTube,FCanUseOneRow );
+                  	//ProgTrace( TRACE5, "continue: SeatAlg=%d, CanUseRems=%s, CanUseAlone=%d, KeyLayers=%d,FCanUseTube=%d,FCanUseOneRow=%d", SeatAlg, DecodeCanUseRems( CanUseRems ).c_str(), CanUseAlone, KeyLayers,FCanUseTube,FCanUseOneRow );
                     continue;
                   }
                   if ( FCanUseTube && CanUseAlone == uFalse3 && !canUseOneRow ) {
-                  	ProgTrace( TRACE5, "continue: SeatAlg=%d, CanUseRems=%s, CanUseAlone=%d, KeyLayers=%d,FCanUseTube=%d,FCanUseOneRow=%d", SeatAlg, DecodeCanUseRems( CanUseRems ).c_str(), CanUseAlone, KeyLayers,FCanUseTube, FCanUseOneRow );
+                  	//ProgTrace( TRACE5, "continue: SeatAlg=%d, CanUseRems=%s, CanUseAlone=%d, KeyLayers=%d,FCanUseTube=%d,FCanUseOneRow=%d", SeatAlg, DecodeCanUseRems( CanUseRems ).c_str(), CanUseAlone, KeyLayers,FCanUseTube, FCanUseOneRow );
                     continue;
                   }
               	  if ( canUseOneRow && !FCanUseTube ) {
-              	  	ProgTrace( TRACE5, "continue: SeatAlg=%d, CanUseRems=%s, CanUseAlone=%d, KeyLayers=%d,FCanUseTube=%d,FCanUseOneRow=%d", SeatAlg, DecodeCanUseRems( CanUseRems ).c_str(), CanUseAlone, KeyLayers,FCanUseTube,FCanUseOneRow );
+              	  	//ProgTrace( TRACE5, "continue: SeatAlg=%d, CanUseRems=%s, CanUseAlone=%d, KeyLayers=%d,FCanUseTube=%d,FCanUseOneRow=%d", SeatAlg, DecodeCanUseRems( CanUseRems ).c_str(), CanUseAlone, KeyLayers,FCanUseTube,FCanUseOneRow );
               	  	continue;
               	  }
                   CanUseTube = FCanUseTube;
                   for ( int FCanUseSmoke=passengers.UseSmoke; FCanUseSmoke>=0; FCanUseSmoke-- ) {
 /*                    if ( !FCanUseSmoke && CanUseAlone == uFalse3 )
                       continue; ???*/
-
                     CanUseSmoke = FCanUseSmoke;
-                    ProgTrace( TRACE5, "seats with:SeatAlg=%d,FCanUseRems=%s,FCanUseAlone=%d,KeyLayer=%d,FCanUseTube=%d,FCanUseSmoke=%d,PlaceStatus=%s, MAXPLACE=%d,canUseOneRow=%d, CanUseSUBCLS=%d, SUBCLS_REM=%s",
-                               (int)SeatAlg,DecodeCanUseRems( CanUseRems ).c_str(),FCanUseAlone,KeyLayers,FCanUseTube,FCanUseSmoke,EncodeCompLayerType(PlaceLayer),MAXPLACE(),canUseOneRow,canUseSUBCLS,SUBCLS_REM.c_str());
+                    param1 = (int)SeatAlg;
+                    param2 = FCanUseElem_Type;
+                    param3 = DecodeCanUseRems( CanUseRems );
+                    param4 = FCanUseAlone;
+                    param5 = KeyLayers;
+                    param6 = FCanUseTube;
+                    param7 = FCanUseSmoke;
+                    param8 = EncodeCompLayerType(PlaceLayer);
+                    param9 = MAXPLACE();
+                    param10 = canUseOneRow;
+                    param11 = canUseSUBCLS;
+                    param12 = SUBCLS_REM;
                     switch( (int)SeatAlg ) {
                       case sSeatGrpOnBasePlace:
                         if ( SeatPlaces.SeatGrpOnBasePlace( ) ) {
@@ -2298,12 +2353,16 @@ void SeatsPassengers( SALONS2::TSalons *Salons, TSeatAlgoParams ASeatAlgoParams 
         } /* end for alone */
       } /* end for CanUseRem */
     } /* end for FSeatAlg */
-   }
+   } /*  end for FCanUserSUBCLS */
+   } /*  end for FCanUseElem_Type */
     SeatAlg = (TSeatAlg)0;
   }
   catch( int ierror ) {
     if ( ierror != 1 )
       throw;
+    ProgTrace( TRACE5, "seats with:SeatAlg=%d,FCanUseElem_Type=%d,FCanUseRems=%s,FCanUseAlone=%d,KeyLayers=%d,FCanUseTube=%d,FCanUseSmoke=%d,PlaceStatus=%s, MAXPLACE=%d,canUseOneRow=%d, CanUseSUBCLS=%d, SUBCLS_REM=%s",
+               param1,param2,param3.c_str(),param4,param5,param6,param7,param8.c_str(),param9,param10,param11,param12.c_str());
+
 //    ProgTrace( TRACE5, "SeatAlg=%d, CanUseRems=%d", (int)SeatAlg, (int)CanUseRems );
     /* распределение полученных мест по пассажирам, только для SeatPlaces.SeatGrpOnBasePlace */
     if ( SeatAlg != sSeatPassengers ) {
@@ -2581,7 +2640,8 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   	case cltTCheckin:
       Qry.SQLText =
        "SELECT surname, name, reg_no, pax.grp_id, pax.seats, a.step step, pax.tid, '' target, point_dep, point_arv, "
-       "       0 point_id, salons.get_seat_no(pax.pax_id,pax.seats,NULL,:point_dep,'list',rownum) AS seat_no, class "
+       "       0 point_id, salons.get_seat_no(pax.pax_id,pax.seats,NULL,:point_dep,'list',rownum) AS seat_no, "
+       "       class, pers_type "
        " FROM pax, pax_grp, "
        "( SELECT COUNT(*) step FROM pax_rem "
        "   WHERE rem_code = 'STCR' AND pax_id=:pax_id ) a "
@@ -2592,7 +2652,8 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
     case cltProtCkin:
       Qry.SQLText =
         "SELECT surname, name, 0 reg_no, crs_pax.pnr_id grp_id, seats, a.step step, crs_pax.tid, target, point_id, 0 point_arv, "
-        "      salons.get_crs_seat_no(crs_pax.pax_id,:layer_type,crs_pax.seats,crs_pnr.point_id,'list',rownum) AS seat_no, class "
+        "      salons.get_crs_seat_no(crs_pax.pax_id,:layer_type,crs_pax.seats,crs_pnr.point_id,'list',rownum) AS seat_no, "
+        "      class, pers_type "
         " FROM crs_pax, crs_pnr, "
         "( SELECT COUNT(*) step FROM crs_pax_rem "
         "   WHERE rem_code = 'STCR' AND pax_id=:pax_id ) a "
@@ -2629,6 +2690,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   else
     pr_down = 0;
   string prior_seat = Qry.FieldAsString( "seat_no" );
+  string pers_type = Qry.FieldAsString( "pers_type" );
   if ( !seats_count ) {
     ProgTrace( TRACE5, "!!! Passenger has count seats=0 in funct ChangeLayer" );
     throw UserException( "MSG.SEATS.NOT_RESEATS_SEATS_ZERO" );
@@ -2678,6 +2740,14 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
     	place = (*placeList)->place( coord );
     	if ( !place->visible || !place->isplace || place->clname != strclass )
     		throw UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL" );
+    	// проверка на то, что пассажир не "ВЗ" а место у аварийного выхода
+      if ( pers_type != "ВЗ" ) {
+      	vector<string> elem_types;
+      	getValidChildElem_Types( elem_types );
+      	if ( find( elem_types.begin(), elem_types.end(), place->elem_type ) == elem_types.end() ) {
+      		throw UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL" );
+      	}
+      }
     	// проверка на то, что мы имеем право назначить слой на эти места по пассажиру
     	if ( !place->layers.empty() ) {
     		if ( place->layers.begin()->pax_id == pax_id &&
@@ -2868,7 +2938,7 @@ void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &APass, TSeatA
   CanUseLayers = false; /* не учитываем статус мест */
   CanUse_PS = true;
   CanUseSmoke = false;
-  CanUseElem_Type = false;
+  PlaceElem_Types.clear();
   CanUseRems = sIgnoreUse;
   Remarks.clear();
   CanUseTube = true;
