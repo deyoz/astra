@@ -1648,9 +1648,9 @@ void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   for(;!Qry.Eof;Qry.Next())
   {
     ostringstream trip;
-    trip << ElemIdToCodeNative(etAirline,Qry.FieldAsString("airline"))
+    trip << Qry.FieldAsString("airline")
          << Qry.FieldAsInteger("flt_no")
-         << ElemIdToCodeNative(etSuffix,Qry.FieldAsString("suffix")) << "/"
+         << Qry.FieldAsString("suffix") << "/"
          << DateTimeToStr(Qry.FieldAsDateTime("scd"),"dd");
 
     if (prev_trip!=trip.str() ||
@@ -1661,10 +1661,10 @@ void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
       node=NewTextChild(trferNode,"trfer_flt");
 
       NewTextChild(node,"trip",trip.str());
-      if (pr_tlg) NewTextChild(node,"airp",ElemIdToCodeNative(etAirp,Qry.FieldAsString("airp")));
-      NewTextChild(node,"airp_dep",ElemIdToCodeNative(etAirp,Qry.FieldAsString("airp_dep")));
-      NewTextChild(node,"airp_arv",ElemIdToCodeNative(etAirp,Qry.FieldAsString("airp_arv")));
-      NewTextChild(node,"subcl",ElemIdToCodeNative(etSubcls,Qry.FieldAsString("subcl")));
+      if (pr_tlg) NewTextChild(node,"airp",Qry.FieldAsString("airp"));
+      NewTextChild(node,"airp_dep",Qry.FieldAsString("airp_dep"));
+      NewTextChild(node,"airp_arv",Qry.FieldAsString("airp_arv"));
+      NewTextChild(node,"subcl",Qry.FieldAsString("subcl"));
       grpNode=NewTextChild(node,"grps");
 
       prev_trip=trip.str();
@@ -4506,12 +4506,10 @@ void SoppInterface::GetTime(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
 	TQuery Qry(&OraSession);
 	Qry.SQLText = "SELECT system.UTCSYSDATE time FROM dual";
 	Qry.Execute();
-	TElemFmt fmt;
-	string airp = ElemToElemId( etAirp, NodeAsString( "airp", reqNode ), fmt, true);
-	if ( fmt == efmtUnknown )
-		throw AstraLocale::UserException( "MSG.AIRP.INVALID_GIVEN_CODE" );
+	TElemFmt airp_fmt;
+	string airp = ElemCtxtToElemId( ecDisp, etAirp, NodeAsString( "airp", reqNode ), airp_fmt, true );
 	string region = AirpTZRegion( airp, true );
- 	TDateTime time = UTCToClient( Qry.FieldAsDateTime( "time" ), region );
+	TDateTime time = UTCToClient( Qry.FieldAsDateTime( "time" ), region );
 	NewTextChild( resNode, "time", DateTimeToStr( time, ServerFormatDateTimeAsString ) );
 }
 
