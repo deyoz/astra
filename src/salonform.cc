@@ -332,7 +332,7 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   for ( vector<string>::iterator i=referStrs.begin(); i!=referStrs.end(); i++ ) {
   	ssss += *i + char(10) + char(13);
   }
-  NewTextChild( dataNode, "refer", ssss );
+  //NewTextChild( dataNode, "refer", ssss );
   // конец перечитки
   xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
   Salons.Build( salonsNode );
