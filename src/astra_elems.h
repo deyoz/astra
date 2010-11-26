@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include "base_tables.h"
 
 enum TElemType { etCountry,
                  etCity,
@@ -100,5 +101,7 @@ std::string ElemIdToElemCtxt(TElemContext ctxt,TElemType type, std::string id,
                              TElemFmt fmt, bool with_deleted=true);
 
 void getElemFmts(TElemFmt fmt, std::string basic_lang, std::vector< std::pair<TElemFmt,std::string> > &fmts);
+
+TBaseTable& getBaseTable(TElemType type);
 
 #endif /*_ASTRA_ELEMS_H_*/

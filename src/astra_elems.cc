@@ -416,7 +416,12 @@ string getTableName(TElemType type)
   	default:;
   };
   return table_name;
-}
+};
+
+TBaseTable& getBaseTable(TElemType type)
+{
+  return base_tables.get(getTableName(type));
+};
 
 string ElemToElemId(TElemType type, const string &elem, TElemFmt &fmt, const std::string &lang, bool with_deleted)
 {

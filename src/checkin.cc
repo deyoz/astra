@@ -5256,9 +5256,6 @@ class TBagItem
       return num < bag.num;
     };
 };
-/*
-bool CompareBagTagRow(const TBagTagRow &p1, const TBagTagRow &p2)
-{*/
 
 void CheckInInterface::SaveBag(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode)
 {
