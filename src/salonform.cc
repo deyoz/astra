@@ -309,7 +309,7 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
               NodeAsString( "classes", refcompNode );
     }
     msg += string( ", кодировка: " ) + comp_lang;
-    TReqInfo::Instance()->MsgToLog( msg, evtFlt, trip_id );
+    //TReqInfo::Instance()->MsgToLog( msg, evtFlt, trip_id );
   }
   SALONS2::setTRIP_CLASSES( trip_id );
   //set flag auto change in false state
