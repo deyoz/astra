@@ -328,11 +328,9 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   vector<string> referStrs;
   salonChangesToText( OldSalons, Salons, referStrs, cBase, 100 );
   referStrs.insert( referStrs.begin(), msg );
-  string ssss;
   for ( vector<string>::iterator i=referStrs.begin(); i!=referStrs.end(); i++ ) {
-  	ssss += *i + char(10) + char(13);
+  	TReqInfo::Instance()->MsgToLog( *i, evtFlt, trip_id );
   }
-  //NewTextChild( dataNode, "refer", ssss );
   // конец перечитки
   xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
   Salons.Build( salonsNode );
@@ -650,7 +648,7 @@ void IntChangeSeats( int point_id, int pax_id, int &tid, string xname, string yn
   	ProgTrace( TRACE5, "salon changes seats.size()=%d", seats.size() );
   	string seat_no, slayer_type;
   	if ( layer_type == cltProtCkin )
-  	  getSeat_no( pax_id, true, string("seats"), seat_no, slayer_type, tid );
+  	  getSeat_no( pax_id, true, string("_seats"), seat_no, slayer_type, tid );
     else
     	getSeat_no( pax_id, false, string("one"), seat_no, slayer_type, tid );
 
@@ -658,6 +656,8 @@ void IntChangeSeats( int point_id, int pax_id, int &tid, string xname, string yn
     xmlNodePtr dataNode = NewTextChild( resNode, "data" );
     NewTextChild( dataNode, "tid", tid );
     if ( !seat_no.empty() ) {
+      if ( !TReqInfo::Instance()->desk.compatible(SORT_SEAT_NO_VERSION) )
+      	seat_no = LTrimString( seat_no );
     	NewTextChild( dataNode, "seat_no", seat_no );
     	NewTextChild( dataNode, "layer_type", slayer_type );
     }
@@ -743,11 +743,13 @@ void SalonFormInterface::DeleteProtCkinSeat(XMLRequestCtxt *ctxt, xmlNodePtr req
   	if ( pr_update_salons )
   	  SALONS2::getSalonChanges( Salons, seats );
   	string seat_no, slayer_type;
-  	getSeat_no( pax_id, true, string("seats"), seat_no, slayer_type, tid );
+  	getSeat_no( pax_id, true, string("_seats"), seat_no, slayer_type, tid );
     /* надо передать назад новый tid */
     xmlNodePtr dataNode = NewTextChild( resNode, "data" );
     NewTextChild( dataNode, "tid", tid );
     if ( !seat_no.empty() ) {
+      if ( !TReqInfo::Instance()->desk.compatible(SORT_SEAT_NO_VERSION) )
+      	seat_no = LTrimString( seat_no );
     	NewTextChild( dataNode, "seat_no", seat_no );
     	NewTextChild( dataNode, "layer_type", slayer_type );
     }

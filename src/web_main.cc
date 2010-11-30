@@ -1633,7 +1633,7 @@ void WebRequestsIface::ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       	web_place_list.xcount = place->x;
       if ( place->y > web_place_list.ycount )
       	web_place_list.ycount = place->y;
-      wp.seat_no = denorm_iata_row( place->yname ) + denorm_iata_line( place->xname, Salons.getLatSeat() );
+      wp.seat_no = denorm_iata_row( place->yname, NULL ) + denorm_iata_line( place->xname, Salons.getLatSeat() );
       if ( !place->elem_type.empty() ) {
       	if ( place->elem_type != PARTITION_ELEM_TYPE )
      	    wp.elem_type = ARMCHAIR_ELEM_TYPE;

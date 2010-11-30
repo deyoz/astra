@@ -291,7 +291,7 @@ void TSalons::Build( xmlNodePtr salonsNode )
         NewTextChild( placeNode, "agle", place->agle );
       NewTextChild( placeNode, "class", place->clname );
       NewTextChild( placeNode, "xname", denorm_iata_line( place->xname, pr_lat_seat ) );
-      NewTextChild( placeNode, "yname", denorm_iata_row( place->yname ) );
+      NewTextChild( placeNode, "yname", denorm_iata_row( place->yname, NULL ) );
       xmlNodePtr remsNode = NULL;
       xmlNodePtr remNode;
       for ( vector<TRem>::iterator rem = place->rems.begin(); rem != place->rems.end(); rem++ ) {
@@ -1220,7 +1220,7 @@ bool TPlaceList::GetisPlaceXY( string placeName, TPoint &p )
     seat_no.clear();
   for( vector<string>::iterator ix=xs.begin(); ix!=xs.end(); ix++ )
     for ( vector<string>::iterator iy=ys.begin(); iy!=ys.end(); iy++ ) {
-    	salon_seat_no = denorm_iata_row(*iy) + denorm_iata_line(*ix,false);
+    	salon_seat_no = denorm_iata_row(*iy,NULL) + denorm_iata_line(*ix,false);
       if ( placeName == salon_seat_no ||
       	   !seat_no.empty() && seat_no == salon_seat_no ) {
       	p.x = distance( xs.begin(), ix );
@@ -1914,9 +1914,9 @@ void getStrSeats( const RowsRef &rows, vector<TStringRef> &referStrs, bool pr_la
     			}
     	  }
     		if ( i == 0 ) {
- 	  	    str += denorm_iata_row( first_isr->second.yname );
+ 	  	    str += denorm_iata_row( first_isr->second.yname, NULL );
     		  if ( prior_isr->first != first_isr->first )
- 	  		    str += "-" + denorm_iata_row( prior_isr->second.yname );
+ 	  		    str += "-" + denorm_iata_row( prior_isr->second.yname, NULL );
  	  		  for ( string::const_iterator sp=first_isr->second.xnames.begin(); sp!=first_isr->second.xnames.end(); sp++ ) {
  	  	      str += denorm_iata_line( string(1,*sp), pr_lat );
  	  	    }
@@ -1928,9 +1928,9 @@ void getStrSeats( const RowsRef &rows, vector<TStringRef> &referStrs, bool pr_la
      	  else
      	  	if ( isr == rows.end() ) {
      	  		if ( first_isr->first != prior_isr->first )
-     	  		  str = denorm_iata_row( first_isr->second.yname ) + "-" + denorm_iata_row( prior_isr->second.yname );
+     	  		  str = denorm_iata_row( first_isr->second.yname, NULL ) + "-" + denorm_iata_row( prior_isr->second.yname, NULL );
      	  		else
-     	  			str = denorm_iata_row( first_isr->second.yname );
+     	  			str = denorm_iata_row( first_isr->second.yname, NULL );
      	  		str += denorm_max_lines;
      	  		// пишем те места, кот нет
      	  		string minus_lines;
@@ -1941,7 +1941,7 @@ void getStrSeats( const RowsRef &rows, vector<TStringRef> &referStrs, bool pr_la
      	  					minus_lines += denorm_iata_line( string(1,*sp), pr_lat );
      	  			}
      	  			if ( !minus_lines.empty() ) {
-     	  				str += " -" + denorm_iata_row( isr->second.yname ) + minus_lines;
+     	  				str += " -" + denorm_iata_row( isr->second.yname, NULL ) + minus_lines;
      	  			}
      	  		}
      	  		var2_size += str.size();

@@ -4,6 +4,7 @@
 #include "stages.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
+#include "stl_utils.h"
 #include "astra_misc.h"
 #include "base_tables.h"
 #include "basic.h"
@@ -1784,9 +1785,9 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   SQry.SQLText =
     "BEGIN "
     " IF :mode=0 THEN "
-    "  :seat_no:=salons.get_seat_no(:pax_id,:seats,:layer_type,:point_id,'seats',:pax_row); "
+    "  :seat_no:=salons.get_seat_no(:pax_id,:seats,:layer_type,:point_id,'_seats',:pax_row); "
     " ELSE "
-    "  :seat_no:=salons.get_crs_seat_no(:pax_id,:xname,:yname,:seats,:point_id,:layer_type,'seats',:crs_row); "
+    "  :seat_no:=salons.get_crs_seat_no(:pax_id,:xname,:yname,:seats,:point_id,:layer_type,'_seats',:crs_row); "
     " END IF; "
     "END;";
   SQry.DeclareVariable( "mode", otInteger );
@@ -2025,6 +2026,8 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     			NewTextChild( node, "seat_no", seat_no );
     			break;
     	}
+      if ( !TReqInfo::Instance()->desk.compatible(SORT_SEAT_NO_VERSION) )
+      	seat_no = LTrimString( seat_no );
     	NewTextChild( node, "nseat_no", seat_no );
    		NewTextChild( node, "layer_type", layer_type );
     } // не задано место

@@ -758,12 +758,16 @@ std::string TPaxSeats::getSeats( int pax_id, const std::string format )
 	Qry->SetVariable( "pax_id", pax_id );
 	Qry->Execute();
 	int c=0;
+	char* add_ch = NULL;
+	if ( format == "_list" || format == "_one" || format == "_seats" )
+		add_ch = " ";
  	while ( !Qry->Eof ) {
  		TSeat seat;
     if ( format == "list" && !res.empty() )
     	res += " ";
-   	res = denorm_iata_row( Qry->FieldAsString( "first_yname" ) ) +
+   	res = denorm_iata_row( Qry->FieldAsString( "first_yname" ), add_ch ) +
           denorm_iata_line( Qry->FieldAsString( "first_xname" ), pr_lat_seat );
+    add_ch = NULL;
     if ( format == "one" )
     	break;
    	c++;

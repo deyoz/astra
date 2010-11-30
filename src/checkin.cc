@@ -1757,7 +1757,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "  v_last_tckin_seg.suffix AS tckin_seg_suffix, "
     "  v_last_tckin_seg.airp_arv AS tckin_seg_airp_arv, "
     "  class,pax.subclass,pax_grp.status, "
-    "  salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum) AS seat_no, "
+    "  salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'_seats',rownum) AS seat_no, "
     "  seats,wl_type,pers_type,document,ticket_rem, "
     "  ticket_no||DECODE(coupon_no,NULL,NULL,'/'||coupon_no) AS ticket_no, "
     "  ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_amount, "
@@ -1913,7 +1913,10 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         NewTextChild(paxNode,"seat_no_str","ЛО");
         NewTextChild(paxNode,"seat_no_alarm",(int)true);
       };
-      NewTextChild(paxNode,"seat_no",Qry.FieldAsString(col_seat_no));
+      string seat_no = Qry.FieldAsString(col_seat_no);
+      if ( !TReqInfo::Instance()->desk.compatible(SORT_SEAT_NO_VERSION) )
+      	seat_no = LTrimString( seat_no );
+      NewTextChild(paxNode,"seat_no",seat_no);
       NewTextChild(paxNode,"seats",Qry.FieldAsInteger(col_seats),1);
 
       if (reqInfo->desk.compatible(LATIN_VERSION))
@@ -3184,7 +3187,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                   	bool pr_found_agent_seat_no = false, pr_found_preseat_no = false;
                   	for( std::vector<TSeat>::iterator iseat=pas.seat_no.begin(); iseat!=pas.seat_no.end(); iseat++ ) {
                   		if ( !pas.agent_seat.empty() ) { //было из crs или введено агентом
-                  		  pas_seat_no = denorm_iata_row( iseat->row ) + denorm_iata_line( iseat->line, Salons.getLatSeat() );
+                  		  pas_seat_no = denorm_iata_row( iseat->row, NULL ) + denorm_iata_line( iseat->line, Salons.getLatSeat() );
                   		  if ( pas_seat_no == pas.agent_seat )
                   	  		pr_found_agent_seat_no = true;
                   		  if ( !pas.preseat.empty() )
@@ -3204,7 +3207,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                   for(vector<TSeat>::iterator iSeat=pas.seat_no.begin();iSeat!=pas.seat_no.end();iSeat++)
                   {
                     seat_no_str << " "
-                                << denorm_iata_row(iSeat->row)
+                                << denorm_iata_row(iSeat->row,NULL)
                                 << denorm_iata_line(iSeat->line,Salons.getLatSeat());
 
                     TSeatRange range(*iSeat,*iSeat);

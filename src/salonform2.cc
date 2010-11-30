@@ -433,7 +433,7 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
     	NewTextChild( dataNode, "seat_no", Qry.FieldAsString( "seat_no" ) );
     /* надо передать назад новый tid */
     NewTextChild( dataNode, "tid", tid );
-    NewTextChild( dataNode, "placename", denorm_iata_row( yname ) + denorm_iata_line( xname, pr_lat_seat ) );
+    NewTextChild( dataNode, "placename", denorm_iata_row( yname, NULL ) + denorm_iata_line( xname, pr_lat_seat ) );
     SALONS::BuildSalonChanges( dataNode, seats );
   }
   catch( AstraLocale::UserException ue ) {
