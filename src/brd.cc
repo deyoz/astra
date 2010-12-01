@@ -441,7 +441,7 @@ void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
         "    ckin.get_birks2(pax_grp.grp_id,NULL,NULL,:lang) AS tags, "
         "    kassa.pr_payment(pax_grp.grp_id) AS pr_payment, "
         "    client_type ";
-    if(not used_for_norec_rpt)
+    if(not used_for_norec_rpt and not used_for_web_rpt)
         sql << ", tckin_id, seg_no ";
 
     if (used_for_web_rpt)
@@ -452,7 +452,7 @@ void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
         "    pax ";
     if(used_for_norec_rpt)
         sql << ", crs_pax ";
-    else
+    if(not used_for_norec_rpt and not used_for_web_rpt)
         sql << ", tckin_pax_grp ";
 
     if (used_for_web_rpt)
@@ -464,7 +464,7 @@ void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
         sql
             << " pax.pax_id = crs_pax.pax_id(+) and "
             << " crs_pax.pax_id is null and ";
-    else
+    if(not used_for_norec_rpt and not used_for_web_rpt)
         sql << "    pax_grp.grp_id=tckin_pax_grp.grp_id(+) AND ";
 
     if (used_for_web_rpt)
