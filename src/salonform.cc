@@ -272,8 +272,7 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   /* инициализация VIP */
   SALONS2::InitVIP( trip_id );
   xmlNodePtr refcompNode = NodeAsNode( "refcompon", reqNode );
-  string msg = string( "Изменена компоновка рейса. Классы: " ) +
-               NodeAsString( "classes", refcompNode );
+  string msg;
   string comp_lang;
   if (TReqInfo::Instance()->desk.compatible(LATIN_VERSION)) {
   	if ( NodeAsInteger( "pr_lat", refcompNode ) != 0 )
@@ -283,8 +282,6 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   }
   else
   	comp_lang = NodeAsString( "lang", refcompNode );
-  msg += string( ", кодировка: " ) + comp_lang;
-  TReqInfo::Instance()->MsgToLog( msg, evtFlt, trip_id );
   bool cBase = false;
   bool cChange = false;
 
@@ -310,6 +307,10 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     }
     msg += string( ", кодировка: " ) + comp_lang;
     //TReqInfo::Instance()->MsgToLog( msg, evtFlt, trip_id );
+  }
+  else {
+  	msg = string( "Изменена компоновка рейса. Классы: " ) + NodeAsString( "classes", refcompNode );
+  	msg += string( ", кодировка: " ) + comp_lang;
   }
   SALONS2::setTRIP_CLASSES( trip_id );
   //set flag auto change in false state
