@@ -25,7 +25,6 @@ using namespace std;
 using namespace ASTRA;
 using namespace BASIC;
 using namespace EXCEPTIONS;
-using namespace JxtContext;
 using namespace boost::local_time;
 using namespace boost::posix_time;
 using namespace AstraLocale;
@@ -307,7 +306,7 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
 
   //проверим ограничение доступа по сессии
   vector<string> airlines;
-  SeparateString(getJxtContHandler()->sysContext()->read("session_airlines"),'/',airlines);
+  SeparateString(JxtContext::getJxtContHandler()->sysContext()->read("session_airlines"),'/',airlines);
 
   if (!airlines.empty())
     MergeAccess(user.access.airlines,user.access.airlines_permit,airlines,true);
@@ -856,8 +855,8 @@ void getLexemaText( LexemaData lexemaData, string &text, string &master_lexema_i
 	}
   catch( std::exception &e ) {
    	text = lexemaData.lexema_id;
-   	ProgError( STDLOG, "showError buildMsg e.what()=%s, id=%s, lang=%s",
-   	           e.what(), lexemaData.lexema_id.c_str(), TReqInfo::Instance()->desk.lang.c_str() );
+   	//ProgError( STDLOG, "showError buildMsg e.what()=%s, id=%s, lang=%s",
+   	           //e.what(), lexemaData.lexema_id.c_str(), TReqInfo::Instance()->desk.lang.c_str() );
   }
   catch( ... ) {
    	text = lexemaData.lexema_id;

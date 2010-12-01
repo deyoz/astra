@@ -40,148 +40,168 @@ void BrdInterface::readTripData( int point_id, xmlNodePtr dataNode )
 void BrdInterface::readTripCounters( const int point_id,
                                      const TRptParams &rpt_params,
                                      xmlNodePtr dataNode,
-                                     const bool used_for_web_rpt,
+                                     const TRptType rpt_type,
                                      const string &client_type )
 {
-  TReqInfo *reqInfo = TReqInfo::Instance();
-  TQuery ClassesQry(&OraSession);
-  ClassesQry.Clear();
-  ClassesQry.SQLText=
-    "SELECT trip_classes.class "
-    "FROM trip_classes,classes "
-    "WHERE trip_classes.class=classes.code AND "
-    "      point_id=:point_id "
-    "ORDER BY classes.priority";
-  ClassesQry.CreateVariable( "point_id", otInteger, point_id );
-  ClassesQry.Execute();
+    if( not (
+            rpt_type == rtEXAM or rpt_type == rtEXAMTXT or
+            rpt_type == rtWEB or rpt_type == rtWEBTXT or
+            rpt_type == rtNOREC or rpt_type == rtNORECTXT or
+            rpt_type == rtUnknown
+            )
+      )
+        throw Exception("BrdInterface::readTripCounters: unexpected rpt_type %d", rpt_type);
+    bool used_for_web_rpt = (rpt_type == rtWEB or rpt_type == rtWEBTXT);
+    bool used_for_norec_rpt = (rpt_type == rtNOREC or rpt_type == rtNORECTXT);
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    TQuery ClassesQry(&OraSession);
+    ClassesQry.Clear();
+    ClassesQry.SQLText=
+        "SELECT trip_classes.class "
+        "FROM trip_classes,classes "
+        "WHERE trip_classes.class=classes.code AND "
+        "      point_id=:point_id "
+        "ORDER BY classes.priority";
+    ClassesQry.CreateVariable( "point_id", otInteger, point_id );
+    ClassesQry.Execute();
 
-  TQuery Qry(&OraSession);
-  string sql=
-            "SELECT "
-            "    COUNT(*) AS reg, ";
-  if (reqInfo->screen.name == "BRDBUS.EXE")
-    sql+=   "    NVL(SUM(DECODE(pr_brd,0,0,1)),0) AS brd ";
-  else
-    sql+=   "    NVL(SUM(DECODE(pr_exam,0,0,1)),0) AS brd ";
-  sql+=     "FROM "
-            "    pax_grp, "
-            "    pax "
-            "WHERE "
-            "    pax_grp.grp_id=pax.grp_id AND "
-            "    point_dep=:point_id AND class=:class AND "
-            "    pr_brd IS NOT NULL ";
-  if(used_for_web_rpt) {
-      if(!client_type.empty()) {
-          sql += " AND pax_grp.client_type = :client_type ";
-          Qry.CreateVariable("client_type",otString,client_type);
-      } else {
-          sql += " AND pax_grp.client_type IN (:ctWeb, :ctKiosk) ";
-          Qry.CreateVariable("ctWeb", otString, EncodeClientType(ctWeb));
-          Qry.CreateVariable("ctKiosk", otString, EncodeClientType(ctKiosk));
-      }
-  }
-  Qry.SQLText = sql;
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.DeclareVariable( "class", otString );
+    TQuery Qry(&OraSession);
+    string sql=
+        "SELECT "
+        "    COUNT(*) AS reg, ";
+    if (reqInfo->screen.name == "BRDBUS.EXE")
+        sql+=   "    NVL(SUM(DECODE(pr_brd,0,0,1)),0) AS brd ";
+    else
+        sql+=   "    NVL(SUM(DECODE(pr_exam,0,0,1)),0) AS brd ";
+    sql+=     "FROM "
+        "    pax_grp, "
+        "    pax ";
+    if(used_for_norec_rpt)
+        sql += ", crs_pax ";
+    sql+=
+        "WHERE "
+        "    pax_grp.grp_id=pax.grp_id AND "
+        "    point_dep=:point_id AND class=:class AND "
+        "    pr_brd IS NOT NULL ";
+    if(used_for_norec_rpt)
+        sql += " and pax.pax_id = crs_pax.pax_id(+) and crs_pax.pax_id is null ";
+    if(used_for_web_rpt) {
+        if(!client_type.empty()) {
+            sql += " AND pax_grp.client_type = :client_type ";
+            Qry.CreateVariable("client_type",otString,client_type);
+        } else {
+            sql += " AND pax_grp.client_type IN (:ctWeb, :ctKiosk) ";
+            Qry.CreateVariable("ctWeb", otString, EncodeClientType(ctWeb));
+            Qry.CreateVariable("ctKiosk", otString, EncodeClientType(ctKiosk));
+        }
+    }
+    Qry.SQLText = sql;
+    Qry.CreateVariable( "point_id", otInteger, point_id );
+    Qry.DeclareVariable( "class", otString );
 
-  ostringstream reg_str,brd_str, fr_reg_str, fr_brd_str, fr_not_brd_str;
-  int reg=0,brd=0;
-  for(;!ClassesQry.Eof;ClassesQry.Next())
-  {
-    const char* cl=ClassesQry.FieldAsString("class");
-    Qry.SetVariable("class",cl);
-    Qry.Execute();
-    if(Qry.Eof) continue;
-    string class_client_view=ElemIdToCodeNative(etClass,cl);
-    string class_report_view=rpt_params.ElemIdToReportElem(etClass,cl,efmtCodeNative);
+    ostringstream reg_str,brd_str, fr_reg_str, fr_brd_str, fr_not_brd_str;
+    int reg=0,brd=0;
+    for(;!ClassesQry.Eof;ClassesQry.Next())
+    {
+        const char* cl=ClassesQry.FieldAsString("class");
+        Qry.SetVariable("class",cl);
+        Qry.Execute();
+        if(Qry.Eof) continue;
+        string class_client_view=ElemIdToCodeNative(etClass,cl);
+        string class_report_view=rpt_params.ElemIdToReportElem(etClass,cl,efmtCodeNative);
 
-    int vreg = Qry.FieldAsInteger("reg");
-    int vbrd = Qry.FieldAsInteger("brd");
-    reg_str << class_client_view << vreg << " ";
-    brd_str << class_client_view << vbrd << " ";
-    reg+=vreg;
-    brd+=vbrd;
-    if(!fr_reg_str.str().empty()) fr_reg_str << "/";
-    fr_reg_str << class_report_view << vreg;
-    if(!fr_brd_str.str().empty()) fr_brd_str << "/";
-    fr_brd_str << class_report_view << vbrd;
-    if(!fr_not_brd_str.str().empty()) fr_not_brd_str << "/";
-    fr_not_brd_str << class_report_view << vreg - vbrd;
-  };
+        int vreg = Qry.FieldAsInteger("reg");
+        int vbrd = Qry.FieldAsInteger("brd");
+        reg_str << class_client_view << vreg << " ";
+        brd_str << class_client_view << vbrd << " ";
+        reg+=vreg;
+        brd+=vbrd;
+        if(!fr_reg_str.str().empty()) fr_reg_str << "/";
+        fr_reg_str << class_report_view << vreg;
+        if(!fr_brd_str.str().empty()) fr_brd_str << "/";
+        fr_brd_str << class_report_view << vbrd;
+        if(!fr_not_brd_str.str().empty()) fr_not_brd_str << "/";
+        fr_not_brd_str << class_report_view << vreg - vbrd;
+    };
 
-  xmlNodePtr countersNode = GetNode("counters", dataNode);
-  if (countersNode==NULL)
-    countersNode=NewTextChild(dataNode, "counters");
-  ReplaceTextChild(countersNode, "reg", reg);
-  ReplaceTextChild(countersNode, "brd", brd);
-  ReplaceTextChild(countersNode, "reg_str", reg_str.str());
-  ReplaceTextChild(countersNode, "brd_str", brd_str.str());
+    xmlNodePtr countersNode = GetNode("counters", dataNode);
+    if (countersNode==NULL)
+        countersNode=NewTextChild(dataNode, "counters");
+    ReplaceTextChild(countersNode, "reg", reg);
+    ReplaceTextChild(countersNode, "brd", brd);
+    ReplaceTextChild(countersNode, "reg_str", reg_str.str());
+    ReplaceTextChild(countersNode, "brd_str", brd_str.str());
 
-  xmlNodePtr variablesNode = GetNode("/term/answer/form_data/variables", dataNode->doc);
-  if(variablesNode) {
-      Qry.Clear();
-      string SQLText =
-          "select "
-          " nvl(sum(decode(pers_type, 'Çá', 1, 0)), 0) adl, "
-          " nvl(sum(decode(pers_type, 'êÅ', 1, 0)), 0) chd, "
-          " nvl(sum(decode(pers_type, 'êå', 1, 0)), 0) inf, ";
-      if (reqInfo->screen.name == "BRDBUS.EXE")
-          SQLText +=
-              " NVL(SUM(DECODE(pr_brd,0,0,decode(pers_type, 'Çá', 1, 0))),0) AS brd_adl, "
-              " NVL(SUM(DECODE(pr_brd,0,0,decode(pers_type, 'êÅ', 1, 0))),0) AS brd_chd, "
-              " NVL(SUM(DECODE(pr_brd,0,0,decode(pers_type, 'êå', 1, 0))),0) AS brd_inf ";
-      else
-          SQLText +=
-              " NVL(SUM(DECODE(pr_exam,0,0,decode(pers_type, 'Çá', 1, 0))),0) AS brd_adl, "
-              " NVL(SUM(DECODE(pr_exam,0,0,decode(pers_type, 'êÅ', 1, 0))),0) AS brd_chd, "
-              " NVL(SUM(DECODE(pr_exam,0,0,decode(pers_type, 'êå', 1, 0))),0) AS brd_inf ";
-      SQLText +=
-          "from "
-          " pax_grp, "
-          " pax "
-          "where "
-          " pax_grp.grp_id=pax.grp_id AND "
-          " point_dep = :point_id and "
-          " pr_brd is not null ";
-      if(used_for_web_rpt) {
-          if(!client_type.empty()) {
-              SQLText += " AND pax_grp.client_type = :client_type ";
-              Qry.CreateVariable("client_type",otString,client_type);
-          } else {
-              SQLText += " AND pax_grp.client_type IN (:ctWeb, :ctKiosk) ";
-              Qry.CreateVariable("ctWeb", otString, EncodeClientType(ctWeb));
-              Qry.CreateVariable("ctKiosk", otString, EncodeClientType(ctKiosk));
-          }
-      }
-      Qry.SQLText = SQLText;
-      Qry.CreateVariable("point_id", otInteger, point_id);
-      Qry.Execute();
-      if(!Qry.Eof) {
-          ostringstream pax_str, brd_pax_str, not_brd_pax_str;
-          int adl = Qry.FieldAsInteger("adl");
-          int chd = Qry.FieldAsInteger("chd");
-          int inf = Qry.FieldAsInteger("inf");
-          int brd_adl = Qry.FieldAsInteger("brd_adl");
-          int brd_chd = Qry.FieldAsInteger("brd_chd");
-          int brd_inf = Qry.FieldAsInteger("brd_inf");
-          pax_str
-              << adl << "/"
-              << chd << "/"
-              << inf;
-          brd_pax_str
-              << brd_adl << "/"
-              << brd_chd << "/"
-              << brd_inf;
-          not_brd_pax_str
-              << adl - brd_adl << "/"
-              << chd - brd_chd << "/"
-              << inf - brd_inf;
+    xmlNodePtr variablesNode = GetNode("/term/answer/form_data/variables", dataNode->doc);
+    if(variablesNode) {
+        Qry.Clear();
+        string SQLText =
+            "select "
+            " nvl(sum(decode(pax.pers_type, 'Çá', 1, 0)), 0) adl, "
+            " nvl(sum(decode(pax.pers_type, 'êÅ', 1, 0)), 0) chd, "
+            " nvl(sum(decode(pax.pers_type, 'êå', 1, 0)), 0) inf, ";
+        if (reqInfo->screen.name == "BRDBUS.EXE")
+            SQLText +=
+                " NVL(SUM(DECODE(pr_brd,0,0,decode(pax.pers_type, 'Çá', 1, 0))),0) AS brd_adl, "
+                " NVL(SUM(DECODE(pr_brd,0,0,decode(pax.pers_type, 'êÅ', 1, 0))),0) AS brd_chd, "
+                " NVL(SUM(DECODE(pr_brd,0,0,decode(pax.pers_type, 'êå', 1, 0))),0) AS brd_inf ";
+        else
+            SQLText +=
+                " NVL(SUM(DECODE(pr_exam,0,0,decode(pax.pers_type, 'Çá', 1, 0))),0) AS brd_adl, "
+                " NVL(SUM(DECODE(pr_exam,0,0,decode(pax.pers_type, 'êÅ', 1, 0))),0) AS brd_chd, "
+                " NVL(SUM(DECODE(pr_exam,0,0,decode(pax.pers_type, 'êå', 1, 0))),0) AS brd_inf ";
+        SQLText +=
+            "from "
+            " pax_grp, "
+            " pax ";
+        if(used_for_norec_rpt)
+            SQLText += ", crs_pax ";
+        SQLText +=
+            "where "
+            " pax_grp.grp_id=pax.grp_id AND "
+            " point_dep = :point_id and "
+            " pr_brd is not null ";
+        if(used_for_norec_rpt)
+            SQLText += " and pax.pax_id = crs_pax.pax_id(+) and crs_pax.pax_id is null ";
+        if(used_for_web_rpt) {
+            if(!client_type.empty()) {
+                SQLText += " AND pax_grp.client_type = :client_type ";
+                Qry.CreateVariable("client_type",otString,client_type);
+            } else {
+                SQLText += " AND pax_grp.client_type IN (:ctWeb, :ctKiosk) ";
+                Qry.CreateVariable("ctWeb", otString, EncodeClientType(ctWeb));
+                Qry.CreateVariable("ctKiosk", otString, EncodeClientType(ctKiosk));
+            }
+        }
+        Qry.SQLText = SQLText;
+        Qry.CreateVariable("point_id", otInteger, point_id);
+        Qry.Execute();
+        if(!Qry.Eof) {
+            ostringstream pax_str, brd_pax_str, not_brd_pax_str;
+            int adl = Qry.FieldAsInteger("adl");
+            int chd = Qry.FieldAsInteger("chd");
+            int inf = Qry.FieldAsInteger("inf");
+            int brd_adl = Qry.FieldAsInteger("brd_adl");
+            int brd_chd = Qry.FieldAsInteger("brd_chd");
+            int brd_inf = Qry.FieldAsInteger("brd_inf");
+            pax_str
+                << adl << "/"
+                << chd << "/"
+                << inf;
+            brd_pax_str
+                << brd_adl << "/"
+                << brd_chd << "/"
+                << brd_inf;
+            not_brd_pax_str
+                << adl - brd_adl << "/"
+                << chd - brd_chd << "/"
+                << inf - brd_inf;
 
-          ReplaceTextChild(variablesNode, "total", pax_str.str() + "(" + fr_reg_str.str() + ")");
-          ReplaceTextChild(variablesNode, "total_brd", brd_pax_str.str() + "(" + fr_brd_str.str() + ")");
-          ReplaceTextChild(variablesNode, "total_not_brd", not_brd_pax_str.str() + "(" + fr_not_brd_str.str() + ")");
-      }
-  }
+            ReplaceTextChild(variablesNode, "total", pax_str.str() + "(" + fr_reg_str.str() + ")");
+            ReplaceTextChild(variablesNode, "total_brd", brd_pax_str.str() + "(" + fr_brd_str.str() + ")");
+            ReplaceTextChild(variablesNode, "total_not_brd", not_brd_pax_str.str() + "(" + fr_not_brd_str.str() + ")");
+        }
+    }
 };
 
 int get_new_tid(int point_id)
@@ -377,82 +397,101 @@ void BrdInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
 void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
                                             const int reg_no,
                                             const string &lang,
-                                            const bool used_for_web_rpt,
+                                            const TRptType rpt_type,
                                             const string &client_type)
 {
-  Qry.Clear();
-  ostringstream sql;
-  sql << "SELECT "
-         "    pax_id, "
-         "    pax_grp.grp_id, "
-         "    pr_brd, "
-         "    pr_exam, "
-         "    reg_no, "
-         "    surname, "
-         "    pax.name, "
-         "    pers_type, "
-         "    class, "
-         "    pax_grp.status, "
-         "    NVL(report.get_last_trfer_airp(pax_grp.grp_id),pax_grp.airp_arv) AS airp_arv, "
-         "    salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum) AS seat_no, "
-         "    seats, "
-         "    wl_type, "
-         "    ticket_no, "
-         "    coupon_no, "
-         "    document, "
-         "    pax.tid, "
-         "    ckin.get_remarks(pax_id,', ',0) AS remarks, "
-         "    NVL(ckin.get_bagAmount2(pax_grp.grp_id,NULL,NULL,rownum),0) AS bag_amount, "
-         "    NVL(ckin.get_bagWeight2(pax_grp.grp_id,NULL,NULL,rownum),0) AS bag_weight, "
-         "    NVL(ckin.get_rkAmount2(pax_grp.grp_id,NULL,NULL,rownum),0) AS rk_amount, "
-         "    NVL(ckin.get_rkWeight2(pax_grp.grp_id,NULL,NULL,rownum),0) AS rk_weight, "
-         "    NVL(pax_grp.excess,0) AS excess, "
-         "    kassa.get_value_bag_count(pax_grp.grp_id) AS value_bag_count, "
-         "    ckin.get_birks2(pax_grp.grp_id,NULL,NULL,:lang) AS tags, "
-         "    kassa.pr_payment(pax_grp.grp_id) AS pr_payment, "
-         "    client_type, "
-         "    tckin_id, seg_no ";
+    if( not (
+            rpt_type == rtEXAM or rpt_type == rtEXAMTXT or
+            rpt_type == rtWEB or rpt_type == rtWEBTXT or
+            rpt_type == rtNOREC or rpt_type == rtNORECTXT or
+            rpt_type == rtUnknown
+            )
+      )
+        throw Exception("BrdInterface::GetPaxQuery: unexpected rpt_type %d", rpt_type);
+    bool used_for_web_rpt = (rpt_type == rtWEB or rpt_type == rtWEBTXT);
+    bool used_for_norec_rpt = (rpt_type == rtNOREC or rpt_type == rtNORECTXT);
+    Qry.Clear();
+    ostringstream sql;
+    sql << "SELECT "
+        "    pax.pax_id, "
+        "    pax_grp.grp_id, "
+        "    pr_brd, "
+        "    pr_exam, "
+        "    reg_no, "
+        "    pax.surname, "
+        "    pax.name, "
+        "    pax.pers_type, "
+        "    class, "
+        "    pax_grp.status, "
+        "    NVL(report.get_last_trfer_airp(pax_grp.grp_id),pax_grp.airp_arv) AS airp_arv, "
+        "    salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum) AS seat_no, "
+        "    pax.seats, "
+        "    wl_type, "
+        "    ticket_no, "
+        "    coupon_no, "
+        "    document, "
+        "    pax.tid, "
+        "    ckin.get_remarks(pax.pax_id,', ',0) AS remarks, "
+        "    NVL(ckin.get_bagAmount2(pax_grp.grp_id,NULL,NULL,rownum),0) AS bag_amount, "
+        "    NVL(ckin.get_bagWeight2(pax_grp.grp_id,NULL,NULL,rownum),0) AS bag_weight, "
+        "    NVL(ckin.get_rkAmount2(pax_grp.grp_id,NULL,NULL,rownum),0) AS rk_amount, "
+        "    NVL(ckin.get_rkWeight2(pax_grp.grp_id,NULL,NULL,rownum),0) AS rk_weight, "
+        "    NVL(pax_grp.excess,0) AS excess, "
+        "    kassa.get_value_bag_count(pax_grp.grp_id) AS value_bag_count, "
+        "    ckin.get_birks2(pax_grp.grp_id,NULL,NULL,:lang) AS tags, "
+        "    kassa.pr_payment(pax_grp.grp_id) AS pr_payment, "
+        "    client_type ";
+    if(not used_for_norec_rpt and not used_for_web_rpt)
+        sql << ", tckin_id, seg_no ";
 
-  if (used_for_web_rpt)
-    sql << ", users2.descr AS user_descr ";
+    if (used_for_web_rpt)
+        sql << ", users2.descr AS user_descr ";
 
-  sql << "FROM "
-         "    pax_grp, "
-         "    pax, "
-         "    tckin_pax_grp ";
+    sql << "FROM "
+        "    pax_grp, "
+        "    pax ";
+    if(used_for_norec_rpt)
+        sql << ", crs_pax ";
+    if(not used_for_norec_rpt and not used_for_web_rpt)
+        sql << ", tckin_pax_grp ";
 
-  if (used_for_web_rpt)
-    sql << ", users2 ";
+    if (used_for_web_rpt)
+        sql << ", users2 ";
 
-  sql << "WHERE "
-         "    pax_grp.grp_id=pax.grp_id AND "
-         "    pax_grp.grp_id=tckin_pax_grp.grp_id(+) AND ";
+    sql << "WHERE "
+        "    pax_grp.grp_id=pax.grp_id AND ";
+    if(used_for_norec_rpt)
+        sql
+            << " pax.pax_id = crs_pax.pax_id(+) and "
+            << " crs_pax.pax_id is null and ";
+    if(not used_for_norec_rpt and not used_for_web_rpt)
+        sql << "    pax_grp.grp_id=tckin_pax_grp.grp_id(+) AND ";
 
-  if (used_for_web_rpt)
-    sql << "  pax_grp.user_id=users2.user_id AND ";
+    if (used_for_web_rpt)
+        sql << "  pax_grp.user_id=users2.user_id AND ";
 
-  sql << "    point_dep= :point_id AND pr_brd IS NOT NULL ";
+    sql << "    point_dep= :point_id AND pr_brd IS NOT NULL ";
 
-  if (used_for_web_rpt) {
-      if(!client_type.empty()) {
-          sql << " AND pax_grp.client_type = :client_type ";
-          Qry.CreateVariable("client_type",otString,client_type);
-      } else {
-          sql << " AND pax_grp.client_type IN (:ctWeb, :ctKiosk) ";
-          Qry.CreateVariable("ctWeb", otString, EncodeClientType(ctWeb));
-          Qry.CreateVariable("ctKiosk", otString, EncodeClientType(ctKiosk));
-      }
-  };
-  if (reg_no!=NoExists)
-  {
-    sql << " AND reg_no=:reg_no ";
-    Qry.CreateVariable("reg_no",otInteger,reg_no);
-  };
-  sql << " ORDER BY reg_no ";
+    if (used_for_web_rpt) {
+        if(!client_type.empty()) {
+            sql << " AND pax_grp.client_type = :client_type ";
+            Qry.CreateVariable("client_type",otString,client_type);
+        } else {
+            sql << " AND pax_grp.client_type IN (:ctWeb, :ctKiosk) ";
+            Qry.CreateVariable("ctWeb", otString, EncodeClientType(ctWeb));
+            Qry.CreateVariable("ctKiosk", otString, EncodeClientType(ctKiosk));
+        }
+    };
+    if (reg_no!=NoExists)
+    {
+        sql << " AND reg_no=:reg_no ";
+        Qry.CreateVariable("reg_no",otInteger,reg_no);
+    };
+    sql << " ORDER BY reg_no ";
 
-  Qry.CreateVariable("point_id",otInteger,point_id);
-  Qry.CreateVariable("lang",otString,lang);
-  Qry.SQLText = sql.str().c_str();
+    Qry.CreateVariable("point_id",otInteger,point_id);
+    Qry.CreateVariable("lang",otString,lang);
+    Qry.SQLText = sql.str().c_str();
 };
 
 void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -509,7 +548,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       reg_no=Qry.FieldAsInteger("reg_no");
       if (point_id==Qry.FieldAsInteger("point_dep"))
       {
-        GetPaxQuery(Qry, point_id, reg_no, reqInfo->desk.lang, false, "");
+        GetPaxQuery(Qry, point_id, reg_no, reqInfo->desk.lang, rtUnknown, "");
       }
       else
       {
@@ -538,7 +577,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           };
 
           TRptParams rpt_params(reqInfo->desk.lang);
-          readTripCounters(point_id, rpt_params, dataNode, false, "");
+          readTripCounters(point_id, rpt_params, dataNode, rtUnknown, "");
           readTripData( point_id, dataNode );
         }
         else
@@ -554,7 +593,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
             throw AstraLocale::UserException(100, "MSG.PASSENGER.OTHER_FLIGHT");
         };
 
-        GetPaxQuery(Qry, point_id, NoExists, reqInfo->desk.lang, false, "");
+        GetPaxQuery(Qry, point_id, NoExists, reqInfo->desk.lang, rtUnknown, "");
       };
     }
     else if(strcmp((char *)reqNode->name, "PaxByRegNo") == 0)
@@ -563,12 +602,12 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         hall=NodeAsInteger("hall",reqNode);
       reg_no=NodeAsInteger("reg_no",reqNode);
 
-      GetPaxQuery(Qry, point_id, reg_no, reqInfo->desk.lang, false, "");
+      GetPaxQuery(Qry, point_id, reg_no, reqInfo->desk.lang, rtUnknown, "");
     }
     else
     {
       //Æ°È®© ·Ø®·Æ™
-      GetPaxQuery(Qry, point_id, NoExists, reqInfo->desk.lang, false, "");
+      GetPaxQuery(Qry, point_id, NoExists, reqInfo->desk.lang, rtUnknown, "");
     };
 
     Qry.Execute();
@@ -929,7 +968,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       };//for(;!Qry.Eof;Qry.Next())
     };
     TRptParams rpt_params(reqInfo->desk.lang);
-    readTripCounters(point_id, rpt_params, dataNode, false, "");
+    readTripCounters(point_id, rpt_params, dataNode, rtUnknown, "");
 };
 
 

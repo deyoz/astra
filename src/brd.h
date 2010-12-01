@@ -34,13 +34,13 @@ public:
   static void readTripCounters( const int point_id,
                                 const TRptParams &rpt_params,
                                 xmlNodePtr dataNode,
-                                const bool used_for_web_rpt,
+                                const ASTRA::TRptType rpt_type,
                                 const std::string &client_type );
 
   static void GetPaxQuery(TQuery &Qry, const int point_id,
                                        const int reg_no,
                                        const std::string &lang,
-                                       const bool used_for_web_rpt,
+                                       const ASTRA::TRptType rpt_type,
                                        const std::string &client_type);
 
   static void GetPax(xmlNodePtr reqNode, xmlNodePtr resNode);

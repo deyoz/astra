@@ -124,6 +124,8 @@ const char* EncodeElemType(const TElemType type)
   		return "etLangType";
   	case etTagColor:
   		return "etTagColor";
+    case etSeatAlgoType:
+  		return "etSeatAlgoType";
   }
   return "";
 };
@@ -408,10 +410,18 @@ string getTableName(TElemType type)
     case etTagColor:
   		table_name="tag_colors";
   		break;
+  	case etSeatAlgoType:
+  		table_name="seat_algo_types";
+  		break;
   	default:;
   };
   return table_name;
-}
+};
+
+TBaseTable& getBaseTable(TElemType type)
+{
+  return base_tables.get(getTableName(type));
+};
 
 string ElemToElemId(TElemType type, const string &elem, TElemFmt &fmt, const std::string &lang, bool with_deleted)
 {

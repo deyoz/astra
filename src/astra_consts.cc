@@ -46,6 +46,8 @@ const char *RptTypeS[] = {
     "CRSUNREGTX",
     "EXAM",
     "EXAMTXT",
+    "NOREC",
+    "NORECTXT",
     "?"
 };
 

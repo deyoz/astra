@@ -148,7 +148,7 @@ void GetSystemLogModuleSQL(TQuery &Qry)
 
 
 typedef struct {
-    TDateTime part_key, real_out_local_date;
+    TDateTime part_key, real_out_client;
     string airline, suffix, name;
     int point_id, flt_no, move_id, point_num;
 } TPointsRow;
@@ -156,7 +156,7 @@ typedef struct {
 bool lessPointsRow(const TPointsRow& item1,const TPointsRow& item2)
 {
     bool result;
-    if(item1.real_out_local_date == item2.real_out_local_date) {
+    if(item1.real_out_client == item2.real_out_client) {
         if(item1.flt_no == item2.flt_no) {
             if(item1.airline == item2.airline) {
                 if(item1.suffix == item2.suffix) {
@@ -171,7 +171,7 @@ bool lessPointsRow(const TPointsRow& item1,const TPointsRow& item2)
         } else
             result = item1.flt_no < item2.flt_no;
     } else
-        result = item1.real_out_local_date > item2.real_out_local_date;
+        result = item1.real_out_client > item2.real_out_client;
     return result;
 };
 
@@ -337,12 +337,13 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                         continue;
                     };
                     TPointsRow pointsRow;
+                    TDateTime scd_out_client;
                     if(Qry.FieldIsNULL(col_part_key))
                         pointsRow.part_key = NoExists;
                     else
                         pointsRow.part_key = Qry.FieldAsDateTime(col_part_key);
                     pointsRow.point_id = Qry.FieldAsInteger(col_point_id);
-                    pointsRow.real_out_local_date = tripInfo.real_out_local_date;
+                    tripInfo.get_client_dates(scd_out_client, pointsRow.real_out_client);
                     pointsRow.airline = tripInfo.airline;
                     pointsRow.suffix = tripInfo.suffix;
                     pointsRow.name = trip_name;
@@ -2005,7 +2006,7 @@ void TStatParams::get(TQuery &Qry, xmlNodePtr reqNode)
 
     if (airlines.empty() && airlines_permit ||
         airps.empty() && airps_permit)
-      throw AstraLocale::UserException("MSG.NOT_DATA");
+      throw AstraLocale::UserException("MSG.NO_ACCESS");
 
     airp_column_first = (info.user.user_type == utAirport);
 

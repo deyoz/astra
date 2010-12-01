@@ -250,7 +250,7 @@ void TSalons::Build( xmlNodePtr salonsNode )
       if ( place->not_good )
         NewTextChild( placeNode, "not_good" );
       NewTextChild( placeNode, "xname", denorm_iata_line( place->xname, pr_lat_seat ) );
-      NewTextChild( placeNode, "yname", denorm_iata_row( place->yname ) );
+      NewTextChild( placeNode, "yname", denorm_iata_row( place->yname, NULL ) );
       if ( place->status != "FP" )
         NewTextChild( placeNode, "status", place->status ); // вычисляем статус исходя из слоев
       if ( !place->pr_free )
@@ -781,9 +781,12 @@ void TSalons::Parse( xmlNodePtr salonsNode )
         place.agle = 0;
       else
         place.agle = NodeAsIntegerFast( "agle", node );
-      place.clname = ElemToElemId( etClass, NodeAsStringFast( "class", node ), fmt );
-      if ( fmt == efmtUnknown )
-      	throw UserException( "MSG.INVALID_CLASS" );
+      place.clname = NodeAsStringFast( "class", node );
+      if ( !place.clname.empty() ) {
+        place.clname = ElemToElemId( etClass, place.clname, fmt );
+        if ( fmt == efmtUnknown )
+      	  throw UserException( "MSG.INVALID_CLASS" );
+      }
       place.pr_smoke = GetNodeFast( "pr_smoke", node );
       place.not_good = GetNodeFast( "not_good", node );
       place.xname = NodeAsStringFast( "xname", node );
@@ -968,7 +971,7 @@ bool TPlaceList::GetisPlaceXY( string placeName, TPoint &p )
     seat_no.clear();
   for( vector<string>::iterator ix=xs.begin(); ix!=xs.end(); ix++ )
     for ( vector<string>::iterator iy=ys.begin(); iy!=ys.end(); iy++ ) {
-    	salon_seat_no = denorm_iata_row(*iy) + denorm_iata_line(*ix,false);
+    	salon_seat_no = denorm_iata_row(*iy,NULL) + denorm_iata_line(*ix,false);
       if ( placeName == salon_seat_no ||
       	   !seat_no.empty() && seat_no == salon_seat_no ) {
       	p.x = distance( xs.begin(), ix );

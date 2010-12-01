@@ -3480,7 +3480,7 @@ vector<string>  TTlgSeatList::get_seat_vector(bool pr_lat) const
     for(t_tlg_comp::const_iterator ay = comp.begin(); ay != comp.end(); ay++) {
         const t_tlg_row &row = ay->second;
         for(t_tlg_row::const_iterator ax = row.begin(); ax != row.end(); ax++)
-            result.push_back(denorm_iata_row(ay->first) + denorm_iata_line(ax->first, pr_lat));
+            result.push_back(denorm_iata_row(ay->first,NULL) + denorm_iata_line(ax->first, pr_lat));
     }
     return result;
 }
@@ -3491,7 +3491,7 @@ string  TTlgSeatList::get_seat_one(bool pr_lat)
     if(!comp.empty()) {
         t_tlg_comp::iterator ay = comp.begin();
         t_tlg_row::iterator ax = ay->second.begin();
-        result = denorm_iata_row(ay->first) + denorm_iata_line(ax->first, pr_lat);
+        result = denorm_iata_row(ay->first,NULL) + denorm_iata_line(ax->first, pr_lat);
     }
     return result;
 }
@@ -3631,8 +3631,8 @@ void TTlgSeatList::get_seat_list(map<int, string> &list, bool pr_lat)
 void TSeatListContext::vert_seat_to_str(TSeatRectList &SeatRectList, string yname, string first_xname, string last_xname, bool pr_lat)
 {
     yname = denorm_iata_line(yname, pr_lat);
-    first_xname = denorm_iata_row(first_xname);
-    last_xname = denorm_iata_row(last_xname);
+    first_xname = denorm_iata_row(first_xname,NULL);
+    last_xname = denorm_iata_row(last_xname,NULL);
     TSeatRect rect;
     rect.row1 = first_xname;
     rect.line1 = yname;
@@ -3646,7 +3646,7 @@ void TSeatListContext::vert_seat_to_str(TSeatRectList &SeatRectList, string ynam
 
 void TSeatListContext::seat_to_str(TSeatRectList &SeatRectList, string yname, string first_xname, string last_xname, bool pr_lat)
 {
-    yname = denorm_iata_row(yname);
+    yname = denorm_iata_row(yname,NULL);
     first_xname = denorm_iata_line(first_xname, pr_lat);
     last_xname = denorm_iata_line(last_xname, pr_lat);
     TSeatRect rect;

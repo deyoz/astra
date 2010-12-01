@@ -239,8 +239,8 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   TQuery Qry( &OraSession );
   int trip_id = NodeAsInteger( "trip_id", reqNode );
   int comp_id = NodeAsInteger( "comp_id", reqNode );
-  Qry.CreateVariable( "point_id", otInteger, trip_id );
   Qry.SQLText = "UPDATE points SET point_id=point_id WHERE point_id=:point_id";
+  Qry.CreateVariable( "point_id", otInteger, trip_id );
   Qry.Execute();
   Qry.SQLText = "UPDATE trip_sets SET comp_id=:comp_id WHERE point_id=:point_id";
   Qry.DeclareVariable( "comp_id", otInteger );
@@ -257,13 +257,22 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Salons.trip_id = trip_id;
   Salons.ClName = "";
   Qry.Execute();
+  SALONS2::TSalons OldSalons( trip_id, SALONS2::rTripSalons );
+  // может вызвать ошибку, если салон не был назначен на рейс
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT point_id FROM trip_comp_elems WHERE point_id=:point_id AND rownum<2";
+  Qry.CreateVariable( "point_id", otInteger, trip_id );
+  Qry.Execute();
+  if ( !Qry.Eof )
+    OldSalons.Read();
   Salons.Write();
+
   bool pr_initcomp = NodeAsInteger( "initcomp", reqNode );
   /* инициализация VIP */
   SALONS2::InitVIP( trip_id );
   xmlNodePtr refcompNode = NodeAsNode( "refcompon", reqNode );
-  string msg = string( "Изменена компоновка рейса. Классы: " ) +
-               NodeAsString( "classes", refcompNode );
+  string msg;
   string comp_lang;
   if (TReqInfo::Instance()->desk.compatible(LATIN_VERSION)) {
   	if ( NodeAsInteger( "pr_lat", refcompNode ) != 0 )
@@ -273,13 +282,11 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   }
   else
   	comp_lang = NodeAsString( "lang", refcompNode );
-  msg += string( ", кодировка: " ) + comp_lang;
-  TReqInfo::Instance()->MsgToLog( msg, evtFlt, trip_id );
+  bool cBase = false;
+  bool cChange = false;
 
   if ( pr_initcomp ) { /* изменение компоновки */
     xmlNodePtr ctypeNode = NodeAsNode( "ctype", refcompNode );
-    bool cBase = false;
-    bool cChange = false;
     if ( ctypeNode ) {
       ctypeNode = ctypeNode->children; /* value */
       while ( ctypeNode ) {
@@ -299,7 +306,11 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
               NodeAsString( "classes", refcompNode );
     }
     msg += string( ", кодировка: " ) + comp_lang;
-    TReqInfo::Instance()->MsgToLog( msg, evtFlt, trip_id );
+    //TReqInfo::Instance()->MsgToLog( msg, evtFlt, trip_id );
+  }
+  else {
+  	msg = string( "Изменена компоновка рейса. Классы: " ) + NodeAsString( "classes", refcompNode );
+  	msg += string( ", кодировка: " ) + comp_lang;
   }
   SALONS2::setTRIP_CLASSES( trip_id );
   //set flag auto change in false state
@@ -315,6 +326,12 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   // надо перечитать заново
   Salons.Clear();
   Salons.Read();
+  vector<string> referStrs;
+  salonChangesToText( OldSalons, Salons, referStrs, cBase, 100 );
+  referStrs.insert( referStrs.begin(), msg );
+  for ( vector<string>::iterator i=referStrs.begin(); i!=referStrs.end(); i++ ) {
+  	TReqInfo::Instance()->MsgToLog( *i, evtFlt, trip_id );
+  }
   // конец перечитки
   xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
   Salons.Build( salonsNode );
@@ -632,7 +649,7 @@ void IntChangeSeats( int point_id, int pax_id, int &tid, string xname, string yn
   	ProgTrace( TRACE5, "salon changes seats.size()=%d", seats.size() );
   	string seat_no, slayer_type;
   	if ( layer_type == cltProtCkin )
-  	  getSeat_no( pax_id, true, string("seats"), seat_no, slayer_type, tid );
+  	  getSeat_no( pax_id, true, string("_seats"), seat_no, slayer_type, tid );
     else
     	getSeat_no( pax_id, false, string("one"), seat_no, slayer_type, tid );
 
@@ -640,6 +657,8 @@ void IntChangeSeats( int point_id, int pax_id, int &tid, string xname, string yn
     xmlNodePtr dataNode = NewTextChild( resNode, "data" );
     NewTextChild( dataNode, "tid", tid );
     if ( !seat_no.empty() ) {
+      if ( !TReqInfo::Instance()->desk.compatible(SORT_SEAT_NO_VERSION) )
+      	seat_no = LTrimString( seat_no );
     	NewTextChild( dataNode, "seat_no", seat_no );
     	NewTextChild( dataNode, "layer_type", slayer_type );
     }
@@ -725,11 +744,13 @@ void SalonFormInterface::DeleteProtCkinSeat(XMLRequestCtxt *ctxt, xmlNodePtr req
   	if ( pr_update_salons )
   	  SALONS2::getSalonChanges( Salons, seats );
   	string seat_no, slayer_type;
-  	getSeat_no( pax_id, true, string("seats"), seat_no, slayer_type, tid );
+  	getSeat_no( pax_id, true, string("_seats"), seat_no, slayer_type, tid );
     /* надо передать назад новый tid */
     xmlNodePtr dataNode = NewTextChild( resNode, "data" );
     NewTextChild( dataNode, "tid", tid );
     if ( !seat_no.empty() ) {
+      if ( !TReqInfo::Instance()->desk.compatible(SORT_SEAT_NO_VERSION) )
+      	seat_no = LTrimString( seat_no );
     	NewTextChild( dataNode, "seat_no", seat_no );
     	NewTextChild( dataNode, "layer_type", slayer_type );
     }

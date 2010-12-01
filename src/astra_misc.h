@@ -44,7 +44,7 @@ class TTripInfo
     std::string airline,suffix,airp;
     int flt_no, pr_del;
     TElemFmt airline_fmt, suffix_fmt, airp_fmt;
-    BASIC::TDateTime scd_out,real_out,real_out_local_date;
+    BASIC::TDateTime scd_out,real_out;
     TTripInfo()
     {
       Clear();
@@ -61,7 +61,6 @@ class TTripInfo
       airp.clear();
       scd_out=ASTRA::NoExists;
       real_out=ASTRA::NoExists;
-      real_out_local_date=ASTRA::NoExists; //GetTripName устанавливает значение
       pr_del = ASTRA::NoExists;
       airline_fmt = efmtUnknown;
       suffix_fmt = efmtUnknown;
@@ -78,7 +77,6 @@ class TTripInfo
         real_out = Qry.FieldAsDateTime("real_out");
       else
         real_out = ASTRA::NoExists;
-      real_out_local_date=ASTRA::NoExists;
       if (Qry.GetFieldIndex("pr_del")>=0)
         pr_del = Qry.FieldAsInteger("pr_del");
       else
@@ -90,9 +88,10 @@ class TTripInfo
       if (Qry.GetFieldIndex("airp_fmt")>=0)
           airp_fmt = (TElemFmt)Qry.FieldAsInteger("airp_fmt");
     };
+    void get_client_dates(BASIC::TDateTime &scd_out_client, BASIC::TDateTime &real_out_client) const;
 };
 
-std::string GetTripName( TTripInfo &info, TElemContext ctxt, bool showAirp=false, bool prList=false );
+std::string GetTripName( const TTripInfo &info, TElemContext ctxt, bool showAirp=false, bool prList=false );
 
 class TLastTrferInfo
 {
@@ -335,7 +334,7 @@ void GetMktFlights(const TTripInfo &operFltInfo, std::vector<TTripInfo> &markFlt
 std::string GetMktFlightStr( const TTripInfo &operFlt, const TTripInfo &markFlt );
 
 void GetCrsList(int point_id, std::vector<std::string> &crs);
-bool IsRouteInter(int point_id, std::string &country);
+bool IsRouteInter(int point_dep, int point_arv, std::string &country);
 
 #endif /*_ASTRA_MISC_H_*/
 

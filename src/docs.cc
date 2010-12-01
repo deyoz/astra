@@ -373,7 +373,7 @@ void TRptParams::Init(xmlNodePtr node)
     pr_trfer = NodeAsIntegerFast("pr_trfer", node, 0) != 0;
     pr_brd = NodeAsIntegerFast("pr_brd", node, 0) != 0;
     string route_country;
-    route_inter = IsRouteInter(point_id, route_country);
+    route_inter = IsRouteInter(point_id, NoExists, route_country);
     if(route_country == "РФ")
         route_country_lang = AstraLocale::LANG_RU;
     else
@@ -1288,14 +1288,14 @@ void BTM(TRptParams &rpt_params, xmlNodePtr resNode)
         "    pax_grp.grp_id = bag2.grp_id and "
         "    pax_grp.bag_refuse = 0 and "
         "    bag2.pr_cabin = 0 and "
-        "    pax_grp.hall = halls2.id(+) ";
+        "    bag2.hall = halls2.id(+) ";
     if(!rpt_params.airp_arv.empty()) {
         SQLText += " and pax_grp.airp_arv = :target ";
         Qry.CreateVariable("target", otString, rpt_params.airp_arv);
     }
     if(rpt_params.ckin_zone != ALL_CKIN_ZONES) {
         SQLText +=
-            "   and nvl(halls2.rpt_grp, ' ') = nvl(:zone, ' ') and pax_grp.hall IS NOT NULL ";
+            "   and nvl(halls2.rpt_grp, ' ') = nvl(:zone, ' ') and bag2.hall IS NOT NULL ";
         Qry.CreateVariable("zone", otString, rpt_params.ckin_zone);
     }
     if(rpt_params.pr_trfer)
@@ -1510,11 +1510,6 @@ void BTM(TRptParams &rpt_params, xmlNodePtr resNode)
         NewTextChild(rowNode, "color", iv->color);
         NewTextChild(rowNode, "num", iv->num);
         NewTextChild(rowNode, "pr_vip", 2);
-
-        if(!iv->class_code.empty()) {
-            iv->class_code = rpt_params.ElemIdToReportElem(etClass, iv->class_code, efmtCodeNative);
-            iv->class_code = rpt_params.ElemIdToReportElem(etClass, iv->class_code, efmtNameLong);
-        }
 
         NewTextChild(rowNode, "class", iv->class_code);
         NewTextChild(rowNode, "class_name", iv->class_name);
@@ -2563,13 +2558,15 @@ void CRSTXT(TRptParams &rpt_params, xmlNodePtr resNode)
 void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     bool pr_web = (rpt_params.rpt_type == rtWEB or rpt_params.rpt_type == rtWEBTXT);
-    if(rpt_params.rpt_type == rtEXAMTXT or rpt_params.rpt_type == rtWEBTXT)
+    bool pr_norec = (rpt_params.rpt_type == rtNOREC or rpt_params.rpt_type == rtNORECTXT);
+    if(rpt_params.rpt_type == rtEXAMTXT or rpt_params.rpt_type == rtWEBTXT or rpt_params.rpt_type == rtNORECTXT)
         get_report_form("docTxt", resNode);
     else
         get_report_form(pr_web ? "web" : "exam", resNode);
 
     TQuery Qry(&OraSession);
-    BrdInterface::GetPaxQuery(Qry, rpt_params.point_id, NoExists, rpt_params.GetLang(), pr_web, rpt_params.client_type);
+    BrdInterface::GetPaxQuery(Qry, rpt_params.point_id, NoExists, rpt_params.GetLang(), rpt_params.rpt_type, rpt_params.client_type);
+    ProgTrace(TRACE5, "Qry: %s", Qry.SQLText.SQLText());
     Qry.Execute();
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
     xmlNodePtr datasetsNode = NewTextChild(formDataNode, "datasets");
@@ -2597,7 +2594,7 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 
     // Теперь переменные отчета
     xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
-    BrdInterface::readTripCounters(rpt_params.point_id, rpt_params, variablesNode, pr_web, rpt_params.client_type);
+    BrdInterface::readTripCounters(rpt_params.point_id, rpt_params, variablesNode, rpt_params.rpt_type, rpt_params.client_type);
     PaxListVars(rpt_params.point_id, rpt_params, variablesNode);
     if ( pr_web) {
         if(!rpt_params.client_type.empty()) {
@@ -2614,18 +2611,20 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             }
             NewTextChild(variablesNode, "paxlist_type", ls_type);
         }
-    } else
+    } else if(pr_norec)
+        NewTextChild(variablesNode, "paxlist_type", "NOREC");
+    else
         NewTextChild(variablesNode, "paxlist_type", getLocaleText("CAP.PAX_LIST.BRD", rpt_params.GetLang()));
     if(pr_web and rpt_params.client_type.empty())
         NewTextChild(variablesNode, "caption", getLocaleText("CAP.DOC.PAX_LIST.SELF_CKIN",
                     LParams()
-                    << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang())//!!!param%100error
+                    << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang())
                 );
     else
         NewTextChild(variablesNode, "caption", getLocaleText("CAP.DOC.PAX_LIST",
                     LParams()
-                    << LParam("list_type", NodeAsString("paxlist_type", variablesNode))//!!!param
-                    << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang())//!!!param%100error
+                    << LParam("list_type", NodeAsString("paxlist_type", variablesNode))
+                    << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang())
                 );
     xmlNodePtr currNode = variablesNode->children;
     xmlNodePtr totalNode = NodeAsNodeFast("total", currNode);
@@ -2810,9 +2809,11 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
             CRSTXT(rpt_params, resNode);
             break;
         case rtEXAM:
+        case rtNOREC:
             EXAM(rpt_params, reqNode, resNode);
             break;
         case rtEXAMTXT:
+        case rtNORECTXT:
             EXAMTXT(rpt_params, reqNode, resNode);
             break;
         case rtUnknown:

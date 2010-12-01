@@ -300,7 +300,7 @@ void PaymentOldInterface::SaveBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     int tid=LockAndUpdTid(point_dep,grp_id,NodeAsInteger("tid",reqNode));
     NewTextChild(resNode,"tid",tid);
 
-    CheckInInterface::SaveBag(point_dep,grp_id,reqNode);
+    CheckInInterface::SaveBag(point_dep,grp_id,ASTRA::NoExists,reqNode);
     CheckInInterface::SavePaidBag(grp_id,reqNode);
 
     TReqInfo::Instance()->MsgToLog(

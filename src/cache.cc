@@ -21,7 +21,7 @@ struct TReferCacheTable
   TElemType ElemType;
 };
 
-const TReferCacheTable ReferCacheTable[12] = { {"COUNTRIES",       etCountry},
+const TReferCacheTable ReferCacheTable[14] = { {"COUNTRIES",       etCountry},
                                                {"CITIES",          etCity},
                                                {"AIRLINES",        etAirline},
                                                {"AIRPS",           etAirp},
@@ -32,7 +32,9 @@ const TReferCacheTable ReferCacheTable[12] = { {"COUNTRIES",       etCountry},
                                                {"GRAPH_STAGES",    etGraphStage},
                                                {"BAG_NORM_TYPES",  etBagNormType},
                                                {"CURRENCY",        etCurrency},
-                                               {"MISC_SET_TYPES",  etMiscSetType}
+                                               {"MISC_SET_TYPES",  etMiscSetType},
+                                               {"SEAT_ALGO_TYPES", etSeatAlgoType},
+                                               {"HALLS",           etHall}
                                              };
 
 using namespace std;
@@ -821,10 +823,10 @@ void OnLoggingF( TCacheTable &cache, const TRow &row, TCacheUpdateStatus UpdateS
           else
             msg << " досмотра при посадке";
         };
-        if ( !cache.FieldOldValue( "hall_id", row ).empty() )
+        if ( !cache.FieldOldValue( "hall", row ).empty() )
         {
           msg << " для зала '"
-              << cache.FieldOldValue( "hall_name", row ) << "'";
+              << cache.FieldOldValue( "hall_view", row ) << "'";
         };
         msg << ". ";
       };
@@ -845,10 +847,10 @@ void OnLoggingF( TCacheTable &cache, const TRow &row, TCacheUpdateStatus UpdateS
           else
             msg << " досмотра при посадке";
         };
-        if ( !cache.FieldValue( "hall_id", row ).empty() )
+        if ( !cache.FieldValue( "hall", row ).empty() )
         {
           msg << " для зала '"
-              << cache.FieldValue( "hall_name", row ) << "'";
+              << cache.FieldValue( "hall_view", row ) << "'";
         };
         msg << ". ";
       };

@@ -77,6 +77,8 @@ enum TRptType {
     rtCRSUNREGTXT,
     rtEXAM,
     rtEXAMTXT,
+    rtNOREC,
+    rtNORECTXT,
     rtUnknown,
     rtTypeNum
 };

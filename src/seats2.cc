@@ -1009,7 +1009,7 @@ TSeatPlace &TSeatPlaces::GetEqualSeatPlace( TPassenger &pass )
   	ispPlaceName_lat.clear();
   	ispPlaceName_rus.clear();
     TPlaceList *placeList = isp->placeList;
-    ispPlaceName_lat = denorm_iata_row( placeList->GetYsName( isp->Pos.y ) );
+    ispPlaceName_lat = denorm_iata_row( placeList->GetYsName( isp->Pos.y ), NULL );
     ispPlaceName_rus = ispPlaceName_lat;
     ispPlaceName_lat += denorm_iata_line( placeList->GetXsName( isp->Pos.x ), 1 );
     ispPlaceName_rus += denorm_iata_line( placeList->GetXsName( isp->Pos.x ), 0 );
@@ -2043,7 +2043,7 @@ bool GetPassengersForManualSeat( int point_id, TCompLayerType layer_type, TPasse
       	QrySeat.SetVariable( "pax_id", pass.pax_id );
       	QrySeat.Execute();
       	if ( !QrySeat.Eof )
-      		pass.placeName = denorm_iata_row( QrySeat.FieldAsString( "first_yname" ) ) +
+      		pass.placeName = denorm_iata_row( QrySeat.FieldAsString( "first_yname" ), NULL ) +
       		                 denorm_iata_line( QrySeat.FieldAsString( "first_xname" ), pr_lat_seat );
       }
 
@@ -2529,7 +2529,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   for (vector<TSeatRange>::iterator ns=seats.begin(); ns!=seats.end(); ns++ ) {
   	if ( !new_seat_no.empty() )
   		new_seat_no += " ";
-    new_seat_no += denorm_iata_row( ns->first.row ) + denorm_iata_line( ns->first.line, pr_lat_seat );
+    new_seat_no += denorm_iata_row( ns->first.row, NULL ) + denorm_iata_line( ns->first.line, pr_lat_seat );
   }
   switch( seat_type ) {
   	case stSeat:

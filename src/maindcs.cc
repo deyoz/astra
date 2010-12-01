@@ -25,7 +25,6 @@ using namespace ASTRA;
 using namespace EXCEPTIONS;
 using namespace AstraLocale;
 using namespace std;
-using namespace JxtContext;
 
 enum TDevParamCategory{dpcSession,dpcFormat,dpcModel};
 
@@ -68,7 +67,7 @@ void GetDeviceAirlines(xmlNodePtr node)
   TAirlines &airlines=(TAirlines&)(base_tables.get("airlines"));
   if (reqInfo->user.access.airlines_permit) {
   	vector<string> airlines_params;
-    SeparateString(getJxtContHandler()->sysContext()->read("session_airlines_params"),5,airlines_params);
+    SeparateString(JxtContext::getJxtContHandler()->sysContext()->read("session_airlines_params"),5,airlines_params);
 
     for(vector<string>::const_iterator i=reqInfo->user.access.airlines.begin();
                                        i!=reqInfo->user.access.airlines.end();i++)
@@ -775,7 +774,7 @@ void MainDCSInterface::CheckUserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
       if (!GetSessionAirlines(GetNode("airlines", reqNode),airlines,airlines_params)) throw 0;
 
       // проверим session_airlines
-      if (getJxtContHandler()->sysContext()->read("session_airlines")!=airlines)
+      if (JxtContext::getJxtContHandler()->sysContext()->read("session_airlines")!=airlines)
         throw 0;
 
       GetModuleList(resNode);
@@ -1259,8 +1258,8 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     string airlines_params;
     if (!GetSessionAirlines(GetNode("airlines", reqNode),airlines,airlines_params))
       throw AstraLocale::UserException("MSG.AIRLINE_CODE_NOT_FOUND", LParams() << LParam("airline", airlines));
-    getJxtContHandler()->sysContext()->write("session_airlines",airlines);
-    getJxtContHandler()->sysContext()->write("session_airlines_params",airlines_params);
+    JxtContext::getJxtContHandler()->sysContext()->write("session_airlines",airlines);
+    JxtContext::getJxtContHandler()->sysContext()->write("session_airlines_params",airlines_params);
     xmlNodePtr node=NodeAsNode("/term/query",ctxt->reqDoc);
     reqInfoData.screen = NodeAsString("@screen", node);
     reqInfoData.pult = ctxt->pult;
@@ -1304,8 +1303,8 @@ void MainDCSInterface::UserLogoff(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     Qry.SQLText = "UPDATE users2 SET desk = NULL WHERE user_id = :user_id";
     Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
     Qry.Execute();
-    getJxtContHandler()->sysContext()->remove("session_airlines");
-    getJxtContHandler()->sysContext()->remove("session_airlines_params");
+    JxtContext::getJxtContHandler()->sysContext()->remove("session_airlines");
+    JxtContext::getJxtContHandler()->sysContext()->remove("session_airlines_params");
     AstraLocale::showMessage("MSG.WORK_SEANCE_FINISHED");
     reqInfo->user.clear();
     reqInfo->desk.clear();
