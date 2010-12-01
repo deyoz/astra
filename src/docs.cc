@@ -1511,11 +1511,6 @@ void BTM(TRptParams &rpt_params, xmlNodePtr resNode)
         NewTextChild(rowNode, "num", iv->num);
         NewTextChild(rowNode, "pr_vip", 2);
 
-        if(!iv->class_code.empty()) {
-            iv->class_code = rpt_params.ElemIdToReportElem(etClass, iv->class_code, efmtCodeNative);
-            iv->class_code = rpt_params.ElemIdToReportElem(etClass, iv->class_code, efmtNameLong);
-        }
-
         NewTextChild(rowNode, "class", iv->class_code);
         NewTextChild(rowNode, "class_name", iv->class_name);
         NewTextChild(rowNode, "amount", iv->amount);
