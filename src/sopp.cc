@@ -1649,7 +1649,7 @@ void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   {
     ostringstream trip;
     trip << ElemIdToCodeNative(etAirline,Qry.FieldAsString("airline"))
-         << Qry.FieldAsInteger("flt_no")
+         << setw(3) << setfill('0') << Qry.FieldAsInteger("flt_no")
          << ElemIdToCodeNative(etSuffix,Qry.FieldAsString("suffix")) << "/"
          << DateTimeToStr(Qry.FieldAsDateTime("scd"),"dd");
 
