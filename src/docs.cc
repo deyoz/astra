@@ -373,7 +373,7 @@ void TRptParams::Init(xmlNodePtr node)
     pr_trfer = NodeAsIntegerFast("pr_trfer", node, 0) != 0;
     pr_brd = NodeAsIntegerFast("pr_brd", node, 0) != 0;
     string route_country;
-    route_inter = IsRouteInter(point_id, route_country);
+    route_inter = IsRouteInter(point_id, NoExists, route_country);
     if(route_country == "РФ")
         route_country_lang = AstraLocale::LANG_RU;
     else
@@ -2558,13 +2558,15 @@ void CRSTXT(TRptParams &rpt_params, xmlNodePtr resNode)
 void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     bool pr_web = (rpt_params.rpt_type == rtWEB or rpt_params.rpt_type == rtWEBTXT);
-    if(rpt_params.rpt_type == rtEXAMTXT or rpt_params.rpt_type == rtWEBTXT)
+    bool pr_norec = (rpt_params.rpt_type == rtNOREC or rpt_params.rpt_type == rtNORECTXT);
+    if(rpt_params.rpt_type == rtEXAMTXT or rpt_params.rpt_type == rtWEBTXT or rpt_params.rpt_type == rtNORECTXT)
         get_report_form("docTxt", resNode);
     else
         get_report_form(pr_web ? "web" : "exam", resNode);
 
     TQuery Qry(&OraSession);
-    BrdInterface::GetPaxQuery(Qry, rpt_params.point_id, NoExists, rpt_params.GetLang(), pr_web, rpt_params.client_type);
+    BrdInterface::GetPaxQuery(Qry, rpt_params.point_id, NoExists, rpt_params.GetLang(), rpt_params.rpt_type, rpt_params.client_type);
+    ProgTrace(TRACE5, "Qry: %s", Qry.SQLText.SQLText());
     Qry.Execute();
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
     xmlNodePtr datasetsNode = NewTextChild(formDataNode, "datasets");
@@ -2592,7 +2594,7 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 
     // Теперь переменные отчета
     xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
-    BrdInterface::readTripCounters(rpt_params.point_id, rpt_params, variablesNode, pr_web, rpt_params.client_type);
+    BrdInterface::readTripCounters(rpt_params.point_id, rpt_params, variablesNode, rpt_params.rpt_type, rpt_params.client_type);
     PaxListVars(rpt_params.point_id, rpt_params, variablesNode);
     if ( pr_web) {
         if(!rpt_params.client_type.empty()) {
@@ -2609,18 +2611,20 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             }
             NewTextChild(variablesNode, "paxlist_type", ls_type);
         }
-    } else
+    } else if(pr_norec)
+        NewTextChild(variablesNode, "paxlist_type", "NOREC");
+    else
         NewTextChild(variablesNode, "paxlist_type", getLocaleText("CAP.PAX_LIST.BRD", rpt_params.GetLang()));
     if(pr_web and rpt_params.client_type.empty())
         NewTextChild(variablesNode, "caption", getLocaleText("CAP.DOC.PAX_LIST.SELF_CKIN",
                     LParams()
-                    << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang())//!!!param%100error
+                    << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang())
                 );
     else
         NewTextChild(variablesNode, "caption", getLocaleText("CAP.DOC.PAX_LIST",
                     LParams()
-                    << LParam("list_type", NodeAsString("paxlist_type", variablesNode))//!!!param
-                    << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang())//!!!param%100error
+                    << LParam("list_type", NodeAsString("paxlist_type", variablesNode))
+                    << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang())
                 );
     xmlNodePtr currNode = variablesNode->children;
     xmlNodePtr totalNode = NodeAsNodeFast("total", currNode);
@@ -2805,9 +2809,11 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
             CRSTXT(rpt_params, resNode);
             break;
         case rtEXAM:
+        case rtNOREC:
             EXAM(rpt_params, reqNode, resNode);
             break;
         case rtEXAMTXT:
+        case rtNORECTXT:
             EXAMTXT(rpt_params, reqNode, resNode);
             break;
         case rtUnknown:

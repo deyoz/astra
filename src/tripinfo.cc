@@ -467,7 +467,7 @@ void TripsInterface::GetSegInfo(xmlNodePtr reqNode, xmlNodePtr resNode, xmlNodeP
       if ( GetNode( "counters", reqNode ) )
       {
           TRptParams rpt_params(reqInfo->desk.lang);
-          BrdInterface::readTripCounters( point_id, rpt_params, dataNode, false, "" );
+          BrdInterface::readTripCounters( point_id, rpt_params, dataNode, rtUnknown, "" );
       };
       if ( GetNode( "tripdata", reqNode ) )
           BrdInterface::readTripData( point_id, dataNode );
