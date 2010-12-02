@@ -84,7 +84,9 @@ void BrdInterface::readTripCounters( const int point_id,
         "    point_dep=:point_id AND class=:class AND "
         "    pr_brd IS NOT NULL ";
     if(used_for_norec_rpt)
-        sql += " and pax.pax_id = crs_pax.pax_id(+) and crs_pax.pax_id is null ";
+        sql +=
+            " and pax.pax_id = crs_pax.pax_id(+) and "
+            " (crs_pax.pax_id is null or crs_pax.pr_del <> 0) ";
     if(used_for_web_rpt) {
         if(!client_type.empty()) {
             sql += " AND pax_grp.client_type = :client_type ";
@@ -162,7 +164,10 @@ void BrdInterface::readTripCounters( const int point_id,
             " point_dep = :point_id and "
             " pr_brd is not null ";
         if(used_for_norec_rpt)
-            SQLText += " and pax.pax_id = crs_pax.pax_id(+) and crs_pax.pax_id is null ";
+            SQLText +=
+                " and pax.pax_id = crs_pax.pax_id(+) and "
+                " (crs_pax.pax_id is null or crs_pax.pr_del <> 0) ";
+
         if(used_for_web_rpt) {
             if(!client_type.empty()) {
                 SQLText += " AND pax_grp.client_type = :client_type ";
@@ -463,7 +468,8 @@ void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
     if(used_for_norec_rpt)
         sql
             << " pax.pax_id = crs_pax.pax_id(+) and "
-            << " crs_pax.pax_id is null and ";
+            << " (crs_pax.pax_id is null or "
+            << " crs_pax.pr_del <> 0) and ";
     if(not used_for_norec_rpt and not used_for_web_rpt)
         sql << "    pax_grp.grp_id=tckin_pax_grp.grp_id(+) AND ";
 
