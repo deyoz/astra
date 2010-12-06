@@ -388,23 +388,16 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 	RemQry.DeclareVariable( "pax_id", otInteger );
 	TQuery TimeQry( &OraSession );
 	TimeQry.SQLText =
-	 "SELECT time as mtime,NVL(stations.name,events.station) station FROM events,stations "
-	 " WHERE type='ПАС' AND id1=:point_id AND id2=:reg_no AND events.station=stations.desk(+) AND stations.work_mode(+)=:work_mode "
-	 " AND screen=:screen "
-	 " ORDER BY time DESC,ev_order DESC";
-
-/*
-	 "SELECT time as mtime,NVL(stations.name,events.station) station FROM events,stations "
+	 "SELECT time as mtime,NVL(stations.name,events.station) station, ev_order FROM events,stations "
 	 " WHERE type='ПАС' AND id1=:point_id AND id2=:reg_no AND id3=:grp_id AND events.station=stations.desk(+) AND stations.work_mode(+)=:work_mode "
 	 " AND screen=:screen "
-	 union
-	 SELECT ...
+	 " UNION "
+	 "SELECT time,NVL(stations.name,events.station), ev_order FROM events,stations "
 	 "WHERE type='ПАС' AND id1=:point_id AND id2 IS NULL AND id3=:grp_id AND msg like 'Багаж%' AND events.station=stations.desk(+) AND stations.work_mode(+)=:work_mode "
 	 " AND screen=:screen "
-	 " ORDER BY time DESC,ev_order DESC";
-*/
-
+	 " ORDER BY mtime DESC,ev_order DESC";
 	TimeQry.CreateVariable( "point_id", otInteger, point_id );
+	TimeQry.DeclareVariable( "grp_id", otInteger );
 	TimeQry.DeclareVariable( "reg_no", otInteger );
 	TimeQry.DeclareVariable( "screen", otString );
 	TimeQry.DeclareVariable( "work_mode", otString );
@@ -514,6 +507,7 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
       string term;
       TDateTime t;
       // стойка рег. + время рег. + выход на посадку + время прохода на посадку
+      TimeQry.SetVariable( "grp_id", Qry.FieldAsInteger( "grp_id" ) );
       TimeQry.SetVariable( "reg_no", Qry.FieldAsInteger( "reg_no" ) );
       TimeQry.SetVariable( "screen", "AIR.EXE" );
       TimeQry.SetVariable( "work_mode", "Р" );
