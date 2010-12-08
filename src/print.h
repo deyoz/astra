@@ -6,6 +6,7 @@
 #include "basic.h"
 #include "oralib.h"
 #include <set>
+#include "prn_tag_store.h"
 
 void check_CUTE_certified(int &prn_type, std::string &dev_model, std::string &fmt_type);
 
@@ -65,6 +66,7 @@ class PrintDataParser {
     public:
         enum TMapType {mtBTBP};
     private:
+        TPrnTagStore pts;
         class t_field_map {
             private:
                 struct TTagValue {
@@ -137,21 +139,22 @@ class PrintDataParser {
         std::string parse_tag(int offset, std::string tag);
     public:
         PrintDataParser(int pr_lat = 0): field_map(pr_lat)
-        {
-            pectab_format = 0;
-            this->pr_lat = pr_lat;
-        };
+    {
+        pectab_format = 0;
+        this->pr_lat = pr_lat;
+    };
         PrintDataParser(TBagReceipt rcpt): field_map(rcpt)
-        {
-            pectab_format = 0;
-            this->pr_lat = rcpt.pr_lat;
-        };
+    {
+        pectab_format = 0;
+        this->pr_lat = rcpt.pr_lat;
+    };
         PrintDataParser(int grp_id, int pax_id, int pr_lat, xmlNodePtr tagsNode, TMapType map_type = mtBTBP):
+            pts(grp_id, pax_id, pr_lat),
             field_map(grp_id, pax_id, pr_lat, tagsNode, map_type)
-        {
-            pectab_format = 0;
-            this->pr_lat = pr_lat;
-        };
+    {
+        pectab_format = 0;
+        this->pr_lat = pr_lat;
+    };
         std::string parse(std::string &form, int pr_lat)
         {
             this->pr_lat = pr_lat;

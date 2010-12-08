@@ -2271,6 +2271,7 @@ string PrintDataParser::parse_field1(int offset, string field)
     string FieldAlign = "L";
     string DateFormat = ServerFormatDateTimeAsString;
     int FieldLat = -1;
+    string tag_lang;
 
     string buf;
     string::size_type i = 0;
@@ -2338,10 +2339,13 @@ string PrintDataParser::parse_field1(int offset, string field)
                 if(curr_char != 'r' && curr_char != 'e') {
                     if(IsDelim(curr_char, Mode)) {
                         buf = field.substr(VarPos + 1, i - VarPos - 1);
-                        if(buf == "e")
+                        if(buf == "e") {
                             FieldLat = 1;
-                        else
+                            tag_lang = "E";
+                        } else {
                             FieldLat = 0;
+                            tag_lang = "R";
+                        }
                         VarPos = i;
                     } else
                         throw Exception("D param must be one of r or e at " + IntToString(offset + i + 1));
@@ -2360,10 +2364,12 @@ string PrintDataParser::parse_field1(int offset, string field)
             delim +
             FieldAlign +
             delim +
-            field_map.get_field(FieldName, 0, "L", DateFormat, FieldLat);
+//!!!            field_map.get_field(FieldName, 0, "L", DateFormat, FieldLat);
+            pts.get_field(FieldName, 0, "L", DateFormat, tag_lang);
     else
         result =
-            field_map.get_field(FieldName, ToInt(FieldLen), FieldAlign, DateFormat, FieldLat);
+//            field_map.get_field(FieldName, ToInt(FieldLen), FieldAlign, DateFormat, FieldLat);
+            pts.get_field(FieldName, ToInt(FieldLen), FieldAlign, DateFormat, tag_lang);
     return result;
 }
 
@@ -2379,6 +2385,7 @@ string PrintDataParser::parse_field0(int offset, string field)
     string FieldAlign = "L";
     string DateFormat = ServerFormatDateTimeAsString;
     int FieldLat = -1;
+    string tag_lang;
 
     string buf;
     string::size_type i = 0;
@@ -2430,9 +2437,11 @@ string PrintDataParser::parse_field0(int offset, string field)
                             switch(lat_code) {
                                 case 'E':
                                     FieldLat = 1;
+                                    tag_lang = "E";
                                     break;
                                 case 'R':
                                     FieldLat = 0;
+                                    tag_lang = "R";
                                     break;
                                 default:
                                     throw Exception("4th param must be one of R or E at " + IntToString(offset + i + 1));
@@ -2448,6 +2457,7 @@ string PrintDataParser::parse_field0(int offset, string field)
     }
     if(Mode != 'L' && Mode != 'F')
             throw Exception("')' not found at " + IntToString(offset + i + 1));
+    pts.get_field(FieldName, FieldLen, FieldAlign, DateFormat, tag_lang);
     return field_map.get_field(FieldName, FieldLen, FieldAlign, DateFormat, FieldLat);
 }
 
