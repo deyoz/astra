@@ -227,10 +227,12 @@ class TPrnTagStore {
         std::string TEST_SERVER(TFieldParams fp);
 
     public:
-        TPrnTagStore(int apax_id, int agrp_id, int apr_lat);
+        TPrnTagStore(int agrp_id, int apax_id, int apr_lat);
         TPrnTagStore() {};
-        void set_tag(std::string name, boost::any value);
-        std::string get_field(std::string name, int len, std::string align, std::string date_format, std::string field_lat);
+        void set_tag(std::string name, std::string value);
+        std::string get_field(std::string name, int len, std::string align, std::string date_format, std::string tag_lang);
+
+        void tst_get_tag_list(std::vector<std::string> &tag_list);
 };
 
 #endif

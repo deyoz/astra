@@ -24,7 +24,7 @@ void TPrnTagStore::TTagLang::Init(int point_dep, int point_arv, bool apr_lat)
 {
     string route_country;
     route_inter = IsRouteInter(point_dep, point_arv, route_country);
-    if(route_country == "–†–§")
+    if(route_country == "êî")
         route_country_lang = AstraLocale::LANG_RU;
     else
         route_country_lang = "";
@@ -59,7 +59,7 @@ string TPrnTagStore::TTagLang::ElemIdToTagElem(TElemType type, const string &id,
 {
   if (id.empty()) return "";
 
-  string lang=GetLang(fmt, firm_lang); //—Å–ø–µ—Ü–∏–∞–ª—å–Ω–æ –≤—ã–Ω–µ—Å–µ–Ω–æ, —Ç–∞–∫ –∫–∞–∫ fmt –≤ –ø—Ä–æ—Ü–µ–¥—É—Ä–µ –º–æ–∂–µ—Ç –∏–∑–º–µ–Ω–∏—Ç—å—Å—è
+  string lang=GetLang(fmt, firm_lang); //·Ø•Ê®†´Ï≠Æ ¢Î≠•·•≠Æ, ‚†™ ™†™ fmt ¢ Ø‡ÆÊ•§„‡• ¨Æ¶•‚ ®ß¨•≠®‚Ï·Ô
 
   vector< pair<TElemFmt,string> > fmts;
   getElemFmts(fmt, lang, fmts);
@@ -77,7 +77,7 @@ string TPrnTagStore::TTagLang::ElemIdToTagElem(TElemType type, int id, TElemFmt 
 {
   if (id==ASTRA::NoExists) return "";
 
-  string lang=GetLang(fmt, firm_lang); //—Å–ø–µ—Ü–∏–∞–ª—å–Ω–æ –≤—ã–Ω–µ—Å–µ–Ω–æ, —Ç–∞–∫ –∫–∞–∫ fmt –≤ –ø—Ä–æ—Ü–µ–¥—É—Ä–µ –º–æ–∂–µ—Ç –∏–∑–º–µ–Ω–∏—Ç—å—Å—è
+  string lang=GetLang(fmt, firm_lang); //·Ø•Ê®†´Ï≠Æ ¢Î≠•·•≠Æ, ‚†™ ™†™ fmt ¢ Ø‡ÆÊ•§„‡• ¨Æ¶•‚ ®ß¨•≠®‚Ï·Ô
 
   vector< pair<TElemFmt,string> > fmts;
 
@@ -85,6 +85,12 @@ string TPrnTagStore::TTagLang::ElemIdToTagElem(TElemType type, int id, TElemFmt 
   return ElemIdToElem(type, id, fmts, true);
 };
 
+
+void TPrnTagStore::tst_get_tag_list(std::vector<string> &tags)
+{
+    for(map<const string, TTagListItem>::iterator im = tag_list.begin(); im != tag_list.end(); im++)
+        tags.push_back(im->first);
+}
 
 TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat)
 {
@@ -111,7 +117,7 @@ TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat)
     tag_list.insert(make_pair(TAG::CLASS,           TTagListItem(&TPrnTagStore::CLASS)));
     tag_list.insert(make_pair(TAG::CLASS_NAME,      TTagListItem(&TPrnTagStore::CLASS_NAME)));
     tag_list.insert(make_pair(TAG::DOCUMENT,        TTagListItem(&TPrnTagStore::DOCUMENT, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::EST,             TTagListItem(&TPrnTagStore::EST)));
+    tag_list.insert(make_pair(TAG::EST,             TTagListItem(&TPrnTagStore::EST, POINT_INFO)));
     tag_list.insert(make_pair(TAG::ETICKET_NO,      TTagListItem(&TPrnTagStore::ETICKET_NO, PAX_INFO)));
     tag_list.insert(make_pair(TAG::ETKT,            TTagListItem(&TPrnTagStore::ETKT, PAX_INFO)));
     tag_list.insert(make_pair(TAG::EXCESS,          TTagListItem(&TPrnTagStore::EXCESS)));
@@ -130,7 +136,7 @@ TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat)
     tag_list.insert(make_pair(TAG::PLACE_ARV,       TTagListItem(&TPrnTagStore::PLACE_ARV)));
     tag_list.insert(make_pair(TAG::PLACE_DEP,       TTagListItem(&TPrnTagStore::PLACE_DEP)));
     tag_list.insert(make_pair(TAG::REG_NO,          TTagListItem(&TPrnTagStore::REG_NO, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::SCD,             TTagListItem(&TPrnTagStore::SCD)));
+    tag_list.insert(make_pair(TAG::SCD,             TTagListItem(&TPrnTagStore::SCD, POINT_INFO)));
     tag_list.insert(make_pair(TAG::SEAT_NO,         TTagListItem(&TPrnTagStore::SEAT_NO, PAX_INFO)));
     tag_list.insert(make_pair(TAG::STR_SEAT_NO,     TTagListItem(&TPrnTagStore::STR_SEAT_NO, PAX_INFO)));
     tag_list.insert(make_pair(TAG::SURNAME,         TTagListItem(&TPrnTagStore::SURNAME, PAX_INFO)));
@@ -138,7 +144,7 @@ TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat)
 
 }
 
-void TPrnTagStore::set_tag(string name, boost::any value)
+void TPrnTagStore::set_tag(string name, string value)
 {
     name = upperc(name);
     map<const string, TTagListItem>::iterator im = tag_list.find(name);
@@ -149,7 +155,6 @@ void TPrnTagStore::set_tag(string name, boost::any value)
 
 string TPrnTagStore::get_field(std::string name, int len, std::string align, std::string date_format, string tag_lang)
 {
-    ProgTrace(TRACE5, "TAG NAME: %s", name.c_str());
     this->tag_lang.set_tag_lang(tag_lang);
     map<const string, TTagListItem>::iterator im = tag_list.find(name);
     if(im == tag_list.end())
@@ -202,7 +207,7 @@ void TPrnTagStore::TBrdInfo::Init(int point_id)
         Qry.SQLText =
             "select "
             "   gtimer.get_stage_time(:point_id,:brd_open_stage_id) brd_from, "
-            "   gtimer.get_stage_time(:point_id,:brd_close_stage_id) brd_to, "
+            "   gtimer.get_stage_time(:point_id,:brd_close_stage_id) brd_to "
             "from "
             "   dual ";
         Qry.CreateVariable("point_id", otInteger, point_id);
@@ -330,8 +335,6 @@ void TPrnTagStore::TPointInfo::Init(int apoint_id, int agrp_id)
             "where "
             "   points.point_id = :point_id and points.pr_del>=0 ";
         Qry.CreateVariable("point_id", otInteger, point_id);
-        Qry.CreateVariable("brd_open_stage_id", otInteger, sOpenBoarding);
-        Qry.CreateVariable("brd_close_stage_id", otInteger, sCloseBoarding);
         Qry.Execute();
         if(Qry.Eof)
             throw Exception("TPointInfo::Init failed. point_id %d not found", point_id);
@@ -436,8 +439,8 @@ string TPrnTagStore::BCBP_M_2(TFieldParams fp)
         << setw(4) <<  setfill('0') << paxInfo.reg_no
         << " ";
     // Passenger Status
-    // –Ø —Ç–∞–∫ –ø–æ–Ω–∏–º–∞—é —á—Ç–æ –∫ —ç—Ç–æ–º—É –º–æ–º–µ–Ω—Ç—É (—Ç.–µ. –≤—ã–≤–æ–¥ –ø–æ—Å. —Ç–∞–ª–æ–Ω–∞ –Ω–∞ –ø–µ—á–∞—Ç—å)
-    // —Å—Ç–∞—Ç—É—Å –ø–∞—Å—Å–∞–∂–∏—Ä–∞ "1": passenger checked in
+    // ü ‚†™ ØÆ≠®¨†Ó Á‚Æ ™ Ì‚Æ¨„ ¨Æ¨•≠‚„ (‚.•. ¢Î¢Æ§ ØÆ·. ‚†´Æ≠† ≠† Ø•Á†‚Ï)
+    // ·‚†‚„· Ø†··†¶®‡† "1": passenger checked in
     result << 1;
 
     ostringstream cond1; // first conditional field
@@ -446,8 +449,8 @@ string TPrnTagStore::BCBP_M_2(TFieldParams fp)
             << ">"
             << 2;
         // field size of following structured message
-        // –ø–æ—Å—Ç–æ—è–Ω–Ω–æ–µ –∑–Ω–∞—á–µ–Ω–∏–µ —Ä–∞–≤–Ω–æ–µ —Å—É–º–º–µ –∑–∞—Ä–µ–∑–µ—Ä–≤–∏—Ä–æ–≤–∞–Ω–Ω—ã—Ö –¥–ª–∏–Ω –ø–æ—Å–ª–µ–¥—É—é—â–∏—Ö 7-–∏ –ø–æ–ª–µ–π
-        // –≤ –¥–∞–Ω–Ω–æ–π –≤–µ—Ä—Å–∏–∏ —ç—Ç–∞ –¥–ª–∏–Ω–∞ —Ä–∞–≤–Ω–∞ 24 (–¥–≤–∞–¥—Ü–∞—Ç—å —á–µ—Ç—ã—Ä–µ)
+        // ØÆ·‚ÆÔ≠≠Æ• ß≠†Á•≠®• ‡†¢≠Æ• ·„¨¨• ß†‡•ß•‡¢®‡Æ¢†≠≠ÎÂ §´®≠ ØÆ·´•§„ÓÈ®Â 7-® ØÆ´•©
+        // ¢ §†≠≠Æ© ¢•‡·®® Ì‚† §´®≠† ‡†¢≠† 24 (§¢†§Ê†‚Ï Á•‚Î‡•)
         cond1 << "18";
         // Passenger Description
         TPerson pers_type = DecodePerson((char *)paxInfo.pers_type.c_str());
@@ -570,12 +573,18 @@ string TPrnTagStore::BRD_TO(TFieldParams fp)
 
 string TPrnTagStore::BT_AMOUNT(TFieldParams fp)
 {
-    return boost::any_cast<string>(fp.TagInfo);
+    if(fp.TagInfo.empty())
+        return "";
+    else
+        return boost::any_cast<string>(fp.TagInfo);
 }
 
 string TPrnTagStore::BT_WEIGHT(TFieldParams fp)
 {
-    return boost::any_cast<string>(fp.TagInfo);
+    if(fp.TagInfo.empty())
+        return "";
+    else
+        return boost::any_cast<string>(fp.TagInfo);
 }
 
 string TPrnTagStore::CITY_ARV_NAME(TFieldParams fp)
@@ -679,7 +688,7 @@ string TPrnTagStore::GATE(TFieldParams fp)
 
 string TPrnTagStore::LONG_ARV(TFieldParams fp)
 {
-    string result = CITY_ARV_NAME(fp).substr(0, 9) + "(" + AIRP_ARV(fp) + ")"; // !!! –≤ —Ö—É–¥—à–µ–º —Å–ª—É—á–∞–µ –≤–µ—Ä–Ω–µ—Ç—Å—è —Ä—É—Å—Å–∫–∏–π –∫–æ–¥?
+    string result = CITY_ARV_NAME(fp).substr(0, 9) + "(" + AIRP_ARV(fp) + ")"; // !!! ¢ Â„§Ë•¨ ·´„Á†• ¢•‡≠•‚·Ô ‡„··™®© ™Æ§?
     if(not tag_lang.IsInter()) {
         TAirpsRow &airpRow = (TAirpsRow&)base_tables.get("AIRPS").get_row("code",grpInfo.airp_arv);
         result =
@@ -692,7 +701,7 @@ string TPrnTagStore::LONG_ARV(TFieldParams fp)
 
 string TPrnTagStore::LONG_DEP(TFieldParams fp)
 {
-    string result = CITY_DEP_NAME(fp).substr(0, 9) + "(" + AIRP_DEP(fp) + ")"; // !!! –≤ —Ö—É–¥—à–µ–º —Å–ª—É—á–∞–µ –≤–µ—Ä–Ω–µ—Ç—Å—è —Ä—É—Å—Å–∫–∏–π –∫–æ–¥?
+    string result = CITY_DEP_NAME(fp).substr(0, 9) + "(" + AIRP_DEP(fp) + ")"; // !!! ¢ Â„§Ë•¨ ·´„Á†• ¢•‡≠•‚·Ô ‡„··™®© ™Æ§?
     if(not tag_lang.IsInter()) {
         TAirpsRow &airpRow = (TAirpsRow&)base_tables.get("AIRPS").get_row("code",grpInfo.airp_dep);
         result =
