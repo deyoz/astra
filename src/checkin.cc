@@ -2411,7 +2411,8 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
 
       //определим - новая регистрация или запись изменений
       node = GetNode("grp_id",segNode);
-      if (node==NULL||NodeIsNULL(node))
+      bool new_checkin=(node==NULL||NodeIsNULL(node));
+      if (new_checkin)
       {
         cl=NodeAsString("class",segNode);
 
@@ -3564,7 +3565,8 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
 
       //вот здесь ETCheckStatus::CheckGrpStatus
       //обязательно до ckin.check_grp
-      if (ediResNode==NULL && !defer_etstatus)
+      if (ediResNode==NULL && !defer_etstatus &&
+          (new_checkin || reqInfo->client_type==ctTerm)) //не производим изменение статуса при записи изменений веб регистрации!
       {
         if (ETStatusInterface::ETCheckStatus(grp_id,csaGrp,-1,false,ETInfo,true))
         {

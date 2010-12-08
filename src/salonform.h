@@ -39,7 +39,7 @@ public:
   void AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 
-void IntChangeSeats( int point_id, int pax_id, int tid, std::string xname, std::string yname,
+void IntChangeSeats( int point_id, int pax_id, int &tid, std::string xname, std::string yname,
 	                   SEATS2::TSeatsType seat_type,
 	                   ASTRA::TCompLayerType layer_type,
                      bool pr_waitlist, bool pr_question_reseat,
