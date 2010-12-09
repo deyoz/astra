@@ -688,26 +688,34 @@ string TPrnTagStore::GATE(TFieldParams fp)
 
 string TPrnTagStore::LONG_ARV(TFieldParams fp)
 {
-    string result = CITY_ARV_NAME(fp).substr(0, 9) + "(" + AIRP_ARV(fp) + ")"; // !!! в худшем случае вернется русский код?
-    if(not tag_lang.IsInter()) {
+    string result;
+    if(tag_lang.IsInter()) {
+        result = CITY_ARV_NAME(fp).substr(0, 9) + "(" + AIRP_ARV(fp) + ")"; // !!! в худшем случае вернется русский код?
+    } else {
         TAirpsRow &airpRow = (TAirpsRow&)base_tables.get("AIRPS").get_row("code",grpInfo.airp_arv);
         result =
             tag_lang.ElemIdToTagElem(etCity, airpRow.city, efmtNameLong, tag_lang.dup_lang()).substr(0, 9) +
-            tag_lang.ElemIdToTagElem(etAirp, grpInfo.airp_arv, efmtCodeNative, tag_lang.dup_lang()) +
-            "/" + result;
+            "(" + tag_lang.ElemIdToTagElem(etAirp, grpInfo.airp_arv, efmtCodeNative, tag_lang.dup_lang()) + ")" +
+            "/" +
+            tag_lang.ElemIdToTagElem(etCity, airpRow.city, efmtNameLong, AstraLocale::LANG_EN).substr(0, 9) +
+            "(" + tag_lang.ElemIdToTagElem(etAirp, grpInfo.airp_arv, efmtCodeNative, AstraLocale::LANG_EN) + ")";
     }
     return result;
 }
 
 string TPrnTagStore::LONG_DEP(TFieldParams fp)
 {
-    string result = CITY_DEP_NAME(fp).substr(0, 9) + "(" + AIRP_DEP(fp) + ")"; // !!! в худшем случае вернется русский код?
-    if(not tag_lang.IsInter()) {
+    string result;
+    if(tag_lang.IsInter()) {
+        result = CITY_DEP_NAME(fp).substr(0, 9) + "(" + AIRP_DEP(fp) + ")"; // !!! в худшем случае вернется русский код?
+    } else {
         TAirpsRow &airpRow = (TAirpsRow&)base_tables.get("AIRPS").get_row("code",grpInfo.airp_dep);
         result =
             tag_lang.ElemIdToTagElem(etCity, airpRow.city, efmtNameLong, tag_lang.dup_lang()).substr(0, 9) +
-            tag_lang.ElemIdToTagElem(etAirp, grpInfo.airp_dep, efmtCodeNative, tag_lang.dup_lang()) +
-            "/" + result;
+            "(" + tag_lang.ElemIdToTagElem(etAirp, grpInfo.airp_dep, efmtCodeNative, tag_lang.dup_lang()) + ")" +
+            "/" +
+            tag_lang.ElemIdToTagElem(etCity, airpRow.city, efmtNameLong, AstraLocale::LANG_EN).substr(0, 9) +
+            "(" + tag_lang.ElemIdToTagElem(etAirp, grpInfo.airp_dep, efmtCodeNative, AstraLocale::LANG_EN) + ")";
     }
     return result;
 }
