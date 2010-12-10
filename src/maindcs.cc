@@ -28,34 +28,102 @@ using namespace std;
 
 enum TDevParamCategory{dpcSession,dpcFormat,dpcModel};
 
+void GetNotices(xmlNodePtr resNode)
+{
+  TReqInfo *reqInfo = TReqInfo::Instance();
+/*  ProgTrace(TRACE5,"GetNotices: desk=%s lang=%s desk_grp_id=%d term_mode=%s version=%s",
+            reqInfo->desk.code.c_str(),
+            reqInfo->desk.lang.c_str(),
+            reqInfo->desk.grp_id,
+            EncodeOperMode(reqInfo->desk.mode).c_str(),
+            reqInfo->desk.version.c_str());*/
+
+  if (!reqInfo->desk.compatible(DESK_NOTICE_VERSION)) return;
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT desk_notices.notice_id, locale_notices.text, default_disable "
+    "FROM desk_notices, locale_notices, "
+    "     (SELECT notice_id FROM desk_disable_notices WHERE desk=:desk) desk_disable_notices "
+    "WHERE desk_notices.notice_id=locale_notices.notice_id AND locale_notices.lang=:lang AND "
+    "      desk_notices.notice_id=desk_disable_notices.notice_id(+) AND "
+    "      desk_disable_notices.notice_id IS NULL AND "
+    "      (desk_grp_id IS NULL OR desk_grp_id=:desk_grp_id) AND "
+    "      (term_mode IS NULL OR term_mode=:term_mode) AND "
+    "      (first_version IS NULL OR first_version<=:version) AND "
+    "      (last_version IS NULL OR last_version>=:version) AND "
+    "      pr_del=0 "
+    "ORDER BY time_create";
+  Qry.CreateVariable("desk",otString,reqInfo->desk.code);
+  Qry.CreateVariable("lang",otString,reqInfo->desk.lang);
+  Qry.CreateVariable("desk_grp_id",otInteger,reqInfo->desk.grp_id);
+  Qry.CreateVariable("term_mode",otString,EncodeOperMode(reqInfo->desk.mode));
+  Qry.CreateVariable("version",otString,reqInfo->desk.version);
+  Qry.Execute();
+  if (!Qry.Eof)
+  {
+    xmlNodePtr noticesNode = NewTextChild(resNode, "notices");
+    for(;!Qry.Eof;Qry.Next())
+    {
+      xmlNodePtr node = NewTextChild(noticesNode, "notice");
+      NewTextChild(node, "id", Qry.FieldAsInteger("notice_id"));
+      NewTextChild(node, "text", Qry.FieldAsString("text"));
+      NewTextChild(node, "default_disable", (int)(Qry.FieldAsInteger("default_disable")!=0), (int)false);
+      //NewTextChild(node, "dlg_type", EncodeMsgDlgType(mtInformation));
+    };
+  };
+};
+
+void MainDCSInterface::DisableNotices(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  xmlNodePtr node=NodeAsNode("notices",reqNode);
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText="INSERT INTO desk_disable_notices(desk, notice_id) VALUES(:desk, :notice_id)";
+  Qry.CreateVariable("desk", otString, TReqInfo::Instance()->desk.code);
+  Qry.DeclareVariable("notice_id", otInteger);
+  for(node=node->children;node!=NULL;node=node->next)
+  {
+    Qry.SetVariable("notice_id", NodeAsInteger(node));
+    try
+    {
+      Qry.Execute();
+    }
+    catch(EOracleError E)
+    {
+      //if (E.Code!=1) throw; надо бы так, но а вдруг мы удалили id из desk_notices?
+    };
+  };
+};
+
 void GetModuleList(xmlNodePtr resNode)
 {
-    TReqInfo *reqinfo = TReqInfo::Instance();
-    TQuery Qry(&OraSession);
-    Qry.Clear();
-    Qry.SQLText=
-      "SELECT DISTINCT screen.id,screen.name,screen.exe,screen.view_order "
-      "FROM user_roles,role_rights,screen_rights,screen "
-      "WHERE user_roles.role_id=role_rights.role_id AND "
-      "      role_rights.right_id=screen_rights.right_id AND "
-      "      screen_rights.screen_id=screen.id AND "
-      "      user_roles.user_id=:user_id AND view_order IS NOT NULL "
-      "ORDER BY view_order";
-    Qry.DeclareVariable("user_id", otInteger);
-    Qry.SetVariable("user_id", reqinfo->user.user_id);
-    Qry.Execute();
-    xmlNodePtr modulesNode = NewTextChild(resNode, "modules");
-    if (!Qry.Eof)
+  TReqInfo *reqinfo = TReqInfo::Instance();
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT DISTINCT screen.id,screen.name,screen.exe,screen.view_order "
+    "FROM user_roles,role_rights,screen_rights,screen "
+    "WHERE user_roles.role_id=role_rights.role_id AND "
+    "      role_rights.right_id=screen_rights.right_id AND "
+    "      screen_rights.screen_id=screen.id AND "
+    "      user_roles.user_id=:user_id AND view_order IS NOT NULL "
+    "ORDER BY view_order";
+  Qry.DeclareVariable("user_id", otInteger);
+  Qry.SetVariable("user_id", reqinfo->user.user_id);
+  Qry.Execute();
+  xmlNodePtr modulesNode = NewTextChild(resNode, "modules");
+  if (!Qry.Eof)
+  {
+    for(;!Qry.Eof;Qry.Next())
     {
-      for(;!Qry.Eof;Qry.Next())
-      {
-        xmlNodePtr moduleNode = NewTextChild(modulesNode, "module");
-        NewTextChild(moduleNode, "id", Qry.FieldAsInteger("id"));
-        NewTextChild(moduleNode, "name", Qry.FieldAsString("name"));
-        NewTextChild(moduleNode, "exe", Qry.FieldAsString("exe"));
-      };
-    }
-    else AstraLocale::showErrorMessage("MSG.ALL_MODULES_DENIED_FOR_USER");
+      xmlNodePtr moduleNode = NewTextChild(modulesNode, "module");
+      NewTextChild(moduleNode, "id", Qry.FieldAsInteger("id"));
+      NewTextChild(moduleNode, "name", Qry.FieldAsString("name"));
+      NewTextChild(moduleNode, "exe", Qry.FieldAsString("exe"));
+    };
+  }
+  else AstraLocale::showErrorMessage("MSG.ALL_MODULES_DENIED_FOR_USER");
 };
 
 void GetDeviceAirlines(xmlNodePtr node)
@@ -1276,6 +1344,7 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     GetModuleList(resNode);
     ConvertDevOldFormat(reqNode,resNode);
     GetDevices(reqNode,resNode);
+    GetNotices(resNode);
 
     if ( GetNode("lang",reqNode) ) { //!!!необходимо, чтобы был словарь для языка по умолчанию - здесь нет этой проверки!!!
     	ProgTrace( TRACE5, "desk.lang=%s, dict.lang=%s", reqInfo->desk.lang.c_str(), NodeAsString( "lang/@dictionary_lang",reqNode) );

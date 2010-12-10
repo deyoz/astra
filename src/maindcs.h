@@ -37,6 +37,9 @@ public:
      AddEvent("RequestCertificateData",evHandle);
      evHandle=JxtHandler<MainDCSInterface>::CreateHandler(&MainDCSInterface::PutRequestCertificate);
      AddEvent("PutRequestCertificate",evHandle);
+     
+     evHandle=JxtHandler<MainDCSInterface>::CreateHandler(&MainDCSInterface::DisableNotices);
+     AddEvent("DisableNotices",evHandle);
   };
 
   void CheckUserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -54,6 +57,8 @@ public:
   void GetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void RequestCertificateData(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void PutRequestCertificate(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  
+  void DisableNotices(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 
 void GetDevices(xmlNodePtr reqNode, xmlNodePtr resNode);
