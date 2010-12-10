@@ -1028,8 +1028,7 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
         catch( EOracleError E ) {
           if ( E.Code >= 20000 ) {
             string str = E.what();
-            EOracleError2UserException(str);
-            throw UserException( str.c_str() );
+            throw UserException(EOracleError2UserException(str));
           }
           else {
             switch( E.Code ) {

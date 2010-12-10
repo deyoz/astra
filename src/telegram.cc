@@ -828,7 +828,7 @@ void TelegramInterface::SendTlg(int tlg_id)
   }
   catch(EOracleError &E)
   {
-    if ( E.Code > 20000 )
+    if ( E.Code >= 20000 )
     {
       string str = E.what();
       throw AstraLocale::UserException(EOracleError2UserException(str));

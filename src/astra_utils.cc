@@ -1606,15 +1606,41 @@ bool transliter_equal(const string &value1, const string &value2)
 
 string& EOracleError2UserException(string& msg)
 {
-  if (msg.substr( 0, 3 ) == "ORA")
+  //ProgTrace(TRACE5,"EOracleError2UserException: msg=%s",msg.c_str());
+  size_t p;
+  if (msg.substr( 0, 4 ) == "ORA-")
   {
-    size_t p = msg.find( ": " );
+    p = msg.find( ": " );
     if ( p != string::npos )
     {
+      //отрезаем ORA- первой строки
       msg.erase( 0, p+2 );
-      p = msg.find_first_of("\n\r");
-      if ( p != string::npos ) msg.erase( p );
     };
+  };
+  //ищем следующую строку, начинающуюся с ORA-
+  p=0;
+  while( (p = msg.find_first_of("\n\r",p)) != string::npos )
+  {
+    p++;
+    if (msg.substr( p, 4 ) == "ORA-")
+    {
+      msg.erase( p );
+      break;
+    };
+  };
+
+  XMLDoc msgDoc(msg);
+  if (msgDoc.docPtr()!=NULL)
+  {
+    ProgTrace(TRACE5,"EOracleError2UserException: msg=%s",msg.c_str());
+    LexemaData lexemeData;
+    lexemeData.lexema_id=NodeAsString("/lexeme_data/id",msgDoc.docPtr());
+    xmlNodePtr node=NodeAsNode("/lexeme_data/params",msgDoc.docPtr())->children;
+    for(;node!=NULL;node=node->next)
+    {
+      lexemeData.lparams << LParam((const char*)node->name, NodeAsString(node));
+    };
+    msg=getLocaleText(lexemeData);
   };
   return msg;
 };
