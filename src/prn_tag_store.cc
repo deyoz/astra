@@ -6,6 +6,8 @@
 #include "stages.h"
 #include "astra_utils.h"
 #include "astra_misc.h"
+#include "xml_unit.h"
+#include "misc.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -20,10 +22,39 @@ const int BRD_INFO = 8;
 const int FQT_INFO = 16;
 const int PNR_INFO = 32;
 
-void TPrnTagStore::TTagLang::Init(int point_dep, int point_arv, bool apr_lat)
+bool TPrnTagStore::TTagLang::IsInter(TBTRoute *aroute, string &country)
+{
+    country.clear();
+    if(aroute == NULL) return false;
+    string tmp_country;
+    // 1-й эл-т вектора содержит данные из pax_grp, а нас интересуют только данные transfer
+    // поэтому его не анализируем.
+    for(TBTRoute::iterator ir = aroute->begin(); ir != aroute->end(); ir++) {
+        if(ir == aroute->begin()) continue;
+        if(IsTrferInter(ir->airp_dep, ir->airp_arv, country))
+            return true;
+        if(tmp_country.empty())
+            tmp_country = country;
+        else if(tmp_country != country) {
+            country.clear();
+            return true;
+        }
+    }
+    return false;
+}
+
+void TPrnTagStore::TTagLang::Init(int point_dep, int point_arv, TBTRoute *aroute, bool apr_lat)
 {
     string route_country;
     route_inter = IsRouteInter(point_dep, point_arv, route_country);
+    if(aroute != NULL and aroute->size() > 1) { // список стыковочных сегментов для бирки
+        string trfer_route_country;
+        IsInter(aroute, trfer_route_country);
+        if(not route_inter and route_country != trfer_route_country) {
+            route_inter = true;
+            route_country.clear();
+        }
+    }
     if(route_country == "РФ")
         route_country_lang = AstraLocale::LANG_RU;
     else
@@ -92,10 +123,10 @@ void TPrnTagStore::tst_get_tag_list(std::vector<string> &tags)
         tags.push_back(im->first);
 }
 
-TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat)
+TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tagsNode, TBTRoute *aroute)
 {
     grpInfo.Init(agrp_id);
-    tag_lang.Init(grpInfo.point_dep, grpInfo.point_arv, apr_lat != 0);
+    tag_lang.Init(grpInfo.point_dep, grpInfo.point_arv, aroute, apr_lat != 0);
     pax_id = apax_id;
 
     tag_list.insert(make_pair(TAG::BCBP_M_2,        TTagListItem(&TPrnTagStore::BCBP_M_2, POINT_INFO | PAX_INFO | PNR_INFO)));
@@ -142,6 +173,55 @@ TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat)
     tag_list.insert(make_pair(TAG::SURNAME,         TTagListItem(&TPrnTagStore::SURNAME, PAX_INFO)));
     tag_list.insert(make_pair(TAG::TEST_SERVER,     TTagListItem(&TPrnTagStore::TEST_SERVER)));
 
+    // specific for bag tags
+    tag_list.insert(make_pair(TAG::AIRCODE,         TTagListItem(&TPrnTagStore::AIRCODE)));
+    tag_list.insert(make_pair(TAG::NO,              TTagListItem(&TPrnTagStore::NO)));
+    tag_list.insert(make_pair(TAG::ISSUED,          TTagListItem(&TPrnTagStore::ISSUED)));
+    tag_list.insert(make_pair(TAG::BT_AMOUNT,       TTagListItem(&TPrnTagStore::BT_AMOUNT)));
+    tag_list.insert(make_pair(TAG::BT_WEIGHT,       TTagListItem(&TPrnTagStore::BT_WEIGHT)));
+    tag_list.insert(make_pair(TAG::LIAB_LIMIT,      TTagListItem(&TPrnTagStore::LIAB_LIMIT)));
+    tag_list.insert(make_pair(TAG::FLT_NO1,         TTagListItem(&TPrnTagStore::FLT_NO1)));
+    tag_list.insert(make_pair(TAG::FLT_NO2,         TTagListItem(&TPrnTagStore::FLT_NO2)));
+    tag_list.insert(make_pair(TAG::FLT_NO3,         TTagListItem(&TPrnTagStore::FLT_NO3)));
+    tag_list.insert(make_pair(TAG::LOCAL_DATE1,     TTagListItem(&TPrnTagStore::LOCAL_DATE1)));
+    tag_list.insert(make_pair(TAG::LOCAL_DATE2,     TTagListItem(&TPrnTagStore::LOCAL_DATE2)));
+    tag_list.insert(make_pair(TAG::LOCAL_DATE3,     TTagListItem(&TPrnTagStore::LOCAL_DATE3)));
+    tag_list.insert(make_pair(TAG::AIRLINE1,        TTagListItem(&TPrnTagStore::AIRLINE1)));
+    tag_list.insert(make_pair(TAG::AIRLINE2,        TTagListItem(&TPrnTagStore::AIRLINE2)));
+    tag_list.insert(make_pair(TAG::AIRLINE3,        TTagListItem(&TPrnTagStore::AIRLINE3)));
+    tag_list.insert(make_pair(TAG::AIRP_ARV1,       TTagListItem(&TPrnTagStore::AIRP_ARV1)));
+    tag_list.insert(make_pair(TAG::AIRP_ARV2,       TTagListItem(&TPrnTagStore::AIRP_ARV2)));
+    tag_list.insert(make_pair(TAG::AIRP_ARV3,       TTagListItem(&TPrnTagStore::AIRP_ARV3)));
+    tag_list.insert(make_pair(TAG::FLT_DATE1,       TTagListItem(&TPrnTagStore::FLT_DATE1)));
+    tag_list.insert(make_pair(TAG::FLT_DATE2,       TTagListItem(&TPrnTagStore::FLT_DATE2)));
+    tag_list.insert(make_pair(TAG::FLT_DATE3,       TTagListItem(&TPrnTagStore::FLT_DATE3)));
+    tag_list.insert(make_pair(TAG::AIRP_ARV_NAME1,  TTagListItem(&TPrnTagStore::AIRP_ARV_NAME1)));
+    tag_list.insert(make_pair(TAG::AIRP_ARV_NAME2,  TTagListItem(&TPrnTagStore::AIRP_ARV_NAME2)));
+    tag_list.insert(make_pair(TAG::AIRP_ARV_NAME3,  TTagListItem(&TPrnTagStore::AIRP_ARV_NAME3)));
+
+    if(tagsNode) {
+        // Положим теги из клиентского запроса
+        for(xmlNodePtr curNode = tagsNode->children; curNode; curNode = curNode->next)
+            set_tag(upperc((char *)curNode->name), NodeAsString(curNode));
+    }
+}
+
+void TPrnTagStore::set_tag(string name, TDateTime value)
+{
+    name = upperc(name);
+    map<const string, TTagListItem>::iterator im = tag_list.find(name);
+    if(im == tag_list.end())
+        throw Exception("TPrnTagStore::set_tag: tag '%s' not implemented", name.c_str());
+    im->second.TagInfo = value;
+}
+
+void TPrnTagStore::set_tag(string name, int value)
+{
+    name = upperc(name);
+    map<const string, TTagListItem>::iterator im = tag_list.find(name);
+    if(im == tag_list.end())
+        throw Exception("TPrnTagStore::set_tag: tag '%s' not implemented", name.c_str());
+    im->second.TagInfo = value;
 }
 
 void TPrnTagStore::set_tag(string name, string value)
@@ -173,7 +253,14 @@ string TPrnTagStore::get_field(std::string name, int len, std::string align, std
         pnrInfo.Init(pax_id);
     string result = (this->*im->second.tag_funct)(TFieldParams(date_format, im->second.TagInfo, len));
     if(!len) len = result.size();
-    return AlignString(result, len, align);
+    result = AlignString(result, len, align);
+    if(this->tag_lang.get_pr_lat() and not is_lat(result)) {
+        ProgError(STDLOG, "Данные печати не латинские: %s = \"%s\"", name.c_str(), result.c_str());
+        if(result.size() > 20)
+            result = result.substr(0, 20) + "...";
+        throw UserException("MSG.NO_LAT_PRN_DATA", LParams() << LParam("tag", name) << LParam("value", result));
+    }
+    return result;
 }
 
 void TPrnTagStore::TPnrInfo::Init(int apax_id)
@@ -242,6 +329,7 @@ void TPrnTagStore::TBagInfo::Init(int grp_id)
 
 void TPrnTagStore::TPaxInfo::Init(int apax_id)
 {
+    if(apax_id == NoExists) return;
     if(pax_id == NoExists) {
         pax_id = apax_id;
         TQuery Qry(&OraSession);
@@ -409,7 +497,7 @@ string TPrnTagStore::BCBP_M_2(TFieldParams fp)
     if(iv == pnrInfo.pnrs.end())
         result << setw(7) << " ";
     else if(strlen(iv->addr) <= 7)
-        result << setw(7) << left << convert_pnr_addr(iv->addr, tag_lang.IsInter());
+        result << setw(7) << left << convert_pnr_addr(iv->addr, tag_lang.GetLang() != AstraLocale::LANG_RU);
     // From City Airport Code
     result << setw(3) << AIRP_DEP(fp);
     // To City Airport Code
@@ -523,7 +611,7 @@ string TPrnTagStore::AIRLINE(TFieldParams fp)
 
 string TPrnTagStore::ACT(TFieldParams fp)
 {
-    return DateTimeToStr(UTCToLocal(pointInfo.act, AirpTZRegion(grpInfo.airp_dep)), fp.date_format, tag_lang.IsInter());
+    return DateTimeToStr(UTCToLocal(pointInfo.act, AirpTZRegion(grpInfo.airp_dep)), fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU);
 }
 
 string TPrnTagStore::AIRLINE_SHORT(TFieldParams fp)
@@ -563,12 +651,12 @@ string TPrnTagStore::BAG_WEIGHT(TFieldParams fp)
 
 string TPrnTagStore::BRD_FROM(TFieldParams fp)
 {
-    return DateTimeToStr(UTCToLocal(brdInfo.brd_from, AirpTZRegion(grpInfo.airp_dep)), fp.date_format, tag_lang.IsInter());
+    return DateTimeToStr(UTCToLocal(brdInfo.brd_from, AirpTZRegion(grpInfo.airp_dep)), fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU);
 }
 
 string TPrnTagStore::BRD_TO(TFieldParams fp)
 {
-    return DateTimeToStr(UTCToLocal(brdInfo.brd_to, AirpTZRegion(grpInfo.airp_dep)), fp.date_format, tag_lang.IsInter());
+    return DateTimeToStr(UTCToLocal(brdInfo.brd_to, AirpTZRegion(grpInfo.airp_dep)), fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU);
 }
 
 string TPrnTagStore::BT_AMOUNT(TFieldParams fp)
@@ -622,7 +710,7 @@ string TPrnTagStore::DOCUMENT(TFieldParams fp)
 
 string TPrnTagStore::EST(TFieldParams fp)
 {
-    return DateTimeToStr(UTCToLocal(pointInfo.est, AirpTZRegion(grpInfo.airp_dep)), fp.date_format, tag_lang.IsInter());
+    return DateTimeToStr(UTCToLocal(pointInfo.est, AirpTZRegion(grpInfo.airp_dep)), fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU);
 }
 
 string TPrnTagStore::ETICKET_NO(TFieldParams fp) // !!! lat ???
@@ -659,7 +747,7 @@ string TPrnTagStore::FQT(TFieldParams fp)
     if(not fqtInfo.airline.empty()) {
         result += tag_lang.ElemIdToTagElem(etAirline, fqtInfo.airline, efmtCodeNative) + " " + fqtInfo.no;
         if(not fqtInfo.extra.empty())
-            result += " " + transliter(fqtInfo.extra, 1, tag_lang.IsInter());
+            result += " " + transliter(fqtInfo.extra, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
     }
     return result;
 }
@@ -676,7 +764,7 @@ string TPrnTagStore::FULL_PLACE_DEP(TFieldParams fp)
 
 string TPrnTagStore::FULLNAME(TFieldParams fp)
 {
-    return transliter(paxInfo.surname + " " + paxInfo.name, 1, tag_lang.IsInter());
+    return transliter(paxInfo.surname + " " + paxInfo.name, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
 }
 
 string TPrnTagStore::GATE(TFieldParams fp)
@@ -689,7 +777,7 @@ string TPrnTagStore::GATE(TFieldParams fp)
 string TPrnTagStore::LONG_ARV(TFieldParams fp)
 {
     string result;
-    if(tag_lang.IsInter()) {
+    if(tag_lang.GetLang() != AstraLocale::LANG_RU) {
         result = CITY_ARV_NAME(fp).substr(0, 9) + "(" + AIRP_ARV(fp) + ")"; // !!! в худшем случае вернется русский код?
     } else {
         TAirpsRow &airpRow = (TAirpsRow&)base_tables.get("AIRPS").get_row("code",grpInfo.airp_arv);
@@ -706,7 +794,7 @@ string TPrnTagStore::LONG_ARV(TFieldParams fp)
 string TPrnTagStore::LONG_DEP(TFieldParams fp)
 {
     string result;
-    if(tag_lang.IsInter()) {
+    if(tag_lang.GetLang() != AstraLocale::LANG_RU) {
         result = CITY_DEP_NAME(fp).substr(0, 9) + "(" + AIRP_DEP(fp) + ")"; // !!! в худшем случае вернется русский код?
     } else {
         TAirpsRow &airpRow = (TAirpsRow&)base_tables.get("AIRPS").get_row("code",grpInfo.airp_dep);
@@ -722,7 +810,10 @@ string TPrnTagStore::LONG_DEP(TFieldParams fp)
 
 string TPrnTagStore::NAME(TFieldParams fp)
 {
-    return transliter(paxInfo.name, 1, tag_lang.IsInter());
+    if(fp.TagInfo.empty())
+        return transliter(paxInfo.name, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
+    else
+        return SURNAME(fp);
 }
 
 string TPrnTagStore::NO_SMOKE(TFieldParams fp)
@@ -739,7 +830,7 @@ string TPrnTagStore::ONE_SEAT_NO(TFieldParams fp)
         "from dual";
     Qry.CreateVariable("pax_id", otInteger, paxInfo.pax_id);
     Qry.CreateVariable("seats", otInteger, paxInfo.seats);
-    Qry.CreateVariable("is_inter", otInteger, tag_lang.IsInter());
+    Qry.CreateVariable("is_inter", otInteger, tag_lang.GetLang() != AstraLocale::LANG_RU);
     Qry.Execute();
     return Qry.FieldAsString("seat_no");
 }
@@ -770,7 +861,7 @@ string TPrnTagStore::REG_NO(TFieldParams fp)
 
 string TPrnTagStore::SCD(TFieldParams fp)
 {
-    return DateTimeToStr(UTCToLocal(pointInfo.scd, AirpTZRegion(grpInfo.airp_dep)), fp.date_format, tag_lang.IsInter());
+    return DateTimeToStr(UTCToLocal(pointInfo.scd, AirpTZRegion(grpInfo.airp_dep)), fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU);
 }
 
 string TPrnTagStore::SEAT_NO(TFieldParams fp)
@@ -782,7 +873,7 @@ string TPrnTagStore::SEAT_NO(TFieldParams fp)
         "from dual";
     Qry.CreateVariable("pax_id", otInteger, paxInfo.pax_id);
     Qry.CreateVariable("seats", otInteger, paxInfo.seats);
-    Qry.CreateVariable("is_inter", otInteger, tag_lang.IsInter());
+    Qry.CreateVariable("is_inter", otInteger, tag_lang.GetLang() != AstraLocale::LANG_RU);
     Qry.Execute();
     return Qry.FieldAsString("seat_no");
 }
@@ -796,14 +887,41 @@ string TPrnTagStore::STR_SEAT_NO(TFieldParams fp)
         "from dual";
     Qry.CreateVariable("pax_id", otInteger, paxInfo.pax_id);
     Qry.CreateVariable("seats", otInteger, paxInfo.seats);
-    Qry.CreateVariable("is_inter", otInteger, tag_lang.IsInter());
+    Qry.CreateVariable("is_inter", otInteger, tag_lang.GetLang() != AstraLocale::LANG_RU);
     Qry.Execute();
     return Qry.FieldAsString("seat_no");
 }
 
+string get_unacc_name(int bag_type, bool is_inter)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "select "
+        "   decode(:is_inter, 0, name, name_lat) name "
+        "from "
+        "   unaccomp_bag_names "
+        "where "
+        "   code = :code ";
+    Qry.CreateVariable("is_inter", otInteger, is_inter);
+    Qry.CreateVariable("code", otInteger, bag_type);
+    Qry.Execute();
+    if(Qry.Eof)
+        throw Exception("get_unacc_name: name not found for bag_type %d", bag_type);
+    return Qry.FieldAsString("name");
+}
+
 string TPrnTagStore::SURNAME(TFieldParams fp)
 {
-    return transliter(paxInfo.surname, 1, tag_lang.IsInter());
+    if(fp.TagInfo.empty())
+        return transliter(paxInfo.surname, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
+    else {
+        if(boost::any_cast<string>(&fp.TagInfo))
+            return getLocaleText(boost::any_cast<string>(fp.TagInfo), tag_lang.GetLang());
+        else if(boost::any_cast<int>(&fp.TagInfo))
+            return get_unacc_name(boost::any_cast<int>(fp.TagInfo), tag_lang.GetLang() != AstraLocale::LANG_RU);
+        else
+            throw Exception("TPrnTagStore::SURNAME: unexpected TagInfo type");
+    }
 }
 
 string TPrnTagStore::TEST_SERVER(TFieldParams fp)
@@ -815,3 +933,111 @@ string TPrnTagStore::TEST_SERVER(TFieldParams fp)
         result += test + " ";
     return result;
 }
+
+string TPrnTagStore::AIRCODE(TFieldParams fp) {
+    ostringstream result;
+    result << setw(fp.len) << setfill('0') << boost::any_cast<int>(fp.TagInfo);
+    return result.str();
+}
+
+string TPrnTagStore::NO(TFieldParams fp) {
+    ostringstream result;
+    result << setw(fp.len) << setfill('0') << boost::any_cast<int>(fp.TagInfo);
+    return result.str();
+}
+
+string TPrnTagStore::ISSUED(TFieldParams fp) {
+    return DateTimeToStr(boost::any_cast<TDateTime>(fp.TagInfo), fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU);
+}
+
+string TPrnTagStore::LIAB_LIMIT(TFieldParams fp) {
+    return getLocaleText(boost::any_cast<string>(fp.TagInfo), tag_lang.GetLang());
+}
+
+string TPrnTagStore::FLT_NO1(TFieldParams fp) {
+    string flt_no = boost::any_cast<string>(fp.TagInfo);
+    string suffix;
+    if(not flt_no.empty()) {
+        if(not IsDigit(flt_no[flt_no.size() - 1])) {
+            suffix = tag_lang.ElemIdToTagElem(etSuffix, flt_no[flt_no.size() - 1], efmtCodeNative);
+            flt_no.erase(flt_no.size() - 1, 1);
+        }
+    };
+    ostringstream result;
+    result << setw(fp.len) << setfill('0') << flt_no << suffix;
+    return result.str();
+}
+
+string TPrnTagStore::FLT_NO2(TFieldParams fp) {
+    return FLT_NO1(fp);
+}
+
+string TPrnTagStore::FLT_NO3(TFieldParams fp) {
+    return FLT_NO1(fp);
+}
+
+string TPrnTagStore::LOCAL_DATE1(TFieldParams fp) {
+    TDateTime scd = boost::any_cast<TDateTime>(fp.TagInfo);
+    int Year, Month, Day;
+    DecodeDate(scd, Year, Month, Day);
+    ostringstream result;
+    result << setw(fp.len) << setfill('0') << Day;
+    return result.str();
+}
+
+string TPrnTagStore::LOCAL_DATE2(TFieldParams fp) {
+    return LOCAL_DATE1(fp);
+}
+
+string TPrnTagStore::LOCAL_DATE3(TFieldParams fp) {
+    return LOCAL_DATE1(fp);
+}
+
+string TPrnTagStore::AIRLINE1(TFieldParams fp) {
+    return tag_lang.ElemIdToTagElem(etAirline, boost::any_cast<string>(fp.TagInfo), efmtCodeNative);
+}
+
+string TPrnTagStore::AIRLINE2(TFieldParams fp) {
+    return AIRLINE1(fp);
+}
+
+string TPrnTagStore::AIRLINE3(TFieldParams fp) {
+    return AIRLINE1(fp);
+}
+
+string TPrnTagStore::AIRP_ARV1(TFieldParams fp) {
+    return tag_lang.ElemIdToTagElem(etAirp, boost::any_cast<string>(fp.TagInfo), efmtCodeNative);
+}
+
+string TPrnTagStore::AIRP_ARV2(TFieldParams fp) {
+    return AIRP_ARV1(fp);
+}
+
+string TPrnTagStore::AIRP_ARV3(TFieldParams fp) {
+    return AIRP_ARV1(fp);
+}
+
+string TPrnTagStore::FLT_DATE1(TFieldParams fp) {
+    return DateTimeToStr(boost::any_cast<TDateTime>(fp.TagInfo), (string)"ddmmm", tag_lang.GetLang() != AstraLocale::LANG_RU);
+}
+
+string TPrnTagStore::FLT_DATE2(TFieldParams fp) {
+    return FLT_DATE1(fp);
+}
+
+string TPrnTagStore::FLT_DATE3(TFieldParams fp) {
+    return FLT_DATE1(fp);
+}
+
+string TPrnTagStore::AIRP_ARV_NAME1(TFieldParams fp) {
+    return tag_lang.ElemIdToTagElem(etAirp, boost::any_cast<string>(fp.TagInfo), efmtNameLong);
+}
+
+string TPrnTagStore::AIRP_ARV_NAME2(TFieldParams fp) {
+    return AIRP_ARV_NAME1(fp);
+}
+
+string TPrnTagStore::AIRP_ARV_NAME3(TFieldParams fp) {
+    return AIRP_ARV_NAME1(fp);
+}
+

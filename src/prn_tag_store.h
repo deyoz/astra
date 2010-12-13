@@ -21,8 +21,6 @@ namespace TAG {
     const std::string BAG_WEIGHT = "BAG_WEIGHT";
     const std::string BRD_FROM = "BRD_FROM";
     const std::string BRD_TO = "BRD_TO";
-    const std::string BT_AMOUNT = "BT_AMOUNT"; // багаж в бирке
-    const std::string BT_WEIGHT = "BT_WEIGHT";
     const std::string CITY_ARV_NAME = "CITY_ARV_NAME";
     const std::string CITY_DEP_NAME = "CITY_DEP_NAME";
     const std::string CLASS = "CLASS";
@@ -52,7 +50,49 @@ namespace TAG {
     const std::string STR_SEAT_NO = "STR_SEAT_NO";
     const std::string SURNAME = "SURNAME";
     const std::string TEST_SERVER = "TEST_SERVER";
+
+    // specific for bag tags
+    const std::string AIRCODE = "AIRCODE";
+    const std::string NO = "NO";
+    const std::string ISSUED = "ISSUED";
+    const std::string BT_AMOUNT = "BT_AMOUNT"; // багаж в бирке
+    const std::string BT_WEIGHT = "BT_WEIGHT";
+    const std::string LIAB_LIMIT = "LIAB_LIMIT";
+    const std::string FLT_NO1 = "FLT_NO1";
+    const std::string FLT_NO2 = "FLT_NO2";
+    const std::string FLT_NO3 = "FLT_NO3";
+    const std::string LOCAL_DATE1 = "LOCAL_DATE1";
+    const std::string LOCAL_DATE2 = "LOCAL_DATE2";
+    const std::string LOCAL_DATE3 = "LOCAL_DATE3";
+    const std::string AIRLINE1 = "AIRLINE1";
+    const std::string AIRLINE2 = "AIRLINE2";
+    const std::string AIRLINE3 = "AIRLINE3";
+    const std::string AIRP_ARV1 = "AIRP_ARV1";
+    const std::string AIRP_ARV2 = "AIRP_ARV2";
+    const std::string AIRP_ARV3 = "AIRP_ARV3";
+    const std::string FLT_DATE1 = "FLT_DATE1";
+    const std::string FLT_DATE2 = "FLT_DATE2";
+    const std::string FLT_DATE3 = "FLT_DATE3";
+    const std::string AIRP_ARV_NAME1 = "AIRP_ARV_NAME1";
+    const std::string AIRP_ARV_NAME2 = "AIRP_ARV_NAME2";
+    const std::string AIRP_ARV_NAME3 = "AIRP_ARV_NAME3";
+
 };
+
+struct TBTRouteItem {
+    std::string airline, airline_lat;
+    int flt_no;
+    std::string suffix, suffix_lat;
+    std::string airp_dep;
+    std::string airp_arv, airp_arv_lat;
+    int local_date;
+    std::string fltdate, fltdate_lat;
+    std::string airp_arv_name, airp_arv_name_lat;
+
+    BASIC::TDateTime scd;
+};
+
+typedef std::vector<TBTRouteItem> TBTRoute;
 
 class TPrnTagStore {
     private:
@@ -64,14 +104,16 @@ class TPrnTagStore {
                 std::string route_country_lang; //язык страны, где выполняется внутренний рейс
                 bool pr_lat;
                 std::string GetLang(TElemFmt &fmt, std::string firm_lang) const;
+                bool IsInter(TBTRoute *aroute, std::string &country);
             public:
+                bool get_pr_lat() { return pr_lat; };
                 bool IsInter() const;
                 std::string GetLang();
                 std::string dup_lang() { return GetLang()==AstraLocale::LANG_EN ? AstraLocale::LANG_RU : GetLang(); }; // lang for duplicated captions
                 void set_tag_lang(std::string val) { tag_lang = val; };
                 std::string ElemIdToTagElem(TElemType type, const std::string &id, TElemFmt fmt, std::string firm_lang = "") const;
                 std::string ElemIdToTagElem(TElemType type, int id, TElemFmt fmt, std::string firm_lang = "") const;
-                void Init(int point_dep, int point_arv, bool apr_lat);
+                void Init(int point_dep, int point_arv, TBTRoute *aroute, bool apr_lat);
         };
 
         TTagLang tag_lang;
@@ -93,12 +135,11 @@ class TPrnTagStore {
             TTagFunct tag_funct;
             int info_type;
             boost::any TagInfo; // данные из set_tag
-            TTagListItem(TTagFunct funct, int ainfo_type): tag_funct(funct), info_type(ainfo_type) {};
-            TTagListItem(TTagFunct funct): tag_funct(funct), info_type(0) {};
+            TTagListItem(TTagFunct funct, int ainfo_type = 0): tag_funct(funct), info_type(ainfo_type) {};
             TTagListItem(): tag_funct(NULL) {};
         };
 
-        int pax_id, pr_lat;
+        int pax_id;
 
         std::map<const std::string, TTagListItem> tag_list;
 
@@ -194,8 +235,6 @@ class TPrnTagStore {
         std::string BAG_WEIGHT(TFieldParams fp);
         std::string BRD_FROM(TFieldParams fp);
         std::string BRD_TO(TFieldParams fp);
-        std::string BT_AMOUNT(TFieldParams fp);
-        std::string BT_WEIGHT(TFieldParams fp);
         std::string CITY_ARV_NAME(TFieldParams fp);
         std::string CITY_DEP_NAME(TFieldParams fp);
         std::string CLASS(TFieldParams fp);
@@ -226,10 +265,38 @@ class TPrnTagStore {
         std::string SURNAME(TFieldParams fp);
         std::string TEST_SERVER(TFieldParams fp);
 
+        // specific for bag tags
+        std::string AIRCODE(TFieldParams fp);
+        std::string NO(TFieldParams fp);
+        std::string ISSUED(TFieldParams fp);
+        std::string BT_AMOUNT(TFieldParams fp);
+        std::string BT_WEIGHT(TFieldParams fp);
+        std::string LIAB_LIMIT(TFieldParams fp);
+        std::string FLT_NO1(TFieldParams fp);
+        std::string FLT_NO2(TFieldParams fp);
+        std::string FLT_NO3(TFieldParams fp);
+        std::string LOCAL_DATE1(TFieldParams fp);
+        std::string LOCAL_DATE2(TFieldParams fp);
+        std::string LOCAL_DATE3(TFieldParams fp);
+        std::string AIRLINE1(TFieldParams fp);
+        std::string AIRLINE2(TFieldParams fp);
+        std::string AIRLINE3(TFieldParams fp);
+        std::string AIRP_ARV1(TFieldParams fp);
+        std::string AIRP_ARV2(TFieldParams fp);
+        std::string AIRP_ARV3(TFieldParams fp);
+        std::string FLT_DATE1(TFieldParams fp);
+        std::string FLT_DATE2(TFieldParams fp);
+        std::string FLT_DATE3(TFieldParams fp);
+        std::string AIRP_ARV_NAME1(TFieldParams fp);
+        std::string AIRP_ARV_NAME2(TFieldParams fp);
+        std::string AIRP_ARV_NAME3(TFieldParams fp);
+
     public:
-        TPrnTagStore(int agrp_id, int apax_id, int apr_lat);
+        TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tagsNode, TBTRoute *aroute = NULL);
         TPrnTagStore() {};
         void set_tag(std::string name, std::string value);
+        void set_tag(std::string name, int value);
+        void set_tag(std::string name, BASIC::TDateTime value);
         std::string get_field(std::string name, int len, std::string align, std::string date_format, std::string tag_lang);
 
         void tst_get_tag_list(std::vector<std::string> &tag_list);

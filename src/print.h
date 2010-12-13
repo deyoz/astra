@@ -148,8 +148,17 @@ class PrintDataParser {
         pectab_format = 0;
         this->pr_lat = rcpt.pr_lat;
     };
+        // Старый вариант конструктора
         PrintDataParser(int grp_id, int pax_id, int pr_lat, xmlNodePtr tagsNode, TMapType map_type = mtBTBP):
-            pts(grp_id, pax_id, pr_lat),
+            pts(grp_id, pax_id, pr_lat, tagsNode),
+            field_map(grp_id, pax_id, pr_lat, tagsNode, map_type)
+    {
+        pectab_format = 0;
+        this->pr_lat = pr_lat;
+    };
+        // В новом добавится route и client_pr_lat вместо pr_lat будет
+        PrintDataParser(int grp_id, int pax_id, int pr_lat, xmlNodePtr tagsNode, TBTRoute *route, bool client_pr_lat, TMapType map_type = mtBTBP):
+            pts(grp_id, pax_id, client_pr_lat, tagsNode, route),
             field_map(grp_id, pax_id, pr_lat, tagsNode, map_type)
     {
         pectab_format = 0;
@@ -166,6 +175,11 @@ class PrintDataParser {
         void add_tag(std::string name, int val, bool nullable = false) { return field_map.add_tag(name, val, nullable); };
         void add_tag(std::string name, std::string val, bool nullable = false) { return field_map.add_tag(name, val, nullable); };
         void add_tag(std::string name, BASIC::TDateTime val, bool nullable = false) { return field_map.add_tag(name, val, nullable); };
+
+        void set_tag(std::string name, std::string value) { return pts.set_tag(name, value); };
+        void set_tag(std::string name, int value) { return pts.set_tag(name, value); };
+        void set_tag(std::string name, BASIC::TDateTime value) { return pts.set_tag(name, value); };
+
         std::string GetTagAsString(std::string name) { return field_map.GetTagAsString(name); };
         int GetTagAsInteger(std::string name) { return field_map.GetTagAsInteger(name); };
         bool exists(std::string tag);

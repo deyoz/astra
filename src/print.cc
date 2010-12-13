@@ -2457,7 +2457,7 @@ string PrintDataParser::parse_field0(int offset, string field)
     }
     if(Mode != 'L' && Mode != 'F')
             throw Exception("')' not found at " + IntToString(offset + i + 1));
-    pts.get_field(FieldName, FieldLen, FieldAlign, DateFormat, tag_lang);
+    ProgTrace(TRACE5, "PTS tag: '%s'", pts.get_field(FieldName, FieldLen, FieldAlign, DateFormat, tag_lang).c_str());
     return field_map.get_field(FieldName, FieldLen, FieldAlign, DateFormat, FieldLat);
 }
 
@@ -2941,20 +2941,10 @@ void get_bt_forms(string tag_type, int prn_type, xmlNodePtr pectabsNode, vector<
     };
 }
 
-struct TBTRouteItem {
-    string airline, airline_lat;
-    int flt_no;
-    string suffix, suffix_lat;
-    string airp_arv, airp_arv_lat;
-    int local_date;
-    string fltdate, fltdate_lat;
-    string airp_arv_name, airp_arv_name_lat;
-};
-
-void DumpRoute(vector<TBTRouteItem> &route)
+void DumpRoute(TBTRoute &route)
 {
     ProgTrace(TRACE5, "-----------DUMP ROUTE-----------");
-    for(vector<TBTRouteItem>::iterator iv = route.begin(); iv != route.end(); ++iv) {
+    for(TBTRoute::iterator iv = route.begin(); iv != route.end(); ++iv) {
         ProgTrace(TRACE5, "airline: %s", iv->airline.c_str());
         ProgTrace(TRACE5, "airline_lat: %s", iv->airline_lat.c_str());
         ProgTrace(TRACE5, "flt_no: %d", iv->flt_no);
@@ -2971,7 +2961,7 @@ void DumpRoute(vector<TBTRouteItem> &route)
     }
 }
 
-void set_via_fields(PrintDataParser &parser, vector<TBTRouteItem> &route, int start_idx, int end_idx)
+void set_via_fields(PrintDataParser &parser, TBTRoute &route, int start_idx, int end_idx)
 {
     int via_idx = 1;
     for(int j = start_idx; j < end_idx; ++j) {
@@ -2990,6 +2980,15 @@ void set_via_fields(PrintDataParser &parser, vector<TBTRouteItem> &route, int st
         parser.add_tag("fltdate" + str_via_idx + "_lat", route[j].fltdate_lat);
         parser.add_tag("airp_arv_name" + str_via_idx, route[j].airp_arv_name);
         parser.add_tag("airp_arv_name" + str_via_idx + "_lat", route[j].airp_arv_name_lat);
+
+        parser.set_tag("flt_no" + str_via_idx, flt_no.str() + route[j].suffix);
+        parser.set_tag("local_date" + str_via_idx, route[j].scd);
+        parser.set_tag("airline" + str_via_idx, route[j].airline);
+        parser.set_tag("airp_arv" + str_via_idx, route[j].airp_arv);
+        parser.set_tag("flt_date" + str_via_idx, route[j].scd);
+        parser.set_tag("airp_arv_name" + str_via_idx, route[j].airp_arv);
+
+
         ++via_idx;
     }
 }
@@ -3003,7 +3002,7 @@ struct TTagKey {
     TTagKey(): grp_id(0), prn_type(0), pr_lat(0), no(-1.0) {};
 };
 
-void get_route(TTagKey &tag_key, vector<TBTRouteItem> &route, string airp_dep)
+void get_route(TTagKey &tag_key, TBTRoute &route, string airp_dep)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -3014,6 +3013,7 @@ void get_route(TTagKey &tag_key, vector<TBTRouteItem> &route, string airp_dep)
         "   points.flt_no,  "
         "   points.suffix,  "
         "   trip_suffixes.code_lat suffix_lat, "
+        "   pax_grp.airp_dep,  "
         "   pax_grp.airp_arv,  "
         "   airps.code_lat airp_arv_lat, "
         "   airps.name airp_arv_name, "
@@ -3039,6 +3039,7 @@ void get_route(TTagKey &tag_key, vector<TBTRouteItem> &route, string airp_dep)
         "   trfer_trips.flt_no,  "
         "   trfer_trips.suffix,  "
         "   trip_suffixes.code_lat suffix_lat, "
+        "   trfer_trips.airp_dep, "
         "   transfer.airp_arv,  "
         "   airps.code_lat airp_arv_lat,  "
         "   airps.name airp_arv_name, "
@@ -3070,11 +3071,13 @@ void get_route(TTagKey &tag_key, vector<TBTRouteItem> &route, string airp_dep)
         RouteItem.flt_no = Qry.FieldAsInteger("flt_no");
         RouteItem.suffix = Qry.FieldAsString("suffix");
         RouteItem.suffix_lat = Qry.FieldAsString("suffix_lat");
+        RouteItem.airp_dep = Qry.FieldAsString("airp_dep");
         RouteItem.airp_arv = Qry.FieldAsString("airp_arv");
         RouteItem.airp_arv_lat = Qry.FieldAsString("airp_arv_lat");
         RouteItem.airp_arv_name = Qry.FieldAsString("airp_arv_name");
         RouteItem.airp_arv_name_lat = Qry.FieldAsString("airp_arv_name_lat");
         TDateTime PrintTime = UTCToLocal(Qry.FieldAsDateTime("scd"), AirpTZRegion(airp_dep));
+        RouteItem.scd = PrintTime;
         RouteItem.fltdate = DateTimeToStr(PrintTime,(string)"ddmmm",0);
         RouteItem.fltdate_lat = DateTimeToStr(PrintTime,(string)"ddmmm",1);
         DecodeDate(PrintTime, Year, Month, RouteItem.local_date);
@@ -3126,7 +3129,8 @@ string get_fmt_type(int prn_type)
 void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
 {
 //    check_CUTE_certified(tag_key.prn_type, tag_key.dev_model, tag_key.fmt_type);
-    vector<TBTRouteItem> route;
+    bool client_pr_lat = tag_key.pr_lat != 0;
+    TBTRoute route;
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "SELECT airp_dep, class, ckin.get_main_pax_id(:grp_id,0) AS pax_id FROM pax_grp where grp_id = :grp_id";
@@ -3135,6 +3139,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
     if (Qry.Eof)
       throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
     get_route(tag_key, route, Qry.FieldAsString("airp_dep"));
+    ProgTrace(TRACE5, "route.size(): %d", route.size()); //!!!
     TBaseTableRow &airpRow = base_tables.get("AIRPS").get_row("code",Qry.FieldAsString("airp_dep"));
     TBaseTableRow &citiesRow = base_tables.get("CITIES").get_row("code",airpRow.AsString("city"));
     tag_key.pr_lat = tag_key.pr_lat || citiesRow.AsString("country") != "êî";
@@ -3196,16 +3201,13 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
     TQuery unaccQry(&OraSession);
     unaccQry.SQLText =
         "select "
-        "   unaccomp_bag_names.name, "
-        "   unaccomp_bag_names.name_lat "
+        "   bag2.bag_type "
         "from "
         "   bag_tags, "
-        "   bag2, "
-        "   unaccomp_bag_names "
+        "   bag2 "
         "where "
         "   bag_tags.grp_id=bag2.grp_id and "
         "   bag_tags.bag_num=bag2.num and "
-        "   bag2.bag_type=unaccomp_bag_names.code and "
         "   bag_tags.grp_id=:grp_id and bag_tags.num=:tag_num ";
     unaccQry.CreateVariable("grp_id",otInteger,tag_key.grp_id);
     unaccQry.DeclareVariable("tag_num",otInteger);
@@ -3230,32 +3232,37 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
         SetProp(tagNode, "type", tag_type);
         SetProp(tagNode, "no", tag_no);
 
-        PrintDataParser parser(tag_key.grp_id, pax_id, tag_key.pr_lat, NULL);
+        PrintDataParser parser(tag_key.grp_id, pax_id, tag_key.pr_lat, NULL, &route, client_pr_lat);
+
+        parser.set_tag("aircode", aircode);
+        parser.set_tag("no", no);
+        parser.set_tag("issued", issued);
+        parser.set_tag("bt_amount", Qry.FieldAsInteger("bag_amount"));
+        parser.set_tag("bt_weight", Qry.FieldAsInteger("bag_weight"));
 
         parser.add_tag("aircode", aircode);
         parser.add_tag("no", no);
         parser.add_tag("issued", issued);
         parser.add_tag("bt_amount", Qry.FieldAsString("bag_amount"));
         parser.add_tag("bt_weight", Qry.FieldAsString("bag_weight"));
-        bool pr_liab = Qry.FieldAsInteger("pr_liab_limit") == 1;
+        bool pr_liab = Qry.FieldAsInteger("pr_liab_limit") != 0;
         parser.add_tag("liab_limit", upperc((pr_liab ? "é£‡. Æ‚¢•‚·‚¢•≠≠Æ·‚®" : "")));
         parser.add_tag("liab_limit_lat", upperc((pr_liab ? "Liab. limit" : "")));
 
+        parser.set_tag("liab_limit", upperc((pr_liab ? "é£‡. Æ‚¢•‚·‚¢•≠≠Æ·‚®" : "")));
+
         if(pr_unaccomp) {
-            tst();
             unaccQry.SetVariable("tag_num",Qry.FieldAsInteger("num"));
-            tst();
             unaccQry.Execute();
-            string print_name="ÅÖá ëéèêéÇéÜÑÖçàü",print_name_lat="UNACCOMPANIED";
             if (!unaccQry.Eof)
             {
-                print_name=unaccQry.FieldAsString("name");
-                print_name_lat=unaccQry.FieldAsString("name_lat");
-            };
-            parser.add_tag("surname",print_name );
-            parser.add_tag("surname_lat", print_name_lat);
-            parser.add_tag("fullname",print_name );
-            parser.add_tag("fullname_lat", print_name_lat);
+                parser.set_tag("surname", unaccQry.FieldAsInteger("bag_type"));
+                parser.set_tag("fullname", unaccQry.FieldAsInteger("bag_type"));
+            } else {
+                string print_name="ÅÖá ëéèêéÇéÜÑÖçàü";
+                parser.set_tag("surname", print_name);
+                parser.set_tag("fullname", print_name);
+            }
         }
 
         int VIA_num = prn_forms.size();
@@ -3692,6 +3699,20 @@ bool get_bp_pr_lat(int grp_id, bool pr_lat)
     return pr_lat or not rus_airp(Qry.FieldAsString("airp_dep")) or not rus_airp(Qry.FieldAsString("airp_arv"));
 }
 
+void tst_dump(int pax_id, int grp_id, int pr_lat)
+{
+    vector<string> tags;
+    {
+        TPrnTagStore pts(pax_id, grp_id, pr_lat, NULL);
+        pts.tst_get_tag_list(tags);
+    }
+    for(vector<string>::iterator iv = tags.begin(); iv != tags.end(); iv++) {
+        TPrnTagStore tmp_pts(pax_id, grp_id, pr_lat, NULL);
+        tmp_pts.set_tag("gate", "");
+        ProgTrace(TRACE5, "tag: %s; value: '%s'", iv->c_str(), tmp_pts.get_field(*iv, 0, "L", "dd.mm hh:nn", "R").c_str());
+    }
+}
+
 void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     xmlNodePtr currNode = reqNode->children;
@@ -3719,6 +3740,8 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
             throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
         grp_id = Qry.FieldAsInteger("grp_id");
     }
+
+
     Qry.Clear();
     Qry.SQLText="SELECT point_dep, class FROM pax_grp WHERE grp_id=:grp_id";
     Qry.CreateVariable("grp_id",otInteger,grp_id);
@@ -3874,6 +3897,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         if(grp_id != iprint->grp_id) {
             parser.add_tag("gate", "", true);
             parser.add_tag("gate_lat", "", true);
+            parser.set_tag("gate", "");
         }
 
         string prn_form = parser.parse(data);

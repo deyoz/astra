@@ -907,6 +907,18 @@ void GetCrsList(int point_id, std::vector<std::string> &crs)
 
 // pr_lat c клиента || пункт вылета grp_id не в РФ || пункт прилета grp_id не в РФ
 
+bool IsTrferInter(string airp_dep, string airp_arv, string &country)
+{
+	TBaseTable &baseairps = base_tables.get( "airps" );
+	TBaseTable &basecities = base_tables.get( "cities" );
+    string country_dep = ((TCitiesRow&)basecities.get_row( "code", ((TAirpsRow&)baseairps.get_row( "code", airp_dep, true )).city)).country;
+    string country_arv = ((TCitiesRow&)basecities.get_row( "code", ((TAirpsRow&)baseairps.get_row( "code", airp_arv, true )).city)).country;
+    country.clear();
+    if(country_dep != country_arv) return true;
+    country = country_dep;
+    return false;
+}
+
 bool IsRouteInter(int point_dep, int point_arv, string &country)
 {
     country.clear();

@@ -335,6 +335,7 @@ std::string GetMktFlightStr( const TTripInfo &operFlt, const TTripInfo &markFlt 
 
 void GetCrsList(int point_id, std::vector<std::string> &crs);
 bool IsRouteInter(int point_dep, int point_arv, std::string &country);
+bool IsTrferInter(std::string airp_dep, std::string airp_arv, std::string &country);
 
 #endif /*_ASTRA_MISC_H_*/
 
