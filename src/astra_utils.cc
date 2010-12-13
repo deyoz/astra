@@ -17,6 +17,7 @@
 #include "serverlib/sirena_queue.h"
 #include "jxtlib/JxtInterface.h"
 #include "jxtlib/jxt_cont.h"
+#include "jxtlib/xml_stuff.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -1628,11 +1629,13 @@ string& EOracleError2UserException(string& msg)
       break;
     };
   };
-
-  XMLDoc msgDoc(msg);
+  
+  string msgXML=ConvertCodepage(msg,"CP866","UTF-8");
+  XMLDoc msgDoc(msgXML);
   if (msgDoc.docPtr()!=NULL)
   {
     ProgTrace(TRACE5,"EOracleError2UserException: msg=%s",msg.c_str());
+    xml_decode_nodelist(msgDoc.docPtr()->children);
     LexemaData lexemeData;
     lexemeData.lexema_id=NodeAsString("/lexeme_data/id",msgDoc.docPtr());
     xmlNodePtr node=NodeAsNode("/lexeme_data/params",msgDoc.docPtr())->children;
