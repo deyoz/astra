@@ -690,39 +690,54 @@ TUpdateDataType TCacheTable::refreshData()
                   row.cols.push_back( IntToString( (int)(Qry->FieldAsInteger( vecFieldIdx[ j ] ) !=0 ) ) );
                 break;
               default:
-                switch (i->ElemCategory)
+                if (i->ElemCategory!=cecNone)
                 {
-                  case cecCode: if (Qry->FieldType( vecFieldIdx[ j ] ) == otInteger)
-                                  row.cols.push_back( ElemIdToCodeNative( i->ElemType, Qry->FieldAsInteger( vecFieldIdx[ j ] ) ) );
-                                else
-                                  row.cols.push_back( ElemIdToCodeNative( i->ElemType, Qry->FieldAsString(vecFieldIdx[ j ]) ) );
-                                break;
-                  case cecName: if (Qry->FieldType( vecFieldIdx[ j ] ) == otInteger)
-                                  row.cols.push_back( ElemIdToNameLong( i->ElemType, Qry->FieldAsInteger( vecFieldIdx[ j ] ) ) );
-                                else
-                                  row.cols.push_back( ElemIdToNameLong( i->ElemType, Qry->FieldAsString(vecFieldIdx[ j ] ) ) );
-                                break;
-             case cecNameShort: if (Qry->FieldType( vecFieldIdx[ j ] ) == otInteger)
-                                  row.cols.push_back( ElemIdToNameShort( i->ElemType, Qry->FieldAsInteger( vecFieldIdx[ j ] ) ) );
-                                else
-                                  row.cols.push_back( ElemIdToNameShort( i->ElemType, Qry->FieldAsString(vecFieldIdx[ j ] ) ) );
-                                break;
-              case cecRoleName: if (Qry->FieldType( vecFieldIdx[ j ] ) == otInteger)
-                                  row.cols.push_back( get_role_name(Qry->FieldAsInteger( vecFieldIdx[ j ] ), TempQry1));
-                                else
-                                  row.cols.push_back( Qry->FieldAsString(vecFieldIdx[ j ]) );
-                                break;
-              case cecUserName:
-             case cecUserPerms:
-                                if (Qry->FieldType( vecFieldIdx[ j ] ) == otInteger)
-                                  row.cols.push_back( get_user_descr(Qry->FieldAsInteger( vecFieldIdx[ j ] ),
-                                                                     TempQry1, TempQry2, TempQry3, i->ElemCategory==cecUserPerms));
-                                else
-                                  row.cols.push_back( Qry->FieldAsString(vecFieldIdx[ j ]) );
-                                break;
-                       default: row.cols.push_back( Qry->FieldAsString(vecFieldIdx[ j ]) );
-                                break;
-                };
+                  int int_id=ASTRA::NoExists;
+                  if (Qry->FieldType( vecFieldIdx[ j ] ) == otInteger)
+                    int_id=Qry->FieldAsInteger( vecFieldIdx[ j ] );
+                  else
+                  {
+                    if (Qry->FieldType( vecFieldIdx[ j ] ) == otFloat && i->Scale ==0) //иногда не очень правильно определяется i->DataSize
+                    {
+                      double f=Qry->FieldAsFloat( vecFieldIdx[ j ] );
+                      if ((f>-1E9) && (f<1E9)) int_id=(int)f;
+                    };
+                  };
+
+
+                  switch (i->ElemCategory)
+                  {
+                    case cecCode: if (int_id!=ASTRA::NoExists)
+                                    row.cols.push_back( ElemIdToCodeNative( i->ElemType, int_id ) );
+                                  else
+                                    row.cols.push_back( ElemIdToCodeNative( i->ElemType, Qry->FieldAsString(vecFieldIdx[ j ]) ) );
+                                  break;
+                    case cecName: if (int_id!=ASTRA::NoExists)
+                                    row.cols.push_back( ElemIdToNameLong( i->ElemType, int_id ) );
+                                  else
+                                    row.cols.push_back( ElemIdToNameLong( i->ElemType, Qry->FieldAsString(vecFieldIdx[ j ]) ) );
+                                  break;
+               case cecNameShort: if (int_id!=ASTRA::NoExists)
+                                    row.cols.push_back( ElemIdToNameShort( i->ElemType, int_id ) );
+                                  else
+                                    row.cols.push_back( ElemIdToNameShort( i->ElemType, Qry->FieldAsString(vecFieldIdx[ j ]) ) );
+                                  break;
+                case cecRoleName: if (int_id!=ASTRA::NoExists)
+                                    row.cols.push_back( get_role_name(int_id, TempQry1));
+                                  else
+                                    row.cols.push_back( Qry->FieldAsString(vecFieldIdx[ j ]) );
+                                  break;
+                case cecUserName:
+               case cecUserPerms: if (int_id!=ASTRA::NoExists)
+                                    row.cols.push_back( get_user_descr(int_id, TempQry1, TempQry2, TempQry3, i->ElemCategory==cecUserPerms));
+                                  else
+                                    row.cols.push_back( Qry->FieldAsString(vecFieldIdx[ j ]) );
+                                  break;
+                         default: row.cols.push_back( Qry->FieldAsString(vecFieldIdx[ j ]) );
+                                  break;
+                  };
+                }
+                else row.cols.push_back( Qry->FieldAsString(vecFieldIdx[ j ]) );
                 break;
             }
         }
