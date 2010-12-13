@@ -21,20 +21,32 @@ struct TReferCacheTable
   TElemType ElemType;
 };
 
-const TReferCacheTable ReferCacheTable[14] = { {"COUNTRIES",       etCountry},
-                                               {"CITIES",          etCity},
-                                               {"AIRLINES",        etAirline},
-                                               {"AIRPS",           etAirp},
-                                               {"CRAFTS",          etCraft},
-                                               {"CLASSES",         etClass},
-                                               {"SUBCLS",          etSubcls},
-                                               {"TRIP_TYPES",      etTripType},
-                                               {"GRAPH_STAGES",    etGraphStage},
-                                               {"BAG_NORM_TYPES",  etBagNormType},
-                                               {"CURRENCY",        etCurrency},
-                                               {"MISC_SET_TYPES",  etMiscSetType},
-                                               {"SEAT_ALGO_TYPES", etSeatAlgoType},
-                                               {"HALLS",           etHall}
+const TReferCacheTable ReferCacheTable[25] = {
+                                               {"AIRLINES",            etAirline},
+                                               {"AIRPS",               etAirp},
+                                               {"BAG_NORM_TYPES",      etBagNormType},
+                                               {"CITIES",              etCity},
+                                               {"CLASSES",             etClass},
+                                               {"CODE4_FMT",           etUserSetType},
+                                               {"COUNTRIES",           etCountry},
+                                               {"CRAFTS",              etCraft},
+                                               {"CURRENCY",            etCurrency},
+                                               {"DESK_GRP",            etDeskGrp},
+                                               {"ENCODING_FMT",        etUserSetType},
+                                               {"GRAPH_STAGES",        etGraphStage},
+                                               {"HALLS",               etHall},
+                                               {"KIOSK_CKIN_DESK_GRP", etDeskGrp},
+                                               {"MISC_SET_TYPES",      etMiscSetType},
+                                               {"RIGHTS",              etRight},
+                                               {"SEAT_ALGO_TYPES",     etSeatAlgoType},
+                                               {"SELF_CKIN_TYPES",     etClientType},
+                                               {"STATION_MODES",       etStationMode},
+                                               {"SUBCLS",              etSubcls},
+                                               {"TIME_FMT",            etUserSetType},
+                                               {"TRIP_TYPES",          etTripType},
+                                               {"TYPEB_TYPES",         etTypeBType},
+                                               {"TYPEB_TYPES_MARK",    etTypeBType},
+                                               {"USER_TYPES",          etUserType}
                                              };
 
 using namespace std;
@@ -310,6 +322,14 @@ void TCacheTable::initFields()
           if (!TReqInfo::Instance()->desk.compatible(LATIN_VERSION))
             FField.ReferName="NAME";
         };
+        
+        if (FField.ReferName == "SHORT_NAME/SHORT_NAME_LAT" ||
+            FField.ReferName == "SHORT_NAME_LAT/SHORT_NAME" )
+        {
+          FField.ElemCategory=cecNameShort;
+          if (!TReqInfo::Instance()->desk.compatible(LATIN_VERSION))
+            FField.ReferName="SHORT_NAME";
+        };
 
         if (FField.ReferName == "DESCR/DESCR_LAT" ||
             FField.ReferName == "DESCR_LAT/DESCR" )
@@ -318,8 +338,27 @@ void TCacheTable::initFields()
           if (!TReqInfo::Instance()->desk.compatible(LATIN_VERSION))
             FField.ReferName="DESCR";
         };
+        
+        if (code == "ROLES" && FField.Name == "ROLE_NAME" ||
+            FField.ReferCode == "ROLES" && FField.ReferName == "ROLE_NAME")
+        {
+          FField.ElemCategory=cecRoleName;
+        };
+        
+        if (code == "USERS" && FField.Name == "USER_NAME" ||
+            FField.ReferCode == "USERS" && FField.ReferName == "USER_NAME")
+        {
+          FField.ElemCategory=cecUserName;
+        };
+        
+        if (code == "USERS" && FField.Name == "USER_PERMS")
+        {
+          FField.ElemCategory=cecUserPerms;
+        };
 
-        if (FField.ElemCategory!=cecNone)
+        if (FField.ElemCategory==cecCode ||
+            FField.ElemCategory==cecName ||
+            FField.ElemCategory==cecNameShort)
         {
           int i=sizeof(ReferCacheTable)/sizeof(ReferCacheTable[0])-1;
           for(;i>=0;i--)
@@ -334,6 +373,11 @@ void TCacheTable::initFields()
             FField.ElemCategory=cecNone;
             ProgTrace(TRACE5,"initFields: name=%s, elem_type unknown", FField.Name.c_str());
           };
+        };
+        if (FField.ReferCode == "STATIONS" && FField.ReferName == "AIRP_VIEW" )
+        {
+          FField.ElemCategory=cecCode;
+          FField.ElemType=etAirp;
         };
 
         FFields.push_back(FField);
@@ -386,6 +430,133 @@ void TCacheTable::DeclareSysVariables(std::vector<string> &vars, TQuery *Qry)
       Qry->SetVariable( "SYS_desk_version", TReqInfo::Instance()->desk.version );
       vars.erase( f );
     }
+};
+
+string get_role_name(int role_id, TQuery &Qry)
+{
+  ostringstream res;
+  const char* sql="SELECT name,airline,airp FROM roles WHERE role_id=:role_id";
+  if (strcmp(Qry.SQLText.SQLText(),sql)!=0)
+  {
+    Qry.Clear();
+    Qry.SQLText=sql;
+    Qry.DeclareVariable("role_id", otInteger);
+  };
+  Qry.SetVariable("role_id", role_id);
+  Qry.Execute();
+  if (!Qry.Eof)
+  {
+    res << Qry.FieldAsString("name");
+    if (!Qry.FieldIsNULL("airline") || !Qry.FieldIsNULL("airp"))
+    {
+      res << " (" << ElemIdToCodeNative(etAirline, Qry.FieldAsString("airline"));
+      if (!Qry.FieldIsNULL("airline") && !Qry.FieldIsNULL("airp")) res << "+";
+      res << ElemIdToCodeNative(etAirp, Qry.FieldAsString("airp")) << ")";
+    };
+  };
+  return res.str();
+};
+
+string get_user_airlines_airps(int user_id, TUserType user_type,
+                               TQuery &Qry1, TQuery &Qry2)
+{
+  ostringstream res;
+  
+  const char* sql1="SELECT airline FROM aro_airlines WHERE aro_id=:user_id";
+  if (strcmp(Qry1.SQLText.SQLText(),sql1)!=0)
+  {
+    Qry1.Clear();
+    Qry1.SQLText=sql1;
+    Qry1.DeclareVariable("user_id", otInteger);
+  };
+  Qry1.SetVariable("user_id", user_id);
+  Qry1.Execute();
+  vector<string> airlines;
+  for(;!Qry1.Eof;Qry1.Next())
+    airlines.push_back(ElemIdToCodeNative(etAirline, Qry1.FieldAsString("airline")));
+  sort(airlines.begin(), airlines.end());
+  
+  vector<string>::iterator a;
+  string airlines_str;
+  a=airlines.begin();
+  for(int i=0;a!=airlines.end();a++,i++)
+  {
+    if (i!=0) airlines_str+=' ';
+    airlines_str+=*a;
+    if (airlines_str.size()>11) break;
+  };
+  if (a!=airlines.end()) airlines_str+="...";
+  if (airlines_str.empty() && user_type==utAirline) airlines_str='?';
+
+  const char* sql2="SELECT airp FROM aro_airps WHERE aro_id=:user_id";
+  if (strcmp(Qry2.SQLText.SQLText(),sql2)!=0)
+  {
+    Qry2.Clear();
+    Qry2.SQLText=sql2;
+    Qry2.DeclareVariable("user_id", otInteger);
+  };
+  Qry2.SetVariable("user_id", user_id);
+  Qry2.Execute();
+  vector<string> airps;
+  for(;!Qry2.Eof;Qry2.Next())
+    airps.push_back(ElemIdToCodeNative(etAirp, Qry2.FieldAsString("airp")));
+  sort(airps.begin(), airps.end());
+  
+  string airps_str;
+  a=airps.begin();
+  for(int i=0;a!=airps.end();a++,i++)
+  {
+    if (i!=0) airps_str+=' ';
+    airps_str+=*a;
+    if (airps_str.size()>11) break;
+  };
+  if (a!=airps.end()) airps_str+="...";
+  if (airps_str.empty() && user_type==utAirport) airps_str='?';
+  
+  if (user_type==utSupport || user_type==utAirline)
+  {
+    res << airlines_str;
+    if (!airlines_str.empty() && !airps_str.empty()) res << " + ";
+    res << airps_str;
+  }
+  else
+  {
+    res << airps_str;
+    if (!airlines_str.empty() && !airps_str.empty()) res << " + ";
+    res << airlines_str;
+  };
+  return res.str();
+};
+
+string get_user_descr(int user_id,
+                      TQuery &Qry, TQuery &Qry1, TQuery &Qry2,
+                      bool only_airlines_airps)
+{
+  const char* sql="SELECT type, descr FROM users2 WHERE user_id=:user_id";
+  if (strcmp(Qry.SQLText.SQLText(),sql)!=0)
+  {
+    Qry.Clear();
+    Qry.SQLText=sql;
+    Qry.DeclareVariable("user_id", otInteger);
+  };
+  Qry.SetVariable("user_id", user_id);
+  Qry.Execute();
+  if (Qry.Eof) return "";
+
+  string user_access=get_user_airlines_airps(user_id, (TUserType)Qry.FieldAsInteger("type"),
+                                             Qry1, Qry2);
+  
+  ostringstream res;
+  if (!only_airlines_airps)
+  {
+    res << Qry.FieldAsString("descr");
+    if (!user_access.empty())
+      res << " (" << user_access << ")";
+  }
+  else
+    res << user_access;
+    
+  return res.str();
 };
 
 TUpdateDataType TCacheTable::refreshData()
@@ -474,7 +645,9 @@ TUpdateDataType TCacheTable::refreshData()
         int FieldIdx = Qry->GetFieldIndex(i->Name);
         if( FieldIdx < 0)
         {
-          if (i->ElemCategory!=cecNone)
+          if (i->ElemCategory==cecCode ||
+              i->ElemCategory==cecName ||
+              i->ElemCategory==cecNameShort)
           {
             //проверим - поле может быть _VIEW
             if (i->Name.size()>5 && i->Name.substr(i->Name.size()-5)=="_VIEW")
@@ -491,6 +664,10 @@ TUpdateDataType TCacheTable::refreshData()
     int delIdx = Qry->GetFieldIndex("PR_DEL");
     if ( clientVerData >= 0 && delIdx < 0 )
         throw Exception( "Field '" + code +".PR_DEL' not found");
+        
+    TQuery TempQry1(&OraSession);
+    TQuery TempQry2(&OraSession);
+    TQuery TempQry3(&OraSession);
     //читаем кэш
     while( !Qry->Eof ) {
       if( tidIdx >= 0 && Qry->FieldAsInteger( tidIdx ) > clientVerData )
@@ -524,6 +701,24 @@ TUpdateDataType TCacheTable::refreshData()
                                   row.cols.push_back( ElemIdToNameLong( i->ElemType, Qry->FieldAsInteger( vecFieldIdx[ j ] ) ) );
                                 else
                                   row.cols.push_back( ElemIdToNameLong( i->ElemType, Qry->FieldAsString(vecFieldIdx[ j ] ) ) );
+                                break;
+             case cecNameShort: if (Qry->FieldType( vecFieldIdx[ j ] ) == otInteger)
+                                  row.cols.push_back( ElemIdToNameShort( i->ElemType, Qry->FieldAsInteger( vecFieldIdx[ j ] ) ) );
+                                else
+                                  row.cols.push_back( ElemIdToNameShort( i->ElemType, Qry->FieldAsString(vecFieldIdx[ j ] ) ) );
+                                break;
+              case cecRoleName: if (Qry->FieldType( vecFieldIdx[ j ] ) == otInteger)
+                                  row.cols.push_back( get_role_name(Qry->FieldAsInteger( vecFieldIdx[ j ] ), TempQry1));
+                                else
+                                  row.cols.push_back( Qry->FieldAsString(vecFieldIdx[ j ]) );
+                                break;
+              case cecUserName:
+             case cecUserPerms:
+                                if (Qry->FieldType( vecFieldIdx[ j ] ) == otInteger)
+                                  row.cols.push_back( get_user_descr(Qry->FieldAsInteger( vecFieldIdx[ j ] ),
+                                                                     TempQry1, TempQry2, TempQry3, i->ElemCategory==cecUserPerms));
+                                else
+                                  row.cols.push_back( Qry->FieldAsString(vecFieldIdx[ j ]) );
                                 break;
                        default: row.cols.push_back( Qry->FieldAsString(vecFieldIdx[ j ]) );
                                 break;

@@ -39,7 +39,7 @@ enum TCacheFieldType {ftSignedNumber, ftUnsignedNumber, ftDate, ftTime, ftString
 enum TCacheConvertType {ctInteger,ctDouble,ctDateTime,ctString};
 enum TCacheUpdateStatus {usUnmodified, usModified, usInserted, usDeleted};
 enum TCacheQueryType {cqtSelect,cqtRefresh,cqtInsert,cqtUpdate,cqtDelete};
-enum TCacheElemCategory {cecNone, cecCode, cecName};
+enum TCacheElemCategory {cecNone, cecCode, cecNameShort, cecName, cecRoleName, cecUserName, cecUserPerms};
 
 struct TCacheField2 {
     std::string Name;

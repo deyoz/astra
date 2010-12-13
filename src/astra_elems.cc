@@ -53,80 +53,61 @@ const char* EncodeElemFmt(const TElemFmt type)
     return "";
 };
 
+struct TElemBaseTable
+{
+  TElemType ElemType;
+  const char* EncodeStr;
+  const char* BaseTableName;
+};
+
+const TElemBaseTable ElemBaseTables[40] = {
+                 {etAirline,               "etAirline",               "airlines"},
+                 {etAirp,	                 "etAirp",                  "airps"},
+                 {etBagNormType,	         "etBagNormType",           "bag_norm_types"},
+                 {etCity,	                 "etCity",                  "cities"},
+                 {etClass,	               "etClass",                 "classes"},
+                 {etClientType,	           "etClientType",            "client_types"},
+                 {etClsGrp,	               "etClsGrp",                "cls_grp"},
+                 {etCompElemType,	         "etCompElemType",          "comp_elem_types"},
+                 {etCompLayerType,	       "etCompLayerType",         "comp_layer_types"},
+                 {etCountry,	             "etCountry",               "countries"},
+                 {etCraft,	               "etCraft",                 "crafts"},
+                 {etCrs,	                 "etCrs",                   ""},
+                 {etCurrency,	             "etCurrency",              "currency"},
+                 {etDelayType,	           "etDelayType",             ""},
+                 {etDeskGrp,	             "etDeskGrp",               ""},
+                 {etDevFmtType,	           "etDevFmtType",            "dev_fmt_types"},
+                 {etDevModel,	             "etDevModel",              "dev_models"},
+                 {etDevOperType,	         "etDevOperType",           "dev_oper_types"},
+                 {etDevSessType,	         "etDevSessType",           "dev_sess_types"},
+                 {etGenderType,	           "etGenderType",            "gender_types"},
+                 {etGraphStage,	           "etGraphStage",            "graph_stages"},
+                 {etGrpStatusType,	       "etGrpStatusType",         "grp_status_types"},
+                 {etHall,	                 "etHall",                  ""},
+                 {etLangType,	             "etLangType",              "lang_types"},
+                 {etMiscSetType,	         "etMiscSetType",           "misc_set_types"},
+                 {etPaxDocType,	           "etPaxDocType",            "pax_doc_types"},
+                 {etPayType,	             "etPayType",               "pay_types"},
+                 {etPersType,	             "etPersType",              "pers_types"},
+                 {etRefusalType,	         "etRefusalType",           "refusal_types"},
+                 {etRight,	               "etRight",                 "rights"},
+                 {etSeatAlgoType,	         "etSeatAlgoType",          "seat_algo_types"},
+                 {etStationMode,	         "etStationMode",           "station_modes"},
+                 {etSubcls,	               "etSubcls",                "subcls"},
+                 {etSuffix,	               "etSuffix",                "trip_suffixes"},
+                 {etTagColor,	             "etTagColor",              "tag_colors"},
+                 {etTripLiter,	           "etTripLiter",             ""},
+                 {etTripType,	             "etTripType",              "trip_types"},
+                 {etTypeBType,	           "etTypeBType",             "typeb_types"},
+                 {etUserSetType,	         "etUserSetType",           "user_set_types"},
+                 {etUserType,	             "etUserType",              "user_types"}
+};
+
 const char* EncodeElemType(const TElemType type)
 {
-  switch( type ) {
-  	case etCountry:
-  		return "etCountry";
-  	case etCity:
-  		return "etCity";
-  	case etAirline:
-  		return "etAirline";
-  	case etAirp:
-  		return "etAirp";
-  	case etCraft:
-  		return "etCraft";
-  	case etClass:
-  		return "etClass";
-  	case etSubcls:
-  		return "etSubcls";
-  	case etPersType:
-  		return "etPersType";
-  	case etGenderType:
-  		return "etGenderType";
-  	case etPaxDocType:
-  		return "etPaxDocType";
-  	case etPayType:
-  		return "etPayType";
-  	case etCurrency:
-  		return "etCurrency";
-  	case etClsGrp:
-  		return "etClsGrp";
-  	case etRefusalType:
-  	  return "etRefusalType";
-    case etSuffix:
-  		return "etSuffix";
-  	case etTripType:
-  		return "etTripType";
-  	case etCompElemType:
-  		return "etCompElemType";
-  	case etGrpStatusType:
-  		return "etGrpStatusType";
-  	case etClientType:
-  		return "etClientType";
-  	case etCompLayerType:
-  		return "etCompLayerType";
-  	case etHall:
-  		return "etHall";
-  	case etCrs:
-  		return "etCrs";
-  	case etDevModel:
-  		return "etDevModel";
-    case etDevSessType:
-  		return "etDevSessType";
-    case etDevFmtType:
-  		return "etDevFmtType";
-  	case etDevOperType:
-  		return "etDevOperType";
-  	case etGraphStage:
-  		return "etGraphStage";
-  	case etMiscSetType:
-  		return "etMiscSetType";
-  	case etDelayType:
-  		return "etDelayType";
-  	case etTripLiter:
-  		return "etTripLiter";
-  	case etTypeBType:
-  		return "etTypeBType";
-  	case etBagNormType:
-  		return "etBagNormType";
-  	case etLangType:
-  		return "etLangType";
-  	case etTagColor:
-  		return "etTagColor";
-    case etSeatAlgoType:
-  		return "etSeatAlgoType";
-  }
+  int i=sizeof(ElemBaseTables)/sizeof(ElemBaseTables[0])-1;
+  for(;i>=0;i--)
+    if (ElemBaseTables[i].ElemType==type) return ElemBaseTables[i].EncodeStr;
   return "";
 };
 
@@ -317,105 +298,10 @@ string ElemIdToElemCtxt(TElemContext ctxt,TElemType type, string id,
 
 string getTableName(TElemType type)
 {
-	string table_name;
-  switch(type)
-  {
-    case etCountry:
-      table_name="countries";
-      break;
-    case etCity:
-      table_name="cities";
-      break;
-    case etAirline:
-      table_name="airlines";
-      break;
-    case etAirp:
-      table_name="airps";
-      break;
-    case etCraft:
-      table_name="crafts";
-      break;
-    case etClass:
-      table_name="classes";
-      break;
-    case etSubcls:
-      table_name="subcls";
-      break;
-    case etPersType:
-      table_name="pers_types";
-      break;
-    case etGenderType:
-      table_name="gender_types";
-      break;
-    case etPaxDocType:
-      table_name="pax_doc_types";
-      break;
-    case etPayType:
-      table_name="pay_types";
-      break;
-    case etClsGrp:
-      table_name="cls_grp";
-      break;
-    case etCurrency:
-      table_name="currency";
-      break;
-    case etRefusalType:
-      table_name="refusal_types";
-      break;
-    case etTripType:
-      table_name="trip_types";
-      break;
-    case etSuffix:
-      table_name="trip_suffixes";
-      break;
-    case etCompElemType:
-      table_name="comp_elem_types";
-      break;
-    case etGrpStatusType:
-    	table_name="grp_status_types";
-    	break;
-    case etClientType:
-    	table_name="client_types";
-    	break;
-    case etCompLayerType:
-    	table_name="comp_layer_types";
-    	break;
-    case etDevModel:
-    	table_name="dev_models";
-    	break;
-    case etDevSessType:
-  		table_name="dev_sess_types";
-  		break;
-    case etDevFmtType:
-  		table_name="dev_fmt_types";
-  		break;
-  	case etDevOperType:
-  		table_name="dev_oper_types";
-  		break;
-    case etGraphStage:
-  		table_name="graph_stages";
-  		break;
-  	case etMiscSetType:
-  		table_name="misc_set_types";
-  		break;
-    case etTypeBType:
-  		table_name="typeb_types";
-  		break;
-    case etBagNormType:
-  		table_name="bag_norm_types";
-  		break;
-  	case etLangType:
-  		table_name="lang_types";
-  		break;
-    case etTagColor:
-  		table_name="tag_colors";
-  		break;
-  	case etSeatAlgoType:
-  		table_name="seat_algo_types";
-  		break;
-  	default:;
-  };
-  return table_name;
+  int i=sizeof(ElemBaseTables)/sizeof(ElemBaseTables[0])-1;
+  for(;i>=0;i--)
+    if (ElemBaseTables[i].ElemType==type) return ElemBaseTables[i].BaseTableName;
+  return "";
 };
 
 TBaseTable& getBaseTable(TElemType type)
@@ -751,7 +637,8 @@ string ElemIdToElem(TElemType type, int id, const vector< pair<TElemFmt,string> 
     //не base_table
     switch(type)
     {
-      case etHall: Qry.SQLText="SELECT name,name_lat FROM halls2 WHERE id=:id"; break;
+         case etHall: Qry.SQLText="SELECT name,name_lat FROM halls2 WHERE id=:id"; break;
+      case etDeskGrp: Qry.SQLText="SELECT descr AS name, descr_lat AS name_lat FROM desk_grp WHERE grp_id=:id"; break;
       default: throw Exception("Unexpected elem type %s", EncodeElemType(type));
     };
     Qry.CreateVariable("id",otInteger,id);
