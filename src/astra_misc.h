@@ -176,6 +176,7 @@ class TPnrAddrItem
 };
 
 std::string GetPnrAddr(int pnr_id, std::vector<TPnrAddrItem> &pnrs, std::string airline="");
+std::string GetPnrAddr(int pnr_id, std::vector<TPnrAddrItem> &pnrs);
 std::string GetPaxPnrAddr(int pax_id, std::vector<TPnrAddrItem> &pnrs, std::string airline="");
 
 //процедура перевода отдельного дня (без месяца и года) в полноценный TDateTime

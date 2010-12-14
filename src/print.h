@@ -66,7 +66,6 @@ class PrintDataParser {
     public:
         enum TMapType {mtBTBP};
     private:
-        TPrnTagStore pts;
         class t_field_map {
             private:
                 struct TTagValue {
@@ -138,6 +137,7 @@ class PrintDataParser {
         bool IsDelim(char curr_char, char &Mode);
         std::string parse_tag(int offset, std::string tag);
     public:
+        TPrnTagStore pts;
         PrintDataParser(int pr_lat = 0): field_map(pr_lat)
     {
         pectab_format = 0;
@@ -150,16 +150,16 @@ class PrintDataParser {
     };
         // Старый вариант конструктора
         PrintDataParser(int grp_id, int pax_id, int pr_lat, xmlNodePtr tagsNode, TMapType map_type = mtBTBP):
-            pts(grp_id, pax_id, pr_lat, tagsNode),
-            field_map(grp_id, pax_id, pr_lat, tagsNode, map_type)
+            field_map(grp_id, pax_id, pr_lat, tagsNode, map_type),
+            pts(grp_id, pax_id, pr_lat, tagsNode)
     {
         pectab_format = 0;
         this->pr_lat = pr_lat;
     };
         // В новом добавится route и client_pr_lat вместо pr_lat будет
         PrintDataParser(int grp_id, int pax_id, int pr_lat, xmlNodePtr tagsNode, TBTRoute *route, bool client_pr_lat, TMapType map_type = mtBTBP):
-            pts(grp_id, pax_id, client_pr_lat, tagsNode, route),
-            field_map(grp_id, pax_id, pr_lat, tagsNode, map_type)
+            field_map(grp_id, pax_id, pr_lat, tagsNode, map_type),
+            pts(grp_id, pax_id, client_pr_lat, tagsNode, route)
     {
         pectab_format = 0;
         this->pr_lat = pr_lat;
@@ -175,10 +175,6 @@ class PrintDataParser {
         void add_tag(std::string name, int val, bool nullable = false) { return field_map.add_tag(name, val, nullable); };
         void add_tag(std::string name, std::string val, bool nullable = false) { return field_map.add_tag(name, val, nullable); };
         void add_tag(std::string name, BASIC::TDateTime val, bool nullable = false) { return field_map.add_tag(name, val, nullable); };
-
-        void set_tag(std::string name, std::string value) { return pts.set_tag(name, value); };
-        void set_tag(std::string name, int value) { return pts.set_tag(name, value); };
-        void set_tag(std::string name, BASIC::TDateTime value) { return pts.set_tag(name, value); };
 
         std::string GetTagAsString(std::string name) { return field_map.GetTagAsString(name); };
         int GetTagAsInteger(std::string name) { return field_map.GetTagAsInteger(name); };

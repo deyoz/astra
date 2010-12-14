@@ -2981,12 +2981,12 @@ void set_via_fields(PrintDataParser &parser, TBTRoute &route, int start_idx, int
         parser.add_tag("airp_arv_name" + str_via_idx, route[j].airp_arv_name);
         parser.add_tag("airp_arv_name" + str_via_idx + "_lat", route[j].airp_arv_name_lat);
 
-        parser.set_tag("flt_no" + str_via_idx, flt_no.str() + route[j].suffix);
-        parser.set_tag("local_date" + str_via_idx, route[j].scd);
-        parser.set_tag("airline" + str_via_idx, route[j].airline);
-        parser.set_tag("airp_arv" + str_via_idx, route[j].airp_arv);
-        parser.set_tag("flt_date" + str_via_idx, route[j].scd);
-        parser.set_tag("airp_arv_name" + str_via_idx, route[j].airp_arv);
+        parser.pts.set_tag("flt_no" + str_via_idx, flt_no.str() + route[j].suffix);
+        parser.pts.set_tag("local_date" + str_via_idx, route[j].scd);
+        parser.pts.set_tag("airline" + str_via_idx, route[j].airline);
+        parser.pts.set_tag("airp_arv" + str_via_idx, route[j].airp_arv);
+        parser.pts.set_tag("fltdate" + str_via_idx, route[j].scd);
+        parser.pts.set_tag("airp_arv_name" + str_via_idx, route[j].airp_arv);
 
 
         ++via_idx;
@@ -3234,11 +3234,11 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
 
         PrintDataParser parser(tag_key.grp_id, pax_id, tag_key.pr_lat, NULL, &route, client_pr_lat);
 
-        parser.set_tag("aircode", aircode);
-        parser.set_tag("no", no);
-        parser.set_tag("issued", issued);
-        parser.set_tag("bt_amount", Qry.FieldAsInteger("bag_amount"));
-        parser.set_tag("bt_weight", Qry.FieldAsInteger("bag_weight"));
+        parser.pts.set_tag("aircode", aircode);
+        parser.pts.set_tag("no", no);
+        parser.pts.set_tag("issued", issued);
+        parser.pts.set_tag("bt_amount", Qry.FieldAsInteger("bag_amount"));
+        parser.pts.set_tag("bt_weight", Qry.FieldAsInteger("bag_weight"));
 
         parser.add_tag("aircode", aircode);
         parser.add_tag("no", no);
@@ -3249,19 +3249,19 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
         parser.add_tag("liab_limit", upperc((pr_liab ? "Огр. ответственности" : "")));
         parser.add_tag("liab_limit_lat", upperc((pr_liab ? "Liab. limit" : "")));
 
-        parser.set_tag("liab_limit", upperc((pr_liab ? "Огр. ответственности" : "")));
+        parser.pts.set_tag("liab_limit", upperc((pr_liab ? "Огр. ответственности" : "")));
 
         if(pr_unaccomp) {
             unaccQry.SetVariable("tag_num",Qry.FieldAsInteger("num"));
             unaccQry.Execute();
             if (!unaccQry.Eof)
             {
-                parser.set_tag("surname", unaccQry.FieldAsInteger("bag_type"));
-                parser.set_tag("fullname", unaccQry.FieldAsInteger("bag_type"));
+                parser.pts.set_tag("surname", unaccQry.FieldAsInteger("bag_type"));
+                parser.pts.set_tag("fullname", unaccQry.FieldAsInteger("bag_type"));
             } else {
                 string print_name="БЕЗ СОПРОВОЖДЕНИЯ";
-                parser.set_tag("surname", print_name);
-                parser.set_tag("fullname", print_name);
+                parser.pts.set_tag("surname", print_name);
+                parser.pts.set_tag("fullname", print_name);
             }
         }
 
@@ -3703,13 +3703,18 @@ void tst_dump(int pax_id, int grp_id, int pr_lat)
 {
     vector<string> tags;
     {
-        TPrnTagStore pts(pax_id, grp_id, pr_lat, NULL);
+        TPrnTagStore pts(grp_id, pax_id, pr_lat, NULL);
         pts.tst_get_tag_list(tags);
     }
     for(vector<string>::iterator iv = tags.begin(); iv != tags.end(); iv++) {
-        TPrnTagStore tmp_pts(pax_id, grp_id, pr_lat, NULL);
+        TPrnTagStore tmp_pts(grp_id, pax_id, pr_lat, NULL);
         tmp_pts.set_tag("gate", "");
         ProgTrace(TRACE5, "tag: %s; value: '%s'", iv->c_str(), tmp_pts.get_field(*iv, 0, "L", "dd.mm hh:nn", "R").c_str());
+        TQuery Qry(&OraSession);
+        tmp_pts.get_prn_qry(Qry);
+        TDateTime time_print = NowUTC();
+        Qry.CreateVariable("now_utc", otDate, time_print);
+        Qry.Execute();
     }
 }
 
@@ -3891,13 +3896,14 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     xmlNodePtr passengersNode = NewTextChild(BPNode, "passengers");
     TReqInfo *reqInfo = TReqInfo::Instance();
     for (vector<TPaxPrint>::iterator iprint=paxs.begin(); iprint!=paxs.end(); iprint++ ) {
+//!!!        tst_dump(iprint->pax_id, iprint->grp_id, prnParams.pr_lat);
         PrintDataParser parser( iprint->grp_id, iprint->pax_id, get_bp_pr_lat(iprint->grp_id, prnParams.pr_lat), clientDataNode );
         // если это нулевой сегмент, то тогда печатаем выход на посадку иначе не нечатаем
         //надо удалить выход на посадку из данных по пассажиру
         if(grp_id != iprint->grp_id) {
             parser.add_tag("gate", "", true);
             parser.add_tag("gate_lat", "", true);
-            parser.set_tag("gate", "");
+            parser.pts.set_tag("gate", "");
         }
 
         string prn_form = parser.parse(data);
@@ -3927,10 +3933,11 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         SetProp(NewTextChild(paxNode, "prn_form", prn_form),"hex",(int)hex);
 
         {
-            TQuery *Qry = parser.get_prn_qry();
+            TQuery Qry(&OraSession);
+            parser.pts.get_prn_qry(Qry);
             TDateTime time_print = NowUTC();
-            Qry->CreateVariable("now_utc", otDate, time_print);
-            Qry->Execute();
+            Qry.CreateVariable("now_utc", otDate, time_print);
+            Qry.Execute();
             SetProp(paxNode, "pax_id", iprint->pax_id);
             //!!!SetProp(paxNode, "seg_no", iv->seg_no);
             SetProp(paxNode, "reg_no", parser.GetTagAsInteger("reg_no"));

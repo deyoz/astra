@@ -126,6 +126,12 @@ bool GetTripSets( TTripSetType setType, TTripInfo &info )
   return Qry.FieldAsInteger("pr_misc")!=0;
 };
 
+std::string GetPnrAddr(int pnr_id, std::vector<TPnrAddrItem> &pnrs)
+{
+    string airline;
+    return GetPnrAddr(pnr_id, pnrs, airline);
+}
+
 string GetPnrAddr(int pnr_id, vector<TPnrAddrItem> &pnrs, string airline)
 {
   pnrs.clear();

@@ -53,6 +53,7 @@ namespace TAG {
 
     // specific for bag tags
     const std::string AIRCODE = "AIRCODE";
+    const std::string AIRLINE_NAME = "AIRLINE_NAME";
     const std::string NO = "NO";
     const std::string ISSUED = "ISSUED";
     const std::string BT_AMOUNT = "BT_AMOUNT"; // багаж в бирке
@@ -70,12 +71,13 @@ namespace TAG {
     const std::string AIRP_ARV1 = "AIRP_ARV1";
     const std::string AIRP_ARV2 = "AIRP_ARV2";
     const std::string AIRP_ARV3 = "AIRP_ARV3";
-    const std::string FLT_DATE1 = "FLT_DATE1";
-    const std::string FLT_DATE2 = "FLT_DATE2";
-    const std::string FLT_DATE3 = "FLT_DATE3";
+    const std::string FLTDATE1 = "FLTDATE1";
+    const std::string FLTDATE2 = "FLTDATE2";
+    const std::string FLTDATE3 = "FLTDATE3";
     const std::string AIRP_ARV_NAME1 = "AIRP_ARV_NAME1";
     const std::string AIRP_ARV_NAME2 = "AIRP_ARV_NAME2";
     const std::string AIRP_ARV_NAME3 = "AIRP_ARV_NAME3";
+    const std::string PNR = "PNR";
 
 };
 
@@ -134,12 +136,14 @@ class TPrnTagStore {
         struct TTagListItem {
             TTagFunct tag_funct;
             int info_type;
+            bool processed;
             boost::any TagInfo; // данные из set_tag
-            TTagListItem(TTagFunct funct, int ainfo_type = 0): tag_funct(funct), info_type(ainfo_type) {};
+            TTagListItem(TTagFunct funct, int ainfo_type = 0): tag_funct(funct), info_type(ainfo_type), processed(false) {};
             TTagListItem(): tag_funct(NULL) {};
         };
 
         int pax_id;
+        bool pr_bp;
 
         std::map<const std::string, TTagListItem> tag_list;
 
@@ -189,7 +193,7 @@ class TPrnTagStore {
             float ticket_no;
             int coupon_no;
             int reg_no;
-            std::string no_smoke;
+            bool pr_smoke;
             int seats;
             std::string pers_type;
             TPaxInfo():
@@ -217,6 +221,7 @@ class TPrnTagStore {
 
         struct TPnrInfo {
             bool pr_init;
+            std::string airline;
             std::vector<TPnrAddrItem> pnrs;
             TPnrInfo(): pr_init(false) {};
             void Init(int pax_id);
@@ -267,6 +272,7 @@ class TPrnTagStore {
 
         // specific for bag tags
         std::string AIRCODE(TFieldParams fp);
+        std::string AIRLINE_NAME(TFieldParams fp);
         std::string NO(TFieldParams fp);
         std::string ISSUED(TFieldParams fp);
         std::string BT_AMOUNT(TFieldParams fp);
@@ -284,12 +290,13 @@ class TPrnTagStore {
         std::string AIRP_ARV1(TFieldParams fp);
         std::string AIRP_ARV2(TFieldParams fp);
         std::string AIRP_ARV3(TFieldParams fp);
-        std::string FLT_DATE1(TFieldParams fp);
-        std::string FLT_DATE2(TFieldParams fp);
-        std::string FLT_DATE3(TFieldParams fp);
+        std::string FLTDATE1(TFieldParams fp);
+        std::string FLTDATE2(TFieldParams fp);
+        std::string FLTDATE3(TFieldParams fp);
         std::string AIRP_ARV_NAME1(TFieldParams fp);
         std::string AIRP_ARV_NAME2(TFieldParams fp);
         std::string AIRP_ARV_NAME3(TFieldParams fp);
+        std::string PNR(TFieldParams fp);
 
     public:
         TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tagsNode, TBTRoute *aroute = NULL);
@@ -298,6 +305,7 @@ class TPrnTagStore {
         void set_tag(std::string name, int value);
         void set_tag(std::string name, BASIC::TDateTime value);
         std::string get_field(std::string name, int len, std::string align, std::string date_format, std::string tag_lang);
+        void get_prn_qry(TQuery &Qry);
 
         void tst_get_tag_list(std::vector<std::string> &tag_list);
 };
