@@ -138,12 +138,12 @@ class PrintDataParser {
         std::string parse_tag(int offset, std::string tag);
     public:
         TPrnTagStore pts;
-        PrintDataParser(int pr_lat = 0): field_map(pr_lat)
+        PrintDataParser(int pr_lat = 0): field_map(pr_lat), pts(pr_lat != 0)
     {
         pectab_format = 0;
         this->pr_lat = pr_lat;
     };
-        PrintDataParser(TBagReceipt rcpt): field_map(rcpt)
+        PrintDataParser(TBagReceipt rcpt): field_map(rcpt), pts(rcpt.pr_lat)
     {
         pectab_format = 0;
         this->pr_lat = rcpt.pr_lat;

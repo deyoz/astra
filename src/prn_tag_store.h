@@ -17,7 +17,7 @@ namespace TAG {
     const std::string AIRP_ARV_NAME = "AIRP_ARV_NAME";
     const std::string AIRP_DEP = "AIRP_DEP";
     const std::string AIRP_DEP_NAME = "AIRP_DEP_NAME";
-    const std::string BAG_AMOUNT = "BAG_AMOUNT"; // –±–∞–≥–∞–∂ –≤ –ø–æ—Å–∞–¥–æ—á–Ω–æ–º
+    const std::string BAG_AMOUNT = "BAG_AMOUNT"; // °†£†¶ ¢ ØÆ·†§ÆÁ≠Æ¨
     const std::string BAG_WEIGHT = "BAG_WEIGHT";
     const std::string BRD_FROM = "BRD_FROM";
     const std::string BRD_TO = "BRD_TO";
@@ -56,7 +56,7 @@ namespace TAG {
     const std::string AIRLINE_NAME = "AIRLINE_NAME";
     const std::string NO = "NO";
     const std::string ISSUED = "ISSUED";
-    const std::string BT_AMOUNT = "BT_AMOUNT"; // –±–∞–≥–∞–∂ –≤ –±–∏—Ä–∫–µ
+    const std::string BT_AMOUNT = "BT_AMOUNT"; // °†£†¶ ¢ °®‡™•
     const std::string BT_WEIGHT = "BT_WEIGHT";
     const std::string LIAB_LIMIT = "LIAB_LIMIT";
     const std::string FLT_NO1 = "FLT_NO1";
@@ -102,20 +102,22 @@ class TPrnTagStore {
         class TTagLang {
             private:
                 bool route_inter;
-                std::string tag_lang; // –ø–∞—Ä–∞–º–µ—Ç—Ä —Ç–µ–≥–∞ E - –ª–∞—Ç, R - —Ä—É—Å
-                std::string route_country_lang; //—è–∑—ã–∫ —Å—Ç—Ä–∞–Ω—ã, –≥–¥–µ –≤—ã–ø–æ–ª–Ω—è–µ—Ç—Å—è –≤–Ω—É—Ç—Ä–µ–Ω–Ω–∏–π —Ä–µ–π—Å
+                std::string tag_lang; // Ø†‡†¨•‚‡ ‚•£† E - ´†‚, R - ‡„·
+                std::string route_country_lang; //ÔßÎ™ ·‚‡†≠Î, £§• ¢ÎØÆ´≠Ô•‚·Ô ¢≠„‚‡•≠≠®© ‡•©·
                 bool pr_lat;
                 std::string GetLang(TElemFmt &fmt, std::string firm_lang) const;
                 bool IsInter(TBTRoute *aroute, std::string &country);
             public:
                 bool get_pr_lat() { return pr_lat; };
                 bool IsInter() const;
+                bool IsTstInter() const; // ®·ØÆ´Ïß„•‚·Ô ¢ ‚•·‚Æ¢ÎÂ Ø•™‚†°†Â
                 std::string GetLang();
                 std::string dup_lang() { return GetLang()==AstraLocale::LANG_EN ? AstraLocale::LANG_RU : GetLang(); }; // lang for duplicated captions
                 void set_tag_lang(std::string val) { tag_lang = val; };
                 std::string ElemIdToTagElem(TElemType type, const std::string &id, TElemFmt fmt, std::string firm_lang = "") const;
                 std::string ElemIdToTagElem(TElemType type, int id, TElemFmt fmt, std::string firm_lang = "") const;
                 void Init(int point_dep, int point_arv, TBTRoute *aroute, bool apr_lat);
+                void Init(bool apr_lat); // à≠®Ê®†´®ß†Ê®Ô §´Ô ®·ØÆ´ÏßÆ¢†≠®Ô ¢ ‚•·‚Æ¢ÎÂ Ø•™‚†°†Â.
         };
 
         TTagLang tag_lang;
@@ -133,11 +135,28 @@ class TPrnTagStore {
 
         typedef std::string (TPrnTagStore::*TTagFunct)(TFieldParams fp);
 
+        struct TPrnTestTagsItem {
+            char type;
+            std::string value, value_lat;
+            TPrnTestTagsItem(char vtype, std::string vvalue, std::string vvalue_lat):
+                type(vtype),
+                value(vvalue),
+                value_lat(vvalue_lat)
+            {};
+        };
+
+        struct TPrnTestTags {
+            std::map<std::string, TPrnTestTagsItem> items;
+            void Init();
+        };
+
+        TPrnTestTags prn_test_tags;
+
         struct TTagListItem {
             TTagFunct tag_funct;
             int info_type;
             bool processed;
-            boost::any TagInfo; // –¥–∞–Ω–Ω—ã–µ –∏–∑ set_tag
+            boost::any TagInfo; // §†≠≠Î• ®ß set_tag
             TTagListItem(TTagFunct funct, int ainfo_type = 0): tag_funct(funct), info_type(ainfo_type), processed(false) {};
             TTagListItem(): tag_funct(NULL) {};
         };
@@ -298,9 +317,11 @@ class TPrnTagStore {
         std::string AIRP_ARV_NAME3(TFieldParams fp);
         std::string PNR(TFieldParams fp);
 
+        std::string get_test_field(std::string name, int len, std::string date_format);
+        std::string get_real_field(std::string name, int len, std::string date_format);
     public:
         TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tagsNode, TBTRoute *aroute = NULL);
-        TPrnTagStore() {};
+        TPrnTagStore(bool pr_lat);
         void set_tag(std::string name, std::string value);
         void set_tag(std::string name, int value);
         void set_tag(std::string name, BASIC::TDateTime value);

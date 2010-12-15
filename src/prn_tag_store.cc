@@ -43,6 +43,11 @@ bool TPrnTagStore::TTagLang::IsInter(TBTRoute *aroute, string &country)
     return false;
 }
 
+void TPrnTagStore::TTagLang::Init(bool apr_lat)
+{
+    pr_lat = apr_lat;
+}
+
 void TPrnTagStore::TTagLang::Init(int point_dep, int point_arv, TBTRoute *aroute, bool apr_lat)
 {
     string route_country;
@@ -60,6 +65,11 @@ void TPrnTagStore::TTagLang::Init(int point_dep, int point_arv, TBTRoute *aroute
     else
         route_country_lang = "";
     pr_lat = apr_lat;
+}
+
+bool TPrnTagStore::TTagLang::IsTstInter() const
+{
+    return tag_lang == "E" or pr_lat;
 }
 
 bool TPrnTagStore::TTagLang::IsInter() const
@@ -121,6 +131,31 @@ void TPrnTagStore::tst_get_tag_list(std::vector<string> &tags)
 {
     for(map<const string, TTagListItem>::iterator im = tag_list.begin(); im != tag_list.end(); im++)
         tags.push_back(im->first);
+}
+
+void TPrnTagStore::TPrnTestTags::Init()
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText = "select name, type, value, value_lat from prn_test_tags";
+    Qry.Execute();
+    if(Qry.Eof)
+        throw Exception("TPrnTagStore::TPrnTestTags::Init: table prn_test_tags is empty");
+    for(; not Qry.Eof; Qry.Next())
+        items.insert(make_pair(
+                    upperc(Qry.FieldAsString("name")),
+                    TPrnTestTagsItem(
+                        Qry.FieldAsString("type")[0],
+                        Qry.FieldAsString("value"),
+                        Qry.FieldAsString("value_lat")
+                        )
+                    )
+                );
+}
+
+TPrnTagStore::TPrnTagStore(bool apr_lat)
+{
+    tag_lang.Init(apr_lat);
+    prn_test_tags.Init();
 }
 
 TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tagsNode, TBTRoute *aroute)
@@ -240,9 +275,34 @@ void TPrnTagStore::set_tag(string name, string value)
     im->second.TagInfo = value;
 }
 
-string TPrnTagStore::get_field(std::string name, int len, std::string align, std::string date_format, string tag_lang)
+string TPrnTagStore::get_test_field(std::string name, int len, std::string date_format)
 {
-    this->tag_lang.set_tag_lang(tag_lang);
+    name = upperc(name);
+    map<string, TPrnTestTagsItem>::iterator im = prn_test_tags.items.find(name);
+    if(im == prn_test_tags.items.end())
+        throw Exception("TPrnTagStore::get_test_field: %s tag not found", name.c_str());
+    string value = tag_lang.IsTstInter() ? im->second.value_lat : im->second.value;
+    if(value.empty())
+        value = im->second.value;
+    TDateTime date = 0;
+    ostringstream result;
+    switch(im->second.type) {
+        case 'D':
+            StrToDateTime(value.c_str(), ServerFormatDateTimeAsString, date);
+            result << DateTimeToStr(date, value, tag_lang.IsTstInter());
+            break;
+        case 'S':
+            result << value;
+            break;
+        case 'I':
+            result << setw(len) << setfill('0') << ToInt(value);
+            break;
+    }
+    return result.str();
+}
+
+string TPrnTagStore::get_real_field(std::string name, int len, std::string date_format)
+{
     map<const string, TTagListItem>::iterator im = tag_list.find(name);
     if(im == tag_list.end())
         throw Exception("TPrnTagStore::get_field: tag '%s' not implemented", name.c_str());
@@ -267,6 +327,17 @@ string TPrnTagStore::get_field(std::string name, int len, std::string align, std
     } catch(boost::bad_any_cast E) {
         throw Exception("tag %s failed: %s", name.c_str(), E.what());
     }
+    return result;
+}
+
+string TPrnTagStore::get_field(std::string name, int len, std::string align, std::string date_format, string tag_lang)
+{
+    this->tag_lang.set_tag_lang(tag_lang);
+    string result;
+    if(prn_test_tags.items.empty())
+        result = get_real_field(name, len, date_format);
+    else
+        result = get_test_field(name, len, date_format);
     if(!len) len = result.size();
     result = AlignString(result, len, align);
     if(this->tag_lang.get_pr_lat() and not is_lat(result)) {
