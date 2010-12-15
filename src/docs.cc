@@ -1429,6 +1429,7 @@ void BTM(const TRptParams &rpt_params, xmlNodePtr resNode)
                     bag_sum_row.weight = 0;
                     bag2_pks.clear();
                 }
+                bag_sum_row.last_target = iv->last_target;
                 bag_sum_row.airp_arv = iv->airp_arv;
                 bag_sum_row.class_code = iv->class_code;
                 bag_sum_idx = bm_table.size() - 1;
