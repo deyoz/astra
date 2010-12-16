@@ -43,6 +43,11 @@ bool TPrnTagStore::TTagLang::IsInter(TBTRoute *aroute, string &country)
     return false;
 }
 
+void TPrnTagStore::set_pr_lat(bool vpr_lat)
+{
+    tag_lang.Init(vpr_lat);
+}
+
 void TPrnTagStore::TTagLang::Init(bool apr_lat)
 {
     pr_lat = apr_lat;
@@ -212,7 +217,6 @@ TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tag
     tag_list.insert(make_pair(TAG::SURNAME,         TTagListItem(&TPrnTagStore::SURNAME, PAX_INFO)));
     tag_list.insert(make_pair(TAG::TEST_SERVER,     TTagListItem(&TPrnTagStore::TEST_SERVER)));
 
-    /*
     // specific for bag tags
     tag_list.insert(make_pair(TAG::AIRCODE,         TTagListItem(&TPrnTagStore::AIRCODE)));
     tag_list.insert(make_pair(TAG::NO,              TTagListItem(&TPrnTagStore::NO)));
@@ -239,7 +243,6 @@ TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tag
     tag_list.insert(make_pair(TAG::AIRP_ARV_NAME2,  TTagListItem(&TPrnTagStore::AIRP_ARV_NAME2)));
     tag_list.insert(make_pair(TAG::AIRP_ARV_NAME3,  TTagListItem(&TPrnTagStore::AIRP_ARV_NAME3)));
     tag_list.insert(make_pair(TAG::PNR,             TTagListItem(&TPrnTagStore::PNR, PNR_INFO)));
-    */
 
     if(tagsNode) {
         // Положим теги из клиентского запроса
@@ -298,6 +301,7 @@ string TPrnTagStore::get_test_field(std::string name, int len, std::string date_
             result << setw(len) << setfill('0') << ToInt(value);
             break;
     }
+    im->second.processed = true;
     return result.str();
 }
 
@@ -328,6 +332,29 @@ string TPrnTagStore::get_real_field(std::string name, int len, std::string date_
         throw Exception("tag %s failed: %s", name.c_str(), E.what());
     }
     return result;
+}
+
+bool TPrnTagStore::tag_processed(std::string name)
+{
+    if(prn_test_tags.items.empty()) {
+        map<const string, TTagListItem>::iterator im = tag_list.find(name);
+        if(im == tag_list.end())
+            throw Exception("TPrnTagStore::tag_processed: tag '%s' not implemented", name.c_str());
+        return im->second.processed;
+    } else {
+        map<string, TPrnTestTagsItem>::iterator im = prn_test_tags.items.find(name);
+        if(im == prn_test_tags.items.end())
+            throw Exception("TPrnTagStore::tag_processed: %s tag not found", name.c_str());
+        return im->second.processed;
+    }
+}
+
+string TPrnTagStore::get_tag(std::string name)
+{
+    if(prn_test_tags.items.empty())
+        return get_real_field(name, 0, ServerFormatDateTimeAsString);
+    else
+        return get_test_field(name, 0, ServerFormatDateTimeAsString);
 }
 
 string TPrnTagStore::get_field(std::string name, int len, std::string align, std::string date_format, string tag_lang)

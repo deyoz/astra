@@ -82,15 +82,11 @@ namespace TAG {
 };
 
 struct TBTRouteItem {
-    std::string airline, airline_lat;
+    std::string airline;
     int flt_no;
-    std::string suffix, suffix_lat;
+    std::string suffix;
     std::string airp_dep;
-    std::string airp_arv, airp_arv_lat;
-    int local_date;
-    std::string fltdate, fltdate_lat;
-    std::string airp_arv_name, airp_arv_name_lat;
-
+    std::string airp_arv;
     BASIC::TDateTime scd;
 };
 
@@ -138,10 +134,12 @@ class TPrnTagStore {
         struct TPrnTestTagsItem {
             char type;
             std::string value, value_lat;
+            bool processed;
             TPrnTestTagsItem(char vtype, std::string vvalue, std::string vvalue_lat):
                 type(vtype),
                 value(vvalue),
-                value_lat(vvalue_lat)
+                value_lat(vvalue_lat),
+                processed(false)
             {};
         };
 
@@ -327,6 +325,9 @@ class TPrnTagStore {
         void set_tag(std::string name, BASIC::TDateTime value);
         std::string get_field(std::string name, int len, std::string align, std::string date_format, std::string tag_lang);
         void get_prn_qry(TQuery &Qry);
+        std::string get_tag(std::string name);
+        bool tag_processed(std::string name);
+        void set_pr_lat(bool vpr_lat);
 
         void tst_get_tag_list(std::vector<std::string> &tag_list);
 };

@@ -63,74 +63,8 @@ typedef enum {
 //////////////////////////////// CLASS PrintDataParser ///////////////////////////////////
 
 class PrintDataParser {
-    public:
-        enum TMapType {mtBTBP};
     private:
-        class t_field_map {
-            private:
-                struct TTagValue {
-                    bool null, pr_print;
-                    otFieldType type;
-                    std::string StringVal;
-                    std::string err_msg;
-                    double FloatVal;
-                    int IntegerVal;
-                    BASIC::TDateTime DateTimeVal;
-                    bool nullable;
-                    TTagValue() {
-                        null = true;
-                        pr_print = false;
-                        type = otString;
-                        FloatVal = 0;
-                        IntegerVal = 0;
-                        DateTimeVal = 0;
-                        nullable = false;
-                    }
-                };
-
-                typedef std::map<std::string, TTagValue> TData;
-                TData data;
-                void dump_data();
-                std::string BCBP_M_2(bool pr_lat);
-                std::string LONG_DEP(bool pr_lat);
-                std::string LONG_ARV(bool pr_lat);
-                std::string FQT(bool pr_lat);
-
-
-                std::string class_checked;
-                int grp_id;
-                int pax_id;
-                typedef std::vector<TQuery*> TQrys;
-                TQrys Qrys;
-                TQuery *prnQry;
-
-                void additional_tags();
-                void fillBTBPMap();
-                void fillMSOMap(TBagReceipt &rcpt);
-                void add_mso_point(std::string name, std::string airp, bool pr_lat);
-                bool printed(TData::iterator di);
-
-            public:
-                int pr_lat;
-                std::set<std::string> form_tags;
-                int print_mode;
-                t_field_map(int grp_id, int pax_id, int pr_lat, xmlNodePtr tagsNode, TMapType map_type);
-                t_field_map(TBagReceipt &rcpt);
-                t_field_map(int pr_lat);
-                std::string get_field(std::string name, int len, std::string align, std::string date_format, int field_lat);
-                void add_tag(std::string name, int val, bool nullable = false);
-                void add_tag(std::string name, std::string val, bool nullable = false);
-                void add_err_tag(std::string name, std::string val);
-                void add_tag(std::string name, BASIC::TDateTime val, bool nullable = false);
-                std::string GetTagAsString(std::string name);
-                int GetTagAsInteger(std::string name);
-                TQuery *get_prn_qry();
-                ~t_field_map();
-        };
-
         int pectab_format;
-        int pr_lat;
-        t_field_map field_map;
         std::string parse_field(int offset, std::string field);
         std::string parse_field0(int offset, std::string field);
         std::string parse_field1(int offset, std::string field);
@@ -138,47 +72,12 @@ class PrintDataParser {
         std::string parse_tag(int offset, std::string tag);
     public:
         TPrnTagStore pts;
-        PrintDataParser(int pr_lat = 0): field_map(pr_lat), pts(pr_lat != 0)
-    {
-        pectab_format = 0;
-        this->pr_lat = pr_lat;
-    };
-        PrintDataParser(TBagReceipt rcpt): field_map(rcpt), pts(rcpt.pr_lat)
-    {
-        pectab_format = 0;
-        this->pr_lat = rcpt.pr_lat;
-    };
-        // Старый вариант конструктора
-        PrintDataParser(int grp_id, int pax_id, int pr_lat, xmlNodePtr tagsNode, TMapType map_type = mtBTBP):
-            field_map(grp_id, pax_id, pr_lat, tagsNode, map_type),
-            pts(grp_id, pax_id, pr_lat, tagsNode)
-    {
-        pectab_format = 0;
-        this->pr_lat = pr_lat;
-    };
-        // В новом добавится route и client_pr_lat вместо pr_lat будет
-        PrintDataParser(int grp_id, int pax_id, int pr_lat, xmlNodePtr tagsNode, TBTRoute *route, bool client_pr_lat, TMapType map_type = mtBTBP):
-            field_map(grp_id, pax_id, pr_lat, tagsNode, map_type),
-            pts(grp_id, pax_id, client_pr_lat, tagsNode, route)
-    {
-        pectab_format = 0;
-        this->pr_lat = pr_lat;
-    };
-        std::string parse(std::string &form, int pr_lat)
-        {
-            this->pr_lat = pr_lat;
-            field_map.pr_lat = pr_lat;
-            return parse(form);
-        }
+        PrintDataParser(int pr_lat = 0): pectab_format(0), pts(pr_lat != 0) {};
+        PrintDataParser(TBagReceipt rcpt): pectab_format(0), pts(rcpt.pr_lat) {};
+        PrintDataParser(int grp_id, int pax_id, bool pr_lat, xmlNodePtr tagsNode, TBTRoute *route = NULL):
+            pectab_format(0), pts(grp_id, pax_id, pr_lat, tagsNode, route) {};
         std::string parse(std::string &form);
-        TQuery *get_prn_qry() { return field_map.get_prn_qry(); };
-        void add_tag(std::string name, int val, bool nullable = false) { return field_map.add_tag(name, val, nullable); };
-        void add_tag(std::string name, std::string val, bool nullable = false) { return field_map.add_tag(name, val, nullable); };
-        void add_tag(std::string name, BASIC::TDateTime val, bool nullable = false) { return field_map.add_tag(name, val, nullable); };
-
-        std::string GetTagAsString(std::string name) { return field_map.GetTagAsString(name); };
-        int GetTagAsInteger(std::string name) { return field_map.GetTagAsInteger(name); };
-        bool exists(std::string tag);
+        std::string GetTagAsString(std::string name) { return ""; }; //!!! zatychka
 };
 
 // !!! Next generation
