@@ -2014,13 +2014,25 @@ void big_test(PrintDataParser &parser, TDevOperType op_type)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
-        "select data from drop_all_pectabs where op_type = :op_type";
+        "select id, version, connect_string, data from drop_all_pectabs where op_type = :op_type";
     Qry.CreateVariable("op_type", otString, EncodeDevOperType(op_type));
     Qry.Execute();
     ofstream out("check_parse");
     for(; not Qry.Eof; Qry.Next()) {
         string data = Qry.FieldAsString("data");
-        string parse_result = parser.parse(data);
+        string parse_result;
+        try {
+            parse_result = parser.parse(data);
+        } catch(Exception E) {
+            out
+                << "parse failed: "
+                << "id: " << Qry.FieldAsInteger("id") << " "
+                << "version: " << Qry.FieldAsInteger("version") << " "
+                << "connect_string: '" << Qry.FieldAsString("connect_string") << "'"
+                << " err msg: " << E.what()
+                << endl;
+            continue;
+        }
         string result;
         for(string::iterator is = parse_result.begin(); is != parse_result.end(); is++) {
             if(*is == '#')
