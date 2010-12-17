@@ -8,7 +8,9 @@
 #include "basic.h"
 #include "astra_consts.h"
 #include "jxtlib/JxtInterface.h"
+#ifdef USE_MESPRO
 #include "mespro.h"
+#endif //USE_MESPRO
 
 
 void getMesProParams(const char *head, int hlen, int *error, MPCryptParams &params);
