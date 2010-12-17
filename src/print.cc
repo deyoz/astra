@@ -2021,14 +2021,17 @@ void big_test(PrintDataParser &parser, TDevOperType op_type)
     for(; not Qry.Eof; Qry.Next()) {
         string data = Qry.FieldAsString("data");
         string parse_result;
+        ostringstream idx;
+        idx
+            << "id: " << Qry.FieldAsInteger("id") << " "
+            << "version: " << Qry.FieldAsInteger("version") << " "
+            << "connect_string: '" << Qry.FieldAsString("connect_string") << "'";
         try {
             parse_result = parser.parse(data);
         } catch(Exception E) {
             out
                 << "parse failed: "
-                << "id: " << Qry.FieldAsInteger("id") << " "
-                << "version: " << Qry.FieldAsInteger("version") << " "
-                << "connect_string: '" << Qry.FieldAsString("connect_string") << "'"
+                << idx.str()
                 << " err msg: " << E.what()
                 << endl;
             continue;
@@ -2040,7 +2043,7 @@ void big_test(PrintDataParser &parser, TDevOperType op_type)
             else
                 result += *is;
         }
-        out << result;
+        out << idx.str() << endl << result;
     }
 }
 
