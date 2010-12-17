@@ -838,7 +838,8 @@ string PrintDataParser::parse(string &form)
     } else if(form.substr(i, 1) == "S") {
         i += 1;
         pts.set_print_mode(3);
-    }
+    } else
+        pts.set_print_mode(0);
     for(; i < form.size(); i++) {
         switch(Mode) {
             case 'S':
@@ -1427,6 +1428,43 @@ string get_fmt_type(int prn_type)
     return Qry.FieldAsString("code");
 }
 
+void big_test(PrintDataParser &parser, TDevOperType op_type)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "select id, version, connect_string, data from drop_all_pectabs where op_type = :op_type";
+    Qry.CreateVariable("op_type", otString, EncodeDevOperType(op_type));
+    Qry.Execute();
+    ofstream out("check_parse");
+    for(; not Qry.Eof; Qry.Next()) {
+        string data = Qry.FieldAsString("data");
+        string parse_result;
+        ostringstream idx;
+        idx
+            << "id: " << Qry.FieldAsInteger("id") << " "
+            << "version: " << Qry.FieldAsInteger("version") << " "
+            << "connect_string: '" << Qry.FieldAsString("connect_string") << "'";
+        try {
+            parse_result = parser.parse(data);
+        } catch(Exception E) {
+            out
+                << "parse failed: "
+                << idx.str()
+                << " err msg: " << E.what()
+                << endl;
+            continue;
+        }
+        string result;
+        for(string::iterator is = parse_result.begin(); is != parse_result.end(); is++) {
+            if(*is == '#')
+                result += "#\n";
+            else
+                result += *is;
+        }
+        out << idx.str() << endl << result;
+    }
+}
+
 void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
 {
 //    check_CUTE_certified(tag_key.prn_type, tag_key.dev_model, tag_key.fmt_type);
@@ -1562,6 +1600,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
 
         for(int i = 0; i < BT_count; ++i) {
             set_via_fields(parser, route, i * VIA_num, (i + 1) * VIA_num);
+            big_test(parser, dotPrnBT);
             string prn_form = parser.parse(prn_forms.back());
             if(DecodeDevFmtType(tag_key.fmt_type) == dftDPL) {
               if (!reqInfo->desk.compatible(NEW_TERM_VERSION)) {
@@ -2005,43 +2044,6 @@ void tst_dump(int pax_id, int grp_id, int pr_lat)
         TDateTime time_print = NowUTC();
         Qry.CreateVariable("now_utc", otDate, time_print);
         Qry.Execute();
-    }
-}
-
-void big_test(PrintDataParser &parser, TDevOperType op_type)
-{
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "select id, version, connect_string, data from drop_all_pectabs where op_type = :op_type";
-    Qry.CreateVariable("op_type", otString, EncodeDevOperType(op_type));
-    Qry.Execute();
-    ofstream out("check_parse");
-    for(; not Qry.Eof; Qry.Next()) {
-        string data = Qry.FieldAsString("data");
-        string parse_result;
-        ostringstream idx;
-        idx
-            << "id: " << Qry.FieldAsInteger("id") << " "
-            << "version: " << Qry.FieldAsInteger("version") << " "
-            << "connect_string: '" << Qry.FieldAsString("connect_string") << "'";
-        try {
-            parse_result = parser.parse(data);
-        } catch(Exception E) {
-            out
-                << "parse failed: "
-                << idx.str()
-                << " err msg: " << E.what()
-                << endl;
-            continue;
-        }
-        string result;
-        for(string::iterator is = parse_result.begin(); is != parse_result.end(); is++) {
-            if(*is == '#')
-                result += "#\n";
-            else
-                result += *is;
-        }
-        out << idx.str() << endl << result;
     }
 }
 
