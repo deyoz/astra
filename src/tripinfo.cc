@@ -172,7 +172,7 @@ void TSQL::createSQLTrips( ) {
     "points";
   p.sqlwhere =
     "points.pr_del>=0 AND "
-    "time_out BETWEEN TRUNC(system.UTCSYSDATE)-15 AND TRUNC(system.UTCSYSDATE)+2 ";
+    "time_out BETWEEN TRUNC(system.UTCSYSDATE)-15 AND TRUNC(system.UTCSYSDATE)+5 ";
   sqltrips[ "TLG.EXE" ] = p;
   p.clearVariables();
 }

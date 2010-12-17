@@ -5,21 +5,20 @@
 #include "tlg/tlg.h"
 #include "timer.h"
 #include "empty_proc.h"
+#include "crypt.h"
+#include "web_main.h"
+#include "obrnosir.h"
+
 #include "jxtlib/jxtlib.h"
 #include "jxtlib/xml_stuff.h"
 #include "serverlib/sirena_queue.h"
 #include "serverlib/ocilocal.h"
 #include "tclmon/mespro_crypt.h"
-#include "crypt.h"
-#include "web_main.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
 
 using namespace ServerFramework;
-
-extern "C" void help_nosir_user();
-extern "C" int main_nosir_user(int argc,char **argv);
 
 namespace ServerFramework{
 inline QueryRunner AstraQueryRunner()
@@ -189,20 +188,7 @@ int AstraApplication::tcl_init(Tcl_Interp *interp)
 
 int AstraApplication::nosir_proc(int argc, char ** argv)
 {
-//     PerfomInit();
-
-//     InitLogTime(NULL);
-
-/*!!! for Den   Oci7Init(get_connect_string(),1);
-
-    int res = main_nosir_user(argc,argv);
-    if(res != 0) {
-        make_curs("rollback").exec();
-    } else {
-        make_curs("commit").exec();
-    }
-
-    return res;*/
+  return main_nosir_user(argc,argv);
 }
 
 

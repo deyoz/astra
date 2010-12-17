@@ -843,6 +843,65 @@ class TSeatAlgoTypes: public TIdBaseTable {
   	};
 };
 
+class TRightsRow: public TIdBaseTableRow {
+	  public:
+    const char *get_row_name() const { return "TRightsRow"; };
+};
+
+class TRights: public TIdBaseTable {
+  protected:
+    const char *get_table_name() { return "TRights"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+    void Invalidate() {}; //всегда актуальна
+  public:
+  	TRights() {
+  		Init();
+  		select_sql = "SELECT ida AS id,name,name_lat FROM rights_list";
+  	};
+};
+
+class TUserTypesRow: public TIdBaseTableRow {
+	  public:
+    const char *get_row_name() const { return "TUserTypesRow"; };
+};
+
+class TUserTypes: public TIdBaseTable {
+  protected:
+    const char *get_table_name() { return "TUserTypes"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+    void Invalidate() {}; //всегда актуальна
+  public:
+  	TUserTypes() {
+  		Init();
+  		select_sql = "SELECT code AS id,name,name_lat FROM user_types";
+  	};
+};
+
+class TUserSetTypesRow: public TIdBaseTableRow {
+  public:
+    std::string short_name,short_name_lat,category;
+    const char *get_row_name() const { return "TUserSetTypesRow"; };
+    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU) const
+    {
+      if (lowerc(field)=="short_name") return lang!=AstraLocale::LANG_RU?short_name_lat:short_name;
+      if (lowerc(field)=="category") return category;
+      return TIdBaseTableRow::AsString(field,lang);
+    };
+};
+
+class TUserSetTypes: public TIdBaseTable {
+  protected:
+    const char *get_table_name() { return "TUserSetTypes"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+    void Invalidate() {}; //всегда актуальна
+  public:
+  	TUserSetTypes() {
+  		Init();
+  		select_sql = "SELECT code AS id,category,short_name,short_name_lat,name,name_lat "
+                   "FROM user_set_types";
+  	}
+};
+
 class TBagNormTypesRow: public TCodeBaseTableRow {
 	public:
     const char *get_row_name() const { return "TBagNormTypesRow"; };
@@ -872,6 +931,26 @@ class TLangTypes: public TCodeBaseTable {
   public:
   	TLangTypes() {
   		Init( "lang_types" );
+  	};
+};
+
+class TStationModesRow: public TCodeBaseTableRow {
+	public:
+    const char *get_row_name() const { return "TStationModesRow"; };
+};
+
+class TStationModes: public TCodeBaseTable {
+  protected:
+    const char *get_table_name() { return "TStationModes"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+    void Invalidate() {}; //всегда актуальна
+  public:
+  	TStationModes() {
+      Init();
+  		select_sql =
+  		  "SELECT 'Р' AS code, 'Регистрация' AS name, 'Check-in' AS name_lat FROM dual "
+        "UNION "
+        "SELECT 'П', 'Посадка', 'Boarding' FROM dual";
   	};
 };
 

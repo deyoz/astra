@@ -17,6 +17,7 @@
 #include "serverlib/sirena_queue.h"
 #include "jxtlib/JxtInterface.h"
 #include "jxtlib/jxt_cont.h"
+#include "jxtlib/xml_stuff.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -54,19 +55,24 @@ string AlignString(string str, int len, string align)
     return result;
 };
 
-bool TDesk::compatible(std::string ver)
+bool TDesk::isValidVersion(const std::string &ver)
 {
-  //проверим правильность указанной версии
-  int i=0;
-  string::iterator c=ver.begin();
-  for(;c!=ver.end();c++,i++)
+  if (ver.size()!=14) return false;
+  string::const_iterator c=ver.begin();
+  for(int i=0;c!=ver.end();c++,i++)
   {
     if (i>=0 && i<=5 && IsDigit(*c)) continue;
     if (i==6 && *c=='-') continue;
     if (i>=7 && i<=13 && IsDigit(*c)) continue;
-    break;
+    return false;
   };
-  if (c!=ver.end() || i!=14)
+  return true;
+};
+
+bool TDesk::compatible(const std::string &ver)
+{
+  //проверим правильность указанной версии
+  if (!isValidVersion(ver))
     throw EXCEPTIONS::Exception("TDesk::compatible: wrong version param '%s'",ver.c_str());
 
   return (!version.empty() &&
@@ -1606,15 +1612,43 @@ bool transliter_equal(const string &value1, const string &value2)
 
 string& EOracleError2UserException(string& msg)
 {
-  if (msg.substr( 0, 3 ) == "ORA")
+  //ProgTrace(TRACE5,"EOracleError2UserException: msg=%s",msg.c_str());
+  size_t p;
+  if (msg.substr( 0, 4 ) == "ORA-")
   {
-    size_t p = msg.find( ": " );
+    p = msg.find( ": " );
     if ( p != string::npos )
     {
+      //отрезаем ORA- первой строки
       msg.erase( 0, p+2 );
-      p = msg.find_first_of("\n\r");
-      if ( p != string::npos ) msg.erase( p );
     };
+  };
+  //ищем следующую строку, начинающуюся с ORA-
+  p=0;
+  while( (p = msg.find_first_of("\n\r",p)) != string::npos )
+  {
+    p++;
+    if (msg.substr( p, 4 ) == "ORA-")
+    {
+      msg.erase( p );
+      break;
+    };
+  };
+  
+  string msgXML=ConvertCodepage(msg,"CP866","UTF-8");
+  XMLDoc msgDoc(msgXML);
+  if (msgDoc.docPtr()!=NULL)
+  {
+    ProgTrace(TRACE5,"EOracleError2UserException: msg=%s",msg.c_str());
+    xml_decode_nodelist(msgDoc.docPtr()->children);
+    LexemaData lexemeData;
+    lexemeData.lexema_id=NodeAsString("/lexeme_data/id",msgDoc.docPtr());
+    xmlNodePtr node=NodeAsNode("/lexeme_data/params",msgDoc.docPtr())->children;
+    for(;node!=NULL;node=node->next)
+    {
+      lexemeData.lparams << LParam((const char*)node->name, NodeAsString(node));
+    };
+    msg=getLocaleText(lexemeData);
   };
   return msg;
 };

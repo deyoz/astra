@@ -1526,14 +1526,17 @@ void BTM(TRptParams &rpt_params, xmlNodePtr resNode)
     NewTextChild(variablesNode, "TotWeight", TotWeight);
     NewTextChild(variablesNode, "Tot", (rpt_params.IsInter() ? "" : vs_number(TotAmount)));
     Qry.Clear();
-    Qry.SQLText =
+    SQLText =
         "select "
         "  sum(bag2.amount) amount, "
         "  sum(bag2.weight) weight "
         "from "
         "  pax_grp, "
         "  bag2, "
-        "  transfer "
+        "  transfer ";
+    if(rpt_params.ckin_zone != ALL_CKIN_ZONES)
+        SQLText += ", halls2 ";
+    SQLText +=
         "where "
         "  pax_grp.point_dep = :point_id and "
         "  pax_grp.grp_id = bag2.grp_id and "
@@ -1541,6 +1544,13 @@ void BTM(TRptParams &rpt_params, xmlNodePtr resNode)
         "  pax_grp.bag_refuse = 0 and "
         "  bag2.pr_cabin = 0 and "
         "  transfer.pr_final <> 0 ";
+    if(rpt_params.ckin_zone != ALL_CKIN_ZONES) {
+        SQLText +=
+            "   and bag2.hall = halls2.id(+) "
+            "   and nvl(halls2.rpt_grp, ' ') = nvl(:zone, ' ') and bag2.hall IS NOT NULL ";
+        Qry.CreateVariable("zone", otString, rpt_params.ckin_zone);
+    }
+    Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
     Qry.Execute();
     int trfer_amount = 0;
@@ -2576,9 +2586,12 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
         NewTextChild(paxNode, "reg_no", Qry.FieldAsInteger("reg_no"));
         NewTextChild(paxNode, "surname", transliter(Qry.FieldAsString("surname"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+        NewTextChild(paxNode, "name", transliter(Qry.FieldAsString("name"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
         if(pr_web)
             NewTextChild(paxNode, "user_descr", transliter(Qry.FieldAsString("user_descr"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
         NewTextChild(paxNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, Qry.FieldAsString("pers_type"), efmtCodeNative));
+        NewTextChild(paxNode, "pr_exam", Qry.FieldAsInteger("pr_exam"), 0);
+        NewTextChild(paxNode, "pr_brd", Qry.FieldAsInteger("pr_brd"), 0);
         NewTextChild(paxNode, "seat_no", Qry.FieldAsString("seat_no"));
         NewTextChild(paxNode, "document", Qry.FieldAsString("document"));
         NewTextChild(paxNode, "ticket_no", Qry.FieldAsString("ticket_no"));

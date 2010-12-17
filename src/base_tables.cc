@@ -84,6 +84,12 @@ TBaseTable &TBaseTables::get(string name)
         	  base_tables[name] = new TMiscSetTypes();
         else if(name == "SEAT_ALGO_TYPES")
         	  base_tables[name] = new TSeatAlgoTypes();
+        else if(name == "RIGHTS")
+        	  base_tables[name] = new TRights();
+        else if(name == "USER_TYPES")
+        	  base_tables[name] = new TUserTypes();
+        else if(name == "USER_SET_TYPES")
+        	  base_tables[name] = new TUserSetTypes();
         else if(name == "TRIP_SUFFIXES")
         	  base_tables[name] = new TTripSuffixes();
         else if(name == "TYPEB_TYPES")
@@ -92,6 +98,8 @@ TBaseTable &TBaseTables::get(string name)
         	  base_tables[name] = new TBagNormTypes();
         else if(name == "LANG_TYPES")
         	  base_tables[name] = new TLangTypes();
+        else if(name == "STATION_MODES")
+        	  base_tables[name] = new TStationModes();
         else
             throw Exception("TBaseTables::get_base_table: " + name + " not found");
     }
@@ -709,6 +717,27 @@ void TSeatAlgoTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow 
   TIdBaseTable::create_row(Qry,row,replaced_row);
 };
 
+void TRights::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+{
+  *row = new TRightsRow;
+  TIdBaseTable::create_row(Qry,row,replaced_row);
+};
+
+void TUserTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+{
+  *row = new TUserTypesRow;
+  TIdBaseTable::create_row(Qry,row,replaced_row);
+};
+
+void TUserSetTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+{
+  *row = new TUserSetTypesRow;
+  ((TUserSetTypesRow*)*row)->short_name=Qry.FieldAsString("short_name");
+  ((TUserSetTypesRow*)*row)->short_name_lat=Qry.FieldAsString("short_name_lat");
+  ((TUserSetTypesRow*)*row)->category=Qry.FieldAsString("category");
+  TIdBaseTable::create_row(Qry,row,replaced_row);
+};
+
 void TBagNormTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
 	*row = new TBagNormTypesRow;
@@ -718,6 +747,12 @@ void TBagNormTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow *
 void TLangTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
 	*row = new TLangTypesRow;
+	TCodeBaseTable::create_row(Qry,row,replaced_row);
+};
+
+void TStationModes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+{
+	*row = new TStationModesRow;
 	TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 
