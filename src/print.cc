@@ -2010,19 +2010,25 @@ void tst_dump(int pax_id, int grp_id, int pr_lat)
     }
 }
 
-void big_test(int grp_id, int pax_id, bool pr_lat, xmlNodePtr clientDataNode)
+void big_test(PrintDataParser &parser, TDevOperType op_type)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
-        "select data from drop_all_pectabs where op_type in ('PRINT_BP', 'PRINT_BT')";
+        "select data from drop_all_pectabs where op_type = :op_type";
+    Qry.CreateVariable("op_type", otString, EncodeDevOperType(op_type));
     Qry.Execute();
-    ofstream out("out");
-    PrintDataParser parser(grp_id, pax_id, pr_lat, clientDataNode );
+    ofstream out("check_parse");
     for(; not Qry.Eof; Qry.Next()) {
         string data = Qry.FieldAsString("data");
-        string out = parser.parse(data);
-        for(string::iterator is = out.begin(); is != out.end(); is++) {
+        string parse_result = parser.parse(data);
+        string result;
+        for(string::iterator is = parse_result.begin(); is != parse_result.end(); is++) {
+            if(*is == '#')
+                result += "#\n";
+            else
+                result += *is;
         }
+        out << result;
     }
 }
 
@@ -2205,8 +2211,8 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     TReqInfo *reqInfo = TReqInfo::Instance();
     for (vector<TPaxPrint>::iterator iprint=paxs.begin(); iprint!=paxs.end(); iprint++ ) {
 //!!!        tst_dump(iprint->pax_id, iprint->grp_id, prnParams.pr_lat);
-        big_test(iprint->grp_id, iprint->pax_id, prnParams.pr_lat, clientDataNode);
         PrintDataParser parser( iprint->grp_id, iprint->pax_id, prnParams.pr_lat, clientDataNode );
+        big_test(parser, dotPrnBP);
         // если это нулевой сегмент, то тогда печатаем выход на посадку иначе не нечатаем
         //надо удалить выход на посадку из данных по пассажиру
         if(grp_id != iprint->grp_id)
