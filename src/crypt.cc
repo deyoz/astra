@@ -306,8 +306,10 @@ bool GetClientCertificate( TQuery *Qry, int grp_id, bool pr_grp, const std::stri
   bool pr_exists=false;
   while ( !Qry->Eof ) {
   	if ( !Qry->FieldIsNULL( "desk" ) && pr_grp || // если пультовой сертификат, а у нас описан групповой
-  		   Qry->FieldIsNULL( "desk" ) && !pr_grp ) // если групповой сертификат, а у нас описан пультовой
+  		   Qry->FieldIsNULL( "desk" ) && !pr_grp ) { // если групповой сертификат, а у нас описан пультовой
+  		Qry->Next();
   	  continue;
+  	}
     if ( Qry->FieldAsInteger( "pr_denial" ) == 0 && // разрешен
   	     Qry->FieldAsDateTime( "now" ) > Qry->FieldAsDateTime( "first_date" ) ) // начал выполняться
   	pr_exists = true; // значит сертификат есть, но возможно он просрочен
