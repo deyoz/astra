@@ -160,7 +160,7 @@ class TPrnTagStore {
         };
 
         int pax_id;
-        bool pr_bp;
+        int print_mode;
 
         std::map<const std::string, TTagListItem> tag_list;
 
@@ -326,6 +326,7 @@ class TPrnTagStore {
         std::string get_tag(std::string name);
         bool tag_processed(std::string name);
         void set_pr_lat(bool vpr_lat);
+        void set_print_mode(int val);
 
         void tst_get_tag_list(std::vector<std::string> &tag_list);
 };

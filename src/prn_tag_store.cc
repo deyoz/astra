@@ -43,6 +43,11 @@ bool TPrnTagStore::TTagLang::IsInter(TBTRoute *aroute, string &country)
     return false;
 }
 
+void TPrnTagStore::set_print_mode(int val)
+{
+    print_mode = val;
+}
+
 void TPrnTagStore::set_pr_lat(bool vpr_lat)
 {
     tag_lang.Init(vpr_lat);
@@ -168,8 +173,7 @@ TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tag
     grpInfo.Init(agrp_id);
     tag_lang.Init(grpInfo.point_dep, grpInfo.point_arv, aroute, apr_lat != 0);
     pax_id = apax_id;
-    pr_bp = aroute == NULL;
-    if(pr_bp and pax_id == NoExists)
+    if(aroute == NULL and pax_id == NoExists)
         throw Exception("TPrnTagStore::TPrnTagStore: pax_id not defined for bp mode");
 
     tag_list.insert(make_pair(TAG::BCBP_M_2,        TTagListItem(&TPrnTagStore::BCBP_M_2, POINT_INFO | PAX_INFO | PNR_INFO)));
@@ -366,6 +370,14 @@ string TPrnTagStore::get_field(std::string name, int len, std::string align, std
     else
         result = get_test_field(name, len, date_format);
     if(!len) len = result.size();
+
+    if(print_mode == 1 or print_mode == 2 and (name == TAG::PAX_ID or name == TAG::TEST_SERVER))
+        return string(len, '8');
+    if(print_mode == 2)
+        return AlignString("8", len, align);
+    if(print_mode == 3)
+        return string(len, ' ');
+
     result = AlignString(result, len, align);
     if(this->tag_lang.get_pr_lat() and not is_lat(result)) {
         ProgError(STDLOG, "Данные печати не латинские: %s = \"%s\"", name.c_str(), result.c_str());

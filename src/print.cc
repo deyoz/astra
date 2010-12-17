@@ -829,18 +829,16 @@ string PrintDataParser::parse(string &form)
         i += 3;
         pectab_format = 1;
     }
-    /* !!!
     if(form.substr(i, 2) == "XX") {
         i += 2;
-        field_map.print_mode = 1;
+        pts.set_print_mode(1);
     } else if(form.substr(i, 1) == "X") {
         i += 1;
-        field_map.print_mode = 2;
+        pts.set_print_mode(2);
     } else if(form.substr(i, 1) == "S") {
         i += 1;
-        field_map.print_mode = 3;
+        pts.set_print_mode(3);
     }
-    */
     for(; i < form.size(); i++) {
         switch(Mode) {
             case 'S':
