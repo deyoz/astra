@@ -207,16 +207,14 @@ class TPrnTagStore {
             int pax_id;
             std::string name, surname, document;
             std::string ticket_rem;
-            float ticket_no;
+            std::string ticket_no;
             int coupon_no;
             int reg_no;
             bool pr_smoke;
             int seats;
             std::string pers_type;
             TPaxInfo():
-                pax_id(ASTRA::NoExists),
-                ticket_no(ASTRA::NoExists),
-                coupon_no(ASTRA::NoExists)
+                pax_id(ASTRA::NoExists)
             {};
             void Init(int apax_id);
         };

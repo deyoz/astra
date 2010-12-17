@@ -586,7 +586,7 @@ void TPrnTagStore::TPaxInfo::Init(int apax_id)
         name = Qry.FieldAsString("name");
         document = Qry.FieldAsString("document");
         ticket_rem = Qry.FieldAsString("ticket_rem");
-        ticket_no = Qry.FieldAsFloat("ticket_no");
+        ticket_no = Qry.FieldAsString("ticket_no");
         coupon_no = Qry.FieldAsInteger("coupon_no");
         pr_smoke = Qry.FieldAsInteger("pr_smoke") != 0;
         reg_no = Qry.FieldAsInteger("reg_no");
@@ -946,7 +946,7 @@ string TPrnTagStore::ETICKET_NO(TFieldParams fp) // !!! lat ???
 {
     ostringstream result;
     if(paxInfo.ticket_rem == "TKNE")
-        result << fixed << setprecision(0) << paxInfo.ticket_no << "/" << paxInfo.coupon_no;
+        result << paxInfo.ticket_no << "/" << paxInfo.coupon_no;
     return result.str();
 }
 
@@ -1055,7 +1055,7 @@ string TPrnTagStore::ONE_SEAT_NO(TFieldParams fp)
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "select "
-        "   system.transliter(salons.get_seat_no(:pax_id,:seats,NULL,NULL,'one',NULL,1),:is_inter) AS seat_no "
+        "   salons.get_seat_no(:pax_id,:seats,NULL,NULL,'one',NULL,:is_inter) AS seat_no "
         "from dual";
     Qry.CreateVariable("pax_id", otInteger, paxInfo.pax_id);
     Qry.CreateVariable("seats", otInteger, paxInfo.seats);
@@ -1098,7 +1098,7 @@ string TPrnTagStore::SEAT_NO(TFieldParams fp)
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "select "
-        "   system.transliter(salons.get_seat_no(:pax_id,:seats,NULL,NULL,'seats',NULL,1),:is_inter) AS seat_no "
+        "   salons.get_seat_no(:pax_id,:seats,NULL,NULL,'seats',NULL,:is_inter) AS seat_no "
         "from dual";
     Qry.CreateVariable("pax_id", otInteger, paxInfo.pax_id);
     Qry.CreateVariable("seats", otInteger, paxInfo.seats);
@@ -1112,10 +1112,11 @@ string TPrnTagStore::STR_SEAT_NO(TFieldParams fp)
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "select "
-        "   system.transliter(salons.get_seat_no(:pax_id,:seats,NULL,NULL,'voland',NULL,1),:is_inter) AS seat_no "
+        "   salons.get_seat_no(:pax_id,:seats,NULL,NULL,'voland',NULL,:is_inter) AS seat_no "
         "from dual";
     Qry.CreateVariable("pax_id", otInteger, paxInfo.pax_id);
     Qry.CreateVariable("seats", otInteger, paxInfo.seats);
+    ProgTrace(TRACE5, "tag_lang.GetLang(): '%s'", tag_lang.GetLang().c_str());
     Qry.CreateVariable("is_inter", otInteger, tag_lang.GetLang() != AstraLocale::LANG_RU);
     Qry.Execute();
     return Qry.FieldAsString("seat_no");
