@@ -327,6 +327,8 @@ bool GetClientCertificate( TQuery *Qry, int grp_id, bool pr_grp, const std::stri
 
     break;
   }
+  if ( pkcs_id >= 0 )
+    ProgTrace( TRACE5, "pkcs_id=%d", pkcs_id );
   return pr_exists;
 }
 
@@ -464,13 +466,13 @@ void IntGetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr res
     TQuery Qry(&OraSession);
     Qry.SQLText =
       "SELECT keyname, certname, password, desk, desk_grp_id "
-      " FROM crypt_file_params, desks, desk_grp "
+      " FROM crypt_file_params "
       " WHERE pkcs_id=:pkcs_id";
     Qry.CreateVariable( "pkcs_id", otInteger, Crypt.pkcs_id );
     Qry.Execute();
     if ( Qry.Eof ) return;
 
-    node = NewTextChild( node, "pkcs", Qry.FieldAsInteger( "pkcs_id" ) );
+    node = NewTextChild( node, "pkcs", Crypt.pkcs_id );
     if ( Qry.FieldIsNULL( "desk" ) )
       SetProp( node, "common_dir" );
     SetProp( node, "key_filename", Qry.FieldAsString( "keyname" ) );
