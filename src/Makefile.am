@@ -15,20 +15,69 @@ astra_LDFLAGS = @ORACLE_LDFLAGS@ @SHARED_LDFLAGS@
 
 AM_CXXFLAGS = $(TCLINCLUDE)
 astra_SOURCES = \
-	adm.cc                   astra_utils.cc  etick_change_status.cpp  salons.cc  timer.cpp \
-	astra_callbacks.cc       brd.cc          images.cc                season.cc  tripinfo.cc \
-	astra_consts.cc          cache.cc        locale.cc                seats.cc   xml_unit.cc \
-	astra_main.cc            cent.cc         maindcs.cc               sopp.cc    print.cc \
-	astra_tick_read_edi.cpp  checkin.cc      prepreg.cc               stages.cc  docs.cc \
-	astra_tick_view_xml.cc   etick.cc        salonform.cc             stat.cc    telegram.cc \
-	events.cc		 base_tables.cc  astra_misc.cc            design_blank.cc \
-	astra_service.cc	 develop_dbf.cc	 flight_cent_dbf.cc       payment.cc payment2.cc \
-	sofi.cc			 aodb.cc	 spp_cek.cc telegram2.cc  czech_police_edi_file.cpp \
-	obrnosir.c		 convert.cc      dev_tuning.cc            astra_context.cc \
-	salons2.cc		 salonform2.cc	 seats2.cc		  seats_utils.cc \
-	empty_proc.cc            dev_consts.cc   dev_utils.cc             access.cc \
-	arx_daily.cc		 crypt.cc        web_main.cc		  astra_locale.cc \
-	docs2.cc                 astra_elems.cc   prn_tag_store.cc
+  adm.cc \
+  access.cc \
+  aodb.cc \
+  arx_daily.cc \
+  astra_callbacks.cc \
+  astra_consts.cc \
+  astra_context.cc \
+  astra_elems.cc \
+  astra_locale.cc \
+  astra_main.cc \
+  astra_misc.cc \
+  astra_service.cc \
+  astra_tick_read_edi.cpp \
+  astra_tick_view_xml.cc \
+  astra_utils.cc \
+  base_tables.cc \
+  brd.cc \
+  cache.cc \
+  cent.cc \
+  checkin.cc \
+  convert.cc \
+  crypt.cc \
+  czech_police_edi_file.cpp \
+  design_blank.cc \
+  dev_consts.cc \
+  dev_tuning.cc \
+  dev_utils.cc \
+  develop_dbf.cc \
+  docs.cc \
+  docs2.cc \
+  empty_proc.cc \
+  etick_change_status.cpp \
+  etick.cc \
+  events.cc \
+  flight_cent_dbf.cc \
+  images.cc \
+  locale.cc \
+  maindcs.cc \
+  obrnosir.cc \
+  payment.cc \
+  payment2.cc \
+  prepreg.cc \
+  print.cc \
+  prn_tag_store.cc \
+  salonform.cc \
+  salonform2.cc \
+  salons.cc \
+  salons2.cc \
+  season.cc \
+  seats_utils.cc \
+  seats.cc \
+  seats2.cc \
+  sofi.cc \
+  sopp.cc \
+  spp_cek.cc \
+  stages.cc \
+  stat.cc \
+  telegram.cc \
+  telegram2.cc \
+  timer.cpp \
+  tripinfo.cc \
+  web_main.cc \
+  xml_unit.cc
 
 astra_LDADD = $(all_libraries) \
 	tlg/libtlg.a \
@@ -48,23 +97,68 @@ EXTRA_DIST = systarg.mk run astra.tcl PS Restart kills \
 
 DISTCLEANFILES = local_after.tcl local_before.tcl
 noinst_HEADERS = \
-	adm.h                  astra_tick_view_xml.h  images.h            sopp.h \
-	astra_callbacks.h      astra_utils.h          maindcs.h           stages.h \
-	astra_consts.h         brd.h                  prepreg.h           stat.h \
-	astra_main.h           cache.h                salonform.h         print.h \
-	astra_ticket.h         cent.h                 salons.h            timer.h \
-	astra_tick_read_edi.h  checkin.h              season.h            tripinfo.h \
-	astra_tick_reader.h    etick_change_status.h  seats.h             xml_unit.h \
-	astra_tick_view.h      etick.h                docs.h \
-	events.h	       base_tables.h	      astra_misc.h        design_blank.h \
-	astra_service.h	       develop_dbf.h	      flight_cent_dbf.h   payment.h payment2.h \
-	sofi.h		       aodb.h		      spp_cek.h		  convert.h \
-	dev_tuning.h           czech_police_edi_file.h                    astra_context.h \
-	salons2.h	       salonform2.h	      seats2.h		  seats_utils.h \
-	empty_proc.h           dev_consts.h           dev_utils.h         access.h \
-	arx_daily.h	       crypt.h                web_main.h	  astra_locale.h \
-	astra_elems.h          prn_tag_store.h
-
+  adm.h \
+  access.h \
+  aodb.h \
+  arx_daily.h \
+  astra_callbacks.h \
+  astra_consts.h \
+  astra_context.h \
+  astra_elems.h \
+  astra_locale.h \
+  astra_main.h \
+  astra_misc.h \
+  astra_service.h \
+  astra_tick_read_edi.h \
+  astra_tick_reader.h \
+  astra_tick_view_xml.h \
+  astra_tick_view.h \
+  astra_ticket.h \
+  astra_utils.h \
+  base_tables.h \
+  brd.h \
+  cache.h \
+  cent.h \
+  checkin.h \
+  convert.h \
+  crypt.h \
+  czech_police_edi_file.h \
+  design_blank.h \
+  dev_consts.h \
+  dev_tuning.h \
+  dev_utils.h \
+  develop_dbf.h \
+  docs.h \
+  empty_proc.h \
+  etick_change_status.h \
+  etick.h \
+  events.h \
+  flight_cent_dbf.h \
+  images.h \
+  maindcs.h \
+  obrnosir.h \
+  payment.h \
+  payment2.h \
+  prepreg.h \
+  print.h \
+  prn_tag_store.h \
+  salonform.h \
+  salonform2.h \
+  salons.h \
+  salons2.h \
+  season.h \
+  seats_utils.h \
+  seats.h \
+  seats2.h \
+  sofi.h \
+  sopp.h \
+  spp_cek.h \
+  stages.h \
+  stat.h \
+  timer.h \
+  tripinfo.h \
+  web_main.h \
+  xml_unit.h
 
 
 

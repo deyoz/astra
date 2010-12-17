@@ -152,7 +152,8 @@ class TDesk {
       mode = ASTRA::omSTAND;
       grp_id = -1;
     };
-    bool compatible(std::string ver);
+    bool compatible(const std::string &ver);
+    static bool isValidVersion(const std::string &ver);
 };
 
 class TScreen {

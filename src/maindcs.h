@@ -63,4 +63,7 @@ public:
 
 void GetDevices(xmlNodePtr reqNode, xmlNodePtr resNode);
 
+int SetTermVersionNotice(int argc,char **argv);
+void SetTermVersionNoticeHelp(const char *name);
+
 #endif /*_MAINDCS_H_*/

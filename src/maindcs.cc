@@ -28,17 +28,130 @@ using namespace std;
 
 enum TDevParamCategory{dpcSession,dpcFormat,dpcModel};
 
+const int NEW_TERM_VER_NOTICE=1;
+
+int SetTermVersionNotice(int argc,char **argv)
+{
+  TQuery Qry(&OraSession);
+  string version, term_mode;
+  ostringstream prior_version;
+  try
+  {
+    //проверяем параметры
+    if (argc<3) throw EConvertError("wrong parameters");
+    ProgTrace(TRACE5, "SetTermVersionNotice: <platform>=%s <version>=%s", argv[1], argv[2]);
+    if (!TDesk::isValidVersion(argv[2])) throw EConvertError("wrong terminal version");
+    version=argv[2];
+    int i = ToInt(version.substr(7));
+    if (i<=0) throw EConvertError("wrong terminal version");
+    i--;
+    prior_version << version.substr(0,7) << setw(7) << setfill('0') << i;
+    ProgTrace(TRACE5, "SetTermVersionNotice: prior_version=%s", prior_version.str().c_str());
+    Qry.Clear();
+    Qry.SQLText="SELECT code FROM term_modes WHERE code=UPPER(:term_mode)";
+    Qry.CreateVariable("term_mode", otString, argv[1]);
+    Qry.Execute();
+    if (Qry.Eof) throw EConvertError("wrong platform");
+    term_mode=Qry.FieldAsString("code");
+    ProgTrace(TRACE5, "SetTermVersionNotice: term_mode=%s", term_mode.c_str());
+  }
+  catch(EConvertError &E)
+  {
+    printf("Error: %s\n", E.what());
+    if (argc>0)
+    {
+      puts("Usage:");
+      SetTermVersionNoticeHelp(argv[0]);
+      puts("Example:");
+      printf("  %s CUTE 201101-0123456\n",argv[0]);
+    };
+    return 1;
+  };
+  
+  //проверим notice_id на совпадение
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT notice_id FROM desk_notices "
+    "WHERE notice_type=:notice_type AND term_mode=:term_mode AND "
+    "      last_version=:last_version ";
+  Qry.CreateVariable("notice_type", otString, NEW_TERM_VER_NOTICE);
+  Qry.CreateVariable("term_mode", otString, term_mode);
+  Qry.CreateVariable("last_version", otString, prior_version.str());
+  Qry.Execute();
+  if (!Qry.Eof)
+  {
+    printf("Error: version %s has already been introduced\n", version.c_str());
+    return 0;
+  };
+  
+  Qry.Clear();
+  Qry.SQLText=
+    "DECLARE "
+    "  CURSOR cur IS "
+    "    SELECT notice_id FROM desk_notices "
+    "    WHERE notice_type=:notice_type AND term_mode=:term_mode FOR UPDATE; "
+    "BEGIN "
+    "  FOR curRow IN cur LOOP "
+    "    DELETE FROM locale_notices WHERE notice_id=curRow.notice_id; "
+    "    DELETE FROM desk_disable_notices WHERE notice_id=curRow.notice_id; "
+    "    DELETE FROM desk_notices WHERE notice_id=curRow.notice_id; "
+    "  END LOOP; "
+    "  SELECT id__seq.nextval INTO :notice_id FROM dual; "
+    "  INSERT INTO desk_notices(notice_id, notice_type, term_mode, last_version, default_disable, time_create, pr_del) "
+    "  VALUES(:notice_id, :notice_type, :term_mode, :last_version, 0, system.UTCSYSDATE, 0); "
+    "END; ";
+  Qry.DeclareVariable("notice_id", otInteger);
+  Qry.CreateVariable("notice_type", otString, NEW_TERM_VER_NOTICE);
+  Qry.CreateVariable("term_mode", otString, term_mode);
+  Qry.CreateVariable("last_version", otString, prior_version.str());
+  Qry.Execute();
+  int notice_id=Qry.GetVariableAsInteger("notice_id");
+
+  map<string,string> text;
+  Qry.Clear();
+  Qry.SQLText="SELECT code AS lang FROM lang_types";
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+  {
+    const char* lang=Qry.FieldAsString("lang");
+    text[lang] = getLocaleText("MSG.NOTICE.NEW_TERM_VERSION",
+                               LParams() << LParam("version", version) << LParam("term_mode", term_mode), lang);
+  };
+  
+  Qry.Clear();
+  Qry.SQLText="INSERT INTO locale_notices(notice_id, lang, text) VALUES(:notice_id, :lang, :text)";
+  Qry.CreateVariable("notice_id", otInteger, notice_id);
+  Qry.DeclareVariable("lang", otString);
+  Qry.DeclareVariable("text", otString);
+  for(map<string,string>::iterator i=text.begin();i!=text.end();i++)
+  {
+    Qry.SetVariable("lang", i->first);
+    Qry.SetVariable("text", i->second);
+    Qry.Execute();
+  };
+
+  puts("New version of the terminal has successfully introduced");
+  return 0;
+};
+
+void SetTermVersionNoticeHelp(const char *name)
+{
+  printf("  %-15.15s ", name);
+  puts("<platform (STAND, CUTE ...)> <version (XXXXXX-XXXXXXX)>  ");
+};
+
 void GetNotices(xmlNodePtr resNode)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
+  if (!reqInfo->desk.compatible(DESK_NOTICE_VERSION)) return;
+  
 /*  ProgTrace(TRACE5,"GetNotices: desk=%s lang=%s desk_grp_id=%d term_mode=%s version=%s",
             reqInfo->desk.code.c_str(),
             reqInfo->desk.lang.c_str(),
             reqInfo->desk.grp_id,
             EncodeOperMode(reqInfo->desk.mode).c_str(),
             reqInfo->desk.version.c_str());*/
-
-  if (!reqInfo->desk.compatible(DESK_NOTICE_VERSION)) return;
+  
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
@@ -48,6 +161,7 @@ void GetNotices(xmlNodePtr resNode)
     "WHERE desk_notices.notice_id=locale_notices.notice_id AND locale_notices.lang=:lang AND "
     "      desk_notices.notice_id=desk_disable_notices.notice_id(+) AND "
     "      desk_disable_notices.notice_id IS NULL AND "
+    "      (desk IS NULL OR desk=:desk) AND "
     "      (desk_grp_id IS NULL OR desk_grp_id=:desk_grp_id) AND "
     "      (term_mode IS NULL OR term_mode=:term_mode) AND "
     "      (first_version IS NULL OR first_version<=:version) AND "

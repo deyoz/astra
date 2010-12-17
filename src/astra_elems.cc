@@ -53,55 +53,55 @@ const char* EncodeElemFmt(const TElemFmt type)
     return "";
 };
 
-struct TElemBaseTable
-{
-  TElemType ElemType;
-  const char* EncodeStr;
-  const char* BaseTableName;
-};
-
-const TElemBaseTable ElemBaseTables[40] = {
-                 {etAirline,               "etAirline",               "airlines"},
-                 {etAirp,	                 "etAirp",                  "airps"},
-                 {etBagNormType,	         "etBagNormType",           "bag_norm_types"},
-                 {etCity,	                 "etCity",                  "cities"},
-                 {etClass,	               "etClass",                 "classes"},
-                 {etClientType,	           "etClientType",            "client_types"},
-                 {etClsGrp,	               "etClsGrp",                "cls_grp"},
-                 {etCompElemType,	         "etCompElemType",          "comp_elem_types"},
-                 {etCompLayerType,	       "etCompLayerType",         "comp_layer_types"},
-                 {etCountry,	             "etCountry",               "countries"},
-                 {etCraft,	               "etCraft",                 "crafts"},
-                 {etCrs,	                 "etCrs",                   ""},
-                 {etCurrency,	             "etCurrency",              "currency"},
-                 {etDelayType,	           "etDelayType",             ""},
-                 {etDeskGrp,	             "etDeskGrp",               ""},
-                 {etDevFmtType,	           "etDevFmtType",            "dev_fmt_types"},
-                 {etDevModel,	             "etDevModel",              "dev_models"},
-                 {etDevOperType,	         "etDevOperType",           "dev_oper_types"},
-                 {etDevSessType,	         "etDevSessType",           "dev_sess_types"},
-                 {etGenderType,	           "etGenderType",            "gender_types"},
-                 {etGraphStage,	           "etGraphStage",            "graph_stages"},
-                 {etGrpStatusType,	       "etGrpStatusType",         "grp_status_types"},
-                 {etHall,	                 "etHall",                  ""},
-                 {etLangType,	             "etLangType",              "lang_types"},
-                 {etMiscSetType,	         "etMiscSetType",           "misc_set_types"},
-                 {etPaxDocType,	           "etPaxDocType",            "pax_doc_types"},
-                 {etPayType,	             "etPayType",               "pay_types"},
-                 {etPersType,	             "etPersType",              "pers_types"},
-                 {etRefusalType,	         "etRefusalType",           "refusal_types"},
-                 {etRight,	               "etRight",                 "rights"},
-                 {etSeatAlgoType,	         "etSeatAlgoType",          "seat_algo_types"},
-                 {etStationMode,	         "etStationMode",           "station_modes"},
-                 {etSubcls,	               "etSubcls",                "subcls"},
-                 {etSuffix,	               "etSuffix",                "trip_suffixes"},
-                 {etTagColor,	             "etTagColor",              "tag_colors"},
-                 {etTripLiter,	           "etTripLiter",             ""},
-                 {etTripType,	             "etTripType",              "trip_types"},
-                 {etTypeBType,	           "etTypeBType",             "typeb_types"},
-                 {etUserSetType,	         "etUserSetType",           "user_set_types"},
-                 {etUserType,	             "etUserType",              "user_types"}
-};
+const
+  struct
+  {
+    TElemType ElemType;
+    const char* EncodeStr;
+    const char* BaseTableName;
+  } ElemBaseTables[] = {
+                         {etAirline,               "etAirline",               "airlines"},
+                         {etAirp,                  "etAirp",                  "airps"},
+                         {etBagNormType,           "etBagNormType",           "bag_norm_types"},
+                         {etCity,                  "etCity",                  "cities"},
+                         {etClass,                 "etClass",                 "classes"},
+                         {etClientType,            "etClientType",            "client_types"},
+                         {etClsGrp,                "etClsGrp",                "cls_grp"},
+                         {etCompElemType,          "etCompElemType",          "comp_elem_types"},
+                         {etCompLayerType,         "etCompLayerType",         "comp_layer_types"},
+                         {etCountry,               "etCountry",               "countries"},
+                         {etCraft,                 "etCraft",                 "crafts"},
+                         {etCrs,                   "etCrs",                   ""},
+                         {etCurrency,              "etCurrency",              "currency"},
+                         {etDelayType,             "etDelayType",             ""},
+                         {etDeskGrp,               "etDeskGrp",               ""},
+                         {etDevFmtType,            "etDevFmtType",            "dev_fmt_types"},
+                         {etDevModel,              "etDevModel",              "dev_models"},
+                         {etDevOperType,           "etDevOperType",           "dev_oper_types"},
+                         {etDevSessType,           "etDevSessType",           "dev_sess_types"},
+                         {etGenderType,            "etGenderType",            "gender_types"},
+                         {etGraphStage,            "etGraphStage",            "graph_stages"},
+                         {etGrpStatusType,         "etGrpStatusType",         "grp_status_types"},
+                         {etHall,                  "etHall",                  ""},
+                         {etLangType,              "etLangType",              "lang_types"},
+                         {etMiscSetType,           "etMiscSetType",           "misc_set_types"},
+                         {etPaxDocType,            "etPaxDocType",            "pax_doc_types"},
+                         {etPayType,               "etPayType",               "pay_types"},
+                         {etPersType,              "etPersType",              "pers_types"},
+                         {etRefusalType,           "etRefusalType",           "refusal_types"},
+                         {etRight,                 "etRight",                 "rights"},
+                         {etSeatAlgoType,          "etSeatAlgoType",          "seat_algo_types"},
+                         {etStationMode,           "etStationMode",           "station_modes"},
+                         {etSubcls,                "etSubcls",                "subcls"},
+                         {etSuffix,                "etSuffix",                "trip_suffixes"},
+                         {etTagColor,              "etTagColor",              "tag_colors"},
+                         {etTripLiter,             "etTripLiter",             ""},
+                         {etTripType,              "etTripType",              "trip_types"},
+                         {etTypeBType,             "etTypeBType",             "typeb_types"},
+                         {etUserSetType,           "etUserSetType",           "user_set_types"},
+                         {etUserType,              "etUserType",              "user_types"},
+                         {etValidatorType,         "etValidatorType",         ""}
+                       };
 
 const char* EncodeElemType(const TElemType type)
 {
@@ -408,6 +408,7 @@ string ElemToElemId(TElemType type, const string &elem, TElemFmt &fmt, const std
           	fmt = efmtCodeNative;
   		  }
   			break;
+      //надо бы добавить в будущем etValidatorType
   		default:;
   	}
 
@@ -586,9 +587,10 @@ string ElemIdToElem(TElemType type, const string &id, const vector< pair<TElemFm
     //не base_table
     switch(type)
     {
-      case etCrs: Qry.SQLText="SELECT name,name_lat FROM crs2 WHERE code=:id"; break;
-      case etDelayType: Qry.SQLText="SELECT code,code_lat,name,name_lat FROM delays WHERE code=:id";break;
-      case etTripLiter: Qry.SQLText="SELECT code,code_lat,name,name_lat FROM trip_liters WHERE code=:id";break;
+                case etCrs: Qry.SQLText="SELECT name,name_lat FROM crs2 WHERE code=:id"; break;
+          case etDelayType: Qry.SQLText="SELECT code,code_lat,name,name_lat FROM delays WHERE code=:id";break;
+          case etTripLiter: Qry.SQLText="SELECT code,code_lat,name,name_lat FROM trip_liters WHERE code=:id";break;
+      case etValidatorType: Qry.SQLText="SELECT code,code_lat,name,name_lat FROM validator_types WHERE code=:id";break;
       default: throw Exception("Unexpected elem type %s", EncodeElemType(type));
     };
     Qry.CreateVariable("id",otString,id);

@@ -15,39 +15,39 @@
 
 const char * CacheFieldTypeS[NumFieldType] = {"NS","NU","D","T","S","B","SL",""};
 
-struct TReferCacheTable
-{
-  const char* CacheCode;
-  TElemType ElemType;
-};
-
-const TReferCacheTable ReferCacheTable[25] = {
-                                               {"AIRLINES",            etAirline},
-                                               {"AIRPS",               etAirp},
-                                               {"BAG_NORM_TYPES",      etBagNormType},
-                                               {"CITIES",              etCity},
-                                               {"CLASSES",             etClass},
-                                               {"CODE4_FMT",           etUserSetType},
-                                               {"COUNTRIES",           etCountry},
-                                               {"CRAFTS",              etCraft},
-                                               {"CURRENCY",            etCurrency},
-                                               {"DESK_GRP",            etDeskGrp},
-                                               {"ENCODING_FMT",        etUserSetType},
-                                               {"GRAPH_STAGES",        etGraphStage},
-                                               {"HALLS",               etHall},
-                                               {"KIOSK_CKIN_DESK_GRP", etDeskGrp},
-                                               {"MISC_SET_TYPES",      etMiscSetType},
-                                               {"RIGHTS",              etRight},
-                                               {"SEAT_ALGO_TYPES",     etSeatAlgoType},
-                                               {"SELF_CKIN_TYPES",     etClientType},
-                                               {"STATION_MODES",       etStationMode},
-                                               {"SUBCLS",              etSubcls},
-                                               {"TIME_FMT",            etUserSetType},
-                                               {"TRIP_TYPES",          etTripType},
-                                               {"TYPEB_TYPES",         etTypeBType},
-                                               {"TYPEB_TYPES_MARK",    etTypeBType},
-                                               {"USER_TYPES",          etUserType}
-                                             };
+const
+  struct
+  {
+    const char* CacheCode;
+    TElemType ElemType;
+  } ReferCacheTable[] = {
+                         {"AIRLINES",            etAirline},
+                         {"AIRPS",               etAirp},
+                         {"BAG_NORM_TYPES",      etBagNormType},
+                         {"CITIES",              etCity},
+                         {"CLASSES",             etClass},
+                         {"CODE4_FMT",           etUserSetType},
+                         {"COUNTRIES",           etCountry},
+                         {"CRAFTS",              etCraft},
+                         {"CURRENCY",            etCurrency},
+                         {"DESK_GRP",            etDeskGrp},
+                         {"ENCODING_FMT",        etUserSetType},
+                         {"GRAPH_STAGES",        etGraphStage},
+                         {"HALLS",               etHall},
+                         {"KIOSK_CKIN_DESK_GRP", etDeskGrp},
+                         {"MISC_SET_TYPES",      etMiscSetType},
+                         {"RIGHTS",              etRight},
+                         {"SEAT_ALGO_TYPES",     etSeatAlgoType},
+                         {"SELF_CKIN_TYPES",     etClientType},
+                         {"STATION_MODES",       etStationMode},
+                         {"SUBCLS",              etSubcls},
+                         {"TIME_FMT",            etUserSetType},
+                         {"TRIP_TYPES",          etTripType},
+                         {"TYPEB_TYPES",         etTypeBType},
+                         {"TYPEB_TYPES_MARK",    etTypeBType},
+                         {"USER_TYPES",          etUserType},
+                         {"VALIDATOR_TYPES",     etValidatorType}
+                        };
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -378,6 +378,12 @@ void TCacheTable::initFields()
         {
           FField.ElemCategory=cecCode;
           FField.ElemType=etAirp;
+        };
+        
+        if (FField.ReferCode == "SALE_POINTS" && FField.ReferName == "VALIDATOR_VIEW" )
+        {
+          FField.ElemCategory=cecCode;
+          FField.ElemType=etValidatorType;
         };
 
         FFields.push_back(FField);

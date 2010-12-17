@@ -55,19 +55,24 @@ string AlignString(string str, int len, string align)
     return result;
 };
 
-bool TDesk::compatible(std::string ver)
+bool TDesk::isValidVersion(const std::string &ver)
 {
-  //проверим правильность указанной версии
-  int i=0;
-  string::iterator c=ver.begin();
-  for(;c!=ver.end();c++,i++)
+  if (ver.size()!=14) return false;
+  string::const_iterator c=ver.begin();
+  for(int i=0;c!=ver.end();c++,i++)
   {
     if (i>=0 && i<=5 && IsDigit(*c)) continue;
     if (i==6 && *c=='-') continue;
     if (i>=7 && i<=13 && IsDigit(*c)) continue;
-    break;
+    return false;
   };
-  if (c!=ver.end() || i!=14)
+  return true;
+};
+
+bool TDesk::compatible(const std::string &ver)
+{
+  //проверим правильность указанной версии
+  if (!isValidVersion(ver))
     throw EXCEPTIONS::Exception("TDesk::compatible: wrong version param '%s'",ver.c_str());
 
   return (!version.empty() &&

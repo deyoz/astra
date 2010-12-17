@@ -1055,11 +1055,14 @@ void PaymentInterface::PutReceiptFields(int id, xmlNodePtr node)
   {
     TDateTime annul_date_local = UTCToLocal(rcpt.annul_date, CityTZRegion(DeskCity(rcpt.annul_desk)));
     ostringstream annul_str;
+    
     if (status=="‡")
-      annul_str << "‡€Œ…€ " << DateTimeToStr(annul_date_local, (string)"ddmmmyy", false);
+      annul_str << getLocaleText("MSG.RECEIPT.REPLACEMENT") << " "
+                << DateTimeToStr(annul_date_local, (string)"ddmmmyy", TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
     if (status=="€")
-      annul_str << "‚Ž‡‚€’ " << DateTimeToStr(annul_date_local, (string)"ddmmmyy", false);
-    ReplaceTextChild(NodeAsNode("fields",node),"annul_str",annul_str.str()); //­  àãááª®¬ ï§ëª¥
+      annul_str << getLocaleText("MSG.RECEIPT.REFUND") << " "
+                << DateTimeToStr(annul_date_local, (string)"ddmmmyy", TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
+    ReplaceTextChild(NodeAsNode("fields",node),"annul_str",annul_str.str());
   };
 };
 

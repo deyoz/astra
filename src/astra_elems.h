@@ -45,7 +45,8 @@ enum TElemType {
                  etTripType,
                  etTypeBType,
                  etUserSetType,
-                 etUserType
+                 etUserType,
+                 etValidatorType
                };
 
 enum TElemContext { ecDisp, ecCkin, ecTrfer, ecTlgTypeB, ecNone };
