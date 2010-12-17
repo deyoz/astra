@@ -134,7 +134,8 @@ void AstraJxtCallbacks::UserBefore(const std::string &head, const std::string &b
         GetNode( "SaveDeskTraces", node ) == NULL &&
         GetNode( "GetCertificates", node ) == NULL &&
         GetNode( "RequestCertificateData", node ) == NULL &&
-        GetNode( "PutRequestCertificate", node ) == NULL;
+        GetNode( "PutRequestCertificate", node ) == NULL &&
+        GetNode( "CryptValidateServerKey", node ) == NULL;
 
     reqInfoData.checkCrypt =
         GetNode( "kick", node ) == NULL &&
