@@ -1,5 +1,4 @@
 #include <string>
-#include <stdio.h>
 #include "tclmon/mespro_crypt.h"
 #include "tclmon/tclmon.h"
 #include "jxtlib/xml_stuff.h"
@@ -17,20 +16,18 @@
 #include "mespro.h"
 #endif
 #include "stl_utils.h"
-#include "tclmon/tcl_utils.h"
+
+
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
 
 const int MIN_DAYS_CERT_WARRNING = 10;
-const unsigned int PASSWORD_LENGTH = 10;
 
 using namespace ASTRA;
 using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace std;
-
-static time_t randt = time(NULL);
 
 
 int form_crypt_error(char *res, char *head, int hlen, int error)
@@ -144,135 +141,41 @@ int form_crypt_error(char *res, char *head, int hlen, int error)
   return newlen+hlen;
 }
 
-#ifdef USE_MESPRO
-void GetError( const string &func_name, int err )
+bool GetClientCertificate( TQuery *Qry, int grp_id, const std::string &desk, std::string &certificate )
 {
-	if ( err == 0 ) return;
-	AstraLocale::LexemaData lexema;
-	switch( err ) {
-		case 2: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_2"; break;
-		case 3: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_3"; break;
-		case 4: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_4"; break;
-    case 5: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_5";	break;
-		case 6: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_6"; break;
-		case 7: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_7"; break;
-		case 8: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_8"; break;
-    case 9: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_9";	break;
-		case 10: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_10"; break;
-		case 11: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_11"; break;
-		case 12: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_12"; break;
-    case 13: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_13";	break;
-		case 14: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_14"; break;
-		case 15: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_15"; break;
-		case 16: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_16"; break;
-		case 17:
-		case 103: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_103";	break;
-    case 18: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_18"; break;
-		case 19: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_19"; break;
-		case 20: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_20"; break;
-		case 21: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_21"; break;
-    case 22: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_22"; break;
-		case 23: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_23"; break;
-		case 24: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_24"; break;
-		case 104: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_104"; break;
-    case 105: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_105"; break;
-		case 106: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_106"; break;
-		case 107: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_107"; break;
-		case 108: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_108"; break;
-    case 109: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_109";	break;
-		case 112: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_112"; break;
-		case 114: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_114"; break;
-		case 115: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_115"; break;
-    case 116: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_116";	break;
-		case 117: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_117"; break;
-		case 118: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_118"; break;
-		case 119: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_119"; break;
-    case 122: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_122";	break;
-		case 123: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_123"; break;
-		case 124: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_124"; break;
-    case 125: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_125";	break;
-		case 127: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_127"; break;
-		case 128: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_128"; break;
-		case 129: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_129"; break;
-    case 132: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_132";	break;
-		case 134: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_134"; break;
-		case 135: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_135"; break;
-    case 136: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_136";	break;
-		case 138: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_138"; break;
-    case 143: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_143"; break;
-    case 144: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_144"; break;
-    case 145: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_145"; break;
-    case 147: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_147"; break;
-    case 148: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_148"; break;
-    case 149: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_149"; break;
-    case 150: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_150"; break;
-    case 153: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_153"; break;
-    case 154: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_154"; break;
-    case 155: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_155"; break;
-    case 158: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_158"; break;
-    case 159: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_159"; break;
-    case 160: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_160"; break;
-    case 161: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_161"; break;
-    case 162: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_162"; break;
-    case 163: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_163"; break;
-    case 164: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_164"; break;
-    case 165: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_165"; break;
-    case 166: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_166"; break;
-    case 167: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_167"; break;
-    case 168: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_168"; break;
-    case 169: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_169"; break;
-    case 170: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_170"; break;
-    case 171: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_171"; break;
-    case 172: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_172"; break;
-    case 173: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_173"; break;
-    case 174: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_174"; break;
-    case 175: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_175"; break;
-    case 176: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_176"; break;
-    case 177: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_177"; break;
-    case 178: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_178"; break;
-    case 179: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_179"; break;
-    case 180: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_180"; break;
-    case 181: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_181"; break;
-    case 182: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_182"; break;
-    case 183: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_183"; break;
-    case 184: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_184"; break;
-    case 185: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_185"; break;
-    case 186: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_186"; break;
-    case 187: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_187"; break;
-    case 188: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_188"; break;
-    case 189: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_189"; break;
-    case 190: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_190"; break;
-    case 191: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_191"; break;
-    case 192: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_192"; break;
-    case 193: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_193"; break;
-    case 194: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_194"; break;
-    case 195: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_195"; break;
-    case 196: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_196"; break;
-    case 197: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_197"; break;
-    case 198: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_198"; break;
-    case 199: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_199"; break;
-    case 200: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_200"; break;
-    case 201: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_201"; break;
-    default: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_OTHER";
-	}
-  throw AstraLocale::UserException( "WRAP.MESSAGEPRO", AstraLocale::LParams()<<AstraLocale::LParam("func",func_name)<<AstraLocale::LParam("text",lexema)<<AstraLocale::LParam("err",err) );
+	certificate.clear();
+	Qry->Clear();
+  Qry->SQLText =
+    "SELECT desk, certificate, pr_denial, first_date, last_date, SYSDATE now FROM crypt_term_cert "
+    " WHERE desk_grp_id=:grp_id AND ( desk IS NULL OR desk=:desk ) "
+    " ORDER BY desk ASC, pr_denial ASC, first_date ASC, id ASC";
+  Qry->CreateVariable( "grp_id", otInteger, grp_id );
+  Qry->CreateVariable( "desk", otString, desk );
+  Qry->Execute();
+  bool pr_exists=false;
+  while ( !Qry->Eof ) {
+   if ( Qry->FieldAsInteger( "pr_denial" ) == 0 && // разрешен
+  	    Qry->FieldAsDateTime( "now" ) > Qry->FieldAsDateTime( "first_date" ) ) // начал выполняться
+  	  pr_exists = true; // значит сертификат есть, но возможно он просрочен
+   if ( Qry->FieldAsDateTime( "now" ) < Qry->FieldAsDateTime( "first_date" ) || // не начал выполняться
+  	    Qry->FieldAsDateTime( "now" ) > Qry->FieldAsDateTime( "last_date" ) ) { // закончил выполняться
+  	 Qry->Next();
+  	 continue;
+  }
+  // сертификат актуален. Сортировка по пульту. а потом по группе + признак отмены
+  if ( Qry->FieldAsInteger( "pr_denial" ) != 0 )
+   	break;
+   certificate = Qry->FieldAsString( "certificate" );
+   break;
+  }
+  return pr_exists;
 }
 
-static int init_rand_callback1(int c, int step, int from, char *userdata)
-{
-	char cc[64];
-	sprintf(cc,"%c",c);
-	return *cc;
-}
-#endif //USE_MESPRO
-
-// определяет ошибку режима шифрования и возвращает признак шифрования для группы
-// за основу определения шифрования по группе или пульту берем эту ф-цию
-bool GetCryptGrp( TQuery *Qry, const std::string &desk, int &grp_id, bool &pr_grp )
+bool GetCryptGrp( TQuery *Qry, const std::string &desk, int &grp_id )
 {
 	Qry->Clear();
   Qry->SQLText =
-    "SELECT pr_crypt,crypt_sets.desk_grp_id grp_id, crypt_sets.desk "
+    "SELECT pr_crypt,crypt_sets.desk_grp_id grp_id "
     "FROM desks,desk_grp,crypt_sets "
     "WHERE desks.code = UPPER(:desk) AND "
     "      desks.grp_id = desk_grp.grp_id AND "
@@ -281,55 +184,9 @@ bool GetCryptGrp( TQuery *Qry, const std::string &desk, int &grp_id, bool &pr_gr
     "ORDER BY desk ASC ";
   Qry->CreateVariable( "desk", otString, desk );
   Qry->Execute();
-  if ( !Qry->Eof ) {
+  if ( !Qry->Eof )
   	 grp_id = Qry->FieldAsInteger( "grp_id" );
-  	 pr_grp = Qry->FieldIsNULL( "desk" );
-  }
   return ( !Qry->Eof && Qry->FieldAsInteger( "pr_crypt" ) != 0 ); //пульт не может работать в режиме шифрования, а пришло зашифрованное сообщение
-}
-
-//сертификат выбираем по след. правилам:
-//1. сортировка по пульту, доступу и времени начала действия сертификата
-//2. pr_grp - определяет какой сертификат изпользовать (для пульта или групповой)
-bool GetClientCertificate( TQuery *Qry, int grp_id, bool pr_grp, const std::string &desk, std::string &certificate, int &pkcs_id )
-{
-	pkcs_id = -1;
-	certificate.clear();
-	Qry->Clear();
-  Qry->SQLText =
-    "SELECT pkcs_id, desk, certificate, pr_denial, first_date, last_date, SYSDATE now FROM crypt_term_cert "
-    " WHERE desk_grp_id=:grp_id AND ( desk IS NULL OR desk=:desk ) "
-    " ORDER BY desk ASC, pr_denial ASC, first_date ASC, id ASC";
-  Qry->CreateVariable( "grp_id", otInteger, grp_id );
-  Qry->CreateVariable( "desk", otString, desk );
-  Qry->Execute();
-  bool pr_exists=false;
-  while ( !Qry->Eof ) {
-  	if ( !Qry->FieldIsNULL( "desk" ) && pr_grp || // если пультовой сертификат, а у нас описан групповой
-  		   Qry->FieldIsNULL( "desk" ) && !pr_grp ) { // если групповой сертификат, а у нас описан пультовой
-  		Qry->Next();
-  	  continue;
-  	}
-    if ( Qry->FieldAsInteger( "pr_denial" ) == 0 && // разрешен
-  	     Qry->FieldAsDateTime( "now" ) > Qry->FieldAsDateTime( "first_date" ) ) // начал выполняться
-  	pr_exists = true; // значит сертификат есть, но возможно он просрочен
-    if ( Qry->FieldAsDateTime( "now" ) < Qry->FieldAsDateTime( "first_date" ) || // не начал выполняться
-  	     Qry->FieldAsDateTime( "now" ) > Qry->FieldAsDateTime( "last_date" ) ) { // закончил выполняться
-  	  Qry->Next();
-  	  continue;
-    }
-    // сертификат актуален. Сортировка по пульту. а потом по группе + признак отмены
-    if ( Qry->FieldAsInteger( "pr_denial" ) != 0 )
-    	break;
-    certificate = Qry->FieldAsString( "certificate" );
-    if ( !Qry->FieldIsNULL( "pkcs_id" ) )
-    	pkcs_id = Qry->FieldAsInteger( "pkcs_id" );
-
-    break;
-  }
-  if ( pkcs_id >= 0 )
-    ProgTrace( TRACE5, "pkcs_id=%d", pkcs_id );
-  return pr_exists;
 }
 
 void GetServerCertificate( TQuery *Qry, std::string &ca, std::string &pk, std::string &server )
@@ -362,6 +219,9 @@ void getMesProParams(const char *head, int hlen, int *error, MPCryptParams &para
   params.client_cert.clear();
   params.server_cert.clear();
 
+  tst();
+
+
   if ( !((head)[getGrp3ParamsByte()+1]&MSG_MESPRO_CRYPT) ) { // пришло сообщение которое не зашифровано
   	ProgError( STDLOG, "getMesProParams: message is not crypted" );
   	return;
@@ -371,9 +231,8 @@ void getMesProParams(const char *head, int hlen, int *error, MPCryptParams &para
   string desk = string(head+45,6);
   TQuery *Qry = new TQuery(&OraSession);
   int grp_id;
-  bool pr_grp;
   try {
-  	if ( !GetCryptGrp( Qry, desk, grp_id, pr_grp ) ) { //пульт не может работать в режиме шифрования, а пришло зашифрованное сообщение
+  	if ( !GetCryptGrp( Qry, desk, grp_id ) ) { //пульт не может работать в режиме шифрования, а пришло зашифрованное сообщение
       *error=WRONG_TERM_CRYPT_MODE;
       tst();
     	return;
@@ -392,8 +251,7 @@ void getMesProParams(const char *head, int hlen, int *error, MPCryptParams &para
     	return;
     }
 
-    int pkcs_id;
-    bool pr_exists = GetClientCertificate( Qry, grp_id, pr_grp, desk, params.client_cert, pkcs_id );
+    bool pr_exists = GetClientCertificate( Qry, grp_id, desk, params.client_cert );
     if ( params.client_cert.empty() ) {
     	if ( pr_exists )
     		*error = EXPIRED_KEY;
@@ -417,8 +275,7 @@ void TCrypt::Init( const std::string &desk )
 	Clear();
   TQuery Qry(&OraSession);
   int grp_id;
-  bool pr_grp;
-  if ( !GetCryptGrp( &Qry, desk, grp_id, pr_grp ) )
+  if ( !GetCryptGrp( &Qry, desk, grp_id ) )
   	return;
   ProgTrace( TRACE5, "grp_id=%d", grp_id );
   string pk;
@@ -426,7 +283,7 @@ void TCrypt::Init( const std::string &desk )
   if ( ca_cert.empty() || server_cert.empty() )
   	throw Exception("ca or server certificate not found");
 
-  bool pr_exists = GetClientCertificate( &Qry, grp_id, pr_grp, desk, client_cert, pkcs_id );
+  bool pr_exists = GetClientCertificate( &Qry, grp_id, desk, client_cert );
   if ( client_cert.empty() ) {
   	if ( !pr_exists )
   	  AstraLocale::showProgError("MSG.MESSAGEPRO.CRYPT_CONNECT_CERT_NOT_FOUND.CALL_ADMIN");
@@ -461,57 +318,6 @@ void IntGetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr res
   NewTextChild( node, "server", Crypt.server_cert );
   NewTextChild( node, "client", Crypt.client_cert );
   NewTextChild( node, "MIN_DAYS_CERT_WARRNING", MIN_DAYS_CERT_WARRNING );
-  //проверка на режим инициализации шифрования с клиента
-  if ( Crypt.pkcs_id >= 0 ) {
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-      "SELECT keyname, certname, password, desk, desk_grp_id "
-      " FROM crypt_file_params "
-      " WHERE pkcs_id=:pkcs_id";
-    Qry.CreateVariable( "pkcs_id", otInteger, Crypt.pkcs_id );
-    Qry.Execute();
-    if ( Qry.Eof ) return;
-
-    node = NewTextChild( node, "pkcs", Crypt.pkcs_id );
-    if ( Qry.FieldIsNULL( "desk" ) )
-      SetProp( node, "common_dir" );
-    SetProp( node, "key_filename", Qry.FieldAsString( "keyname" ) );
-    SetProp( node, "cert_filename", Qry.FieldAsString( "certname" ) );
-    Qry.Clear();
-    Qry.SQLText =
-      "SELECT name, data from crypt_files WHERE pkcs_id=:pkcs_id";
-    Qry.CreateVariable( "pkcs_id", otInteger, Crypt.pkcs_id );
-    Qry.Execute();
-    if ( !Qry.Eof )
-    	node = NewTextChild( node, "files" );
-    xmlNodePtr fnode;
-    void *data = NULL;
-    int len = 0;
-    string hexstr;
-    try {
-      while ( !Qry.Eof ) {
-      	len = Qry.GetSizeLongField( "data" );
-      	if ( data == NULL )
-          data = malloc( len );
-        else
-          data = realloc( data, len );
-        if ( data == NULL )
-          throw Exception( "Ошибка программы" );
-        Qry.FieldAsLong( "data", data );
-        StringToHex( string((char*)data, len), hexstr );
-    	  fnode = NewTextChild( node, "file", hexstr.c_str() );
-    	  SetProp( fnode, "filename", Qry.FieldAsString( "name" ) );
-  	    Qry.Next();
-      }
-    }
-    catch( ... ) {
-    	if ( data )
-    	  free( data );
-  	  throw;
-    }
-	  if ( data )
-  	  free( data );
-  }
 }
 
 // это первый запрос с клиента или запрос после ошибки работы шифрования
@@ -520,24 +326,28 @@ void CryptInterface::GetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
 	IntGetCertificates(ctxt, reqNode, resNode);
 }
 
-struct TCertRequest {
-	string FileKey;
-	string Country;
-	string Algo;
-	int KeyLength;
-	string StateOrProvince;
-	string Localite;
-	string Organization;
-	string OrganizationalUnit;
-	string Title;
-	string CommonName;
-	string EmailAddress;
-};
-
-void GetCertRequestInfo( const string &desk, bool pr_grp, TCertRequest &req )
+void IntRequestCertificateData(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-	ProgTrace( TRACE5, "GetCertRequestInfo, desk=%s, pr_grp=%d", desk.c_str(), pr_grp );
-	TQuery Qry(&OraSession);
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "SELECT crypt_term_req.desk_grp_id grp_id, crypt_term_req.desk desk "
+    " FROM crypt_term_req, desks, desk_grp"
+    " WHERE desks.code = :desk AND "
+    "       desks.grp_id = desk_grp.grp_id AND "
+    "       crypt_term_req.desk_grp_id=desk_grp.grp_id AND "
+    "      ( crypt_term_req.desk IS NULL OR crypt_term_req.desk=desks.code )"
+    " ORDER BY desk ASC, grp_id ";
+  Qry.CreateVariable( "desk", otString, TReqInfo::Instance()->desk.code );
+  Qry.Execute();
+  bool pr_grp = GetNode( "pr_grp", reqNode );
+
+  while ( !Qry.Eof ) {
+  	if ( Qry.FieldIsNULL( "desk" ) && pr_grp ||
+  		  !Qry.FieldIsNULL( "desk" ) && !pr_grp )
+  	  throw AstraLocale::UserException( "MSG.MESSAGEPRO.CERT_QRY_CREATED_EARLIER.NOT_PROCESSED_YET" );
+  	Qry.Next();
+  }
+  Qry.Clear();
   Qry.SQLText = "SELECT system.UTCSYSDATE udate FROM dual";
   Qry.Execute();
   BASIC::TDateTime udate = Qry.FieldAsDateTime( "udate" );
@@ -560,107 +370,37 @@ void GetCertRequestInfo( const string &desk, bool pr_grp, TCertRequest &req )
       " FROM crypt_req_data "
       " WHERE desk = :desk AND "
       "       crypt_req_data.pr_denial=0 ";
-  Qry.CreateVariable( "desk", otString, desk );
+  Qry.CreateVariable( "desk", otString, TReqInfo::Instance()->desk.code );
   Qry.Execute();
-	if ( Qry.Eof )
-		throw AstraLocale::UserException( "MSG.MESSAGEPRO.NO_DATA_FOR_CERT_QRY" );
-	req.FileKey = "astra"+BASIC::DateTimeToStr( udate, "ddmmyyhhnn" );
-	req.Country =	Qry.FieldAsString( "country" );
-	req.Algo = Qry.FieldAsString( "key_algo" );
-	if ( !Qry.FieldIsNULL( "keyslength" ) )
-	  req.KeyLength = Qry.FieldAsInteger( "keyslength" );
-	else
-		req.KeyLength = 0;
-	req.StateOrProvince = Qry.FieldAsString( "state" );
-	req.Localite = Qry.FieldAsString( "city" );
-	req.Organization = Qry.FieldAsString( "organization" );
-	req.OrganizationalUnit = Qry.FieldAsString( "organizational_unit" );
-	req.Title = Qry.FieldAsString( "title" );
-	req.CommonName = Qry.FieldAsString( "user_name" );
-  if ( req.CommonName.empty() ) {
-  	req.CommonName = "Astra";
-  	if ( pr_grp )
-  		req.CommonName += "(Group)";
-   	req.CommonName += desk;
-   	req.CommonName += BASIC::DateTimeToStr( udate, "ddmmyyhhnn" );
-  }
-  req.EmailAddress = Qry.FieldAsString( "email" );
-}
-
-void ValidateCertificateRequest( const string &desk, bool pr_grp )
-{
-  TQuery Qry(&OraSession);
-  Qry.SQLText =
-    "SELECT crypt_term_req.desk_grp_id grp_id, crypt_term_req.desk desk "
-    " FROM crypt_term_req, desks, desk_grp"
-    " WHERE desks.code = :desk AND "
-    "       desks.grp_id = desk_grp.grp_id AND "
-    "       crypt_term_req.desk_grp_id=desk_grp.grp_id AND "
-    "      ( crypt_term_req.desk IS NULL OR crypt_term_req.desk=desks.code )"
-    " ORDER BY desk ASC, grp_id ";
-  Qry.CreateVariable( "desk", otString, desk );
-  Qry.Execute();
-
-  while ( !Qry.Eof ) {
-  	if ( Qry.FieldIsNULL( "desk" ) && pr_grp ||
-  		  !Qry.FieldIsNULL( "desk" ) && !pr_grp )
-  	  throw AstraLocale::UserException( "MSG.MESSAGEPRO.CERT_QRY_CREATED_EARLIER.NOT_PROCESSED_YET" );
-  	Qry.Next();
-  }
-}
-
-// запрос может быть подписан и сертификат залит в БД, но пока это не отправлено на клиент - выполнения заново цикла откладывется!
-void ValidatePKCSData( const string &desk, bool pr_grp )
-{
-  TQuery Qry(&OraSession);
-  Qry.SQLText =
-    "SELECT crypt_file_params.desk_grp_id grp_id, crypt_file_params.desk desk "
-    " FROM crypt_file_params, desks, desk_grp"
-    " WHERE desks.code = :desk AND "
-    "       desks.grp_id = desk_grp.grp_id AND "
-    "       crypt_file_params.desk_grp_id=desk_grp.grp_id AND "
-    "      ( crypt_file_params.desk IS NULL OR crypt_file_params.desk=desks.code )"
-    " ORDER BY desk ASC, grp_id ";
-  Qry.CreateVariable( "desk", otString, desk );
-  Qry.Execute();
-  while ( !Qry.Eof ) {
-  	if ( Qry.FieldIsNULL( "desk" ) && pr_grp ||
-  		  !Qry.FieldIsNULL( "desk" ) && !pr_grp )
-  	  throw AstraLocale::UserException( "MSG.MESSAGEPRO.CERT_QRY_CREATED_EARLIER.NOT_PROCESSED_YET" );
-  	Qry.Next();
-  }
-}
-
-void IntRequestCertificateData(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-
-  bool pr_grp = GetNode( "pr_grp", reqNode );
-
-  ValidateCertificateRequest( TReqInfo::Instance()->desk.code, pr_grp );
-
-  TCertRequest req;
-  GetCertRequestInfo( TReqInfo::Instance()->desk.code, pr_grp, req );
 	xmlNodePtr node = NewTextChild( resNode, "RequestCertificateData" );
 	NewTextChild( node, "server_id", SERVER_ID() );
-	NewTextChild( node, "FileKey", req.FileKey );
-  NewTextChild( node, "Country", req.Country );
-	if ( !req.Algo.empty() )
-	  NewTextChild( node, "Algo", req.Algo );
-	if ( req.KeyLength > 0 )
-	  NewTextChild( node, "KeyLength", req.KeyLength );
-  if ( !req.StateOrProvince.empty() )
-    NewTextChild( node, "StateOrProvince", req.StateOrProvince );
-  if ( !req.Localite.empty() )
-   	NewTextChild( node, "Localite", req.Localite );
-  if ( !req.Organization.empty() )
-  	NewTextChild( node, "Organization", req.Organization );
-  if ( !req.OrganizationalUnit.empty() )
-   	NewTextChild( node, "OrganizationalUnit", req.OrganizationalUnit );
-  if ( !req.Title.empty() )
-   	NewTextChild( node, "Title", req.Title );
- 	NewTextChild( node, "CommonName", req.CommonName );
-  if ( !req.EmailAddress.empty() )
-  	NewTextChild( node, "EmailAddress", req.EmailAddress );
+	NewTextChild( node, "FileKey", "astra"+BASIC::DateTimeToStr( udate, "ddmmyyhhnn" ) );
+	if ( Qry.Eof )
+		throw AstraLocale::UserException( "MSG.MESSAGEPRO.NO_DATA_FOR_CERT_QRY" );
+  NewTextChild( node, "Country", Qry.FieldAsString( "country" ) );
+	if ( !Qry.FieldIsNULL( "key_algo" ) )
+	  NewTextChild( node, "Algo", Qry.FieldAsString( "key_algo" ) );
+	if ( !Qry.FieldIsNULL( "keyslength" ) )
+	  NewTextChild( node, "KeyLength", Qry.FieldAsString( "keyslength" ) );
+  if ( !Qry.FieldIsNULL( "state" ) )
+    NewTextChild( node, "StateOrProvince", Qry.FieldAsString( "state" ) );
+  if ( !Qry.FieldIsNULL( "city" ) )
+   	NewTextChild( node, "Localite", Qry.FieldAsString( "city" ) );
+  if ( !Qry.FieldIsNULL( "organization" ) )
+  	NewTextChild( node, "Organization", Qry.FieldAsString( "organization" ) );
+  if ( !Qry.FieldIsNULL( "organizational_unit" ) )
+   	NewTextChild( node, "OrganizationalUnit", Qry.FieldAsString( "organizational_unit" ) );
+  if ( !Qry.FieldIsNULL( "title" ) )
+   	NewTextChild( node, "Title", Qry.FieldAsString( "title" ) );
+  if ( Qry.FieldIsNULL( "user_name" ) ) {
+  	string str = "Astra";
+  	if ( pr_grp )
+  		str += "(Group)";
+   	NewTextChild( node, "CommonName", str + TReqInfo::Instance()->desk.code +
+    		                                BASIC::DateTimeToStr( udate, "ddmmyyhhnn" )  );
+  }
+  if ( !Qry.FieldIsNULL( "email" ) )
+  	NewTextChild( node, "EmailAddress", Qry.FieldAsString( "email" ) );
 }
 
 void CryptInterface::RequestCertificateData(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -668,28 +408,23 @@ void CryptInterface::RequestCertificateData(XMLRequestCtxt *ctxt, xmlNodePtr req
 	IntRequestCertificateData(ctxt, reqNode, resNode);
 }
 
-void IntPutRequestCertificate( const string &request, const string &desk, bool pr_grp, int pkcs_id )
+void IntPutRequestCertificate(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+	bool pr_grp = GetNode( "pr_grp", reqNode );
   TQuery Qry(&OraSession);
   Qry.SQLText =
-    "INSERT INTO crypt_term_req(id,desk_grp_id,desk,request,pkcs_id) "
-    " SELECT id__seq.nextval,grp_id,DECODE(:pr_grp,0,:desk,NULL),:request, :pkcs_id FROM desks "
+    "INSERT INTO crypt_term_req(id,desk_grp_id,desk,request) "
+    " SELECT id__seq.nextval,grp_id,DECODE(:pr_grp,0,:desk,NULL),:request FROM desks "
     "  WHERE code=:desk";
   Qry.CreateVariable( "pr_grp", otInteger, pr_grp );
-  Qry.CreateVariable( "desk", otString, desk );
-  Qry.CreateVariable( "request", otString, request );
-  if ( pkcs_id != NoExists )
-    Qry.CreateVariable( "pkcs_id", otInteger, pkcs_id );
-  else
-  	Qry.CreateVariable( "pkcs_id", otInteger, FNull );
+  Qry.CreateVariable( "desk", otString, TReqInfo::Instance()->desk.code );
+  Qry.CreateVariable( "request", otString, NodeAsString( "request_certificate", reqNode ) );
   Qry.Execute();
 }
 
 void CryptInterface::PutRequestCertificate(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-	bool pr_grp = GetNode( "pr_grp", reqNode );
-	string request = NodeAsString( "request_certificate", reqNode );
-	IntPutRequestCertificate( request, TReqInfo::Instance()->desk.code, pr_grp, NoExists );
+	IntPutRequestCertificate(ctxt, reqNode, resNode);
 }
 
 struct TSearchData {
@@ -788,207 +523,6 @@ BASIC::TDateTime ConvertCertificateDate( char *certificate_date )
 	return d;
 }
 
-#ifdef USE_MESPRO
-
-struct TPSEFile {
-	string filename;
-	string data;
-};
-
-struct TPKCS {
-	string key_filename;
-	string password;
-	string cert_filename;
-	vector<TPSEFile> pse_files;
-};
-
-void DeletePSE( const string &PSEpath, const string &file_key, const string &file_req )
-{
-  unlink( file_key.c_str() );
-  unlink( file_req.c_str() );
-	Erase_PSE31( (char*)PSEpath.c_str() );
-	remove( PSEpath.c_str() );
-}
-
-void readPSEFile( const string &filename, const string &name, TPSEFile &pse_file )
-{
-	ifstream f;
-	f.open( filename.c_str() );
-	if ( !f.is_open() ) throw Exception( "Can't open file '%s'", filename.c_str() );
-	ostringstream tmpstream;
-	try {
-		tmpstream << f.rdbuf();
-	}
-  catch( ... ) {
-    try { f.close(); } catch( ... ) { };
-    throw;
-  }
-  f.close();
-  pse_file.filename = name;
-  pse_file.data = tmpstream.str();
-}
-
-void WritePSEFiles( const TPKCS &pkcs, const string &desk, bool pr_grp )
-{
-  TQuery Qry(&OraSession);
-  Qry.SQLText =
-    "SELECT id__seq.nextval pkcs_id FROM dual";
-  Qry.Execute();
-  int pkcs_id = Qry.FieldAsInteger( "pkcs_id" );
-  Qry.Clear();
-  Qry.SQLText =
-    "INSERT INTO crypt_file_params(pkcs_id,keyname,certname,password,desk,desk_grp_id)"
-    " SELECT :pkcs_id,:keyname,:certname,:password,DECODE(:pr_grp,0,:desk,NULL),grp_id FROM desks"
-    "  WHERE code=:desk";
-  Qry.CreateVariable( "pkcs_id", otInteger, pkcs_id );
-  Qry.CreateVariable( "keyname", otString, pkcs.key_filename );
-  Qry.CreateVariable( "certname", otString, pkcs.cert_filename );
-  Qry.CreateVariable( "password", otString, pkcs.password );
-  Qry.CreateVariable( "pr_grp", otInteger, pr_grp );
-  Qry.CreateVariable( "desk", otString, desk );
-  Qry.Execute();
-  Qry.Clear();
-  Qry.SQLText =
-    "INSERT INTO crypt_files(pkcs_id,name,data) VALUES(:pkcs_id,:name,:data)";
-  Qry.CreateVariable( "pkcs_id", otInteger, pkcs_id );
-  Qry.DeclareVariable( "name", otString );
-  Qry.DeclareVariable( "data", otLongRaw );
-  vector<TPSEFile>::const_iterator ireq;
-  for ( vector<TPSEFile>::const_iterator i=pkcs.pse_files.begin(); i!=pkcs.pse_files.end(); i++ ) {
-  	if ( i->filename == pkcs.cert_filename ) {
-  		ireq = i;
-  		continue;
-    }
-    Qry.SetVariable( "name", i->filename );
-    Qry.SetLongVariable( "data", (void*)i->data.c_str(), i->data.size() );
-    Qry.Execute();
-  }
-  // записываем запрос на сертификат
-  IntPutRequestCertificate( ireq->data, desk, pr_grp, pkcs_id );
-}
-
-string getPassword( )
-{
-	string strtable( "A1B2C3D4E5F6G7H8I9J0KLMNOP1Q2R3S4T5U6V7W8X9Y0Z" );
-	string pswd;
-	srand( randt );
-  while ( pswd.size() < PASSWORD_LENGTH ) {
-		randt = rand();
-		unsigned int idx = 1 + (int)( strtable.size() * ( randt / ( RAND_MAX + 1.0 ) ) );
-		if ( idx < 0 || idx > strtable.size() ) {
-			ProgError( STDLOG, "invalid idx=%d", idx );
-			continue;
-		}
-		if ( !pswd.empty() && pswd[ pswd.size() - 1 ] == strtable[ idx - 1 ] )
-			continue;
-		pswd += strtable[ idx - 1 ];
-	}
-	srand( randt );
-	return  pswd;
-}
-
-void CreatePSE( const string &desk, bool pr_grp, int password_len, TPKCS &pkcs )
-{
-	pkcs.pse_files.clear();
-	ValidateCertificateRequest( desk, pr_grp );
-	ValidatePKCSData( desk, pr_grp ); //нельзя создавать несколько PKCS для одного пульта или группы пультов
-	TCertRequest req;
-	GetCertRequestInfo( desk, pr_grp, req );
-	tst();
-	pkcs.key_filename = req.FileKey + ".key";
-	pkcs.cert_filename = req.FileKey + ".pem";
-	pkcs.password = getPassword( );
-	string PSEpath = readStringFromTcl( "MESPRO_PSE_PATH", "./crypt" );
-  PSEpath += "/pses";
-  mkdir( PSEpath.c_str(), 0777 );
-  int i = 1;
-  while ( i < 100 && mkdir( string( PSEpath + "/" + IntToString(i) ).c_str(), 0777 )) i++;
-  if ( i == 100 )
-  	throw Exception( "Can't create dir=" + string( PSEpath + "/" + IntToString(i) ) + ", error=" + IntToString( errno ) );
-  PSEpath += "/" + IntToString(i);
-  ProgTrace( TRACE5, "CreatePKCS: PSEpath=%s", PSEpath.c_str() );
-  SetRandInitCallbackFun((void *)init_rand_callback1);
-  GetError( "PKCS7Init", PKCS7Init( 0, 0 ) );
-  try {
-    string file_key = PSEpath + "/pkey.key";
-    string file_req = PSEpath + "/request.req";
-	  if ( req.Algo.empty() )
-	    GetError( "SetNewKeysAlgorithm", SetNewKeysAlgorithm( (char*)"ECR3410" ) );
-	  else
-	  	GetError( "SetNewKeysAlgorithm", SetNewKeysAlgorithm( (char*)req.Algo.c_str() ) );
-	  GetError( "SetCertificateRequestFlags", SetCertificateRequestFlags( CERT_REQ_DONT_PRINT_TEXT ) );
-	  GetError( "SetCountry", SetCountry( (char*)req.Country.c_str() ) );
-	  GetError( "SetStateOrProvince", SetStateOrProvince( (char*)req.StateOrProvince.c_str() ) );
-	  GetError( "SetLocality", SetLocality( (char*)req.Localite.c_str() ) );
-	  GetError( "SetOrganization", SetOrganization( (char*)req.Organization.c_str() ) );
-	  GetError( "SetOrganizationalUnit", SetOrganizationalUnit( (char*)req.OrganizationalUnit.c_str() ) );
-	  GetError( "SetTitle", SetTitle( (char*)req.Title.c_str() ) );
-	  GetError( "SetCommonName", SetCommonName( (char*)req.CommonName.c_str() ) );
-	  GetError( "SetEmailAddress", SetEmailAddress( (char*)req.EmailAddress.c_str() ) ); //!!!
-    GetError( "PSE31_Generation", PSE31_Generation( (char*)PSEpath.c_str(), 0, NULL, 0 ) );
-    try {
-      ProgTrace( TRACE5, "req.Algo=%s, file_key=%s", req.Algo.c_str(), file_key.c_str() );
-      if ( req.Algo == "RSA" || req.Algo == "DSA" ) {
-      	if ( req.Algo == "RSA" && req.KeyLength > 0 )
-      		GetError( "SetKeysLength", SetKeysLength( req.KeyLength ) );
-        	GetError( "NewKeysGeneration", NewKeysGeneration( (char*)file_key.c_str(), (char*)pkcs.password.c_str(), (char*)file_req.c_str() ) );
-      }
-      else {
-      	GetError( "NewKeysGenerationEx", NewKeysGenerationEx( (char*)PSEpath.c_str(), NULL, (char*)file_key.c_str(), (char*)pkcs.password.c_str(), (char*)file_req.c_str() ) );
-      }
-      TPSEFile pse_file;
-      readPSEFile( PSEpath + "/masks.db3", "masks.db3", pse_file );
-      pkcs.pse_files.push_back( pse_file );
-      readPSEFile( PSEpath + "/mk.db3", "mk.db3", pse_file );
-      pkcs.pse_files.push_back( pse_file );
-      readPSEFile( PSEpath + "/kek.opq", "kek.opq", pse_file );
-      pkcs.pse_files.push_back( pse_file );
-      readPSEFile( PSEpath + "/rand.opq", "rand.opq", pse_file );
-      pkcs.pse_files.push_back( pse_file );
-      readPSEFile( file_key, pkcs.key_filename, pse_file );
-      pkcs.pse_files.push_back( pse_file );
-      readPSEFile( file_req, pkcs.cert_filename, pse_file );
-      pkcs.pse_files.push_back( pse_file );
-      WritePSEFiles( pkcs, desk, pr_grp );
-    }
-    catch(...) {
-    	DeletePSE( PSEpath, file_key, file_req );
-    	throw;
-    }
-  	DeletePSE( PSEpath, file_key, file_req );
-  }
-  catch( ... ) {
-  	PKCS7Final();
-  	throw;
-  }
-  PKCS7Final();
-}
-
-void CryptInterface::CryptValidateServerKey(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-	//пришло подтверждение авторизации - удаление из БД всей информации по PSE
-	int pkcs_id = NodeAsInteger( "pkcs_id", reqNode );
-	ProgTrace( TRACE5, "CryptValidateServerKey, pkcs_id=%d", pkcs_id );
-	TQuery Qry(&OraSession);
-	Qry.SQLText =
-	  "BEGIN "
-	  " DELETE crypt_files WHERE pkcs_id=:pkcs_id;"
-	  " DELETE crypt_file_params WHERE pkcs_id=:pkcs_id;"
-	  "END;";
-	Qry.CreateVariable( "pkcs_id", otInteger, pkcs_id );
-	Qry.Execute();
-}
-
-void CryptInterface::RequestPSE(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-	TPKCS pkcs;
-	bool pr_grp = GetNode( "pr_grp", reqNode );
-  CreatePSE( NodeAsString( "desk", reqNode ), pr_grp, 16, pkcs );
-  AstraLocale::showMessage( "MSG.MESSAGE_PRO.KEY_AND_REQUEST_OK" );
-}
-
-#endif /*USE MESPRO*/
-
 void CryptInterface::SetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
 	tst();
@@ -996,7 +530,9 @@ void CryptInterface::SetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
 	xmlNodePtr node = GetNode( "certificates", reqNode );
 	if ( !node )
 		return;
-	GetError( "PKCS7Init", PKCS7Init( 0, 0 ) );
+	int err = PKCS7Init( 0, 0 );
+	if ( err )
+		throw Exception( "MessagePro: PKCS7Init error=%d", err );
   TQuery Qry(&OraSession);
   Qry.SQLText =
     "SELECT id, request FROM crypt_term_req";
@@ -1013,8 +549,8 @@ void CryptInterface::SetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   Qry.Clear();
   Qry.SQLText =
     "BEGIN "
-    " INSERT INTO crypt_term_cert(id,desk_grp_id,desk,certificate,first_date,last_date,pr_denial,pkcs_id) "
-    " SELECT id__seq.nextval,desk_grp_id,desk,:certificate,:first_date,:last_date,0,pkcs_id FROM crypt_term_req "
+    " INSERT INTO crypt_term_cert(id,desk_grp_id,desk,certificate,first_date,last_date,pr_denial) "
+    " SELECT id__seq.nextval,desk_grp_id,desk,:certificate,:first_date,:last_date,0 FROM crypt_term_req "
     "  WHERE id=:id; "
     " DELETE crypt_term_req WHERE id=:id; "
     "END;";
@@ -1029,10 +565,12 @@ void CryptInterface::SetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   		cert = NodeAsString( node );
   		ProgTrace( TRACE5, "certificate=%s, requests count=%d", cert.c_str(), requests.size() );
   		for ( vector<TRequest>::iterator i=requests.begin(); i!=requests.end(); i++ ) {
-  			int err = CertAndRequestMatchBuffer( (char*)cert.data(), cert.size(), (char*)i->cert.data(), i->cert.size() );
+  			err = CertAndRequestMatchBuffer( (char*)cert.data(), cert.size(), (char*)i->cert.data(), i->cert.size() );
   			if ( err ) {
   				CERTIFICATE_INFO info;
-  				GetError( "GetCertificateInfoBufferEx", GetCertificateInfoBufferEx( (char*)cert.data(), cert.size(), &info ) );
+  				err = GetCertificateInfoBufferEx( (char*)cert.data(), cert.size(), &info );
+  				if ( err )
+  					throw Exception( "MessagePro: GetCertificateInfoBufferEx error=%d", err );
   				try {
             Qry.SetVariable( "id", i->id );
             Qry.SetVariable( "certificate", cert );
@@ -1060,9 +598,10 @@ void CryptInterface::SetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
 #endif /*USE MESPRO*/
 }
 
+
 void CryptInterface::CertificatesInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  bool pr_search = GetNode( "search", reqNode );
+bool pr_search = GetNode( "search", reqNode );
   TQuery Qry(&OraSession);
   if ( GetNode( "id", reqNode ) ) {
     Qry.SQLText =
@@ -1138,3 +677,4 @@ void CryptInterface::CertificatesInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
   	}
   }
 }
+
