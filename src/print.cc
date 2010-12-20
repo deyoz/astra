@@ -914,12 +914,12 @@ string PrintDataParser::parse_tag(int offset, string tag)
     u_int start_point, end_point;
 
     if(slash_found) {
-//!!!        if(pr_lat) {
-//            start_point = slash_point + 1;
-//            end_point = tag.size();
+//        if(pr_lat) { // !!! теперь всегда выводим латинский вариант текстовой константы (напр. тег [АСТРА/ASTRA])
+            start_point = slash_point + 1;
+            end_point = tag.size();
 //        } else {
-            start_point = 0;
-            end_point = slash_point;
+//            start_point = 0;
+//            end_point = slash_point;
 //        }
     } else {
         start_point = 0;

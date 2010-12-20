@@ -857,7 +857,7 @@ string TPrnTagStore::AIRLINE_SHORT(TFieldParams fp)
 
 string TPrnTagStore::AIRLINE_NAME(TFieldParams fp)
 {
-    return tag_lang.ElemIdToTagElem(etAirline, pointInfo.airline, efmtNameShort);
+    return tag_lang.ElemIdToTagElem(etAirline, pointInfo.airline, efmtNameLong);
 }
 
 string TPrnTagStore::AIRP_ARV(TFieldParams fp)
@@ -1206,7 +1206,7 @@ string TPrnTagStore::FLT_NO1(TFieldParams fp) {
         }
     };
     ostringstream result;
-    result << setw(fp.len) << setfill('0') << flt_no << suffix;
+    result << setw(3) << setfill('0') << flt_no << suffix;
     return result.str();
 }
 
