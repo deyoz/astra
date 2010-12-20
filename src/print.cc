@@ -1612,7 +1612,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
 
         for(int i = 0; i < BT_count; ++i) {
             set_via_fields(parser, route, i * VIA_num, (i + 1) * VIA_num);
-            big_test(parser, dotPrnBT);
+            //!!! big_test(parser, dotPrnBT);
             string prn_form = parser.parse(prn_forms.back());
             if(DecodeDevFmtType(tag_key.fmt_type) == dftDPL) {
               if (!reqInfo->desk.compatible(NEW_TERM_VERSION)) {
@@ -2239,7 +2239,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     for (vector<TPaxPrint>::iterator iprint=paxs.begin(); iprint!=paxs.end(); iprint++ ) {
 //!!!        tst_dump(iprint->pax_id, iprint->grp_id, prnParams.pr_lat);
         PrintDataParser parser( iprint->grp_id, iprint->pax_id, prnParams.pr_lat, clientDataNode );
-        big_test(parser, dotPrnBP);
+        //!!! big_test(parser, dotPrnBP);
         // если это нулевой сегмент, то тогда печатаем выход на посадку иначе не нечатаем
         //надо удалить выход на посадку из данных по пассажиру
         if(grp_id != iprint->grp_id)

@@ -457,6 +457,8 @@ TPrnQryBuilder::TPrnQryBuilder(TQuery &aQry): Qry(aQry)
 
 void TPrnTagStore::get_prn_qry(TQuery &Qry)
 {
+    if(not prn_test_tags.items.empty())
+        throw Exception("get_prn_qry can't be called in test mode");
     TPrnQryBuilder prnQry(Qry);
     Qry.CreateVariable("pax_id", otInteger, pax_id);
     Qry.CreateVariable("DESK", otString, TReqInfo::Instance()->desk.code);
