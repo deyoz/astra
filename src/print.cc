@@ -1437,13 +1437,25 @@ void big_test(PrintDataParser &parser, TDevOperType op_type)
     Qry.Execute();
     ofstream out("check_parse");
     for(; not Qry.Eof; Qry.Next()) {
+        int id = Qry.FieldAsInteger("id");
+        int version = Qry.FieldAsInteger("version");
+        string connect_string = Qry.FieldAsString("connect_string");
+        if(
+                false and
+                not (
+                    id == 173941 and
+                    version == 1 and
+                    connect_string == "stand/llrkxwsp@stand"
+                    )
+          )
+            continue;
         string data = Qry.FieldAsString("data");
         string parse_result;
         ostringstream idx;
         idx
-            << "id: " << Qry.FieldAsInteger("id") << " "
-            << "version: " << Qry.FieldAsInteger("version") << " "
-            << "connect_string: '" << Qry.FieldAsString("connect_string") << "'";
+            << "id: " << id << " "
+            << "version: " << version << " "
+            << "connect_string: '" << connect_string << "'";
         try {
             parse_result = parser.parse(data);
         } catch(Exception E) {
