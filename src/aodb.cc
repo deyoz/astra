@@ -27,6 +27,7 @@ alter table aodb_bag add pr_cabin NUMBER(1) NOT NULL;
 #include "stages.h"
 #include "tripinfo.h"
 #include "salons2.h"
+#include "sopp.h"
 #include "serverlib/helpcpp.h"
 
 #define NICKNAME "DJEK"
@@ -510,7 +511,7 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
       }
       else {
         if ( psTCheckin == DecodePaxStatus( Qry.FieldAsString( "status" ) ) )
-        	term = "99";
+        	term = "999";
         else
         	if ( DecodeClientType( Qry.FieldAsString( "client_type" ) ) == ctWeb )
          		term = "777";
@@ -1618,6 +1619,7 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
             tl += string("Проставление факт. времени вылета ") + DateTimeToStr( fl.act, "hh:nn dd.mm.yy" ) + string(" (UTC)");
         } else
  	  		tl += "Отмена факта вылета";
+ 	  	ChangeACT_OUT( point_id, old_fl.act, 	fl.act );
  	  }
  	  if ( fl.litera != old_fl.litera ) {
  	  	if ( !tl.empty() )
