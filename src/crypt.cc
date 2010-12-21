@@ -415,6 +415,7 @@ void getMesProParams(const char *head, int hlen, int *error, MPCryptParams &para
 void TCrypt::Init( const std::string &desk )
 {
 	Clear();
+	#ifdef USE_MESPRO
   TQuery Qry(&OraSession);
   int grp_id;
   bool pr_grp;
@@ -434,6 +435,7 @@ void TCrypt::Init( const std::string &desk )
   		AstraLocale::showProgError("MSG.MESSAGEPRO.CRYPT_CONNECT_CERT_OUTDATED.CALL_ADMIN");
   	throw UserException2();
   }
+  #endif //USE_MESPRO
 };
 
 
