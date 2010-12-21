@@ -23,7 +23,7 @@
 #include "serverlib/test.h"
 
 const int MIN_DAYS_CERT_WARRNING = 10;
-const unsigned int PASSWORD_LENGTH = 10;
+const unsigned int PASSWORD_LENGTH = 16;
 
 using namespace ASTRA;
 using namespace BASIC;
