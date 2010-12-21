@@ -33,6 +33,8 @@ class TCrypt {
 			client_sign = false;
 			algo_sign.clear();
 			algo_cipher.clear();
+			inputformat = 1;
+			outputformat = 1;
 			#ifdef USE_MESPRO
 			inputformat = FORMAT_ASN1; //FORMAT_ASN1 = 1 - по умолчанию
 			outputformat = FORMAT_ASN1;//FORMAT_ASN1 = 1 - по умолчанию
