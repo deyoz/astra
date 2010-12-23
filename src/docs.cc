@@ -2917,3 +2917,20 @@ void DocsInterface::GetFonts(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
   NewTextChild(resNode,"fonts","");
   tst();
 }
+
+int testbm(int argc,char **argv)
+{
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    reqInfo->Initialize("ŒŽ‚");
+    xmlDocPtr resDoc=xmlNewDoc(BAD_CAST "1.0");
+    xmlNodePtr rootNode=xmlNewDocNode(resDoc,NULL,BAD_CAST "query",NULL);
+    TRptParams rpt_params;
+    rpt_params.point_id = 603906;
+    rpt_params.ckin_zone = "area bis";
+    rpt_params.pr_et = false;
+    rpt_params.pr_trfer = false;
+    rpt_params.pr_brd = false;
+    BTM(rpt_params, rootNode);
+    ProgTrace(TRACE5, "%s", GetXMLDocText(resDoc).c_str()); //!!!
+    return 0;
+}

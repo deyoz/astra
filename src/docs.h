@@ -81,4 +81,6 @@ public:
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 };
 
+int testbm(int argc,char **argv);
+
 #endif
