@@ -218,6 +218,7 @@ TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tag
     tag_list.insert(make_pair(TAG::SCD,             TTagListItem(&TPrnTagStore::SCD, POINT_INFO)));
     tag_list.insert(make_pair(TAG::SEAT_NO,         TTagListItem(&TPrnTagStore::SEAT_NO, PAX_INFO)));
     tag_list.insert(make_pair(TAG::STR_SEAT_NO,     TTagListItem(&TPrnTagStore::STR_SEAT_NO, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::LIST_SEAT_NO,    TTagListItem(&TPrnTagStore::LIST_SEAT_NO, PAX_INFO)));
     tag_list.insert(make_pair(TAG::SURNAME,         TTagListItem(&TPrnTagStore::SURNAME, PAX_INFO)));
     tag_list.insert(make_pair(TAG::TEST_SERVER,     TTagListItem(&TPrnTagStore::TEST_SERVER)));
 
@@ -481,6 +482,13 @@ void TPrnTagStore::get_prn_qry(TQuery &Qry)
         prnQry.add_part(TAG::GATE, boost::any_cast<string>(tag_list[TAG::GATE].TagInfo));
     if(tag_list[TAG::REG_NO].processed)
         prnQry.add_part(TAG::REG_NO, paxInfo.reg_no);
+    if(
+            tag_list[TAG::SEAT_NO].processed or
+            tag_list[TAG::ONE_SEAT_NO].processed or
+            tag_list[TAG::STR_SEAT_NO].processed or
+            tag_list[TAG::LIST_SEAT_NO].processed
+      )
+        prnQry.add_part("seat_no", get_tag(TAG::LIST_SEAT_NO));
     if(tag_list[TAG::NAME].processed)
         prnQry.add_part(TAG::NAME, paxInfo.name);
     if(tag_list[TAG::NO_SMOKE].processed)
@@ -1127,6 +1135,21 @@ string TPrnTagStore::STR_SEAT_NO(TFieldParams fp)
     Qry.SQLText =
         "select "
         "   salons.get_seat_no(:pax_id,:seats,NULL,NULL,'voland',NULL,:is_inter) AS seat_no "
+        "from dual";
+    Qry.CreateVariable("pax_id", otInteger, paxInfo.pax_id);
+    Qry.CreateVariable("seats", otInteger, paxInfo.seats);
+    ProgTrace(TRACE5, "tag_lang.GetLang(): '%s'", tag_lang.GetLang().c_str());
+    Qry.CreateVariable("is_inter", otInteger, tag_lang.GetLang() != AstraLocale::LANG_RU);
+    Qry.Execute();
+    return Qry.FieldAsString("seat_no");
+}
+
+string TPrnTagStore::LIST_SEAT_NO(TFieldParams fp)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "select "
+        "   salons.get_seat_no(:pax_id,:seats,NULL,NULL,'list',NULL,:is_inter) AS seat_no "
         "from dual";
     Qry.CreateVariable("pax_id", otInteger, paxInfo.pax_id);
     Qry.CreateVariable("seats", otInteger, paxInfo.seats);
