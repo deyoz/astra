@@ -362,7 +362,7 @@ string TPrnTagStore::get_tag(std::string name)
         return get_test_field(name, 0, ServerFormatDateTimeAsString);
 }
 
-string TPrnTagStore::get_field(std::string name, int len, std::string align, std::string date_format, string tag_lang)
+string TPrnTagStore::get_field(std::string name, size_t len, std::string align, std::string date_format, string tag_lang)
 {
     this->tag_lang.set_tag_lang(tag_lang);
     string result;
@@ -379,7 +379,10 @@ string TPrnTagStore::get_field(std::string name, int len, std::string align, std
     if(print_mode == 3)
         return string(len, ' ');
 
-    result = AlignString(result, len, align);
+    if(result.size() > len)
+        result = string(len, '?');
+    else
+        result = AlignString(result, len, align);
     if(this->tag_lang.get_pr_lat() and not is_lat(result)) {
         ProgError(STDLOG, "Данные печати не латинские: %s = \"%s\"", name.c_str(), result.c_str());
         if(result.size() > 20)
@@ -1025,19 +1028,68 @@ string TPrnTagStore::GATE(TFieldParams fp)
     return boost::any_cast<string>(fp.TagInfo);
 }
 
+string cut_place(string airp, string city_name, int len)
+{
+    if(not city_name.empty() and not airp.empty()) {
+        int diff = len - (airp.size() + 2);
+        if(diff < 0) diff = string::npos;
+        if(diff >= 3 or len == 0)
+            return city_name.substr(0, diff) + "(" + airp + ")";
+        else
+            return airp;
+    } else if(city_name.empty())
+        return airp;
+    else {
+        if(len == 0)
+            return city_name;
+        else
+            return city_name.substr(0, (len < 3 ? 3 : len));
+    }
+}
+
 string TPrnTagStore::LONG_ARV(TFieldParams fp)
 {
     string result;
     if(tag_lang.GetLang() != AstraLocale::LANG_RU) {
-        result = CITY_ARV_NAME(fp).substr(0, 9) + "(" + AIRP_ARV(fp) + ")"; // !!! в худшем случае вернется русский код?
+        result = cut_place(AIRP_ARV(fp), CITY_ARV_NAME(fp), fp.len); // !!! в худшем случае вернется русский код?
     } else {
         TAirpsRow &airpRow = (TAirpsRow&)base_tables.get("AIRPS").get_row("code",grpInfo.airp_arv);
-        result =
-            tag_lang.ElemIdToTagElem(etCity, airpRow.city, efmtNameLong, tag_lang.dup_lang()).substr(0, 9) +
-            "(" + tag_lang.ElemIdToTagElem(etAirp, grpInfo.airp_arv, efmtCodeNative, tag_lang.dup_lang()) + ")" +
-            "/" +
-            tag_lang.ElemIdToTagElem(etCity, airpRow.city, efmtNameLong, AstraLocale::LANG_EN).substr(0, 9) +
-            "(" + tag_lang.ElemIdToTagElem(etAirp, grpInfo.airp_arv, efmtCodeNative, AstraLocale::LANG_EN) + ")";
+        string city1 = tag_lang.ElemIdToTagElem(etCity, airpRow.city, efmtNameLong, tag_lang.dup_lang());
+        string airp1 = tag_lang.ElemIdToTagElem(etAirp, grpInfo.airp_arv, efmtCodeNative, tag_lang.dup_lang());
+        string city2 = tag_lang.ElemIdToTagElem(etCity, airpRow.city, efmtNameLong, AstraLocale::LANG_EN);
+        string airp2 = tag_lang.ElemIdToTagElem(etAirp, grpInfo.airp_arv, efmtCodeNative, AstraLocale::LANG_EN);
+
+        if(city1 == city2 and airp1 == airp2)
+            result = cut_place(AIRP_ARV(fp), CITY_ARV_NAME(fp), fp.len);
+        else {
+            string part1, part2;
+            if(city1 == city2) city2.erase();
+            if(airp1 == airp2) airp2.erase();
+
+            part1 = city1 + "(" + airp1 + ")" + "/";
+            if(city2.empty())
+                part2 = airp2;
+            else
+                part2 = city2 + (airp2.empty() ? airp2 : "(" + airp2 + ")");
+
+            int diff = fp.len - part1.size();
+            if(diff >= (int)part2.size() or fp.len == 0)
+                result = part1 + part2;
+            else {
+                if(diff == 0) { // потому что cut_place в сл-е 0 возвращает полное название
+                    if(airp2.empty())
+                        part2 = city2.substr(0, 3);
+                    else
+                        part2 = airp2;
+                } else
+                    part2 = cut_place(airp2, city2, diff);
+                diff = fp.len - part2.size();
+                if(diff >= (int)part1.size())
+                    result = part1 + part2;
+                else
+                    result = cut_place(airp1, city1, diff - 1) + "/" + part2;
+            }
+        }
     }
     return result;
 }
@@ -1095,12 +1147,12 @@ string TPrnTagStore::PAX_ID(TFieldParams fp)
 
 string TPrnTagStore::PLACE_ARV(TFieldParams fp)
 {
-    return CITY_ARV_NAME(fp).substr(0, 7) + "(" + AIRP_ARV(fp) + ")";
+    return cut_place(AIRP_ARV(fp), CITY_ARV_NAME(fp), fp.len);
 }
 
 string TPrnTagStore::PLACE_DEP(TFieldParams fp)
 {
-    return CITY_DEP_NAME(fp).substr(0, 7) + "(" + AIRP_DEP(fp) + ")";
+    return cut_place(AIRP_DEP(fp), CITY_DEP_NAME(fp), fp.len);
 }
 
 string TPrnTagStore::REG_NO(TFieldParams fp)

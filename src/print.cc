@@ -722,11 +722,9 @@ string PrintDataParser::parse_field1(int offset, string field)
             delim +
             FieldAlign +
             delim +
-//!!!            field_map.get_field(FieldName, 0, "L", DateFormat, FieldLat);
             pts.get_field(FieldName, 0, "L", DateFormat, tag_lang);
     else
         result =
-//            field_map.get_field(FieldName, ToInt(FieldLen), FieldAlign, DateFormat, FieldLat);
             pts.get_field(FieldName, ToInt(FieldLen), FieldAlign, DateFormat, tag_lang);
     return result;
 }
@@ -815,7 +813,6 @@ string PrintDataParser::parse_field0(int offset, string field)
     }
     if(Mode != 'L' && Mode != 'F')
             throw Exception("')' not found at " + IntToString(offset + i + 1));
-    ProgTrace(TRACE5, "PTS tag: '%s'", pts.get_field(FieldName, FieldLen, FieldAlign, DateFormat, tag_lang).c_str());
     return pts.get_field(FieldName, FieldLen, FieldAlign, DateFormat, tag_lang);
 }
 

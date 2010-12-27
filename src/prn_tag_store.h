@@ -323,7 +323,7 @@ class TPrnTagStore {
         void set_tag(std::string name, std::string value);
         void set_tag(std::string name, int value);
         void set_tag(std::string name, BASIC::TDateTime value);
-        std::string get_field(std::string name, int len, std::string align, std::string date_format, std::string tag_lang);
+        std::string get_field(std::string name, size_t len, std::string align, std::string date_format, std::string tag_lang);
         void get_prn_qry(TQuery &Qry);
         std::string get_tag(std::string name);
         bool tag_processed(std::string name);
