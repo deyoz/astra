@@ -8,6 +8,7 @@
 #include "astra_ticket.h"
 #include "astra_consts.h"
 #include "astra_misc.h"
+#include "oralib.h"
 #include "tlg/tlg_parser.h"
 
 struct TSegInfo
@@ -23,6 +24,22 @@ struct TCkinSegFlts
 {
   std::vector<TSegInfo> flts;
   bool is_edi;
+};
+
+class TCkinSetsInfo
+{
+  public:
+    bool pr_permit,pr_waitlist,pr_norec;
+    TCkinSetsInfo()
+    {
+      Clear();
+    };
+    void Clear()
+    {
+      pr_permit=false;
+      pr_waitlist=false;
+      pr_norec=false;
+    };
 };
 
 class CheckInInterface : public JxtInterface
@@ -122,6 +139,21 @@ public:
   static void readTripSets( int point_id, xmlNodePtr dataNode );
   static void readTripSets( int point_id, TTripInfo &fltInfo, xmlNodePtr tripSetsNode );
   static void readTripSets( TTripInfo &fltInfo, int pr_etstatus, xmlNodePtr tripSetsNode);
+  
+  static void GetOnwardCrsTransfer(int pnr_id, TQuery &Qry, std::vector<TTransferItem> &trfer);
+  static void LoadOnwardCrsTransfer(const TTripInfo &operFlt,
+                                    const std::string &oper_airp_arv,
+                                    const std::string &tlg_airp_dep,
+                                    const std::vector<TTransferItem> &crs_trfer,
+                                    std::vector<TTransferItem> &trfer,
+                                    xmlNodePtr trferNode);
+
+  static bool CheckTCkinPermit(const std::string &airline_in,
+                               const int flt_no_in,
+                               const std::string &airp,
+                               const std::string &airline_out,
+                               const int flt_no_out,
+                               TCkinSetsInfo &sets);
 };
 
 
