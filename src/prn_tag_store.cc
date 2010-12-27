@@ -1091,7 +1091,7 @@ string TPrnTagStore::LONG_ARV(TFieldParams fp)
         result = cut_place(AIRP_ARV(fp), CITY_ARV_NAME(fp), fp.len);
     } else {
         TAirpsRow &airpRow = (TAirpsRow&)base_tables.get("AIRPS").get_row("code",grpInfo.airp_arv);
-        cut_long_place(
+        result = cut_long_place(
                 tag_lang.ElemIdToTagElem(etCity, airpRow.city, efmtNameLong, tag_lang.dup_lang()),
                 tag_lang.ElemIdToTagElem(etAirp, grpInfo.airp_arv, efmtCodeNative, tag_lang.dup_lang()),
                 tag_lang.ElemIdToTagElem(etCity, airpRow.city, efmtNameLong, AstraLocale::LANG_EN),
@@ -1109,7 +1109,7 @@ string TPrnTagStore::LONG_DEP(TFieldParams fp)
         result = cut_place(AIRP_DEP(fp), CITY_DEP_NAME(fp), fp.len);
     } else {
         TAirpsRow &airpRow = (TAirpsRow&)base_tables.get("AIRPS").get_row("code",grpInfo.airp_dep);
-        cut_long_place(
+        result = cut_long_place(
                 tag_lang.ElemIdToTagElem(etCity, airpRow.city, efmtNameLong, tag_lang.dup_lang()),
                 tag_lang.ElemIdToTagElem(etAirp, grpInfo.airp_dep, efmtCodeNative, tag_lang.dup_lang()),
                 tag_lang.ElemIdToTagElem(etCity, airpRow.city, efmtNameLong, AstraLocale::LANG_EN),
