@@ -1047,11 +1047,11 @@ string cut_place(string airp, string city_name, int len)
     }
 }
 
-string TPrnTagStore::cut_long_place(string city1, string airp1, string city2, string airp2, TFieldParams &fp)
+string cut_long_place(string city1, string airp1, string city2, string airp2, int len)
 {
     string result;
     if(city1 == city2 and airp1 == airp2)
-        result = cut_place(AIRP_ARV(fp), CITY_ARV_NAME(fp), fp.len);
+        result = cut_place(airp1, city1, len);
     else {
         string part1, part2;
         if(city1 == city2) city2.erase();
@@ -1063,8 +1063,8 @@ string TPrnTagStore::cut_long_place(string city1, string airp1, string city2, st
         else
             part2 = city2 + (airp2.empty() ? airp2 : "(" + airp2 + ")");
 
-        int diff = fp.len - part1.size();
-        if(diff >= (int)part2.size() or fp.len == 0)
+        int diff = len - part1.size();
+        if(diff >= (int)part2.size() or len == 0)
             result = part1 + part2;
         else {
             if(diff == 0) { // потому что cut_place в сл-е 0 возвращает полное название
@@ -1074,11 +1074,14 @@ string TPrnTagStore::cut_long_place(string city1, string airp1, string city2, st
                     part2 = airp2;
             } else
                 part2 = cut_place(airp2, city2, diff);
-            diff = fp.len - part2.size();
+            diff = len - part2.size();
             if(diff >= (int)part1.size())
                 result = part1 + part2;
-            else
+            else {
                 result = cut_place(airp1, city1, diff - 1) + "/" + part2;
+                if(result.size() > len)
+                    result = airp1;
+            }
         }
     }
     return result;
@@ -1096,7 +1099,7 @@ string TPrnTagStore::LONG_ARV(TFieldParams fp)
                 tag_lang.ElemIdToTagElem(etAirp, grpInfo.airp_arv, efmtCodeNative, tag_lang.dup_lang()),
                 tag_lang.ElemIdToTagElem(etCity, airpRow.city, efmtNameLong, AstraLocale::LANG_EN),
                 tag_lang.ElemIdToTagElem(etAirp, grpInfo.airp_arv, efmtCodeNative, AstraLocale::LANG_EN),
-                fp
+                fp.len
                 );
     }
     return result;
@@ -1114,7 +1117,7 @@ string TPrnTagStore::LONG_DEP(TFieldParams fp)
                 tag_lang.ElemIdToTagElem(etAirp, grpInfo.airp_dep, efmtCodeNative, tag_lang.dup_lang()),
                 tag_lang.ElemIdToTagElem(etCity, airpRow.city, efmtNameLong, AstraLocale::LANG_EN),
                 tag_lang.ElemIdToTagElem(etAirp, grpInfo.airp_dep, efmtCodeNative, AstraLocale::LANG_EN),
-                fp
+                fp.len
                 );
     }
     return result;
