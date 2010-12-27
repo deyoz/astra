@@ -317,6 +317,7 @@ class TPrnTagStore {
 
         std::string get_test_field(std::string name, int len, std::string date_format);
         std::string get_real_field(std::string name, int len, std::string date_format);
+        std::string cut_long_place(std::string city1, std::string airp1, std::string city2, std::string airp2, TFieldParams &fp);
     public:
         TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tagsNode, TBTRoute *aroute = NULL);
         TPrnTagStore(bool pr_lat);
