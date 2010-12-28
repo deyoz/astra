@@ -3,6 +3,7 @@
 #include <fstream>
 #include "maindcs.h"
 #include "basic.h"
+#include "astra_elems.h"
 #include "astra_utils.h"
 #include "astra_consts.h"
 #include "base_tables.h"
@@ -13,6 +14,7 @@
 #include "xml_unit.h"
 #include "print.h"
 #include "crypt.h"
+#include "astra_locale.h"
 #include "term_version.h"
 #include "jxtlib/jxt_cont.h"
 
@@ -21,39 +23,221 @@
 
 using namespace ASTRA;
 using namespace EXCEPTIONS;
+using namespace AstraLocale;
 using namespace std;
-using namespace JxtContext;
 
 enum TDevParamCategory{dpcSession,dpcFormat,dpcModel};
 
+const int NEW_TERM_VER_NOTICE=1;
+
+int SetTermVersionNotice(int argc,char **argv)
+{
+  TQuery Qry(&OraSession);
+  string version, term_mode;
+  ostringstream prior_version;
+  try
+  {
+    //проверяем параметры
+    if (argc<3) throw EConvertError("wrong parameters");
+    ProgTrace(TRACE5, "SetTermVersionNotice: <platform>=%s <version>=%s", argv[1], argv[2]);
+    if (!TDesk::isValidVersion(argv[2])) throw EConvertError("wrong terminal version");
+    version=argv[2];
+    int i = ToInt(version.substr(7));
+    if (i<=0) throw EConvertError("wrong terminal version");
+    i--;
+    prior_version << version.substr(0,7) << setw(7) << setfill('0') << i;
+    ProgTrace(TRACE5, "SetTermVersionNotice: prior_version=%s", prior_version.str().c_str());
+    Qry.Clear();
+    Qry.SQLText="SELECT code FROM term_modes WHERE code=UPPER(:term_mode)";
+    Qry.CreateVariable("term_mode", otString, argv[1]);
+    Qry.Execute();
+    if (Qry.Eof) throw EConvertError("wrong platform");
+    term_mode=Qry.FieldAsString("code");
+    ProgTrace(TRACE5, "SetTermVersionNotice: term_mode=%s", term_mode.c_str());
+  }
+  catch(EConvertError &E)
+  {
+    printf("Error: %s\n", E.what());
+    if (argc>0)
+    {
+      puts("Usage:");
+      SetTermVersionNoticeHelp(argv[0]);
+      puts("Example:");
+      printf("  %s CUTE 201101-0123456\n",argv[0]);
+    };
+    return 1;
+  };
+  
+  //проверим notice_id на совпадение
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT notice_id FROM desk_notices "
+    "WHERE notice_type=:notice_type AND term_mode=:term_mode AND "
+    "      last_version=:last_version ";
+  Qry.CreateVariable("notice_type", otString, NEW_TERM_VER_NOTICE);
+  Qry.CreateVariable("term_mode", otString, term_mode);
+  Qry.CreateVariable("last_version", otString, prior_version.str());
+  Qry.Execute();
+  if (!Qry.Eof)
+  {
+    printf("Error: version %s has already been introduced\n", version.c_str());
+    return 0;
+  };
+  
+  Qry.Clear();
+  Qry.SQLText=
+    "DECLARE "
+    "  CURSOR cur IS "
+    "    SELECT notice_id FROM desk_notices "
+    "    WHERE notice_type=:notice_type AND term_mode=:term_mode FOR UPDATE; "
+    "BEGIN "
+    "  FOR curRow IN cur LOOP "
+    "    DELETE FROM locale_notices WHERE notice_id=curRow.notice_id; "
+    "    DELETE FROM desk_disable_notices WHERE notice_id=curRow.notice_id; "
+    "    DELETE FROM desk_notices WHERE notice_id=curRow.notice_id; "
+    "  END LOOP; "
+    "  SELECT id__seq.nextval INTO :notice_id FROM dual; "
+    "  INSERT INTO desk_notices(notice_id, notice_type, term_mode, last_version, default_disable, time_create, pr_del) "
+    "  VALUES(:notice_id, :notice_type, :term_mode, :last_version, 0, system.UTCSYSDATE, 0); "
+    "END; ";
+  Qry.DeclareVariable("notice_id", otInteger);
+  Qry.CreateVariable("notice_type", otString, NEW_TERM_VER_NOTICE);
+  Qry.CreateVariable("term_mode", otString, term_mode);
+  Qry.CreateVariable("last_version", otString, prior_version.str());
+  Qry.Execute();
+  int notice_id=Qry.GetVariableAsInteger("notice_id");
+
+  map<string,string> text;
+  Qry.Clear();
+  Qry.SQLText="SELECT code AS lang FROM lang_types";
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+  {
+    const char* lang=Qry.FieldAsString("lang");
+    text[lang] = getLocaleText("MSG.NOTICE.NEW_TERM_VERSION",
+                               LParams() << LParam("version", version) << LParam("term_mode", term_mode), lang);
+  };
+  
+  Qry.Clear();
+  Qry.SQLText="INSERT INTO locale_notices(notice_id, lang, text) VALUES(:notice_id, :lang, :text)";
+  Qry.CreateVariable("notice_id", otInteger, notice_id);
+  Qry.DeclareVariable("lang", otString);
+  Qry.DeclareVariable("text", otString);
+  for(map<string,string>::iterator i=text.begin();i!=text.end();i++)
+  {
+    Qry.SetVariable("lang", i->first);
+    Qry.SetVariable("text", i->second);
+    Qry.Execute();
+  };
+
+  puts("New version of the terminal has successfully introduced");
+  return 0;
+};
+
+void SetTermVersionNoticeHelp(const char *name)
+{
+  printf("  %-15.15s ", name);
+  puts("<platform (STAND, CUTE ...)> <version (XXXXXX-XXXXXXX)>  ");
+};
+
+void GetNotices(xmlNodePtr resNode)
+{
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  if (!reqInfo->desk.compatible(DESK_NOTICE_VERSION)) return;
+  
+/*  ProgTrace(TRACE5,"GetNotices: desk=%s lang=%s desk_grp_id=%d term_mode=%s version=%s",
+            reqInfo->desk.code.c_str(),
+            reqInfo->desk.lang.c_str(),
+            reqInfo->desk.grp_id,
+            EncodeOperMode(reqInfo->desk.mode).c_str(),
+            reqInfo->desk.version.c_str());*/
+  
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT desk_notices.notice_id, locale_notices.text, default_disable "
+    "FROM desk_notices, locale_notices, "
+    "     (SELECT notice_id FROM desk_disable_notices WHERE desk=:desk) desk_disable_notices "
+    "WHERE desk_notices.notice_id=locale_notices.notice_id AND locale_notices.lang=:lang AND "
+    "      desk_notices.notice_id=desk_disable_notices.notice_id(+) AND "
+    "      desk_disable_notices.notice_id IS NULL AND "
+    "      (desk IS NULL OR desk=:desk) AND "
+    "      (desk_grp_id IS NULL OR desk_grp_id=:desk_grp_id) AND "
+    "      (term_mode IS NULL OR term_mode=:term_mode) AND "
+    "      (first_version IS NULL OR first_version<=:version) AND "
+    "      (last_version IS NULL OR last_version>=:version) AND "
+    "      pr_del=0 "
+    "ORDER BY time_create";
+  Qry.CreateVariable("desk",otString,reqInfo->desk.code);
+  Qry.CreateVariable("lang",otString,reqInfo->desk.lang);
+  Qry.CreateVariable("desk_grp_id",otInteger,reqInfo->desk.grp_id);
+  Qry.CreateVariable("term_mode",otString,EncodeOperMode(reqInfo->desk.mode));
+  Qry.CreateVariable("version",otString,reqInfo->desk.version);
+  Qry.Execute();
+  if (!Qry.Eof)
+  {
+    xmlNodePtr noticesNode = NewTextChild(resNode, "notices");
+    for(;!Qry.Eof;Qry.Next())
+    {
+      xmlNodePtr node = NewTextChild(noticesNode, "notice");
+      NewTextChild(node, "id", Qry.FieldAsInteger("notice_id"));
+      NewTextChild(node, "text", Qry.FieldAsString("text"));
+      NewTextChild(node, "default_disable", (int)(Qry.FieldAsInteger("default_disable")!=0), (int)false);
+      //NewTextChild(node, "dlg_type", EncodeMsgDlgType(mtInformation));
+    };
+  };
+};
+
+void MainDCSInterface::DisableNotices(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  xmlNodePtr node=NodeAsNode("notices",reqNode);
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText="INSERT INTO desk_disable_notices(desk, notice_id) VALUES(:desk, :notice_id)";
+  Qry.CreateVariable("desk", otString, TReqInfo::Instance()->desk.code);
+  Qry.DeclareVariable("notice_id", otInteger);
+  for(node=node->children;node!=NULL;node=node->next)
+  {
+    Qry.SetVariable("notice_id", NodeAsInteger(node));
+    try
+    {
+      Qry.Execute();
+    }
+    catch(EOracleError E)
+    {
+      //if (E.Code!=1) throw; надо бы так, но а вдруг мы удалили id из desk_notices?
+    };
+  };
+};
+
 void GetModuleList(xmlNodePtr resNode)
 {
-    TReqInfo *reqinfo = TReqInfo::Instance();
-    TQuery Qry(&OraSession);
-    Qry.Clear();
-    Qry.SQLText=
-      "SELECT DISTINCT screen.id,screen.name,screen.exe,screen.view_order "
-      "FROM user_roles,role_rights,screen_rights,screen "
-      "WHERE user_roles.role_id=role_rights.role_id AND "
-      "      role_rights.right_id=screen_rights.right_id AND "
-      "      screen_rights.screen_id=screen.id AND "
-      "      user_roles.user_id=:user_id AND view_order IS NOT NULL "
-      "ORDER BY view_order";
-    Qry.DeclareVariable("user_id", otInteger);
-    Qry.SetVariable("user_id", reqinfo->user.user_id);
-    Qry.Execute();
-    xmlNodePtr modulesNode = NewTextChild(resNode, "modules");
-    if (!Qry.Eof)
+  TReqInfo *reqinfo = TReqInfo::Instance();
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT DISTINCT screen.id,screen.name,screen.exe,screen.view_order "
+    "FROM user_roles,role_rights,screen_rights,screen "
+    "WHERE user_roles.role_id=role_rights.role_id AND "
+    "      role_rights.right_id=screen_rights.right_id AND "
+    "      screen_rights.screen_id=screen.id AND "
+    "      user_roles.user_id=:user_id AND view_order IS NOT NULL "
+    "ORDER BY view_order";
+  Qry.DeclareVariable("user_id", otInteger);
+  Qry.SetVariable("user_id", reqinfo->user.user_id);
+  Qry.Execute();
+  xmlNodePtr modulesNode = NewTextChild(resNode, "modules");
+  if (!Qry.Eof)
+  {
+    for(;!Qry.Eof;Qry.Next())
     {
-      for(;!Qry.Eof;Qry.Next())
-      {
-        xmlNodePtr moduleNode = NewTextChild(modulesNode, "module");
-        NewTextChild(moduleNode, "id", Qry.FieldAsInteger("id"));
-        NewTextChild(moduleNode, "name", Qry.FieldAsString("name"));
-        NewTextChild(moduleNode, "exe", Qry.FieldAsString("exe"));
-      };
-    }
-    else showErrorMessage("Пользователю закрыт доступ ко всем модулям");
+      xmlNodePtr moduleNode = NewTextChild(modulesNode, "module");
+      NewTextChild(moduleNode, "id", Qry.FieldAsInteger("id"));
+      NewTextChild(moduleNode, "name", Qry.FieldAsString("name"));
+      NewTextChild(moduleNode, "exe", Qry.FieldAsString("exe"));
+    };
+  }
+  else AstraLocale::showErrorMessage("MSG.ALL_MODULES_DENIED_FOR_USER");
 };
 
 void GetDeviceAirlines(xmlNodePtr node)
@@ -65,13 +249,14 @@ void GetDeviceAirlines(xmlNodePtr node)
   TAirlines &airlines=(TAirlines&)(base_tables.get("airlines"));
   if (reqInfo->user.access.airlines_permit) {
   	vector<string> airlines_params;
-    SeparateString(getJxtContHandler()->sysContext()->read("session_airlines_params"),5,airlines_params);
+    SeparateString(JxtContext::getJxtContHandler()->sysContext()->read("session_airlines_params"),5,airlines_params);
 
     for(vector<string>::const_iterator i=reqInfo->user.access.airlines.begin();
                                        i!=reqInfo->user.access.airlines.end();i++)
     {
       try
       {
+        ProgTrace(TRACE5, "airline=%s", i->c_str() );
         TAirlinesRow &row=(TAirlinesRow&)(airlines.get_row("code",*i));
         xmlNodePtr airlineNode=NewTextChild(accessNode,"airline");
         NewTextChild(airlineNode,"code",row.code);
@@ -407,11 +592,6 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
   bool pr_editable = ( find( reqInfo->user.access.rights.begin(),
                              reqInfo->user.access.rights.end(), 840 ) != reqInfo->user.access.rights.end() );
 
-  TQuery ModelQry(&OraSession);
-  ModelQry.Clear();
-  ModelQry.SQLText="SELECT name FROM dev_models WHERE code=:dev_model";
-  ModelQry.DeclareVariable("dev_model",otString);
-
 	TQuery SessParamsQry( &OraSession );
   SessParamsQry.SQLText=
     "SELECT dev_model_params.sess_type AS param_type, "
@@ -473,8 +653,7 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
       "SELECT dev_oper_types.code AS op_type, "
       "       dev_model_defaults.dev_model, "
       "       dev_model_defaults.sess_type, "
-      "       dev_model_defaults.fmt_type, "
-      "       '' sess_name, '' fmt_name "
+      "       dev_model_defaults.fmt_type "
       "FROM dev_oper_types,dev_model_defaults "
       "WHERE dev_oper_types.code=dev_model_defaults.op_type(+) AND "
       "      dev_model_defaults.term_mode(+)=:term_mode ";
@@ -489,16 +668,12 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
       "                dev_model_sess_fmt.dev_model,"
       "                dev_model_sess_fmt.sess_type,"
       "                dev_model_sess_fmt.fmt_type,"
-      "                dev_sess_types.name sess_name,"
-      "                dev_fmt_types.name fmt_name,"
       "                DECODE(dev_model_defaults.op_type,NULL,0,1) pr_default "
-      " FROM dev_model_sess_fmt, dev_sess_modes, dev_fmt_opers, dev_sess_types, dev_fmt_types, dev_model_defaults "
+      " FROM dev_model_sess_fmt, dev_sess_modes, dev_fmt_opers, dev_model_defaults "
       "WHERE dev_sess_modes.term_mode=:term_mode AND "
       "      dev_sess_modes.sess_type=dev_model_sess_fmt.sess_type AND "
-      "      dev_sess_types.code=dev_model_sess_fmt.sess_type AND "
       "      dev_fmt_opers.op_type=:op_type AND "
       "      dev_fmt_opers.fmt_type=dev_model_sess_fmt.fmt_type AND "
-      "      dev_fmt_types.code=dev_model_sess_fmt.fmt_type AND "
       "      dev_model_sess_fmt.dev_model=:dev_model AND "
       "      dev_model_defaults.op_type(+)=:op_type AND "
       "      dev_model_defaults.term_mode(+)=:term_mode AND "
@@ -514,18 +689,15 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
 
   TQuery Qry(&OraSession);
   Qry.SQLText =
-    "SELECT dev_model_sess_fmt.dev_model,dev_model_sess_fmt.sess_type,dev_model_sess_fmt.fmt_type, "
-    "       dev_sess_types.name sess_name, dev_fmt_types.name fmt_name "
-    " FROM dev_model_sess_fmt,dev_sess_modes,dev_fmt_opers,dev_sess_types,dev_fmt_types "
+    "SELECT dev_model_sess_fmt.dev_model,dev_model_sess_fmt.sess_type,dev_model_sess_fmt.fmt_type "
+    " FROM dev_model_sess_fmt,dev_sess_modes,dev_fmt_opers "
     "WHERE dev_model_sess_fmt.dev_model=:dev_model AND "
     "      dev_model_sess_fmt.sess_type=:sess_type AND "
     "      dev_model_sess_fmt.fmt_type=:fmt_type AND "
     "      dev_sess_modes.term_mode=:term_mode AND "
     "      dev_sess_modes.sess_type=dev_model_sess_fmt.sess_type AND "
     "      dev_fmt_opers.op_type=:op_type AND "
-    "      dev_fmt_opers.fmt_type=dev_model_sess_fmt.fmt_type AND "
-    "      dev_sess_types.code=:sess_type AND "
-    "      dev_fmt_types.code=:fmt_type";
+    "      dev_fmt_opers.fmt_type=dev_model_sess_fmt.fmt_type";
 
   Qry.DeclareVariable( "dev_model", otString );
   Qry.DeclareVariable( "sess_type", otString );
@@ -580,23 +752,39 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
       ProgTrace( TRACE5, "dev_model=%s, sess_type=%s, fmt_type=%s", dev_model.c_str(), sess_type.c_str(), fmt_type.c_str() );
       if ( Qry.Eof ) continue; // данный ключ dev_model+sess_type+fmt_type не разрешен
 
-      ModelQry.SetVariable( "dev_model", dev_model );
-      ModelQry.Execute();
-      if ( ModelQry.Eof ) continue; //       	модель не найдена
+      try {
+      	base_tables.get("DEV_MODELS").get_row( "code", dev_model );
+      }
+      catch(EBaseTableError){
+      	tst();
+      	continue;
+      };
+      tst();
 
       xmlNodePtr newoperNode=NewTextChild( resNode, "operation" );
       xmlNodePtr pNode;
       SetProp( newoperNode, "type", operation );
-      if ( !DefQry.FieldIsNULL( "sess_name" ) && !DefQry.FieldIsNULL( "fmt_name" ) ) {
-        SetProp( newoperNode, "variant_name", string( string(DefQry.FieldAsString( "sess_name" )) + "/" + DefQry.FieldAsString( "fmt_name" ) ).c_str() );
+      string sess_name, fmt_name;
+      if ( !variant_model.empty() ) {
+      	sess_name = ElemIdToNameLong( etDevSessType, DefQry.FieldAsString("sess_type") );
+      	fmt_name = ElemIdToNameLong( etDevFmtType, DefQry.FieldAsString("fmt_type") );
+      }
+      if ( !sess_name.empty() && !fmt_name.empty() ) { //???
+//      if ( !DefQry.FieldIsNULL( "sess_name" ) && !DefQry.FieldIsNULL( "fmt_name" ) ) {
+        SetProp( newoperNode, "variant_name", sess_name + "/" + fmt_name );
       }
       pNode = NewTextChild( newoperNode, "dev_model_code", dev_model );
-      SetProp( pNode, "dev_model_name", ModelQry.FieldAsString( "name" ) );
-      if (  !Qry.FieldIsNULL( "sess_name" ) && !Qry.FieldIsNULL( "fmt_name" ) ) {
-      	SetProp( pNode, "sess_fmt_name", string(Qry.FieldAsString( "sess_name" )) + "/" + Qry.FieldAsString( "fmt_name" ) );
+      SetProp( pNode, "dev_model_name", ElemIdToNameLong(etDevModel,dev_model) );
+     	sess_name = ElemIdToNameLong( etDevSessType, Qry.FieldAsString("sess_type") );
+     	ProgTrace( TRACE5, "sess_type=%s, sess_name=%s", Qry.FieldAsString("sess_type"), sess_name.c_str() );
+     	fmt_name = ElemIdToNameLong( etDevFmtType, Qry.FieldAsString("fmt_type") );
+
+      if ( !sess_name.empty() && !fmt_name.empty() ) { //???
+      //if (  !Qry.FieldIsNULL( "sess_name" ) && !Qry.FieldIsNULL( "fmt_name" ) ) {
+      	SetProp( pNode, "sess_fmt_name", sess_name + "/" + "fmt_name" );
       }
       if (!reqInfo->desk.compatible(NEW_TERM_VERSION))
-        NewTextChild( newoperNode, "dev_model_name", ModelQry.FieldAsString( "name" ) );
+        NewTextChild( newoperNode, "dev_model_name", ElemIdToNameLong(etDevModel,dev_model));
 
       SessParamsQry.SetVariable("dev_model",dev_model);
       SessParamsQry.SetVariable("sess_type",sess_type);
@@ -768,7 +956,7 @@ void MainDCSInterface::CheckUserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
       if (!GetSessionAirlines(GetNode("airlines", reqNode),airlines,airlines_params)) throw 0;
 
       // проверим session_airlines
-      if (getJxtContHandler()->sysContext()->read("session_airlines")!=airlines)
+      if (JxtContext::getJxtContHandler()->sysContext()->read("session_airlines")!=airlines)
         throw 0;
 
       GetModuleList(resNode);
@@ -1208,23 +1396,24 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     Qry.CreateVariable("passwd", otString, NodeAsString("passwd", reqNode));
     Qry.Execute();
     if ( Qry.RowCount() == 0 )
-      throw UserException("Неверно указан пользователь или пароль");
+      throw AstraLocale::UserException("MSG.WRONG_LOGIN_OR_PASSWD");
     if ( Qry.FieldAsInteger( "pr_denial" ) == -1 )
-    	throw UserException( "Пользователь удален из системы" );
+    	throw AstraLocale::UserException( "MSG.USER_DELETED" );
     if ( Qry.FieldAsInteger( "pr_denial" ) != 0 )
-      throw UserException( "Пользователю отказано в доступе" );
+      throw AstraLocale::UserException( "MSG.USER_DENIED" );
     reqInfo->user.user_id = Qry.FieldAsInteger("user_id");
     reqInfo->user.login = Qry.FieldAsString("login");
     reqInfo->user.descr = Qry.FieldAsString("descr");
     if(Qry.FieldIsNULL("desk"))
     {
-      showMessage( reqInfo->user.descr + ", добро пожаловать в систему");
+      AstraLocale::showMessage( "MSG.USER_WELCOME", LParams() << LParam("user", reqInfo->user.descr));
     }
     else
      if (reqInfo->desk.code != Qry.FieldAsString("desk"))
-       showMessage("Замена терминала");
-    if (Qry.FieldAsString("passwd")==(string)"ПАРОЛЬ" )
-      showErrorMessage("Пользователю необходимо изменить пароль");
+       AstraLocale::showMessage("MSG.PULT_SWAP");
+    if (Qry.FieldAsString("passwd")==(string)Qry.FieldAsString("login") )
+      AstraLocale::showErrorMessage("MSG.USER_NEED_TO_CHANGE_PASSWD");
+
     Qry.Clear();
     Qry.SQLText =
       "BEGIN "
@@ -1250,13 +1439,14 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     string airlines;
     string airlines_params;
     if (!GetSessionAirlines(GetNode("airlines", reqNode),airlines,airlines_params))
-      throw UserException("Не найден код авиакомпании %s",airlines.c_str());
-    getJxtContHandler()->sysContext()->write("session_airlines",airlines);
-    getJxtContHandler()->sysContext()->write("session_airlines_params",airlines_params);
+      throw AstraLocale::UserException("MSG.AIRLINE_CODE_NOT_FOUND", LParams() << LParam("airline", airlines));
+    JxtContext::getJxtContHandler()->sysContext()->write("session_airlines",airlines);
+    JxtContext::getJxtContHandler()->sysContext()->write("session_airlines_params",airlines_params);
     xmlNodePtr node=NodeAsNode("/term/query",ctxt->reqDoc);
     reqInfoData.screen = NodeAsString("@screen", node);
     reqInfoData.pult = ctxt->pult;
     reqInfoData.opr = NodeAsString("@opr", node);
+  	reqInfoData.lang = reqInfo->desk.lang; //!определение языка вынесено в astracallbacks.cc::UserBefore т.к. там задается контекст xmlRC->setLang(RUSSIAN) и не требуется делать повторно эту долгую операцию
     xmlNodePtr modeNode = GetNode("@mode", node);
     if (modeNode!=NULL)
       reqInfoData.mode = NodeAsString(modeNode);
@@ -1268,6 +1458,24 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     GetModuleList(resNode);
     ConvertDevOldFormat(reqNode,resNode);
     GetDevices(reqNode,resNode);
+    GetNotices(resNode);
+
+    if ( GetNode("lang",reqNode) ) { //!!!необходимо, чтобы был словарь для языка по умолчанию - здесь нет этой проверки!!!
+    	ProgTrace( TRACE5, "desk.lang=%s, dict.lang=%s", reqInfo->desk.lang.c_str(), NodeAsString( "lang/@dictionary_lang",reqNode) );
+      int client_checksum = NodeAsInteger("lang/@dictionary_checksum",reqNode);
+      int server_checksum = AstraLocale::TLocaleMessages::Instance()->checksum( reqInfo->desk.lang );
+      if ( NodeAsString( "lang/@dictionary_lang",reqNode) != reqInfo->desk.lang ||
+      	   client_checksum == 0 ||
+      	   server_checksum != client_checksum ) {
+        ProgTrace( TRACE5, "Send dictionary: lang=%s, client_checksum=%d, server_checksum=%d",
+                   reqInfo->desk.lang.c_str(), client_checksum,
+                   AstraLocale::TLocaleMessages::Instance()->checksum( reqInfo->desk.lang ) );
+        SetProp(NewTextChild( resNode, "lang", reqInfo->desk.lang ), "dictionary", AstraLocale::TLocaleMessages::Instance()->getDictionary(reqInfo->desk.lang));
+      }
+      else {
+      	NewTextChild( resNode, "lang", reqInfo->desk.lang );
+      }
+    }
     showBasicInfo();
 }
 
@@ -1278,9 +1486,9 @@ void MainDCSInterface::UserLogoff(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     Qry.SQLText = "UPDATE users2 SET desk = NULL WHERE user_id = :user_id";
     Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
     Qry.Execute();
-    getJxtContHandler()->sysContext()->remove("session_airlines");
-    getJxtContHandler()->sysContext()->remove("session_airlines_params");
-    showMessage("Сеанс работы в системе завершен");
+    JxtContext::getJxtContHandler()->sysContext()->remove("session_airlines");
+    JxtContext::getJxtContHandler()->sysContext()->remove("session_airlines_params");
+    AstraLocale::showMessage("MSG.WORK_SEANCE_FINISHED");
     reqInfo->user.clear();
     reqInfo->desk.clear();
     showBasicInfo();
@@ -1299,7 +1507,7 @@ void MainDCSInterface::ChangePasswd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
       Qry.Execute();
       if (Qry.Eof) throw Exception("user not found (user_id=%d)",reqInfo->user.user_id);
       if (strcmp(Qry.FieldAsString("passwd"),NodeAsString("old_passwd", reqNode))!=0)
-        throw UserException("Неверно указан текущий пароль");
+        throw AstraLocale::UserException("MSG.PASSWORD.CURRENT_WRONG_SET");
     };
     Qry.Clear();
     Qry.SQLText =
@@ -1310,7 +1518,7 @@ void MainDCSInterface::ChangePasswd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     if(Qry.RowsProcessed() == 0)
         throw Exception("user not found (user_id=%d)",reqInfo->user.user_id);
     TReqInfo::Instance()->MsgToLog("Изменен пароль пользователя", evtAccess);
-    showMessage("Пароль изменен");
+    AstraLocale::showMessage("MSG.PASSWORD.MODIFIED");
 }
 
 void MainDCSInterface::GetDeviceList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -1325,11 +1533,11 @@ void MainDCSInterface::GetDeviceList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   ostringstream sql;
 
   sql <<
-    "SELECT dev_oper_types.code AS op_type, dev_oper_types.name AS op_name, "
-    "       dev_model_code,dev_model_name "
-    "FROM dev_oper_types, "
+    "SELECT dev_oper_types.code AS op_type, "
+    "       dev_model_code "
+    " FROM dev_oper_types, "
     "  (SELECT DISTINCT "
-    "          dev_models.code AS dev_model_code, dev_models.name AS dev_model_name, "
+    "          dev_models.code AS dev_model_code, "
     "          dev_fmt_opers.op_type "
     "   FROM dev_models, "
     "        dev_model_sess_fmt,dev_sess_modes,dev_fmt_opers "
@@ -1349,7 +1557,7 @@ void MainDCSInterface::GetDeviceList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     sql << " AND dev_oper_types.code=:op_type ";
 
   sql <<
-    "ORDER BY op_type,dev_model_name";
+    "ORDER BY op_type,dev_model_code";
 
   if (!op_type.empty())
     Qry.CreateVariable("op_type",otString,op_type);
@@ -1369,21 +1577,20 @@ void MainDCSInterface::GetDeviceList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
       op_type=Qry.FieldAsString("op_type");
       operNode=NewTextChild(opersNode,"operation");
       NewTextChild(operNode,"type",op_type);
-      NewTextChild(operNode,"name",Qry.FieldAsString("op_name"));
+      NewTextChild(operNode,"name",ElemIdToNameLong(etDevOperType,Qry.FieldAsString("op_type")));
       devsNode=NewTextChild(operNode,"devices");
     };
     if (!Qry.FieldIsNULL("dev_model_code"))
     {
       devNode=NewTextChild(devsNode,"device");
       NewTextChild(devNode,"code",Qry.FieldAsString("dev_model_code"));
-      NewTextChild(devNode,"name",Qry.FieldAsString("dev_model_name"));
+      NewTextChild(devNode,"name",ElemIdToNameLong(etDevModel,Qry.FieldAsString("dev_model_code")));
     };
   };
   opersNode=NewTextChild(resNode,"encodings");
   NewTextChild(opersNode,"encoding","CP855");
   NewTextChild(opersNode,"encoding","CP866");
   NewTextChild(opersNode,"encoding","CP1251");
-
 };
 
 void MainDCSInterface::GetDeviceInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -1582,7 +1789,7 @@ void MainDCSInterface::DetermineScanParams(XMLRequestCtxt *ctxt, xmlNodePtr reqN
   catch(EConvertError &e)
   {
     ProgTrace(TRACE0,"DetermineScanParams: %s", e.what());
-    throw UserException("Невозможно автоматически определить параметры устройства");
+    throw AstraLocale::UserException("MSG.DEVICE.UNABLE_AUTO_DETECT_PARAMS");
   };
 };
 

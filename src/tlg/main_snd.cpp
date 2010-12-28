@@ -75,13 +75,13 @@ int main_snd_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
       };
     }; // end of loop
   }
-  catch(EOracleError E)
+  catch(EOracleError &E)
   {
     ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.what());
   }
-  catch(Exception E)
+  catch(std::exception &E)
   {
-    ProgError(STDLOG,"Exception: %s",E.what());
+    ProgError(STDLOG,"std::exception: %s",E.what());
   }
   catch(...)
   {

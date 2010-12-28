@@ -37,8 +37,8 @@ struct TBagReceipt
   std::string issue_desk,annul_desk,issue_place;
 };
 
-#define CASH_PAY_TYPE "€‹"
-#define NONE_PAY_TYPE "…’"
+#define CASH_PAY_TYPE_ID "€‹"
+#define NONE_PAY_TYPE_ID "…’"
 
 typedef enum {
     ptIER506A = 1,

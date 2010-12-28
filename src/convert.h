@@ -13,7 +13,7 @@ std::string norm_iata_line(std::string line);
 // convert iata line depends on pr_lat
 std::string denorm_iata_line(std::string line, bool pr_lat);
 std::string norm_iata_row(std::string row);
-std::string denorm_iata_row(std::string row);
+std::string denorm_iata_row(std::string row, const char* add_ch);
 std::string prev_iata_line(std::string line);
 std::string next_iata_line(std::string line);
 std::string prev_iata_row(std::string row);

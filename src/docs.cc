@@ -21,6 +21,7 @@
 
 using namespace std;
 using namespace EXCEPTIONS;
+using namespace AstraLocale;
 using namespace BASIC;
 using namespace ASTRA;
 using namespace boost;
@@ -244,29 +245,45 @@ void SeasonListVars(int trip_id, int pr_lat, xmlNodePtr variablesNode, xmlNodePt
 {
     NewTextChild(variablesNode, "test_server", get_test_server());
 	vector<SEASON::TViewPeriod> viewp;
-	SEASON::ReadTripInfo( trip_id, viewp, reqNode );
+	SEASON::ReadTripInfo( trip_id, viewp, GetNode( "seasonvars", reqNode ) );
   for ( vector<SEASON::TViewPeriod>::const_iterator i=viewp.begin(); i!=viewp.end(); i++ ) {
-/*    NewTextChild( variablesNode, "exec", i->exec );
-    NewTextChild( variablesNode, "noexec", i->noexec );*/
     for ( vector<SEASON::TViewTrip>::const_iterator j=i->trips.begin(); j!=i->trips.end(); j++ ) {
-/*    	xmlNodePtr tripsNode = NULL;
-    	if ( !tripsNode )
-        tripsNode = NewTextChild( variablesNode, "trips" );
-      xmlNodePtr tripNode = NewTextChild( tripsNode, "trip" );
-      NewTextChild( tripNode, "move_id", j->move_id );*/
       NewTextChild( variablesNode, "trip", j->name );
-/*      NewTextChild( tripNode, "crafts", j->crafts );
-      NewTextChild( tripNode, "ports", j->ports );
-      if ( j->land > NoExists )
-        NewTextChild( tripNode, "land", DateTimeToStr( j->land ) );
-      if ( j->takeoff > NoExists )
-        NewTextChild( tripNode, "takeoff", DateTimeToStr( j->takeoff ) );*/
       break;
     }
   }
 }
 
-void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, TDateTime part_key)
+void populate_doc_cap(xmlNodePtr variablesNode, string lang)
+{
+    NewTextChild(variablesNode, "doc_cap_no", getLocaleText("№", lang));
+    NewTextChild(variablesNode, "doc_cap_name", getLocaleText("Ф.И.О.", lang));
+    NewTextChild(variablesNode, "doc_cap_surname", getLocaleText("Фамилия", lang));
+    NewTextChild(variablesNode, "doc_cap_doc", getLocaleText("Документ", lang));
+    NewTextChild(variablesNode, "doc_cap_tkt", getLocaleText("Билет", lang));
+    NewTextChild(variablesNode, "doc_cap_tkt_no", getLocaleText("№ Билета", lang));
+    NewTextChild(variablesNode, "doc_cap_ref_type", getLocaleText("Причина невылета", lang));
+    NewTextChild(variablesNode, "doc_cap_bag", getLocaleText("Баг.", lang));
+    NewTextChild(variablesNode, "doc_cap_baggage", getLocaleText("Багаж", lang));
+    NewTextChild(variablesNode, "doc_cap_rk", getLocaleText("Р/к", lang));
+    NewTextChild(variablesNode, "doc_cap_pay", getLocaleText("Опл.", lang));
+    NewTextChild(variablesNode, "doc_cap_tags", getLocaleText("№№ баг. бирок", lang));
+    NewTextChild(variablesNode, "doc_cap_tags_short", getLocaleText("№ б/б", lang));
+    NewTextChild(variablesNode, "doc_cap_rem", getLocaleText("Рем.", lang));
+    NewTextChild(variablesNode, "doc_cap_pas", getLocaleText("Пас", lang));
+    NewTextChild(variablesNode, "doc_cap_type", getLocaleText("Тип", lang));
+    NewTextChild(variablesNode, "doc_cap_seat_no", getLocaleText("№ м", lang));
+    NewTextChild(variablesNode, "doc_cap_remarks", getLocaleText("Ремарки", lang));
+    NewTextChild(variablesNode, "doc_cap_cl", getLocaleText("Кл", lang));
+    NewTextChild(variablesNode, "doc_cap_dest", getLocaleText("П/н", lang));
+    NewTextChild(variablesNode, "doc_cap_to", getLocaleText("CAP.DOC.TO", lang));
+    NewTextChild(variablesNode, "doc_cap_ex", getLocaleText("Дс", lang));
+    NewTextChild(variablesNode, "doc_cap_brd", getLocaleText("Пс", lang));
+    NewTextChild(variablesNode, "doc_cap_test", getLocaleText("CAP.TEST", lang));
+    NewTextChild(variablesNode, "doc_cap_user_descr", getLocaleText("Оператор", lang));
+}
+
+void PaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode, TDateTime part_key)
 {
     TQuery Qry(&OraSession);
     string SQLText =
@@ -280,7 +297,7 @@ void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, TDateTime p
         "   park_out park, "
         "   NVL(act_out,NVL(est_out,scd_out)) real_out, "
         "   scd_out, "
-        "   ckin.get_airps(point_id, 1) long_route "
+        "   ckin.get_airps(point_id,:vlang,1) long_route "
         "from ";
     if(part_key == NoExists)
         SQLText +=
@@ -297,8 +314,9 @@ void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, TDateTime p
     }
     Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.CreateVariable( "vlang", otString, TReqInfo::Instance()->desk.lang );
     Qry.Execute();
-    if(Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
+    if(Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
 
     string airp = Qry.FieldAsString("airp");
     string airline = Qry.FieldAsString("airline");
@@ -307,143 +325,173 @@ void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, TDateTime p
 
     string airline_name;
     if(airline.size()) {
-      TBaseTableRow &airlineRow = base_tables.get("AIRLINES").get_row("code",airline);
-      airline = airlineRow.AsString("code",pr_lat);
-      airline_name = airlineRow.AsString("name", pr_lat);
+        airline = rpt_params.ElemIdToReportElem(etAirline, airline, efmtCodeNative);
+        airline_name = rpt_params.ElemIdToReportElem(etAirline, airline, efmtNameLong);
     }
 
     string trip =
         airline +
         IntToString(Qry.FieldAsInteger("flt_no")) +
-        Qry.FieldAsString("suffix");
+        rpt_params.ElemIdToReportElem(etSuffix, Qry.FieldAsString("suffix"), efmtCodeNative);
 
     NewTextChild(variablesNode, "trip", trip);
     TDateTime scd_out, real_out;
     scd_out= UTCToClient(Qry.FieldAsDateTime("scd_out"),tz_region);
     real_out= UTCToClient(Qry.FieldAsDateTime("real_out"),tz_region);
-    NewTextChild(variablesNode, "scd_out", DateTimeToStr(scd_out, "dd.mm.yyyy", pr_lat));
-    NewTextChild(variablesNode, "real_out", DateTimeToStr(real_out, "dd.mm.yyyy", pr_lat));
-    NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm", pr_lat));
+    NewTextChild(variablesNode, "scd_out", DateTimeToStr(scd_out, "dd.mm.yyyy"));
+    NewTextChild(variablesNode, "real_out", DateTimeToStr(real_out, "dd.mm.yyyy"));
+    NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm"));
     TDateTime issued = UTCToLocal(NowUTC(),TReqInfo::Instance()->desk.tz_region);
-    NewTextChild(variablesNode, "date_issue", DateTimeToStr(issued, "dd.mm.yy hh:nn", pr_lat));
-    NewTextChild(variablesNode, "day_issue", DateTimeToStr(issued, "dd.mm.yy", pr_lat));
+    NewTextChild(variablesNode, "date_issue", DateTimeToStr(issued, "dd.mm.yy hh:nn"));
+    NewTextChild(variablesNode, "day_issue", DateTimeToStr(issued, "dd.mm.yy"));
 
-    TBaseTableRow &airpRow = base_tables.get("AIRPS").get_row("code",airp);
 
-    NewTextChild(variablesNode, "own_airp_name", "АЭРОПОРТ " + airpRow.AsString("name", false));
-    NewTextChild(variablesNode, "own_airp_name_lat", airpRow.AsString("name", true) + " AIRPORT");
-    NewTextChild(variablesNode, "airp_dep_name", airpRow.AsString("name", pr_lat));
-    NewTextChild(variablesNode, "airp_dep_city", airpRow.AsString("city", pr_lat));
+    NewTextChild(variablesNode, "lang", TReqInfo::Instance()->desk.lang );
+    NewTextChild(variablesNode, "own_airp_name", getLocaleText("CAP.DOC.AIRP_NAME",  LParams() << LParam("airp", rpt_params.ElemIdToReportElem(etAirp, airp, efmtNameLong, rpt_params.dup_lang())), rpt_params.dup_lang()));
+    NewTextChild(variablesNode, "own_airp_name_lat", getLocaleText("CAP.DOC.AIRP_NAME",  LParams() << LParam("airp", rpt_params.ElemIdToReportElem(etAirp, airp, efmtNameLong, AstraLocale::LANG_EN)), AstraLocale::LANG_EN));
+    TAirpsRow &airpRow = (TAirpsRow&)base_tables.get("AIRPS").get_row("code",airp);
+    NewTextChild(variablesNode, "airp_dep_name", rpt_params.ElemIdToReportElem(etAirp, airp, efmtNameLong));
+    NewTextChild(variablesNode, "airp_dep_city", rpt_params.ElemIdToReportElem(etCity, airpRow.city, efmtCodeNative));
     NewTextChild(variablesNode, "airline_name", airline_name);
     NewTextChild(variablesNode, "flt", trip);
     NewTextChild(variablesNode, "bort", Qry.FieldAsString("bort"));
     NewTextChild(variablesNode, "craft", craft);
     NewTextChild(variablesNode, "park", Qry.FieldAsString("park"));
-    NewTextChild(variablesNode, "scd_time", DateTimeToStr(scd_out, "hh:nn", pr_lat));
-    NewTextChild(variablesNode, "airp_arv_name", airpRow.AsString("name",pr_lat));
-    NewTextChild(variablesNode, "airp_arv_city", airpRow.AsString("city",pr_lat));
+    NewTextChild(variablesNode, "scd_time", DateTimeToStr(scd_out, "hh:nn"));
     NewTextChild(variablesNode, "long_route", Qry.FieldAsString("long_route"));
     NewTextChild(variablesNode, "test_server", get_test_server());
+    NewTextChild(variablesNode, "page_number_fmt", getLocaleText("CAP.PAGE_NUMBER_FMT", rpt_params.GetLang()));
 }
 
-struct TRptParams {
-    int point_id;
-    TRptType rpt_type;
-    string airp_arv;
-    string ckin_zone;
-    bool pr_et;
-    bool pr_trfer;
-    bool pr_brd;
-    TCodeShareInfo mkt_flt;
-    TRptParams():
-        point_id(NoExists),
-        pr_et(false),
-        pr_trfer(false),
-        pr_brd(false)
-    {};
+void TRptParams::Init(xmlNodePtr node)
+{
+    point_id = NodeAsIntegerFast("point_id", node);
+    rpt_type = DecodeRptType(NodeAsStringFast("rpt_type", node));
+    airp_arv = NodeAsStringFast("airp_arv", node, "");
+    ckin_zone = NodeAsStringFast("ckin_zone", node, ALL_CKIN_ZONES.c_str());
+    pr_et = NodeAsIntegerFast("pr_et", node, 0) != 0;
+    pr_trfer = NodeAsIntegerFast("pr_trfer", node, 0) != 0;
+    pr_brd = NodeAsIntegerFast("pr_brd", node, 0) != 0;
+    string route_country;
+    route_inter = IsRouteInter(point_id, NoExists, route_country);
+    if(route_country == "РФ")
+        route_country_lang = AstraLocale::LANG_RU;
+    else
+        route_country_lang = "";
+    xmlNodePtr mktFltNode = GetNodeFast("mkt_flight", node);
+    if(mktFltNode != NULL) {
+        xmlNodePtr node = mktFltNode->children;
+        mkt_flt.airline = NodeAsStringFast("airline", node);
+        mkt_flt.flt_no = NodeAsIntegerFast("flt_no", node);
+        mkt_flt.suffix = NodeAsStringFast("suffix", node, "");
+    }
+    xmlNodePtr clientTypeNode = GetNodeFast("client_type", node);
+    if(clientTypeNode != NULL)
+        client_type = NodeAsString(clientTypeNode);
+    if(
+            rpt_type == rtPTM or
+            rpt_type == rtPTMTXT or
+            rpt_type == rtBTM or
+            rpt_type == rtBTMTXT
+      )
+        req_lang = "";
+    else
+        req_lang = TReqInfo::Instance()->desk.lang;
+}
+
+bool TRptParams::IsInter() const
+{
+    return route_inter || route_country_lang.empty() || route_country_lang!=TReqInfo::Instance()->desk.lang;
+}
+
+string TRptParams::GetLang()
+{
+  string lang = req_lang;
+  if (lang.empty())
+  {
+    lang = TReqInfo::Instance()->desk.lang;
+    if (IsInter()) lang=AstraLocale::LANG_EN;
+  }
+  return lang;
+}
+
+string TRptParams::GetLang(TElemFmt &fmt, string firm_lang) const
+{
+  string lang = firm_lang.empty()? req_lang : firm_lang;
+  if (lang.empty())
+  {
+     lang = TReqInfo::Instance()->desk.lang;
+     if (IsInter())
+     {
+       if (fmt==efmtNameShort || fmt==efmtNameLong) lang=AstraLocale::LANG_EN;
+       if (fmt==efmtCodeNative) fmt=efmtCodeInter;
+       if (fmt==efmtCodeICAONative) fmt=efmtCodeICAOInter;
+     };
+  };
+  return lang;
+}
+
+string TRptParams::ElemIdToReportElem(TElemType type, const string &id, TElemFmt fmt, string firm_lang) const
+{
+  if (id.empty()) return "";
+
+  string lang=GetLang(fmt, firm_lang); //специально вынесено, так как fmt в процедуре может измениться
+
+  vector< pair<TElemFmt,string> > fmts;
+  getElemFmts(fmt, lang, fmts);
+  return ElemIdToElem(type, id, fmts, true);
 };
 
-int GetRPEncoding(const TRptParams &rpt_params)
+string TRptParams::ElemIdToReportElem(TElemType type, int id, TElemFmt fmt, string firm_lang) const
 {
-    TBaseTable &airps = base_tables.get("AIRPS");
-    TBaseTable &cities = base_tables.get("CITIES");
-    int result = 0;
-    //определяем encoding по всему маршруту! независимо от фильтра по аэропорту
-    TTripRoute route;
-    if (!route.GetRouteAfter(rpt_params.point_id,trtWithCurrent,trtNotCancelled))
-        throw Exception("TTripRoute::GetRouteAfter: flight not found for point_id %d", rpt_params.point_id);
-    for(vector<TTripRouteItem>::iterator iv = route.begin(); iv != route.end(); iv++)
-    {
-        ProgTrace(TRACE5, "%s", cities.get_row("code",
-                    airps.get_row("code",iv->airp).AsString("city")).AsString("country").c_str());
-        result = result or cities.get_row("code",
-                airps.get_row("code",iv->airp).AsString("city")).AsString("country") != "РФ";
-    };
-    return result;
-}
+  if (id==ASTRA::NoExists) return "";
 
-string get_last_target(TQuery &Qry, const int pr_lat)
+  string lang=GetLang(fmt, firm_lang); //специально вынесено, так как fmt в процедуре может измениться
+
+  vector< pair<TElemFmt,string> > fmts;
+
+  getElemFmts(fmt, lang, fmts);
+  return ElemIdToElem(type, id, fmts, true);
+};
+
+
+string get_last_target(TQuery &Qry, TRptParams &rpt_params)
 {
     string result;
     string airline = Qry.FieldAsString("trfer_airline");
     if(!airline.empty()) {
-        string airp = Qry.FieldAsString("trfer_airp_arv");
-        try {
-            TBaseTableRow &airpRow = base_tables.get("AIRPS").get_row("code",airp);
-            string tmp_airp = airpRow.AsString("name", pr_lat);
-            if(tmp_airp.empty())
-                tmp_airp = airpRow.AsString("name", 0);
-            if(!tmp_airp.empty())
-                airp = tmp_airp.substr(0, 50);
-        } catch(...) {
-        }
-        string airline = Qry.FieldAsString("trfer_airline");
-        try {
-            TBaseTableRow &airlineRow = base_tables.get("AIRLINES").get_row("code",airline);
-            string tmp_airline = airlineRow.AsString("code", pr_lat);
-            if(!tmp_airline.empty())
-                airline = tmp_airline;
-        } catch(...) {
-        }
         ostringstream buf;
         buf
-            << airp
+            << rpt_params.ElemIdToReportElem(etAirp, Qry.FieldAsString("trfer_airp_arv"), efmtNameLong).substr(0, 50)
             << "("
-            << airline
+            << rpt_params.ElemIdToReportElem(etAirline, airline, efmtCodeNative)
             << setw(3) << setfill('0') << Qry.FieldAsInteger("trfer_flt_no")
-            << convert_suffix(Qry.FieldAsString("trfer_suffix"), pr_lat)
+            << rpt_params.ElemIdToReportElem(etSuffix, Qry.FieldAsString("trfer_suffix"), efmtCodeNative)
             << ")/" << DateTimeToStr(Qry.FieldAsDateTime("trfer_scd"), "dd");
         result = buf.str();
     }
     return result;
 }
 
-string get_hall_list(string airp, string zone, bool pr_lat)
+string get_hall_list(string airp, TRptParams &rpt_params)
 {
     TQuery Qry(&OraSession);
     string SQLText = (string)
-        "SELECT DECODE(:pr_lat,0,name,NVL(name_lat,system.transliter(name,1,1))) name "
-        "FROM "
-        "   halls2 "
-        "WHERE "
+        "SELECT id FROM halls2 WHERE "
         "   airp = :airp AND "
         "   NVL(rpt_grp, ' ') = NVL(:rpt_grp, ' ') "
         "ORDER BY "
         "   name ";
     Qry.SQLText = SQLText;
-    Qry.CreateVariable("pr_lat", otInteger, (int)pr_lat);
     Qry.CreateVariable("airp", otString, airp);
-    Qry.CreateVariable("rpt_grp", otString, zone);
+    Qry.CreateVariable("rpt_grp", otString, rpt_params.ckin_zone);
     Qry.Execute();
     string result;
     for(; !Qry.Eof; Qry.Next()) {
-        if(Qry.FieldIsNULL("name"))
-            continue;
         if(!result.empty())
             result += ", ";
-        result += Qry.FieldAsString("name");
+        result += rpt_params.ElemIdToReportElem(etHall, Qry.FieldAsInteger("id"), efmtNameLong);
     }
-    ProgTrace(TRACE5, "get_hall_list result: %s", result.c_str());
     return result;
 }
 
@@ -531,15 +579,15 @@ class t_rpt_bm_bag_name {
         vector<TBagNameRow> bag_names;
     public:
         void init(string airp);
-        string get(string class_code, int bag_type, int pr_lat);
+        string get(string class_code, int bag_type, bool is_inter);
 };
 
-string t_rpt_bm_bag_name::get(string class_code, int bag_type, int pr_lat)
+string t_rpt_bm_bag_name::get(string class_code, int bag_type, bool is_inter)
 {
     string result;
     for(vector<TBagNameRow>::iterator iv = bag_names.begin(); iv != bag_names.end(); iv++)
         if(iv->class_code == class_code && iv->bag_type == bag_type) {
-            result = pr_lat ? iv->name_lat : iv->name;
+            result = is_inter ? iv->name_lat : iv->name;
             if(result.empty())
                 result = iv->name;
             break;
@@ -645,9 +693,9 @@ bool lessTagNos(const t_tag_nos_row &p1, const t_tag_nos_row &p2)
     return p1.no < p2.no;
 }
 
-string get_tag_rangeA(vector<t_tag_nos_row> &tag_nos, vector<t_tag_nos_row>::iterator begin, vector<t_tag_nos_row>::iterator end, int pr_lat)
+string get_tag_rangeA(vector<t_tag_nos_row> &tag_nos, vector<t_tag_nos_row>::iterator begin, vector<t_tag_nos_row>::iterator end, string lang)
 {
-    string lim = (pr_lat ? "(lim)" : "(огр)");
+    string lim = getLocaleText("(огр)", lang);
     ostringstream result;
     double first_no = -1.;
     double prev_no = -1.;
@@ -690,7 +738,7 @@ string get_tag_rangeA(vector<t_tag_nos_row> &tag_nos, vector<t_tag_nos_row>::ite
     return result.str();
 }
 
-string get_tag_range(vector<t_tag_nos_row> tag_nos, int pr_lat)
+string get_tag_range(vector<t_tag_nos_row> tag_nos, string lang)
 {
     ostringstream result;
     sort(tag_nos.begin(), tag_nos.end(), lessTagNos);
@@ -703,14 +751,14 @@ string get_tag_range(vector<t_tag_nos_row> tag_nos, int pr_lat)
             if(iv != begin) {
                 if(!result.str().empty())
                     result << ", ";
-                result << get_tag_rangeA(tag_nos, begin, iv, pr_lat);
+                result << get_tag_rangeA(tag_nos, begin, iv, lang);
             }
             begin = iv;
         }
     }
     if(!result.str().empty())
         result << ", ";
-    result << get_tag_rangeA(tag_nos, begin, tag_nos.end(), pr_lat);
+    result << get_tag_rangeA(tag_nos, begin, tag_nos.end(), lang);
     return result.str();
 }
 
@@ -733,7 +781,7 @@ void get_report_form(const string name, xmlNodePtr node)
     string version;
     TQuery Qry(&OraSession);
     if (TReqInfo::Instance()->desk.compatible(NEW_TERM_VERSION) or TReqInfo::Instance()->screen.name == "DOCS.EXE") {
-        Qry.SQLText = "select form from fr_forms2 where name = :name and version = :version ";
+        Qry.SQLText = "select form, pr_locale from fr_forms2 where name = :name and version = :version ";
         version = get_report_version(name);
         Qry.CreateVariable("version", otString, version);
     } else
@@ -755,9 +803,9 @@ void get_report_form(const string name, xmlNodePtr node)
     xmlNodePtr formNode = ReplaceTextChild(node, "form", form);
     SetProp(formNode, "name", name);
     SetProp(formNode, "version", version);
- /*   if ((TReqInfo::Instance()->desk.compatible(NEW_TERM_VERSION) or TReqInfo::Instance()->screen.name == "DOCS.EXE") and
+    if ((TReqInfo::Instance()->desk.compatible(NEW_TERM_VERSION) or TReqInfo::Instance()->screen.name == "DOCS.EXE") and
             Qry.FieldAsInteger("pr_locale") != 0)
-        SetProp(formNode, "pr_locale");*/
+        SetProp(formNode, "pr_locale");
 }
 
 struct TPMTotalsKey {
@@ -840,11 +888,10 @@ struct TPMTotalsRow {
 
 typedef map<TPMTotalsKey, TPMTotalsRow, TPMTotalsCmp> TPMTotals;
 
-void PTM(const TRptParams &rpt_params, xmlNodePtr resNode)
+void PTM(TRptParams &rpt_params, xmlNodePtr resNode)
 {
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
     xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
-    int pr_lat = GetRPEncoding(rpt_params);
     string rpt_name;
     if(rpt_params.airp_arv.empty() ||
             rpt_params.rpt_type==rtPTMTXT) {
@@ -864,11 +911,11 @@ void PTM(const TRptParams &rpt_params, xmlNodePtr resNode)
     {
         string et, et_lat;
         if(rpt_params.pr_et) {
-            et = "(ЭБ)";
-            et_lat = "(ET)";
+            et = getLocaleText("(ЭБ)", rpt_params.dup_lang());
+            et_lat = getLocaleText("(ЭБ)", AstraLocale::LANG_EN);
         }
-        NewTextChild(variablesNode, "et", et);
-        NewTextChild(variablesNode, "et_lat", et_lat);
+        NewTextChild(variablesNode, "ptm", getLocaleText("CAP.DOC.PTM", LParams() << LParam("et", et), rpt_params.dup_lang()));
+        NewTextChild(variablesNode, "ptm_lat", getLocaleText("CAP.DOC.PTM", LParams() << LParam("et", et_lat), AstraLocale::LANG_EN));
     }
     TQuery Qry(&OraSession);
     string SQLText =
@@ -885,14 +932,11 @@ void PTM(const TRptParams &rpt_params, xmlNodePtr resNode)
             "    transfer.airp_arv trfer_airp_arv, \n"
             "    trfer_trips.scd trfer_scd, \n";
     SQLText +=
-        "   DECODE(:pr_lat,0,classes.code,nvl(classes.code_lat, classes.code)) AS class, \n"
-        "   DECODE(:pr_lat,0,classes.name,nvl(classes.name_lat, classes.name)) AS class_name, \n"
+        "   pax_grp.class_grp, \n"
         "   DECODE(pax_grp.status, 'T', pax_grp.status, 'N') status, \n"
-        "   classes.priority lvl, \n"
         "   surname||' '||pax.name AS full_name, \n"
         "   pax.pers_type, \n"
-        "   salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum,0) AS seat_no, \n"
-        "   salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum,1) AS seat_no_lat, \n"
+        "   salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum) AS seat_no, \n"
         "   pax.seats, \n";
     if(rpt_params.pr_et) { //ЭБ
         SQLText +=
@@ -902,18 +946,17 @@ void PTM(const TRptParams &rpt_params, xmlNodePtr resNode)
             " SUBSTR(report.get_remarks(pax_id,0),1,250) AS remarks, \n";
     }
     SQLText +=
-        "   NVL(ckin.get_rkWeight(pax.grp_id,pax.pax_id),0) AS rk_weight, \n"
-        "   NVL(ckin.get_bagAmount(pax.grp_id,pax.pax_id),0) AS bag_amount, \n"
-        "   NVL(ckin.get_bagWeight(pax.grp_id,pax.pax_id),0) AS bag_weight, \n"
+        "   NVL(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS rk_weight, \n"
+        "   NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS bag_amount, \n"
+        "   NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS bag_weight, \n"
         "   NVL(ckin.get_excess(pax.grp_id,pax.pax_id),0) AS excess, \n"
-        "   ckin.get_birks(pax.grp_id,pax.pax_id,:pr_lat) AS tags, \n"
+        "   ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags, \n"
         "   reg_no, \n"
         "   pax_grp.grp_id \n"
         "FROM  \n"
         "   pax_grp, \n"
         "   points, \n"
         "   pax, \n"
-        "   cls_grp classes, \n"
         "   halls2 \n";
     if(rpt_params.pr_trfer)
         SQLText += ", transfer, trfer_trips \n";
@@ -923,7 +966,7 @@ void PTM(const TRptParams &rpt_params, xmlNodePtr resNode)
         "   pax_grp.point_dep = :point_id and \n"
         "   pax_grp.point_arv = points.point_id and \n"
         "   pax_grp.grp_id=pax.grp_id AND \n"
-        "   pax_grp.class_grp = classes.id AND \n"
+        "   pax_grp.class_grp is not null AND \n"
         "   pax_grp.hall = halls2.id(+) and \n"
         "   pr_brd IS NOT NULL and \n"
         "   decode(:pr_brd_pax, 0, nvl2(pax.pr_brd, 0, -1), pax.pr_brd)  = :pr_brd_pax and \n";
@@ -964,7 +1007,7 @@ void PTM(const TRptParams &rpt_params, xmlNodePtr resNode)
     ProgTrace(TRACE5, "SQLText: %s", SQLText.c_str());
     Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
-    Qry.CreateVariable("pr_lat", otString, pr_lat);
+    Qry.CreateVariable("lang", otString, rpt_params.GetLang());
     Qry.Execute();
 
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
@@ -986,9 +1029,10 @@ void PTM(const TRptParams &rpt_params, xmlNodePtr resNode)
         key.point_id = Qry.FieldAsInteger("trip_id");
         key.target = Qry.FieldAsString("target");
         key.status = Qry.FieldAsString("status");
-        key.cls = Qry.FieldAsString("class");
-        key.cls_name = Qry.FieldAsString("class_name");
-        key.lvl = Qry.FieldAsInteger("lvl");
+        int class_grp = Qry.FieldAsInteger("class_grp");
+        key.cls = rpt_params.ElemIdToReportElem(etClsGrp, class_grp, efmtCodeNative);
+        key.cls_name = rpt_params.ElemIdToReportElem(etClsGrp, class_grp, efmtNameLong);
+        key.lvl = ((TClsGrpRow&)base_tables.get("cls_grp").get_row( "id", class_grp)).priority;
         if(rpt_params.pr_trfer) {
             key.pr_trfer = Qry.FieldAsInteger("pr_trfer");
         }
@@ -1016,30 +1060,26 @@ void PTM(const TRptParams &rpt_params, xmlNodePtr resNode)
         row.excess += Qry.FieldAsInteger("excess");
 
 
-        string cls = Qry.FieldAsString("class");
         xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
         NewTextChild(rowNode, "reg_no", Qry.FieldAsString("reg_no"));
-        NewTextChild(rowNode, "full_name", transliter(Qry.FieldAsString("full_name"), 1, pr_lat));
+        NewTextChild(rowNode, "full_name", transliter(Qry.FieldAsString("full_name"), 1, rpt_params.IsInter()));
         string last_target;
         int pr_trfer = 0;
         if(rpt_params.pr_trfer) {
-            last_target = get_last_target(Qry, pr_lat);
+            last_target = get_last_target(Qry, rpt_params);
             pr_trfer = Qry.FieldAsInteger("pr_trfer");
         }
         NewTextChild(rowNode, "last_target", last_target);
         NewTextChild(rowNode, "pr_trfer", pr_trfer);
 
-        string airp_arv = Qry.FieldAsString("target");
-        if(fr_target_ref.find(airp_arv) == fr_target_ref.end())
-            fr_target_ref[airp_arv] = fr_target_ref_idx++;
-        TBaseTableRow &airpRow = base_tables.get("AIRPS").get_row("code",airp_arv);
-        NewTextChild(rowNode, "airp_arv", airp_arv);
-        NewTextChild(rowNode, "fr_target_ref", fr_target_ref[airp_arv]);
-        NewTextChild(rowNode, "airp_arv_name", airpRow.AsString("name", pr_lat));
-
+        if(fr_target_ref.find(key.target) == fr_target_ref.end())
+            fr_target_ref[key.target] = fr_target_ref_idx++;
+        NewTextChild(rowNode, "airp_arv", key.target);
+        NewTextChild(rowNode, "fr_target_ref", fr_target_ref[key.target]);
+        NewTextChild(rowNode, "airp_arv_name", rpt_params.ElemIdToReportElem(etAirp, key.target, efmtNameLong));
         NewTextChild(rowNode, "grp_id", Qry.FieldAsInteger("grp_id"));
-        NewTextChild(rowNode, "class_name", Qry.FieldAsString("class_name"));
-        NewTextChild(rowNode, "class", Qry.FieldAsString("class"));
+        NewTextChild(rowNode, "class_name", key.cls_name);
+        NewTextChild(rowNode, "class", key.cls);
         NewTextChild(rowNode, "seats", Qry.FieldAsInteger("seats"));
         NewTextChild(rowNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
         NewTextChild(rowNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
@@ -1059,10 +1099,7 @@ void PTM(const TRptParams &rpt_params, xmlNodePtr resNode)
         NewTextChild(rowNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
         NewTextChild(rowNode, "excess", Qry.FieldAsInteger("excess"));
         NewTextChild(rowNode, "tags", Qry.FieldAsString("tags"));
-        if (pr_lat==0)
-            NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
-        else
-            NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no_lat"));
+        NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
         NewTextChild(rowNode, "remarks", Qry.FieldAsString("remarks"));
     }
 
@@ -1117,9 +1154,9 @@ void PTM(const TRptParams &rpt_params, xmlNodePtr resNode)
     Qry.Execute();
     if(Qry.Eof) throw Exception("RunPM: variables fetch failed for point_id " + IntToString(rpt_params.point_id));
 
-    int airline_fmt = Qry.FieldAsInteger("airline_fmt");
-    int suffix_fmt = Qry.FieldAsInteger("suffix_fmt");
-    int craft_fmt = Qry.FieldAsInteger("craft_fmt");
+    TElemFmt airline_fmt = (TElemFmt)Qry.FieldAsInteger("airline_fmt");
+    TElemFmt suffix_fmt = (TElemFmt)Qry.FieldAsInteger("suffix_fmt");
+    TElemFmt craft_fmt = (TElemFmt)Qry.FieldAsInteger("craft_fmt");
 
     string airp = Qry.FieldAsString("airp");
     string airline, suffix;
@@ -1132,61 +1169,53 @@ void PTM(const TRptParams &rpt_params, xmlNodePtr resNode)
         airline = rpt_params.mkt_flt.airline;
         flt_no = rpt_params.mkt_flt.flt_no;
         suffix = rpt_params.mkt_flt.suffix;
+        airline_fmt = efmtCodeNative;
+        suffix_fmt = efmtCodeNative;
+        craft_fmt = efmtCodeNative;
     }
     string craft = Qry.FieldAsString("craft");
-    string tz_region = AirpTZRegion(Qry.FieldAsString("airp"));
+    string tz_region = AirpTZRegion(airp);
 
-    TBaseTableRow &airpRow = base_tables.get("AIRPS").get_row("code",airp);
-    TBaseTableRow &airlineRow = base_tables.get("AIRLINES").get_row("code",airline);
     //    TCrafts crafts;
 
     if(rpt_params.ckin_zone != ALL_CKIN_ZONES) {
-        NewTextChild(variablesNode, "zone", get_hall_list(airp, rpt_params.ckin_zone, pr_lat));
+        NewTextChild(variablesNode, "zone", get_hall_list(airp, rpt_params));
     } else
         NewTextChild(variablesNode, "zone"); // пустой тег - нет детализации по залу
-    NewTextChild(variablesNode, "own_airp_name", "АЭРОПОРТ " + airpRow.AsString("name", false));
-    NewTextChild(variablesNode, "own_airp_name_lat", airpRow.AsString("name", true) + " AIRPORT");
-    NewTextChild(variablesNode, "airp_dep_name", airpRow.AsString("name", pr_lat));
-    NewTextChild(variablesNode, "airline_name", airlineRow.AsString("name", pr_lat));
+    NewTextChild(variablesNode, "own_airp_name", getLocaleText("CAP.DOC.AIRP_NAME",  LParams() << LParam("airp", rpt_params.ElemIdToReportElem(etAirp, airp, efmtNameLong, rpt_params.dup_lang())), rpt_params.dup_lang()));
+    NewTextChild(variablesNode, "own_airp_name_lat", getLocaleText("CAP.DOC.AIRP_NAME",  LParams() << LParam("airp", rpt_params.ElemIdToReportElem(etAirp, airp, efmtNameLong, AstraLocale::LANG_EN)), AstraLocale::LANG_EN));
+    NewTextChild(variablesNode, "airp_dep_name", rpt_params.ElemIdToReportElem(etAirp, airp, efmtNameLong));
+    NewTextChild(variablesNode, "airline_name", rpt_params.ElemIdToReportElem(etAirline, airline, efmtNameLong));
 
-    NewTextChild(variablesNode, "flt",
-            ElemIdToElem(etAirline, airline, airline_fmt, pr_lat) +
-            IntToString(flt_no) +
-            ElemIdToElem(etSuffix, suffix, suffix_fmt, pr_lat)
-            );
+    ostringstream flt;
+    flt
+        << rpt_params.ElemIdToReportElem(etAirline, airline, airline_fmt)
+        << setw(3) << setfill('0') << flt_no
+        << rpt_params.ElemIdToReportElem(etSuffix, suffix, suffix_fmt);
+    NewTextChild(variablesNode, "flt", flt.str());
     NewTextChild(variablesNode, "bort", Qry.FieldAsString("bort"));
-    NewTextChild(variablesNode, "craft", ElemIdToElem(etCraft, craft, craft_fmt, pr_lat));
+    NewTextChild(variablesNode, "craft", rpt_params.ElemIdToReportElem(etCraft, craft, craft_fmt));
     NewTextChild(variablesNode, "park", Qry.FieldAsString("park"));
     TDateTime scd_out = UTCToLocal(Qry.FieldAsDateTime("scd_out"), tz_region);
-    NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm", pr_lat));
-    NewTextChild(variablesNode, "scd_time", DateTimeToStr(scd_out, "hh:nn", pr_lat));
-    string airp_arv_name;
-    if(not rpt_params.airp_arv.empty())
-        airp_arv_name = base_tables.get("AIRPS").get_row("code",rpt_params.airp_arv).AsString("name",pr_lat);
-    NewTextChild(variablesNode, "airp_arv_name", airp_arv_name);
+    NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm", rpt_params.IsInter()));
+    NewTextChild(variablesNode, "scd_time", DateTimeToStr(scd_out, "hh:nn", rpt_params.IsInter()));
+    NewTextChild(variablesNode, "airp_arv_name", rpt_params.ElemIdToReportElem(etAirp, rpt_params.airp_arv, efmtNameLong));
 
     TDateTime issued = UTCToLocal(NowUTC(),TReqInfo::Instance()->desk.tz_region);
-    NewTextChild(variablesNode, "date_issue", DateTimeToStr(issued, "dd.mm.yy hh:nn", pr_lat));
+    NewTextChild(variablesNode, "date_issue", DateTimeToStr(issued, "dd.mm.yy hh:nn", rpt_params.IsInter()));
 
     NewTextChild(variablesNode, "pr_vip", 2);
-    string pr_brd_pax_str_lat;
-    string pr_brd_pax_str;
-    if(rpt_params.pr_brd) {
-        pr_brd_pax_str_lat = "(boarded)";
-        pr_brd_pax_str = "(посаж)";
-    } else {
-        pr_brd_pax_str_lat = "(checked)";
-        pr_brd_pax_str = "(зарег)";
-    }
-    NewTextChild(variablesNode, "pr_brd_pax_lat", pr_brd_pax_str_lat);
-    NewTextChild(variablesNode, "pr_brd_pax", pr_brd_pax_str);
-    STAT::set_variables(resNode);
+    string pr_brd_pax_str = (string)"ПАССАЖИРЫ " + (rpt_params.pr_brd ? "(посаж)" : "(зарег)");
+    NewTextChild(variablesNode, "pr_brd_pax", getLocaleText(pr_brd_pax_str, rpt_params.dup_lang()));
+    NewTextChild(variablesNode, "pr_brd_pax_lat", getLocaleText(pr_brd_pax_str, AstraLocale::LANG_EN));
+    populate_doc_cap(variablesNode, rpt_params.GetLang());
+    STAT::set_variables(resNode, rpt_params.GetLang());
+    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str()); //!!!
 }
 
-void BTM(const TRptParams &rpt_params, xmlNodePtr resNode)
+void BTM(TRptParams &rpt_params, xmlNodePtr resNode)
 {
     TQuery Qry(&OraSession);
-    int pr_lat = GetRPEncoding(rpt_params);
     string rpt_name;
     if(rpt_params.airp_arv.empty() ||
             rpt_params.rpt_type==rtBTMTXT) {
@@ -1237,9 +1266,7 @@ void BTM(const TRptParams &rpt_params, xmlNodePtr resNode)
         "    pax.pax_id, "
         "    pax_grp.grp_id, "
         "    pax_grp.airp_arv, "
-        "    nvl(classes.priority, 100) class_priority, "
-        "    classes.code class_code, "
-        "    classes.name class_name, "
+        "    pax_grp.class, "
         "    bag2.bag_type, "
         "    bag2.num bag_num, "
         "    bag2.amount, "
@@ -1248,7 +1275,6 @@ void BTM(const TRptParams &rpt_params, xmlNodePtr resNode)
         "from "
         "    pax_grp, "
         "    points, "
-        "    classes, "
         "    bag2, "
         "    halls2 ";
     if(rpt_params.pr_trfer)
@@ -1259,18 +1285,17 @@ void BTM(const TRptParams &rpt_params, xmlNodePtr resNode)
         "    points.pr_del>=0 AND "
         "    pax_grp.point_dep = :point_id and "
         "    pax_grp.point_arv = points.point_id and "
-        "    pax_grp.class = classes.code(+) and "
         "    pax_grp.grp_id = bag2.grp_id and "
         "    pax_grp.bag_refuse = 0 and "
         "    bag2.pr_cabin = 0 and "
-        "    pax_grp.hall = halls2.id(+) ";
+        "    bag2.hall = halls2.id(+) ";
     if(!rpt_params.airp_arv.empty()) {
         SQLText += " and pax_grp.airp_arv = :target ";
         Qry.CreateVariable("target", otString, rpt_params.airp_arv);
     }
     if(rpt_params.ckin_zone != ALL_CKIN_ZONES) {
         SQLText +=
-            "   and nvl(halls2.rpt_grp, ' ') = nvl(:zone, ' ') and pax_grp.hall IS NOT NULL ";
+            "   and nvl(halls2.rpt_grp, ' ') = nvl(:zone, ' ') and bag2.hall IS NOT NULL ";
         Qry.CreateVariable("zone", otString, rpt_params.ckin_zone);
     }
     if(rpt_params.pr_trfer)
@@ -1301,16 +1326,21 @@ void BTM(const TRptParams &rpt_params, xmlNodePtr resNode)
 
         TBagTagRow bag_tag_row;
         bag_tag_row.pr_trfer = Qry.FieldAsInteger("pr_trfer");
-        bag_tag_row.last_target = get_last_target(Qry, pr_lat);
+        bag_tag_row.last_target = get_last_target(Qry, rpt_params);
         bag_tag_row.point_num = Qry.FieldAsInteger("point_num");
         bag_tag_row.grp_id = cur_grp_id;
         bag_tag_row.airp_arv = Qry.FieldAsString("airp_arv");
-
-        bag_tag_row.class_priority = Qry.FieldAsInteger("class_priority");
-        bag_tag_row.class_code = Qry.FieldAsString("class_code");
-        bag_tag_row.class_name = Qry.FieldAsString("class_name");
         bag_tag_row.bag_type = Qry.FieldAsInteger("bag_type");
-        bag_tag_row.bag_name = bag_names.get(bag_tag_row.class_code, bag_tag_row.bag_type, pr_lat);
+
+        if(Qry.FieldIsNULL("class"))
+            bag_tag_row.class_priority = 100;
+        else {
+            string class_code = Qry.FieldAsString("class");
+            bag_tag_row.bag_name = bag_names.get(class_code, bag_tag_row.bag_type, rpt_params.IsInter());
+            bag_tag_row.class_priority = ((TClassesRow&)base_tables.get("classes").get_row( "code", class_code)).priority;
+            bag_tag_row.class_code = rpt_params.ElemIdToReportElem(etClass, class_code, efmtCodeNative);
+            bag_tag_row.class_name = rpt_params.ElemIdToReportElem(etClass, class_code, efmtNameLong);
+        }
         if(!bag_tag_row.bag_name.empty())
             bag_tag_row.bag_name_priority = bag_tag_row.bag_type;
         bag_tag_row.bag_num = cur_bag_num;
@@ -1396,7 +1426,7 @@ void BTM(const TRptParams &rpt_params, xmlNodePtr resNode)
                  )
           ) {
             if(!tag_nos.empty()) {
-                bm_table.back().tag_range = get_tag_range(tag_nos, pr_lat);
+                bm_table.back().tag_range = get_tag_range(tag_nos, rpt_params.GetLang());
                 bm_table.back().num = tag_nos.size();
                 tag_nos.clear();
             }
@@ -1408,11 +1438,11 @@ void BTM(const TRptParams &rpt_params, xmlNodePtr resNode)
             bag_tag_row.color = iv->color;
             bm_table.push_back(*iv);
             if(iv->class_code.empty())
-                bm_table.back().class_name = pr_lat ? "Unacompanied baggage" : "Несопровождаемый багаж";
+                bm_table.back().class_name = getLocaleText("Несопровождаемый багаж", rpt_params.GetLang());
             if(iv->color.empty())
                 bm_table.back().color = "-";
             else
-                bm_table.back().color = base_tables.get("tag_colors").get_row("code", iv->color).AsString("name", pr_lat);
+                bm_table.back().color = rpt_params.ElemIdToReportElem(etTagColor, iv->color, efmtNameLong);
             bm_table.back().amount = 0;
             bm_table.back().weight = 0;
             if(
@@ -1449,7 +1479,7 @@ void BTM(const TRptParams &rpt_params, xmlNodePtr resNode)
         tag_nos.push_back(tag_nos_row);
     }
     if(!tag_nos.empty()) {
-        bm_table.back().tag_range = get_tag_range(tag_nos, pr_lat);
+        bm_table.back().tag_range = get_tag_range(tag_nos, rpt_params.GetLang());
         bm_table.back().num = tag_nos.size();
         tag_nos.clear();
     }
@@ -1472,9 +1502,8 @@ void BTM(const TRptParams &rpt_params, xmlNodePtr resNode)
         if(iv->tag_type.empty()) continue;
         xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
         string airp_arv = iv->airp_arv;
-        TBaseTableRow &airpRow = base_tables.get("AIRPS").get_row("code",airp_arv);
         NewTextChild(rowNode, "airp_arv", airp_arv);
-        NewTextChild(rowNode, "airp_arv_name", airpRow.AsString("name", pr_lat));
+        NewTextChild(rowNode, "airp_arv_name", rpt_params.ElemIdToReportElem(etAirp, airp_arv, efmtNameLong));
         NewTextChild(rowNode, "pr_trfer", iv->pr_trfer);
         NewTextChild(rowNode, "last_target", iv->last_target);
         NewTextChild(rowNode, "bag_name", iv->bag_name);
@@ -1482,12 +1511,6 @@ void BTM(const TRptParams &rpt_params, xmlNodePtr resNode)
         NewTextChild(rowNode, "color", iv->color);
         NewTextChild(rowNode, "num", iv->num);
         NewTextChild(rowNode, "pr_vip", 2);
-
-        if(!iv->class_code.empty()) {
-            TBaseTableRow &classesRow = base_tables.get("CLASSES").get_row("code",iv->class_code);
-            iv->class_code = classesRow.AsString("code", pr_lat);
-            iv->class_name = classesRow.AsString("name", pr_lat);
-        }
 
         NewTextChild(rowNode, "class", iv->class_code);
         NewTextChild(rowNode, "class_name", iv->class_name);
@@ -1501,17 +1524,19 @@ void BTM(const TRptParams &rpt_params, xmlNodePtr resNode)
     xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
     NewTextChild(variablesNode, "TotPcs", TotAmount);
     NewTextChild(variablesNode, "TotWeight", TotWeight);
-    NewTextChild(variablesNode, "Tot", (pr_lat ? "" : vs_number(TotAmount)));
-    NewTextChild(variablesNode, "pr_lat", pr_lat);
+    NewTextChild(variablesNode, "Tot", (rpt_params.IsInter() ? "" : vs_number(TotAmount)));
     Qry.Clear();
-    Qry.SQLText =
+    SQLText =
         "select "
         "  sum(bag2.amount) amount, "
         "  sum(bag2.weight) weight "
         "from "
         "  pax_grp, "
         "  bag2, "
-        "  transfer "
+        "  transfer ";
+    if(rpt_params.ckin_zone != ALL_CKIN_ZONES)
+        SQLText += ", halls2 ";
+    SQLText +=
         "where "
         "  pax_grp.point_dep = :point_id and "
         "  pax_grp.grp_id = bag2.grp_id and "
@@ -1519,6 +1544,13 @@ void BTM(const TRptParams &rpt_params, xmlNodePtr resNode)
         "  pax_grp.bag_refuse = 0 and "
         "  bag2.pr_cabin = 0 and "
         "  transfer.pr_final <> 0 ";
+    if(rpt_params.ckin_zone != ALL_CKIN_ZONES) {
+        SQLText +=
+            "   and bag2.hall = halls2.id(+) "
+            "   and nvl(halls2.rpt_grp, ' ') = nvl(:zone, ' ') and bag2.hall IS NOT NULL ";
+        Qry.CreateVariable("zone", otString, rpt_params.ckin_zone);
+    }
+    Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
     Qry.Execute();
     int trfer_amount = 0;
@@ -1553,9 +1585,9 @@ void BTM(const TRptParams &rpt_params, xmlNodePtr resNode)
     Qry.Execute();
     if(Qry.Eof) throw Exception("RunBM: variables fetch failed for point_id " + IntToString(rpt_params.point_id));
 
-    int airline_fmt = Qry.FieldAsInteger("airline_fmt");
-    int suffix_fmt = Qry.FieldAsInteger("suffix_fmt");
-    int craft_fmt = Qry.FieldAsInteger("craft_fmt");
+    TElemFmt airline_fmt = (TElemFmt)Qry.FieldAsInteger("airline_fmt");
+    TElemFmt suffix_fmt = (TElemFmt)Qry.FieldAsInteger("suffix_fmt");
+    TElemFmt craft_fmt = (TElemFmt)Qry.FieldAsInteger("craft_fmt");
 
     string airline, suffix;
     int flt_no = NoExists;
@@ -1571,28 +1603,27 @@ void BTM(const TRptParams &rpt_params, xmlNodePtr resNode)
     string craft = Qry.FieldAsString("craft");
     string tz_region = AirpTZRegion(Qry.FieldAsString("airp"));
 
-    TBaseTableRow &airpRow = base_tables.get("AIRPS").get_row("code",airp);
-    TBaseTableRow &airlineRow = base_tables.get("AIRLINES").get_row("code",airline);
     //    TCrafts crafts;
 
-    NewTextChild(variablesNode, "own_airp_name", "АЭРОПОРТ " + airpRow.AsString("name", false));
-    NewTextChild(variablesNode, "own_airp_name_lat", airpRow.AsString("name", true) + " AIRPORT");
-    NewTextChild(variablesNode, "airp_dep_name", airpRow.AsString("name", pr_lat));
-    NewTextChild(variablesNode, "airline_name", airlineRow.AsString("name", pr_lat));
-    NewTextChild(variablesNode, "flt",
-            ElemIdToElem(etAirline, airline, airline_fmt, pr_lat) +
-            IntToString(flt_no) +
-            ElemIdToElem(etSuffix, suffix, suffix_fmt, pr_lat)
-            );
+    NewTextChild(variablesNode, "own_airp_name", getLocaleText("CAP.DOC.AIRP_NAME",  LParams() << LParam("airp", rpt_params.ElemIdToReportElem(etAirp, airp, efmtNameLong, rpt_params.dup_lang())), rpt_params.dup_lang()));
+    NewTextChild(variablesNode, "own_airp_name_lat", getLocaleText("CAP.DOC.AIRP_NAME",  LParams() << LParam("airp", rpt_params.ElemIdToReportElem(etAirp, airp, efmtNameLong, AstraLocale::LANG_EN)), AstraLocale::LANG_EN));
+    NewTextChild(variablesNode, "airp_dep_name", rpt_params.ElemIdToReportElem(etAirp, airp, efmtNameLong));
+    NewTextChild(variablesNode, "airline_name", rpt_params.ElemIdToReportElem(etAirline, airline, efmtNameLong));
+    ostringstream flt;
+    flt
+        << rpt_params.ElemIdToReportElem(etAirline, airline, airline_fmt)
+        << setw(3) << setfill('0') << flt_no
+        << rpt_params.ElemIdToReportElem(etSuffix, suffix, suffix_fmt);
+    NewTextChild(variablesNode, "flt", flt.str());
     NewTextChild(variablesNode, "bort", Qry.FieldAsString("bort"));
-    NewTextChild(variablesNode, "craft", ElemIdToElem(etCraft, craft, craft_fmt, pr_lat));
+    NewTextChild(variablesNode, "craft", rpt_params.ElemIdToReportElem(etCraft, craft, craft_fmt));
     NewTextChild(variablesNode, "park", Qry.FieldAsString("park"));
     TDateTime scd_out = UTCToLocal(Qry.FieldAsDateTime("scd_out"), tz_region);
-    NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm", pr_lat));
-    NewTextChild(variablesNode, "scd_time", DateTimeToStr(scd_out, "hh:nn", pr_lat));
+    NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm", rpt_params.IsInter()));
+    NewTextChild(variablesNode, "scd_time", DateTimeToStr(scd_out, "hh:nn", rpt_params.IsInter()));
     string airp_arv_name;
     if(rpt_params.airp_arv.size())
-        airp_arv_name = base_tables.get("AIRPS").get_row("code",rpt_params.airp_arv).AsString("name",pr_lat);
+        airp_arv_name = rpt_params.ElemIdToReportElem(etAirp, rpt_params.airp_arv, efmtNameLong);
     NewTextChild(variablesNode, "airp_arv_name", airp_arv_name);
 
     {
@@ -1603,34 +1634,33 @@ void BTM(const TRptParams &rpt_params, xmlNodePtr resNode)
     }
 
     TDateTime issued = UTCToLocal(NowUTC(),TReqInfo::Instance()->desk.tz_region);
-    NewTextChild(variablesNode, "date_issue", DateTimeToStr(issued, "dd.mm.yy hh:nn", pr_lat));
-    string pr_brd_pax_str_lat;
-    string pr_brd_pax_str;
-    if(rpt_params.pr_brd == 0) {
-        pr_brd_pax_str_lat = "(checked)";
-        pr_brd_pax_str = "(зарег)";
-    } else {
-        pr_brd_pax_str_lat = "(boarded)";
-        pr_brd_pax_str = "(посаж)";
-    }
-    NewTextChild(variablesNode, "pr_brd_pax_lat", pr_brd_pax_str_lat);
-    NewTextChild(variablesNode, "pr_brd_pax", pr_brd_pax_str);
+    NewTextChild(variablesNode, "date_issue", DateTimeToStr(issued, "dd.mm.yy hh:nn", rpt_params.IsInter()));
+    string pr_brd_pax_str = (string)"Номера багажных бирок " + (rpt_params.pr_brd ? "(посаж)" : "(зарег)");
+    NewTextChild(variablesNode, "pr_brd_pax", getLocaleText(pr_brd_pax_str, rpt_params.dup_lang()));
+    NewTextChild(variablesNode, "pr_brd_pax_lat", getLocaleText(pr_brd_pax_str, AstraLocale::LANG_EN));
     if(rpt_params.ckin_zone != ALL_CKIN_ZONES) {
-        NewTextChild(variablesNode, "zone", get_hall_list(airp, rpt_params.ckin_zone, pr_lat));
+        NewTextChild(variablesNode, "zone", get_hall_list(airp, rpt_params));
     } else
         NewTextChild(variablesNode, "zone"); // пустой тег - нет детализации по залу
-    STAT::set_variables(resNode);
+    populate_doc_cap(variablesNode, rpt_params.GetLang());
+    STAT::set_variables(resNode, rpt_params.GetLang());
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
-void PTMBTMTXT(const TRptParams &rpt_params, xmlNodePtr resNode)
+string get_test_str(int page_width, string lang)
+{
+    string result;
+    for(int i=0;i<page_width/6;i++) result += " " + getLocaleText("CAP.TEST", lang) + " ";
+    return result;
+}
+
+
+void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr resNode)
 {
   if (rpt_params.rpt_type==rtPTMTXT)
     PTM(rpt_params, resNode);
   else
     BTM(rpt_params, resNode);
-
-  bool lat = GetRPEncoding(rpt_params)!=0;
 
   xmlNodePtr variablesNode=NodeAsNode("form_data/variables",resNode);
   xmlNodePtr dataSetsNode=NodeAsNode("form_data/datasets",resNode);
@@ -1641,51 +1671,50 @@ void PTMBTMTXT(const TRptParams &rpt_params, xmlNodePtr resNode)
   int page_width=80;
   //специально вводим для кириллических символов, так как в терминале при экспорте проблемы
   //максимальная длина строки при экспорте в байтах! не должна превышать ~147 (65 рус + 15 лат)
-  int max_symb_count=lat?page_width:65;
+  int max_symb_count= rpt_params.IsInter() ? page_width : 65;
   NewTextChild(variablesNode, "page_width", page_width);
   NewTextChild(variablesNode, "test_server", get_test_server());
 
   s.str("");
-  for(int i=0;i<page_width/6;i++) s << (lat?" TEST ":" ТЕСТ ");
+  s << get_test_str(page_width, rpt_params.GetLang());
   NewTextChild(variablesNode, "test_str", s.str());
 
-  NewTextChild(variablesNode, "page_number_fmt", (lat?"Page %u of %u":"Стр. %u из %u"));
 
   s.str("");
   if (rpt_params.rpt_type==rtPTMTXT)
   {
-    str.assign(lat?"PASSENGER MANIFEST ":"ПАССАЖИРСКАЯ ВЕДОМОСТЬ ");
-    str.append(NodeAsString((lat?"et_lat":"et"),variablesNode));
+      ProgTrace(TRACE5, "'%s'", NodeAsString((rpt_params.IsInter() ? "ptm_lat" : "ptm"), variablesNode)); //!!!
+      str.assign(NodeAsString((rpt_params.IsInter() ? "ptm_lat" : "ptm"), variablesNode));
   }
   else
-    str.assign(lat?"BAGGAGE MANIFEST ":"БАГАЖНАЯ ВЕДОМОСТЬ ");
+    str.assign(getLocaleText("БАГАЖНАЯ ВЕДОМОСТЬ", rpt_params.GetLang()));
 
   s << setfill(' ')
     << str
     << right << setw(page_width-str.size())
-    << string(NodeAsString((lat?"own_airp_name_lat":"own_airp_name"),variablesNode)).substr(0,max_symb_count-str.size());
+    << string(NodeAsString((rpt_params.IsInter() ? "own_airp_name_lat" : "own_airp_name"),variablesNode)).substr(0,max_symb_count-str.size());
   NewTextChild(variablesNode, "page_header_top", s.str());
 
 
   s.str("");
-  str.assign(lat?"Owner or Operator: ":"Владелец или Оператор: ");
+  str.assign(getLocaleText("Владелец или Оператор: ", rpt_params.GetLang()));
   s << left
     << str
     << string(NodeAsString("airline_name",variablesNode)).substr(0,max_symb_count-str.size()) << endl
-    << setw(10) << (lat?"Flight №":"№ рейса");
-  if (lat)
+    << setw(10) << getLocaleText("№ рейса", rpt_params.GetLang());
+  if (rpt_params.IsInter())
     s << setw(19) << "Aircraft";
   else
     s << setw(9)  << "№ ВС"
       << setw(10) << "ТипВС Ст. ";
 
   if (!NodeIsNULL("airp_arv_name",variablesNode))
-    s << setw(20) << (lat?"Embarkation":"А/п вылета")
-      << setw(20) << (lat?"Disembarkation":"А/п назначения");
+    s << setw(20) << getLocaleText("А/п вылета", rpt_params.GetLang())
+      << setw(20) << getLocaleText("А/п назначения", rpt_params.GetLang());
   else
-    s << setw(40) << (lat?"Embarkation":"А/п вылета");
-  s << setw(6)  << (lat?"Date":"Дата")
-    << setw(5)  << (lat?"Time":"Время") << endl;
+    s << setw(40) << getLocaleText("А/п вылета", rpt_params.GetLang());
+  s << setw(6)  << getLocaleText("Дата", rpt_params.GetLang())
+    << setw(5)  << getLocaleText("Время", rpt_params.GetLang()) << endl;
 
   s << setw(10) << NodeAsString("flt",variablesNode)
     << setw(11) << NodeAsString("bort",variablesNode)
@@ -1703,16 +1732,12 @@ void PTMBTMTXT(const TRptParams &rpt_params, xmlNodePtr resNode)
   NewTextChild(variablesNode, "page_header_center", s.str() );
 
   s.str("");
-  if (rpt_params.rpt_type==rtPTMTXT)
-    str.assign(lat?"PASSENGERS ":"ПАССАЖИРЫ ");
-  else
-    str.assign(lat?"BAGGAGE ":"БАГАЖ ");
-  str.append(NodeAsString((lat?"pr_brd_pax_lat":"pr_brd_pax"),variablesNode));
+  str.assign(NodeAsString((rpt_params.IsInter()?"pr_brd_pax_lat":"pr_brd_pax"),variablesNode));
   if (!NodeIsNULL("zone",variablesNode))
   {
     unsigned int zone_len=max_symb_count-str.size()-1;
     string zone;
-    zone.assign(lat?"Checking zone: ":"Зал регистрации: ");
+    zone.assign(getLocaleText("CAP.DOC.ZONE", rpt_params.GetLang()) + ": ");
     zone.append(NodeAsString("zone",variablesNode));
     if (zone_len<zone.size())
       s << str << right << setw(page_width-str.size()) << zone.substr(0,zone_len-3).append("...") << endl;
@@ -1724,32 +1749,32 @@ void PTMBTMTXT(const TRptParams &rpt_params, xmlNodePtr resNode)
 
   if (rpt_params.rpt_type==rtPTMTXT)
     s << left
-      << setw(4)  << (lat?"Sec":"Рег")
-      << setw(lat?22:23) << (lat?"Surname":"Фамилия, имя")
-      << setw(lat?4:3)   << (lat?"Cls":"Кл")
-      << setw(5)  << (lat?"Seat":"№ м")
-      << setw(4)  << (lat?"CHD":"РБ")
-      << setw(4)  << (lat?"INF":"РМ")
-      << setw(7)  << (lat?"Bag.":"Багаж")
-      << setw(6)  << (lat?"Cabin":"Р/кл")
-      << setw(15) << (lat?"Bag.Tag.No":"№№ баг.бирок")
-      << setw(9)  << (lat?"Remarks":"Ремарки");
+      << setw(4)  << (getLocaleText("CAP.DOC.REG", rpt_params.GetLang()))
+      << setw(rpt_params.IsInter()?22:23) << (getLocaleText("Фамилия", rpt_params.GetLang()))
+      << setw(rpt_params.IsInter()?4:3)   << (getLocaleText("Кл", rpt_params.GetLang()))
+      << setw(5)  << (getLocaleText("CAP.DOC.SEAT_NO", rpt_params.GetLang()))
+      << setw(4)  << (getLocaleText("РБ", rpt_params.GetLang()))
+      << setw(4)  << (getLocaleText("РМ", rpt_params.GetLang()))
+      << setw(7)  << (getLocaleText("CAP.DOC.BAG", rpt_params.GetLang()))
+      << setw(6)  << (getLocaleText("Р/кл", rpt_params.GetLang()))
+      << setw(15) << (getLocaleText("CAP.DOC.BAG_TAG_NOS", rpt_params.GetLang()))
+      << setw(9)  << (getLocaleText("Ремарки", rpt_params.GetLang()));
   else
     s << left
-      << setw(29) << (lat?"Baggage tag numbers":"Номера багажных бирок")
-      << setw(10) << (lat?"Color":"Цвет")
-      << setw(5)  << (lat?"Pcs":"Мест")
-      << setw(7)  << (lat?"Weight":"Вес")
-      << setw(8)  << (lat?"Cont.№":"№ Конт.")
-      << setw(10) << (lat?"Hold":"Багажник")
-      << setw(11) << (lat?"Compartment":"Отсек");
+      << setw(29) << (getLocaleText("Номера багажных бирок", rpt_params.GetLang()))
+      << setw(10) << (getLocaleText("Цвет", rpt_params.GetLang()))
+      << setw(5)  << (getLocaleText("Мест", rpt_params.GetLang()))
+      << setw(7)  << (getLocaleText("Вес", rpt_params.GetLang()))
+      << setw(8)  << (getLocaleText("№ Конт.", rpt_params.GetLang()))
+      << setw(10) << (getLocaleText("CAP.DOC.HOLD", rpt_params.GetLang()))
+      << setw(11) << (getLocaleText("Отсек", rpt_params.GetLang()));
 
   NewTextChild(variablesNode, "page_header_bottom", s.str() );
 
   if (rpt_params.rpt_type==rtPTMTXT)
   {
     s.str("");
-    s << (lat?"Total in class":"Всего в классе") << endl
+    s << (getLocaleText("Всего в классе", rpt_params.GetLang())) << endl
       << "%-30s%4u %3u %3u %2u/%-4u%4u";
     NewTextChild(variablesNode, "total_in_class_fmt", s.str());
 
@@ -1760,25 +1785,25 @@ void PTMBTMTXT(const TRptParams &rpt_params, xmlNodePtr resNode)
       str.append(NodeAsString("airp_arv_name",variablesNode));
 
       s << left
-        << setw(6) << (lat?"Total":"Всего")
+        << setw(6) << (getLocaleText("Всего", rpt_params.GetLang()))
         << setw(50) << str.substr(0,50-1)
-        << (lat?"Prepared by":"Подпись") << endl;
+        << (getLocaleText("Подпись", rpt_params.GetLang())) << endl;
     }
     else
       s << left
-        << setw(56) << (lat?"Total":"Всего")
-        << (lat?"Prepared by":"Подпись") << endl;
+        << setw(56) << (getLocaleText("Всего", rpt_params.GetLang()))
+        << (getLocaleText("Подпись", rpt_params.GetLang())) << endl;
 
-    s << setw(7) << (lat?"SOC":"Кресел")
-      << setw(7) << (lat?"ADU/F":"ВЗ/Ж")
-      << setw(7) << (lat?"CHD":"РБ")
-      << setw(7) << (lat?"INF":"РМ")
-      << setw(7) << (lat?"Pcs":"Мест")
-      << setw(7) << (lat?"Weight":"Вес")
-      << setw(7) << (lat?"Cabin":"Р/кл.")
-      << setw(7) << (lat?"Ex.Bag.":"Плат.") << endl
+    s << setw(7) << (getLocaleText("Кресел", rpt_params.GetLang()))
+      << setw(7) << (getLocaleText("ВЗ/Ж", rpt_params.GetLang()))
+      << setw(7) << (getLocaleText("РБ", rpt_params.GetLang()))
+      << setw(7) << (getLocaleText("РМ", rpt_params.GetLang()))
+      << setw(7) << (getLocaleText("Мест", rpt_params.GetLang()))
+      << setw(7) << (getLocaleText("Вес", rpt_params.GetLang()))
+      << setw(7) << (getLocaleText("Р/кл", rpt_params.GetLang()))
+      << setw(7) << (getLocaleText("CAP.DOC.EX_BAG", rpt_params.GetLang())) << endl
       << "%-6u %-6u %-6u %-6u %-6u %-6u %-6u %-6u" << endl
-      << (lat?"Issue date ":"Сформировано ") << NodeAsString("date_issue",variablesNode);
+      << (getLocaleText("CAP.ISSUE_DATE", LParams() << LParam("date", NodeAsString("date_issue",variablesNode)), rpt_params.GetLang()));
 
     NewTextChild(variablesNode, "page_footer_top", s.str() );
 
@@ -1794,7 +1819,7 @@ void PTMBTMTXT(const TRptParams &rpt_params, xmlNodePtr resNode)
       ReplaceTextChild(rowNode,"airp_arv_name",str.substr(0,max_symb_count));
       if (!NodeIsNULL("last_target",rowNode))
       {
-        str.assign(lat?"TO: ":"ДО: ").append(NodeAsString("last_target",rowNode));
+        str.assign(getLocaleText("ДО", rpt_params.GetLang()) + ": ").append(NodeAsString("last_target",rowNode));
         ReplaceTextChild(rowNode,"last_target",str.substr(0,max_symb_count));
       };
 
@@ -1848,23 +1873,23 @@ void PTMBTMTXT(const TRptParams &rpt_params, xmlNodePtr resNode)
     {
       s.str("");
       if (!rpt_params.pr_trfer)
-        s << setw(20) << (lat?"Total luggage":"Всего багажа");
+        s << setw(20) << (getLocaleText("Всего багажа", rpt_params.GetLang()));
       else
       {
         if (k==0)
-          s << setw(24) << (lat?"Total not transfer lug.":"Всего нетрансф. багажа");
+          s << setw(24) << (getLocaleText("Всего нетрансф. багажа", rpt_params.GetLang()));
         else
-          s << setw(24) << (lat?"Total transfer luggage":"Всего трансф. багажа");
+          s << setw(24) << (getLocaleText("Всего трансф. багажа", rpt_params.GetLang()));
       };
 
-      s << setw(7) << (lat?"SOC":"Кресел")
-        << setw(7) << (lat?"ADU/F":"ВЗ/Ж")
-        << setw(7) << (lat?"CHD":"РБ")
-        << setw(7) << (lat?"INF":"РМ")
-        << setw(7) << (lat?"Pcs":"Мест")
-        << setw(7) << (lat?"Weight":"Вес")
-        << setw(7) << (lat?"Cabin":"Р/кл.")
-        << setw(7) << (lat?"Ex.Bag.":"Плат.");
+      s << setw(7) << (getLocaleText("Кресел", rpt_params.GetLang()))
+        << setw(7) << (getLocaleText("ВЗ/Ж", rpt_params.GetLang()))
+        << setw(7) << (getLocaleText("РБ", rpt_params.GetLang()))
+        << setw(7) << (getLocaleText("РМ", rpt_params.GetLang()))
+        << setw(7) << (getLocaleText("Мест", rpt_params.GetLang()))
+        << setw(7) << (getLocaleText("Вес", rpt_params.GetLang()))
+        << setw(7) << (getLocaleText("Р/кл", rpt_params.GetLang()))
+        << setw(7) << (getLocaleText("CAP.DOC.EX_BAG", rpt_params.GetLang()));
 
       if (!rpt_params.pr_trfer)
         NewTextChild(variablesNode, "subreport_header", s.str() );
@@ -1913,7 +1938,7 @@ void PTMBTMTXT(const TRptParams &rpt_params, xmlNodePtr resNode)
       ReplaceTextChild(rowNode,"airp_arv_name",str.substr(0,max_symb_count));
       if (!NodeIsNULL("last_target",rowNode))
       {
-        str.assign(lat?"TO: ":"ДО: ").append(NodeAsString("last_target",rowNode));
+        str.assign(getLocaleText("ДО", rpt_params.GetLang()) + ": ").append(NodeAsString("last_target",rowNode));
         ReplaceTextChild(rowNode,"last_target",str.substr(0,max_symb_count));
       };
 
@@ -1951,9 +1976,9 @@ void PTMBTMTXT(const TRptParams &rpt_params, xmlNodePtr resNode)
         s.str("");
         s << left;
         if (k==0)
-          s << setw(39) << (lat?"Total luggage exclusive of transfer":"Всего багажа, исключая трансферный");
+          s << setw(39) << (getLocaleText("Всего багажа, исключая трансферный", rpt_params.GetLang()));
         else
-          s << setw(39) << (lat?"Total transfer luggage":"Всего трансферного багажа");
+          s << setw(39) << (getLocaleText("Всего трансферного багажа", rpt_params.GetLang()));
         s << "%4u %6u";
         if (k==0)
           NewTextChild(variablesNode, "total_not_trfer_fmt", s.str() );
@@ -1962,15 +1987,15 @@ void PTMBTMTXT(const TRptParams &rpt_params, xmlNodePtr resNode)
       };
 
       s.str("");
-      s << setw(39) << (lat?"Total luggage":"Всего багажа")
+      s << setw(39) << (getLocaleText("Всего багажа", rpt_params.GetLang()))
         << "%4u %6u" << endl
-        << setw(39) << (lat?"Transfer luggage":"Трансферного багажа")
+        << setw(39) << (getLocaleText("Трансферного багажа", rpt_params.GetLang()))
         << "%4u %6u";
       NewTextChild(variablesNode, "report_footer", s.str() );
     };
 
     s.str("");
-    s << (lat?"Issue date ":"Сформировано ") << NodeAsString("date_issue",variablesNode);
+    s << (getLocaleText("CAP.ISSUE_DATE", LParams() << LParam("date", NodeAsString("date_issue",variablesNode)), rpt_params.GetLang()));
     NewTextChild(variablesNode, "page_footer_top", s.str() );
 
 
@@ -1982,18 +2007,18 @@ void PTMBTMTXT(const TRptParams &rpt_params, xmlNodePtr resNode)
       str.append(NodeAsString("airp_arv_name",variablesNode));
 
       s << left
-        << setw(6) << (lat?"Total":"Всего")
+        << setw(6) << (getLocaleText("Всего", rpt_params.GetLang()))
         << setw(50) << str.substr(0,50-1)
-        << (lat?"Signature of agent":"Подпись агента СОПП") << endl;
+        << (getLocaleText("Подпись агента СОПП", rpt_params.GetLang())) << endl;
     }
     else
       s << left
-        << setw(56) << (lat?"Total":"Всего")
-        << (lat?"Signature of agent":"Подпись агента СОПП") << endl;
+        << setw(56) << (getLocaleText("Всего", rpt_params.GetLang()))
+        << (getLocaleText("Подпись агента СОПП", rpt_params.GetLang())) << endl;
 
-    s << setw(6)  << (lat?"Pcs":"Мест")
-      << setw(7)  << (lat?"Weight":"Вес")
-      << setw(43) << (lat?"Pieces in letters":"Количество мест прописью") << endl;
+    s << setw(6)  << (getLocaleText("Мест", rpt_params.GetLang()))
+      << setw(7)  << (getLocaleText("Вес", rpt_params.GetLang()))
+      << setw(43) << (getLocaleText("Количество мест прописью", rpt_params.GetLang())) << endl;
 
     SeparateString(NodeAsString("Tot",variablesNode),42,rows);
     row=0;
@@ -2012,32 +2037,35 @@ void PTMBTMTXT(const TRptParams &rpt_params, xmlNodePtr resNode)
   ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str()); //!!!
 };
 
+string get_flight(xmlNodePtr variablesNode)
+{
+    return (string)NodeAsString("trip", variablesNode) + "/" + NodeAsString("scd_out", variablesNode);
+}
+
 void REFUSE(TRptParams &rpt_params, xmlNodePtr resNode)
 {
     if(rpt_params.rpt_type == rtREFUSETXT)
         get_report_form("docTxt", resNode);
     else
         get_report_form("ref", resNode);
-    int pr_lat = GetRPEncoding(rpt_params);
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "SELECT point_dep AS point_id, "
         "       reg_no, "
-        "       decode(:pr_lat, 0, surname||' '||pax.name, system.transliter(surname||' '||pax.name,1)) family, "
-        "       decode(:pr_lat, 0, pers_types.code, pers_types.code_lat) pers_type, "
+        "       surname||' '||pax.name family, "
+        "       pax.pers_type, "
         "       ticket_no, "
-        "       decode(:pr_lat, 0, refusal_types.name, NVL(refusal_types.name_lat,refusal_types.name)) refuse, "
-        "       ckin.get_birks(pax.grp_id,pax.pax_id,:pr_lat) AS tags "
-        "FROM   pax_grp,pax,pers_types,refusal_types "
+        "       refusal_types.code refuse, "
+        "       ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags "
+        "FROM   pax_grp,pax,refusal_types "
         "WHERE  pax_grp.grp_id=pax.grp_id AND "
-        "       pax.pers_type=pers_types.code AND "
         "       pax.refuse = refusal_types.code AND "
         "       pax.refuse IS NOT NULL and "
         "       point_dep = :point_id "
         "order by "
         "       reg_no ";
     Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
-    Qry.CreateVariable("pr_lat", otString, pr_lat);
+    Qry.CreateVariable("lang", otString, rpt_params.GetLang());
     Qry.Execute();
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
@@ -2047,67 +2075,52 @@ void REFUSE(TRptParams &rpt_params, xmlNodePtr resNode)
 
         NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("point_id"));
         NewTextChild(rowNode, "reg_no", Qry.FieldAsInteger("reg_no"));
-        NewTextChild(rowNode, "family", Qry.FieldAsString("family"));
-        NewTextChild(rowNode, "pers_type", Qry.FieldAsString("pers_type"));
+        NewTextChild(rowNode, "family", transliter(Qry.FieldAsString("family"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+        NewTextChild(rowNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, Qry.FieldAsString("pers_type"), efmtCodeNative));
         NewTextChild(rowNode, "ticket_no", Qry.FieldAsString("ticket_no"));
-        NewTextChild(rowNode, "refuse", Qry.FieldAsString("refuse"));
+        NewTextChild(rowNode, "refuse", rpt_params.ElemIdToReportElem(etRefusalType, Qry.FieldAsString("refuse"), efmtNameLong));
         NewTextChild(rowNode, "tags", Qry.FieldAsString("tags"));
 
         Qry.Next();
     }
 
     // Теперь переменные отчета
-    PaxListVars(rpt_params.point_id, pr_lat, NewTextChild(formDataNode, "variables"));
-}
-
-string get_test_str(int page_width, bool lat)
-{
-    string result;
-    for(int i=0;i<page_width/6;i++) result += (lat?" TEST ":" ТЕСТ ");
-    return result;
-}
-
-string get_page_number_fmt(bool lat)
-{
-    return (lat?"Page %u of %u":"Стр. %u из %u");
-}
-
-string get_issue_date(xmlNodePtr variablesNode, bool lat)
-{
-    return (string)(lat?"Issue date ":"Сформировано ") + NodeAsString("date_issue",variablesNode);
+    xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
+    PaxListVars(rpt_params.point_id, rpt_params, variablesNode);
+    NewTextChild(variablesNode, "caption", getLocaleText("CAP.DOC.REFUSE", LParams() << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang())); //!!!param 100%error
+    populate_doc_cap(variablesNode, rpt_params.GetLang());
 }
 
 void REFUSETXT(TRptParams &rpt_params, xmlNodePtr resNode)
 {
     REFUSE(rpt_params, resNode);
-    bool lat = GetRPEncoding(rpt_params)!=0;
 
     xmlNodePtr variablesNode=NodeAsNode("form_data/variables",resNode);
     xmlNodePtr dataSetsNode=NodeAsNode("form_data/datasets",resNode);
     int page_width=80;
-    int max_symb_count=lat?page_width:60;
+    int max_symb_count=rpt_params.IsInter()?page_width:60;
     NewTextChild(variablesNode, "page_width", page_width);
     NewTextChild(variablesNode, "test_server", get_test_server());
-    NewTextChild(variablesNode, "test_str", get_test_str(page_width, lat));
-    NewTextChild(variablesNode, "page_number_fmt", get_page_number_fmt(lat));
+    NewTextChild(variablesNode, "test_str", get_test_str(page_width, rpt_params.GetLang()));
     ostringstream s;
     s.str("");
-    s << "Причины невылета пассажиров рейса " << NodeAsString("trip", variablesNode) << "/" << NodeAsString("scd_out", variablesNode);
+    s << NodeAsString("caption", variablesNode);
     string str = s.str().substr(0, max_symb_count);
     s.str("");
     s << right << setw(((page_width - str.size()) / 2) + str.size()) << str;
     NewTextChild(variablesNode, "page_header_top", s.str());
     s.str("");
     s
-        << right << setw(3)  << "№" << " "
+        << right << setw(3)  << getLocaleText("№", rpt_params.GetLang()) << " "
         << left
-        << setw(22) << (lat ? "Surname" : "Ф.И.О.")
-        << setw(4)  << (lat ? "Type" : "Тип")
-        << setw(10) << (lat ? "Ticket No" : "№ билета")
-        << setw(24)  << (lat ? "Refuse cause" : "Причины невылета")
-        << setw(16) << (lat ? "Bag.Tag.No" : "№№ баг.бирок");
+        << setw(21) << getLocaleText("Ф.И.О.", rpt_params.GetLang())
+        << setw(5)  << getLocaleText("Тип", rpt_params.GetLang())
+        << setw(10) << getLocaleText("№ Билета", rpt_params.GetLang())
+        << setw(24)  << getLocaleText("Причина невылета", rpt_params.GetLang())
+        << setw(16) << getLocaleText("№ б/б", rpt_params.GetLang());
     NewTextChild(variablesNode, "page_header_bottom", s.str() );
-    NewTextChild(variablesNode, "page_footer_top", get_issue_date(variablesNode, lat));
+    NewTextChild(variablesNode, "page_footer_top",
+            getLocaleText("CAP.ISSUE_DATE", LParams() << LParam("date", NodeAsString("date_issue",variablesNode)), rpt_params.GetLang()));
     xmlNodePtr dataSetNode = NodeAsNode("v_ref", dataSetsNode);
     xmlNodeSetName(dataSetNode, BAD_CAST "table");
     vector<string> rows;
@@ -2117,7 +2130,7 @@ void REFUSETXT(TRptParams &rpt_params, xmlNodePtr resNode)
     const char col_sym = ' ';
     for(; rowNode != NULL; rowNode = rowNode->next)
     {
-        SeparateString(NodeAsString("family", rowNode), 21, rows);
+        SeparateString(NodeAsString("family", rowNode), 20, rows);
         fields["surname"]=rows;
 
         SeparateString(NodeAsString("ticket_no", rowNode), 9, rows);
@@ -2136,8 +2149,8 @@ void REFUSETXT(TRptParams &rpt_params, xmlNodePtr resNode)
             if (row != 0) s << endl;
             s
                 << right << setw(3) << (row == 0 ? NodeAsString("reg_no", rowNode) : "") << col_sym
-                << left << setw(21) << (!fields["surname"].empty() ? *(fields["surname"].begin()) : "") << col_sym
-                << right <<  setw(3) << (row == 0 ? NodeAsString("pers_type", rowNode, "ВЗ") : "") << col_sym
+                << left << setw(20) << (!fields["surname"].empty() ? *(fields["surname"].begin()) : "") << col_sym
+                << right <<  setw(3) << (row == 0 ? NodeAsString("pers_type", rowNode) : "") << " " << col_sym
                 << left << setw(9) << (!fields["tkts"].empty() ? *(fields["tkts"].begin()) : "") << col_sym
                 << left << setw(23) << (!fields["refuse"].empty() ? *(fields["refuse"].begin()) : "") << col_sym
                 << left << setw(16) << (!fields["tags"].empty() ? *(fields["tags"].begin()) : "");
@@ -2161,39 +2174,35 @@ void NOTPRES(TRptParams &rpt_params, xmlNodePtr resNode)
         get_report_form("docTxt", resNode);
     else
         get_report_form("notpres", resNode);
-    int pr_lat = GetRPEncoding(rpt_params);
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "SELECT point_dep AS point_id, "
         "       reg_no, "
-        "       decode(:pr_lat, 0, surname||' '||pax.name, system.transliter(surname||' '||pax.name,1)) family, "
-        "       pers_types.code pers_type, "
+        "       surname||' '||pax.name family, "
+        "       pax.pers_type, "
         "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum) AS seat_no, "
-        "       ckin.get_bagAmount(pax.grp_id,pax.pax_id,rownum) AS bagAmount, "
-        "       ckin.get_bagWeight(pax.grp_id,pax.pax_id,rownum) AS bagWeight, "
-        "       ckin.get_birks(pax.grp_id,pax.pax_id,:pr_lat) AS tags "
-        "FROM   pax_grp,pax,pers_types "
+        "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bagAmount, "
+        "       ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bagWeight, "
+        "       ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags "
+        "FROM   pax_grp,pax "
         "WHERE  pax_grp.grp_id=pax.grp_id AND "
-        "       pax.pers_type=pers_types.code AND "
         "       pax.pr_brd=0 and "
         "       point_dep = :point_id "
         "order by "
         "       reg_no ";
     Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
-    Qry.CreateVariable("pr_lat", otString, pr_lat);
+    Qry.CreateVariable("lang", otString, rpt_params.GetLang());
     Qry.Execute();
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
     xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_notpres");
-    TBaseTable &pers_types = base_tables.get("PERS_TYPES");
     while(!Qry.Eof) {
         xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
 
         NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("point_id"));
         NewTextChild(rowNode, "reg_no", Qry.FieldAsInteger("reg_no"));
-        NewTextChild(rowNode, "family", Qry.FieldAsString("family"));
-        NewTextChild(rowNode, "pers_type",
-          pers_types.get_row("code",Qry.FieldAsString("pers_type")).AsString("code",pr_lat));
+        NewTextChild(rowNode, "family", transliter(Qry.FieldAsString("family"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+        NewTextChild(rowNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, Qry.FieldAsString("pers_type"), efmtCodeNative));
         NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
         NewTextChild(rowNode, "bagamount", Qry.FieldAsInteger("bagamount"));
         NewTextChild(rowNode, "bagweight", Qry.FieldAsInteger("bagweight"));
@@ -2203,40 +2212,43 @@ void NOTPRES(TRptParams &rpt_params, xmlNodePtr resNode)
     }
 
     // Теперь переменные отчета
-    PaxListVars(rpt_params.point_id, pr_lat, NewTextChild(formDataNode, "variables"));
+    xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
+    PaxListVars(rpt_params.point_id, rpt_params, variablesNode);
+    NewTextChild(variablesNode, "caption", getLocaleText("CAP.DOC.NOTPRES",
+                LParams() << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang()));
+    populate_doc_cap(variablesNode, rpt_params.GetLang());
 }
 
 void NOTPRESTXT(TRptParams &rpt_params, xmlNodePtr resNode)
 {
     NOTPRES(rpt_params, resNode);
-    bool lat = GetRPEncoding(rpt_params)!=0;
 
     xmlNodePtr variablesNode=NodeAsNode("form_data/variables",resNode);
     xmlNodePtr dataSetsNode=NodeAsNode("form_data/datasets",resNode);
     int page_width=80;
-    int max_symb_count=lat?page_width:60;
+    int max_symb_count=rpt_params.IsInter()?page_width:60;
     NewTextChild(variablesNode, "page_width", page_width);
     NewTextChild(variablesNode, "test_server", get_test_server());
-    NewTextChild(variablesNode, "test_str", get_test_str(page_width, lat));
-    NewTextChild(variablesNode, "page_number_fmt", get_page_number_fmt(lat));
+    NewTextChild(variablesNode, "test_str", get_test_str(page_width, rpt_params.GetLang()));
     ostringstream s;
     s.str("");
-    s << "Список пассажиров, не явившихся на посадку " << NodeAsString("trip", variablesNode) << "/" << NodeAsString("scd_out", variablesNode);
+    s << NodeAsString("caption", variablesNode);
     string str = s.str().substr(0, max_symb_count);
     s.str("");
     s << right << setw(((page_width - str.size()) / 2) + str.size()) << str;
     NewTextChild(variablesNode, "page_header_top", s.str());
     s.str("");
     s
-        << right << setw(3)  << "№" << " "
+        << right << setw(3)  << getLocaleText("№", rpt_params.GetLang()) << " "
         << left
-        << setw(38) << (lat ? "Surname" : "Ф.И.О.")
-        << setw(5)  << (lat ? "Type" : "Тип")
-        << setw(8)  << (lat ? "Seat No" : "№ места")
-        << setw(6) << (lat ? "Bag" : "Багаж")
-        << setw(19) << (lat ? " Bag.Tag.No" : " №№ баг.бирок");
+        << setw(38) << getLocaleText("Ф.И.О.", rpt_params.GetLang())
+        << setw(5)  << getLocaleText("Тип", rpt_params.GetLang())
+        << setw(8)  << getLocaleText("№ м", rpt_params.GetLang())
+        << setw(6) << getLocaleText("Баг.", rpt_params.GetLang())
+        << " " << setw(19) << getLocaleText("№ б/б", rpt_params.GetLang());
     NewTextChild(variablesNode, "page_header_bottom", s.str() );
-    NewTextChild(variablesNode, "page_footer_top", get_issue_date(variablesNode, lat));
+    NewTextChild(variablesNode, "page_footer_top",
+            getLocaleText("CAP.ISSUE_DATE", LParams() << LParam("date", NodeAsString("date_issue",variablesNode)), rpt_params.GetLang()));
     xmlNodePtr dataSetNode = NodeAsNode("v_notpres", dataSetsNode);
     xmlNodeSetName(dataSetNode, BAD_CAST "table");
     vector<string> rows;
@@ -2284,25 +2296,22 @@ void REM(TRptParams &rpt_params, xmlNodePtr resNode)
         get_report_form("docTxt", resNode);
     else
         get_report_form("rem", resNode);
-    int pr_lat = GetRPEncoding(rpt_params);
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "SELECT point_dep AS point_id, "
         "       reg_no, "
-        "       decode(:pr_lat, 0, surname||' '||pax.name, system.transliter(surname||' '||pax.name,1)) family, "
-        "       decode(:pr_lat, 0, pers_types.code, pers_types.code_lat) pers_type, "
+        "       surname||' '||pax.name family, "
+        "       pax.pers_type, "
         "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum) AS seat_no, "
         "       report.get_reminfo(pax_id,',') AS info "
-        "FROM   pax_grp,pax,pers_types "
+        "FROM   pax_grp,pax "
         "WHERE  pax_grp.grp_id=pax.grp_id AND "
-        "       pax.pers_type=pers_types.code AND "
         "       pr_brd IS NOT NULL and "
         "       point_dep = :point_id and "
         "       report.get_reminfo(pax_id,',') is not null "
         "order by "
         "       reg_no ";
     Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
-    Qry.CreateVariable("pr_lat", otString, pr_lat);
     Qry.Execute();
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
@@ -2312,8 +2321,8 @@ void REM(TRptParams &rpt_params, xmlNodePtr resNode)
 
         NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("point_id"));
         NewTextChild(rowNode, "reg_no", Qry.FieldAsInteger("reg_no"));
-        NewTextChild(rowNode, "family", Qry.FieldAsString("family"));
-        NewTextChild(rowNode, "pers_type", Qry.FieldAsString("pers_type"));
+        NewTextChild(rowNode, "family", transliter(Qry.FieldAsString("family"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+        NewTextChild(rowNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, Qry.FieldAsString("pers_type"), efmtCodeNative));
         NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
         NewTextChild(rowNode, "info", Qry.FieldAsString("info"));
 
@@ -2321,39 +2330,42 @@ void REM(TRptParams &rpt_params, xmlNodePtr resNode)
     }
 
     // Теперь переменные отчета
-    PaxListVars(rpt_params.point_id, pr_lat, NewTextChild(formDataNode, "variables"));
+    xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
+    PaxListVars(rpt_params.point_id, rpt_params, variablesNode);
+    NewTextChild(variablesNode, "caption", getLocaleText("CAP.DOC.REM",
+                LParams() << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang()));
+    populate_doc_cap(variablesNode, rpt_params.GetLang());
 }
 
 void REMTXT(TRptParams &rpt_params, xmlNodePtr resNode)
 {
     REM(rpt_params, resNode);
-    bool lat = GetRPEncoding(rpt_params)!=0;
 
     xmlNodePtr variablesNode=NodeAsNode("form_data/variables",resNode);
     xmlNodePtr dataSetsNode=NodeAsNode("form_data/datasets",resNode);
     int page_width=80;
-    int max_symb_count=lat?page_width:60;
+    int max_symb_count=rpt_params.IsInter()?page_width:60;
     NewTextChild(variablesNode, "page_width", page_width);
     NewTextChild(variablesNode, "test_server", get_test_server());
-    NewTextChild(variablesNode, "test_str", get_test_str(page_width, lat));
-    NewTextChild(variablesNode, "page_number_fmt", get_page_number_fmt(lat));
+    NewTextChild(variablesNode, "test_str", get_test_str(page_width, rpt_params.GetLang()));
     ostringstream s;
     s.str("");
-    s << "Список пассажиров, не явившихся на посадку " << NodeAsString("trip", variablesNode) << "/" << NodeAsString("scd_out", variablesNode);
+    s << NodeAsString("caption", variablesNode);
     string str = s.str().substr(0, max_symb_count);
     s.str("");
     s << right << setw(((page_width - str.size()) / 2) + str.size()) << str;
     NewTextChild(variablesNode, "page_header_top", s.str());
     s.str("");
     s
-        << right << setw(3)  << "№" << " "
+        << right << setw(3)  << getLocaleText("№", rpt_params.GetLang()) << " "
         << left
-        << setw(38) << (lat ? "Surname" : "Ф.И.О.")
-        << setw(5)  << (lat ? "Type" : "Тип")
-        << setw(8)  << (lat ? "Seat No" : "№ места")
-        << setw(25) << (lat ? "Remarks" : "Ремарки");
+        << setw(38) << getLocaleText("Ф.И.О.", rpt_params.GetLang())
+        << setw(5)  << getLocaleText("Тип", rpt_params.GetLang())
+        << setw(8)  << getLocaleText("№ м", rpt_params.GetLang())
+        << setw(25) << getLocaleText("Ремарки", rpt_params.GetLang());
     NewTextChild(variablesNode, "page_header_bottom", s.str() );
-    NewTextChild(variablesNode, "page_footer_top", get_issue_date(variablesNode, lat));
+    NewTextChild(variablesNode, "page_footer_top",
+            getLocaleText("CAP.ISSUE_DATE", LParams() << LParam("date", NodeAsString("date_issue",variablesNode)), rpt_params.GetLang()));
     xmlNodePtr dataSetNode = NodeAsNode("v_rem", dataSetsNode);
     xmlNodeSetName(dataSetNode, BAD_CAST "table");
     vector<string> rows;
@@ -2399,31 +2411,27 @@ void CRS(TRptParams &rpt_params, xmlNodePtr resNode)
     else
         get_report_form("crs", resNode);
     bool pr_unreg = rpt_params.rpt_type == rtCRSUNREG or rpt_params.rpt_type == rtCRSUNREGTXT;
-    int pr_lat = GetRPEncoding(rpt_params);
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
     TQuery Qry(&OraSession);
     string SQLText =
         "SELECT "
         "      tlg_binding.point_id_spp AS point_id, "
         "      ckin.get_pnr_addr(crs_pnr.pnr_id) AS pnr_ref, "
-        "      decode(:pr_lat, 0, (crs_pax.surname||' '||crs_pax.name), system.transliter(crs_pax.surname||' '||crs_pax.name,1)) family, "
-        "      decode(:pr_lat, 0, pers_types.code, pers_types.code_lat) pers_type, "
-        "      decode(:pr_lat, 0, classes.code, classes.code_lat) class, "
+        "      crs_pax.surname||' '||crs_pax.name family, "
+        "      crs_pax.pers_type, "
+        "      crs_pnr.class, "
         "      salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'seats',rownum) AS seat_no, "
-        "      decode(:pr_lat, 0, airps.code, NVL(airps.code_lat,airps.code)) target, "
-        "      report.get_trfer_airp(last_target) last_target, "
+        "      crs_pnr.target, "
+        "      crs_pnr.last_target, "
         "      report.get_TKNO(crs_pax.pax_id) ticket_no, "
         "      report.get_PSPT(crs_pax.pax_id) AS document, "
         "      report.get_crsRemarks(crs_pax.pax_id) AS remarks "
-        "FROM crs_pnr,tlg_binding,crs_pax,pers_types,classes,airps ";
+        "FROM crs_pnr,tlg_binding,crs_pax ";
     if(pr_unreg)
         SQLText += " , pax ";
     SQLText +=
         "WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND "
         "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
-        "      crs_pax.pers_type=pers_types.code AND "
-        "      crs_pnr.class=classes.code AND "
-        "      crs_pnr.target=airps.code AND "
         "      crs_pax.pr_del=0 and "
         "      tlg_binding.point_id_spp = :point_id ";
     if(pr_unreg)
@@ -2435,26 +2443,20 @@ void CRS(TRptParams &rpt_params, xmlNodePtr resNode)
         "    family ";
     Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
-    Qry.CreateVariable("pr_lat", otString, pr_lat);
     Qry.Execute();
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
     xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_crs");
 
     while(!Qry.Eof) {
         xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
-
-
         NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("point_id"));
         NewTextChild(rowNode, "pnr_ref", Qry.FieldAsString("pnr_ref"));
-        NewTextChild(rowNode, "family", Qry.FieldAsString("family"));
-        NewTextChild(rowNode, "pers_type", Qry.FieldAsString("pers_type"));
-        NewTextChild(rowNode, "class", Qry.FieldAsString("class"));
+        NewTextChild(rowNode, "family", transliter(Qry.FieldAsString("family"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+        NewTextChild(rowNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, Qry.FieldAsString("pers_type"), efmtCodeNative));
+        NewTextChild(rowNode, "class", rpt_params.ElemIdToReportElem(etClass, Qry.FieldAsString("class"), efmtCodeNative));
         NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
-        NewTextChild(rowNode, "target", Qry.FieldAsString("target"));
-
-        string last_target = Qry.FieldAsString("last_target");
-        NewTextChild(rowNode, "last_target", last_target);
-
+        NewTextChild(rowNode, "target", rpt_params.ElemIdToReportElem(etAirp, Qry.FieldAsString("target"), efmtCodeNative));
+        NewTextChild(rowNode, "last_target", rpt_params.ElemIdToReportElem(etAirp, Qry.FieldAsString("last_target"), efmtCodeNative));
         NewTextChild(rowNode, "ticket_no", Qry.FieldAsString("ticket_no"));
         NewTextChild(rowNode, "document", Qry.FieldAsString("document"));
         NewTextChild(rowNode, "remarks", Qry.FieldAsString("remarks"));
@@ -2463,29 +2465,28 @@ void CRS(TRptParams &rpt_params, xmlNodePtr resNode)
     }
 
     // Теперь переменные отчета
-    PaxListVars(rpt_params.point_id, pr_lat, NewTextChild(formDataNode, "variables"));
-    xmlNodePtr variablesNode=NodeAsNode("form_data/variables",resNode);
+    xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
+    PaxListVars(rpt_params.point_id, rpt_params, variablesNode);
     if(pr_unreg)
-        NewTextChild(variablesNode, "caption", (string)"Список забронированных не прошедших регистрацию пассажиров рейса " +
-                NodeAsString("trip", variablesNode) + "/" + NodeAsString("scd_out", variablesNode));
+        NewTextChild(variablesNode, "caption", getLocaleText("CAP.DOC.CRSUNREG",
+                    LParams() << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang()));
     else
-        NewTextChild(variablesNode, "caption", (string)"Список забронированных пассажиров рейса " +
-                NodeAsString("trip", variablesNode) + "/" + NodeAsString("scd_out", variablesNode));
+        NewTextChild(variablesNode, "caption", getLocaleText("CAP.DOC.CRS",
+                    LParams() << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang()));
+    populate_doc_cap(variablesNode, rpt_params.GetLang());
 }
 
 void CRSTXT(TRptParams &rpt_params, xmlNodePtr resNode)
 {
     CRS(rpt_params, resNode);
-    bool lat = GetRPEncoding(rpt_params)!=0;
 
     xmlNodePtr variablesNode=NodeAsNode("form_data/variables",resNode);
     xmlNodePtr dataSetsNode=NodeAsNode("form_data/datasets",resNode);
     int page_width=80;
-    int max_symb_count=lat?page_width:60;
+    int max_symb_count=rpt_params.IsInter()?page_width:60;
     NewTextChild(variablesNode, "page_width", page_width);
     NewTextChild(variablesNode, "test_server", get_test_server());
-    NewTextChild(variablesNode, "test_str", get_test_str(page_width, lat));
-    NewTextChild(variablesNode, "page_number_fmt", get_page_number_fmt(lat));
+    NewTextChild(variablesNode, "test_str", get_test_str(page_width, rpt_params.GetLang()));
     ostringstream s;
     vector<string> rows;
     string str;
@@ -2499,19 +2500,20 @@ void CRSTXT(TRptParams &rpt_params, xmlNodePtr resNode)
     NewTextChild(variablesNode, "page_header_top", s.str());
     s.str("");
     s
-        << right << setw(3)  << "№" << " "
+        << right << setw(3)  << getLocaleText("№", rpt_params.GetLang()) << " "
         << left
         << setw(7)  << "PNR"
-        << setw(22) << (lat ? "Surname" : "Ф.И.О.")
-        << setw(5)  << (lat ? "Pax" : "Пас")
-        << setw(3) << (lat ? "Cl" : "Кл")
-        << setw(8)  << (lat ? "Seat No" : "№ места")
-        << setw(4)  << (lat ? "Dst" : "П/н")
-        << setw(7)  << (lat ? "to Dst" : "до П/н")
-        << setw(10) << (lat ? "Ticket" : "Билет")
-        << setw(10) << (lat ? "Document" : "Документ");
+        << setw(22) << getLocaleText("Ф.И.О.", rpt_params.GetLang())
+        << setw(5)  << getLocaleText("Пас", rpt_params.GetLang())
+        << setw(3) << getLocaleText("Кл", rpt_params.GetLang())
+        << setw(8)  << getLocaleText("№ м", rpt_params.GetLang())
+        << setw(4)  << getLocaleText("CAP.DOC.AIRP_ARV", rpt_params.GetLang())
+        << setw(7)  << getLocaleText("CAP.DOC.TO", rpt_params.GetLang())
+        << setw(10) << getLocaleText("Билет", rpt_params.GetLang())
+        << setw(10) << getLocaleText("Документ", rpt_params.GetLang());
     NewTextChild(variablesNode, "page_header_bottom", s.str() );
-    NewTextChild(variablesNode, "page_footer_top", get_issue_date(variablesNode, lat));
+    NewTextChild(variablesNode, "page_footer_top",
+            getLocaleText("CAP.ISSUE_DATE", LParams() << LParam("date", NodeAsString("date_issue",variablesNode)), rpt_params.GetLang()));
     xmlNodePtr dataSetNode = NodeAsNode("v_crs", dataSetsNode);
     xmlNodeSetName(dataSetNode, BAD_CAST "table");
     map< string, vector<string> > fields;
@@ -2566,83 +2568,131 @@ void CRSTXT(TRptParams &rpt_params, xmlNodePtr resNode)
 
 void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    bool pr_web = GetNode( "web", reqNode ) != NULL;
-    if(rpt_params.rpt_type == rtEXAMTXT or rpt_params.rpt_type == rtWEBTXT)
+    bool pr_web = (rpt_params.rpt_type == rtWEB or rpt_params.rpt_type == rtWEBTXT);
+    bool pr_norec = (rpt_params.rpt_type == rtNOREC or rpt_params.rpt_type == rtNORECTXT);
+    if(rpt_params.rpt_type == rtEXAMTXT or rpt_params.rpt_type == rtWEBTXT or rpt_params.rpt_type == rtNORECTXT)
         get_report_form("docTxt", resNode);
     else
         get_report_form(pr_web ? "web" : "exam", resNode);
-    int pr_lat = GetRPEncoding(rpt_params);
 
-    BrdInterface::GetPax(reqNode, resNode);
-    xmlNodePtr currNode = resNode->children;
-    xmlNodePtr formDataNode = NodeAsNodeFast("form_data", currNode);
-    xmlNodePtr dataNode = NodeAsNodeFast("data", currNode);
-    currNode = formDataNode->children;
-    xmlNodePtr variablesNode = NodeAsNodeFast("variables", currNode);
+    TQuery Qry(&OraSession);
+    BrdInterface::GetPaxQuery(Qry, rpt_params.point_id, NoExists, rpt_params.GetLang(), rpt_params.rpt_type, rpt_params.client_type);
+    ProgTrace(TRACE5, "Qry: %s", Qry.SQLText.SQLText());
+    Qry.Execute();
+    xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
+    xmlNodePtr datasetsNode = NewTextChild(formDataNode, "datasets");
+    xmlNodePtr passengersNode = NewTextChild(datasetsNode, "passengers");
+    for( ; !Qry.Eof; Qry.Next()) {
+        xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
+        NewTextChild(paxNode, "reg_no", Qry.FieldAsInteger("reg_no"));
+        NewTextChild(paxNode, "surname", transliter(Qry.FieldAsString("surname"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+        NewTextChild(paxNode, "name", transliter(Qry.FieldAsString("name"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+        if(pr_web)
+            NewTextChild(paxNode, "user_descr", transliter(Qry.FieldAsString("user_descr"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+        NewTextChild(paxNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, Qry.FieldAsString("pers_type"), efmtCodeNative));
+        NewTextChild(paxNode, "pr_exam", Qry.FieldAsInteger("pr_exam"), 0);
+        NewTextChild(paxNode, "pr_brd", Qry.FieldAsInteger("pr_brd"), 0);
+        NewTextChild(paxNode, "seat_no", Qry.FieldAsString("seat_no"));
+        NewTextChild(paxNode, "document", Qry.FieldAsString("document"));
+        NewTextChild(paxNode, "ticket_no", Qry.FieldAsString("ticket_no"));
+        NewTextChild(paxNode, "coupon_no", Qry.FieldAsInteger("coupon_no"));
+        NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
+        NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger("bag_weight"));
+        NewTextChild(paxNode, "rk_amount", Qry.FieldAsInteger("rk_amount"));
+        NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
+        NewTextChild(paxNode, "excess", Qry.FieldAsInteger("excess"));
+        NewTextChild(paxNode, "pr_payment", Qry.FieldAsInteger("pr_payment"));
+        NewTextChild(paxNode, "tags", Qry.FieldAsString("tags"));
+        NewTextChild(paxNode, "remarks", Qry.FieldAsString("remarks"));
+    }
 
-    xmlUnlinkNode(dataNode);
-
-    xmlNodeSetName(dataNode, (xmlChar *)"datasets");
-    xmlAddChild(formDataNode, dataNode);
     // Теперь переменные отчета
-    if ( GetNode( "web", reqNode ) )
-        NewTextChild(variablesNode, "paxlist_type", "web-регистрация");
+    xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
+    BrdInterface::readTripCounters(rpt_params.point_id, rpt_params, variablesNode, rpt_params.rpt_type, rpt_params.client_type);
+    PaxListVars(rpt_params.point_id, rpt_params, variablesNode);
+    if ( pr_web) {
+        if(!rpt_params.client_type.empty()) {
+            string ls_type;
+            switch(DecodeClientType(rpt_params.client_type.c_str())) {
+                case ctWeb:
+                    ls_type = getLocaleText("CAP.PAX_LIST.WEB", rpt_params.GetLang());
+                    break;
+                case ctKiosk:
+                    ls_type = getLocaleText("CAP.PAX_LIST.KIOSK", rpt_params.GetLang());
+                    break;
+                default:
+                    throw Exception("Unexpected client_type: %s", rpt_params.client_type.c_str());
+            }
+            NewTextChild(variablesNode, "paxlist_type", ls_type);
+        }
+    } else if(pr_norec)
+        NewTextChild(variablesNode, "paxlist_type", "NOREC");
     else
-        NewTextChild(variablesNode, "paxlist_type", "Досмотр / Посадка");
-    PaxListVars(rpt_params.point_id, pr_lat, variablesNode);
-    currNode = variablesNode->children;
+        NewTextChild(variablesNode, "paxlist_type", getLocaleText("CAP.PAX_LIST.BRD", rpt_params.GetLang()));
+    if(pr_web and rpt_params.client_type.empty())
+        NewTextChild(variablesNode, "caption", getLocaleText("CAP.DOC.PAX_LIST.SELF_CKIN",
+                    LParams()
+                    << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang())
+                );
+    else
+        NewTextChild(variablesNode, "caption", getLocaleText("CAP.DOC.PAX_LIST",
+                    LParams()
+                    << LParam("list_type", NodeAsString("paxlist_type", variablesNode))
+                    << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang())
+                );
+    xmlNodePtr currNode = variablesNode->children;
     xmlNodePtr totalNode = NodeAsNodeFast("total", currNode);
-    NodeSetContent(totalNode, (string)"Итого: " + NodeAsString(totalNode));
+    NodeSetContent(totalNode, getLocaleText("CAP.TOTAL.VAL", LParams() << LParam("total", NodeAsString(totalNode)), rpt_params.GetLang()));
+    populate_doc_cap(variablesNode, rpt_params.GetLang());
+    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str()); //!!!
 }
 
 void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     EXAM(rpt_params, reqNode, resNode);
     const char col_sym = ' '; //символ разделителя столбцов
-    bool lat = GetRPEncoding(rpt_params)!=0;
     bool pr_web = rpt_params.rpt_type == rtWEBTXT;
 
     xmlNodePtr variablesNode=NodeAsNode("form_data/variables",resNode);
     xmlNodePtr dataSetsNode=NodeAsNode("form_data/datasets",resNode);
     int page_width=80;
-    int max_symb_count=lat?page_width:60;
+    int max_symb_count=rpt_params.IsInter()?page_width:60;
     NewTextChild(variablesNode, "page_width", page_width);
     NewTextChild(variablesNode, "test_server", get_test_server());
     string str;
     ostringstream s;
     s.str("");
-    NewTextChild(variablesNode, "test_str", get_test_str(page_width, lat));
-    NewTextChild(variablesNode, "page_number_fmt", get_page_number_fmt(lat));
+    NewTextChild(variablesNode, "test_str", get_test_str(page_width, rpt_params.GetLang()));
     s.str("");
-    s
-        << "Список пассажиров (" << NodeAsString("paxlist_type", variablesNode) << "). Рейс "
-        << NodeAsString("trip", variablesNode) << "/" << NodeAsString("scd_out", variablesNode);
+    s << NodeAsString("caption", variablesNode);
     str = s.str().substr(0, max_symb_count);
     s.str("");
     s << right << setw(((page_width - str.size()) / 2) + str.size()) << str;
     NewTextChild(variablesNode, "page_header_top", s.str());
     s.str("");
     s
-        << right << setw(3)  << "№" << col_sym
-        << left << setw(pr_web ? 20 : 22) << (lat ? "Surname" : "Фамилия")
-        << setw(4)  << (lat ? "Pax" : "Пас");
+        << right << setw(3)  << getLocaleText("№", rpt_params.GetLang()) << col_sym
+        << left << setw(pr_web ? 19 : 30) << getLocaleText("Фамилия", rpt_params.GetLang());
     if(pr_web)
         s
-            << setw(8)  << (lat ? "Seat No" : "№ места");
+            << setw(9)  << getLocaleText("Оператор", rpt_params.GetLang());
+    s << setw(4)  << getLocaleText("Пас", rpt_params.GetLang());
+    if(pr_web)
+        s
+            << setw(9)  << getLocaleText("№ м", rpt_params.GetLang());
     else
         s
-            << setw(3)  << (lat ? "Ex" : "Дс")
-            << setw(3)  << (lat ? "Br" : "Пс");
+            << setw(3)  << getLocaleText("Дс", rpt_params.GetLang())
+            << setw(4)  << getLocaleText("Пс", rpt_params.GetLang());
     s
-        << setw(10) << (lat ? "Document" : "Документ")
-        << setw(10) << (lat ? "Ticket" : "Билет")
-        << setw(15) << (lat ? "Bag.Tag.No" : "№№ баг.бирок")
-        << setw(9)  << (lat ? "Remarks" : "Ремарки");
+        << setw(11) << getLocaleText("Документ", rpt_params.GetLang())
+        << setw(14) << getLocaleText("Билет", rpt_params.GetLang())
+        << setw(10) << getLocaleText("№ б/б", rpt_params.GetLang());
     NewTextChild(variablesNode, "page_header_bottom", s.str() );
     s.str("");
     s
         << NodeAsString("total", variablesNode) << endl
-        << get_issue_date(variablesNode, lat);
+        << getLocaleText("CAP.ISSUE_DATE", LParams() << LParam("date", NodeAsString("date_issue",variablesNode)), rpt_params.GetLang());
     NewTextChild(variablesNode, "page_footer_top", s.str() );
 
     xmlNodePtr dataSetNode = NodeAsNode("passengers", dataSetsNode);
@@ -2654,20 +2704,20 @@ void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     for(; rowNode != NULL; rowNode = rowNode->next)
     {
         //рабиваем фамилию, документ, билет, бирки, ремарки
-        SeparateString(((string)NodeAsString("surname",rowNode) + " " + NodeAsString("name", rowNode, "")).c_str(),(pr_web ? 19 : 21),rows);
+        SeparateString(((string)NodeAsString("surname",rowNode) + " " + NodeAsString("name", rowNode, "")).c_str(),(pr_web ? 18 : 29),rows);
         fields["surname"]=rows;
 
-        SeparateString(NodeAsString("document",rowNode, ""),9,rows);
+        SeparateString(NodeAsString("document",rowNode, ""),10,rows);
         fields["docs"]=rows;
 
-        SeparateString(NodeAsString("ticket_no",rowNode, ""),9,rows);
+        SeparateString(NodeAsString("ticket_no",rowNode, ""),13,rows);
         fields["tkts"]=rows;
 
-        SeparateString(NodeAsString("tags",rowNode, ""),14,rows);
+        SeparateString(NodeAsString("tags",rowNode, ""),10,rows);
         fields["tags"]=rows;
 
-        SeparateString(NodeAsString("remarks",rowNode, ""),9,rows);
-        fields["remarks"]=rows;
+        SeparateString(NodeAsString("user_descr",rowNode, ""),8,rows);
+        fields["user_descr"]=rows;
 
         row=0;
         s.str("");
@@ -2676,21 +2726,24 @@ void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             if (row != 0) s << endl;
             s
                 << right << setw(3) << (row == 0 ? NodeAsString("reg_no", rowNode) : "") << col_sym
-                << left << setw(pr_web ? 19 : 21) << (!fields["surname"].empty() ? *(fields["surname"].begin()) : "") << col_sym
-                << right <<  setw(3) << (row == 0 ? NodeAsString("pers_type", rowNode, "ВЗ") : "") << col_sym;
+                << left << setw(pr_web ? 18 : 29) << (!fields["surname"].empty() ? *(fields["surname"].begin()) : "") << col_sym;
+            if(pr_web)
+                s
+                    << left << setw(8) << (!fields["user_descr"].empty() ? *(fields["user_descr"].begin()) : "") << col_sym;
+            s
+                << right <<  setw(3) << (row == 0 ? NodeAsString("pers_type", rowNode) : "") << col_sym;
             if(pr_web) {
                 s
-                    << left <<  setw(7) << (row == 0 ? NodeAsString("seat_no", rowNode, "") : "") << col_sym;
+                    << left <<  setw(8) << (row == 0 ? NodeAsString("seat_no", rowNode, "") : "") << col_sym;
             } else {
                 s
                     << left <<  setw(3) << (row == 0 ? (NodeAsString("pr_exam", rowNode, "") == "" ? "-" : "+") : "")
-                    << left <<  setw(3) << (row == 0 ? (NodeAsString("pr_brd", rowNode, "") == "" ? "-" : "+") : "");
+                    << left <<  setw(4) << (row == 0 ? (NodeAsString("pr_brd", rowNode, "") == "" ? "-" : "+") : "");
             }
             s
-                << left << setw(9) << (!fields["docs"].empty() ? *(fields["docs"].begin()) : "") << col_sym
-                << left << setw(9) << (!fields["tkts"].empty() ? *(fields["tkts"].begin()) : "") << col_sym
-                << left << setw(14) << (!fields["tags"].empty() ? *(fields["tags"].begin()) : "") << col_sym
-                << left << setw(9) << (!fields["remarks"].empty() ? *(fields["remarks"].begin()) : "");
+                << left << setw(10) << (!fields["docs"].empty() ? *(fields["docs"].begin()) : "") << col_sym
+                << left << setw(13) << (!fields["tkts"].empty() ? *(fields["tkts"].begin()) : "") << col_sym
+                << left << setw(10) << (!fields["tags"].empty() ? *(fields["tags"].begin()) : "");
             for(map< string, vector<string> >::iterator f = fields.begin(); f != fields.end(); f++)
                 if (!f->second.empty()) f->second.erase(f->second.begin());
             row++;
@@ -2700,7 +2753,7 @@ void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
                 !fields["docs"].empty() ||
                 !fields["tkts"].empty() ||
                 !fields["tags"].empty() ||
-                !fields["remarks"].empty()
+                !fields["user_descr"].empty()
              );
         NewTextChild(rowNode,"str",s.str());
     }
@@ -2709,13 +2762,13 @@ void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 
 void WEB(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    NewTextChild(reqNode, "web");
+    NewTextChild(reqNode, "client_type", rpt_params.client_type);
     EXAM(rpt_params, reqNode, resNode);
 }
 
 void WEBTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    NewTextChild(reqNode, "web");
+    NewTextChild(reqNode, "client_type", rpt_params.client_type);
     EXAMTXT(rpt_params, reqNode, resNode);
 }
 
@@ -2723,20 +2776,7 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
 {
     xmlNodePtr node = reqNode->children;
     TRptParams rpt_params;
-    rpt_params.point_id = NodeAsIntegerFast("point_id", node);
-    rpt_params.rpt_type = DecodeRptType(NodeAsStringFast("rpt_type", node));
-    rpt_params.airp_arv = NodeAsStringFast("airp_arv", node, "");
-    rpt_params.ckin_zone = NodeAsStringFast("ckin_zone", node, " ");
-    rpt_params.pr_et = NodeAsIntegerFast("pr_et", node, 0) != 0;
-    rpt_params.pr_trfer = NodeAsIntegerFast("pr_trfer", node, 0) != 0;
-    rpt_params.pr_brd = NodeAsIntegerFast("pr_brd", node, 0) != 0;
-    xmlNodePtr mktFltNode = GetNodeFast("mkt_flight", node);
-    if(mktFltNode != NULL) {
-        xmlNodePtr node = mktFltNode->children;
-        rpt_params.mkt_flt.airline = NodeAsStringFast("airline", node);
-        rpt_params.mkt_flt.flt_no = NodeAsIntegerFast("flt_no", node);
-        rpt_params.mkt_flt.suffix = NodeAsStringFast("suffix", node, "");
-    }
+    rpt_params.Init(node);
     switch(rpt_params.rpt_type) {
         case rtPTM:
             PTM(rpt_params, resNode);
@@ -2783,14 +2823,16 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
             CRSTXT(rpt_params, resNode);
             break;
         case rtEXAM:
+        case rtNOREC:
             EXAM(rpt_params, reqNode, resNode);
             break;
         case rtEXAMTXT:
+        case rtNORECTXT:
             EXAMTXT(rpt_params, reqNode, resNode);
             break;
         case rtUnknown:
         case rtTypeNum:
-            throw UserException("Отчет временно не поддерживается системой");
+            throw AstraLocale::UserException("MSG.TEMPORARILY_NOT_SUPPORTED");
     }
 }
 
@@ -2844,7 +2886,7 @@ vector<string> get_grp_zone_list(int point_id)
     for(; !Qry.Eof; Qry.Next())
         result.push_back(Qry.FieldAsString("rpt_grp"));
     if(result.size() == 1 and result[0].empty())
-        result[0] = " "; // группа залов "все залы"
+        result[0] = ALL_CKIN_ZONES; // группа залов "все залы"
     if(result.size() > 1 or result.empty())
         result.insert(result.begin(), " ");
     return result;
@@ -2858,8 +2900,8 @@ void DocsInterface::GetZoneList(int point_id, xmlNodePtr dataNode)
         xmlNodePtr itemNode = NewTextChild(ckin_zonesNode, "item");
         if(iv->empty()) {
             NewTextChild(itemNode, "code");
-            NewTextChild(itemNode, "name", "Др. залы");
-        } else if(*iv == " ") {
+            NewTextChild(itemNode, "name", getLocaleText("Др. залы"));
+        } else if(*iv == ALL_CKIN_ZONES) {
             NewTextChild(itemNode, "code", *iv);
             NewTextChild(itemNode, "name");
         } else {

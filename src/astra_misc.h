@@ -7,6 +7,8 @@
 #include "astra_consts.h"
 #include "oralib.h"
 #include "astra_utils.h"
+#include "astra_elems.h"
+#include "astra_locale.h"
 #include "stages.h"
 
 struct TMktFlight {
@@ -41,7 +43,8 @@ class TTripInfo
   public:
     std::string airline,suffix,airp;
     int flt_no, pr_del;
-    BASIC::TDateTime scd_out,real_out,real_out_local_date;
+    TElemFmt airline_fmt, suffix_fmt, airp_fmt;
+    BASIC::TDateTime scd_out,real_out;
     TTripInfo()
     {
       Clear();
@@ -58,8 +61,10 @@ class TTripInfo
       airp.clear();
       scd_out=ASTRA::NoExists;
       real_out=ASTRA::NoExists;
-      real_out_local_date=ASTRA::NoExists; //GetTripName устанавливает значение
       pr_del = ASTRA::NoExists;
+      airline_fmt = efmtUnknown;
+      suffix_fmt = efmtUnknown;
+      airp_fmt = efmtUnknown;
     };
     void Init( TQuery &Qry )
     {
@@ -72,15 +77,82 @@ class TTripInfo
         real_out = Qry.FieldAsDateTime("real_out");
       else
         real_out = ASTRA::NoExists;
-      real_out_local_date=ASTRA::NoExists;
       if (Qry.GetFieldIndex("pr_del")>=0)
         pr_del = Qry.FieldAsInteger("pr_del");
       else
         pr_del = ASTRA::NoExists;
+      if (Qry.GetFieldIndex("airline_fmt")>=0)
+          airline_fmt = (TElemFmt)Qry.FieldAsInteger("airline_fmt");
+      if (Qry.GetFieldIndex("suffix_fmt")>=0)
+          suffix_fmt = (TElemFmt)Qry.FieldAsInteger("suffix_fmt");
+      if (Qry.GetFieldIndex("airp_fmt")>=0)
+          airp_fmt = (TElemFmt)Qry.FieldAsInteger("airp_fmt");
     };
+    void get_client_dates(BASIC::TDateTime &scd_out_client, BASIC::TDateTime &real_out_client) const;
 };
 
-std::string GetTripName( TTripInfo &info, bool showAirp=false, bool prList=false  );
+std::string GetTripName( const TTripInfo &info, TElemContext ctxt, bool showAirp=false, bool prList=false );
+
+class TLastTrferInfo
+{
+  public:
+    std::string airline, suffix, airp_arv;
+    int flt_no;
+    TLastTrferInfo()
+    {
+      Clear();
+    };
+    TLastTrferInfo( TQuery &Qry )
+    {
+      Init(Qry);
+    };
+    void Clear()
+    {
+      airline.clear();
+      flt_no=ASTRA::NoExists;
+      suffix.clear();
+      airp_arv.clear();
+    };
+    virtual void Init( TQuery &Qry )
+    {
+      airline=Qry.FieldAsString("trfer_airline");
+      if (!Qry.FieldIsNULL("trfer_flt_no"))
+        flt_no=Qry.FieldAsInteger("trfer_flt_no");
+      else
+        flt_no=ASTRA::NoExists;
+      suffix=Qry.FieldAsString("trfer_suffix");
+      airp_arv=Qry.FieldAsString("trfer_airp_arv");
+    };
+    bool IsNULL()
+    {
+      return (airline.empty() &&
+              flt_no==ASTRA::NoExists &&
+              suffix.empty() &&
+              airp_arv.empty());
+    };
+    std::string str();
+    virtual ~TLastTrferInfo() {};
+};
+
+class TLastTCkinSegInfo : public TLastTrferInfo
+{
+  public:
+    TLastTCkinSegInfo():TLastTrferInfo() {};
+    TLastTCkinSegInfo( TQuery &Qry ):TLastTrferInfo()
+    {
+      Init(Qry);
+    };
+    virtual void Init( TQuery &Qry )
+    {
+      airline=Qry.FieldAsString("tckin_seg_airline");
+      if (!Qry.FieldIsNULL("tckin_seg_flt_no"))
+        flt_no=Qry.FieldAsInteger("tckin_seg_flt_no");
+      else
+        flt_no=ASTRA::NoExists;
+      suffix=Qry.FieldAsString("tckin_seg_suffix");
+      airp_arv=Qry.FieldAsString("tckin_seg_airp_arv");
+    };
+};
 
 //настройки рейса
 enum TTripSetType { tsOutboardTrfer=10,
@@ -262,6 +334,7 @@ void GetMktFlights(const TTripInfo &operFltInfo, std::vector<TTripInfo> &markFlt
 std::string GetMktFlightStr( const TTripInfo &operFlt, const TTripInfo &markFlt );
 
 void GetCrsList(int point_id, std::vector<std::string> &crs);
+bool IsRouteInter(int point_dep, int point_arv, std::string &country);
 
 #endif /*_ASTRA_MISC_H_*/
 

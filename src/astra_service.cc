@@ -17,18 +17,17 @@
 #include "timer.h"
 #include "stages.h"
 #include "maindcs.h"
-#include "jxtlib/cont_tools.h"
+#include "jxtlib/jxt_cont.h"
 #include "serverlib/str_utils.h"
 #include "serverlib/cfgproc.h"
-#include "serverlib/str_utils.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
+using namespace AstraLocale;
 using namespace BASIC;
-using namespace JxtContext;
 
 const double WAIT_ANSWER_SEC = 30.0;   // ждем ответа 30 секунд
 const string PARAM_FILE_ID = "file_id";
@@ -324,7 +323,7 @@ int buildSaveFileData( xmlNodePtr resNode, const std::string &client_canon_name,
       		throw Exception( string( "Can't malloc " ) + IntToString( len ) + " byte" );
         ScanQry.FieldAsLong( "data", p );
         xmlNodePtr fileNode = NewTextChild( dataNode, "file" );
-        NewTextChild( fileNode, "data", b64_encode( (const char*)p, len ) );
+        NewTextChild( fileNode, "data", StrUtils::b64_encode( (const char*)p, len ) );
         wait_time = ScanQry.FieldAsDateTime( "now" ) - ScanQry.FieldAsDateTime( "wait_time" );
         NewTextChild( fileNode, "wait_time", wait_time );
         ScanQry.Next();
@@ -371,7 +370,7 @@ int buildSaveFileData( xmlNodePtr resNode, const std::string &client_canon_name,
 
 void buildLoadFileData( xmlNodePtr resNode, const std::string &client_canon_name )
 { /* теперь есть разделение по а/к */
-	JxtCont *sysCont = getJxtContHandler()->sysContext();
+	JxtContext::JxtCont *sysCont = JxtContext::getJxtContHandler()->sysContext();
 	int prior_id = sysCont->readInt( client_canon_name + "_" + OWN_POINT_ADDR() + "_file_param_sets.id", -1 ); // for sort request
 	ProgTrace( TRACE5, "get prior_id=%d", prior_id );
 	TQuery Qry( &OraSession );
@@ -499,7 +498,7 @@ void AstraServiceInterface::authorize( XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
 {
 	xmlNodePtr node = GetNode( "canon_name", reqNode );
 	if ( !node )
-		throw UserException( "param canon_name not found" );
+		throw AstraLocale::UserException( "param canon_name not found" );
 	string client_canon_name = NodeAsString( node );
 	string curmode = NodeAsString( "curmode", reqNode );
 	ProgTrace( TRACE5, "client_canon_name=%s, curmode=%s", client_canon_name.c_str(), curmode.c_str() );
@@ -624,7 +623,7 @@ void AstraServiceInterface::ThreadTaskResData( XMLRequestCtxt *ctxt, xmlNodePtr 
 	map<string,string> params;
 	xmlNodePtr n = NodeAsNode( "headers", reqNode );
 	if ( !n || !n->children ) {
-		ASTRA::showProgError( "Не заданы параметры сообщения (file_id,ANSWER). Обратитесь к разработчикам" );
+		AstraLocale::showProgError( "MSG.MSG_PARAMS_NOT_DEFINED.CALL_ADMIN" );
 		return;
 	}
   n = n->children;
@@ -638,7 +637,7 @@ void AstraServiceInterface::ThreadTaskResData( XMLRequestCtxt *ctxt, xmlNodePtr 
 		string sfile_id = params[ PARAM_FILE_ID ];
 		int file_id;
 		if ( sfile_id.empty() || params[ "ANSWER" ].empty() || StrToInt( sfile_id.c_str(), file_id ) == EOF ) {
-			ASTRA::showProgError( "Не заданы параметры сообщения (file_id,ANSWER). Обратитесь к разработчикам" );
+			AstraLocale::showProgError( "MSG.MSG_PARAMS_NOT_DEFINED.CALL_ADMIN" );
 			return;
 		}
 		if ( params[ "ANSWER" ] == "COMMIT" )
@@ -806,7 +805,7 @@ bool CreateCommonFileData( int id, const std::string type, const std::string &ai
                               str_file = ConvertCodepage( str_file, "CP866", encoding );
                           } catch(EConvertError &E) {
                               ProgError(STDLOG, E.what());
-                              throw UserException("Ошибка конвертации в %s", encoding.c_str() );
+                              throw AstraLocale::UserException("MSG.CONVERT_INTO_ERR", LParams() << LParam("enc", encoding));
                           }
                       res = true;
                       int file_id = putFile( client_canon_name, OWN_POINT_ADDR(), type, i->params, str_file );
@@ -828,11 +827,9 @@ bool CreateCommonFileData( int id, const std::string type, const std::string &ai
             }
             /* ну не получилось сформировать файл, остальные файлы имеют тоже право попробовать сформироваться */
             catch( std::exception &e) {
-                ///try OraSession.RollBack(); catch(...){};//!!!
                 ProgError(STDLOG, "file_type=%s, id=%d, what=%s", type.c_str(), id, e.what());
             }
             catch(...) {
-                ///try OraSession.RollBack(); catch(...){}; //!!!
                 ProgError(STDLOG, "putFile: Unknown error while trying to put file");
             };
             inparams.clear();
@@ -940,7 +937,6 @@ void sync_sppcek( void )
 	 "       ( file_param_sets.flt_no IS NULL OR file_param_sets.flt_no=points.flt_no ) ";
 	Qry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
 	Qry.CreateVariable( "file_type", otString, FILE_SPPCEK_TYPE );
-//!!!	Qry.CreateVariable( "spp_days", otInteger, CREATE_SPP_DAYS() );
 	Qry.Execute();
 	while ( !Qry.Eof ) {
 		CreateCommonFileData( Qry.FieldAsInteger( "point_id" ), FILE_SPPCEK_TYPE, Qry.FieldAsString( "airp" ),
@@ -972,7 +968,7 @@ void AstraServiceInterface::saveFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNo
 		return;
 	}
 	string file_data = NodeAsString( dataNode );
-	file_data = b64_decode( file_data.c_str(), file_data.size() );
+	file_data = StrUtils::b64_decode( file_data.c_str(), file_data.size() );
 	TQuery Qry( &OraSession );
   TQuery EncodeQry( &OraSession );
   EncodeQry.SQLText =
@@ -996,7 +992,7 @@ void AstraServiceInterface::saveFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNo
       catch( EConvertError &E ) {
         ProgError(STDLOG, E.what());
       }
-  JxtCont *sysCont = getJxtContHandler()->sysContext();
+  JxtContext::JxtCont *sysCont = JxtContext::getJxtContHandler()->sysContext();
   string airline = sysCont->read( fileparams[ "canon_name" ] + "_" + OWN_POINT_ADDR() + "_file_param_sets.airline" );
   ParseAndSaveSPP( fileparams[ PARAM_FILE_NAME ], fileparams[ "canon_name" ], airline, file_data, convert_aodb );
 }
@@ -1062,7 +1058,7 @@ void AstraServiceInterface::viewFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNo
 	Qry.CreateVariable( "file_id", otInteger, file_id );
 	Qry.Execute();
 	if ( Qry.Eof )
-		throw UserException( "Файл не найден" );
+		throw AstraLocale::UserException( "MSG.FILE.NOT_FOUND" );
  	int len = Qry.GetSizeLongField( "data" );
   void *p = (char*)malloc( len );
  	if ( !p )
@@ -1075,7 +1071,7 @@ void AstraServiceInterface::viewFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNo
   	str_file = ConvertCodepage( str_file, encoding, "CP866" );
   str_file = ConvertCodepage( str_file, "CP866", "WINDOWS-1251" );
   ProgTrace( TRACE5, "file_str=%s", str_file.c_str() );
-  NewTextChild( resNode, "data", b64_encode( str_file.c_str(), len ) );
+  NewTextChild( resNode, "data", StrUtils::b64_encode( str_file.c_str(), len ) );
   free( p );
   Qry.SQLText = "SELECT * FROM file_params WHERE id=:file_id";
 	Qry.CreateVariable( "file_id", otInteger, file_id );

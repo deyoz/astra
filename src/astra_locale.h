@@ -12,6 +12,10 @@
 
 namespace AstraLocale {
 
+const std::string LANG_RU = "RU";
+const std::string LANG_EN = "EN";
+const std::string LANG_DEFAULT = LANG_EN;
+
 struct LexemaData;
 class LParam;
 
@@ -99,29 +103,35 @@ struct LexemaData {
 	LParams lparams;
 };
 
-class UserException:public EXCEPTIONS::UserException
+class UserException:public EXCEPTIONS::Exception
 {
 	private:
 		std::string lexema_id;
 		LParams lparams;
+        int FCode;
 	public:
-    UserException( int code, std::string vlexema, LParams &aparams):EXCEPTIONS::UserException(code,vlexema)
+    int Code() { return FCode; };
+    UserException( int code, std::string vlexema, LParams &aparams):EXCEPTIONS::Exception(vlexema)
     {
     	lparams = aparams;
     	lexema_id = vlexema;
+        FCode = code;
     }
-    UserException( std::string vlexema, LParams &aparams):EXCEPTIONS::UserException(0,vlexema)
+    UserException( std::string vlexema, LParams &aparams):EXCEPTIONS::Exception(vlexema)
     {
     	lparams = aparams;
     	lexema_id = vlexema;
+        FCode = 0;
     }
-    UserException( int code, std::string vlexema):EXCEPTIONS::UserException(code,vlexema)
+    UserException( int code, std::string vlexema):EXCEPTIONS::Exception(vlexema)
     {
     	lexema_id = vlexema;
+        FCode = code;
     }
-    UserException( std::string vlexema):EXCEPTIONS::UserException(0,vlexema)
+    UserException( std::string vlexema):EXCEPTIONS::Exception(vlexema)
     {
     	lexema_id = vlexema;
+        FCode = 0;
     }
     LexemaData getLexemaData( ) {
     	LexemaData data;
@@ -136,9 +146,10 @@ const std::string VARIABLE_FIRST_ELEM = "[";
 const std::string VARIABLE_END_ELEM = "]";
 const std::string FORMAT_FIRST_ELEM = "%";
 const std::string FORMAT_LEXEMA = "L";
+const std::string FORMAT_LINE_BREAK = "EOL";
 const std::string FORMAT_MSG = "MSG.";
 const std::string FORMAT_COVER = "WRAP.";
-enum TLocaleFormat { lfInt, lfDouble, lfDateTime, lfString, lfLexema, lfUnknown };
+enum TLocaleFormat { lfInt, lfDouble, lfDateTime, lfString, lfLexema, lfLineBreak, lfUnknown };
 
 struct ElemData {
 	std::string var_name;
@@ -161,26 +172,68 @@ class LParser: public std::map<int, ElemData, std::greater<int> >
   	LParser( const std::string &lexema );
 };
 
-struct TLocaleMessage {
-	std::map<std::string,std::string> lang_messages;
+struct TMessageText {
+	std::string value;
 	int pr_del;
-	TLocaleMessage( std::string vlang, std::string vmessage, int vpr_del ) {
-		lang_messages[ upperc(vlang) ] = vmessage;
-		pr_del = vpr_del;
-	};
+	TMessageText() {
+		value = "";
+		pr_del=0;
+	}
+	TMessageText( const std::string &avalue, int apr_del ) {
+		value = avalue;
+		pr_del = apr_del;
+	}
+};
+
+struct TLocaleMessage {
+	std::map<std::string,TMessageText> lang_messages;
+	void Add( std::string vlang, std::string vmessage, int pr_del ) {
+		if ( lang_messages.find( vlang ) == lang_messages.end() )
+		  lang_messages.insert(make_pair(upperc(vlang),TMessageText(vmessage,pr_del)));
+		else
+			lang_messages[ vlang ] = TMessageText(vmessage,pr_del);
+	}
 	TLocaleMessage( ){};
+};
+
+struct TDictionary {
+	std::string value;
+	int checksum;
+};
+
+struct TMsgs {
+	std::map<std::string, int> tids; // для разных языков свой
+	std::map<std::string, TLocaleMessage> msgs;
+	void clear() {
+		tids.clear();
+		msgs.clear();
+	}
+	int get_tid( const std::string &lang ) {
+		if ( tids.find( lang ) != tids.end() )
+			return tids[ lang ];
+		else return -1;
+	}
+	void set_tid( const std::string &lang, int tid ) {
+		tids[ lang ] = tid;
+	}
+	void Add( const std::string &id, const std::string &lang, const std::string &message, int pr_del ) {
+    msgs[ id ].Add( lang, message, pr_del );
+	}
 };
 
 class TLocaleMessages
 {
 	private:
-		int tid;
-		std::map<std::string, TLocaleMessage> messages;
+		TMsgs server_msgs;
+		TMsgs client_msgs;
+		std::map<std::string,TDictionary> dicts;
 	public:
 		TLocaleMessages();
 		void Clear();
-		void Invalidate();
-		std::string getText( const std::string &lexema_id, const std::string &lang, bool with_del );
+		void Invalidate( std::string lang, bool pr_term );
+	  int checksum(const std::string &lang);
+	  std::string getDictionary(const std::string &lang);
+		std::string getText( const std::string &lexema_id, const std::string &lang );
 		static TLocaleMessages *Instance();
 };
 

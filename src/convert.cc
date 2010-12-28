@@ -56,7 +56,7 @@ string denorm_iata_line(std::string line, bool pr_lat)
 string norm_iata_row(string row)
 {
     if(is_iata_row(row)) {
-        row = trim(row);
+        TrimString(row);
         if(row.size() < 3) {
             ostringstream buf;
             buf << setw(3) << setfill('0') << row;
@@ -67,15 +67,17 @@ string norm_iata_row(string row)
     return row;
 }
 
-string denorm_iata_row(string row)
+string denorm_iata_row(string row, const char* add_ch)
 {
     if(is_iata_row(row)) {
-        row = trim(row);
+        TrimString(row);
         size_t i = 0;
         for(; i < row.size(); i++)
             if(row[i] != '0')
                 break;
         row = row.substr(i);
+        if ( add_ch != NULL )
+        	row = string(3,*add_ch) + row;
     }
     return row;
 }

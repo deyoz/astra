@@ -14,6 +14,7 @@
 #include "edilib/edi_astra_msg_types.h"
 #include "edilib/edi_sess.h"
 #include "serverlib/query_runner.h"
+#include "exceptions.h"
 
 #include "xp_testing.h"
 #include "tlg/tlg.h"
@@ -1034,7 +1035,7 @@ bool CreateDateTimeStr( string& res, const BASIC::TDateTime& dt,
     {
         res = BASIC::DateTimeToStr( dt, format );
     }
-    catch( std::exception& e )
+    catch( std::exception &e )
     {
         return false;
     }

@@ -18,7 +18,7 @@
 #include "czech_police_edi_file.h"
 #include "telegram.h"
 #include "arx_daily.h"
-#include "serverlib/daemon.h"
+#include "base_tables.h"
 #include "serverlib/cfgproc.h"
 #include "serverlib/posthooks.h"
 #include "serverlib/perfom.h"
@@ -75,7 +75,7 @@ int main_timer_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
     };
   }
   catch( std::exception &E ) {
-    ProgError( STDLOG, "Exception: %s", E.what() );
+    ProgError( STDLOG, "std::exception: %s", E.what() );
   }
   catch( ... ) {
     ProgError( STDLOG, "Unknown error" );
@@ -836,6 +836,60 @@ void get_full_stat(TDateTime utcdate)
   	OraSession.Commit();
   };
 };
+
+void put_string_into_snapshot_points( int point_id, std::string file_type,
+	                                    std::string point_addr, bool pr_old_record, std::string record )
+{
+	TQuery Qry( &OraSession );
+ 	Qry.SQLText =
+ 	  "DELETE snapshot_points "
+ 	  " WHERE point_id=:point_id AND file_type=:file_type AND point_addr=:point_addr";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.CreateVariable( "file_type", otString, file_type );
+  Qry.CreateVariable( "point_addr", otString, point_addr );
+  Qry.Execute();
+ 	if ( pr_old_record && record.empty() )
+ 		return;
+ 	Qry.Clear();
+  Qry.SQLText =
+    "INSERT INTO snapshot_points(point_id,file_type,point_addr,record,page_no ) "
+    "                VALUES(:point_id,:file_type,:point_addr,:record,:page_no) ";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.CreateVariable( "file_type", otString, file_type );
+  Qry.CreateVariable( "point_addr", otString, point_addr );
+  Qry.DeclareVariable( "record", otString );
+  Qry.DeclareVariable( "page_no", otInteger );
+  int i=0;
+  while ( !record.empty() ) {
+  	Qry.SetVariable( "record", record.substr( 0, 1000 ) );
+  	Qry.SetVariable( "page_no", i );
+  	Qry.Execute();
+  	i++;
+  	record.erase( 0, 1000 );
+  }
+}
+
+void get_string_into_snapshot_points( int point_id, const std::string &file_type,
+	                                    const std::string &point_addr, std::string &record )
+{
+	record.clear();
+	TQuery Qry( &OraSession );
+	Qry.SQLText =
+	 "SELECT record FROM points, snapshot_points "
+	 " WHERE points.point_id=:point_id AND "
+	 "       points.point_id=snapshot_points.point_id AND "
+	 "       snapshot_points.point_addr=:point_addr AND "
+	 "       snapshot_points.file_type=:file_type "
+	 " ORDER BY page_no";
+	Qry.CreateVariable( "point_id", otInteger, point_id );
+	Qry.CreateVariable( "point_addr", otString, point_addr );
+	Qry.CreateVariable( "file_type", otString, file_type );
+	Qry.Execute();
+	while ( !Qry.Eof ) {
+		record += Qry.FieldAsString( "record" );
+		Qry.Next();
+	}
+}
 
 #include <boost/date_time/local_time/local_time.hpp>
 using namespace boost::local_time;

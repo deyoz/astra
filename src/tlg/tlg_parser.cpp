@@ -188,103 +188,59 @@ char GetSalonLine(char line)
   else return *p;
 };
 
-enum TNsiType {ntCountries,ntAirlines,ntAirps,ntClass,ntSubcls,ntGenderTypes,ntPaxDocTypes};
-
-char* GetNsiCode(char* value, TNsiType nsi, char* code, bool with_icao=false)
+char* TlgElemToElemId(TElemType type, const char* elem, char* id, bool with_icao=false)
 {
-  switch(nsi)
-  {
-    case ntCountries:
-      try
-      {
-        TCountriesRow &row=(TCountriesRow&)(base_tables.get("countries").get_row("code/code_lat",value));
-        strcpy(code,row.code.c_str());
-      }
-      catch (EBaseTableError)
-      {
-        TCountriesRow &row=(TCountriesRow&)(base_tables.get("countries").get_row("code_iso",value));
-        strcpy(code,row.code.c_str());
-      };
-      break;
-    case ntAirlines:
-      try
-      {
-        TAirlinesRow &row=(TAirlinesRow&)(base_tables.get("airlines").get_row("code/code_lat",value));
-        strcpy(code,row.code.c_str());
-      }
-      catch (EBaseTableError)
-      {
-        if (!with_icao) throw;
-        TAirlinesRow &row=(TAirlinesRow&)(base_tables.get("airlines").get_row("code_icao/code_icao_lat",value));
-        strcpy(code,row.code.c_str());
-      };
-      break;
-    case ntAirps:
-      try
-      {
-        TAirpsRow &row=(TAirpsRow&)(base_tables.get("airps").get_row("code/code_lat",value));
-        strcpy(code,row.code.c_str());
-      }
-      catch (EBaseTableError)
-      {
-        if (!with_icao) throw;
-        TAirpsRow &row=(TAirpsRow&)(base_tables.get("airps").get_row("code_icao/code_icao_lat",value));
-        strcpy(code,row.code.c_str());
-      };
-      break;
-    case ntSubcls:
-      {
-        TSubclsRow &row=(TSubclsRow&)(base_tables.get("subcls").get_row("code/code_lat",value));
-        strcpy(code,row.code.c_str());
-      }
-      break;
-    case ntClass:
-      {
-        TSubclsRow &row=(TSubclsRow&)(base_tables.get("subcls").get_row("code/code_lat",value));
-        strcpy(code,row.cl.c_str());
-      }
-      break;
-    case ntGenderTypes:
-      {
-        TGenderTypesRow &row=(TGenderTypesRow&)(base_tables.get("gender_types").get_row("code/code_lat",value));
-        strcpy(code,row.code.c_str());
-      }
-      break;
-    case ntPaxDocTypes:
-      {
-        TPaxDocTypesRow &row=(TPaxDocTypesRow&)(base_tables.get("pax_doc_types").get_row("code/code_lat",value));
-        strcpy(code,row.code.c_str());
-      }
-      break;
-  };
-  return code;
+  TElemFmt fmt;
+  string id2;
+
+  id2=ElemToElemId(type, elem, fmt, false);
+  if (fmt==efmtUnknown)
+    throw EBaseTableError("TlgElemToElemId: elem not found (type=%s, elem=%s)",
+                          EncodeElemType(type),elem);
+  if (id2.empty())
+    throw EBaseTableError("TlgElemToElemId: id is empty (type=%s, elem=%s)",
+                          EncodeElemType(type),elem);
+  if (!with_icao && (fmt==efmtCodeICAONative || fmt==efmtCodeICAOInter))
+    throw EBaseTableError("TlgElemToElemId: ICAO only elem found (type=%s, elem=%s)",
+                          EncodeElemType(type),elem);
+
+  strcpy(id,id2.c_str());
+  return id;
 };
 
 char* GetAirline(char* airline, bool with_icao=false)
 {
-  return GetNsiCode(airline,ntAirlines,airline,with_icao);
+  return TlgElemToElemId(etAirline,airline,airline,with_icao);
 };
 
 char* GetAirp(char* airp, bool with_icao=false)
 {
-  return GetNsiCode(airp,ntAirps,airp,with_icao);
+  return TlgElemToElemId(etAirp,airp,airp,with_icao);
 };
 
 TClass GetClass(char* subcl)
 {
   char subclh[2];
-  return DecodeClass(GetNsiCode(subcl,ntClass,subclh));
+  TlgElemToElemId(etSubcls,subcl,subclh);
+  return DecodeClass(base_tables.get("subcls").get_row("code",subclh).AsString("cl").c_str());
 };
 
 char* GetSubcl(char* subcl)
 {
-  return GetNsiCode(subcl,ntSubcls,subcl);
+  return TlgElemToElemId(etSubcls,subcl,subcl);
 };
 
-char GetSuffix(char &c)
+char GetSuffix(char &suffix)
 {
-  ByteReplace(&c,1,lat_suffix,rus_suffix);
-  return c;
+  if (suffix!=0)
+  {
+    char suffixh[2];
+    suffixh[0]=suffix;
+    suffixh[1]=0;
+    TlgElemToElemId(etSuffix,suffixh,suffixh);
+    suffix=suffixh[0];
+  };
+  return suffix;
 };
 
 TTlgCategory GetTlgCategory(char *tlg_type)
@@ -3512,16 +3468,16 @@ bool ParseDOCSRem(TTlgParser &tlg,string &rem_text,TDocItem &doc)
           case 1:
             res=sscanf(tlg.lex,"%2[A-Z]%c",doc.type,&c);
             if (c!=0||res!=1) throw ETlgError("Wrong format");
-            GetNsiCode(doc.type,ntPaxDocTypes,doc.type);
+            TlgElemToElemId(etPaxDocType,doc.type,doc.type);
             break;
           case 2:
           case 4:
             res=sscanf(tlg.lex,"%3[A-Z€-Ÿð]%c",lexh,&c);
             if (c!=0||res!=1) throw ETlgError("Wrong format");
             if (k==2)
-              GetNsiCode(lexh,ntCountries,doc.issue_country);
+              TlgElemToElemId(etCountry,lexh,doc.issue_country);
             else
-              GetNsiCode(lexh,ntCountries,doc.nationality);
+              TlgElemToElemId(etCountry,lexh,doc.nationality);
             break;
           case 3:
             res=sscanf(tlg.lex,"%15[A-Z€-Ÿð0-9 ]%c",doc.no,&c);
@@ -3535,7 +3491,7 @@ bool ParseDOCSRem(TTlgParser &tlg,string &rem_text,TDocItem &doc)
           case 6:
             res=sscanf(tlg.lex,"%2[A-Z]%c",doc.gender,&c);
             if (c!=0||res!=1) throw ETlgError("Wrong format");
-            GetNsiCode(doc.gender,ntGenderTypes,doc.gender);
+            TlgElemToElemId(etGenderType,doc.gender,doc.gender);
             break;
           case 7:
             if (StrToDateTime(tlg.lex,"ddmmmyy",doc.expiry_date,true)==EOF &&
@@ -3636,7 +3592,7 @@ bool ParseDOCSRem(TTlgParser &tlg,string &rem_text,TDocItem &doc)
           case 2:
             res=sscanf(tlg.lex,"%3[A-Z€-Ÿð]%c",lexh,&c);
             if (c!=0||res!=1) throw ETlgError("Wrong format");
-            GetNsiCode(lexh,ntCountries,doc.issue_country);
+            TlgElemToElemId(etCountry,lexh,doc.issue_country);
             break;
           case 3:
             if (StrToDateTime(tlg.lex,"ddmmmyy",now,doc.birth_date,true)==EOF &&
@@ -3652,7 +3608,7 @@ bool ParseDOCSRem(TTlgParser &tlg,string &rem_text,TDocItem &doc)
           case 6:
             res=sscanf(tlg.lex,"%2[A-Z]%c",doc.gender,&c);
             if (c!=0||res!=1) throw ETlgError("Wrong format");
-            GetNsiCode(doc.gender,ntGenderTypes,doc.gender);
+            TlgElemToElemId(etGenderType,doc.gender,doc.gender);
             break;
           case 7:
             res=sscanf(tlg.lex,"%1[H]%c",lexh,&c);
@@ -3830,7 +3786,8 @@ bool ParseFQTRem(TTlgParser &tlg,string &rem_text,TFQTItem &fqt)
           case 1:
             res=sscanf(tlg.lex,"%25[A-Z€-Ÿð0-9]%c",fqt.no,&c);
             if (c!=0||res!=1) throw ETlgError("Wrong format");
-            fqt.extra=Trim(p);
+            fqt.extra=p;
+            TrimString(fqt.extra);
             break;
         };
       }

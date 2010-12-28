@@ -61,7 +61,7 @@ int main_edi_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
       };
     }; // end of loop
   }
-  catch(EOracleError E)
+  catch(EOracleError &E)
   {
     ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.what());
   }

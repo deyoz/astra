@@ -12,7 +12,6 @@
 #include "stl_utils.h"
 #include "tlg_parser.h"
 #include "edilib/edi_user_func.h"
-#include "serverlib/daemon.h"
 #include "serverlib/ourtime.h"
 
 #define NICKNAME "VLAD"
@@ -89,13 +88,13 @@ int main_srv_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
       };
     }; // end of loop
   }
-  catch(EOracleError E)
+  catch(EOracleError &E)
   {
     ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.what());
   }
-  catch(Exception E)
+  catch(std::exception &E)
   {
-    ProgError(STDLOG,"Exception: %s",E.what());
+    ProgError(STDLOG,"std::exception: %s",E.what());
   }
   catch(...)
   {

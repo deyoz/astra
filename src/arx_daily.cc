@@ -316,7 +316,7 @@ bool TArxMoveFlt::Next(int max_rows, int duration)
             ProgError( STDLOG, "move_id=%d, part_key=%s", move_id, DateTimeToStr( part_key, "dd.mm.yy" ).c_str() );
           else
             ProgError( STDLOG, "move_id=%d, part_key=NoExists", move_id );
-          throw; //!!!
+          throw;
         };
         return true;
       };
@@ -442,7 +442,7 @@ bool TArxTypeBIn::Next(int max_rows, int duration)
         catch(...)
         {
           ProgError( STDLOG, "typeb_in.id=%d", tlg_id );
-          throw; //!!!
+          throw;
         };
         return true;
       };
@@ -541,7 +541,7 @@ bool TArxTlgTrips::Next(int max_rows, int duration)
       catch(...)
       {
         ProgError( STDLOG, "tlg_trips.point_id=%d", point_id );
-        throw; //!!!
+        throw;
       };
       return true;
     };

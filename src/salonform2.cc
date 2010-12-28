@@ -14,6 +14,7 @@
 #include "convert.h"
 #include "tlg/tlg_parser.h" // only for convert_salons
 #include "seats2.h" // only for convert_salons
+#include "term_version.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -23,12 +24,13 @@ const char CurrName[] = " (ТЕК.)";
 using namespace std;
 using namespace BASIC;
 using namespace EXCEPTIONS;
+using namespace AstraLocale;
 using namespace ASTRA;
 
 bool filterComp( const string &airline, const string &airp );
 
 
-void SalonsInterface::CheckInShow( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void SalonsInterface::CheckInShow( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) // !!!old terminal
 {
   ProgTrace(TRACE5, "SalonsInterface::CheckInShow" );
   //TReqInfo::Instance()->user.check_access( amRead );
@@ -47,7 +49,7 @@ void SalonsInterface::CheckInShow( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   Salons.Build( NewTextChild( dataNode, "salons" ) );
 };
 
-void SalonsInterface::SalonFormShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void SalonsInterface::SalonFormShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) //!!old terminal
 {
   ProgTrace(TRACE5, "SalonsInterface::SalonFormShow" );
   //TReqInfo::Instance()->user.check_access( amRead );
@@ -62,7 +64,7 @@ void SalonsInterface::SalonFormShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
   Qry.CreateVariable( "point_id", otInteger, trip_id );
   Qry.Execute();
   if ( !Qry.RowCount() )
-  	throw UserException( "Рейс не найден" );
+  	throw AstraLocale::UserException( "MSG.FLIGHT.NOT_FOUND" );
   string trip_airline = Qry.FieldAsString( "airline" );
   Qry.Clear();
   Qry.SQLText = "SELECT comps.comp_id,comps.craft,comps.bort,comps.classes, "\
@@ -111,9 +113,9 @@ void SalonsInterface::SalonFormShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
       		compsNode = NewTextChild( dataNode, "comps"  );
         xmlNodePtr compNode = NewTextChild( compsNode, "comp" );
         if ( !Qry.FieldIsNULL( "airline" ) )
-        	StrVal = Qry.FieldAsString( "airline" );
+        	StrVal = ElemIdToCodeNative( etAirline, Qry.FieldAsString( "airline" ) );
         else
-        	StrVal = Qry.FieldAsString( "airp" );
+        	StrVal = ElemIdToCodeNative( etAirp, Qry.FieldAsString( "airp" ) );
         if ( StrVal.length() == 2 )
           StrVal += "  ";
         else
@@ -130,7 +132,7 @@ void SalonsInterface::SalonFormShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         NewTextChild( compNode, "name", StrVal );
         NewTextChild( compNode, "comp_id", Qry.FieldAsInteger( "comp_id" ) );
         NewTextChild( compNode, "pr_comp", Qry.FieldAsInteger( "pr_comp" ) );
-        NewTextChild( compNode, "craft", Qry.FieldAsString( "craft" ) );
+        NewTextChild( compNode, "craft", ElemIdToCodeNative( etCraft, Qry.FieldAsString( "craft" ) ) );
         NewTextChild( compNode, "bort", Qry.FieldAsString( "bort" ) );
         NewTextChild( compNode, "classes", Qry.FieldAsString( "classes" ) );
         NewTextChild( compNode, "descr", Qry.FieldAsString( "descr" ) );
@@ -138,7 +140,7 @@ void SalonsInterface::SalonFormShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
       Qry.Next();
     }
     if ( !compsNode )
-      throw UserException( "Нет компоновок по данному типу ВС" );
+      throw AstraLocale::UserException( "MSG.SALONS.NOT_FOUND_FOR_THIS_CRAFT" );
    tst();
    TSalons Salons( trip_id, rTripSalons );
    Salons.ClName.clear();
@@ -148,8 +150,8 @@ void SalonsInterface::SalonFormShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
    if ( SEATS::GetPassengersForManualSeat( trip_id, cltCheckin, SEATS::Passengers, Salons.getLatSeat() ) )
  	   SEATS::Passengers.Build( Salons, dataNode );
  }
- catch( UserException ue ) {
-   showErrorMessage( ue.what() );
+ catch( AstraLocale::UserException ue ) {
+   AstraLocale::showErrorMessage( ue.getLexemaData());
  }
 }
 
@@ -237,7 +239,7 @@ void SalonsInterface::SalonFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     SEATS::Passengers.Build( Salons, dataNode );
 }
 
-void SalonsInterface::DeleteReserveSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void SalonsInterface::DeleteReserveSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) //!!old terminal
 {
   int point_id = NodeAsInteger( "trip_id", reqNode );
   int pax_id = NodeAsInteger( "pax_id", reqNode );
@@ -247,7 +249,7 @@ void SalonsInterface::DeleteReserveSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
     "SELECT pr_lat_seat FROM trip_sets WHERE point_id=:point_id";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
-  if ( Qry.Eof ) throw UserException("Рейс не найден. Обновите данные");
+  if ( Qry.Eof ) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
   bool pr_lat_seat = Qry.FieldAsInteger( "pr_lat_seat" );
 
 /*  string xname, yname;
@@ -297,7 +299,7 @@ void SalonsInterface::DeleteReserveSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
     Qry.CreateVariable( "protckin_layer", otString, EncodeCompLayerType(ASTRA::cltProtCkin) );
     Qry.Execute();
     if ( Qry.Eof )
-    	throw UserException( "Пассажир не найден" );
+    	throw AstraLocale::UserException( "MSG.PASSENGER.NOT_FOUND" );
     /* надо передать назад новый tid */
     xmlNodePtr dataNode = NewTextChild( resNode, "data" );
     NewTextChild( dataNode, "tid", tid );
@@ -309,7 +311,7 @@ void SalonsInterface::DeleteReserveSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
     	NewTextChild( dataNode, "seat_no", Qry.FieldAsString( "seat_no" ) );
    	SALONS::BuildSalonChanges( dataNode, seats );
   }
-  catch( UserException ue ) {
+  catch( AstraLocale::UserException ue ) {
     TSalons Salons( point_id, rTripSalons );
     Salons.Read();
     xmlNodePtr dataNode = NewTextChild( resNode, "data" );
@@ -318,11 +320,11 @@ void SalonsInterface::DeleteReserveSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
     Salons.Build( salonsNode );
     if ( SEATS::GetPassengersForManualSeat( point_id, cltCheckin, SEATS::Passengers, Salons.getLatSeat() ) )
       SEATS::Passengers.Build( Salons, dataNode );
-  	showErrorMessageAndRollback( ue.what() );
+  	AstraLocale::showErrorMessageAndRollback( ue.getLexemaData() );
   }
 }
 
-void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) //!!old terminal
 {
   //TReqInfo::Instance()->user.check_access( amWrite );
   SEATS::TSeatsType seat_type = SEATS::stReseat;
@@ -337,7 +339,7 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
     "SELECT pr_lat_seat FROM trip_sets WHERE point_id=:point_id";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
-  if ( Qry.Eof ) throw UserException("Рейс не найден. Обновите данные");
+  if ( Qry.Eof ) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
   bool pr_lat_seat = Qry.FieldAsInteger( "pr_lat_seat" );
 
   if ( n ) {
@@ -413,13 +415,13 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
         break;
       default:
       	ProgTrace( TRACE5, "!!! Unusible layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
-      	throw UserException( "Устанавливаемый слой запрещен для разметки" );
+      	throw AstraLocale::UserException( "MSG.SEATS.SET_LAYER_NOT_AVAIL" );
     }
 
     Qry.CreateVariable( "pax_id", otInteger, pax_id );
     Qry.Execute();
     if ( Qry.Eof )
-    	throw UserException( "Пассажир не найден" );
+    	throw AstraLocale::UserException( "MSG.PASSENGER.NOT_FOUND" );
     /* надо передать назад новый tid */
     xmlNodePtr dataNode = NewTextChild( resNode, "data" );
     NewTextChild( dataNode, "tid", tid );
@@ -431,10 +433,10 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
     	NewTextChild( dataNode, "seat_no", Qry.FieldAsString( "seat_no" ) );
     /* надо передать назад новый tid */
     NewTextChild( dataNode, "tid", tid );
-    NewTextChild( dataNode, "placename", denorm_iata_row( yname ) + denorm_iata_line( xname, pr_lat_seat ) );
+    NewTextChild( dataNode, "placename", denorm_iata_row( yname, NULL ) + denorm_iata_line( xname, pr_lat_seat ) );
     SALONS::BuildSalonChanges( dataNode, seats );
   }
-  catch( UserException ue ) {
+  catch( AstraLocale::UserException ue ) {
     TSalons Salons( point_id, rTripSalons );
     Salons.Read();
     xmlNodePtr dataNode = NewTextChild( resNode, "data" );
@@ -443,12 +445,12 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
     Salons.Build( salonsNode );
     if ( SEATS::GetPassengersForManualSeat( point_id, cltCheckin, SEATS::Passengers, Salons.getLatSeat() ) )
       SEATS::Passengers.Build( Salons, dataNode );
-  	showErrorMessageAndRollback( ue.what() );
+  	AstraLocale::showErrorMessageAndRollback( ue.getLexemaData() );
   }
 
 };
 
-void SalonsInterface::AutoReseatsPassengers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void SalonsInterface::AutoReseatsPassengers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) //!!old terminal
 {
   int trip_id = NodeAsInteger( "trip_id", reqNode );
   ProgTrace(TRACE5, "SalonsInterface::AutoReseatsPassengers, trip_id=%d", trip_id );
@@ -461,7 +463,7 @@ void SalonsInterface::AutoReseatsPassengers(XMLRequestCtxt *ctxt, xmlNodePtr req
   Qry.DeclareVariable( "point_id", otInteger );
   Qry.SetVariable( "point_id", trip_id );
   Qry.Execute();
-  if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
+  if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
   int algo=SEATS::GetSeatAlgo(Qry,
                               Qry.FieldAsString("airline"),
                               Qry.FieldAsInteger("flt_no"),
@@ -477,7 +479,7 @@ void SalonsInterface::AutoReseatsPassengers(XMLRequestCtxt *ctxt, xmlNodePtr req
   	SEATS::AutoReSeatsPassengers( Salons, passengers, algo );
   }
   else
-  	throw UserException( "Пассажиры все пассажены. Автоматическая рассадка не требуется" );
+  	throw AstraLocale::UserException( "MSG.SEATS.ALL_PAX_BOARDED.AUTO_SEATS_NOT_REQUIRED" );
 
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
@@ -495,7 +497,7 @@ void SalonsInterface::AutoReseatsPassengers(XMLRequestCtxt *ctxt, xmlNodePtr req
     passengers.Build( Salons, dataNode );
 }
 
-void SalonsInterface::BaseComponFormShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void SalonsInterface::BaseComponFormShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) //!!old terminal
 {
   int comp_id = NodeAsInteger( "comp_id", reqNode );
   ProgTrace(TRACE5, "SalonsInterface::BaseComponFormShow, comp_id=%d", comp_id );
@@ -508,7 +510,7 @@ void SalonsInterface::BaseComponFormShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNod
   Salons.Build( salonsNode );
 }
 
-void SalonsInterface::BaseComponFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void SalonsInterface::BaseComponFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) //!!old terminal
 {
   int comp_id = NodeAsInteger( "comp_id", reqNode );
   ProgTrace( TRACE5, "SalonsInterface::BaseComponFormWrite, comp_id=%d", comp_id );
@@ -525,17 +527,23 @@ void SalonsInterface::BaseComponFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
       if ( smodify == "change" )
         Salons.modify = mChange;
       else
-        throw Exception( string( "Ошибка в значении тега modify " ) + smodify );
+        throw Exception( string( "Error in tag modify " ) + smodify );
   TReqInfo *r = TReqInfo::Instance();
+  TElemFmt fmt;
   xmlNodePtr a = GetNode( "airline", reqNode );
-  if ( a )
-   Salons.airline = NodeAsString( a );
+  if ( a ) {
+     Salons.airline = ElemToElemId( etAirline, NodeAsString( a ), fmt );
+     if ( fmt == efmtUnknown )
+     	 throw AstraLocale::UserException( "MSG.AIRLINE.INVALID_INPUT" );
+  }
   else
   	if ( r->user.access.airlines.size() == 1 )
   		Salons.airline = *r->user.access.airlines.begin();
  	a = GetNode( "airp", reqNode );
  	if ( a ) {
- 		Salons.airp = NodeAsString( a );
+ 		Salons.airp = ElemToElemId( etAirp, NodeAsString( a ), fmt );
+ 		if ( fmt == efmtUnknown )
+ 			throw AstraLocale::UserException( "MSG.AIRP.INVALID_SET_CODE" );
  		Salons.airline.clear();
  	}
  	else
@@ -543,29 +551,12 @@ void SalonsInterface::BaseComponFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
   		Salons.airp = *r->user.access.airps.begin();
   		Salons.airline.clear();
     }
-  TQuery Qry( &OraSession );
   if ( Salons.modify != mDelete ) {
-    if ( !Salons.airline.empty() ) {
-      Qry.SQLText = "SELECT code FROM airlines WHERE code=:airline";
-      Qry.CreateVariable( "airline", otString, Salons.airline );
-      Qry.Execute();
-      if ( !Qry.RowCount() )
-        throw UserException( "Неправильно задан код авиакомпании" );
-    }
-    if ( !Salons.airp.empty() ) {
-      Qry.Clear();
-      Qry.SQLText = "SELECT code FROM airps WHERE code=:airp";
-      Qry.CreateVariable( "airp", otString, Salons.airp );
-      Qry.Execute();
-      if ( !Qry.RowCount() )
-        throw UserException( "Неправильно задан код аэропорта" );
-    }
-
     if ( (int)Salons.airline.empty() + (int)Salons.airp.empty() != 1 ) {
     	if ( Salons.airline.empty() )
-    	  throw UserException( "Должен быть задан код авиакомпании или код аэропорта" );
+    	  throw AstraLocale::UserException( "MSG.AIRLINE_OR_AIRP_MUST_BE_SET" );
     	else
-    		throw UserException( "Одновременное задание авиакомпании и аэропорта запрещено" ); // ??? почему?
+    		throw AstraLocale::UserException( "MSG.NOT_SET_ONE_TIME_AIRLINE_AND_AIRP" ); // птому что компоновка принадлежит или авиакомпании или порту
     }
 
     if ( ( r->user.user_type == utAirline ||
@@ -573,34 +564,30 @@ void SalonsInterface::BaseComponFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
     	   find( r->user.access.airlines.begin(),
     	         r->user.access.airlines.end(), Salons.airline ) == r->user.access.airlines.end() ) {
  	  	if ( Salons.airline.empty() )
- 		  	throw UserException( "Не задан код авиакомпании" );
+ 		  	throw AstraLocale::UserException( "MSG.AIRLINE.UNDEFINED" );
   	  else
-    		throw UserException( "У оператора нет прав записи компоновки для заданной авиакомпании" );
+    		throw AstraLocale::UserException( "MSG.SALONS.OPER_WRITE_DENIED_FOR_THIS_AIRLINE" );
     }
     if ( ( r->user.user_type == utAirport ||
     	     r->user.user_type == utSupport && Salons.airline.empty() && !r->user.access.airps.empty() ) &&
     	   find( r->user.access.airps.begin(),
     	         r->user.access.airps.end(), Salons.airp ) == r->user.access.airps.end() ) {
  	  	if ( Salons.airp.empty() )
- 	  		throw UserException( "Не задан код аэропорта" );
+ 	  		throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.NOT_SET_AIRP" );
  	  	else
- 	  	  throw UserException( "У оператора нет прав записи компоновки для заданного аэропорта" );
+ 	  	  throw AstraLocale::UserException( "MSG.SALONS.OPER_WRITE_DENIED_FOR_THIS_AIRP" );
     }
   }
   Salons.craft = NodeAsString( "craft", reqNode );
+  if ( Salons.craft.empty() )
+    throw AstraLocale::UserException( "MSG.CRAFT.NOT_SET" );
+  Salons.craft = ElemToElemId( etCraft, Salons.craft, fmt );
+  if ( fmt == efmtUnknown )
+  	throw AstraLocale::UserException( "MSG.CRAFT.WRONG_SPECIFIED" );
   Salons.bort = NodeAsString( "bort", reqNode );
   Salons.descr = NodeAsString( "descr", reqNode );
   string classes = NodeAsString( "classes", reqNode );
   Salons.classes = RTrimString( classes );
-  if ( Salons.craft.empty() )
-    throw UserException( "Не задан тип ВС" );
-  Qry.Clear();
-  Qry.SQLText = "SELECT code FROM crafts WHERE code=:craft";
-  Qry.DeclareVariable( "craft", otString );
-  Qry.SetVariable( "craft", Salons.craft );
-  Qry.Execute();
-  if ( !Qry.RowCount() )
-    throw UserException( "Неправильно задан тип ВС" );
   Salons.verifyValidRem( "MCLS", "Э" );
   Salons.Write();
   string msg;
@@ -641,10 +628,12 @@ void SalonsInterface::BaseComponFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   NewTextChild( dataNode, "comp_id", Salons.comp_id );
   if ( !Salons.airline.empty() )
-    NewTextChild( dataNode, "airline", Salons.airline );
+    NewTextChild( dataNode, "airline", ElemIdToCodeNative( etAirline, Salons.airline ) );
   if ( !Salons.airp.empty() )
-    NewTextChild( dataNode, "airp", Salons.airp );
-  showMessage( "Изменения успешно сохранены" );
+    NewTextChild( dataNode, "airp", ElemIdToCodeNative( etAirp, Salons.airp ) );
+  if (TReqInfo::Instance()->desk.compatible(LATIN_VERSION))
+    NewTextChild( dataNode, "craft", ElemIdToCodeNative( etCraft, Salons.craft ) );
+  AstraLocale::showMessage( "MSG.CHANGED_DATA_COMMIT" );
 }
 
 bool filterComp( const string &airline, const string &airp )
@@ -691,7 +680,7 @@ void SalonsInterface::BaseComponsRead(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
   ProgTrace( TRACE5, "SalonsInterface::BaseComponsRead" );
   if ( r->user.user_type == utAirline && r->user.access.airlines.empty() ||
   	   r->user.user_type == utAirport && r->user.access.airps.empty() )
-  	throw UserException( "Нет прав доступа к базовым компоновкам" );
+  	throw AstraLocale::UserException( "MSG.SALONS.ACCESS_DENIED" );
   //TReqInfo::Instance()->user.check_access( amRead );
   TQuery Qry( &OraSession );
   if ( r->user.user_type == utAirport )
@@ -712,13 +701,13 @@ void SalonsInterface::BaseComponsRead(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
            r->user.user_type != utAirline &&
            ( r->user.access.airlines.empty() || r->user.access.airlines.size() > 1 ) ||
            r->user.user_type == utSupport && r->user.access.airlines.size() >= 1 && r->user.access.airps.size() >= 1 )
-        NewTextChild( rnode, "airline", Qry.FieldAsString( "airline" ) );
+        NewTextChild( rnode, "airline", ElemIdToCodeNative( etAirline, Qry.FieldAsString( "airline" ) ) );
       if ( r->user.user_type == utAirport && r->user.access.airps.size() > 1 ||
            r->user.user_type == utSupport &&
            ( r->user.access.airps.empty() || r->user.access.airps.size() > 1 ||
              r->user.access.airlines.size() >= 1 && r->user.access.airps.size() >= 1 ) )
-    	  NewTextChild( rnode, "airp", Qry.FieldAsString( "airp" ) );
-      NewTextChild( rnode, "craft", Qry.FieldAsString( "craft" ) );
+    	  NewTextChild( rnode, "airp", ElemIdToCodeNative( etAirp, Qry.FieldAsString( "airp" ) ) );
+      NewTextChild( rnode, "craft", ElemIdToCodeNative( etCraft, Qry.FieldAsString( "craft" ) ) );
       NewTextChild( rnode, "bort", Qry.FieldAsString( "bort" ) );
       NewTextChild( rnode, "descr", Qry.FieldAsString( "descr" ) );
       NewTextChild( rnode, "classes", Qry.FieldAsString( "classes" ) );

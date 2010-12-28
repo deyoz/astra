@@ -1,4 +1,3 @@
-
 #include "astra_misc.h"
 #include <string>
 #include <vector>
@@ -7,6 +6,7 @@
 #include "oralib.h"
 #include "tlg/tlg_parser.h"
 #include "convert.h"
+#include "astra_locale.h"
 
 #define NICKNAME "DEN"
 #define NICKTRACE SYSTEM_TRACE
@@ -17,22 +17,39 @@ using namespace EXCEPTIONS;
 using namespace std;
 using namespace ASTRA;
 
-string GetTripName( TTripInfo &info, bool showAirp, bool prList )
+void TTripInfo::get_client_dates(TDateTime &scd_out_client, TDateTime &real_out_client) const
+{
+  scd_out_client=ASTRA::NoExists;
+  real_out_client=ASTRA::NoExists;
+
+  if (airp.empty() || scd_out==ASTRA::NoExists) return;
+
+  string &tz_region=AirpTZRegion(airp);
+  modf(UTCToClient(scd_out,tz_region),&scd_out_client);
+  if (real_out!=ASTRA::NoExists)
+    modf(UTCToClient(real_out,tz_region),&real_out_client);
+  else
+    real_out_client=scd_out_client;
+};
+
+//для сохранения совместимости вводим AstraLocale::TLocaleType
+string GetTripName( const TTripInfo &info, TElemContext ctxt, bool showAirp, bool prList )
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
-  TDateTime scd_out_local_date,desk_time;
-  string &tz_region=AirpTZRegion(info.airp);
+  TDateTime scd_out_client, real_out_client, desk_time;
   modf(reqInfo->desk.time,&desk_time);
-  modf(UTCToClient(info.scd_out,tz_region),&scd_out_local_date);
-  if (info.real_out!=ASTRA::NoExists)
-    modf(UTCToClient(info.real_out,tz_region),&info.real_out_local_date);
-  else
-    info.real_out_local_date=scd_out_local_date;
+
+  info.get_client_dates(scd_out_client, real_out_client);
 
   ostringstream trip;
-  trip << info.airline
-       << setw(3) << setfill('0') << info.flt_no
-       << info.suffix;
+  if ( ctxt == ecNone )
+    trip << info.airline
+         << setw(3) << setfill('0') << info.flt_no
+         << info.suffix;
+  else
+    trip << ElemIdToElemCtxt(ctxt, etAirline, info.airline, info.airline_fmt)
+         << setw(3) << setfill('0') << info.flt_no
+         << ElemIdToElemCtxt(ctxt, etSuffix, info.suffix, info.suffix_fmt);
 
   if (prList)
   {
@@ -40,22 +57,40 @@ string GetTripName( TTripInfo &info, bool showAirp, bool prList )
     if (info.flt_no<1000)  trip << " ";
   };
 
-  if (desk_time!=info.real_out_local_date)
+  if (desk_time!=real_out_client)
   {
-    if (DateTimeToStr(desk_time,"mm")==DateTimeToStr(info.real_out_local_date,"mm"))
-      trip << "/" << DateTimeToStr(info.real_out_local_date,"dd");
+    if (DateTimeToStr(desk_time,"mm")==DateTimeToStr(real_out_client,"mm"))
+      trip << "/" << DateTimeToStr(real_out_client,"dd");
     else
-      trip << "/" << DateTimeToStr(info.real_out_local_date,"dd.mm");
+      trip << "/" << DateTimeToStr(real_out_client,"dd.mm");
   };
-  if (scd_out_local_date!=info.real_out_local_date)
-    trip << "(" << DateTimeToStr(scd_out_local_date,"dd") << ")";
+  if (scd_out_client!=real_out_client)
+    trip << "(" << DateTimeToStr(scd_out_client,"dd") << ")";
   if (!(reqInfo->user.user_type==utAirport &&
         reqInfo->user.access.airps_permit &&
-        reqInfo->user.access.airps.size()==1)||showAirp)
-    trip << " " << info.airp;
-  if(info.pr_del != ASTRA::NoExists and info.pr_del != 0)
-      trip << " " << (info.pr_del < 0 ? "(удл.)" : "(отм.)");
+        reqInfo->user.access.airps.size()==1)||showAirp) {
+   if ( ctxt == ecNone)
+     trip << " " << info.airp;
+   else
+   	 trip << " " << ElemIdToElemCtxt(ctxt, etAirp, info.airp, info.airp_fmt);
+  }
+  if(info.pr_del != ASTRA::NoExists and info.pr_del != 0) {
+      trip << " " << (info.pr_del < 0 ? string("(")+AstraLocale::getLocaleText("удл.")+")" : string("(")+AstraLocale::getLocaleText("отм.")+")");
+  }
 
+  return trip.str();
+};
+
+string TLastTrferInfo::str()
+{
+  ostringstream trip;
+  if (IsNULL()) return "";
+  trip << ElemIdToCodeNative(etAirp, airp_arv)
+       << '('
+       << ElemIdToCodeNative(etAirline, airline)
+       << setw(3) << setfill('0') << flt_no
+       << ElemIdToCodeNative(etSuffix, suffix)
+       << ')';
   return trip.str();
 };
 
@@ -672,22 +707,22 @@ string TripAlarmString( TTripAlarmsType &alarm )
 	string mes;
 	switch( alarm ) {
 		case atOverload:
-			mes = "Перегрузка";
+			mes = AstraLocale::getLocaleText("Перегрузка");
 			break;
 		case atWaitlist:
-			mes = "Лист ожидания";
+			mes = AstraLocale::getLocaleText("Лист ожидания");
 			break;
 		case atBrd:
-			mes = "Посадка";
+			mes = AstraLocale::getLocaleText("Посадка");
 			break;
 		case atSalon:
-			mes = "Не назначен салон";
+			mes = AstraLocale::getLocaleText("Не назначен салон");
 			break;
 		case atETStatus:
-			mes = "Нет связи с СЭБ";
+			mes = AstraLocale::getLocaleText("Нет связи с СЭБ");
 			break;
 		case atSeance:
-		  mes = "Не определен сеанс";
+		  mes = AstraLocale::getLocaleText("Не определен сеанс");
 			break;
 		default:;
 	}
@@ -723,12 +758,16 @@ std::string TPaxSeats::getSeats( int pax_id, const std::string format )
 	Qry->SetVariable( "pax_id", pax_id );
 	Qry->Execute();
 	int c=0;
+	char* add_ch = NULL;
+	if ( format == "_list" || format == "_one" || format == "_seats" )
+		add_ch = " ";
  	while ( !Qry->Eof ) {
  		TSeat seat;
     if ( format == "list" && !res.empty() )
     	res += " ";
-   	res = denorm_iata_row( Qry->FieldAsString( "first_yname" ) ) +
+   	res = denorm_iata_row( Qry->FieldAsString( "first_yname" ), add_ch ) +
           denorm_iata_line( Qry->FieldAsString( "first_xname" ), pr_lat_seat );
+    add_ch = NULL;
     if ( format == "one" )
     	break;
    	c++;
@@ -834,13 +873,13 @@ string GetMktFlightStr( const TTripInfo &operFlt, const TTripInfo &markFlt )
   modf(scd_local_mark,&scd_local_mark);
 
   ostringstream trip;
-  trip << markFlt.airline
+  trip << ElemIdToCodeNative(etAirline, markFlt.airline)
        << setw(3) << setfill('0') << markFlt.flt_no
-       << markFlt.suffix;
+       << ElemIdToCodeNative(etSuffix, markFlt.suffix);
   if (scd_local_oper!=scd_local_mark)
     trip << "/" << DateTimeToStr(markFlt.scd_out,"dd");
   if (operFlt.airp!=markFlt.airp)
-    trip << " " << markFlt.airp;
+    trip << " " << ElemIdToCodeNative(etAirp, markFlt.airp);
   return trip.str();
 };
 
@@ -859,4 +898,33 @@ void GetCrsList(int point_id, std::vector<std::string> &crs)
     crs.push_back(Qry.FieldAsString("crs"));
 };
 
+
+//bt
+
+// pr_lat с клиента || стыковочные пункты grp_id не в РФ || пункт вылета grp_id не в РФ
+
+// bp
+
+// pr_lat c клиента || пункт вылета grp_id не в РФ || пункт прилета grp_id не в РФ
+
+bool IsRouteInter(int point_dep, int point_arv, string &country)
+{
+    country.clear();
+    string first_country;
+    TBaseTable &airps = base_tables.get("AIRPS");
+    TBaseTable &cities = base_tables.get("CITIES");
+    TTripRoute route;
+    if (!route.GetRouteAfter(point_dep,trtWithCurrent,trtNotCancelled))
+        throw Exception("TTripRoute::GetRouteAfter: flight not found for point_dep %d", point_dep);
+    for(vector<TTripRouteItem>::iterator iv = route.begin(); iv != route.end(); iv++)
+    {
+        string c = cities.get_row("code",airps.get_row("code",iv->airp).AsString("city")).AsString("country");
+        if(iv == route.begin())
+            first_country = c;
+        else if(first_country != c) return true;
+        if (point_arv!=NoExists && iv->point_id==point_arv) break;
+    };
+    country = first_country;
+    return false;
+}
 

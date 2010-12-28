@@ -10,7 +10,7 @@
 #include "jxtlib/xmllibcpp.h"
 #include "jxtlib/gettext.h"
 #include "jxtlib/xml_tools.h"
-#include "serverlib/helpcpp.h"
+#include "serverlib/date_cast.h"
 
 #define NICKNAME "ROMAN"
 #define NICKTRACE ROMAN_TRACE
@@ -36,7 +36,7 @@ void ResContrInfoXmlView::operator()(ViewerData &Data, const ResContrInfo &Rci) 
   xmlNodePtr origNode=newChild(VData.getNode(),"origin");
   xmlNewTextChild(origNode,NULL,"date_of_issue",
                   HelpCpp::string_cast(Rci.dateOfIssue(), "%d%b%y",
-                                       (Lang::Language)currLang()));
+                                       (Language)currLang()));
 }
 
 /* Pnr data: list */
@@ -171,7 +171,7 @@ void MonetaryInfoXmlView::operator () (ViewerData &Data, const list<MonetaryInfo
   for(list<MonetaryInfo>::const_iterator i=lmon.begin(); i!= lmon.end(); ++i)
   {
     const MonetaryInfo &Mon = (*i);
-    if(Mon.code().codeInt() == AmountCode::Total) // всего
+    if(Mon.code()->codeInt() == AmountCode::Total) // всего
     {
       if(!total.empty())
         total+=" ";
@@ -200,7 +200,7 @@ void MonetaryInfoXmlListView::operator () (ViewerData &Data, const list<Monetary
   for(list<MonetaryInfo>::const_iterator i=lmon.begin(); i!= lmon.end(); ++i)
   {
     const MonetaryInfo &Mon = (*i);
-    if(Mon.code().code()=="T" || Mon.code().code()=="Т") // всего
+    if(Mon.code()->codeInt() == AmountCode::Total) // всего
     {
       if(!total.empty())
         total+=" ";
@@ -277,7 +277,7 @@ void FormOfIdXmlView::operator ( )(ViewerData &Data, const std::list<FormOfId> &
     if(!lFoid.empty())
     {
         setElemProp(mainNode->parent, "foid", "tip",
-                    lFoid.front().type()->description((Lang::Language)currLang()));
+                    lFoid.front().type()->description((Language)currLang()));
     }
 }
 
@@ -381,7 +381,7 @@ void CouponXmlView::operator () (ViewerData &Data, const list<Coupon> &lcpn) con
     // дата вылета
     xmlSetProp(xmlNewTextChild(rowNode,NULL,"dep_date",
                itin.date1().is_special()?ItinStatus::Open:
-               HelpCpp::string_cast(itin.date1(), "%d%m%y",Lang::ENGLISH)),
+               HelpCpp::string_cast(itin.date1(), "%d%m%y",ENGLISH)),
                 "index",col_num++);
     // время вылета
     xmlSetProp(xmlNewTextChild(rowNode,NULL,"dep_time",
@@ -414,7 +414,7 @@ void CouponXmlView::operator () (ViewerData &Data, const list<Coupon> &lcpn) con
     }
 
     xmlSetProp(xmlNewTextChild(rowNode,NULL,"cls",
-               itin.classCodeStr((Lang::Language)currLang())),"index",col_num++); // класс бронирования
+               itin.classCodeStr((Language)currLang())),"index",col_num++); // класс бронирования
     xmlSetProp(xmlNewTextChild(rowNode,NULL,"seg_status",
                itin.rpistat()->code()),"index",col_num++); // статус сегмента
     xmlSetProp(xmlNewTextChild(rowNode,NULL,"fare_basis",itin.fareBasis()),"index",col_num++); // Тариф
@@ -422,20 +422,20 @@ void CouponXmlView::operator () (ViewerData &Data, const list<Coupon> &lcpn) con
     xmlSetProp(xmlNewTextChild(rowNode,NULL,"valid_before",
            (itin.validDates().first.is_special()?
                    "":HelpCpp::string_cast(itin.validDates().first, "%d%b%y",
-                                           (Lang::Language)currLang()))),
+                                           (Language)currLang()))),
                 "index",col_num++); // Тариф
     xmlSetProp(xmlNewTextChild(rowNode,NULL,"valid_after",
            (itin.validDates().second.is_special()?
-                   "":HelpCpp::string_cast(itin.validDates().second, "%d%b%y", (Lang::Language)currLang()))),
+                   "":HelpCpp::string_cast(itin.validDates().second, "%d%b%y", (Language)currLang()))),
 		       "index",col_num++); // Тариф
 
     xmlSetProp(xmlNewTextChild(rowNode,NULL,"sac",cpn.couponInfo().sac()),"index",col_num++); // код авторизации (Settlement)
 
     ostringstream ebd;
     if(itin.luggage().haveLuggage()){
-        ebd<<itin.luggage()->quantity()<<itin.luggage()->code();
+        ebd<<itin.luggage()->quantity()<<AstraLocale::getLocaleText(itin.luggage()->code());
     } else {
-        ebd<<"НЕТ";
+        ebd<<AstraLocale::getLocaleText("НЕТ");
     }
     xmlSetProp(xmlNewTextChild(rowNode,NULL,"lugg_norm",ebd.str()),"index",col_num++); // Норма багажа
 

@@ -39,28 +39,9 @@ struct TLogMsg {
 
 enum TUserType { utSupport=0, utAirport=1, utAirline=2 };
 enum TUserSettingType { ustTimeUTC=0, ustTimeLocalDesk=1, ustTimeLocalAirp=2,
-                        ustCodeNative=5, ustCodeIATA=6,
-                        ustCodeNativeICAO=7, ustCodeIATAICAO=8, ustCodeMixed=9,
+                        ustCodeNative=5, ustCodeInter=6,
+                        ustCodeICAONative=7, ustCodeICAOInter=8, ustCodeMixed=9,
                         ustEncNative=15, ustEncLatin=16, ustEncMixed=17 };
-
-enum TElemType { etCountry,etCity,etAirline,etAirp,etCraft,etClass,etSubcls,
-                 etPersType,etGenderType,etPaxDocType,etPayType,etCurrency,
-                 etSuffix,etClsGrp };
-enum TElemContext { ecDisp, ecCkin, ecTrfer, ecTlgTypeB };
-//форматы:
-//  fmt=0 вн.код (рус. кодировка)
-//  fmt=1 IATA код (лат. кодировка)
-//  fmt=2 код ИКАО вн.
-//  fmt=3 код ИKAO IATA
-//  fmt=4 код ISO
-std::string ElemToElemId(TElemType type, std::string code, int &fmt, bool with_deleted=false);
-std::string ElemIdToElem(TElemType type, int id, int fmt, bool with_deleted=true);
-std::string ElemIdToElem(TElemType type, std::string id, int fmt, int only_lat, bool with_deleted=true);
-std::string ElemIdToElem(TElemType type, std::string id, int fmt, bool with_deleted=true);
-std::string ElemCtxtToElemId(TElemContext ctxt,TElemType type, std::string code,
-                              int &fmt, bool hard_verify, bool with_deleted=false);
-std::string ElemIdToElemCtxt( TElemContext ctxt,TElemType type, std::string id,
-                             int fmt, bool with_deleted=true);
 
 template <class T>
 class BitSet
@@ -100,6 +81,7 @@ class TAccess {
 class TUserSettings {
   public:
     TUserSettingType time,disp_airline,disp_airp,disp_craft,disp_suffix;
+    TUserSettingType      ckin_airline,ckin_airp,ckin_craft,ckin_suffix;
     TUserSettings()
     {
       clear();
@@ -111,6 +93,10 @@ class TUserSettings {
       disp_airp=ustCodeMixed;
       disp_craft=ustCodeMixed;
       disp_suffix=ustEncMixed;
+      ckin_airline=ustCodeNative;
+      ckin_airp=ustCodeNative;
+      ckin_craft=ustCodeNative;
+      ckin_suffix=ustEncNative;
     };
 };
 
@@ -144,6 +130,7 @@ class TDesk {
     std::string tz_region;
     std::string lang;
     std::string version;
+    std::string currency;
     BASIC::TDateTime time;
     ASTRA::TOperMode mode;
     int grp_id;
@@ -160,11 +147,13 @@ class TDesk {
       tz_region.clear();
       lang.clear();
       version.clear();
+      currency.clear();
       time = 0;
       mode = ASTRA::omSTAND;
       grp_id = -1;
     };
-    bool compatible(std::string ver);
+    bool compatible(const std::string &ver);
+    static bool isValidVersion(const std::string &ver);
 };
 
 class TScreen {
@@ -191,6 +180,7 @@ struct TReqInfoInitData {
   std::string pult;
   std::string opr;
   std::string mode;
+  std::string lang;
   bool checkUserLogon;
   bool checkCrypt;
   bool pr_web;
@@ -256,21 +246,21 @@ void MsgToLog(std::string msg,
 ASTRA::TRptType DecodeRptType(const std::string s);
 const std::string EncodeRptType(ASTRA::TRptType s);
 ASTRA::TClientType DecodeClientType(const char* s);
-char* EncodeClientType(ASTRA::TClientType s);
+const char* EncodeClientType(ASTRA::TClientType s);
 ASTRA::TDocType DecodeDocType(const char* s);
-char* EncodeDocType(ASTRA::TDocType doc);
+const char* EncodeDocType(ASTRA::TDocType doc);
 ASTRA::TClass DecodeClass(const char* s);
-char* EncodeClass(ASTRA::TClass cl);
+const char* EncodeClass(ASTRA::TClass cl);
 ASTRA::TPerson DecodePerson(const char* s);
-char* EncodePerson(ASTRA::TPerson p);
+const char* EncodePerson(ASTRA::TPerson p);
 ASTRA::TQueue DecodeQueue(int q);
 int EncodeQueue(ASTRA::TQueue q);
 ASTRA::TPaxStatus DecodePaxStatus(const char* s);
-char* EncodePaxStatus(ASTRA::TPaxStatus s);
+const char* EncodePaxStatus(ASTRA::TPaxStatus s);
 ASTRA::TCompLayerType DecodeCompLayerType(const char* s);
-char* EncodeCompLayerType(ASTRA::TCompLayerType s);
+const char* EncodeCompLayerType(ASTRA::TCompLayerType s);
 ASTRA::TBagNormType DecodeBagNormType(const char* s);
-char* EncodeBagNormType(ASTRA::TBagNormType s);
+const char* EncodeBagNormType(ASTRA::TBagNormType s);
 
 char DecodeStatus(char* s);
 
@@ -292,10 +282,17 @@ void showError(LexemaData lexemaData, int code = 0);
 void showError(const std::string &lexema_id, int code = 0);
 void showErrorMessage(LexemaData lexemaData, int code = 0);
 void showErrorMessage(const std::string &lexema_id, int code = 0);
+void showErrorMessage( std::string vlexema, LParams &aparams, int code = 0);
 void showProgError(LexemaData lexemaData, int code = 0);
 void showProgError(const std::string &lexema_id, int code = 0);
 void showErrorMessageAndRollback(const std::string &lexema_id, int code = 0 );
 void showErrorMessageAndRollback(LexemaData lexemaData, int code = 0 );
+void showMessage( const std::string &lexema_id, int code = 0 );
+void showMessage( LexemaData lexemaData, int code = 0);
+void showMessage( std::string vlexema, LParams &aparams, int code = 0);
+std::string getLocaleText(LexemaData lexemaData);
+std::string getLocaleText(const std::string &vlexema, std::string lang = "");
+std::string getLocaleText(const std::string &vlexema, LParams &aparams, std::string lang = "");
 } // end namespace astraLocale
 
 
@@ -334,14 +331,13 @@ public:
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode){};
 };
 
-class UserException2:public EXCEPTIONS::UserException
+class UserException2:public AstraLocale::UserException
 {
   public:
     UserException2(): UserException(""){};
 };
 
 std::string convert_pnr_addr(const std::string &value, bool pr_lat);
-std::string convert_suffix(const std::string &value, bool pr_lat);
 std::string transliter(const std::string &value, int fmt, bool pr_lat);
 bool transliter_equal(const std::string &value1, const std::string &value2, int fmt);
 bool transliter_equal(const std::string &value1, const std::string &value2);

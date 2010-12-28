@@ -1,14 +1,14 @@
 #include <stdarg.h>
 #include <string>
+#include <string.h>
 #include "astra_utils.h"
-#include "astra_consts.h"
 #include "basic.h"
 #include "oralib.h"
-#include "exceptions.h"
 #include "astra_locale.h"
 #include "stl_utils.h"
 #include "xml_unit.h"
 #include "misc.h"
+#include "astra_elems.h"
 #include "base_tables.h"
 #include "term_version.h"
 #include "tclmon/tcl_utils.h"
@@ -17,6 +17,7 @@
 #include "serverlib/sirena_queue.h"
 #include "jxtlib/JxtInterface.h"
 #include "jxtlib/jxt_cont.h"
+#include "jxtlib/xml_stuff.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -25,9 +26,9 @@ using namespace std;
 using namespace ASTRA;
 using namespace BASIC;
 using namespace EXCEPTIONS;
-using namespace JxtContext;
 using namespace boost::local_time;
 using namespace boost::posix_time;
+using namespace AstraLocale;
 
 string AlignString(string str, int len, string align)
 {
@@ -54,20 +55,25 @@ string AlignString(string str, int len, string align)
     return result;
 };
 
-bool TDesk::compatible(std::string ver)
+bool TDesk::isValidVersion(const std::string &ver)
 {
-  //проверим правильность указанной версии
-  int i=0;
-  string::iterator c=ver.begin();
-  for(;c!=ver.end();c++,i++)
+  if (ver.size()!=14) return false;
+  string::const_iterator c=ver.begin();
+  for(int i=0;c!=ver.end();c++,i++)
   {
     if (i>=0 && i<=5 && IsDigit(*c)) continue;
     if (i==6 && *c=='-') continue;
     if (i>=7 && i<=13 && IsDigit(*c)) continue;
-    break;
+    return false;
   };
-  if (c!=ver.end() || i!=14)
-    throw Exception("TDesk::compatible: wrong version param '%s'",ver.c_str());
+  return true;
+};
+
+bool TDesk::compatible(const std::string &ver)
+{
+  //проверим правильность указанной версии
+  if (!isValidVersion(ver))
+    throw EXCEPTIONS::Exception("TDesk::compatible: wrong version param '%s'",ver.c_str());
 
   return (!version.empty() &&
           version!=UNKNOWN_VERSION &&
@@ -108,9 +114,9 @@ void TReqInfo::Initialize( const std::string &city )
   Qry.SetVariable( "city", city );
   Qry.Execute();
   if (Qry.Eof)
-    throw Exception("TReqInfo::Initialize: city %s not found",city.c_str());
+    throw EXCEPTIONS::Exception("TReqInfo::Initialize: city %s not found",city.c_str());
   if (Qry.FieldIsNULL("region"))
-    throw UserException("TReqInfo::Initialize: region nod defined (city=%s)",city.c_str());
+      throw AstraLocale::UserException((string)"TReqInfo::Initialize: region nod defined (city=" + city + ")");
   desk.city = city;
   desk.tz_region = Qry.FieldAsString( "region" );
   desk.time = UTCToLocal( NowUTC(), desk.tz_region );
@@ -123,9 +129,15 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
 	if ( execute_time.is_not_a_date_time() )
 		setPerform();
   clear();
+
+  if (!InitData.lang.empty() /*desk.compatible(LATIN_VERSION)*/)
+    desk.lang=InitData.lang;
+  else
+    desk.lang=AstraLocale::LANG_RU;
+
   TQuery Qry(&OraSession);
-  ProgTrace( TRACE5, "screen=%s, pult=|%s|, opr=|%s|, checkCrypt=%d, pr_web=%d",
-            InitData.screen.c_str(), InitData.pult.c_str(), InitData.opr.c_str(), InitData.checkCrypt, InitData.pr_web );
+  ProgTrace( TRACE5, "screen=%s, pult=|%s|, opr=|%s|, checkCrypt=%d, pr_web=%d, desk.lang=%s",
+            InitData.screen.c_str(), InitData.pult.c_str(), InitData.opr.c_str(), InitData.checkCrypt, InitData.pr_web, desk.lang.c_str() );
   screen.name = upperc( InitData.screen );
   desk.code = InitData.pult;
   desk.mode = DecodeOperMode(InitData.mode);
@@ -144,7 +156,7 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
     if ( !Qry.Eof && Qry.FieldAsInteger( "pr_crypt" ) != 0 ) {
       XMLRequestCtxt *xmlRC = getXmlCtxt();
       xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
-      showProgError( "Шифрованное соединение: ошибка режима шифрования. Повторите запрос" );
+      AstraLocale::showProgError( "MSG.MESSAGEPRO.CRYPT_MODE_ERR.REPEAT" );
       resNode = ReplaceTextChild( resNode, "clear_certificates" );
       throw UserException2();
     }
@@ -158,7 +170,7 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   Qry.SetVariable( "exe", screen.name );
   Qry.Execute();
   if ( Qry.RowCount() == 0 )
-    throw Exception( (string)"Unknown screen " + screen.name );
+    throw EXCEPTIONS::Exception( (string)"Unknown screen " + screen.name );
   screen.id = Qry.FieldAsInteger( "id" );
   screen.version = Qry.FieldAsInteger( "version" );
   screen.pr_logon = Qry.FieldAsInteger( "pr_logon" );
@@ -166,21 +178,21 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   	return; //???*/
   Qry.Clear();
   Qry.SQLText =
-    "SELECT city,airp,airline,lang,version,NVL(under_constr,0) AS under_constr,desks.grp_id "
+    "SELECT city,airp,airline,version,NVL(under_constr,0) AS under_constr,currency,desks.grp_id "
     "FROM desks,desk_grp "
     "WHERE desks.code = UPPER(:pult) AND desks.grp_id = desk_grp.grp_id ";
   Qry.DeclareVariable( "pult", otString );
   Qry.SetVariable( "pult", InitData.pult );
   Qry.Execute();
   if ( Qry.RowCount() == 0 )
-    throw UserException( "Пульт не зарегистрирован в системе. Обратитесь к администратору." );
+    throw AstraLocale::UserException( "MSG.PULT_NOT_REGISTERED");
   if (Qry.FieldAsInteger("under_constr")!=0)
-    throw UserException( "Сервер временно недоступен. Повторите запрос через несколько минут" );
+    throw AstraLocale::UserException( "MSG.SERVER_TEMPORARILY_UNAVAILABLE" );
   desk.city = Qry.FieldAsString( "city" );
   desk.airp = Qry.FieldAsString( "airp" );
   desk.airline = Qry.FieldAsString( "airline" );
-  desk.lang = Qry.FieldAsString( "lang" );
   desk.version = Qry.FieldAsString( "version" );
+  desk.currency = Qry.FieldAsString( "currency" );
   desk.grp_id = Qry.FieldAsInteger( "grp_id" );
 
   ProgTrace( TRACE5, "terminal version='%s'", desk.version.c_str() );
@@ -197,9 +209,9 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   Qry.SetVariable( "city", desk.city );
   Qry.Execute();
   if (Qry.Eof)
-    throw UserException("Не определен город пульта");
+    throw AstraLocale::UserException("MSG.DESK_CITY_NOT_DEFINED");
   if (Qry.FieldIsNULL("region"))
-    throw UserException("Для города %s не задан регион",desk.city.c_str());
+    throw AstraLocale::UserException("MSG.CITY.REGION_NOT_DEFINED", LParams() << LParam("city", ElemIdToCodeNative(etCity,desk.city)));
   desk.tz_region = Qry.FieldAsString( "region" );
   desk.time = UTCToLocal( NowUTC(), desk.tz_region );
   if ( !screen.pr_logon ||
@@ -214,7 +226,7 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
     Qry.CreateVariable( "login", otString, InitData.opr );
     Qry.Execute();
     if (Qry.Eof)
-      throw UserException( "Пользователю отказано в доступе");
+      throw AstraLocale::UserException( "MSG.USER.ACCESS_DENIED");
   }
   else {
     Qry.SQLText =
@@ -224,16 +236,16 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
     Qry.CreateVariable( "pult", otString, InitData.pult );
     Qry.Execute();
     if (Qry.Eof)
-      throw UserException( "Пользователю необходимо войти в систему с данного пульта" );
+      throw AstraLocale::UserException( "MSG.USER.NEED_TO_LOGIN" );
     if ( !InitData.opr.empty() )
       if ( InitData.opr != Qry.FieldAsString( "login" ) )
-        throw UserException( "Пользователю необходимо войти в систему с данного пульта" );
+        throw AstraLocale::UserException( "MSG.USER.NEED_TO_LOGIN" );
   };
 
   if ( Qry.FieldAsInteger( "pr_denial" ) == -1 )
-  	throw UserException( "Пользователь удален из системы" );
+  	throw AstraLocale::UserException( "MSG.USER.DELETED");
   if ( Qry.FieldAsInteger( "pr_denial" ) != 0 )
-    throw UserException( "Пользователю отказано в доступе" );
+    throw AstraLocale::UserException( "MSG.USER.ACCESS_DENIED");
   user.user_id = Qry.FieldAsInteger( "user_id" );
   user.descr = Qry.FieldAsString( "descr" );
   user.user_type = (TUserType)Qry.FieldAsInteger( "type" );
@@ -249,7 +261,7 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   Qry.Execute();
   if ( !Qry.Eof && !InitData.pr_web ||
   	   Qry.Eof && InitData.pr_web ) //???
-    	throw UserException( "Пользователю отказано в доступе" );
+    	throw AstraLocale::UserException( "MSG.USER.ACCESS_DENIED" );
 
   if ( InitData.pr_web )
   	client_type = DecodeClientType( Qry.FieldAsString( "client_type" ) );
@@ -269,7 +281,7 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
     Qry.CreateVariable("user_id",otInteger,user.user_id);
     Qry.Execute();
     if (Qry.Eof)
-      throw UserException( "Пользователю отказано в доступе с пульта %s", desk.code.c_str() );
+      throw AstraLocale::UserException( "MSG.USER.ACCESS_DENIED_FROM_DESK", LParams() << LParam("desk", desk.code));
   };*/
 
   Qry.Clear();
@@ -300,7 +312,7 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
 
   //проверим ограничение доступа по сессии
   vector<string> airlines;
-  SeparateString(getJxtContHandler()->sysContext()->read("session_airlines"),'/',airlines);
+  SeparateString(JxtContext::getJxtContHandler()->sysContext()->read("session_airlines"),'/',airlines);
 
   if (!airlines.empty())
     MergeAccess(user.access.airlines,user.access.airlines_permit,airlines,true);
@@ -330,7 +342,7 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   };
   MergeAccess(user.access.airlines,user.access.airlines_permit,airlines,pr_denial_all);
   if (airlines.empty() && pr_denial_all)
-    throw UserException( "Пульт отключен" );
+    throw AstraLocale::UserException( "MSG.DESK.TURNED_OFF" );
 
   //пользовательские настройки
   Qry.Clear();
@@ -364,9 +376,9 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
               user.sets.time=(TUserSettingType)Qry.FieldAsInteger(field);
             break;
           case ustCodeNative:
-          case ustCodeIATA:
-          case ustCodeNativeICAO:
-          case ustCodeIATAICAO:
+          case ustCodeInter:
+          case ustCodeICAONative:
+          case ustCodeICAOInter:
           case ustCodeMixed:
             if (i==1)
               user.sets.disp_airline=(TUserSettingType)Qry.FieldAsInteger(field);
@@ -631,9 +643,9 @@ TClientType DecodeClientType(const char* s)
     return ctTerm;
 };
 
-char* EncodeClientType(TClientType s)
+const char* EncodeClientType(TClientType s)
 {
-  return (char*)ClientTypeS[s];
+  return ClientTypeS[s];
 };
 
 TOperMode DecodeOperMode( const string mode )
@@ -682,9 +694,9 @@ TDocType DecodeDocType(const char* s)
     return dtUnknown;
 };
 
-char* EncodeDocType(TDocType doc)
+const char* EncodeDocType(TDocType doc)
 {
-  return (char*)TDocTypeS[doc];
+  return TDocTypeS[doc];
 };
 
 TClass DecodeClass(const char* s)
@@ -697,9 +709,9 @@ TClass DecodeClass(const char* s)
     return NoClass;
 };
 
-char* EncodeClass(TClass cl)
+const char* EncodeClass(TClass cl)
 {
-  return (char*)TClassS[cl];
+  return TClassS[cl];
 };
 
 TPerson DecodePerson(const char* s)
@@ -712,9 +724,9 @@ TPerson DecodePerson(const char* s)
     return NoPerson;
 };
 
-char* EncodePerson(TPerson p)
+const char* EncodePerson(TPerson p)
 {
-  return (char*)TPersonS[p];
+  return TPersonS[p];
 };
 
 TQueue DecodeQueue(int q)
@@ -742,9 +754,9 @@ TPaxStatus DecodePaxStatus(const char* s)
     return psCheckin;
 };
 
-char* EncodePaxStatus(TPaxStatus s)
+const char* EncodePaxStatus(TPaxStatus s)
 {
-  return (char*)TPaxStatusS[s];
+  return TPaxStatusS[s];
 };
 
 TCompLayerType DecodeCompLayerType(const char* s)
@@ -757,9 +769,9 @@ TCompLayerType DecodeCompLayerType(const char* s)
     return cltUnknown;
 };
 
-char* EncodeCompLayerType(TCompLayerType s)
+const char* EncodeCompLayerType(TCompLayerType s)
 {
-  return (char*)CompLayerTypeS[s];
+  return CompLayerTypeS[s];
 };
 
 TBagNormType DecodeBagNormType(const char* s)
@@ -772,9 +784,9 @@ TBagNormType DecodeBagNormType(const char* s)
     return bntUnknown;
 };
 
-char* EncodeBagNormType(TBagNormType s)
+const char* EncodeBagNormType(TBagNormType s)
 {
-  return (char*)BagNormTypeS[s];
+  return BagNormTypeS[s];
 };
 
 TDateTime DecodeTimeFromSignedWord( signed short int Value )
@@ -838,22 +850,84 @@ void showMessage(const std::string &message, int code )
 
 namespace AstraLocale {
 
-void getLexemaText( LexemaData lexemaData, string &text, string &master_lexema_id )
+void getLexemaText( LexemaData lexemaData, string &text, string &master_lexema_id, string lang = "" )
 {
   text.clear();
   master_lexema_id.clear();
+  if ( lexemaData.lexema_id.empty() )
+  	return;
   try {
-	  buildMsg( TReqInfo::Instance()->desk.lang, lexemaData, text, master_lexema_id );
+	  buildMsg( (lang.empty() ? TReqInfo::Instance()->desk.lang : lang), lexemaData, text, master_lexema_id );
 	}
   catch( std::exception &e ) {
    	text = lexemaData.lexema_id;
-   	ProgError( STDLOG, "showError buildMsg e.what()=%s, id=%s, lang=%s",
-   	           e.what(), lexemaData.lexema_id.c_str(), TReqInfo::Instance()->desk.lang.c_str() );
+   	//ProgError( STDLOG, "showError buildMsg e.what()=%s, id=%s, lang=%s",
+   	           //e.what(), lexemaData.lexema_id.c_str(), TReqInfo::Instance()->desk.lang.c_str() );
   }
   catch( ... ) {
    	text = lexemaData.lexema_id;
    	ProgError( STDLOG, "Unknown Exception on buildMsg!!!" );
   }
+}
+
+std::string getLocaleText(LexemaData lexemaData)
+{
+    string text, master_lexema_id;
+    getLexemaText( lexemaData, text, master_lexema_id );
+    return text;
+}
+
+string getLocaleText(const std::string &vlexema, std::string lang)
+{
+    LexemaData lexemaData;
+    lexemaData.lexema_id = vlexema;
+    string text, master_lexema_id;
+    getLexemaText( lexemaData, text, master_lexema_id, lang );
+    return text;
+}
+
+string getLocaleText(const std::string &vlexema, LParams &aparams, string lang)
+{
+    LexemaData lexemaData;
+    lexemaData.lexema_id = vlexema;
+    lexemaData.lparams = aparams;
+    string text, master_lexema_id;
+    getLexemaText( lexemaData, text, master_lexema_id, lang );
+    return text;
+}
+
+void showErrorMessage( std::string vlexema, LParams &aparams, int code)
+{
+	LexemaData lexemaData;
+	lexemaData.lexema_id = vlexema;
+	lexemaData.lparams = aparams;
+    showErrorMessage(lexemaData, code);
+}
+
+void showMessage( std::string vlexema, LParams &aparams, int code)
+{
+	LexemaData lexemaData;
+	lexemaData.lexema_id = vlexema;
+	lexemaData.lparams = aparams;
+    showMessage(lexemaData, code);
+}
+
+void showMessage(LexemaData lexemaData, int code)
+{
+  string text, master_lexema_id;
+  getLexemaText( lexemaData, text, master_lexema_id );
+  XMLRequestCtxt *xmlRC = getXmlCtxt();
+  xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
+  resNode = ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "message", text );
+  SetProp(resNode, "lexema_id", master_lexema_id);
+  SetProp(resNode, "code", code);
+}
+
+void showMessage(const std::string &lexema_id, int code)
+{
+	LexemaData lexemaData;
+	lexemaData.lexema_id = lexema_id;
+	showMessage( lexemaData, code );
 }
 
 void showErrorMessage(LexemaData lexemaData, int code)
@@ -1105,7 +1179,9 @@ void showBasicInfo(void)
   {
     node = NewTextChild(resNode,"desk");
     NewTextChild(node,"city",reqInfo->desk.city);
-    NewTextChild(node,"lang",reqInfo->desk.lang);
+    if (!reqInfo->desk.compatible(LATIN_VERSION))
+      NewTextChild(node,"lang",reqInfo->desk.lang);
+    NewTextChild(node,"currency",reqInfo->desk.currency);
     NewTextChild(node,"time",DateTimeToStr( reqInfo->desk.time ) );
     NewTextChild(node,"time_utc",DateTimeToStr(NowUTC()) );
     //настройки пользователя
@@ -1274,7 +1350,9 @@ void SysReqInterface::ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   for(;node!=NULL;node=node->next)
   {
     if (strcmp((char*)node->name,"msg")==0)
-      ProgError( STDLOG, "Client error: %s.", NodeAsString(node) ) ;
+      ProgError( STDLOG, "Client error (ver. %s): %s.",
+                         TReqInfo::Instance()->desk.version.c_str(),
+                         NodeAsString(node) ) ;
   };
 }
 
@@ -1290,11 +1368,11 @@ tz_database &get_tz_database()
     }
     catch (boost::local_time::data_not_accessible)
     {
-      throw Exception("File 'date_time_zonespec.csv' not found");
+      throw EXCEPTIONS::Exception("File 'date_time_zonespec.csv' not found");
     }
     catch (boost::local_time::bad_field_count)
     {
-      throw Exception("File 'date_time_zonespec.csv' wrong format");
+      throw EXCEPTIONS::Exception("File 'date_time_zonespec.csv' wrong format");
     };
   }
   return tz_db;
@@ -1302,23 +1380,23 @@ tz_database &get_tz_database()
 
 string& AirpTZRegion(string airp, bool with_exception)
 {
-  if (airp.empty()) throw Exception("Airport not specified");
+  if (airp.empty()) throw EXCEPTIONS::Exception("Airport not specified");
   TAirpsRow& row=(TAirpsRow&)base_tables.get("airps").get_row("code",airp);
   return CityTZRegion(row.city,with_exception);
 };
 
 string& CityTZRegion(string city, bool with_exception)
 {
-  if (city.empty()) throw Exception("City not specified");
+  if (city.empty()) throw EXCEPTIONS::Exception("City not specified");
   TCitiesRow& row=(TCitiesRow&)base_tables.get("cities").get_row("code",city);
   if (row.region.empty() && with_exception)
-    throw UserException("Для города %s не задан регион",city.c_str());
+    throw AstraLocale::UserException("MSG.CITY.REGION_NOT_DEFINED",LParams() << LParam("city", city));
   return row.region;
 };
 
 string DeskCity(string desk, bool with_exception)
 {
-  if (desk.empty()) throw Exception("Desk not specified");
+  if (desk.empty()) throw EXCEPTIONS::Exception("Desk not specified");
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText =
@@ -1330,7 +1408,7 @@ string DeskCity(string desk, bool with_exception)
   if(Qry.Eof)
   {
     if (with_exception)
-      throw UserException("Пульт %s не найден", desk.c_str());
+      throw AstraLocale::UserException("MSG.DESK.NOT_FOUND", LParams() << LParam("desk", desk));
     else
       return "";
   }
@@ -1339,20 +1417,20 @@ string DeskCity(string desk, bool with_exception)
 
 TDateTime UTCToLocal(TDateTime d, string region)
 {
-  if (region.empty()) throw Exception("Region not specified");
+  if (region.empty()) throw EXCEPTIONS::Exception("Region not specified");
   tz_database &tz_db = get_tz_database();
   time_zone_ptr tz = tz_db.time_zone_from_region(region);
-  if (tz==NULL) throw Exception("Region '%s' not found",region.c_str());
+  if (tz==NULL) throw EXCEPTIONS::Exception("Region '%s' not found",region.c_str());
   local_date_time ld(DateTimeToBoost(d),tz);
   return BoostToDateTime(ld.local_time());
 }
 
 TDateTime LocalToUTC(TDateTime d, string region, int is_dst)
 {
-  if (region.empty()) throw Exception("Region not specified");
+  if (region.empty()) throw EXCEPTIONS::Exception("Region not specified");
   tz_database &tz_db = get_tz_database();
   time_zone_ptr tz = tz_db.time_zone_from_region(region);
-  if (tz==NULL) throw Exception("Region '%s' not found",region.c_str());
+  if (tz==NULL) throw EXCEPTIONS::Exception("Region '%s' not found",region.c_str());
   ptime pt=DateTimeToBoost(d);
   try {
     local_date_time ld(pt.date(),pt.time_of_day(),tz,local_date_time::EXCEPTION_ON_ERROR);
@@ -1377,7 +1455,7 @@ TDateTime UTCToClient(TDateTime d, string region)
     case ustTimeLocalAirp:
       return UTCToLocal(d,region);
     default:
-      throw Exception("Unknown sets.time for user %s (user_id=%d)",reqInfo->user.login.c_str(),reqInfo->user.user_id);
+      throw EXCEPTIONS::Exception("Unknown sets.time for user %s (user_id=%d)",reqInfo->user.login.c_str(),reqInfo->user.user_id);
   };
 };
 
@@ -1393,559 +1471,17 @@ TDateTime ClientToUTC(TDateTime d, string region, int is_dst)
     case ustTimeLocalAirp:
       return LocalToUTC(d,region,is_dst);
     default:
-      throw Exception("Unknown sets.time for user %s (user_id=%d)",reqInfo->user.login.c_str(),reqInfo->user.user_id);
+      throw EXCEPTIONS::Exception("Unknown sets.time for user %s (user_id=%d)",reqInfo->user.login.c_str(),reqInfo->user.user_id);
   };
 };
-
-//форматы:
-//  fmt=0 вн.код (рус. кодировка)
-//  fmt=1 IATA код (лат. кодировка)
-//  fmt=2 код ИКАО вн.
-//  fmt=3 код ИKAO IATA
-//  fmt=4 код ISO
-
-inline void DoElemEConvertError( TElemContext ctxt,TElemType type, string code )
-{
-	string msg1, msg2;
-	switch( ctxt ) {
-		case ecDisp:
-			msg1 = "ecDisp";
-			break;
-		case ecCkin:
-			msg1 = "ecCkin";
-			break;
-		case ecTrfer:
-			msg1 = "ecTrfer";
-			break;
-		case ecTlgTypeB:
-			msg1 = "ecTlgTypeB";
-			break;
-	}
-  switch( type ) {
-  	case etCountry:
-  		msg2 = "etCountry";
-  		break;
-  	case etCity:
-  		msg2 = "etCity";
-  		break;
-  	case etAirline:
-  		msg2 = "etAirline";
-  		break;
-  	case etAirp:
-  		msg2 = "etAirp";
-  		break;
-  	case etCraft:
-  		msg2 = "etCraft";
-  		break;
-  	case etClass:
-  		msg2 = "etClass";
-  		break;
-  	case etSubcls:
-  		msg2 = "etSubcls";
-  		break;
-  	case etPersType:
-  		msg2 = "etPersType";
-  		break;
-  	case etGenderType:
-  		msg2 = "etGenderType";
-  		break;
-  	case etPaxDocType:
-  		msg2 = "etPaxDocType";
-  		break;
-  	case etPayType:
-  		msg2 = "etPayType";
-  		break;
-  	case etCurrency:
-  		msg2 = "etCurrency";
-  		break;
-    case etSuffix:
-  		msg2 = "etSuffix";
-  		break;
-  	default:;
-  }
-  msg1 = string("Can't convert elem to id ") + msg1 + "," + msg2 + " ,values=" + code;
-  throw EConvertError( msg1.c_str() );
-}
-
-string ElemCtxtToElemId(TElemContext ctxt,TElemType type, string code, int &fmt,
-                        bool hard_verify, bool with_deleted)
-{
-  string id;
-  fmt=-1;
-
-  if (code.empty()) return id;
-
-  id = ElemToElemId(type,code,fmt,with_deleted);
-
-  //далее проверим а вообще имели ли мы право вводить в таком формате
-  if ( hard_verify ) {
-    if (ctxt==ecTlgTypeB && (type!=etCountry && fmt!=0 && fmt!=1 ||
-                             type==etCountry && fmt!=0 && fmt!=1 && fmt!=4) ||
-        ctxt==ecCkin && (fmt!=0) ||
-        ctxt==ecTrfer && (fmt!=0))
-    {
-      //проблемы
-      DoElemEConvertError( ctxt, type, code );
-    };
-  }
-  if (ctxt==ecDisp)
-  {
-    if(type==etAirline ||
-       type==etAirp ||
-       type==etCraft ||
-       type==etSuffix)
-    {
-      TReqInfo *reqInfo = TReqInfo::Instance();
-      TUserSettingType user_fmt;
-      if (type==etAirline) user_fmt=reqInfo->user.sets.disp_airline;
-      if (type==etAirp) user_fmt=reqInfo->user.sets.disp_airp;
-      if (type==etCraft) user_fmt=reqInfo->user.sets.disp_craft;
-      if (type==etSuffix) user_fmt=reqInfo->user.sets.disp_suffix;
-      if (type==etAirline ||
-          type==etAirp ||
-          type==etCraft)
-      {
-      	if ( hard_verify || fmt == -1 ) {
-          if (!(user_fmt==ustCodeNative && fmt==0 ||
-                user_fmt==ustCodeIATA && fmt==1 ||
-                user_fmt==ustCodeNativeICAO && fmt==2 ||
-                user_fmt==ustCodeIATAICAO && fmt==3 ||
-                user_fmt==ustCodeMixed && (fmt==0||fmt==1||fmt==2||fmt==3)))
-          {
-            //проблемы
-            DoElemEConvertError( ctxt, type, code );
-          }
-        }
-        else {
-          switch( user_fmt )  {
-          	case ustCodeNative:
-          		fmt = 0;
-          		break;
-          	case ustCodeIATA:
-          		fmt = 1;
-          		break;
-          	case ustCodeNativeICAO:
-          		fmt = 2;
-          		break;
-          	case ustCodeIATAICAO:
-          		fmt = 3;
-          		break;
-          	default:;
-          }
-        }
-      }
-      else
-      {
-      	if ( hard_verify || fmt == -1 ) {
-          if (!(user_fmt==ustEncNative && fmt==0 ||
-                user_fmt==ustEncLatin && fmt==1 ||
-                user_fmt==ustEncMixed && (fmt==0||fmt==1)))
-          {
-            //проблемы
-            DoElemEConvertError( ctxt, type, code );
-          }
-        }
-        else {
-          switch( user_fmt )  {
-          	case ustEncNative:
-          		fmt = 0;
-          		break;
-          	case ustEncLatin:
-          		fmt = 1;
-          		break;
-          	default:;
-          }
-
-        }
-      };
-
-    }
-    else
-    	if ( hard_verify || fmt == -1 ) {
-        if (fmt!=0)
-        {
-          //проблемы
-            DoElemEConvertError( ctxt, type, code );
-        };
-      }
-      else {
-      	fmt = 0;
-      }
-  };
-
-  return id;
-};
-
-string ElemIdToElemCtxt(TElemContext ctxt,TElemType type, string id,
-                         int fmt, bool with_deleted)
-{
-	int fmt2=0;
-  if (ctxt==ecDisp)
-  {
-    if(type==etAirline ||
-       type==etAirp ||
-       type==etCraft ||
-       type==etSuffix)
-    {
-      TReqInfo *reqInfo = TReqInfo::Instance();
-      TUserSettingType user_fmt;
-      if (type==etAirline) user_fmt=reqInfo->user.sets.disp_airline;
-      if (type==etAirp) user_fmt=reqInfo->user.sets.disp_airp;
-      if (type==etCraft) user_fmt=reqInfo->user.sets.disp_craft;
-      if (type==etSuffix) user_fmt=reqInfo->user.sets.disp_suffix;
-      if (type==etAirline ||
-          type==etAirp ||
-          type==etCraft)
-      {
-        switch(user_fmt)
-        {
-          case ustCodeNative:     fmt2=0; break;
-          case ustCodeIATA:       fmt2=1; break;
-          case ustCodeNativeICAO: fmt2=2; break;
-          case ustCodeIATAICAO:   fmt2=3; break;
-          case ustCodeMixed:      fmt2=fmt; break;
-          default: ;
-        };
-      }
-      else
-      {
-        switch(user_fmt)
-        {
-          case ustEncNative: fmt2=0; break;
-          case ustEncLatin:  fmt2=1; break;
-          case ustEncMixed:  fmt2=fmt; break;
-          default: ;
-        };
-      };
-    };
-  };
-
-  return ElemIdToElem(type,id,fmt2,with_deleted);
-};
-
-string ElemToElemId(TElemType type, string code, int &fmt, bool with_deleted)
-{
-  string id;
-  fmt=-1;
-
-  if (code.empty()) return id;
-
-  char* table_name=NULL;
-  switch(type)
-  {
-    case etCountry:
-      table_name="countries";
-      break;
-    case etCity:
-      table_name="cities";
-      break;
-    case etAirline:
-      table_name="airlines";
-      break;
-    case etAirp:
-      table_name="airps";
-      break;
-    case etCraft:
-      table_name="crafts";
-      break;
-    case etClass:
-      table_name="classes";
-      break;
-    case etSubcls:
-      table_name="subcls";
-      break;
-    case etPersType:
-      table_name="pers_types";
-      break;
-    case etGenderType:
-      table_name="gender_types";
-      break;
-    case etPaxDocType:
-      table_name="pax_doc_types";
-      break;
-    case etPayType:
-      table_name="pay_types";
-      break;
-    case etCurrency:
-      table_name="currency";
-      break;
-    default: ;
-  };
-
-  if (table_name!=NULL)
-  {
-    //это коды
-    TBaseTable& BaseTable=base_tables.get(table_name);
-    try
-    {
-      TCodeBaseTable& CodeBaseTable=dynamic_cast<TCodeBaseTable&>(BaseTable);
-      //это code/code_lat
-      try
-      {
-        id=((TCodeBaseTableRow&)CodeBaseTable.get_row("code",code,with_deleted)).code;
-        fmt=0;
-        return id;
-      }
-      catch (EBaseTableError) {};
-      try
-      {
-        id=((TCodeBaseTableRow&)CodeBaseTable.get_row("code_lat",code,with_deleted)).code;
-        fmt=1;
-        return id;
-      }
-      catch (EBaseTableError) {};
-    }
-    catch (bad_cast) {};
-
-    try
-    {
-      TICAOBaseTable& ICAOBaseTable=dynamic_cast<TICAOBaseTable&>(BaseTable);
-      //это code_icao,code_icao_lat
-      try
-      {
-        id=((TICAOBaseTableRow&)ICAOBaseTable.get_row("code_icao",code,with_deleted)).code;
-        fmt=2;
-        return id;
-      }
-      catch (EBaseTableError) {};
-      try
-      {
-        id=((TICAOBaseTableRow&)ICAOBaseTable.get_row("code_icao_lat",code,with_deleted)).code;
-        fmt=3;
-        return id;
-      }
-      catch (EBaseTableError) {};
-    }
-    catch (bad_cast) {};
-
-    try
-    {
-      TCountries& Countries=dynamic_cast<TCountries&>(BaseTable);
-      //это code_iso
-      try
-      {
-        id=((TCountriesRow&)Countries.get_row("code_iso",code,with_deleted)).code;
-        fmt=4;
-        return id;
-      }
-      catch (EBaseTableError) {};
-    }
-    catch (bad_cast) {};
-  }
-  else
-  {
-    //это просто данные
-    switch(type)
-    {
-      case etSuffix:
-        if (code.size()==1)
-        {
-          char *p;
-          p=strchr(rus_suffix,*code.c_str());
-          if (p!=NULL)
-          {
-            id=*p;
-            fmt=0;
-            return id;
-          };
-          p=strchr(lat_suffix,*code.c_str());
-          if (p!=NULL)
-          {
-            id=rus_suffix[p-lat_suffix];
-            fmt=1;
-            return id;
-          };
-        };
-        break;
-      default: ;
-    };
-  };
-  return id;
-};
-
-string ElemIdToElem(TElemType type, int id, int fmt, bool with_deleted)
-{
-    if(!(fmt == 0 || fmt == 1))
-        throw Exception("ElemIdToElem: wrong fmt %d (must be 0 or 1)", fmt);
-    string table_name;
-    switch(type)
-    {
-        case etClsGrp:
-            table_name = "cls_grp";
-            break;
-        default:
-            throw Exception("ElemIdToElem: unsupported TElemType %d", type);
-    }
-    TQuery Qry(&OraSession);
-    string SQLText =
-        "select code, code_lat, pr_del from " + table_name + " where "
-        "   id = :id and "
-        "   decode(:with_deleted, 1, 1, pr_del) = decode(:with_deleted, 1, 1, 0) ";
-    Qry.SQLText = SQLText;
-    Qry.CreateVariable("id", otInteger, id);
-    Qry.CreateVariable("with_deleted", otInteger, with_deleted);
-    Qry.Execute();
-    if(Qry.Eof)
-        throw Exception("ElemIdToElem: elem not found for id %d", id);
-    string code = Qry.FieldAsString("code");
-    string code_lat = Qry.FieldAsString("code_lat");
-    string result;
-    if(fmt == 0)
-        result = code;
-    else if(fmt == 1)
-        result = code_lat;
-    return result;
-}
-
-string ElemIdToElem(TElemType type, string id, int fmt, int only_lat, bool with_deleted)
-{
-    if(only_lat) {
-        if(fmt == 0) fmt = 1;
-        if(fmt == 2) fmt = 3;
-    }
-    return ElemIdToElem(type, id, fmt, with_deleted);
-}
-
-string ElemIdToElem(TElemType type, string id, int fmt, bool with_deleted)
-{
-	string code;
-  code=id;
-
-  if (id.empty()||fmt==0) return code;
-
-  char* table_name=NULL;
-  switch(type)
-  {
-    case etCountry:
-      table_name="countries";
-      break;
-    case etCity:
-      table_name="cities";
-      break;
-    case etAirline:
-      table_name="airlines";
-      break;
-    case etAirp:
-      table_name="airps";
-      break;
-    case etCraft:
-      table_name="crafts";
-      break;
-    case etClass:
-      table_name="classes";
-      break;
-    case etSubcls:
-      table_name="subcls";
-      break;
-    case etPersType:
-      table_name="pers_types";
-      break;
-    case etGenderType:
-      table_name="gender_types";
-      break;
-    case etPaxDocType:
-      table_name="pax_doc_types";
-      break;
-    case etPayType:
-      table_name="pay_types";
-      break;
-    case etCurrency:
-      table_name="currency";
-      break;
-    default: ;
-  };
-
-  if (table_name!=NULL)
-  {
-    //это коды
-    try
-    {
-      TBaseTableRow& BaseTableRow=base_tables.get(table_name).get_row("code",id,with_deleted);
-
-      try
-      {
-        TCodeBaseTableRow& row=dynamic_cast<TCodeBaseTableRow&>(BaseTableRow);
-        if (fmt==0)
-        {
-          if (!row.code.empty()) code=row.code;
-          return code;
-        };
-        if (fmt==1)
-        {
-          if (!row.code_lat.empty()) code=row.code_lat;
-          return code;
-        };
-
-      }
-      catch (bad_cast) {};
-      try
-      {
-        TICAOBaseTableRow& row=dynamic_cast<TICAOBaseTableRow&>(BaseTableRow);
-        if (fmt==2)
-        {
-          if (!row.code_icao.empty()) code=row.code_icao;
-          return code;
-        };
-        if (fmt==3)
-        {
-          if (!row.code_icao_lat.empty()) code=row.code_icao_lat;
-          return code;
-        };
-
-      }
-      catch (bad_cast) {};
-      try
-      {
-        TCountriesRow& row=dynamic_cast<TCountriesRow&>(BaseTableRow);
-        if (fmt==4)
-        {
-          if (!row.code_iso.empty()) code=row.code_iso;
-          return code;
-        };
-      }
-      catch (bad_cast) {};
-    }
-    catch (EBaseTableError) {};
-  }
-  else
-  {
-    //это просто данные
-    switch(type)
-    {
-      case etSuffix:
-        if (id.size()==1)
-        {
-          char *p;
-          p=strchr(rus_suffix,*code.c_str());
-          if (p!=NULL)
-          {
-            if (fmt==0)
-            {
-              code=*p;
-              return code;
-            };
-            if (fmt==1)
-            {
-              code=lat_suffix[p-rus_suffix];
-              return code;
-            };
-          };
-        };
-        break;
-      default: ;
-    };
-  };
-  return code;
-};
-
 
 bool is_dst(TDateTime d, string region)
 {
-	if (region.empty()) throw Exception("Region not specified");
+	if (region.empty()) throw EXCEPTIONS::Exception("Region not specified");
 	ptime	utcd = DateTimeToBoost( d );
   tz_database &tz_db = get_tz_database();
   time_zone_ptr tz = tz_db.time_zone_from_region( region );
-  if (tz==NULL) throw Exception("Region '%s' not found",region.c_str());
+  if (tz==NULL) throw EXCEPTIONS::Exception("Region '%s' not found",region.c_str());
   local_date_time ld( utcd, tz ); /* определяем текущее время локальное */
   return ( tz->has_dst() && ld.is_dst() );
 }
@@ -1965,25 +1501,6 @@ string convert_pnr_addr(const string &value, bool pr_lat)
   string result = value;
   if (pr_lat)
     transform(result.begin(), result.end(), result.begin(), ToLatPnrAddr);
-  return result;
-
-};
-
-char ToLatSuffix(char c)
-{
-  if ((unsigned char)c>=0x80)
-  {
-    ByteReplace(&c,1,rus_suffix,lat_suffix);
-    if ((unsigned char)c>=0x80) c=0x00;
-  };
-  return c;
-};
-
-string convert_suffix(const string &value, bool pr_lat)
-{
-  string result = value;
-  if (pr_lat)
-    transform(result.begin(), result.end(), result.begin(), ToLatSuffix);
   return result;
 
 };
@@ -2095,15 +1612,43 @@ bool transliter_equal(const string &value1, const string &value2)
 
 string& EOracleError2UserException(string& msg)
 {
-  if (msg.substr( 0, 3 ) == "ORA")
+  //ProgTrace(TRACE5,"EOracleError2UserException: msg=%s",msg.c_str());
+  size_t p;
+  if (msg.substr( 0, 4 ) == "ORA-")
   {
-    size_t p = msg.find( ": " );
+    p = msg.find( ": " );
     if ( p != string::npos )
     {
+      //отрезаем ORA- первой строки
       msg.erase( 0, p+2 );
-      p = msg.find_first_of("\n\r");
-      if ( p != string::npos ) msg.erase( p );
     };
+  };
+  //ищем следующую строку, начинающуюся с ORA-
+  p=0;
+  while( (p = msg.find_first_of("\n\r",p)) != string::npos )
+  {
+    p++;
+    if (msg.substr( p, 4 ) == "ORA-")
+    {
+      msg.erase( p );
+      break;
+    };
+  };
+  
+  string msgXML=ConvertCodepage(msg,"CP866","UTF-8");
+  XMLDoc msgDoc(msgXML);
+  if (msgDoc.docPtr()!=NULL)
+  {
+    ProgTrace(TRACE5,"EOracleError2UserException: msg=%s",msg.c_str());
+    xml_decode_nodelist(msgDoc.docPtr()->children);
+    LexemaData lexemeData;
+    lexemeData.lexema_id=NodeAsString("/lexeme_data/id",msgDoc.docPtr());
+    xmlNodePtr node=NodeAsNode("/lexeme_data/params",msgDoc.docPtr())->children;
+    for(;node!=NULL;node=node->next)
+    {
+      lexemeData.lparams << LParam((const char*)node->name, NodeAsString(node));
+    };
+    msg=getLocaleText(lexemeData);
   };
   return msg;
 };

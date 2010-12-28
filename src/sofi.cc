@@ -25,7 +25,6 @@ using namespace BASIC;
 
 void createFileParamsSofi( int point_id, int receipt_id, string pult, const string &point_addr, map<string,string> &params )
 {
-	//!!! надо считать
 	TQuery Qry( &OraSession );
 	Qry.SQLText =
      "declare "
@@ -126,7 +125,8 @@ bool createSofiFile( int receipt_id, std::map<std::string,std::string> &inparams
 		form_type[ 0 ] = 'М';
   res << setw(3) << form_type << dlmt;
   //4 Номер бланка NUMBER(10)
-  res << trim(string(Qry.FieldAsString( "no" )).substr(0,10)) << dlmt;
+  string no=Qry.FieldAsString( "no" );
+  res << TrimString(no) << dlmt;
   //5 Расчетный код CHAR(3)
   res<<Qry.FieldAsString( "aircode" ) << dlmt;
 
@@ -137,21 +137,22 @@ bool createSofiFile( int receipt_id, std::map<std::string,std::string> &inparams
 
  // surname & name
  {
-     string pax_name = trim(string(Qry.FieldAsString( "pax_name" )));
+     string pax_name = Qry.FieldAsString( "pax_name" );
+     TrimString(pax_name);
      string surname;
      string::size_type pos = pax_name.find(" ");
      if(pos != string::npos) {
          surname = pax_name.substr(0, pos);
          pax_name = pax_name.substr(pos + 1);
      }
-     res<<trim(surname.substr(0, 50));
+     res<<TrimString(surname).substr(0, 50);
      res<<dlmt;
-     res<<trim(pax_name.substr(0, 50));
+     res<<TrimString(pax_name).substr(0, 50);
      res<<dlmt; //6
  }
 
- res<<trim(string(Qry.FieldAsString( "tickets" )).substr(0, 13));
- res<<dlmt;
+ string tickets=Qry.FieldAsString( "tickets" );
+ res << TrimString(tickets) << dlmt;
 
  TAirpsRow *row=(TAirpsRow*)&base_tables.get("airps").get_row("code",Qry.FieldAsString("airp_dep"));
  if ( row->city.empty() )
@@ -165,16 +166,17 @@ bool createSofiFile( int receipt_id, std::map<std::string,std::string> &inparams
  else
  	 res<<row->city; 	//???4
  res<<dlmt; //8
- res<<trim(string(Qry.FieldAsString( "airline" )));
+ res<<Qry.FieldAsString( "airline" );
  res<<dlmt; //9
- res<<trim(string(Qry.FieldAsString( "flt_no" )) + Qry.FieldAsString( "suffix" ));
+ res << setw(3) << setfill('0') << Qry.FieldAsInteger( "flt_no" )
+     << Qry.FieldAsString( "suffix" );
  res<<dlmt; //10
  val = AirpTZRegion( Qry.FieldAsString("airp_dep") );
  d = UTCToLocal( Qry.FieldAsDateTime( "scd_out" ), val );
  res<<DateTimeToStr( d, "dd.mm.yyyy");
  res<<dlmt; //11
  res << setprecision(2);
- res<<trim(IntToString(Qry.FieldAsInteger( "ex_weight" ))); //???9.3(2)
+ res<<Qry.FieldAsInteger( "ex_weight" );
  res<<dlmt; //12
 
  //короче, баклан
@@ -208,12 +210,12 @@ bool createSofiFile( int receipt_id, std::map<std::string,std::string> &inparams
  ostringstream buf;
  buf << std::fixed << setprecision(2) << pay_rate;
 
- res<<trim(buf.str().substr(0, 10)); //???10.3(2) "rate" - валюта тарифа, pay_rate - валюта оплаты
+ res<<buf.str(); //???10.3(2) "rate" - валюта тарифа, pay_rate - валюта оплаты
  res<<dlmt; //13
 
  buf.str("");
  buf<<pay_rate*Qry.FieldAsInteger( "ex_weight" ); //???12.3
- res<<trim(buf.str().substr(0, 12)); //???10.3(2) "rate" - валюта тарифа, pay_rate - валюта оплаты
+ res<<buf.str(); //???10.3(2) "rate" - валюта тарифа, pay_rate - валюта оплаты
  res<<dlmt<<setprecision(0);
  res<<Qry.FieldAsString( "pult" );
  res<<dlmt; //15

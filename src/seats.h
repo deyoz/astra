@@ -16,6 +16,23 @@ enum TSeatStep { sLeft, sRight, sUp, sDown };
 enum TWhere { sLeftRight, sUpDown, sEveryWhere };
 enum TSeatsType { stSeat, stReseat, stDropseat };
 
+/* алгоритм рассадки пассажиров
+	   sdUpDown_Row - сверху вниз в ряд
+	   sdUpDown_Line - сверху вниз в линию
+	   sdDownUp_Row - снизу вверх в ряд
+	   sdDownUp_Line - снизу вверх в линию
+*/
+enum TSeatAlgoTypes { sdUpDown_Line, sdDownUp_Line, sdUpDown_Row, sdDownUp_Row };
+
+struct TSeatAlgoParams {
+	 TSeatAlgoTypes SeatAlgoType;
+	 bool pr_canUseOneRow;
+	 TSeatAlgoParams() {
+	 	 SeatAlgoType = sdUpDown_Line;
+	 	 pr_canUseOneRow = false;
+	 }
+};
+
 class TCounters {
   private:
     int p_Count_3G;
@@ -37,6 +54,35 @@ class TCounters {
     void Add_p_Count( int Count, TSeatStep Step = sRight );
 };
 
+struct TDefaults {
+  ASTRA::TCompLayerType grp_status;
+  std::string pers_type;
+  std::string clname;
+  std::string placeName;
+  std::string wl_type;
+  int countPlace;
+  bool isSeat;
+  std::string ticket_no;
+  std::string document;
+  int bag_weight;
+  int bag_amount;
+  int excess;
+  std::string trip_from;
+  std::string pass_rem;
+  std::string comp_rem;
+  bool pr_down;
+  TDefaults() {
+    grp_status = ASTRA::cltCheckin;
+    pers_type = EncodePerson( ASTRA::adult );
+    clname = EncodeClass( ASTRA::Y );
+    countPlace = 1;
+    isSeat = true;
+    bag_weight = 0;
+    bag_amount = 0;
+    excess = 0;
+    pr_down = false;
+  };
+};
 
 struct TPassenger {
 	private:
@@ -104,7 +150,7 @@ struct TPassenger {
   void get_remarks( std::vector<std::string> &vrems );
   bool isRemark( std::string code );
   bool is_valid_seats( const std::vector<SALONS2::TPlace> &places );
-  void build( xmlNodePtr pNode );
+  void build( xmlNodePtr pNode, const TDefaults& def);
 };
 
 typedef std::vector<TPassenger> VPassengers;
@@ -194,14 +240,14 @@ bool isREM_SUBCLS( std::string rem );
 
 /* тут описаны будут доступные ф-ции */
 /* автоматическая пересадка пассажиров при изменении компоновки */
-void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &passengers, int SeatAlgo );
-void SeatsPassengers( SALONS2::TSalons *Salons, int SeatAlgo, TPassengers &passengers, bool FUse_BR=false );
+void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &passengers, TSeatAlgoParams ASeatAlgoParams );
+void SeatsPassengers( SALONS2::TSalons *Salons, TSeatAlgoParams ASeatAlgoParams, TPassengers &passengers, bool FUse_BR=false );
 void ChangeLayer( ASTRA::TCompLayerType layer_type, int point_id, int pax_id, int &tid,
                   std::string first_xname, std::string first_yname, TSeatsType seat_type, bool pr_lat_seat );
 void SaveTripSeatRanges( int point_id, ASTRA::TCompLayerType layer_type, std::vector<TSeatRange> &seats,
 	                       int pax_id, int point_dep, int point_arv );
 bool GetPassengersForWaitList( int point_id, TPassengers &p, bool pr_exists=false );
-int GetSeatAlgo(TQuery &Qry, std::string airline, int flt_no, std::string airp_dep);
+TSeatAlgoParams GetSeatAlgo(TQuery &Qry, std::string airline, int flt_no, std::string airp_dep);
 bool IsSubClsRem( const std::string &airline, const std::string &subclass, std::string &rem );
 extern TPassengers Passengers;
 } // end namespace SEATS2

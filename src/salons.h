@@ -69,9 +69,17 @@ struct TPlaceLayer {
   }
 };
 
+struct TPlaceWebTariff {
+	std::string color;
+	double value;
+	std::string currency_id;
+	TPlaceWebTariff() {
+		value = 0.0;
+	};
+};
+
 class TPlace {
   public:
-    bool selected;
     bool visible;
     int x, y, num;
     std::string elem_type;
@@ -84,6 +92,7 @@ class TPlace {
     bool passSel;
     std::vector<TRem> rems;
     std::vector<TPlaceLayer> layers;
+    TPlaceWebTariff WebTariff;
     bool isPax;
     TPlace() {
       x = -1;
@@ -99,7 +108,6 @@ class TPlace {
       isPax = false;
     }
     void Assign( TPlace &pl ) {
-      selected = pl.selected;
       visible = pl.visible;
       x = pl.x;
       y = pl.y;
@@ -115,6 +123,7 @@ class TPlace {
       yname = pl.yname;
       layers = pl.layers;
       rems = pl.rems;
+      WebTariff = pl.WebTariff;
       isPax = pl.isPax;
     }
     bool isLayer( ASTRA::TCompLayerType layer ) {
@@ -252,8 +261,13 @@ class TSalons {
     	else
     		return 10000;
     };
-
+    bool isEditableLayer( ASTRA::TCompLayerType layer_type ) {
+    	if ( layers_priority.find( layer_type ) == layers_priority.end() )
+    		return false;
+    	return layers_priority[ layer_type ].editable;
+    };
     bool getLatSeat() { return pr_lat_seat; };
+    void BuildLayersInfo( xmlNodePtr salonsNode );
     void Build( xmlNodePtr salonsNode );
     void Read( );
     void Write( );
@@ -279,6 +293,7 @@ class TSalons {
   void getSalonChanges( TSalons &OldSalons, std::vector<TSalonSeat> &seats );
   bool getSalonChanges( TSalons &OldSalons, TSalons &NewSalon, std::vector<TSalonSeat> &seats );
   void BuildSalonChanges( xmlNodePtr dataNode, const std::vector<TSalonSeat> &seats );
+  bool salonChangesToText( TSalons &OldSalons, TSalons &NewSalons, std::vector<std::string> &referStrs, bool pr_set_base, int line_len );
 } // END namespace SALONS2
 
 #endif /*_SALONS2_H_*/

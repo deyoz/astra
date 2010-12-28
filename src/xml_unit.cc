@@ -13,9 +13,9 @@
 using namespace std;
 using namespace BASIC;
 
-char* NodeContent(xmlNodePtr node)
+const char* NodeContent(xmlNodePtr node)
 {
-  char *res=NULL;
+    const char *res=NULL;
   if (node!=NULL)
   {
     if (node->type==XML_TEXT_NODE) res=(char*)node->content;
@@ -72,7 +72,7 @@ xmlNodePtr GetNode(const char* expr, xmlNodePtr cur)
     return find_node(expr,cur->doc,cur);
 };
 
-void GetNodes(char* expr, xmlDocPtr data, vector<xmlNodePtr>& nodes, xmlNodePtr cur)
+void GetNodes(const char* expr, xmlDocPtr data, vector<xmlNodePtr>& nodes, xmlNodePtr cur)
 {
   nodes.clear();
   xmlXPathContextPtr ctx=NULL;
@@ -96,7 +96,7 @@ void GetNodes(char* expr, xmlDocPtr data, vector<xmlNodePtr>& nodes, xmlNodePtr 
   return;
 };
 
-void GetNodes(char* expr, vector<xmlNodePtr>& nodes, xmlNodePtr cur)
+void GetNodes(const char* expr, vector<xmlNodePtr>& nodes, xmlNodePtr cur)
 {
   if (cur==NULL)
     GetNodes(expr,NULL,nodes,cur);
@@ -127,7 +127,7 @@ bool NodeIsNULL(xmlNodePtr node)
   return strcmp(NodeContent(node),"")==0;
 };
 
-bool NodeIsNULL(char* expr, xmlDocPtr data, xmlNodePtr cur)
+bool NodeIsNULL(const char* expr, xmlDocPtr data, xmlNodePtr cur)
 {
   xmlNodePtr node;
   node=find_node(expr,data,cur);
@@ -136,7 +136,7 @@ bool NodeIsNULL(char* expr, xmlDocPtr data, xmlNodePtr cur)
   return strcmp(NodeContent(node),"")==0;
 };
 
-bool NodeIsNULL(char* expr, xmlNodePtr cur)
+bool NodeIsNULL(const char* expr, xmlNodePtr cur)
 {
   if (cur==NULL)
     return NodeIsNULL(expr,NULL,cur);
@@ -144,13 +144,13 @@ bool NodeIsNULL(char* expr, xmlNodePtr cur)
     return NodeIsNULL(expr,cur->doc,cur);
 };
 
-char* NodeAsString(xmlNodePtr node)
+const char* NodeAsString(xmlNodePtr node)
 {
   if (node==NULL) throw EXMLError("Node not defined (NULL)");
   return NodeContent(node);
 };
 
-char* NodeAsString(const char* expr, xmlDocPtr data, xmlNodePtr cur)
+const char* NodeAsString(const char* expr, xmlDocPtr data, xmlNodePtr cur)
 {
   xmlNodePtr node;
   node=find_node(expr,data,cur);
@@ -159,7 +159,7 @@ char* NodeAsString(const char* expr, xmlDocPtr data, xmlNodePtr cur)
   return NodeContent(node);
 };
 
-char* NodeAsString(const char* expr, xmlNodePtr cur, char *nvl)
+const char* NodeAsString(const char* expr, xmlNodePtr cur, const char *nvl)
 {
     if(xmlNodePtr node = GetNode(expr, cur))
         return NodeAsString(node);
@@ -167,7 +167,7 @@ char* NodeAsString(const char* expr, xmlNodePtr cur, char *nvl)
         return nvl;
 };
 
-int NodeAsInteger(char* expr, xmlNodePtr cur, int nvl)
+int NodeAsInteger(const char* expr, xmlNodePtr cur, int nvl)
 {
     if(xmlNodePtr node = GetNode(expr, cur))
         return NodeAsInteger(node);
@@ -175,7 +175,7 @@ int NodeAsInteger(char* expr, xmlNodePtr cur, int nvl)
         return nvl;
 };
 
-double NodeAsFloat(char* expr, xmlNodePtr cur, double nvl)
+double NodeAsFloat(const char* expr, xmlNodePtr cur, double nvl)
 {
     if(xmlNodePtr node = GetNode(expr, cur))
         return NodeAsFloat(node);
@@ -183,7 +183,7 @@ double NodeAsFloat(char* expr, xmlNodePtr cur, double nvl)
         return nvl;
 };
 
-TDateTime NodeAsDateTime(char* expr, xmlNodePtr cur, TDateTime nvl)
+TDateTime NodeAsDateTime(const char* expr, xmlNodePtr cur, TDateTime nvl)
 {
     if(xmlNodePtr node = GetNode(expr, cur))
         return NodeAsDateTime(node);
@@ -191,7 +191,7 @@ TDateTime NodeAsDateTime(char* expr, xmlNodePtr cur, TDateTime nvl)
         return nvl;
 };
 
-char* NodeAsString(const char* expr, xmlNodePtr cur)
+const char* NodeAsString(const char* expr, xmlNodePtr cur)
 {
   if (cur==NULL)
     return NodeAsString(expr,NULL,cur);
@@ -208,22 +208,7 @@ int NodeAsInteger(xmlNodePtr node)
   return Value;
 };
 
-int PropAsInteger(char* expr, xmlNodePtr cur)
-{
-    int Result;
-    xmlChar *val = xmlGetProp(cur, BAD_CAST expr);
-    try {
-        if ( StrToInt( (char *)val, Result ) == EOF )
-            throw EXMLError(string("Cannot get property '") + expr + "' as Integer");
-        xmlFree(val);
-        return Result;
-    } catch(...) {
-        xmlFree(val);
-        throw;
-    }
-}
-
-int NodeAsInteger(char* expr, xmlDocPtr data, xmlNodePtr cur)
+int NodeAsInteger(const char* expr, xmlDocPtr data, xmlNodePtr cur)
 {
   int Value;
   xmlNodePtr node;
@@ -235,7 +220,7 @@ int NodeAsInteger(char* expr, xmlDocPtr data, xmlNodePtr cur)
   return Value;
 };
 
-int NodeAsInteger(char* expr, xmlNodePtr cur)
+int NodeAsInteger(const char* expr, xmlNodePtr cur)
 {
   if (cur==NULL)
     return NodeAsInteger(expr,NULL,cur);
@@ -252,7 +237,7 @@ double NodeAsFloat(xmlNodePtr node)
   return Value;
 };
 
-double NodeAsFloat(char* expr, xmlDocPtr data, xmlNodePtr cur)
+double NodeAsFloat(const char* expr, xmlDocPtr data, xmlNodePtr cur)
 {
   double Value;
   xmlNodePtr node;
@@ -264,7 +249,7 @@ double NodeAsFloat(char* expr, xmlDocPtr data, xmlNodePtr cur)
   return Value;
 };
 
-double NodeAsFloat(char* expr, xmlNodePtr cur)
+double NodeAsFloat(const char* expr, xmlNodePtr cur)
 {
   if (cur==NULL)
     return NodeAsFloat(expr,NULL,cur);
@@ -277,7 +262,7 @@ TDateTime NodeAsDateTime(xmlNodePtr node)
     return NodeAsDateTime(node, (char*)ServerFormatDateTimeAsString);
 }
 
-TDateTime NodeAsDateTime(xmlNodePtr node, char* format)
+TDateTime NodeAsDateTime(xmlNodePtr node, const char* format)
 {
   TDateTime Value;
   if (node==NULL) throw EXMLError("Node not defined (NULL)");
@@ -286,7 +271,7 @@ TDateTime NodeAsDateTime(xmlNodePtr node, char* format)
   return Value;
 };
 
-TDateTime NodeAsDateTime(char* expr, xmlDocPtr data, char* format, xmlNodePtr cur)
+TDateTime NodeAsDateTime(const char* expr, xmlDocPtr data, const char* format, xmlNodePtr cur)
 {
   TDateTime Value;
   xmlNodePtr node;
@@ -299,7 +284,7 @@ ProgTrace( TRACE5, "expr=%s, format=%s, nodecont=%s", expr, format, NodeContent(
   return Value;
 };
 
-TDateTime NodeAsDateTime(char* expr, char* format, xmlNodePtr cur)
+TDateTime NodeAsDateTime(const char* expr, const char* format, xmlNodePtr cur)
 {
   if (cur==NULL)
     return NodeAsDateTime(expr,NULL,format,cur);
@@ -307,12 +292,12 @@ TDateTime NodeAsDateTime(char* expr, char* format, xmlNodePtr cur)
     return NodeAsDateTime(expr,cur->doc,format,cur);
 };
 
-TDateTime NodeAsDateTime(char* expr, xmlNodePtr cur)
+TDateTime NodeAsDateTime(const char* expr, xmlNodePtr cur)
 {
   return NodeAsDateTime( expr, (char*)ServerFormatDateTimeAsString, cur );
 }
 
-xmlNodePtr GetNodeFast(char *expr, xmlNodePtr &node)
+xmlNodePtr GetNodeFast(const char *expr, xmlNodePtr &node)
 {
   xmlNodePtr node2=node;
   while (node2!=NULL)
@@ -337,7 +322,7 @@ xmlNodePtr GetNodeFast(char *expr, xmlNodePtr &node)
   return NULL;
 }
 
-xmlNodePtr NodeAsNodeFast(char *expr, xmlNodePtr &node)
+xmlNodePtr NodeAsNodeFast(const char *expr, xmlNodePtr &node)
 {
   xmlNodePtr node2=GetNodeFast(expr,node);
   if (node2==NULL)
@@ -345,37 +330,37 @@ xmlNodePtr NodeAsNodeFast(char *expr, xmlNodePtr &node)
   return node2;
 }
 
-bool NodeIsNULLFast(char *expr, xmlNodePtr &node)
+bool NodeIsNULLFast(const char *expr, xmlNodePtr &node)
 {
   return NodeIsNULL(NodeAsNodeFast(expr,node));
 }
 
-char* NodeAsStringFast(char *expr, xmlNodePtr &node)
+const char* NodeAsStringFast(const char *expr, xmlNodePtr &node)
 {
   return NodeAsString(NodeAsNodeFast(expr,node));
 }
 
-int NodeAsIntegerFast(char *expr, xmlNodePtr &node)
+int NodeAsIntegerFast(const char *expr, xmlNodePtr &node)
 {
   return NodeAsInteger(NodeAsNodeFast(expr,node));
 }
 
-double NodeAsFloatFast(char *expr, xmlNodePtr &node)
+double NodeAsFloatFast(const char *expr, xmlNodePtr &node)
 {
   return NodeAsFloat(NodeAsNodeFast(expr,node));
 }
 
-BASIC::TDateTime NodeAsDateTimeFast(char *expr, char *format, xmlNodePtr &node)
+BASIC::TDateTime NodeAsDateTimeFast(const char *expr, const char *format, xmlNodePtr &node)
 {
   return NodeAsDateTime(NodeAsNodeFast(expr,node),format);
 }
 
-BASIC::TDateTime NodeAsDateTimeFast(char *expr, xmlNodePtr &node)
+BASIC::TDateTime NodeAsDateTimeFast(const char *expr, xmlNodePtr &node)
 {
   return NodeAsDateTime(NodeAsNodeFast(expr,node),(char*)ServerFormatDateTimeAsString);
 }
 
-bool NodeIsNULLFast(char *expr, xmlNodePtr &node, bool nvl)
+bool NodeIsNULLFast(const char *expr, xmlNodePtr &node, bool nvl)
 {
     if(GetNodeFast(expr, node) == NULL)
         return nvl;
@@ -383,7 +368,7 @@ bool NodeIsNULLFast(char *expr, xmlNodePtr &node, bool nvl)
         return NodeIsNULL(NodeAsNodeFast(expr,node));
 }
 
-char* NodeAsStringFast(char *expr, xmlNodePtr &node, char* nvl)
+const char* NodeAsStringFast(const char *expr, xmlNodePtr &node, const char* nvl)
 {
     if(GetNodeFast(expr, node) == NULL)
         return nvl;
@@ -391,7 +376,7 @@ char* NodeAsStringFast(char *expr, xmlNodePtr &node, char* nvl)
         return NodeAsString(NodeAsNodeFast(expr,node));
 }
 
-int NodeAsIntegerFast(char *expr, xmlNodePtr &node, int nvl)
+int NodeAsIntegerFast(const char *expr, xmlNodePtr &node, int nvl)
 {
     if(GetNodeFast(expr, node) == NULL)
         return nvl;
@@ -399,7 +384,7 @@ int NodeAsIntegerFast(char *expr, xmlNodePtr &node, int nvl)
         return NodeAsInteger(NodeAsNodeFast(expr,node));
 }
 
-double NodeAsFloatFast(char *expr, xmlNodePtr &node, double nvl)
+double NodeAsFloatFast(const char *expr, xmlNodePtr &node, double nvl)
 {
     if(GetNodeFast(expr, node) == NULL)
         return nvl;
@@ -407,7 +392,7 @@ double NodeAsFloatFast(char *expr, xmlNodePtr &node, double nvl)
         return NodeAsFloat(NodeAsNodeFast(expr,node));
 }
 
-TDateTime NodeAsDateTimeFast(char *expr, xmlNodePtr &node, TDateTime nvl)
+TDateTime NodeAsDateTimeFast(const char *expr, xmlNodePtr &node, TDateTime nvl)
 {
     if(GetNodeFast(expr, node) == NULL)
         return nvl;

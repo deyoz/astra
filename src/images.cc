@@ -3,7 +3,9 @@
 #include "exceptions.h"
 #include "xml_unit.h"
 #include "oralib.h"
+#include "astra_elems.h"
 #include "astra_utils.h"
+#include "base_tables.h"
 #include "stl_utils.h"
 #include "term_version.h"
 #include "serverlib/str_utils.h"
@@ -31,6 +33,7 @@ void ImagesInterface::GetImages( xmlNodePtr reqNode, xmlNodePtr resNode )
 {
   //TReqInfo::Instance()->user.check_access( amRead );
   ProgTrace( TRACE5, "ImagesInterface::GetImages" );
+
   xmlNodePtr dataNode = GetNode( "data", resNode );
   if ( dataNode == NULL )
     dataNode = NewTextChild( resNode, "data" );
@@ -78,13 +81,14 @@ void ImagesInterface::GetImages( xmlNodePtr reqNode, xmlNodePtr resNode )
 
    /* пересылаем все данные */
    Qry->Clear();
-   Qry->SQLText = "SELECT code, name, pr_seat, image FROM comp_elem_types WHERE pr_del IS NULL OR pr_del = 0";
+   Qry->SQLText =
+     "SELECT code, pr_seat, image FROM comp_elem_types WHERE pr_del IS NULL OR pr_del = 0";
    Qry->Execute();
    int len = 0;
    while ( !Qry->Eof ) {
      xmlNodePtr imageNode = NewTextChild( imagesNode, "image" );
      NewTextChild( imageNode, "code", Qry->FieldAsString( "code" ) );
-     NewTextChild( imageNode, "name", Qry->FieldAsString( "name" ) );
+     NewTextChild( imageNode, "name", ElemIdToNameLong(etCompElemType,Qry->FieldAsString( "code" )) );
      NewTextChild( imageNode, "pr_seat", Qry->FieldAsInteger( "pr_seat" ) );
      if ( sendImages ) {
        if ( len != Qry->GetSizeLongField( "image" ) ) {
@@ -100,7 +104,7 @@ void ImagesInterface::GetImages( xmlNodePtr reqNode, xmlNodePtr resNode )
        string res;
        TReqInfo *reqInfo = TReqInfo::Instance();
 	     if (!reqInfo->desk.compatible(NEW_TERM_VERSION))
-         res = b64_encode( (const char*)data, len );
+         res = StrUtils::b64_encode( (const char*)data, len );
        else
        	 StringToHex( string((char*)data, len), res );
        NewTextChild( imageNode, "image", res.c_str() );
@@ -152,7 +156,7 @@ void ImagesInterface::SetImages(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
        Qry->SetVariable( "pr_seat", NodeAsString( "pr_seat", node ) );
        StrDec = NodeAsString( "image", node );
        if (!reqInfo->desk.compatible(NEW_TERM_VERSION))
-         StrDec = b64_decode( StrDec.c_str(), StrDec.length() );
+         StrDec = StrUtils::b64_decode( StrDec.c_str(), StrDec.length() );
        else
        	 HexToString( string(StrDec), StrDec );
        Qry->CreateLongVariable( "image", otLongRaw, (void*)StrDec.c_str(), StrDec.length() );
@@ -166,18 +170,13 @@ void ImagesInterface::SetImages(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     throw;
   }
   OraSession.DeleteQuery( *Qry );
-  ASTRA::showMessage( "Данные успешно сохранены" );
+  AstraLocale::showMessage( "MSG.DATA_SAVED" );
 };
 
 void ImagesInterface::GetImages(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   GetImages( reqNode, resNode );
 };
-
-void ImagesInterface::GetDrawSalonData(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-	GetDrawSalonProp( reqNode, resNode );
-}
 
 void GetDrawSalonProp( xmlNodePtr reqNode, xmlNodePtr resNode )
 {
@@ -199,6 +198,54 @@ void GetDrawSalonProp( xmlNodePtr reqNode, xmlNodePtr resNode )
   }
 }
 
+void GetDrawWebTariff( xmlNodePtr reqNode, xmlNodePtr resNode )
+{
+	TReqInfo *reqInfo = TReqInfo::Instance();
+  if ( find( reqInfo->user.access.rights.begin(), reqInfo->user.access.rights.end(), 431) == reqInfo->user.access.rights.end() )
+  	return;
+
+	xmlNodePtr tariffsNode = GetNode( "data", resNode );
+	if ( !tariffsNode ) {
+		tariffsNode = NewTextChild( resNode, "data" );
+	}
+	tariffsNode = GetNode( "data/images", resNode );
+	if ( !tariffsNode ) {
+		tariffsNode = NewTextChild( tariffsNode, "images" );
+	}
+	tariffsNode = NewTextChild( tariffsNode, "web_tariff_property" );
+	xmlNodePtr n = NewTextChild( tariffsNode, "tarif" );
+	SetProp( n, "color", "$00CECF00" );
+	SetProp( n, "figure", "rurect" );
+  n = NewTextChild( tariffsNode, "tarif" );
+	SetProp( n, "color", "$004646FF" );
+	SetProp( n, "figure", "rurect" );
+  n = NewTextChild( tariffsNode, "tarif" );
+	SetProp( n, "color", "$000DCAA4" );
+	SetProp( n, "figure", "rurect" );
+  n = NewTextChild( tariffsNode, "tarif" );
+	SetProp( n, "color", "$00FF64FF" );
+	SetProp( n, "figure", "rurect" );
+  n = NewTextChild( tariffsNode, "tarif" );
+	SetProp( n, "color", "$00000000" );
+	SetProp( n, "figure", "rurect" );
+  n = NewTextChild( tariffsNode, "tarif" );
+	SetProp( n, "color", "$001C66FF" );
+	SetProp( n, "figure", "rurect" );
+  n = NewTextChild( tariffsNode, "tarif" );
+	SetProp( n, "color", "$00FD2D71" );
+	SetProp( n, "figure", "rurect" );
+}
+
+void GetDataForDrawSalon( xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+	GetDrawSalonProp( reqNode, resNode );
+	GetDrawWebTariff( reqNode, resNode );
+}
+
+void ImagesInterface::GetDrawSalonData(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+	GetDataForDrawSalon( reqNode, resNode );
+}
 
 void ImagesInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
