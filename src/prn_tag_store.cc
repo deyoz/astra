@@ -997,12 +997,16 @@ string TPrnTagStore::FLT_NO(TFieldParams fp)
 
 string TPrnTagStore::FQT(TFieldParams fp)
 {
-    string result;
-    if(not fqtInfo.airline.empty()) {
-        result += tag_lang.ElemIdToTagElem(etAirline, fqtInfo.airline, efmtCodeNative) + " " + fqtInfo.no;
-        if(not fqtInfo.extra.empty())
-            result += " " + transliter(fqtInfo.extra, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
-    }
+    string airline = tag_lang.ElemIdToTagElem(etAirline, fqtInfo.airline, efmtCodeNative);
+    string extra = transliter(fqtInfo.extra, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
+    string result = (airline + " " + fqtInfo.no + string(" ", extra.empty() ? 0 : 1) + extra);
+    size_t min_width = airline.size() + fqtInfo.no.size() + 1;
+    if(fp.len == 0)
+        ;
+    else if(min_width > fp.len)
+        result = fqtInfo.no;
+    else
+        result = result.substr(0, fp.len > min_width ? fp.len : fp.len == 0 ? string::npos : min_width);
     return result;
 }
 
