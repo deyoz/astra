@@ -1006,19 +1006,28 @@ string TPrnTagStore::FQT(TFieldParams fp)
     return result;
 }
 
+string cut_full_place(string city, string airp, size_t len)
+{
+    return
+        (city == airp ? city : city + " " + airp)
+        .substr(0, len > 17 ? len : len == 0 ? string::npos : 17);
+}
+
 string TPrnTagStore::FULL_PLACE_ARV(TFieldParams fp)
 {
-    return CITY_ARV_NAME(fp) + " " + AIRP_ARV_NAME(fp);
+    return cut_full_place(CITY_ARV_NAME(fp), AIRP_ARV_NAME(fp), fp.len);
 }
 
 string TPrnTagStore::FULL_PLACE_DEP(TFieldParams fp)
 {
-    return CITY_DEP_NAME(fp) + " " + AIRP_DEP_NAME(fp);
+    return cut_full_place(CITY_DEP_NAME(fp), AIRP_DEP_NAME(fp), fp.len);
 }
 
 string TPrnTagStore::FULLNAME(TFieldParams fp)
 {
-    return transliter(paxInfo.surname + " " + paxInfo.name, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
+    return
+        transliter(paxInfo.name.empty() ? paxInfo.surname : paxInfo.surname + " " + paxInfo.name, 1, tag_lang.GetLang() != AstraLocale::LANG_RU)
+        .substr(0, fp.len > 10 ? fp.len : fp.len == 0 ? string::npos : 10);
 }
 
 string TPrnTagStore::GATE(TFieldParams fp)
@@ -1079,7 +1088,7 @@ string cut_long_place(string city1, string airp1, string city2, string airp2, in
                 result = part1 + part2;
             else {
                 result = cut_place(airp1, city1, diff - 1) + "/" + part2;
-                if(result.size() > len)
+                if(result.size() > (size_t)len)
                     result = airp1;
             }
         }
