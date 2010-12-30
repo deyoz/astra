@@ -1303,7 +1303,7 @@ void DumpRoute(TBTRoute &route)
         ProgTrace(TRACE5, "airline: %s", iv->airline.c_str());
         ProgTrace(TRACE5, "flt_no: %d", iv->flt_no);
         ProgTrace(TRACE5, "suffix: %s", iv->suffix.c_str());
-        ProgTrace(TRACE5, "airp_arv: %s", iv->airp_dep.c_str());
+        ProgTrace(TRACE5, "airp_dep: %s", iv->airp_dep.c_str());
         ProgTrace(TRACE5, "airp_arv: %s", iv->airp_arv.c_str());
         ProgTrace(TRACE5, "scd: %s", DateTimeToStr(iv->scd, ServerFormatDateTimeAsString).c_str());
         ProgTrace(TRACE5, "-----------RouteItem-----------");
