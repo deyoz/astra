@@ -152,11 +152,19 @@ class TPrnTagStore {
         TPrnTestTags prn_test_tags;
 
         struct TTagListItem {
+            size_t length; // порог замены вопросами
+            // Если длина тега меньше указанного порога и данные не влезли, заменяем вопросами,
+            // иначе обрезаем до длины тега. Если порог = 0 и длина тега меньше длины данных, заменяем вопросами
             TTagFunct tag_funct;
             int info_type;
             bool processed;
             boost::any TagInfo; // данные из set_tag
-            TTagListItem(TTagFunct funct, int ainfo_type = 0): tag_funct(funct), info_type(ainfo_type), processed(false) {};
+            TTagListItem(size_t alength, TTagFunct funct, int ainfo_type = 0):
+                length(alength),
+                tag_funct(funct),
+                info_type(ainfo_type),
+                processed(false)
+            {};
             TTagListItem(): tag_funct(NULL) {};
         };
 
@@ -315,8 +323,8 @@ class TPrnTagStore {
         std::string AIRP_ARV_NAME3(TFieldParams fp);
         std::string PNR(TFieldParams fp);
 
-        std::string get_test_field(std::string name, int len, std::string date_format);
-        std::string get_real_field(std::string name, int len, std::string date_format);
+        std::string get_test_field(std::string name, size_t len, std::string date_format);
+        std::string get_real_field(std::string name, size_t len, std::string date_format);
     public:
         TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tagsNode, TBTRoute *aroute = NULL);
         TPrnTagStore(bool pr_lat);
