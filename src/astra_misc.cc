@@ -171,7 +171,7 @@ string GetPnrAddr(int pnr_id, vector<TPnrAddrItem> &pnrs, string &airline)
 string GetPaxPnrAddr(int pax_id, vector<TPnrAddrItem> &pnrs)
 {
     string airline;
-    GetPaxPnrAddr(pax_id, pnrs, airline);
+    return GetPaxPnrAddr(pax_id, pnrs, airline);
 }
 
 string GetPaxPnrAddr(int pax_id, vector<TPnrAddrItem> &pnrs, string &airline)
