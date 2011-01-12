@@ -93,6 +93,37 @@ struct TBTRouteItem {
 
 typedef std::vector<TBTRouteItem> TBTRoute;
 
+struct TBagPayType
+{
+  std::string pay_type;
+  double pay_rate_sum;
+  std::string extra;
+};
+
+struct TBagReceipt
+{
+  bool pr_lat;
+  std::string form_type;
+  double no;
+  std::string pax_name,pax_doc;
+  int service_type,bag_type;
+  std::string bag_name;
+  std::string tickets,prev_no;
+  std::string airline,aircode,airp_dep,airp_arv,suffix;
+  int flt_no;
+  int ex_amount,ex_weight;
+  double value_tax,rate,exch_pay_rate;
+  int exch_rate;
+  std::string rate_cur,pay_rate_cur;
+  std::vector<TBagPayType> pay_types;
+  std::string remarks;
+  BASIC::TDateTime issue_date,annul_date;
+  std::string issue_desk,annul_desk,issue_place;
+};
+
+#define CASH_PAY_TYPE_ID "çÄã"
+#define NONE_PAY_TYPE_ID "çÖí"
+
 class TPrnTagStore {
     private:
 
@@ -328,12 +359,13 @@ class TPrnTagStore {
     public:
         TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tagsNode, TBTRoute *aroute = NULL);
         TPrnTagStore(bool pr_lat);
+        TPrnTagStore(TBagReceipt &arcpt);
         void set_tag(std::string name, std::string value);
         void set_tag(std::string name, int value);
         void set_tag(std::string name, BASIC::TDateTime value);
         std::string get_field(std::string name, size_t len, std::string align, std::string date_format, std::string tag_lang);
         void get_prn_qry(TQuery &Qry);
-        std::string get_tag(std::string name);
+        std::string get_tag(std::string name, std::string tag_lang = "R"); // R - russian; E - english
         bool tag_processed(std::string name);
         void set_pr_lat(bool vpr_lat);
         void set_print_mode(int val);

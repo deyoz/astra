@@ -162,6 +162,10 @@ void TPrnTagStore::TPrnTestTags::Init()
                 );
 }
 
+TPrnTagStore::TPrnTagStore(TBagReceipt &arcpt)
+{
+}
+
 TPrnTagStore::TPrnTagStore(bool apr_lat)
 {
     tag_lang.Init(apr_lat);
@@ -358,8 +362,9 @@ bool TPrnTagStore::tag_processed(std::string name)
     }
 }
 
-string TPrnTagStore::get_tag(std::string name)
+string TPrnTagStore::get_tag(string name, string tag_lang)
 {
+    this->tag_lang.set_tag_lang(tag_lang);
     if(prn_test_tags.items.empty())
         return get_real_field(name, 0, ServerFormatDateTimeAsString);
     else
@@ -1147,7 +1152,7 @@ string TPrnTagStore::NAME(TFieldParams fp)
         result = transliter(paxInfo.name, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
     else
         result = SURNAME(fp);
-    return result.substr(0, fp.len);
+    return result;
 }
 
 string TPrnTagStore::NO_SMOKE(TFieldParams fp)

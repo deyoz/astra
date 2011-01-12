@@ -10,37 +10,6 @@
 
 void check_CUTE_certified(int &prn_type, std::string &dev_model, std::string &fmt_type);
 
-struct TBagPayType
-{
-  std::string pay_type;
-  double pay_rate_sum;
-  std::string extra;
-};
-
-struct TBagReceipt
-{
-  bool pr_lat;
-  std::string form_type;
-  double no;
-  std::string pax_name,pax_doc;
-  int service_type,bag_type;
-  std::string bag_name;
-  std::string tickets,prev_no;
-  std::string airline,aircode,airp_dep,airp_arv,suffix;
-  int flt_no;
-  int ex_amount,ex_weight;
-  double value_tax,rate,exch_pay_rate;
-  int exch_rate;
-  std::string rate_cur,pay_rate_cur;
-  std::vector<TBagPayType> pay_types;
-  std::string remarks;
-  BASIC::TDateTime issue_date,annul_date;
-  std::string issue_desk,annul_desk,issue_place;
-};
-
-#define CASH_PAY_TYPE_ID "çÄã"
-#define NONE_PAY_TYPE_ID "çÖí"
-
 typedef enum {
     ptIER506A = 1,
     ptIER508A,
@@ -73,7 +42,7 @@ class PrintDataParser {
     public:
         TPrnTagStore pts;
         PrintDataParser(int pr_lat = 0): pectab_format(0), pts(pr_lat != 0) {};
-        PrintDataParser(TBagReceipt rcpt): pectab_format(0), pts(rcpt.pr_lat) {};
+        PrintDataParser(TBagReceipt rcpt): pectab_format(0), pts(rcpt) {};
         PrintDataParser(int grp_id, int pax_id, bool pr_lat, xmlNodePtr tagsNode, TBTRoute *route = NULL):
             pectab_format(0), pts(grp_id, pax_id, pr_lat, tagsNode, route) {};
         std::string parse(std::string &form);
