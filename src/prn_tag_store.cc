@@ -8,6 +8,7 @@
 #include "astra_misc.h"
 #include "xml_unit.h"
 #include "misc.h"
+#include "docs.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -182,6 +183,13 @@ TPrnTagStore::TPrnTagStore(TBagReceipt &arcpt)
     tag_list.insert(make_pair(TAG::OTHER_BT,        TTagListItem(0,  &TPrnTagStore::OTHER_BT, 0)));
     tag_list.insert(make_pair(TAG::OTHER_BT_LETTER, TTagListItem(0,  &TPrnTagStore::OTHER_BT_LETTER, 0)));
     tag_list.insert(make_pair(TAG::BAG_NAME,        TTagListItem(0,  &TPrnTagStore::BAG_NAME, 0)));
+    tag_list.insert(make_pair(TAG::PET_BT,          TTagListItem(0,  &TPrnTagStore::PET_BT, 0)));
+    tag_list.insert(make_pair(TAG::SKI_BT,          TTagListItem(0,  &TPrnTagStore::SKI_BT, 0)));
+    tag_list.insert(make_pair(TAG::VALUE_BT,        TTagListItem(0,  &TPrnTagStore::VALUE_BT, 0)));
+    tag_list.insert(make_pair(TAG::AIRCODE,         TTagListItem(0,  &TPrnTagStore::BR_AIRCODE, 0)));
+    tag_list.insert(make_pair(TAG::AIRLINE,         TTagListItem(0,  &TPrnTagStore::BR_AIRLINE, 0)));
+    tag_list.insert(make_pair(TAG::AIRLINE_CODE,    TTagListItem(0,  &TPrnTagStore::AIRLINE_CODE, 0)));
+    tag_list.insert(make_pair(TAG::AMOUNT_FIGURES,  TTagListItem(0,  &TPrnTagStore::AMOUNT_FIGURES, 0)));
 }
 
 // Test tags
@@ -1497,4 +1505,116 @@ string TPrnTagStore::BAG_NAME(TFieldParams fp)
     } else
         result = rcpt.bag_name;
     return result;
+}
+
+string TPrnTagStore::PET_BT(TFieldParams fp)
+{
+    string result;
+    if(rcpt.pay_bt() and rcpt.bag_type == 4)
+        result = "x";
+    return result;
+}
+
+string TPrnTagStore::SKI_BT(TFieldParams fp)
+{
+    string result;
+    if(rcpt.pay_bt() and rcpt.bag_type == 20)
+        result = "x";
+    return result;
+}
+
+string TPrnTagStore::VALUE_BT(TFieldParams fp)
+{
+    string result;
+    if(rcpt.service_type == 3)
+        result = "x";
+    return result;
+}
+
+int separate_double(double d, int precision, int *iptr)
+{
+  double pd;
+  int pi;
+  switch (precision)
+  {
+    case 0: pd=1.0;     pi=1;     break;
+    case 1: pd=10.0;    pi=10;    break;
+    case 2: pd=100.0;   pi=100;   break;
+    case 3: pd=1000.0;  pi=1000;  break;
+    case 4: pd=10000.0; pi=10000; break;
+   default: throw Exception("separate_double: wrong precision %d",precision);
+  };
+  int i=int(round(d*pd));
+  if (iptr!=NULL) *iptr=i/pi;
+  return i%pi;
+};
+
+string TPrnTagStore::VALUE_BT_LETTER(TFieldParams fp)
+{
+    string result;
+    if(rcpt.service_type == 3) {
+        int iptr, fract;
+        fract=separate_double(rcpt.rate, 2, &iptr);
+
+        string buf = vs_number(iptr, tag_lang.GetLang() != AstraLocale::LANG_RU);
+
+        if(fract!=0) {
+            string str_fract = IntToString(fract) + "/100 ";
+            buf += str_fract;
+        }
+        result = upperc(buf) + tag_lang.ElemIdToTagElem(etCurrency, rcpt.rate_cur, efmtCodeNative);
+    }
+    return result;
+}
+
+string TPrnTagStore::BR_AIRCODE(TFieldParams fp)
+{
+    return rcpt.aircode;
+}
+
+string TPrnTagStore::BR_AIRLINE(TFieldParams fp)
+{
+    return tag_lang.ElemIdToTagElem(etAirline, rcpt.airline, efmtNameLong);
+}
+
+string TPrnTagStore::AIRLINE_CODE(TFieldParams fp)
+{
+    return tag_lang.ElemIdToTagElem(etAirline, rcpt.airline, efmtCodeNative);
+}
+
+double TBagReceipt::pay_rate()
+{
+  double pay_rate;
+  if (pay_rate_cur != rate_cur)
+    pay_rate = (rate * exch_pay_rate)/exch_rate;
+  else
+    pay_rate = rate;
+  return pay_rate;
+}
+
+double TBagReceipt::rate_sum()
+{
+  double rate_sum;
+  if(service_type == 1 || service_type == 2) {
+      rate_sum = rate * ex_weight;
+  } else {
+      rate_sum = rate * value_tax/100;
+  }
+  return rate_sum;
+}
+
+double TBagReceipt::pay_rate_sum()
+{
+  double pay_rate_sum;
+  if(service_type == 1 || service_type == 2) {
+      pay_rate_sum = pay_rate() * ex_weight;
+  } else {
+      pay_rate_sum = pay_rate() * value_tax/100;
+  }
+  return pay_rate_sum;
+}
+
+string TPrnTagStore::AMOUNT_FIGURES(TFieldParams fp)
+{
+    return "den was here";
 }

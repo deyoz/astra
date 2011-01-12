@@ -87,6 +87,12 @@ namespace TAG {
     const std::string OTHER_BT = "OtherBT";
     const std::string OTHER_BT_LETTER = "OtherBTLetter";
     const std::string BAG_NAME = "BAG_NAME";
+    const std::string PET_BT = "PetBT";
+    const std::string SKI_BT = "SkiBT";
+    const std::string VALUE_BT = "ValueBT";
+    const std::string VALUE_BT_LETTER = "ValueBTLetter";
+    const std::string AIRLINE_CODE = "AIRLINE_CODE";
+    const std::string AMOUNT_FIGURES = "AMOUNT_FIGURES";
 
 };
 
@@ -138,10 +144,15 @@ struct TBagReceipt
           (bag_type == 1 || bag_type == 2)
           );
   }
+  double pay_rate();
+  double rate_sum();
+  double pay_rate_sum();
 };
 
 #define CASH_PAY_TYPE_ID "çÄã"
 #define NONE_PAY_TYPE_ID "çÖí"
+
+int separate_double(double d, int precision, int *iptr);
 
 class TTagLang {
     private:
@@ -385,6 +396,14 @@ class TPrnTagStore {
         std::string OTHER_BT(TFieldParams fp);
         std::string OTHER_BT_LETTER(TFieldParams fp);
         std::string BAG_NAME(TFieldParams fp);
+        std::string PET_BT(TFieldParams fp);
+        std::string SKI_BT(TFieldParams fp);
+        std::string VALUE_BT(TFieldParams fp);
+        std::string VALUE_BT_LETTER(TFieldParams fp);
+        std::string BR_AIRCODE(TFieldParams fp);
+        std::string BR_AIRLINE(TFieldParams fp);
+        std::string AIRLINE_CODE(TFieldParams fp);
+        std::string AMOUNT_FIGURES(TFieldParams fp);
 
         std::string get_test_field(std::string name, size_t len, std::string date_format);
         std::string get_real_field(std::string name, size_t len, std::string date_format);

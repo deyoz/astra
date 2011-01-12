@@ -447,24 +447,6 @@ string pieces(int ex_amount, bool pr_lat)
     };
 }
 
-int separate_double(double d, int precision, int *iptr)
-{
-  double pd;
-  int pi;
-  switch (precision)
-  {
-    case 0: pd=1.0;     pi=1;     break;
-    case 1: pd=10.0;    pi=10;    break;
-    case 2: pd=100.0;   pi=100;   break;
-    case 3: pd=1000.0;  pi=1000;  break;
-    case 4: pd=10000.0; pi=10000; break;
-   default: throw Exception("separate_double: wrong precision %d",precision);
-  };
-  int i=int(round(d*pd));
-  if (iptr!=NULL) *iptr=i/pi;
-  return i%pi;
-};
-
 int get_exch_precision(double rate)
 {
   int i;
