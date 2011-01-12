@@ -22,7 +22,7 @@ const int BRD_INFO = 8;
 const int FQT_INFO = 16;
 const int PNR_INFO = 32;
 
-bool TPrnTagStore::TTagLang::IsInter(TBTRoute *aroute, string &country)
+bool TTagLang::IsInter(TBTRoute *aroute, string &country)
 {
     country.clear();
     if(aroute == NULL) return false;
@@ -53,12 +53,17 @@ void TPrnTagStore::set_pr_lat(bool vpr_lat)
     tag_lang.Init(vpr_lat);
 }
 
-void TPrnTagStore::TTagLang::Init(bool apr_lat)
+void TTagLang::RcptInit(bool apr_lat)
+{
+    rcpt_is_inter = apr_lat;
+}
+
+void TTagLang::Init(bool apr_lat)
 {
     pr_lat = apr_lat;
 }
 
-void TPrnTagStore::TTagLang::Init(int point_dep, int point_arv, TBTRoute *aroute, bool apr_lat)
+void TTagLang::Init(int point_dep, int point_arv, TBTRoute *aroute, bool apr_lat)
 {
     string route_country;
     route_inter = IsRouteInter(point_dep, point_arv, route_country);
@@ -77,20 +82,23 @@ void TPrnTagStore::TTagLang::Init(int point_dep, int point_arv, TBTRoute *aroute
     pr_lat = apr_lat;
 }
 
-bool TPrnTagStore::TTagLang::IsTstInter() const
+bool TTagLang::IsTstInter() const
 {
     return tag_lang == "E" or pr_lat;
 }
 
-bool TPrnTagStore::TTagLang::IsInter() const
+bool TTagLang::IsInter() const
 {
-    return
-        (route_inter || route_country_lang.empty() || route_country_lang!=TReqInfo::Instance()->desk.lang) or
-        tag_lang == "E" or
-        pr_lat;
+    if(rcpt_is_inter != NoExists)
+        return rcpt_is_inter or tag_lang == "E";
+    else
+        return
+            (route_inter || route_country_lang.empty() || route_country_lang!=TReqInfo::Instance()->desk.lang) or
+            tag_lang == "E" or
+            pr_lat;
 }
 
-string TPrnTagStore::TTagLang::GetLang(TElemFmt &fmt, string firm_lang) const
+string TTagLang::GetLang(TElemFmt &fmt, string firm_lang) const
 {
   string lang = firm_lang;
   if (lang.empty())
@@ -106,7 +114,7 @@ string TPrnTagStore::TTagLang::GetLang(TElemFmt &fmt, string firm_lang) const
   return lang;
 }
 
-string TPrnTagStore::TTagLang::ElemIdToTagElem(TElemType type, const string &id, TElemFmt fmt, string firm_lang) const
+string TTagLang::ElemIdToTagElem(TElemType type, const string &id, TElemFmt fmt, string firm_lang) const
 {
   if (id.empty()) return "";
 
@@ -117,14 +125,14 @@ string TPrnTagStore::TTagLang::ElemIdToTagElem(TElemType type, const string &id,
   return ElemIdToElem(type, id, fmts, true);
 };
 
-string TPrnTagStore::TTagLang::GetLang()
+string TTagLang::GetLang()
 {
   string lang = TReqInfo::Instance()->desk.lang;
   if (IsInter()) lang=AstraLocale::LANG_EN;
   return lang;
 }
 
-string TPrnTagStore::TTagLang::ElemIdToTagElem(TElemType type, int id, TElemFmt fmt, string firm_lang) const
+string TTagLang::ElemIdToTagElem(TElemType type, int id, TElemFmt fmt, string firm_lang) const
 {
   if (id==ASTRA::NoExists) return "";
 
@@ -162,16 +170,28 @@ void TPrnTagStore::TPrnTestTags::Init()
                 );
 }
 
+// Bag receipts
 TPrnTagStore::TPrnTagStore(TBagReceipt &arcpt)
 {
+    rcpt = arcpt;
+    tag_lang.RcptInit(rcpt.pr_lat);
+
+    tag_list.insert(make_pair(TAG::BULKY_BT,        TTagListItem(0,  &TPrnTagStore::BULKY_BT, 0)));
+    tag_list.insert(make_pair(TAG::BULKY_BT_LETTER, TTagListItem(0,  &TPrnTagStore::BULKY_BT_LETTER, 0)));
+    tag_list.insert(make_pair(TAG::GOLF_BT,         TTagListItem(0,  &TPrnTagStore::GOLF_BT, 0)));
+    tag_list.insert(make_pair(TAG::OTHER_BT,        TTagListItem(0,  &TPrnTagStore::OTHER_BT, 0)));
+    tag_list.insert(make_pair(TAG::OTHER_BT_LETTER, TTagListItem(0,  &TPrnTagStore::OTHER_BT_LETTER, 0)));
+    tag_list.insert(make_pair(TAG::BAG_NAME,        TTagListItem(0,  &TPrnTagStore::BAG_NAME, 0)));
 }
 
+// Test tags
 TPrnTagStore::TPrnTagStore(bool apr_lat)
 {
     tag_lang.Init(apr_lat);
     prn_test_tags.Init();
 }
 
+// BP && BT
 TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tagsNode, TBTRoute *aroute)
 {
     grpInfo.Init(agrp_id);
@@ -1408,3 +1428,73 @@ string TPrnTagStore::PNR(TFieldParams fp) {
     return pnr;
 }
 
+string TPrnTagStore::BULKY_BT(TFieldParams fp)
+{
+    string result;
+    if(rcpt.pay_bt() and (rcpt.bag_type == 1 || rcpt.bag_type == 2))
+        result = "x";
+    return result;
+}
+
+string TPrnTagStore::BULKY_BT_LETTER(TFieldParams fp)
+{
+    ostringstream result;
+    if(rcpt.pay_bt() and (rcpt.bag_type == 1 || rcpt.bag_type == 2))
+        result << rcpt.ex_amount;
+    return result.str();
+}
+
+string TPrnTagStore::GOLF_BT(TFieldParams fp)
+{
+    string result;
+    if(rcpt.pay_bt() and rcpt.bag_type == 21 and rcpt.form_type != "Z61")
+        result = "x";
+    return result;
+}
+
+string TPrnTagStore::OTHER_BT(TFieldParams fp)
+{
+    string result;
+    if(rcpt.pay_bt() and rcpt.pr_other())
+        result = "x";
+    return result;
+}
+
+string TPrnTagStore::OTHER_BT_LETTER(TFieldParams fp)
+{
+    string result;
+    if(rcpt.pay_bt() and rcpt.pr_other())
+        result = BAG_NAME(fp);
+    return result;
+}
+
+string TPrnTagStore::BAG_NAME(TFieldParams fp)
+{
+    string result;
+    if(rcpt.bag_name.empty()) {
+        TQuery Qry(&OraSession);
+        Qry.SQLText =
+            "select "
+            "  nvl(rcpt_bag_names.name, bag_types.name) name, "
+            "  nvl(rcpt_bag_names.name_lat, bag_types.name_lat) name_lat "
+            "from "
+            "  bag_types, "
+            "  rcpt_bag_names "
+            "where "
+            "  bag_types.code = :code and "
+            "  bag_types.code = rcpt_bag_names.code(+)";
+        Qry.CreateVariable("code", otInteger, rcpt.bag_type);
+        Qry.Execute();
+        if(Qry.Eof) throw Exception("TPrnTagStore::BAG_NAME: bag_type not found (code = %d)", rcpt.bag_type);
+        if(tag_lang.GetLang() != AstraLocale::LANG_RU)
+            result = Qry.FieldAsString("name_lat");
+        else
+            result = Qry.FieldAsString("name");
+        if(rcpt.bag_type == 1 || rcpt.bag_type == 2)
+            //негабарит
+            result += " " + IntToString(rcpt.ex_amount) + " " + getLocaleText("MSG.BR.SEATS", tag_lang.GetLang());
+        result = upperc(result);
+    } else
+        result = rcpt.bag_name;
+    return result;
+}

@@ -31,6 +31,13 @@ typedef enum {
 
 //////////////////////////////// CLASS PrintDataParser ///////////////////////////////////
 
+struct TPrnParams {
+    std::string encoding;
+    int offset, top, pr_lat;
+    void get_prn_params(xmlNodePtr prnParamsNode);
+    TPrnParams(): encoding("CP866"), offset(20), top(0), pr_lat(0) {};
+};
+
 class PrintDataParser {
     private:
         int pectab_format;
@@ -42,7 +49,7 @@ class PrintDataParser {
     public:
         TPrnTagStore pts;
         PrintDataParser(int pr_lat = 0): pectab_format(0), pts(pr_lat != 0) {};
-        PrintDataParser(TBagReceipt rcpt): pectab_format(0), pts(rcpt) {};
+        PrintDataParser(TBagReceipt &rcpt): pectab_format(0), pts(rcpt) {};
         PrintDataParser(int grp_id, int pax_id, bool pr_lat, xmlNodePtr tagsNode, TBTRoute *route = NULL):
             pectab_format(0), pts(grp_id, pax_id, pr_lat, tagsNode, route) {};
         std::string parse(std::string &form);

@@ -80,6 +80,14 @@ namespace TAG {
     const std::string AIRP_ARV_NAME3 = "AIRP_ARV_NAME3";
     const std::string PNR = "PNR";
 
+    // specific for bag receipts
+    const std::string BULKY_BT = "BulkyBT";
+    const std::string BULKY_BT_LETTER = "BulkyBTLetter";
+    const std::string GOLF_BT = "GolfBT";
+    const std::string OTHER_BT = "OtherBT";
+    const std::string OTHER_BT_LETTER = "OtherBTLetter";
+    const std::string BAG_NAME = "BAG_NAME";
+
 };
 
 struct TBTRouteItem {
@@ -119,36 +127,52 @@ struct TBagReceipt
   std::string remarks;
   BASIC::TDateTime issue_date,annul_date;
   std::string issue_desk,annul_desk,issue_place;
+
+  bool pay_bt() { return service_type == 2 && bag_type != -1; };
+  bool pr_other()
+  {
+      return not (
+          bag_type == 20 or
+          bag_type == 21 && form_type != "Z61" or
+          bag_type == 4 or
+          (bag_type == 1 || bag_type == 2)
+          );
+  }
 };
 
 #define CASH_PAY_TYPE_ID "НАЛ"
 #define NONE_PAY_TYPE_ID "НЕТ"
 
+class TTagLang {
+    private:
+        int rcpt_is_inter;
+        bool route_inter;
+        std::string tag_lang; // параметр тега E - лат, R - рус
+        std::string route_country_lang; //язык страны, где выполняется внутренний рейс
+        bool pr_lat;
+        std::string GetLang(TElemFmt &fmt, std::string firm_lang) const;
+        bool IsInter(TBTRoute *aroute, std::string &country);
+    public:
+        bool get_pr_lat() { return pr_lat; };
+        bool IsInter() const;
+        bool IsTstInter() const; // используется в тестовых пектабах
+        std::string GetLang();
+        std::string dup_lang() { return GetLang()==AstraLocale::LANG_EN ? AstraLocale::LANG_RU : GetLang(); }; // lang for duplicated captions
+        void set_tag_lang(std::string val) { tag_lang = val; };
+        std::string ElemIdToTagElem(TElemType type, const std::string &id, TElemFmt fmt, std::string firm_lang = "") const;
+        std::string ElemIdToTagElem(TElemType type, int id, TElemFmt fmt, std::string firm_lang = "") const;
+        void Init(int point_dep, int point_arv, TBTRoute *aroute, bool apr_lat);
+        void Init(bool apr_lat); // Инициализация для использования в тестовых пектабах.
+        void RcptInit(bool apr_lat); // Bag receipts
+        TTagLang(): rcpt_is_inter(ASTRA::NoExists) {};
+};
+
 class TPrnTagStore {
     private:
 
-        class TTagLang {
-            private:
-                bool route_inter;
-                std::string tag_lang; // параметр тега E - лат, R - рус
-                std::string route_country_lang; //язык страны, где выполняется внутренний рейс
-                bool pr_lat;
-                std::string GetLang(TElemFmt &fmt, std::string firm_lang) const;
-                bool IsInter(TBTRoute *aroute, std::string &country);
-            public:
-                bool get_pr_lat() { return pr_lat; };
-                bool IsInter() const;
-                bool IsTstInter() const; // используется в тестовых пектабах
-                std::string GetLang();
-                std::string dup_lang() { return GetLang()==AstraLocale::LANG_EN ? AstraLocale::LANG_RU : GetLang(); }; // lang for duplicated captions
-                void set_tag_lang(std::string val) { tag_lang = val; };
-                std::string ElemIdToTagElem(TElemType type, const std::string &id, TElemFmt fmt, std::string firm_lang = "") const;
-                std::string ElemIdToTagElem(TElemType type, int id, TElemFmt fmt, std::string firm_lang = "") const;
-                void Init(int point_dep, int point_arv, TBTRoute *aroute, bool apr_lat);
-                void Init(bool apr_lat); // Инициализация для использования в тестовых пектабах.
-        };
-
         TTagLang tag_lang;
+
+        TBagReceipt rcpt;
 
         struct TFieldParams {
             std::string date_format;
@@ -353,6 +377,14 @@ class TPrnTagStore {
         std::string AIRP_ARV_NAME2(TFieldParams fp);
         std::string AIRP_ARV_NAME3(TFieldParams fp);
         std::string PNR(TFieldParams fp);
+
+        // specific for bag tags
+        std::string BULKY_BT(TFieldParams fp);
+        std::string BULKY_BT_LETTER(TFieldParams fp);
+        std::string GOLF_BT(TFieldParams fp);
+        std::string OTHER_BT(TFieldParams fp);
+        std::string OTHER_BT_LETTER(TFieldParams fp);
+        std::string BAG_NAME(TFieldParams fp);
 
         std::string get_test_field(std::string name, size_t len, std::string date_format);
         std::string get_real_field(std::string name, size_t len, std::string date_format);

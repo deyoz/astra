@@ -804,7 +804,9 @@ void PaymentInterface::GetReceipt(xmlNodePtr reqNode, TBagReceipt &rcpt)
   Qry.SQLText=
     "SELECT points.airline,points.flt_no,points.suffix, "
     "       pax_grp.airp_dep,pax_grp.airp_arv, "
-    "       ckin.get_main_pax_id(pax_grp.grp_id) AS pax_id "
+    "       ckin.get_main_pax_id(pax_grp.grp_id) AS pax_id, "
+    "       point_dep, "
+    "       point_arv "
     "FROM points,pax_grp "
     "WHERE points.point_id=pax_grp.point_dep AND points.pr_del>=0 AND "
     "      pax_grp.grp_id=:grp_id";
@@ -840,7 +842,16 @@ void PaymentInterface::GetReceipt(xmlNodePtr reqNode, TBagReceipt &rcpt)
   string city_arv=base_tables.get("airps").get_row("code", rcpt.airp_arv).AsString("city");
   string country_dep=base_tables.get("cities").get_row("code", city_dep).AsString("country");
   string country_arv=base_tables.get("cities").get_row("code", city_arv).AsString("country");
-  rcpt.pr_lat=country_dep!="êî" || country_arv!="êî";
+  TPrnParams prnParams;
+  prnParams.get_prn_params(reqNode);
+  TTagLang tag_lang;
+  tag_lang.Init(
+          Qry.FieldAsInteger("point_dep"),
+          Qry.FieldAsInteger("point_arv"),
+          NULL,
+          prnParams.pr_lat
+          );
+  rcpt.pr_lat=tag_lang.IsInter();
 
   rcpt.form_type=NodeAsString("form_type",rcptNode);
   if (rcpt.form_type.empty())

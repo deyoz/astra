@@ -36,13 +36,6 @@ const string delim = "\xb";
 
 typedef enum {pfBTP, pfATB, pfEPL2, pfEPSON, pfZEBRA, pfDATAMAX} TPrnFormat;
 
-struct TPrnParams {
-    string encoding;
-    int offset, top, pr_lat;
-    void get_prn_params(xmlNodePtr prnParamsNode);
-    TPrnParams(): encoding("CP866"), offset(20), top(0), pr_lat(0) {};
-};
-
 void TPrnParams::get_prn_params(xmlNodePtr reqNode)
 {
     encoding = "CP866";
