@@ -512,7 +512,7 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
       TimeQry.SetVariable( "screen", "AIR.EXE" );
       TimeQry.SetVariable( "work_mode", "ê" );
       TimeQry.Execute();
-      if ( TimeQry.Eof || Qry.FieldAsString( "airp" ) != "Ççä" ) {
+      if ( TimeQry.Eof || string(TimeQry.FieldAsString( "airp" )) != string("Ççä") ) {
       	if ( psTCheckin == DecodePaxStatus( Qry.FieldAsString( "status" ) ) )
         	term = "999";
         else
