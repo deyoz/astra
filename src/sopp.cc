@@ -4296,12 +4296,20 @@ void SoppInterface::DeleteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 	xmlNodePtr node = NodeAsNode( "data", reqNode );
 	int move_id = NodeAsInteger( "move_id", node );
 	TQuery Qry(&OraSession);
-	Qry.SQLText = "SELECT COUNT(*) c FROM pax_grp WHERE point_dep IN "
-	              "( SELECT point_id FROM points WHERE move_id=:move_id )";
+	Qry.SQLText = "SELECT COUNT(*) c, point_dep FROM pax_grp WHERE point_dep IN "
+	              "( SELECT point_id FROM points WHERE move_id=:move_id ) "
+	              "GROUP BY point_dep ";
 	Qry.CreateVariable( "move_id", otInteger, move_id );
 	Qry.Execute();
-	if ( Qry.FieldAsInteger( "c" ) )
-		throw AstraLocale::UserException( "MSG.FLIGHT.UNABLE_DEL.PAX_EXISTS" );
+	if ( Qry.FieldAsInteger( "c" ) ) {
+		int point_id = Qry.FieldAsInteger( "point_dep" );
+		Qry.Clear();
+		Qry.SQLText = "SELECT airp FROM points WHERE point_id=:point_id";
+		Qry.CreateVariable( "point_id", otInteger, point_id );
+		Qry.Execute();
+		ProgTrace( TRACE5, "airp=%s", ElemIdToCodeNative(etAirp,Qry.FieldAsString("airp")).c_str() );
+		throw AstraLocale::UserException( "MSG.FLIGHT.UNABLE_DEL.PAX_EXISTS", LParams() << LParam("airp", ElemIdToNameLong(etAirp,Qry.FieldAsString("airp"))));
+	}
 	Qry.Clear();
 	Qry.SQLText = "SELECT airline,flt_no,airp FROM points WHERE move_id=:move_id AND pr_del!=-1";
 	Qry.CreateVariable( "move_id", otInteger, move_id );
