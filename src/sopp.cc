@@ -4301,7 +4301,7 @@ void SoppInterface::DeleteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 	              "GROUP BY point_dep ";
 	Qry.CreateVariable( "move_id", otInteger, move_id );
 	Qry.Execute();
-	if ( Qry.FieldAsInteger( "c" ) ) {
+	if ( !Qry.Eof && Qry.FieldAsInteger( "c" ) > 0 ) {
 		int point_id = Qry.FieldAsInteger( "point_dep" );
 		Qry.Clear();
 		Qry.SQLText = "SELECT airp FROM points WHERE point_id=:point_id";
