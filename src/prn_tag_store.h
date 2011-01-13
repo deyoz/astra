@@ -86,16 +86,36 @@ namespace TAG {
     const std::string GOLF_BT = "GolfBT";
     const std::string OTHER_BT = "OtherBT";
     const std::string OTHER_BT_LETTER = "OtherBTLetter";
-    const std::string BAG_NAME = "BAG_NAME";
     const std::string PET_BT = "PetBT";
     const std::string SKI_BT = "SkiBT";
     const std::string VALUE_BT = "ValueBT";
     const std::string VALUE_BT_LETTER = "ValueBTLetter";
     const std::string AIRLINE_CODE = "AIRLINE_CODE";
     const std::string AMOUNT_FIGURES = "AMOUNT_FIGURES";
+    const std::string AMOUNT_LETTERS = "AMOUNT_LETTERS";
+    const std::string BAG_NAME = "BAG_NAME";
     const std::string CURRENCY = "CURRENCY";
     const std::string EX_WEIGHT = "EX_WEIGHT";
     const std::string EXCHANGE_RATE = "EXCHANGE_RATE";
+    const std::string ISSUE_DATE = "ISSUE_DATE";
+    const std::string ISSUE_PLACE1 = "ISSUE_PLACE1";
+    const std::string ISSUE_PLACE2 = "ISSUE_PLACE2";
+    const std::string ISSUE_PLACE3 = "ISSUE_PLACE3";
+    const std::string ISSUE_PLACE4 = "ISSUE_PLACE4";
+    const std::string ISSUE_PLACE5 = "ISSUE_PLACE5";
+    const std::string PAX_DOC = "PAX_DOC";
+    const std::string PAX_NAME = "PAX_NAME";
+    const std::string PAY_FORM = "PAY_FORM";
+    const std::string POINT_DEP = "POINT_DEP";
+    const std::string POINT_ARV = "POINT_ARV";
+    const std::string PREV_NO = "PREV_NO";
+    const std::string RATE = "RATE";
+    const std::string REMARKS1 = "REMARKS1";
+    const std::string REMARKS2 = "REMARKS2";
+    const std::string SERVICE_TYPE = "SERVICE_TYPE";
+    const std::string TICKETS = "TICKETS";
+    const std::string TO = "TO";
+    const std::string TOTAL = "TOTAL";
 
 };
 
@@ -119,46 +139,52 @@ struct TBagPayType
 
 struct TBagReceipt
 {
-  bool pr_lat;
-  std::string form_type;
-  double no;
-  std::string pax_name,pax_doc;
-  int service_type,bag_type;
-  std::string bag_name;
-  std::string tickets,prev_no;
-  std::string airline,aircode,airp_dep,airp_arv,suffix;
-  int flt_no;
-  int ex_amount,ex_weight;
-  double value_tax,rate,exch_pay_rate;
-  int exch_rate;
-  std::string rate_cur,pay_rate_cur;
-  std::vector<TBagPayType> pay_types;
-  std::string remarks;
-  BASIC::TDateTime issue_date,annul_date;
-  std::string issue_desk,annul_desk,issue_place;
+    private:
+        std::vector<std::string> f_issue_place_idx;
+        std::string service_name, service_name_lat;
+    public:
+        bool pr_lat;
+        std::string form_type;
+        double no;
+        std::string pax_name,pax_doc;
+        int service_type,bag_type;
+        std::string bag_name;
+        std::string tickets,prev_no;
+        std::string airline,aircode,airp_dep,airp_arv,suffix;
+        int flt_no;
+        int ex_amount,ex_weight;
+        double value_tax,rate,exch_pay_rate;
+        int exch_rate;
+        std::string rate_cur,pay_rate_cur;
+        std::vector<TBagPayType> pay_types;
+        std::string remarks;
+        BASIC::TDateTime issue_date,annul_date;
+        std::string issue_desk,annul_desk,issue_place;
 
-  bool pay_bt() { return service_type == 2 && bag_type != -1; };
-  bool pr_other()
-  {
-      return not (
-          bag_type == 20 or
-          bag_type == 21 && form_type != "Z61" or
-          bag_type == 4 or
-          (bag_type == 1 || bag_type == 2)
-          );
-  }
-  double pay_rate();
-  double rate_sum();
-  double pay_rate_sum();
-  std::string get_fmt_rate(int fmt, bool pr_inter);
-  bool pr_exchange()
-  {
-      return
-          (pay_rate_cur == "êìÅ" ||
-           pay_rate_cur == "Ñéã" ||
-           pay_rate_cur == "ÖÇê") &&
-          pay_rate_cur != rate_cur;
-  };
+        bool pay_bt() { return service_type == 2 && bag_type != -1; };
+        bool pr_other()
+        {
+            return not (
+                    bag_type == 20 or
+                    bag_type == 21 && form_type != "Z61" or
+                    bag_type == 4 or
+                    (bag_type == 1 || bag_type == 2)
+                    );
+        }
+        double pay_rate();
+        double rate_sum();
+        double pay_rate_sum();
+        std::string get_fmt_rate(int fmt, bool pr_inter);
+        bool pr_exchange()
+        {
+            return
+                (pay_rate_cur == "êìÅ" ||
+                 pay_rate_cur == "Ñéã" ||
+                 pay_rate_cur == "ÖÇê") &&
+                pay_rate_cur != rate_cur;
+        };
+        std::string issue_place_idx(int idx);
+        std::string get_service_name(bool is_inter);
 };
 
 #define CASH_PAY_TYPE_ID "çÄã"
@@ -407,7 +433,6 @@ class TPrnTagStore {
         std::string GOLF_BT(TFieldParams fp);
         std::string OTHER_BT(TFieldParams fp);
         std::string OTHER_BT_LETTER(TFieldParams fp);
-        std::string BAG_NAME(TFieldParams fp);
         std::string PET_BT(TFieldParams fp);
         std::string SKI_BT(TFieldParams fp);
         std::string VALUE_BT(TFieldParams fp);
@@ -416,9 +441,30 @@ class TPrnTagStore {
         std::string BR_AIRLINE(TFieldParams fp);
         std::string AIRLINE_CODE(TFieldParams fp);
         std::string AMOUNT_FIGURES(TFieldParams fp);
+        std::string AMOUNT_LETTERS(TFieldParams fp);
+        std::string BAG_NAME(TFieldParams fp);
         std::string CURRENCY(TFieldParams fp);
         std::string EX_WEIGHT(TFieldParams fp);
         std::string EXCHANGE_RATE(TFieldParams fp);
+        std::string ISSUE_DATE(TFieldParams fp);
+        std::string ISSUE_PLACE1(TFieldParams fp);
+        std::string ISSUE_PLACE2(TFieldParams fp);
+        std::string ISSUE_PLACE3(TFieldParams fp);
+        std::string ISSUE_PLACE4(TFieldParams fp);
+        std::string ISSUE_PLACE5(TFieldParams fp);
+        std::string PAX_DOC(TFieldParams fp);
+        std::string PAX_NAME(TFieldParams fp);
+        std::string PAY_FORM(TFieldParams fp);
+        std::string POINT_DEP(TFieldParams fp);
+        std::string POINT_ARV(TFieldParams fp);
+        std::string PREV_NO(TFieldParams fp);
+        std::string RATE(TFieldParams fp);
+        std::string REMARKS1(TFieldParams fp);
+        std::string REMARKS2(TFieldParams fp);
+        std::string SERVICE_TYPE(TFieldParams fp);
+        std::string TICKETS(TFieldParams fp);
+        std::string TO(TFieldParams fp);
+        std::string TOTAL(TFieldParams fp);
 
         std::string get_test_field(std::string name, size_t len, std::string date_format);
         std::string get_real_field(std::string name, size_t len, std::string date_format);

@@ -177,22 +177,43 @@ TPrnTagStore::TPrnTagStore(TBagReceipt &arcpt)
     rcpt = arcpt;
     tag_lang.RcptInit(rcpt.pr_lat);
 
-    tag_list.insert(make_pair(TAG::BULKY_BT,        TTagListItem(0,  &TPrnTagStore::BULKY_BT, 0)));
-    tag_list.insert(make_pair(TAG::BULKY_BT_LETTER, TTagListItem(0,  &TPrnTagStore::BULKY_BT_LETTER, 0)));
-    tag_list.insert(make_pair(TAG::GOLF_BT,         TTagListItem(0,  &TPrnTagStore::GOLF_BT, 0)));
-    tag_list.insert(make_pair(TAG::OTHER_BT,        TTagListItem(0,  &TPrnTagStore::OTHER_BT, 0)));
-    tag_list.insert(make_pair(TAG::OTHER_BT_LETTER, TTagListItem(0,  &TPrnTagStore::OTHER_BT_LETTER, 0)));
-    tag_list.insert(make_pair(TAG::BAG_NAME,        TTagListItem(0,  &TPrnTagStore::BAG_NAME, 0)));
-    tag_list.insert(make_pair(TAG::PET_BT,          TTagListItem(0,  &TPrnTagStore::PET_BT, 0)));
-    tag_list.insert(make_pair(TAG::SKI_BT,          TTagListItem(0,  &TPrnTagStore::SKI_BT, 0)));
-    tag_list.insert(make_pair(TAG::VALUE_BT,        TTagListItem(0,  &TPrnTagStore::VALUE_BT, 0)));
-    tag_list.insert(make_pair(TAG::AIRCODE,         TTagListItem(0,  &TPrnTagStore::BR_AIRCODE, 0)));
-    tag_list.insert(make_pair(TAG::AIRLINE,         TTagListItem(0,  &TPrnTagStore::BR_AIRLINE, 0)));
-    tag_list.insert(make_pair(TAG::AIRLINE_CODE,    TTagListItem(0,  &TPrnTagStore::AIRLINE_CODE, 0)));
-    tag_list.insert(make_pair(TAG::AMOUNT_FIGURES,  TTagListItem(0,  &TPrnTagStore::AMOUNT_FIGURES, 0)));
-    tag_list.insert(make_pair(TAG::CURRENCY,        TTagListItem(0,  &TPrnTagStore::CURRENCY, 0)));
-    tag_list.insert(make_pair(TAG::EX_WEIGHT,       TTagListItem(0,  &TPrnTagStore::EX_WEIGHT, 0)));
-    tag_list.insert(make_pair(TAG::EXCHANGE_RATE,   TTagListItem(0,  &TPrnTagStore::EXCHANGE_RATE, 0)));
+    tag_list.insert(make_pair(TAG::BULKY_BT,        TTagListItem(1,  &TPrnTagStore::BULKY_BT, 0)));
+    tag_list.insert(make_pair(TAG::BULKY_BT_LETTER, TTagListItem(1,  &TPrnTagStore::BULKY_BT_LETTER, 0)));
+    tag_list.insert(make_pair(TAG::GOLF_BT,         TTagListItem(1,  &TPrnTagStore::GOLF_BT, 0)));
+    tag_list.insert(make_pair(TAG::OTHER_BT,        TTagListItem(1,  &TPrnTagStore::OTHER_BT, 0)));
+    tag_list.insert(make_pair(TAG::OTHER_BT_LETTER, TTagListItem(1,  &TPrnTagStore::OTHER_BT_LETTER, 0)));
+    tag_list.insert(make_pair(TAG::PET_BT,          TTagListItem(1,  &TPrnTagStore::PET_BT, 0)));
+    tag_list.insert(make_pair(TAG::SKI_BT,          TTagListItem(1,  &TPrnTagStore::SKI_BT, 0)));
+    tag_list.insert(make_pair(TAG::VALUE_BT,        TTagListItem(1,  &TPrnTagStore::VALUE_BT, 0)));
+    tag_list.insert(make_pair(TAG::VALUE_BT_LETTER, TTagListItem(1,  &TPrnTagStore::VALUE_BT_LETTER, 0)));
+    tag_list.insert(make_pair(TAG::AIRCODE,         TTagListItem(1,  &TPrnTagStore::BR_AIRCODE, 0)));
+    tag_list.insert(make_pair(TAG::AIRLINE,         TTagListItem(1,  &TPrnTagStore::BR_AIRLINE, 0)));
+    tag_list.insert(make_pair(TAG::AIRLINE_CODE,    TTagListItem(1,  &TPrnTagStore::AIRLINE_CODE, 0)));
+    tag_list.insert(make_pair(TAG::AMOUNT_FIGURES,  TTagListItem(1,  &TPrnTagStore::AMOUNT_FIGURES, 0)));
+    tag_list.insert(make_pair(TAG::AMOUNT_LETTERS,  TTagListItem(1,  &TPrnTagStore::AMOUNT_LETTERS, 0)));
+    tag_list.insert(make_pair(TAG::BAG_NAME,        TTagListItem(1,  &TPrnTagStore::BAG_NAME, 0)));
+    tag_list.insert(make_pair(TAG::CURRENCY,        TTagListItem(1,  &TPrnTagStore::CURRENCY, 0)));
+    tag_list.insert(make_pair(TAG::EX_WEIGHT,       TTagListItem(1,  &TPrnTagStore::EX_WEIGHT, 0)));
+    tag_list.insert(make_pair(TAG::EXCHANGE_RATE,   TTagListItem(1,  &TPrnTagStore::EXCHANGE_RATE, 0)));
+    tag_list.insert(make_pair(TAG::ISSUE_DATE,      TTagListItem(1,  &TPrnTagStore::ISSUE_DATE, 0)));
+    tag_list.insert(make_pair(TAG::ISSUE_PLACE1,    TTagListItem(1,  &TPrnTagStore::ISSUE_PLACE1, 0)));
+    tag_list.insert(make_pair(TAG::ISSUE_PLACE2,    TTagListItem(1,  &TPrnTagStore::ISSUE_PLACE2, 0)));
+    tag_list.insert(make_pair(TAG::ISSUE_PLACE3,    TTagListItem(1,  &TPrnTagStore::ISSUE_PLACE3, 0)));
+    tag_list.insert(make_pair(TAG::ISSUE_PLACE4,    TTagListItem(1,  &TPrnTagStore::ISSUE_PLACE4, 0)));
+    tag_list.insert(make_pair(TAG::ISSUE_PLACE5,    TTagListItem(1,  &TPrnTagStore::ISSUE_PLACE5, 0)));
+    tag_list.insert(make_pair(TAG::PAX_DOC,         TTagListItem(1,  &TPrnTagStore::PAX_DOC, 0)));
+    tag_list.insert(make_pair(TAG::PAX_NAME,        TTagListItem(1,  &TPrnTagStore::PAX_NAME, 0)));
+    tag_list.insert(make_pair(TAG::PAY_FORM,        TTagListItem(1,  &TPrnTagStore::PAY_FORM, 0)));
+    tag_list.insert(make_pair(TAG::POINT_ARV,       TTagListItem(1,  &TPrnTagStore::POINT_ARV, 0)));
+    tag_list.insert(make_pair(TAG::POINT_DEP,       TTagListItem(1,  &TPrnTagStore::POINT_DEP, 0)));
+    tag_list.insert(make_pair(TAG::PREV_NO,         TTagListItem(1,  &TPrnTagStore::PREV_NO, 0)));
+    tag_list.insert(make_pair(TAG::RATE,            TTagListItem(1,  &TPrnTagStore::RATE, 0)));
+    tag_list.insert(make_pair(TAG::REMARKS1,        TTagListItem(1,  &TPrnTagStore::REMARKS1, 0)));
+    tag_list.insert(make_pair(TAG::REMARKS2,        TTagListItem(1,  &TPrnTagStore::REMARKS2, 0)));
+    tag_list.insert(make_pair(TAG::SERVICE_TYPE,    TTagListItem(1,  &TPrnTagStore::SERVICE_TYPE, 0)));
+    tag_list.insert(make_pair(TAG::TICKETS,         TTagListItem(1,  &TPrnTagStore::TICKETS, 0)));
+    tag_list.insert(make_pair(TAG::TO,              TTagListItem(1,  &TPrnTagStore::TO, 0)));
+    tag_list.insert(make_pair(TAG::TOTAL,           TTagListItem(1,  &TPrnTagStore::TOTAL, 0)));
 }
 
 // Test tags
@@ -1582,7 +1603,11 @@ string TPrnTagStore::BR_AIRLINE(TFieldParams fp)
 
 string TPrnTagStore::AIRLINE_CODE(TFieldParams fp)
 {
-    return tag_lang.ElemIdToTagElem(etAirline, rcpt.airline, efmtCodeNative);
+    ostringstream result;
+    result << tag_lang.ElemIdToTagElem(etAirline, rcpt.airline, efmtCodeNative);
+    if(rcpt.flt_no != -1)
+        result << " " << setw(3) << setfill('0') << rcpt.flt_no << tag_lang.ElemIdToTagElem(etSuffix, rcpt.suffix, efmtCodeNative);
+    return result.str();
 }
 
 double TBagReceipt::pay_rate()
@@ -1661,11 +1686,26 @@ string TBagReceipt::get_fmt_rate(int fmt, bool pr_inter)
             << "(" << RateToString(rate_sum(), rate_cur, pr_inter, fmt) << ")";
     else
         result << RateToString(rate_sum(), rate_cur, pr_inter, fmt);
+    return result.str();
 }
 
 string TPrnTagStore::AMOUNT_FIGURES(TFieldParams fp)
 {
     return rcpt.get_fmt_rate(1, tag_lang.GetLang() != AstraLocale::LANG_RU);
+}
+
+string TPrnTagStore::AMOUNT_LETTERS(TFieldParams fp)
+{
+    int iptr, fract;
+    fract=separate_double(rcpt.pr_exchange() ? rcpt.pay_rate_sum() : rcpt.rate_sum(), 2, &iptr);
+
+    string result = vs_number(iptr, tag_lang.GetLang() != AstraLocale::LANG_RU);
+
+    if(fract!=0) {
+        string str_fract = IntToString(fract) + "/100 ";
+        result += str_fract;
+    }
+    return result;
 }
 
 string TPrnTagStore::CURRENCY(TFieldParams fp)
@@ -1678,7 +1718,7 @@ string TPrnTagStore::EX_WEIGHT(TFieldParams fp)
     ostringstream result;
     result << rcpt.ex_weight;
     if (rcpt.form_type == "M61")
-        result << getLocaleText("MSG.BR.KG");
+        result << getLocaleText("MSG.BR.KG", tag_lang.GetLang());
     return result.str();
 }
 
@@ -1731,4 +1771,219 @@ string TPrnTagStore::EXCHANGE_RATE(TFieldParams fp)
         result << ExchToString(rcpt.exch_rate, rcpt.rate_cur, rcpt.exch_pay_rate, rcpt.pay_rate_cur, tag_lang);
     };
     return result.str();
+}
+
+string TPrnTagStore::ISSUE_DATE(TFieldParams fp)
+{
+    return DateTimeToStr(
+            UTCToLocal(rcpt.issue_date, CityTZRegion(DeskCity(rcpt.issue_desk, false))),
+            fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU);
+}
+
+string TBagReceipt::issue_place_idx(int idx)
+{
+    if(idx < 0 or idx > 4)
+        throw Exception("TBagReceipt::issue_place_idx: idx out of range: %d", idx);
+    if(f_issue_place_idx.empty()) {
+        string buf = issue_place;
+        ProgTrace(TRACE5, "BUFFER: %s", buf.c_str());
+        int line_num = 0;
+        while(line_num < 5) {
+            string::size_type i = buf.find('\n');
+            f_issue_place_idx.push_back(buf.substr(0, i));
+            buf.erase(0, i + 1);
+            line_num++;
+        }
+        if(f_issue_place_idx.size() != 5)
+            throw Exception("TBagReceipt::issue_place_idx: wrong issue_place format: lines = %d", f_issue_place_idx.size());
+    }
+    return f_issue_place_idx[idx];
+}
+
+string TPrnTagStore::ISSUE_PLACE1(TFieldParams fp)
+{
+    return rcpt.issue_place_idx(0);
+}
+
+string TPrnTagStore::ISSUE_PLACE2(TFieldParams fp)
+{
+    return rcpt.issue_place_idx(1);
+}
+
+string TPrnTagStore::ISSUE_PLACE3(TFieldParams fp)
+{
+    return rcpt.issue_place_idx(2);
+}
+
+string TPrnTagStore::ISSUE_PLACE4(TFieldParams fp)
+{
+    return rcpt.issue_place_idx(3);
+}
+
+string TPrnTagStore::ISSUE_PLACE5(TFieldParams fp)
+{
+    return rcpt.issue_place_idx(4);
+}
+string TPrnTagStore::PAX_DOC(TFieldParams fp)
+{
+    return rcpt.pax_doc;
+}
+
+string TPrnTagStore::PAX_NAME(TFieldParams fp)
+{
+    return rcpt.pax_name;
+}
+
+string TPrnTagStore::PAY_FORM(TFieldParams fp)
+{
+    vector<TBagPayType>::iterator i;
+    ostringstream result;
+    if (rcpt.pay_types.size()==1)
+    {
+        //одна форма оплаты
+        i=rcpt.pay_types.begin();
+        result << tag_lang.ElemIdToTagElem(etPayType, i->pay_type, efmtCodeNative);
+        if (i->pay_type!=CASH_PAY_TYPE_ID && !i->extra.empty())
+            result     << ' ' << i->extra;
+    }
+    else
+    {
+        //несколько форм оплаты
+        //первой всегда идет НАЛ
+        for(int k=0;k<=1;k++)
+        {
+            for(i=rcpt.pay_types.begin();i!=rcpt.pay_types.end();i++)
+            {
+                if (k==0 && i->pay_type!=CASH_PAY_TYPE_ID ||
+                        k!=0 && i->pay_type==CASH_PAY_TYPE_ID) continue;
+
+                if (!result.str().empty())
+                    result     << '+';
+                result
+                    << tag_lang.ElemIdToTagElem(etPayType, i->pay_type, efmtCodeNative)
+                    << RateToString(i->pay_rate_sum, rcpt.pay_rate_cur, tag_lang.GetLang() != AstraLocale::LANG_RU, 0);
+                if (i->pay_type!=CASH_PAY_TYPE_ID && !i->extra.empty())
+                    result << ' ' << i->extra;
+            }
+        }
+    }
+    return result.str();
+}
+
+string get_mso_point(const string &aairp, TTagLang &tag_lang)
+{
+    TBaseTable &airps = base_tables.get("airps");
+    string city = airps.get_row("code", aairp).AsString("city");
+    string point = tag_lang.ElemIdToTagElem(etCity, city, efmtNameLong);
+    TQuery airpsQry(&OraSession);
+    airpsQry.SQLText =  "select count(*) from airps where city = :city and pr_del = 0";
+    airpsQry.CreateVariable("city", otString, city);
+    airpsQry.Execute();
+    if(!airpsQry.Eof && airpsQry.FieldAsInteger(0) != 1) {
+        string airp = tag_lang.ElemIdToTagElem(etAirp, aairp, efmtCodeNative);
+        point += "(" + airp + ")";
+    }
+    return point;
+}
+
+string TPrnTagStore::POINT_ARV(TFieldParams fp)
+{
+    return get_mso_point(rcpt.airp_arv, tag_lang);
+}
+
+string TPrnTagStore::POINT_DEP(TFieldParams fp)
+{
+    return get_mso_point(rcpt.airp_dep, tag_lang);
+}
+
+string TPrnTagStore::PREV_NO(TFieldParams fp)
+{
+    return rcpt.prev_no;
+}
+
+int get_value_tax_precision(double tax)
+{
+  return 1;
+};
+
+string TPrnTagStore::RATE(TFieldParams fp)
+{
+    ostringstream result;
+    if(rcpt.service_type == 1 || rcpt.service_type == 2) {
+        if(rcpt.pr_exchange())
+            result
+                << RateToString(rcpt.pay_rate(), rcpt.pay_rate_cur, tag_lang.GetLang() != AstraLocale::LANG_RU, 0)
+                << "(" << RateToString(rcpt.rate, rcpt.rate_cur, tag_lang.GetLang() != AstraLocale::LANG_RU, 0) << ")";
+        else
+            result << RateToString(rcpt.rate, rcpt.rate_cur, tag_lang.GetLang() != AstraLocale::LANG_RU, 0);
+    } else {
+        //багаж с объявленной ценностью
+        result
+            << fixed << setprecision(get_value_tax_precision(rcpt.value_tax))
+            << rcpt.value_tax <<"%";
+    }
+    return result.str();
+}
+
+string TPrnTagStore::REMARKS1(TFieldParams fp)
+{
+    ostringstream result;
+    if(rcpt.service_type == 1 || rcpt.service_type == 2) {
+        result << getLocaleText("MSG.BR.RATE_PER_KG", tag_lang.GetLang()) << RATE(fp);
+        if(rcpt.pr_exchange())
+            result
+                << "("
+                << (tag_lang.GetLang() != AstraLocale::LANG_RU ? "RATE " : "")
+                << ExchToString(rcpt.exch_rate, rcpt.rate_cur, rcpt.exch_pay_rate, rcpt.pay_rate_cur, tag_lang)
+                << ")";
+    } else {
+      result
+            << fixed << setprecision(get_value_tax_precision(rcpt.value_tax))
+            << rcpt.value_tax
+            << getLocaleText("MSG.BR.RATE_OF", tag_lang.GetLang())
+            << RateToString(rcpt.rate, rcpt.rate_cur, tag_lang.GetLang() != AstraLocale::LANG_RU, 0);
+    }
+    return result.str();
+}
+
+string TPrnTagStore::REMARKS2(TFieldParams fp)
+{
+    string result;
+    if(rcpt.service_type == 1 || rcpt.service_type == 2)
+        result = EX_WEIGHT(fp);
+    return result;
+}
+
+string TBagReceipt::get_service_name(bool is_inter)
+{
+    if(service_name.empty()) {
+        TQuery Qry(&OraSession);
+        Qry.SQLText =  "select name, name_lat from rcpt_service_types where code = :code";
+        Qry.CreateVariable("code", otInteger, service_type);
+        Qry.Execute();
+        if(Qry.Eof) throw Exception("TBagReceipt::get_service_name: service_type not found (code = %d)", service_type);
+        service_name = Qry.FieldAsString("name");
+        service_name_lat = Qry.FieldAsString("name_lat");
+    }
+    return is_inter ? service_name_lat : service_name;
+}
+
+string TPrnTagStore::SERVICE_TYPE(TFieldParams fp)
+{
+    return "10 " + rcpt.get_service_name(tag_lang.GetLang() != AstraLocale::LANG_RU);
+}
+
+string TPrnTagStore::TICKETS(TFieldParams fp)
+{
+    return rcpt.tickets;
+}
+
+string TPrnTagStore::TO(TFieldParams fp)
+{
+    return POINT_DEP(fp) + "-" + POINT_ARV(fp) + " " + AIRLINE_CODE(fp);
+}
+
+string TPrnTagStore::TOTAL(TFieldParams fp)
+{
+  return RateToString(rcpt.pay_rate_sum(), rcpt.pay_rate_cur, tag_lang.GetLang() != AstraLocale::LANG_RU, 0);
 }

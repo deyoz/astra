@@ -417,25 +417,6 @@ namespace to_esc {
     }
 }
 
-string get_mso_point(const string &aairp, bool pr_lat)
-{
-    TBaseTable &airps = base_tables.get("airps");
-    TBaseTable &cities = base_tables.get("cities");
-    string city = airps.get_row("code", aairp).AsString("city");
-    string point = cities.get_row("code", city).AsString("name", pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU);
-    if(point.empty()) throw AstraLocale::UserException((pr_lat ? "MSG.LAT_CITY_NAME_IS_NULL" : "MSG.CITY_NAME_IS_NULL"), LParams() << LParam("city", ElemIdToCodeNative(etCity,city)));
-    TQuery airpsQry(&OraSession);
-    airpsQry.SQLText =  "select count(*) from airps where city = :city";
-    airpsQry.CreateVariable("city", otString, city);
-    airpsQry.Execute();
-    if(!airpsQry.Eof && airpsQry.FieldAsInteger(0) != 1) {
-        string airp = airps.get_row("code", aairp).AsString("code", pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU);
-        if(airp.empty()) throw AstraLocale::UserException((pr_lat ? "MSG.LAT_AIRP_CODE_IS_NULL" : "MSG.AIRP_CODE_IS_NULL"), LParams() << LParam("airp", ElemIdToCodeNative(etAirp,aairp)));
-        point += "(" + airp + ")";
-    }
-    return point;
-}
-
 string pieces(int ex_amount, bool pr_lat)
 {
     string result;
@@ -446,11 +427,6 @@ string pieces(int ex_amount, bool pr_lat)
         return "мест";
     };
 }
-
-int get_value_tax_precision(double tax)
-{
-  return 1;
-};
 
 double CalcPayRate(const TBagReceipt &rcpt)
 {
