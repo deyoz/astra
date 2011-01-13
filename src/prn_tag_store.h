@@ -93,6 +93,9 @@ namespace TAG {
     const std::string VALUE_BT_LETTER = "ValueBTLetter";
     const std::string AIRLINE_CODE = "AIRLINE_CODE";
     const std::string AMOUNT_FIGURES = "AMOUNT_FIGURES";
+    const std::string CURRENCY = "CURRENCY";
+    const std::string EX_WEIGHT = "EX_WEIGHT";
+    const std::string EXCHANGE_RATE = "EXCHANGE_RATE";
 
 };
 
@@ -147,6 +150,15 @@ struct TBagReceipt
   double pay_rate();
   double rate_sum();
   double pay_rate_sum();
+  std::string get_fmt_rate(int fmt, bool pr_inter);
+  bool pr_exchange()
+  {
+      return
+          (pay_rate_cur == "êìÅ" ||
+           pay_rate_cur == "Ñéã" ||
+           pay_rate_cur == "ÖÇê") &&
+          pay_rate_cur != rate_cur;
+  };
 };
 
 #define CASH_PAY_TYPE_ID "çÄã"
@@ -389,7 +401,7 @@ class TPrnTagStore {
         std::string AIRP_ARV_NAME3(TFieldParams fp);
         std::string PNR(TFieldParams fp);
 
-        // specific for bag tags
+        // specific for bag receipts
         std::string BULKY_BT(TFieldParams fp);
         std::string BULKY_BT_LETTER(TFieldParams fp);
         std::string GOLF_BT(TFieldParams fp);
@@ -404,6 +416,9 @@ class TPrnTagStore {
         std::string BR_AIRLINE(TFieldParams fp);
         std::string AIRLINE_CODE(TFieldParams fp);
         std::string AMOUNT_FIGURES(TFieldParams fp);
+        std::string CURRENCY(TFieldParams fp);
+        std::string EX_WEIGHT(TFieldParams fp);
+        std::string EXCHANGE_RATE(TFieldParams fp);
 
         std::string get_test_field(std::string name, size_t len, std::string date_format);
         std::string get_real_field(std::string name, size_t len, std::string date_format);

@@ -190,6 +190,9 @@ TPrnTagStore::TPrnTagStore(TBagReceipt &arcpt)
     tag_list.insert(make_pair(TAG::AIRLINE,         TTagListItem(0,  &TPrnTagStore::BR_AIRLINE, 0)));
     tag_list.insert(make_pair(TAG::AIRLINE_CODE,    TTagListItem(0,  &TPrnTagStore::AIRLINE_CODE, 0)));
     tag_list.insert(make_pair(TAG::AMOUNT_FIGURES,  TTagListItem(0,  &TPrnTagStore::AMOUNT_FIGURES, 0)));
+    tag_list.insert(make_pair(TAG::CURRENCY,        TTagListItem(0,  &TPrnTagStore::CURRENCY, 0)));
+    tag_list.insert(make_pair(TAG::EX_WEIGHT,       TTagListItem(0,  &TPrnTagStore::EX_WEIGHT, 0)));
+    tag_list.insert(make_pair(TAG::EXCHANGE_RATE,   TTagListItem(0,  &TPrnTagStore::EXCHANGE_RATE, 0)));
 }
 
 // Test tags
@@ -1614,7 +1617,118 @@ double TBagReceipt::pay_rate_sum()
   return pay_rate_sum;
 }
 
+int get_rate_precision(double rate, string rate_cur)
+{
+    int precision;
+    if(
+            rate_cur == "ЕВР" ||
+            rate_cur == "ДОЛ" ||
+            rate_cur == "ГРН" ||
+            rate_cur == "ГБП"
+      )
+        precision = 2;
+    else
+    {
+      if (separate_double(rate,2,NULL)!=0)
+        precision = 2;
+      else
+        precision = 0;
+    };
+    return precision;
+}
+
+string RateToString(double rate, string rate_cur, bool pr_lat, int fmt_type)
+{
+  //fmt_type=1 - только rate
+  //fmt_type=2 - только rate_cur
+  //иначе rate+rate_cur
+    ostringstream buf;
+    if (fmt_type!=2 && !pr_lat)
+      buf << setprecision(get_rate_precision(rate, rate_cur)) << fixed << rate;
+    if (fmt_type!=1)
+      buf << base_tables.get("currency").get_row("code", rate_cur).AsString("code", pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU);
+    if (fmt_type!=2 && pr_lat)
+      buf << setprecision(get_rate_precision(rate, rate_cur)) << fixed << rate;
+    return buf.str();
+};
+
+string TBagReceipt::get_fmt_rate(int fmt, bool pr_inter)
+{
+    ostringstream result;
+    if(pr_exchange())
+        result
+            << RateToString(pay_rate_sum(), pay_rate_cur, pr_inter, fmt)
+            << "(" << RateToString(rate_sum(), rate_cur, pr_inter, fmt) << ")";
+    else
+        result << RateToString(rate_sum(), rate_cur, pr_inter, fmt);
+}
+
 string TPrnTagStore::AMOUNT_FIGURES(TFieldParams fp)
 {
-    return "den was here";
+    return rcpt.get_fmt_rate(1, tag_lang.GetLang() != AstraLocale::LANG_RU);
+}
+
+string TPrnTagStore::CURRENCY(TFieldParams fp)
+{
+    return rcpt.get_fmt_rate(2, tag_lang.GetLang() != AstraLocale::LANG_RU);
+}
+
+string TPrnTagStore::EX_WEIGHT(TFieldParams fp)
+{
+    ostringstream result;
+    result << rcpt.ex_weight;
+    if (rcpt.form_type == "M61")
+        result << getLocaleText("MSG.BR.KG");
+    return result.str();
+}
+
+int get_exch_precision(double rate)
+{
+  int i;
+  i=separate_double(rate,4,NULL);
+
+  if (i==0) return 0;
+  if (i%100==0) return 2;
+  return 4;
+
+    /*double iptr;
+    ostringstream ssbuf;
+    ssbuf << noshowpoint << modf(rate, &iptr);
+    int precision = ssbuf.str().size();
+    if(precision == 1)
+        precision = 0;
+    else
+        precision -= 2;
+
+    if(precision >= 3)
+        precision = 4;
+    else if(precision >= 1)
+        precision = 2;
+    return precision; */
+}
+
+string ExchToString(int rate1, string rate_cur1, double rate2, string rate_cur2, TTagLang &tag_lang)
+{
+    ostringstream buf;
+    buf
+        << rate1
+        << tag_lang.ElemIdToTagElem(etCurrency, rate_cur1, efmtCodeNative)
+        << "="
+        << fixed
+        << setprecision(get_exch_precision(rate2))
+        << rate2
+        << tag_lang.ElemIdToTagElem(etCurrency, rate_cur2, efmtCodeNative);
+    return buf.str();
+};
+
+string TPrnTagStore::EXCHANGE_RATE(TFieldParams fp)
+{
+    ostringstream result;
+    if (rcpt.pay_rate_cur != rcpt.rate_cur &&
+            (not rcpt.pr_exchange() or rcpt.form_type != "M61"))
+    {
+        if (rcpt.form_type != "M61" and tag_lang.GetLang() != AstraLocale::LANG_RU) result << "RATE ";
+        result << ExchToString(rcpt.exch_rate, rcpt.rate_cur, rcpt.exch_pay_rate, rcpt.pay_rate_cur, tag_lang);
+    };
+    return result.str();
 }

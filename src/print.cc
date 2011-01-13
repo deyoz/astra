@@ -447,83 +447,9 @@ string pieces(int ex_amount, bool pr_lat)
     };
 }
 
-int get_exch_precision(double rate)
-{
-  int i;
-  i=separate_double(rate,4,NULL);
-
-  if (i==0) return 0;
-  if (i%100==0) return 2;
-  return 4;
-
-    /*double iptr;
-    ostringstream ssbuf;
-    ssbuf << noshowpoint << modf(rate, &iptr);
-    int precision = ssbuf.str().size();
-    if(precision == 1)
-        precision = 0;
-    else
-        precision -= 2;
-
-    if(precision >= 3)
-        precision = 4;
-    else if(precision >= 1)
-        precision = 2;
-    return precision; */
-}
-
-int get_rate_precision(double rate, string rate_cur)
-{
-    int precision;
-    if(
-            rate_cur == "ЕВР" ||
-            rate_cur == "ДОЛ" ||
-            rate_cur == "ГРН" ||
-            rate_cur == "ГБП"
-      )
-        precision = 2;
-    else
-    {
-      if (separate_double(rate,2,NULL)!=0)
-        precision = 2;
-      else
-        precision = 0;
-    };
-    return precision;
-}
-
 int get_value_tax_precision(double tax)
 {
   return 1;
-};
-
-string ExchToString(int rate1, string rate_cur1, double rate2, string rate_cur2, bool pr_lat)
-{
-    ostringstream buf;
-    buf
-        << rate1
-        << base_tables.get("currency").get_row("code", rate_cur1).AsString("code", pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU)
-        << "="
-        << fixed
-        << setprecision(get_exch_precision(rate2))
-        << rate2
-        << base_tables.get("currency").get_row("code", rate_cur2).AsString("code", pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU);
-    return buf.str();
-};
-
-string RateToString(double rate, string rate_cur, bool pr_lat, int fmt_type)
-{
-  //fmt_type=1 - только rate
-  //fmt_type=2 - только rate_cur
-  //иначе rate+rate_cur
-    ostringstream buf;
-    if (fmt_type!=2 && !pr_lat)
-      buf << setprecision(get_rate_precision(rate, rate_cur)) << fixed << rate;
-    if (fmt_type!=1)
-      buf << base_tables.get("currency").get_row("code", rate_cur).AsString("code", pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU);
-    if (fmt_type!=2 && pr_lat)
-      buf << setprecision(get_rate_precision(rate, rate_cur)) << fixed << rate;
-    return buf.str();
 };
 
 double CalcPayRate(const TBagReceipt &rcpt)
