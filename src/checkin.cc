@@ -3387,11 +3387,12 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
       }
       else
       {
+        //запись изменений
         grp_id=NodeAsInteger(node);
         bool bag_refuse=(GetNode("bag_refuse",reqNode)!=NULL &&
                          !NodeIsNULL("bag_refuse",reqNode));
 
-        if (first_segment)
+        if (first_segment && reqInfo->client_type == ctTerm)
         {
           if (!tckin_version)
               //старый терминал

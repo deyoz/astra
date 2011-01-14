@@ -379,6 +379,13 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
       xmlNodePtr termReqNode=NodeAsNode("/term/query",termReqCtxt.docPtr())->children;
       if (termReqNode==NULL)
         throw EXCEPTIONS::Exception("ETStatusInterface::KickHandler: context TERM_REQUEST termReqNode=NULL");;
+      //если эмулируем запрос web-регистрации с терминала - то делаем подмену client_type
+      xmlNodePtr ifaceNode=GetNode("/term/query/@id",termReqCtxt.docPtr());
+      if (ifaceNode!=NULL && strcmp(NodeAsString(ifaceNode), WEB_JXT_IFACE_ID)==0)
+      {
+        //это web-регистрация
+        if (reqInfo->client_type==ctTerm) reqInfo->client_type=EMUL_CLIENT_TYPE;
+      };
       string termReqName=(char*)(termReqNode->name);
 
       if (reqInfo->client_type==ctWeb ||
