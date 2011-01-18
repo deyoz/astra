@@ -540,7 +540,12 @@ bool PaymentInterface::GetReceipt(int id, TBagReceipt &rcpt)
 bool PaymentInterface::GetReceipt(TQuery &Qry, TBagReceipt &rcpt)
 {
   if (Qry.Eof) return false;
-  rcpt.pr_lat=Qry.FieldAsInteger("pr_lat")!=0;
+  if(rcpt.prnParams.pr_lat == NoExists) ProgError(STDLOG, "Udefined rcpt.prnParams.pr_lat");
+  rcpt.tag_lang.Init(
+          rcpt.prnParams.pr_lat, 
+          Qry.FieldAsInteger("is_inter")!=0,
+          Qry.FieldAsString("desk_lang")
+          );
   rcpt.form_type=Qry.FieldAsString("form_type");
   rcpt.no=Qry.FieldAsFloat("no");
   rcpt.pax_name=Qry.FieldAsString("pax_name");
@@ -618,11 +623,11 @@ int PaymentInterface::PutReceipt(TBagReceipt &rcpt, int point_id, int grp_id)
     "BEGIN "
     "  SELECT id__seq.nextval,SYSTEM.UTCSYSDATE INTO :receipt_id,:issue_date FROM dual; "
     "  INSERT INTO bag_receipts "
-    "        (receipt_id,point_id,grp_id,status,pr_lat,form_type,no,pax_name,pax_doc,service_type,bag_type,bag_name, "
+    "        (receipt_id,point_id,grp_id,status,is_inter,desk_lang,form_type,no,pax_name,pax_doc,service_type,bag_type,bag_name, "
     "         tickets,prev_no,airline,aircode,flt_no,suffix,airp_dep,airp_arv,ex_amount,ex_weight,value_tax, "
     "         rate,rate_cur,exch_rate,exch_pay_rate,pay_rate_cur,remarks, "
     "         issue_date,issue_place,issue_user_id,issue_desk) "
-    "  VALUES(:receipt_id,:point_id,:grp_id,:status,:pr_lat,:form_type,:no,:pax_name,:pax_doc,:service_type,:bag_type,:bag_name, "
+    "  VALUES(:receipt_id,:point_id,:grp_id,:status,:is_inter,:desk_lang,:form_type,:no,:pax_name,:pax_doc,:service_type,:bag_type,:bag_name, "
     "         :tickets,:prev_no,:airline,:aircode,:flt_no,:suffix,:airp_dep,:airp_arv,:ex_amount,:ex_weight,:value_tax, "
     "         :rate,:rate_cur,:exch_rate,:exch_pay_rate,:pay_rate_cur,:remarks, "
     "         :issue_date,:issue_place,:issue_user_id,:issue_desk); "
@@ -631,7 +636,8 @@ int PaymentInterface::PutReceipt(TBagReceipt &rcpt, int point_id, int grp_id)
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.CreateVariable("grp_id",otInteger,grp_id);
   Qry.CreateVariable("status",otString,"П");
-  Qry.CreateVariable("pr_lat",otInteger,(int)rcpt.pr_lat);
+  Qry.CreateVariable("is_inter",otInteger,(int)rcpt.tag_lang.IsInter());
+  Qry.CreateVariable("desk_lang",otString,TReqInfo::Instance()->desk.lang);
   Qry.CreateVariable("form_type",otString,rcpt.form_type);
   Qry.CreateVariable("no",otFloat,rcpt.no);
   Qry.CreateVariable("pax_name",otString,rcpt.pax_name);
@@ -724,7 +730,7 @@ void PaymentInterface::PutReceipt(TBagReceipt &rcpt, int rcpt_id, xmlNodePtr rcp
 
   if (rcpt_id!=-1)
     NewTextChild(rcptNode,"id",rcpt_id);
-  NewTextChild(rcptNode,"pr_lat",(int)rcpt.pr_lat);
+  NewTextChild(rcptNode,"pr_lat",(int)rcpt.tag_lang.IsInter());
   NewTextChild(rcptNode,"form_type",rcpt.form_type);
   NewTextChild(rcptNode,"no",rcpt.no);
   NewTextChild(rcptNode,"pax_name",rcpt.pax_name);
@@ -823,6 +829,12 @@ void PaymentInterface::GetReceipt(xmlNodePtr reqNode, TBagReceipt &rcpt)
     rcpt.airp_arv=NodeAsString("airp_arv",rcptNode);
   else
     rcpt.airp_arv=Qry.FieldAsString("airp_arv");
+  rcpt.tag_lang.Init(
+          Qry.FieldAsInteger("point_dep"),
+          Qry.FieldAsInteger("point_arv"),
+          NULL,
+          rcpt.prnParams.pr_lat
+          );
 
   //проверим, надо ли выводить в квитанцию коммерческий рейс
   Qry.Clear();
@@ -838,21 +850,6 @@ void PaymentInterface::GetReceipt(xmlNodePtr reqNode, TBagReceipt &rcpt)
   };
 
   rcpt.aircode=base_tables.get("airlines").get_row("code", rcpt.airline).AsString("aircode");
-  string city_dep=base_tables.get("airps").get_row("code", rcpt.airp_dep).AsString("city");
-  string city_arv=base_tables.get("airps").get_row("code", rcpt.airp_arv).AsString("city");
-  string country_dep=base_tables.get("cities").get_row("code", city_dep).AsString("country");
-  string country_arv=base_tables.get("cities").get_row("code", city_arv).AsString("country");
-  TPrnParams prnParams;
-  prnParams.get_prn_params(reqNode);
-  TTagLang tag_lang;
-  tag_lang.Init(
-          Qry.FieldAsInteger("point_dep"),
-          Qry.FieldAsInteger("point_arv"),
-          NULL,
-          prnParams.pr_lat
-          );
-  rcpt.pr_lat=tag_lang.IsInter();
-
   rcpt.form_type=NodeAsString("form_type",rcptNode);
   if (rcpt.form_type.empty())
     throw AstraLocale::UserException("MSG.RECEIPT_BLANK_TYPE_NOT_SET");
@@ -861,7 +858,7 @@ void PaymentInterface::GetReceipt(xmlNodePtr reqNode, TBagReceipt &rcpt)
   {
     //превью с незаданным номером квитанции (в т.ч. первое превью)
     rcpt.no=GetCurrNo(reqInfo->user.user_id,rcpt.form_type);
-    rcpt.pax_name=transliter(NodeAsString("pax_name",rcptNode),1,rcpt.pr_lat);
+    rcpt.pax_name=transliter(NodeAsString("pax_name",rcptNode),1,rcpt.tag_lang.GetLang() != AstraLocale::LANG_RU);
   }
   else
   {
@@ -961,73 +958,44 @@ void PaymentInterface::PutReceiptFields(TBagReceipt &rcpt, xmlNodePtr node)
 
   //формируем в ответ образ телеграммы
   xmlNodePtr fieldsNode=NewTextChild(node,"fields");
-  NewTextChild(fieldsNode,"pax_doc",parser.GetTagAsString("pax_doc"));
-  NewTextChild(fieldsNode,"pax_name",parser.GetTagAsString("pax_name"));
-  NewTextChild(fieldsNode,"tickets",parser.GetTagAsString("tickets"));
-  NewTextChild(fieldsNode,"prev_no",parser.GetTagAsString("prev_no"));
-  NewTextChild(fieldsNode,"aircode",parser.GetTagAsString("aircode"));
-  NewTextChild(fieldsNode,"issue_place1",parser.GetTagAsString("issue_place1"));
-  NewTextChild(fieldsNode,"issue_place2",parser.GetTagAsString("issue_place2"));
-  NewTextChild(fieldsNode,"issue_place3",parser.GetTagAsString("issue_place3"));
-  NewTextChild(fieldsNode,"issue_place4",parser.GetTagAsString("issue_place4"));
-  NewTextChild(fieldsNode,"issue_place5",parser.GetTagAsString("issue_place5"));
-
-  NewTextChild(fieldsNode,"SkiBT",parser.GetTagAsString("SkiBT"));
-  NewTextChild(fieldsNode,"GolfBT",parser.GetTagAsString("GolfBT"));
-  NewTextChild(fieldsNode,"PetBT",parser.GetTagAsString("PetBT"));
-  NewTextChild(fieldsNode,"BulkyBT",parser.GetTagAsString("BulkyBT"));
-  NewTextChild(fieldsNode,"BulkyBTLetter",parser.GetTagAsString("BulkyBTLetter"));
-  NewTextChild(fieldsNode,"OtherBT",parser.GetTagAsString("OtherBT"));
-  NewTextChild(fieldsNode,"ValueBT",parser.GetTagAsString("ValueBT"));
-
-  if (!rcpt.pr_lat)
-  {
-    NewTextChild(fieldsNode,"ValueBTLetter",parser.GetTagAsString("ValueBTLetter"));
-    NewTextChild(fieldsNode,"OtherBTLetter",parser.GetTagAsString("OtherBTLetter"));
-    NewTextChild(fieldsNode,"service_type",parser.GetTagAsString("service_type"));
-    NewTextChild(fieldsNode,"bag_name",parser.GetTagAsString("bag_name"));
-    NewTextChild(fieldsNode,"amount_letters",parser.GetTagAsString("amount_letters"));
-    NewTextChild(fieldsNode,"amount_figures",parser.GetTagAsString("amount_figures"));
-    NewTextChild(fieldsNode,"currency",parser.GetTagAsString("currency"));
-    NewTextChild(fieldsNode,"issue_date",parser.GetTagAsString("issue_date_str"));
-    NewTextChild(fieldsNode,"to",parser.GetTagAsString("to"));
-    NewTextChild(fieldsNode,"remarks1",parser.GetTagAsString("remarks1"));
-    NewTextChild(fieldsNode,"remarks2",parser.GetTagAsString("remarks2"));
-    NewTextChild(fieldsNode,"exchange_rate",parser.GetTagAsString("exchange_rate"));
-    NewTextChild(fieldsNode,"total",parser.GetTagAsString("total"));
-    NewTextChild(fieldsNode,"airline",parser.GetTagAsString("airline"));
-    NewTextChild(fieldsNode,"airline_code",parser.GetTagAsString("airline_code"));
-    NewTextChild(fieldsNode,"point_dep",parser.GetTagAsString("point_dep"));
-    NewTextChild(fieldsNode,"point_arv",parser.GetTagAsString("point_arv"));
-    NewTextChild(fieldsNode,"rate",parser.GetTagAsString("rate"));
-    NewTextChild(fieldsNode,"charge",parser.GetTagAsString("charge"));
-    NewTextChild(fieldsNode,"ex_weight",parser.GetTagAsString("ex_weight"));
-    NewTextChild(fieldsNode,"pay_form",parser.GetTagAsString("pay_form"));
-  }
-  else
-  {
-    NewTextChild(fieldsNode,"ValueBTLetter",parser.GetTagAsString("ValueBTLetter_lat"));
-    NewTextChild(fieldsNode,"OtherBTLetter",parser.GetTagAsString("OtherBTLetter_lat"));
-    NewTextChild(fieldsNode,"service_type",parser.GetTagAsString("service_type_lat"));
-    NewTextChild(fieldsNode,"bag_name",parser.GetTagAsString("bag_name_lat"));
-    NewTextChild(fieldsNode,"amount_letters",parser.GetTagAsString("amount_letters_lat"));
-    NewTextChild(fieldsNode,"amount_figures",parser.GetTagAsString("amount_figures_lat"));
-    NewTextChild(fieldsNode,"currency",parser.GetTagAsString("currency_lat"));
-    NewTextChild(fieldsNode,"issue_date",parser.GetTagAsString("issue_date_str_lat"));
-    NewTextChild(fieldsNode,"to",parser.GetTagAsString("to_lat"));
-    NewTextChild(fieldsNode,"remarks1",parser.GetTagAsString("remarks1_lat"));
-    NewTextChild(fieldsNode,"remarks2",parser.GetTagAsString("remarks2_lat"));
-    NewTextChild(fieldsNode,"exchange_rate",parser.GetTagAsString("exchange_rate_lat"));
-    NewTextChild(fieldsNode,"total",parser.GetTagAsString("total_lat"));
-    NewTextChild(fieldsNode,"airline",parser.GetTagAsString("airline_lat"));
-    NewTextChild(fieldsNode,"airline_code",parser.GetTagAsString("airline_code_lat"));
-    NewTextChild(fieldsNode,"point_dep",parser.GetTagAsString("point_dep_lat"));
-    NewTextChild(fieldsNode,"point_arv",parser.GetTagAsString("point_arv_lat"));
-    NewTextChild(fieldsNode,"rate",parser.GetTagAsString("rate_lat"));
-    NewTextChild(fieldsNode,"charge",parser.GetTagAsString("charge_lat"));
-    NewTextChild(fieldsNode,"ex_weight",parser.GetTagAsString("ex_weight_lat"));
-    NewTextChild(fieldsNode,"pay_form",parser.GetTagAsString("pay_form_lat"));
-  };
+  NewTextChild(fieldsNode,"pax_doc",         parser.pts.get_tag(TAG::PAX_DOC));
+  NewTextChild(fieldsNode,"pax_name",        parser.pts.get_tag(TAG::PAX_NAME));
+  NewTextChild(fieldsNode,"tickets",         parser.pts.get_tag(TAG::TICKETS));
+  NewTextChild(fieldsNode,"prev_no",         parser.pts.get_tag(TAG::PREV_NO));
+  NewTextChild(fieldsNode,"aircode",         parser.pts.get_tag(TAG::AIRCODE));
+  NewTextChild(fieldsNode,"issue_place1",    parser.pts.get_tag(TAG::ISSUE_PLACE1));
+  NewTextChild(fieldsNode,"issue_place2",    parser.pts.get_tag(TAG::ISSUE_PLACE2));
+  NewTextChild(fieldsNode,"issue_place3",    parser.pts.get_tag(TAG::ISSUE_PLACE3));
+  NewTextChild(fieldsNode,"issue_place4",    parser.pts.get_tag(TAG::ISSUE_PLACE4));
+  NewTextChild(fieldsNode,"issue_place5",    parser.pts.get_tag(TAG::ISSUE_PLACE5));
+  NewTextChild(fieldsNode,"SkiBT",           parser.pts.get_tag(TAG::SKI_BT));
+  NewTextChild(fieldsNode,"GolfBT",          parser.pts.get_tag(TAG::GOLF_BT));
+  NewTextChild(fieldsNode,"PetBT",           parser.pts.get_tag(TAG::PET_BT));
+  NewTextChild(fieldsNode,"BulkyBT",         parser.pts.get_tag(TAG::BULKY_BT));
+  NewTextChild(fieldsNode,"BulkyBTLetter",   parser.pts.get_tag(TAG::BULKY_BT_LETTER));
+  NewTextChild(fieldsNode,"OtherBT",         parser.pts.get_tag(TAG::OTHER_BT));
+  NewTextChild(fieldsNode,"ValueBT",         parser.pts.get_tag(TAG::VALUE_BT));
+  NewTextChild(fieldsNode,"ValueBTLetter",   parser.pts.get_tag(TAG::VALUE_BT_LETTER));
+  NewTextChild(fieldsNode,"OtherBTLetter",   parser.pts.get_tag(TAG::OTHER_BT_LETTER));
+  NewTextChild(fieldsNode,"service_type",    parser.pts.get_tag(TAG::SERVICE_TYPE));
+  NewTextChild(fieldsNode,"bag_name",        parser.pts.get_tag(TAG::BAG_NAME));
+  NewTextChild(fieldsNode,"amount_letters",  parser.pts.get_tag(TAG::AMOUNT_LETTERS));
+  NewTextChild(fieldsNode,"amount_figures",  parser.pts.get_tag(TAG::AMOUNT_FIGURES));
+  NewTextChild(fieldsNode,"currency",        parser.pts.get_tag(TAG::CURRENCY));
+  NewTextChild(fieldsNode,"issue_date",      parser.pts.get_tag(TAG::ISSUE_DATE, "ddmmmyy"));
+  NewTextChild(fieldsNode,"to",              parser.pts.get_tag(TAG::TO));
+  NewTextChild(fieldsNode,"remarks1",        parser.pts.get_tag(TAG::REMARKS1));
+  NewTextChild(fieldsNode,"remarks2",        parser.pts.get_tag(TAG::REMARKS2));
+  NewTextChild(fieldsNode,"exchange_rate",   parser.pts.get_tag(TAG::EXCHANGE_RATE));
+  NewTextChild(fieldsNode,"total",           parser.pts.get_tag(TAG::TOTAL));
+  NewTextChild(fieldsNode,"airline",         parser.pts.get_tag(TAG::AIRLINE));
+  NewTextChild(fieldsNode,"airline_code",    parser.pts.get_tag(TAG::AIRLINE_CODE));
+  NewTextChild(fieldsNode,"point_dep",       parser.pts.get_tag(TAG::POINT_DEP));
+  NewTextChild(fieldsNode,"point_arv",       parser.pts.get_tag(TAG::POINT_ARV));
+  NewTextChild(fieldsNode,"rate",            parser.pts.get_tag(TAG::RATE));
+  NewTextChild(fieldsNode,"charge",          parser.pts.get_tag(TAG::CHARGE));
+  NewTextChild(fieldsNode,"ex_weight",       parser.pts.get_tag(TAG::EX_WEIGHT));
+  NewTextChild(fieldsNode,"pay_form",        parser.pts.get_tag(TAG::PAY_FORM));
 
   if (rcpt.no!=-1.0)
   {
@@ -1085,6 +1053,7 @@ void PaymentInterface::ViewReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   {
     //этот код выполняется при выводе еще не напечатанной квитанции
     TBagReceipt rcpt;
+    rcpt.prnParams.get_prn_params(reqNode);
     GetReceipt(reqNode,rcpt);
     PutReceipt(rcpt,-1,rcptNode);
     PutReceiptFields(rcpt,rcptNode);
@@ -1100,6 +1069,7 @@ void PaymentInterface::ReplaceReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
   TBagReceipt rcpt;
+  rcpt.prnParams.get_prn_params(reqNode);
   int rcpt_id=NodeAsInteger("receipt/id",reqNode);
 
   if (!GetReceipt(rcpt_id,rcpt))
@@ -1123,6 +1093,7 @@ void PaymentInterface::AnnulReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
     TBagReceipt rcpt;
+    rcpt.prnParams.get_prn_params(reqNode);
     TQuery Qry(&OraSession);
 
     int rcpt_id=NodeAsInteger("receipt/id",reqNode);
@@ -1187,6 +1158,7 @@ void PaymentInterface::PrintReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     TQuery Qry(&OraSession);
 
     TBagReceipt rcpt;
+    rcpt.prnParams.get_prn_params(reqNode);
     int rcpt_id;
     ostringstream logmsg;
     xmlNodePtr rcptNode;

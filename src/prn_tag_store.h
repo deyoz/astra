@@ -81,19 +81,20 @@ namespace TAG {
     const std::string PNR = "PNR";
 
     // specific for bag receipts
-    const std::string BULKY_BT = "BulkyBT";
-    const std::string BULKY_BT_LETTER = "BulkyBTLetter";
-    const std::string GOLF_BT = "GolfBT";
-    const std::string OTHER_BT = "OtherBT";
-    const std::string OTHER_BT_LETTER = "OtherBTLetter";
-    const std::string PET_BT = "PetBT";
-    const std::string SKI_BT = "SkiBT";
-    const std::string VALUE_BT = "ValueBT";
-    const std::string VALUE_BT_LETTER = "ValueBTLetter";
+    const std::string BULKY_BT = "BULKYBT";
+    const std::string BULKY_BT_LETTER = "BULKYBTLETTER";
+    const std::string GOLF_BT = "GOLFBT";
+    const std::string OTHER_BT = "OTHERBT";
+    const std::string OTHER_BT_LETTER = "OTHERBTLETTER";
+    const std::string PET_BT = "PETBT";
+    const std::string SKI_BT = "SKIBT";
+    const std::string VALUE_BT = "VALUEBT";
+    const std::string VALUE_BT_LETTER = "VALUEBTLETTER";
     const std::string AIRLINE_CODE = "AIRLINE_CODE";
     const std::string AMOUNT_FIGURES = "AMOUNT_FIGURES";
     const std::string AMOUNT_LETTERS = "AMOUNT_LETTERS";
     const std::string BAG_NAME = "BAG_NAME";
+    const std::string CHARGE = "CHARGE";
     const std::string CURRENCY = "CURRENCY";
     const std::string EX_WEIGHT = "EX_WEIGHT";
     const std::string EXCHANGE_RATE = "EXCHANGE_RATE";
@@ -137,13 +138,42 @@ struct TBagPayType
   std::string extra;
 };
 
+class TTagLang {
+    private:
+        std::string desk_lang;
+        bool is_inter;
+        std::string tag_lang; // параметр тега E - лат, R - рус
+        bool pr_lat;
+        std::string GetLang(TElemFmt &fmt, std::string firm_lang) const;
+        bool IsInter(TBTRoute *aroute, std::string &country);
+    public:
+        bool get_pr_lat() { return pr_lat; };
+        bool IsInter() const;
+        std::string GetLang();
+        std::string dup_lang() { return GetLang()==AstraLocale::LANG_EN ? AstraLocale::LANG_RU : GetLang(); }; // lang for duplicated captions
+        void set_tag_lang(std::string val) { tag_lang = val; };
+        std::string ElemIdToTagElem(TElemType type, const std::string &id, TElemFmt fmt, std::string firm_lang = "") const;
+        std::string ElemIdToTagElem(TElemType type, int id, TElemFmt fmt, std::string firm_lang = "") const;
+        void Init(int point_dep, int point_arv, TBTRoute *aroute, bool apr_lat); // BT, BR
+        void Init(bool apr_lat); // Инициализация для использования в тестовых пектабах.
+        void Init(bool apr_lat, bool ais_inter, std::string adesk_lang); // Bag receipts
+};
+
+struct TPrnParams {
+    std::string encoding;
+    int offset, top, pr_lat;
+    void get_prn_params(xmlNodePtr prnParamsNode);
+    TPrnParams(): encoding("CP866"), offset(20), top(0), pr_lat(0) {};
+};
+
 struct TBagReceipt
 {
     private:
         std::vector<std::string> f_issue_place_idx;
         std::string service_name, service_name_lat;
     public:
-        bool pr_lat;
+        TPrnParams prnParams;
+        TTagLang tag_lang;
         std::string form_type;
         double no;
         std::string pax_name,pax_doc;
@@ -192,34 +222,9 @@ struct TBagReceipt
 
 int separate_double(double d, int precision, int *iptr);
 
-class TTagLang {
-    private:
-        int rcpt_is_inter;
-        bool route_inter;
-        std::string tag_lang; // параметр тега E - лат, R - рус
-        std::string route_country_lang; //язык страны, где выполняется внутренний рейс
-        bool pr_lat;
-        std::string GetLang(TElemFmt &fmt, std::string firm_lang) const;
-        bool IsInter(TBTRoute *aroute, std::string &country);
-    public:
-        bool get_pr_lat() { return pr_lat; };
-        bool IsInter() const;
-        bool IsTstInter() const; // используется в тестовых пектабах
-        std::string GetLang();
-        std::string dup_lang() { return GetLang()==AstraLocale::LANG_EN ? AstraLocale::LANG_RU : GetLang(); }; // lang for duplicated captions
-        void set_tag_lang(std::string val) { tag_lang = val; };
-        std::string ElemIdToTagElem(TElemType type, const std::string &id, TElemFmt fmt, std::string firm_lang = "") const;
-        std::string ElemIdToTagElem(TElemType type, int id, TElemFmt fmt, std::string firm_lang = "") const;
-        void Init(int point_dep, int point_arv, TBTRoute *aroute, bool apr_lat);
-        void Init(bool apr_lat); // Инициализация для использования в тестовых пектабах.
-        void RcptInit(bool apr_lat); // Bag receipts
-        TTagLang(): rcpt_is_inter(ASTRA::NoExists) {};
-};
-
 class TPrnTagStore {
     private:
 
-        TTagLang tag_lang;
 
         TBagReceipt rcpt;
 
@@ -443,6 +448,7 @@ class TPrnTagStore {
         std::string AMOUNT_FIGURES(TFieldParams fp);
         std::string AMOUNT_LETTERS(TFieldParams fp);
         std::string BAG_NAME(TFieldParams fp);
+        std::string CHARGE(TFieldParams fp);
         std::string CURRENCY(TFieldParams fp);
         std::string EX_WEIGHT(TFieldParams fp);
         std::string EXCHANGE_RATE(TFieldParams fp);
@@ -469,6 +475,7 @@ class TPrnTagStore {
         std::string get_test_field(std::string name, size_t len, std::string date_format);
         std::string get_real_field(std::string name, size_t len, std::string date_format);
     public:
+        TTagLang tag_lang;
         TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tagsNode, TBTRoute *aroute = NULL);
         TPrnTagStore(bool pr_lat);
         TPrnTagStore(TBagReceipt &arcpt);
@@ -477,9 +484,11 @@ class TPrnTagStore {
         void set_tag(std::string name, BASIC::TDateTime value);
         std::string get_field(std::string name, size_t len, std::string align, std::string date_format, std::string tag_lang);
         void get_prn_qry(TQuery &Qry);
-        std::string get_tag(std::string name, std::string tag_lang = "R"); // R - russian; E - english
+        std::string get_tag(
+                std::string name,
+                std::string date_format = BASIC::ServerFormatDateTimeAsString,
+                std::string tag_lang = "R"); // R - russian; E - english
         bool tag_processed(std::string name);
-        void set_pr_lat(bool vpr_lat);
         void set_print_mode(int val);
 
         void tst_get_tag_list(std::vector<std::string> &tag_list);

@@ -2248,7 +2248,7 @@ void PrintInterface::RefreshPrnTests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
                         oi->second.fmt_type == item.fmt_type
                   )
                     prnParams = oi->second.prnParams;
-                parser.pts.set_pr_lat(prnParams.pr_lat);
+                parser.pts.tag_lang.Init(prnParams.pr_lat);
                 data = parser.parse(data);
                 TDevOperType dev_oper_type = DecodeDevOperType(item.op_type);
                 TDevFmtType dev_fmt_type = DecodeDevFmtType(item.fmt_type);

@@ -49,25 +49,24 @@ void TPrnTagStore::set_print_mode(int val)
     print_mode = val;
 }
 
-void TPrnTagStore::set_pr_lat(bool vpr_lat)
+void TTagLang::Init(bool apr_lat, bool ais_inter, string adesk_lang) // Bag receipts
 {
-    tag_lang.Init(vpr_lat);
-}
-
-void TTagLang::RcptInit(bool apr_lat)
-{
-    rcpt_is_inter = apr_lat;
+    pr_lat = apr_lat;
+    is_inter = ais_inter;
+    desk_lang = adesk_lang;
 }
 
 void TTagLang::Init(bool apr_lat)
 {
     pr_lat = apr_lat;
+    is_inter = apr_lat;
+    desk_lang = TReqInfo::Instance()->desk.lang;
 }
 
 void TTagLang::Init(int point_dep, int point_arv, TBTRoute *aroute, bool apr_lat)
 {
     string route_country;
-    route_inter = IsRouteInter(point_dep, point_arv, route_country);
+    bool route_inter = IsRouteInter(point_dep, point_arv, route_country);
     if(aroute != NULL and aroute->size() > 1) { // список стыковочных сегментов для бирки
         string trfer_route_country;
         IsInter(aroute, trfer_route_country);
@@ -76,27 +75,21 @@ void TTagLang::Init(int point_dep, int point_arv, TBTRoute *aroute, bool apr_lat
             route_country.clear();
         }
     }
+    std::string route_country_lang; //язык страны, где выполняется внутренний рейс
     if(route_country == "РФ")
         route_country_lang = AstraLocale::LANG_RU;
     else
         route_country_lang = "";
     pr_lat = apr_lat;
-}
-
-bool TTagLang::IsTstInter() const
-{
-    return tag_lang == "E" or pr_lat;
+    is_inter =
+        (route_inter || route_country_lang.empty() || route_country_lang!=TReqInfo::Instance()->desk.lang) or
+        pr_lat;
+    desk_lang = TReqInfo::Instance()->desk.lang;
 }
 
 bool TTagLang::IsInter() const
 {
-    if(rcpt_is_inter != NoExists)
-        return rcpt_is_inter or tag_lang == "E";
-    else
-        return
-            (route_inter || route_country_lang.empty() || route_country_lang!=TReqInfo::Instance()->desk.lang) or
-            tag_lang == "E" or
-            pr_lat;
+    return is_inter or tag_lang == "E";
 }
 
 string TTagLang::GetLang(TElemFmt &fmt, string firm_lang) const
@@ -104,7 +97,7 @@ string TTagLang::GetLang(TElemFmt &fmt, string firm_lang) const
   string lang = firm_lang;
   if (lang.empty())
   {
-     lang = TReqInfo::Instance()->desk.lang;
+     lang = desk_lang;
      if (IsInter())
      {
        if (fmt==efmtNameShort || fmt==efmtNameLong) lang=AstraLocale::LANG_EN;
@@ -175,7 +168,7 @@ void TPrnTagStore::TPrnTestTags::Init()
 TPrnTagStore::TPrnTagStore(TBagReceipt &arcpt)
 {
     rcpt = arcpt;
-    tag_lang.RcptInit(rcpt.pr_lat);
+    tag_lang = rcpt.tag_lang;
 
     tag_list.insert(make_pair(TAG::BULKY_BT,        TTagListItem(1,  &TPrnTagStore::BULKY_BT, 0)));
     tag_list.insert(make_pair(TAG::BULKY_BT_LETTER, TTagListItem(1,  &TPrnTagStore::BULKY_BT_LETTER, 0)));
@@ -192,6 +185,7 @@ TPrnTagStore::TPrnTagStore(TBagReceipt &arcpt)
     tag_list.insert(make_pair(TAG::AMOUNT_FIGURES,  TTagListItem(1,  &TPrnTagStore::AMOUNT_FIGURES, 0)));
     tag_list.insert(make_pair(TAG::AMOUNT_LETTERS,  TTagListItem(1,  &TPrnTagStore::AMOUNT_LETTERS, 0)));
     tag_list.insert(make_pair(TAG::BAG_NAME,        TTagListItem(1,  &TPrnTagStore::BAG_NAME, 0)));
+    tag_list.insert(make_pair(TAG::CHARGE,          TTagListItem(1,  &TPrnTagStore::CHARGE, 0)));
     tag_list.insert(make_pair(TAG::CURRENCY,        TTagListItem(1,  &TPrnTagStore::CURRENCY, 0)));
     tag_list.insert(make_pair(TAG::EX_WEIGHT,       TTagListItem(1,  &TPrnTagStore::EX_WEIGHT, 0)));
     tag_list.insert(make_pair(TAG::EXCHANGE_RATE,   TTagListItem(1,  &TPrnTagStore::EXCHANGE_RATE, 0)));
@@ -343,7 +337,7 @@ string TPrnTagStore::get_test_field(std::string name, size_t len, std::string da
     map<string, TPrnTestTagsItem>::iterator im = prn_test_tags.items.find(name);
     if(im == prn_test_tags.items.end())
         throw Exception("TPrnTagStore::get_test_field: %s tag not found", name.c_str());
-    string value = tag_lang.IsTstInter() ? im->second.value_lat : im->second.value;
+    string value = tag_lang.IsInter() ? im->second.value_lat : im->second.value;
     if(value.empty())
         value = im->second.value;
     TDateTime date = 0;
@@ -351,7 +345,7 @@ string TPrnTagStore::get_test_field(std::string name, size_t len, std::string da
     switch(im->second.type) {
         case 'D':
             StrToDateTime(value.c_str(), ServerFormatDateTimeAsString, date);
-            result << DateTimeToStr(date, value, tag_lang.IsTstInter());
+            result << DateTimeToStr(date, value, tag_lang.IsInter());
             break;
         case 'S':
             result << value;
@@ -414,17 +408,18 @@ bool TPrnTagStore::tag_processed(std::string name)
     }
 }
 
-string TPrnTagStore::get_tag(string name, string tag_lang)
+string TPrnTagStore::get_tag(string name, string date_format, string tag_lang)
 {
     this->tag_lang.set_tag_lang(tag_lang);
     if(prn_test_tags.items.empty())
-        return get_real_field(name, 0, ServerFormatDateTimeAsString);
+        return get_real_field(name, 0, date_format);
     else
-        return get_test_field(name, 0, ServerFormatDateTimeAsString);
+        return get_test_field(name, 0, date_format);
 }
 
 string TPrnTagStore::get_field(std::string name, size_t len, std::string align, std::string date_format, string tag_lang)
 {
+    ProgTrace(TRACE5, "FIELD NAME: %s", name.c_str());
     this->tag_lang.set_tag_lang(tag_lang);
     string result;
     if(prn_test_tags.items.empty())
@@ -1500,37 +1495,6 @@ string TPrnTagStore::OTHER_BT_LETTER(TFieldParams fp)
     return result;
 }
 
-string TPrnTagStore::BAG_NAME(TFieldParams fp)
-{
-    string result;
-    if(rcpt.bag_name.empty()) {
-        TQuery Qry(&OraSession);
-        Qry.SQLText =
-            "select "
-            "  nvl(rcpt_bag_names.name, bag_types.name) name, "
-            "  nvl(rcpt_bag_names.name_lat, bag_types.name_lat) name_lat "
-            "from "
-            "  bag_types, "
-            "  rcpt_bag_names "
-            "where "
-            "  bag_types.code = :code and "
-            "  bag_types.code = rcpt_bag_names.code(+)";
-        Qry.CreateVariable("code", otInteger, rcpt.bag_type);
-        Qry.Execute();
-        if(Qry.Eof) throw Exception("TPrnTagStore::BAG_NAME: bag_type not found (code = %d)", rcpt.bag_type);
-        if(tag_lang.GetLang() != AstraLocale::LANG_RU)
-            result = Qry.FieldAsString("name_lat");
-        else
-            result = Qry.FieldAsString("name");
-        if(rcpt.bag_type == 1 || rcpt.bag_type == 2)
-            //негабарит
-            result += " " + IntToString(rcpt.ex_amount) + " " + getLocaleText("MSG.BR.SEATS", tag_lang.GetLang());
-        result = upperc(result);
-    } else
-        result = rcpt.bag_name;
-    return result;
-}
-
 string TPrnTagStore::PET_BT(TFieldParams fp)
 {
     string result;
@@ -1706,6 +1670,42 @@ string TPrnTagStore::AMOUNT_LETTERS(TFieldParams fp)
         result += str_fract;
     }
     return result;
+}
+
+string TPrnTagStore::BAG_NAME(TFieldParams fp)
+{
+    string result;
+    if(rcpt.bag_name.empty()) {
+        TQuery Qry(&OraSession);
+        Qry.SQLText =
+            "select "
+            "  nvl(rcpt_bag_names.name, bag_types.name) name, "
+            "  nvl(rcpt_bag_names.name_lat, bag_types.name_lat) name_lat "
+            "from "
+            "  bag_types, "
+            "  rcpt_bag_names "
+            "where "
+            "  bag_types.code = :code and "
+            "  bag_types.code = rcpt_bag_names.code(+)";
+        Qry.CreateVariable("code", otInteger, rcpt.bag_type);
+        Qry.Execute();
+        if(Qry.Eof) throw Exception("TPrnTagStore::BAG_NAME: bag_type not found (code = %d)", rcpt.bag_type);
+        if(tag_lang.GetLang() != AstraLocale::LANG_RU)
+            result = Qry.FieldAsString("name_lat");
+        else
+            result = Qry.FieldAsString("name");
+        if(rcpt.bag_type == 1 || rcpt.bag_type == 2)
+            //негабарит
+            result += " " + IntToString(rcpt.ex_amount) + " " + getLocaleText("MSG.BR.SEATS", tag_lang.GetLang());
+        result = upperc(result);
+    } else
+        result = rcpt.bag_name;
+    return result;
+}
+
+string TPrnTagStore::CHARGE(TFieldParams fp)
+{
+    return rcpt.get_fmt_rate(0, tag_lang.GetLang() != AstraLocale::LANG_RU);
 }
 
 string TPrnTagStore::CURRENCY(TFieldParams fp)
