@@ -4296,6 +4296,8 @@ void SoppInterface::DeleteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 	xmlNodePtr node = NodeAsNode( "data", reqNode );
 	int move_id = NodeAsInteger( "move_id", node );
 	TQuery Qry(&OraSession);
+  // проверка на предмет того, что во всех пп стоит статус неактивен иначе ругаемся
+	Qry.Clear();
 	Qry.SQLText = "SELECT COUNT(*) c, point_dep FROM pax_grp WHERE point_dep IN "
 	              "( SELECT point_id FROM points WHERE move_id=:move_id ) "
 	              "GROUP BY point_dep ";
@@ -4311,15 +4313,41 @@ void SoppInterface::DeleteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 		throw AstraLocale::UserException( "MSG.FLIGHT.UNABLE_DEL.PAX_EXISTS", LParams() << LParam("airp", ElemIdToNameLong(etAirp,Qry.FieldAsString("airp"))));
 	}
 	Qry.Clear();
-	Qry.SQLText = "SELECT airline,flt_no,airp FROM points WHERE move_id=:move_id AND pr_del!=-1";
+	Qry.SQLText = "SELECT point_id,airline,flt_no,airp,scd_out,pr_reg FROM points WHERE move_id=:move_id AND pr_del!=-1 ORDER BY point_num";
 	Qry.CreateVariable( "move_id", otInteger, move_id );
 	Qry.Execute();
-	string name, dests;
+	string prior_airline, prior_flt_no, prior_date, str_d, prior_name, name, dests;
 	while ( !Qry.Eof ) {
-		if ( name.empty() )
-		  name += Qry.FieldAsString( "airline" );
-		if ( name.find(Qry.FieldAsString( "flt_no" )) == string::npos )
-		  name += Qry.FieldAsString( "flt_no" );
+    if ( Qry.FieldAsInteger( "pr_reg" ) && !Qry.FieldIsNULL( "scd_out" ) ) {
+       TTripStages ts( Qry.FieldAsInteger( "point_id" ) );
+       if ( ts.getStage( stCheckIn ) != sNoActive )
+         throw AstraLocale::UserException( "MSG.FLIGHT.UNABLE_DEL.STATUS_ACTIVE", LParams() << LParam("airp", ElemIdToNameLong(etAirp,Qry.FieldAsString("airp"))));
+    }
+	  if ( !prior_name.empty() ) {
+      if ( !name.empty() )
+        name += "/";
+      name +=  prior_name;
+      prior_name.clear();
+    }
+		if ( prior_airline.empty() || prior_airline != Qry.FieldAsString( "airline" ) ) {
+			prior_airline = Qry.FieldAsString( "airline" );
+			prior_name += prior_airline;
+			prior_flt_no = Qry.FieldAsString( "flt_no" );
+			prior_name += prior_flt_no;
+		}
+		if ( prior_flt_no.empty() || prior_flt_no != Qry.FieldAsString( "flt_no" ) ) {
+		  prior_flt_no = Qry.FieldAsString( "flt_no" );
+		  prior_name += prior_flt_no;
+		}
+		str_d.clear();
+		if ( !Qry.FieldIsNULL( "scd_out" ) ) {
+      str_d = DateTimeToStr( Qry.FieldAsDateTime( "scd_out" ), "dd.mm" );
+    }
+    if ( prior_date.empty() || prior_date != str_d ) {
+      prior_date = str_d;
+      prior_name += " ";
+      prior_name += prior_date;
+    }
 		if ( !dests.empty() )
 		 dests += "-";
 		dests += Qry.FieldAsString( "airp" );
