@@ -191,6 +191,8 @@ struct TBagReceipt
         BASIC::TDateTime issue_date,annul_date;
         std::string issue_desk,annul_desk,issue_place;
 
+        TBagReceipt(xmlNodePtr node) { prnParams.get_prn_params(node); };
+
         bool pay_bt() { return service_type == 2 && bag_type != -1; };
         bool pr_other()
         {

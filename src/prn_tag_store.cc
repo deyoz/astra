@@ -52,7 +52,7 @@ void TPrnTagStore::set_print_mode(int val)
 void TTagLang::Init(bool apr_lat, bool ais_inter, string adesk_lang) // Bag receipts
 {
     pr_lat = apr_lat;
-    is_inter = ais_inter;
+    is_inter = ais_inter or apr_lat;
     desk_lang = adesk_lang;
 }
 
@@ -165,7 +165,7 @@ void TPrnTagStore::TPrnTestTags::Init()
 }
 
 // Bag receipts
-TPrnTagStore::TPrnTagStore(TBagReceipt &arcpt)
+TPrnTagStore::TPrnTagStore(TBagReceipt &arcpt): rcpt(NULL)
 {
     rcpt = arcpt;
     tag_lang = rcpt.tag_lang;
@@ -211,14 +211,14 @@ TPrnTagStore::TPrnTagStore(TBagReceipt &arcpt)
 }
 
 // Test tags
-TPrnTagStore::TPrnTagStore(bool apr_lat)
+TPrnTagStore::TPrnTagStore(bool apr_lat): rcpt(NULL)
 {
     tag_lang.Init(apr_lat);
     prn_test_tags.Init();
 }
 
 // BP && BT
-TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tagsNode, TBTRoute *aroute)
+TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tagsNode, TBTRoute *aroute): rcpt(NULL)
 {
     grpInfo.Init(agrp_id);
     tag_lang.Init(grpInfo.point_dep, grpInfo.point_arv, aroute, apr_lat != 0);
@@ -411,10 +411,13 @@ bool TPrnTagStore::tag_processed(std::string name)
 string TPrnTagStore::get_tag(string name, string date_format, string tag_lang)
 {
     this->tag_lang.set_tag_lang(tag_lang);
+    string result;
     if(prn_test_tags.items.empty())
-        return get_real_field(name, 0, date_format);
+        result = get_real_field(name, 0, date_format);
     else
-        return get_test_field(name, 0, date_format);
+        result = get_test_field(name, 0, date_format);
+    ProgTrace(TRACE5, "get_tag: name = '%s', result = '%s'", name.c_str(), result.c_str());
+    return result;
 }
 
 string TPrnTagStore::get_field(std::string name, size_t len, std::string align, std::string date_format, string tag_lang)

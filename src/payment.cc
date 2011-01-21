@@ -65,7 +65,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     {
       //NULL если группа разрегистрирована по ошибке агента
       //тогда выводим только квитанцию
-      LoadReceipts(Qry.FieldAsInteger("receipt_id"),false,dataNode);
+      LoadReceipts(Qry.FieldAsInteger("receipt_id"),false,dataNode, reqNode);
     }
     else
     {
@@ -299,12 +299,12 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
   CheckInInterface::LoadBag(grp_id,dataNode);
   CheckInInterface::LoadPaidBag(grp_id,dataNode);
-  LoadReceipts(grp_id,true,dataNode);
+  LoadReceipts(grp_id,true,dataNode, reqNode);
 
   //ProgTrace(TRACE5, "%s", GetXMLDocText(dataNode->doc).c_str());
 };
 
-void PaymentInterface::LoadReceipts(int id, bool pr_grp, xmlNodePtr dataNode)
+void PaymentInterface::LoadReceipts(int id, bool pr_grp, xmlNodePtr dataNode, xmlNodePtr reqNode)
 {
   if (dataNode==NULL) return;
 
@@ -357,7 +357,7 @@ void PaymentInterface::LoadReceipts(int id, bool pr_grp, xmlNodePtr dataNode)
   for(;!Qry.Eof;Qry.Next())
   {
     int rcpt_id=Qry.FieldAsInteger("receipt_id");
-    TBagReceipt rcpt;
+    TBagReceipt rcpt(reqNode);
     GetReceipt(Qry,rcpt);
     PutReceipt(rcpt,rcpt_id,NewTextChild(node,"receipt"));
   };
@@ -1010,11 +1010,12 @@ void PaymentInterface::PutReceiptFields(TBagReceipt &rcpt, xmlNodePtr node)
   NewTextChild(fieldsNode,"annul_str");
 };
 
-void PaymentInterface::PutReceiptFields(int id, xmlNodePtr node)
+void PaymentInterface::PutReceiptFields(int id, xmlNodePtr node, xmlNodePtr reqNode)
 {
   if (node==NULL) return;
 
-  TBagReceipt rcpt;
+  TBagReceipt rcpt(reqNode);
+  ProgTrace(TRACE5, "rcpt.prnParams.pr_lat: %d", rcpt.prnParams.pr_lat);
 
   TQuery Qry(&OraSession);
   Qry.Clear();
@@ -1052,8 +1053,7 @@ void PaymentInterface::ViewReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   if (GetNode("receipt/id",reqNode)==NULL)
   {
     //этот код выполняется при выводе еще не напечатанной квитанции
-    TBagReceipt rcpt;
-    rcpt.prnParams.get_prn_params(reqNode);
+    TBagReceipt rcpt(reqNode);
     GetReceipt(reqNode,rcpt);
     PutReceipt(rcpt,-1,rcptNode);
     PutReceiptFields(rcpt,rcptNode);
@@ -1061,15 +1061,14 @@ void PaymentInterface::ViewReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   else
   {
     //этот код выполняется при выводе напечатанной квитанции
-    PutReceiptFields(NodeAsInteger("receipt/id",reqNode),rcptNode);
+    PutReceiptFields(NodeAsInteger("receipt/id",reqNode),rcptNode, reqNode);
   };
 };
 
 void PaymentInterface::ReplaceReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
-  TBagReceipt rcpt;
-  rcpt.prnParams.get_prn_params(reqNode);
+  TBagReceipt rcpt(reqNode);
   int rcpt_id=NodeAsInteger("receipt/id",reqNode);
 
   if (!GetReceipt(rcpt_id,rcpt))
@@ -1092,8 +1091,7 @@ void PaymentInterface::ReplaceReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 void PaymentInterface::AnnulReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
-    TBagReceipt rcpt;
-    rcpt.prnParams.get_prn_params(reqNode);
+    TBagReceipt rcpt(reqNode);
     TQuery Qry(&OraSession);
 
     int rcpt_id=NodeAsInteger("receipt/id",reqNode);
@@ -1157,8 +1155,7 @@ void PaymentInterface::PrintReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 
     TQuery Qry(&OraSession);
 
-    TBagReceipt rcpt;
-    rcpt.prnParams.get_prn_params(reqNode);
+    TBagReceipt rcpt(reqNode);
     int rcpt_id;
     ostringstream logmsg;
     xmlNodePtr rcptNode;

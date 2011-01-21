@@ -260,7 +260,7 @@ void PaymentOldInterface::LoadReceipts(int id, bool pr_grp, xmlNodePtr dataNode)
   for(;!Qry.Eof;Qry.Next())
   {
     int rcpt_id=Qry.FieldAsInteger("receipt_id");
-    TBagReceipt rcpt;
+    TBagReceipt rcpt(NULL);
     GetReceipt(Qry,rcpt);
     PutReceipt(rcpt,rcpt_id,node);
   };
@@ -849,7 +849,7 @@ void PaymentOldInterface::PutReceiptFields(int id, xmlNodePtr node)
 {
   if (node==NULL) return;
 
-  TBagReceipt rcpt;
+  TBagReceipt rcpt(NULL);
 
   TQuery Qry(&OraSession);
   Qry.Clear();
@@ -882,7 +882,7 @@ void PaymentOldInterface::ViewReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
   if (GetNode("receipt/id",reqNode)==NULL)
   {
   	tst();
-    TBagReceipt rcpt;
+    TBagReceipt rcpt(NULL);
     GetReceipt(reqNode,rcpt);
     tst();
     PrintDataParser parser(rcpt);
@@ -900,7 +900,7 @@ void PaymentOldInterface::ViewReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 void PaymentOldInterface::ReplaceReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
-  TBagReceipt rcpt;
+  TBagReceipt rcpt(NULL);
   int rcpt_id=NodeAsInteger("receipt/id",reqNode);
 
   if (!GetReceipt(rcpt_id,rcpt))
@@ -979,7 +979,7 @@ void PaymentOldInterface::PrintReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
 
     TQuery Qry(&OraSession);
 
-    TBagReceipt rcpt;
+    TBagReceipt rcpt(NULL);
     int rcpt_id;
     string logmsg;
     if (GetNode("receipt/no",reqNode)!=NULL)
