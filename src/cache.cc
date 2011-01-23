@@ -973,7 +973,8 @@ void OnLoggingF( TCacheTable &cache, const TRow &row, TCacheUpdateStatus UpdateS
        code == "TRIP_BT" ||
        code == "TRIP_BRD_WITH_REG" ||
        code == "TRIP_EXAM_WITH_BRD" ||
-       code == "TRIP_WEB_CKIN") {
+       code == "TRIP_WEB_CKIN" ||
+       code == "TRIP_KIOSK_CKIN" ) {
     ostringstream msg;
     message.ev_type = evtFlt;
     int point_id;
@@ -1071,36 +1072,65 @@ void OnLoggingF( TCacheTable &cache, const TRow &row, TCacheUpdateStatus UpdateS
         msg << ". ";
       };
     };
-    if ( code == "TRIP_WEB_CKIN" ) {
-      msg << "На рейсе";
-      if ( ToInt(cache.FieldValue( "pr_permit", row )) == 0 )
-        msg << " запрещена";
-      else
-        msg << " разрешена";
-      msg << " web-регистрация";
-      if ( ToInt(cache.FieldValue( "pr_permit", row )) == 0 )
+    if ( code == "TRIP_WEB_CKIN" ||
+         code == "TRIP_KIOSK_CKIN" ) {
+      if ( (UpdateStatus == usDeleted || ToInt(cache.FieldValue( "pr_permit", row )) == 0) &&
+           (UpdateStatus == usInserted || ToInt(cache.FieldOldValue( "pr_permit", row )) == 0) )
       {
-        if ( ToInt(cache.FieldOldValue( "pr_permit", row )) == 0 )
           msg.str(""); //не записываем в лог
       }
       else
       {
-        msg << " с параметрами: "
-            << "лист ожидания: ";
-        if ( ToInt(cache.FieldValue( "pr_waitlist", row )) == 0 )
-          msg << "нет";
+        msg << "На рейсе";
+        if ((UpdateStatus == usInserted || UpdateStatus == usModified) &&
+            ToInt(cache.FieldValue( "pr_permit", row )) != 0)
+          msg << " разрешена";
         else
-          msg << "да";
-        msg << ", сквоз. рег.: ";
-        if ( ToInt(cache.FieldValue( "pr_tckin", row )) == 0 )
-          msg << "нет";
+          msg << " запрещена";
+
+        if ( code == "TRIP_WEB_CKIN")
+          msg << " web-регистрация";
         else
-          msg << "да";
-        msg << ", перерасч. времен: ";
-        if ( ToInt(cache.FieldValue( "pr_upd_stage", row )) == 0 )
-          msg << "нет";
-        else
-          msg << "да";
+          msg << " регистрация";
+      
+        if ( code == "TRIP_KIOSK_CKIN" )
+        {
+          //важно что desk_grp_id не может меняться когда UpdateStatus == usModified
+          //если это не так, алгоритм надо переделывать
+          if ((UpdateStatus == usInserted || UpdateStatus == usModified) &&
+              !cache.FieldValue( "desk_grp_id", row ).empty() ||
+              (UpdateStatus == usDeleted) &&
+              !cache.FieldOldValue( "desk_grp_id", row ).empty())
+          {
+            msg << " для группы киосков '";
+
+            if (UpdateStatus == usInserted || UpdateStatus == usModified)
+              msg << cache.FieldValue( "desk_grp_view", row ) << "'";
+            else
+              msg << cache.FieldOldValue( "desk_grp_view", row ) << "'";
+          };
+        };
+      
+        if ((UpdateStatus == usInserted || UpdateStatus == usModified) &&
+            ToInt(cache.FieldValue( "pr_permit", row )) != 0)
+        {
+          msg << " с параметрами: ";
+/*          msg << "лист ожидания: ";
+          if ( ToInt(cache.FieldValue( "pr_waitlist", row )) == 0 )
+            msg << "нет, ";
+          else
+            msg << "да ,";*/
+          msg << "сквоз. рег.: ";
+          if ( ToInt(cache.FieldValue( "pr_tckin", row )) == 0 )
+            msg << "нет, ";
+          else
+            msg << "да, ";
+          msg << "перерасч. времен: ";
+          if ( ToInt(cache.FieldValue( "pr_upd_stage", row )) == 0 )
+            msg << "нет";
+          else
+            msg << "да";
+        };
       };
     };
     message.msg=msg.str();
