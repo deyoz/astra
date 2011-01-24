@@ -2305,6 +2305,15 @@ bool CheckInInterface::ParseFQTRem(TTlgParser &tlg,string &rem_text,TFQTItem &fq
   return false;
 };
 
+LexemaData GetLexemeDataWithFlight(const LexemaData &data, const TTripInfo &fltInfo)
+{
+  LexemaData result;
+  result.lexema_id="WRAP.FLIGHT";
+  result.lparams << LParam("flight",GetTripName(fltInfo,ecCkin,true,false))
+                 << LParam("text",data);
+  return result;
+};
+
 void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   SavePax(reqNode, reqNode, NULL, resNode);
@@ -3810,11 +3819,11 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
             Qry.SetVariable("rollback",1);
             Qry.Execute();
 
-            if ( reqInfo->client_type == ctTerm )
-              showErrorMessage(E.getLexemaData( ));
+            if (!only_one)
+              showError( GetLexemeDataWithFlight(E.getLexemaData( ), fltInfo) );
             else
-            	showError( E.getLexemaData( ) ); //WEB
-            Set_overload_alarm( point_dep, overload_alarm ); // установили признак перегрузки ??? - ведь пассажир не зарегистрирован, а значит нет перегрузки
+              showError( E.getLexemaData( ) );
+            Set_overload_alarm( point_dep, overload_alarm ); // установили признак перегрузки несмотря на то что реальной перегрузки нет
             Set_AODB_overload_alarm( point_dep, true );
             return false;
           };
@@ -3932,11 +3941,12 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
         {
           Qry.SetVariable("rollback",1);
           Qry.Execute();
-          if ( reqInfo->client_type == ctTerm )
-            showErrorMessage(E.getLexemaData( ));
+
+          if (!only_one)
+            showError( GetLexemeDataWithFlight(E.getLexemaData( ), fltInfo) );
           else
-          	showError(E.getLexemaData( ));
-          Set_overload_alarm( point_dep, overload_alarm ); // установили признак перегрузки
+            showError( E.getLexemaData( ) );
+          Set_overload_alarm( point_dep, overload_alarm ); // установили признак перегрузки несмотря на то что реальной перегрузки нет
           Set_AODB_overload_alarm( point_dep, true );
           return false;
         };
@@ -3962,9 +3972,10 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
     catch(UserException &e)
     {
       if (!only_one)
-        throw UserException("WRAP.FLIGHT",
-                            LParams()<<LParam("flight",GetTripName(fltInfo,ecCkin,true,false))
-                                     <<LParam("text",e.getLexemaData( )));//WEB
+      {
+        LexemaData lexemeData=GetLexemeDataWithFlight(e.getLexemaData( ), fltInfo);
+        throw UserException(lexemeData.lexema_id, lexemeData.lparams);
+      }
       else
         throw;
     };

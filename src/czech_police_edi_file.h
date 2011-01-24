@@ -99,6 +99,14 @@ namespace Paxlst
         const string& getSenderCarrierCode() const {
             return senderCarrierCode;
         }
+        
+        void setRecipientName( const string& theReceiverName ) {
+            recipientName = upperc( theReceiverName );
+            if ( recipientName.size() > 35 ) recipientName.resize( 35 );
+        }
+        const string& getRecipientName() const {
+            return recipientName;
+        }
 
         void setRecipientCarrierCode( const string& theRecipientCarrierCode ) {
             recipientCarrierCode = upperc( theRecipientCarrierCode );
@@ -132,6 +140,11 @@ namespace Paxlst
         /* maxlen = 4 */
         /* required = C */
         string senderCarrierCode;
+        
+        // Name of the company responsible for receiving the information
+        /* maxlen = 35 */
+        /* required = M */
+        string recipientName;
 
         // Carrier Code of the recipient company
         /* maxlen = 4 */

@@ -97,13 +97,13 @@ std::string get_last_session_ref()
   return last_session_ref;
 };
 
-static edi_loaded_char_sets edi_chrset[]=
-{
-    {"IATA", "\x3A\x2B,\x3F \x27" /* :+,? ' */},
-    {"IATB", "\x1F\x1D,\x3F\x1D\x1C" /*Пурга какая-то!*/},
-    {"SIRE", "\x3A\x2B,\x3F \"\n"},
-    {"UNOA", "\x3A\x2B.\x3F '\n" /* :+.? ' */},
-};
+// static edi_loaded_char_sets edi_chrset[]=
+// {
+//     {"IATA", "\x3A\x2B,\x3F \x27" /* :+,? ' */},
+//     {"IATB", "\x1F\x1D,\x3F\x1D\x1C" /*Пурга какая-то!*/},
+//     {"SIRE", "\x3A\x2B,\x3F \"\n"},
+//     {"UNOA", "\x3A\x2B.\x3F '\n" /* :+.? ' */},
+// };
 
 struct lsTKCREQ {
 };
@@ -320,7 +320,7 @@ int init_edifact()
         return -1;
     }
     if(InitEdiTypes(edi_msg_proc, edi_proc_sz)){
-        ProgError(STDLOG,"InitEdiTypes filed");
+        ProgError(STDLOG,"InitEdiTypes failed");
         return -2;
     }
 
@@ -332,10 +332,10 @@ int init_edifact()
                           FuncAfterEdiSend,
                           FuncAfterEdiSendErr);
 
-    if(InitEdiCharSet(edi_chrset, sizeof(edi_chrset)/sizeof(edi_chrset[0]))){
+    /*if(InitEdiCharSet(edi_chrset, sizeof(edi_chrset)/sizeof(edi_chrset[0]))){
         ProgError(STDLOG,"InitEdiCharSet() failed");
         return -3;
-    }
+    }*/
     edilib::EdiSessLib::Instance()->
             setCallBacks(new edilib::EdiSessCallBack());
 

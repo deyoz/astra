@@ -1308,7 +1308,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     if (pass==1 && (pr_cl_grp || pr_hall || pr_airp_arv || pr_trfer || pr_user || pr_client_type || pr_status || pr_ticket_rem || pr_rems) ||
         pass==2 && (pr_cl_grp || pr_hall || pr_trfer || pr_user || pr_client_type || pr_status || pr_ticket_rem || pr_rems) ||
         pass==4 && (pr_ticket_rem || pr_rems) ||
-        pass==5 && (pr_hall || pr_user || pr_ticket_rem || pr_rems)) continue;
+        pass==5 && (pr_ticket_rem || pr_rems)) continue;
 
     ostringstream sql,group_by;
 
@@ -1410,15 +1410,35 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
                                    << ", v_last_trfer.airp_arv";
       if (pr_client_type) group_by << ", pax_grp.client_type";
       if (pr_status)      group_by << ", pax_grp.status";
+      
+      ostringstream select;
+      select << group_by.str();
+      if (pr_hall)      { select   << ", NVL(bag2.hall,pax_grp.hall) AS hall";
+                          group_by << ", NVL(bag2.hall,pax_grp.hall)"; };
+      if (pr_user)      { select   << ", NVL(bag2.user_id,pax_grp.user_id) AS user_id";
+                          group_by << ", NVL(bag2.user_id,pax_grp.user_id)"; };
 
       sql << "SELECT SUM(excess) AS excess, " << endl
-          << "       " << group_by.str().erase(0,1) << endl
+          << "       " << select.str().erase(0,1) << endl
           << "FROM pax_grp " << endl;
-
-      if (pr_trfer) sql << "    ,v_last_trfer" << endl;
+          
+      if (pr_trfer)
+        sql << "    ,v_last_trfer" << endl;
+      
+      if (pr_hall || pr_user)
+        sql << "    ,(SELECT bag2.grp_id,bag2.hall,bag2.user_id " << endl
+            << "     FROM bag2, " << endl
+            << "          (SELECT bag2.grp_id,MAX(bag2.num) AS num " << endl
+            << "           FROM pax_grp,bag2 " << endl
+            << "           WHERE pax_grp.grp_id=bag2.grp_id AND pax_grp.point_dep=:point_id " << endl
+            << "           GROUP BY bag2.grp_id) last_bag " << endl
+            << "     WHERE bag2.grp_id=last_bag.grp_id AND bag2.num=last_bag.num) bag2 " << endl;
 
       sql << "WHERE pax_grp.point_dep=:point_id AND pax_grp.bag_refuse=0 " << endl;
-      if (pr_trfer) sql << "      AND pax_grp.grp_id=v_last_trfer.grp_id(+) " << endl;
+      if (pr_trfer)
+        sql << "      AND pax_grp.grp_id=v_last_trfer.grp_id(+) " << endl;
+      if (pr_hall || pr_user)
+        sql << "      AND pax_grp.grp_id=bag2.grp_id(+) " << endl;
     };
 
     sql << "GROUP BY " << group_by.str().erase(0,1) << endl;
@@ -1634,18 +1654,14 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
       NewTextChild(rowNode,"bag_amount",i->bag_amount,0);
       NewTextChild(rowNode,"bag_weight",i->bag_weight,0);
       NewTextChild(rowNode,"rk_weight",i->rk_weight,0);
+      NewTextChild(rowNode,"excess",i->excess,0);
 
-      if (!pr_hall && !pr_user)
+      if (!pr_cl_grp && !pr_trfer && !pr_client_type && !pr_status && !pr_hall && !pr_user)
       {
-        NewTextChild(rowNode,"excess",i->excess,0);
-
-        if (!pr_cl_grp && !pr_trfer && !pr_client_type && !pr_status)
-        {
-          NewTextChild(rowNode,"crs_ok",i->crs_ok,0);
-          NewTextChild(rowNode,"crs_tranzit",i->crs_tranzit,0);
-          if (!pr_airp_arv)
-            NewTextChild(rowNode,"cfg",i->cfg,0);
-        };
+        NewTextChild(rowNode,"crs_ok",i->crs_ok,0);
+        NewTextChild(rowNode,"crs_tranzit",i->crs_tranzit,0);
+        if (!pr_airp_arv)
+          NewTextChild(rowNode,"cfg",i->cfg,0);
       };
     };
 
