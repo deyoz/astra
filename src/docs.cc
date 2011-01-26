@@ -301,15 +301,15 @@ void PaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode,
         "from ";
     if(part_key == NoExists)
         SQLText +=
-        "   points "
-        "where "
-        "   point_id = :point_id AND pr_del>=0 ";
+            "   points "
+            "where "
+            "   point_id = :point_id AND pr_del>=0 ";
     else {
         SQLText +=
-        "   arx_points "
-        "where "
-        "   part_key = :part_key and "
-        "   point_id = :point_id AND pr_del>=0 ";
+            "   arx_points "
+            "where "
+            "   part_key = :part_key and "
+            "   point_id = :point_id AND pr_del>=0 ";
         Qry.CreateVariable("part_key", otDate, part_key);
     }
     Qry.SQLText = SQLText;
@@ -329,12 +329,13 @@ void PaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode,
         airline_name = rpt_params.ElemIdToReportElem(etAirline, airline, efmtNameLong);
     }
 
-    string trip =
-        airline +
-        IntToString(Qry.FieldAsInteger("flt_no")) +
-        rpt_params.ElemIdToReportElem(etSuffix, Qry.FieldAsString("suffix"), efmtCodeNative);
+    ostringstream trip;
+    trip
+        << airline
+        << setw(3) << setfill('0') << Qry.FieldAsInteger("flt_no")
+        << rpt_params.ElemIdToReportElem(etSuffix, Qry.FieldAsString("suffix"), efmtCodeNative);
 
-    NewTextChild(variablesNode, "trip", trip);
+    NewTextChild(variablesNode, "trip", trip.str());
     TDateTime scd_out, real_out;
     scd_out= UTCToClient(Qry.FieldAsDateTime("scd_out"),tz_region);
     real_out= UTCToClient(Qry.FieldAsDateTime("real_out"),tz_region);
@@ -353,7 +354,7 @@ void PaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode,
     NewTextChild(variablesNode, "airp_dep_name", rpt_params.ElemIdToReportElem(etAirp, airp, efmtNameLong));
     NewTextChild(variablesNode, "airp_dep_city", rpt_params.ElemIdToReportElem(etCity, airpRow.city, efmtCodeNative));
     NewTextChild(variablesNode, "airline_name", airline_name);
-    NewTextChild(variablesNode, "flt", trip);
+    NewTextChild(variablesNode, "flt", trip.str());
     NewTextChild(variablesNode, "bort", Qry.FieldAsString("bort"));
     NewTextChild(variablesNode, "craft", craft);
     NewTextChild(variablesNode, "park", Qry.FieldAsString("park"));
