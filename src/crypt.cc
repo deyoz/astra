@@ -974,6 +974,7 @@ void CryptInterface::CryptValidateServerKey(XMLRequestCtxt *ctxt, xmlNodePtr req
 	TQuery Qry(&OraSession);
 	Qry.SQLText =
 	  "BEGIN "
+    " UPDATE crypt_term_cert SET pkcs_id=NULL WHERE pkcs_id=:pkcs_id;"
 	  " DELETE crypt_files WHERE pkcs_id=:pkcs_id;"
 	  " DELETE crypt_file_params WHERE pkcs_id=:pkcs_id;"
 	  "END;";
