@@ -10,19 +10,25 @@
 //
 //
 #include "czech_police_edi_file.h"
+
+#define NICKNAME "ANTON"
+#define NICKTRACE ROMAN_TRACE
+#include <serverlib/slogger.h>
+
 #include <edilib/edi_func_cpp.h>
-#include "edilib/edi_astra_msg_types.h"
-#include "edilib/edi_sess.h"
+#include <edilib/edi_astra_msg_types.h>
+#include <edilib/edi_sess.h>
 #include "serverlib/query_runner.h"
 #include "exceptions.h"
 
-#include "xp_testing.h"
 #include "tlg/tlg.h"
 
 #include <time.h>
 #include <boost/lexical_cast.hpp>
 
 #include <sstream>
+
+//#define XP_TESTING
 
 static std::string InterchangeReferenceTst = "";
 static std::string PrepareDateTst = "";
@@ -109,7 +115,7 @@ InterchangeReference string" );
 
 
     strcpy( edih.chset, "UNOA" );
-    strcpy( edih.to, "CZAPIS" );
+    strcpy( edih.to, paxlstInfo.getRecipientName().c_str() );
     strcpy(edih.date, prepareDateStr.c_str() );
     strcpy(edih.time, prepareHourStr.c_str() );
     strcpy( edih.from, paxlstInfo.getSenderName().c_str() );
@@ -215,7 +221,8 @@ InterchangeReference string" );
         SetEdiPointToCompositeW( pMes, CompElement( "S007", 0 ) );
 
             //<DE:0044>
-            SetEdiDataElem( pMes, DataElement( 44, 0 ), "CZAPIS" );
+            SetEdiDataElem( pMes, DataElement( 44, 0 ), 
+                            paxlstInfo.getRecipientName().c_str() );
             //</DE:0044>
 
             //<DE:0007>
@@ -1098,6 +1105,8 @@ bool CreateEdiPaxlstFileName( string& result,
 
 #ifdef XP_TESTING
 
+#include "xp_testing.h"
+
 namespace {
     void init()
     {
@@ -1121,6 +1130,7 @@ START_TEST( czech_file_test1 )
 
     paxlstInfo.setSenderName( "1h" );
     paxlstInfo.setSenderCarrierCode( "zZ" );
+    paxlstInfo.setRecipientName( "CzApIs" );
     paxlstInfo.setRecipientCarrierCode( "fR" );
     paxlstInfo.setIATAcode( "OK688/071008/1310" );
 
@@ -1195,60 +1205,60 @@ START_TEST( czech_file_test1 )
 
 
     std::stringstream dueResult; // Ожидаемый текст
-    dueResult << "UNA:+.? " << "'";
+    dueResult << "UNA:+.? " << "'\n";
     dueResult << "UNB+UNOA:4+1H:ZZ+CZAPIS:FR+";
     dueResult << PrepareDateTst << ":" << PrepareHourTst << "+";
     dueResult << InterchangeReferenceTst;
-    dueResult << "++APIS'\
+    dueResult << "++APIS'\n\
 UNG+PAXLST+1H:ZZ+CZAPIS:FR+";
     dueResult << PrepareDateTst << ":" << PrepareHourTst;
-    dueResult << "+1+UN+D:02B'\
-UNH+1+PAXLST:D:02B:UN:IATA+OK688/071008/1310+01:C'\
-BGM+745'\
-NAD+MS+++CDGKOAF'\
-COM+0148642106:TE+0148643999:FX'\
-TDT+20+OK688'\
-LOC+125+PRG'\
-DTM+189:0710081045:201'\
-LOC+87+BCN'\
-DTM+232:0710081310:201'\
-NAD+FL+++STRANSKY:JAROSLAV VICTOROVICH'\
-ATT+2++M'\
-DTM+329:670610'\
-LOC+178+ZDN'\
-LOC+179+BCN'\
-NAT+2+CZE'\
-RFF+AVF:Z9WKH'\
-DOC+I:110:111+102865098'\
-NAD+FL+++KOVACS:PETR'\
-ATT+2++M'\
-DTM+329:691209'\
-LOC+178+ZDN'\
-LOC+179+BCN'\
-NAT+2+CZE'\
-RFF+AVF:Z9WJK'\
-DOC+P:110:111+35485167'\
-DTM+36:080911'\
-NAD+FL+++LESKA:PAVEL'\
-ATT+2++M'\
-DTM+329:760502'\
-LOC+178+VIE'\
-LOC+179+BCN'\
-NAT+2+CZE'\
-RFF+AVF:Z57L3'\
-DOC+P:110:111+34356146'\
-LOC+91+RUS'\
-CNT+42:3'\
-UNT+39+1'\
-UNE+1+1'\
+    dueResult << "+1+UN+D:02B'\n\
+UNH+1+PAXLST:D:02B:UN:IATA+OK688/071008/1310+01:C'\n\
+BGM+745'\n\
+NAD+MS+++CDGKOAF'\n\
+COM+0148642106:TE+0148643999:FX'\n\
+TDT+20+OK688'\n\
+LOC+125+PRG'\n\
+DTM+189:0710081045:201'\n\
+LOC+87+BCN'\n\
+DTM+232:0710081310:201'\n\
+NAD+FL+++STRANSKY:JAROSLAV VICTOROVICH'\n\
+ATT+2++M'\n\
+DTM+329:670610'\n\
+LOC+178+ZDN'\n\
+LOC+179+BCN'\n\
+NAT+2+CZE'\n\
+RFF+AVF:Z9WKH'\n\
+DOC+I:110:111+102865098'\n\
+NAD+FL+++KOVACS:PETR'\n\
+ATT+2++M'\n\
+DTM+329:691209'\n\
+LOC+178+ZDN'\n\
+LOC+179+BCN'\n\
+NAT+2+CZE'\n\
+RFF+AVF:Z9WJK'\n\
+DOC+P:110:111+35485167'\n\
+DTM+36:080911'\n\
+NAD+FL+++LESKA:PAVEL'\n\
+ATT+2++M'\n\
+DTM+329:760502'\n\
+LOC+178+VIE'\n\
+LOC+179+BCN'\n\
+NAT+2+CZE'\n\
+RFF+AVF:Z57L3'\n\
+DOC+P:110:111+34356146'\n\
+LOC+91+RUS'\n\
+CNT+42:3'\n\
+UNT+39+1'\n\
+UNE+1+1'\n\
 UNZ+1+";
-    dueResult << InterchangeReferenceTst << "'";
+    dueResult << InterchangeReferenceTst << "'\n";
 
     // Сгенерированный текст
-    std::cout << std::endl << "Test1 Text: " << std::endl << text << std::endl;
+    LogTrace( TRACE5 ) << "\nTest1 Text:\n";
 
     // Ожидаемый текст
-    //std::cout << "DueText: " << std::endl << dueResult.str() << std::endl;
+    LogTrace( TRACE5 ) << "\nDueText:\n" << dueResult.str();
 
     // Сравниваем
     if ( dueResult.str() != text )
@@ -1267,6 +1277,7 @@ START_TEST( czech_file_test2 )
     paxlstInfo.setPartyName( "CDGkoAF" );
 
     paxlstInfo.setSenderName( "1h" );
+    paxlstInfo.setRecipientName( "CzApIs" );
 
     Paxlst::PassengerInfo passInfo1;
     passInfo1.setPassengerSurname( "StRaNsKy" );
@@ -1282,36 +1293,36 @@ START_TEST( czech_file_test2 )
 
 
     std::stringstream dueResult; // Ожидаемый текст
-    dueResult << "UNA:+.? " << "'";
+    dueResult << "UNA:+.? " << "'\n";
     dueResult << "UNB+UNOA:4+1H+CZAPIS+";
     dueResult << PrepareDateTst << ":" << PrepareHourTst << "+";
     dueResult << InterchangeReferenceTst;
-    dueResult << "++APIS'\
+    dueResult << "++APIS'\n\
 UNG+PAXLST+1H+CZAPIS+";
     dueResult << PrepareDateTst << ":" << PrepareHourTst;
-    dueResult << "+1+UN+D:02B'\
-UNH+1+PAXLST:D:02B:UN:IATA++01:C'\
-BGM+745'\
-NAD+MS+++CDGKOAF'\
-TDT+20'\
-LOC+125'\
-DTM+189::201'\
-LOC+87'\
-DTM+232::201'\
-NAD+FL+++STRANSKY'\
-ATT+2'\
-DTM+329'\
-CNT+42:1'\
-UNT+15+1'\
-UNE+1+1'\
+    dueResult << "+1+UN+D:02B'\n\
+UNH+1+PAXLST:D:02B:UN:IATA++01:C'\n\
+BGM+745'\n\
+NAD+MS+++CDGKOAF'\n\
+TDT+20'\n\
+LOC+125'\n\
+DTM+189::201'\n\
+LOC+87'\n\
+DTM+232::201'\n\
+NAD+FL+++STRANSKY'\n\
+ATT+2'\n\
+DTM+329'\n\
+CNT+42:1'\n\
+UNT+15+1'\n\
+UNE+1+1'\n\
 UNZ+1+";
-    dueResult << InterchangeReferenceTst << "'";
+    dueResult << InterchangeReferenceTst << "'\n";
 
     // Сгенерированный текст
-    std::cout <<  std::endl << "Test2 Text: " << std::endl << text << std::endl;
+    LogTrace( TRACE5 ) << "\nTest2 Text:\n" << text;
 
     // Ожидаемый текст
-    //std::cout << "DueText: " << std::endl << dueResult.str() << std::endl;
+    LogTrace( TRACE5 ) << "\nDueText:\n"<< dueResult.str();
 
     // Сравниваем
     if ( dueResult.str() != text )
@@ -1333,6 +1344,7 @@ START_TEST( czech_file_test3 )
 
     paxlstInfo.setSenderName( "1HXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
     paxlstInfo.setSenderCarrierCode( "ZZXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
+    paxlstInfo.setRecipientName( "CzApIsXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
     paxlstInfo.setRecipientCarrierCode( "FRXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
     paxlstInfo.setIATAcode( "OK688/071008/1310XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
 
@@ -1412,7 +1424,7 @@ START_TEST( czech_file_test3 )
     }
 
     // Сгенерированный текст
-    std::cout << std::endl << "Test3 Text: " << std::endl << text << std::endl;
+    LogTrace( TRACE5 ) << "\nTest3 Text:\n" << text;
 
 }
 END_TEST;
@@ -1497,8 +1509,5 @@ TCASEREGISTER( init, tear_down)
     ADD_TEST( czech_file_test7 );
 }
 TCASEFINISH;
-
-
-
 
 #endif /*XP_TESTING*/

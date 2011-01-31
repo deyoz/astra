@@ -1374,34 +1374,45 @@ void BTM(TRptParams &rpt_params, xmlNodePtr resNode)
                 bag_tags.back().no = tagsQry.FieldAsFloat("no");
             }
 
-            if(grps.find(cur_grp_id) == grps.end()) {
-                grps.insert(cur_grp_id);
-                // ищем непривязанные бирки для каждой группы
-                TQuery tagsQry(&OraSession);
-                tagsQry.SQLText =
-                    "select "
-                    "   bag_tags.tag_type, "
-                    "   bag_tags.color, "
-                    "   to_char(bag_tags.no) no "
-                    "from "
-                    "   bag_tags "
-                    "where "
-                    "   bag_tags.grp_id = :grp_id and "
-                    "   bag_tags.bag_num is null";
-                tagsQry.CreateVariable("grp_id", otInteger, cur_grp_id);
-                tagsQry.Execute();
-                for(; !tagsQry.Eof; tagsQry.Next()) {
-                    bag_tags.push_back(bag_tag_row);
-                    bag_tags.back().bag_num = -1;
-                    bag_tags.back().amount = 0;
-                    bag_tags.back().weight = 0;
-                    bag_tags.back().bag_name_priority = -1;
-                    bag_tags.back().bag_name = "";
-                    bag_tags.back().tag_type = tagsQry.FieldAsString("tag_type");
-                    bag_tags.back().color = tagsQry.FieldAsString("color");
-                    bag_tags.back().no = tagsQry.FieldAsFloat("no");
-                }
+        if(grps.find(cur_grp_id) == grps.end()) {
+            grps.insert(cur_grp_id);
+            // ищем непривязанные бирки для каждой группы
+            TQuery tagsQry(&OraSession);
+            string SQLText =
+                "select "
+                "   bag_tags.tag_type, "
+                "   bag_tags.color, "
+                "   to_char(bag_tags.no) no "
+                "from ";
+            if(rpt_params.ckin_zone != ALL_CKIN_ZONES)
+                SQLText += " halls2, pax_grp, ";
+            SQLText +=
+                "   bag_tags "
+                "where "
+                "   bag_tags.grp_id = :grp_id and "
+                "   bag_tags.bag_num is null";
+            if(rpt_params.ckin_zone != ALL_CKIN_ZONES) {
+                SQLText +=
+                    "   and nvl(halls2.rpt_grp, ' ') = nvl(:zone, ' ') and pax_grp.hall IS NOT NULL and "
+                    "   pax_grp.grp_id = bag_tags.grp_id and "
+                    "   pax_grp.hall = halls2.id(+) ";
+                tagsQry.CreateVariable("zone", otString, rpt_params.ckin_zone);
             }
+            tagsQry.SQLText = SQLText;
+            tagsQry.CreateVariable("grp_id", otInteger, cur_grp_id);
+            tagsQry.Execute();
+            for(; !tagsQry.Eof; tagsQry.Next()) {
+                bag_tags.push_back(bag_tag_row);
+                bag_tags.back().bag_num = -1;
+                bag_tags.back().amount = 0;
+                bag_tags.back().weight = 0;
+                bag_tags.back().bag_name_priority = -1;
+                bag_tags.back().bag_name = "";
+                bag_tags.back().tag_type = tagsQry.FieldAsString("tag_type");
+                bag_tags.back().color = tagsQry.FieldAsString("color");
+                bag_tags.back().no = tagsQry.FieldAsFloat("no");
+            }
+        }
     }
     sort(bag_tags.begin(), bag_tags.end(), lessBagTagRow);
     dump_bag_tags(bag_tags);
@@ -2916,4 +2927,21 @@ void DocsInterface::GetFonts(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
 	tst();
   NewTextChild(resNode,"fonts","");
   tst();
+}
+
+int testbm(int argc,char **argv)
+{
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    reqInfo->Initialize("МОВ");
+    xmlDocPtr resDoc=xmlNewDoc(BAD_CAST "1.0");
+    xmlNodePtr rootNode=xmlNewDocNode(resDoc,NULL,BAD_CAST "query",NULL);
+    TRptParams rpt_params;
+    rpt_params.point_id = 603906;
+    rpt_params.ckin_zone = "area bis";
+    rpt_params.pr_et = false;
+    rpt_params.pr_trfer = false;
+    rpt_params.pr_brd = false;
+    BTM(rpt_params, rootNode);
+    ProgTrace(TRACE5, "%s", GetXMLDocText(resDoc).c_str()); //!!!
+    return 0;
 }

@@ -3,6 +3,7 @@
 
 #include "oralib.h"
 #include "maindcs.h"
+#include "docs.h"
 #include "serverlib/query_runner.h"
 #include "edilib/edi_loading.h"
 
@@ -24,6 +25,7 @@ const
   } obrnosirnick []={
     {"-test",          nosir_test,              nosir_test_help,          NULL},
     {"-ediinsert",     edi_load_messages_main,  NULL,                     "loading edifact templates"},
+    {"-testbm",        testbm,                  NULL,                     NULL},
     {"-termversion",   SetTermVersionNotice,    SetTermVersionNoticeHelp, NULL}
   };
 

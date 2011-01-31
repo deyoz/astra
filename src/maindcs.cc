@@ -1825,6 +1825,8 @@ void MainDCSInterface::RequestCertificateData(XMLRequestCtxt *ctxt, xmlNodePtr r
 
 void MainDCSInterface::PutRequestCertificate(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-	IntPutRequestCertificate(ctxt, reqNode, resNode);
+  bool pr_grp = GetNode( "pr_grp", reqNode );
+	string request = NodeAsString( "request_certificate", reqNode );
+	IntPutRequestCertificate( request, TReqInfo::Instance()->desk.code, pr_grp, NoExists );
 }
 

@@ -388,11 +388,11 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 	RemQry.DeclareVariable( "pax_id", otInteger );
 	TQuery TimeQry( &OraSession );
 	TimeQry.SQLText =
-	 "SELECT time as mtime,NVL(stations.name,events.station) station, ev_order FROM events,stations "
+	 "SELECT time as mtime,NVL(stations.name,events.station) station, stations.airp, ev_order FROM events,stations "
 	 " WHERE type='èÄë' AND id1=:point_id AND id2=:reg_no AND id3=:grp_id AND events.station=stations.desk(+) AND stations.work_mode(+)=:work_mode "
 	 " AND screen=:screen "
 	 " UNION "
-	 "SELECT time,NVL(stations.name,events.station), ev_order FROM events,stations "
+	 "SELECT time,NVL(stations.name,events.station), stations.airp, ev_order FROM events,stations "
 	 "WHERE type='èÄë' AND id1=:point_id AND id2 IS NULL AND id3=:grp_id AND msg like 'Å†£†¶%' AND events.station=stations.desk(+) AND stations.work_mode(+)=:work_mode "
 	 " AND screen=:screen "
 	 " ORDER BY mtime DESC,ev_order DESC";
@@ -512,22 +512,24 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
       TimeQry.SetVariable( "screen", "AIR.EXE" );
       TimeQry.SetVariable( "work_mode", "ê" );
       TimeQry.Execute();
-      if ( TimeQry.Eof ) {
-      	t = NoExists;
-      }
-      else {
-        if ( psTCheckin == DecodePaxStatus( Qry.FieldAsString( "status" ) ) )
+      if ( TimeQry.Eof || string(TimeQry.FieldAsString( "airp" )) != string("Ççä") ) {
+      	if ( psTCheckin == DecodePaxStatus( Qry.FieldAsString( "status" ) ) )
         	term = "999";
         else
         	if ( DecodeClientType( Qry.FieldAsString( "client_type" ) ) == ctWeb )
          		term = "777";
-          else
-        	  term = TimeQry.FieldAsString( "station" );
+      }
+      else {
+     	  term = TimeQry.FieldAsString( "station" );
       	if ( !term.empty() && term[0] == 'R' )
       		term = term.substr( 1, term.length() - 1 );
-      	t = TimeQry.FieldAsDateTime( "mtime" );
+
       }
-      if ( t == NoExists || term.empty() )
+      if ( !TimeQry.Eof )
+      	t = TimeQry.FieldAsDateTime( "mtime" );
+      else
+      	t = NoExists;
+      if ( term.empty() )
         record<<setw(4)<<"";
       else
         record<<setw(4)<<string(term).substr(0,4); // ·‚Æ©™† ‡•£.

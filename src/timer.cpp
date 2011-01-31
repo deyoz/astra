@@ -506,7 +506,8 @@ void create_czech_police_file(int point_id, bool is_edi)
     	if (!(
     		    strcmp(PointsQry.FieldAsString("country"),"ñá")==0 ||
     		    strcmp(PointsQry.FieldAsString("country"),"ãí")==0 ||
-    		    strcmp(PointsQry.FieldAsString("country"),"Öä")==0 && strcmp(Qry.FieldAsString("airline"),"çç")==0
+    		    strcmp(PointsQry.FieldAsString("country"),"Öä")==0 && strcmp(Qry.FieldAsString("airline"),"çç")==0 ||
+    		    strcmp(PointsQry.FieldAsString("country"),"ñç")==0 && strcmp(Qry.FieldAsString("airline"),"HU")==0
     		   )) continue;
 
     	TAirpsRow &airp_arv = (TAirpsRow&)base_tables.get("airps").get_row("code",PointsQry.FieldAsString("airp"));
@@ -551,6 +552,9 @@ void create_czech_police_file(int point_id, bool is_edi)
         if (airline.name_lat.empty()) throw Exception("airline.name_lat empty (code=%s)",airline.code.c_str());
         paxlstInfo.setSenderName(airline.name_lat);
         paxlstInfo.setSenderCarrierCode(airline.code_lat);
+        
+        const TCountriesRow &country = (TCountriesRow&)base_tables.get("countries").get_row("code",PointsQry.FieldAsString("country"));
+        paxlstInfo.setRecipientName(country.code_lat+"APIS");
         paxlstInfo.setRecipientCarrierCode("ZZ");
         string iataCode;
         if (!Paxlst::CreateIATACode(iataCode,flight.str(),act_in_local))
