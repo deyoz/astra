@@ -1769,8 +1769,7 @@ void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
       };
     };
   };
-  if ( GetNode( "LoadForm", reqNode ) )
-      get_report_form("SOPPTrfer", resNode);
+  get_report_form("SOPPTrfer", reqNode, resNode);
   STAT::set_variables(resNode);
 };
 
@@ -4368,7 +4367,7 @@ void SoppInterface::DeleteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 
 void SoppInterface::GetReportForm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    get_report_form(NodeAsString("name", reqNode), resNode);
+    get_report_form(NodeAsString("name", reqNode), reqNode, resNode);
     STAT::set_variables(resNode);
 }
 

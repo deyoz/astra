@@ -776,8 +776,11 @@ string get_report_version(string name)
     return result;
 }
 
-void get_report_form(const string name, xmlNodePtr node)
+void get_report_form(const string name, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    if(GetNode("LoadForm", reqNode) == NULL)
+        return;
+
     string form;
     string version;
     TQuery Qry(&OraSession);
@@ -790,8 +793,8 @@ void get_report_form(const string name, xmlNodePtr node)
     Qry.CreateVariable("name", otString, name);
     Qry.Execute();
     if(Qry.Eof) {
-        NewTextChild(node, "FormNotExists", name);
-        SetProp(NewTextChild(node, "form"), "name", name);
+        NewTextChild(resNode, "FormNotExists", name);
+        SetProp(NewTextChild(resNode, "form"), "name", name);
         return;
     }
     // положим в ответ шаблон отчета
@@ -801,7 +804,7 @@ void get_report_form(const string name, xmlNodePtr node)
     form.clear();
     form.append(data.get(), len);
 
-    xmlNodePtr formNode = ReplaceTextChild(node, "form", form);
+    xmlNodePtr formNode = ReplaceTextChild(resNode, "form", form);
     SetProp(formNode, "name", name);
     SetProp(formNode, "version", version);
     if ((TReqInfo::Instance()->desk.compatible(NEW_TERM_VERSION) or TReqInfo::Instance()->screen.name == "DOCS.EXE") and
@@ -889,7 +892,7 @@ struct TPMTotalsRow {
 
 typedef map<TPMTotalsKey, TPMTotalsRow, TPMTotalsCmp> TPMTotals;
 
-void PTM(TRptParams &rpt_params, xmlNodePtr resNode)
+void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
     xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
@@ -907,7 +910,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr resNode)
             rpt_name="PM";
     };
     if (rpt_params.rpt_type==rtPTMTXT) rpt_name=rpt_name+"Txt";
-    get_report_form(rpt_name, resNode);
+    get_report_form(rpt_name, reqNode, resNode);
 
     {
         string et, et_lat;
@@ -1214,7 +1217,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr resNode)
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str()); //!!!
 }
 
-void BTM(TRptParams &rpt_params, xmlNodePtr resNode)
+void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TQuery Qry(&OraSession);
     string rpt_name;
@@ -1231,7 +1234,7 @@ void BTM(TRptParams &rpt_params, xmlNodePtr resNode)
             rpt_name="BM";
     };
     if (rpt_params.rpt_type==rtBTMTXT) rpt_name=rpt_name+"Txt";
-    get_report_form(rpt_name, resNode);
+    get_report_form(rpt_name, reqNode, resNode);
 
     t_rpt_bm_bag_name bag_names;
     Qry.Clear();
@@ -1667,12 +1670,12 @@ string get_test_str(int page_width, string lang)
 }
 
 
-void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr resNode)
+void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   if (rpt_params.rpt_type==rtPTMTXT)
-    PTM(rpt_params, resNode);
+    PTM(rpt_params, reqNode, resNode);
   else
-    BTM(rpt_params, resNode);
+    BTM(rpt_params, reqNode, resNode);
 
   xmlNodePtr variablesNode=NodeAsNode("form_data/variables",resNode);
   xmlNodePtr dataSetsNode=NodeAsNode("form_data/datasets",resNode);
@@ -2054,12 +2057,12 @@ string get_flight(xmlNodePtr variablesNode)
     return (string)NodeAsString("trip", variablesNode) + "/" + NodeAsString("scd_out", variablesNode);
 }
 
-void REFUSE(TRptParams &rpt_params, xmlNodePtr resNode)
+void REFUSE(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     if(rpt_params.rpt_type == rtREFUSETXT)
-        get_report_form("docTxt", resNode);
+        get_report_form("docTxt", reqNode, resNode);
     else
-        get_report_form("ref", resNode);
+        get_report_form("ref", reqNode, resNode);
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "SELECT point_dep AS point_id, "
@@ -2103,9 +2106,9 @@ void REFUSE(TRptParams &rpt_params, xmlNodePtr resNode)
     populate_doc_cap(variablesNode, rpt_params.GetLang());
 }
 
-void REFUSETXT(TRptParams &rpt_params, xmlNodePtr resNode)
+void REFUSETXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    REFUSE(rpt_params, resNode);
+    REFUSE(rpt_params, reqNode, resNode);
 
     xmlNodePtr variablesNode=NodeAsNode("form_data/variables",resNode);
     xmlNodePtr dataSetsNode=NodeAsNode("form_data/datasets",resNode);
@@ -2180,12 +2183,12 @@ void REFUSETXT(TRptParams &rpt_params, xmlNodePtr resNode)
     }
 }
 
-void NOTPRES(TRptParams &rpt_params, xmlNodePtr resNode)
+void NOTPRES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     if(rpt_params.rpt_type == rtNOTPRESTXT)
-        get_report_form("docTxt", resNode);
+        get_report_form("docTxt", reqNode, resNode);
     else
-        get_report_form("notpres", resNode);
+        get_report_form("notpres", reqNode, resNode);
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "SELECT point_dep AS point_id, "
@@ -2231,9 +2234,9 @@ void NOTPRES(TRptParams &rpt_params, xmlNodePtr resNode)
     populate_doc_cap(variablesNode, rpt_params.GetLang());
 }
 
-void NOTPRESTXT(TRptParams &rpt_params, xmlNodePtr resNode)
+void NOTPRESTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    NOTPRES(rpt_params, resNode);
+    NOTPRES(rpt_params, reqNode, resNode);
 
     xmlNodePtr variablesNode=NodeAsNode("form_data/variables",resNode);
     xmlNodePtr dataSetsNode=NodeAsNode("form_data/datasets",resNode);
@@ -2302,12 +2305,12 @@ void NOTPRESTXT(TRptParams &rpt_params, xmlNodePtr resNode)
     }
 }
 
-void REM(TRptParams &rpt_params, xmlNodePtr resNode)
+void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     if(rpt_params.rpt_type == rtREMTXT)
-        get_report_form("docTxt", resNode);
+        get_report_form("docTxt", reqNode, resNode);
     else
-        get_report_form("rem", resNode);
+        get_report_form("rem", reqNode, resNode);
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "SELECT point_dep AS point_id, "
@@ -2349,9 +2352,9 @@ void REM(TRptParams &rpt_params, xmlNodePtr resNode)
     populate_doc_cap(variablesNode, rpt_params.GetLang());
 }
 
-void REMTXT(TRptParams &rpt_params, xmlNodePtr resNode)
+void REMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    REM(rpt_params, resNode);
+    REM(rpt_params, reqNode, resNode);
 
     xmlNodePtr variablesNode=NodeAsNode("form_data/variables",resNode);
     xmlNodePtr dataSetsNode=NodeAsNode("form_data/datasets",resNode);
@@ -2416,12 +2419,12 @@ void REMTXT(TRptParams &rpt_params, xmlNodePtr resNode)
     }
 }
 
-void CRS(TRptParams &rpt_params, xmlNodePtr resNode)
+void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     if(rpt_params.rpt_type == rtCRSTXT or rpt_params.rpt_type == rtCRSUNREGTXT)
-        get_report_form("docTxt", resNode);
+        get_report_form("docTxt", reqNode, resNode);
     else
-        get_report_form("crs", resNode);
+        get_report_form("crs", reqNode, resNode);
     bool pr_unreg = rpt_params.rpt_type == rtCRSUNREG or rpt_params.rpt_type == rtCRSUNREGTXT;
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
     TQuery Qry(&OraSession);
@@ -2488,9 +2491,9 @@ void CRS(TRptParams &rpt_params, xmlNodePtr resNode)
     populate_doc_cap(variablesNode, rpt_params.GetLang());
 }
 
-void CRSTXT(TRptParams &rpt_params, xmlNodePtr resNode)
+void CRSTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    CRS(rpt_params, resNode);
+    CRS(rpt_params, reqNode, resNode);
 
     xmlNodePtr variablesNode=NodeAsNode("form_data/variables",resNode);
     xmlNodePtr dataSetsNode=NodeAsNode("form_data/datasets",resNode);
@@ -2583,9 +2586,9 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     bool pr_web = (rpt_params.rpt_type == rtWEB or rpt_params.rpt_type == rtWEBTXT);
     bool pr_norec = (rpt_params.rpt_type == rtNOREC or rpt_params.rpt_type == rtNORECTXT);
     if(rpt_params.rpt_type == rtEXAMTXT or rpt_params.rpt_type == rtWEBTXT or rpt_params.rpt_type == rtNORECTXT)
-        get_report_form("docTxt", resNode);
+        get_report_form("docTxt", reqNode, resNode);
     else
-        get_report_form(pr_web ? "web" : "exam", resNode);
+        get_report_form(pr_web ? "web" : "exam", reqNode, resNode);
 
     TQuery Qry(&OraSession);
     BrdInterface::GetPaxQuery(Qry, rpt_params.point_id, NoExists, rpt_params.GetLang(), rpt_params.rpt_type, rpt_params.client_type);
@@ -2791,16 +2794,16 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     rpt_params.Init(node);
     switch(rpt_params.rpt_type) {
         case rtPTM:
-            PTM(rpt_params, resNode);
+            PTM(rpt_params, reqNode, resNode);
             break;
         case rtPTMTXT:
-            PTMBTMTXT(rpt_params, resNode);
+            PTMBTMTXT(rpt_params, reqNode, resNode);
             break;
         case rtBTM:
-            BTM(rpt_params, resNode);
+            BTM(rpt_params, reqNode, resNode);
             break;
         case rtBTMTXT:
-            PTMBTMTXT(rpt_params, resNode);
+            PTMBTMTXT(rpt_params, reqNode, resNode);
             break;
         case rtWEB:
             WEB(rpt_params, reqNode, resNode);
@@ -2809,30 +2812,30 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
             WEBTXT(rpt_params, reqNode, resNode);
             break;
         case rtREFUSE:
-            REFUSE(rpt_params, resNode);
+            REFUSE(rpt_params, reqNode, resNode);
             break;
         case rtREFUSETXT:
-            REFUSETXT(rpt_params, resNode);
+            REFUSETXT(rpt_params, reqNode, resNode);
             break;
         case rtNOTPRES:
-            NOTPRES(rpt_params, resNode);
+            NOTPRES(rpt_params, reqNode, resNode);
             break;
         case rtNOTPRESTXT:
-            NOTPRESTXT(rpt_params, resNode);
+            NOTPRESTXT(rpt_params, reqNode, resNode);
             break;
         case rtREM:
-            REM(rpt_params, resNode);
+            REM(rpt_params, reqNode, resNode);
             break;
         case rtREMTXT:
-            REMTXT(rpt_params, resNode);
+            REMTXT(rpt_params, reqNode, resNode);
             break;
         case rtCRS:
         case rtCRSUNREG:
-            CRS(rpt_params, resNode);
+            CRS(rpt_params, reqNode, resNode);
             break;
         case rtCRSTXT:
         case rtCRSUNREGTXT:
-            CRSTXT(rpt_params, resNode);
+            CRSTXT(rpt_params, reqNode, resNode);
             break;
         case rtEXAM:
         case rtNOREC:
@@ -2942,7 +2945,7 @@ int testbm(int argc,char **argv)
     rpt_params.pr_et = false;
     rpt_params.pr_trfer = false;
     rpt_params.pr_brd = false;
-    BTM(rpt_params, rootNode);
+    BTM(rpt_params, rootNode, rootNode);
     ProgTrace(TRACE5, "%s", GetXMLDocText(resDoc).c_str()); //!!!
     return 0;
 }

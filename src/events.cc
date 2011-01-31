@@ -144,7 +144,8 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         NewTextChild(rowNode,"msg",Qry.FieldAsString("msg"));
         NewTextChild(rowNode,"ev_order",Qry.FieldAsInteger("ev_order"));
     };
-    logNode = NewTextChild(resNode, "variables");
+    logNode = NewTextChild(resNode, "form_data");
+    logNode = NewTextChild(logNode, "variables");
     if ( GetNode( "seasonvars", reqNode ) ) {
         SeasonListVars( point_id, 0, logNode, reqNode );
         NewTextChild(logNode, "caption", getLocaleText("CAP.DOC.SEASON_EVENTS_LOG",
@@ -158,8 +159,7 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
                         )));
     }
     NewTextChild(logNode, "cap_test", getLocaleText("CAP.TEST", TReqInfo::Instance()->desk.lang));
-    if(GetNode("LoadForm", reqNode))
-            get_report_form("EventsLog", resNode);
+    get_report_form("EventsLog", reqNode, resNode);
     NewTextChild(logNode, "short_page_number_fmt", getLocaleText("CAP.SHORT_PAGE_NUMBER_FMT"));
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 };

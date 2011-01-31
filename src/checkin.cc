@@ -2357,8 +2357,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     NewTextChild(defNode, "status_id", def_status_id);
   };
 
-  if ( GetNode( "LoadForm", reqNode ) )
-      get_report_form("ArrivalPaxList", resNode);
+  get_report_form("ArrivalPaxList", reqNode, resNode);
   xmlNodePtr variablesNode = STAT::set_variables(resNode);
   TRptParams rpt_params(reqInfo->desk.lang);
   PaxListVars(point_id, rpt_params, variablesNode);
