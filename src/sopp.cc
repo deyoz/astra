@@ -1122,9 +1122,18 @@ void buildSOPP( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
     }
     if ( !tr->classes.empty() ) {
     	lNode = NewTextChild( tripNode, "classes" );
+    	string str;
     	for ( vector<TSoppClass>::iterator icl=tr->classes.begin(); icl!=tr->classes.end(); icl++ ) {
-    		SetProp( NewTextChild( lNode, "class", ElemIdToCodeNative( etClass, icl->cl ) ), "cfg", icl->cfg );
+    		if ( TReqInfo::Instance()->desk.compatible( LATIN_VERSION ) )
+    		  SetProp( NewTextChild( lNode, "class", ElemIdToCodeNative( etClass, icl->cl ) ), "cfg", icl->cfg );
+    		else {
+          if ( !str.empty() )
+            str += " ";
+    		  str += ElemIdToCodeNative( etClass, icl->cl ) + IntToString( icl->cfg );
+        }
     	}
+    	if ( !TReqInfo::Instance()->desk.compatible( LATIN_VERSION ) )
+        NodeSetContent( lNode, str );
     }
     if ( tr->reg )
       NewTextChild( tripNode, "reg", tr->reg );
