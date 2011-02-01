@@ -41,6 +41,7 @@ struct TRptParams {
     {};
 };
 
+bool bad_client_img_version();
 void get_report_form(const std::string name, xmlNodePtr reqNode, xmlNodePtr resNode);
 void PaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode,
                  BASIC::TDateTime part_key = ASTRA::NoExists);

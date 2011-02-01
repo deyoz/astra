@@ -1483,7 +1483,9 @@ xmlNodePtr STAT::set_variables(xmlNodePtr resNode, string lang)
     NewTextChild(variablesNode, "print_oper", reqInfo->user.login);
     NewTextChild(variablesNode, "print_term", reqInfo->desk.code);
     NewTextChild(variablesNode, "use_seances", USE_SEANCES());
-    NewTextChild(variablesNode, "test_server", get_test_server());
+    NewTextChild(variablesNode, "test_server", bad_client_img_version() ? 2 : get_test_server());
+    if(bad_client_img_version())
+        NewTextChild(variablesNode, "doc_cap_test", " ");
     NewTextChild(variablesNode, "cap_test", getLocaleText("CAP.TEST", lang));
     NewTextChild(variablesNode, "page_number_fmt", getLocaleText("CAP.PAGE_NUMBER_FMT", lang));
     NewTextChild(variablesNode, "short_page_number_fmt", getLocaleText("CAP.SHORT_PAGE_NUMBER_FMT", lang));
