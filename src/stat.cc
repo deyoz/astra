@@ -1296,7 +1296,10 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 NewTextChild(paxNode, "seat_no", Qry.FieldAsString(col_seat_no));
                 NewTextChild(paxNode, "document", Qry.FieldAsString(col_document));
                 NewTextChild(paxNode, "ticket_no", Qry.FieldAsString(col_ticket_no));
-                NewTextChild(paxNode, "hall", ElemIdToNameLong(etHall, Qry.FieldAsInteger(col_hall)));
+                if(Qry.FieldIsNULL(col_hall))
+                    NewTextChild(paxNode, "hall");
+                else
+                    NewTextChild(paxNode, "hall", ElemIdToNameLong(etHall, Qry.FieldAsInteger(col_hall)));
 
                 Qry.Next();
             }
@@ -1429,7 +1432,10 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             NewTextChild(paxNode, "seat_no");
             NewTextChild(paxNode, "document");
             NewTextChild(paxNode, "ticket_no");
-            NewTextChild(paxNode, "hall", ElemIdToNameLong(etHall, Qry.FieldAsInteger("hall")));
+            if(Qry.FieldIsNULL("hall"))
+                NewTextChild(paxNode, "hall");
+            else
+                NewTextChild(paxNode, "hall", ElemIdToNameLong(etHall, Qry.FieldAsInteger("hall")));
         };
         if(paxListNode) { // для совместимости со старой версией терминала
             xmlNodePtr headerNode = NewTextChild(paxListNode, "header");
@@ -3009,7 +3015,10 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 NewTextChild(paxNode, "seat_no", Qry.FieldAsString(col_seat_no));
                 NewTextChild(paxNode, "document", Qry.FieldAsString(col_document));
                 NewTextChild(paxNode, "ticket_no", Qry.FieldAsString(col_ticket_no));
-                NewTextChild(paxNode, "hall", ElemIdToNameLong(etHall, Qry.FieldAsInteger(col_hall)));
+                if(Qry.FieldIsNULL(col_hall))
+                    NewTextChild(paxNode, "hall");
+                else
+                    NewTextChild(paxNode, "hall", ElemIdToNameLong(etHall, Qry.FieldAsInteger(col_hall)));
 
                 count++;
                 if(count >= MAX_STAT_ROWS) {
