@@ -303,6 +303,9 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   GetPax(reqNode,resNode);
   xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
   if(variablesNode) SetProp(variablesNode, "update");
+  NewTextChild(variablesNode, "test_server", bad_client_img_version() ? 2 : get_test_server());
+  if(bad_client_img_version())
+      NewTextChild(variablesNode, "doc_cap_test", " ");
 
   ASTRA::showMessage(msg);
 };
@@ -416,6 +419,9 @@ void BrdInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
   GetPax(reqNode,resNode);
   xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
   if(variablesNode) SetProp(variablesNode, "update");
+  NewTextChild(variablesNode, "test_server", bad_client_img_version() ? 2 : get_test_server());
+  if(bad_client_img_version())
+      NewTextChild(variablesNode, "doc_cap_test", " ");
 };
 
 void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
