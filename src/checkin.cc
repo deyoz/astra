@@ -759,7 +759,7 @@ void CheckInInterface::LoadOnwardCrsTransfer(const TTripInfo &operFlt,
                                              const string &oper_airp_arv,
                                              const string &tlg_airp_dep,
                                              const vector<TTransferItem> &crs_trfer, //содержит представления кодов из crs_transfer
-                                             vector<TTransferItem> &trfer,
+                                             vector<CheckIn::TTransferItem> &trfer,
                                              xmlNodePtr trferNode)
 {
   trfer.clear();
@@ -900,15 +900,14 @@ void CheckInInterface::LoadOnwardCrsTransfer(const TTripInfo &operFlt,
 
     if (!vector_completed)
     {
-      TTransferItem trferItem;
-      trferItem.num=t->num;
-      strcpy(trferItem.airline,airline_out.c_str());
-      trferItem.flt_no=flt_no_out;
-      strcpy(trferItem.suffix,suffix_out.c_str());
-      trferItem.local_date=t->local_date;
-      strcpy(trferItem.airp_dep,airp_out.c_str());
-      strcpy(trferItem.airp_arv,airp_in.c_str());
-      strcpy(trferItem.subcl,subclass.c_str());
+      CheckIn::TTransferItem trferItem;
+      trferItem.operFlt.airline=airline_out;
+      trferItem.operFlt.flt_no=flt_no_out;
+      trferItem.operFlt.suffix=suffix_out;
+      trferItem.operFlt.scd_out=local_scd;
+      trferItem.operFlt.airp=airp_out;
+      trferItem.airp_arv=airp_in;
+      trferItem.subclass=subclass;
       trfer.push_back(trferItem);
     };
 
@@ -919,20 +918,6 @@ void CheckInInterface::LoadOnwardCrsTransfer(const TTripInfo &operFlt,
   };
 };
 
-
-struct TCkinPaxInfo2
-{
-  int pax_id;
-  string subcl;
-};
-
-struct TCkinSegInfo2
-{
-  TTripInfo operFlt;
-  int grp_id;
-  string airp_arv;
-  vector<TCkinPaxInfo2> pax;
-};
 
 bool EqualCrsTransfer(const vector<TTransferItem> &trfer1,
                       const vector<TTransferItem> &trfer2)
@@ -954,11 +939,11 @@ bool EqualCrsTransfer(const vector<TTransferItem> &trfer1,
   return i1==trfer1.end() && i2==trfer2.end();
 };
 
-void LoadUnconfirmedTransfer(const vector<TCkinSegInfo2> &segs, xmlNodePtr transferNode)
+void LoadUnconfirmedTransfer(const vector<CheckIn::TTransferItem> &segs, xmlNodePtr transferNode)
 {
   if (segs.empty() || transferNode==NULL) return;
 
-  const TCkinSegInfo2 &firstSeg=*segs.begin();
+  const CheckIn::TTransferItem &firstSeg=*segs.begin();
   
   TQuery PaxQry(&OraSession);
   PaxQry.Clear();
@@ -1009,13 +994,13 @@ void LoadUnconfirmedTransfer(const vector<TCkinSegInfo2> &segs, xmlNodePtr trans
   //пробег по пассажирам первого сегмента
   int pax_no=0;
   int iYear,iMonth,iDay;
-  for(vector<TCkinPaxInfo2>::const_iterator p=firstSeg.pax.begin();p!=firstSeg.pax.end();p++,pax_no++)
+  for(vector<CheckIn::TPaxTransferItem>::const_iterator p=firstSeg.pax.begin();p!=firstSeg.pax.end();p++,pax_no++)
   {
     string tlg_airp_dep=firstSeg.operFlt.airp;
     vector<TTransferItem> pax_trfer;
     //набираем вектор трансфера
     int seg_no=1;
-    for(vector<TCkinSegInfo2>::const_iterator s=segs.begin();s!=segs.end();s++,seg_no++)
+    for(vector<CheckIn::TTransferItem>::const_iterator s=segs.begin();s!=segs.end();s++,seg_no++)
     {
       if (s==segs.begin()) continue; //первый сегмент отбрасываем
       TTransferItem trferItem;
@@ -1027,7 +1012,7 @@ void LoadUnconfirmedTransfer(const vector<TCkinSegInfo2> &segs, xmlNodePtr trans
       trferItem.local_date=iDay;
       strcpy(trferItem.airp_dep,s->operFlt.airp.c_str());
       strcpy(trferItem.airp_arv,s->airp_arv.c_str());
-      strcpy(trferItem.subcl,s->pax.at(pax_no).subcl.c_str());
+      strcpy(trferItem.subcl,s->pax.at(pax_no).subclass.c_str());
       pax_trfer.push_back(trferItem);
     };
     ProgTrace(TRACE5,"LoadUnconfirmedTransfer: pax_trfer.size()=%d",pax_trfer.size());
@@ -1074,12 +1059,12 @@ void LoadUnconfirmedTransfer(const vector<TCkinSegInfo2> &segs, xmlNodePtr trans
     xmlNodePtr itemNode=NewTextChild(itemsNode,"item");
     
     xmlNodePtr trferNode=NewTextChild(itemNode,"transfer");
-    vector<TTransferItem> temp_trfer;
+    vector<CheckIn::TTransferItem> dummy;
     CheckInInterface::LoadOnwardCrsTransfer(firstSeg.operFlt,
                                             firstSeg.airp_arv,
                                             iTrfer->first.first,
                                             iTrfer->first.second,
-                                            temp_trfer, trferNode);
+                                            dummy, trferNode);
     xmlNodePtr paxNode=NewTextChild(itemNode,"passengers");
     for(vector<int>::const_iterator pax_id=iTrfer->second.begin();
                                     pax_id!=iTrfer->second.end();pax_id++)
@@ -1208,16 +1193,17 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry,  xmlNodePtr resNode)
 
       paxNode=NewTextChild(node,"passengers");
       
-      vector<TTransferItem> crs_trfer, trfer;
+      vector<TTransferItem> crs_trfer;
       CheckInInterface::GetOnwardCrsTransfer(pnr_id, TrferQry, crs_trfer);
 
       if (!crs_trfer.empty())
       {
         xmlNodePtr trferNode=NewTextChild(node,"transfer");
+        vector<CheckIn::TTransferItem> dummy;
         CheckInInterface::LoadOnwardCrsTransfer(operFlt,
                                                 PaxQry.FieldAsString("target"),
                                                 tlgTripsFlt.airp,
-                                                crs_trfer, trfer, trferNode);
+                                                crs_trfer, dummy, trferNode);
       };
 
       PnrAddrQry.SetVariable("pnr_id",pnr_id);
@@ -2644,12 +2630,14 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
     "  SAVEPOINT CHECKIN; "
     "END;";
   Qry.Execute();
+  
+  bool pr_unaccomp=strcmp((char *)reqNode->name, "SaveUnaccompBag") == 0 ||
+                   strcmp((char *)reqNode->name, "TCkinSaveUnaccompBag") == 0;
 
   //reqInfo->user.check_access(amPartialWrite);
   //определим, открыт ли рейс для регистрации
 
   int tckin_id=-1,first_grp_id=-1;
-  xmlNodePtr firstPaxNode=NULL;
 
   if (tckin_version)
     segNode=NodeAsNode("segments/segment",reqNode);
@@ -2657,12 +2645,15 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
     segNode=reqNode;
   bool first_segment=true;
   int seg_no=1,tckin_seg_no=1;
+  vector<CheckIn::TTransferItem> trfer;
+  vector<CheckIn::TTransferItem>::const_iterator iTrfer;
+  bool save_trfer=false;
   for(;segNode!=NULL;segNode=segNode->next,seg_no++,tckin_seg_no++,first_segment=false)
   {
     int point_dep,point_arv,grp_id,hall=ASTRA::NoExists;
     string cl,airp_dep,airp_arv;
 
-    map<int,TSegInfo>::iterator s=segs.find(NodeAsInteger("point_dep",segNode));
+    map<int,TSegInfo>::const_iterator s=segs.find(NodeAsInteger("point_dep",segNode));
     if (s==segs.end())
       throw EXCEPTIONS::Exception("CheckInInterface::SavePax: point_id not found in map segs");
 
@@ -2671,7 +2662,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
     point_arv=s->second.point_arv;
     airp_arv=s->second.airp_arv;
 
-    TTripInfo &fltInfo=s->second.fltInfo;
+    const TTripInfo &fltInfo=s->second.fltInfo;
     TTripInfo markFltInfo=fltInfo;
     markFltInfo.scd_out=UTCToLocal(markFltInfo.scd_out,AirpTZRegion(markFltInfo.airp));
     modf(markFltInfo.scd_out,&markFltInfo.scd_out);
@@ -2696,9 +2687,6 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
 
       //map для норм
       map<int,string> norms;
-
-      bool pr_unaccomp=strcmp((char *)reqNode->name, "SaveUnaccompBag") == 0 ||
-                       strcmp((char *)reqNode->name, "TCkinSaveUnaccompBag") == 0;
 
       TQuery CrsQry(&OraSession);
       CrsQry.Clear();
@@ -2831,6 +2819,63 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                 hall=Qry.FieldAsInteger("hall");
             };
           };
+        };
+      };
+      
+      //трансфер
+      if (first_segment)
+      {
+        //получим трансфер
+        if (new_checkin)
+          save_trfer=true;
+        else
+        {
+          save_trfer=false;
+          if (reqInfo->desk.compatible(TRFER_CONFIRM_VERSION))
+            save_trfer=GetNode("transfer",reqNode)!=NULL;
+        };
+        if (save_trfer)
+        {
+          if (!pr_unaccomp)
+            ParseTransfer(GetNode("transfer",reqNode),
+                          NodeAsNode("passengers",segNode),
+                          s->second, trfer);
+          else
+            ParseTransfer(GetNode("transfer",reqNode),
+                          NULL,
+                          s->second, trfer);
+        };
+        iTrfer=trfer.begin();
+      }
+      else
+      {
+        if (iTrfer!=trfer.end())
+        {
+          TDateTime scd_local=UTCToLocal(fltInfo.scd_out,AirpTZRegion(fltInfo.airp));
+          modf(scd_local,&scd_local); //обрубаем часы
+          
+          //проверим совпадение сегментов трансфера и сквозной регистрации
+          if (iTrfer->operFlt.airline!=fltInfo.airline ||
+              iTrfer->operFlt.flt_no!=fltInfo.flt_no ||
+              iTrfer->operFlt.suffix!=fltInfo.suffix ||
+              iTrfer->operFlt.scd_out!=scd_local || //fltInfo.scd_out приводим к локальной дате
+              iTrfer->operFlt.airp!=fltInfo.airp ||
+              iTrfer->airp_arv!=airp_arv)
+            throw UserException("MSG.CHECKIN.DIFFERENT_TCKIN_AND_TRFER_ROUTES");
+          if (!pr_unaccomp)
+          {
+            //проверим подклассы
+            xmlNodePtr paxNode=NodeAsNode("passengers",segNode)->children;
+            vector<CheckIn::TPaxTransferItem>::const_iterator iPaxTrfer=iTrfer->pax.begin();
+            for(;paxNode!=NULL && iPaxTrfer!=iTrfer->pax.end();paxNode=paxNode->next,iPaxTrfer++)
+            {
+              if (iPaxTrfer->subclass!=NodeAsString("subclass",paxNode))
+                throw UserException("MSG.CHECKIN.DIFFERENT_TCKIN_AND_TRFER_SUBCLASSES");
+            };
+            if (paxNode!=NULL || iPaxTrfer!=iTrfer->pax.end())
+              throw EXCEPTIONS::Exception("SavePax: Different number of transfer subclasses and passengers");
+          };
+          iTrfer++;
         };
       };
 
@@ -3316,11 +3361,8 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
           for(int k=0;k<=1;k++)
           {
             node=NodeAsNode("passengers",segNode);
-            if (first_segment) firstPaxNode=node;
-            xmlNodePtr paxNode=firstPaxNode->children;
-            for(node=node->children;
-                node!=NULL&&paxNode!=NULL;
-                node=node->next,paxNode=paxNode->next)
+            int pax_no=1;
+            for(node=node->children;node!=NULL;node=node->next,pax_no++)
             {
               node2=node->children;
               int seats=NodeAsIntegerFast("seats",node2);
@@ -3497,8 +3539,11 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
               //запись pax_doc и pax_fqt
               CrsQry.SetVariable("pax_id",pax_id);
               CrsQry.Execute();
-              //запись подклассов трансфера
-              SavePaxTransfer(pax_id,paxNode,reqNode,seg_no);
+              if (save_trfer)
+              {
+                //запись подклассов трансфера
+                SavePaxTransfer(pax_id,pax_no,trfer,seg_no);
+              };
               //запись ремарок
               SavePaxRem(node);
               //запись норм
@@ -3528,8 +3573,6 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
               reqInfo->MsgToLog(msg);
               reg_no++;
             };
-            if (node!=NULL || paxNode!=NULL)
-              throw EXCEPTIONS::Exception("SavePax: Wrong number of passengers in different segments");
           };
         }
         else
@@ -3557,8 +3600,11 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
         msg.id1=point_dep;
         msg.id2=0;
         msg.id3=grp_id;
-        msg.msg=SaveTransfer(grp_id,reqNode,pr_unaccomp,seg_no);
-        if (!msg.msg.empty()) reqInfo->MsgToLog(msg);
+        if (save_trfer)
+        {
+          msg.msg=SaveTransfer(grp_id,trfer,pr_unaccomp,seg_no);
+          if (!msg.msg.empty()) reqInfo->MsgToLog(msg);
+        };
         msg.msg=SaveTCkinSegs(grp_id,reqNode,segs,seg_no);
         if (!msg.msg.empty()) reqInfo->MsgToLog(msg);
       }
@@ -3684,12 +3730,9 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
             node=GetNode("passengers",segNode);
           if (node!=NULL)
           {
-            if (first_segment) firstPaxNode=node;
-            xmlNodePtr paxNode=firstPaxNode->children;
             //только в случае записи трансфера мы передаем всех пассажиров всех сегментов с терминала
-            for(node=node->children;
-                node!=NULL && (!save_trfer || paxNode!=NULL);
-                node=node->next, paxNode=(save_trfer?paxNode->next:paxNode))
+            int pax_no=1;
+            for(node=node->children;node!=NULL;node=node->next,pax_no++)
             {
               node2=node->children;
               int pax_id=NodeAsIntegerFast("pax_id",node2);
@@ -3800,7 +3843,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
               if (save_trfer)
               {
                 //запись подклассов трансфера
-                SavePaxTransfer(pax_id,paxNode,reqNode,seg_no);
+                SavePaxTransfer(pax_id,pax_no,trfer,seg_no);
               };
               //запись ремарок
               SavePaxRem(node);
@@ -3819,11 +3862,6 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                 reqInfo->MsgToLog((string)"Пассажир "+surname+(*name!=0?" ":"")+name+". "+
                                   "Баг.нормы"+(normMarkFlt.empty()?"":" ("+normMarkFlt+")")+": "+normStr,
                                   ASTRA::evtPax,point_dep,reg_no,grp_id);
-            };
-            if (save_trfer)
-            {
-              if (node!=NULL || paxNode!=NULL)
-                throw EXCEPTIONS::Exception("SavePax: Wrong number of passengers in different segments");
             };
           };
         }
@@ -3850,7 +3888,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
           msg.id1=point_dep;
           msg.id2=0;
           msg.id3=grp_id;
-          msg.msg=SaveTransfer(grp_id,reqNode,pr_unaccomp,seg_no);
+          msg.msg=SaveTransfer(grp_id,trfer,pr_unaccomp,seg_no);
           if (!msg.msg.empty()) reqInfo->MsgToLog(msg);
         };
       };
@@ -4350,7 +4388,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_versio
     };
   };
   bool trfer_confirm=true;
-  vector<TCkinSegInfo2> segs;
+  vector<CheckIn::TTransferItem> segs;
   xmlNodePtr segsNode=NewTextChild(resNode,"segments");
   for(vector<int>::const_iterator grp_id=grp_ids.begin();grp_id!=grp_ids.end();grp_id++)
   {
@@ -4378,7 +4416,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_versio
 
     TTripInfo operFlt(Qry);
     
-    TCkinSegInfo2 seg;
+    CheckIn::TTransferItem seg;
     seg.operFlt.Assign(operFlt);
     seg.grp_id=*grp_id;
     seg.airp_arv=Qry.FieldAsString("airp_arv");
@@ -4476,9 +4514,9 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_versio
         paxNode=NewTextChild(node,"pax");
         int pax_id=PaxQry.FieldAsInteger("pax_id");
         
-        TCkinPaxInfo2 pax;
+        CheckIn::TPaxTransferItem pax;
         pax.pax_id=pax_id;
-        pax.subcl=PaxQry.FieldAsString("subclass");
+        pax.subclass=PaxQry.FieldAsString("subclass");
         seg.pax.push_back(pax);
         
         NewTextChild(paxNode,"pax_id",pax_id);
@@ -4642,18 +4680,10 @@ void CheckInInterface::LoadPaxRem(xmlNodePtr paxNode)
   RemQry.Close();
 };
 
-void CheckInInterface::SavePaxTransfer(int pax_id, xmlNodePtr paxNode, xmlNodePtr transferNode, int seg_no)
+void CheckInInterface::SavePaxTransfer(int pax_id, int pax_no, const vector<CheckIn::TTransferItem> &trfer, int seg_no)
 {
-  if (paxNode==NULL) return;
-
-  xmlNodePtr trferNode=GetNode("transfer",paxNode);
-  if (trferNode==NULL)
-  {
-    //для совместимости со старым форматом 27.01.09 !!!
-    trferNode=GetNode("transfer",transferNode);
-    if (trferNode==NULL) return;
-    //для совместимости со старым форматом 27.01.09 !!!
-  };
+  vector<CheckIn::TTransferItem>::const_iterator firstTrfer=trfer.begin();
+  for(;firstTrfer!=trfer.end()&&seg_no>1;firstTrfer++,seg_no--);
 
   TQuery TrferQry(&OraSession);
   TrferQry.Clear();
@@ -4668,33 +4698,13 @@ void CheckInInterface::SavePaxTransfer(int pax_id, xmlNodePtr paxNode, xmlNodePt
   TrferQry.DeclareVariable("subclass",otString);
   TrferQry.DeclareVariable("subclass_fmt",otInteger);
 
-  xmlNodePtr node2;
-  int num=1;
-  TElemFmt fmt;
-  string str,strh;
-  trferNode=trferNode->children;
-  for(;trferNode!=NULL&&seg_no>1;trferNode=trferNode->next,seg_no--);
-  for(;trferNode!=NULL;trferNode=trferNode->next,num++)
+  int trfer_num=1;
+  for(vector<CheckIn::TTransferItem>::const_iterator t=firstTrfer;t!=trfer.end();t++,trfer_num++)
   {
-    node2=trferNode->children;
-    TrferQry.SetVariable("transfer_num",num);
-
-    //подкласс
-    strh=NodeAsStringFast("subclass",node2);
-    str=ElemToElemId(etSubcls,strh,fmt);
-    if (fmt==efmtUnknown)
-      throw UserException("MSG.TRANSFER_LEG.UNKNOWN_SUBCLASS",
-                          LParams()<<LParam("subclass",strh)
-                                   <<LParam("leg",num));
-   /* if (checkType==checkAllSeg ||
-        checkType==checkFirstSeg && i==1)
-    {
-      TSubclsRow& row=(TSubclsRow&)base_tables.get("subcls").get_row("code",str);
-      if (row.code_lat.empty())
-        throw UserException("Не найден лат. код подкласса %s стыковочного рейса %s",str.c_str(),flt.str().c_str());
-    };*/
-    TrferQry.SetVariable("subclass",str);
-    TrferQry.SetVariable("subclass_fmt",(int)fmt);
+    const CheckIn::TPaxTransferItem &pax=t->pax.at(pax_no-1);
+    TrferQry.SetVariable("transfer_num",trfer_num);
+    TrferQry.SetVariable("subclass",pax.subclass);
+    TrferQry.SetVariable("subclass_fmt",(int)pax.subclass_fmt);
     TrferQry.Execute();
   };
   TrferQry.Close();
@@ -5003,13 +5013,144 @@ string CheckInInterface::SaveTCkinSegs(int grp_id, xmlNodePtr segsNode, const ma
   return msg.str();
 };
 
-string CheckInInterface::SaveTransfer(int grp_id, xmlNodePtr transferNode, bool pr_unaccomp, int seg_no)
+void CheckInInterface::ParseTransfer(xmlNodePtr trferNode,
+                                     xmlNodePtr paxNode,
+                                     const TSegInfo &firstSeg,
+                                     vector<CheckIn::TTransferItem> &segs)
 {
-  if (transferNode==NULL) return "";
+  TDateTime local_scd=UTCToLocal(firstSeg.fltInfo.scd_out,AirpTZRegion(firstSeg.fltInfo.airp));
 
-  xmlNodePtr trferNode=GetNode("transfer",transferNode);
-  if (trferNode==NULL) return "";
+  ParseTransfer(trferNode, paxNode, firstSeg.airp_arv, local_scd, segs);
+};
 
+void CheckInInterface::ParseTransfer(xmlNodePtr trferNode,
+                                     xmlNodePtr paxNode,
+                                     const string &airp_arv,
+                                     const TDateTime scd_out_local,
+                                     vector<CheckIn::TTransferItem> &segs)
+{
+  segs.clear();
+  if (trferNode==NULL) return;
+  
+  int trfer_num=1;
+  string strh;
+  string prior_airp_arv_id=airp_arv;
+  TDateTime local_scd=scd_out_local;
+  for(trferNode=trferNode->children;trferNode!=NULL;trferNode=trferNode->next,trfer_num++)
+  {
+    xmlNodePtr node2=trferNode->children;
+    
+    ostringstream flt;
+    flt << NodeAsStringFast("airline",node2)
+        << setw(3) << setfill('0') << NodeAsIntegerFast("flt_no",node2)
+        << NodeAsStringFast("suffix",node2) << "/"
+        << setw(2) << setfill('0') << NodeAsIntegerFast("local_date",node2);
+
+    CheckIn::TTransferItem seg;
+        
+    //авиакомпания
+    strh=NodeAsStringFast("airline",node2);
+    seg.operFlt.airline=ElemToElemId(etAirline,strh,seg.operFlt.airline_fmt);
+    if (seg.operFlt.airline_fmt==efmtUnknown)
+      throw UserException("MSG.TRANSFER_FLIGHT.UNKNOWN_AIRLINE",
+                          LParams()<<LParam("airline",strh)
+                                   <<LParam("flight",flt.str()));
+
+    //номер рейса
+    seg.operFlt.flt_no=NodeAsIntegerFast("flt_no",node2);
+    
+    //суффикс
+    if (!NodeIsNULLFast("suffix",node2))
+    {
+      strh=NodeAsStringFast("suffix",node2);
+      seg.operFlt.suffix=ElemToElemId(etSuffix,strh,seg.operFlt.suffix_fmt);
+      if (seg.operFlt.suffix_fmt==efmtUnknown)
+        throw UserException("MSG.TRANSFER_FLIGHT.INVALID_SUFFIX",
+                            LParams()<<LParam("suffix",strh)
+                                     <<LParam("flight",flt.str()));
+    };
+    
+    
+    int local_date=NodeAsIntegerFast("local_date",node2);
+    try
+    {
+      TDateTime base_date=local_scd-1; //патамушта можем из Японии лететь в Америку во вчерашний день
+      local_scd=DayToDate(local_date,base_date,false); //локальная дата вылета
+      seg.operFlt.scd_out=local_scd;
+    }
+    catch(EXCEPTIONS::EConvertError &E)
+    {
+      throw UserException("MSG.TRANSFER_FLIGHT.INVALID_LOCAL_DATE_DEP",
+                          LParams()<<LParam("flight",flt.str()));
+    };
+    
+    //аэропорт вылета
+    if (GetNodeFast("airp_dep",node2)!=NULL)  //задан а/п вылета
+    {
+      strh=NodeAsStringFast("airp_dep",node2);
+      seg.operFlt.airp=ElemToElemId(etAirp,strh,seg.operFlt.airp_fmt);
+      if (seg.operFlt.airp_fmt==efmtUnknown)
+        throw UserException("MSG.TRANSFER_FLIGHT.UNKNOWN_AIRP_DEP",
+                            LParams()<<LParam("airp",strh)
+                                     <<LParam("flight",flt.str()));
+    }
+    else
+      seg.operFlt.airp=prior_airp_arv_id;
+
+    //аэропорт прилета
+    strh=NodeAsStringFast("airp_arv",node2);
+    seg.airp_arv=ElemToElemId(etAirp,strh,seg.airp_arv_fmt);
+    if (seg.airp_arv_fmt==efmtUnknown)
+      throw UserException("MSG.TRANSFER_FLIGHT.UNKNOWN_AIRP_ARR",
+                          LParams()<<LParam("airp",strh)
+                                   <<LParam("flight",flt.str()));
+                                   
+    seg.flight_view=flt.str();
+                                   
+
+    prior_airp_arv_id=seg.airp_arv;
+    
+    segs.push_back(seg);
+  };
+  
+  if (paxNode==NULL) return;
+  
+  //трансферные подклассы пассажиров
+  for(paxNode=paxNode->children;paxNode!=NULL;paxNode=paxNode->next)
+  {
+    xmlNodePtr paxTrferNode=GetNode("transfer",paxNode);
+    if (paxTrferNode==NULL) paxTrferNode=trferNode; //для совместимости со старым форматом 27.01.09 !!!
+
+    paxTrferNode=paxTrferNode->children;
+    vector<CheckIn::TTransferItem>::iterator s=segs.begin();
+    for(;s!=segs.end() && paxTrferNode!=NULL; s++,paxTrferNode=paxTrferNode->next)
+    {
+      s->pax.push_back(CheckIn::TPaxTransferItem());
+      CheckIn::TPaxTransferItem &pax=s->pax.back();
+      
+      strh=NodeAsString("subclass",paxTrferNode);
+      if (strh.empty())
+        throw UserException("MSG.TRANSFER_FLIGHT.SUBCLASS_NOT_SET",
+                            LParams()<<LParam("flight",s->flight_view));
+      pax.subclass=ElemToElemId(etSubcls,strh,pax.subclass_fmt);
+      if (pax.subclass_fmt==efmtUnknown)
+        throw UserException("MSG.TRANSFER_FLIGHT.UNKNOWN_SUBCLASS",
+                            LParams()<<LParam("subclass",strh)
+                                     <<LParam("flight",s->flight_view));
+    };
+    if (s!=segs.end() || paxTrferNode!=NULL)
+    {
+      //плохая ситуация: кол-во трансферных подклассов пассажира не совпадает с кол-вом трансферных сегментов
+      throw EXCEPTIONS::Exception("ParseTransfer: Different number of transfer subclasses and transfer segments");
+    };
+  };
+};
+
+string CheckInInterface::SaveTransfer(int grp_id, const vector<CheckIn::TTransferItem> &trfer, bool pr_unaccomp, int seg_no)
+{
+  vector<CheckIn::TTransferItem>::const_iterator firstTrfer=trfer.begin();
+  for(;firstTrfer!=trfer.end()&&seg_no>1;firstTrfer++,seg_no--);
+  
   TQuery TrferQry(&OraSession);
   TrferQry.Clear();
   TrferQry.SQLText=
@@ -5019,18 +5160,14 @@ string CheckInInterface::SaveTransfer(int grp_id, xmlNodePtr transferNode, bool 
   TrferQry.CreateVariable("rows",otInteger,0);
   TrferQry.CreateVariable("grp_id",otInteger,grp_id);
   TrferQry.Execute();
-
-  trferNode=trferNode->children;
-  if (trferNode==NULL)
+  
+  if (firstTrfer==trfer.end()) //ничего не записываем в базу
   {
     if (TrferQry.GetVariableAsInteger("rows")>0)
       return "Отменен трансфер пассажиров и багажа";
     else
       return "";
   };
-
-  for(;trferNode!=NULL&&seg_no>1;trferNode=trferNode->next,seg_no--);
-  if (trferNode==NULL) return "";
 
   TrferQry.Clear();
   TrferQry.SQLText=
@@ -5086,10 +5223,6 @@ string CheckInInterface::SaveTransfer(int grp_id, xmlNodePtr transferNode, bool 
         TelegramInterface::IsTypeBSend(sendInfo)) checkType=iTlgs->second;
   };
 
-  string airp_arv=TrferQry.FieldAsString("airp_arv");
-  TDateTime local_scd=UTCToLocal(TrferQry.FieldAsDateTime("scd_out"),
-                                 AirpTZRegion(TrferQry.FieldAsString("airp")));
-
   TrferQry.Clear();
   TrferQry.SQLText=
     "BEGIN "
@@ -5122,142 +5255,92 @@ string CheckInInterface::SaveTransfer(int grp_id, xmlNodePtr transferNode, bool 
   TrferQry.DeclareVariable("airp_arv",otString);
   TrferQry.DeclareVariable("airp_arv_fmt",otInteger);
   TrferQry.DeclareVariable("pr_final",otInteger);
-  int i,num=1;
-  TElemFmt fmt;
-  string str,strh;
-  TDateTime base_date=local_scd-1; //патамушта можем из Японии лететь в Америку во вчерашний день
+  
+  string strh;
   ostringstream msg;
   msg << "Оформлен трансфер по маршруту:";
-  for(;trferNode!=NULL;trferNode=trferNode->next,num++)
+  int trfer_num=1;
+  for(vector<CheckIn::TTransferItem>::const_iterator t=firstTrfer;t!=trfer.end();t++,trfer_num++)
   {
-    msg << " -> ";
-
-    xmlNodePtr node2=trferNode->children;
-    TrferQry.SetVariable("transfer_num",num);
-
-    ostringstream flt;
-    flt << NodeAsStringFast("airline",node2)
-        << setw(3) << setfill('0') << NodeAsIntegerFast("flt_no",node2)
-        << NodeAsStringFast("suffix",node2) << "/"
-        << setw(2) << setfill('0') << NodeAsIntegerFast("local_date",node2);
-
-    //авиакомпания
-    strh=NodeAsStringFast("airline",node2);
-    str=ElemToElemId(etAirline,strh,fmt);
-    if (fmt==efmtUnknown)
-      throw UserException("MSG.TRANSFER_FLIGHT.UNKNOWN_AIRLINE",
-                          LParams()<<LParam("airline",strh)
-                                   <<LParam("flight",flt.str()));
     if (checkType==checkAllSeg ||
-        checkType==checkFirstSeg && i==1)
+        checkType==checkFirstSeg && t==firstTrfer)
     {
-      TAirlinesRow& row=(TAirlinesRow&)base_tables.get("airlines").get_row("code",str);
-      if (row.code_lat.empty())
-        throw UserException("MSG.TRANSFER_FLIGHT.LAT_AIRLINE_NOT_FOUND",
-                            LParams()<<LParam("airline",strh)
-                                     <<LParam("flight",flt.str()));
+      {
+        TAirlinesRow& row=(TAirlinesRow&)base_tables.get("airlines").get_row("code",t->operFlt.airline);
+        if (row.code_lat.empty())
+        {
+          strh=ElemIdToClientElem(etAirline, t->operFlt.airline, t->operFlt.airline_fmt);
+          throw UserException("MSG.TRANSFER_FLIGHT.LAT_AIRLINE_NOT_FOUND",
+                              LParams()<<LParam("airline",strh)
+                                       <<LParam("flight",t->flight_view));
+
+        };
+      };
+      {
+        TAirpsRow& row=(TAirpsRow&)base_tables.get("airps").get_row("code",t->operFlt.airp);
+        if (row.code_lat.empty())
+        {
+          strh=ElemIdToClientElem(etAirp, t->operFlt.airp, t->operFlt.airp_fmt);
+          throw UserException("MSG.TRANSFER_FLIGHT.LAT_AIRP_DEP_NOT_FOUND",
+                              LParams()<<LParam("airp",strh)
+                                       <<LParam("flight",t->flight_view));
+        };
+      };
+      {
+        TAirpsRow& row=(TAirpsRow&)base_tables.get("airps").get_row("code",t->airp_arv);
+        if (row.code_lat.empty())
+        {
+          strh=ElemIdToClientElem(etAirp, t->airp_arv, t->airp_arv_fmt);
+          throw UserException("MSG.TRANSFER_FLIGHT.LAT_AIRP_ARR_NOT_FOUND",
+                              LParams()<<LParam("airp",strh)
+                                       <<LParam("flight",t->flight_view));
+        };
+      };
     };
-    TrferQry.SetVariable("airline",str);
-    TrferQry.SetVariable("airline_fmt",(int)fmt);
-    msg << str;
-
-    i=NodeAsIntegerFast("flt_no",node2);
-    TrferQry.SetVariable("flt_no",i);
-    msg << setw(3) << setfill('0') << i;
-
-    if (!NodeIsNULLFast("suffix",node2))
-    {
-      strh=NodeAsStringFast("suffix",node2);
-      str=ElemToElemId(etSuffix,strh,fmt);
-      if (fmt==efmtUnknown)
-        throw UserException("MSG.TRANSFER_FLIGHT.INVALID_SUFFIX",
-                            LParams()<<LParam("suffix",strh)
-                                     <<LParam("flight",flt.str()));
-      TrferQry.SetVariable("suffix",str);
-      TrferQry.SetVariable("suffix_fmt",(int)fmt);
-    }
-    else
-    {
-      str="";
-      TrferQry.SetVariable("suffix",FNull);
-      TrferQry.SetVariable("suffix_fmt",FNull);
-    };
-
-    msg << str << "/";
-
-    i=NodeAsIntegerFast("local_date",node2);
-    try
-    {
-      local_scd=DayToDate(i,base_date,false);
-    }
-    catch(EXCEPTIONS::EConvertError &E)
-    {
-      throw UserException("MSG.TRANSFER_FLIGHT.INVALID_LOCAL_DATE_DEP",
-                          LParams()<<LParam("flight",flt.str()));
-    };
-    TrferQry.SetVariable("scd",local_scd);
-    base_date=local_scd-1; //патамушта можем из Японии лететь в Америку во вчерашний день
-    msg << setw(2) << setfill('0') << i;
-
-    //аэропорт вылета
-    strh=NodeAsStringFast("airp_dep",node2,(char*)airp_arv.c_str());
-    str=ElemToElemId(etAirp,strh,fmt);
-    if (fmt==efmtUnknown)
-      throw UserException("MSG.TRANSFER_FLIGHT.UNKNOWN_AIRP_DEP",
-                          LParams()<<LParam("airp",strh)
-                                   <<LParam("flight",flt.str()));
-    if (checkType==checkAllSeg ||
-        checkType==checkFirstSeg && i==1)
-    {
-      TAirpsRow& row=(TAirpsRow&)base_tables.get("airps").get_row("code",str);
-      if (row.code_lat.empty())
-        throw UserException("MSG.TRANSFER_FLIGHT.LAT_AIRP_DEP_NOT_FOUND",
-                            LParams()<<LParam("airp",strh)
-                                     <<LParam("flight",flt.str()));
-    };
-    TrferQry.SetVariable("airp_dep",str);
-    TrferQry.SetVariable("airp_dep_fmt",(int)fmt);
-    msg << ":" << str;
-
-    //аэропорт прилета
-    airp_arv=NodeAsStringFast("airp_arv",node2);
-    str=ElemToElemId(etAirp,airp_arv,fmt);
-    if (fmt==efmtUnknown)
-      throw UserException("MSG.TRANSFER_FLIGHT.UNKNOWN_AIRP_ARR",
-                          LParams()<<LParam("airp",airp_arv)
-                                   <<LParam("flight",flt.str()));
-    if (checkType==checkAllSeg ||
-        checkType==checkFirstSeg && i==1)
-    {
-      TAirpsRow& row=(TAirpsRow&)base_tables.get("airps").get_row("code",str);
-      if (row.code_lat.empty())
-        throw UserException("MSG.TRANSFER_FLIGHT.LAT_AIRP_ARR_NOT_FOUND",
-                            LParams()<<LParam("airp",airp_arv)
-                                     <<LParam("flight",flt.str()));
-    };
-    TrferQry.SetVariable("airp_arv",str);
-    TrferQry.SetVariable("airp_arv_fmt",(int)fmt);
-    msg << "-" << str;
-
-    TrferQry.SetVariable("pr_final",(int)(trferNode->next==NULL));
-
     if (!without_trfer_set)
     {
       //проверим разрешено ли оформление трансфера
       if (!CheckTrferPermit(airline_in,
                             flt_no_in,
-                            TrferQry.GetVariableAsString("airp_dep"),
-                            TrferQry.GetVariableAsString("airline"),
-                            TrferQry.GetVariableAsInteger("flt_no"),
+                            t->operFlt.airp,
+                            t->operFlt.airline,
+                            t->operFlt.flt_no,
                             outboard_trfer))
         throw UserException("MSG.TRANSFER_FLIGHT.NOT_MADE_TRANSFER",
-                            LParams()<<LParam("flight",flt.str()));
+                            LParams()<<LParam("flight",t->flight_view));
     };
+
+    TrferQry.SetVariable("transfer_num",trfer_num);
+    TrferQry.SetVariable("airline",t->operFlt.airline);
+    TrferQry.SetVariable("airline_fmt",(int)t->operFlt.airline_fmt);
+    TrferQry.SetVariable("flt_no",t->operFlt.flt_no);
+    if (!t->operFlt.suffix.empty())
+    {
+      TrferQry.SetVariable("suffix",t->operFlt.suffix);
+      TrferQry.SetVariable("suffix_fmt",(int)t->operFlt.suffix_fmt);
+    }
+    else
+    {
+      TrferQry.SetVariable("suffix",FNull);
+      TrferQry.SetVariable("suffix_fmt",FNull);
+    };
+    TrferQry.SetVariable("scd",t->operFlt.scd_out);
+    TrferQry.SetVariable("airp_dep",t->operFlt.airp);
+    TrferQry.SetVariable("airp_dep_fmt",(int)t->operFlt.airp_fmt);
+    TrferQry.SetVariable("airp_arv",t->airp_arv);
+    TrferQry.SetVariable("airp_arv_fmt",(int)t->airp_arv_fmt);
+    TrferQry.SetVariable("pr_final",(int)(t+1==trfer.end()));
     TrferQry.Execute();
 
-    airline_in=TrferQry.GetVariableAsString("airline");
-    flt_no_in=TrferQry.GetVariableAsInteger("flt_no");
+    msg << " -> "
+        << t->operFlt.airline
+        << setw(3) << setfill('0') << t->operFlt.flt_no
+        << t->operFlt.suffix << "/"
+        << DateTimeToStr(t->operFlt.scd_out,"dd")
+        << ":" << t->operFlt.airp << "-" << t->airp_arv;
 
+    airline_in=t->operFlt.airline;
+    flt_no_in=t->operFlt.flt_no;
   };
 
   return msg.str();
@@ -6493,7 +6576,7 @@ void CheckInInterface::readTripSets( int point_id,
 };
 
 void CheckInInterface::readTripSets( int point_id,
-                                     TTripInfo &fltInfo,
+                                     const TTripInfo &fltInfo,
                                      xmlNodePtr tripSetsNode )
 {
   TQuery Qry( &OraSession );
@@ -6506,7 +6589,7 @@ void CheckInInterface::readTripSets( int point_id,
   readTripSets(fltInfo, Qry.FieldAsInteger("pr_etstatus"), tripSetsNode);
 };
 
-void CheckInInterface::readTripSets( TTripInfo &fltInfo,
+void CheckInInterface::readTripSets( const TTripInfo &fltInfo,
                                      int pr_etstatus,
                                      xmlNodePtr tripSetsNode)
 {
@@ -6553,8 +6636,7 @@ struct TCkinPaxInfo
   xmlNodePtr node;
 };
 
-void CheckInInterface::GetTCkinFlights(const TTripInfo &fltInfo,
-                                       const vector<TTransferItem> &trfer,
+void CheckInInterface::GetTCkinFlights(const vector<CheckIn::TTransferItem> &trfer,
                                        vector< TCkinSegFlts > &segs)
 {
   segs.clear();
@@ -6576,12 +6658,8 @@ void CheckInInterface::GetTCkinFlights(const TTripInfo &fltInfo,
   PointsQry.DeclareVariable("scd",otDate);
 
   bool is_edi=false;
-  TDateTime local_scd=UTCToLocal(fltInfo.scd_out,AirpTZRegion(fltInfo.airp));
-  for(vector<TTransferItem>::const_iterator f=trfer.begin();f!=trfer.end();f++)
+  for(vector<CheckIn::TTransferItem>::const_iterator f=trfer.begin();f!=trfer.end();f++)
   {
-    TDateTime base_date=local_scd-1; //патамушта можем из Японии лететь в Америку во вчерашний день
-    local_scd=DayToDate(f->local_date,base_date,false); //локальная дата вылета
-
     TCkinSegFlts seg;
 
     //проверим обслуживается ли рейс в другой DCS
@@ -6597,8 +6675,8 @@ void CheckInInterface::GetTCkinFlights(const TTripInfo &fltInfo,
         "WHERE airline=:airline AND "
         "      (flt_no IS NULL OR flt_no=:flt_no) "
         "ORDER BY priority DESC";
-      Qry.CreateVariable("airline",otString,f->airline);
-      Qry.CreateVariable("flt_no",otInteger,(const int)(f->flt_no));
+      Qry.CreateVariable("airline",otString,f->operFlt.airline);
+      Qry.CreateVariable("flt_no",otInteger,(const int)(f->operFlt.flt_no));
       Qry.Execute();
       if (!Qry.Eof) is_edi=true;
     };
@@ -6608,11 +6686,11 @@ void CheckInInterface::GetTCkinFlights(const TTripInfo &fltInfo,
     if (!is_edi)
     {
       //ищем рейс в СПП
-      PointsQry.SetVariable("airline",f->airline);
-      PointsQry.SetVariable("flt_no",(const int)(f->flt_no));
-      PointsQry.SetVariable("airp_dep",f->airp_dep);
-      PointsQry.SetVariable("suffix",f->suffix);
-      PointsQry.SetVariable("scd",local_scd);
+      PointsQry.SetVariable("airline",f->operFlt.airline);
+      PointsQry.SetVariable("flt_no",(const int)(f->operFlt.flt_no));
+      PointsQry.SetVariable("airp_dep",f->operFlt.airp);
+      PointsQry.SetVariable("suffix",f->operFlt.suffix);
+      PointsQry.SetVariable("scd",f->operFlt.scd_out);
       PointsQry.Execute();
       TDateTime scd;
       string tz_region;
@@ -6625,7 +6703,7 @@ void CheckInInterface::GetTCkinFlights(const TTripInfo &fltInfo,
         if (tz_region.empty()) continue;
         scd=UTCToLocal(scd,tz_region);
         modf(scd,&scd);
-        if (scd!=local_scd) continue;
+        if (scd!=f->operFlt.scd_out) continue;
 
         TSegInfo segSPPInfo;
         //int point_arv=ASTRA::NoExists;
@@ -6651,28 +6729,6 @@ class TCkinSegmentItem : public TCkinSegFlts
     string calc_status;
 };
 
-string GetTCkinPaxSubcl(xmlNodePtr paxNode, int trfer_num, TElemFmt &fmt)
-{
-  fmt=efmtUnknown;
-  string result;
-  //ищем соответствующий сегменту подкласс пассажира
-  xmlNodePtr paxTrferNode=GetNode("transfer",paxNode);
-  if (paxTrferNode!=NULL)
-  {
-    paxTrferNode=paxTrferNode->children;
-    for(int pax_trfer_num=1;
-        pax_trfer_num!=trfer_num && paxTrferNode!=NULL;
-        paxTrferNode=paxTrferNode->next,pax_trfer_num++);
-    if (paxTrferNode!=NULL)
-    {
-      string strh=NodeAsString("subclass",paxTrferNode);
-      result=ElemToElemId(etSubcls,strh,fmt);
-      if (result.empty()) result=strh;
-    };
-  };
-  return result;
-};
-
 void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   TReqInfo* reqInfo = TReqInfo::Instance();
@@ -6696,7 +6752,6 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
 
   string airline_in=firstSeg.fltInfo.airline;
   int flt_no_in=firstSeg.fltInfo.flt_no;
-  string prior_airp_arv_id=firstSeg.airp_arv;
 
   TQuery CrsQry(&OraSession);
   CrsQry.Clear();
@@ -6744,116 +6799,30 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   CrsQry.DeclareVariable("surname",otString);
   CrsQry.DeclareVariable("name",otString);
 
-  xmlNodePtr trferNode;
-  trferNode=NodeAsNode("transfer",reqNode)->children;
+  xmlNodePtr trferNode=NodeAsNode("transfer",reqNode);
+  vector<CheckIn::TTransferItem> trfer;
+  ParseTransfer(trferNode,
+                NodeAsNode("passengers",reqNode),
+                firstSeg, trfer);
 
   if (!reqInfo->desk.compatible(PAD_VERSION))
     NewTextChild(resNode,"flight",GetTripName(firstSeg.fltInfo,ecCkin,true,false));
   xmlNodePtr routeNode=NewTextChild(resNode,"tckin_route");
   xmlNodePtr segsNode=NewTextChild(resNode,"tckin_segments");
 
-  string strh;
-  TElemFmt fmt;
-  TDateTime local_scd=UTCToLocal(firstSeg.fltInfo.scd_out,AirpTZRegion(firstSeg.fltInfo.airp));
-  vector<TTransferItem> trfer;
   vector<TCkinSegmentItem> segs;
-  for(int trfer_num=1;trferNode!=NULL;trferNode=trferNode->next,trfer_num++)
+  for(trferNode=trferNode->children;trferNode!=NULL;trferNode=trferNode->next)
   {
     xmlNodePtr node2=trferNode->children;
-
-    ostringstream flt;
-    flt << NodeAsStringFast("airline",node2)
-        << setw(3) << setfill('0') << NodeAsIntegerFast("flt_no",node2)
-        << NodeAsStringFast("suffix",node2) << "/"
-        << setw(2) << setfill('0') << NodeAsIntegerFast("local_date",node2);
-
-    TTransferItem trferItem;
-
-    //авиакомпания
-    strh=NodeAsStringFast("airline",node2);
-    strcpy(trferItem.airline,ElemToElemId(etAirline,strh,fmt).c_str());
-    if (fmt==efmtUnknown)
-      throw UserException("MSG.TRANSFER_FLIGHT.UNKNOWN_AIRLINE",
-                          LParams()<<LParam("airline",strh)
-                                   <<LParam("flight",flt.str()));
-
-    trferItem.flt_no=NodeAsIntegerFast("flt_no",node2);
-
-    if (!NodeIsNULLFast("suffix",node2))
-    {
-      strh=NodeAsStringFast("suffix",node2);
-      strcpy(trferItem.suffix,ElemToElemId(etSuffix,strh,fmt).c_str());
-      if (fmt==efmtUnknown)
-        throw UserException("MSG.TRANSFER_FLIGHT.INVALID_SUFFIX",
-                            LParams()<<LParam("suffix",strh)
-                                     <<LParam("flight",flt.str()));
-    };
-
-    trferItem.local_date=NodeAsIntegerFast("local_date",node2);
-    try
-    {
-      TDateTime base_date=local_scd-1; //патамушта можем из Японии лететь в Америку во вчерашний день
-      local_scd=DayToDate(trferItem.local_date,base_date,false); //локальная дата вылета
-    }
-    catch(EXCEPTIONS::EConvertError &E)
-    {
-      throw UserException("MSG.TRANSFER_FLIGHT.INVALID_LOCAL_DATE_DEP",
-                          LParams()<<LParam("flight",flt.str()));
-    };
-
-    //аэропорт вылета
-    if (GetNodeFast("airp_dep",node2)!=NULL)  //задан а/п вылета
-    {
-      strh=NodeAsStringFast("airp_dep",node2);
-      strcpy(trferItem.airp_dep,ElemToElemId(etAirp,strh,fmt).c_str());
-      if (fmt==efmtUnknown)
-        throw UserException("MSG.TRANSFER_FLIGHT.UNKNOWN_AIRP_DEP",
-                            LParams()<<LParam("airp",strh)
-                                     <<LParam("flight",flt.str()));
-    }
-    else
-      strcpy(trferItem.airp_dep,prior_airp_arv_id.c_str());
-
-    //аэропорт прилета
-    strh=NodeAsStringFast("airp_arv",node2);
-    strcpy(trferItem.airp_arv,ElemToElemId(etAirp,strh,fmt).c_str());
-    if (fmt==efmtUnknown)
-      throw UserException("MSG.TRANSFER_FLIGHT.UNKNOWN_AIRP_ARR",
-                          LParams()<<LParam("airp",strh)
-                                   <<LParam("flight",flt.str()));
-    prior_airp_arv_id=trferItem.airp_arv;
-
-    trferItem.num=trfer_num;
-
-    trfer.push_back(trferItem);
-
+    
     TCkinSegmentItem segItem;
-
     segItem.conf_status=(NodeAsIntegerFast("conf_status",node2,0)!=0);
     segItem.calc_status=NodeAsStringFast("calc_status",node2,"");
     segs.push_back(segItem);
-
-    //просто проверка подклассов пассажиров
-    xmlNodePtr paxNode=NodeAsNode("passengers",reqNode)->children;
-    for(;paxNode!=NULL;paxNode=paxNode->next)
-    {
-      //ищем соответствующий сегменту подкласс пассажира
-      string subclass=GetTCkinPaxSubcl(paxNode, trfer_num, fmt);
-      if (subclass.empty())
-        throw UserException("MSG.TRANSFER_FLIGHT.SUBCLASS_NOT_SET",
-                            LParams()<<LParam("flight",flt.str()));
-      else
-      {
-        if (fmt==efmtUnknown)
-          throw UserException("MSG.TRANSFER_FLIGHT.UNKNOWN_SUBCLASS",
-                              LParams()<<LParam("subclass",subclass)
-                                       <<LParam("flight",flt.str()));
-      };
-    };
   };
 
   vector<TCkinSegFlts> segs2;
-  GetTCkinFlights(firstSeg.fltInfo, trfer, segs2);
+  GetTCkinFlights(trfer, segs2);
 
   if (segs.size()!=segs2.size() ||
       segs.size()!=trfer.size())
@@ -6874,7 +6843,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   bool tckin_route_confirm=true;
 
   //цикл по стыковочным сегментам и по трансферным рейсам
-  vector<TTransferItem>::iterator f=trfer.begin();
+  vector<CheckIn::TTransferItem>::const_iterator f=trfer.begin();
   for(s=segs.begin();s!=segs.end() && f!=trfer.end();s++,f++)
   {
     if (!s->conf_status) tckin_route_confirm=false;
@@ -6890,9 +6859,9 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     if (!without_trfer_set &&
         !CheckTrferPermit(airline_in,
                           flt_no_in,
-                          f->airp_dep,
-                          f->airline,
-                          f->flt_no,
+                          f->operFlt.airp,
+                          f->operFlt.airline,
+                          f->operFlt.flt_no,
                           outboard_trfer))
     {
       SetProp(NewTextChild(segNode,"trfer_permit",AstraLocale::getLocaleText("Нет")),"value",(int)false);
@@ -6910,9 +6879,9 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     TCkinSetsInfo tckinSets;
     CheckTCkinPermit(airline_in,
                      flt_no_in,
-                     f->airp_dep,
-                     f->airline,
-                     f->flt_no,
+                     f->operFlt.airp,
+                     f->operFlt.airline,
+                     f->operFlt.flt_no,
                      tckinSets);
     if (!tckinSets.pr_permit)
       NewTextChild(segNode,"tckin_permit",AstraLocale::getLocaleText("Нет"));
@@ -6935,18 +6904,18 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
       NewTextChild(segNode,"tckin_norec");
     };
 
-    airline_in=f->airline;
-    flt_no_in=f->flt_no;
+    airline_in=f->operFlt.airline;
+    flt_no_in=f->operFlt.flt_no;
 
     //вывод рейса
     ostringstream flight;
-    flight << ElemIdToCodeNative(etAirline, f->airline)
-           << setw(3) << setfill('0') << f->flt_no
-           << ElemIdToCodeNative(etSuffix, f->suffix) << "/"
-           << setw(2) << setfill('0') << f->local_date << " "
-           << ElemIdToCodeNative(etAirp, f->airp_dep) << "-"
+    flight << ElemIdToCodeNative(etAirline, f->operFlt.airline)
+           << setw(3) << setfill('0') << f->operFlt.flt_no
+           << ElemIdToCodeNative(etSuffix, f->operFlt.suffix) << "/"
+           << DateTimeToStr(f->operFlt.scd_out,"dd") << " "
+           << ElemIdToCodeNative(etAirp, f->operFlt.airp) << "-"
            << ElemIdToCodeNative(etAirp, f->airp_arv);
-
+           
     if (!s->flts.empty())
     {
       if (s->flts.size()>1)
@@ -7021,7 +6990,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
         bool doublePax=false;
         vector<TCkinPaxInfo> pax;
         vector<TCkinPaxInfo>::iterator iPax;
-        for(;paxNode!=NULL;paxNode=paxNode->next)
+        for(int pax_no=1;paxNode!=NULL;paxNode=paxNode->next,pax_no++)
         {
           TCkinPaxInfo paxInfo;
           paxInfo.surname=NodeAsString("surname",paxNode);
@@ -7036,14 +7005,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
           paxInfo.node=NULL;
 
           //ищем соответствующий сегменту подкласс пассажира
-          paxInfo.subclass=GetTCkinPaxSubcl(paxNode, f->num, fmt);
-          if (paxInfo.subclass.empty())
-            throw EXCEPTIONS::Exception("CheckInInterface::CheckTCkinRoute: empty subclass");
-          else
-          {
-            if (fmt==efmtUnknown)
-              throw EXCEPTIONS::Exception("CheckInInterface::CheckTCkinRoute: unknown subclass %s", paxInfo.subclass.c_str());
-          };
+          paxInfo.subclass=f->pax.at(pax_no-1).subclass;
 
           for(iPax=pax.begin();iPax!=pax.end();iPax++)
           {
@@ -7172,7 +7134,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
           paxNode=NodeAsNode("passengers",reqNode)->children;
           pax2Node=NewTextChild(seg2Node,"tckin_passengers");
           xmlNodePtr node;
-          for(;paxNode!=NULL;paxNode=paxNode->next)
+          for(int pax_no=1;paxNode!=NULL;paxNode=paxNode->next,pax_no++)
           {
             TCkinPaxInfo paxInfo;
             paxInfo.surname=NodeAsString("surname",paxNode);
@@ -7184,14 +7146,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
             paxInfo.resCount=0;
             paxInfo.node=NULL;*/
             //ищем соответствующий сегменту подкласс пассажира
-            paxInfo.subclass=GetTCkinPaxSubcl(paxNode, f->num, fmt);
-            if (paxInfo.subclass.empty())
-              throw EXCEPTIONS::Exception("CheckInInterface::CheckTCkinRoute: empty subclass");
-            else
-            {
-              if (fmt==efmtUnknown)
-                throw EXCEPTIONS::Exception("CheckInInterface::CheckTCkinRoute: unknown subclass %s", paxInfo.subclass.c_str());
-            };
+            paxInfo.subclass=f->pax.at(pax_no-1).subclass;
 
             for(iPax=pax.begin();iPax!=pax.end();iPax++)
             {
