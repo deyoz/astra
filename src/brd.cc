@@ -531,7 +531,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     int reg_no=NoExists;
     int hall=-1;
 
-    get_report_form("ExamBrdbus", reqNode, resNode);
+    get_new_report_form("ExamBrdbus", reqNode, resNode);
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
     xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
     if ( GetNode( "LoadVars", reqNode ) ) {

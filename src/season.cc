@@ -3347,7 +3347,7 @@ void SeasonInterface::Read(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
   sort( viewp.begin(), viewp.end(), ComparePeriod1 );
   buildViewTrips( viewp, dataNode );
   if ( GetNode( "LoadForm", reqNode ) ) { //!!!
-    get_report_form("SeasonList", reqNode, resNode);
+    get_new_report_form("SeasonList", reqNode, resNode);
     STAT::set_variables(resNode);
     xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
     NewTextChild(variablesNode, "mode", mode);

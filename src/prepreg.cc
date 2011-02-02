@@ -693,7 +693,7 @@ void PrepRegInterface::ViewCRSList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   //TReqInfo::Instance()->user.check_access( amRead );
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   viewCRSList( point_id, dataNode );
-  get_report_form("PNLPaxList", reqNode, resNode);
+  get_compatible_report_form("PNLPaxList", reqNode, resNode);
   xmlNodePtr formDataNode = STAT::set_variables(resNode);
   TRptParams rpt_params(TReqInfo::Instance()->desk.lang);
   PaxListVars(point_id, rpt_params, formDataNode);

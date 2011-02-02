@@ -1048,22 +1048,20 @@ bool get_enable_unload_pectab()
 bool get_test_server()
 {
     bool result = true;
-    if(TReqInfo::Instance()->desk.version != "201101-0118747") {
-        Tcl_Obj *obj;
-        obj=Tcl_GetVar2Ex(getTclInterpretator(),
-                "TEST_SERVER",0,TCL_GLOBAL_ONLY);
-        if(!obj)
+    Tcl_Obj *obj;
+    obj=Tcl_GetVar2Ex(getTclInterpretator(),
+            "TEST_SERVER",0,TCL_GLOBAL_ONLY);
+    if(!obj)
+        result = true;
+    else {
+        static char buf[200];
+        buf[199]=0;
+        strcpy(buf,Tcl_GetString(obj));
+        int TEST_SERVER;
+        if(StrToInt(buf, TEST_SERVER) == EOF)
             result = true;
-        else {
-            static char buf[200];
-            buf[199]=0;
-            strcpy(buf,Tcl_GetString(obj));
-            int TEST_SERVER;
-            if(StrToInt(buf, TEST_SERVER) == EOF)
-                result = true;
-            else
-                result = TEST_SERVER != 0;
-        }
+        else
+            result = TEST_SERVER != 0;
     }
     return result;
 }

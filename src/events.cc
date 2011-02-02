@@ -159,7 +159,7 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
                         )));
     }
     NewTextChild(logNode, "cap_test", getLocaleText("CAP.TEST", TReqInfo::Instance()->desk.lang));
-    get_report_form("EventsLog", reqNode, resNode);
+    get_new_report_form("EventsLog", reqNode, resNode);
     NewTextChild(logNode, "short_page_number_fmt", getLocaleText("CAP.SHORT_PAGE_NUMBER_FMT"));
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 };

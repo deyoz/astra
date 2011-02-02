@@ -785,42 +785,6 @@ string get_report_version(string name)
     return result;
 }
 
-void get_report_form(const string name, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    if(GetNode("LoadForm", reqNode) == NULL)
-        return;
-
-    string form;
-    string version;
-    TQuery Qry(&OraSession);
-    if (TReqInfo::Instance()->desk.compatible(NEW_TERM_VERSION) or TReqInfo::Instance()->screen.name == "DOCS.EXE") {
-        Qry.SQLText = "select form, pr_locale from fr_forms2 where name = :name and version = :version ";
-        version = get_report_version(name);
-        Qry.CreateVariable("version", otString, version);
-    } else
-        Qry.SQLText = "select form from fr_forms where name = :name";
-    Qry.CreateVariable("name", otString, name);
-    Qry.Execute();
-    if(Qry.Eof) {
-        NewTextChild(resNode, "FormNotExists", name);
-        SetProp(NewTextChild(resNode, "form"), "name", name);
-        return;
-    }
-    // положим в ответ шаблон отчета
-    int len = Qry.GetSizeLongField("form");
-    shared_array<char> data (new char[len]);
-    Qry.FieldAsLong("form", data.get());
-    form.clear();
-    form.append(data.get(), len);
-
-    xmlNodePtr formNode = ReplaceTextChild(resNode, "form", form);
-    SetProp(formNode, "name", name);
-    SetProp(formNode, "version", version);
-    if ((TReqInfo::Instance()->desk.compatible(NEW_TERM_VERSION) or TReqInfo::Instance()->screen.name == "DOCS.EXE") and
-            Qry.FieldAsInteger("pr_locale") != 0)
-        SetProp(formNode, "pr_locale");
-}
-
 struct TPMTotalsKey {
     int point_id;
     int pr_trfer;
@@ -919,7 +883,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             rpt_name="PM";
     };
     if (rpt_params.rpt_type==rtPTMTXT) rpt_name=rpt_name+"Txt";
-    get_report_form(rpt_name, reqNode, resNode);
+    get_compatible_report_form(rpt_name, reqNode, resNode);
 
     {
         string et, et_lat;
@@ -1243,7 +1207,7 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             rpt_name="BM";
     };
     if (rpt_params.rpt_type==rtBTMTXT) rpt_name=rpt_name+"Txt";
-    get_report_form(rpt_name, reqNode, resNode);
+    get_compatible_report_form(rpt_name, reqNode, resNode);
 
     t_rpt_bm_bag_name bag_names;
     Qry.Clear();
@@ -2071,9 +2035,9 @@ string get_flight(xmlNodePtr variablesNode)
 void REFUSE(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     if(rpt_params.rpt_type == rtREFUSETXT)
-        get_report_form("docTxt", reqNode, resNode);
+        get_compatible_report_form("docTxt", reqNode, resNode);
     else
-        get_report_form("ref", reqNode, resNode);
+        get_compatible_report_form("ref", reqNode, resNode);
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "SELECT point_dep AS point_id, "
@@ -2199,9 +2163,9 @@ void REFUSETXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 void NOTPRES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     if(rpt_params.rpt_type == rtNOTPRESTXT)
-        get_report_form("docTxt", reqNode, resNode);
+        get_compatible_report_form("docTxt", reqNode, resNode);
     else
-        get_report_form("notpres", reqNode, resNode);
+        get_compatible_report_form("notpres", reqNode, resNode);
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "SELECT point_dep AS point_id, "
@@ -2323,9 +2287,9 @@ void NOTPRESTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     if(rpt_params.rpt_type == rtREMTXT)
-        get_report_form("docTxt", reqNode, resNode);
+        get_compatible_report_form("docTxt", reqNode, resNode);
     else
-        get_report_form("rem", reqNode, resNode);
+        get_compatible_report_form("rem", reqNode, resNode);
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "SELECT point_dep AS point_id, "
@@ -2439,9 +2403,9 @@ void REMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     if(rpt_params.rpt_type == rtCRSTXT or rpt_params.rpt_type == rtCRSUNREGTXT)
-        get_report_form("docTxt", reqNode, resNode);
+        get_compatible_report_form("docTxt", reqNode, resNode);
     else
-        get_report_form("crs", reqNode, resNode);
+        get_compatible_report_form("crs", reqNode, resNode);
     bool pr_unreg = rpt_params.rpt_type == rtCRSUNREG or rpt_params.rpt_type == rtCRSUNREGTXT;
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
     TQuery Qry(&OraSession);
@@ -2605,9 +2569,9 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     bool pr_web = (rpt_params.rpt_type == rtWEB or rpt_params.rpt_type == rtWEBTXT);
     bool pr_norec = (rpt_params.rpt_type == rtNOREC or rpt_params.rpt_type == rtNORECTXT);
     if(rpt_params.rpt_type == rtEXAMTXT or rpt_params.rpt_type == rtWEBTXT or rpt_params.rpt_type == rtNORECTXT)
-        get_report_form("docTxt", reqNode, resNode);
+        get_compatible_report_form("docTxt", reqNode, resNode);
     else
-        get_report_form(pr_web ? "web" : "exam", reqNode, resNode);
+        get_compatible_report_form(pr_web ? "web" : "exam", reqNode, resNode);
 
     TQuery Qry(&OraSession);
     BrdInterface::GetPaxQuery(Qry, rpt_params.point_id, NoExists, rpt_params.GetLang(), rpt_params.rpt_type, rpt_params.client_type);
@@ -2970,3 +2934,52 @@ int testbm(int argc,char **argv)
     ProgTrace(TRACE5, "%s", GetXMLDocText(resDoc).c_str()); //!!!
     return 0;
 }
+
+void get_report_form(const string name, xmlNodePtr resNode)
+{
+    string form;
+    string version;
+    TQuery Qry(&OraSession);
+    if (TReqInfo::Instance()->desk.compatible(NEW_TERM_VERSION) or TReqInfo::Instance()->screen.name == "DOCS.EXE") {
+        Qry.SQLText = "select form, pr_locale from fr_forms2 where name = :name and version = :version ";
+        version = get_report_version(name);
+        Qry.CreateVariable("version", otString, version);
+    } else
+        Qry.SQLText = "select form from fr_forms where name = :name";
+    Qry.CreateVariable("name", otString, name);
+    Qry.Execute();
+    if(Qry.Eof) {
+        NewTextChild(resNode, "FormNotExists", name);
+        SetProp(NewTextChild(resNode, "form"), "name", name);
+        return;
+    }
+    // положим в ответ шаблон отчета
+    int len = Qry.GetSizeLongField("form");
+    shared_array<char> data (new char[len]);
+    Qry.FieldAsLong("form", data.get());
+    form.clear();
+    form.append(data.get(), len);
+
+    xmlNodePtr formNode = ReplaceTextChild(resNode, "form", form);
+    SetProp(formNode, "name", name);
+    SetProp(formNode, "version", version);
+    if ((TReqInfo::Instance()->desk.compatible(NEW_TERM_VERSION) or TReqInfo::Instance()->screen.name == "DOCS.EXE") and
+            Qry.FieldAsInteger("pr_locale") != 0)
+        SetProp(formNode, "pr_locale");
+}
+
+void get_compatible_report_form(const string name, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    if (TReqInfo::Instance()->desk.compatible(ADD_FORM_VERSION))
+        get_new_report_form(name, reqNode, resNode);
+    else
+        get_report_form(name, resNode);
+}
+
+void get_new_report_form(const string name, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    if(GetNode("LoadForm", reqNode) == NULL)
+        return;
+    get_report_form(name, resNode);
+}
+
