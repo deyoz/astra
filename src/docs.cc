@@ -1187,7 +1187,6 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     NewTextChild(variablesNode, "pr_brd_pax_lat", getLocaleText(pr_brd_pax_str, AstraLocale::LANG_EN));
     populate_doc_cap(variablesNode, rpt_params.GetLang());
     STAT::set_variables(resNode, rpt_params.GetLang());
-    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str()); //!!!
 }
 
 void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -2024,7 +2023,6 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     while(!rows.empty());
     NewTextChild(variablesNode,"report_summary",s.str());
   };
-  ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str()); //!!!
 };
 
 string get_flight(xmlNodePtr variablesNode)
