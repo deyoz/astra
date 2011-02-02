@@ -263,6 +263,44 @@ void traceTrfer( TRACE_SIGNATURE,
   ProgTrace(TRACE_PARAMS, "^^^^^^^^^^^^ %s ^^^^^^^^^^^^", descr.c_str());
 };
 
+void traceTrfer( TRACE_SIGNATURE,
+                 const string &descr,
+                 const vector<CheckIn::TTransferItem> &trfer )
+{
+  ProgTrace(TRACE_PARAMS, "============ %s ============", descr.c_str());
+  int trfer_num=1;
+  for(vector<CheckIn::TTransferItem>::const_iterator iTrfer=trfer.begin();iTrfer!=trfer.end();iTrfer++,trfer_num++)
+  {
+    ostringstream str;
+
+    if (iTrfer==trfer.begin())
+    {
+      str << setw(3) << right << "num" << " "
+          << setw(3) << left  << "a/l" << " "
+          << setw(6) << right << "flt_no" << " "
+          << setw(4) << right << "date" << " "
+          << setw(3) << left  << "dep" << " "
+          << setw(3) << left  << "arv" << " "
+          << setw(3) << left  << "scl";
+      ProgTrace(TRACE_PARAMS, "%s", str.str().c_str());
+
+      str.str("");
+    };
+
+    str << setw(2) << right << trfer_num << ": "
+        << setw(3) << left  << iTrfer->operFlt.airline << " "
+        << setw(5) << right << (iTrfer->operFlt.flt_no !=NoExists ? IntToString(iTrfer->operFlt.flt_no) : " ")
+        << setw(1) << left  << iTrfer->operFlt.suffix << " "
+        << setw(4) << right << (iTrfer->operFlt.scd_out !=NoExists ? DateTimeToStr(iTrfer->operFlt.scd_out,"dd") : " ") << " "
+        << setw(3) << left  << iTrfer->operFlt.airp << " "
+        << setw(3) << left  << iTrfer->airp_arv << " "
+        << setw(3) << left  << iTrfer->subclass;
+    ProgTrace(TRACE_PARAMS, "%s", str.str().c_str());
+  };
+
+  ProgTrace(TRACE_PARAMS, "^^^^^^^^^^^^ %s ^^^^^^^^^^^^", descr.c_str());
+};
+
 void traceTCkinSegs( TRACE_SIGNATURE,
                     const string &descr,
                     const vector<TCkinSegFlts> &segs )
@@ -499,7 +537,8 @@ void getTCkinData( const TSearchPnrData &firstPnrData,
   
   //поиск стыковочных сегментов (возвращаем вектор point_id)
   TQuery Qry(&OraSession);
-  vector<TTransferItem> crs_trfer, trfer;
+  vector<TTransferItem> crs_trfer;
+  vector<CheckIn::TTransferItem> trfer;
   CheckInInterface::GetOnwardCrsTransfer(firstPnrData.pnr_id, Qry, crs_trfer);
   if (!crs_trfer.empty())
   {
@@ -523,7 +562,7 @@ void getTCkinData( const TSearchPnrData &firstPnrData,
     };
 
     vector<TCkinSegFlts> segs;
-    CheckInInterface::GetTCkinFlights(operFlt, trfer, segs);
+    CheckInInterface::GetTCkinFlights(trfer, segs);
 
     int seg_no=0;
     try
@@ -532,8 +571,8 @@ void getTCkinData( const TSearchPnrData &firstPnrData,
       int flt_no_in=operFlt.flt_no;
 
       //цикл по стыковочным сегментам и по трансферным рейсам
-      vector<TCkinSegFlts>::iterator s=segs.begin();
-      vector<TTransferItem>::iterator f=trfer.begin();
+      vector<TCkinSegFlts>::const_iterator s=segs.begin();
+      vector<CheckIn::TTransferItem>::const_iterator f=trfer.begin();
       for(;s!=segs.end() && f!=trfer.end();s++,f++)
       {
         seg_no++;
@@ -541,9 +580,9 @@ void getTCkinData( const TSearchPnrData &firstPnrData,
         TCkinSetsInfo tckinSets;
         CheckInInterface::CheckTCkinPermit(airline_in,
                                            flt_no_in,
-                                           f->airp_dep,
-                                           f->airline,
-                                           f->flt_no,
+                                           f->operFlt.airp,
+                                           f->operFlt.airline,
+                                           f->operFlt.flt_no,
                                            tckinSets);
         if (!tckinSets.pr_permit)
           throw "Check-in not permitted";
@@ -551,8 +590,8 @@ void getTCkinData( const TSearchPnrData &firstPnrData,
         if (s->is_edi)
           throw "Flight from the other DCS";
 
-        airline_in=f->airline;
-        flt_no_in=f->flt_no;
+        airline_in=f->operFlt.airline;
+        flt_no_in=f->operFlt.flt_no;
 
         if (s->flts.empty())
           throw "Flight not found";
@@ -609,7 +648,7 @@ void getTCkinData( const TSearchPnrData &firstPnrData,
             "ORDER BY pnr_addrs.pnr_id, pnr_addrs.airline";
           Qry.CreateVariable("point_id", otInteger, currSeg.point_dep);
           Qry.CreateVariable("airp_arv", otString, currSeg.airp_arv); //идет проверка совпадения а/п назначения из трансферного маршрута
-          Qry.CreateVariable("subclass", otString, f->subcl);         //идет проверка совпадения подкласса из трансферного маршрута
+          Qry.CreateVariable("subclass", otString, f->subclass);      //идет проверка совпадения подкласса из трансферного маршрута
           Qry.Execute();
           int prior_pnr_id=NoExists;
           //по ходу заполняем pnrData.pnr_id, pnrData.cls, pnrData.pnr_addrs
@@ -653,7 +692,7 @@ void getTCkinData( const TSearchPnrData &firstPnrData,
 
         //дозаполним поля pnrData
       	pnrData.airp_arv = currSeg.airp_arv;
-      	pnrData.subcls = f->subcl;
+      	pnrData.subcls = f->subclass;
       	pnrData.point_arv = currSeg.point_arv; //NoExists быть не может - проверено ранее
 
       	if (!getTripData2(pnrData, false))
