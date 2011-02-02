@@ -425,6 +425,8 @@ string ElemToElemId(TElemType type, const string &elem, TElemFmt &fmt, bool with
 void getElem(TElemFmt fmt, const std::string &lang, TQuery& Qry, string &elem)
 {
   elem.clear();
+  if(Qry.Eof)
+      return;
   int field_idx=-1;
   switch(fmt)
   {
