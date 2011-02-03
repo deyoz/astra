@@ -300,8 +300,6 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   CheckInInterface::LoadBag(grp_id,dataNode);
   CheckInInterface::LoadPaidBag(grp_id,dataNode);
   LoadReceipts(grp_id,true,dataNode, reqNode);
-
-  //ProgTrace(TRACE5, "%s", GetXMLDocText(dataNode->doc).c_str());
 };
 
 void PaymentInterface::LoadReceipts(int id, bool pr_grp, xmlNodePtr dataNode, xmlNodePtr reqNode)
@@ -1015,7 +1013,6 @@ void PaymentInterface::PutReceiptFields(int id, xmlNodePtr node, xmlNodePtr reqN
   if (node==NULL) return;
 
   TBagReceipt rcpt(reqNode);
-  ProgTrace(TRACE5, "rcpt.prnParams.pr_lat: %d", rcpt.prnParams.pr_lat);
 
   TQuery Qry(&OraSession);
   Qry.Clear();

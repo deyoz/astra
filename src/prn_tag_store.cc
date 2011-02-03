@@ -165,11 +165,8 @@ void TPrnTagStore::TPrnTestTags::Init()
 }
 
 // Bag receipts
-TPrnTagStore::TPrnTagStore(TBagReceipt &arcpt): rcpt(NULL)
+TPrnTagStore::TPrnTagStore(TBagReceipt &arcpt): rcpt(arcpt), tag_lang(arcpt.tag_lang)
 {
-    rcpt = arcpt;
-    tag_lang = rcpt.tag_lang;
-
     tag_list.insert(make_pair(TAG::BULKY_BT,        TTagListItem(1,  &TPrnTagStore::BULKY_BT, 0)));
     tag_list.insert(make_pair(TAG::BULKY_BT_LETTER, TTagListItem(1,  &TPrnTagStore::BULKY_BT_LETTER, 0)));
     tag_list.insert(make_pair(TAG::GOLF_BT,         TTagListItem(1,  &TPrnTagStore::GOLF_BT, 0)));

@@ -38,6 +38,8 @@ typedef enum {pfBTP, pfATB, pfEPL2, pfEPSON, pfZEBRA, pfDATAMAX} TPrnFormat;
 
 void TPrnParams::get_prn_params(xmlNodePtr reqNode)
 {
+    if(not reqNode)
+        ProgTrace(TRACE5, "get_prn_params: reqNode NULL; use default params");
     if(reqNode == NULL) return;
     encoding = "CP866";
     offset = 20;
