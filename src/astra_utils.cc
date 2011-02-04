@@ -1195,7 +1195,7 @@ void showBasicInfo(void)
       if (!Qry.Eof && !Qry.FieldIsNULL("defer_etstatus"))
         NewTextChild(setsNode,"defer_etstatus",(int)(Qry.FieldAsInteger("defer_etstatus")!=0));
       else
-        NewTextChild(setsNode,"defer_etstatus",(int)false);
+        NewTextChild(setsNode,"defer_etstatus",(int)true);
     }
     else NewTextChild(setsNode,"defer_etstatus",(int)true);
 
