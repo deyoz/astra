@@ -5258,7 +5258,7 @@ string CheckInInterface::SaveTransfer(int grp_id, const vector<CheckIn::TTransfe
   
   string strh;
   ostringstream msg;
-  msg << "Оформлен трансфер по маршруту:";
+  msg << "Оформлен багаж трансфером по маршруту:  ";
   int trfer_num=1;
   for(vector<CheckIn::TTransferItem>::const_iterator t=firstTrfer;t!=trfer.end();t++,trfer_num++)
   {
