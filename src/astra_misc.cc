@@ -94,7 +94,7 @@ string TLastTrferInfo::str()
   return trip.str();
 };
 
-bool GetTripSets( TTripSetType setType, TTripInfo &info )
+bool GetTripSets( const TTripSetType setType, const TTripInfo &info )
 {
   TQuery Qry( &OraSession );
   Qry.Clear();
@@ -897,7 +897,6 @@ void GetCrsList(int point_id, std::vector<std::string> &crs)
   for(;!Qry.Eof;Qry.Next())
     crs.push_back(Qry.FieldAsString("crs"));
 };
-
 
 //bt
 

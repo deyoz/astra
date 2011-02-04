@@ -4,6 +4,9 @@
 //#ifdef __cpluplus
 #include "jxtlib/JxtInterface.h"
 
+#define WEB_JXT_IFACE_ID "WEB"
+#define EMUL_CLIENT_TYPE ctWeb
+
 namespace AstraWeb
 {
 

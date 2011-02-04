@@ -88,6 +88,19 @@ class TTripInfo
       if (Qry.GetFieldIndex("airp_fmt")>=0)
           airp_fmt = (TElemFmt)Qry.FieldAsInteger("airp_fmt");
     };
+    void Assign(const TTripInfo &info)
+    {
+      airline=info.airline;
+      suffix=info.suffix;
+      airp=info.airp;
+      flt_no=info.flt_no;
+      pr_del=info.pr_del;
+      airline_fmt=info.airline_fmt;
+      suffix_fmt=info.suffix_fmt;
+      airp_fmt=info.airp_fmt;
+      scd_out=info.scd_out;
+      real_out=info.real_out;
+    };
     void get_client_dates(BASIC::TDateTime &scd_out_client, BASIC::TDateTime &real_out_client) const;
 };
 
@@ -161,7 +174,7 @@ enum TTripSetType { tsOutboardTrfer=10,
                     tsMixedNorms=13,
                     tsNoTicketCheck=15,
                     tsCharterSearch=16 };
-bool GetTripSets( TTripSetType setType, TTripInfo &info );
+bool GetTripSets( const TTripSetType setType, const TTripInfo &info );
 
 class TPnrAddrItem
 {

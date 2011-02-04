@@ -8,6 +8,7 @@
 #include "astra_ticket.h"
 #include "astra_consts.h"
 #include "astra_misc.h"
+#include "oralib.h"
 #include "tlg/tlg_parser.h"
 
 struct TSegInfo
@@ -23,6 +24,59 @@ struct TCkinSegFlts
 {
   std::vector<TSegInfo> flts;
   bool is_edi;
+};
+
+class TCkinSetsInfo
+{
+  public:
+    bool pr_permit,pr_waitlist,pr_norec;
+    TCkinSetsInfo()
+    {
+      Clear();
+    };
+    void Clear()
+    {
+      pr_permit=false;
+      pr_waitlist=false;
+      pr_norec=false;
+    };
+};
+
+namespace CheckIn
+{
+
+class TPaxTransferItem
+{
+  public:
+    int pax_id;
+    std::string subclass;
+    TElemFmt subclass_fmt;
+    TPaxTransferItem()
+    {
+      pax_id=ASTRA::NoExists;
+      subclass_fmt=efmtUnknown;
+    };
+};
+
+class TTransferItem
+{
+  public:
+    std::string flight_view;
+    TTripInfo operFlt;
+    int grp_id;
+    std::string airp_arv;
+    TElemFmt airp_arv_fmt;
+    std::string subclass;
+    TElemFmt subclass_fmt;
+    std::vector<TPaxTransferItem> pax;
+    TTransferItem()
+    {
+      grp_id=ASTRA::NoExists;
+      airp_arv_fmt=efmtUnknown;
+      subclass_fmt=efmtUnknown;
+    };
+};
+
 };
 
 class CheckInInterface : public JxtInterface
@@ -89,14 +143,23 @@ public:
                               const std::string& airp_arv,
                               bool lock,
                               TSegInfo& segInfo);
-  static void GetTCkinFlights(const TTripInfo &fltInfo,
-                              const std::vector<TTransferItem> &trfer,
+  static void GetTCkinFlights(const std::vector<CheckIn::TTransferItem> &trfer,
                               std::vector< TCkinSegFlts > &segs);
 
+  static void ParseTransfer(xmlNodePtr trferNode,
+                            xmlNodePtr paxNode,
+                            const TSegInfo &firstSeg,
+                            std::vector<CheckIn::TTransferItem> &segs);
+  static void ParseTransfer(xmlNodePtr trferNode,
+                            xmlNodePtr paxNode,
+                            const std::string &airp_arv,
+                            const BASIC::TDateTime scd_out_local,
+                            std::vector<CheckIn::TTransferItem> &segs);
+
   static void SavePaxRem(xmlNodePtr paxNode);
-  static void SavePaxTransfer(int pax_id, xmlNodePtr paxNode, xmlNodePtr transferNode, int seg_no);
+  static void SavePaxTransfer(int pax_id, int pax_no, const std::vector<CheckIn::TTransferItem> &trfer, int seg_no);
   static std::string SavePaxNorms(xmlNodePtr paxNode, std::map<int,std::string> &norms, bool pr_unaccomp);
-  static std::string SaveTransfer(int grp_id, xmlNodePtr transferNode, bool pr_unaccomp, int seg_no);
+  static std::string SaveTransfer(int grp_id, const std::vector<CheckIn::TTransferItem> &trfer, bool pr_unaccomp, int seg_no);
   static std::string SaveTCkinSegs(int grp_id, xmlNodePtr segsNode, const std::map<int,TSegInfo> &segs, int seg_no);
   static bool SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode);
   static void SaveBag(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode);
@@ -120,8 +183,23 @@ public:
   static void readTripCounters( int point_id, xmlNodePtr dataNode );
   static void readTripData( int point_id, xmlNodePtr dataNode );
   static void readTripSets( int point_id, xmlNodePtr dataNode );
-  static void readTripSets( int point_id, TTripInfo &fltInfo, xmlNodePtr tripSetsNode );
-  static void readTripSets( TTripInfo &fltInfo, int pr_etstatus, xmlNodePtr tripSetsNode);
+  static void readTripSets( int point_id, const TTripInfo &fltInfo, xmlNodePtr tripSetsNode );
+  static void readTripSets( const TTripInfo &fltInfo, int pr_etstatus, xmlNodePtr tripSetsNode);
+  
+  static void GetOnwardCrsTransfer(int pnr_id, TQuery &Qry, std::vector<TTransferItem> &trfer);
+  static void LoadOnwardCrsTransfer(const TTripInfo &operFlt,
+                                    const std::string &oper_airp_arv,
+                                    const std::string &tlg_airp_dep,
+                                    const std::vector<TTransferItem> &crs_trfer,
+                                    std::vector<CheckIn::TTransferItem> &trfer,
+                                    xmlNodePtr trferNode);
+
+  static bool CheckTCkinPermit(const std::string &airline_in,
+                               const int flt_no_in,
+                               const std::string &airp,
+                               const std::string &airline_out,
+                               const int flt_no_out,
+                               TCkinSetsInfo &sets);
 };
 
 

@@ -1778,8 +1778,8 @@ void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
       };
     };
   };
-  if ( GetNode( "LoadForm", reqNode ) )
-      get_report_form("SOPPTrfer", resNode);
+
+  get_new_report_form("SOPPTrfer", reqNode, resNode);
   STAT::set_variables(resNode);
 };
 
@@ -4305,22 +4305,58 @@ void SoppInterface::DeleteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 	xmlNodePtr node = NodeAsNode( "data", reqNode );
 	int move_id = NodeAsInteger( "move_id", node );
 	TQuery Qry(&OraSession);
-	Qry.SQLText = "SELECT COUNT(*) c FROM pax_grp WHERE point_dep IN "
-	              "( SELECT point_id FROM points WHERE move_id=:move_id )";
-	Qry.CreateVariable( "move_id", otInteger, move_id );
-	Qry.Execute();
-	if ( Qry.FieldAsInteger( "c" ) )
-		throw AstraLocale::UserException( "MSG.FLIGHT.UNABLE_DEL.PAX_EXISTS" );
+  // проверка на предмет того, что во всех пп стоит статус неактивен иначе ругаемся
 	Qry.Clear();
-	Qry.SQLText = "SELECT airline,flt_no,airp FROM points WHERE move_id=:move_id AND pr_del!=-1";
+	Qry.SQLText = "SELECT COUNT(*) c, point_dep FROM pax_grp WHERE point_dep IN "
+	              "( SELECT point_id FROM points WHERE move_id=:move_id ) "
+	              "GROUP BY point_dep ";
 	Qry.CreateVariable( "move_id", otInteger, move_id );
 	Qry.Execute();
-	string name, dests;
+	if ( !Qry.Eof && Qry.FieldAsInteger( "c" ) > 0 ) {
+		int point_id = Qry.FieldAsInteger( "point_dep" );
+		Qry.Clear();
+		Qry.SQLText = "SELECT airp FROM points WHERE point_id=:point_id";
+		Qry.CreateVariable( "point_id", otInteger, point_id );
+		Qry.Execute();
+		ProgTrace( TRACE5, "airp=%s", ElemIdToCodeNative(etAirp,Qry.FieldAsString("airp")).c_str() );
+		throw AstraLocale::UserException( "MSG.FLIGHT.UNABLE_DEL.PAX_EXISTS", LParams() << LParam("airp", ElemIdToNameLong(etAirp,Qry.FieldAsString("airp"))));
+	}
+	Qry.Clear();
+	Qry.SQLText = "SELECT point_id,airline,flt_no,airp,scd_out,pr_reg FROM points WHERE move_id=:move_id AND pr_del!=-1 ORDER BY point_num";
+	Qry.CreateVariable( "move_id", otInteger, move_id );
+	Qry.Execute();
+	string prior_airline, prior_flt_no, prior_date, str_d, prior_name, name, dests;
 	while ( !Qry.Eof ) {
-		if ( name.empty() )
-		  name += Qry.FieldAsString( "airline" );
-		if ( name.find(Qry.FieldAsString( "flt_no" )) == string::npos )
-		  name += Qry.FieldAsString( "flt_no" );
+    if ( Qry.FieldAsInteger( "pr_reg" ) && !Qry.FieldIsNULL( "scd_out" ) ) {
+       TTripStages ts( Qry.FieldAsInteger( "point_id" ) );
+       if ( ts.getStage( stCheckIn ) != sNoActive )
+         throw AstraLocale::UserException( "MSG.FLIGHT.UNABLE_DEL.STATUS_ACTIVE", LParams() << LParam("airp", ElemIdToNameLong(etAirp,Qry.FieldAsString("airp"))));
+    }
+	  if ( !prior_name.empty() ) {
+      if ( !name.empty() )
+        name += "/";
+      name +=  prior_name;
+      prior_name.clear();
+    }
+		if ( prior_airline.empty() || prior_airline != Qry.FieldAsString( "airline" ) ) {
+			prior_airline = Qry.FieldAsString( "airline" );
+			prior_name += prior_airline;
+			prior_flt_no = Qry.FieldAsString( "flt_no" );
+			prior_name += prior_flt_no;
+		}
+		if ( prior_flt_no.empty() || prior_flt_no != Qry.FieldAsString( "flt_no" ) ) {
+		  prior_flt_no = Qry.FieldAsString( "flt_no" );
+		  prior_name += prior_flt_no;
+		}
+		str_d.clear();
+		if ( !Qry.FieldIsNULL( "scd_out" ) ) {
+      str_d = DateTimeToStr( Qry.FieldAsDateTime( "scd_out" ), "dd.mm" );
+    }
+    if ( prior_date.empty() || prior_date != str_d ) {
+      prior_date = str_d;
+      prior_name += " ";
+      prior_name += prior_date;
+    }
 		if ( !dests.empty() )
 		 dests += "-";
 		dests += Qry.FieldAsString( "airp" );
@@ -4341,7 +4377,7 @@ void SoppInterface::DeleteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 
 void SoppInterface::GetReportForm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    get_report_form(NodeAsString("name", reqNode), resNode);
+    get_compatible_report_form(NodeAsString("name", reqNode), reqNode, resNode);
     STAT::set_variables(resNode);
 }
 

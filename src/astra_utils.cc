@@ -1054,14 +1054,14 @@ bool get_test_server()
     if(!obj)
         result = true;
     else {
-      static char buf[200];
-      buf[199]=0;
-      strcpy(buf,Tcl_GetString(obj));
-      int TEST_SERVER;
-      if(StrToInt(buf, TEST_SERVER) == EOF)
-          result = true;
-      else
-          result = TEST_SERVER != 0;
+        static char buf[200];
+        buf[199]=0;
+        strcpy(buf,Tcl_GetString(obj));
+        int TEST_SERVER;
+        if(StrToInt(buf, TEST_SERVER) == EOF)
+            result = true;
+        else
+            result = TEST_SERVER != 0;
     }
     return result;
 }

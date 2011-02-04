@@ -432,9 +432,9 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         part_key = NodeAsDateTime(partKeyNode);
     xmlNodePtr client_with_trip_col_in_SysLogNode = GetNodeFast("client_with_trip_col_in_SysLog", paramNode);
     if(client_with_trip_col_in_SysLogNode == NULL)
-        get_report_form("ArxPaxLog", resNode);
+        get_compatible_report_form("ArxPaxLog", reqNode, resNode);
     else
-        get_report_form("FltLog", resNode);
+        get_compatible_report_form("FltLog", reqNode, resNode);
     STAT::set_variables(resNode);
     xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
     NewTextChild(variablesNode, "report_title", getLocaleText("Журнал операций рейса"));
@@ -641,9 +641,9 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
 
     xmlNodePtr client_with_trip_col_in_SysLogNode = GetNode("client_with_trip_col_in_SysLog", reqNode);
     if(client_with_trip_col_in_SysLogNode == NULL)
-        get_report_form("ArxPaxLog", resNode);
+        get_compatible_report_form("ArxPaxLog", reqNode, resNode);
     else
-        get_report_form("FltLog", resNode);
+        get_compatible_report_form("FltLog", reqNode, resNode);
     STAT::set_variables(resNode);
     xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
     NewTextChild(variablesNode, "report_title", getLocaleText("Операции по пассажиру"));
@@ -776,9 +776,9 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         throw AstraLocale::UserException("MSG.SYS_LOG.VIEW_DENIED");
     xmlNodePtr client_with_trip_col_in_SysLogNode = GetNode("client_with_trip_col_in_SysLog", reqNode);
     if(client_with_trip_col_in_SysLogNode == NULL)
-        get_report_form("ArxPaxLog", resNode);
+        get_compatible_report_form("ArxPaxLog", reqNode, resNode);
     else
-        get_report_form("SystemLog", resNode);
+        get_compatible_report_form("SystemLog", reqNode, resNode);
     STAT::set_variables(resNode);
     xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
     NewTextChild(variablesNode, "report_title", getLocaleText("Операции в системе"));
@@ -1105,7 +1105,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         part_key = NoExists;
     else
         part_key = NodeAsDateTime(partKeyNode);
-    get_report_form("ArxPaxList", resNode);
+    get_compatible_report_form("ArxPaxList", reqNode, resNode);
     {
         TQuery Qry(&OraSession);
         string SQLText;
@@ -2126,9 +2126,9 @@ void RunDetailStat(TStatType statType, xmlNodePtr reqNode, xmlNodePtr resNode)
         throw AstraLocale::UserException("MSG.NOT_DATA");
 
     if (statType==statShort)
-      get_report_form("ShortStat", resNode);
+      get_compatible_report_form("ShortStat", reqNode, resNode);
     else
-      get_report_form("DetailStat", resNode);
+      get_compatible_report_form("DetailStat", reqNode, resNode);
 
     TQuery Qry(&OraSession);
     TStatParams params;
@@ -2456,9 +2456,9 @@ void RunFullStat(TStatType statType, xmlNodePtr reqNode, xmlNodePtr resNode)
             info.user.access.airps.empty() && info.user.access.airps_permit)
         throw AstraLocale::UserException("MSG.NOT_DATA");
     if (statType==statFull)
-      get_report_form("FullStat", resNode);
+      get_compatible_report_form("FullStat", reqNode, resNode);
     else
-      get_report_form("TrferFullStat", resNode);
+      get_compatible_report_form("TrferFullStat", reqNode, resNode);
 
     TQuery Qry(&OraSession);
     TStatParams params;
@@ -3040,7 +3040,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     NewTextChild(headerNode, "col", "Рейс");
 
     STAT::set_variables(resNode);
-    get_report_form("ArxPaxList", resNode);
+    get_compatible_report_form("ArxPaxList", reqNode, resNode);
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
