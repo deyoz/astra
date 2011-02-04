@@ -105,7 +105,6 @@ void DocsInterface::RunReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         NewTextChild(reqNode, "ckin_zone", get_ckin_zone(grp_hall_id));
     NewTextChild(reqNode, "pr_brd", pr_brd, 0);
     NewTextChild(reqNode, "pr_et", pr_et, 0);
-    ProgTrace(TRACE5, "%s", GetXMLDocText(reqNode->doc).c_str());
     RunReport2(ctxt, reqNode, resNode);
 }
 
@@ -274,5 +273,4 @@ void DocsInterface::GetSegList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             NewTextChild(SegNode, "item", "Общая");
         }
     }
-    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }

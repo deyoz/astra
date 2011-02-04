@@ -1513,7 +1513,6 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
         }
         Qry.Next();
     }
-    ProgTrace(TRACE5, "%s", GetXMLDocText(dataNode->doc).c_str());
 }
 
 void PrintInterface::ReprintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -1711,7 +1710,6 @@ void PrintInterface::GetPrinterList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 
         Qry.Next();
     }
-    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
 void PrintInterface::GetPrintDataBR(string &form_type, PrintDataParser &parser,
@@ -2160,7 +2158,6 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
             SetProp(paxNode, "time_print", DateTimeToStr(time_print));
         }
     }
-    ProgTrace(TRACE5, "%s", GetXMLDocText(dataNode->doc).c_str());
 }
 
 struct TPrnTestsKey {
@@ -2286,7 +2283,6 @@ void PrintInterface::RefreshPrnTests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
             }
         }
     }
-    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
 void PrintInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

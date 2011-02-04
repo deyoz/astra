@@ -143,7 +143,6 @@ void DevTuningInterface::ApplyCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     SetProp(ifaceNode, "ver", "1");
     cache.buildAnswer(resNode);
     AstraLocale::showMessage( "MSG.CHANGED_DATA_COMMIT" );
-    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
 void DevTuningInterface::Cache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -159,7 +158,6 @@ void DevTuningInterface::Cache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     SetProp(ifaceNode, "id", "cache");
     SetProp(ifaceNode, "ver", "1");
     cache.buildAnswer(resNode);
-    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
 void DevTuningInterface::Load(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -213,7 +211,6 @@ void DevTuningInterface::Load(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         NewTextChild(itemNode, "descr", Qry.FieldAsString("descr"));
         NewTextChild(itemNode, "read_only", Qry.FieldAsInteger("read_only"));
     }
-    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
 void DevTuningInterface::UpdateCopy(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -1494,7 +1491,6 @@ void DevTuningInterface::Export(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         form_types->add(NodeAsString(currNode));
     form_types->ToXML(resNode);
     NewTextChild(resNode, "op_type", op_type);
-    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
 //////////// new import classes ////////////
@@ -2484,7 +2480,6 @@ void process(vector<TPectabItem> &pectabs, map<string, set<string> > &mapping)
 
 void DevTuningInterface::Import(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    ProgTrace(TRACE5, "%s", GetXMLDocText(reqNode->doc).c_str());
     string op_type = NodeAsString("op_type", reqNode);
     auto_ptr<TFormTypes> form_types;
     switch(DecodeDevOperType(op_type)) {
