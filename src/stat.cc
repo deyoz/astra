@@ -623,7 +623,6 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     ProgTrace(TRACE5, "count: %d", count);
     if(!count)
         throw AstraLocale::UserException("MSG.OPERATIONS_NOT_FOUND");
-    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
 void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -1079,7 +1078,6 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     }
     if(!count)
         throw AstraLocale::UserException("MSG.OPERATIONS_NOT_FOUND");
-    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
 struct THallItem {
@@ -1446,8 +1444,6 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         STAT::set_variables(resNode);
         ProgTrace(TRACE5, "set_variables: %s", tm.PrintWithMessage().c_str());
         tm.Init();
-        ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
-        ProgTrace(TRACE5, "GetXMLDocText: %s", tm.PrintWithMessage().c_str());
 
         return;
     }
@@ -3041,7 +3037,6 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 
     STAT::set_variables(resNode);
     get_compatible_report_form("ArxPaxList", reqNode, resNode);
-    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
 void StatInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

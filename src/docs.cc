@@ -1631,7 +1631,6 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(variablesNode, "zone"); // пустой тег - нет детализации по залу
     populate_doc_cap(variablesNode, rpt_params.GetLang());
     STAT::set_variables(resNode, rpt_params.GetLang());
-    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
 string get_test_str(int page_width, string lang)
@@ -2640,7 +2639,6 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     xmlNodePtr totalNode = NodeAsNodeFast("total", currNode);
     NodeSetContent(totalNode, getLocaleText("CAP.TOTAL.VAL", LParams() << LParam("total", NodeAsString(totalNode)), rpt_params.GetLang()));
     populate_doc_cap(variablesNode, rpt_params.GetLang());
-    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str()); //!!!
 }
 
 void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -2755,7 +2753,6 @@ void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
              );
         NewTextChild(rowNode,"str",s.str());
     }
-    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
 void WEB(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -2929,7 +2926,6 @@ int testbm(int argc,char **argv)
     rpt_params.pr_trfer = false;
     rpt_params.pr_brd = false;
     BTM(rpt_params, rootNode, rootNode);
-    ProgTrace(TRACE5, "%s", GetXMLDocText(resDoc).c_str()); //!!!
     return 0;
 }
 
