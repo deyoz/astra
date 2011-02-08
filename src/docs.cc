@@ -978,7 +978,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             "    PR_TRFER ASC, \n"
             "    TRFER_AIRP_ARV ASC, \n";
     SQLText +=
-        "    CLASS ASC, \n"
+        "    class_grp, \n"
         "    grp_id, \n"
         "    REG_NO ASC \n";
     ProgTrace(TRACE5, "SQLText: %s", SQLText.c_str());
