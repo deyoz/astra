@@ -427,8 +427,17 @@ bool getTripData( int point_id, TSearchPnrData &SearchPnrData, bool pr_throw )
   	SearchPnrData.scd_out_local = UTCToLocal( Qry.FieldAsDateTime( "scd_out" ), region );
   	SearchPnrData.craft = Qry.FieldAsString( "craft" );
   	SearchPnrData.craft_fmt = Qry.FieldAsInteger( "craft_fmt" );
-  	SearchPnrData.stages.clear();
+  	
+  	SearchPnrData.point_id = point_id;
+  	SearchPnrData.point_num = Qry.FieldAsInteger("point_num");
+  	SearchPnrData.first_point = Qry.FieldAsInteger("first_point");
+  	SearchPnrData.pr_tranzit = Qry.FieldAsInteger("pr_tranzit")!=0;
 
+  	TTripInfo operFlt(Qry);
+  	GetMktFlights(operFlt, SearchPnrData.mark_flights);
+  	
+  	SearchPnrData.stages.clear();
+  	
   	TStagesRules *sr = TStagesRules::Instance();
   	TCkinClients ckin_clients;
   	TTripStages::ReadCkinClients( point_id, ckin_clients );
@@ -456,18 +465,35 @@ bool getTripData( int point_id, TSearchPnrData &SearchPnrData, bool pr_throw )
         case 5: stage=sCloseBoarding;
                 break;
       };
+      
+      if ( reqInfo->client_type == ctKiosk )
+      {
+        TCkinClients::iterator iClient=find(ckin_clients.begin(),ckin_clients.end(),EncodeClientType(reqInfo->client_type));
+        if (iClient!=ckin_clients.end())
+        {
+          Qry.Clear();
+          Qry.SQLText=
+            "SELECT pr_permit FROM trip_ckin_client "
+            "WHERE point_id=:point_id AND client_type=:client_type AND desk_grp_id=:desk_grp_id";
+          Qry.CreateVariable("point_id", otInteger, point_id);
+          Qry.CreateVariable("client_type", otString, EncodeClientType(reqInfo->client_type));
+          Qry.CreateVariable("desk_grp_id", otInteger, reqInfo->desk.grp_id);
+          Qry.Execute();
+          if (Qry.Eof || Qry.FieldAsInteger("pr_permit")==0)
+          {
+            ckin_clients.erase(iClient);
+            if (SearchPnrData.kiosk_stage==sOpenKIOSKCheckIn ||
+                SearchPnrData.kiosk_stage==sCloseKIOSKCheckIn)
+              SearchPnrData.kiosk_stage=sNoActive;
+          };
+        };
+      };
+      
       if ( sr->isClientStage( (int)stage ) && !sr->canClientStage( ckin_clients, (int)stage ) )
       	SearchPnrData.stages.insert( make_pair(stage, NoExists) );
       else
       	SearchPnrData.stages.insert( make_pair(stage, UTCToLocal( tripStages.time(stage), region ) ) );
   	};
-  	SearchPnrData.point_id = point_id;
-  	SearchPnrData.point_num = Qry.FieldAsInteger("point_num");
-  	SearchPnrData.first_point = Qry.FieldAsInteger("first_point");
-  	SearchPnrData.pr_tranzit = Qry.FieldAsInteger("pr_tranzit")!=0;
-
-  	TTripInfo operFlt(Qry);
-  	GetMktFlights(operFlt, SearchPnrData.mark_flights);
 	}
   catch(UserException &E)
   {
@@ -535,6 +561,8 @@ void getTCkinData( const TSearchPnrData &firstPnrData,
   pnrs.clear();
   pnrs.push_back(firstPnrData);
   
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  
   //поиск стыковочных сегментов (возвращаем вектор point_id)
   TQuery Qry(&OraSession);
   vector<TTransferItem> crs_trfer;
@@ -542,6 +570,33 @@ void getTCkinData( const TSearchPnrData &firstPnrData,
   CheckInInterface::GetOnwardCrsTransfer(firstPnrData.pnr_id, Qry, crs_trfer);
   if (!crs_trfer.empty())
   {
+    //проверяем разрешение сквозной регистрации для данного типа клиента
+    Qry.Clear();
+    if (reqInfo->client_type==ctKiosk)
+    {
+      Qry.SQLText=
+        "SELECT pr_tckin FROM trip_ckin_client "
+        "WHERE point_id=:point_id AND client_type=:client_type AND desk_grp_id=:desk_grp_id";
+      Qry.CreateVariable("desk_grp_id", otInteger, reqInfo->desk.grp_id);
+    }
+    else
+    {
+      Qry.SQLText=
+        "SELECT pr_tckin FROM trip_ckin_client "
+        "WHERE point_id=:point_id AND client_type=:client_type AND desk_grp_id IS NULL";
+    };
+    Qry.CreateVariable("point_id", otInteger, firstPnrData.point_id);
+    Qry.CreateVariable("client_type", otString, EncodeClientType(reqInfo->client_type));
+    Qry.Execute();
+    if (Qry.Eof || Qry.FieldAsInteger("pr_tckin")==0)
+    {
+      //сквозная регистрация запрещена
+      ProgTrace(TRACE5, ">>>> Through check-in not permitted (point_id=%d, client_type=%s, desk_grp_id=%d)",
+                        firstPnrData.point_id, EncodeClientType(reqInfo->client_type), reqInfo->desk.grp_id);
+      return;
+    };
+  
+  
     TTripInfo operFlt;
     operFlt.airline=firstPnrData.airline;
     operFlt.flt_no=firstPnrData.flt_no;
@@ -564,7 +619,7 @@ void getTCkinData( const TSearchPnrData &firstPnrData,
     vector<TCkinSegFlts> segs;
     CheckInInterface::GetTCkinFlights(trfer, segs);
 
-    int seg_no=0;
+    int seg_no=1;
     try
     {
       string airline_in=operFlt.airline;
@@ -618,7 +673,7 @@ void getTCkinData( const TSearchPnrData &firstPnrData,
         if (!getTripData(currSeg.point_dep, pnrData, false))
           throw "Error in 'getTripData'";
 
-        if (TReqInfo::Instance()->client_type==ctKiosk)
+        if (reqInfo->client_type==ctKiosk)
         {
           if ( pnrData.stages[ sOpenKIOSKCheckIn ] == NoExists ||
                pnrData.stages[ sCloseKIOSKCheckIn ] == NoExists )
@@ -1656,6 +1711,7 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 */
 
 struct TWebPax {
+  int pax_no; //виртуальный ид. для связи одного и того же пассажира разных сегментов
 	int crs_pax_id;
 	int crs_pax_id_parent;
 	string surname;
@@ -1678,6 +1734,7 @@ struct TWebPax {
 	string ticket_no;
 	vector<TFQTItem> fqt_rems;
 	TWebPax() {
+	  pax_no = NoExists;
 		birth_date = NoExists;
 		crs_pax_id = NoExists;
 		crs_pax_id_parent = NoExists;
@@ -1945,15 +2002,22 @@ void IntLoadPnr( const vector< pair<int, int> > &ids, vector< vector<TWebPax> > 
           continue;
         };
         
-        if (find(firstPnr.begin(),firstPnr.end(),*iPax)==firstPnr.end())
+        vector<TWebPax>::const_iterator iPaxFirst=find(firstPnr.begin(),firstPnr.end(),*iPax);
+        if (iPaxFirst==firstPnr.end())
         {
           //не нашли соответствующего пассажира из первого сегмента
           iPax=pnr.erase(iPax);
           continue;
         };
-
+        iPax->pax_no=iPaxFirst->pax_no; //проставляем пассажиру соотв. виртуальный ид. из первого сегмента
         iPax++;
       };
+    }
+    else
+    {
+      //пассажиров первого сегмента проставим pax_no по порядку
+      int pax_no=1;
+      for(vector<TWebPax>::iterator iPax=pnr.begin();iPax!=pnr.end();iPax++,pax_no++) iPax->pax_no=pax_no;
     };
     
     pnrs.push_back(pnr);
@@ -1963,8 +2027,11 @@ void IntLoadPnr( const vector< pair<int, int> > &ids, vector< vector<TWebPax> > 
     xmlNodePtr segNode=NewTextChild(segsNode, "segment");
     NewTextChild( segNode, "point_id", point_id );
     xmlNodePtr node = NewTextChild( segNode, "passengers" );
-    for ( vector<TWebPax>::iterator iPax=pnr.begin(); iPax!=pnr.end(); iPax++ ) {
+    for ( vector<TWebPax>::const_iterator iPax=pnr.begin(); iPax!=pnr.end(); iPax++ )
+    {
     	xmlNodePtr paxNode = NewTextChild( node, "pax" );
+    	if (iPax->pax_no!=NoExists)
+    	  NewTextChild( paxNode, "pax_no", iPax->pax_no );
     	NewTextChild( paxNode, "crs_pax_id", iPax->crs_pax_id );
     	if ( iPax->crs_pax_id_parent != NoExists )
     		NewTextChild( paxNode, "crs_pax_id_parent", iPax->crs_pax_id_parent );
@@ -1989,7 +2056,7 @@ void IntLoadPnr( const vector< pair<int, int> > &ids, vector< vector<TWebPax> > 
      		NewTextChild( paxNode, "eticket", "false" );
      	NewTextChild( paxNode, "ticket_no", iPax->ticket_no );
      	xmlNodePtr fqtsNode = NewTextChild( paxNode, "fqt_rems" );
-     	for ( vector<TFQTItem>::iterator f=iPax->fqt_rems.begin(); f!=iPax->fqt_rems.end(); f++ )
+     	for ( vector<TFQTItem>::const_iterator f=iPax->fqt_rems.begin(); f!=iPax->fqt_rems.end(); f++ )
      	{
         xmlNodePtr fqtNode = NewTextChild( fqtsNode, "fqt_rem" );
         NewTextChild( fqtNode, "airline", f->airline );
@@ -2895,7 +2962,10 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
 
           NewTextChild(emulChngNode,"excess",iPaxForChng->excess);
           NewTextChild(emulChngNode,"hall");
-          NewTextChild(emulChngNode,"bag_refuse",iPaxForChng->bag_refuse);
+          if (iPaxForChng->bag_refuse)
+            NewTextChild(emulChngNode,"bag_refuse","А");
+          else
+            NewTextChild(emulChngNode,"bag_refuse");
         };
         xmlNodePtr paxsNode=NodeAsNode("/term/query/TCkinSavePax/segments/segment/passengers",emulChngDoc.docPtr());
         
