@@ -7,6 +7,7 @@
 #define WEB_JXT_IFACE_ID "WEB"
 #define EMUL_CLIENT_TYPE ctWeb
 
+
 namespace AstraWeb
 {
 
@@ -24,7 +25,7 @@ int internet_main(const char *body, int blen, const char *head,
 class WebRequestsIface : public JxtInterface
 {
 public:
-  WebRequestsIface() : JxtInterface("","WEB")
+  WebRequestsIface() : JxtInterface("",WEB_JXT_IFACE_ID)
   {
      Handler *evHandle;
      // Информация о рейсе
