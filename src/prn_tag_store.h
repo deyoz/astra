@@ -7,6 +7,7 @@
 #include "basic.h"
 #include "astra_elems.h"
 #include "astra_misc.h"
+#include "dev_utils.h"
 
 namespace TAG {
     const std::string BCBP_M_2 = "BCBP_M_2";
@@ -262,16 +263,29 @@ class TPrnTagStore {
 
         TPrnTestTags prn_test_tags;
 
+        struct TTagPropsItem {
+            size_t length;
+            bool pr_except;
+            TTagPropsItem(int vlength, bool vpr_except): length(vlength), pr_except(vpr_except) {};
+        };
+
+        struct TTagProps {
+            ASTRA::TDevOperType op;
+            std::map<std::string, TTagPropsItem> items;
+            TTagProps(ASTRA::TDevOperType vop);
+            void Init(ASTRA::TDevOperType vop);
+        };
+
+
+
         struct TTagListItem {
-            size_t length; // порог замены вопросами
             // Если длина тега меньше указанного порога и данные не влезли, заменяем вопросами,
             // иначе обрезаем до длины тега. Если порог = 0 и длина тега меньше длины данных, заменяем вопросами
             TTagFunct tag_funct;
             int info_type;
             bool processed;
             boost::any TagInfo; // данные из set_tag
-            TTagListItem(size_t alength, TTagFunct funct, int ainfo_type = 0):
-                length(alength),
+            TTagListItem(TTagFunct funct, int ainfo_type = 0):
                 tag_funct(funct),
                 info_type(ainfo_type),
                 processed(false)
@@ -477,6 +491,7 @@ class TPrnTagStore {
         std::string get_test_field(std::string name, size_t len, std::string date_format);
         std::string get_real_field(std::string name, size_t len, std::string date_format);
     public:
+        TTagProps prn_tag_props;
         TTagLang tag_lang;
         TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tagsNode, TBTRoute *aroute = NULL);
         TPrnTagStore(bool pr_lat);
