@@ -1696,31 +1696,33 @@ string TPrnTagStore::AMOUNT_LETTERS(TFieldParams fp)
 string TPrnTagStore::BAG_NAME(TFieldParams fp)
 {
     string result;
-    if(rcpt.bag_name.empty()) {
-        TQuery Qry(&OraSession);
-        Qry.SQLText =
-            "select "
-            "  nvl(rcpt_bag_names.name, bag_types.name) name, "
-            "  nvl(rcpt_bag_names.name_lat, bag_types.name_lat) name_lat "
-            "from "
-            "  bag_types, "
-            "  rcpt_bag_names "
-            "where "
-            "  bag_types.code = :code and "
-            "  bag_types.code = rcpt_bag_names.code(+)";
-        Qry.CreateVariable("code", otInteger, rcpt.bag_type);
-        Qry.Execute();
-        if(Qry.Eof) throw Exception("TPrnTagStore::BAG_NAME: bag_type not found (code = %d)", rcpt.bag_type);
-        if(tag_lang.GetLang() != AstraLocale::LANG_RU)
-            result = Qry.FieldAsString("name_lat");
-        else
-            result = Qry.FieldAsString("name");
-        if(rcpt.bag_type == 1 || rcpt.bag_type == 2)
-            //негабарит
-            result += " " + IntToString(rcpt.ex_amount) + " " + getLocaleText("MSG.BR.SEATS", tag_lang.GetLang());
-        result = upperc(result);
-    } else
-        result = rcpt.bag_name;
+    if(rcpt.pay_bt()) {
+        if(rcpt.bag_name.empty()) {
+            TQuery Qry(&OraSession);
+            Qry.SQLText =
+                "select "
+                "  nvl(rcpt_bag_names.name, bag_types.name) name, "
+                "  nvl(rcpt_bag_names.name_lat, bag_types.name_lat) name_lat "
+                "from "
+                "  bag_types, "
+                "  rcpt_bag_names "
+                "where "
+                "  bag_types.code = :code and "
+                "  bag_types.code = rcpt_bag_names.code(+)";
+            Qry.CreateVariable("code", otInteger, rcpt.bag_type);
+            Qry.Execute();
+            if(Qry.Eof) throw Exception("TPrnTagStore::BAG_NAME: bag_type not found (code = %d)", rcpt.bag_type);
+            if(tag_lang.GetLang() != AstraLocale::LANG_RU)
+                result = Qry.FieldAsString("name_lat");
+            else
+                result = Qry.FieldAsString("name");
+            if(rcpt.bag_type == 1 || rcpt.bag_type == 2)
+                //негабарит
+                result += " " + IntToString(rcpt.ex_amount) + " " + getLocaleText("MSG.BR.SEATS", tag_lang.GetLang());
+            result = upperc(result);
+        } else
+            result = rcpt.bag_name;
+    }
     return result;
 }
 
