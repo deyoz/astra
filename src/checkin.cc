@@ -2475,7 +2475,7 @@ bool CheckInInterface::ParseFQTRem(TTlgParser &tlg,string &rem_text,TFQTItem &fq
               c=0;
               res=sscanf(tlg.lex,"%2[A-ZА-ЯЁ0-9]%c",fqt.airline,&c);
               if (c!=0||res!=1)
-                throw UserException("MSG.AIRLINE.INVALID_SET",
+                throw UserException("MSG.AIRLINE.INVALID_INPUT_VALUE",
                                     LParams()<<LParam("airline", string(tlg.lex))); //WEB
             };
 
@@ -2486,7 +2486,7 @@ bool CheckInInterface::ParseFQTRem(TTlgParser &tlg,string &rem_text,TFQTItem &fq
             }
             catch (EBaseTableError)
             {
-              throw UserException("MSG.AIRLINE.INVALID_SET",
+              throw UserException("MSG.AIRLINE.INVALID_INPUT_VALUE",
                                   LParams()<<LParam("airline", string(fqt.airline))); //WEB
             };
             break;
@@ -2732,18 +2732,32 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
       bool pr_reg_with_tkn=Qry.FieldAsInteger("pr_reg_with_tkn")!=0;
       bool pr_reg_with_doc=Qry.FieldAsInteger("pr_reg_with_doc")!=0;
       int pr_etstatus=Qry.FieldAsInteger("pr_etstatus");
+      bool pr_etl_only=GetTripSets(tsETLOnly,fltInfo);
 
       xmlNodePtr node,node2,remNode;
       //проверим номера документов и билетов
       if (!pr_unaccomp&&
-          (pr_reg_with_tkn||pr_reg_with_doc))
+          (pr_reg_with_tkn||pr_reg_with_doc||
+           reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION) &&
+           defer_etstatus && !pr_etl_only && pr_etstatus>=0))
       {
         node=NodeAsNode("passengers",segNode);
         for(node=node->children;node!=NULL;node=node->next)
         {
           node2=node->children;
+
+          if (reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION) &&
+              defer_etstatus && !pr_etl_only && pr_etstatus>=0 && //раздельное изменение статуса и есть связь с СЭБ
+              strcmp(NodeAsStringFast("ticket_rem",node2,""),"TKNE")==0)
+          {
+            if (NodeAsIntegerFast("ticket_confirm",node2)==0)
+              //возможно это произошло в ситуации, когда изменился у пульта defer_etstatus в true,
+              //а пульт не успел перечитать эту настройку
+              throw UserException("MSG.ETICK.NOT_CONFIRM.NEED_RELOGIN");
+          };
+          
           if (NodeIsNULLFast("pers_type",node2,true)) continue;
-          if (strcmp(NodeAsStringFast("pers_type",node2),EncodePerson(ASTRA::baby))==0) continue;
+          if (strcmp(NodeAsStringFast("pers_type",node2),EncodePerson(ASTRA::baby))==0) continue; //младенцев не анализируем
 
           //билет
           if (pr_reg_with_tkn&&NodeIsNULLFast("ticket_no",node2,true))
@@ -3903,32 +3917,34 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
       else
       {
         //запросом записываем в остальные группы багаж, бирки, ценный багаж
-
-        Qry.Clear();
-        Qry.SQLText=
-          "BEGIN "
-          "  DELETE FROM value_bag WHERE grp_id=:grp_id; "
-          "  DELETE FROM bag2 WHERE grp_id=:grp_id; "
-          "  DELETE FROM paid_bag WHERE grp_id=:grp_id; "
-          "  DELETE FROM bag_tags WHERE grp_id=:grp_id; "
-          "  INSERT INTO value_bag(grp_id,num,value,value_cur,tax_id,tax,tax_trfer) "
-          "  SELECT :grp_id,num,value,value_cur,NULL,NULL,NULL "
-          "  FROM value_bag WHERE grp_id=:first_grp_id; "
-          "  INSERT INTO bag2(grp_id,num,id,bag_type,pr_cabin,amount,weight,value_bag_num,pr_liab_limit,bag_pool_num,hall,user_id) "
-          "  SELECT :grp_id,num,id,99,pr_cabin,amount,weight,value_bag_num,pr_liab_limit,bag_pool_num,hall,user_id "
-          "  FROM bag2 WHERE grp_id=:first_grp_id; "
-          "  IF SQL%FOUND THEN "
-          "    INSERT INTO paid_bag(grp_id,bag_type,weight,rate_id,rate_trfer) "
-          "    VALUES(:grp_id,99,0,NULL,NULL); "
-          "  END IF; "
-          "  INSERT INTO bag_tags(grp_id,num,tag_type,no,color,seg_no,bag_num,pr_print) "
-          "  SELECT :grp_id,num,tag_type,no,color,:seg_no,bag_num,pr_print "
-          "  FROM bag_tags WHERE grp_id=:first_grp_id; "
-          "END; ";
-        Qry.CreateVariable("grp_id",otInteger,grp_id);
-        Qry.CreateVariable("first_grp_id",otInteger,first_grp_id);
-        Qry.CreateVariable("seg_no",otInteger,tckin_seg_no);
-        Qry.Execute();
+        if (iTrfer!=trfer.end())
+        {
+          Qry.Clear();
+          Qry.SQLText=
+            "BEGIN "
+            "  DELETE FROM value_bag WHERE grp_id=:grp_id; "
+            "  DELETE FROM bag2 WHERE grp_id=:grp_id; "
+            "  DELETE FROM paid_bag WHERE grp_id=:grp_id; "
+            "  DELETE FROM bag_tags WHERE grp_id=:grp_id; "
+            "  INSERT INTO value_bag(grp_id,num,value,value_cur,tax_id,tax,tax_trfer) "
+            "  SELECT :grp_id,num,value,value_cur,NULL,NULL,NULL "
+            "  FROM value_bag WHERE grp_id=:first_grp_id; "
+            "  INSERT INTO bag2(grp_id,num,id,bag_type,pr_cabin,amount,weight,value_bag_num,pr_liab_limit,bag_pool_num,hall,user_id) "
+            "  SELECT :grp_id,num,id,99,pr_cabin,amount,weight,value_bag_num,pr_liab_limit,bag_pool_num,hall,user_id "
+            "  FROM bag2 WHERE grp_id=:first_grp_id; "
+            "  IF SQL%FOUND THEN "
+            "    INSERT INTO paid_bag(grp_id,bag_type,weight,rate_id,rate_trfer) "
+            "    VALUES(:grp_id,99,0,NULL,NULL); "
+            "  END IF; "
+            "  INSERT INTO bag_tags(grp_id,num,tag_type,no,color,seg_no,bag_num,pr_print) "
+            "  SELECT :grp_id,num,tag_type,no,color,:seg_no,bag_num,pr_print "
+            "  FROM bag_tags WHERE grp_id=:first_grp_id; "
+            "END; ";
+          Qry.CreateVariable("grp_id",otInteger,grp_id);
+          Qry.CreateVariable("first_grp_id",otInteger,first_grp_id);
+          Qry.CreateVariable("seg_no",otInteger,tckin_seg_no);
+          Qry.Execute();
+        };
       };
       if (!reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS))
       {

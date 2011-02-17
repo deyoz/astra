@@ -278,21 +278,32 @@ void showErrorMessageAndRollback(const std::string &message, int code = 0  );
 void showBasicInfo(void);
 
 namespace AstraLocale {
-void showError(LexemaData lexemaData, int code = 0);
+std::string getLocaleText(const LexemaData &lexemaData);
+std::string getLocaleText(const std::string &vlexema, const std::string &lang = "");
+std::string getLocaleText(const std::string &vlexema, const LParams &aparams, const std::string &lang = "");
+
+void showError(const LexemaData &lexemaData, int code = 0);
 void showError(const std::string &lexema_id, int code = 0);
-void showErrorMessage(LexemaData lexemaData, int code = 0);
+void showError(const std::string &vlexema, const LParams &aparams, int code = 0);
+
+void showErrorMessage(const LexemaData &lexemaData, int code = 0);
 void showErrorMessage(const std::string &lexema_id, int code = 0);
-void showErrorMessage( std::string vlexema, LParams &aparams, int code = 0);
-void showProgError(LexemaData lexemaData, int code = 0);
+void showErrorMessage(const std::string &vlexema, const LParams &aparams, int code = 0);
+
+void showMessage(const LexemaData &lexemaData, int code = 0);
+void showMessage(const std::string &lexema_id, int code = 0);
+void showMessage(const std::string &vlexema, const LParams &aparams, int code = 0);
+
+void showProgError(const LexemaData &lexemaData, int code = 0);
 void showProgError(const std::string &lexema_id, int code = 0);
-void showErrorMessageAndRollback(const std::string &lexema_id, int code = 0 );
-void showErrorMessageAndRollback(LexemaData lexemaData, int code = 0 );
-void showMessage( const std::string &lexema_id, int code = 0 );
-void showMessage( LexemaData lexemaData, int code = 0);
-void showMessage( std::string vlexema, LParams &aparams, int code = 0);
-std::string getLocaleText(LexemaData lexemaData);
-std::string getLocaleText(const std::string &vlexema, std::string lang = "");
-std::string getLocaleText(const std::string &vlexema, LParams &aparams, std::string lang = "");
+void showProgError(const std::string &vlexema, const LParams &aparams, int code = 0);
+
+void showErrorMessageAndRollback(const LexemaData &lexemaData, int code = 0 );
+void showErrorMessageAndRollback(const std::string &lexema_id, int code = 0);
+void showErrorMessageAndRollback(const std::string &vlexema, const LParams &aparams, int code = 0);
+
+std::string getLocaleText(xmlNodePtr lexemeNode);
+void LexemeDataToXML(const AstraLocale::LexemaData &lexemeData, xmlNodePtr lexemeNode);
 } // end namespace astraLocale
 
 

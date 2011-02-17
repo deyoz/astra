@@ -52,7 +52,7 @@ struct LParam {
 class LParams: public std::map<std::string, boost::any>
 {
   private:
-  	const boost::any & getParam( const std::string &name ) {
+  	const boost::any & getParam( const std::string &name ) const {
   		if ( this->find( name ) != this->end() )
   			return this->find( name )->second;
   		throw EXCEPTIONS::Exception( "TParams: invalid param name=%s", name.c_str() );
@@ -65,12 +65,12 @@ class LParams: public std::map<std::string, boost::any>
   	LParams& operator << ( LParam p ) {
   		return add( p.name, p.value );
   	}
-  	std::string StringValue( const std::string &name, const boost::any &param ) {
+  	std::string StringValue( const std::string &name, const boost::any &param ) const {
       if ( !boost::any_cast<std::string>(&param) )
       	throw EXCEPTIONS::Exception( "TParams: param type is not string, name=%s", name.c_str() );
       return boost::any_cast<std::string>(param);
   	}
-  	std::string StringValue( const std::string &name ) {
+  	std::string StringValue( const std::string &name ) const {
       return StringValue( name, getParam( name ) );
   	}
   	int IntValue( const std::string &name, const boost::any &param ) {
@@ -141,6 +141,7 @@ class UserException:public EXCEPTIONS::Exception
     }
     virtual ~UserException() throw();
 };
+
 
 const std::string VARIABLE_FIRST_ELEM = "[";
 const std::string VARIABLE_END_ELEM = "]";
