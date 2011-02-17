@@ -525,6 +525,15 @@ void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
     Qry.SQLText = sql.str().c_str();
 };
 
+void put_exambrd_vars(xmlNodePtr variablesNode)
+{
+    NewTextChild(variablesNode, "cap_checked", getLocaleText("CAP.DOC.EXAMBRD.CHECKED.FLIGHT", LParams() << LParam("flight", get_flight(variablesNode))));
+    NewTextChild(variablesNode, "cap_exam", getLocaleText("CAP.DOC.EXAMBRD.EXAM.FLIGHT", LParams() << LParam("flight", get_flight(variablesNode))));
+    NewTextChild(variablesNode, "cap_brd", getLocaleText("CAP.DOC.EXAMBRD.BRD.FLIGHT", LParams() << LParam("flight", get_flight(variablesNode))));
+    NewTextChild(variablesNode, "cap_no_exam", getLocaleText("CAP.DOC.EXAMBRD.NO_EXAM.FLIGHT", LParams() << LParam("flight", get_flight(variablesNode))));
+    NewTextChild(variablesNode, "cap_no_brd", getLocaleText("CAP.DOC.EXAMBRD.NO_BRD.FLIGHT", LParams() << LParam("flight", get_flight(variablesNode))));
+}
+
 void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
@@ -543,6 +552,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     if ( GetNode( "LoadVars", reqNode ) ) {
         TRptParams rpt_params(reqInfo->desk.lang);
         PaxListVars(point_id, rpt_params, variablesNode);
+        put_exambrd_vars(variablesNode);
         STAT::set_variables(resNode);
         NewTextChild(variablesNode, "page_number_fmt", getLocaleText("CAP.PAGE_NUMBER_FMT"));
         NewTextChild(variablesNode, "short_page_number_fmt", getLocaleText("CAP.SHORT_PAGE_NUMBER_FMT"));
@@ -607,6 +617,11 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           };
 
           TRptParams rpt_params(reqInfo->desk.lang);
+          PaxListVars(point_id, rpt_params, variablesNode);
+          put_exambrd_vars(variablesNode);
+          STAT::set_variables(resNode);
+          NewTextChild(variablesNode, "page_number_fmt", getLocaleText("CAP.PAGE_NUMBER_FMT"));
+          NewTextChild(variablesNode, "short_page_number_fmt", getLocaleText("CAP.SHORT_PAGE_NUMBER_FMT"));
           readTripCounters(point_id, rpt_params, dataNode, rtUnknown, "");
           readTripData( point_id, dataNode );
         }

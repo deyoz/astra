@@ -306,14 +306,15 @@ void ChangeAreaStatus(TETCheckStatusArea area, XMLRequestCtxt *ctxt, xmlNodePtr 
     if (!ETStatusInterface::ETChangeStatus(req_ctxt,mtick))
       throw EXCEPTIONS::Exception("ChangeAreaStatus: Wrong variable 'processed'");
 
+/*  это позже, когда терминалы будут отложенное подтверждение тоже обрабатывать через ets_connect_error!!!
     if (TReqInfo::Instance()->client_type==ctTerm &&
-    	  TReqInfo::Instance()->desk.compatible(DEFER_ETSTATUS_VERSION))
+    	  TReqInfo::Instance()->desk.compatible(DEFER_ETSTATUS_VERSION2))
     {
       xmlNodePtr errNode=NewTextChild(resNode,"ets_connect_error");
       SetProp(errNode,"internal_msgid",get_internal_msgid_hex());
-      NewTextChild(errNode,"message","Нет связи с сервером эл. билетов");
+      NewTextChild(errNode,"message",getLocaleText("MSG.ETS_CONNECT_ERROR"));
     }
-    else
+    else*/
       AstraLocale::showProgError("MSG.ETS_CONNECT_ERROR");
   };
 };
@@ -411,7 +412,11 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
       {
         string flight=NodeAsString("flight",ticketNode);
         string pax;
-        if (GetNode("pax",ticketNode)!=NULL) pax=NodeAsString("pax",ticketNode);
+        if (GetNode("pax_full_name",ticketNode)!=NULL&&
+            GetNode("pers_type",ticketNode)!=NULL)
+          pax=getLocaleText("WRAP.PASSENGER", LParams() << LParam("name",NodeAsString("pax_full_name",ticketNode))
+                                                        << LParam("pers_type",ElemIdToCodeNative(etPersType,NodeAsString("pers_type",ticketNode))));
+        
         bool tick_event=false;
         for(xmlNodePtr node=ticketNode->children;node!=NULL;node=node->next)
         {
@@ -427,23 +432,25 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 
           if (strcmp((const char*)node->name,"global_error")==0)
           {
-            if (find(err.first.begin(),err.first.end(),NodeAsString(node))==err.first.end())
-              err.first.push_back(NodeAsString(node));
+            string err_locale=getLocaleText(node);
+            if (find(err.first.begin(),err.first.end(),err_locale)==err.first.end())
+              err.first.push_back(err_locale);
           }
           else
           {
-            err.second.push_back(make_pair(pax,NodeAsString(node)));
+            err.second.push_back(make_pair(pax,getLocaleText(node)));
           };
         };
         if (!tick_event)
         {
-          ostringstream msg;
-          msg << "Результат обращения к СЭБ для эл. билета "
-              << NodeAsString("ticket_no",ticketNode) << "/"
-              << NodeAsInteger("coupon_no",ticketNode)
-              << " не определен. ";
+          ostringstream ticknum;
+          ticknum << NodeAsString("ticket_no",ticketNode) << "/"
+                  << NodeAsInteger("coupon_no",ticketNode);
+                  
+          string err_locale=getLocaleText("MSG.ETICK.CHANGE_STATUS_UNKNOWN_RESULT", LParams() << LParam("ticknum",ticknum.str()));
+                  
           pair< vector<string>, vector< pair<string,string> > > &err=errors[flight];
-          err.second.push_back(make_pair(pax,msg.str()));
+          err.second.push_back(make_pair(pax,err_locale));
         };
       };
 
@@ -460,7 +467,7 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
           for(i=errors.begin();i!=errors.end();i++)
           {
             if (use_flight)
-              msg << "Рейс " << i->first << ":" << std::endl;
+              msg << getLocaleText("WRAP.FLIGHT", LParams() << LParam("flight",i->first) << LParam("text","") ) << std::endl;
             for(vector<string>::iterator j=i->second.first.begin(); j!=i->second.first.end(); j++)
             {
               if (use_flight) msg << "     ";
@@ -471,7 +478,7 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
               if (use_flight) msg << "     ";
               if (!(j->first.empty()))
               {
-                msg << j->first << ":" << std::endl
+                msg << j->first << std::endl
                     << "     ";
                 if (use_flight) msg << "     ";
               };
@@ -480,7 +487,7 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
           };
           if ( reqInfo->client_type == ctWeb ||
                reqInfo->client_type == ctKiosk )
-            AstraLocale::showError( "MSG.ETICK.CHANGE_STATUS_ERROR" );
+            AstraLocale::showError( "MSG.ETICK.CHANGE_STATUS_ERROR", LParams() << LParam("ticknum","") << LParam("error","") ); //!!! надо выводить номер билета и ошибку
           NewTextChild(resNode,"ets_error",msg.str());
           //откат всех подтвержденных статусов
           ETStatusInterface::ETRollbackStatus(ediResCtxt.docPtr(),false);
@@ -707,7 +714,8 @@ bool ETStatusInterface::ETCheckStatus(int point_id,
           NewTextChild(node,"pax_id",NodeAsIntegerFast("pax_id",node2));
           if (GetNodeFast("reg_no",node2)!=NULL)
             NewTextChild(node,"reg_no",NodeAsIntegerFast("reg_no",node2));
-          NewTextChild(node,"pax",NodeAsStringFast("pax",node2));
+          NewTextChild(node,"pax_full_name",NodeAsStringFast("pax_full_name",node2));
+          NewTextChild(node,"pers_type",NodeAsStringFast("pers_type",node2));
         };
 
         ProgTrace(TRACE5,"ETCheckStatus %s/%d->%s",
@@ -929,10 +937,10 @@ bool ETStatusInterface::ETCheckStatus(int id,
             if (!before_checkin)
               NewTextChild(node,"reg_no",Qry.FieldAsInteger("reg_no"));
             ostringstream pax;
-            pax << "Пассажир " << Qry.FieldAsString("surname")
-                << (Qry.FieldIsNULL("name")?"":" ") << Qry.FieldAsString("name")
-                << " (" << Qry.FieldAsString("pers_type") << ")";
-            NewTextChild(node,"pax",pax.str());
+            pax << Qry.FieldAsString("surname")
+                << (Qry.FieldIsNULL("name")?"":" ") << Qry.FieldAsString("name");
+            NewTextChild(node,"pax_full_name",pax.str());
+            NewTextChild(node,"pers_type",Qry.FieldAsString("pers_type"));
 
             NewTextChild(node,"prior_coupon_status",status->dispCode());
             if (!Qry.FieldIsNULL("tick_point_id"))

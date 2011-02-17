@@ -10,6 +10,7 @@
 #include "exceptions.h"
 #include "oralib.h"
 #include "xml_unit.h"
+#include "astra_locale.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
 #include "stl_utils.h"
@@ -28,6 +29,7 @@ using namespace BASIC;
 using namespace edilib;
 using namespace Ticketing;
 using namespace Ticketing::ChangeStatus;
+using namespace AstraLocale;
 
 static std::string edi_addr,edi_own_addr;
 
@@ -577,10 +579,13 @@ void ChangeStatusToLog(const xmlNodePtr statusNode,
       msg.id2=NodeAsIntegerFast("reg_no",node2);
       msg.id3=NodeAsIntegerFast("grp_id",node2);
     };
-    if (GetNodeFast("pax",node2)!=NULL)
+    if (GetNodeFast("pax_full_name",node2)!=NULL &&
+        GetNodeFast("pers_type",node2)!=NULL)
     {
-      msg.msg+=NodeAsStringFast("pax",node2);
-      msg.msg+=". ";
+      ostringstream pax;
+      pax << "Пассажир " << NodeAsStringFast("pax_full_name",node2)
+          << " (" << NodeAsStringFast("pers_type",node2) << "). ";
+      msg.msg+=pax.str();
     };
   }
   msg.msg+=msg_text;
@@ -688,11 +693,20 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
     chngStatAns.Trace(TRACE2);
     if (chngStatAns.isGlobErr())
     {
-        string err;
+        string err,err_locale;
+        LexemaData err_lexeme;
         if (chngStatAns.globErr().second.empty())
+        {
           err="ОШИБКА " + chngStatAns.globErr().first;
+          err_lexeme.lexema_id="MSG.ETICK.ETS_ERROR";
+          err_lexeme.lparams << LParam("msg", chngStatAns.globErr().first);
+        }
         else
+        {
           err=chngStatAns.globErr().second;
+          err_lexeme.lexema_id="WRAP.ETS";
+          err_lexeme.lparams << LParam("text", chngStatAns.globErr().second);
+        };
 
         for(xmlNodePtr node=ticketNode;node!=NULL;node=node->next)
         {
@@ -703,7 +717,8 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
                << NodeAsStringFast("ticket_no",node2) << "/"
                << NodeAsIntegerFast("coupon_no",node2)
                << ": " << err << ". ";
-          xmlNodePtr errNode=NewTextChild(node,"global_error","СЭБ: "+err);
+          xmlNodePtr errNode=NewTextChild(node,"global_error");
+          LexemeDataToXML(err_lexeme, errNode);
           if (err.size()>100) err.erase(100);
 
           UpdQry.SetVariable("ticket_no",NodeAsStringFast("ticket_no",node2));
@@ -738,6 +753,11 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
           msgh << "Ошибка при изменении статуса эл. билета "
                << currTick->ticknum()
                << ": " << err << ". ";
+               
+          LexemaData err_lexeme;
+          err_lexeme.lexema_id="MSG.ETICK.CHANGE_STATUS_ERROR";
+          err_lexeme.lparams << LParam("ticknum",currTick->ticknum())
+                             << LParam("error",err);
 
           if (ticketNode!=NULL)
           {
@@ -747,8 +767,8 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
               xmlNodePtr node2=node->children;
               if (NodeAsStringFast("ticket_no",node2)==currTick->ticknum())
               {
-                xmlNodePtr errNode=NewTextChild(node,"ticket_error",msgh.str());
-
+                xmlNodePtr errNode=NewTextChild(node,"ticket_error");
+                LexemeDataToXML(err_lexeme, errNode);
                 if (err.size()>100) err.erase(100);
                 //нашли билет
                 UpdQry.SetVariable("ticket_no",NodeAsStringFast("ticket_no",node2));
@@ -788,7 +808,13 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
                << currTick->ticknum() << "/"
                << currTick->getCoupon().front().couponInfo().num()
                << ": " << err << ". ";
-
+               
+          LexemaData err_lexeme;
+          err_lexeme.lexema_id="MSG.ETICK.CHANGE_STATUS_ERROR";
+          err_lexeme.lparams << LParam("ticknum",currTick->ticknum()+"/"+
+                                                 IntToString(currTick->getCoupon().front().couponInfo().num()))
+                             << LParam("error",err);
+               
           if (ticketNode!=NULL)
           {
             //поищем все билеты
@@ -798,7 +824,8 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
               if (NodeAsStringFast("ticket_no",node2)==currTick->ticknum() &&
                   NodeAsIntegerFast("coupon_no",node2)==(int)currTick->getCoupon().front().couponInfo().num())
               {
-                xmlNodePtr errNode=NewTextChild(node,"coupon_error",msgh.str());
+                xmlNodePtr errNode=NewTextChild(node,"coupon_error");
+                LexemeDataToXML(err_lexeme, errNode);
                 if (err.size()>100) err.erase(100);
                 //нашли билет
                 UpdQry.SetVariable("ticket_no",NodeAsStringFast("ticket_no",node2));
