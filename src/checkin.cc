@@ -2475,7 +2475,7 @@ bool CheckInInterface::ParseFQTRem(TTlgParser &tlg,string &rem_text,TFQTItem &fq
               c=0;
               res=sscanf(tlg.lex,"%2[A-Z€-Ÿð0-9]%c",fqt.airline,&c);
               if (c!=0||res!=1)
-                throw UserException("MSG.AIRLINE.INVALID_SET",
+                throw UserException("MSG.AIRLINE.INVALID_INPUT_VALUE",
                                     LParams()<<LParam("airline", string(tlg.lex))); //WEB
             };
 
@@ -2486,7 +2486,7 @@ bool CheckInInterface::ParseFQTRem(TTlgParser &tlg,string &rem_text,TFQTItem &fq
             }
             catch (EBaseTableError)
             {
-              throw UserException("MSG.AIRLINE.INVALID_SET",
+              throw UserException("MSG.AIRLINE.INVALID_INPUT_VALUE",
                                   LParams()<<LParam("airline", string(fqt.airline))); //WEB
             };
             break;
