@@ -705,7 +705,8 @@ string PrintDataParser::parse(string &form)
     if(form.substr(i, 3) == "1" + CR + LF) {
         i += 3;
         pectab_format = 1;
-    }
+    } else
+        pectab_format = 0;
     if(form.substr(i, 2) == "XX") {
         i += 2;
         pts.set_print_mode(1);
@@ -1313,12 +1314,14 @@ void big_test(PrintDataParser &parser, TDevOperType op_type)
         "   id, "
         "   version, "
         "   connect_string, "
+        "   fmt_type, "
         "   data "
         "from "
         "   drop_all_pectabs "
         "where "
-        "   op_type = :op_type and "
-        "   connect_string not in ('beta/beta@beta') "
+        "   op_type = :op_type "
+//        "   and connect_string not in ('beta/beta@beta') "
+//        "   and connect_string = 'beta/beta@beta' "
         "order by "
         "   connect_string, "
         "   op_type, "
@@ -1343,7 +1346,7 @@ void big_test(PrintDataParser &parser, TDevOperType op_type)
                     )
           )
             continue;
-        string data = Qry.FieldAsString("data");
+        string data = AdjustCR_LF::DoIt(Qry.FieldAsString("fmt_type"), Qry.FieldAsString("data"));
         string parse_result;
         ostringstream idx;
         idx
@@ -1357,7 +1360,9 @@ void big_test(PrintDataParser &parser, TDevOperType op_type)
                 << "parse failed: "
                 << idx.str()
                 << " err msg: " << E.what()
-                << endl;
+                << endl
+                << "err data:" << endl
+                << data << endl;
             continue;
         }
         string result;
@@ -1367,7 +1372,7 @@ void big_test(PrintDataParser &parser, TDevOperType op_type)
             else
                 result += *is;
         }
-        out << idx.str() << endl << result;
+        out << idx.str() << endl << result << endl;
     }
 }
 
@@ -1816,7 +1821,7 @@ string get_validator(TBagReceipt &rcpt)
 {
     tst();
     ostringstream validator;
-    string agency, agency_name, sale_point_descr, sale_point_city, sale_point;
+    string agency, sale_point_city, sale_point;
     int private_num;
 
     TQuery Qry(&OraSession);
@@ -1841,24 +1846,18 @@ string get_validator(TBagReceipt &rcpt)
     Qry.Clear();
     Qry.SQLText=
         "SELECT "
-        "   sale_points.agency, "
-        "   agencies.name agency_name, "
-        "   sale_points.descr, "
-        "   sale_points.city "
-        "FROM "
-        "   sale_points, "
-        "   agencies "
-        "WHERE "
-        "   sale_points.code=:code AND "
-        "   sale_points.validator=:validator and "
-        "   sale_points.agency = agencies.code ";
+        "   agency, "
+        "   city "
+        "from "
+        "   sale_points "
+        "where "
+        "   code = :code and "
+        "   validator = :validator ";
     Qry.CreateVariable("code", otString, sale_point);
     Qry.CreateVariable("validator", otString, validator_type);
     Qry.Execute();
     if (Qry.Eof) throw Exception("sale point '%s' not found for validator '%s'", sale_point.c_str(), validator_type.c_str());
     agency = Qry.FieldAsString("agency");
-    agency_name = Qry.FieldAsString("agency_name");
-    sale_point_descr = Qry.FieldAsString("descr");
     sale_point_city = Qry.FieldAsString("city");
 
     Qry.Clear();
@@ -1874,17 +1873,22 @@ string get_validator(TBagReceipt &rcpt)
     if(agency != Qry.FieldAsString("agency")) // Агентство пульта не совпадает с агентством кассира
         throw AstraLocale::UserException("MSG.DESK_AGENCY_NOT_MATCH_THE_USER_ONE");
 
-
     TBaseTableRow &city = base_tables.get("cities").get_row("code", sale_point_city);
     TBaseTableRow &country = base_tables.get("countries").get_row("code", city.AsString("country"));
     if(validator_type == "ТКП") {
         // agency
-        validator << agency << " ТКП";
-        validator << endl;
+        validator
+            << rcpt.tag_lang.ElemIdToTagElem(etAgency, agency, efmtCodeNative)
+            << " " << rcpt.tag_lang.ElemIdToTagElem(etValidatorType, validator_type, efmtCodeNative)
+            << endl;
         // agency descr
-        validator << sale_point_descr.substr(0, 19) << endl;
+        validator << rcpt.tag_lang.ElemIdToTagElem(etSalePoint, sale_point, efmtNameLong).substr(0, 19)  << endl;
         // agency city
-        validator << city.AsString("Name").substr(0, 16) << " " << country.AsString("code") << endl;
+        validator
+            << rcpt.tag_lang.ElemIdToTagElem(etCity, sale_point_city, efmtNameLong).substr(0, 16)
+            << " "
+            << rcpt.tag_lang.ElemIdToTagElem(etCountry, country.AsString("code"), efmtCodeNative)
+            << endl;
         // agency code
         validator
             << sale_point << "  "
@@ -1895,10 +1899,18 @@ string get_validator(TBagReceipt &rcpt)
         string desk_city = DeskCity(rcpt.issue_desk, false);
         if(desk_city.empty())
             throw Exception("get_validator: issue_desk not found (code = %s)", rcpt.issue_desk.c_str());
-        validator << sale_point << " " << DateTimeToStr(UTCToLocal(rcpt.issue_date, CityTZRegion(desk_city)), "ddmmmyy") << endl;
-        validator << agency_name.substr(0, 19) << endl;
-        validator << sale_point_descr.substr(0, 19) << endl;
-        validator << city.AsString("Name").substr(0, 16) << "/" << country.AsString("code") << endl;
+        validator
+            << sale_point
+            << " "
+            << DateTimeToStr(UTCToLocal(rcpt.issue_date, CityTZRegion(desk_city)), "ddmmmyy", rcpt.tag_lang.GetLang() != AstraLocale::LANG_RU)
+            << endl;
+        validator << rcpt.tag_lang.ElemIdToTagElem(etAgency, agency, efmtNameLong).substr(0, 19) << endl;
+        validator << rcpt.tag_lang.ElemIdToTagElem(etSalePoint, sale_point, efmtNameLong).substr(0, 19) << endl;
+        validator
+            << rcpt.tag_lang.ElemIdToTagElem(etCity, sale_point_city, efmtNameLong).substr(0, 16)
+            << "/"
+            << rcpt.tag_lang.ElemIdToTagElem(etCountry, country.AsString("code"), efmtCodeNative)
+            << endl;
         validator << setw(4) << setfill('0') << private_num << endl;
     }
     return validator.str();
