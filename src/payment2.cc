@@ -204,7 +204,6 @@ void PaymentOldInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     CheckInInterface::LoadPaidBag(grp_id,resNode);
     LoadReceipts(grp_id,true,resNode);
   };
-  ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 };
 
 void PaymentOldInterface::LoadReceipts(int id, bool pr_grp, xmlNodePtr dataNode)

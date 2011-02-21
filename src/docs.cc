@@ -308,15 +308,15 @@ void PaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode,
         "from ";
     if(part_key == NoExists)
         SQLText +=
-        "   points "
-        "where "
-        "   point_id = :point_id AND pr_del>=0 ";
+            "   points "
+            "where "
+            "   point_id = :point_id AND pr_del>=0 ";
     else {
         SQLText +=
-        "   arx_points "
-        "where "
-        "   part_key = :part_key and "
-        "   point_id = :point_id AND pr_del>=0 ";
+            "   arx_points "
+            "where "
+            "   part_key = :part_key and "
+            "   point_id = :point_id AND pr_del>=0 ";
         Qry.CreateVariable("part_key", otDate, part_key);
     }
     Qry.SQLText = SQLText;
@@ -336,12 +336,13 @@ void PaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode,
         airline_name = rpt_params.ElemIdToReportElem(etAirline, airline, efmtNameLong);
     }
 
-    string trip =
-        airline +
-        IntToString(Qry.FieldAsInteger("flt_no")) +
-        rpt_params.ElemIdToReportElem(etSuffix, Qry.FieldAsString("suffix"), efmtCodeNative);
+    ostringstream trip;
+    trip
+        << airline
+        << setw(3) << setfill('0') << Qry.FieldAsInteger("flt_no")
+        << rpt_params.ElemIdToReportElem(etSuffix, Qry.FieldAsString("suffix"), efmtCodeNative);
 
-    NewTextChild(variablesNode, "trip", trip);
+    NewTextChild(variablesNode, "trip", trip.str());
     TDateTime scd_out, real_out;
     scd_out= UTCToClient(Qry.FieldAsDateTime("scd_out"),tz_region);
     real_out= UTCToClient(Qry.FieldAsDateTime("real_out"),tz_region);
@@ -360,7 +361,7 @@ void PaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode,
     NewTextChild(variablesNode, "airp_dep_name", rpt_params.ElemIdToReportElem(etAirp, airp, efmtNameLong));
     NewTextChild(variablesNode, "airp_dep_city", rpt_params.ElemIdToReportElem(etCity, airpRow.city, efmtCodeNative));
     NewTextChild(variablesNode, "airline_name", airline_name);
-    NewTextChild(variablesNode, "flt", trip);
+    NewTextChild(variablesNode, "flt", trip.str());
     NewTextChild(variablesNode, "bort", Qry.FieldAsString("bort"));
     NewTextChild(variablesNode, "craft", craft);
     NewTextChild(variablesNode, "park", Qry.FieldAsString("park"));
@@ -784,39 +785,6 @@ string get_report_version(string name)
     return result;
 }
 
-void get_report_form(const string name, xmlNodePtr node)
-{
-    string form;
-    string version;
-    TQuery Qry(&OraSession);
-    if (TReqInfo::Instance()->desk.compatible(NEW_TERM_VERSION) or TReqInfo::Instance()->screen.name == "DOCS.EXE") {
-        Qry.SQLText = "select form, pr_locale from fr_forms2 where name = :name and version = :version ";
-        version = get_report_version(name);
-        Qry.CreateVariable("version", otString, version);
-    } else
-        Qry.SQLText = "select form from fr_forms where name = :name";
-    Qry.CreateVariable("name", otString, name);
-    Qry.Execute();
-    if(Qry.Eof) {
-        NewTextChild(node, "FormNotExists", name);
-        SetProp(NewTextChild(node, "form"), "name", name);
-        return;
-    }
-    // положим в ответ шаблон отчета
-    int len = Qry.GetSizeLongField("form");
-    shared_array<char> data (new char[len]);
-    Qry.FieldAsLong("form", data.get());
-    form.clear();
-    form.append(data.get(), len);
-
-    xmlNodePtr formNode = ReplaceTextChild(node, "form", form);
-    SetProp(formNode, "name", name);
-    SetProp(formNode, "version", version);
-    if ((TReqInfo::Instance()->desk.compatible(NEW_TERM_VERSION) or TReqInfo::Instance()->screen.name == "DOCS.EXE") and
-            Qry.FieldAsInteger("pr_locale") != 0)
-        SetProp(formNode, "pr_locale");
-}
-
 struct TPMTotalsKey {
     int point_id;
     int pr_trfer;
@@ -897,7 +865,7 @@ struct TPMTotalsRow {
 
 typedef map<TPMTotalsKey, TPMTotalsRow, TPMTotalsCmp> TPMTotals;
 
-void PTM(TRptParams &rpt_params, xmlNodePtr resNode)
+void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
     xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
@@ -915,7 +883,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr resNode)
             rpt_name="PM";
     };
     if (rpt_params.rpt_type==rtPTMTXT) rpt_name=rpt_name+"Txt";
-    get_report_form(rpt_name, resNode);
+    get_compatible_report_form(rpt_name, reqNode, resNode);
 
     {
         string et, et_lat;
@@ -1010,7 +978,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr resNode)
             "    PR_TRFER ASC, \n"
             "    TRFER_AIRP_ARV ASC, \n";
     SQLText +=
-        "    CLASS ASC, \n"
+        "    class_grp, \n"
         "    grp_id, \n"
         "    REG_NO ASC \n";
     ProgTrace(TRACE5, "SQLText: %s", SQLText.c_str());
@@ -1219,10 +1187,9 @@ void PTM(TRptParams &rpt_params, xmlNodePtr resNode)
     NewTextChild(variablesNode, "pr_brd_pax_lat", getLocaleText(pr_brd_pax_str, AstraLocale::LANG_EN));
     populate_doc_cap(variablesNode, rpt_params.GetLang());
     STAT::set_variables(resNode, rpt_params.GetLang());
-    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str()); //!!!
 }
 
-void BTM(TRptParams &rpt_params, xmlNodePtr resNode)
+void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TQuery Qry(&OraSession);
     string rpt_name;
@@ -1239,7 +1206,7 @@ void BTM(TRptParams &rpt_params, xmlNodePtr resNode)
             rpt_name="BM";
     };
     if (rpt_params.rpt_type==rtBTMTXT) rpt_name=rpt_name+"Txt";
-    get_report_form(rpt_name, resNode);
+    get_compatible_report_form(rpt_name, reqNode, resNode);
 
     t_rpt_bm_bag_name bag_names;
     Qry.Clear();
@@ -1664,7 +1631,6 @@ void BTM(TRptParams &rpt_params, xmlNodePtr resNode)
         NewTextChild(variablesNode, "zone"); // пустой тег - нет детализации по залу
     populate_doc_cap(variablesNode, rpt_params.GetLang());
     STAT::set_variables(resNode, rpt_params.GetLang());
-    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
 string get_test_str(int page_width, string lang)
@@ -1675,12 +1641,12 @@ string get_test_str(int page_width, string lang)
 }
 
 
-void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr resNode)
+void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   if (rpt_params.rpt_type==rtPTMTXT)
-    PTM(rpt_params, resNode);
+    PTM(rpt_params, reqNode, resNode);
   else
-    BTM(rpt_params, resNode);
+    BTM(rpt_params, reqNode, resNode);
 
   xmlNodePtr variablesNode=NodeAsNode("form_data/variables",resNode);
   xmlNodePtr dataSetsNode=NodeAsNode("form_data/datasets",resNode);
@@ -2056,7 +2022,6 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr resNode)
     while(!rows.empty());
     NewTextChild(variablesNode,"report_summary",s.str());
   };
-  ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str()); //!!!
 };
 
 string get_flight(xmlNodePtr variablesNode)
@@ -2064,12 +2029,12 @@ string get_flight(xmlNodePtr variablesNode)
     return (string)NodeAsString("trip", variablesNode) + "/" + NodeAsString("scd_out", variablesNode);
 }
 
-void REFUSE(TRptParams &rpt_params, xmlNodePtr resNode)
+void REFUSE(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     if(rpt_params.rpt_type == rtREFUSETXT)
-        get_report_form("docTxt", resNode);
+        get_compatible_report_form("docTxt", reqNode, resNode);
     else
-        get_report_form("ref", resNode);
+        get_compatible_report_form("ref", reqNode, resNode);
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "SELECT point_dep AS point_id, "
@@ -2113,9 +2078,9 @@ void REFUSE(TRptParams &rpt_params, xmlNodePtr resNode)
     populate_doc_cap(variablesNode, rpt_params.GetLang());
 }
 
-void REFUSETXT(TRptParams &rpt_params, xmlNodePtr resNode)
+void REFUSETXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    REFUSE(rpt_params, resNode);
+    REFUSE(rpt_params, reqNode, resNode);
 
     xmlNodePtr variablesNode=NodeAsNode("form_data/variables",resNode);
     xmlNodePtr dataSetsNode=NodeAsNode("form_data/datasets",resNode);
@@ -2192,12 +2157,12 @@ void REFUSETXT(TRptParams &rpt_params, xmlNodePtr resNode)
     }
 }
 
-void NOTPRES(TRptParams &rpt_params, xmlNodePtr resNode)
+void NOTPRES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     if(rpt_params.rpt_type == rtNOTPRESTXT)
-        get_report_form("docTxt", resNode);
+        get_compatible_report_form("docTxt", reqNode, resNode);
     else
-        get_report_form("notpres", resNode);
+        get_compatible_report_form("notpres", reqNode, resNode);
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "SELECT point_dep AS point_id, "
@@ -2243,9 +2208,9 @@ void NOTPRES(TRptParams &rpt_params, xmlNodePtr resNode)
     populate_doc_cap(variablesNode, rpt_params.GetLang());
 }
 
-void NOTPRESTXT(TRptParams &rpt_params, xmlNodePtr resNode)
+void NOTPRESTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    NOTPRES(rpt_params, resNode);
+    NOTPRES(rpt_params, reqNode, resNode);
 
     xmlNodePtr variablesNode=NodeAsNode("form_data/variables",resNode);
     xmlNodePtr dataSetsNode=NodeAsNode("form_data/datasets",resNode);
@@ -2316,12 +2281,12 @@ void NOTPRESTXT(TRptParams &rpt_params, xmlNodePtr resNode)
     }
 }
 
-void REM(TRptParams &rpt_params, xmlNodePtr resNode)
+void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     if(rpt_params.rpt_type == rtREMTXT)
-        get_report_form("docTxt", resNode);
+        get_compatible_report_form("docTxt", reqNode, resNode);
     else
-        get_report_form("rem", resNode);
+        get_compatible_report_form("rem", reqNode, resNode);
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "SELECT point_dep AS point_id, "
@@ -2363,9 +2328,9 @@ void REM(TRptParams &rpt_params, xmlNodePtr resNode)
     populate_doc_cap(variablesNode, rpt_params.GetLang());
 }
 
-void REMTXT(TRptParams &rpt_params, xmlNodePtr resNode)
+void REMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    REM(rpt_params, resNode);
+    REM(rpt_params, reqNode, resNode);
 
     xmlNodePtr variablesNode=NodeAsNode("form_data/variables",resNode);
     xmlNodePtr dataSetsNode=NodeAsNode("form_data/datasets",resNode);
@@ -2432,12 +2397,12 @@ void REMTXT(TRptParams &rpt_params, xmlNodePtr resNode)
     }
 }
 
-void CRS(TRptParams &rpt_params, xmlNodePtr resNode)
+void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     if(rpt_params.rpt_type == rtCRSTXT or rpt_params.rpt_type == rtCRSUNREGTXT)
-        get_report_form("docTxt", resNode);
+        get_compatible_report_form("docTxt", reqNode, resNode);
     else
-        get_report_form("crs", resNode);
+        get_compatible_report_form("crs", reqNode, resNode);
     bool pr_unreg = rpt_params.rpt_type == rtCRSUNREG or rpt_params.rpt_type == rtCRSUNREGTXT;
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
     TQuery Qry(&OraSession);
@@ -2504,9 +2469,9 @@ void CRS(TRptParams &rpt_params, xmlNodePtr resNode)
     populate_doc_cap(variablesNode, rpt_params.GetLang());
 }
 
-void CRSTXT(TRptParams &rpt_params, xmlNodePtr resNode)
+void CRSTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    CRS(rpt_params, resNode);
+    CRS(rpt_params, reqNode, resNode);
 
     xmlNodePtr variablesNode=NodeAsNode("form_data/variables",resNode);
     xmlNodePtr dataSetsNode=NodeAsNode("form_data/datasets",resNode);
@@ -2601,9 +2566,9 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     bool pr_web = (rpt_params.rpt_type == rtWEB or rpt_params.rpt_type == rtWEBTXT);
     bool pr_norec = (rpt_params.rpt_type == rtNOREC or rpt_params.rpt_type == rtNORECTXT);
     if(rpt_params.rpt_type == rtEXAMTXT or rpt_params.rpt_type == rtWEBTXT or rpt_params.rpt_type == rtNORECTXT)
-        get_report_form("docTxt", resNode);
+        get_compatible_report_form("docTxt", reqNode, resNode);
     else
-        get_report_form(pr_web ? "web" : "exam", resNode);
+        get_compatible_report_form(pr_web ? "web" : "exam", reqNode, resNode);
 
     TQuery Qry(&OraSession);
     BrdInterface::GetPaxQuery(Qry, rpt_params.point_id, NoExists, rpt_params.GetLang(), rpt_params.rpt_type, rpt_params.client_type);
@@ -2674,7 +2639,6 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     xmlNodePtr totalNode = NodeAsNodeFast("total", currNode);
     NodeSetContent(totalNode, getLocaleText("CAP.TOTAL.VAL", LParams() << LParam("total", NodeAsString(totalNode)), rpt_params.GetLang()));
     populate_doc_cap(variablesNode, rpt_params.GetLang());
-    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str()); //!!!
 }
 
 void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -2789,7 +2753,6 @@ void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
              );
         NewTextChild(rowNode,"str",s.str());
     }
-    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
 void WEB(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -2811,16 +2774,16 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     rpt_params.Init(node);
     switch(rpt_params.rpt_type) {
         case rtPTM:
-            PTM(rpt_params, resNode);
+            PTM(rpt_params, reqNode, resNode);
             break;
         case rtPTMTXT:
-            PTMBTMTXT(rpt_params, resNode);
+            PTMBTMTXT(rpt_params, reqNode, resNode);
             break;
         case rtBTM:
-            BTM(rpt_params, resNode);
+            BTM(rpt_params, reqNode, resNode);
             break;
         case rtBTMTXT:
-            PTMBTMTXT(rpt_params, resNode);
+            PTMBTMTXT(rpt_params, reqNode, resNode);
             break;
         case rtWEB:
             WEB(rpt_params, reqNode, resNode);
@@ -2829,30 +2792,30 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
             WEBTXT(rpt_params, reqNode, resNode);
             break;
         case rtREFUSE:
-            REFUSE(rpt_params, resNode);
+            REFUSE(rpt_params, reqNode, resNode);
             break;
         case rtREFUSETXT:
-            REFUSETXT(rpt_params, resNode);
+            REFUSETXT(rpt_params, reqNode, resNode);
             break;
         case rtNOTPRES:
-            NOTPRES(rpt_params, resNode);
+            NOTPRES(rpt_params, reqNode, resNode);
             break;
         case rtNOTPRESTXT:
-            NOTPRESTXT(rpt_params, resNode);
+            NOTPRESTXT(rpt_params, reqNode, resNode);
             break;
         case rtREM:
-            REM(rpt_params, resNode);
+            REM(rpt_params, reqNode, resNode);
             break;
         case rtREMTXT:
-            REMTXT(rpt_params, resNode);
+            REMTXT(rpt_params, reqNode, resNode);
             break;
         case rtCRS:
         case rtCRSUNREG:
-            CRS(rpt_params, resNode);
+            CRS(rpt_params, reqNode, resNode);
             break;
         case rtCRSTXT:
         case rtCRSUNREGTXT:
-            CRSTXT(rpt_params, resNode);
+            CRSTXT(rpt_params, reqNode, resNode);
             break;
         case rtEXAM:
         case rtNOREC:
@@ -2962,7 +2925,55 @@ int testbm(int argc,char **argv)
     rpt_params.pr_et = false;
     rpt_params.pr_trfer = false;
     rpt_params.pr_brd = false;
-    BTM(rpt_params, rootNode);
-    ProgTrace(TRACE5, "%s", GetXMLDocText(resDoc).c_str()); //!!!
+    BTM(rpt_params, rootNode, rootNode);
     return 0;
 }
+
+void get_report_form(const string name, xmlNodePtr resNode)
+{
+    string form;
+    string version;
+    TQuery Qry(&OraSession);
+    if (TReqInfo::Instance()->desk.compatible(NEW_TERM_VERSION) or TReqInfo::Instance()->screen.name == "DOCS.EXE") {
+        Qry.SQLText = "select form, pr_locale from fr_forms2 where name = :name and version = :version ";
+        version = get_report_version(name);
+        Qry.CreateVariable("version", otString, version);
+    } else
+        Qry.SQLText = "select form from fr_forms where name = :name";
+    Qry.CreateVariable("name", otString, name);
+    Qry.Execute();
+    if(Qry.Eof) {
+        NewTextChild(resNode, "FormNotExists", name);
+        SetProp(NewTextChild(resNode, "form"), "name", name);
+        return;
+    }
+    // положим в ответ шаблон отчета
+    int len = Qry.GetSizeLongField("form");
+    shared_array<char> data (new char[len]);
+    Qry.FieldAsLong("form", data.get());
+    form.clear();
+    form.append(data.get(), len);
+
+    xmlNodePtr formNode = ReplaceTextChild(resNode, "form", form);
+    SetProp(formNode, "name", name);
+    SetProp(formNode, "version", version);
+    if ((TReqInfo::Instance()->desk.compatible(NEW_TERM_VERSION) or TReqInfo::Instance()->screen.name == "DOCS.EXE") and
+            Qry.FieldAsInteger("pr_locale") != 0)
+        SetProp(formNode, "pr_locale");
+}
+
+void get_compatible_report_form(const string name, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    if (TReqInfo::Instance()->desk.compatible(ADD_FORM_VERSION))
+        get_new_report_form(name, reqNode, resNode);
+    else
+        get_report_form(name, resNode);
+}
+
+void get_new_report_form(const string name, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    if(GetNode("LoadForm", reqNode) == NULL)
+        return;
+    get_report_form(name, resNode);
+}
+

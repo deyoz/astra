@@ -870,14 +870,14 @@ void getLexemaText( LexemaData lexemaData, string &text, string &master_lexema_i
   }
 }
 
-std::string getLocaleText(LexemaData lexemaData)
+std::string getLocaleText(const LexemaData &lexemaData)
 {
     string text, master_lexema_id;
     getLexemaText( lexemaData, text, master_lexema_id );
     return text;
 }
 
-string getLocaleText(const std::string &vlexema, std::string lang)
+string getLocaleText(const std::string &vlexema, const std::string &lang)
 {
     LexemaData lexemaData;
     lexemaData.lexema_id = vlexema;
@@ -886,7 +886,7 @@ string getLocaleText(const std::string &vlexema, std::string lang)
     return text;
 }
 
-string getLocaleText(const std::string &vlexema, LParams &aparams, string lang)
+string getLocaleText(const std::string &vlexema, const LParams &aparams, const string &lang)
 {
     LexemaData lexemaData;
     lexemaData.lexema_id = vlexema;
@@ -896,59 +896,7 @@ string getLocaleText(const std::string &vlexema, LParams &aparams, string lang)
     return text;
 }
 
-void showErrorMessage( std::string vlexema, LParams &aparams, int code)
-{
-	LexemaData lexemaData;
-	lexemaData.lexema_id = vlexema;
-	lexemaData.lparams = aparams;
-    showErrorMessage(lexemaData, code);
-}
-
-void showMessage( std::string vlexema, LParams &aparams, int code)
-{
-	LexemaData lexemaData;
-	lexemaData.lexema_id = vlexema;
-	lexemaData.lparams = aparams;
-    showMessage(lexemaData, code);
-}
-
-void showMessage(LexemaData lexemaData, int code)
-{
-  string text, master_lexema_id;
-  getLexemaText( lexemaData, text, master_lexema_id );
-  XMLRequestCtxt *xmlRC = getXmlCtxt();
-  xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
-  resNode = ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "message", text );
-  SetProp(resNode, "lexema_id", master_lexema_id);
-  SetProp(resNode, "code", code);
-}
-
-void showMessage(const std::string &lexema_id, int code)
-{
-	LexemaData lexemaData;
-	lexemaData.lexema_id = lexema_id;
-	showMessage( lexemaData, code );
-}
-
-void showErrorMessage(LexemaData lexemaData, int code)
-{
-  string text, master_lexema_id;
-  getLexemaText( lexemaData, text, master_lexema_id );
-  XMLRequestCtxt *xmlRC = getXmlCtxt();
-  xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
-  resNode =  ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "user_error_message", text );
-  SetProp(resNode, "lexema_id", master_lexema_id);
-  SetProp(resNode, "code", code);
-};
-
-void showErrorMessage(const std::string &lexema_id, int code)
-{
-	LexemaData lexemaData;
-	lexemaData.lexema_id = lexema_id;
-	showErrorMessage( lexemaData, code );
-}
-
-void showError(LexemaData lexemaData, int code)
+void showError(const LexemaData &lexemaData, int code)
 {
   string text, master_lexema_id;
   getLexemaText( lexemaData, text, master_lexema_id );
@@ -966,7 +914,67 @@ void showError(const std::string &lexema_id, int code)
 	showError( lexemaData, code );
 }
 
-void showProgError(LexemaData lexemaData, int code )
+void showError(const std::string &vlexema, const LParams &aparams, int code)
+{
+  LexemaData lexemaData;
+	lexemaData.lexema_id = vlexema;
+	lexemaData.lparams = aparams;
+  showError( lexemaData, code );
+}
+
+void showErrorMessage(const LexemaData &lexemaData, int code)
+{
+  string text, master_lexema_id;
+  getLexemaText( lexemaData, text, master_lexema_id );
+  XMLRequestCtxt *xmlRC = getXmlCtxt();
+  xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
+  resNode =  ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "user_error_message", text );
+  SetProp(resNode, "lexema_id", master_lexema_id);
+  SetProp(resNode, "code", code);
+}
+
+void showErrorMessage(const std::string &lexema_id, int code)
+{
+	LexemaData lexemaData;
+	lexemaData.lexema_id = lexema_id;
+	showErrorMessage( lexemaData, code );
+}
+
+void showErrorMessage( const std::string &vlexema, const LParams &aparams, int code)
+{
+	LexemaData lexemaData;
+	lexemaData.lexema_id = vlexema;
+	lexemaData.lparams = aparams;
+  showErrorMessage( lexemaData, code );
+}
+
+void showMessage(const LexemaData &lexemaData, int code)
+{
+  string text, master_lexema_id;
+  getLexemaText( lexemaData, text, master_lexema_id );
+  XMLRequestCtxt *xmlRC = getXmlCtxt();
+  xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
+  resNode = ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "message", text );
+  SetProp(resNode, "lexema_id", master_lexema_id);
+  SetProp(resNode, "code", code);
+}
+
+void showMessage(const std::string &lexema_id, int code)
+{
+	LexemaData lexemaData;
+	lexemaData.lexema_id = lexema_id;
+	showMessage( lexemaData, code );
+}
+
+void showMessage( const std::string &vlexema, const LParams &aparams, int code)
+{
+	LexemaData lexemaData;
+	lexemaData.lexema_id = vlexema;
+	lexemaData.lparams = aparams;
+  showMessage( lexemaData, code );
+}
+
+void showProgError(const LexemaData &lexemaData, int code)
 {
   string text, master_lexema_id;
   getLexemaText( lexemaData, text, master_lexema_id );
@@ -977,24 +985,64 @@ void showProgError(LexemaData lexemaData, int code )
   SetProp(resNode, "code", code);
 };
 
-void showProgError(const std::string &lexema_id, int code )
+void showProgError(const std::string &lexema_id, int code)
 {
 	LexemaData lexemaData;
 	lexemaData.lexema_id = lexema_id;
 	showProgError( lexemaData, code );
 }
 
-void showErrorMessageAndRollback(const std::string &lexema_id, int code )
+void showProgError(const std::string &vlexema, const LParams &aparams, int code)
+{
+  LexemaData lexemaData;
+	lexemaData.lexema_id = vlexema;
+	lexemaData.lparams = aparams;
+  showProgError( lexemaData, code );
+}
+
+void showErrorMessageAndRollback(const LexemaData &lexemaData, int code)
+{
+  showErrorMessage(lexemaData,code);
+  throw UserException2();
+}
+
+void showErrorMessageAndRollback(const std::string &lexema_id, int code)
 {
 	LexemaData lexemaData;
 	lexemaData.lexema_id = lexema_id;
 	showErrorMessageAndRollback( lexemaData, code );
 }
 
-void showErrorMessageAndRollback(LexemaData lexemaData, int code )
+void showErrorMessageAndRollback(const std::string &vlexema, const LParams &aparams, int code)
 {
-  showErrorMessage(lexemaData,code);
-  throw UserException2();
+  LexemaData lexemaData;
+	lexemaData.lexema_id = vlexema;
+	lexemaData.lparams = aparams;
+  showErrorMessageAndRollback( lexemaData, code );
+}
+
+std::string getLocaleText(xmlNodePtr lexemeNode)
+{
+  if (lexemeNode==NULL) return "";
+  LexemaData lexemeData;
+  lexemeData.lexema_id=NodeAsString("id",lexemeNode);
+  xmlNodePtr node=NodeAsNode("params",lexemeNode)->children;
+  for(;node!=NULL;node=node->next)
+  {
+    lexemeData.lparams << LParam((const char*)node->name, NodeAsString(node));
+  };
+  return getLocaleText(lexemeData);
+}
+
+void LexemeDataToXML(const LexemaData &lexemeData, xmlNodePtr lexemeNode)
+{
+  if (lexemeNode==NULL) return;
+  NewTextChild(lexemeNode,"id",lexemeData.lexema_id);
+  xmlNodePtr node=NewTextChild(lexemeNode,"params");
+  for(LParams::const_iterator p=lexemeData.lparams.begin();p!=lexemeData.lparams.end();p++)
+  {
+    NewTextChild(node,p->first.c_str(),lexemeData.lparams.StringValue(p->first));
+  };
 }
 
 } // end namespace AstraLocale
@@ -1054,14 +1102,14 @@ bool get_test_server()
     if(!obj)
         result = true;
     else {
-      static char buf[200];
-      buf[199]=0;
-      strcpy(buf,Tcl_GetString(obj));
-      int TEST_SERVER;
-      if(StrToInt(buf, TEST_SERVER) == EOF)
-          result = true;
-      else
-          result = TEST_SERVER != 0;
+        static char buf[200];
+        buf[199]=0;
+        strcpy(buf,Tcl_GetString(obj));
+        int TEST_SERVER;
+        if(StrToInt(buf, TEST_SERVER) == EOF)
+            result = true;
+        else
+            result = TEST_SERVER != 0;
     }
     return result;
 }
@@ -1195,7 +1243,7 @@ void showBasicInfo(void)
       if (!Qry.Eof && !Qry.FieldIsNULL("defer_etstatus"))
         NewTextChild(setsNode,"defer_etstatus",(int)(Qry.FieldAsInteger("defer_etstatus")!=0));
       else
-        NewTextChild(setsNode,"defer_etstatus",(int)false);
+        NewTextChild(setsNode,"defer_etstatus",(int)true);
     }
     else NewTextChild(setsNode,"defer_etstatus",(int)true);
 
@@ -1641,14 +1689,7 @@ string& EOracleError2UserException(string& msg)
   {
     ProgTrace(TRACE5,"EOracleError2UserException: msg=%s",msg.c_str());
     xml_decode_nodelist(msgDoc.docPtr()->children);
-    LexemaData lexemeData;
-    lexemeData.lexema_id=NodeAsString("/lexeme_data/id",msgDoc.docPtr());
-    xmlNodePtr node=NodeAsNode("/lexeme_data/params",msgDoc.docPtr())->children;
-    for(;node!=NULL;node=node->next)
-    {
-      lexemeData.lparams << LParam((const char*)node->name, NodeAsString(node));
-    };
-    msg=getLocaleText(lexemeData);
+    msg=getLocaleText(NodeAsNode("/lexeme_data",msgDoc.docPtr()));
   };
   return msg;
 };

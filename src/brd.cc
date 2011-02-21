@@ -202,9 +202,24 @@ void BrdInterface::readTripCounters( const int point_id,
                 << chd - brd_chd << "/"
                 << inf - brd_inf;
 
-            ReplaceTextChild(variablesNode, "total", pax_str.str() + "(" + fr_reg_str.str() + ")");
-            ReplaceTextChild(variablesNode, "total_brd", brd_pax_str.str() + "(" + fr_brd_str.str() + ")");
-            ReplaceTextChild(variablesNode, "total_not_brd", not_brd_pax_str.str() + "(" + fr_not_brd_str.str() + ")");
+            string total = pax_str.str() + "(" + fr_reg_str.str() + ")";
+            string total_brd = brd_pax_str.str() + "(" + fr_brd_str.str() + ")";
+            string total_not_brd = not_brd_pax_str.str() + "(" + fr_not_brd_str.str() + ")";
+            ReplaceTextChild(variablesNode, "total", total);
+            ReplaceTextChild(variablesNode, "total_brd", total_brd);
+            ReplaceTextChild(variablesNode, "total_not_brd", total_not_brd);
+            NewTextChild(variablesNode, "exam_totals", getLocaleText("CAP.DOC.EXAMBRD.EXAM_TOTALS",
+                        LParams()
+                        << LParam("total", total)
+                        << LParam("total_brd", total_brd)
+                        << LParam("total_not_brd", total_not_brd)
+                        ));
+            NewTextChild(variablesNode, "brd_totals", getLocaleText("CAP.DOC.EXAMBRD.BRD_TOTALS",
+                        LParams()
+                        << LParam("total", total)
+                        << LParam("total_brd", total_brd)
+                        << LParam("total_not_brd", total_not_brd)
+                        ));
         }
     }
 };
@@ -286,6 +301,11 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   };
 
   GetPax(reqNode,resNode);
+  xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
+  if(variablesNode) SetProp(variablesNode, "update");
+  NewTextChild(variablesNode, "test_server", bad_client_img_version() ? 2 : get_test_server());
+  if(bad_client_img_version())
+      NewTextChild(variablesNode, "doc_cap_test", " ");
 
   ASTRA::showMessage(msg);
 };
@@ -397,6 +417,11 @@ bool ChckSt(int pax_id, string& curr_seat_no)
 void BrdInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   GetPax(reqNode,resNode);
+  xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
+  if(variablesNode) SetProp(variablesNode, "update");
+  NewTextChild(variablesNode, "test_server", bad_client_img_version() ? 2 : get_test_server());
+  if(bad_client_img_version())
+      NewTextChild(variablesNode, "doc_cap_test", " ");
 };
 
 void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
@@ -500,6 +525,15 @@ void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
     Qry.SQLText = sql.str().c_str();
 };
 
+void put_exambrd_vars(xmlNodePtr variablesNode)
+{
+    NewTextChild(variablesNode, "cap_checked", getLocaleText("CAP.DOC.EXAMBRD.CHECKED.FLIGHT", LParams() << LParam("flight", get_flight(variablesNode))));
+    NewTextChild(variablesNode, "cap_exam", getLocaleText("CAP.DOC.EXAMBRD.EXAM.FLIGHT", LParams() << LParam("flight", get_flight(variablesNode))));
+    NewTextChild(variablesNode, "cap_brd", getLocaleText("CAP.DOC.EXAMBRD.BRD.FLIGHT", LParams() << LParam("flight", get_flight(variablesNode))));
+    NewTextChild(variablesNode, "cap_no_exam", getLocaleText("CAP.DOC.EXAMBRD.NO_EXAM.FLIGHT", LParams() << LParam("flight", get_flight(variablesNode))));
+    NewTextChild(variablesNode, "cap_no_brd", getLocaleText("CAP.DOC.EXAMBRD.NO_BRD.FLIGHT", LParams() << LParam("flight", get_flight(variablesNode))));
+}
+
 void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
@@ -512,13 +546,13 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     int reg_no=NoExists;
     int hall=-1;
 
-    if ( GetNode( "LoadForm", reqNode ) )
-        get_report_form("ExamBrdbus", resNode);
+    get_new_report_form("ExamBrdbus", reqNode, resNode);
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
     xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
     if ( GetNode( "LoadVars", reqNode ) ) {
         TRptParams rpt_params(reqInfo->desk.lang);
         PaxListVars(point_id, rpt_params, variablesNode);
+        put_exambrd_vars(variablesNode);
         STAT::set_variables(resNode);
         NewTextChild(variablesNode, "page_number_fmt", getLocaleText("CAP.PAGE_NUMBER_FMT"));
         NewTextChild(variablesNode, "short_page_number_fmt", getLocaleText("CAP.SHORT_PAGE_NUMBER_FMT"));
@@ -583,6 +617,11 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           };
 
           TRptParams rpt_params(reqInfo->desk.lang);
+          PaxListVars(point_id, rpt_params, variablesNode);
+          put_exambrd_vars(variablesNode);
+          STAT::set_variables(resNode);
+          NewTextChild(variablesNode, "page_number_fmt", getLocaleText("CAP.PAGE_NUMBER_FMT"));
+          NewTextChild(variablesNode, "short_page_number_fmt", getLocaleText("CAP.SHORT_PAGE_NUMBER_FMT"));
           readTripCounters(point_id, rpt_params, dataNode, rtUnknown, "");
           readTripData( point_id, dataNode );
         }
