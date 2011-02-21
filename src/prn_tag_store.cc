@@ -422,13 +422,19 @@ bool TPrnTagStore::tag_processed(std::string name)
 string TPrnTagStore::get_tag(string name, string date_format, string tag_lang)
 {
     this->tag_lang.set_tag_lang(tag_lang);
-    string result;
-    if(prn_test_tags.items.empty())
-        result = get_real_field(name, 0, date_format);
-    else
-        result = get_test_field(name, 0, date_format);
-    ProgTrace(TRACE5, "get_tag: name = '%s', result = '%s'", name.c_str(), result.c_str());
-    return result;
+    try {
+        string result;
+        if(prn_test_tags.items.empty())
+            result = get_real_field(name, 0, date_format);
+        else
+            result = get_test_field(name, 0, date_format);
+        ProgTrace(TRACE5, "get_tag: name = '%s', result = '%s'", name.c_str(), result.c_str());
+        this->tag_lang.set_tag_lang("");
+        return result;
+    } catch(...) {
+        this->tag_lang.set_tag_lang("");
+        throw;
+    }
 }
 
 string TPrnTagStore::get_field(std::string name, size_t len, std::string align, std::string date_format, string tag_lang)
@@ -439,34 +445,40 @@ string TPrnTagStore::get_field(std::string name, size_t len, std::string align, 
 
     ProgTrace(TRACE5, "FIELD NAME: %s", name.c_str());
     this->tag_lang.set_tag_lang(tag_lang);
-    string result;
-    if(prn_test_tags.items.empty())
-        result = get_real_field(name, len, date_format);
-    else
-        result = get_test_field(name, len, date_format);
-    if(!len) len = result.size();
-
-    if(print_mode == 1 or print_mode == 2 and (name == TAG::PAX_ID or name == TAG::TEST_SERVER))
-        return string(len, '8');
-    if(print_mode == 2)
-        return AlignString("8", len, align);
-    if(print_mode == 3)
-        return string(len, ' ');
-
-    if(len < result.length()) {
-        if(iprops->second.length == 0 or len < iprops->second.length)
-            result = string(len, '?');
+    try {
+        string result;
+        if(prn_test_tags.items.empty())
+            result = get_real_field(name, len, date_format);
         else
-            result = result.substr(0, len);
-    } else
-        result = AlignString(result, len, align);
-    if(this->tag_lang.get_pr_lat() and not is_lat(result)) {
-        ProgError(STDLOG, "Данные печати не латинские: %s = \"%s\"", name.c_str(), result.c_str());
-        if(result.size() > 20)
-            result = result.substr(0, 20) + "...";
-        throw UserException("MSG.NO_LAT_PRN_DATA", LParams() << LParam("tag", name) << LParam("value", result));
+            result = get_test_field(name, len, date_format);
+        if(!len) len = result.size();
+
+        if(print_mode == 1 or print_mode == 2 and (name == TAG::PAX_ID or name == TAG::TEST_SERVER))
+            return string(len, '8');
+        if(print_mode == 2)
+            return AlignString("8", len, align);
+        if(print_mode == 3)
+            return string(len, ' ');
+
+        if(len < result.length()) {
+            if(iprops->second.length == 0 or len < iprops->second.length)
+                result = string(len, '?');
+            else
+                result = result.substr(0, len);
+        } else
+            result = AlignString(result, len, align);
+        if(this->tag_lang.get_pr_lat() and not is_lat(result)) {
+            ProgError(STDLOG, "Данные печати не латинские: %s = \"%s\"", name.c_str(), result.c_str());
+            if(result.size() > 20)
+                result = result.substr(0, 20) + "...";
+            throw UserException("MSG.NO_LAT_PRN_DATA", LParams() << LParam("tag", name) << LParam("value", result));
+        }
+        this->tag_lang.set_tag_lang("");
+        return result;
+    } catch(...) {
+        this->tag_lang.set_tag_lang("");
+        throw;
     }
-    return result;
 }
 
 void add_part(string &tag, std::string &part1, std::string &part2)
@@ -1583,7 +1595,12 @@ string TPrnTagStore::BR_AIRCODE(TFieldParams fp)
 
 string TPrnTagStore::BR_AIRLINE(TFieldParams fp)
 {
-    return tag_lang.ElemIdToTagElem(etAirline, rcpt.airline, efmtNameLong);
+    vector<pair<TElemFmt, string> > fmts;
+    fmts.push_back(make_pair(efmtNameShort, tag_lang.GetLang()));
+    fmts.push_back(make_pair(efmtNameLong, tag_lang.GetLang()));
+    fmts.push_back(make_pair(efmtNameShort, AstraLocale::LANG_RU));
+    fmts.push_back(make_pair(efmtNameLong, AstraLocale::LANG_RU));
+    return ElemIdToElem(etAirline, rcpt.airline, fmts);
 }
 
 string TPrnTagStore::AIRLINE_CODE(TFieldParams fp)
@@ -1690,7 +1707,7 @@ string TPrnTagStore::AMOUNT_LETTERS(TFieldParams fp)
         string str_fract = IntToString(fract) + "/100 ";
         result += str_fract;
     }
-    return result;
+    return upperc(result);
 }
 
 string TPrnTagStore::BAG_NAME(TFieldParams fp)
@@ -1739,9 +1756,12 @@ string TPrnTagStore::CURRENCY(TFieldParams fp)
 string TPrnTagStore::EX_WEIGHT(TFieldParams fp)
 {
     ostringstream result;
-    result << rcpt.ex_weight;
-    if (rcpt.form_type == "M61")
-        result << getLocaleText("MSG.BR.KG", tag_lang.GetLang());
+    ProgTrace(TRACE5, "rcpt.ex_weight = %d", rcpt.ex_weight); //!!!
+    if(rcpt.service_type == 1 || rcpt.service_type == 2) {
+        result << rcpt.ex_weight;
+        if (rcpt.form_type == "M61")
+            result << getLocaleText("MSG.BR.KG", tag_lang.GetLang());
+    }
     return result.str();
 }
 
@@ -1787,8 +1807,10 @@ string ExchToString(int rate1, string rate_cur1, double rate2, string rate_cur2,
 string TPrnTagStore::EXCHANGE_RATE(TFieldParams fp)
 {
     ostringstream result;
-    if (rcpt.pay_rate_cur != rcpt.rate_cur &&
-            (not rcpt.pr_exchange() or rcpt.form_type != "M61"))
+    if (
+            rcpt.pay_rate_cur != rcpt.rate_cur &&
+            (not (rcpt.service_type != 3 and rcpt.pr_exchange()) or rcpt.form_type != "M61")
+       )
     {
         if (rcpt.form_type != "M61" and tag_lang.GetLang() != AstraLocale::LANG_RU) result << "RATE ";
         result << ExchToString(rcpt.exch_rate, rcpt.rate_cur, rcpt.exch_pay_rate, rcpt.pay_rate_cur, tag_lang);
@@ -1971,10 +1993,12 @@ string TPrnTagStore::REMARKS1(TFieldParams fp)
 
 string TPrnTagStore::REMARKS2(TFieldParams fp)
 {
-    string result;
+    ostringstream result;
     if(rcpt.service_type == 1 || rcpt.service_type == 2)
-        result = EX_WEIGHT(fp);
-    return result;
+        result
+            << rcpt.ex_weight
+            << getLocaleText("MSG.BR.KG", tag_lang.GetLang());
+    return result.str();
 }
 
 string TBagReceipt::get_service_name(bool is_inter)
