@@ -2727,6 +2727,20 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
         if (Qry.FieldIsNULL("pr_airp_seance"))
           throw UserException("MSG.FLIGHT.SET_CHECKIN_MODE_IN_SEANCE"); //WEB
       };
+      
+      //определим - новая регистрация или запись изменений
+      bool new_checkin;
+      xmlNodePtr node = GetNode("grp_id",segNode);
+      if (node==NULL||NodeIsNULL(node))
+      {
+        grp_id=ASTRA::NoExists;
+        new_checkin=true;
+      }
+      else
+      {
+        grp_id=NodeAsInteger(node);
+        new_checkin=false;
+      };
 
       bool pr_tranz_reg=!Qry.FieldIsNULL("pr_tranz_reg")&&Qry.FieldAsInteger("pr_tranz_reg")!=0;
       bool pr_reg_with_tkn=Qry.FieldAsInteger("pr_reg_with_tkn")!=0;
@@ -2734,13 +2748,17 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
       int pr_etstatus=Qry.FieldAsInteger("pr_etstatus");
       bool pr_etl_only=GetTripSets(tsETLOnly,fltInfo);
 
-      xmlNodePtr node,node2,remNode;
+      xmlNodePtr node2,remNode;
       //проверим номера документов и билетов
       if (!pr_unaccomp&&
           (pr_reg_with_tkn||pr_reg_with_doc||
            reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION) &&
            defer_etstatus && !pr_etl_only && pr_etstatus>=0))
       {
+        Qry.Clear();
+        Qry.SQLText=
+          "SELECT ticket_rem, ticket_no, coupon_no FROM pax WHERE pax_id=:pax_id";
+        Qry.DeclareVariable("pax_id", otInteger);
         node=NodeAsNode("passengers",segNode);
         for(node=node->children;node!=NULL;node=node->next)
         {
@@ -2748,11 +2766,28 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
 
           if (reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION) &&
               defer_etstatus && !pr_etl_only && pr_etstatus>=0 && //раздельное изменение статуса и есть связь с СЭБ
-              strcmp(NodeAsStringFast("ticket_rem",node2,""),"TKNE")==0)
+              strcmp(NodeAsStringFast("ticket_rem",node2,""),"TKNE")==0 &&
+              NodeAsIntegerFast("ticket_confirm",node2)==0)
           {
-            if (NodeAsIntegerFast("ticket_confirm",node2)==0)
-              //возможно это произошло в ситуации, когда изменился у пульта defer_etstatus в true,
-              //а пульт не успел перечитать эту настройку
+            //возможно это произошло в ситуации, когда изменился у пульта defer_etstatus в true,
+            //а пульт не успел перечитать эту настройку
+            if (!new_checkin)
+            {
+              Qry.SetVariable("pax_id",NodeAsIntegerFast("pax_id",node2));
+              Qry.Execute();
+              if (Qry.Eof ||
+                  !(strcmp(NodeAsStringFast("ticket_rem",node2), Qry.FieldAsString("ticket_rem"))==0 &&
+                    strcmp(NodeAsStringFast("ticket_no",node2), Qry.FieldAsString("ticket_no"))==0 &&
+                    (NodeIsNULLFast("coupon_no",node2) && Qry.FieldIsNULL("coupon_no") ||
+                     !NodeIsNULLFast("coupon_no",node2) && !Qry.FieldIsNULL("coupon_no") &&
+                     NodeAsIntegerFast("coupon_no",node2)==Qry.FieldAsInteger("coupon_no"))
+                   ))
+              {
+                //билет отличается от ранее записанного
+                throw UserException("MSG.ETICK.NOT_CONFIRM.NEED_RELOGIN");
+              };
+            }
+            else
               throw UserException("MSG.ETICK.NOT_CONFIRM.NEED_RELOGIN");
           };
           
@@ -2781,10 +2816,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
           };
         };
       };
-
-      //определим - новая регистрация или запись изменений
-      node = GetNode("grp_id",segNode);
-      bool new_checkin=(node==NULL||NodeIsNULL(node));
+      
       if (reqInfo->client_type == ctTerm)
       {
         if (reqInfo->desk.compatible(BAG_WITH_HALL_VERSION))
@@ -2827,7 +2859,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
               //берем зал из pax_grp для этой группы
               Qry.Clear();
               Qry.SQLText="SELECT hall FROM pax_grp WHERE grp_id=:grp_id";
-              Qry.CreateVariable("grp_id", otInteger, NodeAsInteger(node));
+              Qry.CreateVariable("grp_id", otInteger, grp_id);
               Qry.Execute();
               if (!Qry.Eof && !Qry.FieldIsNULL("hall"))
                 hall=Qry.FieldAsInteger("hall");
@@ -2858,6 +2890,11 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
             ParseTransfer(GetNode("transfer",reqNode),
                           NULL,
                           s->second, trfer);
+        }
+        else
+        {
+          //заполним trfer из базы
+          LoadTransfer(grp_id, trfer);
         };
         iTrfer=trfer.begin();
       }
@@ -2876,7 +2913,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
               iTrfer->operFlt.airp!=fltInfo.airp ||
               iTrfer->airp_arv!=airp_arv)
             throw UserException("MSG.CHECKIN.DIFFERENT_TCKIN_AND_TRFER_ROUTES");
-          if (!pr_unaccomp)
+          if (!pr_unaccomp && save_trfer)
           {
             //проверим подклассы
             xmlNodePtr paxNode=NodeAsNode("passengers",segNode)->children;
@@ -3625,7 +3662,6 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
       else
       {
         //запись изменений
-        grp_id=NodeAsInteger(node);
         bool bag_refuse=(GetNode("bag_refuse",reqNode)!=NULL &&
                          !NodeIsNULL("bag_refuse",reqNode));
         bool save_trfer=false;
@@ -3917,7 +3953,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
       else
       {
         //запросом записываем в остальные группы багаж, бирки, ценный багаж
-        if (iTrfer!=trfer.end())
+        if (seg_no-1<=(int)trfer.size())
         {
           Qry.Clear();
           Qry.SQLText=
@@ -4522,7 +4558,11 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_versio
       PaxQry.Execute();
 
       if (grp_id==grp_ids.begin())
-        LoadTransfer(*grp_id,resNode);
+      {
+        vector<CheckIn::TTransferItem> trfer;
+        LoadTransfer(*grp_id,trfer);
+        BuildTransfer(trfer,resNode);
+      };
 
       node=NewTextChild(segNode,"passengers");
       for(;!PaxQry.Eof;PaxQry.Next())
@@ -4583,7 +4623,9 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_versio
       //несопровождаемый багаж
       if (grp_id==grp_ids.begin())
       {
-        LoadTransfer(*grp_id,resNode);
+        vector<CheckIn::TTransferItem> trfer;
+        LoadTransfer(*grp_id,trfer);
+        BuildTransfer(trfer,resNode);
         LoadPaxNorms(segNode,pr_unaccomp);
       };
     };
@@ -5362,59 +5404,67 @@ string CheckInInterface::SaveTransfer(int grp_id, const vector<CheckIn::TTransfe
   return msg.str();
 };
 
-void CheckInInterface::LoadTransfer(int grp_id, xmlNodePtr transferNode)
+void CheckInInterface::LoadTransfer(int grp_id, vector<CheckIn::TTransferItem> &trfer)
 {
-  if (transferNode==NULL) return;
-
-  xmlNodePtr node=NewTextChild(transferNode,"transfer");
+  trfer.clear();
   TQuery TrferQry(&OraSession);
   TrferQry.Clear();
   TrferQry.SQLText=
-    "SELECT airline,airline_fmt,flt_no,suffix,suffix_fmt,scd, "
-    "       airp_dep,airp_dep_fmt,airp_arv,airp_arv_fmt "
+    "SELECT airline,airline_fmt,flt_no,suffix,suffix_fmt,scd AS scd_out, "
+    "       airp_dep AS airp,airp_dep_fmt AS airp_fmt,airp_arv,airp_arv_fmt "
     "FROM transfer,trfer_trips "
     "WHERE transfer.point_id_trfer=trfer_trips.point_id AND "
     "      grp_id=:grp_id AND transfer_num>0 "
     "ORDER BY transfer_num";
   TrferQry.CreateVariable("grp_id",otInteger,grp_id);
   TrferQry.Execute();
-  int iDay,iMonth,iYear;
   for(;!TrferQry.Eof;TrferQry.Next())
+  {
+    trfer.push_back(CheckIn::TTransferItem());
+    CheckIn::TTransferItem &t=trfer.back();
+    t.operFlt.Init(TrferQry);
+    t.airp_arv=TrferQry.FieldAsString("airp_arv");
+    t.airp_arv_fmt=(TElemFmt)TrferQry.FieldAsInteger("airp_arv_fmt");
+  };
+  TrferQry.Close();
+};
+
+void CheckInInterface::BuildTransfer(const vector<CheckIn::TTransferItem> &trfer, xmlNodePtr transferNode)
+{
+  if (transferNode==NULL) return;
+
+  xmlNodePtr node=NewTextChild(transferNode,"transfer");
+
+  int iDay,iMonth,iYear;
+  for(vector<CheckIn::TTransferItem>::const_iterator t=trfer.begin();t!=trfer.end();t++)
   {
     xmlNodePtr trferNode=NewTextChild(node,"segment");
     NewTextChild(trferNode,"airline",
-                 ElemIdToClientElem(etAirline,
-                                    TrferQry.FieldAsString("airline"),
-                                    (TElemFmt)TrferQry.FieldAsInteger("airline_fmt")));
-    NewTextChild(trferNode,"flt_no",TrferQry.FieldAsInteger("flt_no"));
+                 ElemIdToClientElem(etAirline, t->operFlt.airline, t->operFlt.airline_fmt));
+                 
+    NewTextChild(trferNode,"flt_no",t->operFlt.flt_no);
 
-    if (!TrferQry.FieldIsNULL("suffix"))
+    if (!t->operFlt.suffix.empty())
       NewTextChild(trferNode,"suffix",
-                   ElemIdToClientElem(etSuffix,
-                                      TrferQry.FieldAsString("suffix"),
-                                      (TElemFmt)TrferQry.FieldAsInteger("suffix_fmt")));
+                   ElemIdToClientElem(etSuffix, t->operFlt.suffix, t->operFlt.suffix_fmt));
     else
       NewTextChild(trferNode,"suffix");
 
     //дата
-    DecodeDate(TrferQry.FieldAsDateTime("scd"),iYear,iMonth,iDay);
+    DecodeDate(t->operFlt.scd_out,iYear,iMonth,iDay);
     NewTextChild(trferNode,"local_date",iDay);
 
     NewTextChild(trferNode,"airp_dep",
-                 ElemIdToClientElem(etAirp,
-                                    TrferQry.FieldAsString("airp_dep"),
-                                    (TElemFmt)TrferQry.FieldAsInteger("airp_dep_fmt")));
+                 ElemIdToClientElem(etAirp, t->operFlt.airp, t->operFlt.airp_fmt));
+
     NewTextChild(trferNode,"airp_arv",
-                 ElemIdToClientElem(etAirp,
-                                    TrferQry.FieldAsString("airp_arv"),
-                                    (TElemFmt)TrferQry.FieldAsInteger("airp_arv_fmt")));
+                 ElemIdToClientElem(etAirp, t->airp_arv, t->airp_arv_fmt));
 
     NewTextChild(trferNode,"city_dep",
-                 base_tables.get("airps").get_row("code",TrferQry.FieldAsString("airp_dep")).AsString("city"));
+                 base_tables.get("airps").get_row("code",t->operFlt.airp).AsString("city"));
     NewTextChild(trferNode,"city_arv",
-                 base_tables.get("airps").get_row("code",TrferQry.FieldAsString("airp_arv")).AsString("city"));
+                 base_tables.get("airps").get_row("code",t->airp_arv).AsString("city"));
   };
-  TrferQry.Close();
 };
 
 void GetNextTagNo(int grp_id, int tag_count, vector< pair<int,int> >& tag_ranges)
