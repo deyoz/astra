@@ -3089,120 +3089,32 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
 };
 
 class BPTags {
-	private:
-		map<string,string> tags;
-		string getFieldFormat( const string &field_name, const string &format );
-		void addField( const string &field_name, const string &format = "" );
-		BPTags();
-	public:
-		void getFields( map<string,string> &atags );
-		static BPTags *Instance() {
-      static BPTags *instance_ = 0;
-      if ( !instance_ )
-        instance_ = new BPTags();
-      return instance_;
-		}
+    private:
+        std::vector<std::string> tags;
+        BPTags();
+    public:
+        void getFields( std::vector<std::string> &atags );
+        static BPTags *Instance() {
+            static BPTags *instance_ = 0;
+            if ( !instance_ )
+                instance_ = new BPTags();
+            return instance_;
+        }
 };
-
-string BPTags::getFieldFormat( const string &field_name, const string &format )
-{
-	string res;
-	if ( format == "date" )
-		res = string("[<") + field_name + "(,," + ServerFormatDateTimeAsString + ")>]";
-	else
-		if ( format == "lat" )
-			res = string("[<") + field_name + "(,,,E)>]";
-		else
-			res = string("[<") + field_name + ">]";
-  return res;
-}
-
-void BPTags::addField( const string &field_name, const string &format )
-{
-	tags[ field_name ] = getFieldFormat( field_name, format );
-}
 
 BPTags::BPTags()
 {
-	addField( "act", "date" );
-	addField( "airline" );
-	addField( "airline_lat", "lat" );
-	addField( "airline_short" );
-	addField( "airline_short_lat", "lat" );
-	addField( "airp_arv" );
-	addField( "airp_arv_lat", "lat" );
-	addField( "airp_arv_name" );
-	addField( "airp_arv_name_lat", "lat" );
-	addField( "airp_dep" );
-	addField( "airp_dep_lat", "lat" );
-	addField( "airp_dep_name" );
-	addField( "airp_dep_name_lat", "lat" );
-	addField( "bag_amount" );
-	addField( "bag_weight" );
-	addField( "bort" );
-	addField( "bort_lat", "lat" );
-	addField( "brd_from", "date" );
-	addField( "brd_to", "date" );
-	addField( "city_arv" );
-	addField( "city_arv_lat", "lat" );
-	addField( "city_arv_name" );
-	addField( "city_arv_name_lat", "lat" );
-	addField( "city_dep" );
-	addField( "city_dep_lat", "lat" );
-	addField( "city_dep_name" );
-	addField( "city_dep_name_lat", "lat" );
-	addField( "class" );
-	addField( "class_lat", "lat" );
-	addField( "class_name" );
-	addField( "class_name_lat", "lat" );
-	addField( "coupon_no" );
-	addField( "craft" );
-	addField( "craft_lat", "lat" );
-	addField( "document" );
-	addField( "est", "date" );
-	addField( "eticket_no" );
-	addField( "excess" );
-	addField( "flt_no" );
-	addField( "flt_no_lat", "lat" );
-	addField( "fqt" );
-	addField( "fqt_lat", "lat" );
-	addField( "fullname" );
-	addField( "fullname_lat", "lat" );
-	addField( "list_seat_no" );
-	addField( "list_seat_no_lat", "lat" );
-	addField( "name" );
-	addField( "name_lat", "lat" );
-	addField( "no_smoke" );
-	addField( "one_seat_no" );
-	addField( "one_seat_no_lat", "lat" );
-	addField( "pax_id" );
-	addField( "pers_type" );
-	addField( "pers_type_lat", "lat" );
-	addField( "pers_type_name" );
-	addField( "pnr" );
-	addField( "pr_smoke" );
-	addField( "reg_no" );
-	addField( "rk_weight" );
-	addField( "scd", "date" );
-	addField( "seat_no" );
-	addField( "seat_no_lat", "lat" );
-	addField( "seats" );
-	addField( "smoke" );
-	addField( "str_seat_no" );
-	addField( "str_seat_no_lat", "lat" );
-	addField( "subclass" );
-	addField( "subclass_lat", "lat" );
-	addField( "suffix" );
-	addField( "suffix_lat", "lat" );
-	addField( "surname" );
-	addField( "surname_lat", "lat" );
-	addField( "tags" );
-	addField( "tags_lat", "lat" );
-	addField( "ticket_no" );
-	addField( "bcbp_m_2", "lat" );
+	TQuery Qry(&OraSession);
+	Qry.SQLText = "select code from prn_tag_props where op_type = :op_type order by code";
+    Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBP));
+    Qry.Execute();
+    for(; not Qry.Eof; Qry.Next()) {
+        if(TAG::GATE == Qry.FieldAsString("code")) continue;
+        tags.push_back(lowerc(Qry.FieldAsString("code")));
+    }
 }
 
-void BPTags::getFields( map<string,string> &atags )
+void BPTags::getFields( vector<string> &atags )
 {
 	atags.clear();
 	atags = tags;
@@ -3232,15 +3144,16 @@ void WebRequestsIface::GetBPTags(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 		throw UserException( "MSG.PASSENGER.NOT_FOUND" );
 	int point_id = Qry.FieldAsInteger( "point_dep" );
 	PrintDataParser parser( Qry.FieldAsInteger( "grp_id" ), pax_id, 0, NULL );
-	map<string,string> tags;
+	vector<string> tags;
 	BPTags::Instance()->getFields( tags );
-	string value;
 	node = NewTextChild( resNode, "GetBPTags" );
-	for ( map<string,string>::iterator i=tags.begin(); i!=tags.end(); i++ ) {
-		value = parser.parse( i->second );
-		NewTextChild( node, i->first.c_str(), value );
-		ProgTrace( TRACE5, "field name=%s, value=%s", i->first.c_str(), value.c_str() );
-	}
+    for ( vector<string>::iterator i=tags.begin(); i!=tags.end(); i++ ) {
+        for(int j = 0; j < 2; j++) {
+            string value = parser.pts.get_tag(*i, ServerFormatDateTimeAsString, (j == 0 ? "R" : "E"));
+            NewTextChild( node, (*i + (j == 0 ? "" : "_lat")), value );
+            ProgTrace( TRACE5, "field name=%s, value=%s", (*i + (j == 0 ? "" : "_lat")).c_str(), value.c_str() );
+        }
+    }
 	Qry.Clear();
 	Qry.SQLText =
     "SELECT stations.name FROM stations,trip_stations "

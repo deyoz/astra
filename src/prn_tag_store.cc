@@ -166,8 +166,10 @@ void TPrnTagStore::TPrnTestTags::Init()
 
 void TPrnTagStore::TTagProps::Init(TDevOperType vop)
 {
+    ProgTrace(TRACE5, "TTagProps::Init: %s", EncodeDevOperType(vop).c_str());
     if(op == vop) return;
     op = vop;
+    ProgTrace(TRACE5, "TTagProps::Init: load from base");
     TQuery Qry(&OraSession);
     Qry.SQLText = "select code, length, pr_except from prn_tag_props where op_type = :op_type";
     Qry.CreateVariable("op_type", otString, EncodeDevOperType(op));
@@ -424,11 +426,11 @@ string TPrnTagStore::get_tag(string name, string date_format, string tag_lang)
     this->tag_lang.set_tag_lang(tag_lang);
     try {
         string result;
+        name = upperc(name);
         if(prn_test_tags.items.empty())
             result = get_real_field(name, 0, date_format);
         else
             result = get_test_field(name, 0, date_format);
-        ProgTrace(TRACE5, "get_tag: name = '%s', result = '%s'", name.c_str(), result.c_str());
         this->tag_lang.set_tag_lang("");
         return result;
     } catch(...) {
@@ -443,7 +445,6 @@ string TPrnTagStore::get_field(std::string name, size_t len, std::string align, 
     if(iprops == prn_tag_props.items.end())
         throw Exception("Tag props not found for name = '%s'", name.c_str());
 
-    ProgTrace(TRACE5, "FIELD NAME: %s", name.c_str());
     this->tag_lang.set_tag_lang(tag_lang);
     try {
         string result;
@@ -461,9 +462,12 @@ string TPrnTagStore::get_field(std::string name, size_t len, std::string align, 
             return string(len, ' ');
 
         if(len < result.length()) {
-            if(iprops->second.length == 0 or len < iprops->second.length)
-                result = string(len, '?');
-            else
+            if(iprops->second.length == 0 or len < iprops->second.length) {
+                if(iprops->second.pr_except)
+                    throw Exception("Длина данных больше длины тега '%s'", name.c_str());
+                else
+                    result = string(len, '?');
+            } else
                 result = result.substr(0, len);
         } else
             result = AlignString(result, len, align);
@@ -1306,7 +1310,6 @@ string TPrnTagStore::STR_SEAT_NO(TFieldParams fp)
         "from dual";
     Qry.CreateVariable("pax_id", otInteger, paxInfo.pax_id);
     Qry.CreateVariable("seats", otInteger, paxInfo.seats);
-    ProgTrace(TRACE5, "tag_lang.GetLang(): '%s'", tag_lang.GetLang().c_str());
     Qry.CreateVariable("is_inter", otInteger, tag_lang.GetLang() != AstraLocale::LANG_RU);
     Qry.Execute();
     return Qry.FieldAsString("seat_no");
@@ -1321,7 +1324,6 @@ string TPrnTagStore::LIST_SEAT_NO(TFieldParams fp)
         "from dual";
     Qry.CreateVariable("pax_id", otInteger, paxInfo.pax_id);
     Qry.CreateVariable("seats", otInteger, paxInfo.seats);
-    ProgTrace(TRACE5, "tag_lang.GetLang(): '%s'", tag_lang.GetLang().c_str());
     Qry.CreateVariable("is_inter", otInteger, tag_lang.GetLang() != AstraLocale::LANG_RU);
     Qry.Execute();
     return Qry.FieldAsString("seat_no");
@@ -1756,7 +1758,6 @@ string TPrnTagStore::CURRENCY(TFieldParams fp)
 string TPrnTagStore::EX_WEIGHT(TFieldParams fp)
 {
     ostringstream result;
-    ProgTrace(TRACE5, "rcpt.ex_weight = %d", rcpt.ex_weight); //!!!
     if(rcpt.service_type == 1 || rcpt.service_type == 2) {
         result << rcpt.ex_weight;
         if (rcpt.form_type == "M61")
@@ -1831,7 +1832,6 @@ string TBagReceipt::issue_place_idx(int idx)
         throw Exception("TBagReceipt::issue_place_idx: idx out of range: %d", idx);
     if(f_issue_place_idx.empty()) {
         string buf = issue_place;
-        ProgTrace(TRACE5, "BUFFER: %s", buf.c_str());
         int line_num = 0;
         while(line_num < 5) {
             string::size_type i = buf.find('\n');
