@@ -5094,9 +5094,9 @@ void CheckInInterface::ParseTransfer(xmlNodePtr trferNode,
   string strh;
   string prior_airp_arv_id=airp_arv;
   TDateTime local_scd=scd_out_local;
-  for(trferNode=trferNode->children;trferNode!=NULL;trferNode=trferNode->next,trfer_num++)
+  for(xmlNodePtr node=trferNode->children;node!=NULL;node=node->next,trfer_num++)
   {
-    xmlNodePtr node2=trferNode->children;
+    xmlNodePtr node2=node->children;
     
     ostringstream flt;
     flt << NodeAsStringFast("airline",node2)
@@ -5464,6 +5464,9 @@ void CheckInInterface::BuildTransfer(const vector<CheckIn::TTransferItem> &trfer
                  base_tables.get("airps").get_row("code",t->operFlt.airp).AsString("city"));
     NewTextChild(trferNode,"city_arv",
                  base_tables.get("airps").get_row("code",t->airp_arv).AsString("city"));
+                 
+    if (!TReqInfo::Instance()->desk.compatible(NEW_TERM_VERSION))
+      NewTextChild(trferNode, "subclass");
   };
 };
 
