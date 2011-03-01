@@ -2577,6 +2577,8 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
       Qry.Execute();
       if (!Qry.Eof && !Qry.FieldIsNULL("defer_etstatus"))
         defer_etstatus=Qry.FieldAsInteger("defer_etstatus")!=0;
+      else
+        defer_etstatus=true;
     }
     else defer_etstatus=true;
   };
@@ -5742,7 +5744,22 @@ void CheckInInterface::SaveBag(int point_id, int grp_id, int hall, xmlNodePtr ba
         if (NodeAsIntegerFast("pr_cabin",node2)==0) bagAmount+=NodeAsIntegerFast("amount",node2);
       };
     if (tagNode!=NULL)
-      for(node=tagNode->children;node!=NULL;node=node->next,tagCount++);
+      for(node=tagNode->children;node!=NULL;)
+      {
+        if (strcmp((const char*)node->name,"generated_tag")==0)
+        {
+          //отвяжем бирки, сгенерированные при откаченной транзакции перед сменой ЭБ
+          node2=node->next;
+          xmlUnlinkNode(node);
+          xmlFreeNode(node);
+          node=node2;
+        }
+        else
+        {
+          tagCount++;
+          node=node->next;
+        };
+      };
 
     ProgTrace(TRACE5,"bagAmount=%d tagCount=%d",bagAmount,tagCount);
     bool pr_tag_print=NodeAsInteger("@pr_print",tagNode)!=0;
@@ -5765,7 +5782,7 @@ void CheckInInterface::SaveBag(int point_id, int grp_id, int hall, xmlNodePtr ba
         {
           for(int i=r->first;i<=r->second;i++,tagCount++)
           {
-            node=NewTextChild(tagNode,"tag");
+            node=NewTextChild(tagNode,"generated_tag");
             NewTextChild(node,"num",tagCount+1);
             NewTextChild(node,"tag_type",tag_type);
             NewTextChild(node,"no",i);
