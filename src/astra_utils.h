@@ -268,13 +268,6 @@ char DecodeStatus(char* s);
 BASIC::TDateTime DecodeTimeFromSignedWord( signed short int Value );
 signed short int EncodeTimeToSignedWord( BASIC::TDateTime Value );
 
-namespace ASTRA {
-void showProgError(const std::string &message, int code = 0  );
-void showError(const std::string &message, int code = 0 );
-void showErrorMessage( const std::string &message, int code = 0 );
-void showMessage( const std::string &message, int code = 0  );
-void showErrorMessageAndRollback(const std::string &message, int code = 0  );
-}
 void showBasicInfo(void);
 
 namespace AstraLocale {
@@ -304,6 +297,8 @@ void showErrorMessageAndRollback(const std::string &vlexema, const LParams &apar
 
 std::string getLocaleText(xmlNodePtr lexemeNode);
 void LexemeDataToXML(const AstraLocale::LexemaData &lexemeData, xmlNodePtr lexemeNode);
+
+void getLexemaText( LexemaData lexemaData, std::string &text, std::string &master_lexema_id, std::string lang = "" );
 } // end namespace astraLocale
 
 

@@ -808,49 +808,9 @@ signed short int EncodeTimeToSignedWord( TDateTime Value )
   return ( (int)Value )*1440 + Hour*60 + Min;
 };
 
-namespace ASTRA {
-void showProgError(const std::string &message, int code )
-{
-  XMLRequestCtxt *xmlRC = getXmlCtxt();
-  xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
-  resNode = ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "error", message );
-  SetProp(resNode, "code", code);
-};
-
-void showError(const std::string &message, int code)
-{
-  XMLRequestCtxt *xmlRC = getXmlCtxt();
-  xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
-  resNode = ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "user_error", message );
-  SetProp(resNode, "code", code);
-};
-
-void showErrorMessage(const std::string &message, int code )
-{
-  XMLRequestCtxt *xmlRC = getXmlCtxt();
-  xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
-  resNode =  ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "user_error_message", message );
-  SetProp(resNode, "code", code);
-};
-
-void showErrorMessageAndRollback(const std::string &message, int code )
-{
-  showErrorMessage(message,code);
-  throw UserException2();
-}
-
-void showMessage(const std::string &message, int code )
-{
-  XMLRequestCtxt *xmlRC = getXmlCtxt();
-  xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
-  resNode = ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "message", message );
-  SetProp(resNode, "code", code);
-};
-} // end namespace ASTRA
-
 namespace AstraLocale {
 
-void getLexemaText( LexemaData lexemaData, string &text, string &master_lexema_id, string lang = "" )
+void getLexemaText( LexemaData lexemaData, string &text, string &master_lexema_id, string lang )
 {
   text.clear();
   master_lexema_id.clear();
@@ -1590,8 +1550,8 @@ string transliter(const string &value, int fmt, bool pr_lat)
           case 'Ö': c2 = "E"; break;
           case '': switch(fmt)
                     {
-                      case 2:  c2 = "YO";
-                      default: c2 = "IO";
+                      case 2:  c2 = "IO";
+                      default: c2 = "YO";
                     };
                     break;
           case 'Ü': c2 = "ZH"; break;
@@ -1615,8 +1575,8 @@ string transliter(const string &value, int fmt, bool pr_lat)
           case 'ò': c2 = "SH"; break;
           case 'ô': switch(fmt)
                     {
-                      case 2:  c2 = "SH";
-                      default: c2 = "SHCH";
+                      case 2:  c2 = "SHCH";
+                      default: c2 = "SH";
                     };
                     break;
           case 'ö': c2 = ""; break;
@@ -1625,14 +1585,14 @@ string transliter(const string &value, int fmt, bool pr_lat)
           case 'ù': c2 = "E"; break;
           case 'û': switch(fmt)
                     {
-                      case 2:  c2 = "YU";
-                      default: c2 = "IU";
+                      case 2:  c2 = "IU";
+                      default: c2 = "YU";
                     };
                     break;
           case 'ü': switch(fmt)
                     {
-                      case 2:  c2 = "YA";
-                      default: c2 = "IA";
+                      case 2:  c2 = "IA";
+                      default: c2 = "YA";
                     };
                     break;
           default:  c2 = "?";

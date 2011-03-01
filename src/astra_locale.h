@@ -111,24 +111,24 @@ class UserException:public EXCEPTIONS::Exception
         int FCode;
 	public:
     int Code() { return FCode; };
-    UserException( int code, std::string vlexema, LParams &aparams):EXCEPTIONS::Exception(vlexema)
+    UserException( int code, const std::string &vlexema, const LParams &aparams):EXCEPTIONS::Exception(vlexema)
     {
     	lparams = aparams;
     	lexema_id = vlexema;
         FCode = code;
     }
-    UserException( std::string vlexema, LParams &aparams):EXCEPTIONS::Exception(vlexema)
+    UserException( const std::string &vlexema, const LParams &aparams):EXCEPTIONS::Exception(vlexema)
     {
     	lparams = aparams;
     	lexema_id = vlexema;
         FCode = 0;
     }
-    UserException( int code, std::string vlexema):EXCEPTIONS::Exception(vlexema)
+    UserException( int code, const std::string &vlexema):EXCEPTIONS::Exception(vlexema)
     {
     	lexema_id = vlexema;
         FCode = code;
     }
-    UserException( std::string vlexema):EXCEPTIONS::Exception(vlexema)
+    UserException( const std::string &vlexema):EXCEPTIONS::Exception(vlexema)
     {
     	lexema_id = vlexema;
         FCode = 0;
@@ -139,7 +139,7 @@ class UserException:public EXCEPTIONS::Exception
     	data.lparams = lparams;
     	return data;
     }
-    virtual ~UserException() throw();
+    virtual ~UserException() throw(){};
 };
 
 
@@ -242,3 +242,5 @@ void buildMsg( const std::string &lang, LexemaData &lexemaData, std::string &tex
 
 } //end namespace AstraLocale
 #endif /*_ASTRA_LOCALE_H_*/
+
+

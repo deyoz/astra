@@ -192,22 +192,6 @@ void buildMsg( const std::string &lang, LexemaData &lexemaData, std::string &tex
     }
 }
 
-
-/*string UserException::getMsg( const std::string &lang )
-{
-	tst();
-	LexemaData lexemaData;
-	lexemaData.lexema_id = lexema_id;
-	lexemaData.lparams = lparams;
-	string res;
-	buildMsg( lang, lexemaData, res );
-	return res;
-}*/
-
-UserException::~UserException() throw()
-{
-};
-
 TLocaleFormat LParser::getFormat( std::string &format_val )
 {
     if(format_val == FORMAT_LINE_BREAK)

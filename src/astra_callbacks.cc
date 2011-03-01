@@ -174,38 +174,128 @@ void AstraJxtCallbacks::UserBefore(const std::string &head, const std::string &b
     ServerFramework::getQueryRunner().setPult(xmlRC->pult);
 }
 
+void CheckTermResDoc( xmlNodePtr resNode )
+{
+  xmlNodePtr errNode=NULL;
+	int errPriority=ASTRA::NoExists;
+	for(xmlNodePtr node=resNode->children; node!=NULL; node=node->next)
+	{
+	  if (strcmp((const char*)node->name,"command")==0)
+	  {
+	    for(xmlNodePtr cmdNode=node->children; cmdNode!=NULL; cmdNode=cmdNode->next)
+	    {
+	      int priority=ASTRA::NoExists;
+	      if (strcmp((const char*)cmdNode->name,"error")==0) priority=1;
+	      if (strcmp((const char*)cmdNode->name,"user_error")==0) priority=2;
+	      if (strcmp((const char*)cmdNode->name,"user_error_message")==0) priority=3;
+	      if (strcmp((const char*)cmdNode->name,"message")==0) priority=4;
+	      if (priority!=ASTRA::NoExists &&
+            (errPriority==ASTRA::NoExists || priority<errPriority))
+        {
+          errNode=cmdNode;
+          errPriority = priority;
+        };
+      };
+	  };
+  };
+  
+  if (errNode!=NULL)
+  {
+    for(xmlNodePtr node=resNode->children; node!=NULL; node=node->next)
+  	{
+  	  if (strcmp((const char*)node->name,"command")==0)
+  	  {
+        for(xmlNodePtr cmdNode=node->children; cmdNode!=NULL; )
+        {
+          if (cmdNode!=errNode)
+          {
+            xmlNodePtr node2=cmdNode->next;
+	          xmlUnlinkNode(cmdNode);
+	          xmlFreeNode(cmdNode);
+	          cmdNode=node2;
+	        }
+	        else
+	          cmdNode=cmdNode->next;
+        };
+  	  };
+  	};
+  };
+};
+
 void RevertWebResDoc( const char* answer_tag, xmlNodePtr resNode )
 {
-	// если есть тег <error> || <user_error>, то все остальное удаляем их из xml дерева
-	std::vector<xmlNodePtr> vnodes;
-	xmlNodePtr ne;
-	ne = GetNode( "command/error", resNode );
-	if ( ne == NULL )
-	  ne = GetNode( "command/user_error", resNode );
-	if ( ne != NULL ) {
-		std::string error_message = NodeAsString( ne );
-		std::string error_code = NodeAsString( "@code", ne, "0" );
-		std::string lexema_id = NodeAsString( "@lexema_id", ne, "" );
-		xmlNodePtr n = resNode->children;
-    while ( n != NULL ) {
-   		vnodes.push_back( n );
-     	n = n->next;
+	// если есть тег <error> || <checkin_user_error> || <user_error>, то все остальное удаляем их из xml дерева
+	xmlNodePtr errNode=NULL;
+	int errPriority=ASTRA::NoExists;
+	for(xmlNodePtr node=resNode->children; node!=NULL; node=node->next)
+	{
+	  if (strcmp((const char*)node->name,"command")==0)
+	  {
+	    for(xmlNodePtr cmdNode=node->children; cmdNode!=NULL; cmdNode=cmdNode->next)
+	    {
+	      int priority=ASTRA::NoExists;
+	      if (strcmp((const char*)cmdNode->name,"error")==0) priority=1;
+	      if (strcmp((const char*)cmdNode->name,"checkin_user_error")==0) priority=2;
+	      if (strcmp((const char*)cmdNode->name,"user_error")==0) priority=3;
+	      if (priority!=ASTRA::NoExists &&
+            (errPriority==ASTRA::NoExists || priority<errPriority))
+        {
+          errNode=cmdNode;
+          errPriority = priority;
+        };
+      };
+	  };
+  };
+  
+  std::string error_code, error_message;
+  if (errNode!=NULL)
+  {
+    if (strcmp((const char*)errNode->name,"error")==0 ||
+        strcmp((const char*)errNode->name,"user_error")==0)
+    {
+      error_message = NodeAsString(errNode);
+      error_code = NodeAsString( "@lexema_id", errNode, "" );
+    };
+    //отцепляем
+    xmlUnlinkNode(errNode);
+  };
+  
+  ProgTrace(TRACE5, "blablabla errPriority=%d error_code=%s error_message=%s",
+            errPriority, error_code.c_str(), error_message.c_str());
+    
+  for(xmlNodePtr node=resNode->children; node!=NULL;)
+  {
+ 	  //отцепляем и удаляем либо все, либо <command> внутри <answer>
+	  xmlNodePtr node2=node->next;
+    if (errNode!=NULL || strcmp((const char*)node->name,"command")==0)
+    {
+	    xmlUnlinkNode(node);
+	    xmlFreeNode(node);
+	  };
+	  node=node2;
+  };
+  
+  if (errNode!=NULL)
+  {
+    resNode=NewTextChild( resNode, answer_tag );
+    
+    if (strcmp((const char*)errNode->name,"error")==0 ||
+        strcmp((const char*)errNode->name,"user_error")==0)
+    {
+      NewTextChild( resNode, "error_code", error_code );
+      NewTextChild( resNode, "error_message", error_message );
     }
-    resNode = NewTextChild( resNode, answer_tag ); // command tag
-    //NewTextChild( resNode, "error_code", error_code );
-    NewTextChild( resNode, "error_code", lexema_id );
-    NewTextChild( resNode, "error_message", error_message );
-	}
-	else { // если есть тег <message> || <user_error_message>, то удаляем их из xml дерева
-		if ( GetNode( "command/user_error_message", resNode ) != NULL ||
-			   GetNode( "command/message", resNode ) != NULL ) {
-     	vnodes.push_back( GetNode( "command", resNode ) );
-		}
-	}
-  for ( std::vector<xmlNodePtr>::iterator i=vnodes.begin(); i!=vnodes.end(); i++ ) {
-   	xmlUnlinkNode( *i );
-   	xmlFreeNode( *i );
-  }
+    else
+    {
+      xmlNodePtr segsNode=errNode->children;
+      if (segsNode!=NULL)
+      {
+        xmlUnlinkNode(segsNode);
+        xmlAddChild( resNode, segsNode);
+      };
+    };
+    xmlFreeNode(errNode);
+  };
 }
 
 
@@ -219,6 +309,8 @@ void AstraJxtCallbacks::UserAfter()
 	  if ( TReqInfo::Instance()->client_type == ctWeb ||
 	       TReqInfo::Instance()->client_type == ctKiosk )
 	  	RevertWebResDoc( (const char*)xmlRC->reqDoc->children->children->children->name, node );
+	  else
+	    CheckTermResDoc( node );
 }
 
 
@@ -240,7 +332,7 @@ void AstraJxtCallbacks::HandleException(ServerFramework::Exception *e)
       xmlNodePtr node2;
       while(node!=NULL)
       {
-          if (strcmp((char*)node->name,"basic_info")!=0&&strcmp((char*)node->name,"command")!=0)
+          if (strcmp((const char*)node->name,"basic_info")!=0&&strcmp((const char*)node->name,"command")!=0)
           {
               node2=node;
               node=node->next;
@@ -261,23 +353,26 @@ void AstraJxtCallbacks::HandleException(ServerFramework::Exception *e)
           	default:
           	  ProgError(STDLOG,"EOracleError %d: %s",orae->Code,orae->what());
           	  ProgError(STDLOG,"SQL: %s",orae->SQLText());
-              showProgError("MSG.QRY_HANDLER_ERR.CALL_ADMIN");
+              AstraLocale::showProgError("MSG.QRY_HANDLER_ERR.CALL_ADMIN");
           }
           throw 1;
       };
+      
+      
       AstraLocale::UserException *lue = dynamic_cast<AstraLocale::UserException*>(e);
       if (lue)
       {
           AstraLocale::showError( lue->getLexemaData(), lue->Code() );
+          
+          CheckIn::UserException *cue = dynamic_cast<CheckIn::UserException*>(e);
+          if (cue)
+          {
+            CheckIn::showError( cue->segs );
+          };
+
           throw 1;
       }
-      /*EXCEPTIONS::UserException *ue = dynamic_cast<EXCEPTIONS::UserException*>(e);
-      if (ue)
-      {
-          ProgTrace( TRACE5, "UserException: %s", ue->what() );
-          showError(ue->what(), ue->Code());
-          throw 1;
-      }*/
+
       std::logic_error *exp = dynamic_cast<std::logic_error*>(e);
       if (exp)
           ProgError(STDLOG,"std::logic_error: %s",exp->what());
