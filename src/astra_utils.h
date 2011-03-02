@@ -297,6 +297,7 @@ void showErrorMessageAndRollback(const std::string &vlexema, const LParams &apar
 
 std::string getLocaleText(xmlNodePtr lexemeNode);
 void LexemeDataToXML(const AstraLocale::LexemaData &lexemeData, xmlNodePtr lexemeNode);
+void LexemeDataFromXML(xmlNodePtr lexemeNode, AstraLocale::LexemaData &lexemeData);
 
 void getLexemaText( LexemaData lexemaData, std::string &text, std::string &master_lexema_id, std::string lang = "" );
 } // end namespace astraLocale

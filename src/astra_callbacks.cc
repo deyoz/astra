@@ -259,9 +259,6 @@ void RevertWebResDoc( const char* answer_tag, xmlNodePtr resNode )
     //отцепляем
     xmlUnlinkNode(errNode);
   };
-  
-  ProgTrace(TRACE5, "blablabla errPriority=%d error_code=%s error_message=%s",
-            errPriority, error_code.c_str(), error_message.c_str());
     
   for(xmlNodePtr node=resNode->children; node!=NULL;)
   {

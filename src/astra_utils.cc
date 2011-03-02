@@ -985,12 +985,7 @@ std::string getLocaleText(xmlNodePtr lexemeNode)
 {
   if (lexemeNode==NULL) return "";
   LexemaData lexemeData;
-  lexemeData.lexema_id=NodeAsString("id",lexemeNode);
-  xmlNodePtr node=NodeAsNode("params",lexemeNode)->children;
-  for(;node!=NULL;node=node->next)
-  {
-    lexemeData.lparams << LParam((const char*)node->name, NodeAsString(node));
-  };
+  LexemeDataFromXML(lexemeNode, lexemeData);
   return getLocaleText(lexemeData);
 }
 
@@ -1004,6 +999,19 @@ void LexemeDataToXML(const LexemaData &lexemeData, xmlNodePtr lexemeNode)
     NewTextChild(node,p->first,lexemeData.lparams.StringValue(p->first));
   };
 }
+
+void LexemeDataFromXML(xmlNodePtr lexemeNode, LexemaData &lexemeData)
+{
+  lexemeData.lexema_id.clear();
+  lexemeData.lparams.clear();
+  if (lexemeNode==NULL) return;
+  lexemeData.lexema_id=NodeAsString("id",lexemeNode);
+  xmlNodePtr node=NodeAsNode("params",lexemeNode)->children;
+  for(;node!=NULL;node=node->next)
+  {
+    lexemeData.lparams << LParam((const char*)node->name, NodeAsString(node));
+  };
+};
 
 } // end namespace AstraLocale
 

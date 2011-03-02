@@ -149,7 +149,7 @@ LexemaData LParams::LexemaDataValue( const std::string &name, const boost::any &
 
 void buildMsg( const std::string &lang, LexemaData &lexemaData, std::string &text, std::string &master_lexema )
 {
-    if ( master_lexema.empty() && lexemaData.lexema_id.find( FORMAT_MSG ) != string::npos )
+    if ( master_lexema.find( FORMAT_MSG ) != 0 )
         master_lexema = lexemaData.lexema_id;
     char vval[500];
     LexemaData ld;

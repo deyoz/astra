@@ -103,6 +103,8 @@ struct LexemaData {
 	LParams lparams;
 };
 
+void buildMsg( const std::string &lang, LexemaData &lexemaData, std::string &text, std::string &master_lexema_id );
+
 class UserException:public EXCEPTIONS::Exception
 {
 	private:
@@ -133,12 +135,31 @@ class UserException:public EXCEPTIONS::Exception
     	lexema_id = vlexema;
         FCode = 0;
     }
-    LexemaData getLexemaData( ) {
+    LexemaData getLexemaData( ) const {
     	LexemaData data;
     	data.lexema_id = lexema_id;
     	data.lparams = lparams;
     	return data;
     }
+    virtual const char* what() const throw()
+    {
+      LexemaData lexemeData=getLexemaData();
+      if (lexemeData.lexema_id.empty()) return EXCEPTIONS::Exception::what();
+      std::string text, master_lexema_id;
+      try
+      {
+        buildMsg( LANG_EN, lexemeData, text, master_lexema_id );
+        return text.c_str();
+      }
+      catch (...) {};
+      try
+      {
+        buildMsg( LANG_RU, lexemeData, text, master_lexema_id );
+        return text.c_str();
+      }
+      catch (...) {};
+      return lexemeData.lexema_id.c_str();
+    };
     virtual ~UserException() throw(){};
 };
 
@@ -237,8 +258,6 @@ class TLocaleMessages
 		std::string getText( const std::string &lexema_id, const std::string &lang );
 		static TLocaleMessages *Instance();
 };
-
-void buildMsg( const std::string &lang, LexemaData &lexemaData, std::string &text, std::string &master_lexema_id );
 
 } //end namespace AstraLocale
 #endif /*_ASTRA_LOCALE_H_*/
