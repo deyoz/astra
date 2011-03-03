@@ -1484,7 +1484,7 @@ string TPrnTagStore::PNR(TFieldParams fp) {
     string pnr;
     if (!pnrInfo.pnrs.empty()) {
         pnr = convert_pnr_addr(pnrInfo.pnrs[0].addr, tag_lang.GetLang() != AstraLocale::LANG_RU);
-        if(pnrInfo.pnrs[0].airline!=pnrInfo.airline and pnr.size() + strlen(pnrInfo.pnrs[0].airline) + 1 >= fp.len)
+        if(pnrInfo.pnrs[0].airline!=pnrInfo.airline and pnr.size() + strlen(pnrInfo.pnrs[0].airline) + 1 <= fp.len)
             pnr += "/" + tag_lang.ElemIdToTagElem(etAirline, pnrInfo.pnrs[0].airline, efmtCodeNative);
     }
     return pnr;
