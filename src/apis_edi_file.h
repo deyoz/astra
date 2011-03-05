@@ -1,5 +1,5 @@
 //
-// C++ Interface: czech_police_edi_file
+// C++ Interface: apis_edi_file
 //
 // Description:
 //
@@ -9,8 +9,8 @@
 // Copyright: See COPYING file that comes with this distribution
 //
 //
-#ifndef _CZECH_POLICE_EDI_FILE_H_
-#define _CZECH_POLICE_EDI_FILE_H_
+#ifndef _APIS_EDI_FILE_H_
+#define _APIS_EDI_FILE_H_
 
 #include <string>
 #include <list>
@@ -647,4 +647,4 @@ namespace Paxlst
 
 
 
-#endif//_CZECH_POLICE_EDI_FILE_H_
+#endif//_APIS_EDI_FILE_H_

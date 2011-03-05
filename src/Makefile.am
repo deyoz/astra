@@ -18,6 +18,7 @@ astra_SOURCES = \
   adm.cc \
   access.cc \
   aodb.cc \
+  apis_edi_file.cc \
   arx_daily.cc \
   astra_callbacks.cc \
   astra_consts.cc \
@@ -37,7 +38,6 @@ astra_SOURCES = \
   checkin.cc \
   convert.cc \
   crypt.cc \
-  czech_police_edi_file.cpp \
   design_blank.cc \
   dev_consts.cc \
   dev_tuning.cc \
@@ -100,6 +100,7 @@ noinst_HEADERS = \
   adm.h \
   access.h \
   aodb.h \
+  apis_edi_file.h \
   arx_daily.h \
   astra_callbacks.h \
   astra_consts.h \
@@ -122,7 +123,6 @@ noinst_HEADERS = \
   checkin.h \
   convert.h \
   crypt.h \
-  czech_police_edi_file.h \
   design_blank.h \
   dev_consts.h \
   dev_tuning.h \

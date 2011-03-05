@@ -351,6 +351,7 @@ bool transliter_equal(const std::string &value1, const std::string &value2);
 bool is_lat(const std::string &value);
 
 int getTCLParam(const char* name, int min, int max, int def);
+std::string getTCLParam(const char* name, const char* def);
 const char* OWN_POINT_ADDR();
 const char* SERVER_ID();
 const bool USE_SEANCES();

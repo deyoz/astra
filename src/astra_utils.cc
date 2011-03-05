@@ -1024,6 +1024,8 @@ int getTCLParam(const char* name, int min, int max, int def)
   {
     if ( get_param( name, r, sizeof( r ) ) < 0 )
       throw EXCEPTIONS::Exception( "Can't read TCL param %s", name );
+    if (r[0]==0)
+      throw EXCEPTIONS::Exception( "Empty TCL param %s", name );
     if ( StrToInt(r,res)==EOF ||
          min!=NoExists && res<min ||
          max!=NoExists && res>max)
@@ -1037,6 +1039,31 @@ int getTCLParam(const char* name, int min, int max, int def)
   };
 
   ProgTrace( TRACE5, "TCL param %s=%d", name, res );
+  return res;
+};
+
+//если def==NULL, тогда в случае ненахождения name ругаемся
+string getTCLParam(const char* name, const char* def)
+{
+  const char* res=NULL;
+  char r[100];
+  r[0]=0;
+  try
+  {
+    if ( get_param( name, r, sizeof( r ) ) < 0 )
+      throw EXCEPTIONS::Exception( "Can't read TCL param %s", name );
+    if (r[0]==0)
+      throw EXCEPTIONS::Exception( "Empty TCL param %s", name );
+    res=r;
+  }
+  catch(std::exception &e)
+  {
+    if (def==NULL) throw;
+    res=def;
+    ProgError( STDLOG, e.what() );
+  };
+
+  ProgTrace( TRACE5, "TCL param %s='%s'", name, res );
   return res;
 };
 
@@ -1105,28 +1132,18 @@ bool get_enable_fr_design()
 
 const char* OWN_POINT_ADDR()
 {
-  static string OWNADDR;
-  if ( OWNADDR.empty() ) {
-    char r[100];
-    r[0]=0;
-    if ( get_param( "OWN_POINT_ADDR", r, sizeof( r ) ) < 0 )
-      throw EXCEPTIONS::Exception( "Can't read param OWN_POINT_ADDR" );
-    OWNADDR = r;
-  }
-  return OWNADDR.c_str();
+  static string VAR;
+  if ( VAR.empty() )
+    VAR=getTCLParam("OWN_POINT_ADDR",NULL);
+  return VAR.c_str();
 };
 
 const char* SERVER_ID()
 {
-  static string SERVERID;
-  if ( SERVERID.empty() ) {
-    char r[100];
-    r[0]=0;
-    if ( get_param( "SERVER_ID", r, sizeof( r ) ) < 0 )
-      throw EXCEPTIONS::Exception( "Can't read param SERVER_ID" );
-    SERVERID = r;
-  }
-  return SERVERID.c_str();
+  static string VAR;
+  if ( VAR.empty() )
+    VAR=getTCLParam("SERVER_ID",NULL);
+  return VAR.c_str();
 };
 
 const bool USE_SEANCES()
