@@ -1455,6 +1455,37 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     reqInfo->Initialize( reqInfoData );
 
     //здесь reqInfo нормально инициализирован
+    if (!reqInfo->desk.compatible(NEW_TERM_VERSION))
+    {
+      Qry.Clear();
+      Qry.SQLText="SELECT expire_date FROM old_term_expire_date ORDER BY expire_date";
+      Qry.Execute();
+      if (!Qry.Eof && !Qry.FieldIsNULL("expire_date"))
+      {
+        BASIC::TDateTime expire_date=Qry.FieldAsDateTime("expire_date");
+        if (expire_date<=BASIC::NowUTC())
+          throw AstraLocale::UserException("Версия терминала не поддерживается! Требуется обновление. Тел. поддержки: (495)363-3266");
+        double remainDays=expire_date-BASIC::NowUTC();
+        modf(floor(remainDays),&remainDays);
+        int remainDaysInt=(int)remainDays;
+        ostringstream str;
+        if (remainDaysInt>0)
+        {
+          str << "Необходимо обновить версию терминала в течении " << remainDaysInt;
+          if ((remainDaysInt%10)==1 && remainDaysInt!=11)
+            str << " дня!";
+          else
+            str << " дней!";
+        }
+        else
+        {
+          str << "Необходимо срочно обновить версию терминала!";
+        };
+        str << " Тел. поддержки: (495)363-3266";
+        AstraLocale::showErrorMessage(str.str());
+      };
+    };
+    
     GetModuleList(resNode);
     ConvertDevOldFormat(reqNode,resNode);
     GetDevices(reqNode,resNode);

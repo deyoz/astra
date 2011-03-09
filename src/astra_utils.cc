@@ -1575,14 +1575,19 @@ string transliter(const string &value, int fmt, bool pr_lat)
           case 'Ö': c2 = "E"; break;
           case '': switch(fmt)
                     {
-                      case 2:  c2 = "IO";
-                      default: c2 = "YO";
+                      case 2:  c2 = "IO"; break;
+                      default: c2 = "YO"; break;
                     };
                     break;
           case 'Ü': c2 = "ZH"; break;
           case 'á': c2 = "Z"; break;
           case 'à': c2 = "I"; break;
-          case 'â': c2 = "I"; break;
+          case 'â': switch(fmt)
+                    {
+                      case 2:  c2 = "I"; break;
+                      default: c2 = "Y"; break;
+                    };
+                    break;
           case 'ä': c2 = "K"; break;
           case 'ã': c2 = "L"; break;
           case 'å': c2 = "M"; break;
@@ -1600,8 +1605,8 @@ string transliter(const string &value, int fmt, bool pr_lat)
           case 'ò': c2 = "SH"; break;
           case 'ô': switch(fmt)
                     {
-                      case 2:  c2 = "SHCH";
-                      default: c2 = "SH";
+                      case 2:  c2 = "SHCH"; break;
+                      default: c2 = "SH";   break;
                     };
                     break;
           case 'ö': c2 = ""; break;
@@ -1610,14 +1615,14 @@ string transliter(const string &value, int fmt, bool pr_lat)
           case 'ù': c2 = "E"; break;
           case 'û': switch(fmt)
                     {
-                      case 2:  c2 = "IU";
-                      default: c2 = "YU";
+                      case 2:  c2 = "IU"; break;
+                      default: c2 = "YU"; break;
                     };
                     break;
           case 'ü': switch(fmt)
                     {
-                      case 2:  c2 = "IA";
-                      default: c2 = "YA";
+                      case 2:  c2 = "IA"; break;
+                      default: c2 = "YA"; break;
                     };
                     break;
           default:  c2 = "?";
