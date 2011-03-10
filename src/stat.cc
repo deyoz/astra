@@ -2235,6 +2235,7 @@ void RunDetailStat(TStatType statType, xmlNodePtr reqNode, xmlNodePtr resNode)
         int total_pax_amount = 0;
         int total_web = 0;
         int total_kiosk = 0;
+        int count = 0;
         for(TDetailStat::iterator si = DetailStat.begin(); si != DetailStat.end(); si++) {
             rowNode = NewTextChild(rowsNode, "row");
             NewTextChild(rowNode, "col", si->first.col1);
@@ -2252,7 +2253,12 @@ void RunDetailStat(TStatType statType, xmlNodePtr reqNode, xmlNodePtr resNode)
             NewTextChild(rowNode, "col", si->second.pax_amount);
             NewTextChild(rowNode, "col", si->second.web);
             NewTextChild(rowNode, "col", si->second.kiosk);
-            Qry.Next();
+            count++;
+            if(count > MAX_STAT_ROWS) {
+                AstraLocale::showErrorMessage("MSG.TOO_MANY_FLIGHTS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_SEARCH",
+                        LParams() << LParam("num", MAX_STAT_ROWS));
+                break;
+            }
         }
         rowNode = NewTextChild(rowsNode, "row");
         NewTextChild(rowNode, "col", getLocaleText("Итого:"));
@@ -2610,6 +2616,7 @@ void RunFullStat(TStatType statType, xmlNodePtr reqNode, xmlNodePtr resNode)
         int total_bag_amount = 0;
         int total_bag_weight = 0;
         int total_excess = 0;
+        int count = 0;
         for(TFullStat::iterator im = FullStat.begin(); im != FullStat.end(); im++) {
             string region;
             try
@@ -2661,6 +2668,12 @@ void RunFullStat(TStatType statType, xmlNodePtr reqNode, xmlNodePtr resNode)
             NewTextChild(rowNode, "col", im->second.excess);
             if (statType==statTrferFull)
               NewTextChild(rowNode, "col", im->first.point_id);
+            count++;
+            if(count > MAX_STAT_ROWS) {
+                AstraLocale::showErrorMessage("MSG.TOO_MANY_FLIGHTS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_SEARCH",
+                        LParams() << LParam("num", MAX_STAT_ROWS));
+                break;
+            }
         }
         rowNode = NewTextChild(rowsNode, "row");
         NewTextChild(rowNode, "col", getLocaleText("Итого:"));
