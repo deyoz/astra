@@ -386,9 +386,13 @@ bool getTripData( int point_id, bool first_segment, TSearchPnrData &SearchPnrDat
   	if ( Qry.FieldAsInteger( "pr_del" ) == -1 )
   		throw UserException( "MSG.FLIGHT.DELETED" );
 
-    if ( !reqInfo->CheckAirline(Qry.FieldAsString("airline")) ||
-         !reqInfo->CheckAirp(Qry.FieldAsString("airp")) )
-      throw UserException( "MSG.FLIGHT.ACCESS_DENIED" );
+    if (first_segment)
+    {
+      //необходимо соблюдать доступ только к первому сегменту
+      if ( !reqInfo->CheckAirline(Qry.FieldAsString("airline")) ||
+           !reqInfo->CheckAirp(Qry.FieldAsString("airp")) )
+        throw UserException( "MSG.FLIGHT.ACCESS_DENIED" );
+    };
 
   	if ( Qry.FieldAsInteger( "pr_del" ) == 1 )
   		throw UserException( "MSG.FLIGHT.CANCELED" );
@@ -3122,11 +3126,14 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
         };
         sort(pax.fqt_rems.begin(),pax.fqt_rems.end());
         
-        xmlNodePtr tidsNode=NodeAsNode("tids", paxNode)->children;
-        pax.crs_pnr_tid=NodeAsIntegerFast("crs_pnr_tid",tidsNode);
-        pax.crs_pax_tid=NodeAsIntegerFast("crs_pax_tid",tidsNode);
-        pax.pax_grp_tid=NodeAsIntegerFast("pax_grp_tid",tidsNode,NoExists);
-        pax.pax_tid=NodeAsIntegerFast("pax_tid",tidsNode,NoExists);
+        xmlNodePtr tidsNode=NodeAsNode("tids", paxNode);
+        pax.crs_pnr_tid=NodeAsInteger("crs_pnr_tid",tidsNode);
+        pax.crs_pax_tid=NodeAsInteger("crs_pax_tid",tidsNode);
+        xmlNodePtr node;
+        node=GetNode("pax_grp_tid",tidsNode);
+        if (node!=NULL && !NodeIsNULL(node)) pax.pax_grp_tid=NodeAsInteger(node);
+        node=GetNode("pax_tid",tidsNode);
+        if (node!=NULL && !NodeIsNULL(node)) pax.pax_tid=NodeAsInteger(node);
         
         pnr.paxFromReq.push_back(pax);
       };

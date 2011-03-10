@@ -256,6 +256,30 @@ void RevertWebResDoc( const char* answer_tag, xmlNodePtr resNode )
       error_message = NodeAsString(errNode);
       error_code = NodeAsString( "@lexema_id", errNode, "" );
     };
+    if (strcmp((const char*)errNode->name,"checkin_user_error")==0)
+    {
+      xmlNodePtr segNode=NodeAsNode("segments",errNode)->children;
+      for(;segNode!=NULL; segNode=segNode->next)
+      {
+        if (GetNode("error_code",segNode)!=NULL)
+        {
+          error_message = NodeAsString("error_message", segNode, "");
+          error_code = NodeAsString("error_code", segNode);
+          break;
+        };
+        xmlNodePtr paxNode=NodeAsNode("passengers",segNode)->children;
+        for(;paxNode!=NULL; paxNode=paxNode->next)
+        {
+          if (GetNode("error_code",paxNode)!=NULL)
+          {
+            error_message = NodeAsString("error_message", paxNode, "");
+            error_code = NodeAsString("error_code", paxNode);
+            break;
+          };
+        };
+        if (paxNode!=NULL) break;
+      };
+    };
     //отцепляем
     xmlUnlinkNode(errNode);
   };
@@ -277,14 +301,16 @@ void RevertWebResDoc( const char* answer_tag, xmlNodePtr resNode )
     resNode=NewTextChild( resNode, answer_tag );
     
     if (strcmp((const char*)errNode->name,"error")==0 ||
+        strcmp((const char*)errNode->name,"checkin_user_error")==0 ||
         strcmp((const char*)errNode->name,"user_error")==0)
     {
       NewTextChild( resNode, "error_code", error_code );
       NewTextChild( resNode, "error_message", error_message );
-    }
-    else
+    };
+    
+    if (strcmp((const char*)errNode->name,"checkin_user_error")==0)
     {
-      xmlNodePtr segsNode=errNode->children;
+      xmlNodePtr segsNode=NodeAsNode("segments",errNode);
       if (segsNode!=NULL)
       {
         xmlUnlinkNode(segsNode);

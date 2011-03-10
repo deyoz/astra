@@ -1455,7 +1455,8 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     reqInfo->Initialize( reqInfoData );
 
     //здесь reqInfo нормально инициализирован
-    if (!reqInfo->desk.compatible(NEW_TERM_VERSION))
+    if (reqInfo->client_type==ctTerm &&
+        !reqInfo->desk.compatible(NEW_TERM_VERSION))
     {
       Qry.Clear();
       Qry.SQLText="SELECT expire_date FROM old_term_expire_date ORDER BY expire_date";
