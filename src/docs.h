@@ -42,7 +42,7 @@ struct TRptParams {
 };
 
 bool bad_client_img_version();
-void get_report_form(const std::string name, xmlNodePtr node);
+void get_report_form(const std::string name, xmlNodePtr reqNode, xmlNodePtr resNode);
 void get_new_report_form(const std::string name, xmlNodePtr reqNode, xmlNodePtr resNode);
 void get_compatible_report_form(const std::string name, xmlNodePtr reqNode, xmlNodePtr resNode);
 void PaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode,

@@ -1953,7 +1953,7 @@ void DeletePassengers( int point_id, const string status, map<int,TTripInfo> &se
   {
     Qry.SetVariable("point_id",i->first);
     Qry.Execute();
-    Set_overload_alarm( i->first, Get_overload_alarm( i->first, i->second ) );
+    Set_overload_alarm( i->first, Calc_overload_alarm( i->first, i->second ) );
     check_waitlist_alarm( i->first );
     check_brd_alarm( i->first );
   };
@@ -2152,7 +2152,7 @@ void SoppInterface::WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   			QryTripInfo.Execute();
   			if ( !QryTripInfo.Eof ) {
   				fltInfo.Init(QryTripInfo);
-  				Set_overload_alarm( point_id, Get_overload_alarm( point_id, fltInfo ) );
+  				Set_overload_alarm( point_id, Calc_overload_alarm( point_id, fltInfo ) );
   			}
   		}
   	}
@@ -3438,7 +3438,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   					                                 LParams() << LParam("airp", ElemIdToCodeNative(etAirp,id->airp)));
   	}
    if ( reSetCraft ) {
-   	 if ( SALONS::AutoSetCraft( id->point_id, id->craft, -1 ) > 0 )
+   	 if ( SALONS::AutoSetCraft( id->point_id, id->craft, -1 ) >= 0 )
    	 	 ch_craft = false;
    }
   	point_num++;

@@ -400,6 +400,11 @@ TDateTime NodeAsDateTimeFast(const char *expr, xmlNodePtr &node, TDateTime nvl)
         return NodeAsDateTime(NodeAsNodeFast(expr,node),(char*)ServerFormatDateTimeAsString);
 }
 
+xmlNodePtr NewTextChild(xmlNodePtr parent, const string &name, const string &content)
+{
+    return NewTextChild(parent, name.c_str(), content);
+}
+
 xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const char *content)
 {
   if (name==NULL) return NULL;

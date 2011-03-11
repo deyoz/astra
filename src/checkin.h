@@ -6,6 +6,7 @@
 #include <libxml/tree.h>
 #include "jxtlib/JxtInterface.h"
 #include "astra_ticket.h"
+#include "astra_locale.h"
 #include "astra_consts.h"
 #include "astra_misc.h"
 #include "oralib.h"
@@ -110,9 +111,6 @@ public:
      AddEvent("OpenCheckInInfo",evHandle);
      evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::CheckTCkinRoute);
      AddEvent("CheckTCkinRoute",evHandle);
-
-     evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::TestDateTime);
-     AddEvent("TestDateTime",evHandle);
   };
 
   void LoadTagPacks(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -180,6 +178,7 @@ public:
 
   static int CheckCounters(int point_dep, int point_arv, char* cl, ASTRA::TPaxStatus grp_status);
 
+  static bool CheckFQTRem(xmlNodePtr remNode, TFQTItem &fqt);
   static bool ParseFQTRem(TTlgParser &tlg,std::string &rem_text,TFQTItem &fqt);
 
   static void readTripCounters( int point_id, xmlNodePtr dataNode );
@@ -204,5 +203,25 @@ public:
                                TCkinSetsInfo &sets);
 };
 
+namespace CheckIn
+{
+
+class UserException:public AstraLocale::UserException
+{
+	public:
+	  std::map<int, std::map <int, AstraLocale::LexemaData> > segs;
+
+	  UserException(const AstraLocale::LexemaData &lexemeData,
+                  int point_id,
+                  int pax_id = ASTRA::NoExists):AstraLocale::UserException(lexemeData.lexema_id, lexemeData.lparams)
+    {
+      segs[point_id][pax_id]=lexemeData;
+    };
+    ~UserException() throw(){};
+};
+
+void showError(const std::map<int, std::map <int, AstraLocale::LexemaData> > &segs);
+
+} //namespace CheckIn
 
 #endif

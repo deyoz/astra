@@ -808,49 +808,9 @@ signed short int EncodeTimeToSignedWord( TDateTime Value )
   return ( (int)Value )*1440 + Hour*60 + Min;
 };
 
-namespace ASTRA {
-void showProgError(const std::string &message, int code )
-{
-  XMLRequestCtxt *xmlRC = getXmlCtxt();
-  xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
-  resNode = ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "error", message );
-  SetProp(resNode, "code", code);
-};
-
-void showError(const std::string &message, int code)
-{
-  XMLRequestCtxt *xmlRC = getXmlCtxt();
-  xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
-  resNode = ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "user_error", message );
-  SetProp(resNode, "code", code);
-};
-
-void showErrorMessage(const std::string &message, int code )
-{
-  XMLRequestCtxt *xmlRC = getXmlCtxt();
-  xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
-  resNode =  ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "user_error_message", message );
-  SetProp(resNode, "code", code);
-};
-
-void showErrorMessageAndRollback(const std::string &message, int code )
-{
-  showErrorMessage(message,code);
-  throw UserException2();
-}
-
-void showMessage(const std::string &message, int code )
-{
-  XMLRequestCtxt *xmlRC = getXmlCtxt();
-  xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
-  resNode = ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "message", message );
-  SetProp(resNode, "code", code);
-};
-} // end namespace ASTRA
-
 namespace AstraLocale {
 
-void getLexemaText( LexemaData lexemaData, string &text, string &master_lexema_id, string lang = "" )
+void getLexemaText( LexemaData lexemaData, string &text, string &master_lexema_id, string lang )
 {
   text.clear();
   master_lexema_id.clear();
@@ -1025,12 +985,7 @@ std::string getLocaleText(xmlNodePtr lexemeNode)
 {
   if (lexemeNode==NULL) return "";
   LexemaData lexemeData;
-  lexemeData.lexema_id=NodeAsString("id",lexemeNode);
-  xmlNodePtr node=NodeAsNode("params",lexemeNode)->children;
-  for(;node!=NULL;node=node->next)
-  {
-    lexemeData.lparams << LParam((const char*)node->name, NodeAsString(node));
-  };
+  LexemeDataFromXML(lexemeNode, lexemeData);
   return getLocaleText(lexemeData);
 }
 
@@ -1041,9 +996,22 @@ void LexemeDataToXML(const LexemaData &lexemeData, xmlNodePtr lexemeNode)
   xmlNodePtr node=NewTextChild(lexemeNode,"params");
   for(LParams::const_iterator p=lexemeData.lparams.begin();p!=lexemeData.lparams.end();p++)
   {
-    NewTextChild(node,p->first.c_str(),lexemeData.lparams.StringValue(p->first));
+    NewTextChild(node,p->first,lexemeData.lparams.StringValue(p->first));
   };
 }
+
+void LexemeDataFromXML(xmlNodePtr lexemeNode, LexemaData &lexemeData)
+{
+  lexemeData.lexema_id.clear();
+  lexemeData.lparams.clear();
+  if (lexemeNode==NULL) return;
+  lexemeData.lexema_id=NodeAsString("id",lexemeNode);
+  xmlNodePtr node=NodeAsNode("params",lexemeNode)->children;
+  for(;node!=NULL;node=node->next)
+  {
+    lexemeData.lparams << LParam((const char*)node->name, NodeAsString(node));
+  };
+};
 
 } // end namespace AstraLocale
 
@@ -1056,6 +1024,8 @@ int getTCLParam(const char* name, int min, int max, int def)
   {
     if ( get_param( name, r, sizeof( r ) ) < 0 )
       throw EXCEPTIONS::Exception( "Can't read TCL param %s", name );
+    if (r[0]==0)
+      throw EXCEPTIONS::Exception( "Empty TCL param %s", name );
     if ( StrToInt(r,res)==EOF ||
          min!=NoExists && res<min ||
          max!=NoExists && res>max)
@@ -1069,6 +1039,31 @@ int getTCLParam(const char* name, int min, int max, int def)
   };
 
   ProgTrace( TRACE5, "TCL param %s=%d", name, res );
+  return res;
+};
+
+//если def==NULL, тогда в случае ненахождения name ругаемся
+string getTCLParam(const char* name, const char* def)
+{
+  const char* res=NULL;
+  char r[100];
+  r[0]=0;
+  try
+  {
+    if ( get_param( name, r, sizeof( r ) ) < 0 )
+      throw EXCEPTIONS::Exception( "Can't read TCL param %s", name );
+    if (r[0]==0)
+      throw EXCEPTIONS::Exception( "Empty TCL param %s", name );
+    res=r;
+  }
+  catch(std::exception &e)
+  {
+    if (def==NULL) throw;
+    res=def;
+    ProgError( STDLOG, e.what() );
+  };
+
+  ProgTrace( TRACE5, "TCL param %s='%s'", name, res );
   return res;
 };
 
@@ -1137,28 +1132,18 @@ bool get_enable_fr_design()
 
 const char* OWN_POINT_ADDR()
 {
-  static string OWNADDR;
-  if ( OWNADDR.empty() ) {
-    char r[100];
-    r[0]=0;
-    if ( get_param( "OWN_POINT_ADDR", r, sizeof( r ) ) < 0 )
-      throw EXCEPTIONS::Exception( "Can't read param OWN_POINT_ADDR" );
-    OWNADDR = r;
-  }
-  return OWNADDR.c_str();
+  static string VAR;
+  if ( VAR.empty() )
+    VAR=getTCLParam("OWN_POINT_ADDR",NULL);
+  return VAR.c_str();
 };
 
 const char* SERVER_ID()
 {
-  static string SERVERID;
-  if ( SERVERID.empty() ) {
-    char r[100];
-    r[0]=0;
-    if ( get_param( "SERVER_ID", r, sizeof( r ) ) < 0 )
-      throw EXCEPTIONS::Exception( "Can't read param SERVER_ID" );
-    SERVERID = r;
-  }
-  return SERVERID.c_str();
+  static string VAR;
+  if ( VAR.empty() )
+    VAR=getTCLParam("SERVER_ID",NULL);
+  return VAR.c_str();
 };
 
 const bool USE_SEANCES()
@@ -1590,14 +1575,19 @@ string transliter(const string &value, int fmt, bool pr_lat)
           case 'Е': c2 = "E"; break;
           case 'Ё': switch(fmt)
                     {
-                      case 2:  c2 = "YO";
-                      default: c2 = "IO";
+                      case 2:  c2 = "IO"; break;
+                      default: c2 = "YO"; break;
                     };
                     break;
           case 'Ж': c2 = "ZH"; break;
           case 'З': c2 = "Z"; break;
           case 'И': c2 = "I"; break;
-          case 'Й': c2 = "I"; break;
+          case 'Й': switch(fmt)
+                    {
+                      case 2:  c2 = "I"; break;
+                      default: c2 = "Y"; break;
+                    };
+                    break;
           case 'К': c2 = "K"; break;
           case 'Л': c2 = "L"; break;
           case 'М': c2 = "M"; break;
@@ -1615,8 +1605,8 @@ string transliter(const string &value, int fmt, bool pr_lat)
           case 'Ш': c2 = "SH"; break;
           case 'Щ': switch(fmt)
                     {
-                      case 2:  c2 = "SH";
-                      default: c2 = "SHCH";
+                      case 2:  c2 = "SHCH"; break;
+                      default: c2 = "SH";   break;
                     };
                     break;
           case 'Ъ': c2 = ""; break;
@@ -1625,14 +1615,14 @@ string transliter(const string &value, int fmt, bool pr_lat)
           case 'Э': c2 = "E"; break;
           case 'Ю': switch(fmt)
                     {
-                      case 2:  c2 = "YU";
-                      default: c2 = "IU";
+                      case 2:  c2 = "IU"; break;
+                      default: c2 = "YU"; break;
                     };
                     break;
           case 'Я': switch(fmt)
                     {
-                      case 2:  c2 = "YA";
-                      default: c2 = "IA";
+                      case 2:  c2 = "IA"; break;
+                      default: c2 = "YA"; break;
                     };
                     break;
           default:  c2 = "?";

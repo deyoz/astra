@@ -733,7 +733,7 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
           UpdQry.Execute();
           bool repeated=!UpdQry.VariableIsNULL("prior_error") &&
                         UpdQry.GetVariableAsString("prior_error")==err;
-          ChangeStatusToLog(errNode, repeated, msgh.str(), screen, user, desk);
+          ChangeStatusToLog(errNode, /*repeated*/false, msgh.str(), screen, user, desk);
         };
     }
     else
@@ -783,7 +783,7 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
                 UpdQry.Execute();
                 bool repeated=!UpdQry.VariableIsNULL("prior_error") &&
                               UpdQry.GetVariableAsString("prior_error")==err;
-                ChangeStatusToLog(errNode, repeated, msgh.str(), screen, user, desk);
+                ChangeStatusToLog(errNode, /*repeated*/false, msgh.str(), screen, user, desk);
               };
             };
           }
@@ -840,7 +840,7 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
                 UpdQry.Execute();
                 bool repeated=!UpdQry.VariableIsNULL("prior_error") &&
                               UpdQry.GetVariableAsString("prior_error")==err;
-                ChangeStatusToLog(errNode, repeated, msgh.str(), screen, user, desk);
+                ChangeStatusToLog(errNode, /*repeated*/false, msgh.str(), screen, user, desk);
               };
             };
           }

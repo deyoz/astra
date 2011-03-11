@@ -1039,7 +1039,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 
         xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
         NewTextChild(rowNode, "reg_no", Qry.FieldAsString("reg_no"));
-        NewTextChild(rowNode, "full_name", transliter(Qry.FieldAsString("full_name"), 1, rpt_params.IsInter()));
+        NewTextChild(rowNode, "full_name", transliter(Qry.FieldAsString("full_name"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
         string last_target;
         int pr_trfer = 0;
         if(rpt_params.pr_trfer) {

@@ -2,6 +2,7 @@
 #include <string>
 #include "exceptions.h"
 #include "oralib.h"
+#include "astra_utils.h"
 #include "serverlib/cfgproc.h"
 #include "serverlib/logger.h"
 
@@ -14,74 +15,48 @@ using namespace std;
 
 const char* ETS_CANON_NAME()
 {
-  static string ETSNAME;
-  if ( ETSNAME.empty() ) {
-    char r[100];
-    r[0]=0;
-    if ( get_param( "ETS_CANON_NAME", r, sizeof( r ) ) < 0 )
-      throw EXCEPTIONS::Exception( "Can't read param ETS_CANON_NAME" );
-    ETSNAME = r;
-    ProgTrace( TRACE5, "ETS_CANON_NAME=%s", ETSNAME.c_str() );
-  }
-  return ETSNAME.c_str();
+  static string VAR;
+  if ( VAR.empty() )
+    VAR=getTCLParam("ETS_CANON_NAME",NULL);
+  return VAR.c_str();
 }
 
 const char* OWN_CANON_NAME()
 {
-  static string OWNNAME;
-  if ( OWNNAME.empty() ) {
-    char r[100];
-    r[0]=0;
-    if ( get_param( "OWN_CANON_NAME", r, sizeof( r ) ) < 0 )
-      throw EXCEPTIONS::Exception( "Can't read param OWN_CANON_NAME" );
-    OWNNAME = r;
-    ProgTrace( TRACE5, "OWN_CANON_NAME=%s", OWNNAME.c_str() );
-  }
-  return OWNNAME.c_str();
+  static string VAR;
+  if ( VAR.empty() )
+    VAR=getTCLParam("OWN_CANON_NAME",NULL);
+  return VAR.c_str();
 }
 
 const char* ERR_CANON_NAME()
 {
   static bool init=false;
-  static string ERRNAME;
+  static string VAR;
   if ( !init ) {
-    char r[100];
-    r[0]=0;
-    if ( get_param( "ERR_CANON_NAME", r, sizeof( r ) ) >= 0 )
-      ERRNAME = r;
-    ProgTrace( TRACE5, "ERR_CANON_NAME=%s", ERRNAME.c_str() );
+    VAR=getTCLParam("ERR_CANON_NAME","");
     init=true;
   }
-  return ERRNAME.c_str();
+  return VAR.c_str();
 }
 
 const char* DEF_CANON_NAME()
 {
   static bool init=false;
-  static string DEFNAME;
+  static string VAR;
   if ( !init ) {
-    char r[100];
-    r[0]=0;
-    if ( get_param( "DEF_CANON_NAME", r, sizeof( r ) ) >= 0 )
-      DEFNAME = r;
-    ProgTrace( TRACE5, "DEF_CANON_NAME=%s", DEFNAME.c_str() );
+    VAR=getTCLParam("DEF_CANON_NAME","");
     init=true;
   }
-  return DEFNAME.c_str();
+  return VAR.c_str();
 }
 
 const char* OWN_SITA_ADDR()
 {
-  static string OWNADDR;
-  if ( OWNADDR.empty() ) {
-    char r[100];
-    r[0]=0;
-    if ( get_param( "OWN_SITA_ADDR", r, sizeof( r ) ) < 0 )
-      throw EXCEPTIONS::Exception( "Can't read param OWN_SITA_ADDR" );
-    OWNADDR = r;
-    ProgTrace( TRACE5, "OWN_SITA_ADDR=%s", OWNADDR.c_str() );
-  }
-  return OWNADDR.c_str();
+  static string VAR;
+  if ( VAR.empty() )
+    VAR=getTCLParam("OWN_SITA_ADDR",NULL);
+  return VAR.c_str();
 }
 
 void sendCmdTlgSnd()

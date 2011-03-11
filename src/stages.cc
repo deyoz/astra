@@ -868,16 +868,16 @@ void Takeoff( int point_id )
   time_start=time(NULL);
   try
   {
-    create_czech_police_file(point_id,true);
-    create_czech_police_file(point_id,false);
+    create_apis_file(point_id,true);
+    create_apis_file(point_id,false);
   }
   catch(std::exception &E)
   {
-    ProgError(STDLOG,"Takeoff.create_czech_police_file (point_id=%d): %s",point_id,E.what());
+    ProgError(STDLOG,"Takeoff.create_apis_file (point_id=%d): %s",point_id,E.what());
   };
   time_end=time(NULL);
   if (time_end-time_start>1)
-    ProgTrace(TRACE5,"Attention! create_czech_police_file execute time: %ld secs, point_id=%d",
+    ProgTrace(TRACE5,"Attention! create_apis_file execute time: %ld secs, point_id=%d",
                      time_end-time_start,point_id);
 }
 

@@ -126,7 +126,13 @@ bool GetTripSets( const TTripSetType setType, const TTripInfo &info )
   return Qry.FieldAsInteger("pr_misc")!=0;
 };
 
-string GetPnrAddr(int pnr_id, vector<TPnrAddrItem> &pnrs, string airline)
+std::string GetPnrAddr(int pnr_id, std::vector<TPnrAddrItem> &pnrs)
+{
+    string airline;
+    return GetPnrAddr(pnr_id, pnrs, airline);
+}
+
+string GetPnrAddr(int pnr_id, vector<TPnrAddrItem> &pnrs, string &airline)
 {
   pnrs.clear();
   TQuery Qry(&OraSession);
@@ -162,7 +168,13 @@ string GetPnrAddr(int pnr_id, vector<TPnrAddrItem> &pnrs, string airline)
     return "";
 };
 
-string GetPaxPnrAddr(int pax_id, vector<TPnrAddrItem> &pnrs, string airline)
+string GetPaxPnrAddr(int pax_id, vector<TPnrAddrItem> &pnrs)
+{
+    string airline;
+    return GetPaxPnrAddr(pax_id, pnrs, airline);
+}
+
+string GetPaxPnrAddr(int pax_id, vector<TPnrAddrItem> &pnrs, string &airline)
 {
   pnrs.clear();
   TQuery Qry(&OraSession);
@@ -905,6 +917,18 @@ void GetCrsList(int point_id, std::vector<std::string> &crs)
 // bp
 
 // pr_lat c клиента || пункт вылета grp_id не в РФ || пункт прилета grp_id не в РФ
+
+bool IsTrferInter(string airp_dep, string airp_arv, string &country)
+{
+	TBaseTable &baseairps = base_tables.get( "airps" );
+	TBaseTable &basecities = base_tables.get( "cities" );
+    string country_dep = ((TCitiesRow&)basecities.get_row( "code", ((TAirpsRow&)baseairps.get_row( "code", airp_dep, true )).city)).country;
+    string country_arv = ((TCitiesRow&)basecities.get_row( "code", ((TAirpsRow&)baseairps.get_row( "code", airp_arv, true )).city)).country;
+    country.clear();
+    if(country_dep != country_arv) return true;
+    country = country_dep;
+    return false;
+}
 
 bool IsRouteInter(int point_dep, int point_arv, string &country)
 {

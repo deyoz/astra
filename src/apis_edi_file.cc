@@ -1,5 +1,5 @@
 //
-// C++ Implementation: czech_police_edi_file
+// C++ Implementation: apis_edi_file
 //
 // Description:
 //
@@ -9,7 +9,7 @@
 // Copyright: See COPYING file that comes with this distribution
 //
 //
-#include "czech_police_edi_file.h"
+#include "apis_edi_file.h"
 
 #define NICKNAME "ANTON"
 #define NICKTRACE ROMAN_TRACE
