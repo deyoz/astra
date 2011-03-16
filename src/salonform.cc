@@ -58,6 +58,36 @@ void ReadCompSections( int comp_id, vector<SALONS2::TCompSections> &CompSections
   }
 }
 
+void ZoneLoads(int point_id, map<string, int> &zones)
+{
+    zones.clear();
+    SALONS2::TSalons SalonsTmp( point_id, SALONS2::rTripSalons, false );
+    try {
+        SalonsTmp.Read();
+        if ( SalonsTmp.comp_id > 0 ) { //!!!·‚‡Æ£Æ ß†¢Ôß†‚Ï °†ßÆ¢Î• ™Æ¨ØÆ≠Æ¢™® · ≠†ß≠†Á•≠≠Î¨® ≠† ‡•©·
+            vector<SALONS2::TCompSections> CompSections;
+            ReadCompSections( SalonsTmp.comp_id, CompSections );
+
+            std::map<ASTRA::TCompLayerType, int> uselayers_count;
+            TQuery Qry(&OraSession);
+            Qry.SQLText = "select layer_type from grp_status_types";
+            Qry.Execute();
+            for(; not Qry.Eof; Qry.Next())
+                uselayers_count[DecodeCompLayerType(Qry.FieldAsString("layer_type"))] = 0;
+
+            for ( vector<SALONS2::TCompSections>::iterator i=CompSections.begin(); i!=CompSections.end(); i++ ) {
+                getLayerPlacesCompSection( SalonsTmp, *i, false, uselayers_count );
+                for(std::map<ASTRA::TCompLayerType, int>::iterator im = uselayers_count.begin(); im != uselayers_count.end(); im++)
+                    zones[i->name] += im->second;
+            }
+        }
+    } catch(exception &E) {
+        ProgTrace(TRACE5, "ZoneLoads failed, so result would be empty: %s", E.what());
+    } catch(...) {
+        ProgTrace(TRACE5, "ZoneLoads failed, so result would be empty");
+    }
+}
+
 void WriteCompSections( int id, const vector<SALONS2::TCompSections> &CompSections )
 {
   string msg, ms;
@@ -299,12 +329,18 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     GetDataForDrawSalon( reqNode, resNode );
  	}
  	
- 	SALONS2::TSalons SalonsTmp( trip_id, SALONS2::rTripSalons, false );  //!!!
+/* 	SALONS2::TSalons SalonsTmp( trip_id, SALONS2::rTripSalons, false );  //!!!
+//!!!–ø–µ—Ä–µ–¥ –≤—ã–∑–æ–≤–æ–º Read –Ω–∞–¥–æ —É–±–µ–¥–∏—Ç—å—Å—è, —á—Ç–æ –∫–æ–º–ø–æ–≤–æ–∫–∞ –Ω–∞–∑–Ω–∞—á–µ–Ω–∞ –Ω–∞ —Ä–µ–π—Å
+
+//"SELECT point_id FROM trip_comp_elems WHERE point_id=:point_id AND rownum<2";
+try {
  	SalonsTmp.Read();
+    } catch(...) {
+    }
   if ( SalonsTmp.comp_id > 0 ) { //!!!·‚‡Æ£Æ ß†¢Ôß†‚Ï °†ßÆ¢Î• ™Æ¨ØÆ≠Æ¢™® · ≠†ß≠†Á•≠≠Î¨® ≠† ‡•©·
  	  vector<SALONS2::TCompSections> CompSections;
     ReadCompSections( SalonsTmp.comp_id, CompSections );
-    BuildCompSections( dataNode, CompSections );
+//    BuildCompSections( dataNode, CompSections );
     std::map<ASTRA::TCompLayerType, int> uselayers_count;
     //!!!grp_status_types
     uselayers_count[ cltTranzit ] = 0;
@@ -315,7 +351,7 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
       ProgTrace( TRACE5, "CompSections name=%s, firstIdx=%d, lastIdx=%d", i->name.c_str(), i->firstRowIdx, i->lastRowIdx );
       getLayerPlacesCompSection( SalonsTmp, *i, false, uselayers_count );
     }
-  }
+  }*/
 }
 
 void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
