@@ -299,7 +299,7 @@ void TSeatPlaces::Add( TSeatPlace &seatplace )
   FoundCount - кол-во найденных мест
   Step - направление отсчета найденных мест
   Возвращаем кол-во использованных мест */
-int TSeatPlaces::Put_Find_Places( TPoint FP, TPoint EP, int foundCount, TSeatStep Step )
+int TSeatPlaces::Put_Find_Places( SALONS2::TPoint FP, SALONS2::TPoint EP, int foundCount, TSeatStep Step )
 {
   int p_RCount, p_RCount2, p_RCount3; /* необходимое кол-во 3-х, 2-х, 1-х мест */
   int pp_Count, pp_Count2, pp_Count3; /* имеющееся кол-во 3-х, 2-х, 1-х мест */
@@ -486,20 +486,20 @@ int TSeatPlaces::Put_Find_Places( TPoint FP, TPoint EP, int foundCount, TSeatSte
 }
 
 /* ф-ция для определения возможности рассадки для мест у который есть запрещенные ремарки */
-bool DoNotRemsSeats( const vector<TRem> &rems )
+bool DoNotRemsSeats( const vector<SALONS2::TRem> &rems )
 {
 	bool res = false; // признак того, что у пассажира есть ремарка, которая запрещена на выбранном месте
 	bool pr_passmcls = find( Remarks.begin(), Remarks.end(), string("MCLS") ) != Remarks.end(); // признак у пассажира MCLS
 	bool no_mcls = false;
 	for( vector<string>::iterator nrem=Remarks.begin(); nrem!=Remarks.end(); nrem++ ) {
-	  for( vector<TRem>::const_iterator prem=rems.begin(); prem!=rems.end(); prem++ ) {
+	  for( vector<SALONS2::TRem>::const_iterator prem=rems.begin(); prem!=rems.end(); prem++ ) {
 		  if ( !prem->pr_denial )
 			  continue;
 			if ( *nrem == prem->rem && !res )
 				res = true;
 	  }
 	}
-  for( vector<TRem>::const_iterator prem=rems.begin(); prem!=rems.end(); prem++ ) {
+  for( vector<SALONS2::TRem>::const_iterator prem=rems.begin(); prem!=rems.end(); prem++ ) {
 //		ProgTrace( TRACE5, "prem->rem=%s", prem->rem.c_str() );
   	if ( !prem->pr_denial && prem->rem == "MCLS" && !pr_passmcls )
 	  		no_mcls = true;
@@ -519,15 +519,15 @@ bool DoNotRemsSeats( const vector<TRem> &rems )
    CanUseElem_Type, PlaceElem_Type - поиск строго по типу места (табуретка),
    CanUseGood - поиск только хороших мест,
    CanUseRem, PlaceRem - поиск строго по ремарке места */
-int TSeatPlaces::FindPlaces_From( TPoint FP, int foundCount, TSeatStep Step )
+int TSeatPlaces::FindPlaces_From( SALONS2::TPoint FP, int foundCount, TSeatStep Step )
 {
   int Result = 0;
   TPlaceList *placeList = CurrSalon->CurrPlaceList();
   if ( !placeList->ValidPlace( FP ) )
     return Result;
-  TPoint EP = FP;
+  SALONS2::TPoint EP = FP;
   TPlace *place = placeList->place( EP );
-  vector<TRem>::iterator prem;
+  vector<SALONS2::TRem>::iterator prem;
   vector<string>::iterator irem;
   while ( place->visible && place->pr_free && place->isplace &&
           place->clname == Passengers.clname &&
@@ -581,7 +581,7 @@ int TSeatPlaces::FindPlaces_From( TPoint FP, int foundCount, TSeatStep Step )
       	break;
       case sNotUse:
 //      	 ProgTrace( TRACE5, "sNotUse: Result=%d, FP.x=%d, FP.y=%d", Result, FP.x, FP.y );
-  	     for( vector<TRem>::const_iterator prem=place->rems.begin(); prem!=place->rems.end(); prem++ ) {
+  	     for( vector<SALONS2::TRem>::const_iterator prem=place->rems.begin(); prem!=place->rems.end(); prem++ ) {
 		       if ( !prem->pr_denial )
 		       	 return Result;
   	     }
@@ -617,7 +617,7 @@ int TSeatPlaces::FindPlaces_From( TPoint FP, int foundCount, TSeatStep Step )
   Глобальные переменные:
    CanUseTube - поиск при Step = sRight через проходы
    Alone - посадить одно пассажира в ряду можно только один раз */
-bool TSeatPlaces::SeatSubGrp_On( TPoint FP, TSeatStep Step, int Wanted )
+bool TSeatPlaces::SeatSubGrp_On( SALONS2::TPoint FP, TSeatStep Step, int Wanted )
 {
   if ( Step == sLeft )
     Step = sRight;
@@ -644,7 +644,7 @@ bool TSeatPlaces::SeatSubGrp_On( TPoint FP, TSeatStep Step, int Wanted )
       return true; // Ура все нашлось
     }
   }
-  TPoint EP = FP;
+  SALONS2::TPoint EP = FP;
   if ( foundAfter < MAXPLACE() ) {
     switch( (int)Step ) {
       case sRight:
@@ -680,7 +680,7 @@ bool TSeatPlaces::SeatSubGrp_On( TPoint FP, TSeatStep Step, int Wanted )
     EP.x = FP.x + foundAfter + 1; //???/* устанавливаемся на предполагаемое место */
 //    ProgTrace( TRACE5, "EP=(%d,%d)", EP.x, EP.y );
     if ( placeList->ValidPlace( EP ) ) {
-      TPoint p( EP.x - 1, EP.y );
+      SALONS2::TPoint p( EP.x - 1, EP.y );
       TPlace *place = placeList->place( p ); /* берем пред. место */
       if ( !place->visible ) {
         foundTubeAfter = FindPlaces_From( EP, foundCount, Step ); /* поиск после прохода */
@@ -701,10 +701,10 @@ bool TSeatPlaces::SeatSubGrp_On( TPoint FP, TSeatStep Step, int Wanted )
     /* далее поиск налево через проход */
     if ( foundCount < MAXPLACE() ) {
       EP.x = FP.x - foundBefore - 2; // устанавливаемся на предполагаемое место
-      TPoint VP = EP;
+      SALONS2::TPoint VP = EP;
 //      ProgTrace( TRACE5, "EP=(%d,%d)", EP.x, EP.y );
       if ( placeList->ValidPlace( EP ) ) {
-        TPoint p( EP.x + 1, EP.y );
+        SALONS2::TPoint p( EP.x + 1, EP.y );
         TPlace *place = placeList->place( p ); /* берем след. место */
         if ( !place->visible ) { /* следующее место не видно => проход */
           foundTubeBefore = FindPlaces_From( EP, foundCount, sLeft );
@@ -813,7 +813,7 @@ bool TSeatPlaces::SeatSubGrp_On( TPoint FP, TSeatStep Step, int Wanted )
   }
   int lines = placeList->GetXsCount(), visible=0;
   for ( int line=0; line<lines; line++ ) {
-  	TPoint f=FP;
+  	SALONS2::TPoint f=FP;
   	f.x = line;
 //  	ProgTrace( TRACE5, "line=%d, name=%s", line, placeList->GetXsName( line ).c_str() );
   	if ( placeList->GetXsName( line ).empty() ||
@@ -866,7 +866,7 @@ bool TSeatPlaces::SeatsStayedSubGrp( TWhere Where )
        counters.p_Count_2( sDown ) == Passengers.counters.p_Count_2( sDown ) &&
        counters.p_Count( sDown ) == Passengers.counters.p_Count( sDown ) )
     return true;
-  TPoint EP;
+  SALONS2::TPoint EP;
   /* надо рассадить оставшуюся часть пассажиров */
   /* для этого надо обойти выбранные места вокруг и попробовать рассадить
     оставшуюся группу рядом с уже рассаженной */
@@ -904,7 +904,7 @@ bool TSeatPlaces::SeatsStayedSubGrp( TWhere Where )
       if ( SeatSubGrp_On( EP, sRight, 0 ) )
         return true;
       TPlaceList *placeList = CurrSalon->CurrPlaceList();
-      TPoint p( EP.x + 1, EP.y );
+      SALONS2::TPoint p( EP.x + 1, EP.y );
       if ( CanUseTube && placeList->ValidPlace( p ) &&
            !placeList->place( EP )->visible ) {
        /* можно попробовать искать через проход */
@@ -1021,7 +1021,7 @@ TSeatPlace &TSeatPlaces::GetEqualSeatPlace( TPassenger &pass )
     for (vector<string>::iterator irem=pass.rems.begin(); irem!= pass.rems.end(); irem++ ) {
       for( vector<TPlace>::iterator ipl=isp->oldPlaces.begin(); ipl!=isp->oldPlaces.end(); ipl++ ) {
       	/* пробег по местам которые может занимать пассажир */
-      	vector<TRem>::iterator itr;
+      	vector<SALONS2::TRem>::iterator itr;
       	for ( itr=ipl->rems.begin(); itr!=ipl->rems.end(); itr++ ) {
       	  if ( *irem == itr->rem ) {
       	    if ( itr->pr_denial ) {
@@ -1123,7 +1123,7 @@ void TSeatPlaces::PlacesToPassengers()
 }
 
 /* рассадка всей группы начиная с позиции FP */
-bool TSeatPlaces::SeatsGrp_On( TPoint FP  )
+bool TSeatPlaces::SeatsGrp_On( SALONS2::TPoint FP  )
 {
 //  ProgTrace( TRACE5, "FP(x=%d, y=%d)", FP.x, FP.y );
   /* очистить помеченные места */
@@ -1171,7 +1171,7 @@ bool TSeatPlaces::SeatsPassenger_OnBasePlace( string &placeName, TSeatStep Step 
       /* конвертация номеров мест пассажиров в зависимости от лат. или рус. салона */
       for ( vector<TPlaceList*>::iterator iplaceList=CurrSalon->placelists.begin();
             iplaceList!=CurrSalon->placelists.end(); iplaceList++ ) {
-        TPoint FP;
+        SALONS2::TPoint FP;
         if ( (*iplaceList)->GetisPlaceXY( placeName, FP ) ) {
           CurrSalon->SetCurrPlaceList( *iplaceList );
           if ( SeatSubGrp_On( FP, Step, 0 ) ) {
@@ -1245,7 +1245,7 @@ bool TSeatPlaces::SeatGrpOnBasePlace( )
                  ilines!=lines.getVarLine( linesVar ).end(); ilines++ ) {
               CurrSalon->SetCurrPlaceList( ilines->placeList );
               int ylen = CurrSalon->CurrPlaceList()->GetYsCount();
-              TPoint FP;
+              SALONS2::TPoint FP;
               for ( int y=0; y<ylen; y++ ) {
                 for ( vector<int>::iterator z=ilines->lines.begin(); z!=ilines->lines.end(); z++ ) {
                   FP.x = *z;
@@ -1294,7 +1294,7 @@ bool TSeatPlaces::SeatsGrp( )
         ilines!=lines.getVarLine( linesVar ).end(); ilines++ ) {
      CurrSalon->SetCurrPlaceList( ilines->placeList );
      int ylen = CurrSalon->CurrPlaceList()->GetYsCount();
-     TPoint FP;
+     SALONS2::TPoint FP;
      for ( int y=0; y<ylen; y++ ) {
        for ( vector<int>::iterator z=ilines->lines.begin(); z!=ilines->lines.end(); z++ ) {
          FP.x = *z;
@@ -1316,7 +1316,7 @@ bool isValidPlaceToPassenger( const vector<string> &passrems, const vector<TPlac
   for (vector<string>::const_iterator irem=passrems.begin(); irem!= passrems.end(); irem++ ) {
     for( vector<TPlace>::const_iterator ipl=places.begin(); ipl!=places.end(); ipl++ ) {
      /* пробег по местам которые может занимать пассажир */
-      vector<TRem>::const_iterator itr;
+      vector<SALONS2::TRem>::const_iterator itr;
       for ( itr=ipl->rems.begin(); itr!=ipl->rems.end(); itr++ )
         if ( *irem == itr->rem && itr->pr_denial )
         	 return false;
@@ -1759,7 +1759,7 @@ void SetStatuses( vector<string> &Statuses, string status, bool First, bool use_
 bool ExistsBasePlace( TSalons &Salons, TPassenger &pass )
 {
   TPlaceList *placeList;
-  TPoint FP;
+  SALONS2::TPoint FP;
   vector<TPlace*> vpl;
   string placeName = pass.placeName;
   for ( vector<TPlaceList*>::iterator plList=Salons.placelists.begin();
@@ -1773,7 +1773,7 @@ bool ExistsBasePlace( TSalons &Salons, TPassenger &pass )
         TPlace *place = placeList->place( FP );
         bool findpass = ( find( pass.rems.begin(), pass.rems.end(), string("MCLS") ) != pass.rems.end() );
         bool findplace = false;
-        for ( vector<TRem>::iterator r=place->rems.begin(); r!=place->rems.end(); r++ ) {
+        for ( vector<SALONS2::TRem>::iterator r=place->rems.begin(); r!=place->rems.end(); r++ ) {
         	if ( !r->pr_denial && r->rem == "MCLS" ) {
         		findplace = true;
         		break;

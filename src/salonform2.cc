@@ -34,7 +34,7 @@ void SalonsInterface::CheckInShow( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 {
   ProgTrace(TRACE5, "SalonsInterface::CheckInShow" );
   //TReqInfo::Instance()->user.check_access( amRead );
-  TSalons Salons( NodeAsInteger( "trip_id", reqNode ), rTripSalons );
+  TSalons Salons( NodeAsInteger( "trip_id", reqNode ), SALONS2::rTripSalons );
   Salons.ClName = NodeAsString( "ClName", reqNode );
   bool PrepareShow = NodeAsInteger( "PrepareShow", reqNode );
   SetProp( resNode, "handle", "1" );
@@ -142,7 +142,7 @@ void SalonsInterface::SalonFormShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     if ( !compsNode )
       throw AstraLocale::UserException( "MSG.SALONS.NOT_FOUND_FOR_THIS_CRAFT" );
    tst();
-   TSalons Salons( trip_id, rTripSalons );
+   TSalons Salons( trip_id, SALONS2::rTripSalons );
    Salons.ClName.clear();
    Salons.Read();
    xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
@@ -163,6 +163,29 @@ void SalonsInterface::ExistsRegPassenger(XMLRequestCtxt *ctxt, xmlNodePtr reqNod
   NewTextChild( resNode, "existsregpassengers", SALONS::InternalExistsRegPassenger( trip_id, SeatNoIsNull ) );
 }
 
+bool ChangeCfg( TSalons &NewSalons, SALONS2::TSalons &OldSalons )
+{
+  if ( NewSalons.placelists.size() != OldSalons.placelists.size() ) {
+    return true;
+  }
+  vector<TPlaceList*>::iterator sn=NewSalons.placelists.begin();
+  for ( vector<SALONS2::TPlaceList*>::iterator so=OldSalons.placelists.begin();
+        so!=OldSalons.placelists.end(); so++, sn++ ) {
+    if ( (*so)->places.size() != (*sn)->places.size() ||
+         (*so)->GetXsCount() != (*sn)->GetXsCount() ||
+         (*so)->GetYsCount() != (*sn)->GetYsCount() )
+      return true;
+    IPlace snp = (*sn)->places.begin();
+    for ( SALONS2::IPlace sop=(*so)->places.begin(); sop!=(*so)->places.end(); sop++, snp++ ) {
+      if ( sop->visible != snp->visible ||
+           sop->visible &&
+           ( sop->x != snp->x || sop->y != snp->y || sop->isplace != snp->isplace ) )
+        return true;
+    }
+  }
+  return false;
+}
+
 void SalonsInterface::SalonFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   ProgTrace(TRACE5, "SalonsInterface::SalonFormWrite" );
@@ -170,45 +193,74 @@ void SalonsInterface::SalonFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   TQuery Qry( &OraSession );
   int trip_id = NodeAsInteger( "trip_id", reqNode );
   int comp_id = NodeAsInteger( "comp_id", reqNode );
+  xmlNodePtr refcompNode = NodeAsNode( "refcompon", reqNode );
+  xmlNodePtr ctypeNode = NodeAsNode( "ctype", refcompNode );
+  bool cBase = false;
+  bool cChange = false;
+  bool cSet = false;
+  if ( ctypeNode ) {
+    ctypeNode = ctypeNode->children; /* value */
+    while ( ctypeNode ) {
+    	string stype = NodeAsString( ctypeNode );
+      cBase = ( stype == string( "cBase" ) || cBase );
+      cChange = ( stype == string( "cChange" ) || cChange );
+      cSet = ( stype == string( "cSet" ) || cSet );
+      ctypeNode = ctypeNode->next;
+    }
+  }
+  ProgTrace( TRACE5, "cBase=%d, cChange=%d, cSet=%d", cBase, cChange, cSet );
   Qry.CreateVariable( "point_id", otInteger, trip_id );
   Qry.SQLText = "UPDATE points SET point_id=point_id WHERE point_id=:point_id";
   Qry.Execute();
-  Qry.SQLText = "UPDATE trip_sets SET comp_id=:comp_id WHERE point_id=:point_id";
+  if ( comp_id != -2 && !cSet ) { //новая компоновку
+    Qry.SQLText = "UPDATE trip_sets SET comp_id=:comp_id WHERE point_id=:point_id";
+    Qry.CreateVariable( "comp_id", otInteger, comp_id );
+    Qry.Execute();
+  }
+  /*Qry.SQLText = "UPDATE trip_sets SET comp_id=:comp_id WHERE point_id=:point_id";
   Qry.DeclareVariable( "comp_id", otInteger );
   if ( comp_id == -2 )
     Qry.SetVariable( "comp_id", FNull );
   else
-    Qry.SetVariable( "comp_id", comp_id );
-  TSalons Salons( trip_id, rTripSalons );
+    Qry.SetVariable( "comp_id", comp_id );*/
+  TSalons Salons( trip_id, SALONS2::rTripSalons );
   Salons.Parse( NodeAsNode( "salons", reqNode ) );
   Salons.verifyValidRem( "MCLS", "Э"); //???
+  Salons.verifyValidRem( "SCLS", "Э"); //???
+  Salons.verifyValidRem( "YCLS", "Э"); //???
+  Salons.verifyValidRem( "LCLS", "Э"); //???
   Salons.trip_id = trip_id;
   Salons.ClName = "";
+  // пришла новая компоновка, но не пришел comp_id - значит были изменения компоновки - "сохраните базовую компоновку."
+  if ( comp_id == -2 && !cSet )
+    throw UserException( "MSG.SALONS.SAVE_BASE_COMPON" );
+  SALONS2::TSalons OldSalons( trip_id, SALONS2::rTripSalons );
+  // может вызвать ошибку, если салон не был назначен на рейс
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT point_id FROM trip_comp_elems WHERE point_id=:point_id AND rownum<2";
+  Qry.CreateVariable( "point_id", otInteger, trip_id );
   Qry.Execute();
+  ProgTrace( TRACE5, "point_id=%d,Qry.Eof=%d", trip_id, Qry.Eof );
+  if ( !Qry.Eof ) { // была старая компоновка
+    OldSalons.Read();
+    tst();
+    if ( comp_id == -2 && ChangeCfg( Salons, OldSalons ) )
+      throw UserException( "MSG.SALONS.NOT_CHANGE_CFG_ON_FLIGHT" );
+  }
+  tst();
+  
   Salons.Write();
+  
   bool pr_initcomp = NodeAsInteger( "initcomp", reqNode );
   /* инициализация VIP */
   SALONS::InitVIP( trip_id );
-  xmlNodePtr refcompNode = NodeAsNode( "refcompon", reqNode );
   string msg = string( "Изменена компоновка рейса. Классы: " ) +
                NodeAsString( "classes", refcompNode );
   msg += string( ", кодировка: " ) + NodeAsString( "lang", refcompNode ); //???
   TReqInfo::Instance()->MsgToLog( msg, evtFlt, trip_id );
 
   if ( pr_initcomp ) { /* изменение компоновки */
-    xmlNodePtr ctypeNode = NodeAsNode( "ctype", refcompNode );
-    bool cBase = false;
-    bool cChange = false;
-    if ( ctypeNode ) {
-      ctypeNode = ctypeNode->children; /* value */
-      while ( ctypeNode ) {
-      	string stype = NodeAsString( ctypeNode );
-        cBase = ( stype == string( "cBase" ) || cBase );
-        cChange = ( stype == string( "cChange" ) || cChange );
-        ctypeNode = ctypeNode->next;
-      }
-    }
-    ProgTrace( TRACE5, "cBase=%d, cChange=%d", cBase, cChange );
     if ( cBase ) {
       msg = string( "Назначена базовая компоновка (ид=" ) +
             IntToString( comp_id ) +
@@ -226,7 +278,6 @@ void SalonsInterface::SalonFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
 	Qry.SQLText = "UPDATE trip_sets SET auto_comp_chg=0 WHERE point_id=:point_id";
 	Qry.CreateVariable( "point_id", otInteger, trip_id );
   Qry.Execute();
-
 
   /* перечитываение компоновки из БД */
   Salons.Read( );
@@ -277,7 +328,7 @@ void SalonsInterface::DeleteReserveSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
 
 	ProgTrace(TRACE5, "SalonsInterface::DeleteReserveSeat, point_id=%d, pax_id=%d, tid=%d", point_id, pax_id, tid );
 
-  TSalons Salons( point_id, rTripSalons );
+  TSalons Salons( point_id, SALONS2::rTripSalons );
   Salons.Read();
   vector<SALONS::TSalonSeat> seats;
 
@@ -312,7 +363,7 @@ void SalonsInterface::DeleteReserveSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
    	SALONS::BuildSalonChanges( dataNode, seats );
   }
   catch( AstraLocale::UserException ue ) {
-    TSalons Salons( point_id, rTripSalons );
+    TSalons Salons( point_id, SALONS2::rTripSalons );
     Salons.Read();
     xmlNodePtr dataNode = NewTextChild( resNode, "data" );
     xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
@@ -378,7 +429,7 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
   }
   ProgTrace(TRACE5, "SalonsInterface::Reseat, point_id=%d, pax_id=%d, tid=%d, layer_type=%s", point_id, pax_id, tid, EncodeCompLayerType(layer_type) );
 
-  TSalons Salons( point_id, rTripSalons );
+  TSalons Salons( point_id, SALONS2::rTripSalons );
   Salons.Read();
   vector<SALONS::TSalonSeat> seats;
 
@@ -437,7 +488,7 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
     SALONS::BuildSalonChanges( dataNode, seats );
   }
   catch( AstraLocale::UserException ue ) {
-    TSalons Salons( point_id, rTripSalons );
+    TSalons Salons( point_id, SALONS2::rTripSalons );
     Salons.Read();
     xmlNodePtr dataNode = NewTextChild( resNode, "data" );
     xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
@@ -469,7 +520,7 @@ void SalonsInterface::AutoReseatsPassengers(XMLRequestCtxt *ctxt, xmlNodePtr req
                               Qry.FieldAsInteger("flt_no"),
                               Qry.FieldAsString("airp"));
 
-  TSalons Salons( trip_id, rTripSalons );
+  TSalons Salons( trip_id, SALONS2::rTripSalons );
   vector<SALONS::TSalonSeat> seats;
   Salons.Read( true );
   SEATS::TPassengers passengers;
@@ -502,7 +553,7 @@ void SalonsInterface::BaseComponFormShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNod
   int comp_id = NodeAsInteger( "comp_id", reqNode );
   ProgTrace(TRACE5, "SalonsInterface::BaseComponFormShow, comp_id=%d", comp_id );
   //TReqInfo::Instance()->user.check_access( amRead );
-  TSalons Salons( comp_id, rComponSalons );
+  TSalons Salons( comp_id, SALONS2::rComponSalons );
   Salons.Read( );
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
@@ -515,7 +566,7 @@ void SalonsInterface::BaseComponFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
   int comp_id = NodeAsInteger( "comp_id", reqNode );
   ProgTrace( TRACE5, "SalonsInterface::BaseComponFormWrite, comp_id=%d", comp_id );
   //TReqInfo::Instance()->user.check_access( amWrite );
-  TSalons Salons( NodeAsInteger( "comp_id", reqNode ), rComponSalons );
+  TSalons Salons( NodeAsInteger( "comp_id", reqNode ), SALONS2::rComponSalons );
   Salons.Parse( GetNode( "salons", reqNode ) );
   string smodify = NodeAsString( "modify", reqNode );
   if ( smodify == "delete" )
