@@ -5610,7 +5610,7 @@ void TPFSBody::get(TTlgInfo &info)
                         category = "NOREC";
                     else
                         category = "OFFLN";
-                } else { // Пассажир имеет статус "посадка"
+                } else { // Пассажир имеет статус "подсадка"
                     if(ckin_pax.pr_brd != 0)
                         category = "GOSHO";
                     else
