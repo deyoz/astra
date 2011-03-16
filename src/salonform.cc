@@ -328,30 +328,11 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
  	if ( pr_images ) { // не используется в новом терминале!!!
     GetDataForDrawSalon( reqNode, resNode );
  	}
- 	
-/* 	SALONS2::TSalons SalonsTmp( trip_id, SALONS2::rTripSalons, false );  //!!!
-//!!!╨┐╨╡╤А╨╡╨┤ ╨▓╤Л╨╖╨╛╨▓╨╛╨╝ Read ╨╜╨░╨┤╨╛ ╤Г╨▒╨╡╨┤╨╕╤В╤М╤Б╤П, ╤З╤В╨╛ ╨║╨╛╨╝╨┐╨╛╨▓╨╛╨║╨░ ╨╜╨░╨╖╨╜╨░╤З╨╡╨╜╨░ ╨╜╨░ ╤А╨╡╨╣╤Б
-
-//"SELECT point_id FROM trip_comp_elems WHERE point_id=:point_id AND rownum<2";
-try {
- 	SalonsTmp.Read();
-    } catch(...) {
-    }
-  if ( SalonsTmp.comp_id > 0 ) { //!!!строго завязать базовые компоновки с назначенными на рейс
+  if ( Salons.comp_id > 0 ) { //!!!строго завязать базовые компоновки с назначенными на рейс
  	  vector<SALONS2::TCompSections> CompSections;
-    ReadCompSections( SalonsTmp.comp_id, CompSections );
-//    BuildCompSections( dataNode, CompSections );
-    std::map<ASTRA::TCompLayerType, int> uselayers_count;
-    //!!!grp_status_types
-    uselayers_count[ cltTranzit ] = 0;
-    uselayers_count[ cltCheckin ] = 0;
-    uselayers_count[ cltTCheckin ] = 0;
-    uselayers_count[ cltGoShow ] = 0;
-    for ( vector<SALONS2::TCompSections>::iterator i=CompSections.begin(); i!=CompSections.end(); i++ ) {
-      ProgTrace( TRACE5, "CompSections name=%s, firstIdx=%d, lastIdx=%d", i->name.c_str(), i->firstRowIdx, i->lastRowIdx );
-      getLayerPlacesCompSection( SalonsTmp, *i, false, uselayers_count );
-    }
-  }*/
+    ReadCompSections( Salons.comp_id, CompSections );
+    BuildCompSections( dataNode, CompSections );
+  }
 }
 
 void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
