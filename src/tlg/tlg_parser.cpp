@@ -15,6 +15,7 @@
 #include "convert.h"
 #include "seats_utils.h"
 #include "salons2.h"
+#include "memory_manager.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -333,7 +334,7 @@ class TBSMPax : public TBSMInfo
     std::vector<std::string> name;
 };
 
-char ParseBSMElement(char *p, TTlgParser &tlg, TBSMInfo* &data)
+char ParseBSMElement(char *p, TTlgParser &tlg, TBSMInfo* &data, TMemoryManager &mem)
 {
   char c,id[2];
   int res;
@@ -358,6 +359,7 @@ char ParseBSMElement(char *p, TTlgParser &tlg, TBSMInfo* &data)
         case 'V':
           {
             data = new TBSMVersionInfo;
+            mem.create(data, STDLOG);
             TBSMVersionInfo& info = *(TBSMVersionInfo*)data;
 
             c=0;
@@ -384,6 +386,7 @@ char ParseBSMElement(char *p, TTlgParser &tlg, TBSMInfo* &data)
         case 'F':
           {
             data = new TBSMFltInfo;
+            mem.create(data, STDLOG);
             TBSMFltInfo& flt = *(TBSMFltInfo*)data;
 
             if (strlen(tlg.lex)<3||strlen(tlg.lex)>8) throw ETlgError("Wrong flight number");
@@ -445,6 +448,7 @@ char ParseBSMElement(char *p, TTlgParser &tlg, TBSMInfo* &data)
         case 'N':
           {
             data = new TBSMTag;
+            mem.create(data, STDLOG);
             TBSMTag& tag = *(TBSMTag*)data;
 
             c=0;
@@ -457,6 +461,7 @@ char ParseBSMElement(char *p, TTlgParser &tlg, TBSMInfo* &data)
         case 'W':
           {
             data = new TBSMBag;
+            mem.create(data, STDLOG);
             TBSMBag& bag = *(TBSMBag*)data;
 
             if (strcmp(tlg.lex,"L")!=0&&
@@ -488,6 +493,7 @@ char ParseBSMElement(char *p, TTlgParser &tlg, TBSMInfo* &data)
         case 'P':
           {
             data = new TBSMPax;
+            mem.create(data, STDLOG);
             TBSMPax& pax = *(TBSMPax*)data;
 
             vector<string> names;
@@ -522,13 +528,14 @@ char ParseBSMElement(char *p, TTlgParser &tlg, TBSMInfo* &data)
   }
   catch(...)
   {
+    mem.destroy(data, STDLOG);
     if (data!=NULL) delete data;
     data=NULL;
     throw;
   };
 };
 
-TTlgPartInfo ParseBSMHeading(TTlgPartInfo heading, TBSMHeadingInfo &info)
+TTlgPartInfo ParseBSMHeading(TTlgPartInfo heading, TBSMHeadingInfo &info, TMemoryManager &mem)
 {
   int line;
   char c,*line_p;
@@ -545,7 +552,7 @@ TTlgPartInfo ParseBSMHeading(TTlgPartInfo heading, TBSMHeadingInfo &info)
       if (tlg.GetLexeme(line_p)==NULL) continue;
 
       TBSMInfo *data=NULL;
-      c=ParseBSMElement(line_p,tlg,data);
+      c=ParseBSMElement(line_p,tlg,data,mem);
       try
       {
         if (c!='V') throw ("Version and supplementary data not found");
@@ -553,10 +560,12 @@ TTlgPartInfo ParseBSMHeading(TTlgPartInfo heading, TBSMHeadingInfo &info)
         info.part_no=verInfo.part_no;
         strcpy(info.airp,verInfo.airp);
         info.reference_number=verInfo.message_number;
+        mem.destroy(data, STDLOG);
         if (data!=NULL) delete data;
       }
       catch(...)
       {
+        mem.destroy(data, STDLOG);
         if (data!=NULL) delete data;
         throw;
       };
@@ -576,7 +585,7 @@ TTlgPartInfo ParseBSMHeading(TTlgPartInfo heading, TBSMHeadingInfo &info)
   return next;
 };
 
-void ParseBTMContent(TTlgPartInfo body, TBSMHeadingInfo& info, TBtmContent& con)
+void ParseBTMContent(TTlgPartInfo body, TBSMHeadingInfo& info, TBtmContent& con, TMemoryManager &mem)
 {
   vector<TBtmTransferInfo>::iterator iIn;
   vector<TBtmOutFltInfo>::iterator iOut;
@@ -606,7 +615,7 @@ void ParseBTMContent(TTlgPartInfo body, TBSMHeadingInfo& info, TBtmContent& con)
       line++;
       if (tlg.GetLexeme(line_p)==NULL) continue;
 
-      e=ParseBSMElement(line_p,tlg,data);
+      e=ParseBSMElement(line_p,tlg,data,mem);
       if (data==NULL) continue;
       try
       {
@@ -704,11 +713,13 @@ void ParseBTMContent(TTlgPartInfo body, TBSMHeadingInfo& info, TBtmContent& con)
             }
           default: ;
         };
+        mem.destroy(data, STDLOG);
         if (data!=NULL) delete data;
         prior=e;
       }
       catch(...)
       {
+        mem.destroy(data, STDLOG);
         if (data!=NULL) delete data;
         throw;
       };
@@ -946,7 +957,7 @@ void ParseAHMFltInfo(TTlgPartInfo body, TFltInfo& flt)
 };
 
 //возвращает TTlgPartInfo следующей части (body)
-TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo* &info)
+TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo* &info, TMemoryManager &mem)
 {
   int line,res;
   char c,*p,*line_p,*ph;
@@ -956,6 +967,7 @@ TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo* &info)
 
   if (info!=NULL)
   {
+    mem.destroy(info, STDLOG);
     delete info;
     info = NULL;
   };
@@ -1067,18 +1079,22 @@ TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo* &info)
           {
             case tcDCS:
               info = new TDCSHeadingInfo(infoh);
+              mem.create(info, STDLOG);
               next=ParseDCSHeading(heading,*(TDCSHeadingInfo*)info);
               break;
             case tcBSM:
               info = new TBSMHeadingInfo(infoh);
-              next=ParseBSMHeading(heading,*(TBSMHeadingInfo*)info);
+              mem.create(info, STDLOG);
+              next=ParseBSMHeading(heading,*(TBSMHeadingInfo*)info,mem);
               break;
             case tcAHM:
               info = new TAHMHeadingInfo(infoh);
+              mem.create(info, STDLOG);
               next=ParseAHMHeading(heading,*(TAHMHeadingInfo*)info);
               break;
             default:
               info = new THeadingInfo(infoh);
+              mem.create(info, STDLOG);
               next=heading;
               break;
           };
@@ -1087,10 +1103,15 @@ TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo* &info)
       };
     }
     while ((line_p=tlg.NextLine(line_p))!=NULL);
-    if (info==NULL) info = new THeadingInfo(infoh);
+    if (info==NULL)
+    {
+      info = new THeadingInfo(infoh);
+      mem.create(info, STDLOG);
+    };
   }
   catch(ETlgError E)
   {
+    mem.destroy(info, STDLOG);
     if (info!=NULL) delete info;
     info=NULL;
     //вывести ошибку+номер строки
@@ -1098,6 +1119,7 @@ TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo* &info)
   }
   catch(...)
   {
+    mem.destroy(info, STDLOG);
     if (info!=NULL) delete info;
     info=NULL;
     throw;
@@ -1189,15 +1211,17 @@ void ParseAHMEnding(TTlgPartInfo ending, TEndingInfo& info)
 
 //важно чтобы заполнялись изначально
 //info.tlg_type=HeadingInfo.tlg_type и info.part_no=HeadingInfo.part_no
-void ParseEnding(TTlgPartInfo ending, THeadingInfo *headingInfo, TEndingInfo* &info)
+void ParseEnding(TTlgPartInfo ending, THeadingInfo *headingInfo, TEndingInfo* &info, TMemoryManager &mem)
 {
   if (headingInfo==NULL) throw ETlgError("headingInfo not defined");
   if (info!=NULL)
   {
+    mem.destroy(info, STDLOG);
     delete info;
     info = NULL;
   };
   info = new TEndingInfo;
+  mem.create(info, STDLOG);
   try
   {
     switch (headingInfo->tlg_cat)
@@ -1216,6 +1240,7 @@ void ParseEnding(TTlgPartInfo ending, THeadingInfo *headingInfo, TEndingInfo* &i
   }
   catch(...)
   {
+    mem.destroy(info, STDLOG);
     delete info;
     throw;
   };
@@ -3816,7 +3841,7 @@ bool ParseFQTRem(TTlgParser &tlg,string &rem_text,TFQTItem &fqt)
   return false;
 };
 
-TTlgParts GetParts(char* tlg_p)
+TTlgParts GetParts(char* tlg_p, TMemoryManager &mem)
 {
   int line;
   char *p,*line_p;
@@ -3847,7 +3872,7 @@ TTlgParts GetParts(char* tlg_p)
           }
           else break;
         case CommunicationsReference:
-          parts.body=ParseHeading(parts.heading,HeadingInfo);  //может вернуть NULL
+          parts.body=ParseHeading(parts.heading,HeadingInfo,mem);  //может вернуть NULL
           line_p=parts.body.p;
           line=parts.body.line;
           e=EndOfMessage;
@@ -3887,10 +3912,12 @@ TTlgParts GetParts(char* tlg_p)
         (HeadingInfo->tlg_cat==tcDCS||
          HeadingInfo->tlg_cat==tcBSM)) throw ETlgError("End of message not found");
 
+    mem.destroy(HeadingInfo, STDLOG);
     if (HeadingInfo!=NULL) delete HeadingInfo;
   }
   catch(...)
   {
+    mem.destroy(HeadingInfo, STDLOG);
     if (HeadingInfo!=NULL) delete HeadingInfo;
     throw;
   };

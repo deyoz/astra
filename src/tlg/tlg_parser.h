@@ -9,6 +9,7 @@
 #include "exceptions.h"
 #include "oralib.h"
 #include "seats.h"
+#include "memory_manager.h"
 
 class ETlgError:public EXCEPTIONS::Exception
 {
@@ -609,12 +610,12 @@ class TTlgParser
 };
 
 TTlgCategory GetTlgCategory(char *tlg_type);
-TTlgParts GetParts(char* tlg_p);
-TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo* &info);
-void ParseEnding(TTlgPartInfo ending, THeadingInfo *headingInfo, TEndingInfo* &info);
+TTlgParts GetParts(char* tlg_p, TMemoryManager &mem);
+TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo* &info, TMemoryManager &mem);
+void ParseEnding(TTlgPartInfo ending, THeadingInfo *headingInfo, TEndingInfo* &info, TMemoryManager &mem);
 void ParsePNLADLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPnlAdlContent& con);
 void ParsePTMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPtmContent& con);
-void ParseBTMContent(TTlgPartInfo body, TBSMHeadingInfo& info, TBtmContent& con);
+void ParseBTMContent(TTlgPartInfo body, TBSMHeadingInfo& info, TBtmContent& con, TMemoryManager &mem);
 void ParseSOMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TSOMContent& con);
 bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, bool forcibly);
 void SavePTMContent(int tlg_id, TDCSHeadingInfo& info, TPtmContent& con);
