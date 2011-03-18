@@ -7,4 +7,6 @@
 int main_empty_proc_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
 #endif
 
+int alter_db(int argc,char **argv);
+
 #endif

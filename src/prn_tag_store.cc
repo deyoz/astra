@@ -779,8 +779,10 @@ void TPrnTagStore::TPointInfo::Init(int apoint_id, int agrp_id)
         suffix = operFlt.suffix;
         Qry.Clear();
         Qry.SQLText=
-            "SELECT airline, flt_no, suffix, airp_dep AS airp, scd AS scd_out "
-            "FROM market_flt WHERE grp_id=:grp_id";
+            "SELECT mark_trips.airline,mark_trips.flt_no,mark_trips.suffix, "
+            "       mark_trips.scd AS scd_out,mark_trips.airp_dep AS airp "
+            "FROM pax_grp,mark_trips "
+            "WHERE pax_grp.point_id_mark=mark_trips.point_id AND pax_grp.grp_id=:grp_id";
         Qry.CreateVariable("grp_id",otInteger,agrp_id);
         Qry.Execute();
         if (!Qry.Eof)

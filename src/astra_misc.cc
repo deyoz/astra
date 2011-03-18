@@ -473,59 +473,37 @@ void TMktFlight::getByPaxId(int pax_id)
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "select "
-        "    points.airline oper_airline, "
-        "    points.flt_no oper_flt_no, "
-        "    points.suffix oper_suffix, "
-        "    NVL(pax.subclass,pax_grp.class) oper_subcls, "
-        "    points.scd_out oper_scd, "
-        "    points.airp oper_airp_dep, "
-        "    pax_grp.airp_arv oper_airp_arv, "
-        "    market_flt.airline mark_airline, "
-        "    market_flt.flt_no mark_flt_no, "
-        "    market_flt.suffix mark_suffix, "
+        "    mark_trips.airline mark_airline, "
+        "    mark_trips.flt_no mark_flt_no, "
+        "    mark_trips.suffix mark_suffix, "
         "    NVL(pax.subclass,pax_grp.class) mark_subcls, "
-        "    market_flt.scd mark_scd, "
-        "    market_flt.airp_dep mark_airp_dep, "
+        "    mark_trips.scd mark_scd, "
+        "    mark_trips.airp_dep mark_airp_dep, "
         "    pax_grp.airp_arv mark_airp_arv "
         "from "
         "   pax, "
         "   pax_grp, "
-        "   points, "
-        "   market_flt "
+        "   mark_trips "
         "where "
         "    pax.pax_id = :id and "
         "    pax.grp_id = pax_grp.grp_id and "
-        "    pax_grp.point_dep = points.point_id and "
-        "    pax.grp_id = market_flt.grp_id(+) ";
+        "    pax_grp.point_id_mark = mark_trips.point_id ";
     clear();
     Qry.CreateVariable("id",otInteger,pax_id);
     Qry.Execute();
-    if(!Qry.Eof) {
-        if(Qry.FieldIsNULL("mark_airline")) {
-            airline = Qry.FieldAsString("oper_airline");
-            flt_no = Qry.FieldAsInteger("oper_flt_no");
-            suffix = Qry.FieldAsString("oper_suffix");
-            subcls = Qry.FieldAsString("oper_subcls");
-            airp_dep = Qry.FieldAsString("oper_airp_dep");
-            airp_arv = Qry.FieldAsString("oper_airp_arv");
-            TDateTime tmp_scd = UTCToLocal(Qry.FieldAsDateTime("oper_scd"), AirpTZRegion(airp_dep));
-            int Year, Month, Day;
-            DecodeDate(tmp_scd, Year, Month, Day);
-            scd_day_local = Day;
-            EncodeDate(Year, Month, Day, scd_date_local);
-        } else {
-            airline = Qry.FieldAsString("mark_airline");
-            flt_no = Qry.FieldAsInteger("mark_flt_no");
-            suffix = Qry.FieldAsString("mark_suffix");
-            subcls = Qry.FieldAsString("mark_subcls");
-            TDateTime tmp_scd = Qry.FieldAsDateTime("mark_scd");
-            int Year, Month, Day;
-            DecodeDate(tmp_scd, Year, Month, Day);
-            scd_day_local = Day;
-            EncodeDate(Year, Month, Day, scd_date_local);
-            airp_dep = Qry.FieldAsString("mark_airp_dep");
-            airp_arv = Qry.FieldAsString("mark_airp_arv");
-        }
+    if(!Qry.Eof)
+    {
+        airline = Qry.FieldAsString("mark_airline");
+        flt_no = Qry.FieldAsInteger("mark_flt_no");
+        suffix = Qry.FieldAsString("mark_suffix");
+        subcls = Qry.FieldAsString("mark_subcls");
+        TDateTime tmp_scd = Qry.FieldAsDateTime("mark_scd");
+        int Year, Month, Day;
+        DecodeDate(tmp_scd, Year, Month, Day);
+        scd_day_local = Day;
+        EncodeDate(Year, Month, Day, scd_date_local);
+        airp_dep = Qry.FieldAsString("mark_airp_dep");
+        airp_arv = Qry.FieldAsString("mark_airp_arv");
     }
 }
 
@@ -877,12 +855,18 @@ void TCodeShareSets::get(const TTripInfo &operFlt, const TTripInfo &markFlt)
   };
 };
 
-string GetMktFlightStr( const TTripInfo &operFlt, const TTripInfo &markFlt )
+string GetMktFlightStr( const TTripInfo &operFlt, const TTripInfo &markFlt, bool &equal )
 {
+  equal=false;
   TDateTime scd_local_oper=UTCToLocal(operFlt.scd_out, AirpTZRegion(operFlt.airp));
   modf(scd_local_oper,&scd_local_oper);
   TDateTime scd_local_mark=markFlt.scd_out;
   modf(scd_local_mark,&scd_local_mark);
+  equal=operFlt.airline==markFlt.airline &&
+        operFlt.flt_no==markFlt.flt_no &&
+        operFlt.suffix==markFlt.suffix &&
+        scd_local_oper==scd_local_mark &&
+        operFlt.airp==markFlt.airp;
 
   ostringstream trip;
   trip << ElemIdToCodeNative(etAirline, markFlt.airline)

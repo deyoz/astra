@@ -345,8 +345,8 @@ struct TCodeShareSets {
 void GetMktFlights(const TTripInfo &operFltInfo, std::vector<TTripInfo> &markFltInfo);
 
 //важно! время вылета scd_out у operFlt должно быть в UTC
-//       время вылета в markFltInfo возвращается локальное относительно airp
-std::string GetMktFlightStr( const TTripInfo &operFlt, const TTripInfo &markFlt );
+//       время вылета в markFltInfo передается локальное относительно airp
+std::string GetMktFlightStr( const TTripInfo &operFlt, const TTripInfo &markFlt, bool &equal);
 
 void GetCrsList(int point_id, std::vector<std::string> &crs);
 bool IsRouteInter(int point_dep, int point_arv, std::string &country);
