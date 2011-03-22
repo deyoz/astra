@@ -310,6 +310,7 @@ class TSalons {
                                   bool only_high_layer, std::map<ASTRA::TCompLayerType, int> &uselayers_count );
   bool ChangeCfg( TSalons &NewSalons, TSalons &OldSalons );
   bool EqualSalon( TPlaceList* oldsalon, TPlaceList* newsalon, bool equal_seats_cfg );
+  bool IsMiscSet( int point_id, int misc_type );
 } // END namespace SALONS2
 
 #endif /*_SALONS2_H_*/

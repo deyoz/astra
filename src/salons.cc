@@ -1660,35 +1660,11 @@ int SetCraft( int point_id, std::string &craft, int comp_id )
 void InitVIP( int point_id )
 {
 	tst();
+	if ( !IsMiscSet( point_id, 1 ) )
+    return;
 	// инициализация - разметра салона по умолчани
 	TQuery Qry(&OraSession);
 	TQuery QryVIP(&OraSession);
-	Qry.SQLText =
-	  "SELECT airline,flt_no,airp FROM points WHERE point_id=:point_id";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
-  string airline = Qry.FieldAsString( "airline" );
-  int flt_no = Qry.FieldAsInteger( "flt_no" );
-  string airp = Qry.FieldAsString( "airp" );
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT pr_misc, "
-    "       DECODE(airline,NULL,0,8)+ "
-    "       DECODE(flt_no,NULL,0,2)+ "
-    "       DECODE(airp_dep,NULL,0,4) AS priority "
-    " FROM misc_set "
-    " WHERE type=1 AND "
-    "      (airline IS NULL OR airline=:airline) AND "
-    "      (flt_no IS NULL OR flt_no=:flt_no) AND "
-    "      (airp_dep IS NULL OR airp_dep=:airp) "
-    " ORDER BY priority DESC ";
-  Qry.CreateVariable( "airline", otString, airline );
-  Qry.CreateVariable( "flt_no", otInteger, flt_no );
-  Qry.CreateVariable( "airp", otString, airp );
-  Qry.Execute();
-  if ( Qry.Eof || !Qry.FieldAsInteger( "pr_misc" ) )
-  	return; // разметра не нужна
-  Qry.Clear();
 	Qry.SQLText =
 	  "SELECT num, class, MIN( y ) miny, MAX( y ) maxy "
     " FROM trip_comp_elems, comp_elem_types "
@@ -2501,6 +2477,36 @@ bool ChangeCfg( TSalons &NewSalons, TSalons &OldSalons )
     }
   }
   return false;
+}
+
+bool IsMiscSet( int point_id, int misc_type )
+{
+	TQuery Qry(&OraSession);
+	Qry.SQLText =
+	  "SELECT airline,flt_no,airp FROM points WHERE point_id=:point_id";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  string airline = Qry.FieldAsString( "airline" );
+  int flt_no = Qry.FieldAsInteger( "flt_no" );
+  string airp = Qry.FieldAsString( "airp" );
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT pr_misc, "
+    "       DECODE(airline,NULL,0,8)+ "
+    "       DECODE(flt_no,NULL,0,2)+ "
+    "       DECODE(airp_dep,NULL,0,4) AS priority "
+    " FROM misc_set "
+    " WHERE type=:type AND "
+    "      (airline IS NULL OR airline=:airline) AND "
+    "      (flt_no IS NULL OR flt_no=:flt_no) AND "
+    "      (airp_dep IS NULL OR airp_dep=:airp) "
+    " ORDER BY priority DESC ";
+  Qry.CreateVariable( "airline", otString, airline );
+  Qry.CreateVariable( "flt_no", otInteger, flt_no );
+  Qry.CreateVariable( "airp", otString, airp );
+  Qry.CreateVariable( "type", otInteger, misc_type );
+  Qry.Execute();
+  return ( !Qry.Eof && Qry.FieldAsInteger( "pr_misc" ) );
 }
 
 } // end namespace SALONS2

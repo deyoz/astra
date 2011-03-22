@@ -232,24 +232,24 @@ void SalonsInterface::SalonFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   Salons.trip_id = trip_id;
   Salons.ClName = "";
   // пришла новая компоновка, но не пришел comp_id - значит были изменения компоновки - "сохраните базовую компоновку."
-  if ( comp_id == -2 && !cSet )
-    throw UserException( "MSG.SALONS.SAVE_BASE_COMPON" );
-  SALONS2::TSalons OldSalons( trip_id, SALONS2::rTripSalons );
-  // может вызвать ошибку, если салон не был назначен на рейс
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT point_id FROM trip_comp_elems WHERE point_id=:point_id AND rownum<2";
-  Qry.CreateVariable( "point_id", otInteger, trip_id );
-  Qry.Execute();
-  ProgTrace( TRACE5, "point_id=%d,Qry.Eof=%d", trip_id, Qry.Eof );
-  if ( !Qry.Eof ) { // была старая компоновка
-    OldSalons.Read();
-    tst();
-    if ( comp_id == -2 && ChangeCfg( Salons, OldSalons ) )
-      throw UserException( "MSG.SALONS.NOT_CHANGE_CFG_ON_FLIGHT" );
+  if ( SALONS2::IsMiscSet( trip_id, 17 ) ) {
+    if ( comp_id == -2 && !cSet )
+      throw UserException( "MSG.SALONS.SAVE_BASE_COMPON" );
+    SALONS2::TSalons OldSalons( trip_id, SALONS2::rTripSalons );
+    // может вызвать ошибку, если салон не был назначен на рейс
+    Qry.Clear();
+    Qry.SQLText =
+      "SELECT point_id FROM trip_comp_elems WHERE point_id=:point_id AND rownum<2";
+    Qry.CreateVariable( "point_id", otInteger, trip_id );
+    Qry.Execute();
+    ProgTrace( TRACE5, "point_id=%d,Qry.Eof=%d", trip_id, Qry.Eof );
+    if ( !Qry.Eof  ) { // была старая компоновка
+      OldSalons.Read();
+      if ( comp_id == -2 && ChangeCfg( Salons, OldSalons ) )
+        throw UserException( "MSG.SALONS.NOT_CHANGE_CFG_ON_FLIGHT" );
+    }
   }
-  tst();
-  
+
   Salons.Write();
   
   bool pr_initcomp = NodeAsInteger( "initcomp", reqNode );

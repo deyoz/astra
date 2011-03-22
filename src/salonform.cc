@@ -379,19 +379,21 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Salons.trip_id = trip_id;
   Salons.ClName = "";
   // пришла новая компоновка, но не пришел comp_id - значит были изменения компоновки - "сохраните базовую компоновку."
-  if ( comp_id == -2 && !cSet )
-    throw UserException( "MSG.SALONS.SAVE_BASE_COMPON" );
   SALONS2::TSalons OldSalons( trip_id, SALONS2::rTripSalons );
-  // может вызвать ошибку, если салон не был назначен на рейс
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT point_id FROM trip_comp_elems WHERE point_id=:point_id AND rownum<2";
-  Qry.CreateVariable( "point_id", otInteger, trip_id );
-  Qry.Execute();
-  if ( !Qry.Eof ) { // была старая компоновка
-    OldSalons.Read();
-    if ( comp_id == -2 && ChangeCfg( Salons, OldSalons ) )
-      throw UserException( "MSG.SALONS.NOT_CHANGE_CFG_ON_FLIGHT" );
+  if ( SALONS2::IsMiscSet( trip_id, 17 ) ) {
+    if ( comp_id == -2 && !cSet )
+      throw UserException( "MSG.SALONS.SAVE_BASE_COMPON" );
+    // может вызвать ошибку, если салон не был назначен на рейс
+    Qry.Clear();
+    Qry.SQLText =
+      "SELECT point_id FROM trip_comp_elems WHERE point_id=:point_id AND rownum<2";
+    Qry.CreateVariable( "point_id", otInteger, trip_id );
+    Qry.Execute();
+    if ( !Qry.Eof ) { // была старая компоновка
+      OldSalons.Read();
+      if ( comp_id == -2 && ChangeCfg( Salons, OldSalons ) )
+        throw UserException( "MSG.SALONS.NOT_CHANGE_CFG_ON_FLIGHT" );
+    }
   }
 
   Salons.Write();
@@ -449,6 +451,11 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   // конец перечитки
   xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
   Salons.Build( salonsNode );
+  if ( Salons.comp_id > 0 ) { //!!!строго завязать базовые компоновки с назначенными на рейс
+ 	  vector<SALONS2::TCompSections> CompSections;
+    ReadCompSections( Salons.comp_id, CompSections );
+    BuildCompSections( dataNode, CompSections );
+  }
   SEATS2::TPassengers p;
   if ( SEATS2::GetPassengersForWaitList( trip_id, p, true ) ) {
   	tst();
@@ -816,6 +823,11 @@ void IntChangeSeats( int point_id, int pax_id, int &tid, string xname, string yn
     	SEATS2::GetPassengersForWaitList( point_id, p );
       p.Build( dataNode );
     }
+    if ( Salons.comp_id > 0 ) { //!!!строго завязать базовые компоновки с назначенными на рейс
+   	  vector<SALONS2::TCompSections> CompSections;
+      ReadCompSections( Salons.comp_id, CompSections );
+      BuildCompSections( dataNode, CompSections );
+    }
   	showErrorMessageAndRollback( ue.getLexemaData( ) );
   }
 }
@@ -899,6 +911,11 @@ void SalonFormInterface::DeleteProtCkinSeat(XMLRequestCtxt *ctxt, xmlNodePtr req
       xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
       SALONS2::GetTripParams( point_id, dataNode );
       Salons.Build( salonsNode );
+      if ( Salons.comp_id > 0 ) { //!!!строго завязать базовые компоновки с назначенными на рейс
+ 	      vector<SALONS2::TCompSections> CompSections;
+        ReadCompSections( Salons.comp_id, CompSections );
+        BuildCompSections( dataNode, CompSections );
+      }
     }
   	showErrorMessageAndRollback( ue.getLexemaData( ) );
   }
@@ -932,6 +949,11 @@ void SalonFormInterface::WaitList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
       Salons.Read();
       Salons.Build( NewTextChild( dataNode, "salons" ) );
       SALONS2::GetTripParams( point_id, dataNode );
+      if ( Salons.comp_id > 0 ) { //!!!строго завязать базовые компоновки с назначенными на рейс
+ 	      vector<SALONS2::TCompSections> CompSections;
+        ReadCompSections( Salons.comp_id, CompSections );
+        BuildCompSections( dataNode, CompSections );
+      }
     }
   }
 }
@@ -971,6 +993,11 @@ void SalonFormInterface::AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
           AstraLocale::showErrorMessage( "MSG.SEATS.SEATS_FINISHED" );
       p.Build( dataNode );
     }
+    if ( Salons.comp_id > 0 ) { //!!!строго завязать базовые компоновки с назначенными на рейс
+ 	    vector<SALONS2::TCompSections> CompSections;
+      ReadCompSections( Salons.comp_id, CompSections );
+      BuildCompSections( dataNode, CompSections );
+    }
   }
   catch( UserException ue ) {
   	tst();
@@ -986,6 +1013,11 @@ void SalonFormInterface::AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
       else
           AstraLocale::showErrorMessage( "MSG.SEATS.SEATS_FINISHED" );
       p.Build( dataNode );
+    }
+    if ( Salons.comp_id > 0 ) { //!!!строго завязать базовые компоновки с назначенными на рейс
+ 	    vector<SALONS2::TCompSections> CompSections;
+      ReadCompSections( Salons.comp_id, CompSections );
+      BuildCompSections( dataNode, CompSections );
     }
   	showErrorMessageAndRollback( ue.getLexemaData( ) );
   }
