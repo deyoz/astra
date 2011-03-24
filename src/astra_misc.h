@@ -347,6 +347,7 @@ void GetMktFlights(const TTripInfo &operFltInfo, std::vector<TTripInfo> &markFlt
 //важно! время вылета scd_out у operFlt должно быть в UTC
 //       время вылета в markFltInfo передается локальное относительно airp
 std::string GetMktFlightStr( const TTripInfo &operFlt, const TTripInfo &markFlt, bool &equal);
+bool IsMarkEqualOper( const TTripInfo &operFlt, const TTripInfo &markFlt );
 
 void GetCrsList(int point_id, std::vector<std::string> &crs);
 bool IsRouteInter(int point_dep, int point_arv, std::string &country);

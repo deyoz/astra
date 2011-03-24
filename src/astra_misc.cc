@@ -879,6 +879,19 @@ string GetMktFlightStr( const TTripInfo &operFlt, const TTripInfo &markFlt, bool
   return trip.str();
 };
 
+bool IsMarkEqualOper( const TTripInfo &operFlt, const TTripInfo &markFlt )
+{
+  TDateTime scd_local_oper=UTCToLocal(operFlt.scd_out, AirpTZRegion(operFlt.airp));
+  modf(scd_local_oper,&scd_local_oper);
+  TDateTime scd_local_mark=markFlt.scd_out;
+  modf(scd_local_mark,&scd_local_mark);
+  return operFlt.airline==markFlt.airline &&
+         operFlt.flt_no==markFlt.flt_no &&
+         operFlt.suffix==markFlt.suffix &&
+         scd_local_oper==scd_local_mark &&
+         operFlt.airp==markFlt.airp;
+};
+
 void GetCrsList(int point_id, std::vector<std::string> &crs)
 {
   crs.clear();

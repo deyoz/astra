@@ -3296,7 +3296,9 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
           "          (suffix IS NULL AND :suffix_mark IS NULL OR suffix=:suffix_mark) FOR UPDATE; "
           "  EXCEPTION "
           "    WHEN NO_DATA_FOUND THEN "
-          "      SELECT id__seq.nextval INTO :point_id_mark FROM dual; "
+          "      IF :point_id_mark IS NULL THEN "
+          "        SELECT id__seq.nextval INTO :point_id_mark FROM dual; "
+          "      END IF;"
           "      INSERT INTO mark_trips(point_id,airline,flt_no,suffix,scd,airp_dep) "
           "      VALUES (:point_id_mark,:airline_mark,:flt_no_mark,:suffix_mark,:scd_mark,:airp_dep_mark); "
           "  END; "
@@ -3343,7 +3345,10 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
         else
           Qry.CreateVariable("seg_no",otInteger,seg_no);
           
-        Qry.DeclareVariable("point_id_mark",otInteger);
+        if (IsMarkEqualOper(fltInfo, markFltInfo))
+          Qry.CreateVariable("point_id_mark",otInteger,point_dep);
+        else
+          Qry.CreateVariable("point_id_mark",otInteger,FNull);
         Qry.CreateVariable("airline_mark",otString,markFltInfo.airline);
         Qry.CreateVariable("flt_no_mark",otInteger,markFltInfo.flt_no);
         Qry.CreateVariable("suffix_mark",otString,markFltInfo.suffix);
