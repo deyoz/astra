@@ -40,40 +40,49 @@ void TLocaleMessages::Invalidate( std::string lang, bool pr_term )
 		tid = server_msgs.get_tid( lang );
 	ProgTrace( TRACE5, "before Invalidate: lang=%s, pr_term=%d, tid=%d, server_msgs.msgs.size()=%d, client_msgs.msgs.size()=%d", lang.c_str(), pr_term, tid, server_msgs.msgs.size(), client_msgs.msgs.size() );
 	TQuery Qry(&OraSession);
-	if ( tid < 0 )
+	if ( tid >= 0 ) {
+	  Qry.SQLText =
+	    "SELECT tid "
+	    " FROM locale_messages "
+	    "WHERE lang=:lang AND (pr_term=:pr_term OR pr_term IS NULL) AND tid>:tid AND rownum < 2";
+	  Qry.CreateVariable( "tid", otInteger, tid );
+	  Qry.CreateVariable( "lang", otString, lang );
+	  Qry.CreateVariable( "pr_term", otInteger, pr_term );
+	  Qry.Execute();
+	  if ( !Qry.Eof )
+      tid = -1; // перечитываем все заново
+  }
+	if ( tid < 0 ) {
+	  ProgTrace( TRACE5, "Invalidate: refresh all" );
+  	if ( pr_term )
+  		client_msgs.clear();
+  	else
+  	  server_msgs.clear();
+    Qry.Clear();
 	  Qry.SQLText =
 	    "SELECT id,text,tid,pr_del "
 	    " FROM locale_messages "
 	    "WHERE lang=:lang AND (pr_term=:pr_term OR pr_term IS NULL) "
 	    "ORDER BY id";
-	else {
-	  Qry.SQLText =
-	    "SELECT id,text,tid,pr_del "
-	    " FROM locale_messages "
-	    "WHERE lang=:lang AND (pr_term=:pr_term OR pr_term IS NULL) AND tid>:tid "
-	    "ORDER BY id";
-	  Qry.CreateVariable( "tid", otInteger, tid );
-	}
-	Qry.CreateVariable( "lang", otString, lang );
-	Qry.CreateVariable( "pr_term", otInteger, pr_term );
-	Qry.Execute();
-  while ( !Qry.Eof ) {
-  	if ( pr_term )
-  		client_msgs.Add( Qry.FieldAsString( "id" ), lang, Qry.FieldAsString( "text" ), Qry.FieldAsInteger( "pr_del" ) );
-  	else {
-  	  server_msgs.Add( Qry.FieldAsString( "id" ), lang, Qry.FieldAsString( "text" ), Qry.FieldAsInteger( "pr_del" ) );
-// 	  	ProgTrace( TRACE5, "id=%s, lang=%s, text=%s", Qry.FieldAsString( "id" ), lang.c_str(), server_msgs.msgs[Qry.FieldAsString( "id" )].lang_messages[ lang ].value.c_str() );
-  	}
+	  Qry.CreateVariable( "lang", otString, lang );
+	  Qry.CreateVariable( "pr_term", otInteger, pr_term );
+	  Qry.Execute();
+    while ( !Qry.Eof ) {
+    	if ( pr_term )
+    		client_msgs.Add( Qry.FieldAsString( "id" ), lang, Qry.FieldAsString( "text" ), Qry.FieldAsInteger( "pr_del" ) );
+    	else
+    	  server_msgs.Add( Qry.FieldAsString( "id" ), lang, Qry.FieldAsString( "text" ), Qry.FieldAsInteger( "pr_del" ) );
 
-  	if ( tid < Qry.FieldAsInteger( "tid" ) )
-  		tid = Qry.FieldAsInteger( "tid" );
-  	Qry.Next();
-  	res = true;
+    	if ( tid < Qry.FieldAsInteger( "tid" ) )
+    		tid = Qry.FieldAsInteger( "tid" );
+    	Qry.Next();
+    	res = true;
+    }
+    if ( pr_term )
+	  	client_msgs.set_tid( lang, tid );
+	  else
+	  	server_msgs.set_tid( lang, tid );
   }
-  if ( pr_term )
-		client_msgs.set_tid( lang, tid );
-	else
-		server_msgs.set_tid( lang, tid );
   ProgTrace( TRACE5, "after Invalidate: lang=%s, tid=%d, server_msgs.msgs.size()=%d, client_msgs.msgs.size()=%d, res=%d", lang.c_str(), tid, server_msgs.msgs.size(), client_msgs.msgs.size(), res );
   if ( res && pr_term ) { // создаем словарь формата клиент
 	  string s;
