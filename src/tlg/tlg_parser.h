@@ -331,7 +331,7 @@ class TPaxItem
     long seats;
     std::vector<TSeatRange> seatRanges;
     TSeat seat; //это место, назначенное разборщиком на основе tlg_comp_layers
-    char seat_type[5];
+    char seat_rem[5];
     std::vector<TRemItem> rem;
     std::vector<TInfItem> inf;
     std::vector<TDocItem> doc;
@@ -341,7 +341,7 @@ class TPaxItem
     {
       pers_type=ASTRA::adult;
       seats=1;
-      *seat_type=0;
+      *seat_rem=0;
     };
 };
 
@@ -458,12 +458,14 @@ class TPnlAdlContent
 {
   public:
     TFltInfo flt;
+    std::vector< std::pair<std::string, int> > seat_rem_priority;
     std::vector<TRbdItem> rbd;
     std::vector<TRouteItem> cfg,avail,transit;
     std::vector<TTotalsByDest> resa;
     void Clear()
     {
       flt.Clear();
+      seat_rem_priority.clear();
       rbd.clear();
       cfg.clear();
       avail.clear();

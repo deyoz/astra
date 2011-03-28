@@ -69,7 +69,8 @@ char lexh[MAX_LEXEME_SIZE+1];
 
 void ParseNameElement(char* p, vector<string> &names, TElemPresence num_presence);
 void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &pr_prev_rem);
-void ParseRemarks(TTlgParser &tlg, TPnrItem &pnr, TNameElement &ne);
+void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
+                  TTlgParser &tlg, TPnrItem &pnr, TNameElement &ne);
 bool ParseCHDRem(TTlgParser &tlg,string &rem_text,vector<TChdItem> &chd);
 bool ParseINFRem(TTlgParser &tlg,string &rem_text,vector<TInfItem> &inf);
 bool ParseDOCSRem(TTlgParser &tlg,string &rem_text,TDocItem &doc);
@@ -2032,6 +2033,22 @@ void ParsePNLADLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPnlAdlContent
     }
     while ((line_p=tlg.NextLine(line_p))!=NULL);
     //разобрать все ремарки
+    if (con.seat_rem_priority.empty())
+    {
+      con.seat_rem_priority.push_back(make_pair("SEAT",1));
+      con.seat_rem_priority.push_back(make_pair("RQST",2));
+      con.seat_rem_priority.push_back(make_pair("EXST",3));
+      con.seat_rem_priority.push_back(make_pair("GPST",3));
+      con.seat_rem_priority.push_back(make_pair("NSST",3));
+      con.seat_rem_priority.push_back(make_pair("NSSA",3));
+      con.seat_rem_priority.push_back(make_pair("NSSB",3));
+      con.seat_rem_priority.push_back(make_pair("NSSW",3));
+      con.seat_rem_priority.push_back(make_pair("SMST",3));
+      con.seat_rem_priority.push_back(make_pair("SMSA",3));
+      con.seat_rem_priority.push_back(make_pair("SMSB",3));
+      con.seat_rem_priority.push_back(make_pair("SMSW",3));
+    };
+
     vector<TNameElement>::iterator i;
     for(iTotals=con.resa.begin();iTotals!=con.resa.end();iTotals++)
     {
@@ -2039,7 +2056,7 @@ void ParsePNLADLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPnlAdlContent
       for(iPnrItem=iTotals->pnr.begin();iPnrItem!=iTotals->pnr.end();iPnrItem++)
         for(i=iPnrItem->ne.begin();i!=iPnrItem->ne.end();i++)
         {
-          ParseRemarks(tlg,*iPnrItem,*i);
+          ParseRemarks(con.seat_rem_priority,tlg,*iPnrItem,*i);
           // проставить для EXST и STCR реальное кол-во мест
           for(iPaxItem=i->pax.begin();iPaxItem!=i->pax.end();)
           {
@@ -2413,7 +2430,8 @@ string OnlyAlphaInLexeme(string lex)
   return lex;
 };
 
-void ParseRemarks(TTlgParser &tlg, TPnrItem &pnr, TNameElement &ne)
+void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
+                  TTlgParser &tlg, TPnrItem &pnr, TNameElement &ne)
 {
   char c;
   int res,k;
@@ -2562,116 +2580,128 @@ void ParseRemarks(TTlgParser &tlg, TPnrItem &pnr, TNameElement &ne)
   //сначала пробегаем по ремаркам каждого из пассажиров (из-за номеров мест)
   for(iPaxItem=ne.pax.begin();iPaxItem!=ne.pax.end();iPaxItem++)
   {
-    for(k=0;k<=1;k++)
+    for(int pass=0;pass<=2;pass++)
     {
-      for(iRemItem=iPaxItem->rem.begin();iRemItem!=iPaxItem->rem.end();iRemItem++)
+      if (pass==0 || pass==1)
       {
-        if (iRemItem->text.empty()) continue;
+        for(iRemItem=iPaxItem->rem.begin();iRemItem!=iPaxItem->rem.end();iRemItem++)
+        {
+          if (iRemItem->text.empty()) continue;
 
-        if (k==0)
-        {
-          if (strcmp(iRemItem->code,"CHD")==0||
-              strcmp(iRemItem->code,"CHLD")==0)
+          if (pass==0)
           {
-            iPaxItem->pers_type=child;
-            continue;
-          };
-          if (strcmp(iRemItem->code,"INF")==0||
-              strcmp(iRemItem->code,"INFT")==0)
-          {
-                //отдельный массив для INF
-            vector<TInfItem> inf;
-            if (ParseINFRem(tlg,iRemItem->text,inf))
+            if (strcmp(iRemItem->code,"CHD")==0||
+                strcmp(iRemItem->code,"CHLD")==0)
             {
-              for(vector<TInfItem>::iterator i=inf.begin();i!=inf.end();)
-              {
-                if (i->surname.empty()) i->surname=ne.surname;
-                //проверим есть ли уже ребенок с таким именем и фамилией в iPaxItem->inf
-                //(защита от дублирования INF и INFT)
-                vector<TInfItem>::iterator j;
-                for(j=iPaxItem->inf.begin();j!=iPaxItem->inf.end();j++)
-                  if (i->surname==j->surname && i->name==j->name) break;
-                if (j!=iPaxItem->inf.end())
-                {
-                  //дублирование INF. удалим из inf
-                  i=inf.erase(i);
-                  continue;
-                };
-                i++;
-              };
-              iPaxItem->inf.insert(iPaxItem->inf.end(),inf.begin(),inf.end());
+              iPaxItem->pers_type=child;
+              continue;
             };
-            continue;
-          };
-        }
-        else
-        {
-          if (strcmp(iRemItem->code,"DOCS")==0 ||
-              strcmp(iRemItem->code,"PSPT")==0)
-          {
-            TDocItem doc;
-            if (ParseDOCSRem(tlg,iRemItem->text,doc))
+            if (strcmp(iRemItem->code,"INF")==0||
+                strcmp(iRemItem->code,"INFT")==0)
             {
-              //проверим документ РМ
-              try
+                  //отдельный массив для INF
+              vector<TInfItem> inf;
+              if (ParseINFRem(tlg,iRemItem->text,inf))
               {
-                TGenderTypesRow &row=(TGenderTypesRow&)(base_tables.get("gender_types").get_row("code/code_lat",doc.gender));
-                if (row.pr_inf)
+                for(vector<TInfItem>::iterator i=inf.begin();i!=inf.end();)
+                {
+                  if (i->surname.empty()) i->surname=ne.surname;
+                  //проверим есть ли уже ребенок с таким именем и фамилией в iPaxItem->inf
+                  //(защита от дублирования INF и INFT)
+                  vector<TInfItem>::iterator j;
+                  for(j=iPaxItem->inf.begin();j!=iPaxItem->inf.end();j++)
+                    if (i->surname==j->surname && i->name==j->name) break;
+                  if (j!=iPaxItem->inf.end())
+                  {
+                    //дублирование INF. удалим из inf
+                    i=inf.erase(i);
+                    continue;
+                  };
+                  i++;
+                };
+                iPaxItem->inf.insert(iPaxItem->inf.end(),inf.begin(),inf.end());
+              };
+              continue;
+            };
+          };
+          if (pass==1)
+          {
+            if (strcmp(iRemItem->code,"DOCS")==0 ||
+                strcmp(iRemItem->code,"PSPT")==0)
+            {
+              TDocItem doc;
+              if (ParseDOCSRem(tlg,iRemItem->text,doc))
+              {
+                //проверим документ РМ
+                try
+                {
+                  TGenderTypesRow &row=(TGenderTypesRow&)(base_tables.get("gender_types").get_row("code/code_lat",doc.gender));
+                  if (row.pr_inf)
+                  {
+                    if (iPaxItem->inf.size()==1)
+                    {
+                      iPaxItem->inf.begin()->doc.push_back(doc);
+                      iPaxItem->inf.begin()->rem.push_back(*iRemItem);
+                      iRemItem->text.clear();
+                    };
+                  }
+                  else
+                    iPaxItem->doc.push_back(doc);
+                }
+                catch(EBaseTableError)
+                {
+                  iPaxItem->doc.push_back(doc);
+                };
+              };
+              continue;
+            };
+
+            if (strcmp(iRemItem->code,"TKNA")==0||
+                strcmp(iRemItem->code,"TKNE")==0)
+            {
+              TTKNItem tkn;
+              if (ParseTKNRem(tlg,iRemItem->text,tkn))
+              {
+                //проверим билет РМ
+                if (tkn.pr_inf)
                 {
                   if (iPaxItem->inf.size()==1)
                   {
-                    iPaxItem->inf.begin()->doc.push_back(doc);
+                    //только если у пассажира один infant - знаем что билет относится к нему
+                    iPaxItem->inf.begin()->tkn.push_back(tkn);
                     iPaxItem->inf.begin()->rem.push_back(*iRemItem);
                     iRemItem->text.clear();
                   };
                 }
                 else
-                  iPaxItem->doc.push_back(doc);
-              }
-              catch(EBaseTableError)
-              {
-                iPaxItem->doc.push_back(doc);
+                  iPaxItem->tkn.push_back(tkn);
               };
+              continue;
             };
-            continue;
-          };
 
-          if (strcmp(iRemItem->code,"TKNA")==0||
-              strcmp(iRemItem->code,"TKNE")==0)
-          {
-            TTKNItem tkn;
-            if (ParseTKNRem(tlg,iRemItem->text,tkn))
+            if (strcmp(iRemItem->code,"FQTV")==0||
+                strcmp(iRemItem->code,"FQTR")==0||
+                strcmp(iRemItem->code,"FQTU")==0||
+                strcmp(iRemItem->code,"FQTS")==0)
             {
-              //проверим билет РМ
-              if (tkn.pr_inf)
-              {
-                if (iPaxItem->inf.size()==1)
-                {
-                  //только если у пассажира один infant - знаем что билет относится к нему
-                  iPaxItem->inf.begin()->tkn.push_back(tkn);
-                  iPaxItem->inf.begin()->rem.push_back(*iRemItem);
-                  iRemItem->text.clear();
-                };
-              }
-              else
-                iPaxItem->tkn.push_back(tkn);
+              TFQTItem fqt;
+              if (ParseFQTRem(tlg,iRemItem->text,fqt))
+                iPaxItem->fqt.push_back(fqt);
+              continue;
             };
-            continue;
           };
-
-          if (strcmp(iRemItem->code,"EXST")==0||
-              strcmp(iRemItem->code,"GPST")==0||
-              strcmp(iRemItem->code,"RQST")==0||
-              strcmp(iRemItem->code,"SEAT")==0||
-              strcmp(iRemItem->code,"NSST")==0||
-              strcmp(iRemItem->code,"NSSA")==0||
-              strcmp(iRemItem->code,"NSSB")==0||
-              strcmp(iRemItem->code,"NSSW")==0||
-              strcmp(iRemItem->code,"SMST")==0||
-              strcmp(iRemItem->code,"SMSA")==0||
-              strcmp(iRemItem->code,"SMSB")==0||
-              strcmp(iRemItem->code,"SMSW")==0)
+        };
+      };
+      if (pass==2)
+      {
+        for(vector< pair<string,int> >::const_iterator r=seat_rem_priority.begin();
+                                                       r!=seat_rem_priority.end(); r++ )
+        {
+          for(iRemItem=iPaxItem->rem.begin();iRemItem!=iPaxItem->rem.end();iRemItem++)
           {
+            if (iRemItem->text.empty()) continue;
+
+            if (iRemItem->code!=r->first) continue;
             vector<TSeatRange> seats;
             TSeat seat;
             if (ParseSEATRem(tlg,iRemItem->text,seats))
@@ -2692,12 +2722,7 @@ void ParseRemarks(TTlgParser &tlg, TPnrItem &pnr, TNameElement &ne)
                     if (iPaxItem2==ne.pax.end())
                     {
                       iPaxItem->seat=seat;
-                      if (strcmp(i->rem,"NSST")==0||
-                          strcmp(i->rem,"NSSA")==0||
-                          strcmp(i->rem,"NSSW")==0||
-                          strcmp(i->rem,"SMST")==0||
-                          strcmp(i->rem,"SMSA")==0||
-                          strcmp(i->rem,"SMSW")==0) strcpy(iPaxItem->seat_type,i->rem);
+                      strcpy(iPaxItem->seat_rem,i->rem);
                       break;
                     };
                   }
@@ -2705,21 +2730,11 @@ void ParseRemarks(TTlgParser &tlg, TPnrItem &pnr, TNameElement &ne)
                 };
               };
             };
-            continue;
-          };
 
-          if (strcmp(iRemItem->code,"FQTV")==0||
-              strcmp(iRemItem->code,"FQTR")==0||
-              strcmp(iRemItem->code,"FQTU")==0||
-              strcmp(iRemItem->code,"FQTS")==0)
-          {
-            TFQTItem fqt;
-            if (ParseFQTRem(tlg,iRemItem->text,fqt))
-              iPaxItem->fqt.push_back(fqt);
-            continue;
           };
         };
       };
+
     };
 
     for(iRemItem=iPaxItem->rem.begin();iRemItem!=iPaxItem->rem.end();)
@@ -2732,107 +2747,201 @@ void ParseRemarks(TTlgParser &tlg, TPnrItem &pnr, TNameElement &ne)
   };
 
   vector<TInfItem> infs;
-  for(k=0;k<=1;k++)
+  for(int pass=0;pass<=2;pass++)
   {
-    //пробегаем по ремаркам группы
-    for(iRemItem=ne.rem.begin();iRemItem!=ne.rem.end();iRemItem++)
+    if (pass==0||pass==1)
     {
-      if (iRemItem->text.empty()) continue;
-
-      if (k==0)
+      //пробегаем по ремаркам группы
+      for(iRemItem=ne.rem.begin();iRemItem!=ne.rem.end();iRemItem++)
       {
-        if (strcmp(iRemItem->code,"CHD")==0||
-            strcmp(iRemItem->code,"CHLD")==0)
-        {
-          vector<TChdItem> chd;
-          if (ParseCHDRem(tlg,iRemItem->text,chd))
-          {
-            for(iPaxItem2=ne.pax.begin();iPaxItem2!=ne.pax.end();iPaxItem2++)
-            {
-              for(vector<TChdItem>::iterator i=chd.begin();i!=chd.end();i++)
-                if (i->first==ne.surname &&
-                    (i->second==iPaxItem2->name ||
-                     OnlyAlphaInLexeme(i->second)==OnlyAlphaInLexeme(iPaxItem2->name)))
-                {
-                  iPaxItem2->pers_type=child;
-                  break;
-                };
-            };
-          };
-          continue;
-        };
+        if (iRemItem->text.empty()) continue;
 
-        if (strcmp(iRemItem->code,"INF")==0||
-            strcmp(iRemItem->code,"INFT")==0)
+        if (pass==0)
         {
-              //отдельный массив для INF
-          vector<TInfItem> inf;
-          if (ParseINFRem(tlg,iRemItem->text,inf))
+          if (strcmp(iRemItem->code,"CHD")==0||
+              strcmp(iRemItem->code,"CHLD")==0)
           {
-            for(vector<TInfItem>::iterator i=inf.begin();i!=inf.end();)
+            vector<TChdItem> chd;
+            if (ParseCHDRem(tlg,iRemItem->text,chd))
             {
-              if (i->surname.empty()) i->surname=ne.surname;
-              if (ne.pax.size()==1 && ne.pax.begin()->inf.empty())
+              for(iPaxItem2=ne.pax.begin();iPaxItem2!=ne.pax.end();iPaxItem2++)
               {
-                //проверим есть ли уже ребенок с таким именем и фамилией в ne.pax.begin()->inf
-                //(защита от дублирования INF и INFT)
-                vector<TInfItem>::iterator j;
-                for(j=ne.pax.begin()->inf.begin();j!=ne.pax.begin()->inf.end();j++)
-                  if (i->surname==j->surname && i->name==j->name) break;
-                if (j!=ne.pax.begin()->inf.end())
-                {
-                  //дублирование INF. удалим из inf
-                  i=inf.erase(i);
-                  continue;
-                };
+                for(vector<TChdItem>::iterator i=chd.begin();i!=chd.end();i++)
+                  if (i->first==ne.surname &&
+                      (i->second==iPaxItem2->name ||
+                       OnlyAlphaInLexeme(i->second)==OnlyAlphaInLexeme(iPaxItem2->name)))
+                  {
+                    iPaxItem2->pers_type=child;
+                    break;
+                  };
               };
-              i++;
             };
+            continue;
+          };
 
-            if (ne.pax.size()==1 && ne.pax.begin()->inf.empty() &&
-                inf.size()==1)
-            {
-              //однозначная привязка к единственному пассажиру
-              ne.pax.begin()->inf.insert(ne.pax.begin()->inf.end(),inf.begin(),inf.end());
-            }
-            else
+          if (strcmp(iRemItem->code,"INF")==0||
+              strcmp(iRemItem->code,"INFT")==0)
+          {
+                //отдельный массив для INF
+            vector<TInfItem> inf;
+            if (ParseINFRem(tlg,iRemItem->text,inf))
             {
               for(vector<TInfItem>::iterator i=inf.begin();i!=inf.end();)
               {
-                //проверим есть ли уже ребенок с таким именем и фамилией в infs
-                //(защита от дублирования INF и INFT)
-                vector<TInfItem>::iterator j;
-                for(j=infs.begin();j!=infs.end();j++)
-                  if (i->surname==j->surname && i->name==j->name) break;
-                if (j!=infs.end())
+                if (i->surname.empty()) i->surname=ne.surname;
+                if (ne.pax.size()==1 && ne.pax.begin()->inf.empty())
                 {
-                  //дублирование INF. удалим из inf
-                  i=inf.erase(i);
-                  continue;
+                  //проверим есть ли уже ребенок с таким именем и фамилией в ne.pax.begin()->inf
+                  //(защита от дублирования INF и INFT)
+                  vector<TInfItem>::iterator j;
+                  for(j=ne.pax.begin()->inf.begin();j!=ne.pax.begin()->inf.end();j++)
+                    if (i->surname==j->surname && i->name==j->name) break;
+                  if (j!=ne.pax.begin()->inf.end())
+                  {
+                    //дублирование INF. удалим из inf
+                    i=inf.erase(i);
+                    continue;
+                  };
                 };
                 i++;
               };
-              infs.insert(infs.end(),inf.begin(),inf.end());
+
+              if (ne.pax.size()==1 && ne.pax.begin()->inf.empty() &&
+                  inf.size()==1)
+              {
+                //однозначная привязка к единственному пассажиру
+                ne.pax.begin()->inf.insert(ne.pax.begin()->inf.end(),inf.begin(),inf.end());
+              }
+              else
+              {
+                for(vector<TInfItem>::iterator i=inf.begin();i!=inf.end();)
+                {
+                  //проверим есть ли уже ребенок с таким именем и фамилией в infs
+                  //(защита от дублирования INF и INFT)
+                  vector<TInfItem>::iterator j;
+                  for(j=infs.begin();j!=infs.end();j++)
+                    if (i->surname==j->surname && i->name==j->name) break;
+                  if (j!=infs.end())
+                  {
+                    //дублирование INF. удалим из inf
+                    i=inf.erase(i);
+                    continue;
+                  };
+                  i++;
+                };
+                infs.insert(infs.end(),inf.begin(),inf.end());
+              };
             };
+            continue;
           };
-          continue;
         };
-      }
-      else
-      {
-        if (strcmp(iRemItem->code,"EXST")==0||
-            strcmp(iRemItem->code,"GPST")==0||
-            strcmp(iRemItem->code,"RQST")==0||
-            strcmp(iRemItem->code,"SEAT")==0||
-            strcmp(iRemItem->code,"NSST")==0||
-            strcmp(iRemItem->code,"NSSA")==0||
-            strcmp(iRemItem->code,"NSSB")==0||
-            strcmp(iRemItem->code,"NSSW")==0||
-            strcmp(iRemItem->code,"SMST")==0||
-            strcmp(iRemItem->code,"SMSA")==0||
-            strcmp(iRemItem->code,"SMSB")==0||
-            strcmp(iRemItem->code,"SMSW")==0)
+        if (pass==1)
         {
+          if (strcmp(iRemItem->code,"DOCS")==0 ||
+              strcmp(iRemItem->code,"PSPT")==0)
+          {
+            if (ne.pax.size()==1)
+            {
+              TDocItem doc;
+              if (ParseDOCSRem(tlg,iRemItem->text,doc))
+              {
+                //проверим документ РМ
+                try
+                {
+                  TGenderTypesRow &row=(TGenderTypesRow&)(base_tables.get("gender_types").get_row("code/code_lat",doc.gender));
+                  if (row.pr_inf)
+                  {
+                    if (ne.pax.begin()->inf.size()==1)
+                    {
+                      ne.pax.begin()->inf.begin()->doc.push_back(doc);
+                      ne.pax.begin()->inf.begin()->rem.push_back(*iRemItem);
+                      iRemItem->text.clear();
+                    };
+                  }
+                  else
+                  {
+                    ne.pax.begin()->doc.push_back(doc);
+                    ne.pax.begin()->rem.push_back(*iRemItem);
+                    iRemItem->text.clear();
+                  };
+                }
+                catch(EBaseTableError)
+                {
+                  if (*doc.gender==0)
+                  {
+                    //неизвестный тип пассажира
+                    ne.pax.begin()->doc.push_back(doc);
+                    ne.pax.begin()->rem.push_back(*iRemItem);
+                    iRemItem->text.clear();
+                  }
+                };
+              };
+            };
+            continue;
+          };
+
+          if (strcmp(iRemItem->code,"TKNA")==0||
+              strcmp(iRemItem->code,"TKNE")==0)
+          {
+            if (ne.pax.size()==1)
+            {
+              TTKNItem tkn;
+              if (ParseTKNRem(tlg,iRemItem->text,tkn))
+              {
+                //проверим билет РМ
+                if (tkn.pr_inf)
+                {
+                  if (ne.pax.begin()->inf.size()==1)
+                  {
+                    //только если у пассажира один infant - знаем что билет относится к нему
+                    ne.pax.begin()->inf.begin()->tkn.push_back(tkn);
+                    ne.pax.begin()->inf.begin()->rem.push_back(*iRemItem);
+                    iRemItem->text.clear();
+                  };
+                }
+                else
+                {
+                  ne.pax.begin()->tkn.push_back(tkn);
+                  ne.pax.begin()->rem.push_back(*iRemItem);
+                  iRemItem->text.clear();
+                };
+
+              };
+            };
+            continue;
+          };
+
+          if (strcmp(iRemItem->code,"FQTV")==0||
+              strcmp(iRemItem->code,"FQTR")==0||
+              strcmp(iRemItem->code,"FQTU")==0||
+              strcmp(iRemItem->code,"FQTS")==0)
+          {
+            if (ne.pax.size()==1)
+            {
+              TFQTItem fqt;
+              if (ParseFQTRem(tlg,iRemItem->text,fqt))
+              {
+                ne.pax.begin()->fqt.push_back(fqt);
+                ne.pax.begin()->rem.push_back(*iRemItem);
+                iRemItem->text.clear();
+              };
+            };
+            continue;
+          };
+        };
+      };
+    };
+    if (pass==2)
+    {
+      for(vector< pair<string,int> >::const_iterator r=seat_rem_priority.begin();
+                                                     r!=seat_rem_priority.end(); r++ )
+      {
+        //пробегаем по ремаркам группы
+        for(iRemItem=ne.rem.begin();iRemItem!=ne.rem.end();iRemItem++)
+        {
+          if (iRemItem->text.empty()) continue;
+          
+          if (iRemItem->code!=r->first) continue;
           vector<TSeatRange> seats;
           TSeat seat;
           if (ParseSEATRem(tlg,iRemItem->text,seats))
@@ -2874,12 +2983,7 @@ void ParseRemarks(TTlgParser &tlg, TPnrItem &pnr, TNameElement &ne)
                     if (iPaxItem2->seat.Empty())
                     {
                       iPaxItem2->seat=seat;
-                      if (strcmp(i->rem,"NSST")==0||
-                          strcmp(i->rem,"NSSA")==0||
-                          strcmp(i->rem,"NSSW")==0||
-                          strcmp(i->rem,"SMST")==0||
-                          strcmp(i->rem,"SMSA")==0||
-                          strcmp(i->rem,"SMSW")==0) strcpy(iPaxItem2->seat_type,i->rem);
+                      strcpy(iPaxItem2->seat_rem,i->rem);
                       break;
                     };
                   if (iPaxItem2!=ne.pax.end()) continue;
@@ -2891,12 +2995,7 @@ void ParseRemarks(TTlgParser &tlg, TPnrItem &pnr, TNameElement &ne)
                       if (iPaxItem2->seat.Empty())
                       {
                         iPaxItem2->seat=seat;
-                        if (strcmp(i->rem,"NSST")==0||
-                            strcmp(i->rem,"NSSA")==0||
-                            strcmp(i->rem,"NSSW")==0||
-                            strcmp(i->rem,"SMST")==0||
-                            strcmp(i->rem,"SMSA")==0||
-                            strcmp(i->rem,"SMSW")==0) strcpy(iPaxItem2->seat_type,i->rem);
+                        strcpy(iPaxItem2->seat_rem,i->rem);
                         break;
                       };
                     if (iPaxItem2!=iNameElement->pax.end()) break;
@@ -2906,99 +3005,6 @@ void ParseRemarks(TTlgParser &tlg, TPnrItem &pnr, TNameElement &ne)
               while (NextSeatInRange(*i,seat));
             };
           };
-          continue;
-        };
-
-        if (strcmp(iRemItem->code,"DOCS")==0 ||
-            strcmp(iRemItem->code,"PSPT")==0)
-        {
-          if (ne.pax.size()==1)
-          {
-            TDocItem doc;
-            if (ParseDOCSRem(tlg,iRemItem->text,doc))
-            {
-              //проверим документ РМ
-              try
-              {
-                TGenderTypesRow &row=(TGenderTypesRow&)(base_tables.get("gender_types").get_row("code/code_lat",doc.gender));
-                if (row.pr_inf)
-                {
-                  if (ne.pax.begin()->inf.size()==1)
-                  {
-                    ne.pax.begin()->inf.begin()->doc.push_back(doc);
-                    ne.pax.begin()->inf.begin()->rem.push_back(*iRemItem);
-                    iRemItem->text.clear();
-                  };
-                }
-                else
-                {
-                  ne.pax.begin()->doc.push_back(doc);
-                  ne.pax.begin()->rem.push_back(*iRemItem);
-                  iRemItem->text.clear();
-                };
-              }
-              catch(EBaseTableError)
-              {
-                if (*doc.gender==0)
-                {
-                  //неизвестный тип пассажира
-                  ne.pax.begin()->doc.push_back(doc);
-                  ne.pax.begin()->rem.push_back(*iRemItem);
-                  iRemItem->text.clear();
-                }
-              };
-            };
-          };
-          continue;
-        };
-
-        if (strcmp(iRemItem->code,"TKNA")==0||
-            strcmp(iRemItem->code,"TKNE")==0)
-        {
-          if (ne.pax.size()==1)
-          {
-            TTKNItem tkn;
-            if (ParseTKNRem(tlg,iRemItem->text,tkn))
-            {
-              //проверим билет РМ
-              if (tkn.pr_inf)
-              {
-                if (ne.pax.begin()->inf.size()==1)
-                {
-                  //только если у пассажира один infant - знаем что билет относится к нему
-                  ne.pax.begin()->inf.begin()->tkn.push_back(tkn);
-                  ne.pax.begin()->inf.begin()->rem.push_back(*iRemItem);
-                  iRemItem->text.clear();
-                };
-              }
-              else
-              {
-                ne.pax.begin()->tkn.push_back(tkn);
-                ne.pax.begin()->rem.push_back(*iRemItem);
-                iRemItem->text.clear();
-              };
-
-            };
-          };
-          continue;
-        };
-
-        if (strcmp(iRemItem->code,"FQTV")==0||
-            strcmp(iRemItem->code,"FQTR")==0||
-            strcmp(iRemItem->code,"FQTU")==0||
-            strcmp(iRemItem->code,"FQTS")==0)
-        {
-          if (ne.pax.size()==1)
-          {
-            TFQTItem fqt;
-            if (ParseFQTRem(tlg,iRemItem->text,fqt))
-            {
-              ne.pax.begin()->fqt.push_back(fqt);
-              ne.pax.begin()->rem.push_back(*iRemItem);
-              iRemItem->text.clear();
-            };
-          };
-          continue;
         };
       };
     };
@@ -5259,12 +5265,12 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
           "BEGIN "
           "  IF :pax_id IS NULL THEN "
           "    SELECT pax_id.nextval INTO :pax_id FROM dual; "
-          "    INSERT INTO crs_pax(pax_id,pnr_id,surname,name,pers_type,seat_xname,seat_yname,seat_type,seats,pr_del,last_op,tid) "
-          "    VALUES(:pax_id,:pnr_id,:surname,:name,:pers_type,:seat_xname,:seat_yname,:seat_type,:seats,:pr_del,:last_op,tid__seq.currval); "
+          "    INSERT INTO crs_pax(pax_id,pnr_id,surname,name,pers_type,seat_xname,seat_yname,seat_rem,seat_type,seats,pr_del,last_op,tid) "
+          "    VALUES(:pax_id,:pnr_id,:surname,:name,:pers_type,:seat_xname,:seat_yname,:seat_rem,:seat_type,:seats,:pr_del,:last_op,tid__seq.currval); "
           "  ELSE "
           "    UPDATE crs_pax "
-          "    SET pers_type= :pers_type, seat_xname= :seat_xname, seat_yname= :seat_yname, seat_type= :seat_type, "
-          "        pr_del= :pr_del, last_op= :last_op, tid=tid__seq.currval "
+          "    SET pers_type= :pers_type, seat_xname= :seat_xname, seat_yname= :seat_yname, seat_rem= :seat_rem, "
+          "        seat_type= :seat_type, pr_del= :pr_del, last_op= :last_op, tid=tid__seq.currval "
           "    WHERE pax_id=:pax_id; "
           "  END IF; "
           "END;";
@@ -5275,6 +5281,7 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
         CrsPaxInsQry.DeclareVariable("pers_type",otString);
         CrsPaxInsQry.DeclareVariable("seat_xname",otString);
         CrsPaxInsQry.DeclareVariable("seat_yname",otString);
+        CrsPaxInsQry.DeclareVariable("seat_rem",otString);
         CrsPaxInsQry.DeclareVariable("seat_type",otString);
         CrsPaxInsQry.DeclareVariable("seats",otInteger);
         CrsPaxInsQry.DeclareVariable("pr_del",otInteger);
@@ -5523,12 +5530,22 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
                 {
                   CrsPaxInsQry.SetVariable("seat_xname",iPaxItem->seat.line);
                   CrsPaxInsQry.SetVariable("seat_yname",iPaxItem->seat.row);
-                  CrsPaxInsQry.SetVariable("seat_type",iPaxItem->seat_type);
+                  CrsPaxInsQry.SetVariable("seat_rem",iPaxItem->seat_rem);
+                  if (strcmp(iPaxItem->seat_rem,"NSST")==0||
+                      strcmp(iPaxItem->seat_rem,"NSSA")==0||
+                      strcmp(iPaxItem->seat_rem,"NSSW")==0||
+                      strcmp(iPaxItem->seat_rem,"SMST")==0||
+                      strcmp(iPaxItem->seat_rem,"SMSA")==0||
+                      strcmp(iPaxItem->seat_rem,"SMSW")==0)
+                    CrsPaxInsQry.SetVariable("seat_type",iPaxItem->seat_rem);
+                  else
+                    CrsPaxInsQry.SetVariable("seat_type",FNull);
                 }
                 else
                 {
                   CrsPaxInsQry.SetVariable("seat_xname",FNull);
                   CrsPaxInsQry.SetVariable("seat_yname",FNull);
+                  CrsPaxInsQry.SetVariable("seat_rem",FNull);
                   CrsPaxInsQry.SetVariable("seat_type",FNull);
                 };
 
@@ -5749,3 +5766,6 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
     return false;
   };
 };
+
+
+
