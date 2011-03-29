@@ -2367,7 +2367,7 @@ void WebRequestsIface::ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       NewTextChild( placeNode, "status", status );
       if ( wp->pax_id != NoExists )
       	NewTextChild( placeNode, "pax_id", wp->pax_id );
-      if ( wp->WebTariff.value != 0.0 ) {
+      if ( SearchPnrData.pr_paid_ckin && wp->WebTariff.value != 0.0 ) {
       	xmlNodePtr rateNode = NewTextChild( placeNode, "rate" );
       	NewTextChild( rateNode, "color", wp->WebTariff.color );
       	NewTextChild( rateNode, "value", wp->WebTariff.value );
