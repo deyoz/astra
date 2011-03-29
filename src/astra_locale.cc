@@ -55,9 +55,9 @@ void TLocaleMessages::Invalidate( std::string lang, bool pr_term )
 	if ( tid < 0 ) {
 	  ProgTrace( TRACE5, "Invalidate: refresh all" );
   	if ( pr_term )
-  		client_msgs.clear();
+  		client_msgs.clear( lang );
   	else
-  	  server_msgs.clear();
+  	  server_msgs.clear( lang );
     Qry.Clear();
 	  Qry.SQLText =
 	    "SELECT id,text,tid,pr_del "
@@ -110,7 +110,8 @@ std::string TLocaleMessages::getText( const std::string &lexema_id, const std::s
 	if ( server_msgs.msgs.find( vid ) == server_msgs.msgs.end() )
 		throw EXCEPTIONS::Exception( "TMessages::getText: message id=%s not found", vid.c_str() );
 	TLocaleMessage msg = server_msgs.msgs[ vid ];
-	if ( msg.lang_messages.find( vlang ) == msg.lang_messages.end() )
+	if ( msg.lang_messages.find( vlang ) == msg.lang_messages.end() ||
+       msg.lang_messages[ vlang ].value.empty() )
 		throw EXCEPTIONS::Exception( "TMessages::getText: message in lang='%s', id='%s' not found", vlang.c_str(), vid.c_str() );
 	if ( msg.lang_messages[ vlang ].pr_del )
 		throw EXCEPTIONS::Exception( "TMessages::getText: msg delete invalid lang='%s', id='%s', pr_del=%d", vlang.c_str(), vid.c_str(), msg.lang_messages[ vlang ].pr_del );

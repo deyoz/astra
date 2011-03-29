@@ -199,7 +199,7 @@ struct TMessageText {
 	int pr_del;
 	TMessageText() {
 		value = "";
-		pr_del=0;
+		pr_del = 0;
 	}
 	TMessageText( const std::string &avalue, int apr_del ) {
 		value = avalue;
@@ -215,6 +215,18 @@ struct TLocaleMessage {
 		else
 			lang_messages[ vlang ] = TMessageText(vmessage,pr_del);
 	}
+	void Clear( std::string vlang ) {
+    if ( lang_messages.find( vlang ) != lang_messages.end() ) {
+      lang_messages[ vlang ] = TMessageText( "", 0 );
+    }
+  }
+  bool isEmpty( ) {
+    for ( std::map<std::string,TMessageText>::iterator i=lang_messages.begin(); i!=lang_messages.end(); i++ ) {
+      if ( !i->second.value.empty() )
+        return false;
+    }
+    return true;
+  }
 	TLocaleMessage( ){};
 };
 
@@ -230,6 +242,14 @@ struct TMsgs {
 		tids.clear();
 		msgs.clear();
 	}
+	void clear( const std::string &lang ) {
+    tids.erase( lang );
+    for ( std::map<std::string, TLocaleMessage>::iterator i=msgs.begin(); i!=msgs.end(); i++ ) {
+      i->second.Clear( lang );
+      if ( i->second.isEmpty() )
+        msgs.erase( i->first );
+    }
+  }
 	int get_tid( const std::string &lang ) {
 		if ( tids.find( lang ) != tids.end() )
 			return tids[ lang ];
