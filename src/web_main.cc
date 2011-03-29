@@ -2175,6 +2175,7 @@ struct TWebPlace {
 	int pr_free;
 	int pr_CHIN;
 	int pax_id;
+	SALONS2::TPlaceWebTariff WebTariff;
 };
 
 typedef std::vector<TWebPlace> TWebPlaces;
@@ -2259,6 +2260,9 @@ void WebRequestsIface::ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
      	wp.pr_free = 0;
      	wp.pr_CHIN = false;
      	wp.pax_id = NoExists;
+     	wp.WebTariff.color = place->WebTariff.color;
+     	wp.WebTariff.value = place->WebTariff.value;
+     	wp.WebTariff.currency_id = place->WebTariff.currency_id;
      	if ( place->isplace && !place->clname.empty() && place->clname == crs_class ) {
      		bool pr_first = true;
      		for( std::vector<TPlaceLayer>::iterator l=place->layers.begin(); l!=place->layers.end(); l++ ) { // сортировка по приоритета
@@ -2363,6 +2367,12 @@ void WebRequestsIface::ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       NewTextChild( placeNode, "status", status );
       if ( wp->pax_id != NoExists )
       	NewTextChild( placeNode, "pax_id", wp->pax_id );
+      if ( wp->WebTariff.value != 0.0 ) {
+      	xmlNodePtr rateNode = NewTextChild( placeNode, "rate" );
+      	NewTextChild( rateNode, "color", wp->WebTariff.color );
+      	NewTextChild( rateNode, "value", wp->WebTariff.value );
+      	NewTextChild( rateNode, "currency", wp->WebTariff.currency_id );
+      }
     }
   }
 }
