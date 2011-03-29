@@ -176,6 +176,14 @@ struct TSearchPnrData {
 	string subcls;
 	vector<TPnrAddr> pnr_addrs;
 	int bag_norm;
+	
+	bool pr_paid_ckin;
+};
+
+struct TIdsPnrData {
+  int point_id;
+  int pnr_id;
+  bool pr_paid_ckin;
 };
 
 struct TPnrInfo {
@@ -438,6 +446,7 @@ bool getTripData( int point_id, bool first_segment, TSearchPnrData &SearchPnrDat
   	SearchPnrData.pr_tranzit = Qry.FieldAsInteger("pr_tranzit")!=0;
 
   	TTripInfo operFlt(Qry);
+  	SearchPnrData.pr_paid_ckin = GetTripSets(tsPaidCheckIn, operFlt);
   	GetMktFlights(operFlt, SearchPnrData.mark_flights);
   	
   	SearchPnrData.stages.clear();
@@ -1725,6 +1734,7 @@ struct TWebPax {
 	TDateTime birth_date;
 	string pers_type_extended; //может содержать БГ (CBBG)
 	string crs_seat_no;
+	string crs_seat_rem;
 	string preseat_no;
   string seat_no;
   string pass_class;
@@ -1796,7 +1806,7 @@ bool is_agent_checkin(const string &pnr_status)
      		   pnr_status=="WL");
 };
 
-void getPnr( int pnr_id, vector<TWebPax> &pnr, bool pr_throw )
+void getPnr( bool pr_paid_ckin, int pnr_id, vector<TWebPax> &pnr, bool pr_throw )
 {
   try
   {
@@ -1847,6 +1857,7 @@ void getPnr( int pnr_id, vector<TWebPax> &pnr, bool pr_throw )
       "       DECODE(pax.pax_id,NULL,crs_pax.name,pax.name) AS name, "
       "       DECODE(pax.pax_id,NULL,crs_pax.pers_type,pax.pers_type) AS pers_type, "
       "       salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS crs_seat_no, "
+      "       crs_pax.seat_rem AS crs_seat_rem, "
       "       salons.get_crs_seat_no(crs_pax.pax_id,:protckin_layer,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS preseat_no, "
       "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'one',rownum) AS seat_no, "
       "       DECODE(pax.pax_id,NULL,crs_pax.seats,pax.seats) AS seats, "
@@ -1883,6 +1894,12 @@ void getPnr( int pnr_id, vector<TWebPax> &pnr, bool pr_throw )
     	pax.seat_no = Qry.FieldAsString( "seat_no" );
     	pax.preseat_no = Qry.FieldAsString( "preseat_no" );
     	pax.crs_seat_no = Qry.FieldAsString( "crs_seat_no" );
+    	if (pr_paid_ckin)
+    	{
+    	  pax.crs_seat_rem = Qry.FieldAsString( "crs_seat_rem" );
+    	  if (pax.crs_seat_rem!="SEAT" &&
+            pax.crs_seat_rem!="RQST") pax.crs_seat_rem.clear();
+    	};
     	pax.seats = Qry.FieldAsInteger( "seats" );
     	pax.pass_class = Qry.FieldAsString( "class" );
     	pax.pass_subclass = Qry.FieldAsString( "subclass" );
@@ -1973,18 +1990,18 @@ void getPnr( int pnr_id, vector<TWebPax> &pnr, bool pr_throw )
   };
 }
 
-void IntLoadPnr( const vector< pair<int, int> > &ids, vector< vector<TWebPax> > &pnrs, xmlNodePtr segsNode )
+void IntLoadPnr( const vector<TIdsPnrData> &ids, vector< vector<TWebPax> > &pnrs, xmlNodePtr segsNode )
 {
   pnrs.clear();
-  for(vector< pair<int, int> >::const_iterator i=ids.begin();i!=ids.end();i++)
+  for(vector<TIdsPnrData>::const_iterator i=ids.begin();i!=ids.end();i++)
   {
-    int point_id=i->first;
-    int pnr_id=i->second;
+    int point_id=i->point_id;
+    int pnr_id=i->pnr_id;
 
     try
     {
       vector<TWebPax> pnr;
-      getPnr( pnr_id, pnr, pnrs.empty() );
+      getPnr( i->pr_paid_ckin, pnr_id, pnr, pnrs.empty() );
       if (pnrs.begin()!=pnrs.end())
       {
         //фильтруем пассажиров из второго и следующих сегментов
@@ -2048,14 +2065,20 @@ void IntLoadPnr( const vector< pair<int, int> > &ids, vector< vector<TWebPax> > 
       	if ( iPax->birth_date != NoExists )
       		NewTextChild( paxNode, "birth_date", DateTimeToStr( iPax->birth_date, ServerFormatDateTimeAsString ) );
       	NewTextChild( paxNode, "pers_type", iPax->pers_type_extended );
+      	string seat_no_view;
       	if ( !iPax->seat_no.empty() )
-      		NewTextChild( paxNode, "seat_no", iPax->seat_no );
+      	  seat_no_view = iPax->seat_no;
       	else
       		if ( !iPax->preseat_no.empty() )
-      			NewTextChild( paxNode, "seat_no", iPax->preseat_no );
+      		  seat_no_view = iPax->preseat_no;
       		else
       			if ( !iPax->crs_seat_no.empty() )
-      			  NewTextChild( paxNode, "seat_no", iPax->crs_seat_no );
+      			  seat_no_view = iPax->crs_seat_no;
+      	NewTextChild( paxNode, "seat_no", seat_no_view );
+        if (!seat_no_view.empty() && seat_no_view == iPax->crs_seat_no)
+          NewTextChild( paxNode, "seat_rem", iPax->crs_seat_rem );
+        else
+          NewTextChild( paxNode, "seat_rem" );
         NewTextChild( paxNode, "seats", iPax->seats );
        	NewTextChild( paxNode, "checkin_status", iPax->checkin_status );
        	if ( iPax->pr_eticket )
@@ -2098,14 +2121,19 @@ void WebRequestsIface::LoadPnr(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
   ProgTrace(TRACE1,"WebRequestsIface::LoadPnr");
   xmlNodePtr segsNode = NodeAsNode( "segments", reqNode );
-  vector< pair<int, int> > ids;
+  vector<TIdsPnrData> ids;
   for(xmlNodePtr node=segsNode->children; node!=NULL; node=node->next)
   {
     int point_id=NodeAsInteger( "point_id", node );
     int pnr_id=NodeAsInteger( "pnr_id", node );
-    getTripData( point_id, true );
+    TSearchPnrData SearchPnrData;
+    getTripData( point_id, false, SearchPnrData, true );
     VerifyPNR( point_id, pnr_id );
-    ids.push_back( make_pair(point_id, pnr_id) );
+    TIdsPnrData idsPnrData;
+    idsPnrData.point_id=point_id;
+    idsPnrData.pnr_id=pnr_id;
+    idsPnrData.pr_paid_ckin=SearchPnrData.pr_paid_ckin;
+    ids.push_back( idsPnrData );
   };
   
   vector< vector<TWebPax> > pnrs;
@@ -2171,9 +2199,10 @@ void WebRequestsIface::ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   int pnr_id = NodeAsInteger( "pnr_id", reqNode );
   string crs_class, crs_subclass;
   vector<TWebPax> pnr;
-  getTripData( point_id, true );
+  TSearchPnrData SearchPnrData;
+  getTripData( point_id, false, SearchPnrData, true );
   VerifyPNR( point_id, pnr_id );
-  getPnr( pnr_id, pnr, true );
+  getPnr( SearchPnrData.pr_paid_ckin, pnr_id, pnr, true );
   bool pr_CHIN = false;
   for ( vector<TWebPax>::iterator i=pnr.begin(); i!=pnr.end(); i++ ) {
   	if ( !i->pass_class.empty() )
@@ -2460,7 +2489,7 @@ struct TWebPnrForSave
 
 
 void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader,
-               XMLDoc &emulCkinDoc, map<int,XMLDoc> &emulChngDocs, vector< pair<int, int> > &ids)
+               XMLDoc &emulCkinDoc, map<int,XMLDoc> &emulChngDocs, vector<TIdsPnrData> &ids)
 {
   ids.clear();
   
@@ -3080,7 +3109,13 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
   
   //возвращаем ids
   for(iPnrData=PNRs.begin();iPnrData!=PNRs.end();iPnrData++)
-    ids.push_back( make_pair(iPnrData->point_id, iPnrData->pnr_id) );
+  {
+    TIdsPnrData idsPnrData;
+    idsPnrData.point_id=iPnrData->point_id;
+    idsPnrData.pnr_id=iPnrData->pnr_id;
+    idsPnrData.pr_paid_ckin=iPnrData->pr_paid_ckin;
+    ids.push_back( idsPnrData );
+  };
 };
 
 void WebRequestsIface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -3149,7 +3184,7 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
 	
 	XMLDoc emulCkinDoc;
 	map<int,XMLDoc> emulChngDocs;
-  vector< pair<int, int> > ids;
+  vector<TIdsPnrData> ids;
   VerifyPax(segs, emulDocHeader, emulCkinDoc, emulChngDocs, ids);
 
   bool result=true;

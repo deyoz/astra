@@ -98,18 +98,34 @@ bool GetTripSets( const TTripSetType setType, const TTripInfo &info )
 {
   TQuery Qry( &OraSession );
   Qry.Clear();
-  Qry.SQLText=
-    "SELECT pr_misc, "
-    "    DECODE(airline,NULL,0,8)+ "
-    "    DECODE(flt_no,NULL,0,2)+ "
-    "    DECODE(airp_dep,NULL,0,4) AS priority "
-    "FROM misc_set "
-    "WHERE type=:type AND "
-    "      (airline IS NULL OR airline=:airline) AND "
-    "      (flt_no IS NULL OR flt_no=:flt_no) AND "
-    "      (airp_dep IS NULL OR airp_dep=:airp_dep) "
-    "ORDER BY priority DESC";
-  Qry.CreateVariable("type",otInteger,(int)setType);
+  if (setType==tsPaidCheckIn)
+  {
+    Qry.SQLText=
+      "SELECT pr_permit AS pr_misc, "
+      "    DECODE(airline,NULL,0,8)+ "
+      "    DECODE(flt_no,NULL,0,2)+ "
+      "    DECODE(airp_dep,NULL,0,4) AS priority "
+      "FROM paid_ckin_sets "
+      "WHERE airline=:airline AND "
+      "      (flt_no IS NULL OR flt_no=:flt_no) AND "
+      "      (airp_dep IS NULL OR airp_dep=:airp_dep) "
+      "ORDER BY priority DESC";
+  }
+  else
+  {
+    Qry.SQLText=
+      "SELECT pr_misc, "
+      "    DECODE(airline,NULL,0,8)+ "
+      "    DECODE(flt_no,NULL,0,2)+ "
+      "    DECODE(airp_dep,NULL,0,4) AS priority "
+      "FROM misc_set "
+      "WHERE type=:type AND "
+      "      (airline IS NULL OR airline=:airline) AND "
+      "      (flt_no IS NULL OR flt_no=:flt_no) AND "
+      "      (airp_dep IS NULL OR airp_dep=:airp_dep) "
+      "ORDER BY priority DESC";
+    Qry.CreateVariable("type",otInteger,(int)setType);
+  };
   Qry.CreateVariable("airline",otString,info.airline);
   Qry.CreateVariable("flt_no",otInteger,info.flt_no);
   Qry.CreateVariable("airp_dep",otString,info.airp);

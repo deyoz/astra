@@ -173,7 +173,8 @@ enum TTripSetType { tsOutboardTrfer=10,
                     tsIgnoreTrferSet=12,
                     tsMixedNorms=13,
                     tsNoTicketCheck=15,
-                    tsCharterSearch=16 };
+                    tsCharterSearch=16,
+                    tsPaidCheckIn=100 };
 bool GetTripSets( const TTripSetType setType, const TTripInfo &info );
 
 class TPnrAddrItem
