@@ -1375,13 +1375,13 @@ string TPrnTagStore::TEST_SERVER(TFieldParams fp)
 
 string TPrnTagStore::AIRCODE(TFieldParams fp) {
     ostringstream result;
-    result << setw(fp.len) << setfill('0') << boost::any_cast<int>(fp.TagInfo);
+    result << setw(4) << setfill('0') << boost::any_cast<int>(fp.TagInfo);
     return result.str();
 }
 
 string TPrnTagStore::NO(TFieldParams fp) {
     ostringstream result;
-    result << setw(fp.len) << setfill('0') << boost::any_cast<int>(fp.TagInfo);
+    result << setw(6) << setfill('0') << boost::any_cast<int>(fp.TagInfo);
     return result.str();
 }
 
@@ -1420,7 +1420,7 @@ string TPrnTagStore::LOCAL_DATE1(TFieldParams fp) {
     int Year, Month, Day;
     DecodeDate(scd, Year, Month, Day);
     ostringstream result;
-    result << setw(fp.len) << setfill('0') << Day;
+    result << setw(2) << setfill('0') << Day;
     return result.str();
 }
 
