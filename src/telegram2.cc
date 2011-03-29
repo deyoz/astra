@@ -5813,7 +5813,8 @@ int TelegramInterface::create_tlg(
         info.point_num = Qry.FieldAsInteger("point_num");
         info.first_point = Qry.FieldAsInteger("first_point");
         info.pr_tranzit = Qry.FieldAsInteger("pr_tranzit")!=0;
-        info.airline_view = info.TlgElemIdToElem(etAirline, info.airline);
+        if(info.mark_info.IsNULL() or not info.mark_info.pr_mark_header)
+            info.airline_view = info.TlgElemIdToElem(etAirline, info.airline);
         info.suffix_view = info.suffix.empty() ? "" : info.TlgElemIdToElem(etSuffix, info.suffix);
         info.airp_dep_view = info.TlgElemIdToElem(etAirp, info.airp_dep);
 
