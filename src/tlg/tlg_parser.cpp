@@ -1709,12 +1709,12 @@ void ParsePNLADLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPnlAdlContent
                 GetAirp(RouteItem.station);
                 for(iRouteItem=con.avail.begin();iRouteItem!=con.avail.end();iRouteItem++)
                 {
+                  if (iRouteItem==con.avail.begin()&&
+                      strcmp(iRouteItem->station,con.flt.airp_dep)==0) continue; //первый пункт может совпадать с одним из последующих в AVAIL
                   if (strcmp(RouteItem.station,iRouteItem->station)==0)
                     throw ETlgError("Duplicate airport code '%s'",RouteItem.station);
                 };
-                if (!(con.avail.empty()&&RouteItem.station==con.flt.airp_dep))
-                  con.avail.push_back(RouteItem);
-
+                con.avail.push_back(RouteItem);
               }
               while ((p=tlg.GetLexeme(p))!=NULL);
               if (!con.avail.empty())
