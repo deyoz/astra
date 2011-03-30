@@ -7,7 +7,7 @@ const char * ClientTypeS[] =
     {"TERM", "WEB", "KIOSK"};
 
 const char * OperModeS[] =
-    {"CUSE", "CUTE", "MUSE", "STAND"};
+    {"CUSE", "CUTE", "MUSE", "RESA", "STAND"};
 
 const char * TDocTypeS[] = {"BP", "BT", "Receipt", "FltDoc", "Archiv", "Disp", "Tlg", ""};
 
@@ -23,7 +23,7 @@ const int TQueueS[] = {1,2,4,6,8,0};
 const char* TPaxStatusS[] = {"K","C","T","P"};
 
 const char* CompLayerTypeS[] = {"BLOCK_CENT","TRANZIT","CHECKIN","TCHECKIN","GOSHOW","BLOCK_TRZT","SOM_TRZT","PRL_TRZT",
-	                              "PROT_TRZT","PNL_CKIN","PROT_CKIN","PROTECT","UNCOMFORT","SMOKE",""};
+	                              "PROT_TRZT","PNL_CKIN","PROT_CKIN", "PROT_PAID", "PROTECT","UNCOMFORT","SMOKE",""};
 
 const char* BagNormTypeS[] = {"Åè", "éÅ", "èã", "Åè/ëç", "Åè/éÅ", "Åè/èã", "éÅ/èã", ""};
 
