@@ -8,6 +8,7 @@
 #include "oralib.h"
 #include "stl_utils.h"
 #include "astra_locale.h"
+#include "memory_manager.h"
 
 class EBaseTableError:public EXCEPTIONS::Exception
 {
@@ -58,6 +59,8 @@ class TBaseTable {
     	return select_sql.c_str();
     }
   protected:
+    TMemoryManager mem;
+    int prior_mem_count;
    	std::string select_sql;
     void load_table();
     virtual const char *get_table_name() = 0;
@@ -74,17 +77,11 @@ class TBaseTable {
 	  	}
   	}
   public:
-  	TBaseTable() {
-  		Init();
-  	}
-    virtual ~TBaseTable()
-    {
-      std::vector<TBaseTableRow*>::iterator i;
-      for(i=table.begin();i!=table.end();i++) delete *i;
-    };
+  	TBaseTable();
+    virtual ~TBaseTable();
     virtual TBaseTableRow& get_row(std::string field, std::string value, bool with_deleted=false);
     virtual TBaseTableRow& get_row(std::string field, int value, bool with_deleted=false);
-    virtual void Invalidate() { pr_actual=false; };
+    virtual void Invalidate();
 };
 
 class TNameBaseTableRow: public TBaseTableRow { //name, name_lat
@@ -960,7 +957,9 @@ class TBaseTables {
     private:
         typedef std::map<std::string, TBaseTable *> TTables;
         TTables base_tables;
+        TMemoryManager mem;
     public:
+        TBaseTables();
         TBaseTable &get(std::string name);
         void Clear();
         void Invalidate();
