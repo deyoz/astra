@@ -2033,30 +2033,26 @@ void ParsePNLADLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPnlAdlContent
     }
     while ((line_p=tlg.NextLine(line_p))!=NULL);
     //разобрать все ремарки
-    if (con.seat_rem_priority.empty())
-    {
-      con.seat_rem_priority.push_back(make_pair("SEAT",1));
-      con.seat_rem_priority.push_back(make_pair("RQST",2));
-      con.seat_rem_priority.push_back(make_pair("EXST",3));
-      con.seat_rem_priority.push_back(make_pair("GPST",3));
-      con.seat_rem_priority.push_back(make_pair("NSST",3));
-      con.seat_rem_priority.push_back(make_pair("NSSA",3));
-      con.seat_rem_priority.push_back(make_pair("NSSB",3));
-      con.seat_rem_priority.push_back(make_pair("NSSW",3));
-      con.seat_rem_priority.push_back(make_pair("SMST",3));
-      con.seat_rem_priority.push_back(make_pair("SMSA",3));
-      con.seat_rem_priority.push_back(make_pair("SMSB",3));
-      con.seat_rem_priority.push_back(make_pair("SMSW",3));
-    };
-
+    
+    TSeatRemPriority seat_rem_priority;
+    string airline_mark; //по какой компании посторен seat_rem_priority
+    
     vector<TNameElement>::iterator i;
     for(iTotals=con.resa.begin();iTotals!=con.resa.end();iTotals++)
     {
       GetSubcl(iTotals->subcl); //подклассы в базе храним русские
       for(iPnrItem=iTotals->pnr.begin();iPnrItem!=iTotals->pnr.end();iPnrItem++)
+      {
+        string pnr_airline_mark=iPnrItem->market_flt.Empty()?con.flt.airline:iPnrItem->market_flt.airline;
+        if (airline_mark.empty() || pnr_airline_mark!=airline_mark)
+        {
+          GetSeatRemPriority(pnr_airline_mark, seat_rem_priority);
+          airline_mark=pnr_airline_mark;
+        };
+
         for(i=iPnrItem->ne.begin();i!=iPnrItem->ne.end();i++)
         {
-          ParseRemarks(con.seat_rem_priority,tlg,*iPnrItem,*i);
+          ParseRemarks(seat_rem_priority,tlg,*iPnrItem,*i);
           // проставить для EXST и STCR реальное кол-во мест
           for(iPaxItem=i->pax.begin();iPaxItem!=i->pax.end();)
           {
@@ -2076,6 +2072,7 @@ void ParsePNLADLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPnlAdlContent
             };
           };
         };
+      };
     };
   }
   catch (ETlgError E)
@@ -4586,17 +4583,29 @@ struct TPointIds
   int point_dep,point_arv,point_id;
 };
 
+string GetPaxName(const char* surname,
+                  const char* name,
+                  const char* pers_type)
+{
+  if (*surname==0 && *name==0 && *pers_type==0)
+    return "";
+  else
+    return (string)surname+(*name!=0?" ":"")+name+" ("+pers_type+")";
+};
+
 void SyncTlgCompLayers(int range_id,
                        int point_id_tlg,
                        string airp_arv,
                        TCompLayerType layer_type,
-                       TSeatRange &range,
+                       const TSeatRange &range,
                        int crs_pax_id,
+                       const string &crs_pax_name,
                        bool UsePriorContext)
 {
   if (!(layer_type==cltSOMTrzt||
         layer_type==cltPRLTrzt||
         layer_type==cltPNLCkin||
+        layer_type==cltProtPaid||
         layer_type==cltProtCkin)) return;
 
   static int prior_point_id_tlg=-1;
@@ -4724,12 +4733,26 @@ void SyncTlgCompLayers(int range_id,
     };
   };
 
+  TLogMsg msg;
+  msg.ev_type=ASTRA::evtPax;
   for(vector<TPointIds>::iterator i=prior_point_ids.begin();i!=prior_point_ids.end();i++)
   {
     InsQry.SetVariable("point_id",i->point_id);
     InsQry.SetVariable("point_dep",i->point_dep);
     InsQry.SetVariable("point_arv",i->point_arv);
     InsQry.Execute();
+
+    msg.id1=i->point_id;
+    switch (layer_type)
+    {
+      case cltProtPaid: msg.msg="Пассажиру "+crs_pax_name+" произведено резервирование оплачиваемого места ";
+                        TReqInfo::Instance()->MsgToLog(msg);
+                        break;
+      case cltProtCkin: msg.msg="Пассажиру "+crs_pax_name+" предварительно назначено место ";
+                        TReqInfo::Instance()->MsgToLog(msg);
+                        break;
+      default: break;
+    };
   };
 };
 
@@ -4739,6 +4762,7 @@ void SyncTlgCompLayers(int point_id_tlg,
   if (!(layer_type==cltSOMTrzt||
         layer_type==cltPRLTrzt||
         layer_type==cltPNLCkin||
+        layer_type==cltProtPaid||
         layer_type==cltProtCkin)) return;
 
   TQuery Qry(&OraSession);
@@ -4758,9 +4782,11 @@ void SyncTlgCompLayers(int point_id_tlg,
   Qry.SQLText=
     "SELECT range_id,airp_arv,layer_type, "
     "       first_xname,last_xname,first_yname,last_yname,rem_code, "
-    "       crs_pax_id "
-    "FROM tlg_comp_layers "
-    "WHERE point_id=:point_id AND layer_type=:layer_type "
+    "       crs_pax_id, "
+    "       surname, name, pers_type "
+    "FROM tlg_comp_layers, crs_pax "
+    "WHERE tlg_comp_layers.crs_pax_id=crs_pax.pax_id(+) AND "
+    "      point_id=:point_id AND layer_type=:layer_type "
     "ORDER BY airp_arv";
   Qry.CreateVariable("point_id",otInteger,point_id_tlg);
   Qry.CreateVariable("layer_type",otString,EncodeCompLayerType(layer_type));
@@ -4780,15 +4806,87 @@ void SyncTlgCompLayers(int point_id_tlg,
                       layer_type,
                       range,
                       Qry.FieldAsInteger("crs_pax_id"),
+                      GetPaxName(Qry.FieldAsString("surname"),
+                                 Qry.FieldAsString("name"),
+                                 Qry.FieldAsString("pers_type")),
                       UsePriorContext);
     UsePriorContext=true;
+  };
+};
+
+void SyncTlgCompLayers(int range_id, const string& crs_pax_name)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT point_id, layer_type "
+    "FROM trip_comp_layers WHERE range_id=:range_id FOR UPDATE";
+  Qry.CreateVariable("range_id", otInteger, range_id);
+  Qry.Execute();
+  TLogMsg msg;
+  msg.ev_type=ASTRA::evtPax;
+  for(;!Qry.Eof;Qry.Next())
+  {
+    TCompLayerType layer_type=DecodeCompLayerType(Qry.FieldAsString("layer_type"));
+    msg.id1=Qry.FieldAsInteger("point_id");
+    switch (layer_type)
+    {
+      case cltProtPaid: msg.msg="Пассажиру "+crs_pax_name+" отменено резервирование оплачиваемого места ";
+                        TReqInfo::Instance()->MsgToLog(msg);
+                        break;
+      case cltProtCkin: msg.msg="Пассажиру "+crs_pax_name+" отменено предварительно назначенное место ";
+                        TReqInfo::Instance()->MsgToLog(msg);
+                        break;
+      default: break;
+    };
+  };
+  Qry.SQLText=
+    "DELETE FROM trip_comp_layers WHERE range_id=:range_id";
+  Qry.Execute();
+};
+
+void DeleteTlgSeatRanges(TCompLayerType layer_type,
+                         int crs_pax_id,
+                         bool only_from_tlg)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT tlg_comp_layers.range_id, "
+    "       crs_pax.surname, crs_pax.name, crs_pax.pers_type "
+    "FROM tlg_comp_layers, crs_pax "
+    "WHERE tlg_comp_layers.crs_pax_id=crs_pax.pax_id AND "
+    "      tlg_comp_layers.crs_pax_id=:crs_pax_id AND layer_type=:layer_type AND "
+    "      (:only_from_tlg=0 OR tlg_comp_layers.tlg_id IS NOT NULL)";
+  Qry.CreateVariable("crs_pax_id", otInteger, crs_pax_id);
+  Qry.CreateVariable("layer_type", otString, EncodeCompLayerType(layer_type));
+  Qry.CreateVariable("only_from_tlg", otInteger, (int)only_from_tlg);
+  Qry.Execute();
+  vector<int> range_ids;
+  for(;!Qry.Eof;Qry.Next())
+  {
+    range_ids.push_back(Qry.FieldAsInteger("range_id"));
+    SyncTlgCompLayers(Qry.FieldAsInteger("range_id"),
+                      GetPaxName(Qry.FieldAsString("surname"),
+                                 Qry.FieldAsString("name"),
+                                 Qry.FieldAsString("pers_type")));
+  };
+    
+  Qry.Clear();
+  Qry.SQLText=
+    "DELETE FROM tlg_comp_layers WHERE range_id=:range_id";
+  Qry.DeclareVariable("range_id", otInteger);
+  for(vector<int>::const_iterator i=range_ids.begin(); i!=range_ids.end(); i++)
+  {
+    Qry.SetVariable("range_id", *i);
+    Qry.Execute();
   };
 };
 
 void SaveTlgSeatRanges(int point_id,
                        string airp_arv,
                        TCompLayerType layer_type,
-                       vector<TSeatRange> &seats,
+                       const vector<TSeatRange> &seats,
                        int crs_pax_id,
                        int tlg_id,
                        bool UsePriorContext)
@@ -4796,6 +4894,20 @@ void SaveTlgSeatRanges(int point_id,
   if (seats.empty()) return;
 
   TQuery Qry(&OraSession);
+  string crs_pax_name;
+  if (crs_pax_id>0)
+  {
+    Qry.Clear();
+    Qry.SQLText=
+      "SELECT surname,name,pers_type FROM crs_pax WHERE pax_id=:pax_id";
+    Qry.CreateVariable("pax_id",otInteger,crs_pax_id);
+    Qry.Execute();
+    if (!Qry.Eof)
+      crs_pax_name=GetPaxName(Qry.FieldAsString("surname"),
+                              Qry.FieldAsString("name"),
+                              Qry.FieldAsString("pers_type"));
+  };
+  
   Qry.Clear();
   Qry.SQLText=
     "BEGIN "
@@ -4830,7 +4942,7 @@ void SaveTlgSeatRanges(int point_id,
   Qry.DeclareVariable("last_yname",otString);
   Qry.DeclareVariable("rem_code",otString);
 
-  for(vector<TSeatRange>::iterator i=seats.begin();i!=seats.end();i++)
+  for(vector<TSeatRange>::const_iterator i=seats.begin();i!=seats.end();i++)
   {
     Qry.SetVariable("first_xname",i->first.line);
     Qry.SetVariable("last_xname",i->second.line);
@@ -4844,6 +4956,7 @@ void SaveTlgSeatRanges(int point_id,
                       layer_type,
                       *i,
                       crs_pax_id,
+                      crs_pax_name,
                       UsePriorContext);
   };
 };
@@ -5577,22 +5690,15 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
                     "  DELETE FROM crs_pax_rem WHERE pax_id=:pax_id; "
                     "  DELETE FROM crs_pax_doc WHERE pax_id=:pax_id; "
                     "  DELETE FROM crs_pax_tkn WHERE pax_id=:pax_id; "
-                     "  DELETE FROM crs_pax_fqt WHERE pax_id=:pax_id; "
-                    "  DELETE FROM "
-                    "   (SELECT * FROM tlg_comp_layers,trip_comp_layers "
-                    "    WHERE tlg_comp_layers.range_id=trip_comp_layers.range_id AND "
-                    "          tlg_comp_layers.crs_pax_id=:pax_id AND "
-                    "          tlg_comp_layers.layer_type IN (:cltPNLCkin,:cltProtCkin)); "
-                    "  DELETE FROM tlg_comp_layers "
-                    "  WHERE crs_pax_id=:pax_id AND layer_type IN (:cltPNLCkin,:cltProtCkin); "
+                    "  DELETE FROM crs_pax_fqt WHERE pax_id=:pax_id; "
                     "END;";
                   Qry.CreateVariable("pax_id",otInteger,pax_id);
-                  Qry.CreateVariable("cltPNLCkin",otString,EncodeCompLayerType(cltPNLCkin));
-                  if (ne.indicator==DEL)
-                    Qry.CreateVariable("cltProtCkin",otString,EncodeCompLayerType(cltProtCkin));
-                  else
-                    Qry.CreateVariable("cltProtCkin",otString,FNull); //если изменения то preseat не удаляем
+                  Qry.CreateVariable("del_indicator",otString,(int)(ne.indicator==DEL));
                   Qry.Execute();
+                  
+                  DeleteTlgSeatRanges(cltPNLCkin, pax_id, ne.indicator!=DEL);
+                  DeleteTlgSeatRanges(cltProtCkin, pax_id, ne.indicator!=DEL);
+                  DeleteTlgSeatRanges(cltProtPaid, pax_id, ne.indicator!=DEL);
                 };
                 if (ne.indicator!=DEL)
                 {
@@ -5628,6 +5734,11 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
                   SaveFQTRem(pax_id,iPaxItem->fqt);
                   SaveTlgSeatRanges(point_id,iTotals->dest,cltPNLCkin,iPaxItem->seatRanges,
                                     pax_id,tlg_id,UsePriorContext);
+                  if (IsProtPaidSeatRem(pnr.market_flt.Empty()?con.flt.airline:pnr.market_flt.airline,
+                                        iPaxItem->seat_rem))
+                    SaveTlgSeatRanges(point_id,iTotals->dest,cltProtPaid,
+                                      vector<TSeatRange>(1,TSeatRange(iPaxItem->seat,iPaxItem->seat)),
+                                      pax_id,tlg_id,UsePriorContext);
                   UsePriorContext=true;
                   //ремарки, не привязанные к пассажиру
                   SavePNLADLRemarks(pax_id,ne.rem);

@@ -734,6 +734,15 @@ string TripAlarmString( TTripAlarmsType &alarm )
 	}
 	return mes;
 }
+/*
+string GetSeatView(const TSeat &seat, const std::string &format, bool pr_lat_seat)
+{
+  GetSeatRangeView(TSeatRange(seat,seat), pr_lat_seat)
+};
+
+string GetSeatRangeView(const TSeatRange &range, const std::string &format, bool pr_lat_seat)
+{
+};*/
 
 TPaxSeats::TPaxSeats( int point_id )
 {
@@ -963,4 +972,38 @@ bool IsRouteInter(int point_dep, int point_arv, string &country)
     country = first_country;
     return false;
 }
+
+bool IsProtPaidSeatRem(const string &airline_mark, const string &seat_rem)
+{
+  return (airline_mark=="çç" && (seat_rem=="SEAT" || seat_rem=="RQST"));
+};
+
+void GetSeatRemPriority(const string &airline_mark, TSeatRemPriority &rems)
+{
+  rems.clear();
+  int priority=1;
+  if (airline_mark=="çç")
+  {
+    rems.push_back(make_pair("SEAT",priority));
+    priority++;
+    rems.push_back(make_pair("RQST",priority));
+    priority++;
+  }
+  else
+  {
+    rems.push_back(make_pair("SEAT",priority));
+    rems.push_back(make_pair("RQST",priority));
+  };
+    
+  rems.push_back(make_pair("EXST",priority));
+  rems.push_back(make_pair("GPST",priority));
+  rems.push_back(make_pair("NSST",priority));
+  rems.push_back(make_pair("NSSA",priority));
+  rems.push_back(make_pair("NSSB",priority));
+  rems.push_back(make_pair("NSSW",priority));
+  rems.push_back(make_pair("SMST",priority));
+  rems.push_back(make_pair("SMSA",priority));
+  rems.push_back(make_pair("SMSB",priority));
+  rems.push_back(make_pair("SMSW",priority));
+};
 

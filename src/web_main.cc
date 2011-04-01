@@ -1882,6 +1882,8 @@ void getPnr( bool pr_paid_ckin, int pnr_id, vector<TWebPax> &pnr, bool pr_throw 
     Qry.CreateVariable( "pnr_id", otInteger, pnr_id );
     Qry.CreateVariable( "protckin_layer", otString, EncodeCompLayerType(cltProtCkin) ); //!!!cltProtPaid
   	Qry.Execute();
+  	TMktFlight markFlt;
+  	markFlt.getByPnrId( pnr_id );
     for(;!Qry.Eof;Qry.Next())
     {
       TWebPax pax;
@@ -1897,8 +1899,8 @@ void getPnr( bool pr_paid_ckin, int pnr_id, vector<TWebPax> &pnr, bool pr_throw 
     	if (pr_paid_ckin)
     	{
     	  pax.crs_seat_rem = Qry.FieldAsString( "crs_seat_rem" );
-    	  if (pax.crs_seat_rem!="SEAT" &&
-            pax.crs_seat_rem!="RQST") pax.crs_seat_rem.clear();
+        if (!IsProtPaidSeatRem(markFlt.airline, pax.crs_seat_rem))
+          pax.crs_seat_rem.clear();
     	};
     	pax.seats = Qry.FieldAsInteger( "seats" );
     	pax.pass_class = Qry.FieldAsString( "class" );
@@ -3314,6 +3316,42 @@ void WebRequestsIface::GetBPTags(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 			NewTextChild( node, "gate", gate );
 	}
 }
+
+void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode, bool pr_del)
+{
+  vector<TWebPaxFromReq> paxFromReq;
+  xmlNodePtr paxNode=NodeAsNode("passengers", reqNode)->children;
+  for(;paxNode!=NULL;paxNode=paxNode->next)
+  {
+    xmlNodePtr node2=paxNode->children;
+    TWebPaxFromReq pax;
+
+    pax.crs_pax_id=NodeAsIntegerFast("crs_pax_id", node2);
+    if (!pr_del)
+    {
+      pax.seat_no=NodeAsStringFast("seat_no", node2);
+      if (pax.seat_no.empty())
+        throw EXCEPTIONS::Exception("ChangeProtPaidLayer: empty seat_no (crs_pax_id=%d)", pax.crs_pax_id);
+    };
+
+
+    xmlNodePtr tidsNode=NodeAsNode("tids", paxNode);
+    pax.crs_pnr_tid=NodeAsInteger("crs_pnr_tid",tidsNode);
+    pax.crs_pax_tid=NodeAsInteger("crs_pax_tid",tidsNode);
+
+    paxFromReq.push_back(pax);
+  };
+};
+
+void WebRequestsIface::AddProtPaidLayer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  ChangeProtPaidLayer(reqNode, resNode, false);
+};
+
+void WebRequestsIface::RemoveProtPaidLayer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  ChangeProtPaidLayer(reqNode, resNode, true);
+};
 
 } //end namespace AstraWeb
 

@@ -354,6 +354,13 @@ void GetCrsList(int point_id, std::vector<std::string> &crs);
 bool IsRouteInter(int point_dep, int point_arv, std::string &country);
 bool IsTrferInter(std::string airp_dep, std::string airp_arv, std::string &country);
 
+//возвращает true если ремарка места PNL для указанной компании может быть использована для платной регистрации
+bool IsProtPaidSeatRem(const std::string &airline_mark, const std::string &seat_rem);
+
+typedef std::vector< std::pair<std::string, int> > TSeatRemPriority;
+//возвращает сортированный! по приоритетам список ремарок
+void GetSeatRemPriority(const std::string &airline_mark, TSeatRemPriority &rems);
+
 #endif /*_ASTRA_MISC_H_*/
 
 

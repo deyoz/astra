@@ -458,14 +458,12 @@ class TPnlAdlContent
 {
   public:
     TFltInfo flt;
-    std::vector< std::pair<std::string, int> > seat_rem_priority;
     std::vector<TRbdItem> rbd;
     std::vector<TRouteItem> cfg,avail,transit;
     std::vector<TTotalsByDest> resa;
     void Clear()
     {
       flt.Clear();
-      seat_rem_priority.clear();
       rbd.clear();
       cfg.clear();
       avail.clear();
@@ -632,8 +630,15 @@ bool bind_tlg(int point_id);
 void crs_recount(int point_id_tlg, bool check_comp);
 
 void ParseSeatRange(std::string str, std::vector<TSeatRange> &ranges, bool usePriorContext);
-void SaveTlgSeatRanges(int point_id,std::string airp_arv,ASTRA::TCompLayerType layer_type,std::vector<TSeatRange> &seats,
+//добавление слоя в tlg_comp_layers с синхронизацией trip_comp_layers и записью в журнал операций для cltProtPaid, cltProtCkin
+void SaveTlgSeatRanges(int point_id,std::string airp_arv,ASTRA::TCompLayerType layer_type,
+                       const std::vector<TSeatRange> &seats,
                        int crs_pax_id,int tlg_id,bool UsePriorContext);
+//удаление слоя из tlg_comp_layers с синхронизацией trip_comp_layers и записью в журнал операций для cltProtPaid, cltProtCkin
+//only_from_tlg - особенно важно для cltProtPaid, который может размечаться как на основе телеграмм так и по web-запросу
+void DeleteTlgSeatRanges(ASTRA::TCompLayerType layer_type,
+                         int crs_pax_id,
+                         bool only_from_tlg);
 void SyncTlgCompLayers(int point_id_tlg, ASTRA::TCompLayerType layer_type);
 
 #endif

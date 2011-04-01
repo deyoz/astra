@@ -408,6 +408,7 @@ void bind_tlg(void)
       SyncTlgCompLayers(point_id_tlg, ASTRA::cltPRLTrzt);
       SyncTlgCompLayers(point_id_tlg, ASTRA::cltPNLCkin);
       SyncTlgCompLayers(point_id_tlg, ASTRA::cltProtCkin);
+      SyncTlgCompLayers(point_id_tlg, ASTRA::cltProtPaid);
     };
   };
   OraSession.Commit();
