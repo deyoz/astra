@@ -5,6 +5,7 @@
 #include "oralib.h"
 #include "astra_elems.h"
 #include "astra_utils.h"
+#include "astra_consts.h"
 #include "base_tables.h"
 #include "stl_utils.h"
 #include "term_version.h"
@@ -189,6 +190,10 @@ void GetDrawSalonProp( xmlNodePtr reqNode, xmlNodePtr resNode )
   if ( !layersNode )
   	layersNode = NewTextChild( imagesNode, "layers_color" );
   while ( !Qry.Eof ) {
+      if ( DecodeCompLayerType( Qry.FieldAsString( "code" ) ) == ASTRA::cltProtPaid && !TReqInfo::Instance()->desk.compatible( PROT_PAID_VERSION ) ) {
+        Qry.Next();
+        continue;
+      }
 			xmlNodePtr n = NewTextChild( layersNode, "layer", Qry.FieldAsString( "code" ) );
       if ( !Qry.FieldIsNULL( "color" ) )
 			  SetProp( n, "color", Qry.FieldAsString( "color" ) );

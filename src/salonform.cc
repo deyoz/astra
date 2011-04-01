@@ -359,17 +359,6 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Qry.SQLText = "UPDATE points SET point_id=point_id WHERE point_id=:point_id";
   Qry.CreateVariable( "point_id", otInteger, trip_id );
   Qry.Execute();
-  if ( comp_id != -2 && !cSet ) { //новая компоновку
-    Qry.SQLText = "UPDATE trip_sets SET comp_id=:comp_id WHERE point_id=:point_id";
-    Qry.CreateVariable( "comp_id", otInteger, comp_id );
-    Qry.Execute();
-  }
-  /*Qry.SQLText = "UPDATE trip_sets SET comp_id=:comp_id WHERE point_id=:point_id";
-  Qry.DeclareVariable( "comp_id", otInteger );
-  if ( comp_id == -2 )
-    Qry.SetVariable( "comp_id", FNull );
-  else
-    Qry.SetVariable( "comp_id", comp_id );*/
   SALONS2::TSalons Salons( trip_id, SALONS2::rTripSalons );
   Salons.Parse( NodeAsNode( "salons", reqNode ) );
   Salons.verifyValidRem( "MCLS", "Э"); //???
@@ -378,24 +367,42 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Salons.verifyValidRem( "LCLS", "Э"); //???
   Salons.trip_id = trip_id;
   Salons.ClName = "";
-  // пришла новая компоновка, но не пришел comp_id - значит были изменения компоновки - "сохраните базовую компоновку."
+  bool pr_base_change = false;
   SALONS2::TSalons OldSalons( trip_id, SALONS2::rTripSalons );
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT point_id FROM trip_comp_elems WHERE point_id=:point_id AND rownum<2";
+  Qry.CreateVariable( "point_id", otInteger, trip_id );
+  Qry.Execute();
+  if ( !Qry.Eof ) { // была старая компоновка
+    OldSalons.Read();
+    pr_base_change = ChangeCfg( Salons, OldSalons );
+  }
+  Qry.Clear();
+  Qry.SQLText = "UPDATE trip_sets SET comp_id=:comp_id WHERE point_id=:point_id";
+  Qry.CreateVariable( "point_id", otInteger, trip_id );
+  Qry.DeclareVariable( "comp_id", otInteger );
+  // пришла новая компоновка, но не пришел comp_id - значит были изменения компоновки - "сохраните базовую компоновку."
   if ( SALONS2::IsMiscSet( trip_id, 17 ) ) {
     if ( comp_id == -2 && !cSet )
       throw UserException( "MSG.SALONS.SAVE_BASE_COMPON" );
     // может вызвать ошибку, если салон не был назначен на рейс
-    Qry.Clear();
-    Qry.SQLText =
-      "SELECT point_id FROM trip_comp_elems WHERE point_id=:point_id AND rownum<2";
-    Qry.CreateVariable( "point_id", otInteger, trip_id );
-    Qry.Execute();
-    if ( !Qry.Eof ) { // была старая компоновка
-      OldSalons.Read();
-      if ( comp_id == -2 && ChangeCfg( Salons, OldSalons ) )
-        throw UserException( "MSG.SALONS.NOT_CHANGE_CFG_ON_FLIGHT" );
+    if ( comp_id == -2 && pr_base_change ) // была старая компоновка
+      throw UserException( "MSG.SALONS.NOT_CHANGE_CFG_ON_FLIGHT" );
+    if ( comp_id != -2 && !cSet ) { //новая компоновку
+      Qry.SetVariable( "comp_id", comp_id );
+      Qry.Execute();
     }
   }
-
+  else {
+    if ( pr_base_change && cSet )
+      comp_id = -2;
+    if ( comp_id == -2 )
+      Qry.SetVariable( "comp_id", FNull );
+    else
+      Qry.SetVariable( "comp_id", comp_id );
+    Qry.Execute();
+  }
   Salons.Write();
 
   bool pr_initcomp = NodeAsInteger( "initcomp", reqNode );
@@ -731,10 +738,13 @@ void IntChangeSeats( int point_id, int pax_id, int &tid, string xname, string yn
 {
   TQuery Qry( &OraSession );
   Qry.SQLText =
-    "SELECT pr_lat_seat FROM trip_sets WHERE point_id=:point_id";
+    "SELECT airline, flt_no, suffix, airp, scd_out, pr_lat_seat "
+    "FROM points, trip_sets "
+    "WHERE points.point_id=trip_sets.point_id AND points.point_id=:point_id";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   if ( Qry.Eof ) throw UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
+  TTripInfo fltInfo( Qry );
   bool pr_lat_seat = Qry.FieldAsInteger( "pr_lat_seat" );
 
   if ( seat_type != SEATS2::stDropseat ) {
@@ -762,12 +772,12 @@ void IntChangeSeats( int point_id, int pax_id, int &tid, string xname, string yn
     Qry.SQLText =
       "SELECT seat_no1,seat_no2 FROM "
       "(SELECT first_yname||first_xname seat_no1 FROM trip_comp_layers "
-      " WHERE point_id=:point_id AND layer_type=:protckin_layer AND crs_pax_id=:pax_id) a,"
+      " WHERE point_id=:point_id AND layer_type = :prot_layer AND crs_pax_id=:pax_id) a,"
       "(SELECT first_yname||first_xname seat_no2 FROM trip_comp_layers "
       " WHERE point_id=:point_id AND layer_type=:layer_type AND pax_id=:pax_id ) b ";
     Qry.CreateVariable( "point_id", otInteger, point_id );
     Qry.CreateVariable( "pax_id", otInteger, pax_id );
-    Qry.CreateVariable( "protckin_layer", otString, EncodeCompLayerType( cltProtCkin ) );
+    Qry.CreateVariable( "prot_layer", otString, EncodeCompLayerType( cltProtCkin ) );
     Qry.CreateVariable( "layer_type", otString, EncodeCompLayerType(layer_type) );
     Qry.Execute();
     ProgTrace( TRACE5, "Qry.Eof=%d, pax_id=%d,point_id=%d,layer1=%s,layer2=%s", Qry.Eof,pax_id,point_id,EncodeCompLayerType( cltProtCkin ),EncodeCompLayerType(layer_type) );
@@ -776,13 +786,23 @@ void IntChangeSeats( int point_id, int pax_id, int &tid, string xname, string yn
     	NewTextChild( resNode, "question_reseat", getLocaleText("QST.PAX_HAS_PRESEAT_SEATS.RESEAT"));
     	return;
     }
+    if ( GetTripSets( tsPaidCheckIn, fltInfo ) ) {
+      Qry.CreateVariable( "prot_layer", otString, EncodeCompLayerType( cltProtPaid ) );
+      Qry.Execute();
+      ProgTrace( TRACE5, "Qry.Eof=%d, pax_id=%d,point_id=%d,layer1=%s,layer2=%s", Qry.Eof,pax_id,point_id,EncodeCompLayerType( cltProtPaid ),EncodeCompLayerType(layer_type) );
+      if ( !Qry.Eof && string(Qry.FieldAsString( "seat_no1" )) == Qry.FieldAsString( "seat_no2" ) ) {
+      	ProgTrace( TRACE5, "seat_no1=%s, seat_no2=%s", Qry.FieldAsString( "seat_no1" ), Qry.FieldAsString( "seat_no2" ) );
+      	NewTextChild( resNode, "question_reseat", getLocaleText("QST.PAX_HAS_PRESEAT_SEATS.RESEAT")); //!!! другое сообщение
+      	return;
+      }
+    }
   }
 
   vector<SALONS2::TSalonSeat> seats;
 
   try {
   	SEATS2::ChangeLayer( layer_type, point_id, pax_id, tid, xname, yname, seat_type, pr_lat_seat );
-  	if ( TReqInfo::Instance()->client_type != ctTerm )
+  	if ( TReqInfo::Instance()->client_type != ctTerm || resNode == NULL )
   		return; // web-регистрация
   	SALONS2::getSalonChanges( Salons, seats );
   	ProgTrace( TRACE5, "salon changes seats.size()=%d", seats.size() );
@@ -823,7 +843,7 @@ void IntChangeSeats( int point_id, int pax_id, int &tid, string xname, string yn
     	SEATS2::GetPassengersForWaitList( point_id, p );
       p.Build( dataNode );
     }
-    if ( Salons.comp_id > 0 ) { //!!!строго завязать базовые компоновки с назначенными на рейс
+    if ( Salons.comp_id > 0 && TReqInfo::Instance()->client_type == ctTerm ) { //!!!строго завязать базовые компоновки с назначенными на рейс
    	  vector<SALONS2::TCompSections> CompSections;
       ReadCompSections( Salons.comp_id, CompSections );
       BuildCompSections( dataNode, CompSections );

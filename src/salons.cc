@@ -78,17 +78,26 @@ void TFilterLayers::getFilterLayers( int point_id )
 			   (TCompLayerType)l == cltBlockTrzt ||
 			   (TCompLayerType)l == cltTranzit ||
 			   (TCompLayerType)l == cltSOMTrzt ||
-			   (TCompLayerType)l == cltPRLTrzt )
+			   (TCompLayerType)l == cltPRLTrzt ||
+         (TCompLayerType)l == cltProtPaid )
 			continue;
 	  setFlag( (TCompLayerType)l );
   }
 	TQuery Qry(&OraSession);
 	Qry.SQLText =
-	"SELECT pr_tranz_reg,pr_block_trzt,ckin.get_pr_tranzit(:point_id) as pr_tranzit "
+	"SELECT airline, flt_no, suffix, airp, scd_out, "
+  "       pr_tranz_reg,pr_block_trzt,ckin.get_pr_tranzit(:point_id) as pr_tranzit "
 	" FROM trip_sets, points "
 	"WHERE points.point_id=:point_id AND points.point_id=trip_sets.point_id";
 	Qry.CreateVariable( "point_id", otInteger, point_id );
 	Qry.Execute();
+	
+	if ( !Qry.Eof ) {
+	  TTripInfo fltInfo( Qry );
+	  if ( GetTripSets( tsPaidCheckIn, fltInfo ) )
+      setFlag( cltProtPaid );
+  }
+	
 	if ( !Qry.Eof && Qry.FieldAsInteger( "pr_tranzit" ) ) { // это транзитный рейс
 		if ( Qry.FieldAsInteger( "pr_tranz_reg" ) ) {
 			setFlag( cltProtTrzt );
@@ -141,13 +150,14 @@ TSalons::TSalons( int id, TReadStyle vreadStyle, bool vdrop_not_used_pax_layers 
   modify = mNone;
 	TQuery Qry(&OraSession);
   Qry.SQLText =
-    "SELECT code,priority FROM comp_layer_types ORDER BY priority";
+    "SELECT code,priority,pr_occupy FROM comp_layer_types ORDER BY priority";
   Qry.Execute();
   while ( !Qry.Eof ) {
   	TCompLayerType l = DecodeCompLayerType( Qry.FieldAsString( "code" ) );
   	if ( l != cltUnknown ) {
   		layers_priority[ l ].name = ElemIdToNameLong(etCompLayerType,Qry.FieldAsString( "code" ));
   	  layers_priority[ l ].priority = Qry.FieldAsInteger( "priority" );
+  	  layers_priority[ l ].pr_occupy = Qry.FieldAsInteger( "pr_occupy" );
   	}
   	Qry.Next();
   }
@@ -195,6 +205,9 @@ TSalons::TSalons( int id, TReadStyle vreadStyle, bool vdrop_not_used_pax_layers 
     }
     layers_priority[ cltPNLCkin ].name_view = layers_priority[ cltPNLCkin ].name;
     layers_priority[ cltProtCkin ].name_view = layers_priority[ cltProtCkin ].name;
+    layers_priority[ cltProtPaid ].name_view = layers_priority[ cltProtPaid ].name;
+    layers_priority[ cltProtPaid ].notfree = true;
+    
     layers_priority[ cltProtect ].name_view = layers_priority[ cltProtect ].name;
     if ( FilterLayers.isFlag( cltProtect ) )
       layers_priority[ cltProtect ].func_key = "Shift+F4";
@@ -627,7 +640,7 @@ typedef map< int, TPaxLayerRec > TPaxLayers;
 
 bool isValidLayer( TSalons *CSalon, TPaxLayers::iterator &ipax, TPaxLayers pls, vector<TPaxLayer>::iterator &p )
 {
-  if ( p->valid == -1 || p->places.size() != ipax->second.seats )
+  if ( p->valid == -1 || p->places.size() != ipax->second.seats ) // pr_occupy
   	return false;
   // вычисление случая, когда одно место размечено разными слоями
   int vfirst_x = NoExists;
@@ -720,12 +733,8 @@ void TSalons::Read( )
 {
   if ( readStyle == rTripSalons )
   	;
-/*    ProgTrace( TRACE5, "TSalons::Read TripSalons with params trip_id=%d, ClassName=%s",
-               trip_id, ClName.c_str() );*/
   else {
     ClName.clear();
-/*    ProgTrace( TRACE5, "TSalons::Read ComponSalons with params comp_id=%d",
-               comp_id );*/
   }
   Clear();
   map<string,bool> ispl;
@@ -822,11 +831,13 @@ void TSalons::Read( )
       " WHERE point_id=:point_id "
       "ORDER BY num, x desc, y desc ";
     RQry.CreateVariable( "point_id", otInteger, trip_id );
-    QryWebTariff.SQLText =
-      "SELECT num,x,y,color,rate,rate_cur FROM trip_comp_rates "
-      " WHERE point_id=:point_id "
-      "ORDER BY num,x desc, y desc ";
-    QryWebTariff.CreateVariable( "point_id", otInteger, trip_id );
+    if ( FilterLayers.CanUseLayer( cltProtPaid, -1 ) ) {
+      QryWebTariff.SQLText =
+        "SELECT num,x,y,color,rate,rate_cur FROM trip_comp_rates "
+        " WHERE point_id=:point_id "
+        "ORDER BY num,x desc, y desc ";
+      QryWebTariff.CreateVariable( "point_id", otInteger, trip_id );
+    }
   }
   else {
     RQry.SQLText = "SELECT num,x,y,rem,pr_denial FROM comp_rem "
@@ -845,13 +856,23 @@ void TSalons::Read( )
   int rem_col_y = RQry.FieldIndex( "y" );
   int rem_col_rem = RQry.FieldIndex( "rem" );
   int rem_col_pr_denial = RQry.FieldIndex( "pr_denial" );
-  QryWebTariff.Execute();
-  int webtariff_col_num = QryWebTariff.FieldIndex( "num" );
-  int webtariff_col_x = QryWebTariff.FieldIndex( "x" );
-  int webtariff_col_y = QryWebTariff.FieldIndex( "y" );
-  int webtariff_col_color = QryWebTariff.FieldIndex( "color" );
-  int webtariff_col_rate = QryWebTariff.FieldIndex( "rate" );
-  int webtariff_col_rate_cur = QryWebTariff.FieldIndex( "rate_cur" );
+  
+  int webtariff_col_num;
+  int webtariff_col_x;
+  int webtariff_col_y;
+  int webtariff_col_color;
+  int webtariff_col_rate;
+  int webtariff_col_rate_cur;
+
+  if ( readStyle != rTripSalons || FilterLayers.CanUseLayer( cltProtPaid, -1 ) ) {
+    QryWebTariff.Execute();
+    webtariff_col_num = QryWebTariff.FieldIndex( "num" );
+    webtariff_col_x = QryWebTariff.FieldIndex( "x" );
+    webtariff_col_y = QryWebTariff.FieldIndex( "y" );
+    webtariff_col_color = QryWebTariff.FieldIndex( "color" );
+    webtariff_col_rate = QryWebTariff.FieldIndex( "rate" );
+    webtariff_col_rate_cur = QryWebTariff.FieldIndex( "rate_cur" );
+  }
   string ClName = ""; /* перечисление всех классов, которые есть в салоне */
   TPlaceList *placeList = NULL;
   int num = -1;
@@ -925,14 +946,16 @@ void TSalons::Read( )
         place.rems.push_back( rem );
         RQry.Next();
       }
-      if ( !QryWebTariff.Eof &&
-      	    QryWebTariff.FieldAsInteger( webtariff_col_num ) == num &&
-            QryWebTariff.FieldAsInteger( webtariff_col_x ) == place.x &&
-            QryWebTariff.FieldAsInteger( webtariff_col_y ) == place.y ) {
-        place.WebTariff.color = QryWebTariff.FieldAsString( webtariff_col_color );
-        place.WebTariff.value = QryWebTariff.FieldAsFloat( webtariff_col_rate );
-        place.WebTariff.currency_id = QryWebTariff.FieldAsString( webtariff_col_rate_cur );
-        QryWebTariff.Next();
+      if ( readStyle != rTripSalons || FilterLayers.CanUseLayer( cltProtPaid, -1 ) ) {
+        if ( !QryWebTariff.Eof &&
+        	    QryWebTariff.FieldAsInteger( webtariff_col_num ) == num &&
+              QryWebTariff.FieldAsInteger( webtariff_col_x ) == place.x &&
+              QryWebTariff.FieldAsInteger( webtariff_col_y ) == place.y ) {
+          place.WebTariff.color = QryWebTariff.FieldAsString( webtariff_col_color );
+          place.WebTariff.value = QryWebTariff.FieldAsFloat( webtariff_col_rate );
+          place.WebTariff.currency_id = QryWebTariff.FieldAsString( webtariff_col_rate_cur );
+          QryWebTariff.Next();
+        }
       }
       if ( ClName.find( Qry.FieldAsString( col_class ) ) == string::npos )
         ClName += Qry.FieldAsString(col_class );

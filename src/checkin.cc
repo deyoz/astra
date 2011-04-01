@@ -1241,8 +1241,13 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry,  xmlNodePtr resNode)
     NewTextChild(node,"surname",PaxQry.FieldAsString("surname"));
     NewTextChild(node,"name",PaxQry.FieldAsString("name"),"");
     NewTextChild(node,"pers_type",PaxQry.FieldAsString("pers_type"),EncodePerson(ASTRA::adult));
-    NewTextChild(node,"seat_no",PaxQry.FieldAsString("seat_no"),"");
-    NewTextChild(node,"preseat_no",PaxQry.FieldAsString("preseat_no"),"");
+    string seat_no_view=PaxQry.FieldAsString("paidseat_no");
+    if (seat_no_view.empty())
+      seat_no_view=PaxQry.FieldAsString("preseat_no");
+    if (seat_no_view.empty())
+      seat_no_view=PaxQry.FieldAsString("seat_no");
+    NewTextChild(node,"seat_no",seat_no_view,"");
+    //NewTextChild(node,"preseat_no",PaxQry.FieldAsString("preseat_no"),""); !!!vlad
     NewTextChild(node,"seat_type",PaxQry.FieldAsString("seat_type"),"");
     NewTextChild(node,"seats",PaxQry.FieldAsInteger("seats"),1);
     NewTextChild(node,"document",PaxQry.FieldAsString("document"),"");
@@ -1333,6 +1338,7 @@ void CheckInInterface::SearchGrp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       "       crs_pax.surname,crs_pax.name,crs_pax.pers_type, "
       "       salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS seat_no, "
       "       salons.get_crs_seat_no(crs_pax.pax_id,:protckin_layer,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS preseat_no, "
+      "       salons.get_crs_seat_no(crs_pax.pax_id,:protpaid_layer,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS paidseat_no, "
       "       crs_pax.seat_type, "
       "       crs_pax.seats, "
       "       crs_pnr.pnr_id, "
@@ -1348,6 +1354,7 @@ void CheckInInterface::SearchGrp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       "ORDER BY crs_pnr.point_id,crs_pax.pnr_id,crs_pax.surname,crs_pax.pax_id ";
     PaxQry.CreateVariable("pnr_id",otInteger,NodeAsInteger("pnr_id",reqNode));
     PaxQry.CreateVariable( "protckin_layer", otString, EncodeCompLayerType(ASTRA::cltProtCkin) );
+    PaxQry.CreateVariable( "protpaid_layer", otString, EncodeCompLayerType(ASTRA::cltProtPaid) );
     PaxQry.Execute();
     CreateSearchResponse(point_dep,PaxQry,resNode);
     CreateNoRecResponse(sum,resNode);
@@ -1695,6 +1702,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       "       crs_pax.surname,crs_pax.name,crs_pax.pers_type, \n"
       "       salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS seat_no, \n"
       "       salons.get_crs_seat_no(crs_pax.pax_id,:protckin_layer,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS preseat_no, \n"
+      "       salons.get_crs_seat_no(crs_pax.pax_id,:protpaid_layer,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS paidseat_no, \n"
       "       crs_pax.seat_type,crs_pax.seats, \n"
       "       crs_pnr.pnr_id, \n"
       "       report.get_PSPT(crs_pax.pax_id) AS document, \n"
@@ -1738,6 +1746,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
              default: PaxQry.CreateVariable( "ps_ok", otString, EncodePaxStatus(ASTRA::psCheckin) );
     };
     PaxQry.CreateVariable( "protckin_layer", otString, EncodeCompLayerType(ASTRA::cltProtCkin) );
+    PaxQry.CreateVariable( "protpaid_layer", otString, EncodeCompLayerType(ASTRA::cltProtPaid) );
     PaxQry.Execute();
     if (!PaxQry.Eof) break;
   };
@@ -3134,6 +3143,9 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
 
             SEATS2::Passengers.Clear();
             SEATS2::TSublsRems subcls_rems( fltInfo.airline );
+            // начитка салона
+            Salons.ClName = cl;
+            Salons.Read();
 
             //заполним массив для рассадки
             for(node=node->children;node!=NULL;node=node->next)
@@ -3148,6 +3160,9 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                 SEATS2::TPassenger pas;
 
                 pas.clname=cl;
+                if ( !NodeIsNULLFast("pax_id",node2) )
+                  pas.paxId = NodeAsIntegerFast( "pax_id", node2 );
+                /*01.04.11 djek
                 if (grp_status!=psTransit&&
                     !NodeIsNULLFast("pax_id",node2)&&
                     !NodeIsNULLFast("seat_no",node2)) {
@@ -3162,7 +3177,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                 	else {
               		  pas.layer = cltUnknown;
                  }
-                }
+                }*/
                 switch ( grp_status )  {
                 	case psCheckin:
                 		pas.grp_status = cltCheckin;
@@ -3177,8 +3192,9 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                 		pas.grp_status = cltGoShow;
                 		break;
                 }
-                pas.agent_seat=NodeAsStringFast("seat_no",node2); // crs or hand made
-                pas.preseat=NodeAsStringFast("preseat_no",node2);
+                //pas.agent_seat=NodeAsStringFast("seat_no",node2); // crs or hand made
+                pas.preseat_no=NodeAsStringFast("seat_no",node2); // crs or hand made
+                //pas.preseat=NodeAsStringFast("preseat_no",node2); //!!!vlad
                 pas.countPlace=NodeAsIntegerFast("seats",node2);
                 pas.placeRem=NodeAsStringFast("seat_type",node2);
                 remNode=GetNodeFast("rems",node2);
@@ -3203,7 +3219,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                 	adultwithbaby = false;
                 	pas.add_rem("CHIN");
                 }
-                SEATS2::Passengers.Add(pas);
+                SEATS2::Passengers.Add(Salons,pas);
               }
               catch(CheckIn::UserException)
               {
@@ -3218,13 +3234,10 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                   throw;
               };
             };
-            // начитка салона
-            Salons.ClName = cl;
-            Salons.Read();
             //определим алгоритм рассадки
             SEATS2::TSeatAlgoParams algo=SEATS2::GetSeatAlgo(Qry,fltInfo.airline,fltInfo.flt_no,fltInfo.airp);
             //рассадка
-            SEATS2::SeatsPassengers( &Salons, algo, SEATS2::Passengers, GetUsePS() );
+            SEATS2::SeatsPassengers( &Salons, algo, SEATS2::Passengers );
             /*!!! иногда True - возможна рассажка на забронированные места, когда */
             /* есть право на регистрацию, статус рейса окончание, есть право сажать на чужие заброн. места */
           };
@@ -3440,8 +3453,8 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
           int i=0;
           bool change_agent_seat_no = false;
           bool change_preseat_no = false;
-          bool exists_preseats = false;
-          bool invalid_seat_no = false;
+          bool exists_preseats = false; //есть ли у группы пассажиров предварительные места
+          bool invalid_seat_no = false; //есть запрещенные места
           for(int k=0;k<=1;k++)
           {
             node=NodeAsNode("passengers",segNode);
@@ -3546,27 +3559,27 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                   if (seats>0 && i<SEATS2::Passengers.getCount())
                   {
                     SEATS2::TPassenger pas = SEATS2::Passengers.Get(i);
+               		  if ( pas.preseat_pax_id > 0 )
+               		    exists_preseats = true;
+                		if ( !pas.isValidPlace )
+                 			invalid_seat_no = true;
 
                     if (pas.seat_no.empty()) throw EXCEPTIONS::Exception("SeatsPassengers: empty seat_no");
                     	string pas_seat_no;
-                    	bool pr_found_agent_seat_no = false, pr_found_preseat_no = false;
+                    	bool pr_found_preseat_no = false;
                     	for( std::vector<TSeat>::iterator iseat=pas.seat_no.begin(); iseat!=pas.seat_no.end(); iseat++ ) {
-                    		if ( !pas.agent_seat.empty() ) { //было из crs или введено агентом
-                    		  pas_seat_no = denorm_iata_row( iseat->row, NULL ) + denorm_iata_line( iseat->line, Salons.getLatSeat() );
-                    		  if ( pas_seat_no == pas.agent_seat )
-                    	  		pr_found_agent_seat_no = true;
-                    		  if ( !pas.preseat.empty() )
-                    		    exists_preseats = true;
-                    		  if ( pas.preseat.empty() || pas_seat_no == pas.preseat )
-                    		  	pr_found_preseat_no = true;
-                    		}
-                    		if ( !pas.isValidPlace )
-                    			invalid_seat_no = true;
-                      } // end for
-                      if ( !pas.agent_seat.empty() && !pr_found_agent_seat_no ) // есть место и оно изменилось
-                      	change_agent_seat_no = true;
-                      if ( !pas.preseat.empty() && !pr_found_preseat_no ) // есть предварительное место и оно изменилось
-                      	change_preseat_no = true;
+                    	  pas_seat_no = denorm_iata_row( iseat->row, NULL ) + denorm_iata_line( iseat->line, Salons.getLatSeat() );
+                        if ( pas_seat_no == pas.preseat_no ) {
+                          pr_found_preseat_no = true;
+                          break;
+                        }
+                      }
+                      if ( pas.preseat_pax_id == 0 &&
+                           !pas.preseat_no.empty() && !pr_found_preseat_no  )
+                        change_agent_seat_no = true;
+                      if ( pas.preseat_pax_id > 0 &&
+                           !pas.preseat_no.empty() && !pr_found_preseat_no  )
+                        change_preseat_no = true;
 
                     vector<TSeatRange> ranges;
                     for(vector<TSeat>::iterator iSeat=pas.seat_no.begin();iSeat!=pas.seat_no.end();iSeat++)

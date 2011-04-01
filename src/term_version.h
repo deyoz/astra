@@ -17,6 +17,7 @@
 #define ADD_FORM_VERSION          "201102-0119170"
 
 #define VERSION_WITH_BAG_POOLS    "201201-0000000"
+#define PROT_PAID_VERSION         "201104-0000000"
 
 #endif
 

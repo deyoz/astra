@@ -1880,7 +1880,7 @@ void getPnr( bool pr_paid_ckin, int pnr_id, vector<TWebPax> &pnr, bool pr_throw 
       "      crs_pnr.pnr_id=:pnr_id AND "
       "      crs_pax.pr_del=0";
     Qry.CreateVariable( "pnr_id", otInteger, pnr_id );
-    Qry.CreateVariable( "protckin_layer", otString, EncodeCompLayerType(cltProtCkin) );
+    Qry.CreateVariable( "protckin_layer", otString, EncodeCompLayerType(cltProtCkin) ); //!!!cltProtPaid
   	Qry.Execute();
     for(;!Qry.Eof;Qry.Next())
     {
@@ -2272,7 +2272,8 @@ void WebRequestsIface::ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
      				   l->layer_type != cltUnknown ) {
      				pr_first = false;
      				wp.pr_free = ( ( l->layer_type == cltPNLCkin ||
-     				                 l->layer_type == cltProtCkin ) && isOwnerFreePlace( l->pax_id, pnr ) );
+     				                 l->layer_type == cltProtCkin ||
+                             l->layer_type == cltProtPaid ) && isOwnerFreePlace( l->pax_id, pnr ) );
      				if ( wp.pr_free )
      					break;
      			}
@@ -2367,7 +2368,7 @@ void WebRequestsIface::ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       NewTextChild( placeNode, "status", status );
       if ( wp->pax_id != NoExists )
       	NewTextChild( placeNode, "pax_id", wp->pax_id );
-      if ( SearchPnrData.pr_paid_ckin && wp->WebTariff.value != 0.0 ) {
+      if ( /*SearchPnrData.pr_paid_ckin && */wp->WebTariff.value != 0.0 ) { // тариф появится только тогда когда включен режим платной разметки
       	xmlNodePtr rateNode = NewTextChild( placeNode, "rate" );
       	NewTextChild( rateNode, "color", wp->WebTariff.color );
       	NewTextChild( rateNode, "value", wp->WebTariff.value );
@@ -2606,7 +2607,7 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
               {
                 //пассажир не зарегистрирован
                 Qry.SQLText=CrsPaxQrySQL;
-                Qry.CreateVariable("protckin_layer", otString, EncodeCompLayerType(ASTRA::cltProtCkin) );
+                Qry.CreateVariable("protckin_layer", otString, EncodeCompLayerType(ASTRA::cltProtCkin) ); //!!!cltProtPaid
                 Qry.CreateVariable("crs_pax_id", otInteger, iPax->crs_pax_id);
                 Qry.Execute();
                 if (Qry.Eof)
