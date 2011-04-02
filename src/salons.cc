@@ -206,8 +206,7 @@ TSalons::TSalons( int id, TReadStyle vreadStyle, bool vdrop_not_used_pax_layers 
     layers_priority[ cltPNLCkin ].name_view = layers_priority[ cltPNLCkin ].name;
     layers_priority[ cltProtCkin ].name_view = layers_priority[ cltProtCkin ].name;
     layers_priority[ cltProtPaid ].name_view = layers_priority[ cltProtPaid ].name;
-    layers_priority[ cltProtPaid ].notfree = true;
-    
+
     layers_priority[ cltProtect ].name_view = layers_priority[ cltProtect ].name;
     if ( FilterLayers.isFlag( cltProtect ) )
       layers_priority[ cltProtect ].func_key = "Shift+F4";

@@ -3567,19 +3567,23 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                     if (pas.seat_no.empty()) throw EXCEPTIONS::Exception("SeatsPassengers: empty seat_no");
                     	string pas_seat_no;
                     	bool pr_found_preseat_no = false;
+                    	bool pr_found_agent_no = false;
                     	for( std::vector<TSeat>::iterator iseat=pas.seat_no.begin(); iseat!=pas.seat_no.end(); iseat++ ) {
                     	  pas_seat_no = denorm_iata_row( iseat->row, NULL ) + denorm_iata_line( iseat->line, Salons.getLatSeat() );
                         if ( pas_seat_no == pas.preseat_no ) {
                           pr_found_preseat_no = true;
-                          break;
                         }
+                        if ( pas_seat_no == NodeAsStringFast("seat_no",node2) )
+                          pr_found_agent_no = true;
                       }
-                      if ( pas.preseat_pax_id == 0 &&
-                           !pas.preseat_no.empty() && !pr_found_preseat_no  )
+                      if ( !string(NodeAsStringFast("seat_no",node2)).empty() &&
+                           !pr_found_agent_no ) {
                         change_agent_seat_no = true;
+                      }
                       if ( pas.preseat_pax_id > 0 &&
-                           !pas.preseat_no.empty() && !pr_found_preseat_no  )
+                           !pas.preseat_no.empty() && !pr_found_preseat_no ) {
                         change_preseat_no = true;
+                      }
 
                     vector<TSeatRange> ranges;
                     for(vector<TSeat>::iterator iSeat=pas.seat_no.begin();iSeat!=pas.seat_no.end();iSeat++)
