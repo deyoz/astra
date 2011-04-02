@@ -15,6 +15,11 @@ class TSeat
     {
       Clear();
     };
+    TSeat(const std::string &row, const std::string &line)
+    {
+      strncpy(this->row,row.c_str(),sizeof(this->row));
+      strncpy(this->line,line.c_str(),sizeof(this->line));
+    };
     void Clear()
     {
       *row=0;
@@ -73,7 +78,15 @@ class TSeatRange : public std::pair<TSeat,TSeat>
     };
 };
 
-//все нижеследующие функции работают только с IATA (нормальными) местами
+std::string GetSeatRangeView(const std::vector<TSeatRange> &ranges,
+                             const std::string &format,
+                             bool pr_lat);
+                             
+std::string GetSeatView(const TSeat &seat,
+                        const std::string &format,
+                        bool pr_lat);
+
+//все нижеследующие функции работают только с IATA (нормальными) местами!
 void NormalizeSeat(TSeat &seat);
 void NormalizeSeatRange(TSeatRange &range);
 bool NextNormSeatRow(TSeat &seat);

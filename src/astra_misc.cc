@@ -734,15 +734,6 @@ string TripAlarmString( TTripAlarmsType &alarm )
 	}
 	return mes;
 }
-/*
-string GetSeatView(const TSeat &seat, const std::string &format, bool pr_lat_seat)
-{
-  GetSeatRangeView(TSeatRange(seat,seat), pr_lat_seat)
-};
-
-string GetSeatRangeView(const TSeatRange &range, const std::string &format, bool pr_lat_seat)
-{
-};*/
 
 TPaxSeats::TPaxSeats( int point_id )
 {
@@ -756,7 +747,7 @@ TPaxSeats::TPaxSeats( int point_id )
 		pr_lat_seat = Qry->FieldAsInteger( "pr_lat_seat" );
 	Qry->Clear();
 	Qry->SQLText =
-    "SELECT first_xname, first_yname "
+    "SELECT first_xname, first_yname, last_xname, last_yname "
     " FROM trip_comp_layers, grp_status_types "
     " WHERE trip_comp_layers.point_id=:point_id AND "
     "       trip_comp_layers.pax_id=:pax_id AND "
@@ -768,29 +759,17 @@ TPaxSeats::TPaxSeats( int point_id )
 
 std::string TPaxSeats::getSeats( int pax_id, const std::string format )
 {
-	string res;
-
-	Qry->SetVariable( "pax_id", pax_id );
+  Qry->SetVariable( "pax_id", pax_id );
 	Qry->Execute();
-	int c=0;
-	char* add_ch = NULL;
-	if ( format == "_list" || format == "_one" || format == "_seats" )
-		add_ch = " ";
- 	while ( !Qry->Eof ) {
- 		TSeat seat;
-    if ( format == "list" && !res.empty() )
-    	res += " ";
-   	res = denorm_iata_row( Qry->FieldAsString( "first_yname" ), add_ch ) +
-          denorm_iata_line( Qry->FieldAsString( "first_xname" ), pr_lat_seat );
-    add_ch = NULL;
-    if ( format == "one" )
-    	break;
-   	c++;
-    Qry->Next();
-  }
-  if ( format != "list" && format != "one" && c > 1 )
-  	res += "+" + IntToString( c - 1 );
-  return res;
+	vector<TSeatRange> ranges;
+	for(;!Qry->Eof;Qry->Next())
+	{
+	  ranges.push_back(TSeatRange(TSeat(Qry->FieldAsString("first_yname"),
+                                      Qry->FieldAsString("first_xname")),
+                                TSeat(Qry->FieldAsString("last_yname"),
+                                      Qry->FieldAsString("last_xname"))));
+	};
+  return GetSeatRangeView(ranges, format, pr_lat_seat);
 }
 
 TPaxSeats::~TPaxSeats()
