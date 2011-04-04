@@ -72,11 +72,21 @@ class TSeatRange : public std::pair<TSeat,TSeat>
     {
       *rem=0;
     };
+    TSeatRange(TSeat seat1, TSeat seat2, const std::string &rem) : std::pair<TSeat,TSeat>(seat1,seat2)
+    {
+      strncpy(this->rem,rem.c_str(),sizeof(this->rem));
+    };
     friend bool operator < ( const TSeatRange& range1, const TSeatRange& range2 )
     {
       return range1.first<range2.first;
     };
 };
+
+//функция кроме представления номера места возвращает кол-во мест
+std::string GetSeatRangeView(const std::vector<TSeatRange> &ranges,
+                             const std::string &format,
+                             bool pr_lat,
+                             int &seats);
 
 std::string GetSeatRangeView(const std::vector<TSeatRange> &ranges,
                              const std::string &format,

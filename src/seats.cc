@@ -2900,7 +2900,10 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
 	  }
   }
 
+
+
   if ( seat_type != stSeat ) { // пересадка, высадка - удаление старого слоя
+    int curr_tid=NoExists; //!!!vlad
   	Qry.Clear();
     	switch( layer_type ) {
     		case cltGoShow:
@@ -2920,7 +2923,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   		case cltProtCkin:
       case cltProtPaid:
   			// удаление из салона, если есть разметка
-  			DeleteTlgSeatRanges( layer_type, pax_id, false );
+  			DeleteTlgSeatRanges( layer_type, pax_id, false, true, curr_tid );
         break;
       default:
       	ProgTrace( TRACE5, "!!! Unusible layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
@@ -2933,33 +2936,32 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
     Qry.SQLText = "SELECT tid__seq.nextval AS tid FROM dual";
     Qry.Execute();
     tid = Qry.FieldAsInteger( "tid" );
-  	Qry.Clear();
   	switch ( layer_type ) {
   		case cltGoShow:
     	case cltTranzit:
     	case cltCheckin:
     	case cltTCheckin:
   		  SaveTripSeatRanges( point_id, layer_type, seats, pax_id, point_id, point_arv );
+  		  Qry.Clear();
   		  Qry.SQLText =
           "BEGIN "
           " UPDATE pax SET tid=:tid WHERE pax_id=:pax_id;"
           " mvd.sync_pax(:pax_id,:term); "
           "END;";
         Qry.CreateVariable( "term", otString, TReqInfo::Instance()->desk.code );
+        Qry.CreateVariable( "pax_id", otInteger, pax_id );
+        Qry.CreateVariable( "tid", otInteger, tid );
+        Qry.Execute();
         break;
       case cltProtCkin:
       case cltProtPaid:
-        SaveTlgSeatRanges( point_id_tlg, target, layer_type, seats, pax_id, 0, false );
-	      Qry.SQLText =
-          "UPDATE crs_pax SET tid=:tid WHERE pax_id=:pax_id";
+        SaveTlgSeatRanges( point_id_tlg, target, layer_type, seats, pax_id, NoExists, NoExists, false, tid );
       	break;
       default:
       	ProgTrace( TRACE5, "!!! Unuseable layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
       	throw UserException( "MSG.SEATS.SET_LAYER_NOT_AVAIL" );
     }
-    Qry.CreateVariable( "pax_id", otInteger, pax_id );
-    Qry.CreateVariable( "tid", otInteger, tid );
-    Qry.Execute();
+
   }
 
   TReqInfo *reqinfo = TReqInfo::Instance();

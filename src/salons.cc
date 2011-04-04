@@ -808,7 +808,7 @@ void TSalons::Read( )
   Qry.Execute();
   if ( Qry.RowCount() == 0 )
     if ( readStyle == rTripSalons )
-      throw UserException( "MSG.SALONS.NOT_SET" );
+      throw UserException( "MSG.FLIGHT_WO_CRAFT_CONFIGURE" );
     else
       throw UserException( "MSG.SALONS.NOT_FOUND" );
   tst();
