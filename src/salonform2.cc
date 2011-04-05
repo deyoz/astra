@@ -339,7 +339,7 @@ void SalonsInterface::DeleteReserveSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   vector<SALONS::TSalonSeat> seats;
 
   try {
-  	SEATS::ChangeLayer( cltProtCkin, point_id, pax_id, tid, "", "", SEATS::stDropseat, pr_lat_seat );
+  	SEATS2::ChangeLayer( cltProtCkin, point_id, pax_id, tid, "", "", SEATS2::stDropseat, pr_lat_seat );
   	SALONS::getSalonChanges( Salons, seats );
   	Qry.Clear();
   	Qry.SQLText =
@@ -384,7 +384,7 @@ void SalonsInterface::DeleteReserveSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
 void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) //!!old terminal
 {
   //TReqInfo::Instance()->user.check_access( amWrite );
-  SEATS::TSeatsType seat_type = SEATS::stReseat;
+  SEATS2::TSeatsType seat_type = SEATS2::stReseat;
   int point_id = NodeAsInteger( "trip_id", reqNode );
   int pax_id = NodeAsInteger( "pax_id", reqNode );
   int tid = NodeAsInteger( "tid", reqNode );
@@ -440,7 +440,7 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
   vector<SALONS::TSalonSeat> seats;
 
   try {
-  	SEATS::ChangeLayer( layer_type, point_id, pax_id, tid, xname, yname, seat_type, pr_lat_seat );
+    SEATS2::ChangeLayer( layer_type, point_id, pax_id, tid, xname, yname, seat_type, pr_lat_seat );
   	SALONS::getSalonChanges( Salons, seats );
   	Qry.Clear();
   	switch( layer_type ) {

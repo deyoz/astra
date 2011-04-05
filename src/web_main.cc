@@ -3556,6 +3556,7 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
 
 void WebRequestsIface::AddProtPaidLayer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+  resNode=NewTextChild(resNode,"AddProtPaidLayer");
   int time_limit=NoExists;
   int curr_tid=NoExists;
   xmlNodePtr node=GetNode("time_limit",reqNode);
@@ -3576,6 +3577,7 @@ void WebRequestsIface::AddProtPaidLayer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
 
 void WebRequestsIface::RemoveProtPaidLayer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+  resNode=NewTextChild(resNode,"RemoveProtPaidLayer");
   int curr_tid=NoExists;
   ChangeProtPaidLayer(reqNode, resNode, true, NoExists, curr_tid);
 };
