@@ -2291,6 +2291,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons, TSeatAlgoParams ASeatAlgoParams 
   	TPassenger &pass = passengers.Get( i );
   	if ( pass.preseat_layer == cltProtCkin || pass.preseat_layer == cltProtPaid ) {
       preseat_layers[ pass.preseat_layer ] = true;
+      ProgTrace( TRACE5, "preseat_layers: pass.preseat_layer=%s", EncodeCompLayerType( pass.preseat_layer ) );
   	}
   	if ( PElemTypes.size() == 0 && pass.countPlace > 0 && pass.pers_type != "‚‡"  ) {
   		getValidChildElem_Types( PElemTypes );

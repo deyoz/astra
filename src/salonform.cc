@@ -64,10 +64,9 @@ void ZoneLoads(int point_id, map<string, int> &zones)
     SALONS2::TSalons SalonsTmp( point_id, SALONS2::rTripSalons, false );
     try {
         SalonsTmp.Read();
-        if ( SalonsTmp.comp_id > 0 ) { //!!!строго завязать базовые компоновки с назначенными на рейс
+        if ( SalonsTmp.comp_id > 0 && SALONS2::IsMiscSet( point_id, 17 ) ) { //!!!строго завязать базовые компоновки с назначенными на рейс
             vector<SALONS2::TCompSections> CompSections;
             ReadCompSections( SalonsTmp.comp_id, CompSections );
-
             std::map<ASTRA::TCompLayerType, int> uselayers_count;
             TQuery Qry(&OraSession);
             Qry.SQLText = "select layer_type from grp_status_types";
@@ -328,7 +327,7 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
  	if ( pr_images ) { // не используется в новом терминале!!!
     GetDataForDrawSalon( reqNode, resNode );
  	}
-  if ( Salons.comp_id > 0 ) { //!!!строго завязать базовые компоновки с назначенными на рейс
+  if ( Salons.comp_id > 0 && SALONS2::IsMiscSet( trip_id, 17 ) ) { //!!!строго завязать базовые компоновки с назначенными на рейс
  	  vector<SALONS2::TCompSections> CompSections;
     ReadCompSections( Salons.comp_id, CompSections );
     BuildCompSections( dataNode, CompSections );
@@ -458,7 +457,7 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   // конец перечитки
   xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
   Salons.Build( salonsNode );
-  if ( Salons.comp_id > 0 ) { //!!!строго завязать базовые компоновки с назначенными на рейс
+  if ( Salons.comp_id > 0 && SALONS2::IsMiscSet( trip_id, 17 ) ) { //!!!строго завязать базовые компоновки с назначенными на рейс
  	  vector<SALONS2::TCompSections> CompSections;
     ReadCompSections( Salons.comp_id, CompSections );
     BuildCompSections( dataNode, CompSections );
@@ -843,7 +842,8 @@ void IntChangeSeats( int point_id, int pax_id, int &tid, string xname, string yn
     	SEATS2::GetPassengersForWaitList( point_id, p );
       p.Build( dataNode );
     }
-    if ( Salons.comp_id > 0 && TReqInfo::Instance()->client_type == ctTerm ) { //!!!строго завязать базовые компоновки с назначенными на рейс
+    if ( Salons.comp_id > 0 && SALONS2::IsMiscSet( point_id, 17 ) &&
+         TReqInfo::Instance()->client_type == ctTerm ) { //!!!строго завязать базовые компоновки с назначенными на рейс
    	  vector<SALONS2::TCompSections> CompSections;
       ReadCompSections( Salons.comp_id, CompSections );
       BuildCompSections( dataNode, CompSections );
@@ -931,7 +931,7 @@ void SalonFormInterface::DeleteProtCkinSeat(XMLRequestCtxt *ctxt, xmlNodePtr req
       xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
       SALONS2::GetTripParams( point_id, dataNode );
       Salons.Build( salonsNode );
-      if ( Salons.comp_id > 0 ) { //!!!строго завязать базовые компоновки с назначенными на рейс
+      if ( Salons.comp_id > 0 && SALONS2::IsMiscSet( point_id, 17 ) ) { //!!!строго завязать базовые компоновки с назначенными на рейс
  	      vector<SALONS2::TCompSections> CompSections;
         ReadCompSections( Salons.comp_id, CompSections );
         BuildCompSections( dataNode, CompSections );
@@ -969,7 +969,7 @@ void SalonFormInterface::WaitList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
       Salons.Read();
       Salons.Build( NewTextChild( dataNode, "salons" ) );
       SALONS2::GetTripParams( point_id, dataNode );
-      if ( Salons.comp_id > 0 ) { //!!!строго завязать базовые компоновки с назначенными на рейс
+      if ( Salons.comp_id > 0 && SALONS2::IsMiscSet( point_id, 17 ) ) { //!!!строго завязать базовые компоновки с назначенными на рейс
  	      vector<SALONS2::TCompSections> CompSections;
         ReadCompSections( Salons.comp_id, CompSections );
         BuildCompSections( dataNode, CompSections );
@@ -1013,7 +1013,7 @@ void SalonFormInterface::AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
           AstraLocale::showErrorMessage( "MSG.SEATS.SEATS_FINISHED" );
       p.Build( dataNode );
     }
-    if ( Salons.comp_id > 0 ) { //!!!строго завязать базовые компоновки с назначенными на рейс
+    if ( Salons.comp_id > 0 && SALONS2::IsMiscSet( point_id, 17 ) ) { //!!!строго завязать базовые компоновки с назначенными на рейс
  	    vector<SALONS2::TCompSections> CompSections;
       ReadCompSections( Salons.comp_id, CompSections );
       BuildCompSections( dataNode, CompSections );
@@ -1034,7 +1034,7 @@ void SalonFormInterface::AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
           AstraLocale::showErrorMessage( "MSG.SEATS.SEATS_FINISHED" );
       p.Build( dataNode );
     }
-    if ( Salons.comp_id > 0 ) { //!!!строго завязать базовые компоновки с назначенными на рейс
+    if ( Salons.comp_id > 0 && SALONS2::IsMiscSet( point_id, 17 ) ) { //!!!строго завязать базовые компоновки с назначенными на рейс
  	    vector<SALONS2::TCompSections> CompSections;
       ReadCompSections( Salons.comp_id, CompSections );
       BuildCompSections( dataNode, CompSections );
