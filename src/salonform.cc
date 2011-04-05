@@ -771,29 +771,19 @@ void IntChangeSeats( int point_id, int pax_id, int &tid, string xname, string yn
     Qry.SQLText =
       "SELECT seat_no1,seat_no2 FROM "
       "(SELECT first_yname||first_xname seat_no1 FROM trip_comp_layers "
-      " WHERE point_id=:point_id AND layer_type = :prot_layer AND crs_pax_id=:pax_id) a,"
+      " WHERE point_id=:point_id AND layer_type=:protckin_layer AND crs_pax_id=:pax_id) a,"
       "(SELECT first_yname||first_xname seat_no2 FROM trip_comp_layers "
       " WHERE point_id=:point_id AND layer_type=:layer_type AND pax_id=:pax_id ) b ";
     Qry.CreateVariable( "point_id", otInteger, point_id );
     Qry.CreateVariable( "pax_id", otInteger, pax_id );
-    Qry.CreateVariable( "prot_layer", otString, EncodeCompLayerType( cltProtCkin ) );
+    Qry.CreateVariable( "protckin_layer", otString, EncodeCompLayerType( cltProtCkin ) );
     Qry.CreateVariable( "layer_type", otString, EncodeCompLayerType(layer_type) );
     Qry.Execute();
     ProgTrace( TRACE5, "Qry.Eof=%d, pax_id=%d,point_id=%d,layer1=%s,layer2=%s", Qry.Eof,pax_id,point_id,EncodeCompLayerType( cltProtCkin ),EncodeCompLayerType(layer_type) );
     if ( !Qry.Eof && string(Qry.FieldAsString( "seat_no1" )) == Qry.FieldAsString( "seat_no2" ) ) {
     	ProgTrace( TRACE5, "seat_no1=%s, seat_no2=%s", Qry.FieldAsString( "seat_no1" ), Qry.FieldAsString( "seat_no2" ) );
-    	NewTextChild( resNode, "question_reseat", getLocaleText("QST.PAX_HAS_PRESEAT_SEATS.RESEAT") );
+    	NewTextChild( resNode, "question_reseat", getLocaleText("QST.PAX_HAS_PRESEAT_SEATS.RESEAT"));
     	return;
-    }
-    if ( GetTripSets( tsPaidCheckIn, fltInfo ) ) {
-      Qry.CreateVariable( "prot_layer", otString, EncodeCompLayerType( cltProtPaid ) );
-      Qry.Execute();
-      ProgTrace( TRACE5, "Qry.Eof=%d, pax_id=%d,point_id=%d,layer1=%s,layer2=%s", Qry.Eof,pax_id,point_id,EncodeCompLayerType( cltProtPaid ),EncodeCompLayerType(layer_type) );
-      if ( !Qry.Eof && string(Qry.FieldAsString( "seat_no1" )) == Qry.FieldAsString( "seat_no2" ) ) {
-      	ProgTrace( TRACE5, "seat_no1=%s, seat_no2=%s", Qry.FieldAsString( "seat_no1" ), Qry.FieldAsString( "seat_no2" ) );
-      	NewTextChild( resNode, "question_reseat", getLocaleText("QST.PAX_HAS_PAID_SEATS.RESEAT"));
-      	return;
-      }
     }
   }
 
