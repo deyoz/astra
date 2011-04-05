@@ -952,28 +952,37 @@ bool IsRouteInter(int point_dep, int point_arv, string &country)
     return false;
 }
 
-bool IsProtPaidSeatRem(const string &airline_mark, const string &seat_rem)
+TCompLayerType GetSeatRemLayer(const string &airline_mark, const string &seat_rem)
 {
-  return (airline_mark=="НН" && (seat_rem=="SEAT" || seat_rem=="RQST"));
+  if (airline_mark=="НН")
+  {
+    if (seat_rem=="SEAT") return cltPNLAfterPay;
+    if (seat_rem=="RQST") return cltPNLBeforePay;
+  };
+  if (seat_rem=="EXST" ||
+      seat_rem=="GPST" ||
+      seat_rem=="NSST" ||
+      seat_rem=="NSSA" ||
+      seat_rem=="NSSB" ||
+      seat_rem=="NSSW" ||
+      seat_rem=="SMST" ||
+      seat_rem=="SMSA" ||
+      seat_rem=="SMSB" ||
+      seat_rem=="SMSW" ||
+      seat_rem=="SEAT" ||
+      seat_rem=="RQST") return cltPNLCkin;
+  return cltUnknown;
+};
+
+bool lessSeatRemPriority(const pair<string, int> &item1,const pair<string, int> &item2)
+{
+  return item1.second<item2.second;
 };
 
 void GetSeatRemPriority(const string &airline_mark, TSeatRemPriority &rems)
 {
   rems.clear();
-  int priority=1;
-  if (airline_mark=="НН")
-  {
-    rems.push_back(make_pair("SEAT",priority));
-    priority++;
-    rems.push_back(make_pair("RQST",priority));
-    priority++;
-  }
-  else
-  {
-    rems.push_back(make_pair("SEAT",priority));
-    rems.push_back(make_pair("RQST",priority));
-  };
-    
+  int priority=100; //самый маленький приоритет
   rems.push_back(make_pair("EXST",priority));
   rems.push_back(make_pair("GPST",priority));
   rems.push_back(make_pair("NSST",priority));
@@ -984,5 +993,21 @@ void GetSeatRemPriority(const string &airline_mark, TSeatRemPriority &rems)
   rems.push_back(make_pair("SMSA",priority));
   rems.push_back(make_pair("SMSB",priority));
   rems.push_back(make_pair("SMSW",priority));
+  rems.push_back(make_pair("SEAT",priority));
+  rems.push_back(make_pair("RQST",priority));
+  for(TSeatRemPriority::iterator r=rems.begin();r!=rems.end();r++)
+  {
+    TCompLayerType rem_layer=GetSeatRemLayer(airline_mark, r->first);
+    if (rem_layer==cltUnknown) continue;
+    try
+    {
+      const TCompLayerTypesRow &row=(TCompLayerTypesRow&)base_tables.get("comp_layer_types").
+                                                                     get_row("code",EncodeCompLayerType(rem_layer));
+      r->second=row.priority;
+    }
+    catch(EBaseTableError) {};
+  };
+  //сортируем
+  stable_sort(rems.begin(),rems.end(),lessSeatRemPriority);
 };
 

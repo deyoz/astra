@@ -4607,7 +4607,10 @@ void SyncTlgCompLayers(const vector< pair<int, TSeatRange> > &ranges, //вектор п
   if (!(layer_type==cltSOMTrzt||
         layer_type==cltPRLTrzt||
         layer_type==cltPNLCkin||
-        layer_type==cltProtPaid||
+        layer_type==cltProtBeforePay||
+        layer_type==cltProtAfterPay||
+        layer_type==cltPNLBeforePay||
+        layer_type==cltPNLAfterPay||
         layer_type==cltProtCkin)) return;
 
   static int prior_point_id_tlg=-1;
@@ -4726,7 +4729,11 @@ void SyncTlgCompLayers(const vector< pair<int, TSeatRange> > &ranges, //вектор п
     };
     
     if (crs_pax_id!=NoExists &&
-        (layer_type==cltProtPaid || layer_type==cltProtCkin))
+        (layer_type==cltProtBeforePay||
+         layer_type==cltProtAfterPay||
+         layer_type==cltPNLBeforePay||
+         layer_type==cltPNLAfterPay||
+         layer_type==cltProtCkin))
     {
       TLogMsg msg;
       msg.ev_type=ASTRA::evtPax;
@@ -4735,13 +4742,26 @@ void SyncTlgCompLayers(const vector< pair<int, TSeatRange> > &ranges, //вектор п
       string seat_view=GetSeatRangeView(seat_view_ranges, "list", i->pr_lat_seat, seats);
       switch (layer_type)
       {
-        case cltProtPaid: msg.msg="Пассажиру "+crs_pax_name+" произведено резервирование"+
-                                  (seats<=1?" оплачиваемого места ":" оплачиваемых мест ")+seat_view;
-                          break;
-        case cltProtCkin: msg.msg="Пассажиру "+crs_pax_name+
-                                  (seats<=1?" предварительно назначено место ":
-                                            " предварительно назначены места ")+seat_view;
-                          break;
+        case cltPNLBeforePay:  msg.msg="Пассажиру "+crs_pax_name+" произведено резервирование"+
+                                       (seats<=1?" места ":" мест ")+seat_view+
+                                       " перед оплатой (PNL/ADL)";
+                               break;
+        case cltPNLAfterPay:   msg.msg="Пассажиру "+crs_pax_name+" произведено резервирование"+
+                                       (seats<=1?" места ":" мест ")+seat_view+
+                                       " после оплаты (PNL/ADL)";
+                               break;
+        case cltProtBeforePay: msg.msg="Пассажиру "+crs_pax_name+" произведено резервирование"+
+                                       (seats<=1?" места ":" мест ")+seat_view+
+                                       " перед оплатой (WEB)";
+                               break;
+        case cltProtAfterPay:  msg.msg="Пассажиру "+crs_pax_name+" произведено резервирование"+
+                                       (seats<=1?" места ":" мест ")+seat_view+
+                                       " после оплаты (WEB)";
+                               break;
+        case cltProtCkin:      msg.msg="Пассажиру "+crs_pax_name+
+                                       (seats<=1?" предварительно назначено место ":
+                                                 " предварительно назначены места ")+seat_view;
+                               break;
         default: break;
       };
       TReqInfo::Instance()->MsgToLog(msg);
@@ -4755,7 +4775,10 @@ void SyncTlgCompLayers(int point_id_tlg,
   if (!(layer_type==cltSOMTrzt||
         layer_type==cltPRLTrzt||
         layer_type==cltPNLCkin||
-        layer_type==cltProtPaid||
+        layer_type==cltProtBeforePay||
+        layer_type==cltProtAfterPay||
+        layer_type==cltPNLBeforePay||
+        layer_type==cltPNLAfterPay||
         layer_type==cltProtCkin)) return;
 
   TQuery Qry(&OraSession);
@@ -4873,7 +4896,11 @@ void SyncTlgCompLayers(const vector<int> range_ids,
     for(;r!=ranges.end();r++)
     {
       TCompLayerType layer_type=r->first.first;
-      if (layer_type==cltProtPaid || layer_type==cltProtCkin)
+      if (layer_type==cltProtBeforePay||
+          layer_type==cltProtAfterPay||
+          layer_type==cltPNLBeforePay||
+          layer_type==cltPNLAfterPay||
+          layer_type==cltProtCkin)
       {
         int point_id=r->first.second;
         bool pr_lat_seat=r->second.second;
@@ -4886,13 +4913,26 @@ void SyncTlgCompLayers(const vector<int> range_ids,
         string seat_view=GetSeatRangeView(seat_view_ranges, "list", pr_lat_seat, seats);
         switch (layer_type)
         {
-          case cltProtPaid: msg.msg="Пассажиру "+crs_pax_name+" отменено резервирование"+
-                                    (seats<=1?" оплачиваемого места ":" оплачиваемых мест ")+seat_view;
-                            break;
-          case cltProtCkin: msg.msg="Пассажиру "+crs_pax_name+
-                                    (seats<=1?" отменено предварительно назначенное место ":
-                                              " отменены предварительно назначенные места ")+seat_view;
-                            break;
+          case cltPNLBeforePay:  msg.msg="Пассажиру "+crs_pax_name+" отменено резервирование"+
+                                       (seats<=1?" места ":" мест ")+seat_view+
+                                       " перед оплатой (PNL/ADL)";
+                                 break;
+          case cltPNLAfterPay:   msg.msg="Пассажиру "+crs_pax_name+" отменено резервирование"+
+                                         (seats<=1?" места ":" мест ")+seat_view+
+                                         " после оплаты (PNL/ADL)";
+                                 break;
+          case cltProtBeforePay: msg.msg="Пассажиру "+crs_pax_name+" отменено резервирование"+
+                                         (seats<=1?" места ":" мест ")+seat_view+
+                                         " перед оплатой (WEB)";
+                                 break;
+          case cltProtAfterPay:  msg.msg="Пассажиру "+crs_pax_name+" отменено резервирование"+
+                                         (seats<=1?" места ":" мест ")+seat_view+
+                                         " после оплаты (WEB)";
+                                 break;
+          case cltProtCkin:      msg.msg="Пассажиру "+crs_pax_name+
+                                         (seats<=1?" отменено предварительно назначенное место ":
+                                                   " отменены предварительно назначенные места ")+seat_view;
+                                 break;
           default: break;
         };
         TReqInfo::Instance()->MsgToLog(msg);
@@ -4958,24 +4998,17 @@ void DeleteTlgSeatRanges(vector<int> range_ids,
 
 void DeleteTlgSeatRanges(TCompLayerType layer_type,
                          int crs_pax_id,
-                         bool ranges_from_tlg,     //различаем источник разметки cltProtPaid
-                         bool ranges_not_from_tlg,
                          int &curr_tid)            //может быть NoExists, тогда устанавливается в процедуре
 {
   if (crs_pax_id==NoExists) return;
-  if (!ranges_from_tlg && !ranges_not_from_tlg) return;
   
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
     "SELECT range_id FROM tlg_comp_layers "
-    "WHERE crs_pax_id=:crs_pax_id AND layer_type=:layer_type AND "
-    "      (:ranges_from_tlg<>0 AND tlg_id IS NOT NULL OR "
-    "       :ranges_not_from_tlg<>0 AND tlg_id IS NULL )";
+    "WHERE crs_pax_id=:crs_pax_id AND layer_type=:layer_type";
   Qry.CreateVariable("crs_pax_id", otInteger, crs_pax_id);
   Qry.CreateVariable("layer_type", otString, EncodeCompLayerType(layer_type));
-  Qry.CreateVariable("ranges_from_tlg", otInteger, (int)ranges_from_tlg);
-  Qry.CreateVariable("ranges_not_from_tlg", otInteger, (int)ranges_not_from_tlg);
   Qry.Execute();
   vector<int> range_ids;
   for(;!Qry.Eof;Qry.Next())
@@ -5822,9 +5855,15 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
                   Qry.CreateVariable("pax_id",otInteger,pax_id);
                   Qry.Execute();
                   
-                  DeleteTlgSeatRanges(cltPNLCkin, pax_id, true, ne.indicator==DEL, tid);
-                  DeleteTlgSeatRanges(cltProtCkin, pax_id, true, ne.indicator==DEL, tid);
-                  DeleteTlgSeatRanges(cltProtPaid, pax_id, true, ne.indicator==DEL, tid);
+                  DeleteTlgSeatRanges(cltPNLCkin, pax_id, tid);
+                  DeleteTlgSeatRanges(cltPNLBeforePay, pax_id, tid);
+                  DeleteTlgSeatRanges(cltPNLAfterPay, pax_id, tid);
+                  if (ne.indicator==DEL)
+                  {
+                    DeleteTlgSeatRanges(cltProtCkin, pax_id, tid);
+                    DeleteTlgSeatRanges(cltProtBeforePay, pax_id, tid);
+                    DeleteTlgSeatRanges(cltProtAfterPay, pax_id, tid);
+                  };
                 };
                 if (ne.indicator!=DEL)
                 {
@@ -5860,9 +5899,11 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
                   SaveFQTRem(pax_id,iPaxItem->fqt);
                   SaveTlgSeatRanges(point_id,iTotals->dest,cltPNLCkin,iPaxItem->seatRanges,
                                     pax_id,tlg_id,NoExists,UsePriorContext,tid);
-                  if (IsProtPaidSeatRem(pnr.market_flt.Empty()?con.flt.airline:pnr.market_flt.airline,
-                                        iPaxItem->seat_rem))
-                    SaveTlgSeatRanges(point_id,iTotals->dest,cltProtPaid,
+                  TCompLayerType rem_layer=GetSeatRemLayer(pnr.market_flt.Empty()?con.flt.airline:
+                                                                                  pnr.market_flt.airline,
+                                                           iPaxItem->seat_rem);
+                  if (rem_layer!=cltPNLCkin && rem_layer!=cltUnknown)
+                    SaveTlgSeatRanges(point_id,iTotals->dest,rem_layer,
                                       vector<TSeatRange>(1,TSeatRange(iPaxItem->seat,iPaxItem->seat)),
                                       pax_id,tlg_id,NoExists,UsePriorContext,tid);
                   UsePriorContext=true;

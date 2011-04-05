@@ -2935,9 +2935,8 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
         curr_tid = Qry.GetVariableAsInteger( "tid" );
       	break;
   		case cltProtCkin:
-      case cltProtPaid:
   			// удаление из салона, если есть разметка
-  			DeleteTlgSeatRanges( layer_type, pax_id, false, true, curr_tid );
+  			DeleteTlgSeatRanges( layer_type, pax_id, curr_tid );
         break;
       default:
       	ProgTrace( TRACE5, "!!! Unusible layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
@@ -2971,7 +2970,6 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
         curr_tid = Qry.GetVariableAsInteger( "tid" );
         break;
       case cltProtCkin:
-      case cltProtPaid:
         SaveTlgSeatRanges( point_id_tlg, target, layer_type, seats, pax_id, NoExists, NoExists, false, curr_tid );
       	break;
       default:

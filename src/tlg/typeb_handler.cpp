@@ -407,8 +407,11 @@ void bind_tlg(void)
       SyncTlgCompLayers(point_id_tlg, ASTRA::cltSOMTrzt);
       SyncTlgCompLayers(point_id_tlg, ASTRA::cltPRLTrzt);
       SyncTlgCompLayers(point_id_tlg, ASTRA::cltPNLCkin);
+      SyncTlgCompLayers(point_id_tlg, ASTRA::cltPNLBeforePay);
+      SyncTlgCompLayers(point_id_tlg, ASTRA::cltPNLAfterPay);
       SyncTlgCompLayers(point_id_tlg, ASTRA::cltProtCkin);
-      SyncTlgCompLayers(point_id_tlg, ASTRA::cltProtPaid);
+      SyncTlgCompLayers(point_id_tlg, ASTRA::cltProtBeforePay);
+      SyncTlgCompLayers(point_id_tlg, ASTRA::cltProtAfterPay);
     };
   };
   OraSession.Commit();

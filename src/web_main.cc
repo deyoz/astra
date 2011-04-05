@@ -1899,7 +1899,8 @@ void getPnr( bool pr_paid_ckin, int pnr_id, vector<TWebPax> &pnr, bool pr_throw 
     	if (pr_paid_ckin)
     	{
     	  pax.crs_seat_rem = Qry.FieldAsString( "crs_seat_rem" );
-        if (!IsProtPaidSeatRem(markFlt.airline, pax.crs_seat_rem))
+    	  TCompLayerType rem_layer=GetSeatRemLayer(markFlt.airline, pax.crs_seat_rem);
+        if (rem_layer!=cltPNLBeforePay && rem_layer!=cltPNLAfterPay)
           pax.crs_seat_rem.clear();
     	};
     	pax.seats = Qry.FieldAsInteger( "seats" );
@@ -3505,7 +3506,7 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
       LayerQry.SetVariable("delete_seat_ranges", 1);
       LayerQry.SetVariable("point_id", Qry.FieldAsInteger("point_id"));
       LayerQry.SetVariable("airp_arv", Qry.FieldAsString("airp_arv"));
-      LayerQry.SetVariable("layer_type", EncodeCompLayerType(cltProtPaid));
+      LayerQry.SetVariable("layer_type", EncodeCompLayerType(cltProtBeforePay));
       LayerQry.SetVariable("first_xname", RateQry.FieldAsString("xname"));
       LayerQry.SetVariable("last_xname", RateQry.FieldAsString("xname"));
       LayerQry.SetVariable("first_yname", RateQry.FieldAsString("yname"));
@@ -3514,10 +3515,10 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
       LayerQry.Execute();
       if (LayerQry.GetVariableAsInteger("delete_seat_ranges")!=0)
       {
-        DeleteTlgSeatRanges(cltProtPaid, pax.crs_pax_id, false, true, curr_tid);
+        DeleteTlgSeatRanges(cltProtBeforePay, pax.crs_pax_id, curr_tid);
         SaveTlgSeatRanges(Qry.FieldAsInteger("point_id"),
                           Qry.FieldAsString("airp_arv"),
-                          cltProtPaid,
+                          cltProtBeforePay,
                           ranges,
                           pax.crs_pax_id,
                           NoExists,
@@ -3528,7 +3529,7 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
       };
     }
     else
-      DeleteTlgSeatRanges(cltProtPaid, pax.crs_pax_id, false, true, curr_tid);
+      DeleteTlgSeatRanges(cltProtBeforePay, pax.crs_pax_id, curr_tid);
     
     //вернем tids пассажира в TWebPaxFromReq
     Qry.Execute();
