@@ -212,6 +212,17 @@ void SalonsInterface::SalonFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   Qry.CreateVariable( "point_id", otInteger, trip_id );
   Qry.SQLText = "UPDATE points SET point_id=point_id WHERE point_id=:point_id";
   Qry.Execute();
+  if ( comp_id != -2 && !cSet ) { //новая компоновку
+    Qry.SQLText = "UPDATE trip_sets SET comp_id=:comp_id WHERE point_id=:point_id";
+    Qry.CreateVariable( "comp_id", otInteger, comp_id );
+    Qry.Execute();
+  }
+  /*Qry.SQLText = "UPDATE trip_sets SET comp_id=:comp_id WHERE point_id=:point_id";
+  Qry.DeclareVariable( "comp_id", otInteger );
+  if ( comp_id == -2 )
+    Qry.SetVariable( "comp_id", FNull );
+  else
+    Qry.SetVariable( "comp_id", comp_id );*/
   TSalons Salons( trip_id, SALONS2::rTripSalons );
   Salons.Parse( NodeAsNode( "salons", reqNode ) );
   Salons.verifyValidRem( "MCLS", "Э"); //???
@@ -220,42 +231,25 @@ void SalonsInterface::SalonFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   Salons.verifyValidRem( "LCLS", "Э"); //???
   Salons.trip_id = trip_id;
   Salons.ClName = "";
-  bool pr_base_change = false;
-  SALONS2::TSalons OldSalons( trip_id, SALONS2::rTripSalons );
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT point_id FROM trip_comp_elems WHERE point_id=:point_id AND rownum<2";
-  Qry.CreateVariable( "point_id", otInteger, trip_id );
-  Qry.Execute();
-  if ( !Qry.Eof ) { // была старая компоновка
-    OldSalons.Read();
-    pr_base_change = ChangeCfg( Salons, OldSalons );
-  }
-  Qry.Clear();
-  Qry.SQLText = "UPDATE trip_sets SET comp_id=:comp_id WHERE point_id=:point_id";
-  Qry.CreateVariable( "point_id", otInteger, trip_id );
-  Qry.DeclareVariable( "comp_id", otInteger );
   // пришла новая компоновка, но не пришел comp_id - значит были изменения компоновки - "сохраните базовую компоновку."
   if ( SALONS2::IsMiscSet( trip_id, 17 ) ) {
     if ( comp_id == -2 && !cSet )
       throw UserException( "MSG.SALONS.SAVE_BASE_COMPON" );
+    SALONS2::TSalons OldSalons( trip_id, SALONS2::rTripSalons );
     // может вызвать ошибку, если салон не был назначен на рейс
-    if ( comp_id == -2 && pr_base_change ) // была старая компоновка
-      throw UserException( "MSG.SALONS.NOT_CHANGE_CFG_ON_FLIGHT" );
-    if ( comp_id != -2 && !cSet ) { //новая компоновку
-      Qry.SetVariable( "comp_id", comp_id );
-      Qry.Execute();
+    Qry.Clear();
+    Qry.SQLText =
+      "SELECT point_id FROM trip_comp_elems WHERE point_id=:point_id AND rownum<2";
+    Qry.CreateVariable( "point_id", otInteger, trip_id );
+    Qry.Execute();
+    ProgTrace( TRACE5, "point_id=%d,Qry.Eof=%d", trip_id, Qry.Eof );
+    if ( !Qry.Eof  ) { // была старая компоновка
+      OldSalons.Read();
+      if ( comp_id == -2 && ChangeCfg( Salons, OldSalons ) )
+        throw UserException( "MSG.SALONS.NOT_CHANGE_CFG_ON_FLIGHT" );
     }
   }
-  else {
-    if ( pr_base_change && cSet )
-      comp_id = -2;
-    if ( comp_id == -2 )
-      Qry.SetVariable( "comp_id", FNull );
-    else
-      Qry.SetVariable( "comp_id", comp_id );
-    Qry.Execute();
-  }
+
   Salons.Write();
   
   bool pr_initcomp = NodeAsInteger( "initcomp", reqNode );
@@ -339,7 +333,7 @@ void SalonsInterface::DeleteReserveSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   vector<SALONS::TSalonSeat> seats;
 
   try {
-  	SEATS::ChangeLayer( cltProtCkin, point_id, pax_id, tid, "", "", SEATS::stDropseat, pr_lat_seat );
+  	SEATS2::ChangeLayer( cltProtCkin, point_id, pax_id, tid, "", "", SEATS2::stDropseat, pr_lat_seat );
   	SALONS::getSalonChanges( Salons, seats );
   	Qry.Clear();
   	Qry.SQLText =
@@ -384,7 +378,7 @@ void SalonsInterface::DeleteReserveSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
 void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) //!!old terminal
 {
   //TReqInfo::Instance()->user.check_access( amWrite );
-  SEATS::TSeatsType seat_type = SEATS::stReseat;
+  SEATS2::TSeatsType seat_type = SEATS2::stReseat;
   int point_id = NodeAsInteger( "trip_id", reqNode );
   int pax_id = NodeAsInteger( "pax_id", reqNode );
   int tid = NodeAsInteger( "tid", reqNode );
@@ -440,7 +434,7 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
   vector<SALONS::TSalonSeat> seats;
 
   try {
-  	SEATS::ChangeLayer( layer_type, point_id, pax_id, tid, xname, yname, seat_type, pr_lat_seat );
+    SEATS2::ChangeLayer( layer_type, point_id, pax_id, tid, xname, yname, seat_type, pr_lat_seat );
   	SALONS::getSalonChanges( Salons, seats );
   	Qry.Clear();
   	switch( layer_type ) {
