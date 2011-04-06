@@ -1858,7 +1858,7 @@ void getPnr( bool pr_paid_ckin, int pnr_id, vector<TWebPax> &pnr, bool pr_throw 
       "       DECODE(pax.pax_id,NULL,crs_pax.pers_type,pax.pers_type) AS pers_type, "
       "       salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS crs_seat_no, "
       "       crs_pax.seat_rem AS crs_seat_rem, "
-      "       salons.get_crs_seat_no(crs_pax.pax_id,:protckin_layer,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS preseat_no, "
+      "       salons.get_crs_seat_no(crs_pax.pax_id,crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS preseat_no, "
       "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'one',rownum) AS seat_no, "
       "       DECODE(pax.pax_id,NULL,crs_pax.seats,pax.seats) AS seats, "
       "       DECODE(pax_grp.class,NULL,crs_pnr.class,pax_grp.class) AS class, "
@@ -1880,7 +1880,6 @@ void getPnr( bool pr_paid_ckin, int pnr_id, vector<TWebPax> &pnr, bool pr_throw 
       "      crs_pnr.pnr_id=:pnr_id AND "
       "      crs_pax.pr_del=0";
     Qry.CreateVariable( "pnr_id", otInteger, pnr_id );
-    Qry.CreateVariable( "protckin_layer", otString, EncodeCompLayerType(cltProtCkin) ); //!!!cltProtPaid
   	Qry.Execute();
   	TMktFlight markFlt;
   	markFlt.getByPnrId( pnr_id );
@@ -2559,7 +2558,7 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
       "       crs_pnr.status AS pnr_status, "
       "       crs_pax.surname,crs_pax.name,crs_pax.pers_type, "
       "       salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS seat_no, "
-      "       salons.get_crs_seat_no(crs_pax.pax_id,:protckin_layer,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS preseat_no, "
+      "       salons.get_crs_seat_no(crs_pax.pax_id,crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS preseat_no, "
       "       crs_pax.seat_type, "
       "       crs_pax.seats, "
       "       crs_pnr.pnr_id, "
@@ -2613,7 +2612,6 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
               {
                 //пассажир не зарегистрирован
                 Qry.SQLText=CrsPaxQrySQL;
-                Qry.CreateVariable("protckin_layer", otString, EncodeCompLayerType(ASTRA::cltProtCkin) ); //!!!cltProtPaid
                 Qry.CreateVariable("crs_pax_id", otInteger, iPax->crs_pax_id);
                 Qry.Execute();
                 if (Qry.Eof)
@@ -2945,8 +2943,11 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
             if (!iPaxFromReq->seat_no.empty())
               NewTextChild(paxNode,"seat_no",iPaxFromReq->seat_no);
             else
-              NewTextChild(paxNode,"seat_no",iPaxForCkin->seat_no);
-            NewTextChild(paxNode,"preseat_no",iPaxForCkin->preseat_no);
+              if (!iPaxForCkin->preseat_no.empty())
+                NewTextChild(paxNode,"seat_no",iPaxForCkin->preseat_no);
+              else
+                NewTextChild(paxNode,"seat_no",iPaxForCkin->seat_no);
+            //NewTextChild(paxNode,"preseat_no",iPaxForCkin->preseat_no);!!!vlad
             NewTextChild(paxNode,"seat_type",iPaxForCkin->seat_type);
             NewTextChild(paxNode,"seats",iPaxForCkin->seats);
             //обработка билетов
