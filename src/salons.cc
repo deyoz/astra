@@ -128,9 +128,9 @@ void TSalons::Clear( )
   placelists.clear();
 }
 
-
-TSalons::TSalons( int id, TReadStyle vreadStyle )
+TSalons::TSalons( int id, TReadStyle vreadStyle, bool vdrop_not_used_pax_layers )
 {
+  drop_not_used_pax_layers = vdrop_not_used_pax_layers;
 	readStyle = vreadStyle;
 	if ( readStyle == rComponSalons )
 		comp_id = id;
@@ -330,6 +330,8 @@ void TSalons::Write()
     ProgTrace( TRACE5, "TSalons::Write TripSalons with params trip_id=%d",
                trip_id );
   else {
+    if ( modify == mNone )
+      return;  //???
     ClName.clear();
     ProgTrace( TRACE5, "TSalons::Write ComponSalons with params comp_id=%d",
                comp_id );
@@ -736,11 +738,12 @@ void TSalons::Read( )
 
   if ( readStyle == rTripSalons ) {
     Qry.SQLText =
-     "SELECT pr_lat_seat FROM trip_sets WHERE point_id=:point_id";
+     "SELECT pr_lat_seat, NVL(comp_id,-1) comp_id FROM trip_sets WHERE point_id=:point_id";
     Qry.CreateVariable( "point_id", otInteger, trip_id );
     Qry.Execute();
     if ( Qry.Eof ) throw UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
     pr_lat_seat = Qry.FieldAsInteger( "pr_lat_seat" );
+    comp_id = Qry.FieldAsInteger( "comp_id" );
   }
   else {
     Qry.SQLText =
@@ -989,38 +992,42 @@ void TSalons::Read( )
     placelists.pop_back( );
     delete placeList; // нам этот класс/салон не нужен
   }
-  // имеем салон и места в салоне со всеми слоями. Нам предстоит разобраться какие из них лишние. До этого мы фильтровали только те, которые не использвем
-  for( TPaxLayers::iterator ipax=pax_layers.begin(); ipax!=pax_layers.end(); ipax++ ) { // пробег по пассажирам
-  	for (vector<TPaxLayer>::iterator r=ipax->second.paxLayers.begin(); r!=ipax->second.paxLayers.end(); r++ ) { // пробег по слоям пассажира
-  			ProgTrace( TRACE5, "pax_id=%d, seats=%d, class=%s,layer_type=%s, time_create=%f, r->places.size()=%d",
-  			           ipax->first, ipax->second.seats, ipax->second.cl.c_str(), EncodeCompLayerType( r->layer_type ), r->time_create, r->places.size() );
+  
+  if ( drop_not_used_pax_layers ) {
+    // имеем салон и места в салоне со всеми слоями. Нам предстоит разобраться какие из них лишние. До этого мы фильтровали только те, которые не использвем
+    for( TPaxLayers::iterator ipax=pax_layers.begin(); ipax!=pax_layers.end(); ipax++ ) { // пробег по пассажирам
+    	for (vector<TPaxLayer>::iterator r=ipax->second.paxLayers.begin(); r!=ipax->second.paxLayers.end(); r++ ) { // пробег по слоям пассажира
+    			ProgTrace( TRACE5, "pax_id=%d, seats=%d, class=%s,layer_type=%s, time_create=%f, r->places.size()=%d",
+    			           ipax->first, ipax->second.seats, ipax->second.cl.c_str(), EncodeCompLayerType( r->layer_type ), r->time_create, r->places.size() );
 
-  		if ( !isValidLayer( this, ipax, pax_layers, r )  ) {
-  			ipax->second.clearLayer( this, ipax->first, r );
-  		}
-  		else { // слой правильный
-        // вычисление случая, когда разные места размечены под одного пассажира (разные слои)
-        for (vector<TPaxLayer>::iterator ir=ipax->second.paxLayers.begin(); ir!=ipax->second.paxLayers.end(); ir++ ) { // пробег по слоям пассажира
-	        // пассажир может занимать разные места с одним слоем???
-	        if ( !isValidLayer( this, ipax, pax_layers, ir ) || ir == r )
-	  	      continue;
-	        if ( ir->priority < r->priority ||
-         	     ir->priority == r->priority &&
-	  	         ir->time_create > r->time_create ) { //есть более приоритетный слой у пассажира
-  	    		ipax->second.clearLayer( this, ipax->first, r );
-	  	      r->valid = -1;
-	  	      break;
+  	  	if ( !isValidLayer( this, ipax, pax_layers, r )  ) {
+  	  		ipax->second.clearLayer( this, ipax->first, r );
+  	  	}
+  	  	else { // слой правильный
+          // вычисление случая, когда разные места размечены под одного пассажира (разные слои)
+          for (vector<TPaxLayer>::iterator ir=ipax->second.paxLayers.begin(); ir!=ipax->second.paxLayers.end(); ir++ ) { // пробег по слоям пассажира
+	          // пассажир может занимать разные места с одним слоем???
+	          if ( !isValidLayer( this, ipax, pax_layers, ir ) || ir == r )
+	  	        continue;
+	          if ( ir->priority < r->priority ||
+         	       ir->priority == r->priority &&
+	  	           ir->time_create > r->time_create ) { //есть более приоритетный слой у пассажира
+  	    		  ipax->second.clearLayer( this, ipax->first, r );
+	  	        r->valid = -1;
+	  	        break;
+	          }
 	        }
-	      }
-  	  }
-			if ( r->valid != 1 )
-  			ProgTrace( TRACE5, "invalid layer, result=%d", r->valid );
+  	    }
+			  if ( r->valid != 1 )
+    			ProgTrace( TRACE5, "invalid layer, result=%d", r->valid );
+      }
     }
   }
 }
 
 void TSalons::Parse( xmlNodePtr salonsNode )
 {
+
   if ( salonsNode == NULL )
     return;
   xmlNodePtr node;
@@ -1653,35 +1660,11 @@ int SetCraft( int point_id, std::string &craft, int comp_id )
 void InitVIP( int point_id )
 {
 	tst();
+	if ( !IsMiscSet( point_id, 1 ) )
+    return;
 	// инициализация - разметра салона по умолчани
 	TQuery Qry(&OraSession);
 	TQuery QryVIP(&OraSession);
-	Qry.SQLText =
-	  "SELECT airline,flt_no,airp FROM points WHERE point_id=:point_id";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
-  string airline = Qry.FieldAsString( "airline" );
-  int flt_no = Qry.FieldAsInteger( "flt_no" );
-  string airp = Qry.FieldAsString( "airp" );
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT pr_misc, "
-    "       DECODE(airline,NULL,0,8)+ "
-    "       DECODE(flt_no,NULL,0,2)+ "
-    "       DECODE(airp_dep,NULL,0,4) AS priority "
-    " FROM misc_set "
-    " WHERE type=1 AND "
-    "      (airline IS NULL OR airline=:airline) AND "
-    "      (flt_no IS NULL OR flt_no=:flt_no) AND "
-    "      (airp_dep IS NULL OR airp_dep=:airp) "
-    " ORDER BY priority DESC ";
-  Qry.CreateVariable( "airline", otString, airline );
-  Qry.CreateVariable( "flt_no", otInteger, flt_no );
-  Qry.CreateVariable( "airp", otString, airp );
-  Qry.Execute();
-  if ( Qry.Eof || !Qry.FieldAsInteger( "pr_misc" ) )
-  	return; // разметра не нужна
-  Qry.Clear();
 	Qry.SQLText =
 	  "SELECT num, class, MIN( y ) miny, MAX( y ) maxy "
     " FROM trip_comp_elems, comp_elem_types "
@@ -1772,7 +1755,7 @@ bool CompareLayers( const vector<TPlaceLayer> &layer1, const vector<TPlaceLayer>
   return true;
 }
 
-bool EqualSalon( TPlaceList* oldsalon, TPlaceList* newsalon )
+bool EqualSalon( TPlaceList* oldsalon, TPlaceList* newsalon, bool equal_seats_cfg )
 {
 	//!!!возможно более тонко оценивать салон: удаление мест из ряда/линии - это места становятся невидимые, но при этом теряется само название ряда/линии
 	bool res = ( oldsalon->places.size() == newsalon->places.size() &&
@@ -1786,15 +1769,29 @@ bool EqualSalon( TPlaceList* oldsalon, TPlaceList* newsalon )
         po != oldsalon->places.end(),
         pn != newsalon->places.end();
         po++, pn++ )
-    if ( po->visible && pn->visible &&
-    	   ( po->x != pn->x ||
-     	     po->y != pn->y ||
-     	     po->xname != pn->xname ||
-       	   po->yname != pn->yname ) ) {
-     	ProgTrace( TRACE5, "po(%d,%d), oname=%s, pn(%d,%d) nname=%s", po->x, po->y, string(po->xname+po->yname).c_str(),
-     	           pn->x, pn->y, string(pn->xname+pn->yname).c_str() );
+    if ( equal_seats_cfg ) { // сравнение конфигурации салона
+      if ( po->visible != pn->visible ||
+           po->visible &&
+           ( po->x != pn->x ||
+     	       po->y != pn->y ||
+             po->isplace != pn->isplace ) ) {
+       	ProgTrace( TRACE5, "EqualSalon: po(%d,%d), oname=%s, pn(%d,%d) nname=%s", po->x, po->y, string(po->xname+po->yname).c_str(),
+      	           pn->x, pn->y, string(pn->xname+pn->yname).c_str() );
 
-     	return false;
+     	  return false;
+      }
+    }
+    else {
+      if ( po->visible && pn->visible &&
+      	   ( po->x != pn->x ||
+       	     po->y != pn->y ||
+       	     po->xname != pn->xname ||
+         	   po->yname != pn->yname ) ) {
+       	ProgTrace( TRACE5, "EqualSalon: po(%d,%d), oname=%s, pn(%d,%d) nname=%s", po->x, po->y, string(po->xname+po->yname).c_str(),
+     	             pn->x, pn->y, string(pn->xname+pn->yname).c_str() );
+
+     	  return false;
+      }
     }
   return true;
 }
@@ -2095,11 +2092,11 @@ bool salonChangesToText( TSalons &OldSalons, TSalons &NewSalons, std::vector<std
 	vector<int> salonNums;
   // поиск в новой компоновки нужного салона
   ProgTrace( TRACE5, "pr_set_base=%d", pr_set_base );
-  if ( !pr_set_base ) {
+  if ( !pr_set_base ) { //изменение базового
     for ( vector<TPlaceList*>::iterator so=OldSalons.placelists.begin(); so!=OldSalons.placelists.end(); so++ ) {
     	bool pr_find_salon=false;
     	for ( vector<TPlaceList*>::iterator sn=NewSalons.placelists.begin(); sn!=NewSalons.placelists.end(); sn++ ) {
-  	  	pr_find_salon = EqualSalon( *so, *sn );
+  	  	pr_find_salon = EqualSalon( *so, *sn, false );
   		  ProgTrace( TRACE5, "so->num=%d, pr_find_salon=%d", (*so)->num, pr_find_salon );
   		  if ( !pr_find_salon )
   			  continue;
@@ -2417,6 +2414,100 @@ void getXYName( int point_id, std::string seat_no, std::string &xname, std::stri
 	}
 }
 
+void ParseCompSections( xmlNodePtr sectionsNode, std::vector<TCompSections> &CompSections )
+{
+  CompSections.clear();
+  if ( !sectionsNode )
+    return;
+  sectionsNode = sectionsNode->children;
+  while ( sectionsNode && string((char*)sectionsNode->name) == "section" ) {
+    TCompSections cs;
+    cs.name = NodeAsString( sectionsNode );
+    cs.firstRowIdx = NodeAsInteger( "@FirstRowIdx", sectionsNode );
+    cs.lastRowIdx = NodeAsInteger( "@LastRowIdx", sectionsNode );
+    CompSections.push_back( cs );
+    sectionsNode = sectionsNode->next;
+  }
+  ProgTrace( TRACE5, "CompSections.size()=%d", CompSections.size() );
+}
+
+void getLayerPlacesCompSection( SALONS2::TSalons &NSalons, TCompSections &compSection,
+                                bool only_high_layer, map<ASTRA::TCompLayerType, int> &uselayers_count )
+{
+  for ( map<ASTRA::TCompLayerType, int>::iterator il=uselayers_count.begin(); il!=uselayers_count.end(); il++ ) {
+    uselayers_count[ il->first ] = 0;
+  }
+  int Idx = 0;
+  for ( vector<TPlaceList*>::iterator si=NSalons.placelists.begin(); si!=NSalons.placelists.end(); si++ ) {
+    for ( int y=0; y<(*si)->GetYsCount(); y++ ) {
+      if ( Idx >= compSection.firstRowIdx && Idx <= compSection.lastRowIdx ) { // внутри секции
+        for ( int x=0; x<(*si)->GetXsCount(); x++ ) {
+         TPlace *p = (*si)->place( (*si)->GetPlaceIndex( x, y ) );
+         if ( !p->isplace || !p->visible )
+           continue;
+         for ( map<ASTRA::TCompLayerType, int>::iterator il=uselayers_count.begin(); il!=uselayers_count.end(); il++ ) {
+           if ( only_high_layer && !p->layers.empty() && p->layers.begin()->layer_type == il->first || // !!!вверху самый приоритетный слой
+                !only_high_layer && p->isLayer( il->first ) ) {
+             uselayers_count[ il->first ] = uselayers_count[ il->first ] + 1;
+             break;
+           }
+         }
+        }
+      }
+      Idx++;
+    }
+  }
+  for ( map<ASTRA::TCompLayerType, int>::iterator il=uselayers_count.begin(); il!=uselayers_count.end(); il++ ) {
+    ProgTrace( TRACE5, "getPaxPlacesCompSection: layer_type=%s, count=%d", EncodeCompLayerType(il->first), il->second );
+  }
+}
+
+bool ChangeCfg( TSalons &NewSalons, TSalons &OldSalons )
+{
+  if ( NewSalons.placelists.size() != OldSalons.placelists.size() ) {
+    return true;
+  }
+  for ( vector<TPlaceList*>::iterator so=OldSalons.placelists.begin(),
+        sn=NewSalons.placelists.begin();
+        so!=OldSalons.placelists.end(),
+        sn!=NewSalons.placelists.end();
+        so++, sn++ ) {
+    if ( !EqualSalon( *so, *sn, true ) ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool IsMiscSet( int point_id, int misc_type )
+{
+	TQuery Qry(&OraSession);
+	Qry.SQLText =
+	  "SELECT airline,flt_no,airp FROM points WHERE point_id=:point_id";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  string airline = Qry.FieldAsString( "airline" );
+  int flt_no = Qry.FieldAsInteger( "flt_no" );
+  string airp = Qry.FieldAsString( "airp" );
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT pr_misc, "
+    "       DECODE(airline,NULL,0,8)+ "
+    "       DECODE(flt_no,NULL,0,2)+ "
+    "       DECODE(airp_dep,NULL,0,4) AS priority "
+    " FROM misc_set "
+    " WHERE type=:type AND "
+    "      (airline IS NULL OR airline=:airline) AND "
+    "      (flt_no IS NULL OR flt_no=:flt_no) AND "
+    "      (airp_dep IS NULL OR airp_dep=:airp) "
+    " ORDER BY priority DESC ";
+  Qry.CreateVariable( "airline", otString, airline );
+  Qry.CreateVariable( "flt_no", otInteger, flt_no );
+  Qry.CreateVariable( "airp", otString, airp );
+  Qry.CreateVariable( "type", otInteger, misc_type );
+  Qry.Execute();
+  return ( !Qry.Eof && Qry.FieldAsInteger( "pr_misc" ) );
+}
 
 } // end namespace SALONS2
 

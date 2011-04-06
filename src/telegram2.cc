@@ -7,6 +7,7 @@
 #include "stl_utils.h"
 #include "convert.h"
 #include "salons.h"
+#include "salonform.h"
 #include "astra_consts.h"
 #include "serverlib/logger.h"
 
@@ -1374,6 +1375,27 @@ namespace PRL_SPACE {
         Qry.Execute();
         weight = Qry.FieldAsInteger(0);
     }
+    
+    struct TCOMZones {
+        map<string, int> items;
+        void get(TTlgInfo &info);
+        void ToTlg(ostringstream &body);
+    };
+
+    void TCOMZones::get(TTlgInfo &info)
+    {
+        ZoneLoads(info.point_id, items);
+    }
+
+    void TCOMZones::ToTlg(ostringstream &body)
+    {
+        if(not items.empty()) {
+            body << "ZONES -";
+            for(map<string, int>::iterator i = items.begin(); i != items.end(); i++)
+                body << " " << i->first << "/" << i->second;
+            body << br;
+        }
+    }
 
     struct TCOMStats {
         vector<TCOMStatsItem> items;
@@ -1720,10 +1742,13 @@ int COM(TTlgInfo &info)
             << DateTimeToStr(info.scd_local, "ddmmm", 1) << " " << info.airp_dep_view
             << "/0 OP/NAM" << br;
         TCOMClasses classes;
+        TCOMZones zones;
         TCOMStats stats;
         classes.get(info);
+        zones.get(info);
         stats.get(info);
         classes.ToTlg(info, body);
+        zones.ToTlg(body);
         stats.ToTlg(body);
         tlg_row.body = body.str();
     } catch(...) {

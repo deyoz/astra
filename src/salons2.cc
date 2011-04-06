@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include "salons2.h"
+#include "salons.h"
 #include "basic.h"
 #include "exceptions.h"
 #include "xml_unit.h"
@@ -166,10 +167,10 @@ void TSalons::Clear( )
 }
 
 
-TSalons::TSalons( int id, TReadStyle vreadStyle )
+TSalons::TSalons( int id, SALONS2::TReadStyle vreadStyle )
 {
 	readStyle = vreadStyle;
-	if ( readStyle == rComponSalons )
+	if ( readStyle == SALONS2::rComponSalons )
 		comp_id = id;
 	else
 	  trip_id = id;
@@ -195,7 +196,7 @@ TSalons::TSalons( int id, TReadStyle vreadStyle )
   	layer_priority.push_back( lp );
   	Qry.Next();
   }
-  if ( readStyle == rTripSalons ) {
+  if ( readStyle == SALONS2::rTripSalons ) {
     FilterLayers.getFilterLayers( trip_id ); // определение режима учета транзитных слоев
   }
 }
@@ -259,7 +260,7 @@ void TSalons::Build( xmlNodePtr salonsNode )
         NewTextChild( placeNode, "block" );
       xmlNodePtr remsNode = NULL;
       xmlNodePtr remNode;
-      for ( vector<TRem>::iterator rem = place->rems.begin(); rem != place->rems.end(); rem++ ) {
+      for ( vector<SALONS2::TRem>::iterator rem = place->rems.begin(); rem != place->rems.end(); rem++ ) {
         if ( !remsNode ) {
           remsNode = NewTextChild( placeNode, "rems" );
         }
@@ -283,7 +284,7 @@ void TSalons::Build( xmlNodePtr salonsNode )
 
 void TSalons::Write()
 {
-  if ( readStyle == rTripSalons )
+  if ( readStyle == SALONS2::rTripSalons )
     ProgTrace( TRACE5, "TSalons::Write TripSalons with params trip_id=%d",
                trip_id );
   else {
@@ -315,7 +316,7 @@ void TSalons::Write()
   QryLayers.DeclareVariable( "first_yname", otString );
   QryLayers.DeclareVariable( "last_yname", otString );
 
-  if ( readStyle == rTripSalons ) {
+  if ( readStyle == SALONS2::rTripSalons ) {
     Qry.SQLText = "BEGIN "\
                   " UPDATE points SET point_id=point_id WHERE point_id=:point_id; "
                   " UPDATE trip_sets SET pr_lat_seat=:pr_lat_seat WHERE point_id=:point_id; "
@@ -379,11 +380,11 @@ void TSalons::Write()
     }
   }
   Qry.Execute();
-  if ( readStyle == rComponSalons && modify == mDelete )
+  if ( readStyle == SALONS2::rComponSalons && modify == mDelete )
     return; /* удалили компоновку */
 
   TQuery RQry( &OraSession );
-  if ( readStyle == rTripSalons ) {
+  if ( readStyle == SALONS2::rTripSalons ) {
     RQry.SQLText = "INSERT INTO trip_comp_rem(point_id,num,x,y,rem,pr_denial) "\
                    " VALUES(:point_id,:num,:x,:y,:rem,:pr_denial)";
     RQry.DeclareVariable( "point_id", otInteger );
@@ -403,7 +404,7 @@ void TSalons::Write()
   RQry.DeclareVariable( "pr_denial", otInteger );
 
   Qry.Clear();
-  if ( readStyle == rTripSalons ) {
+  if ( readStyle == SALONS2::rTripSalons ) {
     Qry.SQLText = "INSERT INTO trip_comp_elems(point_id,num,x,y,elem_type,xprior,yprior,agle,class, "
                   "                            pr_smoke,not_good,xname,yname) "
                   " VALUES(:point_id,:num,:x,:y,:elem_type,:xprior,:yprior,:agle,:class, "
@@ -469,7 +470,7 @@ void TSalons::Write()
       if ( !place->rems.empty() ) {
         RQry.SetVariable( "x", place->x );
         RQry.SetVariable( "y", place->y );
-        for( vector<TRem>::iterator rem = place->rems.begin(); rem != place->rems.end(); rem++ ) {
+        for( vector<SALONS2::TRem>::iterator rem = place->rems.begin(); rem != place->rems.end(); rem++ ) {
           RQry.SetVariable( "rem", rem->rem );
           if ( !rem->pr_denial )
             RQry.SetVariable( "pr_denial", 0 );
@@ -491,7 +492,7 @@ void TSalons::Write()
       }
     } //for place
   }
-  if ( readStyle == rTripSalons )
+  if ( readStyle == SALONS2::rTripSalons )
     check_waitlist_alarm( trip_id );
 }
 
@@ -511,7 +512,7 @@ void TSalons::Write()
 
 void TSalons::Read( bool wo_invalid_seat_no )
 {
-  if ( readStyle == rTripSalons )
+  if ( readStyle == SALONS2::rTripSalons )
   	;
 /*    ProgTrace( TRACE5, "TSalons::Read TripSalons with params trip_id=%d, ClassName=%s",
                trip_id, ClName.c_str() );*/
@@ -527,7 +528,7 @@ void TSalons::Read( bool wo_invalid_seat_no )
   TQuery RQry( &OraSession );
 
 
-  if ( readStyle == rTripSalons ) {
+  if ( readStyle == SALONS2::rTripSalons ) {
     Qry.SQLText =
      "SELECT pr_lat_seat FROM trip_sets WHERE point_id=:point_id";
     Qry.CreateVariable( "point_id", otInteger, trip_id );
@@ -545,7 +546,7 @@ void TSalons::Read( bool wo_invalid_seat_no )
   }
   Qry.Clear();
 
-  if ( readStyle == rTripSalons ) {
+  if ( readStyle == SALONS2::rTripSalons ) {
   	string sql_text =
       "SELECT DISTINCT t.num,t.x,t.y,t.elem_type,t.xprior,t.yprior,t.agle,"
       "                t.pr_smoke,t.not_good,t.xname,t.yname,t.class,r.layer_type, "
@@ -592,7 +593,7 @@ void TSalons::Read( bool wo_invalid_seat_no )
   }
   Qry.Execute();
   if ( Qry.RowCount() == 0 )
-    if ( readStyle == rTripSalons )
+    if ( readStyle == SALONS2::rTripSalons )
       throw AstraLocale::UserException( "MSG.SALONS.NOT_SET" );
     else
       throw AstraLocale::UserException( "MSG.SALONS.NOT_FOUND" );
@@ -609,7 +610,7 @@ void TSalons::Read( bool wo_invalid_seat_no )
   int col_xname = Qry.FieldIndex( "xname" );
   int col_yname = Qry.FieldIndex( "yname" );
   int col_class = Qry.FieldIndex( "class" );
-  if ( readStyle == rTripSalons ) {
+  if ( readStyle == SALONS2::rTripSalons ) {
     RQry.SQLText = "SELECT num,x,y,rem,pr_denial FROM trip_comp_rem "
                    " WHERE point_id=:point_id "
                    "ORDER BY num, x desc, y desc ";
@@ -627,7 +628,7 @@ void TSalons::Read( bool wo_invalid_seat_no )
   string ClName = ""; /* перечисление всех классов, которые есть в салоне */
   TPlaceList *placeList = NULL;
   int num = -1;
-  TPoint point_p;
+  SALONS2::TPoint point_p;
   int pax_id;
   map<int,TPlaceLayer> mp;
   map<int,TPlaceLayer>::iterator imp;
@@ -648,7 +649,7 @@ void TSalons::Read( bool wo_invalid_seat_no )
     TPlace place;
     point_p.x = Qry.FieldAsInteger( col_x );
     point_p.y = Qry.FieldAsInteger( col_y );
-    if ( readStyle != rTripSalons || Qry.FieldIsNULL( "pax_id" ) )
+    if ( readStyle != SALONS2::rTripSalons || Qry.FieldIsNULL( "pax_id" ) )
     	pax_id = -1;
     else
     	pax_id = Qry.FieldAsInteger( "pax_id" );
@@ -678,7 +679,7 @@ void TSalons::Read( bool wo_invalid_seat_no )
       while ( !RQry.Eof && RQry.FieldAsInteger( col_num ) == num &&
               RQry.FieldAsInteger( col_x ) == place.x &&
               RQry.FieldAsInteger( col_y ) == place.y ) {
-        TRem rem;
+        SALONS2::TRem rem;
         rem.rem = RQry.FieldAsString( "rem" );
         rem.pr_denial = RQry.FieldAsInteger( "pr_denial" );
         place.rems.push_back( rem );
@@ -690,7 +691,7 @@ void TSalons::Read( bool wo_invalid_seat_no )
     else { // это место проинициализировано - это новый слой
     	place = *placeList->place( point_p );
     }
-    if ( readStyle == rTripSalons ) { // здесь работа со всеми слоями для выявления разных признаков
+    if ( readStyle == SALONS2::rTripSalons ) { // здесь работа со всеми слоями для выявления разных признаков
       if ( FilterLayers.CanUseLayer( DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) ), Qry.FieldAsInteger( "point_dep" ) ) ) { // этот слой используем
 //      	ProgTrace( TRACE5, "seat_no=%s", string(string(Qry.FieldAsString("yname"))+Qry.FieldAsString("xname")).c_str() );
         SALONS::SetLayer( this->status_priority, Qry.FieldAsString( "layer_type" ), place );
@@ -709,7 +710,7 @@ void TSalons::Read( bool wo_invalid_seat_no )
           	//    		           pax_id, Qry.FieldAsString( "layer_type" ), mp[ pax_id ].priority, priority, place.x, place.y );
           	if ( mp[ pax_id ].priority > priority ) {
           		if ( mp[ pax_id ].placelist ) {
-          			TPoint p(mp[ pax_id ].x,mp[ pax_id ].y);
+          			SALONS2::TPoint p(mp[ pax_id ].x,mp[ pax_id ].y);
           			SALONS::ClearLayer( this->status_priority, mp[ pax_id ].layer, *mp[ pax_id ].placelist->place( p ) );
           			}
           			mp[ pax_id ].placelist = placeList;
@@ -754,7 +755,7 @@ void TSalons::Parse( xmlNodePtr salonsNode )
   ImagesInterface::GetisPlaceMap( ispl );
   node = salonsNode->children;
   xmlNodePtr salonNode = NodeAsNodeFast( "placelist", node );
-  TRem rem;
+  SALONS2::TRem rem;
   int lat_count=0, rus_count=0;
   string rus_lines = rus_seat, lat_lines = lat_seat;
   TElemFmt fmt;
@@ -860,7 +861,7 @@ void TSalons::verifyValidRem( std::string rem_name, std::string class_name )
           place != (*placeList)->places.end(); place++ ) {
       if ( !place->visible || place->clname == class_name )
        continue;
-      for ( vector<TRem>::iterator irem=place->rems.begin(); irem!=place->rems.end(); irem++ ) {
+      for ( vector<SALONS2::TRem>::iterator irem=place->rems.begin(); irem!=place->rems.end(); irem++ ) {
       	if ( irem->rem == rem_name )
       		throw AstraLocale::UserException( "MSG.SALONS.NOT_FOUND", LParams() << LParam("remark", rem_name) << LParam("class", place->clname));
       }
@@ -910,12 +911,12 @@ TPlace *TPlaceList::place( int idx )
   return &places[ idx ];
 }
 
-TPlace *TPlaceList::place( TPoint &p )
+TPlace *TPlaceList::place( SALONS2::TPoint &p )
 {
   return place( GetPlaceIndex( p ) );
 }
 
-int TPlaceList::GetPlaceIndex( TPoint &p )
+int TPlaceList::GetPlaceIndex( SALONS2::TPoint &p )
 {
   return GetPlaceIndex( p.x, p.y );
 }
@@ -925,12 +926,12 @@ int TPlaceList::GetPlaceIndex( int x, int y )
   return GetXsCount()*y + x;
 }
 
-bool TPlaceList::ValidPlace( TPoint &p )
+bool TPlaceList::ValidPlace( SALONS2::TPoint &p )
 {
  return ( p.x < GetXsCount() && p.x >= 0 && p.y < GetYsCount() && p.y >= 0 );
 }
 
-string TPlaceList::GetPlaceName( TPoint &p )
+string TPlaceList::GetPlaceName( SALONS2::TPoint &p )
 {
   if ( !ValidPlace( p ) )
     throw Exception( "Неправильные координаты места" );
@@ -952,7 +953,7 @@ string TPlaceList::GetYsName( int y )
   return ys[ y ];
 }
 
-bool TPlaceList::GetisPlaceXY( string placeName, TPoint &p )
+bool TPlaceList::GetisPlaceXY( string placeName, SALONS2::TPoint &p )
 {
 	TrimString(placeName);
 	if ( placeName.empty() )
@@ -997,7 +998,7 @@ void TPlaceList::Add( TPlace &pl )
   }
   int idx = GetPlaceIndex( pl.x, pl.y );
   if ( pl.xprior >= 0 && pl.yprior >= 0 ) {
-    TPoint p( pl.xprior, pl.yprior );
+    SALONS2::TPoint p( pl.xprior, pl.yprior );
     place( p )->xnext = pl.x;
     place( p )->ynext = pl.y;
   }
@@ -1549,11 +1550,11 @@ void SetBlock( const std::string &layer, TPlace &pl )
 		pl.block = true;
 }
 
-bool CompareRems( const vector<TRem> &rems1, const vector<TRem> &rems2 )
+bool CompareRems( const vector<SALONS2::TRem> &rems1, const vector<SALONS2::TRem> &rems2 )
 {
 	if ( rems1.size() != rems2.size() )
 		return false;
-	for ( vector<TRem>::const_iterator p1=rems1.begin(),
+	for ( vector<SALONS2::TRem>::const_iterator p1=rems1.begin(),
 		    p2=rems2.begin();
 		    p1!=rems1.end(),
 		    p2!=rems2.end();
@@ -1585,7 +1586,7 @@ bool CompareLayers( const vector<string> &layer1, const vector<string> &layer2 )
 void getSalonChanges( TSalons &OldSalons, vector<TSalonSeat> &seats )
 {
 	seats.clear();
-	TSalons Salons( OldSalons.trip_id, rTripSalons );
+	TSalons Salons( OldSalons.trip_id, SALONS2::rTripSalons );
 	Salons.Read();
 	if ( Salons.getLatSeat() != OldSalons.getLatSeat() ||
 		   Salons.placelists.size() != OldSalons.placelists.size() )
@@ -1659,7 +1660,7 @@ void BuildSalonChanges( xmlNodePtr dataNode, const vector<TSalonSeat> &seats )
 
     xmlNodePtr remsNode = NULL;
     xmlNodePtr remNode;
-    for ( vector<TRem>::const_iterator rem = p->second.rems.begin(); rem != p->second.rems.end(); rem++ ) {
+    for ( vector<SALONS2::TRem>::const_iterator rem = p->second.rems.begin(); rem != p->second.rems.end(); rem++ ) {
       if ( !remsNode ) {
         remsNode = NewTextChild( n, "rems" );
       }
@@ -1677,7 +1678,6 @@ void BuildSalonChanges( xmlNodePtr dataNode, const vector<TSalonSeat> &seats )
     }
 	}
 }
-
 
 } // end namespace
 
