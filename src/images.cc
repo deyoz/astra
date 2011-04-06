@@ -190,7 +190,13 @@ void GetDrawSalonProp( xmlNodePtr reqNode, xmlNodePtr resNode )
   if ( !layersNode )
   	layersNode = NewTextChild( imagesNode, "layers_color" );
   while ( !Qry.Eof ) {
-      if ( DecodeCompLayerType( Qry.FieldAsString( "code" ) ) == ASTRA::cltProtPaid && !TReqInfo::Instance()->desk.compatible( PROT_PAID_VERSION ) ) {
+      ASTRA::TCompLayerType l = DecodeCompLayerType( Qry.FieldAsString( "code" ) );
+      if (
+           ( l == ASTRA::cltProtBeforePay ||
+             l == ASTRA::cltProtAfterPay ||
+             l == ASTRA::cltPNLBeforePay ||
+             l == ASTRA::cltPNLAfterPay ) &&
+           !TReqInfo::Instance()->desk.compatible( PROT_PAID_VERSION ) ) {
         Qry.Next();
         continue;
       }

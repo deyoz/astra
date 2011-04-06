@@ -2275,8 +2275,7 @@ void WebRequestsIface::ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
      				   l->layer_type != cltUnknown ) {
      				pr_first = false;
      				wp.pr_free = ( ( l->layer_type == cltPNLCkin ||
-     				                 l->layer_type == cltProtCkin ||
-                             l->layer_type == cltProtPaid ) && isOwnerFreePlace( l->pax_id, pnr ) );
+                             isUserProtectLayer( l->layer_type ) ) && isOwnerFreePlace( l->pax_id, pnr ) );
             ProgTrace( TRACE5, "l->layer_type=%s, l->pax_id=%d, isOwnerFreePlace( l->pax_id, pnr )=%d, pr_first=%d",
                        EncodeCompLayerType(l->layer_type), l->pax_id, isOwnerFreePlace( l->pax_id, pnr ), pr_first );
      				if ( wp.pr_free )

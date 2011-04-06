@@ -50,7 +50,7 @@ const char lat_seat[]="ABCDEFGHJKLMNOPQRSTUVWXYZ";
 
 enum TCompLayerType { cltBlockCent, cltTranzit, cltCheckin, cltTCheckin, cltGoShow, cltBlockTrzt, cltSOMTrzt, cltPRLTrzt,
                       cltProtBeforePay, cltProtAfterPay, cltPNLBeforePay, cltPNLAfterPay,
-	                    cltProtTrzt, cltPNLCkin, cltProtCkin, cltProtPaid, cltProtect, cltUncomfort, cltSmoke, cltUnknown, cltTypeNum };
+	                    cltProtTrzt, cltPNLCkin, cltProtCkin, /*cltProtPaid,*/ cltProtect, cltUncomfort, cltSmoke, cltUnknown, cltTypeNum };
 extern const char* CompLayerTypeS[cltTypeNum];
 
 enum TBagNormType { bntFree, bntOrdinary, bntPaid,

@@ -253,6 +253,7 @@ void SaveTripSeatRanges( int point_id, ASTRA::TCompLayerType layer_type, std::ve
 bool GetPassengersForWaitList( int point_id, TPassengers &p, bool pr_exists=false );
 TSeatAlgoParams GetSeatAlgo(TQuery &Qry, std::string airline, int flt_no, std::string airp_dep);
 bool IsSubClsRem( const std::string &airline, const std::string &subclass, std::string &rem );
+bool isUserProtectLayer( ASTRA::TCompLayerType layer_type );
 
 extern TPassengers Passengers;
 } // end namespace SEATS2

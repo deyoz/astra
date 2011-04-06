@@ -767,22 +767,50 @@ void IntChangeSeats( int point_id, int pax_id, int &tid, string xname, string yn
 
   // если место у пассажира имеет предварительную рассадку для этого пассажира, и мы еще не спрашивали, то спросить!
   if ( seat_type != SEATS2::stDropseat && !pr_waitlist && pr_question_reseat ) {
+    // возможны следующие варианты:
+    // 1. пересадка зарегистрированного пассажира
+    // 2. предварительная пересадка/рассадка
+    // старое место может иметь след. слои:
+    // cltProtCkin, cltProtBeforePay, cltProtAfterPay, cltPNLBeforePay, cltPNLAfterPay
+    
+    // вычисляем занятое место
     Qry.Clear();
     Qry.SQLText =
-      "SELECT seat_no1,seat_no2 FROM "
-      "(SELECT first_yname||first_xname seat_no1 FROM trip_comp_layers "
-      " WHERE point_id=:point_id AND layer_type=:protckin_layer AND crs_pax_id=:pax_id) a,"
-      "(SELECT first_yname||first_xname seat_no2 FROM trip_comp_layers "
-      " WHERE point_id=:point_id AND layer_type=:layer_type AND pax_id=:pax_id ) b ";
+      "SELECT first_yname||first_xname seat_no1 FROM trip_comp_layers "
+      " WHERE point_id=:point_id AND layer_type = :layer_type AND pax_id=:pax_id";
+    Qry.CreateVariable( "point_id", otInteger, point_id );
+    Qry.CreateVariable( "pax_id", otInteger, pax_id );
+    Qry.CreateVariable( "layer_type", otString, EncodeCompLayerType(layer_type) );
+    Qry.Execute();
+    string used_seat_no;
+    if ( !Qry.Eof ) {
+      used_seat_no = Qry.FieldAsString( "seat_no1" );
+      ProgTrace( TRACE5, "Qry.Eof=%d, pax_id=%d,point_id=%d,prot_layer=%s,seat_no1=%s",
+                 Qry.Eof,pax_id,point_id,EncodeCompLayerType( cltProtCkin ), used_seat_no.c_str() );
+    }
+    // вычисляем предв. места по слоям
+    Qry.Clear();
+    Qry.SQLText =
+      "SELECT first_yname||first_xname pre_seat_no, layer_type, priority "
+      " FROM trip_comp_layers, comp_layer_types "
+      " WHERE point_id=:point_id AND "
+      "       trip_comp_layers.layer_type IN (:protckin_layer,:prot_pay1,:prot_pay2) AND "
+      "       crs_pax_id=:pax_id AND "
+      "       comp_layer_types.code=trip_comp_layers.layer_type "
+      "ORDER BY priority";
     Qry.CreateVariable( "point_id", otInteger, point_id );
     Qry.CreateVariable( "pax_id", otInteger, pax_id );
     Qry.CreateVariable( "protckin_layer", otString, EncodeCompLayerType( cltProtCkin ) );
-    Qry.CreateVariable( "layer_type", otString, EncodeCompLayerType(layer_type) );
+    Qry.CreateVariable( "prot_pay1", otString, EncodeCompLayerType( cltPNLAfterPay ) );
+    Qry.CreateVariable( "prot_pay2", otString, EncodeCompLayerType( cltProtAfterPay ) );
     Qry.Execute();
-    ProgTrace( TRACE5, "Qry.Eof=%d, pax_id=%d,point_id=%d,layer1=%s,layer2=%s", Qry.Eof,pax_id,point_id,EncodeCompLayerType( cltProtCkin ),EncodeCompLayerType(layer_type) );
-    if ( !Qry.Eof && string(Qry.FieldAsString( "seat_no1" )) == Qry.FieldAsString( "seat_no2" ) ) {
-    	ProgTrace( TRACE5, "seat_no1=%s, seat_no2=%s", Qry.FieldAsString( "seat_no1" ), Qry.FieldAsString( "seat_no2" ) );
-    	NewTextChild( resNode, "question_reseat", getLocaleText("QST.PAX_HAS_PRESEAT_SEATS.RESEAT"));
+    if ( !Qry.Eof && !used_seat_no.empty() && used_seat_no == Qry.FieldAsString( "pre_seat_no" ) ) {
+      ProgTrace( TRACE5, "pax_id=%d,point_id=%d,used_seat_no=%s,pre_seat_no=%s",
+                  pax_id, point_id, used_seat_no.c_str(), Qry.FieldAsString( "pre_seat_no" ) );
+      if ( DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) ) == cltProtCkin )
+      	NewTextChild( resNode, "question_reseat", getLocaleText("QST.PAX_HAS_PRESEAT_SEATS.RESEAT") );
+      else
+        NewTextChild( resNode, "question_reseat", getLocaleText("QST.PAX_HAS_PAID_SEATS.RESEAT"));
     	return;
     }
   }

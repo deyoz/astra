@@ -1241,11 +1241,18 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry,  xmlNodePtr resNode)
     NewTextChild(node,"surname",PaxQry.FieldAsString("surname"));
     NewTextChild(node,"name",PaxQry.FieldAsString("name"),"");
     NewTextChild(node,"pers_type",PaxQry.FieldAsString("pers_type"),EncodePerson(ASTRA::adult));
-    string seat_no_view=PaxQry.FieldAsString("paidseat_no");
+    string seat_no_view=PaxQry.FieldAsString("paidseat_no1");
+    if (seat_no_view.empty())
+      seat_no_view=PaxQry.FieldAsString("paidseat_no2");
+    if (seat_no_view.empty())
+      seat_no_view=PaxQry.FieldAsString("paidseat_no3");
+    if (seat_no_view.empty())
+      seat_no_view=PaxQry.FieldAsString("paidseat_no4");
     if (seat_no_view.empty())
       seat_no_view=PaxQry.FieldAsString("preseat_no");
     if (seat_no_view.empty())
       seat_no_view=PaxQry.FieldAsString("seat_no");
+
     NewTextChild(node,"seat_no",seat_no_view,"");
     //NewTextChild(node,"preseat_no",PaxQry.FieldAsString("preseat_no"),""); !!!vlad
     NewTextChild(node,"seat_type",PaxQry.FieldAsString("seat_type"),"");
@@ -1338,7 +1345,10 @@ void CheckInInterface::SearchGrp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       "       crs_pax.surname,crs_pax.name,crs_pax.pers_type, "
       "       salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS seat_no, "
       "       salons.get_crs_seat_no(crs_pax.pax_id,:protckin_layer,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS preseat_no, "
-      "       salons.get_crs_seat_no(crs_pax.pax_id,:protpaid_layer,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS paidseat_no, "
+      "       salons.get_crs_seat_no(crs_pax.pax_id,:protpaid_layer1,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS paidseat_no1, "
+      "       salons.get_crs_seat_no(crs_pax.pax_id,:protpaid_layer2,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS paidseat_no2, "
+      "       salons.get_crs_seat_no(crs_pax.pax_id,:protpaid_layer3,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS paidseat_no3, "
+      "       salons.get_crs_seat_no(crs_pax.pax_id,:protpaid_layer4,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS paidseat_no4, "
       "       crs_pax.seat_type, "
       "       crs_pax.seats, "
       "       crs_pnr.pnr_id, "
@@ -1354,7 +1364,10 @@ void CheckInInterface::SearchGrp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       "ORDER BY crs_pnr.point_id,crs_pax.pnr_id,crs_pax.surname,crs_pax.pax_id ";
     PaxQry.CreateVariable("pnr_id",otInteger,NodeAsInteger("pnr_id",reqNode));
     PaxQry.CreateVariable( "protckin_layer", otString, EncodeCompLayerType(ASTRA::cltProtCkin) );
-    PaxQry.CreateVariable( "protpaid_layer", otString, EncodeCompLayerType(ASTRA::cltProtPaid) );
+    PaxQry.CreateVariable( "protpaid_layer", otString, EncodeCompLayerType(ASTRA::cltProtAfterPay) ); //!!!переделать!!!
+    PaxQry.CreateVariable( "protpaid_layer", otString, EncodeCompLayerType(ASTRA::cltPNLAfterPay) );  //!!!переделать!!!
+    PaxQry.CreateVariable( "protpaid_layer", otString, EncodeCompLayerType(ASTRA::cltProtBeforePay) ); //!!!переделать!!!
+    PaxQry.CreateVariable( "protpaid_layer", otString, EncodeCompLayerType(ASTRA::cltPNLBeforePay) );  //!!!переделать!!!
     PaxQry.Execute();
     CreateSearchResponse(point_dep,PaxQry,resNode);
     CreateNoRecResponse(sum,resNode);
@@ -1702,7 +1715,10 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       "       crs_pax.surname,crs_pax.name,crs_pax.pers_type, \n"
       "       salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS seat_no, \n"
       "       salons.get_crs_seat_no(crs_pax.pax_id,:protckin_layer,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS preseat_no, \n"
-      "       salons.get_crs_seat_no(crs_pax.pax_id,:protpaid_layer,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS paidseat_no, \n"
+      "       salons.get_crs_seat_no(crs_pax.pax_id,:protpaid_layer1,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS paidseat_no1, \n"
+      "       salons.get_crs_seat_no(crs_pax.pax_id,:protpaid_layer2,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS paidseat_no2, \n"
+      "       salons.get_crs_seat_no(crs_pax.pax_id,:protpaid_layer3,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS paidseat_no3, \n"
+      "       salons.get_crs_seat_no(crs_pax.pax_id,:protpaid_layer4,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS paidseat_no4, \n"
       "       crs_pax.seat_type,crs_pax.seats, \n"
       "       crs_pnr.pnr_id, \n"
       "       report.get_PSPT(crs_pax.pax_id) AS document, \n"
@@ -1746,7 +1762,10 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
              default: PaxQry.CreateVariable( "ps_ok", otString, EncodePaxStatus(ASTRA::psCheckin) );
     };
     PaxQry.CreateVariable( "protckin_layer", otString, EncodeCompLayerType(ASTRA::cltProtCkin) );
-    PaxQry.CreateVariable( "protpaid_layer", otString, EncodeCompLayerType(ASTRA::cltProtPaid) );
+    PaxQry.CreateVariable( "protpaid_layer", otString, EncodeCompLayerType(ASTRA::cltProtAfterPay) ); //!!!переделать!!!
+    PaxQry.CreateVariable( "protpaid_layer", otString, EncodeCompLayerType(ASTRA::cltPNLAfterPay) );  //!!!переделать!!!
+    PaxQry.CreateVariable( "protpaid_layer", otString, EncodeCompLayerType(ASTRA::cltProtBeforePay) ); //!!!переделать!!!
+    PaxQry.CreateVariable( "protpaid_layer", otString, EncodeCompLayerType(ASTRA::cltPNLBeforePay) );  //!!!переделать!!!
     PaxQry.Execute();
     if (!PaxQry.Eof) break;
   };

@@ -1581,6 +1581,13 @@ bool TSeatPlaces::SeatsGrp( )
  return false;
 }
 
+bool isUserProtectLayer( TCompLayerType layer_type )
+{
+  return ( layer_type == cltProtCkin ||
+           layer_type == cltProtAfterPay ||
+           layer_type == cltPNLAfterPay );
+}
+
 /* рассадка пассажиров по местам не учитывая группу */
 bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
 {
@@ -1610,7 +1617,7 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
       		pr_seat = true;
         if ( ipass->InUse )
           continue;
-        if ( ( PlaceLayer == cltProtCkin || PlaceLayer == cltProtPaid ) && !CanUseLayer( PlaceLayer, UseLayers ) &&
+        if ( isUserProtectLayer( PlaceLayer ) && !CanUseLayer( PlaceLayer, UseLayers ) &&
              ( ipass->preseat_layer != PlaceLayer ) )
           continue;
 
@@ -1671,8 +1678,9 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
                CanUseRems == sNotUseDenial ) &&
              ( !CanUseLayers ||
                PlaceLayer == cltProtCkin && CanUseLayer( cltProtCkin, UseLayers ) ||
-               PlaceLayer == cltProtPaid && CanUseLayer( cltProtPaid, UseLayers ) ||
-               PlaceLayer != cltProtCkin && PlaceLayer != cltProtPaid ) &&
+               PlaceLayer == cltProtAfterPay && CanUseLayer( cltProtAfterPay, UseLayers ) ||
+               PlaceLayer == cltPNLAfterPay && CanUseLayer( cltPNLAfterPay, UseLayers ) ||
+               !isUserProtectLayer( PlaceLayer ) ) &&
                SeatsGrp( ) ) { // тогда можно находить место по всему салону
           if ( seatplaces.begin()->Step == sLeft || seatplaces.begin()->Step == sUp )
             throw EXCEPTIONS::Exception( "Недопустимое значение направления рассадки" );
@@ -2168,7 +2176,8 @@ void SetLayers( vector<TCompLayerType> &Layers, bool &CanUseMutiLayer, TCompLaye
       }
       break;
     case cltProtCkin:
-    case cltProtPaid:
+    case cltPNLAfterPay: //???
+    case cltProtAfterPay:
    		if ( Step != 0 ) {
        	for( TUseLayers::const_iterator l=preseat_layers.begin(); l!=preseat_layers.end(); l++ ) {
           if ( l->second )
@@ -2270,7 +2279,10 @@ void SeatsPassengers( SALONS2::TSalons *Salons, TSeatAlgoParams ASeatAlgoParams 
   CanUseSmoke = false; /* пока не будем работать с курящими местами */
   vector<string> PElemTypes;
   preseat_layers[ cltProtCkin ] = CanUseLayer( cltProtCkin, UseLayers );
-  preseat_layers[ cltProtPaid ] = CanUseLayer( cltProtPaid, UseLayers );
+  preseat_layers[ cltProtBeforePay ] = CanUseLayer( cltProtBeforePay, UseLayers );
+  preseat_layers[ cltProtAfterPay ] = CanUseLayer( cltProtAfterPay, UseLayers );
+  preseat_layers[ cltPNLBeforePay ] = CanUseLayer( cltPNLBeforePay, UseLayers );
+  preseat_layers[ cltPNLAfterPay ] = CanUseLayer( cltPNLAfterPay, UseLayers );
   condRates.Init( *Salons ); // собирает все типы платных мест в массив по приоритетам
   
   Passengers.KWindow = ( Passengers.KWindow && !Passengers.KTube );
@@ -2289,7 +2301,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons, TSeatAlgoParams ASeatAlgoParams 
   bool Status_seat_no_BR=false, pr_all_pass_SUBCLS=true, pr_SUBCLS=false;
   for ( int i=0; i<passengers.getCount(); i++ ) {
   	TPassenger &pass = passengers.Get( i );
-  	if ( pass.preseat_layer == cltProtCkin || pass.preseat_layer == cltProtPaid ) {
+  	if ( isUserProtectLayer( pass.preseat_layer ) ) {
       preseat_layers[ pass.preseat_layer ] = true;
       ProgTrace( TRACE5, "preseat_layers: pass.preseat_layer=%s", EncodeCompLayerType( pass.preseat_layer ) );
   	}
@@ -2339,7 +2351,8 @@ void SeatsPassengers( SALONS2::TSalons *Salons, TSeatAlgoParams ASeatAlgoParams 
          /* если есть в группе предварительная рассадка, то тогда сажаем всех отдельно */
          /* если есть в группе подкласс С и он не у всех пассажиров, то тогда сажаем всех отдельно */
          if ( ( CanUseLayer( cltProtCkin, preseat_layers ) ||
-                CanUseLayer( cltProtPaid, preseat_layers ) ||
+                CanUseLayer( cltProtAfterPay, preseat_layers ) ||
+                CanUseLayer( cltPNLAfterPay, preseat_layers ) ||
                 Status_seat_no_BR ||
                 SeatOnlyBasePlace || // для каждого пассажира задано свой номер места
                 canUseSUBCLS && pr_SUBCLS && !pr_all_pass_SUBCLS ) // если есть группа пассажиров среди которых есть пассажиры с подклассом, нл не все
@@ -2729,7 +2742,8 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
 {
 
   UseLayers[ cltProtCkin ] = false;
-  UseLayers[ cltProtPaid ] = false;
+  UseLayers[ cltProtAfterPay ] = false;
+  UseLayers[ cltPNLAfterPay ] = false;
 	//CanUse_PS = false; //!!!
 	first_xname = norm_iata_line( first_xname );
 	first_yname = norm_iata_line( first_yname );
@@ -2760,7 +2774,6 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
        Qry.CreateVariable( "point_dep", otInteger, point_id );
       break;
     case cltProtCkin:
-    case cltProtPaid:
       Qry.SQLText =
         "SELECT surname, name, 0 reg_no, 0 grp_id, seats, a.step step, crs_pax.tid, target, point_id, 0 point_arv, "
         "       NULL AS seat_no, class, pers_type "
@@ -2819,14 +2832,17 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   	throw UserException( "MSG.PASSENGER.CHECKED.REFRESH_DATA" );
   }
   //если пассажир имеет платный слой, то нельзя работать с предварительной разметкой
-  if ( layer_type == cltProtCkin ) {
+  if ( layer_type == cltProtCkin ) { //!!!переделать!!!
      Qry.Clear();
      Qry.SQLText =
        "SELECT pax_id FROM trip_comp_layers "
-       " WHERE point_id=:point_id AND crs_pax_id=:crs_pax_id AND layer_type=:prot_layer AND rownum<2";
+       " WHERE point_id=:point_id AND crs_pax_id=:crs_pax_id AND layer_type IN (:prot_bp1,:prot_:pb2,:prot_ap1,:prot_ap2) AND rownum<2";
      Qry.CreateVariable( "point_id", otInteger, point_id );
      Qry.CreateVariable( "crs_pax_id", otInteger, pax_id );
-     Qry.CreateVariable( "prot_layer", otString, EncodeCompLayerType( cltProtPaid ) );
+     Qry.CreateVariable( "prot_bp1", otString, EncodeCompLayerType( cltProtBeforePay ) );   //!!!переделать!!!
+     Qry.CreateVariable( "prot_bp2", otString, EncodeCompLayerType( cltProtAfterPay ) );  //!!!переделать!!!
+     Qry.CreateVariable( "prot_ap1", otString, EncodeCompLayerType( cltPNLBeforePay ) );  //!!!переделать!!!
+     Qry.CreateVariable( "prot_ap2", otString, EncodeCompLayerType( cltPNLAfterPay ) );   //!!!переделать!!!
      Qry.Execute();
      if ( !Qry.Eof )
        throw UserException( "MSG.SEATS.SEAT_NO.NOT_USE" );
@@ -3043,7 +3059,10 @@ void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &APass, TSeatA
   SeatAlg = sSeatPassengers;
   CanUseLayers = false; /* не учитываем статус мест */
   UseLayers[ cltProtCkin ] = true;
-  UseLayers[ cltProtPaid ] = true;
+  UseLayers[ cltProtBeforePay ] = true;
+  UseLayers[ cltProtAfterPay ] = true;
+  UseLayers[ cltPNLBeforePay ] = true;
+  UseLayers[ cltPNLAfterPay ] = true;
   //CanUse_PS = true;
   CanUseSmoke = false;
   PlaceElem_Types.clear();
