@@ -1676,7 +1676,7 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
     QryTripInfo.Execute();
     if ( !QryTripInfo.Eof ) {
     	fltInfo.Init(QryTripInfo);
-    	Set_overload_alarm( point_id, Get_overload_alarm( point_id, fltInfo ) );
+    	Set_overload_alarm( point_id, Calc_overload_alarm( point_id, fltInfo ) );
     }
 	}
 
@@ -1907,7 +1907,7 @@ void ParseAndSaveSPP( const std::string &filename, const std::string &canon_name
 	Qry.CreateVariable( "airline", otString, airline );
 	Qry.Execute();
 	if ( !errs.empty() )
-	 showProgError( errs );
+	 AstraLocale::showProgError( errs );
 }
 
 bool BuildAODBTimes( int point_id, const std::string &point_addr, TFileDatas &fds )

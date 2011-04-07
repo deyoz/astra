@@ -6,6 +6,7 @@
 #include "base_tables.h"
 
 enum TElemType {
+                 etAgency,
                  etAirline,
                  etAirp,
                  etBagNormType,
@@ -36,6 +37,7 @@ enum TElemType {
                  etPersType,
                  etRefusalType,
                  etRight,
+                 etSalePoint,
                  etSeatAlgoType,
                  etStationMode,
                  etSubcls,

@@ -278,22 +278,22 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   Qry.CreateVariable( "mark", otInteger, (int)!boarding );
   Qry.CreateVariable( "term", otString, reqInfo->desk.code );
   Qry.Execute();
-  string msg;
+  string lexeme_id;
   if (reqInfo->screen.name == "BRDBUS.EXE")
   {
     if (boarding)
-      msg=getLocaleText("MSG.PASSENGER.ALL_BOARDED");
+      lexeme_id="MSG.PASSENGER.ALL_BOARDED";
     else
-      msg=getLocaleText("MSG.PASSENGER.ALL_NOT_BOARDED");
+      lexeme_id="MSG.PASSENGER.ALL_NOT_BOARDED";
   }
   else
   {
     if (boarding)
-      msg=getLocaleText("MSG.PASSENGER.ALL_EXAMED");
+      lexeme_id="MSG.PASSENGER.ALL_EXAMED";
     else
-      msg=getLocaleText("MSG.PASSENGER.ALL_NOT_EXAMED");
+      lexeme_id="MSG.PASSENGER.ALL_NOT_EXAMED";
   };
-  reqInfo->MsgToLog(msg, evtPax, point_id);
+  reqInfo->MsgToLog(getLocaleText(lexeme_id,AstraLocale::LANG_RU), evtPax, point_id);
 
   if (reqInfo->screen.name == "BRDBUS.EXE")
   {
@@ -307,7 +307,7 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   if(bad_client_img_version())
       NewTextChild(variablesNode, "doc_cap_test", " ");
 
-  ASTRA::showMessage(msg);
+  showMessage(lexeme_id);
 };
 
 bool BrdInterface::PaxUpdate(int point_id, int pax_id, int &tid, bool mark, bool pr_exam_with_brd)

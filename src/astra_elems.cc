@@ -60,6 +60,7 @@ const
     const char* EncodeStr;
     const char* BaseTableName;
   } ElemBaseTables[] = {
+                         {etAgency,                "etAgency",                ""},
                          {etAirline,               "etAirline",               "airlines"},
                          {etAirp,                  "etAirp",                  "airps"},
                          {etBagNormType,           "etBagNormType",           "bag_norm_types"},
@@ -90,6 +91,7 @@ const
                          {etPersType,              "etPersType",              "pers_types"},
                          {etRefusalType,           "etRefusalType",           "refusal_types"},
                          {etRight,                 "etRight",                 "rights"},
+                         {etSalePoint,             "etSalePoint",             ""},
                          {etSeatAlgoType,          "etSeatAlgoType",          "seat_algo_types"},
                          {etStationMode,           "etStationMode",           "station_modes"},
                          {etSubcls,                "etSubcls",                "subcls"},
@@ -593,6 +595,8 @@ string ElemIdToElem(TElemType type, const string &id, const vector< pair<TElemFm
           case etDelayType: Qry.SQLText="SELECT code,code_lat,name,name_lat FROM delays WHERE code=:id";break;
           case etTripLiter: Qry.SQLText="SELECT code,code_lat,name,name_lat FROM trip_liters WHERE code=:id";break;
       case etValidatorType: Qry.SQLText="SELECT code,code_lat,name,name_lat FROM validator_types WHERE code=:id";break;
+          case etSalePoint: Qry.SQLText="SELECT code,descr name,descr_lat name_lat FROM sale_points WHERE code=:id";break;
+             case etAgency: Qry.SQLText="SELECT code,code_lat,name,name_lat FROM agencies WHERE code=:id";break;
       default: throw Exception("Unexpected elem type %s", EncodeElemType(type));
     };
     Qry.CreateVariable("id",otString,id);

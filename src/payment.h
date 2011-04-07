@@ -33,7 +33,7 @@ public:
      AddEvent("AnnulReceipt",evHandle);
   };
   void LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  void LoadReceipts(int id, bool pr_grp, xmlNodePtr dataNode);
+  void LoadReceipts(int id, bool pr_grp, xmlNodePtr dataNode, xmlNodePtr reqNode);
   void SaveBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void UpdPrepay(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
@@ -60,7 +60,7 @@ public:
   //образ из структуры в XML
   void PutReceiptFields(TBagReceipt &rcpt, xmlNodePtr node);
   //образ из базы в XML
-  void PutReceiptFields(int id, xmlNodePtr node);
+  void PutReceiptFields(int id, xmlNodePtr node, xmlNodePtr reqNode);
 
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 };

@@ -149,7 +149,7 @@ LexemaData LParams::LexemaDataValue( const std::string &name, const boost::any &
 
 void buildMsg( const std::string &lang, LexemaData &lexemaData, std::string &text, std::string &master_lexema )
 {
-    if ( master_lexema.empty() && lexemaData.lexema_id.find( FORMAT_MSG ) != string::npos )
+    if ( master_lexema.find( FORMAT_MSG ) != 0 )
         master_lexema = lexemaData.lexema_id;
     char vval[500];
     LexemaData ld;
@@ -191,22 +191,6 @@ void buildMsg( const std::string &lang, LexemaData &lexemaData, std::string &tex
         text.replace( i->second.first_elem, i->second.last_elem - i->second.first_elem + 1, str_val );
     }
 }
-
-
-/*string UserException::getMsg( const std::string &lang )
-{
-	tst();
-	LexemaData lexemaData;
-	lexemaData.lexema_id = lexema_id;
-	lexemaData.lparams = lparams;
-	string res;
-	buildMsg( lang, lexemaData, res );
-	return res;
-}*/
-
-UserException::~UserException() throw()
-{
-};
 
 TLocaleFormat LParser::getFormat( std::string &format_val )
 {

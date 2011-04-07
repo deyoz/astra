@@ -15,11 +15,11 @@
 #include "astra_context.h"
 #include "base_tables.h"
 #include "astra_service.h"
-#include "czech_police_edi_file.h"
+#include "apis_edi_file.h"
 #include "telegram.h"
 #include "arx_daily.h"
 #include "base_tables.h"
-#include "serverlib/cfgproc.h"
+#include "stl_utils.h"
 #include "serverlib/posthooks.h"
 #include "serverlib/perfom.h"
 
@@ -182,18 +182,9 @@ void exec_tasks( const char *proc_name )
 
 const int CREATE_SPP_DAYS()
 {
-	static bool init=false;
-  static int VAR;
-  if (!init) {
-    char r[100];
-    r[0]=0;
-    if ( get_param( "CREATE_SPP_DAYS", r, sizeof( r ) ) < 0 )
-      throw EXCEPTIONS::Exception( "Can't read param CREATE_SPP_DAYS" );
-    if (StrToInt(r,VAR)==EOF||VAR<1||VAR>9)
-      throw EXCEPTIONS::Exception("Wrong param CREATE_SPP_DAYS=%s",r);
-    init=true;
-    ProgTrace( TRACE5, "CREATE_SPP_DAYS=%d", VAR );
-  }
+  static int VAR=NoExists;
+  if (VAR==NoExists)
+    VAR=getTCLParam("CREATE_SPP_DAYS",1,9,NoExists);
   return VAR;
 };
 
@@ -434,27 +425,22 @@ void create_mvd_file(TDateTime first_time, TDateTime last_time,
   };
 };
 
-void create_czech_police_file(int point_id, bool is_edi)
+const char* APIS_PARTY_INFO()
+{
+  static string VAR;
+  if ( VAR.empty() )
+    VAR=getTCLParam("APIS_PARTY_INFO","");
+  return VAR.c_str();
+};
+
+void create_apis_file(int point_id, bool is_edi)
 {
   try
   {
-    TQuery FilesQry(&OraSession);
-    FilesQry.Clear();
-    FilesQry.SQLText=
-      "SELECT name,dir "
-      "FROM file_sets "
-      "WHERE code=:code AND pr_denial=0";
-    if (is_edi)
-      FilesQry.CreateVariable("code",otString,"ЧЕШСКАЯ ПОЛИЦИЯ EDI");
-    else
-      FilesQry.CreateVariable("code",otString,"ЧЕШСКАЯ ПОЛИЦИЯ CSV");
-    FilesQry.Execute();
-    if (FilesQry.Eof) return;
-
   	TQuery Qry(&OraSession);
     Qry.SQLText =
       "SELECT airline,flt_no,airp,scd_out,NVL(act_out,NVL(est_out,scd_out)) AS act_out, "
-      "       point_num,DECODE(pr_tranzit,0,points.point_id,first_point) AS first_point, "
+      "       point_num, first_point, pr_tranzit, "
       "       country "
       "FROM points,airps,cities "
       "WHERE points.airp=airps.code AND airps.city=cities.code AND "
@@ -464,24 +450,45 @@ void create_czech_police_file(int point_id, bool is_edi)
     if (Qry.Eof) return;
 
     TAirlinesRow &airline = (TAirlinesRow&)base_tables.get("airlines").get_row("code",Qry.FieldAsString("airline"));
-    if (airline.code_lat.empty()) throw Exception("airline.code_lat empty (code=%s)",Qry.FieldAsString("airline"));
+    if (airline.code_lat.empty()) throw Exception("airline.code_lat empty (code=%s)",airline.code.c_str());
+    int flt_no=Qry.FieldAsInteger("flt_no");
     TAirpsRow &airp_dep = (TAirpsRow&)base_tables.get("airps").get_row("code",Qry.FieldAsString("airp"));
-    if (airp_dep.code_lat.empty()) throw Exception("airp_dep.code_lat empty (code=%s)",Qry.FieldAsString("airp"));
-    string tz_region=AirpTZRegion(Qry.FieldAsString("airp"));
-    if (Qry.FieldIsNULL("scd_out")) throw Exception("scd_out empty (airp_dep=%s)",Qry.FieldAsString("airp"));
+    if (airp_dep.code_lat.empty()) throw Exception("airp_dep.code_lat empty (code=%s)",airp_dep.code.c_str());
+    string tz_region=AirpTZRegion(airp_dep.code);
+    if (Qry.FieldIsNULL("scd_out")) throw Exception("scd_out empty (airp_dep=%s)",airp_dep.code.c_str());
     TDateTime scd_out_local	= UTCToLocal(Qry.FieldAsDateTime("scd_out"),tz_region);
-    if (Qry.FieldIsNULL("act_out")) throw Exception("act_out empty (airp_dep=%s)",Qry.FieldAsString("airp"));
+    if (Qry.FieldIsNULL("act_out")) throw Exception("act_out empty (airp_dep=%s)",airp_dep.code.c_str());
     TDateTime act_out_local	= UTCToLocal(Qry.FieldAsDateTime("act_out"),tz_region);
+    string country_dep = Qry.FieldAsString("country");
 
-    TQuery PointsQry(&OraSession);
-    PointsQry.SQLText=
-      "SELECT point_id,airp,scd_in,NVL(act_in,NVL(est_in,scd_in)) AS act_in,country "
+    TTripRoute route;
+    route.GetRouteAfter(point_id,
+                        Qry.FieldAsInteger("point_num"),
+                        Qry.FieldAsInteger("first_point"),
+                        Qry.FieldAsInteger("pr_tranzit")!=0,
+                        trtNotCurrent, trtNotCancelled);
+
+    TQuery RouteQry(&OraSession);
+    RouteQry.SQLText=
+      "SELECT airp,scd_in,NVL(act_in,NVL(est_in,scd_in)) AS act_in,country "
       "FROM points,airps,cities "
-      "WHERE points.airp=airps.code AND airps.city=cities.code AND "
-      "      first_point=:first_point AND point_num>:point_num AND points.pr_del=0";
-    PointsQry.CreateVariable("first_point",otInteger,Qry.FieldAsInteger("first_point"));
-    PointsQry.CreateVariable("point_num",otInteger,Qry.FieldAsInteger("point_num"));
-
+      "WHERE points.airp=airps.code AND airps.city=cities.code AND point_id=:point_id";
+    RouteQry.DeclareVariable("point_id",otInteger);
+    
+    Qry.Clear();
+    Qry.SQLText=
+      "SELECT dir,edi_addr,edi_own_addr "
+      "FROM apis_sets "
+      "WHERE airline=:airline AND country_dep=:country_dep AND country_arv=:country_arv AND "
+      "      format=:format AND pr_denial=0";
+    Qry.CreateVariable("airline", otString, airline.code);
+    Qry.CreateVariable("country_dep", otString, country_dep);
+    Qry.DeclareVariable("country_arv", otString);
+    if (is_edi)
+      Qry.CreateVariable("format", otString, "EDI");
+    else
+      Qry.CreateVariable("format", otString, "CSV");
+    
     TQuery PaxQry(&OraSession);
     PaxQry.SQLText=
       "SELECT pax_doc.pax_id, "
@@ -499,64 +506,67 @@ void create_czech_police_file(int point_id, bool is_edi)
       "      pr_brd=1";
     PaxQry.CreateVariable("point_dep",otInteger,point_id);
     PaxQry.DeclareVariable("point_arv",otInteger);
-
-    PointsQry.Execute();
-    for(;!PointsQry.Eof;PointsQry.Next())
+    
+    for(TTripRoute::const_iterator r=route.begin(); r!=route.end(); r++)
     {
-    	if (!(
-    		    strcmp(PointsQry.FieldAsString("country"),"ЦЗ")==0 ||
-    		    strcmp(PointsQry.FieldAsString("country"),"ЛТ")==0 ||
-    		    strcmp(PointsQry.FieldAsString("country"),"ЕК")==0 && strcmp(Qry.FieldAsString("airline"),"НН")==0 ||
-    		    strcmp(PointsQry.FieldAsString("country"),"ЦН")==0 && strcmp(Qry.FieldAsString("airline"),"HU")==0 ||
-    		    strcmp(PointsQry.FieldAsString("country"),"ЦН")==0 && strcmp(Qry.FieldAsString("airline"),"Р2")==0
-    		   )) continue;
+      //получим информацию по пункту маршрута
+      RouteQry.SetVariable("point_id",r->point_id);
+      RouteQry.Execute();
+      if (RouteQry.Eof) continue;
+      //получим информацию по настройке APIS
+      Qry.SetVariable("country_arv",RouteQry.FieldAsString("country"));
+      Qry.Execute();
+      if (Qry.Eof) continue;
 
-    	TAirpsRow &airp_arv = (TAirpsRow&)base_tables.get("airps").get_row("code",PointsQry.FieldAsString("airp"));
-    	if (airp_arv.code_lat.empty()) throw Exception("airp_arv.code_lat empty (code=%s)",PointsQry.FieldAsString("airp"));
-    	tz_region=AirpTZRegion(Qry.FieldAsString("airp"));
-
-      if (PointsQry.FieldIsNULL("act_in")) throw Exception("act_in empty (airp_arv=%s)",PointsQry.FieldAsString("airp"));
-      TDateTime act_in_local = UTCToLocal(PointsQry.FieldAsDateTime("act_in"),tz_region);
+      TAirpsRow &airp_arv = (TAirpsRow&)base_tables.get("airps").get_row("code",RouteQry.FieldAsString("airp"));
+    	if (airp_arv.code_lat.empty()) throw Exception("airp_arv.code_lat empty (code=%s)",airp_arv.code.c_str());
+    	tz_region=AirpTZRegion(airp_arv.code);
+      if (RouteQry.FieldIsNULL("act_in")) throw Exception("act_in empty (airp_arv=%s)",airp_arv.code.c_str());
+      TDateTime act_in_local = UTCToLocal(RouteQry.FieldAsDateTime("act_in"),tz_region);
 
       ostringstream flight;
 
-      flight << airline.code_lat
-    	       << setw(4) << setfill('0') << Qry.FieldAsInteger("flt_no");
+      flight << airline.code_lat << setw(4) << setfill('0') << flt_no;
 
       ostringstream file_name;
 
       if (is_edi)
-        file_name << FilesQry.FieldAsString("dir") <<
+        file_name << Qry.FieldAsString("dir") <<
            Paxlst::CreateEdiPaxlstFileName(flight.str(),
                                            airp_dep.code_lat,
                                            airp_arv.code_lat,
                                            DateTimeToStr(scd_out_local,"yyyymmdd"),
-                                           FilesQry.FieldAsString("name"));
+                                           "TXT");
       else
-      	file_name << FilesQry.FieldAsString("dir")
+      	file_name << Qry.FieldAsString("dir")
       	          << flight.str()
       	          << airp_dep.code_lat
       	          << airp_arv.code_lat
-      	          << DateTimeToStr(scd_out_local,"yyyymmdd") << "."
-      	          << FilesQry.FieldAsString("name");
+      	          << DateTimeToStr(scd_out_local,"yyyymmdd") << ".CSV";
 
     	Paxlst::PaxlstInfo paxlstInfo;
 
       if (is_edi)
       {
-      	//информация о том, кто формирует сообщение
-      	paxlstInfo.setPartyName("SIRENA-TRAVEL");
-        paxlstInfo.setPhone("4959504991");
-        paxlstInfo.setFax("4959504973");
-
-        //информация об авиакомпании
-        if (airline.name_lat.empty()) throw Exception("airline.name_lat empty (code=%s)",airline.code.c_str());
-        paxlstInfo.setSenderName(airline.name_lat);
-        paxlstInfo.setSenderCarrierCode(airline.code_lat);
+        //информация о том, кто формирует сообщение
+        vector<string> strs;
+        SeparateString(string(APIS_PARTY_INFO()), ':', strs);
+        vector<string>::const_iterator i;
+        i=strs.begin();
+        if (i!=strs.end()) paxlstInfo.setPartyName(*i++);
+        if (i!=strs.end()) paxlstInfo.setPhone(*i++);
+        if (i!=strs.end()) paxlstInfo.setFax(*i++);
         
-        const TCountriesRow &country = (TCountriesRow&)base_tables.get("countries").get_row("code",PointsQry.FieldAsString("country"));
-        paxlstInfo.setRecipientName(country.code_lat+"APIS");
-        paxlstInfo.setRecipientCarrierCode("ZZ");
+        SeparateString(string(Qry.FieldAsString("edi_own_addr")), ':', strs);
+        i=strs.begin();
+        if (i!=strs.end()) paxlstInfo.setSenderName(*i++);
+        if (i!=strs.end()) paxlstInfo.setSenderCarrierCode(*i++);
+        
+        SeparateString(string(Qry.FieldAsString("edi_addr")), ':', strs);
+        i=strs.begin();
+        if (i!=strs.end()) paxlstInfo.setRecipientName(*i++);
+        if (i!=strs.end()) paxlstInfo.setRecipientCarrierCode(*i++);
+        
         string iataCode;
         if (!Paxlst::CreateIATACode(iataCode,flight.str(),act_in_local))
           throw Exception("CreateIATACode error");
@@ -570,7 +580,7 @@ void create_czech_police_file(int point_id, bool is_edi)
 
     	int count=0;
   	  ostringstream body;
-  	  PaxQry.SetVariable("point_arv",PointsQry.FieldAsInteger("point_id"));
+  	  PaxQry.SetVariable("point_arv",r->point_id);
   	  PaxQry.Execute();
   	  for(;!PaxQry.Eof;PaxQry.Next(),count++)
   	  {
@@ -701,7 +711,7 @@ void create_czech_police_file(int point_id, bool is_edi)
       {
         if (!is_edi)
         	f << "csv;ROSSIYA;"
-        	  << airline.code_lat << setw(3) << setfill('0') << Qry.FieldAsInteger("flt_no") << ";"
+        	  << airline.code_lat << setw(3) << setfill('0') << flt_no << ";"
       	    << airp_dep.code_lat << ";" << DateTimeToStr(act_out_local,"yyyy-mm-dd'T'hh:nn:00.0") << ";"
       	    << airp_arv.code_lat << ";" << DateTimeToStr(act_in_local,"yyyy-mm-dd'T'hh:nn:00.0") << ";"
       	    << count << ";" << ENDL;
@@ -726,7 +736,7 @@ void create_czech_police_file(int point_id, bool is_edi)
   }
   catch(Exception &E)
   {
-    throw Exception("create_czech_police_file: %s",E.what());
+    throw Exception("create_apis_file: %s",E.what());
   };
 
 };

@@ -2044,7 +2044,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
 
 };
 
-bool Get_overload_alarm( int point_id, const TTripInfo &fltInfo )
+bool Calc_overload_alarm( int point_id, const TTripInfo &fltInfo )
 {
   TQuery Qry(&OraSession);
   Qry.SQLText=

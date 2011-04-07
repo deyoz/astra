@@ -4,7 +4,6 @@
 #include "exceptions.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
-#include "serverlib/cfgproc.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE

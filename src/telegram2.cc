@@ -1281,11 +1281,11 @@ namespace PRL_SPACE {
                 if(not info.mark_info.IsNULL() and not(info.mark_info == pax.M.m_flight))
                     continue;
                 pax.pnrs.get(pax.pnr_id);
+                if(!Qry.FieldIsNULL(col_subcls))
+                    pax.subcls = Qry.FieldAsString(col_subcls);
                 pax.rems.get(info, pax, complayers);
                 grp_map->get(pax.grp_id);
                 pax.OList.get(pax.pax_id);
-                if(!Qry.FieldIsNULL(col_subcls))
-                    pax.subcls = Qry.FieldAsString(col_subcls);
                 PaxList.push_back(pax);
             }
         }

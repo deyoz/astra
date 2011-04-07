@@ -188,8 +188,10 @@ class TPnrAddrItem
     };
 };
 
-std::string GetPnrAddr(int pnr_id, std::vector<TPnrAddrItem> &pnrs, std::string airline="");
-std::string GetPaxPnrAddr(int pax_id, std::vector<TPnrAddrItem> &pnrs, std::string airline="");
+std::string GetPnrAddr(int pnr_id, std::vector<TPnrAddrItem> &pnrs);
+std::string GetPnrAddr(int pnr_id, std::vector<TPnrAddrItem> &pnrs, std::string &airline);
+std::string GetPaxPnrAddr(int pax_id, std::vector<TPnrAddrItem> &pnrs);
+std::string GetPaxPnrAddr(int pax_id, std::vector<TPnrAddrItem> &pnrs, std::string &airline);
 
 //процедура перевода отдельного дня (без месяца и года) в полноценный TDateTime
 //ищет ближайшую или совпадающую дату по отношению к base_date
@@ -348,6 +350,7 @@ std::string GetMktFlightStr( const TTripInfo &operFlt, const TTripInfo &markFlt 
 
 void GetCrsList(int point_id, std::vector<std::string> &crs);
 bool IsRouteInter(int point_dep, int point_arv, std::string &country);
+bool IsTrferInter(std::string airp_dep, std::string airp_arv, std::string &country);
 
 #endif /*_ASTRA_MISC_H_*/
 

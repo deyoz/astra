@@ -18,6 +18,7 @@ astra_SOURCES = \
   adm.cc \
   access.cc \
   aodb.cc \
+  apis_edi_file.cc \
   arx_daily.cc \
   astra_callbacks.cc \
   astra_consts.cc \
@@ -37,7 +38,6 @@ astra_SOURCES = \
   checkin.cc \
   convert.cc \
   crypt.cc \
-  czech_police_edi_file.cpp \
   design_blank.cc \
   dev_consts.cc \
   dev_tuning.cc \
@@ -58,6 +58,7 @@ astra_SOURCES = \
   payment2.cc \
   prepreg.cc \
   print.cc \
+  prn_tag_store.cc \
   salonform.cc \
   salonform2.cc \
   salons.cc \
@@ -77,7 +78,7 @@ astra_SOURCES = \
   tripinfo.cc \
   web_main.cc \
   xml_unit.cc
-  
+
 astra_LDADD = $(all_libraries) \
 	tlg/libtlg.a \
 	@ETICKLIB_LIBS@ \
@@ -99,6 +100,7 @@ noinst_HEADERS = \
   adm.h \
   access.h \
   aodb.h \
+  apis_edi_file.h \
   arx_daily.h \
   astra_callbacks.h \
   astra_consts.h \
@@ -121,7 +123,6 @@ noinst_HEADERS = \
   checkin.h \
   convert.h \
   crypt.h \
-  czech_police_edi_file.h \
   design_blank.h \
   dev_consts.h \
   dev_tuning.h \
@@ -140,6 +141,7 @@ noinst_HEADERS = \
   payment2.h \
   prepreg.h \
   print.h \
+  prn_tag_store.h \
   salonform.h \
   salonform2.h \
   salons.h \
