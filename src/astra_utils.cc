@@ -1538,6 +1538,11 @@ string convert_pnr_addr(const string &value, bool pr_lat)
 
 };
 
+bool is_lat_char(char c)
+{
+    return not ((unsigned char)c>=0x80);
+}
+
 bool is_lat(const std::string &value)
 {
     bool result = true;
