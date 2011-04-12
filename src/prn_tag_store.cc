@@ -1369,9 +1369,11 @@ string TPrnTagStore::TEST_SERVER(TFieldParams fp)
 {
     if(fp.len == 0) fp.len = 300;
     string result;
-    string test = getLocaleText("CAP.TEST", tag_lang.GetLang());
-    while(result.size() < fp.len)
-        result += test + " ";
+    if(get_test_server()) {
+        string test = getLocaleText("CAP.TEST", tag_lang.GetLang());
+        while(result.size() < fp.len)
+            result += test + " ";
+    }
     return result.substr(0, fp.len);
 }
 
