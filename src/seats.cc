@@ -10,7 +10,7 @@
 #include "astra_consts.h"
 #include "oralib.h"
 #include "salons.h"
-#include "tlg/tlg_parser.h"
+#include "comp_layers.h"
 #include "convert.h"
 #include "images.h"
 #include "serverlib/str_utils.h"
@@ -1584,7 +1584,7 @@ bool TSeatPlaces::SeatsGrp( )
 bool isUserProtectLayer( TCompLayerType layer_type )
 {
   return ( layer_type == cltProtCkin ||
-           layer_type == cltProtAfterPay ||
+           layer_type == cltProtAfterPay || //!!!vlad
            layer_type == cltPNLAfterPay );
 }
 
@@ -2836,13 +2836,13 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
      Qry.Clear();
      Qry.SQLText =
        "SELECT pax_id FROM trip_comp_layers "
-       " WHERE point_id=:point_id AND crs_pax_id=:crs_pax_id AND layer_type IN (:prot_bp1,:prot_:pb2,:prot_ap1,:prot_ap2) AND rownum<2";
+       " WHERE point_id=:point_id AND crs_pax_id=:crs_pax_id AND layer_type IN (:prot_bp,:prot_ap,:pnl_bp,:pnl_ap) AND rownum<2";
      Qry.CreateVariable( "point_id", otInteger, point_id );
      Qry.CreateVariable( "crs_pax_id", otInteger, pax_id );
-     Qry.CreateVariable( "prot_bp1", otString, EncodeCompLayerType( cltProtBeforePay ) );   //!!!переделать!!!
-     Qry.CreateVariable( "prot_bp2", otString, EncodeCompLayerType( cltProtAfterPay ) );  //!!!переделать!!!
-     Qry.CreateVariable( "prot_ap1", otString, EncodeCompLayerType( cltPNLBeforePay ) );  //!!!переделать!!!
-     Qry.CreateVariable( "prot_ap2", otString, EncodeCompLayerType( cltPNLAfterPay ) );   //!!!переделать!!!
+     Qry.CreateVariable( "prot_bp", otString, EncodeCompLayerType( cltProtBeforePay ) );   //!!!переделать!!!
+     Qry.CreateVariable( "prot_ap", otString, EncodeCompLayerType( cltProtAfterPay ) );  //!!!переделать!!!
+     Qry.CreateVariable( "pnl_bp", otString, EncodeCompLayerType( cltPNLBeforePay ) );  //!!!переделать!!!
+     Qry.CreateVariable( "pnl_ap", otString, EncodeCompLayerType( cltPNLAfterPay ) );   //!!!переделать!!!
      Qry.Execute();
      if ( !Qry.Eof )
        throw UserException( "MSG.SEATS.SEAT_NO.NOT_USE" );
@@ -2922,41 +2922,41 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   int curr_tid = NoExists;
   
   if ( seat_type != stSeat ) { // пересадка, высадка - удаление старого слоя
-  	Qry.Clear();
     	switch( layer_type ) {
     		case cltGoShow:
       	case cltTranzit:
       	case cltCheckin:
   	    case cltTCheckin:
-  	    Qry.SQLText =
-          "BEGIN "
-          " DELETE FROM trip_comp_layers "
-          "  WHERE point_id=:point_id AND "
-          "        layer_type=:layer_type AND "
-          "        pax_id=:pax_id; "
-          " IF :tid IS NULL THEN "
-          "   SELECT tid__seq.nextval INTO :tid FROM dual; "
-          "   UPDATE pax SET tid=:tid WHERE pax_id=:pax_id;"
-          "   mvd.sync_pax(:pax_id,:term); "
-          " END IF;"
-          "END;";
-        Qry.CreateVariable( "point_id", otInteger, point_id );
-        Qry.CreateVariable( "pax_id", otInteger, pax_id );
-        Qry.CreateVariable( "layer_type", otString, EncodeCompLayerType( layer_type ) );
-        if ( curr_tid == NoExists )
-          Qry.CreateVariable( "tid", otInteger, FNull );
-        else
-          Qry.CreateVariable( "tid", otInteger, curr_tid );
-        Qry.Execute();
-        curr_tid = Qry.GetVariableAsInteger( "tid" );
-      	break;
-  		case cltProtCkin:
-  			// удаление из салона, если есть разметка
-  			DeleteTlgSeatRanges( layer_type, pax_id, curr_tid );
-        break;
-      default:
-      	ProgTrace( TRACE5, "!!! Unusible layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
-      	throw UserException( "MSG.SEATS.SET_LAYER_NOT_AVAIL" );
+    	    Qry.Clear();
+    	    Qry.SQLText =
+            "BEGIN "
+            " DELETE FROM trip_comp_layers "
+            "  WHERE point_id=:point_id AND "
+            "        layer_type=:layer_type AND "
+            "        pax_id=:pax_id; "
+            " IF :tid IS NULL THEN "
+            "   SELECT tid__seq.nextval INTO :tid FROM dual; "
+            "   UPDATE pax SET tid=:tid WHERE pax_id=:pax_id;"
+            "   mvd.sync_pax(:pax_id,:term); "
+            " END IF;"
+            "END;";
+          Qry.CreateVariable( "point_id", otInteger, point_id );
+          Qry.CreateVariable( "pax_id", otInteger, pax_id );
+          Qry.CreateVariable( "layer_type", otString, EncodeCompLayerType( layer_type ) );
+          if ( curr_tid == NoExists )
+            Qry.CreateVariable( "tid", otInteger, FNull );
+          else
+            Qry.CreateVariable( "tid", otInteger, curr_tid );
+          Qry.Execute();
+          curr_tid = Qry.GetVariableAsInteger( "tid" );
+        	break;
+    		case cltProtCkin:
+    			// удаление из салона, если есть разметка
+    			DeleteTlgSeatRanges( layer_type, pax_id, curr_tid );
+          break;
+        default:
+        	ProgTrace( TRACE5, "!!! Unusible layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
+        	throw UserException( "MSG.SEATS.SET_LAYER_NOT_AVAIL" );
     }
   }
   // назначение нового слоя
@@ -2986,7 +2986,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
         curr_tid = Qry.GetVariableAsInteger( "tid" );
         break;
       case cltProtCkin:
-        SaveTlgSeatRanges( point_id_tlg, target, layer_type, seats, pax_id, NoExists, NoExists, false, curr_tid );
+        InsertTlgSeatRanges( point_id_tlg, target, layer_type, seats, pax_id, NoExists, NoExists, false, curr_tid );
       	break;
       default:
       	ProgTrace( TRACE5, "!!! Unuseable layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );

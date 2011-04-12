@@ -18,6 +18,7 @@
 #include "web_main.h"
 #include "checkin.h"
 #include "astra_locale.h"
+#include "comp_layers.h"
 #include "serverlib/perfom.h"
 #include "serverlib/ourtime.h"
 #include "serverlib/query_runner.h"
@@ -382,10 +383,13 @@ bool getTripData( int point_id, bool first_segment, TSearchPnrData &SearchPnrDat
   	SearchPnrData.point_id = NoExists;
   	TQuery Qry(&OraSession);
   	Qry.SQLText =
-  	  "SELECT point_id,point_num,first_point,pr_tranzit,pr_del,pr_reg,scd_out,act_out,"
-  	  "       airline,airline_fmt,flt_no,airp,airp_fmt,suffix,suffix_fmt,"
-  	  "       craft,craft_fmt FROM points "
-  	  " WHERE point_id=:point_id";
+  	  "SELECT points.point_id,point_num,first_point,pr_tranzit,pr_del,pr_reg,scd_out,act_out, "
+  	  "       airline,airline_fmt,flt_no,airp,airp_fmt,suffix,suffix_fmt, "
+  	  "       craft,craft_fmt, "
+  	  "       trip_paid_ckin.pr_permit AS pr_paid_ckin "
+      "FROM points, trip_paid_ckin "
+  	  "WHERE points.point_id=trip_paid_ckin.point_id(+) AND "
+      "      points.point_id=:point_id";
   	Qry.CreateVariable( "point_id", otInteger, point_id );
   	Qry.Execute();
   	if ( Qry.Eof )
@@ -444,9 +448,11 @@ bool getTripData( int point_id, bool first_segment, TSearchPnrData &SearchPnrDat
   	SearchPnrData.point_num = Qry.FieldAsInteger("point_num");
   	SearchPnrData.first_point = Qry.FieldAsInteger("first_point");
   	SearchPnrData.pr_tranzit = Qry.FieldAsInteger("pr_tranzit")!=0;
+  	SearchPnrData.pr_paid_ckin = false;
+    if (!Qry.FieldIsNULL("pr_paid_ckin"))
+      SearchPnrData.pr_paid_ckin = Qry.FieldAsInteger("pr_paid_ckin")!=0;
 
   	TTripInfo operFlt(Qry);
-  	SearchPnrData.pr_paid_ckin = GetTripSets(tsPaidCheckIn, operFlt);
   	GetMktFlights(operFlt, SearchPnrData.mark_flights);
   	
   	SearchPnrData.stages.clear();
@@ -1733,9 +1739,8 @@ struct TWebPax {
 	string name;
 	TDateTime birth_date;
 	string pers_type_extended; //может содержать БГ (CBBG)
+	TCompLayerType crs_seat_layer;
 	string crs_seat_no;
-	string crs_seat_rem;
-	string preseat_no;
   string seat_no;
   string pass_class;
   string pass_subclass;
@@ -1848,6 +1853,21 @@ void getPnr( bool pr_paid_ckin, int pnr_id, vector<TWebPax> &pnr, bool pr_throw 
     const char* CrsFQTQrySQL=
      "SELECT rem_code, airline, no, extra "
      "FROM crs_pax_fqt WHERE pax_id=:pax_id AND rem_code='FQTV'";
+     
+    TQuery SeatQry(&OraSession);
+    SeatQry.SQLText=
+      "BEGIN "
+      "  :crs_seat_no:=salons.get_crs_seat_no(:pax_id,:xname,:yname,:seats,:point_id,:layer_type,'one',:crs_row); "
+      "  :crs_row:=:crs_row+1; "
+      "END;";
+    SeatQry.DeclareVariable("pax_id", otInteger);
+    SeatQry.DeclareVariable("xname", otString);
+    SeatQry.DeclareVariable("yname", otString);
+    SeatQry.DeclareVariable("seats", otInteger);
+    SeatQry.DeclareVariable("point_id", otInteger);
+    SeatQry.DeclareVariable("layer_type", otString);
+    SeatQry.DeclareVariable("crs_row", otInteger);
+    SeatQry.DeclareVariable("crs_seat_no", otString);
 
     TQuery Qry(&OraSession);
   	Qry.SQLText =
@@ -1856,9 +1876,7 @@ void getPnr( bool pr_paid_ckin, int pnr_id, vector<TWebPax> &pnr, bool pr_throw 
       "       DECODE(pax.pax_id,NULL,crs_pax.surname,pax.surname) AS surname, "
       "       DECODE(pax.pax_id,NULL,crs_pax.name,pax.name) AS name, "
       "       DECODE(pax.pax_id,NULL,crs_pax.pers_type,pax.pers_type) AS pers_type, "
-      "       salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS crs_seat_no, "
-      "       crs_pax.seat_rem AS crs_seat_rem, "
-      "       salons.get_crs_seat_no(crs_pax.pax_id,crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS preseat_no, "
+      "       crs_pax.seat_xname, crs_pax.seat_yname, crs_pax.seats AS crs_seats, crs_pnr.point_id AS point_id_tlg, "
       "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'one',rownum) AS seat_no, "
       "       DECODE(pax.pax_id,NULL,crs_pax.seats,pax.seats) AS seats, "
       "       DECODE(pax_grp.class,NULL,crs_pnr.class,pax_grp.class) AS class, "
@@ -1881,8 +1899,9 @@ void getPnr( bool pr_paid_ckin, int pnr_id, vector<TWebPax> &pnr, bool pr_throw 
       "      crs_pax.pr_del=0";
     Qry.CreateVariable( "pnr_id", otInteger, pnr_id );
   	Qry.Execute();
-  	TMktFlight markFlt;
-  	markFlt.getByPnrId( pnr_id );
+  	SeatQry.SetVariable("crs_row", 1);
+  	SeatQry.SetVariable("layer_type", FNull);
+    SeatQry.SetVariable("crs_seat_no", FNull);
     for(;!Qry.Eof;Qry.Next())
     {
       TWebPax pax;
@@ -1893,15 +1912,15 @@ void getPnr( bool pr_paid_ckin, int pnr_id, vector<TWebPax> &pnr, bool pr_throw 
     	pax.name = Qry.FieldAsString( "name" );
     	pax.pers_type_extended = Qry.FieldAsString( "pers_type" );
     	pax.seat_no = Qry.FieldAsString( "seat_no" );
-    	pax.preseat_no = Qry.FieldAsString( "preseat_no" );
-    	pax.crs_seat_no = Qry.FieldAsString( "crs_seat_no" );
-    	if (pr_paid_ckin)
-    	{
-    	  pax.crs_seat_rem = Qry.FieldAsString( "crs_seat_rem" );
-    	  TCompLayerType rem_layer=GetSeatRemLayer(markFlt.airline, pax.crs_seat_rem);
-        if (rem_layer!=cltPNLBeforePay && rem_layer!=cltPNLAfterPay)
-          pax.crs_seat_rem.clear();
-    	};
+    	
+    	SeatQry.SetVariable("pax_id", Qry.FieldAsInteger("crs_pax_id"));
+      SeatQry.SetVariable("xname", Qry.FieldAsString("seat_xname"));
+      SeatQry.SetVariable("yname", Qry.FieldAsString("seat_yname"));
+      SeatQry.SetVariable("seats", Qry.FieldAsInteger("crs_seats"));
+      SeatQry.SetVariable("point_id", Qry.FieldAsInteger("point_id_tlg"));
+      SeatQry.Execute();
+      pax.crs_seat_layer=DecodeCompLayerType(SeatQry.GetVariableAsString("layer_type"));
+      pax.crs_seat_no=SeatQry.GetVariableAsString("crs_seat_no");
     	pax.seats = Qry.FieldAsInteger( "seats" );
     	pax.pass_class = Qry.FieldAsString( "class" );
     	pax.pass_subclass = Qry.FieldAsString( "subclass" );
@@ -2071,16 +2090,22 @@ void IntLoadPnr( const vector<TIdsPnrData> &ids, vector< vector<TWebPax> > &pnrs
       	if ( !iPax->seat_no.empty() )
       	  seat_no_view = iPax->seat_no;
       	else
-      		if ( !iPax->preseat_no.empty() )
-      		  seat_no_view = iPax->preseat_no;
-      		else
-      			if ( !iPax->crs_seat_no.empty() )
-      			  seat_no_view = iPax->crs_seat_no;
+    			if ( !iPax->crs_seat_no.empty() )
+    			  seat_no_view = iPax->crs_seat_no;
       	NewTextChild( paxNode, "seat_no", seat_no_view );
-        if (!seat_no_view.empty() && seat_no_view == iPax->crs_seat_no)
-          NewTextChild( paxNode, "seat_rem", iPax->crs_seat_rem );
-        else
-          NewTextChild( paxNode, "seat_rem" );
+        string seat_status;
+        if (i->pr_paid_ckin)
+        {
+          switch(iPax->crs_seat_layer)
+          {
+            case cltPNLBeforePay:  seat_status="PNLBeforePay";  break;
+            case cltPNLAfterPay:   seat_status="PNLAfterPay";   break;
+            case cltProtBeforePay: seat_status="ProtBeforePay"; break;
+            case cltProtAfterPay:  seat_status="ProtAfterPay";  break;
+            default: break;
+          };
+        };
+        NewTextChild( paxNode, "seat_status", seat_status );
         NewTextChild( paxNode, "seats", iPax->seats );
        	NewTextChild( paxNode, "checkin_status", iPax->checkin_status );
        	if ( iPax->pr_eticket )
@@ -2371,7 +2396,7 @@ void WebRequestsIface::ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       NewTextChild( placeNode, "status", status );
       if ( wp->pax_id != NoExists )
       	NewTextChild( placeNode, "pax_id", wp->pax_id );
-      if ( /*SearchPnrData.pr_paid_ckin && */wp->WebTariff.value != 0.0 ) { // тариф появится только тогда когда включен режим платной разметки
+      if ( /*SearchPnrData.pr_paid_ckin && */wp->WebTariff.value != 0.0 ) { // тариф появится только тогда когда включен режим платной разметки !!!vlad
       	xmlNodePtr rateNode = NewTextChild( placeNode, "rate" );
       	NewTextChild( rateNode, "color", wp->WebTariff.color );
       	ostringstream buf;
@@ -2474,7 +2499,6 @@ struct TWebPaxForCkin
   string name;
   string pers_type;
   string seat_no;
-  string preseat_no;
   string seat_type;
   int seats;
   string eticket;
@@ -2557,8 +2581,7 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
       "       crs_pnr.point_id,crs_pnr.subclass, "
       "       crs_pnr.status AS pnr_status, "
       "       crs_pax.surname,crs_pax.name,crs_pax.pers_type, "
-      "       salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS seat_no, "
-      "       salons.get_crs_seat_no(crs_pax.pax_id,crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS preseat_no, "
+      "       salons.get_crs_seat_no(crs_pax.pax_id,crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS seat_no, "
       "       crs_pax.seat_type, "
       "       crs_pax.seats, "
       "       crs_pnr.pnr_id, "
@@ -2686,7 +2709,6 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
               pax.name = Qry.FieldAsString("name");
               pax.pers_type = Qry.FieldAsString("pers_type");
               pax.seat_no = Qry.FieldAsString("seat_no");
-              pax.preseat_no = Qry.FieldAsString("preseat_no");
               pax.seat_type = Qry.FieldAsString("seat_type");
               pax.seats = Qry.FieldAsInteger("seats");
               pax.eticket = Qry.FieldAsString("eticket");
@@ -2943,11 +2965,7 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
             if (!iPaxFromReq->seat_no.empty())
               NewTextChild(paxNode,"seat_no",iPaxFromReq->seat_no);
             else
-              if (!iPaxForCkin->preseat_no.empty())
-                NewTextChild(paxNode,"seat_no",iPaxForCkin->preseat_no);
-              else
-                NewTextChild(paxNode,"seat_no",iPaxForCkin->seat_no);
-            //NewTextChild(paxNode,"preseat_no",iPaxForCkin->preseat_no);!!!vlad
+              NewTextChild(paxNode,"seat_no",iPaxForCkin->seat_no);
             NewTextChild(paxNode,"seat_type",iPaxForCkin->seat_type);
             NewTextChild(paxNode,"seats",iPaxForCkin->seats);
             //обработка билетов
@@ -3335,38 +3353,20 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
     //проверим признак платной регистрации и
     Qry.Clear();
     Qry.SQLText =
-  	  "SELECT airline, flt_no, suffix, airp, scd_out "
-      "FROM points WHERE point_id=:point_id";
+  	  "SELECT pr_permit, prot_timeout FROM trip_paid_ckin WHERE point_id=:point_id";
   	Qry.CreateVariable( "point_id", otInteger, point_id );
   	Qry.Execute();
-  	if ( Qry.Eof )
-  		throw UserException( "MSG.FLIGHT.NOT_FOUND" );
-  	TTripInfo fltInfo(Qry);
-  	if ( !GetTripSets( tsPaidCheckIn, fltInfo ) )
+  	if ( Qry.Eof || Qry.FieldAsInteger("pr_permit")==0 )
   	  throw UserException( "MSG.CHECKIN.NOT_PAID_CHECKIN_MODE" );
   		
   	if (time_limit==NoExists)
   	{
   	  //получим prot_timeout
-  	  Qry.Clear();
-      Qry.SQLText =
-        "SELECT prot_timeout, "
-        "    DECODE(airline,NULL,0,8)+ "
-        "    DECODE(flt_no,NULL,0,2)+ "
-        "    DECODE(airp_dep,NULL,0,4) AS priority "
-        "FROM paid_ckin_sets "
-        "WHERE airline=:airline AND "
-        "      (flt_no IS NULL OR flt_no=:flt_no) AND "
-        "      (airp_dep IS NULL OR airp_dep=:airp_dep) "
-        "ORDER BY priority DESC";
-      Qry.CreateVariable("airline",otString,fltInfo.airline);
-      Qry.CreateVariable("flt_no",otInteger,fltInfo.flt_no);
-      Qry.CreateVariable("airp_dep",otString,fltInfo.airp);
-      Qry.Execute();
-      if (Qry.Eof || Qry.FieldIsNULL("prot_timeout"))
-        throw UserException( "MSG.CHECKIN.NOT_PAID_CHECKIN_MODE" );
-      time_limit=Qry.FieldAsInteger("prot_timeout");
+      if (!Qry.FieldIsNULL("prot_timeout"))
+        time_limit=Qry.FieldAsInteger("prot_timeout");
   	};
+  	if (time_limit==NoExists)
+  	  throw UserException( "Не определен таймаут резервирования" ); //!!!vlad
     
     //получим pr_lat_seat
     Qry.Clear();
@@ -3433,11 +3433,10 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
     "    INTO vrange_id, vpoint_id, vairp_arv, "
     "         vfirst_xname, vfirst_yname, vlast_xname, vlast_yname, vrem_code "
     "    FROM tlg_comp_layers "
-    "    WHERE crs_pax_id=:crs_pax_id AND layer_type=:layer_type AND tlg_id IS NULL FOR UPDATE; "
+    "    WHERE crs_pax_id=:crs_pax_id AND layer_type=:layer_type FOR UPDATE; "
     "    IF :point_id=vpoint_id AND :airp_arv=vairp_arv AND "
     "       :first_xname=vfirst_xname AND :first_yname=vfirst_yname AND "
-    "       :last_xname=vlast_xname AND :last_yname=vlast_yname AND "
-    "       vrem_code IS NULL THEN "
+    "       :last_xname=vlast_xname AND :last_yname=vlast_yname THEN "
     "      :delete_seat_ranges:=0; "
     "      UPDATE tlg_comp_layers "
     "      SET time_remove=SYSTEM.UTCSYSDATE+:timeout/1440 "
@@ -3516,15 +3515,15 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
       if (LayerQry.GetVariableAsInteger("delete_seat_ranges")!=0)
       {
         DeleteTlgSeatRanges(cltProtBeforePay, pax.crs_pax_id, curr_tid);
-        SaveTlgSeatRanges(Qry.FieldAsInteger("point_id"),
-                          Qry.FieldAsString("airp_arv"),
-                          cltProtBeforePay,
-                          ranges,
-                          pax.crs_pax_id,
-                          NoExists,
-                          time_limit,
-                          UsePriorContext,
-                          curr_tid);
+        InsertTlgSeatRanges(Qry.FieldAsInteger("point_id"),
+                            Qry.FieldAsString("airp_arv"),
+                            cltProtBeforePay,
+                            ranges,
+                            pax.crs_pax_id,
+                            NoExists,
+                            time_limit,
+                            UsePriorContext,
+                            curr_tid);
         UsePriorContext=true;
       };
     }

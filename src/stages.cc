@@ -13,6 +13,7 @@
 #include "salons2.h"
 #include "tripinfo.h"
 #include "term_version.h"
+#include "comp_layers.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"

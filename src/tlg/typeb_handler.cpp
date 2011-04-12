@@ -9,6 +9,7 @@
 #include "tlg.h"
 #include "tlg_parser.h"
 #include "memory_manager.h"
+#include "comp_layers.h"
 #include "serverlib/ourtime.h"
 
 #define NICKNAME "VLAD"
@@ -404,14 +405,14 @@ void bind_tlg(void)
     {
       int point_id_tlg=Qry.FieldAsInteger("point_id");
       crs_recount(point_id_tlg,true);
-      SyncTlgCompLayers(point_id_tlg, ASTRA::cltSOMTrzt);
-      SyncTlgCompLayers(point_id_tlg, ASTRA::cltPRLTrzt);
-      SyncTlgCompLayers(point_id_tlg, ASTRA::cltPNLCkin);
-      SyncTlgCompLayers(point_id_tlg, ASTRA::cltPNLBeforePay);
-      SyncTlgCompLayers(point_id_tlg, ASTRA::cltPNLAfterPay);
-      SyncTlgCompLayers(point_id_tlg, ASTRA::cltProtCkin);
-      SyncTlgCompLayers(point_id_tlg, ASTRA::cltProtBeforePay);
-      SyncTlgCompLayers(point_id_tlg, ASTRA::cltProtAfterPay);
+      SyncTripCompLayers(point_id_tlg, ASTRA::NoExists, ASTRA::cltSOMTrzt);
+      SyncTripCompLayers(point_id_tlg, ASTRA::NoExists, ASTRA::cltPRLTrzt);
+      SyncTripCompLayers(point_id_tlg, ASTRA::NoExists, ASTRA::cltPNLCkin);
+      SyncTripCompLayers(point_id_tlg, ASTRA::NoExists, ASTRA::cltProtCkin);
+      SyncTripCompLayers(point_id_tlg, ASTRA::NoExists, ASTRA::cltPNLBeforePay);
+      SyncTripCompLayers(point_id_tlg, ASTRA::NoExists, ASTRA::cltPNLAfterPay);
+      SyncTripCompLayers(point_id_tlg, ASTRA::NoExists, ASTRA::cltProtBeforePay);
+      SyncTripCompLayers(point_id_tlg, ASTRA::NoExists, ASTRA::cltProtAfterPay);
     };
   };
   OraSession.Commit();

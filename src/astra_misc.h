@@ -173,8 +173,7 @@ enum TTripSetType { tsOutboardTrfer=10,
                     tsIgnoreTrferSet=12,
                     tsMixedNorms=13,
                     tsNoTicketCheck=15,
-                    tsCharterSearch=16,
-                    tsPaidCheckIn=100 };
+                    tsCharterSearch=16 };
 bool GetTripSets( const TTripSetType setType, const TTripInfo &info );
 
 class TPnrAddrItem
@@ -353,14 +352,6 @@ bool IsMarkEqualOper( const TTripInfo &operFlt, const TTripInfo &markFlt );
 void GetCrsList(int point_id, std::vector<std::string> &crs);
 bool IsRouteInter(int point_dep, int point_arv, std::string &country);
 bool IsTrferInter(std::string airp_dep, std::string airp_arv, std::string &country);
-
-//возвращает слой если ремарка места PNL для указанной компании может быть использована для платной регистрации
-//иначе возвращает cltUnknown
-ASTRA::TCompLayerType GetSeatRemLayer(const std::string &airline_mark, const std::string &seat_rem);
-
-typedef std::vector< std::pair<std::string, int> > TSeatRemPriority;
-//возвращает сортированный! по приоритетам список ремарок
-void GetSeatRemPriority(const std::string &airline_mark, TSeatRemPriority &rems);
 
 #endif /*_ASTRA_MISC_H_*/
 

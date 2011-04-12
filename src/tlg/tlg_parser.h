@@ -631,25 +631,5 @@ void crs_recount(int point_id_tlg, bool check_comp);
 
 void ParseSeatRange(std::string str, std::vector<TSeatRange> &ranges, bool usePriorContext);
 
-//добавление слоя в tlg_comp_layers с синхронизацией trip_comp_layers и записью в журнал операций для clt...Pay, cltProtCkin
-void SaveTlgSeatRanges(int point_id,    //это point_id_tlg
-                       std::string airp_arv,
-                       ASTRA::TCompLayerType layer_type,
-                       const std::vector<TSeatRange> &ranges,
-                       int crs_pax_id,  //может быть NoExists
-                       int tlg_id,      //может быть NoExists
-                       int timeout,     //может быть NoExists
-                       bool UsePriorContext,
-                       int &curr_tid);  //если NoExists, то инициализируется в процедуре, служит для обновления crs_pax.tid
-//удаление слоя из tlg_comp_layers с синхронизацией trip_comp_layers и записью в журнал операций для clt...Pay, cltProtCkin
-void DeleteTlgSeatRanges(ASTRA::TCompLayerType layer_type,
-                         int crs_pax_id,           //не может быть NoExists
-                         int &curr_tid);           //если NoExists, то инициализируется в процедуре, служит для обновления crs_pax.tid
-//вызывается из описанной выше DeleteTlgSeatRanges либо из astra_timer
-void DeleteTlgSeatRanges(std::vector<int> range_ids,
-                         int crs_pax_id,           //может быть NoExists
-                         int &curr_tid);           //если NoExists, то инициализируется в процедуре, служит для обновления crs_pax.tid
-void SyncTlgCompLayers(int point_id_tlg, ASTRA::TCompLayerType layer_type);
-
 #endif
 

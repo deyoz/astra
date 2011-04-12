@@ -87,23 +87,26 @@ void TFilterLayers::getFilterLayers( int point_id )
 	  setFlag( (TCompLayerType)l );
   }
 	TQuery Qry(&OraSession);
+	Qry.Clear();
 	Qry.SQLText =
-	"SELECT airline, flt_no, suffix, airp, scd_out, "
-  "       pr_tranz_reg,pr_block_trzt,ckin.get_pr_tranzit(:point_id) as pr_tranzit "
-	" FROM trip_sets, points "
-	"WHERE points.point_id=:point_id AND points.point_id=trip_sets.point_id";
+	"SELECT pr_permit FROM trip_paid_ckin WHERE point_id=:point_id";
 	Qry.CreateVariable( "point_id", otInteger, point_id );
 	Qry.Execute();
 	
-	if ( !Qry.Eof ) {
-	  TTripInfo fltInfo( Qry );
-	  if ( GetTripSets( tsPaidCheckIn, fltInfo ) ) {
+	if ( !Qry.Eof && Qry.FieldAsInteger( "pr_permit" )!=0 ) {
       setFlag( cltProtBeforePay );
       setFlag( cltProtAfterPay );
       setFlag( cltPNLBeforePay );
       setFlag( cltPNLAfterPay );
-    }
   }
+  
+  Qry.Clear();
+	Qry.SQLText =
+	"SELECT pr_tranz_reg,pr_block_trzt,ckin.get_pr_tranzit(:point_id) as pr_tranzit "
+	"FROM trip_sets "
+	"WHERE point_id=:point_id";
+	Qry.CreateVariable( "point_id", otInteger, point_id );
+	Qry.Execute();
 	
 	if ( !Qry.Eof && Qry.FieldAsInteger( "pr_tranzit" ) ) { // это транзитный рейс
 		if ( Qry.FieldAsInteger( "pr_tranz_reg" ) ) {

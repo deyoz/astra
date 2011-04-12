@@ -8,8 +8,8 @@
 #include "astra_utils.h"
 #include "astra_consts.h"
 #include "oralib.h"
+#include "seats.h"
 #include "salons2.h"
-#include "tlg/tlg_parser.h"
 #include "convert.h"
 #include "tripinfo.h"
 
