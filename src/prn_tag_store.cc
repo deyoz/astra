@@ -1331,7 +1331,7 @@ string TPrnTagStore::LIST_SEAT_NO(TFieldParams fp)
     return Qry.FieldAsString("seat_no");
 }
 
-string get_unacc_name(int bag_type, bool is_inter)
+string get_unacc_name(int bag_type, TTagLang &tag_lang)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -1341,12 +1341,15 @@ string get_unacc_name(int bag_type, bool is_inter)
         "   unaccomp_bag_names "
         "where "
         "   code = :code ";
-    Qry.CreateVariable("is_inter", otInteger, is_inter);
+    Qry.CreateVariable("is_inter", otInteger, tag_lang.GetLang() != AstraLocale::LANG_RU);
     Qry.CreateVariable("code", otInteger, bag_type);
     Qry.Execute();
+    string result;
     if(Qry.Eof)
-        throw Exception("get_unacc_name: name not found for bag_type %d", bag_type);
-    return Qry.FieldAsString("name");
+        result = getLocaleText("ÅÖá ëéèêéÇéÜÑÖçàü", tag_lang.GetLang());
+    else
+        result = Qry.FieldAsString("name");
+    return result;
 }
 
 string TPrnTagStore::SURNAME(TFieldParams fp)
@@ -1355,10 +1358,8 @@ string TPrnTagStore::SURNAME(TFieldParams fp)
     if(fp.TagInfo.empty())
         result = transliter(paxInfo.surname, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
     else {
-        if(boost::any_cast<string>(&fp.TagInfo))
-            result = getLocaleText(boost::any_cast<string>(fp.TagInfo), tag_lang.GetLang());
-        else if(boost::any_cast<int>(&fp.TagInfo))
-            result = get_unacc_name(boost::any_cast<int>(fp.TagInfo), tag_lang.GetLang() != AstraLocale::LANG_RU);
+        if(boost::any_cast<int>(&fp.TagInfo))
+            result = get_unacc_name(boost::any_cast<int>(fp.TagInfo), tag_lang);
         else
             throw Exception("TPrnTagStore::SURNAME: unexpected TagInfo type");
     }
