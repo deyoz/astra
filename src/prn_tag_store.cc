@@ -171,12 +171,17 @@ void TPrnTagStore::TTagProps::Init(TDevOperType vop)
     op = vop;
     ProgTrace(TRACE5, "TTagProps::Init: load from base");
     TQuery Qry(&OraSession);
-    Qry.SQLText = "select code, length, pr_except from prn_tag_props where op_type = :op_type";
+    Qry.SQLText = "select code, length, EXCEPT_WHEN_GREAT_LEN, EXCEPT_WHEN_ONLY_LAT from prn_tag_props where op_type = :op_type";
     Qry.CreateVariable("op_type", otString, EncodeDevOperType(op));
     Qry.Execute();
     items.clear();
     for(; not Qry.Eof; Qry.Next())
-        items.insert(make_pair(Qry.FieldAsString("code"), TTagPropsItem(Qry.FieldAsInteger("length"), Qry.FieldAsInteger("pr_except") != 0)));
+        items.insert(make_pair(Qry.FieldAsString("code"),
+                    TTagPropsItem(
+                        Qry.FieldAsInteger("length"),
+                        Qry.FieldAsInteger("except_when_great_len") != 0,
+                        Qry.FieldAsInteger("except_when_only_lat") != 0
+                    )));
     op = vop;
 }
 
@@ -439,6 +444,14 @@ string TPrnTagStore::get_tag(string name, string date_format, string tag_lang)
     }
 }
 
+string cut_result(string &result)
+{
+    TrimString(result);
+    if(result.size() > 20)
+        result = result.substr(0, 20) + "...";
+    return result;
+}
+
 string TPrnTagStore::get_field(std::string name, size_t len, std::string align, std::string date_format, string tag_lang)
 {
     std::map<std::string, TTagPropsItem>::iterator iprops = prn_tag_props.items.find(name);
@@ -463,7 +476,7 @@ string TPrnTagStore::get_field(std::string name, size_t len, std::string align, 
 
         if(len < result.length()) {
             if(iprops->second.length == 0 or len < iprops->second.length) {
-                if(iprops->second.pr_except)
+                if(iprops->second.except_when_great_len)
                     throw Exception("Длина данных больше длины тега '%s'", name.c_str());
                 else
                     result = string(len, '?');
@@ -472,10 +485,14 @@ string TPrnTagStore::get_field(std::string name, size_t len, std::string align, 
         } else
             result = AlignString(result, len, align);
         if(this->tag_lang.get_pr_lat() and not is_lat(result)) {
-            ProgError(STDLOG, "Данные печати не латинские: %s = \"%s\"", name.c_str(), result.c_str());
-            if(result.size() > 20)
-                result = result.substr(0, 20) + "...";
-            throw UserException("MSG.NO_LAT_PRN_DATA", LParams() << LParam("tag", name) << LParam("value", result));
+            if(iprops->second.except_when_only_lat) {
+                ProgError(STDLOG, "Данные печати не латинские: %s = \"%s\"", name.c_str(), result.c_str());
+                throw UserException("MSG.NO_LAT_PRN_DATA", LParams() << LParam("tag", name) << LParam("value", cut_result(result)));
+            } else {
+                showErrorMessage("MSG.NO_LAT_PRN_DATA", LParams() << LParam("tag", name) << LParam("value", cut_result(result)));
+                for(string::iterator si = result.begin(); si != result.end(); si++)
+                    if(not is_lat_char(*si)) *si = '_';
+            }
         }
         this->tag_lang.set_tag_lang("");
         return result;
@@ -1278,7 +1295,8 @@ string TPrnTagStore::PLACE_DEP(TFieldParams fp)
 string TPrnTagStore::REG_NO(TFieldParams fp)
 {
     ostringstream result;
-    result << setw(3) << setfill('0') << paxInfo.reg_no;
+    if(paxInfo.reg_no != NoExists)
+        result << setw(3) << setfill('0') << paxInfo.reg_no;
     return result.str();
 }
 
@@ -1329,7 +1347,7 @@ string TPrnTagStore::LIST_SEAT_NO(TFieldParams fp)
     return Qry.FieldAsString("seat_no");
 }
 
-string get_unacc_name(int bag_type, bool is_inter)
+string get_unacc_name(int bag_type, TTagLang &tag_lang)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -1339,12 +1357,15 @@ string get_unacc_name(int bag_type, bool is_inter)
         "   unaccomp_bag_names "
         "where "
         "   code = :code ";
-    Qry.CreateVariable("is_inter", otInteger, is_inter);
+    Qry.CreateVariable("is_inter", otInteger, tag_lang.GetLang() != AstraLocale::LANG_RU);
     Qry.CreateVariable("code", otInteger, bag_type);
     Qry.Execute();
+    string result;
     if(Qry.Eof)
-        throw Exception("get_unacc_name: name not found for bag_type %d", bag_type);
-    return Qry.FieldAsString("name");
+        result = getLocaleText("БЕЗ СОПРОВОЖДЕНИЯ", tag_lang.GetLang());
+    else
+        result = Qry.FieldAsString("name");
+    return result;
 }
 
 string TPrnTagStore::SURNAME(TFieldParams fp)
@@ -1353,10 +1374,8 @@ string TPrnTagStore::SURNAME(TFieldParams fp)
     if(fp.TagInfo.empty())
         result = transliter(paxInfo.surname, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
     else {
-        if(boost::any_cast<string>(&fp.TagInfo))
-            result = getLocaleText(boost::any_cast<string>(fp.TagInfo), tag_lang.GetLang());
-        else if(boost::any_cast<int>(&fp.TagInfo))
-            result = get_unacc_name(boost::any_cast<int>(fp.TagInfo), tag_lang.GetLang() != AstraLocale::LANG_RU);
+        if(boost::any_cast<int>(&fp.TagInfo))
+            result = get_unacc_name(boost::any_cast<int>(fp.TagInfo), tag_lang);
         else
             throw Exception("TPrnTagStore::SURNAME: unexpected TagInfo type");
     }
@@ -1367,9 +1386,11 @@ string TPrnTagStore::TEST_SERVER(TFieldParams fp)
 {
     if(fp.len == 0) fp.len = 300;
     string result;
-    string test = getLocaleText("CAP.TEST", tag_lang.GetLang());
-    while(result.size() < fp.len)
-        result += test + " ";
+    if(get_test_server()) {
+        string test = getLocaleText("CAP.TEST", tag_lang.GetLang());
+        while(result.size() < fp.len)
+            result += test + " ";
+    }
     return result.substr(0, fp.len);
 }
 

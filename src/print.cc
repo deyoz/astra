@@ -1493,15 +1493,11 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
         if(pr_unaccomp) {
             unaccQry.SetVariable("tag_num",Qry.FieldAsInteger("num"));
             unaccQry.Execute();
+            int bag_type = NoExists;
             if (!unaccQry.Eof)
-            {
-                parser.pts.set_tag(TAG::SURNAME, unaccQry.FieldAsInteger("bag_type"));
-                parser.pts.set_tag(TAG::FULLNAME, unaccQry.FieldAsInteger("bag_type"));
-            } else {
-                string print_name="ÅÖá ëéèêéÇéÜÑÖçàü";
-                parser.pts.set_tag(TAG::SURNAME, print_name);
-                parser.pts.set_tag(TAG::FULLNAME, print_name);
-            }
+                bag_type = unaccQry.FieldAsInteger("bag_type");
+            parser.pts.set_tag(TAG::SURNAME, bag_type);
+            parser.pts.set_tag(TAG::FULLNAME, bag_type);
         }
 
         int VIA_num = prn_forms.size();
