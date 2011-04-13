@@ -369,7 +369,7 @@ string TPrnTagStore::get_test_field(std::string name, size_t len, std::string da
     switch(im->second.type) {
         case 'D':
             StrToDateTime(value.c_str(), ServerFormatDateTimeAsString, date);
-            result << DateTimeToStr(date, value, tag_lang.IsInter());
+            result << DateTimeToStr(date, date_format, tag_lang.IsInter());
             break;
         case 'S':
             result << value;
@@ -379,7 +379,7 @@ string TPrnTagStore::get_test_field(std::string name, size_t len, std::string da
             break;
     }
     im->second.processed = true;
-    return result.str();
+    return result.str().substr(0, len);
 }
 
 string TPrnTagStore::get_real_field(std::string name, size_t len, std::string date_format)
