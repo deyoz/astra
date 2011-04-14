@@ -1379,6 +1379,7 @@ void big_test(PrintDataParser &parser, TDevOperType op_type)
 void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
 {
 //    check_CUTE_certified(tag_key.prn_type, tag_key.dev_model, tag_key.fmt_type);
+    ProgTrace(TRACE5, "bt_type: '%s'", tag_key.type.c_str());
     TBTRoute route;
     TQuery Qry(&OraSession);
     Qry.SQLText =
