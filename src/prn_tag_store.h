@@ -19,6 +19,7 @@ namespace TAG {
     const std::string AIRP_DEP = "AIRP_DEP";
     const std::string AIRP_DEP_NAME = "AIRP_DEP_NAME";
     const std::string BAG_AMOUNT = "BAG_AMOUNT"; // багаж в посадочном
+    const std::string TAGS = "TAGS"; // багаж в посадочном
     const std::string BAG_WEIGHT = "BAG_WEIGHT";
     const std::string BRD_FROM = "BRD_FROM";
     const std::string BRD_TO = "BRD_TO";
@@ -352,6 +353,7 @@ class TPrnTagStore {
             bool pr_smoke;
             int seats;
             std::string pers_type;
+            std::string tags;
             TPaxInfo():
                 pax_id(ASTRA::NoExists),
                 coupon_no(ASTRA::NoExists),
@@ -359,7 +361,7 @@ class TPrnTagStore {
                 pr_smoke(false),
                 seats(ASTRA::NoExists)
             {};
-            void Init(int apax_id);
+            void Init(int apax_id, TTagLang &tag_lang);
         };
         TPaxInfo paxInfo;
 
@@ -386,6 +388,8 @@ class TPrnTagStore {
         };
         TPnrInfo pnrInfo;
 
+        std::string get_fmt_seat(std::string fmt);
+
         std::string BCBP_M_2(TFieldParams fp);
         std::string ACT(TFieldParams fp);
         std::string AIRLINE(TFieldParams fp);
@@ -395,6 +399,7 @@ class TPrnTagStore {
         std::string AIRP_DEP(TFieldParams fp);
         std::string AIRP_DEP_NAME(TFieldParams fp);
         std::string BAG_AMOUNT(TFieldParams fp);
+        std::string TAGS(TFieldParams fp);
         std::string BAG_WEIGHT(TFieldParams fp);
         std::string BRD_FROM(TFieldParams fp);
         std::string BRD_TO(TFieldParams fp);
