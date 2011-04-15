@@ -1263,16 +1263,7 @@ string TPrnTagStore::NO_SMOKE(TFieldParams fp)
 
 string TPrnTagStore::ONE_SEAT_NO(TFieldParams fp)
 {
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "select "
-        "   salons.get_seat_no(:pax_id,:seats,NULL,NULL,'one',NULL,:is_inter) AS seat_no "
-        "from dual";
-    Qry.CreateVariable("pax_id", otInteger, paxInfo.pax_id);
-    Qry.CreateVariable("seats", otInteger, paxInfo.seats);
-    Qry.CreateVariable("is_inter", otInteger, tag_lang.GetLang() != AstraLocale::LANG_RU);
-    Qry.Execute();
-    return Qry.FieldAsString("seat_no");
+    return get_fmt_seat("one");
 }
 
 string TPrnTagStore::PAX_ID(TFieldParams fp)
@@ -1307,44 +1298,38 @@ string TPrnTagStore::SCD(TFieldParams fp)
 
 string TPrnTagStore::SEAT_NO(TFieldParams fp)
 {
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "select "
-        "   salons.get_seat_no(:pax_id,:seats,NULL,NULL,'seats',NULL,:is_inter) AS seat_no "
-        "from dual";
-    Qry.CreateVariable("pax_id", otInteger, paxInfo.pax_id);
-    Qry.CreateVariable("seats", otInteger, paxInfo.seats);
-    Qry.CreateVariable("is_inter", otInteger, tag_lang.GetLang() != AstraLocale::LANG_RU);
-    Qry.Execute();
-    return Qry.FieldAsString("seat_no");
+    return get_fmt_seat("seats");
 }
 
 string TPrnTagStore::STR_SEAT_NO(TFieldParams fp)
 {
+    return get_fmt_seat("voland");
+}
+
+string TPrnTagStore::get_fmt_seat(string fmt)
+{
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "select "
-        "   salons.get_seat_no(:pax_id,:seats,NULL,NULL,'voland',NULL,:is_inter) AS seat_no "
+        "   salons.get_seat_no(:pax_id,:seats,NULL,NULL,:fmt,NULL,:is_inter) AS seat_no "
         "from dual";
     Qry.CreateVariable("pax_id", otInteger, paxInfo.pax_id);
     Qry.CreateVariable("seats", otInteger, paxInfo.seats);
-    Qry.CreateVariable("is_inter", otInteger, tag_lang.GetLang() != AstraLocale::LANG_RU);
+    Qry.CreateVariable("fmt", otString, fmt);
+
+    Qry.CreateVariable("is_inter", otInteger, 0);
     Qry.Execute();
+    if (tag_lang.get_pr_lat() && not is_lat(Qry.FieldAsString("seat_no")))
+    {        
+        Qry.SetVariable("is_inter",1);
+        Qry.Execute();
+    }
     return Qry.FieldAsString("seat_no");
 }
 
 string TPrnTagStore::LIST_SEAT_NO(TFieldParams fp)
 {
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "select "
-        "   salons.get_seat_no(:pax_id,:seats,NULL,NULL,'list',NULL,:is_inter) AS seat_no "
-        "from dual";
-    Qry.CreateVariable("pax_id", otInteger, paxInfo.pax_id);
-    Qry.CreateVariable("seats", otInteger, paxInfo.seats);
-    Qry.CreateVariable("is_inter", otInteger, tag_lang.GetLang() != AstraLocale::LANG_RU);
-    Qry.Execute();
-    return Qry.FieldAsString("seat_no");
+    return get_fmt_seat("list");
 }
 
 string get_unacc_name(int bag_type, TTagLang &tag_lang)

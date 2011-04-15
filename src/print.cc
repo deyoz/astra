@@ -1579,7 +1579,6 @@ void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     TQuery PaxQry(&OraSession);
     PaxQry.SQLText =
       "SELECT pax.pax_id, pax.grp_id, surname||' '||name fullname, reg_no,  "
-      " salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'list',NULL,0) seat_no,  "
       " point_dep point_id  "
       "FROM pax, pax_grp  "
       "WHERE pax_id=:pax_id AND pax.tid=:tid and  "
@@ -1588,7 +1587,12 @@ void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     PaxQry.DeclareVariable("tid",otInteger);
     TQuery Qry(&OraSession);
     Qry.SQLText =
-        "update bp_print set pr_print = 1 where pax_id = :pax_id and time_print = :time_print and pr_print = 0";
+        "BEGIN "
+        "  update bp_print set pr_print = 1 where pax_id = :pax_id and time_print = :time_print and pr_print = 0 RETURNING seat_no INTO :seat_no; "
+        "  :rows:=SQL%ROWCOUNT; "
+        "END;";
+    Qry.DeclareVariable("rows", otInteger);
+    Qry.DeclareVariable("seat_no", otString);
     Qry.DeclareVariable("pax_id", otInteger);
     Qry.DeclareVariable("time_print", otDate);
     xmlNodePtr curNode = NodeAsNode("passengers/pax", reqNode);
@@ -1601,13 +1605,12 @@ void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         Qry.SetVariable("pax_id", NodeAsInteger("@pax_id", curNode));
         Qry.SetVariable("time_print", NodeAsDateTime("@time_print", curNode));
         Qry.Execute();
-        if (Qry.RowsProcessed()==0)
+        if (Qry.GetVariableAsInteger("rows")==0)
             throw AstraLocale::UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
-        string seat_no = PaxQry.FieldAsString("seat_no");
+        string seat_no = Qry.GetVariableAsString("seat_no");
         string msg =
                 (string)"Напечатан пос. талон для " + PaxQry.FieldAsString("fullname") +
-                ". Рег. номер: " + IntToString(PaxQry.FieldAsInteger("reg_no")) +
-                ". Место: " + (seat_no.empty() ? "нет" : seat_no) + ".";
+                ". Место в пос. талоне: " + (seat_no.empty() ? "нет" : seat_no) + ".";
         ProgTrace(TRACE5, "CONFIRM PRINT_BP LOG MSG: %s", msg.c_str());
         TReqInfo::Instance()->MsgToLog(
                 msg,

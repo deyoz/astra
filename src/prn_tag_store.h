@@ -386,6 +386,8 @@ class TPrnTagStore {
         };
         TPnrInfo pnrInfo;
 
+        std::string get_fmt_seat(std::string fmt);
+
         std::string BCBP_M_2(TFieldParams fp);
         std::string ACT(TFieldParams fp);
         std::string AIRLINE(TFieldParams fp);
