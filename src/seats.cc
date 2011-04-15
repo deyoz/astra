@@ -2947,6 +2947,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
             Qry.CreateVariable( "tid", otInteger, FNull );
           else
             Qry.CreateVariable( "tid", otInteger, curr_tid );
+          Qry.CreateVariable( "term", otString, TReqInfo::Instance()->desk.code );
           Qry.Execute();
           curr_tid = Qry.GetVariableAsInteger( "tid" );
         	break;
@@ -2982,6 +2983,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
           Qry.CreateVariable( "tid", otInteger, FNull );
         else
           Qry.CreateVariable( "tid", otInteger, curr_tid );
+        Qry.CreateVariable( "term", otString, TReqInfo::Instance()->desk.code );
         Qry.Execute();
         curr_tid = Qry.GetVariableAsInteger( "tid" );
         break;
