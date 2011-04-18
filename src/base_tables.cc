@@ -198,13 +198,13 @@ void TBaseTable::add_row(TBaseTableRow *row)
   table.push_back(row);
 };
 
-TBaseTableRow& TBaseTable::get_row(std::string field, std::string value, bool with_deleted)
+const TBaseTableRow& TBaseTable::get_row(std::string field, std::string value, bool with_deleted)
 {
   throw EBaseTableError("%s::get_row: wrong search field '%s'",
                         get_table_name(),field.c_str());
 };
 
-TBaseTableRow& TBaseTable::get_row(std::string field, int value, bool with_deleted)
+const TBaseTableRow& TBaseTable::get_row(std::string field, int value, bool with_deleted)
 {
   throw EBaseTableError("%s::get_row: wrong search field '%s'",
                         get_table_name(),field.c_str());
@@ -253,7 +253,7 @@ void TIdBaseTable::add_row(TBaseTableRow *row)
       id[((TIdBaseTableRow*)row)->id]=row;
   };
 }
-TBaseTableRow& TIdBaseTable::get_row(std::string field, int value, bool with_deleted)
+const TBaseTableRow& TIdBaseTable::get_row(std::string field, int value, bool with_deleted)
 {
   load_table();
   if (lowerc(field)=="id")
@@ -313,7 +313,7 @@ void TCodeBaseTable::add_row(TBaseTableRow *row)
   };
 }
 
-TBaseTableRow& TCodeBaseTable::get_row(std::string field, std::string value, bool with_deleted)
+const TBaseTableRow& TCodeBaseTable::get_row(std::string field, std::string value, bool with_deleted)
 {
   load_table();
   if (lowerc(field)=="code")
@@ -401,7 +401,7 @@ void TTIDBaseTable::after_update()
   tid=new_tid;
 };
 
-TBaseTableRow& TTIDBaseTable::get_row(std::string field, int value, bool with_deleted)
+const TBaseTableRow& TTIDBaseTable::get_row(std::string field, int value, bool with_deleted)
 {
   load_table();
   if (lowerc(field)=="id")
@@ -439,7 +439,7 @@ void TICAOBaseTable::add_row(TBaseTableRow *row)
     code_icao_lat[((TICAOBaseTableRow*)row)->code_icao_lat]=row;
 };
 
-TBaseTableRow& TICAOBaseTable::get_row(std::string field, std::string value, bool with_deleted)
+const TBaseTableRow& TICAOBaseTable::get_row(std::string field, std::string value, bool with_deleted)
 {
   load_table();
   if (lowerc(field)=="code_icao")
@@ -505,7 +505,7 @@ void TCountries::add_row(TBaseTableRow *row)
     code_iso[((TCountriesRow*)row)->code_iso]=row;
 };
 
-TBaseTableRow& TCountries::get_row(std::string field, std::string value, bool with_deleted)
+const TBaseTableRow& TCountries::get_row(std::string field, std::string value, bool with_deleted)
 {
   load_table();
   if (lowerc(field)=="code_iso")
@@ -617,7 +617,7 @@ void TAirlines::add_row(TBaseTableRow *row)
     aircode[((TAirlinesRow*)row)->aircode]=row;
 };
 
-TBaseTableRow& TAirlines::get_row(std::string field, std::string value, bool with_deleted)
+const TBaseTableRow& TAirlines::get_row(std::string field, std::string value, bool with_deleted)
 {
   load_table();
   if (lowerc(field)=="aircode")

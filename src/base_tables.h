@@ -79,8 +79,8 @@ class TBaseTable {
   public:
   	TBaseTable();
     virtual ~TBaseTable();
-    virtual TBaseTableRow& get_row(std::string field, std::string value, bool with_deleted=false);
-    virtual TBaseTableRow& get_row(std::string field, int value, bool with_deleted=false);
+    virtual const TBaseTableRow& get_row(std::string field, std::string value, bool with_deleted=false);
+    virtual const TBaseTableRow& get_row(std::string field, int value, bool with_deleted=false);
     virtual void Invalidate();
 };
 
@@ -125,7 +125,7 @@ class TIdBaseTable: public TNameBaseTable {
     virtual void delete_row(TBaseTableRow *row);
     virtual void add_row(TBaseTableRow *row);
   public:
-    virtual TBaseTableRow& get_row(std::string field, int value, bool with_deleted=false);
+    virtual const TBaseTableRow& get_row(std::string field, int value, bool with_deleted=false);
 };
 
 
@@ -148,7 +148,7 @@ class TCodeBaseTable: public TNameBaseTable {
     virtual void delete_row(TBaseTableRow *row);
     virtual void add_row(TBaseTableRow *row);
   public:
-    virtual TBaseTableRow& get_row(std::string field, std::string value, bool with_deleted=false);
+    virtual const TBaseTableRow& get_row(std::string field, std::string value, bool with_deleted=false);
 };
 
 class TTIDBaseTableRow : public TCodeBaseTableRow {
@@ -190,7 +190,7 @@ class TTIDBaseTable: public TCodeBaseTable {
   	}
   public:
     TTIDBaseTable() {tid=-1; new_tid=-1;};
-    virtual TBaseTableRow& get_row(std::string field, int value, bool with_deleted=false);
+    virtual const TBaseTableRow& get_row(std::string field, int value, bool with_deleted=false);
 };
 
 class TICAOBaseTableRow : public TTIDBaseTableRow {
@@ -212,7 +212,7 @@ class TICAOBaseTable: public TTIDBaseTable {
     virtual void delete_row(TBaseTableRow *row);
     virtual void add_row(TBaseTableRow *row);
   public:
-    virtual TBaseTableRow& get_row(std::string field, std::string value, bool with_deleted=false);
+    virtual const TBaseTableRow& get_row(std::string field, std::string value, bool with_deleted=false);
 };
 ///////////////////////////////////////////////////////////////////
 class TCountriesRow: public TTIDBaseTableRow {
@@ -235,7 +235,7 @@ class TCountries: public TTIDBaseTable {
     void delete_row(TBaseTableRow *row);
     void add_row(TBaseTableRow *row);
   public:
-    TBaseTableRow& get_row(std::string field, std::string value, bool with_deleted=false);
+    virtual const TBaseTableRow& get_row(std::string field, std::string value, bool with_deleted=false);
     TCountries( ) {
  		  Init("countries");
   	}
@@ -448,7 +448,7 @@ class TAirlines: public TICAOBaseTable {
     virtual void delete_row(TBaseTableRow *row);
     virtual void add_row(TBaseTableRow *row);
   public:
-    virtual TBaseTableRow& get_row(std::string field, std::string value, bool with_deleted=false);
+    virtual const TBaseTableRow& get_row(std::string field, std::string value, bool with_deleted=false);
     TAirlines() {
     	Init( "airlines" );
     }

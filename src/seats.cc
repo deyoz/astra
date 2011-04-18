@@ -3295,8 +3295,8 @@ TSeatAlgoParams GetSeatAlgo(TQuery &Qry, string airline, int flt_no, string airp
 bool CompGrp( TPassenger item1, TPassenger item2 )
 {
   TBaseTable &classes=base_tables.get("classes");
-  TBaseTableRow &row1=classes.get_row("code",item1.clname);
-  TBaseTableRow &row2=classes.get_row("code",item2.clname);
+  const TBaseTableRow &row1=classes.get_row("code",item1.clname);
+  const TBaseTableRow &row2=classes.get_row("code",item2.clname);
   if ( row1.AsInteger( "priority" ) < row2.AsInteger( "priority" ) )
   	return true;
   else

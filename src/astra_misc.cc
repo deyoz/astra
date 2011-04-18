@@ -368,14 +368,7 @@ void TTripRoute::GetNextAirp(int point_id,
   TQuery Qry(&OraSession);
   GetRoute(point_id,point_num,first_point,pr_tranzit,
            true,trtNotCurrent,route_type2,Qry);
-  if (begin()!=end())
-  {
-    //а лучше бы перегрузить оператор присваивания
-    item.point_id=begin()->point_id;
-    item.point_num=begin()->point_num;
-    item.airp=begin()->airp;
-    item.pr_cancel=begin()->pr_cancel;
-  };
+  if (!empty()) item=front();
 };
 
 bool TTripRoute::GetNextAirp(int point_id,
@@ -384,14 +377,32 @@ bool TTripRoute::GetNextAirp(int point_id,
 {
   item.Clear();
   if (!GetRoute(point_id,true,trtNotCurrent,route_type2)) return false;
-  if (begin()!=end())
-  {
-    //а лучше бы перегрузить оператор присваивания
-    item.point_id=begin()->point_id;
-    item.point_num=begin()->point_num;
-    item.airp=begin()->airp;
-    item.pr_cancel=begin()->pr_cancel;
-  };
+  if (!empty()) item=front();
+  return true;
+};
+
+void TTripRoute::GetPriorAirp(int point_id,
+                              int point_num,
+                              int first_point,
+                              bool pr_tranzit,
+                              TTripRouteType2 route_type2,
+                              TTripRouteItem& item)
+{
+  item.Clear();
+  clear();
+  TQuery Qry(&OraSession);
+  GetRoute(point_id,point_num,first_point,pr_tranzit,
+           false,trtNotCurrent,route_type2,Qry);
+  if (!empty()) item=back();
+};
+
+bool TTripRoute::GetPriorAirp(int point_id,
+                              TTripRouteType2 route_type2,
+                              TTripRouteItem& item)
+{
+  item.Clear();
+  if (!GetRoute(point_id,false,trtNotCurrent,route_type2)) return false;
+  if (!empty()) item=back();
   return true;
 };
 

@@ -4430,22 +4430,14 @@ void ChangeACT_IN( int point_id, TDateTime old_act, TDateTime act )
     try
     {
       //телеграммы на прилет
-      TQuery Qry(&OraSession);
-  	  Qry.SQLText =
-  	    "SELECT points.point_id "
-  	    "FROM points, "
-  	    "     (SELECT point_num, first_point "
-        "      FROM points WHERE point_id=:point_id) a "
-        "WHERE a.first_point IN (point_id,points.first_point) AND points.point_num<a.point_num AND pr_del=0 "
-        "ORDER BY points.point_num DESC ";
-      Qry.CreateVariable("point_id",otInteger,point_id);
-      Qry.Execute();
-  	  if (!Qry.Eof)
+      TTripRoute route;
+      TTripRouteItem prior_airp;
+      route.GetPriorAirp(point_id, trtNotCancelled, prior_airp);
+      if (prior_airp.point_id!=NoExists)
   	  {
-  	    int point_dep=Qry.FieldAsInteger("point_id");
         vector<string> tlg_types;
         tlg_types.push_back("MVTB");
-        TelegramInterface::SendTlg(point_dep,tlg_types);
+        TelegramInterface::SendTlg(prior_airp.point_id,tlg_types);
       };
     }
     catch(std::exception &E)

@@ -282,7 +282,7 @@ class TTripRoute : public std::vector<TTripRouteItem>
                      TTripRouteItem& item);
 
     //возвращает предыдущий пункт маршрута
- /*   void GetPriorAirp(int point_id,
+    void GetPriorAirp(int point_id,
                       int point_num,
                       int first_point,
                       bool pr_tranzit,
@@ -290,7 +290,7 @@ class TTripRoute : public std::vector<TTripRouteItem>
                       TTripRouteItem& item);
     bool GetPriorAirp(int point_id,
                       TTripRouteType2 route_type2,
-                      TTripRouteItem& item);*/
+                      TTripRouteItem& item);
 };
 
 class TPaxSeats {
