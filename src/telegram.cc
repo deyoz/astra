@@ -191,6 +191,23 @@ void set_time_intervals(TTlgSearchParams &search_params, string &sql, TQuery &Qr
 
 }
 
+string GetValidXMLString(const std::string& str)
+{
+  ostringstream result;
+  for(string::const_iterator i=str.begin(); i!=str.end(); i++)
+  {
+    if (!ValidXMLChar(*i))
+    {
+      result << '$'
+             << setw(2) << setfill('0') << setbase(16) << (int)((unsigned char)(*i)); //можно и так
+      continue;
+    };
+    result << *i;
+  };
+  return result.str();
+};
+
+
 void TelegramInterface::GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo &info = *(TReqInfo::Instance());
@@ -332,9 +349,9 @@ void TelegramInterface::GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
                 NewTextChild( node, "id", Qry.FieldAsInteger(col_id) );
                 NewTextChild( node, "num", Qry.FieldAsInteger(col_num) );
                 NewTextChild( node, "type", type);
-                NewTextChild( node, "addr", Qry.FieldAsString(col_addr) );
-                NewTextChild( node, "heading", Qry.FieldAsString(col_heading) );
-                NewTextChild( node, "ending", Qry.FieldAsString(col_ending) );
+                NewTextChild( node, "addr", GetValidXMLString(Qry.FieldAsString(col_addr)) );
+                NewTextChild( node, "heading", GetValidXMLString(Qry.FieldAsString(col_heading)) );
+                NewTextChild( node, "ending", GetValidXMLString(Qry.FieldAsString(col_ending)) );
                 TDateTime time_receive = UTCToClient( Qry.FieldAsDateTime(col_time_receive), tz_region );
                 NewTextChild( node, "time_receive", DateTimeToStr( time_receive ) );
 
@@ -351,7 +368,9 @@ void TelegramInterface::GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
                 };
                 Qry.FieldAsLong("body",buf);
                 buf[len-1]=0;
-                NewTextChild( node, "body", buf);
+                
+                string body(buf,len-1);
+                NewTextChild( node, "body", GetValidXMLString(body) );
                 rowcount++;
             };
             if(rowcount >= 4000)
@@ -461,9 +480,9 @@ void TelegramInterface::GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       NewTextChild( node, "id", Qry.FieldAsInteger("id") );
       NewTextChild( node, "num", Qry.FieldAsInteger("num") );
       NewTextChild( node, "type", Qry.FieldAsString("type") );
-      NewTextChild( node, "addr", Qry.FieldAsString("addr") );
-      NewTextChild( node, "heading", Qry.FieldAsString("heading") );
-      NewTextChild( node, "ending", Qry.FieldAsString("ending") );
+      NewTextChild( node, "addr", GetValidXMLString(Qry.FieldAsString("addr")) );
+      NewTextChild( node, "heading", GetValidXMLString(Qry.FieldAsString("heading")) );
+      NewTextChild( node, "ending", GetValidXMLString(Qry.FieldAsString("ending")) );
       TDateTime time_receive = UTCToClient( Qry.FieldAsDateTime("time_receive"), tz_region );
       NewTextChild( node, "time_receive", DateTimeToStr( time_receive ) );
 
@@ -480,7 +499,8 @@ void TelegramInterface::GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       };
       Qry.FieldAsLong("body",buf);
       buf[len-1]=0;
-      NewTextChild( node, "body", buf);
+      string body(buf,len-1);
+      NewTextChild( node, "body", GetValidXMLString(body) );
     };
     if (buf!=NULL) free(buf);
   }

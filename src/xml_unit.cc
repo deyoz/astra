@@ -639,11 +639,16 @@ void XMLDoc::set(const std::string &text)
     docPtrCoverPtr.reset(new xmlDocPtrCover(NULL));
 };
 
+bool ValidXMLChar( const char c )
+{
+  return !(c>=0x00 && c<0x20 && c!=0x09 && c!=0x0A && c!=0x0D);
+};
+
 bool ValidXMLString( const std::string& str )
 {
   for(string::const_iterator i=str.begin(); i!=str.end(); i++)
   {
-    if (*i>=0x00 && *i<0x20 && *i!=0x09 && *i!=0x0A && *i!=0x0D) return false;
+    if (!ValidXMLChar(*i)) return false;
   };
   return true;
 };
