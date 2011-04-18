@@ -265,8 +265,13 @@ class TPrnTagStore {
 
         struct TTagPropsItem {
             size_t length;
-            bool pr_except;
-            TTagPropsItem(int vlength, bool vpr_except): length(vlength), pr_except(vpr_except) {};
+            bool except_when_great_len;
+            bool except_when_only_lat;
+            TTagPropsItem(int vlength, bool vexcept_when_great_len, bool vexcept_when_only_lat):
+                length(vlength),
+                except_when_great_len(vexcept_when_great_len),
+                except_when_only_lat(vexcept_when_only_lat)
+            {};
         };
 
         struct TTagProps {
@@ -348,7 +353,11 @@ class TPrnTagStore {
             int seats;
             std::string pers_type;
             TPaxInfo():
-                pax_id(ASTRA::NoExists)
+                pax_id(ASTRA::NoExists),
+                coupon_no(ASTRA::NoExists),
+                reg_no(ASTRA::NoExists),
+                pr_smoke(false),
+                seats(ASTRA::NoExists)
             {};
             void Init(int apax_id);
         };
@@ -376,6 +385,8 @@ class TPrnTagStore {
             void Init(int pax_id);
         };
         TPnrInfo pnrInfo;
+
+        std::string get_fmt_seat(std::string fmt);
 
         std::string BCBP_M_2(TFieldParams fp);
         std::string ACT(TFieldParams fp);
