@@ -2358,13 +2358,14 @@ void SeatsPassengers( SALONS2::TSalons *Salons, TSeatAlgoParams ASeatAlgoParams 
          SeatAlg = (TSeatAlg)FSeatAlg;
          if ( SeatAlg == sSeatPassengers && !PElemTypes.empty() && FCanUseElem_Type == 0 )
            continue;
+         bool use_preseat_layer = ( CanUseLayer( cltProtCkin, preseat_layers ) ||
+                                    CanUseLayer( cltProtBeforePay, preseat_layers ) ||
+                                    CanUseLayer( cltPNLBeforePay, preseat_layers ) ||
+                                    CanUseLayer( cltProtAfterPay, preseat_layers ) ||
+                                    CanUseLayer( cltPNLAfterPay, preseat_layers ) );
          /* если есть в группе предварительная рассадка, то тогда сажаем всех отдельно */
          /* если есть в группе подкласс С и он не у всех пассажиров, то тогда сажаем всех отдельно */
-         if ( ( CanUseLayer( cltProtCkin, preseat_layers ) ||
-                CanUseLayer( cltProtBeforePay, preseat_layers ) ||
-                CanUseLayer( cltPNLBeforePay, preseat_layers ) ||
-                CanUseLayer( cltProtAfterPay, preseat_layers ) ||
-                CanUseLayer( cltPNLAfterPay, preseat_layers ) ||
+         if ( ( use_preseat_layer ||
                 Status_seat_no_BR ||
                 SeatOnlyBasePlace || // для каждого пассажира задано свой номер места
                 canUseSUBCLS && pr_SUBCLS && !pr_all_pass_SUBCLS ) // если есть группа пассажиров среди которых есть пассажиры с подклассом, нл не все
@@ -2393,6 +2394,10 @@ void SeatsPassengers( SALONS2::TSalons *Salons, TSeatAlgoParams ASeatAlgoParams 
                  case sNotUseDenial: //???
                    continue; /*??? что главнее группа или места с ремарками, кот не надо учитывать */
                }
+               break;
+             case sSeatPassengers:
+               if ( use_preseat_layer && CanUseRems != sIgnoreUse ) // игнорируем ремарки в случае предварительной разметки
+                 continue;
                break;
            }
 
