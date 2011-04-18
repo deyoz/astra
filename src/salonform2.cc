@@ -344,8 +344,8 @@ void SalonsInterface::DeleteReserveSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   	Qry.Clear();
   	Qry.SQLText =
   	  "SELECT "
+  	  "  crs_pax.pax_id,crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,"
       "  salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'seats',rownum) AS crs_seat_no, "
-      "  salons.get_crs_seat_no(crs_pax.pax_id,crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'seats',rownum) AS preseat_no, " //!!!vlad
       "  salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum) AS seat_no "
       "FROM crs_pnr,crs_pax,pax,pax_grp "
       "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND crs_pax.pr_del=0 AND "
@@ -361,10 +361,31 @@ void SalonsInterface::DeleteReserveSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
     NewTextChild( dataNode, "tid", tid );
     if ( !Qry.FieldIsNULL( "crs_seat_no" ) )
     	NewTextChild( dataNode, "crs_seat_no", Qry.FieldAsString( "crs_seat_no" ) );
-    if ( !Qry.FieldIsNULL( "preseat_no" ) )
-    	NewTextChild( dataNode, "preseat_no", Qry.FieldAsString( "preseat_no" ) );
     if ( !Qry.FieldIsNULL( "seat_no" ) )
     	NewTextChild( dataNode, "seat_no", Qry.FieldAsString( "seat_no" ) );
+    int crs_pax_id = Qry.FieldAsInteger( "pax_id" );
+    string seat_xname = Qry.FieldAsString( "seat_xname" );
+    string seat_yname = Qry.FieldAsString( "seat_yname" );
+    int pre_seats = Qry.FieldAsInteger( "seats" );
+    Qry.Clear();
+    Qry.SQLText =
+      "BEGIN "
+      "  :preseat_no:=salons.get_crs_seat_no(:pax_id,:xname,:yname,:seats,:point_id,:layer_type,'seats'); "
+      "END;";
+    Qry.CreateVariable( "preseat_no", otString, FNull );
+    Qry.CreateVariable( "pax_id", otInteger, crs_pax_id );
+    Qry.CreateVariable( "xname", otString, seat_xname );
+    Qry.CreateVariable( "yname", otString, seat_yname );
+    Qry.CreateVariable( "seats", otInteger, pre_seats );
+    Qry.CreateVariable( "point_id", otInteger, point_id );
+    Qry.CreateVariable( "layer_type", otString, FNull );
+    Qry.Execute();
+    if ( !Qry.VariableIsNULL( "layer_type" ) &&
+         DecodeCompLayerType( Qry.GetVariableAsString( "layer_type" ) ) == cltProtCkin &&
+         !Qry.VariableIsNULL( "preseat_no" ) )
+    	NewTextChild( dataNode, "preseat_no", Qry.GetVariableAsString( "preseat_no" ) );
+//    ProgTrace( TRACE5, "preseat_no=%s, crs_pax_id=%d, seat_xname=%s, seat_yname=%s, pre_seats=%d, point_id=%d, layer_type=%s",
+//               Qry.GetVariableAsString( "preseat_no" ), crs_pax_id, seat_xname.c_str(), seat_yname.c_str(), pre_seats, point_id, Qry.GetVariableAsString( "layer_type" ) );
    	SALONS::BuildSalonChanges( dataNode, seats );
   }
   catch( AstraLocale::UserException ue ) {
@@ -450,7 +471,6 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
     	  Qry.SQLText =
     	    "SELECT "
           "  '' AS crs_seat_no, "
-          "  '' AS preseat_no, "
           "  salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum) AS seat_no "
           "FROM pax,pax_grp "
           "WHERE pax.grp_id=pax_grp.grp_id AND "
@@ -459,8 +479,8 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
   	  case cltProtCkin:
     	  Qry.SQLText =
     	    "SELECT "
+    	    "  crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,"
           "  salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'seats',rownum) AS crs_seat_no, "
-          "  salons.get_crs_seat_no(crs_pax.pax_id,crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'seats',rownum) AS preseat_no, " //!!!vlad
           "  salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum) AS seat_no "
           "FROM crs_pnr,crs_pax,pax,pax_grp "
           "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND crs_pax.pr_del=0 AND "
@@ -482,11 +502,32 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
     NewTextChild( dataNode, "tid", tid );
     if ( !Qry.FieldIsNULL( "crs_seat_no" ) )
     	NewTextChild( dataNode, "crs_seat_no", Qry.FieldAsString( "crs_seat_no" ) );
-    if ( !Qry.FieldIsNULL( "preseat_no" ) )
-    	NewTextChild( dataNode, "preseat_no", Qry.FieldAsString( "preseat_no" ) );
     if ( !Qry.FieldIsNULL( "seat_no" ) )
     	NewTextChild( dataNode, "seat_no", Qry.FieldAsString( "seat_no" ) );
-    /* надо передать назад новый tid */
+
+    if ( layer_type == cltProtCkin ) {
+      string seat_xname = Qry.FieldAsString( "seat_xname" );
+      string seat_yname = Qry.FieldAsString( "seat_yname" );
+      int pre_seats = Qry.FieldAsInteger( "seats" );
+      Qry.Clear();
+      Qry.SQLText =
+        "BEGIN "
+        "  :preseat_no:=salons.get_crs_seat_no(:pax_id,:xname,:yname,:seats,:point_id,:layer_type,'seats'); "
+        "END;";
+      Qry.CreateVariable( "preseat_no", otString, FNull );
+      Qry.CreateVariable( "pax_id", otInteger, pax_id );
+      Qry.CreateVariable( "xname", otString, seat_xname );
+      Qry.CreateVariable( "yname", otString, seat_yname );
+      Qry.CreateVariable( "seats", otInteger, pre_seats );
+      Qry.CreateVariable( "point_id", otInteger, point_id );
+      Qry.CreateVariable( "layer_type", otString, FNull );
+      Qry.Execute();
+      if ( !Qry.VariableIsNULL( "layer_type" ) &&
+           DecodeCompLayerType( Qry.GetVariableAsString( "layer_type" ) ) == cltProtCkin &&
+           !Qry.VariableIsNULL( "preseat_no" ) )
+        NewTextChild( dataNode, "preseat_no", Qry.GetVariableAsString( "preseat_no" ) );
+    }
+  /* надо передать назад новый tid */
     NewTextChild( dataNode, "tid", tid );
     NewTextChild( dataNode, "placename", denorm_iata_row( yname, NULL ) + denorm_iata_line( xname, pr_lat_seat ) );
     SALONS::BuildSalonChanges( dataNode, seats );
