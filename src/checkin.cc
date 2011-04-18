@@ -7468,6 +7468,7 @@ namespace CheckIn
 
 void showError(const std::map<int, std::map<int, AstraLocale::LexemaData> > &segs)
 {
+  if (segs.empty()) throw EXCEPTIONS::Exception("CheckIn::showError: empty segs!");
   XMLRequestCtxt *xmlRC = getXmlCtxt();
   xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
   xmlNodePtr cmdNode = GetNode( "command", resNode );
@@ -7477,7 +7478,8 @@ void showError(const std::map<int, std::map<int, AstraLocale::LexemaData> > &seg
   for(std::map<int, std::map<int, AstraLocale::LexemaData> >::const_iterator s=segs.begin(); s!=segs.end(); s++)
   {
     xmlNodePtr segNode = NewTextChild(segsNode, "segment");
-    NewTextChild(segNode, "point_id", s->first);
+    if (s->first!=NoExists)
+      NewTextChild(segNode, "point_id", s->first);
     xmlNodePtr paxsNode=NewTextChild(segNode, "passengers");
     for(std::map<int, AstraLocale::LexemaData>::const_iterator pax=s->second.begin(); pax!=s->second.end(); pax++)
     {

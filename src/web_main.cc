@@ -1695,6 +1695,8 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       NewTextChild( semNode, "web_checkin", (int)(pnrData->act_out == NoExists && pnrData->web_stage == sOpenWEBCheckIn) );
     NewTextChild( semNode, "term_checkin", (int)(pnrData->act_out == NoExists && pnrData->checkin_stage == sOpenCheckIn) );
     NewTextChild( semNode, "term_brd", (int)(pnrData->act_out == NoExists && pnrData->brd_stage == sOpenBoarding) );
+    
+    NewTextChild( node, "paid_checkin", (int)pnrData->pr_paid_ckin );
 
     xmlNodePtr fltsNode = NewTextChild( node, "mark_flights" );
     for(vector<TTripInfo>::iterator m=pnrData->mark_flights.begin();
@@ -3524,216 +3526,231 @@ void WebRequestsIface::GetBPTags(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 }
 
 void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
-                         bool pr_del, int time_limit, int &curr_tid)
+                         bool pr_del, int time_limit,
+                         int &curr_tid, CheckIn::UserException &ue)
 {
   TQuery Qry(&OraSession);
   
   int point_id=NoExists;
-  bool pr_lat_seat=true;
-  if (!pr_del)
+  try
   {
-    point_id=NodeAsInteger("point_id", reqNode);
-    //проверим признак платной регистрации и
-    Qry.Clear();
-    Qry.SQLText =
-  	  "SELECT pr_permit, prot_timeout FROM trip_paid_ckin WHERE point_id=:point_id";
-  	Qry.CreateVariable( "point_id", otInteger, point_id );
-  	Qry.Execute();
-  	if ( Qry.Eof || Qry.FieldAsInteger("pr_permit")==0 )
-  	  throw UserException( "MSG.CHECKIN.NOT_PAID_CHECKIN_MODE" );
-  		
-  	if (time_limit==NoExists)
-  	{
-  	  //получим prot_timeout
-      if (!Qry.FieldIsNULL("prot_timeout"))
-        time_limit=Qry.FieldAsInteger("prot_timeout");
-  	};
-  	if (time_limit==NoExists)
-  	  throw UserException( "Не определен таймаут резервирования" ); //!!!vlad
-    
-    //получим pr_lat_seat
-    Qry.Clear();
-	  Qry.SQLText =
-      "SELECT pr_lat_seat FROM trip_sets WHERE point_id=:point_id";
-    Qry.CreateVariable("point_id", otInteger, point_id);
-    Qry.Execute();
-    if (Qry.Eof || Qry.FieldIsNULL("pr_lat_seat"))
-      throw UserException( "MSG.FLIGHT_WO_CRAFT_CONFIGURE" );
-    pr_lat_seat=Qry.FieldAsInteger("pr_lat_seat")!=0;
-    
-    NewTextChild(resNode,"point_id",point_id);
-    NewTextChild(resNode,"time_limit",time_limit);
-  };
-
-  xmlNodePtr node=NodeAsNode("passengers", reqNode)->children;
-  xmlNodePtr paxsNode=NewTextChild(resNode, "passengers");
-
-  Qry.Clear();
-	Qry.SQLText =
-    "SELECT crs_pnr.point_id, crs_pnr.target AS airp_arv, "
-    "       crs_pnr.tid AS crs_pnr_tid, "
-    "       crs_pax.tid AS crs_pax_tid "
-    "FROM crs_pnr, crs_pax "
-    "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
-    "      crs_pax.pax_id=:crs_pax_id AND "
-    "      crs_pax.pr_del=0";
-  Qry.DeclareVariable("crs_pax_id", otInteger);
-  
-  TQuery RateQry(&OraSession);
-  RateQry.Clear();
-  RateQry.SQLText=
-    "SELECT trip_comp_elems.xname, trip_comp_elems.yname, "
-    "       trip_comp_rates.color, trip_comp_rates.rate, trip_comp_rates.rate_cur "
-    "FROM trip_comp_elems, trip_comp_rates "
-    "WHERE trip_comp_elems.point_id=trip_comp_rates.point_id(+) AND "
-    "      trip_comp_elems.num=trip_comp_rates.num(+) AND "
-    "      trip_comp_elems.x=trip_comp_rates.x(+) AND "
-    "      trip_comp_elems.y=trip_comp_rates.y(+) AND "
-    "      trip_comp_elems.point_id=:point_id AND "
-    "      (salons.denormalize_yname(yname,NULL)||salons.denormalize_xname(xname,:pr_lat_seat)=:seat_no OR "
-	  "       yname||xname=:seat_no)";
-	RateQry.CreateVariable("point_id", otInteger, point_id);
-	RateQry.CreateVariable("pr_lat_seat", otInteger, (int)pr_lat_seat);
-	RateQry.DeclareVariable("seat_no", otString);
-	
-	TQuery LayerQry(&OraSession);
-  LayerQry.Clear();
-  LayerQry.SQLText=
-    "DECLARE "
-    "  vrange_id    tlg_comp_layers.range_id%TYPE; "
-    "  vpoint_id    tlg_comp_layers.point_id%TYPE; "
-    "  vairp_arv    tlg_comp_layers.airp_arv%TYPE; "
-    "  vfirst_xname tlg_comp_layers.first_xname%TYPE; "
-    "  vfirst_yname tlg_comp_layers.first_yname%TYPE; "
-    "  vlast_xname  tlg_comp_layers.last_xname%TYPE; "
-    "  vlast_yname  tlg_comp_layers.last_yname%TYPE; "
-    "  vrem_code    tlg_comp_layers.rem_code%TYPE; "
-    "BEGIN "
-    "  :delete_seat_ranges:=1; "
-    "  BEGIN "
-    "    SELECT range_id, point_id, airp_arv, "
-    "           first_xname, first_yname, last_xname, last_yname, rem_code "
-    "    INTO vrange_id, vpoint_id, vairp_arv, "
-    "         vfirst_xname, vfirst_yname, vlast_xname, vlast_yname, vrem_code "
-    "    FROM tlg_comp_layers "
-    "    WHERE crs_pax_id=:crs_pax_id AND layer_type=:layer_type FOR UPDATE; "
-    "    IF :point_id=vpoint_id AND :airp_arv=vairp_arv AND "
-    "       :first_xname=vfirst_xname AND :first_yname=vfirst_yname AND "
-    "       :last_xname=vlast_xname AND :last_yname=vlast_yname THEN "
-    "      :delete_seat_ranges:=0; "
-    "      UPDATE tlg_comp_layers "
-    "      SET time_remove=SYSTEM.UTCSYSDATE+:timeout/1440 "
-    "      WHERE range_id=vrange_id; "
-    "    END IF; "
-    "  EXCEPTION "
-    "    WHEN NO_DATA_FOUND THEN NULL; "
-    "    WHEN TOO_MANY_ROWS THEN NULL; "
-    "  END; "
-    "END; ";
-  LayerQry.DeclareVariable("delete_seat_ranges", otInteger);
-  LayerQry.DeclareVariable("point_id", otInteger);
-  LayerQry.DeclareVariable("airp_arv", otString);
-  LayerQry.DeclareVariable("layer_type", otString);
-  LayerQry.DeclareVariable("first_xname", otString);
-  LayerQry.DeclareVariable("last_xname", otString);
-  LayerQry.DeclareVariable("first_yname", otString);
-  LayerQry.DeclareVariable("last_yname", otString);
-  LayerQry.DeclareVariable("crs_pax_id", otInteger);
-  if (time_limit!=NoExists)
-    LayerQry.CreateVariable("timeout", otInteger, time_limit);
-  else
-    LayerQry.CreateVariable("timeout", otInteger, FNull);
-
-
-  bool UsePriorContext=false;
-  for(;node!=NULL;node=node->next)
-  {
-    xmlNodePtr node2=node->children;
-    TWebPaxFromReq pax;
-
-    pax.crs_pax_id=NodeAsIntegerFast("crs_pax_id", node2);
+    bool pr_lat_seat=true;
     if (!pr_del)
     {
-      pax.seat_no=NodeAsStringFast("seat_no", node2);
-      if (pax.seat_no.empty())
-        throw EXCEPTIONS::Exception("ChangeProtPaidLayer: empty seat_no (crs_pax_id=%d)", pax.crs_pax_id);
+      point_id=NodeAsInteger("point_id", reqNode);
+      //проверим признак платной регистрации и
+      Qry.Clear();
+      Qry.SQLText =
+    	  "SELECT pr_permit, prot_timeout FROM trip_paid_ckin WHERE point_id=:point_id";
+    	Qry.CreateVariable( "point_id", otInteger, point_id );
+    	Qry.Execute();
+    	if ( Qry.Eof || Qry.FieldAsInteger("pr_permit")==0 )
+    	  throw UserException( "MSG.CHECKIN.NOT_PAID_CHECKIN_MODE" );
+
+    	if (time_limit==NoExists)
+    	{
+    	  //получим prot_timeout
+        if (!Qry.FieldIsNULL("prot_timeout"))
+          time_limit=Qry.FieldAsInteger("prot_timeout");
+    	};
+    	if (time_limit==NoExists)
+    	  throw UserException( "Не определен таймаут резервирования" ); //!!!vlad
+
+      //получим pr_lat_seat
+      Qry.Clear();
+  	  Qry.SQLText =
+        "SELECT pr_lat_seat FROM trip_sets WHERE point_id=:point_id";
+      Qry.CreateVariable("point_id", otInteger, point_id);
+      Qry.Execute();
+      if (Qry.Eof || Qry.FieldIsNULL("pr_lat_seat"))
+        throw UserException( "MSG.FLIGHT_WO_CRAFT_CONFIGURE" );
+      pr_lat_seat=Qry.FieldAsInteger("pr_lat_seat")!=0;
+
+      NewTextChild(resNode,"point_id",point_id);
+      NewTextChild(resNode,"time_limit",time_limit);
     };
-    xmlNodePtr tidsNode=NodeAsNodeFast("tids", node2);
-    pax.crs_pnr_tid=NodeAsInteger("crs_pnr_tid",tidsNode);
-    pax.crs_pax_tid=NodeAsInteger("crs_pax_tid",tidsNode);
 
-    //проверим tids пассажира
-    Qry.SetVariable("crs_pax_id",pax.crs_pax_id);
-    Qry.Execute();
-    if (Qry.Eof)
-      throw UserException("MSG.PASSENGER.NOT_FOUND.REFRESH_DATA");
-    if (pax.crs_pnr_tid!=Qry.FieldAsInteger("crs_pnr_tid") ||
-        pax.crs_pax_tid!=Qry.FieldAsInteger("crs_pax_tid"))
-      throw UserException("MSG.PASSENGER.CHANGED.REFRESH_DATA");
-      
-    if (!pr_del)
-    {
-      RateQry.SetVariable("seat_no", pax.seat_no);
-      RateQry.Execute();
-      if (RateQry.Eof || RateQry.FieldIsNULL("xname") || RateQry.FieldIsNULL("yname"))
-        throw UserException( "MSG.SEATS.SEAT_NO.NOT_FOUND" );
-      if (RateQry.FieldIsNULL("rate"))
-        throw UserException( "MSG.SEATS.NOT_SET_RATE" );
-      
-      vector<TSeatRange> ranges(1,TSeatRange(TSeat(RateQry.FieldAsString("yname"),
-                                                   RateQry.FieldAsString("xname")),
-                                             TSeat(RateQry.FieldAsString("yname"),
-                                                   RateQry.FieldAsString("xname"))));
+    xmlNodePtr node=NodeAsNode("passengers", reqNode)->children;
+    xmlNodePtr paxsNode=NewTextChild(resNode, "passengers");
 
-      LayerQry.SetVariable("delete_seat_ranges", 1);
-      LayerQry.SetVariable("point_id", Qry.FieldAsInteger("point_id"));
-      LayerQry.SetVariable("airp_arv", Qry.FieldAsString("airp_arv"));
-      LayerQry.SetVariable("layer_type", EncodeCompLayerType(cltProtBeforePay));
-      LayerQry.SetVariable("first_xname", RateQry.FieldAsString("xname"));
-      LayerQry.SetVariable("last_xname", RateQry.FieldAsString("xname"));
-      LayerQry.SetVariable("first_yname", RateQry.FieldAsString("yname"));
-      LayerQry.SetVariable("last_yname", RateQry.FieldAsString("yname"));
-      LayerQry.SetVariable("crs_pax_id", pax.crs_pax_id);
-      LayerQry.Execute();
-      if (LayerQry.GetVariableAsInteger("delete_seat_ranges")!=0)
-      {
-        DeleteTlgSeatRanges(cltProtBeforePay, pax.crs_pax_id, curr_tid);
-        InsertTlgSeatRanges(Qry.FieldAsInteger("point_id"),
-                            Qry.FieldAsString("airp_arv"),
-                            cltProtBeforePay,
-                            ranges,
-                            pax.crs_pax_id,
-                            NoExists,
-                            time_limit,
-                            UsePriorContext,
-                            curr_tid);
-        UsePriorContext=true;
-      };
-    }
+    Qry.Clear();
+  	Qry.SQLText =
+      "SELECT crs_pnr.point_id, crs_pnr.target AS airp_arv, "
+      "       crs_pnr.tid AS crs_pnr_tid, "
+      "       crs_pax.tid AS crs_pax_tid "
+      "FROM crs_pnr, crs_pax "
+      "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
+      "      crs_pax.pax_id=:crs_pax_id AND "
+      "      crs_pax.pr_del=0";
+    Qry.DeclareVariable("crs_pax_id", otInteger);
+
+    TQuery RateQry(&OraSession);
+    RateQry.Clear();
+    RateQry.SQLText=
+      "SELECT trip_comp_elems.xname, trip_comp_elems.yname, "
+      "       trip_comp_rates.color, trip_comp_rates.rate, trip_comp_rates.rate_cur "
+      "FROM trip_comp_elems, trip_comp_rates "
+      "WHERE trip_comp_elems.point_id=trip_comp_rates.point_id(+) AND "
+      "      trip_comp_elems.num=trip_comp_rates.num(+) AND "
+      "      trip_comp_elems.x=trip_comp_rates.x(+) AND "
+      "      trip_comp_elems.y=trip_comp_rates.y(+) AND "
+      "      trip_comp_elems.point_id=:point_id AND "
+      "      (salons.denormalize_yname(yname,NULL)||salons.denormalize_xname(xname,:pr_lat_seat)=:seat_no OR "
+  	  "       yname||xname=:seat_no)";
+  	RateQry.CreateVariable("point_id", otInteger, point_id);
+  	RateQry.CreateVariable("pr_lat_seat", otInteger, (int)pr_lat_seat);
+  	RateQry.DeclareVariable("seat_no", otString);
+
+  	TQuery LayerQry(&OraSession);
+    LayerQry.Clear();
+    LayerQry.SQLText=
+      "DECLARE "
+      "  vrange_id    tlg_comp_layers.range_id%TYPE; "
+      "  vpoint_id    tlg_comp_layers.point_id%TYPE; "
+      "  vairp_arv    tlg_comp_layers.airp_arv%TYPE; "
+      "  vfirst_xname tlg_comp_layers.first_xname%TYPE; "
+      "  vfirst_yname tlg_comp_layers.first_yname%TYPE; "
+      "  vlast_xname  tlg_comp_layers.last_xname%TYPE; "
+      "  vlast_yname  tlg_comp_layers.last_yname%TYPE; "
+      "  vrem_code    tlg_comp_layers.rem_code%TYPE; "
+      "BEGIN "
+      "  :delete_seat_ranges:=1; "
+      "  BEGIN "
+      "    SELECT range_id, point_id, airp_arv, "
+      "           first_xname, first_yname, last_xname, last_yname, rem_code "
+      "    INTO vrange_id, vpoint_id, vairp_arv, "
+      "         vfirst_xname, vfirst_yname, vlast_xname, vlast_yname, vrem_code "
+      "    FROM tlg_comp_layers "
+      "    WHERE crs_pax_id=:crs_pax_id AND layer_type=:layer_type FOR UPDATE; "
+      "    IF :point_id=vpoint_id AND :airp_arv=vairp_arv AND "
+      "       :first_xname=vfirst_xname AND :first_yname=vfirst_yname AND "
+      "       :last_xname=vlast_xname AND :last_yname=vlast_yname THEN "
+      "      :delete_seat_ranges:=0; "
+      "      UPDATE tlg_comp_layers "
+      "      SET time_remove=SYSTEM.UTCSYSDATE+:timeout/1440 "
+      "      WHERE range_id=vrange_id; "
+      "    END IF; "
+      "  EXCEPTION "
+      "    WHEN NO_DATA_FOUND THEN NULL; "
+      "    WHEN TOO_MANY_ROWS THEN NULL; "
+      "  END; "
+      "END; ";
+    LayerQry.DeclareVariable("delete_seat_ranges", otInteger);
+    LayerQry.DeclareVariable("point_id", otInteger);
+    LayerQry.DeclareVariable("airp_arv", otString);
+    LayerQry.DeclareVariable("layer_type", otString);
+    LayerQry.DeclareVariable("first_xname", otString);
+    LayerQry.DeclareVariable("last_xname", otString);
+    LayerQry.DeclareVariable("first_yname", otString);
+    LayerQry.DeclareVariable("last_yname", otString);
+    LayerQry.DeclareVariable("crs_pax_id", otInteger);
+    if (time_limit!=NoExists)
+      LayerQry.CreateVariable("timeout", otInteger, time_limit);
     else
-      DeleteTlgSeatRanges(cltProtBeforePay, pax.crs_pax_id, curr_tid);
-    
-    //вернем tids пассажира в TWebPaxFromReq
-    Qry.Execute();
-    if (Qry.Eof)
-      throw UserException("MSG.PASSENGER.NOT_FOUND.REFRESH_DATA");
-    pax.crs_pnr_tid=Qry.FieldAsInteger("crs_pnr_tid");
-    pax.crs_pax_tid=Qry.FieldAsInteger("crs_pax_tid");
-    
-    xmlNodePtr paxNode=NewTextChild(paxsNode, "pax");
-    NewTextChild(paxNode, "crs_pax_id", pax.crs_pax_id);
-    tidsNode=NewTextChild(paxNode, "tids");
-    NewTextChild(tidsNode, "crs_pnr_tid", pax.crs_pnr_tid);
-    NewTextChild(tidsNode, "crs_pax_tid", pax.crs_pax_tid);
-    if (!pr_del)
+      LayerQry.CreateVariable("timeout", otInteger, FNull);
+
+
+    bool UsePriorContext=false;
+    for(;node!=NULL;node=node->next)
     {
-      xmlNodePtr rateNode=NewTextChild(paxNode, "rate");
-      NewTextChild(rateNode, "color", RateQry.FieldAsString("color"));
-      ostringstream buf;
-      buf << std::fixed << setprecision(2) << RateQry.FieldAsFloat("rate");
-      NewTextChild(rateNode, "value", buf.str());
-      NewTextChild(rateNode, "currency", RateQry.FieldAsString("rate_cur"));
+      xmlNodePtr node2=node->children;
+      TWebPaxFromReq pax;
+
+      pax.crs_pax_id=NodeAsIntegerFast("crs_pax_id", node2);
+      try
+      {
+        if (!pr_del)
+        {
+          pax.seat_no=NodeAsStringFast("seat_no", node2);
+          if (pax.seat_no.empty())
+            throw EXCEPTIONS::Exception("ChangeProtPaidLayer: empty seat_no (crs_pax_id=%d)", pax.crs_pax_id);
+        };
+        xmlNodePtr tidsNode=NodeAsNodeFast("tids", node2);
+        pax.crs_pnr_tid=NodeAsInteger("crs_pnr_tid",tidsNode);
+        pax.crs_pax_tid=NodeAsInteger("crs_pax_tid",tidsNode);
+
+        //проверим tids пассажира
+        Qry.SetVariable("crs_pax_id",pax.crs_pax_id);
+        Qry.Execute();
+        if (Qry.Eof)
+          throw UserException("MSG.PASSENGER.NOT_FOUND.REFRESH_DATA");
+        if (pax.crs_pnr_tid!=Qry.FieldAsInteger("crs_pnr_tid") ||
+            pax.crs_pax_tid!=Qry.FieldAsInteger("crs_pax_tid"))
+          throw UserException("MSG.PASSENGER.CHANGED.REFRESH_DATA");
+
+        if (!pr_del)
+        {
+          RateQry.SetVariable("seat_no", pax.seat_no);
+          RateQry.Execute();
+          if (RateQry.Eof || RateQry.FieldIsNULL("xname") || RateQry.FieldIsNULL("yname"))
+            throw UserException( "MSG.SEATS.SEAT_NO.NOT_FOUND" );
+          if (RateQry.FieldIsNULL("rate"))
+            throw UserException( "MSG.SEATS.NOT_SET_RATE" );
+
+          vector<TSeatRange> ranges(1,TSeatRange(TSeat(RateQry.FieldAsString("yname"),
+                                                       RateQry.FieldAsString("xname")),
+                                                 TSeat(RateQry.FieldAsString("yname"),
+                                                       RateQry.FieldAsString("xname"))));
+
+          LayerQry.SetVariable("delete_seat_ranges", 1);
+          LayerQry.SetVariable("point_id", Qry.FieldAsInteger("point_id"));
+          LayerQry.SetVariable("airp_arv", Qry.FieldAsString("airp_arv"));
+          LayerQry.SetVariable("layer_type", EncodeCompLayerType(cltProtBeforePay));
+          LayerQry.SetVariable("first_xname", RateQry.FieldAsString("xname"));
+          LayerQry.SetVariable("last_xname", RateQry.FieldAsString("xname"));
+          LayerQry.SetVariable("first_yname", RateQry.FieldAsString("yname"));
+          LayerQry.SetVariable("last_yname", RateQry.FieldAsString("yname"));
+          LayerQry.SetVariable("crs_pax_id", pax.crs_pax_id);
+          LayerQry.Execute();
+          if (LayerQry.GetVariableAsInteger("delete_seat_ranges")!=0)
+          {
+            DeleteTlgSeatRanges(cltProtBeforePay, pax.crs_pax_id, curr_tid);
+            InsertTlgSeatRanges(Qry.FieldAsInteger("point_id"),
+                                Qry.FieldAsString("airp_arv"),
+                                cltProtBeforePay,
+                                ranges,
+                                pax.crs_pax_id,
+                                NoExists,
+                                time_limit,
+                                UsePriorContext,
+                                curr_tid);
+            UsePriorContext=true;
+          };
+        }
+        else
+          DeleteTlgSeatRanges(cltProtBeforePay, pax.crs_pax_id, curr_tid);
+
+        //вернем tids пассажира в TWebPaxFromReq
+        Qry.Execute();
+        if (Qry.Eof)
+          throw UserException("MSG.PASSENGER.NOT_FOUND.REFRESH_DATA");
+        pax.crs_pnr_tid=Qry.FieldAsInteger("crs_pnr_tid");
+        pax.crs_pax_tid=Qry.FieldAsInteger("crs_pax_tid");
+
+        xmlNodePtr paxNode=NewTextChild(paxsNode, "pax");
+        NewTextChild(paxNode, "crs_pax_id", pax.crs_pax_id);
+        tidsNode=NewTextChild(paxNode, "tids");
+        NewTextChild(tidsNode, "crs_pnr_tid", pax.crs_pnr_tid);
+        NewTextChild(tidsNode, "crs_pax_tid", pax.crs_pax_tid);
+        if (!pr_del)
+        {
+          xmlNodePtr rateNode=NewTextChild(paxNode, "rate");
+          NewTextChild(rateNode, "color", RateQry.FieldAsString("color"));
+          ostringstream buf;
+          buf << std::fixed << setprecision(2) << RateQry.FieldAsFloat("rate");
+          NewTextChild(rateNode, "value", buf.str());
+          NewTextChild(rateNode, "currency", RateQry.FieldAsString("rate_cur"));
+        };
+      }
+      catch(UserException &e)
+      {
+        ue.addError(e.getLexemaData(), point_id, pax.crs_pax_id);
+      };
     };
+  }
+  catch(UserException &e)
+  {
+    ue.addError(e.getLexemaData(), point_id);
   };
 };
 
@@ -3742,6 +3759,7 @@ void WebRequestsIface::AddProtPaidLayer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   resNode=NewTextChild(resNode,"AddProtPaidLayer");
   int time_limit=NoExists;
   int curr_tid=NoExists;
+  CheckIn::UserException e;
   xmlNodePtr node=GetNode("time_limit",reqNode);
   if (node!=NULL && !NodeIsNULL(node))
   {
@@ -3754,15 +3772,18 @@ void WebRequestsIface::AddProtPaidLayer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   for(;node!=NULL;node=node->next)
   {
     xmlNodePtr segNode=NewTextChild(segsNode, "segment");
-    ChangeProtPaidLayer(node, segNode, false, time_limit, curr_tid);
+    ChangeProtPaidLayer(node, segNode, false, time_limit, curr_tid, e );
   };
+  if (!e.empty()) throw e;
 };
 
 void WebRequestsIface::RemoveProtPaidLayer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   resNode=NewTextChild(resNode,"RemoveProtPaidLayer");
   int curr_tid=NoExists;
-  ChangeProtPaidLayer(reqNode, resNode, true, NoExists, curr_tid);
+  CheckIn::UserException e;
+  ChangeProtPaidLayer(reqNode, resNode, true, NoExists, curr_tid, e);
+  if (!e.empty()) throw e;
 };
 
 } //end namespace AstraWeb

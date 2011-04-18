@@ -111,6 +111,11 @@ class UserException:public EXCEPTIONS::Exception
 		std::string lexema_id;
 		LParams lparams;
         int FCode;
+  protected:
+    void setLexemaData( const LexemaData &data) {
+    	lexema_id = data.lexema_id;
+    	lparams = data.lparams;
+    }
 	public:
     int Code() { return FCode; };
     UserException( int code, const std::string &vlexema, const LParams &aparams):EXCEPTIONS::Exception(vlexema)

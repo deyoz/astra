@@ -408,4 +408,10 @@ void AstraJxtCallbacks::HandleException(ServerFramework::Exception *e)
     catch( int ) {
     	UserAfter();
     }
+    catch(ServerFramework::Exception &localException)
+    {
+      ProgError(STDLOG,"AstraJxtCallbacks::HandleException: %s", localException.what());
+      throw;
+    };
+    
 }
