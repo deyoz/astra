@@ -2203,6 +2203,11 @@ struct TWebPlace {
 	int pr_CHIN;
 	int pax_id;
 	SALONS2::TPlaceWebTariff WebTariff;
+	TWebPlace() {
+	  pr_free = 0;
+	  pr_CHIN = 0;
+    pax_id = NoExists;
+  }
 };
 
 typedef std::vector<TWebPlace> TWebPlaces;
@@ -2211,6 +2216,196 @@ struct TWebPlaceList {
 	TWebPlaces places;
 	int xcount, ycount;
 };
+
+void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &web_salons, bool &pr_find_free_subcls_place )
+{
+  string crs_class, crs_subclass;
+  web_salons.clear();
+  bool pr_CHIN = false;
+  for ( vector<TWebPax>::iterator i=pnr.begin(); i!=pnr.end(); i++ ) {
+  	if ( !i->pass_class.empty() )
+  	  crs_class = i->pass_class;
+  	if ( !i->pass_subclass.empty() )
+  	  crs_subclass = i->pass_subclass;
+  	TPerson p=DecodePerson(i->pers_type_extended.c_str());
+  	pr_CHIN=(p==ASTRA::child || p==ASTRA::baby); //среди типов может быть БГ (CBBG) который приравнивается к взрослому
+  }
+  if ( crs_class.empty() )
+  	throw UserException( "MSG.CLASS.NOT_SET" );
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "SELECT airline FROM points WHERE point_id=:point_id";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  TSublsRems subcls_rems( Qry.FieldAsString("airline") );
+  SALONS2::TSalons Salons( point_id, SALONS2::rTripSalons );
+  Salons.ClName = crs_class;
+  Salons.Read();
+  // получим признак того, что в салоне есть свободные места с данным подклассом
+  pr_find_free_subcls_place=false;
+  string pass_rem;
+
+  subcls_rems.IsSubClsRem( crs_subclass, pass_rem );
+
+  for( vector<TPlaceList*>::iterator placeList = Salons.placelists.begin();
+       placeList != Salons.placelists.end(); placeList++ ) {
+    TWebPlaceList web_place_list;
+    web_place_list.xcount=0;
+    web_place_list.ycount=0;
+    for ( TPlaces::iterator place = (*placeList)->places.begin();
+          place != (*placeList)->places.end(); place++ ) { // пробег по салонам
+      if ( !place->visible )
+       continue;
+      TWebPlace wp;
+      wp.x = place->x;
+      wp.y = place->y;
+      if ( place->x > web_place_list.xcount )
+      	web_place_list.xcount = place->x;
+      if ( place->y > web_place_list.ycount )
+      	web_place_list.ycount = place->y;
+      wp.seat_no = denorm_iata_row( place->yname, NULL ) + denorm_iata_line( place->xname, Salons.getLatSeat() );
+      if ( !place->elem_type.empty() ) {
+      	if ( place->elem_type != PARTITION_ELEM_TYPE )
+     	    wp.elem_type = ARMCHAIR_ELEM_TYPE;
+     	  else
+     	  	wp.elem_type = PARTITION_ELEM_TYPE;
+     	}
+     	wp.pr_free = 0;
+     	wp.pr_CHIN = false;
+     	wp.pax_id = NoExists;
+     	wp.WebTariff.color = place->WebTariff.color;
+     	wp.WebTariff.value = place->WebTariff.value;
+     	wp.WebTariff.currency_id = place->WebTariff.currency_id;
+     	if ( place->isplace && !place->clname.empty() && place->clname == crs_class ) {
+     		bool pr_first = true;
+     		for( std::vector<TPlaceLayer>::iterator l=place->layers.begin(); l!=place->layers.end(); l++ ) { // сортировка по приоритета
+     			if ( pr_first &&
+     				   l->layer_type != cltUncomfort &&
+     				   l->layer_type != cltSmoke &&
+     				   l->layer_type != cltUnknown ) {
+     				pr_first = false;
+     				wp.pr_free = ( ( l->layer_type == cltPNLCkin ||
+                             isUserProtectLayer( l->layer_type ) ) && isOwnerFreePlace( l->pax_id, pnr ) );
+            ProgTrace( TRACE5, "l->layer_type=%s, l->pax_id=%d, isOwnerFreePlace( l->pax_id, pnr )=%d, pr_first=%d",
+                       EncodeCompLayerType(l->layer_type), l->pax_id, isOwnerFreePlace( l->pax_id, pnr ), pr_first );
+     				if ( wp.pr_free )
+     					break;
+     			}
+
+     			if ( l->layer_type == cltCheckin ||
+     				   l->layer_type == cltTCheckin ||
+     				   l->layer_type == cltGoShow ||
+     				   l->layer_type == cltTranzit ) {
+     				pr_first = false;
+            if ( isOwnerPlace( l->pax_id, pnr ) )
+     				  wp.pax_id = l->pax_id;
+     			}
+     	  }
+
+     	  wp.pr_free = ( wp.pr_free || pr_first ); // 0 - занято, 1 - свободно, 2 - частично занято
+
+        if ( wp.pr_free ) {
+        	if ( !pass_rem.empty() ) {
+        	  wp.pr_free = 2; // свободно без учета подкласса
+            for ( vector<TRem>::iterator i=place->rems.begin(); i!=place->rems.end(); i++ ) {
+            	if ( i->rem == pass_rem ) {
+            		if ( !i->pr_denial ) {
+            		  wp.pr_free = 3;  // свободно с учетом подкласса
+            		  pr_find_free_subcls_place=true;
+            		}
+            		break;
+            	}
+            }
+          }
+          else { // пассажир без подкласса
+          	for ( vector<TRem>::iterator i=place->rems.begin(); i!=place->rems.end(); i++ ) {
+          		if ( isREM_SUBCLS( i->rem ) ) {
+          			wp.pr_free = 0;
+          			break;
+          		}
+            }
+          }
+        }
+        if ( pr_CHIN ) { // встречаются в группе пассажиры с детьми
+        	if ( place->elem_type == "А" ) { // место у аварийного выхода
+       			wp.pr_CHIN = true;
+          }
+          else {
+        	  for ( vector<TRem>::iterator i=place->rems.begin(); i!=place->rems.end(); i++ ) {
+        	  	if ( i->pr_denial && i->rem == "CHIN" ) {
+        	  		wp.pr_CHIN = true;
+        	  		break;
+        	  	}
+            }
+          }
+        }
+      } // end if place->isplace && !place->clname.empty() && place->clname == crs_class
+      web_place_list.places.push_back( wp );
+    }
+    if ( !web_place_list.places.empty() ) {
+    	web_salons[ (*placeList)->num ] = web_place_list;
+    }
+  }
+}
+
+int get_seat_status( TWebPlace &wp, bool pr_find_free_subcls_place )
+{
+  int status;
+  switch( wp.pr_free ) {
+  	case 0:
+   		status = 1;
+   		break;
+   	case 1:
+   		status = 0;
+   		break;
+   	case 2:
+   		status = pr_find_free_subcls_place;
+   		break;
+   	case 3:
+   		status = !pr_find_free_subcls_place;
+   		break;
+  };
+  if ( status == 0 && wp.pr_CHIN ) {
+   	status = 2;
+  }
+  return status;
+}
+
+// передается заполненные поля (crs_pax_id, seat_no)class, subclass,
+// на выходе заполнено TWebPlace по пассажиру
+//!!vlad для того, чтобы получить status - передается клиенту, надо использовать ф-цию get_seat_status
+void GetCrsPaxSeats( int point_id, const vector<TWebPax> &pnr, vector< pair<TWebPlace, LexemaData> > &pax_seats )
+{
+  pax_seats.clear();
+  map<int, TWebPlaceList> web_salons;
+  bool pr_find_free_subcls_place=false;
+  ReadWebSalons( point_id, pnr, web_salons, pr_find_free_subcls_place );
+  for ( vector<TWebPax>::const_iterator i=pnr.begin(); i!=pnr.end(); i++ ) { // пробег по пассажирам
+    LexemaData ld;
+    bool pr_find = false;
+    for( map<int, TWebPlaceList>::iterator isal=web_salons.begin(); isal!=web_salons.end(); isal++ ) {
+      for ( TWebPlaces::iterator wp = isal->second.places.begin();
+            wp != isal->second.places.end(); wp++ ) {
+        if ( i->crs_seat_no == wp->seat_no ) {
+          if ( i->crs_pax_id != wp->pax_id )
+            ld.lexema_id = "Кто-то другой"; //!!!vlad
+          pr_find = true;
+          pax_seats.push_back( make_pair( *wp, ld ) );
+     	    break;
+        }
+      } // пробег по салону
+      if ( pr_find )
+        break;
+    } // пробег по салону
+    if ( !pr_find ) {
+      TWebPlace wp;
+      wp.pax_id = i->crs_pax_id;
+      wp.seat_no = i->crs_seat_no;
+      ld.lexema_id = "нет места в салоне"; //!!!vlad
+      pax_seats.push_back( make_pair( wp, ld ) );
+    }
+  } // пробег по пассажирам
+}
 
 /*
 1. Что делать если пассажир имеет спец. подкласс (ремарки MCLS) - Пока выбираем только места с ремарками нужного подкласса.
@@ -2225,13 +2420,13 @@ void WebRequestsIface::ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   ProgTrace(TRACE1,"WebRequestsIface::ViewCraft");
   int point_id = NodeAsInteger( "point_id", reqNode );
   int pnr_id = NodeAsInteger( "pnr_id", reqNode );
-  string crs_class, crs_subclass;
+//  string crs_class, crs_subclass;
   vector<TWebPax> pnr;
   TSearchPnrData SearchPnrData;
   getTripData( point_id, false, SearchPnrData, true );
   VerifyPNR( point_id, pnr_id );
   getPnr( SearchPnrData.pr_paid_ckin, pnr_id, pnr, true );
-  bool pr_CHIN = false;
+/*  bool pr_CHIN = false;
   for ( vector<TWebPax>::iterator i=pnr.begin(); i!=pnr.end(); i++ ) {
   	if ( !i->pass_class.empty() )
   	  crs_class = i->pass_class;
@@ -2241,11 +2436,12 @@ void WebRequestsIface::ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   	pr_CHIN=(p==ASTRA::child || p==ASTRA::baby); //среди типов может быть БГ (CBBG) который приравнивается к взрослому
   }
   if ( crs_class.empty() )
-  	throw UserException( "MSG.CLASS.NOT_SET" );
+  	throw UserException( "MSG.CLASS.NOT_SET" );*/
 
-  map<string,bool> ispl;
-  ImagesInterface::GetisPlaceMap( ispl );
-  TQuery Qry(&OraSession);
+  map<int, TWebPlaceList> web_salons;
+  bool pr_find_free_subcls_place=false;
+  ReadWebSalons( point_id, pnr, web_salons, pr_find_free_subcls_place );
+/*  TQuery Qry(&OraSession);
   Qry.SQLText =
     "SELECT airline FROM points WHERE point_id=:point_id";
   Qry.CreateVariable( "point_id", otInteger, point_id );
@@ -2359,7 +2555,7 @@ void WebRequestsIface::ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     if ( !web_place_list.places.empty() ) {
     	web_salons[ (*placeList)->num ] = web_place_list;
     }
-  }
+  } */
 
   xmlNodePtr node = NewTextChild( resNode, "ViewCraft" );
   node = NewTextChild( node, "salons" );
@@ -2375,25 +2571,7 @@ void WebRequestsIface::ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       NewTextChild( placeNode, "y", wp->y );
       NewTextChild( placeNode, "seat_no", wp->seat_no );
       NewTextChild( placeNode, "elem_type", wp->elem_type );
-      int status;
-      switch( wp->pr_free ) {
-      	case 0:
-      		status = 1;
-      		break;
-      	case 1:
-      		status = 0;
-      		break;
-      	case 2:
-      		status = pr_find_free_subcls_place;
-      		break;
-      	case 3:
-      		status = !pr_find_free_subcls_place;
-      		break;
-      };
-      if ( status == 0 && wp->pr_CHIN ) {
-      	status = 2;
-      }
-      NewTextChild( placeNode, "status", status );
+      NewTextChild( placeNode, "status", get_seat_status( *wp, pr_find_free_subcls_place ) );
       if ( wp->pax_id != NoExists )
       	NewTextChild( placeNode, "pax_id", wp->pax_id );
       if ( /*SearchPnrData.pr_paid_ckin && */wp->WebTariff.value != 0.0 ) { // тариф появится только тогда когда включен режим платной разметки !!!vlad
