@@ -428,23 +428,10 @@ bool TPrnTagStore::tag_processed(std::string name)
 
 string TPrnTagStore::get_tag(string name, string date_format, string tag_lang)
 {
-    this->tag_lang.set_tag_lang(tag_lang);
-    try {
-        string result;
-        name = upperc(name);
-        if(prn_test_tags.items.empty())
-            result = get_real_field(name, 0, date_format);
-        else
-            result = get_test_field(name, 0, date_format);
-        this->tag_lang.set_tag_lang("");
-        return result;
-    } catch(...) {
-        this->tag_lang.set_tag_lang("");
-        throw;
-    }
+    return get_field(upperc(name), 0, "L", date_format, tag_lang);
 }
 
-string cut_result(string &result)
+string cut_result(string result)
 {
     TrimString(result);
     if(result.size() > 20)
