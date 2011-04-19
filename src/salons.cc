@@ -221,14 +221,7 @@ TSalons::TSalons( int id, TReadStyle vreadStyle, bool vdrop_not_used_pax_layers 
          FilterLayers.isFlag( cltProtAfterPay ) ||
          FilterLayers.isFlag( cltPNLBeforePay ) ||
          FilterLayers.isFlag( cltPNLAfterPay ) )
-      layers_priority[ cltProtBeforePay ].name_view = "Резервирование платного места";
-/*    if ( FilterLayers.isFlag( cltProtAfterPay ) )
-      layers_priority[ cltProtAfterPay ].name_view = layers_priority[ cltProtAfterPay ].name;
-    if ( FilterLayers.isFlag( cltPNLBeforePay ) )
-      layers_priority[ cltPNLBeforePay ].name_view = layers_priority[ cltPNLBeforePay ].name;
-    if ( FilterLayers.isFlag( cltPNLAfterPay ) )
-      layers_priority[ cltPNLAfterPay ].name_view = layers_priority[ cltPNLAfterPay ].name;*/
-
+      layers_priority[ cltProtBeforePay ].name_view = AstraLocale::getLocaleText("Резервирование платного места");
     layers_priority[ cltProtect ].name_view = layers_priority[ cltProtect ].name;
     if ( FilterLayers.isFlag( cltProtect ) )
       layers_priority[ cltProtect ].func_key = "Shift+F4";
