@@ -193,6 +193,7 @@ TPrnTagStore::TTagProps::TTagProps(TDevOperType vop): op(dotUnknown)
 // Bag receipts
 TPrnTagStore::TPrnTagStore(TBagReceipt &arcpt): rcpt(arcpt), prn_tag_props(dotPrnBR), tag_lang(arcpt.tag_lang)
 {
+    print_mode = 0;
     tag_list.insert(make_pair(TAG::BULKY_BT,        TTagListItem(&TPrnTagStore::BULKY_BT, 0)));
     tag_list.insert(make_pair(TAG::BULKY_BT_LETTER, TTagListItem(&TPrnTagStore::BULKY_BT_LETTER, 0)));
     tag_list.insert(make_pair(TAG::GOLF_BT,         TTagListItem(&TPrnTagStore::GOLF_BT, 0)));
@@ -236,6 +237,7 @@ TPrnTagStore::TPrnTagStore(TBagReceipt &arcpt): rcpt(arcpt), prn_tag_props(dotPr
 // Test tags
 TPrnTagStore::TPrnTagStore(bool apr_lat): rcpt(NULL), prn_tag_props(dotUnknown)
 {
+    print_mode = 0;
     tag_lang.Init(apr_lat);
     prn_test_tags.Init();
 }
@@ -244,6 +246,7 @@ TPrnTagStore::TPrnTagStore(bool apr_lat): rcpt(NULL), prn_tag_props(dotUnknown)
 TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tagsNode, TBTRoute *aroute): rcpt(NULL),
     prn_tag_props(aroute == NULL ? dotPrnBP : dotPrnBT)
 {
+    print_mode = 0;
     grpInfo.Init(agrp_id);
     tag_lang.Init(grpInfo.point_dep, grpInfo.point_arv, aroute, apr_lat != 0);
     pax_id = apax_id;
@@ -482,6 +485,7 @@ string TPrnTagStore::get_field(std::string name, size_t len, std::string align, 
             }
         }
         this->tag_lang.set_tag_lang("");
+        //ProgTrace(TRACE5, "name: %s, value: '%s'", name.c_str(), result.c_str());
         return result;
     } catch(...) {
         this->tag_lang.set_tag_lang("");
