@@ -2876,8 +2876,9 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   	ProgTrace( TRACE5, "!!! Passenger set layer=%s, but his was chekin in funct ChangeLayer", EncodeCompLayerType( layer_type ) );
   	throw UserException( "MSG.PASSENGER.CHECKED.REFRESH_DATA" );
   }
-  //если пассажир имеет платный слой, то нельзя работать с предварительной разметкой
-  if ( layer_type == cltProtCkin ) { //!!!переделать!!!
+  // проверка на то, что пассажир имеет уже более приоритетный слой, а хотим назначить менее приоритетный
+  //если пассажир имеет платный слой, то нельзя работать с предварительной разметкой ???
+/*  if ( layer_type == cltProtCkin ) { //!!!переделать!!!
      Qry.Clear();
      Qry.SQLText =
        "SELECT pax_id FROM trip_comp_layers "
@@ -2891,7 +2892,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
      Qry.Execute();
      if ( !Qry.Eof )
        throw UserException( "MSG.SEATS.SEAT_NO.NOT_USE" );
-  }
+    }*/
   
   
   vector<TSeatRange> seats;
