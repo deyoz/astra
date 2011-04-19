@@ -10,6 +10,7 @@
 #include "oralib.h"
 #include "images.h"
 #include "convert.h"
+#include "astra_misc.h"
 #include "tripinfo.h"
 #include "astra_locale.h"
 #include "base_tables.h"
@@ -216,14 +217,17 @@ TSalons::TSalons( int id, TReadStyle vreadStyle, bool vdrop_not_used_pax_layers 
     layers_priority[ cltPNLCkin ].name_view = layers_priority[ cltPNLCkin ].name;
     layers_priority[ cltProtCkin ].name_view = layers_priority[ cltProtCkin ].name;
     
-    if ( FilterLayers.isFlag( cltProtBeforePay ) )
-      layers_priority[ cltProtBeforePay ].name_view = layers_priority[ cltProtBeforePay ].name;
-    if ( FilterLayers.isFlag( cltProtAfterPay ) )
+    if ( FilterLayers.isFlag( cltProtBeforePay ) ||
+         FilterLayers.isFlag( cltProtAfterPay ) ||
+         FilterLayers.isFlag( cltPNLBeforePay ) ||
+         FilterLayers.isFlag( cltPNLAfterPay ) )
+      layers_priority[ cltProtBeforePay ].name_view = "Резервирование платного места";
+/*    if ( FilterLayers.isFlag( cltProtAfterPay ) )
       layers_priority[ cltProtAfterPay ].name_view = layers_priority[ cltProtAfterPay ].name;
     if ( FilterLayers.isFlag( cltPNLBeforePay ) )
       layers_priority[ cltPNLBeforePay ].name_view = layers_priority[ cltPNLBeforePay ].name;
     if ( FilterLayers.isFlag( cltPNLAfterPay ) )
-      layers_priority[ cltPNLAfterPay ].name_view = layers_priority[ cltPNLAfterPay ].name;
+      layers_priority[ cltPNLAfterPay ].name_view = layers_priority[ cltPNLAfterPay ].name;*/
 
     layers_priority[ cltProtect ].name_view = layers_priority[ cltProtect ].name;
     if ( FilterLayers.isFlag( cltProtect ) )
@@ -829,7 +833,6 @@ void TSalons::Read( )
       throw UserException( "MSG.FLIGHT_WO_CRAFT_CONFIGURE" );
     else
       throw UserException( "MSG.SALONS.NOT_FOUND" );
-  tst();
   int col_num = Qry.FieldIndex( "num" );
   int col_x = Qry.FieldIndex( "x" );
   int col_y = Qry.FieldIndex( "y" );
@@ -1292,23 +1295,45 @@ bool TPlaceList::GetisPlaceXY( string placeName, TPoint &p )
 
 void TPlaceList::Add( TPlace &pl )
 {
-  if ( pl.x >= (int)xs.size() )
+//  ProgTrace( TRACE5, "TPlaceList::add pl(%d,%d)", pl.x, pl.y );
+  int prior_max_x = (int)xs.size();
+  int prior_max_y = (int)ys.size();
+  if ( pl.x >= prior_max_x )
     xs.resize( pl.x + 1, "" );
   if ( !pl.xname.empty() )
     xs[ pl.x ] = pl.xname;
-  if ( pl.y >= (int)ys.size() )
+  if ( pl.y >= prior_max_y )
     ys.resize( pl.y + 1, "" );
   if ( !pl.yname.empty() )
     ys[ pl.y ] = pl.yname;
   if ( (int)xs.size()*(int)ys.size() > (int)places.size() ) {
+    //places.resize( (int)xs.size()*(int)ys.size() );
+    //нужен сдвиг!!!
+//    ProgTrace( TRACE5, "TPlaceList::prior_max_x=%d, prior_max_y=%d, new_size=%d, old_size=%d",
+//               prior_max_x, prior_max_y, (int)xs.size()*(int)ys.size(), (int)places.size() );
+    for ( int iy=0; iy<prior_max_y-1; iy++ ) {
+//        ProgTrace( TRACE5, "TPlaceList::insert iy=%d", iy );
+        IPlace ip = places.begin() + GetPlaceIndex( prior_max_x - 1, iy );
+        TPlace p;
+//        ProgTrace( TRACE5, "TPlaceList:: ip(%d,%d) visible=%d, name=%s, idx=%d, count=%d",
+//                   ip->x, ip->y, ip->visible, string(ip->xname+ip->yname).c_str(),
+//                   GetPlaceIndex( prior_max_x - 1, prior_max_y - 1 ),
+//                   (int)xs.size() - prior_max_x );
+        if ( (int)xs.size() > prior_max_x )
+          places.insert( ip + 1, (int)xs.size() - prior_max_x, p );
+    }
+  }
+  if ( (int)xs.size()*(int)ys.size() > (int)places.size() ) {
     places.resize( (int)xs.size()*(int)ys.size() );
   }
+
   int idx = GetPlaceIndex( pl.x, pl.y );
   if ( pl.xprior >= 0 && pl.yprior >= 0 ) {
     TPoint p( pl.xprior, pl.yprior );
     place( p )->xnext = pl.x;
     place( p )->ynext = pl.y;
   }
+  //ProgTrace( TRACE5, "TPlaceList::Add: pl(%d,%d) visible=%d, idx=%d", pl.x, pl.y, pl.visible, idx );
   places[ idx ] = pl;
 }
 
@@ -1712,11 +1737,17 @@ int SetCraft( int point_id, std::string &craft, int comp_id )
 void InitVIP( int point_id )
 {
 	tst();
-	if ( !IsMiscSet( point_id, 1 ) )
+	TQuery Qry(&OraSession);
+	Qry.SQLText =
+	  "SELECT airline,flt_no,suffix,airp,scd_out FROM points WHERE point_id=:point_id";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+	TTripInfo info( Qry );
+	if ( !GetTripSets( tsCraftInitVIP, info ) )
     return;
 	// инициализация - разметра салона по умолчани
-	TQuery Qry(&OraSession);
 	TQuery QryVIP(&OraSession);
+	Qry.Clear();
 	Qry.SQLText =
 	  "SELECT num, class, MIN( y ) miny, MAX( y ) maxy "
     " FROM trip_comp_elems, comp_elem_types "
@@ -1820,7 +1851,12 @@ bool EqualSalon( TPlaceList* oldsalon, TPlaceList* newsalon, bool equal_seats_cf
     	                    pn = newsalon->places.begin();
         po != oldsalon->places.end(),
         pn != newsalon->places.end();
-        po++, pn++ )
+        po++, pn++ ) {
+   	ProgTrace( TRACE5, "EqualSalon: po(%d,%d), oname=%s, pn(%d,%d) nname=%s, po->viisble=%d, pn->visible=%d",
+               po->x, po->y, string(po->xname+po->yname).c_str(),
+   	           pn->x, pn->y, string(pn->xname+pn->yname).c_str(),
+               po->visible, pn->visible );
+
     if ( equal_seats_cfg ) { // сравнение конфигурации салона
       if ( po->visible != pn->visible ||
            po->visible &&
@@ -1845,6 +1881,7 @@ bool EqualSalon( TPlaceList* oldsalon, TPlaceList* newsalon, bool equal_seats_cf
      	  return false;
       }
     }
+  }
   return true;
 }
 
@@ -2529,36 +2566,6 @@ bool ChangeCfg( TSalons &NewSalons, TSalons &OldSalons )
     }
   }
   return false;
-}
-
-bool IsMiscSet( int point_id, int misc_type )
-{
-	TQuery Qry(&OraSession);
-	Qry.SQLText =
-	  "SELECT airline,flt_no,airp FROM points WHERE point_id=:point_id";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
-  string airline = Qry.FieldAsString( "airline" );
-  int flt_no = Qry.FieldAsInteger( "flt_no" );
-  string airp = Qry.FieldAsString( "airp" );
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT pr_misc, "
-    "       DECODE(airline,NULL,0,8)+ "
-    "       DECODE(flt_no,NULL,0,2)+ "
-    "       DECODE(airp_dep,NULL,0,4) AS priority "
-    " FROM misc_set "
-    " WHERE type=:type AND "
-    "      (airline IS NULL OR airline=:airline) AND "
-    "      (flt_no IS NULL OR flt_no=:flt_no) AND "
-    "      (airp_dep IS NULL OR airp_dep=:airp) "
-    " ORDER BY priority DESC ";
-  Qry.CreateVariable( "airline", otString, airline );
-  Qry.CreateVariable( "flt_no", otInteger, flt_no );
-  Qry.CreateVariable( "airp", otString, airp );
-  Qry.CreateVariable( "type", otInteger, misc_type );
-  Qry.Execute();
-  return ( !Qry.Eof && Qry.FieldAsInteger( "pr_misc" ) );
 }
 
 } // end namespace SALONS2

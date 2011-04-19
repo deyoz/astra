@@ -209,9 +209,11 @@ void SalonsInterface::SalonFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     }
   }
   ProgTrace( TRACE5, "cBase=%d, cChange=%d, cSet=%d", cBase, cChange, cSet );
+  Qry.SQLText = "SELECT airline,flt_no,suffix,airp,scd_out FROM points WHERE point_id=:point_id FOR UPDATE";
   Qry.CreateVariable( "point_id", otInteger, trip_id );
-  Qry.SQLText = "UPDATE points SET point_id=point_id WHERE point_id=:point_id";
   Qry.Execute();
+  TTripInfo info( Qry );
+	tst();
   TSalons Salons( trip_id, SALONS2::rTripSalons );
   Salons.Parse( NodeAsNode( "salons", reqNode ) );
   Salons.verifyValidRem( "MCLS", "Э"); //???
@@ -236,7 +238,7 @@ void SalonsInterface::SalonFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   Qry.CreateVariable( "point_id", otInteger, trip_id );
   Qry.DeclareVariable( "comp_id", otInteger );
   // пришла новая компоновка, но не пришел comp_id - значит были изменения компоновки - "сохраните базовую компоновку."
-  if ( SALONS2::IsMiscSet( trip_id, 17 ) ) {
+  if ( GetTripSets( tsCraftNoChangeSections, info ) ) {
     if ( comp_id == -2 && !cSet )
       throw UserException( "MSG.SALONS.SAVE_BASE_COMPON" );
     // может вызвать ошибку, если салон не был назначен на рейс
@@ -392,6 +394,11 @@ void SalonsInterface::DeleteReserveSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
     TSalons Salons( point_id, SALONS2::rTripSalons );
     Salons.Read();
     xmlNodePtr dataNode = NewTextChild( resNode, "data" );
+    if ( dataNode ) { // удаление всей инфы, т.к. случилась ошибка
+      xmlUnlinkNode( dataNode );
+      xmlFreeNode( dataNode );
+    }
+  	dataNode = NewTextChild( resNode, "data" );
     xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
     SALONS::GetTripParams( point_id, dataNode );
     Salons.Build( salonsNode );
@@ -536,6 +543,11 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
     TSalons Salons( point_id, SALONS2::rTripSalons );
     Salons.Read();
     xmlNodePtr dataNode = NewTextChild( resNode, "data" );
+    if ( dataNode ) { // удаление всей инфы, т.к. случилась ошибка
+      xmlUnlinkNode( dataNode );
+      xmlFreeNode( dataNode );
+    }
+  	dataNode = NewTextChild( resNode, "data" );
     xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
     SALONS::GetTripParams( point_id, dataNode );
     Salons.Build( salonsNode );

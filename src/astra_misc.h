@@ -168,12 +168,14 @@ class TLastTCkinSegInfo : public TLastTrferInfo
 };
 
 //настройки рейса
-enum TTripSetType { tsOutboardTrfer=10,
+enum TTripSetType { tsCraftInitVIP=1,
+                    tsOutboardTrfer=10,
                     tsETLOnly=11,
                     tsIgnoreTrferSet=12,
                     tsMixedNorms=13,
                     tsNoTicketCheck=15,
-                    tsCharterSearch=16 };
+                    tsCharterSearch=16,
+                    tsCraftNoChangeSections=17 };
 bool GetTripSets( const TTripSetType setType, const TTripInfo &info );
 
 class TPnrAddrItem
