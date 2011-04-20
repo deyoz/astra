@@ -326,8 +326,11 @@ TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tag
 
     if(tagsNode) {
         // Положим теги из клиентского запроса
-        for(xmlNodePtr curNode = tagsNode->children; curNode; curNode = curNode->next)
+        for(xmlNodePtr curNode = tagsNode->children; curNode; curNode = curNode->next) {
+            string value = NodeAsString(curNode);
+            if(value.empty()) continue;
             set_tag(upperc((char *)curNode->name), NodeAsString(curNode));
+        }
     }
 }
 
@@ -406,6 +409,8 @@ string TPrnTagStore::get_real_field(std::string name, size_t len, std::string da
     try {
         result = (this->*im->second.tag_funct)(TFieldParams(date_format, im->second.TagInfo, len));
         im->second.processed = true;
+    } catch(UserException E) {
+        throw;
     } catch(Exception E) {
         throw Exception("tag %s failed: %s", name.c_str(), E.what());
     } catch(boost::bad_any_cast E) {
