@@ -210,10 +210,12 @@ struct TLayerProp
   int priority;
   bool editable;
   bool notfree;
+  bool pr_occupy;
   TLayerProp() {
   	priority=999;
   	editable = false;
   	notfree = false;
+  	pr_occupy = false;
   }
 };
 
@@ -264,6 +266,9 @@ class TSalons {
     			return false;
       }
       return true;
+    };
+    bool layerIsOccupy( ASTRA::TCompLayerType layer_type ) {
+      return layers_priority[ layer_type ].pr_occupy;
     };
 
     int getPriority( ASTRA::TCompLayerType layer_type ) {

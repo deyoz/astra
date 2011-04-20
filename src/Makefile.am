@@ -36,6 +36,7 @@ astra_SOURCES = \
   cache.cc \
   cent.cc \
   checkin.cc \
+  comp_layers.cc \
   convert.cc \
   crypt.cc \
   design_blank.cc \
@@ -121,6 +122,7 @@ noinst_HEADERS = \
   cache.h \
   cent.h \
   checkin.h \
+  comp_layers.h \
   convert.h \
   crypt.h \
   design_blank.h \

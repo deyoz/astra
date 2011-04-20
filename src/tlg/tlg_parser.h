@@ -9,6 +9,7 @@
 #include "exceptions.h"
 #include "oralib.h"
 #include "seats.h"
+#include "memory_manager.h"
 
 class ETlgError:public EXCEPTIONS::Exception
 {
@@ -330,7 +331,7 @@ class TPaxItem
     long seats;
     std::vector<TSeatRange> seatRanges;
     TSeat seat; //это место, назначенное разборщиком на основе tlg_comp_layers
-    char seat_type[5];
+    char seat_rem[5];
     std::vector<TRemItem> rem;
     std::vector<TInfItem> inf;
     std::vector<TDocItem> doc;
@@ -340,7 +341,7 @@ class TPaxItem
     {
       pers_type=ASTRA::adult;
       seats=1;
-      *seat_type=0;
+      *seat_rem=0;
     };
 };
 
@@ -609,12 +610,12 @@ class TTlgParser
 };
 
 TTlgCategory GetTlgCategory(char *tlg_type);
-TTlgParts GetParts(char* tlg_p);
-TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo* &info);
-void ParseEnding(TTlgPartInfo ending, THeadingInfo *headingInfo, TEndingInfo* &info);
+TTlgParts GetParts(char* tlg_p, TMemoryManager &mem);
+TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo* &info, TMemoryManager &mem);
+void ParseEnding(TTlgPartInfo ending, THeadingInfo *headingInfo, TEndingInfo* &info, TMemoryManager &mem);
 void ParsePNLADLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPnlAdlContent& con);
 void ParsePTMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPtmContent& con);
-void ParseBTMContent(TTlgPartInfo body, TBSMHeadingInfo& info, TBtmContent& con);
+void ParseBTMContent(TTlgPartInfo body, TBSMHeadingInfo& info, TBtmContent& con, TMemoryManager &mem);
 void ParseSOMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TSOMContent& con);
 bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, bool forcibly);
 void SavePTMContent(int tlg_id, TDCSHeadingInfo& info, TPtmContent& con);
@@ -629,9 +630,6 @@ bool bind_tlg(int point_id);
 void crs_recount(int point_id_tlg, bool check_comp);
 
 void ParseSeatRange(std::string str, std::vector<TSeatRange> &ranges, bool usePriorContext);
-void SaveTlgSeatRanges(int point_id,std::string airp_arv,ASTRA::TCompLayerType layer_type,std::vector<TSeatRange> &seats,
-                       int crs_pax_id,int tlg_id,bool UsePriorContext);
-void SyncTlgCompLayers(int point_id_tlg, ASTRA::TCompLayerType layer_type);
 
 #endif
 

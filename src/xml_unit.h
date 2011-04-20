@@ -108,6 +108,7 @@ class XMLDoc
     void set(const std::string &text);
 };
 
+bool ValidXMLChar( const char c );
 bool ValidXMLString( const std::string& str );
 
 #endif

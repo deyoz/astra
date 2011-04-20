@@ -13,6 +13,7 @@
 #include "salons2.h"
 #include "tripinfo.h"
 #include "term_version.h"
+#include "comp_layers.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -720,6 +721,55 @@ void astra_timer( TDateTime utcdate )
   }
 	if ( NowUTC() - execTime0 > 5.0/(1440.0*60) )
   	ProgTrace( TRACE5, "Attention execute astra_time > 5 sec !!!, time=%s, steps count=%d", DateTimeToStr( NowUTC() - execTime0, "nn:ss" ).c_str(), count );
+
+  //обработаем временные слои из tlg_comp_layers
+  int curr_tid=NoExists;
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT range_id, crs_pax_id "
+    "FROM tlg_comp_layers "
+    "WHERE time_remove<=SYSTEM.UTCSYSDATE "
+    "ORDER BY crs_pax_id";
+  Qry.Execute();
+  vector<int> range_ids;
+  for(;!Qry.Eof;)
+  {
+    int crs_pax_id=NoExists;
+    if (!Qry.FieldIsNULL("crs_pax_id"))
+      crs_pax_id=Qry.FieldAsInteger("crs_pax_id");
+    range_ids.push_back(Qry.FieldAsInteger("range_id"));
+
+    Qry.Next();
+
+    int next_crs_pax_id=NoExists;
+    if (!Qry.Eof)
+    {
+      if (!Qry.FieldIsNULL("crs_pax_id"))
+        next_crs_pax_id=Qry.FieldAsInteger("crs_pax_id");
+    };
+
+    if (Qry.Eof ||
+        crs_pax_id!=next_crs_pax_id ||
+        range_ids.size()>=1000)
+    {
+      try
+      {
+        DeleteTlgSeatRanges(range_ids, crs_pax_id, curr_tid);
+      }
+      catch(Exception &E)
+      {
+        try { OraSession.Rollback( ); } catch(...) { };
+        ProgError( STDLOG, "DeleteTlgSeatRanges: %s", E.what() );
+      }
+      catch(...)
+      {
+        try { OraSession.Rollback( ); } catch(...) { };
+        ProgError( STDLOG, "DeleteTlgSeatRanges: Unknown error" );
+      };
+      OraSession.Commit();
+      range_ids.clear();
+    };
+  };
 }
 
 void SetCraft( int point_id, TStage stage )

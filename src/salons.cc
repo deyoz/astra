@@ -10,6 +10,7 @@
 #include "oralib.h"
 #include "images.h"
 #include "convert.h"
+#include "astra_misc.h"
 #include "tripinfo.h"
 #include "astra_locale.h"
 #include "base_tables.h"
@@ -78,17 +79,36 @@ void TFilterLayers::getFilterLayers( int point_id )
 			   (TCompLayerType)l == cltBlockTrzt ||
 			   (TCompLayerType)l == cltTranzit ||
 			   (TCompLayerType)l == cltSOMTrzt ||
-			   (TCompLayerType)l == cltPRLTrzt )
+			   (TCompLayerType)l == cltPRLTrzt ||
+         (TCompLayerType)l == cltProtBeforePay ||
+         (TCompLayerType)l == cltProtAfterPay ||
+         (TCompLayerType)l == cltPNLBeforePay ||
+         (TCompLayerType)l == cltPNLAfterPay )
 			continue;
 	  setFlag( (TCompLayerType)l );
   }
 	TQuery Qry(&OraSession);
+	Qry.Clear();
 	Qry.SQLText =
-	"SELECT pr_tranz_reg,pr_block_trzt,ckin.get_pr_tranzit(:point_id) as pr_tranzit "
-	" FROM trip_sets, points "
-	"WHERE points.point_id=:point_id AND points.point_id=trip_sets.point_id";
+	"SELECT pr_permit FROM trip_paid_ckin WHERE point_id=:point_id";
 	Qry.CreateVariable( "point_id", otInteger, point_id );
 	Qry.Execute();
+	
+	if ( !Qry.Eof && Qry.FieldAsInteger( "pr_permit" )!=0 ) {
+      setFlag( cltProtBeforePay );
+      setFlag( cltProtAfterPay );
+      setFlag( cltPNLBeforePay );
+      setFlag( cltPNLAfterPay );
+  }
+  
+  Qry.Clear();
+	Qry.SQLText =
+	"SELECT pr_tranz_reg,pr_block_trzt,ckin.get_pr_tranzit(:point_id) as pr_tranzit "
+	"FROM trip_sets "
+	"WHERE point_id=:point_id";
+	Qry.CreateVariable( "point_id", otInteger, point_id );
+	Qry.Execute();
+	
 	if ( !Qry.Eof && Qry.FieldAsInteger( "pr_tranzit" ) ) { // это транзитный рейс
 		if ( Qry.FieldAsInteger( "pr_tranz_reg" ) ) {
 			setFlag( cltProtTrzt );
@@ -141,13 +161,14 @@ TSalons::TSalons( int id, TReadStyle vreadStyle, bool vdrop_not_used_pax_layers 
   modify = mNone;
 	TQuery Qry(&OraSession);
   Qry.SQLText =
-    "SELECT code,priority FROM comp_layer_types ORDER BY priority";
+    "SELECT code,priority,pr_occupy FROM comp_layer_types ORDER BY priority";
   Qry.Execute();
   while ( !Qry.Eof ) {
   	TCompLayerType l = DecodeCompLayerType( Qry.FieldAsString( "code" ) );
   	if ( l != cltUnknown ) {
   		layers_priority[ l ].name = ElemIdToNameLong(etCompLayerType,Qry.FieldAsString( "code" ));
   	  layers_priority[ l ].priority = Qry.FieldAsInteger( "priority" );
+  	  layers_priority[ l ].pr_occupy = Qry.FieldAsInteger( "pr_occupy" );
   	}
   	Qry.Next();
   }
@@ -195,6 +216,12 @@ TSalons::TSalons( int id, TReadStyle vreadStyle, bool vdrop_not_used_pax_layers 
     }
     layers_priority[ cltPNLCkin ].name_view = layers_priority[ cltPNLCkin ].name;
     layers_priority[ cltProtCkin ].name_view = layers_priority[ cltProtCkin ].name;
+    
+    if ( FilterLayers.isFlag( cltProtBeforePay ) ||
+         FilterLayers.isFlag( cltProtAfterPay ) ||
+         FilterLayers.isFlag( cltPNLBeforePay ) ||
+         FilterLayers.isFlag( cltPNLAfterPay ) )
+      layers_priority[ cltProtBeforePay ].name_view = AstraLocale::getLocaleText("Резервирование платного места");
     layers_priority[ cltProtect ].name_view = layers_priority[ cltProtect ].name;
     if ( FilterLayers.isFlag( cltProtect ) )
       layers_priority[ cltProtect ].func_key = "Shift+F4";
@@ -627,7 +654,7 @@ typedef map< int, TPaxLayerRec > TPaxLayers;
 
 bool isValidLayer( TSalons *CSalon, TPaxLayers::iterator &ipax, TPaxLayers pls, vector<TPaxLayer>::iterator &p )
 {
-  if ( p->valid == -1 || p->places.size() != ipax->second.seats )
+  if ( p->valid == -1 || p->places.size() != ipax->second.seats ) // pr_occupy
   	return false;
   // вычисление случая, когда одно место размечено разными слоями
   int vfirst_x = NoExists;
@@ -720,12 +747,8 @@ void TSalons::Read( )
 {
   if ( readStyle == rTripSalons )
   	;
-/*    ProgTrace( TRACE5, "TSalons::Read TripSalons with params trip_id=%d, ClassName=%s",
-               trip_id, ClName.c_str() );*/
   else {
     ClName.clear();
-/*    ProgTrace( TRACE5, "TSalons::Read ComponSalons with params comp_id=%d",
-               comp_id );*/
   }
   Clear();
   map<string,bool> ispl;
@@ -800,10 +823,9 @@ void TSalons::Read( )
   Qry.Execute();
   if ( Qry.RowCount() == 0 )
     if ( readStyle == rTripSalons )
-      throw UserException( "MSG.SALONS.NOT_SET" );
+      throw UserException( "MSG.FLIGHT_WO_CRAFT_CONFIGURE" );
     else
       throw UserException( "MSG.SALONS.NOT_FOUND" );
-  tst();
   int col_num = Qry.FieldIndex( "num" );
   int col_x = Qry.FieldIndex( "x" );
   int col_y = Qry.FieldIndex( "y" );
@@ -822,11 +844,17 @@ void TSalons::Read( )
       " WHERE point_id=:point_id "
       "ORDER BY num, x desc, y desc ";
     RQry.CreateVariable( "point_id", otInteger, trip_id );
-    QryWebTariff.SQLText =
-      "SELECT num,x,y,color,rate,rate_cur FROM trip_comp_rates "
-      " WHERE point_id=:point_id "
-      "ORDER BY num,x desc, y desc ";
-    QryWebTariff.CreateVariable( "point_id", otInteger, trip_id );
+    
+    if ( FilterLayers.CanUseLayer( cltProtBeforePay, -1 ) ||
+         FilterLayers.CanUseLayer( cltProtAfterPay, -1 ) ||
+         FilterLayers.CanUseLayer( cltPNLBeforePay, -1 ) ||
+         FilterLayers.CanUseLayer( cltPNLAfterPay, -1 ) ) {
+      QryWebTariff.SQLText =
+        "SELECT num,x,y,color,rate,rate_cur FROM trip_comp_rates "
+        " WHERE point_id=:point_id "
+        "ORDER BY num,x desc, y desc ";
+      QryWebTariff.CreateVariable( "point_id", otInteger, trip_id );
+    }
   }
   else {
     RQry.SQLText = "SELECT num,x,y,rem,pr_denial FROM comp_rem "
@@ -845,13 +873,27 @@ void TSalons::Read( )
   int rem_col_y = RQry.FieldIndex( "y" );
   int rem_col_rem = RQry.FieldIndex( "rem" );
   int rem_col_pr_denial = RQry.FieldIndex( "pr_denial" );
-  QryWebTariff.Execute();
-  int webtariff_col_num = QryWebTariff.FieldIndex( "num" );
-  int webtariff_col_x = QryWebTariff.FieldIndex( "x" );
-  int webtariff_col_y = QryWebTariff.FieldIndex( "y" );
-  int webtariff_col_color = QryWebTariff.FieldIndex( "color" );
-  int webtariff_col_rate = QryWebTariff.FieldIndex( "rate" );
-  int webtariff_col_rate_cur = QryWebTariff.FieldIndex( "rate_cur" );
+  
+  int webtariff_col_num;
+  int webtariff_col_x;
+  int webtariff_col_y;
+  int webtariff_col_color;
+  int webtariff_col_rate;
+  int webtariff_col_rate_cur;
+
+  if ( readStyle != rTripSalons ||
+       FilterLayers.CanUseLayer( cltProtBeforePay, -1 ) ||
+       FilterLayers.CanUseLayer( cltProtAfterPay, -1 ) ||
+       FilterLayers.CanUseLayer( cltPNLBeforePay, -1 ) ||
+       FilterLayers.CanUseLayer( cltPNLAfterPay, -1 ) ) {
+    QryWebTariff.Execute();
+    webtariff_col_num = QryWebTariff.FieldIndex( "num" );
+    webtariff_col_x = QryWebTariff.FieldIndex( "x" );
+    webtariff_col_y = QryWebTariff.FieldIndex( "y" );
+    webtariff_col_color = QryWebTariff.FieldIndex( "color" );
+    webtariff_col_rate = QryWebTariff.FieldIndex( "rate" );
+    webtariff_col_rate_cur = QryWebTariff.FieldIndex( "rate_cur" );
+  }
   string ClName = ""; /* перечисление всех классов, которые есть в салоне */
   TPlaceList *placeList = NULL;
   int num = -1;
@@ -925,14 +967,20 @@ void TSalons::Read( )
         place.rems.push_back( rem );
         RQry.Next();
       }
-      if ( !QryWebTariff.Eof &&
-      	    QryWebTariff.FieldAsInteger( webtariff_col_num ) == num &&
-            QryWebTariff.FieldAsInteger( webtariff_col_x ) == place.x &&
-            QryWebTariff.FieldAsInteger( webtariff_col_y ) == place.y ) {
-        place.WebTariff.color = QryWebTariff.FieldAsString( webtariff_col_color );
-        place.WebTariff.value = QryWebTariff.FieldAsFloat( webtariff_col_rate );
-        place.WebTariff.currency_id = QryWebTariff.FieldAsString( webtariff_col_rate_cur );
-        QryWebTariff.Next();
+      if ( readStyle != rTripSalons ||
+           FilterLayers.CanUseLayer( cltProtBeforePay, -1 ) ||
+           FilterLayers.CanUseLayer( cltProtAfterPay, -1 ) ||
+           FilterLayers.CanUseLayer( cltPNLBeforePay, -1 ) ||
+           FilterLayers.CanUseLayer( cltPNLAfterPay, -1 ) ) {
+        if ( !QryWebTariff.Eof &&
+        	    QryWebTariff.FieldAsInteger( webtariff_col_num ) == num &&
+              QryWebTariff.FieldAsInteger( webtariff_col_x ) == place.x &&
+              QryWebTariff.FieldAsInteger( webtariff_col_y ) == place.y ) {
+          place.WebTariff.color = QryWebTariff.FieldAsString( webtariff_col_color );
+          place.WebTariff.value = QryWebTariff.FieldAsFloat( webtariff_col_rate );
+          place.WebTariff.currency_id = QryWebTariff.FieldAsString( webtariff_col_rate_cur );
+          QryWebTariff.Next();
+        }
       }
       if ( ClName.find( Qry.FieldAsString( col_class ) ) == string::npos )
         ClName += Qry.FieldAsString(col_class );
@@ -1240,23 +1288,45 @@ bool TPlaceList::GetisPlaceXY( string placeName, TPoint &p )
 
 void TPlaceList::Add( TPlace &pl )
 {
-  if ( pl.x >= (int)xs.size() )
+//  ProgTrace( TRACE5, "TPlaceList::add pl(%d,%d)", pl.x, pl.y );
+  int prior_max_x = (int)xs.size();
+  int prior_max_y = (int)ys.size();
+  if ( pl.x >= prior_max_x )
     xs.resize( pl.x + 1, "" );
   if ( !pl.xname.empty() )
     xs[ pl.x ] = pl.xname;
-  if ( pl.y >= (int)ys.size() )
+  if ( pl.y >= prior_max_y )
     ys.resize( pl.y + 1, "" );
   if ( !pl.yname.empty() )
     ys[ pl.y ] = pl.yname;
   if ( (int)xs.size()*(int)ys.size() > (int)places.size() ) {
+    //places.resize( (int)xs.size()*(int)ys.size() );
+    //нужен сдвиг!!!
+//    ProgTrace( TRACE5, "TPlaceList::prior_max_x=%d, prior_max_y=%d, new_size=%d, old_size=%d",
+//               prior_max_x, prior_max_y, (int)xs.size()*(int)ys.size(), (int)places.size() );
+    for ( int iy=0; iy<prior_max_y-1; iy++ ) {
+//        ProgTrace( TRACE5, "TPlaceList::insert iy=%d", iy );
+        IPlace ip = places.begin() + GetPlaceIndex( prior_max_x - 1, iy );
+        TPlace p;
+//        ProgTrace( TRACE5, "TPlaceList:: ip(%d,%d) visible=%d, name=%s, idx=%d, count=%d",
+//                   ip->x, ip->y, ip->visible, string(ip->xname+ip->yname).c_str(),
+//                   GetPlaceIndex( prior_max_x - 1, prior_max_y - 1 ),
+//                   (int)xs.size() - prior_max_x );
+        if ( (int)xs.size() > prior_max_x )
+          places.insert( ip + 1, (int)xs.size() - prior_max_x, p );
+    }
+  }
+  if ( (int)xs.size()*(int)ys.size() > (int)places.size() ) {
     places.resize( (int)xs.size()*(int)ys.size() );
   }
+
   int idx = GetPlaceIndex( pl.x, pl.y );
   if ( pl.xprior >= 0 && pl.yprior >= 0 ) {
     TPoint p( pl.xprior, pl.yprior );
     place( p )->xnext = pl.x;
     place( p )->ynext = pl.y;
   }
+  //ProgTrace( TRACE5, "TPlaceList::Add: pl(%d,%d) visible=%d, idx=%d", pl.x, pl.y, pl.visible, idx );
   places[ idx ] = pl;
 }
 
@@ -1660,11 +1730,17 @@ int SetCraft( int point_id, std::string &craft, int comp_id )
 void InitVIP( int point_id )
 {
 	tst();
-	if ( !IsMiscSet( point_id, 1 ) )
+	TQuery Qry(&OraSession);
+	Qry.SQLText =
+	  "SELECT airline,flt_no,suffix,airp,scd_out FROM points WHERE point_id=:point_id";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+	TTripInfo info( Qry );
+	if ( !GetTripSets( tsCraftInitVIP, info ) )
     return;
 	// инициализация - разметра салона по умолчани
-	TQuery Qry(&OraSession);
 	TQuery QryVIP(&OraSession);
+	Qry.Clear();
 	Qry.SQLText =
 	  "SELECT num, class, MIN( y ) miny, MAX( y ) maxy "
     " FROM trip_comp_elems, comp_elem_types "
@@ -1768,7 +1844,12 @@ bool EqualSalon( TPlaceList* oldsalon, TPlaceList* newsalon, bool equal_seats_cf
     	                    pn = newsalon->places.begin();
         po != oldsalon->places.end(),
         pn != newsalon->places.end();
-        po++, pn++ )
+        po++, pn++ ) {
+   	ProgTrace( TRACE5, "EqualSalon: po(%d,%d), oname=%s, pn(%d,%d) nname=%s, po->viisble=%d, pn->visible=%d",
+               po->x, po->y, string(po->xname+po->yname).c_str(),
+   	           pn->x, pn->y, string(pn->xname+pn->yname).c_str(),
+               po->visible, pn->visible );
+
     if ( equal_seats_cfg ) { // сравнение конфигурации салона
       if ( po->visible != pn->visible ||
            po->visible &&
@@ -1793,6 +1874,7 @@ bool EqualSalon( TPlaceList* oldsalon, TPlaceList* newsalon, bool equal_seats_cf
      	  return false;
       }
     }
+  }
   return true;
 }
 
@@ -2477,36 +2559,6 @@ bool ChangeCfg( TSalons &NewSalons, TSalons &OldSalons )
     }
   }
   return false;
-}
-
-bool IsMiscSet( int point_id, int misc_type )
-{
-	TQuery Qry(&OraSession);
-	Qry.SQLText =
-	  "SELECT airline,flt_no,airp FROM points WHERE point_id=:point_id";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
-  string airline = Qry.FieldAsString( "airline" );
-  int flt_no = Qry.FieldAsInteger( "flt_no" );
-  string airp = Qry.FieldAsString( "airp" );
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT pr_misc, "
-    "       DECODE(airline,NULL,0,8)+ "
-    "       DECODE(flt_no,NULL,0,2)+ "
-    "       DECODE(airp_dep,NULL,0,4) AS priority "
-    " FROM misc_set "
-    " WHERE type=:type AND "
-    "      (airline IS NULL OR airline=:airline) AND "
-    "      (flt_no IS NULL OR flt_no=:flt_no) AND "
-    "      (airp_dep IS NULL OR airp_dep=:airp) "
-    " ORDER BY priority DESC ";
-  Qry.CreateVariable( "airline", otString, airline );
-  Qry.CreateVariable( "flt_no", otInteger, flt_no );
-  Qry.CreateVariable( "airp", otString, airp );
-  Qry.CreateVariable( "type", otInteger, misc_type );
-  Qry.Execute();
-  return ( !Qry.Eof && Qry.FieldAsInteger( "pr_misc" ) );
 }
 
 } // end namespace SALONS2

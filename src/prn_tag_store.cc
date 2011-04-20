@@ -326,8 +326,11 @@ TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tag
 
     if(tagsNode) {
         // Положим теги из клиентского запроса
-        for(xmlNodePtr curNode = tagsNode->children; curNode; curNode = curNode->next)
+        for(xmlNodePtr curNode = tagsNode->children; curNode; curNode = curNode->next) {
+            string value = NodeAsString(curNode);
+            if(value.empty()) continue;
             set_tag(upperc((char *)curNode->name), NodeAsString(curNode));
+        }
     }
 }
 
@@ -372,7 +375,7 @@ string TPrnTagStore::get_test_field(std::string name, size_t len, std::string da
     switch(im->second.type) {
         case 'D':
             StrToDateTime(value.c_str(), ServerFormatDateTimeAsString, date);
-            result << DateTimeToStr(date, value, tag_lang.IsInter());
+            result << DateTimeToStr(date, date_format, tag_lang.IsInter());
             break;
         case 'S':
             result << value;
@@ -382,7 +385,7 @@ string TPrnTagStore::get_test_field(std::string name, size_t len, std::string da
             break;
     }
     im->second.processed = true;
-    return result.str();
+    return result.str().substr(0, len);
 }
 
 string TPrnTagStore::get_real_field(std::string name, size_t len, std::string date_format)
@@ -406,6 +409,8 @@ string TPrnTagStore::get_real_field(std::string name, size_t len, std::string da
     try {
         result = (this->*im->second.tag_funct)(TFieldParams(date_format, im->second.TagInfo, len));
         im->second.processed = true;
+    } catch(UserException E) {
+        throw;
     } catch(Exception E) {
         throw Exception("tag %s failed: %s", name.c_str(), E.what());
     } catch(boost::bad_any_cast E) {
@@ -787,8 +792,10 @@ void TPrnTagStore::TPointInfo::Init(int apoint_id, int agrp_id)
         suffix = operFlt.suffix;
         Qry.Clear();
         Qry.SQLText=
-            "SELECT airline, flt_no, suffix, airp_dep AS airp, scd AS scd_out "
-            "FROM market_flt WHERE grp_id=:grp_id";
+            "SELECT mark_trips.airline,mark_trips.flt_no,mark_trips.suffix, "
+            "       mark_trips.scd AS scd_out,mark_trips.airp_dep AS airp "
+            "FROM pax_grp,mark_trips "
+            "WHERE pax_grp.point_id_mark=mark_trips.point_id AND pax_grp.grp_id=:grp_id";
         Qry.CreateVariable("grp_id",otInteger,agrp_id);
         Qry.Execute();
         if (!Qry.Eof)

@@ -215,9 +215,34 @@ class UserException:public AstraLocale::UserException
                   int point_id,
                   int pax_id = ASTRA::NoExists):AstraLocale::UserException(lexemeData.lexema_id, lexemeData.lparams)
     {
+      addError(lexemeData, point_id, pax_id);
+    };
+    UserException():AstraLocale::UserException("Empty CheckIn::UserException!", AstraLocale::LParams()) {};
+    ~UserException() throw(){};
+    void addError(const AstraLocale::LexemaData &lexemeData,
+                  int point_id,
+                  int pax_id = ASTRA::NoExists)
+    {
+      if (segs.empty()) setLexemaData(lexemeData);
       segs[point_id][pax_id]=lexemeData;
     };
-    ~UserException() throw(){};
+/*  если кто-то надумает раскомментарить этот кусок, обратитесь сначала к Владу
+    void addError(const std::string &lexema_id, const AstraLocale::LParams &lparams,
+                  int point_id,
+                  int pax_id = ASTRA::NoExists)
+    {
+      AstraLocale::LexemaData data;
+      data.lexema_id = lexema_id;
+    	data.lparams = lparams;
+    	addError(data, point_id, pax_id);
+    };
+    void addError(const std::string &lexema_id,
+                  int point_id,
+                  int pax_id = ASTRA::NoExists)
+    {
+    	addError(lexema_id, AstraLocale::LParams(), point_id, pax_id);
+    };*/
+    bool empty() { return segs.empty(); };
 };
 
 void showError(const std::map<int, std::map <int, AstraLocale::LexemaData> > &segs);

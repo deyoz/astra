@@ -13,7 +13,6 @@ namespace SEATS {
 
 enum TSeatStep { sLeft, sRight, sUp, sDown };
 enum TWhere { sLeftRight, sUpDown, sEveryWhere };
-enum TSeatsType { stSeat, stReseat, stDropseat };
 
 class TCounters {
   private:
@@ -158,10 +157,6 @@ class TSeatPlaces {
 /* автоматическая пересадка пассажиров при изменении компоновки */
 void AutoReSeatsPassengers( TSalons &Salons, TPassengers &passengers, int SeatAlgo );
 void SeatsPassengers( TSalons *Salons, int SeatAlgo, bool FUse_BR=false );
-void ChangeLayer( ASTRA::TCompLayerType layer_type, int point_id, int pax_id, int &tid,
-                  std::string first_xname, std::string first_yname, TSeatsType seat_type, bool pr_lat_seat );
-void SaveTripSeatRanges( int point_id, ASTRA::TCompLayerType layer_type, std::vector<TSeatRange> &seats,
-	                       int pax_id, int point_dep, int point_arv );
 bool GetPassengersForManualSeat( int point_id, ASTRA::TCompLayerType layer_type, TPassengers &p, bool pr_lat_seat );
 int GetSeatAlgo(TQuery &Qry, std::string airline, int flt_no, std::string airp_dep);
 extern TPassengers Passengers;

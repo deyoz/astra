@@ -594,7 +594,7 @@ void TSalons::Read( bool wo_invalid_seat_no )
   Qry.Execute();
   if ( Qry.RowCount() == 0 )
     if ( readStyle == SALONS2::rTripSalons )
-      throw AstraLocale::UserException( "MSG.SALONS.NOT_SET" );
+      throw AstraLocale::UserException( "MSG.FLIGHT_WO_CRAFT_CONFIGURE" );
     else
       throw AstraLocale::UserException( "MSG.SALONS.NOT_FOUND" );
   tst();

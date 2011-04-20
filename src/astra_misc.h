@@ -168,12 +168,14 @@ class TLastTCkinSegInfo : public TLastTrferInfo
 };
 
 //настройки рейса
-enum TTripSetType { tsOutboardTrfer=10,
+enum TTripSetType { tsCraftInitVIP=1,
+                    tsOutboardTrfer=10,
                     tsETLOnly=11,
                     tsIgnoreTrferSet=12,
                     tsMixedNorms=13,
                     tsNoTicketCheck=15,
-                    tsCharterSearch=16 };
+                    tsCharterSearch=16,
+                    tsCraftNoChangeSections=17 };
 bool GetTripSets( const TTripSetType setType, const TTripInfo &info );
 
 class TPnrAddrItem
@@ -282,7 +284,7 @@ class TTripRoute : public std::vector<TTripRouteItem>
                      TTripRouteItem& item);
 
     //возвращает предыдущий пункт маршрута
- /*   void GetPriorAirp(int point_id,
+    void GetPriorAirp(int point_id,
                       int point_num,
                       int first_point,
                       bool pr_tranzit,
@@ -290,7 +292,7 @@ class TTripRoute : public std::vector<TTripRouteItem>
                       TTripRouteItem& item);
     bool GetPriorAirp(int point_id,
                       TTripRouteType2 route_type2,
-                      TTripRouteItem& item);*/
+                      TTripRouteItem& item);
 };
 
 class TPaxSeats {
@@ -345,8 +347,9 @@ struct TCodeShareSets {
 void GetMktFlights(const TTripInfo &operFltInfo, std::vector<TTripInfo> &markFltInfo);
 
 //важно! время вылета scd_out у operFlt должно быть в UTC
-//       время вылета в markFltInfo возвращается локальное относительно airp
-std::string GetMktFlightStr( const TTripInfo &operFlt, const TTripInfo &markFlt );
+//       время вылета в markFltInfo передается локальное относительно airp
+std::string GetMktFlightStr( const TTripInfo &operFlt, const TTripInfo &markFlt, bool &equal);
+bool IsMarkEqualOper( const TTripInfo &operFlt, const TTripInfo &markFlt );
 
 void GetCrsList(int point_id, std::vector<std::string> &crs);
 bool IsRouteInter(int point_dep, int point_arv, std::string &country);

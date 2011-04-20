@@ -108,6 +108,7 @@ class TCacheTable;
 
 typedef void  (*TBeforeRefreshEvent)(TCacheTable &, TQuery &, const TCacheQueryType);
 typedef void  (*TBeforeApplyEvent)(TCacheTable &, const TRow &, TQuery &, const TCacheQueryType);
+typedef void  (*TAfterApplyEvent)(TCacheTable &, const TRow &, TQuery &, const TCacheQueryType);
 
 enum TUpdateDataType {upNone, upExists, upClearAll};
 
@@ -156,6 +157,7 @@ class TCacheTable {
     public:
         TBeforeRefreshEvent OnBeforeRefresh;
         TBeforeApplyEvent OnBeforeApply;
+        TAfterApplyEvent OnAfterApply;
         void refresh();
         void buildAnswer(xmlNodePtr resNode);
         void ApplyUpdates(xmlNodePtr reqNode);

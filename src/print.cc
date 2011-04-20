@@ -1379,6 +1379,7 @@ void big_test(PrintDataParser &parser, TDevOperType op_type)
 void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
 {
 //    check_CUTE_certified(tag_key.prn_type, tag_key.dev_model, tag_key.fmt_type);
+    ProgTrace(TRACE5, "bt_type: '%s'", tag_key.type.c_str());
     TBTRoute route;
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -1872,8 +1873,8 @@ string get_validator(TBagReceipt &rcpt)
     if(agency != Qry.FieldAsString("agency")) // Агентство пульта не совпадает с агентством кассира
         throw AstraLocale::UserException("MSG.DESK_AGENCY_NOT_MATCH_THE_USER_ONE");
 
-    TBaseTableRow &city = base_tables.get("cities").get_row("code", sale_point_city);
-    TBaseTableRow &country = base_tables.get("countries").get_row("code", city.AsString("country"));
+    const TBaseTableRow &city = base_tables.get("cities").get_row("code", sale_point_city);
+    const TBaseTableRow &country = base_tables.get("countries").get_row("code", city.AsString("country"));
     if(validator_type == "ТКП") {
         // agency
         validator

@@ -209,9 +209,11 @@ void SalonsInterface::SalonFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     }
   }
   ProgTrace( TRACE5, "cBase=%d, cChange=%d, cSet=%d", cBase, cChange, cSet );
+  Qry.SQLText = "SELECT airline,flt_no,suffix,airp,scd_out FROM points WHERE point_id=:point_id FOR UPDATE";
   Qry.CreateVariable( "point_id", otInteger, trip_id );
-  Qry.SQLText = "UPDATE points SET point_id=point_id WHERE point_id=:point_id";
   Qry.Execute();
+  TTripInfo info( Qry );
+	tst();
   TSalons Salons( trip_id, SALONS2::rTripSalons );
   Salons.Parse( NodeAsNode( "salons", reqNode ) );
   Salons.verifyValidRem( "MCLS", "Э"); //???
@@ -236,7 +238,7 @@ void SalonsInterface::SalonFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   Qry.CreateVariable( "point_id", otInteger, trip_id );
   Qry.DeclareVariable( "comp_id", otInteger );
   // пришла новая компоновка, но не пришел comp_id - значит были изменения компоновки - "сохраните базовую компоновку."
-  if ( SALONS2::IsMiscSet( trip_id, 17 ) ) {
+  if ( GetTripSets( tsCraftNoChangeSections, info ) ) {
     if ( comp_id == -2 && !cSet )
       throw UserException( "MSG.SALONS.SAVE_BASE_COMPON" );
     // может вызвать ошибку, если салон не был назначен на рейс
@@ -339,13 +341,13 @@ void SalonsInterface::DeleteReserveSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   vector<SALONS::TSalonSeat> seats;
 
   try {
-  	SEATS::ChangeLayer( cltProtCkin, point_id, pax_id, tid, "", "", SEATS::stDropseat, pr_lat_seat );
+  	SEATS2::ChangeLayer( cltProtCkin, point_id, pax_id, tid, "", "", SEATS2::stDropseat, pr_lat_seat );
   	SALONS::getSalonChanges( Salons, seats );
   	Qry.Clear();
   	Qry.SQLText =
   	  "SELECT "
+  	  "  crs_pax.pax_id,crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,"
       "  salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'seats',rownum) AS crs_seat_no, "
-      "  salons.get_crs_seat_no(crs_pax.pax_id,:protckin_layer,crs_pax.seats,crs_pnr.point_id,'seats',rownum) AS preseat_no, "
       "  salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum) AS seat_no "
       "FROM crs_pnr,crs_pax,pax,pax_grp "
       "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND crs_pax.pr_del=0 AND "
@@ -353,7 +355,6 @@ void SalonsInterface::DeleteReserveSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
       "      pax.grp_id=pax_grp.grp_id(+) AND "
       "      crs_pax.pax_id=:pax_id";
     Qry.CreateVariable( "pax_id", otInteger, pax_id );
-    Qry.CreateVariable( "protckin_layer", otString, EncodeCompLayerType(ASTRA::cltProtCkin) );
     Qry.Execute();
     if ( Qry.Eof )
     	throw AstraLocale::UserException( "MSG.PASSENGER.NOT_FOUND" );
@@ -362,16 +363,42 @@ void SalonsInterface::DeleteReserveSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
     NewTextChild( dataNode, "tid", tid );
     if ( !Qry.FieldIsNULL( "crs_seat_no" ) )
     	NewTextChild( dataNode, "crs_seat_no", Qry.FieldAsString( "crs_seat_no" ) );
-    if ( !Qry.FieldIsNULL( "preseat_no" ) )
-    	NewTextChild( dataNode, "preseat_no", Qry.FieldAsString( "preseat_no" ) );
     if ( !Qry.FieldIsNULL( "seat_no" ) )
     	NewTextChild( dataNode, "seat_no", Qry.FieldAsString( "seat_no" ) );
+    int crs_pax_id = Qry.FieldAsInteger( "pax_id" );
+    string seat_xname = Qry.FieldAsString( "seat_xname" );
+    string seat_yname = Qry.FieldAsString( "seat_yname" );
+    int pre_seats = Qry.FieldAsInteger( "seats" );
+    Qry.Clear();
+    Qry.SQLText =
+      "BEGIN "
+      "  :preseat_no:=salons.get_crs_seat_no(:pax_id,:xname,:yname,:seats,:point_id,:layer_type,'seats'); "
+      "END;";
+    Qry.CreateVariable( "preseat_no", otString, FNull );
+    Qry.CreateVariable( "pax_id", otInteger, crs_pax_id );
+    Qry.CreateVariable( "xname", otString, seat_xname );
+    Qry.CreateVariable( "yname", otString, seat_yname );
+    Qry.CreateVariable( "seats", otInteger, pre_seats );
+    Qry.CreateVariable( "point_id", otInteger, point_id );
+    Qry.CreateVariable( "layer_type", otString, FNull );
+    Qry.Execute();
+    if ( !Qry.VariableIsNULL( "layer_type" ) &&
+         DecodeCompLayerType( Qry.GetVariableAsString( "layer_type" ) ) == cltProtCkin &&
+         !Qry.VariableIsNULL( "preseat_no" ) )
+    	NewTextChild( dataNode, "preseat_no", Qry.GetVariableAsString( "preseat_no" ) );
+//    ProgTrace( TRACE5, "preseat_no=%s, crs_pax_id=%d, seat_xname=%s, seat_yname=%s, pre_seats=%d, point_id=%d, layer_type=%s",
+//               Qry.GetVariableAsString( "preseat_no" ), crs_pax_id, seat_xname.c_str(), seat_yname.c_str(), pre_seats, point_id, Qry.GetVariableAsString( "layer_type" ) );
    	SALONS::BuildSalonChanges( dataNode, seats );
   }
   catch( AstraLocale::UserException ue ) {
     TSalons Salons( point_id, SALONS2::rTripSalons );
     Salons.Read();
     xmlNodePtr dataNode = NewTextChild( resNode, "data" );
+    if ( dataNode ) { // удаление всей инфы, т.к. случилась ошибка
+      xmlUnlinkNode( dataNode );
+      xmlFreeNode( dataNode );
+    }
+  	dataNode = NewTextChild( resNode, "data" );
     xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
     SALONS::GetTripParams( point_id, dataNode );
     Salons.Build( salonsNode );
@@ -384,7 +411,7 @@ void SalonsInterface::DeleteReserveSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
 void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) //!!old terminal
 {
   //TReqInfo::Instance()->user.check_access( amWrite );
-  SEATS::TSeatsType seat_type = SEATS::stReseat;
+  SEATS2::TSeatsType seat_type = SEATS2::stReseat;
   int point_id = NodeAsInteger( "trip_id", reqNode );
   int pax_id = NodeAsInteger( "pax_id", reqNode );
   int tid = NodeAsInteger( "tid", reqNode );
@@ -440,7 +467,7 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
   vector<SALONS::TSalonSeat> seats;
 
   try {
-  	SEATS::ChangeLayer( layer_type, point_id, pax_id, tid, xname, yname, seat_type, pr_lat_seat );
+    SEATS2::ChangeLayer( layer_type, point_id, pax_id, tid, xname, yname, seat_type, pr_lat_seat );
   	SALONS::getSalonChanges( Salons, seats );
   	Qry.Clear();
   	switch( layer_type ) {
@@ -451,7 +478,6 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
     	  Qry.SQLText =
     	    "SELECT "
           "  '' AS crs_seat_no, "
-          "  '' AS preseat_no, "
           "  salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum) AS seat_no "
           "FROM pax,pax_grp "
           "WHERE pax.grp_id=pax_grp.grp_id AND "
@@ -460,15 +486,14 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
   	  case cltProtCkin:
     	  Qry.SQLText =
     	    "SELECT "
+    	    "  crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,"
           "  salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'seats',rownum) AS crs_seat_no, "
-          "  salons.get_crs_seat_no(crs_pax.pax_id,:protckin_layer,crs_pax.seats,crs_pnr.point_id,'seats',rownum) AS preseat_no, "
           "  salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum) AS seat_no "
           "FROM crs_pnr,crs_pax,pax,pax_grp "
           "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND crs_pax.pr_del=0 AND "
           "      crs_pax.pax_id=pax.pax_id(+) AND "
           "      pax.grp_id=pax_grp.grp_id(+) AND "
           "      crs_pax.pax_id=:pax_id";
-        Qry.CreateVariable( "protckin_layer", otString, EncodeCompLayerType(ASTRA::cltProtCkin) );
         break;
       default:
       	ProgTrace( TRACE5, "!!! Unusible layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
@@ -484,11 +509,32 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
     NewTextChild( dataNode, "tid", tid );
     if ( !Qry.FieldIsNULL( "crs_seat_no" ) )
     	NewTextChild( dataNode, "crs_seat_no", Qry.FieldAsString( "crs_seat_no" ) );
-    if ( !Qry.FieldIsNULL( "preseat_no" ) )
-    	NewTextChild( dataNode, "preseat_no", Qry.FieldAsString( "preseat_no" ) );
     if ( !Qry.FieldIsNULL( "seat_no" ) )
     	NewTextChild( dataNode, "seat_no", Qry.FieldAsString( "seat_no" ) );
-    /* надо передать назад новый tid */
+
+    if ( layer_type == cltProtCkin ) {
+      string seat_xname = Qry.FieldAsString( "seat_xname" );
+      string seat_yname = Qry.FieldAsString( "seat_yname" );
+      int pre_seats = Qry.FieldAsInteger( "seats" );
+      Qry.Clear();
+      Qry.SQLText =
+        "BEGIN "
+        "  :preseat_no:=salons.get_crs_seat_no(:pax_id,:xname,:yname,:seats,:point_id,:layer_type,'seats'); "
+        "END;";
+      Qry.CreateVariable( "preseat_no", otString, FNull );
+      Qry.CreateVariable( "pax_id", otInteger, pax_id );
+      Qry.CreateVariable( "xname", otString, seat_xname );
+      Qry.CreateVariable( "yname", otString, seat_yname );
+      Qry.CreateVariable( "seats", otInteger, pre_seats );
+      Qry.CreateVariable( "point_id", otInteger, point_id );
+      Qry.CreateVariable( "layer_type", otString, FNull );
+      Qry.Execute();
+      if ( !Qry.VariableIsNULL( "layer_type" ) &&
+           DecodeCompLayerType( Qry.GetVariableAsString( "layer_type" ) ) == cltProtCkin &&
+           !Qry.VariableIsNULL( "preseat_no" ) )
+        NewTextChild( dataNode, "preseat_no", Qry.GetVariableAsString( "preseat_no" ) );
+    }
+  /* надо передать назад новый tid */
     NewTextChild( dataNode, "tid", tid );
     NewTextChild( dataNode, "placename", denorm_iata_row( yname, NULL ) + denorm_iata_line( xname, pr_lat_seat ) );
     SALONS::BuildSalonChanges( dataNode, seats );
@@ -497,6 +543,11 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
     TSalons Salons( point_id, SALONS2::rTripSalons );
     Salons.Read();
     xmlNodePtr dataNode = NewTextChild( resNode, "data" );
+    if ( dataNode ) { // удаление всей инфы, т.к. случилась ошибка
+      xmlUnlinkNode( dataNode );
+      xmlFreeNode( dataNode );
+    }
+  	dataNode = NewTextChild( resNode, "data" );
     xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
     SALONS::GetTripParams( point_id, dataNode );
     Salons.Build( salonsNode );

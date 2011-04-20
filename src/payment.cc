@@ -281,8 +281,10 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
   Qry.Clear();
   Qry.SQLText=
-    "SELECT airline,flt_no,suffix,scd,airp_dep,pr_mark_norms "
-    "FROM market_flt WHERE grp_id=:grp_id ";
+    "SELECT mark_trips.airline,mark_trips.flt_no,mark_trips.suffix, "
+    "       mark_trips.scd,mark_trips.airp_dep,pr_mark_norms "
+    "FROM pax_grp,mark_trips "
+    "WHERE pax_grp.point_id_mark=mark_trips.point_id AND pax_grp.grp_id=:grp_id";
   Qry.CreateVariable("grp_id",otInteger,grp_id);
   Qry.Execute();
   if (!Qry.Eof)
@@ -809,19 +811,31 @@ void PaymentInterface::GetReceipt(xmlNodePtr reqNode, TBagReceipt &rcpt)
     "SELECT points.airline,points.flt_no,points.suffix, "
     "       pax_grp.airp_dep,pax_grp.airp_arv, "
     "       ckin.get_main_pax_id(pax_grp.grp_id) AS pax_id, "
-    "       point_dep, "
-    "       point_arv "
-    "FROM points,pax_grp "
+    "       point_dep, point_arv, pr_mark_norms, "
+    "       mark_trips.airline AS airline_mark, "
+    "       mark_trips.flt_no AS flt_no_mark, "
+    "       mark_trips.suffix AS suffix_mark "
+    "FROM points,pax_grp,mark_trips "
     "WHERE points.point_id=pax_grp.point_dep AND points.pr_del>=0 AND "
+    "      pax_grp.point_id_mark=mark_trips.point_id AND "
     "      pax_grp.grp_id=:grp_id";
   Qry.CreateVariable("grp_id",otInteger,grp_id);
   Qry.Execute();
   if (Qry.Eof)
     throw AstraLocale::UserException("MSG.FLT_OR_PAX_INFO_CHANGED.REFRESH_DATA");
 
-  rcpt.airline=Qry.FieldAsString("airline");
-  rcpt.flt_no=Qry.FieldAsInteger("flt_no");
-  rcpt.suffix=Qry.FieldAsString("suffix");
+  if (Qry.FieldAsInteger("pr_mark_norms")!=0)
+  {
+    rcpt.airline=Qry.FieldAsString("airline_mark");
+    rcpt.flt_no=Qry.FieldAsInteger("flt_no_mark");
+    rcpt.suffix=Qry.FieldAsString("suffix_mark");
+  }
+  else
+  {
+    rcpt.airline=Qry.FieldAsString("airline");
+    rcpt.flt_no=Qry.FieldAsInteger("flt_no");
+    rcpt.suffix=Qry.FieldAsString("suffix");
+  };
   rcpt.airp_dep=Qry.FieldAsString("airp_dep");
   if (GetNode("airp_arv",rcptNode)!=NULL)
     rcpt.airp_arv=NodeAsString("airp_arv",rcptNode);
@@ -833,19 +847,6 @@ void PaymentInterface::GetReceipt(xmlNodePtr reqNode, TBagReceipt &rcpt)
           NULL,
           rcpt.prnParams.pr_lat
           );
-
-  //проверим, надо ли выводить в квитанцию коммерческий рейс
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT airline,flt_no,suffix,pr_mark_norms FROM market_flt WHERE grp_id=:grp_id";
-  Qry.CreateVariable("grp_id",otInteger,grp_id);
-  Qry.Execute();
-  if (!Qry.Eof && Qry.FieldAsInteger("pr_mark_norms")!=0)
-  {
-    rcpt.airline=Qry.FieldAsString("airline");
-    rcpt.flt_no=Qry.FieldAsInteger("flt_no");
-    rcpt.suffix=Qry.FieldAsString("suffix");
-  };
 
   rcpt.aircode=base_tables.get("airlines").get_row("code", rcpt.airline).AsString("aircode");
   rcpt.form_type=NodeAsString("form_type",rcptNode);

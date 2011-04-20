@@ -14,7 +14,7 @@ namespace ASTRA
 enum TClientType { ctTerm, ctWeb, ctKiosk, ctTypeNum };
 extern const char* ClientTypeS[ctTypeNum];
 
-enum TOperMode { omCUSE, omCUTE, omMUSE, omSTAND, omTypeNum };
+enum TOperMode { omCUSE, omCUTE, omMUSE, omRESA, omSTAND, omTypeNum };
 extern const char* OperModeS[omTypeNum];
 
 enum TEventType {evtSeason,evtDisp,evtFlt,evtGraph,evtPax,evtPay,evtComp,evtTlg,
@@ -49,6 +49,7 @@ const char rus_seat[]="€‚ƒ„…†‡ˆŠ‹Œ‘’“”•–—˜™";
 const char lat_seat[]="ABCDEFGHJKLMNOPQRSTUVWXYZ";
 
 enum TCompLayerType { cltBlockCent, cltTranzit, cltCheckin, cltTCheckin, cltGoShow, cltBlockTrzt, cltSOMTrzt, cltPRLTrzt,
+                      cltProtBeforePay, cltProtAfterPay, cltPNLBeforePay, cltPNLAfterPay,
 	                    cltProtTrzt, cltPNLCkin, cltProtCkin, cltProtect, cltUncomfort, cltSmoke, cltUnknown, cltTypeNum };
 extern const char* CompLayerTypeS[cltTypeNum];
 

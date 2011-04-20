@@ -575,7 +575,7 @@ string ElemIdToElem(TElemType type, const string &id, const vector< pair<TElemFm
   {
     try
     {
-      TBaseTableRow& BaseTableRow=base_tables.get(table_name).get_row("code",id,with_deleted);
+      const TBaseTableRow& BaseTableRow=base_tables.get(table_name).get_row("code",id,with_deleted);
 
       for(vector< pair<TElemFmt,string> >::const_iterator i=fmts.begin();i!=fmts.end();i++)
       {
@@ -630,7 +630,7 @@ string ElemIdToElem(TElemType type, int id, const vector< pair<TElemFmt,string> 
   {
     try
     {
-      TBaseTableRow& BaseTableRow=base_tables.get(table_name).get_row("id",id,with_deleted);
+      const TBaseTableRow& BaseTableRow=base_tables.get(table_name).get_row("id",id,with_deleted);
 
       for(vector< pair<TElemFmt,string> >::const_iterator i=fmts.begin();i!=fmts.end();i++)
       {
