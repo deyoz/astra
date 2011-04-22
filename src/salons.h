@@ -136,9 +136,9 @@ class TPlace {
       WebTariff = pl.WebTariff;
       isPax = pl.isPax;
     }
-    bool isLayer( ASTRA::TCompLayerType layer ) {
+    bool isLayer( ASTRA::TCompLayerType layer, int pax_id = -1 ) {
     	for (std::vector<TPlaceLayer>::iterator i=layers.begin(); i!=layers.end(); i++ ) {
-    		if ( i->layer_type == layer )
+    		if ( i->layer_type == layer && ( pax_id == -1 || i->pax_id == pax_id ) )
     			return true;
     	};
     	return false;

@@ -440,6 +440,7 @@ void TSalons::Write()
                        " DELETE comp_rem WHERE comp_id=:comp_id; "
                        " DELETE comp_rates WHERE comp_id=:comp_id; "
                        " DELETE comp_elems WHERE comp_id=:comp_id; "
+                       " DELETE comp_sections WHERE comp_id=:comp_id; "
                        " DELETE comps WHERE comp_id=:comp_id; "
                        "END; ";
          break;
@@ -610,7 +611,7 @@ struct TPaxLayer {
 	TCompLayerType layer_type;
 	TDateTime time_create;
 	int priority;
-	int valid; // 0 - не вычислен 1 - true -1 - false
+	int valid; // 0 - ok
 	vector<TSalonPoint>	places;
 	TPaxLayer( TCompLayerType vlayer_type, TDateTime vtime_create, int vpriority, TSalonPoint p ) {
 		priority = vpriority;
@@ -628,120 +629,151 @@ struct TPaxLayerRec {
 	TPaxLayerRec() {
   	seats = 0;
 	}
-  void clearLayer( TSalons *CSalon, int pax_id, vector<TPaxLayer>::iterator &p )
-  {
-  	for( vector<TSalonPoint>::iterator ipp=p->places.begin(); ipp!=p->places.end(); ipp++ ) { // пробег по местам
-  		for (vector<TPlaceList*>::iterator it=CSalon->placelists.begin(); it!=CSalon->placelists.end(); it++ ) {  // пробег по салонам
-  			if ( (*it)->num == ipp->num ) {
-  				TPlace* ip = (*it)->place( (*it)->GetPlaceIndex( ipp->x, ipp->y ) );
-  		    for( vector<TPlaceLayer>::iterator il=ip->layers.begin(); il!=ip->layers.end(); il++ ) {
-  			    if ( il->layer_type == p->layer_type &&
-  			    	   il->pax_id == pax_id &&
-  			    	   il->time_create == p->time_create ) {
-  		  	  	ip->layers.erase( il );
-  		  	  	tst();
-  		  	  	break;
-  		    	}
-  		    }
-  		  	break;
-  		  }
-  		}
+  void AddLayer( TPaxLayer paxLayer ) {
+    std::vector<TPaxLayer>::iterator i;
+    for (i=paxLayers.begin(); i!=paxLayers.end(); i++) {
+      if ( paxLayer.priority < i->priority ||
+      		 paxLayer.priority == i->priority &&
+      		 paxLayer.time_create > i->time_create )
+      	break;
     }
-  }
+   	paxLayers.insert( i, paxLayer );
+
+  };
 };
 
 typedef map< int, TPaxLayerRec > TPaxLayers;
 
-bool isValidLayer( TSalons *CSalon, TPaxLayers::iterator &ipax, TPaxLayers pls, vector<TPaxLayer>::iterator &p )
+void SetValidPaxLayer( TPaxLayers::iterator ipax, vector<TPaxLayer>::iterator ivalid_pax_layer )
 {
-  if ( p->valid == -1 || p->places.size() != ipax->second.seats ) // pr_occupy
-  	return false;
-  // вычисление случая, когда одно место размечено разными слоями
-  int vfirst_x = NoExists;
-  int vfirst_y = NoExists;
-  int vlast_x = NoExists;
-  int vlast_y = NoExists;
-  TPlace *ip;
-  for( vector<TSalonPoint>::iterator ipp=p->places.begin(); ipp!=p->places.end(); ipp++ ) { // пробег по местам слоя
-  	for (vector<TPlaceList*>::iterator it=CSalon->placelists.begin(); it!=CSalon->placelists.end(); it++ ) {
- 			if ( (*it)->num == ipp->num ) {
- 				ip = (*it)->place( (*it)->GetPlaceIndex( ipp->x, ipp->y ) );
-        if ( ipax->second.cl != ip->clname || !ip->isplace || p->places.begin()->num != ip->num ) {
-    	    p->valid = -1;
-    	    tst();
-          return false;
-        }
- 				break;
- 		  }
-  	}
-    for ( vector<TPlaceLayer>::iterator iplace_layer=ip->layers.begin(); iplace_layer!=ip->layers.end(); iplace_layer++ ) { // пробег по слоям места
-    	if ( iplace_layer->layer_type == p->layer_type &&
-    		   iplace_layer->time_create == p->time_create )
-    		break;
-    	if ( iplace_layer->pax_id <= 0 ) // слой более приоритетный и он не принадлежит пассажиру
-    		return false;
-      TPaxLayers::iterator inpax = pls.find( iplace_layer->pax_id ); // находим пассажира за которым размечено место
-      if ( inpax == pls.end() )
-      	return false;
-      for (vector<TPaxLayer>::iterator ir=inpax->second.paxLayers.begin(); ir!=inpax->second.paxLayers.end(); ir++ ) { // пробег по слоям пассажира
-      	if ( ir->layer_type == iplace_layer->layer_type &&
-    	  	   ir->time_create == iplace_layer->time_create ) {
-    		  if ( isValidLayer( CSalon, inpax, pls, ir ) ) {
-	    		  p->valid = -1;
-		    	  return false;
-		      }
-	      }
-	      break;
+  for ( vector<TPaxLayer>::iterator ipax_layer=ipax->second.paxLayers.begin(); ipax_layer!=ipax->second.paxLayers.end(); ipax_layer++ ) { // пробег по слоям пассажира
+    if ( ivalid_pax_layer != ipax_layer ) {
+      if ( ipax_layer->valid != -1 ) {
+        ipax_layer->valid = -1;
+        ProgTrace( TRACE5, "SetValidPaxLayer: pax_id=%d, layer_type=%s -- not ok!", ipax->first, EncodeCompLayerType( ipax_layer->layer_type ) );
       }
     }
-    if ( vfirst_x == NoExists || vfirst_y == NoExists ||
-         vfirst_y*1000+vfirst_x > ip->y*1000+ip->x ) {
-      vfirst_x = ip->x;
-      vfirst_y = ip->y;
-    }
-    if ( vlast_x == NoExists || vlast_y == NoExists ||
-         vlast_y*1000+vlast_x<ip->y*1000+ip->x ) {
-      vlast_x=ip->x;
-      vlast_y=ip->y;
-    }
   }
-  if ( vfirst_x == vlast_x && vfirst_y+(int)p->places.size()-1 == vlast_y ||
-       vfirst_y == vlast_y && vfirst_x+(int)p->places.size()-1 == vlast_x )
-    p->valid = 1;
-  else
-  	p->valid = -1;
-  return ( p->valid == 1 );
 }
 
-/*bool ComparePlaceLayers( TPlaceLayer t1, TPlaceLayer t2 )
+void ClearInvalidPaxLayers( TSalons *CSalon, TPaxLayers::iterator ipax )
 {
-	if ( t1.priority < t2.priority )
-		return true;
-	else
-		if ( t1.priority > t2.priority )
-			return false;
-		else
-			return ( t1.time_create > t2.time_create );
-};
-
-void ClearPaxLayer( TPaxLayers &pax_layers, int pax_id, TCompLayerType layer_type, TDateTime time_create )
-{
-  TPaxLayers::iterator ipax = pax_layers.find( pax_id );
-  // поиск нужного слоя
-  for (vector<TPaxLayer>::iterator r=ipax->second.paxLayers.begin(); r!=ipax->second.paxLayers.end(); r++ ) { // пробег по слоям пассажира
-  	if ( !r->inwork )
-   		continue;
-  	if ( r->layer_type == layer_type && r->time_create == time_create ) {
-      for (vector<TPlace*>::iterator ip=r->places.begin(); ip!=r->places.end(); ip++ ) {
-      	(*ip)->clearLayer( layer_type, time_create );
-      }
-      ProgTrace( TRACE5, "clear layer: pax_id=%d,layer_type=%s, time_create=%f, layer not inwork",
-                 pax_id, EncodeCompLayerType( r->layer_type ), r->time_create );
-  		r->inwork = false;
-  		break;
+  for ( vector<TPaxLayer>::iterator ipax_layer=ipax->second.paxLayers.begin(); ipax_layer!=ipax->second.paxLayers.end(); ipax_layer++ ) { // пробег по слоям пассажира
+    if ( ipax_layer->valid != -1 )
+      continue;
+	  for( vector<TSalonPoint>::iterator icoord=ipax_layer->places.begin(); icoord!=ipax_layer->places.end(); icoord++ ) { // пробег по местам
+  		for (vector<TPlaceList*>::iterator it=CSalon->placelists.begin(); it!=CSalon->placelists.end(); it++ ) {  // пробег по салонам
+  			if ( (*it)->num == icoord->num ) {
+  				TPlace* place = (*it)->place( (*it)->GetPlaceIndex( icoord->x, icoord->y ) );
+  				for ( vector<TPlaceLayer>::iterator iplace_layer=place->layers.begin(); iplace_layer!=place->layers.end(); iplace_layer++ ) { // пробег по слоям места
+      	    if ( iplace_layer->layer_type == ipax_layer->layer_type &&
+    	  	       iplace_layer->time_create == ipax_layer->time_create &&
+                 iplace_layer->pax_id == ipax->first ) {
+              place->layers.erase( iplace_layer );
+              break;
+            }
+          }
+          break;
+  		  }
+  		}
     }
   }
-};*/
+}
+
+void GetValidPaxLayer( TSalons *CSalon, TPaxLayers &pax_layers, TPaxLayers::iterator ipax )
+{
+//  ProgTrace( TRACE5, "GetValidPaxLayer1: pax_id=%d", ipax->first );
+  TPlace *place;
+  for ( vector<TPaxLayer>::iterator ipax_layer=ipax->second.paxLayers.begin(); ipax_layer!=ipax->second.paxLayers.end(); ipax_layer++ ) { // пробег по слоям пассажира
+    int vfirst_x = NoExists;
+    int vfirst_y = NoExists;
+    int vlast_x = NoExists;
+    int vlast_y = NoExists;
+  //  ProgTrace( TRACE5, "GetValidPaxLayer2: layer_type=%s", EncodeCompLayerType( ipax_layer->layer_type ) );
+    if ( ipax_layer->places.size() != ipax->second.seats )
+      ipax_layer->valid = -1;
+    if ( ipax_layer->valid == -1 ) {
+      //tst();
+      continue;
+    }
+    for( vector<TSalonPoint>::iterator icoord=ipax_layer->places.begin(); icoord!=ipax_layer->places.end(); icoord++ ) { // пробег по местам слоя
+    	for (vector<TPlaceList*>::iterator it=CSalon->placelists.begin(); it!=CSalon->placelists.end(); it++ ) {
+   			if ( (*it)->num == icoord->num ) {
+ 	  			place = (*it)->place( (*it)->GetPlaceIndex( icoord->x, icoord->y ) );
+          if ( ipax->second.cl != place->clname || !place->isplace || ipax_layer->places.begin()->num != place->num ) {
+      	    ipax_layer->valid = -1;
+          }
+ 		  		break;
+ 		    }
+  	  }
+  	  if ( ipax_layer->valid == -1 ) {
+        //tst();
+        break;
+      }
+    //  ProgTrace( TRACE5, "GetValidPaxLayer3: seat_no=%s", string( place->yname+place->xname).c_str() );
+      for ( vector<TPlaceLayer>::iterator iplace_layer=place->layers.begin(); iplace_layer!=place->layers.end(); iplace_layer++ ) { // пробег по слоям места
+      //  ProgTrace( TRACE5, "GetValidPaxLayer4: seat layer_type=%s, pax_id=%d", EncodeCompLayerType( iplace_layer->layer_type ), iplace_layer->pax_id );
+    	  if ( iplace_layer->layer_type == ipax_layer->layer_type &&
+    	  	   iplace_layer->time_create == ipax_layer->time_create &&
+             iplace_layer->pax_id == ipax->first ) // это наш слой - и он самый приоритетный
+    		  break;
+     	  if ( iplace_layer->pax_id <= 0 ) { // слой более приоритетный и он не принадлежит пассажиру
+          ipax_layer->valid = -1;
+          break;
+        }
+        //есть более приоритетный слой принадлежащий другому пассажиру
+        // находим этого пассажира и пробегаем по его слоям для выяснения хороших слоев
+        TPaxLayers::iterator inext_pax = pax_layers.find( iplace_layer->pax_id );
+        if ( inext_pax == pax_layers.end() ) {
+          ProgTrace( TRACE5, "GetValidPaxLayerError, iplace_layer->pax_id=%d", iplace_layer->pax_id );
+          throw EXCEPTIONS::Exception( "not found iplace_layer->pax_id" );;
+        }
+        GetValidPaxLayer( CSalon, pax_layers, inext_pax );
+        // проверяем слой в месте салона на то, что он хороший у пассажира
+        for ( vector<TPaxLayer>::iterator jpax_layer=inext_pax->second.paxLayers.begin(); jpax_layer!=inext_pax->second.paxLayers.end(); jpax_layer++ ) { // пробег по слоям пассажира
+    	    if ( iplace_layer->layer_type == jpax_layer->layer_type &&
+    	  	     iplace_layer->time_create == jpax_layer->time_create &&
+               iplace_layer->pax_id == inext_pax->first ) {
+            if ( jpax_layer->valid != -1 ) {
+              ipax_layer->valid = -1;
+        //      ProgTrace( TRACE5, "GetValidPaxLayer5: invalid layer_type=%s, pax_id=%d", EncodeCompLayerType( ipax_layer->layer_type ), ipax->first );
+            }
+    		    break;
+          }
+        }
+        if ( ipax_layer->valid == -1 )
+          break;
+      }
+      if ( ipax_layer->valid == -1 )
+        break;
+
+      if ( vfirst_x == NoExists || vfirst_y == NoExists ||
+        vfirst_y*1000+vfirst_x > place->y*1000+place->x ) {
+        vfirst_x = place->x;
+        vfirst_y = place->y;
+      }
+      if ( vlast_x == NoExists || vlast_y == NoExists ||
+        vlast_y*1000+vlast_x<place->y*1000+place->x ) {
+        vlast_x=place->x;
+        vlast_y=place->y;
+      }
+    }  // конец пробега по местам
+    if ( ipax_layer->valid == -1 ) {
+//      tst();
+      continue;
+    }
+    if ( !( vfirst_x == vlast_x && vfirst_y+(int)ipax_layer->places.size()-1 == vlast_y ||
+            vfirst_y == vlast_y && vfirst_x+(int)ipax_layer->places.size()-1 == vlast_x ) ) {
+  //    tst();
+      ipax_layer->valid = -1;
+      continue;
+    }
+    // если мы здесь, то слой хороший. надо пометить все остальные слои у пассажира как плохие
+    ProgTrace( TRACE5, "GetValidPaxLayer5: ipax->pax_id=%d, layer_type=%s -- ok", ipax->first, EncodeCompLayerType( ipax_layer->layer_type ) );
+    SetValidPaxLayer( ipax, ipax_layer );
+    break;
+  }
+}
 
 void TSalons::Read( )
 {
@@ -911,7 +943,6 @@ void TSalons::Read( )
     	}
     	PaxQry.Next();
     }
-    ProgTrace( TRACE5, "pax_layers.size()=%d", pax_layers.size() );
   }
 
   for ( ;!Qry.Eof; Qry.Next() ) {
@@ -987,6 +1018,8 @@ void TSalons::Read( )
     }
     else { // это место проинициализировано - это новый слой
     	place = *placeList->place( point_p );
+      if ( place.x != point_p.x || place.y != point_p.y )
+        throw EXCEPTIONS::Exception( "invalid x, y" );
     }
     PlaceLayer.pax_id = -1;
     if ( readStyle == rTripSalons ) { // здесь работа со всеми слоями для удаления менее приоритетных слоев по пассажирам
@@ -1021,17 +1054,17 @@ void TSalons::Read( )
         }
         if ( ip != ipl->second.paxLayers.end() ) { // нашли слой, еще одно место у человека в этом слою
          	ip->places.push_back( TSalonPoint( point_p.x, point_p.y, placeList->num ) );
-         }
-         else {
-          	ipl->second.paxLayers.push_back(TPaxLayer( PlaceLayer.layer_type, PlaceLayer.time_create,
-          	                                           layers_priority[ PlaceLayer.layer_type ].priority,
-          	                                           TSalonPoint( point_p.x, point_p.y, placeList->num ) )); // слой не найден, создаем новый слой
+        }
+        else {
+        	ipl->second.AddLayer( TPaxLayer( PlaceLayer.layer_type, PlaceLayer.time_create,
+         	                                 layers_priority[ PlaceLayer.layer_type ].priority,
+         	                                 TSalonPoint( point_p.x, point_p.y, placeList->num ) )); // слой не найден, создаем новый слой
          }
       }
       else { // пассажир не найден, создаем пассажира и слой
-       	pax_layers[ pax_id ].paxLayers.push_back( TPaxLayer( PlaceLayer.layer_type, PlaceLayer.time_create,
-       	                                                     layers_priority[ PlaceLayer.layer_type ].priority,
-       	                                                     TSalonPoint( point_p.x, point_p.y, placeList->num ) ));
+       	pax_layers[ pax_id ].AddLayer( TPaxLayer( PlaceLayer.layer_type, PlaceLayer.time_create,
+       	                                          layers_priority[ PlaceLayer.layer_type ].priority,
+       	                                          TSalonPoint( point_p.x, point_p.y, placeList->num ) ));  //??? а надо ли djek
       }
     }
   }	/* end for */
@@ -1042,33 +1075,11 @@ void TSalons::Read( )
   }
   
   if ( drop_not_used_pax_layers ) {
-    // имеем салон и места в салоне со всеми слоями. Нам предстоит разобраться какие из них лишние. До этого мы фильтровали только те, которые не использвем
     for( TPaxLayers::iterator ipax=pax_layers.begin(); ipax!=pax_layers.end(); ipax++ ) { // пробег по пассажирам
-    	for (vector<TPaxLayer>::iterator r=ipax->second.paxLayers.begin(); r!=ipax->second.paxLayers.end(); r++ ) { // пробег по слоям пассажира
-    			ProgTrace( TRACE5, "pax_id=%d, seats=%d, class=%s,layer_type=%s, time_create=%f, r->places.size()=%d",
-    			           ipax->first, ipax->second.seats, ipax->second.cl.c_str(), EncodeCompLayerType( r->layer_type ), r->time_create, r->places.size() );
-
-  	  	if ( !isValidLayer( this, ipax, pax_layers, r )  ) {
-  	  		ipax->second.clearLayer( this, ipax->first, r );
-  	  	}
-  	  	else { // слой правильный
-          // вычисление случая, когда разные места размечены под одного пассажира (разные слои)
-          for (vector<TPaxLayer>::iterator ir=ipax->second.paxLayers.begin(); ir!=ipax->second.paxLayers.end(); ir++ ) { // пробег по слоям пассажира
-	          // пассажир может занимать разные места с одним слоем???
-	          if ( !isValidLayer( this, ipax, pax_layers, ir ) || ir == r )
-	  	        continue;
-	          if ( ir->priority < r->priority ||
-         	       ir->priority == r->priority &&
-	  	           ir->time_create > r->time_create ) { //есть более приоритетный слой у пассажира
-  	    		  ipax->second.clearLayer( this, ipax->first, r );
-	  	        r->valid = -1;
-	  	        break;
-	          }
-	        }
-  	    }
-			  if ( r->valid != 1 )
-    			ProgTrace( TRACE5, "invalid layer, result=%d", r->valid );
-      }
+      GetValidPaxLayer( this, pax_layers, ipax );
+    }
+    for( TPaxLayers::iterator ipax=pax_layers.begin(); ipax!=pax_layers.end(); ipax++ ) { // пробег по пассажирам
+      ClearInvalidPaxLayers( this, ipax );
     }
   }
 }
@@ -1845,10 +1856,10 @@ bool EqualSalon( TPlaceList* oldsalon, TPlaceList* newsalon, bool equal_seats_cf
         po != oldsalon->places.end(),
         pn != newsalon->places.end();
         po++, pn++ ) {
-   	ProgTrace( TRACE5, "EqualSalon: po(%d,%d), oname=%s, pn(%d,%d) nname=%s, po->viisble=%d, pn->visible=%d",
+/*   	ProgTrace( TRACE5, "EqualSalon: po(%d,%d), oname=%s, pn(%d,%d) nname=%s, po->viisble=%d, pn->visible=%d",
                po->x, po->y, string(po->xname+po->yname).c_str(),
    	           pn->x, pn->y, string(pn->xname+pn->yname).c_str(),
-               po->visible, pn->visible );
+               po->visible, pn->visible );*/
 
     if ( equal_seats_cfg ) { // сравнение конфигурации салона
       if ( po->visible != pn->visible ||
@@ -1856,9 +1867,8 @@ bool EqualSalon( TPlaceList* oldsalon, TPlaceList* newsalon, bool equal_seats_cf
            ( po->x != pn->x ||
      	       po->y != pn->y ||
              po->isplace != pn->isplace ) ) {
-       	ProgTrace( TRACE5, "EqualSalon: po(%d,%d), oname=%s, pn(%d,%d) nname=%s", po->x, po->y, string(po->xname+po->yname).c_str(),
-      	           pn->x, pn->y, string(pn->xname+pn->yname).c_str() );
-
+/*       	ProgTrace( TRACE5, "EqualSalon: po(%d,%d), oname=%s, pn(%d,%d) nname=%s", po->x, po->y, string(po->xname+po->yname).c_str(),
+      	           pn->x, pn->y, string(pn->xname+pn->yname).c_str() );*/
      	  return false;
       }
     }
@@ -1868,9 +1878,8 @@ bool EqualSalon( TPlaceList* oldsalon, TPlaceList* newsalon, bool equal_seats_cf
        	     po->y != pn->y ||
        	     po->xname != pn->xname ||
          	   po->yname != pn->yname ) ) {
-       	ProgTrace( TRACE5, "EqualSalon: po(%d,%d), oname=%s, pn(%d,%d) nname=%s", po->x, po->y, string(po->xname+po->yname).c_str(),
-     	             pn->x, pn->y, string(pn->xname+pn->yname).c_str() );
-
+/*       	ProgTrace( TRACE5, "EqualSalon: po(%d,%d), oname=%s, pn(%d,%d) nname=%s", po->x, po->y, string(po->xname+po->yname).c_str(),
+     	             pn->x, pn->y, string(pn->xname+pn->yname).c_str() );*/
      	  return false;
       }
     }

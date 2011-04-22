@@ -395,7 +395,7 @@ bool getTripData( int point_id, bool first_segment, TSearchPnrData &SearchPnrDat
   	if ( Qry.Eof )
   		throw UserException( "MSG.FLIGHT.NOT_FOUND" );
 
-  	if ( Qry.FieldAsInteger( "pr_del" ) == -1 )
+  	if ( Qry.FieldAsInteger( "pr_del" ) < 0 )
   		throw UserException( "MSG.FLIGHT.DELETED" );
 
     if (first_segment)
@@ -406,7 +406,7 @@ bool getTripData( int point_id, bool first_segment, TSearchPnrData &SearchPnrDat
         throw UserException( "MSG.FLIGHT.ACCESS_DENIED" );
     };
 
-  	if ( Qry.FieldAsInteger( "pr_del" ) == 1 )
+  	if ( Qry.FieldAsInteger( "pr_del" ) > 0 )
   		throw UserException( "MSG.FLIGHT.CANCELED" );
 
   	if ( Qry.FieldAsInteger( "pr_reg" ) == 0 )
@@ -3572,6 +3572,7 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
         else
           LayerQry.CreateVariable("timeout", otInteger, FNull);
 
+        VerifyPNR(point_id, pnr_id);
         GetCrsPaxSeats(point_id, pnr, pax_seats );
         bool UsePriorContext=false;
         for(vector<TWebPax>::const_iterator iPax=pnr.begin();iPax!=pnr.end();iPax++)
@@ -3705,7 +3706,7 @@ void WebRequestsIface::AddProtPaidLayer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   resNode=NewTextChild(resNode,"AddProtPaidLayer");
   int time_limit=NoExists;
   int curr_tid=NoExists;
-  CheckIn::UserException e;
+  CheckIn::UserException ue;
   xmlNodePtr node=GetNode("time_limit",reqNode);
   if (node!=NULL && !NodeIsNULL(node))
   {
@@ -3713,23 +3714,60 @@ void WebRequestsIface::AddProtPaidLayer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
     if (time_limit<=0 || time_limit>999)
       throw EXCEPTIONS::Exception("AddProtPaidLayer: wrong time_limit %d min", time_limit);
   };
+
+  //здесь лочка рейсов в порядке сортировки point_id
+  vector<int> point_ids;
+  node=NodeAsNode("segments", reqNode)->children;
+  for(;node!=NULL;node=node->next)
+    point_ids.push_back(NodeAsInteger("point_id", node));
+  sort(point_ids.begin(),point_ids.end());
+  
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT point_id, pr_del, pr_reg "
+    "FROM points "
+    "WHERE point_id=:point_id FOR UPDATE";
+  Qry.DeclareVariable("point_id", otInteger);
+  for(vector<int>::const_iterator i=point_ids.begin(); i!=point_ids.end(); i++)
+  {
+    try
+    {
+      Qry.SetVariable("point_id", *i);
+      Qry.Execute();
+      if ( Qry.Eof )
+    		throw UserException( "MSG.FLIGHT.NOT_FOUND" );
+    	if ( Qry.FieldAsInteger( "pr_del" ) < 0 )
+    		throw UserException( "MSG.FLIGHT.DELETED" );
+    	if ( Qry.FieldAsInteger( "pr_del" ) > 0 )
+    		throw UserException( "MSG.FLIGHT.CANCELED" );
+    	if ( Qry.FieldAsInteger( "pr_reg" ) == 0 )
+    		throw UserException( "MSG.FLIGHT.CHECKIN_CANCELED" );
+    }
+    catch(UserException &e)
+    {
+      ue.addError(e.getLexemaData(), *i);
+    };
+  };
+  if (!ue.empty()) throw ue;
+  
   node=NodeAsNode("segments", reqNode)->children;
   xmlNodePtr segsNode=NewTextChild(resNode, "segments");
   for(;node!=NULL;node=node->next)
   {
     xmlNodePtr segNode=NewTextChild(segsNode, "segment");
-    ChangeProtPaidLayer(node, segNode, false, time_limit, curr_tid, e );
+    ChangeProtPaidLayer(node, segNode, false, time_limit, curr_tid, ue );
   };
-  if (!e.empty()) throw e;
+  if (!ue.empty()) throw ue;
 };
 
 void WebRequestsIface::RemoveProtPaidLayer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   resNode=NewTextChild(resNode,"RemoveProtPaidLayer");
   int curr_tid=NoExists;
-  CheckIn::UserException e;
-  ChangeProtPaidLayer(reqNode, resNode, true, NoExists, curr_tid, e);
-  if (!e.empty()) throw e;
+  CheckIn::UserException ue;
+  ChangeProtPaidLayer(reqNode, resNode, true, NoExists, curr_tid, ue);
+  if (!ue.empty()) throw ue;
 };
 
 } //end namespace AstraWeb

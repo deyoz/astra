@@ -11,7 +11,6 @@
 #include "astra_elems.h"
 #include "base_tables.h"
 #include "term_version.h"
-#include "tclmon/tcl_utils.h"
 #include "serverlib/monitor_ctl.h"
 #include "serverlib/cfgproc.h"
 #include "serverlib/sirena_queue.h"
@@ -1069,65 +1068,26 @@ string getTCLParam(const char* name, const char* def)
 
 bool get_enable_unload_pectab()
 {
-    bool result = true;
-    Tcl_Obj *obj;
-    obj=Tcl_GetVar2Ex(getTclInterpretator(),
-            "ENABLE_UNLOAD_PECTAB",0,TCL_GLOBAL_ONLY);
-    if(!obj)
-        result = false;
-    else {
-      static char buf[200];
-      buf[199]=0;
-      strcpy(buf,Tcl_GetString(obj));
-      int ENABLE_UNLOAD_PECTAB;
-      if(StrToInt(buf, ENABLE_UNLOAD_PECTAB) == EOF)
-          result = false;
-      else
-          result = ENABLE_UNLOAD_PECTAB != 0;
-    }
-    return result;
+  static int VAR=NoExists;
+  if (VAR==NoExists)
+    VAR=getTCLParam("ENABLE_UNLOAD_PECTAB",0,1,0);
+  return VAR!=0;
 }
 
 bool get_test_server()
 {
-    bool result = true;
-    Tcl_Obj *obj;
-    obj=Tcl_GetVar2Ex(getTclInterpretator(),
-            "TEST_SERVER",0,TCL_GLOBAL_ONLY);
-    if(!obj)
-        result = true;
-    else {
-        static char buf[200];
-        buf[199]=0;
-        strcpy(buf,Tcl_GetString(obj));
-        int TEST_SERVER;
-        if(StrToInt(buf, TEST_SERVER) == EOF)
-            result = true;
-        else
-            result = TEST_SERVER != 0;
-    }
-    return result;
+  static int VAR=NoExists;
+  if (VAR==NoExists)
+    VAR=getTCLParam("TEST_SERVER",0,1,1);
+  return VAR!=0;
 }
 
 bool get_enable_fr_design()
 {
-    bool result = true;
-    Tcl_Obj *obj;
-    obj=Tcl_GetVar2Ex(getTclInterpretator(),
-            "ENABLE_FR_DESIGN",0,TCL_GLOBAL_ONLY);
-    if(!obj)
-        result = false;
-    else {
-      static char buf[200];
-      buf[199]=0;
-      strcpy(buf,Tcl_GetString(obj));
-      int ENABLE_FR_DESIGN;
-      if(StrToInt(buf, ENABLE_FR_DESIGN) == EOF)
-          result = false;
-      else
-          result = ENABLE_FR_DESIGN != 0;
-    }
-    return result;
+  static int VAR=NoExists;
+  if (VAR==NoExists)
+    VAR=getTCLParam("ENABLE_FR_DESIGN",0,1,0);
+  return VAR!=0;
 }
 
 const char* OWN_POINT_ADDR()
@@ -1150,7 +1110,7 @@ const bool USE_SEANCES()
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
-    VAR=getTCLParam("USE_SEANCES",NoExists,NoExists,0);
+    VAR=getTCLParam("USE_SEANCES",0,1,0);
   return VAR!=0;
 };
 

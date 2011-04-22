@@ -2876,25 +2876,52 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   	ProgTrace( TRACE5, "!!! Passenger set layer=%s, but his was chekin in funct ChangeLayer", EncodeCompLayerType( layer_type ) );
   	throw UserException( "MSG.PASSENGER.CHECKED.REFRESH_DATA" );
   }
+  
+  SALONS2::TSalons Salons( point_id, SALONS2::rTripSalons );
+  Salons.Read();
+  TSeatRange r;
+  TSalonPoint p;
+  TPlace* place;
+
   // проверка на то, что пассажир имеет уже более приоритетный слой, а хотим назначить менее приоритетный
   //если пассажир имеет платный слой, то нельзя работать с предварительной разметкой ???
-/*  if ( layer_type == cltProtCkin ) { //!!!переделать!!!
-     Qry.Clear();
-     Qry.SQLText =
-       "SELECT pax_id FROM trip_comp_layers "
-       " WHERE point_id=:point_id AND crs_pax_id=:crs_pax_id AND layer_type IN (:prot_bp,:prot_ap,:pnl_bp,:pnl_ap) AND rownum<2";
-     Qry.CreateVariable( "point_id", otInteger, point_id );
-     Qry.CreateVariable( "crs_pax_id", otInteger, pax_id );
-     Qry.CreateVariable( "prot_bp", otString, EncodeCompLayerType( cltProtBeforePay ) );   //!!!переделать!!!
-     Qry.CreateVariable( "prot_ap", otString, EncodeCompLayerType( cltProtAfterPay ) );  //!!!переделать!!!
-     Qry.CreateVariable( "pnl_bp", otString, EncodeCompLayerType( cltPNLBeforePay ) );  //!!!переделать!!!
-     Qry.CreateVariable( "pnl_ap", otString, EncodeCompLayerType( cltPNLAfterPay ) );   //!!!переделать!!!
-     Qry.Execute();
-     if ( !Qry.Eof )
-       throw UserException( "MSG.SEATS.SEAT_NO.NOT_USE" );
-    }*/
-  
-  
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT trip_comp_layers.layer_type, first_xname, first_yname "
+    " FROM trip_comp_layers, comp_layer_types "
+    "WHERE point_id=:point_id AND (crs_pax_id=:pax_id OR pax_id=:pax_id) AND "
+    "      trip_comp_layers.layer_type = comp_layer_types.code AND "
+    "      comp_layer_types.priority<:priority "
+    "ORDER BY priority";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.CreateVariable( "pax_id", otInteger, pax_id );
+  Qry.CreateVariable( "priority", otInteger, Salons.getPriority( layer_type ) );
+  Qry.Execute();
+  // выбираем все более приоритетные слои по пассажиру
+  while ( !Qry.Eof ) {
+    strcpy( r.first.line, Qry.FieldAsString( "first_xname" ) );
+    strcpy( r.first.row, Qry.FieldAsString( "first_yname" ) );
+    r.second = r.first;
+    // находим места со слоями в салоне
+    if ( getCurrSeat( Salons, r, p ) ) {
+      vector<TPlaceList*>::iterator placeList = Salons.placelists.end();
+      for( placeList = Salons.placelists.begin();placeList != Salons.placelists.end(); placeList++ ) {
+      	if ( (*placeList)->num == p.num )
+      		break;
+      }
+      if ( placeList != Salons.placelists.end() ) {
+      	SALONS2::TPoint coord( p.x, p.y );
+      	place = (*placeList)->place( coord );
+        ProgTrace( TRACE5, "pax_id=%d, seat_no=%s, layer_type=%s, priority=%d",
+                   pax_id, string(place->yname+place->xname).c_str(), EncodeCompLayerType( layer_type ), Salons.getPriority( layer_type ) );
+      	// проверяем а правда ли слой действует или перекрыт более приоритетным слоем
+      	if ( place->isLayer( DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) ) ) )
+          throw UserException( "MSG.SEATS.SEAT_NO.EXIT_MORE_PRIORITY" );
+      }
+    }
+    Qry.Next();
+  }
+
   vector<TSeatRange> seats;
   if ( seat_type != stDropseat ) { // заполнение вектора мест + проверка
   	TQuery QrySeatRules( &OraSession );
@@ -2904,12 +2931,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   	QrySeatRules.CreateVariable( "new_layer", otString, EncodeCompLayerType( layer_type ) );
   	QrySeatRules.DeclareVariable( "old_layer", otString );
   // считываем слои по новому месту и делаем проверку на то, что этот слой уже занят другим пассажиром
-  	SALONS2::TSalons Salons( point_id, SALONS2::rTripSalons );
-  	Salons.Read();
 	  seats.clear();
-    TSeatRange r;
-    TSalonPoint p;
-    TPlace* place;
     strcpy( r.first.line, first_xname.c_str() );
     strcpy( r.first.row, first_yname.c_str() );
     r.second = r.first;
@@ -2944,7 +2966,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
     	  ProgTrace( TRACE5, "old layer=%s", EncodeCompLayerType( place->layers.begin()->layer_type ) );
     	  QrySeatRules.Execute();
 		    if ( QrySeatRules.Eof )
-    			throw UserException( "MSG.SEATS.SEAT_NO.NOT_USE" );
+    			throw UserException( "MSG.SEATS.UNABLE_SET_CURRENT" );
     		if ( QrySeatRules.FieldAsInteger( "pr_owner" ) && pax_id != place->layers.begin()->pax_id )
     			throw UserException( "MSG.SEATS.SEAT_NO.OCCUPIED_OTHER_PASSENGER" );
     	}

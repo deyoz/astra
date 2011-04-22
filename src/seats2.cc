@@ -2201,7 +2201,7 @@ void CanChangeLayer( int point_id, int pax_id, int crs_pax_id, TCompLayerType Ne
           	    throw AstraLocale::UserException( "MSG.SEATS.SEAT_NO.PASSENGER_OWNER" );
             }
         	  else
-        	    throw AstraLocale::UserException( "MSG.SEATS.SEAT_NO.NOT_USE" );
+        	    throw AstraLocale::UserException( "MSG.SEATS.UNABLE_SET_CURRENT" );
           }
         }
       }
