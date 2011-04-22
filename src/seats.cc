@@ -2966,7 +2966,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
     	  ProgTrace( TRACE5, "old layer=%s", EncodeCompLayerType( place->layers.begin()->layer_type ) );
     	  QrySeatRules.Execute();
 		    if ( QrySeatRules.Eof )
-    			throw UserException( "MSG.SEATS.SEAT_NO.NOT_USE" );
+    			throw UserException( "MSG.SEATS.UNABLE_SET_CURRENT" );
     		if ( QrySeatRules.FieldAsInteger( "pr_owner" ) && pax_id != place->layers.begin()->pax_id )
     			throw UserException( "MSG.SEATS.SEAT_NO.OCCUPIED_OTHER_PASSENGER" );
     	}

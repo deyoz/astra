@@ -1061,7 +1061,7 @@ void SalonFormInterface::AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   TTripInfo info( Qry );
   SEATS2::TPassengers p;
   if ( !SEATS2::GetPassengersForWaitList( point_id, p ) )
-  	throw UserException( "MSG.SEATS.ALL_PASSENGERS_SEATS" );
+  	throw UserException( "MSG.SEATS.ALL_PASSENGERS_PLANED" );
   SALONS2::TSalons Salons( point_id, SALONS2::rTripSalons );
   vector<SALONS2::TSalonSeat> seats;
   Salons.Read();
