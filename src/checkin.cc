@@ -2775,10 +2775,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
 
       xmlNodePtr node2,remNode;
       //проверим номера документов и билетов
-      if (!pr_unaccomp&&
-          (pr_reg_with_tkn||pr_reg_with_doc||
-           reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION) &&
-           defer_etstatus && !pr_etl_only && pr_etstatus>=0))
+      if (!pr_unaccomp)
       {
         Qry.Clear();
         Qry.SQLText=
@@ -2790,6 +2787,19 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
           node2=node->children;
           try
           {
+            if (strlen(NodeAsStringFast("ticket_no",node2,""))>15)
+            {
+              string ticket_no=NodeAsStringFast("ticket_no",node2,"");
+              if (ticket_no.size()>20) ticket_no.erase(20).append("...");
+              throw UserException("MSG.CHECKIN.TICKET_LARGE_MAX_LEN", LParams()<<LParam("ticket_no",ticket_no));
+            };
+            if (strlen(NodeAsStringFast("document",node2,""))>50)
+            {
+              string document=NodeAsStringFast("document",node2,"");
+              if (document.size()>25) document.erase(25).append("...");
+              throw UserException("MSG.CHECKIN.DOCUMENT_LARGE_MAX_LEN", LParams()<<LParam("document",document));
+            };
+          
             if (reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION) &&
                 defer_etstatus && !pr_etl_only && pr_etstatus>=0 && //раздельное изменение статуса и есть связь с СЭБ
                 strcmp(NodeAsStringFast("ticket_rem",node2,""),"TKNE")==0 &&

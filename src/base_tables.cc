@@ -134,7 +134,8 @@ void TBaseTable::Invalidate()
   if ((unsigned int)prior_mem_count!=mem.count())
   {
     prior_mem_count=mem.count();
-    ProgTrace(TRACE5, "TBaseTable::Invalidate: %s: mem.count=%d", get_table_name(), mem.count());
+    if (mem.is_trace_memory())
+      ProgTrace(TRACE5, "TBaseTable::Invalidate: %s: mem.count=%d", get_table_name(), mem.count());
   };
 };
 
