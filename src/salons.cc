@@ -440,6 +440,7 @@ void TSalons::Write()
                        " DELETE comp_rem WHERE comp_id=:comp_id; "
                        " DELETE comp_rates WHERE comp_id=:comp_id; "
                        " DELETE comp_elems WHERE comp_id=:comp_id; "
+                       " DELETE comp_sections WHERE comp_id=:comp_id; "
                        " DELETE comps WHERE comp_id=:comp_id; "
                        "END; ";
          break;
