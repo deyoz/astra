@@ -3589,8 +3589,8 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
             if (!iSeat->second.lexema_id.empty())
               throw UserException(iSeat->second.lexema_id, iSeat->second.lparams);
               
-            if ( iSeat->first.WebTariff.value == 0.0 )  //нет тарифа
-              throw UserException("MSG.SEATS.NOT_SET_RATE");
+/*            if ( iSeat->first.WebTariff.value == 0.0 )  //нет тарифа
+              throw UserException("MSG.SEATS.NOT_SET_RATE");*/
             
 
             vector<TSeatRange> ranges(1,TSeatRange(TSeat(iSeat->first.yname,
