@@ -46,7 +46,8 @@ void ReadCompSections( int comp_id, vector<SALONS2::TCompSections> &CompSections
   CompSections.clear();
   TQuery Qry( &OraSession );
   Qry.SQLText =
-    "SELECT name, first_rownum, last_rownum FROM comp_sections WHERE comp_id=:comp_id";
+    "SELECT name, first_rownum, last_rownum FROM comp_sections WHERE comp_id=:comp_id "
+    "ORDER By first_rownum";
   Qry.CreateVariable( "comp_id", otInteger, comp_id );
   Qry.Execute();
   while ( !Qry.Eof ) {
@@ -104,6 +105,8 @@ void WriteCompSections( int id, const vector<SALONS2::TCompSections> &CompSectio
     "DELETE comp_sections WHERE comp_id=:id";
   Qry.CreateVariable( "id", otInteger, id );
   Qry.Execute();
+  ProgTrace( TRACE5, "RowCount=%d", Qry.RowCount() );
+  bool pr_exists = Qry.RowCount();
   Qry.Clear();
   Qry.SQLText =
     "INSERT INTO comp_sections(comp_id,name,first_rownum,last_rownum) VALUES(:id,:name,:first_rownum,:last_rownum)";
@@ -111,7 +114,7 @@ void WriteCompSections( int id, const vector<SALONS2::TCompSections> &CompSectio
   Qry.DeclareVariable( "name", otString );
   Qry.DeclareVariable( "first_rownum", otInteger );
   Qry.DeclareVariable( "last_rownum", otInteger );
-  if ( CompSections.empty() )
+  if ( CompSections.empty() && pr_exists )
     msg = "Удалены все багажные секции";
   for ( vector<SALONS2::TCompSections>::const_iterator i=CompSections.begin(); i!=CompSections.end(); i++ ) {
     if ( i == CompSections.begin() )
