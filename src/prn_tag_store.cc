@@ -263,6 +263,7 @@ TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tag
     tag_list.insert(make_pair(TAG::AIRP_DEP,        TTagListItem(&TPrnTagStore::AIRP_DEP)));
     tag_list.insert(make_pair(TAG::AIRP_DEP_NAME,   TTagListItem(&TPrnTagStore::AIRP_DEP_NAME)));
     tag_list.insert(make_pair(TAG::BAG_AMOUNT,      TTagListItem(&TPrnTagStore::BAG_AMOUNT, BAG_INFO)));
+    tag_list.insert(make_pair(TAG::TAGS,            TTagListItem(&TPrnTagStore::TAGS, PAX_INFO)));
     tag_list.insert(make_pair(TAG::BAG_WEIGHT,      TTagListItem(&TPrnTagStore::BAG_WEIGHT, BAG_INFO)));
     tag_list.insert(make_pair(TAG::BRD_FROM,        TTagListItem(&TPrnTagStore::BRD_FROM, BRD_INFO)));
     tag_list.insert(make_pair(TAG::BRD_TO,          TTagListItem(&TPrnTagStore::BRD_TO, BRD_INFO)));
@@ -396,7 +397,7 @@ string TPrnTagStore::get_real_field(std::string name, size_t len, std::string da
     if((im->second.info_type & POINT_INFO) == POINT_INFO)
         pointInfo.Init(grpInfo.point_dep, grpInfo.grp_id);
     if((im->second.info_type & PAX_INFO) == PAX_INFO)
-        paxInfo.Init(pax_id);
+        paxInfo.Init(pax_id, tag_lang);
     if((im->second.info_type & BAG_INFO) == BAG_INFO)
         bagInfo.Init(grpInfo.grp_id);
     if((im->second.info_type & BRD_INFO) == BRD_INFO)
@@ -604,6 +605,8 @@ void TPrnTagStore::get_prn_qry(TQuery &Qry)
         prnQry.add_part("pr_smoke", paxInfo.pr_smoke);
     if(tag_list[TAG::BAG_AMOUNT].processed)
         prnQry.add_part(TAG::BAG_AMOUNT, bagInfo.bag_amount);
+    if(tag_list[TAG::TAGS].processed)
+        prnQry.add_part(TAG::TAGS, paxInfo.tags);
     if(tag_list[TAG::BAG_WEIGHT].processed)
         prnQry.add_part(TAG::BAG_WEIGHT, bagInfo.bag_weight);
     if(tag_list[TAG::EXCESS].processed)
@@ -682,7 +685,7 @@ void TPrnTagStore::TBagInfo::Init(int grp_id)
     }
 }
 
-void TPrnTagStore::TPaxInfo::Init(int apax_id)
+void TPrnTagStore::TPaxInfo::Init(int apax_id, TTagLang &tag_lang)
 {
     if(apax_id == NoExists) return;
     if(pax_id == NoExists) {
@@ -704,12 +707,14 @@ void TPrnTagStore::TPaxInfo::Init(int apax_id)
             "       0) pr_smoke, "
             "   reg_no, "
             "   seats, "
-            "   pers_type "
+            "   pers_type, "
+            "   ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags "
             "from "
             "   pax "
             "where "
             "   pax_id = :pax_id ";
         Qry.CreateVariable("pax_id", otInteger, pax_id);
+        Qry.CreateVariable("lang", otString, tag_lang.GetLang());
         Qry.Execute();
         if(Qry.Eof)
             throw Exception("TPrnTagStore::TPaxInfo::Init no data found for pax_id = %d", pax_id);
@@ -723,6 +728,7 @@ void TPrnTagStore::TPaxInfo::Init(int apax_id)
         reg_no = Qry.FieldAsInteger("reg_no");
         seats = Qry.FieldAsInteger("seats");
         pers_type = Qry.FieldAsString("pers_type");
+        tags = Qry.FieldAsString("tags");
     }
 }
 
@@ -1004,6 +1010,11 @@ string TPrnTagStore::AIRP_DEP_NAME(TFieldParams fp)
 string TPrnTagStore::BAG_AMOUNT(TFieldParams fp)
 {
     return IntToString(bagInfo.bag_amount);
+}
+
+string TPrnTagStore::TAGS(TFieldParams fp)
+{
+    return paxInfo.tags;
 }
 
 string TPrnTagStore::BAG_WEIGHT(TFieldParams fp)
