@@ -2767,6 +2767,28 @@ void WEBTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     EXAMTXT(rpt_params, reqNode, resNode);
 }
 
+void SPPCentrovka(TDateTime date, xmlNodePtr resNode)
+{
+}
+
+void SPPCargo(TDateTime date, xmlNodePtr resNode)
+{
+}
+
+void SPPCex(TDateTime date, xmlNodePtr resNode)
+{
+}
+
+void  DocsInterface::RunSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    xmlNodePtr node = reqNode->children;
+    string name = NodeAsStringFast("name", node);
+    get_new_report_form(name, reqNode, resNode);
+    xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
+    xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
+    NewTextChild(variablesNode, "test_server", bad_client_img_version() ? 2 : get_test_server());
+}
+
 void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     xmlNodePtr node = reqNode->children;
@@ -2825,8 +2847,7 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         case rtNORECTXT:
             EXAMTXT(rpt_params, reqNode, resNode);
             break;
-        case rtUnknown:
-        case rtTypeNum:
+        default:
             throw AstraLocale::UserException("MSG.TEMPORARILY_NOT_SUPPORTED");
     }
 }

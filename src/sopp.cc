@@ -42,33 +42,35 @@ enum TModule { tSOPP, tISG, tSPPCEK };
 
 const char* points_SOPP_SQL =
     "SELECT points.move_id,points.point_id,point_num,airp,airp_fmt,first_point,airline,airline_fmt,flt_no,"
-    "       suffix,suffix_fmt,craft,craft_fmt,bort,"
+    "       suffix,suffix_fmt,craft,craft_fmt,bort, trip_crew.commander, trip_crew.cockpit, trip_crew.cabin, "
     "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
     "       pr_tranzit,pr_reg,points.pr_del pr_del,points.tid tid "
-    " FROM points, "
+    " FROM points, trip_crew, "
     " (SELECT DISTINCT move_id FROM points "
     "   WHERE points.pr_del!=-1 "
     "         :where_sql AND "
     "         ( time_in >= :first_date AND time_in < :next_date OR "
     "           time_out >= :first_date AND time_out < :next_date ) ) p "
     "WHERE points.move_id = p.move_id AND "
+    "      points.point_id = trip_crew.point_id(+) and "
     "      points.pr_del!=-1 "
     "ORDER BY points.move_id,point_num,point_id ";
 const char* points_id_SOPP_SQL =
     "SELECT points.move_id,points.point_id,point_num,airp,airp_fmt,first_point,airline,airline_fmt,flt_no,"
-    "       suffix,suffix_fmt,craft,craft_fmt,bort,"
+    "       suffix,suffix_fmt,craft,craft_fmt,bort, trip_crew.commander, trip_crew.cockpit, trip_crew.cabin, "
     "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
     "       pr_tranzit,pr_reg,points.pr_del pr_del,points.tid tid "
-    " FROM points, "
+    " FROM points, trip_crew, "
     " ( SELECT move_id FROM points WHERE point_id=:point_id AND pr_del!=-1 AND ROWNUM<2 ) a "
-    "   WHERE pr_del!=-1 AND points.move_id=a.move_id "
+    "   WHERE pr_del!=-1 AND points.move_id=a.move_id and "
+    "      points.point_id = trip_crew.point_id(+) "
     "ORDER BY points.move_id,point_num,point_id ";
 const char* points_ISG_SQL =
     "SELECT points.move_id,points.point_id,point_num,airp,airp_fmt,first_point,airline,airline_fmt,flt_no,"
-    "       suffix,suffix_fmt,craft,craft_fmt,bort,"
+    "       suffix,suffix_fmt,craft,craft_fmt,bort, trip_crew.commander, trip_crew.cockpit, trip_crew.cabin, "
     "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
     "       pr_tranzit,pr_reg,points.pr_del pr_del,points.tid tid, reference ref "
-    " FROM points, move_ref, "
+    " FROM points, move_ref, trip_crew, "
     " (SELECT DISTINCT move_id FROM points "
     "   WHERE points.pr_del!=-1 "
     "         :where_sql AND "
@@ -76,15 +78,16 @@ const char* points_ISG_SQL =
     "           time_out >= :first_date AND time_out < :next_date OR "
     "           time_in = TO_DATE('01.01.0001','DD.MM.YYYY') AND time_out = TO_DATE('01.01.0001','DD.MM.YYYY') ) ) p "
     "WHERE points.move_id = p.move_id AND "
+    "      points.point_id = trip_crew.point_id(+) and "
     "      move_ref.move_id = p.move_id AND "
     "      points.pr_del!=-1 "
     "ORDER BY points.move_id,point_num,point_id ";
 const char * arx_points_SOPP_SQL =
-    "SELECT arx_points.move_id,point_id,point_num,airp,airp_fmt,first_point,airline,airline_fmt,flt_no,"
-    "       suffix,suffix_fmt,craft,craft_fmt,bort,"
+    "SELECT arx_points.move_id,arx_points.point_id,point_num,airp,airp_fmt,first_point,airline,airline_fmt,flt_no,"
+    "       suffix,suffix_fmt,craft,craft_fmt,bort, trip_crew.commander, trip_crew.cockpit, trip_crew.cabin, "
     "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
     "       pr_tranzit,pr_reg,arx_points.pr_del pr_del,arx_points.tid tid, arx_points.part_key "
-    " FROM arx_points,"
+    " FROM arx_points, trip_crew, "
     " (SELECT DISTINCT move_id, part_key FROM arx_points "
     "   WHERE part_key>=:first_date AND part_key<:next_date+:arx_trip_date_range AND "
     "         pr_del!=-1 "
@@ -93,15 +96,16 @@ const char * arx_points_SOPP_SQL =
     "           NVL(act_in,NVL(est_in,scd_in)) >= :first_date AND NVL(act_in,NVL(est_in,scd_in)) < :next_date OR "
     "           NVL(act_out,NVL(est_out,scd_out)) >= :first_date AND NVL(act_out,NVL(est_out,scd_out)) < :next_date ) ) p "
     "WHERE arx_points.part_key = p.part_key AND "
+    "      arx_points.point_id = trip_crew.point_id(+) and "
     "      arx_points.move_id = p.move_id AND "
     "      arx_points.pr_del!=-1 "
     "ORDER BY arx_points.move_id,point_num,point_id ";
 const char * arx_points_ISG_SQL =
-    "SELECT arx_points.move_id,point_id,point_num,airp,airp_fmt,first_point,airline,airline_fmt,flt_no,"
-    "       suffix,suffix_fmt,craft,craft_fmt,bort,"
+    "SELECT arx_points.move_id,arx_points.point_id,point_num,airp,airp_fmt,first_point,airline,airline_fmt,flt_no,"
+    "       suffix,suffix_fmt,craft,craft_fmt,bort, trip_crew.commander, trip_crew.cockpit, trip_crew.cabin, "
     "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
     "       pr_tranzit,pr_reg,arx_points.pr_del pr_del,arx_points.tid tid, reference ref, arx_points.part_key "
-    " FROM arx_points, arx_move_ref,"
+    " FROM arx_points, arx_move_ref, trip_crew, "
     " (SELECT DISTINCT move_id, part_key FROM arx_points "
     "   WHERE part_key>=:first_date AND part_key<:next_date+:arx_trip_date_range AND "
     "         pr_del!=-1 "
@@ -111,6 +115,7 @@ const char * arx_points_ISG_SQL =
     "           NVL(act_out,NVL(est_out,scd_out)) >= :first_date AND NVL(act_out,NVL(est_out,scd_out)) < :next_date OR "
     "           NVL(act_in,NVL(est_in,scd_in)) IS NULL AND NVL(act_out,NVL(est_out,scd_out)) IS NULL ) ) p "
     "WHERE arx_points.part_key=p.part_key AND "
+    "      arx_points.point_id = trip_crew.point_id(+) and "
     "      arx_points.move_id = p.move_id AND "
     "      arx_move_ref.part_key=p.part_key AND "
     "      arx_move_ref.move_id = p.move_id AND "
@@ -285,6 +290,9 @@ TSOPPTrip createTrip( int move_id, TSOPPDests::iterator &id, TSOPPDests &dests )
     trip.est_in = id->est_in;
     trip.act_in = id->act_in;
     trip.park_in = id->park_in;
+    trip.commander_in = pd->commander;
+    trip.cockpit_in = pd->cockpit;
+    trip.cabin_in = pd->cabin;
   }
 
   trip.airp = id->airp;
@@ -316,6 +324,9 @@ TSOPPTrip createTrip( int move_id, TSOPPDests::iterator &id, TSOPPDests &dests )
 
     trip.pr_del_out = id->pr_del;
     trip.pr_reg = id->pr_reg;
+    trip.commander_out = id->commander;
+    trip.cockpit_out = id->cockpit;
+    trip.cabin_out = id->cabin;
   }
   trip.region = id->region;
   trip.delays = id->delays;
@@ -556,16 +567,16 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
 
   if ( arx )
   	if ( module == tISG )
-  		PointsQry.SQLText = addCondition( arx_points_ISG_SQL, arx ).c_str();
-  	else
-  	  PointsQry.SQLText = addCondition( arx_points_SOPP_SQL, arx ).c_str();
+        PointsQry.SQLText = addCondition( arx_points_ISG_SQL, arx ).c_str();
+    else
+        PointsQry.SQLText = addCondition( arx_points_SOPP_SQL, arx ).c_str();
   else
   	if ( module == tISG )
   	  PointsQry.SQLText = addCondition( points_ISG_SQL, arx ).c_str();
-  	else
+    else
   		if ( point_id == NoExists )
 	  		PointsQry.SQLText = addCondition( points_SOPP_SQL, arx ).c_str();
-  		else {
+        else {
   			PointsQry.SQLText = points_id_SOPP_SQL;
   			PointsQry.CreateVariable( "point_id", otInteger, point_id );
   	  }
@@ -693,6 +704,9 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
   int col_craft = PointsQry.FieldIndex( "craft" );
   int col_craft_fmt = PointsQry.FieldIndex( "craft_fmt" );
   int col_bort = PointsQry.FieldIndex( "bort" );
+  int col_commander = PointsQry.FieldIndex( "commander" );
+  int col_cockpit = PointsQry.FieldIndex( "cockpit" );
+  int col_cabin = PointsQry.FieldIndex( "cabin" );
   int col_scd_in = PointsQry.FieldIndex( "scd_in" );
   int col_est_in = PointsQry.FieldIndex( "est_in" );
   int col_act_in = PointsQry.FieldIndex( "act_in" );
@@ -781,6 +795,11 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
     d.craft = PointsQry.FieldAsString( col_craft );
     d.craft_fmt = (TElemFmt)PointsQry.FieldAsInteger( col_craft_fmt );
     d.bort = PointsQry.FieldAsString( col_bort );
+    d.commander = PointsQry.FieldAsString( col_commander );
+    if(!d.commander.empty())
+        ProgTrace(TRACE5, "d.commander: %s", d.commander.c_str());
+    d.cockpit = PointsQry.FieldAsInteger( col_cockpit );
+    d.cabin = PointsQry.FieldAsInteger( col_cabin );
     if ( PointsQry.FieldIsNULL( col_scd_in ) )
       d.scd_in = NoExists;
     else
@@ -1057,6 +1076,9 @@ void buildSOPP( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
       NewTextChild( tripNode, "litera_in", ElemIdToCodeNative(etTripLiter,tr->litera_in) );
     if ( !tr->park_in.empty() )
       NewTextChild( tripNode, "park_in", tr->park_in );
+    NewTextChild(tripNode, "commander_in", tr->commander_in, "");
+    NewTextChild(tripNode, "cockpit_in", tr->cockpit_in, 0);
+    NewTextChild(tripNode, "cabin_in", tr->cabin_in, 0);
     if ( tr->remark_in != tr->remark_out && !tr->remark_in.empty() )
       NewTextChild( tripNode, "remark_in", tr->remark_in );
     if ( tr->pr_del_in )
@@ -1101,6 +1123,9 @@ void buildSOPP( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
       NewTextChild( tripNode, "pr_del_out", tr->pr_del_out );
 //    if ( tr->pr_reg )
       NewTextChild( tripNode, "pr_reg", tr->pr_reg );
+    NewTextChild(tripNode, "commander_out", tr->commander_out, "");
+    NewTextChild(tripNode, "cockpit_out", tr->cockpit_out, 0);
+    NewTextChild(tripNode, "cabin_out", tr->cabin_out, 0);
    	int trfertype = 0x000;
    	if ( tr->TrferType.isFlag( trferIn ) )
    		trfertype += 0x00F;
@@ -1309,12 +1334,18 @@ void buildISG( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
       NewTextChild( tripNode, "park_in", tr->park_in );
     if ( tr->remark_in != tr->remark_out && !tr->remark_in.empty() )
       NewTextChild( tripNode, "remark_in", tr->remark_in );
+    NewTextChild( tripNode, "commander_in", tr->commander_in, "");
+    NewTextChild( tripNode, "cockpit_in", tr->cockpit_in, 0);
+    NewTextChild( tripNode, "cabin_in", tr->cabin_in, 0);
     xmlNodePtr lNode = NULL;
     for ( TSOPPDests::iterator sairp=tr->places_in.begin(); sairp!=tr->places_in.end(); sairp++ ) {
       if ( !lNode )
         lNode = NewTextChild( tripNode, "places_in" );
       xmlNodePtr destNode = NewTextChild( lNode, "dest" );
       NewTextChild( destNode, "point_id", sairp->point_id );
+      NewTextChild( destNode, "commander", sairp->commander, "" );
+      NewTextChild( destNode, "cockpit", sairp->cockpit, 0 );
+      NewTextChild( destNode, "cabin", sairp->cabin, 0 );
       NewTextChild( destNode, "airp", ElemIdToElemCtxt( ecDisp, etAirp, sairp->airp, sairp->airp_fmt ) );
       if ( sairp->pr_del )
       	NewTextChild( destNode, "pr_del", sairp->pr_del );
@@ -1381,6 +1412,9 @@ void buildISG( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
 /*    if ( tr->pr_del_out )
       NewTextChild( tripNode, "pr_del_out", tr->pr_del_out );*/
     NewTextChild( tripNode, "pr_reg", tr->pr_reg );
+    NewTextChild( tripNode, "commander_out", tr->commander_out, "");
+    NewTextChild( tripNode, "cockpit_out", tr->cockpit_out, 0);
+    NewTextChild( tripNode, "cabin_out", tr->cabin_out, 0);
    	int trfertype = 0x000;
    	if ( tr->TrferType.isFlag( trferIn ) )
    		trfertype += 0x00F;
@@ -1400,6 +1434,9 @@ void buildISG( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
         lNode = NewTextChild( tripNode, "places_out" );
       xmlNodePtr destNode = NewTextChild( lNode, "dest" );
       NewTextChild( destNode, "point_id", sairp->point_id );
+      NewTextChild( destNode, "commander", sairp->commander, "" );
+      NewTextChild( destNode, "cockpit", sairp->cockpit, 0 );
+      NewTextChild( destNode, "cabin", sairp->cabin, 0 );
       NewTextChild( destNode, "airp", ElemIdToElemCtxt( ecDisp, etAirp, sairp->airp, sairp->airp_fmt ) );
       if ( sairp->pr_del )
       	NewTextChild( destNode, "pr_del", sairp->pr_del );

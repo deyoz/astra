@@ -42,7 +42,6 @@ struct TRptParams {
 };
 
 bool bad_client_img_version();
-void get_report_form(const std::string name, xmlNodePtr reqNode, xmlNodePtr resNode);
 void get_new_report_form(const std::string name, xmlNodePtr reqNode, xmlNodePtr resNode);
 void get_compatible_report_form(const std::string name, xmlNodePtr reqNode, xmlNodePtr resNode);
 void PaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode,
@@ -71,6 +70,8 @@ public:
      AddEvent("GetSegList",evHandle);
      evHandle=JxtHandler<DocsInterface>::CreateHandler(&DocsInterface::RunReport);
      AddEvent("run_report",evHandle);
+     evHandle=JxtHandler<DocsInterface>::CreateHandler(&DocsInterface::RunSPP);
+     AddEvent("run_spp",evHandle);
   };
 
   void SaveReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -79,6 +80,7 @@ public:
 
   void GetSegList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void RunReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void RunSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
   static void GetZoneList(int point_id, xmlNodePtr dataNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
