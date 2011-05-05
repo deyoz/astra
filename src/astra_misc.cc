@@ -935,7 +935,7 @@ bool IsRouteInter(int point_dep, int point_arv, string &country)
     TTripRoute route;
     if (!route.GetRouteAfter(point_dep,trtWithCurrent,trtNotCancelled))
         throw Exception("TTripRoute::GetRouteAfter: flight not found for point_dep %d", point_dep);
-    for(vector<TTripRouteItem>::iterator iv = route.begin(); iv != route.end(); iv++)
+    for(TTripRoute::iterator iv = route.begin(); iv != route.end(); iv++)
     {
         string c = cities.get_row("code",airps.get_row("code",iv->airp).AsString("city")).AsString("country");
         if(iv == route.begin())

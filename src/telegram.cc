@@ -54,7 +54,7 @@ void TelegramInterface::readTripData( int point_id, xmlNodePtr dataNode )
   node = NewTextChild( tripdataNode, "airps" );
   vector<string> airps;
   vector<string>::iterator i;
-  for(vector<TTripRouteItem>::iterator r=route.begin();r!=route.end();r++)
+  for(TTripRoute::iterator r=route.begin();r!=route.end();r++)
   {
     //проверим на дублирование кодов аэропортов в рамках одного рейса
     for(i=airps.begin();i!=airps.end();i++)
@@ -1183,7 +1183,7 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
     addrInfo.airp_arv=route.begin()->airp;
     sendInfo.airp_arv=route.begin()->airp;
   };
-  for(vector<TTripRouteItem>::iterator r=route.begin();r!=route.end();r++)
+  for(TTripRoute::iterator r=route.begin();r!=route.end();r++)
     if (find(airp_arv.begin(),airp_arv.end(),r->airp)==airp_arv.end())
       airp_arv.push_back(r->airp);
 

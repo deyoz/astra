@@ -64,6 +64,10 @@ const char* TTlgElementS[] =
                "SeatingCategories",
                "SeatsByDestination",
                "SupplementaryInfo",
+               //MVT
+               "AircraftMovementInfo",
+               //LDM
+               "LoadInfoAndRemarks",
                //общие
                "EndOfMessage"};
 
@@ -875,8 +879,11 @@ TTlgPartInfo ParseAHMHeading(TTlgPartInfo heading, TAHMHeadingInfo &info)
   return next;
 };
 
-void ParseAHMFltInfo(TTlgPartInfo body, TFltInfo& flt)
+void ParseAHMFltInfo(TTlgPartInfo body, const TAHMHeadingInfo &info, TFltInfo& flt, TBindType &bind_type)
 {
+  flt.Clear();
+  bind_type=btFirstSeg;
+
   int line,res;
   char c,*line_p;
   TTlgParser tlg;
@@ -944,12 +951,61 @@ void ParseAHMFltInfo(TTlgPartInfo body, TFltInfo& flt)
             {
               throw ETlgError("Can't convert UTC date");
             };
+            if (strcmp(info.tlg_type,"MVT")==0)
+            {
+              c=0;
+              res=sscanf(tlg.lex,"%[^.].%3[A-ZА-ЯЁ]%c",lexh,flt.airp_dep,&c);
+              if (c!=0||res!=2) throw ETlgError("Wrong airport of movement");
+              GetAirp(flt.airp_dep,true);
+              e=AircraftMovementInfo;
+              break;
+            };
+            if (strcmp(info.tlg_type,"LDM")==0)
+            {
+              e=LoadInfoAndRemarks;
+              break;
+            };
+            return;
+          };
+        case AircraftMovementInfo:
+          {
+            if (strncmp(tlg.lex,"AA",2)==0||
+                strncmp(tlg.lex,"EA",2)==0)
+            {
+              strcpy(flt.airp_arv, flt.airp_dep);
+              *flt.airp_dep=0;
+              bind_type=btLastSeg;
+              return;
+            };
+            if (strncmp(tlg.lex,"AD",2)==0||
+                strncmp(tlg.lex,"ED",2)==0||
+                strncmp(tlg.lex,"FR",2)==0)
+            {
+              bind_type=btFirstSeg;
+              return;
+            };
+            throw ETlgError("Wrong movement information identifier");
+          };
+        case LoadInfoAndRemarks:
+          {
+            c=0;
+            res=sscanf(tlg.lex,"-%3[A-ZА-ЯЁ]%c",flt.airp_arv,&c);
+            if (res!=2||c!='.') throw ETlgError("Wrong destination");
+            GetAirp(flt.airp_arv,true);
+            bind_type=btLastSeg;
             return;
           };
         default:;
       };
     }
     while ((line_p=tlg.NextLine(line_p))!=NULL);
+    switch (e)
+    {
+      case FlightElement:        throw ETlgError("Flight identifier not found");
+      case AircraftMovementInfo: throw ETlgError("Movement information identifier not found");
+      case LoadInfoAndRemarks:   throw ETlgError("Destination not found");
+      default:;
+    };
   }
   catch(ETlgError E)
   {
@@ -3946,23 +4002,23 @@ void bind_tlg(int point_id_tlg, int point_id_spp)
   };
 };
 
-bool bind_tlg(int point_id, TFltInfo &flt, TBindType bind_type)
+bool bind_tlg(int point_id_tlg, TFltInfo &flt, TBindType bind_type)
 {
   bool res=false;
-  if (*flt.airp_dep==0) return res;
-  TQuery TripsQry(&OraSession);
-  TripsQry.CreateVariable("airline",otString,flt.airline);
-  TripsQry.CreateVariable("flt_no",otInteger,(int)flt.flt_no);
-  TripsQry.CreateVariable("suffix",otString,flt.suffix);
-  TripsQry.CreateVariable("airp_dep",otString,flt.airp_dep);
-  TripsQry.CreateVariable("scd",otDate,flt.scd);
+  if (!flt.pr_utc && *flt.airp_dep==0) return res;
+  TQuery PointsQry(&OraSession);
+  PointsQry.CreateVariable("airline",otString,flt.airline);
+  PointsQry.CreateVariable("flt_no",otInteger,(int)flt.flt_no);
+  PointsQry.CreateVariable("suffix",otString,flt.suffix);
+  PointsQry.CreateVariable("airp_dep",otString,flt.airp_dep);
+  PointsQry.CreateVariable("scd",otDate,flt.scd);
 
   if (!flt.pr_utc)
   {
     //перевод UTCToLocal(points.scd)
-    TripsQry.SQLText=
-      "SELECT point_id,scd_out AS scd,airp, "
-      "       point_num,DECODE(pr_tranzit,0,point_id,first_point) AS first_point "
+    PointsQry.SQLText=
+      "SELECT point_id,point_num,first_point,pr_tranzit, "
+      "       scd_out AS scd,airp "
       "FROM points "
       "WHERE airline=:airline AND flt_no=:flt_no AND airp=:airp_dep AND "
       "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND "
@@ -3971,23 +4027,23 @@ bool bind_tlg(int point_id, TFltInfo &flt, TBindType bind_type)
   }
   else
   {
-    TripsQry.SQLText=
-      "SELECT point_id, "
-      "       point_num,DECODE(pr_tranzit,0,point_id,first_point) AS first_point "
+    PointsQry.SQLText=
+      "SELECT point_id,point_num,first_point,pr_tranzit "
       "FROM points "
-      "WHERE airline=:airline AND flt_no=:flt_no AND airp=:airp_dep AND "
+      "WHERE airline=:airline AND flt_no=:flt_no AND "
+      "      (:airp_dep IS NULL OR airp=:airp_dep) AND "
       "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND "
       "      scd_out >= TO_DATE(:scd) AND scd_out < TO_DATE(:scd)+1 AND pr_del>=0 ";
   };
-  TripsQry.Execute();
+  PointsQry.Execute();
   TDateTime scd;
   string tz_region;
-  for(;!TripsQry.Eof;TripsQry.Next())
+  for(;!PointsQry.Eof;PointsQry.Next())
   {
     if (!flt.pr_utc)
     {
-      scd=TripsQry.FieldAsDateTime("scd");
-      tz_region=AirpTZRegion(TripsQry.FieldAsString("airp"),false);
+      scd=PointsQry.FieldAsDateTime("scd");
+      tz_region=AirpTZRegion(PointsQry.FieldAsString("airp"),false);
       if (tz_region.empty()) continue;
       scd=UTCToLocal(scd,tz_region);
       modf(scd,&scd);
@@ -3996,65 +4052,70 @@ bool bind_tlg(int point_id, TFltInfo &flt, TBindType bind_type)
     switch (bind_type)
     {
       case btFirstSeg:
-        bind_tlg(point_id,TripsQry.FieldAsInteger("point_id"));
+        bind_tlg(point_id_tlg,PointsQry.FieldAsInteger("point_id"));
         res=true;
         break;
       case btLastSeg:
       case btAllSeg:
         {
-          TQuery SegQry(&OraSession);
-          SegQry.Clear();
-          SegQry.CreateVariable("first_point",otInteger,TripsQry.FieldAsInteger("first_point"));
-          SegQry.CreateVariable("point_num",otInteger,TripsQry.FieldAsInteger("point_num"));
-          if (!(*flt.airp_arv==0))
+          TTripRoute route;
+          route.GetRouteAfter(PointsQry.FieldAsInteger("point_id"),
+                              PointsQry.FieldAsInteger("point_num"),
+                              PointsQry.FieldAsInteger("first_point"),
+                              PointsQry.FieldAsInteger("pr_tranzit")!=0,
+                              trtWithCurrent,trtWithCancelled);
+          TTripRoute::const_iterator last_point=route.end();
+          for(TTripRoute::const_iterator r=route.begin();r!=route.end();r++)
           {
-            //ищем point_num первого попавшегося в маршруте airp_arv
-            SegQry.SQLText=
-              "SELECT MIN(point_num) AS last_point_num FROM points "
-              "WHERE first_point=:first_point AND point_num>:point_num AND pr_del>=0 AND "
-              "      airp=:airp_arv ";
-            SegQry.CreateVariable("airp_arv",otString,flt.airp_arv);
-          }
-          else
-          {
-            //ищем point_num последнего пункта в маршруте
-            SegQry.SQLText=
-              "SELECT MAX(point_num) AS last_point_num FROM points "
-              "WHERE first_point=:first_point AND point_num>:point_num AND pr_del>=0 ";
+            if (r==route.begin()) continue; //пропускаем начальный пункт, ищем в последующих
+            if (*flt.airp_arv==0)
+            {
+              //ищем последний пункт в маршруте
+              last_point=r;
+            }
+            else
+            {
+              //ищем первый попавшийся в маршруте пункт airp_arv
+              if (flt.airp_arv==r->airp)
+              {
+                last_point=r;
+                break;
+              };
+            };
+
           };
-          SegQry.Execute();
-          if (SegQry.Eof||SegQry.FieldIsNULL("last_point_num"))
+          if (last_point==route.end())
           {
             //если ничего не нашли
             if (bind_type==btAllSeg)
             {
-              bind_tlg(point_id,TripsQry.FieldAsInteger("point_id"));
+              bind_tlg(point_id_tlg,PointsQry.FieldAsInteger("point_id"));
               res=true;
             };
-            break;
-          };
-
-          int last_point_num = SegQry.FieldAsInteger("last_point_num");
-          SegQry.Clear();
-          SegQry.SQLText=
-            "SELECT point_id FROM points "
-            "WHERE :first_point IN (point_id,first_point) AND "
-            "      point_num>=:point_num AND "
-            "      point_num<:last_point_num AND pr_del>=0 "
-            "ORDER BY point_num DESC";
-          SegQry.CreateVariable("first_point",otInteger,TripsQry.FieldAsInteger("first_point"));
-          SegQry.CreateVariable("point_num",otInteger,TripsQry.FieldAsInteger("point_num"));
-          SegQry.CreateVariable("last_point_num",otInteger,last_point_num);
-          SegQry.Execute();
-          //пробежимся по пунктам посадки в обратном порядке начиная с
-          //пункта перед last_point_num
-          for(;!SegQry.Eof;SegQry.Next())
+          }
+          else
           {
-            bind_tlg(point_id,SegQry.FieldAsInteger("point_id"));
-            res=true;
-            //если btLastSeg - привяжем только последний сегмент
-            if (bind_type==btLastSeg) break;
+            //нашли last_point
+            //пробежимся по пунктам посадки до last_point
+            int point_id_spp=NoExists;
+            for(TTripRoute::const_iterator r=route.begin();r!=last_point;r++)
+            {
+              if (bind_type==btAllSeg)
+              {
+                bind_tlg(point_id_tlg,r->point_id);
+                res=true;
+              };
+              if (bind_type==btLastSeg)
+                point_id_spp=r->point_id;
+            };
+            if (point_id_spp!=NoExists)
+            {
+              //для btLastSeg
+              bind_tlg(point_id_tlg,point_id_spp);
+              res=true;
+            };
           };
+          break;
         };
     };
   };
