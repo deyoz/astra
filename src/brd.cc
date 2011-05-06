@@ -428,7 +428,8 @@ void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
                                             const int reg_no,
                                             const string &lang,
                                             const TRptType rpt_type,
-                                            const string &client_type)
+                                            const string &client_type,
+                                            const TSortType sort )
 {
     if( not (
             rpt_type == rtEXAM or rpt_type == rtEXAMTXT or
@@ -454,7 +455,7 @@ void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
         "    class, "
         "    pax_grp.status, "
         "    NVL(report.get_last_trfer_airp(pax_grp.grp_id),pax_grp.airp_arv) AS airp_arv, "
-        "    salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum) AS seat_no, "
+        "    salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'_seats',rownum) AS seat_no, "
         "    pax.seats, "
         "    wl_type, "
         "    ticket_no, "
@@ -518,7 +519,17 @@ void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
         sql << " AND reg_no=:reg_no ";
         Qry.CreateVariable("reg_no",otInteger,reg_no);
     };
-    sql << " ORDER BY reg_no ";
+    switch(sort) {
+        case stRegNo:
+            sql << " ORDER BY reg_no ";
+            break;
+        case stSurname:
+            sql << " ORDER BY pax.surname, pax.name, reg_no ";
+            break;
+        case stSeatNo:
+            sql << " ORDER BY seat_no, reg_no ";
+            break;
+    }
 
     Qry.CreateVariable("point_id",otInteger,point_id);
     Qry.CreateVariable("lang",otString,lang);
