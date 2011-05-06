@@ -732,6 +732,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       int col_tckin_id=Qry.FieldIndex("tckin_id");
       int col_seg_no=Qry.FieldIndex("seg_no");
 
+      TCkinRoute tckin_route;
       TPaxSeats priorSeats(point_id);
       for(;!Qry.Eof;Qry.Next())
       {
@@ -786,44 +787,28 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 
           if (!Qry.FieldIsNULL(col_tckin_id))
           {
-            TCkinQry.Clear();
-            TCkinQry.SQLText=
-              "SELECT pax_grp.point_arv, "
-              "       points.airline, "
-              "       points.flt_no, "
-              "       points.suffix, "
-              "       points.airp, "
-              "       points.scd_out "
-              "FROM points,pax_grp,tckin_pax_grp, "
-              "     (SELECT MAX(seg_no) AS seg_no FROM tckin_pax_grp "
-              "      WHERE tckin_id=:tckin_id AND seg_no<:seg_no) a "
-              "WHERE points.point_id=pax_grp.point_dep AND "
-              "      pax_grp.grp_id=tckin_pax_grp.grp_id AND "
-              "      tckin_pax_grp.tckin_id=:tckin_id AND "
-              "      tckin_pax_grp.seg_no=a.seg_no";
-            TCkinQry.CreateVariable("tckin_id",otInteger,Qry.FieldAsInteger(col_tckin_id));
-            TCkinQry.CreateVariable("seg_no",otInteger,Qry.FieldAsInteger(col_seg_no));
-            TCkinQry.Execute();
-            if (!TCkinQry.Eof)
+            TCkinRouteItem priorSeg;
+            tckin_route.GetPriorSeg(Qry.FieldAsInteger(col_tckin_id),
+                                    Qry.FieldAsInteger(col_seg_no),
+                                    crtIgnoreDependent,
+                                    priorSeg);
+            if (priorSeg.grp_id!=NoExists)
             {
-              TTripInfo info(TCkinQry);
-
-              TDateTime scd_out_local = UTCToLocal(info.scd_out,AirpTZRegion(info.airp));
+              TDateTime scd_out_local = UTCToLocal(priorSeg.operFlt.scd_out,AirpTZRegion(priorSeg.operFlt.airp));
 
               ostringstream trip;
-              trip << ElemIdToCodeNative(etAirline, info.airline)
-                   << setw(3) << setfill('0') << info.flt_no
-                   << ElemIdToCodeNative(etSuffix, info.suffix)
+              trip << ElemIdToCodeNative(etAirline, priorSeg.operFlt.airline)
+                   << setw(3) << setfill('0') << priorSeg.operFlt.flt_no
+                   << ElemIdToCodeNative(etSuffix, priorSeg.operFlt.suffix)
                    << '/' << DateTimeToStr(scd_out_local,"dd");
 
               NewTextChild(paxNode, "inbound_flt", trip.str());
 
-              int point_arv=TCkinQry.FieldAsInteger("point_arv");
               TCkinQry.Clear();
               TCkinQry.SQLText=
                 "SELECT scd_in, NVL(act_in,NVL(est_in,scd_in)) AS real_in "
                 "FROM points WHERE point_id=:point_id";
-              TCkinQry.CreateVariable("point_id",otInteger,point_arv);
+              TCkinQry.CreateVariable("point_id",otInteger,priorSeg.point_arv);
               TCkinQry.Execute();
               if (!TCkinQry.Eof && !TCkinQry.FieldIsNULL("scd_in") && !TCkinQry.FieldIsNULL("real_in"))
               {

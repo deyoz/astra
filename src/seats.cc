@@ -2546,7 +2546,6 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p, bool pr_exists )
 	bool res = false;
 	TQuery Qry( &OraSession );
   TQuery RemsQry( &OraSession );
-	TQuery QryTCkinTrip( &OraSession );
   TPaxSeats priorSeats( point_id );
 	if ( !pr_exists ) {
 	  p.Clear();
@@ -2572,39 +2571,37 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p, bool pr_exists )
   	throw UserException( "MSG.FLIGHT.NOT_FOUND" );
   string airline = Qry.FieldAsString( "airline" );
   TGrpStatusTypes &grp_status_types = (TGrpStatusTypes &)base_tables.get("GRP_STATUS_TYPES");
-  QryTCkinTrip.SQLText =
-    "SELECT airline,flt_no,suffix,airp,scd_out,airline_fmt,suffix_fmt "
-    " FROM points, pax_grp, "
-    " (SELECT MAX(tckin2.seg_no), tckin2.grp_id FROM tckin_pax_grp tckin1, tckin_pax_grp tckin2 "
-    "   WHERE tckin1.grp_id=:grp_id AND tckin2.tckin_id=tckin1.tckin_id AND tckin2.seg_no<tckin1.seg_no "
-    "  GROUP BY tckin2.grp_id) tckin "
-    " WHERE pax_grp.grp_id=tckin.grp_id AND points.point_id=pax_grp.point_dep";
-  QryTCkinTrip.DeclareVariable( "grp_id", otInteger );
 
   Qry.Clear();
-  string sql =
-    "SELECT pax_grp.grp_id,"
-    "       pax.pax_id,"
-    "       pax.reg_no,"
-    "       surname,"
-    "       pax.name, "
-    "       pax_grp.class,"
-    "       cls_grp.code subclass,"
-    "       pax.seats,"
-    "       pax_grp.status, "
-    "       pax.pers_type, "
-    "       pax.ticket_no, "
-    "       pax.document, "
-    "       ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_weight,"
-    "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_amount, "
-    "       ckin.get_excess(pax.grp_id,pax.pax_id) AS excess,"
-    "       pax.tid,"
-    "       pax.wl_type, "
-    "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'list',rownum) AS seat_no "
-    " FROM pax_grp, pax, cls_grp "
+  string sql;
+  if ( pr_exists )
+    sql += "SELECT pax.pax_id ";
+  else
+    sql += "SELECT pax_grp.grp_id,"
+           "       pax.pax_id,"
+           "       pax.reg_no,"
+           "       surname,"
+           "       pax.name, "
+           "       pax_grp.class,"
+           "       cls_grp.code subclass,"
+           "       pax.seats,"
+           "       pax_grp.status, "
+           "       pax.pers_type, "
+           "       pax.ticket_no, "
+           "       pax.document, "
+           "       ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_weight,"
+           "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_amount, "
+           "       ckin.get_excess(pax.grp_id,pax.pax_id) AS excess,"
+           "       pax.tid,"
+           "       pax.wl_type, "
+           "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'list',rownum) AS seat_no, "
+           "       tckin_pax_grp.tckin_id, tckin_pax_grp.seg_no  ";
+  sql +=
+    " FROM pax_grp, pax, cls_grp, tckin_pax_grp "
     "WHERE pax_grp.grp_id=pax.grp_id AND "
     "      pax_grp.point_dep=:point_id AND "
     "      pax_grp.class_grp = cls_grp.id AND "
+    "      pax_grp.grp_id=tckin_pax_grp.grp_id(+) AND "
     "      pax.pr_brd IS NOT NULL AND "
     "      pax.seats > 0 ";
   if ( pr_exists )
@@ -2620,6 +2617,7 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p, bool pr_exists )
   TSublsRems subcls_rems(airline);
 
   RemsQry.Execute();
+  TCkinRoute tckin_route;
   while ( !Qry.Eof ) {
     TPassenger pass;
     pass.paxId = Qry.FieldAsInteger( "pax_id" );
@@ -2664,23 +2662,29 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p, bool pr_exists )
     string pass_rem;
     if ( subcls_rems.IsSubClsRem( Qry.FieldAsString( "subclass" ), pass_rem ) )
       pass.add_rem( pass_rem );
-    if ( pass.grp_status == cltTCheckin ) {
-    	ProgTrace( TRACE5, "grp_id=%d", pass.grpId );
-    	QryTCkinTrip.SetVariable( "grp_id", pass.grpId );
-    	QryTCkinTrip.Execute();
-    	if ( !QryTCkinTrip.Eof ) {
-    	  TTripInfo fltInfo(QryTCkinTrip);
-    	  TDateTime local_scd_out = UTCToClient(fltInfo.scd_out,AirpTZRegion(fltInfo.airp));
+
+
+    if (!Qry.FieldIsNULL("tckin_id"))
+    {
+      TCkinRouteItem priorSeg;
+      tckin_route.GetPriorSeg(Qry.FieldAsInteger("tckin_id"),
+                              Qry.FieldAsInteger("seg_no"),
+                              crtIgnoreDependent,
+                              priorSeg);
+      if (priorSeg.grp_id!=NoExists)
+      {
+        TDateTime local_scd_out = UTCToClient(priorSeg.operFlt.scd_out,AirpTZRegion(priorSeg.operFlt.airp));
 
     	  ostringstream trip;
-    	  trip << ElemIdToElemCtxt( ecDisp, etAirline, fltInfo.airline, fltInfo.airline_fmt )
-    	       << setw(3) << setfill('0') << fltInfo.flt_no
-    	       << ElemIdToElemCtxt( ecDisp, etSuffix, fltInfo.suffix, fltInfo.suffix_fmt )
+    	  trip << ElemIdToElemCtxt( ecDisp, etAirline, priorSeg.operFlt.airline, priorSeg.operFlt.airline_fmt )
+    	       << setw(3) << setfill('0') << priorSeg.operFlt.flt_no
+    	       << ElemIdToElemCtxt( ecDisp, etSuffix, priorSeg.operFlt.suffix, priorSeg.operFlt.suffix_fmt )
     	       << "/" << DateTimeToStr( local_scd_out, "dd" );
 
     	  pass.trip_from = trip.str();
-    	}
-    }
+      };
+    };
+      
     p.Add( pass );
   	Qry.Next();
   }

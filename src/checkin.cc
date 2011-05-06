@@ -4505,21 +4505,10 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_versio
   grp_ids.push_back(grp_id);
   if (tckin_version)
   {
-    Qry.Clear();
-    Qry.SQLText=
-      "SELECT grp_id,pr_depend "
-      "FROM tckin_pax_grp, "
-      "     (SELECT tckin_id,seg_no FROM tckin_pax_grp WHERE grp_id=:grp_id) a "
-      "WHERE tckin_pax_grp.tckin_id=a.tckin_id AND tckin_pax_grp.seg_no>a.seg_no "
-      "ORDER BY tckin_pax_grp.seg_no";
-    Qry.CreateVariable("grp_id",otInteger,grp_id);
-    Qry.Execute();
-
-    for(;!Qry.Eof;Qry.Next())
-    {
-      if (Qry.FieldAsInteger("pr_depend")==0) break;
-      grp_ids.push_back(Qry.FieldAsInteger("grp_id"));
-    };
+    TCkinRoute tckin_route;
+    tckin_route.GetRouteAfter(grp_id, crtNotCurrent, crtOnlyDependent);
+    for(TCkinRoute::const_iterator r=tckin_route.begin(); r!=tckin_route.end(); r++)
+      grp_ids.push_back(r->grp_id);
   };
   bool trfer_confirm=true;
   vector<CheckIn::TTransferItem> segs;
