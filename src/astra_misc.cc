@@ -406,6 +406,170 @@ bool TTripRoute::GetPriorAirp(int point_id,
   return true;
 };
 
+void TCkinRoute::GetRoute(int tckin_id,
+                          int seg_no,
+                          bool after_current,
+                          TCkinRouteType1 route_type1,
+                          TCkinRouteType2 route_type2,
+                          TQuery& Qry)
+{
+  ostringstream sql;
+  sql << "SELECT points.airline, points.flt_no, points.suffix, points.airp, points.scd_out, "
+         "       NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out, "
+         "       points.airline_fmt, points.suffix_fmt, points.airp_fmt, points.pr_del, "
+         "       pax_grp.grp_id, pax_grp.point_dep, pax_grp.point_arv, "
+         "       tckin_pax_grp.seg_no, tckin_pax_grp.pr_depend "
+         "FROM points, pax_grp, tckin_pax_grp "
+         "WHERE points.point_id=pax_grp.point_dep AND "
+         "      pax_grp.grp_id=tckin_pax_grp.grp_id AND "
+         "      tckin_pax_grp.tckin_id=:tckin_id ";
+  if (after_current)
+  {
+    sql << "AND tckin_pax_grp.seg_no>=:seg_no "
+        << "ORDER BY seg_no ASC";
+  }
+  else
+  {
+
+    sql << "AND tckin_pax_grp.seg_no<=:seg_no "
+        << "ORDER BY seg_no DESC";
+  };
+
+  Qry.Clear();
+  Qry.SQLText= sql.str().c_str();
+  Qry.CreateVariable("tckin_id",otInteger,tckin_id);
+  Qry.CreateVariable("seg_no",otInteger,seg_no);
+  Qry.Execute();
+  if (!Qry.Eof && Qry.FieldAsInteger("seg_no")==seg_no)
+  {
+    bool pr_depend=true;
+    for(;!Qry.Eof;)
+    {
+      if (route_type2==crtOnlyDependent && !pr_depend) break;
+    
+      TCkinRouteItem item;
+      item.grp_id=Qry.FieldAsInteger("grp_id");
+      item.point_dep=Qry.FieldAsInteger("point_dep");
+      item.point_arv=Qry.FieldAsInteger("point_arv");
+      item.seg_no=Qry.FieldAsInteger("seg_no");
+      item.operFlt.Init(Qry);
+      
+      if (!after_current) pr_depend=Qry.FieldAsInteger("pr_depend")!=0;
+
+      Qry.Next();
+      
+      if (!Qry.Eof)
+      {
+        if (after_current) pr_depend=Qry.FieldAsInteger("pr_depend")!=0;
+      };
+
+      if (route_type1==crtNotCurrent && item.seg_no==seg_no) continue;
+      push_back(item);
+    };
+    if (!after_current) reverse(begin(),end());
+  };
+};
+
+bool TCkinRoute::GetRoute(int grp_id,
+                          bool after_current,
+                          TCkinRouteType1 route_type1,
+                          TCkinRouteType2 route_type2)
+{
+  clear();
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText="SELECT tckin_id,seg_no FROM tckin_pax_grp WHERE grp_id=:grp_id";
+  Qry.CreateVariable("grp_id", otInteger, grp_id);
+  Qry.Execute();
+  if (Qry.Eof) return false;
+  GetRoute(Qry.FieldAsInteger("tckin_id"),
+           Qry.FieldAsInteger("seg_no"),
+           after_current,route_type1,route_type2,Qry);
+  return true;
+};
+
+bool TCkinRoute::GetRouteAfter(int grp_id,
+                               TCkinRouteType1 route_type1,
+                               TCkinRouteType2 route_type2)
+{
+  return GetRoute(grp_id,true,route_type1,route_type2);
+};
+
+bool TCkinRoute::GetRouteBefore(int grp_id,
+                                TCkinRouteType1 route_type1,
+                                TCkinRouteType2 route_type2)
+{
+  return GetRoute(grp_id,false,route_type1,route_type2);
+};
+
+void TCkinRoute::GetRouteAfter(int tckin_id,
+                               int seg_no,
+                               TCkinRouteType1 route_type1,
+                               TCkinRouteType2 route_type2)
+{
+  clear();
+  TQuery Qry(&OraSession);
+  GetRoute(tckin_id,seg_no,
+           true,route_type1,route_type2,Qry);
+};
+
+void TCkinRoute::GetRouteBefore(int tckin_id,
+                                int seg_no,
+                                TCkinRouteType1 route_type1,
+                                TCkinRouteType2 route_type2)
+{
+  clear();
+  TQuery Qry(&OraSession);
+  GetRoute(tckin_id,seg_no,
+           false,route_type1,route_type2,Qry);
+};
+
+void TCkinRoute::GetNextSeg(int tckin_id,
+                            int seg_no,
+                            TCkinRouteType2 route_type2,
+                            TCkinRouteItem& item)
+{
+  item.Clear();
+  clear();
+  TQuery Qry(&OraSession);
+  GetRoute(tckin_id,seg_no,
+           true,crtNotCurrent,route_type2,Qry);
+  if (!empty()) item=front();
+};
+
+bool TCkinRoute::GetNextSeg(int grp_id,
+                            TCkinRouteType2 route_type2,
+                            TCkinRouteItem& item)
+{
+  item.Clear();
+  if (!GetRoute(grp_id,true,crtNotCurrent,route_type2)) return false;
+  if (!empty()) item=front();
+  return true;
+};
+
+void TCkinRoute::GetPriorSeg(int tckin_id,
+                             int seg_no,
+                             TCkinRouteType2 route_type2,
+                             TCkinRouteItem& item)
+{
+  item.Clear();
+  clear();
+  TQuery Qry(&OraSession);
+  GetRoute(tckin_id,seg_no,
+           false,crtNotCurrent,route_type2,Qry);
+  if (!empty()) item=back();
+};
+
+bool TCkinRoute::GetPriorSeg(int grp_id,
+                             TCkinRouteType2 route_type2,
+                             TCkinRouteItem& item)
+{
+  item.Clear();
+  if (!GetRoute(grp_id,false,crtNotCurrent,route_type2)) return false;
+  if (!empty()) item=back();
+  return true;
+};
+
 void TMktFlight::dump()
 {
     ProgTrace(TRACE5, "---TMktFlight::dump()---");
