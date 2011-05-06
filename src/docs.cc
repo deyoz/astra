@@ -934,6 +934,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "   pax_grp, \n"
         "   points, \n"
         "   pax, \n"
+        "   cls_grp, \n"
         "   halls2 \n";
     if(rpt_params.pr_trfer)
         SQLText += ", transfer, trfer_trips \n";
@@ -944,6 +945,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "   pax_grp.point_arv = points.point_id and \n"
         "   pax_grp.grp_id=pax.grp_id AND \n"
         "   pax_grp.class_grp is not null AND \n"
+        "   pax_grp.class_grp = cls_grp.id and \n"
         "   pax_grp.hall = halls2.id(+) and \n"
         "   pr_brd IS NOT NULL and \n"
         "   decode(:pr_brd_pax, 0, nvl2(pax.pr_brd, 0, -1), pax.pr_brd)  = :pr_brd_pax and \n";
@@ -978,7 +980,8 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             "    PR_TRFER ASC, \n"
             "    TRFER_AIRP_ARV ASC, \n";
     SQLText +=
-        "    class_grp, \n"
+        "    cls_grp.priority, \n"
+        "    cls_grp.class, \n"
         "    grp_id, \n"
         "    REG_NO ASC \n";
     ProgTrace(TRACE5, "SQLText: %s", SQLText.c_str());
