@@ -1328,7 +1328,7 @@ string TPrnTagStore::get_fmt_seat(string fmt)
 
     Qry.CreateVariable("is_inter", otInteger, 0);
     Qry.Execute();
-    if (tag_lang.get_pr_lat() && not is_lat(Qry.FieldAsString("seat_no")))
+    if (tag_lang.IsInter() && not is_lat(Qry.FieldAsString("seat_no")))
     {        
         Qry.SetVariable("is_inter",1);
         Qry.Execute();
