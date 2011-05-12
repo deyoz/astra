@@ -42,28 +42,26 @@ enum TModule { tSOPP, tISG, tSPPCEK };
 
 const char* points_SOPP_SQL =
     "SELECT points.move_id,points.point_id,point_num,airp,airp_fmt,first_point,airline,airline_fmt,flt_no,"
-    "       suffix,suffix_fmt,craft,craft_fmt,bort, trip_crew.commander, trip_crew.cockpit, trip_crew.cabin, "
+    "       suffix,suffix_fmt,craft,craft_fmt,bort, null commander, null cockpit, null cabin, "
     "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
     "       pr_tranzit,pr_reg,points.pr_del pr_del,points.tid tid "
-    " FROM points, trip_crew, "
+    " FROM points, "
     " (SELECT DISTINCT move_id FROM points "
     "   WHERE points.pr_del!=-1 "
     "         :where_sql AND "
     "         ( time_in >= :first_date AND time_in < :next_date OR "
     "           time_out >= :first_date AND time_out < :next_date ) ) p "
     "WHERE points.move_id = p.move_id AND "
-    "      points.point_id = trip_crew.point_id(+) and "
     "      points.pr_del!=-1 "
     "ORDER BY points.move_id,point_num,point_id ";
 const char* points_id_SOPP_SQL =
     "SELECT points.move_id,points.point_id,point_num,airp,airp_fmt,first_point,airline,airline_fmt,flt_no,"
-    "       suffix,suffix_fmt,craft,craft_fmt,bort, trip_crew.commander, trip_crew.cockpit, trip_crew.cabin, "
+    "       suffix,suffix_fmt,craft,craft_fmt,bort, null commander, null cockpit, null cabin, "
     "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
     "       pr_tranzit,pr_reg,points.pr_del pr_del,points.tid tid "
-    " FROM points, trip_crew, "
+    " FROM points, "
     " ( SELECT move_id FROM points WHERE point_id=:point_id AND pr_del!=-1 AND ROWNUM<2 ) a "
-    "   WHERE pr_del!=-1 AND points.move_id=a.move_id and "
-    "      points.point_id = trip_crew.point_id(+) "
+    "   WHERE pr_del!=-1 AND points.move_id=a.move_id "
     "ORDER BY points.move_id,point_num,point_id ";
 const char* points_ISG_SQL =
     "SELECT points.move_id,points.point_id,point_num,airp,airp_fmt,first_point,airline,airline_fmt,flt_no,"
@@ -84,10 +82,10 @@ const char* points_ISG_SQL =
     "ORDER BY points.move_id,point_num,point_id ";
 const char * arx_points_SOPP_SQL =
     "SELECT arx_points.move_id,arx_points.point_id,point_num,airp,airp_fmt,first_point,airline,airline_fmt,flt_no,"
-    "       suffix,suffix_fmt,craft,craft_fmt,bort, trip_crew.commander, trip_crew.cockpit, trip_crew.cabin, "
+    "       suffix,suffix_fmt,craft,craft_fmt,bort, null commander, null cockpit, null cabin, "
     "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
     "       pr_tranzit,pr_reg,arx_points.pr_del pr_del,arx_points.tid tid, arx_points.part_key "
-    " FROM arx_points, trip_crew, "
+    " FROM arx_points, "
     " (SELECT DISTINCT move_id, part_key FROM arx_points "
     "   WHERE part_key>=:first_date AND part_key<:next_date+:arx_trip_date_range AND "
     "         pr_del!=-1 "
@@ -96,16 +94,15 @@ const char * arx_points_SOPP_SQL =
     "           NVL(act_in,NVL(est_in,scd_in)) >= :first_date AND NVL(act_in,NVL(est_in,scd_in)) < :next_date OR "
     "           NVL(act_out,NVL(est_out,scd_out)) >= :first_date AND NVL(act_out,NVL(est_out,scd_out)) < :next_date ) ) p "
     "WHERE arx_points.part_key = p.part_key AND "
-    "      arx_points.point_id = trip_crew.point_id(+) and "
     "      arx_points.move_id = p.move_id AND "
     "      arx_points.pr_del!=-1 "
     "ORDER BY arx_points.move_id,point_num,point_id ";
 const char * arx_points_ISG_SQL =
     "SELECT arx_points.move_id,arx_points.point_id,point_num,airp,airp_fmt,first_point,airline,airline_fmt,flt_no,"
-    "       suffix,suffix_fmt,craft,craft_fmt,bort, trip_crew.commander, trip_crew.cockpit, trip_crew.cabin, "
+    "       suffix,suffix_fmt,craft,craft_fmt,bort, null commander, null cockpit, null cabin, "
     "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
     "       pr_tranzit,pr_reg,arx_points.pr_del pr_del,arx_points.tid tid, reference ref, arx_points.part_key "
-    " FROM arx_points, arx_move_ref, trip_crew, "
+    " FROM arx_points, arx_move_ref, "
     " (SELECT DISTINCT move_id, part_key FROM arx_points "
     "   WHERE part_key>=:first_date AND part_key<:next_date+:arx_trip_date_range AND "
     "         pr_del!=-1 "
@@ -115,7 +112,6 @@ const char * arx_points_ISG_SQL =
     "           NVL(act_out,NVL(est_out,scd_out)) >= :first_date AND NVL(act_out,NVL(est_out,scd_out)) < :next_date OR "
     "           NVL(act_in,NVL(est_in,scd_in)) IS NULL AND NVL(act_out,NVL(est_out,scd_out)) IS NULL ) ) p "
     "WHERE arx_points.part_key=p.part_key AND "
-    "      arx_points.point_id = trip_crew.point_id(+) and "
     "      arx_points.move_id = p.move_id AND "
     "      arx_move_ref.part_key=p.part_key AND "
     "      arx_move_ref.move_id = p.move_id AND "
@@ -796,8 +792,6 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
     d.craft_fmt = (TElemFmt)PointsQry.FieldAsInteger( col_craft_fmt );
     d.bort = PointsQry.FieldAsString( col_bort );
     d.commander = PointsQry.FieldAsString( col_commander );
-    if(!d.commander.empty())
-        ProgTrace(TRACE5, "d.commander: %s", d.commander.c_str());
     d.cockpit = PointsQry.FieldAsInteger( col_cockpit );
     d.cabin = PointsQry.FieldAsInteger( col_cabin );
     if ( PointsQry.FieldIsNULL( col_scd_in ) )
