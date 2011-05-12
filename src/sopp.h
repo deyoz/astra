@@ -89,6 +89,8 @@ struct TSOPPDest {
   std::string craft;
   TElemFmt craft_fmt;
   std::string bort;
+  std::string commander;
+  int cockpit, cabin;
   BASIC::TDateTime scd_in;
   BASIC::TDateTime est_in;
   BASIC::TDateTime act_in;
@@ -107,6 +109,7 @@ struct TSOPPDest {
   int pr_del;
   int tid;
   std::string region;
+  TSOPPDest(): cockpit(0), cabin(0) {}
 };
 
 struct TSoppStage {
@@ -151,6 +154,9 @@ struct TSOPPTrip {
   std::string craft_in;
   TElemFmt craft_in_fmt;
   std::string bort_in;
+  std::string commander_in;
+  int cockpit_in;
+  int cabin_in;
   BASIC::TDateTime scd_in;
   BASIC::TDateTime est_in;
   BASIC::TDateTime act_in;
@@ -173,6 +179,9 @@ struct TSOPPTrip {
   std::string craft_out;
   TElemFmt craft_out_fmt;
   std::string bort_out;
+  std::string commander_out;
+  int cockpit_out;
+  int cabin_out;
   BASIC::TDateTime scd_out;
   BASIC::TDateTime est_out;
   BASIC::TDateTime act_out;
@@ -206,6 +215,8 @@ struct TSOPPTrip {
     scd_in = ASTRA::NoExists;
     est_in = ASTRA::NoExists;
     act_in = ASTRA::NoExists;
+    cockpit_in = 0;
+    cabin_in = 0;
     pr_del_in = -1;
 
     flt_no_out = ASTRA::NoExists;
@@ -213,6 +224,8 @@ struct TSOPPTrip {
     est_out = ASTRA::NoExists;
     act_out = ASTRA::NoExists;
     part_key = ASTRA::NoExists;
+    cockpit_out = 0;
+    cabin_out = 0;
     pr_del_out = -1;
     pr_del = 0;
     reg = 0;

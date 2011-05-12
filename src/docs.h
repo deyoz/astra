@@ -7,6 +7,8 @@
 #include "basic.h"
 #include "telegram.h"
 
+enum TSortType {stRegNo, stSurname, stSeatNo};
+
 struct TRptParams {
     private:
         bool route_inter;
@@ -14,6 +16,7 @@ struct TRptParams {
         std::string req_lang; // Язык, затребованный с клиента, если пустой, то вычисляем язык на основе маршрута
         std::string GetLang(TElemFmt &fmt, std::string firm_lang) const;
     public:
+        TSortType sort;
         int point_id;
         ASTRA::TRptType rpt_type;
         std::string airp_arv;
@@ -42,7 +45,6 @@ struct TRptParams {
 };
 
 bool bad_client_img_version();
-void get_report_form(const std::string name, xmlNodePtr reqNode, xmlNodePtr resNode);
 void get_new_report_form(const std::string name, xmlNodePtr reqNode, xmlNodePtr resNode);
 void get_compatible_report_form(const std::string name, xmlNodePtr reqNode, xmlNodePtr resNode);
 void PaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode,
@@ -71,6 +73,8 @@ public:
      AddEvent("GetSegList",evHandle);
      evHandle=JxtHandler<DocsInterface>::CreateHandler(&DocsInterface::RunReport);
      AddEvent("run_report",evHandle);
+     evHandle=JxtHandler<DocsInterface>::CreateHandler(&DocsInterface::RunSPP);
+     AddEvent("run_spp",evHandle);
   };
 
   void SaveReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -79,6 +83,7 @@ public:
 
   void GetSegList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void RunReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void RunSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
   static void GetZoneList(int point_id, xmlNodePtr dataNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};

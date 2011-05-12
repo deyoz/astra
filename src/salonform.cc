@@ -46,7 +46,8 @@ void ReadCompSections( int comp_id, vector<SALONS2::TCompSections> &CompSections
   CompSections.clear();
   TQuery Qry( &OraSession );
   Qry.SQLText =
-    "SELECT name, first_rownum, last_rownum FROM comp_sections WHERE comp_id=:comp_id";
+    "SELECT name, first_rownum, last_rownum FROM comp_sections WHERE comp_id=:comp_id "
+    "ORDER By first_rownum";
   Qry.CreateVariable( "comp_id", otInteger, comp_id );
   Qry.Execute();
   while ( !Qry.Eof ) {
@@ -104,6 +105,8 @@ void WriteCompSections( int id, const vector<SALONS2::TCompSections> &CompSectio
     "DELETE comp_sections WHERE comp_id=:id";
   Qry.CreateVariable( "id", otInteger, id );
   Qry.Execute();
+  ProgTrace( TRACE5, "RowCount=%d", Qry.RowCount() );
+  bool pr_exists = Qry.RowCount();
   Qry.Clear();
   Qry.SQLText =
     "INSERT INTO comp_sections(comp_id,name,first_rownum,last_rownum) VALUES(:id,:name,:first_rownum,:last_rownum)";
@@ -111,7 +114,7 @@ void WriteCompSections( int id, const vector<SALONS2::TCompSections> &CompSectio
   Qry.DeclareVariable( "name", otString );
   Qry.DeclareVariable( "first_rownum", otInteger );
   Qry.DeclareVariable( "last_rownum", otInteger );
-  if ( CompSections.empty() )
+  if ( CompSections.empty() && pr_exists )
     msg = "Удалены все багажные секции";
   for ( vector<SALONS2::TCompSections>::const_iterator i=CompSections.begin(); i!=CompSections.end(); i++ ) {
     if ( i == CompSections.begin() )
@@ -525,7 +528,7 @@ void SalonFormInterface::ComponWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   int comp_id = NodeAsInteger( "comp_id", reqNode );
   ProgTrace( TRACE5, "SalonsInterface::ComponWrite, comp_id=%d", comp_id );
   //TReqInfo::Instance()->user.check_access( amWrite );
-  SALONS2::TSalons Salons( NodeAsInteger( "comp_id", reqNode ), SALONS2::rComponSalons );
+  SALONS2::TSalons Salons( comp_id, SALONS2::rComponSalons );
   Salons.Parse( GetNode( "salons", reqNode ) );
   string smodify = NodeAsString( "modify", reqNode );
   if ( smodify == "delete" )
@@ -613,8 +616,10 @@ void SalonFormInterface::ComponWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
         Salons.comp_id = -1;
         break;
       default:
-        if ( Salons.modify == SALONS2::mAdd )
+        comp_id = Salons.comp_id;
+        if ( Salons.modify == SALONS2::mAdd ) {
           msg = "Создана базовая компоновка (ид=";
+        }
         else
           msg = "Изменена базовая компоновка (ид=";
         msg += IntToString( Salons.comp_id );
@@ -645,12 +650,14 @@ void SalonFormInterface::ComponWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   //bagsections
   vector<SALONS2::TCompSections> CompSections;
   xmlNodePtr sectionsNode = GetNode( "CompSections", reqNode );
-  if ( sectionsNode ) {
+  if ( sectionsNode && Salons.modify != SALONS2::mDelete ) {
     ParseCompSections( sectionsNode, CompSections );
     WriteCompSections( comp_id, CompSections );
   }
+  if ( Salons.modify == SALONS2::mDelete )
+    comp_id = -1;
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
-  NewTextChild( dataNode, "comp_id", Salons.comp_id );
+  NewTextChild( dataNode, "comp_id", comp_id );
   if ( !Salons.airline.empty() )
     NewTextChild( dataNode, "airline", ElemIdToCodeNative( etAirline, Salons.airline ) );
   if ( !Salons.airp.empty() )

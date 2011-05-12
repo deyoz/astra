@@ -382,6 +382,7 @@ void TRptParams::Init(xmlNodePtr node)
     pr_et = NodeAsIntegerFast("pr_et", node, 0) != 0;
     pr_trfer = NodeAsIntegerFast("pr_trfer", node, 0) != 0;
     pr_brd = NodeAsIntegerFast("pr_brd", node, 0) != 0;
+    sort = (TSortType)NodeAsIntegerFast("sort", node, 0);
     string route_country;
     route_inter = IsRouteInter(point_id, NoExists, route_country);
     if(route_country == "РФ")
@@ -913,7 +914,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "   DECODE(pax_grp.status, 'T', pax_grp.status, 'N') status, \n"
         "   surname||' '||pax.name AS full_name, \n"
         "   pax.pers_type, \n"
-        "   salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum) AS seat_no, \n"
+        "   salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'_seats',rownum) AS seat_no, \n"
         "   pax.seats, \n";
     if(rpt_params.pr_et) { //ЭБ
         SQLText +=
@@ -934,6 +935,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "   pax_grp, \n"
         "   points, \n"
         "   pax, \n"
+        "   cls_grp, \n"
         "   halls2 \n";
     if(rpt_params.pr_trfer)
         SQLText += ", transfer, trfer_trips \n";
@@ -944,6 +946,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "   pax_grp.point_arv = points.point_id and \n"
         "   pax_grp.grp_id=pax.grp_id AND \n"
         "   pax_grp.class_grp is not null AND \n"
+        "   pax_grp.class_grp = cls_grp.id and \n"
         "   pax_grp.hall = halls2.id(+) and \n"
         "   pr_brd IS NOT NULL and \n"
         "   decode(:pr_brd_pax, 0, nvl2(pax.pr_brd, 0, -1), pax.pr_brd)  = :pr_brd_pax and \n";
@@ -978,9 +981,23 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             "    PR_TRFER ASC, \n"
             "    TRFER_AIRP_ARV ASC, \n";
     SQLText +=
-        "    class_grp, \n"
-        "    grp_id, \n"
-        "    REG_NO ASC \n";
+        "    cls_grp.priority, \n"
+        "    cls_grp.class, \n";
+    switch(rpt_params.sort) {
+        case stRegNo:
+            SQLText += "    REG_NO ASC \n";
+            break;
+        case stSurname:
+            SQLText +=
+                "    full_name ASC, \n"
+                "    REG_NO ASC \n";
+            break;
+        case stSeatNo:
+            SQLText +=
+                "    seat_no ASC, \n"
+                "    REG_NO ASC \n";
+            break;
+    }
     ProgTrace(TRACE5, "SQLText: %s", SQLText.c_str());
     Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
@@ -1185,6 +1202,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     string pr_brd_pax_str = (string)"ПАССАЖИРЫ " + (rpt_params.pr_brd ? "(посаж)" : "(зарег)");
     NewTextChild(variablesNode, "pr_brd_pax", getLocaleText(pr_brd_pax_str, rpt_params.dup_lang()));
     NewTextChild(variablesNode, "pr_brd_pax_lat", getLocaleText(pr_brd_pax_str, AstraLocale::LANG_EN));
+    NewTextChild(variablesNode, "pr_group", rpt_params.sort == stRegNo); // Если сортировка по рег. но., то выделяем группы пассажиров в fr-отчете
     populate_doc_cap(variablesNode, rpt_params.GetLang());
     STAT::set_variables(resNode, rpt_params.GetLang());
 }
@@ -2036,7 +2054,7 @@ void REFUSE(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     else
         get_compatible_report_form("ref", reqNode, resNode);
     TQuery Qry(&OraSession);
-    Qry.SQLText =
+    string SQLText =
         "SELECT point_dep AS point_id, "
         "       reg_no, "
         "       surname||' '||pax.name family, "
@@ -2049,8 +2067,17 @@ void REFUSE(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "       pax.refuse = refusal_types.code AND "
         "       pax.refuse IS NOT NULL and "
         "       point_dep = :point_id "
-        "order by "
-        "       reg_no ";
+        "order by ";
+    switch(rpt_params.sort) {
+        case stSeatNo:
+        case stRegNo:
+            SQLText += " reg_no ";
+            break;
+        case stSurname:
+            SQLText += " family, reg_no ";
+            break;
+    }
+    Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
     Qry.CreateVariable("lang", otString, rpt_params.GetLang());
     Qry.Execute();
@@ -2164,12 +2191,12 @@ void NOTPRES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     else
         get_compatible_report_form("notpres", reqNode, resNode);
     TQuery Qry(&OraSession);
-    Qry.SQLText =
+    string SQLText =
         "SELECT point_dep AS point_id, "
         "       reg_no, "
         "       surname||' '||pax.name family, "
         "       pax.pers_type, "
-        "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum) AS seat_no, "
+        "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'_seats',rownum) AS seat_no, "
         "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bagAmount, "
         "       ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bagWeight, "
         "       ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags "
@@ -2177,8 +2204,19 @@ void NOTPRES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "WHERE  pax_grp.grp_id=pax.grp_id AND "
         "       pax.pr_brd=0 and "
         "       point_dep = :point_id "
-        "order by "
-        "       reg_no ";
+        "order by ";
+    switch(rpt_params.sort) {
+        case stRegNo:
+            SQLText += " reg_no ";
+            break;
+        case stSurname:
+            SQLText += " family, reg_no ";
+            break;
+        case stSeatNo:
+            SQLText += " seat_no, reg_no ";
+            break;
+    }
+    Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
     Qry.CreateVariable("lang", otString, rpt_params.GetLang());
     Qry.Execute();
@@ -2288,20 +2326,31 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     else
         get_compatible_report_form("rem", reqNode, resNode);
     TQuery Qry(&OraSession);
-    Qry.SQLText =
+    string SQLText =
         "SELECT point_dep AS point_id, "
         "       reg_no, "
         "       surname||' '||pax.name family, "
         "       pax.pers_type, "
-        "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum) AS seat_no, "
+        "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'_seats',rownum) AS seat_no, "
         "       report.get_reminfo(pax_id,',') AS info "
         "FROM   pax_grp,pax "
         "WHERE  pax_grp.grp_id=pax.grp_id AND "
         "       pr_brd IS NOT NULL and "
         "       point_dep = :point_id and "
         "       report.get_reminfo(pax_id,',') is not null "
-        "order by "
-        "       reg_no ";
+        "order by ";
+    switch(rpt_params.sort) {
+        case stRegNo:
+            SQLText += " reg_no ";
+            break;
+        case stSurname:
+            SQLText += " family, reg_no ";
+            break;
+        case stSeatNo:
+            SQLText += " seat_no, reg_no ";
+            break;
+    }
+    Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
     Qry.Execute();
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
@@ -2413,7 +2462,7 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "      crs_pax.surname||' '||crs_pax.name family, "
         "      crs_pax.pers_type, "
         "      crs_pnr.class, "
-        "      salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'seats',rownum) AS seat_no, "
+        "      salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'_seats',rownum) AS seat_no, "
         "      crs_pnr.target, "
         "      crs_pnr.last_target, "
         "      report.get_TKNO(crs_pax.pax_id) ticket_no, "
@@ -2432,8 +2481,16 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             "    and crs_pax.pax_id = pax.pax_id(+) and "
             "    pax.pax_id is null ";
     SQLText +=
-        "order by "
-        "    family ";
+        "order by ";
+    switch(rpt_params.sort) {
+        case stRegNo:
+        case stSurname:
+            SQLText += " family ";
+            break;
+        case stSeatNo:
+            SQLText += " seat_no, family ";
+            break;
+    }
     Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
     Qry.Execute();
@@ -2571,7 +2628,7 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         get_compatible_report_form(pr_web ? "web" : "exam", reqNode, resNode);
 
     TQuery Qry(&OraSession);
-    BrdInterface::GetPaxQuery(Qry, rpt_params.point_id, NoExists, rpt_params.GetLang(), rpt_params.rpt_type, rpt_params.client_type);
+    BrdInterface::GetPaxQuery(Qry, rpt_params.point_id, NoExists, rpt_params.GetLang(), rpt_params.rpt_type, rpt_params.client_type, rpt_params.sort);
     ProgTrace(TRACE5, "Qry: %s", Qry.SQLText.SQLText());
     Qry.Execute();
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
@@ -2767,6 +2824,28 @@ void WEBTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     EXAMTXT(rpt_params, reqNode, resNode);
 }
 
+void SPPCentrovka(TDateTime date, xmlNodePtr resNode)
+{
+}
+
+void SPPCargo(TDateTime date, xmlNodePtr resNode)
+{
+}
+
+void SPPCex(TDateTime date, xmlNodePtr resNode)
+{
+}
+
+void  DocsInterface::RunSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    xmlNodePtr node = reqNode->children;
+    string name = NodeAsStringFast("name", node);
+    get_new_report_form(name, reqNode, resNode);
+    xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
+    xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
+    NewTextChild(variablesNode, "test_server", bad_client_img_version() ? 2 : get_test_server());
+}
+
 void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     xmlNodePtr node = reqNode->children;
@@ -2825,8 +2904,7 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         case rtNORECTXT:
             EXAMTXT(rpt_params, reqNode, resNode);
             break;
-        case rtUnknown:
-        case rtTypeNum:
+        default:
             throw AstraLocale::UserException("MSG.TEMPORARILY_NOT_SUPPORTED");
     }
 }
