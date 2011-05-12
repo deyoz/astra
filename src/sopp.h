@@ -109,6 +109,7 @@ struct TSOPPDest {
   int pr_del;
   int tid;
   std::string region;
+  TSOPPDest(): cockpit(0), cabin(0) {}
 };
 
 struct TSoppStage {

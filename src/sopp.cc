@@ -42,7 +42,7 @@ enum TModule { tSOPP, tISG, tSPPCEK };
 
 const char* points_SOPP_SQL =
     "SELECT points.move_id,points.point_id,point_num,airp,airp_fmt,first_point,airline,airline_fmt,flt_no,"
-    "       suffix,suffix_fmt,craft,craft_fmt,bort, null commander, null cockpit, null cabin, "
+    "       suffix,suffix_fmt,craft,craft_fmt,bort, "
     "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
     "       pr_tranzit,pr_reg,points.pr_del pr_del,points.tid tid "
     " FROM points, "
@@ -56,7 +56,7 @@ const char* points_SOPP_SQL =
     "ORDER BY points.move_id,point_num,point_id ";
 const char* points_id_SOPP_SQL =
     "SELECT points.move_id,points.point_id,point_num,airp,airp_fmt,first_point,airline,airline_fmt,flt_no,"
-    "       suffix,suffix_fmt,craft,craft_fmt,bort, null commander, null cockpit, null cabin, "
+    "       suffix,suffix_fmt,craft,craft_fmt,bort, "
     "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
     "       pr_tranzit,pr_reg,points.pr_del pr_del,points.tid tid "
     " FROM points, "
@@ -82,7 +82,7 @@ const char* points_ISG_SQL =
     "ORDER BY points.move_id,point_num,point_id ";
 const char * arx_points_SOPP_SQL =
     "SELECT arx_points.move_id,arx_points.point_id,point_num,airp,airp_fmt,first_point,airline,airline_fmt,flt_no,"
-    "       suffix,suffix_fmt,craft,craft_fmt,bort, null commander, null cockpit, null cabin, "
+    "       suffix,suffix_fmt,craft,craft_fmt,bort, "
     "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
     "       pr_tranzit,pr_reg,arx_points.pr_del pr_del,arx_points.tid tid, arx_points.part_key "
     " FROM arx_points, "
@@ -99,7 +99,7 @@ const char * arx_points_SOPP_SQL =
     "ORDER BY arx_points.move_id,point_num,point_id ";
 const char * arx_points_ISG_SQL =
     "SELECT arx_points.move_id,arx_points.point_id,point_num,airp,airp_fmt,first_point,airline,airline_fmt,flt_no,"
-    "       suffix,suffix_fmt,craft,craft_fmt,bort, null commander, null cockpit, null cabin, "
+    "       suffix,suffix_fmt,craft,craft_fmt,bort, "
     "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
     "       pr_tranzit,pr_reg,arx_points.pr_del pr_del,arx_points.tid tid, reference ref, arx_points.part_key "
     " FROM arx_points, arx_move_ref, "
@@ -700,9 +700,9 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
   int col_craft = PointsQry.FieldIndex( "craft" );
   int col_craft_fmt = PointsQry.FieldIndex( "craft_fmt" );
   int col_bort = PointsQry.FieldIndex( "bort" );
-  int col_commander = PointsQry.FieldIndex( "commander" );
-  int col_cockpit = PointsQry.FieldIndex( "cockpit" );
-  int col_cabin = PointsQry.FieldIndex( "cabin" );
+  int col_commander = PointsQry.GetFieldIndex( "commander" );
+  int col_cockpit = PointsQry.GetFieldIndex( "cockpit" );
+  int col_cabin = PointsQry.GetFieldIndex( "cabin" );
   int col_scd_in = PointsQry.FieldIndex( "scd_in" );
   int col_est_in = PointsQry.FieldIndex( "est_in" );
   int col_act_in = PointsQry.FieldIndex( "act_in" );
@@ -791,9 +791,12 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
     d.craft = PointsQry.FieldAsString( col_craft );
     d.craft_fmt = (TElemFmt)PointsQry.FieldAsInteger( col_craft_fmt );
     d.bort = PointsQry.FieldAsString( col_bort );
-    d.commander = PointsQry.FieldAsString( col_commander );
-    d.cockpit = PointsQry.FieldAsInteger( col_cockpit );
-    d.cabin = PointsQry.FieldAsInteger( col_cabin );
+    if ( col_commander >= 0 )
+      d.commander = PointsQry.FieldAsString( col_commander );
+    if ( col_cockpit >= 0 )
+        d.cockpit = PointsQry.FieldAsInteger( col_cockpit );
+    if ( col_cabin >= 0 )
+        d.cabin = PointsQry.FieldAsInteger( col_cabin );
     if ( PointsQry.FieldIsNULL( col_scd_in ) )
       d.scd_in = NoExists;
     else
