@@ -14,7 +14,7 @@
 #include "tlg.h"
 #include "convert.h"
 #include "seats_utils.h"
-#include "salons2.h"
+#include "salons.h"
 #include "memory_manager.h"
 #include "comp_layers.h"
 
@@ -4681,7 +4681,7 @@ void crs_recount(int point_id_tlg, bool check_comp)
     if (check_comp)
     {
       string craft;
-  	  SALONS::AutoSetCraft( Qry.FieldAsInteger("point_id_spp"), craft, -1 );
+  	  SALONS2::AutoSetCraft( Qry.FieldAsInteger("point_id_spp"), craft, -1 );
   	};
   };
 };

@@ -10,7 +10,7 @@
 #include "telegram.h"
 #include "astra_service.h"
 #include "timer.h"
-#include "salons2.h"
+#include "salons.h"
 #include "tripinfo.h"
 #include "term_version.h"
 #include "comp_layers.h"
@@ -792,7 +792,7 @@ void SetCraft( int point_id, TStage stage )
   string craft = Qry.FieldAsString( "craft" );
   if ( stage == sPrepCheckIn && (!Qry.FieldIsNULL( "bort" ) || string( "СОЧ" ) != Qry.FieldAsString( "airp" )) ||
   	   stage == sOpenCheckIn && string( "СОЧ" ) == Qry.FieldAsString( "airp" ) ) {
-    if ( SALONS::AutoSetCraft( point_id, craft, -1 ) < 0 ) {
+    if ( SALONS2::AutoSetCraft( point_id, craft, -1 ) < 0 ) {
   	  TReqInfo::Instance()->MsgToLog( string( "Подходящая для рейса компоновка " ) + craft + " не найдена", evtFlt, point_id );
   	}
   }

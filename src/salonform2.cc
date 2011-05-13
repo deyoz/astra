@@ -10,6 +10,7 @@
 #include "stl_utils.h"
 #include "images.h"
 #include "salons2.h"
+#include "salons.h"
 #include "seats_utils.h"
 #include "convert.h"
 #include "tlg/tlg_parser.h" // only for convert_salons
@@ -262,7 +263,7 @@ void SalonsInterface::SalonFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   
   bool pr_initcomp = NodeAsInteger( "initcomp", reqNode );
   /* инициализация VIP */
-  SALONS::InitVIP( trip_id );
+  SALONS2::InitVIP( trip_id );
   string msg = string( "Изменена компоновка рейса. Классы: " ) +
                NodeAsString( "classes", refcompNode );
   msg += string( ", кодировка: " ) + NodeAsString( "lang", refcompNode ); //???

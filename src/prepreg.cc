@@ -13,7 +13,7 @@
 #include "tripinfo.h"
 #include "docs.h"
 #include "stat.h"
-#include "salons2.h"
+#include "salons.h"
 #include "sopp.h"
 
 #define NICKNAME "DJEK"
@@ -360,7 +360,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
       node = node->next;
     };
     string craft;
-    SALONS::AutoSetCraft( point_id, craft, -1 );
+    SALONS2::AutoSetCraft( point_id, craft, -1 );
   };
 
   node = GetNode( "trip_sets", reqNode );
