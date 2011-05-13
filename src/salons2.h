@@ -132,8 +132,6 @@ namespace SALONS
   void GetCompParams( int comp_id, xmlNodePtr dataNode );
   int GetCompId( const std::string craft, const std::string bort, const std::string airline,
                  std::string airp,  int f, int c, int y );
-  int AutoSetCraft( int point_id, std::string &craft, int comp_id );
-  int SetCraft( int point_id, std::string &craft, int comp_id );
   void InitVIP( int point_id );
   void setTRIP_CLASSES( int point_id );
   void SetLayer( const std::map<std::string,int> &layer_priority, const std::string &layer, TPlace &pl );

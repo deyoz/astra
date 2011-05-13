@@ -1705,6 +1705,7 @@ int SetCraft( int point_id, std::string &craft, int comp_id )
 	Qry.Clear();
 	Qry.SQLText =
 	  "BEGIN "
+	  "DELETE trip_comp_rates WHERE point_id = :point_id;"
 	  "DELETE trip_comp_rem WHERE point_id = :point_id; "
     "DELETE trip_comp_elems WHERE point_id = :point_id; "
     "DELETE trip_comp_layers "
@@ -1718,6 +1719,9 @@ int SetCraft( int point_id, std::string &craft, int comp_id )
     "INSERT INTO trip_comp_rem(point_id,num,x,y,rem,pr_denial) "
     " SELECT :point_id,num,x,y,rem,pr_denial "
     "  FROM comp_rem "
+    " WHERE comp_id = :comp_id; "
+    "INSERT INTO trip_comp_rates(point_id,num,x,y,color,rate,rate_cur) "
+    " SELECT :point_id,num,x,y,color,rate,rate_cur FROM comp_rates "
     " WHERE comp_id = :comp_id; "
     "UPDATE trip_sets SET comp_id = :comp_id, pr_lat_seat = :pr_lat_seat WHERE point_id = :point_id; "
     "END;";

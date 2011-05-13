@@ -26,7 +26,7 @@ alter table aodb_bag add pr_cabin NUMBER(1) NOT NULL;
 #include "astra_misc.h"
 #include "stages.h"
 #include "tripinfo.h"
-#include "salons2.h"
+#include "salons.h"
 #include "sopp.h"
 #include "serverlib/helpcpp.h"
 
@@ -1638,7 +1638,7 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
  	  Qry.Execute();
  	  err++;
  	  if ( change_comp )
- 	  	SALONS::AutoSetCraft( point_id, fl.craft, -1 );
+ 	  	SALONS2::AutoSetCraft( point_id, fl.craft, -1 );
  	  // теперь работа с пунктами посадки
 /*    int num = 0;
     int point_num = 0;*/

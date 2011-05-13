@@ -19,7 +19,7 @@
 #include "base_tables.h"
 #include "docs.h"
 #include "stat.h"
-#include "salons2.h"
+#include "salons.h"
 #include "seats.h"
 #include "term_version.h"
 
@@ -3472,7 +3472,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   					                                 LParams() << LParam("airp", ElemIdToCodeNative(etAirp,id->airp)));
   	}
    if ( reSetCraft ) {
-   	 if ( SALONS::AutoSetCraft( id->point_id, id->craft, -1 ) >= 0 )
+   	 if ( SALONS2::AutoSetCraft( id->point_id, id->craft, -1 ) >= 0 )
    	 	 ch_craft = false;
    }
   	point_num++;
