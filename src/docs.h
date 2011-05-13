@@ -26,6 +26,7 @@ struct TRptParams {
         bool pr_brd;
         TCodeShareInfo mkt_flt;
         std::string client_type;
+        std::vector<std::string> rems;
         std::string ElemIdToReportElem(TElemType type, const std::string &id, TElemFmt fmt, std::string firm_lang = "") const;
         std::string ElemIdToReportElem(TElemType type, int id, TElemFmt fmt, std::string firm_lang = "") const;
         bool IsInter() const;

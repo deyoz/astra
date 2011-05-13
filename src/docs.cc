@@ -408,6 +408,12 @@ void TRptParams::Init(xmlNodePtr node)
         req_lang = "";
     else
         req_lang = TReqInfo::Instance()->desk.lang;
+    xmlNodePtr remsNode = GetNodeFast("rems", node);
+    if(remsNode != NULL) {
+        xmlNodePtr currNode = remsNode->children;
+        for(; currNode; currNode = currNode->next)
+            rems.push_back(NodeAsString(currNode));
+    }
 }
 
 bool TRptParams::IsInter() const
@@ -2331,7 +2337,10 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "       reg_no, "
         "       surname||' '||pax.name family, "
         "       pax.pers_type, "
-        "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'_seats',rownum) AS seat_no, "
+        "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'_seats',rownum) AS seat_no, ";
+    if(not rpt_params.rems.empty())
+        SQLText += "       report.get_remarks(pax_id) rems, ";
+    SQLText +=
         "       report.get_reminfo(pax_id,',') AS info "
         "FROM   pax_grp,pax "
         "WHERE  pax_grp.grp_id=pax.grp_id AND "
@@ -2356,7 +2365,16 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
     xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_rem");
-    while(!Qry.Eof) {
+    for(; !Qry.Eof; Qry.Next()) {
+        if(not rpt_params.rems.empty()) {
+            string rems = Qry.FieldAsString("rems");
+            vector<string>::iterator iv = rpt_params.rems.begin();
+            for(; iv != rpt_params.rems.end(); iv++)
+                if(rems.find(*iv) != string::npos)
+                    break;
+            if(iv == rpt_params.rems.end())
+                continue;
+        }
         xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
 
         NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("point_id"));
@@ -2365,8 +2383,6 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, Qry.FieldAsString("pers_type"), efmtCodeNative));
         NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
         NewTextChild(rowNode, "info", Qry.FieldAsString("info"));
-
-        Qry.Next();
     }
 
     // Теперь переменные отчета
