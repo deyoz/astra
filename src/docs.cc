@@ -380,9 +380,12 @@ void TRptParams::Init(xmlNodePtr node)
     airp_arv = NodeAsStringFast("airp_arv", node, "");
     ckin_zone = NodeAsStringFast("ckin_zone", node, ALL_CKIN_ZONES.c_str());
     pr_et = NodeAsIntegerFast("pr_et", node, 0) != 0;
+    text = NodeAsIntegerFast("text", node, NoExists);
     pr_trfer = NodeAsIntegerFast("pr_trfer", node, 0) != 0;
     pr_brd = NodeAsIntegerFast("pr_brd", node, 0) != 0;
     sort = (TSortType)NodeAsIntegerFast("sort", node, 0);
+    if(text != NoExists and text != 0)
+        rpt_type = TRptType((int)rpt_type + 1);
     string route_country;
     route_inter = IsRouteInter(point_id, NoExists, route_country);
     if(route_country == "êî")
