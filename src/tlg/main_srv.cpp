@@ -11,6 +11,7 @@
 #include "tlg.h"
 #include "stl_utils.h"
 #include "tlg_parser.h"
+#include "memory_manager.h"
 #include "edilib/edi_user_func.h"
 #include "serverlib/ourtime.h"
 
@@ -428,6 +429,8 @@ void process_tlg(void)
 void scan_tlg(void)
 {
   time_t time_start=time(NULL);
+  
+  TMemoryManager mem(STDLOG);
 
   static TQuery TlgQry(&OraSession);
   if (TlgQry.SQLText.IsEmpty())
@@ -515,18 +518,18 @@ void scan_tlg(void)
           if (len>bufLen)
           {
             if (buf==NULL)
-              ph=(char*)malloc(len);
+              ph=(char*)mem.malloc(len, STDLOG);
             else
-              ph=(char*)realloc(buf,len);
+              ph=(char*)mem.realloc(buf,len, STDLOG);
             if (ph==NULL) throw EMemoryError("Out of memory");
             buf=ph;
             bufLen=len;
           };
           TlgQry.FieldAsLong("tlg_text",buf);
           buf[len-1]=0;
-          parts=GetParts(buf);
-          ParseHeading(parts.heading,HeadingInfo);
-          ParseEnding(parts.ending,HeadingInfo,EndingInfo);
+          parts=GetParts(buf,mem);
+          ParseHeading(parts.heading,HeadingInfo,mem);
+          ParseEnding(parts.ending,HeadingInfo,EndingInfo,mem);
           if (parts.heading.p-parts.addr.p>255) throw ETlgError("Address too long");
           if (parts.body.p-parts.heading.p>100) throw ETlgError("Header too long");
           if (parts.ending.p!=NULL&&strlen(parts.ending.p)>20) throw ETlgError("End of message too long");
@@ -637,9 +640,9 @@ void scan_tlg(void)
                   if (len>buf2Len)
                   {
                     if (buf2==NULL)
-                      ph=(char*)malloc(len);
+                      ph=(char*)mem.malloc(len, STDLOG);
                     else
-                      ph=(char*)realloc(buf2,len);
+                      ph=(char*)mem.realloc(buf2,len, STDLOG);
                     if (ph==NULL) throw EMemoryError("Out of memory");
                     buf2=ph;
                     buf2Len=len;
@@ -696,17 +699,21 @@ void scan_tlg(void)
         };
     };
     if (pr_typeb_cmd) sendCmd("CMD_TYPEB_HANDLER","H");
+    mem.destroy(HeadingInfo, STDLOG);
     if (HeadingInfo!=NULL) delete HeadingInfo;
+    mem.destroy(EndingInfo, STDLOG);
     if (EndingInfo!=NULL) delete EndingInfo;
-    if (buf!=NULL) free(buf);
-    if (buf2!=NULL) free(buf2);
+    if (buf!=NULL) mem.free(buf, STDLOG);
+    if (buf2!=NULL) mem.free(buf2, STDLOG);
   }
   catch(...)
   {
+    mem.destroy(HeadingInfo, STDLOG);
     if (HeadingInfo!=NULL) delete HeadingInfo;
+    mem.destroy(EndingInfo, STDLOG);
     if (EndingInfo!=NULL) delete EndingInfo;
-    if (buf!=NULL) free(buf);
-    if (buf2!=NULL) free(buf2);
+    if (buf!=NULL) mem.free(buf, STDLOG);
+    if (buf2!=NULL) mem.free(buf2, STDLOG);
     throw;
   };
 

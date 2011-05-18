@@ -168,12 +168,14 @@ class TLastTCkinSegInfo : public TLastTrferInfo
 };
 
 //настройки рейса
-enum TTripSetType { tsOutboardTrfer=10,
+enum TTripSetType { tsCraftInitVIP=1,
+                    tsOutboardTrfer=10,
                     tsETLOnly=11,
                     tsIgnoreTrferSet=12,
                     tsMixedNorms=13,
                     tsNoTicketCheck=15,
-                    tsCharterSearch=16 };
+                    tsCharterSearch=16,
+                    tsCraftNoChangeSections=17 };
 bool GetTripSets( const TTripSetType setType, const TTripInfo &info );
 
 class TPnrAddrItem
@@ -282,7 +284,7 @@ class TTripRoute : public std::vector<TTripRouteItem>
                      TTripRouteItem& item);
 
     //возвращает предыдущий пункт маршрута
- /*   void GetPriorAirp(int point_id,
+    void GetPriorAirp(int point_id,
                       int point_num,
                       int first_point,
                       bool pr_tranzit,
@@ -290,7 +292,7 @@ class TTripRoute : public std::vector<TTripRouteItem>
                       TTripRouteItem& item);
     bool GetPriorAirp(int point_id,
                       TTripRouteType2 route_type2,
-                      TTripRouteItem& item);*/
+                      TTripRouteItem& item);
 };
 
 class TPaxSeats {
@@ -301,6 +303,84 @@ class TPaxSeats {
 		TPaxSeats( int point_id );
 		std::string getSeats( int pax_id, const std::string format );
     ~TPaxSeats();
+};
+
+struct TCkinRouteItem
+{
+  int grp_id;
+  int point_dep, point_arv;
+  int seg_no;
+  TTripInfo operFlt;
+  TCkinRouteItem()
+  {
+    Clear();
+  };
+  void Clear()
+  {
+    grp_id = ASTRA::NoExists;
+    point_dep = ASTRA::NoExists;
+    point_arv = ASTRA::NoExists;
+    seg_no = ASTRA::NoExists;
+    operFlt.Clear();
+  };
+};
+
+enum TCkinRouteType1 { crtNotCurrent,
+                       crtWithCurrent };
+enum TCkinRouteType2 { crtOnlyDependent,
+                       crtIgnoreDependent };
+                          
+class TCkinRoute : public std::vector<TCkinRouteItem>
+{
+  private:
+    void GetRoute(int tckin_id,
+                  int seg_no,
+                  bool after_current,
+                  TCkinRouteType1 route_type1,
+                  TCkinRouteType2 route_type2,
+                  TQuery& Qry);
+    bool GetRoute(int grp_id,
+                  bool after_current,
+                  TCkinRouteType1 route_type1,
+                  TCkinRouteType2 route_type2);
+
+  public:
+    //сквозной маршрут после стыковки grp_id
+    bool GetRouteAfter(int grp_id,
+                       TCkinRouteType1 route_type1,
+                       TCkinRouteType2 route_type2);   //результат=false только если для grp_id не производилась сквозная регистрация!
+    void GetRouteAfter(int tckin_id,
+                       int seg_no,
+                       TCkinRouteType1 route_type1,
+                       TCkinRouteType2 route_type2);
+    //сквозной маршрут до стыковки grp_id
+    bool GetRouteBefore(int grp_id,
+                        TCkinRouteType1 route_type1,
+                        TCkinRouteType2 route_type2);  //результат=false только если для grp_id не производилась сквозная регистрация!
+    void GetRouteBefore(int tckin_id,
+                        int seg_no,
+                        TCkinRouteType1 route_type1,
+                        TCkinRouteType2 route_type2);
+
+    //возвращает следующий сегмент стыковки
+    void GetNextSeg(int tckin_id,
+                    int seg_no,
+                    TCkinRouteType2 route_type2,
+                    TCkinRouteItem& item);
+    bool GetNextSeg(int grp_id,
+                    TCkinRouteType2 route_type2,
+                    TCkinRouteItem& item);     //результат=false только если для grp_id не производилась сквозная регистрация!
+                                               //отсутствие следующего сегмента всегда лучше проверять по возвращенному item
+
+    //возвращает предыдущий сегмент стыковки
+    void GetPriorSeg(int tckin_id,
+                     int seg_no,
+                     TCkinRouteType2 route_type2,
+                     TCkinRouteItem& item);
+    bool GetPriorSeg(int grp_id,
+                     TCkinRouteType2 route_type2,
+                     TCkinRouteItem& item);    //результат=false только если для grp_id не производилась сквозная регистрация!
+                                               //отсутствие предыдущего сегмента всегда лучше проверять по возвращенному item
 };
 
 enum TCkinSegmentSet { cssNone,
@@ -345,8 +425,9 @@ struct TCodeShareSets {
 void GetMktFlights(const TTripInfo &operFltInfo, std::vector<TTripInfo> &markFltInfo);
 
 //важно! время вылета scd_out у operFlt должно быть в UTC
-//       время вылета в markFltInfo возвращается локальное относительно airp
-std::string GetMktFlightStr( const TTripInfo &operFlt, const TTripInfo &markFlt );
+//       время вылета в markFltInfo передается локальное относительно airp
+std::string GetMktFlightStr( const TTripInfo &operFlt, const TTripInfo &markFlt, bool &equal);
+bool IsMarkEqualOper( const TTripInfo &operFlt, const TTripInfo &markFlt );
 
 void GetCrsList(int point_id, std::vector<std::string> &crs);
 bool IsRouteInter(int point_dep, int point_arv, std::string &country);

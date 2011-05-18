@@ -8,8 +8,8 @@
 #include "astra_utils.h"
 #include "astra_consts.h"
 #include "oralib.h"
+#include "seats.h"
 #include "salons2.h"
-#include "tlg/tlg_parser.h"
 #include "convert.h"
 #include "tripinfo.h"
 
@@ -299,7 +299,7 @@ void TSeatPlaces::Add( TSeatPlace &seatplace )
   FoundCount - кол-во найденных мест
   Step - направление отсчета найденных мест
   Возвращаем кол-во использованных мест */
-int TSeatPlaces::Put_Find_Places( TPoint FP, TPoint EP, int foundCount, TSeatStep Step )
+int TSeatPlaces::Put_Find_Places( SALONS2::TPoint FP, SALONS2::TPoint EP, int foundCount, TSeatStep Step )
 {
   int p_RCount, p_RCount2, p_RCount3; /* необходимое кол-во 3-х, 2-х, 1-х мест */
   int pp_Count, pp_Count2, pp_Count3; /* имеющееся кол-во 3-х, 2-х, 1-х мест */
@@ -486,20 +486,20 @@ int TSeatPlaces::Put_Find_Places( TPoint FP, TPoint EP, int foundCount, TSeatSte
 }
 
 /* ф-ция для определения возможности рассадки для мест у который есть запрещенные ремарки */
-bool DoNotRemsSeats( const vector<TRem> &rems )
+bool DoNotRemsSeats( const vector<SALONS2::TRem> &rems )
 {
 	bool res = false; // признак того, что у пассажира есть ремарка, которая запрещена на выбранном месте
 	bool pr_passmcls = find( Remarks.begin(), Remarks.end(), string("MCLS") ) != Remarks.end(); // признак у пассажира MCLS
 	bool no_mcls = false;
 	for( vector<string>::iterator nrem=Remarks.begin(); nrem!=Remarks.end(); nrem++ ) {
-	  for( vector<TRem>::const_iterator prem=rems.begin(); prem!=rems.end(); prem++ ) {
+	  for( vector<SALONS2::TRem>::const_iterator prem=rems.begin(); prem!=rems.end(); prem++ ) {
 		  if ( !prem->pr_denial )
 			  continue;
 			if ( *nrem == prem->rem && !res )
 				res = true;
 	  }
 	}
-  for( vector<TRem>::const_iterator prem=rems.begin(); prem!=rems.end(); prem++ ) {
+  for( vector<SALONS2::TRem>::const_iterator prem=rems.begin(); prem!=rems.end(); prem++ ) {
 //		ProgTrace( TRACE5, "prem->rem=%s", prem->rem.c_str() );
   	if ( !prem->pr_denial && prem->rem == "MCLS" && !pr_passmcls )
 	  		no_mcls = true;
@@ -519,15 +519,15 @@ bool DoNotRemsSeats( const vector<TRem> &rems )
    CanUseElem_Type, PlaceElem_Type - поиск строго по типу места (табуретка),
    CanUseGood - поиск только хороших мест,
    CanUseRem, PlaceRem - поиск строго по ремарке места */
-int TSeatPlaces::FindPlaces_From( TPoint FP, int foundCount, TSeatStep Step )
+int TSeatPlaces::FindPlaces_From( SALONS2::TPoint FP, int foundCount, TSeatStep Step )
 {
   int Result = 0;
   TPlaceList *placeList = CurrSalon->CurrPlaceList();
   if ( !placeList->ValidPlace( FP ) )
     return Result;
-  TPoint EP = FP;
+  SALONS2::TPoint EP = FP;
   TPlace *place = placeList->place( EP );
-  vector<TRem>::iterator prem;
+  vector<SALONS2::TRem>::iterator prem;
   vector<string>::iterator irem;
   while ( place->visible && place->pr_free && place->isplace &&
           place->clname == Passengers.clname &&
@@ -581,7 +581,7 @@ int TSeatPlaces::FindPlaces_From( TPoint FP, int foundCount, TSeatStep Step )
       	break;
       case sNotUse:
 //      	 ProgTrace( TRACE5, "sNotUse: Result=%d, FP.x=%d, FP.y=%d", Result, FP.x, FP.y );
-  	     for( vector<TRem>::const_iterator prem=place->rems.begin(); prem!=place->rems.end(); prem++ ) {
+  	     for( vector<SALONS2::TRem>::const_iterator prem=place->rems.begin(); prem!=place->rems.end(); prem++ ) {
 		       if ( !prem->pr_denial )
 		       	 return Result;
   	     }
@@ -617,7 +617,7 @@ int TSeatPlaces::FindPlaces_From( TPoint FP, int foundCount, TSeatStep Step )
   Глобальные переменные:
    CanUseTube - поиск при Step = sRight через проходы
    Alone - посадить одно пассажира в ряду можно только один раз */
-bool TSeatPlaces::SeatSubGrp_On( TPoint FP, TSeatStep Step, int Wanted )
+bool TSeatPlaces::SeatSubGrp_On( SALONS2::TPoint FP, TSeatStep Step, int Wanted )
 {
   if ( Step == sLeft )
     Step = sRight;
@@ -644,7 +644,7 @@ bool TSeatPlaces::SeatSubGrp_On( TPoint FP, TSeatStep Step, int Wanted )
       return true; // Ура все нашлось
     }
   }
-  TPoint EP = FP;
+  SALONS2::TPoint EP = FP;
   if ( foundAfter < MAXPLACE() ) {
     switch( (int)Step ) {
       case sRight:
@@ -680,7 +680,7 @@ bool TSeatPlaces::SeatSubGrp_On( TPoint FP, TSeatStep Step, int Wanted )
     EP.x = FP.x + foundAfter + 1; //???/* устанавливаемся на предполагаемое место */
 //    ProgTrace( TRACE5, "EP=(%d,%d)", EP.x, EP.y );
     if ( placeList->ValidPlace( EP ) ) {
-      TPoint p( EP.x - 1, EP.y );
+      SALONS2::TPoint p( EP.x - 1, EP.y );
       TPlace *place = placeList->place( p ); /* берем пред. место */
       if ( !place->visible ) {
         foundTubeAfter = FindPlaces_From( EP, foundCount, Step ); /* поиск после прохода */
@@ -701,10 +701,10 @@ bool TSeatPlaces::SeatSubGrp_On( TPoint FP, TSeatStep Step, int Wanted )
     /* далее поиск налево через проход */
     if ( foundCount < MAXPLACE() ) {
       EP.x = FP.x - foundBefore - 2; // устанавливаемся на предполагаемое место
-      TPoint VP = EP;
+      SALONS2::TPoint VP = EP;
 //      ProgTrace( TRACE5, "EP=(%d,%d)", EP.x, EP.y );
       if ( placeList->ValidPlace( EP ) ) {
-        TPoint p( EP.x + 1, EP.y );
+        SALONS2::TPoint p( EP.x + 1, EP.y );
         TPlace *place = placeList->place( p ); /* берем след. место */
         if ( !place->visible ) { /* следующее место не видно => проход */
           foundTubeBefore = FindPlaces_From( EP, foundCount, sLeft );
@@ -813,7 +813,7 @@ bool TSeatPlaces::SeatSubGrp_On( TPoint FP, TSeatStep Step, int Wanted )
   }
   int lines = placeList->GetXsCount(), visible=0;
   for ( int line=0; line<lines; line++ ) {
-  	TPoint f=FP;
+  	SALONS2::TPoint f=FP;
   	f.x = line;
 //  	ProgTrace( TRACE5, "line=%d, name=%s", line, placeList->GetXsName( line ).c_str() );
   	if ( placeList->GetXsName( line ).empty() ||
@@ -866,7 +866,7 @@ bool TSeatPlaces::SeatsStayedSubGrp( TWhere Where )
        counters.p_Count_2( sDown ) == Passengers.counters.p_Count_2( sDown ) &&
        counters.p_Count( sDown ) == Passengers.counters.p_Count( sDown ) )
     return true;
-  TPoint EP;
+  SALONS2::TPoint EP;
   /* надо рассадить оставшуюся часть пассажиров */
   /* для этого надо обойти выбранные места вокруг и попробовать рассадить
     оставшуюся группу рядом с уже рассаженной */
@@ -904,7 +904,7 @@ bool TSeatPlaces::SeatsStayedSubGrp( TWhere Where )
       if ( SeatSubGrp_On( EP, sRight, 0 ) )
         return true;
       TPlaceList *placeList = CurrSalon->CurrPlaceList();
-      TPoint p( EP.x + 1, EP.y );
+      SALONS2::TPoint p( EP.x + 1, EP.y );
       if ( CanUseTube && placeList->ValidPlace( p ) &&
            !placeList->place( EP )->visible ) {
        /* можно попробовать искать через проход */
@@ -1021,7 +1021,7 @@ TSeatPlace &TSeatPlaces::GetEqualSeatPlace( TPassenger &pass )
     for (vector<string>::iterator irem=pass.rems.begin(); irem!= pass.rems.end(); irem++ ) {
       for( vector<TPlace>::iterator ipl=isp->oldPlaces.begin(); ipl!=isp->oldPlaces.end(); ipl++ ) {
       	/* пробег по местам которые может занимать пассажир */
-      	vector<TRem>::iterator itr;
+      	vector<SALONS2::TRem>::iterator itr;
       	for ( itr=ipl->rems.begin(); itr!=ipl->rems.end(); itr++ ) {
       	  if ( *irem == itr->rem ) {
       	    if ( itr->pr_denial ) {
@@ -1123,7 +1123,7 @@ void TSeatPlaces::PlacesToPassengers()
 }
 
 /* рассадка всей группы начиная с позиции FP */
-bool TSeatPlaces::SeatsGrp_On( TPoint FP  )
+bool TSeatPlaces::SeatsGrp_On( SALONS2::TPoint FP  )
 {
 //  ProgTrace( TRACE5, "FP(x=%d, y=%d)", FP.x, FP.y );
   /* очистить помеченные места */
@@ -1171,7 +1171,7 @@ bool TSeatPlaces::SeatsPassenger_OnBasePlace( string &placeName, TSeatStep Step 
       /* конвертация номеров мест пассажиров в зависимости от лат. или рус. салона */
       for ( vector<TPlaceList*>::iterator iplaceList=CurrSalon->placelists.begin();
             iplaceList!=CurrSalon->placelists.end(); iplaceList++ ) {
-        TPoint FP;
+        SALONS2::TPoint FP;
         if ( (*iplaceList)->GetisPlaceXY( placeName, FP ) ) {
           CurrSalon->SetCurrPlaceList( *iplaceList );
           if ( SeatSubGrp_On( FP, Step, 0 ) ) {
@@ -1245,7 +1245,7 @@ bool TSeatPlaces::SeatGrpOnBasePlace( )
                  ilines!=lines.getVarLine( linesVar ).end(); ilines++ ) {
               CurrSalon->SetCurrPlaceList( ilines->placeList );
               int ylen = CurrSalon->CurrPlaceList()->GetYsCount();
-              TPoint FP;
+              SALONS2::TPoint FP;
               for ( int y=0; y<ylen; y++ ) {
                 for ( vector<int>::iterator z=ilines->lines.begin(); z!=ilines->lines.end(); z++ ) {
                   FP.x = *z;
@@ -1294,7 +1294,7 @@ bool TSeatPlaces::SeatsGrp( )
         ilines!=lines.getVarLine( linesVar ).end(); ilines++ ) {
      CurrSalon->SetCurrPlaceList( ilines->placeList );
      int ylen = CurrSalon->CurrPlaceList()->GetYsCount();
-     TPoint FP;
+     SALONS2::TPoint FP;
      for ( int y=0; y<ylen; y++ ) {
        for ( vector<int>::iterator z=ilines->lines.begin(); z!=ilines->lines.end(); z++ ) {
          FP.x = *z;
@@ -1316,7 +1316,7 @@ bool isValidPlaceToPassenger( const vector<string> &passrems, const vector<TPlac
   for (vector<string>::const_iterator irem=passrems.begin(); irem!= passrems.end(); irem++ ) {
     for( vector<TPlace>::const_iterator ipl=places.begin(); ipl!=places.end(); ipl++ ) {
      /* пробег по местам которые может занимать пассажир */
-      vector<TRem>::const_iterator itr;
+      vector<SALONS2::TRem>::const_iterator itr;
       for ( itr=ipl->rems.begin(); itr!=ipl->rems.end(); itr++ )
         if ( *irem == itr->rem && itr->pr_denial )
         	 return false;
@@ -1759,7 +1759,7 @@ void SetStatuses( vector<string> &Statuses, string status, bool First, bool use_
 bool ExistsBasePlace( TSalons &Salons, TPassenger &pass )
 {
   TPlaceList *placeList;
-  TPoint FP;
+  SALONS2::TPoint FP;
   vector<TPlace*> vpl;
   string placeName = pass.placeName;
   for ( vector<TPlaceList*>::iterator plList=Salons.placelists.begin();
@@ -1773,7 +1773,7 @@ bool ExistsBasePlace( TSalons &Salons, TPassenger &pass )
         TPlace *place = placeList->place( FP );
         bool findpass = ( find( pass.rems.begin(), pass.rems.end(), string("MCLS") ) != pass.rems.end() );
         bool findplace = false;
-        for ( vector<TRem>::iterator r=place->rems.begin(); r!=place->rems.end(); r++ ) {
+        for ( vector<SALONS2::TRem>::iterator r=place->rems.begin(); r!=place->rems.end(); r++ ) {
         	if ( !r->pr_denial && r->rem == "MCLS" ) {
         		findplace = true;
         		break;
@@ -2066,52 +2066,6 @@ bool GetPassengersForManualSeat( int point_id, TCompLayerType layer_type, TPasse
   return res;
 }
 
-void SaveTripSeatRanges( int point_id, TCompLayerType layer_type, vector<TSeatRange> &seats,
-                         int pax_id, int point_dep, int point_arv )
-{
-  if (seats.empty()) return;
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "BEGIN "
-    "  SELECT comp_layers__seq.nextval INTO :range_id FROM dual; "
-    "  INSERT INTO trip_comp_layers "
-    "    (range_id,point_id,point_dep,point_arv,layer_type, "
-    "     first_xname,last_xname,first_yname,last_yname,pax_id,time_create) "
-    "  VALUES "
-    "    (:range_id,:point_id,:point_dep,:point_arv,:layer_type, "
-    "     :first_xname,:last_xname,:first_yname,:last_yname,:pax_id,system.UTCSYSDATE); "
-    "END; ";
-  Qry.CreateVariable( "range_id", otInteger, FNull );
-  Qry.CreateVariable( "point_id", otInteger,point_id );
-  Qry.CreateVariable( "layer_type", otString, EncodeCompLayerType( layer_type ) );
-  if ( pax_id > 0 )
-    Qry.CreateVariable( "pax_id", otInteger, pax_id );
-  else
-  	Qry.CreateVariable( "pax_id", otInteger, FNull );
-  if ( point_dep > 0 )
-    Qry.CreateVariable( "point_dep", otInteger, point_dep );
-  else
-  	Qry.CreateVariable( "point_dep", otInteger, FNull );
-  if ( point_arv > 0 )
-    Qry.CreateVariable( "point_arv", otInteger, point_arv );
-  else
-  	Qry.CreateVariable( "point_arv", otInteger, FNull );
-  Qry.DeclareVariable( "first_xname", otString );
-  Qry.DeclareVariable( "last_xname", otString );
-  Qry.DeclareVariable( "first_yname", otString );
-  Qry.DeclareVariable( "last_yname", otString );
-
-  for(vector<TSeatRange>::iterator i=seats.begin();i!=seats.end();i++)
-  {
-    Qry.SetVariable("first_xname",i->first.line);
-    Qry.SetVariable("last_xname",i->second.line);
-    Qry.SetVariable("first_yname",i->first.row);
-    Qry.SetVariable("last_yname",i->second.row);
-    Qry.Execute();
-  };
-}
-
 bool getNextSeat( TCompLayerType layer_type, int point_id, TSeatRange &r, int pr_down )
 {
 	TQuery Qry( &OraSession );
@@ -2247,7 +2201,7 @@ void CanChangeLayer( int point_id, int pax_id, int crs_pax_id, TCompLayerType Ne
           	    throw AstraLocale::UserException( "MSG.SEATS.SEAT_NO.PASSENGER_OWNER" );
             }
         	  else
-        	    throw AstraLocale::UserException( "MSG.SEATS.SEAT_NO.NOT_USE" );
+        	    throw AstraLocale::UserException( "MSG.SEATS.UNABLE_SET_CURRENT" );
           }
         }
       }
@@ -2258,340 +2212,6 @@ void CanChangeLayer( int point_id, int pax_id, int crs_pax_id, TCompLayerType Ne
     	throw AstraLocale::UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL" );
 
   }
-}
-
-void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
-                  string first_xname, string first_yname, TSeatsType seat_type, bool pr_lat_seat )
-{
-	CanUse_PS = false; //!!!
-	first_xname = norm_iata_line( first_xname );
-	first_yname = norm_iata_line( first_yname );
-	ProgTrace( TRACE5, "layer=%s, point_id=%d, pax_id=%d, first_xname=%s, first_yname=%s",
-	           EncodeCompLayerType( layer_type ), point_id, pax_id, first_xname.c_str(), first_yname.c_str() );
-  TQuery Qry( &OraSession );
-  /* лочим рейс */
-  Qry.SQLText = "UPDATE points SET point_id=point_id WHERE point_id=:point_id";
-  Qry.DeclareVariable( "point_id", otInteger );
-  Qry.SetVariable( "point_id", point_id );
-  Qry.Execute();
-	if ( seat_type != stDropseat ) {
-		Qry.Clear();
-	  Qry.SQLText = "SELECT xname,yname FROM trip_comp_elems WHERE xname=:xname AND yname=:yname AND point_id=:point_id";
-	  Qry.CreateVariable( "xname", otString, first_xname );
-	  Qry.CreateVariable( "yname", otString, first_yname );
-	  Qry.CreateVariable( "point_id", otInteger, point_id );
-	  Qry.Execute();
-	  if ( Qry.Eof ) {
-		  ProgError( STDLOG, "CanChangeLayer: error xname=%s, yname=%s", first_xname.c_str(), first_yname.c_str() );
-		  throw AstraLocale::UserException( "MSG.SEATS.SEAT_NO.SEATS_NOT_AVAIL" );
-	  }
-	}
-  Qry.Clear();
-  int npax_id = NoExists, ncrs_pax_id = NoExists;
-  /* считываем инфу по пассажиру */
-  switch ( layer_type ) {
-  	case cltTranzit:
-  	case cltCheckin:
-  	case cltTCheckin:
-      Qry.SQLText =
-       "SELECT surname, name, reg_no, pax.grp_id, pax.seats, a.step step, pax.tid, '' target, point_dep, point_arv, "
-       "       0 point_id, salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,:point_dep,'list',rownum) AS seat_no "
-       " FROM pax, pax_grp, "
-       "( SELECT COUNT(*) step FROM pax_rem "
-       "   WHERE rem_code = 'STCR' AND pax_id=:pax_id ) a "
-       "WHERE pax.pax_id=:pax_id AND "
-       "      pax_grp.grp_id=pax.grp_id ";
-       Qry.CreateVariable( "point_dep", otInteger, point_id );
-       npax_id = pax_id;
-      break;
-    case cltProtCkin:
-      Qry.SQLText =
-        "SELECT surname, name, 0 reg_no, crs_pax.pnr_id grp_id, seats, a.step step, crs_pax.tid, target, point_id, 0 point_arv, "
-        "      salons.get_crs_seat_no(crs_pax.pax_id,:layer_type,crs_pax.seats,crs_pnr.point_id,'list',rownum) AS seat_no "
-        " FROM crs_pax, crs_pnr, "
-        "( SELECT COUNT(*) step FROM crs_pax_rem "
-        "   WHERE rem_code = 'STCR' AND pax_id=:pax_id ) a "
-        " WHERE crs_pax.pax_id=:pax_id AND crs_pax.pr_del=0 AND "
-        "       crs_pax.pnr_id=crs_pnr.pnr_id";
-      ncrs_pax_id = pax_id;
-      Qry.CreateVariable( "layer_type", otString, EncodeCompLayerType( layer_type ) );
-    	break;
-    default:
-    	ProgTrace( TRACE5, "!!! Unusible layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
-    	throw AstraLocale::UserException( "MSG.SEATS.SET_LAYER_NOT_AVAIL" );
-  }
-  Qry.CreateVariable( "pax_id", otInteger, pax_id );
-  Qry.Execute();
-  // пассажир не найден или изменеоизводились с другой стойки или при предв. рассадке пассажир уже зарегистрирован
-  if ( !Qry.RowCount() ) {
-    ProgTrace( TRACE5, "!!! Passenger not found in funct ChangeLayer" );
-    throw AstraLocale::UserException( "MSG.PASSENGER.NOT_FOUND.REFRESH_DATA" );
-  }
-  string fullname = Qry.FieldAsString( "surname" );
-  TrimString( fullname );
-  fullname += string(" ") + Qry.FieldAsString( "name" );
-  int idx1 = Qry.FieldAsInteger( "reg_no" );
-  int idx2 = Qry.FieldAsInteger( "grp_id" );
-  string target = Qry.FieldAsString( "target" );
-  int point_id_tlg = Qry.FieldAsInteger( "point_id" );
-  int point_arv = Qry.FieldAsInteger( "point_arv" );
-  int seats_count = Qry.FieldAsInteger( "seats" );
-  int pr_down;
-  if ( Qry.FieldAsInteger( "step" ) )
-    pr_down = 1;
-  else
-    pr_down = 0;
-  string prior_seat = Qry.FieldAsString( "seat_no" );
-  if ( !seats_count ) {
-    ProgTrace( TRACE5, "!!! Passenger has count seats=0 in funct ChangeLayer" );
-    throw AstraLocale::UserException( "MSG.SEATS.NOT_RESEATS_SEATS_ZERO" ); //!!!
-  }
-
-  if ( Qry.FieldAsInteger( "tid" ) != tid  ) {
-    ProgTrace( TRACE5, "!!! Passenger has changed in other term in funct ChangeLayer" );
-    throw AstraLocale::UserException( "MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA", LParams() << LParam("surname", fullname)); //!!!
-  }
-  if ( ( layer_type != cltCheckin && layer_type != cltTCheckin && layer_type != cltTranzit ) && SALONS::Checkin( pax_id ) ) { //???
-  	ProgTrace( TRACE5, "!!! Passenger set layer=%s, but his was chekin in funct ChangeLayer", EncodeCompLayerType( layer_type ) );
-  	throw AstraLocale::UserException( "MSG.PASSENGER.CHECKED.REFRESH_DATA" );
-  }
-  vector<TSeatRange> seats;
-  if ( seat_type != stDropseat ) { // заполнение вектора мест + проверка
-  // считываем слои по новому месту и делаем проверку на то, что этот слой уже занят другим пассажиром
-    CanChangeLayer( point_id, npax_id, ncrs_pax_id, layer_type, first_xname, first_yname, pr_down, seats_count, seats );
-/*
-    Qry.Clear();
-    Qry.SQLText =
-      "SELECT r.layer_type, t.pax_id, t.crs_pax_id "
-      " FROM trip_comp_layers t,trip_comp_ranges r, comp_layer_types "
-      " WHERE t.point_id=:point_id AND "
-      "       t.first_yname=:first_yname AND "
-      "       t.first_xname=:first_xname AND "
-      "       t.point_id=r.point_id AND "
-      "       t.range_id=r.range_id AND "
-      "       comp_layer_types.code = r.layer_type ";
-    Qry.CreateVariable( "point_id", otInteger, point_id );
-    Qry.DeclareVariable( "first_xname", otString );
-    Qry.DeclareVariable( "first_yname", otString );
-    TQuery Qry1( &OraSession );
-    Qry1.SQLText =
-      "SELECT c1.code "
-      " FROM trip_comp_layers t, trip_comp_ranges r, "
-      "      comp_layer_types c1, comp_layer_types c2 "
-      " WHERE t.point_id=:point_id AND "
-      "       t.point_id=r.point_id AND "
-      "       t.range_id=r.range_id AND "
-      "       (t.crs_pax_id=:crs_pax_id OR t.pax_id=:crs_pax_id) AND "
-      "       t.first_yname||t.first_xname!=:first_yname||:first_xname AND "
-      "       c1.code=r.layer_type AND "
-      "       c2.code=:layer_type AND "
-      "       c1.priority<=c2.priority AND rownum<2";
-    Qry1.CreateVariable( "point_id", otInteger, point_id );
-    Qry1.CreateVariable( "layer_type", otString, EncodeCompLayerType( layer_type ) );
-    Qry1.DeclareVariable( "first_xname", otString );
-    Qry1.DeclareVariable( "first_yname", otString );
-    Qry1.DeclareVariable( "crs_pax_id", otInteger );
-    TSeatRange r;
-    strcpy( r.first.line, first_xname.c_str() );
-    strcpy( r.first.row, first_yname.c_str() );
-    r.second = r.first;
-    for ( int i=0; i<seats_count; i++ ) { // пробег по кол-ву мест
-      Qry.SetVariable( "first_xname", r.first.line );
-      Qry.SetVariable( "first_yname", r.first.row );
-      Qry.Execute();
-      int p_id;
-      while ( !Qry.Eof ) {
-  	    switch( layer_type ) {
-          case cltCheckin:
-          	if ( Qry.FieldIsNULL( "pax_id" ) )
-          		if ( Qry.FieldIsNULL( "crs_pax_id" ) )
-          			p_id = NoExists;
-          		else
-          		  p_id = Qry.FieldAsInteger( "crs_pax_id" );
-          	else
-      	      p_id = Qry.FieldAsInteger( "pax_id" );
-      	    break;
-  		    case cltProtCkin:
-  		    	if ( Qry.FieldIsNULL( "crs_pax_id" ) )
-  		    		p_id = NoExists;
-  		    	else
-  			      p_id = Qry.FieldAsInteger( "crs_pax_id" );
-            break;
-          default:
-      	    ProgTrace( TRACE5, "!!! Unusible layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
-      	    throw UserException( "Устанавливаемый слой запрещен для разметки" );
-        }
-       // пытаемся задать слой на месте, которое и так имеет слой для другого пассажира
-        if ( p_id > NoExists && pax_id != p_id ) {
-  	      switch( layer_type ) {
-            case cltCheckin:
-            	if ( !Qry.FieldIsNULL( "pax_id" ) )
-            		throw UserException( "Место занято другим пассажиром" );
-  		      case cltProtCkin:
-              Qry1.SetVariable( "first_xname", r.first.line );
-              Qry1.SetVariable( "first_yname", r.first.row );
-              Qry1.SetVariable( "crs_pax_id", p_id );
-              Qry1.Execute();
-              ProgTrace( TRACE5, "Qry1.Eof=%d, crs_pax_id=%d, placename=%s", Qry1.Eof, p_id, string(string(r.first.row)+(r.first.line)).c_str() );
-              if ( Qry1.Eof ) { // нет другого места с более высоким приоритетом
-              	throw UserException( "Место занято другим пассажиром" );
-              }
-              break;
-            default:
-      	      ProgTrace( TRACE5, "!!! Unusible layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
-      	      throw UserException( "Устанавливаемый слой запрещен для разметки" );
-          }
-        }
-  	    Qry.Next();
-      }
-      seats.push_back( r );
-      if ( i < seats_count - 1 && !getNextSeat( layer_type, point_id, r, pr_down ) )
-      	throw UserException( "Указанное место недоступно для пассажира" );
-    }*/
-  }
-
-  if ( seat_type != stSeat ) { // пересадка, высадка - удаление старого слоя
-  	Qry.Clear();
-    	switch( layer_type ) {
-      	case cltTranzit:
-      	case cltCheckin:
-  	    case cltTCheckin:
-  	    case cltGoShow:
-  	    Qry.SQLText =
-          "DELETE FROM trip_comp_layers "
-          " WHERE point_id=:point_id AND "
-          "       layer_type=:layer_type AND "
-          "       pax_id=:pax_id ";
-        Qry.CreateVariable( "point_id", otInteger, point_id );
-      	break;
-  		case cltProtCkin:
-  			// удаление из салона, если есть разметка
-  	    Qry.SQLText =
-          "DELETE FROM "
-          "  (SELECT * FROM tlg_comp_layers,trip_comp_layers "
-          "    WHERE tlg_comp_layers.range_id=trip_comp_layers.range_id AND "
-          "       tlg_comp_layers.crs_pax_id=:pax_id AND "
-          "       tlg_comp_layers.layer_type=:layer_type) ";
-        Qry.CreateVariable( "pax_id", otInteger, pax_id );
-        Qry.CreateVariable( "layer_type", otString, EncodeCompLayerType( layer_type ) );
-        Qry.Execute();
-        // удаление из слоя телеграмм
-  			Qry.Clear();
-      	Qry.SQLText =
-	        "DELETE FROM tlg_comp_layers "
-          " WHERE tlg_comp_layers.crs_pax_id=:pax_id AND "
-          "       tlg_comp_layers.layer_type=:layer_type ";
-        break;
-      default:
-      	ProgTrace( TRACE5, "!!! Unusible layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
-      	throw AstraLocale::UserException( "MSG.SEATS.SET_LAYER_NOT_AVAIL" );
-    }
-    Qry.CreateVariable( "pax_id", otInteger, pax_id );
-    Qry.CreateVariable( "layer_type", otString, EncodeCompLayerType( layer_type ) );
-    Qry.Execute();
-  }
-  // назначение нового слоя
-  if ( seat_type != stDropseat ) { // посадка на новое место
-    Qry.Clear();
-    Qry.SQLText = "SELECT tid__seq.nextval AS tid FROM dual";
-    Qry.Execute();
-    tid = Qry.FieldAsInteger( "tid" );
-  	Qry.Clear();
-  	switch ( layer_type ) {
-    	case cltTranzit:
-    	case cltCheckin:
-    	case cltTCheckin:
-    	case cltGoShow:
-  		  SaveTripSeatRanges( point_id, layer_type, seats, pax_id, point_id, point_arv );
-  		  Qry.SQLText =
-          "BEGIN "
-          " UPDATE pax SET tid=:tid WHERE pax_id=:pax_id;"
-          " mvd.sync_pax(:pax_id,:term); "
-          "END;";
-        Qry.CreateVariable( "term", otString, TReqInfo::Instance()->desk.code );
-        break;
-      case cltProtCkin:
-        SaveTlgSeatRanges( point_id_tlg, target, layer_type, seats, pax_id, 0, false );
-	      Qry.SQLText =
-          "UPDATE crs_pax SET tid=:tid WHERE pax_id=:pax_id";
-      	break;
-      default:
-      	ProgTrace( TRACE5, "!!! Unuseable layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
-      	throw AstraLocale::UserException( "MSG.SEATS.SET_LAYER_NOT_AVAIL" );
-    }
-    Qry.CreateVariable( "pax_id", otInteger, pax_id );
-    Qry.CreateVariable( "tid", otInteger, tid );
-    Qry.Execute();
-  }
-
-  TReqInfo *reqinfo = TReqInfo::Instance();
-  string new_seat_no;
-  for (vector<TSeatRange>::iterator ns=seats.begin(); ns!=seats.end(); ns++ ) {
-  	if ( !new_seat_no.empty() )
-  		new_seat_no += " ";
-    new_seat_no += denorm_iata_row( ns->first.row, NULL ) + denorm_iata_line( ns->first.line, pr_lat_seat );
-  }
-  switch( seat_type ) {
-  	case stSeat:
-  		switch( layer_type ) {
-  	    case cltTranzit:
-  	    case cltCheckin:
-  	    case cltTCheckin:
-  	    case cltGoShow:
-          reqinfo->MsgToLog( string( "Пассажир " ) + fullname +
-                             " посажен на место: " +
-                             new_seat_no,
-                             evtPax, point_id, idx1, idx2 );
-          break;
-        case cltProtCkin:
-          reqinfo->MsgToLog( string( "Пассажиру " ) + fullname +
-                             " предварительно назначено место. Новое место: " +
-                             new_seat_no,
-                             evtPax, point_id, idx1, idx2 );
-          break;
-        default:;
-  		}
-  		break;
-    case stReseat:
-    	switch( layer_type ) {
-       	case cltTranzit:
-  	    case cltCheckin:
-  	    case cltTCheckin:
-  	    case cltGoShow:
-          reqinfo->MsgToLog( string( "Пассажир " ) + fullname +
-                             " пересажен. Новое место: " +
-                             new_seat_no,
-                             evtPax, point_id, idx1, idx2 );
-          break;
-        case cltProtCkin:
-          reqinfo->MsgToLog( string( "Пассажиру " ) + fullname +
-                             " предварительно назначено место. Новое место: " +
-                             new_seat_no,
-                             evtPax, point_id, idx1, idx2 );
-          break;
-        default:;
-  		}
-  		break;
-  	case stDropseat:
-    	switch( layer_type ) {
-      	case cltTranzit:
-      	case cltCheckin:
-  	    case cltTCheckin:
-  	    case cltGoShow:
-          reqinfo->MsgToLog( string( "Пассажир " ) + fullname +
-                             " высажен. Место: " + prior_seat,
-                             evtPax, point_id, idx1, idx2 );
-          break;
-        case cltProtCkin:
-          reqinfo->MsgToLog( string( "Пассажиру " ) + fullname +
-                             " отменено предварительно назначенное место: " + prior_seat,
-                             evtPax, point_id, idx1, idx2 );
-          break;
-        default:;
-  		}
-  		break;
-  }
-  check_waitlist_alarm( point_id );
 }
 
 void AutoReSeatsPassengers( TSalons &Salons, TPassengers &APass, int SeatAlgo )
@@ -2720,7 +2340,7 @@ void AutoReSeatsPassengers( TSalons &Salons, TPassengers &APass, int SeatAlgo )
         // необходимо вначале удалить все его инвалидные места из слоя регистрации
         QryLayer.CreateVariable( "pax_id", otInteger, pass.pax_id );
         QryLayer.Execute();
-  		  SaveTripSeatRanges( Salons.trip_id, cltCheckin, seats, pass.pax_id, point_dep, point_arv ); //???
+  		  SEATS2::SaveTripSeatRanges( Salons.trip_id, cltCheckin, seats, pass.pax_id, point_dep, point_arv ); //???
   		  QryUpd.SetVariable( "pax_id", pass.pax_id );
         QryUpd.SetVariable( "term", TReqInfo::Instance()->desk.code );
         QryUpd.Execute();

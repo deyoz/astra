@@ -20,6 +20,7 @@
 #include "arx_daily.h"
 #include "base_tables.h"
 #include "stl_utils.h"
+#include "empty_proc.h"
 #include "serverlib/posthooks.h"
 #include "serverlib/perfom.h"
 
@@ -136,6 +137,9 @@ void exec_tasks( const char *proc_name )
 	    	  			  		if ( name == "get_full_stat" ) get_full_stat( utcdate );
 	    	  			  		else
 	    	  			  			if ( name == "sync_1ccek" ) sync_1ccek();
+	    	  			  			else
+	    	  			  			  if ( name == "alter_arx" ) Result = alter_arx();
+
       TDateTime next_exec;
       if ( Qry.FieldIsNULL( "next_exec" ) )
       	next_exec = utcdate;

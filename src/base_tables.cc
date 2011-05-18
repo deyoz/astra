@@ -12,6 +12,8 @@
 using namespace std;
 using namespace EXCEPTIONS;
 
+TBaseTables::TBaseTables():mem(STDLOG) {};
+
 void TBaseTables::Invalidate()
 {
 	for(TTables::iterator ti = base_tables.begin(); ti != base_tables.end(); ti++)
@@ -21,7 +23,10 @@ void TBaseTables::Invalidate()
 void TBaseTables::Clear()
 {
     for(TTables::iterator ti = base_tables.begin(); ti != base_tables.end(); ti++)
+    {
+        mem.destroy(ti->second, STDLOG);
         delete ti->second;
+    };
     base_tables.clear();
 }
 
@@ -102,8 +107,36 @@ TBaseTable &TBaseTables::get(string name)
         	  base_tables[name] = new TStationModes();
         else
             throw Exception("TBaseTables::get_base_table: " + name + " not found");
+        mem.create(base_tables[name], STDLOG);
     }
     return *(base_tables[name]);
+};
+
+TBaseTable::TBaseTable():mem(STDLOG)
+{
+  prior_mem_count=mem.count();
+	Init();
+};
+
+TBaseTable::~TBaseTable()
+{
+  std::vector<TBaseTableRow*>::iterator i;
+  for(i=table.begin();i!=table.end();i++)
+  {
+    mem.destroy(*i, STDLOG);
+    delete *i;
+  };
+};
+
+void TBaseTable::Invalidate()
+{
+  pr_actual=false;
+  if ((unsigned int)prior_mem_count!=mem.count())
+  {
+    prior_mem_count=mem.count();
+    if (mem.is_trace_memory())
+      ProgTrace(TRACE5, "TBaseTable::Invalidate: %s: mem.count=%d", get_table_name(), mem.count());
+  };
 };
 
 void TBaseTable::load_table()
@@ -135,6 +168,7 @@ void TBaseTable::load_table()
       }
       catch(...)
       {
+        mem.destroy(row, STDLOG);
         if (row!=NULL) delete row;
         throw;
       };
@@ -151,8 +185,12 @@ void TBaseTable::delete_row(TBaseTableRow *row)
   if (row==NULL) return;
   vector<TBaseTableRow*>::iterator i;
   i=find(table.begin(),table.end(),row);
-  delete *i;
-  table.erase(i);
+  if (i!=table.end())
+  {
+    mem.destroy(*i, STDLOG);
+    delete *i;
+    table.erase(i);
+  };
 };
 
 void TBaseTable::add_row(TBaseTableRow *row)
@@ -161,13 +199,13 @@ void TBaseTable::add_row(TBaseTableRow *row)
   table.push_back(row);
 };
 
-TBaseTableRow& TBaseTable::get_row(std::string field, std::string value, bool with_deleted)
+const TBaseTableRow& TBaseTable::get_row(std::string field, std::string value, bool with_deleted)
 {
   throw EBaseTableError("%s::get_row: wrong search field '%s'",
                         get_table_name(),field.c_str());
 };
 
-TBaseTableRow& TBaseTable::get_row(std::string field, int value, bool with_deleted)
+const TBaseTableRow& TBaseTable::get_row(std::string field, int value, bool with_deleted)
 {
   throw EBaseTableError("%s::get_row: wrong search field '%s'",
                         get_table_name(),field.c_str());
@@ -216,7 +254,7 @@ void TIdBaseTable::add_row(TBaseTableRow *row)
       id[((TIdBaseTableRow*)row)->id]=row;
   };
 }
-TBaseTableRow& TIdBaseTable::get_row(std::string field, int value, bool with_deleted)
+const TBaseTableRow& TIdBaseTable::get_row(std::string field, int value, bool with_deleted)
 {
   load_table();
   if (lowerc(field)=="id")
@@ -276,7 +314,7 @@ void TCodeBaseTable::add_row(TBaseTableRow *row)
   };
 }
 
-TBaseTableRow& TCodeBaseTable::get_row(std::string field, std::string value, bool with_deleted)
+const TBaseTableRow& TCodeBaseTable::get_row(std::string field, std::string value, bool with_deleted)
 {
   load_table();
   if (lowerc(field)=="code")
@@ -364,7 +402,7 @@ void TTIDBaseTable::after_update()
   tid=new_tid;
 };
 
-TBaseTableRow& TTIDBaseTable::get_row(std::string field, int value, bool with_deleted)
+const TBaseTableRow& TTIDBaseTable::get_row(std::string field, int value, bool with_deleted)
 {
   load_table();
   if (lowerc(field)=="id")
@@ -402,7 +440,7 @@ void TICAOBaseTable::add_row(TBaseTableRow *row)
     code_icao_lat[((TICAOBaseTableRow*)row)->code_icao_lat]=row;
 };
 
-TBaseTableRow& TICAOBaseTable::get_row(std::string field, std::string value, bool with_deleted)
+const TBaseTableRow& TICAOBaseTable::get_row(std::string field, std::string value, bool with_deleted)
 {
   load_table();
   if (lowerc(field)=="code_icao")
@@ -468,7 +506,7 @@ void TCountries::add_row(TBaseTableRow *row)
     code_iso[((TCountriesRow*)row)->code_iso]=row;
 };
 
-TBaseTableRow& TCountries::get_row(std::string field, std::string value, bool with_deleted)
+const TBaseTableRow& TCountries::get_row(std::string field, std::string value, bool with_deleted)
 {
   load_table();
   if (lowerc(field)=="code_iso")
@@ -487,6 +525,7 @@ TBaseTableRow& TCountries::get_row(std::string field, std::string value, bool wi
 void TCountries::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TCountriesRow;
+  mem.create(*row, STDLOG);
   ((TCountriesRow*)*row)->code_iso=Qry.FieldAsString("code_iso");
   TTIDBaseTable::create_row(Qry,row,replaced_row);
 };
@@ -494,12 +533,14 @@ void TCountries::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **re
 void TAirps::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TAirpsRow;
+  mem.create(*row, STDLOG);
   ((TAirpsRow*)*row)->city=Qry.FieldAsString("city");
   TICAOBaseTable::create_row(Qry,row,replaced_row);
 };
 
 void TPersTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row) {
   *row = new TPersTypesRow;
+  mem.create(*row, STDLOG);
   ((TPersTypesRow*)*row)->priority=Qry.FieldAsInteger("priority");
   ((TPersTypesRow*)*row)->weight_win=Qry.FieldAsInteger("weight_win");
   ((TPersTypesRow*)*row)->weight_sum=Qry.FieldAsInteger("weight_sum");
@@ -509,6 +550,7 @@ void TPersTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **re
 void TGenderTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TGenderTypesRow;
+  mem.create(*row, STDLOG);
   ((TGenderTypesRow*)*row)->pr_inf=Qry.FieldAsInteger("pr_inf")!=0;
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
@@ -516,18 +558,21 @@ void TGenderTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **
 void TTagColors::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TTagColorsRow;
+  mem.create(*row, STDLOG);
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 
 void TPaxDocTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TPaxDocTypesRow;
+  mem.create(*row, STDLOG);
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 
 void TTypeBTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TTypeBTypesRow;
+  mem.create(*row, STDLOG);
   ((TTypeBTypesRow*)*row)->basic_type=Qry.FieldAsString("basic_type");
   ((TTypeBTypesRow*)*row)->editable=Qry.FieldAsInteger("editable")!=0;
   ((TTypeBTypesRow*)*row)->short_name=Qry.FieldAsString("short_name");
@@ -538,6 +583,7 @@ void TTypeBTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **r
 void TCities::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TCitiesRow;
+  mem.create(*row, STDLOG);
   ((TCitiesRow*)*row)->country=Qry.FieldAsString("country");
   ((TCitiesRow*)*row)->region=Qry.FieldAsString("region");
   ((TCitiesRow*)*row)->tz=Qry.FieldAsInteger("tz");
@@ -547,6 +593,7 @@ void TCities::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **repla
 void TAirlines::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TAirlinesRow;
+  mem.create(*row, STDLOG);
   ((TAirlinesRow*)*row)->short_name=Qry.FieldAsString("short_name");
   ((TAirlinesRow*)*row)->short_name_lat=Qry.FieldAsString("short_name_lat");
   ((TAirlinesRow*)*row)->aircode=Qry.FieldAsString("aircode");
@@ -571,7 +618,7 @@ void TAirlines::add_row(TBaseTableRow *row)
     aircode[((TAirlinesRow*)row)->aircode]=row;
 };
 
-TBaseTableRow& TAirlines::get_row(std::string field, std::string value, bool with_deleted)
+const TBaseTableRow& TAirlines::get_row(std::string field, std::string value, bool with_deleted)
 {
   load_table();
   if (lowerc(field)=="aircode")
@@ -590,6 +637,7 @@ TBaseTableRow& TAirlines::get_row(std::string field, std::string value, bool wit
 void TClasses::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TClassesRow;
+  mem.create(*row, STDLOG);
   ((TClassesRow*)*row)->priority=Qry.FieldAsInteger("priority");
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
@@ -597,6 +645,7 @@ void TClasses::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **repl
 void TSubcls::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TSubclsRow;
+  mem.create(*row, STDLOG);
   ((TSubclsRow*)*row)->cl=Qry.FieldAsString("class");
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
@@ -604,36 +653,42 @@ void TSubcls::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **repla
 void TTripSuffixes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TTripSuffixesRow;
+  mem.create(*row, STDLOG);
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 
 void TCrafts::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TCraftsRow;
+  mem.create(*row, STDLOG);
   TICAOBaseTable::create_row(Qry,row,replaced_row);
 }
 
 void TCurrency::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
 	*row = new TCurrencyRow;
+  mem.create(*row, STDLOG);
 	TTIDBaseTable::create_row(Qry,row,replaced_row);
 }
 
 void TRefusalTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
 	*row = new TRefusalTypesRow;
+  mem.create(*row, STDLOG);
 	TTIDBaseTable::create_row(Qry,row,replaced_row);
 }
 
 void TPayTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
 	*row = new TPayTypesRow;
+  mem.create(*row, STDLOG);
 	TTIDBaseTable::create_row(Qry,row,replaced_row);
 }
 
 void TTripTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TTripTypesRow;
+  mem.create(*row, STDLOG);
   ((TTripTypesRow*)*row)->pr_reg=Qry.FieldAsInteger("pr_reg");
   TTIDBaseTable::create_row(Qry,row,replaced_row);
 };
@@ -641,6 +696,7 @@ void TTripTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **re
 void TClsGrp::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TClsGrpRow;
+  mem.create(*row, STDLOG);
   ((TClsGrpRow*)*row)->airline=Qry.FieldAsString("airline");
   ((TClsGrpRow*)*row)->airp=Qry.FieldAsString("airp");
   ((TClsGrpRow*)*row)->cl=Qry.FieldAsString("class");
@@ -650,32 +706,38 @@ void TClsGrp::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **repla
 
 void TCompElemTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row) {
 	*row = new TCompElemTypesRow;
+  mem.create(*row, STDLOG);
   TCodeBaseTable::create_row(Qry, row, replaced_row);
 };
 
 void TDevModels::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row) {
 	*row = new TDevModelsRow;
+  mem.create(*row, STDLOG);
   TCodeBaseTable::create_row(Qry, row, replaced_row);
 };
 
 void TDevSessTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row) {
   *row = new TDevSessTypesRow;
+  mem.create(*row, STDLOG);
   TCodeBaseTable::create_row(Qry, row, replaced_row);
 };
 
 void TDevFmtTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row) {
 	*row = new TDevFmtTypesRow;
+  mem.create(*row, STDLOG);
   TCodeBaseTable::create_row(Qry, row, replaced_row);
 };
 
 void TDevOperTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row) {
 	*row = new TDevOperTypesRow;
+  mem.create(*row, STDLOG);
   TCodeBaseTable::create_row(Qry, row, replaced_row);
 };
 
 void TGrpStatusTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TGrpStatusTypesRow;
+  mem.create(*row, STDLOG);
   ((TGrpStatusTypesRow*)*row)->priority=Qry.FieldAsInteger("priority");
   ((TGrpStatusTypesRow*)*row)->layer_type=Qry.FieldAsString("layer_type");
   TCodeBaseTable::create_row(Qry,row,replaced_row);
@@ -684,6 +746,7 @@ void TGrpStatusTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow
 void TClientTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TClientTypesRow;
+  mem.create(*row, STDLOG);
   ((TClientTypesRow*)*row)->short_name=Qry.FieldAsString("short_name");
   ((TClientTypesRow*)*row)->short_name_lat=Qry.FieldAsString("short_name_lat");
   ((TClientTypesRow*)*row)->priority=Qry.FieldAsInteger("priority");
@@ -693,6 +756,7 @@ void TClientTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **
 void TCompLayerTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TCompLayerTypesRow;
+  mem.create(*row, STDLOG);
   ((TCompLayerTypesRow*)*row)->priority=Qry.FieldAsInteger("priority");
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
@@ -700,6 +764,7 @@ void TCompLayerTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow
 void TGraphStages::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TGraphStagesRow;
+  mem.create(*row, STDLOG);
   ((TGraphStagesRow*)*row)->stage_time=Qry.FieldAsInteger("time");
   ((TGraphStagesRow*)*row)->pr_auto=(Qry.FieldAsInteger("pr_auto")!=0);
   TIdBaseTable::create_row(Qry,row,replaced_row);
@@ -708,30 +773,35 @@ void TGraphStages::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **
 void TMiscSetTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TMiscSetTypesRow;
+  mem.create(*row, STDLOG);
   TIdBaseTable::create_row(Qry,row,replaced_row);
 };
 
 void TSeatAlgoTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TSeatAlgoTypesRow;
+  mem.create(*row, STDLOG);
   TIdBaseTable::create_row(Qry,row,replaced_row);
 };
 
 void TRights::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TRightsRow;
+  mem.create(*row, STDLOG);
   TIdBaseTable::create_row(Qry,row,replaced_row);
 };
 
 void TUserTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TUserTypesRow;
+  mem.create(*row, STDLOG);
   TIdBaseTable::create_row(Qry,row,replaced_row);
 };
 
 void TUserSetTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TUserSetTypesRow;
+  mem.create(*row, STDLOG);
   ((TUserSetTypesRow*)*row)->short_name=Qry.FieldAsString("short_name");
   ((TUserSetTypesRow*)*row)->short_name_lat=Qry.FieldAsString("short_name_lat");
   ((TUserSetTypesRow*)*row)->category=Qry.FieldAsString("category");
@@ -741,18 +811,21 @@ void TUserSetTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow *
 void TBagNormTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
 	*row = new TBagNormTypesRow;
+  mem.create(*row, STDLOG);
 	TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 
 void TLangTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
 	*row = new TLangTypesRow;
+  mem.create(*row, STDLOG);
 	TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 
 void TStationModes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
 	*row = new TStationModesRow;
+  mem.create(*row, STDLOG);
 	TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 

@@ -7,6 +7,7 @@
 #include "stl_utils.h"
 #include "convert.h"
 #include "salons.h"
+#include "salonform.h"
 #include "astra_consts.h"
 #include "serverlib/logger.h"
 
@@ -115,11 +116,11 @@ void ReadSalons( TTlgInfo &info, vector<TTlgCompLayer> &complayers, bool pr_bloc
                                 TTripRoute route;
                                 TTripRouteItem next_airp;
                                 route.GetNextAirp(info.point_id,
-                                        info.point_num,
-                                        info.first_point,
-                                        info.pr_tranzit,
-                                        trtNotCancelled,
-                                        next_airp);
+                                                  info.point_num,
+                                                  info.first_point,
+                                                  info.pr_tranzit,
+                                                  trtNotCancelled,
+                                                  next_airp);
 
                                 if ( next_airp.point_id == NoExists )
                                     throw Exception( "ReadSalons: inext_airp.point_id not found, point_dep="+IntToString( info.point_id ) );
@@ -1374,6 +1375,27 @@ namespace PRL_SPACE {
         Qry.Execute();
         weight = Qry.FieldAsInteger(0);
     }
+    
+    struct TCOMZones {
+        map<string, int> items;
+        void get(TTlgInfo &info);
+        void ToTlg(ostringstream &body);
+    };
+
+    void TCOMZones::get(TTlgInfo &info)
+    {
+        ZoneLoads(info.point_id, items);
+    }
+
+    void TCOMZones::ToTlg(ostringstream &body)
+    {
+        if(not items.empty()) {
+            body << "ZONES -";
+            for(map<string, int>::iterator i = items.begin(); i != items.end(); i++)
+                body << " " << i->first << "/" << i->second;
+            body << br;
+        }
+    }
 
     struct TCOMStats {
         vector<TCOMStatsItem> items;
@@ -1720,10 +1742,13 @@ int COM(TTlgInfo &info)
             << DateTimeToStr(info.scd_local, "ddmmm", 1) << " " << info.airp_dep_view
             << "/0 OP/NAM" << br;
         TCOMClasses classes;
+        TCOMZones zones;
         TCOMStats stats;
         classes.get(info);
+        zones.get(info);
         stats.get(info);
         classes.ToTlg(info, body);
+        zones.ToTlg(body);
         stats.ToTlg(body);
         tlg_row.body = body.str();
     } catch(...) {
@@ -4787,8 +4812,11 @@ int MVT(TTlgInfo &info)
     buf
         << info.airline_view << setw(3) << setfill('0') << info.flt_no << info.suffix_view << "/"
         << DateTimeToStr(info.scd_utc, "dd", 1)
-        << "." << (info.bort.empty() ? "??" : info.bort)
-        << "." << info.airp_dep_view;
+        << "." << (info.bort.empty() ? "??" : info.bort);
+    if(info.tlg_type == "MVTA")
+      buf << "." << info.airp_dep_view;
+    if(info.tlg_type == "MVTB")
+      buf << "." << info.airp_arv_view;
     vector<string> body;
     body.push_back(buf.str());
     buf.str("");
@@ -4797,7 +4825,8 @@ int MVT(TTlgInfo &info)
             TMVTABody MVTABody;
             MVTABody.get(info);
             MVTABody.ToTlg(info, info.vcompleted, body);
-        } else {
+        };
+        if(info.tlg_type == "MVTB") {
             TMVTBBody MVTBBody;
             MVTBBody.get(info);
             MVTBBody.ToTlg(info.vcompleted, body);
@@ -5585,7 +5614,7 @@ void TPFSBody::get(TTlgInfo &info)
                         category = "NOREC";
                     else
                         category = "OFFLN";
-                } else { // Пассажир имеет статус "посадка"
+                } else { // Пассажир имеет статус "подсадка"
                     if(ckin_pax.pr_brd != 0)
                         category = "GOSHO";
                     else
@@ -5723,21 +5752,25 @@ int Unknown(TTlgInfo &info)
     return tlg_row.id;
 }
 
-int TelegramInterface::create_tlg(
-        const             TCreateTlgInfo &createInfo
-        )
+int TelegramInterface::create_tlg(const TCreateTlgInfo &createInfo)
 {
     ProgTrace(TRACE5, "createInfo.type: %s", createInfo.type.c_str());
     if(createInfo.type.empty())
         throw AstraLocale::UserException("MSG.TLG.UNSPECIFY_TYPE");
+    string vbasic_type;
+    bool veditable=false;
+    try
+    {
+      const TTypeBTypesRow& row = (TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",createInfo.type));
+      vbasic_type=row.basic_type;
+      veditable=row.editable;
+    }
+    catch(EBaseTableError)
+    {
+      throw AstraLocale::UserException("MSG.TLG.TYPE_WRONG_SPECIFIED");
+    };
+    
     TQuery Qry(&OraSession);
-    Qry.SQLText = "select basic_type, editable from typeb_types where code = :vtype";
-    Qry.CreateVariable("vtype", otString, createInfo.type);
-    Qry.Execute();
-    if(Qry.Eof)
-        throw AstraLocale::UserException("MSG.TLG.TYPE_WRONG_SPECIFIED");
-    string vbasic_type = Qry.FieldAsString("basic_type");
-    bool veditable = Qry.FieldAsInteger("editable") != 0;
     TTlgInfo info;
     info.mark_info = createInfo.mark_info;
     info.tlg_type = createInfo.type;
@@ -5754,8 +5787,9 @@ int TelegramInterface::create_tlg(
         throw AstraLocale::UserException("MSG.TLG.SRC_ADDR_WRONG_SET");
     info.sender = vsender;
     info.vcompleted = !veditable;
-    if(createInfo.point_id != -1) {
-        TQuery Qry(&OraSession);
+    if(createInfo.point_id != -1)
+    {
+        Qry.Clear();
         Qry.SQLText =
             "SELECT "
             "   points.airline, "
@@ -5788,7 +5822,8 @@ int TelegramInterface::create_tlg(
         info.point_num = Qry.FieldAsInteger("point_num");
         info.first_point = Qry.FieldAsInteger("first_point");
         info.pr_tranzit = Qry.FieldAsInteger("pr_tranzit")!=0;
-        info.airline_view = info.TlgElemIdToElem(etAirline, info.airline);
+        if(info.mark_info.IsNULL() or not info.mark_info.pr_mark_header)
+            info.airline_view = info.TlgElemIdToElem(etAirline, info.airline);
         info.suffix_view = info.suffix.empty() ? "" : info.TlgElemIdToElem(etSuffix, info.suffix);
         info.airp_dep_view = info.TlgElemIdToElem(etAirp, info.airp_dep);
 
@@ -5813,27 +5848,30 @@ int TelegramInterface::create_tlg(
     }
     ostringstream extra;
     if (vbasic_type == "PTM" ||
-            vbasic_type == "BTM")
+        vbasic_type == "BTM")
     {
         info.airp_arv = createInfo.airp_trfer;
         info.airp_arv_view = info.TlgElemIdToElem(etAirp, info.airp_arv);
         if (!info.airp_arv.empty())
             extra << info.airp_arv << " ";
     }
-    if (vbasic_type == "CPM")
+    if (vbasic_type == "CPM" ||
+        vbasic_type == "MVT" && createInfo.type == "MVTB")
     {
         TTripRoute route;
         TTripRouteItem next_airp;
-        if (route.GetNextAirp(info.point_id, trtNotCancelled, next_airp))
+        route.GetNextAirp(info.point_id, trtNotCancelled, next_airp);
+        if (!next_airp.airp.empty())
         {
             info.airp_arv = next_airp.airp;
             info.airp_arv_view = info.TlgElemIdToElem(etAirp, info.airp_arv);
-        };
+        }
+        else throw AstraLocale::UserException("MSG.AIRP.DST_NOT_FOUND");
     };
     if (vbasic_type == "PFS" or
-            vbasic_type == "FTL" or
-            vbasic_type == "ETL" or
-            vbasic_type == "PRL")
+        vbasic_type == "FTL" or
+        vbasic_type == "ETL" or
+        vbasic_type == "PRL")
     {
         info.crs = createInfo.crs;
         if (!info.crs.empty())

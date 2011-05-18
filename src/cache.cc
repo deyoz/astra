@@ -9,6 +9,7 @@
 #include "tlg/tlg.h"
 #include "astra_service.h"
 #include "term_version.h"
+#include "comp_layers.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -974,7 +975,8 @@ void OnLoggingF( TCacheTable &cache, const TRow &row, TCacheUpdateStatus UpdateS
        code == "TRIP_BRD_WITH_REG" ||
        code == "TRIP_EXAM_WITH_BRD" ||
        code == "TRIP_WEB_CKIN" ||
-       code == "TRIP_KIOSK_CKIN" ) {
+       code == "TRIP_KIOSK_CKIN" ||
+       code == "TRIP_PAID_CKIN" ) {
     ostringstream msg;
     message.ev_type = evtFlt;
     int point_id;
@@ -1073,7 +1075,8 @@ void OnLoggingF( TCacheTable &cache, const TRow &row, TCacheUpdateStatus UpdateS
       };
     };
     if ( code == "TRIP_WEB_CKIN" ||
-         code == "TRIP_KIOSK_CKIN" ) {
+         code == "TRIP_KIOSK_CKIN" ||
+         code == "TRIP_PAID_CKIN" ) {
       if ( (UpdateStatus == usDeleted || ToInt(cache.FieldValue( "pr_permit", row )) == 0) &&
            (UpdateStatus == usInserted || ToInt(cache.FieldOldValue( "pr_permit", row )) == 0) )
       {
@@ -1084,15 +1087,30 @@ void OnLoggingF( TCacheTable &cache, const TRow &row, TCacheUpdateStatus UpdateS
         msg << "На рейсе";
         if ((UpdateStatus == usInserted || UpdateStatus == usModified) &&
             ToInt(cache.FieldValue( "pr_permit", row )) != 0)
-          msg << " разрешена";
+        {
+          if ( code == "TRIP_WEB_CKIN" ||
+               code == "TRIP_KIOSK_CKIN" )
+            msg << " разрешена";
+          else
+
+            msg << " производится";
+        }
         else
-          msg << " запрещена";
+        {
+          if ( code == "TRIP_WEB_CKIN" ||
+               code == "TRIP_KIOSK_CKIN" )
+            msg << " запрещена";
+          else
+            msg << " не производится";
+        };
 
         if ( code == "TRIP_WEB_CKIN")
           msg << " web-регистрация";
-        else
+        if ( code == "TRIP_KIOSK_CKIN")
           msg << " регистрация";
-      
+        if ( code == "TRIP_PAID_CKIN")
+          msg << " платная регистрация";
+
         if ( code == "TRIP_KIOSK_CKIN" )
         {
           //важно что desk_grp_id не может меняться когда UpdateStatus == usModified
@@ -1110,26 +1128,38 @@ void OnLoggingF( TCacheTable &cache, const TRow &row, TCacheUpdateStatus UpdateS
               msg << cache.FieldOldValue( "desk_grp_view", row ) << "'";
           };
         };
-      
+
         if ((UpdateStatus == usInserted || UpdateStatus == usModified) &&
             ToInt(cache.FieldValue( "pr_permit", row )) != 0)
         {
-          msg << " с параметрами: ";
-/*          msg << "лист ожидания: ";
-          if ( ToInt(cache.FieldValue( "pr_waitlist", row )) == 0 )
-            msg << "нет, ";
+          if ( code == "TRIP_WEB_CKIN" ||
+               code == "TRIP_KIOSK_CKIN" )
+          {
+            msg << " с параметрами: ";
+  /*          msg << "лист ожидания: ";
+            if ( ToInt(cache.FieldValue( "pr_waitlist", row )) == 0 )
+              msg << "нет, ";
+            else
+              msg << "да ,";*/
+            msg << "сквоз. рег.: ";
+            if ( ToInt(cache.FieldValue( "pr_tckin", row )) == 0 )
+              msg << "нет, ";
+            else
+              msg << "да, ";
+            msg << "перерасч. времен: ";
+            if ( ToInt(cache.FieldValue( "pr_upd_stage", row )) == 0 )
+              msg << "нет";
+            else
+              msg << "да";
+          }
           else
-            msg << "да ,";*/
-          msg << "сквоз. рег.: ";
-          if ( ToInt(cache.FieldValue( "pr_tckin", row )) == 0 )
-            msg << "нет, ";
-          else
-            msg << "да, ";
-          msg << "перерасч. времен: ";
-          if ( ToInt(cache.FieldValue( "pr_upd_stage", row )) == 0 )
-            msg << "нет";
-          else
-            msg << "да";
+          {
+            msg << ". Таймаут резервирования до оплаты";
+            if ( cache.FieldValue( "prot_timeout", row ).empty() )
+              msg << " не определен";
+            else
+              msg << " " << ToInt(cache.FieldValue( "prot_timeout", row )) << " мин.";
+          };
         };
       };
     };
@@ -1287,6 +1317,18 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
             }
           } /* end else */
         } /* end try */
+        if(OnAfterApply)
+            try {
+                (*OnAfterApply)(*this, *iv, *Qry, query_type);
+            } catch(UserException E) {
+                throw;
+            } catch(Exception E) {
+                ProgError(STDLOG, "OnAfterApply failed: %s", E.what());
+                throw;
+            } catch(...) {
+                ProgError(STDLOG, "OnAfterApply failed: something unexpected");
+                throw;
+            }
       } /* end for */
     } /* end if */
   } /* end for  0..2 */
@@ -1514,6 +1556,34 @@ void BeforeApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TC
   };
 };
 
+void AfterApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TCacheQueryType qryType)
+{
+  if (cache.code() == "TRIP_PAID_CKIN")
+  {
+    if (!( (qryType == cqtDelete || ToInt(cache.FieldValue( "pr_permit", row )) == 0) &&
+           (qryType == cqtInsert || ToInt(cache.FieldOldValue( "pr_permit", row )) == 0) ) )
+    {
+      if ((qryType == cqtInsert || qryType == cqtUpdate) &&
+          ToInt(cache.FieldValue( "pr_permit", row )) != 0)
+      {
+        int point_id=ToInt(cache.FieldValue( "point_id", row ));
+        SyncTripCompLayers(NoExists, point_id, cltPNLBeforePay);
+        SyncTripCompLayers(NoExists, point_id, cltPNLAfterPay);
+        SyncTripCompLayers(NoExists, point_id, cltProtBeforePay);
+        SyncTripCompLayers(NoExists, point_id, cltProtAfterPay);
+      }
+      else
+      {
+        int point_id=ToInt(cache.FieldValue( "point_id", row ));
+        DeleteTripCompLayers(NoExists, point_id, cltPNLBeforePay);
+        DeleteTripCompLayers(NoExists, point_id, cltPNLAfterPay);
+        DeleteTripCompLayers(NoExists, point_id, cltProtBeforePay);
+        DeleteTripCompLayers(NoExists, point_id, cltProtAfterPay);
+      };
+    };
+  };
+};
+
 /*//////////////////////////////////////////////////////////////////////////////*/
 void CacheInterface::LoadCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -1539,6 +1609,7 @@ void CacheInterface::SaveCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   if ( cache.changeIfaceVer() )
     throw AstraLocale::UserException( "MSG.CACHE.IFACE_VERSION_CHANGED.REFRESH" );
   cache.OnBeforeApply = BeforeApply;
+  cache.OnAfterApply = AfterApply;
   cache.ApplyUpdates( reqNode );
   cache.refresh();
   SetProp(resNode, "handle", "1");

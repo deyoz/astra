@@ -41,7 +41,8 @@ public:
                                        const int reg_no,
                                        const std::string &lang,
                                        const ASTRA::TRptType rpt_type,
-                                       const std::string &client_type);
+                                       const std::string &client_type,
+                                       const TSortType sort = stRegNo );
 
   static void GetPax(xmlNodePtr reqNode, xmlNodePtr resNode);
 };

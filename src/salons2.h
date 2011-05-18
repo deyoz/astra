@@ -6,29 +6,9 @@
 #include <map>
 #include <libxml/tree.h>
 #include "astra_utils.h"
-
-enum TReadStyle { rTripSalons, rComponSalons };
+#include "salons.h"
 
 enum TModify { mNone, mDelete, mAdd, mChange };
-
-struct TPoint {
-  public:
-  int x;
-  int y;
-  TPoint() {
-    x = 0;
-    y = 0;
-  }
-  TPoint( int ax, int ay ) {
-    x = ax;
-    y = ay;
-  }
-};
-
-struct TRem {
-  std::string rem;
-  bool pr_denial;
-};
 
 class TPlace {
   public:
@@ -48,7 +28,7 @@ class TPlace {
     bool pr_free;
     bool block;
     bool passSel;
-    std::vector<TRem> rems;
+    std::vector<SALONS2::TRem> rems;
     std::vector<std::string> layers;
     TPlace() {
       x = -1;
@@ -80,16 +60,16 @@ class TPlaceList {
     TPlaces places;
     int num;
     TPlace *place( int idx );
-    TPlace *place( TPoint &p );
-    int GetPlaceIndex( TPoint &p );
+    TPlace *place( SALONS2::TPoint &p );
+    int GetPlaceIndex( SALONS2::TPoint &p );
     int GetPlaceIndex( int x, int y );
     int GetXsCount();
     int GetYsCount();
-    bool ValidPlace( TPoint &p );
-    std::string GetPlaceName( TPoint &p );
+    bool ValidPlace( SALONS2::TPoint &p );
+    std::string GetPlaceName( SALONS2::TPoint &p );
     std::string GetXsName( int x );
     std::string GetYsName( int y );
-    bool GetisPlaceXY( std::string placeName, TPoint &p );
+    bool GetisPlaceXY( std::string placeName, SALONS2::TPoint &p );
     void Add( TPlace &pl );
 };
 
@@ -110,7 +90,7 @@ class TFilterLayers:public BitSet<ASTRA::TCompLayerType> {
 
 class TSalons {
   private:
-  	TReadStyle readStyle;
+  	SALONS2::TReadStyle readStyle;
     TFilterLayers FilterLayers;
   	std::map<std::string,int> status_priority;
   	std::vector<TLayerPriority> layer_priority;
@@ -129,7 +109,7 @@ class TSalons {
     std::string ClName;
     std::vector<TPlaceList*> placelists;
     ~TSalons( );
-    TSalons( int id, TReadStyle vreadStyle );
+    TSalons( int id, SALONS2::TReadStyle vreadStyle );
     TPlaceList *CurrPlaceList();
     void SetCurrPlaceList( TPlaceList *newPlaceList );
 
@@ -152,8 +132,6 @@ namespace SALONS
   void GetCompParams( int comp_id, xmlNodePtr dataNode );
   int GetCompId( const std::string craft, const std::string bort, const std::string airline,
                  std::string airp,  int f, int c, int y );
-  int AutoSetCraft( int point_id, std::string &craft, int comp_id );
-  int SetCraft( int point_id, std::string &craft, int comp_id );
   void InitVIP( int point_id );
   void setTRIP_CLASSES( int point_id );
   void SetLayer( const std::map<std::string,int> &layer_priority, const std::string &layer, TPlace &pl );

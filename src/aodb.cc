@@ -26,7 +26,7 @@ alter table aodb_bag add pr_cabin NUMBER(1) NOT NULL;
 #include "astra_misc.h"
 #include "stages.h"
 #include "tripinfo.h"
-#include "salons2.h"
+#include "salons.h"
 #include "sopp.h"
 #include "serverlib/helpcpp.h"
 
@@ -1306,7 +1306,9 @@ try {
 	QrySet.SQLText =
      "BEGIN "
      " sopp.set_flight_sets(:point_id,:use_seances);"
-     " UPDATE trip_sets SET max_commerce=:max_commerce WHERE point_id=:point_id;"
+     " IF :max_commerce IS NOT NULL THEN "
+     "  UPDATE trip_sets SET max_commerce=:max_commerce WHERE point_id=:point_id;"
+     " END IF; "
      "END;";
 	QrySet.DeclareVariable( "point_id", otInteger );
 	QrySet.CreateVariable( "use_seances", otInteger, (int)USE_SEANCES() );
@@ -1432,6 +1434,15 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
     err++;
     Qry.Execute();
     err++;
+    // создаем времена технологического графика только для пункта вылета из ВНК и далее по маршруту
+    QrySet.SetVariable( "point_id", point_id );
+    if ( fl.max_load != NoExists )
+      QrySet.SetVariable( "max_commerce", fl.max_load );
+    else
+      QrySet.SetVariable( "max_commerce", FNull );
+		err++;
+		QrySet.Execute();
+		err++;
     int num = 0;
     for ( vector<AODB_Dest>::iterator it=fl.dests.begin(); it!=fl.dests.end(); it++ ) {
     	num++;
@@ -1469,14 +1480,15 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
       err++;
       Qry.Execute();
       err++;
+      if ( it != fl.dests.end() - 1 ) {
+        QrySet.SetVariable( "point_id", POINT_IDQry.FieldAsInteger( "point_id" ) );
+        QrySet.SetVariable( "max_commerce", FNull );
+	    	err++;
+		    QrySet.Execute();
+		    err++;
+      }
       reqInfo->MsgToLog( string( "Ввод нового пункта " ) + it->airp, evtDisp, move_id, POINT_IDQry.FieldAsInteger( "point_id" ) );
     }
-    // создаем времена технологического графика только для пункта вылета из ВНК и далее по маршруту
-    QrySet.SetVariable( "point_id", point_id );
-    QrySet.SetVariable( "max_commerce", fl.max_load );
-		err++;
-		QrySet.Execute();
-		err++;
 	}
 	else { // update
 		bool change_comp=false;
@@ -1626,7 +1638,7 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
  	  Qry.Execute();
  	  err++;
  	  if ( change_comp )
- 	  	SALONS::AutoSetCraft( point_id, fl.craft, -1 );
+ 	  	SALONS2::AutoSetCraft( point_id, fl.craft, -1 );
  	  // теперь работа с пунктами посадки
 /*    int num = 0;
     int point_num = 0;*/

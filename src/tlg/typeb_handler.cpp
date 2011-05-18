@@ -8,6 +8,8 @@
 #include "oralib.h"
 #include "tlg.h"
 #include "tlg_parser.h"
+#include "memory_manager.h"
+#include "comp_layers.h"
 #include "serverlib/ourtime.h"
 
 #define NICKNAME "VLAD"
@@ -98,6 +100,8 @@ int main_typeb_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
 void handle_tlg(void)
 {
   time_t time_start=time(NULL);
+  
+  TMemoryManager mem(STDLOG);
 
   TDateTime utc_date=NowUTC();
 
@@ -168,10 +172,10 @@ void handle_tlg(void)
       {
         part.p=TlgInQry.FieldAsString("heading");
         part.line=1;
-        ParseHeading(part,HeadingInfo);
+        ParseHeading(part,HeadingInfo,mem);
         part.p=TlgInQry.FieldAsString("ending");
         part.line=1;
-        ParseEnding(part,HeadingInfo,EndingInfo);
+        ParseEnding(part,HeadingInfo,EndingInfo,mem);
       }
       catch(EXCEPTIONS::Exception &E)
       {
@@ -213,9 +217,9 @@ void handle_tlg(void)
           if (tlgLen+1>bufLen)
           {
             if (bufLen==0)
-              ph=(char*)malloc(tlgLen+1);
+              ph=(char*)mem.malloc(tlgLen+1, STDLOG);
             else
-              ph=(char*)realloc(buf,tlgLen+1);
+              ph=(char*)mem.realloc(buf,tlgLen+1, STDLOG);
             if (ph==NULL)
             {
               pr_out_mem=true;
@@ -309,7 +313,7 @@ void handle_tlg(void)
             if (strcmp(info.tlg_type,"BTM")==0)
             {
               TBtmContent con;
-              ParseBTMContent(part,info,con);
+              ParseBTMContent(part,info,con,mem);
               SaveBTMContent(tlg_id,info,con);
               TlgInUpdQry.Execute();
               OraSession.Commit();
@@ -358,15 +362,19 @@ void handle_tlg(void)
         catch(...) {};
       };
     };
+    mem.destroy(HeadingInfo, STDLOG);
     if (HeadingInfo!=NULL) delete HeadingInfo;
+    mem.destroy(EndingInfo, STDLOG);
     if (EndingInfo!=NULL) delete EndingInfo;
-    if (buf!=NULL) free(buf);
+    if (buf!=NULL) mem.free(buf, STDLOG);
   }
   catch(...)
   {
+    mem.destroy(HeadingInfo, STDLOG);
     if (HeadingInfo!=NULL) delete HeadingInfo;
+    mem.destroy(EndingInfo, STDLOG);
     if (EndingInfo!=NULL) delete EndingInfo;
-    if (buf!=NULL) free(buf);
+    if (buf!=NULL) mem.free(buf, STDLOG);
     throw;
   };
 
@@ -397,10 +405,14 @@ void bind_tlg(void)
     {
       int point_id_tlg=Qry.FieldAsInteger("point_id");
       crs_recount(point_id_tlg,true);
-      SyncTlgCompLayers(point_id_tlg, ASTRA::cltSOMTrzt);
-      SyncTlgCompLayers(point_id_tlg, ASTRA::cltPRLTrzt);
-      SyncTlgCompLayers(point_id_tlg, ASTRA::cltPNLCkin);
-      SyncTlgCompLayers(point_id_tlg, ASTRA::cltProtCkin);
+      SyncTripCompLayers(point_id_tlg, ASTRA::NoExists, ASTRA::cltSOMTrzt);
+      SyncTripCompLayers(point_id_tlg, ASTRA::NoExists, ASTRA::cltPRLTrzt);
+      SyncTripCompLayers(point_id_tlg, ASTRA::NoExists, ASTRA::cltPNLCkin);
+      SyncTripCompLayers(point_id_tlg, ASTRA::NoExists, ASTRA::cltProtCkin);
+      SyncTripCompLayers(point_id_tlg, ASTRA::NoExists, ASTRA::cltPNLBeforePay);
+      SyncTripCompLayers(point_id_tlg, ASTRA::NoExists, ASTRA::cltPNLAfterPay);
+      SyncTripCompLayers(point_id_tlg, ASTRA::NoExists, ASTRA::cltProtBeforePay);
+      SyncTripCompLayers(point_id_tlg, ASTRA::NoExists, ASTRA::cltProtAfterPay);
     };
   };
   OraSession.Commit();

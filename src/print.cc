@@ -1379,6 +1379,7 @@ void big_test(PrintDataParser &parser, TDevOperType op_type)
 void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
 {
 //    check_CUTE_certified(tag_key.prn_type, tag_key.dev_model, tag_key.fmt_type);
+    ProgTrace(TRACE5, "bt_type: '%s'", tag_key.type.c_str());
     TBTRoute route;
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -1872,8 +1873,8 @@ string get_validator(TBagReceipt &rcpt)
     if(agency != Qry.FieldAsString("agency")) // Агентство пульта не совпадает с агентством кассира
         throw AstraLocale::UserException("MSG.DESK_AGENCY_NOT_MATCH_THE_USER_ONE");
 
-    TBaseTableRow &city = base_tables.get("cities").get_row("code", sale_point_city);
-    TBaseTableRow &country = base_tables.get("countries").get_row("code", city.AsString("country"));
+    const TBaseTableRow &city = base_tables.get("cities").get_row("code", sale_point_city);
+    const TBaseTableRow &country = base_tables.get("countries").get_row("code", city.AsString("country"));
     if(validator_type == "ТКП") {
         // agency
         validator
@@ -2075,24 +2076,15 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     vector<TPaxPrint> paxs;
     Qry.Clear();
     if ( pax_id == NoExists ) { // печать всех или только тех, у которых не подтверждена распечатка
-        Qry.SQLText =
-            "SELECT t2.grp_id "
-            " FROM tckin_pax_grp t1, tckin_pax_grp t2 "
-            " WHERE t1.grp_id=:grp_id AND "
-            "       t1.tckin_id=t2.tckin_id AND "
-            "       t2.seg_no >= t1.seg_no AND "
-            "       ( t2.pr_depend <> 0 OR t2.grp_id=:grp_id ) "
-            " ORDER BY t2.seg_no ";
-        Qry.CreateVariable( "grp_id", otInteger, grp_id );
-        Qry.Execute();
-        while ( !Qry.Eof ) {
-            grps.push_back( Qry.FieldAsInteger("grp_id") );
-            Qry.Next();
+        TCkinRoute cr;
+        cr.GetRouteAfter(grp_id, crtWithCurrent, crtOnlyDependent);
+        if (!cr.empty())
+        {    
+          for(vector<TCkinRouteItem>::iterator iv = cr.begin(); iv != cr.end(); iv++)
+              grps.push_back(iv->grp_id);
         }
-        if ( grps.empty() ) { // нет сквозняка - тогда кладем просто группу - grp_id
-            ProgTrace( TRACE5, "grps.empty, grp_id=%d", grp_id );
-            grps.push_back( grp_id );
-        }
+        else grps.push_back(grp_id);
+
         Qry.Clear();
         if ( pr_all )
             Qry.SQLText =

@@ -149,3 +149,82 @@ bool NextSeatInRange(TSeatRange &range, TSeat &seat)
   else NextNormSeatLine(seat);
   return true;
 };
+
+string GetSeatRangeView(const vector<TSeatRange> &ranges, const string &format, bool pr_lat, int &seats)
+{
+  //создаем сортированный массив TSeat
+  vector<TSeat> iata_seats;
+  vector<TSeatRange> not_iata_ranges;
+  for(vector<TSeatRange>::const_iterator r=ranges.begin(); r!=ranges.end(); r++)
+  {
+    TSeatRange iata_range(r->first, r->second);
+    try
+    {
+      NormalizeSeatRange(iata_range);
+    }
+    catch(EConvertError)
+    {
+      if (find(not_iata_ranges.begin(),not_iata_ranges.end(),*r)==not_iata_ranges.end())
+        not_iata_ranges.push_back(*r);
+      continue;
+    };
+    
+    TSeat iata_seat=iata_range.first;
+    do
+    {
+      if (find(iata_seats.begin(),iata_seats.end(),iata_seat)==iata_seats.end())
+        iata_seats.push_back(iata_seat);
+    }
+    while (NextSeatInRange(iata_range,iata_seat));
+  };
+    
+  sort(iata_seats.begin(),iata_seats.end());
+  sort(not_iata_ranges.begin(),not_iata_ranges.end());
+
+  string fmt=format;
+  char* add_ch = NULL;
+	if ( fmt == "_list" || fmt == "_one" || fmt == "_seats" )
+	{
+		add_ch = " ";
+		fmt.erase(0,1);
+	};
+	ostringstream res;
+  for(vector<TSeat>::const_iterator s=iata_seats.begin(); s!=iata_seats.end(); s++)
+  {
+    if (!res.str().empty())
+    {
+      if (fmt=="list") res << " "; else break;
+    };
+  
+    res << denorm_iata_row( s->row, add_ch )
+        << denorm_iata_line( s->line, pr_lat );
+    add_ch = NULL;
+  };
+  for(vector<TSeatRange>::const_iterator r=not_iata_ranges.begin(); r!=not_iata_ranges.end(); r++)
+  {
+    if (!res.str().empty())
+    {
+      if (fmt=="list") res << " "; else break;
+    };
+    
+    res << r->first.row << r->first.line;
+    if (fmt=="list" && r->first!=r->second)
+      res << "-" << r->second.row << r->second.line;
+  };
+  
+  seats=iata_seats.size()+not_iata_ranges.size();
+  if ( fmt != "list" && fmt != "one" && seats > 1 )
+    res << "+" << seats-1;
+  return res.str();
+};
+
+string GetSeatRangeView(const vector<TSeatRange> &ranges, const string &format, bool pr_lat)
+{
+  int seats=NoExists;
+  return GetSeatRangeView(ranges, format, pr_lat, seats);
+};
+
+string GetSeatView(const TSeat &seat, const string &format, bool pr_lat)
+{
+  return GetSeatRangeView(vector<TSeatRange>(1,TSeatRange(seat,seat)), format, pr_lat);
+};

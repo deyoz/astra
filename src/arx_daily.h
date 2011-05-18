@@ -4,6 +4,13 @@
 
 #include "basic.h"
 #include "oralib.h"
+
+const int ARX_MIN_DAYS();
+const int ARX_MIN_DAYS();
+const int ARX_DURATION();
+const int ARX_SLEEP();
+const int ARX_MAX_ROWS();
+
 bool arx_daily( BASIC::TDateTime utcdate );
 
 class TArxMove
