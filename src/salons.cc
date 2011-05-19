@@ -14,6 +14,7 @@
 #include "tripinfo.h"
 #include "astra_locale.h"
 #include "base_tables.h"
+#include "term_version.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -254,6 +255,15 @@ void TSalons::BuildLayersInfo( xmlNodePtr salonsNode )
   xmlNodePtr editNode = NewTextChild( salonsNode, "layers_prop" );
   TReqInfo *r = TReqInfo::Instance();
   for( map<TCompLayerType,TLayerProp>::iterator i=layers_priority.begin(); i!=layers_priority.end(); i++ ) {
+    if (
+         ( i->first == ASTRA::cltProtBeforePay ||
+           i->first == ASTRA::cltProtAfterPay ||
+           i->first == ASTRA::cltPNLBeforePay ||
+           i->first == ASTRA::cltPNLAfterPay ) &&
+         !TReqInfo::Instance()->desk.compatible( PROT_PAID_VERSION ) ) {
+      continue;
+    }
+
   	xmlNodePtr n = NewTextChild( editNode, "layer", EncodeCompLayerType( i->first ) );
   	SetProp( n, "name", i->second.name );
   	SetProp( n, "priority", i->second.priority );
