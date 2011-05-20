@@ -523,6 +523,24 @@ void BuildParams( xmlNodePtr paramsNode, TCategoryDevParams &params, bool pr_edi
   }
 }
 
+void GetTerminalParams(xmlNodePtr reqNode, std::vector<std::string> &paramsList )
+{
+  paramsList.clear();
+  if ( reqNode == NULL ) return;
+  xmlNodePtr node = GetNode("command_line_params",reqNode);
+  if ( node == NULL || node->children == NULL ) return;
+  string params;
+  node = node->children;
+  while ( node != NULL && string((char*)node->name) == "param" ) {
+    if ( !params.empty() )
+      params += " ";
+    params += string("'") + NodeAsString( node ) + "'";
+    paramsList.push_back( NodeAsString( node ) );
+    node = node->next;
+  }
+  ProgTrace( TRACE5, "Terminal command line params=%s", params.c_str() );
+}
+
 void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
 {
 	/*Ограничение на передачу/прием параметров:
@@ -573,6 +591,8 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
   -editable=1
   -название параметра/подпараметра должен быть описан в таблице dev_model_params с заданными dev_model+sess_type+fmt_type+(grp_id,NULL)
   */
+  vector<string> paramsList;
+  GetTerminalParams(reqNode,paramsList);
   if (reqNode==NULL || resNode==NULL) return;
   resNode=NewTextChild(resNode,"devices");
 
@@ -725,7 +745,7 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
     if ( operNode != NULL ) { // данные с клиента
     	// имеем ключ dev_model+sess_type+fmt_type. Возможно 2 варианта:
     	// 1. Начальная инициализация
-    	// 2. Различные варианты работы устройства, слиентские параметры надо разбирать когда ключ совпал
+    	// 2. Различные варианты работы устройства, клиентские параметры надо разбирать когда ключ совпал
       client_dev_model = NodeAsString( "dev_model_code", operNode, "" );
       dev_model = client_dev_model;
       client_sess_type = NodeAsString( "sess_params/@type", operNode, "" );
