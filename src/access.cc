@@ -674,19 +674,26 @@ void AccessInterface::ApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
             throw Exception("AccessInterface::ApplyUpdates: unknown status '%s'", buf.c_str());
         TUserData user_data;
         user_data.initXML(node->children);
-        switch(status) {
-            case usInserted:
-                user_data.insert();
-                inserted[NodeAsInteger("@index", node)] = user_data;
-                break;
-            case usUnmodified:
-                break;
-            case usModified:
-                user_data.update();
-                break;
-            case usDeleted:
-                user_data.del();
-                break;
+        try {
+            switch(status) {
+                case usInserted:
+                    user_data.insert();
+                    inserted[NodeAsInteger("@index", node)] = user_data;
+                    break;
+                case usUnmodified:
+                    break;
+                case usModified:
+                    user_data.update();
+                    break;
+                case usDeleted:
+                    user_data.del();
+                    break;
+            }
+        } catch(EOracleError &E) {
+            if(E.Code == 2291) // parent key not found
+                throw UserException("MSG.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
+            else
+                throw;
         }
     }
     xmlNodePtr usersNode = NULL;
