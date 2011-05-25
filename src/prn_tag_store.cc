@@ -9,6 +9,7 @@
 #include "xml_unit.h"
 #include "misc.h"
 #include "docs.h"
+#include "tripinfo.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -282,6 +283,8 @@ TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tag
     tag_list.insert(make_pair(TAG::FULL_PLACE_DEP,  TTagListItem(&TPrnTagStore::FULL_PLACE_DEP)));
     tag_list.insert(make_pair(TAG::FULLNAME,        TTagListItem(&TPrnTagStore::FULLNAME, PAX_INFO)));
     tag_list.insert(make_pair(TAG::GATE,            TTagListItem(&TPrnTagStore::GATE)));
+    tag_list.insert(make_pair(TAG::GATES,           TTagListItem(&TPrnTagStore::GATES, POINT_INFO)));
+    tag_list.insert(make_pair(TAG::INF,             TTagListItem(&TPrnTagStore::INF, PAX_INFO)));
     tag_list.insert(make_pair(TAG::LONG_ARV,        TTagListItem(&TPrnTagStore::LONG_ARV)));
     tag_list.insert(make_pair(TAG::LONG_DEP,        TTagListItem(&TPrnTagStore::LONG_DEP)));
     tag_list.insert(make_pair(TAG::NAME,            TTagListItem(&TPrnTagStore::NAME, PAX_INFO)));
@@ -819,6 +822,7 @@ void TPrnTagStore::TPointInfo::Init(int apoint_id, int agrp_id)
                 suffix = markFlt.suffix;
             };
         }
+        TripsInterface::readGates(point_id, gates);
     }
 }
 
@@ -1161,6 +1165,40 @@ string TPrnTagStore::GATE(TFieldParams fp)
     if(fp.TagInfo.empty())
         throw AstraLocale::UserException("MSG.GATE_NOT_SPECIFIED");
     return boost::any_cast<string>(fp.TagInfo);
+}
+
+string TPrnTagStore::GATES(TFieldParams fp)
+{
+    string result;
+    for(vector<string>::const_iterator iv = pointInfo.gates.begin(); iv != pointInfo.gates.end(); iv++)
+    {
+        size_t next_len = result.size() + iv->size() + 1;
+        if(fp.len != 0 and not result.empty() and (next_len > fp.len)) {
+            int diff = fp.len - result.size();
+            if(diff  > 3)
+                result += ('/' + *iv ).substr(0, diff - 3) + "...";
+            else if(diff == 3)
+                result += "...";
+            else {
+                if(iv == pointInfo.gates.begin() + 1)
+                    result = *iv + "...";
+                else
+                    result = result.substr(0, result.size() - 3 + diff) + "...";
+            }
+            break;
+        }
+        if(not result.empty()) result += '/';
+        result += *iv;
+    }
+    return result;
+}
+
+string TPrnTagStore::INF(TFieldParams fp)
+{
+    string result;
+    if(DecodePerson((char *)paxInfo.pers_type.c_str()) == baby)
+        result = tag_lang.ElemIdToTagElem(etPersType, paxInfo.pers_type, efmtCodeNative);
+    return result;
 }
 
 string cut_place(string airp, string city_name, int len)
