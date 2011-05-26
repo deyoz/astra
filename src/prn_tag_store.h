@@ -38,6 +38,8 @@ namespace TAG {
     const std::string FULL_PLACE_DEP = "FULL_PLACE_DEP";
     const std::string FULLNAME = "FULLNAME";
     const std::string GATE = "GATE";
+    const std::string GATES = "GATES";
+    const std::string INF = "INF";
     const std::string LONG_ARV = "LONG_ARV";
     const std::string LONG_DEP = "LONG_DEP";
     const std::string NAME = "NAME";
@@ -309,6 +311,7 @@ class TPrnTagStore {
             int point_id;
             std::string craft, bort;
             std::string airline, suffix;
+            std::vector<std::string> gates;
             int flt_no;
             TPointInfo():
                 scd(ASTRA::NoExists),
@@ -418,6 +421,8 @@ class TPrnTagStore {
         std::string FULL_PLACE_DEP(TFieldParams fp);
         std::string FULLNAME(TFieldParams fp);
         std::string GATE(TFieldParams fp);
+        std::string GATES(TFieldParams fp);
+        std::string INF(TFieldParams fp);
         std::string LONG_ARV(TFieldParams fp);
         std::string LONG_DEP(TFieldParams fp);
         std::string NAME(TFieldParams fp);

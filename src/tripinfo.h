@@ -71,6 +71,7 @@ public:
   void GetSegInfo(xmlNodePtr reqNode, xmlNodePtr resNode, xmlNodePtr dataNode);
   static void readOperFltHeader( const TTripInfo &info, xmlNodePtr node );
   static bool readTripHeader( int point_id, xmlNodePtr dataNode );
+  static void readGates(int point_id, std::vector<std::string> &gates);
   static void readHalls( std::string airp_dep, std::string work_mode, xmlNodePtr dataNode);
 };
 

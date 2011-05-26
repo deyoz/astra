@@ -866,6 +866,23 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   return true;
 }
 
+void TripsInterface::readGates(int point_id, vector<string> &gates)
+{
+    TQuery Qry( &OraSession );
+    Qry.SQLText =
+        "SELECT name AS gate_name "
+        "FROM stations,trip_stations "
+        "WHERE stations.desk=trip_stations.desk AND "
+        "      stations.work_mode=trip_stations.work_mode AND "
+        "      trip_stations.point_id=:point_id AND "
+        "      trip_stations.work_mode=:work_mode ";
+    Qry.CreateVariable("point_id",otInteger,point_id);
+    Qry.CreateVariable("work_mode",otString,"è");
+    Qry.Execute();
+    for(;!Qry.Eof;Qry.Next())
+        gates.push_back(Qry.FieldAsString("gate_name"));
+}
+
 void TripsInterface::readHalls( std::string airp_dep, std::string work_mode, xmlNodePtr dataNode)
 {
   TQuery Qry(&OraSession);
