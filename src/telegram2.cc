@@ -27,10 +27,9 @@ const string br = "\xa";
 const size_t PART_SIZE = 2000;
 const size_t LINE_SIZE = 64;
 int TST_TLG_ID; // for test purposes
-const string ERR_TAG_OPEN = "<ERROR>";
-const string ERR_TAG_CLOSE = "</ERROR>";
+const string ERR_TAG_NAME = "ERROR";
 const string DEFAULT_ERR = "?";
-const string ERR_FIELD = ERR_TAG_OPEN + DEFAULT_ERR + ERR_TAG_CLOSE;
+const string ERR_FIELD = "<" + ERR_TAG_NAME + ">" + DEFAULT_ERR + "</" + ERR_TAG_NAME + ">";
 
 bool TTlgInfo::operator == (const TMktFlight &s) const
 {
@@ -149,10 +148,6 @@ void ReadSalons( TTlgInfo &info, vector<TTlgCompLayer> &complayers, bool pr_bloc
     sort( complayers.begin(), complayers.end(), CompareCompLayers );
 }
 
-struct TTlgDraftPart {
-    string addr, heading, ending, body;
-};
-
 struct TTlgDraft {
     private:
         TTlgInfo &tlg_info;
@@ -191,8 +186,44 @@ void TTlgDraft::check(string &value)
     value = result;
 }
 
+void TErrLst::fetch_err(set<int> &txt_errs, string body)
+{
+    size_t idx = body.find("<" + ERR_TAG_NAME);
+    while(idx != string::npos) {
+        size_t end_idx = body.find('>', idx);
+        size_t start_i = idx + ERR_TAG_NAME.size() + 1;
+        txt_errs.insert(ToInt(body.substr(start_i, end_idx - start_i)));
+        body.erase(0, end_idx + 1);
+        idx = body.find("<" + ERR_TAG_NAME);
+    }
+}
+
+void TErrLst::fix(vector<TTlgDraftPart> &parts)
+{
+    set<int> txt_errs; // ошибки, содержащиеся в тексте телеграммы
+    for(vector<TTlgDraftPart>::iterator iv = parts.begin(); iv != parts.end(); iv++){
+        fetch_err(txt_errs, iv->addr);
+        fetch_err(txt_errs, iv->heading);
+        fetch_err(txt_errs, iv->body);
+        fetch_err(txt_errs, iv->ending);
+    }
+    vector<int> unused_errors; // ошибки, отсутствующие в тексте телеграммы
+    for(map<int, string>::iterator im = begin(); im != end(); im++)
+        if(txt_errs.find(im->first) == txt_errs.end())
+            unused_errors.push_back(im->first);
+    for(vector<int>::iterator iv = unused_errors.begin(); iv != unused_errors.end(); iv++) {
+        ProgTrace(TRACE5, "delete unused error %d", *iv);
+        erase(*iv);
+    }
+}
+
 void TTlgDraft::Commit(TTlgOutPartInfo &tlg_row)
 {
+    // В процессе создания телеграммы части, содержащие ошибки, могли не
+    // попасть в итоговый текст. Поэтому надо синхронизировать список ошибок
+    // с текстом телеграммы. Т.е. удалить из списка отсутствующие в тексте ошибки.
+    ProgTrace(TRACE5, "TTlgDraft::Commit START");
+    tlg_info.err_lst.fix(parts);
     bool no_errors = tlg_info.err_lst.empty();
     tlg_row.num = 1;
     for(vector<TTlgDraftPart>::iterator iv = parts.begin(); iv != parts.end(); iv++){
@@ -241,20 +272,12 @@ void simple_split(ostringstream &heading, size_t part_len, TTlgDraft &tlg_draft,
 }
 
 
-void TTlgInfo::dump_err_lst()
+void TErrLst::dump()
 {
-    int i = 1;
     ProgTrace(TRACE5, "-----------TLG ERR_LST-----------");
-    for(vector<string>::iterator iv = err_lst.begin(); iv != err_lst.end(); iv++)
-        ProgTrace(TRACE5, "ERR_NO: %d, %s", i++, iv->c_str());
+    for(map<int, string>::iterator im = begin(); im != end(); im++)
+        ProgTrace(TRACE5, "ERR_NO: %d, %s", im->first, im->second.c_str());
     ProgTrace(TRACE5, "--------END OF TLG ERR_LST-------");
-}
-
-string TTlgInfo::get_err_tag(std::string val)
-{
-    ostringstream buf;
-    buf << "<ERROR" << err_lst.size() << ">" << val << "</ERROR" << err_lst.size() << ">";
-    return buf.str();
 }
 
 string TTlgInfo::add_err(string err, std::string val)
@@ -270,9 +293,10 @@ string TTlgInfo::add_err(string err, const char *format, ...)
     vsnprintf(Message, sizeof(Message), format, ap);
     Message[sizeof(Message)-1]=0;
     va_end(ap);
-    vcompleted = false;
-    err_lst.push_back(Message);
-    return get_err_tag(err);
+    err_lst[err_lst.size() + 1] = Message;
+    ostringstream buf;
+    buf << "<ERROR" << err_lst.size() << ">" << err << "</ERROR" << err_lst.size() << ">";
+    return buf.str();
 }
 
 string TTlgInfo::TlgElemIdToElem(TElemType type, int id, TElemFmt fmt)
@@ -3817,6 +3841,8 @@ void TName::ToTlg(TTlgInfo &info, vector<string> &body, string postfix)
 {
     name = transliter(name, 1, info.pr_lat);
     surname = transliter(surname, 1, info.pr_lat);
+    /*name = "Ден";
+    surname = "тут был";*/
     if(postfix.size() > (LINE_SIZE - sizeof("1X/X ")))
         throw Exception("TName::ToTlg: postfix too long %s", postfix.c_str());
     size_t name_size = LINE_SIZE - postfix.size();
@@ -5912,11 +5938,12 @@ int TelegramInterface::create_tlg(const TCreateTlgInfo &createInfo)
     else if(vbasic_type == "SOM") vid = SOM(info);
     else vid = Unknown(info);
 
-    info.dump_err_lst();
+    info.err_lst.dump();
 
     Qry.Clear();
-    Qry.SQLText = "update tlg_out set completed = :vcompleted where id = :vid";
+    Qry.SQLText = "update tlg_out set completed = :vcompleted, has_errors = :vhas_errors where id = :vid";
     Qry.CreateVariable("vcompleted", otInteger, info.vcompleted);
+    Qry.CreateVariable("vhas_errors", otInteger, not info.err_lst.empty());
     Qry.CreateVariable("vid", otInteger, vid);
     Qry.Execute();
 

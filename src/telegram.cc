@@ -518,7 +518,7 @@ void TelegramInterface::GetTlgOut(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
   TQuery Qry(&OraSession);
   string tz_region;
   string sql="SELECT point_id,id,num,addr,heading,body,ending,extra, "
-             "       pr_lat,completed,time_create,time_send_scd,time_send_act, "
+             "       pr_lat,completed,has_errors,time_create,time_send_scd,time_send_act, "
              "       type AS tlg_type "
              "FROM tlg_out ";
   if (node==NULL)
@@ -579,7 +579,14 @@ void TelegramInterface::GetTlgOut(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     NewTextChild( node, "tlg_type", tlg_type, basic_type );
     NewTextChild( node, "tlg_short_name", ElemIdToNameShort(etTypeBType, tlg_type), basic_type );
     NewTextChild( node, "basic_type", basic_type );
-    NewTextChild( node, "editable", (int)row.editable, (int)false );
+    bool editable = row.editable;
+    bool completed = Qry.FieldAsInteger("completed") != 0;
+    bool has_errors = Qry.FieldAsInteger("has_errors") != 0;
+    if(editable)
+        editable = not has_errors;
+    if(completed)
+        completed = not has_errors;
+    NewTextChild( node, "editable", editable, false );
 
     //потом удалить !!! (обновление терминала 13.03.08)
 
@@ -601,7 +608,7 @@ void TelegramInterface::GetTlgOut(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     NewTextChild( node, "ending", Qry.FieldAsString("ending") );
     NewTextChild( node, "extra", Qry.FieldAsString("extra"), "" );
     NewTextChild( node, "pr_lat", (int)(Qry.FieldAsInteger("pr_lat")!=0) );
-    NewTextChild( node, "completed", (int)(Qry.FieldAsInteger("completed")!=0), (int)true );
+    NewTextChild( node, "completed", completed, true );
 
     TDateTime time_create = UTCToClient( Qry.FieldAsDateTime("time_create"), tz_region );
     NewTextChild( node, "time_create", DateTimeToStr( time_create ) );
@@ -1787,9 +1794,20 @@ void TelegramInterface::SaveTlgOutPart( TTlgOutPartInfo &info )
   Qry.Clear();
   Qry.SQLText=
     "INSERT INTO tlg_out(id,num,type,point_id,addr,heading,body,ending,extra, "
-    "                    pr_lat,completed,time_create,time_send_scd,time_send_act) "
+    "                    pr_lat,completed,has_errors,time_create,time_send_scd,time_send_act) "
     "VALUES(:id,:num,:type,:point_id,:addr,:heading,:body,:ending,:extra, "
-    "       :pr_lat,0,NVL(:time_create,system.UTCSYSDATE),:time_send_scd,NULL)";
+    "       :pr_lat,0,0,NVL(:time_create,system.UTCSYSDATE),:time_send_scd,NULL)";
+
+  ProgTrace(TRACE5, "-------SaveTlgOutPart--------");
+  ProgTrace(TRACE5, "id: %d", info.id);
+  ProgTrace(TRACE5, "num: %d", info.num);
+  ProgTrace(TRACE5, "point_id: %d", info.point_id);
+  ProgTrace(TRACE5, "addr: %s", info.addr.c_str());
+  ProgTrace(TRACE5, "heading: %s", info.heading.c_str());
+  ProgTrace(TRACE5, "body: %s, size: %d", info.body.c_str(), info.body.size());
+  ProgTrace(TRACE5, "ending: %s", info.ending.c_str());
+  ProgTrace(TRACE5, "extra: %s", info.extra.c_str());
+
   Qry.CreateVariable("id",otInteger,info.id);
   Qry.CreateVariable("num",otInteger,info.num);
   Qry.CreateVariable("type",otString,info.tlg_type);
