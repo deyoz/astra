@@ -6581,22 +6581,11 @@ void CheckInInterface::readTripData( int point_id, xmlNodePtr dataNode )
   };
 
   //выходы на посадку, назначенные на рейс
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT name AS gate_name "
-    "FROM stations,trip_stations "
-    "WHERE stations.desk=trip_stations.desk AND "
-    "      stations.work_mode=trip_stations.work_mode AND "
-    "      trip_stations.point_id=:point_id AND "
-    "      trip_stations.work_mode=:work_mode ";
-  Qry.CreateVariable("point_id",otInteger,point_id);
-  Qry.CreateVariable("work_mode",otString,"П");
-  Qry.Execute();
   node = NewTextChild( tripdataNode, "gates" );
-  for(;!Qry.Eof;Qry.Next())
-  {
-    NewTextChild( node, "gate_name", Qry.FieldAsString( "gate_name" ) );
-  };
+  vector<string> gates;
+  TripsInterface::readGates(point_id, gates);
+  for(vector<string>::iterator iv = gates.begin(); iv != gates.end(); iv++)
+    NewTextChild( node, "gate_name", *iv);
 
   //залы
   TripsInterface::readHalls(operFlt.airp, "Р", tripdataNode);
