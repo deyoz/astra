@@ -1621,15 +1621,15 @@ string GetPactStatSQLText( TStatType statType, const TStatParams &params, bool p
             "  (:airline is null or :airline = arx_points.airline) ";
         if (!params.airps.empty()) {
             if (params.airps_permit)
-                SQLText += " AND points.airp IN "+GetSQLEnum(params.airps)+"\n";
+                SQLText += " AND arx_points.airp IN "+GetSQLEnum(params.airps)+"\n";
             else
-                SQLText += " AND points.airp NOT IN "+GetSQLEnum(params.airps)+"\n";
+                SQLText += " AND arx_points.airp NOT IN "+GetSQLEnum(params.airps)+"\n";
         };
         if (!params.airlines.empty()) {
             if (params.airlines_permit)
-                SQLText += " AND points.airline IN "+GetSQLEnum(params.airlines)+"\n";
+                SQLText += " AND arx_points.airline IN "+GetSQLEnum(params.airlines)+"\n";
             else
-                SQLText += " AND points.airline NOT IN "+GetSQLEnum(params.airlines)+"\n";
+                SQLText += " AND arx_points.airline NOT IN "+GetSQLEnum(params.airlines)+"\n";
         }
 
 
@@ -2439,7 +2439,8 @@ void createXMLDetailStat(TDetailStat &DetailStat, xmlNodePtr resNode, TPrintAirl
             NewTextChild(rowNode, "col");
     } else
         throw AstraLocale::UserException("MSG.NOT_DATA");
-    STAT::set_variables(resNode);
+    xmlNodePtr variablesNode = STAT::set_variables(resNode);
+    NewTextChild(variablesNode, "pr_pact", pr_pact);
 }
 
 void RunPactDetailStat(TStatType statType, TStatParams &params, xmlNodePtr reqNode, xmlNodePtr resNode)
