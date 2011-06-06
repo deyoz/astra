@@ -1507,7 +1507,7 @@ struct TStatParams {
     void get(xmlNodePtr resNode);
 };
 
-string GetPactStatSQLText( TStatType statType, const TStatParams &params, bool pr_arx)
+string GetPactStatSQLText( TStatType statType, const TStatParams &params, bool pr_arx, vector<string> &denied_airlines)
 {
     string SQLText;
     if(not pr_arx) {
@@ -1547,6 +1547,8 @@ string GetPactStatSQLText( TStatType statType, const TStatParams &params, bool p
             "  points.scd_out >= :first_date AND points.scd_out < :last_date and "
             "  points.airp = :airp and "
             "  (:airline is null or :airline = points.airline) ";
+        if(not denied_airlines.empty())
+            SQLText += " and points.airline not in " + GetSQLEnum(denied_airlines);
         if (!params.airps.empty()) {
             if (params.airps_permit)
                 SQLText += " AND points.airp IN "+GetSQLEnum(params.airps)+"\n";
@@ -1619,6 +1621,8 @@ string GetPactStatSQLText( TStatType statType, const TStatParams &params, bool p
             "  arx_points.scd_out >= :first_date AND arx_points.scd_out < :last_date and "
             "  arx_points.airp = :airp and "
             "  (:airline is null or :airline = arx_points.airline) ";
+        if(not denied_airlines.empty())
+            SQLText += " and arx_points.airline not in " + GetSQLEnum(denied_airlines);
         if (!params.airps.empty()) {
             if (params.airps_permit)
                 SQLText += " AND arx_points.airp IN "+GetSQLEnum(params.airps)+"\n";
@@ -2275,6 +2279,7 @@ void GetDetailStat(TStatType statType, const TStatParams &params, TQuery &Qry,
 
 struct TPact {
     string descr, airline, airp;
+    vector<string> airlines; // Список ак, который исключается из ап договора.
     TDateTime first_date, last_date;
     TPact(string vdescr, string vairline, string vairp, TDateTime vfirst_date, TDateTime vlast_date):
         descr(vdescr),
@@ -2295,28 +2300,41 @@ void correct_airp_pacts(vector<TPact> &airp_pacts, TPact &airline_pact)
                 airline_pact.first_date >= iv->first_date and
                 airline_pact.first_date < iv->last_date and
                 airline_pact.last_date >= iv->last_date
-          )
+          ) {// Левый край ак договора попал, разбиваем ап договор на 2 части и добавляем ак в список исключенных для этого ап договора
+            TPact new_pact = *iv;
+            new_pact.first_date = airline_pact.first_date;
             iv->last_date = airline_pact.first_date;
-        if(
+            new_pact.airlines.push_back(airline_pact.airline);
+            added_pacts.push_back(new_pact);
+        } if(
                 airline_pact.last_date >= iv->first_date and
                 airline_pact.last_date < iv->last_date and
                 airline_pact.first_date < iv->first_date
-          )
+          ) { // правый край ак договора попал
+            TPact new_pact = *iv;
+            new_pact.last_date = airline_pact.last_date;
             iv->first_date = airline_pact.last_date;
-        if(
+            new_pact.airlines.push_back(airline_pact.airline);
+            added_pacts.push_back(new_pact);
+        } if(
                 airline_pact.first_date >= iv->first_date and
                 airline_pact.last_date < iv->last_date
-          ) { // ак договор целиком внутри периода ап договора, разбиваем ап договор на 2 части.
+          ) { // ак договор целиком внутри периода ап договора, разбиваем ап договор на 3 части.
             TPact new_pact = *iv;
-            new_pact.first_date = airline_pact.last_date;
-            added_pacts.push_back(new_pact);
+            TPact new_pact1 = *iv;
+            new_pact.first_date = airline_pact.first_date;
+            new_pact.last_date = airline_pact.last_date;
+            new_pact1.first_date = airline_pact.last_date;
             iv->last_date = airline_pact.first_date;
+            new_pact.airlines.push_back(airline_pact.airline);
+            added_pacts.push_back(new_pact);
+            added_pacts.push_back(new_pact1);
         }
         if(
                 airline_pact.first_date < iv->first_date and
                 airline_pact.last_date >= iv->last_date
-          ) { // ап договор целиком внутри ак договора, удаляем этот ап договор
-            iv->descr.erase();
+          ) { // ап договор целиком внутри ак договора, просто добавляем в список исключаемых ак этого дог. текущую.
+            iv->airlines.push_back(airline_pact.airline);
         }
     }
     airp_pacts.insert(airp_pacts.end(), added_pacts.begin(), added_pacts.end());
@@ -2493,29 +2511,39 @@ void RunPactDetailStat(TStatType statType, TStatParams &params, xmlNodePtr reqNo
                     DateTimeToStr(pact.last_date, "ddmmyy").c_str()
                     );
             /*
-               for(map<string, vector<TPact> >::iterator im = airp_pacts.begin(); im != airp_pacts.end(); im++)
-               correct_airp_pacts(im->second, pact);
-             */
+            for(map<string, vector<TPact> >::iterator im = airp_pacts.begin(); im != airp_pacts.end(); im++)
+                correct_airp_pacts(im->second, pact);
+                */
             correct_airp_pacts(airp_pacts[pact.airp], pact);
 
             result_pacts.push_back(pact);
         }
     }
     /*
-       ProgTrace(TRACE5, "AIRP_PACTS:");
-       for(map<string, vector<TPact> >::iterator im = airp_pacts.begin(); im != airp_pacts.end(); im++) {
-       ProgTrace(TRACE5, "airp: %s", im->first.c_str());
-       ProgTrace(TRACE5, "periods:");
-       for(vector<TPact>::iterator iv = im->second.begin(); iv != im->second.end(); iv++) {
-       ProgTrace(TRACE5, "first_date: %s, last_date: %s",
-       DateTimeToStr(iv->first_date, "ddmmyy").c_str(),
-       DateTimeToStr(iv->last_date, "ddmmyy").c_str()
-       );
-       }
-       }
-     */
-    for(map<string, vector<TPact> >::iterator im = airp_pacts.begin(); im != airp_pacts.end(); im++)
+    ProgTrace(TRACE5, "AIRP_PACTS:");
+    for(map<string, vector<TPact> >::iterator im = airp_pacts.begin(); im != airp_pacts.end(); im++) {
+        ProgTrace(TRACE5, "airp: %s", im->first.c_str());
+        ProgTrace(TRACE5, "periods:");
+        for(vector<TPact>::iterator iv = im->second.begin(); iv != im->second.end(); iv++) {
+            ProgTrace(TRACE5, "first_date: %s, last_date: %s",
+                    DateTimeToStr(iv->first_date, "ddmmyy").c_str(),
+                    DateTimeToStr(iv->last_date, "ddmmyy").c_str()
+                    );
+            string denied;
+            for(set<string>::iterator is = iv->airlines.begin(); is != iv->airlines.end(); is++) {
+                if(not denied.empty())
+                    denied += ", ";
+                denied += *is;
+            }
+            ProgTrace(TRACE5, "denied airlines: %s", denied.c_str());
+        }
+    }
+    */
+    for(map<string, vector<TPact> >::iterator im = airp_pacts.begin(); im != airp_pacts.end(); im++) {
+        if(im->second.empty())
+            continue;
         result_pacts.insert(result_pacts.end(), im->second.begin(), im->second.end());
+    }
     Qry.Clear();
     Qry.DeclareVariable("first_date", otDate);
     Qry.DeclareVariable("last_date", otDate);
@@ -2528,10 +2556,10 @@ void RunPactDetailStat(TStatType statType, TStatParams &params, xmlNodePtr reqNo
     TPrintAirline airline;
 
     for(int pass = 0; pass < 2; pass++) {
-        Qry.SQLText = GetPactStatSQLText(statType, params, pass != 0).c_str();
         if(pass != 0)
             Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
         for(vector<TPact>::iterator iv = result_pacts.begin(); iv != result_pacts.end(); iv++) {
+            Qry.SQLText = GetPactStatSQLText(statType, params, pass != 0, iv->airlines).c_str();
             Qry.SetVariable("first_date", iv->first_date);
             Qry.SetVariable("last_date", iv->last_date);
             Qry.SetVariable("airp", iv->airp);
