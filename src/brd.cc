@@ -555,7 +555,6 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 
     int point_id=NodeAsInteger("point_id",reqNode);
     int reg_no=NoExists;
-    int hall=-1;
 
     get_new_report_form("ExamBrdbus", reqNode, resNode);
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
@@ -584,8 +583,6 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     TQuery Qry(&OraSession);
     if(strcmp((char *)reqNode->name, "PaxByPaxId") == 0)
     {
-      if (!NodeIsNULL("hall",reqNode))
-        hall=NodeAsInteger("hall",reqNode);
       //получим point_id и reg_no
       Qry.Clear();
       Qry.SQLText=
@@ -608,25 +605,6 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         if (reqInfo->screen.name != "BRDBUS.EXE" &&
             TripsInterface::readTripHeader( point_id, dataNode ))
         {
-          //проверим hall
-          if (hall!=-1)
-          {
-            TQuery HallQry(&OraSession);
-            HallQry.Clear();
-            HallQry.SQLText=
-              "SELECT halls2.airp AS hall_airp, points.airp AS flt_airp "
-              "FROM halls2,points "
-              "WHERE points.point_id=:point_id AND pr_del=0 AND pr_reg<>0 AND "
-              "      halls2.id(+)=:hall AND "
-              "      points.airp=halls2.airp(+)";
-            HallQry.CreateVariable("point_id",otInteger,point_id);
-            HallQry.CreateVariable("hall",otInteger,hall);
-            HallQry.Execute();
-            if (HallQry.Eof ||
-                strcmp(HallQry.FieldAsString("hall_airp"),
-                       HallQry.FieldAsString("flt_airp"))!=0) hall=-1;
-          };
-
           TRptParams rpt_params(reqInfo->desk.lang);
           PaxListVars(point_id, rpt_params, variablesNode);
           put_exambrd_vars(variablesNode);
@@ -654,8 +632,6 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     }
     else if(strcmp((char *)reqNode->name, "PaxByRegNo") == 0)
     {
-      if (!NodeIsNULL("hall",reqNode))
-        hall=NodeAsInteger("hall",reqNode);
       reg_no=NodeAsInteger("reg_no",reqNode);
 
       GetPaxQuery(Qry, point_id, reg_no, reqInfo->desk.lang, rtUnknown, "");
@@ -664,6 +640,27 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     {
       //общий список
       GetPaxQuery(Qry, point_id, NoExists, reqInfo->desk.lang, rtUnknown, "");
+    };
+    
+    int hall=NoExists;
+    if (GetNode("hall",reqNode)!=NULL && !NodeIsNULL("hall",reqNode))
+    {
+      //проверка принадлежности зала а/п вылета рейса
+      hall=NodeAsInteger("hall",reqNode);
+      TQuery HallQry(&OraSession);
+      HallQry.Clear();
+      HallQry.SQLText=
+        "SELECT halls2.airp AS hall_airp, points.airp AS flt_airp "
+        "FROM halls2,points "
+        "WHERE points.point_id=:point_id AND pr_del=0 AND pr_reg<>0 AND "
+        "      halls2.id(+)=:hall AND "
+        "      points.airp=halls2.airp(+)";
+      HallQry.CreateVariable("point_id",otInteger,point_id);
+      HallQry.CreateVariable("hall",otInteger,hall);
+      HallQry.Execute();
+      if (HallQry.Eof ||
+          strcmp(HallQry.FieldAsString("hall_airp"),
+                 HallQry.FieldAsString("flt_airp"))!=0) hall=NoExists;
     };
 
     Qry.Execute();
@@ -855,7 +852,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
               }
               else
               {
-                  if (hall==-1)
+                  if (hall==NoExists)
                   {
                       if(reqInfo->screen.name == "BRDBUS.EXE")
                           AstraLocale::showErrorMessage("MSG.NOT_SET_BOARDING_HALL");
