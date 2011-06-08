@@ -260,7 +260,7 @@ void handle_tlg(void)
             //разобрать телеграмму
             part.p=buf;
             part.line=1;
-            TDCSHeadingInfo &info = *dynamic_cast<TDCSHeadingInfo*>(HeadingInfo);
+            TDCSHeadingInfo &info = *(dynamic_cast<TDCSHeadingInfo*>(HeadingInfo));
             if (strcmp(info.tlg_type,"PNL")==0||
                 strcmp(info.tlg_type,"ADL")==0)
             {
@@ -309,7 +309,7 @@ void handle_tlg(void)
           {
             part.p=buf;
             part.line=1;
-            TBSMHeadingInfo &info = *dynamic_cast<TBSMHeadingInfo*>(HeadingInfo);
+            TBSMHeadingInfo &info = *(dynamic_cast<TBSMHeadingInfo*>(HeadingInfo));
             if (strcmp(info.tlg_type,"BTM")==0)
             {
               TBtmContent con;
@@ -325,9 +325,11 @@ void handle_tlg(void)
           {
             part.p=buf;
             part.line=1;
+            TAHMHeadingInfo &info = *(dynamic_cast<TAHMHeadingInfo*>(HeadingInfo));
             TFltInfo flt;
-            ParseAHMFltInfo(part,flt);
-            SaveFlt(tlg_id,flt,btFirstSeg);
+            TBindType bind_type;
+            ParseAHMFltInfo(part,info,flt,bind_type);
+            SaveFlt(tlg_id,flt,bind_type);
             TlgInUpdQry.Execute();
             OraSession.Commit();
             count++;

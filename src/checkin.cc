@@ -2400,7 +2400,7 @@ bool CheckInInterface::CheckCkinFlight(const int point_dep,
                         segInfo.pr_tranzit,
                         trtNotCurrent,trtNotCancelled);
 
-    vector<TTripRouteItem>::iterator r;
+    TTripRoute::iterator r;
     for(r=route.begin();r!=route.end();r++)
       if (r->airp==airp_arv) break;
     if (r==route.end()) return false;
@@ -6526,7 +6526,7 @@ void CheckInInterface::readTripData( int point_id, xmlNodePtr dataNode )
   node = NewTextChild( tripdataNode, "airps" );
   vector<string> airps;
   vector<string>::iterator i;
-  for(vector<TTripRouteItem>::iterator r=route.begin();r!=route.end();r++)
+  for(TTripRoute::iterator r=route.begin();r!=route.end();r++)
   {
     //проверим на дублирование кодов аэропортов в рамках одного рейса
     for(i=airps.begin();i!=airps.end();i++)

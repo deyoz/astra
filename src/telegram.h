@@ -2,6 +2,7 @@
 #define _TELEGRAM_H_
 #include <vector>
 #include <string>
+#include <set>
 
 #include "jxtlib/JxtInterface.h"
 #include "tlg/tlg_parser.h"
@@ -43,6 +44,16 @@ struct TCreateTlgInfo {
     std::string addrs;
     TCodeShareInfo mark_info;
     bool pr_alarm;
+};
+
+struct TTlgDraftPart {
+    std::string addr, heading, ending, body;
+};
+
+struct TErrLst:std::map<int, std::string> {
+    void dump();
+    void fix(std::vector<TTlgDraftPart> &parts);
+    void fetch_err(std::set<int> &txt_errs, std::string body);
 };
 
 struct TTlgInfo {
@@ -88,11 +99,9 @@ struct TTlgInfo {
     TElemFmt elem_fmt;
     std::string lang;
     // список ошибок телеграммы
-    std::vector<std::string> err_lst;
+    TErrLst err_lst;
     std::string add_err(std::string err, std::string val);
     std::string add_err(std::string err, const char *format, ...);
-    std::string get_err_tag(std::string val = "?");
-    void dump_err_lst();
 
     std::string TlgElemIdToElem(TElemType type, int id, TElemFmt fmt = efmtUnknown);
     std::string TlgElemIdToElem(TElemType type, std::string id, TElemFmt fmt = efmtUnknown);

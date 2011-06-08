@@ -2842,7 +2842,7 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
                          trtNotCurrent,
                          trtNotCancelled );
 
-    vector<TTripRouteItem>::iterator i=route.begin();
+    TTripRoute::iterator i=route.begin();
     for ( ; i!=route.end(); i++ )
       if (i->airp == firstPnrData.airp_arv) break;
     if (i==route.end())
