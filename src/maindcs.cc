@@ -15,6 +15,7 @@
 #include "print.h"
 #include "crypt.h"
 #include "astra_locale.h"
+#include "stl_utils.h"
 #include "term_version.h"
 #include "jxtlib/jxt_cont.h"
 
@@ -523,6 +524,41 @@ void BuildParams( xmlNodePtr paramsNode, TCategoryDevParams &params, bool pr_edi
   }
 }
 
+void GetTerminalParams(xmlNodePtr reqNode, std::vector<std::string> &paramsList )
+{
+  paramsList.clear();
+  if ( reqNode == NULL ) return;
+  xmlNodePtr node = GetNode("command_line_params",reqNode);
+  if ( node == NULL || node->children == NULL ) return;
+  string params;
+  node = node->children;
+  while ( node != NULL && string((char*)node->name) == "param" ) {
+    if ( !params.empty() )
+      params += " ";
+    params += string("'") + NodeAsString( node ) + "'";
+    paramsList.push_back( upperc( NodeAsString( node ) ) );
+    node = node->next;
+  }
+  ProgTrace( TRACE5, "Terminal command line params=%s", params.c_str() );
+}
+
+struct TDevModelDefaults
+{
+  string op_type;
+  string dev_model;
+  string sess_type;
+  string fmt_type;
+  TDevModelDefaults( const char* vop_type,
+                     const char* vdev_model,
+                     const char* vsess_type,
+                     const char* vfmt_type) {
+    op_type = vop_type;
+    dev_model = vdev_model;
+    sess_type = vsess_type;
+    fmt_type = vfmt_type;
+  };
+};
+
 void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
 {
 	/*Ограничение на передачу/прием параметров:
@@ -573,7 +609,10 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
   -editable=1
   -название параметра/подпараметра должен быть описан в таблице dev_model_params с заданными dev_model+sess_type+fmt_type+(grp_id,NULL)
   */
+  vector<string> paramsList;
+  GetTerminalParams(reqNode,paramsList);
   if (reqNode==NULL || resNode==NULL) return;
+  
   resNode=NewTextChild(resNode,"devices");
 
   reqNode=GetNode("devices",reqNode);
@@ -647,6 +686,17 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
   // разбираем параметры пришедшие с клиента
   string dev_model, sess_type, fmt_type, client_dev_model, client_sess_type, client_fmt_type;
   TCategoryDevParams params;
+  const char* dev_model_sql=
+      "SELECT DISTINCT dev_fmt_opers.op_type AS op_type, "
+      "                dev_model_sess_fmt.dev_model,"
+      "                dev_model_sess_fmt.sess_type,"
+      "                dev_model_sess_fmt.fmt_type"
+      " FROM dev_model_sess_fmt, dev_sess_modes, dev_fmt_opers "
+      "WHERE dev_sess_modes.term_mode=:term_mode AND "
+      "      dev_sess_modes.sess_type=dev_model_sess_fmt.sess_type AND "
+      "      dev_fmt_opers.op_type=:op_type AND "
+      "      dev_fmt_opers.fmt_type=dev_model_sess_fmt.fmt_type AND "
+      "      dev_model_sess_fmt.dev_model=:dev_model ";
   TQuery DefQry(&OraSession);
   if ( variant_model.empty() ) {
     string sql =
@@ -663,29 +713,120 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
     DefQry.SQLText=sql;
   }
   else {
-  	DefQry.SQLText=
-      "SELECT DISTINCT dev_fmt_opers.op_type AS op_type, "
-      "                dev_model_sess_fmt.dev_model,"
-      "                dev_model_sess_fmt.sess_type,"
-      "                dev_model_sess_fmt.fmt_type,"
-      "                DECODE(dev_model_defaults.op_type,NULL,0,1) pr_default "
-      " FROM dev_model_sess_fmt, dev_sess_modes, dev_fmt_opers, dev_model_defaults "
-      "WHERE dev_sess_modes.term_mode=:term_mode AND "
-      "      dev_sess_modes.sess_type=dev_model_sess_fmt.sess_type AND "
-      "      dev_fmt_opers.op_type=:op_type AND "
-      "      dev_fmt_opers.fmt_type=dev_model_sess_fmt.fmt_type AND "
-      "      dev_model_sess_fmt.dev_model=:dev_model AND "
-      "      dev_model_defaults.op_type(+)=:op_type AND "
-      "      dev_model_defaults.term_mode(+)=:term_mode AND "
-      "      dev_model_sess_fmt.dev_model=dev_model_defaults.dev_model(+) AND "
-      "      dev_model_sess_fmt.sess_type=dev_model_defaults.sess_type(+) AND "
-      "      dev_model_sess_fmt.fmt_type=dev_model_defaults.fmt_type(+) ";
+  	DefQry.SQLText=dev_model_sql;
     DefQry.CreateVariable( "dev_model", otString, variant_model );
   }
   DefQry.CreateVariable("term_mode",otString,EncodeOperMode(reqInfo->desk.mode));
   if ( !variant_model.empty() || pr_default_sets )
     DefQry.CreateVariable( "op_type", otString, NodeAsString( "operation/@type", reqNode ) );
   DefQry.Execute();
+  
+  vector<TDevModelDefaults> DevModelDefaults;
+  for( ;!DefQry.Eof;DefQry.Next() ) { // цикл по типам операций или цикл по возможным вариантам настроек заданной операции
+    DevModelDefaults.push_back( TDevModelDefaults( DefQry.FieldAsString( "op_type" ),
+                                                   DefQry.FieldAsString( "dev_model" ),
+                                                   DefQry.FieldAsString( "sess_type" ),
+                                                   DefQry.FieldAsString( "fmt_type" ) ) );
+  }
+  
+  map<TDevOperType, pair<string, string> > opers; //операция, dev_model, addr
+  if ( reqInfo->desk.mode==omRESA )
+  {
+    const char* equip_param_name="EQUIPMENT";
+    string param_name, param_value;
+
+    //ищем переменную EQUIPMENT
+    for ( vector<string>::const_iterator istr=paramsList.begin(); istr!=paramsList.end(); istr++ )
+    {
+      size_t pos=istr->find("=");
+      if (pos!=string::npos)
+      {
+        param_name=istr->substr(0,pos);
+        param_value=istr->substr(pos+1);
+      }
+      else
+      {
+        param_name=*istr;
+        param_value.clear();
+      };
+      TrimString(param_name);
+      TrimString(param_value);
+      if (param_name==equip_param_name) break;
+    };
+    if (param_name!=equip_param_name) param_value="ATB0,BTP0,BGR0,BGR1,DCP0";
+
+    ProgTrace( TRACE5, "%s=%s", equip_param_name, param_value.c_str()  );
+    
+    vector<string> addrs;
+    SeparateString( param_value, ',', addrs );
+    for ( vector<string>::iterator addr=addrs.begin(); addr!=addrs.end(); addr++ ) {
+      TrimString( *addr );
+      //определим к какой операции относится адрес
+      if (addr->size()!=4) continue;
+      if (!IsDigit((*addr)[3])) continue;
+      string devName=addr->substr(0,3);
+      ProgTrace( TRACE5, "addr=%s devName=%s", addr->c_str(), devName.c_str() );
+
+      if (devName=="BPP" || devName=="ATB")
+      {
+         if (opers[dotPrnBP].second.empty()) opers[dotPrnBP]=make_pair("ATB RESA",*addr);
+         continue;
+      };
+      if (devName=="BTP")
+      {
+         if (opers[dotPrnBT].second.empty()) opers[dotPrnBT]=make_pair("BTP RESA",*addr);
+         continue;
+      };
+      if (devName=="BCD" || devName=="BGR" || devName=="RTE")
+      {
+        if (opers[dotScnBP1].second==*addr || opers[dotScnBP2].second==*addr) continue;
+      
+        if (opers[dotScnBP1].second.empty()) opers[dotScnBP1]=make_pair(devName=="RTE"?"SCN RESA":"BCR RESA",*addr);
+        else
+          if (opers[dotScnBP2].second.empty()) opers[dotScnBP2]=make_pair(devName=="RTE"?"SCN RESA":"BCR RESA",*addr);
+        continue;
+      };
+      if (devName=="DCP" || devName=="MSG")
+      {
+        if (opers[dotPrnFlt].second.empty()) opers[dotPrnFlt]=make_pair("DCP RESA",*addr);
+        if (opers[dotPrnArch].second.empty()) opers[dotPrnArch]=make_pair("DCP RESA",*addr);
+        if (opers[dotPrnDisp].second.empty()) opers[dotPrnDisp]=make_pair("DCP RESA",*addr);
+        if (opers[dotPrnTlg].second.empty()) opers[dotPrnTlg]=make_pair("DCP RESA",*addr);
+        continue;
+      };
+    };
+    
+    if (variant_model.empty())
+    {
+      //не идет перевыбор dev_model через "Настройки оборудования" в терминале
+      DefQry.Clear();
+      DefQry.SQLText=dev_model_sql;
+      DefQry.CreateVariable( "term_mode", otString, EncodeOperMode(reqInfo->desk.mode));
+      DefQry.DeclareVariable( "op_type", otString );
+      DefQry.DeclareVariable( "dev_model", otString );
+
+      for(vector<TDevModelDefaults>::iterator def=DevModelDefaults.begin();
+                                              def!=DevModelDefaults.end(); def++)
+      {
+        def->dev_model.clear();
+        def->sess_type.clear();
+        def->fmt_type.clear();
+        TDevOperType oper=DecodeDevOperType(def->op_type);
+        if (!opers[oper].second.empty())
+        {
+          DefQry.SetVariable( "op_type", def->op_type );
+          DefQry.SetVariable( "dev_model", opers[oper].first );
+          DefQry.Execute();
+          if (!DefQry.Eof)
+          {
+            def->dev_model=DefQry.FieldAsString( "dev_model" );
+            def->sess_type=DefQry.FieldAsString( "sess_type" );
+            def->fmt_type=DefQry.FieldAsString( "fmt_type" );
+          };
+        };
+      };
+    };
+  };
 
   TQuery Qry(&OraSession);
   Qry.SQLText =
@@ -707,16 +848,17 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
   string operation;
   xmlNodePtr operNode;
 
-
-  for( ;!DefQry.Eof;DefQry.Next() ) { // цикл по типам операций или цикл по возможным вариантам настроек заданной операции
-    if ( variant_model.empty() && operation == DefQry.FieldAsString( "op_type" ) ) continue;
-    operation = DefQry.FieldAsString( "op_type" );
-    ProgTrace( TRACE5, "operation=%s", operation.c_str() );
+  for(vector<TDevModelDefaults>::const_iterator def=DevModelDefaults.begin();
+                                                def!=DevModelDefaults.end(); def++)
+  {
+    // цикл по типам операций или цикл по возможным вариантам настроек заданной операции
+    if ( variant_model.empty() && operation == def->op_type ) continue;
+    operation = def->op_type;
 
     for ( operNode=GetNode( "operation", reqNode ); operNode!=NULL; operNode=operNode->next ) // пробег по операциям клиента
     	if ( operation == NodeAsString( "@type", operNode ) )
     		break;
-    ProgTrace( TRACE5, "operation type=%s, is client=%d", operation.c_str(), (int)operNode );
+    ProgTrace( TRACE5, "operation=%s, is client=%d", operation.c_str(), (int)operNode );
 
     dev_model.clear();
     sess_type.clear();
@@ -725,7 +867,7 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
     if ( operNode != NULL ) { // данные с клиента
     	// имеем ключ dev_model+sess_type+fmt_type. Возможно 2 варианта:
     	// 1. Начальная инициализация
-    	// 2. Различные варианты работы устройства, слиентские параметры надо разбирать когда ключ совпал
+    	// 2. Различные варианты работы устройства, клиентские параметры надо разбирать когда ключ совпал
       client_dev_model = NodeAsString( "dev_model_code", operNode, "" );
       dev_model = client_dev_model;
       client_sess_type = NodeAsString( "sess_params/@type", operNode, "" );
@@ -735,11 +877,11 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
     }
     //ProgTrace( TRACE5, "VariantsOperation=%s, !VariantsOperation.empty()=%d", VariantsOperation.c_str(), (int)!VariantsOperation.empty() );
     for ( int k=!variant_model.empty(); k<=1; k++ ) { // два прохода: 0-параметры с клиента, 1 - c сервера
-    	ProgTrace( TRACE5, "k=%d", k );
+//    	ProgTrace( TRACE5, "k=%d", k );
     	if ( k == 1 ) {
-        dev_model = DefQry.FieldAsString( "dev_model" );
-        sess_type = DefQry.FieldAsString( "sess_type" );
-        fmt_type = DefQry.FieldAsString( "fmt_type" );
+        dev_model = def->dev_model;
+        sess_type = def->sess_type;
+        fmt_type =  def->fmt_type;
     	}
     	if ( dev_model.empty() && sess_type.empty() && fmt_type.empty() ) continue;
     	bool pr_parse_client_params = ( client_dev_model == dev_model && client_sess_type == sess_type && client_fmt_type == fmt_type );
@@ -756,21 +898,18 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
       	base_tables.get("DEV_MODELS").get_row( "code", dev_model );
       }
       catch(EBaseTableError){
-      	tst();
       	continue;
       };
-      tst();
 
       xmlNodePtr newoperNode=NewTextChild( resNode, "operation" );
       xmlNodePtr pNode;
       SetProp( newoperNode, "type", operation );
       string sess_name, fmt_name;
       if ( !variant_model.empty() ) {
-      	sess_name = ElemIdToNameLong( etDevSessType, DefQry.FieldAsString("sess_type") );
-      	fmt_name = ElemIdToNameLong( etDevFmtType, DefQry.FieldAsString("fmt_type") );
+      	sess_name = ElemIdToNameLong( etDevSessType, def->sess_type );
+      	fmt_name = ElemIdToNameLong( etDevFmtType, def->fmt_type );
       }
-      if ( !sess_name.empty() && !fmt_name.empty() ) { //???
-//      if ( !DefQry.FieldIsNULL( "sess_name" ) && !DefQry.FieldIsNULL( "fmt_name" ) ) {
+      if ( !sess_name.empty() && !fmt_name.empty() ) {
         SetProp( newoperNode, "variant_name", sess_name + "/" + fmt_name );
       }
       pNode = NewTextChild( newoperNode, "dev_model_code", dev_model );
@@ -779,8 +918,7 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
      	ProgTrace( TRACE5, "sess_type=%s, sess_name=%s", Qry.FieldAsString("sess_type"), sess_name.c_str() );
      	fmt_name = ElemIdToNameLong( etDevFmtType, Qry.FieldAsString("fmt_type") );
 
-      if ( !sess_name.empty() && !fmt_name.empty() ) { //???
-      //if (  !Qry.FieldIsNULL( "sess_name" ) && !Qry.FieldIsNULL( "fmt_name" ) ) {
+      if ( !sess_name.empty() && !fmt_name.empty() ) {
       	SetProp( pNode, "sess_fmt_name", sess_name + "/" + "fmt_name" );
       }
       if (!reqInfo->desk.compatible(NEW_TERM_VERSION))
@@ -791,6 +929,15 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
       SessParamsQry.SetVariable("fmt_type",fmt_type);
       SessParamsQry.Execute();
       GetParams( SessParamsQry, params );
+      if ( reqInfo->desk.mode==omRESA )
+      {
+        TDevOperType oper=DecodeDevOperType(operation);
+        if (!opers[oper].first.empty() && opers[oper].first==dev_model)
+        {
+          for(TCategoryDevParams::iterator p=params.begin();p!=params.end();p++)
+            if (p->param_name=="addr") p->param_value=opers[oper].second;
+        };
+      };
       if ( pr_parse_client_params )
         ParseParams( GetNode( "sess_params", operNode ), params );
       pNode = NewTextChild( newoperNode, "sess_params" );

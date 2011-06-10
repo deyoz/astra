@@ -389,7 +389,7 @@ string TPrnTagStore::get_test_field(std::string name, size_t len, std::string da
             break;
     }
     im->second.processed = true;
-    return result.str().substr(0, len);
+    return result.str();
 }
 
 string TPrnTagStore::get_real_field(std::string name, size_t len, std::string date_format)
@@ -462,8 +462,11 @@ string TPrnTagStore::get_field(std::string name, size_t len, std::string align, 
         string result;
         if(prn_test_tags.items.empty())
             result = get_real_field(name, len, date_format);
-        else
+        else {
             result = get_test_field(name, len, date_format);
+            if(iprops->second.length == 0 and len != 0)
+                result = result.substr(0, len);
+        }
         if(!len) len = result.size();
 
         if(print_mode == 1 or print_mode == 2 and (name == TAG::PAX_ID or name == TAG::TEST_SERVER))
