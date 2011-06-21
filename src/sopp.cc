@@ -16,6 +16,11 @@
 #include "season.h" //???
 #include "telegram.h"
 #include "boost/date_time/local_time/local_time.hpp"
+#include <boost/thread/thread.hpp>
+//#include <boost/threadpool.hpp>
+//#include "boost/asio.hpp"
+#include <boost/shared_ptr.hpp>
+#include <boost/enable_shared_from_this.hpp> 
 #include "base_tables.h"
 #include "docs.h"
 #include "stat.h"
@@ -2707,10 +2712,6 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   DelQry.DeclareVariable( "move_id", otInteger );
   DelQry.DeclareVariable( "point_num", otInteger );
 
-  TQuery TlgQry(&OraSession);
-	TlgQry.SQLText = "DELETE tlg_binding WHERE point_id_spp=:point_id ";
-	TlgQry.DeclareVariable( "point_id", otInteger );
-
   TReqInfo *reqInfo = TReqInfo::Instance();
   bool existsTrip = false;
   bool pr_last;
@@ -2891,7 +2892,6 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     Qry.CreateVariable( "reference", otString, reference );
     Qry.Execute();
     move_id = Qry.GetVariableAsInteger( "move_id" );
-    reqInfo->MsgToLog( "Ввод нового рейса ", evtDisp, move_id );
   }
   else {
     Qry.SQLText =
@@ -2902,7 +2902,6 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     Qry.CreateVariable( "move_id", otInteger, move_id );
     Qry.CreateVariable( "reference", otString, reference );
     Qry.Execute();
-    //reqInfo->MsgToLog( "Изменение рейса ", evtDisp, move_id );
   }
   bool ch_dests = false;
   int new_tid;
@@ -2916,6 +2915,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   bool change_stages_out;
   bool pr_change_tripinfo;
   bool reSetCraft;
+  string new_trip_msg;
   for( TSOPPDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
   	set_pr_del = false;
   	set_act_out = false;
@@ -2975,7 +2975,14 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
 
     if ( insert_point ) {
     	ch_craft = false;
-      reqInfo->MsgToLog( string( "Ввод нового пункта " ) + id->airp, evtDisp, move_id );
+    	if ( new_trip_msg.empty() )
+        new_trip_msg = "Ввод нового рейса: ";
+      else
+        new_trip_msg += "-";
+      if ( id->flt_no != NoExists )
+        new_trip_msg += id->airline + IntToString(id->flt_no) + id->suffix + " " + id->airp;
+      else
+        new_trip_msg += id->airp;
       Qry.Clear();
       Qry.SQLText =
        "INSERT INTO points(move_id,point_id,point_num,airp,airp_fmt,pr_tranzit,first_point,"
@@ -3133,8 +3140,6 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     	      	DelQry.SetVariable( "point_num", id->point_num );
     		      DelQry.Execute();
 	  	  			reqInfo->MsgToLog( string( "Удаление пункта " ) + id->airp, evtDisp, move_id, id->point_id );
-	  	  			TlgQry.SetVariable( "point_id", id->point_id );
-	  	  			TlgQry.Execute();
 	  	  		}
   	  }
   	  else
@@ -3147,8 +3152,11 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   		    A.pr_land = false;
   		    vchangeAct.push_back( A );
   	    }
-     if ( !id->airline.empty() && !old_dest.airline.empty() && id->airline != old_dest.airline ) {
-       reqInfo->MsgToLog( string( "Изменение авиакомпании с " ) + old_dest.airline + " на " + id->airline + " порт " + id->airp, evtDisp, move_id, id->point_id );
+     if ( !id->airline.empty() && !old_dest.airline.empty() && id->airline != old_dest.airline ||
+          !id->airline.empty() && !old_dest.airline.empty() && id->flt_no != old_dest.flt_no ||
+          !id->airline.empty() && !old_dest.airline.empty() && id->suffix != old_dest.suffix ) {
+       reqInfo->MsgToLog( string( "Изменение атрибутов рейса с " ) + old_dest.airline + IntToString(old_dest.flt_no) + old_dest.suffix +
+                          " на " + id->airline + IntToString(id->flt_no) + id->suffix + " порт " + id->airp, evtDisp, move_id, id->point_id );
      }
  	   if ( !insert_point && id->pr_del!=-1 && id->scd_out > NoExists && old_dest.scd_out > NoExists && id->scd_out != old_dest.scd_out ) {
   	  	reqInfo->MsgToLog( string( "Изменение планового времени вылета на ") + DateTimeToStr( id->scd_out, "hh:nn dd.mm.yy (UTC)" ) + " порт " + id->airp, evtDisp, move_id, id->point_id );
@@ -3193,6 +3201,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
        "     remark=:remark,pr_reg=:pr_reg "
        " WHERE point_id=:point_id AND move_id=:move_id ";
   	} // end update else
+
   	ProgTrace( TRACE5, "move_id=%d,point_id=%d,point_num=%d,first_point=%d,flt_no=%d",
   	           move_id,id->point_id,id->point_num,id->first_point,id->flt_no );
   	ProgTrace( TRACE5, "airp=%s,airp_fmt=%d,airline=%s,airline_fmt=%d,craft=%s,craft_fmt=%d,suffix=%s,suffix_fmt=%d",
@@ -3472,7 +3481,9 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   					                                 LParams() << LParam("airp", ElemIdToCodeNative(etAirp,id->airp)));
   	}
    if ( reSetCraft ) {
-   	 if ( SALONS2::AutoSetCraft( id->point_id, id->craft, -1 ) >= 0 )
+     int comp_id = SALONS2::AutoSetCraft( id->point_id, id->craft, -1 );
+     ProgTrace( TRACE5, "SALONS2::AutoSetCraft: comp_id=%d", comp_id );
+   	 if ( comp_id >= 0 )
    	 	 ch_craft = false;
    }
   	point_num++;
@@ -3502,6 +3513,10 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
    else
      ChangeACT_OUT( i->point_id, i->old_act, i->act );
   }
+  
+  if ( !new_trip_msg.empty() )
+    reqInfo->MsgToLog( new_trip_msg, evtDisp, move_id );
+
   vector<TSOPPTrip> trs1, trs2;
 
   // создаем все возможные рейсы из нового маршрута исключая удаленные пункты
@@ -4338,6 +4353,19 @@ void SoppInterface::DeleteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 {
 	xmlNodePtr node = NodeAsNode( "data", reqNode );
 	int move_id = NodeAsInteger( "move_id", node );
+	TSOPPDests dests_del;
+	string reference;
+	internal_ReadDests( move_id, dests_del, reference, NoExists, NoExists );
+  vector<TSOPPTrip> trs;
+  // создаем все возможные рейсы из нового маршрута исключая удаленные пункты
+  for( TSOPPDests::iterator i=dests_del.begin(); i!=dests_del.end(); i++ ) {
+  	if ( i->pr_del == -1 ) continue;
+  	TSOPPTrip t = createTrip( move_id, i, dests_del );
+  	ProgTrace( TRACE5, "t.pr_del=%d, t.point_id=%d, t.places_out.size()=%d,t.suffix_out=%s",
+  	           t.pr_del, t.point_id, t.places_out.size(), t.suffix_out.c_str() );
+  	trs.push_back(t);
+  };
+
 	TQuery Qry(&OraSession);
   // проверка на предмет того, что во всех пп стоит статус неактивен иначе ругаемся
 	Qry.Clear();
@@ -4396,11 +4424,15 @@ void SoppInterface::DeleteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 		dests += Qry.FieldAsString( "airp" );
 		Qry.Next();
 	}
-	Qry.Clear();
-	Qry.SQLText = "DELETE tlg_binding WHERE point_id_spp IN "
-	              "( SELECT point_id FROM points WHERE move_id=:move_id )";
-	Qry.CreateVariable( "move_id", otInteger, move_id );
-	Qry.Execute();
+	
+  for(vector<TSOPPTrip>::iterator j=trs.begin(); j!=trs.end(); j++ ) {
+  	if ( j->places_out.size() ) { // рейс не был отменен
+  		TSOPPTrip tr;
+  		BitSet<TSOPPTripChange> FltChange;
+  		FltChange.setFlag( tsDelete );
+  	  ChangeTrip( j->point_id, tr, *j, FltChange );  // рейс на вылет удален
+  	}
+  }
 	Qry.Clear();
 	Qry.SQLText = "UPDATE points SET pr_del=-1 WHERE move_id=:move_id";
 	Qry.CreateVariable( "move_id", otInteger, move_id );
@@ -4501,18 +4533,28 @@ void ChangeTrip( int point_id, TSOPPTrip tr1, TSOPPTrip tr2, BitSet<TSOPPTripCha
   	flags += " tsRestoreFltOut";
   ProgTrace( TRACE5, "flag=%s", flags.c_str() );
   if ( (FltChange.isFlag( tsNew ) ||
-  	    FltChange.isFlag( tsAddFltOut ) ) && !FltChange.isFlag( tsCancelFltOut ) ||
-  	    FltChange.isFlag( tsRestoreFltOut ) ) { // восстановление (новый)
+  	    FltChange.isFlag( tsAddFltOut ) )/* && !FltChange.isFlag( tsCancelFltOut ) ||
+  	    FltChange.isFlag( tsRestoreFltOut )*/ ) { // восстановление (новый)
   	ProgTrace( TRACE5, "point_id=%d,airline=%s, flt_no=%d, suffix=%s, scd_out=%f, airp=%s, pr_del=%d",
   	           tr1.point_id, tr1.airline_out.c_str(), tr1.flt_no_out, tr1.suffix_out.c_str(), tr1.scd_out, tr1.airp.c_str(), tr1.pr_del_out );
-
   }
+  //отвязка телеграмм
   if ( FltChange.isFlag( tsDelete ) ||
   	   FltChange.isFlag( tsDelFltOut ) ||
-  	   FltChange.isFlag( tsCancelFltOut ) && !FltChange.isFlag( tsAddFltOut ) ) { // удаление
+  	   FltChange.isFlag( tsAttr ) /*||
+  	   FltChange.isFlag( tsCancelFltOut ) && !FltChange.isFlag( tsAddFltOut )*/ ) { // удаление
   	ProgTrace( TRACE5, "point_id=%d,airline=%s, flt_no=%d, suffix=%s, scd_out=%f, airp=%s, pr_del=%d",
   	           tr2.point_id, tr2.airline_out.c_str(), tr2.flt_no_out, tr2.suffix_out.c_str(), tr2.scd_out,tr2.airp.c_str(), tr2.pr_del_out );
-
+    TQuery TlgQry(&OraSession);
+    TlgQry.SQLText =
+      "BEGIN "
+      " DELETE tlg_binding WHERE point_id_spp=:point_id; "
+      " ckin.crs_recount(:point_id);"
+      "END;";
+    TlgQry.DeclareVariable( "point_id", otInteger );
+    TlgQry.SetVariable( "point_id", tr2.point_id );
+	  TlgQry.Execute();
+	  ProgTrace( TRACE5, "remove tlgs, point_id=%d", tr2.point_id );
   }
 	//Влад!!!
 	//внимательно смотри переменные. Может случится так, что scd_out=NoExists
