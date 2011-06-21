@@ -2915,7 +2915,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   bool change_stages_out;
   bool pr_change_tripinfo;
   bool reSetCraft;
-  string new_trip_msg;
+  string change_dests_msg;
   for( TSOPPDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
   	set_pr_del = false;
   	set_act_out = false;
@@ -2972,17 +2972,22 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	reSetCraft = false;
   	pr_change_tripinfo = false;
     TSOPPDest old_dest;
+    if ( id->pr_del != -1 ) {
+  	  if ( change_dests_msg.empty() )
+        if ( insert )
+          change_dests_msg = "Ввод нового рейса: ";
+        else
+          change_dests_msg = "Изменение маршрута рейса: ";
+      else
+        change_dests_msg += "-";
+        if ( id->flt_no != NoExists )
+          change_dests_msg += id->airline + IntToString(id->flt_no) + id->suffix + " " + id->airp;
+        else
+          change_dests_msg += id->airp;
+    }
 
     if ( insert_point ) {
     	ch_craft = false;
-    	if ( new_trip_msg.empty() )
-        new_trip_msg = "Ввод нового рейса: ";
-      else
-        new_trip_msg += "-";
-      if ( id->flt_no != NoExists )
-        new_trip_msg += id->airline + IntToString(id->flt_no) + id->suffix + " " + id->airp;
-      else
-        new_trip_msg += id->airp;
       Qry.Clear();
       Qry.SQLText =
        "INSERT INTO points(move_id,point_id,point_num,airp,airp_fmt,pr_tranzit,first_point,"
@@ -2994,6 +2999,10 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
        "        :bort,:scd_in,:est_in,:act_in,:scd_out,:est_out,:act_out,:trip_type,:litera,"
        "        :park_in,:park_out,:pr_del,:tid,:remark,:pr_reg)";
        init_trip_stages = id->pr_reg;
+       if ( id->flt_no != NoExists )
+         reqInfo->MsgToLog( string( "Ввод нового пункта " ) + id->airline + IntToString(id->flt_no) + id->suffix + " " + id->airp, evtDisp, move_id, id->point_id );
+       else
+         reqInfo->MsgToLog( string( "Ввод нового пункта " ) + id->airp, evtDisp, move_id, id->point_id );
   	}
   	else { //update
   	 Qry.Clear();
@@ -3139,7 +3148,10 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
           		DelQry.SetVariable( "move_id", move_id );
     	      	DelQry.SetVariable( "point_num", id->point_num );
     		      DelQry.Execute();
-	  	  			reqInfo->MsgToLog( string( "Удаление пункта " ) + id->airp, evtDisp, move_id, id->point_id );
+              if ( id->flt_no != NoExists )
+                reqInfo->MsgToLog( string( "Удаление пункта " ) + id->airline + IntToString(id->flt_no) + id->suffix + " " + id->airp, evtDisp, move_id, id->point_id );
+              else
+                reqInfo->MsgToLog( string( "Удаление пункта " ) + id->airp, evtDisp, move_id, id->point_id );
 	  	  		}
   	  }
   	  else
@@ -3514,8 +3526,10 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
      ChangeACT_OUT( i->point_id, i->old_act, i->act );
   }
   
-  if ( !new_trip_msg.empty() )
-    reqInfo->MsgToLog( new_trip_msg, evtDisp, move_id );
+  if ( !ch_dests )
+    change_dests_msg.clear();
+  if ( !change_dests_msg.empty() )
+    reqInfo->MsgToLog( change_dests_msg, evtDisp, move_id );
 
   vector<TSOPPTrip> trs1, trs2;
 
