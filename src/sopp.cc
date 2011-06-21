@@ -3526,7 +3526,8 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
      ChangeACT_OUT( i->point_id, i->old_act, i->act );
   }
   
-  if ( !ch_dests )
+  ProgTrace( TRACE5, "ch_dests=%d, insert=%d, change_dests_msg=%s", ch_dests, insert, change_dests_msg.c_str() );
+  if ( !ch_dests && !insert )
     change_dests_msg.clear();
   if ( !change_dests_msg.empty() )
     reqInfo->MsgToLog( change_dests_msg, evtDisp, move_id );
