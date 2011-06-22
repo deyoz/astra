@@ -2293,7 +2293,6 @@ void SeatsPassengers( SALONS2::TSalons *Salons, TSeatAlgoParams ASeatAlgoParams 
   preseat_layers[ cltProtAfterPay ] = CanUseLayer( cltProtAfterPay, UseLayers );
   preseat_layers[ cltPNLBeforePay ] = CanUseLayer( cltPNLBeforePay, UseLayers );
   preseat_layers[ cltPNLAfterPay ] = CanUseLayer( cltPNLAfterPay, UseLayers );
-  condRates.Init( *Salons, TReqInfo::Instance()->client_type==ctWeb ); // собирает все типы платных мест в массив по приоритетам, если это web-клиент, то не учитываем
   
   Passengers.KWindow = ( Passengers.KWindow && !Passengers.KTube );
   Passengers.KTube = ( !Passengers.KWindow && Passengers.KTube );
@@ -2308,12 +2307,18 @@ void SeatsPassengers( SALONS2::TSalons *Salons, TSeatAlgoParams ASeatAlgoParams 
   /* не сделано!!! если у всех пассажиров есть места, то тогда рассадка по местам, без учета группы */
 
   /* определение есть ли в группе пассажир с предварительной рассадкой */
+  bool pr_pay = false;
   bool Status_seat_no_BR=false, pr_all_pass_SUBCLS=true, pr_SUBCLS=false;
   for ( int i=0; i<passengers.getCount(); i++ ) {
   	TPassenger &pass = passengers.Get( i );
   	if ( isUserProtectLayer( pass.preseat_layer ) ) {
       preseat_layers[ pass.preseat_layer ] = true;
       ProgTrace( TRACE5, "preseat_layers: pass.preseat_layer=%s", EncodeCompLayerType( pass.preseat_layer ) );
+      if ( pass.preseat_layer == cltProtBeforePay ||
+           pass.preseat_layer == cltPNLBeforePay ||
+           pass.preseat_layer == cltProtAfterPay ||
+           pass.preseat_layer == cltPNLAfterPay )
+        pr_pay = true;
   	}
   	if ( PElemTypes.size() == 0 && pass.countPlace > 0 && pass.pers_type != "ВЗ"  ) {
   		getValidChildElem_Types( PElemTypes );
@@ -2328,8 +2333,9 @@ void SeatsPassengers( SALONS2::TSalons *Salons, TSeatAlgoParams ASeatAlgoParams 
     	pr_all_pass_SUBCLS = false;
 
   }
+  condRates.Init( *Salons, pr_pay ); // собирает все типы платных мест в массив по приоритетам, если это web-клиент, то не учитываем
 
-  ProgTrace( TRACE5, "pr_SUBCLS=%d,pr_all_pass_SUBCLS=%d, SUBCLS_REM=%s", pr_SUBCLS, pr_all_pass_SUBCLS, SUBCLS_REM.c_str() );
+  ProgTrace( TRACE5, "pr_SUBCLS=%d,pr_all_pass_SUBCLS=%d, SUBCLS_REM=%s, pr_pay=%d", pr_SUBCLS, pr_all_pass_SUBCLS, SUBCLS_REM.c_str(), pr_pay );
 
   bool SeatOnlyBasePlace=true;
   for ( int i=0; i<passengers.getCount(); i++ ) {
