@@ -1377,7 +1377,7 @@ void buildISG( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
     NewTextChild( tripNode, "pr_del", tr->pr_del );
    	dnode = NULL;
    	for ( vector<TSOPPDelay>::iterator delay=tr->delays.begin(); delay!=tr->delays.end(); delay++ ) {
-   		ProgTrace( TRACE5, "point_id=%d, delay->code=%s", tr->point_id, delay->code.c_str() );
+   		//ProgTrace( TRACE5, "point_id=%d, delay->code=%s", tr->point_id, delay->code.c_str() );
  	  	if ( !dnode )
  		  	dnode = NewTextChild( tripNode, "delays" );
  		  xmlNodePtr fnode = NewTextChild( dnode, "delay" );
@@ -2487,7 +2487,7 @@ void internal_ReadDests( int move_id, TSOPPDests &dests, string &reference, TDat
   }
   else
     if ( arx_date > NoExists ) {
-    	ProgTrace( TRACE5, "arx_date=%s, move_id=%d", DateTimeToStr( arx_date, "dd.mm.yyyy hh:nn" ).c_str(), move_id );
+    	//ProgTrace( TRACE5, "arx_date=%s, move_id=%d", DateTimeToStr( arx_date, "dd.mm.yyyy hh:nn" ).c_str(), move_id );
       Qry.SQLText =
         "SELECT reference, part_key FROM arx_move_ref "
         "WHERE part_key>=:arx_date AND part_key<:arx_date+:arx_trip_date_range AND move_id=:move_id";
@@ -2500,12 +2500,12 @@ void internal_ReadDests( int move_id, TSOPPDests &dests, string &reference, TDat
   Qry.CreateVariable( "move_id", otInteger, move_id );
   Qry.Execute();
   if ( !Qry.Eof ) {
-  	ProgTrace( TRACE5, "part_key=%f", part_key );
+  	//ProgTrace( TRACE5, "part_key=%f", part_key );
   	 if ( !Qry.FieldIsNULL( "reference" ) )
   	   reference = Qry.FieldAsString( "reference" );
   	 if ( arx_date > NoExists )
   	   part_key = Qry.FieldAsDateTime( "part_key" );
-  	ProgTrace( TRACE5, "part_key=%f", part_key );
+  	//ProgTrace( TRACE5, "part_key=%f", part_key );
   }
   dests.clear();
   Qry.Clear();
@@ -3181,7 +3181,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	 }
 
     	set_pr_del = ( !old_dest.pr_del && id->pr_del );
-    	ProgTrace( TRACE5, "set_pr_del=%d", set_pr_del );
+    	//ProgTrace( TRACE5, "set_pr_del=%d", set_pr_del );
   	  set_act_out = ( !id->pr_del && old_dest.act_out == NoExists && id->act_out > NoExists );
     	if ( !id->pr_del && old_dest.act_in == NoExists && id->act_in > NoExists ) {
     		reqInfo->MsgToLog( string( "Проставление факт. прилета " ) + DateTimeToStr( id->act_in, "hh:nn dd.mm.yy (UTC)" ) + " порт " + id->airp, evtDisp, move_id, id->point_id );
@@ -3283,7 +3283,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   		Qry.CreateVariable( "est_out", otDate, FNull );
   	else
   		Qry.CreateVariable( "est_out", otDate, id->est_out );
-   	ProgTrace( TRACE5, "point_id=%d, est_out=%f", id->point_id, id->est_out );
+   	//ProgTrace( TRACE5, "point_id=%d, est_out=%f", id->point_id, id->est_out );
   	if ( id->act_out == NoExists )
   		Qry.CreateVariable( "act_out", otDate, FNull );
   	else
@@ -3494,7 +3494,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	}
    if ( reSetCraft ) {
      int comp_id = SALONS2::AutoSetCraft( id->point_id, id->craft, -1 );
-     ProgTrace( TRACE5, "SALONS2::AutoSetCraft: comp_id=%d", comp_id );
+     //ProgTrace( TRACE5, "SALONS2::AutoSetCraft: comp_id=%d", comp_id );
    	 if ( comp_id >= 0 )
    	 	 ch_craft = false;
    }
@@ -3526,7 +3526,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
      ChangeACT_OUT( i->point_id, i->old_act, i->act );
   }
   
-  ProgTrace( TRACE5, "ch_dests=%d, insert=%d, change_dests_msg=%s", ch_dests, insert, change_dests_msg.c_str() );
+  //ProgTrace( TRACE5, "ch_dests=%d, insert=%d, change_dests_msg=%s", ch_dests, insert, change_dests_msg.c_str() );
   if ( !ch_dests && !insert )
     change_dests_msg.clear();
   if ( !change_dests_msg.empty() )
