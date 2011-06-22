@@ -152,6 +152,7 @@ class TTagLang {
         bool IsInter(TBTRoute *aroute, std::string &country);
     public:
         bool get_pr_lat() { return pr_lat; };
+        bool english_tag() const { return tag_lang == "E"; }
         bool IsInter() const;
         std::string GetLang();
         std::string dup_lang() { return GetLang()==AstraLocale::LANG_EN ? AstraLocale::LANG_RU : GetLang(); }; // lang for duplicated captions

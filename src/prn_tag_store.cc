@@ -90,7 +90,7 @@ void TTagLang::Init(int point_dep, int point_arv, TBTRoute *aroute, bool apr_lat
 
 bool TTagLang::IsInter() const
 {
-    return is_inter or tag_lang == "E";
+    return is_inter or english_tag();
 }
 
 string TTagLang::GetLang(TElemFmt &fmt, string firm_lang) const
@@ -1369,7 +1369,7 @@ string TPrnTagStore::get_fmt_seat(string fmt)
 
     Qry.CreateVariable("is_inter", otInteger, 0);
     Qry.Execute();
-    if (tag_lang.IsInter() && not is_lat(Qry.FieldAsString("seat_no")))
+    if ((tag_lang.get_pr_lat() or tag_lang.english_tag()) && not is_lat(Qry.FieldAsString("seat_no")))
     {        
         Qry.SetVariable("is_inter",1);
         Qry.Execute();
