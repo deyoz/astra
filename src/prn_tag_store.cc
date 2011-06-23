@@ -338,6 +338,12 @@ TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tag
     }
 }
 
+void TPrnTagStore::clear()
+{
+    for(map<const string, TTagListItem>::iterator im = tag_list.begin(); im != tag_list.end(); im++)
+        im->second.english_only = true;
+}
+
 void TPrnTagStore::set_tag(string name, TDateTime value)
 {
     name = upperc(name);
@@ -413,6 +419,7 @@ string TPrnTagStore::get_real_field(std::string name, size_t len, std::string da
     try {
         result = (this->*im->second.tag_funct)(TFieldParams(date_format, im->second.TagInfo, len));
         im->second.processed = true;
+        im->second.english_only &= tag_lang.english_tag();
     } catch(UserException E) {
         throw;
     } catch(Exception E) {
@@ -603,8 +610,20 @@ void TPrnTagStore::get_prn_qry(TQuery &Qry)
             tag_list[TAG::ONE_SEAT_NO].processed or
             tag_list[TAG::STR_SEAT_NO].processed or
             tag_list[TAG::LIST_SEAT_NO].processed
-      )
-        prnQry.add_part("seat_no", get_tag(TAG::LIST_SEAT_NO));
+      ) {
+        bool seat_no_lat = true;
+
+        if(tag_list[TAG::SEAT_NO].processed)
+            seat_no_lat &= tag_list[TAG::SEAT_NO].english_only;
+        if(tag_list[TAG::ONE_SEAT_NO].processed)
+            seat_no_lat &= tag_list[TAG::ONE_SEAT_NO].english_only;
+        if(tag_list[TAG::STR_SEAT_NO].processed)
+            seat_no_lat &= tag_list[TAG::STR_SEAT_NO].english_only;
+        if(tag_list[TAG::LIST_SEAT_NO].processed)
+            seat_no_lat &= tag_list[TAG::LIST_SEAT_NO].english_only;
+
+        prnQry.add_part("seat_no", get_tag(TAG::LIST_SEAT_NO, ServerFormatDateTimeAsString, (seat_no_lat ? "E" : "R")));
+    }
     if(tag_list[TAG::NAME].processed)
         prnQry.add_part(TAG::NAME, paxInfo.name);
     if(tag_list[TAG::NO_SMOKE].processed)

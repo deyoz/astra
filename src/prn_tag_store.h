@@ -293,13 +293,18 @@ class TPrnTagStore {
             TTagFunct tag_funct;
             int info_type;
             bool processed;
+            // Если тег встречался в образе несколько раз, то этот признак указывает, все
+            // варианты были на английском или нет. Используется для записи в таблицу bp_print
+            bool english_only;
+
             boost::any TagInfo; // данные из set_tag
             TTagListItem(TTagFunct funct, int ainfo_type = 0):
                 tag_funct(funct),
                 info_type(ainfo_type),
-                processed(false)
+                processed(false),
+                english_only(true)
             {};
-            TTagListItem(): tag_funct(NULL) {};
+            TTagListItem(): tag_funct(NULL), english_only(true) {};
         };
 
         int pax_id;
@@ -527,6 +532,7 @@ class TPrnTagStore {
                 std::string tag_lang = "R"); // R - russian; E - english
         bool tag_processed(std::string name);
         void set_print_mode(int val);
+        void clear();
 
         void tst_get_tag_list(std::vector<std::string> &tag_list);
 };
