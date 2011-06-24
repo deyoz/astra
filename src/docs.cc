@@ -2451,23 +2451,27 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     if(rpt_params.rpt_type == rtCRSTXT or rpt_params.rpt_type == rtCRSUNREGTXT)
         get_compatible_report_form("docTxt", reqNode, resNode);
     else
-        get_compatible_report_form("crs", reqNode, resNode);
+        get_compatible_report_form((rpt_params.rpt_type == rtBDOCS ? "bdocs" : "crs"), reqNode, resNode);
     bool pr_unreg = rpt_params.rpt_type == rtCRSUNREG or rpt_params.rpt_type == rtCRSUNREGTXT;
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
     TQuery Qry(&OraSession);
     string SQLText =
         "SELECT "
-        "      tlg_binding.point_id_spp AS point_id, "
-        "      ckin.get_pnr_addr(crs_pnr.pnr_id) AS pnr_ref, "
-        "      crs_pax.surname||' '||crs_pax.name family, "
-        "      crs_pax.pers_type, "
-        "      crs_pnr.class, "
-        "      salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'_seats',rownum) AS seat_no, "
-        "      crs_pnr.target, "
-        "      crs_pnr.last_target, "
-        "      report.get_TKNO(crs_pax.pax_id) ticket_no, "
-        "      report.get_PSPT(crs_pax.pax_id) AS document, "
-        "      report.get_crsRemarks(crs_pax.pax_id) AS remarks "
+        "      crs_pax.pax_id, "
+        "      crs_pax.surname||' '||crs_pax.name family ";
+    if(rpt_params.rpt_type != rtBDOCS)
+        SQLText +=
+            "      , tlg_binding.point_id_spp AS point_id, "
+            "      ckin.get_pnr_addr(crs_pnr.pnr_id) AS pnr_ref, "
+            "      crs_pax.pers_type, "
+            "      crs_pnr.class, "
+            "      salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'_seats',rownum) AS seat_no, "
+            "      crs_pnr.target, "
+            "      crs_pnr.last_target, "
+            "      report.get_TKNO(crs_pax.pax_id) ticket_no, "
+            "      report.get_PSPT(crs_pax.pax_id) AS document, "
+            "      report.get_crsRemarks(crs_pax.pax_id) AS remarks ";
+    SQLText +=
         "FROM crs_pnr,tlg_binding,crs_pax ";
     if(pr_unreg)
         SQLText += " , pax ";
@@ -2497,21 +2501,60 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
     xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_crs");
 
-    while(!Qry.Eof) {
-        xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
-        NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("point_id"));
-        NewTextChild(rowNode, "pnr_ref", Qry.FieldAsString("pnr_ref"));
-        NewTextChild(rowNode, "family", transliter(Qry.FieldAsString("family"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
-        NewTextChild(rowNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, Qry.FieldAsString("pers_type"), efmtCodeNative));
-        NewTextChild(rowNode, "class", rpt_params.ElemIdToReportElem(etClass, Qry.FieldAsString("class"), efmtCodeNative));
-        NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
-        NewTextChild(rowNode, "target", rpt_params.ElemIdToReportElem(etAirp, Qry.FieldAsString("target"), efmtCodeNative));
-        NewTextChild(rowNode, "last_target", rpt_params.ElemIdToReportElem(etAirp, Qry.FieldAsString("last_target"), efmtCodeNative));
-        NewTextChild(rowNode, "ticket_no", Qry.FieldAsString("ticket_no"));
-        NewTextChild(rowNode, "document", Qry.FieldAsString("document"));
-        NewTextChild(rowNode, "remarks", Qry.FieldAsString("remarks"));
+    TQuery docsQry(&OraSession);
+    docsQry.SQLText = "select * from crs_pax_doc where pax_id = :pax_id and rem_code = 'DOCS'";
+    docsQry.DeclareVariable("pax_id", otInteger);
+    for(; !Qry.Eof; Qry.Next()) {
+        if(rpt_params.rpt_type == rtBDOCS) {
+            docsQry.SetVariable("pax_id", Qry.FieldAsInteger("pax_id"));
+            docsQry.Execute();
+            if (!docsQry.Eof)
+            {
+                if (
+                        !docsQry.FieldIsNULL("type") &&
+                        !docsQry.FieldIsNULL("issue_country") &&
+                        !docsQry.FieldIsNULL("no") &&
+                        !docsQry.FieldIsNULL("nationality") &&
+                        !docsQry.FieldIsNULL("birth_date") &&
+                        !docsQry.FieldIsNULL("gender") &&
+                        !docsQry.FieldIsNULL("expiry_date") &&
+                        !docsQry.FieldIsNULL("surname") &&
+                        !docsQry.FieldIsNULL("first_name")
+                   )
+                    continue;
 
-        Qry.Next();
+                xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
+                NewTextChild(rowNode, "family", transliter(Qry.FieldAsString("family"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+                NewTextChild(rowNode, "type", docsQry.FieldAsString("type"));
+                NewTextChild(rowNode, "issue_country", docsQry.FieldAsString("issue_country"));
+                NewTextChild(rowNode, "no", docsQry.FieldAsString("no"));
+                NewTextChild(rowNode, "nationality", docsQry.FieldAsString("nationality"));
+                if (!docsQry.FieldIsNULL("birth_date"))
+                    NewTextChild(rowNode, "birth_date", DateTimeToStr(docsQry.FieldAsDateTime("birth_date"), "dd.mm.yyyy"));
+                NewTextChild(rowNode, "gender", docsQry.FieldAsString("gender"));
+                if (!docsQry.FieldIsNULL("expiry_date"))
+                    NewTextChild(rowNode, "expiry_date", DateTimeToStr(docsQry.FieldAsDateTime("expiry_date"), "dd.mm.yyyy"));
+                NewTextChild(rowNode, "surname", docsQry.FieldAsString("surname"));
+                NewTextChild(rowNode, "first_name", docsQry.FieldAsString("first_name"));
+                NewTextChild(rowNode, "second_name", docsQry.FieldAsString("second_name"));
+            } else {
+                xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
+                NewTextChild(rowNode, "family", transliter(Qry.FieldAsString("family"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+            }
+        } else {
+            xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
+            NewTextChild(rowNode, "family", transliter(Qry.FieldAsString("family"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+            NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("point_id"));
+            NewTextChild(rowNode, "pnr_ref", Qry.FieldAsString("pnr_ref"));
+            NewTextChild(rowNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, Qry.FieldAsString("pers_type"), efmtCodeNative));
+            NewTextChild(rowNode, "class", rpt_params.ElemIdToReportElem(etClass, Qry.FieldAsString("class"), efmtCodeNative));
+            NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
+            NewTextChild(rowNode, "target", rpt_params.ElemIdToReportElem(etAirp, Qry.FieldAsString("target"), efmtCodeNative));
+            NewTextChild(rowNode, "last_target", rpt_params.ElemIdToReportElem(etAirp, Qry.FieldAsString("last_target"), efmtCodeNative));
+            NewTextChild(rowNode, "ticket_no", Qry.FieldAsString("ticket_no"));
+            NewTextChild(rowNode, "document", Qry.FieldAsString("document"));
+            NewTextChild(rowNode, "remarks", Qry.FieldAsString("remarks"));
+        }
     }
 
     // Теперь переменные отчета
@@ -2524,6 +2567,7 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(variablesNode, "caption", getLocaleText("CAP.DOC.CRS",
                     LParams() << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang()));
     populate_doc_cap(variablesNode, rpt_params.GetLang());
+    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str()); //!!!
 }
 
 void CRSTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -2890,6 +2934,7 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
             break;
         case rtCRS:
         case rtCRSUNREG:
+        case rtBDOCS:
             CRS(rpt_params, reqNode, resNode);
             break;
         case rtCRSTXT:
