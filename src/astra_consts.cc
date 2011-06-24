@@ -49,6 +49,7 @@ const char *RptTypeS[] = {
     "EXAMTXT",
     "NOREC",
     "NORECTXT",
+    "BDOCS",
     "?"
 };
 

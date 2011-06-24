@@ -80,6 +80,7 @@ enum TRptType {
     rtEXAMTXT,
     rtNOREC,
     rtNORECTXT,
+    rtBDOCS,
     rtUnknown,
     rtTypeNum
 };
