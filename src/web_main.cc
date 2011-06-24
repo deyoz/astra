@@ -3370,17 +3370,12 @@ void WebRequestsIface::GetBPTags(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 		throw UserException( "MSG.PASSENGER.NOT_FOUND" );
 	int point_id = Qry.FieldAsInteger( "point_dep" );
 	PrintDataParser parser( Qry.FieldAsInteger( "grp_id" ), pax_id, 0, NULL );
-	PrintDataParser parser_for_2D_lat( Qry.FieldAsInteger( "grp_id" ), pax_id, 1, NULL );
 	vector<string> tags;
 	BPTags::Instance()->getFields( tags );
 	node = NewTextChild( resNode, "GetBPTags" );
     for ( vector<string>::iterator i=tags.begin(); i!=tags.end(); i++ ) {
         for(int j = 0; j < 2; j++) {
-            string value;
-            if(upperc(*i) == TAG::BCBP_M_2 and j != 0)
-                value = parser_for_2D_lat.pts.get_tag(*i, ServerFormatDateTimeAsString, (j == 0 ? "R" : "E"));
-            else
-                value = parser.pts.get_tag(*i, ServerFormatDateTimeAsString, (j == 0 ? "R" : "E"));
+            string value = parser.pts.get_tag(*i, ServerFormatDateTimeAsString, (j == 0 ? "R" : "E"));
             NewTextChild( node, (*i + (j == 0 ? "" : "_lat")), value );
             ProgTrace( TRACE5, "field name=%s, value=%s", (*i + (j == 0 ? "" : "_lat")).c_str(), value.c_str() );
         }
