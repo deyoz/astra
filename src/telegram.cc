@@ -722,6 +722,10 @@ void TelegramInterface::SaveTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     "  UPDATE tlg_out SET body=:body,completed=1 WHERE id=:id; "
     "END;";
   Qry.CreateVariable( "id", otInteger, tlg_id);
+  // Если в конце телеграммы нет перевода строки, добавим его
+  if(tlg_body.size() > 2 and tlg_body.substr(tlg_body.size() - 2) != "\xd\xa")
+      tlg_body += "\xd\xa";
+  ProgTrace(TRACE5, "tlg_body: %s", tlg_body.c_str());
   Qry.CreateVariable( "body", otString, tlg_body );
   Qry.Execute();
 
