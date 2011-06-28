@@ -90,7 +90,7 @@ void TTagLang::Init(int point_dep, int point_arv, TBTRoute *aroute, bool apr_lat
 
 bool TTagLang::IsInter() const
 {
-    return is_inter or tag_lang == "E";
+    return is_inter or english_tag();
 }
 
 string TTagLang::GetLang(TElemFmt &fmt, string firm_lang) const
@@ -338,6 +338,12 @@ TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tag
     }
 }
 
+void TPrnTagStore::clear()
+{
+    for(map<const string, TTagListItem>::iterator im = tag_list.begin(); im != tag_list.end(); im++)
+        im->second.english_only = true;
+}
+
 void TPrnTagStore::set_tag(string name, TDateTime value)
 {
     name = upperc(name);
@@ -413,6 +419,7 @@ string TPrnTagStore::get_real_field(std::string name, size_t len, std::string da
     try {
         result = (this->*im->second.tag_funct)(TFieldParams(date_format, im->second.TagInfo, len));
         im->second.processed = true;
+        im->second.english_only &= tag_lang.english_tag();
     } catch(UserException E) {
         throw;
     } catch(Exception E) {
@@ -603,8 +610,20 @@ void TPrnTagStore::get_prn_qry(TQuery &Qry)
             tag_list[TAG::ONE_SEAT_NO].processed or
             tag_list[TAG::STR_SEAT_NO].processed or
             tag_list[TAG::LIST_SEAT_NO].processed
-      )
-        prnQry.add_part("seat_no", get_tag(TAG::LIST_SEAT_NO));
+      ) {
+        bool seat_no_lat = true;
+
+        if(tag_list[TAG::SEAT_NO].processed)
+            seat_no_lat &= tag_list[TAG::SEAT_NO].english_only;
+        if(tag_list[TAG::ONE_SEAT_NO].processed)
+            seat_no_lat &= tag_list[TAG::ONE_SEAT_NO].english_only;
+        if(tag_list[TAG::STR_SEAT_NO].processed)
+            seat_no_lat &= tag_list[TAG::STR_SEAT_NO].english_only;
+        if(tag_list[TAG::LIST_SEAT_NO].processed)
+            seat_no_lat &= tag_list[TAG::LIST_SEAT_NO].english_only;
+
+        prnQry.add_part("seat_no", get_fmt_seat("list", seat_no_lat));
+    }
     if(tag_list[TAG::NAME].processed)
         prnQry.add_part(TAG::NAME, paxInfo.name);
     if(tag_list[TAG::NO_SMOKE].processed)
@@ -1313,7 +1332,7 @@ string TPrnTagStore::NO_SMOKE(TFieldParams fp)
 
 string TPrnTagStore::ONE_SEAT_NO(TFieldParams fp)
 {
-    return get_fmt_seat("one");
+    return get_fmt_seat("one", tag_lang.english_tag());
 }
 
 string TPrnTagStore::PAX_ID(TFieldParams fp)
@@ -1348,15 +1367,15 @@ string TPrnTagStore::SCD(TFieldParams fp)
 
 string TPrnTagStore::SEAT_NO(TFieldParams fp)
 {
-    return get_fmt_seat("seats");
+    return get_fmt_seat("seats", tag_lang.english_tag());
 }
 
 string TPrnTagStore::STR_SEAT_NO(TFieldParams fp)
 {
-    return get_fmt_seat("voland");
+    return get_fmt_seat("voland", tag_lang.english_tag());
 }
 
-string TPrnTagStore::get_fmt_seat(string fmt)
+string TPrnTagStore::get_fmt_seat(string fmt, bool english_tag)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -1369,7 +1388,7 @@ string TPrnTagStore::get_fmt_seat(string fmt)
 
     Qry.CreateVariable("is_inter", otInteger, 0);
     Qry.Execute();
-    if (tag_lang.IsInter() && not is_lat(Qry.FieldAsString("seat_no")))
+    if ((tag_lang.get_pr_lat() or english_tag) && not is_lat(Qry.FieldAsString("seat_no")))
     {        
         Qry.SetVariable("is_inter",1);
         Qry.Execute();
@@ -1379,7 +1398,7 @@ string TPrnTagStore::get_fmt_seat(string fmt)
 
 string TPrnTagStore::LIST_SEAT_NO(TFieldParams fp)
 {
-    return get_fmt_seat("list");
+    return get_fmt_seat("list", tag_lang.english_tag());
 }
 
 string get_unacc_name(int bag_type, TTagLang &tag_lang)

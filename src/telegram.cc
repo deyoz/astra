@@ -722,6 +722,10 @@ void TelegramInterface::SaveTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     "  UPDATE tlg_out SET body=:body,completed=1 WHERE id=:id; "
     "END;";
   Qry.CreateVariable( "id", otInteger, tlg_id);
+  // Если в конце телеграммы нет перевода строки, добавим его
+  if(tlg_body.size() > 2 and tlg_body.substr(tlg_body.size() - 2) != "\xd\xa")
+      tlg_body += "\xd\xa";
+  ProgTrace(TRACE5, "tlg_body: %s", tlg_body.c_str());
   Qry.CreateVariable( "body", otString, tlg_body );
   Qry.Execute();
 
@@ -738,7 +742,7 @@ void TelegramInterface::SendTlg(int tlg_id)
     TQuery TlgQry(&OraSession);
     TlgQry.Clear();
     TlgQry.SQLText=
-      "SELECT id,num,type,typeb_types.short_name,point_id,addr,heading,body,ending,completed "
+      "SELECT id,num,type,typeb_types.short_name,point_id,addr,heading,body,ending,completed,has_errors "
       "FROM tlg_out,typeb_types "
       "WHERE tlg_out.type=typeb_types.code AND id=:id FOR UPDATE";
     TlgQry.CreateVariable( "id", otInteger, tlg_id);
@@ -746,6 +750,8 @@ void TelegramInterface::SendTlg(int tlg_id)
     if (TlgQry.Eof) throw AstraLocale::UserException("MSG.TLG.NOT_FOUND.REFRESH_DATA");
     if (TlgQry.FieldAsInteger("completed")==0)
       throw AstraLocale::UserException("MSG.TLG.MANUAL_EDIT");
+    if (TlgQry.FieldAsInteger("has_errors")==1)
+      throw AstraLocale::UserException("MSG.TLG.HAS_ERRORS.UNABLE_SEND");
 
     string tlg_type=TlgQry.FieldAsString("type");
     string tlg_short_name=TlgQry.FieldAsString("short_name");
