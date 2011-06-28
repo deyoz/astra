@@ -1051,8 +1051,12 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                         if(tripQry.Eof)
                             TripItems[point_id]; // записываем пустую строку для данного point_id
                         else {
-                            TTripInfo trip_info(tripQry);
-                            TripItems[point_id] = GetTripName(trip_info, ecCkin);
+                            if(tripQry.FieldIsNULL("flt_no")) { // если нет инфы по номеру рейса, ничего не выводим
+                                TripItems[point_id]; // записываем пустую строку для данного point_id
+                            } else {
+                                TTripInfo trip_info(tripQry);
+                                TripItems[point_id] = GetTripName(trip_info, ecCkin);
+                            }
                         }
                     }
                     NewTextChild(rowNode, "trip", TripItems[point_id]);
