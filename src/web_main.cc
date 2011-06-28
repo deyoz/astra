@@ -2549,6 +2549,21 @@ struct TWebPaxForChng
   int seats;
 };
 
+struct TWebPaxDoc
+{
+  string type;
+  string issue_country;
+  string no;
+  string nationality;
+  TDateTime birth_date;
+  string gender;
+  TDateTime expiry_date;
+  string surname;
+  string first_name;
+  string second_name;
+  bool pr_multi;
+};
+
 struct TWebPaxForCkin
 {
   int crs_pax_id;
@@ -2561,7 +2576,7 @@ struct TWebPaxForCkin
   int seats;
   string eticket;
   string ticket;
-  string document;
+  TWebPaxDoc document;
   string subclass;
   
   bool operator == (const TWebPaxForCkin &pax) const
@@ -2643,7 +2658,6 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
       "       crs_pax.seat_type, "
       "       crs_pax.seats, "
       "       crs_pnr.pnr_id, "
-      "       report.get_PSPT(crs_pax.pax_id) AS document, "
       "       report.get_TKNO(crs_pax.pax_id,'/',0) AS ticket, "
       "       report.get_TKNO(crs_pax.pax_id,'/',1) AS eticket, "
       "       crs_pnr.tid AS crs_pnr_tid, "
@@ -2667,6 +2681,20 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
 
   TQuery RemQry(&OraSession);
   RemQry.DeclareVariable("pax_id",otInteger);
+  
+  TQuery PaxDocQry(&OraSession);
+  PaxDocQry.SQLText =
+    "SELECT type, issue_country, no, nationality, birth_date, gender, expiry_date, "
+    "       surname AS doc_surname, first_name, second_name, pr_multi "
+    "FROM crs_pax_doc "
+    "WHERE pax_id=:pax_id "
+    "ORDER BY DECODE(type,'P',0,NULL,2,1),DECODE(rem_code,'DOCS',0,1),no ";
+  PaxDocQry.DeclareVariable("pax_id",otInteger);
+  
+  TQuery GetPSPT2Qry(&OraSession);
+  GetPSPT2Qry.SQLText =
+    "SELECT report.get_PSPT2(:pax_id) AS no FROM dual";
+  GetPSPT2Qry.DeclareVariable("pax_id",otInteger);
   
   seg_no=1;
   for(vector< pair<int, TWebPnrForSave > >::iterator s=segs.begin(); s!=segs.end(); s++, seg_no++)
@@ -2771,7 +2799,51 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
               pax.seats = Qry.FieldAsInteger("seats");
               pax.eticket = Qry.FieldAsString("eticket");
               pax.ticket = Qry.FieldAsString("ticket");
-              pax.document = Qry.FieldAsString("document");
+              //обработка документов
+              PaxDocQry.SetVariable("pax_id", pax.crs_pax_id);
+              PaxDocQry.Execute();
+              if (!PaxDocQry.Eof)
+              {
+                pax.document.type=PaxDocQry.FieldAsString("type");
+                pax.document.issue_country=PaxDocQry.FieldAsString("issue_country");
+                pax.document.no=PaxDocQry.FieldAsString("no");
+                pax.document.nationality=PaxDocQry.FieldAsString("nationality");
+                if (!PaxDocQry.FieldIsNULL("birth_date"))
+                  pax.document.birth_date=PaxDocQry.FieldAsDateTime("birth_date");
+                else
+                  pax.document.birth_date=NoExists;
+                pax.document.gender=PaxDocQry.FieldAsString("gender");
+                if (!PaxDocQry.FieldIsNULL("expiry_date"))
+                  pax.document.expiry_date=PaxDocQry.FieldAsDateTime("expiry_date");
+                else
+                  pax.document.expiry_date=NoExists;
+                pax.document.surname=PaxDocQry.FieldAsString("doc_surname");
+                pax.document.first_name=PaxDocQry.FieldAsString("first_name");
+                pax.document.second_name=PaxDocQry.FieldAsString("second_name");
+                pax.document.pr_multi=PaxDocQry.FieldAsInteger("pr_multi")!=0;
+              }
+              else
+              {
+                pax.document.type.clear();
+                pax.document.issue_country.clear();
+                pax.document.no.clear();
+                pax.document.nationality.clear();
+                pax.document.birth_date=NoExists;
+                pax.document.gender.clear();
+                pax.document.expiry_date=NoExists;
+                pax.document.surname.clear();
+                pax.document.first_name.clear();
+                pax.document.second_name.clear();
+                pax.document.pr_multi=false;
+              
+                GetPSPT2Qry.SetVariable("pax_id", pax.crs_pax_id);
+                GetPSPT2Qry.Execute();
+                if (!GetPSPT2Qry.Eof && !GetPSPT2Qry.FieldIsNULL("no"))
+                {
+                  pax.document.no=GetPSPT2Qry.FieldAsString("no");
+                };
+              };
+    
               pax.subclass = Qry.FieldAsString("subclass");
 
               TPerson p=DecodePerson(pax.pers_type.c_str());
@@ -3065,7 +3137,23 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
                 NewTextChild(paxNode,"ticket_rem");
               NewTextChild(paxNode,"ticket_confirm",(int)false);
             };
-            NewTextChild(paxNode,"document",iPaxForCkin->document);
+            //документ
+            xmlNodePtr docNode=NewTextChild(paxNode,"document");
+            NewTextChild(docNode, "type", iPaxForCkin->document.type, "");
+            NewTextChild(docNode, "issue_country", iPaxForCkin->document.issue_country, "");
+            NewTextChild(docNode, "no", iPaxForCkin->document.no, "");
+            NewTextChild(docNode, "nationality", iPaxForCkin->document.nationality, "");
+            if (iPaxForCkin->document.birth_date!=NoExists)
+              NewTextChild(docNode, "birth_date", DateTimeToStr(iPaxForCkin->document.birth_date, ServerFormatDateTimeAsString));
+            NewTextChild(docNode, "gender", iPaxForCkin->document.gender, "");
+            if (iPaxForCkin->document.expiry_date!=NoExists)
+              NewTextChild(docNode, "expiry_date", DateTimeToStr(iPaxForCkin->document.expiry_date, ServerFormatDateTimeAsString));
+            NewTextChild(docNode, "surname", iPaxForCkin->document.surname, "");
+            NewTextChild(docNode, "first_name", iPaxForCkin->document.first_name, "");
+            NewTextChild(docNode, "second_name", iPaxForCkin->document.second_name, "");
+            NewTextChild(docNode, "pr_multi", (int)(iPaxForCkin->document.pr_multi), (int)false);
+            
+
             NewTextChild(paxNode,"subclass",iPaxForCkin->subclass);
             NewTextChild(paxNode,"transfer"); //пустой тег - трансфера нет
 
