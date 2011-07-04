@@ -918,8 +918,7 @@ void Takeoff( int point_id )
   time_start=time(NULL);
   try
   {
-    create_apis_file(point_id,true);
-    create_apis_file(point_id,false);
+    create_apis_file(point_id);
   }
   catch(std::exception &E)
   {
