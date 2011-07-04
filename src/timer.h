@@ -10,7 +10,7 @@
 int main_timer_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
 void ETCheckStatusFlt(void);
 void sync_mvd(void);
-void create_apis_file(int point_id, bool is_edi);
+void create_apis_file(int point_id);
 void createSPP( BASIC::TDateTime utcdate );
 void exec_tasks( const char *proc_name );
 void get_full_stat( BASIC::TDateTime utcdate );
