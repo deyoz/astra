@@ -500,10 +500,10 @@ void create_apis_file(int point_id)
       "       system.transliter(pax_doc.second_name,1,1) AS doc_second_name, "
       "       birth_date,gender,nationality,pax_doc.type,pax_doc.no, "
       "       expiry_date,issue_country, "
-      "       transfer.airp_arv AS airp_final "
-      "FROM pax_grp,pax,pax_doc,transfer "
+      "       tckin_segments.airp_arv AS airp_final "
+      "FROM pax_grp,pax,pax_doc,tckin_segments "
       "WHERE pax_grp.grp_id=pax.grp_id AND pax.pax_id=pax_doc.pax_id(+) AND "
-      "      pax_grp.grp_id=transfer.grp_id(+) AND transfer.pr_final(+)<>0 AND "
+      "      pax_grp.grp_id=tckin_segments.grp_id(+) AND tckin_segments.pr_final(+)<>0 AND "
       "      pax_grp.point_dep=:point_dep AND pax_grp.point_arv=:point_arv AND "
       "      pr_brd=1";
     PaxQry.CreateVariable("point_dep",otInteger,point_id);
@@ -624,7 +624,7 @@ void create_apis_file(int point_id)
                    << airp_arv.code_lat << ";"
     	  		       << airp_dep.code_lat << ";"
     	  		       << airp_final_lat << ";"
-                   << ";"
+    	  		       << (PaxQry.FieldIsNULL("document")?"":"P") << ";"
                    << PaxQry.FieldAsString("document")
                    << ";;;;"
     	  		       << ENDL;
@@ -654,6 +654,10 @@ void create_apis_file(int point_id)
     	    	  TPaxDocTypesRow &doc_type_row = (TPaxDocTypesRow&)base_tables.get("pax_doc_types").get_row("code",PaxQry.FieldAsString("type"));
     	    	  if (doc_type_row.code_lat.empty()) throw Exception("doc_type.code_lat empty (code=%s)",PaxQry.FieldAsString("type"));
     	    	  doc_type=doc_type_row.code_lat;
+    	    	  if (fmt=="CSV_DE")
+    	    	  {
+    	    	    if (doc_type!="P" && doc_type!="I") doc_type="P";
+              };
     	    	};
     	    	string nationality;
     	    	if (!PaxQry.FieldIsNULL("nationality"))
@@ -746,7 +750,7 @@ void create_apis_file(int point_id)
       	    {
       	      body << PaxQry.FieldAsString("doc_surname") << ";"
       	           << PaxQry.FieldAsString("doc_first_name")
-      	           << (PaxQry.FieldIsNULL("doc_second_name")?"":PaxQry.FieldAsString("doc_second_name")) << ";"
+      	           << (PaxQry.FieldIsNULL("doc_second_name")?"":" ") << PaxQry.FieldAsString("doc_second_name") << ";"
       	           << gender << ";"
       	           << birth_date << ";"
       	           << nationality << ";"
