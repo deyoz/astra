@@ -1536,8 +1536,8 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
 		Qry.Clear();
     Qry.SQLText =
      "BEGIN "
-     " UPDATE move_ref SET move_id=move_id WHERE move_id=:move_id; "
      " UPDATE points SET move_id=move_id WHERE move_id=:move_id; "
+     " UPDATE move_ref SET move_id=move_id WHERE move_id=:move_id; "
      "END;";
     Qry.CreateVariable( "move_id", otInteger, move_id );
     err++;
