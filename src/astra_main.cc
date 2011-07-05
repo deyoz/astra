@@ -4,6 +4,8 @@
 #include "astra_main.h"
 #include "tlg/tlg.h"
 #include "timer.h"
+#include "cobra.h"
+#include "aodb.h"
 #include "empty_proc.h"
 #include "crypt.h"
 #include "web_main.h"
@@ -86,6 +88,8 @@ class AstraApplication : public ApplicationCallbacks
               ->add("typeb_handler", main_typeb_handler_tcl)
               ->add("edi_handler", main_edi_handler_tcl)
               ->add("timer",main_timer_tcl)
+              ->add("aodb_handler",main_aodb_handler_tcl)
+              //->add("tcpserv",main_tcpserv_tcl)
               ->add("empty_proc",main_empty_proc_tcl)
               ->setApplicationCallbacks(this);
     }

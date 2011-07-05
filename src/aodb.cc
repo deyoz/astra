@@ -14,6 +14,10 @@ alter table aodb_bag add pr_cabin NUMBER(1) NOT NULL;
 #include <map>
 #include <algorithm>
 #include <sstream>
+#include <unistd.h>
+#include <errno.h>
+#include <tcl.h>
+#include "base_tables.h"
 
 #include "exceptions.h"
 #include "basic.h"
@@ -29,10 +33,25 @@ alter table aodb_bag add pr_cabin NUMBER(1) NOT NULL;
 #include "salons.h"
 #include "sopp.h"
 #include "serverlib/helpcpp.h"
+#include "tlg/tlg.h"
 
 #define NICKNAME "DJEK"
 #define NICKTRACE DJEK_TRACE
 #include "serverlib/slogger.h"
+
+
+#include "serverlib/query_runner.h"
+#include "serverlib/posthooks.h"
+#include "serverlib/ourtime.h"
+
+
+using namespace BASIC;
+using namespace EXCEPTIONS;
+
+#define WAIT_INTERVAL           60      //seconds
+#define TLG_SCAN_INTERVAL      600   	//seconds
+#define SCAN_COUNT             100      //кол-во разбираемых телеграмм за одно сканирование
+
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -1801,7 +1820,6 @@ catch(...){
 }
 }
 
-
 /*
  create table aodb_spp (
  name varchar2(50) not null,
@@ -1918,8 +1936,8 @@ void ParseAndSaveSPP( const std::string &filename, const std::string &canon_name
 	Qry.CreateVariable( "point_addr", otString, canon_name );
 	Qry.CreateVariable( "airline", otString, airline );
 	Qry.Execute();
-	if ( !errs.empty() )
-	 AstraLocale::showProgError( errs );
+/*	if ( !errs.empty() )
+	 AstraLocale::showProgError( errs ); !!!*/
 }
 
 bool BuildAODBTimes( int point_id, const std::string &point_addr, TFileDatas &fds )
@@ -1928,13 +1946,11 @@ bool BuildAODBTimes( int point_id, const std::string &point_addr, TFileDatas &fd
 	TQuery Qry( &OraSession );
 	Qry.SQLText =
 	 "SELECT aodb_point_id,airline||flt_no||suffix trip,scd_out,aodb_points.overload_alarm, "
-	 "       rec_no_flt,record "
+	 "       rec_no_flt "
 	 " FROM points, aodb_points "
 	 " WHERE points.point_id=:point_id AND "
 	 "       points.point_id=aodb_points.point_id(+) AND "
 	 "       :point_addr=aodb_points.point_addr(+) ";
-/*	 "       ( gtimer.get_stage(points.point_id,1) >= :stage2 OR record IS NOT NULL )";
-	Qry.CreateVariable( "stage2", otInteger, sPrepCheckIn );*/
 	Qry.CreateVariable( "point_id", otInteger, point_id );
 	Qry.CreateVariable( "point_addr", otString, point_addr );
 	Qry.Execute();
@@ -1945,12 +1961,12 @@ bool BuildAODBTimes( int point_id, const std::string &point_addr, TFileDatas &fd
 	TDateTime scd_out = UTCToLocal( Qry.FieldAsDateTime( "scd_out" ), region );
 	double aodb_point_id = Qry.FieldAsFloat( "aodb_point_id" );
 	int rec_no;
-	string old_res;
+	string old_record;
 	if ( Qry.Eof || Qry.FieldIsNULL( "rec_no_flt" ) )
 		rec_no = 0;
 	else {
 	  rec_no = Qry.FieldAsInteger( "rec_no_flt" ) + 1;
-	  old_res = Qry.FieldAsString( "record" );
+	  get_string_into_snapshot_points( point_id, FILE_AODB_OUT_TYPE, point_addr, old_record );
 	}
 	int checkin = 0, boarding = 0;
 	TMapTripStages stages;
@@ -1992,7 +2008,7 @@ bool BuildAODBTimes( int point_id, const std::string &point_addr, TFileDatas &fd
 		record<<";"<<"Р"<<setw(4)<<term.substr(0,4)<<setw(1)<<(int)!StationsQry.FieldIsNULL( "start_time" );
 		StationsQry.Next();
 	}
-	if ( Qry.Eof || record.str() != string( Qry.FieldAsString( "record" ) ) ) {
+	if ( Qry.Eof || record.str() != old_record ) {
 		ostringstream r;
 		if ( aodb_point_id )
 		  r<<std::fixed<<setw(6)<<rec_no<<setw(10)<<setprecision(0)<<aodb_point_id;
@@ -2002,17 +2018,17 @@ bool BuildAODBTimes( int point_id, const std::string &point_addr, TFileDatas &fd
 		Qry.Clear();
   	Qry.SQLText =
   	 "BEGIN "
-   	 " UPDATE aodb_points SET record=:record,rec_no_flt=NVL(rec_no_flt,-1)+1 "
+   	 " UPDATE aodb_points SET rec_no_flt=NVL(rec_no_flt,-1)+1 "
    	 "  WHERE point_id=:point_id AND point_addr=:point_addr; "
    	 "  IF SQL%NOTFOUND THEN "
-   	 "    INSERT INTO aodb_points(point_id,point_addr,aodb_point_id,record,rec_no_flt,rec_no_pax,rec_no_bag,rec_no_unaccomp) "
-   	 "      VALUES(:point_id,:point_addr,NULL,:record,0,-1,-1,-1); "
+   	 "    INSERT INTO aodb_points(point_id,point_addr,aodb_point_id,rec_no_flt,rec_no_pax,rec_no_bag,rec_no_unaccomp) "
+   	 "      VALUES(:point_id,:point_addr,NULL,0,-1,-1,-1); "
    	 "  END IF; "
    	 "END;";
    	Qry.CreateVariable( "point_id", otInteger, point_id );
    	Qry.CreateVariable( "point_addr", otString, point_addr );
-   	Qry.CreateVariable( "record", otString, record.str() );
  	  Qry.Execute();
+ 	  put_string_into_snapshot_points( point_id, FILE_AODB_OUT_TYPE, point_addr, !old_record.empty(), record.str() );
  	  fd.file_data = r.str() + "\n";
 	}
   if ( !fd.file_data.empty() ) {
@@ -2058,6 +2074,114 @@ void Set_AODB_overload_alarm( int point_id, bool overload_alarm )
 	Qry.CreateVariable( "point_id", otInteger, point_id );
 	Qry.Execute();
 }
+
+void parseIncommingAODBData()
+{
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
+    "SELECT file_queue.id, data FROM file_queue, files "
+    " WHERE file_queue.sender=:sender AND "
+    "       file_queue.receiver=:receiver AND "
+    "       file_queue.type=:type AND "
+    "       file_queue.id=files.id "
+    " ORDER BY file_queue.time";
+  Qry.CreateVariable( "sender", otString, OWN_POINT_ADDR() );
+  Qry.CreateVariable( "receiver", otString, OWN_POINT_ADDR() );
+  Qry.CreateVariable( "type", otString, FILE_AODB_IN_TYPE );
+  Qry.Execute();
+  TQuery QryParams( &OraSession );
+  QryParams.SQLText = "SELECT name, value FROM file_params WHERE id=:file_id";
+  QryParams.DeclareVariable( "file_id", otInteger );
+	Qry.Execute();
+  string airline;
+  map<string,string> fileparams;
+  int len;
+  void *p = NULL;
+  while ( !Qry.Eof ) {
+   	len = Qry.GetSizeLongField( "data" );
+    if ( p )
+    	p = (char*)realloc( p, len );
+    else
+      p = (char*)malloc( len );
+    if ( !p )
+    	throw Exception( string( "Can't malloc " ) + IntToString( len ) + " byte" );
+    Qry.FieldAsLong( "data", p );
+    QryParams.SetVariable( "file_id", Qry.FieldAsInteger( "id" ) );
+    QryParams.Execute();
+    while ( !QryParams.Eof ) {
+      fileparams[ QryParams.FieldAsString( "name" ) ] = QryParams.FieldAsString( "value" );
+      ProgTrace( TRACE5, "fileparams[%s]=%s", QryParams.FieldAsString( "name" ),QryParams.FieldAsString( "value" ));
+      QryParams.Next();
+    }
+
+    string convert_aodb = getFileEncoding( FILE_AODB_IN_TYPE, fileparams[ PARAM_CANON_NAME ], false );
+    ProgTrace( TRACE5, "convert_aodb=%s, fileparams[ PARAM_CANON_NAME ]=%s, fileparams[ NS_PARAM_AIRLINE ]=%s",
+               convert_aodb.c_str(), fileparams[ PARAM_CANON_NAME ].c_str(), fileparams[ NS_PARAM_AIRLINE ].c_str( ) );
+    string str_file( (char*)p, len );
+    ParseAndSaveSPP( fileparams[ PARAM_FILE_NAME ], fileparams[ PARAM_CANON_NAME ] , fileparams[ NS_PARAM_AIRLINE ],
+	                   str_file, convert_aodb );
+    ProgTrace( TRACE5, "deleteFile id=%d", Qry.FieldAsInteger( "id" ) );
+    deleteFile( Qry.FieldAsInteger( "id" ) );
+  	Qry.Next();
+  }
+}
+
+int main_aodb_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
+{
+  try
+  {
+    sleep(10);
+    InitLogTime(NULL);
+    OpenLogFile("log1");
+
+    ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
+            ->connect_db();
+
+    TReqInfo::Instance()->clear();
+	  emptyHookTables();
+    char buf[10];
+    for(;;)
+    {
+      TDateTime execTask;
+      callPostHooksAlways();
+      if (waitCmd("CMD_PARSE_AODB",WAIT_INTERVAL,buf,sizeof(buf)))
+      {
+        execTask = NowUTC();
+        InitLogTime(NULL);
+        base_tables.Invalidate();
+        parseIncommingAODBData();
+        OraSession.Commit();
+        if ( NowUTC() - execTask > 5.0/(1440.0*60.0) )
+        	ProgTrace( TRACE5, "Attention execute task time!!!, name=%s, time=%s","CMD_PARSE_AODB", DateTimeToStr( NowUTC() - execTask, "nn:ss" ).c_str() );
+        callPostHooksAfter();
+      };
+    }; // end of loop
+  }
+  catch(EOracleError &E)
+  {
+    ProgError( STDLOG, "EOracleError %d: %s", E.Code, E.what());
+    ProgError( STDLOG, "SQL: %s", E.SQLText());
+  }
+  catch(std::exception &E)
+  {
+    ProgError( STDLOG, "std::exception: %s", E.what() );
+  }
+  catch(...)
+  {
+    ProgError(STDLOG, "Unknown exception");
+  };
+  try
+  {
+    OraSession.Rollback();
+    OraSession.LogOff();
+  }
+  catch(...)
+  {
+    ProgError(STDLOG, "Unknown exception");
+  };
+  return 0;
+};
+
 
 void VerifyParseFlight( )
 {
