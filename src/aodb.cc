@@ -756,8 +756,8 @@ void createRecord( int point_id, int pax_id, int reg_no, const string &point_add
  	   " DELETE aodb_pax WHERE pax_id=:pax_id AND point_addr=:point_addr; "
  	   " UPDATE aodb_points SET rec_no_pax=NVL(rec_no_pax,-1)+1 WHERE point_id=:point_id AND point_addr=:point_addr; "
      "  IF SQL%NOTFOUND THEN "
-     "    INSERT INTO aodb_points(point_id,point_addr,aodb_point_id,record,rec_no_flt,rec_no_pax,rec_no_bag,rec_no_unaccomp) "
-     "      VALUES(:point_id,:point_addr,NULL,NULL,-1,0,-1,-1); "
+     "    INSERT INTO aodb_points(point_id,point_addr,aodb_point_id,rec_no_flt,rec_no_pax,rec_no_bag,rec_no_unaccomp) "
+     "      VALUES(:point_id,:point_addr,NULL,-1,0,-1,-1); "
      "  END IF; "
  	   "END; ";
  	PQry.CreateVariable( "point_id", otInteger, point_id );
@@ -885,8 +885,8 @@ void createRecord( int point_id, int pax_id, int reg_no, const string &point_add
  	   "BEGIN "
  	   "UPDATE aodb_points SET rec_no_unaccomp=:rec_no_unaccomp WHERE point_id=:point_id AND point_addr=:point_addr; "
      "  IF SQL%NOTFOUND THEN "
-     "    INSERT INTO aodb_points(point_id,point_addr,aodb_point_id,record,rec_no_flt,rec_no_pax,rec_no_bag,rec_no_unaccomp) "
-     "      VALUES(:point_id,:point_addr,NULL,NULL,-1,-1,-1,0); "
+     "    INSERT INTO aodb_points(point_id,point_addr,aodb_point_id,rec_no_flt,rec_no_pax,rec_no_bag,rec_no_unaccomp) "
+     "      VALUES(:point_id,:point_addr,NULL,-1,-1,-1,0); "
      "  END IF; "
  	   "END; ";
  	  PQry.CreateVariable( "rec_no_unaccomp", otInteger, bag_num - 1 );
@@ -896,8 +896,8 @@ void createRecord( int point_id, int pax_id, int reg_no, const string &point_add
  	   "BEGIN "
  	   "UPDATE aodb_points SET rec_no_bag=:rec_no_bag WHERE point_id=:point_id AND point_addr=:point_addr; "
      "  IF SQL%NOTFOUND THEN "
-     "    INSERT INTO aodb_points(point_id,point_addr,aodb_point_id,record,rec_no_flt,rec_no_pax,rec_no_bag,rec_no_unaccomp) "
-     "      VALUES(:point_id,:point_addr,NULL,NULL,-1,0,:rec_no_bag,-1); "
+     "    INSERT INTO aodb_points(point_id,point_addr,aodb_point_id,rec_no_flt,rec_no_pax,rec_no_bag,rec_no_unaccomp) "
+     "      VALUES(:point_id,:point_addr,NULL,-1,0,:rec_no_bag,-1); "
      "  END IF; "
  	   "END; ";
  	  PQry.CreateVariable( "rec_no_bag", otInteger, bag_num );
@@ -1718,8 +1718,8 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
 	 " SET aodb_point_id=:aodb_point_id "
 	 " WHERE point_id=:point_id AND point_addr=:point_addr; "
 	 " IF SQL%NOTFOUND THEN "
-	 "  INSERT INTO aodb_points(aodb_point_id,point_addr,point_id,record,rec_no_pax,rec_no_bag,rec_no_flt,rec_no_unaccomp,overload_alarm) "
-	 "    VALUES(:aodb_point_id,:point_addr,:point_id,NULL,-1,-1,-1,-1,0);"
+	 "  INSERT INTO aodb_points(aodb_point_id,point_addr,point_id,rec_no_pax,rec_no_bag,rec_no_flt,rec_no_unaccomp,overload_alarm) "
+	 "    VALUES(:aodb_point_id,:point_addr,:point_id,-1,-1,-1,-1,0);"
 	 " END IF; "
 	 "END;";
 	Qry.CreateVariable( "point_id", otInteger, point_id );
