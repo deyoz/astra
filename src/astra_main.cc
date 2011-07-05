@@ -4,7 +4,7 @@
 #include "astra_main.h"
 #include "tlg/tlg.h"
 #include "timer.h"
-#include "cobra.h"
+//#include "cobra.h"
 #include "aodb.h"
 #include "empty_proc.h"
 #include "crypt.h"
