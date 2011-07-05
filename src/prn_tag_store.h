@@ -21,6 +21,7 @@ namespace TAG {
     const std::string BAG_AMOUNT = "BAG_AMOUNT"; // багаж в посадочном
     const std::string TAGS = "TAGS"; // багаж в посадочном
     const std::string BAG_WEIGHT = "BAG_WEIGHT";
+    const std::string BAGGAGE = "BAGGAGE";
     const std::string BRD_FROM = "BRD_FROM";
     const std::string BRD_TO = "BRD_TO";
     const std::string CITY_ARV_NAME = "CITY_ARV_NAME";
@@ -410,6 +411,7 @@ class TPrnTagStore {
         std::string BAG_AMOUNT(TFieldParams fp);
         std::string TAGS(TFieldParams fp);
         std::string BAG_WEIGHT(TFieldParams fp);
+        std::string BAGGAGE(TFieldParams fp);
         std::string BRD_FROM(TFieldParams fp);
         std::string BRD_TO(TFieldParams fp);
         std::string CITY_ARV_NAME(TFieldParams fp);
