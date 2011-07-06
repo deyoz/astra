@@ -5,6 +5,7 @@
 #include "maindcs.h"
 #include "docs.h"
 #include "load_fr.h"
+#include "telegram.h"
 #include "empty_proc.h"
 #include "serverlib/query_runner.h"
 #include "edilib/edi_loading.h"
@@ -29,6 +30,7 @@ const
     {"-ediinsert",     edi_load_messages_main,  NULL,                     "loading edifact templates"},
     {"-testbm",        testbm,                  NULL,                     NULL},
     {"-load_fr",       load_fr,                 NULL,                     NULL},
+    {"-test_prl",      test_prl,                NULL,                     NULL},
     {"-termversion",   SetTermVersionNotice,    SetTermVersionNoticeHelp, NULL},
     {"-alter_db",      alter_db,                NULL,                     NULL}
   };

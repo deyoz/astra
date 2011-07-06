@@ -5991,7 +5991,7 @@ void TCodeShareInfo::init(xmlNodePtr node)
     pr_mark_header = NodeAsIntegerFast("pr_mark_header", currNode) != 0;
 }
 
-void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void tmp_create_tlg(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TQuery Qry(&OraSession);
     TCreateTlgInfo createInfo;
@@ -6027,7 +6027,7 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 
     int tlg_id = NoExists;
     try {
-        tlg_id = create_tlg(createInfo);
+        tlg_id = TelegramInterface::create_tlg(createInfo);
     } catch(AstraLocale::UserException &E) {
         throw AstraLocale::UserException( "MSG.TLG.CREATE_ERROR", LParams() << LParam("what", getLocaleText(E.getLexemaData())));
     }
@@ -6036,10 +6036,15 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     ostringstream msg;
     msg << "Телеграмма " << short_name
         << " (ид=" << tlg_id << ") сформирована: "
-        << GetTlgLogMsg(createInfo);
+        << TelegramInterface::GetTlgLogMsg(createInfo);
     if (createInfo.point_id==-1) createInfo.point_id=0;
     TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,createInfo.point_id,tlg_id);
     NewTextChild( resNode, "tlg_id", tlg_id);
+}
+
+void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    tmp_create_tlg(reqNode, resNode);
 };
 
 string TelegramInterface::GetTlgLogMsg(const TCreateTlgInfo &createInfo)
@@ -6063,3 +6068,31 @@ string TelegramInterface::GetTlgLogMsg(const TCreateTlgInfo &createInfo)
 
   return msg.str();
 };
+
+int test_prl(int argc,char **argv)
+{
+    string xml =
+        "<?xml version=\"1.0\" encoding=\"CP866\"?>"
+        "<term>"
+        "  <query handle=\"0\" id=\"Telegram\" ver=\"1\" opr=\"DEN\" screen=\"TLG.EXE\" mode=\"STAND\" lang=\"RU\">"
+        "    <CreateTlg>"
+        "      <point_id>695910</point_id>"
+        "      <tlg_type>PRLC</tlg_type>"
+        "      <crs/>"
+        "      <pr_lat>1</pr_lat>"
+        "      <addrs>QQQQQQQ </addrs>"
+        "    </CreateTlg>"
+        "  </query>"
+        "</term>";
+    xmlDocPtr reqDoc = TextToXMLTree(xml);
+    xmlNodePtr reqNode = xmlDocGetRootElement(reqDoc);
+    reqNode = reqNode->children->children;
+    ProgTrace(TRACE5, "tag: %s", reqNode->name);
+    ProgTrace(TRACE5, "%s", GetXMLDocText(reqNode->doc).c_str());
+    xmlDocPtr resDoc = CreateXMLDoc("CP866", "answer");
+    xmlNodePtr resNode = xmlDocGetRootElement(resDoc);
+    tmp_create_tlg(reqNode, resNode);
+
+    return 0;
+}
+
