@@ -2118,6 +2118,7 @@ void parseIncommingAODBData()
     ProgTrace( TRACE5, "convert_aodb=%s, fileparams[ PARAM_CANON_NAME ]=%s, fileparams[ NS_PARAM_AIRLINE ]=%s",
                convert_aodb.c_str(), fileparams[ PARAM_CANON_NAME ].c_str(), fileparams[ NS_PARAM_AIRLINE ].c_str( ) );
     string str_file( (char*)p, len );
+    TReqInfo::Instance()->desk.code = fileparams[ PARAM_CANON_NAME ];
     ParseAndSaveSPP( fileparams[ PARAM_FILE_NAME ], fileparams[ PARAM_CANON_NAME ] , fileparams[ NS_PARAM_AIRLINE ],
 	                   str_file, convert_aodb );
     ProgTrace( TRACE5, "deleteFile id=%d", Qry.FieldAsInteger( "id" ) );
