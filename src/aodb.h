@@ -3,6 +3,7 @@
 
 #include <string>
 #include <map>
+#include <tcl.h>
 #include "astra_service.h"
 
 const std::string FILE_AODB_TYPE = "AODB";
@@ -20,5 +21,7 @@ bool Get_AODB_overload_alarm( int point_id, int max_commerce );
 void Set_AODB_overload_alarm( int point_id, bool overload_alarm );
 
 void VerifyParseFlight( );
+
+int main_aodb_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
 
 #endif /*_AODB_H_*/
