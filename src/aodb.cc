@@ -2140,12 +2140,11 @@ int main_aodb_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
             ->connect_db();
 
     TReqInfo::Instance()->clear();
-	  emptyHookTables();
     char buf[10];
     for(;;)
     {
+      emptyHookTables();
       TDateTime execTask;
-      callPostHooksAlways();
       if (waitCmd("CMD_PARSE_AODB",WAIT_INTERVAL,buf,sizeof(buf)))
       {
         execTask = NowUTC();
