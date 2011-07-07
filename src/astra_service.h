@@ -8,7 +8,7 @@
 
 
 const std::string PARAM_WORK_DIR = "WORKDIR";
-	const std::string PARAM_LOAD_DIR = "LOADDIR";
+const std::string PARAM_LOAD_DIR = "LOADDIR";
 const std::string PARAM_CANON_NAME = "CANON_NAME";
 const std::string PARAM_FILE_NAME = "FileName";
 const std::string PARAM_IN_ORDER = "IN_ORDER";
@@ -35,7 +35,7 @@ struct TFileData {
 typedef std::vector<TFileData> TFileDatas;
 
 
-std::string getFileEncoding( const std::string &file_type, const std::string &point_addr );
+std::string getFileEncoding( const std::string &file_type, const std::string &point_addr, bool pr_send=true );
 void getFileParams( int id, std::map<std::string,std::string> &fileparams );
 bool deleteFile( int id );
 int putFile(const std::string &receiver,
@@ -110,6 +110,11 @@ public:
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 
+
+void put_string_into_snapshot_points( int point_id, std::string file_type,
+	                                    std::string point_addr, bool pr_old_record, std::string record );
+void get_string_into_snapshot_points( int point_id, const std::string &file_type,
+	                                    const std::string &point_addr, std::string &record );
 
 #endif /*_ASTRA_SERVICE_H_*/
 

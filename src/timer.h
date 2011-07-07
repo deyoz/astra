@@ -17,9 +17,4 @@ void get_full_stat( BASIC::TDateTime utcdate );
 void sync_sirena_codes( void );
 const int CREATE_SPP_DAYS();
 
-void put_string_into_snapshot_points( int point_id, std::string file_type,
-	                                    std::string point_addr, bool pr_old_record, std::string record );
-void get_string_into_snapshot_points( int point_id, const std::string &file_type,
-	                                    const std::string &point_addr, std::string &record );
-
 #endif
