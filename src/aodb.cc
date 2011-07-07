@@ -721,7 +721,7 @@ void createRecord( int point_id, int pax_id, int reg_no, const string &point_add
                    vector<AODB_STRUCT> &prior_aodb_pax, vector<AODB_STRUCT> &prior_aodb_bag,
                    string &res_checkin/*, string &res_bag*/ )
 {
-	ProgTrace( TRACE5, "point_id=%d, pax_id=%d, reg_no=%d, point_addr=%s", point_id, pax_id, reg_no, point_addr.c_str() );
+	//ProgTrace( TRACE5, "point_id=%d, pax_id=%d, reg_no=%d, point_addr=%s", point_id, pax_id, reg_no, point_addr.c_str() );
 	res_checkin.clear();
 	//res_bag.clear();
 	TQuery PQry( &OraSession );
@@ -2097,34 +2097,40 @@ void parseIncommingAODBData()
   map<string,string> fileparams;
   int len;
   void *p = NULL;
-  while ( !Qry.Eof ) {
-   	len = Qry.GetSizeLongField( "data" );
-    if ( p )
-    	p = (char*)realloc( p, len );
-    else
-      p = (char*)malloc( len );
-    if ( !p )
-    	throw Exception( string( "Can't malloc " ) + IntToString( len ) + " byte" );
-    Qry.FieldAsLong( "data", p );
-    QryParams.SetVariable( "file_id", Qry.FieldAsInteger( "id" ) );
-    QryParams.Execute();
-    while ( !QryParams.Eof ) {
-      fileparams[ QryParams.FieldAsString( "name" ) ] = QryParams.FieldAsString( "value" );
-      ProgTrace( TRACE5, "fileparams[%s]=%s", QryParams.FieldAsString( "name" ),QryParams.FieldAsString( "value" ));
-      QryParams.Next();
-    }
+  try {
+    while ( !Qry.Eof ) {
+     	len = Qry.GetSizeLongField( "data" );
+      if ( p )
+      	p = (char*)realloc( p, len );
+      else
+        p = (char*)malloc( len );
+      if ( !p )
+      	throw Exception( string( "Can't malloc " ) + IntToString( len ) + " byte" );
+      Qry.FieldAsLong( "data", p );
+      QryParams.SetVariable( "file_id", Qry.FieldAsInteger( "id" ) );
+      QryParams.Execute();
+      while ( !QryParams.Eof ) {
+        fileparams[ QryParams.FieldAsString( "name" ) ] = QryParams.FieldAsString( "value" );
+        QryParams.Next();
+      }
 
-    string convert_aodb = getFileEncoding( FILE_AODB_IN_TYPE, fileparams[ PARAM_CANON_NAME ], false );
-    ProgTrace( TRACE5, "convert_aodb=%s, fileparams[ PARAM_CANON_NAME ]=%s, fileparams[ NS_PARAM_AIRLINE ]=%s",
-               convert_aodb.c_str(), fileparams[ PARAM_CANON_NAME ].c_str(), fileparams[ NS_PARAM_AIRLINE ].c_str( ) );
-    string str_file( (char*)p, len );
-    TReqInfo::Instance()->desk.code = fileparams[ PARAM_CANON_NAME ];
-    ParseAndSaveSPP( fileparams[ PARAM_FILE_NAME ], fileparams[ PARAM_CANON_NAME ] , fileparams[ NS_PARAM_AIRLINE ],
-	                   str_file, convert_aodb );
-    ProgTrace( TRACE5, "deleteFile id=%d", Qry.FieldAsInteger( "id" ) );
-    deleteFile( Qry.FieldAsInteger( "id" ) );
-  	Qry.Next();
+      string convert_aodb = getFileEncoding( FILE_AODB_IN_TYPE, fileparams[ PARAM_CANON_NAME ], false );
+/*      ProgTrace( TRACE5, "convert_aodb=%s, fileparams[ PARAM_CANON_NAME ]=%s, fileparams[ NS_PARAM_AIRLINE ]=%s",
+                 convert_aodb.c_str(), fileparams[ PARAM_CANON_NAME ].c_str(), fileparams[ NS_PARAM_AIRLINE ].c_str( ) );*/
+      string str_file( (char*)p, len );
+      TReqInfo::Instance()->desk.code = fileparams[ PARAM_CANON_NAME ];
+      ParseAndSaveSPP( fileparams[ PARAM_FILE_NAME ], fileparams[ PARAM_CANON_NAME ] , fileparams[ NS_PARAM_AIRLINE ],
+	                     str_file, convert_aodb );
+      ProgTrace( TRACE5, "deleteFile id=%d", Qry.FieldAsInteger( "id" ) );
+      deleteFile( Qry.FieldAsInteger( "id" ) );
+  	  Qry.Next();
+    }
   }
+  catch(...) {
+   if ( p ) free( p );
+   throw;
+  }
+  if ( p ) free( p );
 }
 
 int main_aodb_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
