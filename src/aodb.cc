@@ -48,6 +48,9 @@ alter table aodb_bag add pr_cabin NUMBER(1) NOT NULL;
 using namespace BASIC;
 using namespace EXCEPTIONS;
 
+#define WAIT_INTERVAL           60      //seconds
+
+
 using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC;
