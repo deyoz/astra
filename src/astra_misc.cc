@@ -7,6 +7,7 @@
 #include "convert.h"
 #include "astra_locale.h"
 #include "seats_utils.h"
+#include "misc.h"
 
 #define NICKNAME "DEN"
 #define NICKTRACE SYSTEM_TRACE
@@ -706,6 +707,7 @@ void TMktFlight::get(TQuery &Qry, int id)
 
 void TMktFlight::getByPaxId(int pax_id)
 {
+    TPerfTimer tm;
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "select "
@@ -741,6 +743,7 @@ void TMktFlight::getByPaxId(int pax_id)
         airp_dep = Qry.FieldAsString("mark_airp_dep");
         airp_arv = Qry.FieldAsString("mark_airp_arv");
     }
+    ProgTrace(TRACE5, "TMktFlight::getByPaxId: %s, pax_id: %d", tm.PrintWithMessage().c_str(), pax_id);
 }
 
 void TMktFlight::getByCrsPaxId(int pax_id)

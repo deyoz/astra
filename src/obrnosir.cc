@@ -30,7 +30,7 @@ const
     {"-ediinsert",     edi_load_messages_main,  NULL,                     "loading edifact templates"},
     {"-testbm",        testbm,                  NULL,                     NULL},
     {"-load_fr",       load_fr,                 NULL,                     NULL},
-    {"-test_prl",      test_prl,                NULL,                     NULL},
+//    {"-test_prl",      test_prl,                NULL,                     NULL},
     {"-termversion",   SetTermVersionNotice,    SetTermVersionNoticeHelp, NULL},
     {"-alter_db",      alter_db,                NULL,                     NULL}
   };
@@ -93,7 +93,7 @@ int main_nosir_user(int argc,char **argv)
   }
   catch(EOracleError &E)
   {
-    ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.what());
+    ProgError(STDLOG,"EOracleError %d: %s, SQLText: %s",E.Code,E.what(), E.SQLText());
     puts("Bad error! Contact with developers!");
   }
   catch(std::exception &E)
