@@ -14,7 +14,6 @@
 #define NICKNAME "DEN"
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/test.h"
-#include "misc.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -83,7 +82,6 @@ bool CompareCompLayers( TTlgCompLayer t1, TTlgCompLayer t2 )
 
 void ReadSalons( TTlgInfo &info, vector<TTlgCompLayer> &complayers, bool pr_blocked )
 {
-    ProgTrace(TRACE5, "ReadSalons starts here");
     complayers.clear();
     vector<ASTRA::TCompLayerType> layers;
     if(pr_blocked)
@@ -600,7 +598,6 @@ namespace PRL_SPACE {
 
     void TPNRList::get(int pnr_id)
     {
-        TPerfTimer tm;
         if(pnr_id == NoExists) return;
         TQuery Qry(&OraSession);
         Qry.SQLText =
@@ -613,7 +610,6 @@ namespace PRL_SPACE {
             pnr.addr = Qry.FieldAsString("addr");
             items.push_back(pnr);
         }
-        ProgTrace(TRACE5, "TPNRList.get: %s, pnr_id: %d", tm.PrintWithMessage().c_str(), pnr_id);
     }
 
     struct TInfantsItem {
@@ -987,7 +983,6 @@ namespace PRL_SPACE {
 
     void TOnwardList::get(int pax_id)
     {
-        TPerfTimer tm;
         TQuery Qry(&OraSession);
         Qry.SQLText =
             "SELECT \n"
@@ -1036,7 +1031,6 @@ namespace PRL_SPACE {
                 items.push_back(item);
             }
         }
-        ProgTrace(TRACE5, "TOnwardList.get: %s, pax_id: %d", tm.PrintWithMessage().c_str(), pax_id);
     }
 
     void TOnwardList::ToTlg(TTlgInfo &info, vector<string> &body)
@@ -1128,7 +1122,6 @@ namespace PRL_SPACE {
 
     void TGRPMap::get(int grp_id)
     {
-        TPerfTimer tm;
         if(items.find(grp_id) != items.end()) return; // olready got
         TGRPItem item;
         item.W.get(grp_id);
@@ -1143,7 +1136,6 @@ namespace PRL_SPACE {
         ProgTrace(TRACE5, "item.bg: %d", items.size());
         ProgTrace(TRACE5, "TGRPMap::get: grp_id %d", grp_id);
         items[grp_id] = item;
-        ProgTrace(TRACE5, "TGRPMap.get: %s, grp_id: %d", tm.PrintWithMessage().c_str(), grp_id);
     }
 
     void TRemList::ToTlg(TTlgInfo &info, vector<string> &body)
@@ -1162,7 +1154,6 @@ namespace PRL_SPACE {
 
     void TRemList::get(TTlgInfo &info, TPRLPax &pax, vector<TTlgCompLayer> &complayers )
     {
-        TPerfTimer tm;
         items.clear();
         if(pax.pax_id == NoExists) return;
         // rems must be push_backed exactly in this order. Don't swap!
@@ -1204,7 +1195,6 @@ namespace PRL_SPACE {
             for(; !Qry.Eof; Qry.Next())
                 items.push_back(transliter(Qry.FieldAsString(col_rem), 1, info.pr_lat));
         }
-        ProgTrace(TRACE5, "TRemList::get: %s, pax_id: %d", tm.PrintWithMessage().c_str(), pax.pax_id);
     }
 
     struct TPRLDest {
@@ -1283,10 +1273,7 @@ namespace PRL_SPACE {
         Qry.CreateVariable("point_id", otInteger, info.point_id);
         Qry.CreateVariable("airp", otString, airp);
         Qry.CreateVariable("class", otString, cls);
-        TPerfTimer tm;
         Qry.Execute();
-        ProgTrace(TRACE5, "GetPaxList Execute(): %s", tm.PrintWithMessage().c_str());
-        tm.Init();
         if(!Qry.Eof) {
             int col_target = Qry.FieldIndex("target");
             int col_cls = Qry.FieldIndex("cls");
@@ -1300,7 +1287,6 @@ namespace PRL_SPACE {
             int col_grp_id = Qry.FieldIndex("grp_id");
             int col_subcls = Qry.FieldIndex("subclass");
             for(; !Qry.Eof; Qry.Next()) {
-                TPerfTimer pax_time;
                 TPRLPax pax(infants);
                 pax.target = Qry.FieldAsString(col_target);
                 if(!Qry.FieldIsNULL(col_cls))
@@ -1326,10 +1312,8 @@ namespace PRL_SPACE {
                 grp_map->get(pax.grp_id);
                 pax.OList.get(pax.pax_id);
                 PaxList.push_back(pax);
-                ProgTrace(TRACE5, "WHOLE PAX [%d] TIME: %s", pax.pax_id, pax_time.PrintWithMessage().c_str());
             }
         }
-        ProgTrace(TRACE5, "GetPaxList fill list: %s", tm.PrintWithMessage().c_str());
     }
 
     struct TCOMStatsItem {
@@ -5053,10 +5037,7 @@ int ETL(TTlgInfo &info)
 template <class T>
 void TDestList<T>::get(TTlgInfo &info,vector<TTlgCompLayer> &complayers)
 {
-    TPerfTimer tm;
     infants.get(info.point_id);
-    ProgTrace(TRACE5, "infants.get: %s", tm.PrintWithMessage().c_str());
-    tm.Init();
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "select point_num, airp, class from "
@@ -5078,16 +5059,13 @@ void TDestList<T>::get(TTlgInfo &info,vector<TTlgCompLayer> &complayers)
     Qry.CreateVariable("vfirst_point", otInteger, info.pr_tranzit ? info.first_point : info.point_id);
     Qry.CreateVariable("vpoint_num", otInteger, info.point_num);
     Qry.Execute();
-    ProgTrace(TRACE5, "Qry.Execute(): %s", tm.PrintWithMessage().c_str());
     for(; !Qry.Eof; Qry.Next()) {
         T dest(&grp_map, &infants);
         dest.point_num = Qry.FieldAsInteger("point_num");
         dest.airp = Qry.FieldAsString("airp");
         dest.cls = Qry.FieldAsString("class");
         ProgTrace(TRACE5, "airp: %s, cls: %s", dest.airp.c_str(), dest.cls.c_str());
-        tm.Init();
         dest.GetPaxList(info,complayers);
-        ProgTrace(TRACE5, "dest.GetPaxList: %s", tm.PrintWithMessage().c_str());
         items.push_back(dest);
     }
 }
@@ -5764,20 +5742,13 @@ int PRL(TTlgInfo &info)
     size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
 
     vector<string> body;
-    TPerfTimer tm;
     try {
         vector<TTlgCompLayer> complayers;
-        tm.Init();
         ReadSalons( info, complayers );
-        ProgTrace(TRACE5, "ReadSalons: %s", tm.PrintWithMessage().c_str());
         ProgTrace( TRACE5, "complayers.size()=%d", complayers.size() );
         TDestList<TPRLDest> dests;
-        tm.Init();
         dests.get(info,complayers);
-        ProgTrace(TRACE5, "dests.get: %s", tm.PrintWithMessage().c_str());
-        tm.Init();
         dests.ToTlg(info, body);
-        ProgTrace(TRACE5, "dests.ToTlg: %s", tm.PrintWithMessage().c_str());
     } catch(...) {
         ExceptionFilter(body, info);
     }
@@ -5880,15 +5851,11 @@ int TelegramInterface::create_tlg(const TCreateTlgInfo &createInfo)
         if(info.mark_info.IsNULL() or not info.mark_info.pr_mark_header)
             info.airline_view = info.TlgElemIdToElem(etAirline, info.airline);
         info.suffix_view = info.suffix.empty() ? "" : info.TlgElemIdToElem(etSuffix, info.suffix);
-        TPerfTimer tm0;
         info.airp_dep_view = info.TlgElemIdToElem(etAirp, info.airp_dep);
-        ProgTrace(TRACE5, "info.TlgElemIdToElem(etAirp: %s", tm0.PrintWithMessage().c_str());
 
         info.pr_lat_seat = Qry.FieldAsInteger("pr_lat_seat") != 0;
 
-        tm0.Init();
         string tz_region=AirpTZRegion(info.airp_dep);
-        ProgTrace(TRACE5, "AirpTZRegion: %s", tm0.PrintWithMessage().c_str());
         info.scd_local = UTCToLocal( info.scd_utc, tz_region );
         if(!Qry.FieldIsNULL("act_out"))
             info.act_local = UTCToLocal( Qry.FieldAsDateTime("act_out"), tz_region );
@@ -6024,7 +5991,7 @@ void TCodeShareInfo::init(xmlNodePtr node)
     pr_mark_header = NodeAsIntegerFast("pr_mark_header", currNode) != 0;
 }
 
-void tmp_create_tlg(xmlNodePtr reqNode, xmlNodePtr resNode)
+void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TQuery Qry(&OraSession);
     TCreateTlgInfo createInfo;
@@ -6060,10 +6027,7 @@ void tmp_create_tlg(xmlNodePtr reqNode, xmlNodePtr resNode)
 
     int tlg_id = NoExists;
     try {
-        TPerfTimer tm;
-        tm.Init();
-        tlg_id = TelegramInterface::create_tlg(createInfo);
-        ProgTrace(TRACE5, "TelegramInterface::create_tlg: %s", tm.PrintWithMessage().c_str());
+        tlg_id = create_tlg(createInfo);
     } catch(AstraLocale::UserException &E) {
         throw AstraLocale::UserException( "MSG.TLG.CREATE_ERROR", LParams() << LParam("what", getLocaleText(E.getLexemaData())));
     }
@@ -6072,15 +6036,10 @@ void tmp_create_tlg(xmlNodePtr reqNode, xmlNodePtr resNode)
     ostringstream msg;
     msg << "Телеграмма " << short_name
         << " (ид=" << tlg_id << ") сформирована: "
-        << TelegramInterface::GetTlgLogMsg(createInfo);
+        << GetTlgLogMsg(createInfo);
     if (createInfo.point_id==-1) createInfo.point_id=0;
     TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,createInfo.point_id,tlg_id);
     NewTextChild( resNode, "tlg_id", tlg_id);
-}
-
-void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    tmp_create_tlg(reqNode, resNode);
 };
 
 string TelegramInterface::GetTlgLogMsg(const TCreateTlgInfo &createInfo)
@@ -6104,49 +6063,3 @@ string TelegramInterface::GetTlgLogMsg(const TCreateTlgInfo &createInfo)
 
   return msg.str();
 };
-
-int test_prl(int argc,char **argv)
-{
-    string xml =
-        "<?xml version=\"1.0\" encoding=\"CP866\"?>"
-        "<term>"
-        "  <query handle=\"0\" id=\"Telegram\" ver=\"1\" opr=\"DEN\" screen=\"TLG.EXE\" mode=\"STAND\" lang=\"RU\">"
-        "    <CreateTlg>"
-        "      <point_id>81448</point_id>"
-        "      <tlg_type>ETL</tlg_type>"
-        "      <crs/>"
-        "      <pr_lat>0</pr_lat>"
-        "      <addrs/>"
-        "    </CreateTlg>"
-        "  </query>"
-        "</term>";
-        /*
-        "<?xml version=\"1.0\" encoding=\"CP866\"?>"
-        "<term>"
-        "  <query handle=\"0\" id=\"Telegram\" ver=\"1\" opr=\"DEN\" screen=\"TLG.EXE\" mode=\"STAND\" lang=\"RU\">"
-        "    <CreateTlg>"
-//        "      <point_id>1689526</point_id>" // ~16 sec
-        "      <point_id>1690294</point_id>" // ~2 sec
-        "      <tlg_type>PRL</tlg_type>"
-        "      <crs/>"
-        "      <pr_lat>0</pr_lat>"
-        "      <addrs>QQQQQQQ </addrs>"
-        "    </CreateTlg>"
-        "  </query>"
-        "</term>";
-        */
-    xmlDocPtr reqDoc = TextToXMLTree(xml);
-    xmlNodePtr reqNode = xmlDocGetRootElement(reqDoc);
-    reqNode = reqNode->children->children;
-    ProgTrace(TRACE5, "tag: %s", reqNode->name);
-    ProgTrace(TRACE5, "%s", GetXMLDocText(reqNode->doc).c_str());
-    xmlDocPtr resDoc = CreateXMLDoc("CP866", "answer");
-    xmlNodePtr resNode = xmlDocGetRootElement(resDoc);
-    TPerfTimer tm;
-    tm.Init();
-    tmp_create_tlg(reqNode, resNode);
-    ProgTrace(TRACE5, "tmp_create_tlg: %s", tm.PrintWithMessage().c_str());
-
-    return 1;
-}
-

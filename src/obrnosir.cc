@@ -5,7 +5,6 @@
 #include "maindcs.h"
 #include "docs.h"
 #include "load_fr.h"
-#include "telegram.h"
 #include "empty_proc.h"
 #include "serverlib/query_runner.h"
 #include "edilib/edi_loading.h"
@@ -30,7 +29,6 @@ const
     {"-ediinsert",     edi_load_messages_main,  NULL,                     "loading edifact templates"},
     {"-testbm",        testbm,                  NULL,                     NULL},
     {"-load_fr",       load_fr,                 NULL,                     NULL},
-//    {"-test_prl",      test_prl,                NULL,                     NULL},
     {"-termversion",   SetTermVersionNotice,    SetTermVersionNoticeHelp, NULL},
     {"-alter_db",      alter_db,                NULL,                     NULL}
   };
@@ -93,7 +91,7 @@ int main_nosir_user(int argc,char **argv)
   }
   catch(EOracleError &E)
   {
-    ProgError(STDLOG,"EOracleError %d: %s, SQLText: %s",E.Code,E.what(), E.SQLText());
+    ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.what());
     puts("Bad error! Contact with developers!");
   }
   catch(std::exception &E)
