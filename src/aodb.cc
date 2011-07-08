@@ -382,6 +382,7 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 	   "SELECT pax.pax_id,pax.reg_no,pax.surname||' '||pax.name name,pax_grp.grp_id,"
 	   "       pax_grp.airp_arv,pax_grp.class,pax.refuse,"
 	   "       pax.pers_type, "
+	   "       NVL(pax_doc.gender,'F') as gender, "
 	   "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'one',rownum) AS seat_no, "
 	   "       pax.seats seats, "
 	   "       ckin.get_excess(pax_grp.grp_id,pax.pax_id) excess,"
@@ -392,10 +393,11 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 	   "       pax.pr_brd,ckin.get_main_pax_id(pax.grp_id) as main_pax_id, "
 	   "       pax_grp.status, "
 	   "       pax_grp.client_type "
-	   " FROM pax_grp, pax "
+	   " FROM pax_grp, pax, pax_doc "
 	   " WHERE pax_grp.grp_id=pax.grp_id AND "
 	   "       pax_grp.point_dep=:point_id AND "
 	   "       pax.wl_type IS NULL "
+	   "       pax.pax_id=pax_doc.pax_id(+) "
 	   " ORDER BY pax_grp.grp_id,seats ";
 	};
 	Qry.CreateVariable( "point_id", otInteger, point_id );
@@ -432,6 +434,12 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 		if ( !pr_unaccomp ) {
 		  record<<setw(3)<<Qry.FieldAsInteger( "reg_no");
 	  	record<<setw(30)<<string(Qry.FieldAsString( "name" )).substr(0,30);
+      if ( DecodePerson( Qry.FieldAsString( "pers_type" ) ) == ASTRA::adult ) {
+        record<<setw(1)<<string(Qry.FieldAsString( "gender" )).substr(0,1);
+      }
+      else {
+        record<<setw(1)<<string(" ").substr(0,1);
+      }
 		  TAirpsRow *row=(TAirpsRow*)&base_tables.get("airps").get_row("code",Qry.FieldAsString("airp_arv"));
 		  record<<setw(20)<<row->code.substr(0,20);
 		  record<<setw(1);
@@ -450,38 +458,35 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 		  record<<setw(1);
 		  RemQry.SetVariable( "pax_id", Qry.FieldAsInteger( "pax_id" ) );
 	    RemQry.Execute();
-		  bool pr_ex = false;
-		  while ( !RemQry.Eof && !pr_ex ) {
+	    int category = 0;
+		  while ( !RemQry.Eof && category == 0 ) {
 		  	string rem = RemQry.FieldAsString( "rem_code" );
 		  	if ( rem == "VIP" ) {
-		  		record<<2;
-		  		pr_ex = true;
+		  	  category = 2;
 		  	}
 		  	else
 		  		if ( rem == "DIPB" ) {
-		  			record<<3;
-		  			pr_ex=true;
+		  		  category = 3;
 		  		}
 		  		else
 		  			if ( rem == "SPSV" ) {
-		  				record<<4;
-		  				pr_ex=true;
+		  			  category = 4;
 		  			}
 		  			else
 		  				if ( rem == "MEDA" ) {
-		  					record<<5;
-		  					pr_ex=true;
+		  				  category = 5;
 		  			  }
 		  			  else
 		  			  	if ( rem == "UMNR" ) {
-		  			  		record<<9;
-		  			  		pr_ex=true;
+		  			  	  category = 9;
 		  			  	}
-
+                else
+                  if ( rem == "DUTY" ) {
+                    category = 10;
+                  }
 			  RemQry.Next();
 		  }
-		  if ( !pr_ex )
-		  	record<<0;
+		  record<<setw(2)<<category;
 		  record<<setw(1);
 		  bool adult = false;
 		  switch ( DecodePerson( Qry.FieldAsString( "pers_type" ) ) ) {
