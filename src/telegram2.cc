@@ -1133,8 +1133,6 @@ namespace PRL_SPACE {
         item.pax_count = Qry.FieldAsInteger(0);
         item.tags.get(grp_id);
         item.bg = items.size() + 1;
-        ProgTrace(TRACE5, "item.bg: %d", items.size());
-        ProgTrace(TRACE5, "TGRPMap::get: grp_id %d", grp_id);
         items[grp_id] = item;
     }
 
@@ -2112,7 +2110,6 @@ struct TPLine {
 void TPList::ToPTMTlg(TTlgInfo &info, vector<string> &body, TFItem &FItem)
 {
     for(map<string, TPSurname>::iterator im = surnames.begin(); im != surnames.end(); im++) {
-        ProgTrace(TRACE5, "SURNAME: %s", im->first.c_str());
         vector<TPPax> one; // одно место
         vector<TPPax> many_noname; // без имени, больше одного места
         vector<TPPax> many_name; // с именем, больше одного места
@@ -2232,8 +2229,6 @@ void TPList::ToPTMTlg(TTlgInfo &info, vector<string> &body, TFItem &FItem)
 
 void TPList::ToBTMTlg(TTlgInfo &info, vector<string> &body, TFItem &FItem)
 {
-    ProgTrace(TRACE5, "TPList::ToBTMTlg: grp_id: %d; main_pax_id: %d", grp->grp_id, grp->main_pax_id);
-    dump_surnames();
     vector<TPLine> lines;
     // Это был сложный алгоритм объединения имен под одну фамилию и все такое
     // теперь он выродился в список из всего одного пассажира с main_pax_id
@@ -2285,12 +2280,10 @@ void TPList::ToBTMTlg(TTlgInfo &info, vector<string> &body, TFItem &FItem)
     // совпадения обрезанных фамилий.
     for(vector<TPLine>::iterator iv = lines.begin(); iv != lines.end(); iv++) {
         TPLine &curLine = *iv;
-        ProgTrace(TRACE5, "%s", curLine.surname.c_str());
         if(curLine.names.empty()) {
             size_t line_size = curLine.get_line_size();
             if(line_size > LINE_SIZE) {
                 string surname = curLine.surname.substr(0, curLine.surname.size() - (line_size - LINE_SIZE));
-                ProgTrace(TRACE5, "AFTER CUT: %s", surname.c_str());
                 vector<TPLine>::iterator found_l = find(lines.begin(), lines.end(), surname);
                 if(found_l != lines.end()) {
                     curLine.skip = true;
@@ -2367,7 +2360,6 @@ void TPList::get(TTlgInfo &info, string trfer_cls)
             surnames[item.surname].push_back(item);
         }
     }
-    //dump_surnames();
 }
 
     struct TPTMGrpList:TBTMGrpList {
@@ -2385,7 +2377,6 @@ void TBTMGrpList::ToTlg(TTlgInfo &info, vector<string> &body, TFItem &AFItem)
     for(vector<TBTMGrpListItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
         vector<string> plist;
         iv->PList.ToBTMTlg(info, plist, AFItem);
-        ProgTrace(TRACE5, "plist.size(): %d", plist.size());
         if(plist.empty())
             continue;
         if(iv->NList.items.empty())
@@ -2398,7 +2389,6 @@ void TBTMGrpList::ToTlg(TTlgInfo &info, vector<string> &body, TFItem &AFItem)
 
 void TBTMGrpList::get(TTlgInfo &info, TFItem &FItem)
 {
-    ProgTrace(TRACE5, "TBTMGrpList::get start");
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "select  \n"
@@ -2589,12 +2579,9 @@ void TFList<T>::get(TTlgInfo &info)
             item.grp_list.get(info, item);
             if(item.grp_list.items.empty())
                 continue;
-            ProgTrace(TRACE5, "item.grp_list.items.size(): %d", item.grp_list.items.size());
-            item.grp_list.dump();
             items.push_back(item);
         }
     }
-    ProgTrace(TRACE5, "TFList<T>::get: items.size(): %d", items.size());
 }
 
     template <class T>
@@ -3227,7 +3214,6 @@ int BTM(TTlgInfo &info)
             tlg_row.body += *iv + br;
     }
 
-    ProgTrace(TRACE5, "body size: %d", tlg_row.body.size());
     if(tlg_row.num == 1)
         tlg_row.heading = heading1.str() + br + heading2.str();
     tlg_row.ending = "ENDBTM" + br;
@@ -3570,7 +3556,6 @@ void TTlgSeatList::get_seat_list(map<int, string> &list, bool pr_lat)
     // определение минимальной и максимальной координаты линии в которых есть
     // занятые места (используются для последующего вертикального пробега)
     string min_col, max_col;
-    dump_comp();
     for(t_tlg_comp::iterator ay = comp.begin(); ay != comp.end(); ay++) {
         map<int, TSeatListContext> ctxt;
         string *first_xname = NULL;
@@ -3583,12 +3568,9 @@ void TTlgSeatList::get_seat_list(map<int, string> &list, bool pr_lat)
         if(max_col.empty() or not less_iata_line(row.rbegin()->first, max_col))
             max_col = row.rbegin()->first;
         for(t_tlg_row::iterator ax = row.begin(); ax != row.end(); ax++) {
-            ProgTrace(TRACE5, "ax->second.point_arv: %d", ax->second.point_arv);
             cur_ctxt = &ctxt[ax->second.point_arv];
             first_xname = &cur_ctxt->first_xname;
             last_xname = &cur_ctxt->last_xname;
-            ProgTrace(TRACE5, "first_xname: %s", first_xname->c_str());
-            ProgTrace(TRACE5, "last_xname: %s", last_xname->c_str());
             SeatRectList = &hrz_list[ax->second.point_arv];
             if(first_xname->empty()) {
                 *first_xname = ax->first;
@@ -3729,7 +3711,6 @@ void TTlgSeatList::apply_comp(TTlgInfo &info, bool pr_blocked = false)
   vector<TTlgCompLayer> complayers;
   ReadSalons( info, complayers, pr_blocked );
   for ( vector<TTlgCompLayer>::iterator il=complayers.begin(); il!=complayers.end(); il++ ) {
-    ProgTrace( TRACE5, "yname=%s, xname=%s", il->yname.c_str(), il->xname.c_str() );
     add_seat( il->point_arv, il->xname, il->yname );
   }
 }
@@ -4434,7 +4415,6 @@ struct TLDMCFG:TCFG {
             if(iv->cls == "Б") pr_c = true;
             if(iv->cls == "Э") pr_y = true;
         }
-        ProgTrace(TRACE5, "cfg.str(): %s", cfg.str().c_str());
         if (info.bort.empty() ||
             cfg.str().empty() ||
             crew.cockpit==NoExists ||
@@ -5064,7 +5044,6 @@ void TDestList<T>::get(TTlgInfo &info,vector<TTlgCompLayer> &complayers)
         dest.point_num = Qry.FieldAsInteger("point_num");
         dest.airp = Qry.FieldAsString("airp");
         dest.cls = Qry.FieldAsString("class");
-        ProgTrace(TRACE5, "airp: %s, cls: %s", dest.airp.c_str(), dest.cls.c_str());
         dest.GetPaxList(info,complayers);
         items.push_back(dest);
     }
@@ -5595,13 +5574,11 @@ void TPFSBody::get(TTlgInfo &info)
 {
     TPFSInfo PFSInfo;
     PFSInfo.get(info.point_id);
-    PFSInfo.dump();
     TCKINPaxInfo ckin_pax;
     for(map<int, TPFSInfoItem>::iterator im = PFSInfo.items.begin(); im != PFSInfo.items.end(); im++) {
         string category;
         const TPFSInfoItem &item = im->second;
         ckin_pax.get(item);
-        ckin_pax.dump();
         if(item.pnl_pax_id != NoExists) { // Пассажир присутствует в PNL/ADL рейса
             if(ckin_pax.crs_pax.status == "WL") {
                 if(ckin_pax.pr_brd != NoExists and ckin_pax.pr_brd != 0)
@@ -5745,7 +5722,6 @@ int PRL(TTlgInfo &info)
     try {
         vector<TTlgCompLayer> complayers;
         ReadSalons( info, complayers );
-        ProgTrace( TRACE5, "complayers.size()=%d", complayers.size() );
         TDestList<TPRLDest> dests;
         dests.get(info,complayers);
         dests.ToTlg(info, body);
