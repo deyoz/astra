@@ -521,8 +521,8 @@ void create_apis_file(int point_id)
       TAirpsRow &airp_arv = (TAirpsRow&)base_tables.get("airps").get_row("code",RouteQry.FieldAsString("airp"));
     	if (airp_arv.code_lat.empty()) throw Exception("airp_arv.code_lat empty (code=%s)",airp_arv.code.c_str());
     	tz_region=AirpTZRegion(airp_arv.code);
-      if (RouteQry.FieldIsNULL("act_in")) throw Exception("act_in empty (airp_arv=%s)",airp_arv.code.c_str());
-      TDateTime act_in_local = UTCToLocal(RouteQry.FieldAsDateTime("act_in"),tz_region);
+      if (RouteQry.FieldIsNULL("scd_in")) throw Exception("scd_in empty (airp_arv=%s)",airp_arv.code.c_str());
+      TDateTime act_in_local = UTCToLocal(RouteQry.FieldAsDateTime("scd_in"),tz_region);
 
       ostringstream flight;
 
