@@ -527,8 +527,6 @@ void create_apis_file(int point_id)
       ostringstream flight;
 
       flight << airline.code_lat << setw(4) << setfill('0') << flt_no;
-
-      ostringstream file_name;
       
       //получим информацию по настройке APIS
       ApisSetsQry.SetVariable("country_arv",RouteQry.FieldAsString("country"));
@@ -536,6 +534,8 @@ void create_apis_file(int point_id)
       for(;!ApisSetsQry.Eof;ApisSetsQry.Next())
       {
         string fmt=ApisSetsQry.FieldAsString("format");
+        
+        ostringstream file_name;
 
         if (fmt=="EDI_CZ")
           file_name << ApisSetsQry.FieldAsString("dir") <<
