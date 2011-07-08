@@ -351,19 +351,24 @@ void TSalons::Write()
                        "        time_create=system.UTCSYSDATE,classes=:classes,pr_lat_seat=:pr_lat_seat "\
                        "  WHERE comp_id=:comp_id; "\
                        " DELETE comp_rem WHERE comp_id=:comp_id; "\
-                       " DELETE comp_elems WHERE comp_id=:comp_id; "\
+                       " DELETE comp_rates WHERE comp_id=:comp_id; "
+                       " DELETE comp_elems WHERE comp_id=:comp_id; "
+                       " DELETE comp_classes WHERE comp_id=:comp_id; "
                        "END; ";
          break;
       case mAdd:
-         Qry.SQLText = "INSERT INTO comps(comp_id,airline,airp,craft,bort,descr,time_create,classes,pr_lat_seat) "\
+         Qry.SQLText = "INSERT INTO comps(comp_id,airline,airp,craft,bort,descr,time_create,classes,pr_lat_seat) "
                        " VALUES(:comp_id,:airline,:airp,:craft,:bort,:descr,system.UTCSYSDATE,:classes,:pr_lat_seat) ";
          break;
       case mDelete:
-         Qry.SQLText = "BEGIN "\
-                       " UPDATE trip_sets SET comp_id=NULL WHERE comp_id=:comp_id; "\
-                       " DELETE comp_rem WHERE comp_id=:comp_id; "\
-                       " DELETE comp_elems WHERE comp_id=:comp_id; "\
-                       " DELETE comps WHERE comp_id=:comp_id; "\
+         Qry.SQLText = "BEGIN "
+                       " UPDATE trip_sets SET comp_id=NULL WHERE comp_id=:comp_id; "
+                       " DELETE comp_rem WHERE comp_id=:comp_id; "
+                       " DELETE comp_rates WHERE comp_id=:comp_id; "
+                       " DELETE comp_elems WHERE comp_id=:comp_id; "
+                       " DELETE comp_sections WHERE comp_id=:comp_id; "
+                       " DELETE comp_classes WHERE comp_id=:comp_id; "
+                       " DELETE comps WHERE comp_id=:comp_id; "
                        "END; ";
          break;
     }
@@ -434,6 +439,8 @@ void TSalons::Write()
   Qry.DeclareVariable( "yname", otString );
 
   vector<TPlaceList*>::iterator plist;
+  map<TClass,int> countersClass;
+  TClass cl;
   for ( plist = placelists.begin(); plist != placelists.end(); plist++ ) {
     Qry.SetVariable( "num", (*plist)->num );
     RQry.SetVariable( "num", (*plist)->num );
@@ -454,8 +461,12 @@ void TSalons::Write()
       Qry.SetVariable( "agle", place->agle );
       if ( place->clname.empty() || !ispl[ place->elem_type ] )
         Qry.SetVariable( "class", FNull );
-      else
+      else {
         Qry.SetVariable( "class", place->clname );
+        cl = DecodeClass( place->clname.c_str() );
+        if ( cl != NoClass )
+          countersClass[ cl ] = countersClass[ cl ] + 1;
+      }
       if ( !place->pr_smoke )
         Qry.SetVariable( "pr_smoke", FNull );
       else
@@ -491,6 +502,22 @@ void TSalons::Write()
       	}
       }
     } //for place
+  }
+  // сохраняем конфигурацию мест
+  if ( readStyle != SALONS2::rTripSalons ) {
+    Qry.Clear();
+    Qry.SQLText =
+     "INSERT INTO comp_classes(comp_id,class,cfg) VALUES(:comp_id,:class,:cfg)";
+    Qry.CreateVariable( "comp_id", otInteger, comp_id );
+    Qry.DeclareVariable( "class", otString );
+    Qry.DeclareVariable( "cfg", otInteger );
+    for ( map<TClass,int>::iterator i=countersClass.begin(); i!=countersClass.end(); i++ ) {
+      if ( i->second > 999 )
+        throw UserException( "MSG.SALONS.MATCH_PLACES" );
+      Qry.SetVariable( "class", EncodeClass( i->first ) );
+      Qry.SetVariable( "cfg", i->second );
+      Qry.Execute();
+    }
   }
   if ( readStyle == SALONS2::rTripSalons )
     check_waitlist_alarm( trip_id );
@@ -1120,20 +1147,19 @@ int GetCompId( const std::string craft, const std::string bort, const std::strin
 	int idx;
 	TQuery Qry(&OraSession);
 	Qry.SQLText =
-   "SELECT comp_id, bort, airline, airp, f, c, y FROM "
-   " ( SELECT comp_elems.comp_id, bort, airline, airp, "
-   "           NVL( SUM( DECODE( class, 'П', 1, 0 ) ), 0 ) as f, "
-   "           NVL( SUM( DECODE( class, 'Б', 1, 0 ) ), 0 ) as c, "
-   "           NVL( SUM( DECODE( class, 'Э', 1, 0 ) ), 0 ) as y "
-   "      FROM comp_elems, comp_elem_types, comps "
-   "     WHERE comp_elems.elem_type = comp_elem_types.code AND comp_elem_types.pr_seat <> 0 AND "
-   "           comp_elems.comp_id = comps.comp_id AND comps.craft = :craft "
-   "    GROUP BY comp_elems.comp_id,bort, airline, airp ) "
-   " WHERE f - :vf >= 0 AND "
-   "       c - :vc >= 0 AND "
-   "       y - :vy >= 0 AND "
-   "       f < 1000 AND c < 1000 AND y < 1000 "
-   "ORDER BY comp_id";
+    "SELECT * FROM "
+	  "( SELECT COMPS.COMP_ID, BORT, AIRLINE, AIRP, "
+    "         NVL( SUM( DECODE( CLASS, 'П', CFG, 0 )), 0 ) AS F, "
+    "         NVL( SUM( DECODE( CLASS, 'Б', CFG, 0 )), 0 ) AS C, "
+    "         NVL( SUM( DECODE( CLASS, 'Э', cfg, 0 )), 0 ) AS Y "
+    "   FROM COMPS, COMP_CLASSES "
+    "  WHERE COMP_CLASSES.COMP_ID = COMPS.COMP_ID AND COMPS.CRAFT = :craft "
+    "  GROUP BY COMPS.COMP_ID, BORT, AIRLINE, AIRP ) "
+    "WHERE  f - :vf >= 0 AND "
+    "       c - :vc >= 0 AND "
+    "       y - :vy >= 0 AND "
+    "       f < 1000 AND c < 1000 AND y < 1000 "
+    " ORDER BY comp_id ";
 	Qry.CreateVariable( "craft", otString, craft );
 	Qry.CreateVariable( "vf", otString, f );
 	Qry.CreateVariable( "vc", otString, c );
