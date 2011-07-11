@@ -6,6 +6,6 @@
 // тест
 
 int load_fr(int argc,char **argv);
-void my(std::string fname);
+int get_fr(int argc,char **argv);
 
 #endif

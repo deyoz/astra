@@ -4,11 +4,8 @@
 #include <fstream>
 #define NICKNAME "DENIS"
 #include "serverlib/test.h"
-#include <boost/shared_ptr.hpp>
 #include <boost/shared_array.hpp>
-#include <boost/ptr_container/ptr_map.hpp>
 #include "boost/filesystem/operations.hpp"
-#include "boost/filesystem/path.hpp"
 #include "stl_utils.h"
 #include "oralib.h"
 #include "exceptions.h"
@@ -33,16 +30,12 @@ void my(fs::path &full_path, string fname)
     char c;
     streambuf *sb;
     sb = in.rdbuf();
-    ostringstream form;
+    ostringstream buf;
     while(sb->sgetc() != EOF) {
         c = sb->sbumpc();
-        form << c;
+        buf << c;
     }
-
-    cout << "saving " << (apath.native_file_string() + ".out") << endl;
-    ofstream out((apath.native_file_string() + ".out").c_str());
-    out << form.str();
-    out.close();
+    string form = buf.str();
 
     vector<string> tokens;
     size_t begin_pos = 0;
@@ -78,65 +71,109 @@ void my(fs::path &full_path, string fname)
     }
 
     TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "begin "
-        "   update fr_forms2 set "
-        "       form = :form "
-        "   where "
-        "       name = :name and "
-        "       version = :version and "
-        "       pr_locale = :pr_locale; "
-        "   if sql%notfound then "
-        "       insert into fr_forms2 ( "
-        "           name, "
-        "           version, "
-        "           form, "
-        "           pr_locale "
-        "       ) values ( "
-        "           :name, "
-        "           :version, "
-        "           :form, "
-        "           :pr_locale "
-        "       ); "
-        "   end if; "
-        "   commit; "
-        "end; ";
+    Qry.SQLText = "update fr_forms2 set form = :form where name = :name and version = :version and pr_locale = :pr_locale";
     Qry.CreateVariable("name", otString, name);
     Qry.CreateVariable("version", otString, version);
-    Qry.CreateLongVariable("form", otLong, (void *)form.str().c_str(), form.str().size());
+    Qry.CreateLongVariable("form", otLong, (void *)form.c_str(), form.size());
     Qry.CreateVariable("pr_locale", otInteger, locale);
-    ProgTrace(TRACE5, "before exec");
     Qry.Execute();
-    ProgTrace(TRACE5, "after exec");
+    if(!Qry.RowsProcessed()) {
+        Qry.SQLText = "insert into fr_forms2(name, version, form, pr_locale) values(:name, :version, :form, :pr_locale)";
+        Qry.Execute();
+    }
+}
+
+void load_fr_help(const char *name)
+{
+  printf("  %-15.15s ", name);
+  puts("<path to .fr3 files>");
+};
+
+void usage(string name, string what)
+{
+    cout 
+        << "Error: " << what << endl
+        << "Usage:" << endl;
+    load_fr_help(name.c_str());
+    cout
+        << "Example:" << endl
+        << "  " << name << " ./fr_reports/" << endl;
+
+}
+
+int get_fr(int argc,char **argv)
+{
+    try {
+        fs::path full_path;
+        if(argc > 1)
+            full_path = fs::system_complete(fs::path(argv[1]));
+        else
+            throw Exception("dir not specified");
+        if ( !fs::exists( full_path ) )
+            throw Exception("path not found: %s", full_path.native_file_string().c_str());
+
+        TQuery Qry(&OraSession);
+        Qry.SQLText = "select name, version, form, pr_locale from fr_forms2";
+        Qry.Execute();
+        for(; not Qry.Eof; Qry.Next()) {
+            string fname = Qry.FieldAsString("name");
+            string version = Qry.FieldAsString("version");
+            string pr_locale = Qry.FieldAsString("pr_locale");
+            if(version != DEF_VERS)
+                fname += "." + version;
+            if(pr_locale == FALSE_LOCALE)
+                fname += "." + pr_locale;
+            fname += ".fr3";
+
+            int len = Qry.GetSizeLongField("form");
+            shared_array<char> data (new char[len]);
+            Qry.FieldAsLong("form", data.get());
+            string form;
+            form.append(data.get(), len);
+
+            ProgTrace(TRACE5, "getting %s", fname.c_str());
+            fs::path apath = full_path / fname;
+            ofstream out(apath.native_file_string().c_str());
+            if(!out.good())
+                throw Exception("Cannot open file %s", apath.native_file_string().c_str());
+            out << form;
+        }
+    } catch(Exception &E) {
+        usage(argv[0], E.what());
+        return 1;
+    }
+    return 0;
 }
 
 int load_fr(int argc,char **argv)
 {
-    fs::path full_path;
-    if(argc > 1)
-        full_path = fs::system_complete(fs::path(argv[1]));
-    else
-        throw Exception("dir not specified");
-    if ( !fs::exists( full_path ) )
-        throw Exception("path not found: %s", full_path.native_file_string().c_str());
+    try {
+        fs::path full_path;
+        if(argc > 1)
+            full_path = fs::system_complete(fs::path(argv[1]));
+        else
+            throw Exception("dir not specified");
+        if ( !fs::exists( full_path ) )
+            throw Exception("path not found: %s", full_path.native_file_string().c_str());
 
-    if ( fs::is_directory( full_path ) )
-    {
-        fs::directory_iterator end_iter;
-        for ( fs::directory_iterator dir_itr( full_path ); dir_itr != end_iter; ++dir_itr )
+        if ( fs::is_directory( full_path ) )
         {
-            if ( not fs::is_directory( *dir_itr ) )
+            fs::directory_iterator end_iter;
+            for ( fs::directory_iterator dir_itr( full_path ); dir_itr != end_iter; ++dir_itr )
             {
-                if(dir_itr->leaf().substr(dir_itr->leaf().size() - 4, 4) == ".fr3") {
-                    ProgTrace(TRACE5, "processing %s", dir_itr->leaf().c_str());
-                    my(full_path, dir_itr->leaf());
+                if ( not fs::is_directory( *dir_itr ) )
+                {
+                    if(dir_itr->leaf().substr(dir_itr->leaf().size() - 4, 4) == ".fr3") {
+                        ProgTrace(TRACE5, "loading %s", dir_itr->leaf().c_str());
+                        my(full_path, dir_itr->leaf());
+                    }
                 }
             }
         }
+    } catch(Exception &E) {
+        usage(argv[0], E.what());
+        return 1;
     }
-
-    ProgTrace(TRACE5, "Den was here");
-
-
     return 0;
 }
+
