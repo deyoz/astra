@@ -1908,6 +1908,7 @@ void ParseAndSaveSPP( const std::string &filename, const std::string &canon_name
       QryLog.Execute();
     }
     catch( Exception &e ) {
+      OraSession.Rollback();
       if ( fl.rec_no == NoExists )
       	QryLog.SetVariable( "rec_no", -1 );
       else
@@ -1928,6 +1929,7 @@ void ParseAndSaveSPP( const std::string &filename, const std::string &canon_name
     }
     if ( fl.rec_no > NoExists )
       max_rec_no = fl.rec_no;
+    OraSession.Commit();
   }
 	TQuery Qry( &OraSession );
 	Qry.SQLText = "UPDATE aodb_spp_files SET rec_no=:rec_no WHERE filename=:filename AND point_addr=:point_addr AND airline=:airline";
@@ -2123,6 +2125,7 @@ void parseIncommingAODBData()
 	                     str_file, convert_aodb );
       ProgTrace( TRACE5, "deleteFile id=%d", Qry.FieldAsInteger( "id" ) );
       deleteFile( Qry.FieldAsInteger( "id" ) );
+      OraSession.Commit();
   	  Qry.Next();
     }
   }
@@ -2144,6 +2147,8 @@ int main_aodb_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
     ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
             ->connect_db();
 
+     if (init_edifact()<0) throw Exception("'init_edifact' error");
+    
     TReqInfo::Instance()->clear();
 	  emptyHookTables();
     char buf[10];
