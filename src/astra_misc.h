@@ -176,7 +176,21 @@ enum TTripSetType { tsCraftInitVIP=1,
                     tsNoTicketCheck=15,
                     tsCharterSearch=16,
                     tsCraftNoChangeSections=17 };
+
+enum TCheckDocType { ckinWithoutDoc=0,
+                     ckinWithDocNumber=1,
+                     ckinWithCompleteDoc=2,
+                     ckinWithoutInterDoc=3,
+                     ckinWithInterDocNumber=4,
+                     ckinWithInterCompleteDoc=5 };
+
+enum TCheckTknType { ckinWithoutTkn=0,
+                     ckinWithTkn=1 };
+                    
 bool GetTripSets( const TTripSetType setType, const TTripInfo &info );
+
+TCheckDocType GetCheckDocType(const int point_dep, const std::string& airp_arv);
+TCheckTknType GetCheckTknType(const int point_dep);
 
 class TPnrAddrItem
 {

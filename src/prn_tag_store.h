@@ -152,6 +152,7 @@ class TTagLang {
         bool IsInter(TBTRoute *aroute, std::string &country);
     public:
         bool get_pr_lat() { return pr_lat; };
+        bool english_tag() const { return tag_lang == "E"; }
         bool IsInter() const;
         std::string GetLang();
         std::string dup_lang() { return GetLang()==AstraLocale::LANG_EN ? AstraLocale::LANG_RU : GetLang(); }; // lang for duplicated captions
@@ -292,13 +293,18 @@ class TPrnTagStore {
             TTagFunct tag_funct;
             int info_type;
             bool processed;
+            // Если тег встречался в образе несколько раз, то этот признак указывает, все
+            // варианты были на английском или нет. Используется для записи в таблицу bp_print
+            bool english_only;
+
             boost::any TagInfo; // данные из set_tag
             TTagListItem(TTagFunct funct, int ainfo_type = 0):
                 tag_funct(funct),
                 info_type(ainfo_type),
-                processed(false)
+                processed(false),
+                english_only(true)
             {};
-            TTagListItem(): tag_funct(NULL) {};
+            TTagListItem(): tag_funct(NULL), english_only(true) {};
         };
 
         int pax_id;
@@ -391,7 +397,7 @@ class TPrnTagStore {
         };
         TPnrInfo pnrInfo;
 
-        std::string get_fmt_seat(std::string fmt);
+        std::string get_fmt_seat(std::string fmt, bool english_tag);
 
         std::string BCBP_M_2(TFieldParams fp);
         std::string ACT(TFieldParams fp);
@@ -526,6 +532,7 @@ class TPrnTagStore {
                 std::string tag_lang = "R"); // R - russian; E - english
         bool tag_processed(std::string name);
         void set_print_mode(int val);
+        void clear();
 
         void tst_get_tag_list(std::vector<std::string> &tag_list);
 };

@@ -1099,6 +1099,22 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry,  xmlNodePtr resNode)
   RemQry.SQLText =
     "SELECT rem_code,rem FROM crs_pax_rem WHERE pax_id=:pax_id";
   RemQry.DeclareVariable("pax_id",otInteger);
+  
+  TQuery PaxDocQry(&OraSession);
+  PaxDocQry.SQLText =
+    "SELECT type, issue_country, no, nationality, birth_date, gender, expiry_date, "
+    "       surname AS doc_surname, first_name, second_name, pr_multi "
+    "FROM crs_pax_doc "
+    "WHERE pax_id=:pax_id "
+    "ORDER BY DECODE(type,'P',0,NULL,2,1),DECODE(rem_code,'DOCS',0,1),no ";
+  PaxDocQry.DeclareVariable("pax_id",otInteger);
+  
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  
+  TQuery GetPSPT2Qry(&OraSession);
+  GetPSPT2Qry.SQLText =
+    "SELECT report.get_PSPT2(:pax_id) AS no FROM dual";
+  GetPSPT2Qry.DeclareVariable("pax_id",otInteger);
 
   int point_id=-1;
   int pnr_id=-1, pax_id;
@@ -1244,7 +1260,36 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry,  xmlNodePtr resNode)
     NewTextChild(node,"seat_no",PaxQry.FieldAsString("seat_no"),"");
     NewTextChild(node,"seat_type",PaxQry.FieldAsString("seat_type"),"");
     NewTextChild(node,"seats",PaxQry.FieldAsInteger("seats"),1);
-    NewTextChild(node,"document",PaxQry.FieldAsString("document"),"");
+    //обработка документов
+    PaxDocQry.SetVariable("pax_id", pax_id);
+    PaxDocQry.Execute();
+    if (!PaxDocQry.Eof)
+    {
+      if (TReqInfo::Instance()->desk.compatible(DOCS_VERSION))
+      {
+        CheckInInterface::LoadPaxDoc(PaxDocQry, node);
+      }
+      else
+      {
+        NewTextChild(node, "document", PaxDocQry.FieldAsString("no"), "");
+      };
+    }
+    else
+    {
+      GetPSPT2Qry.SetVariable("pax_id", pax_id);
+      GetPSPT2Qry.Execute();
+      if (!GetPSPT2Qry.Eof && !GetPSPT2Qry.FieldIsNULL("no"))
+      {
+        if (reqInfo->desk.compatible(DOCS_VERSION))
+        {
+          xmlNodePtr docNode=NewTextChild(node,"document");
+          NewTextChild(docNode, "no", GetPSPT2Qry.FieldAsString("no"), "");
+        }
+        else
+          NewTextChild(node, "document", GetPSPT2Qry.FieldAsString("no"), "");
+      };
+    };
+
     //обработка билетов
     string ticket_no;
     if (!PaxQry.FieldIsNULL("eticket"))
@@ -1334,7 +1379,6 @@ void CheckInInterface::SearchGrp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       "       crs_pax.seat_type, "
       "       crs_pax.seats, "
       "       crs_pnr.pnr_id, "
-      "       report.get_PSPT(crs_pax.pax_id) AS document, "
       "       report.get_TKNO(crs_pax.pax_id,'/',0) AS ticket, "
       "       report.get_TKNO(crs_pax.pax_id,'/',1) AS eticket "
       "FROM crs_pnr,crs_pax,pax "
@@ -1693,7 +1737,6 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       "       salons.get_crs_seat_no(crs_pax.pax_id,crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS seat_no, \n"
       "       crs_pax.seat_type,crs_pax.seats, \n"
       "       crs_pnr.pnr_id, \n"
-      "       report.get_PSPT(crs_pax.pax_id) AS document, \n"
       "       report.get_TKNO(crs_pax.pax_id,'/',0) AS ticket, \n"
       "       report.get_TKNO(crs_pax.pax_id,'/',1) AS eticket \n"
       "FROM crs_pnr,crs_pax,pax,( \n";
@@ -2428,7 +2471,7 @@ bool CheckInInterface::CheckCkinFlight(const int point_dep,
                         segInfo.pr_tranzit,
                         trtNotCurrent,trtNotCancelled);
 
-    vector<TTripRouteItem>::iterator r;
+    TTripRoute::iterator r;
     for(r=route.begin();r!=route.end();r++)
       if (r->airp==airp_arv) break;
     if (r==route.end()) return false;
@@ -2767,10 +2810,12 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
         "  CLOSE cur1; "
         "END;";
       CrsQry.DeclareVariable("pax_id",otInteger);
+      
+      TQuery PaxDocQry(&OraSession);
 
       Qry.Clear();
       Qry.SQLText=
-        "SELECT pr_tranz_reg,pr_reg_with_tkn,pr_reg_with_doc,pr_etstatus,pr_airp_seance "
+        "SELECT pr_tranz_reg,pr_etstatus,pr_airp_seance "
         "FROM trip_sets WHERE point_id=:point_id ";
       Qry.CreateVariable("point_id",otInteger,point_dep);
       Qry.Execute();
@@ -2796,8 +2841,8 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
       };
 
       bool pr_tranz_reg=!Qry.FieldIsNULL("pr_tranz_reg")&&Qry.FieldAsInteger("pr_tranz_reg")!=0;
-      bool pr_reg_with_tkn=Qry.FieldAsInteger("pr_reg_with_tkn")!=0;
-      bool pr_reg_with_doc=Qry.FieldAsInteger("pr_reg_with_doc")!=0;
+      TCheckDocType checkDocType=GetCheckDocType(point_dep, airp_arv);
+      TCheckTknType checkTknType=GetCheckTknType(point_dep);
       int pr_etstatus=Qry.FieldAsInteger("pr_etstatus");
       bool pr_etl_only=GetTripSets(tsETLOnly,fltInfo);
 
@@ -2821,9 +2866,21 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
               if (ticket_no.size()>20) ticket_no.erase(20).append("...");
               throw UserException("MSG.CHECKIN.TICKET_LARGE_MAX_LEN", LParams()<<LParam("ticket_no",ticket_no));
             };
-            if (strlen(NodeAsStringFast("document",node2,""))>50)
+            
+            string document;
+            if (reqInfo->client_type!=ctTerm || reqInfo->desk.compatible(DOCS_VERSION))
             {
-              string document=NodeAsStringFast("document",node2,"");
+              xmlNodePtr docNode=GetNodeFast("document",node2);
+              if (docNode!=NULL) docNode=docNode->children;
+              if (docNode!=NULL)
+                document=NodeAsStringFast("no",docNode,"");
+            }
+            else
+            {
+              document=NodeAsStringFast("document",node2,"");
+            };
+            if (document.size()>15)
+            {
               if (document.size()>25) document.erase(25).append("...");
               throw UserException("MSG.CHECKIN.DOCUMENT_LARGE_MAX_LEN", LParams()<<LParam("document",document));
             };
@@ -2859,10 +2916,10 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
             if (strcmp(NodeAsStringFast("pers_type",node2),EncodePerson(ASTRA::baby))==0) continue; //младенцев не анализируем
 
             //билет
-            if (pr_reg_with_tkn&&NodeIsNULLFast("ticket_no",node2,true))
+            if (checkTknType!=ckinWithoutTkn&&NodeIsNULLFast("ticket_no",node2,true))
               throw UserException("MSG.CHECKIN.PASSENGERS_TICKETS_NOT_SET"); //WEB
 
-            if (pr_reg_with_doc)
+            if (checkDocType!=ckinWithoutDoc && checkDocType!=ckinWithoutInterDoc)
             {
               //документ
               bool flagCBBG=strcmp(NodeAsStringFast("name",node2),"CBBG")==0;
@@ -2875,8 +2932,39 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                     flagCBBG=true;
                     break;
                   };*/
-               if (!flagCBBG&&NodeIsNULLFast("document",node2,true))
-                throw UserException("MSG.CHECKIN.PASSENGERS_DOCUMENTS_NOT_SET"); //WEB
+               if (!flagCBBG)
+               {
+                 if (reqInfo->client_type!=ctTerm || reqInfo->desk.compatible(DOCS_VERSION))
+                 {
+                   xmlNodePtr docNode=GetNodeFast("document",node2);
+                   if (docNode!=NULL) docNode=docNode->children;
+                   
+                   if ((checkDocType==ckinWithDocNumber ||
+                        checkDocType==ckinWithInterDocNumber) &&
+                       (docNode==NULL ||
+                        NodeIsNULLFast("no",docNode,true)))
+                     throw UserException("MSG.CHECKIN.PASSENGERS_DOCUMENTS_NOT_SET"); //WEB
+
+                   if ((checkDocType==ckinWithCompleteDoc ||
+                        checkDocType==ckinWithInterCompleteDoc) &&
+                       (docNode==NULL ||
+                        NodeIsNULLFast("type",docNode,true) ||
+                        NodeIsNULLFast("issue_country",docNode,true) ||
+                        NodeIsNULLFast("no",docNode,true) ||
+                        NodeIsNULLFast("nationality",docNode,true) ||
+                        NodeIsNULLFast("birth_date",docNode,true) ||
+                        NodeIsNULLFast("gender",docNode,true) ||
+                        NodeIsNULLFast("expiry_date",docNode,true) ||
+                        NodeIsNULLFast("surname",docNode,true) ||
+                        NodeIsNULLFast("first_name",docNode,true)))
+                     throw UserException("MSG.CHECKIN.PASSENGERS_COMPLETE_DOC_INFO_NOT_SET", LParams()<<LParam("dest",airp_arv)); //WEB
+                 }
+                 else
+                 {
+                   if (NodeIsNULLFast("document",node2,true))
+                     throw UserException("MSG.CHECKIN.PASSENGERS_DOCUMENTS_NOT_SET"); //WEB
+                 };
+               };
             };
           }
           catch(CheckIn::UserException)
@@ -3548,7 +3636,19 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                     Qry.SetVariable("ticket_confirm",(int)false);
                   };
                 };
-                Qry.SetVariable("document",NodeAsStringFast("document",node2));
+                if (reqInfo->client_type!=ctTerm || reqInfo->desk.compatible(DOCS_VERSION))
+                {
+                  xmlNodePtr docNode=GetNodeFast("document",node2);
+                  if (docNode!=NULL) docNode=docNode->children;
+                  if (docNode!=NULL)
+                    Qry.SetVariable("document",NodeAsStringFast("no",docNode,""));
+                  else
+                    Qry.SetVariable("document",FNull);
+                }
+                else
+                {
+                  Qry.SetVariable("document",NodeAsStringFast("document",node2));
+                }
                 Qry.SetVariable("subclass",NodeAsStringFast("subclass",node2));
                 if (reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS))
                 {
@@ -3650,9 +3750,17 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                 if (seat_no_str.str().empty()) seat_no_str << " нет";
 
 
-                //запись pax_doc и pax_fqt
-                CrsQry.SetVariable("pax_id",pax_id);
-                CrsQry.Execute();
+                //запись pax_doc
+                if (reqInfo->client_type!=ctTerm || reqInfo->desk.compatible(DOCS_VERSION))
+                {
+                  SavePaxDoc(pax_id,GetNodeFast("document",node2),PaxDocQry);
+                }
+                else
+                {
+                  CrsQry.SetVariable("pax_id",pax_id);
+                  CrsQry.Execute();
+                };
+
                 if (save_trfer)
                 {
                   //запись подклассов трансфера
@@ -3922,7 +4030,19 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                       PaxQry.SetVariable("ticket_confirm",(int)false);
                     };
                   };
-                  PaxQry.SetVariable("document",NodeAsStringFast("document",node2));
+                  if (reqInfo->client_type!=ctTerm || reqInfo->desk.compatible(DOCS_VERSION))
+                  {
+                    xmlNodePtr docNode=GetNodeFast("document",node2);
+                    if (docNode!=NULL) docNode=docNode->children;
+                    if (docNode!=NULL)
+                      PaxQry.SetVariable("document",NodeAsStringFast("no",docNode,""));
+                    else
+                      PaxQry.SetVariable("document",FNull);
+                  }
+                  else
+                  {
+                    PaxQry.SetVariable("document",NodeAsStringFast("document",node2));
+                  };
                   PaxQry.SetVariable("subclass",NodeAsStringFast("subclass",node2));
                   if (reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS))
                   {
@@ -3968,8 +4088,17 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                     throw UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA",
                                         LParams()<<LParam("surname",string(surname)+(*name!=0?" ":"")+name)); //WEB
                 };
-                CrsQry.SetVariable("pax_id",pax_id);
-                CrsQry.Execute();
+                //запись pax_doc
+                if (reqInfo->client_type!=ctTerm || reqInfo->desk.compatible(DOCS_VERSION))
+                {
+                  SavePaxDoc(pax_id,GetNodeFast("document",node2),PaxDocQry);
+                }
+                else
+                {
+                  CrsQry.SetVariable("pax_id",pax_id);
+                  CrsQry.Execute();
+                };
+                
                 if (save_trfer)
                 {
                   //запись подклассов трансфера
@@ -4651,9 +4780,13 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_versio
         "       pax.seats,pax.refuse,pax.reg_no, "
         "       pax.ticket_no,pax.coupon_no,pax.ticket_rem,pax.ticket_confirm, "
         "       pax.document,pax.subclass,pax.tid,pax.bag_pool_num, "
-        "       crs_pax.pax_id AS crs_pax_id "
-        "FROM pax,crs_pax "
+        "       crs_pax.pax_id AS crs_pax_id, "
+        "       pax_doc.type,pax_doc.issue_country,pax_doc.no,pax_doc.nationality, "
+        "       pax_doc.birth_date,pax_doc.gender,pax_doc.expiry_date, "
+        "       pax_doc.surname AS doc_surname,pax_doc.first_name,pax_doc.second_name,pax_doc.pr_multi "
+        "FROM pax,crs_pax,pax_doc "
         "WHERE pax.pax_id=crs_pax.pax_id(+) AND crs_pax.pr_del(+)=0 AND "
+        "      pax.pax_id=pax_doc.pax_id(+) AND "
         "      pax.grp_id=:grp_id ORDER BY pax.reg_no";
       PaxQry.CreateVariable("grp_id",otInteger,*grp_id);
       PaxQry.Execute();
@@ -4697,7 +4830,15 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_versio
         NewTextChild(paxNode,"is_tkne",
                      (int)(strcmp(PaxQry.FieldAsString("ticket_rem"),"TKNE")==0)); //потом убрать 31.10.08
 
-        NewTextChild(paxNode,"document",PaxQry.FieldAsString("document"));
+        if (TReqInfo::Instance()->desk.compatible(DOCS_VERSION))
+        {
+          LoadPaxDoc(PaxQry, paxNode);
+        }
+        else
+        {
+          NewTextChild(paxNode, "document", PaxQry.FieldAsString("document"));
+        };
+
         NewTextChild(paxNode,"subclass",PaxQry.FieldAsString("subclass"));
         NewTextChild(paxNode,"tid",PaxQry.FieldAsInteger("tid"));
 
@@ -5163,6 +5304,106 @@ string CheckInInterface::SaveTCkinSegs(int grp_id, xmlNodePtr segsNode, const ma
   };
 
   return msg.str();
+};
+
+void CheckInInterface::LoadPaxDoc(TQuery& PaxDocQry, xmlNodePtr paxNode)
+{
+  if (PaxDocQry.Eof || paxNode==NULL) return;
+  xmlNodePtr docNode=NewTextChild(paxNode,"document");
+  NewTextChild(docNode, "type", PaxDocQry.FieldAsString("type"), "");
+  NewTextChild(docNode, "issue_country", PaxDocQry.FieldAsString("issue_country"), "");
+  NewTextChild(docNode, "no", PaxDocQry.FieldAsString("no"), "");
+  NewTextChild(docNode, "nationality", PaxDocQry.FieldAsString("nationality"), "");
+  if (!PaxDocQry.FieldIsNULL("birth_date"))
+    NewTextChild(docNode, "birth_date", DateTimeToStr(PaxDocQry.FieldAsDateTime("birth_date"), ServerFormatDateTimeAsString));
+  NewTextChild(docNode, "gender", PaxDocQry.FieldAsString("gender"), "");
+  if (!PaxDocQry.FieldIsNULL("expiry_date"))
+    NewTextChild(docNode, "expiry_date", DateTimeToStr(PaxDocQry.FieldAsDateTime("expiry_date"), ServerFormatDateTimeAsString));
+  NewTextChild(docNode, "surname", PaxDocQry.FieldAsString("doc_surname"), "");
+  NewTextChild(docNode, "first_name", PaxDocQry.FieldAsString("first_name"), "");
+  NewTextChild(docNode, "second_name", PaxDocQry.FieldAsString("second_name"), "");
+  NewTextChild(docNode, "pr_multi", (int)(PaxDocQry.FieldAsInteger("pr_multi")!=0), (int)false);
+};
+
+void CheckInInterface::SavePaxDoc(int pax_id, xmlNodePtr docNode, TQuery& PaxDocQry)
+{
+  const char* sql=
+        "BEGIN "
+        "  DELETE FROM pax_doc WHERE pax_id=:pax_id; "
+        "  IF :type IS NOT NULL OR "
+        "     :issue_country IS NOT NULL OR "
+        "     :no IS NOT NULL OR "
+        "     :nationality IS NOT NULL OR "
+        "     :birth_date IS NOT NULL OR "
+        "     :gender IS NOT NULL OR "
+        "     :expiry_date IS NOT NULL OR "
+        "     :surname IS NOT NULL OR "
+        "     :first_name IS NOT NULL OR "
+        "     :second_name IS NOT NULL OR "
+        "     :pr_multi<>0 THEN "
+        "    INSERT INTO pax_doc "
+        "      (pax_id,type,issue_country,no,nationality,birth_date,gender,expiry_date, "
+        "       surname,first_name,second_name,pr_multi) "
+        "    VALUES "
+        "      (:pax_id,:type,:issue_country,:no,:nationality,:birth_date,:gender,:expiry_date, "
+        "       :surname,:first_name,:second_name,:pr_multi); "
+        "  END IF; "
+        "END;";
+  if (strcmp(PaxDocQry.SQLText.SQLText(),sql)!=0)
+  {
+    PaxDocQry.Clear();
+    PaxDocQry.SQLText=sql;
+    PaxDocQry.DeclareVariable("pax_id",otInteger);
+    PaxDocQry.DeclareVariable("type",otString);
+    PaxDocQry.DeclareVariable("issue_country",otString);
+    PaxDocQry.DeclareVariable("no",otString);
+    PaxDocQry.DeclareVariable("nationality",otString);
+    PaxDocQry.DeclareVariable("birth_date",otDate);
+    PaxDocQry.DeclareVariable("gender",otString);
+    PaxDocQry.DeclareVariable("expiry_date",otDate);
+    PaxDocQry.DeclareVariable("surname",otString);
+    PaxDocQry.DeclareVariable("first_name",otString);
+    PaxDocQry.DeclareVariable("second_name",otString);
+    PaxDocQry.DeclareVariable("pr_multi",otInteger);
+  };
+
+  if (docNode!=NULL) docNode=docNode->children;
+  if (docNode!=NULL)
+  {
+    PaxDocQry.SetVariable("type",NodeAsStringFast("type",docNode,""));
+    PaxDocQry.SetVariable("issue_country",NodeAsStringFast("issue_country",docNode,""));
+    PaxDocQry.SetVariable("no",NodeAsStringFast("no",docNode,""));
+    PaxDocQry.SetVariable("nationality",NodeAsStringFast("nationality",docNode,""));
+    if (!NodeIsNULLFast("birth_date",docNode,true))
+      PaxDocQry.SetVariable("birth_date",NodeAsDateTimeFast("birth_date",docNode));
+    else
+      PaxDocQry.SetVariable("birth_date",FNull);
+    PaxDocQry.SetVariable("gender",NodeAsStringFast("gender",docNode,""));
+    if (!NodeIsNULLFast("expiry_date",docNode,true))
+      PaxDocQry.SetVariable("expiry_date",NodeAsDateTimeFast("expiry_date",docNode));
+    else
+      PaxDocQry.SetVariable("expiry_date",FNull);
+    PaxDocQry.SetVariable("surname",NodeAsStringFast("surname",docNode,""));
+    PaxDocQry.SetVariable("first_name",NodeAsStringFast("first_name",docNode,""));
+    PaxDocQry.SetVariable("second_name",NodeAsStringFast("second_name",docNode,""));
+    PaxDocQry.SetVariable("pr_multi",(int)(NodeAsIntegerFast("pr_multi",docNode,0)!=0));
+  }
+  else
+  {
+    PaxDocQry.SetVariable("type",FNull);
+    PaxDocQry.SetVariable("issue_country",FNull);
+    PaxDocQry.SetVariable("no",FNull);
+    PaxDocQry.SetVariable("nationality",FNull);
+    PaxDocQry.SetVariable("birth_date",FNull);
+    PaxDocQry.SetVariable("gender",FNull);
+    PaxDocQry.SetVariable("expiry_date",FNull);
+    PaxDocQry.SetVariable("surname",FNull);
+    PaxDocQry.SetVariable("first_name",FNull);
+    PaxDocQry.SetVariable("second_name",FNull);
+    PaxDocQry.SetVariable("pr_multi",(int)false);
+  };
+  PaxDocQry.SetVariable("pax_id",pax_id);
+  PaxDocQry.Execute();
 };
 
 void CheckInInterface::ParseTransfer(xmlNodePtr trferNode,
@@ -6550,11 +6791,13 @@ void CheckInInterface::readTripData( int point_id, xmlNodePtr dataNode )
                       Qry.FieldAsInteger("first_point"),
                       Qry.FieldAsInteger("pr_tranzit")!=0,
                       trtNotCurrent,trtNotCancelled);
+                      
+  TCheckTknType checkTknType=GetCheckTknType(point_id);
 
   node = NewTextChild( tripdataNode, "airps" );
   vector<string> airps;
   vector<string>::iterator i;
-  for(vector<TTripRouteItem>::iterator r=route.begin();r!=route.end();r++)
+  for(TTripRoute::iterator r=route.begin();r!=route.end();r++)
   {
     //проверим на дублирование кодов аэропортов в рамках одного рейса
     for(i=airps.begin();i!=airps.end();i++)
@@ -6581,6 +6824,9 @@ void CheckInInterface::readTripData( int point_id, xmlNodePtr dataNode )
         NewTextChild( itemNode, "airp_name", ElemIdToNameLong(etAirp, airpsRow.code) );
         NewTextChild( itemNode, "city_name", ElemIdToNameLong(etCity, airpsRow.city) );
       };
+      NewTextChild( itemNode, "check_doc", (int)GetCheckDocType(point_id, airpsRow.code));
+      NewTextChild( itemNode, "check_tkn", (int)checkTknType);
+      
       airps.push_back(airpsRow.code);
     }
     catch(EBaseTableError) {};
@@ -6896,7 +7142,6 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
       "       crs_pax.seat_type, "
       "       crs_pax.seats, "
       "       crs_pnr.pnr_id, "
-      "       report.get_PSPT(crs_pax.pax_id) AS document, "
       "       report.get_TKNO(crs_pax.pax_id,'/',0) AS ticket, "
       "       report.get_TKNO(crs_pax.pax_id,'/',1) AS eticket "
       "FROM tlg_binding,crs_pnr,crs_pax,pax "

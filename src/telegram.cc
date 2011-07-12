@@ -54,7 +54,7 @@ void TelegramInterface::readTripData( int point_id, xmlNodePtr dataNode )
   node = NewTextChild( tripdataNode, "airps" );
   vector<string> airps;
   vector<string>::iterator i;
-  for(vector<TTripRouteItem>::iterator r=route.begin();r!=route.end();r++)
+  for(TTripRoute::iterator r=route.begin();r!=route.end();r++)
   {
     //проверим на дублирование кодов аэропортов в рамках одного рейса
     for(i=airps.begin();i!=airps.end();i++)
@@ -518,7 +518,7 @@ void TelegramInterface::GetTlgOut(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
   TQuery Qry(&OraSession);
   string tz_region;
   string sql="SELECT point_id,id,num,addr,heading,body,ending,extra, "
-             "       pr_lat,completed,time_create,time_send_scd,time_send_act, "
+             "       pr_lat,completed,has_errors,time_create,time_send_scd,time_send_act, "
              "       type AS tlg_type "
              "FROM tlg_out ";
   if (node==NULL)
@@ -579,7 +579,14 @@ void TelegramInterface::GetTlgOut(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     NewTextChild( node, "tlg_type", tlg_type, basic_type );
     NewTextChild( node, "tlg_short_name", ElemIdToNameShort(etTypeBType, tlg_type), basic_type );
     NewTextChild( node, "basic_type", basic_type );
-    NewTextChild( node, "editable", (int)row.editable, (int)false );
+    bool editable = row.editable;
+    bool completed = Qry.FieldAsInteger("completed") != 0;
+    bool has_errors = Qry.FieldAsInteger("has_errors") != 0;
+    if(editable)
+        editable = not has_errors;
+    if(completed)
+        completed = not has_errors;
+    NewTextChild( node, "editable", editable, false );
 
     //потом удалить !!! (обновление терминала 13.03.08)
 
@@ -601,7 +608,7 @@ void TelegramInterface::GetTlgOut(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     NewTextChild( node, "ending", Qry.FieldAsString("ending") );
     NewTextChild( node, "extra", Qry.FieldAsString("extra"), "" );
     NewTextChild( node, "pr_lat", (int)(Qry.FieldAsInteger("pr_lat")!=0) );
-    NewTextChild( node, "completed", (int)(Qry.FieldAsInteger("completed")!=0), (int)true );
+    NewTextChild( node, "completed", completed, true );
 
     TDateTime time_create = UTCToClient( Qry.FieldAsDateTime("time_create"), tz_region );
     NewTextChild( node, "time_create", DateTimeToStr( time_create ) );
@@ -715,6 +722,10 @@ void TelegramInterface::SaveTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     "  UPDATE tlg_out SET body=:body,completed=1 WHERE id=:id; "
     "END;";
   Qry.CreateVariable( "id", otInteger, tlg_id);
+  // Если в конце телеграммы нет перевода строки, добавим его
+  if(tlg_body.size() > 2 and tlg_body.substr(tlg_body.size() - 2) != "\xd\xa")
+      tlg_body += "\xd\xa";
+  ProgTrace(TRACE5, "tlg_body: %s", tlg_body.c_str());
   Qry.CreateVariable( "body", otString, tlg_body );
   Qry.Execute();
 
@@ -731,7 +742,7 @@ void TelegramInterface::SendTlg(int tlg_id)
     TQuery TlgQry(&OraSession);
     TlgQry.Clear();
     TlgQry.SQLText=
-      "SELECT id,num,type,typeb_types.short_name,point_id,addr,heading,body,ending,completed "
+      "SELECT id,num,type,typeb_types.short_name,point_id,addr,heading,body,ending,completed,has_errors "
       "FROM tlg_out,typeb_types "
       "WHERE tlg_out.type=typeb_types.code AND id=:id FOR UPDATE";
     TlgQry.CreateVariable( "id", otInteger, tlg_id);
@@ -739,6 +750,8 @@ void TelegramInterface::SendTlg(int tlg_id)
     if (TlgQry.Eof) throw AstraLocale::UserException("MSG.TLG.NOT_FOUND.REFRESH_DATA");
     if (TlgQry.FieldAsInteger("completed")==0)
       throw AstraLocale::UserException("MSG.TLG.MANUAL_EDIT");
+    if (TlgQry.FieldAsInteger("has_errors")==1)
+      throw AstraLocale::UserException("MSG.TLG.HAS_ERRORS.UNABLE_SEND");
 
     string tlg_type=TlgQry.FieldAsString("type");
     string tlg_short_name=TlgQry.FieldAsString("short_name");
@@ -1183,7 +1196,7 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
     addrInfo.airp_arv=route.begin()->airp;
     sendInfo.airp_arv=route.begin()->airp;
   };
-  for(vector<TTripRouteItem>::iterator r=route.begin();r!=route.end();r++)
+  for(TTripRoute::iterator r=route.begin();r!=route.end();r++)
     if (find(airp_arv.begin(),airp_arv.end(),r->airp)==airp_arv.end())
       airp_arv.push_back(r->airp);
 
@@ -1787,9 +1800,20 @@ void TelegramInterface::SaveTlgOutPart( TTlgOutPartInfo &info )
   Qry.Clear();
   Qry.SQLText=
     "INSERT INTO tlg_out(id,num,type,point_id,addr,heading,body,ending,extra, "
-    "                    pr_lat,completed,time_create,time_send_scd,time_send_act) "
+    "                    pr_lat,completed,has_errors,time_create,time_send_scd,time_send_act) "
     "VALUES(:id,:num,:type,:point_id,:addr,:heading,:body,:ending,:extra, "
-    "       :pr_lat,0,NVL(:time_create,system.UTCSYSDATE),:time_send_scd,NULL)";
+    "       :pr_lat,0,0,NVL(:time_create,system.UTCSYSDATE),:time_send_scd,NULL)";
+
+  ProgTrace(TRACE5, "-------SaveTlgOutPart--------");
+  ProgTrace(TRACE5, "id: %d", info.id);
+  ProgTrace(TRACE5, "num: %d", info.num);
+  ProgTrace(TRACE5, "point_id: %d", info.point_id);
+  ProgTrace(TRACE5, "addr: %s", info.addr.c_str());
+  ProgTrace(TRACE5, "heading: %s", info.heading.c_str());
+  ProgTrace(TRACE5, "body: %s, size: %d", info.body.c_str(), info.body.size());
+  ProgTrace(TRACE5, "ending: %s", info.ending.c_str());
+  ProgTrace(TRACE5, "extra: %s", info.extra.c_str());
+
   Qry.CreateVariable("id",otInteger,info.id);
   Qry.CreateVariable("num",otInteger,info.num);
   Qry.CreateVariable("type",otString,info.tlg_type);

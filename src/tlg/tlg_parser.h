@@ -48,10 +48,14 @@ enum TTlgElement
                SeatingCategories,
                SeatsByDestination,
                SupplementaryInfo,
+               //MVT
+               AircraftMovementInfo,
+               //LDM
+               LoadInfoAndRemarks,
                //общие
                EndOfMessage};
 
-extern const char* TTlgElementS[16];
+extern const char* TTlgElementS[18];
 
 enum TIndicator{None,ADD,CHG,DEL};
 
@@ -621,9 +625,9 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
 void SavePTMContent(int tlg_id, TDCSHeadingInfo& info, TPtmContent& con);
 void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, TBtmContent& con);
 void SaveSOMContent(int tlg_id, TDCSHeadingInfo& info, TSOMContent& con);
-void ParseAHMFltInfo(TTlgPartInfo body, TFltInfo& flt);
 
 enum TBindType {btFirstSeg=0,btAllSeg=2,btLastSeg=1};
+void ParseAHMFltInfo(TTlgPartInfo body, const TAHMHeadingInfo &info, TFltInfo& flt, TBindType &bind_type);
 int SaveFlt(int tlg_id, TFltInfo& flt, TBindType bind_type);
 bool bind_tlg(TQuery &Qry);
 bool bind_tlg(int point_id);

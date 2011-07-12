@@ -126,6 +126,67 @@ bool GetTripSets( const TTripSetType setType, const TTripInfo &info )
   return Qry.FieldAsInteger("pr_misc")!=0;
 };
 
+TCheckDocType GetCheckDocType(const int point_dep, const string& airp_arv)
+{
+  TCheckDocType result=ckinWithoutDoc;
+  TQuery Qry( &OraSession );
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT points.airline, points.airp, trip_sets.pr_reg_with_doc "
+    "FROM points,trip_sets "
+    "WHERE points.point_id=trip_sets.point_id(+) AND points.point_id=:point_id";
+  Qry.CreateVariable("point_id",otInteger,point_dep);
+  Qry.Execute();
+  
+  if (!Qry.Eof)
+  {
+    if (!Qry.FieldIsNULL("pr_reg_with_doc") &&
+        Qry.FieldAsInteger("pr_reg_with_doc")!=0) result=ckinWithDocNumber;
+    
+    try
+    {
+      string airline, country_dep, country_arv, city;
+      airline=Qry.FieldAsString("airline");
+      city=base_tables.get("airps").get_row("code", Qry.FieldAsString("airp") ).AsString("city");
+      country_dep=base_tables.get("cities").get_row("code", city).AsString("country");
+      city=base_tables.get("airps").get_row("code", airp_arv ).AsString("city");
+      country_arv=base_tables.get("cities").get_row("code", city).AsString("country");
+      
+      Qry.Clear();
+      Qry.SQLText=
+        "SELECT id FROM apis_sets "
+        "WHERE airline=:airline AND country_dep=:country_dep AND country_arv=:country_arv AND "
+        "      pr_denial=0 AND rownum<=1";
+      Qry.CreateVariable("airline", otString, airline);
+      Qry.CreateVariable("country_dep", otString, country_dep);
+      Qry.CreateVariable("country_arv", otString, country_arv);
+      Qry.Execute();
+      if (!Qry.Eof) result=ckinWithInterCompleteDoc;
+    }
+    catch(EBaseTableError) {};
+    
+  };
+  return result;
+};
+
+TCheckTknType GetCheckTknType(const int point_dep)
+{
+  TCheckTknType result=ckinWithoutTkn;
+  TQuery Qry( &OraSession );
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT pr_reg_with_tkn FROM trip_sets WHERE point_id=:point_id";
+  Qry.CreateVariable("point_id",otInteger,point_dep);
+  Qry.Execute();
+
+  if (!Qry.Eof)
+  {
+    if (!Qry.FieldIsNULL("pr_reg_with_tkn") &&
+        Qry.FieldAsInteger("pr_reg_with_tkn")!=0) result=ckinWithTkn;
+  };
+  return result;
+};
+
 std::string GetPnrAddr(int pnr_id, std::vector<TPnrAddrItem> &pnrs)
 {
     string airline;
@@ -1099,7 +1160,7 @@ bool IsRouteInter(int point_dep, int point_arv, string &country)
     TTripRoute route;
     if (!route.GetRouteAfter(point_dep,trtWithCurrent,trtNotCancelled))
         throw Exception("TTripRoute::GetRouteAfter: flight not found for point_dep %d", point_dep);
-    for(vector<TTripRouteItem>::iterator iv = route.begin(); iv != route.end(); iv++)
+    for(TTripRoute::iterator iv = route.begin(); iv != route.end(); iv++)
     {
         string c = cities.get_row("code",airps.get_row("code",iv->airp).AsString("city")).AsString("country");
         if(iv == route.begin())
@@ -1110,6 +1171,5 @@ bool IsRouteInter(int point_dep, int point_arv, string &country)
     country = first_country;
     return false;
 }
-
 
 
