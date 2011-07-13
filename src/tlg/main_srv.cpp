@@ -5,38 +5,40 @@
 #include <errno.h>
 #include <tcl.h>
 #include <string>
-#include "base_tables.h"
+#include "astra_consts.h"
+#include "astra_utils.h"
 #include "exceptions.h"
 #include "oralib.h"
 #include "tlg.h"
-#include "stl_utils.h"
-#include "tlg_parser.h"
-#include "memory_manager.h"
 #include "edilib/edi_user_func.h"
 #include "serverlib/ourtime.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
 
+using namespace ASTRA;
 using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace std;
 
-#define WAIT_INTERVAL           10      //seconds
-#define TLG_SCAN_INTERVAL       30      //seconds
-#define SCAN_COUNT              50      //кол-во разбираемых телеграмм за одно сканирование
+static const int WAIT_INTERVAL()       //seconds
+{
+  static int VAR=NoExists;
+  if (VAR==NoExists)
+    VAR=getTCLParam("TLG_SRV_WAIT_INTERVAL",1,NoExists,60);
+  return VAR;
+};
 
 static int sockfd=-1;
 
 void process_tlg(void);
-static void scan_tlg(void);
 int h2h_in(char *h2h_tlg, H2H_MSG *h2h);
 
 int main_srv_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
 {
   try
   {
-    sleep(10);
+    sleep(1);
     InitLogTime(NULL);
     OpenLogFile("logairimp");
 
@@ -63,14 +65,13 @@ int main_srv_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
     fd_set rfds;
     struct timeval tv;
     int res;
-    time_t scan_time=0;
     for (;;)
     {
       InitLogTime(NULL);
 
       FD_ZERO(&rfds);
       FD_SET(sockfd,&rfds);
-      tv.tv_sec=WAIT_INTERVAL;
+      tv.tv_sec=WAIT_INTERVAL();
       tv.tv_usec=0;
 
       if ((res=select(sockfd+1,&rfds,NULL,NULL,&tv))==-1)
@@ -78,14 +79,7 @@ int main_srv_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
       if (res!=0&&FD_ISSET(sockfd,&rfds))
       {
         InitLogTime(NULL);
-        base_tables.Invalidate();
         process_tlg();
-      };
-      if (time(NULL)-scan_time>=TLG_SCAN_INTERVAL)
-      {
-        InitLogTime(NULL);
-        base_tables.Invalidate();
-        scan_tlg();
       };
     }; // end of loop
   }
@@ -196,6 +190,7 @@ void process_tlg(void)
     {
       case TLG_IN:
       case TLG_OUT:
+        monitor_idle_zapr_type(1, QUEPOT_TLG_INP);
         //проверяем на host-to-host
         if (len-tlg_header_len>(int)sizeof(h2hinf.data)-1)
           throw Exception("Telegram too long. Can't check H2H header (sender=%s, num=%d, type=%d)",
@@ -234,6 +229,7 @@ void process_tlg(void)
           };
           if (TlgQry.Eof) //не нашли - значит вставляем новую
           {
+            ProgTrace(TRACE5,"IN: PUT (sender=%s, tlg_num=%ld, time=%f)", tlg_in.Sender, tlg_in.num, NowUTC());
             TQuery TlgInsQry(&OraSession);
             TlgInsQry.Clear();
             TlgInsQry.CreateVariable("sender",otString,tlg_in.Sender);
@@ -246,15 +242,15 @@ void process_tlg(void)
               TlgInsQry.CreateVariable("type",otString,"INB");
             // tlgs
             TlgInsQry.SQLText=
-              "INSERT INTO tlgs(id,sender,tlg_num,receiver,type,error,time,tlg_text)\
-               VALUES(tlgs_id.nextval,:sender,:tlg_num,:receiver,:type,NULL,system.UTCSYSDATE,:tlg_text)";
+              "INSERT INTO tlgs(id,sender,tlg_num,receiver,type,error,time,tlg_text) "
+              "VALUES(tlgs_id.nextval,:sender,:tlg_num,:receiver,:type,NULL,system.UTCSYSDATE,:tlg_text)";
             TlgInsQry.DeclareVariable("tlg_text",otLong);
             TlgInsQry.SetLongVariable("tlg_text",tlg_body,tlg_len);
             TlgInsQry.Execute();
             // tlg_queue
             TlgInsQry.SQLText=
-              "INSERT INTO tlg_queue(id,sender,tlg_num,receiver,type,status,time,ttl)\
-               VALUES(tlgs_id.currval,:sender,:tlg_num,:receiver,:type,'PUT',system.UTCSYSDATE,:ttl)";
+              "INSERT INTO tlg_queue(id,sender,tlg_num,receiver,type,status,time,ttl,next_send) "
+              "VALUES(tlgs_id.currval,:sender,:tlg_num,:receiver,:type,'PUT',system.UTCSYSDATE,:ttl,NULL)";
             if (tlg_in.TTL>0)
               TlgInsQry.CreateVariable("ttl",otInteger,(int)(tlg_in.TTL-(time(NULL)-start_time)));
             else
@@ -296,17 +292,18 @@ void process_tlg(void)
               tlg_in.type==TLG_F_NEG)
           {
             TlgUpdQry.SQLText=
-              "UPDATE tlg_queue SET status= :new_status\
-               WHERE sender= :sender AND tlg_num= :tlg_num AND\
-                     type IN ('OUTA','OUTB') AND status=:curr_status";
+              "UPDATE tlg_queue SET status= :new_status, next_send= :next_send "
+              "WHERE sender= :sender AND tlg_num= :tlg_num AND "
+              "      type IN ('OUTA','OUTB') AND status=:curr_status";
             TlgUpdQry.DeclareVariable("new_status",otString);
+            TlgUpdQry.DeclareVariable("next_send",otDate);
           }
           else
           {
             TlgUpdQry.SQLText=
-              "DELETE FROM tlg_queue\
-               WHERE sender= :sender AND tlg_num= :tlg_num AND\
-                     type IN ('OUTA','OUTB') AND status=:curr_status";
+              "DELETE FROM tlg_queue "
+              "WHERE sender= :sender AND tlg_num= :tlg_num AND "
+              "      type IN ('OUTA','OUTB') AND status=:curr_status";
           };
           TlgUpdQry.CreateVariable("sender",otString,tlg_in.Receiver); //OWN_CANON_NAME
           TlgUpdQry.CreateVariable("tlg_num",otInteger,(int)tlg_in.num);
@@ -316,21 +313,18 @@ void process_tlg(void)
             case TLG_ACK:
               TlgUpdQry.SetVariable("curr_status","PUT");
               TlgUpdQry.SetVariable("new_status","SEND");
-              ProgTrace(TRACE5,"PUT->SEND (tlg_num=%ld)",tlg_in.num);
+              TlgUpdQry.SetVariable("next_send",FNull);
               break;
             case TLG_CFG_ERR:
               TlgUpdQry.SetVariable("curr_status","PUT");
-              //TlgUpdQry.SetVariable("new_status","ERR");
-              ProgTrace(TRACE5,"PUT->ERR (tlg_num=%ld)",tlg_in.num);
               break;
             case TLG_F_ACK:
               TlgUpdQry.SetVariable("curr_status","SEND");
-              //TlgUpdQry.SetVariable("new_status","DONE");
-              ProgTrace(TRACE5,"SEND->DONE (tlg_num=%ld)",tlg_in.num);
               break;
             case TLG_F_NEG:
               TlgUpdQry.SetVariable("curr_status","SEND");
               TlgUpdQry.SetVariable("new_status","PUT");
+              TlgUpdQry.SetVariable("next_send",NowUTC());
               break;
           };
           TlgUpdQry.Execute();
@@ -340,18 +334,18 @@ void process_tlg(void)
               TlgUpdQry.RowsProcessed()==0)
           {
             OraSession.Rollback();
-            ProgError(STDLOG,"Can't find tlg in tlg_queue "
-                    "(sender: %s, tlg_num: %ld, curr_status: %s)",
-                    tlg_in.Receiver, tlg_in.num,
-                    TlgUpdQry.GetVariableAsString("curr_status"));
+            ProgTrace(TRACE5,"Attention! Can't find tlg in tlg_queue "
+                             "(sender: %s, tlg_num: %ld, curr_status: %s)",
+                             tlg_in.Receiver, tlg_in.num,
+                             TlgUpdQry.GetVariableAsString("curr_status"));
             return;
           };
           if (tlg_in.type==TLG_CFG_ERR)
           {
             TlgUpdQry.SQLText=
-              "UPDATE tlgs SET error= :error\
-               WHERE sender= :sender AND tlg_num= :tlg_num AND\
-                     type IN ('OUTA','OUTB')";
+              "UPDATE tlgs SET error= :error "
+              "WHERE sender= :sender AND tlg_num= :tlg_num AND "
+              "      type IN ('OUTA','OUTB')";
             TlgUpdQry.CreateVariable("error",otString,"GATE");
             TlgUpdQry.DeleteVariable("curr_status");
             TlgUpdQry.Execute();
@@ -387,6 +381,8 @@ void process_tlg(void)
         break;
       default:
         OraSession.Commit();
+        if (tlg_in.type==TLG_ACK)     ProgTrace(TRACE5,"OUT: PUT->SEND (sender=%s, tlg_num=%ld, time=%f)", tlg_in.Receiver, tlg_in.num, NowUTC());
+        if (tlg_in.type==TLG_CFG_ERR) ProgTrace(TRACE5,"OUT: PUT->ERR (sender=%s, tlg_num=%ld, time=%f)", tlg_in.Receiver, tlg_in.num, NowUTC());
         return;
     };
     if ((tlg_in.type==TLG_IN||tlg_in.type==TLG_OUT)&&is_edi&&tlg_in.TTL>0)
@@ -410,7 +406,19 @@ void process_tlg(void)
                      ntohl(tlg_out.num),ntohs(tlg_out.type),tlg_out.Sender,tlg_out.Receiver);*/
 
     OraSession.Commit();
-    if (is_edi) sendCmd("CMD_EDI_HANDLER","H");
+    switch(tlg_in.type)
+    {
+      case TLG_F_ACK:
+        ProgTrace(TRACE5,"OUT: SEND->DONE (sender=%s, tlg_num=%ld, time=%f)", tlg_in.Receiver, tlg_in.num, NowUTC());
+        break;
+      case TLG_F_NEG:
+        ProgTrace(TRACE5,"OUT: SEND->PUT (sender=%s, tlg_num=%ld, time=%f)", tlg_in.Receiver, tlg_in.num, NowUTC());
+        break;
+    };
+    if (is_edi)
+      sendCmd("CMD_EDI_HANDLER","H");
+    else
+      sendCmd("CMD_TYPEB_HANDLER","H");
   }
   catch(Exception E)
   {
@@ -418,309 +426,11 @@ void process_tlg(void)
     try
     {
       ProgError(STDLOG,"Exception: %s",E.what());
-      sendErrorTlg("Exception: %s",E.what());
+      //sendErrorTlg("Exception: %s",E.what());
       OraSession.Commit();
     }
     catch(...) {};
   };
-  return;
-};
-
-void scan_tlg(void)
-{
-  time_t time_start=time(NULL);
-  
-  TMemoryManager mem(STDLOG);
-
-  static TQuery TlgQry(&OraSession);
-  if (TlgQry.SQLText.IsEmpty())
-  {
-    //внимание порядок объединения таблиц важен!
-    TlgQry.Clear();
-    TlgQry.SQLText=
-      "SELECT tlg_queue.id,tlgs.tlg_text,system.UTCSYSDATE AS now,tlg_queue.time,ttl "
-      "FROM tlgs,tlg_queue "
-      "WHERE tlg_queue.id=tlgs.id AND tlg_queue.receiver=:receiver AND "
-      "      tlg_queue.type='INB' AND tlg_queue.status='PUT' "
-      "ORDER BY tlg_queue.time,tlg_queue.id";
-    TlgQry.CreateVariable("receiver",otString,OWN_CANON_NAME());
-
-  };
-
-  static TQuery TlgIdQry(&OraSession);
-  if (TlgIdQry.SQLText.IsEmpty())
-  {
-    TlgIdQry.Clear();
-    TlgIdQry.SQLText=
-     "BEGIN "
-     "  SELECT id INTO :id FROM tlgs_in "
-     "  WHERE type= :tlg_type AND "
-     "        time_create BETWEEN :min_time_create AND :max_time_create AND "
-     "        merge_key= :merge_key AND rownum=1 FOR UPDATE; "
-     "EXCEPTION "
-     "  WHEN NO_DATA_FOUND THEN "
-     "    SELECT tlg_in_out__seq.nextval INTO :id FROM dual; "
-     "END;";
-    TlgIdQry.DeclareVariable("id",otInteger);
-    TlgIdQry.DeclareVariable("tlg_type",otString);
-    TlgIdQry.DeclareVariable("min_time_create",otDate);
-    TlgIdQry.DeclareVariable("max_time_create",otDate);
-    TlgIdQry.DeclareVariable("merge_key",otString);
-  };
-
-  static TQuery InsQry(&OraSession);
-  if (InsQry.SQLText.IsEmpty())
-  {
-    InsQry.Clear();
-    InsQry.SQLText=
-       "INSERT INTO tlgs_in(id,num,type,addr,heading,body,ending, "
-       "                   merge_key,time_create,time_receive,time_parse) "
-       "VALUES(NVL(:id,tlg_in_out__seq.nextval), "
-       "       :part_no,:tlg_type,:addr,:heading,:body,:ending, "
-       "       :merge_key,:time_create,system.UTCSYSDATE,NULL)";
-    InsQry.DeclareVariable("id",otInteger);
-    InsQry.DeclareVariable("part_no",otInteger);
-    InsQry.DeclareVariable("tlg_type",otString);
-    InsQry.DeclareVariable("addr",otString);
-    InsQry.DeclareVariable("heading",otString);
-    InsQry.DeclareVariable("body",otLong);
-    InsQry.DeclareVariable("ending",otString);
-    InsQry.DeclareVariable("merge_key",otString);
-    InsQry.DeclareVariable("time_create",otDate);
-  };
-
-  TQuery Qry(&OraSession);
-
-  int len,count,bufLen=0,buf2Len=0,tlg_id;
-  char *buf=NULL,*buf2=NULL,*ph,c;
-  bool pr_typeb_cmd=false;
-  TTlgParts parts;
-  THeadingInfo *HeadingInfo=NULL;
-  TEndingInfo *EndingInfo=NULL;
-
-  count=0;
-  TlgQry.Execute();
-  try
-  {
-    for (;!TlgQry.Eof&&count<SCAN_COUNT;count++,TlgQry.Next(),OraSession.Commit())
-    {
-      //проверим TTL
-      tlg_id=TlgQry.FieldAsInteger("id");
-      if (!TlgQry.FieldIsNULL("ttl")&&
-           (TlgQry.FieldAsDateTime("now")-TlgQry.FieldAsDateTime("time"))*24*60*60>=TlgQry.FieldAsInteger("ttl"))
-      {
-      	errorTlg(tlg_id,"TTL");
-      }
-      else
-        try
-        {
-          len=TlgQry.GetSizeLongField("tlg_text")+1;
-          if (len>bufLen)
-          {
-            if (buf==NULL)
-              ph=(char*)mem.malloc(len, STDLOG);
-            else
-              ph=(char*)mem.realloc(buf,len, STDLOG);
-            if (ph==NULL) throw EMemoryError("Out of memory");
-            buf=ph;
-            bufLen=len;
-          };
-          TlgQry.FieldAsLong("tlg_text",buf);
-          buf[len-1]=0;
-          parts=GetParts(buf,mem);
-          ParseHeading(parts.heading,HeadingInfo,mem);
-          ParseEnding(parts.ending,HeadingInfo,EndingInfo,mem);
-          if (parts.heading.p-parts.addr.p>255) throw ETlgError("Address too long");
-          if (parts.body.p-parts.heading.p>100) throw ETlgError("Header too long");
-          if (parts.ending.p!=NULL&&strlen(parts.ending.p)>20) throw ETlgError("End of message too long");
-
-          if ((HeadingInfo->tlg_cat==tcDCS||
-               HeadingInfo->tlg_cat==tcBSM)&&
-               HeadingInfo->time_create!=0)
-          {
-            long part_no;
-            ostringstream merge_key;
-            merge_key << "." << HeadingInfo->sender;
-            if (HeadingInfo->tlg_cat==tcDCS)
-            {
-              TDCSHeadingInfo &info = *dynamic_cast<TDCSHeadingInfo*>(HeadingInfo);
-              part_no=info.part_no;
-              merge_key << " " << info.flt.airline << setw(3) << setfill('0') << info.flt.flt_no
-                               << info.flt.suffix << "/" << DateTimeToStr(info.flt.scd,"ddmmm") << " "
-                               << info.flt.airp_dep << info.flt.airp_arv;
-              if (info.association_number>0)
-                merge_key << " " << setw(6) << setfill('0') << info.association_number;
-            }
-            else
-            {
-              TBSMHeadingInfo &info = *dynamic_cast<TBSMHeadingInfo*>(HeadingInfo);
-              part_no=info.part_no;
-              merge_key << " " << info.airp;
-              if (!info.reference_number.empty())
-                merge_key << " " << info.reference_number;
-            };
-
-            TlgIdQry.SetVariable("id",FNull);
-            TlgIdQry.SetVariable("tlg_type",HeadingInfo->tlg_type);
-            TlgIdQry.SetVariable("merge_key",merge_key.str());
-            if (strcmp(HeadingInfo->tlg_type,"PNL")==0)
-            {
-              TlgIdQry.SetVariable("min_time_create",HeadingInfo->time_create-2.0/1440);
-              TlgIdQry.SetVariable("max_time_create",HeadingInfo->time_create+2.0/1440);
-            }
-            else
-            {
-              TlgIdQry.SetVariable("min_time_create",HeadingInfo->time_create);
-              TlgIdQry.SetVariable("max_time_create",HeadingInfo->time_create);
-            };
-            TlgIdQry.Execute();
-            if (TlgIdQry.VariableIsNULL("id"))
-              InsQry.SetVariable("id",FNull);
-            else
-              InsQry.SetVariable("id",TlgIdQry.GetVariableAsInteger("id"));
-            InsQry.SetVariable("part_no",(int)part_no);
-            InsQry.SetVariable("merge_key",merge_key.str());
-          }
-          else
-          {
-            InsQry.SetVariable("id",FNull);
-            InsQry.SetVariable("part_no",1);
-            InsQry.SetVariable("merge_key",FNull);
-          };
-
-          InsQry.SetVariable("tlg_type",HeadingInfo->tlg_type);
-          if (HeadingInfo->time_create!=0)
-            InsQry.SetVariable("time_create",HeadingInfo->time_create);
-          else
-            InsQry.SetVariable("time_create",FNull);
-
-          c=*parts.heading.p;
-          *parts.heading.p=0;
-          InsQry.SetVariable("addr",parts.addr.p);
-          *parts.heading.p=c;
-
-          c=*parts.body.p;
-          *parts.body.p=0;
-          InsQry.SetVariable("heading",parts.heading.p);
-          *parts.body.p=c;
-
-          if (parts.ending.p!=NULL)
-          {
-            InsQry.SetLongVariable("body",parts.body.p,parts.ending.p-parts.body.p);
-            InsQry.SetVariable("ending",parts.ending.p);
-          }
-          else
-          {
-            InsQry.SetLongVariable("body",parts.body.p,strlen(parts.body.p));
-            InsQry.SetVariable("ending",FNull);
-          };
-          if (deleteTlg(tlg_id))
-          {
-            try
-            {
-              InsQry.Execute();
-              pr_typeb_cmd=true;
-            }
-            catch(EOracleError E)
-            {
-              if (E.Code==1)
-              {
-                Qry.Clear();
-                Qry.SQLText=
-                  "SELECT addr,heading,body,ending FROM tlgs_in WHERE id=:id AND num=:num";
-                Qry.CreateVariable("id",otInteger,InsQry.GetVariableAsInteger("id"));
-                Qry.CreateVariable("num",otInteger,InsQry.GetVariableAsInteger("part_no"));
-                Qry.Execute();
-                if (Qry.RowCount()!=0)
-                {
-                  len=strlen(Qry.FieldAsString("addr"))+
-                      strlen(Qry.FieldAsString("heading"))+
-                      Qry.GetSizeLongField("body")+
-                      strlen(Qry.FieldAsString("ending"))+1;
-                  if (len>buf2Len)
-                  {
-                    if (buf2==NULL)
-                      ph=(char*)mem.malloc(len, STDLOG);
-                    else
-                      ph=(char*)mem.realloc(buf2,len, STDLOG);
-                    if (ph==NULL) throw EMemoryError("Out of memory");
-                    buf2=ph;
-                    buf2Len=len;
-                  };
-                  strcpy(buf2,Qry.FieldAsString("addr"));
-                  strcat(buf2,Qry.FieldAsString("heading"));
-                  len=strlen(buf2);
-                  Qry.FieldAsLong("body",buf2+len);
-                  len+=Qry.GetSizeLongField("body");
-                  buf2[len]=0;
-                  strcat(buf2,Qry.FieldAsString("ending"));
-                  if (strcmp(buf,buf2)!=0)
-                  {
-                    long part_no;
-                    if (HeadingInfo->tlg_cat==tcDCS)
-                      part_no=dynamic_cast<TDCSHeadingInfo*>(HeadingInfo)->part_no;
-                    else
-                      part_no=dynamic_cast<TBSMHeadingInfo*>(HeadingInfo)->part_no;
-                    if (part_no==1&&EndingInfo->pr_final_part)  //телеграмма состоит из одной части
-                    {
-                      InsQry.SetVariable("id",FNull);
-                      InsQry.SetVariable("merge_key",FNull);
-                      InsQry.Execute();
-                      pr_typeb_cmd=true;
-                    }
-                    else throw ETlgError("Duplicate part number");
-                  }
-                  else
-                  {
-                    errorTlg(tlg_id,"DUP");
-                  };
-                }
-                else throw ETlgError("Duplicate part number");
-              }
-              else throw;
-            };
-          };
-        }
-        catch(EXCEPTIONS::Exception &E)
-        {
-          OraSession.Rollback();
-          try
-          {
-            EOracleError *orae=dynamic_cast<EOracleError*>(&E);
-        	  if (orae!=NULL&&
-        	      (orae->Code==4061||orae->Code==4068)) continue;
-            ProgError(STDLOG,"Exception: %s (tlgs.id=%d)",
-                         E.what(),TlgQry.FieldAsInteger("id"));
-            errorTlg(tlg_id,"PARS",E.what());
-            sendErrorTlg("Exception: %s (tlgs.id=%d)",
-                         E.what(),TlgQry.FieldAsInteger("id"));
-          }
-          catch(...) {};
-        };
-    };
-    if (pr_typeb_cmd) sendCmd("CMD_TYPEB_HANDLER","H");
-    mem.destroy(HeadingInfo, STDLOG);
-    if (HeadingInfo!=NULL) delete HeadingInfo;
-    mem.destroy(EndingInfo, STDLOG);
-    if (EndingInfo!=NULL) delete EndingInfo;
-    if (buf!=NULL) mem.free(buf, STDLOG);
-    if (buf2!=NULL) mem.free(buf2, STDLOG);
-  }
-  catch(...)
-  {
-    mem.destroy(HeadingInfo, STDLOG);
-    if (HeadingInfo!=NULL) delete HeadingInfo;
-    mem.destroy(EndingInfo, STDLOG);
-    if (EndingInfo!=NULL) delete EndingInfo;
-    if (buf!=NULL) mem.free(buf, STDLOG);
-    if (buf2!=NULL) mem.free(buf2, STDLOG);
-    throw;
-  };
-
-  time_t time_end=time(NULL);
-  if (time_end-time_start>1)
-    ProgTrace(TRACE5,"Attention! scan_tlg execute time: %ld secs, count=%d",
-                     time_end-time_start,count);
   return;
 };
 
