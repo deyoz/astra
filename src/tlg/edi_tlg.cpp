@@ -20,6 +20,7 @@
 #include "serverlib/ocilocal.h"
 #include "serverlib/ehelpsig.h"
 #include "serverlib/date_cast.h"
+#include "serverlib/posthooks.h"
 
 #define NICKNAME "ROMAN"
 #define NICKTRACE ROMAN_TRACE

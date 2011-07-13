@@ -683,6 +683,8 @@ void CommitWork( int file_id )
   doneFile( file_id );
   msg.msg = string("Файл доставлен (тип=" + ftype + ", адресат=" + desk_code + ", ид.=") + IntToString( file_id ) + ")";
   TReqInfo::Instance()->MsgToLog( msg );
+  if ( ftype == "BSM" )
+    monitor_idle_zapr_type(1, QUEPOT_TLG_OTH);
 }
 
 void AstraServiceInterface::commitFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
