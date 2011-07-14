@@ -1105,7 +1105,7 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry,  xmlNodePtr resNode)
     "SELECT type, issue_country, no, nationality, birth_date, gender, expiry_date, "
     "       surname AS doc_surname, first_name, second_name, pr_multi "
     "FROM crs_pax_doc "
-    "WHERE pax_id=:pax_id "
+    "WHERE pax_id=:pax_id AND no IS NOT NULL "
     "ORDER BY DECODE(type,'P',0,NULL,2,1),DECODE(rem_code,'DOCS',0,1),no ";
   PaxDocQry.DeclareVariable("pax_id",otInteger);
   
