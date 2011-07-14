@@ -282,74 +282,55 @@ void process_tlg(void)
         };
         break;
       case TLG_ACK:
-      case TLG_F_ACK:
-      case TLG_F_NEG:
-      case TLG_CFG_ERR:
-        //эта часть будет работать при условии генерации уникальных tlg_num для типа OUT!
         {
           TQuery TlgUpdQry(&OraSession);
-          if (tlg_in.type==TLG_ACK||
-              tlg_in.type==TLG_F_NEG)
-          {
-            TlgUpdQry.SQLText=
-              "UPDATE tlg_queue SET status= :new_status, next_send= :next_send "
-              "WHERE sender= :sender AND tlg_num= :tlg_num AND "
-              "      type IN ('OUTA','OUTB') AND status=:curr_status";
-            TlgUpdQry.DeclareVariable("new_status",otString);
-            TlgUpdQry.DeclareVariable("next_send",otDate);
-          }
-          else
-          {
-            TlgUpdQry.SQLText=
-              "DELETE FROM tlg_queue "
-              "WHERE sender= :sender AND tlg_num= :tlg_num AND "
-              "      type IN ('OUTA','OUTB') AND status=:curr_status";
-          };
+          TlgUpdQry.SQLText=
+            "UPDATE tlg_queue SET status='SEND', next_send=NULL "
+            "WHERE sender= :sender AND tlg_num= :tlg_num AND "
+            "      type IN ('OUTA','OUTB') AND status='PUT'";
           TlgUpdQry.CreateVariable("sender",otString,tlg_in.Receiver); //OWN_CANON_NAME
           TlgUpdQry.CreateVariable("tlg_num",otInteger,(int)tlg_in.num);
-          TlgUpdQry.DeclareVariable("curr_status",otString);
-          switch(tlg_in.type)
-          {
-            case TLG_ACK:
-              TlgUpdQry.SetVariable("curr_status","PUT");
-              TlgUpdQry.SetVariable("new_status","SEND");
-              TlgUpdQry.SetVariable("next_send",FNull);
-              break;
-            case TLG_CFG_ERR:
-              TlgUpdQry.SetVariable("curr_status","PUT");
-              break;
-            case TLG_F_ACK:
-              TlgUpdQry.SetVariable("curr_status","SEND");
-              break;
-            case TLG_F_NEG:
-              TlgUpdQry.SetVariable("curr_status","SEND");
-              TlgUpdQry.SetVariable("new_status","PUT");
-              TlgUpdQry.SetVariable("next_send",NowUTC());
-              break;
-          };
           TlgUpdQry.Execute();
-          //если TlgUpdQry.RowsProcessed()==0,значит нарушена последовательность телеграмм
-          if ((tlg_in.type==TLG_ACK||
-               tlg_in.type==TLG_F_NEG)&&
-              TlgUpdQry.RowsProcessed()==0)
+          if (TlgUpdQry.RowsProcessed()==0)
           {
             OraSession.Rollback();
-            ProgTrace(TRACE5,"Attention! Can't find tlg in tlg_queue "
-                             "(sender: %s, tlg_num: %ld, curr_status: %s)",
-                             tlg_in.Receiver, tlg_in.num,
-                             TlgUpdQry.GetVariableAsString("curr_status"));
+            ProgTrace(TRACE0,"Attention! Can't find tlg in tlg_queue "
+                             "(sender: %s, tlg_num: %ld, curr_status: PUT)",
+                             tlg_in.Receiver, tlg_in.num);
             return;
           };
-          if (tlg_in.type==TLG_CFG_ERR)
-          {
-            TlgUpdQry.SQLText=
-              "UPDATE tlgs SET error= :error "
-              "WHERE sender= :sender AND tlg_num= :tlg_num AND "
-              "      type IN ('OUTA','OUTB')";
-            TlgUpdQry.CreateVariable("error",otString,"GATE");
-            TlgUpdQry.DeleteVariable("curr_status");
-            TlgUpdQry.Execute();
-          };
+        };
+        break;
+      case TLG_F_ACK:
+        {
+          TQuery TlgUpdQry(&OraSession);
+          TlgUpdQry.SQLText=
+            "DELETE FROM tlg_queue "
+            "WHERE sender= :sender AND tlg_num= :tlg_num AND "
+            "      type IN ('OUTA','OUTB') AND status='SEND'";
+          TlgUpdQry.CreateVariable("sender",otString,tlg_in.Receiver); //OWN_CANON_NAME
+          TlgUpdQry.CreateVariable("tlg_num",otInteger,(int)tlg_in.num);
+          TlgUpdQry.Execute();
+        };
+        break;
+      case TLG_F_NEG:
+      case TLG_CFG_ERR:
+      case TLG_CRASH:
+        {
+          TQuery TlgUpdQry(&OraSession);
+          TlgUpdQry.SQLText=
+            "DELETE FROM tlg_queue "
+            "WHERE sender= :sender AND tlg_num= :tlg_num AND "
+            "      type IN ('OUTA','OUTB')";
+          TlgUpdQry.CreateVariable("sender",otString,tlg_in.Receiver); //OWN_CANON_NAME
+          TlgUpdQry.CreateVariable("tlg_num",otInteger,(int)tlg_in.num);
+          TlgUpdQry.Execute();
+          TlgUpdQry.SQLText=
+            "UPDATE tlgs SET error= :error "
+            "WHERE sender= :sender AND tlg_num= :tlg_num AND "
+            "      type IN ('OUTA','OUTB')";
+          TlgUpdQry.CreateVariable("error",otString,"GATE");
+          TlgUpdQry.Execute();
         };
         break;
       case TLG_ACK_ACK:
@@ -372,6 +353,8 @@ void process_tlg(void)
         break;
       case TLG_F_ACK:
       case TLG_F_NEG:
+      case TLG_CFG_ERR:
+      case TLG_CRASH:
         tlg_out.type=htons(TLG_ACK_ACK);
         tlg_len=0;
         break;
@@ -382,7 +365,6 @@ void process_tlg(void)
       default:
         OraSession.Commit();
         if (tlg_in.type==TLG_ACK)     ProgTrace(TRACE5,"OUT: PUT->SEND (sender=%s, tlg_num=%ld, time=%f)", tlg_in.Receiver, tlg_in.num, NowUTC());
-        if (tlg_in.type==TLG_CFG_ERR) ProgTrace(TRACE5,"OUT: PUT->ERR (sender=%s, tlg_num=%ld, time=%f)", tlg_in.Receiver, tlg_in.num, NowUTC());
         return;
     };
     if ((tlg_in.type==TLG_IN||tlg_in.type==TLG_OUT)&&is_edi&&tlg_in.TTL>0)
@@ -408,17 +390,22 @@ void process_tlg(void)
     OraSession.Commit();
     switch(tlg_in.type)
     {
+      case TLG_IN:
+      case TLG_OUT:
+        if (is_edi)
+          sendCmd("CMD_EDI_HANDLER","H");
+        else
+          sendCmd("CMD_TYPEB_HANDLER","H");
+        break;
       case TLG_F_ACK:
         ProgTrace(TRACE5,"OUT: SEND->DONE (sender=%s, tlg_num=%ld, time=%f)", tlg_in.Receiver, tlg_in.num, NowUTC());
         break;
       case TLG_F_NEG:
-        ProgTrace(TRACE5,"OUT: SEND->PUT (sender=%s, tlg_num=%ld, time=%f)", tlg_in.Receiver, tlg_in.num, NowUTC());
+      case TLG_CFG_ERR:
+      case TLG_CRASH:
+        ProgTrace(TRACE5,"OUT: PUT/SEND->ERR (sender=%s, tlg_num=%ld, time=%f)", tlg_in.Receiver, tlg_in.num, NowUTC());
         break;
     };
-    if (is_edi)
-      sendCmd("CMD_EDI_HANDLER","H");
-    else
-      sendCmd("CMD_TYPEB_HANDLER","H");
   }
   catch(Exception E)
   {
