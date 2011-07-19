@@ -2685,7 +2685,13 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     bool pr_web = (rpt_params.rpt_type == rtWEB or rpt_params.rpt_type == rtWEBTXT);
     bool pr_norec = (rpt_params.rpt_type == rtNOREC or rpt_params.rpt_type == rtNORECTXT);
-    if(rpt_params.rpt_type == rtEXAMTXT or rpt_params.rpt_type == rtWEBTXT or rpt_params.rpt_type == rtNORECTXT)
+    bool pr_gosho = (rpt_params.rpt_type == rtGOSHO or rpt_params.rpt_type == rtGOSHOTXT);
+    if(
+            rpt_params.rpt_type == rtEXAMTXT or
+            rpt_params.rpt_type == rtWEBTXT or
+            rpt_params.rpt_type == rtNORECTXT or
+            rpt_params.rpt_type == rtGOSHOTXT
+      )
         get_compatible_report_form("docTxt", reqNode, resNode);
     else
         get_compatible_report_form(pr_web ? "web" : "exam", reqNode, resNode);
@@ -2742,6 +2748,8 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         }
     } else if(pr_norec)
         NewTextChild(variablesNode, "paxlist_type", "NOREC");
+    else if(pr_gosho)
+        NewTextChild(variablesNode, "paxlist_type", "GOSHO");
     else
         NewTextChild(variablesNode, "paxlist_type", getLocaleText("CAP.PAX_LIST.BRD", rpt_params.GetLang()));
     if(pr_web and rpt_params.client_type.empty())
@@ -2962,10 +2970,12 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
             break;
         case rtEXAM:
         case rtNOREC:
+        case rtGOSHO:
             EXAM(rpt_params, reqNode, resNode);
             break;
         case rtEXAMTXT:
         case rtNORECTXT:
+        case rtGOSHOTXT:
             EXAMTXT(rpt_params, reqNode, resNode);
             break;
         default:
