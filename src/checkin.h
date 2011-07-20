@@ -177,7 +177,9 @@ public:
   static void LoadPaidBag(int grp_id, xmlNodePtr grpNode);
   
   static void LoadPaxDoc(TQuery& PaxDocQry, xmlNodePtr paxNode);
+  static void LoadPaxDoco(TQuery& PaxDocQry, xmlNodePtr paxNode);
   static void SavePaxDoc(int pax_id, xmlNodePtr docNode, TQuery& PaxDocQry);
+  static void SavePaxDoco(int pax_id, xmlNodePtr docNode, TQuery& PaxDocQry);
 
   static int CheckCounters(int point_dep, int point_arv, char* cl, ASTRA::TPaxStatus grp_status);
 
