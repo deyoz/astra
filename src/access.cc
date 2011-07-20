@@ -361,35 +361,29 @@ bool aro_cmp(vector<string> &a, vector<string> &b) {
 
 void TUserData::get_users_by_roles(vector<int> &users)
 {
+    if(roles.empty()) return;
     TQuery Qry(&OraSession);
     TQuery Qry1(&OraSession);
     Qry.SQLText = "select user_id from user_roles where role_id = :role_id";
     Qry.DeclareVariable("role_id", otInteger);
     Qry1.SQLText = "select role_id from user_roles where user_id = :user_id";
     Qry1.DeclareVariable("user_id", otInteger);
-    set<int> used_ids;
-    for(set<int>::iterator iv = roles.begin(); iv != roles.end(); iv++) {
-        ProgTrace(TRACE5, "roles[%d] = %d", distance(roles.begin(), iv), *iv);
-        Qry.SetVariable("role_id", *iv);
-        Qry.Execute();
-        for(; not Qry.Eof; Qry.Next()) {
-            int user_id = Qry.FieldAsInteger(0);
-            if(find(used_ids.begin(), used_ids.end(), user_id) != used_ids.end())
-                continue;
-            used_ids.insert(user_id);
-            Qry1.SetVariable("user_id", user_id);
-            Qry1.Execute();
-            set<int> user_role_ids;
-            ostringstream buf;
-            for(; not Qry1.Eof; Qry1.Next()) {
-                user_role_ids.insert(Qry1.FieldAsInteger(0));
-                buf << Qry1.FieldAsInteger(0) << " ";
-            }
-            ProgTrace(TRACE5, "user_id: %d; his roles: '%s'", user_id, buf.str().c_str());
-            if(equal(roles.begin(), roles.end(), user_role_ids.begin())) {
-                ProgTrace(TRACE5, "add info users: %d", user_id);
-                users.push_back(user_id);
-            }
+    Qry.SetVariable("role_id", *(roles.begin()));
+    Qry.Execute();
+    for(; not Qry.Eof; Qry.Next()) {
+        int user_id = Qry.FieldAsInteger(0);
+        Qry1.SetVariable("user_id", user_id);
+        Qry1.Execute();
+        set<int> user_role_ids;
+        ostringstream buf;
+        for(; not Qry1.Eof; Qry1.Next()) {
+            user_role_ids.insert(Qry1.FieldAsInteger(0));
+            buf << Qry1.FieldAsInteger(0) << " ";
+        }
+        ProgTrace(TRACE5, "user_id: %d; his roles: '%s'", user_id, buf.str().c_str());
+        if(equal(roles.begin(), roles.end(), user_role_ids.begin())) {
+            ProgTrace(TRACE5, "add info users: %d", user_id);
+            users.push_back(user_id);
         }
     }
 }
