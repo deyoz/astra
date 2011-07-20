@@ -24,6 +24,7 @@ namespace TAG {
     const std::string BAGGAGE = "BAGGAGE";
     const std::string BRD_FROM = "BRD_FROM";
     const std::string BRD_TO = "BRD_TO";
+    const std::string CHD = "CHD";
     const std::string CITY_ARV_NAME = "CITY_ARV_NAME";
     const std::string CITY_DEP_NAME = "CITY_DEP_NAME";
     const std::string CLASS = "CLASS";
@@ -414,6 +415,7 @@ class TPrnTagStore {
         std::string BAGGAGE(TFieldParams fp);
         std::string BRD_FROM(TFieldParams fp);
         std::string BRD_TO(TFieldParams fp);
+        std::string CHD(TFieldParams fp);
         std::string CITY_ARV_NAME(TFieldParams fp);
         std::string CITY_DEP_NAME(TFieldParams fp);
         std::string CLASS(TFieldParams fp);
