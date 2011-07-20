@@ -266,8 +266,10 @@ TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tag
     tag_list.insert(make_pair(TAG::BAG_AMOUNT,      TTagListItem(&TPrnTagStore::BAG_AMOUNT, BAG_INFO)));
     tag_list.insert(make_pair(TAG::TAGS,            TTagListItem(&TPrnTagStore::TAGS, PAX_INFO)));
     tag_list.insert(make_pair(TAG::BAG_WEIGHT,      TTagListItem(&TPrnTagStore::BAG_WEIGHT, BAG_INFO)));
+    tag_list.insert(make_pair(TAG::BAGGAGE,         TTagListItem(&TPrnTagStore::BAGGAGE, BAG_INFO)));
     tag_list.insert(make_pair(TAG::BRD_FROM,        TTagListItem(&TPrnTagStore::BRD_FROM, BRD_INFO)));
     tag_list.insert(make_pair(TAG::BRD_TO,          TTagListItem(&TPrnTagStore::BRD_TO, BRD_INFO)));
+    tag_list.insert(make_pair(TAG::CHD,             TTagListItem(&TPrnTagStore::CHD, PAX_INFO)));
     tag_list.insert(make_pair(TAG::CITY_ARV_NAME,   TTagListItem(&TPrnTagStore::CITY_ARV_NAME)));
     tag_list.insert(make_pair(TAG::CITY_DEP_NAME,   TTagListItem(&TPrnTagStore::CITY_DEP_NAME)));
     tag_list.insert(make_pair(TAG::CLASS,           TTagListItem(&TPrnTagStore::CLASS)));
@@ -628,11 +630,11 @@ void TPrnTagStore::get_prn_qry(TQuery &Qry)
         prnQry.add_part(TAG::NAME, paxInfo.name);
     if(tag_list[TAG::NO_SMOKE].processed)
         prnQry.add_part("pr_smoke", paxInfo.pr_smoke);
-    if(tag_list[TAG::BAG_AMOUNT].processed)
+    if(tag_list[TAG::BAG_AMOUNT].processed or tag_list[TAG::BAGGAGE].processed)
         prnQry.add_part(TAG::BAG_AMOUNT, bagInfo.bag_amount);
     if(tag_list[TAG::TAGS].processed)
         prnQry.add_part(TAG::TAGS, paxInfo.tags);
-    if(tag_list[TAG::BAG_WEIGHT].processed)
+    if(tag_list[TAG::BAG_WEIGHT].processed or tag_list[TAG::BAGGAGE].processed)
         prnQry.add_part(TAG::BAG_WEIGHT, bagInfo.bag_weight);
     if(tag_list[TAG::EXCESS].processed)
         prnQry.add_part(TAG::EXCESS, grpInfo.excess);
@@ -1033,6 +1035,14 @@ string TPrnTagStore::AIRP_DEP_NAME(TFieldParams fp)
     return tag_lang.ElemIdToTagElem(etAirp, grpInfo.airp_dep, efmtNameLong);
 }
 
+string TPrnTagStore::BAGGAGE(TFieldParams fp)
+{
+    ostringstream result;
+    if(bagInfo.bag_amount != 0)
+        result << bagInfo.bag_amount << "/" << bagInfo.bag_weight;
+    return result.str();
+}
+
 string TPrnTagStore::BAG_AMOUNT(TFieldParams fp)
 {
     return IntToString(bagInfo.bag_amount);
@@ -1209,6 +1219,14 @@ string TPrnTagStore::GATES(TFieldParams fp)
         if(not result.empty()) result += '/';
         result += *iv;
     }
+    return result;
+}
+
+string TPrnTagStore::CHD(TFieldParams fp)
+{
+    string result;
+    if(DecodePerson((char *)paxInfo.pers_type.c_str()) == child)
+        result = tag_lang.ElemIdToTagElem(etPersType, paxInfo.pers_type, efmtCodeNative);
     return result;
 }
 
