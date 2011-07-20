@@ -10,6 +10,7 @@
 #include "astra_elems.h"
 #include "astra_locale.h"
 #include "stages.h"
+#include "xml_unit.h"
 
 struct TMktFlight {
   private:
@@ -176,21 +177,55 @@ enum TTripSetType { tsCraftInitVIP=1,
                     tsNoTicketCheck=15,
                     tsCharterSearch=16,
                     tsCraftNoChangeSections=17 };
+                    
+const long int DOC_TYPE_FIELD=0x0001;
+const long int DOC_ISSUE_COUNTRY_FIELD=0x0002;
+const long int DOC_NO_FIELD=0x0004;
+const long int DOC_NATIONALITY_FIELD=0x0008;
+const long int DOC_BIRTH_DATE_FIELD=0x0010;
+const long int DOC_GENDER_FIELD=0x0020;
+const long int DOC_EXPIRY_DATE_FIELD=0x0040;
+const long int DOC_SURNAME_FIELD=0x0080;
+const long int DOC_FIRST_NAME_FIELD=0x0100;
+const long int DOC_SECOND_NAME_FIELD=0x0200;
 
-enum TCheckDocType { ckinWithoutDoc=0,
-                     ckinWithDocNumber=1,
-                     ckinWithCompleteDoc=2,
-                     ckinWithoutInterDoc=3,
-                     ckinWithInterDocNumber=4,
-                     ckinWithInterCompleteDoc=5 };
+const long int DOCO_BIRTH_PLACE_FIELD=0x0001;
+const long int DOCO_TYPE_FIELD=0x0002;
+const long int DOCO_NO_FIELD=0x0004;
+const long int DOCO_ISSUE_PLACE_FIELD=0x0008;
+const long int DOCO_ISSUE_DATE_FIELD=0x0010;
+const long int DOCO_APPLIC_COUNTRY_FIELD=0x0020;
 
-enum TCheckTknType { ckinWithoutTkn=0,
-                     ckinWithTkn=1 };
+const long int TKN_TICKET_NO_FIELD=0x0001;
+                                  
+                    
+class TCheckDocTknInfo
+{
+  public:
+    bool is_inter;
+    long int required_fields; //битовая маска
+    long int readonly_fields; //битовая маска
+    TCheckDocTknInfo()
+    {
+      is_inter=false;
+      required_fields=0x0000;
+      readonly_fields=0x0000;
+    };
+    void ToXML(xmlNodePtr node)
+    {
+      if (node==NULL) return;
+      NewTextChild(node, "is_inter", (int)is_inter, (int)false);
+      NewTextChild(node, "required_fields", required_fields, 0x0000);
+      NewTextChild(node, "readonly_fields", readonly_fields, 0x0000);
+    };
+};
+
+class TCheckDocInfo: public std::pair<TCheckDocTknInfo, TCheckDocTknInfo> {};
                     
 bool GetTripSets( const TTripSetType setType, const TTripInfo &info );
 
-TCheckDocType GetCheckDocType(const int point_dep, const std::string& airp_arv);
-TCheckTknType GetCheckTknType(const int point_dep);
+TCheckDocInfo GetCheckDocInfo(const int point_dep, const std::string& airp_arv);
+TCheckDocTknInfo GetCheckTknInfo(const int point_dep);
 
 class TPnrAddrItem
 {

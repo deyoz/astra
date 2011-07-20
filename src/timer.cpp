@@ -495,18 +495,22 @@ void create_apis_file(int point_id)
     
     TQuery PaxQry(&OraSession);
     PaxQry.SQLText=
-      "SELECT pax_doc.pax_id, "
+      "SELECT pax_doc.pax_id AS doc_pax_id, pax_doco.pax_id AS doco_pax_id, "
       "       system.transliter(pax.surname,1,1) AS surname, "
       "       system.transliter(pax.name,1,1) AS name, "
       "       DECODE(system.is_name(pax.document),0,NULL,pax.document) AS document, "
       "       system.transliter(pax_doc.surname,1,1) AS doc_surname, "
       "       system.transliter(pax_doc.first_name,1,1) AS doc_first_name, "
       "       system.transliter(pax_doc.second_name,1,1) AS doc_second_name, "
-      "       birth_date,gender,nationality,pax_doc.type,pax_doc.no, "
-      "       expiry_date,issue_country, "
+      "       pax_doc.type AS doc_type, issue_country, pax_doc.no AS doc_no, "
+      "       nationality, birth_date, gender, expiry_date, pr_multi, "
+      "       birth_place, pax_doco.type AS doco_type, pax_doco.no AS doco_no, "
+      "       issue_place, issue_date, applic_country, pr_inf, "
       "       tckin_segments.airp_arv AS airp_final "
-      "FROM pax_grp,pax,pax_doc,tckin_segments "
-      "WHERE pax_grp.grp_id=pax.grp_id AND pax.pax_id=pax_doc.pax_id(+) AND "
+      "FROM pax_grp,pax,pax_doc,pax_doco,tckin_segments "
+      "WHERE pax_grp.grp_id=pax.grp_id AND "
+      "      pax.pax_id=pax_doc.pax_id(+) AND "
+      "      pax.pax_id=pax_doco.pax_id(+) AND "
       "      pax_grp.grp_id=tckin_segments.grp_id(+) AND tckin_segments.pr_final(+)<>0 AND "
       "      pax_grp.point_dep=:point_dep AND pax_grp.point_arv=:point_arv AND "
       "      pr_brd=1";
@@ -606,7 +610,7 @@ void create_apis_file(int point_id)
             else
               airp_final_lat=airp_arv.code_lat;
 
-      	    if (PaxQry.FieldIsNULL("pax_id"))
+      	    if (PaxQry.FieldIsNULL("doc_pax_id"))
       	  	{
       	  	  //документ пассажира не найден
               if (fmt=="EDI_CZ")
@@ -619,8 +623,7 @@ void create_apis_file(int point_id)
         	    {
       	        body << PaxQry.FieldAsString("surname") << ";"
       	  		       << PaxQry.FieldAsString("name") << ";"
-      	  		       << ";;;;;" << PaxQry.FieldAsString("document") << ";;;"
-      	  		       << ENDL;
+      	  		       << ";;;;;" << PaxQry.FieldAsString("document") << ";;;";
       	  		};
       	  		if (fmt=="CSV_DE")
         	    {
@@ -631,14 +634,12 @@ void create_apis_file(int point_id)
       	  		       << airp_dep.code_lat << ";"
       	  		       << airp_final_lat << ";"
       	  		       << (PaxQry.FieldIsNULL("document")?"":"P") << ";"
-                     << PaxQry.FieldAsString("document")
-                     << ";;;;"
-      	  		       << ENDL;
+                     << PaxQry.FieldAsString("document") << ";";
       	  		};
       	    }
       	    else
       	    {
-      	      int pax_id=PaxQry.FieldAsInteger("pax_id");
+      	      int pax_id=PaxQry.FieldAsInteger("doc_pax_id");
 
       	      string gender;
       	      if (!PaxQry.FieldIsNULL("gender"))
@@ -655,10 +656,10 @@ void create_apis_file(int point_id)
         	      };
       	    	};
       	    	string doc_type;
-      	    	if (!PaxQry.FieldIsNULL("type"))
+      	    	if (!PaxQry.FieldIsNULL("doc_type"))
       	    	{
-      	    	  TPaxDocTypesRow &doc_type_row = (TPaxDocTypesRow&)base_tables.get("pax_doc_types").get_row("code",PaxQry.FieldAsString("type"));
-      	    	  if (doc_type_row.code_lat.empty()) throw Exception("doc_type.code_lat empty (code=%s)",PaxQry.FieldAsString("type"));
+      	    	  TPaxDocTypesRow &doc_type_row = (TPaxDocTypesRow&)base_tables.get("pax_doc_types").get_row("code",PaxQry.FieldAsString("doc_type"));
+      	    	  if (doc_type_row.code_lat.empty()) throw Exception("doc_type.code_lat empty (code=%s)",PaxQry.FieldAsString("doc_type"));
       	    	  doc_type=doc_type_row.code_lat;
       	    	  if (fmt=="CSV_DE")
       	    	  {
@@ -732,7 +733,7 @@ void create_apis_file(int point_id)
 
                 if (doc_type=="P")
                   paxInfo.setPassengerType(doc_type);
-                paxInfo.setIdNumber(PaxQry.FieldAsString("no"));
+                paxInfo.setIdNumber(PaxQry.FieldAsString("doc_no"));
                 if (!PaxQry.FieldIsNULL("expiry_date"))
                   paxInfo.setExpirateDate(PaxQry.FieldAsDateTime("expiry_date"));
                 paxInfo.setDocCountry(issue_country);
@@ -747,10 +748,9 @@ void create_apis_file(int point_id)
         	  		     << gender << ";"
         	  		     << nationality << ";"
         	  		     << doc_type << ";"
-        	  		     << PaxQry.FieldAsString("no") << ";"
+        	  		     << PaxQry.FieldAsString("doc_no") << ";"
         	  		     << expiry_date << ";"
-        	  		     << issue_country << ";"
-        	  		     << ENDL;
+        	  		     << issue_country << ";";
         	  	};
         	  	if (fmt=="CSV_DE")
         	    {
@@ -764,14 +764,41 @@ void create_apis_file(int point_id)
       	  		       << airp_dep.code_lat << ";"
       	  		       << airp_final_lat << ";"
       	  		       << doc_type << ";"
-      	  		       << PaxQry.FieldAsString("no") << ";"
-      	  		       << issue_country << ";"
-      	  		       << ";;"
-        	  		     << ENDL;
-
+      	  		       << PaxQry.FieldAsString("doc_no") << ";"
+      	  		       << issue_country;
         	    };
       	    };
-           if (fmt=="EDI_CZ")
+      	    if (!PaxQry.FieldIsNULL("doco_pax_id") && fmt=="CSV_DE")
+      	  	{
+      	  	  //виза пассажира найдена
+        	    string doco_type;
+      	    	if (!PaxQry.FieldIsNULL("doco_type"))
+      	    	{
+      	    	  TPaxDocTypesRow &doco_type_row = (TPaxDocTypesRow&)base_tables.get("pax_doc_types").get_row("code",PaxQry.FieldAsString("doco_type"));
+      	    	  if (doco_type_row.code_lat.empty()) throw Exception("doco_type.code_lat empty (code=%s)",PaxQry.FieldAsString("doco_type"));
+      	    	  doco_type=doco_type_row.code_lat;
+      	    	};
+      	    	string applic_country;
+      	    	if (!PaxQry.FieldIsNULL("applic_country"))
+      	    	{
+      	    	  TCountriesRow &applic_country_row = (TCountriesRow&)base_tables.get("countries").get_row("code",PaxQry.FieldAsString("applic_country"));
+      	    	  if (applic_country_row.code_iso.empty()) throw Exception("applic_country.code_iso empty (code=%s)",PaxQry.FieldAsString("applic_country"));
+      	    	  applic_country=applic_country_row.code_iso;
+      	    	  if (fmt=="CSV_DE")
+      	    	  {
+      	    	    if (applic_country=="DEU") applic_country="D";
+      	    	  };
+      	    	};
+      	    
+      	      body << ";"
+                   << doco_type << ";"
+                   << PaxQry.FieldAsString("doco_no") << ";"
+                   << applic_country;
+            };
+            if (fmt=="CSV_CZ" || fmt=="CSV_DE")
+              body << ENDL;
+      	    
+            if (fmt=="EDI_CZ")
       	      paxlstInfo.addPassenger( paxInfo );
       	  };
 
