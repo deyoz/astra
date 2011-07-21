@@ -25,19 +25,19 @@ using namespace BASIC;
 using namespace EXCEPTIONS;
 //using namespace tlg_process;
 
-static const int WAIT_INTERVAL()       //seconds
+static const int WAIT_INTERVAL()       //миллисекунды
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
-    VAR=getTCLParam("EDI_HANDLER_WAIT_INTERVAL",1,NoExists,60);
+    VAR=getTCLParam("EDI_HANDLER_WAIT_INTERVAL",1,NoExists,60000);
   return VAR;
 };
 
-static const int PROC_INTERVAL()       //seconds
+static const int PROC_INTERVAL()       //миллисекунды
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
-    VAR=getTCLParam("EDI_HANDLER_PROC_INTERVAL",0,10,1);
+    VAR=getTCLParam("EDI_HANDLER_PROC_INTERVAL",0,10000,1000);
   return VAR;
 };
 
@@ -179,7 +179,7 @@ bool handle_tlg(void)
               catch(...) {};
           }
           ProgTrace(TRACE1,"========= %d TLG: DONE HANDLE =============",tlg_id);
-          ProgTrace(TRACE5, "IN: PUT->DONE (sender=%s, tlg_num=%ld, time=%f)",
+          ProgTrace(TRACE5, "IN: PUT->DONE (sender=%s, tlg_num=%ld, time=%.10f)",
                             TlgQry.FieldAsString("sender"),
                             (unsigned long)TlgQry.FieldAsInteger("tlg_num"),
                             NowUTC());

@@ -6,6 +6,7 @@
 #include <tcl.h>
 #include "astra_consts.h"
 #include "astra_utils.h"
+#include "basic.h"
 #include "exceptions.h"
 #include "oralib.h"
 #include "tlg.h"
@@ -20,27 +21,27 @@ using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace std;
 
-static const int WAIT_INTERVAL()       //seconds
+static const int WAIT_INTERVAL()       //миллисекунды
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
-    VAR=getTCLParam("TLG_SND_WAIT_INTERVAL",1,NoExists,60);
+    VAR=getTCLParam("TLG_SND_WAIT_INTERVAL",1,NoExists,60000);
   return VAR;
 };
 
-static const int PROC_INTERVAL()       //seconds
+static const int PROC_INTERVAL()       //миллисекунды
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
-    VAR=getTCLParam("TLG_SND_PROC_INTERVAL",0,10,1);
+    VAR=getTCLParam("TLG_SND_PROC_INTERVAL",0,10000,50);
   return VAR;
 };
 
-static const int TLG_ACK_TIMEOUT()     //seconds
+static const int TLG_ACK_TIMEOUT()     //миллисекунды
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
-    VAR=getTCLParam("TLG_ACK_TIMEOUT",1,10,1);
+    VAR=getTCLParam("TLG_ACK_TIMEOUT",1,10000,50);
   return VAR;
 };
 
@@ -48,7 +49,7 @@ static const int PROC_COUNT()          //кол-во посылаемых телеграмм за одно ска
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
-    VAR=getTCLParam("TLG_SND_PROC_COUNT",1,NoExists,100);
+    VAR=getTCLParam("TLG_SND_PROC_COUNT",1,10,10);
   return VAR;
 };
 
@@ -91,7 +92,6 @@ int main_snd_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
       bool queue_not_empty=scan_tlg();
       
       waitCmd("CMD_TLG_SND",queue_not_empty?PROC_INTERVAL():WAIT_INTERVAL(),buf,sizeof(buf));
-
     }; // end of loop
   }
   catch(EOracleError &E)
@@ -130,16 +130,14 @@ bool scan_tlg(void)
     TlgQry.Clear();
     TlgQry.SQLText=
       "SELECT tlg_queue.id,tlg_queue.tlg_num,tlg_queue.receiver, "
-      "       tlg_queue.time,ttl,tlgs.tlg_text,ip_address,ip_port "
+      "       tlg_queue.time,tlg_queue.last_send,ttl,tlgs.tlg_text,ip_address,ip_port "
       "FROM tlgs,tlg_queue,rot "
       "WHERE tlg_queue.id=tlgs.id AND "
       "      tlg_queue.receiver=rot.canon_name(+) AND tlg_queue.sender=rot.own_canon_name(+) AND "
-      "      tlg_queue.next_send<:utc_date AND "
       "      tlg_queue.sender=:sender AND "
       "      tlg_queue.type IN ('OUTA','OUTB') AND tlg_queue.status='PUT' "
-      "ORDER BY tlg_queue.next_send";
+      "ORDER BY tlg_queue.time_msec, tlg_queue.tlg_num";
     TlgQry.CreateVariable("sender",otString,OWN_CANON_NAME());
-    TlgQry.DeclareVariable("utc_date",otDate);
   };
   
   static TQuery TlgUpdQry(&OraSession);
@@ -147,10 +145,10 @@ bool scan_tlg(void)
   {
     TlgUpdQry.Clear();
     TlgUpdQry.SQLText=
-      "UPDATE tlg_queue SET next_send=SYSTEM.UTCSYSDATE+:timeout "
+      "UPDATE tlg_queue SET last_send=:last_send "
       "WHERE id=:id AND "
       "      type IN ('OUTA','OUTB') AND status='PUT' ";
-    TlgUpdQry.CreateVariable("timeout", otFloat, ((double)TLG_ACK_TIMEOUT())/SECS_PER_DAY);
+    TlgUpdQry.DeclareVariable("last_send", otFloat);
     TlgUpdQry.DeclareVariable("id", otInteger);
   };
 
@@ -173,16 +171,8 @@ bool scan_tlg(void)
 
   int trace_count=0;
   map< pair<string, int>, int > count;
-  TlgQry.SetVariable("utc_date",NowUTC());
   TlgQry.Execute();
-  if (TlgQry.Eof)
-  {
-    //убедимся, что можем подождать WAIT_INTERVAL
-    TlgQry.SetVariable("utc_date",NowUTC()+((double)WAIT_INTERVAL())/SECS_PER_DAY);
-    TlgQry.Execute();
-    return (!TlgQry.Eof);
-  };
-  
+  if (TlgQry.Eof) return false;
   for(;!TlgQry.Eof;trace_count++,TlgQry.Next(),OraSession.Commit())
   {
     int tlg_id=TlgQry.FieldAsInteger("id");
@@ -216,48 +206,55 @@ bool scan_tlg(void)
       ttl=0;
       if (!TlgQry.FieldIsNULL("ttl"))
         ttl=TlgQry.FieldAsInteger("ttl")-
-            (int)((NowUTC()-TlgQry.FieldAsDateTime("time"))*SECS_PER_DAY);
+            (int)((NowUTC()-TlgQry.FieldAsDateTime("time"))*BASIC::SecsPerDay);
       if (!TlgQry.FieldIsNULL("ttl")&&ttl<=0)
       {
       	errorTlg(tlg_id,"TTL");
       }
       else
       {
-      	//ProgTrace(TRACE5,"ttl=%d",ttl);
-      	//ProgTrace(TRACE5,"ttl2=%d",(int)((NowUTC()-TlgQry.FieldAsDateTime("time"))*SECS_PER_DAY));
-        //проверим, надо ли лепить h2h
-        H2HQry.SetVariable("id",tlg_id);
-        H2HQry.Execute();
-        if (!H2HQry.Eof)
+        TDateTime nowUTC=NowUTC();
+        TDateTime last_send=0;
+        if (!TlgQry.FieldIsNULL("last_send")) last_send=TlgQry.FieldAsFloat("last_send");
+        if (last_send<nowUTC-((double)TLG_ACK_TIMEOUT())/BASIC::MSecsPerDay)
         {
-          if (len>(int)sizeof(h2hinf.data)-1) throw Exception("Telegram too long. Can't create H2H header");
-          strncpy(h2hinf.data,tlg_out.body,len);
-          h2hinf.data[len]=0;
-          h2hinf.type=H2HQry.FieldAsString("type")[0];
-          h2hinf.qri5=H2HQry.FieldAsString("qri5")[0];
-          h2hinf.qri6=H2HQry.FieldAsString("qri6")[0];
-          strcpy(h2hinf.sndr,H2HQry.FieldAsString("sender"));
-          strcpy(h2hinf.rcvr,H2HQry.FieldAsString("receiver"));
-          strcpy(h2hinf.tpr,H2HQry.FieldAsString("tpr"));
-          strcpy(h2hinf.err,H2HQry.FieldAsString("err"));
-          if (h2h_out(&h2hinf)==0) throw Exception("Can't create H2H header");
-          len=strlen(h2hinf.data);
-          if (len>(int)sizeof(tlg_out.body)) throw Exception("H2H telegram too long");
-          strncpy(tlg_out.body,h2hinf.data,len);
-        };
-        ttl16=ttl;
-        tlg_out.TTL=htons(ttl16);
+          //таймаут TLG_ACK истек, надо перепослать
+          //проверим, надо ли лепить h2h
+          H2HQry.SetVariable("id",tlg_id);
+          H2HQry.Execute();
+          if (!H2HQry.Eof)
+          {
+            if (len>(int)sizeof(h2hinf.data)-1) throw Exception("Telegram too long. Can't create H2H header");
+            strncpy(h2hinf.data,tlg_out.body,len);
+            h2hinf.data[len]=0;
+            h2hinf.type=H2HQry.FieldAsString("type")[0];
+            h2hinf.qri5=H2HQry.FieldAsString("qri5")[0];
+            h2hinf.qri6=H2HQry.FieldAsString("qri6")[0];
+            strcpy(h2hinf.sndr,H2HQry.FieldAsString("sender"));
+            strcpy(h2hinf.rcvr,H2HQry.FieldAsString("receiver"));
+            strcpy(h2hinf.tpr,H2HQry.FieldAsString("tpr"));
+            strcpy(h2hinf.err,H2HQry.FieldAsString("err"));
+            if (h2h_out(&h2hinf)==0) throw Exception("Can't create H2H header");
+            len=strlen(h2hinf.data);
+            if (len>(int)sizeof(tlg_out.body)) throw Exception("H2H telegram too long");
+            strncpy(tlg_out.body,h2hinf.data,len);
+          };
+          ttl16=ttl;
+          tlg_out.TTL=htons(ttl16);
 
-        if (sendto(sockfd,(char*)&tlg_out,sizeof(tlg_out)-sizeof(tlg_out.body)+len,0,
-                   (struct sockaddr*)&to_addr,sizeof(to_addr))==-1)
-          throw Exception("'sendto' error %d: %s",errno,strerror(errno));
-        monitor_idle_zapr_type(1, QUEPOT_NULL);
-        TlgUpdQry.SetVariable("id", tlg_id);
-        TlgUpdQry.Execute();
-        ProgTrace(TRACE5,"Attempt send telegram (sender=%s, tlg_num=%ld, time=%f)",
-                         tlg_out.Sender,
-                         (unsigned long)ntohl(tlg_out.num),
-                         NowUTC());
+          if (sendto(sockfd,(char*)&tlg_out,sizeof(tlg_out)-sizeof(tlg_out.body)+len,0,
+                     (struct sockaddr*)&to_addr,sizeof(to_addr))==-1)
+            throw Exception("'sendto' error %d: %s",errno,strerror(errno));
+          monitor_idle_zapr_type(1, QUEPOT_NULL);
+          TlgUpdQry.SetVariable("id", tlg_id);
+          TlgUpdQry.SetVariable("last_send", nowUTC);
+          TlgUpdQry.Execute();
+          ProgTrace(TRACE5,"Attempt %s telegram (sender=%s, tlg_num=%ld, time=%.10f)",
+                           last_send==0?"send":"resend",
+                           tlg_out.Sender,
+                           (unsigned long)ntohl(tlg_out.num),
+                           nowUTC);
+        };
       };
       if (iCount!=count.end())
         iCount->second++;
