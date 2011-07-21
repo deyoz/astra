@@ -21,11 +21,11 @@ using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace std;
 
-static const int WAIT_INTERVAL()       //seconds
+static const int WAIT_INTERVAL()       //миллисекунды
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
-    VAR=getTCLParam("TLG_SRV_WAIT_INTERVAL",1,NoExists,60);
+    VAR=getTCLParam("TLG_SRV_WAIT_INTERVAL",1,NoExists,60000);
   return VAR;
 };
 
@@ -71,8 +71,8 @@ int main_srv_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
 
       FD_ZERO(&rfds);
       FD_SET(sockfd,&rfds);
-      tv.tv_sec=WAIT_INTERVAL();
-      tv.tv_usec=0;
+      tv.tv_sec=WAIT_INTERVAL()/1000;
+      tv.tv_usec=WAIT_INTERVAL()%1000*1000;
 
       if ((res=select(sockfd+1,&rfds,NULL,NULL,&tv))==-1)
         throw Exception("'select' error %d: %s",errno,strerror(errno));
@@ -229,7 +229,8 @@ void process_tlg(void)
           };
           if (TlgQry.Eof) //не нашли - значит вставляем новую
           {
-            ProgTrace(TRACE5,"IN: PUT (sender=%s, tlg_num=%ld, time=%f)", tlg_in.Sender, tlg_in.num, NowUTC());
+            BASIC::TDateTime nowUTC=BASIC::NowUTC();
+            ProgTrace(TRACE5,"IN: PUT (sender=%s, tlg_num=%ld, time=%.10f)", tlg_in.Sender, tlg_in.num, nowUTC);
             TQuery TlgInsQry(&OraSession);
             TlgInsQry.Clear();
             TlgInsQry.CreateVariable("sender",otString,tlg_in.Sender);
@@ -240,21 +241,23 @@ void process_tlg(void)
               TlgInsQry.CreateVariable("type",otString,"INA");
             else
               TlgInsQry.CreateVariable("type",otString,"INB");
+            TlgInsQry.CreateVariable("time",otDate,nowUTC);
             // tlgs
             TlgInsQry.SQLText=
               "INSERT INTO tlgs(id,sender,tlg_num,receiver,type,error,time,tlg_text) "
-              "VALUES(tlgs_id.nextval,:sender,:tlg_num,:receiver,:type,NULL,system.UTCSYSDATE,:tlg_text)";
+              "VALUES(tlgs_id.nextval,:sender,:tlg_num,:receiver,:type,NULL,:time,:tlg_text)";
             TlgInsQry.DeclareVariable("tlg_text",otLong);
             TlgInsQry.SetLongVariable("tlg_text",tlg_body,tlg_len);
             TlgInsQry.Execute();
             // tlg_queue
             TlgInsQry.SQLText=
-              "INSERT INTO tlg_queue(id,sender,tlg_num,receiver,type,status,time,ttl,next_send) "
-              "VALUES(tlgs_id.currval,:sender,:tlg_num,:receiver,:type,'PUT',system.UTCSYSDATE,:ttl,NULL)";
+              "INSERT INTO tlg_queue(id,sender,tlg_num,receiver,type,status,time,ttl,time_msec,last_send) "
+              "VALUES(tlgs_id.currval,:sender,:tlg_num,:receiver,:type,'PUT',:time,:ttl,:time_msec,NULL)";
             if (tlg_in.TTL>0)
               TlgInsQry.CreateVariable("ttl",otInteger,(int)(tlg_in.TTL-(time(NULL)-start_time)));
             else
               TlgInsQry.CreateVariable("ttl",otInteger,FNull);
+            TlgInsQry.CreateVariable("time_msec",otFloat,nowUTC);
             TlgInsQry.DeleteVariable("tlg_text");
             TlgInsQry.Execute();
             if (is_h2h)
@@ -285,7 +288,7 @@ void process_tlg(void)
         {
           TQuery TlgUpdQry(&OraSession);
           TlgUpdQry.SQLText=
-            "UPDATE tlg_queue SET status='SEND', next_send=NULL "
+            "UPDATE tlg_queue SET status='SEND' "
             "WHERE sender= :sender AND tlg_num= :tlg_num AND "
             "      type IN ('OUTA','OUTB') AND status='PUT'";
           TlgUpdQry.CreateVariable("sender",otString,tlg_in.Receiver); //OWN_CANON_NAME
@@ -364,7 +367,11 @@ void process_tlg(void)
         break;
       default:
         OraSession.Commit();
-        if (tlg_in.type==TLG_ACK)     ProgTrace(TRACE5,"OUT: PUT->SEND (sender=%s, tlg_num=%ld, time=%f)", tlg_in.Receiver, tlg_in.num, NowUTC());
+        if (tlg_in.type==TLG_ACK)
+        {
+          ProgTrace(TRACE5,"OUT: PUT->SEND (sender=%s, tlg_num=%ld, time=%.10f)", tlg_in.Receiver, tlg_in.num, NowUTC());
+          sendCmdTlgSnd(); //пинок отправщику (можно отправлять следующую телеграмму)
+        };
         return;
     };
     if ((tlg_in.type==TLG_IN||tlg_in.type==TLG_OUT)&&is_edi&&tlg_in.TTL>0)
@@ -398,12 +405,12 @@ void process_tlg(void)
           sendCmd("CMD_TYPEB_HANDLER","H");
         break;
       case TLG_F_ACK:
-        ProgTrace(TRACE5,"OUT: SEND->DONE (sender=%s, tlg_num=%ld, time=%f)", tlg_in.Receiver, tlg_in.num, NowUTC());
+        ProgTrace(TRACE5,"OUT: SEND->DONE (sender=%s, tlg_num=%ld, time=%.10f)", tlg_in.Receiver, tlg_in.num, NowUTC());
         break;
       case TLG_F_NEG:
       case TLG_CFG_ERR:
       case TLG_CRASH:
-        ProgTrace(TRACE5,"OUT: PUT/SEND->ERR (sender=%s, tlg_num=%ld, time=%f)", tlg_in.Receiver, tlg_in.num, NowUTC());
+        ProgTrace(TRACE5,"OUT: PUT/SEND->ERR (sender=%s, tlg_num=%ld, time=%.10f)", tlg_in.Receiver, tlg_in.num, NowUTC());
         break;
     };
   }

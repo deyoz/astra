@@ -78,33 +78,37 @@ void sendTlg(const char* receiver,
 {
     try
     {
+        BASIC::TDateTime nowUTC=BASIC::NowUTC();
         TQuery Qry(&OraSession);
         Qry.SQLText=
           "BEGIN "
           "  SELECT tlgs_id.nextval INTO :tlg_num FROM dual; "
-          "  INSERT INTO tlg_queue(id,sender,tlg_num,receiver,type,status,time,ttl,next_send) "
-          "  VALUES(:tlg_num,:sender,:tlg_num,:receiver,:type,'PUT',system.UTCSYSDATE,:ttl,system.UTCSYSDATE); "
+          "  INSERT INTO tlg_queue(id,sender,tlg_num,receiver,type,status,time,ttl,time_msec,last_send) "
+          "  VALUES(:tlg_num,:sender,:tlg_num,:receiver,:type,'PUT',:time,:ttl,:time_msec,NULL); "
           "END;";
         Qry.CreateVariable("sender",otString,sender);
         Qry.CreateVariable("receiver",otString,receiver);
         Qry.CreateVariable("type",otString,isEdi?"OUTA":"OUTB");
+        Qry.CreateVariable("time",otDate,nowUTC);
         if (isEdi&&ttl>0)
           Qry.CreateVariable("ttl",otInteger,ttl);
         else
           Qry.CreateVariable("ttl",otInteger,FNull);
+        Qry.CreateVariable("time_msec",otFloat,nowUTC);
         Qry.CreateVariable("tlg_num",otInteger,FNull);
         Qry.Execute();
         Qry.SQLText=
           "INSERT INTO tlgs(id,sender,tlg_num,receiver,type,time,tlg_text,error) "
-          "VALUES(:tlg_num,:sender,:tlg_num,:receiver,:type,system.UTCSYSDATE,:text,NULL)";
+          "VALUES(:tlg_num,:sender,:tlg_num,:receiver,:type,:time,:text,NULL)";
         Qry.DeclareVariable("text",otLong);
         Qry.SetLongVariable("text",(void *)text.c_str(),text.size());
         Qry.DeleteVariable("ttl");
+        Qry.DeleteVariable("time_msec");
         Qry.Execute();
-        ProgTrace(TRACE5,"OUT: PUT (sender=%s, tlg_num=%ld, time=%f)",
+        ProgTrace(TRACE5,"OUT: PUT (sender=%s, tlg_num=%ld, time=%.10f)",
                          Qry.GetVariableAsString("sender"),
                          (long int)Qry.GetVariableAsInteger("tlg_num"),
-                         BASIC::NowUTC());
+                         nowUTC);
         Qry.Close();
     }
     catch( std::exception &e)
@@ -123,30 +127,34 @@ void loadTlg(const std::string &text)
 {
     try
     {
+        BASIC::TDateTime nowUTC=BASIC::NowUTC();
         TQuery Qry(&OraSession);
         Qry.SQLText=
           "BEGIN "
           "  SELECT tlgs_id.nextval INTO :tlg_num FROM dual; "
-          "  INSERT INTO tlg_queue(id,sender,tlg_num,receiver,type,status,time,ttl,next_send) "
-          "  VALUES(:tlg_num,:sender,:tlg_num,:receiver,:type,'PUT',system.UTCSYSDATE,:ttl,system.UTCSYSDATE); "
+          "  INSERT INTO tlg_queue(id,sender,tlg_num,receiver,type,status,time,ttl,time_msec,last_send) "
+          "  VALUES(:tlg_num,:sender,:tlg_num,:receiver,:type,'PUT',:time,:ttl,:time_msec,NULL); "
           "END;";
         Qry.CreateVariable("sender",otString,OWN_CANON_NAME());
         Qry.CreateVariable("receiver",otString,OWN_CANON_NAME());
         Qry.CreateVariable("type",otString,"INB");
+        Qry.CreateVariable("time",otDate,nowUTC);
         Qry.CreateVariable("ttl",otInteger,FNull);
+        Qry.CreateVariable("time_msec",otFloat,nowUTC);
         Qry.CreateVariable("tlg_num",otInteger,FNull);
         Qry.Execute();
         Qry.SQLText=
           "INSERT INTO tlgs(id,sender,tlg_num,receiver,type,time,tlg_text,error) "
-          "VALUES(:tlg_num,:sender,:tlg_num,:receiver,:type,system.UTCSYSDATE,:text,NULL)";
+          "VALUES(:tlg_num,:sender,:tlg_num,:receiver,:type,:time,:text,NULL)";
         Qry.DeclareVariable("text",otLong);
         Qry.SetLongVariable("text",(void *)text.c_str(),text.size());
         Qry.DeleteVariable("ttl");
+        Qry.DeleteVariable("time_msec");
         Qry.Execute();
-        ProgTrace(TRACE5,"IN: PUT (sender=%s, tlg_num=%ld, time=%f)",
+        ProgTrace(TRACE5,"IN: PUT (sender=%s, tlg_num=%ld, time=%.10f)",
                          Qry.GetVariableAsString("sender"),
                          (long int)Qry.GetVariableAsInteger("tlg_num"),
-                         BASIC::NowUTC());
+                         nowUTC);
         Qry.Close();
     }
     catch( std::exception &e)
@@ -302,7 +310,7 @@ void sendCmd(const char* receiver, const char* cmd)
   };
 };
 
-bool waitCmd(const char* receiver, int secs, const char* buf, int buflen)
+bool waitCmd(const char* receiver, int msecs, const char* buf, int buflen)
 {
   if (receiver==NULL || *receiver==0)
     throw EXCEPTIONS::Exception( "waitCmd: receiver not defined");
@@ -343,8 +351,8 @@ bool waitCmd(const char* receiver, int secs, const char* buf, int buflen)
     struct timeval tv;
     FD_ZERO(&rfds);
     FD_SET(sockfd,&rfds);
-    tv.tv_sec=secs;
-    tv.tv_usec=0;
+    tv.tv_sec=msecs/1000;
+    tv.tv_usec=msecs%1000*1000;
     int res;
     if ((res=select(sockfd+1,&rfds,NULL,NULL,&tv))==-1)
     {

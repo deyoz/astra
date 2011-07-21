@@ -23,19 +23,19 @@ using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace std;
 
-static const int HANDLER_WAIT_INTERVAL()       //seconds
+static const int HANDLER_WAIT_INTERVAL()       //миллисекунды
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
-    VAR=getTCLParam("TYPEB_HANDLER_WAIT_INTERVAL",1,NoExists,60);
+    VAR=getTCLParam("TYPEB_HANDLER_WAIT_INTERVAL",1,NoExists,60000);
   return VAR;
 };
 
-static const int HANDLER_PROC_INTERVAL()       //seconds
+static const int HANDLER_PROC_INTERVAL()       //миллисекунды
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
-    VAR=getTCLParam("TYPEB_HANDLER_PROC_INTERVAL",0,NoExists,1);
+    VAR=getTCLParam("TYPEB_HANDLER_PROC_INTERVAL",0,NoExists,1000);
   return VAR;
 };
 
@@ -47,19 +47,19 @@ static const int HANDLER_PROC_COUNT()          //кол-во обрабатываемых частей те
   return VAR;
 };
 
-static const int PARSER_WAIT_INTERVAL()       //seconds
+static const int PARSER_WAIT_INTERVAL()       //миллисекунды
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
-    VAR=getTCLParam("TYPEB_PARSER_WAIT_INTERVAL",1,NoExists,60);
+    VAR=getTCLParam("TYPEB_PARSER_WAIT_INTERVAL",1,NoExists,60000);
   return VAR;
 };
 
-static const int PARSER_PROC_INTERVAL()       //seconds
+static const int PARSER_PROC_INTERVAL()       //миллисекунды
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
-    VAR=getTCLParam("TYPEB_PARSER_PROC_INTERVAL",0,NoExists,10);
+    VAR=getTCLParam("TYPEB_PARSER_PROC_INTERVAL",0,NoExists,10000);
   return VAR;
 };
 
@@ -248,7 +248,7 @@ bool handle_tlg(void)
       //проверим TTL
       tlg_id=TlgQry.FieldAsInteger("id");
       if (!TlgQry.FieldIsNULL("ttl")&&
-           (NowUTC()-TlgQry.FieldAsDateTime("time"))*SECS_PER_DAY>=TlgQry.FieldAsInteger("ttl"))
+           (NowUTC()-TlgQry.FieldAsDateTime("time"))*BASIC::SecsPerDay>=TlgQry.FieldAsInteger("ttl"))
       {
       	errorTlg(tlg_id,"TTL");
       }
@@ -438,7 +438,7 @@ bool handle_tlg(void)
           }
           catch(...) {};
         };
-      ProgTrace(TRACE5, "IN: PUT->DONE (sender=%s, tlg_num=%ld, time=%f)",
+      ProgTrace(TRACE5, "IN: PUT->DONE (sender=%s, tlg_num=%ld, time=%.10f)",
                         TlgQry.FieldAsString("sender"),
                         (unsigned long)TlgQry.FieldAsInteger("tlg_num"),
                         NowUTC());

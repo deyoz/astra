@@ -73,13 +73,11 @@ void loadTlg(const std::string &text);
 //void sendErrorTlg(const char *format, ...);
 
 void sendCmd(const char* receiver, const char* cmd);
-bool waitCmd(const char* receiver, int secs, const char* buf, int buflen);
+bool waitCmd(const char* receiver, int msecs, const char* buf, int buflen);
 
 void sendCmdTlgSnd();
 void sendCmdTypeBHandler();
 
 void bind_tlg(void);
-
-#define SECS_PER_DAY 86400
 
 #endif
