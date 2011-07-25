@@ -86,6 +86,7 @@ class AstraApplication : public ApplicationCallbacks
               ->add("tlg_snd", main_snd_tcl)
               ->add("tlg_srv", main_srv_tcl)
               ->add("typeb_handler", main_typeb_handler_tcl)
+              ->add("typeb_parser", main_typeb_parser_tcl)
               ->add("edi_handler", main_edi_handler_tcl)
               ->add("timer",main_timer_tcl)
               ->add("aodb_handler",main_aodb_handler_tcl)

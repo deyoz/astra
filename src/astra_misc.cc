@@ -126,9 +126,34 @@ bool GetTripSets( const TTripSetType setType, const TTripInfo &info )
   return Qry.FieldAsInteger("pr_misc")!=0;
 };
 
-TCheckDocType GetCheckDocType(const int point_dep, const string& airp_arv)
+const long int DOC_CSV_CZ_FIELDS=DOC_SURNAME_FIELD|
+                                 DOC_FIRST_NAME_FIELD|
+                                 DOC_BIRTH_DATE_FIELD|
+                                 //DOC_GENDER_FIELD|
+                                 DOC_NATIONALITY_FIELD|
+                                 //DOC_TYPE_FIELD|
+                                 DOC_NO_FIELD/*|
+                                 DOC_EXPIRY_DATE_FIELD|
+                                 DOC_ISSUE_COUNTRY_FIELD*/;
+                                 
+const long int DOC_EDI_CZ_FIELDS=DOC_CSV_CZ_FIELDS;
+
+const long int DOC_CSV_DE_FIELDS=DOC_SURNAME_FIELD|
+                                 DOC_FIRST_NAME_FIELD|
+                                 DOC_GENDER_FIELD|
+                                 DOC_BIRTH_DATE_FIELD|
+                                 DOC_NATIONALITY_FIELD|
+                                 DOC_TYPE_FIELD|
+                                 DOC_NO_FIELD|
+                                 DOC_ISSUE_COUNTRY_FIELD;
+                                 
+const long int DOCO_CSV_DE_FIELDS=DOCO_TYPE_FIELD|
+                                  DOCO_NO_FIELD|
+                                  DOCO_APPLIC_COUNTRY_FIELD;
+
+TCheckDocInfo GetCheckDocInfo(const int point_dep, const string& airp_arv)
 {
-  TCheckDocType result=ckinWithoutDoc;
+  TCheckDocInfo result;
   TQuery Qry( &OraSession );
   Qry.Clear();
   Qry.SQLText=
@@ -141,7 +166,7 @@ TCheckDocType GetCheckDocType(const int point_dep, const string& airp_arv)
   if (!Qry.Eof)
   {
     if (!Qry.FieldIsNULL("pr_reg_with_doc") &&
-        Qry.FieldAsInteger("pr_reg_with_doc")!=0) result=ckinWithDocNumber;
+        Qry.FieldAsInteger("pr_reg_with_doc")!=0) result.first.required_fields|=DOC_NO_FIELD;
     
     try
     {
@@ -154,14 +179,29 @@ TCheckDocType GetCheckDocType(const int point_dep, const string& airp_arv)
       
       Qry.Clear();
       Qry.SQLText=
-        "SELECT id FROM apis_sets "
+        "SELECT format FROM apis_sets "
         "WHERE airline=:airline AND country_dep=:country_dep AND country_arv=:country_arv AND "
-        "      pr_denial=0 AND rownum<=1";
+        "      pr_denial=0";
       Qry.CreateVariable("airline", otString, airline);
       Qry.CreateVariable("country_dep", otString, country_dep);
       Qry.CreateVariable("country_arv", otString, country_arv);
       Qry.Execute();
-      if (!Qry.Eof) result=ckinWithInterCompleteDoc;
+      if (!Qry.Eof)
+      {
+        result.first.is_inter=country_dep!=country_arv;
+        result.second.is_inter=country_dep!=country_arv;
+        for(;!Qry.Eof;Qry.Next())
+        {
+          string fmt=Qry.FieldAsString("format");
+          if (fmt=="CSV_CZ") result.first.required_fields|=DOC_CSV_CZ_FIELDS;
+          if (fmt=="EDI_CZ") result.first.required_fields|=DOC_EDI_CZ_FIELDS;
+          if (fmt=="CSV_DE")
+          {
+            result.first.required_fields|=DOC_CSV_DE_FIELDS;
+            result.second.required_fields|=DOCO_CSV_DE_FIELDS;
+          };
+        };
+      };
     }
     catch(EBaseTableError) {};
     
@@ -169,9 +209,9 @@ TCheckDocType GetCheckDocType(const int point_dep, const string& airp_arv)
   return result;
 };
 
-TCheckTknType GetCheckTknType(const int point_dep)
+TCheckDocTknInfo GetCheckTknInfo(const int point_dep)
 {
-  TCheckTknType result=ckinWithoutTkn;
+  TCheckDocTknInfo result;
   TQuery Qry( &OraSession );
   Qry.Clear();
   Qry.SQLText=
@@ -182,7 +222,7 @@ TCheckTknType GetCheckTknType(const int point_dep)
   if (!Qry.Eof)
   {
     if (!Qry.FieldIsNULL("pr_reg_with_tkn") &&
-        Qry.FieldAsInteger("pr_reg_with_tkn")!=0) result=ckinWithTkn;
+        Qry.FieldAsInteger("pr_reg_with_tkn")!=0) result.required_fields|=TKN_TICKET_NO_FIELD;
   };
   return result;
 };

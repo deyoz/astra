@@ -2,6 +2,8 @@
 #include <errno.h>
 #include <tcl.h>
 #include <math.h>
+#include "astra_consts.h"
+#include "astra_utils.h"
 #include "base_tables.h"
 #include "exceptions.h"
 #include "oralib.h"
@@ -18,21 +20,42 @@
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/test.h"
 
+using namespace ASTRA;
 using namespace BASIC;
 using namespace EXCEPTIONS;
 //using namespace tlg_process;
 
-#define WAIT_INTERVAL           60      //seconds
-#define TLG_SCAN_INTERVAL      600   	//seconds
-#define SCAN_COUNT             100      //кол-во разбираемых телеграмм за одно сканирование
+static const int WAIT_INTERVAL()       //миллисекунды
+{
+  static int VAR=NoExists;
+  if (VAR==NoExists)
+    VAR=getTCLParam("EDI_HANDLER_WAIT_INTERVAL",1,NoExists,60000);
+  return VAR;
+};
 
-static void handle_tlg(void);
+static const int PROC_INTERVAL()       //миллисекунды
+{
+  static int VAR=NoExists;
+  if (VAR==NoExists)
+    VAR=getTCLParam("EDI_HANDLER_PROC_INTERVAL",0,10000,1000);
+  return VAR;
+};
+
+static const int PROC_COUNT()          //кол-во разбираемых телеграмм за одну итерацию
+{
+  static int VAR=NoExists;
+  if (VAR==NoExists)
+    VAR=getTCLParam("EDI_HANDLER_PROC_COUNT",1,NoExists,100);
+  return VAR;
+};
+
+static bool handle_tlg(void);
 
 int main_edi_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
 {
   try
   {
-    sleep(10);
+    sleep(2);
     InitLogTime(NULL);
     OpenLogFile("logairimp");
 
@@ -40,25 +63,14 @@ int main_edi_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
             ->connect_db();
     if (init_edifact()<0) throw Exception("'init_edifact' error");
 
-    time_t scan_time=0;
     char buf[10];
     for(;;)
     {
       InitLogTime(NULL);
-      if (time(NULL)-scan_time>=TLG_SCAN_INTERVAL)
-      {
-        InitLogTime(NULL);
-        base_tables.Invalidate();
-        handle_tlg();
-        scan_time=time(NULL);
-      };
-      if (waitCmd("CMD_EDI_HANDLER",WAIT_INTERVAL,buf,sizeof(buf)))
-      {
-        InitLogTime(NULL);
-        base_tables.Invalidate();
-        handle_tlg();
-        scan_time=time(NULL);
-      };
+      base_tables.Invalidate();
+      bool queue_not_empty=handle_tlg();
+      
+      waitCmd("CMD_EDI_HANDLER",queue_not_empty?PROC_INTERVAL():WAIT_INTERVAL(),buf,sizeof(buf));
     }; // end of loop
   }
   catch(EOracleError &E)
@@ -85,8 +97,10 @@ int main_edi_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
   return 0;
 };
 
-void handle_tlg(void)
+bool handle_tlg(void)
 {
+  bool queue_not_empty=false;
+
   time_t time_start=time(NULL);
 
   static TQuery TlgQry(&OraSession);
@@ -111,7 +125,7 @@ void handle_tlg(void)
 //  obr_tlg_queue tlg_obr(1); // Класс - обработчик телеграмм
   try
   {
-      for(;!TlgQry.Eof && (count++)<SCAN_COUNT; TlgQry.Next(), OraSession.Rollback())
+      for(;!TlgQry.Eof && (count++)<PROC_COUNT(); TlgQry.Next(), OraSession.Rollback())
       {
       	  tlg_id=TlgQry.FieldAsInteger("id");
           ProgTrace(TRACE1,"========= %d TLG: START HANDLE =============",tlg_id);
@@ -165,7 +179,13 @@ void handle_tlg(void)
               catch(...) {};
           }
           ProgTrace(TRACE1,"========= %d TLG: DONE HANDLE =============",tlg_id);
+          ProgTrace(TRACE5, "IN: PUT->DONE (sender=%s, tlg_num=%ld, time=%.10f)",
+                            TlgQry.FieldAsString("sender"),
+                            (unsigned long)TlgQry.FieldAsInteger("tlg_num"),
+                            NowUTC());
+          monitor_idle_zapr_type(1, QUEPOT_TLG_EDI);
       };
+      queue_not_empty=!TlgQry.Eof;
   }
   catch(...)
   {
@@ -176,6 +196,8 @@ void handle_tlg(void)
   if (time_end-time_start>1)
     ProgTrace(TRACE5,"Attention! handle_tlg execute time: %ld secs, count=%d",
                      time_end-time_start,count);
+                     
+  return queue_not_empty;
 }
 
 

@@ -13,6 +13,7 @@
 #include "astra_misc.h"
 #include "astra_service.h"
 #include "serverlib/logger.h"
+#include "serverlib/posthooks.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -695,6 +696,7 @@ void TelegramInterface::LoadTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   string text = NodeAsString("tlg_text",reqNode);
   if (text.empty()) throw AstraLocale::UserException("MSG.TLG.EMPTY");
   loadTlg(text);
+  registerHookAfter(sendCmdTypeBHandler);
   AstraLocale::showMessage("MSG.TLG.LOADED");
 };
 
@@ -833,11 +835,17 @@ void TelegramInterface::SendTlg(int tlg_id)
       	if (i->first.size()<=5)
       	{
           if (OWN_CANON_NAME()==i->first)
+          {
             /* сразу помещаем во входную очередь */
             loadTlg(addrs+tlg_text);
+            registerHookAfter(sendCmdTypeBHandler);
+          }
           else
+          {
             sendTlg(i->first.c_str(),OWN_CANON_NAME(),false,0,
                     addrs+tlg_text);
+            registerHookAfter(sendCmdTlgSnd);
+          };
         }
         else
         {

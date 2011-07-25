@@ -57,6 +57,7 @@ int init_edifact();
 int main_snd_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
 int main_srv_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
 int main_typeb_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
+int main_typeb_parser_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
 int main_edi_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
 
 const char* ETS_CANON_NAME();
@@ -69,11 +70,14 @@ bool deleteTlg(int tlg_id);
 bool errorTlg(int tlg_id, std::string type, std::string msg="");
 void sendTlg(const char* receiver, const char* sender, bool isEdi, int ttl, const std::string &text);
 void loadTlg(const std::string &text);
-void sendErrorTlg(const char *format, ...);
+//void sendErrorTlg(const char *format, ...);
 
 void sendCmd(const char* receiver, const char* cmd);
-bool waitCmd(const char* receiver, int secs, const char* buf, int buflen);
+bool waitCmd(const char* receiver, int msecs, const char* buf, int buflen);
 
 void sendCmdTlgSnd();
+void sendCmdTypeBHandler();
+
+void bind_tlg(void);
 
 #endif

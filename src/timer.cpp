@@ -139,6 +139,8 @@ void exec_tasks( const char *proc_name )
 	    	  			  			if ( name == "sync_1ccek" ) sync_1ccek();
 	    	  			  			else
 	    	  			  			  if ( name == "alter_arx" ) Result = alter_arx();
+	    	  			  			  else
+	    	  			  			    if ( name == "bind_tlg" ) bind_tlg();
 /*	    	  			  			  else
                             if ( name == "cobra" ) cobra();*/
 
@@ -493,18 +495,22 @@ void create_apis_file(int point_id)
     
     TQuery PaxQry(&OraSession);
     PaxQry.SQLText=
-      "SELECT pax_doc.pax_id, "
+      "SELECT pax_doc.pax_id AS doc_pax_id, pax_doco.pax_id AS doco_pax_id, "
       "       system.transliter(pax.surname,1,1) AS surname, "
       "       system.transliter(pax.name,1,1) AS name, "
       "       DECODE(system.is_name(pax.document),0,NULL,pax.document) AS document, "
       "       system.transliter(pax_doc.surname,1,1) AS doc_surname, "
       "       system.transliter(pax_doc.first_name,1,1) AS doc_first_name, "
       "       system.transliter(pax_doc.second_name,1,1) AS doc_second_name, "
-      "       birth_date,gender,nationality,pax_doc.type,pax_doc.no, "
-      "       expiry_date,issue_country, "
+      "       pax_doc.type AS doc_type, issue_country, pax_doc.no AS doc_no, "
+      "       nationality, birth_date, gender, expiry_date, pr_multi, "
+      "       birth_place, pax_doco.type AS doco_type, pax_doco.no AS doco_no, "
+      "       issue_place, issue_date, applic_country, pr_inf, "
       "       tckin_segments.airp_arv AS airp_final "
-      "FROM pax_grp,pax,pax_doc,tckin_segments "
-      "WHERE pax_grp.grp_id=pax.grp_id AND pax.pax_id=pax_doc.pax_id(+) AND "
+      "FROM pax_grp,pax,pax_doc,pax_doco,tckin_segments "
+      "WHERE pax_grp.grp_id=pax.grp_id AND "
+      "      pax.pax_id=pax_doc.pax_id(+) AND "
+      "      pax.pax_id=pax_doco.pax_id(+) AND "
       "      pax_grp.grp_id=tckin_segments.grp_id(+) AND tckin_segments.pr_final(+)<>0 AND "
       "      pax_grp.point_dep=:point_dep AND pax_grp.point_arv=:point_arv AND "
       "      pr_brd=1";
@@ -518,299 +524,325 @@ void create_apis_file(int point_id)
       RouteQry.Execute();
       if (RouteQry.Eof) continue;
 
-      TAirpsRow &airp_arv = (TAirpsRow&)base_tables.get("airps").get_row("code",RouteQry.FieldAsString("airp"));
-    	if (airp_arv.code_lat.empty()) throw Exception("airp_arv.code_lat empty (code=%s)",airp_arv.code.c_str());
-    	tz_region=AirpTZRegion(airp_arv.code);
-      if (RouteQry.FieldIsNULL("scd_in")) throw Exception("scd_in empty (airp_arv=%s)",airp_arv.code.c_str());
-      TDateTime act_in_local = UTCToLocal(RouteQry.FieldAsDateTime("scd_in"),tz_region);
-
-      ostringstream flight;
-
-      flight << airline.code_lat << setw(4) << setfill('0') << flt_no;
-      
       //получим информацию по настройке APIS
       ApisSetsQry.SetVariable("country_arv",RouteQry.FieldAsString("country"));
       ApisSetsQry.Execute();
-      for(;!ApisSetsQry.Eof;ApisSetsQry.Next())
+      if (!ApisSetsQry.Eof)
       {
-        string fmt=ApisSetsQry.FieldAsString("format");
+        TAirpsRow &airp_arv = (TAirpsRow&)base_tables.get("airps").get_row("code",RouteQry.FieldAsString("airp"));
+      	if (airp_arv.code_lat.empty()) throw Exception("airp_arv.code_lat empty (code=%s)",airp_arv.code.c_str());
+      	tz_region=AirpTZRegion(airp_arv.code);
+        if (RouteQry.FieldIsNULL("scd_in")) throw Exception("scd_in empty (airp_arv=%s)",airp_arv.code.c_str());
+        TDateTime act_in_local = UTCToLocal(RouteQry.FieldAsDateTime("scd_in"),tz_region);
+
+        ostringstream flight;
+
+        flight << airline.code_lat << setw(4) << setfill('0') << flt_no;
         
-        ostringstream file_name;
-
-        if (fmt=="EDI_CZ")
-          file_name << ApisSetsQry.FieldAsString("dir") <<
-             Paxlst::CreateEdiPaxlstFileName(flight.str(),
-                                             airp_dep.code_lat,
-                                             airp_arv.code_lat,
-                                             DateTimeToStr(scd_out_local,"yyyymmdd"),
-                                             "TXT");
-        if (fmt=="CSV_CZ" || fmt=="CSV_DE")
-        	file_name << ApisSetsQry.FieldAsString("dir")
-        	          << flight.str()
-        	          << airp_dep.code_lat
-        	          << airp_arv.code_lat
-        	          << DateTimeToStr(scd_out_local,"yyyymmdd") << ".CSV";
-
-      	Paxlst::PaxlstInfo paxlstInfo;
-
-        if (fmt=="EDI_CZ")
+        for(;!ApisSetsQry.Eof;ApisSetsQry.Next())
         {
-          //информация о том, кто формирует сообщение
-          vector<string> strs;
-          SeparateString(string(APIS_PARTY_INFO()), ':', strs);
-          vector<string>::const_iterator i;
-          i=strs.begin();
-          if (i!=strs.end()) paxlstInfo.setPartyName(*i++);
-          if (i!=strs.end()) paxlstInfo.setPhone(*i++);
-          if (i!=strs.end()) paxlstInfo.setFax(*i++);
+          string fmt=ApisSetsQry.FieldAsString("format");
 
-          SeparateString(string(ApisSetsQry.FieldAsString("edi_own_addr")), ':', strs);
-          i=strs.begin();
-          if (i!=strs.end()) paxlstInfo.setSenderName(*i++);
-          if (i!=strs.end()) paxlstInfo.setSenderCarrierCode(*i++);
+          ostringstream file_name;
 
-          SeparateString(string(ApisSetsQry.FieldAsString("edi_addr")), ':', strs);
-          i=strs.begin();
-          if (i!=strs.end()) paxlstInfo.setRecipientName(*i++);
-          if (i!=strs.end()) paxlstInfo.setRecipientCarrierCode(*i++);
+          if (fmt=="EDI_CZ")
+            file_name << ApisSetsQry.FieldAsString("dir") <<
+               Paxlst::CreateEdiPaxlstFileName(flight.str(),
+                                               airp_dep.code_lat,
+                                               airp_arv.code_lat,
+                                               DateTimeToStr(scd_out_local,"yyyymmdd"),
+                                               "TXT");
+          if (fmt=="CSV_CZ" || fmt=="CSV_DE")
+          	file_name << ApisSetsQry.FieldAsString("dir")
+          	          << flight.str()
+          	          << airp_dep.code_lat
+          	          << airp_arv.code_lat
+          	          << DateTimeToStr(scd_out_local,"yyyymmdd") << ".CSV";
 
-          string iataCode;
-          if (!Paxlst::CreateIATACode(iataCode,flight.str(),act_in_local))
-            throw Exception("CreateIATACode error");
-          paxlstInfo.setIATAcode( iataCode );
-          paxlstInfo.setFlight(flight.str());
-          paxlstInfo.setDepartureAirport(airp_dep.code_lat);
-          paxlstInfo.setDepartureDate(act_out_local);
-          paxlstInfo.setArrivalAirport(airp_arv.code_lat);
-          paxlstInfo.setArrivalDate(act_in_local);
-        };
+        	Paxlst::PaxlstInfo paxlstInfo;
 
-      	int count=0;
-    	  ostringstream body;
-    	  PaxQry.SetVariable("point_arv",r->point_id);
-    	  PaxQry.Execute();
-    	  for(;!PaxQry.Eof;PaxQry.Next(),count++)
-    	  {
-    	    Paxlst::PassengerInfo paxInfo;
-    	    string airp_final_lat;
-    	    if (!PaxQry.FieldIsNULL("airp_final"))
-    	    {
-    	      TAirpsRow &airp_final = (TAirpsRow&)base_tables.get("airps").get_row("code",PaxQry.FieldAsString("airp_final"));
-            if (airp_final.code_lat.empty()) throw Exception("airp_final.code_lat empty (code=%s)",airp_final.code.c_str());
-            airp_final_lat=airp_final.code_lat;
-          }
-          else
-            airp_final_lat=airp_arv.code_lat;
-          
-    	    if (PaxQry.FieldIsNULL("pax_id"))
-    	  	{
-    	  	  //документ пассажира не найден
-            if (fmt=="EDI_CZ")
-            {
-      	      paxInfo.setPassengerName(PaxQry.FieldAsString("name"));
-      	      paxInfo.setPassengerSurname(PaxQry.FieldAsString("surname"));
-      	      paxInfo.setIdNumber(PaxQry.FieldAsString("document"));
-      	    };
-            if (fmt=="CSV_CZ")
+          if (fmt=="EDI_CZ")
+          {
+            //информация о том, кто формирует сообщение
+            vector<string> strs;
+            SeparateString(string(APIS_PARTY_INFO()), ':', strs);
+            vector<string>::const_iterator i;
+            i=strs.begin();
+            if (i!=strs.end()) paxlstInfo.setPartyName(*i++);
+            if (i!=strs.end()) paxlstInfo.setPhone(*i++);
+            if (i!=strs.end()) paxlstInfo.setFax(*i++);
+
+            SeparateString(string(ApisSetsQry.FieldAsString("edi_own_addr")), ':', strs);
+            i=strs.begin();
+            if (i!=strs.end()) paxlstInfo.setSenderName(*i++);
+            if (i!=strs.end()) paxlstInfo.setSenderCarrierCode(*i++);
+
+            SeparateString(string(ApisSetsQry.FieldAsString("edi_addr")), ':', strs);
+            i=strs.begin();
+            if (i!=strs.end()) paxlstInfo.setRecipientName(*i++);
+            if (i!=strs.end()) paxlstInfo.setRecipientCarrierCode(*i++);
+
+            string iataCode;
+            if (!Paxlst::CreateIATACode(iataCode,flight.str(),act_in_local))
+              throw Exception("CreateIATACode error");
+            paxlstInfo.setIATAcode( iataCode );
+            paxlstInfo.setFlight(flight.str());
+            paxlstInfo.setDepartureAirport(airp_dep.code_lat);
+            paxlstInfo.setDepartureDate(act_out_local);
+            paxlstInfo.setArrivalAirport(airp_arv.code_lat);
+            paxlstInfo.setArrivalDate(act_in_local);
+          };
+
+        	int count=0;
+      	  ostringstream body;
+      	  PaxQry.SetVariable("point_arv",r->point_id);
+      	  PaxQry.Execute();
+      	  for(;!PaxQry.Eof;PaxQry.Next(),count++)
+      	  {
+      	    Paxlst::PassengerInfo paxInfo;
+      	    string airp_final_lat;
+      	    if (!PaxQry.FieldIsNULL("airp_final"))
       	    {
-    	        body << PaxQry.FieldAsString("surname") << ";"
-    	  		       << PaxQry.FieldAsString("name") << ";"
-    	  		       << ";;;;;" << PaxQry.FieldAsString("document") << ";;;"
-    	  		       << ENDL;
-    	  		};
-    	  		if (fmt=="CSV_DE")
-      	    {
-    	        body << PaxQry.FieldAsString("surname") << ";"
-    	  		       << PaxQry.FieldAsString("name") << ";"
-    	  		       << ";;;"
-                   << airp_arv.code_lat << ";"
-    	  		       << airp_dep.code_lat << ";"
-    	  		       << airp_final_lat << ";"
-    	  		       << (PaxQry.FieldIsNULL("document")?"":"P") << ";"
-                   << PaxQry.FieldAsString("document")
-                   << ";;;;"
-    	  		       << ENDL;
-    	  		};
-    	    }
-    	    else
-    	    {
-    	      int pax_id=PaxQry.FieldAsInteger("pax_id");
+      	      TAirpsRow &airp_final = (TAirpsRow&)base_tables.get("airps").get_row("code",PaxQry.FieldAsString("airp_final"));
+              if (airp_final.code_lat.empty()) throw Exception("airp_final.code_lat empty (code=%s)",airp_final.code.c_str());
+              airp_final_lat=airp_final.code_lat;
+            }
+            else
+              airp_final_lat=airp_arv.code_lat;
 
-    	      string gender;
-    	      if (!PaxQry.FieldIsNULL("gender"))
-    	      {
-    	    	  TGenderTypesRow &gender_row = (TGenderTypesRow&)base_tables.get("gender_types").get_row("code",PaxQry.FieldAsString("gender"));
-    	    	  if (gender_row.code_lat.empty()) throw Exception("gender.code_lat empty (code=%s)",PaxQry.FieldAsString("gender"));
-    	    	  gender=gender_row.code_lat;
-    	    	  if (fmt=="CSV_DE")
-    	    	  {
-    	    	    gender = gender.substr(0,1);
-                if (gender!="M" &&
-                    gender!="F")
-      	          gender = "U";
-      	      };
-    	    	};
-    	    	string doc_type;
-    	    	if (!PaxQry.FieldIsNULL("type"))
-    	    	{
-    	    	  TPaxDocTypesRow &doc_type_row = (TPaxDocTypesRow&)base_tables.get("pax_doc_types").get_row("code",PaxQry.FieldAsString("type"));
-    	    	  if (doc_type_row.code_lat.empty()) throw Exception("doc_type.code_lat empty (code=%s)",PaxQry.FieldAsString("type"));
-    	    	  doc_type=doc_type_row.code_lat;
-    	    	  if (fmt=="CSV_DE")
-    	    	  {
-    	    	    if (doc_type!="P" && doc_type!="I") doc_type="P";
-              };
-    	    	};
-    	    	string nationality;
-    	    	if (!PaxQry.FieldIsNULL("nationality"))
-    	    	{
-    	    	  TCountriesRow &nationality_row = (TCountriesRow&)base_tables.get("countries").get_row("code",PaxQry.FieldAsString("nationality"));
-    	    	  if (nationality_row.code_iso.empty()) throw Exception("nationality.code_iso empty (code=%s)",PaxQry.FieldAsString("nationality"));
-    	    	  nationality=nationality_row.code_iso;
-    	    	  if (fmt=="CSV_DE")
-    	    	  {
-    	    	    if (nationality=="DEU") nationality="D";
-    	    	  };
-    	    	};
-    	    	string issue_country;
-    	    	if (!PaxQry.FieldIsNULL("issue_country"))
-    	    	{
-    	    	  TCountriesRow &issue_country_row = (TCountriesRow&)base_tables.get("countries").get_row("code",PaxQry.FieldAsString("issue_country"));
-    	    	  if (issue_country_row.code_iso.empty()) throw Exception("issue_country.code_iso empty (code=%s)",PaxQry.FieldAsString("issue_country"));
-    	    	  issue_country=issue_country_row.code_iso;
-    	    	  if (fmt=="CSV_DE")
-    	    	  {
-    	    	    if (issue_country=="DEU") issue_country="D";
-    	    	  };
-    	    	};
-    	    	string birth_date;
-    	    	if (!PaxQry.FieldIsNULL("birth_date"))
-    	    	{
+      	    if (PaxQry.FieldIsNULL("doc_pax_id"))
+      	  	{
+      	  	  //документ пассажира не найден
+              if (fmt=="EDI_CZ")
+              {
+        	      paxInfo.setPassengerName(PaxQry.FieldAsString("name"));
+        	      paxInfo.setPassengerSurname(PaxQry.FieldAsString("surname"));
+        	      paxInfo.setIdNumber(PaxQry.FieldAsString("document"));
+        	    };
               if (fmt=="CSV_CZ")
-    	    	    birth_date=DateTimeToStr(PaxQry.FieldAsDateTime("birth_date"),"ddmmmyy",true);
-    	    	  if (fmt=="CSV_DE")
-    	    	    birth_date=DateTimeToStr(PaxQry.FieldAsDateTime("birth_date"),"yymmdd",true);
-    	    	};
+        	    {
+      	        body << PaxQry.FieldAsString("surname") << ";"
+      	  		       << PaxQry.FieldAsString("name") << ";"
+      	  		       << ";;;;;" << PaxQry.FieldAsString("document") << ";;;";
+      	  		};
+      	  		if (fmt=="CSV_DE")
+        	    {
+      	        body << PaxQry.FieldAsString("surname") << ";"
+      	  		       << PaxQry.FieldAsString("name") << ";"
+      	  		       << ";;;"
+                     << airp_arv.code_lat << ";"
+      	  		       << airp_dep.code_lat << ";"
+      	  		       << airp_final_lat << ";"
+      	  		       << (PaxQry.FieldIsNULL("document")?"":"P") << ";"
+                     << PaxQry.FieldAsString("document") << ";";
+      	  		};
+      	    }
+      	    else
+      	    {
+      	      int pax_id=PaxQry.FieldAsInteger("doc_pax_id");
 
-    	    	string expiry_date;
-    	    	if (!PaxQry.FieldIsNULL("expiry_date"))
-    	    	  expiry_date=DateTimeToStr(PaxQry.FieldAsDateTime("expiry_date"),"ddmmmyy",true);
-
-            if (fmt=="EDI_CZ")
-            {
-      	    	paxInfo.setPassengerName(PaxQry.FieldAsString("doc_first_name"));
-      	    	if (!PaxQry.FieldIsNULL("doc_second_name"))
-      	    	{
-                string passengerName = paxInfo.getPassengerName();
-                if (!passengerName.empty()) passengerName += " ";
-                passengerName += PaxQry.FieldAsString("doc_second_name");
-                paxInfo.setPassengerName( passengerName );
+      	      string gender;
+      	      if (!PaxQry.FieldIsNULL("gender"))
+      	      {
+      	    	  TGenderTypesRow &gender_row = (TGenderTypesRow&)base_tables.get("gender_types").get_row("code",PaxQry.FieldAsString("gender"));
+      	    	  if (gender_row.code_lat.empty()) throw Exception("gender.code_lat empty (code=%s)",PaxQry.FieldAsString("gender"));
+      	    	  gender=gender_row.code_lat;
+      	    	  if (fmt=="CSV_DE")
+      	    	  {
+      	    	    gender = gender.substr(0,1);
+                  if (gender!="M" &&
+                      gender!="F")
+        	          gender = "U";
+        	      };
       	    	};
-      	    	paxInfo.setPassengerSurname( PaxQry.FieldAsString("doc_surname") );
+      	    	string doc_type;
+      	    	if (!PaxQry.FieldIsNULL("doc_type"))
+      	    	{
+      	    	  TPaxDocTypesRow &doc_type_row = (TPaxDocTypesRow&)base_tables.get("pax_doc_types").get_row("code",PaxQry.FieldAsString("doc_type"));
+      	    	  if (doc_type_row.code_lat.empty()) throw Exception("doc_type.code_lat empty (code=%s)",PaxQry.FieldAsString("doc_type"));
+      	    	  doc_type=doc_type_row.code_lat;
+      	    	  if (fmt=="CSV_DE")
+      	    	  {
+      	    	    if (doc_type!="P" && doc_type!="I") doc_type="P";
+                };
+      	    	};
+      	    	string nationality;
+      	    	if (!PaxQry.FieldIsNULL("nationality"))
+      	    	{
+      	    	  TCountriesRow &nationality_row = (TCountriesRow&)base_tables.get("countries").get_row("code",PaxQry.FieldAsString("nationality"));
+      	    	  if (nationality_row.code_iso.empty()) throw Exception("nationality.code_iso empty (code=%s)",PaxQry.FieldAsString("nationality"));
+      	    	  nationality=nationality_row.code_iso;
+      	    	  if (fmt=="CSV_DE")
+      	    	  {
+      	    	    if (nationality=="DEU") nationality="D";
+      	    	  };
+      	    	};
+      	    	string issue_country;
+      	    	if (!PaxQry.FieldIsNULL("issue_country"))
+      	    	{
+      	    	  TCountriesRow &issue_country_row = (TCountriesRow&)base_tables.get("countries").get_row("code",PaxQry.FieldAsString("issue_country"));
+      	    	  if (issue_country_row.code_iso.empty()) throw Exception("issue_country.code_iso empty (code=%s)",PaxQry.FieldAsString("issue_country"));
+      	    	  issue_country=issue_country_row.code_iso;
+      	    	  if (fmt=="CSV_DE")
+      	    	  {
+      	    	    if (issue_country=="DEU") issue_country="D";
+      	    	  };
+      	    	};
+      	    	string birth_date;
+      	    	if (!PaxQry.FieldIsNULL("birth_date"))
+      	    	{
+                if (fmt=="CSV_CZ")
+      	    	    birth_date=DateTimeToStr(PaxQry.FieldAsDateTime("birth_date"),"ddmmmyy",true);
+      	    	  if (fmt=="CSV_DE")
+      	    	    birth_date=DateTimeToStr(PaxQry.FieldAsDateTime("birth_date"),"yymmdd",true);
+      	    	};
 
-      	      string passengerSex = gender.substr(0,1);
-              if (passengerSex!="M" &&
-                  passengerSex!="F")
-      	        passengerSex = "M";
-              paxInfo.setPassengerSex( passengerSex );
+      	    	string expiry_date;
+      	    	if (!PaxQry.FieldIsNULL("expiry_date"))
+      	    	  expiry_date=DateTimeToStr(PaxQry.FieldAsDateTime("expiry_date"),"ddmmmyy",true);
 
-      	      if (!PaxQry.FieldIsNULL("birth_date"))
-      	        paxInfo.setBirthDate( PaxQry.FieldAsDateTime("birth_date"));
+              if (fmt=="EDI_CZ")
+              {
+        	    	paxInfo.setPassengerName(PaxQry.FieldAsString("doc_first_name"));
+        	    	if (!PaxQry.FieldIsNULL("doc_second_name"))
+        	    	{
+                  string passengerName = paxInfo.getPassengerName();
+                  if (!passengerName.empty()) passengerName += " ";
+                  passengerName += PaxQry.FieldAsString("doc_second_name");
+                  paxInfo.setPassengerName( passengerName );
+        	    	};
+        	    	paxInfo.setPassengerSurname( PaxQry.FieldAsString("doc_surname") );
 
-      	      paxInfo.setDeparturePassenger(airp_dep.code_lat);
-              paxInfo.setArrivalPassenger(airp_arv.code_lat);
-              paxInfo.setPassengerCountry(nationality);
-              //PNR
-              vector<TPnrAddrItem> pnrs;
-              GetPaxPnrAddr(pax_id,pnrs);
-              if (!pnrs.empty())
-                paxInfo.setPassengerNumber(convert_pnr_addr(pnrs.begin()->addr, 1));
+        	      string passengerSex = gender.substr(0,1);
+                if (passengerSex!="M" &&
+                    passengerSex!="F")
+        	        passengerSex = "M";
+                paxInfo.setPassengerSex( passengerSex );
 
-              if (doc_type=="P")
-                paxInfo.setPassengerType(doc_type);
-              paxInfo.setIdNumber(PaxQry.FieldAsString("no"));
-              if (!PaxQry.FieldIsNULL("expiry_date"))
-                paxInfo.setExpirateDate(PaxQry.FieldAsDateTime("expiry_date"));
-              paxInfo.setDocCountry(issue_country);
-            };
+        	      if (!PaxQry.FieldIsNULL("birth_date"))
+        	        paxInfo.setBirthDate( PaxQry.FieldAsDateTime("birth_date"));
 
-            if (fmt=="CSV_CZ")
-      	    {
-      	    	body << PaxQry.FieldAsString("doc_surname") << ";"
-      	  		     << PaxQry.FieldAsString("doc_first_name") << ";"
-      	  		     << PaxQry.FieldAsString("doc_second_name") << ";"
-      	  		     << birth_date << ";"
-      	  		     << gender << ";"
-      	  		     << nationality << ";"
-      	  		     << doc_type << ";"
-      	  		     << PaxQry.FieldAsString("no") << ";"
-      	  		     << expiry_date << ";"
-      	  		     << issue_country << ";"
-      	  		     << ENDL;
-      	  	};
-      	  	if (fmt=="CSV_DE")
-      	    {
-      	      body << PaxQry.FieldAsString("doc_surname") << ";"
-      	           << PaxQry.FieldAsString("doc_first_name")
-      	           << (PaxQry.FieldIsNULL("doc_second_name")?"":" ") << PaxQry.FieldAsString("doc_second_name") << ";"
-      	           << gender << ";"
-      	           << birth_date << ";"
-      	           << nationality << ";"
-                   << airp_arv.code_lat << ";"
-    	  		       << airp_dep.code_lat << ";"
-    	  		       << airp_final_lat << ";"
-    	  		       << doc_type << ";"
-    	  		       << PaxQry.FieldAsString("no") << ";"
-    	  		       << issue_country << ";"
-    	  		       << ";;"
-      	  		     << ENDL;
-      	           
+        	      paxInfo.setDeparturePassenger(airp_dep.code_lat);
+                paxInfo.setArrivalPassenger(airp_arv.code_lat);
+                paxInfo.setPassengerCountry(nationality);
+                //PNR
+                vector<TPnrAddrItem> pnrs;
+                GetPaxPnrAddr(pax_id,pnrs);
+                if (!pnrs.empty())
+                  paxInfo.setPassengerNumber(convert_pnr_addr(pnrs.begin()->addr, 1));
+
+                if (doc_type=="P")
+                  paxInfo.setPassengerType(doc_type);
+                paxInfo.setIdNumber(PaxQry.FieldAsString("doc_no"));
+                if (!PaxQry.FieldIsNULL("expiry_date"))
+                  paxInfo.setExpirateDate(PaxQry.FieldAsDateTime("expiry_date"));
+                paxInfo.setDocCountry(issue_country);
+              };
+
+              if (fmt=="CSV_CZ")
+        	    {
+        	    	body << PaxQry.FieldAsString("doc_surname") << ";"
+        	  		     << PaxQry.FieldAsString("doc_first_name") << ";"
+        	  		     << PaxQry.FieldAsString("doc_second_name") << ";"
+        	  		     << birth_date << ";"
+        	  		     << gender << ";"
+        	  		     << nationality << ";"
+        	  		     << doc_type << ";"
+        	  		     << PaxQry.FieldAsString("doc_no") << ";"
+        	  		     << expiry_date << ";"
+        	  		     << issue_country << ";";
+        	  	};
+        	  	if (fmt=="CSV_DE")
+        	    {
+        	      body << PaxQry.FieldAsString("doc_surname") << ";"
+        	           << PaxQry.FieldAsString("doc_first_name")
+        	           << (PaxQry.FieldIsNULL("doc_second_name")?"":" ") << PaxQry.FieldAsString("doc_second_name") << ";"
+        	           << gender << ";"
+        	           << birth_date << ";"
+        	           << nationality << ";"
+                     << airp_arv.code_lat << ";"
+      	  		       << airp_dep.code_lat << ";"
+      	  		       << airp_final_lat << ";"
+      	  		       << doc_type << ";"
+      	  		       << PaxQry.FieldAsString("doc_no") << ";"
+      	  		       << issue_country;
+        	    };
       	    };
-    	    };
-         if (fmt=="EDI_CZ")
-    	      paxlstInfo.addPassenger( paxInfo );
-    	  };
+      	    if (!PaxQry.FieldIsNULL("doco_pax_id") && fmt=="CSV_DE")
+      	  	{
+      	  	  //виза пассажира найдена
+        	    string doco_type;
+      	    	if (!PaxQry.FieldIsNULL("doco_type"))
+      	    	{
+      	    	  TPaxDocTypesRow &doco_type_row = (TPaxDocTypesRow&)base_tables.get("pax_doc_types").get_row("code",PaxQry.FieldAsString("doco_type"));
+      	    	  if (doco_type_row.code_lat.empty()) throw Exception("doco_type.code_lat empty (code=%s)",PaxQry.FieldAsString("doco_type"));
+      	    	  doco_type=doco_type_row.code_lat;
+      	    	};
+      	    	string applic_country;
+      	    	if (!PaxQry.FieldIsNULL("applic_country"))
+      	    	{
+      	    	  TCountriesRow &applic_country_row = (TCountriesRow&)base_tables.get("countries").get_row("code",PaxQry.FieldAsString("applic_country"));
+      	    	  if (applic_country_row.code_iso.empty()) throw Exception("applic_country.code_iso empty (code=%s)",PaxQry.FieldAsString("applic_country"));
+      	    	  applic_country=applic_country_row.code_iso;
+      	    	  if (fmt=="CSV_DE")
+      	    	  {
+      	    	    if (applic_country=="DEU") applic_country="D";
+      	    	  };
+      	    	};
+      	    
+      	      body << ";"
+                   << doco_type << ";"
+                   << PaxQry.FieldAsString("doco_no") << ";"
+                   << applic_country;
+            };
+            if (fmt=="CSV_CZ" || fmt=="CSV_DE")
+              body << ENDL;
+      	    
+            if (fmt=="EDI_CZ")
+      	      paxlstInfo.addPassenger( paxInfo );
+      	  };
 
-        if (fmt=="EDI_CZ" && !paxlstInfo.getPassengersList().empty())
-        {
-          string tlg,err;
-    	    if (!paxlstInfo.toEdiString(tlg,err)) throw Exception(err);
-    	    body << tlg;
-    	  };
+          if (fmt=="EDI_CZ" && !paxlstInfo.getPassengersList().empty())
+          {
+            string tlg,err;
+      	    if (!paxlstInfo.toEdiString(tlg,err)) throw Exception(err);
+      	    body << tlg;
+      	  };
 
-      	ofstream f;
-        f.open(file_name.str().c_str());
-        if (!f.is_open()) throw Exception("Can't open file '%s'",file_name.str().c_str());
-        try
-        {
-          if (fmt=="CSV_CZ")
-          	f << "csv;ROSSIYA;"
-          	  << airline.code_lat << setw(3) << setfill('0') << flt_no << ";"
-        	    << airp_dep.code_lat << ";" << DateTimeToStr(act_out_local,"yyyy-mm-dd'T'hh:nn:00.0") << ";"
-        	    << airp_arv.code_lat << ";" << DateTimeToStr(act_in_local,"yyyy-mm-dd'T'hh:nn:00.0") << ";"
-        	    << count << ";" << ENDL;
-        	    
-        	if (fmt=="CSV_DE")
-            f << airline.code_lat << ";"
-              << airline.code_lat << setw(3) << setfill('0') << flt_no << ";"
-              << airp_dep.code_lat << ";" << DateTimeToStr(act_out_local,"yymmddhhnn") << ";"
-              << airp_arv.code_lat << ";" << DateTimeToStr(act_in_local,"yymmddhhnn") << ";"
-              << count << ENDL;
-
-        	f << body.str();
-        	f.close();
-        }
-        catch(...)
-        {
-          try { f.close(); } catch( ... ) { };
+        	ofstream f;
+          f.open(file_name.str().c_str());
+          if (!f.is_open()) throw Exception("Can't open file '%s'",file_name.str().c_str());
           try
           {
-            //в случае ошибки запишем пустой файл
-            f.open(file_name.str().c_str());
-            if (f.is_open()) f.close();
+            if (fmt=="CSV_CZ")
+            	f << "csv;ROSSIYA;"
+            	  << airline.code_lat << setw(3) << setfill('0') << flt_no << ";"
+          	    << airp_dep.code_lat << ";" << DateTimeToStr(act_out_local,"yyyy-mm-dd'T'hh:nn:00.0") << ";"
+          	    << airp_arv.code_lat << ";" << DateTimeToStr(act_in_local,"yyyy-mm-dd'T'hh:nn:00.0") << ";"
+          	    << count << ";" << ENDL;
+
+          	if (fmt=="CSV_DE")
+              f << airline.code_lat << ";"
+                << airline.code_lat << setw(3) << setfill('0') << flt_no << ";"
+                << airp_dep.code_lat << ";" << DateTimeToStr(act_out_local,"yymmddhhnn") << ";"
+                << airp_arv.code_lat << ";" << DateTimeToStr(act_in_local,"yymmddhhnn") << ";"
+                << count << ENDL;
+
+          	f << body.str();
+          	f.close();
           }
-          catch( ... ) { };
-          throw;
+          catch(...)
+          {
+            try { f.close(); } catch( ... ) { };
+            try
+            {
+              //в случае ошибки запишем пустой файл
+              f.open(file_name.str().c_str());
+              if (f.is_open()) f.close();
+            }
+            catch( ... ) { };
+            throw;
+          };
         };
       };
 

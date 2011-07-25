@@ -1030,11 +1030,11 @@ int getTCLParam(const char* name, int min, int max, int def)
          max!=NoExists && res>max)
       throw EXCEPTIONS::Exception( "Wrong TCL param %s=%s", name, r );
   }
-  catch(std::exception &e)
+  catch(EXCEPTIONS::Exception &e)
   {
     if (def==NoExists) throw;
     res=def;
-    ProgError( STDLOG, e.what() );
+    ProgTrace( TRACE0, e.what() );
   };
 
   ProgTrace( TRACE5, "TCL param %s=%d", name, res );
