@@ -677,19 +677,25 @@ void TPrnTagStore::TBrdInfo::Init(int point_id)
     if(brd_from == NoExists) {
         TQuery Qry(&OraSession);
         Qry.SQLText =
-            "select "
-            "   gtimer.get_stage_time(:point_id,:brd_open_stage_id) brd_from, "
-            "   gtimer.get_stage_time(:point_id,:brd_close_stage_id) brd_to "
-            "from "
-            "   dual ";
+            "begin "
+            "   select nvl( est, scd ) into :brd_from from trip_stages where point_id = :point_id and stage_id = :brd_open_stage_id; "
+            "   select nvl( est, scd ) into :brd_to from trip_stages where point_id = :point_id and stage_id = :brd_close_stage_id; "
+            "end; ";
         Qry.CreateVariable("point_id", otInteger, point_id);
         Qry.CreateVariable("brd_open_stage_id", otInteger, sOpenBoarding);
         Qry.CreateVariable("brd_close_stage_id", otInteger, sCloseBoarding);
-        Qry.Execute();
-        if(Qry.Eof)
-            throw Exception("TPrnTagStore::TBrdInfo::Init no data found for point_id = %d", point_id);
-        brd_from = Qry.FieldAsDateTime("brd_from");
-        brd_to = Qry.FieldAsDateTime("brd_to");
+        Qry.DeclareVariable("brd_from", otDate);
+        Qry.DeclareVariable("brd_to", otDate);
+        try {
+            Qry.Execute();
+        } catch(EOracleError &E) {
+            if(E.Code == 1403)
+                throw Exception("TPrnTagStore::TBrdInfo::Init no data found for point_id = %d", point_id);
+            else
+                throw;
+        }
+        brd_from = Qry.GetVariableAsDateTime("brd_from");
+        brd_to = Qry.GetVariableAsDateTime("brd_to");
     }
 }
 
