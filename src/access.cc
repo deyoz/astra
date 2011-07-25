@@ -6,6 +6,7 @@
 #include "serverlib/test.h"
 #include "cache.h"
 #include <set>
+#include "misc.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -206,6 +207,59 @@ void AccessInterface::RoleRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
+enum TSourceType {stRoles, stAirps, stAirlines};
+
+template <class T>
+class TAROList { // Класс, описывающий roles, airps, airlines пользователей
+    TSourceType st;
+    TQuery Qry;
+    map<int, set<T> >  users;
+    public:
+    TAROList<T>(TSourceType st);
+    set<T> &get(int user_id);
+};
+
+template <class T>
+set<T> &TAROList<T>::get(int user_id)
+{
+    if(users.find(user_id) == users.end()) {
+        Qry.SetVariable("user_id", user_id);
+        Qry.Execute();
+        set<T> &aro = *users[user_id];
+        for(; Qry.Eof; Qry.Next())
+            switch(st) {
+                case stRoles:
+                    aro.insert(Qry.FieldAsInteger(0));
+                    break;
+                case stAirps:
+                case stAirlines:
+                    aro.insert(Qry.FieldAsString(0));
+                    break;
+            }
+    }
+    return *(users[user_id]);
+}
+
+template <class T>
+TAROList<T>::TAROList(TSourceType ast):
+    Qry(&OraSession)
+{
+    st = ast;
+
+    switch(st) {
+        case stRoles:
+            Qry.SQLText = "select role_id from user_roles where user_id = :user_id";
+            break;
+        case stAirps:
+            Qry.SQLText = "select airp from aro_airps where aro_id = :user_id";
+            break;
+        case stAirlines:
+            Qry.SQLText = "select airline from aro_airlines where aro_id = :user_id";
+            break;
+    }
+            Qry.DeclareVariable("user_id", otInteger);
+}
+
 struct TUserData {
     int user_id;
     string descr;
@@ -216,9 +270,12 @@ struct TUserData {
     int airp_fmt;
     int craft_fmt;
     int suff_fmt;
-    vector<string> airps, airlines;
+    set<string> airps, airlines;
     set<int> roles;
     int pr_denial;
+    TAROList<int> user_roles;
+    TAROList<string> user_airps;
+    TAROList<string> user_airlines;
     void initXML(xmlNodePtr node);
     void search(xmlNodePtr node);
     void insert();
@@ -227,7 +284,7 @@ struct TUserData {
     void del();
     void create_vars(TQuery &Qry, bool pr_update = false);
     void create_var(TQuery &Qry, string name, int val);
-    void get_users_by_roles(vector<int> &users);
+    void get_users(TSourceType st, vector<int> &users);
     TUserData():
         user_id(-1),
         user_type(-1),
@@ -236,7 +293,10 @@ struct TUserData {
         airp_fmt(-1),
         craft_fmt(-1),
         suff_fmt(-1),
-        pr_denial(-1)
+        pr_denial(-1),
+        user_roles(stRoles),
+        user_airps(stAirps),
+        user_airlines(stAirlines)
     {};
 };
 
@@ -287,12 +347,12 @@ void get_airlines(vector<string> &airlines, int user_id)
     Qry.SQLText = "select airline from aro_airlines where aro_id = :user_id";
     Qry.CreateVariable("user_id", otInteger, user_id);
     Qry.Execute();
-    ProgTrace(TRACE5, "AIRLINES");
+//    ProgTrace(TRACE5, "AIRLINES");
     for(; !Qry.Eof; Qry.Next()) {
         airlines.push_back(Qry.FieldAsString(0));
-        ProgTrace(TRACE5, "item: %s", airlines.back().c_str());
+//        ProgTrace(TRACE5, "item: %s", airlines.back().c_str());
     }
-    ProgTrace(TRACE5, "--------------");
+//    ProgTrace(TRACE5, "--------------");
 }
 
 void get_airps(vector<string> &airps, int user_id)
@@ -301,12 +361,12 @@ void get_airps(vector<string> &airps, int user_id)
     Qry.SQLText = "select airp from aro_airps where aro_id = :user_id";
     Qry.CreateVariable("user_id", otInteger, user_id);
     Qry.Execute();
-    ProgTrace(TRACE5, "AIRPS");
+//    ProgTrace(TRACE5, "AIRPS");
     for(; !Qry.Eof; Qry.Next()) {
         airps.push_back(Qry.FieldAsString(0));
-        ProgTrace(TRACE5, "item: %s", airps.back().c_str());
+//        ProgTrace(TRACE5, "item: %s", airps.back().c_str());
     }
-    ProgTrace(TRACE5, "--------------");
+//    ProgTrace(TRACE5, "--------------");
 }
 
 bool roles_cmp(vector<int> &a, vector<int> &b) {
@@ -359,30 +419,78 @@ bool aro_cmp(vector<string> &a, vector<string> &b) {
     return Result;
 }
 
-void TUserData::get_users_by_roles(vector<int> &users)
+template <class T>
+bool real_equal(T &a, T &b)
 {
-    if(roles.empty()) return;
+    return a.size() == b.size() and equal(a.begin(), a.end(), b.begin());
+}
+
+void TUserData::get_users(TSourceType st, vector<int> &users)
+{
     TQuery Qry(&OraSession);
     TQuery Qry1(&OraSession);
-    Qry.SQLText = "select user_id from user_roles where role_id = :role_id";
-    Qry.DeclareVariable("role_id", otInteger);
-    Qry1.SQLText = "select role_id from user_roles where user_id = :user_id";
-    Qry1.DeclareVariable("user_id", otInteger);
-    Qry.SetVariable("role_id", *(roles.begin()));
+    switch(st) {
+        case stAirps:
+            if(airps.empty()) return;
+            ProgTrace(TRACE5, "stAirps");
+            Qry.SQLText = "select aro_id user_id from aro_airps where airp = :airp";
+            Qry.CreateVariable("airp", otString, *(airps.begin()));
+            Qry1.SQLText = "select airp from aro_airps where aro_id = :user_id";
+            Qry1.DeclareVariable("user_id", otInteger);
+            break;
+        case stAirlines:
+            if(airlines.empty()) return;
+            ProgTrace(TRACE5, "stAirlines");
+            Qry.SQLText = "select aro_id user_id from aro_airlines where airline = :airline";
+            Qry.CreateVariable("airline", otString, *(airlines.begin()));
+            Qry1.SQLText = "select airline from aro_airlines where aro_id = :user_id";
+            Qry1.DeclareVariable("user_id", otInteger);
+            break;
+        case stRoles:
+            if(roles.empty()) return;
+            ProgTrace(TRACE5, "stRoles");
+            Qry.SQLText = "select user_id from user_roles where role_id = :role_id";
+            Qry.CreateVariable("role_id", otInteger, *(roles.begin()));
+            Qry1.SQLText = "select role_id from user_roles where user_id = :user_id";
+            Qry1.DeclareVariable("user_id", otInteger);
+            break;
+    }
     Qry.Execute();
     for(; not Qry.Eof; Qry.Next()) {
         int user_id = Qry.FieldAsInteger(0);
         Qry1.SetVariable("user_id", user_id);
         Qry1.Execute();
-        set<int> user_role_ids;
+        set<int> int_set;
+        set<string> string_set;
         ostringstream buf;
-        for(; not Qry1.Eof; Qry1.Next()) {
-            user_role_ids.insert(Qry1.FieldAsInteger(0));
-            buf << Qry1.FieldAsInteger(0) << " ";
+        for(; not Qry1.Eof; Qry1.Next())
+            switch(st) {
+                case stRoles:
+                    int_set.insert(Qry1.FieldAsInteger(0));
+                    break;
+                case stAirlines:
+                case stAirps:
+                    string_set.insert(Qry1.FieldAsString(0));
+                    break;
+            }
+        ProgTrace(TRACE5, "user_id: %d", user_id);
+        for(set<string>::iterator is = string_set.begin(); is != string_set.end(); is++)
+            ProgTrace(TRACE5, "    %s", is->c_str());
+        bool pr_equal = false;
+        switch(st) {
+            case stRoles:
+                pr_equal = real_equal(roles, int_set);
+                break;
+            case stAirlines:
+                pr_equal = real_equal(airlines, string_set);
+                break;
+            case stAirps:
+                pr_equal = real_equal(airps, string_set);
+                break;
         }
-        ProgTrace(TRACE5, "user_id: %d; his roles: '%s'", user_id, buf.str().c_str());
-        if(equal(roles.begin(), roles.end(), user_role_ids.begin())) {
-            ProgTrace(TRACE5, "add info users: %d", user_id);
+
+        if(pr_equal) {
+            ProgTrace(TRACE5, "equals!!!");
             users.push_back(user_id);
         }
     }
@@ -391,7 +499,11 @@ void TUserData::get_users_by_roles(vector<int> &users)
 void TUserData::search(xmlNodePtr resNode)
 {
     vector<int> users;
-    get_users_by_roles(users);
+    get_users(stRoles, users);
+    TPerfTimer tm;
+    get_users(stAirps, users);
+    ProgTrace(TRACE5, "get_users stAirps: %s", tm.PrintWithMessage().c_str());
+    get_users(stAirlines, users);
     if(users.empty())
         return;
     TQuery Qry(&OraSession);
@@ -585,7 +697,7 @@ void TUserData::update_aro()
     Qry.SQLText = "insert into aro_airlines(aro_id, airline) values(:user_id, :airline)";
     Qry.CreateVariable("user_id", otInteger, user_id);
     Qry.DeclareVariable("airline", otString);
-    for(vector<string>::iterator iv = airlines.begin(); iv != airlines.end(); iv++) {
+    for(set<string>::iterator iv = airlines.begin(); iv != airlines.end(); iv++) {
         Qry.SetVariable("airline", *iv);
         Qry.Execute();
     }
@@ -593,7 +705,7 @@ void TUserData::update_aro()
     Qry.SQLText = "insert into aro_airps(aro_id, airp) values(:user_id, :airp)";
     Qry.CreateVariable("user_id", otInteger, user_id);
     Qry.DeclareVariable("airp", otString);
-    for(vector<string>::iterator iv = airps.begin(); iv != airps.end(); iv++) {
+    for(set<string>::iterator iv = airps.begin(); iv != airps.end(); iv++) {
         Qry.SetVariable("airp", *iv);
         Qry.Execute();
     }
@@ -677,13 +789,13 @@ void TUserData::initXML(xmlNodePtr node)
         if(node2 != NULL) {
             node2 = node2->children;
             for(; node2; node2 = node2->next)
-                airps.push_back(NodeAsString(node2));
+                airps.insert(NodeAsString(node2));
         }
         node2 = GetNodeFast("airlines", node);
         if(node2 != NULL) {
             node2 = node2->children;
             for(; node2; node2 = node2->next)
-                airlines.push_back(NodeAsString(node2));
+                airlines.insert(NodeAsString(node2));
         }
         node2 = GetNodeFast("roles", node);
         if(node2 != NULL) {
