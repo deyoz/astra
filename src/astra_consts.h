@@ -80,6 +80,8 @@ enum TRptType {
     rtEXAMTXT,
     rtNOREC,
     rtNORECTXT,
+    rtGOSHO,
+    rtGOSHOTXT,
     rtBDOCS,
     rtUnknown,
     rtTypeNum

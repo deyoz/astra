@@ -1508,6 +1508,7 @@ struct TStatParams {
     bool airp_column_first;
     TSeanceType seance;
     TDateTime FirstDate, LastDate;
+    int flt_no;
     void get(xmlNodePtr resNode);
 };
 
@@ -1551,6 +1552,8 @@ string GetPactStatSQLText( TStatType statType, const TStatParams &params, bool p
             "  points.scd_out >= :first_date AND points.scd_out < :last_date and "
             "  points.airp = :airp and "
             "  (:airline is null or :airline = points.airline) ";
+        if(params.flt_no != NoExists)
+            SQLText += " and points.flt_no = :flt_no ";
         if(not denied_airlines.empty())
             SQLText += " and points.airline not in " + GetSQLEnum(denied_airlines);
         if (!params.airps.empty()) {
@@ -1625,6 +1628,8 @@ string GetPactStatSQLText( TStatType statType, const TStatParams &params, bool p
             "  arx_points.scd_out >= :first_date AND arx_points.scd_out < :last_date and "
             "  arx_points.airp = :airp and "
             "  (:airline is null or :airline = arx_points.airline) ";
+        if(params.flt_no != NoExists)
+            SQLText += " and arx_points.flt_no = :flt_no ";
         if(not denied_airlines.empty())
             SQLText += " and arx_points.airline not in " + GetSQLEnum(denied_airlines);
         if (!params.airps.empty()) {
@@ -1762,6 +1767,8 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
         };
         mainSQLText +=
             "where \n";
+        if(params.flt_no != NoExists)
+            mainSQLText += "  points.flt_no = :flt_no and \n";
         if (USE_SEANCES())
         {
           if (params.seance!=seanceAll)
@@ -1971,6 +1978,8 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
         };
         arxSQLText +=
             "where \n";
+        if(params.flt_no != NoExists)
+            arxSQLText += "  arx_points.flt_no = :flt_no and \n";
         if (USE_SEANCES())
         {
           if (params.seance!=seanceAll)
@@ -2133,6 +2142,7 @@ void TStatParams::get(xmlNodePtr reqNode)
 
     string ak = NodeAsStringFast("ak", curNode);
     string ap = NodeAsStringFast("ap", curNode);
+    flt_no = NodeAsIntegerFast("flt_no", curNode, NoExists);
 
     ProgTrace(TRACE5, "ak: %s", ak.c_str());
     ProgTrace(TRACE5, "ap: %s", ap.c_str());
@@ -2555,6 +2565,8 @@ void RunPactDetailStat(TStatType statType, TStatParams &params, xmlNodePtr reqNo
     Qry.DeclareVariable("airline", otString);
     Qry.CreateVariable("web", otString, EncodeClientType(ctWeb));
     Qry.CreateVariable("kiosk", otString, EncodeClientType(ctKiosk));
+    if(params.flt_no != NoExists)
+        Qry.CreateVariable("flt_no", otInteger, params.flt_no);
 
     TDetailStat DetailStat;
     TPrintAirline airline;
@@ -2596,6 +2608,8 @@ void RunDetailStat(TStatType statType, TStatParams &params, xmlNodePtr reqNode, 
     if (!USE_SEANCES() && params.seance==seanceAirport) Qry.DeclareVariable("ap",otString);
     if (USE_SEANCES() && params.seance!=seanceAll)
         Qry.CreateVariable("pr_airp_seance", otInteger, (int)(params.seance==seanceAirport));
+    if(params.flt_no != NoExists)
+        Qry.CreateVariable("flt_no", otString, params.flt_no);
 
     TDetailStat DetailStat;
     TPrintAirline airline;
@@ -2841,6 +2855,8 @@ void RunFullStat(TStatType statType, TStatParams &params, xmlNodePtr reqNode, xm
     if (!USE_SEANCES() && params.seance==seanceAirport) Qry.DeclareVariable("ap",otString);
     if (USE_SEANCES() && params.seance!=seanceAll)
         Qry.CreateVariable("pr_airp_seance", otInteger, (int)(params.seance==seanceAirport));
+    if(params.flt_no != NoExists)
+        Qry.CreateVariable("flt_no", otString, params.flt_no);
 
     TFullStat FullStat;
     TPrintAirline airline;
