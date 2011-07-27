@@ -1613,6 +1613,27 @@ bool transliter_equal(const string &value1, const string &value2)
   return false;
 };
 
+const char *rus_char_view = "€‚‘…ŠŒŽ’• á¥ª¬®àå";
+const char *lat_char_view = "ABCEHKMOPTXacekmopx";
+
+char ToLatCharView(char c)
+{
+  if ((unsigned char)c>=0x80)
+  {
+    ByteReplace(&c,1,rus_char_view,lat_char_view);
+  };
+  return c;
+};
+
+string convert_char_view(const string &value, bool pr_lat)
+{
+  string result = value;
+  if (pr_lat)
+    transform(result.begin(), result.end(), result.begin(), ToLatCharView);
+  return result;
+
+};
+
 string& EOracleError2UserException(string& msg)
 {
   //ProgTrace(TRACE5,"EOracleError2UserException: msg=%s",msg.c_str());
