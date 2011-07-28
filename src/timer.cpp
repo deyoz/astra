@@ -441,6 +441,23 @@ const char* APIS_PARTY_INFO()
   return VAR.c_str();
 };
 
+string TruncMRMRS(const char *str)
+{
+  string value(str);
+  RTrimString(value);
+  string::size_type pos=value.rfind("MR");
+  if (pos!=string::npos)
+  {
+    if (value.substr(pos)=="MR" ||
+        value.substr(pos)=="MRS")
+    {
+      value.erase(pos);
+      RTrimString(value);
+    };
+  };
+  return value;
+};
+
 void create_apis_file(int point_id)
 {
   try
@@ -628,13 +645,13 @@ void create_apis_file(int point_id)
       	  		if (fmt=="CSV_DE")
         	    {
       	        body << PaxQry.FieldAsString("surname") << ";"
-      	  		       << PaxQry.FieldAsString("name") << ";"
+      	  		       << TruncMRMRS(PaxQry.FieldAsString("name")) << ";"
       	  		       << ";;;"
                      << airp_arv.code_lat << ";"
       	  		       << airp_dep.code_lat << ";"
       	  		       << airp_final_lat << ";"
       	  		       << (PaxQry.FieldIsNULL("document")?"":"P") << ";"
-                     << PaxQry.FieldAsString("document") << ";";
+                     << convert_char_view(PaxQry.FieldAsString("document"),true) << ";";
       	  		};
       	    }
       	    else
@@ -754,9 +771,10 @@ void create_apis_file(int point_id)
         	  	};
         	  	if (fmt=="CSV_DE")
         	    {
+        	      string doc_second_name=TruncMRMRS(PaxQry.FieldAsString("doc_second_name"));
         	      body << PaxQry.FieldAsString("doc_surname") << ";"
-        	           << PaxQry.FieldAsString("doc_first_name")
-        	           << (PaxQry.FieldIsNULL("doc_second_name")?"":" ") << PaxQry.FieldAsString("doc_second_name") << ";"
+        	           << TruncMRMRS(PaxQry.FieldAsString("doc_first_name"))
+        	           << (doc_second_name.empty()?"":" ") << doc_second_name << ";"
         	           << gender << ";"
         	           << birth_date << ";"
         	           << nationality << ";"
@@ -764,7 +782,7 @@ void create_apis_file(int point_id)
       	  		       << airp_dep.code_lat << ";"
       	  		       << airp_final_lat << ";"
       	  		       << doc_type << ";"
-      	  		       << PaxQry.FieldAsString("doc_no") << ";"
+      	  		       << convert_char_view(PaxQry.FieldAsString("doc_no"),true) << ";"
       	  		       << issue_country;
         	    };
       	    };
@@ -792,7 +810,7 @@ void create_apis_file(int point_id)
       	    
       	      body << ";"
                    << doco_type << ";"
-                   << PaxQry.FieldAsString("doco_no") << ";"
+                   << convert_char_view(PaxQry.FieldAsString("doco_no"),true) << ";"
                    << applic_country;
             };
             if (fmt=="CSV_CZ" || fmt=="CSV_DE")

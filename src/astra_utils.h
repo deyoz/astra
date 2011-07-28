@@ -350,6 +350,7 @@ bool transliter_equal(const std::string &value1, const std::string &value2, int 
 bool transliter_equal(const std::string &value1, const std::string &value2);
 bool is_lat(const std::string &value);
 bool is_lat_char(char c);
+std::string convert_char_view(const std::string &value, bool pr_lat);
 
 int getTCLParam(const char* name, int min, int max, int def);
 std::string getTCLParam(const char* name, const char* def);
