@@ -433,7 +433,7 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 	   " FROM pax_grp, pax, pax_doc "
 	   " WHERE pax_grp.grp_id=pax.grp_id AND "
 	   "       pax_grp.point_dep=:point_id AND "
-	   "       pax.wl_type IS NULL "
+	   "       pax.wl_type IS NULL AND "
 	   "       pax.pax_id=pax_doc.pax_id(+) "
 	   " ORDER BY pax_grp.grp_id,seats ";
 	};
