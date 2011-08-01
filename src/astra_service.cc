@@ -107,14 +107,14 @@ int putFile( const string &receiver,
     catch( std::exception &e)
     {
     	try {deleteFile( file_id );} catch(...){};
-        ProgError(STDLOG, e.what());
-        throw;
+      ProgError(STDLOG, e.what());
+      throw;
     }
     catch(...)
     {
     	try {deleteFile( file_id );} catch(...){};
-        ProgError(STDLOG, "putFile: Unknown error while trying to put file");
-        throw;
+      ProgError(STDLOG, "putFile: Unknown error while trying to put file");
+      throw;
     };
   return file_id;
 };
