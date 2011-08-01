@@ -12,6 +12,7 @@
 #include "tripinfo.h"
 #include "etick.h"
 #include "astra_ticket.h"
+#include "aodb.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -377,6 +378,7 @@ bool BrdInterface::PaxUpdate(int point_id, int pax_id, int &tid, bool mark, bool
         if (pr_exam_with_brd)
           msg+=     (mark ? " прошел досмотр," : " возвращен на досмотр,");
         msg+=     (mark ? " прошел посадку" : " высажен");
+        update_aodb_pax_change( string(""), pax_id, "П", !mark );
       }
       else
         msg+=     (mark ? " прошел досмотр" : " возвращен на досмотр");

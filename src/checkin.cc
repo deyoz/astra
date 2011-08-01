@@ -3872,6 +3872,9 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                 }
                 else
                   normStr="нет";
+                update_aodb_pax_change( "", pax_id, "Р", false ); //!!!airp_dep
+                if (pr_brd_with_reg)
+                  update_aodb_pax_change( "", pax_id, "П", false ); //!!!
                 //запись информации по пассажиру в лог
                 TLogMsg msg;
                 msg.ev_type=ASTRA::evtPax;

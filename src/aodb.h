@@ -5,6 +5,7 @@
 #include <map>
 #include <tcl.h>
 #include "astra_service.h"
+#include "basic.h"
 
 const std::string FILE_AODB_TYPE = "AODB";
 const std::string FILE_AODB_IN_TYPE = "AODBI";
@@ -23,5 +24,6 @@ void Set_AODB_overload_alarm( int point_id, bool overload_alarm );
 void VerifyParseFlight( );
 
 int main_aodb_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
+void update_aodb_pax_change( std::string airp_dep, int pax_id, const std::string &work_mode, bool pr_del );
 
 #endif /*_AODB_H_*/
