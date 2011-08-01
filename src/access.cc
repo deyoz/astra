@@ -211,14 +211,36 @@ enum TSourceType {stRoles, stAirps, stAirlines};
 
 class TARO {
     private:
-        TQuery Qry;
+        TQuery Qry, usersQry;
         char *node_name;
+        set<string> *aro_params;
         map<int, set<string> > items;
     public:
-        TARO(TSourceType st);
+        TARO(TSourceType st, set<string> *aaro_params);
         set<string> &get(int user_id);
         void to_xml(int user_id, xmlNodePtr node);
+        void get_users(vector<int> &users);
 };
+
+template <class T>
+bool real_equal(T &a, T &b)
+{
+    return a.size() == b.size() and equal(a.begin(), a.end(), b.begin());
+}
+
+void TARO::get_users(vector<int> &users)
+{
+    if(aro_params->empty()) return;
+    usersQry.SetVariable("aro", *(*aro_params).begin());
+    usersQry.Execute();
+    for(; not usersQry.Eof; usersQry.Next()) {
+        int user_id = usersQry.FieldAsInteger(0);
+        if(real_equal(*aro_params, get(user_id))) {
+            ProgTrace(TRACE5, "equals!!!");
+            users.push_back(user_id);
+        }
+    }
+}
 
 void TARO::to_xml(int user_id, xmlNodePtr node)
 {
@@ -245,15 +267,20 @@ set<string> &TARO::get(int user_id)
     return mi->second;
 }
 
-TARO::TARO(TSourceType st): Qry(&OraSession)
+TARO::TARO(TSourceType st, set<string> *aaro_params):
+    Qry(&OraSession),
+    usersQry(&OraSession),
+    aro_params(aaro_params)
 {
     switch(st) {
         case stAirps:
             Qry.SQLText = "select airp from aro_airps where aro_id = :user_id";
+            usersQry.SQLText = "select aro_id user_id from aro_airps where airp = :aro";
             node_name = "airps";
             break;
         case stAirlines:
             Qry.SQLText = "select airline from aro_airlines where aro_id = :user_id";
+            usersQry.SQLText = "select aro_id user_id from aro_airlines where airline = :aro";
             node_name = "airlines";
             break;
         case stRoles:
@@ -261,13 +288,35 @@ TARO::TARO(TSourceType st): Qry(&OraSession)
             break;
     }
     Qry.DeclareVariable("user_id", otInteger);
+    usersQry.DeclareVariable("aro", otString);
 }
 
-struct TUserRoles {
-    map<int, set<int> > items;
-    set<int> &get(int user_id);
-    void to_xml(int user_id, xmlNodePtr node);
+class TUserRoles {
+    private:
+        map<int, set<int> > items;
+        set<int> *roles_params;
+    public:
+        set<int> &get(int user_id);
+        void to_xml(int user_id, xmlNodePtr node);
+        void get_users(vector<int> &users);
+        TUserRoles(set<int> *aroles_params): roles_params(aroles_params) {};
 };
+
+void TUserRoles::get_users(vector<int> &users)
+{
+    if(roles_params->empty()) return;
+    TQuery usersQry(&OraSession);
+    usersQry.SQLText = "select user_id from user_roles where role_id = :role";
+    usersQry.CreateVariable("role", otInteger, *(*roles_params).begin());
+    usersQry.Execute();
+    for(; not usersQry.Eof; usersQry.Next()) {
+        int user_id = usersQry.FieldAsInteger(0);
+        if(real_equal(*roles_params, get(user_id))) {
+            ProgTrace(TRACE5, "equals!!!");
+            users.push_back(user_id);
+        }
+    }
+}
 
 void TUserRoles::to_xml(int user_id, xmlNodePtr node)
 {
@@ -318,7 +367,6 @@ struct TUserData {
     void del();
     void create_vars(TQuery &Qry, bool pr_update = false);
     void create_var(TQuery &Qry, string name, int val);
-    void get_users(TSourceType st, vector<int> &users);
     TUserData():
         user_id(-1),
         user_type(-1),
@@ -327,8 +375,9 @@ struct TUserData {
         airp_fmt(-1),
         craft_fmt(-1),
         suff_fmt(-1),
-        user_airps(stAirps),
-        user_airlines(stAirlines),
+        user_airps(stAirps, &airps),
+        user_airlines(stAirlines, &airlines),
+        user_roles(&roles),
         pr_denial(-1)
     {};
 };
@@ -410,68 +459,22 @@ bool aro_cmp(vector<string> &a, vector<string> &b) {
     return Result;
 }
 
-template <class T>
-bool real_equal(T &a, T &b)
-{
-    return a.size() == b.size() and equal(a.begin(), a.end(), b.begin());
-}
-
-void TUserData::get_users(TSourceType st, vector<int> &users)
-{
-    TQuery Qry(&OraSession);
-    switch(st) {
-        case stAirps:
-            if(airps.empty()) return;
-            ProgTrace(TRACE5, "stAirps");
-            Qry.SQLText = "select aro_id user_id from aro_airps where airp = :airp";
-            Qry.CreateVariable("airp", otString, *(airps.begin()));
-            break;
-        case stAirlines:
-            if(airlines.empty()) return;
-            ProgTrace(TRACE5, "stAirlines");
-            Qry.SQLText = "select aro_id user_id from aro_airlines where airline = :airline";
-            Qry.CreateVariable("airline", otString, *(airlines.begin()));
-            break;
-        case stRoles:
-            if(roles.empty()) return;
-            ProgTrace(TRACE5, "stRoles");
-            Qry.SQLText = "select user_id from user_roles where role_id = :role_id";
-            Qry.CreateVariable("role_id", otInteger, *(roles.begin()));
-            break;
-    }
-    Qry.Execute();
-    for(; not Qry.Eof; Qry.Next()) {
-        int user_id = Qry.FieldAsInteger(0);
-        bool pr_equal = false;
-        switch(st) {
-            case stRoles:
-                pr_equal = real_equal(roles, user_roles.get(user_id));
-                break;
-            case stAirlines:
-                pr_equal = real_equal(airlines, user_airlines.get(user_id));
-                break;
-            case stAirps:
-                pr_equal = real_equal(airps, user_airps.get(user_id));
-                break;
-        }
-
-        if(pr_equal) {
-            ProgTrace(TRACE5, "equals!!!");
-            users.push_back(user_id);
-        }
-    }
-}
-
 void TUserData::search(xmlNodePtr resNode)
 {
     vector<int> users;
-    get_users(stRoles, users);
-    TPerfTimer tm;
-    get_users(stAirps, users);
-    ProgTrace(TRACE5, "get_users stAirps: %s", tm.PrintWithMessage().c_str());
-    get_users(stAirlines, users);
-    if(users.empty())
-        return;
+    if(
+            not roles.empty() or
+            not airps.empty() or
+            not airlines.empty()
+      ) {
+        user_roles.get_users(users);
+        TPerfTimer tm;
+        user_airps.get_users(users);
+        ProgTrace(TRACE5, "get_users stAirps: %s", tm.PrintWithMessage().c_str());
+        user_airlines.get_users(users);
+        if(users.empty())
+            return;
+    }
     TQuery Qry(&OraSession);
     string SQLText =
         "SELECT "
