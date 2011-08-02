@@ -234,7 +234,11 @@ class TRolesARO:public TARO {
         {
             aro_params = aaro_params;
             Qry.SQLText = "select role_id from user_roles where user_id = :user_id";
-            usersSQLText = "select user_id from user_roles where role_id = :aro";
+            usersSQLText =
+                "select user_id from user_roles where user_id in "
+                "   (select user_id from user_roles where role_id = :aro) "
+                "group by user_id "
+                "having count(*) = :count";
             user_cond = " and user_id = :user_id";
             node_name = "roles";
         }
@@ -246,7 +250,11 @@ class TAirpsARO:public TARO {
         {
             aro_params = aaro_params;
             Qry.SQLText = "select airp from aro_airps where aro_id = :user_id";
-            usersSQLText = "select aro_id from aro_airps where airp = :aro";
+            usersSQLText =
+                "select aro_id from aro_airps where aro_id in "
+                "   (select aro_id from aro_airps where airp = :aro) "
+                "group by aro_id "
+                "having count(*) = :count";
             user_cond = " and aro_id = :user_id";
             node_name = "airps";
         }
@@ -258,7 +266,11 @@ class TAirlinesARO:public TARO {
         {
             aro_params = aaro_params;
             Qry.SQLText = "select airline from aro_airlines where aro_id = :user_id";
-            usersSQLText = "select aro_id from aro_airlines where airline = :aro";
+            usersSQLText =
+                "select aro_id from aro_airlines where aro_id in "
+                "   (select aro_id from aro_airlines where airline = :aro) "
+                "group by aro_id "
+                "having count(*) = :count";
             user_cond = " and aro_id = :user_id";
             node_name = "airlines";
         }
@@ -278,6 +290,7 @@ void TARO::get_users(vector<int> &users, bool &pr_find)
     usersQry.CreateVariable("aro", otString, *aro_params->begin());
     if(users.empty()) {
         usersQry.SQLText = usersSQLText;
+        usersQry.CreateVariable("count", otInteger, (int)aro_params->size());
         usersQry.Execute();
         for(; not usersQry.Eof; usersQry.Next()) {
             int user_id = usersQry.FieldAsInteger(0);
