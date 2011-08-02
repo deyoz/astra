@@ -2195,24 +2195,25 @@ int main_aodb_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
 };
 
 
-void update_aodb_pax_change( string airp_dep, int pax_id, const string &work_mode, bool pr_del )
+void update_aodb_pax_change( int pax_id, const string &work_mode, bool pr_del )
 {
   TQuery Qry( &OraSession );
-  if (airp_dep.empty())
-  {
-     TQuery FlightQry( &OraSession );
-     FlightQry.SQLText =
-       "SELECT airp_dep FROM pax,pax_grp,points "
-       " WHERE pax.pax_id=:pax_id AND pax.grp_id=pax_grp.grp_id AND points.point_id=pax_grp.point_dep";
-     FlightQry.CreateVariable( "pax_id", otInteger, pax_id );
-     FlightQry.Execute();
-     if ( FlightQry.Eof )
-       return;
-     airp_dep = FlightQry.FieldAsString( "airp" );
-  };
-  if ( airp_dep != string( "Ççä") )
-    return;
+/*  Qry.Clear();
+  Qry.SQLText =
+    "SELECT airp_dep FROM pax,pax_grp,points,file_param_sets "
+    " WHERE pax.pax_id=:pax_id AND pax.grp_id=pax_grp.grp_id AND points.point_id=pax_grp.point_dep AND "
+ 	  "       ( file_param_sets.airp IS NULL OR file_param_sets.airp=points.airp ) AND "
+		"       ( file_param_sets.airline IS NULL OR file_param_sets.airline=points.airline ) AND "
+		"       ( file_param_sets.flt_no IS NULL OR file_param_sets.flt_no=points.flt_no ) AND "
+		"       file_param_sets.type=:type AND pr_send=1 AND own_point_addr=:own_point_addr AND rownum<2";
+  Qry.CreateVariable( "pax_id", otInteger, pax_id );
+	Qry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
+	Qry.CreateVariable( "type", otString, FILE_AODB_OUT_TYPE );
+  Qry.Execute();
+  if ( Qry.Eof )
+     return;*/
 
+  Qry.Clear();
   if ( pr_del ) {
     Qry.SQLText =
        "DELETE aodb_pax_change WHERE pax_id=:pax_id AND work_mode=:work_mode";
@@ -2225,20 +2226,38 @@ void update_aodb_pax_change( string airp_dep, int pax_id, const string &work_mod
        " WHERE pax_id=:pax_id AND work_mode=:work_mode; "
        " IF SQL%NOTFOUND THEN "
        "  INSERT INTO aodb_pax_change(pax_id,work_mode,desk,client_type,time) "
-       "   VALUES(:pax_id,:work_mode,desk,client_type,time); "
+       "   VALUES(:pax_id,:work_mode,:desk,:client_type,:time); "
        " END IF; "
        "END;";
     if ( TReqInfo::Instance()->desk.code.empty() )
       Qry.CreateVariable( "desk", otString, FNull );
     else
       Qry.CreateVariable( "desk", otString, TReqInfo::Instance()->desk.code );
-    Qry.CreateVariable( "client_type", otString,  TReqInfo::Instance()->client_type );
+    Qry.CreateVariable( "client_type", otString,  EncodeClientType(TReqInfo::Instance()->client_type) );
     Qry.CreateVariable( "time", otDate, NowUTC() );
   }
   Qry.CreateVariable( "pax_id", otInteger, pax_id );
   Qry.CreateVariable( "work_mode", otString, work_mode );
   Qry.Execute();
 }
+
+bool is_sync_aodb( int point_id )
+{
+  TQuery Qry( &OraSession );
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT file_param_sets.id FROM points,file_param_sets "
+    " WHERE points.point_id=:point_id AND "
+ 	  "       ( file_param_sets.airp IS NULL OR file_param_sets.airp=points.airp ) AND "
+		"       ( file_param_sets.airline IS NULL OR file_param_sets.airline=points.airline ) AND "
+		"       ( file_param_sets.flt_no IS NULL OR file_param_sets.flt_no=points.flt_no ) AND "
+		"       file_param_sets.type=:type AND pr_send=1 AND own_point_addr=:own_point_addr";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+	Qry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
+	Qry.CreateVariable( "type", otString, FILE_AODB_OUT_TYPE );
+  Qry.Execute();
+  return ( !Qry.Eof );
+};
 
 void VerifyParseFlight( )
 {

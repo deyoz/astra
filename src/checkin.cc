@@ -2795,6 +2795,8 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
       map<bool,string> BSMaddrs;
       TBSMContent BSMContentBefore;
       bool BSMsend=TelegramInterface::IsBSMSend(sendInfo,BSMaddrs);
+      bool SyncAODB=is_sync_aodb(point_dep);
+      int old_main_pax_id=NoExists;
 
       //map для норм
       map<int,string> norms;
@@ -3872,9 +3874,12 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                 }
                 else
                   normStr="нет";
-                update_aodb_pax_change( "", pax_id, "Р", false ); //!!!airp_dep
-                if (pr_brd_with_reg)
-                  update_aodb_pax_change( "", pax_id, "П", false ); //!!!
+                if (SyncAODB)
+                {
+                  update_aodb_pax_change( pax_id, "Р", false );
+                  if (pr_brd_with_reg)
+                    update_aodb_pax_change( pax_id, "П", false );
+                };
                 //запись информации по пассажиру в лог
                 TLogMsg msg;
                 msg.ev_type=ASTRA::evtPax;
@@ -3958,7 +3963,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
           else
             SeparateTCkin(grp_id,cssAllPrevCurr,cssNone,-1,tckin_id,tckin_seg_no);
         };
-
+        
         Qry.Clear();
         Qry.SQLText=
           "UPDATE pax_grp "
@@ -3991,6 +3996,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
 
         if (!pr_unaccomp)
         {
+          //читаем коммерческий рейс
           Qry.Clear();
           Qry.SQLText=
             "SELECT mark_trips.airline,mark_trips.flt_no,mark_trips.suffix, "
@@ -4004,6 +4010,15 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
             markFltInfo.Init(Qry);
             pr_mark_norms=Qry.FieldAsInteger("pr_mark_norms")!=0;
           };
+          //читаем old_main_pax_id
+          Qry.Clear();
+          Qry.SQLText=
+            "SELECT ckin.get_main_pax_id(:grp_id) AS old_main_pax_id FROM dual";
+          Qry.CreateVariable("grp_id",otInteger,grp_id);
+          Qry.Execute();
+          if (!Qry.Eof && !Qry.FieldIsNULL("old_main_pax_id"))
+            old_main_pax_id=Qry.FieldAsInteger("old_main_pax_id");
+            
 
           TQuery PaxQry(&OraSession);
           PaxQry.Clear();
@@ -4156,6 +4171,12 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                   //запись информации по пассажиру в лог
                   if (old_refuse!=refuse)
                   {
+                    if (SyncAODB)
+                    {
+                      update_aodb_pax_change( pax_id, "Р", true );
+                      update_aodb_pax_change( pax_id, "П", true );
+                    };
+                  
                     if (old_refuse=="")
                       reqInfo->MsgToLog((string)"Пассажир "+surname+(*name!=0?" ":"")+name+" ("+pers_type+") разрегистрирован. "+
                                         "Причина отказа в регистрации: "+refuse+". ",
@@ -4167,6 +4188,9 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                   }
                   else
                   {
+                    if (SyncAODB)
+                      update_aodb_pax_change( pax_id, "Р", false );
+                  
                     //проверить на PaxUpdatesPending!!!
                     reqInfo->MsgToLog((string)"Пассажир "+surname+(*name!=0?" ":"")+name+" ("+pers_type+"). "+
                                       "Изменены данные пассажира.",
@@ -4319,6 +4343,26 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
             "END;";
           Qry.CreateVariable("grp_id",otInteger,grp_id);
           Qry.Execute();
+        };
+      };
+      if (!pr_unaccomp && SyncAODB)
+      {
+        //читаем old_main_pax_id
+        Qry.Clear();
+        Qry.SQLText=
+          "SELECT pax_id,refuse FROM pax WHERE pax_id=ckin.get_main_pax_id(:grp_id)";
+        Qry.CreateVariable("grp_id",otInteger,grp_id);
+        Qry.Execute();
+        if (!Qry.Eof && Qry.FieldIsNULL("refuse"))
+        {
+          int new_main_pax_id=Qry.FieldAsInteger("pax_id");
+          if (old_main_pax_id!=NoExists &&
+              old_main_pax_id!=new_main_pax_id ||
+              GetNode("bags",reqNode) ||
+              GetNode("tags",reqNode))
+          {
+            update_aodb_pax_change( new_main_pax_id, "Р", false );
+          };
         };
       };
       SaveBagToLog(point_dep,grp_id,reqNode);
@@ -6084,8 +6128,9 @@ void GetNextTagNo(int grp_id, int tag_count, vector< pair<int,int> >& tag_ranges
             "      tag_ranges2.point_id=points.point_id(+) AND "
             "      (points.point_id IS NULL OR "
             "       points.pr_del<>0 OR "
-            "       points.time_out<system.UTCSYSDATE AND last_access<system.UTCSYSDATE-2/24 OR "
-            "       points.time_out>=system.UTCSYSDATE AND last_access<system.UTCSYSDATE-2) AND ";
+            "       NVL(points.act_out,NVL(points.est_out,points.scd_out))<:now_utc AND last_access<:now_utc-2/24 OR "
+            "       NVL(points.act_out,NVL(points.est_out,NVL(points.scd_out,:now_utc+1)))>=:now_utc AND last_access<:now_utc-2) AND ";
+          Qry.CreateVariable("now_utc",otDate,NowUTC());
           if (k==2)
           {
             sql <<
@@ -6111,7 +6156,7 @@ void GetNextTagNo(int grp_id, int tag_count, vector< pair<int,int> >& tag_ranges
           if (k==5)
           {
             sql <<
-              "      last_access<system.UTCSYSDATE-1 ";
+              "      last_access<:now_utc-1 ";
           };
         };
         sql << "ORDER BY last_access";

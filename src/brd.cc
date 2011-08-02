@@ -259,40 +259,51 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   bool boarding = NodeAsInteger("boarding", reqNode)!=0;
 
   get_new_tid(point_id);
-
-  TQuery Qry(&OraSession);
-  string sql=
-            "DECLARE "
-            "  CURSOR cur IS "
-            "    SELECT pax_id FROM pax_grp,pax "
-            "    WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_id AND ";
-
+  
+  ostringstream sql;
+  TQuery PaxQry(&OraSession);
+  PaxQry.Clear();
+  sql.str("");
+  sql << "SELECT pax_id FROM pax_grp,pax "
+         "WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_id AND ";
   if (reqInfo->screen.name == "BRDBUS.EXE")
-    sql+=   "          pr_brd=:mark; ";
+    sql << "pr_brd=:mark";
   else
-    sql+=   "          pr_exam=:mark; ";
+    sql << "pr_exam=:mark";
+  PaxQry.SQLText=sql.str().c_str();
+  PaxQry.CreateVariable( "point_id", otInteger, point_id );
+  PaxQry.CreateVariable( "mark", otInteger, (int)!boarding );
+  PaxQry.Execute();
+  if (!PaxQry.Eof)
+  {
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    sql.str("");
+    sql << "BEGIN ";
+    if (reqInfo->screen.name == "BRDBUS.EXE")
+      sql << "  UPDATE pax SET pr_brd=DECODE(:mark,0,1,0),tid=tid__seq.currval "
+             "  WHERE pax_id=:pax_id AND pr_brd=:mark; ";
+    else
+      sql << "  UPDATE pax SET pr_exam=DECODE(:mark,0,1,0),tid=tid__seq.currval "
+             "  WHERE pax_id=:pax_id AND pr_exam=:mark; ";
+    sql << "  IF SQL%FOUND THEN "
+           "    mvd.sync_pax(:pax_id,:term); "
+           "  END IF; "
+           "END; ";
+    Qry.SQLText=sql.str().c_str();
+    Qry.DeclareVariable( "pax_id", otInteger );
+    Qry.CreateVariable( "mark", otInteger, (int)!boarding );
+    Qry.CreateVariable( "term", otString, reqInfo->desk.code );
+    for(;!PaxQry.Eof;PaxQry.Next())
+    {
+      int pax_id=PaxQry.FieldAsInteger("pax_id");
+      Qry.SetVariable("pax_id", pax_id);
+      Qry.Execute();
+      if (reqInfo->screen.name == "BRDBUS.EXE")
+        update_aodb_pax_change( pax_id, "П", (int)!boarding );
+    };
+  };
 
-  sql+=     "curRow       cur%ROWTYPE; "
-            "BEGIN "
-            "  FOR curRow IN cur LOOP ";
-
-  if (reqInfo->screen.name == "BRDBUS.EXE")
-    sql+=   "    UPDATE pax SET pr_brd=DECODE(:mark,0,1,0),tid=tid__seq.currval "
-            "    WHERE pax_id=curRow.pax_id AND pr_brd=:mark; ";
-  else
-    sql+=   "    UPDATE pax SET pr_exam=DECODE(:mark,0,1,0),tid=tid__seq.currval "
-            "    WHERE pax_id=curRow.pax_id AND pr_exam=:mark; ";
-
-  sql+=     "    IF SQL%FOUND THEN "
-            "      mvd.sync_pax(curRow.pax_id,:term); "
-            "    END IF; "
-            "  END LOOP; "
-            "END; ";
-  Qry.SQLText=sql;
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.CreateVariable( "mark", otInteger, (int)!boarding );
-  Qry.CreateVariable( "term", otString, reqInfo->desk.code );
-  Qry.Execute();
   string lexeme_id;
   if (reqInfo->screen.name == "BRDBUS.EXE")
   {
@@ -378,7 +389,8 @@ bool BrdInterface::PaxUpdate(int point_id, int pax_id, int &tid, bool mark, bool
         if (pr_exam_with_brd)
           msg+=     (mark ? " прошел досмотр," : " возвращен на досмотр,");
         msg+=     (mark ? " прошел посадку" : " высажен");
-        update_aodb_pax_change( string(""), pax_id, "П", !mark );
+        if (is_sync_aodb(point_id))
+          update_aodb_pax_change( pax_id, "П", !mark );
       }
       else
         msg+=     (mark ? " прошел досмотр" : " возвращен на досмотр");
