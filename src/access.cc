@@ -214,12 +214,22 @@ class TARO {
         char *node_name;
         set<string> *aro_params;
         map<int, set<string> > items;
+        string replace_user_cond(const string sql, const string cond);
     public:
         set<string> &get(int user_id);
         void to_xml(int user_id, xmlNodePtr node);
         void get_users(vector<int> &users, bool &pr_find);
         TARO();
 };
+
+string TARO::replace_user_cond(const string sql, const string cond)
+{
+    string result = sql;
+    static const string user_cond = "user_cond";
+    size_t idx = result.find(user_cond);
+    result.replace(idx, user_cond.size(), cond);
+    return result;
+}
 
 TARO::TARO():
     Qry(&OraSession),
@@ -236,7 +246,7 @@ class TRolesARO:public TARO {
             Qry.SQLText = "select role_id from user_roles where user_id = :user_id";
             usersSQLText =
                 "select user_id from user_roles where user_id in "
-                "   (select user_id from user_roles where role_id = :aro) "
+                "   (select user_id from user_roles where role_id = :aro user_cond) "
                 "group by user_id "
                 "having count(*) = :count";
             user_cond = " and user_id = :user_id";
@@ -252,7 +262,7 @@ class TAirpsARO:public TARO {
             Qry.SQLText = "select airp from aro_airps where aro_id = :user_id";
             usersSQLText =
                 "select aro_id from aro_airps where aro_id in "
-                "   (select aro_id from aro_airps where airp = :aro) "
+                "   (select aro_id from aro_airps where airp = :aro user_cond) "
                 "group by aro_id "
                 "having count(*) = :count";
             user_cond = " and aro_id = :user_id";
@@ -268,7 +278,7 @@ class TAirlinesARO:public TARO {
             Qry.SQLText = "select airline from aro_airlines where aro_id = :user_id";
             usersSQLText =
                 "select aro_id from aro_airlines where aro_id in "
-                "   (select aro_id from aro_airlines where airline = :aro) "
+                "   (select aro_id from aro_airlines where airline = :aro user_cond) "
                 "group by aro_id "
                 "having count(*) = :count";
             user_cond = " and aro_id = :user_id";
@@ -288,25 +298,32 @@ void TARO::get_users(vector<int> &users, bool &pr_find)
     if(aro_params->empty()) return;
     usersQry.Clear();
     usersQry.CreateVariable("aro", otString, *aro_params->begin());
+    usersQry.CreateVariable("count", otInteger, (int)aro_params->size());
     if(users.empty()) {
-        usersQry.SQLText = usersSQLText;
-        usersQry.CreateVariable("count", otInteger, (int)aro_params->size());
+        usersQry.SQLText = replace_user_cond(usersSQLText, "").c_str();
         usersQry.Execute();
         for(; not usersQry.Eof; usersQry.Next()) {
             int user_id = usersQry.FieldAsInteger(0);
-            if(real_equal(*aro_params, get(user_id))) {
+            if(aro_params->size() == 1) {
+                items[user_id].insert(*aro_params->begin());
                 users.push_back(user_id);
-            }
+            } else
+                if(real_equal(*aro_params, get(user_id)))
+                    users.push_back(user_id);
         }
     } else {
         vector<int> tmp_users;
-        usersQry.SQLText = (usersSQLText + user_cond).c_str();
+        usersQry.SQLText = replace_user_cond(usersSQLText, user_cond).c_str();
         usersQry.DeclareVariable("user_id", otInteger);
         for(vector<int>::iterator iv = users.begin(); iv != users.end(); iv++) {
             usersQry.SetVariable("user_id", *iv);
             usersQry.Execute();
-            if(not usersQry.Eof and real_equal(*aro_params, get(*iv)))
+            if(aro_params->size() == 1) {
+                items[*iv].insert(*aro_params->begin());
                 tmp_users.push_back(*iv);
+            } else
+                if(not usersQry.Eof and real_equal(*aro_params, get(*iv)))
+                    tmp_users.push_back(*iv);
         }
         users = tmp_users;
     }
