@@ -998,7 +998,11 @@ string TPrnTagStore::BCBP_M_2(TFieldParams fp)
     result << setw(2) << right << setfill('0') << hex << uppercase << cond1.str().size();
     result << cond1.str();
 
-    return result.str();
+    string buf = result.str();
+    if((tag_lang.get_pr_lat() or tag_lang.english_tag()) and not is_lat(buf))
+        for(string::iterator si = buf.begin(); si != buf.end(); si++)
+            if(not is_lat_char(*si)) *si = 'X';
+    return buf;
 }
 
 string TPrnTagStore::AIRLINE(TFieldParams fp)
