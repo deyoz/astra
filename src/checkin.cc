@@ -4088,11 +4088,12 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                 const char* surname=NodeAsStringFast("surname",node2);
                 const char* name=NodeAsStringFast("name",node2);
                 Qry.Clear();
-                Qry.SQLText="SELECT refuse,reg_no FROM pax WHERE pax_id=:pax_id";
+                Qry.SQLText="SELECT refuse,reg_no,pr_brd FROM pax WHERE pax_id=:pax_id";
                 Qry.CreateVariable("pax_id",otInteger,pax_id);
                 Qry.Execute();
                 string old_refuse=Qry.FieldAsString("refuse");
                 int reg_no=Qry.FieldAsInteger("reg_no");
+                bool boarded=!Qry.FieldIsNULL("pr_brd") && Qry.FieldAsInteger("pr_brd")!=0;
                 if (GetNodeFast("refuse",node2)!=NULL)
                 {
                   //были изменения в информации по пассажиру
@@ -4174,10 +4175,11 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                     if (SyncAODB)
                     {
                       update_aodb_pax_change( point_dep, pax_id, reg_no, "Р" );
-                      update_aodb_pax_change( point_dep, pax_id, reg_no, "П" );
+                      if (boarded)
+                        update_aodb_pax_change( point_dep, pax_id, reg_no, "П" );
                     };
                   
-                    if (old_refuse=="")
+                    if (old_refuse.empty())
                       reqInfo->MsgToLog((string)"Пассажир "+surname+(*name!=0?" ":"")+name+" ("+pers_type+") разрегистрирован. "+
                                         "Причина отказа в регистрации: "+refuse+". ",
                                         ASTRA::evtPax,point_dep,reg_no,grp_id);

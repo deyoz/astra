@@ -264,7 +264,7 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   TQuery PaxQry(&OraSession);
   PaxQry.Clear();
   sql.str("");
-  sql << "SELECT pax_id,reg_no FROM pax_grp,pax "
+  sql << "SELECT pax_id,reg_no,pr_brd FROM pax_grp,pax "
          "WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_id AND ";
   if (reqInfo->screen.name == "BRDBUS.EXE")
     sql << "pr_brd=:mark";
@@ -297,10 +297,15 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     for(;!PaxQry.Eof;PaxQry.Next())
     {
       int pax_id=PaxQry.FieldAsInteger("pax_id");
+      bool boarded=!Qry.FieldIsNULL("pr_brd") && Qry.FieldAsInteger("pr_brd")!=0;
       Qry.SetVariable("pax_id", pax_id);
       Qry.Execute();
       if (reqInfo->screen.name == "BRDBUS.EXE")
-        update_aodb_pax_change( point_id, pax_id, PaxQry.FieldAsInteger("reg_no"), "è" );
+      {
+        bool boarded=!Qry.FieldIsNULL("pr_brd") && Qry.FieldAsInteger("pr_brd")!=0;
+        if (boarded)
+          update_aodb_pax_change( point_id, pax_id, PaxQry.FieldAsInteger("reg_no"), "è" );
+      };
     };
   };
 
