@@ -264,7 +264,7 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   TQuery PaxQry(&OraSession);
   PaxQry.Clear();
   sql.str("");
-  sql << "SELECT pax_id FROM pax_grp,pax "
+  sql << "SELECT pax_id,reg_no FROM pax_grp,pax "
          "WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_id AND ";
   if (reqInfo->screen.name == "BRDBUS.EXE")
     sql << "pr_brd=:mark";
@@ -300,7 +300,7 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
       Qry.SetVariable("pax_id", pax_id);
       Qry.Execute();
       if (reqInfo->screen.name == "BRDBUS.EXE")
-        update_aodb_pax_change( pax_id, "П", (int)!boarding );
+        update_aodb_pax_change( point_id, pax_id, PaxQry.FieldAsInteger("reg_no"), "П" );
     };
   };
 
@@ -390,7 +390,7 @@ bool BrdInterface::PaxUpdate(int point_id, int pax_id, int &tid, bool mark, bool
           msg+=     (mark ? " прошел досмотр," : " возвращен на досмотр,");
         msg+=     (mark ? " прошел посадку" : " высажен");
         if (is_sync_aodb(point_id))
-          update_aodb_pax_change( pax_id, "П", !mark );
+          update_aodb_pax_change( point_id, pax_id, Qry.FieldAsInteger("reg_no"), "П");
       }
       else
         msg+=     (mark ? " прошел досмотр" : " возвращен на досмотр");

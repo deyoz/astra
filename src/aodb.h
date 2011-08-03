@@ -24,7 +24,7 @@ void Set_AODB_overload_alarm( int point_id, bool overload_alarm );
 void VerifyParseFlight( );
 
 int main_aodb_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
-void update_aodb_pax_change( int pax_id, const std::string &work_mode, bool pr_del );
+void update_aodb_pax_change( int point_id, int pax_id, int reg_no, const std::string &work_mode );
 bool is_sync_aodb( int point_id );
 
 #endif /*_AODB_H_*/

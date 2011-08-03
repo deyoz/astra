@@ -3876,9 +3876,9 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                   normStr="нет";
                 if (SyncAODB)
                 {
-                  update_aodb_pax_change( pax_id, "Р", false );
+                  update_aodb_pax_change( point_dep, pax_id, reg_no, "Р" );
                   if (pr_brd_with_reg)
-                    update_aodb_pax_change( pax_id, "П", false );
+                    update_aodb_pax_change( point_dep, pax_id, reg_no, "П" );
                 };
                 //запись информации по пассажиру в лог
                 TLogMsg msg;
@@ -4173,8 +4173,8 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                   {
                     if (SyncAODB)
                     {
-                      update_aodb_pax_change( pax_id, "Р", true );
-                      update_aodb_pax_change( pax_id, "П", true );
+                      update_aodb_pax_change( point_dep, pax_id, reg_no, "Р" );
+                      update_aodb_pax_change( point_dep, pax_id, reg_no, "П" );
                     };
                   
                     if (old_refuse=="")
@@ -4189,7 +4189,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                   else
                   {
                     if (SyncAODB)
-                      update_aodb_pax_change( pax_id, "Р", false );
+                      update_aodb_pax_change( point_dep, pax_id, reg_no, "Р" );
                   
                     //проверить на PaxUpdatesPending!!!
                     reqInfo->MsgToLog((string)"Пассажир "+surname+(*name!=0?" ":"")+name+" ("+pers_type+"). "+
@@ -4208,7 +4208,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                     throw UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA",
                                         LParams()<<LParam("surname",string(surname)+(*name!=0?" ":"")+name)); //WEB
                   if (old_refuse.empty() && SyncAODB)
-                    update_aodb_pax_change( pax_id, "Р", false );
+                    update_aodb_pax_change( point_dep, pax_id, reg_no, "Р" );
                 };
                 //запись pax_doc
                 if (reqInfo->client_type!=ctTerm || reqInfo->desk.compatible(DOCS_VERSION))
@@ -4352,7 +4352,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
         //читаем old_main_pax_id
         Qry.Clear();
         Qry.SQLText=
-          "SELECT pax_id,refuse FROM pax WHERE pax_id=ckin.get_main_pax_id(:grp_id)";
+          "SELECT pax_id,reg_no,refuse FROM pax WHERE pax_id=ckin.get_main_pax_id(:grp_id)";
         Qry.CreateVariable("grp_id",otInteger,grp_id);
         Qry.Execute();
         if (!Qry.Eof && Qry.FieldIsNULL("refuse"))
@@ -4363,7 +4363,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
               GetNode("bags",reqNode) ||
               GetNode("tags",reqNode))
           {
-            update_aodb_pax_change( new_main_pax_id, "Р", false );
+            update_aodb_pax_change( point_dep, new_main_pax_id, Qry.FieldAsInteger("reg_no"), "Р" );
           };
         };
       };
