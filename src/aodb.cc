@@ -34,6 +34,7 @@ alter table aodb_bag add pr_cabin NUMBER(1) NOT NULL;
 #include "sopp.h"
 #include "serverlib/helpcpp.h"
 #include "tlg/tlg.h"
+#include "astra_misc.h"
 
 #define NICKNAME "DJEK"
 #define NICKTRACE DJEK_TRACE
@@ -64,6 +65,16 @@ struct AODB_STRUCT{
 	bool unaccomp;
 	bool doit;
 	string record;
+	int checkin_time_pos;
+	int length_checkin_time;
+	int brd_time_pos;
+  int length_brd_time;
+  AODB_STRUCT() {
+	  checkin_time_pos = -1;
+	  length_checkin_time = 0;
+	  brd_time_pos = -1;
+    length_brd_time = 0;
+  }
 };
 
 struct AODB_Dest {
@@ -211,11 +222,11 @@ void DecodeBagType( int bag_type, int &code, string &name )
 }
 
 bool getFlightData( int point_id, const string &point_addr,
-                    double &aodb_point_id, string &flight, string &scd_date )
+                    double &aodb_point_id, string &flight, string &scd_date, string &airp_dep )
 {
 	TQuery Qry(&OraSession);
 	Qry.SQLText =
-	 "SELECT aodb_point_id,airline||flt_no||suffix trip,scd_out "
+	 "SELECT aodb_point_id,airline||flt_no||suffix trip,scd_out, airp "
 	 " FROM points, aodb_points, trip_final_stages "
 	 " WHERE points.point_id=:point_id AND "
 	 "       trip_final_stages.point_id=points.point_id AND "
@@ -234,6 +245,7 @@ bool getFlightData( int point_id, const string &point_addr,
 	aodb_point_id = Qry.FieldAsFloat( "aodb_point_id" );
 	flight = Qry.FieldAsString( "trip" );
 	scd_date = DateTimeToStr( UTCToLocal( Qry.FieldAsDateTime( "scd_out" ), CityTZRegion( "МОВ" ) ), "dd.mm.yyyy hh:nn" );
+	airp_dep = Qry.FieldAsString( "airp" );
 	return true;
 }
 
@@ -286,28 +298,30 @@ bool getFlightData( int point_id, const string &point_addr,
 }
 */
 
-string GetTermInfo( TQuery &Qry, int pax_id, bool pr_tcheckin, bool pr_web_client,
-                    const string &work_mode, const string &region )
+string GetTermInfo( TQuery &Qry, int pax_id, int reg_no, bool pr_tcheckin, const string &client_type,
+                    const string &work_mode, const string &airp_dep, const string &region,
+                    int &length_time_value )
 {
   ostringstream info;
   string term;
   TDateTime t;
   Qry.SetVariable( "pax_id", pax_id );
+  Qry.SetVariable( "reg_no", reg_no );
   Qry.SetVariable( "work_mode", work_mode );
   Qry.Execute();
-  if ( Qry.Eof || string(Qry.FieldAsString( "airp" )) != string("ВНК") ) {
-    if ( pr_tcheckin )
-      term = "999";
+ 	if ( DecodeClientType( client_type.c_str() ) == ASTRA::ctWeb )
+ 		term = "777";
+  else    // стойка
+    if ( !Qry.Eof && string(Qry.FieldAsString( "airp" )) == airp_dep ) {
+      term = Qry.FieldAsString( "station" );
+      if ( !term.empty() && ( work_mode == "Р" && term[0] == 'R' ||
+                              work_mode == "П" && term[0] == 'G' ) )
+        term = term.substr( 1, term.length() - 1 );
+    }
     else
-     	if ( pr_web_client )
-     		term = "777";
-  }
-  else {
-    term = Qry.FieldAsString( "station" );
-    if ( !term.empty() && ( work_mode == "Р" && term[0] == 'R' ||
-                            work_mode == "П" && term[0] == 'G' ) )
-      term = term.substr( 1, term.length() - 1 );
-  }
+      if ( pr_tcheckin )
+        term = "999";
+
   if ( !Qry.Eof )
     t = Qry.FieldAsDateTime( "time" );
   else
@@ -316,10 +330,11 @@ string GetTermInfo( TQuery &Qry, int pax_id, bool pr_tcheckin, bool pr_web_clien
     info<<setw(4)<<"";
   else
     info<<setw(4)<<string(term).substr(0,4); // стойка
+  length_time_value = 16;
   if ( t == NoExists )
-   	info<<setw(16)<<"";
+   	info<<setw(length_time_value)<<"";
   else
-   	info<<setw(16)<<DateTimeToStr( UTCToLocal( t, region ), "dd.mm.yyyy hh:nn" );
+   	info<<setw(length_time_value)<<DateTimeToStr( UTCToLocal( t, region ), "dd.mm.yyyy hh:nn" );
   return info.str();
 }
 
@@ -331,10 +346,11 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 	string flight;
 	string region = CityTZRegion( "МОВ" );
 	string scd_date;
+	string airp_dep;
 	AODB_STRUCT STRAO;
 	vector<AODB_STRUCT> prior_aodb_pax, aodb_pax;
 	vector<AODB_STRUCT> prior_aodb_bag, aodb_bag;
-	if ( !getFlightData( point_id, point_addr, aodb_point_id, flight, scd_date ) )
+	if ( !getFlightData( point_id, point_addr, aodb_point_id, flight, scd_date, airp_dep ) )
 		return false;
 	ostringstream heading;
 	if ( aodb_point_id )
@@ -447,11 +463,14 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
     TimeQry.SQLText =
       "SELECT time,NVL(stations.name,aodb_pax_change.desk) station, client_type, airp "
       " FROM aodb_pax_change,stations "
-      " WHERE pax_id=:pax_id AND aodb_pax_change.work_mode=:work_mode AND aodb_pax_change.desk=stations.desk(+)";
+      " WHERE pax_id=:pax_id AND aodb_pax_change.reg_no=:reg_no AND "
+      "       aodb_pax_change.work_mode=:work_mode AND aodb_pax_change.desk=stations.desk(+)";
     TimeQry.DeclareVariable( "pax_id", otInteger );
+    TimeQry.DeclareVariable( "reg_no", otInteger );
     TimeQry.DeclareVariable( "work_mode", otString );
   }
 	vector<string> baby_names;
+	int length_time_value;
 
 	while ( !Qry.Eof ) {
 		if ( !pr_unaccomp && Qry.FieldAsInteger( "seats" ) == 0 ) {
@@ -462,6 +481,9 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 		}
 		ostringstream record;
 		record<<heading.str();
+		int end_checkin_time = -1;
+		int end_brd_time = -1;
+		length_time_value = 0;
 		if ( !pr_unaccomp ) {
 		  record<<setw(3)<<Qry.FieldAsInteger( "reg_no");
 	  	record<<setw(30)<<string(Qry.FieldAsString( "name" )).substr(0,30);
@@ -558,21 +580,32 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 		  record<<setw(1)<<0; // международный багаж
 //		record<<setw(1)<<0; // трансатлантический багаж :)
       // стойка рег. + время рег. + выход на посадку + время прохода на посадку
-      bool pr_tcheckin = DecodePaxStatus( Qry.FieldAsString( "status" ) ) == psTCheckin;
+      // определение сквозняка
+      TCkinRouteItem item;
+      TCkinRoute().GetPriorSeg( Qry.FieldAsInteger( "grp_id" ), crtIgnoreDependent, item );
+      bool pr_tcheckin = ( item.grp_id != NoExists );
       record<<GetTermInfo( TimeQry, Qry.FieldAsInteger( "pax_id" ),
+                           Qry.FieldAsInteger( "reg_no" ),
                            pr_tcheckin,
                            Qry.FieldAsString( "client_type" ),
-                           "Р", region ); // стойка рег.
+                           "Р", airp_dep, region, length_time_value ); // стойка рег.
+      end_checkin_time = record.str().size();
       record<<GetTermInfo( TimeQry, Qry.FieldAsInteger( "pax_id" ),
+                           Qry.FieldAsInteger( "reg_no" ),
                            pr_tcheckin,
                            Qry.FieldAsString( "client_type" ),
-                           "П", region ); // выход на посадку
+                           "П", airp_dep, region, length_time_value ); // выход на посадку
+      end_brd_time = record.str().size();
 		  if ( Qry.FieldIsNULL( "refuse" ) )
 		  	record<<setw(1)<<0<<";";
 		  else
     		record<<setw(1)<<1<<";"; // отказ от полета
     } // end if !pr_unaccomp
 	 	STRAO.record = record.str();
+	 	STRAO.checkin_time_pos = end_checkin_time - length_time_value;
+	 	STRAO.length_checkin_time = length_time_value;
+	 	STRAO.brd_time_pos = end_brd_time - length_time_value;
+	 	STRAO.length_brd_time = length_time_value;
 	  STRAO.pax_id = Qry.FieldAsInteger( "pax_id" );
 	  STRAO.reg_no = Qry.FieldAsInteger( "reg_no" );
 		aodb_pax.push_back( STRAO );
@@ -691,6 +724,12 @@ void getRecord( int pax_id, int reg_no, bool pr_unaccomp, const vector<AODB_STRU
 	  if ( i->pax_id == pax_id && i->reg_no == reg_no ) {
 	  	if ( !pr_unaccomp )
 		    res_checkin = i->record;
+		    if ( i->checkin_time_pos >= 0 && i->length_checkin_time > 0 ) {
+		      res_checkin.replace( res_checkin.begin() + i->checkin_time_pos, res_checkin.begin() + i->checkin_time_pos + i->length_checkin_time, i->length_checkin_time, ' ' );
+        }
+		    if ( i->brd_time_pos >= 0 && i->length_brd_time > 0 ) {
+		      res_checkin.replace( res_checkin.begin() + i->brd_time_pos, res_checkin.begin() + i->brd_time_pos + i->length_brd_time, i->length_brd_time, ' ' );
+        }
 		  for ( vector<AODB_STRUCT>::const_iterator b=aodb_bag.begin(); b!=aodb_bag.end(); b++ ) {
 		  	if ( b->pax_id != pax_id )
 		  		continue;
@@ -779,7 +818,14 @@ void createRecord( int point_id, int pax_id, int reg_no, const string &point_add
       PQry.CreateVariable( "pax_id", otInteger, pax_id );
       PQry.CreateVariable( "reg_no", otInteger, reg_no );
       PQry.CreateVariable( "point_addr", otString, point_addr );
-      PQry.CreateVariable( "record", otString, d->record );
+      string save_record = d->record;
+	    if ( d->checkin_time_pos >= 0 && d->length_checkin_time > 0 ) {
+		      save_record.replace( save_record.begin() + d->checkin_time_pos, save_record.begin() + d->checkin_time_pos + d->length_checkin_time, d->length_checkin_time, ' ' );
+        }
+		    if ( d->brd_time_pos >= 0 && d->length_brd_time > 0 ) {
+		      save_record.replace( save_record.begin() + d->brd_time_pos, save_record.begin() + d->brd_time_pos + d->length_brd_time, d->length_brd_time, ' ' );
+        }
+      PQry.CreateVariable( "record", otString, save_record );
       PQry.Execute();
     }
   }

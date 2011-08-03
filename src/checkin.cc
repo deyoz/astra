@@ -4207,6 +4207,8 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                   if (Qry.RowsProcessed()<=0)
                     throw UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA",
                                         LParams()<<LParam("surname",string(surname)+(*name!=0?" ":"")+name)); //WEB
+                  if (old_refuse.empty() && SyncAODB)
+                    update_aodb_pax_change( pax_id, "Р", false );
                 };
                 //запись pax_doc
                 if (reqInfo->client_type!=ctTerm || reqInfo->desk.compatible(DOCS_VERSION))
