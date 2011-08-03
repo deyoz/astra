@@ -318,12 +318,13 @@ void TARO::get_users(vector<int> &users, bool &pr_find)
         for(vector<int>::iterator iv = users.begin(); iv != users.end(); iv++) {
             usersQry.SetVariable("user_id", *iv);
             usersQry.Execute();
-            if(aro_params->size() == 1) {
-                items[*iv].insert(*aro_params->begin());
-                tmp_users.push_back(*iv);
-            } else
-                if(not usersQry.Eof and real_equal(*aro_params, get(*iv)))
+            if(not usersQry.Eof)
+                if(aro_params->size() == 1) {
+                    items[*iv].insert(*aro_params->begin());
                     tmp_users.push_back(*iv);
+                } else
+                    if(real_equal(*aro_params, get(*iv)))
+                        tmp_users.push_back(*iv);
         }
         users = tmp_users;
     }
@@ -474,9 +475,11 @@ void TUserData::search(xmlNodePtr resNode)
 {
     vector<int> users;
     bool pr_find = true; // искать дальше или нет
+    TPerfTimer tm;
     user_roles.get_users(users, pr_find);
     user_airps.get_users(users, pr_find);
     user_airlines.get_users(users, pr_find);
+    ProgTrace(TRACE5, "get_users: %s", tm.PrintWithMessage().c_str());
     if(not pr_find) return;
     TQuery Qry(&OraSession);
     string SQLText =
