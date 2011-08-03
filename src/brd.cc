@@ -297,12 +297,11 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     for(;!PaxQry.Eof;PaxQry.Next())
     {
       int pax_id=PaxQry.FieldAsInteger("pax_id");
-      bool boarded=!Qry.FieldIsNULL("pr_brd") && Qry.FieldAsInteger("pr_brd")!=0;
       Qry.SetVariable("pax_id", pax_id);
       Qry.Execute();
       if (reqInfo->screen.name == "BRDBUS.EXE")
       {
-        bool boarded=!Qry.FieldIsNULL("pr_brd") && Qry.FieldAsInteger("pr_brd")!=0;
+        bool boarded=!PaxQry.FieldIsNULL("pr_brd") && PaxQry.FieldAsInteger("pr_brd")!=0;
         if (boarded)
           update_aodb_pax_change( point_id, pax_id, PaxQry.FieldAsInteger("reg_no"), "è" );
       };
