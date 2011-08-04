@@ -211,14 +211,13 @@ class TARO {
     protected:
         TQuery Qry, usersQry;
         string usersSQLText, user_cond;
-        char *node_name;
-        set<string> *aro_params;
+        string node_name;
         map<int, set<string> > items;
         string replace_user_cond(const string sql, const string cond);
     public:
         set<string> &get(int user_id);
         void to_xml(int user_id, xmlNodePtr node);
-        void get_users(vector<int> &users, bool &pr_find);
+        void get_users(set<string> &aro_params, vector<int> &users, bool &pr_find);
         TARO();
 };
 
@@ -240,9 +239,8 @@ TARO::TARO():
 
 class TRolesARO:public TARO {
     public:
-        TRolesARO(set<string> *aaro_params)
+        TRolesARO()
         {
-            aro_params = aaro_params;
             Qry.SQLText = "select role_id from user_roles where user_id = :user_id";
             usersSQLText =
                 "select user_id from user_roles where user_id in "
@@ -256,9 +254,8 @@ class TRolesARO:public TARO {
 
 class TAirpsARO:public TARO {
     public:
-        TAirpsARO(set<string> *aaro_params)
+        TAirpsARO()
         {
-            aro_params = aaro_params;
             Qry.SQLText = "select airp from aro_airps where aro_id = :user_id";
             usersSQLText =
                 "select aro_id from aro_airps where aro_id in "
@@ -272,9 +269,8 @@ class TAirpsARO:public TARO {
 
 class TAirlinesARO:public TARO {
     public:
-        TAirlinesARO(set<string> *aaro_params)
+        TAirlinesARO()
         {
-            aro_params = aaro_params;
             Qry.SQLText = "select airline from aro_airlines where aro_id = :user_id";
             usersSQLText =
                 "select aro_id from aro_airlines where aro_id in "
@@ -292,23 +288,23 @@ bool real_equal(T &a, T &b)
     return a.size() == b.size() and equal(a.begin(), a.end(), b.begin());
 }
 
-void TARO::get_users(vector<int> &users, bool &pr_find)
+void TARO::get_users(set<string> &aro_params, vector<int> &users, bool &pr_find)
 {
     if(not pr_find) return;
-    if(aro_params->empty()) return;
+    if(aro_params.empty()) return;
     usersQry.Clear();
-    usersQry.CreateVariable("aro", otString, *aro_params->begin());
-    usersQry.CreateVariable("count", otInteger, (int)aro_params->size());
+    usersQry.CreateVariable("aro", otString, *aro_params.begin());
+    usersQry.CreateVariable("count", otInteger, (int)aro_params.size());
     if(users.empty()) {
         usersQry.SQLText = replace_user_cond(usersSQLText, "").c_str();
         usersQry.Execute();
         for(; not usersQry.Eof; usersQry.Next()) {
             int user_id = usersQry.FieldAsInteger(0);
-            if(aro_params->size() == 1) {
-                items[user_id].insert(*aro_params->begin());
+            if(aro_params.size() == 1) {
+                items[user_id].insert(*aro_params.begin());
                 users.push_back(user_id);
             } else
-                if(real_equal(*aro_params, get(user_id)))
+                if(real_equal(aro_params, get(user_id)))
                     users.push_back(user_id);
         }
     } else {
@@ -319,11 +315,11 @@ void TARO::get_users(vector<int> &users, bool &pr_find)
             usersQry.SetVariable("user_id", *iv);
             usersQry.Execute();
             if(not usersQry.Eof)
-                if(aro_params->size() == 1) {
-                    items[*iv].insert(*aro_params->begin());
+                if(aro_params.size() == 1) {
+                    items[*iv].insert(*aro_params.begin());
                     tmp_users.push_back(*iv);
                 } else
-                    if(real_equal(*aro_params, get(*iv)))
+                    if(real_equal(aro_params, get(*iv)))
                         tmp_users.push_back(*iv);
         }
         users = tmp_users;
@@ -335,7 +331,7 @@ void TARO::to_xml(int user_id, xmlNodePtr node)
 {
     set<string> &s = get(user_id);
     if(not s.empty()) {
-        node = NewTextChild(node, node_name);
+        node = NewTextChild(node, node_name.c_str());
         for(set<string>::iterator is = s.begin(); is != s.end(); is++) {
             NewTextChild(node, "item", *is);
         }
@@ -356,6 +352,38 @@ set<string> &TARO::get(int user_id)
     return mi->second;
 }
 
+struct TUserData {
+    int user_id;
+    string descr;
+    string login;
+    int user_type;
+    int time_fmt;
+    int airline_fmt;
+    int airp_fmt;
+    int craft_fmt;
+    int suff_fmt;
+    set<string> airps, airlines, roles;
+    int pr_denial;
+    void initXML(xmlNodePtr node);
+    void search(xmlNodePtr node);
+    void insert();
+    void update();
+    void update_aro();
+    void del();
+    void create_vars(TQuery &Qry, bool pr_update = false);
+    void create_var(TQuery &Qry, string name, int val);
+    TUserData():
+        user_id(-1),
+        user_type(-1),
+        time_fmt(-1),
+        airline_fmt(-1),
+        airp_fmt(-1),
+        craft_fmt(-1),
+        suff_fmt(-1),
+        pr_denial(-1)
+    {};
+};
+
 class TSearchResultXML {
     private:
         int col_user_id;
@@ -368,7 +396,6 @@ class TSearchResultXML {
         int col_disp_airp_fmt_code;
         int col_disp_craft_fmt_code;
         int col_disp_suffix_fmt_code;
-        xmlNodePtr rowsNode;
     public:
         void build(
                 TRolesARO &user_roles,
@@ -376,6 +403,7 @@ class TSearchResultXML {
                 TAirlinesARO &user_airlines,
                 TQuery &Qry,
                 xmlNodePtr resNode,
+                xmlNodePtr rowsNode,
                 int user_id);
         TSearchResultXML():
             col_user_id(NoExists),
@@ -387,8 +415,7 @@ class TSearchResultXML {
             col_disp_airline_fmt_code(NoExists),
             col_disp_airp_fmt_code(NoExists),
             col_disp_craft_fmt_code(NoExists),
-            col_disp_suffix_fmt_code(NoExists),
-            rowsNode(NULL)
+            col_disp_suffix_fmt_code(NoExists)
     {}
 };
 
@@ -398,6 +425,7 @@ void TSearchResultXML::build(
         TAirlinesARO &user_airlines,
         TQuery &Qry,
         xmlNodePtr resNode,
+        xmlNodePtr rowsNode,
         int user_id)
 {
     Qry.Execute();
@@ -440,45 +468,6 @@ void TSearchResultXML::build(
     }
 }
 
-struct TUserData {
-    int user_id;
-    string descr;
-    string login;
-    int user_type;
-    int time_fmt;
-    int airline_fmt;
-    int airp_fmt;
-    int craft_fmt;
-    int suff_fmt;
-    set<string> airps, airlines, roles;
-    TAirpsARO user_airps;
-    TAirlinesARO user_airlines;
-    TRolesARO user_roles;
-    TSearchResultXML srx;
-    int pr_denial;
-    void initXML(xmlNodePtr node);
-    void search(xmlNodePtr node);
-    void insert();
-    void update();
-    void update_aro();
-    void del();
-    void create_vars(TQuery &Qry, bool pr_update = false);
-    void create_var(TQuery &Qry, string name, int val);
-    TUserData():
-        user_id(-1),
-        user_type(-1),
-        time_fmt(-1),
-        airline_fmt(-1),
-        airp_fmt(-1),
-        craft_fmt(-1),
-        suff_fmt(-1),
-        user_airps(&airps),
-        user_airlines(&airlines),
-        user_roles(&roles),
-        srx(),
-        pr_denial(-1)
-    {};
-};
 
 void airps_to_xml(xmlNodePtr node, vector<string> &items) {
     if(not items.empty()) {
@@ -559,12 +548,15 @@ bool aro_cmp(vector<string> &a, vector<string> &b) {
 
 void TUserData::search(xmlNodePtr resNode)
 {
+    TAirpsARO user_airps;
+    TAirlinesARO user_airlines;
+    TRolesARO user_roles;
     vector<int> users;
     if(user_id < 0) {
         bool pr_find = true; // искать дальше или нет
-        user_roles.get_users(users, pr_find);
-        user_airps.get_users(users, pr_find);
-        user_airlines.get_users(users, pr_find);
+        user_roles.get_users(roles, users, pr_find);
+        user_airps.get_users(airps, users, pr_find);
+        user_airlines.get_users(airlines, users, pr_find);
         if(not pr_find) return;
     } else
         users.push_back(user_id);
@@ -642,11 +634,13 @@ void TUserData::search(xmlNodePtr resNode)
     Qry.SQLText = SQLText;
     Qry.CreateVariable("SYS_user_id", otInteger, TReqInfo::Instance()->user.user_id);
 
+    TSearchResultXML srx;
+    xmlNodePtr rowsNode;
     if(users.empty())
-        srx.build(user_roles, user_airps, user_airlines, Qry, resNode, user_id);
+        srx.build(user_roles, user_airps, user_airlines, Qry, resNode, rowsNode, user_id);
     for(vector<int>::iterator iv = users.begin(); iv != users.end(); iv++) {
         Qry.SetVariable("user_id", *iv);
-        srx.build(user_roles, user_airps, user_airlines, Qry, resNode, user_id);
+        srx.build(user_roles, user_airps, user_airlines, Qry, resNode, rowsNode, user_id);
     }
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
