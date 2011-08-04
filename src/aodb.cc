@@ -309,18 +309,20 @@ string GetTermInfo( TQuery &Qry, int pax_id, int reg_no, bool pr_tcheckin, const
   Qry.SetVariable( "reg_no", reg_no );
   Qry.SetVariable( "work_mode", work_mode );
   Qry.Execute();
- 	if ( DecodeClientType( client_type.c_str() ) == ASTRA::ctWeb )
- 		term = "777";
-  else    // αβ®©ª 
-    if ( !Qry.Eof && string(Qry.FieldAsString( "airp" )) == airp_dep ) {
-      term = Qry.FieldAsString( "station" );
-      if ( !term.empty() && ( work_mode == "" && term[0] == 'R' ||
-                              work_mode == "" && term[0] == 'G' ) )
-        term = term.substr( 1, term.length() - 1 );
-    }
-    else
-      if ( pr_tcheckin )
-        term = "999";
+  if ( !Qry.Eof ) {
+ 	  if ( DecodeClientType( client_type.c_str() ) == ASTRA::ctWeb )
+   		term = "777";
+    else    // αβ®©ª 
+      if ( string(Qry.FieldAsString( "airp" )) == airp_dep ) {
+        term = Qry.FieldAsString( "station" );
+        if ( !term.empty() && ( work_mode == "" && term[0] == 'R' ||
+                                work_mode == "" && term[0] == 'G' ) )
+          term = term.substr( 1, term.length() - 1 );
+      }
+      else
+        if ( pr_tcheckin )
+          term = "999";
+  }
 
   if ( !Qry.Eof )
     t = Qry.FieldAsDateTime( "time" );
@@ -432,7 +434,7 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
   else
   {
 	  Qry.SQLText =
-	   "SELECT pax.pax_id,pax.reg_no,pax.surname||' '||pax.name name,pax_grp.grp_id,"
+	   "SELECT pax.pax_id,pax.reg_no,pax.surname||RTRIM(' '||pax.name) name,pax_grp.grp_id,"
 	   "       pax_grp.airp_arv,pax_grp.class,pax.refuse,"
 	   "       pax.pers_type, "
 	   "       NVL(pax_doc.gender,'F') as gender, "
@@ -487,12 +489,14 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 		if ( !pr_unaccomp ) {
 		  record<<setw(3)<<Qry.FieldAsInteger( "reg_no");
 	  	record<<setw(30)<<string(Qry.FieldAsString( "name" )).substr(0,30);
+	  	#if 0
       if ( DecodePerson( Qry.FieldAsString( "pers_type" ) ) == ASTRA::adult ) {
         record<<setw(1)<<string(Qry.FieldAsString( "gender" )).substr(0,1);
       }
       else {
         record<<setw(1)<<string(" ").substr(0,1);
       }
+      #endif
 		  TAirpsRow *row=(TAirpsRow*)&base_tables.get("airps").get_row("code",Qry.FieldAsString("airp_arv"));
 		  record<<setw(20)<<row->code.substr(0,20);
 		  record<<setw(1);
@@ -533,13 +537,19 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 		  			  	if ( rem == "UMNR" ) {
 		  			  	  category = 9;
 		  			  	}
+		  			  	#if 0
                 else
                   if ( rem == "DUTY" ) {
                     category = 10;
                   }
+                #endif
 			  RemQry.Next();
 		  }
-		  record<<setw(2)<<category;
+		  #if 0
+		    record<<setw(2)<<category;
+      #else
+        record<<setw(1)<<category;
+      #endif
 		  record<<setw(1);
 		  bool adult = false;
 		  switch ( DecodePerson( Qry.FieldAsString( "pers_type" ) ) ) {
