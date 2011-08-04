@@ -1339,13 +1339,42 @@ void showBasicInfo(void)
 void SysReqInterface::ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   if (reqNode==NULL) return;
+  
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT client_error_list.type "
+    "FROM client_error_list,locale_messages "
+    "WHERE client_error_list.text=locale_messages.id(+) AND "
+    "      (:text like client_error_list.text OR "
+    "       :text=locale_messages.text) ";
+  Qry.DeclareVariable("text",otString);
+  
   xmlNodePtr node=reqNode->children;
   for(;node!=NULL;node=node->next)
   {
     if (strcmp((char*)node->name,"msg")==0)
-      ProgError( STDLOG, "Client error (ver. %s): %s.",
-                         TReqInfo::Instance()->desk.version.c_str(),
-                         NodeAsString(node) ) ;
+    {
+      string error_type="ERROR";
+      Qry.SetVariable("text", NodeAsString(node));
+      Qry.Execute();
+      if (!Qry.Eof) error_type=Qry.FieldAsString("type");
+      if (error_type=="IGNORE") continue;
+      
+      if (error_type=="ERROR")
+        ProgError( STDLOG, "Client error (ver. %s): %s.",
+                           TReqInfo::Instance()->desk.version.c_str(),
+                           NodeAsString(node) ) ;
+      else
+        if (error_type=="TRACE0")
+          ProgTrace( TRACE0, "Client error (ver. %s): %s.",
+                             TReqInfo::Instance()->desk.version.c_str(),
+                             NodeAsString(node) ) ;
+        else
+          ProgTrace( TRACE5, "Client error (ver. %s): %s.",
+                             TReqInfo::Instance()->desk.version.c_str(),
+                             NodeAsString(node) ) ;
+    };
   };
 }
 
@@ -1613,8 +1642,8 @@ bool transliter_equal(const string &value1, const string &value2)
   return false;
 };
 
-const char *rus_char_view = "€‚‘…’• α¥ª¬®ΰε";
-const char *lat_char_view = "ABCEHKMOPTXacekmopx";
+const char *rus_char_view = "€‚‘…’• α¥ª¬®ΰεμ";
+const char *lat_char_view = "ABCEHKMOPTXacekmopxb";
 
 char ToLatCharView(char c)
 {

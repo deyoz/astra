@@ -623,19 +623,16 @@ void exec_stage( int point_id, int stage_id )
   }
 }
 
-
 void astra_timer( TDateTime utcdate )
 {
 	TQuery Qry(&OraSession);
 	Qry.SQLText =
 	 "SELECT trip_stages.point_id point_id, trip_stages.stage_id stage_id, points.airp "
-   " FROM points, trip_stages "\
-   "WHERE points.point_id = trip_stages.point_id AND "\
-   "      points.act_out IS NULL AND "\
-   "      points.pr_del = 0 AND "\
-   "      trip_stages.pr_auto = 1 AND "\
-   "      trip_stages.act IS NULL AND "\
-   "      NVL( trip_stages.est, trip_stages.scd ) <= :now "\
+   " FROM points, trip_stages "
+   "WHERE points.point_id = trip_stages.point_id AND "
+   "      points.act_out IS NULL AND "
+   "      points.pr_del = 0 AND "
+   "      trip_stages.time_auto_not_act <= :now "
    " ORDER BY trip_stages.point_id, trip_stages.stage_id ";
   Qry.CreateVariable( "now", otDate, utcdate );
   TQuery QExecStage(&OraSession);

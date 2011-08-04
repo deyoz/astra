@@ -321,7 +321,14 @@ TSOPPTrip createTrip( int move_id, TSOPPDests::iterator &id, TSOPPDests &dests )
     try {
       trip.remark_out = GetRemark( id->remark, id->scd_out, id->est_out, id->region );
     }
-    catch(...) { ProgError( STDLOG, "id->point_id=%d", id->point_id ); };
+    catch( std::exception &E ) {
+      ProgError( STDLOG, "SOPP:GetRemark: id->point_id=%d, id->est_out=%f, id->region=%s, what=%s",
+                 id->point_id, id->est_out, id->region.c_str(), E.what() );
+    }
+    catch(...) {
+      ProgError( STDLOG, "id->point_id=%d, id->est_out=%f, id->region=%s",
+                 id->point_id, id->est_out, id->region.c_str() );
+    };
 
     trip.pr_del_out = id->pr_del;
     trip.pr_reg = id->pr_reg;
@@ -4259,7 +4266,7 @@ void SoppInterface::WriteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 	  tripNode = node->children;
 	  int move_id = NodeAsIntegerFast( "move_id", tripNode );
     int point_id = NodeAsIntegerFast( "point_id", tripNode );
-  	internal_ReadDests( move_id, dests, reference, NoExists, NoExists );
+   internal_ReadDests( move_id, dests, reference, NoExists, NoExists );
 	  xmlNodePtr snode = GetNodeFast( "reference", tripNode );
 	  if ( snode )
 	  	reference = NodeAsString( snode );
