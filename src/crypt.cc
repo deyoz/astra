@@ -878,7 +878,7 @@ string getPassword( )
 		randt = rand();
 		unsigned int idx = 1 + (int)( strtable.size() * ( randt / ( RAND_MAX + 1.0 ) ) );
 		if ( idx < 0 || idx > strtable.size() ) {
-			ProgError( STDLOG, "invalid idx=%d", idx );
+			ProgError( STDLOG, "getPassword: invalid idx=%d", idx );
 			continue;
 		}
 		if ( !pswd.empty() && pswd[ pswd.size() - 1 ] == strtable[ idx - 1 ] )

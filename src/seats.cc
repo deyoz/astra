@@ -1363,7 +1363,7 @@ TSeatPlace &TSeatPlaces::GetEqualSeatPlace( TPassenger &pass )
     }
   } /* end for */
  if ( misp==seatplaces.end() )
-   ProgError( STDLOG, "misp=seatplaces.end()=%d", misp==seatplaces.end() );
+   ProgError( STDLOG, "GetEqualSeatPlace: misp=seatplaces.end()=%d", misp==seatplaces.end() );
  misp->InUse = true;
  return *misp;
 }
@@ -2343,7 +2343,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons, TSeatAlgoParams ASeatAlgoParams 
   try {
    for ( int FCanUserSUBCLS=(int)pr_SUBCLS; FCanUserSUBCLS>=0; FCanUserSUBCLS-- ) {
    	 if ( pr_SUBCLS && FCanUserSUBCLS == 0 )
-   	   ProgError( STDLOG, "SeatsPassengers: error FCanUserSUBCLS=false, pr_SUBCLS=%d,pr_all_pass_SUBCLS=%d, SUBCLS_REM=%s", pr_SUBCLS, pr_all_pass_SUBCLS, SUBCLS_REM.c_str() );
+   	   ProgTrace( TRACE5, ">>>SeatsPassengers: error FCanUserSUBCLS=false, pr_SUBCLS=%d,pr_all_pass_SUBCLS=%d, SUBCLS_REM=%s", pr_SUBCLS, pr_all_pass_SUBCLS, SUBCLS_REM.c_str() );
      FindSUBCLS = FCanUserSUBCLS;
      canUseSUBCLS = FCanUserSUBCLS;
      // ??? что важнее для пассажиров с детьми: сохранить группу или сесть раздельно, но на разрешенные места ???
