@@ -403,7 +403,7 @@ class TSearchResultXML {
                 TAirlinesARO &user_airlines,
                 TQuery &Qry,
                 xmlNodePtr resNode,
-                xmlNodePtr rowsNode,
+                xmlNodePtr &rowsNode,
                 int user_id);
         TSearchResultXML():
             col_user_id(NoExists),
@@ -425,7 +425,7 @@ void TSearchResultXML::build(
         TAirlinesARO &user_airlines,
         TQuery &Qry,
         xmlNodePtr resNode,
-        xmlNodePtr rowsNode,
+        xmlNodePtr &rowsNode,
         int user_id)
 {
     Qry.Execute();
@@ -447,9 +447,10 @@ void TSearchResultXML::build(
         for(; !Qry.Eof; Qry.Next()) {
             int new_user_id = Qry.FieldAsInteger(col_user_id);
             xmlNodePtr rowNode;
-            if(user_id < 0)
+            if(user_id < 0) {
+                ProgTrace(TRACE5, "creating new item, rowsNode: %p", rowsNode);
                 rowNode = NewTextChild(rowsNode, "item");
-            else
+            } else
                 rowNode = resNode;
             NewTextChild(rowNode, "user_id", new_user_id);
             NewTextChild(rowNode, "descr", Qry.FieldAsString(col_descr));
@@ -560,6 +561,7 @@ void TUserData::search(xmlNodePtr resNode)
         if(not pr_find) return;
     } else
         users.push_back(user_id);
+    ProgTrace(TRACE5, "users.size(): %d", users.size());
     TQuery Qry(&OraSession);
     string SQLText =
         "SELECT "
@@ -635,13 +637,15 @@ void TUserData::search(xmlNodePtr resNode)
     Qry.CreateVariable("SYS_user_id", otInteger, TReqInfo::Instance()->user.user_id);
 
     TSearchResultXML srx;
-    xmlNodePtr rowsNode;
+    xmlNodePtr rowsNode = NULL;
     if(users.empty())
         srx.build(user_roles, user_airps, user_airlines, Qry, resNode, rowsNode, user_id);
-    for(vector<int>::iterator iv = users.begin(); iv != users.end(); iv++) {
-        Qry.SetVariable("user_id", *iv);
-        srx.build(user_roles, user_airps, user_airlines, Qry, resNode, rowsNode, user_id);
-    }
+    else
+        for(vector<int>::iterator iv = users.begin(); iv != users.end(); iv++) {
+            ProgTrace(TRACE5, "before srx.build user_id: %d", *iv);
+            Qry.SetVariable("user_id", *iv);
+            srx.build(user_roles, user_airps, user_airlines, Qry, resNode, rowsNode, user_id);
+        }
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
