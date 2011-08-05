@@ -273,10 +273,12 @@ class TPrnTagStore {
             size_t length;
             bool except_when_great_len;
             bool except_when_only_lat;
-            TTagPropsItem(int vlength, bool vexcept_when_great_len, bool vexcept_when_only_lat):
+            bool convert_char_view;
+            TTagPropsItem(int vlength, bool vexcept_when_great_len, bool vexcept_when_only_lat, bool vconvert_char_view):
                 length(vlength),
                 except_when_great_len(vexcept_when_great_len),
-                except_when_only_lat(vexcept_when_only_lat)
+                except_when_only_lat(vexcept_when_only_lat),
+                convert_char_view(vconvert_char_view)
             {};
         };
 

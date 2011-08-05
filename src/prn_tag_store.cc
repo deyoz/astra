@@ -172,7 +172,17 @@ void TPrnTagStore::TTagProps::Init(TDevOperType vop)
     op = vop;
     ProgTrace(TRACE5, "TTagProps::Init: load from base");
     TQuery Qry(&OraSession);
-    Qry.SQLText = "select code, length, EXCEPT_WHEN_GREAT_LEN, EXCEPT_WHEN_ONLY_LAT from prn_tag_props where op_type = :op_type";
+    Qry.SQLText =
+        "select "
+        "   code, "
+        "   length, "
+        "   EXCEPT_WHEN_GREAT_LEN, "
+        "   EXCEPT_WHEN_ONLY_LAT, "
+        "   convert_char_view "
+        "from "
+        "   prn_tag_props "
+        "where "
+        "   op_type = :op_type";
     Qry.CreateVariable("op_type", otString, EncodeDevOperType(op));
     Qry.Execute();
     items.clear();
@@ -181,7 +191,8 @@ void TPrnTagStore::TTagProps::Init(TDevOperType vop)
                     TTagPropsItem(
                         Qry.FieldAsInteger("length"),
                         Qry.FieldAsInteger("except_when_great_len") != 0,
-                        Qry.FieldAsInteger("except_when_only_lat") != 0
+                        Qry.FieldAsInteger("except_when_only_lat") != 0,
+                        Qry.FieldAsInteger("convert_char_view") != 0
                     )));
     op = vop;
 }
@@ -496,13 +507,20 @@ string TPrnTagStore::get_field(std::string name, size_t len, std::string align, 
         } else
             result = AlignString(result, len, align);
         if(this->tag_lang.get_pr_lat() and not is_lat(result)) {
-            if(iprops->second.except_when_only_lat) {
-                ProgError(STDLOG, "Данные печати не латинские: %s = \"%s\"", name.c_str(), result.c_str());
-                throw UserException("MSG.NO_LAT_PRN_DATA", LParams() << LParam("tag", name) << LParam("value", cut_result(result)));
-            } else {
-                showErrorMessage("MSG.NO_LAT_PRN_DATA", LParams() << LParam("tag", name) << LParam("value", cut_result(result)));
-                for(string::iterator si = result.begin(); si != result.end(); si++)
-                    if(not is_lat_char(*si)) *si = '_';
+            bool replace_good = false;
+            if(iprops->second.convert_char_view) {
+                result = convert_char_view(result, true);
+                replace_good = is_lat(result);
+            }
+            if(not replace_good) {
+                if(iprops->second.except_when_only_lat) {
+                    ProgError(STDLOG, "Данные печати не латинские: %s = \"%s\"", name.c_str(), result.c_str());
+                    throw UserException("MSG.NO_LAT_PRN_DATA", LParams() << LParam("tag", name) << LParam("value", cut_result(result)));
+                } else {
+                    showErrorMessage("MSG.NO_LAT_PRN_DATA", LParams() << LParam("tag", name) << LParam("value", cut_result(result)));
+                    for(string::iterator si = result.begin(); si != result.end(); si++)
+                        if(not is_lat_char(*si)) *si = '_';
+                }
             }
         }
         this->tag_lang.set_tag_lang("");
