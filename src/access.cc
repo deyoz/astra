@@ -447,15 +447,14 @@ void TSearchResultXML::build(
         for(; !Qry.Eof; Qry.Next()) {
             int new_user_id = Qry.FieldAsInteger(col_user_id);
             xmlNodePtr rowNode;
-            if(user_id < 0) {
-                ProgTrace(TRACE5, "creating new item, rowsNode: %p", rowsNode);
+            if(user_id < 0)
                 rowNode = NewTextChild(rowsNode, "item");
-            } else
+            else
                 rowNode = resNode;
             NewTextChild(rowNode, "user_id", new_user_id);
             NewTextChild(rowNode, "descr", Qry.FieldAsString(col_descr));
             NewTextChild(rowNode, "login", Qry.FieldAsString(col_login));
-            NewTextChild(rowNode, "type", Qry.FieldAsString(col_type));
+            NewTextChild(rowNode, "type", ElemIdToCodeNative(etUserType, Qry.FieldAsInteger(col_type)));
             NewTextChild(rowNode, "pr_denial", Qry.FieldAsString(col_pr_denial));
             NewTextChild(rowNode, "time_fmt_code", Qry.FieldAsString(col_time_fmt_code));
             NewTextChild(rowNode, "disp_airline_fmt_code", Qry.FieldAsString(col_disp_airline_fmt_code));
@@ -561,27 +560,26 @@ void TUserData::search(xmlNodePtr resNode)
         if(not pr_find) return;
     } else
         users.push_back(user_id);
-    ProgTrace(TRACE5, "users.size(): %d", users.size());
     TQuery Qry(&OraSession);
     string SQLText =
         "SELECT "
         "       users2.user_id, "
         "       login, "
         "       descr, "
-        "       user_types.code AS type, "
+        "       type, "
         "       pr_denial, "
         "       time_fmt.code AS time_fmt_code, "
         "       disp_airline_fmt.code AS disp_airline_fmt_code, "
         "       disp_airp_fmt.code AS disp_airp_fmt_code, "
         "       disp_craft_fmt.code AS disp_craft_fmt_code, "
         "       disp_suffix_fmt.code AS disp_suffix_fmt_code "
-        "FROM users2,user_types,user_sets, "
+        "FROM users2,user_sets, "
         "     user_set_types time_fmt, "
         "     user_set_types disp_airline_fmt, "
         "     user_set_types disp_airp_fmt, "
         "     user_set_types disp_craft_fmt, "
         "     user_set_types disp_suffix_fmt  "
-        "WHERE users2.type=user_types.code AND  "
+        "WHERE "
         "      users2.user_id=user_sets.user_id(+) AND "
         "      DECODE(user_sets.time,        00,00,01,01,02,02,01)=time_fmt.code AND  "
         "      DECODE(user_sets.disp_airline,05,05,06,06,07,07,08,08,09,09,09)=disp_airline_fmt.code AND  "
@@ -642,7 +640,6 @@ void TUserData::search(xmlNodePtr resNode)
         srx.build(user_roles, user_airps, user_airlines, Qry, resNode, rowsNode, user_id);
     else
         for(vector<int>::iterator iv = users.begin(); iv != users.end(); iv++) {
-            ProgTrace(TRACE5, "before srx.build user_id: %d", *iv);
             Qry.SetVariable("user_id", *iv);
             srx.build(user_roles, user_airps, user_airlines, Qry, resNode, rowsNode, user_id);
         }
@@ -885,6 +882,14 @@ void AccessInterface::SearchUsers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 {
     TUserData user_data;
     user_data.initXML(reqNode->children);
+    if(
+            user_data.descr.empty() and
+            user_data.login.empty() and
+            user_data.roles.empty() and
+            user_data.airps.empty() and
+            user_data.airlines.empty()
+      )
+        throw UserException("Не указан ни один из обязательных параметров поиска");
     user_data.search(resNode);
 }
 
