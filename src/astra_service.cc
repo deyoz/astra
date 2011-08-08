@@ -831,8 +831,13 @@ bool CreateCommonFileData( int id, const std::string type, const std::string &ai
                 }
             }
             /* ну не получилось сформировать файл, остальные файлы имеют тоже право попробовать сформироваться */
+            catch(EOracleError &E)
+            {
+              ProgError( STDLOG, "EOracleError file_type=%s, %d: %s", type.c_str(), E.Code, E.what());
+              ProgError( STDLOG, "SQL: %s", E.SQLText());
+            }
             catch( std::exception &e) {
-                ProgError(STDLOG, "file_type=%s, id=%d, what=%s", type.c_str(), id, e.what());
+                ProgError(STDLOG, "exception file_type=%s, id=%d, what=%s", type.c_str(), id, e.what());
             }
             catch(...) {
                 ProgError(STDLOG, "putFile: Unknown error while trying to put file");
