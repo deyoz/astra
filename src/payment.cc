@@ -540,7 +540,7 @@ bool PaymentInterface::GetReceipt(int id, TBagReceipt &rcpt)
 bool PaymentInterface::GetReceipt(TQuery &Qry, TBagReceipt &rcpt)
 {
   if (Qry.Eof) return false;
-  if(rcpt.prnParams.pr_lat == NoExists) ProgError(STDLOG, "Udefined rcpt.prnParams.pr_lat");
+  if(rcpt.prnParams.pr_lat == NoExists) ProgTrace(TRACE0, "Udefined rcpt.prnParams.pr_lat");
   rcpt.tag_lang.Init(
           rcpt.prnParams.pr_lat, 
           Qry.FieldAsInteger("is_inter")!=0,
