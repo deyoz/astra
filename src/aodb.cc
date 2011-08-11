@@ -154,7 +154,7 @@ struct AODB_Flight {
 	int pr_del; //1
 	vector<AODB_Dest> dests;
 	vector<AODB_Term> terms;
-	string invalid_term;
+	string invalid_field;
 };
 
 void getRecord( int pax_id, int reg_no, bool pr_unaccomp, const vector<AODB_STRUCT> &aodb_pax,
@@ -963,7 +963,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
   TTripInfo fltInfo;
 	int err=0;
 try {
-	fl.invalid_term.clear();
+	fl.invalid_field.clear();
   fl.rec_no = NoExists;
  	if ( linestr.length() < REC_NO_LEN )
  		throw Exception( "Ошибка формата рейса, длина=%d, значение=%s, малая длина строки", linestr.length(), linestr.c_str() );
@@ -1352,8 +1352,8 @@ try {
 		  }
 		  catch( Exception &e ) {
 		  	i = old_i + 1 + 4;
-		  	if ( fl.invalid_term.empty() )
-		  		fl.invalid_term = e.what();
+		  	if ( fl.invalid_field.empty() )
+		  		fl.invalid_field = e.what();
 		  }
 	    i++;
 	    tmp = linestr.substr( i, 1 );
@@ -1409,8 +1409,10 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
 				throw Exception( "Неизвестный тип ВС, значение=%s", fl.craft.c_str() );
 	}
 	else
-		if ( pr_craft_error )
+		if ( pr_craft_error ) {
+		  fl.invalid_field = fl.craft;
 			fl.craft.clear(); // очищаем значение типа ВС - это не должно попасть в БД
+    }
  	TIDQry.SQLText = "SELECT tid__seq.nextval n FROM dual ";
 	POINT_IDQry.SQLText = "SELECT point_id.nextval point_id FROM dual";
 	if ( pr_insert ) { // insert
@@ -1956,14 +1958,15 @@ void ParseAndSaveSPP( const std::string &filename, const std::string &canon_name
 	      }
       }
       ParseFlight( canon_name, linestr, fl );
-      if ( !fl.invalid_term.empty() )
-      	throw Exception( fl.invalid_term );
       QryLog.SetVariable( "rec_no", fl.rec_no );
       if ( linestr.empty() )
       	QryLog.SetVariable( "record", "empty line!" );
       else
         QryLog.SetVariable( "record", linestr );
-    	QryLog.SetVariable( "msg", "ok" );
+      if ( fl.invalid_field.empty() )
+    	  QryLog.SetVariable( "msg", "ok" );
+      else
+        QryLog.SetVariable( "msg", fl.invalid_field );
     	QryLog.SetVariable( "type", EncodeEventType( ASTRA::evtFlt ) );
       QryLog.Execute();
     }
