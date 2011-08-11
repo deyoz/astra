@@ -1410,7 +1410,7 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
 	}
 	else
 		if ( pr_craft_error ) {
-		  fl.invalid_field = fl.craft;
+		  fl.invalid_field = "Неизвестный тип ВС, значение=" + fl.craft;
 			fl.craft.clear(); // очищаем значение типа ВС - это не должно попасть в БД
     }
  	TIDQry.SQLText = "SELECT tid__seq.nextval n FROM dual ";
