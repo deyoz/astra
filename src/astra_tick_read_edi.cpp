@@ -328,7 +328,7 @@ void MonetaryInfoEdiR::operator () (ReaderData &RData, list<MonetaryInfo> &lmon)
                 (EdiCast::AmountCodeCast("MISS_MONETARY_INF"), pMes, 5025,0,
                  "MISS_MONETARY_INF");
 
-        std::string AmStr = GetDBNum(pMes, DataElement(1230), "INV_AMOUNT"); //Amount
+        std::string AmStr = GetDBNum(pMes, DataElement(1230)); //Amount
 
         if(MonetaryType::checkExistence(AmStr))
         {
@@ -340,12 +340,12 @@ void MonetaryInfoEdiR::operator () (ReaderData &RData, list<MonetaryInfo> &lmon)
                     TaxAmount::Amount::Percents : TaxAmount::Amount::Ordinary;
             TaxAmount::Amount Am = GetDBNumCast<TaxAmount::Amount>
                     (EdiCast::AmountCast("INV_AMOUNT", type),
-                     pMes, DataElement(1230), "INV_AMOUNT"); //Amount
+                     pMes, DataElement(1230)); //Amount
 
             std::string curr;
             if (!Am.isPercents() && Ac->codeInt() != AmountCode::ExchRate)
             {
-                curr = GetDBNum(pMes, DataElement(6345), "INV_CURRENCY"); //Currency
+                curr = GetDBNum(pMes, DataElement(6345)); //Currency
             }
             lmon.push_back(MonetaryInfo(Ac, Am, curr));
         }
@@ -362,7 +362,7 @@ void FormOfPaymentEdiR::operator () (ReaderData &RData, list<FormOfPayment> &lfo
 
     PushEdiPointG(pMes);
 
-    if(!SetEdiPointToSegmentG(pMes, "FOP",0,"MISS_FOP"))
+    if(!SetEdiPointToSegmentG(pMes, "FOP"))
     {
         tst();
         return;
