@@ -2953,6 +2953,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   bool pr_change_tripinfo;
   bool reSetCraft;
   string change_dests_msg;
+  TBaseTable &baseairps = base_tables.get( "airps" );
   for( TSOPPDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
   	set_pr_del = false;
   	set_act_out = false;
@@ -3104,6 +3105,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	  old_dest.pr_reg = Qry.FieldAsInteger( "pr_reg" );
   	  old_dest.remark = Qry.FieldAsString( "remark" );
   	  old_dest.point_id = id->point_id;
+  	  old_dest.region = CityTZRegion( ((TAirpsRow&)baseairps.get_row( "code", old_dest.airp, true )).city );
   	  voldDests.push_back( old_dest );
 
   	  change_stages_out = ( !insert_point && (id->est_out != old_dest.est_out || id->scd_out != old_dest.scd_out && old_dest.scd_out > NoExists) );
