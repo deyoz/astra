@@ -600,8 +600,11 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
         PointsQry.CreateVariable( "next_date", otDate, next_date+1 );
       }
       else {
-        PointsQry.CreateVariable( "first_date", otDate, first_date );
-        PointsQry.CreateVariable( "next_date", otDate, next_date );
+        TDateTime f, l;
+        modf( first_date, &f );
+        modf( next_date, &l );
+        PointsQry.CreateVariable( "first_date", otDate, f );
+        PointsQry.CreateVariable( "next_date", otDate, l+1 );
       }
         if ( arx )
           PointsQry.CreateVariable( "arx_trip_date_range", otInteger, arx_trip_date_range );
