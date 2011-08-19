@@ -33,406 +33,776 @@ using namespace EXCEPTIONS;
 using namespace AstraLocale;
 using namespace ASTRA;
 
-void TSQLParams::addVariable( TVar &var )
+void TTripListInfo::ToXML(xmlNodePtr node)
 {
-  vars.push_back( var );
-}
-
-void TSQLParams::addVariable( string aname, otFieldType atype, string avalue )
-{
-  TVar var( aname, atype, avalue );
-  vars.push_back( var );
-}
-
-void TSQLParams::clearVariables( )
-{
-  vars.clear();
-}
-
-void TSQLParams::setVariables( TQuery &Qry ) {
-  Qry.ClearVariables();
-  for ( std::vector<TVar>::iterator ip=vars.begin(); ip!=vars.end(); ip++ ) {
-    Qry.CreateVariable( ip->name, ip->type, ip->value );
-  }
-}
-
-TSQL::TSQL() {
- /* в этом конструкторе задаются окончания запроса по рейсам и переменные участв. в запросе */
- createSQLTrips();
-}
-
-TSQL *TSQL::Instance() {
-  static TSQL *instance_ = 0;
-  if ( !instance_ )
-    instance_ = new TSQL();
-  return instance_;
-}
-
-void TSQL::createSQLTrips( ) {
-  TSQLParams p;
-
-  /* ------все рейсы без учета статусов------ */
-  p.sqlfrom = "points";
-  p.sqlwhere = "points.pr_del>=0 ";
-  sqltrips[ "ALL POINTS" ] = p;
-  p.clearVariables();
-
-  /* ------------ПОСАДКА-------------- */
-  /* ------------ДОСМОТР-------------- */
-  /* задаем текст */
-  p.sqlfrom =
-    "points,trip_final_stages";
-  p.sqlwhere =
-    "points.point_id= trip_final_stages.point_id AND "
-    "points.act_out IS NULL AND points.pr_del=0 AND "
-    "trip_final_stages.stage_type=:brd_stage_type AND "
-    "trip_final_stages.stage_id=:brd_open_stage_id ";
-  /* задаем переменные */
-  p.addVariable( "brd_stage_type", otInteger, IntToString( stBoarding ) );
-  p.addVariable( "brd_open_stage_id", otInteger, IntToString( sOpenBoarding ) );
-  /* запоминаем */
-  sqltrips[ "BRDBUS.EXE" ] = p;
-  sqltrips[ "EXAM.EXE" ] = p;
-  /* не забываем очищать за собой переменные */
-  p.clearVariables();
-
-  /* ------------ЦЕНТРОВКА------------ */
-  p.sqlfrom =
-    "points";
-  p.sqlwhere =
-    "points.act_out IS NULL AND points.pr_del=0 AND "
-    "time_out BETWEEN system.UTCSYSDATE-1 AND system.UTCSYSDATE+1 ";
-  sqltrips[ "CENT.EXE" ] = p;
-  p.clearVariables();
-
-
-  /* ------------РЕГИСТРАЦИЯ------------ */
-  p.sqlfrom =
-    "points,trip_final_stages";
-  p.sqlwhere =
-    "points.point_id= trip_final_stages.point_id AND "
-    "points.pr_del=0 AND "
-    "trip_final_stages.stage_type=:ckin_stage_type AND "
-    "trip_final_stages.stage_id IN (:ckin_open_stage_id,:ckin_close_stage_id,:ckin_doc_stage_id) ";
-  p.addVariable( "ckin_stage_type", otInteger, IntToString( stCheckIn ) );
-  p.addVariable( "ckin_open_stage_id", otInteger, IntToString( sOpenCheckIn ) );
-  p.addVariable( "ckin_close_stage_id", otInteger, IntToString( sCloseCheckIn ) );
-  p.addVariable( "ckin_doc_stage_id", otInteger, IntToString( sCloseBoarding ) );
-  sqltrips[ "AIR.EXE" ] = p;
-  p.clearVariables();
-
-  /* ------------ДОКУМЕНТАЦИЯ------------ */
-  p.sqlfrom =
-    "points,trip_final_stages";
-  p.sqlwhere =
-    "points.point_id= trip_final_stages.point_id AND "
-    "points.pr_del=0 AND "
-    "points.time_out>=system.UTCSYSDATE-30 AND "
-    "trip_final_stages.stage_type=:ckin_stage_type AND "
-    "trip_final_stages.stage_id IN (:ckin_open_stage_id,:ckin_close_stage_id,:ckin_doc_stage_id) ";
-  p.addVariable( "ckin_stage_type", otInteger, IntToString( stCheckIn ) );
-  p.addVariable( "ckin_open_stage_id", otInteger, IntToString( sOpenCheckIn ) );
-  p.addVariable( "ckin_close_stage_id", otInteger, IntToString( sCloseCheckIn ) );
-  p.addVariable( "ckin_doc_stage_id", otInteger, IntToString( sCloseBoarding ) );
-  sqltrips[ "DOCS.EXE" ] = p;
-  p.clearVariables();
-
-  /* ------------КАССА------------ */
-  p.sqlfrom =
-    "points,trip_final_stages";
-  p.sqlwhere =
-    "points.point_id= trip_final_stages.point_id AND "
-    "points.act_out IS NULL AND points.pr_del=0 AND "
-    "trip_final_stages.stage_type=:ckin_stage_type AND "
-    "trip_final_stages.stage_id IN (:ckin_open_stage_id,:ckin_close_stage_id,:ckin_doc_stage_id) ";
-  p.addVariable( "ckin_stage_type", otInteger, IntToString( stCheckIn ) );
-  p.addVariable( "ckin_open_stage_id", otInteger, IntToString( sOpenCheckIn ) );
-  p.addVariable( "ckin_close_stage_id", otInteger, IntToString( sCloseCheckIn ) );
-  p.addVariable( "ckin_doc_stage_id", otInteger, IntToString( sCloseBoarding ) );
-  sqltrips[ "KASSA.EXE" ] = p;
-  p.clearVariables();
-
-  /* ------------ПОДГОТОВКА------------ */
-  p.sqlfrom =
-    "points,trip_final_stages";
-  p.sqlwhere =
-    "points.point_id= trip_final_stages.point_id AND "
-    "points.pr_del=0 AND "
-    "trip_final_stages.stage_type=:ckin_stage_type AND "
-    "trip_final_stages.stage_id IN (:ckin_prep_stage_id,:ckin_open_stage_id,:ckin_close_stage_id,:ckin_doc_stage_id) ";
-  p.addVariable( "ckin_stage_type", otInteger, IntToString( stCheckIn ) );
-  p.addVariable( "ckin_prep_stage_id", otInteger, IntToString( sPrepCheckIn ) );
-  p.addVariable( "ckin_open_stage_id", otInteger, IntToString( sOpenCheckIn ) );
-  p.addVariable( "ckin_close_stage_id", otInteger, IntToString( sCloseCheckIn ) );
-  p.addVariable( "ckin_doc_stage_id", otInteger, IntToString( sCloseBoarding ) );
-  sqltrips[ "PREPREG.EXE" ] = p;
-  p.clearVariables();
-
-  /* ------------ТЕЛЕГРАММЫ------------ */
-  p.sqlfrom =
-    "points";
-  p.sqlwhere =
-    "points.pr_del>=0 AND "
-    "time_out BETWEEN TRUNC(system.UTCSYSDATE)-15 AND TRUNC(system.UTCSYSDATE)+5 ";
-  sqltrips[ "TLG.EXE" ] = p;
-  p.clearVariables();
-}
-
-void TSQL::setSQLTripList( TQuery &Qry, TReqInfo &info ) {
-  Qry.Clear();
-  TSQLParams p = Instance()->sqltrips[ info.screen.name ];
-  string sql =
-    "SELECT points.point_id, "
-    "       points.airp, "
-    "       points.airline, "
-    "       points.flt_no, "
-    "       points.suffix, "
-    "       points.scd_out, "
-    "       points.airline_fmt, "
-    "       points.airp_fmt, "
-    "       points.suffix_fmt, "
-    "       NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out ";
-  sql+=
-    "FROM " + p.sqlfrom;
-
-  vector<int> &rights=info.user.access.rights;
-
-  if ((info.screen.name == "BRDBUS.EXE" || info.screen.name == "AIR.EXE") &&
-       info.user.user_type==utAirport &&
-       find(rights.begin(),rights.end(),335)==rights.end())
-    sql+=",trip_stations";
-
-  sql+=" WHERE " + p.sqlwhere + " AND pr_reg<>0 ";
-
-  if ((info.screen.name == "BRDBUS.EXE" || info.screen.name == "AIR.EXE") &&
-       info.user.user_type==utAirport &&
-       find(rights.begin(),rights.end(),335)==rights.end())
-    sql+="AND points.point_id=trip_stations.point_id "
-         "AND trip_stations.desk= :desk AND trip_stations.work_mode=:work_mode ";
-
-  if ( info.screen.name == "AIR.EXE" )
-  {
-    vector<int>::iterator i;
-    for(i=rights.begin();i!=rights.end();i++)
-      if (*i==320||*i==330||*i==335) break;
-    if (i==rights.end())
-      sql+="AND points.act_out IS NULL ";
-  };
-
-  if (!info.user.access.airlines.empty())
-  {
-    if (info.user.access.airlines_permit)
-      sql+="AND points.airline IN "+GetSQLEnum(info.user.access.airlines);
-    else
-      sql+="AND points.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
-  };
-
-  if (!info.user.access.airps.empty())
-  {
-    if ( info.screen.name != "TLG.EXE" )
-    {
-      if (info.user.access.airps_permit)
-        sql+="AND points.airp IN "+GetSQLEnum(info.user.access.airps);
-      else
-        sql+="AND points.airp NOT IN "+GetSQLEnum(info.user.access.airps);
-    }
-    else
-    {
-      if (info.user.access.airps_permit)
-        sql+="AND (points.airp IN "+GetSQLEnum(info.user.access.airps)+" OR "+
-             "     ckin.next_airp(DECODE(points.pr_tranzit,0,points.point_id,points.first_point),points.point_num) IN "+
-                   GetSQLEnum(info.user.access.airps)+")";
-      else
-        sql+="AND (points.airp NOT IN "+GetSQLEnum(info.user.access.airps)+" OR "+
-             "     ckin.next_airp(DECODE(points.pr_tranzit,0,points.point_id,points.first_point),points.point_num) NOT IN "+
-                   GetSQLEnum(info.user.access.airps)+")";
-    };
-  };
-  sql+="ORDER BY flt_no,airline, "
-       "         NVL(suffix,' '),move_id,point_num";
-  Qry.SQLText = sql;
-  p.setVariables( Qry );
-
-  if ((info.screen.name == "BRDBUS.EXE" || info.screen.name == "AIR.EXE") &&
-       info.user.user_type==utAirport &&
-       find(rights.begin(),rights.end(),335)==rights.end())
-  {
-    Qry.CreateVariable( "desk", otString, info.desk.code );
-    if (info.screen.name == "BRDBUS.EXE")
-      Qry.CreateVariable( "work_mode", otString, "П");
-    else
-      Qry.CreateVariable( "work_mode", otString, "Р");
-  };
-
+  if (node==NULL) return;
 };
 
-void TSQL::setSQLTripInfo( TQuery &Qry, TReqInfo &info ) {
+void TTripListInfo::FromXML(xmlNodePtr node)
+{
+  if (node==NULL) return;
+  Clear();
+  xmlNodePtr node2=node->children;
+  if (node2==NULL) return;
+  date=NodeAsDateTimeFast("date",node2,NoExists);
+  point_id=NodeAsIntegerFast("point_id",node2,NoExists);
+  xmlNodePtr paramsNode;
+  paramsNode=GetNodeFast("filter",node2);
+  filter_from_xml=paramsNode!=NULL;
+  filter.FromXML(paramsNode);
+  paramsNode=GetNodeFast("view",node2);
+  view_from_xml=paramsNode!=NULL;
+  view.FromXML(paramsNode);
+};
+
+void TTripListFilter::ToXML(xmlNodePtr node)
+{
+  if (node==NULL) return;
+};
+
+void TTripListFilter::FromXML(xmlNodePtr node)
+{
+  if (node==NULL) return;
+  Clear();
+  xmlNodePtr node2=node->children;
+  if (node2==NULL) return;
+  airline=NodeAsStringFast("airline",node2,"");
+  if (!NodeIsNULLFast("flt_no",node2,true))
+    flt_no=NodeAsIntegerFast("flt_no",node2,NoExists);
+  suffix=NodeAsStringFast("suffix",node2,"");
+  airp_dep=NodeAsStringFast("airp_dep",node2,"");
+  if (!NodeIsNULLFast("pr_cancel",node2,true))
+    pr_cancel=NodeAsIntegerFast("pr_cancel",node2,(int)false)!=0;
+  if (!NodeIsNULLFast("pr_takeoff",node2,true))
+    pr_takeoff=NodeAsIntegerFast("pr_takeoff",node2,(int)false)!=0;
+};
+
+void TTripListView::ToXML(xmlNodePtr node)
+{
+  if (node==NULL) return;
+};
+
+void TTripListView::FromXML(xmlNodePtr node)
+{
+  if (node==NULL) return;
+  Clear();
+  xmlNodePtr node2=node->children;
+  if (node2==NULL) return;
+  if (!NodeIsNULLFast("use_colors",node2,true))
+    use_colors=NodeAsIntegerFast("use_colors",node2,(int)false)!=0;
+  if (!NodeIsNULLFast("codes_fmt",node2,true))
+    codes_fmt=(TUserSettingType)NodeAsIntegerFast("codes_fmt",node2,(int)ustCodeNative);
+};
+
+void setSQLTripList( TQuery &Qry, const TTripListSQLFilter &filter )
+{
+  TReqInfo &info = *(TReqInfo::Instance());
+
   Qry.Clear();
-  TSQLParams p;
-  if (info.screen.name == "KASSA.EXE")
-    p = Instance()->sqltrips[ "ALL POINTS" ];
-  else
-    p = Instance()->sqltrips[ info.screen.name ];
-
-  string sql=
-    "SELECT points.point_id, "
-    "       points.airline, "
-    "       points.flt_no, "
-    "       points.suffix, "
-    "       points.craft, "
-    "       points.craft_fmt, "
-    "       points.airp, "
-    "       points.scd_out, "
-    "       points.act_out, "
-    "       points.bort, "
-    "       points.park_out, "
-    "       SUBSTR(ckin.get_classes(points.point_id,:vlang),1,50) AS classes, "
-    "       SUBSTR(ckin.get_airps(points.point_id,:vlang),1,50) AS route, "
-    "       NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out, "
-    "       points.trip_type, "
-    "       points.litera, "
-    "       points.remark, "
-    "       ckin.tranzitable(points.point_id) AS tranzitable, "
-    "       ckin.get_pr_tranzit(points.point_id) AS pr_tranzit, "
-    "       points.first_point ";
-
-  vector<int> &rights=info.user.access.rights;
-
-  sql+=
-    "FROM " + p.sqlfrom;
-
-  if ((info.screen.name == "BRDBUS.EXE" || info.screen.name == "AIR.EXE") &&
-       info.user.user_type==utAirport &&
-       find(rights.begin(),rights.end(),335)==rights.end())
-    sql+=",trip_stations";
-
-  sql+=" WHERE " + p.sqlwhere + " AND pr_reg<>0 AND points.point_id=:point_id ";
-
-  if ((info.screen.name == "BRDBUS.EXE" || info.screen.name == "AIR.EXE") &&
-       info.user.user_type==utAirport &&
-       find(rights.begin(),rights.end(),335)==rights.end())
-    sql+="AND points.point_id=trip_stations.point_id "
-         "AND trip_stations.desk= :desk AND trip_stations.work_mode=:work_mode ";
-
-  if ( info.screen.name == "AIR.EXE" )
+  ostringstream sql;
+  
+  try
   {
-    vector<int>::iterator i;
-    for(i=rights.begin();i!=rights.end();i++)
-      if (*i==320||*i==330||*i==335) break;
-    if (i==rights.end())
-      sql+="AND points.act_out IS NULL ";
-  };
+    const TTripListSQLParams &params=dynamic_cast<const TTripListSQLParams&>(filter);
 
-  if (!info.user.access.airlines.empty())
-  {
-    if (info.user.access.airlines_permit)
-      sql+="AND points.airline IN "+GetSQLEnum(info.user.access.airlines);
-    else
-      sql+="AND points.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
-  };
-
-  if (!info.user.access.airps.empty())
-  {
-    if ( info.screen.name != "TLG.EXE" )
+    sql <<
+      "SELECT points.point_id, "
+      "       points.airp, "
+      "       points.airline, "
+      "       points.flt_no, "
+      "       points.suffix, "
+      "       points.scd_out, "
+      "       points.est_out, "
+      "       points.act_out, "
+      "       points.airline_fmt, "
+      "       points.airp_fmt, "
+      "       points.suffix_fmt, "
+      "       NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out, "
+      "       points.move_id, "
+      "       points.point_num, "
+      "       points.pr_del "
+      "FROM points ";
+    if (!params.station.first.empty() && !params.station.second.empty())
+      sql << ",trip_stations ";
+    if (params.check_point_id!=NoExists)
     {
-      if (info.user.access.airps_permit)
-        sql+="AND points.airp IN "+GetSQLEnum(info.user.access.airps);
-      else
-        sql+="AND points.airp NOT IN "+GetSQLEnum(info.user.access.airps);
+      sql << "WHERE points.point_id=:point_id ";
+      Qry.CreateVariable( "point_id", otInteger, params.check_point_id);
     }
     else
     {
-      if (info.user.access.airps_permit)
-        sql+="AND (points.airp IN "+GetSQLEnum(info.user.access.airps)+" OR "+
-             "     ckin.next_airp(DECODE(points.pr_tranzit,0,points.point_id,points.first_point),points.point_num) IN "+
-                   GetSQLEnum(info.user.access.airps)+")";
+      if (params.first_date!=params.last_date)
+      {
+        sql << "WHERE points.time_out BETWEEN :first_date AND :last_date ";
+        Qry.CreateVariable("last_date", otDate, params.last_date);
+      }
       else
-        sql+="AND (points.airp NOT IN "+GetSQLEnum(info.user.access.airps)+" OR "+
-             "     ckin.next_airp(DECODE(points.pr_tranzit,0,points.point_id,points.first_point),points.point_num) NOT IN "+
-                   GetSQLEnum(info.user.access.airps)+")";
+        sql << "WHERE points.time_out=:first_date ";
+      Qry.CreateVariable("first_date", otDate, params.first_date);
+    };
+    
+    sql << "AND points.pr_reg<>0 ";
+    
+    if (params.flt_no!=NoExists)
+    {
+      sql << "AND points.flt_no=:flt_no ";
+      Qry.CreateVariable("flt_no", otInteger, params.flt_no);
+    };
+    if (!params.suffix.empty())
+    {
+      sql << "AND points.suffix=:suffix ";
+      Qry.CreateVariable("suffix", otString, params.suffix);
+    };
+  }
+  catch(bad_cast)
+  {
+    const TTripInfoSQLParams &params=dynamic_cast<const TTripInfoSQLParams&>(filter);
+    
+    sql <<
+      "SELECT points.point_id, "
+      "       points.airline, "
+      "       points.flt_no, "
+      "       points.suffix, "
+      "       points.craft, "
+      "       points.craft_fmt, "
+      "       points.airp, "
+      "       points.scd_out, "
+      "       points.act_out, "
+      "       points.bort, "
+      "       points.park_out, "
+      "       SUBSTR(ckin.get_classes(points.point_id,:vlang),1,50) AS classes, "
+      "       SUBSTR(ckin.get_airps(points.point_id,:vlang),1,50) AS route, "
+      "       NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out, "
+      "       points.trip_type, "
+      "       points.litera, "
+      "       points.remark, "
+      "       ckin.tranzitable(points.point_id) AS tranzitable, "
+      "       ckin.get_pr_tranzit(points.point_id) AS pr_tranzit, "
+      "       points.first_point "
+      "FROM points ";
+    if (!params.station.first.empty() && !params.station.second.empty())
+      sql << ",trip_stations ";
+    sql << "WHERE points.point_id=:point_id ";
+    Qry.CreateVariable( "point_id", otInteger, params.point_id);
+    Qry.CreateVariable( "vlang", otString, info.desk.lang );
+  };
+    
+  sql << "AND points.pr_reg<>0 ";
+    
+  if (!filter.pr_cancel)
+    sql << "AND points.pr_del=0 ";
+  else
+    sql << "AND points.pr_del>=0 ";
+  if (!filter.pr_takeoff)
+    sql << "AND points.act_out IS NULL ";
+    
+  if (!filter.station.first.empty() && !filter.station.second.empty())
+  {
+    sql << "AND points.point_id=trip_stations.point_id "
+           "AND trip_stations.desk= :desk AND trip_stations.work_mode=:work_mode ";
+    Qry.CreateVariable( "desk", otString, filter.station.first );
+    Qry.CreateVariable( "work_mode", otString, filter.station.second);
+  };
+  
+  if (!filter.access.airlines.empty())
+  {
+    if (filter.access.airlines_permit)
+      sql << "AND points.airline IN " << GetSQLEnum(filter.access.airlines) << " ";
+    else
+      sql << "AND points.airline NOT IN " << GetSQLEnum(filter.access.airlines) << " ";
+  };
+  
+  if (!filter.access.airps.empty())
+  {
+    if ( !filter.use_arrival_permit )
+    {
+      if (filter.access.airps_permit)
+        sql << "AND points.airp IN " << GetSQLEnum(filter.access.airps) << " ";
+      else
+        sql << "AND points.airp NOT IN " << GetSQLEnum(filter.access.airps) << " ";
+    }
+    else
+    {
+      if (filter.access.airps_permit)
+        sql << "AND (points.airp IN " << GetSQLEnum(filter.access.airps) << " OR "
+            << "     ckin.next_airp(DECODE(points.pr_tranzit,0,points.point_id,points.first_point),points.point_num) IN "
+            << GetSQLEnum(filter.access.airps) << ") ";
+      else
+        sql << "AND (points.airp NOT IN " << GetSQLEnum(filter.access.airps) << " OR "
+            << "     ckin.next_airp(DECODE(points.pr_tranzit,0,points.point_id,points.first_point),points.point_num) NOT IN "
+            << GetSQLEnum(filter.access.airps) << ") ";
     };
   };
+  
+  Qry.SQLText=sql.str().c_str();
+};
 
-  Qry.SQLText = sql;
-  p.setVariables( Qry );
-  Qry.CreateVariable( "vlang", otString, info.desk.lang );
-
-  if ((info.screen.name == "BRDBUS.EXE" || info.screen.name == "AIR.EXE") &&
-       info.user.user_type==utAirport &&
-       find(rights.begin(),rights.end(),335)==rights.end())
+TStage getFinalStage( TQuery &Qry, const int point_id, const TStage_Type stage_type )
+{
+  const char* sql="SELECT stage_id FROM trip_final_stages WHERE point_id=:point_id AND stage_type=:stage_type";
+  if (strcmp(Qry.SQLText.SQLText(),sql)!=0)
   {
-    Qry.CreateVariable( "desk", otString, info.desk.code );
-    if (info.screen.name == "BRDBUS.EXE")
-      Qry.CreateVariable( "work_mode", otString, "П");
-    else
-      Qry.CreateVariable( "work_mode", otString, "Р");
+    Qry.Clear();
+    Qry.SQLText=sql;
+    Qry.DeclareVariable("point_id", otInteger);
+    Qry.DeclareVariable("stage_type", otInteger);
   };
+  Qry.SetVariable("point_id",point_id);
+  Qry.SetVariable("stage_type",(int)stage_type);
+  Qry.Execute();
+  if (!Qry.Eof)
+    return (TStage)Qry.FieldAsInteger("stage_id");
+  else
+    return sNoActive;
+};
+
+bool checkFinalStages( TQuery &Qry, const int point_id, const TTripListSQLFilter &filter)
+{
+  if (filter.final_stages.empty()) return true;
+  
+  const char* sql="SELECT stage_id FROM trip_final_stages WHERE point_id=:point_id AND stage_type=:stage_type";
+  if (strcmp(Qry.SQLText.SQLText(),sql)!=0)
+  {
+    Qry.Clear();
+    Qry.SQLText=sql;
+    Qry.DeclareVariable("point_id", otInteger);
+    Qry.DeclareVariable("stage_type", otInteger);
+  };
+  
+  Qry.SetVariable("point_id",point_id);
+  //фильтрация по final_stages
+  map< TStage_Type, vector<TStage> >::const_iterator iStage=filter.final_stages.begin();
+  for(; iStage!=filter.final_stages.end(); iStage++)
+  {
+    Qry.SetVariable("stage_type",(int)iStage->first);
+    Qry.Execute();
+    if (!Qry.Eof &&
+        find(iStage->second.begin(),iStage->second.end(),(TStage)Qry.FieldAsInteger("stage_id"))!=iStage->second.end()) break;
+  };
+  return iStage!=filter.final_stages.end();
+};
+
+struct TTripListColumn
+{
+  string value;
+  int sort_order;
+  string b_color, f_color;
 };
 
 class TTripListItem
 {
   public:
     int point_id;
-    string trip_name;
+    TTripListColumn name;
+    TTripListColumn date;
+    TTripListColumn airp;
+    //дополнительно для сортировки
     TDateTime real_out_client;
+    TDateTime real_out_client_trunk;
+    int flt_no;
+    string airline;
+    string suffix;
+    int move_id;
+    int point_num;
+    //цвета
+    string b_color, f_color;
 };
 
-bool lessTripListItem(const TTripListItem& item1,const TTripListItem& item2)
+class TTripListOrder
 {
-  return item1.real_out_client>item2.real_out_client;
+  private:
+    string order_type;
+  public:
+    TTripListOrder(const string &order)
+    {
+      order_type=order;
+    };
+    bool operator () (const TTripListItem &item1, const TTripListItem &item2) const
+    {
+      if (order_type=="name_sort_order" ||
+          order_type=="date_sort_order" )
+      {
+        if (item1.real_out_client_trunk!=item2.real_out_client_trunk)
+        return item1.real_out_client_trunk>item2.real_out_client_trunk;
+      };
+    
+      if (order_type=="date_sort_order")
+      {
+        if (item1.real_out_client!=item2.real_out_client)
+        return item1.real_out_client<item2.real_out_client;
+      };
+    
+      if (order_type=="airp_sort_order")
+      {
+        if (item1.airp.value!=item2.airp.value)
+        return item1.airp.value<item2.airp.value;
+      };
+
+      if (item1.flt_no!=item2.flt_no)
+        return item1.flt_no<item2.flt_no;
+      if (item1.airline!=item2.airline)
+        return item1.airline<item2.airline;
+      if (item1.suffix!=item2.suffix)
+        return item1.suffix<item2.suffix;
+      if (item1.move_id!=item2.move_id)
+        return item1.move_id<item2.move_id;
+      return item1.point_num<item2.point_num;
+    };
+};
+
+template <class T>
+void MergeSortedRanges(vector< pair<T,T> > &ranges, const pair<T,T> &range)
+{
+  if (range.first>=range.second)
+  {
+    ostringstream err;
+    err << "Wrong range [" << range.first << ", " << range.second << ")";
+    throw Exception("MergeSortedRanges: %s", err.str().c_str());
+  };
+  
+  if (!ranges.empty())
+  {
+    pair<T,T> &last_range=ranges.back();
+    if (range.first<last_range.first)
+    {
+      ostringstream err;
+      err << "Not sorted range [" << range.first << ", " << range.second << ")";
+      throw Exception("MergeSortedRanges: %s", err.str().c_str());
+    };
+    
+    if (range.first<=last_range.second)
+    {
+      if (range.second>last_range.second) last_range.second=range.second;
+    }
+    else
+      ranges.push_back( range );
+  }
+  else
+    ranges.push_back( range );
+};
+
+void TTripListSQLFilter::set(void)
+{
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  
+  access=reqInfo->user.access;
+
+  if (reqInfo->screen.name=="BRDBUS.EXE" ||
+      reqInfo->screen.name=="EXAM.EXE")
+  {
+    final_stages[stBoarding].push_back(sOpenBoarding);
+  };
+  if (reqInfo->screen.name=="AIR.EXE" ||
+      reqInfo->screen.name=="DOCS.EXE" ||
+      reqInfo->screen.name=="KASSA.EXE")
+  {
+    final_stages[stCheckIn].push_back(sOpenCheckIn);
+    final_stages[stCheckIn].push_back(sCloseCheckIn);
+    final_stages[stCheckIn].push_back(sCloseBoarding);
+  };
+  if (reqInfo->screen.name=="PREPREG.EXE")
+  {
+    final_stages[stCheckIn].push_back(sPrepCheckIn);
+    final_stages[stCheckIn].push_back(sOpenCheckIn);
+    final_stages[stCheckIn].push_back(sCloseCheckIn);
+    final_stages[stCheckIn].push_back(sCloseBoarding);
+  };
+
+  pr_cancel=reqInfo->screen.name!="BRDBUS.EXE" &&
+            reqInfo->screen.name!="EXAM.EXE" &&
+            reqInfo->screen.name!="AIR.EXE" &&
+            reqInfo->screen.name!="DOCS.EXE" &&
+            reqInfo->screen.name!="KASSA.EXE" &&
+            reqInfo->screen.name!="PREPREG.EXE" &&
+            reqInfo->screen.name!="CENT.EXE";
+
+  pr_takeoff=reqInfo->screen.name!="BRDBUS.EXE" &&
+             reqInfo->screen.name!="EXAM.EXE" &&
+             reqInfo->screen.name!="KASSA.EXE" &&
+             reqInfo->screen.name!="CENT.EXE" &&
+             !(reqInfo->screen.name=="AIR.EXE" &&
+               find(access.rights.begin(),access.rights.end(),320)==access.rights.end() &&
+               find(access.rights.begin(),access.rights.end(),330)==access.rights.end() &&
+               find(access.rights.begin(),access.rights.end(),335)==access.rights.end());
+
+  if ((reqInfo->screen.name == "BRDBUS.EXE" || reqInfo->screen.name == "AIR.EXE") &&
+      reqInfo->user.user_type==utAirport &&
+      find(access.rights.begin(),access.rights.end(),335)==access.rights.end())
+  {
+    station.first=reqInfo->desk.code;
+    if (reqInfo->screen.name == "BRDBUS.EXE")
+      station.second="П";
+    else
+      station.second="Р";
+  };
+
+  use_arrival_permit=reqInfo->screen.name=="TLG.EXE";
+};
+
+void TTripInfoSQLParams::set(void)
+{
+  TTripListSQLFilter::set();
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  if (reqInfo->screen.name=="KASSA.EXE")
+  {
+    final_stages.clear();
+    pr_cancel=true;
+    pr_takeoff=true;
+  };
 };
 
 /*******************************************************************************/
 void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  ProgTrace(TRACE5, "TripsInterface::GetTripList" );
+  bool advanced_trip_list=strcmp((char *)reqNode->name, "GetAdvTripList")==0;
+
   TReqInfo *reqInfo = TReqInfo::Instance();
   //reqInfo->user.check_access( amRead );
-  xmlNodePtr dataNode = NewTextChild( resNode, "data" );
-  xmlNodePtr tripsNode = NewTextChild( dataNode, "trips" );
-  xmlNodePtr tripNode;
+  
+  TTripListInfo listInfo;
+  listInfo.FromXML(reqNode);
 
-  if (reqInfo->screen.name=="TLG.EXE")
+  TTripListSQLParams SQLfilter;
+  SQLfilter.set();
+  if (!listInfo.filter.airline.empty())
+    MergeAccess(SQLfilter.access.airlines, SQLfilter.access.airlines_permit,
+                vector<string>(1,listInfo.filter.airline), true);
+  
+  SQLfilter.flt_no=listInfo.filter.flt_no;
+  SQLfilter.suffix=listInfo.filter.suffix;
+  
+  if (!listInfo.filter.airp_dep.empty())
+    MergeAccess(SQLfilter.access.airps, SQLfilter.access.airps_permit,
+                vector<string>(1,listInfo.filter.airp_dep), true);
+                
+  if (listInfo.view.codes_fmt==ustCodeNative ||
+      listInfo.view.codes_fmt==ustCodeInter ||
+      listInfo.view.codes_fmt==ustCodeICAONative ||
+      listInfo.view.codes_fmt==ustCodeICAOInter ||
+      listInfo.view.codes_fmt==ustCodeMixed )
   {
-    tripNode = NewTextChild( tripsNode, "trip" );
-    NewTextChild( tripNode, "trip_id", -1 );
-    NewTextChild( tripNode, "str", AstraLocale::getLocaleText("Непривязанные") );
-  };
-
-  if (reqInfo->user.access.airlines.empty() && reqInfo->user.access.airlines_permit ||
-      reqInfo->user.access.airps.empty() && reqInfo->user.access.airps_permit) return;
-
-  vector<TTripListItem> list;
-  TQuery Qry( &OraSession );
-  TSQL::setSQLTripList( Qry, *reqInfo );
-  Qry.Execute();
-  for(;!Qry.Eof;Qry.Next())
-  {
-    TTripListItem listItem;
-    TDateTime scd_out_client;
-
-    TTripInfo info(Qry);
-
-    try
+    reqInfo->user.sets.ckin_airline=listInfo.view.codes_fmt;
+    reqInfo->user.sets.ckin_airp=listInfo.view.codes_fmt;
+    reqInfo->user.sets.ckin_craft=listInfo.view.codes_fmt;
+    switch (listInfo.view.codes_fmt)
     {
-      listItem.point_id=Qry.FieldAsInteger("point_id");
-      listItem.trip_name=GetTripName(info,ecCkin,reqInfo->screen.name=="TLG.EXE",true); //ecCkin? !!!vlad
-      info.get_client_dates(scd_out_client,listItem.real_out_client);
-      list.push_back(listItem);
-    }
-    catch(AstraLocale::UserException &E)
-    {
-      AstraLocale::showErrorMessage("MSG.ERR_MSG.NOT_ALL_FLIGHTS_ARE_SHOWN", LParams() << LParam("msg", getLocaleText(E.getLexemaData())));
+      case ustCodeNative:
+      case ustCodeICAONative:
+        reqInfo->user.sets.ckin_suffix=ustEncNative;
+        break;
+      case ustCodeInter:
+      case ustCodeICAOInter:
+        reqInfo->user.sets.ckin_suffix=ustEncLatin;
+        break;
+      case ustCodeMixed:
+        reqInfo->user.sets.ckin_suffix=ustEncMixed;
+        break;
+      default:;
     };
   };
 
-  stable_sort(list.begin(),list.end(),lessTripListItem);
+  vector<TTripListItem> list;
+
+  if (!(SQLfilter.access.airlines.empty() && SQLfilter.access.airlines_permit ||
+        SQLfilter.access.airps.empty() && SQLfilter.access.airps_permit))
+  {
+    TDateTime utc_date=NowUTC();
+    //вычислим client_date
+    TDateTime client_date=UTCToClient(utc_date,reqInfo->desk.tz_region);
+    modf(utc_date, &utc_date); //округляем до дня
+    modf(client_date, &client_date); //округляем до дня
+
+    vector< pair<int,int> > shifts;
+    vector< pair<TDateTime, TDateTime> > ranges;
+    
+    TQuery Qry( &OraSession );
+    TQuery StagesQry( &OraSession );
+    if (advanced_trip_list)
+    {
+      if (listInfo.date==NoExists)
+        listInfo.date=client_date;
+
+      //проверим что рейс попадает в выбранные сутки
+      if (listInfo.point_id!=NoExists && listInfo.point_id!=-1)
+      {
+        SQLfilter.check_point_id=listInfo.point_id;
+        setSQLTripList( Qry, SQLfilter );
+        Qry.Execute();
+        if (!Qry.Eof)
+        {
+          int point_id=Qry.FieldAsInteger("point_id");
+          TTripInfo info(Qry);
+          if (!(!checkFinalStages(StagesQry, point_id, SQLfilter) ||
+                !listInfo.filter.airp_dep.empty() && listInfo.filter.airp_dep!=info.airp))
+          {
+            //рейс подходит
+            TDateTime scd_out_client;
+            info.get_client_dates(scd_out_client,listInfo.date,false);
+          }
+        };
+      };
+      modf(listInfo.date, &listInfo.date);
+      shifts.push_back( make_pair((int)(listInfo.date-client_date)-1, (int)(listInfo.date-client_date)+2) );
+      ranges.push_back( make_pair(listInfo.date, listInfo.date+1) );
+    }
+    else
+    {
+      int shift_down_default=-1;
+      int shift_up_default=1;
+      if (!reqInfo->desk.compatible(ADV_TRIP_LIST_VERSION))
+      {
+        shift_down_default=-7;
+        shift_up_default=2;
+
+        Qry.Clear();
+        Qry.SQLText=
+          "SELECT shift_down, shift_up "
+          "FROM trip_list_days, user_roles "
+          "WHERE trip_list_days.role_id=user_roles.role_id AND "
+          "      user_roles.user_id=:user_id "
+          "ORDER BY shift_down";
+        Qry.CreateVariable("user_id", otInteger, reqInfo->user.user_id);
+        Qry.Execute();
+        for(;!Qry.Eof;Qry.Next())
+        {
+          if (Qry.FieldAsInteger("shift_down")>Qry.FieldAsInteger("shift_up")) continue;
+
+          pair<int, int> curr_shift(Qry.FieldAsInteger("shift_down")-1,Qry.FieldAsInteger("shift_up")+2);
+          MergeSortedRanges(shifts, curr_shift);
+
+          pair<TDateTime, TDateTime> curr_range(client_date+Qry.FieldAsInteger("shift_down"),
+                                                client_date+Qry.FieldAsInteger("shift_up")+1);
+          MergeSortedRanges(ranges, curr_range);
+        };
+      };
+      if (shifts.empty())
+        shifts.push_back( make_pair(shift_down_default-1,shift_up_default+2) );
+      if (ranges.empty())
+        ranges.push_back( make_pair(client_date+shift_down_default,client_date+shift_up_default+1) );
+    };
+
+    for(vector< pair<int,int> >::const_iterator iShift=shifts.begin(); iShift!=shifts.end(); iShift++)
+    {
+      ProgTrace(TRACE5, "iShift=[%d, %d)", iShift->first, iShift->second);
+      for(int i=iShift->first; i<iShift->second; i++)
+      {
+        bool use_single_day= (!SQLfilter.access.airlines.empty() && SQLfilter.access.airlines_permit ||
+                              !SQLfilter.access.airps.empty() && SQLfilter.access.airps_permit && !SQLfilter.use_arrival_permit) &&
+                             iShift->second-1-iShift->first<=5;
+
+        if (use_single_day)
+        {
+          SQLfilter.first_date=utc_date+i;
+          SQLfilter.last_date=utc_date+i;
+        }
+        else
+        {
+          SQLfilter.first_date=utc_date+iShift->first;
+          SQLfilter.last_date=utc_date+iShift->second-1;
+        };
+
+        ProgTrace(TRACE5, "first_date=%s last_date=%s",
+                          DateTimeToStr(SQLfilter.first_date,"dd.mm.yy hh:nn:ss").c_str(),
+                          DateTimeToStr(SQLfilter.last_date,"dd.mm.yy hh:nn:ss").c_str() );
+
+        SQLfilter.check_point_id=NoExists;
+        setSQLTripList( Qry, SQLfilter );
+
+        //ProgTrace(TRACE5, "TripList SQL=%s", Qry.SQLText.SQLText());
+        Qry.Execute();
+        for(;!Qry.Eof;Qry.Next())
+        {
+          int point_id=Qry.FieldAsInteger("point_id");
+
+          if (!checkFinalStages(StagesQry, point_id, SQLfilter)) continue; //пропускаем, рейс не подходит по final_stages
+
+          TTripInfo info(Qry);
+
+          try
+          {
+            TTripListItem listItem;
+            
+            if (!listInfo.filter.airp_dep.empty() && listInfo.filter.airp_dep!=info.airp) continue;  //пропускаем, рейс не подходит по airp_dep
+            TDateTime scd_out_client;
+            info.get_client_dates(scd_out_client,listItem.real_out_client,false);
+            modf(listItem.real_out_client,&listItem.real_out_client_trunk);
+            //проверим, что попадает в диапазон дат, пришедших с клиента
+            vector< pair<TDateTime, TDateTime> >::const_iterator iRange=ranges.begin();
+            for(;iRange!=ranges.end();iRange++)
+              if (listItem.real_out_client>=iRange->first &&
+                  listItem.real_out_client<iRange->second) break; //рейс подходит по real_out_client
+            if (iRange==ranges.end()) continue; //пропускаем, рейс не подходит по real_out_client
+
+            listItem.point_id=point_id;
+            listItem.flt_no=info.flt_no;
+            listItem.airline=ElemIdToElemCtxt(ecCkin, etAirline, info.airline, info.airline_fmt);
+            listItem.suffix=ElemIdToElemCtxt(ecCkin, etSuffix, info.suffix, info.suffix_fmt);
+            listItem.move_id=Qry.FieldAsInteger("move_id");
+            listItem.point_num=Qry.FieldAsInteger("point_num");
+            if (advanced_trip_list)
+            {
+              ostringstream trip;
+              trip << listItem.airline
+                   << setw(3) << setfill('0') << listItem.flt_no
+                   << listItem.suffix;
+              listItem.name.value=trip.str();
+              listItem.date.value=GetTripDate(info,"",true);
+              listItem.airp.value=ElemIdToElemCtxt(ecCkin, etAirp, info.airp, info.airp_fmt);
+            }
+            else
+              listItem.name.value=GetTripName(info,ecCkin,reqInfo->screen.name=="TLG.EXE",true);
+            //раскраска
+            if (listInfo.view.use_colors)
+            {
+              if (Qry.FieldAsInteger("pr_del")!=0)
+              {
+                listItem.b_color="clMaroon";
+                listItem.f_color="clWhite";
+              }
+              else
+                if (!Qry.FieldIsNULL("act_out"))
+                {
+                  listItem.b_color="$00800000";
+                  listItem.f_color="clWhite";
+                }
+                else
+                {
+                  //анализ активности
+                  TStage stage=getFinalStage(StagesQry, point_id, stCheckIn);
+                  if (stage==sNoActive)
+                    listItem.b_color="clSilver";
+                  else
+                    listItem.b_color="$0000D200";
+
+                  if (!Qry.FieldIsNULL("scd_out") && !Qry.FieldIsNULL("est_out") &&
+                      Qry.FieldAsDateTime("scd_out")!=Qry.FieldAsDateTime("est_out"))
+                  {
+                    //задержка
+                    listItem.date.b_color="$0054FAF5";
+                  };
+                };
+            };
+            list.push_back(listItem);
+          }
+          catch(AstraLocale::UserException &E)
+          {
+            AstraLocale::showErrorMessage("MSG.ERR_MSG.NOT_ALL_FLIGHTS_ARE_SHOWN", LParams() << LParam("msg", getLocaleText(E.getLexemaData())));
+          };
+        };
+        if (!use_single_day) break;
+      };
+    };
+    
+    if (advanced_trip_list)
+    {
+      int sort_order;
+      //сортируем по name
+      sort(list.begin(),list.end(),TTripListOrder("name_sort_order"));
+      sort_order=0;
+      for(vector<TTripListItem>::iterator i=list.begin();i!=list.end();i++,sort_order++)
+      {
+        i->name.sort_order=sort_order;
+      };
+
+      //сортируем по date
+      sort(list.begin(),list.end(),TTripListOrder("date_sort_order"));
+      sort_order=0;
+      for(vector<TTripListItem>::iterator i=list.begin();i!=list.end();i++,sort_order++)
+      {
+        i->date.sort_order=sort_order;
+      };
+
+      //сортируем по airp
+      sort(list.begin(),list.end(),TTripListOrder("airp_sort_order"));
+      sort_order=0;
+      for(vector<TTripListItem>::iterator i=list.begin();i!=list.end();i++,sort_order++)
+      {
+        i->airp.sort_order=sort_order;
+      };
+    }
+    else
+    {
+      sort(list.begin(),list.end(),TTripListOrder("name_sort_order"));
+    };
+  };
+  
+
+  //формируем ответ
+  xmlNodePtr dataNode;
+  if (advanced_trip_list)
+  {
+    dataNode = resNode;
+    //пишем listInfo
+    NewTextChild(resNode, "date", DateTimeToStr(listInfo.date)); //подразумеваем что не может быть NoExists
+    
+    if (!listInfo.filter_from_xml)
+    {
+      //записываем
+      xmlNodePtr paramsNode=NewTextChild(resNode,"filter");
+      SetProp(NewTextChild(paramsNode,"airline",listInfo.filter.airline),"editable",(int)true);
+      if (listInfo.filter.flt_no!=NoExists)
+        SetProp(NewTextChild(paramsNode,"flt_no",listInfo.filter.flt_no),"editable",(int)true);
+      else
+        SetProp(NewTextChild(paramsNode,"flt_no"),"editable",(int)true);
+      SetProp(NewTextChild(paramsNode,"airp_dep",listInfo.filter.airp_dep),"editable",(int)true);
+      SetProp(NewTextChild(paramsNode,"pr_cancel",(int)SQLfilter.pr_cancel),"editable",(int)false);
+      SetProp(NewTextChild(paramsNode,"pr_takeoff",(int)SQLfilter.pr_takeoff),"editable",(int)false);
+    };
+    if (!listInfo.view_from_xml)
+    {
+      //записываем
+      xmlNodePtr paramsNode=NewTextChild(resNode,"view");
+      SetProp(NewTextChild(paramsNode,"use_colors",(int)listInfo.view.use_colors),"editable",(int)true);
+      SetProp(NewTextChild(paramsNode,"codes_fmt",(int)listInfo.view.codes_fmt),"editable",(int)true);
+    };
+  }
+  else
+    dataNode = NewTextChild( resNode, "data" );
+  xmlNodePtr tripsNode = NewTextChild( dataNode, "trips" );
+
+  if (reqInfo->screen.name=="TLG.EXE")
+  {
+    xmlNodePtr tripNode = NewTextChild( tripsNode, "trip" );
+    if (advanced_trip_list)
+    {
+      NewTextChild( tripNode, "point_id", -1 );
+      NewTextChild( tripNode, "name", AstraLocale::getLocaleText("Непривязанные") );
+      NewTextChild( tripNode, "name_sort_order", -1 );
+    }
+    else
+    {
+      NewTextChild( tripNode, "trip_id", -1 );
+      NewTextChild( tripNode, "str", AstraLocale::getLocaleText("Непривязанные") );
+    };
+  };
 
   for(vector<TTripListItem>::iterator i=list.begin();i!=list.end();i++)
   {
-    tripNode = NewTextChild( tripsNode, "trip" );
-    NewTextChild( tripNode, "trip_id", i->point_id );
-    NewTextChild( tripNode, "str", i->trip_name );
+    xmlNodePtr tripNode = NewTextChild( tripsNode, "trip" );
+    if (advanced_trip_list)
+    {
+      NewTextChild( tripNode, "point_id", i->point_id );
+      NewTextChild( tripNode, "name", i->name.value );
+      NewTextChild( tripNode, "date", i->date.value, "" );
+      NewTextChild( tripNode, "airp", i->airp.value, "" );
+      NewTextChild( tripNode, "name_sort_order", i->name.sort_order );
+      NewTextChild( tripNode, "date_sort_order", i->date.sort_order, i->name.sort_order );
+      NewTextChild( tripNode, "airp_sort_order", i->airp.sort_order, i->name.sort_order );
+      
+      NewTextChild( tripNode, "b_color", i->b_color, "");
+      NewTextChild( tripNode, "f_color", i->f_color, "");
+      NewTextChild( tripNode, "name_b_color", i->name.b_color, "");
+      NewTextChild( tripNode, "name_f_color", i->name.f_color, "");
+      NewTextChild( tripNode, "date_b_color", i->date.b_color, "");
+      NewTextChild( tripNode, "date_f_color", i->date.f_color, "");
+      NewTextChild( tripNode, "airp_b_color", i->airp.b_color, "");
+      NewTextChild( tripNode, "airp_f_color", i->airp.f_color, "");
+    }
+    else
+    {
+      NewTextChild( tripNode, "trip_id", i->point_id );
+      NewTextChild( tripNode, "str", i->name.value );
+    };
   };
 };
 
@@ -578,12 +948,19 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   if (reqInfo->user.access.airlines.empty() && reqInfo->user.access.airlines_permit ||
       reqInfo->user.access.airps.empty() && reqInfo->user.access.airps_permit)
     return false;
+    
+  TTripInfoSQLParams filter;
+  filter.set();
+  filter.point_id=point_id;
 
   TQuery Qry( &OraSession );
-  TSQL::setSQLTripInfo( Qry, *reqInfo );
-  Qry.CreateVariable( "point_id", otInteger, point_id );
+  TQuery StagesQry( &OraSession );
+  setSQLTripList( Qry, filter );
+  //ProgTrace(TRACE5, "TripInfo SQL=%s", Qry.SQLText.SQLText());
   Qry.Execute();
   if (Qry.Eof) return false;
+  if (!checkFinalStages(StagesQry, point_id, filter)) return false;
+  
   TTripInfo info(Qry);
   xmlNodePtr node = NewTextChild( dataNode, "tripheader" );
   NewTextChild( node, "point_id", Qry.FieldAsInteger( "point_id" ) );
@@ -804,14 +1181,12 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
       	continue;
       switch( alarm ) {
       	case atWaitlist:
-      		tst();
           if (reqInfo->screen.name == "CENT.EXE" ||
   	          reqInfo->screen.name == "PREPREG.EXE" ||
   	          reqInfo->screen.name == "AIR.EXE" ||
               reqInfo->screen.name == "BRDBUS.EXE" ||
               reqInfo->screen.name == "EXAM.EXE" ||
               reqInfo->screen.name == "DOCS.EXE") {
-            tst();
             rem = TripAlarmString( alarm );
           }
           break;

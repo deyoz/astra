@@ -473,17 +473,8 @@ void create_apis_file(int point_id)
     Qry.CreateVariable("point_id",otInteger,point_id);
     Qry.Execute();
     if (Qry.Eof) return;
-
+    
     TAirlinesRow &airline = (TAirlinesRow&)base_tables.get("airlines").get_row("code",Qry.FieldAsString("airline"));
-    if (airline.code_lat.empty()) throw Exception("airline.code_lat empty (code=%s)",airline.code.c_str());
-    int flt_no=Qry.FieldAsInteger("flt_no");
-    TAirpsRow &airp_dep = (TAirpsRow&)base_tables.get("airps").get_row("code",Qry.FieldAsString("airp"));
-    if (airp_dep.code_lat.empty()) throw Exception("airp_dep.code_lat empty (code=%s)",airp_dep.code.c_str());
-    string tz_region=AirpTZRegion(airp_dep.code);
-    if (Qry.FieldIsNULL("scd_out")) throw Exception("scd_out empty (airp_dep=%s)",airp_dep.code.c_str());
-    TDateTime scd_out_local	= UTCToLocal(Qry.FieldAsDateTime("scd_out"),tz_region);
-    if (Qry.FieldIsNULL("act_out")) throw Exception("act_out empty (airp_dep=%s)",airp_dep.code.c_str());
-    TDateTime act_out_local	= UTCToLocal(Qry.FieldAsDateTime("act_out"),tz_region);
     string country_dep = Qry.FieldAsString("country");
 
     TTripRoute route;
@@ -546,6 +537,16 @@ void create_apis_file(int point_id)
       ApisSetsQry.Execute();
       if (!ApisSetsQry.Eof)
       {
+        if (airline.code_lat.empty()) throw Exception("airline.code_lat empty (code=%s)",airline.code.c_str());
+        int flt_no=Qry.FieldAsInteger("flt_no");
+        TAirpsRow &airp_dep = (TAirpsRow&)base_tables.get("airps").get_row("code",Qry.FieldAsString("airp"));
+        if (airp_dep.code_lat.empty()) throw Exception("airp_dep.code_lat empty (code=%s)",airp_dep.code.c_str());
+        string tz_region=AirpTZRegion(airp_dep.code);
+        if (Qry.FieldIsNULL("scd_out")) throw Exception("scd_out empty (airp_dep=%s)",airp_dep.code.c_str());
+        TDateTime scd_out_local	= UTCToLocal(Qry.FieldAsDateTime("scd_out"),tz_region);
+        if (Qry.FieldIsNULL("act_out")) throw Exception("act_out empty (airp_dep=%s)",airp_dep.code.c_str());
+        TDateTime act_out_local	= UTCToLocal(Qry.FieldAsDateTime("act_out"),tz_region);
+      
         TAirpsRow &airp_arv = (TAirpsRow&)base_tables.get("airps").get_row("code",RouteQry.FieldAsString("airp"));
       	if (airp_arv.code_lat.empty()) throw Exception("airp_arv.code_lat empty (code=%s)",airp_arv.code.c_str());
       	tz_region=AirpTZRegion(airp_arv.code);
