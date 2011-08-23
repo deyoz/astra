@@ -203,7 +203,10 @@ TPrnTagStore::TTagProps::TTagProps(TDevOperType vop): op(dotUnknown)
 }
 
 // Bag receipts
-TPrnTagStore::TPrnTagStore(TBagReceipt &arcpt): rcpt(arcpt), prn_tag_props(dotPrnBR), tag_lang(arcpt.tag_lang)
+TPrnTagStore::TPrnTagStore(TBagReceipt &arcpt):
+    rcpt(arcpt),
+    prn_tag_props(dotPrnBR),
+    tag_lang(arcpt.tag_lang)
 {
     print_mode = 0;
     tag_list.insert(make_pair(TAG::BULKY_BT,        TTagListItem(&TPrnTagStore::BULKY_BT, 0)));
@@ -255,7 +258,8 @@ TPrnTagStore::TPrnTagStore(bool apr_lat): rcpt(NULL), prn_tag_props(dotUnknown)
 }
 
 // BP && BT
-TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tagsNode, TBTRoute *aroute): rcpt(NULL),
+TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tagsNode, TBTRoute *aroute):
+    rcpt(NULL),
     prn_tag_props(aroute == NULL ? dotPrnBP : dotPrnBT)
 {
     print_mode = 0;
@@ -458,6 +462,12 @@ bool TPrnTagStore::tag_processed(std::string name)
     }
 }
 
+string TPrnTagStore::get_tag_no_err(string name, string date_format, string tag_lang)
+{
+    return get_field(upperc(name), 0, "L", date_format, tag_lang, false);
+}
+
+
 string TPrnTagStore::get_tag(string name, string date_format, string tag_lang)
 {
     return get_field(upperc(name), 0, "L", date_format, tag_lang);
@@ -471,7 +481,7 @@ string cut_result(string result)
     return result;
 }
 
-string TPrnTagStore::get_field(std::string name, size_t len, std::string align, std::string date_format, string tag_lang)
+string TPrnTagStore::get_field(std::string name, size_t len, std::string align, std::string date_format, string tag_lang, bool pr_user_except)
 {
     std::map<std::string, TTagPropsItem>::iterator iprops = prn_tag_props.items.find(name);
     if(iprops == prn_tag_props.items.end())
@@ -513,11 +523,15 @@ string TPrnTagStore::get_field(std::string name, size_t len, std::string align, 
                 replace_good = is_lat(result);
             }
             if(not replace_good) {
+                LexemaData err;
+                err.lexema_id = "MSG.NO_LAT_PRN_DATA";
+                err.lparams << LParam("tag", name) << LParam("value", cut_result(result));
                 if(iprops->second.except_when_only_lat) {
                     ProgError(STDLOG, "Данные печати не латинские: %s = \"%s\"", name.c_str(), result.c_str());
-                    throw UserException("MSG.NO_LAT_PRN_DATA", LParams() << LParam("tag", name) << LParam("value", cut_result(result)));
+                    if(pr_user_except)
+                        throw UserException(err.lexema_id, err.lparams);
                 } else {
-                    showErrorMessage("MSG.NO_LAT_PRN_DATA", LParams() << LParam("tag", name) << LParam("value", cut_result(result)));
+                    showErrorMessage(err);
                     for(string::iterator si = result.begin(); si != result.end(); si++)
                         if(not is_lat_char(*si)) *si = '_';
                 }
