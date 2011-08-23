@@ -1023,14 +1023,20 @@ try {
 		throw Exception( "Ошибка формата номера рейса, значение=%s", tmp.c_str() );
 	err++;
 	TElemFmt fmt;
-  try {
-   fl.suffix = ElemToElemId( etSuffix, fl.suffix, fmt, false );
-  }
-  catch( EConvertError &e ) {
-  	throw Exception( "Ошибка формата номера рейса, значение=%s", tmp.c_str() );
+	if ( !fl.suffix.empty() ) {
+    try {
+      fl.suffix = ElemToElemId( etSuffix, fl.suffix, fmt, false );
+      if ( fmt == efmtUnknown )
+       throw EConvertError("");
+    }
+    catch( EConvertError &e ) {
+    	throw Exception( "Ошибка формата номера рейса, значение=%s", tmp.c_str() );
+    }
   }
  	try {
     fl.airline = ElemToElemId( etAirline, fl.airline, fmt, false );
+    if ( fmt == efmtUnknown )
+      throw EConvertError("");
 	  if ( fmt == efmtCodeInter || fmt == efmtCodeICAOInter )
 		  fl.trip_type = "м";  //!!!vlad а правильно ли так определять тип рейса? не уверен. Проверка при помощи маршрута. Если в маршруте все п.п. принадлежат одной стране то "п" иначе "м"
     else
@@ -1496,7 +1502,7 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
     	Qry.CreateVariable( "pr_del", otInteger, 0 );
     Qry.CreateVariable( "tid", otInteger, new_tid );
     Qry.CreateVariable( "remark", otString, FNull );
-    Qry.CreateVariable( "pr_reg", otInteger, 1 );
+    Qry.CreateVariable( "pr_reg", otInteger, fl.scd != NoExists );
     err++;
     Qry.Execute();
     err++;
@@ -1520,6 +1526,7 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
       Qry.SetVariable( "airp", it->airp );
       Qry.SetVariable( "pr_tranzit", 0 );
       Qry.SetVariable( "first_point", point_id );
+      Qry.SetVariable( "pr_reg", 0 );
       if ( it == fl.dests.end() - 1 ) {
       	Qry.SetVariable( "airline", FNull );
         Qry.SetVariable( "flt_no", FNull );
@@ -1529,7 +1536,6 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
         Qry.SetVariable( "park_out", FNull );
         Qry.SetVariable( "trip_type", FNull );
         Qry.SetVariable( "litera", FNull );
-        Qry.SetVariable( "pr_reg", 0 );
       }
       Qry.SetVariable( "scd_out", FNull );
       Qry.SetVariable( "est_out", FNull );
