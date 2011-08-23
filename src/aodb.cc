@@ -337,6 +337,7 @@ string GetTermInfo( TQuery &Qry, int pax_id, int reg_no, bool pr_tcheckin, const
    	info<<setw(length_time_value)<<"";
   else
    	info<<setw(length_time_value)<<DateTimeToStr( UTCToLocal( t, region ), "dd.mm.yyyy hh:nn" );
+  length_time_value += 4;
   return info.str();
 }
 
@@ -489,12 +490,14 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 		if ( !pr_unaccomp ) {
 		  record<<setw(3)<<Qry.FieldAsInteger( "reg_no");
 	  	record<<setw(30)<<string(Qry.FieldAsString( "name" )).substr(0,30);
+#if 0
       if ( DecodePerson( Qry.FieldAsString( "pers_type" ) ) == ASTRA::adult ) {
         record<<setw(1)<<string(Qry.FieldAsString( "gender" )).substr(0,1);
       }
       else {
         record<<setw(1)<<string(" ").substr(0,1);
       }
+#endif
 		  TAirpsRow *row=(TAirpsRow*)&base_tables.get("airps").get_row("code",Qry.FieldAsString("airp_arv"));
 		  record<<setw(20)<<row->code.substr(0,20);
 		  record<<setw(1);
@@ -535,13 +538,19 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 		  			  	if ( rem == "UMNR" ) {
 		  			  	  category = 9;
 		  			  	}
+#if 0
                 else
                   if ( rem == "DUTY" ) {
                     category = 10;
                   }
+#endif
 			  RemQry.Next();
 		  }
-		    record<<setw(2)<<category;
+#if 0
+		  record<<setw(2)<<category;
+#else
+		  record<<setw(1)<<category;
+#endif
 		  record<<setw(1);
 		  bool adult = false;
 		  switch ( DecodePerson( Qry.FieldAsString( "pers_type" ) ) ) {
