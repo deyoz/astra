@@ -179,7 +179,8 @@ bool handle_tlg(void)
     TlgQry.Clear();
     TlgQry.SQLText=
       "SELECT tlg_queue.id,tlgs.tlg_text,tlg_queue.time,ttl, "
-      "       tlg_queue.tlg_num,tlg_queue.sender "
+      "       tlg_queue.tlg_num,tlg_queue.sender, "
+      "       NVL(tlg_queue.proc_attempt,0) AS proc_attempt "
       "FROM tlgs,tlg_queue "
       "WHERE tlg_queue.id=tlgs.id AND tlg_queue.receiver=:receiver AND "
       "      tlg_queue.type='INB' AND tlg_queue.status='PUT' "
@@ -253,191 +254,199 @@ bool handle_tlg(void)
       	errorTlg(tlg_id,"TTL");
       }
       else
-        try
+      if (TlgQry.FieldAsInteger("proc_attempt")>=HANDLER_PROC_ATTEMPTS())
+      {
+        errorTlg(tlg_id,"PROC");
+      }
+      else
+      try
+      {
+        procTlg(tlg_id);
+        OraSession.Commit();
+      
+        len=TlgQry.GetSizeLongField("tlg_text")+1;
+        if (len>bufLen)
         {
-          len=TlgQry.GetSizeLongField("tlg_text")+1;
-          if (len>bufLen)
-          {
-            if (buf==NULL)
-              ph=(char*)mem.malloc(len, STDLOG);
-            else
-              ph=(char*)mem.realloc(buf,len, STDLOG);
-            if (ph==NULL) throw EMemoryError("Out of memory");
-            buf=ph;
-            bufLen=len;
-          };
-          TlgQry.FieldAsLong("tlg_text",buf);
-          buf[len-1]=0;
-          parts=GetParts(buf,mem);
-          ParseHeading(parts.heading,HeadingInfo,mem);
-          ParseEnding(parts.ending,HeadingInfo,EndingInfo,mem);
-          if (parts.heading.p-parts.addr.p>255) throw ETlgError("Address too long");
-          if (parts.body.p-parts.heading.p>100) throw ETlgError("Header too long");
-          if (parts.ending.p!=NULL&&strlen(parts.ending.p)>20) throw ETlgError("End of message too long");
+          if (buf==NULL)
+            ph=(char*)mem.malloc(len, STDLOG);
+          else
+            ph=(char*)mem.realloc(buf,len, STDLOG);
+          if (ph==NULL) throw EMemoryError("Out of memory");
+          buf=ph;
+          bufLen=len;
+        };
+        TlgQry.FieldAsLong("tlg_text",buf);
+        buf[len-1]=0;
+        parts=GetParts(buf,mem);
+        ParseHeading(parts.heading,HeadingInfo,mem);
+        ParseEnding(parts.ending,HeadingInfo,EndingInfo,mem);
+        if (parts.heading.p-parts.addr.p>255) throw ETlgError("Address too long");
+        if (parts.body.p-parts.heading.p>100) throw ETlgError("Header too long");
+        if (parts.ending.p!=NULL&&strlen(parts.ending.p)>20) throw ETlgError("End of message too long");
 
-          if ((HeadingInfo->tlg_cat==tcDCS||
-               HeadingInfo->tlg_cat==tcBSM)&&
-               HeadingInfo->time_create!=0)
+        if ((HeadingInfo->tlg_cat==tcDCS||
+             HeadingInfo->tlg_cat==tcBSM)&&
+             HeadingInfo->time_create!=0)
+        {
+          long part_no;
+          ostringstream merge_key;
+          merge_key << "." << HeadingInfo->sender;
+          if (HeadingInfo->tlg_cat==tcDCS)
           {
-            long part_no;
-            ostringstream merge_key;
-            merge_key << "." << HeadingInfo->sender;
-            if (HeadingInfo->tlg_cat==tcDCS)
-            {
-              TDCSHeadingInfo &info = *dynamic_cast<TDCSHeadingInfo*>(HeadingInfo);
-              part_no=info.part_no;
-              merge_key << " " << info.flt.airline << setw(3) << setfill('0') << info.flt.flt_no
-                               << info.flt.suffix << "/" << DateTimeToStr(info.flt.scd,"ddmmm") << " "
-                               << info.flt.airp_dep << info.flt.airp_arv;
-              if (info.association_number>0)
-                merge_key << " " << setw(6) << setfill('0') << info.association_number;
-            }
-            else
-            {
-              TBSMHeadingInfo &info = *dynamic_cast<TBSMHeadingInfo*>(HeadingInfo);
-              part_no=info.part_no;
-              merge_key << " " << info.airp;
-              if (!info.reference_number.empty())
-                merge_key << " " << info.reference_number;
-            };
-
-            TlgIdQry.SetVariable("id",FNull);
-            TlgIdQry.SetVariable("tlg_type",HeadingInfo->tlg_type);
-            TlgIdQry.SetVariable("merge_key",merge_key.str());
-            if (strcmp(HeadingInfo->tlg_type,"PNL")==0)
-            {
-              TlgIdQry.SetVariable("min_time_create",HeadingInfo->time_create-2.0/1440);
-              TlgIdQry.SetVariable("max_time_create",HeadingInfo->time_create+2.0/1440);
-            }
-            else
-            {
-              TlgIdQry.SetVariable("min_time_create",HeadingInfo->time_create);
-              TlgIdQry.SetVariable("max_time_create",HeadingInfo->time_create);
-            };
-            TlgIdQry.Execute();
-            if (TlgIdQry.VariableIsNULL("id"))
-              InsQry.SetVariable("id",FNull);
-            else
-              InsQry.SetVariable("id",TlgIdQry.GetVariableAsInteger("id"));
-            InsQry.SetVariable("part_no",(int)part_no);
-            InsQry.SetVariable("merge_key",merge_key.str());
+            TDCSHeadingInfo &info = *dynamic_cast<TDCSHeadingInfo*>(HeadingInfo);
+            part_no=info.part_no;
+            merge_key << " " << info.flt.airline << setw(3) << setfill('0') << info.flt.flt_no
+                             << info.flt.suffix << "/" << DateTimeToStr(info.flt.scd,"ddmmm") << " "
+                             << info.flt.airp_dep << info.flt.airp_arv;
+            if (info.association_number>0)
+              merge_key << " " << setw(6) << setfill('0') << info.association_number;
           }
           else
           {
+            TBSMHeadingInfo &info = *dynamic_cast<TBSMHeadingInfo*>(HeadingInfo);
+            part_no=info.part_no;
+            merge_key << " " << info.airp;
+            if (!info.reference_number.empty())
+              merge_key << " " << info.reference_number;
+          };
+
+          TlgIdQry.SetVariable("id",FNull);
+          TlgIdQry.SetVariable("tlg_type",HeadingInfo->tlg_type);
+          TlgIdQry.SetVariable("merge_key",merge_key.str());
+          if (strcmp(HeadingInfo->tlg_type,"PNL")==0)
+          {
+            TlgIdQry.SetVariable("min_time_create",HeadingInfo->time_create-2.0/1440);
+            TlgIdQry.SetVariable("max_time_create",HeadingInfo->time_create+2.0/1440);
+          }
+          else
+          {
+            TlgIdQry.SetVariable("min_time_create",HeadingInfo->time_create);
+            TlgIdQry.SetVariable("max_time_create",HeadingInfo->time_create);
+          };
+          TlgIdQry.Execute();
+          if (TlgIdQry.VariableIsNULL("id"))
             InsQry.SetVariable("id",FNull);
-            InsQry.SetVariable("part_no",1);
-            InsQry.SetVariable("merge_key",FNull);
-          };
-
-          InsQry.SetVariable("tlg_type",HeadingInfo->tlg_type);
-          if (HeadingInfo->time_create!=0)
-            InsQry.SetVariable("time_create",HeadingInfo->time_create);
           else
-            InsQry.SetVariable("time_create",FNull);
-
-          c=*parts.heading.p;
-          *parts.heading.p=0;
-          InsQry.SetVariable("addr",parts.addr.p);
-          *parts.heading.p=c;
-
-          c=*parts.body.p;
-          *parts.body.p=0;
-          InsQry.SetVariable("heading",parts.heading.p);
-          *parts.body.p=c;
-
-          if (parts.ending.p!=NULL)
-          {
-            InsQry.SetLongVariable("body",parts.body.p,parts.ending.p-parts.body.p);
-            InsQry.SetVariable("ending",parts.ending.p);
-          }
-          else
-          {
-            InsQry.SetLongVariable("body",parts.body.p,strlen(parts.body.p));
-            InsQry.SetVariable("ending",FNull);
-          };
-          if (deleteTlg(tlg_id))
-          {
-            try
-            {
-              InsQry.Execute();
-              pr_typeb_cmd=true;
-            }
-            catch(EOracleError E)
-            {
-              if (E.Code==1)
-              {
-                Qry.Clear();
-                Qry.SQLText=
-                  "SELECT addr,heading,body,ending FROM tlgs_in WHERE id=:id AND num=:num";
-                Qry.CreateVariable("id",otInteger,InsQry.GetVariableAsInteger("id"));
-                Qry.CreateVariable("num",otInteger,InsQry.GetVariableAsInteger("part_no"));
-                Qry.Execute();
-                if (Qry.RowCount()!=0)
-                {
-                  len=strlen(Qry.FieldAsString("addr"))+
-                      strlen(Qry.FieldAsString("heading"))+
-                      Qry.GetSizeLongField("body")+
-                      strlen(Qry.FieldAsString("ending"))+1;
-                  if (len>buf2Len)
-                  {
-                    if (buf2==NULL)
-                      ph=(char*)mem.malloc(len, STDLOG);
-                    else
-                      ph=(char*)mem.realloc(buf2,len, STDLOG);
-                    if (ph==NULL) throw EMemoryError("Out of memory");
-                    buf2=ph;
-                    buf2Len=len;
-                  };
-                  strcpy(buf2,Qry.FieldAsString("addr"));
-                  strcat(buf2,Qry.FieldAsString("heading"));
-                  len=strlen(buf2);
-                  Qry.FieldAsLong("body",buf2+len);
-                  len+=Qry.GetSizeLongField("body");
-                  buf2[len]=0;
-                  strcat(buf2,Qry.FieldAsString("ending"));
-                  if (strcmp(buf,buf2)!=0)
-                  {
-                    long part_no;
-                    if (HeadingInfo->tlg_cat==tcDCS)
-                      part_no=dynamic_cast<TDCSHeadingInfo*>(HeadingInfo)->part_no;
-                    else
-                      part_no=dynamic_cast<TBSMHeadingInfo*>(HeadingInfo)->part_no;
-                    if (part_no==1&&EndingInfo->pr_final_part)  //телеграмма состоит из одной части
-                    {
-                      InsQry.SetVariable("id",FNull);
-                      InsQry.SetVariable("merge_key",FNull);
-                      InsQry.Execute();
-                      pr_typeb_cmd=true;
-                    }
-                    else throw ETlgError("Duplicate part number");
-                  }
-                  else
-                  {
-                    errorTlg(tlg_id,"DUP");
-                  };
-                }
-                else throw ETlgError("Duplicate part number");
-              }
-              else throw;
-            };
-          };
+            InsQry.SetVariable("id",TlgIdQry.GetVariableAsInteger("id"));
+          InsQry.SetVariable("part_no",(int)part_no);
+          InsQry.SetVariable("merge_key",merge_key.str());
         }
-        catch(EXCEPTIONS::Exception &E)
+        else
         {
-          OraSession.Rollback();
+          InsQry.SetVariable("id",FNull);
+          InsQry.SetVariable("part_no",1);
+          InsQry.SetVariable("merge_key",FNull);
+        };
+
+        InsQry.SetVariable("tlg_type",HeadingInfo->tlg_type);
+        if (HeadingInfo->time_create!=0)
+          InsQry.SetVariable("time_create",HeadingInfo->time_create);
+        else
+          InsQry.SetVariable("time_create",FNull);
+
+        c=*parts.heading.p;
+        *parts.heading.p=0;
+        InsQry.SetVariable("addr",parts.addr.p);
+        *parts.heading.p=c;
+
+        c=*parts.body.p;
+        *parts.body.p=0;
+        InsQry.SetVariable("heading",parts.heading.p);
+        *parts.body.p=c;
+
+        if (parts.ending.p!=NULL)
+        {
+          InsQry.SetLongVariable("body",parts.body.p,parts.ending.p-parts.body.p);
+          InsQry.SetVariable("ending",parts.ending.p);
+        }
+        else
+        {
+          InsQry.SetLongVariable("body",parts.body.p,strlen(parts.body.p));
+          InsQry.SetVariable("ending",FNull);
+        };
+        if (deleteTlg(tlg_id))
+        {
           try
           {
-            EOracleError *orae=dynamic_cast<EOracleError*>(&E);
-        	  if (orae!=NULL&&
-        	      (orae->Code==4061||orae->Code==4068)) continue;
-            ProgError(STDLOG,"Exception: %s (tlgs.id=%d)",
-                         E.what(),TlgQry.FieldAsInteger("id"));
-            errorTlg(tlg_id,"PARS",E.what());
-            //sendErrorTlg("Exception: %s (tlgs.id=%d)",
-            //             E.what(),TlgQry.FieldAsInteger("id"));
+            InsQry.Execute();
+            pr_typeb_cmd=true;
           }
-          catch(...) {};
+          catch(EOracleError E)
+          {
+            if (E.Code==1)
+            {
+              Qry.Clear();
+              Qry.SQLText=
+                "SELECT addr,heading,body,ending FROM tlgs_in WHERE id=:id AND num=:num";
+              Qry.CreateVariable("id",otInteger,InsQry.GetVariableAsInteger("id"));
+              Qry.CreateVariable("num",otInteger,InsQry.GetVariableAsInteger("part_no"));
+              Qry.Execute();
+              if (Qry.RowCount()!=0)
+              {
+                len=strlen(Qry.FieldAsString("addr"))+
+                    strlen(Qry.FieldAsString("heading"))+
+                    Qry.GetSizeLongField("body")+
+                    strlen(Qry.FieldAsString("ending"))+1;
+                if (len>buf2Len)
+                {
+                  if (buf2==NULL)
+                    ph=(char*)mem.malloc(len, STDLOG);
+                  else
+                    ph=(char*)mem.realloc(buf2,len, STDLOG);
+                  if (ph==NULL) throw EMemoryError("Out of memory");
+                  buf2=ph;
+                  buf2Len=len;
+                };
+                strcpy(buf2,Qry.FieldAsString("addr"));
+                strcat(buf2,Qry.FieldAsString("heading"));
+                len=strlen(buf2);
+                Qry.FieldAsLong("body",buf2+len);
+                len+=Qry.GetSizeLongField("body");
+                buf2[len]=0;
+                strcat(buf2,Qry.FieldAsString("ending"));
+                if (strcmp(buf,buf2)!=0)
+                {
+                  long part_no;
+                  if (HeadingInfo->tlg_cat==tcDCS)
+                    part_no=dynamic_cast<TDCSHeadingInfo*>(HeadingInfo)->part_no;
+                  else
+                    part_no=dynamic_cast<TBSMHeadingInfo*>(HeadingInfo)->part_no;
+                  if (part_no==1&&EndingInfo->pr_final_part)  //телеграмма состоит из одной части
+                  {
+                    InsQry.SetVariable("id",FNull);
+                    InsQry.SetVariable("merge_key",FNull);
+                    InsQry.Execute();
+                    pr_typeb_cmd=true;
+                  }
+                  else throw ETlgError("Duplicate part number");
+                }
+                else
+                {
+                  errorTlg(tlg_id,"DUP");
+                };
+              }
+              else throw ETlgError("Duplicate part number");
+            }
+            else throw;
+          };
         };
+      }
+      catch(EXCEPTIONS::Exception &E)
+      {
+        OraSession.Rollback();
+        try
+        {
+          EOracleError *orae=dynamic_cast<EOracleError*>(&E);
+      	  if (orae!=NULL&&
+      	      (orae->Code==4061||orae->Code==4068)) continue;
+          ProgError(STDLOG,"Exception: %s (tlgs.id=%d)",
+                       E.what(),TlgQry.FieldAsInteger("id"));
+          errorTlg(tlg_id,"PARS",E.what());
+          //sendErrorTlg("Exception: %s (tlgs.id=%d)",
+          //             E.what(),TlgQry.FieldAsInteger("id"));
+        }
+        catch(...) {};
+      };
       ProgTrace(TRACE5, "IN: PUT->DONE (sender=%s, tlg_num=%ld, time=%.10f)",
                         TlgQry.FieldAsString("sender"),
                         (unsigned long)TlgQry.FieldAsInteger("tlg_num"),
