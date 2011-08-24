@@ -192,7 +192,7 @@ public:
     TQuery Qry( &OraSession );
     TQuery PointsQry( &OraSession );
     Qry.SQLText =
-      "SELECT point_addr,airline,flt_no,airp FROM file_param_sets, desks "
+      "SELECT point_addr,airline,flt_no,airp,param_name FROM file_param_sets, desks "
       " WHERE type=:type AND own_point_addr=:own_point_addr AND pr_send=:pr_send AND "
       "       desks.code=file_param_sets.point_addr "
       "ORDER BY point_addr";
@@ -208,16 +208,15 @@ public:
 	  while ( true ) {
       //ProgTrace( TRACE5, "Qry.Eof=%d, point_addr=%s", Qry.Eof, point_addr.c_str() );
       if ( !point_addr.empty() && ( Qry.Eof || point_addr != Qry.FieldAsString( "point_addr" ) ) ) { //переход к след. point_addr
-        tst();
         if ( pr_empty_airline )
           airlines.clear();
         if ( pr_empty_airp )
           airps.clear();
         if ( pr_empty_flt_no )
-          flt_nos.empty();
-        tst();
+          flt_nos.clear();
+        ProgTrace( TRACE5, "point_addr=%s, airlines.size()=%d, airps.size()=%d,flt_nos.size()=%d",
+                   point_addr.c_str(), airlines.size(), airps.size(),  flt_nos.size() );
         if ( validateParams( point_addr, airlines, airps, flt_nos ) ) {
-          tst();
           PointsQry.Clear();
           string res = "SELECT point_id, airline, airp, flt_no FROM points WHERE ";
           if ( cond_dates.sql.empty() ) //такого не должно быть
@@ -232,7 +231,7 @@ public:
                 res += ",";
               res += ":airp"+IntToString(idx);
               PointsQry.CreateVariable( "airp"+IntToString(idx), otString, *istr );
-              ProgTrace( TRACE5, "airp idx=%d, value=%s", idx, istr->c_str() );
+//              ProgTrace( TRACE5, "airp idx=%d, value=%s", idx, istr->c_str() );
               idx++;
             }
             res += ")";
@@ -245,7 +244,7 @@ public:
                 res += ",";
               res += ":airline"+IntToString(idx);
               PointsQry.CreateVariable( "airline"+IntToString(idx), otString, *istr );
-              ProgTrace( TRACE5, "airline idx=%d, value=%s", idx, istr->c_str() );
+  //            ProgTrace( TRACE5, "airline idx=%d, value=%s", idx, istr->c_str() );
               idx++;
             }
             res += ")";
@@ -258,7 +257,7 @@ public:
                 res += ",";
               res += ":flt_no"+IntToString(idx);
               PointsQry.CreateVariable( "flt_no"+IntToString(idx), otInteger, *iint );
-              ProgTrace( TRACE5, "flt_no idx=%d, value=%d", idx, *iint );
+    //          ProgTrace( TRACE5, "flt_no idx=%d, value=%d", idx, *iint );
               idx++;
             }
             res += ")";
@@ -268,13 +267,14 @@ public:
             PointsQry.CreateVariable( idate->first, otDate, idate->second );
           }
           PointsQry.SQLText = res;
-          //ProgTrace( TRACE5, "PointsQry.SQLText=%s, point_addr=%s", res.c_str(), point_addr.c_str() );
+          ProgTrace( TRACE5, "type=%s, PointsQry.SQLText=%s, point_addr=%s", type.c_str(), res.c_str(), point_addr.c_str() );
           PointsQry.Execute();
           while ( !PointsQry.Eof ) {
             if ( validatePoints( PointsQry.FieldAsInteger( "point_id" ) ) ) {
+            ProgTrace( TRACE5, "type=%s, point_addr=%s, point_id=%d", type.c_str(), point_addr.c_str(), PointsQry.FieldAsInteger( "point_id" ) );
             CreateCommonFileData( point_addr,
                                   PointsQry.FieldAsInteger( "point_id" ),
-                                  FILE_AODB_OUT_TYPE,
+                                  type,
                                   PointsQry.FieldAsString( "airp" ),
   	                              PointsQry.FieldAsString( "airline" ),
                                   PointsQry.FieldAsString( "flt_no" ) );
@@ -310,6 +310,9 @@ public:
       else
         if ( find( flt_nos.begin(), flt_nos.end(), Qry.FieldAsInteger( "flt_no" ) ) == flt_nos.end() )
           flt_nos.push_back( Qry.FieldAsInteger( "flt_no" ) );
+      ProgTrace( TRACE5, "point_addr=%s, param_name=%s,airline=%s,airp=%s,flt_no=%s",
+                 point_addr.c_str(), Qry.FieldAsString( "param_name" ), Qry.FieldAsString( "airline" ),
+                 Qry.FieldAsString( "airp" ),Qry.FieldAsString( "flt_no" ) );
       Qry.Next();
 	  }
   }
@@ -1234,8 +1237,14 @@ void sync_sppcek( void )
   TDateTime currdate = Qry.FieldAsDateTime( "currdate" );
   TSPPCEKPointAddr point_addr;
   TSQLCondDates cond_dates;
-  cond_dates.sql = " ( scd_in >= :day1 OR scd_out >= :day1 )";
-  cond_dates.dates.insert( make_pair( "day1", currdate ) );
+  cond_dates.sql = " ( scd_in >= :day1 OR scd_out >= :day1 OR "
+                   "   est_in >= :day1 OR est_out >= :day1 OR "
+                   "   act_in >= :day1 OR act_out >= :day1 ) AND "
+                   " ( time_out < :max_spp_day OR time_in < :max_spp_day ) ";
+  cond_dates.dates.insert( make_pair( "day1", currdate - 1 ) );
+  TDateTime f;
+  modf( currdate, &f );
+  cond_dates.dates.insert( make_pair( "max_spp_day", f + CREATE_SPP_DAYS() + 1 ) );
   point_addr.createPointSQL( cond_dates );
 }
 
