@@ -256,6 +256,7 @@ bool handle_tlg(void)
       else
       if (TlgQry.FieldAsInteger("proc_attempt")>=HANDLER_PROC_ATTEMPTS())
       {
+        ProgTrace(TRACE5, "handle_tlg: tlg_id=%d proc_attempt=%d", tlg_id, TlgQry.FieldAsInteger("proc_attempt"));
         errorTlg(tlg_id,"PROC");
       }
       else
