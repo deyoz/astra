@@ -1,4 +1,4 @@
-#include <stdlib.h>
+  #include <stdlib.h>
 #include <string>
 #include "tripinfo.h"
 #include "stages.h"
@@ -511,6 +511,14 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     TDateTime client_date=UTCToClient(utc_date,reqInfo->desk.tz_region);
     modf(utc_date, &utc_date); //округляем до дня
     modf(client_date, &client_date); //округляем до дня
+    
+    int shift_down_additional=-1;
+    int shift_up_additional=1;
+    if (reqInfo->user.sets.time==ustTimeUTC)
+    {
+      shift_down_additional=0;
+      shift_up_additional=0;
+    };
 
     vector< pair<int,int> > shifts;
     vector< pair<TDateTime, TDateTime> > ranges;
@@ -542,7 +550,8 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         };
       };
       modf(listInfo.date, &listInfo.date);
-      shifts.push_back( make_pair((int)(listInfo.date-client_date)-1, (int)(listInfo.date-client_date)+2) );
+      shifts.push_back( make_pair((int)(listInfo.date-client_date)+shift_down_additional,
+                                  (int)(listInfo.date-client_date)+shift_up_additional+1) );
       ranges.push_back( make_pair(listInfo.date, listInfo.date+1) );
     }
     else
@@ -556,9 +565,9 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
         Qry.Clear();
         Qry.SQLText=
-          "SELECT shift_down, shift_up "
+          "SELECT NVL(shift_down,-7) AS shift_down, NVL(shift_up,2) AS shift_up "
           "FROM trip_list_days, user_roles "
-          "WHERE trip_list_days.role_id=user_roles.role_id AND "
+          "WHERE trip_list_days.role_id(+)=user_roles.role_id AND "
           "      user_roles.user_id=:user_id "
           "ORDER BY shift_down";
         Qry.CreateVariable("user_id", otInteger, reqInfo->user.user_id);
@@ -567,7 +576,8 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         {
           if (Qry.FieldAsInteger("shift_down")>Qry.FieldAsInteger("shift_up")) continue;
 
-          pair<int, int> curr_shift(Qry.FieldAsInteger("shift_down")-1,Qry.FieldAsInteger("shift_up")+2);
+          pair<int, int> curr_shift(Qry.FieldAsInteger("shift_down")+shift_down_additional,
+                                    Qry.FieldAsInteger("shift_up")+shift_up_additional+1);
           MergeSortedRanges(shifts, curr_shift);
 
           pair<TDateTime, TDateTime> curr_range(client_date+Qry.FieldAsInteger("shift_down"),
@@ -576,7 +586,8 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         };
       };
       if (shifts.empty())
-        shifts.push_back( make_pair(shift_down_default-1,shift_up_default+2) );
+        shifts.push_back( make_pair(shift_down_default+shift_down_additional,
+                                    shift_up_default+shift_up_additional+1) );
       if (ranges.empty())
         ranges.push_back( make_pair(client_date+shift_down_default,client_date+shift_up_default+1) );
     };
@@ -601,9 +612,9 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
           SQLfilter.last_date=utc_date+iShift->second-1;
         };
 
-        ProgTrace(TRACE5, "first_date=%s last_date=%s",
-                          DateTimeToStr(SQLfilter.first_date,"dd.mm.yy hh:nn:ss").c_str(),
-                          DateTimeToStr(SQLfilter.last_date,"dd.mm.yy hh:nn:ss").c_str() );
+        //ProgTrace(TRACE5, "first_date=%s last_date=%s",
+        //                  DateTimeToStr(SQLfilter.first_date,"dd.mm.yy hh:nn:ss").c_str(),
+        //                  DateTimeToStr(SQLfilter.last_date,"dd.mm.yy hh:nn:ss").c_str() );
 
         SQLfilter.check_point_id=NoExists;
         setSQLTripList( Qry, SQLfilter );
@@ -1551,11 +1562,6 @@ class TPaxLoadOrder
     };
 };
 
-bool comparePaxLoadItem(const TPaxLoadItem &item1/*, const TPaxLoadItem &item2, const vector<string> &order*/)
-{
-  return false;
-};
-
 void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
 {
   reqNode=GetNode("tripcounters",reqNode);
@@ -1677,11 +1683,23 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
       rems.push_back(NodeAsString(node));
     if (rems.empty()) pr_rems=false;
   };
+  
+  if (paxLoadOrder.fields.size()==1 &&
+      *paxLoadOrder.fields.begin()=="rems" && !pr_rems) return;
 
   list<TPaxLoadItem> paxLoad;
 
   if (!pr_section)
   {
+    const char* last_trfer_sql=
+      "     (SELECT trfer_trips.airline,trfer_trips.flt_no,trfer_trips.suffix,transfer.airp_arv, \n"
+      "             transfer.grp_id \n"
+      "      FROM pax_grp,transfer,trfer_trips \n"
+      "      WHERE pax_grp.grp_id=transfer.grp_id AND \n"
+      "            transfer.point_id_trfer=trfer_trips.point_id AND \n"
+      "            transfer.pr_final<>0 AND \n"
+      "            pax_grp.point_dep=:point_id) last_trfer";
+  
     for(int pass=1;pass<=5;pass++)
     {
       //1. Вычисление cfg
@@ -1725,10 +1743,10 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
         if (pr_cl_grp)      group_by << ", pax_grp.class_grp";
         if (pr_hall)        group_by << ", pax_grp.hall";
         if (pr_airp_arv)    group_by << ", pax_grp.point_arv";
-        if (pr_trfer)       group_by << ", v_last_trfer.airline"
-                                     << ", v_last_trfer.flt_no"
-                                     << ", v_last_trfer.suffix"
-                                     << ", v_last_trfer.airp_arv";
+        if (pr_trfer)       group_by << ", last_trfer.airline"
+                                     << ", last_trfer.flt_no"
+                                     << ", last_trfer.suffix"
+                                     << ", last_trfer.airp_arv";
         if (pr_user)        group_by << ", pax_grp.user_id";
         if (pr_client_type) group_by << ", pax_grp.client_type";
         if (pr_status)      group_by << ", pax_grp.status";
@@ -1742,7 +1760,8 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
             << "       " << group_by.str().erase(0,1) << endl
             << "FROM pax_grp,pax " << endl;
 
-        if (pr_trfer) sql << "    ,v_last_trfer" << endl;
+        if (pr_trfer) sql << "    ," << endl
+                          << last_trfer_sql << endl;
         if (pr_rems)
         {
           sql << "    ,(SELECT DISTINCT pax_id,rem_code FROM pax_rem" << endl
@@ -1752,7 +1771,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
 
         sql << "WHERE pax_grp.grp_id=pax.grp_id AND " << endl
             << "      pax_grp.point_dep=:point_id AND pax.pr_brd IS NOT NULL " << endl;
-        if (pr_trfer) sql << "      AND pax_grp.grp_id=v_last_trfer.grp_id(+) " << endl;
+        if (pr_trfer) sql << "      AND pax_grp.grp_id=last_trfer.grp_id(+) " << endl;
         if (pr_rems)  sql << "      AND pax.pax_id=pax_rem.pax_id " << endl;
       };
       if (pass==4)
@@ -1762,10 +1781,10 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
         if (pr_cl_grp)      group_by << ", pax_grp.class_grp";
         if (pr_hall)        group_by << ", bag2.hall";
         if (pr_airp_arv)    group_by << ", pax_grp.point_arv";
-        if (pr_trfer)       group_by << ", v_last_trfer.airline"
-                                     << ", v_last_trfer.flt_no"
-                                     << ", v_last_trfer.suffix"
-                                     << ", v_last_trfer.airp_arv";
+        if (pr_trfer)       group_by << ", last_trfer.airline"
+                                     << ", last_trfer.flt_no"
+                                     << ", last_trfer.suffix"
+                                     << ", last_trfer.airp_arv";
         if (pr_user)        group_by << ", bag2.user_id";
         if (pr_client_type) group_by << ", pax_grp.client_type";
         if (pr_status)      group_by << ", pax_grp.status";
@@ -1776,11 +1795,12 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
             << "       " << group_by.str().erase(0,1) << endl
             << "FROM pax_grp,bag2 " << endl;
 
-        if (pr_trfer) sql << "    ,v_last_trfer" << endl;
+        if (pr_trfer) sql << "    ," << endl
+                          << last_trfer_sql << endl;
 
         sql << "WHERE pax_grp.grp_id=bag2.grp_id AND " << endl
             << "      pax_grp.point_dep=:point_id AND pax_grp.bag_refuse=0 " << endl;
-        if (pr_trfer) sql << "      AND pax_grp.grp_id=v_last_trfer.grp_id(+) " << endl;
+        if (pr_trfer) sql << "      AND pax_grp.grp_id=last_trfer.grp_id(+) " << endl;
       };
       if (pass==5)
       {
@@ -1788,10 +1808,10 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
         if (pr_class)       group_by << ", pax_grp.class";
         if (pr_cl_grp)      group_by << ", pax_grp.class_grp";
         if (pr_airp_arv)    group_by << ", pax_grp.point_arv";
-        if (pr_trfer)       group_by << ", v_last_trfer.airline"
-                                     << ", v_last_trfer.flt_no"
-                                     << ", v_last_trfer.suffix"
-                                     << ", v_last_trfer.airp_arv";
+        if (pr_trfer)       group_by << ", last_trfer.airline"
+                                     << ", last_trfer.flt_no"
+                                     << ", last_trfer.suffix"
+                                     << ", last_trfer.airp_arv";
         if (pr_client_type) group_by << ", pax_grp.client_type";
         if (pr_status)      group_by << ", pax_grp.status";
 
@@ -1806,8 +1826,8 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
             << "       " << select.str().erase(0,1) << endl
             << "FROM pax_grp " << endl;
 
-        if (pr_trfer)
-          sql << "    ,v_last_trfer" << endl;
+        if (pr_trfer) sql << "    ," << endl
+                          << last_trfer_sql << endl;
 
         if (pr_hall || pr_user)
           sql << "    ,(SELECT bag2.grp_id,bag2.hall,bag2.user_id " << endl
@@ -1820,7 +1840,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
 
         sql << "WHERE pax_grp.point_dep=:point_id AND pax_grp.bag_refuse=0 " << endl;
         if (pr_trfer)
-          sql << "      AND pax_grp.grp_id=v_last_trfer.grp_id(+) " << endl;
+          sql << "      AND pax_grp.grp_id=last_trfer.grp_id(+) " << endl;
         if (pr_hall || pr_user)
           sql << "      AND pax_grp.grp_id=bag2.grp_id(+) " << endl;
       };
@@ -1836,6 +1856,9 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
         Qry.CreateVariable("child",otString,EncodePerson(ASTRA::child));
         Qry.CreateVariable("baby",otString,EncodePerson(ASTRA::baby));
       };
+      
+      //ProgTrace(TRACE5, "readPaxLoad: SQL=%s", sql.str().c_str());
+      
       Qry.Execute();
       for(;!Qry.Eof;Qry.Next())
       {
