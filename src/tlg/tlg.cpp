@@ -293,7 +293,7 @@ bool procTlg(int tlg_id)
   }
   catch(...)
   {
-      ProgError(STDLOG, "deleteTlg: Unknown error");
+      ProgError(STDLOG, "procTlg: Unknown error");
       throw;
   };
 };
