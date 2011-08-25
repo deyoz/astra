@@ -17,7 +17,7 @@ using namespace EXCEPTIONS;
 using namespace std;
 using namespace ASTRA;
 
-void TTripInfo::get_client_dates(TDateTime &scd_out_client, TDateTime &real_out_client) const
+void TTripInfo::get_client_dates(TDateTime &scd_out_client, TDateTime &real_out_client, bool trunc_time) const
 {
   scd_out_client=ASTRA::NoExists;
   real_out_client=ASTRA::NoExists;
@@ -25,22 +25,51 @@ void TTripInfo::get_client_dates(TDateTime &scd_out_client, TDateTime &real_out_
   if (airp.empty() || scd_out==ASTRA::NoExists) return;
 
   string &tz_region=AirpTZRegion(airp);
-  modf(UTCToClient(scd_out,tz_region),&scd_out_client);
+  scd_out_client=UTCToClient(scd_out,tz_region);
+  if (trunc_time)
+    modf(scd_out_client,&scd_out_client);
   if (real_out!=ASTRA::NoExists)
-    modf(UTCToClient(real_out,tz_region),&real_out_client);
+  {
+    real_out_client=UTCToClient(real_out,tz_region);
+    if (trunc_time)
+      modf(real_out_client,&real_out_client);
+  }
   else
     real_out_client=scd_out_client;
+};
+
+string GetTripDate( const TTripInfo &info, const string &separator, const bool advanced_trip_list )
+{
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  TDateTime scd_out_client, real_out_client, desk_time;
+  modf(reqInfo->desk.time,&desk_time);
+  
+  info.get_client_dates(scd_out_client, real_out_client);
+  
+  ostringstream date;
+  
+  if (desk_time!=real_out_client)
+  {
+    if (DateTimeToStr(desk_time,"mm")==DateTimeToStr(real_out_client,"mm"))
+      date << separator << DateTimeToStr(real_out_client,"dd");
+    else
+      date << separator << DateTimeToStr(real_out_client,"dd.mm");
+  };
+  if (scd_out_client!=real_out_client)
+  {
+    if (!advanced_trip_list ||
+        DateTimeToStr(desk_time,"mm")==DateTimeToStr(scd_out_client,"mm"))
+      date << "(" << DateTimeToStr(scd_out_client,"dd") << ")";
+    else
+      date << "(" << DateTimeToStr(scd_out_client,"dd.mm") << ")";
+  };
+    
+  return date.str();
 };
 
 //для сохранения совместимости вводим AstraLocale::TLocaleType
 string GetTripName( const TTripInfo &info, TElemContext ctxt, bool showAirp, bool prList )
 {
-  TReqInfo *reqInfo = TReqInfo::Instance();
-  TDateTime scd_out_client, real_out_client, desk_time;
-  modf(reqInfo->desk.time,&desk_time);
-
-  info.get_client_dates(scd_out_client, real_out_client);
-
   ostringstream trip;
   if ( ctxt == ecNone )
     trip << info.airline
@@ -57,15 +86,9 @@ string GetTripName( const TTripInfo &info, TElemContext ctxt, bool showAirp, boo
     if (info.flt_no<1000)  trip << " ";
   };
 
-  if (desk_time!=real_out_client)
-  {
-    if (DateTimeToStr(desk_time,"mm")==DateTimeToStr(real_out_client,"mm"))
-      trip << "/" << DateTimeToStr(real_out_client,"dd");
-    else
-      trip << "/" << DateTimeToStr(real_out_client,"dd.mm");
-  };
-  if (scd_out_client!=real_out_client)
-    trip << "(" << DateTimeToStr(scd_out_client,"dd") << ")";
+  trip << GetTripDate(info, "/", false);
+
+  TReqInfo *reqInfo = TReqInfo::Instance();
   if (!(reqInfo->user.user_type==utAirport &&
         reqInfo->user.access.airps_permit &&
         reqInfo->user.access.airps.size()==1)||showAirp) {

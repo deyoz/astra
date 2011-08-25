@@ -226,11 +226,12 @@ class TReqInfo
     void clearPerform();
     long getExecuteMSec();
 
-    void MergeAccess(std::vector<std::string> &a, bool &ap,
-                     std::vector<std::string> b, bool bp);
     bool CheckAirline(const std::string &airline);
     bool CheckAirp(const std::string &airp);
 };
+
+void MergeAccess(std::vector<std::string> &a, bool &ap,
+                 std::vector<std::string> b, bool bp);
 
 std::string GetSQLEnum(const std::vector<std::string> &values);
 void MsgToLog(TLogMsg &msg,

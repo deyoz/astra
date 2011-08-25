@@ -37,14 +37,15 @@ const string PARAM_NEXT_FILE = "NextFile";
 
 void CommitWork( int file_id );
 
+bool CreateCommonFileData( const std::string &point_addr,
+                           int id, const std::string type,
+                           const std::string &airp, const std::string &airline,
+	                         const std::string &flt_no );
+
+
 bool deleteFile( int id )
 {
     TQuery Qry(&OraSession);
-/*    Qry.SQLText=
-      " BEGIN "
-      " DELETE file_queue WHERE id= :id; "
-      " DELETE file_params WHERE id= :id; "
-      "END; ";*/
     Qry.SQLText=
       " BEGIN "
       " DELETE file_queue WHERE id= :id; "
@@ -166,6 +167,157 @@ bool doneFile( int id )
   	return false;
 }
 
+struct TSQLCondDates {
+  string sql;
+  map<string,TDateTime> dates;
+};
+
+class TPointAddr {
+  string type;
+  bool pr_send;
+public:
+  TPointAddr( const string &vtype, bool vpr_send ) {
+    type = vtype;
+    pr_send = vpr_send;
+  }
+  virtual ~TPointAddr() {};
+  virtual bool validateParams( const string &point_addr, const vector<string> &ailines,
+                               const vector<string> &airps, const vector<int> &flt_nos ) {
+    return true;
+  }
+  virtual bool validatePoints( int point_id ) {
+    return true;
+  }
+  void createPointSQL( const TSQLCondDates &cond_dates ) {
+    TQuery Qry( &OraSession );
+    TQuery PointsQry( &OraSession );
+    Qry.SQLText =
+      "SELECT point_addr,airline,flt_no,airp,param_name FROM file_param_sets, desks "
+      " WHERE type=:type AND own_point_addr=:own_point_addr AND pr_send=:pr_send AND "
+      "       desks.code=file_param_sets.point_addr "
+      "ORDER BY point_addr";
+  	string point_addr;
+    vector<string> airlines, airps;
+	  vector<int> flt_nos;
+	  bool pr_empty_airline = false, pr_empty_airp = false, pr_empty_flt_no = false;
+	  Qry.CreateVariable( "type", otString, type );
+	  Qry.CreateVariable( "pr_send", otInteger, pr_send );
+	  Qry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
+	  //ProgTrace( TRACE5, "type=%s, pr_send=%d, own_point_addr=%s", type.c_str(), pr_send, OWN_POINT_ADDR() );
+	  Qry.Execute();
+	  while ( true ) {
+      //ProgTrace( TRACE5, "Qry.Eof=%d, point_addr=%s", Qry.Eof, point_addr.c_str() );
+      if ( !point_addr.empty() && ( Qry.Eof || point_addr != Qry.FieldAsString( "point_addr" ) ) ) { //переход к след. point_addr
+        if ( pr_empty_airline )
+          airlines.clear();
+        if ( pr_empty_airp )
+          airps.clear();
+        if ( pr_empty_flt_no )
+          flt_nos.clear();
+        ProgTrace( TRACE5, "point_addr=%s, airlines.size()=%d, airps.size()=%d,flt_nos.size()=%d",
+                   point_addr.c_str(), airlines.size(), airps.size(),  flt_nos.size() );
+        if ( validateParams( point_addr, airlines, airps, flt_nos ) ) {
+          PointsQry.Clear();
+          string res = "SELECT point_id, airline, airp, flt_no FROM points WHERE ";
+          if ( cond_dates.sql.empty() ) //такого не должно быть
+            res = " 1=1 AND ";
+          else
+            res += cond_dates.sql;
+          if ( !airps.empty() ) {
+            res += " AND airp IN (";
+            int idx=0;
+            for ( vector<string>::const_iterator istr=airps.begin(); istr!=airps.end(); istr++ ) {
+              if ( istr != airps.begin() )
+                res += ",";
+              res += ":airp"+IntToString(idx);
+              PointsQry.CreateVariable( "airp"+IntToString(idx), otString, *istr );
+//              ProgTrace( TRACE5, "airp idx=%d, value=%s", idx, istr->c_str() );
+              idx++;
+            }
+            res += ")";
+          }
+          if ( !airlines.empty() ) {
+            res += " AND airline IN (";
+            int idx=0;
+            for ( vector<string>::const_iterator istr=airlines.begin(); istr!=airlines.end(); istr++ ) {
+              if ( istr != airlines.begin() )
+                res += ",";
+              res += ":airline"+IntToString(idx);
+              PointsQry.CreateVariable( "airline"+IntToString(idx), otString, *istr );
+  //            ProgTrace( TRACE5, "airline idx=%d, value=%s", idx, istr->c_str() );
+              idx++;
+            }
+            res += ")";
+          }
+          if ( !flt_nos.empty() ) {
+            res += " AND flt_no IN (";
+            int idx=0;
+            for ( vector<int>::const_iterator iint=flt_nos.begin(); iint!=flt_nos.end(); iint++ ) {
+              if ( iint != flt_nos.begin() )
+                res += ",";
+              res += ":flt_no"+IntToString(idx);
+              PointsQry.CreateVariable( "flt_no"+IntToString(idx), otInteger, *iint );
+    //          ProgTrace( TRACE5, "flt_no idx=%d, value=%d", idx, *iint );
+              idx++;
+            }
+            res += ")";
+          }
+          for ( map<string,TDateTime>::const_iterator idate=cond_dates.dates.begin();
+                idate!=cond_dates.dates.end(); idate++ ) {
+            PointsQry.CreateVariable( idate->first, otDate, idate->second );
+          }
+          PointsQry.SQLText = res;
+          ProgTrace( TRACE5, "type=%s, PointsQry.SQLText=%s, point_addr=%s", type.c_str(), res.c_str(), point_addr.c_str() );
+          PointsQry.Execute();
+          while ( !PointsQry.Eof ) {
+            if ( validatePoints( PointsQry.FieldAsInteger( "point_id" ) ) ) {
+            ProgTrace( TRACE5, "type=%s, point_addr=%s, point_id=%d", type.c_str(), point_addr.c_str(), PointsQry.FieldAsInteger( "point_id" ) );
+            CreateCommonFileData( point_addr,
+                                  PointsQry.FieldAsInteger( "point_id" ),
+                                  type,
+                                  PointsQry.FieldAsString( "airp" ),
+  	                              PointsQry.FieldAsString( "airline" ),
+                                  PointsQry.FieldAsString( "flt_no" ) );
+/*              ProgTrace( TRACE5, "point_addr=%s, airp=%s, airline=%s, flt_no=%d",
+                         point_addr.c_str(), PointsQry.FieldAsString( "airp" ), PointsQry.FieldAsString( "airline" ),
+                         PointsQry.FieldAsInteger( "flt_no" ) );*/
+            }
+            PointsQry.Next();
+          }
+        }
+        airlines.clear();
+        airps.clear();
+        flt_nos.clear();
+        pr_empty_airline = false;
+        pr_empty_airp = false;
+        pr_empty_flt_no = false;
+      }
+      if ( Qry.Eof )
+        break;
+      point_addr = Qry.FieldAsString( "point_addr" );
+      if ( Qry.FieldIsNULL( "airline" ) )
+        pr_empty_airline = true;
+      else
+        if ( find( airlines.begin(), airlines.end(), string(Qry.FieldAsString( "airline" )) ) == airlines.end() )
+          airlines.push_back( Qry.FieldAsString( "airline" ) );
+      if ( Qry.FieldIsNULL( "airp" ) )
+        pr_empty_airp = true;
+      else
+        if ( find( airps.begin(), airps.end(), string(Qry.FieldAsString( "airp" )) ) == airps.end() )
+          airps.push_back( Qry.FieldAsString( "airp" ) );
+      if ( Qry.FieldIsNULL( "flt_no" ) )
+        pr_empty_flt_no = true;
+      else
+        if ( find( flt_nos.begin(), flt_nos.end(), Qry.FieldAsInteger( "flt_no" ) ) == flt_nos.end() )
+          flt_nos.push_back( Qry.FieldAsInteger( "flt_no" ) );
+      ProgTrace( TRACE5, "point_addr=%s, param_name=%s,airline=%s,airp=%s,flt_no=%s",
+                 point_addr.c_str(), Qry.FieldAsString( "param_name" ), Qry.FieldAsString( "airline" ),
+                 Qry.FieldAsString( "airp" ),Qry.FieldAsString( "flt_no" ) );
+      Qry.Next();
+	  }
+  }
+};
+
 void getFileParams( const std::string client_canon_name, const std::string &type,
 	                  int id, map<string,string> &fileparams, bool send )
 {
@@ -201,11 +353,12 @@ void getFileParams( const std::string client_canon_name, const std::string &type
     "       DECODE( file_param_sets.airp, NULL, 0, 4 ) + "
     "       DECODE( file_param_sets.airline, NULL, 0, 2 ) + "
     "       DECODE( file_param_sets.flt_no, NULL, 0, 1 ) AS priority "
-    " FROM file_param_sets "
+    " FROM file_param_sets, desks "
 	  " WHERE file_param_sets.own_point_addr=:own_point_addr AND "
 	  "       file_param_sets.point_addr=:point_addr AND "
 	  "       file_param_sets.type=:type AND "
 	  "       file_param_sets.pr_send=:send AND "
+	  "       desks.code=file_param_sets.point_addr AND "
 	  "       ( file_param_sets.airp IS NULL OR file_param_sets.airp=:airp ) AND "
 	  "       ( file_param_sets.airline IS NULL OR file_param_sets.airline=:airline ) AND "
 	  "       ( file_param_sets.flt_no IS NULL OR file_param_sets.flt_no=:flt_no ) "
@@ -306,7 +459,7 @@ int buildSaveFileData( xmlNodePtr resNode, const std::string &client_canon_name,
   string in_order_key;
 	while ( !ScanQry.Eof ) {
   	file_id = ScanQry.FieldAsInteger( "id" );
-  	in_order_key = string( ScanQry.FieldAsString( "type" ) ) + ScanQry.FieldAsString( "receiver" );
+   in_order_key = string( ScanQry.FieldAsString( "type" ) ) + ScanQry.FieldAsString( "receiver" );
     try
     {
     	if ( !ScanQry.FieldAsInteger( "in_order" ) || // не важен порядок отправки
@@ -479,8 +632,10 @@ void AstraServiceInterface::AstraTasksLogon( XMLRequestCtxt *ctxt, xmlNodePtr re
 {
   TQuery Qry( &OraSession );
 	Qry.SQLText =
-	  "SELECT DISTINCT thread_type FROM file_param_sets, file_types "
-	  " WHERE OWN_POINT_ADDR=:own_point_addr AND point_addr=:point_addr AND file_types.code=file_param_sets.type";
+	  "SELECT DISTINCT thread_type FROM file_param_sets, file_types, desks "
+	  " WHERE OWN_POINT_ADDR=:own_point_addr AND point_addr=:point_addr AND "
+	  "       desks.code=file_param_sets.point_addr AND "
+    "       file_types.code=file_param_sets.type";
 	Qry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
 	Qry.CreateVariable( "point_addr", otString, TReqInfo::Instance()->desk.code );
 	Qry.Execute();
@@ -552,8 +707,10 @@ void AstraServiceInterface::ThreadTaskReqData( XMLRequestCtxt *ctxt, xmlNodePtr 
 	string client_canon_name = TReqInfo::Instance()->desk.code;
 	TQuery Qry( &OraSession );
 	Qry.SQLText =
-	 "SELECT pr_send, thread_type FROM file_param_sets, file_types "
-	 " WHERE own_point_addr=:own_point_addr AND point_addr=:point_addr AND file_types.code=file_param_sets.type AND rownum<2";
+	 "SELECT pr_send, thread_type FROM file_param_sets, file_types, desks "
+	 " WHERE own_point_addr=:own_point_addr AND point_addr=:point_addr AND "
+	 "       desks.code=file_param_sets.point_addr AND "
+   "       file_types.code=file_param_sets.type AND rownum<2";
 	Qry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
 	Qry.CreateVariable( "point_addr", otString, client_canon_name );
 	Qry.Execute();
@@ -742,7 +899,9 @@ string getFileEncoding( const string &file_type, const string &point_addr, bool 
   return res;
 }
 
-bool CreateCommonFileData( int id, const std::string type, const std::string &airp, const std::string &airline,
+bool CreateCommonFileData( const std::string &point_addr,
+                           int id, const std::string type,
+                           const std::string &airp, const std::string &airline,
 	                         const std::string &flt_no )
 {
 	bool res = false;
@@ -753,16 +912,19 @@ bool CreateCommonFileData( int id, const std::string type, const std::string &ai
         " DECODE( airp, NULL, 0, 4 ) + "
         " DECODE( airline, NULL, 0, 2 ) + "
         " DECODE( flt_no, NULL, 0, 1 ) AS priority "
-        " FROM file_param_sets "
+        " FROM file_param_sets, desks "
         " WHERE own_point_addr=:own_point_addr AND "
+        "       point_addr=:point_addr AND "
         "       type=:type AND "
         "       pr_send = 1 AND "
+        "       desks.code=file_param_sets.point_addr AND "
         "       ( airp IS NULL OR airp=:airp ) AND "
         "       ( airline IS NULL OR airline=:airline ) AND "
         "       ( flt_no IS NULL OR flt_no=:flt_no ) "
         " ORDER BY point_addr,priority DESC";
     Qry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
     Qry.CreateVariable( "type", otString, type );
+    Qry.CreateVariable( "point_addr", otString, point_addr );
     if ( airp.empty() )
         Qry.CreateVariable( "airp", otString, FNull );
     else
@@ -868,13 +1030,13 @@ bool CreateCommonFileData( int id, const std::string type, const std::string &ai
 
 void CreateCentringFileDATA( int point_id )
 {
-	TQuery Qry( &OraSession );
+/*	TQuery Qry( &OraSession );
 	Qry.SQLText = "SELECT airp, airline, flt_no FROM points WHERE point_id=:point_id";
 	Qry.CreateVariable( "point_id", otInteger, point_id );
 	Qry.Execute();
 	if ( !Qry.Eof )
 		CreateCommonFileData( point_id, FILE_CENT_TYPE, Qry.FieldAsString( "airp" ),
-		                      Qry.FieldAsString( "airline" ), Qry.FieldAsString( "flt_no" ) );
+		                      Qry.FieldAsString( "airline" ), Qry.FieldAsString( "flt_no" ) );*/
 	//client_canon_name = "CENTST";
 	//createCentringFile( point_id, OWN_POINT_ADDR(), string( "ASWFMG" ) );
 	//createCentringFile( point_id, OWN_POINT_ADDR(), string( "GABFMG" ) );
@@ -886,12 +1048,48 @@ void CreateCentringFileDATA( int point_id )
 void createSofiFileDATA( int receipt_id )
 {
 	TQuery Qry( &OraSession );
-	Qry.SQLText = "SELECT airp_dep as airp, airline, flt_no FROM bag_receipts WHERE receipt_id=:receipt_id";
-	Qry.CreateVariable( "receipt_id", otInteger, receipt_id );
+	Qry.SQLText =
+    "SELECT airp_dep as airp, airline, flt_no "
+    " FROM bag_receipts "
+    "WHERE receipt_id=:receipt_id";
+  Qry.CreateVariable( "receipt_id", otInteger, receipt_id );
 	Qry.Execute();
-	if ( !Qry.Eof )
-		CreateCommonFileData( receipt_id, FILE_SOFI_TYPE, Qry.FieldAsString( "airp" ),
-		                      Qry.FieldAsString( "airline" ), Qry.FieldAsString( "flt_no" ) );
+  string airline, airp;
+	int flt_no;
+	if ( !Qry.Eof ) {
+    airline = Qry.FieldAsString( "airline" );
+    airp = Qry.FieldAsString( "airp" );
+    if ( Qry.FieldIsNULL( "flt_no" ) )
+      flt_no = ASTRA::NoExists;
+    else
+      flt_no = Qry.FieldAsInteger( "flt_no" );
+    Qry.Clear();
+    Qry.SQLText =
+      "SELECT DISTINCT point_addr FROM file_param_sets, desks "
+      " WHERE type=:type AND own_point_addr=:own_point_addr AND pr_send=1 AND "
+      "       desks.code=file_param_sets.point_addr AND "
+      "       ( airp IS NULL OR airp=:airp ) AND "
+		  "       ( airline IS NULL OR airline=:airline ) AND "
+		  "       ( flt_no IS NULL OR flt_no=:flt_no ) ";
+    Qry.CreateVariable( "type", otString, FILE_SOFI_TYPE );
+    Qry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
+    Qry.CreateVariable( "airp", otString, airp );
+    Qry.CreateVariable( "airline", otString, airline );
+    if ( flt_no == ASTRA::NoExists )
+      Qry.CreateVariable( "flt_no", otInteger, FNull );
+    else
+      Qry.CreateVariable( "flt_no", otInteger, flt_no );
+    Qry.Execute();
+    string strflt_no;
+    if (  flt_no != ASTRA::NoExists )
+      strflt_no = IntToString( flt_no );
+    while ( !Qry.Eof ) {
+  		CreateCommonFileData( Qry.FieldAsString("point_addr"),
+                            receipt_id, FILE_SOFI_TYPE, airp,
+	  	                      airline, strflt_no );
+      Qry.Next();
+    }
+	}
 }
 
 /*void createAODBFileDATA( int point_id )
@@ -905,32 +1103,47 @@ void createSofiFileDATA( int receipt_id )
 		                      Qry.FieldAsString( "airline" ), Qry.FieldAsString( "flt_no" ) );
 }*/
 
+
+class TAODBPointAddr: public TPointAddr {
+  TQuery *StagesQry;
+public:
+  TAODBPointAddr( ):TPointAddr( string(FILE_AODB_OUT_TYPE), true ) {
+    StagesQry = new TQuery(&OraSession);
+  	StagesQry->SQLText =
+      "SELECT stage_id FROM trip_final_stages WHERE point_id=:point_id AND stage_type=:ckin_stage_type";
+    StagesQry->CreateVariable( "ckin_stage_type", otInteger, stCheckIn );
+    StagesQry->DeclareVariable( "point_id", otInteger );
+  }
+  ~TAODBPointAddr( ) {
+    delete StagesQry;
+  }
+  virtual bool validateParams( const string &point_addr, const vector<string> &ailines,
+                               const vector<string> &airps, const vector<int> &flt_nos ) {
+    return ( airps.size() == 1 ); // выбираем рейсы. Это необходимое условие
+  }
+  virtual bool validatePoints( int point_id ) {
+    StagesQry->SetVariable( "point_id", point_id );
+    StagesQry->Execute();
+    return ( !StagesQry->Eof &&
+              StagesQry->FieldAsInteger( "stage_id" ) != sNoActive &&
+              StagesQry->FieldAsInteger( "stage_id" ) != sPrepCheckIn );
+  }
+};
+
 void sync_aodb( void )
 {
-	TQuery Qry( &OraSession );
-	Qry.SQLText =
-		 "SELECT DISTINCT points.point_id,points.airline,points.flt_no,points.airp "
-		 " FROM points, file_param_sets, trip_final_stages "
-		 " WHERE points.point_id = trip_final_stages.point_id AND "
-		 "       trip_final_stages.stage_type=:ckin_stage_type AND "
-		 "       trip_final_stages.stage_id != :prep_checkin_stage_id AND "
-		 "       trip_final_stages.stage_id != :no_active_stage_id AND "
-		 "       ( file_param_sets.airp IS NULL OR file_param_sets.airp=points.airp ) AND "
-		 "       ( file_param_sets.airline IS NULL OR file_param_sets.airline=points.airline ) AND "
-		 "       ( file_param_sets.flt_no IS NULL OR file_param_sets.flt_no=points.flt_no ) AND "
-		 "       file_param_sets.type=:type AND pr_send=1 AND own_point_addr=:own_point_addr AND "
-		 "       points.act_out IS NULL AND points.pr_del=0 ";
-	Qry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
-	Qry.CreateVariable( "type", otString, FILE_AODB_OUT_TYPE );
-	Qry.CreateVariable( "ckin_stage_type", otInteger, stCheckIn );
-	Qry.CreateVariable( "no_active_stage_id", otInteger, sNoActive );
-	Qry.CreateVariable( "prep_checkin_stage_id", otInteger, sPrepCheckIn );
-	Qry.Execute();
-	while ( !Qry.Eof ) {
-		CreateCommonFileData( Qry.FieldAsInteger( "point_id" ), FILE_AODB_OUT_TYPE, Qry.FieldAsString( "airp" ),
-  	                      Qry.FieldAsString( "airline" ), Qry.FieldAsString( "flt_no" ) );
-		Qry.Next();
-	}
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
+    "SELECT TRUNC(system.UTCSYSDATE) currdate FROM dual";
+  Qry.Execute();
+  TDateTime currdate = Qry.FieldAsDateTime( "currdate" );
+  
+  TAODBPointAddr point_addr;
+  TSQLCondDates cond_dates;
+  cond_dates.sql = " time_out in (:day1,:day2) AND act_out IS NULL AND pr_del=0 ";
+  cond_dates.dates.insert( make_pair( "day1", currdate ) );
+  cond_dates.dates.insert( make_pair( "day2", currdate + 1 ) );
+  point_addr.createPointSQL( cond_dates );
 /*	Qry.Clear();
 	Qry.SQLText =
     "SELECT record, rec_no from drop_spp1 WHERE airline='ЮТ' AND filename=:filename "
@@ -1005,34 +1218,50 @@ void sync_aodb( void )
   sendCmd( "CMD_PARSE_AODB", "P" );   */
 }
 
+class TSPPCEKPointAddr: public TPointAddr {
+public:
+  TSPPCEKPointAddr( ):TPointAddr( FILE_SPPCEK_TYPE, true ) {}
+  ~TSPPCEKPointAddr( ) {}
+  virtual bool validateParams( const string &point_addr, const vector<string> &ailines,
+                               const vector<string> &airps, const vector<int> &flt_nos ) {
+    return ( airps.size() == 1 ); // выбираем рейсы. Это необходимое условие
+  }
+};
+
 void sync_sppcek( void )
 {
-	TQuery Qry( &OraSession );
-	Qry.SQLText =
-	 "SELECT DISTINCT points.point_id,points.airline,points.flt_no,points.airp "
-	 " FROM points, file_param_sets "
-	 " WHERE file_param_sets.type=:file_type AND pr_send=1 AND own_point_addr=:own_point_addr AND "
-	 "       ( points.scd_in >= system.UTCSYSDATE-1 OR "
-   "         points.scd_out >= system.UTCSYSDATE-1 ) AND "
-	 "       ( file_param_sets.airp IS NULL OR file_param_sets.airp=points.airp ) AND "
-	 "       ( file_param_sets.airline IS NULL OR file_param_sets.airline=points.airline ) AND "
-	 "       ( file_param_sets.flt_no IS NULL OR file_param_sets.flt_no=points.flt_no ) ";
-	Qry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
-	Qry.CreateVariable( "file_type", otString, FILE_SPPCEK_TYPE );
-	Qry.Execute();
-	while ( !Qry.Eof ) {
-		CreateCommonFileData( Qry.FieldAsInteger( "point_id" ), FILE_SPPCEK_TYPE, Qry.FieldAsString( "airp" ),
-  	                      Qry.FieldAsString( "airline" ), Qry.FieldAsString( "flt_no" ) );
-		Qry.Next();
-	}
-
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
+    "SELECT system.UTCSYSDATE currdate FROM dual";
+  Qry.Execute();
+  TDateTime currdate = Qry.FieldAsDateTime( "currdate" );
+  TSPPCEKPointAddr point_addr;
+  TSQLCondDates cond_dates;
+  cond_dates.sql = " ( scd_in >= :day1 OR scd_out >= :day1 OR "
+                   "   est_in >= :day1 OR est_out >= :day1 OR "
+                   "   act_in >= :day1 OR act_out >= :day1 ) AND "
+                   " ( time_out < :max_spp_day OR time_in < :max_spp_day ) ";
+  cond_dates.dates.insert( make_pair( "day1", currdate - 1 ) );
+  TDateTime f;
+  modf( currdate, &f );
+  cond_dates.dates.insert( make_pair( "max_spp_day", f + CREATE_SPP_DAYS() + 1 ) );
+  point_addr.createPointSQL( cond_dates );
 }
 
 void sync_1ccek( void )
 {
-	CreateCommonFileData( -1, FILE_1CCEK_TYPE, "ЧЛБ", "", "" );
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
+    "SELECT DISTINCT point_addr FROM file_param_sets, desks "
+    " WHERE type=:type AND pr_send=1 AND "
+    "       desks.code=file_param_sets.point_addr";
+  Qry.CreateVariable( "type", otString, FILE_1CCEK_TYPE );
+  Qry.Execute();
+  while ( !Qry.Eof ) {
+	  CreateCommonFileData( Qry.FieldAsString( "point_addr" ), -1, FILE_1CCEK_TYPE, "ЧЛБ", "", "" );
+	  Qry.Next();
+  }
 }
-
 
 void sendCmdParseAODB()
 {
@@ -1146,7 +1375,6 @@ void AstraServiceInterface::viewFileIds( XMLRequestCtxt *ctxt, xmlNodePtr reqNod
 	}
 
 }
-
 
 void AstraServiceInterface::viewFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
 {

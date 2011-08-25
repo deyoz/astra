@@ -151,17 +151,13 @@ string ElemCtxtToElemId(TElemContext ctxt,TElemType type, string code, TElemFmt 
           if (type==etSuffix) user_fmt=reqInfo->user.sets.disp_suffix;
           break;
       	case ecCkin:
-          if (type==etAirline) user_fmt=reqInfo->user.sets.disp_airline;
-          if (type==etAirp) user_fmt=reqInfo->user.sets.disp_airp;
-          if (type==etCraft) user_fmt=reqInfo->user.sets.disp_craft;
-          if (type==etSuffix) user_fmt=reqInfo->user.sets.disp_suffix;
+          if (type==etAirline) user_fmt=reqInfo->user.sets.ckin_airline;
+          if (type==etAirp) user_fmt=reqInfo->user.sets.ckin_airp;
+          if (type==etCraft) user_fmt=reqInfo->user.sets.ckin_craft;
+          if (type==etSuffix) user_fmt=reqInfo->user.sets.ckin_suffix;
           break;
         default:;
       }
-      if (type==etAirline) user_fmt=reqInfo->user.sets.disp_airline;
-      if (type==etAirp) user_fmt=reqInfo->user.sets.disp_airp;
-      if (type==etCraft) user_fmt=reqInfo->user.sets.disp_craft;
-      if (type==etSuffix) user_fmt=reqInfo->user.sets.disp_suffix;
       if (type==etAirline ||
           type==etAirp ||
           type==etCraft)

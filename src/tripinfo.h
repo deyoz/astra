@@ -13,39 +13,103 @@
 #include "jxtlib/JxtInterface.h"
 #include "exceptions.h"
 
-struct TVar {
-  std::string name;
-  otFieldType type;
-  std::string value;
-  TVar( std::string &aname, otFieldType atype, std::string &avalue ) {
-    name = aname;
-    type = atype;
-    value = avalue;
-  }
-};
-
-class TSQLParams {
-  private:
-    std::vector<TVar> vars;
-  public:
-    std::string sqlfrom;
-    std::string sqlwhere;
-    void addVariable( TVar &var );
-    void addVariable( std::string aname, otFieldType atype, std::string avalue );
-    void clearVariables( );
-    void setVariables( TQuery &Qry );
-};
-
-class TSQL
+class TTripListFilter
 {
-private:
-  std::map<std::string,TSQLParams> sqltrips;
-  static TSQL *Instance();
-  void createSQLTrips( );
-public:
-  TSQL();
-  static void setSQLTripList( TQuery &Qry, TReqInfo &info );
-  static void setSQLTripInfo( TQuery &Qry, TReqInfo &info );
+  public:
+    std::string airline;
+    int flt_no;
+    std::string suffix;
+    std::string airp_dep;
+    bool pr_cancel;
+    bool pr_takeoff;
+    TTripListFilter()
+    {
+      Clear();
+    };
+    void Clear()
+    {
+      airline.clear();
+      flt_no=ASTRA::NoExists;
+      suffix.clear();
+      airp_dep.clear();
+      pr_cancel=false;
+      pr_takeoff=false;
+    };
+    void ToXML(xmlNodePtr node);
+    void FromXML(xmlNodePtr node);
+};
+
+class TTripListView
+{
+  public:
+    bool use_colors;
+    TUserSettingType codes_fmt;
+    TTripListView()
+    {
+      Clear();
+    };
+    void Clear()
+    {
+      use_colors=false;
+      codes_fmt=ustCodeNative;
+    };
+    void ToXML(xmlNodePtr node);
+    void FromXML(xmlNodePtr node);
+};
+
+class TTripListInfo
+{
+  public:
+    BASIC::TDateTime date;
+    int point_id;
+    TTripListFilter filter;
+    bool filter_from_xml;
+    TTripListView view;
+    bool view_from_xml;
+    TTripListInfo()
+    {
+      Clear();
+    };
+    void Clear()
+    {
+      date=ASTRA::NoExists;
+      point_id=ASTRA::NoExists;
+      filter.Clear();
+      filter_from_xml=false;
+      view.Clear();
+      view_from_xml=false;
+    };
+    void ToXML(xmlNodePtr node);
+    void FromXML(xmlNodePtr node);
+};
+
+class TTripListSQLFilter
+{
+  public:
+    TAccess access;
+    std::map< TStage_Type, std::vector<TStage> > final_stages; //stage_type, вектор stage_id
+    bool pr_cancel;
+    bool pr_takeoff;
+    std::pair<std::string, std::string> station; //название пульта, режим работы
+    bool use_arrival_permit;
+    virtual void set(void);
+    virtual ~TTripListSQLFilter() {};
+};
+
+class TTripListSQLParams: public TTripListSQLFilter
+{
+  public:
+    BASIC::TDateTime first_date, last_date;
+    int flt_no;
+    std::string suffix;
+    int check_point_id;
+};
+
+class TTripInfoSQLParams: public TTripListSQLFilter
+{
+  public:
+    int point_id;
+    virtual void set(void);
 };
 
 int GetFltLoad( int point_id, const TTripInfo &fltInfo);
@@ -61,6 +125,7 @@ public:
      Handler *evHandle;
      evHandle=JxtHandler<TripsInterface>::CreateHandler(&TripsInterface::GetTripList);
      AddEvent("GetTripList",evHandle);
+     AddEvent("GetAdvTripList",evHandle);
      evHandle=JxtHandler<TripsInterface>::CreateHandler(&TripsInterface::GetTripInfo);
      AddEvent("GetTripInfo",evHandle);
   };

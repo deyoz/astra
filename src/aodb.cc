@@ -337,6 +337,7 @@ string GetTermInfo( TQuery &Qry, int pax_id, int reg_no, bool pr_tcheckin, const
    	info<<setw(length_time_value)<<"";
   else
    	info<<setw(length_time_value)<<DateTimeToStr( UTCToLocal( t, region ), "dd.mm.yyyy hh:nn" );
+  length_time_value += 4;
   return info.str();
 }
 
@@ -489,12 +490,14 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 		if ( !pr_unaccomp ) {
 		  record<<setw(3)<<Qry.FieldAsInteger( "reg_no");
 	  	record<<setw(30)<<string(Qry.FieldAsString( "name" )).substr(0,30);
+#if 0
       if ( DecodePerson( Qry.FieldAsString( "pers_type" ) ) == ASTRA::adult ) {
         record<<setw(1)<<string(Qry.FieldAsString( "gender" )).substr(0,1);
       }
       else {
         record<<setw(1)<<string(" ").substr(0,1);
       }
+#endif
 		  TAirpsRow *row=(TAirpsRow*)&base_tables.get("airps").get_row("code",Qry.FieldAsString("airp_arv"));
 		  record<<setw(20)<<row->code.substr(0,20);
 		  record<<setw(1);
@@ -535,13 +538,19 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 		  			  	if ( rem == "UMNR" ) {
 		  			  	  category = 9;
 		  			  	}
+#if 0
                 else
                   if ( rem == "DUTY" ) {
                     category = 10;
                   }
+#endif
 			  RemQry.Next();
 		  }
-		    record<<setw(2)<<category;
+#if 0
+		  record<<setw(2)<<category;
+#else
+		  record<<setw(1)<<category;
+#endif
 		  record<<setw(1);
 		  bool adult = false;
 		  switch ( DecodePerson( Qry.FieldAsString( "pers_type" ) ) ) {
@@ -1014,14 +1023,20 @@ try {
 		throw Exception( "Ошибка формата номера рейса, значение=%s", tmp.c_str() );
 	err++;
 	TElemFmt fmt;
-  try {
-   fl.suffix = ElemToElemId( etSuffix, fl.suffix, fmt, false );
-  }
-  catch( EConvertError &e ) {
-  	throw Exception( "Ошибка формата номера рейса, значение=%s", tmp.c_str() );
+	if ( !fl.suffix.empty() ) {
+    try {
+      fl.suffix = ElemToElemId( etSuffix, fl.suffix, fmt, false );
+      if ( fmt == efmtUnknown )
+       throw EConvertError("");
+    }
+    catch( EConvertError &e ) {
+    	throw Exception( "Ошибка формата номера рейса, значение=%s", tmp.c_str() );
+    }
   }
  	try {
     fl.airline = ElemToElemId( etAirline, fl.airline, fmt, false );
+    if ( fmt == efmtUnknown )
+      throw EConvertError("");
 	  if ( fmt == efmtCodeInter || fmt == efmtCodeICAOInter )
 		  fl.trip_type = "м";  //!!!vlad а правильно ли так определять тип рейса? не уверен. Проверка при помощи маршрута. Если в маршруте все п.п. принадлежат одной стране то "п" иначе "м"
     else
@@ -1487,7 +1502,7 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
     	Qry.CreateVariable( "pr_del", otInteger, 0 );
     Qry.CreateVariable( "tid", otInteger, new_tid );
     Qry.CreateVariable( "remark", otString, FNull );
-    Qry.CreateVariable( "pr_reg", otInteger, 1 );
+    Qry.CreateVariable( "pr_reg", otInteger, fl.scd != NoExists );
     err++;
     Qry.Execute();
     err++;
@@ -1511,6 +1526,7 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
       Qry.SetVariable( "airp", it->airp );
       Qry.SetVariable( "pr_tranzit", 0 );
       Qry.SetVariable( "first_point", point_id );
+      Qry.SetVariable( "pr_reg", 0 );
       if ( it == fl.dests.end() - 1 ) {
       	Qry.SetVariable( "airline", FNull );
         Qry.SetVariable( "flt_no", FNull );
@@ -1520,7 +1536,6 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
         Qry.SetVariable( "park_out", FNull );
         Qry.SetVariable( "trip_type", FNull );
         Qry.SetVariable( "litera", FNull );
-        Qry.SetVariable( "pr_reg", 0 );
       }
       Qry.SetVariable( "scd_out", FNull );
       Qry.SetVariable( "est_out", FNull );

@@ -1913,7 +1913,7 @@ int CheckInInterface::CheckCounters(int point_dep, int point_arv, char* cl, TPax
     Qry.Execute();
     if (Qry.Eof)
     {
-      ProgError(STDLOG,"counters2 empty! (point_dep=%d point_arv=%d cl=%s)",point_dep,point_arv,cl);
+      ProgTrace(TRACE0,"counters2 empty! (point_dep=%d point_arv=%d cl=%s)",point_dep,point_arv,cl);
       TQuery RecountQry(&OraSession);
       RecountQry.Clear();
       RecountQry.SQLText=

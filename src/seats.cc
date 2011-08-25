@@ -15,6 +15,7 @@
 #include "images.h"
 #include "serverlib/str_utils.h"
 #include "tripinfo.h"
+#include "aodb.h"
 #include "term_version.h"
 
 #define NICKNAME "DJEK"
@@ -3088,6 +3089,8 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
                              " посажен на место: " +
                              new_seat_no,
                              evtPax, point_id, idx1, idx2 );
+          if ( is_sync_aodb( point_id ) )
+            update_aodb_pax_change( point_id, pax_id, idx1, "Р" );
           break;
         default:;
   		}
@@ -3102,6 +3105,8 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
                              " пересажен. Новое место: " +
                              new_seat_no,
                              evtPax, point_id, idx1, idx2 );
+          if ( is_sync_aodb( point_id ) )
+            update_aodb_pax_change( point_id, pax_id, idx1, "Р" );
           break;
         default:;
   		}
@@ -3115,6 +3120,8 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
           reqinfo->MsgToLog( string( "Пассажир " ) + fullname +
                              " высажен. Место: " + prior_seat,
                              evtPax, point_id, idx1, idx2 );
+          if ( is_sync_aodb( point_id ) )
+            update_aodb_pax_change( point_id, pax_id, idx1, "Р" );
           break;
         default:;
   		}
@@ -3255,10 +3262,13 @@ void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &APass, TSeatA
       ProgTrace( TRACE5, "pax_id=%d, prev_seat_no=%s,pass.InUse=%d", pass.paxId, prev_seat_no.c_str(), pass.InUse );
 
     	if ( !pass.InUse ) { /* не смогли посадить */
-    		if ( !pass.foundSeats.empty() )
+    		if ( !pass.foundSeats.empty() ) {
           TReqInfo::Instance()->MsgToLog( string("Пассажир " ) + pass.fullName +
                                           " из-за смены компоновки высажен с места " +
                                           prev_seat_no, evtPax, Salons.trip_id, pass.regNo, pass.grpId );
+          if ( is_sync_aodb( Salons.trip_id ) )
+            update_aodb_pax_change( Salons.trip_id, pass.paxId, pass.regNo, "Р" );
+        }
       }
       else {
       	std::vector<TSeatRange> seats;
@@ -3276,10 +3286,13 @@ void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &APass, TSeatA
         QryPax.Execute();
         string new_seat_no = QryPax.FieldAsString( "seat_no" );
         ProgTrace( TRACE5, "oldplace=%s, newplace=%s", prev_seat_no.c_str(), new_seat_no.c_str() );
-      	if ( prev_seat_no != new_seat_no )/* пересадили на другое место */
+      	if ( prev_seat_no != new_seat_no ){ /* пересадили на другое место */
           TReqInfo::Instance()->MsgToLog( string( "Пассажир " ) + pass.fullName +
                                           " из-за смены компоновки пересажен на место " +
                                           new_seat_no, evtPax, Salons.trip_id, pass.regNo, pass.grpId );
+          if ( is_sync_aodb( Salons.trip_id ) )
+            update_aodb_pax_change( Salons.trip_id, pass.paxId, pass.regNo, "Р" );
+        }
       }
     }
   }

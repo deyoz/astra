@@ -102,9 +102,10 @@ class TTripInfo
       scd_out=info.scd_out;
       real_out=info.real_out;
     };
-    void get_client_dates(BASIC::TDateTime &scd_out_client, BASIC::TDateTime &real_out_client) const;
+    void get_client_dates(BASIC::TDateTime &scd_out_client, BASIC::TDateTime &real_out_client, bool trunc_time=true) const;
 };
 
+std::string GetTripDate( const TTripInfo &info, const std::string &separator, const bool advanced_trip_list  );
 std::string GetTripName( const TTripInfo &info, TElemContext ctxt, bool showAirp=false, bool prList=false );
 
 class TLastTrferInfo
