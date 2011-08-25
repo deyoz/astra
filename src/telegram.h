@@ -355,7 +355,8 @@ std::string format_addr_line(std::string vaddrs, TTlgInfo *info = NULL);
 
 void ReadSalons( TTlgInfo &info, std::vector<TTlgCompLayer> &complayers, bool pr_blocked = false );
 
-int test_prl(int argc,char **argv);
+void send_tlg_help(const char *name);
+int send_tlg(int argc,char **argv);
 
 #endif /*_TELEGRAM_H_*/
 

@@ -2149,6 +2149,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                 ConvertParams.init(TPrnType(prn_type)); // !!! Старый терминал
             else
                 ConvertParams.init(dev_model);
+            //ProgTrace(TRACE5, "prn_form: %s", prn_form.c_str());
             to_esc::convert(prn_form, ConvertParams, prnParams);
             if (!reqInfo->desk.compatible(NEW_TERM_VERSION))
               prn_form = StrUtils::b64_encode(prn_form.c_str(), prn_form.size());

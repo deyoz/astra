@@ -1944,3 +1944,28 @@ void TelegramInterface::TestSeatRanges(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   };
 };
 
+void send_tlg_help(const char *name)
+{
+  printf("  %-15.15s ", name);
+  puts("<tlg_id>");
+};
+
+int send_tlg(int argc,char **argv)
+{
+    try {
+        if(argc != 2)
+            throw Exception("wrong arg count");
+        int tlg_id;
+        if(StrToInt(argv[1], tlg_id) == EOF)
+            throw Exception("tlg_id must be number");
+        TelegramInterface::SendTlg(tlg_id);
+    } catch (Exception &E) {
+        printf("Error: %s\n", E.what());
+        puts("Usage:");
+        send_tlg_help(argv[0]);
+        puts("Example:");
+        printf("  %s 1234\n",argv[0]);
+        return 1;
+    }
+    return 0;
+}

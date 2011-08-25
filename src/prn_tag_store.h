@@ -273,10 +273,12 @@ class TPrnTagStore {
             size_t length;
             bool except_when_great_len;
             bool except_when_only_lat;
-            TTagPropsItem(int vlength, bool vexcept_when_great_len, bool vexcept_when_only_lat):
+            bool convert_char_view;
+            TTagPropsItem(int vlength, bool vexcept_when_great_len, bool vexcept_when_only_lat, bool vconvert_char_view):
                 length(vlength),
                 except_when_great_len(vexcept_when_great_len),
-                except_when_only_lat(vexcept_when_only_lat)
+                except_when_only_lat(vexcept_when_only_lat),
+                convert_char_view(vconvert_char_view)
             {};
         };
 
@@ -519,6 +521,7 @@ class TPrnTagStore {
 
         std::string get_test_field(std::string name, size_t len, std::string date_format);
         std::string get_real_field(std::string name, size_t len, std::string date_format);
+
     public:
         TTagProps prn_tag_props;
         TTagLang tag_lang;
@@ -528,8 +531,12 @@ class TPrnTagStore {
         void set_tag(std::string name, std::string value);
         void set_tag(std::string name, int value);
         void set_tag(std::string name, BASIC::TDateTime value);
-        std::string get_field(std::string name, size_t len, std::string align, std::string date_format, std::string tag_lang);
+        std::string get_field(std::string name, size_t len, std::string align, std::string date_format, std::string tag_lang, bool pr_user_except = true);
         void get_prn_qry(TQuery &Qry);
+        std::string get_tag_no_err( // Версия get_tag, которая игнорирует ошибку "Данные печати не латинские"
+                std::string name,
+                std::string date_format = BASIC::ServerFormatDateTimeAsString,
+                std::string tag_lang = "R"); // R - russian; E - english
         std::string get_tag(
                 std::string name,
                 std::string date_format = BASIC::ServerFormatDateTimeAsString,

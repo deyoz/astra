@@ -172,7 +172,17 @@ void TPrnTagStore::TTagProps::Init(TDevOperType vop)
     op = vop;
     ProgTrace(TRACE5, "TTagProps::Init: load from base");
     TQuery Qry(&OraSession);
-    Qry.SQLText = "select code, length, EXCEPT_WHEN_GREAT_LEN, EXCEPT_WHEN_ONLY_LAT from prn_tag_props where op_type = :op_type";
+    Qry.SQLText =
+        "select "
+        "   code, "
+        "   length, "
+        "   EXCEPT_WHEN_GREAT_LEN, "
+        "   EXCEPT_WHEN_ONLY_LAT, "
+        "   convert_char_view "
+        "from "
+        "   prn_tag_props "
+        "where "
+        "   op_type = :op_type";
     Qry.CreateVariable("op_type", otString, EncodeDevOperType(op));
     Qry.Execute();
     items.clear();
@@ -181,7 +191,8 @@ void TPrnTagStore::TTagProps::Init(TDevOperType vop)
                     TTagPropsItem(
                         Qry.FieldAsInteger("length"),
                         Qry.FieldAsInteger("except_when_great_len") != 0,
-                        Qry.FieldAsInteger("except_when_only_lat") != 0
+                        Qry.FieldAsInteger("except_when_only_lat") != 0,
+                        Qry.FieldAsInteger("convert_char_view") != 0
                     )));
     op = vop;
 }
@@ -192,7 +203,10 @@ TPrnTagStore::TTagProps::TTagProps(TDevOperType vop): op(dotUnknown)
 }
 
 // Bag receipts
-TPrnTagStore::TPrnTagStore(TBagReceipt &arcpt): rcpt(arcpt), prn_tag_props(dotPrnBR), tag_lang(arcpt.tag_lang)
+TPrnTagStore::TPrnTagStore(TBagReceipt &arcpt):
+    rcpt(arcpt),
+    prn_tag_props(dotPrnBR),
+    tag_lang(arcpt.tag_lang)
 {
     print_mode = 0;
     tag_list.insert(make_pair(TAG::BULKY_BT,        TTagListItem(&TPrnTagStore::BULKY_BT, 0)));
@@ -244,7 +258,8 @@ TPrnTagStore::TPrnTagStore(bool apr_lat): rcpt(NULL), prn_tag_props(dotUnknown)
 }
 
 // BP && BT
-TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tagsNode, TBTRoute *aroute): rcpt(NULL),
+TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tagsNode, TBTRoute *aroute):
+    rcpt(NULL),
     prn_tag_props(aroute == NULL ? dotPrnBP : dotPrnBT)
 {
     print_mode = 0;
@@ -447,6 +462,12 @@ bool TPrnTagStore::tag_processed(std::string name)
     }
 }
 
+string TPrnTagStore::get_tag_no_err(string name, string date_format, string tag_lang)
+{
+    return get_field(upperc(name), 0, "L", date_format, tag_lang, false);
+}
+
+
 string TPrnTagStore::get_tag(string name, string date_format, string tag_lang)
 {
     return get_field(upperc(name), 0, "L", date_format, tag_lang);
@@ -460,7 +481,7 @@ string cut_result(string result)
     return result;
 }
 
-string TPrnTagStore::get_field(std::string name, size_t len, std::string align, std::string date_format, string tag_lang)
+string TPrnTagStore::get_field(std::string name, size_t len, std::string align, std::string date_format, string tag_lang, bool pr_user_except)
 {
     std::map<std::string, TTagPropsItem>::iterator iprops = prn_tag_props.items.find(name);
     if(iprops == prn_tag_props.items.end())
@@ -496,13 +517,24 @@ string TPrnTagStore::get_field(std::string name, size_t len, std::string align, 
         } else
             result = AlignString(result, len, align);
         if(this->tag_lang.get_pr_lat() and not is_lat(result)) {
-            if(iprops->second.except_when_only_lat) {
-                ProgError(STDLOG, "Данные печати не латинские: %s = \"%s\"", name.c_str(), result.c_str());
-                throw UserException("MSG.NO_LAT_PRN_DATA", LParams() << LParam("tag", name) << LParam("value", cut_result(result)));
-            } else {
-                showErrorMessage("MSG.NO_LAT_PRN_DATA", LParams() << LParam("tag", name) << LParam("value", cut_result(result)));
-                for(string::iterator si = result.begin(); si != result.end(); si++)
-                    if(not is_lat_char(*si)) *si = '_';
+            bool replace_good = false;
+            if(iprops->second.convert_char_view) {
+                result = convert_char_view(result, true);
+                replace_good = is_lat(result);
+            }
+            if(not replace_good) {
+                LexemaData err;
+                err.lexema_id = "MSG.NO_LAT_PRN_DATA";
+                err.lparams << LParam("tag", name) << LParam("value", cut_result(result));
+                if(iprops->second.except_when_only_lat) {
+                    ProgError(STDLOG, "Данные печати не латинские: %s = \"%s\"", name.c_str(), result.c_str());
+                    if(pr_user_except)
+                        throw UserException(err.lexema_id, err.lparams);
+                } else {
+                    showErrorMessage(err);
+                    for(string::iterator si = result.begin(); si != result.end(); si++)
+                        if(not is_lat_char(*si)) *si = '_';
+                }
             }
         }
         this->tag_lang.set_tag_lang("");
@@ -998,7 +1030,11 @@ string TPrnTagStore::BCBP_M_2(TFieldParams fp)
     result << setw(2) << right << setfill('0') << hex << uppercase << cond1.str().size();
     result << cond1.str();
 
-    return result.str();
+    string buf = result.str();
+    if((tag_lang.get_pr_lat() or tag_lang.english_tag()) and not is_lat(buf))
+        for(string::iterator si = buf.begin(); si != buf.end(); si++)
+            if(not is_lat_char(*si)) *si = 'X';
+    return buf;
 }
 
 string TPrnTagStore::AIRLINE(TFieldParams fp)
