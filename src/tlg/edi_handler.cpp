@@ -110,7 +110,8 @@ bool handle_tlg(void)
     TlgQry.Clear();
     TlgQry.SQLText=
       "SELECT tlg_queue.id,tlgs.tlg_text,tlg_queue.time,ttl, "
-      "       tlg_queue.tlg_num,tlg_queue.sender "
+      "       tlg_queue.tlg_num,tlg_queue.sender, "
+      "       NVL(tlg_queue.proc_attempt,0) AS proc_attempt "
       "FROM tlgs,tlg_queue "
       "WHERE tlg_queue.id=tlgs.id AND tlg_queue.receiver=:receiver AND "
       "      tlg_queue.type='INA' AND tlg_queue.status='PUT' "
@@ -132,7 +133,18 @@ bool handle_tlg(void)
           ProgTrace(TRACE1,"========= (sender=%s tlg_num=%d) =============",
                     TlgQry.FieldAsString("sender"),
                     TlgQry.FieldAsInteger("tlg_num"));
-          try{
+          if (TlgQry.FieldAsInteger("proc_attempt")>=HANDLER_PROC_ATTEMPTS())
+          {
+            ProgTrace(TRACE5, "handle_tlg: tlg_id=%d proc_attempt=%d", tlg_id, TlgQry.FieldAsInteger("proc_attempt"));
+            errorTlg(tlg_id,"PROC");
+            OraSession.Commit();
+          }
+          else
+          try
+          {
+              procTlg(tlg_id);
+              OraSession.Commit();
+              
               int len = TlgQry.GetSizeLongField("tlg_text");
               boost::shared_ptr< char > tlg (new (char [len+1]));
               TlgQry.FieldAsLong("tlg_text", tlg.get());
