@@ -154,7 +154,8 @@ struct TSearchPnrData {
 	string airline;
 	int flt_no;
 	string suffix;
-	TDateTime scd_out, scd_out_local;
+	TDateTime scd_out, act_out;
+	TDateTime scd_out_local, est_out_local, act_out_local;
 	string craft;
 	string airp_dep;
 	string city_dep;
@@ -163,14 +164,13 @@ struct TSearchPnrData {
 	TStage kiosk_stage;
 	TStage checkin_stage;
 	TStage brd_stage;
-	TDateTime act_out;
 	std::vector<TTripInfo> mark_flights;
 
 	int airline_fmt,suffix_fmt,airp_dep_fmt,craft_fmt;
 
   int pnr_id;
   int point_arv;
-	TDateTime scd_in;
+	TDateTime scd_in_local, est_in_local, act_in_local;
 	string airp_arv;
 	string city_arv;
 	string cls;
@@ -383,7 +383,7 @@ bool getTripData( int point_id, bool first_segment, TSearchPnrData &SearchPnrDat
   	SearchPnrData.point_id = NoExists;
   	TQuery Qry(&OraSession);
   	Qry.SQLText =
-  	  "SELECT points.point_id,point_num,first_point,pr_tranzit,pr_del,pr_reg,scd_out,act_out, "
+  	  "SELECT points.point_id,point_num,first_point,pr_tranzit,pr_del,pr_reg,scd_out,est_out,act_out, "
   	  "       airline,airline_fmt,flt_no,airp,airp_fmt,suffix,suffix_fmt, "
   	  "       craft,craft_fmt, "
   	  "       trip_paid_ckin.pr_permit AS pr_paid_ckin "
@@ -412,10 +412,8 @@ bool getTripData( int point_id, bool first_segment, TSearchPnrData &SearchPnrDat
   	if ( Qry.FieldAsInteger( "pr_reg" ) == 0 )
   		throw UserException( "MSG.FLIGHT.CHECKIN_CANCELED" );
 
-  	if ( Qry.FieldIsNULL( "act_out" ) )
-  		SearchPnrData.act_out = NoExists;
-  	else
-  		SearchPnrData.act_out = Qry.FieldAsDateTime( "act_out" );
+    if ( Qry.FieldIsNULL( "scd_out" ) )
+      throw UserException( "MSG.FLIGHT_DATE.NOT_SET" );
 
   	TTripStages tripStages( point_id );
   	SearchPnrData.web_stage = tripStages.getStage( stWEB );
@@ -438,9 +436,29 @@ bool getTripData( int point_id, bool first_segment, TSearchPnrData &SearchPnrDat
   	SearchPnrData.airp_dep = Qry.FieldAsString( "airp" );
   	SearchPnrData.airp_dep_fmt = Qry.FieldAsInteger( "airp_fmt" );
   	SearchPnrData.city_dep = ((TAirpsRow&)baseairps.get_row( "code", Qry.FieldAsString( "airp" ), true )).city;
+  	
   	string region=AirpTZRegion(SearchPnrData.airp_dep);
   	SearchPnrData.scd_out = Qry.FieldAsDateTime( "scd_out" );
   	SearchPnrData.scd_out_local = UTCToLocal( Qry.FieldAsDateTime( "scd_out" ), region );
+  	if ( Qry.FieldIsNULL( "est_out" ) )
+  	{
+  		SearchPnrData.est_out_local = NoExists;
+  	}
+  	else
+  	{
+  		SearchPnrData.est_out_local = UTCToLocal( Qry.FieldAsDateTime( "est_out" ), region );
+    };
+  	if ( Qry.FieldIsNULL( "act_out" ) )
+  	{
+  		SearchPnrData.act_out = NoExists;
+  		SearchPnrData.act_out_local = NoExists;
+  	}
+  	else
+  	{
+  		SearchPnrData.act_out = Qry.FieldAsDateTime( "act_out" );
+  		SearchPnrData.act_out_local = UTCToLocal( Qry.FieldAsDateTime( "act_out" ), region );
+    };
+  	
   	SearchPnrData.craft = Qry.FieldAsString( "craft" );
   	SearchPnrData.craft_fmt = Qry.FieldAsInteger( "craft_fmt" );
   	
@@ -535,7 +553,7 @@ bool getTripData2( TSearchPnrData &SearchPnrData, bool pr_throw )
     TQuery Qry(&OraSession);
     Qry.Clear();
     Qry.SQLText =
-     "SELECT scd_in FROM points WHERE point_id=:point_id AND airp=:airp AND pr_del=0";
+     "SELECT scd_in, est_in, act_in FROM points WHERE point_id=:point_id AND airp=:airp AND pr_del=0";
     Qry.CreateVariable( "point_id", otInteger, SearchPnrData.point_arv );
     Qry.CreateVariable( "airp", otString, SearchPnrData.airp_arv );
   	Qry.Execute();
@@ -544,9 +562,17 @@ bool getTripData2( TSearchPnrData &SearchPnrData, bool pr_throw )
 
     string region = AirpTZRegion(SearchPnrData.airp_arv);
     if ( Qry.FieldIsNULL( "scd_in" ) )
-    	SearchPnrData.scd_in = NoExists;
+    	SearchPnrData.scd_in_local = NoExists;
     else
-      SearchPnrData.scd_in = UTCToLocal( Qry.FieldAsDateTime( "scd_in" ), region );
+      SearchPnrData.scd_in_local = UTCToLocal( Qry.FieldAsDateTime( "scd_in" ), region );
+    if ( Qry.FieldIsNULL( "est_in" ) )
+    	SearchPnrData.est_in_local = NoExists;
+    else
+      SearchPnrData.est_in_local = UTCToLocal( Qry.FieldAsDateTime( "est_in" ), region );
+    if ( Qry.FieldIsNULL( "act_in" ) )
+    	SearchPnrData.act_in_local = NoExists;
+    else
+      SearchPnrData.act_in_local = UTCToLocal( Qry.FieldAsDateTime( "act_in" ), region );
 
     TBaseTable &baseairps = base_tables.get( "airps" );
     try
@@ -713,14 +739,16 @@ void getTCkinData( const TSearchPnrData &firstPnrData,
         {
           Qry.Clear();
           Qry.SQLText=
-            "SELECT crs_pnr.class, "
+            "SELECT DISTINCT crs_pnr.class, "
             "       pnr_addrs.pnr_id, pnr_addrs.airline, pnr_addrs.addr "
-            "FROM tlg_binding, crs_pnr, pnr_addrs "
+            "FROM tlg_binding, crs_pnr, pnr_addrs, crs_pax "
             "WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND "
             "      tlg_binding.point_id_spp=:point_id AND "
             "      pnr_addrs.pnr_id=crs_pnr.pnr_id AND "
             "      crs_pnr.target=:airp_arv AND "
-            "      crs_pnr.subclass=:subclass "
+            "      crs_pnr.subclass=:subclass AND "
+            "      crs_pax.pnr_id=crs_pnr.pnr_id AND "
+            "      crs_pax.pr_del=0 "
             "ORDER BY pnr_addrs.pnr_id, pnr_addrs.airline";
           Qry.CreateVariable("point_id", otInteger, currSeg.point_dep);
           Qry.CreateVariable("airp_arv", otString, currSeg.airp_arv); //идет проверка совпадения а/п назначения из трансферного маршрута
@@ -793,10 +821,11 @@ void VerifyPNR( int point_id, int pnr_id )
 	TQuery Qry(&OraSession);
 	Qry.SQLText =
     "SELECT point_id_spp "
-    " FROM crs_pnr,tlg_binding "
-    "WHERE crs_pnr.point_id=tlg_binding.point_id_tlg(+) AND "
-    "      crs_pnr.pnr_id=:pnr_id AND "
-    "      tlg_binding.point_id_spp(+)=:point_id";
+    "FROM crs_pnr,crs_pax,tlg_binding "
+    "WHERE crs_pax.pnr_id=crs_pnr.pnr_id AND "
+    "      crs_pnr.point_id=tlg_binding.point_id_tlg(+) AND "
+    "      crs_pnr.pnr_id=:pnr_id AND crs_pax.pr_del=0 AND "
+    "      tlg_binding.point_id_spp(+)=:point_id AND rownum<2";
 	Qry.CreateVariable( "point_id", otInteger, point_id );
 	Qry.CreateVariable( "pnr_id", otInteger, pnr_id );
 	Qry.Execute();
@@ -1598,11 +1627,32 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     if ( !pnrData->suffix.empty() )
       NewTextChild( node, "suffix", pnrData->suffix );
     NewTextChild( node, "craft", pnrData->craft );
+    if (pnrData->scd_out_local!=NoExists)
     NewTextChild( node, "scd_out", DateTimeToStr( pnrData->scd_out_local, ServerFormatDateTimeAsString ) );
+    else
+      NewTextChild( node, "scd_out" );
+    if (pnrData->est_out_local!=NoExists)
+      NewTextChild( node, "est_out", DateTimeToStr( pnrData->est_out_local, ServerFormatDateTimeAsString ) );
+    else
+      NewTextChild( node, "est_out" );
+    if (pnrData->act_out_local!=NoExists)
+      NewTextChild( node, "act_out", DateTimeToStr( pnrData->act_out_local, ServerFormatDateTimeAsString ) );
+    else
+      NewTextChild( node, "act_out" );
     NewTextChild( node, "airp_dep", pnrData->airp_dep );
     NewTextChild( node, "city_dep", pnrData->city_dep );
-    if ( pnrData->scd_in != NoExists )
-      NewTextChild( node, "scd_in", DateTimeToStr( pnrData->scd_in, ServerFormatDateTimeAsString ) );
+    if ( pnrData->scd_in_local != NoExists )
+      NewTextChild( node, "scd_in", DateTimeToStr( pnrData->scd_in_local, ServerFormatDateTimeAsString ) );
+    else
+      NewTextChild( node, "scd_in" );
+    if ( pnrData->est_in_local != NoExists )
+      NewTextChild( node, "est_in", DateTimeToStr( pnrData->est_in_local, ServerFormatDateTimeAsString ) );
+    else
+      NewTextChild( node, "est_in" );
+    if ( pnrData->act_in_local != NoExists )
+      NewTextChild( node, "act_in", DateTimeToStr( pnrData->act_in_local, ServerFormatDateTimeAsString ) );
+    else
+      NewTextChild( node, "act_in" );
     NewTextChild( node, "airp_arv", pnrData->airp_arv );
     NewTextChild( node, "city_arv", pnrData->city_arv );
 
@@ -2895,8 +2945,10 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
     Qry.Clear();
     Qry.SQLText=
       "SELECT target, subclass, class "
-      "FROM crs_pnr "
-      "WHERE pnr_id=:pnr_id";
+      "FROM crs_pnr, crs_pax "
+      "WHERE crs_pax.pnr_id=crs_pnr.pnr_id AND "
+      "      crs_pnr.pnr_id=:pnr_id AND "
+      "      crs_pax.pr_del=0 AND rownum<2";
     Qry.CreateVariable("pnr_id", otInteger, firstPnrData.pnr_id);
     Qry.Execute();
     if (Qry.Eof)
