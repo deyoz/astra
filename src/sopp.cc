@@ -231,7 +231,6 @@ void ChangeACT_IN( int point_id, TDateTime old_act, TDateTime act );
 enum TSOPPTripChange { tsNew, tsDelete, tsAttr, tsAddFltOut, tsDelFltOut, tsCancelFltOut, tsRestoreFltOut };
 void ChangeTrip( int point_id, TSOPPTrip tr1, TSOPPTrip tr2, BitSet<TSOPPTripChange> FltChange );
 
-
 string GetRemark( string remark, TDateTime scd_out, TDateTime est_out, string region )
 {
 	string rem = remark;
@@ -2651,6 +2650,37 @@ void internal_ReadDests( int move_id, TSOPPDests &dests, string &reference, TDat
   }
 }
 
+void ReBindTlgs( int move_id, TSOPPDests &dests )
+{
+  vector<int> point_ids;
+  for (TSOPPDests::const_iterator i=dests.begin(); i!=dests.end(); i++) {
+     point_ids.push_back( i->point_id );
+  }
+  //!!!vlad отвязка
+
+  vector<TTripInfo> flts;
+	TSOPPDests vdests;
+	string reference;
+	internal_ReadDests( move_id, vdests, reference, NoExists, NoExists );
+  // создаем все возможные рейсы из нового маршрута исключая удаленные пункты
+  for( TSOPPDests::iterator i=vdests.begin(); i!=vdests.end(); i++ ) {
+  	if ( i->pr_del == -1 ) continue;
+  	TSOPPTrip t = createTrip( move_id, i, dests );
+  	if ( t.airline_out.empty() ||
+         t.flt_no_out == NoExists ||
+         t.scd_out == NoExists )
+      continue;
+    TTripInfo tripInfo;
+    tripInfo.airline = t.airline_out;
+    tripInfo.flt_no = t.flt_no_out;
+    tripInfo.suffix = t.suffix_out;
+    tripInfo.airp = t.airp;
+    tripInfo.scd_out = t.scd_out;
+    flts.push_back( tripInfo );
+  }
+  //!!!vlad привязка
+}
+
 void SoppInterface::ReadDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   xmlNodePtr node = NewTextChild( resNode, "data" );
@@ -3654,6 +3684,9 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	  ChangeTrip( j->point_id, tr2, *j, FltChange );  // рейс на вылет удален
   	}
   }
+  //новая отвязка телеграмм
+  ReBindTlgs( move_id, voldDests );
+
 }
 
 void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -4490,6 +4523,9 @@ void SoppInterface::DeleteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   	  ChangeTrip( j->point_id, tr, *j, FltChange );  // рейс на вылет удален
   	}
   }
+  ReBindTlgs( move_id, dests_del );
+  
+  
 	Qry.Clear();
 	Qry.SQLText = "UPDATE points SET pr_del=-1 WHERE move_id=:move_id";
 	Qry.CreateVariable( "move_id", otInteger, move_id );
@@ -4684,6 +4720,4 @@ void SoppInterface::GetTime(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
  	TDateTime time = UTCToClient( Qry.FieldAsDateTime( "time" ), region );
 	NewTextChild( resNode, "time", DateTimeToStr( time, ServerFormatDateTimeAsString ) );
 }
-
-
 

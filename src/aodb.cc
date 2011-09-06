@@ -1408,6 +1408,7 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
 	           fl.suffix.c_str(), DateTimeToStr( fl.scd ).c_str(), Qry.Eof );
 	int move_id, new_tid, point_id;
 	bool pr_insert = Qry.Eof;
+	vector<TTripInfo> flts;
 	if ( pr_insert ) {
 		if ( fl.craft.empty() )
 			throw Exception( "Не задан тип ВС" );
@@ -1454,6 +1455,13 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
     reqInfo->MsgToLog( lmes, evtDisp, move_id, point_id );
     err++;
     reqInfo->MsgToLog( string( "Ввод нового пункта " ) + "ВНК", evtDisp, move_id, point_id );
+    TTripInfo tripInfo;
+    tripInfo.airline = fl.airline;
+    tripInfo.flt_no = fl.flt_no;
+    tripInfo.suffix = fl.suffix;
+    tripInfo.airp = "ВНК";
+    tripInfo.scd_out = fl.scd;
+    flts.push_back( tripInfo );
     err++;
     Qry.Clear();
     Qry.SQLText =
@@ -1871,6 +1879,7 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
 		if ( !brd.empty() )
 		  reqInfo->MsgToLog( string( "Назначение выходов на посадку" ) + brd, evtDisp, move_id, point_id );
 	}
+ //!!!vlad привязка
 }
 catch(EOracleError &E)
 {
