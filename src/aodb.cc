@@ -507,11 +507,11 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 		  if ( format == afNewUrengoy ) {
 		    vector<TPnrAddrItem> pnrs;
 		    GetPaxPnrAddr( Qry.FieldAsInteger( "pax_id" ), pnrs );
-		    if ( pnrs.empty() )
+		    if ( !pnrs.empty() )
 		      record<<setw(20)<<string(pnrs.begin()->addr);
         else
           record<<setw(20)<<"";
-        record<<setw(20)<<Qry.FieldAsString( "tiket_no" );
+        record<<setw(20)<<Qry.FieldAsString( "ticket_no" );
         record<<setw(20)<<Qry.FieldAsString( "document" );
 		  }
 		  record<<setw(3)<<Qry.FieldAsInteger( "reg_no");
