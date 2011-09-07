@@ -1288,7 +1288,28 @@ void AstraServiceInterface::saveFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNo
 	fileparams[ PARAM_CANON_NAME ] = fileparams[ "canon_name" ];
 	fileparams.erase( "canon_name" );
 	fileparams[ NS_PARAM_AIRLINE ] = JxtContext::getJxtContHandler()->sysContext()->read( fileparams[ PARAM_CANON_NAME ] + "_" + OWN_POINT_ADDR() + "_file_param_sets.airline" );
-  ProgTrace( TRACE5, "fileparams[NS_PARAM_AIRLINE=%s]=%s", NS_PARAM_AIRLINE.c_str(), fileparams[ NS_PARAM_AIRLINE ].c_str() );
+	
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
+    "SELECT airp FROM file_param_sets, desks "
+    " WHERE type=:type AND pr_send=0 AND "
+    "       point_addr=:point_addr AND "
+    "       airline=:airline AND "
+    "       airp IS NOT NULL AND "
+    "       desks.code=file_param_sets.point_addr";
+  Qry.CreateVariable( "type", otString, FILE_AODB_IN_TYPE );
+  Qry.CreateVariable( "point_addr", otString, fileparams[ PARAM_CANON_NAME ] );
+  Qry.CreateVariable( "airline", otString, fileparams[ NS_PARAM_AIRLINE ] );
+  Qry.Execute();
+  if ( Qry.Eof ) {
+    ProgError( STDLOG, "straServiceInterface::saveFileData: invalid sync AODB SPP, point_addr=%s, airline=%s",
+               fileparams[ PARAM_CANON_NAME ].c_str(), fileparams[ NS_PARAM_AIRLINE ].c_str() );
+    return;
+  }
+  fileparams[ NS_PARAM_AIRP ] = Qry.FieldAsString( "airp" );
+  ProgTrace( TRACE5, "fileparams[NS_PARAM_AIRLINE=%s]=%s, airp=%s",
+             NS_PARAM_AIRLINE.c_str(), fileparams[ NS_PARAM_AIRLINE ].c_str(),
+             fileparams[ NS_PARAM_AIRP ].c_str() );
 	putFile( OWN_POINT_ADDR(),
            OWN_POINT_ADDR(),
            FILE_AODB_IN_TYPE,
