@@ -471,8 +471,9 @@ struct TCodeShareSets {
 };
 
 //важно! время вылета scd_out у operFlt должно быть в UTC
-//       время вылета в markFltInfo возвращается локальное относительно airp
-void GetMktFlights(const TTripInfo &operFltInfo, std::vector<TTripInfo> &markFltInfo);
+//       return_scd_utc=false: время вылета в markFltInfo возвращается локальное относительно airp
+//       return_scd_utc=true: время вылета в markFltInfo возвращается в UTC
+void GetMktFlights(const TTripInfo &operFltInfo, std::vector<TTripInfo> &markFltInfo, bool return_scd_utc=false);
 
 //важно! время вылета scd_out у operFlt должно быть в UTC
 //       время вылета в markFltInfo передается локальное относительно airp

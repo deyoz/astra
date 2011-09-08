@@ -80,6 +80,4 @@ bool waitCmd(const char* receiver, int msecs, const char* buf, int buflen);
 void sendCmdTlgSnd();
 void sendCmdTypeBHandler();
 
-void bind_tlg(void);
-
 #endif

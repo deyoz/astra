@@ -139,8 +139,6 @@ void exec_tasks( const char *proc_name )
 	    	  			  			if ( name == "sync_1ccek" ) sync_1ccek();
 	    	  			  			else
 	    	  			  			  if ( name == "alter_arx" ) Result = alter_arx();
-	    	  			  			  else
-	    	  			  			    if ( name == "bind_tlg" ) bind_tlg();
 /*	    	  			  			  else
                             if ( name == "cobra" ) cobra();*/
 

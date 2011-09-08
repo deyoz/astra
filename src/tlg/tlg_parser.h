@@ -10,6 +10,7 @@
 #include "oralib.h"
 #include "seats.h"
 #include "memory_manager.h"
+#include "tlg_binding.h"
 
 class ETlgError:public EXCEPTIONS::Exception
 {
@@ -76,35 +77,6 @@ class TTlgPartInfo
 struct TTlgParts
 {
   TTlgPartInfo addr,heading,body,ending;
-};
-
-class TFltInfo
-{
-  public:
-    char airline[4];
-    long flt_no;
-    char suffix[2];
-    BASIC::TDateTime scd;
-    bool pr_utc;
-    char airp_dep[4],airp_arv[4];
-    TFltInfo()
-    {
-      Clear();
-    };
-    void Clear()
-    {
-      *airline=0;
-      flt_no=0;
-      *suffix=0;
-      scd=0;
-      pr_utc=false;
-      *airp_dep=0;
-      *airp_arv=0;
-    };
-    bool Empty()
-    {
-      return *airline==0;
-    };
 };
 
 class THeadingInfo
@@ -626,12 +598,8 @@ void SavePTMContent(int tlg_id, TDCSHeadingInfo& info, TPtmContent& con);
 void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, TBtmContent& con);
 void SaveSOMContent(int tlg_id, TDCSHeadingInfo& info, TSOMContent& con);
 
-enum TBindType {btFirstSeg=0,btAllSeg=2,btLastSeg=1};
 void ParseAHMFltInfo(TTlgPartInfo body, const TAHMHeadingInfo &info, TFltInfo& flt, TBindType &bind_type);
 int SaveFlt(int tlg_id, TFltInfo& flt, TBindType bind_type);
-bool bind_tlg(TQuery &Qry);
-bool bind_tlg(int point_id);
-void crs_recount(int point_id_tlg, bool check_comp);
 
 void ParseSeatRange(std::string str, std::vector<TSeatRange> &ranges, bool usePriorContext);
 

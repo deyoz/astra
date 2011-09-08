@@ -7,9 +7,12 @@
 #include "astra_consts.h"
 #include "astra_locale.h"
 #include "tlg/tlg.h"
+#include "tlg/tlg_binding.h"
 #include "astra_service.h"
 #include "term_version.h"
 #include "comp_layers.h"
+#include "astra_misc.h"
+#include "timer.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -1581,6 +1584,104 @@ void AfterApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TCa
         DeleteTripCompLayers(NoExists, point_id, cltProtAfterPay);
       };
     };
+  };
+  
+  if (cache.code() == "CODESHARE_SETS")
+  {
+    TDateTime now=NowLocal();
+    modf(now,&now);
+    //два вектора: до и после изменений
+    vector<TTripInfo> flts_before;
+    vector<TTripInfo> flts_after;
+    TTripInfo operFltBefore, markFltBefore;
+    TTripInfo operFltAfter, markFltAfter;
+    TDateTime first_date_before=NoExists, last_date_before=NoExists;
+    TDateTime first_date_after=NoExists, last_date_after=NoExists;
+    string days_before, days_after;
+    if (row.status != usInserted)
+    {
+      operFltBefore.airline=cache.FieldOldValue( "airline_oper", row );
+      operFltBefore.flt_no=ToInt(cache.FieldOldValue( "flt_no_oper", row ));
+        
+      markFltBefore.airline=cache.FieldOldValue( "airline_mark", row );
+      markFltBefore.flt_no=ToInt(cache.FieldOldValue( "flt_no_mark", row ));
+      markFltBefore.airp=cache.FieldOldValue( "airp_dep", row );
+    
+      if (cache.FieldOldValue( "first_date", row ).empty() ||
+          StrToDateTime( cache.FieldOldValue( "first_date", row ).c_str(), ServerFormatDateTimeAsString, first_date_before) == EOF)
+        first_date_before=NoExists;
+
+      if (cache.FieldOldValue( "last_date", row ).empty() ||
+          StrToDateTime( cache.FieldOldValue( "last_date", row ).c_str(), ServerFormatDateTimeAsString, last_date_before) == EOF)
+        last_date_before=NoExists;
+
+      days_before=cache.FieldOldValue( "days", row );
+    };
+    
+    if (row.status != usDeleted)
+    {
+      if (cache.FieldValue( "first_date", row ).empty() ||
+          StrToDateTime( cache.FieldValue( "first_date", row ).c_str(), ServerFormatDateTimeAsString, first_date_after) == EOF)
+        first_date_after=NoExists;
+
+      if (cache.FieldValue( "last_date", row ).empty() ||
+          StrToDateTime( cache.FieldValue( "last_date", row ).c_str(), ServerFormatDateTimeAsString, last_date_after) == EOF)
+        last_date_after=NoExists;
+        
+      operFltAfter.airline=cache.FieldValue( "airline_oper", row );
+      operFltAfter.flt_no=ToInt(cache.FieldValue( "flt_no_oper", row ));
+
+      markFltAfter.airline=cache.FieldValue( "airline_mark", row );
+      markFltAfter.flt_no=ToInt(cache.FieldValue( "flt_no_mark", row ));
+      markFltAfter.airp=cache.FieldValue( "airp_dep", row );
+
+      days_after=cache.FieldValue( "days", row );
+    };
+    
+    for(TDateTime scd_local=now-5;scd_local<=now+CREATE_SPP_DAYS()+1;scd_local+=1.0)
+    {
+      markFltBefore.scd_out=NoExists;
+      markFltAfter.scd_out=NoExists;
+      if (row.status != usInserted)
+      {
+        if ((first_date_before==NoExists || first_date_before<=scd_local) &&
+            (last_date_before==NoExists || last_date_before>=scd_local) &&
+            (days_before.empty() || days_before.find(IntToString(DayOfWeek(scd_local)))!=string::npos))
+        {
+          markFltBefore.scd_out=scd_local;
+        };
+      };
+
+      if (row.status != usDeleted)
+      {
+        if ((first_date_after==NoExists || first_date_after<=scd_local) &&
+            (last_date_after==NoExists || last_date_after>=scd_local) &&
+            (days_after.empty() || days_after.find(IntToString(DayOfWeek(scd_local)))!=string::npos))
+        {
+          markFltAfter.scd_out=scd_local;
+        };
+      };
+      
+      if (markFltBefore.scd_out==NoExists && markFltAfter.scd_out==NoExists) continue;
+      
+      if (operFltBefore.airline!=operFltAfter.airline ||
+          operFltBefore.flt_no !=operFltAfter.flt_no  ||
+          markFltBefore.airline!=markFltAfter.airline ||
+          markFltBefore.flt_no !=markFltAfter.flt_no  ||
+          markFltBefore.airp   !=markFltAfter.airp    ||
+          markFltBefore.scd_out!=markFltAfter.scd_out)
+      {
+        if (markFltBefore.scd_out!=NoExists)
+          flts_before.push_back(markFltBefore);
+        if (markFltAfter.scd_out!=NoExists)
+          flts_after.push_back(markFltAfter);
+      };
+    };
+    trace_for_bind(flts_before, "flts_before");
+    trace_for_bind(flts_after, "flts_after");
+    
+    unbind_tlg(flts_before, false);
+    bind_tlg(flts_after, false, true);
   };
 };
 

@@ -1060,7 +1060,7 @@ TPaxSeats::~TPaxSeats()
 	delete Qry;
 }
 
-void GetMktFlights(const TTripInfo &operFltInfo, std::vector<TTripInfo> &markFltInfo)
+void GetMktFlights(const TTripInfo &operFltInfo, std::vector<TTripInfo> &markFltInfo, bool return_scd_utc)
 {
   markFltInfo.clear();
   TDateTime scd_local=UTCToLocal(operFltInfo.scd_out, AirpTZRegion(operFltInfo.airp));
@@ -1086,7 +1086,10 @@ void GetMktFlights(const TTripInfo &operFltInfo, std::vector<TTripInfo> &markFlt
     TTripInfo flt;
     flt.airline=Qry.FieldAsString("airline_mark");
     flt.flt_no=Qry.FieldAsInteger("flt_no_mark");
-    flt.scd_out=scd_local;
+    if (return_scd_utc)
+      flt.scd_out=operFltInfo.scd_out;
+    else
+      flt.scd_out=scd_local;
     flt.airp=operFltInfo.airp;
     markFltInfo.push_back(flt);
   };

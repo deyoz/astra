@@ -17,6 +17,7 @@
 #include "salons.h"
 #include "memory_manager.h"
 #include "comp_layers.h"
+#include "tlg_binding.h"
 
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
@@ -3985,210 +3986,6 @@ TTlgParts GetParts(char* tlg_p, TMemoryManager &mem)
   return parts;
 };
 
-void bind_tlg(int point_id_tlg, int point_id_spp)
-{
-  TQuery BindQry(&OraSession);
-  BindQry.SQLText=
-    "INSERT INTO tlg_binding(point_id_tlg,point_id_spp) VALUES(:point_id_tlg,:point_id_spp)";
-  BindQry.CreateVariable("point_id_tlg",otInteger,point_id_tlg);
-  BindQry.CreateVariable("point_id_spp",otInteger,point_id_spp);
-  try
-  {
-    BindQry.Execute();
-  }
-  catch(EOracleError E)
-  {
-    if (E.Code!=1) throw;
-  };
-};
-
-bool bind_tlg(int point_id_tlg, TFltInfo &flt, TBindType bind_type)
-{
-  bool res=false;
-  if (!flt.pr_utc && *flt.airp_dep==0) return res;
-  TQuery PointsQry(&OraSession);
-  PointsQry.CreateVariable("airline",otString,flt.airline);
-  PointsQry.CreateVariable("flt_no",otInteger,(int)flt.flt_no);
-  PointsQry.CreateVariable("suffix",otString,flt.suffix);
-  PointsQry.CreateVariable("airp_dep",otString,flt.airp_dep);
-  PointsQry.CreateVariable("scd",otDate,flt.scd);
-
-  if (!flt.pr_utc)
-  {
-    //перевод UTCToLocal(points.scd)
-    PointsQry.SQLText=
-      "SELECT point_id,point_num,first_point,pr_tranzit, "
-      "       scd_out AS scd,airp "
-      "FROM points "
-      "WHERE airline=:airline AND flt_no=:flt_no AND airp=:airp_dep AND "
-      "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND "
-      "      scd_out >= TO_DATE(:scd)-1 AND scd_out < TO_DATE(:scd)+2 AND "
-      "      pr_del>=0 ";
-  }
-  else
-  {
-    PointsQry.SQLText=
-      "SELECT point_id,point_num,first_point,pr_tranzit "
-      "FROM points "
-      "WHERE airline=:airline AND flt_no=:flt_no AND "
-      "      (:airp_dep IS NULL OR airp=:airp_dep) AND "
-      "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND "
-      "      scd_out >= TO_DATE(:scd) AND scd_out < TO_DATE(:scd)+1 AND pr_del>=0 ";
-  };
-  PointsQry.Execute();
-  TDateTime scd;
-  string tz_region;
-  for(;!PointsQry.Eof;PointsQry.Next())
-  {
-    if (!flt.pr_utc)
-    {
-      scd=PointsQry.FieldAsDateTime("scd");
-      tz_region=AirpTZRegion(PointsQry.FieldAsString("airp"),false);
-      if (tz_region.empty()) continue;
-      scd=UTCToLocal(scd,tz_region);
-      modf(scd,&scd);
-      if (scd!=flt.scd) continue;
-    };
-    switch (bind_type)
-    {
-      case btFirstSeg:
-        bind_tlg(point_id_tlg,PointsQry.FieldAsInteger("point_id"));
-        res=true;
-        break;
-      case btLastSeg:
-      case btAllSeg:
-        {
-          TTripRoute route;
-          route.GetRouteAfter(PointsQry.FieldAsInteger("point_id"),
-                              PointsQry.FieldAsInteger("point_num"),
-                              PointsQry.FieldAsInteger("first_point"),
-                              PointsQry.FieldAsInteger("pr_tranzit")!=0,
-                              trtWithCurrent,trtWithCancelled);
-          TTripRoute::const_iterator last_point=route.end();
-          for(TTripRoute::const_iterator r=route.begin();r!=route.end();r++)
-          {
-            if (r==route.begin()) continue; //пропускаем начальный пункт, ищем в последующих
-            if (*flt.airp_arv==0)
-            {
-              //ищем последний пункт в маршруте
-              last_point=r;
-            }
-            else
-            {
-              //ищем первый попавшийся в маршруте пункт airp_arv
-              if (flt.airp_arv==r->airp)
-              {
-                last_point=r;
-                break;
-              };
-            };
-
-          };
-          if (last_point==route.end())
-          {
-            //если ничего не нашли
-            if (bind_type==btAllSeg)
-            {
-              bind_tlg(point_id_tlg,PointsQry.FieldAsInteger("point_id"));
-              res=true;
-            };
-          }
-          else
-          {
-            //нашли last_point
-            //пробежимся по пунктам посадки до last_point
-            int point_id_spp=NoExists;
-            for(TTripRoute::const_iterator r=route.begin();r!=last_point;r++)
-            {
-              if (bind_type==btAllSeg)
-              {
-                bind_tlg(point_id_tlg,r->point_id);
-                res=true;
-              };
-              if (bind_type==btLastSeg)
-                point_id_spp=r->point_id;
-            };
-            if (point_id_spp!=NoExists)
-            {
-              //для btLastSeg
-              bind_tlg(point_id_tlg,point_id_spp);
-              res=true;
-            };
-          };
-          break;
-        };
-    };
-  };
-  return res;
-};
-
-bool bind_tlg(TQuery &Qry)
-{
-  if (Qry.Eof) return false;
-  int point_id=Qry.FieldAsInteger("point_id");
-  TFltInfo flt;
-  strcpy(flt.airline,Qry.FieldAsString("airline"));
-  flt.flt_no=Qry.FieldAsInteger("flt_no");
-  strcpy(flt.suffix,Qry.FieldAsString("suffix"));
-  flt.scd=Qry.FieldAsDateTime("scd");
-  modf(flt.scd,&flt.scd);
-  flt.pr_utc=Qry.FieldAsInteger("pr_utc")!=0;
-  strcpy(flt.airp_dep,Qry.FieldAsString("airp_dep"));
-  strcpy(flt.airp_arv,Qry.FieldAsString("airp_arv"));
-  TBindType bind_type;
-  switch (Qry.FieldAsInteger("bind_type"))
-  {
-    case 0: bind_type=btFirstSeg;
-            break;
-    case 1: bind_type=btLastSeg;
-            break;
-   default: bind_type=btAllSeg;
-  };
-  if (bind_tlg(point_id,flt,bind_type)) return true;
-  //не склалось привязать к рейсу на прямую - привяжем через таблицу CODESHARE_SETS
-
-
-
-  bool res=false;
-  if (!flt.pr_utc)
-  {
-    TQuery CodeShareQry(&OraSession);
-    CodeShareQry.Clear();
-    CodeShareQry.SQLText=
-        "SELECT airline_oper,flt_no_oper FROM codeshare_sets "
-        "WHERE airline_mark=:airline AND flt_no_mark=:flt_no AND "
-        "      airp_dep=:airp_dep AND "
-        "      first_date<=:scd_local AND "
-        "      (last_date IS NULL OR last_date>:scd_local) AND "
-        "      (days IS NULL OR INSTR(days,TO_CHAR(:wday))<>0) AND pr_del=0";
-    CodeShareQry.CreateVariable("airline",otString,flt.airline);
-    CodeShareQry.CreateVariable("flt_no",otInteger,(int)flt.flt_no);
-    CodeShareQry.CreateVariable("airp_dep",otString,flt.airp_dep);
-    CodeShareQry.CreateVariable("scd_local",otDate,flt.scd);
-    CodeShareQry.CreateVariable("wday",otInteger,DayOfWeek(flt.scd));
-    CodeShareQry.Execute();
-    for(;!CodeShareQry.Eof;CodeShareQry.Next())
-    {
-      strcpy(flt.airline,CodeShareQry.FieldAsString("airline_oper"));
-      flt.flt_no=CodeShareQry.FieldAsInteger("flt_no_oper");
-      if (bind_tlg(point_id,flt,bind_type)) res=true;
-    };
-  };
-  return res;
-};
-
-bool bind_tlg(int point_id)
-{
-  TQuery Qry(&OraSession);
-  Qry.SQLText=
-    "SELECT point_id,airline,flt_no,suffix,scd,pr_utc,airp_dep,airp_arv,bind_type "
-    "FROM tlg_trips "
-    "WHERE point_id=:point_id";
-  Qry.CreateVariable("point_id",otInteger,point_id);
-  Qry.Execute();
-  return bind_tlg(Qry);
-};
-
 int SaveFlt(int tlg_id, TFltInfo& flt, TBindType bind_type)
 {
   int point_id;
@@ -4221,7 +4018,7 @@ int SaveFlt(int tlg_id, TFltInfo& flt, TBindType bind_type)
     Qry.DeclareVariable("point_id",otInteger);
     Qry.Execute();
     point_id=Qry.GetVariableAsInteger("point_id");
-    bind_tlg(point_id);
+    bind_tlg(point_id, false);
 
     /* здесь проверим непривязанные сегменты из crs_displace и привяжем */
     /* но только для PNL/ADL */
@@ -4658,34 +4455,6 @@ void SaveSOMContent(int tlg_id, TDCSHeadingInfo& info, TSOMContent& con)
   };
 };
 
-void crs_recount(int point_id_tlg, bool check_comp)
-{
-  TQuery ProcQry(&OraSession);
-  ProcQry.Clear();
-  ProcQry.SQLText=
-    "BEGIN "
-    "  ckin.crs_recount(:point_id_spp); "
-    "END;";
-  ProcQry.DeclareVariable("point_id_spp", otInteger);
-
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT point_id_spp FROM tlg_binding WHERE point_id_tlg=:point_id_tlg";
-  Qry.CreateVariable("point_id_tlg",otInteger,point_id_tlg);
-  Qry.Execute();
-  for(;!Qry.Eof;Qry.Next())
-  {
-    ProcQry.SetVariable("point_id_spp", Qry.FieldAsInteger("point_id_spp"));
-    ProcQry.Execute();
-    if (check_comp)
-    {
-      string craft;
-  	  SALONS2::AutoSetCraft( Qry.FieldAsInteger("point_id_spp"), craft, -1 );
-  	};
-  };
-};
-
 bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, bool forcibly)
 {
   vector<TRouteItem>::iterator iRouteItem;
@@ -4967,7 +4736,7 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
       };
     };
   };
-  if (pr_recount) crs_recount(point_id,true);
+  if (pr_recount) crs_recount(point_id,NoExists,true);
 
   OraSession.Commit();
 

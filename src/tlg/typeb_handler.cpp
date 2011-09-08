@@ -11,7 +11,6 @@
 #include "tlg.h"
 #include "tlg_parser.h"
 #include "memory_manager.h"
-#include "comp_layers.h"
 #include "serverlib/ourtime.h"
 
 #define NICKNAME "VLAD"
@@ -781,48 +780,6 @@ bool parse_tlg(void)
   return queue_not_empty;
 };
 
-void bind_tlg(void)
-{
-  time_t time_start=time(NULL);
-  
-  TQuery Qry(&OraSession);
-  Qry.SQLText=
-    "SELECT point_id,airline,flt_no,suffix,scd,pr_utc,airp_dep,airp_arv,bind_type "
-    "FROM tlg_binding,tlg_trips "
-    "WHERE tlg_trips.point_id=tlg_binding.point_id_tlg(+) AND "
-    "      tlg_binding.point_id_spp IS NULL AND "
-    "      scd>=:utc_date-3 AND "
-    "      scd<=:utc_date+3 ";
-  TDateTime utc_date;
-  modf(NowUTC(), &utc_date); //округляем до дня
-  Qry.CreateVariable("utc_date", otDate, utc_date);
-  Qry.Execute();
-
-  int count=0;
-  for(;!Qry.Eof;Qry.Next(),count++)
-  {
-    if (bind_tlg(Qry))
-    {
-      int point_id_tlg=Qry.FieldAsInteger("point_id");
-      crs_recount(point_id_tlg,true);
-      SyncTripCompLayers(point_id_tlg, ASTRA::NoExists, ASTRA::cltSOMTrzt);
-      SyncTripCompLayers(point_id_tlg, ASTRA::NoExists, ASTRA::cltPRLTrzt);
-      SyncTripCompLayers(point_id_tlg, ASTRA::NoExists, ASTRA::cltPNLCkin);
-      SyncTripCompLayers(point_id_tlg, ASTRA::NoExists, ASTRA::cltProtCkin);
-      SyncTripCompLayers(point_id_tlg, ASTRA::NoExists, ASTRA::cltPNLBeforePay);
-      SyncTripCompLayers(point_id_tlg, ASTRA::NoExists, ASTRA::cltPNLAfterPay);
-      SyncTripCompLayers(point_id_tlg, ASTRA::NoExists, ASTRA::cltProtBeforePay);
-      SyncTripCompLayers(point_id_tlg, ASTRA::NoExists, ASTRA::cltProtAfterPay);
-    };
-  };
-  OraSession.Commit();
-
-  time_t time_end=time(NULL);
-  if (time_end-time_start>1)
-    ProgTrace(TRACE5,"Attention! bind_tlg execute time: %ld secs, count=%d",
-                     time_end-time_start,count);
-  return;
-};
 
 
 

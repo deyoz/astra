@@ -34,6 +34,7 @@ alter table aodb_bag add pr_cabin NUMBER(1) NOT NULL;
 #include "sopp.h"
 #include "serverlib/helpcpp.h"
 #include "tlg/tlg.h"
+#include "tlg/tlg_binding.h"
 #include "astra_misc.h"
 
 #define NICKNAME "DJEK"
@@ -1908,7 +1909,7 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
 		if ( !brd.empty() )
 		  reqInfo->MsgToLog( string( "Назначение выходов на посадку" ) + brd, evtDisp, move_id, point_id );
 	}
- //!!!vlad привязка
+	bind_tlg_oper(flts, true);
 }
 catch(EOracleError &E)
 {
