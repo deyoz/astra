@@ -435,8 +435,8 @@ bool TReqInfo::CheckAirp(const string &airp)
   };
 };
 
-void TReqInfo::MergeAccess(vector<string> &a, bool &ap,
-                           vector<string> b, bool bp)
+void MergeAccess(vector<string> &a, bool &ap,
+                 vector<string> b, bool bp)
 {
   if (a.empty() && ap ||
       b.empty() && bp)
@@ -1055,11 +1055,11 @@ string getTCLParam(const char* name, const char* def)
       throw EXCEPTIONS::Exception( "Empty TCL param %s", name );
     res=r;
   }
-  catch(std::exception &e)
+  catch(EXCEPTIONS::Exception &e)
   {
     if (def==NULL) throw;
     res=def;
-    ProgError( STDLOG, e.what() );
+    ProgTrace( TRACE0, e.what() );
   };
 
   ProgTrace( TRACE5, "TCL param %s='%s'", name, res );
@@ -1148,6 +1148,11 @@ void showBasicInfo(void)
     NewTextChild(setsNode, "disp_airp", reqInfo->user.sets.disp_airp);
     NewTextChild(setsNode, "disp_craft", reqInfo->user.sets.disp_craft);
     NewTextChild(setsNode, "disp_suffix", reqInfo->user.sets.disp_suffix);
+    bool advanced_trip_list=
+           !(reqInfo->user.user_type==utAirport &&
+             find(reqInfo->user.access.rights.begin(),reqInfo->user.access.rights.end(),335)==reqInfo->user.access.rights.end());
+    NewTextChild(setsNode, "advanced_trip_list", (int)advanced_trip_list);
+    
     //доступ
     xmlNodePtr accessNode = NewTextChild(node, "access");
     //права доступа к операциям
@@ -1177,7 +1182,7 @@ void showBasicInfo(void)
     NewTextChild(node,"currency",reqInfo->desk.currency);
     NewTextChild(node,"time",DateTimeToStr( reqInfo->desk.time ) );
     NewTextChild(node,"time_utc",DateTimeToStr(NowUTC()) );
-    //настройки пользователя
+    //настройки пульта
     xmlNodePtr setsNode = NewTextChild(node, "settings");
     if (reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION))
     {
@@ -1347,7 +1352,7 @@ void SysReqInterface::ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     "FROM client_error_list,locale_messages "
     "WHERE client_error_list.text=locale_messages.id(+) AND "
     "      (:text like client_error_list.text OR "
-    "       :text=locale_messages.text) ";
+    "       :text like '%'||locale_messages.text||'%') ";
   Qry.DeclareVariable("text",otString);
   
   xmlNodePtr node=reqNode->children;

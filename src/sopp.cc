@@ -600,8 +600,11 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
         PointsQry.CreateVariable( "next_date", otDate, next_date+1 );
       }
       else {
-        PointsQry.CreateVariable( "first_date", otDate, first_date );
-        PointsQry.CreateVariable( "next_date", otDate, next_date );
+        TDateTime f, l;
+        modf( first_date, &f );
+        modf( next_date, &l );
+        PointsQry.CreateVariable( "first_date", otDate, f );
+        PointsQry.CreateVariable( "next_date", otDate, l+1 );
       }
         if ( arx )
           PointsQry.CreateVariable( "arx_trip_date_range", otInteger, arx_trip_date_range );
@@ -1905,7 +1908,7 @@ void DeletePassengers( int point_id, const string status, map<int,TTripInfo> &se
   TQuery PaxQry(&OraSession); //только лишь для журнала операций
   PaxQry.Clear();
   PaxQry.SQLText=
-    "SELECT surname,name,pers_type,reg_no FROM pax WHERE grp_id=:grp_id";
+    "SELECT pax_id,surname,name,pers_type,reg_no,pr_brd FROM pax WHERE grp_id=:grp_id";
   PaxQry.DeclareVariable("grp_id",otInteger);
 
   string sql;
@@ -1948,6 +1951,8 @@ void DeletePassengers( int point_id, const string status, map<int,TTripInfo> &se
 
           int tckin_point_id=TCkinQry.FieldAsInteger("point_id");
           int tckin_grp_id=TCkinQry.FieldAsInteger("grp_id");
+          
+          bool SyncAODB=is_sync_aodb(tckin_point_id);
 
           if (segs.find(tckin_point_id)==segs.end())
           {
@@ -1962,12 +1967,22 @@ void DeletePassengers( int point_id, const string status, map<int,TTripInfo> &se
             const char* surname=PaxQry.FieldAsString("surname");
             const char* name=PaxQry.FieldAsString("name");
             const char* pers_type=PaxQry.FieldAsString("pers_type");
+            int pax_id=PaxQry.FieldAsInteger("pax_id");
+            int reg_no=PaxQry.FieldAsInteger("reg_no");
+            bool boarded=!PaxQry.FieldIsNULL("pr_brd") && PaxQry.FieldAsInteger("pr_brd")!=0;
+            
+            if (SyncAODB)
+            {
+              update_aodb_pax_change(tckin_point_id, pax_id, reg_no, "Р");
+              if (boarded)
+                update_aodb_pax_change(tckin_point_id, pax_id, reg_no, "П");
+            };
 
             reqInfo->MsgToLog((string)"Пассажир "+surname+(*name!=0?" ":"")+name+" ("+pers_type+") разрегистрирован. "+
                               "Причина отказа в регистрации: А. ",
                               ASTRA::evtPax,
                               tckin_point_id,
-                              PaxQry.FieldAsInteger("reg_no"),
+                              reg_no,
                               tckin_grp_id);
           };
 
@@ -1983,7 +1998,25 @@ void DeletePassengers( int point_id, const string status, map<int,TTripInfo> &se
       //изменение статуса ЭБ по следующим сегментам маршрута
       SeparateTCkin(grp_id,cssAllPrevCurrNext,cssNone,-1,tckin_id,tckin_seg_no);
     };
+    
+    bool SyncAODB=is_sync_aodb(point_id);
+    
+    PaxQry.SetVariable("grp_id",grp_id);
+    PaxQry.Execute();
+    for(;!PaxQry.Eof;PaxQry.Next())
+    {
+      int pax_id=PaxQry.FieldAsInteger("pax_id");
+      int reg_no=PaxQry.FieldAsInteger("reg_no");
+      bool boarded=!PaxQry.FieldIsNULL("pr_brd") && PaxQry.FieldAsInteger("pr_brd")!=0;
 
+      if (SyncAODB)
+      {
+        update_aodb_pax_change(point_id, pax_id, reg_no, "Р");
+        if (boarded)
+          update_aodb_pax_change(point_id, pax_id, reg_no, "П");
+      };
+    };
+    
     DelQry.SetVariable("grp_id",grp_id);
     DelQry.Execute();
   };
@@ -2923,6 +2956,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   bool pr_change_tripinfo;
   bool reSetCraft;
   string change_dests_msg;
+  TBaseTable &baseairps = base_tables.get( "airps" );
   for( TSOPPDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
   	set_pr_del = false;
   	set_act_out = false;
@@ -3074,6 +3108,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	  old_dest.pr_reg = Qry.FieldAsInteger( "pr_reg" );
   	  old_dest.remark = Qry.FieldAsString( "remark" );
   	  old_dest.point_id = id->point_id;
+  	  old_dest.region = CityTZRegion( ((TAirpsRow&)baseairps.get_row( "code", old_dest.airp, true )).city );
   	  voldDests.push_back( old_dest );
 
   	  change_stages_out = ( !insert_point && (id->est_out != old_dest.est_out || id->scd_out != old_dest.scd_out && old_dest.scd_out > NoExists) );

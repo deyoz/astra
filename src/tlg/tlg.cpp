@@ -3,6 +3,7 @@
 #include "basic.h"
 #include "exceptions.h"
 #include "oralib.h"
+#include "astra_consts.h"
 #include "astra_utils.h"
 #include "serverlib/cfgproc.h"
 #include "serverlib/logger.h"
@@ -59,6 +60,14 @@ const char* OWN_SITA_ADDR()
     VAR=getTCLParam("OWN_SITA_ADDR",NULL);
   return VAR.c_str();
 }
+
+const int HANDLER_PROC_ATTEMPTS()
+{
+  static int VAR=ASTRA::NoExists;
+  if (VAR==ASTRA::NoExists)
+    VAR=getTCLParam("HANDLER_PROC_ATTEMPTS",1,9,3);
+  return VAR;
+};
 
 void sendCmdTlgSnd()
 {
@@ -261,6 +270,30 @@ bool errorTlg(int tlg_id, string type, string msg)
   catch(...)
   {
       ProgError(STDLOG, "errorTlg: Unknown error");
+      throw;
+  };
+};
+
+bool procTlg(int tlg_id)
+{
+  try
+  {
+    TQuery TlgQry(&OraSession);
+    TlgQry.Clear();
+    TlgQry.SQLText=
+           "UPDATE tlg_queue SET proc_attempt=NVL(proc_attempt,0)+1 WHERE id= :id";
+    TlgQry.CreateVariable("id",otInteger,tlg_id);
+    TlgQry.Execute();
+    return TlgQry.RowsProcessed()>0;
+  }
+  catch( std::exception &e)
+  {
+      ProgError(STDLOG, e.what());
+      throw;
+  }
+  catch(...)
+  {
+      ProgError(STDLOG, "procTlg: Unknown error");
       throw;
   };
 };
