@@ -1021,7 +1021,7 @@ int getTCLParam(const char* name, int min, int max, int def)
   r[0]=0;
   try
   {
-    if ( get_param( name, r, sizeof( r ) ) < 0 )
+    if ( get_option( name, r, sizeof( r ) ) < 0 )
       throw EXCEPTIONS::Exception( "Can't read TCL param %s", name );
     if (r[0]==0)
       throw EXCEPTIONS::Exception( "Empty TCL param %s", name );
@@ -1049,7 +1049,7 @@ string getTCLParam(const char* name, const char* def)
   r[0]=0;
   try
   {
-    if ( get_param( name, r, sizeof( r ) ) < 0 )
+    if ( get_option( name, r, sizeof( r ) ) < 0 )
       throw EXCEPTIONS::Exception( "Can't read TCL param %s", name );
     if (r[0]==0)
       throw EXCEPTIONS::Exception( "Empty TCL param %s", name );
