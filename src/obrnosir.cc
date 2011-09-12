@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "telegram.h"
 #include "oralib.h"
 #include "maindcs.h"
 #include "docs.h"
@@ -28,7 +29,8 @@ const
     {"-ediinsert",     edi_load_messages_main,  NULL,                     "loading edifact templates"},
     {"-testbm",        testbm,                  NULL,                     NULL},
     {"-termversion",   SetTermVersionNotice,    SetTermVersionNoticeHelp, NULL},
-    {"-alter_db",      alter_db,                NULL,                     NULL}
+    {"-alter_db",      alter_db,                NULL,                     NULL},
+    {"-send_tlg",      send_tlg,                send_tlg_help,            NULL}
   };
 
 int nosir_test(int argc,char **argv)
