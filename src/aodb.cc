@@ -1582,13 +1582,13 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
       err++;
       Qry.Execute();
       err++;
-      if ( it != fl.dests.end() - 1 ) {
+/*      if ( it != fl.dests.end() - 1 ) {
         QrySet.SetVariable( "point_id", POINT_IDQry.FieldAsInteger( "point_id" ) );
         QrySet.SetVariable( "max_commerce", FNull );
 	    	err++;
 		    QrySet.Execute();
 		    err++;
-      }
+      }*/
       reqInfo->MsgToLog( string( "Ввод нового пункта " ) + it->airp, evtDisp, move_id, POINT_IDQry.FieldAsInteger( "point_id" ) );
     }
 	}
