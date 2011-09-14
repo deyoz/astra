@@ -1636,7 +1636,42 @@ void ParsePTMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPtmContent& con)
   return;
 };
 
-void ParsePNLADLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPnlAdlContent& con)
+bool isBlockSeatsRem(const string &rem_code)
+{
+  return rem_code=="EXST" || rem_code=="STCR";
+};
+
+vector<TPaxItem>::const_iterator findPaxForBlockSeats(vector<TPaxItem>::const_iterator zzPax,
+                                                      const TPnrItem &pnr,
+                                                      vector<TNameElement>::const_iterator ne)
+{
+  vector<TPaxItem>::const_iterator minSeatsPax=zzPax;
+  for(vector<TNameElement>::const_iterator iNameElement=pnr.ne.begin();
+                                           iNameElement!=pnr.ne.end();
+                                           ++iNameElement)
+  {
+    if (ne!=pnr.ne.end() && ne!=iNameElement) continue;
+    if (iNameElement->surname=="ZZ") continue;
+    for(vector<TPaxItem>::const_iterator iPaxItem=iNameElement->pax.begin();
+                                         iPaxItem!=iNameElement->pax.end();
+                                         ++iPaxItem)
+    {
+      if (iPaxItem==zzPax) continue;
+      if (isBlockSeatsRem(iPaxItem->name)) continue;
+      for(vector<TRemItem>::const_iterator iRemItem=iPaxItem->rem.begin();
+                                           iRemItem!=iPaxItem->rem.end();
+                                           ++iRemItem)
+        if (iRemItem->code==zzPax->name)
+        {
+          if (minSeatsPax==zzPax || iPaxItem->seats < minSeatsPax->seats) minSeatsPax=iPaxItem;
+          break;
+        };
+    };
+  };
+  return minSeatsPax;
+};
+
+void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLContent& con)
 {
   vector<TRbdItem>::iterator iRbdItem;
   vector<TRouteItem>::iterator iRouteItem;
@@ -1669,6 +1704,11 @@ void ParsePNLADLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPnlAdlContent
     strcpy(con.flt.airp_dep,info.flt.airp_dep);
     GetAirp(con.flt.airp_dep);
 
+    bool isPRL=strcmp(info.tlg_type,"PRL")==0;
+
+    if (isPRL)
+      e=Configuration;
+    else
     e=BonusPrograms;
     do
     {
@@ -1739,10 +1779,16 @@ void ParsePNLADLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPnlAdlContent
               RbdItem.rbds=lexh;
               con.rbd.push_back(RbdItem);
             };
+            if (isPRL)
+              e=TotalsByDestination;
+            else
             e=SpaceAvailableElement;
             e_part=1;
             break;
           };
+          if (isPRL)
+            e=TotalsByDestination;
+          else
           e=SpaceAvailableElement;
           e_part=1;
         case SpaceAvailableElement:
@@ -2112,23 +2158,72 @@ void ParsePNLADLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPnlAdlContent
         for(i=iPnrItem->ne.begin();i!=iPnrItem->ne.end();i++)
         {
           ParseRemarks(seat_rem_priority,tlg,*iPnrItem,*i);
-          // проставить для EXST и STCR реальное кол-во мест
+          //два прохода в рамках пассажиров одного NameElement:
+          //1. Проставляем EXST и STCR для тех пассажиров, у которых соответствующие личные ремарки
           for(iPaxItem=i->pax.begin();iPaxItem!=i->pax.end();)
           {
-            if (iPaxItem!=i->pax.begin()&&
-                (iPaxItem->name=="EXST"||iPaxItem->name=="STCR"))
+            if (isBlockSeatsRem(iPaxItem->name))
             {
+              vector<TPaxItem>::const_iterator minSeatsPax=findPaxForBlockSeats(iPaxItem, *iPnrItem, i);
+              if (minSeatsPax!=iPaxItem)
+              {
+                TPaxItem &p=(TPaxItem&)*minSeatsPax;
+                if (p.seats>3) break; //нельзя для астры превышать кол-во мест 3
+                p.seats++;
+                p.rem.insert(p.rem.end(),
+                             iPaxItem->rem.begin(),iPaxItem->rem.end());
+                iPaxItem=i->pax.erase(iPaxItem);
+                continue;
+              };
+            };
+            iPaxItem++;
+          };
+          //2. Проставляем EXST и STCR для пассажиров непосредственно перед EXST/STCR
+          iPaxItemPrev=i->pax.end();
+          for(iPaxItem=i->pax.begin();iPaxItem!=i->pax.end();)
+          {
+            if (isBlockSeatsRem(iPaxItem->name))
+            {
+              if (iPaxItemPrev!=i->pax.end())
+              {
+                if (iPaxItemPrev->seats>3) continue;
               iPaxItemPrev->seats++;
               //перебросим ремарки
               iPaxItemPrev->rem.insert(iPaxItemPrev->rem.end(),
                                        iPaxItem->rem.begin(),iPaxItem->rem.end());
               iPaxItem=i->pax.erase(iPaxItem);
+                continue;
+              };
             }
             else
             {
               iPaxItemPrev=iPaxItem;
+            };
               iPaxItem++;
             };
+          };
+        
+        // Проставляем EXST и STCR для тех пассажиров, у которых соответствующие личные ремарки в рамках одного PNR
+        for(i=iPnrItem->ne.begin();i!=iPnrItem->ne.end();i++)
+        {
+          if (i->surname!="ZZ") continue;
+          for(iPaxItem=i->pax.begin();iPaxItem!=i->pax.end();)
+          {
+            if (isBlockSeatsRem(iPaxItem->name))
+            {
+              vector<TPaxItem>::const_iterator minSeatsPax=findPaxForBlockSeats(iPaxItem, *iPnrItem, iPnrItem->ne.end());
+              if (minSeatsPax!=iPaxItem)
+              {
+                TPaxItem &p=(TPaxItem&)*minSeatsPax;
+                if (p.seats>3) break; //нельзя для астры превышать кол-во мест 3
+                p.seats++;
+                p.rem.insert(p.rem.end(),
+                             iPaxItem->rem.begin(),iPaxItem->rem.end());
+                iPaxItem=i->pax.erase(iPaxItem);
+                continue;
+              };
+            };
+            iPaxItem++;
           };
         };
       };
@@ -4060,21 +4155,52 @@ int SaveFlt(int tlg_id, TFltInfo& flt, TBindType bind_type)
   return point_id;
 };
 
-bool DeleteSOMContent(int point_id, THeadingInfo& info)
+bool isDeleteTypeBContent(int point_id, const THeadingInfo& info)
 {
   TQuery Qry(&OraSession);
   Qry.Clear();
-  Qry.SQLText=
-    "SELECT MAX(time_create) AS max_time_create "
-    "FROM tlgs_in,tlg_source "
-    "WHERE tlg_source.tlg_id=tlgs_in.id AND "
-    "      tlg_source.point_id_tlg=:point_id AND tlgs_in.type=:tlg_type";
-  Qry.CreateVariable("point_id",otInteger,point_id);
-  Qry.CreateVariable("tlg_type",otString,info.tlg_type);
-  Qry.Execute();
-  if (!Qry.Eof && !Qry.FieldIsNULL("max_time_create"))
+  if (strcmp(info.tlg_type,"SOM")==0)
   {
-    if (Qry.FieldAsDateTime("max_time_create") > info.time_create) return false;
+    Qry.SQLText=
+      "SELECT MAX(time_create) AS max_time_create "
+      "FROM tlgs_in,tlg_source "
+      "WHERE tlg_source.tlg_id=tlgs_in.id AND "
+      "      tlg_source.point_id_tlg=:point_id AND tlgs_in.type=:tlg_type";
+    Qry.CreateVariable("point_id",otInteger,point_id);
+    Qry.CreateVariable("tlg_type",otString,info.tlg_type);
+  } else
+  if (strcmp(info.tlg_type,"BTM")==0 ||
+      strcmp(info.tlg_type,"PTM")==0)
+  {
+    Qry.SQLText=
+      "SELECT MAX(time_create) AS max_time_create "
+      "FROM tlgs_in,tlg_source "
+      "WHERE tlg_source.tlg_id=tlgs_in.id AND "
+      "      tlg_source.point_id_tlg=:point_id_in AND tlgs_in.type=:tlg_type";
+    Qry.CreateVariable("point_id_in",otInteger,point_id);
+    Qry.CreateVariable("tlg_type",otString,info.tlg_type);
+  } else
+  if (strcmp(info.tlg_type,"PRL")==0)
+  {
+    Qry.SQLText=
+      "SELECT last_data AS max_time_create "
+      "FROM typeb_data_stat "
+      "WHERE point_id=:point_id AND system=:system AND sender=:sender";
+    Qry.CreateVariable("point_id",otInteger,point_id);
+    Qry.CreateVariable("system",otString,"DCS");
+    Qry.CreateVariable("sender",otString,info.sender);
+  } else return false;
+  Qry.Execute();
+  return Qry.Eof ||
+         Qry.FieldIsNULL("max_time_create") ||
+         Qry.FieldAsDateTime("max_time_create") <= info.time_create;
+};
+
+bool DeleteSOMContent(int point_id, const THeadingInfo& info)
+{
+  if (isDeleteTypeBContent(point_id, info))
+  {
+    TQuery Qry(&OraSession);
     Qry.Clear();
     Qry.SQLText=
       "BEGIN "
@@ -4089,24 +4215,34 @@ bool DeleteSOMContent(int point_id, THeadingInfo& info)
     Qry.CreateVariable("point_id",otInteger,point_id);
     Qry.CreateVariable("layer_type",otString,EncodeCompLayerType(cltSOMTrzt));
     Qry.Execute();
+    return true;
   };
-  return true;
+  return false;
 };
 
-bool DeletePTMBTMContent(int point_id_in, THeadingInfo& info)
+bool DeletePRLContent(int point_id, const THeadingInfo& info)
 {
-  TQuery Qry(&OraSession);
-  Qry.SQLText=
-    "SELECT MAX(time_create) AS max_time_create "
-    "FROM tlgs_in,tlg_source "
-    "WHERE tlg_source.tlg_id=tlgs_in.id AND "
-    "      tlg_source.point_id_tlg=:point_id_in AND tlgs_in.type=:tlg_type";
-  Qry.CreateVariable("point_id_in",otInteger,point_id_in);
-  Qry.CreateVariable("tlg_type",otString,info.tlg_type);
-  Qry.Execute();
-  if (!Qry.Eof && !Qry.FieldIsNULL("max_time_create"))
+  if (isDeleteTypeBContent(point_id, info))
   {
-    if (Qry.FieldAsDateTime("max_time_create") > info.time_create) return false;
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    Qry.SQLText=
+      "BEGIN "
+      "  ckin.delete_typeb_data(:point_id, :system, :sender, TRUE); "
+      "END;";
+    Qry.CreateVariable("point_id",otInteger,point_id);
+    Qry.CreateVariable("system",otString,"DCS");
+    Qry.CreateVariable("sender",otString,info.sender);
+    Qry.Execute();
+    return true;
+  };
+  return false;
+};
+
+bool DeletePTMBTMContent(int point_id_in, const THeadingInfo& info)
+{
+  if (isDeleteTypeBContent(point_id_in, info))
+  {
     TQuery TrferQry(&OraSession);
     TrferQry.SQLText=
       "SELECT tlg_transfer.trfer_id "
@@ -4117,6 +4253,7 @@ bool DeletePTMBTMContent(int point_id_in, THeadingInfo& info)
     TrferQry.CreateVariable("tlg_type",otString,info.tlg_type);
     TrferQry.Execute();
 
+    TQuery Qry(&OraSession);
     Qry.Clear();
     Qry.SQLText=
       "BEGIN "
@@ -4136,8 +4273,9 @@ bool DeletePTMBTMContent(int point_id_in, THeadingInfo& info)
       Qry.SetVariable("trfer_id",TrferQry.FieldAsInteger("trfer_id"));
       Qry.Execute();
     };
+    return true;
   };
-  return true;
+  return false;
 };
 
 void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, TBtmContent& con)
@@ -4358,6 +4496,7 @@ void SaveDOCSRem(int pax_id, vector<TDocItem> &doc)
   Qry.DeclareVariable("pr_multi",otInteger);
   for(vector<TDocItem>::iterator i=doc.begin();i!=doc.end();i++)
   {
+    if (i->Empty()) continue;
     Qry.SetVariable("rem_code",i->rem_code);
     Qry.SetVariable("rem_status",i->rem_status);
     Qry.SetVariable("type",i->type);
@@ -4455,7 +4594,7 @@ void SaveSOMContent(int tlg_id, TDCSHeadingInfo& info, TSOMContent& con)
   };
 };
 
-bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, bool forcibly)
+bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& con, bool forcibly)
 {
   vector<TRouteItem>::iterator iRouteItem;
   vector<TSeatsItem>::iterator iSeatsItem;
@@ -4467,7 +4606,6 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
   vector<TPnrAddrItem>::iterator iPnrAddr;
   vector<TInfItem>::iterator iInfItem;
 
-  char crs[sizeof(info.sender)];
   int tid;
 
   TQuery Qry(&OraSession);
@@ -4477,10 +4615,14 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
   int point_id=SaveFlt(tlg_id,con.flt,btFirstSeg);
 
   //идентифицируем систему бронирования
-  strcpy(crs,info.sender);
+  bool isPRL=strcmp(info.tlg_type,"PRL")==0;
+  if (isPRL && !DeletePRLContent(point_id,info)) return true;
+  
+  string system=isPRL?"DCS":"CRS";
+  
   Qry.Clear();
-  Qry.SQLText="INSERT INTO crs2(code,name) VALUES(:code,:code)";
-  Qry.CreateVariable("code",otString,crs);
+  Qry.SQLText="INSERT INTO typeb_senders(code,name) VALUES(:code,:code)";
+  Qry.CreateVariable("code",otString,info.sender);
   try
   {
     Qry.Execute();
@@ -4489,71 +4631,104 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
   {
     if (E.Code!=1) throw;
   };
-
-  bool pr_numeric_pnl=true;
+  
+  Qry.Clear();
+  Qry.SQLText="INSERT INTO typeb_sender_systems(sender,system) VALUES(:sender,:system)";
+  Qry.CreateVariable("sender",otString,info.sender);
+  Qry.CreateVariable("system",otString,system);
+  try
+  {
+    Qry.Execute();
+  }
+  catch(EOracleError &E)
+  {
+    if (E.Code!=1) throw;
+  };
+  
   Qry.Clear();
   Qry.SQLText=
-    "SELECT pr_numeric_pnl FROM crs_set "
-    "WHERE crs=:crs AND airline=:airline AND "
-    "      (flt_no=:flt_no OR flt_no IS NULL) AND "
-    "      (airp_dep=:airp_dep OR airp_dep IS NULL) "
-    "ORDER BY flt_no,airp_dep";
-  Qry.CreateVariable("crs",otString,crs);
-  Qry.CreateVariable("airline",otString,con.flt.airline);
-  Qry.CreateVariable("flt_no",otInteger,(int)con.flt.flt_no);
-  Qry.CreateVariable("airp_dep",otString,con.flt.airp_dep);
+    "BEGIN "
+    "  UPDATE typeb_data_stat SET last_data=GREATEST(last_data,:time_create) "
+    "  WHERE point_id=:point_id AND system=:system AND sender=:sender; "
+    "  IF SQL%NOTFOUND THEN "
+    "    INSERT INTO typeb_data_stat(point_id,system,sender,last_data) "
+    "    VALUES(:point_id,:system,:sender,:time_create); "
+    "  END IF; "
+    "END;";
+  Qry.CreateVariable("point_id",otInteger,point_id);
+  Qry.CreateVariable("system",otString,system);
+  Qry.CreateVariable("sender",otString,info.sender);
+  Qry.CreateVariable("time_create",otDate,info.time_create);
   Qry.Execute();
-  if (!Qry.Eof)
-  {
-    pr_numeric_pnl=Qry.FieldAsInteger("pr_numeric_pnl")!=0;
-  }
-  else
-  {
-    Qry.SQLText=
-      "INSERT INTO crs_set(id,airline,flt_no,airp_dep,crs,priority,pr_numeric_pnl) "
-      "VALUES(id__seq.nextval,:airline,:flt_no,:airp_dep,:crs,0,1)";
-    Qry.SetVariable("flt_no",FNull);
-    try
-    {
-      Qry.Execute();
-    }
-    catch(EOracleError &E)
-    {
-      if (E.Code!=1) throw;
-    };
-  };
 
+  bool pr_numeric_pnl=true;
   TDateTime last_resa=NoExists,
             last_tranzit=NoExists,
             last_avail=NoExists,
             last_cfg=NoExists;
   int pr_pnl=0;
-
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT last_resa,last_tranzit,last_avail,last_cfg,pr_pnl FROM crs_data_stat "
-    "WHERE point_id=:point_id AND crs=:crs FOR UPDATE";
-  Qry.CreateVariable("point_id",otInteger,point_id);
-  Qry.CreateVariable("crs",otString,crs);
-  Qry.Execute();
-  if (!Qry.Eof)
+            
+  if (!isPRL)
   {
-    if (!Qry.FieldIsNULL("last_resa"))
-      last_resa=Qry.FieldAsDateTime("last_resa");
-    if (!Qry.FieldIsNULL("last_tranzit"))
-      last_tranzit=Qry.FieldAsDateTime("last_tranzit");
-    if (!Qry.FieldIsNULL("last_avail"))
-      last_avail=Qry.FieldAsDateTime("last_avail");
-    if (!Qry.FieldIsNULL("last_cfg"))
-      last_cfg=Qry.FieldAsDateTime("last_cfg");
-    pr_pnl=Qry.FieldAsInteger("pr_pnl");
+    Qry.Clear();
+    Qry.SQLText=
+      "SELECT pr_numeric_pnl FROM crs_set "
+      "WHERE crs=:crs AND airline=:airline AND "
+      "      (flt_no=:flt_no OR flt_no IS NULL) AND "
+      "      (airp_dep=:airp_dep OR airp_dep IS NULL) "
+      "ORDER BY flt_no,airp_dep";
+    Qry.CreateVariable("crs",otString,info.sender);
+    Qry.CreateVariable("airline",otString,con.flt.airline);
+    Qry.CreateVariable("flt_no",otInteger,(int)con.flt.flt_no);
+    Qry.CreateVariable("airp_dep",otString,con.flt.airp_dep);
+    Qry.Execute();
+    if (!Qry.Eof)
+    {
+      pr_numeric_pnl=Qry.FieldAsInteger("pr_numeric_pnl")!=0;
+    }
+    else
+    {
+      Qry.SQLText=
+        "INSERT INTO crs_set(id,airline,flt_no,airp_dep,crs,priority,pr_numeric_pnl) "
+        "VALUES(id__seq.nextval,:airline,:flt_no,:airp_dep,:crs,0,1)";
+      Qry.SetVariable("flt_no",FNull);
+      try
+      {
+        Qry.Execute();
+      }
+      catch(EOracleError &E)
+      {
+        if (E.Code!=1) throw;
+      };
+    };
+
+    Qry.Clear();
+    Qry.SQLText=
+      "SELECT last_resa,last_tranzit,last_avail,last_cfg,pr_pnl FROM crs_data_stat "
+      "WHERE point_id=:point_id AND crs=:crs FOR UPDATE";
+    Qry.CreateVariable("point_id",otInteger,point_id);
+    Qry.CreateVariable("crs",otString,info.sender);
+    Qry.Execute();
+    if (!Qry.Eof)
+    {
+      if (!Qry.FieldIsNULL("last_resa"))
+        last_resa=Qry.FieldAsDateTime("last_resa");
+      if (!Qry.FieldIsNULL("last_tranzit"))
+        last_tranzit=Qry.FieldAsDateTime("last_tranzit");
+      if (!Qry.FieldIsNULL("last_avail"))
+        last_avail=Qry.FieldAsDateTime("last_avail");
+      if (!Qry.FieldIsNULL("last_cfg"))
+        last_cfg=Qry.FieldAsDateTime("last_cfg");
+      pr_pnl=Qry.FieldAsInteger("pr_pnl");
+    };
+
+    //pr_pnl=0 - не пришел цифровой PNL
+    //pr_pnl=1 - пришел цифровой PNL
+    //pr_pnl=2 - пришел нецифровой PNL
   };
-
-  //pr_pnl=0 - не пришел цифровой PNL
-  //pr_pnl=1 - пришел цифровой PNL
-  //pr_pnl=2 - пришел нецифровой PNL
-
-  bool pr_save_ne=!(strcmp(info.tlg_type,"PNL")==0&&pr_pnl==2|| //пришел второй нецифровой PNL
+  
+  bool pr_save_ne=isPRL ||
+                  !(strcmp(info.tlg_type,"PNL")==0&&pr_pnl==2|| //пришел второй нецифровой PNL
                     strcmp(info.tlg_type,"ADL")==0&&pr_pnl!=2); //пришел ADL до обоих PNL
 
   bool pr_recount=false;
@@ -4564,15 +4739,19 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
     Qry.Clear();
     Qry.SQLText=
       "BEGIN "
-      "  UPDATE crs_data SET resa=NULL,pad=NULL WHERE point_id=:point_id AND crs=:crs; "
-      "  UPDATE crs_data_stat SET last_resa=:time_create WHERE point_id=:point_id AND crs=:crs; "
-      "  IF SQL%NOTFOUND THEN "
-      "    INSERT INTO crs_data_stat(point_id,crs,last_resa) "
-      "    VALUES(:point_id,:crs,:time_create); "
+      "  UPDATE crs_data SET resa=NULL,pad=NULL "
+      "  WHERE point_id=:point_id AND system=:system AND sender=:sender; "
+      "  IF :system='CRS' THEN "
+      "    UPDATE crs_data_stat SET last_resa=:time_create WHERE point_id=:point_id AND crs=:sender; "
+      "    IF SQL%NOTFOUND THEN "
+      "      INSERT INTO crs_data_stat(point_id,crs,last_resa) "
+      "      VALUES(:point_id,:sender,:time_create); "
+      "    END IF; "
       "  END IF; "
       "END;";
     Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.CreateVariable("crs",otString,crs);
+    Qry.CreateVariable("system",otString,system);
+    Qry.CreateVariable("sender",otString,info.sender);
     Qry.CreateVariable("time_create",otDate,info.time_create);
     Qry.Execute();
 
@@ -4580,21 +4759,23 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
     Qry.SQLText=
       "BEGIN "
       "  UPDATE crs_data SET resa=NVL(resa+:resa,:resa), pad=NVL(pad+:pad,:pad) "
-      "  WHERE point_id=:point_id AND target=:target AND class=:class AND crs=:crs; "
+      "  WHERE point_id=:point_id AND system=:system AND sender=:sender AND "
+      "        airp_arv=:airp_arv AND class=:class; "
       "  IF SQL%NOTFOUND THEN "
-      "    INSERT INTO crs_data(point_id,target,class,crs,resa,pad) "
-      "    VALUES(:point_id,:target,:class,:crs,:resa,:pad); "
+      "    INSERT INTO crs_data(point_id,system,sender,airp_arv,class,resa,pad) "
+      "    VALUES(:point_id,:system,:sender,:airp_arv,:class,:resa,:pad); "
       "  END IF; "
       "END;";
     Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.DeclareVariable("target",otString);
+    Qry.CreateVariable("sender",otString,info.sender);
+    Qry.CreateVariable("system",otString,system);
+    Qry.DeclareVariable("airp_arv",otString);
     Qry.DeclareVariable("class",otString);
-    Qry.CreateVariable("crs",otString,crs);
     Qry.DeclareVariable("resa",otInteger);
     Qry.DeclareVariable("pad",otInteger);
     for(iTotals=con.resa.begin();iTotals!=con.resa.end();iTotals++)
     {
-      Qry.SetVariable("target",iTotals->dest);
+      Qry.SetVariable("airp_arv",iTotals->dest);
       Qry.SetVariable("class",EncodeClass(iTotals->cl));
       Qry.SetVariable("resa",(int)iTotals->seats);
       Qry.SetVariable("pad",(int)iTotals->pad);
@@ -4608,15 +4789,19 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
     Qry.Clear();
     Qry.SQLText=
       "BEGIN "
-      "  UPDATE crs_data SET tranzit=NULL WHERE point_id=:point_id AND crs=:crs; "
-      "  UPDATE crs_data_stat SET last_tranzit=:time_create WHERE point_id=:point_id AND crs=:crs; "
-      "  IF SQL%NOTFOUND THEN "
-      "    INSERT INTO crs_data_stat(point_id,crs,last_tranzit) "
-      "    VALUES(:point_id,:crs,:time_create); "
+      "  UPDATE crs_data SET tranzit=NULL "
+      "  WHERE point_id=:point_id AND system=:system AND sender=:sender; "
+      "  IF :system='CRS' THEN "
+      "    UPDATE crs_data_stat SET last_tranzit=:time_create WHERE point_id=:point_id AND crs=:sender; "
+      "    IF SQL%NOTFOUND THEN "
+      "      INSERT INTO crs_data_stat(point_id,crs,last_tranzit) "
+      "      VALUES(:point_id,:sender,:time_create); "
+      "    END IF; "
       "  END IF; "
       "END;";
     Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.CreateVariable("crs",otString,crs);
+    Qry.CreateVariable("system",otString,system);
+    Qry.CreateVariable("sender",otString,info.sender);
     Qry.CreateVariable("time_create",otDate,info.time_create);
     Qry.Execute();
 
@@ -4624,20 +4809,22 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
     Qry.SQLText=
       "BEGIN "
       "  UPDATE crs_data SET tranzit=NVL(tranzit+:tranzit,:tranzit) "
-      "  WHERE point_id=:point_id AND target=:target AND class=:class AND crs=:crs; "
+      "  WHERE point_id=:point_id AND system=:system AND sender=:sender AND "
+      "        airp_arv=:airp_arv AND class=:class; "
       "  IF SQL%NOTFOUND THEN "
-      "    INSERT INTO crs_data(point_id,target,class,crs,tranzit) "
-      "    VALUES(:point_id,:target,:class,:crs,:tranzit); "
+      "    INSERT INTO crs_data(point_id,system,sender,airp_arv,class,tranzit) "
+      "    VALUES(:point_id,:system,:sender,:airp_arv,:class,:tranzit); "
       "  END IF; "
       "END;";
     Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.DeclareVariable("target",otString);
+    Qry.CreateVariable("sender",otString,info.sender);
+    Qry.CreateVariable("system",otString,system);
+    Qry.DeclareVariable("airp_arv",otString);
     Qry.DeclareVariable("class",otString);
-    Qry.CreateVariable("crs",otString,crs);
     Qry.DeclareVariable("tranzit",otInteger);
     for(iRouteItem=con.transit.begin();iRouteItem!=con.transit.end();iRouteItem++)
     {
-      Qry.SetVariable("target",iRouteItem->station);
+      Qry.SetVariable("airp_arv",iRouteItem->station);
       for(iSeatsItem=iRouteItem->seats.begin();iSeatsItem!=iRouteItem->seats.end();iSeatsItem++)
       {
         Qry.SetVariable("class",EncodeClass(iSeatsItem->cl));
@@ -4653,15 +4840,19 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
     Qry.Clear();
     Qry.SQLText=
       "BEGIN "
-      "  UPDATE crs_data SET avail=NULL WHERE point_id=:point_id AND crs=:crs; "
-      "  UPDATE crs_data_stat SET last_avail=:time_create WHERE point_id=:point_id AND crs=:crs; "
-      "  IF SQL%NOTFOUND THEN "
-      "    INSERT INTO crs_data_stat(point_id,crs,last_avail) "
-      "    VALUES(:point_id,:crs,:time_create); "
+      "  UPDATE crs_data SET avail=NULL "
+      "  WHERE point_id=:point_id AND system=:system AND sender=:sender; "
+      "  IF :system='CRS' THEN "
+      "    UPDATE crs_data_stat SET last_avail=:time_create WHERE point_id=:point_id AND crs=:sender; "
+      "    IF SQL%NOTFOUND THEN "
+      "      INSERT INTO crs_data_stat(point_id,crs,last_avail) "
+      "      VALUES(:point_id,:sender,:time_create); "
+      "    END IF; "
       "  END IF; "
       "END;";
     Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.CreateVariable("crs",otString,crs);
+    Qry.CreateVariable("system",otString,system);
+    Qry.CreateVariable("sender",otString,info.sender);
     Qry.CreateVariable("time_create",otDate,info.time_create);
     Qry.Execute();
 
@@ -4669,20 +4860,22 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
     Qry.SQLText=
       "BEGIN "
       "  UPDATE crs_data SET avail=NVL(avail+:avail,:avail) "
-      "  WHERE point_id=:point_id AND target=:target AND class=:class AND crs=:crs; "
+      "  WHERE point_id=:point_id AND system=:system AND sender=:sender AND "
+      "        airp_arv=:airp_arv AND class=:class; "
       "  IF SQL%NOTFOUND THEN "
-      "    INSERT INTO crs_data(point_id,target,class,crs,avail) "
-      "    VALUES(:point_id,:target,:class,:crs,:avail); "
+      "    INSERT INTO crs_data(point_id,system,sender,airp_arv,class,avail) "
+      "    VALUES(:point_id,:system,:sender,:airp_arv,:class,:avail); "
       "  END IF; "
       "END;";
     Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.DeclareVariable("target",otString);
+    Qry.CreateVariable("sender",otString,info.sender);
+    Qry.CreateVariable("system",otString,system);
+    Qry.DeclareVariable("airp_arv",otString);
     Qry.DeclareVariable("class",otString);
-    Qry.CreateVariable("crs",otString,crs);
     Qry.DeclareVariable("avail",otInteger);
     for(iRouteItem=con.avail.begin();iRouteItem!=con.avail.end();iRouteItem++)
     {
-      Qry.SetVariable("target",iRouteItem->station);
+      Qry.SetVariable("airp_arv",iRouteItem->station);
       for(iSeatsItem=iRouteItem->seats.begin();iSeatsItem!=iRouteItem->seats.end();iSeatsItem++)
       {
         Qry.SetVariable("class",EncodeClass(iSeatsItem->cl));
@@ -4698,15 +4891,19 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
     Qry.Clear();
     Qry.SQLText=
       "BEGIN "
-      "  UPDATE crs_data SET cfg=NULL WHERE point_id=:point_id AND crs=:crs; "
-      "  UPDATE crs_data_stat SET last_cfg=:time_create WHERE point_id=:point_id AND crs=:crs; "
-      "  IF SQL%NOTFOUND THEN "
-      "    INSERT INTO crs_data_stat(point_id,crs,last_cfg) "
-      "    VALUES(:point_id,:crs,:time_create); "
+      "  UPDATE crs_data SET cfg=NULL "
+      "  WHERE point_id=:point_id AND system=:system AND sender=:sender; "
+      "  IF :system='CRS' THEN "
+      "    UPDATE crs_data_stat SET last_cfg=:time_create WHERE point_id=:point_id AND crs=:sender; "
+      "    IF SQL%NOTFOUND THEN "
+      "      INSERT INTO crs_data_stat(point_id,crs,last_cfg) "
+      "      VALUES(:point_id,:sender,:time_create); "
+      "    END IF; "
       "  END IF; "
       "END;";
     Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.CreateVariable("crs",otString,crs);
+    Qry.CreateVariable("system",otString,system);
+    Qry.CreateVariable("sender",otString,info.sender);
     Qry.CreateVariable("time_create",otDate,info.time_create);
     Qry.Execute();
 
@@ -4714,20 +4911,22 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
     Qry.SQLText=
       "BEGIN "
       "  UPDATE crs_data SET cfg=NVL(cfg+:cfg,:cfg) "
-      "  WHERE point_id=:point_id AND target=:target AND class=:class AND crs=:crs; "
+      "  WHERE point_id=:point_id AND system=:system AND sender=:sender AND "
+      "        airp_arv=:airp_arv AND class=:class; "
       "  IF SQL%NOTFOUND THEN "
-      "    INSERT INTO crs_data(point_id,target,class,crs,cfg) "
-      "    VALUES(:point_id,:target,:class,:crs,:cfg); "
+      "    INSERT INTO crs_data(point_id,system,sender,airp_arv,class,cfg) "
+      "    VALUES(:point_id,:system,:sender,:airp_arv,:class,:cfg); "
       "  END IF; "
       "END;";
     Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.DeclareVariable("target",otString);
+    Qry.CreateVariable("sender",otString,info.sender);
+    Qry.CreateVariable("system",otString,system);
+    Qry.DeclareVariable("airp_arv",otString);
     Qry.DeclareVariable("class",otString);
-    Qry.CreateVariable("crs",otString,crs);
     Qry.DeclareVariable("cfg",otInteger);
     for(iRouteItem=con.cfg.begin();iRouteItem!=con.cfg.end();iRouteItem++)
     {
-      Qry.SetVariable("target",iRouteItem->station);
+      Qry.SetVariable("airp_arv",iRouteItem->station);
       for(iSeatsItem=iRouteItem->seats.begin();iSeatsItem!=iRouteItem->seats.end();iSeatsItem++)
       {
         Qry.SetVariable("class",EncodeClass(iSeatsItem->cl));
@@ -4773,12 +4972,13 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
         CrsPnrQry.SQLText=
           "SELECT crs_pnr.pnr_id FROM pnr_addrs,crs_pnr "
           "WHERE crs_pnr.pnr_id=pnr_addrs.pnr_id AND "
-          "      point_id= :point_id AND crs= :crs AND "
-          "      target= :target AND subclass= :subclass AND "
+          "      point_id=:point_id AND system=:system AND sender=:sender AND "
+          "      airp_arv=:airp_arv AND subclass=:subclass AND "
           "      pnr_addrs.airline=:pnr_airline AND pnr_addrs.addr=:pnr_addr";
         CrsPnrQry.CreateVariable("point_id",otInteger,point_id);
-        CrsPnrQry.CreateVariable("crs",otString,crs);
-        CrsPnrQry.DeclareVariable("target",otString);
+        CrsPnrQry.CreateVariable("sender",otString,info.sender);
+        CrsPnrQry.CreateVariable("system",otString,system);
+        CrsPnrQry.DeclareVariable("airp_arv",otString);
         CrsPnrQry.DeclareVariable("subclass",otString);
         CrsPnrQry.DeclareVariable("pnr_airline",otString);
         CrsPnrQry.DeclareVariable("pnr_addr",otString);
@@ -4789,8 +4989,8 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
           "BEGIN "
           "  IF :pnr_id IS NULL THEN "
           "    SELECT crs_pnr__seq.nextval INTO :pnr_id FROM dual; "
-          "    INSERT INTO crs_pnr(pnr_id,point_id,target,subclass,class,grp_name,status,priority,crs,tid) "
-          "    VALUES(:pnr_id,:point_id,:target,:subclass,:class,:grp_name,:status,:priority,:crs,tid__seq.currval); "
+          "    INSERT INTO crs_pnr(pnr_id,point_id,system,sender,airp_arv,subclass,class,grp_name,status,priority,tid) "
+          "    VALUES(:pnr_id,:point_id,:system,:sender,:airp_arv,:subclass,:class,:grp_name,:status,:priority,tid__seq.currval); "
           "  ELSE "
           "    UPDATE crs_pnr SET grp_name=NVL(:grp_name,grp_name), "
           "                       status=:status, priority=:priority, "
@@ -4799,13 +4999,14 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
           "  END IF; "
           "END;";
         CrsPnrInsQry.CreateVariable("point_id",otInteger,point_id);
-        CrsPnrInsQry.DeclareVariable("target",otString);
+        CrsPnrInsQry.CreateVariable("sender",otString,info.sender);
+        CrsPnrInsQry.CreateVariable("system",otString,system);
+        CrsPnrInsQry.DeclareVariable("airp_arv",otString);
         CrsPnrInsQry.DeclareVariable("subclass",otString);
         CrsPnrInsQry.DeclareVariable("class",otString);
         CrsPnrInsQry.DeclareVariable("grp_name",otString);
         CrsPnrInsQry.DeclareVariable("status",otString);
         CrsPnrInsQry.DeclareVariable("priority",otString);
-        CrsPnrInsQry.CreateVariable("crs",otString,crs);
         CrsPnrInsQry.DeclareVariable("pnr_id",otInteger);
 
         TQuery CrsPaxQry(&OraSession);
@@ -4904,9 +5105,9 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
         bool UsePriorContext=false;
         for(iTotals=con.resa.begin();iTotals!=con.resa.end();iTotals++)
         {
-          CrsPnrQry.SetVariable("target",iTotals->dest);
+          CrsPnrQry.SetVariable("airp_arv",iTotals->dest);
           CrsPnrQry.SetVariable("subclass",iTotals->subcl);
-          CrsPnrInsQry.SetVariable("target",iTotals->dest);
+          CrsPnrInsQry.SetVariable("airp_arv",iTotals->dest);
           CrsPnrInsQry.SetVariable("subclass",iTotals->subcl);
           CrsPnrInsQry.SetVariable("class",EncodeClass(iTotals->cl));
           for(iPnrItem=iTotals->pnr.begin();iPnrItem!=iTotals->pnr.end();iPnrItem++)
@@ -4943,15 +5144,16 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
                 "SELECT DISTINCT crs_pnr.pnr_id "
                 "FROM crs_pnr,crs_pax "
                 "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
-                "      point_id=:point_id AND target= :target AND subclass= :subclass AND "
-                "      crs=:crs AND "
+                "      point_id=:point_id AND system=:system AND sender=:sender AND "
+                "      airp_arv=:airp_arv AND subclass=:subclass AND "
                 "      surname=:surname AND (name= :name OR :name IS NULL AND name IS NULL) AND "
                 "      seats>0 "
                 "ORDER BY crs_pnr.pnr_id";
               Qry.CreateVariable("point_id",otInteger,point_id);
-              Qry.CreateVariable("target",otString,iTotals->dest);
+              Qry.CreateVariable("sender",otString,info.sender);
+              Qry.CreateVariable("system",otString,system);
+              Qry.CreateVariable("airp_arv",otString,iTotals->dest);
               Qry.CreateVariable("subclass",otString,iTotals->subcl);
-              Qry.CreateVariable("crs",otString,crs);
               Qry.DeclareVariable("surname",otString);
               Qry.DeclareVariable("name",otString);
               //поиск группы по всем пассажирам данной группы
@@ -5133,12 +5335,14 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
                     "    DELETE FROM crs_inf WHERE inf_id=curRow.inf_id; "
                     "    DELETE FROM crs_pax_rem WHERE pax_id=curRow.inf_id; "
                     "    DELETE FROM crs_pax_doc WHERE pax_id=curRow.inf_id; "
+                    "    DELETE FROM crs_pax_doco WHERE pax_id=curRow.inf_id; "
                     "    DELETE FROM crs_pax_tkn WHERE pax_id=curRow.inf_id; "
                     "    DELETE FROM crs_pax_fqt WHERE pax_id=curRow.inf_id; "
                     "    DELETE FROM crs_pax WHERE pax_id=curRow.inf_id; "
                     "  END LOOP; "
                     "  DELETE FROM crs_pax_rem WHERE pax_id=:pax_id; "
                     "  DELETE FROM crs_pax_doc WHERE pax_id=:pax_id; "
+                    "  DELETE FROM crs_pax_doco WHERE pax_id=:pax_id; "
                     "  DELETE FROM crs_pax_tkn WHERE pax_id=:pax_id; "
                     "  DELETE FROM crs_pax_fqt WHERE pax_id=:pax_id; "
                     "END;";
@@ -5187,19 +5391,22 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
                   SaveDOCSRem(pax_id,iPaxItem->doc);
                   SaveTKNRem(pax_id,iPaxItem->tkn);
                   SaveFQTRem(pax_id,iPaxItem->fqt);
-                  InsertTlgSeatRanges(point_id,iTotals->dest,cltPNLCkin,iPaxItem->seatRanges,
+                  InsertTlgSeatRanges(point_id,iTotals->dest,isPRL?cltPRLTrzt:cltPNLCkin,iPaxItem->seatRanges,
                                       pax_id,tlg_id,NoExists,UsePriorContext,tid);
-                  TCompLayerType rem_layer=GetSeatRemLayer(pnr.market_flt.Empty()?con.flt.airline:
-                                                                                  pnr.market_flt.airline,
-                                                           iPaxItem->seat_rem);
-                  if (rem_layer!=cltPNLCkin && rem_layer!=cltUnknown)
-                    InsertTlgSeatRanges(point_id,iTotals->dest,rem_layer,
-                                        vector<TSeatRange>(1,TSeatRange(iPaxItem->seat,iPaxItem->seat)),
-                                        pax_id,tlg_id,NoExists,UsePriorContext,tid);
+                  if (!isPRL)
+                  {
+                    TCompLayerType rem_layer=GetSeatRemLayer(pnr.market_flt.Empty()?con.flt.airline:
+                                                                                    pnr.market_flt.airline,
+                                                             iPaxItem->seat_rem);
+                    if (rem_layer!=cltPNLCkin && rem_layer!=cltUnknown)
+                      InsertTlgSeatRanges(point_id,iTotals->dest,rem_layer,
+                                          vector<TSeatRange>(1,TSeatRange(iPaxItem->seat,iPaxItem->seat)),
+                                          pax_id,tlg_id,NoExists,UsePriorContext,tid);
+                  };
                   UsePriorContext=true;
                   //ремарки, не привязанные к пассажиру
                   SavePNLADLRemarks(pax_id,ne.rem);
-                  InsertTlgSeatRanges(point_id,iTotals->dest,cltPNLCkin,ne.seatRanges,
+                  InsertTlgSeatRanges(point_id,iTotals->dest,isPRL?cltPRLTrzt:cltPNLCkin,ne.seatRanges,
                                       pax_id,tlg_id,NoExists,UsePriorContext,tid);
                   //восстановим номер места предварительной рассадки
                 };
@@ -5227,7 +5434,7 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
               Qry.SQLText=
                 "BEGIN "
                 "  DELETE FROM crs_transfer WHERE pnr_id= :pnr_id; "
-                "  UPDATE crs_pnr SET tid=tid__seq.currval WHERE pnr_id= :pnr_id; "
+                "  UPDATE crs_pnrSET tid=tid__seq.currval WHERE pnr_id= :pnr_id; "
                 "END;";
               Qry.CreateVariable("pnr_id",otInteger,pnr_id);
               Qry.Execute();
@@ -5293,33 +5500,36 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
         };
       };
 
-      int pr_pnl_new=pr_pnl;
-      if (strcmp(info.tlg_type,"PNL")==0)
+      if (!isPRL)
       {
-        //PNL
-        if (pr_ne || !pr_numeric_pnl)
-          //нецифровой
-          pr_pnl_new=2;
-        else
-          //цифровой
-          if (pr_pnl!=2) pr_pnl_new=1; //если до этого не было нецифрового PNL
-      };
+        int pr_pnl_new=pr_pnl;
+        if (strcmp(info.tlg_type,"PNL")==0)
+        {
+          //PNL
+          if (pr_ne || !pr_numeric_pnl)
+            //нецифровой
+            pr_pnl_new=2;
+          else
+            //цифровой
+            if (pr_pnl!=2) pr_pnl_new=1; //если до этого не было нецифрового PNL
+        };
 
-      if (pr_pnl!=pr_pnl_new)
-      {
-        Qry.Clear();
-        Qry.SQLText=
-          "BEGIN "
-          "  UPDATE crs_data_stat SET pr_pnl=:pr_pnl WHERE point_id=:point_id AND crs=:crs; "
-          "  IF SQL%NOTFOUND THEN "
-          "    INSERT INTO crs_data_stat(point_id,crs,pr_pnl) "
-          "    VALUES(:point_id,:crs,:pr_pnl); "
-          "  END IF; "
-          "END;";
-        Qry.CreateVariable("point_id",otInteger,point_id);
-        Qry.CreateVariable("crs",otString,crs);
-        Qry.CreateVariable("pr_pnl",otInteger,pr_pnl_new);
-        Qry.Execute();
+        if (pr_pnl!=pr_pnl_new)
+        {
+          Qry.Clear();
+          Qry.SQLText=
+            "BEGIN "
+            "  UPDATE crs_data_stat SET pr_pnl=:pr_pnl WHERE point_id=:point_id AND crs=:sender; "
+            "  IF SQL%NOTFOUND THEN "
+            "    INSERT INTO crs_data_stat(point_id,crs,pr_pnl) "
+            "    VALUES(:point_id,:sender,:pr_pnl); "
+            "  END IF; "
+            "END;";
+          Qry.CreateVariable("point_id",otInteger,point_id);
+          Qry.CreateVariable("sender",otString,info.sender);
+          Qry.CreateVariable("pr_pnl",otInteger,pr_pnl_new);
+          Qry.Execute();
+        };
       };
     }
     else

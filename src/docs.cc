@@ -2496,6 +2496,7 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         SQLText += " , pax ";
     SQLText +=
         "WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND "
+        "      crs_pnr.system='CRS' AND "
         "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
         "      crs_pax.pr_del=0 and "
         "      tlg_binding.point_id_spp = :point_id ";

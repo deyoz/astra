@@ -745,7 +745,8 @@ void getTCkinData( const TSearchPnrData &firstPnrData,
             "WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND "
             "      tlg_binding.point_id_spp=:point_id AND "
             "      pnr_addrs.pnr_id=crs_pnr.pnr_id AND "
-            "      crs_pnr.target=:airp_arv AND "
+            "      crs_pnr.system='CRS' AND "
+            "      crs_pnr.airp_arv=:airp_arv AND "
             "      crs_pnr.subclass=:subclass AND "
             "      crs_pax.pnr_id=crs_pnr.pnr_id AND "
             "      crs_pax.pr_del=0 "
@@ -1182,7 +1183,7 @@ void addPax( TQuery &Qry,
   {
     TPnrInfo pnrInfo;
     pnrInfo.pnr_id=pnr_id;
-    pnrInfo.airp_arv=Qry.FieldAsString("target");
+    pnrInfo.airp_arv=Qry.FieldAsString("airp_arv");
     pnrInfo.cl=Qry.FieldAsString("class");
     pnrInfo.subcl=Qry.FieldAsString("subclass");
     pnrInfo.pax_id.push_back(Qry.FieldAsInteger("pax_id"));
@@ -1248,7 +1249,7 @@ void findPnr( const TTripInfo &flt,
   	Qry.Clear();
   	Qry.SQLText=
   	  "SELECT crs_pnr.pnr_id, "
-	    "       crs_pnr.target, "
+	    "       crs_pnr.airp_arv, "
 	    "       crs_pnr.class, "
 	    "       crs_pnr.subclass, "
 	    "       crs_pax.pax_id "
@@ -1256,6 +1257,7 @@ void findPnr( const TTripInfo &flt,
       "WHERE tlg_binding.point_id_tlg=crs_pnr.point_id AND "
       "      crs_pax.pnr_id=crs_pnr.pnr_id AND "
       "      tlg_binding.point_id_spp=:point_id AND "
+      "      crs_pnr.system='CRS' AND "
       "      system.transliter_equal(crs_pax.surname,:surname)<>0 AND "
       "      crs_pax.pr_del=0";
     Qry.DeclareVariable("point_id", otInteger);
@@ -1304,7 +1306,7 @@ void findPnr( const TTripInfo &flt,
   	Qry.Clear();
 	  Qry.SQLText=
 	    "SELECT crs_pnr.pnr_id, "
-	    "       crs_pnr.target, "
+	    "       crs_pnr.airp_arv, "
 	    "       crs_pnr.class, "
 	    "       crs_pnr.subclass, "
 	    "       crs_pax.pax_id "
@@ -1312,6 +1314,7 @@ void findPnr( const TTripInfo &flt,
      	"WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
      	"      crs_pnr.pnr_id=pnr_market_flt.pnr_id(+) AND "
      	"      crs_pnr.point_id=:point_id AND "
+     	"      crs_pnr.system='CRS' AND "
      	"      system.transliter_equal(crs_pax.surname,:surname)<>0 AND "
       "      crs_pax.pr_del=0 AND "
      	"      pnr_market_flt.pnr_id IS NULL";
@@ -1379,7 +1382,7 @@ void findPnr( const TTripInfo &flt,
 	    "SELECT tlg_trips.point_id, "
 	    "       tlg_trips.scd, "
 	    "       crs_pnr.pnr_id, "
-	    "       crs_pnr.target, "
+	    "       crs_pnr.airp_arv, "
 	    "       crs_pnr.class, "
 	    "       crs_pnr.subclass, "
 	    "       crs_pax.pax_id "
@@ -1390,6 +1393,7 @@ void findPnr( const TTripInfo &flt,
  	    "      pnr_market_flt.local_date=:scd_day AND "
  	    "      pnr_market_flt.airline=:airline AND pnr_market_flt.flt_no=:flt_no AND "
  	    "      (pnr_market_flt.suffix IS NULL AND :suffix IS NULL OR pnr_market_flt.suffix=:suffix) AND "
+ 	    "      crs_pnr.system='CRS' AND "
  	    "      system.transliter_equal(crs_pax.surname,:surname)<>0 AND "
       "      crs_pax.pr_del=0 "
       "ORDER BY tlg_trips.point_id";
@@ -2944,7 +2948,7 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
 
     Qry.Clear();
     Qry.SQLText=
-      "SELECT target, subclass, class "
+      "SELECT airp_arv, subclass, class "
       "FROM crs_pnr, crs_pax "
       "WHERE crs_pax.pnr_id=crs_pnr.pnr_id AND "
       "      crs_pnr.pnr_id=:pnr_id AND "
@@ -2954,7 +2958,7 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
     if (Qry.Eof)
       throw UserException( "MSG.PASSENGERS.INFO_NOT_FOUND" );
 
-    firstPnrData.airp_arv = Qry.FieldAsString("target");
+    firstPnrData.airp_arv = Qry.FieldAsString("airp_arv");
   	firstPnrData.cls = Qry.FieldAsString("class");
   	firstPnrData.subcls = Qry.FieldAsString("subclass");
 
@@ -3572,7 +3576,7 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
     Qry.Clear();
   	Qry.SQLText =
       "SELECT crs_pnr.pnr_id, crs_pnr.status AS pnr_status, "
-      "       crs_pnr.point_id, crs_pnr.target AS airp_arv, "
+      "       crs_pnr.point_id, crs_pnr.airp_arv, "
       "       crs_pnr.subclass, crs_pnr.class, "
       "       crs_pnr.tid AS crs_pnr_tid, "
       "       crs_pax.tid AS crs_pax_tid, "

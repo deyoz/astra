@@ -655,12 +655,12 @@ bool parse_tlg(void)
             if (strcmp(info.tlg_type,"PNL")==0||
                 strcmp(info.tlg_type,"ADL")==0)
             {
-              TPnlAdlContent con;
-              ParsePNLADLContent(part,info,con);
+              TPNLADLPRLContent con;
+              ParsePNLADLPRLContent(part,info,con);
               //принудительно разобрать через определенное время после получения
               //(это будет работать только для ADL)
               forcibly=utc_date-time_receive > PARSING_FORCE_TIMEOUT;
-              if (SavePNLADLContent(tlg_id,info,con,forcibly))
+              if (SavePNLADLPRLContent(tlg_id,info,con,forcibly))
               {
                 TlgInUpdQry.Execute();
                 OraSession.Commit();
@@ -675,6 +675,15 @@ bool parse_tlg(void)
                   //по истечении некоторого времени - записать в просроченные
                   throw ETlgError("Time limit reached");
               };
+            };
+            if (strcmp(info.tlg_type,"PRL")==0)
+            {
+              TPNLADLPRLContent con;
+              ParsePNLADLPRLContent(part,info,con);
+              SavePNLADLPRLContent(tlg_id,info,con,true);
+              TlgInUpdQry.Execute();
+              OraSession.Commit();
+              count++;
             };
             if (strcmp(info.tlg_type,"PTM")==0)
             {

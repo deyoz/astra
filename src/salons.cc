@@ -859,6 +859,7 @@ void TSalons::Read( )
       "   WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
       "         crs_pnr.point_id=tlg_binding.point_id_tlg AND "
       "         tlg_binding.point_id_spp=:point_dep AND "
+      "         crs_pnr.system='CRS' AND "
       "         crs_pax.seats >= 1 AND "
       "         crs_pax.pr_del=0 "
       " ORDER BY priority ";
@@ -1657,7 +1658,8 @@ int SetCraft( int point_id, std::string &craft, int comp_id )
       "       NVL( MAX( DECODE( class, 'Å', cfg, 0 ) ), 0 ) c, "
       "       NVL( MAX( DECODE( class, 'ù', cfg, 0 ) ), 0 ) y "
       " FROM crs_data,tlg_binding "
-      " WHERE crs_data.point_id=tlg_binding.point_id_tlg AND point_id_spp=:point_id AND target=:airp ";
+      " WHERE crs_data.point_id=tlg_binding.point_id_tlg AND "
+      "       point_id_spp=:point_id AND system='CRS' AND airp_arv=:airp ";
     Qry.CreateVariable( "point_id", otInteger, point_id );
     Qry.CreateVariable( "airp", otString, airp );
     Qry.Execute();
@@ -1670,26 +1672,26 @@ int SetCraft( int point_id, std::string &craft, int comp_id )
       	break;
   	Qry.Clear();
 	  Qry.SQLText =
-      "SELECT airp_arv AS target,class, "
+      "SELECT airp_arv,class, "
       "       0 AS priority, "
       "       crs_ok + crs_tranzit AS c "
       " FROM crs_counters "
       "WHERE point_dep=:point_id "
       "UNION "
-      "SELECT target,class,1,resa + tranzit "
+      "SELECT airp_arv,class,1,resa + tranzit "
       " FROM trip_data "
       "WHERE point_id=:point_id "
-      "ORDER BY target,class,priority DESC ";
+      "ORDER BY airp_arv,class,priority DESC ";
     Qry.CreateVariable( "point_id", otInteger, point_id );
     Qry.Execute();
-    string target, vclass;
+    string airp_arv, vclass;
     f = 0; c = 0; y = 0;
     while ( !Qry.Eof ) {
-    	if ( target.empty() ||
+    	if ( airp_arv.empty() ||
     		   vclass.empty() ||
-    		   target != Qry.FieldAsString( "target" ) ||
+    		   airp_arv != Qry.FieldAsString( "airp_arv" ) ||
     		   vclass != Qry.FieldAsString( "class" ) ) {
-    		target = Qry.FieldAsString( "target" );
+    		airp_arv = Qry.FieldAsString( "airp_arv" );
     		vclass = Qry.FieldAsString( "class" );
     		if ( vclass == "è" ) f = Qry.FieldAsInteger( "c" );
     		if ( vclass == "Å" ) c = Qry.FieldAsInteger( "c" );

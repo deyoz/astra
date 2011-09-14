@@ -2819,7 +2819,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   	case cltCheckin:
   	case cltTCheckin:
       Qry.SQLText =
-       "SELECT surname, name, reg_no, pax.grp_id, pax.seats, a.step step, pax.tid, '' target, point_dep, point_arv, "
+       "SELECT surname, name, reg_no, pax.grp_id, pax.seats, a.step step, pax.tid, '' airp_arv, point_dep, point_arv, "
        "       0 point_id, salons.get_seat_no(pax.pax_id,pax.seats,NULL,:point_dep,'list',rownum) AS seat_no, "
        "       class, pers_type "
        " FROM pax, pax_grp, "
@@ -2831,7 +2831,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
       break;
     case cltProtCkin:
       Qry.SQLText =
-        "SELECT surname, name, 0 reg_no, 0 grp_id, seats, a.step step, crs_pax.tid, target, point_id, 0 point_arv, "
+        "SELECT surname, name, 0 reg_no, 0 grp_id, seats, a.step step, crs_pax.tid, airp_arv, point_id, 0 point_arv, "
         "       NULL AS seat_no, class, pers_type "
         " FROM crs_pax, crs_pnr, "
         "( SELECT COUNT(*) step FROM crs_pax_rem "
@@ -2859,7 +2859,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   fullname += string(" ") + Qry.FieldAsString( "name" );
   int idx1 = Qry.FieldAsInteger( "reg_no" );
   int idx2 = Qry.FieldAsInteger( "grp_id" );
-  string target = Qry.FieldAsString( "target" );
+  string airp_arv = Qry.FieldAsString( "airp_arv" );
   int point_id_tlg = Qry.FieldAsInteger( "point_id" );
   int point_arv = Qry.FieldAsInteger( "point_arv" );
   int seats_count = Qry.FieldAsInteger( "seats" );
@@ -3067,7 +3067,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
         curr_tid = Qry.GetVariableAsInteger( "tid" );
         break;
       case cltProtCkin:
-        InsertTlgSeatRanges( point_id_tlg, target, layer_type, seats, pax_id, NoExists, NoExists, false, curr_tid );
+        InsertTlgSeatRanges( point_id_tlg, airp_arv, layer_type, seats, pax_id, NoExists, NoExists, false, curr_tid );
       	break;
       default:
       	ProgTrace( TRACE5, "!!! Unuseable layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );

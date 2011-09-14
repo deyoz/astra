@@ -38,10 +38,13 @@ enum TTlgElement
                //PNL ¨ ADL
                AssociationNumber,
                BonusPrograms,
+               //PNL, ADL, PRL
                Configuration,
                ClassCodes,
+               //PNL ¨ ADL
                SpaceAvailableElement,
                TranzitElement,
+               //PNL, ADL, PRL
                TotalsByDestination,
                //PTM
                TransferPassengerData,
@@ -223,6 +226,20 @@ class TDocItem
       first_name.clear();
       second_name.clear();
       pr_multi=false;
+    };
+    bool Empty()
+    {
+      return  *type==0 &&
+              *issue_country==0 &&
+              *no==0 &&
+              *nationality==0 &&
+              *gender==0 &&
+              birth_date==ASTRA::NoExists &&
+              expiry_date==ASTRA::NoExists &&
+              surname.empty() &&
+              first_name.empty() &&
+              second_name.empty() &&
+              pr_multi==false;
     };
 };
 
@@ -430,7 +447,7 @@ class TTotalsByDest
     };
 };
 
-class TPnlAdlContent
+class TPNLADLPRLContent
 {
   public:
     TFltInfo flt;
@@ -589,11 +606,12 @@ TTlgCategory GetTlgCategory(char *tlg_type);
 TTlgParts GetParts(char* tlg_p, TMemoryManager &mem);
 TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo* &info, TMemoryManager &mem);
 void ParseEnding(TTlgPartInfo ending, THeadingInfo *headingInfo, TEndingInfo* &info, TMemoryManager &mem);
-void ParsePNLADLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPnlAdlContent& con);
+void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLContent& con);
 void ParsePTMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPtmContent& con);
 void ParseBTMContent(TTlgPartInfo body, TBSMHeadingInfo& info, TBtmContent& con, TMemoryManager &mem);
 void ParseSOMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TSOMContent& con);
-bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, bool forcibly);
+
+bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& con, bool forcibly);
 void SavePTMContent(int tlg_id, TDCSHeadingInfo& info, TPtmContent& con);
 void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, TBtmContent& con);
 void SaveSOMContent(int tlg_id, TDCSHeadingInfo& info, TSOMContent& con);

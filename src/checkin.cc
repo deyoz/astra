@@ -1175,7 +1175,7 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry,  xmlNodePtr resNode)
       node=NewTextChild(pnrNode,"pnr");
       pnr_id=PaxQry.FieldAsInteger("pnr_id");
       NewTextChild(node,"pnr_id",pnr_id);
-      NewTextChild(node,"airp_arv",PaxQry.FieldAsString("target"));
+      NewTextChild(node,"airp_arv",PaxQry.FieldAsString("airp_arv"));
       NewTextChild(node,"subclass",PaxQry.FieldAsString("subclass"));
       NewTextChild(node,"class",PaxQry.FieldAsString("class"));
       string pnr_status=PaxQry.FieldAsString("pnr_status");
@@ -1223,7 +1223,7 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry,  xmlNodePtr resNode)
         xmlNodePtr trferNode=NewTextChild(node,"transfer");
         vector<CheckIn::TTransferItem> dummy;
         CheckInInterface::LoadOnwardCrsTransfer(operFlt,
-                                                PaxQry.FieldAsString("target"),
+                                                PaxQry.FieldAsString("airp_arv"),
                                                 tlgTripsFlt.airp,
                                                 crs_trfer, dummy, trferNode);
       };
@@ -1387,7 +1387,7 @@ void CheckInInterface::SearchGrp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     TQuery PaxQry(&OraSession);
     PaxQry.Clear();
     PaxQry.SQLText=
-      "SELECT crs_pax.pax_id,crs_pnr.point_id,crs_pnr.target,crs_pnr.subclass, "
+      "SELECT crs_pax.pax_id,crs_pnr.point_id,crs_pnr.airp_arv,crs_pnr.subclass, "
       "       crs_pnr.class, crs_pnr.status AS pnr_status, crs_pnr.priority AS pnr_priority, "
       "       crs_pax.surname,crs_pax.name,crs_pax.pers_type, "
       "       salons.get_crs_seat_no(crs_pax.pax_id,crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS seat_no, "
@@ -1461,7 +1461,8 @@ string CheckInInterface::GetSearchPaxSubquery(TPaxStatus pax_status,
              "           crs_displace2.point_id_spp=:point_id AND \n"
              "           b1.point_id_spp<>:point_id) crs_displace \n"
              "   WHERE crs_pnr.point_id=crs_displace.point_id_tlg AND \n"
-             "         crs_pnr.target=crs_displace.airp_arv_tlg AND \n"
+             "         crs_pnr.system='CRS' AND \n"
+             "         crs_pnr.airp_arv=crs_displace.airp_arv_tlg AND \n"
              "         crs_pnr.class=crs_displace.class_tlg \n";
 
     if (!return_pnr_ids || exclude_checked || exclude_deleted)
@@ -1514,6 +1515,7 @@ string CheckInInterface::GetSearchPaxSubquery(TPaxStatus pax_status,
       sql << " \n";
 
     sql   << "   WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND \n"
+             "         crs_pnr.system='CRS' AND \n"
              "         tlg_binding.point_id_spp= :point_id \n";
 
     if (!return_pnr_ids || exclude_checked || exclude_deleted)
@@ -1746,7 +1748,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
     //обычный поиск
     sql =
-      "SELECT crs_pax.pax_id,crs_pnr.point_id,crs_pnr.target,crs_pnr.subclass, \n"
+      "SELECT crs_pax.pax_id,crs_pnr.point_id,crs_pnr.airp_arv,crs_pnr.subclass, \n"
       "       crs_pnr.class, crs_pnr.status AS pnr_status, crs_pnr.priority AS pnr_priority, \n"
       "       crs_pax.surname,crs_pax.name,crs_pax.pers_type, \n"
       "       salons.get_crs_seat_no(crs_pax.pax_id,crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS seat_no, \n"
@@ -7377,7 +7379,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   ostringstream sql;
 
   sql <<
-      "SELECT crs_pax.pax_id,crs_pnr.point_id,crs_pnr.target,crs_pnr.subclass, "
+      "SELECT crs_pax.pax_id,crs_pnr.point_id,crs_pnr.airp_arv,crs_pnr.subclass, "
       "       crs_pnr.class, crs_pnr.status AS pnr_status, crs_pnr.priority AS pnr_priority, "
       "       crs_pax.surname,crs_pax.name,crs_pax.pers_type, "
       "       salons.get_crs_seat_no(crs_pax.pax_id,crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS seat_no, "
@@ -7391,7 +7393,8 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
       "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
       "      crs_pax.pax_id=pax.pax_id(+) AND "
       "      tlg_binding.point_id_spp=:point_id AND "
-      "      crs_pnr.target=:airp_arv AND "
+      "      crs_pnr.system='CRS' AND "
+      "      crs_pnr.airp_arv=:airp_arv AND "
       "      crs_pnr.subclass=:subclass AND ";
   //if (!reqInfo->desk.compatible(PAD_VERSION)) в дальнейшем надо лучше обрабатывать PAD на сквозных сегментах
     sql << " (crs_pnr.status IS NULL OR crs_pnr.status NOT IN ('DG2','RG2','ID2','WL')) AND ";
@@ -7705,6 +7708,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
               "FROM tlg_binding,crs_pnr "
               "WHERE tlg_binding.point_id_tlg=crs_pnr.point_id AND "
               "      tlg_binding.point_id_spp=:point_id AND "
+              "      crs_pnr.system='CRS' AND "
               "      crs_pnr.subclass=:subclass ";
             Qry.CreateVariable("point_id",otInteger,currSeg.point_dep);
             Qry.CreateVariable("subclass",otString,iPax->subclass);

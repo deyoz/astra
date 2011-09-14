@@ -5141,7 +5141,7 @@ struct TPNLPaxInfo {
                     col_name = Qry.FieldIndex("name");
                     col_pers_type = Qry.FieldIndex("pers_type");
                     col_subclass = Qry.FieldIndex("subclass");
-                    col_target = Qry.FieldIndex("target");
+                    col_target = Qry.FieldIndex("airp_arv");
                     col_status = Qry.FieldIndex("status");
                     col_crs = Qry.FieldIndex("crs");
                 }
@@ -5178,7 +5178,7 @@ struct TPNLPaxInfo {
                 "    crs_pax.name, "
                 "    crs_pax.pers_type, "
                 "    crs_pnr.subclass, "
-                "    crs_pnr.target, "
+                "    crs_pnr.airp_arv, "
                 "    crs_pnr.status, "
                 "    crs_pnr.crs "
                 "from "

@@ -2185,7 +2185,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
      "      crs_pax.seat_xname, "
      "      crs_pax.seat_yname, "
      "      crs_pax.seats seats, "
-     "      crs_pnr.target, "
+     "      crs_pnr.airp_arv, "
      "      crs_pnr.last_target, "
      "      report.get_PSPT(crs_pax.pax_id) AS document, "
      "      report.get_TKNO(crs_pax.pax_id) AS ticket, "
@@ -2317,7 +2317,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   int col_seat_xname=Qry.FieldIndex("seat_xname");
   int col_seat_yname=Qry.FieldIndex("seat_yname");
   int col_seats=Qry.FieldIndex("seats");
-  int col_target=Qry.FieldIndex("target");
+  int col_airp_arv=Qry.FieldIndex("airp_arv");
   int col_last_target=Qry.FieldIndex("last_target");
   int col_document=Qry.FieldIndex("document");
   int col_ticket=Qry.FieldIndex("ticket");
@@ -2371,7 +2371,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     NewTextChild( node, "class", ElemIdToCodeNative(etClass,Qry.FieldAsString( col_class )), def_class );
     NewTextChild( node, "subclass", ElemIdToCodeNative(etSubcls,Qry.FieldAsString( col_subclass ) ));
     NewTextChild( node, "seats", Qry.FieldAsInteger( col_seats ), 1 );
-    NewTextChild( node, "target", ElemIdToCodeNative(etAirp,Qry.FieldAsString( col_target ) ));
+    NewTextChild( node, "target", ElemIdToCodeNative(etAirp,Qry.FieldAsString( col_airp_arv ) ));
     if (!Qry.FieldIsNULL(col_last_target))
     {
       try
