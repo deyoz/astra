@@ -5434,7 +5434,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
               Qry.SQLText=
                 "BEGIN "
                 "  DELETE FROM crs_transfer WHERE pnr_id= :pnr_id; "
-                "  UPDATE crs_pnrSET tid=tid__seq.currval WHERE pnr_id= :pnr_id; "
+                "  UPDATE crs_pnr SET tid=tid__seq.currval WHERE pnr_id= :pnr_id; "
                 "END;";
               Qry.CreateVariable("pnr_id",otInteger,pnr_id);
               Qry.Execute();
