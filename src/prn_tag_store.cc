@@ -527,7 +527,7 @@ string TPrnTagStore::get_field(std::string name, size_t len, std::string align, 
                 err.lexema_id = "MSG.NO_LAT_PRN_DATA";
                 err.lparams << LParam("tag", name) << LParam("value", cut_result(result));
                 if(iprops->second.except_when_only_lat) {
-                    ProgError(STDLOG, "Данные печати не латинские: %s = \"%s\"", name.c_str(), result.c_str());
+                    ProgTrace(TRACE0, "Данные печати не латинские: %s = \"%s\"", name.c_str(), result.c_str());
                     if(pr_user_except)
                         throw UserException(err.lexema_id, err.lparams);
                 } else {
