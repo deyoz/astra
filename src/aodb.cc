@@ -484,7 +484,8 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
       "SELECT time,NVL(stations.name,aodb_pax_change.desk) station, client_type, airp "
       " FROM aodb_pax_change,stations "
       " WHERE pax_id=:pax_id AND aodb_pax_change.reg_no=:reg_no AND "
-      "       aodb_pax_change.work_mode=:work_mode AND aodb_pax_change.desk=stations.desk(+)";
+      "       aodb_pax_change.work_mode=:work_mode AND "
+      "       aodb_pax_change.desk=stations.desk(+) AND aodb_pax_change.work_mode=stations.work_mode(+)";
     TimeQry.DeclareVariable( "pax_id", otInteger );
     TimeQry.DeclareVariable( "reg_no", otInteger );
     TimeQry.DeclareVariable( "work_mode", otString );
