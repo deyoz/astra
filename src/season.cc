@@ -248,7 +248,7 @@ TFilter::TFilter()
   Clear();
   region = TReqInfo::Instance()->desk.tz_region;
   TQuery GQry( &OraSession );
-  GQry.SQLText = "SELECT tz FROM tz_regions WHERE region=:region AND pr_del=0";
+  GQry.SQLText = "SELECT tz FROM tz_regions WHERE region=:region AND pr_del=0 ORDER BY tz DESC";
   GQry.CreateVariable( "region", otString, region );
   GQry.Execute();
   tz = GQry.FieldAsInteger( "tz" );
