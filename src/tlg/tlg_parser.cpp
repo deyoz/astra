@@ -259,7 +259,8 @@ TTlgCategory GetTlgCategory(char *tlg_type)
   if (strcmp(tlg_type,"PNL")==0||
       strcmp(tlg_type,"ADL")==0||
       strcmp(tlg_type,"PTM")==0||
-      strcmp(tlg_type,"SOM")==0) cat=tcDCS;
+      strcmp(tlg_type,"SOM")==0||
+      strcmp(tlg_type,"PRL")==0) cat=tcDCS;
   if (strcmp(tlg_type,"BTM")==0) cat=tcBSM;
   if (strcmp(tlg_type,"MVT")==0||
       strcmp(tlg_type,"LDM")==0) cat=tcAHM;
@@ -805,7 +806,8 @@ TTlgPartInfo ParseDCSHeading(TTlgPartInfo heading, TDCSHeadingInfo &info)
             };
             if (strcmp(info.tlg_type,"PNL")==0||
                 strcmp(info.tlg_type,"ADL")==0||
-                strcmp(info.tlg_type,"SOM")==0)
+                strcmp(info.tlg_type,"SOM")==0||
+                strcmp(info.tlg_type,"PRL")==0)
             {
               if ((p=tlg.GetLexeme(p))!=NULL)
               {

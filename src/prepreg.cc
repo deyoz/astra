@@ -183,7 +183,7 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
     " (SELECT DISTINCT sender AS crs FROM crs_data,tlg_binding "
     "  WHERE crs_data.point_id=tlg_binding.point_id_tlg AND "
     "        point_id_spp=:point_id AND crs_data.system='CRS') crs_data, "
-    " (SELECT DISTINCT crs FROM crs_pnr,tlg_binding "
+    " (SELECT DISTINCT sender AS crs FROM crs_pnr,tlg_binding "
     "  WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND "
     "        point_id_spp=:point_id AND crs_pnr.system='CRS') crs_pnr "
     "WHERE typeb_senders.code=crs_set.crs(+) AND "
