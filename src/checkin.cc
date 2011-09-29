@@ -2910,7 +2910,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
       {
         Qry.Clear();
         Qry.SQLText=
-          "SELECT ticket_rem, ticket_no, coupon_no FROM pax WHERE pax_id=:pax_id";
+          "SELECT ticket_rem, ticket_no, coupon_no, refuse FROM pax WHERE pax_id=:pax_id";
         Qry.DeclareVariable("pax_id", otInteger);
         node=NodeAsNode("passengers",segNode);
         for(node=node->children;node!=NULL;node=node->next)
@@ -2972,6 +2972,20 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
 
             if (NodeIsNULLFast("pers_type",node2,true)) continue;
             if (strcmp(NodeAsStringFast("pers_type",node2),EncodePerson(ASTRA::baby))==0) continue; //младенцев не анализируем
+            if (!new_checkin)
+            {
+              if (GetNodeFast("refuse",node2)!=NULL)
+              {
+                //были изменения в информации по пассажиру
+                if (!NodeIsNULLFast("refuse",node2)) continue; //пассажир разрегистрирован
+              }
+              else
+              {
+                Qry.SetVariable("pax_id",NodeAsIntegerFast("pax_id",node2));
+                Qry.Execute();
+                if (Qry.Eof || !Qry.FieldIsNULL("refuse")) continue; //пассажир разрегистрирован
+              };
+            };
 
             //билет
             if (checkTknInfo.required_fields!=0x0000)
@@ -2984,10 +2998,10 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                 throw UserException("MSG.CHECKIN.PASSENGERS_TICKETS_NOT_SET"); //WEB
             };
 
+            //документ
             if (checkDocInfo.first.required_fields!=0x0000 ||
                 checkDocInfo.second.required_fields!=0x0000)
             {
-              //документ
               bool flagCBBG=strcmp(NodeAsStringFast("name",node2),"CBBG")==0;
               /*bool flagCBBG=false;
               remNode=GetNodeFast("rems",node2);
@@ -3055,7 +3069,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                    long int not_empty_fields=0x0000;
                    if (!NodeIsNULLFast("document",node2,true)) not_empty_fields|=DOC_NO_FIELD;
                    
-                   if ((checkTknInfo.required_fields&DOC_NO_FIELD&not_empty_fields)!=(checkTknInfo.required_fields&DOC_NO_FIELD))
+                   if ((checkDocInfo.first.required_fields&DOC_NO_FIELD&not_empty_fields)!=(checkDocInfo.first.required_fields&DOC_NO_FIELD))
                      throw UserException("MSG.CHECKIN.PASSENGERS_DOCUMENTS_NOT_SET"); //WEB
                  };
                };
@@ -4091,6 +4105,9 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                 Qry.SQLText="SELECT refuse,reg_no,pr_brd FROM pax WHERE pax_id=:pax_id";
                 Qry.CreateVariable("pax_id",otInteger,pax_id);
                 Qry.Execute();
+                if (Qry.Eof)
+                  throw UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA",
+                                      LParams()<<LParam("surname",string(surname)+(*name!=0?" ":"")+name)); //WEB
                 string old_refuse=Qry.FieldAsString("refuse");
                 int reg_no=Qry.FieldAsInteger("reg_no");
                 bool boarded=!Qry.FieldIsNULL("pr_brd") && Qry.FieldAsInteger("pr_brd")!=0;
