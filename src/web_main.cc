@@ -1019,7 +1019,8 @@ void filterPax( int point_id,
   if (pnr.empty()) return;
 
   TTripRoute route;
-  route.GetRouteAfter( point_id,
+  route.GetRouteAfter( NoExists,
+                       point_id,
                        trtNotCurrent,
                        trtNotCancelled );
 
@@ -2963,7 +2964,8 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
   	firstPnrData.subcls = Qry.FieldAsString("subclass");
 
     TTripRoute route; //маршрут рейса
-    route.GetRouteAfter( firstPnrData.point_id,
+    route.GetRouteAfter( NoExists,
+                         firstPnrData.point_id,
                          firstPnrData.point_num,
                          firstPnrData.first_point,
                          firstPnrData.pr_tranzit,

@@ -1766,13 +1766,8 @@ int SetCraft( int point_id, std::string &craft, int comp_id )
   Qry.Execute();
   InitVIP( point_id );
   setTRIP_CLASSES( point_id );
-  Qry.Clear();
-  Qry.SQLText =
-   "SELECT ckin.get_classes(:point_id) cl FROM dual ";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
   TReqInfo::Instance()->MsgToLog( string( "Назначена базовая компоновка (ид=" ) + IntToString( comp_id ) +
-  	                              "). Классы: " + Qry.FieldAsString( "cl" ), evtFlt, point_id );
+  	                              "). Классы: " + GetCfgStr(NoExists, point_id, AstraLocale::LANG_RU), evtFlt, point_id );
   check_waitlist_alarm( point_id );
   return comp_id;
 }

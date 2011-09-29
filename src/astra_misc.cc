@@ -361,7 +361,8 @@ TDateTime DayToDate(int day, TDateTime base_date, bool back)
   return result;
 };
 
-void TTripRoute::GetRoute(int point_id,
+void TTripRoute::GetRoute(TDateTime part_key,
+                          int point_id,
                           int point_num,
                           int first_point,
                           bool pr_tranzit,
@@ -371,8 +372,12 @@ void TTripRoute::GetRoute(int point_id,
                           TQuery& Qry)
 {
   ostringstream sql;
-  sql << "SELECT point_id,point_num,airp,pr_del "
-         "FROM points ";
+  sql << "SELECT point_id,point_num,airp,pr_del ";
+  if (part_key!=NoExists)
+    sql << "FROM arx_points ";
+  else
+    sql << "FROM points ";
+    
   if (after_current)
   {
     if (route_type1==trtWithCurrent)
@@ -395,11 +400,16 @@ void TTripRoute::GetRoute(int point_id,
     sql << "AND pr_del>=0 ";
   else
     sql << "AND pr_del=0 ";
+    
+  if (part_key!=NoExists)
+    sql << "AND part_key=:part_key ";
 
   sql << "ORDER BY point_num";
 
   Qry.Clear();
   Qry.SQLText= sql.str().c_str();
+  if (part_key!=NoExists)
+    Qry.CreateVariable("part_key",otDate,part_key);
   if (!pr_tranzit && after_current)
     Qry.CreateVariable("first_point",otInteger,point_id);
   else
@@ -417,22 +427,36 @@ void TTripRoute::GetRoute(int point_id,
   };
 };
 
-bool TTripRoute::GetRoute(int point_id,
+bool TTripRoute::GetRoute(TDateTime part_key,
+                          int point_id,
                           bool after_current,
                           TTripRouteType1 route_type1,
                           TTripRouteType2 route_type2)
 {
   clear();
   TQuery Qry(&OraSession);
+  
+  ostringstream sql;
+  sql << "SELECT point_num,first_point,pr_tranzit ";
+  if (part_key!=NoExists)
+    sql << "FROM arx_points ";
+  else
+    sql << "FROM points ";
+    
+  sql << "WHERE point_id=:point_id AND pr_del>=0";
+  
+  if (part_key!=NoExists)
+    sql << "AND part_key=:part_key ";
+  
   Qry.Clear();
-  Qry.SQLText=
-    "SELECT point_num,first_point,pr_tranzit "
-    "FROM points "
-    "WHERE point_id=:point_id AND pr_del>=0";
+  Qry.SQLText= sql.str().c_str();
+  if (part_key!=NoExists)
+    Qry.CreateVariable("part_key",otDate,part_key);
   Qry.CreateVariable("point_id", otInteger, point_id);
   Qry.Execute();
   if (Qry.Eof) return false;
-  GetRoute(point_id,
+  GetRoute(part_key,
+           point_id,
            Qry.FieldAsInteger("point_num"),
            Qry.FieldAsInteger("first_point"),
            Qry.FieldAsInteger("pr_tranzit")!=0,
@@ -440,21 +464,24 @@ bool TTripRoute::GetRoute(int point_id,
   return true;
 };
 
-bool TTripRoute::GetRouteAfter(int point_id,
+bool TTripRoute::GetRouteAfter(TDateTime part_key,
+                               int point_id,
                                TTripRouteType1 route_type1,
                                TTripRouteType2 route_type2)
 {
-  return GetRoute(point_id,true,route_type1,route_type2);
+  return GetRoute(part_key,point_id,true,route_type1,route_type2);
 };
 
-bool TTripRoute::GetRouteBefore(int point_id,
+bool TTripRoute::GetRouteBefore(TDateTime part_key,
+                                int point_id,
                                 TTripRouteType1 route_type1,
                                 TTripRouteType2 route_type2)
 {
-  return GetRoute(point_id,false,route_type1,route_type2);
+  return GetRoute(part_key,point_id,false,route_type1,route_type2);
 };
 
-void TTripRoute::GetRouteAfter(int point_id,
+void TTripRoute::GetRouteAfter(TDateTime part_key,
+                               int point_id,
                                int point_num,
                                int first_point,
                                bool pr_tranzit,
@@ -463,11 +490,12 @@ void TTripRoute::GetRouteAfter(int point_id,
 {
   clear();
   TQuery Qry(&OraSession);
-  GetRoute(point_id,point_num,first_point,pr_tranzit,
+  GetRoute(part_key,point_id,point_num,first_point,pr_tranzit,
            true,route_type1,route_type2,Qry);
 };
 
-void TTripRoute::GetRouteBefore(int point_id,
+void TTripRoute::GetRouteBefore(TDateTime part_key,
+                                int point_id,
                                 int point_num,
                                 int first_point,
                                 bool pr_tranzit,
@@ -476,11 +504,12 @@ void TTripRoute::GetRouteBefore(int point_id,
 {
   clear();
   TQuery Qry(&OraSession);
-  GetRoute(point_id,point_num,first_point,pr_tranzit,
+  GetRoute(part_key,point_id,point_num,first_point,pr_tranzit,
            false,route_type1,route_type2,Qry);
 };
 
-void TTripRoute::GetNextAirp(int point_id,
+void TTripRoute::GetNextAirp(TDateTime part_key,
+                             int point_id,
                              int point_num,
                              int first_point,
                              bool pr_tranzit,
@@ -490,22 +519,24 @@ void TTripRoute::GetNextAirp(int point_id,
   item.Clear();
   clear();
   TQuery Qry(&OraSession);
-  GetRoute(point_id,point_num,first_point,pr_tranzit,
+  GetRoute(part_key,point_id,point_num,first_point,pr_tranzit,
            true,trtNotCurrent,route_type2,Qry);
   if (!empty()) item=front();
 };
 
-bool TTripRoute::GetNextAirp(int point_id,
+bool TTripRoute::GetNextAirp(TDateTime part_key,
+                             int point_id,
                              TTripRouteType2 route_type2,
                              TTripRouteItem& item)
 {
   item.Clear();
-  if (!GetRoute(point_id,true,trtNotCurrent,route_type2)) return false;
+  if (!GetRoute(part_key,point_id,true,trtNotCurrent,route_type2)) return false;
   if (!empty()) item=front();
   return true;
 };
 
-void TTripRoute::GetPriorAirp(int point_id,
+void TTripRoute::GetPriorAirp(TDateTime part_key,
+                              int point_id,
                               int point_num,
                               int first_point,
                               bool pr_tranzit,
@@ -515,17 +546,18 @@ void TTripRoute::GetPriorAirp(int point_id,
   item.Clear();
   clear();
   TQuery Qry(&OraSession);
-  GetRoute(point_id,point_num,first_point,pr_tranzit,
+  GetRoute(part_key,point_id,point_num,first_point,pr_tranzit,
            false,trtNotCurrent,route_type2,Qry);
   if (!empty()) item=back();
 };
 
-bool TTripRoute::GetPriorAirp(int point_id,
+bool TTripRoute::GetPriorAirp(TDateTime part_key,
+                              int point_id,
                               TTripRouteType2 route_type2,
                               TTripRouteItem& item)
 {
   item.Clear();
-  if (!GetRoute(point_id,false,trtNotCurrent,route_type2)) return false;
+  if (!GetRoute(part_key,point_id,false,trtNotCurrent,route_type2)) return false;
   if (!empty()) item=back();
   return true;
 };
@@ -1224,7 +1256,7 @@ bool IsRouteInter(int point_dep, int point_arv, string &country)
     TBaseTable &airps = base_tables.get("AIRPS");
     TBaseTable &cities = base_tables.get("CITIES");
     TTripRoute route;
-    if (!route.GetRouteAfter(point_dep,trtWithCurrent,trtNotCancelled))
+    if (!route.GetRouteAfter(NoExists,point_dep,trtWithCurrent,trtNotCancelled))
         throw Exception("TTripRoute::GetRouteAfter: flight not found for point_dep %d", point_dep);
     for(TTripRoute::iterator iv = route.begin(); iv != route.end(); iv++)
     {
@@ -1238,4 +1270,140 @@ bool IsRouteInter(int point_dep, int point_arv, string &country)
     return false;
 }
 
+string GetRouteAfterStr(TDateTime part_key,
+                        int point_id,
+                        TTripRouteType1 route_type1,
+                        TTripRouteType2 route_type2,
+                        const string &lang,
+                        bool show_city_name,
+                        const string &separator)
+{
+  ostringstream result;
+  TTripRoute route;
+  route.GetRouteAfter(part_key, point_id, route_type1, trtWithCancelled);
+  
+  vector< pair<TElemFmt,string> > fmts_code, fmts_name;
+  if (lang.empty())
+  {
+    getElemFmts(efmtCodeNative, TReqInfo::Instance()->desk.lang, fmts_code);
+    getElemFmts(efmtNameLong, TReqInfo::Instance()->desk.lang, fmts_name);
+  }
+  else
+  {
+    getElemFmts(efmtCodeNative, lang, fmts_code);
+    getElemFmts(efmtNameLong, lang, fmts_name);
+  };
+  
+  for(TTripRoute::iterator r = route.begin(); r != route.end(); r++)
+  {
+    if (r->point_id!=point_id && route_type2==trtNotCancelled && r->pr_cancel) continue;
+    if (!result.str().empty()) result << separator;
+    string city;
+    if (show_city_name)
+    try
+    {
+      city=base_tables.get("airps").get_row("code",r->airp).AsString("city");
+    }
+    catch (EBaseTableError) {};
+      
+    if (!city.empty())
+      result << ElemIdToElem(etCity, city, fmts_name, true)
+             << "(" << ElemIdToElem(etAirp, r->airp, fmts_code, true) << ")";
+    else
+      result << ElemIdToElem(etAirp, r->airp, fmts_code, true);
+  };
+
+  return result.str();
+};
+
+string GetCfgStr(TDateTime part_key,
+                 int point_id,
+                 const string &lang,
+                 const string &separator)
+{
+  ostringstream result;
+
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  if (part_key!=NoExists)
+  {
+    Qry.SQLText=
+      "SELECT class, cfg FROM arx_trip_classes,classes "
+      "WHERE arx_trip_classes.class=classes.code(+) AND "
+      "      part_key=:part_key AND point_id=:point_id "
+      "ORDER BY priority";
+    Qry.CreateVariable("part_key", otDate, part_key);
+  }
+  else
+    Qry.SQLText=
+      "SELECT class, cfg FROM trip_classes,classes "
+      "WHERE trip_classes.class=classes.code AND point_id=:point_id "
+      "ORDER BY priority";
+  Qry.CreateVariable("point_id", otInteger, point_id);
+  Qry.Execute();
+  vector< pair<TElemFmt,string> > fmts_code;
+  if (lang.empty())
+    getElemFmts(efmtCodeNative, TReqInfo::Instance()->desk.lang, fmts_code);
+  else
+    getElemFmts(efmtCodeNative, lang, fmts_code);
+  for(;!Qry.Eof;Qry.Next())
+  {
+    if (!result.str().empty()) result << separator;
+  
+    result << ElemIdToElem(etClass, Qry.FieldAsString("class"), fmts_code, true)
+           << Qry.FieldAsInteger("cfg");
+  };
+  return result.str();
+};
+
+std::string GetPaxDocStr(TDateTime part_key,
+                         int pax_id,
+                         TQuery& PaxDocQry,
+                         bool with_issue_country,
+                         const string &lang)
+{
+  ostringstream result;
+
+  const char* sql="SELECT no, issue_country FROM pax_doc WHERE pax_id=:pax_id";
+  //const char* sql_arx="SELECT no, issue_country FROM arx_pax_doc WHERE part_key=:part_key AND pax_id=:pax_id";
+  const char* sql_arx="SELECT document AS no, NULL AS issue_country FROM arx_pax WHERE part_key=:part_key AND pax_id=:pax_id"; //!!! переделать
+  
+  if (part_key!=NoExists)
+  {
+    if (strcmp(PaxDocQry.SQLText.SQLText(),sql_arx)!=0)
+    {
+      PaxDocQry.Clear();
+      PaxDocQry.SQLText=sql_arx;
+      PaxDocQry.DeclareVariable("part_key", otDate);
+      PaxDocQry.DeclareVariable("pax_id", otInteger);
+    };
+    PaxDocQry.SetVariable("part_key", part_key);
+  }
+  else
+  {
+    if (strcmp(PaxDocQry.SQLText.SQLText(),sql)!=0)
+    {
+      PaxDocQry.Clear();
+      PaxDocQry.SQLText=sql;
+      PaxDocQry.DeclareVariable("pax_id", otInteger);
+    };
+  };
+  PaxDocQry.SetVariable("pax_id", pax_id);
+  PaxDocQry.Execute();
+  if (!PaxDocQry.Eof && !PaxDocQry.FieldIsNULL("no"))
+  {
+    result << PaxDocQry.FieldAsString("no");
+    if (with_issue_country && !PaxDocQry.FieldIsNULL("issue_country"))
+    {
+      vector< pair<TElemFmt,string> > fmts_code;
+      if (lang.empty())
+        getElemFmts(efmtCodeNative, TReqInfo::Instance()->desk.lang, fmts_code);
+      else
+        getElemFmts(efmtCodeNative, lang, fmts_code);
+      result << " " << ElemIdToElem(etCountry, PaxDocQry.FieldAsString("issue_country"), fmts_code, true);
+    };
+  };
+  
+  return result.str();
+};
 

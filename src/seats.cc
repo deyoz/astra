@@ -2553,6 +2553,7 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p, bool pr_exists )
 	bool res = false;
 	TQuery Qry( &OraSession );
   TQuery RemsQry( &OraSession );
+  TQuery PaxDocQry( &OraSession );
   TPaxSeats priorSeats( point_id );
 	if ( !pr_exists ) {
 	  p.Clear();
@@ -2595,7 +2596,6 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p, bool pr_exists )
            "       pax_grp.status, "
            "       pax.pers_type, "
            "       pax.ticket_no, "
-           "       pax.document, "
            "       ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_weight,"
            "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_amount, "
            "       ckin.get_excess(pax.grp_id,pax.pax_id) AS excess,"
@@ -2637,7 +2637,7 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p, bool pr_exists )
     string fname = Qry.FieldAsString( "surname" );
     pass.fullName = TrimString( fname ) + " " + Qry.FieldAsString( "name" );
     pass.ticket_no = Qry.FieldAsString( "ticket_no" );
-    pass.document = Qry.FieldAsString( "document" );
+    pass.document = GetPaxDocStr(NoExists, Qry.FieldAsInteger( "pax_id" ), PaxDocQry, true);
     pass.bag_weight = Qry.FieldAsInteger( "bag_weight" );
     pass.bag_amount = Qry.FieldAsInteger( "bag_amount" );
     pass.excess = Qry.FieldAsInteger( "excess" );

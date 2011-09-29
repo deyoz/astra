@@ -114,7 +114,8 @@ void ReadSalons( TTlgInfo &info, vector<TTlgCompLayer> &complayers, bool pr_bloc
                             if ( next_point_arv == -1 ) {
                                 TTripRoute route;
                                 TTripRouteItem next_airp;
-                                route.GetNextAirp(info.point_id,
+                                route.GetNextAirp(NoExists,
+                                                  info.point_id,
                                                   info.point_num,
                                                   info.first_point,
                                                   info.pr_tranzit,
@@ -2781,7 +2782,7 @@ void TSSRCodes::ToTlg(TTlgInfo &info, vector<string> &body)
 void TPSM::ToTlg(TTlgInfo &info, vector<string> &body)
 {
     TTripRoute route;
-    route.GetRouteAfter(info.point_id, trtNotCurrent, trtNotCancelled);
+    route.GetRouteAfter(NoExists, info.point_id, trtNotCurrent, trtNotCancelled);
     for(TTripRoute::iterator iv = route.begin(); iv != route.end(); iv++) {
         TSSRCodes ssr_codes(cfg);
         TPSMCls &PSMCls = items[iv->airp];
@@ -5432,7 +5433,7 @@ void TPFSBody::ToTlg(TTlgInfo &info, vector<string> &body)
 {
     vector<string> category_lst;
     TTripRoute route;
-    route.GetRouteAfter(info.point_id, trtNotCurrent, trtNotCancelled);
+    route.GetRouteAfter(NoExists, info.point_id, trtNotCurrent, trtNotCancelled);
     for(TTripRoute::iterator iv = route.begin(); iv != route.end(); iv++) {
         pfsn[iv->airp].ToTlg(info, iv->airp, body);
         if(info.tlg_type == "PFS") {
@@ -5862,7 +5863,7 @@ int TelegramInterface::create_tlg(const TCreateTlgInfo &createInfo)
     {
         TTripRoute route;
         TTripRouteItem next_airp;
-        route.GetNextAirp(info.point_id, trtNotCancelled, next_airp);
+        route.GetNextAirp(NoExists, info.point_id, trtNotCancelled, next_airp);
         if (!next_airp.airp.empty())
         {
             info.airp_arv = next_airp.airp;

@@ -4592,7 +4592,7 @@ void ChangeACT_IN( int point_id, TDateTime old_act, TDateTime act )
       //телеграммы на прилет
       TTripRoute route;
       TTripRouteItem prior_airp;
-      route.GetPriorAirp(point_id, trtNotCancelled, prior_airp);
+      route.GetPriorAirp(NoExists, point_id, trtNotCancelled, prior_airp);
       if (prior_airp.point_id!=NoExists)
   	  {
         vector<string> tlg_types;

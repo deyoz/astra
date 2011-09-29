@@ -124,7 +124,8 @@ void InsertTripSeatRanges(const vector< pair<int, TSeatRange> > &ranges, //векто
         ids.pr_paid_ckin=Qry.FieldAsInteger("pr_paid_ckin")!=0;
 
       TTripRoute route;
-      route.GetRouteAfter(Qry.FieldAsInteger("point_id"),
+      route.GetRouteAfter(NoExists,
+                          Qry.FieldAsInteger("point_id"),
                           Qry.FieldAsInteger("point_num"),
                           Qry.FieldAsInteger("first_point"),
                           Qry.FieldAsInteger("pr_tranzit")!=0,

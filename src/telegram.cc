@@ -46,7 +46,8 @@ void TelegramInterface::readTripData( int point_id, xmlNodePtr dataNode )
   TTripInfo fltInfo(Qry);
   TTripRoute route;
 
-  route.GetRouteAfter(point_id,
+  route.GetRouteAfter(NoExists,
+                      point_id,
                       Qry.FieldAsInteger("point_num"),
                       Qry.FieldAsInteger("first_point"),
                       Qry.FieldAsInteger("pr_tranzit")!=0,
@@ -992,7 +993,8 @@ bool TelegramInterface::IsTypeBSend( TTypeBSendInfo &info )
     if (info.airp_arv.empty())
     {
       TTripRoute route;
-      route.GetRouteAfter(info.point_id,
+      route.GetRouteAfter(NoExists,
+                          info.point_id,
                           info.point_num,
                           info.first_point,
                           info.pr_tranzit,
@@ -1092,7 +1094,8 @@ string TelegramInterface::GetTypeBAddrs( TTypeBAddrInfo &info )
     if (info.airp_arv.empty())
     {
       TTripRoute route;
-      route.GetRouteAfter(info.point_id,
+      route.GetRouteAfter(NoExists,
+                          info.point_id,
                           info.point_num,
                           info.first_point,
                           info.pr_tranzit,
@@ -1194,7 +1197,8 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
   //получим все аэропорты по маршруту
   vector<string> airp_arv;
   TTripRoute route;
-  route.GetRouteAfter(point_id,
+  route.GetRouteAfter(NoExists,
+                      point_id,
                       Qry.FieldAsInteger("point_num"),
                       Qry.FieldAsInteger("first_point"),
                       Qry.FieldAsInteger("pr_tranzit")!=0,

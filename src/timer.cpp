@@ -476,7 +476,8 @@ void create_apis_file(int point_id)
     string country_dep = Qry.FieldAsString("country");
 
     TTripRoute route;
-    route.GetRouteAfter(point_id,
+    route.GetRouteAfter(NoExists,
+                        point_id,
                         Qry.FieldAsInteger("point_num"),
                         Qry.FieldAsInteger("first_point"),
                         Qry.FieldAsInteger("pr_tranzit")!=0,
@@ -504,7 +505,6 @@ void create_apis_file(int point_id)
       "SELECT pax_doc.pax_id AS doc_pax_id, pax_doco.pax_id AS doco_pax_id, "
       "       system.transliter(pax.surname,1,1) AS surname, "
       "       system.transliter(pax.name,1,1) AS name, "
-      "       DECODE(system.is_name(pax.document),0,NULL,pax.document) AS document, "
       "       system.transliter(pax_doc.surname,1,1) AS doc_surname, "
       "       system.transliter(pax_doc.first_name,1,1) AS doc_first_name, "
       "       system.transliter(pax_doc.second_name,1,1) AS doc_second_name, "
@@ -633,13 +633,13 @@ void create_apis_file(int point_id)
               {
         	      paxInfo.setPassengerName(PaxQry.FieldAsString("name"));
         	      paxInfo.setPassengerSurname(PaxQry.FieldAsString("surname"));
-        	      paxInfo.setIdNumber(PaxQry.FieldAsString("document"));
+        	      paxInfo.setIdNumber("");
         	    };
               if (fmt=="CSV_CZ")
         	    {
       	        body << PaxQry.FieldAsString("surname") << ";"
       	  		       << PaxQry.FieldAsString("name") << ";"
-      	  		       << ";;;;;" << PaxQry.FieldAsString("document") << ";;;";
+      	  		       << ";;;;;;;;";
       	  		};
       	  		if (fmt=="CSV_DE")
         	    {
@@ -648,9 +648,7 @@ void create_apis_file(int point_id)
       	  		       << ";;;"
                      << airp_arv.code_lat << ";"
       	  		       << airp_dep.code_lat << ";"
-      	  		       << airp_final_lat << ";"
-      	  		       << (PaxQry.FieldIsNULL("document")?"":"P") << ";"
-                     << convert_char_view(PaxQry.FieldAsString("document"),true) << ";";
+      	  		       << airp_final_lat << ";;;";
       	  		};
       	    }
       	    else

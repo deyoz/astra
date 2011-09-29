@@ -1,4 +1,4 @@
-  #include <stdlib.h>
+#include <stdlib.h>
 #include <string>
 #include "tripinfo.h"
 #include "stages.h"
@@ -96,8 +96,6 @@ void TTripListView::FromXML(xmlNodePtr node)
 
 void setSQLTripList( TQuery &Qry, const TTripListSQLFilter &filter )
 {
-  TReqInfo &info = *(TReqInfo::Instance());
-
   Qry.Clear();
   ostringstream sql;
   
@@ -170,8 +168,6 @@ void setSQLTripList( TQuery &Qry, const TTripListSQLFilter &filter )
       "       points.act_out, "
       "       points.bort, "
       "       points.park_out, "
-      "       SUBSTR(ckin.get_classes(points.point_id,:vlang),1,50) AS classes, "
-      "       SUBSTR(ckin.get_airps(points.point_id,:vlang),1,50) AS route, "
       "       NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out, "
       "       points.trip_type, "
       "       points.litera, "
@@ -184,7 +180,6 @@ void setSQLTripList( TQuery &Qry, const TTripListSQLFilter &filter )
       sql << ",trip_stations ";
     sql << "WHERE points.point_id=:point_id ";
     Qry.CreateVariable( "point_id", otInteger, params.point_id);
-    Qry.CreateVariable( "vlang", otString, info.desk.lang );
   };
     
   sql << "AND points.pr_reg<>0 ";
@@ -1013,9 +1008,10 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   NewTextChild( node, "craft", ElemIdToElemCtxt(ecCkin,etCraft, Qry.FieldAsString( "craft" ), (TElemFmt)Qry.FieldAsInteger( "craft_fmt" )) );
   NewTextChild( node, "bort", Qry.FieldAsString( "bort" ) );
   NewTextChild( node, "park", Qry.FieldAsString( "park_out" ) );
-  NewTextChild( node, "classes", Qry.FieldAsString( "classes" ) );
-  NewTextChild( node, "route", Qry.FieldAsString( "route" ) );
-  NewTextChild( node, "places", Qry.FieldAsString( "route" ) );
+  NewTextChild( node, "classes", GetCfgStr(NoExists, point_id) );
+  string route=GetRouteAfterStr(NoExists, point_id, trtWithCurrent, trtNotCancelled);
+  NewTextChild( node, "route", route );
+  NewTextChild( node, "places", route );
   NewTextChild( node, "trip_type", ElemIdToCodeNative(etTripType,Qry.FieldAsString( "trip_type" )) );
   NewTextChild( node, "litera", Qry.FieldAsString( "litera" ) );
   NewTextChild( node, "remark", Qry.FieldAsString( "remark" ) );
@@ -2187,7 +2183,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
      "      crs_pax.seats seats, "
      "      crs_pnr.airp_arv, "
      "      crs_pnr.last_target, "
-     "      report.get_PSPT(crs_pax.pax_id) AS document, "
+     "      report.get_PSPT(crs_pax.pax_id, 1, :lang) AS document, "
      "      report.get_TKNO(crs_pax.pax_id) AS ticket, "
      "      crs_pax.pax_id, "
      "      crs_pax.tid tid, "
@@ -2224,6 +2220,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   Qry.CreateVariable( "ps_ok", otString, EncodePaxStatus(ASTRA::psCheckin) );
   Qry.CreateVariable( "ps_goshow", otString, EncodePaxStatus(ASTRA::psGoshow) );
   Qry.CreateVariable( "ps_transit", otString, EncodePaxStatus(ASTRA::psTransit) );
+  Qry.CreateVariable( "lang", otString, TReqInfo::Instance()->desk.lang );
   Qry.Execute();
   // места пассажира
   TQuery SQry( &OraSession );

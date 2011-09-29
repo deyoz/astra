@@ -1110,6 +1110,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     get_compatible_report_form("ArxPaxList", reqNode, resNode);
     {
         TQuery Qry(&OraSession);
+        TQuery PaxDocQry(&OraSession);
         string SQLText;
         if(part_key == NoExists)  {
             ProgTrace(TRACE5, "PaxListRun: current base qry");
@@ -1140,8 +1141,8 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   pax_grp.class_grp, "
                 "   salons.get_seat_no(pax.pax_id, pax.seats, pax_grp.status, pax_grp.point_dep, 'seats', rownum) seat_no, "
                 "   pax_grp.hall, "
-                "   pax.document, "
-                "   pax.ticket_no "
+                "   pax.ticket_no, "
+                "   pax.pax_id "
                 "FROM  pax_grp,pax, points "
                 "WHERE "
                 "   points.point_id = :point_id and points.pr_del>=0 and "
@@ -1189,8 +1190,8 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   LPAD(seat_no,3,'0')|| "
                 "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') seat_no, "
                 "   arx_pax_grp.hall, "
-                "   arx_pax.document, "
-                "   arx_pax.ticket_no "
+                "   arx_pax.ticket_no, "
+                "   arx_pax.pax_id "
                 "FROM  arx_pax_grp,arx_pax, arx_points "
                 "WHERE "
                 "   arx_points.point_id = :point_id and arx_points.pr_del>=0 and "
@@ -1251,18 +1252,18 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             int col_pr_brd = Qry.FieldIndex("pr_brd");
             int col_class_grp = Qry.FieldIndex("class_grp");
             int col_seat_no = Qry.FieldIndex("seat_no");
-            int col_document = Qry.FieldIndex("document");
             int col_ticket_no = Qry.FieldIndex("ticket_no");
             int col_hall = Qry.FieldIndex("hall");
-            int col_part_key=Qry.FieldIndex("part_key");
+            int col_pax_id=Qry.FieldIndex("pax_id");
+            
 
             string trip, scd_out;
             while(!Qry.Eof) {
                 xmlNodePtr paxNode = NewTextChild(rowsNode, "pax");
 
-                if(!Qry.FieldIsNULL(col_part_key))
+                if(part_key!=NoExists)
                     NewTextChild(paxNode, "part_key",
-                            DateTimeToStr(Qry.FieldAsDateTime(col_part_key), ServerFormatDateTimeAsString));
+                            DateTimeToStr(part_key, ServerFormatDateTimeAsString));
                 NewTextChild(paxNode, "point_id", Qry.FieldAsInteger(col_point_id));
                 NewTextChild(paxNode, "airline", Qry.FieldAsString(col_airline));
                 NewTextChild(paxNode, "flt_no", Qry.FieldAsInteger(col_flt_no));
@@ -1296,7 +1297,10 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 NewTextChild(paxNode, "status", status);
                 NewTextChild(paxNode, "class", ElemIdToCodeNative(etClsGrp, Qry.FieldAsInteger(col_class_grp)));
                 NewTextChild(paxNode, "seat_no", Qry.FieldAsString(col_seat_no));
-                NewTextChild(paxNode, "document", Qry.FieldAsString(col_document));
+                NewTextChild(paxNode, "document", GetPaxDocStr(part_key,
+                                                               Qry.FieldAsInteger(col_pax_id),
+                                                               PaxDocQry,
+                                                               true));
                 NewTextChild(paxNode, "ticket_no", Qry.FieldAsString(col_ticket_no));
                 if(Qry.FieldIsNULL(col_hall))
                     NewTextChild(paxNode, "hall");
@@ -1402,9 +1406,10 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 rowsNode = NewTextChild(paxListNode, "rows");
             }
             xmlNodePtr paxNode=NewTextChild(rowsNode,"pax");
-            if(!Qry.FieldIsNULL("part_key"))
+            
+            if(part_key!=NoExists)
                 NewTextChild(paxNode, "part_key",
-                        DateTimeToStr(Qry.FieldAsDateTime("part_key"), ServerFormatDateTimeAsString));
+                        DateTimeToStr(part_key, ServerFormatDateTimeAsString));
             NewTextChild(paxNode, "point_id", point_id);
             NewTextChild(paxNode, "airline");
             NewTextChild(paxNode, "flt_no", 0);
@@ -1707,7 +1712,6 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
                 "  points.flt_no, \n"
                 "  points.scd_out, \n"
                 "  stat.point_id, \n"
-                "  ckin.get_airps(stat.point_id,:vlang) places, \n"
                 "  sum(adult + child + baby) pax_amount, \n"
                 "  sum(decode(client_type, :web, adult + child + baby, 0)) web, \n"
                 "  sum(decode(client_type, :kiosk, adult + child + baby, 0)) kiosk, \n"
@@ -1918,7 +1922,7 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
                 "  arx_points.flt_no, \n"
                 "  arx_points.scd_out, \n"
                 "  arx_stat.point_id, \n"
-                "  arch.get_airps(arx_stat.point_id, arx_stat.part_key,:vlang) places, \n"
+                "  arx_stat.part_key, \n"
                 "  sum(adult + child + baby) pax_amount, \n"
                 "  sum(decode(client_type, :web, adult + child + baby, 0)) web, \n"
                 "  sum(decode(client_type, :kiosk, adult + child + baby, 0)) kiosk, \n"
@@ -2777,7 +2781,8 @@ void GetFullStat(TStatType statType, const TStatParams &params, TQuery &Qry,
       int col_excess = Qry.FieldIndex("excess");
       int col_flt_no = Qry.FieldIndex("flt_no");
       int col_scd_out = Qry.FieldIndex("scd_out");
-      int col_places = Qry.FieldIndex("places");
+      int col_places = Qry.GetFieldIndex("places");
+      int col_part_key = Qry.GetFieldIndex("part_key");
       for(; !Qry.Eof; Qry.Next()) {
           TFullStatKey key;
           key.seance = Qry.FieldAsString(col_seance);
@@ -2794,7 +2799,14 @@ void GetFullStat(TStatType statType, const TStatParams &params, TQuery &Qry,
           key.flt_no = Qry.FieldAsInteger(col_flt_no);
           key.scd_out = Qry.FieldAsDateTime(col_scd_out);
           key.point_id = Qry.FieldAsInteger(col_point_id);
-          key.places.set(Qry.FieldAsString(col_places), statType==statTrferFull);
+          if (statType==statTrferFull)
+            key.places.set(Qry.FieldAsString(col_places), true);
+          else
+            key.places.set(GetRouteAfterStr( col_part_key>=0?Qry.FieldAsDateTime(col_part_key):NoExists,
+                                             Qry.FieldAsInteger(col_point_id),
+                                             trtNotCurrent,
+                                             trtNotCancelled),
+                           false);
           TFullStatRow &row = FullStat[key];
           if(row.pax_amount == NoExists) {
               row.pax_amount = Qry.FieldAsInteger(col_pax_amount);
@@ -2849,7 +2861,6 @@ void RunFullStat(TStatType statType, TStatParams &params, xmlNodePtr reqNode, xm
     {
       Qry.CreateVariable("web", otString, EncodeClientType(ctWeb));
       Qry.CreateVariable("kiosk", otString, EncodeClientType(ctKiosk));
-      Qry.CreateVariable("vlang", otString, TReqInfo::Instance()->desk.lang );
     };
     if (!USE_SEANCES() && params.seance==seanceAirline) Qry.DeclareVariable("ak",otString);
     if (!USE_SEANCES() && params.seance==seanceAirport) Qry.DeclareVariable("ap",otString);
@@ -3135,6 +3146,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     LastDate = ClientToUTC(LastDate, info.desk.tz_region);
     TPerfTimer tm;
     TQuery Qry(&OraSession);
+    TQuery PaxDocQry(&OraSession);
     Qry.CreateVariable("FirstDate", otDate, FirstDate);
     Qry.CreateVariable("LastDate", otDate, LastDate);
     Qry.CreateVariable("pr_lat", otInteger, info.desk.lang != AstraLocale::LANG_RU);
@@ -3203,9 +3215,12 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 "   pax_grp.class_grp, "
                 "   salons.get_seat_no(pax.pax_id, pax.seats, pax_grp.status, pax_grp.point_dep, 'seats', rownum) seat_no, "
                 "   pax_grp.hall, "
-                "   pax.document, "
-                "   pax.ticket_no "
+                "   pax.ticket_no, "
+                "   pax.pax_id "
                 "FROM  pax_grp,pax, points ";
+            if(!document.empty())
+                SQLText +=
+                    " , pax_doc ";
             if(!tag_no.empty())
                 SQLText +=
                     " , bag_tags ";
@@ -3214,6 +3229,10 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 "   points.scd_out >= :FirstDate AND points.scd_out < :LastDate and "
                 "   points.point_id = pax_grp.point_dep and points.pr_del>=0 and "
                 "   pax_grp.grp_id=pax.grp_id ";
+            if(!document.empty())
+                SQLText +=
+                    " and pax.pax_id = pax_doc.pax_id and "
+                    " pax_doc.no like '%'||:document||'%' ";
             if(!tag_no.empty())
                 SQLText +=
                     " and pax_grp.grp_id = bag_tags.grp_id and "
@@ -3242,8 +3261,6 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 else
                     SQLText += " and pax.surname like :surname||'%' ";
             }
-            if(!document.empty())
-                SQLText += " and pax.document like '%'||:document||'%' ";
             if(!ticket_no.empty())
                 SQLText += " and pax.ticket_no like '%'||:ticket_no||'%' ";
         } else {
@@ -3276,8 +3293,8 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 "   LPAD(seat_no,3,'0')|| "
                 "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') seat_no, "
                 "   arx_pax_grp.hall, "
-                "   arx_pax.document, "
-                "   arx_pax.ticket_no "
+                "   arx_pax.ticket_no, "
+                "   arx_pax.pax_id "
                 "FROM  arx_pax_grp,arx_pax, arx_points ";
             if(!tag_no.empty())
                 SQLText +=
@@ -3362,10 +3379,10 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             int col_refuse = Qry.FieldIndex("refuse");
             int col_class_grp = Qry.FieldIndex("class_grp");
             int col_seat_no = Qry.FieldIndex("seat_no");
-            int col_document = Qry.FieldIndex("document");
             int col_ticket_no = Qry.FieldIndex("ticket_no");
             int col_hall = Qry.FieldIndex("hall");
             int col_part_key=Qry.FieldIndex("part_key");
+            int col_pax_id=Qry.FieldIndex("pax_id");
 
             map<int, TTripItem> TripItems;
 
@@ -3374,10 +3391,12 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 xmlNodePtr paxNode = NewTextChild(rowsNode, "pax");
 
                 int point_id = Qry.FieldAsInteger(col_point_id);
+                TDateTime part_key=NoExists;
+                if(!Qry.FieldIsNULL(col_part_key)) part_key=Qry.FieldAsDateTime(col_part_key);
 
-                if(!Qry.FieldIsNULL(col_part_key))
+                if(part_key!=NoExists)
                     NewTextChild(paxNode, "part_key",
-                            DateTimeToStr(Qry.FieldAsDateTime(col_part_key), ServerFormatDateTimeAsString));
+                            DateTimeToStr(part_key, ServerFormatDateTimeAsString));
                 NewTextChild(paxNode, "point_id", point_id);
                 NewTextChild(paxNode, "airline", Qry.FieldAsString(col_airline));
                 NewTextChild(paxNode, "flt_no", Qry.FieldAsInteger(col_flt_no));
@@ -3413,7 +3432,10 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 NewTextChild(paxNode, "status", status);
                 NewTextChild(paxNode, "class", ElemIdToCodeNative(etClsGrp, Qry.FieldAsInteger(col_class_grp)));
                 NewTextChild(paxNode, "seat_no", Qry.FieldAsString(col_seat_no));
-                NewTextChild(paxNode, "document", Qry.FieldAsString(col_document));
+                NewTextChild(paxNode, "document", GetPaxDocStr(part_key,
+                                                               Qry.FieldAsInteger(col_pax_id),
+                                                               PaxDocQry,
+                                                               true));
                 NewTextChild(paxNode, "ticket_no", Qry.FieldAsString(col_ticket_no));
                 if(Qry.FieldIsNULL(col_hall))
                     NewTextChild(paxNode, "hall");

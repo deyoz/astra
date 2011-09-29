@@ -156,7 +156,8 @@ void bind_tlg(int point_id_tlg, TFltInfo &flt, TBindType bind_type, vector<int> 
       case btAllSeg:
         {
           TTripRoute route;
-          route.GetRouteAfter(PointsQry.FieldAsInteger("point_id"),
+          route.GetRouteAfter(NoExists,
+                              PointsQry.FieldAsInteger("point_id"),
                               PointsQry.FieldAsInteger("point_num"),
                               PointsQry.FieldAsInteger("first_point"),
                               PointsQry.FieldAsInteger("pr_tranzit")!=0,
