@@ -2552,7 +2552,7 @@ void internal_ReadDests( int move_id, TSOPPDests &dests, string &reference, TDat
   if ( part_key > NoExists ) {
 	  Qry.SQLText =
     "SELECT point_id,point_num,first_point,airp,airp_fmt,airline,airline_fmt,flt_no,suffix,suffix_fmt,craft,craft_fmt,bort,"
-    "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,DECODE(remark,"
+    "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
     "       pr_tranzit,pr_reg,arx_points.pr_del pr_del "
     " FROM arx_points "
     " WHERE arx_points.part_key=:part_key AND arx_points.move_id=:move_id AND "
