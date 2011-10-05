@@ -522,9 +522,7 @@ namespace {
         PushEdiPointG(pMes);
         if(SetEdiPointToSegmentG(pMes, "EBD")){
             SetEdiPointToCompositeG(pMes, "C675",0, "INV_LUGGAGE");
-            quantity   =  GetDBNumCast <int>
-                    (EdiDigitCast<int>("INV_LUGGAGE"), pMes, 6060,0,
-                     "INV_LUGGAGE");
+            quantity   =  GetDBNumCast <int> (EdiDigitCast<int>("INV_LUGGAGE", "0"), pMes, 6060,0);
             charge     =  GetDBNum(pMes, 5463);
             measure    =  GetDBNum(pMes, 6411);
             have_lugg=true;
