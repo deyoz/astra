@@ -4,7 +4,7 @@
 #include <libxml/tree.h>
 #include <string>
 #include <map>
-#include "JxtInterface.h"
+#include "jxtlib/JxtInterface.h"
 
 
 const std::string PARAM_WORK_DIR = "WORKDIR";

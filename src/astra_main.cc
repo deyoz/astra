@@ -14,20 +14,13 @@
 #include "jxtlib/jxtlib.h"
 #include "jxtlib/xml_stuff.h"
 #include "serverlib/sirena_queue.h"
-#include "serverlib/ocilocal.h"
+#include "serverlib/cursctl.h"
 #include "tclmon/mespro_crypt.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
 
 using namespace ServerFramework;
-
-namespace ServerFramework{
-inline QueryRunner AstraQueryRunner()
-{
-    return QueryRunner ( EdiHelpManager::sharedPtr<EdiHelpManager>(MSG_ANSW_STORE_WAIT_SIG));
-}
-}
 
 int astraMsgControl(int type /* 0 - request, 1 - answer */,
                      const char *head, int hlen, const char *body, int blen)
@@ -97,7 +90,7 @@ class AstraApplication : public ApplicationCallbacks
     virtual int jxt_proc(const char *body, int blen, const char *head, int hlen,
                  char **res, int len)
     {
-        ServerFramework::QueryRunner query_runner (ServerFramework::AstraQueryRunner());
+        ServerFramework::QueryRunner query_runner (ServerFramework::TextQueryRunner());
       return jxtlib::JXTLib::Instance()->GetCallbacks()->Main(body,blen,head,hlen,res,len);
     }
     virtual int internet_proc(const char *body, int blen,
@@ -165,7 +158,7 @@ void AstraApplication::levC_app_init()
 {
   if(init_locale()<0)
   {
-    FlushLog();
+    // FlushLog(); ???
     puts("Error retrieving site information");
     term3(SIGINT);
   }

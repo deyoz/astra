@@ -19,7 +19,6 @@
 #include "maindcs.h"
 #include "jxtlib/jxt_cont.h"
 #include "serverlib/str_utils.h"
-#include "serverlib/cfgproc.h"
 #include "tlg/tlg.h"
 #include "serverlib/posthooks.h"
 

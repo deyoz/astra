@@ -5,7 +5,7 @@
 #include "oralib.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
-#include "serverlib/cfgproc.h"
+#include "serverlib/tcl_utils.h"
 #include "serverlib/logger.h"
 
 #define NICKNAME "VLAD"
@@ -320,9 +320,10 @@ void sendCmd(const char* receiver, const char* cmd)
 
     if (addrs.find(receiver)==addrs.end())
     {
-      if ( get_param( receiver, sock_addr.sun_path, sizeof (sock_addr.sun_path) - 1 ) < 0 )
+      string sun_path=readStringFromTcl( receiver, "");
+      if (sun_path.empty() || sun_path.size()>sizeof (sock_addr.sun_path) - 1)
         throw EXCEPTIONS::Exception( "sendCmd: can't read parameter '%s'", receiver );
-      addrs[receiver]=sock_addr.sun_path;
+      addrs[receiver]=sun_path;
       ProgTrace(TRACE5,"sendCmd: receiver %s added",receiver);
     };
     strcpy(sock_addr.sun_path,addrs[receiver].c_str());
@@ -362,9 +363,11 @@ bool waitCmd(const char* receiver, int msecs, const char* buf, int buflen)
       struct sockaddr_un sock_addr;
       memset(&sock_addr,0,sizeof(sock_addr));
       sock_addr.sun_family=AF_UNIX;
-      if ( get_param( receiver, sock_addr.sun_path, sizeof (sock_addr.sun_path) - 1 ) < 0 )
+      string sun_path=readStringFromTcl( receiver, "");
+      if (sun_path.empty() || sun_path.size()>sizeof (sock_addr.sun_path) - 1)
         throw EXCEPTIONS::Exception( "waitCmd: can't read parameter '%s'", receiver );
-      unlink(sock_addr.sun_path);
+      unlink(sun_path.c_str());
+      strcpy(sock_addr.sun_path,sun_path.c_str());
       if (bind(sockfd,(struct sockaddr*)&sock_addr,sizeof(sock_addr))==-1)
         throw EXCEPTIONS::Exception("waitCmd: 'bind' error %d: %s",errno,strerror(errno));
       sockfds[receiver]=sockfd;

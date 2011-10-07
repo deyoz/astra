@@ -17,6 +17,7 @@
 #include "astra_context.h"
 #include "jxtlib/cont_tools.h"
 #include "jxtlib/xml_stuff.h"
+#include "serverlib/cursctl.h"
 #include "serverlib/ocilocal.h"
 #include "serverlib/ehelpsig.h"
 #include "serverlib/date_cast.h"
@@ -556,7 +557,7 @@ void CreateTKCREQchange_status(edi_mes_head *pHead, edi_udata &udata,
                                  get_internal_msgid_hex());
 
         ServerFramework::getQueryRunner().getEdiHelpManager().
-                configForPerespros(STDLOG,prepareKickText("ETStatus",TickD.req_ctxt_id()).c_str(),15);
+                configForPerespros(STDLOG,prepareKickText("ETStatus",TickD.req_ctxt_id()).c_str(),-1,15);
     };
 }
 
@@ -978,7 +979,7 @@ void CreateTKCREQdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data 
                                  get_internal_msgid_hex());
 
       ServerFramework::getQueryRunner().getEdiHelpManager().
-              configForPerespros(STDLOG,prepareKickText("ETSearchForm",TickD.req_ctxt_id()).c_str(),15);
+              configForPerespros(STDLOG,prepareKickText("ETSearchForm",TickD.req_ctxt_id()).c_str(),-1,15);
     };
 }
 

@@ -39,7 +39,7 @@ template <> BaseTypeElemHolder< SystemTypeElem >::TypesMap
         BaseTypeElemHolder< SystemTypeElem >::VTypes;
 template <> bool BaseTypeElemHolder<SystemTypeElem>::initialized = false;
 const char *SystemTypeElem::ElemName = "Remote System Type";
-
+/*
 template <> void Ticketing::BaseTypeElemHolder<SystemTypeElem>::init()
 {
     addElem(SystemTypeElem(SystemType::DcsSystem,"DCS",
@@ -48,7 +48,7 @@ template <> void Ticketing::BaseTypeElemHolder<SystemTypeElem>::init()
     addElem(SystemTypeElem(SystemType::EtsSystem,"ETS",
                            "Сервер электронных билетов",
                            "Electronic ticket server"));
-}
+} */
 }
 
 string SystemContext::getSelText()
