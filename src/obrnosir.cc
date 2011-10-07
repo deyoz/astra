@@ -258,7 +258,7 @@ int seasons_dst_format(int argc,char **argv)
           ProgTrace( TRACE5, "before convert move_id=%d, route.num=%d, scd_in=%s, delta_in=%d, airp=%s",
                      move_id, route_num, DateTimeToStr( prior_scd_in, "dd.mm.yyyy hh:nn" ).c_str(),
                      prior_delta_in, RQry.FieldAsString( "airp" ) );
-          if ( row.country == "êî" ) {
+          if ( row.country == "êî" || row.country == "ìÄ" || row.country == "Åã" ) {
             scd_in = trunc_f + prior_delta_in + prior_scd_in;
             ProgTrace( TRACE5, "scd_in=%f, scd_in=%s", scd_in, DateTimeToStr( scd_in, "dd.mm.yyyy hh:nn" ).c_str() );
             scd_in -= 1.0/24.0;
@@ -277,7 +277,7 @@ int seasons_dst_format(int argc,char **argv)
             scd_in = prior_scd_in;
             delta_in = prior_delta_in;
           }
-          if ( !pr_dest_flight_time ) {
+          if ( !pr_dest_flight_time && row.country == "êî" ) {
             pr_dest_flight_time = ( prior_delta_in == 0 );
             if ( pr_dest_flight_time && delta_in != 0 ) {
               date_diff = delta_in;
@@ -301,7 +301,7 @@ int seasons_dst_format(int argc,char **argv)
           ProgTrace( TRACE5, "before convert move_id=%d,route.num=%d, scd_out=%s, delta_out=%d, airp=%s",
                      move_id, route_num, DateTimeToStr( prior_scd_out, "dd.mm.yyyy hh:nn" ).c_str(),
                      prior_delta_out, RQry.FieldAsString( "airp" ) );
-          if ( row.country == "êî" ) {
+          if ( row.country == "êî" || row.country == "ìÄ" || row.country == "Åã" ) {
             scd_out = trunc_f + prior_delta_out + prior_scd_out;
             ProgTrace( TRACE5, "scd_out=%f, scd_out=%s", scd_out, DateTimeToStr( scd_out, "dd.mm.yyyy hh:nn" ).c_str() );
             scd_out -= 1.0/24.0;
@@ -321,7 +321,7 @@ int seasons_dst_format(int argc,char **argv)
             scd_out = prior_scd_out;
             delta_out = prior_delta_out;
           }
-          if ( !pr_dest_flight_time ) {
+          if ( !pr_dest_flight_time && row.country == "êî" ) {
             pr_dest_flight_time = ( prior_delta_out == 0 );
             if ( pr_dest_flight_time && delta_out != 0 ) {
               date_diff = delta_out;
@@ -419,7 +419,7 @@ int seasons_dst_format(int argc,char **argv)
         ProgTrace( TRACE5, "trip convert: trip_id=%d, move_id=%d, num=%d", Qry.FieldAsInteger( "trip_id" ), Qry.FieldAsInteger( "move_id" ), Qry.FieldAsInteger( "num" ) );
         string city = ((TAirpsRow&)baseairps.get_row( "code", Qry.FieldAsString( "airp" )  , true )).city;
         TCitiesRow& row=(TCitiesRow&)base_tables.get("cities").get_row("code",city,true);
-        if ( row.country == "êî" ) {
+        if ( row.country == row.country == "êî" || row.country == "ìÄ" || row.country == "Åã" ) {
             TDateTime trunc_f, scd_in, prior_scd_in, scd_out, prior_scd_out;
             modf( Qry.FieldAsDateTime( "first_day" ), &trunc_f );
             int delta_in, prior_delta_in, delta_out, prior_delta_out;
