@@ -21,5 +21,7 @@
 
 #define VERSION_WITH_BAG_POOLS    "201201-0000000"
 
+#define SRV_SUPPORT_TERM_VERSION  "
+
 #endif
 

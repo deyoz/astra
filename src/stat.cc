@@ -2585,36 +2585,8 @@ void RunPactDetailStat(TStatType statType, TStatParams &params, xmlNodePtr reqNo
         result_pacts.insert(result_pacts.end(), im->second.begin(), im->second.end());
     }
 
-
-
     TDetailStat DetailStat;
     TPrintAirline prn_airline;
-
-
-    /*
-    Qry.Clear();
-    Qry.DeclareVariable("first_date", otDate);
-    Qry.DeclareVariable("last_date", otDate);
-    Qry.DeclareVariable("airp", otString);
-    Qry.DeclareVariable("airline", otString);
-    Qry.CreateVariable("web", otString, EncodeClientType(ctWeb));
-    Qry.CreateVariable("kiosk", otString, EncodeClientType(ctKiosk));
-    if(params.flt_no != NoExists)
-        Qry.CreateVariable("flt_no", otInteger, params.flt_no);
-
-    for(int pass = 0; pass < 2; pass++) {
-        if(pass != 0)
-            Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
-        for(vector<TPact>::iterator iv = result_pacts.begin(); iv != result_pacts.end(); iv++) {
-            Qry.SQLText = GetPactStatSQLText(statType, params, pass != 0, iv->airlines).c_str();
-            Qry.SetVariable("first_date", iv->first_date);
-            Qry.SetVariable("last_date", iv->last_date);
-            Qry.SetVariable("airp", iv->airp);
-            Qry.SetVariable("airline", iv->airline);
-            GetDetailStat(statType, params, Qry, DetailStat, airline, iv->descr);
-        }
-    }
-    */
 
     Qry.Clear();
     string SQLText =
@@ -2676,13 +2648,8 @@ void RunPactDetailStat(TStatType statType, TStatParams &params, xmlNodePtr reqNo
             int baby = Qry.FieldAsInteger(col_baby);
             TClientType client_type = DecodeClientType(Qry.FieldAsString(col_client_type));
 
-            ProgTrace(TRACE5, "airline: %s", airline.c_str());
-            ProgTrace(TRACE5, "airp: %s", airp.c_str());
-            ProgTrace(TRACE5, "scd_out: %s", DateTimeToStr(scd_out, "ddmmyy").c_str());
-            
             vector<TPact>::iterator iv = result_pacts.begin();
             for(; iv != result_pacts.end(); iv++) {
-                iv->dump();
                 if(
                         scd_out >= iv->first_date and
                         scd_out < iv->last_date and
@@ -2714,24 +2681,19 @@ void RunPactDetailStat(TStatType statType, TStatParams &params, xmlNodePtr reqNo
             }
 
             TDetailStatRow &row = DetailStat[key];
-            if(row.flt_amount == NoExists) {
+            if(row.pax_amount == NoExists) {
                 row.flts.insert(point_id);
                 row.pax_amount = adult + child + baby;
-                row.web = (client_type == ctWeb ? row.pax_amount : 0);
-                row.kiosk = (client_type == ctKiosk ? row.pax_amount : 0);
+                row.web = (client_type == ctWeb ? adult + child + baby : 0);
+                row.kiosk = (client_type == ctKiosk ? adult + child + baby : 0);
             } else {
                 row.flts.insert(point_id);
                 row.pax_amount += adult + child + baby;
-                row.web += (client_type == ctWeb ? row.pax_amount : 0);
-                row.kiosk += (client_type == ctKiosk ? row.pax_amount : 0);
+                row.web += (client_type == ctWeb ? adult + child + baby : 0);
+                row.kiosk += (client_type == ctKiosk ? adult + child + baby : 0);
             }
         }
     }
-
-
-
-
-
     createXMLDetailStat(DetailStat, resNode, prn_airline, params, statType, true);
 }
 
