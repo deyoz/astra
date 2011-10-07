@@ -2229,6 +2229,7 @@ void TStatParams::get(xmlNodePtr reqNode)
 
 struct TDetailStatRow {
     int flt_amount, pax_amount, web, kiosk;
+    set<int> flts;
     TDetailStatRow():
         flt_amount(NoExists),
         pax_amount(NoExists),
@@ -2306,7 +2307,25 @@ struct TPact {
         first_date(vfirst_date),
         last_date(vlast_date)
     {};
+    void dump();
 };
+
+void TPact::dump()
+{
+    ProgTrace(TRACE5, "------TPact-------");
+    ProgTrace(TRACE5, "descr: %s", descr.c_str());
+    ProgTrace(TRACE5, "airline: %s", airline.c_str());
+    ProgTrace(TRACE5, "airp: %s", airp.c_str());
+    string buf;
+    for(vector<string>::iterator iv = airlines.begin(); iv != airlines.end(); iv++) {
+        if(not buf.empty())
+            buf += ", ";
+        buf += *iv;
+    }
+    ProgTrace(TRACE5, "airlines: %s", buf.c_str());
+    ProgTrace(TRACE5, "first_date: %s", DateTimeToStr(first_date, "ddmmyy").c_str());
+    ProgTrace(TRACE5, "last_date: %s", DateTimeToStr(last_date, "ddmmyy").c_str());
+}
 
 void correct_airp_pacts(vector<TPact> &airp_pacts, TPact &airline_pact)
 {
@@ -2439,6 +2458,9 @@ void createXMLDetailStat(TDetailStat &DetailStat, xmlNodePtr resNode, TPrintAirl
             if (statType==statDetail)
                 NewTextChild(rowNode, "col", si->first.col2);
 
+            if(si->second.flt_amount == NoExists)
+                si->second.flt_amount = si->second.flts.size();
+
             total_flt_amount += si->second.flt_amount;
             total_pax_amount += si->second.pax_amount;
             total_web += si->second.web;
@@ -2562,6 +2584,14 @@ void RunPactDetailStat(TStatType statType, TStatParams &params, xmlNodePtr reqNo
             continue;
         result_pacts.insert(result_pacts.end(), im->second.begin(), im->second.end());
     }
+
+
+
+    TDetailStat DetailStat;
+    TPrintAirline prn_airline;
+
+
+    /*
     Qry.Clear();
     Qry.DeclareVariable("first_date", otDate);
     Qry.DeclareVariable("last_date", otDate);
@@ -2571,9 +2601,6 @@ void RunPactDetailStat(TStatType statType, TStatParams &params, xmlNodePtr reqNo
     Qry.CreateVariable("kiosk", otString, EncodeClientType(ctKiosk));
     if(params.flt_no != NoExists)
         Qry.CreateVariable("flt_no", otInteger, params.flt_no);
-
-    TDetailStat DetailStat;
-    TPrintAirline airline;
 
     for(int pass = 0; pass < 2; pass++) {
         if(pass != 0)
@@ -2587,7 +2614,125 @@ void RunPactDetailStat(TStatType statType, TStatParams &params, xmlNodePtr reqNo
             GetDetailStat(statType, params, Qry, DetailStat, airline, iv->descr);
         }
     }
-    createXMLDetailStat(DetailStat, resNode, airline, params, statType, true);
+    */
+
+    Qry.Clear();
+    string SQLText =
+        "select "
+        "   points.airline, "
+        "   points.airp, "
+        "   points.scd_out, "
+        "   stat.point_id, "
+        "   adult, "
+        "   child, "
+        "   baby, "
+        "   client_type "
+        "from "
+        "   points, "
+        "   stat "
+        "where "
+        "   points.point_id = stat.point_id and "
+        "   points.pr_del>=0 and "
+        "   points.scd_out >= :first_date AND "
+        "   points.scd_out < :last_date";
+    if(params.flt_no != NoExists) {
+        SQLText += " and points.flt_no = :flt_no ";
+        Qry.CreateVariable("flt_no", otInteger, params.flt_no);
+    }
+    if (!params.airps.empty()) {
+        if (params.airps_permit)
+            SQLText += " AND points.airp IN "+GetSQLEnum(params.airps)+"\n";
+        else
+            SQLText += " AND points.airp NOT IN "+GetSQLEnum(params.airps)+"\n";
+    };
+    if (!params.airlines.empty()) {
+        if (params.airlines_permit)
+            SQLText += " AND points.airline IN "+GetSQLEnum(params.airlines)+"\n";
+        else
+            SQLText += " AND points.airline NOT IN "+GetSQLEnum(params.airlines)+"\n";
+    }
+
+    Qry.SQLText = SQLText;
+    Qry.CreateVariable("first_date", otDate, params.FirstDate);
+    Qry.CreateVariable("last_date", otDate, params.LastDate);
+    Qry.Execute();
+    if(not Qry.Eof) {
+        int col_airline = Qry.FieldIndex("airline");
+        int col_airp = Qry.FieldIndex("airp");
+        int col_scd_out = Qry.FieldIndex("scd_out");
+        int col_point_id = Qry.FieldIndex("point_id");
+        int col_adult = Qry.FieldIndex("adult");
+        int col_child = Qry.FieldIndex("child");
+        int col_baby = Qry.FieldIndex("baby");
+        int col_client_type = Qry.FieldIndex("client_type");
+        for(; not Qry.Eof; Qry.Next()) {
+
+            string airline = Qry.FieldAsString(col_airline);
+            string airp = Qry.FieldAsString(col_airp);
+            TDateTime scd_out = Qry.FieldAsDateTime(col_scd_out);
+            int point_id = Qry.FieldAsInteger(col_point_id);
+            int adult = Qry.FieldAsInteger(col_adult);
+            int child = Qry.FieldAsInteger(col_child);
+            int baby = Qry.FieldAsInteger(col_baby);
+            TClientType client_type = DecodeClientType(Qry.FieldAsString(col_client_type));
+
+            ProgTrace(TRACE5, "airline: %s", airline.c_str());
+            ProgTrace(TRACE5, "airp: %s", airp.c_str());
+            ProgTrace(TRACE5, "scd_out: %s", DateTimeToStr(scd_out, "ddmmyy").c_str());
+            
+            vector<TPact>::iterator iv = result_pacts.begin();
+            for(; iv != result_pacts.end(); iv++) {
+                iv->dump();
+                if(
+                        scd_out >= iv->first_date and
+                        scd_out < iv->last_date and
+                        airp == iv->airp and
+                        (iv->airline.empty() or iv->airline == airline) and
+                        (iv->airlines.empty() or find(iv->airlines.begin(), iv->airlines.end(), airline) == iv->airlines.end())
+                  )
+                {
+                    break;
+                }
+            }
+            TDetailStatKey key;
+            if(iv != result_pacts.end())
+                key.pact_descr = iv->descr;
+            if(params.airp_column_first) {
+                key.col1 = ElemIdToCodeNative(etAirp, airp);
+                if (statType==statDetail)
+                {
+                    key.col2 = ElemIdToCodeNative(etAirline, airline);
+                    prn_airline.check(key.col2);
+                };
+            } else {
+                key.col1 = ElemIdToCodeNative(etAirline, airline);
+                if (statType==statDetail)
+                {
+                    key.col2 = ElemIdToCodeNative(etAirp, airp);
+                };
+                prn_airline.check(key.col1);
+            }
+
+            TDetailStatRow &row = DetailStat[key];
+            if(row.flt_amount == NoExists) {
+                row.flts.insert(point_id);
+                row.pax_amount = adult + child + baby;
+                row.web = (client_type == ctWeb ? row.pax_amount : 0);
+                row.kiosk = (client_type == ctKiosk ? row.pax_amount : 0);
+            } else {
+                row.flts.insert(point_id);
+                row.pax_amount += adult + child + baby;
+                row.web += (client_type == ctWeb ? row.pax_amount : 0);
+                row.kiosk += (client_type == ctKiosk ? row.pax_amount : 0);
+            }
+        }
+    }
+
+
+
+
+
+    createXMLDetailStat(DetailStat, resNode, prn_airline, params, statType, true);
 }
 
 void RunDetailStat(TStatType statType, TStatParams &params, xmlNodePtr reqNode, xmlNodePtr resNode)
