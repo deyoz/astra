@@ -246,7 +246,7 @@ TFilter::TFilter()
   Clear();
   region = TReqInfo::Instance()->desk.tz_region;
   TQuery GQry( &OraSession );
-  GQry.SQLText = "SELECT tz FROM tz_regions WHERE region=:region AND pr_del=0";
+  GQry.SQLText = "SELECT tz FROM tz_regions WHERE region=:region AND pr_del=0 ORDER BY tz DESC";
   GQry.CreateVariable( "region", otString, region );
   GQry.Execute();
   tz = GQry.FieldAsInteger( "tz" );
@@ -949,6 +949,7 @@ void SeasonInterface::DelRangeList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 
 void CreateSPP( BASIC::TDateTime localdate )
 {
+  //throw UserException( "Работа с экраном 'Сезонное расписание' временно остановлено. Идет обновление" );
   TQuery MIDQry(&OraSession);
   MIDQry.SQLText =
    "BEGIN "\
@@ -1304,6 +1305,7 @@ string GetRegionFromTZ( int ptz, map<int,string> &mapreg )
 
 void createSPP( TDateTime localdate, TSpp &spp, bool createViewer, string &err_city )
 {
+  //throw UserException( "Работа с экраном 'Сезонное расписание' временно остановлено. Идет обновление" );
 	map<int,string> mapreg;
   map<int,TTimeDiff> v;
   TFilter filter;
@@ -3321,6 +3323,7 @@ void ReadTripInfo( int trip_id, vector<TViewPeriod> &viewp, xmlNodePtr reqNode )
 
 void SeasonInterface::Read(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+  //throw UserException( "Работа с экраном 'Сезонное расписание' временно остановлено. Идет обновление" );
   map<int,TDestList> mapds;
   TReqInfo *reqInfo = TReqInfo::Instance();
 //  ri->user.check_access( amRead );
@@ -3377,6 +3380,7 @@ void SeasonInterface::Slots(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
 
 void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dataNode, string &err_city )
 {
+  //throw UserException( "Работа с экраном 'Сезонное расписание' временно остановлено. Идет обновление" );
 	int errtz = NoExists;
   TQuery SQry( &OraSession );
   TDateTime begin_date_season = BoostToDateTime( filter.periods.begin()->period.begin() );
