@@ -11,8 +11,8 @@
 #include "astra_elems.h"
 #include "base_tables.h"
 #include "term_version.h"
+#include "serverlib/tcl_utils.h"
 #include "serverlib/monitor_ctl.h"
-#include "serverlib/cfgproc.h"
 #include "serverlib/sirena_queue.h"
 #include "jxtlib/JxtInterface.h"
 #include "jxtlib/jxt_cont.h"
@@ -1017,18 +1017,15 @@ void LexemeDataFromXML(xmlNodePtr lexemeNode, LexemaData &lexemeData)
 int getTCLParam(const char* name, int min, int max, int def)
 {
   int res=NoExists;
-  char r[100];
-  r[0]=0;
   try
   {
-    if ( get_option( name, r, sizeof( r ) ) < 0 )
+    string r=readStringFromTcl( name, "");
+    if ( r.empty() )
       throw EXCEPTIONS::Exception( "Can't read TCL param %s", name );
-    if (r[0]==0)
-      throw EXCEPTIONS::Exception( "Empty TCL param %s", name );
-    if ( StrToInt(r,res)==EOF ||
+    if ( StrToInt(r.c_str(),res)==EOF ||
          min!=NoExists && res<min ||
          max!=NoExists && res>max)
-      throw EXCEPTIONS::Exception( "Wrong TCL param %s=%s", name, r );
+      throw EXCEPTIONS::Exception( "Wrong TCL param %s=%s", name, r.c_str() );
   }
   catch(EXCEPTIONS::Exception &e)
   {
@@ -1045,15 +1042,12 @@ int getTCLParam(const char* name, int min, int max, int def)
 string getTCLParam(const char* name, const char* def)
 {
   const char* res=NULL;
-  char r[100];
-  r[0]=0;
   try
   {
-    if ( get_option( name, r, sizeof( r ) ) < 0 )
+    string r=readStringFromTcl( name, "");
+    if ( r.empty() )
       throw EXCEPTIONS::Exception( "Can't read TCL param %s", name );
-    if (r[0]==0)
-      throw EXCEPTIONS::Exception( "Empty TCL param %s", name );
-    res=r;
+    res=r.c_str();
   }
   catch(EXCEPTIONS::Exception &e)
   {
