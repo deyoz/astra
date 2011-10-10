@@ -1423,55 +1423,26 @@ namespace PRL_SPACE {
         vector<TCOMStatsItem> items;
         TTotalPaxWeight total_pax_weight;
         void get(TTlgInfo &info);
-        void ToTlg(TTlgInfo &info, ostringstream &body);
+        void ToTlg(ostringstream &body);
     };
 
-    void TCOMStats::ToTlg(TTlgInfo &info, ostringstream &body)
+    void TCOMStats::ToTlg(ostringstream &body)
     {
         TCOMStatsItem sum;
         sum.target = "TTL";
         for(vector<TCOMStatsItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
-            if(info.tlg_type == "COM")
-                body
-                    << iv->target       << ' '
-                    << iv->adult        << '/'
-                    << iv->child        << '/'
-                    << iv->baby         << ' '
-                    << iv->bag_amount   << '/'
-                    << iv->bag_weight   << '/'
-                    << iv->rk_weight    << ' '
-                    << iv->f            << '/'
-                    << iv->c            << '/'
-                    << iv->y            << ' '
-                    << "0/0/0 0 0 "
-                    << iv->f_add_pax    << '/'
-                    << iv->c_add_pax    << '/'
-                    << iv->y_add_pax    << ' '
-                    << iv->f_child      << '/'
-                    << iv->c_child      << '/'
-                    << iv->y_child      << ' '
-                    << iv->f_baby       << '/'
-                    << iv->c_baby       << '/'
-                    << iv->y_baby       << ' '
-                    << iv->f_rk_weight  << '/'
-                    << iv->c_rk_weight  << '/'
-                    << iv->y_rk_weight  << ' '
-                    << iv->f_bag_weight << '/'
-                    << iv->c_bag_weight << '/'
-                    << iv->y_bag_weight << br;
-            else
-                body
-                    << iv->target       << ' '
-                    << iv->adult        << '/'
-                    << iv->child        << '/'
-                    << iv->baby         << ' '
-                    << iv->bag_amount   << '/'
-                    << iv->bag_weight   << '/'
-                    << iv->rk_weight    << ' '
-                    << iv->f            << '/'
-                    << iv->c            << '/'
-                    << iv->y            << ' '
-                    << "0/0/0 0/0 0/0 0/0/0" << br;
+            body
+                << iv->target       << ' '
+                << iv->adult        << '/'
+                << iv->child        << '/'
+                << iv->baby         << ' '
+                << iv->bag_amount   << '/'
+                << iv->bag_weight   << '/'
+                << iv->rk_weight    << ' '
+                << iv->f            << '/'
+                << iv->c            << '/'
+                << iv->y            << ' '
+                << "0/0/0 0/0 0/0 0/0/0" << br;
 
             sum.adult += iv->adult;
             sum.child += iv->child;
@@ -1498,49 +1469,19 @@ namespace PRL_SPACE {
             sum.c_bag_weight += iv->c_bag_weight;
             sum.y_bag_weight += iv->y_bag_weight;
         }
-        if(info.tlg_type == "COM")
-            body
-                << sum.target       << ' '
-                << sum.adult        << '/'
-                << sum.child        << '/'
-                << sum.baby         << ' '
-                << sum.bag_amount   << '/'
-                << sum.bag_weight   << '/'
-                << sum.rk_weight    << ' '
-                << sum.f            << '/'
-                << sum.c            << '/'
-                << sum.y            << ' '
-                << "0/0/0 0 0 "
-                << sum.f_add_pax    << '/'
-                << sum.c_add_pax    << '/'
-                << sum.y_add_pax    << ' '
-                << "0 " << total_pax_weight.weight << ' '
-                << sum.f_child      << '/'
-                << sum.c_child      << '/'
-                << sum.y_child      << ' '
-                << sum.f_baby       << '/'
-                << sum.c_baby       << '/'
-                << sum.y_baby       << ' '
-                << sum.f_rk_weight  << '/'
-                << sum.c_rk_weight  << '/'
-                << sum.y_rk_weight  << ' '
-                << sum.f_bag_weight << '/'
-                << sum.c_bag_weight << '/'
-                << sum.y_bag_weight << br;
-        else
-            body
-                << sum.target       << ' '
-                << sum.adult        << '/'
-                << sum.child        << '/'
-                << sum.baby         << ' '
-                << sum.bag_amount   << '/'
-                << sum.bag_weight   << '/'
-                << sum.rk_weight    << ' '
-                << sum.f            << '/'
-                << sum.c            << '/'
-                << sum.y            << ' '
-                << "0/0/0 0/0 0/0 0/0/0 0 "
-                << total_pax_weight.weight << br;
+        body
+            << sum.target       << ' '
+            << sum.adult        << '/'
+            << sum.child        << '/'
+            << sum.baby         << ' '
+            << sum.bag_amount   << '/'
+            << sum.bag_weight   << '/'
+            << sum.rk_weight    << ' '
+            << sum.f            << '/'
+            << sum.c            << '/'
+            << sum.y            << ' '
+            << "0/0/0 0/0 0/0 0/0/0 0 "
+            << total_pax_weight.weight << br;
     }
 
     void TCOMStats::get(TTlgInfo &info)
@@ -1800,7 +1741,7 @@ int COM(TTlgInfo &info)
         stats.get(info);
         classes.ToTlg(info, body);
         zones.ToTlg(body);
-        stats.ToTlg(info, body);
+        stats.ToTlg(body);
         tlg_row.body = body.str();
     } catch(...) {
         ExceptionFilter(tlg_row.body, info);
