@@ -1442,7 +1442,22 @@ namespace PRL_SPACE {
                 << iv->f            << '/'
                 << iv->c            << '/'
                 << iv->y            << ' '
-                << "0/0/0 0/0 0/0 0/0/0" << br;
+                << "0/0/0 0 0 "
+                << iv->f_add_pax    << '/'
+                << iv->c_add_pax    << '/'
+                << iv->y_add_pax    << ' '
+                << iv->f_child      << '/'
+                << iv->c_child      << '/'
+                << iv->y_child      << ' '
+                << iv->f_baby       << '/'
+                << iv->c_baby       << '/'
+                << iv->y_baby       << ' '
+                << iv->f_rk_weight  << '/'
+                << iv->c_rk_weight  << '/'
+                << iv->y_rk_weight  << ' '
+                << iv->f_bag_weight << '/'
+                << iv->c_bag_weight << '/'
+                << iv->y_bag_weight << br;
 
             sum.adult += iv->adult;
             sum.child += iv->child;
@@ -1480,8 +1495,23 @@ namespace PRL_SPACE {
             << sum.f            << '/'
             << sum.c            << '/'
             << sum.y            << ' '
-            << "0/0/0 0/0 0/0 0/0/0 0 "
-            << total_pax_weight.weight << br;
+            << "0/0/0 0 0 "
+            << sum.f_add_pax    << '/'
+            << sum.c_add_pax    << '/'
+            << sum.y_add_pax    << ' '
+            << "0 " << total_pax_weight.weight << ' '
+            << sum.f_child      << '/'
+            << sum.c_child      << '/'
+            << sum.y_child      << ' '
+            << sum.f_baby       << '/'
+            << sum.c_baby       << '/'
+            << sum.y_baby       << ' '
+            << sum.f_rk_weight  << '/'
+            << sum.c_rk_weight  << '/'
+            << sum.y_rk_weight  << ' '
+            << sum.f_bag_weight << '/'
+            << sum.c_bag_weight << '/'
+            << sum.y_bag_weight << br;
     }
 
     void TCOMStats::get(TTlgInfo &info)
