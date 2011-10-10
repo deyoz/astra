@@ -3407,6 +3407,9 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 "   arx_pax.ticket_no, "
                 "   arx_pax.pax_id "
                 "FROM  arx_pax_grp,arx_pax, arx_points ";
+            if(!document.empty())
+                SQLText +=
+                    " , arx_pax_doc ";
             if(!tag_no.empty())
                 SQLText +=
                     " , arx_bag_tags ";
@@ -3420,6 +3423,11 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 "   arx_points.part_key >= :FirstDate and arx_points.part_key < :LastDate + :arx_trip_date_range and "
                 "   pr_brd IS NOT NULL ";
             Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
+            if(!document.empty())
+                SQLText +=
+                    " and arx_pax.part_key = arx_pax_doc.part_key and "
+                    " arx_pax.pax_id = arx_pax_doc.pax_id and "
+                    " arx_pax_doc.no like '%'||:document||'%' ";
             if(!tag_no.empty())
                 SQLText +=
                     " and arx_pax_grp.part_key = arx_bag_tags.part_key and "
@@ -3449,8 +3457,6 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 else
                     SQLText += " and arx_pax.surname like :surname||'%' ";
             }
-            if(!document.empty())
-                SQLText += " and arx_pax.document = :document ";
             if(!ticket_no.empty())
                 SQLText += " and arx_pax.ticket_no = :ticket_no ";
         }

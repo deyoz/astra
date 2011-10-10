@@ -1365,8 +1365,7 @@ std::string GetPaxDocStr(TDateTime part_key,
   ostringstream result;
 
   const char* sql="SELECT no, issue_country FROM pax_doc WHERE pax_id=:pax_id";
-  //const char* sql_arx="SELECT no, issue_country FROM arx_pax_doc WHERE part_key=:part_key AND pax_id=:pax_id";
-  const char* sql_arx="SELECT document AS no, NULL AS issue_country FROM arx_pax WHERE part_key=:part_key AND pax_id=:pax_id"; //!!! переделать
+  const char* sql_arx="SELECT no, issue_country FROM arx_pax_doc WHERE part_key=:part_key AND pax_id=:pax_id";
   
   if (part_key!=NoExists)
   {
