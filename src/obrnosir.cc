@@ -43,6 +43,7 @@ const
     {"-termversion",   SetTermVersionNotice,    SetTermVersionNoticeHelp, NULL},
     {"-alter_db",      alter_db,                NULL,                     NULL},
     {"-send_tlg",      send_tlg,                send_tlg_help,            NULL},
+    {"-voland_vko",    voland_vko_event,        NULL,                     NULL},
     {"-dst_seasons",   seasons_dst_format,      NULL,                     NULL}
   };
 
@@ -419,7 +420,7 @@ int seasons_dst_format(int argc,char **argv)
         ProgTrace( TRACE5, "trip convert: trip_id=%d, move_id=%d, num=%d", Qry.FieldAsInteger( "trip_id" ), Qry.FieldAsInteger( "move_id" ), Qry.FieldAsInteger( "num" ) );
         string city = ((TAirpsRow&)baseairps.get_row( "code", Qry.FieldAsString( "airp" )  , true )).city;
         TCitiesRow& row=(TCitiesRow&)base_tables.get("cities").get_row("code",city,true);
-        if ( row.country == row.country == "êî" || row.country == "ìÄ" || row.country == "Åã" ) {
+        if ( row.country == "êî" || row.country == "ìÄ" || row.country == "Åã" ) {
             TDateTime trunc_f, scd_in, prior_scd_in, scd_out, prior_scd_out;
             modf( Qry.FieldAsDateTime( "first_day" ), &trunc_f );
             int delta_in, prior_delta_in, delta_out, prior_delta_out;
