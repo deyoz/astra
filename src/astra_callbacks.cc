@@ -334,7 +334,6 @@ void AstraJxtCallbacks::UserAfter()
 	  	RevertWebResDoc( (const char*)xmlRC->reqDoc->children->children->children->name, node );
 	  else
 	    CheckTermResDoc( node );
-      ProgTrace(TRACE5, "%s", GetXMLDocText(xmlRC->resDoc).c_str());
 }
 
 
