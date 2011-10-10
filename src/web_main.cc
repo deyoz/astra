@@ -156,6 +156,7 @@ struct TSearchPnrData {
 	string suffix;
 	TDateTime scd_out, act_out;
 	TDateTime scd_out_local, est_out_local, act_out_local;
+	int dep_utc_offset;
 	string craft;
 	string airp_dep;
 	string city_dep;
@@ -171,6 +172,7 @@ struct TSearchPnrData {
   int pnr_id;
   int point_arv;
 	TDateTime scd_in_local, est_in_local, act_in_local;
+	int arv_utc_offset;
 	string airp_arv;
 	string city_arv;
 	string cls;
@@ -440,6 +442,7 @@ bool getTripData( int point_id, bool first_segment, TSearchPnrData &SearchPnrDat
   	string region=AirpTZRegion(SearchPnrData.airp_dep);
   	SearchPnrData.scd_out = Qry.FieldAsDateTime( "scd_out" );
   	SearchPnrData.scd_out_local = UTCToLocal( Qry.FieldAsDateTime( "scd_out" ), region );
+  	SearchPnrData.dep_utc_offset = (int)round((SearchPnrData.scd_out_local - SearchPnrData.scd_out) * 1440);
   	if ( Qry.FieldIsNULL( "est_out" ) )
   	{
   		SearchPnrData.est_out_local = NoExists;
@@ -561,18 +564,31 @@ bool getTripData2( TSearchPnrData &SearchPnrData, bool pr_throw )
   	  throw UserException( "MSG.FLIGHT.NOT_FOUND" );
 
     string region = AirpTZRegion(SearchPnrData.airp_arv);
+    SearchPnrData.arv_utc_offset = NoExists;
     if ( Qry.FieldIsNULL( "scd_in" ) )
     	SearchPnrData.scd_in_local = NoExists;
     else
+    {
       SearchPnrData.scd_in_local = UTCToLocal( Qry.FieldAsDateTime( "scd_in" ), region );
+      if (SearchPnrData.arv_utc_offset == NoExists)
+        SearchPnrData.arv_utc_offset = (int)round((SearchPnrData.scd_in_local-Qry.FieldAsDateTime( "scd_in" )) * 1440);
+    };
     if ( Qry.FieldIsNULL( "est_in" ) )
     	SearchPnrData.est_in_local = NoExists;
     else
+    {
       SearchPnrData.est_in_local = UTCToLocal( Qry.FieldAsDateTime( "est_in" ), region );
+      if (SearchPnrData.arv_utc_offset == NoExists)
+        SearchPnrData.arv_utc_offset = (int)round((SearchPnrData.est_in_local-Qry.FieldAsDateTime( "est_in" )) * 1440);
+    };
     if ( Qry.FieldIsNULL( "act_in" ) )
     	SearchPnrData.act_in_local = NoExists;
     else
+    {
       SearchPnrData.act_in_local = UTCToLocal( Qry.FieldAsDateTime( "act_in" ), region );
+      if (SearchPnrData.arv_utc_offset == NoExists)
+        SearchPnrData.arv_utc_offset = (int)round((SearchPnrData.act_in_local-Qry.FieldAsDateTime( "act_in" )) * 1440);
+    };
 
     TBaseTable &baseairps = base_tables.get( "airps" );
     try
@@ -1633,7 +1649,7 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       NewTextChild( node, "suffix", pnrData->suffix );
     NewTextChild( node, "craft", pnrData->craft );
     if (pnrData->scd_out_local!=NoExists)
-    NewTextChild( node, "scd_out", DateTimeToStr( pnrData->scd_out_local, ServerFormatDateTimeAsString ) );
+      NewTextChild( node, "scd_out", DateTimeToStr( pnrData->scd_out_local, ServerFormatDateTimeAsString ) );
     else
       NewTextChild( node, "scd_out" );
     if (pnrData->est_out_local!=NoExists)
@@ -1646,6 +1662,10 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       NewTextChild( node, "act_out" );
     NewTextChild( node, "airp_dep", pnrData->airp_dep );
     NewTextChild( node, "city_dep", pnrData->city_dep );
+    if (pnrData->dep_utc_offset!=NoExists)
+      NewTextChild( node, "dep_utc_offset", pnrData->dep_utc_offset );
+    else
+      NewTextChild( node, "dep_utc_offset" );
     if ( pnrData->scd_in_local != NoExists )
       NewTextChild( node, "scd_in", DateTimeToStr( pnrData->scd_in_local, ServerFormatDateTimeAsString ) );
     else
@@ -1660,6 +1680,10 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       NewTextChild( node, "act_in" );
     NewTextChild( node, "airp_arv", pnrData->airp_arv );
     NewTextChild( node, "city_arv", pnrData->city_arv );
+    if (pnrData->arv_utc_offset!=NoExists)
+      NewTextChild( node, "arr_utc_offset", pnrData->arv_utc_offset );
+    else
+      NewTextChild( node, "arr_utc_offset" );
 
     TReqInfo *reqInfo = TReqInfo::Instance();
     TStage stage;
