@@ -773,6 +773,10 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     if(find( reqInfo->user.access.rights.begin(),
                 reqInfo->user.access.rights.end(), 655 ) == reqInfo->user.access.rights.end())
         throw AstraLocale::UserException("MSG.SYS_LOG.VIEW_DENIED");
+        
+    if(NodeAsDateTime("FirstDate", reqNode)+1 < NodeAsDateTime("LastDate", reqNode))
+      throw AstraLocale::UserException("MSG.SEARCH_PERIOD_SHOULD_NOT_EXCEED_ONE_DAY");
+        
     xmlNodePtr client_with_trip_col_in_SysLogNode = GetNode("client_with_trip_col_in_SysLog", reqNode);
     if(client_with_trip_col_in_SysLogNode == NULL)
         get_compatible_report_form("ArxPaxLog", reqNode, resNode);
