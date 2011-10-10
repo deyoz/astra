@@ -43,7 +43,7 @@ const
     {"-termversion",   SetTermVersionNotice,    SetTermVersionNoticeHelp, NULL},
     {"-alter_db",      alter_db,                NULL,                     NULL},
     {"-send_tlg",      send_tlg,                send_tlg_help,            NULL},
-    {"-voland_vko",    voland_vko_event,        NULL,                     NULL},
+   // {"-voland_vko",    voland_vko_event,        NULL,                     NULL},
     {"-dst_seasons",   seasons_dst_format,      NULL,                     NULL}
   };
 
