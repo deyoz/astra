@@ -2653,7 +2653,6 @@ void internal_ReadDests( int move_id, TSOPPDests &dests, string &reference, TDat
 
 void ReBindTlgs( int move_id, TSOPPDests &dests )
 {
-  return;
   vector<int> point_ids;
   for (TSOPPDests::const_iterator i=dests.begin(); i!=dests.end(); i++) {
      point_ids.push_back( i->point_id );
