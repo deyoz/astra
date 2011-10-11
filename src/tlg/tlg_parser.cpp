@@ -80,7 +80,6 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
                   TTlgParser &tlg, TPnrItem &pnr, TNameElement &ne);
 bool ParseCHDRem(TTlgParser &tlg,string &rem_text,vector<TChdItem> &chd);
 bool ParseINFRem(TTlgParser &tlg,string &rem_text,vector<TInfItem> &inf);
-bool ParseDOCSRem(TTlgParser &tlg,string &rem_text,TDocItem &doc);
 bool ParseSEATRem(TTlgParser &tlg,string &rem_text,vector<TSeatRange> &seats);
 bool ParseTKNRem(TTlgParser &tlg,string &rem_text,TTKNItem &tkn);
 bool ParseFQTRem(TTlgParser &tlg,string &rem_text,TFQTItem &fqt);
