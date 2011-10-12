@@ -50,7 +50,6 @@ void InsertTripSeatRanges(const vector< pair<int, TSeatRange> > &ranges, //векто
 {
   if (ranges.empty()) return;
   if (!IsTlgCompLayer(layer_type)) return;
-  if (layer_type==cltPRLTrzt) return;
 
   static int prior_point_id_tlg=NoExists;
   static int prior_point_id_spp=NoExists;
