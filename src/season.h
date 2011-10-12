@@ -81,6 +81,7 @@ public:
 
 std::string GetCityFromAirp( std::string &airp );
 std::string GetTZRegion( std::string &city, std::map<std::string,std::string> &regions, bool vexcept=1 );
+std::string AddDays( std::string days, int delta );
 
 class TDoubleTrip
 {
