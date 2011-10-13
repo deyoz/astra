@@ -1,5 +1,5 @@
-#include "jxtlib.h"
 #include "oralib.h"
+#include "jxtlib/jxtlib.h"
 #include "serverlib/ocilocal.h"
 
 #define NICKNAME "KONST"

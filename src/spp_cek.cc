@@ -19,7 +19,6 @@
 #include "sopp.h"
 #include "timer.h"
 #include "xml_unit.h"
-#include "xml_stuff.h"
 #include "jxtlib/xml_stuff.h"
 #include "serverlib/logger.h"
 

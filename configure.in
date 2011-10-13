@@ -26,8 +26,6 @@ MRJ_CHECK_LIBTLG
 MRJ_CHECK_EDILIB
 #check for jxtlib
 MRJ_CHECK_JXTLIB
-#check for tclmon
-MRJ_CHECK_TCLMON
 #check for shared
 MRJ_CHECK_SHARED
 #check for libxml
