@@ -2248,16 +2248,16 @@ struct TDetailStatKey {
 struct TDetailCmp {
     bool operator() (const TDetailStatKey &lr, const TDetailStatKey &rr) const
     {
-        if(lr.seance == rr.seance)
-            if(lr.pact_descr == rr.pact_descr)
-                if(lr.col1 == rr.col1)
-                    return lr.col2 < rr.col2;
+        if(lr.col1 == rr.col1)
+            if(lr.col2 == rr.col2)
+                if(lr.seance == rr.seance)
+                    return lr.pact_descr < rr.pact_descr;
                 else
-                    return lr.col1 < rr.col1;
+                    return lr.seance < rr.seance;
             else
-                return lr.pact_descr < rr.pact_descr;
+                return lr.col2 < rr.col2;
         else
-            return lr.seance < rr.seance;
+            return lr.col1 < rr.col1;
     };
 };
 typedef map<TDetailStatKey, TDetailStatRow, TDetailCmp> TDetailStat;
