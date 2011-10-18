@@ -2182,7 +2182,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
      "      crs_pax.seat_yname, "
      "      crs_pax.seats seats, "
      "      crs_pnr.airp_arv, "
-     "      crs_pnr.last_target, "
+     "      crs_pnr.airp_arv_final, "
      "      report.get_PSPT(crs_pax.pax_id, 1, :lang) AS document, "
      "      report.get_TKNO(crs_pax.pax_id) AS ticket, "
      "      crs_pax.pax_id, "
@@ -2315,7 +2315,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   int col_seat_yname=Qry.FieldIndex("seat_yname");
   int col_seats=Qry.FieldIndex("seats");
   int col_airp_arv=Qry.FieldIndex("airp_arv");
-  int col_last_target=Qry.FieldIndex("last_target");
+  int col_airp_arv_final=Qry.FieldIndex("airp_arv_final");
   int col_document=Qry.FieldIndex("document");
   int col_ticket=Qry.FieldIndex("ticket");
   int col_pax_id=Qry.FieldIndex("pax_id");
@@ -2369,16 +2369,16 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     NewTextChild( node, "subclass", ElemIdToCodeNative(etSubcls,Qry.FieldAsString( col_subclass ) ));
     NewTextChild( node, "seats", Qry.FieldAsInteger( col_seats ), 1 );
     NewTextChild( node, "target", ElemIdToCodeNative(etAirp,Qry.FieldAsString( col_airp_arv ) ));
-    if (!Qry.FieldIsNULL(col_last_target))
+    if (!Qry.FieldIsNULL(col_airp_arv_final))
     {
       try
       {
-        TAirpsRow &row=(TAirpsRow&)(base_tables.get("airps").get_row("code/code_lat",Qry.FieldAsString( col_last_target )));
+        TAirpsRow &row=(TAirpsRow&)(base_tables.get("airps").get_row("code/code_lat",Qry.FieldAsString( col_airp_arv_final )));
         NewTextChild( node, "last_target", ElemIdToCodeNative(etAirp,row.code));
       }
       catch(EBaseTableError)
       {
-        NewTextChild( node, "last_target", ElemIdToCodeNative(etAirp,Qry.FieldAsString( col_last_target ) ));
+        NewTextChild( node, "last_target", ElemIdToCodeNative(etAirp,Qry.FieldAsString( col_airp_arv_final ) ));
       };
     };
 

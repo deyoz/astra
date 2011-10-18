@@ -2489,7 +2489,7 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             "      crs_pnr.class, "
             "      salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'_seats',rownum) AS seat_no, "
             "      crs_pnr.airp_arv AS target, "
-            "      crs_pnr.last_target, "
+            "      crs_pnr.airp_arv_final AS last_target, "
             "      report.get_TKNO(crs_pax.pax_id) ticket_no, "
             "      report.get_PSPT(crs_pax.pax_id, 1, :lang) AS document, "
             "      report.get_crsRemarks(crs_pax.pax_id) AS remarks ";

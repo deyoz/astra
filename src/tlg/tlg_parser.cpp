@@ -5454,7 +5454,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
               };
               Qry.Clear();
               Qry.SQLText=
-                "UPDATE crs_pnr SET last_target= "
+                "UPDATE crs_pnr SET airp_arv_final= "
                 "  (SELECT airp_arv FROM crs_transfer WHERE pnr_id=:pnr_id AND transfer_num= "
                 "    (SELECT MAX(transfer_num) FROM crs_transfer WHERE pnr_id=:pnr_id AND transfer_num>0)) "
                 "WHERE pnr_id=:pnr_id";
