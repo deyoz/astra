@@ -4662,7 +4662,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
   Qry.CreateVariable("time_create",otDate,info.time_create);
   Qry.Execute();
 
-  bool pr_numeric_pnl=true;
+  bool pr_numeric_pnl=false;
   TDateTime last_resa=NoExists,
             last_tranzit=NoExists,
             last_avail=NoExists,
@@ -4691,7 +4691,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
     {
       Qry.SQLText=
         "INSERT INTO crs_set(id,airline,flt_no,airp_dep,crs,priority,pr_numeric_pnl) "
-        "VALUES(id__seq.nextval,:airline,:flt_no,:airp_dep,:crs,0,1)";
+        "VALUES(id__seq.nextval,:airline,:flt_no,:airp_dep,:crs,0,0)";
       Qry.SetVariable("flt_no",FNull);
       try
       {
