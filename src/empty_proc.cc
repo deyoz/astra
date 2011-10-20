@@ -1088,8 +1088,8 @@ int alter_pax_doc2(int argc,char **argv)
   Qry.Execute();
   int tid=Qry.FieldAsInteger("tid");
   
-  TTlgParser tlg;
-  TDocItem doc;
+  TypeB::TTlgParser tlg;
+  TypeB::TDocItem doc;
   Qry.Clear();
   Qry.SQLText=
     "BEGIN "
@@ -1277,8 +1277,8 @@ int alter_arx_pax_doc(int argc,char **argv)
 int alter_arx_pax_doc2(int argc,char **argv)
 {
   TQuery Qry(&OraSession);
-  TTlgParser tlg;
-  TDocItem doc;
+  TypeB::TTlgParser tlg;
+  TypeB::TDocItem doc;
   Qry.Clear();
   Qry.SQLText=
     "BEGIN "
@@ -1326,7 +1326,7 @@ int alter_arx_pax_doc2(int argc,char **argv)
     if (rem_text.substr(0,5)=="DOCS/") rem_text.erase(0,5);
     rem_text="DOCS HK1/"+rem_text;
 
-    if (!ParseDOCSRem(tlg,rem_text,doc)) continue;
+    if (!TypeB::ParseDOCSRem(tlg,rem_text,doc)) continue;
     if (doc.Empty()) continue;
     if (*doc.no==0) continue;
 

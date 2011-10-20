@@ -239,10 +239,10 @@ void tracePax( TRACE_SIGNATURE,
 
 void traceTrfer( TRACE_SIGNATURE,
                  const string &descr,
-                 const vector<TTransferItem> &trfer )
+                 const vector<TypeB::TTransferItem> &trfer )
 {
   ProgTrace(TRACE_PARAMS, "============ %s ============", descr.c_str());
-  for(vector<TTransferItem>::const_iterator iTrfer=trfer.begin();iTrfer!=trfer.end();iTrfer++)
+  for(vector<TypeB::TTransferItem>::const_iterator iTrfer=trfer.begin();iTrfer!=trfer.end();iTrfer++)
   {
     ostringstream str;
 
@@ -628,7 +628,7 @@ void getTCkinData( const TSearchPnrData &firstPnrData,
   
   //поиск стыковочных сегментов (возвращаем вектор point_id)
   TQuery Qry(&OraSession);
-  vector<TTransferItem> crs_trfer;
+  vector<TypeB::TTransferItem> crs_trfer;
   vector<CheckIn::TTransferItem> trfer;
   CheckInInterface::GetOnwardCrsTransfer(firstPnrData.pnr_id, Qry, crs_trfer);
   if (!crs_trfer.empty())
@@ -1834,7 +1834,7 @@ struct TWebPax {
 	string checkin_status;
 	bool pr_eticket;
 	string ticket_no;
-	vector<TFQTItem> fqt_rems;
+	vector<TypeB::TFQTItem> fqt_rems;
 	TWebPax() {
 	  pax_no = NoExists;
 		birth_date = NoExists;
@@ -2063,7 +2063,7 @@ void getPnr( bool pr_paid_ckin, int pnr_id, vector<TWebPax> &pnr, bool pr_throw 
      	FQTQry.Execute();
    		for(; !FQTQry.Eof; FQTQry.Next())
    		{
-        TFQTItem FQTItem;
+        TypeB::TFQTItem FQTItem;
         strcpy(FQTItem.rem_code, FQTQry.FieldAsString("rem_code"));
         strcpy(FQTItem.airline, FQTQry.FieldAsString("airline"));
         strcpy(FQTItem.no, FQTQry.FieldAsString("no"));
@@ -2195,7 +2195,7 @@ void IntLoadPnr( const vector<TIdsPnrData> &ids, vector< vector<TWebPax> > &pnrs
        		NewTextChild( paxNode, "eticket", "false" );
        	NewTextChild( paxNode, "ticket_no", iPax->ticket_no );
        	xmlNodePtr fqtsNode = NewTextChild( paxNode, "fqt_rems" );
-       	for ( vector<TFQTItem>::const_iterator f=iPax->fqt_rems.begin(); f!=iPax->fqt_rems.end(); f++ )
+       	for ( vector<TypeB::TFQTItem>::const_iterator f=iPax->fqt_rems.begin(); f!=iPax->fqt_rems.end(); f++ )
        	{
           xmlNodePtr fqtNode = NewTextChild( fqtsNode, "fqt_rem" );
           NewTextChild( fqtNode, "airline", f->airline );

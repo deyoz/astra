@@ -768,7 +768,7 @@ void TelegramInterface::SendTlg(int tlg_id)
     string old_addrs,canon_name,tlg_text;
     map<string,string> recvs;
     map<string,string>::iterator i;
-    TTlgParser tlg;
+    TypeB::TTlgParser tlg;
     char *addrs,*line_p;
 
     for(;!TlgQry.Eof;TlgQry.Next())
@@ -818,7 +818,7 @@ void TelegramInterface::SendTlg(int tlg_id)
           }
           while ((line_p=tlg.NextLine(line_p))!=NULL);
         }
-        catch(ETlgError)
+        catch(TypeB::ETlgError)
         {
           throw AstraLocale::UserException("MSG.WRONG_ADDR_LINE");
         };
@@ -1380,15 +1380,15 @@ void TelegramInterface::CompareBSMContent(TBSMContent& con1, TBSMContent& con2, 
 
   TBSMContent conADD,conCHG,conDEL;
   conADD=con2;
-  conADD.indicator=None;
+  conADD.indicator=TypeB::None;
   conADD.tags.clear();
 
   conCHG=con2;
-  conCHG.indicator=CHG;
+  conCHG.indicator=TypeB::CHG;
   conCHG.tags.clear();
 
   conDEL=con1;
-  conDEL.indicator=DEL;
+  conDEL.indicator=TypeB::DEL;
   conDEL.tags.clear();
 
   //проверяем рейс
@@ -1411,7 +1411,7 @@ void TelegramInterface::CompareBSMContent(TBSMContent& con1, TBSMContent& con2, 
     if (!pr_chd)
     {
       //придется проверить изменения в стыковочных рейсах
-      vector<TTransferItem>::iterator i1,i2;
+      vector<TypeB::TTransferItem>::iterator i1,i2;
       i1=con1.OnwardFlt.begin();
       i2=con2.OnwardFlt.begin();
       for(;i1!=con1.OnwardFlt.end()&&i2!=con2.OnwardFlt.end();i1++,i2++)
@@ -1532,7 +1532,7 @@ void TelegramInterface::LoadBSMContent(int grp_id, TBSMContent& con)
 
   for(;!Qry.Eof;Qry.Next())
   {
-    TTransferItem flt;
+    TypeB::TTransferItem flt;
 
     strcpy(flt.airline,Qry.FieldAsString("airline"));
     string airline=airlines.get_row("code/code_lat",flt.airline).AsString("code");
@@ -1664,10 +1664,10 @@ string TelegramInterface::CreateBSMBody(TBSMContent& con, bool pr_lat)
 
   switch(con.indicator)
   {
-    case CHG: body << "CHG" << ENDL;
-              break;
-    case DEL: body << "DEL" << ENDL;
-              break;
+    case TypeB::CHG: body << "CHG" << ENDL;
+                     break;
+    case TypeB::DEL: body << "DEL" << ENDL;
+                     break;
      default: ;
   };
 
@@ -1688,7 +1688,7 @@ string TelegramInterface::CreateBSMBody(TBSMContent& con, bool pr_lat)
           << subcls.get_row("code",con.OutFlt.subcl).AsString("code",pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU);
   body << ENDL;
 
-  for(vector<TTransferItem>::iterator i=con.OnwardFlt.begin();i!=con.OnwardFlt.end();i++)
+  for(vector<TypeB::TTransferItem>::iterator i=con.OnwardFlt.begin();i!=con.OnwardFlt.end();i++)
   {
     body << ".O/"
          << airlines.get_row("code",i->airline).AsString("code",pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU)
@@ -1729,7 +1729,7 @@ string TelegramInterface::CreateBSMBody(TBSMContent& con, bool pr_lat)
 
   if (con.pax.reg_no!=-1)
     body << ".S/"
-         << (con.indicator==DEL?'N':'Y') << '/'
+         << (con.indicator==TypeB::DEL?'N':'Y') << '/'
          << con.pax.seat_no.get_seat_one(con.pr_lat_seat || pr_lat) << '/'
          << con.pax.status << '/'
          << setw(3) << setfill('0') << con.pax.reg_no << ENDL;
@@ -1912,7 +1912,7 @@ void TelegramInterface::TestSeatRanges(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   vector<TSeatRange> ranges;
   try
   {
-    ParseSeatRange(NodeAsString("lexeme",reqNode),ranges,true);
+    TypeB::ParseSeatRange(NodeAsString("lexeme",reqNode),ranges,true);
 
     xmlNodePtr rangesNode,rangeNode;
     rangesNode=NewTextChild(resNode,"ranges");

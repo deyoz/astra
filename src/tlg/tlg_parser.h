@@ -12,6 +12,9 @@
 #include "memory_manager.h"
 #include "tlg_binding.h"
 
+namespace TypeB
+{
+
 class ETlgError:public EXCEPTIONS::Exception
 {
   public:
@@ -372,6 +375,57 @@ class TTransferItem : public TSegmentItem
     };
 };
 
+class TTagItem
+{
+  public:
+    char alpha_no[4];
+    double numeric_no;
+    int num;
+    char airp_arv_final[4];
+    TTagItem()
+    {
+      *alpha_no=0;
+      numeric_no=0;
+      num=0;
+      *airp_arv_final=0;
+    };
+};
+
+class TBSMTagItem
+{
+  public:
+    double first_no;
+    int num;
+    TBSMTagItem()
+    {
+      first_no=0.0;
+      num=0;
+    };
+};
+
+class TBagItem
+{
+  public:
+    long bag_amount,bag_weight,rk_weight;
+    char weight_unit[2];
+    TBagItem()
+    {
+      Clear();
+    };
+    void Clear()
+    {
+      bag_amount=0;
+      bag_weight=0;
+      rk_weight=0;
+      *weight_unit=0;
+    };
+    bool Empty() const
+    {
+      return *weight_unit==0;
+      
+    };
+};
+
 class TNameElement
 {
   public:
@@ -381,6 +435,9 @@ class TNameElement
     std::vector<TPaxItem> pax;
     std::vector<TRemItem> rem;
     std::vector<TSeatRange> seatRanges;
+    TBagItem bag;
+    std::vector<TTagItem> tags;
+    int bag_pool;
     TNameElement()
     {
       Clear();
@@ -393,6 +450,9 @@ class TNameElement
       pax.clear();
       rem.clear();
       seatRanges.clear();
+      bag.Clear();
+      tags.clear();
+      bag_pool=ASTRA::NoExists;
     };
 };
 
@@ -465,20 +525,15 @@ class TPNLADLPRLContent
     };
 };
 
-class TPtmTransferData
+class TPtmTransferData : public TBagItem
 {
   public:
     long seats;
-    long bag_amount,bag_weight;
-    char weight_unit[2];
     std::string surname;
     std::vector<std::string> name;
     TPtmTransferData()
     {
       seats=0;
-      bag_amount=0;
-      bag_weight=0;
-      *weight_unit=0;
     };
 };
 
@@ -529,18 +584,6 @@ class TSOMContent
     };
 };
 
-class TBtmTagItem
-{
-  public:
-    double first_no;
-    int num;
-    TBtmTagItem()
-    {
-      first_no=0.0;
-      num=0;
-    };
-};
-
 class TBtmPaxItem
 {
   public:
@@ -548,20 +591,11 @@ class TBtmPaxItem
     std::vector<std::string> name;
 };
 
-class TBtmGrpItem
+class TBtmGrpItem : public TBagItem
 {
   public:
-    std::vector<TBtmTagItem> tags;
+    std::vector<TBSMTagItem> tags;
     std::vector<TBtmPaxItem> pax;
-    long bag_amount,bag_weight,rk_weight;
-    char weight_unit[2];
-    TBtmGrpItem()
-    {
-      bag_amount=0;
-      bag_weight=0;
-      rk_weight=0;
-      *weight_unit=0;
-    };
 };
 
 class TBtmOutFltInfo : public TTransferItem
@@ -622,6 +656,8 @@ void ParseAHMFltInfo(TTlgPartInfo body, const TAHMHeadingInfo &info, TFltInfo& f
 int SaveFlt(int tlg_id, TFltInfo& flt, TBindType bind_type);
 
 void ParseSeatRange(std::string str, std::vector<TSeatRange> &ranges, bool usePriorContext);
+
+}
 
 #endif
 

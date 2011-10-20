@@ -21,6 +21,7 @@ using namespace ASTRA;
 using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace std;
+using namespace TypeB;
 
 static const int HANDLER_WAIT_INTERVAL()       //миллисекунды
 {

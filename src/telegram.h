@@ -216,16 +216,16 @@ class TBSMPaxItem
 class TBSMContent
 {
   public:
-    TIndicator indicator;
-    TTransferItem OutFlt;
+    TypeB::TIndicator indicator;
+    TypeB::TTransferItem OutFlt;
     bool pr_lat_seat;
-    std::vector<TTransferItem> OnwardFlt;
+    std::vector<TypeB::TTransferItem> OnwardFlt;
     std::vector<TBSMTagItem> tags;
     TBSMPaxItem pax;
     TBSMBagItem bag;
     TBSMContent()
     {
-      indicator=None;
+      indicator=TypeB::None;
       pr_lat_seat=false;
     };
 };

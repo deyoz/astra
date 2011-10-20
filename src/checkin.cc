@@ -721,7 +721,7 @@ struct TSearchResponseInfo //сейчас не используется, для развития!
   int resCountOk,resCountPAD;
 };
 
-void CheckInInterface::GetOnwardCrsTransfer(int pnr_id, TQuery &Qry, vector<TTransferItem> &crs_trfer)
+void CheckInInterface::GetOnwardCrsTransfer(int pnr_id, TQuery &Qry, vector<TypeB::TTransferItem> &crs_trfer)
 {
   crs_trfer.clear();
   const char* sql=
@@ -740,7 +740,7 @@ void CheckInInterface::GetOnwardCrsTransfer(int pnr_id, TQuery &Qry, vector<TTra
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next())
   {
-    TTransferItem trferItem;
+    TypeB::TTransferItem trferItem;
     trferItem.num=Qry.FieldAsInteger("transfer_num");
     strcpy(trferItem.airline, Qry.FieldAsString("airline"));
     trferItem.flt_no=Qry.FieldAsInteger("flt_no");
@@ -756,7 +756,7 @@ void CheckInInterface::GetOnwardCrsTransfer(int pnr_id, TQuery &Qry, vector<TTra
 void CheckInInterface::LoadOnwardCrsTransfer(const TTripInfo &operFlt,
                                              const string &oper_airp_arv,
                                              const string &tlg_airp_dep,
-                                             const vector<TTransferItem> &crs_trfer, //содержит представления кодов из crs_transfer
+                                             const vector<TypeB::TTransferItem> &crs_trfer, //содержит представления кодов из crs_transfer
                                              vector<CheckIn::TTransferItem> &trfer,
                                              xmlNodePtr trferNode)
 {
@@ -791,7 +791,7 @@ void CheckInInterface::LoadOnwardCrsTransfer(const TTripInfo &operFlt,
   int prior_transfer_num=0;
   TDateTime local_scd=UTCToLocal(operFlt.scd_out,AirpTZRegion(operFlt.airp));
   
-  for(vector<TTransferItem>::const_iterator t=crs_trfer.begin();t!=crs_trfer.end();t++)
+  for(vector<TypeB::TTransferItem>::const_iterator t=crs_trfer.begin();t!=crs_trfer.end();t++)
   {
     if (prior_transfer_num+1!=t->num && *(t->airp_dep)==0 || *(t->airp_arv)==0)
       //иными словами, не знаем порта прилета и предыдущией стыковки нет
@@ -917,11 +917,11 @@ void CheckInInterface::LoadOnwardCrsTransfer(const TTripInfo &operFlt,
 };
 
 
-bool EqualCrsTransfer(const vector<TTransferItem> &trfer1,
-                      const vector<TTransferItem> &trfer2)
+bool EqualCrsTransfer(const vector<TypeB::TTransferItem> &trfer1,
+                      const vector<TypeB::TTransferItem> &trfer2)
 {
-  vector<TTransferItem>::const_iterator i1=trfer1.begin();
-  vector<TTransferItem>::const_iterator i2=trfer2.begin();
+  vector<TypeB::TTransferItem>::const_iterator i1=trfer1.begin();
+  vector<TypeB::TTransferItem>::const_iterator i2=trfer2.begin();
   for(;i1!=trfer1.end() && i2!=trfer2.end(); i1++,i2++)
   {
     if (i1->num!=i2->num ||
@@ -959,7 +959,7 @@ void LoadUnconfirmedTransfer(const vector<CheckIn::TTransferItem> &segs, xmlNode
   
   TQuery TrferQry(&OraSession);
   
-  vector< pair< pair< string, vector<TTransferItem> >, vector<int> > > crs_trfer, trfer; //вектор пар <tlg_airp_dep+трансферный маршрут, вектор ид. пассажиров>
+  vector< pair< pair< string, vector<TypeB::TTransferItem> >, vector<int> > > crs_trfer, trfer; //вектор пар <tlg_airp_dep+трансферный маршрут, вектор ид. пассажиров>
   
   int pnr_id=NoExists;
   for(;!PaxQry.Eof;PaxQry.Next())
@@ -968,24 +968,24 @@ void LoadUnconfirmedTransfer(const vector<CheckIn::TTransferItem> &segs, xmlNode
     {
       pnr_id=PaxQry.FieldAsInteger("pnr_id");
 
-      crs_trfer.push_back( make_pair( make_pair( string(), vector<TTransferItem>() ), vector<int>() ) );
+      crs_trfer.push_back( make_pair( make_pair( string(), vector<TypeB::TTransferItem>() ), vector<int>() ) );
 
-      pair< pair< string, vector<TTransferItem> >, vector<int> > &last_crs_trfer=crs_trfer.back();
+      pair< pair< string, vector<TypeB::TTransferItem> >, vector<int> > &last_crs_trfer=crs_trfer.back();
 
       last_crs_trfer.first.first=PaxQry.FieldAsString("tlg_airp_dep");
       CheckInInterface::GetOnwardCrsTransfer(pnr_id, TrferQry, last_crs_trfer.first.second); //зачитаем из таблицы crs_transfer
     };
 
     if (crs_trfer.empty()) continue;
-    pair< pair< string, vector<TTransferItem> >, vector<int> > &last_crs_trfer=crs_trfer.back();
+    pair< pair< string, vector<TypeB::TTransferItem> >, vector<int> > &last_crs_trfer=crs_trfer.back();
     last_crs_trfer.second.push_back(PaxQry.FieldAsInteger("pax_id"));
   };
   
   ProgTrace(TRACE5,"LoadUnconfirmedTransfer: crs_trfer - step 1");
-  vector< pair< pair< string, vector<TTransferItem> >, vector<int> > >::const_iterator iCrsTrfer=crs_trfer.begin();
+  vector< pair< pair< string, vector<TypeB::TTransferItem> >, vector<int> > >::const_iterator iCrsTrfer=crs_trfer.begin();
   for(;iCrsTrfer!=crs_trfer.end();iCrsTrfer++)
   {
-    ProgTrace(TRACE5,"tlg_airp_arv=%s vector<TTransferItem>.size()=%d vector<int>.size()=%d",
+    ProgTrace(TRACE5,"tlg_airp_arv=%s vector<TypeB::TTransferItem>.size()=%d vector<int>.size()=%d",
                      iCrsTrfer->first.first.c_str(), iCrsTrfer->first.second.size(), iCrsTrfer->second.size());
   };
     
@@ -995,13 +995,13 @@ void LoadUnconfirmedTransfer(const vector<CheckIn::TTransferItem> &segs, xmlNode
   for(vector<CheckIn::TPaxTransferItem>::const_iterator p=firstSeg.pax.begin();p!=firstSeg.pax.end();p++,pax_no++)
   {
     string tlg_airp_dep=firstSeg.operFlt.airp;
-    vector<TTransferItem> pax_trfer;
+    vector<TypeB::TTransferItem> pax_trfer;
     //набираем вектор трансфера
     int seg_no=1;
     for(vector<CheckIn::TTransferItem>::const_iterator s=segs.begin();s!=segs.end();s++,seg_no++)
     {
       if (s==segs.begin()) continue; //первый сегмент отбрасываем
-      TTransferItem trferItem;
+      TypeB::TTransferItem trferItem;
       trferItem.num=seg_no-1;
       strcpy(trferItem.airline,s->operFlt.airline.c_str());
       trferItem.flt_no=s->operFlt.flt_no;
@@ -1016,15 +1016,15 @@ void LoadUnconfirmedTransfer(const vector<CheckIn::TTransferItem> &segs, xmlNode
     ProgTrace(TRACE5,"LoadUnconfirmedTransfer: pax_trfer.size()=%d",pax_trfer.size());
     //теперь pax_trfer содержит сегменты сквозной регистрации с подклассом пассажира
     //попробуем добавить сегменты из crs_transfer
-    vector< pair< pair< string, vector<TTransferItem> >, vector<int> > >::const_iterator iCrsTrfer=crs_trfer.begin();
+    vector< pair< pair< string, vector<TypeB::TTransferItem> >, vector<int> > >::const_iterator iCrsTrfer=crs_trfer.begin();
     for(;iCrsTrfer!=crs_trfer.end();iCrsTrfer++)
     {
       if (find(iCrsTrfer->second.begin(),iCrsTrfer->second.end(),p->pax_id)!=iCrsTrfer->second.end())
       {
         //iCrsTrfer указывает на трансфер пассажира
         tlg_airp_dep=iCrsTrfer->first.first;
-        for(vector<TTransferItem>::const_iterator iCrsTrferItem=iCrsTrfer->first.second.begin();
-                                                  iCrsTrferItem!=iCrsTrfer->first.second.end();iCrsTrferItem++)
+        for(vector<TypeB::TTransferItem>::const_iterator iCrsTrferItem=iCrsTrfer->first.second.begin();
+                                                         iCrsTrferItem!=iCrsTrfer->first.second.end();iCrsTrferItem++)
         {
           if (iCrsTrferItem->num>=seg_no-1) pax_trfer.push_back(*iCrsTrferItem); //добавляем доп. сегменты из таблицы crs_transfer
         };
@@ -1035,7 +1035,7 @@ void LoadUnconfirmedTransfer(const vector<CheckIn::TTransferItem> &segs, xmlNode
     //теперь pax_trfer содержит сегменты сквозной регистрации с подклассом пассажира
     //плюс дополнительные сегменты трансфера из таблицы crs_transfer
     //все TTransferItem в pax_trfer сортированы по номеру трансфера (TTransferItem.num)
-    vector< pair< pair< string, vector<TTransferItem> >, vector<int> > >::iterator iTrfer=trfer.begin();
+    vector< pair< pair< string, vector<TypeB::TTransferItem> >, vector<int> > >::iterator iTrfer=trfer.begin();
     for(;iTrfer!=trfer.end();iTrfer++)
     {
       if (iTrfer->first.first==tlg_airp_dep &&
@@ -1050,7 +1050,7 @@ void LoadUnconfirmedTransfer(const vector<CheckIn::TTransferItem> &segs, xmlNode
   //формируем XML
   xmlNodePtr itemsNode=NewTextChild(transferNode,"unconfirmed_transfer");
   
-  vector< pair< pair< string, vector<TTransferItem> >, vector<int> > >::const_iterator iTrfer=trfer.begin();
+  vector< pair< pair< string, vector<TypeB::TTransferItem> >, vector<int> > >::const_iterator iTrfer=trfer.begin();
   for(;iTrfer!=trfer.end();iTrfer++)
   {
     if (iTrfer->first.second.empty()) continue;
@@ -1215,7 +1215,7 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry,  xmlNodePtr resNode)
 
       paxNode=NewTextChild(node,"passengers");
       
-      vector<TTransferItem> crs_trfer;
+      vector<TypeB::TTransferItem> crs_trfer;
       CheckInInterface::GetOnwardCrsTransfer(pnr_id, TrferQry, crs_trfer);
 
       if (!crs_trfer.empty())
@@ -2510,7 +2510,7 @@ bool CheckInInterface::CheckCkinFlight(const int point_dep,
   return true;
 };
 
-bool CheckInInterface::CheckFQTRem(xmlNodePtr remNode, TFQTItem &fqt)
+bool CheckInInterface::CheckFQTRem(xmlNodePtr remNode, TypeB::TFQTItem &fqt)
 {
   if (remNode==NULL) return false;
   xmlNodePtr node2=remNode->children;
@@ -2531,13 +2531,13 @@ bool CheckInInterface::CheckFQTRem(xmlNodePtr remNode, TFQTItem &fqt)
       ReplaceTextChild(remNode, "rem_text", rem_text);
     };
 
-    TTlgParser parser;
+    TypeB::TTlgParser parser;
     return ParseFQTRem(parser,rem_text,fqt);
   };
   return false;
 };
 
-bool CheckInInterface::ParseFQTRem(TTlgParser &tlg,string &rem_text,TFQTItem &fqt)
+bool CheckInInterface::ParseFQTRem(TypeB::TTlgParser &tlg,string &rem_text,TypeB::TFQTItem &fqt)
 {
   char c;
   int res,k;
@@ -3266,7 +3266,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                   if (rem_code=="EXST") flagEXST=true;
                   if (rem_code=="CBBG") flagCBBG=true;
                   //проверим корректность ремарки FQT...
-                  TFQTItem FQTItem;
+                  TypeB::TFQTItem FQTItem;
                   CheckFQTRem(remNode,FQTItem);
                 };
               if (addVIP && !flagVIP)
@@ -5063,7 +5063,7 @@ void CheckInInterface::SavePaxRem(xmlNodePtr paxNode)
   string rem_code, rem_text;
   for(remNode=remNode->children;remNode!=NULL;remNode=remNode->next)
   {
-    TFQTItem FQTItem;
+    TypeB::TFQTItem FQTItem;
     if (CheckFQTRem(remNode,FQTItem))
     {
       FQTQry.SetVariable("rem_code",FQTItem.rem_code);

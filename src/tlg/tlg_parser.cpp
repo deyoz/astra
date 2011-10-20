@@ -29,8 +29,9 @@ using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace std;
 
-const char lat_lines[]="ABCDEFGHIJK";
-const char rus_lines[]="АБВГДЕЖЗИКЛ";
+namespace TypeB
+{
+
 const TMonthCode Months[12] =
     {{"ЯНВ","JAN"},
      {"ФЕВ","FEB"},
@@ -72,10 +73,12 @@ const char* TTlgElementS[] =
                //общие
                "EndOfMessage"};
 
+
 char lexh[MAX_LEXEME_SIZE+1];
 
 void ParseNameElement(char* p, vector<string> &names, TElemPresence num_presence);
-void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &pr_prev_rem);
+void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &pr_prev_rem, bool &pr_bag_info);
+void BindRemarks(TTlgParser &tlg, TNameElement &ne);
 void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
                   TTlgParser &tlg, TPnrItem &pnr, TNameElement &ne);
 bool ParseCHDRem(TTlgParser &tlg,string &rem_text,vector<TChdItem> &chd);
@@ -184,16 +187,6 @@ char* TTlgParser::GetToEOLLexeme(char* p)
 char* GetTlgElementName(TTlgElement e)
 {
   return (char*)TTlgElementS[e];
-};
-
-char GetSalonLine(char line)
-{
-  const char *p;
-  p=strchr(rus_lines,line);
-  if (p==NULL) p=strchr(lat_lines,line);
-  else p=lat_lines+(p-rus_lines);
-  if (p==NULL) return 0;
-  else return *p;
 };
 
 char* TlgElemToElemId(TElemType type, const char* elem, char* id, bool with_icao=false)
@@ -429,7 +422,7 @@ char ParseBSMElement(char *p, TTlgParser &tlg, TBSMInfo* &data, TMemoryManager &
                 if (strcmp(month,Months[mon-1].lat)==0||
                     strcmp(month,Months[mon-1].rus)==0) break;
               EncodeDate(year,mon,day,flt.scd);
-              if ((int)today>(int)flt.scd+30)  //рейс может задержаться на месяц
+              if ((int)today>(int)IncMonth(flt.scd,6))  //пол-года
                 EncodeDate(year+1,mon,day,flt.scd);
             }
             catch(EConvertError)
@@ -598,7 +591,7 @@ void ParseBTMContent(TTlgPartInfo body, TBSMHeadingInfo& info, TBtmContent& con,
   vector<TBtmTransferInfo>::iterator iIn;
   vector<TBtmOutFltInfo>::iterator iOut;
   vector<TBtmGrpItem>::iterator iGrp;
-  vector<TBtmTagItem>::iterator iTag;
+  vector<TBSMTagItem>::iterator iTag;
   vector<string>::iterator i;
 
   con.Clear();
@@ -688,7 +681,7 @@ void ParseBTMContent(TTlgPartInfo body, TBSMHeadingInfo& info, TBtmContent& con,
             {
               if (strchr("FNP",prior)==NULL) throw ETlgError("Wrong element order");
               TBSMTag &BSMTag = *(dynamic_cast<TBSMTag*>(data));
-              TBtmTagItem tag;
+              TBSMTagItem tag;
               StrToFloat(BSMTag.first_no,tag.first_no);
               StrToInt(BSMTag.num,tag.num);
               if (prior!='N')
@@ -795,7 +788,7 @@ TTlgPartInfo ParseDCSHeading(TTlgPartInfo heading, TDCSHeadingInfo &info)
                 if (strcmp(month,Months[mon-1].lat)==0||
                     strcmp(month,Months[mon-1].rus)==0) break;
               EncodeDate(year,mon,day,info.flt.scd);
-              if ((int)today>(int)info.flt.scd+30)  //рейс может задержаться на месяц
+              if ((int)today>(int)IncMonth(info.flt.scd,6))  //пол-года
                 EncodeDate(year+1,mon,day,info.flt.scd);
               info.flt.pr_utc=false;
             }
@@ -1637,9 +1630,56 @@ void ParsePTMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPtmContent& con)
   return;
 };
 
+bool isSeatRem(const string &rem_code)
+{
+  return rem_code=="EXST" ||
+         rem_code=="GPST" ||
+         rem_code=="RQST" ||
+         rem_code=="SEAT" ||
+         rem_code=="NSST" ||
+         rem_code=="NSSA" ||
+         rem_code=="NSSB" ||
+         rem_code=="NSSW" ||
+         rem_code=="SMST" ||
+         rem_code=="SMSA" ||
+         rem_code=="SMSB" ||
+         rem_code=="SMSW";
+};
+
 bool isBlockSeatsRem(const string &rem_code)
 {
-  return rem_code=="EXST" || rem_code=="STCR";
+  return rem_code=="EXST" ||
+         rem_code=="STCR";
+};
+
+bool isNotAdditionalSeatRem(const string &rem_code)
+{
+  return rem_code=="DOCA" ||
+         rem_code=="DOCO" ||
+         rem_code=="DOCS" ||
+         rem_code=="PSPT" ||
+         rem_code=="CHLD" ||
+         rem_code=="CHD" ||
+         rem_code=="INFT" ||
+         rem_code=="INF" ||
+         rem_code=="TKNM" ||
+         rem_code=="TKNA" ||
+         rem_code=="TKNE" ||
+         rem_code=="TKNO" ||
+         rem_code=="FQTR" ||
+         rem_code=="FQTV" ||
+         rem_code=="FQTU" ||
+         rem_code=="FQTS";
+};
+
+bool isAdditionalSeat(const TPaxItem &pax)
+{
+  if (!isBlockSeatsRem(pax.name)) return false;
+  for(vector<TRemItem>::const_iterator iRemItem=pax.rem.begin();
+                                       iRemItem!=pax.rem.end();
+                                       ++iRemItem)
+    if (isNotAdditionalSeatRem(iRemItem->code)) return false;
+  return true;
 };
 
 vector<TPaxItem>::const_iterator findPaxForBlockSeats(vector<TPaxItem>::const_iterator zzPax,
@@ -1658,7 +1698,7 @@ vector<TPaxItem>::const_iterator findPaxForBlockSeats(vector<TPaxItem>::const_it
                                          ++iPaxItem)
     {
       if (iPaxItem==zzPax) continue;
-      if (isBlockSeatsRem(iPaxItem->name)) continue;
+      if (isAdditionalSeat(*iPaxItem)) continue; //пропускаем возможные дополнительные места
       for(vector<TRemItem>::const_iterator iRemItem=iPaxItem->rem.begin();
                                            iRemItem!=iPaxItem->rem.end();
                                            ++iRemItem)
@@ -1670,6 +1710,28 @@ vector<TPaxItem>::const_iterator findPaxForBlockSeats(vector<TPaxItem>::const_it
     };
   };
   return minSeatsPax;
+};
+
+void CheckDCSBagPool(const TPNLADLPRLContent& con)
+{
+  if (con.resa.empty() || con.resa.back().pnr.empty() || con.resa.back().pnr.back().ne.empty()) return;
+  vector<TNameElement>::const_reverse_iterator iNameElemLast=con.resa.rbegin()->pnr.rbegin()->ne.rbegin();
+  if (iNameElemLast->bag_pool==NoExists) return;
+  for(vector<TTotalsByDest>::const_reverse_iterator iTotals=con.resa.rbegin(); iTotals!=con.resa.rend(); ++iTotals)
+    for(vector<TPnrItem>::const_reverse_iterator iPnr=iTotals->pnr.rbegin(); iPnr!=iTotals->pnr.rend(); ++iPnr)
+       for(vector<TNameElement>::const_reverse_iterator iNameElem=iPnr->ne.rbegin();iNameElem!=iPnr->ne.rend(); ++iNameElem)
+       {
+         if (iNameElem->bag_pool==NoExists || iNameElemLast->bag_pool!=iNameElem->bag_pool) continue;
+         if (iTotals==con.resa.rbegin())
+         {
+           if (iNameElemLast!=iNameElem &&
+               (!iNameElemLast->tags.empty() || !iNameElemLast->bag.Empty()) &&
+               (!iNameElem->tags.empty() || !iNameElem->bag.Empty()))
+            throw ETlgError("More than one head of pooled baggage %03d", iNameElemLast->bag_pool);
+         }
+         else
+           throw ETlgError("Duplicate baggage pooling element %03d", iNameElemLast->bag_pool);
+       };
 };
 
 void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLContent& con)
@@ -2128,7 +2190,9 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
 
             while ((p=tlg.GetNameElement(p,false))!=NULL)
             {
-              ParsePaxLevelElement(tlg,con.flt,*iPnrItem,pr_prev_rem);
+              bool pr_bag_info=false;
+              ParsePaxLevelElement(tlg,con.flt,*iPnrItem,pr_prev_rem,pr_bag_info);
+              if (pr_bag_info) CheckDCSBagPool(con);
             };
 
             e_part=3;
@@ -2138,16 +2202,100 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
       };
     }
     while ((line_p=tlg.NextLine(line_p))!=NULL);
-    //разобрать все ремарки
     
+    //3 прохода обработки ремарок
+    //A. привязать ремарки к пассажирам
+    for(iTotals=con.resa.begin();iTotals!=con.resa.end();++iTotals)
+      for(iPnrItem=iTotals->pnr.begin();iPnrItem!=iTotals->pnr.end();++iPnrItem)
+        for(vector<TNameElement>::iterator i=iPnrItem->ne.begin();i!=iPnrItem->ne.end();++i)
+          BindRemarks(tlg,*i);
+    
+    //B. проанализировать дополнительные места пассажиров (после привязки, но до разбора ремарок!)
+    for(iTotals=con.resa.begin();iTotals!=con.resa.end();++iTotals)
+    {
+      for(iPnrItem=iTotals->pnr.begin();iPnrItem!=iTotals->pnr.end();++iPnrItem)
+      {
+        for(vector<TNameElement>::iterator i=iPnrItem->ne.begin();i!=iPnrItem->ne.end();++i)
+        {
+          //два прохода в рамках пассажиров одного NameElement:
+          //1. Проставляем EXST и STCR для тех пассажиров, у которых соответствующие личные ремарки
+          for(iPaxItem=i->pax.begin();iPaxItem!=i->pax.end();)
+          {
+            if (isAdditionalSeat(*iPaxItem))
+            {
+              vector<TPaxItem>::const_iterator minSeatsPax=findPaxForBlockSeats(iPaxItem, *iPnrItem, i);
+              if (minSeatsPax!=iPaxItem)
+              {
+                TPaxItem &p=(TPaxItem&)*minSeatsPax;
+                if (p.seats>=3) break; //нельзя для астры превышать кол-во мест 3
+                p.seats++;
+                p.rem.insert(p.rem.end(),
+                             iPaxItem->rem.begin(),iPaxItem->rem.end());
+                iPaxItem=i->pax.erase(iPaxItem);
+                continue;
+              };
+            };
+            ++iPaxItem;
+          };
+          //2. Проставляем EXST и STCR для пассажиров непосредственно перед EXST/STCR
+          iPaxItemPrev=i->pax.end();
+          for(iPaxItem=i->pax.begin();iPaxItem!=i->pax.end();)
+          {
+            if (isAdditionalSeat(*iPaxItem))
+            {
+              if (iPaxItemPrev!=i->pax.end() && iPaxItemPrev->seats<3)
+              {
+                //EXST/STCR не первые в NameElement и предыдущий пассажир занимает менее 3 мест
+                iPaxItemPrev->seats++;
+                //перебросим ремарки
+                iPaxItemPrev->rem.insert(iPaxItemPrev->rem.end(),
+                                         iPaxItem->rem.begin(),iPaxItem->rem.end());
+                iPaxItem=i->pax.erase(iPaxItem);
+                continue;
+              };
+            }
+            else
+            {
+              iPaxItemPrev=iPaxItem;
+            };
+            ++iPaxItem;
+          };
+        };
+        // Проставляем EXST и STCR для тех пассажиров, у которых соответствующие личные ремарки
+        // в рамках одного PNR??? а PRL???
+        for(vector<TNameElement>::iterator i=iPnrItem->ne.begin();i!=iPnrItem->ne.end();++i)
+        {
+          if (i->surname!="ZZ") continue;
+          for(iPaxItem=i->pax.begin();iPaxItem!=i->pax.end();)
+          {
+            if (isAdditionalSeat(*iPaxItem))
+            {
+              vector<TPaxItem>::const_iterator minSeatsPax=findPaxForBlockSeats(iPaxItem, *iPnrItem, iPnrItem->ne.end());
+              if (minSeatsPax!=iPaxItem)
+              {
+                TPaxItem &p=(TPaxItem&)*minSeatsPax;
+                if (p.seats>=3) break; //нельзя для астры превышать кол-во мест 3
+                p.seats++;
+                p.rem.insert(p.rem.end(),
+                             iPaxItem->rem.begin(),iPaxItem->rem.end());
+                iPaxItem=i->pax.erase(iPaxItem);
+                continue;
+              };
+            };
+            ++iPaxItem;
+          };
+        };
+      };
+    };
+    
+    //C. разобрать ремарки
     TSeatRemPriority seat_rem_priority;
     string airline_mark; //по какой компании посторен seat_rem_priority
-    
-    vector<TNameElement>::iterator i;
-    for(iTotals=con.resa.begin();iTotals!=con.resa.end();iTotals++)
+
+    for(iTotals=con.resa.begin();iTotals!=con.resa.end();++iTotals)
     {
       GetSubcl(iTotals->subcl); //подклассы в базе храним русские
-      for(iPnrItem=iTotals->pnr.begin();iPnrItem!=iTotals->pnr.end();iPnrItem++)
+      for(iPnrItem=iTotals->pnr.begin();iPnrItem!=iTotals->pnr.end();++iPnrItem)
       {
         string pnr_airline_mark=iPnrItem->market_flt.Empty()?con.flt.airline:iPnrItem->market_flt.airline;
         if (airline_mark.empty() || pnr_airline_mark!=airline_mark)
@@ -2156,76 +2304,9 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
           airline_mark=pnr_airline_mark;
         };
 
-        for(i=iPnrItem->ne.begin();i!=iPnrItem->ne.end();i++)
+        for(vector<TNameElement>::iterator i=iPnrItem->ne.begin();i!=iPnrItem->ne.end();++i)
         {
           ParseRemarks(seat_rem_priority,tlg,*iPnrItem,*i);
-          //два прохода в рамках пассажиров одного NameElement:
-          //1. Проставляем EXST и STCR для тех пассажиров, у которых соответствующие личные ремарки
-          for(iPaxItem=i->pax.begin();iPaxItem!=i->pax.end();)
-          {
-            if (isBlockSeatsRem(iPaxItem->name))
-            {
-              vector<TPaxItem>::const_iterator minSeatsPax=findPaxForBlockSeats(iPaxItem, *iPnrItem, i);
-              if (minSeatsPax!=iPaxItem)
-              {
-                TPaxItem &p=(TPaxItem&)*minSeatsPax;
-                if (p.seats>3) break; //нельзя для астры превышать кол-во мест 3
-                p.seats++;
-                p.rem.insert(p.rem.end(),
-                             iPaxItem->rem.begin(),iPaxItem->rem.end());
-                iPaxItem=i->pax.erase(iPaxItem);
-                continue;
-              };
-            };
-            iPaxItem++;
-          };
-          //2. Проставляем EXST и STCR для пассажиров непосредственно перед EXST/STCR
-          iPaxItemPrev=i->pax.end();
-          for(iPaxItem=i->pax.begin();iPaxItem!=i->pax.end();)
-          {
-            if (isBlockSeatsRem(iPaxItem->name))
-            {
-              if (iPaxItemPrev!=i->pax.end())
-              {
-                if (iPaxItemPrev->seats>3) continue;
-              iPaxItemPrev->seats++;
-              //перебросим ремарки
-              iPaxItemPrev->rem.insert(iPaxItemPrev->rem.end(),
-                                       iPaxItem->rem.begin(),iPaxItem->rem.end());
-              iPaxItem=i->pax.erase(iPaxItem);
-                continue;
-              };
-            }
-            else
-            {
-              iPaxItemPrev=iPaxItem;
-            };
-              iPaxItem++;
-            };
-          };
-        
-        // Проставляем EXST и STCR для тех пассажиров, у которых соответствующие личные ремарки в рамках одного PNR
-        for(i=iPnrItem->ne.begin();i!=iPnrItem->ne.end();i++)
-        {
-          if (i->surname!="ZZ") continue;
-          for(iPaxItem=i->pax.begin();iPaxItem!=i->pax.end();)
-          {
-            if (isBlockSeatsRem(iPaxItem->name))
-            {
-              vector<TPaxItem>::const_iterator minSeatsPax=findPaxForBlockSeats(iPaxItem, *iPnrItem, iPnrItem->ne.end());
-              if (minSeatsPax!=iPaxItem)
-              {
-                TPaxItem &p=(TPaxItem&)*minSeatsPax;
-                if (p.seats>3) break; //нельзя для астры превышать кол-во мест 3
-                p.seats++;
-                p.rem.insert(p.rem.end(),
-                             iPaxItem->rem.begin(),iPaxItem->rem.end());
-                iPaxItem=i->pax.erase(iPaxItem);
-                continue;
-              };
-            };
-            iPaxItem++;
-          };
         };
       };
     };
@@ -2240,13 +2321,14 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
   return;
 };
 
-void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &pr_prev_rem)
+void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &pr_prev_rem, bool &pr_bag_info)
 {
   char c;
   int res;
   if (pnr.ne.empty()) return;
   TNameElement& ne=pnr.ne.back();
 
+  pr_bag_info=false;
   //разбор ремарок
   c=0;
   res=sscanf(tlg.lex,".%[A-Z0-9]%c",lexh,&c);
@@ -2393,9 +2475,9 @@ void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &p
         res=sscanf(tlg.lex,".%*c%*1[0-9]/%[A-ZА-ЯЁ0-9]%c",lexh,&c);
       };
     };
-    if (c!=0||res!=1) throw ETlgError(errMsg);
+    if (c!=0||res!=1||strlen(lexh)<3) throw ETlgError(errMsg);
     c=0;
-    if (isdigit(lexh[2]))
+    if (IsDigit(lexh[2]))
     {
       res=sscanf(lexh,"%2[A-ZА-ЯЁ0-9]%5lu%1[A-ZА-ЯЁ]%2lu%[A-ZА-ЯЁ0-9]",
                       Transfer.airline,&Transfer.flt_no,
@@ -2506,6 +2588,93 @@ void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &p
     };
     return;
   };
+  if (strcmp(lexh,"W")==0)
+  {
+    if (!ne.bag.Empty())
+      throw ETlgError("Duplicate pieces/weight data element");
+    
+    c=0;
+    ne.bag.weight_unit[1]=0;
+    res=sscanf(tlg.lex,".W/%c%[^.]",&ne.bag.weight_unit[0],tlg.lex);
+    if (c!=0||res!=2)
+      throw ETlgError("Wrong pieces/weight data element");
+    if (strcmp(ne.bag.weight_unit,"L")!=0 &&
+        strcmp(ne.bag.weight_unit,"K")!=0 &&
+        strcmp(ne.bag.weight_unit,"P")!=0) throw ETlgError("Wrong pieces/weight indicator");
+    if (strcmp(ne.bag.weight_unit,"P")==0)
+    {
+      c=0;
+      res=sscanf(tlg.lex,"/%3lu%c",&ne.bag.bag_amount,&c);
+      if (c!=0||res!=1||ne.bag.bag_amount<0) throw ETlgError("Wrong pieces/weight data element");
+    }
+    else
+    {
+      c=0;
+      res=sscanf(tlg.lex,"/%3lu/%4lu%[^.]",&ne.bag.bag_amount,&ne.bag.bag_weight,tlg.lex);
+      if (c!=0||res<2||ne.bag.bag_amount<0||ne.bag.bag_weight<0) throw ETlgError("Wrong pieces/weight data element");
+      if (res==3)
+      {
+        c=0;
+        res=sscanf(tlg.lex,"/%3lu%c",&ne.bag.rk_weight,&c);
+        if (c!=0||res!=1||ne.bag.rk_weight<0) throw ETlgError("Wrong pieces/weight data element");
+        
+      };
+    };
+    pr_bag_info=true;
+    return;
+  };
+  if (strcmp(lexh,"N")==0)
+  {
+    TTagItem tag;
+    TBSMTag tagh;
+    c=0;
+    res=sscanf(tlg.lex,".N/%10[0-9]%3[0-9]/%3[A-ZА-ЯЁ]%c",tagh.first_no,tagh.num,tag.airp_arv_final,&c);
+    if (c!=0||res!=3)
+    {
+      c=0;
+      res=sscanf(tlg.lex,".N/%9[A-ZА-ЯЁ0-9]/%3[0-9]/%3[A-ZА-ЯЁ]%c",tagh.first_no,tagh.num,tag.airp_arv_final,&c);
+      if (c!=0||res!=3)
+        throw ETlgError("Wrong baggage tag details element");
+      if (strlen(tagh.first_no)<8)
+        throw ETlgError("Wrong baggage tag ID number");
+        
+      lexh[0]=0;
+      c=0;
+      if (IsDigit(tagh.first_no[2]))
+        res=sscanf(tagh.first_no,"%2[A-ZА-ЯЁ0-9]%6[0-9]%c",tag.alpha_no,lexh,&c);
+      else
+        res=sscanf(tagh.first_no,"%3[A-ZА-ЯЁ0-9]%6[0-9]%c",tag.alpha_no,lexh,&c);
+      if (c!=0||res!=2||strlen(lexh)!=6)
+        throw ETlgError("Wrong baggage tag ID number");
+      StrToFloat(lexh,tag.numeric_no);
+      StrToInt(tagh.num,tag.num);
+      if (tag.num<1 || tag.num>999 || tag.numeric_no+tag.num-1>=1E6)
+        throw ETlgError("Wrong number of consecutive tags");
+    }
+    else
+    {
+      if (strlen(tagh.first_no)!=10||strlen(tagh.num)!=3)
+        throw ETlgError("Wrong baggage tag details element");
+      StrToFloat(tagh.first_no,tag.numeric_no);
+      StrToInt(tagh.num,tag.num);
+      if (tag.num<1 || tag.num>999 || tag.numeric_no+tag.num-1>=1E10)
+        throw ETlgError("Wrong number of consecutive tags");
+    };
+    ne.tags.push_back(tag);
+    pr_bag_info=true;
+    return;
+  };
+  if (strcmp(lexh,"BG")==0)
+  {
+    lexh[0]=0;
+    c=0;
+    res=sscanf(tlg.lex,".BG/%3[0-9]%c",lexh,&c);
+    if (c!=0||res!=1||strlen(lexh)!=3)
+      throw ETlgError("Wrong baggage pooling element");
+    StrToInt(lexh,ne.bag_pool);
+    pr_bag_info=true;
+    return;
+  };
 };
 
 void ParseNameElement(char* p, vector<string> &names, TElemPresence num_presence)
@@ -2582,8 +2751,7 @@ string OnlyAlphaInLexeme(string lex)
   return lex;
 };
 
-void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
-                  TTlgParser &tlg, TPnrItem &pnr, TNameElement &ne)
+void BindRemarks(TTlgParser &tlg, TNameElement &ne)
 {
   char c;
   int res,k;
@@ -2594,9 +2762,9 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
   char rem_code[7],numh[4];
   int num;
   vector<TRemItem>::iterator iRemItem;
-  vector<TPaxItem>::iterator iPaxItem,iPaxItem2;
-  vector<TNameElement>::iterator iNameElement;
-  for(iRemItem=ne.rem.begin();iRemItem!=ne.rem.end();iRemItem++)
+  vector<TPaxItem>::iterator iPaxItem;
+
+  for(iRemItem=ne.rem.begin();iRemItem!=ne.rem.end();++iRemItem)
   {
     TrimString(iRemItem->text);
     if (iRemItem->text.empty()) continue;
@@ -2625,7 +2793,7 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
   {
     if (iRemItem->text.empty())
     {
-      iRemItem++;
+      ++iRemItem;
       continue;
     };
 
@@ -2652,13 +2820,13 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
     if (pos!=string::npos)
     {
       pr_parse=true;
-      for(vector<string>::iterator i=names.begin();i!=names.end();i++)
+      for(vector<string>::iterator i=names.begin();i!=names.end();++i)
       {
         if (i!=names.begin())
         {
           for(k=0;k<=1;k++)
           {
-            for(iPaxItem=ne.pax.begin();iPaxItem!=ne.pax.end();iPaxItem++)
+            for(iPaxItem=ne.pax.begin();iPaxItem!=ne.pax.end();++iPaxItem)
             {
               if (k==0&&iPaxItem->name!=*i||
                   k!=0&&OnlyAlphaInLexeme(iPaxItem->name)!=OnlyAlphaInLexeme(*i)) continue;
@@ -2695,7 +2863,7 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
       //не нашли ссылку на пассажира
       if (ne.pax.size()!=1)
       {
-        iRemItem++;
+        ++iRemItem;
         continue;
       };
 
@@ -2708,7 +2876,7 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
       pr_parse=true;
     };
 
-    for(iPaxItem=ne.pax.begin();iPaxItem!=ne.pax.end();iPaxItem++)
+    for(iPaxItem=ne.pax.begin();iPaxItem!=ne.pax.end();++iPaxItem)
     {
       if (iPaxItem->rem.empty()) continue;
       TRemItem& RemItem=iPaxItem->rem.back();
@@ -2726,8 +2894,16 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
     if (pr_parse)
       iRemItem=ne.rem.erase(iRemItem);
     else
-      iRemItem++;
+      ++iRemItem;
   };
+};
+
+void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
+                  TTlgParser &tlg, TPnrItem &pnr, TNameElement &ne)
+{
+  vector<TRemItem>::iterator iRemItem;
+  vector<TPaxItem>::iterator iPaxItem,iPaxItem2;
+  vector<TNameElement>::iterator iNameElement;
 
   //сначала пробегаем по ремаркам каждого из пассажиров (из-за номеров мест)
   for(iPaxItem=ne.pax.begin();iPaxItem!=ne.pax.end();iPaxItem++)
@@ -3435,18 +3611,7 @@ bool ParseSEATRem(TTlgParser &tlg,string &rem_text,vector<TSeatRange> &seats)
   res=sscanf(tlg.lex,"%5[A-ZА-ЯЁ0-9]%c",rem_code,&c);
   if (c!=0||res!=1) return false;
 
-  if (strcmp(rem_code,"EXST")==0||
-      strcmp(rem_code,"GPST")==0||
-      strcmp(rem_code,"RQST")==0||
-      strcmp(rem_code,"SEAT")==0||
-      strcmp(rem_code,"NSST")==0||
-      strcmp(rem_code,"NSSA")==0||
-      strcmp(rem_code,"NSSB")==0||
-      strcmp(rem_code,"NSSW")==0||
-      strcmp(rem_code,"SMST")==0||
-      strcmp(rem_code,"SMSA")==0||
-      strcmp(rem_code,"SMSB")==0||
-      strcmp(rem_code,"SMSW")==0)
+  if (isSeatRem(rem_code))
   {
     bool usePriorContext=false;
     vector<TSeatRange> ranges;
@@ -4285,7 +4450,7 @@ void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, TBtmContent& con)
   vector<TBtmOutFltInfo>::iterator iOut;
   vector<TBtmGrpItem>::iterator iGrp;
   vector<TBtmPaxItem>::iterator iPax;
-  vector<TBtmTagItem>::iterator iTag;
+  vector<TBSMTagItem>::iterator iTag;
   vector<string>::iterator i;
   int point_id_in,point_id_out;
 
@@ -4575,6 +4740,46 @@ void SaveFQTRem(int pax_id, vector<TFQTItem> &fqt)
     if (i->extra.size()>250) i->extra.erase(250);
     Qry.SetVariable("extra",i->extra);
     Qry.Execute();
+  };
+};
+
+void SaveDCSBaggage(int pax_id, const TNameElement &ne)
+{
+  if (ne.bag.Empty() && ne.tags.empty()) return;
+  TQuery Qry(&OraSession);
+  if (!ne.bag.Empty())
+  {
+    Qry.Clear();
+    Qry.SQLText=
+      "INSERT INTO dcs_bag(pax_id, bag_amount, bag_weight, rk_weight, weight_unit) "
+      "VALUES(:pax_id, :bag_amount, :bag_weight, :rk_weight, :weight_unit)";
+    Qry.CreateVariable("pax_id", otInteger, pax_id);
+    Qry.CreateVariable("bag_amount", otInteger, (int)ne.bag.bag_amount);
+    Qry.CreateVariable("bag_weight", otInteger, (int)ne.bag.bag_weight);
+    Qry.CreateVariable("rk_weight", otInteger, (int)ne.bag.rk_weight);
+    Qry.CreateVariable("weight_unit", otString, ne.bag.weight_unit);
+    Qry.Execute();
+  };
+  if (!ne.tags.empty())
+  {
+    Qry.Clear();
+    Qry.SQLText=
+      "INSERT INTO dcs_tags(pax_id, alpha_no, numeric_no, airp_arv_final) "
+      "VALUES(:pax_id, :alpha_no, :numeric_no, :airp_arv_final)";
+    Qry.CreateVariable("pax_id",otInteger,pax_id);
+    Qry.DeclareVariable("alpha_no", otString);
+    Qry.DeclareVariable("numeric_no", otFloat);
+    Qry.DeclareVariable("airp_arv_final", otString);
+    for(vector<TTagItem>::const_iterator iTag=ne.tags.begin(); iTag!=ne.tags.end(); ++iTag)
+    {
+      Qry.SetVariable("alpha_no",iTag->alpha_no);
+      Qry.SetVariable("airp_arv_final",iTag->airp_arv_final);
+      for(int j=0;j<iTag->num;j++)
+      {
+        Qry.SetVariable("numeric_no",iTag->numeric_no+j);
+        Qry.Execute();
+      };
+    };
   };
 };
 
@@ -5030,12 +5235,12 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
           "BEGIN "
           "  IF :pax_id IS NULL THEN "
           "    SELECT pax_id.nextval INTO :pax_id FROM dual; "
-          "    INSERT INTO crs_pax(pax_id,pnr_id,surname,name,pers_type,seat_xname,seat_yname,seat_rem,seat_type,seats,pr_del,last_op,tid) "
-          "    VALUES(:pax_id,:pnr_id,:surname,:name,:pers_type,:seat_xname,:seat_yname,:seat_rem,:seat_type,:seats,:pr_del,:last_op,tid__seq.currval); "
+          "    INSERT INTO crs_pax(pax_id,pnr_id,surname,name,pers_type,seat_xname,seat_yname,seat_rem,seat_type,seats,bag_pool,pr_del,last_op,tid) "
+          "    VALUES(:pax_id,:pnr_id,:surname,:name,:pers_type,:seat_xname,:seat_yname,:seat_rem,:seat_type,:seats,:bag_pool,:pr_del,:last_op,tid__seq.currval); "
           "  ELSE "
           "    UPDATE crs_pax "
           "    SET pers_type= :pers_type, seat_xname= :seat_xname, seat_yname= :seat_yname, seat_rem= :seat_rem, "
-          "        seat_type= :seat_type, pr_del= :pr_del, last_op= :last_op, tid=tid__seq.currval "
+          "        seat_type= :seat_type, bag_pool= :bag_pool, pr_del= :pr_del, last_op= :last_op, tid=tid__seq.currval "
           "    WHERE pax_id=:pax_id; "
           "  END IF; "
           "END;";
@@ -5049,6 +5254,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
         CrsPaxInsQry.DeclareVariable("seat_rem",otString);
         CrsPaxInsQry.DeclareVariable("seat_type",otString);
         CrsPaxInsQry.DeclareVariable("seats",otInteger);
+        CrsPaxInsQry.DeclareVariable("bag_pool",otString);
         CrsPaxInsQry.DeclareVariable("pr_del",otInteger);
         CrsPaxInsQry.DeclareVariable("last_op",otDate);
 
@@ -5316,6 +5522,10 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                 };
 
                 CrsPaxInsQry.SetVariable("seats",(int)iPaxItem->seats);
+                if (isPRL && ne.bag_pool!=NoExists)
+                  CrsPaxInsQry.SetVariable("bag_pool", ne.bag_pool);
+                else
+                  CrsPaxInsQry.SetVariable("bag_pool", FNull);
                 if (ne.indicator==DEL)
                   CrsPaxInsQry.SetVariable("pr_del",1);
                 else
@@ -5412,7 +5622,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                   //восстановим номер места предварительной рассадки
                 };
 
-                if (!pr_sync_pnr)
+                if (!isPRL && !pr_sync_pnr)
                 {
                   //делаем синхронизацию пассажира с розыском
                   Qry.Clear();
@@ -5422,6 +5632,12 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                     "END;";
                   Qry.CreateVariable("pax_id",otInteger,pax_id);
                   Qry.Execute();
+                };
+                
+                if (isPRL && iPaxItem==ne.pax.begin())
+                {
+                  //запишем багаж
+                  if (!ne.bag.Empty() || !ne.tags.empty()) SaveDCSBaggage(pax_id, ne);
                 };
               };
             }; //for(iNameElement=pnr.ne.begin()
@@ -5486,7 +5702,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
               PnrMarketFltQry.Execute();
             };
 
-            if (pr_sync_pnr)
+            if (!isPRL && pr_sync_pnr)
             {
               //делаем синхронизацию всей группы с розыском
               Qry.Clear();
@@ -5546,5 +5762,5 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
   };
 };
 
-
+}
 
