@@ -597,6 +597,7 @@ void TAirlines::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **rep
   ((TAirlinesRow*)*row)->short_name=Qry.FieldAsString("short_name");
   ((TAirlinesRow*)*row)->short_name_lat=Qry.FieldAsString("short_name_lat");
   ((TAirlinesRow*)*row)->aircode=Qry.FieldAsString("aircode");
+  ((TAirlinesRow*)*row)->city=Qry.FieldAsString("city");
   TICAOBaseTable::create_row(Qry,row,replaced_row);
 };
 
