@@ -348,7 +348,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     node = node->children;
     while ( node !=NULL ) {
       xmlNodePtr snode = node->children;
-      airp_arv = NodeAsStringFast( "airp_arv", snode );
+      airp_arv = NodeAsStringFast( "target", snode );
       cl = NodeAsStringFast( "class", snode );
       resa = NodeAsIntegerFast( "resa", snode );
       tranzit = NodeAsIntegerFast( "tranzit", snode );
