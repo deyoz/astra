@@ -429,12 +429,13 @@ class TCities: public TTIDBaseTable {
 
 class TAirlinesRow: public TICAOBaseTableRow {
   public:
-    std::string aircode,short_name,short_name_lat;
+    std::string aircode,short_name,short_name_lat,city;
     const char *get_row_name() const { return "TAirlinesRow"; };
     std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU) const
     {
       if (lowerc(field)=="short_name") return lang!=AstraLocale::LANG_RU?short_name_lat:short_name;
       if (lowerc(field)=="aircode") return aircode;
+      if (lowerc(field)=="city") return city;
       return TICAOBaseTableRow::AsString(field,lang);
     };
 };
