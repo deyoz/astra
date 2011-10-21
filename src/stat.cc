@@ -2437,8 +2437,8 @@ void createXMLDetailStat(TDetailStat &DetailStat, xmlNodePtr resNode, TPrintAirl
         if(pr_pact)
         {
             colNode = NewTextChild(headerNode, "col", getLocaleText("Договор"));
-            SetProp(colNode, "width", 85);
-            SetProp(colNode, "align", taRightJustify);
+            SetProp(colNode, "width", 230);
+            SetProp(colNode, "align", taLeftJustify);
         }
 
         xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
