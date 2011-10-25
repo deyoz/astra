@@ -27,6 +27,8 @@ const std::string NS_PARAM_EVENT_ID2 = "EVENT_ID2";
 const std::string NS_PARAM_EVENT_ID3 = "EVENT_ID3";
 const std::string PARAM_FILE_REC_NO = "rec_no";
 
+const std::string FILE_CHECKINDATA_TYPE = "CHCKD";
+
 struct TFileData {
 	std::string file_data;
 	std::map<std::string,std::string> params;
@@ -53,6 +55,7 @@ void createAODBFileDATA( int point_id );
 void sync_aodb( void );
 void sync_sppcek( void );
 void sync_1ccek( void );
+void sync_checkin_data( void );
 
 
 class AstraServiceInterface : public JxtInterface

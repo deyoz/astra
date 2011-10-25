@@ -17,6 +17,8 @@
 #include "timer.h"
 #include "stages.h"
 #include "maindcs.h"
+#include "base_tables.h"
+#include "astra_misc.h"
 #include "jxtlib/jxt_cont.h"
 #include "serverlib/str_utils.h"
 #include "tlg/tlg.h"
@@ -36,6 +38,7 @@ const string PARAM_NEXT_FILE = "NextFile";
 
 void CommitWork( int file_id );
 
+bool createCheckinDataFiles( int point_id, const std::string &point_addr, TFileDatas &fds );
 bool CreateCommonFileData( const std::string &point_addr,
                            int id, const std::string type,
                            const std::string &airp, const std::string &airline,
@@ -957,7 +960,8 @@ bool CreateCommonFileData( const std::string &point_addr,
                         type == FILE_SOFI_TYPE && createSofiFile( id, inparams, client_canon_name, fds ) ||
                         type == FILE_AODB_OUT_TYPE && createAODBFiles( id, client_canon_name, fds ) ||
                         type == FILE_SPPCEK_TYPE && createSPPCEKFile( id, client_canon_name, fds ) ||
-                        type == FILE_1CCEK_TYPE && Sync1C( client_canon_name, fds ) ) {
+                        type == FILE_1CCEK_TYPE && Sync1C( client_canon_name, fds ) ||
+                        type == FILE_CHECKINDATA_TYPE && createCheckinDataFiles( id, client_canon_name, fds ) ) {
                     /* теперь в params еще лежит и имя файла */
                     string encoding = getFileEncoding( type, client_canon_name, true );
                     for ( vector<TFileData>::iterator i=fds.begin(); i!=fds.end(); i++ ) {
@@ -1315,34 +1319,353 @@ void AstraServiceInterface::saveFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNo
            fileparams,
            file_data );
   registerHookAfter(sendCmdParseAODB);
-/*
-	TQuery Qry( &OraSession );
-  TQuery EncodeQry( &OraSession );
-  EncodeQry.SQLText =
-      "select encoding from file_encoding where "
-      "   own_point_addr = :own_point_addr and "
-      "   type = :type AND "
-      "   point_addr=:point_addr AND "
-      "   pr_send = 0";
-  EncodeQry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
-  EncodeQry.CreateVariable( "point_addr", otString, fileparams[ "canon_name" ] );
-  EncodeQry.CreateVariable( "type", otString, FILE_AODB_IN_TYPE );
-  EncodeQry.Execute();
-
-  string convert_aodb;
-  if ( !EncodeQry.Eof )
-      try {
-      	  convert_aodb = EncodeQry.FieldAsString( "encoding" );
-          file_data = ConvertCodepage( file_data, convert_aodb, "CP866" );
-          convert_aodb.clear();
-      }
-      catch( EConvertError &E ) {
-        ProgError(STDLOG, E.what());
-      }
-  JxtContext::JxtCont *sysCont = JxtContext::getJxtContHandler()->sysContext();
-  string airline = sysCont->read( fileparams[ "canon_name" ] + "_" + OWN_POINT_ADDR() + "_file_param_sets.airline" );
-  ParseAndSaveSPP( fileparams[ PARAM_FILE_NAME ], fileparams[ "canon_name" ], airline, file_data, convert_aodb ); */
 }
+
+class TCheckinDataPointAddr: public TPointAddr {
+  TQuery *StagesQry;
+public:
+  TCheckinDataPointAddr( ):TPointAddr( string(FILE_CHECKINDATA_TYPE), true ) {
+    StagesQry = new TQuery(&OraSession);
+  	StagesQry->SQLText =
+      "SELECT stage_id FROM trip_final_stages WHERE point_id=:point_id AND stage_type=:ckin_stage_type";
+    StagesQry->CreateVariable( "ckin_stage_type", otInteger, stCheckIn );
+    StagesQry->DeclareVariable( "point_id", otInteger );
+  }
+  ~TCheckinDataPointAddr( ) {
+    delete StagesQry;
+  }
+  virtual bool validateParams( const string &point_addr, const vector<string> &ailines,
+                               const vector<string> &airps, const vector<int> &flt_nos ) {
+    return ( airps.size() == 1 ); // выбираем рейсы. Это необходимое условие
+  }
+  virtual bool validatePoints( int point_id ) {
+    StagesQry->SetVariable( "point_id", point_id );
+    StagesQry->Execute();
+    return ( !StagesQry->Eof &&
+              StagesQry->FieldAsInteger( "stage_id" ) != sNoActive &&
+              StagesQry->FieldAsInteger( "stage_id" ) != sPrepCheckIn );
+  }
+};
+
+struct TCheckInData {
+  int f;
+  int c;
+  int y;
+  TCheckInData() {
+    f = 0;
+    c = 0;
+    y = 0;
+  }
+};
+
+struct TPassTypeData {
+  int male;
+  int female;
+  int chd;
+  int inf;
+  TPassTypeData() {
+    male = 0;
+    female = 0;
+    chd = 0;
+    inf = 0;
+  }
+};
+
+struct TResaData {
+  string code;
+  int resa;
+  int tranzit;
+  TResaData() {
+    resa = 0;
+    tranzit = 0;
+  }
+};
+
+struct TBagData {
+  int bag_amount;
+  int bag_weight;
+  int rk_amount;
+  int rk_weight;
+  TBagData() {
+    bag_amount = 0;
+    bag_weight = 0;
+    rk_amount = 0;
+    rk_weight = 0;
+  }
+};
+
+void sync_checkin_data( void )
+{
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
+    "SELECT TRUNC(system.UTCSYSDATE) currdate FROM dual";
+  Qry.Execute();
+  TDateTime currdate = Qry.FieldAsDateTime( "currdate" );
+
+  TCheckinDataPointAddr point_addr;
+  TSQLCondDates cond_dates;
+  cond_dates.sql = " time_out in (:day1,:day2) AND act_out IS NULL ";
+  cond_dates.dates.insert( make_pair( "day1", currdate ) );
+  cond_dates.dates.insert( make_pair( "day2", currdate + 1 ) );
+  point_addr.createPointSQL( cond_dates );
+};
+
+bool createCheckinDataFiles( int point_id, const std::string &point_addr, TFileDatas &fds )
+{
+  fds.clear();
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
+    "SELECT airline, flt_no, suffix, suffix_fmt, airp, scd_out, est_out, act_out, pr_del FROM points "
+    " WHERE point_id=:point_id";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  TQuery StageQry( &OraSession );
+  StageQry.SQLText =
+    "SELECT stage_id FROM trip_final_stages WHERE point_id=:point_id AND stage_type=:stage_type";
+  StageQry.CreateVariable( "point_id", otInteger, point_id );
+  StageQry.CreateVariable( "stage_type", otInteger, stCheckIn );
+  Qry.Execute();
+  if ( Qry.Eof )
+    return false;
+  TQuery PaxQry( &OraSession );
+  //Классы
+  PaxQry.SQLText =
+    "SELECT point_arv, "
+    "       NVL(SUM(DECODE(pax_grp.class,:f,1,0)),0) AS f, "
+    "       NVL(SUM(DECODE(pax_grp.class,:c,1,0)),0) AS c, "
+    "       NVL(SUM(DECODE(pax_grp.class,:y,1,0)),0) AS y "
+    "  FROM pax_grp, pax "
+    " WHERE pax_grp.grp_id=pax.grp_id AND "
+    "       point_dep=:point_id AND pr_brd IS NOT NULL "
+    "GROUP BY point_arv";
+  PaxQry.CreateVariable( "point_id", otInteger, point_id );
+  PaxQry.CreateVariable( "f", otString, "П" );
+  PaxQry.CreateVariable( "c", otString, "Б" );
+  PaxQry.CreateVariable( "y", otString, "Э" );
+  //Типы пассажиров
+  TQuery PassQry( &OraSession );
+  PassQry.SQLText =
+    "SELECT point_arv, "
+    "       NVL(SUM(DECODE(pax.pers_type,:adl,DECODE(pax_doc.gender,:male,1,NULL,1,0),0)),0) AS male, "
+    "       NVL(SUM(DECODE(pax.pers_type,:adl,DECODE(pax_doc.gender,:female,1,0),0)),0) AS female, "
+    "       NVL(SUM(DECODE(pax.pers_type,:chd,1,0)),0) AS chd, "
+    "       NVL(SUM(DECODE(pax.pers_type,:inf,1,0)),0) AS inf "
+    " FROM pax_grp, pax, pax_doc "
+    " WHERE pax_grp.grp_id=pax.grp_id AND "
+    "       pax.pax_id=pax_doc.pax_id(+) AND "
+    "       point_dep=:point_id AND pr_brd IS NOT NULL "
+    "GROUP BY point_arv";
+  PassQry.CreateVariable( "point_id", otInteger, point_id );
+  PassQry.CreateVariable( "adl", otString, "ВЗ" );
+  PassQry.CreateVariable( "male", otString, "M" );
+  PassQry.CreateVariable( "female", otString, "F" );
+  PassQry.CreateVariable( "chd", otString, "РБ" );
+  PassQry.CreateVariable( "inf", otString, "РМ" );
+  TQuery ResaQry( &OraSession );
+  ResaQry.SQLText =
+    "SELECT COUNT(*), target, class FROM tlg_binding,crs_pnr,crs_pax "
+    " WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
+    "       crs_pax.pr_del=0 AND "
+    "       tlg_binding.point_id_spp=:point_id AND "
+    "       tlg_binding.point_id_tlg=crs_pnr.point_id "
+    "GROUP BY target, class";
+  ResaQry.CreateVariable( "point_id", otInteger, point_id );
+  TQuery BagQry( &OraSession );
+  BagQry.SQLText =
+    "SELECT pax_grp.point_arv, "
+    "       SUM(DECODE(bag2.pr_cabin, 0, amount, 0)) bag_amount, "
+    "       SUM(DECODE(bag2.pr_cabin, 0, weight, 0)) bag_weight, "
+    "       SUM(DECODE(bag2.pr_cabin, 0, 0, amount)) rk_amount, "
+    "       SUM(DECODE(bag2.pr_cabin, 0, 0, weight)) rk_weight "
+    "FROM pax_grp, bag2 "
+    " WHERE pax_grp.point_dep = :point_id AND "
+    "       pax_grp.grp_id = bag2.grp_id AND "
+    "       pax_grp.bag_refuse = 0 "
+    " GROUP BY pax_grp.point_arv ";
+  BagQry.CreateVariable( "point_id", otInteger, point_id );
+  tst();
+  string airline = Qry.FieldAsString( "airline" );
+  int flt_no = Qry.FieldAsInteger( "flt_no" );
+  string suffix = ElemIdToElemCtxt( ecDisp, etSuffix, Qry.FieldAsString( "suffix" ), (TElemFmt)Qry.FieldAsInteger( "suffix_fmt" ) );
+
+  string airp = Qry.FieldAsString( "airp" );
+  TDateTime scd_out = Qry.FieldAsDateTime( "scd_out" );
+  string prior_record, record;
+  get_string_into_snapshot_points( point_id, FILE_CHECKINDATA_TYPE, point_addr, prior_record );
+  xmlDocPtr doc = CreateXMLDoc( "UTF-8", "flight" );
+  tst();
+  try {
+    xmlNodePtr node = doc->children;
+    xmlNodePtr n = NewTextChild( node, "airline" );
+    SetProp( n, "code_zrt", airline );
+    SetProp( n, "code_iata", ((TAirlinesRow&)base_tables.get("airlines").get_row( "code", airline, true )).code_lat );
+    NewTextChild( node, "flt_no", flt_no );
+    if ( !suffix.empty() )
+      NewTextChild( node, "suffix", suffix );
+    NewTextChild( node, "date_scd", DateTimeToStr( scd_out, "dd.mm.yyyy hh:nn" ) );
+    if ( Qry.FieldAsInteger( "pr_del" ) == -1 )
+      NewTextChild( node, "status", "delete" );
+    else
+      if ( Qry.FieldAsInteger( "pr_del" ) == 1 )
+        NewTextChild( node, "status", "cancel" );
+      else
+        if ( !Qry.FieldIsNULL( "act_out" ) )
+          NewTextChild( node ,"status", "close" );
+        else {
+          tst();
+          StageQry.Execute();
+          if ( StageQry.FieldAsInteger( "stage_id" ) == sOpenCheckIn )
+            NewTextChild( node ,"status", "checkin" );
+          else
+            NewTextChild( node ,"status", "close" );
+        }
+    map<string,vector<TResaData> > resaData;
+    map<int,TCheckInData> checkinData;
+    map<int,TPassTypeData> passtypeData;
+    map<int,TBagData> bagData;
+    tst();
+    ResaQry.Execute();
+    tst();
+    int priority = ASTRA::NoExists;
+    while ( !ResaQry.Eof ) {
+      if ( priority != ASTRA::NoExists && priority != ResaQry.FieldAsInteger( "priority" ) )
+        break;
+      priority = ResaQry.FieldAsInteger( "priority" );
+      TResaData resa;
+      resa.code = ResaQry.FieldAsString( "class" );
+      resa.resa = ResaQry.FieldAsInteger( "resa" );
+      resa.tranzit = ResaQry.FieldAsInteger( "tranzit" );
+      if ( resa.resa + resa.tranzit > 0 )
+        resaData[ ResaQry.FieldAsString( "airp_arv" ) ].push_back( resa );
+      tst();
+      ResaQry.Next();
+      tst();
+    }
+    tst();
+    PaxQry.Execute();
+    tst();
+    while ( !PaxQry.Eof ) {
+      if ( PaxQry.FieldAsInteger( "f" ) +
+           PaxQry.FieldAsInteger( "c" ) +
+           PaxQry.FieldAsInteger( "y" )!= 0 ) {
+        checkinData[ PaxQry.FieldAsInteger( "point_arv" ) ].f = PaxQry.FieldAsInteger( "f" );
+        checkinData[ PaxQry.FieldAsInteger( "point_arv" ) ].c = PaxQry.FieldAsInteger( "c" );
+        checkinData[ PaxQry.FieldAsInteger( "point_arv" ) ].y = PaxQry.FieldAsInteger( "y" );
+        ProgTrace( TRACE5, "f=%d, c=%d, y=%d",
+                   checkinData[ PaxQry.FieldAsInteger( "point_arv" ) ].f,
+                   checkinData[ PaxQry.FieldAsInteger( "point_arv" ) ].c,
+                   checkinData[ PaxQry.FieldAsInteger( "point_arv" ) ].y );
+      }
+      PaxQry.Next();
+    }
+    tst();
+    PassQry.Execute();
+    tst();
+    while ( !PassQry.Eof ) {
+      if ( PassQry.FieldAsInteger( "male" ) +
+           PassQry.FieldAsInteger( "female" ) +
+           PassQry.FieldAsInteger( "chd" ) +
+           PassQry.FieldAsInteger( "inf" ) != 0 ) {
+        passtypeData[ PassQry.FieldAsInteger( "point_arv" ) ].male = PassQry.FieldAsInteger( "male" );
+        passtypeData[ PassQry.FieldAsInteger( "point_arv" ) ].female = PassQry.FieldAsInteger( "female" );
+        passtypeData[ PassQry.FieldAsInteger( "point_arv" ) ].chd = PassQry.FieldAsInteger( "chd" );
+        passtypeData[ PassQry.FieldAsInteger( "point_arv" ) ].inf = PassQry.FieldAsInteger( "inf" );
+      }
+      PassQry.Next();
+    }
+    BagQry.Execute();
+    while ( !BagQry.Eof ) {
+      bagData[ BagQry.FieldAsInteger( "point_arv" ) ].bag_amount = BagQry.FieldAsInteger( "bag_amount" );
+      bagData[ BagQry.FieldAsInteger( "point_arv" ) ].bag_weight = BagQry.FieldAsInteger( "bag_weight" );
+      bagData[ BagQry.FieldAsInteger( "point_arv" ) ].rk_amount = BagQry.FieldAsInteger( "rk_amount" );
+      bagData[ BagQry.FieldAsInteger( "point_arv" ) ].rk_weight = BagQry.FieldAsInteger( "rk_weight" );
+      BagQry.Next();
+    }
+
+    tst();
+    int route_num = 1;
+    TTripRoute routes;
+    routes.GetRouteBefore( point_id, trtWithCurrent, trtWithCancelled );
+    ProgTrace( TRACE5, "routes.GetRouteBefore=%d", routes.size() );
+    for ( vector<TTripRouteItem>::iterator i=routes.begin(); i!=routes.end(); i++ ) {
+      xmlNodePtr n1, n = NewTextChild( node, "route" );
+      SetProp( n, "num", route_num );
+      route_num++;
+      n1 = NewTextChild( n, "airp" );
+      SetProp( n1, "code_zrt", i->airp );
+      SetProp( n1, "code_iata", ((TAirpsRow&)base_tables.get("airps").get_row( "code", i->airp, true )).code_lat );
+      if ( i->pr_cancel )
+        SetProp( n1, "pr_cancel", i->pr_cancel );
+    }
+    routes.clear();
+    tst();
+    routes.GetRouteAfter( point_id, trtNotCurrent, trtWithCancelled );
+    ProgTrace( TRACE5, "routes.GetRouteAfter=%d", routes.size() );
+    for ( vector<TTripRouteItem>::iterator i=routes.begin(); i!=routes.end(); i++ ) {
+      xmlNodePtr n1, n = NewTextChild( node, "route" );
+      SetProp( n, "num", route_num );
+      route_num++;
+      n1 = NewTextChild( n, "airp" );
+      SetProp( n1, "code_zrt", i->airp );
+      SetProp( n1, "code_iata", ((TAirpsRow&)base_tables.get("airps").get_row( "code", i->airp, true )).code_lat );
+      if ( i->pr_cancel )
+        SetProp( n1, "pr_cancel", i->pr_cancel );
+      n1 = NewTextChild( n, "booking" );
+      if ( !resaData[i->airp].empty() ) {
+        for ( vector<TResaData>::iterator j=resaData[i->airp].begin(); j!=resaData[i->airp].end(); j++ ) {
+          SetProp( NewTextChild( n1, "class", j->resa + j->tranzit ), "code", j->code );
+        }
+      }
+      n1 = NewTextChild( n, "checkin" );
+      if ( checkinData.find( i->point_id ) != checkinData.end() ) {
+        if ( checkinData[ i->point_id ].f != 0 )
+          SetProp( NewTextChild( n1, "class", checkinData[ i->point_id ].f ), "code", "П" );
+        if ( checkinData[ i->point_id ].c != 0 )
+          SetProp( NewTextChild( n1, "class", checkinData[ i->point_id ].c ), "code", "Б" );
+        if ( checkinData[ i->point_id ].y != 0 )
+          SetProp( NewTextChild( n1, "class", checkinData[ i->point_id ].y ), "code", "Э" );
+      }
+      if ( passtypeData.find( i->point_id ) != passtypeData.end() ) {
+        if (  passtypeData[ i->point_id ].male != 0 )
+          SetProp( NewTextChild( n1, "pass", passtypeData[ i->point_id ].male ), "type", "М" );
+        if (  passtypeData[ i->point_id ].female != 0 )
+          SetProp( NewTextChild( n1, "pass", passtypeData[ i->point_id ].female ), "type", "Ж" );
+        if (  passtypeData[ i->point_id ].chd != 0 )
+          SetProp( NewTextChild( n1, "pass", passtypeData[ i->point_id ].chd ), "type", "РБ" );
+        if (  passtypeData[ i->point_id ].inf != 0 )
+          SetProp( NewTextChild( n1, "pass", passtypeData[ i->point_id ].inf ), "type", "РМ" );
+      }
+      if ( bagData.find( i->point_id ) != bagData.end() ) {
+        xmlNodePtr n2 = NewTextChild( n1, "baggage" );
+        NewTextChild( n2,"weight", bagData[ i->point_id ].bag_weight );
+        NewTextChild( n2,"amount", bagData[ i->point_id ].bag_amount );
+        n2 = NewTextChild( n1, "hand_bag" );
+        NewTextChild( n2, "weight", bagData[ i->point_id ].rk_weight );
+        NewTextChild( n2, "amount", bagData[ i->point_id ].rk_amount );
+      }
+    }
+    //данные регистрации
+    record = XMLTreeToText( doc ).c_str();
+    ProgTrace( TRACE5, "sync_checkin_data: point_id=%d, prior_record=%s", point_id, prior_record.c_str() );
+    ProgTrace( TRACE5, "sync_checkin_data: point_id=%d, record=%s", point_id, record.c_str() );
+    if ( record != prior_record ) {
+      put_string_into_snapshot_points( point_id, FILE_CHECKINDATA_TYPE, point_addr, !prior_record.empty(), record );
+      TFileData fd;
+      fd.file_data = record;
+  	  fd.params[ PARAM_FILE_NAME ] = airline + IntToString( flt_no ) + suffix + DateTimeToStr( scd_out, "yymmddhhnn" ) + ".xml";
+  	  fd.params[ NS_PARAM_EVENT_TYPE ] = EncodeEventType( ASTRA::evtFlt );
+      fd.params[ NS_PARAM_EVENT_ID1 ] = IntToString( point_id );
+      fd.params[ PARAM_TYPE ] = VALUE_TYPE_FILE; // FILE
+      fds.push_back( fd );
+    }
+    xmlFreeDoc( doc );
+  }
+  catch(...) {
+    xmlFreeDoc( doc );
+    throw;
+  }
+  return !fds.empty();
+}
+
 
 void AstraServiceInterface::getFileParams( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
 {

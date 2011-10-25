@@ -403,7 +403,12 @@ void TTripRoute::GetRoute(int point_id,
   if (!pr_tranzit && after_current)
     Qry.CreateVariable("first_point",otInteger,point_id);
   else
-    Qry.CreateVariable("first_point",otInteger,first_point);
+  {
+    if (first_point!=NoExists)
+      Qry.CreateVariable("first_point",otInteger,first_point);
+    else
+      Qry.CreateVariable("first_point",otInteger,point_id);
+  };
   Qry.CreateVariable("point_num",otInteger,point_num);
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next())
@@ -434,7 +439,7 @@ bool TTripRoute::GetRoute(int point_id,
   if (Qry.Eof) return false;
   GetRoute(point_id,
            Qry.FieldAsInteger("point_num"),
-           Qry.FieldAsInteger("first_point"),
+           Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point"),
            Qry.FieldAsInteger("pr_tranzit")!=0,
            after_current,route_type1,route_type2,Qry);
   return true;
