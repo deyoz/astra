@@ -78,7 +78,8 @@ astra_SOURCES = \
   timer.cpp \
   tripinfo.cc \
   web_main.cc \
-  xml_unit.cc
+  xml_unit.cc \
+  load_fr.cc
 
 astra_LDADD = $(all_libraries) \
 	tlg/libtlg.a \
@@ -88,7 +89,9 @@ astra_LDADD = $(all_libraries) \
 	@LIBTLG_LIBS@ @SERVERLIB_LIBS@ \
 	$(XML_LIBS) @CHECK_LIBS@\
 	@BOOST_SYSTEM_LIB@\
+	@BOOST_FILESYSTEM_LIB@\
 	@BOOST_REGEX_LIB@
+#	-L/usr/lib -lboost_filesystem
 #	-L/home/beta/crypt/locallibs/mespro -lmesprox
 
 SUBDIRS = tlg
@@ -160,7 +163,8 @@ noinst_HEADERS = \
   timer.h \
   tripinfo.h \
   web_main.h \
-  xml_unit.h
+  xml_unit.h \
+  load_fr.h
 
 
 

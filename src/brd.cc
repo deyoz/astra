@@ -48,12 +48,14 @@ void BrdInterface::readTripCounters( const int point_id,
             rpt_type == rtEXAM or rpt_type == rtEXAMTXT or
             rpt_type == rtWEB or rpt_type == rtWEBTXT or
             rpt_type == rtNOREC or rpt_type == rtNORECTXT or
+            rpt_type == rtGOSHO or rpt_type == rtGOSHOTXT or
             rpt_type == rtUnknown
             )
       )
         throw Exception("BrdInterface::readTripCounters: unexpected rpt_type %d", rpt_type);
     bool used_for_web_rpt = (rpt_type == rtWEB or rpt_type == rtWEBTXT);
     bool used_for_norec_rpt = (rpt_type == rtNOREC or rpt_type == rtNORECTXT);
+    bool used_for_gosho_rpt = (rpt_type == rtGOSHO or rpt_type == rtGOSHOTXT);
     TReqInfo *reqInfo = TReqInfo::Instance();
     TQuery ClassesQry(&OraSession);
     ClassesQry.Clear();
@@ -77,17 +79,23 @@ void BrdInterface::readTripCounters( const int point_id,
     sql+=     "FROM "
         "    pax_grp, "
         "    pax ";
-    if(used_for_norec_rpt)
+    if(used_for_norec_rpt or used_for_gosho_rpt)
         sql += ", crs_pax ";
     sql+=
         "WHERE "
         "    pax_grp.grp_id=pax.grp_id AND "
         "    point_dep=:point_id AND class=:class AND "
         "    pr_brd IS NOT NULL ";
-    if(used_for_norec_rpt)
+    if(used_for_norec_rpt or used_for_gosho_rpt) {
         sql +=
             " and pax.pax_id = crs_pax.pax_id(+) and "
             " (crs_pax.pax_id is null or crs_pax.pr_del <> 0) ";
+        if(used_for_gosho_rpt) {
+            sql += " and pax_grp.status not in(:psCheckin, :psTCheckin) ";
+            Qry.CreateVariable("psCheckin", otString, EncodePaxStatus(psCheckin));
+            Qry.CreateVariable("psTCheckin", otString, EncodePaxStatus(psTCheckin));
+        }
+    }
     if(used_for_web_rpt) {
         if(!client_type.empty()) {
             sql += " AND pax_grp.client_type = :client_type ";
@@ -157,17 +165,23 @@ void BrdInterface::readTripCounters( const int point_id,
             "from "
             " pax_grp, "
             " pax ";
-        if(used_for_norec_rpt)
+        if(used_for_norec_rpt or used_for_gosho_rpt)
             SQLText += ", crs_pax ";
         SQLText +=
             "where "
             " pax_grp.grp_id=pax.grp_id AND "
             " point_dep = :point_id and "
             " pr_brd is not null ";
-        if(used_for_norec_rpt)
+        if(used_for_norec_rpt or used_for_gosho_rpt) {
             SQLText +=
                 " and pax.pax_id = crs_pax.pax_id(+) and "
                 " (crs_pax.pax_id is null or crs_pax.pr_del <> 0) ";
+            if(used_for_gosho_rpt) {
+                SQLText += " and pax_grp.status not in(:psCheckin, :psTCheckin) ";
+                Qry.CreateVariable("psCheckin", otString, EncodePaxStatus(psCheckin));
+                Qry.CreateVariable("psTCheckin", otString, EncodePaxStatus(psTCheckin));
+            }
+        }
 
         if(used_for_web_rpt) {
             if(!client_type.empty()) {
@@ -453,12 +467,14 @@ void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
             rpt_type == rtEXAM or rpt_type == rtEXAMTXT or
             rpt_type == rtWEB or rpt_type == rtWEBTXT or
             rpt_type == rtNOREC or rpt_type == rtNORECTXT or
+            rpt_type == rtGOSHO or rpt_type == rtGOSHOTXT or
             rpt_type == rtUnknown
             )
       )
         throw Exception("BrdInterface::GetPaxQuery: unexpected rpt_type %d", rpt_type);
     bool used_for_web_rpt = (rpt_type == rtWEB or rpt_type == rtWEBTXT);
     bool used_for_norec_rpt = (rpt_type == rtNOREC or rpt_type == rtNORECTXT);
+    bool used_for_gosho_rpt = (rpt_type == rtGOSHO or rpt_type == rtGOSHOTXT);
     Qry.Clear();
     ostringstream sql;
     sql << "SELECT "
@@ -490,7 +506,7 @@ void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
         "    ckin.get_birks2(pax_grp.grp_id,NULL,NULL,:lang) AS tags, "
         "    kassa.pr_payment(pax_grp.grp_id) AS pr_payment, "
         "    client_type ";
-    if(not used_for_norec_rpt and not used_for_web_rpt)
+    if(rpt_type == rtUnknown)
         sql << ", tckin_id, seg_no ";
 
     if (used_for_web_rpt)
@@ -499,9 +515,9 @@ void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
     sql << "FROM "
         "    pax_grp, "
         "    pax ";
-    if(used_for_norec_rpt)
+    if(used_for_norec_rpt or used_for_gosho_rpt)
         sql << ", crs_pax ";
-    if(not used_for_norec_rpt and not used_for_web_rpt)
+    if(rpt_type == rtUnknown)
         sql << ", tckin_pax_grp ";
 
     if (used_for_web_rpt)
@@ -509,12 +525,18 @@ void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
 
     sql << "WHERE "
         "    pax_grp.grp_id=pax.grp_id AND ";
-    if(used_for_norec_rpt)
+    if(used_for_norec_rpt or used_for_gosho_rpt) {
         sql
             << " pax.pax_id = crs_pax.pax_id(+) and "
             << " (crs_pax.pax_id is null or "
             << " crs_pax.pr_del <> 0) and ";
-    if(not used_for_norec_rpt and not used_for_web_rpt)
+        if(used_for_gosho_rpt) {
+            sql << " pax_grp.status not in(:psCheckin, :psTCheckin) and ";
+            Qry.CreateVariable("psCheckin", otString, EncodePaxStatus(psCheckin));
+            Qry.CreateVariable("psTCheckin", otString, EncodePaxStatus(psTCheckin));
+        }
+    }
+    if(rpt_type == rtUnknown)
         sql << "    pax_grp.grp_id=tckin_pax_grp.grp_id(+) AND ";
 
     if (used_for_web_rpt)

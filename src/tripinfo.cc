@@ -820,6 +820,8 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   xmlNodePtr dataNode=NewTextChild( resNode, "data" );
+  if (GetNode("refresh_type",reqNode)!=NULL)
+    NewTextChild( dataNode, "refresh_type", NodeAsInteger("refresh_type",reqNode) );
   GetSegInfo(reqNode, resNode, dataNode);
   //обработка многосегментного запроса
   xmlNodePtr node=GetNode("segments",reqNode);

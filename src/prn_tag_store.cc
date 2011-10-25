@@ -281,8 +281,10 @@ TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tag
     tag_list.insert(make_pair(TAG::BAG_AMOUNT,      TTagListItem(&TPrnTagStore::BAG_AMOUNT, BAG_INFO)));
     tag_list.insert(make_pair(TAG::TAGS,            TTagListItem(&TPrnTagStore::TAGS, PAX_INFO)));
     tag_list.insert(make_pair(TAG::BAG_WEIGHT,      TTagListItem(&TPrnTagStore::BAG_WEIGHT, BAG_INFO)));
+    tag_list.insert(make_pair(TAG::BAGGAGE,         TTagListItem(&TPrnTagStore::BAGGAGE, BAG_INFO)));
     tag_list.insert(make_pair(TAG::BRD_FROM,        TTagListItem(&TPrnTagStore::BRD_FROM, BRD_INFO)));
     tag_list.insert(make_pair(TAG::BRD_TO,          TTagListItem(&TPrnTagStore::BRD_TO, BRD_INFO)));
+    tag_list.insert(make_pair(TAG::CHD,             TTagListItem(&TPrnTagStore::CHD, PAX_INFO)));
     tag_list.insert(make_pair(TAG::CITY_ARV_NAME,   TTagListItem(&TPrnTagStore::CITY_ARV_NAME)));
     tag_list.insert(make_pair(TAG::CITY_DEP_NAME,   TTagListItem(&TPrnTagStore::CITY_DEP_NAME)));
     tag_list.insert(make_pair(TAG::CLASS,           TTagListItem(&TPrnTagStore::CLASS)));
@@ -525,7 +527,7 @@ string TPrnTagStore::get_field(std::string name, size_t len, std::string align, 
                 err.lexema_id = "MSG.NO_LAT_PRN_DATA";
                 err.lparams << LParam("tag", name) << LParam("value", cut_result(result));
                 if(iprops->second.except_when_only_lat) {
-                    ProgError(STDLOG, "Данные печати не латинские: %s = \"%s\"", name.c_str(), result.c_str());
+                    ProgTrace(TRACE0, "Данные печати не латинские: %s = \"%s\"", name.c_str(), result.c_str());
                     if(pr_user_except)
                         throw UserException(err.lexema_id, err.lparams);
                 } else {
@@ -660,11 +662,11 @@ void TPrnTagStore::get_prn_qry(TQuery &Qry)
         prnQry.add_part(TAG::NAME, paxInfo.name);
     if(tag_list[TAG::NO_SMOKE].processed)
         prnQry.add_part("pr_smoke", paxInfo.pr_smoke);
-    if(tag_list[TAG::BAG_AMOUNT].processed)
+    if(tag_list[TAG::BAG_AMOUNT].processed or tag_list[TAG::BAGGAGE].processed)
         prnQry.add_part(TAG::BAG_AMOUNT, bagInfo.bag_amount);
     if(tag_list[TAG::TAGS].processed)
         prnQry.add_part(TAG::TAGS, paxInfo.tags);
-    if(tag_list[TAG::BAG_WEIGHT].processed)
+    if(tag_list[TAG::BAG_WEIGHT].processed or tag_list[TAG::BAGGAGE].processed)
         prnQry.add_part(TAG::BAG_WEIGHT, bagInfo.bag_weight);
     if(tag_list[TAG::EXCESS].processed)
         prnQry.add_part(TAG::EXCESS, grpInfo.excess);
@@ -707,19 +709,25 @@ void TPrnTagStore::TBrdInfo::Init(int point_id)
     if(brd_from == NoExists) {
         TQuery Qry(&OraSession);
         Qry.SQLText =
-            "select "
-            "   gtimer.get_stage_time(:point_id,:brd_open_stage_id) brd_from, "
-            "   gtimer.get_stage_time(:point_id,:brd_close_stage_id) brd_to "
-            "from "
-            "   dual ";
+            "begin "
+            "   select nvl( est, scd ) into :brd_from from trip_stages where point_id = :point_id and stage_id = :brd_open_stage_id; "
+            "   select nvl( est, scd ) into :brd_to from trip_stages where point_id = :point_id and stage_id = :brd_close_stage_id; "
+            "end; ";
         Qry.CreateVariable("point_id", otInteger, point_id);
         Qry.CreateVariable("brd_open_stage_id", otInteger, sOpenBoarding);
         Qry.CreateVariable("brd_close_stage_id", otInteger, sCloseBoarding);
-        Qry.Execute();
-        if(Qry.Eof)
-            throw Exception("TPrnTagStore::TBrdInfo::Init no data found for point_id = %d", point_id);
-        brd_from = Qry.FieldAsDateTime("brd_from");
-        brd_to = Qry.FieldAsDateTime("brd_to");
+        Qry.DeclareVariable("brd_from", otDate);
+        Qry.DeclareVariable("brd_to", otDate);
+        try {
+            Qry.Execute();
+        } catch(EOracleError &E) {
+            if(E.Code == 1403)
+                throw Exception("TPrnTagStore::TBrdInfo::Init no data found for point_id = %d", point_id);
+            else
+                throw;
+        }
+        brd_from = Qry.GetVariableAsDateTime("brd_from");
+        brd_to = Qry.GetVariableAsDateTime("brd_to");
     }
 }
 
@@ -1069,6 +1077,14 @@ string TPrnTagStore::AIRP_DEP_NAME(TFieldParams fp)
     return tag_lang.ElemIdToTagElem(etAirp, grpInfo.airp_dep, efmtNameLong);
 }
 
+string TPrnTagStore::BAGGAGE(TFieldParams fp)
+{
+    ostringstream result;
+    if(bagInfo.bag_amount != 0)
+        result << bagInfo.bag_amount << "/" << bagInfo.bag_weight;
+    return result.str();
+}
+
 string TPrnTagStore::BAG_AMOUNT(TFieldParams fp)
 {
     return IntToString(bagInfo.bag_amount);
@@ -1245,6 +1261,14 @@ string TPrnTagStore::GATES(TFieldParams fp)
         if(not result.empty()) result += '/';
         result += *iv;
     }
+    return result;
+}
+
+string TPrnTagStore::CHD(TFieldParams fp)
+{
+    string result;
+    if(DecodePerson((char *)paxInfo.pers_type.c_str()) == child)
+        result = tag_lang.ElemIdToTagElem(etPersType, paxInfo.pers_type, efmtCodeNative);
     return result;
 }
 

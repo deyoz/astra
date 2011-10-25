@@ -13,6 +13,7 @@
 #include "maindcs.h"
 #include "docs.h"
 #include "season.h"
+#include "load_fr.h"
 #include "empty_proc.h"
 #include "serverlib/query_runner.h"
 #include "edilib/edi_loading.h"
@@ -37,6 +38,8 @@ const
     {"-test",          nosir_test,              nosir_test_help,          NULL},
     {"-ediinsert",     edi_load_messages_main,  NULL,                     "loading edifact templates"},
     {"-testbm",        testbm,                  NULL,                     NULL},
+    {"-load_fr",       load_fr,                 NULL,                     "loading FR files to database"},
+    {"-get_fr",        get_fr,                  NULL,                     "getting FR files from database to local path"},
     {"-termversion",   SetTermVersionNotice,    SetTermVersionNoticeHelp, NULL},
     {"-alter_db",      alter_db,                NULL,                     NULL},
     {"-send_tlg",      send_tlg,                send_tlg_help,            NULL},

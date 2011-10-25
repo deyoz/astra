@@ -4721,7 +4721,7 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
     if (E.Code!=1) throw;
   };
 
-  bool pr_numeric_pnl=true;
+  bool pr_numeric_pnl=false;
   Qry.Clear();
   Qry.SQLText=
     "SELECT pr_numeric_pnl FROM crs_set "
@@ -4742,7 +4742,7 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
   {
     Qry.SQLText=
       "INSERT INTO crs_set(id,airline,flt_no,airp_dep,crs,priority,pr_numeric_pnl) "
-      "VALUES(id__seq.nextval,:airline,:flt_no,:airp_dep,:crs,0,1)";
+      "VALUES(id__seq.nextval,:airline,:flt_no,:airp_dep,:crs,0,0)";
     Qry.SetVariable("flt_no",FNull);
     try
     {
