@@ -49,7 +49,7 @@ void TelegramInterface::readTripData( int point_id, xmlNodePtr dataNode )
   route.GetRouteAfter(NoExists,
                       point_id,
                       Qry.FieldAsInteger("point_num"),
-                      Qry.FieldAsInteger("first_point"),
+                      Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point"),
                       Qry.FieldAsInteger("pr_tranzit")!=0,
                       trtNotCurrent,trtNotCancelled);
 
@@ -659,7 +659,7 @@ void TelegramInterface::GetAddrs(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     info.airp_dep=Qry.FieldAsString("airp");
     info.point_id=point_id;
     info.point_num=Qry.FieldAsInteger("point_num");
-    info.first_point=Qry.FieldAsInteger("first_point");
+    info.first_point=Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point");
     info.pr_tranzit=Qry.FieldAsInteger("pr_tranzit")!=0;
 
     //с клиента
@@ -1188,7 +1188,7 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
 
   TTypeBSendInfo sendInfo(fltInfo);
   sendInfo.point_id=point_id;
-  sendInfo.first_point=Qry.FieldAsInteger("first_point");
+  sendInfo.first_point=Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point");
   sendInfo.point_num=Qry.FieldAsInteger("point_num");
   sendInfo.pr_tranzit=Qry.FieldAsInteger("pr_tranzit")!=0;
 
@@ -1200,7 +1200,7 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
   route.GetRouteAfter(NoExists,
                       point_id,
                       Qry.FieldAsInteger("point_num"),
-                      Qry.FieldAsInteger("first_point"),
+                      Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point"),
                       Qry.FieldAsInteger("pr_tranzit")!=0,
                       trtNotCurrent,trtNotCancelled);
   if (!route.empty())
@@ -1509,7 +1509,7 @@ void TelegramInterface::LoadBSMContent(int grp_id, TBSMContent& con)
 
   info.point_id=Qry.FieldAsInteger("point_id");
   info.point_num=Qry.FieldAsInteger("point_num");
-  info.first_point=Qry.FieldAsInteger("first_point");
+  info.first_point=Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point");
   info.pr_tranzit=Qry.FieldAsInteger("pr_tranzit")!=0;
 
   bool pr_unaccomp=Qry.FieldIsNULL("class");

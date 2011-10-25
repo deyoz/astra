@@ -481,7 +481,7 @@ void create_apis_file(int point_id)
     route.GetRouteAfter(NoExists,
                         point_id,
                         Qry.FieldAsInteger("point_num"),
-                        Qry.FieldAsInteger("first_point"),
+                        Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point"),
                         Qry.FieldAsInteger("pr_tranzit")!=0,
                         trtNotCurrent, trtNotCancelled);
 

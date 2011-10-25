@@ -117,7 +117,7 @@ struct TTlgInfo {
         act_local = 0;
         scd_local_day = 0;
         pr_summer = false;
-        first_point = -1;
+        first_point = ASTRA::NoExists;
         point_num = -1;
         pr_lat = false;
         vcompleted = false;

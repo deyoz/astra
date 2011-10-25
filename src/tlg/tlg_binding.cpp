@@ -159,7 +159,7 @@ void bind_tlg(int point_id_tlg, TFltInfo &flt, TBindType bind_type, vector<int> 
           route.GetRouteAfter(NoExists,
                               PointsQry.FieldAsInteger("point_id"),
                               PointsQry.FieldAsInteger("point_num"),
-                              PointsQry.FieldAsInteger("first_point"),
+                              PointsQry.FieldIsNULL("first_point")?NoExists:PointsQry.FieldAsInteger("first_point"),
                               PointsQry.FieldAsInteger("pr_tranzit")!=0,
                               trtWithCurrent,trtWithCancelled);
           TTripRoute::const_iterator last_point=route.end();

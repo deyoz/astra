@@ -467,7 +467,7 @@ bool getTripData( int point_id, bool first_segment, TSearchPnrData &SearchPnrDat
   	
   	SearchPnrData.point_id = point_id;
   	SearchPnrData.point_num = Qry.FieldAsInteger("point_num");
-  	SearchPnrData.first_point = Qry.FieldAsInteger("first_point");
+  	SearchPnrData.first_point = Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point");
   	SearchPnrData.pr_tranzit = Qry.FieldAsInteger("pr_tranzit")!=0;
   	SearchPnrData.pr_paid_ckin = false;
     if (!Qry.FieldIsNULL("pr_paid_ckin"))

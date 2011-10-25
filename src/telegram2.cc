@@ -5793,7 +5793,7 @@ int TelegramInterface::create_tlg(const TCreateTlgInfo &createInfo)
         info.bort = Qry.FieldAsString("bort");
         info.airp_dep = Qry.FieldAsString("airp");
         info.point_num = Qry.FieldAsInteger("point_num");
-        info.first_point = Qry.FieldAsInteger("first_point");
+        info.first_point = Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point");
         info.pr_tranzit = Qry.FieldAsInteger("pr_tranzit")!=0;
         if(info.mark_info.IsNULL() or not info.mark_info.pr_mark_header)
             info.airline_view = info.TlgElemIdToElem(etAirline, info.airline);

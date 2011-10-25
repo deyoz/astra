@@ -2476,7 +2476,7 @@ bool CheckInInterface::CheckCkinFlight(const int point_dep,
   if (Qry.Eof) return false;
 
   segInfo.point_num=Qry.FieldAsInteger("point_num");
-  segInfo.first_point=Qry.FieldAsInteger("first_point");
+  segInfo.first_point=Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point");
   segInfo.pr_tranzit=Qry.FieldAsInteger("pr_tranzit")!=0;
   segInfo.fltInfo.Init(Qry);
 
@@ -5785,7 +5785,7 @@ string CheckInInterface::SaveTransfer(int grp_id, const vector<CheckIn::TTransfe
 
   TTypeBSendInfo sendInfo(fltInfo);
   sendInfo.point_id=TrferQry.FieldAsInteger("point_id");
-  sendInfo.first_point=TrferQry.FieldAsInteger("first_point");
+  sendInfo.first_point=TrferQry.FieldIsNULL("first_point")?NoExists:TrferQry.FieldAsInteger("first_point");
   sendInfo.point_num=TrferQry.FieldAsInteger("point_num");
   sendInfo.pr_tranzit=TrferQry.FieldAsInteger("pr_tranzit")!=0;
 
@@ -6996,7 +6996,7 @@ void CheckInInterface::readTripData( int point_id, xmlNodePtr dataNode )
   route.GetRouteAfter(NoExists,
                       point_id,
                       Qry.FieldAsInteger("point_num"),
-                      Qry.FieldAsInteger("first_point"),
+                      Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point"),
                       Qry.FieldAsInteger("pr_tranzit")!=0,
                       trtNotCurrent,trtNotCancelled);
                       

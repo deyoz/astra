@@ -1862,7 +1862,7 @@ void DeletePassengers( int point_id, const string status, map<int,TTripInfo> &se
   TTypeBSendInfo sendInfo(fltInfo);
   sendInfo.point_id=point_id;
   sendInfo.point_num=Qry.FieldAsInteger("point_num");
-  sendInfo.first_point=Qry.FieldAsInteger("first_point");
+  sendInfo.first_point=Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point");
   sendInfo.pr_tranzit=Qry.FieldAsInteger("pr_tranzit")!=0;
   sendInfo.tlg_type="BSM";
 
