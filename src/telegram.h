@@ -117,7 +117,7 @@ struct TTlgInfo {
         act_local = 0;
         scd_local_day = 0;
         pr_summer = false;
-        first_point = -1;
+        first_point = ASTRA::NoExists;
         point_num = -1;
         pr_lat = false;
         vcompleted = false;
@@ -216,16 +216,16 @@ class TBSMPaxItem
 class TBSMContent
 {
   public:
-    TIndicator indicator;
-    TTransferItem OutFlt;
+    TypeB::TIndicator indicator;
+    TypeB::TTransferItem OutFlt;
     bool pr_lat_seat;
-    std::vector<TTransferItem> OnwardFlt;
+    std::vector<TypeB::TTransferItem> OnwardFlt;
     std::vector<TBSMTagItem> tags;
     TBSMPaxItem pax;
     TBSMBagItem bag;
     TBSMContent()
     {
-      indicator=None;
+      indicator=TypeB::None;
       pr_lat_seat=false;
     };
 };

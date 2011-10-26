@@ -239,10 +239,10 @@ void tracePax( TRACE_SIGNATURE,
 
 void traceTrfer( TRACE_SIGNATURE,
                  const string &descr,
-                 const vector<TTransferItem> &trfer )
+                 const vector<TypeB::TTransferItem> &trfer )
 {
   ProgTrace(TRACE_PARAMS, "============ %s ============", descr.c_str());
-  for(vector<TTransferItem>::const_iterator iTrfer=trfer.begin();iTrfer!=trfer.end();iTrfer++)
+  for(vector<TypeB::TTransferItem>::const_iterator iTrfer=trfer.begin();iTrfer!=trfer.end();iTrfer++)
   {
     ostringstream str;
 
@@ -467,7 +467,7 @@ bool getTripData( int point_id, bool first_segment, TSearchPnrData &SearchPnrDat
   	
   	SearchPnrData.point_id = point_id;
   	SearchPnrData.point_num = Qry.FieldAsInteger("point_num");
-  	SearchPnrData.first_point = Qry.FieldAsInteger("first_point");
+  	SearchPnrData.first_point = Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point");
   	SearchPnrData.pr_tranzit = Qry.FieldAsInteger("pr_tranzit")!=0;
   	SearchPnrData.pr_paid_ckin = false;
     if (!Qry.FieldIsNULL("pr_paid_ckin"))
@@ -628,7 +628,7 @@ void getTCkinData( const TSearchPnrData &firstPnrData,
   
   //поиск стыковочных сегментов (возвращаем вектор point_id)
   TQuery Qry(&OraSession);
-  vector<TTransferItem> crs_trfer;
+  vector<TypeB::TTransferItem> crs_trfer;
   vector<CheckIn::TTransferItem> trfer;
   CheckInInterface::GetOnwardCrsTransfer(firstPnrData.pnr_id, Qry, crs_trfer);
   if (!crs_trfer.empty())
@@ -761,7 +761,8 @@ void getTCkinData( const TSearchPnrData &firstPnrData,
             "WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND "
             "      tlg_binding.point_id_spp=:point_id AND "
             "      pnr_addrs.pnr_id=crs_pnr.pnr_id AND "
-            "      crs_pnr.target=:airp_arv AND "
+            "      crs_pnr.system='CRS' AND "
+            "      crs_pnr.airp_arv=:airp_arv AND "
             "      crs_pnr.subclass=:subclass AND "
             "      crs_pax.pnr_id=crs_pnr.pnr_id AND "
             "      crs_pax.pr_del=0 "
@@ -1034,7 +1035,8 @@ void filterPax( int point_id,
   if (pnr.empty()) return;
 
   TTripRoute route;
-  route.GetRouteAfter( point_id,
+  route.GetRouteAfter( NoExists,
+                       point_id,
                        trtNotCurrent,
                        trtNotCancelled );
 
@@ -1198,7 +1200,7 @@ void addPax( TQuery &Qry,
   {
     TPnrInfo pnrInfo;
     pnrInfo.pnr_id=pnr_id;
-    pnrInfo.airp_arv=Qry.FieldAsString("target");
+    pnrInfo.airp_arv=Qry.FieldAsString("airp_arv");
     pnrInfo.cl=Qry.FieldAsString("class");
     pnrInfo.subcl=Qry.FieldAsString("subclass");
     pnrInfo.pax_id.push_back(Qry.FieldAsInteger("pax_id"));
@@ -1264,7 +1266,7 @@ void findPnr( const TTripInfo &flt,
   	Qry.Clear();
   	Qry.SQLText=
   	  "SELECT crs_pnr.pnr_id, "
-	    "       crs_pnr.target, "
+	    "       crs_pnr.airp_arv, "
 	    "       crs_pnr.class, "
 	    "       crs_pnr.subclass, "
 	    "       crs_pax.pax_id "
@@ -1272,6 +1274,7 @@ void findPnr( const TTripInfo &flt,
       "WHERE tlg_binding.point_id_tlg=crs_pnr.point_id AND "
       "      crs_pax.pnr_id=crs_pnr.pnr_id AND "
       "      tlg_binding.point_id_spp=:point_id AND "
+      "      crs_pnr.system='CRS' AND "
       "      system.transliter_equal(crs_pax.surname,:surname)<>0 AND "
       "      crs_pax.pr_del=0";
     Qry.DeclareVariable("point_id", otInteger);
@@ -1320,7 +1323,7 @@ void findPnr( const TTripInfo &flt,
   	Qry.Clear();
 	  Qry.SQLText=
 	    "SELECT crs_pnr.pnr_id, "
-	    "       crs_pnr.target, "
+	    "       crs_pnr.airp_arv, "
 	    "       crs_pnr.class, "
 	    "       crs_pnr.subclass, "
 	    "       crs_pax.pax_id "
@@ -1328,6 +1331,7 @@ void findPnr( const TTripInfo &flt,
      	"WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
      	"      crs_pnr.pnr_id=pnr_market_flt.pnr_id(+) AND "
      	"      crs_pnr.point_id=:point_id AND "
+     	"      crs_pnr.system='CRS' AND "
      	"      system.transliter_equal(crs_pax.surname,:surname)<>0 AND "
       "      crs_pax.pr_del=0 AND "
      	"      pnr_market_flt.pnr_id IS NULL";
@@ -1395,7 +1399,7 @@ void findPnr( const TTripInfo &flt,
 	    "SELECT tlg_trips.point_id, "
 	    "       tlg_trips.scd, "
 	    "       crs_pnr.pnr_id, "
-	    "       crs_pnr.target, "
+	    "       crs_pnr.airp_arv, "
 	    "       crs_pnr.class, "
 	    "       crs_pnr.subclass, "
 	    "       crs_pax.pax_id "
@@ -1406,6 +1410,7 @@ void findPnr( const TTripInfo &flt,
  	    "      pnr_market_flt.local_date=:scd_day AND "
  	    "      pnr_market_flt.airline=:airline AND pnr_market_flt.flt_no=:flt_no AND "
  	    "      (pnr_market_flt.suffix IS NULL AND :suffix IS NULL OR pnr_market_flt.suffix=:suffix) AND "
+ 	    "      crs_pnr.system='CRS' AND "
  	    "      system.transliter_equal(crs_pax.surname,:surname)<>0 AND "
       "      crs_pax.pr_del=0 "
       "ORDER BY tlg_trips.point_id";
@@ -1829,7 +1834,7 @@ struct TWebPax {
 	string checkin_status;
 	bool pr_eticket;
 	string ticket_no;
-	vector<TFQTItem> fqt_rems;
+	vector<TypeB::TFQTItem> fqt_rems;
 	TWebPax() {
 	  pax_no = NoExists;
 		birth_date = NoExists;
@@ -2058,7 +2063,7 @@ void getPnr( bool pr_paid_ckin, int pnr_id, vector<TWebPax> &pnr, bool pr_throw 
      	FQTQry.Execute();
    		for(; !FQTQry.Eof; FQTQry.Next())
    		{
-        TFQTItem FQTItem;
+        TypeB::TFQTItem FQTItem;
         strcpy(FQTItem.rem_code, FQTQry.FieldAsString("rem_code"));
         strcpy(FQTItem.airline, FQTQry.FieldAsString("airline"));
         strcpy(FQTItem.no, FQTQry.FieldAsString("no"));
@@ -2190,7 +2195,7 @@ void IntLoadPnr( const vector<TIdsPnrData> &ids, vector< vector<TWebPax> > &pnrs
        		NewTextChild( paxNode, "eticket", "false" );
        	NewTextChild( paxNode, "ticket_no", iPax->ticket_no );
        	xmlNodePtr fqtsNode = NewTextChild( paxNode, "fqt_rems" );
-       	for ( vector<TFQTItem>::const_iterator f=iPax->fqt_rems.begin(); f!=iPax->fqt_rems.end(); f++ )
+       	for ( vector<TypeB::TFQTItem>::const_iterator f=iPax->fqt_rems.begin(); f!=iPax->fqt_rems.end(); f++ )
        	{
           xmlNodePtr fqtNode = NewTextChild( fqtsNode, "fqt_rem" );
           NewTextChild( fqtNode, "airline", f->airline );
@@ -2968,7 +2973,7 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
 
     Qry.Clear();
     Qry.SQLText=
-      "SELECT target, subclass, class "
+      "SELECT airp_arv, subclass, class "
       "FROM crs_pnr, crs_pax "
       "WHERE crs_pax.pnr_id=crs_pnr.pnr_id AND "
       "      crs_pnr.pnr_id=:pnr_id AND "
@@ -2978,12 +2983,13 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
     if (Qry.Eof)
       throw UserException( "MSG.PASSENGERS.INFO_NOT_FOUND" );
 
-    firstPnrData.airp_arv = Qry.FieldAsString("target");
+    firstPnrData.airp_arv = Qry.FieldAsString("airp_arv");
   	firstPnrData.cls = Qry.FieldAsString("class");
   	firstPnrData.subcls = Qry.FieldAsString("subclass");
 
     TTripRoute route; //маршрут рейса
-    route.GetRouteAfter( firstPnrData.point_id,
+    route.GetRouteAfter( NoExists,
+                         firstPnrData.point_id,
                          firstPnrData.point_num,
                          firstPnrData.first_point,
                          firstPnrData.pr_tranzit,
@@ -3596,7 +3602,7 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
     Qry.Clear();
   	Qry.SQLText =
       "SELECT crs_pnr.pnr_id, crs_pnr.status AS pnr_status, "
-      "       crs_pnr.point_id, crs_pnr.target AS airp_arv, "
+      "       crs_pnr.point_id, crs_pnr.airp_arv, "
       "       crs_pnr.subclass, crs_pnr.class, "
       "       crs_pnr.tid AS crs_pnr_tid, "
       "       crs_pax.tid AS crs_pax_tid, "

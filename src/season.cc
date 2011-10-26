@@ -13,6 +13,8 @@
 #include "stat.h"
 #include "docs.h"
 #include "base_tables.h"
+#include "astra_misc.h"
+#include "tlg/tlg_binding.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -1046,9 +1048,13 @@ void CreateSPP( BASIC::TDateTime localdate )
 
 
       bool pr_tranzit;
+      string airline, suffix, airp;
+      TDateTime scd_out;
+      vector<TTripInfo> flts;
       for ( TDests::iterator d=im->second.dests.begin(); d!=im->second.dests.end(); d++ ) {
         PQry.SetVariable( "point_num", d->num );
-        PQry.SetVariable( "airp", ElemToElemId( etAirp, d->airp, fmt ) );
+        airp = ElemToElemId( etAirp, d->airp, fmt );
+        PQry.SetVariable( "airp", airp );
         PQry.SetVariable( "airp_fmt", (int)d->airp_fmt );
 
         pr_tranzit=( d != im->second.dests.begin() ) &&
@@ -1066,9 +1072,11 @@ void CreateSPP( BASIC::TDateTime localdate )
         if ( d->airline.empty() ) {
           PQry.SetVariable( "airline", FNull );
           PQry.SetVariable( "airline_fmt", FNull );
+          airline.clear();
         }
         else {
-          PQry.SetVariable( "airline", ElemToElemId( etAirline, d->airline, fmt ) );
+          airline = ElemToElemId( etAirline, d->airline, fmt );
+          PQry.SetVariable( "airline", airline );
           PQry.SetVariable( "airline_fmt", (int)d->airline_fmt );
         }
         if ( d->trip == NoExists )
@@ -1078,9 +1086,11 @@ void CreateSPP( BASIC::TDateTime localdate )
         if ( d->suffix.empty() ) {
           PQry.SetVariable( "suffix", FNull );
           PQry.SetVariable( "suffix_fmt", FNull );
+          suffix.clear();
         }
         else {
-          PQry.SetVariable( "suffix", ElemToElemId( etSuffix, d->suffix, fmt ) );
+          suffix = ElemToElemId( etSuffix, d->suffix, fmt );
+          PQry.SetVariable( "suffix", suffix );
           PQry.SetVariable( "suffix_fmt", (int)d->suffix_fmt );
         }
         if ( d->craft.empty() ) {
@@ -1095,10 +1105,14 @@ void CreateSPP( BASIC::TDateTime localdate )
           PQry.SetVariable( "scd_in", FNull );
         else
           PQry.SetVariable( "scd_in", d->scd_in + im->second.diff );
-        if ( d->scd_out == NoExists )
+        if ( d->scd_out == NoExists ) {
           PQry.SetVariable( "scd_out", FNull );
-        else
-          PQry.SetVariable( "scd_out", d->scd_out + im->second.diff );
+          scd_out = NoExists;
+        }
+        else {
+          scd_out = d->scd_out + im->second.diff;
+          PQry.SetVariable( "scd_out", scd_out );
+        }
         if ( d->triptype.empty() )
           PQry.SetVariable( "trip_type", FNull );
         else
@@ -1136,7 +1150,19 @@ void CreateSPP( BASIC::TDateTime localdate )
           TQry.Execute();
         }
         p = d;
-      }
+        if ( !airline.empty() &&
+              d->trip != NoExists &&
+              scd_out != NoExists ) {
+          TTripInfo tripInfo;
+          tripInfo.airline = airline;
+          tripInfo.flt_no = d->trip;
+          tripInfo.suffix = suffix;
+          tripInfo.airp = airp;
+          tripInfo.scd_out = scd_out;
+          flts.push_back( tripInfo );
+        }
+      } // end for dests
+      bind_tlg_oper(flts, true);
     }
   }
   TReqInfo::Instance()->MsgToLog( string( "Получение СПП за " ) + DateTimeToStr( localdate, "dd.mm.yy" ), evtSeason );

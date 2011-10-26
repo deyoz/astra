@@ -72,7 +72,6 @@ const
                          {etCompLayerType,         "etCompLayerType",         "comp_layer_types"},
                          {etCountry,               "etCountry",               "countries"},
                          {etCraft,                 "etCraft",                 "crafts"},
-                         {etCrs,                   "etCrs",                   ""},
                          {etCurrency,              "etCurrency",              "currency"},
                          {etDelayType,             "etDelayType",             ""},
                          {etDeskGrp,               "etDeskGrp",               ""},
@@ -99,6 +98,7 @@ const
                          {etTagColor,              "etTagColor",              "tag_colors"},
                          {etTripLiter,             "etTripLiter",             ""},
                          {etTripType,              "etTripType",              "trip_types"},
+                         {etTypeBSender,           "etTypeBSender",           ""},
                          {etTypeBType,             "etTypeBType",             "typeb_types"},
                          {etUserSetType,           "etUserSetType",           "user_set_types"},
                          {etUserType,              "etUserType",              "user_types"},
@@ -587,7 +587,7 @@ string ElemIdToElem(TElemType type, const string &id, const vector< pair<TElemFm
     //не base_table
     switch(type)
     {
-                case etCrs: Qry.SQLText="SELECT name,name_lat FROM crs2 WHERE code=:id"; break;
+        case etTypeBSender: Qry.SQLText="SELECT name,name_lat FROM typeb_senders WHERE code=:id"; break;
           case etDelayType: Qry.SQLText="SELECT code,code_lat,name,name_lat FROM delays WHERE code=:id";break;
           case etTripLiter: Qry.SQLText="SELECT code,code_lat,name,name_lat FROM trip_liters WHERE code=:id";break;
       case etValidatorType: Qry.SQLText="SELECT code,code_lat,name,name_lat FROM validator_types WHERE code=:id";break;

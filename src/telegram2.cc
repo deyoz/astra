@@ -114,7 +114,8 @@ void ReadSalons( TTlgInfo &info, vector<TTlgCompLayer> &complayers, bool pr_bloc
                             if ( next_point_arv == -1 ) {
                                 TTripRoute route;
                                 TTripRouteItem next_airp;
-                                route.GetNextAirp(info.point_id,
+                                route.GetNextAirp(NoExists,
+                                                  info.point_id,
                                                   info.point_num,
                                                   info.first_point,
                                                   info.pr_tranzit,
@@ -1234,7 +1235,7 @@ namespace PRL_SPACE {
             "    pax.surname, "
             "    pax.name, "
             "    crs_pnr.pnr_id, "
-            "    crs_pnr.crs, "
+            "    crs_pnr.sender crs, "
             "    crs_pnr.status, "
             "    crs_pnr.priority, "
             "    pax.pax_id, "
@@ -2751,7 +2752,7 @@ void TSSRCodes::ToTlg(TTlgInfo &info, vector<string> &body)
 void TPSM::ToTlg(TTlgInfo &info, vector<string> &body)
 {
     TTripRoute route;
-    route.GetRouteAfter(info.point_id, trtNotCurrent, trtNotCancelled);
+    route.GetRouteAfter(NoExists, info.point_id, trtNotCurrent, trtNotCancelled);
     for(TTripRoute::iterator iv = route.begin(); iv != route.end(); iv++) {
         TSSRCodes ssr_codes(cfg);
         TPSMCls &PSMCls = items[iv->airp];
@@ -3984,7 +3985,7 @@ void TFTLBody::get(TTlgInfo &info)
         "SELECT "
         "    pax_grp.airp_arv target, "
         "    crs_pnr.pnr_id, "
-        "    crs_pnr.crs, "
+        "    crs_pnr.sender crs, "
         "    pax.pax_id, "
         "    pax.surname, "
         "    pax.name, "
@@ -4085,7 +4086,7 @@ void TETLDest::GetPaxList(TTlgInfo &info,vector<TTlgCompLayer> &complayers)
         "    pax.surname, "
         "    pax.name, "
         "    crs_pnr.pnr_id, "
-        "    crs_pnr.crs, "
+        "    crs_pnr.sender crs, "
         "    pax.pax_id, "
         "    pax.ticket_no, "
         "    pax.coupon_no, "
@@ -5111,7 +5112,7 @@ struct TPNLPaxInfo {
                     col_name = Qry.FieldIndex("name");
                     col_pers_type = Qry.FieldIndex("pers_type");
                     col_subclass = Qry.FieldIndex("subclass");
-                    col_target = Qry.FieldIndex("target");
+                    col_target = Qry.FieldIndex("airp_arv");
                     col_status = Qry.FieldIndex("status");
                     col_crs = Qry.FieldIndex("crs");
                 }
@@ -5148,9 +5149,9 @@ struct TPNLPaxInfo {
                 "    crs_pax.name, "
                 "    crs_pax.pers_type, "
                 "    crs_pnr.subclass, "
-                "    crs_pnr.target, "
+                "    crs_pnr.airp_arv, "
                 "    crs_pnr.status, "
-                "    crs_pnr.crs "
+                "    crs_pnr.sender crs "
                 "from "
                 "    crs_pnr, "
                 "    crs_pax "
@@ -5402,7 +5403,7 @@ void TPFSBody::ToTlg(TTlgInfo &info, vector<string> &body)
 {
     vector<string> category_lst;
     TTripRoute route;
-    route.GetRouteAfter(info.point_id, trtNotCurrent, trtNotCancelled);
+    route.GetRouteAfter(NoExists, info.point_id, trtNotCurrent, trtNotCancelled);
     for(TTripRoute::iterator iv = route.begin(); iv != route.end(); iv++) {
         pfsn[iv->airp].ToTlg(info, iv->airp, body);
         if(info.tlg_type == "PFS") {
@@ -5792,7 +5793,7 @@ int TelegramInterface::create_tlg(const TCreateTlgInfo &createInfo)
         info.bort = Qry.FieldAsString("bort");
         info.airp_dep = Qry.FieldAsString("airp");
         info.point_num = Qry.FieldAsInteger("point_num");
-        info.first_point = Qry.FieldAsInteger("first_point");
+        info.first_point = Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point");
         info.pr_tranzit = Qry.FieldAsInteger("pr_tranzit")!=0;
         if(info.mark_info.IsNULL() or not info.mark_info.pr_mark_header)
             info.airline_view = info.TlgElemIdToElem(etAirline, info.airline);
@@ -5832,7 +5833,7 @@ int TelegramInterface::create_tlg(const TCreateTlgInfo &createInfo)
     {
         TTripRoute route;
         TTripRouteItem next_airp;
-        route.GetNextAirp(info.point_id, trtNotCancelled, next_airp);
+        route.GetNextAirp(NoExists, info.point_id, trtNotCancelled, next_airp);
         if (!next_airp.airp.empty())
         {
             info.airp_arv = next_airp.airp;

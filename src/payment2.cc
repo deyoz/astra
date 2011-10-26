@@ -40,10 +40,10 @@ void PaymentOldInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
   TQuery Qry(&OraSession);
 
   string sqlText = (string)
-        "SELECT pax_grp.grp_id,point_dep,airp_dep,airp_arv,airps.city AS city_arv, "
+        "SELECT pax_grp.grp_id, pax.pax_id, "
+        "       point_dep,airp_dep,airp_arv,airps.city AS city_arv, "
         "       class,bag_refuse,pax_grp.tid, "
-        "       RTRIM(pax.surname||' '||pax.name) AS pax_name, "
-        "       document AS pax_doc "
+        "       RTRIM(pax.surname||' '||pax.name) AS pax_name "
         "FROM pax_grp,pax,airps ";
 
   string condition;
@@ -149,7 +149,8 @@ void PaymentOldInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     NewTextChild(resNode,"class",Qry.FieldAsString("class"));
     NewTextChild(resNode,"pr_refuse",(int)(Qry.FieldAsInteger("bag_refuse")!=0));
     NewTextChild(resNode,"pax_name",Qry.FieldAsString("pax_name"));
-    NewTextChild(resNode,"pax_doc",Qry.FieldAsString("pax_doc"));
+    TQuery PaxDocQry(&OraSession);
+    NewTextChild(resNode,"pax_doc", GetPaxDocStr(NoExists, Qry.FieldAsInteger("pax_id"), PaxDocQry));
     NewTextChild(resNode,"tid",Qry.FieldAsInteger("tid"));
 
     string subcl;

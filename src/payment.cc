@@ -124,12 +124,12 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     if (!pr_unaccomp)
     {
       Qry.SQLText=
-        "SELECT pax_grp.grp_id,point_dep,airp_dep,airp_arv,airps.city AS city_arv, "
+        "SELECT pax_grp.grp_id, pax.pax_id, "
+        "       point_dep,airp_dep,airp_arv,airps.city AS city_arv, "
         "       report.get_last_trfer_airp(pax_grp.grp_id) AS last_trfer_airp, "
         "       class,bag_refuse,pax_grp.tid, "
         "       pax.reg_no, "
-        "       RTRIM(pax.surname||' '||pax.name) AS pax_name, "
-        "       document AS pax_doc "
+        "       RTRIM(pax.surname||' '||pax.name) AS pax_name "
         "FROM pax_grp,pax,airps "
         "WHERE pax_grp.grp_id=pax.grp_id AND "
         "      pax_grp.airp_arv=airps.code AND "
@@ -142,12 +142,12 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     else
     {
       Qry.SQLText=
-        "SELECT pax_grp.grp_id,point_dep,airp_dep,airp_arv,airps.city AS city_arv, "
+        "SELECT pax_grp.grp_id, NULL AS pax_id, "
+        "       point_dep,airp_dep,airp_arv,airps.city AS city_arv, "
         "       report.get_last_trfer_airp(pax_grp.grp_id) AS last_trfer_airp, "
         "       class,bag_refuse,pax_grp.tid, "
         "       NULL AS reg_no, "
-        "       NULL AS pax_name, "
-        "       NULL AS pax_doc "
+        "       NULL AS pax_name "
         "FROM pax_grp,airps "
         "WHERE pax_grp.airp_arv=airps.code AND grp_id=:grp_id ";
       Qry.CreateVariable("grp_id",otInteger,grp_id);
@@ -220,7 +220,11 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   NewTextChild(dataNode,"pr_refuse",(int)(Qry.FieldAsInteger("bag_refuse")!=0));
   NewTextChild(dataNode,"reg_no",Qry.FieldAsInteger("reg_no"));
   NewTextChild(dataNode,"pax_name",Qry.FieldAsString("pax_name"));
-  NewTextChild(dataNode,"pax_doc",Qry.FieldAsString("pax_doc"));
+  TQuery PaxDocQry(&OraSession);
+  if (!Qry.FieldIsNULL("pax_id"))
+    NewTextChild(dataNode,"pax_doc",GetPaxDocStr(NoExists, Qry.FieldAsInteger("pax_id"), PaxDocQry));
+  else
+    NewTextChild(dataNode,"pax_doc");
   NewTextChild(dataNode,"tid",Qry.FieldAsInteger("tid"));
 
   if (!pr_unaccomp)

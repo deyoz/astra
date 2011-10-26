@@ -1402,14 +1402,14 @@ tz_database &get_tz_database()
 string& AirpTZRegion(string airp, bool with_exception)
 {
   if (airp.empty()) throw EXCEPTIONS::Exception("Airport not specified");
-  TAirpsRow& row=(TAirpsRow&)base_tables.get("airps").get_row("code",airp);
+  TAirpsRow& row=(TAirpsRow&)base_tables.get("airps").get_row("code",airp,true);
   return CityTZRegion(row.city,with_exception);
 };
 
 string& CityTZRegion(string city, bool with_exception)
 {
   if (city.empty()) throw EXCEPTIONS::Exception("City not specified");
-  TCitiesRow& row=(TCitiesRow&)base_tables.get("cities").get_row("code",city);
+  TCitiesRow& row=(TCitiesRow&)base_tables.get("cities").get_row("code",city,true);
   if (row.region.empty() && with_exception)
     throw AstraLocale::UserException("MSG.CITY.REGION_NOT_DEFINED",LParams() << LParam("city", city));
   return row.region;

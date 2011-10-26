@@ -1470,19 +1470,13 @@ bool createCheckinDataFiles( int point_id, const std::string &point_addr, TFileD
   PassQry.CreateVariable( "inf", otString, "êå" );
   TQuery ResaQry( &OraSession );
   ResaQry.SQLText =
-/*    "SELECT COUNT(*) resa, airp_arv, class FROM tlg_binding,crs_pnr,crs_pax "
+    "SELECT COUNT(*) resa, airp_arv, class FROM tlg_binding,crs_pnr,crs_pax "
     " WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
     "       crs_pax.pr_del=0 AND "
     "       tlg_binding.point_id_spp=:point_id AND "
     "       tlg_binding.point_id_tlg=crs_pnr.point_id AND "
     "       crs_pnr.system='CRS' "
-    "GROUP BY airp_arv, class";*/
-    "SELECT COUNT(*) resa, target airp_arv, class FROM tlg_binding,crs_pnr,crs_pax "
-    " WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
-    "       crs_pax.pr_del=0 AND "
-    "       tlg_binding.point_id_spp=:point_id AND "
-    "       tlg_binding.point_id_tlg=crs_pnr.point_id "
-    "GROUP BY target, class";
+    "GROUP BY airp_arv, class";
   ResaQry.CreateVariable( "point_id", otInteger, point_id );
   TQuery BagQry( &OraSession );
   BagQry.SQLText =
@@ -1594,7 +1588,7 @@ bool createCheckinDataFiles( int point_id, const std::string &point_addr, TFileD
     tst();
     int route_num = 1;
     TTripRoute routes;
-    routes.GetRouteBefore( point_id, trtWithCurrent, trtWithCancelled );
+    routes.GetRouteBefore( ASTRA::NoExists, point_id, trtWithCurrent, trtWithCancelled );
     ProgTrace( TRACE5, "routes.GetRouteBefore=%d", routes.size() );
     for ( vector<TTripRouteItem>::iterator i=routes.begin(); i!=routes.end(); i++ ) {
       xmlNodePtr n1, n = NewTextChild( node, "route" );
@@ -1608,7 +1602,7 @@ bool createCheckinDataFiles( int point_id, const std::string &point_addr, TFileD
     }
     routes.clear();
     tst();
-    routes.GetRouteAfter( point_id, trtNotCurrent, trtWithCancelled );
+    routes.GetRouteAfter( ASTRA::NoExists, point_id, trtNotCurrent, trtWithCancelled );
     ProgTrace( TRACE5, "routes.GetRouteAfter=%d", routes.size() );
     for ( vector<TTripRouteItem>::iterator i=routes.begin(); i!=routes.end(); i++ ) {
       xmlNodePtr n1, n = NewTextChild( node, "route" );

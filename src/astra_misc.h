@@ -287,7 +287,8 @@ enum TTripRouteType2 { trtNotCancelled,
 class TTripRoute : public std::vector<TTripRouteItem>
 {
   private:
-    void GetRoute(int point_id,
+    void GetRoute(BASIC::TDateTime part_key,
+                  int point_id,
                   int point_num,
                   int first_point,
                   bool pr_tranzit,
@@ -295,27 +296,32 @@ class TTripRoute : public std::vector<TTripRouteItem>
                   TTripRouteType1 route_type1,
                   TTripRouteType2 route_type2,
                   TQuery& Qry);
-    bool GetRoute(int point_id,
+    bool GetRoute(BASIC::TDateTime part_key,
+                  int point_id,
                   bool after_current,
                   TTripRouteType1 route_type1,
                   TTripRouteType2 route_type2);
 
   public:
     //маршрут после пункта point_id
-    bool GetRouteAfter(int point_id,
+    bool GetRouteAfter(BASIC::TDateTime part_key,
+                       int point_id,
                        TTripRouteType1 route_type1,
                        TTripRouteType2 route_type2);
-    void GetRouteAfter(int point_id,
+    void GetRouteAfter(BASIC::TDateTime part_key,
+                       int point_id,
                        int point_num,
                        int first_point,
                        bool pr_tranzit,
                        TTripRouteType1 route_type1,
                        TTripRouteType2 route_type2);
     //маршрут до пункта point_id
-    bool GetRouteBefore(int point_id,
+    bool GetRouteBefore(BASIC::TDateTime part_key,
+                        int point_id,
                         TTripRouteType1 route_type1,
                         TTripRouteType2 route_type2);
-    void GetRouteBefore(int point_id,
+    void GetRouteBefore(BASIC::TDateTime part_key,
+                        int point_id,
                         int point_num,
                         int first_point,
                         bool pr_tranzit,
@@ -323,24 +329,28 @@ class TTripRoute : public std::vector<TTripRouteItem>
                         TTripRouteType2 route_type2);
 
     //возвращает следующий пункт маршрута
-    void GetNextAirp(int point_id,
+    void GetNextAirp(BASIC::TDateTime part_key,
+                     int point_id,
                      int point_num,
                      int first_point,
                      bool pr_tranzit,
                      TTripRouteType2 route_type2,
                      TTripRouteItem& item);
-    bool GetNextAirp(int point_id,
+    bool GetNextAirp(BASIC::TDateTime part_key,
+                     int point_id,
                      TTripRouteType2 route_type2,
                      TTripRouteItem& item);
 
     //возвращает предыдущий пункт маршрута
-    void GetPriorAirp(int point_id,
+    void GetPriorAirp(BASIC::TDateTime part_key,
+                      int point_id,
                       int point_num,
                       int first_point,
                       bool pr_tranzit,
                       TTripRouteType2 route_type2,
                       TTripRouteItem& item);
-    bool GetPriorAirp(int point_id,
+    bool GetPriorAirp(BASIC::TDateTime part_key,
+                      int point_id,
                       TTripRouteType2 route_type2,
                       TTripRouteItem& item);
 };
@@ -471,8 +481,9 @@ struct TCodeShareSets {
 };
 
 //важно! время вылета scd_out у operFlt должно быть в UTC
-//       время вылета в markFltInfo возвращается локальное относительно airp
-void GetMktFlights(const TTripInfo &operFltInfo, std::vector<TTripInfo> &markFltInfo);
+//       return_scd_utc=false: время вылета в markFltInfo возвращается локальное относительно airp
+//       return_scd_utc=true: время вылета в markFltInfo возвращается в UTC
+void GetMktFlights(const TTripInfo &operFltInfo, std::vector<TTripInfo> &markFltInfo, bool return_scd_utc=false);
 
 //важно! время вылета scd_out у operFlt должно быть в UTC
 //       время вылета в markFltInfo передается локальное относительно airp
@@ -482,6 +493,25 @@ bool IsMarkEqualOper( const TTripInfo &operFlt, const TTripInfo &markFlt );
 void GetCrsList(int point_id, std::vector<std::string> &crs);
 bool IsRouteInter(int point_dep, int point_arv, std::string &country);
 bool IsTrferInter(std::string airp_dep, std::string airp_arv, std::string &country);
+
+std::string GetRouteAfterStr(BASIC::TDateTime part_key,  //NoExists если в оперативной базе, иначе в архивной
+                             int point_id,
+                             TTripRouteType1 route_type1,
+                             TTripRouteType2 route_type2,
+                             const std::string &lang="",
+                             bool show_city_name=false,
+                             const std::string &separator="-");
+                             
+std::string GetCfgStr(BASIC::TDateTime part_key,  //NoExists если в оперативной базе, иначе в архивной
+                      int point_id,
+                      const std::string &lang="",
+                      const std::string &separator=" ");
+                      
+std::string GetPaxDocStr(BASIC::TDateTime part_key,
+                         int pax_id,
+                         TQuery& PaxDocQry,
+                         bool with_issue_country=false,
+                         const std::string &lang="");
 
 #endif /*_ASTRA_MISC_H_*/
 

@@ -7,9 +7,12 @@
 #include "astra_consts.h"
 #include "astra_locale.h"
 #include "tlg/tlg.h"
+#include "tlg/tlg_binding.h"
 #include "astra_service.h"
 #include "term_version.h"
 #include "comp_layers.h"
+#include "astra_misc.h"
+#include "timer.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -1581,6 +1584,34 @@ void AfterApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TCa
         DeleteTripCompLayers(NoExists, point_id, cltProtAfterPay);
       };
     };
+  };
+  
+  if (cache.code() == "CODESHARE_SETS")
+  {
+    TDateTime now=NowLocal();
+    modf(now,&now);
+    //два вектора: до и после изменений
+    vector<TTripInfo> flts;
+    TTripInfo markFlt;
+    if (row.status != usDeleted)
+    {
+      markFlt.airline=cache.FieldValue( "airline_mark", row );
+      markFlt.flt_no=ToInt(cache.FieldValue( "flt_no_mark", row ));
+      markFlt.airp=cache.FieldValue( "airp_dep", row );
+    }
+    else
+    {
+      markFlt.airline=cache.FieldOldValue( "airline_mark", row );
+      markFlt.flt_no=ToInt(cache.FieldOldValue( "flt_no_mark", row ));
+      markFlt.airp=cache.FieldOldValue( "airp_dep", row );
+    };
+    for(markFlt.scd_out=now-5;markFlt.scd_out<=now+CREATE_SPP_DAYS()+1;markFlt.scd_out+=1.0) flts.push_back(markFlt);
+
+    trace_for_bind(flts, "codeshare_sets: flts");
+
+    unbind_tlg(flts, false);
+    if (row.status != usDeleted)
+      bind_tlg(flts, false, true);
   };
 };
 
