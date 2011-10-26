@@ -901,6 +901,11 @@ string getFileEncoding( const string &file_type, const string &point_addr, bool 
   return res;
 }
 
+bool isXMLFormat( const std::string type )
+{
+  return ( type == FILE_CHECKINDATA_TYPE );
+}
+
 bool CreateCommonFileData( const std::string &point_addr,
                            int id, const std::string type,
                            const std::string &airp, const std::string &airline,
@@ -973,6 +978,9 @@ bool CreateCommonFileData( const std::string &point_addr,
                       if ( !encoding.empty() )
                           try {
                               str_file = ConvertCodepage( str_file, "CP866", encoding );
+                              if ( isXMLFormat( type ) ) { //XML UTF-8 convert to encoding
+                                str_file.replace( str_file.find( "encoding=\"UTF-8\""), string( "encoding=\"UTF-8\"" ).size(), string("encoding=\"") + encoding + "\"" );
+                              }
                           } catch(EConvertError &E) {
                               ProgError(STDLOG, E.what());
                               throw AstraLocale::UserException("MSG.CONVERT_INTO_ERR", LParams() << LParam("enc", encoding));
@@ -1462,7 +1470,14 @@ bool createCheckinDataFiles( int point_id, const std::string &point_addr, TFileD
   PassQry.CreateVariable( "inf", otString, "Œ" );
   TQuery ResaQry( &OraSession );
   ResaQry.SQLText =
-    "SELECT COUNT(*), target, class FROM tlg_binding,crs_pnr,crs_pax "
+/*    "SELECT COUNT(*) resa, airp_arv, class FROM tlg_binding,crs_pnr,crs_pax "
+    " WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
+    "       crs_pax.pr_del=0 AND "
+    "       tlg_binding.point_id_spp=:point_id AND "
+    "       tlg_binding.point_id_tlg=crs_pnr.point_id AND "
+    "       crs_pnr.system='CRS' "
+    "GROUP BY airp_arv, class";*/
+    "SELECT COUNT(*) resa, target airp_arv, class FROM tlg_binding,crs_pnr,crs_pax "
     " WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
     "       crs_pax.pr_del=0 AND "
     "       tlg_binding.point_id_spp=:point_id AND "
@@ -1525,16 +1540,11 @@ bool createCheckinDataFiles( int point_id, const std::string &point_addr, TFileD
     tst();
     ResaQry.Execute();
     tst();
-    int priority = ASTRA::NoExists;
     while ( !ResaQry.Eof ) {
-      if ( priority != ASTRA::NoExists && priority != ResaQry.FieldAsInteger( "priority" ) )
-        break;
-      priority = ResaQry.FieldAsInteger( "priority" );
       TResaData resa;
       resa.code = ResaQry.FieldAsString( "class" );
       resa.resa = ResaQry.FieldAsInteger( "resa" );
-      resa.tranzit = ResaQry.FieldAsInteger( "tranzit" );
-      if ( resa.resa + resa.tranzit > 0 )
+      if ( resa.resa > 0 )
         resaData[ ResaQry.FieldAsString( "airp_arv" ) ].push_back( resa );
       tst();
       ResaQry.Next();
