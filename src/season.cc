@@ -1058,8 +1058,8 @@ void CreateSPP( BASIC::TDateTime localdate )
         PQry.SetVariable( "airp_fmt", (int)d->airp_fmt );
 
         pr_tranzit=( d != im->second.dests.begin() ) &&
-                   ( p->airline + IntToString( p->trip ) + p->suffix + p->triptype ==
-                     d->airline + IntToString( d->trip ) + d->suffix + d->triptype );
+                   ( p->airline + IntToString( p->trip ) + p->suffix ==
+                     d->airline + IntToString( d->trip ) + d->suffix );
 
 
         PQry.SetVariable( "pr_tranzit", pr_tranzit );
