@@ -1035,7 +1035,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         int class_grp = Qry.FieldAsInteger("class_grp");
         key.cls = rpt_params.ElemIdToReportElem(etClsGrp, class_grp, efmtCodeNative);
         key.cls_name = rpt_params.ElemIdToReportElem(etClsGrp, class_grp, efmtNameLong);
-        key.lvl = ((TClsGrpRow&)base_tables.get("cls_grp").get_row( "id", class_grp)).priority;
+        key.lvl = ((TClsGrpRow&)base_tables.get("cls_grp").get_row( "id", class_grp, true)).priority;
         if(rpt_params.pr_trfer) {
             key.pr_trfer = Qry.FieldAsInteger("pr_trfer");
         }
