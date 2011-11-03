@@ -2574,7 +2574,13 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             NewTextChild(rowNode, "class", rpt_params.ElemIdToReportElem(etClass, Qry.FieldAsString("class"), efmtCodeNative));
             NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
             NewTextChild(rowNode, "target", rpt_params.ElemIdToReportElem(etAirp, Qry.FieldAsString("target"), efmtCodeNative));
-            NewTextChild(rowNode, "last_target", rpt_params.ElemIdToReportElem(etAirp, Qry.FieldAsString("last_target"), efmtCodeNative));
+            string last_target = Qry.FieldAsString("last_target");
+            TElemFmt fmt;
+            string last_target_id = ElemToElemId(etAirp, last_target, fmt);
+            if(not last_target_id.empty())
+                last_target = rpt_params.ElemIdToReportElem(etAirp, last_target_id, efmtCodeNative);
+
+            NewTextChild(rowNode, "last_target", last_target);
             NewTextChild(rowNode, "ticket_no", Qry.FieldAsString("ticket_no"));
             NewTextChild(rowNode, "document", Qry.FieldAsString("document"));
             NewTextChild(rowNode, "remarks", Qry.FieldAsString("remarks"));

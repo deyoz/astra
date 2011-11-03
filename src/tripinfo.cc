@@ -2378,7 +2378,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
       }
       catch(EBaseTableError)
       {
-        NewTextChild( node, "last_target", ElemIdToCodeNative(etAirp,Qry.FieldAsString( col_airp_arv_final ) ));
+        NewTextChild( node, "last_target", Qry.FieldAsString( col_airp_arv_final ));
       };
     };
 
