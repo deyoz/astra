@@ -173,6 +173,18 @@ const long int DOC_CSV_DE_FIELDS=DOC_SURNAME_FIELD|
 const long int DOCO_CSV_DE_FIELDS=DOCO_TYPE_FIELD|
                                   DOCO_NO_FIELD|
                                   DOCO_APPLIC_COUNTRY_FIELD;
+                                  
+const long int DOC_TXT_EE_FIELDS=DOC_SURNAME_FIELD|
+                                 DOC_FIRST_NAME_FIELD|
+                                 DOC_BIRTH_DATE_FIELD|
+                                 DOC_NATIONALITY_FIELD|
+                                 DOC_TYPE_FIELD|
+                                 DOC_NO_FIELD|
+                                 DOC_ISSUE_COUNTRY_FIELD|
+                                 DOC_GENDER_FIELD;
+                                 
+const long int DOCO_TXT_EE_FIELDS=DOCO_TYPE_FIELD|
+                                  DOCO_NO_FIELD;
 
 TCheckDocInfo GetCheckDocInfo(const int point_dep, const string& airp_arv)
 {
@@ -222,6 +234,11 @@ TCheckDocInfo GetCheckDocInfo(const int point_dep, const string& airp_arv)
           {
             result.first.required_fields|=DOC_CSV_DE_FIELDS;
             result.second.required_fields|=DOCO_CSV_DE_FIELDS;
+          };
+          if (fmt=="TXT_EE")
+          {
+            result.first.required_fields|=DOC_TXT_EE_FIELDS;
+            result.second.required_fields|=DOCO_TXT_EE_FIELDS;
           };
         };
       };
@@ -579,6 +596,7 @@ void TCkinRoute::GetRoute(int tckin_id,
          "       NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out, "
          "       points.airline_fmt, points.suffix_fmt, points.airp_fmt, points.pr_del, "
          "       pax_grp.grp_id, pax_grp.point_dep, pax_grp.point_arv, "
+         "       pax_grp.airp_dep, pax_grp.airp_arv, "
          "       tckin_pax_grp.seg_no, tckin_pax_grp.pr_depend "
          "FROM points, pax_grp, tckin_pax_grp "
          "WHERE points.point_id=pax_grp.point_dep AND "
@@ -612,6 +630,8 @@ void TCkinRoute::GetRoute(int tckin_id,
       item.grp_id=Qry.FieldAsInteger("grp_id");
       item.point_dep=Qry.FieldAsInteger("point_dep");
       item.point_arv=Qry.FieldAsInteger("point_arv");
+      item.airp_dep=Qry.FieldAsString("airp_dep");
+      item.airp_arv=Qry.FieldAsString("airp_arv");
       item.seg_no=Qry.FieldAsInteger("seg_no");
       item.operFlt.Init(Qry);
       
@@ -1408,6 +1428,69 @@ std::string GetPaxDocStr(TDateTime part_key,
     };
   };
   
+  return result.str();
+};
+
+void GetTagRanges(const vector<TBagTagNumber> &tags,
+                  vector<string> &ranges)
+{
+  ranges.clear();
+  if (tags.empty()) return;
+
+  string first_alpha_part,curr_alpha_part;
+  double first_no,first_pack,curr_no,curr_pack;
+  first_alpha_part=tags.begin()->alpha_part;
+  first_no=fmod(tags.begin()->numeric_part, 1000.0);
+  first_pack=round(tags.begin()->numeric_part/1000.0);
+  int num=0;
+  for(std::vector<TBagTagNumber>::const_iterator iTag=tags.begin();; ++iTag)
+  {
+    if (iTag!=tags.end())
+    {
+      curr_alpha_part=iTag->alpha_part;
+      curr_no=fmod(iTag->numeric_part, 1000.0);
+      curr_pack=round(iTag->numeric_part/1000.0);
+    };
+     
+    if (iTag==tags.end() ||
+        first_alpha_part!=curr_alpha_part||
+        first_pack!=curr_pack||
+        first_no+num!=curr_no)
+    {
+      ostringstream range;
+      range.setf(ios::fixed);
+      range << first_alpha_part << setw(10) << setfill('0') << setprecision(0)
+            << (first_pack*1000.0+first_no);
+      if (num!=1)
+        range << "-"
+              << setw(3)  << setfill('0')
+              << (first_no+num-1);
+              
+      ranges.push_back(range.str());
+      
+      if (iTag==tags.end()) break;
+      first_alpha_part=curr_alpha_part;
+      first_no=curr_no;
+      first_pack=curr_pack;
+      num=0;
+    };
+    num++;
+  };
+};
+
+
+string GetTagRangesStr(const vector<TBagTagNumber> &tags)
+{
+  vector<string> ranges;
+  
+  GetTagRanges(tags, ranges);
+
+  ostringstream result;
+  for(vector<string>::const_iterator r=ranges.begin(); r!=ranges.end(); ++r)
+  {
+    if (r!=ranges.begin()) result << " ";
+    result << *r;
+  };
   return result.str();
 };
 

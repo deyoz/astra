@@ -2481,7 +2481,7 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "SELECT "
         "      crs_pax.pax_id, "
         "      crs_pax.surname||' '||crs_pax.name family ";
-    if(rpt_params.rpt_type != rtBDOCS)
+    if(rpt_params.rpt_type != rtBDOCS) {
         SQLText +=
             "      , tlg_binding.point_id_spp AS point_id, "
             "      ckin.get_pnr_addr(crs_pnr.pnr_id) AS pnr_ref, "
@@ -2493,6 +2493,8 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             "      report.get_TKNO(crs_pax.pax_id) ticket_no, "
             "      report.get_PSPT(crs_pax.pax_id, 1, :lang) AS document, "
             "      report.get_crsRemarks(crs_pax.pax_id) AS remarks ";
+        Qry.CreateVariable("lang", otString, rpt_params.GetLang());
+    }
     SQLText +=
         "FROM crs_pnr,tlg_binding,crs_pax ";
     if(pr_unreg)
@@ -2520,7 +2522,6 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     }
     Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
-    Qry.CreateVariable("lang", otString, rpt_params.GetLang());
     Qry.Execute();
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
     xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_crs");
@@ -2549,13 +2550,13 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 
                 xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
                 NewTextChild(rowNode, "family", transliter(Qry.FieldAsString("family"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
-                NewTextChild(rowNode, "type", docsQry.FieldAsString("type"));
-                NewTextChild(rowNode, "issue_country", docsQry.FieldAsString("issue_country"));
+                NewTextChild(rowNode, "type", rpt_params.ElemIdToReportElem(etPaxDocType, docsQry.FieldAsString("type"), efmtCodeNative));
+                NewTextChild(rowNode, "issue_country", rpt_params.ElemIdToReportElem(etCountry, docsQry.FieldAsString("issue_country"), efmtCodeNative));
                 NewTextChild(rowNode, "no", docsQry.FieldAsString("no"));
-                NewTextChild(rowNode, "nationality", docsQry.FieldAsString("nationality"));
+                NewTextChild(rowNode, "nationality", rpt_params.ElemIdToReportElem(etCountry, docsQry.FieldAsString("nationality"), efmtCodeNative));
                 if (!docsQry.FieldIsNULL("birth_date"))
                     NewTextChild(rowNode, "birth_date", DateTimeToStr(docsQry.FieldAsDateTime("birth_date"), "dd.mm.yyyy"));
-                NewTextChild(rowNode, "gender", docsQry.FieldAsString("gender"));
+                NewTextChild(rowNode, "gender", rpt_params.ElemIdToReportElem(etGenderType, docsQry.FieldAsString("gender"), efmtCodeNative));
                 if (!docsQry.FieldIsNULL("expiry_date"))
                     NewTextChild(rowNode, "expiry_date", DateTimeToStr(docsQry.FieldAsDateTime("expiry_date"), "dd.mm.yyyy"));
                 NewTextChild(rowNode, "surname", docsQry.FieldAsString("surname"));
@@ -2574,7 +2575,13 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             NewTextChild(rowNode, "class", rpt_params.ElemIdToReportElem(etClass, Qry.FieldAsString("class"), efmtCodeNative));
             NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
             NewTextChild(rowNode, "target", rpt_params.ElemIdToReportElem(etAirp, Qry.FieldAsString("target"), efmtCodeNative));
-            NewTextChild(rowNode, "last_target", rpt_params.ElemIdToReportElem(etAirp, Qry.FieldAsString("last_target"), efmtCodeNative));
+            string last_target = Qry.FieldAsString("last_target");
+            TElemFmt fmt;
+            string last_target_id = ElemToElemId(etAirp, last_target, fmt);
+            if(not last_target_id.empty())
+                last_target = rpt_params.ElemIdToReportElem(etAirp, last_target_id, efmtCodeNative);
+
+            NewTextChild(rowNode, "last_target", last_target);
             NewTextChild(rowNode, "ticket_no", Qry.FieldAsString("ticket_no"));
             NewTextChild(rowNode, "document", Qry.FieldAsString("document"));
             NewTextChild(rowNode, "remarks", Qry.FieldAsString("remarks"));

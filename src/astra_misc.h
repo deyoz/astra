@@ -369,6 +369,7 @@ struct TCkinRouteItem
 {
   int grp_id;
   int point_dep, point_arv;
+  std::string airp_dep, airp_arv;
   int seg_no;
   TTripInfo operFlt;
   TCkinRouteItem()
@@ -512,6 +513,25 @@ std::string GetPaxDocStr(BASIC::TDateTime part_key,
                          TQuery& PaxDocQry,
                          bool with_issue_country=false,
                          const std::string &lang="");
+                         
+class TBagTagNumber
+{
+  public:
+    std::string alpha_part;
+    double numeric_part;
+    TBagTagNumber(const std::string &apart, double npart):alpha_part(apart),numeric_part(npart) {};
+    bool operator < (const TBagTagNumber &no) const
+    {
+      if (alpha_part!=no.alpha_part)
+        return alpha_part<no.alpha_part;
+      return numeric_part<no.numeric_part;
+    };
+};
+
+void GetTagRanges(const std::vector<TBagTagNumber> &tags,
+                  std::vector<std::string> &ranges);   //ranges сортирован
+
+std::string GetTagRangesStr(const std::vector<TBagTagNumber> &tags);
 
 #endif /*_ASTRA_MISC_H_*/
 
