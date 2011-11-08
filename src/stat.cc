@@ -773,6 +773,10 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     if(find( reqInfo->user.access.rights.begin(),
                 reqInfo->user.access.rights.end(), 655 ) == reqInfo->user.access.rights.end())
         throw AstraLocale::UserException("MSG.SYS_LOG.VIEW_DENIED");
+        
+    if(NodeAsDateTime("FirstDate", reqNode)+1 < NodeAsDateTime("LastDate", reqNode))
+      throw AstraLocale::UserException("MSG.SEARCH_PERIOD_SHOULD_NOT_EXCEED_ONE_DAY");
+        
     xmlNodePtr client_with_trip_col_in_SysLogNode = GetNode("client_with_trip_col_in_SysLog", reqNode);
     if(client_with_trip_col_in_SysLogNode == NULL)
         get_compatible_report_form("ArxPaxLog", reqNode, resNode);
@@ -1110,6 +1114,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     get_compatible_report_form("ArxPaxList", reqNode, resNode);
     {
         TQuery Qry(&OraSession);
+        TQuery PaxDocQry(&OraSession);
         string SQLText;
         if(part_key == NoExists)  {
             ProgTrace(TRACE5, "PaxListRun: current base qry");
@@ -1140,8 +1145,8 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   pax_grp.class_grp, "
                 "   salons.get_seat_no(pax.pax_id, pax.seats, pax_grp.status, pax_grp.point_dep, 'seats', rownum) seat_no, "
                 "   pax_grp.hall, "
-                "   pax.document, "
-                "   pax.ticket_no "
+                "   pax.ticket_no, "
+                "   pax.pax_id "
                 "FROM  pax_grp,pax, points "
                 "WHERE "
                 "   points.point_id = :point_id and points.pr_del>=0 and "
@@ -1189,8 +1194,8 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   LPAD(seat_no,3,'0')|| "
                 "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') seat_no, "
                 "   arx_pax_grp.hall, "
-                "   arx_pax.document, "
-                "   arx_pax.ticket_no "
+                "   arx_pax.ticket_no, "
+                "   arx_pax.pax_id "
                 "FROM  arx_pax_grp,arx_pax, arx_points "
                 "WHERE "
                 "   arx_points.point_id = :point_id and arx_points.pr_del>=0 and "
@@ -1251,18 +1256,18 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             int col_pr_brd = Qry.FieldIndex("pr_brd");
             int col_class_grp = Qry.FieldIndex("class_grp");
             int col_seat_no = Qry.FieldIndex("seat_no");
-            int col_document = Qry.FieldIndex("document");
             int col_ticket_no = Qry.FieldIndex("ticket_no");
             int col_hall = Qry.FieldIndex("hall");
-            int col_part_key=Qry.FieldIndex("part_key");
+            int col_pax_id=Qry.FieldIndex("pax_id");
+            
 
             string trip, scd_out;
             while(!Qry.Eof) {
                 xmlNodePtr paxNode = NewTextChild(rowsNode, "pax");
 
-                if(!Qry.FieldIsNULL(col_part_key))
+                if(part_key!=NoExists)
                     NewTextChild(paxNode, "part_key",
-                            DateTimeToStr(Qry.FieldAsDateTime(col_part_key), ServerFormatDateTimeAsString));
+                            DateTimeToStr(part_key, ServerFormatDateTimeAsString));
                 NewTextChild(paxNode, "point_id", Qry.FieldAsInteger(col_point_id));
                 NewTextChild(paxNode, "airline", Qry.FieldAsString(col_airline));
                 NewTextChild(paxNode, "flt_no", Qry.FieldAsInteger(col_flt_no));
@@ -1296,7 +1301,10 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 NewTextChild(paxNode, "status", status);
                 NewTextChild(paxNode, "class", ElemIdToCodeNative(etClsGrp, Qry.FieldAsInteger(col_class_grp)));
                 NewTextChild(paxNode, "seat_no", Qry.FieldAsString(col_seat_no));
-                NewTextChild(paxNode, "document", Qry.FieldAsString(col_document));
+                NewTextChild(paxNode, "document", GetPaxDocStr(part_key,
+                                                               Qry.FieldAsInteger(col_pax_id),
+                                                               PaxDocQry,
+                                                               true));
                 NewTextChild(paxNode, "ticket_no", Qry.FieldAsString(col_ticket_no));
                 if(Qry.FieldIsNULL(col_hall))
                     NewTextChild(paxNode, "hall");
@@ -1402,9 +1410,10 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 rowsNode = NewTextChild(paxListNode, "rows");
             }
             xmlNodePtr paxNode=NewTextChild(rowsNode,"pax");
-            if(!Qry.FieldIsNULL("part_key"))
+            
+            if(part_key!=NoExists)
                 NewTextChild(paxNode, "part_key",
-                        DateTimeToStr(Qry.FieldAsDateTime("part_key"), ServerFormatDateTimeAsString));
+                        DateTimeToStr(part_key, ServerFormatDateTimeAsString));
             NewTextChild(paxNode, "point_id", point_id);
             NewTextChild(paxNode, "airline");
             NewTextChild(paxNode, "flt_no", 0);
@@ -1707,7 +1716,6 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
                 "  points.flt_no, \n"
                 "  points.scd_out, \n"
                 "  stat.point_id, \n"
-                "  ckin.get_airps(stat.point_id,:vlang) places, \n"
                 "  sum(adult + child + baby) pax_amount, \n"
                 "  sum(decode(client_type, :web, adult + child + baby, 0)) web, \n"
                 "  sum(decode(client_type, :kiosk, adult + child + baby, 0)) kiosk, \n"
@@ -1918,7 +1926,7 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
                 "  arx_points.flt_no, \n"
                 "  arx_points.scd_out, \n"
                 "  arx_stat.point_id, \n"
-                "  arch.get_airps(arx_stat.point_id, arx_stat.part_key,:vlang) places, \n"
+                "  arx_stat.part_key, \n"
                 "  sum(adult + child + baby) pax_amount, \n"
                 "  sum(decode(client_type, :web, adult + child + baby, 0)) web, \n"
                 "  sum(decode(client_type, :kiosk, adult + child + baby, 0)) kiosk, \n"
@@ -2437,8 +2445,8 @@ void createXMLDetailStat(TDetailStat &DetailStat, xmlNodePtr resNode, TPrintAirl
         if(pr_pact)
         {
             colNode = NewTextChild(headerNode, "col", getLocaleText("Договор"));
-            SetProp(colNode, "width", 85);
-            SetProp(colNode, "align", taRightJustify);
+            SetProp(colNode, "width", 230);
+            SetProp(colNode, "align", taLeftJustify);
         }
 
         xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
@@ -2585,108 +2593,123 @@ void RunPactDetailStat(TStatType statType, TStatParams &params, xmlNodePtr reqNo
     TPrintAirline prn_airline;
 
     Qry.Clear();
-    string SQLText =
-        "select "
-        "   points.airline, "
-        "   points.airp, "
-        "   points.scd_out, "
-        "   stat.point_id, "
-        "   adult, "
-        "   child, "
-        "   baby, "
-        "   client_type "
-        "from "
-        "   points, "
-        "   stat "
-        "where "
-        "   points.point_id = stat.point_id and "
-        "   points.pr_del>=0 and "
-        "   points.scd_out >= :first_date AND "
-        "   points.scd_out < :last_date";
-    if(params.flt_no != NoExists) {
-        SQLText += " and points.flt_no = :flt_no ";
-        Qry.CreateVariable("flt_no", otInteger, params.flt_no);
-    }
-    if (!params.airps.empty()) {
-        if (params.airps_permit)
-            SQLText += " AND points.airp IN "+GetSQLEnum(params.airps)+"\n";
+    for(int pr_arx = 0; pr_arx < 2; pr_arx++) {
+        string SQLText =
+            "select "
+            "   points.airline, "
+            "   points.airp, "
+            "   points.scd_out, "
+            "   stat.point_id, "
+            "   adult, "
+            "   child, "
+            "   baby, "
+            "   client_type "
+            "from ";
+        if(pr_arx)
+            SQLText +=
+                "   arx_points points, "
+                "   arx_stat stat ";
         else
-            SQLText += " AND points.airp NOT IN "+GetSQLEnum(params.airps)+"\n";
-    };
-    if (!params.airlines.empty()) {
-        if (params.airlines_permit)
-            SQLText += " AND points.airline IN "+GetSQLEnum(params.airlines)+"\n";
-        else
-            SQLText += " AND points.airline NOT IN "+GetSQLEnum(params.airlines)+"\n";
-    }
+            SQLText +=
+                "   points, "
+                "   stat ";
+        SQLText +=
+            "where "
+            "   points.point_id = stat.point_id and "
+            "   points.pr_del>=0 and "
+            "   points.scd_out >= :first_date AND "
+            "   points.scd_out < :last_date ";
+        if(pr_arx) {
+            SQLText +=
+                "   and points.part_key = stat.part_key and "
+                "   points.part_key >= :first_date AND points.part_key < :last_date + :arx_trip_date_range ";
+            Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
+        }
+        if(params.flt_no != NoExists) {
+            SQLText += " and points.flt_no = :flt_no ";
+            Qry.CreateVariable("flt_no", otInteger, params.flt_no);
+        }
+        if (!params.airps.empty()) {
+            if (params.airps_permit)
+                SQLText += " AND points.airp IN "+GetSQLEnum(params.airps)+"\n";
+            else
+                SQLText += " AND points.airp NOT IN "+GetSQLEnum(params.airps)+"\n";
+        };
+        if (!params.airlines.empty()) {
+            if (params.airlines_permit)
+                SQLText += " AND points.airline IN "+GetSQLEnum(params.airlines)+"\n";
+            else
+                SQLText += " AND points.airline NOT IN "+GetSQLEnum(params.airlines)+"\n";
+        }
 
-    Qry.SQLText = SQLText;
-    Qry.CreateVariable("first_date", otDate, params.FirstDate);
-    Qry.CreateVariable("last_date", otDate, params.LastDate);
-    Qry.Execute();
-    if(not Qry.Eof) {
-        int col_airline = Qry.FieldIndex("airline");
-        int col_airp = Qry.FieldIndex("airp");
-        int col_scd_out = Qry.FieldIndex("scd_out");
-        int col_point_id = Qry.FieldIndex("point_id");
-        int col_adult = Qry.FieldIndex("adult");
-        int col_child = Qry.FieldIndex("child");
-        int col_baby = Qry.FieldIndex("baby");
-        int col_client_type = Qry.FieldIndex("client_type");
-        for(; not Qry.Eof; Qry.Next()) {
+        Qry.SQLText = SQLText;
+        Qry.CreateVariable("first_date", otDate, params.FirstDate);
+        Qry.CreateVariable("last_date", otDate, params.LastDate);
+        Qry.Execute();
+        if(not Qry.Eof) {
+            int col_airline = Qry.FieldIndex("airline");
+            int col_airp = Qry.FieldIndex("airp");
+            int col_scd_out = Qry.FieldIndex("scd_out");
+            int col_point_id = Qry.FieldIndex("point_id");
+            int col_adult = Qry.FieldIndex("adult");
+            int col_child = Qry.FieldIndex("child");
+            int col_baby = Qry.FieldIndex("baby");
+            int col_client_type = Qry.FieldIndex("client_type");
+            for(; not Qry.Eof; Qry.Next()) {
 
-            string airline = Qry.FieldAsString(col_airline);
-            string airp = Qry.FieldAsString(col_airp);
-            TDateTime scd_out = Qry.FieldAsDateTime(col_scd_out);
-            int point_id = Qry.FieldAsInteger(col_point_id);
-            int adult = Qry.FieldAsInteger(col_adult);
-            int child = Qry.FieldAsInteger(col_child);
-            int baby = Qry.FieldAsInteger(col_baby);
-            TClientType client_type = DecodeClientType(Qry.FieldAsString(col_client_type));
+                string airline = Qry.FieldAsString(col_airline);
+                string airp = Qry.FieldAsString(col_airp);
+                TDateTime scd_out = Qry.FieldAsDateTime(col_scd_out);
+                int point_id = Qry.FieldAsInteger(col_point_id);
+                int adult = Qry.FieldAsInteger(col_adult);
+                int child = Qry.FieldAsInteger(col_child);
+                int baby = Qry.FieldAsInteger(col_baby);
+                TClientType client_type = DecodeClientType(Qry.FieldAsString(col_client_type));
 
-            vector<TPact>::iterator iv = result_pacts.begin();
-            for(; iv != result_pacts.end(); iv++) {
-                if(
-                        scd_out >= iv->first_date and
-                        scd_out < iv->last_date and
-                        airp == iv->airp and
-                        (iv->airline.empty() or iv->airline == airline) and
-                        (iv->airlines.empty() or find(iv->airlines.begin(), iv->airlines.end(), airline) == iv->airlines.end())
-                  )
-                {
-                    break;
+                vector<TPact>::iterator iv = result_pacts.begin();
+                for(; iv != result_pacts.end(); iv++) {
+                    if(
+                            scd_out >= iv->first_date and
+                            scd_out < iv->last_date and
+                            airp == iv->airp and
+                            (iv->airline.empty() or iv->airline == airline) and
+                            (iv->airlines.empty() or find(iv->airlines.begin(), iv->airlines.end(), airline) == iv->airlines.end())
+                      )
+                    {
+                        break;
+                    }
                 }
-            }
-            TDetailStatKey key;
-            if(iv != result_pacts.end())
-                key.pact_descr = iv->descr;
-            if(params.airp_column_first) {
-                key.col1 = ElemIdToCodeNative(etAirp, airp);
-                if (statType==statDetail)
-                {
-                    key.col2 = ElemIdToCodeNative(etAirline, airline);
-                    prn_airline.check(key.col2);
-                };
-            } else {
-                key.col1 = ElemIdToCodeNative(etAirline, airline);
-                if (statType==statDetail)
-                {
-                    key.col2 = ElemIdToCodeNative(etAirp, airp);
-                };
-                prn_airline.check(key.col1);
-            }
+                TDetailStatKey key;
+                if(iv != result_pacts.end())
+                    key.pact_descr = iv->descr;
+                if(params.airp_column_first) {
+                    key.col1 = ElemIdToCodeNative(etAirp, airp);
+                    if (statType==statDetail)
+                    {
+                        key.col2 = ElemIdToCodeNative(etAirline, airline);
+                        prn_airline.check(key.col2);
+                    };
+                } else {
+                    key.col1 = ElemIdToCodeNative(etAirline, airline);
+                    if (statType==statDetail)
+                    {
+                        key.col2 = ElemIdToCodeNative(etAirp, airp);
+                    };
+                    prn_airline.check(key.col1);
+                }
 
-            TDetailStatRow &row = DetailStat[key];
-            if(row.pax_amount == NoExists) {
-                row.flts.insert(point_id);
-                row.pax_amount = adult + child + baby;
-                row.web = (client_type == ctWeb ? adult + child + baby : 0);
-                row.kiosk = (client_type == ctKiosk ? adult + child + baby : 0);
-            } else {
-                row.flts.insert(point_id);
-                row.pax_amount += adult + child + baby;
-                row.web += (client_type == ctWeb ? adult + child + baby : 0);
-                row.kiosk += (client_type == ctKiosk ? adult + child + baby : 0);
+                TDetailStatRow &row = DetailStat[key];
+                if(row.pax_amount == NoExists) {
+                    row.flts.insert(point_id);
+                    row.pax_amount = adult + child + baby;
+                    row.web = (client_type == ctWeb ? adult + child + baby : 0);
+                    row.kiosk = (client_type == ctKiosk ? adult + child + baby : 0);
+                } else {
+                    row.flts.insert(point_id);
+                    row.pax_amount += adult + child + baby;
+                    row.web += (client_type == ctWeb ? adult + child + baby : 0);
+                    row.kiosk += (client_type == ctKiosk ? adult + child + baby : 0);
+                }
             }
         }
     }
@@ -2884,7 +2907,8 @@ void GetFullStat(TStatType statType, const TStatParams &params, TQuery &Qry,
       int col_excess = Qry.FieldIndex("excess");
       int col_flt_no = Qry.FieldIndex("flt_no");
       int col_scd_out = Qry.FieldIndex("scd_out");
-      int col_places = Qry.FieldIndex("places");
+      int col_places = Qry.GetFieldIndex("places");
+      int col_part_key = Qry.GetFieldIndex("part_key");
       for(; !Qry.Eof; Qry.Next()) {
           TFullStatKey key;
           key.seance = Qry.FieldAsString(col_seance);
@@ -2901,7 +2925,14 @@ void GetFullStat(TStatType statType, const TStatParams &params, TQuery &Qry,
           key.flt_no = Qry.FieldAsInteger(col_flt_no);
           key.scd_out = Qry.FieldAsDateTime(col_scd_out);
           key.point_id = Qry.FieldAsInteger(col_point_id);
-          key.places.set(Qry.FieldAsString(col_places), statType==statTrferFull);
+          if (statType==statTrferFull)
+            key.places.set(Qry.FieldAsString(col_places), true);
+          else
+            key.places.set(GetRouteAfterStr( col_part_key>=0?Qry.FieldAsDateTime(col_part_key):NoExists,
+                                             Qry.FieldAsInteger(col_point_id),
+                                             trtNotCurrent,
+                                             trtNotCancelled),
+                           false);
           TFullStatRow &row = FullStat[key];
           if(row.pax_amount == NoExists) {
               row.pax_amount = Qry.FieldAsInteger(col_pax_amount);
@@ -2956,7 +2987,6 @@ void RunFullStat(TStatType statType, TStatParams &params, xmlNodePtr reqNode, xm
     {
       Qry.CreateVariable("web", otString, EncodeClientType(ctWeb));
       Qry.CreateVariable("kiosk", otString, EncodeClientType(ctKiosk));
-      Qry.CreateVariable("vlang", otString, TReqInfo::Instance()->desk.lang );
     };
     if (!USE_SEANCES() && params.seance==seanceAirline) Qry.DeclareVariable("ak",otString);
     if (!USE_SEANCES() && params.seance==seanceAirport) Qry.DeclareVariable("ap",otString);
@@ -3242,6 +3272,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     LastDate = ClientToUTC(LastDate, info.desk.tz_region);
     TPerfTimer tm;
     TQuery Qry(&OraSession);
+    TQuery PaxDocQry(&OraSession);
     Qry.CreateVariable("FirstDate", otDate, FirstDate);
     Qry.CreateVariable("LastDate", otDate, LastDate);
     Qry.CreateVariable("pr_lat", otInteger, info.desk.lang != AstraLocale::LANG_RU);
@@ -3310,9 +3341,12 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 "   pax_grp.class_grp, "
                 "   salons.get_seat_no(pax.pax_id, pax.seats, pax_grp.status, pax_grp.point_dep, 'seats', rownum) seat_no, "
                 "   pax_grp.hall, "
-                "   pax.document, "
-                "   pax.ticket_no "
+                "   pax.ticket_no, "
+                "   pax.pax_id "
                 "FROM  pax_grp,pax, points ";
+            if(!document.empty())
+                SQLText +=
+                    " , pax_doc ";
             if(!tag_no.empty())
                 SQLText +=
                     " , bag_tags ";
@@ -3321,6 +3355,10 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 "   points.scd_out >= :FirstDate AND points.scd_out < :LastDate and "
                 "   points.point_id = pax_grp.point_dep and points.pr_del>=0 and "
                 "   pax_grp.grp_id=pax.grp_id ";
+            if(!document.empty())
+                SQLText +=
+                    " and pax.pax_id = pax_doc.pax_id and "
+                    " pax_doc.no like '%'||:document||'%' ";
             if(!tag_no.empty())
                 SQLText +=
                     " and pax_grp.grp_id = bag_tags.grp_id and "
@@ -3349,8 +3387,6 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 else
                     SQLText += " and pax.surname like :surname||'%' ";
             }
-            if(!document.empty())
-                SQLText += " and pax.document like '%'||:document||'%' ";
             if(!ticket_no.empty())
                 SQLText += " and pax.ticket_no like '%'||:ticket_no||'%' ";
         } else {
@@ -3383,9 +3419,12 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 "   LPAD(seat_no,3,'0')|| "
                 "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') seat_no, "
                 "   arx_pax_grp.hall, "
-                "   arx_pax.document, "
-                "   arx_pax.ticket_no "
+                "   arx_pax.ticket_no, "
+                "   arx_pax.pax_id "
                 "FROM  arx_pax_grp,arx_pax, arx_points ";
+            if(!document.empty())
+                SQLText +=
+                    " , arx_pax_doc ";
             if(!tag_no.empty())
                 SQLText +=
                     " , arx_bag_tags ";
@@ -3399,6 +3438,11 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 "   arx_points.part_key >= :FirstDate and arx_points.part_key < :LastDate + :arx_trip_date_range and "
                 "   pr_brd IS NOT NULL ";
             Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
+            if(!document.empty())
+                SQLText +=
+                    " and arx_pax.part_key = arx_pax_doc.part_key and "
+                    " arx_pax.pax_id = arx_pax_doc.pax_id and "
+                    " arx_pax_doc.no like '%'||:document||'%' ";
             if(!tag_no.empty())
                 SQLText +=
                     " and arx_pax_grp.part_key = arx_bag_tags.part_key and "
@@ -3428,8 +3472,6 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 else
                     SQLText += " and arx_pax.surname like :surname||'%' ";
             }
-            if(!document.empty())
-                SQLText += " and arx_pax.document = :document ";
             if(!ticket_no.empty())
                 SQLText += " and arx_pax.ticket_no = :ticket_no ";
         }
@@ -3469,10 +3511,10 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             int col_refuse = Qry.FieldIndex("refuse");
             int col_class_grp = Qry.FieldIndex("class_grp");
             int col_seat_no = Qry.FieldIndex("seat_no");
-            int col_document = Qry.FieldIndex("document");
             int col_ticket_no = Qry.FieldIndex("ticket_no");
             int col_hall = Qry.FieldIndex("hall");
             int col_part_key=Qry.FieldIndex("part_key");
+            int col_pax_id=Qry.FieldIndex("pax_id");
 
             map<int, TTripItem> TripItems;
 
@@ -3481,10 +3523,12 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 xmlNodePtr paxNode = NewTextChild(rowsNode, "pax");
 
                 int point_id = Qry.FieldAsInteger(col_point_id);
+                TDateTime part_key=NoExists;
+                if(!Qry.FieldIsNULL(col_part_key)) part_key=Qry.FieldAsDateTime(col_part_key);
 
-                if(!Qry.FieldIsNULL(col_part_key))
+                if(part_key!=NoExists)
                     NewTextChild(paxNode, "part_key",
-                            DateTimeToStr(Qry.FieldAsDateTime(col_part_key), ServerFormatDateTimeAsString));
+                            DateTimeToStr(part_key, ServerFormatDateTimeAsString));
                 NewTextChild(paxNode, "point_id", point_id);
                 NewTextChild(paxNode, "airline", Qry.FieldAsString(col_airline));
                 NewTextChild(paxNode, "flt_no", Qry.FieldAsInteger(col_flt_no));
@@ -3520,7 +3564,10 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 NewTextChild(paxNode, "status", status);
                 NewTextChild(paxNode, "class", ElemIdToCodeNative(etClsGrp, Qry.FieldAsInteger(col_class_grp)));
                 NewTextChild(paxNode, "seat_no", Qry.FieldAsString(col_seat_no));
-                NewTextChild(paxNode, "document", Qry.FieldAsString(col_document));
+                NewTextChild(paxNode, "document", GetPaxDocStr(part_key,
+                                                               Qry.FieldAsInteger(col_pax_id),
+                                                               PaxDocQry,
+                                                               true));
                 NewTextChild(paxNode, "ticket_no", Qry.FieldAsString(col_ticket_no));
                 if(Qry.FieldIsNULL(col_hall))
                     NewTextChild(paxNode, "hall");

@@ -2294,7 +2294,6 @@ void SeatsPassengers( SALONS2::TSalons *Salons, TSeatAlgoParams ASeatAlgoParams 
   preseat_layers[ cltProtAfterPay ] = CanUseLayer( cltProtAfterPay, UseLayers );
   preseat_layers[ cltPNLBeforePay ] = CanUseLayer( cltPNLBeforePay, UseLayers );
   preseat_layers[ cltPNLAfterPay ] = CanUseLayer( cltPNLAfterPay, UseLayers );
-  condRates.Init( *Salons, TReqInfo::Instance()->client_type==ctWeb ); // собирает все типы платных мест в массив по приоритетам, если это web-клиент, то не учитываем
   
   Passengers.KWindow = ( Passengers.KWindow && !Passengers.KTube );
   Passengers.KTube = ( !Passengers.KWindow && Passengers.KTube );
@@ -2309,12 +2308,18 @@ void SeatsPassengers( SALONS2::TSalons *Salons, TSeatAlgoParams ASeatAlgoParams 
   /* не сделано!!! если у всех пассажиров есть места, то тогда рассадка по местам, без учета группы */
 
   /* определение есть ли в группе пассажир с предварительной рассадкой */
+  bool pr_pay = false;
   bool Status_seat_no_BR=false, pr_all_pass_SUBCLS=true, pr_SUBCLS=false;
   for ( int i=0; i<passengers.getCount(); i++ ) {
   	TPassenger &pass = passengers.Get( i );
   	if ( isUserProtectLayer( pass.preseat_layer ) ) {
       preseat_layers[ pass.preseat_layer ] = true;
       ProgTrace( TRACE5, "preseat_layers: pass.preseat_layer=%s", EncodeCompLayerType( pass.preseat_layer ) );
+      if ( pass.preseat_layer == cltProtBeforePay ||
+           pass.preseat_layer == cltPNLBeforePay ||
+           pass.preseat_layer == cltProtAfterPay ||
+           pass.preseat_layer == cltPNLAfterPay )
+        pr_pay = true;
   	}
   	if ( PElemTypes.size() == 0 && pass.countPlace > 0 && pass.pers_type != "ВЗ"  ) {
   		getValidChildElem_Types( PElemTypes );
@@ -2329,8 +2334,9 @@ void SeatsPassengers( SALONS2::TSalons *Salons, TSeatAlgoParams ASeatAlgoParams 
     	pr_all_pass_SUBCLS = false;
 
   }
+  condRates.Init( *Salons, pr_pay ); // собирает все типы платных мест в массив по приоритетам, если это web-клиент, то не учитываем
 
-  ProgTrace( TRACE5, "pr_SUBCLS=%d,pr_all_pass_SUBCLS=%d, SUBCLS_REM=%s", pr_SUBCLS, pr_all_pass_SUBCLS, SUBCLS_REM.c_str() );
+  ProgTrace( TRACE5, "pr_SUBCLS=%d,pr_all_pass_SUBCLS=%d, SUBCLS_REM=%s, pr_pay=%d", pr_SUBCLS, pr_all_pass_SUBCLS, SUBCLS_REM.c_str(), pr_pay );
 
   bool SeatOnlyBasePlace=true;
   for ( int i=0; i<passengers.getCount(); i++ ) {
@@ -2547,6 +2553,7 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p, bool pr_exists )
 	bool res = false;
 	TQuery Qry( &OraSession );
   TQuery RemsQry( &OraSession );
+  TQuery PaxDocQry( &OraSession );
   TPaxSeats priorSeats( point_id );
 	if ( !pr_exists ) {
 	  p.Clear();
@@ -2589,7 +2596,6 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p, bool pr_exists )
            "       pax_grp.status, "
            "       pax.pers_type, "
            "       pax.ticket_no, "
-           "       pax.document, "
            "       ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_weight,"
            "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_amount, "
            "       ckin.get_excess(pax.grp_id,pax.pax_id) AS excess,"
@@ -2631,7 +2637,7 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p, bool pr_exists )
     string fname = Qry.FieldAsString( "surname" );
     pass.fullName = TrimString( fname ) + " " + Qry.FieldAsString( "name" );
     pass.ticket_no = Qry.FieldAsString( "ticket_no" );
-    pass.document = Qry.FieldAsString( "document" );
+    pass.document = GetPaxDocStr(NoExists, Qry.FieldAsInteger( "pax_id" ), PaxDocQry, true);
     pass.bag_weight = Qry.FieldAsInteger( "bag_weight" );
     pass.bag_amount = Qry.FieldAsInteger( "bag_amount" );
     pass.excess = Qry.FieldAsInteger( "excess" );
@@ -2813,7 +2819,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   	case cltCheckin:
   	case cltTCheckin:
       Qry.SQLText =
-       "SELECT surname, name, reg_no, pax.grp_id, pax.seats, a.step step, pax.tid, '' target, point_dep, point_arv, "
+       "SELECT surname, name, reg_no, pax.grp_id, pax.seats, a.step step, pax.tid, '' airp_arv, point_dep, point_arv, "
        "       0 point_id, salons.get_seat_no(pax.pax_id,pax.seats,NULL,:point_dep,'list',rownum) AS seat_no, "
        "       class, pers_type "
        " FROM pax, pax_grp, "
@@ -2825,7 +2831,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
       break;
     case cltProtCkin:
       Qry.SQLText =
-        "SELECT surname, name, 0 reg_no, 0 grp_id, seats, a.step step, crs_pax.tid, target, point_id, 0 point_arv, "
+        "SELECT surname, name, 0 reg_no, 0 grp_id, seats, a.step step, crs_pax.tid, airp_arv, point_id, 0 point_arv, "
         "       NULL AS seat_no, class, pers_type "
         " FROM crs_pax, crs_pnr, "
         "( SELECT COUNT(*) step FROM crs_pax_rem "
@@ -2853,7 +2859,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   fullname += string(" ") + Qry.FieldAsString( "name" );
   int idx1 = Qry.FieldAsInteger( "reg_no" );
   int idx2 = Qry.FieldAsInteger( "grp_id" );
-  string target = Qry.FieldAsString( "target" );
+  string airp_arv = Qry.FieldAsString( "airp_arv" );
   int point_id_tlg = Qry.FieldAsInteger( "point_id" );
   int point_arv = Qry.FieldAsInteger( "point_arv" );
   int seats_count = Qry.FieldAsInteger( "seats" );
@@ -3061,7 +3067,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
         curr_tid = Qry.GetVariableAsInteger( "tid" );
         break;
       case cltProtCkin:
-        InsertTlgSeatRanges( point_id_tlg, target, layer_type, seats, pax_id, NoExists, NoExists, false, curr_tid );
+        InsertTlgSeatRanges( point_id_tlg, airp_arv, layer_type, seats, pax_id, NoExists, NoExists, false, curr_tid );
       	break;
       default:
       	ProgTrace( TRACE5, "!!! Unuseable layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );

@@ -51,6 +51,10 @@ class BitSet
   void setFlag( T key ) {
     flags[ key ] = true;
   }
+  void clearFlag( T key ) {
+    if ( isFlag( key ) )
+      flags[ key ] = false;
+  }
   bool isFlag( T key ) {
    typename std::map<T,bool>::iterator pos = flags.find( key );
    if ( pos == flags.end() )
@@ -59,6 +63,13 @@ class BitSet
   }
   void clearFlags( ) {
     flags.clear();
+  }
+  bool emptyFlags() {
+    for (typename std::map<T,bool>::iterator pos = flags.begin(); pos!=flags.end(); pos++) {
+      if ( pos->second )
+        return false;
+    }
+    return true;
   }
 };
 

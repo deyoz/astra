@@ -183,8 +183,8 @@ public:
 
   static int CheckCounters(int point_dep, int point_arv, char* cl, ASTRA::TPaxStatus grp_status);
 
-  static bool CheckFQTRem(xmlNodePtr remNode, TFQTItem &fqt);
-  static bool ParseFQTRem(TTlgParser &tlg,std::string &rem_text,TFQTItem &fqt);
+  static bool CheckFQTRem(xmlNodePtr remNode, TypeB::TFQTItem &fqt);
+  static bool ParseFQTRem(TypeB::TTlgParser &tlg,std::string &rem_text,TypeB::TFQTItem &fqt);
 
   static void readTripCounters( int point_id, xmlNodePtr dataNode );
   static void readTripData( int point_id, xmlNodePtr dataNode );
@@ -192,11 +192,11 @@ public:
   static void readTripSets( int point_id, const TTripInfo &fltInfo, xmlNodePtr tripSetsNode );
   static void readTripSets( const TTripInfo &fltInfo, int pr_etstatus, xmlNodePtr tripSetsNode);
   
-  static void GetOnwardCrsTransfer(int pnr_id, TQuery &Qry, std::vector<TTransferItem> &trfer);
+  static void GetOnwardCrsTransfer(int pnr_id, TQuery &Qry, std::vector<TypeB::TTransferItem> &trfer);
   static void LoadOnwardCrsTransfer(const TTripInfo &operFlt,
                                     const std::string &oper_airp_arv,
                                     const std::string &tlg_airp_dep,
-                                    const std::vector<TTransferItem> &crs_trfer,
+                                    const std::vector<TypeB::TTransferItem> &crs_trfer,
                                     std::vector<CheckIn::TTransferItem> &trfer,
                                     xmlNodePtr trferNode);
 

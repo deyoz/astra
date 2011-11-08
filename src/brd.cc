@@ -494,7 +494,6 @@ void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
         "    wl_type, "
         "    ticket_no, "
         "    coupon_no, "
-        "    document, "
         "    pax.tid, "
         "    ckin.get_remarks(pax.pax_id,', ',0) AS remarks, "
         "    NVL(ckin.get_bagAmount2(pax_grp.grp_id,NULL,NULL,rownum),0) AS bag_amount, "
@@ -708,6 +707,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       throw AstraLocale::UserException("MSG.PASSENGER.NOT_CHECKIN");
 
     TQuery TCkinQry(&OraSession);
+    TQuery PaxDocQry(&OraSession);
 
     xmlNodePtr listNode = NewTextChild(dataNode, "passengers");
     if (!Qry.Eof)
@@ -754,7 +754,6 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       int col_wl_type=Qry.FieldIndex("wl_type");
       int col_ticket_no=Qry.FieldIndex("ticket_no");
       int col_coupon_no=Qry.FieldIndex("coupon_no");
-      int col_document=Qry.FieldIndex("document");
       int col_tid=Qry.FieldIndex("tid");
       int col_remarks=Qry.FieldIndex("remarks");
       int col_bag_amount=Qry.FieldIndex("bag_amount");
@@ -808,7 +807,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           };
           NewTextChild(paxNode, "ticket_no", Qry.FieldAsString(col_ticket_no), "");
           NewTextChild(paxNode, "coupon_no", Qry.FieldAsInteger(col_coupon_no), 0);
-          NewTextChild(paxNode, "document", Qry.FieldAsString(col_document), "");
+          NewTextChild(paxNode, "document", GetPaxDocStr(NoExists, pax_id, PaxDocQry, false), "");
           NewTextChild(paxNode, "tid", Qry.FieldAsInteger(col_tid));
           NewTextChild(paxNode, "excess", Qry.FieldAsInteger(col_excess), 0);
           NewTextChild(paxNode, "value_bag_count", Qry.FieldAsInteger(col_value_bag_count), 0);

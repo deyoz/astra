@@ -44,7 +44,11 @@ const
     {"-alter_db",      alter_db,                NULL,                     NULL},
     {"-send_tlg",      send_tlg,                send_tlg_help,            NULL},
    // {"-voland_vko",    voland_vko_event,        NULL,                     NULL},
-    {"-dst_seasons",   seasons_dst_format,      NULL,                     NULL}
+    {"-dst_seasons",   seasons_dst_format,      NULL,                     NULL},
+    {"-alter_pax_doc", alter_pax_doc,           NULL,                     NULL},
+    {"-alter_pax_doc2",alter_pax_doc2,          NULL,                     NULL},
+    {"-alter_arx_pax_doc", alter_arx_pax_doc,   NULL,                     NULL},
+    {"-alter_arx_pax_doc2", alter_arx_pax_doc2, NULL,                     NULL}
   };
 
 int nosir_test(int argc,char **argv)

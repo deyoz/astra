@@ -50,6 +50,7 @@ void InsertTripSeatRanges(const vector< pair<int, TSeatRange> > &ranges, //векто
 {
   if (ranges.empty()) return;
   if (!IsTlgCompLayer(layer_type)) return;
+  if (layer_type==cltPRLTrzt) return;
 
   static int prior_point_id_tlg=NoExists;
   static int prior_point_id_spp=NoExists;
@@ -124,9 +125,10 @@ void InsertTripSeatRanges(const vector< pair<int, TSeatRange> > &ranges, //векто
         ids.pr_paid_ckin=Qry.FieldAsInteger("pr_paid_ckin")!=0;
 
       TTripRoute route;
-      route.GetRouteAfter(Qry.FieldAsInteger("point_id"),
+      route.GetRouteAfter(NoExists,
+                          Qry.FieldAsInteger("point_id"),
                           Qry.FieldAsInteger("point_num"),
-                          Qry.FieldAsInteger("first_point"),
+                          Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point"),
                           Qry.FieldAsInteger("pr_tranzit")!=0,
                           trtNotCurrent, trtWithCancelled);
       

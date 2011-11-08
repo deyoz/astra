@@ -138,6 +138,7 @@ int get_fr(int argc,char **argv)
                 throw Exception("Cannot open file %s", apath.native_file_string().c_str());
             out << form;
         }
+        cout << "The templates were fetched successfully" << endl;
     } catch(Exception &E) {
         usage(argv[0], E.what());
         return 1;
@@ -170,6 +171,7 @@ int load_fr(int argc,char **argv)
                 }
             }
         }
+        cout << "The templates were loaded successfully" << endl;
     } catch(Exception &E) {
         usage(argv[0], E.what());
         return 1;

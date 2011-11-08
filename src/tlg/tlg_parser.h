@@ -10,6 +10,10 @@
 #include "oralib.h"
 #include "seats.h"
 #include "memory_manager.h"
+#include "tlg_binding.h"
+
+namespace TypeB
+{
 
 class ETlgError:public EXCEPTIONS::Exception
 {
@@ -37,10 +41,13 @@ enum TTlgElement
                //PNL ¨ ADL
                AssociationNumber,
                BonusPrograms,
+               //PNL, ADL, PRL
                Configuration,
                ClassCodes,
+               //PNL ¨ ADL
                SpaceAvailableElement,
                TranzitElement,
+               //PNL, ADL, PRL
                TotalsByDestination,
                //PTM
                TransferPassengerData,
@@ -76,35 +83,6 @@ class TTlgPartInfo
 struct TTlgParts
 {
   TTlgPartInfo addr,heading,body,ending;
-};
-
-class TFltInfo
-{
-  public:
-    char airline[4];
-    long flt_no;
-    char suffix[2];
-    BASIC::TDateTime scd;
-    bool pr_utc;
-    char airp_dep[4],airp_arv[4];
-    TFltInfo()
-    {
-      Clear();
-    };
-    void Clear()
-    {
-      *airline=0;
-      flt_no=0;
-      *suffix=0;
-      scd=0;
-      pr_utc=false;
-      *airp_dep=0;
-      *airp_arv=0;
-    };
-    bool Empty()
-    {
-      return *airline==0;
-    };
 };
 
 class THeadingInfo
@@ -252,6 +230,20 @@ class TDocItem
       second_name.clear();
       pr_multi=false;
     };
+    bool Empty()
+    {
+      return  *type==0 &&
+              *issue_country==0 &&
+              *no==0 &&
+              *nationality==0 &&
+              *gender==0 &&
+              birth_date==ASTRA::NoExists &&
+              expiry_date==ASTRA::NoExists &&
+              surname.empty() &&
+              first_name.empty() &&
+              second_name.empty() &&
+              pr_multi==false;
+    };
 };
 
 class TTKNItem
@@ -383,6 +375,57 @@ class TTransferItem : public TSegmentItem
     };
 };
 
+class TTagItem
+{
+  public:
+    char alpha_no[4];
+    double numeric_no;
+    int num;
+    char airp_arv_final[4];
+    TTagItem()
+    {
+      *alpha_no=0;
+      numeric_no=0;
+      num=0;
+      *airp_arv_final=0;
+    };
+};
+
+class TBSMTagItem
+{
+  public:
+    double first_no;
+    int num;
+    TBSMTagItem()
+    {
+      first_no=0.0;
+      num=0;
+    };
+};
+
+class TBagItem
+{
+  public:
+    long bag_amount,bag_weight,rk_weight;
+    char weight_unit[2];
+    TBagItem()
+    {
+      Clear();
+    };
+    void Clear()
+    {
+      bag_amount=0;
+      bag_weight=0;
+      rk_weight=0;
+      *weight_unit=0;
+    };
+    bool Empty() const
+    {
+      return *weight_unit==0;
+      
+    };
+};
+
 class TNameElement
 {
   public:
@@ -392,6 +435,9 @@ class TNameElement
     std::vector<TPaxItem> pax;
     std::vector<TRemItem> rem;
     std::vector<TSeatRange> seatRanges;
+    TBagItem bag;
+    std::vector<TTagItem> tags;
+    int bag_pool;
     TNameElement()
     {
       Clear();
@@ -404,6 +450,9 @@ class TNameElement
       pax.clear();
       rem.clear();
       seatRanges.clear();
+      bag.Clear();
+      tags.clear();
+      bag_pool=ASTRA::NoExists;
     };
 };
 
@@ -458,7 +507,7 @@ class TTotalsByDest
     };
 };
 
-class TPnlAdlContent
+class TPNLADLPRLContent
 {
   public:
     TFltInfo flt;
@@ -476,20 +525,15 @@ class TPnlAdlContent
     };
 };
 
-class TPtmTransferData
+class TPtmTransferData : public TBagItem
 {
   public:
     long seats;
-    long bag_amount,bag_weight;
-    char weight_unit[2];
     std::string surname;
     std::vector<std::string> name;
     TPtmTransferData()
     {
       seats=0;
-      bag_amount=0;
-      bag_weight=0;
-      *weight_unit=0;
     };
 };
 
@@ -540,18 +584,6 @@ class TSOMContent
     };
 };
 
-class TBtmTagItem
-{
-  public:
-    double first_no;
-    int num;
-    TBtmTagItem()
-    {
-      first_no=0.0;
-      num=0;
-    };
-};
-
 class TBtmPaxItem
 {
   public:
@@ -559,20 +591,11 @@ class TBtmPaxItem
     std::vector<std::string> name;
 };
 
-class TBtmGrpItem
+class TBtmGrpItem : public TBagItem
 {
   public:
-    std::vector<TBtmTagItem> tags;
+    std::vector<TBSMTagItem> tags;
     std::vector<TBtmPaxItem> pax;
-    long bag_amount,bag_weight,rk_weight;
-    char weight_unit[2];
-    TBtmGrpItem()
-    {
-      bag_amount=0;
-      bag_weight=0;
-      rk_weight=0;
-      *weight_unit=0;
-    };
 };
 
 class TBtmOutFltInfo : public TTransferItem
@@ -617,23 +640,24 @@ TTlgCategory GetTlgCategory(char *tlg_type);
 TTlgParts GetParts(char* tlg_p, TMemoryManager &mem);
 TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo* &info, TMemoryManager &mem);
 void ParseEnding(TTlgPartInfo ending, THeadingInfo *headingInfo, TEndingInfo* &info, TMemoryManager &mem);
-void ParsePNLADLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPnlAdlContent& con);
+void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLContent& con);
 void ParsePTMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPtmContent& con);
 void ParseBTMContent(TTlgPartInfo body, TBSMHeadingInfo& info, TBtmContent& con, TMemoryManager &mem);
 void ParseSOMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TSOMContent& con);
-bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, bool forcibly);
+
+bool ParseDOCSRem(TTlgParser &tlg,std::string &rem_text,TDocItem &doc);
+
+bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& con, bool forcibly);
 void SavePTMContent(int tlg_id, TDCSHeadingInfo& info, TPtmContent& con);
 void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, TBtmContent& con);
 void SaveSOMContent(int tlg_id, TDCSHeadingInfo& info, TSOMContent& con);
 
-enum TBindType {btFirstSeg=0,btAllSeg=2,btLastSeg=1};
 void ParseAHMFltInfo(TTlgPartInfo body, const TAHMHeadingInfo &info, TFltInfo& flt, TBindType &bind_type);
 int SaveFlt(int tlg_id, TFltInfo& flt, TBindType bind_type);
-bool bind_tlg(TQuery &Qry);
-bool bind_tlg(int point_id);
-void crs_recount(int point_id_tlg, bool check_comp);
 
 void ParseSeatRange(std::string str, std::vector<TSeatRange> &ranges, bool usePriorContext);
+
+}
 
 #endif
 

@@ -6,6 +6,8 @@
 #include "astra_consts.h"
 #include "seats_utils.h"
 
+bool IsTlgCompLayer(ASTRA::TCompLayerType layer_type);
+
 //добавление слоя в tlg_comp_layers с синхронизацией trip_comp_layers и записью в журнал операций для clt...Pay, cltProtCkin
 void InsertTlgSeatRanges(int point_id_tlg,
                          std::string airp_arv,

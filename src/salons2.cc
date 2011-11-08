@@ -52,7 +52,7 @@ bool point_dep_AND_layer_type_FOR_TRZT_SOM_PRL( int point_id, int &point_dep, TC
     "WHERE tlg_binding.point_id_spp=points.point_id AND "
     "      tlg_source.point_id_tlg=tlg_binding.point_id_tlg AND "
     "      tlgs_in.id=tlg_source.tlg_id AND tlgs_in.num=1 AND tlgs_in.type IN ('PRL','SOM') "
-    "ORDER BY point_num DESC,DECODE(tlgs_in.type,'PRL',0,1)";
+    "ORDER BY point_num DESC,DECODE(tlgs_in.type,'PRL',1,0)";
   Qry.CreateVariable( "first_point", otInteger, first_point );
   Qry.CreateVariable( "point_num", otInteger, point_num );
   Qry.CreateVariable( "som_layer", otString, EncodeCompLayerType( cltSOMTrzt ) );

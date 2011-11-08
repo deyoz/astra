@@ -303,8 +303,7 @@ void PaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode,
         "   bort, "
         "   park_out park, "
         "   NVL(act_out,NVL(est_out,scd_out)) real_out, "
-        "   scd_out, "
-        "   ckin.get_airps(point_id,:vlang,1) long_route "
+        "   scd_out "
         "from ";
     if(part_key == NoExists)
         SQLText +=
@@ -321,7 +320,6 @@ void PaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode,
     }
     Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, point_id);
-    Qry.CreateVariable( "vlang", otString, TReqInfo::Instance()->desk.lang );
     Qry.Execute();
     if(Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
 
@@ -366,7 +364,12 @@ void PaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode,
     NewTextChild(variablesNode, "craft", craft);
     NewTextChild(variablesNode, "park", Qry.FieldAsString("park"));
     NewTextChild(variablesNode, "scd_time", DateTimeToStr(scd_out, "hh:nn"));
-    NewTextChild(variablesNode, "long_route", Qry.FieldAsString("long_route"));
+    NewTextChild(variablesNode, "long_route", GetRouteAfterStr(part_key,
+                                                               point_id,
+                                                               trtWithCurrent,
+                                                               trtNotCancelled,
+                                                               rpt_params.GetLang(),
+                                                               true));
     NewTextChild(variablesNode, "test_server", bad_client_img_version() ? 2 : get_test_server());
     if(bad_client_img_version())
         NewTextChild(variablesNode, "doc_cap_test", " ");
@@ -2478,24 +2481,27 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "SELECT "
         "      crs_pax.pax_id, "
         "      crs_pax.surname||' '||crs_pax.name family ";
-    if(rpt_params.rpt_type != rtBDOCS)
+    if(rpt_params.rpt_type != rtBDOCS) {
         SQLText +=
             "      , tlg_binding.point_id_spp AS point_id, "
             "      ckin.get_pnr_addr(crs_pnr.pnr_id) AS pnr_ref, "
             "      crs_pax.pers_type, "
             "      crs_pnr.class, "
             "      salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'_seats',rownum) AS seat_no, "
-            "      crs_pnr.target, "
-            "      crs_pnr.last_target, "
+            "      crs_pnr.airp_arv AS target, "
+            "      crs_pnr.airp_arv_final AS last_target, "
             "      report.get_TKNO(crs_pax.pax_id) ticket_no, "
-            "      report.get_PSPT(crs_pax.pax_id) AS document, "
+            "      report.get_PSPT(crs_pax.pax_id, 1, :lang) AS document, "
             "      report.get_crsRemarks(crs_pax.pax_id) AS remarks ";
+        Qry.CreateVariable("lang", otString, rpt_params.GetLang());
+    }
     SQLText +=
         "FROM crs_pnr,tlg_binding,crs_pax ";
     if(pr_unreg)
         SQLText += " , pax ";
     SQLText +=
         "WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND "
+        "      crs_pnr.system='CRS' AND "
         "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
         "      crs_pax.pr_del=0 and "
         "      tlg_binding.point_id_spp = :point_id ";
@@ -2544,13 +2550,13 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 
                 xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
                 NewTextChild(rowNode, "family", transliter(Qry.FieldAsString("family"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
-                NewTextChild(rowNode, "type", docsQry.FieldAsString("type"));
-                NewTextChild(rowNode, "issue_country", docsQry.FieldAsString("issue_country"));
+                NewTextChild(rowNode, "type", rpt_params.ElemIdToReportElem(etPaxDocType, docsQry.FieldAsString("type"), efmtCodeNative));
+                NewTextChild(rowNode, "issue_country", rpt_params.ElemIdToReportElem(etCountry, docsQry.FieldAsString("issue_country"), efmtCodeNative));
                 NewTextChild(rowNode, "no", docsQry.FieldAsString("no"));
-                NewTextChild(rowNode, "nationality", docsQry.FieldAsString("nationality"));
+                NewTextChild(rowNode, "nationality", rpt_params.ElemIdToReportElem(etCountry, docsQry.FieldAsString("nationality"), efmtCodeNative));
                 if (!docsQry.FieldIsNULL("birth_date"))
                     NewTextChild(rowNode, "birth_date", DateTimeToStr(docsQry.FieldAsDateTime("birth_date"), "dd.mm.yyyy"));
-                NewTextChild(rowNode, "gender", docsQry.FieldAsString("gender"));
+                NewTextChild(rowNode, "gender", rpt_params.ElemIdToReportElem(etGenderType, docsQry.FieldAsString("gender"), efmtCodeNative));
                 if (!docsQry.FieldIsNULL("expiry_date"))
                     NewTextChild(rowNode, "expiry_date", DateTimeToStr(docsQry.FieldAsDateTime("expiry_date"), "dd.mm.yyyy"));
                 NewTextChild(rowNode, "surname", docsQry.FieldAsString("surname"));
@@ -2569,7 +2575,13 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             NewTextChild(rowNode, "class", rpt_params.ElemIdToReportElem(etClass, Qry.FieldAsString("class"), efmtCodeNative));
             NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
             NewTextChild(rowNode, "target", rpt_params.ElemIdToReportElem(etAirp, Qry.FieldAsString("target"), efmtCodeNative));
-            NewTextChild(rowNode, "last_target", rpt_params.ElemIdToReportElem(etAirp, Qry.FieldAsString("last_target"), efmtCodeNative));
+            string last_target = Qry.FieldAsString("last_target");
+            TElemFmt fmt;
+            string last_target_id = ElemToElemId(etAirp, last_target, fmt);
+            if(not last_target_id.empty())
+                last_target = rpt_params.ElemIdToReportElem(etAirp, last_target_id, efmtCodeNative);
+
+            NewTextChild(rowNode, "last_target", last_target);
             NewTextChild(rowNode, "ticket_no", Qry.FieldAsString("ticket_no"));
             NewTextChild(rowNode, "document", Qry.FieldAsString("document"));
             NewTextChild(rowNode, "remarks", Qry.FieldAsString("remarks"));
@@ -2697,6 +2709,7 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         get_compatible_report_form(pr_web ? "web" : "exam", reqNode, resNode);
 
     TQuery Qry(&OraSession);
+    TQuery PaxDocQry(&OraSession);
     BrdInterface::GetPaxQuery(Qry, rpt_params.point_id, NoExists, rpt_params.GetLang(), rpt_params.rpt_type, rpt_params.client_type, rpt_params.sort);
     ProgTrace(TRACE5, "Qry: %s", Qry.SQLText.SQLText());
     Qry.Execute();
@@ -2714,7 +2727,7 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(paxNode, "pr_exam", Qry.FieldAsInteger("pr_exam"), 0);
         NewTextChild(paxNode, "pr_brd", Qry.FieldAsInteger("pr_brd"), 0);
         NewTextChild(paxNode, "seat_no", Qry.FieldAsString("seat_no"));
-        NewTextChild(paxNode, "document", Qry.FieldAsString("document"));
+        NewTextChild(paxNode, "document", GetPaxDocStr(NoExists, Qry.FieldAsInteger("pax_id"), PaxDocQry, false, rpt_params.GetLang()));
         NewTextChild(paxNode, "ticket_no", Qry.FieldAsString("ticket_no"));
         NewTextChild(paxNode, "coupon_no", Qry.FieldAsInteger("coupon_no"));
         NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));

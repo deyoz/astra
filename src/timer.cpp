@@ -139,10 +139,10 @@ void exec_tasks( const char *proc_name )
 	    	  			  			if ( name == "sync_1ccek" ) sync_1ccek();
 	    	  			  			else
 	    	  			  			  if ( name == "alter_arx" ) Result = alter_arx();
-	    	  			  			  else
-	    	  			  			    if ( name == "bind_tlg" ) bind_tlg();
-/*	    	  			  			  else
-                            if ( name == "cobra" ) cobra();*/
+                          else
+                            if ( name == "sync_checkin_data" ) sync_checkin_data( );
+/*	    	  			  			    else
+                              if ( name == "cobra" ) cobra();*/
 
       TDateTime next_exec;
       if ( Qry.FieldIsNULL( "next_exec" ) )
@@ -441,18 +441,22 @@ const char* APIS_PARTY_INFO()
   return VAR.c_str();
 };
 
-string TruncMRMRS(const char *str)
+string TruncNameTitles(const char *str)
 {
+  const char* titles[]={"MR", "MRS", "MS"};
   string value(str);
   RTrimString(value);
-  string::size_type pos=value.rfind("MR");
-  if (pos!=string::npos)
+  for(int i=sizeof(titles)/sizeof(titles[0])-1;i>=0;i--)
   {
-    if (value.substr(pos)=="MR" ||
-        value.substr(pos)=="MRS")
+    string::size_type pos=value.rfind(titles[i]);
+    if (pos!=string::npos)
     {
-      value.erase(pos);
-      RTrimString(value);
+      if (value.substr(pos)==titles[i])
+      {
+        value.erase(pos);
+        RTrimString(value);
+        break;
+      };
     };
   };
   return value;
@@ -478,9 +482,10 @@ void create_apis_file(int point_id)
     string country_dep = Qry.FieldAsString("country");
 
     TTripRoute route;
-    route.GetRouteAfter(point_id,
+    route.GetRouteAfter(NoExists,
+                        point_id,
                         Qry.FieldAsInteger("point_num"),
-                        Qry.FieldAsInteger("first_point"),
+                        Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point"),
                         Qry.FieldAsInteger("pr_tranzit")!=0,
                         trtNotCurrent, trtNotCancelled);
 
@@ -506,7 +511,6 @@ void create_apis_file(int point_id)
       "SELECT pax_doc.pax_id AS doc_pax_id, pax_doco.pax_id AS doco_pax_id, "
       "       system.transliter(pax.surname,1,1) AS surname, "
       "       system.transliter(pax.name,1,1) AS name, "
-      "       DECODE(system.is_name(pax.document),0,NULL,pax.document) AS document, "
       "       system.transliter(pax_doc.surname,1,1) AS doc_surname, "
       "       system.transliter(pax_doc.first_name,1,1) AS doc_first_name, "
       "       system.transliter(pax_doc.second_name,1,1) AS doc_second_name, "
@@ -661,36 +665,36 @@ void create_apis_file(int point_id)
               {
         	      paxInfo.setPassengerName(PaxQry.FieldAsString("name"));
         	      paxInfo.setPassengerSurname(PaxQry.FieldAsString("surname"));
-        	      paxInfo.setIdNumber(PaxQry.FieldAsString("document"));
+        	      paxInfo.setIdNumber("");
         	    };
               if (fmt=="CSV_CZ")
         	    {
       	        body << PaxQry.FieldAsString("surname") << ";"
       	  		       << PaxQry.FieldAsString("name") << ";"
-      	  		       << ";;;;;" << PaxQry.FieldAsString("document") << ";;;";
+      	  		       << ";;;;;;;;";
       	  		};
       	  		if (fmt=="CSV_DE")
         	    {
       	        body << PaxQry.FieldAsString("surname") << ";"
-      	  		       << TruncMRMRS(PaxQry.FieldAsString("name")) << ";"
+      	  		       << TruncNameTitles(PaxQry.FieldAsString("name")) << ";"
       	  		       << ";;;"
                      << airp_arv.code_lat << ";"
       	  		       << airp_dep.code_lat << ";"
-      	  		       << airp_final_lat << ";"
-      	  		       << (PaxQry.FieldIsNULL("document")?"":"P") << ";"
-                     << convert_char_view(PaxQry.FieldAsString("document"),true) << ";";
+      	  		       << airp_final_lat << ";;;";
       	  		};
       	  		if (fmt=="TXT_EE")
       	  		{
       	  		  body << "1# " << count+1 << ENDL
       	  		       << "2# " << PaxQry.FieldAsString("surname") << ENDL
-      	  		       << "3# " << PaxQry.FieldAsString("name") << ENDL
+      	  		       << "3# " << TruncNameTitles(PaxQry.FieldAsString("name")) << ENDL
       	  		       << "4# " << ENDL
       	  		       << "5# " << ENDL
       	  		       << "6# " << ENDL
       	  		       << "7# " << ENDL
       	  		       << "8# " << ENDL
-      	  		       << "9# " << ENDL;
+      	  		       << "9# " << ENDL
+                     << "10# " << ENDL
+                     << "11# " << ENDL;
               };
       	    }
       	    else
@@ -728,6 +732,10 @@ void create_apis_file(int point_id)
       	    	  {
       	    	    if (doc_type!="P" && doc_type!="I") doc_type="P";
                 };
+                if (fmt=="TXT_EE")
+      	    	  {
+      	    	    if (doc_type=="P") doc_type="2"; else doc_type="";
+      	    	  };
       	    	};
       	    	string nationality;
       	    	if (!PaxQry.FieldIsNULL("nationality"))
@@ -822,9 +830,9 @@ void create_apis_file(int point_id)
         	  	};
         	  	if (fmt=="CSV_DE")
         	    {
-        	      string doc_second_name=TruncMRMRS(PaxQry.FieldAsString("doc_second_name"));
+        	      string doc_second_name=TruncNameTitles(PaxQry.FieldAsString("doc_second_name"));
         	      body << PaxQry.FieldAsString("doc_surname") << ";"
-        	           << TruncMRMRS(PaxQry.FieldAsString("doc_first_name"))
+        	           << TruncNameTitles(PaxQry.FieldAsString("doc_first_name"))
         	           << (doc_second_name.empty()?"":" ") << doc_second_name << ";"
         	           << gender << ";"
         	           << birth_date << ";"
@@ -838,20 +846,20 @@ void create_apis_file(int point_id)
         	    };
         	    if (fmt=="TXT_EE")
         	    {
-        	      string doc_second_name=PaxQry.FieldAsString("doc_second_name");
+        	      string doc_second_name=TruncNameTitles(PaxQry.FieldAsString("doc_second_name"));
                 body << "1# " << count+1 << ENDL
       	  		       << "2# " << PaxQry.FieldAsString("doc_surname") << ENDL
-      	  		       << "3# " << PaxQry.FieldAsString("doc_first_name")
+      	  		       << "3# " << TruncNameTitles(PaxQry.FieldAsString("doc_first_name"))
       	  		                << (doc_second_name.empty()?"":" ") << doc_second_name << ENDL
       	  		       << "4# " << birth_date << ENDL
       	  		       << "5# " << nationality << ENDL
-      	  		       << "6# " << ENDL
+      	  		       << "6# " << doc_type << ENDL
       	  		       << "7# " << convert_char_view(PaxQry.FieldAsString("doc_no"),true) << ENDL
       	  		       << "8# " << issue_country << ENDL
       	  		       << "9# " << gender << ENDL;
         	    };
       	    };
-      	    if (!PaxQry.FieldIsNULL("doco_pax_id") && fmt=="CSV_DE")
+      	    if (!PaxQry.FieldIsNULL("doco_pax_id") && (fmt=="CSV_DE" || fmt=="TXT_EE"))
       	  	{
       	  	  //виза пассажира найдена
         	    string doco_type;
@@ -873,11 +881,29 @@ void create_apis_file(int point_id)
       	    	  };
       	    	};
       	    
-      	      body << ";"
-                   << doco_type << ";"
-                   << convert_char_view(PaxQry.FieldAsString("doco_no"),true) << ";"
-                   << applic_country;
+      	      if (fmt=="CSV_DE")
+        	    {
+        	      body << ";"
+                     << doco_type << ";"
+                     << convert_char_view(PaxQry.FieldAsString("doco_no"),true) << ";"
+                     << applic_country;
+              };
+              
+              if (fmt=="TXT_EE")
+              {
+                body << "10# " << ENDL
+                     << "11# " << (doco_type=="V"?convert_char_view(PaxQry.FieldAsString("doco_no"),true):"") << ENDL;
+              };
+            }
+            else
+            {
+              if (fmt=="TXT_EE")
+              {
+                body << "10# " << ENDL
+                     << "11# " << ENDL;
+              };
             };
+            
             if (fmt=="CSV_CZ" || fmt=="CSV_DE")
               body << ENDL;
       	    
@@ -928,7 +954,10 @@ void create_apis_file(int point_id)
                 << "7$ " << ENDL
                 << "8$ " << ENDL
                 << "9$ " << DateTimeToStr(act_in_local,"dd.mm.yy hh:nn") << ENDL
-                << "10$ " << (airp_arv.code=="TLL"?"Tallinna Lennujaama piiripunkt":"") << ENDL
+                << "10$ " << (airp_arv.code=="TLL"?"Tallinna Lennujaama piiripunkt":
+                              airp_arv.code=="TAY"?"Tartu piiripunkt":
+                              airp_arv.code=="URE"?"Kuressaare-2 piiripunkt":
+                              airp_arv.code=="KDL"?"Kardla Lennujaama piiripunkt":"") << ENDL
                 << "11$ " << ENDL
                 << "1$ " << airline.code_lat << setw(3) << setfill('0') << flt_no << suffix << ENDL
                 << "2$ " << ENDL
