@@ -1673,8 +1673,11 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
                 ProgError( STDLOG, "AODB exec_stage: Unknown error" );
             };
             tl += string("Проставление факт. времени вылета ") + DateTimeToStr( fl.act, "hh:nn dd.mm.yy" ) + string(" (UTC)");
-        } else
- 	  		tl += "Отмена факта вылета";
+        }
+        else {
+ 	  		  tl += "Отмена факта вылета";
+          time_in_delay = 0.0;
+        }
  	  	ChangeACT_OUT( point_id, old_fl.act, 	fl.act );
  	  }
  	  if ( fl.litera != old_fl.litera ) {
