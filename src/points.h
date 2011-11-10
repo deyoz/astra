@@ -204,4 +204,16 @@ void WriteDests( TPoints &points, bool ignoreException,
                  XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode );
 void parseFlt( const std::string &value, std::string &airline, int &flt_no, std::string &suffix );
 
+struct TFndFlt {
+  int point_id;
+  int move_id;
+  int pr_del;
+};
+
+typedef std::vector<TFndFlt> TFndFlts;
+
+bool findFlt( const std::string &airline, const int &flt_no, const std::string &suffix,
+              const BASIC::TDateTime &local_scd_out, const std::string &airp, const int &withDeleted,
+              TFndFlts &flts );
+void lockPoints( int move_id );
 #endif /*_POINTS_H_*/
