@@ -3491,12 +3491,12 @@ vector<string>  TTlgSeatList::get_seat_vector(bool pr_lat) const
     return result;
 }
 
-string  TTlgSeatList::get_seat_one(bool pr_lat)
+string  TTlgSeatList::get_seat_one(bool pr_lat) const
 {
     string result;
     if(!comp.empty()) {
-        t_tlg_comp::iterator ay = comp.begin();
-        t_tlg_row::iterator ax = ay->second.begin();
+        t_tlg_comp::const_iterator ay = comp.begin();
+        t_tlg_row::const_iterator ax = ay->second.begin();
         result = denorm_iata_row(ay->first,NULL) + denorm_iata_line(ax->first, pr_lat);
     }
     return result;
