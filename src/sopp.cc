@@ -2268,15 +2268,21 @@ void SoppInterface::DeleteAllPassangers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   map<int,TTripInfo> segs;
 	DeletePassengers( point_id, filter, segs, tckin_version );
   DeletePassengersAnswer( segs, resNode );
-  TSOPPTrips trips;
-  string errcity = internal_ReadData( trips, NoExists, NoExists, false, tSOPP, point_id );
-  xmlNodePtr dataNode = NewTextChild( resNode, "data" );
-  buildSOPP( trips, errcity, dataNode );
-  if ( !errcity.empty() )
-    AstraLocale::showErrorMessage( "MSG.CITY.REGION_NOT_DEFINED.NOT_ALL_FLIGHTS_ARE_SHOWN",
-    	                             LParams() << LParam("city", ElemIdToCodeNative(etCity,errcity)));
-  else
-    AstraLocale::showMessage( "MSG.UNREGISTRATION_ALL_PASSENGERS" );
+  if (filter.inbound_point_dep==NoExists)
+  {
+    //это разрегистрация всех пассажиров рейса
+    TSOPPTrips trips;
+    string errcity = internal_ReadData( trips, NoExists, NoExists, false, tSOPP, point_id );
+    xmlNodePtr dataNode = NewTextChild( resNode, "data" );
+    buildSOPP( trips, errcity, dataNode );
+    if ( !errcity.empty() )
+    {
+      AstraLocale::showErrorMessage( "MSG.CITY.REGION_NOT_DEFINED.NOT_ALL_FLIGHTS_ARE_SHOWN",
+      	                             LParams() << LParam("city", ElemIdToCodeNative(etCity,errcity)));
+      return;
+    };
+  };
+  AstraLocale::showMessage( "MSG.UNREGISTRATION_ALL_PASSENGERS" );
 }
 
 void SoppInterface::WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
