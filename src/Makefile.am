@@ -79,7 +79,9 @@ astra_SOURCES = \
   tripinfo.cc \
   web_main.cc \
   xml_unit.cc \
-  load_fr.cc
+  load_fr.cc \
+  points.cc
+  
 
 astra_LDADD = $(all_libraries) \
 	tlg/libtlg.a \
@@ -164,7 +166,8 @@ noinst_HEADERS = \
   tripinfo.h \
   web_main.h \
   xml_unit.h \
-  load_fr.h
+  load_fr.h \
+  points.h
 
 
 

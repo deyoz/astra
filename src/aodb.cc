@@ -32,6 +32,7 @@ alter table aodb_bag add pr_cabin NUMBER(1) NOT NULL;
 #include "tripinfo.h"
 #include "salons.h"
 #include "sopp.h"
+#include "points.h"
 #include "serverlib/helpcpp.h"
 #include "tlg/tlg.h"
 #include "tlg/tlg_binding.h"
@@ -1012,38 +1013,7 @@ try {
 	if ( StrToFloat( tmp.c_str(), fl.id ) == EOF || fl.id < 0 || fl.id > 9999999999.0 )
 		throw Exception( "Ошибка идентификатора рейса, значение=%s", tmp.c_str() );
 	tmp = linestr.substr( TRIP_IDX, TRIP_LEN );
-	tmp = TrimString( tmp );
-	if ( tmp.length() < 3 )
-		throw Exception( "Ошибка формата номера рейса, значение=%s", tmp.c_str() );
-	int i;
-	if ( IsDigit( tmp[ 2 ] ) ) {
-	  fl.airline = tmp.substr( 0, 2 );
-	  i=2;
-	}
-	else {
-	  fl.airline = tmp.substr( 0, 3 );
-	  i=3;
-	}
-	tmp1.clear();
-	for ( ;i<(int)tmp.length(); i++ ) {
-		if ( IsDigit( tmp[ i ] ) ) {
-			if ( !fl.suffix.empty() ) {
-				throw Exception( "Ошибка формата номера рейса, значение=%s", tmp.c_str() );
-			}
-			tmp1 += tmp[ i ];
-		}
-		else {
-			fl.suffix += tmp[ i ];
-		}
-	}
-	fl.airline = TrimString( fl.airline );
-	fl.suffix = TrimString( fl.suffix );
-	if ( fl.airline.empty() || tmp1.empty() || fl.suffix.length() > 1 )
-		throw Exception( "Ошибка формата номера рейса, значение=%s", tmp.c_str() );
-	if ( StrToInt( tmp1.c_str(), fl.flt_no ) == EOF )
-		throw Exception( "Ошибка формата номера рейса, значение=%s", tmp.c_str() );
-	if ( fl.flt_no > 99999 || fl.flt_no <= 0 )
-		throw Exception( "Ошибка формата номера рейса, значение=%s", tmp.c_str() );
+	parseFlt( tmp, fl.airline, fl.flt_no, fl.suffix );
 	err++;
 	TElemFmt fmt;
 	if ( !fl.suffix.empty() ) {
@@ -1170,13 +1140,16 @@ try {
 	  	throw Exception( "Ошибка формата МКЗ, значение=%s", tmp.c_str() );
 	tmp = linestr.substr( CRAFT_IDX, CRAFT_LEN );
 	fl.craft = TrimString( tmp );
+	ProgTrace( TRACE5, "fl.craft=%s", fl.craft.c_str() );
 	bool pr_craft_error = true;
 	err++;
 	if ( !fl.craft.empty() ) {
  	  try {
       fl.craft = ElemCtxtToElemId( ecDisp, etCraft, fl.craft, fmt, false );
+      pr_craft_error = false;
     }
     catch( EConvertError &e ) {
+      tst();
   	  Qry.Clear();
     	Qry.SQLText =
 	     "SELECT code, 1 FROM crafts WHERE ( name=:code OR name_lat=:code ) AND pr_del=0 "
@@ -1280,7 +1253,7 @@ try {
   	if ( StrToInt( tmp.c_str(), fl.pr_del ) == EOF )
 	  	throw Exception( "Ошибка формата признака удаления, значение=%s", tmp.c_str() );
 	int len = linestr.length();
-	i = PR_DEL_IDX + PR_DEL_LEN;
+	int i = PR_DEL_IDX + PR_DEL_LEN;
 	tmp = linestr.substr( i, 1 );
 	if ( tmp[ 0 ] != ';' )
 		throw Exception( "Ошибка формата маршрута. Ожидался символ ';', встретился символ	%c", linestr[ i ] );
@@ -1446,6 +1419,11 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
     }
  	TIDQry.SQLText = "SELECT tid__seq.nextval n FROM dual ";
 	POINT_IDQry.SQLText = "SELECT point_id.nextval point_id FROM dual";
+	TDateTime time_in_delay; //определяем время задержки
+  if ( fl.act != NoExists )
+    time_in_delay = fl.act - fl.scd;
+  else
+    time_in_delay = NoExists;
 	if ( pr_insert ) { // insert
     Qry.Clear();
     Qry.SQLText =
@@ -1695,8 +1673,11 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
                 ProgError( STDLOG, "AODB exec_stage: Unknown error" );
             };
             tl += string("Проставление факт. времени вылета ") + DateTimeToStr( fl.act, "hh:nn dd.mm.yy" ) + string(" (UTC)");
-        } else
- 	  		tl += "Отмена факта вылета";
+        }
+        else {
+ 	  		  tl += "Отмена факта вылета";
+          time_in_delay = 0.0;
+        }
  	  	ChangeACT_OUT( point_id, old_fl.act, 	fl.act );
  	  }
  	  if ( fl.litera != old_fl.litera ) {
@@ -1798,7 +1779,25 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
     	fltInfo.Init(QryTripInfo);
     	Set_overload_alarm( point_id, Calc_overload_alarm( point_id, fltInfo ) );
     }
-	}
+	} // end update
+	
+	//определяем время задержки на прилет
+  if ( time_in_delay != NoExists ) { //есть задержка на прилет в след. пункте
+    TTripRoute routes;
+    routes.GetRouteAfter( ASTRA::NoExists, point_id, trtNotCurrent, trtWithCancelled );
+    if ( routes.size() > 0 && !routes.begin()->pr_cancel ) {
+      ProgTrace( TRACE5, "routes.begin()->point_id=%d,time_in_delay=%f", routes.begin()->point_id, time_in_delay );
+      Qry.Clear();
+      Qry.SQLText =
+        "UPDATE points SET est_in=scd_in+:time_diff WHERE point_id=:point_id";
+      Qry.CreateVariable( "point_id", otInteger, routes.begin()->point_id );
+      if ( time_in_delay > 0 )
+        Qry.CreateVariable( "time_diff", otFloat, time_in_delay );
+      else
+        Qry.CreateVariable( "time_diff", otFloat, 0.0 );
+      Qry.Execute();
+    }
+  }
 
   Qry.Clear();
 	Qry.SQLText =
@@ -2156,13 +2155,15 @@ bool createAODBFiles( int point_id, const std::string &point_addr, TFileDatas &f
 	Qry.SQLText = "SELECT airp FROM points WHERE point_id=:point_id";
 	Qry.CreateVariable( "point_id", otInteger, point_id );
 	Qry.Execute();
-	if ( !Qry.Eof && string(Qry.FieldAsString( "airp" )) == "НУР" )
-    format = afNewUrengoy;
-  else
-    format = afDefault;
-	createAODBCheckInInfoFile( point_id, false, point_addr, format, fds );
-	createAODBCheckInInfoFile( point_id, true, point_addr, format, fds );
-	BuildAODBTimes( point_id, point_addr, format, fds );
+	format = afDefault;
+	if ( !Qry.Eof ) {
+    string airp = Qry.FieldAsString( "airp" );
+    if ( airp == "НУР" )
+      format = afNewUrengoy;
+  }
+  createAODBCheckInInfoFile( point_id, false, point_addr, format, fds );
+  createAODBCheckInInfoFile( point_id, true, point_addr, format, fds );
+  BuildAODBTimes( point_id, point_addr, format, fds );
 	return !fds.empty();
 }
 /*
