@@ -700,6 +700,33 @@ void create_apis_file(int point_id)
       	    else
       	    {
       	      int pax_id=PaxQry.FieldAsInteger("doc_pax_id");
+      	      
+      	      string doc_surname, doc_first_name, doc_second_name;
+              if (!PaxQry.FieldIsNULL("doc_surname"))
+              {
+                doc_surname=PaxQry.FieldAsString("doc_surname");
+        	  		doc_first_name=PaxQry.FieldAsString("doc_first_name");
+        	  		doc_second_name=PaxQry.FieldAsString("doc_second_name");
+              }
+              else
+              {
+                //в терминалах до версии 201107-0126021 невозможен контроль и ввод фамилии из документа
+                doc_surname=PaxQry.FieldAsString("surname");
+                doc_first_name=PaxQry.FieldAsString("name");
+              };
+              if (fmt=="CSV_DE" || fmt=="TXT_EE")
+              {
+                doc_first_name=TruncNameTitles(doc_first_name.c_str());
+                doc_second_name=TruncNameTitles(doc_second_name.c_str());
+              };
+              if (fmt=="EDI_CZ" || fmt=="CSV_DE" || fmt=="TXT_EE")
+              {
+                if (!doc_second_name.empty())
+                {
+                  doc_first_name+=" "+doc_second_name;
+                  doc_second_name.clear();
+                };
+              };
 
       	      string gender;
       	      if (!PaxQry.FieldIsNULL("gender"))
@@ -707,6 +734,13 @@ void create_apis_file(int point_id)
       	    	  TGenderTypesRow &gender_row = (TGenderTypesRow&)base_tables.get("gender_types").get_row("code",PaxQry.FieldAsString("gender"));
       	    	  if (gender_row.code_lat.empty()) throw Exception("gender.code_lat empty (code=%s)",PaxQry.FieldAsString("gender"));
       	    	  gender=gender_row.code_lat;
+      	    	  if (fmt=="EDI_CZ")
+                {
+                  gender = gender.substr(0,1);
+                  if (gender!="M" &&
+                      gender!="F")
+        	          gender = "M";
+                };
       	    	  if (fmt=="CSV_DE")
       	    	  {
       	    	    gender = gender.substr(0,1);
@@ -728,13 +762,17 @@ void create_apis_file(int point_id)
       	    	  TPaxDocTypesRow &doc_type_row = (TPaxDocTypesRow&)base_tables.get("pax_doc_types").get_row("code",PaxQry.FieldAsString("doc_type"));
       	    	  if (doc_type_row.code_lat.empty()) throw Exception("doc_type.code_lat empty (code=%s)",PaxQry.FieldAsString("doc_type"));
       	    	  doc_type=doc_type_row.code_lat;
+      	    	  if (fmt=="EDI_CZ")
+                {
+                  if (doc_type!="P") doc_type.clear();
+                };
       	    	  if (fmt=="CSV_DE")
       	    	  {
       	    	    if (doc_type!="P" && doc_type!="I") doc_type="P";
                 };
                 if (fmt=="TXT_EE")
       	    	  {
-      	    	    if (doc_type=="P") doc_type="2"; else doc_type="";
+      	    	    if (doc_type!="P") doc_type.clear(); else doc_type="2";
       	    	  };
       	    	};
       	    	string nationality;
@@ -779,21 +817,9 @@ void create_apis_file(int point_id)
 
               if (fmt=="EDI_CZ")
               {
-        	    	paxInfo.setPassengerName(PaxQry.FieldAsString("doc_first_name"));
-        	    	if (!PaxQry.FieldIsNULL("doc_second_name"))
-        	    	{
-                  string passengerName = paxInfo.getPassengerName();
-                  if (!passengerName.empty()) passengerName += " ";
-                  passengerName += PaxQry.FieldAsString("doc_second_name");
-                  paxInfo.setPassengerName( passengerName );
-        	    	};
-        	    	paxInfo.setPassengerSurname( PaxQry.FieldAsString("doc_surname") );
-
-        	      string passengerSex = gender.substr(0,1);
-                if (passengerSex!="M" &&
-                    passengerSex!="F")
-        	        passengerSex = "M";
-                paxInfo.setPassengerSex( passengerSex );
+                paxInfo.setPassengerName(doc_first_name);
+        	      paxInfo.setPassengerSurname(doc_surname);
+                paxInfo.setPassengerSex(gender);
 
         	      if (!PaxQry.FieldIsNULL("birth_date"))
         	        paxInfo.setBirthDate( PaxQry.FieldAsDateTime("birth_date"));
@@ -807,8 +833,7 @@ void create_apis_file(int point_id)
                 if (!pnrs.empty())
                   paxInfo.setPassengerNumber(convert_pnr_addr(pnrs.begin()->addr, 1));
 
-                if (doc_type=="P")
-                  paxInfo.setPassengerType(doc_type);
+                paxInfo.setPassengerType(doc_type);
                 paxInfo.setIdNumber(PaxQry.FieldAsString("doc_no"));
                 if (!PaxQry.FieldIsNULL("expiry_date"))
                   paxInfo.setExpirateDate(PaxQry.FieldAsDateTime("expiry_date"));
@@ -817,9 +842,9 @@ void create_apis_file(int point_id)
 
               if (fmt=="CSV_CZ")
         	    {
-        	    	body << PaxQry.FieldAsString("doc_surname") << ";"
-        	  		     << PaxQry.FieldAsString("doc_first_name") << ";"
-        	  		     << PaxQry.FieldAsString("doc_second_name") << ";"
+        	    	body << doc_surname << ";"
+        	  		     << doc_first_name << ";"
+        	  		     << doc_second_name << ";"
         	  		     << birth_date << ";"
         	  		     << gender << ";"
         	  		     << nationality << ";"
@@ -830,10 +855,8 @@ void create_apis_file(int point_id)
         	  	};
         	  	if (fmt=="CSV_DE")
         	    {
-        	      string doc_second_name=TruncNameTitles(PaxQry.FieldAsString("doc_second_name"));
-        	      body << PaxQry.FieldAsString("doc_surname") << ";"
-        	           << TruncNameTitles(PaxQry.FieldAsString("doc_first_name"))
-        	           << (doc_second_name.empty()?"":" ") << doc_second_name << ";"
+        	      body << doc_surname << ";"
+        	           << doc_first_name << ";"
         	           << gender << ";"
         	           << birth_date << ";"
         	           << nationality << ";"
@@ -846,11 +869,9 @@ void create_apis_file(int point_id)
         	    };
         	    if (fmt=="TXT_EE")
         	    {
-        	      string doc_second_name=TruncNameTitles(PaxQry.FieldAsString("doc_second_name"));
                 body << "1# " << count+1 << ENDL
-      	  		       << "2# " << PaxQry.FieldAsString("doc_surname") << ENDL
-      	  		       << "3# " << TruncNameTitles(PaxQry.FieldAsString("doc_first_name"))
-      	  		                << (doc_second_name.empty()?"":" ") << doc_second_name << ENDL
+      	  		       << "2# " << doc_surname << ENDL
+      	  		       << "3# " << doc_first_name << ENDL
       	  		       << "4# " << birth_date << ENDL
       	  		       << "5# " << nationality << ENDL
       	  		       << "6# " << doc_type << ENDL
