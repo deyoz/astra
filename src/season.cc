@@ -1059,7 +1059,7 @@ void CreateSPP( BASIC::TDateTime localdate )
 
         pr_tranzit=( d != im->second.dests.begin() ) &&
                    ( p->airline + IntToString( p->trip ) + p->suffix ==
-                     d->airline + IntToString( d->trip ) + d->suffix );
+                     d->airline + IntToString( d->trip ) + d->suffix );  //!!!запись в одном месте
 
 
         PQry.SetVariable( "pr_tranzit", pr_tranzit );
@@ -3453,7 +3453,7 @@ void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dat
     string pregion = GetRegionFromTZ( ptz, mapreg );
     if ( pregion.empty() )
     	throw AstraLocale::UserException( "MSG.REGION_NOT_SPECIFIED_FOR_COUNTRY_WITH_ZONE",
-    		                                LParams() << LParam("country", ElemIdToCodeNative(etCountry,"РФ")) << LParam("zone", errtz));
+    		                                LParams() << LParam("country", ElemIdToCodeNative(etCountry,"РФ")) << LParam("zone", ptz));
 /*    TDateTime hours = GetTZTimeDiff( NowUTC(), first, last, ptz, v );
     first += hours; //???
     last += hours;*/

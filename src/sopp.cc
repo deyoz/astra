@@ -3196,7 +3196,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	  	}
   	  	reSetCraft = true;
   	  }
-  	  if ( id->bort != old_dest.bort ) {
+  	  if ( id->pr_del != -1 && id->bort != old_dest.bort ) {
   	  	if ( !old_dest.bort.empty() ) {
   	  		if ( !id->remark.empty() )
   	  			id->remark += " ";
