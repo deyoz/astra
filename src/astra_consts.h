@@ -36,6 +36,8 @@ extern const int TQueueS[6];
 typedef enum { psCheckin, psTCheckin, psTransit, psGoshow } TPaxStatus;
 extern const char* TPaxStatusS[4];
 
+const std::string refuseAgentError="€";
+
 const int NoExists = INT_MIN;
 const std::string NoDays = ".......";
 const std::string AllDays = "1234567";

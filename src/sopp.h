@@ -244,8 +244,16 @@ void createSOPPTrip( int point_id, TSOPPTrips &trips );
 bool filter_time( BASIC::TDateTime time, TSOPPTrip &tr, BASIC::TDateTime first_date, BASIC::TDateTime next_date, std::string &errcity );
 bool FilterFlightDate( TSOPPTrip &tr, BASIC::TDateTime first_date, BASIC::TDateTime next_date, /*bool LocalAll,*/
                        std::string &errcity, bool pr_isg );
+                       
+class TDeletePaxFilter
+{
+  public:
+    std::string status;
+    int inbound_point_dep;
+  TDeletePaxFilter():inbound_point_dep(ASTRA::NoExists) {};
+};
 
-void DeletePassengers( int point_id, const std::string status, std::map<int,TTripInfo> &segs, bool tckin_version );
+void DeletePassengers( int point_id, const TDeletePaxFilter &filter, std::map<int,TTripInfo> &segs, bool tckin_version );
 void DeletePassengersAnswer( std::map<int,TTripInfo> &segs, xmlNodePtr resNode );
 
 class SoppInterface : public JxtInterface
@@ -257,10 +265,10 @@ public:
      Handler *evHandle;
      evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::ReadTrips);
      AddEvent("ReadTrips",evHandle);
-     evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::GetPaxTransfer);
+     evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::GetTransfer);
      AddEvent("GetPaxTransfer",evHandle);
-     evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::GetBagTransfer);
      AddEvent("GetBagTransfer",evHandle);
+     AddEvent("GetInboundTCkin",evHandle);
      evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::DeleteAllPassangers);
      AddEvent("DeleteAllPassangers",evHandle);
      AddEvent("TCkinDeleteAllPassangers",evHandle);
@@ -292,9 +300,8 @@ public:
      AddEvent("GetTime",evHandle);
   };
   void ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  void GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode, bool pr_bag);
-  void GetPaxTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  void GetBagTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void GetTransfer(bool pr_inbound_tckin, bool pr_out, bool pr_tlg, bool pr_bag, int point_id, xmlNodePtr resNode);
   void DeleteAllPassangers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void WriteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);

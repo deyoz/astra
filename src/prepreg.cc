@@ -486,13 +486,12 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
   		    		NewTextChild( dataNode, "question", getLocaleText("QST.TRANZIT_RECHECKIN_CAUTION.CANCEL") );
   		    		return;
   		      }
-  		      tst();
   		      map<int,TTripInfo> segs; // набор рейсов
   		      bool tckin_version=true;
-  		      DeletePassengers( point_id, EncodePaxStatus( psTransit ), segs, tckin_version );
+            TDeletePaxFilter filter;
+            filter.status=EncodePaxStatus( psTransit );
+  		      DeletePassengers( point_id, filter, segs, tckin_version );
   		      DeletePassengersAnswer( segs, resNode );
-  		      //!!! изменение статусов ЭБ !!!
-  		      tst();
   		    }
         }
         //есть ли транзитные пассажиры pax_grp.status='T'
