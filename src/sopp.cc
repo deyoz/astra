@@ -1584,7 +1584,8 @@ class TTransferGrpItem
 {
   public:
     int grp_id;
-    int point_dep; //только для GetInboundTCkin
+    int inbound_point_dep; //только для GetInboundTCkin
+    string inbound_trip;   //только для GetInboundTCkin
     string airline_view;
     int flt_no;
     string suffix_view;
@@ -1610,8 +1611,8 @@ class TTransferGrpItem
         return suffix_view<grp.suffix_view;
       if (airp_dep_view!=grp.airp_dep_view)
         return airp_dep_view<grp.airp_dep_view;
-      if (point_dep!=grp.point_dep)
-        return point_dep<grp.point_dep;
+      if (inbound_point_dep!=grp.inbound_point_dep)
+        return inbound_point_dep<grp.inbound_point_dep;
       if (airp_arv_view!=grp.airp_arv_view)
         return airp_arv_view<grp.airp_arv_view;
       if (subcl_priority!=grp.subcl_priority)
@@ -1625,8 +1626,12 @@ class TTransferGrpItem
 
 };
 
-void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode,
-                                bool pr_bag)
+void SoppInterface::GetTransfer(bool pr_inbound_tckin,
+                                bool pr_out,
+                                bool pr_tlg,
+                                bool pr_bag,
+                                int point_id,
+                                xmlNodePtr resNode)
 {
   TQuery Qry(&OraSession);
   TQuery PointsQry(&OraSession);
@@ -1634,13 +1639,6 @@ void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   TQuery RemQry(&OraSession);
   TQuery TagQry(&OraSession);
   
-  bool pr_inbound_tckin=(strcmp((char *)reqNode->name, "GetInboundTCkin") == 0);
-
-  bool pr_out=NodeAsInteger("pr_out",reqNode)!=0;
-  bool pr_tlg=true;
-  if (GetNode("pr_tlg",reqNode)!=NULL)
-    pr_tlg=NodeAsInteger("pr_tlg",reqNode)!=0;
-  int point_id=NodeAsInteger("point_id",reqNode);
   PointsQry.Clear();
   PointsQry.SQLText =
     "SELECT point_id,airp,airline,flt_no,suffix,craft,bort,scd_out, "
@@ -1648,7 +1646,7 @@ void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     "FROM points "
     "WHERE point_id=:point_id AND pr_del>=0";
   PointsQry.DeclareVariable( "point_id", otInteger );
-    
+
   if (!pr_out)
   {
     //point_id содержит пункт прилета а нам нужен предыдущий пункт вылета
@@ -1740,7 +1738,7 @@ void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     PaxQry.SQLText=
       "SELECT pax_id,surname,name,seats FROM pax WHERE grp_id=:grp_id AND pr_brd IS NOT NULL";
     PaxQry.DeclareVariable("grp_id",otInteger);
-    
+
     RemQry.SQLText=
       "SELECT rem_code FROM pax_rem "
       "WHERE pax_id=:pax_id AND rem_code IN ('STCR', 'EXST') "
@@ -1765,17 +1763,18 @@ void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
                                Qry.FieldAsInteger("seg_no"),
                                crtIgnoreDependent, inboundSeg);
       if (inboundSeg.grp_id==NoExists) continue;
-      
+
       TTripRouteItem priorAirp;
       TTripRoute().GetPriorAirp(NoExists,inboundSeg.point_arv,trtNotCancelled,priorAirp);
       if (priorAirp.point_id==NoExists) continue;
-      
+
       PointsQry.SetVariable( "point_id", priorAirp.point_id );
       PointsQry.Execute();
       if (PointsQry.Eof) continue;
       TTripInfo inFlt(PointsQry);
-      
-      grp.point_dep=priorAirp.point_id;
+
+      grp.inbound_point_dep=priorAirp.point_id;
+      grp.inbound_trip=GetTripName(inFlt,ecNone);
       grp.airline_view=ElemIdToCodeNative(etAirline,inFlt.airline);
       grp.flt_no=inFlt.flt_no;
       grp.suffix_view=ElemIdToCodeNative(etSuffix,inFlt.suffix);
@@ -1785,7 +1784,8 @@ void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     }
     else
     {
-      grp.point_dep=NoExists;
+      grp.inbound_point_dep=NoExists;
+      grp.inbound_trip="";
       grp.airline_view=ElemIdToCodeNative(etAirline,Qry.FieldAsString("airline"));
       grp.flt_no=Qry.FieldAsInteger("flt_no");
       grp.suffix_view=ElemIdToCodeNative(etSuffix,Qry.FieldAsString("suffix"));
@@ -1807,7 +1807,7 @@ void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
       grp.seats=0;
 
     };
-    
+
     if (!pr_tlg && Qry.FieldIsNULL("subcl"))
     {
       //несопровождаемый багаж
@@ -1858,7 +1858,7 @@ void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         };
       };
     };
-    
+
     if (pr_bag)
     {
       TagQry.SetVariable("grp_id",grp.grp_id);
@@ -1868,15 +1868,15 @@ void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     };
     grps.push_back(grp);
   };
-  
+
   sort(grps.begin(),grps.end());
-  
+
   //формируем XML
-  
+
   NewTextChild(resNode,"trip",GetTripName(info,ecNone));
-  
+
   xmlNodePtr trferNode=NewTextChild(resNode,"transfer");
-  
+
   xmlNodePtr grpsNode;
   vector<sopp::TTransferGrpItem>::const_iterator iGrpPrior=grps.end();
   for(vector<sopp::TTransferGrpItem>::const_iterator iGrp=grps.begin();iGrp!=grps.end();++iGrp)
@@ -1887,28 +1887,28 @@ void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         iGrpPrior->suffix_view!=iGrp->suffix_view ||
         iGrpPrior->scd_local!=iGrp->scd_local ||
         iGrpPrior->airp_dep_view!=iGrp->airp_dep_view ||
-        iGrpPrior->point_dep!=iGrp->point_dep ||
+        iGrpPrior->inbound_point_dep!=iGrp->inbound_point_dep ||
         iGrpPrior->airp_arv_view!=iGrp->airp_arv_view ||
         iGrpPrior->subcl_view!=iGrp->subcl_view)
     {
       xmlNodePtr node=NewTextChild(trferNode,"trfer_flt");
-      
+
       ostringstream trip;
       trip << iGrp->airline_view
            << setw(3) << setfill('0') << iGrp->flt_no
            << iGrp->suffix_view << "/"
            << DateTimeToStr(iGrp->scd_local,"dd");
-           
+
       NewTextChild(node,"trip",trip.str());
       if (pr_tlg) NewTextChild(node,"airp",iGrp->tlg_airp_view);
       NewTextChild(node,"airp_dep",iGrp->airp_dep_view);
       NewTextChild(node,"airp_arv",iGrp->airp_arv_view);
       NewTextChild(node,"subcl",iGrp->subcl_view);
-      if (iGrp->point_dep!=NoExists)
-        NewTextChild(node,"point_dep",iGrp->point_dep); //только для GetInboundTCkin
+      NewTextChild(node,"point_dep",iGrp->inbound_point_dep,NoExists); //только для GetInboundTCkin
+      NewTextChild(node,"trip2",iGrp->inbound_trip,"");                //только для GetInboundTCkin
       grpsNode=NewTextChild(node,"grps");
     };
-    
+
     xmlNodePtr grpNode=NewTextChild(grpsNode,"grp");
     if (iGrp->bag_amount!=NoExists)
       NewTextChild(grpNode,"bag_amount",iGrp->bag_amount);
@@ -1935,7 +1935,7 @@ void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         NewTextChild(paxNode,"name",iPax->name,"");
       };
     };
-    
+
     vector<string> tagRanges;
     GetTagRanges(iGrp->tags, tagRanges);
     if (!tagRanges.empty())
@@ -1944,27 +1944,28 @@ void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
       for(vector<string>::const_iterator r=tagRanges.begin(); r!=tagRanges.end(); ++r)
         NewTextChild(node,"range",*r);
     };
-    
+
     iGrpPrior=iGrp;
   };
+};
+
+void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  bool pr_inbound_tckin=(strcmp((char *)reqNode->name, "GetInboundTCkin") == 0);
+
+  bool pr_out=NodeAsInteger("pr_out",reqNode)!=0;
+  bool pr_tlg=true;
+  if (GetNode("pr_tlg",reqNode)!=NULL)
+    pr_tlg=NodeAsInteger("pr_tlg",reqNode)!=0;
+    
+  bool pr_bag=(strcmp((char *)reqNode->name, "GetInboundTCkin") == 0) ||
+              (strcmp((char *)reqNode->name, "GetBagTransfer") == 0);
+  int point_id=NodeAsInteger("point_id",reqNode);
+
+  GetTransfer(pr_inbound_tckin, pr_out, pr_tlg, pr_bag, point_id, resNode);
   
   get_new_report_form("SOPPTrfer", reqNode, resNode);
   STAT::set_variables(resNode);
-};
-
-void SoppInterface::GetPaxTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-  GetTransfer(ctxt,reqNode,resNode,false);
-};
-
-void SoppInterface::GetBagTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-  GetTransfer(ctxt,reqNode,resNode,true);
-};
-
-void SoppInterface::GetInboundTCkin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-  GetTransfer(ctxt,reqNode,resNode,true);
 };
 
 struct TSegBSMInfo
@@ -2162,7 +2163,8 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
         TCkinQry.Execute();
         for(;!TCkinQry.Eof;TCkinQry.Next())
         {
-          if (TCkinQry.FieldAsInteger("pr_depend")==0) break;
+          //if (TCkinQry.FieldAsInteger("pr_depend")==0) break;
+          //не учитываем связанность последующих сквозных сегментов - тупо разрегистрируем всех
 
           int tckin_point_id=TCkinQry.FieldAsInteger("point_id");
           int tckin_grp_id=TCkinQry.FieldAsInteger("grp_id");
@@ -2281,6 +2283,12 @@ void SoppInterface::DeleteAllPassangers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
       	                             LParams() << LParam("city", ElemIdToCodeNative(etCity,errcity)));
       return;
     };
+  }
+  else
+  {
+    //это разрегистрация пассажиров, прибывающих стыковочным рейсом
+    //отправляем обновленные данные
+    GetTransfer(true, true, false, true, point_id, resNode);
   };
   AstraLocale::showMessage( "MSG.UNREGISTRATION_ALL_PASSENGERS" );
 }

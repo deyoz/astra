@@ -823,33 +823,44 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 
           if (!Qry.FieldIsNULL(col_tckin_id))
           {
-            TCkinRouteItem priorSeg;
+            TCkinRouteItem inboundSeg;
             tckin_route.GetPriorSeg(Qry.FieldAsInteger(col_tckin_id),
                                     Qry.FieldAsInteger(col_seg_no),
                                     crtIgnoreDependent,
-                                    priorSeg);
-            if (priorSeg.grp_id!=NoExists)
+                                    inboundSeg);
+            if (inboundSeg.grp_id!=NoExists)
             {
-              TDateTime scd_out_local = UTCToLocal(priorSeg.operFlt.scd_out,AirpTZRegion(priorSeg.operFlt.airp));
-
-              ostringstream trip;
-              trip << ElemIdToCodeNative(etAirline, priorSeg.operFlt.airline)
-                   << setw(3) << setfill('0') << priorSeg.operFlt.flt_no
-                   << ElemIdToCodeNative(etSuffix, priorSeg.operFlt.suffix)
-                   << '/' << DateTimeToStr(scd_out_local,"dd");
-
-              NewTextChild(paxNode, "inbound_flt", trip.str());
-
-              TCkinQry.Clear();
-              TCkinQry.SQLText=
-                "SELECT scd_in, NVL(act_in,NVL(est_in,scd_in)) AS real_in "
-                "FROM points WHERE point_id=:point_id";
-              TCkinQry.CreateVariable("point_id",otInteger,priorSeg.point_arv);
-              TCkinQry.Execute();
-              if (!TCkinQry.Eof && !TCkinQry.FieldIsNULL("scd_in") && !TCkinQry.FieldIsNULL("real_in"))
+              TTripRouteItem priorAirp;
+              TTripRoute().GetPriorAirp(NoExists,inboundSeg.point_arv,trtNotCancelled,priorAirp);
+              if (priorAirp.point_id!=NoExists)
               {
-                if (TCkinQry.FieldAsDateTime("real_in")-TCkinQry.FieldAsDateTime("scd_in") >= 20.0/1440)  //задержка более 20 мин
-                  NewTextChild(paxNode, "inbound_delay_alarm", (int)true);
+                FltQry.SetVariable( "point_id", priorAirp.point_id );
+                FltQry.Execute();
+                if (!FltQry.Eof)
+                {
+                  TTripInfo inFlt(FltQry);
+                  TDateTime scd_out_local = UTCToLocal(inFlt.scd_out,AirpTZRegion(inFlt.airp));
+
+                  ostringstream trip;
+                  trip << ElemIdToCodeNative(etAirline, inFlt.airline)
+                       << setw(3) << setfill('0') << inFlt.flt_no
+                       << ElemIdToCodeNative(etSuffix, inFlt.suffix)
+                       << '/' << DateTimeToStr(scd_out_local,"dd");
+
+                  NewTextChild(paxNode, "inbound_flt", trip.str());
+
+                  TCkinQry.Clear();
+                  TCkinQry.SQLText=
+                    "SELECT scd_in, NVL(act_in,NVL(est_in,scd_in)) AS real_in "
+                    "FROM points WHERE point_id=:point_id";
+                  TCkinQry.CreateVariable("point_id",otInteger,inboundSeg.point_arv);
+                  TCkinQry.Execute();
+                  if (!TCkinQry.Eof && !TCkinQry.FieldIsNULL("scd_in") && !TCkinQry.FieldIsNULL("real_in"))
+                  {
+                    if (TCkinQry.FieldAsDateTime("real_in")-TCkinQry.FieldAsDateTime("scd_in") >= 20.0/1440)  //задержка более 20 мин
+                      NewTextChild(paxNode, "inbound_delay_alarm", (int)true);
+                  };
+                };
               };
             };
           };
