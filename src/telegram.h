@@ -172,7 +172,7 @@ struct TTlgSeatList {
         void add_seats(int pax_id, std::vector<TTlgCompLayer> &complayers);
         std::string get_seat_list(bool pr_lat); // used in PRL
         std::vector<std::string>  get_seat_vector(bool pr_lat) const;
-        std::string get_seat_one(bool pr_lat);
+        std::string get_seat_one(bool pr_lat) const;
         void Clear() { comp.clear(); };
 };
 
@@ -344,10 +344,10 @@ public:
 
   //BSM
   static void LoadBSMContent(int grp_id, TBSMContent& con);
-  static void CompareBSMContent(TBSMContent& con1, TBSMContent& con2, std::vector<TBSMContent>& bsms);
-  static std::string CreateBSMBody(TBSMContent& con, bool pr_lat);
+  static void CompareBSMContent(const TBSMContent& con1, const TBSMContent& con2, std::vector<TBSMContent>& bsms);
+  static std::string CreateBSMBody(const TBSMContent& con, bool pr_lat);
   static bool IsBSMSend( TTypeBSendInfo info, std::map<bool,std::string> &addrs );
-  static void SendBSM(int point_dep, int grp_id, TBSMContent &con1, std::map<bool,std::string> &addrs );
+  static void SendBSM(int point_dep, int grp_id, const TBSMContent &con1, const std::map<bool,std::string> &addrs );
 };
 
 std::string fetch_addr(std::string &addr, TTlgInfo *info = NULL);

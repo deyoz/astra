@@ -1374,7 +1374,7 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
 
 };
 
-void TelegramInterface::CompareBSMContent(TBSMContent& con1, TBSMContent& con2, vector<TBSMContent>& bsms)
+void TelegramInterface::CompareBSMContent(const TBSMContent& con1, const TBSMContent& con2, vector<TBSMContent>& bsms)
 {
   bsms.clear();
 
@@ -1411,7 +1411,7 @@ void TelegramInterface::CompareBSMContent(TBSMContent& con1, TBSMContent& con2, 
     if (!pr_chd)
     {
       //придется проверить изменения в стыковочных рейсах
-      vector<TypeB::TTransferItem>::iterator i1,i2;
+      vector<TypeB::TTransferItem>::const_iterator i1,i2;
       i1=con1.OnwardFlt.begin();
       i2=con2.OnwardFlt.begin();
       for(;i1!=con1.OnwardFlt.end()&&i2!=con2.OnwardFlt.end();i1++,i2++)
@@ -1428,7 +1428,7 @@ void TelegramInterface::CompareBSMContent(TBSMContent& con1, TBSMContent& con2, 
     };
     ProgTrace(TRACE5,"OutFlt1 != OutFlt2 pr_chd=%d",(int)pr_chd);
 
-    vector<TBSMTagItem>::iterator i1,i2;
+    vector<TBSMTagItem>::const_iterator i1,i2;
     i1=con1.tags.begin();
     i2=con2.tags.begin();
     int res;
@@ -1620,36 +1620,7 @@ void TelegramInterface::LoadBSMContent(int grp_id, TBSMContent& con)
   };
 };
 
-/*
-class TTlgFltInfo
-{
-  public:
-    std::string airline,suffix,airp,tz_region;
-    int flt_no;
-    BASIC::TDateTime scd_out;
-};
-
-TTlgFltInfo& GetFltInfo(int point_id, TTlgFltInfo &info)
-{
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT airline,flt_no,suffix,airp, "
-    "       scd_out "
-    "FROM points WHERE point_id=:point_id AND pr_del>=0";
-  Qry.CreateVariable("point_id",otInteger,point_id);
-  Qry.Execute();
-  if (Qry.Eof) ; //???
-  info.airline=Qry.FieldAsString("airline");
-  info.flt_no=Qry.FieldAsInteger("flt_no");
-  info.suffix=Qry.FieldAsString("suffix");
-  info.airp=Qry.FieldAsString("airp");
-  info.tz_region=AirpTZRegion(Qry.FieldAsString("airp"));
-  info.scd_out=Qry.FieldAsDateTime("scd_out");
-  return info;
-};*/
-
-string TelegramInterface::CreateBSMBody(TBSMContent& con, bool pr_lat)
+string TelegramInterface::CreateBSMBody(const TBSMContent& con, bool pr_lat)
 {
   TBaseTable &airlines=base_tables.get("airlines");
   TBaseTable &airps=base_tables.get("airps");
@@ -1688,7 +1659,7 @@ string TelegramInterface::CreateBSMBody(TBSMContent& con, bool pr_lat)
           << subcls.get_row("code",con.OutFlt.subcl).AsString("code",pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU);
   body << ENDL;
 
-  for(vector<TypeB::TTransferItem>::iterator i=con.OnwardFlt.begin();i!=con.OnwardFlt.end();i++)
+  for(vector<TypeB::TTransferItem>::const_iterator i=con.OnwardFlt.begin();i!=con.OnwardFlt.end();i++)
   {
     body << ".O/"
          << airlines.get_row("code",i->airline).AsString("code",pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU)
@@ -1706,7 +1677,7 @@ string TelegramInterface::CreateBSMBody(TBSMContent& con, bool pr_lat)
   {
     double first_no;
     int num;
-    vector<TBSMTagItem>::iterator i=con.tags.begin();
+    vector<TBSMTagItem>::const_iterator i=con.tags.begin();
     while(true)
     {
       if (i!=con.tags.begin() &&
@@ -1738,13 +1709,13 @@ string TelegramInterface::CreateBSMBody(TBSMContent& con, bool pr_lat)
   bool pr_W=true;
   if (con.tags.size()==1)
   {
-    vector<TBSMTagItem>::iterator i=con.tags.begin();
+    vector<TBSMTagItem>::const_iterator i=con.tags.begin();
     bag_amount=i->bag_amount;
     bag_weight=i->bag_weight;
   }
   else
   {
-    for(vector<TBSMTagItem>::iterator i=con.tags.begin();i!=con.tags.end();i++)
+    for(vector<TBSMTagItem>::const_iterator i=con.tags.begin();i!=con.tags.end();i++)
     {
       if (i->bag_amount!=1)
       {
@@ -1864,13 +1835,14 @@ bool TelegramInterface::IsBSMSend( TTypeBSendInfo info, map<bool,string> &addrs 
   for(int pr_lat=0; pr_lat<=1; pr_lat++)
   {
     addrInfo.pr_lat=(bool)pr_lat;
-    addrs[addrInfo.pr_lat]=TelegramInterface::GetTypeBAddrs(addrInfo);
+    string a=TelegramInterface::GetTypeBAddrs(addrInfo);
+    if (!a.empty()) addrs[addrInfo.pr_lat]=a;
   };
-  return (!addrs[false].empty() || !addrs[true].empty());
+  return !addrs.empty();
 };
 
 void TelegramInterface::SendBSM
-  (int point_dep, int grp_id, TBSMContent &con1, map<bool,string> &addrs )
+  (int point_dep, int grp_id, const TBSMContent &con1, const map<bool,string> &addrs )
 {
     TBSMContent con2;
     TelegramInterface::LoadBSMContent(grp_id,con2);
@@ -1891,7 +1863,7 @@ void TelegramInterface::SendBSM
 
     for(vector<TBSMContent>::iterator i=bsms.begin();i!=bsms.end();i++)
     {
-      for(map<bool,string>::iterator j=addrs.begin();j!=addrs.end();j++)
+      for(map<bool,string>::const_iterator j=addrs.begin();j!=addrs.end();j++)
       {
         if (j->second.empty()) continue;
         p.id=-1;

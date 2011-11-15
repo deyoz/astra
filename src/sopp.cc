@@ -1572,49 +1572,93 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     	                             LParams() << LParam("city", ElemIdToCodeNative(etCity,errcity)));
 }
 
-void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode,
-                                bool pr_bag)
+namespace sopp
+{
+class TTransferPaxItem
+{
+  public:
+    string surname, name;
+};
+
+class TTransferGrpItem
+{
+  public:
+    int grp_id;
+    int inbound_point_dep; //только для GetInboundTCkin
+    string inbound_trip;   //только для GetInboundTCkin
+    string airline_view;
+    int flt_no;
+    string suffix_view;
+    TDateTime scd_local;
+    string airp_dep_view, airp_arv_view, subcl_view;
+    string tlg_airp_view;
+    int subcl_priority;
+    int seats;
+    int bag_amount, bag_weight, rk_weight;
+    string weight_unit;
+    vector<TTransferPaxItem> pax;
+    vector<TBagTagNumber> tags;
+    
+    bool operator < (const TTransferGrpItem &grp) const
+    {
+      if (scd_local!=grp.scd_local)
+        return scd_local<grp.scd_local;
+      if (airline_view!=grp.airline_view)
+        return airline_view<grp.airline_view;
+      if (flt_no!=grp.flt_no)
+        return flt_no<grp.flt_no;
+      if (suffix_view!=grp.suffix_view)
+        return suffix_view<grp.suffix_view;
+      if (airp_dep_view!=grp.airp_dep_view)
+        return airp_dep_view<grp.airp_dep_view;
+      if (inbound_point_dep!=grp.inbound_point_dep)
+        return inbound_point_dep<grp.inbound_point_dep;
+      if (airp_arv_view!=grp.airp_arv_view)
+        return airp_arv_view<grp.airp_arv_view;
+      if (subcl_priority!=grp.subcl_priority)
+        return subcl_priority<grp.subcl_priority;
+      if (subcl_view!=grp.subcl_view)
+        return subcl_view<grp.subcl_view;
+      return grp_id<grp.grp_id;
+    };
+    
+};
+
+};
+
+void SoppInterface::GetTransfer(bool pr_inbound_tckin,
+                                bool pr_out,
+                                bool pr_tlg,
+                                bool pr_bag,
+                                int point_id,
+                                xmlNodePtr resNode)
 {
   TQuery Qry(&OraSession);
+  TQuery PointsQry(&OraSession);
   TQuery PaxQry(&OraSession);
+  TQuery RemQry(&OraSession);
   TQuery TagQry(&OraSession);
+  
+  PointsQry.Clear();
+  PointsQry.SQLText =
+    "SELECT point_id,airp,airline,flt_no,suffix,craft,bort,scd_out, "
+    "       NVL(act_out,NVL(est_out,scd_out)) AS real_out "
+    "FROM points "
+    "WHERE point_id=:point_id AND pr_del>=0";
+  PointsQry.DeclareVariable( "point_id", otInteger );
 
-  bool pr_out=NodeAsInteger("pr_out",reqNode)!=0;
-  bool pr_tlg=true;
-  if (GetNode("pr_tlg",reqNode)!=NULL)
-    pr_tlg=NodeAsInteger("pr_tlg",reqNode)!=0;
-  int point_id=NodeAsInteger("point_id",reqNode);
-  Qry.Clear();
-  if (pr_out)
-    Qry.SQLText =
-      "SELECT point_id,airp,airline,flt_no,suffix,craft,bort,scd_out, "
-      "       NVL(act_out,NVL(est_out,scd_out)) AS real_out "
-      "FROM points "
-      "WHERE point_id=:point_id AND pr_del>=0";
-
-  else
-    Qry.SQLText =
-      "SELECT p2.point_id,p2.airp,p2.airline,p2.flt_no,p2.suffix,p2.scd_out, "
-      "       NVL(p2.act_out,NVL(p2.est_out,p2.scd_out)) AS real_out "
-      "FROM points p1,points p2 "
-      "WHERE p1.point_id=:point_id AND p1.pr_del>=0 AND "
-      "      p1.first_point IN (p2.first_point,p2.point_id) AND "
-      "      p1.point_num>p2.point_num AND p2.pr_del=0 "
-      "ORDER BY p2.point_num DESC";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
-  if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND");
-  point_id=Qry.FieldAsInteger("point_id");
-
-  TTripInfo info;
-  info.airline=Qry.FieldAsString("airline");
-  info.flt_no=Qry.FieldAsInteger("flt_no");
-  info.suffix=Qry.FieldAsString("suffix");
-  info.airp=Qry.FieldAsString("airp");
-  info.scd_out=Qry.FieldAsDateTime("scd_out");
-  info.real_out=Qry.FieldAsDateTime("real_out");
-
-  NewTextChild(resNode,"trip",GetTripName(info,ecDisp));
+  if (!pr_out)
+  {
+    //point_id содержит пункт прилета а нам нужен предыдущий пункт вылета
+    TTripRouteItem priorAirp;
+    TTripRoute().GetPriorAirp(NoExists,point_id,trtNotCancelled,priorAirp);
+    if (priorAirp.point_id==NoExists) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND");
+    point_id=priorAirp.point_id;
+  };
+  PointsQry.SetVariable( "point_id", point_id );
+  PointsQry.Execute();
+  if (PointsQry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND");
+  TTripInfo info(PointsQry);
 
   Qry.Clear();
   if (pr_tlg)
@@ -1631,9 +1675,7 @@ void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         "      tlg_transfer.point_id_out=tlg_binding.point_id_tlg AND "
         "      tlg_binding.point_id_spp=:point_id AND "
         "      tlg_trips.point_id=tlg_transfer.point_id_in AND "
-        "      tlg_transfer.trfer_id=trfer_grp.trfer_id "
-        "ORDER BY tlg_trips.scd,tlg_trips.airline,tlg_trips.flt_no,tlg_trips.suffix, "
-        "         tlg_trips.airp_dep,tlg_transfer.trfer_id ";
+        "      tlg_transfer.trfer_id=trfer_grp.trfer_id ";
     else
       Qry.SQLText=
         "SELECT tlg_trips.point_id,tlg_trips.airline,tlg_trips.flt_no,tlg_trips.suffix, "
@@ -1646,9 +1688,7 @@ void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         "      tlg_transfer.point_id_in=tlg_binding.point_id_tlg AND "
         "      tlg_binding.point_id_spp=:point_id AND "
         "      tlg_trips.point_id=tlg_transfer.point_id_out AND "
-        "      tlg_transfer.trfer_id=trfer_grp.trfer_id "
-        "ORDER BY tlg_trips.scd,tlg_trips.airline,tlg_trips.flt_no,tlg_trips.suffix, "
-        "         tlg_trips.airp_dep,tlg_transfer.trfer_id ";
+        "      tlg_transfer.trfer_id=trfer_grp.trfer_id ";
     Qry.CreateVariable("point_id",otInteger,point_id);
     if (pr_bag)
       Qry.CreateVariable("tlg_type",otString,"BTM");
@@ -1659,190 +1699,368 @@ void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     PaxQry.DeclareVariable("grp_id",otInteger);
 
     TagQry.SQLText=
-      "SELECT TRUNC(no/1000) AS pack, "
-      "       MOD(no,1000) AS no "
-      "FROM trfer_tags WHERE grp_id=:grp_id ORDER BY trfer_tags.no";
+      "SELECT no FROM trfer_tags WHERE grp_id=:grp_id";
     TagQry.DeclareVariable("grp_id",otInteger);
   }
   else
   {
-    Qry.SQLText=
-      "SELECT trfer_trips.airline,trfer_trips.flt_no,trfer_trips.suffix,trfer_trips.scd, "
-      "       pax_grp.airp_arv AS airp_dep,transfer.airp_arv, "
-      "       pax_grp.grp_id,pax_grp.class AS subcl, "
-      "       NVL(ckin.get_bagAmount2(pax_grp.grp_id,NULL,NULL,rownum),0) AS bag_amount, "
-      "       NVL(ckin.get_bagWeight2(pax_grp.grp_id,NULL,NULL,rownum),0) AS bag_weight, "
-      "       NVL(ckin.get_rkWeight2(pax_grp.grp_id,NULL,NULL,rownum),0) AS rk_weight, "
-      "       'K' AS weight_unit "
-      "FROM pax_grp,transfer,trfer_trips "
-      "WHERE pax_grp.grp_id=transfer.grp_id AND "
-      "      transfer.point_id_trfer=trfer_trips.point_id AND "
-      "      transfer.transfer_num=1 AND "
-      "      pax_grp.point_dep=:point_id AND bag_refuse=0 AND pax_grp.status<>'T' "
-      "ORDER BY trfer_trips.scd,trfer_trips.airline,trfer_trips.flt_no, "
-      "         trfer_trips.suffix,pax_grp.airp_arv,transfer.airp_arv ";
+    if (pr_inbound_tckin)
+    {
+      Qry.SQLText=
+        "SELECT tckin_pax_grp.tckin_id,tckin_pax_grp.seg_no, "
+        "       pax_grp.grp_id,pax_grp.airp_arv,pax_grp.class AS subcl, "
+        "       NVL(ckin.get_bagAmount2(pax_grp.grp_id,NULL,NULL,rownum),0) AS bag_amount, "
+        "       NVL(ckin.get_bagWeight2(pax_grp.grp_id,NULL,NULL,rownum),0) AS bag_weight, "
+        "       NVL(ckin.get_rkWeight2(pax_grp.grp_id,NULL,NULL,rownum),0) AS rk_weight, "
+        "       'K' AS weight_unit "
+        "FROM pax_grp,tckin_pax_grp "
+        "WHERE pax_grp.grp_id=tckin_pax_grp.grp_id AND "
+        "      pax_grp.point_dep=:point_id AND bag_refuse=0 AND pax_grp.status<>'T' ";
+    }
+    else
+    {
+      Qry.SQLText=
+        "SELECT trfer_trips.airline,trfer_trips.flt_no,trfer_trips.suffix,trfer_trips.scd, "
+        "       trfer_trips.airp_dep,transfer.airp_arv, "
+        "       pax_grp.grp_id,pax_grp.class AS subcl, "
+        "       NVL(ckin.get_bagAmount2(pax_grp.grp_id,NULL,NULL,rownum),0) AS bag_amount, "
+        "       NVL(ckin.get_bagWeight2(pax_grp.grp_id,NULL,NULL,rownum),0) AS bag_weight, "
+        "       NVL(ckin.get_rkWeight2(pax_grp.grp_id,NULL,NULL,rownum),0) AS rk_weight, "
+        "       'K' AS weight_unit "
+        "FROM pax_grp,transfer,trfer_trips "
+        "WHERE pax_grp.grp_id=transfer.grp_id AND "
+        "      transfer.point_id_trfer=trfer_trips.point_id AND "
+        "      transfer.transfer_num=1 AND "
+        "      pax_grp.point_dep=:point_id AND bag_refuse=0 AND pax_grp.status<>'T' ";
+    };
     Qry.CreateVariable("point_id",otInteger,point_id);
 
     PaxQry.SQLText=
-      "SELECT surname,name,seats FROM pax WHERE grp_id=:grp_id AND pr_brd IS NOT NULL";
+      "SELECT pax_id,surname,name,seats FROM pax WHERE grp_id=:grp_id AND pr_brd IS NOT NULL";
     PaxQry.DeclareVariable("grp_id",otInteger);
 
+    RemQry.SQLText=
+      "SELECT rem_code FROM pax_rem "
+      "WHERE pax_id=:pax_id AND rem_code IN ('STCR', 'EXST') "
+      "ORDER BY DECODE(rem_code,'STCR',0,'EXST',1,2) ";
+    RemQry.DeclareVariable("pax_id",otInteger);
+
     TagQry.SQLText=
-      "SELECT TRUNC(no/1000) AS pack, "
-      "       MOD(no,1000) AS no "
-      "FROM bag_tags WHERE grp_id=:grp_id ORDER BY bag_tags.no";
+      "SELECT no FROM bag_tags WHERE grp_id=:grp_id";
     TagQry.DeclareVariable("grp_id",otInteger);
   };
 
   Qry.Execute();
-  xmlNodePtr trferNode=NewTextChild(resNode,"transfer");
-  xmlNodePtr grpNode,paxNode,node,node2;
-  int grp_id;
-  string prev_trip;
-  char subcl[2],airp_dep[4],airp_arv[4];
-  *subcl=0;
-  *airp_dep=0;
-  *airp_arv=0;
+  vector<sopp::TTransferGrpItem> grps;
   for(;!Qry.Eof;Qry.Next())
   {
-    ostringstream trip;
-    trip << ElemIdToCodeNative(etAirline,Qry.FieldAsString("airline"))
-         << setw(3) << setfill('0') << Qry.FieldAsInteger("flt_no")
-         << ElemIdToCodeNative(etSuffix,Qry.FieldAsString("suffix")) << "/"
-         << DateTimeToStr(Qry.FieldAsDateTime("scd"),"dd");
-
-    if (prev_trip!=trip.str() ||
-        strcmp(airp_dep,Qry.FieldAsString("airp_dep"))!=0 ||
-        strcmp(airp_arv,Qry.FieldAsString("airp_arv"))!=0 ||
-        strcmp(subcl,Qry.FieldAsString("subcl"))!=0)
+    sopp::TTransferGrpItem grp;
+    grp.grp_id=Qry.FieldAsInteger("grp_id");
+    if (!pr_tlg && pr_inbound_tckin)
     {
-      node=NewTextChild(trferNode,"trfer_flt");
+      TCkinRouteItem inboundSeg;
+      TCkinRoute().GetPriorSeg(Qry.FieldAsInteger("tckin_id"),
+                               Qry.FieldAsInteger("seg_no"),
+                               crtIgnoreDependent, inboundSeg);
+      if (inboundSeg.grp_id==NoExists) continue;
 
-      NewTextChild(node,"trip",trip.str());
-      if (pr_tlg) NewTextChild(node,"airp",ElemIdToCodeNative(etAirp,Qry.FieldAsString("airp")));
-      NewTextChild(node,"airp_dep",ElemIdToCodeNative(etAirp,Qry.FieldAsString("airp_dep")));
-      NewTextChild(node,"airp_arv",ElemIdToCodeNative(etAirp,Qry.FieldAsString("airp_arv")));
-      NewTextChild(node,"subcl",ElemIdToCodeNative(etSubcls,Qry.FieldAsString("subcl")));
-      grpNode=NewTextChild(node,"grps");
+      TTripRouteItem priorAirp;
+      TTripRoute().GetPriorAirp(NoExists,inboundSeg.point_arv,trtNotCancelled,priorAirp);
+      if (priorAirp.point_id==NoExists) continue;
 
-      prev_trip=trip.str();
-      strcpy(airp_dep,Qry.FieldAsString("airp_dep"));
-      strcpy(airp_arv,Qry.FieldAsString("airp_arv"));
-      strcpy(subcl,Qry.FieldAsString("subcl"));
-    };
+      PointsQry.SetVariable( "point_id", priorAirp.point_id );
+      PointsQry.Execute();
+      if (PointsQry.Eof) continue;
+      TTripInfo inFlt(PointsQry);
 
-    node=NewTextChild(grpNode,"grp");
-    if (!Qry.FieldIsNULL("bag_amount"))
-      NewTextChild(node,"bag_amount",Qry.FieldAsInteger("bag_amount"));
-    else
-      NewTextChild(node,"bag_amount");
-    if (!Qry.FieldIsNULL("bag_weight"))
-      NewTextChild(node,"bag_weight",Qry.FieldAsInteger("bag_weight"));
-    else
-      NewTextChild(node,"bag_weight");
-    if (!Qry.FieldIsNULL("rk_weight"))
-      NewTextChild(node,"rk_weight",Qry.FieldAsInteger("rk_weight"));
-    else
-      NewTextChild(node,"rk_weight");
-    NewTextChild(node,"weight_unit",Qry.FieldAsString("weight_unit"));
-
-    grp_id=Qry.FieldAsInteger("grp_id");
-
-    PaxQry.SetVariable("grp_id",grp_id);
-    PaxQry.Execute();
-    int seats=0;
-    if (!PaxQry.Eof)
-    {
-      paxNode=NewTextChild(node,"passengers");
-      for(;!PaxQry.Eof;PaxQry.Next())
-      {
-        node2=NewTextChild(paxNode,"pax");
-        NewTextChild(node2,"surname",PaxQry.FieldAsString("surname"));
-        NewTextChild(node2,"name",PaxQry.FieldAsString("name"),"");
-        if (!pr_tlg)
-        {
-          if (PaxQry.FieldAsInteger("seats")>0) seats++;
-          for(int i=PaxQry.FieldAsInteger("seats");i>=2;i--)
-          {
-            node2=NewTextChild(paxNode,"pax");
-            NewTextChild(node2,"surname",PaxQry.FieldAsString("surname"));
-            NewTextChild(node2,"name","EXST",""); //впоследствии надо учитывать STCR
-          };
-        };
-      };
-    };
-
-    if (pr_tlg)
-    {
-      if (!Qry.FieldIsNULL("seats"))
-        NewTextChild(node,"seats",Qry.FieldAsInteger("seats"));
-      else
-        NewTextChild(node,"seats");
+      grp.inbound_point_dep=priorAirp.point_id;
+      grp.inbound_trip=GetTripName(inFlt,ecNone);
+      grp.airline_view=ElemIdToCodeNative(etAirline,inFlt.airline);
+      grp.flt_no=inFlt.flt_no;
+      grp.suffix_view=ElemIdToCodeNative(etSuffix,inFlt.suffix);
+      grp.scd_local=UTCToLocal(inFlt.scd_out, AirpTZRegion(inFlt.airp));
+      grp.airp_dep_view=ElemIdToCodeNative(etAirp,inboundSeg.airp_dep);
+      grp.airp_arv_view=ElemIdToCodeNative(etAirp,Qry.FieldAsString("airp_arv"));
     }
     else
     {
-      NewTextChild(node,"seats",seats);
+      grp.inbound_point_dep=NoExists;
+      grp.inbound_trip="";
+      grp.airline_view=ElemIdToCodeNative(etAirline,Qry.FieldAsString("airline"));
+      grp.flt_no=Qry.FieldAsInteger("flt_no");
+      grp.suffix_view=ElemIdToCodeNative(etSuffix,Qry.FieldAsString("suffix"));
+      grp.scd_local=Qry.FieldAsDateTime("scd");
+      grp.airp_dep_view=ElemIdToCodeNative(etAirp,Qry.FieldAsString("airp_dep"));
+      grp.airp_arv_view=ElemIdToCodeNative(etAirp,Qry.FieldAsString("airp_arv"));
+    };
+    grp.bag_amount=!Qry.FieldIsNULL("bag_amount")?Qry.FieldAsInteger("bag_amount"):NoExists;
+    grp.bag_weight=!Qry.FieldIsNULL("bag_weight")?Qry.FieldAsInteger("bag_weight"):NoExists;
+    grp.rk_weight=!Qry.FieldIsNULL("rk_weight")?Qry.FieldAsInteger("rk_weight"):NoExists;
+    grp.weight_unit=Qry.FieldAsString("weight_unit");
+    if (pr_tlg)
+    {
+      grp.tlg_airp_view=ElemIdToCodeNative(etAirp,Qry.FieldAsString("airp"));
+      grp.seats=!Qry.FieldIsNULL("seats")?Qry.FieldAsInteger("seats"):NoExists;
+    }
+    else
+    {
+      grp.seats=0;
+
+    };
+
+    if (!pr_tlg && Qry.FieldIsNULL("subcl"))
+    {
+      //несопровождаемый багаж
+      grp.subcl_priority=10;
+      sopp::TTransferPaxItem pax;
+      pax.surname="UNACCOMPANIED";
+      grp.pax.push_back(pax);
+    }
+    else
+    {
+      grp.subcl_view=ElemIdToCodeNative(etSubcls,Qry.FieldAsString("subcl")); //пустой для несопровождаемого багажа
+      grp.subcl_priority=0;
+      try
+      {
+        TSubclsRow &subclsRow=(TSubclsRow&)base_tables.get("subcls").get_row("code",Qry.FieldAsString("subcl"));
+        grp.subcl_priority=((TClassesRow&)base_tables.get("classes").get_row("code",subclsRow.cl)).priority;
+      }
+      catch(EBaseTableError){};
+
+      PaxQry.SetVariable("grp_id",grp.grp_id);
+      PaxQry.Execute();
+      if (PaxQry.Eof) continue; //пустая группа - не помещаем в grps
+      for(;!PaxQry.Eof;PaxQry.Next())
+      {
+        sopp::TTransferPaxItem pax;
+        //транслитерация не нужна так как телеграммы PTM, BTM должны приходить на латинском
+        //и регистрация (списки) должна проводиться на латинском
+        pax.surname=PaxQry.FieldAsString("surname");
+        pax.name=PaxQry.FieldAsString("name");
+        grp.pax.push_back(pax);
+        if (!pr_tlg)
+        {
+          int seats=PaxQry.FieldAsInteger("seats");
+          if (seats>0) grp.seats++;
+          if (seats>1)
+          {
+            RemQry.SetVariable("pax_id",PaxQry.FieldAsInteger("pax_id"));
+            RemQry.Execute();
+            for(int i=2; i<=seats; i++)
+            {
+              if (!RemQry.Eof)
+                pax.name=RemQry.FieldAsString("rem_code");
+              else
+                pax.name="EXST";
+              grp.pax.push_back(pax);
+            };
+          };
+        };
+      };
     };
 
     if (pr_bag)
     {
-      TagQry.SetVariable("grp_id",grp_id);
+      TagQry.SetVariable("grp_id",grp.grp_id);
       TagQry.Execute();
-      if (!TagQry.Eof)
-      {
-        int first_no,first_pack,curr_no,curr_pack;
-        first_no=TagQry.FieldAsInteger("no");
-        first_pack=TagQry.FieldAsInteger("pack");
-        int num=0;
-        node2=NewTextChild(node,"tag_ranges");
-        for(;;TagQry.Next())
-        {
-          if (!TagQry.Eof)
-          {
-            curr_no=TagQry.FieldAsInteger("no");
-            curr_pack=TagQry.FieldAsInteger("pack");
-          };
-
-          if (TagQry.Eof||
-              first_pack!=curr_pack||
-              first_no+num!=curr_no)
-          {
-            ostringstream range;
-            range.setf(ios::fixed);
-            range << setw(10) << setfill('0') << setprecision(0)
-                  << (first_pack*1000.0+first_no);
-            if (num!=1)
-              range << "-"
-                    << setw(3)  << setfill('0')
-                    << (first_no+num-1);
-            NewTextChild(node2,"range",range.str());
-
-            if (TagQry.Eof) break;
-            first_no=curr_no;
-            first_pack=curr_pack;
-            num=0;
-          };
-          num++;
-        };
-      };
+      for(;!TagQry.Eof;TagQry.Next())
+        grp.tags.push_back(TBagTagNumber("",TagQry.FieldAsFloat("no")));
     };
+    grps.push_back(grp);
   };
 
+  sort(grps.begin(),grps.end());
+
+  //формируем XML
+
+  NewTextChild(resNode,"trip",GetTripName(info,ecNone));
+
+  xmlNodePtr trferNode=NewTextChild(resNode,"transfer");
+
+  xmlNodePtr grpsNode;
+  vector<sopp::TTransferGrpItem>::const_iterator iGrpPrior=grps.end();
+  for(vector<sopp::TTransferGrpItem>::const_iterator iGrp=grps.begin();iGrp!=grps.end();++iGrp)
+  {
+    if (iGrpPrior==grps.end() ||
+        iGrpPrior->airline_view!=iGrp->airline_view ||
+        iGrpPrior->flt_no!=iGrp->flt_no ||
+        iGrpPrior->suffix_view!=iGrp->suffix_view ||
+        iGrpPrior->scd_local!=iGrp->scd_local ||
+        iGrpPrior->airp_dep_view!=iGrp->airp_dep_view ||
+        iGrpPrior->inbound_point_dep!=iGrp->inbound_point_dep ||
+        iGrpPrior->airp_arv_view!=iGrp->airp_arv_view ||
+        iGrpPrior->subcl_view!=iGrp->subcl_view)
+    {
+      xmlNodePtr node=NewTextChild(trferNode,"trfer_flt");
+
+      ostringstream trip;
+      trip << iGrp->airline_view
+           << setw(3) << setfill('0') << iGrp->flt_no
+           << iGrp->suffix_view << "/"
+           << DateTimeToStr(iGrp->scd_local,"dd");
+
+      NewTextChild(node,"trip",trip.str());
+      if (pr_tlg) NewTextChild(node,"airp",iGrp->tlg_airp_view);
+      NewTextChild(node,"airp_dep",iGrp->airp_dep_view);
+      NewTextChild(node,"airp_arv",iGrp->airp_arv_view);
+      NewTextChild(node,"subcl",iGrp->subcl_view);
+      NewTextChild(node,"point_dep",iGrp->inbound_point_dep,NoExists); //только для GetInboundTCkin
+      NewTextChild(node,"trip2",iGrp->inbound_trip,"");                //только для GetInboundTCkin
+      grpsNode=NewTextChild(node,"grps");
+    };
+
+    xmlNodePtr grpNode=NewTextChild(grpsNode,"grp");
+    if (iGrp->bag_amount!=NoExists)
+      NewTextChild(grpNode,"bag_amount",iGrp->bag_amount);
+    else
+      NewTextChild(grpNode,"bag_amount");
+    if (iGrp->bag_weight!=NoExists)
+      NewTextChild(grpNode,"bag_weight",iGrp->bag_weight);
+    else
+      NewTextChild(grpNode,"bag_weight");
+    if (iGrp->rk_weight!=NoExists)
+      NewTextChild(grpNode,"rk_weight",iGrp->rk_weight);
+    else
+      NewTextChild(grpNode,"rk_weight");
+    NewTextChild(grpNode,"weight_unit",iGrp->weight_unit);
+    NewTextChild(grpNode,"seats",iGrp->seats);
+
+    if (!iGrp->pax.empty())
+    {
+      xmlNodePtr paxsNode=NewTextChild(grpNode,"passengers");
+      for(vector<sopp::TTransferPaxItem>::const_iterator iPax=iGrp->pax.begin(); iPax!=iGrp->pax.end(); ++iPax)
+      {
+        xmlNodePtr paxNode=NewTextChild(paxsNode,"pax");
+        NewTextChild(paxNode,"surname",iPax->surname);
+        NewTextChild(paxNode,"name",iPax->name,"");
+      };
+    };
+
+    vector<string> tagRanges;
+    GetTagRanges(iGrp->tags, tagRanges);
+    if (!tagRanges.empty())
+    {
+      xmlNodePtr node=NewTextChild(grpNode,"tag_ranges");
+      for(vector<string>::const_iterator r=tagRanges.begin(); r!=tagRanges.end(); ++r)
+        NewTextChild(node,"range",*r);
+    };
+
+    iGrpPrior=iGrp;
+  };
+};
+
+void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  bool pr_inbound_tckin=(strcmp((char *)reqNode->name, "GetInboundTCkin") == 0);
+
+  bool pr_out=NodeAsInteger("pr_out",reqNode)!=0;
+  bool pr_tlg=true;
+  if (GetNode("pr_tlg",reqNode)!=NULL)
+    pr_tlg=NodeAsInteger("pr_tlg",reqNode)!=0;
+    
+  bool pr_bag=(strcmp((char *)reqNode->name, "GetInboundTCkin") == 0) ||
+              (strcmp((char *)reqNode->name, "GetBagTransfer") == 0);
+  int point_id=NodeAsInteger("point_id",reqNode);
+
+  GetTransfer(pr_inbound_tckin, pr_out, pr_tlg, pr_bag, point_id, resNode);
+  
   get_new_report_form("SOPPTrfer", reqNode, resNode);
   STAT::set_variables(resNode);
 };
 
-void SoppInterface::GetPaxTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+struct TSegBSMInfo
 {
-  GetTransfer(ctxt,reqNode,resNode,false);
+  map<bool/*pr_lat*/,string> BSMaddrs;
+  map<int/*grp_id*/,TBSMContent> BSMContentBefore;
 };
 
-void SoppInterface::GetBagTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void DeletePaxGrp( const TTypeBSendInfo &sendInfo, int grp_id, bool toLog,
+                   TQuery &PaxQry, TQuery &DelQry, map<int/*point_id*/,TSegBSMInfo> &BSMsegs )
 {
-  GetTransfer(ctxt,reqNode,resNode,true);
+  int point_id=sendInfo.point_id;
+
+  const char* pax_sql=
+    "SELECT pax_id,surname,name,pers_type,reg_no,pr_brd FROM pax WHERE grp_id=:grp_id";
+  const char* del_sql=
+    "BEGIN "
+    "  DELETE FROM "
+    "   (SELECT * "
+    "    FROM trip_comp_layers,pax,pax_grp,grp_status_types "
+    "    WHERE trip_comp_layers.pax_id=pax.pax_id AND "
+    "          trip_comp_layers.layer_type=grp_status_types.layer_type AND "
+    "          pax.grp_id=pax_grp.grp_id AND "
+    "          pax_grp.status=grp_status_types.code AND "
+    "          pax_grp.grp_id=:grp_id); "
+    "  UPDATE pax SET refuse=:refuse,pr_brd=NULL WHERE grp_id=:grp_id; "
+    "  mvd.sync_pax_grp(:grp_id,:term); "
+    "  ckin.check_grp(:grp_id); "
+    "END;";
+    
+  if (strcmp(PaxQry.SQLText.SQLText(),pax_sql)!=0)
+  {
+    PaxQry.Clear();
+    PaxQry.SQLText=pax_sql;
+    PaxQry.DeclareVariable("grp_id",otInteger);
+  };
+  
+  if (strcmp(DelQry.SQLText.SQLText(),del_sql)!=0)
+  {
+    DelQry.Clear();
+    DelQry.SQLText=del_sql;
+    DelQry.CreateVariable( "refuse", otString, refuseAgentError );
+    DelQry.CreateVariable( "term", otString, TReqInfo::Instance()->desk.code );
+    DelQry.DeclareVariable("grp_id",otInteger);
+  };
+  
+  //набираем вектор BSMsegs
+  if (BSMsegs.find(sendInfo.point_id)==BSMsegs.end())
+  {
+    TelegramInterface::IsBSMSend(sendInfo,BSMsegs[sendInfo.point_id].BSMaddrs);
+  };
+  
+  TSegBSMInfo &BSMseg=BSMsegs[sendInfo.point_id];
+  if (!BSMseg.BSMaddrs.empty())
+  {
+    TBSMContent BSMContent;
+    TelegramInterface::LoadBSMContent(grp_id,BSMContent);
+    BSMseg.BSMContentBefore[grp_id]=BSMContent;
+  };
+  //AODB
+  bool SyncAODB=is_sync_aodb(point_id);
+
+  PaxQry.SetVariable("grp_id",grp_id);
+  PaxQry.Execute();
+  for(;!PaxQry.Eof;PaxQry.Next())
+  {
+    const char* surname=PaxQry.FieldAsString("surname");
+    const char* name=PaxQry.FieldAsString("name");
+    const char* pers_type=PaxQry.FieldAsString("pers_type");
+    int pax_id=PaxQry.FieldAsInteger("pax_id");
+    int reg_no=PaxQry.FieldAsInteger("reg_no");
+    bool boarded=!PaxQry.FieldIsNULL("pr_brd") && PaxQry.FieldAsInteger("pr_brd")!=0;
+
+    if (SyncAODB)
+    {
+      update_aodb_pax_change(point_id, pax_id, reg_no, "Р");
+      if (boarded)
+        update_aodb_pax_change(point_id, pax_id, reg_no, "П");
+    };
+
+    if (toLog)
+      TReqInfo::Instance()->MsgToLog((string)"Пассажир "+surname+(*name!=0?" ":"")+name+" ("+pers_type+") разрегистрирован. "+
+                                     "Причина отказа в регистрации: "+refuseAgentError+". ",
+                                     ASTRA::evtPax,
+                                     point_id,
+                                     reg_no,
+                                     grp_id);
+  };
+
+  DelQry.SetVariable("grp_id",grp_id);
+  DelQry.Execute();
 };
 
-void DeletePassengers( int point_id, const string status, map<int,TTripInfo> &segs, bool tckin_version )
+void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
+                       map<int,TTripInfo> &segs, bool tckin_version )
 {
   segs.clear();
   TReqInfo *reqInfo = TReqInfo::Instance();
@@ -1866,36 +2084,17 @@ void DeletePassengers( int point_id, const string status, map<int,TTripInfo> &se
   sendInfo.pr_tranzit=Qry.FieldAsInteger("pr_tranzit")!=0;
   sendInfo.tlg_type="BSM";
 
-  //BSM
-  map<bool,string> BSMaddrs;
-  map<int,TBSMContent> BSMContentBefore;
-  bool BSMsend=TelegramInterface::IsBSMSend(sendInfo,BSMaddrs);
+  map<int/*point_id*/,TSegBSMInfo> BSMsegs;
 
   TQuery DelQry(&OraSession);
-  DelQry.Clear();
-  DelQry.SQLText=
-    "BEGIN "
-    "  DELETE FROM "
-    "   (SELECT * "
-    "    FROM trip_comp_layers,pax,pax_grp,grp_status_types "
-    "    WHERE trip_comp_layers.pax_id=pax.pax_id AND "
-    "          trip_comp_layers.layer_type=grp_status_types.layer_type AND "
-    "          pax.grp_id=pax_grp.grp_id AND "
-    "          pax_grp.status=grp_status_types.code AND "
-    "          pax_grp.grp_id=:grp_id); "
-    "  UPDATE pax SET refuse='А',pr_brd=NULL WHERE grp_id=:grp_id; "
-    "  mvd.sync_pax_grp(:grp_id,:term); "
-    "  ckin.check_grp(:grp_id); "
-    "END;";
-  DelQry.CreateVariable( "term", otString, reqInfo->desk.code );
-  DelQry.DeclareVariable("grp_id",otInteger);
-
+  TQuery PaxQry(&OraSession);
 
   TQuery TCkinQry(&OraSession);
   TCkinQry.Clear();
   TCkinQry.SQLText=
     "SELECT points.point_id,points.airline,points.flt_no,points.suffix, "
     "       points.airp,points.scd_out, "
+    "       points.point_num,points.first_point,points.pr_tranzit, "
     "       pax_grp.grp_id,pr_depend "
     "FROM tckin_pax_grp,pax_grp,points "
     "WHERE tckin_pax_grp.grp_id=pax_grp.grp_id AND "
@@ -1905,35 +2104,52 @@ void DeletePassengers( int point_id, const string status, map<int,TTripInfo> &se
   TCkinQry.DeclareVariable("tckin_id",otInteger);
   TCkinQry.DeclareVariable("seg_no",otInteger);
 
-  TQuery PaxQry(&OraSession); //только лишь для журнала операций
-  PaxQry.Clear();
-  PaxQry.SQLText=
-    "SELECT pax_id,surname,name,pers_type,reg_no,pr_brd FROM pax WHERE grp_id=:grp_id";
-  PaxQry.DeclareVariable("grp_id",otInteger);
+  ostringstream sql;
+  //select
+  sql << "SELECT pax_grp.grp_id";
+  if ( filter.inbound_point_dep!=NoExists )
+    sql << ", tckin_pax_grp.tckin_id, tckin_pax_grp.seg_no ";
+  //from
+  sql << "\nFROM pax_grp";
+  if ( filter.inbound_point_dep!=NoExists )
+    sql << ", tckin_pax_grp ";
+  //where
+  sql << "\nWHERE pax_grp.point_dep=:point_id ";
+  if ( !filter.status.empty() )
+    sql << "\n      AND pax_grp.status=:status ";
+  if ( filter.inbound_point_dep!=NoExists )
+    sql << "\n      AND pax_grp.grp_id=tckin_pax_grp.grp_id "
+           "\n      AND bag_refuse=0 AND pax_grp.status<>'T' ";
 
-  string sql;
-  sql = "SELECT grp_id FROM pax_grp WHERE point_dep=:point_id";
-	if ( !status.empty() )
-		sql += " AND status=:status ";
   Qry.Clear();
-  Qry.SQLText= sql;
+  Qry.SQLText=sql.str().c_str();
+  if ( !filter.status.empty() )
+    Qry.CreateVariable( "status", otString, filter.status );
   Qry.CreateVariable( "point_id", otInteger, point_id );
-  if ( !status.empty() )
-  	Qry.CreateVariable( "status", otString, status );
   Qry.Execute();
   if (Qry.Eof) return;
-
+  
   segs[point_id]=fltInfo;
   for(;!Qry.Eof;Qry.Next())
   {
+    if ( filter.inbound_point_dep!=NoExists )
+    {
+      TCkinRouteItem inboundSeg;
+      TCkinRoute().GetPriorSeg(Qry.FieldAsInteger("tckin_id"),
+                               Qry.FieldAsInteger("seg_no"),
+                               crtIgnoreDependent, inboundSeg);
+      if (inboundSeg.grp_id==NoExists) continue;
+      
+      TTripRouteItem priorAirp;
+      TTripRoute().GetPriorAirp(NoExists,inboundSeg.point_arv,trtNotCancelled,priorAirp);
+      if (priorAirp.point_id==NoExists) continue;
+      
+      if (priorAirp.point_id!=filter.inbound_point_dep) continue;
+    };
+  
     //пробегаемся по всем группам рейса
     int grp_id=Qry.FieldAsInteger("grp_id");
-    if (BSMsend)
-    {
-      TBSMContent BSMContent;
-      TelegramInterface::LoadBSMContent(grp_id,BSMContent);
-      BSMContentBefore[grp_id]=BSMContent;
-    };
+
     //отвяжем сквозняков от предыдущих сегментов
     int tckin_id;
     int tckin_seg_no;
@@ -1947,47 +2163,26 @@ void DeletePassengers( int point_id, const string status, map<int,TTripInfo> &se
         TCkinQry.Execute();
         for(;!TCkinQry.Eof;TCkinQry.Next())
         {
-          if (TCkinQry.FieldAsInteger("pr_depend")==0) break;
+          //if (TCkinQry.FieldAsInteger("pr_depend")==0) break;
+          //не учитываем связанность последующих сквозных сегментов - тупо разрегистрируем всех
 
           int tckin_point_id=TCkinQry.FieldAsInteger("point_id");
           int tckin_grp_id=TCkinQry.FieldAsInteger("grp_id");
-          
-          bool SyncAODB=is_sync_aodb(tckin_point_id);
 
           if (segs.find(tckin_point_id)==segs.end())
           {
             fltInfo.Init(TCkinQry);
             segs[tckin_point_id]=fltInfo;
           };
-
-          PaxQry.SetVariable("grp_id",tckin_grp_id);
-          PaxQry.Execute();
-          for(;!PaxQry.Eof;PaxQry.Next())
-          {
-            const char* surname=PaxQry.FieldAsString("surname");
-            const char* name=PaxQry.FieldAsString("name");
-            const char* pers_type=PaxQry.FieldAsString("pers_type");
-            int pax_id=PaxQry.FieldAsInteger("pax_id");
-            int reg_no=PaxQry.FieldAsInteger("reg_no");
-            bool boarded=!PaxQry.FieldIsNULL("pr_brd") && PaxQry.FieldAsInteger("pr_brd")!=0;
-            
-            if (SyncAODB)
-            {
-              update_aodb_pax_change(tckin_point_id, pax_id, reg_no, "Р");
-              if (boarded)
-                update_aodb_pax_change(tckin_point_id, pax_id, reg_no, "П");
-            };
-
-            reqInfo->MsgToLog((string)"Пассажир "+surname+(*name!=0?" ":"")+name+" ("+pers_type+") разрегистрирован. "+
-                              "Причина отказа в регистрации: А. ",
-                              ASTRA::evtPax,
-                              tckin_point_id,
-                              reg_no,
-                              tckin_grp_id);
-          };
-
-          DelQry.SetVariable("grp_id",tckin_grp_id);
-          DelQry.Execute();
+          
+          TTypeBSendInfo tckinSendInfo(fltInfo);
+          tckinSendInfo.point_id=tckin_point_id;
+          tckinSendInfo.point_num=TCkinQry.FieldAsInteger("point_num");
+          tckinSendInfo.first_point=TCkinQry.FieldIsNULL("first_point")?NoExists:TCkinQry.FieldAsInteger("first_point");
+          tckinSendInfo.pr_tranzit=TCkinQry.FieldAsInteger("pr_tranzit")!=0;
+          tckinSendInfo.tlg_type="BSM";
+          
+          DeletePaxGrp( tckinSendInfo, tckin_grp_id, true, PaxQry, DelQry, BSMsegs);
         };
       };
     }
@@ -1999,26 +2194,7 @@ void DeletePassengers( int point_id, const string status, map<int,TTripInfo> &se
       SeparateTCkin(grp_id,cssAllPrevCurrNext,cssNone,-1,tckin_id,tckin_seg_no);
     };
     
-    bool SyncAODB=is_sync_aodb(point_id);
-    
-    PaxQry.SetVariable("grp_id",grp_id);
-    PaxQry.Execute();
-    for(;!PaxQry.Eof;PaxQry.Next())
-    {
-      int pax_id=PaxQry.FieldAsInteger("pax_id");
-      int reg_no=PaxQry.FieldAsInteger("reg_no");
-      bool boarded=!PaxQry.FieldIsNULL("pr_brd") && PaxQry.FieldAsInteger("pr_brd")!=0;
-
-      if (SyncAODB)
-      {
-        update_aodb_pax_change(point_id, pax_id, reg_no, "Р");
-        if (boarded)
-          update_aodb_pax_change(point_id, pax_id, reg_no, "П");
-      };
-    };
-    
-    DelQry.SetVariable("grp_id",grp_id);
-    DelQry.Execute();
+    DeletePaxGrp( sendInfo, grp_id, filter.inbound_point_dep!=NoExists, PaxQry, DelQry, BSMsegs);
   };
 
   //пересчитаем счетчики по всем рейсам, включая сквозные сегменты
@@ -2028,7 +2204,7 @@ void DeletePassengers( int point_id, const string status, map<int,TTripInfo> &se
 	 "  ckin.recount(:point_id); "
    "END;";
   Qry.DeclareVariable("point_id",otInteger);
-  for(map<int,TTripInfo>::iterator i=segs.begin();i!=segs.end();i++)
+  for(map<int,TTripInfo>::iterator i=segs.begin();i!=segs.end();++i)
   {
     Qry.SetVariable("point_id",i->first);
     Qry.Execute();
@@ -2037,18 +2213,23 @@ void DeletePassengers( int point_id, const string status, map<int,TTripInfo> &se
     check_brd_alarm( i->first );
   };
 
-  if ( status.empty() )
-    reqInfo->MsgToLog( "Все пассажиры разрегистрированы", evtPax, point_id );
-  else
-  	reqInfo->MsgToLog( string("Все пассажиры со статусом ") + status + " разрегистрированы", evtPax, point_id );
+  if ( filter.inbound_point_dep==NoExists )
+  {
+    if ( filter.status.empty() )
+      reqInfo->MsgToLog( "Все пассажиры разрегистрированы", evtPax, point_id );
+    else
+    	reqInfo->MsgToLog( string("Все пассажиры со статусом ") + filter.status + " разрегистрированы", evtPax, point_id );
+  };
 
   //BSM
-  if (BSMsend)
+  for(map<int/*point_id*/,TSegBSMInfo>::const_iterator s=BSMsegs.begin();
+                                                       s!=BSMsegs.end(); ++s)
   {
-    map<int,TBSMContent>::iterator i;
-    for(i=BSMContentBefore.begin();i!=BSMContentBefore.end();i++)
+    if (s->second.BSMaddrs.empty()) continue; //для сегмента не заданы адреса отправки
+    for(map<int/*grp_id*/,TBSMContent>::const_iterator i=s->second.BSMContentBefore.begin();
+                                                       i!=s->second.BSMContentBefore.end(); ++i)
     {
-      TelegramInterface::SendBSM(point_id,i->first,i->second,BSMaddrs);
+      TelegramInterface::SendBSM(s->first,i->first,i->second,s->second.BSMaddrs);
     };
   };
 }
@@ -2082,19 +2263,34 @@ void DeletePassengersAnswer( map<int,TTripInfo> &segs, xmlNodePtr resNode )
 void SoppInterface::DeleteAllPassangers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   int point_id = NodeAsInteger( "point_id", reqNode );
+  TDeletePaxFilter filter;
+  if (GetNode( "inbound_point_dep", reqNode )!=NULL)
+    filter.inbound_point_dep = NodeAsInteger( "inbound_point_dep", reqNode );
   bool tckin_version=strcmp((char *)reqNode->name, "DeleteAllPassangers") != 0;
   map<int,TTripInfo> segs;
-	DeletePassengers( point_id, string(""), segs, tckin_version );
+	DeletePassengers( point_id, filter, segs, tckin_version );
   DeletePassengersAnswer( segs, resNode );
-  TSOPPTrips trips;
-  string errcity = internal_ReadData( trips, NoExists, NoExists, false, tSOPP, point_id );
-  xmlNodePtr dataNode = NewTextChild( resNode, "data" );
-  buildSOPP( trips, errcity, dataNode );
-  if ( !errcity.empty() )
-    AstraLocale::showErrorMessage( "MSG.CITY.REGION_NOT_DEFINED.NOT_ALL_FLIGHTS_ARE_SHOWN",
-    	                             LParams() << LParam("city", ElemIdToCodeNative(etCity,errcity)));
+  if (filter.inbound_point_dep==NoExists)
+  {
+    //это разрегистрация всех пассажиров рейса
+    TSOPPTrips trips;
+    string errcity = internal_ReadData( trips, NoExists, NoExists, false, tSOPP, point_id );
+    xmlNodePtr dataNode = NewTextChild( resNode, "data" );
+    buildSOPP( trips, errcity, dataNode );
+    if ( !errcity.empty() )
+    {
+      AstraLocale::showErrorMessage( "MSG.CITY.REGION_NOT_DEFINED.NOT_ALL_FLIGHTS_ARE_SHOWN",
+      	                             LParams() << LParam("city", ElemIdToCodeNative(etCity,errcity)));
+      return;
+    };
+  }
   else
-    AstraLocale::showMessage( "MSG.UNREGISTRATION_ALL_PASSENGERS" );
+  {
+    //это разрегистрация пассажиров, прибывающих стыковочным рейсом
+    //отправляем обновленные данные
+    GetTransfer(true, true, false, true, point_id, resNode);
+  };
+  AstraLocale::showMessage( "MSG.UNREGISTRATION_ALL_PASSENGERS" );
 }
 
 void SoppInterface::WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
