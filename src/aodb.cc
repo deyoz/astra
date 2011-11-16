@@ -1465,6 +1465,7 @@ try {
  	TIDQry.SQLText = "SELECT tid__seq.nextval n FROM dual ";
 	POINT_IDQry.SQLText = "SELECT point_id.nextval point_id FROM dual";
 	TDateTime time_in_delay; //определяем время задержки
+  TDateTime old_act = NoExists, old_est = NoExists;
   if ( fl.act != NoExists )
     time_in_delay = fl.act - fl.scd;
   else
@@ -1547,9 +1548,6 @@ try {
     Qry.CreateVariable( "litera", otString, fl.litera );
     Qry.CreateVariable( "park_in", otString, FNull );
     Qry.CreateVariable( "park_out", otString, fl.park_out );
-/*    if ( fl.pr_del )
-    	Qry.CreateVariable( "pr_del", otInteger, -1 );
-    else*/
    	if ( fl.pr_cancel )
     	Qry.CreateVariable( "pr_del", otInteger, 1 );
     else
@@ -1606,19 +1604,12 @@ try {
       err++;
       Qry.Execute();
       err++;
-/*      if ( it != fl.dests.end() - 1 ) {
-        QrySet.SetVariable( "point_id", POINT_IDQry.FieldAsInteger( "point_id" ) );
-        QrySet.SetVariable( "max_commerce", FNull );
-	    	err++;
-		    QrySet.Execute();
-		    err++;
-      }*/
       reqInfo->MsgToLog( string( "Ввод нового пункта " ) + it->airp, evtDisp, move_id, POINT_IDQry.FieldAsInteger( "point_id" ) );
     }
 	}
 	else { // update
-    int move_id = pflts.begin()->move_id;
-    int point_id = pflts.begin()->point_id;
+    move_id = pflts.begin()->move_id;
+    point_id = pflts.begin()->point_id;
 		bool change_comp=false;
 		string remark;
 		TPointsDest  dest;
@@ -1626,28 +1617,6 @@ try {
 		FUseData.clearFlags();
 		dest.Load( point_id, FUseData );
 		
-		
-/*	  AODB_Flight old_fl;
-		point_id = Qry.FieldAsInteger( "point_id" );
-		move_id = Qry.FieldAsInteger( "move_id" );
-		old_fl.craft = Qry.FieldAsString( "craft" );
-		old_fl.bort = Qry.FieldAsString( "bort" );
-		if ( Qry.FieldIsNULL( "scd_out" ) )
-			old_fl.scd = NoExists;
-		else
-		  old_fl.scd = Qry.FieldAsDateTime( "scd_out" );
-		if ( Qry.FieldIsNULL( "est_out" ) )
-			old_fl.est = NoExists;
-		else
-		  old_fl.est = Qry.FieldAsDateTime( "est_out" );
-		if ( Qry.FieldIsNULL( "act_out" ) )
-			old_fl.act = NoExists;
-		else
-		  old_fl.act = Qry.FieldAsDateTime( "act_out" );
-		old_fl.litera = Qry.FieldAsString( "litera" );
-		old_fl.park_out = Qry.FieldAsString( "park_out" );
-		old_fl.pr_del = ( Qry.FieldAsInteger( "pr_del" ) == -1 );
-		old_fl.pr_cancel = ( Qry.FieldAsInteger( "pr_del" ) == 1 ); */
 		lockPoints( move_id );
     Qry.Clear();
     Qry.SQLText =
@@ -1659,18 +1628,17 @@ try {
     Qry.CreateVariable( "craft", otString, fl.craft );
  	  if ( fl.craft != dest.craft ) {
 	  	if ( dest.craft.empty() ) {
- 	  		reqInfo->MsgToLog( string( "Назначение ВС " ) + fl.craft + " порт ВНК" , evtDisp, move_id, point_id );
+ 	  		reqInfo->MsgToLog( string( "Назначение ВС " ) + fl.craft + " порт " + airp , evtDisp, move_id, point_id );
  	  		change_comp = true;
  	  	}
  	  }
  	  Qry.CreateVariable( "bort", otString, fl.bort );
  	  if ( fl.bort != dest.bort ) {
  	  	if ( dest.bort.empty() ) {
- 	  		reqInfo->MsgToLog( string( "Назначение борта " ) + fl.bort + " порт ВНК", evtDisp, move_id, point_id );
+ 	  		reqInfo->MsgToLog( string( "Назначение борта " ) + fl.bort + " порт " + airp, evtDisp, move_id, point_id );
  	  		change_comp = true;
  	  	}
  	  }
- 	  string tl;
  	  if ( fl.est > NoExists )
  	    Qry.CreateVariable( "est_out", otDate, fl.est );
  	  else
@@ -1681,83 +1649,11 @@ try {
  	    Qry.CreateVariable( "act_out", otDate, FNull );
  	  Qry.CreateVariable( "litera", otString, fl.litera );
  	  Qry.CreateVariable( "park_out", otString, fl.park_out );
- 	  if ( fl.est != dest.est_out ) {
- 	  	if ( fl.est > NoExists )
- 	  	  tl += string("Расч. время ") + DateTimeToStr( fl.est, "dd hh:nn" );
- 	  	else
- 	  		tl += "Удаление расч. времени";
- 	  }
  	  err++;
- 	  if ( fl.act != dest.act_out ) {
- 	  	if ( !tl.empty() )
- 	  		tl += ",";
-        if ( fl.act > NoExists ) {
-            try {
-            	exec_stage( point_id, sTakeoff );
-            }
-            catch(EOracleError &E)
-            {
-              ProgError( STDLOG, "EOracleError %d: %s", E.Code, E.what());
-              ProgError( STDLOG, "SQL: %s", E.SQLText());
-            }
-            catch( std::exception &E ) {
-                ProgError( STDLOG, "AODB exec_stage: Takeoff. std::exception: %s", E.what() );
-            }
-            catch( ... ) {
-                ProgError( STDLOG, "AODB exec_stage: Unknown error" );
-            };
-            tl += string("Проставление факт. времени вылета ") + DateTimeToStr( fl.act, "hh:nn dd.mm.yy" ) + string(" (UTC)");
-        }
-        else {
- 	  		  tl += "Отмена факта вылета";
-          time_in_delay = 0.0;
-        }
- 	  	ChangeACT_OUT( point_id, dest.act_out, 	fl.act );
- 	  }
- 	  if ( fl.litera != dest.litera ) {
- 	  	if ( !tl.empty() )
- 	  		tl += ",";
- 	  	tl += string("Литера ") + fl.litera;
- 	  }
- 	  if ( fl.park_out != dest.park_out ) {
- 	  	if ( !tl.empty() )
- 	  		tl += ",";
- 	  	if ( fl.park_out.empty() )
- 	  		tl += "Стоянка удалена";
- 	  	else
-  	    tl += "Стоянка " + fl.park_out;
- 	  }
-/* 	  if ( fl.pr_cancel != old_fl.pr_cancel ) {
- 	  	if ( !tl.empty() )
- 	  		tl += ",";
- 	  	if ( fl.pr_cancel )
- 	  	  tl += "Отмена рейса ";
- 	  	else
- 	  		tl += "Удаление отмены рейса";
- 	  }*/
- 	  if ( !tl.empty() ) {
- 	  	reqInfo->MsgToLog( tl, evtDisp, move_id, point_id );
- 	  }
-/* 	  if ( fl.pr_del )
- 	  	 Qry.CreateVariable( "pr_del", otInteger, -1 );
- 	  else
- 	  	if ( fl.pr_cancel )
- 	  		Qry.CreateVariable( "pr_del", otInteger, 1 );
- 	  	else
- 	  		Qry.CreateVariable( "pr_del", otInteger, 0 );
- 	  if ( fl.pr_del != old_fl.pr_del ) {
- 	  	if ( fl.pr_del )
- 	  		;*//*reqInfo->MsgToLog( string( "Удаление рейса ВНК" ), evtDisp, move_id, point_id );*/
-/* 	  	else
- 	  		reqInfo->MsgToLog( string( "Добавление рейса ВНК" ), evtDisp, move_id, point_id );
- 	  }
- 	  if ( fl.pr_cancel != old_fl.pr_cancel ) {
- 	  	if ( fl.pr_cancel )
- 	  		reqInfo->MsgToLog( string( "Отмена рейса ВНК" ), evtDisp, move_id, point_id );
- 	  	else
- 	  		reqInfo->MsgToLog( string( "Удаление отмены рейса ВНК" ), evtDisp, move_id, point_id );
- 	  }*/
- 	  err++;
+ 	  old_act = dest.act_out;
+ 	  old_est = dest.est_out;
+ 	  if ( old_act != NoExists && fl.act == NoExists )
+ 	    time_in_delay = 0.0;
  	  Qry.Execute();
  	  err++;
  	  if ( change_comp )
@@ -1779,25 +1675,6 @@ try {
     	d.pr_del = ( Qry.FieldAsInteger( "pr_del" ) != 0 );
     	Qry.Next();
     }
-/*    for ( vector<AODB_Dest>::iterator it=fl.dests.begin(),
-    	    vecto; it!=fl.dests.end(); it++ ) {
-
-    	if ( it->pr_del || it->pr_cancel ) {
-    		Qry.Clear();
-  		  Qry.SQLText =
-  	   	 "SELECT COUNT(*) c FROM pax_grp,points "\
-  		   " WHERE points.point_id=:point_id AND "\
-  		   "       point_dep=:point_id AND bag_refuse=0 ";
-  		  Qry.CreateVariable( "point_id", otInteger, point_id );
-  		Qry.Execute();
-  		if ( Qry.FieldAsInteger( "c" ) )
-  			if ( id->pr_del == -1 )
-  				throw UserException( string( "Нельзя удалить аэропорт " ) + id->airp + ". " + "Есть зарегистрированные пассажиры." );
-  			else
-  				throw UserException( string( "Нельзя отменить аэропорт " ) + id->airp + ". " + "Есть зарегистрированные пассажиры." );
-    	}
-    	num++;
-    } 	    	 	  	                     */
     overload_alarm = Get_AODB_overload_alarm( point_id, fl.max_load );
     Qry.Clear();
     Qry.SQLText =
@@ -1814,7 +1691,30 @@ try {
     	Set_overload_alarm( point_id, Calc_overload_alarm( point_id, fltInfo ) );
     }
 	} // end update
-	
+  tst();
+  if ( old_est != fl.est ) {
+    if ( fl.est != NoExists ) {
+      ProgTrace( TRACE5, "events: %s, %d, %d",
+                 string(string("Проставление расч. время вылета порт ") + airp + " " + DateTimeToStr( fl.est, "dd hh:nn" )).c_str(), move_id, point_id );
+      reqInfo->MsgToLog( string("Проставление расч. время вылета порт ") + airp + " " + DateTimeToStr( fl.est, "dd hh:nn" ), evtDisp, move_id, point_id );
+    }
+    else
+      if ( old_est != NoExists ) {
+      ProgTrace( TRACE5, "events: %s, %d, %d",
+                 string(string("Удаление расч. времени вылета порт ") + airp).c_str(), move_id, point_id );
+        reqInfo->MsgToLog( string("Удаление расч. времени вылета порт ") + airp, evtDisp, move_id, point_id );
+      }
+  }
+  tst();
+  err++;
+  if ( old_act != fl.act ) {
+    if ( fl.act != NoExists )
+      reqInfo->MsgToLog( string("Проставление факт. времени вылета порт ")  + airp + " " + DateTimeToStr( fl.act, "hh:nn dd.mm.yy" ) + string(" (UTC)"), evtDisp, move_id, point_id );
+    else
+      if ( old_act != NoExists )
+        reqInfo->MsgToLog( string("Отмена факта вылета порт ") + airp, evtDisp, move_id, point_id );
+  }
+  tst();
 	//определяем время задержки на прилет
   if ( time_in_delay != NoExists ) { //есть задержка на прилет в след. пункте
     TTripRoute routes;
@@ -1832,8 +1732,6 @@ try {
       Qry.Execute();
     }
   }
-  err++;
-  bindingAODBFlt( point_addr, point_id, fl.id );
   err++;
   Set_AODB_overload_alarm( point_id, overload_alarm );
 	// обновление времен технологического графика
@@ -1921,6 +1819,27 @@ try {
 		  reqInfo->MsgToLog( string( "Назначение выходов на посадку" ) + brd, evtDisp, move_id, point_id );
 	}
 	bind_tlg_oper(flts, true);
+	tst();
+	if ( old_act != fl.act ) {
+    if ( old_act == NoExists && fl.act > NoExists ) {
+      try {
+       	exec_stage( point_id, sTakeoff );
+      }
+      catch(EOracleError &E) {
+        ProgError( STDLOG, "EOracleError %d: %s", E.Code, E.what());
+        ProgError( STDLOG, "SQL: %s", E.SQLText());
+      }
+      catch( std::exception &E ) {
+        ProgError( STDLOG, "AODB exec_stage: Takeoff. std::exception: %s", E.what() );
+      }
+      catch( ... ) {
+        ProgError( STDLOG, "AODB exec_stage: Unknown error" );
+      };
+    }
+ 	  ChangeACT_OUT( point_id, old_act, fl.act );
+  }
+  bindingAODBFlt( point_addr, point_id, fl.id );
+  err++;
 }
 catch(EOracleError &E)
 {
