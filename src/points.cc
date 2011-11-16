@@ -1472,6 +1472,15 @@ void PointsKeyTrip<T>::DoEvents( int move_id )
                                       " "+tripInfo.airp+": Была вызвана процедура привязки PNL", evtDisp, move_id, this->key.point_id );
     else
       TReqInfo::Instance()->MsgToLog( " "+tripInfo.airp+": Была вызвана процедура привязки PNL", evtDisp, move_id, this->key.point_id );
+    try {
+      string region = AirpTZRegion( this->key.airp, true );
+      TDateTime locale_scd_out = UTCToLocal( this->key.scd_out, region );
+      bindingAODBFlt( this->key.airline, this->key.flt_no, this->key.suffix,
+                      locale_scd_out, this->key.airp );
+    }
+    catch(std::exception &E) {
+      ProgError(STDLOG,"BindAODBFlt: point_id=%d, %s",this->key.point_id,E.what());
+    };
   }
   tst();
   this->dests.size();
@@ -1939,4 +1948,63 @@ void WriteDests( TPoints &points, bool ignoreException,
   }
 }
 
+bool findFlt( const std::string &airline, const int &flt_no, const std::string &suffix,
+              const BASIC::TDateTime &local_scd_out, const std::string &airp, const int &withDeleted,
+              TFndFlts &flts )
+{
+  flts.clear();
+  TQuery Qry(&OraSession);
+  string sql =
+	 "SELECT point_id, move_id, airp, scd_out, pr_del "
+	 " FROM points "
+   "WHERE airline=:airline AND flt_no=:flt_no AND "
+	 "     ( suffix IS NULL AND :suffix IS NULL OR suffix=:suffix ) AND "
+	 "     airp=:airp AND "
+	 "     scd_out>=:scd_out AND scd_out<:scd_out+1";
+  if ( !withDeleted )
+    sql += " AND pr_del != -1";
+  Qry.SQLText = sql;
+	Qry.CreateVariable( "airline", otString, airline );
+	Qry.CreateVariable( "flt_no", otInteger, flt_no );
+	if ( suffix.empty() )
+	  Qry.CreateVariable( "suffix", otString, FNull );
+	else
+		Qry.CreateVariable( "suffix", otString, suffix );
+  string region = AirpTZRegion( airp, true );
+	TDateTime  utc_scd_out =  LocalToUTC( local_scd_out, region );
+	modf( utc_scd_out, &utc_scd_out );
+	Qry.CreateVariable( "scd_out", otDate, utc_scd_out );
+	Qry.CreateVariable( "airp", otString, airp );
+	Qry.Execute();
+	TDateTime lso;
+	modf( local_scd_out, &lso );
+	//может выбраться 2 рейса
+	while ( !Qry.Eof ) {
+    tst();
+    TDateTime local_scd_out1 = UTCToLocal( Qry.FieldAsDateTime( "scd_out" ), region );
+    modf( local_scd_out1, &local_scd_out1 );
+    ProgTrace( TRACE5, "local_scd_out1=%f, local_scd_out=%f", local_scd_out1, lso );
+    if ( local_scd_out1 == lso ) {
+      tst();
+      TFndFlt flt;
+      flt.move_id = Qry.FieldAsInteger( "move_id" );
+      flt.point_id = Qry.FieldAsInteger( "point_id" );
+      flt.pr_del = Qry.FieldAsInteger( "pr_del" );
+      flts.push_back( flt );
+    }
+    Qry.Next();
+	}
+	return !flts.empty();
+}
 
+void lockPoints( int move_id )
+{       //!!!подумать
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+   "BEGIN "
+   " UPDATE points SET move_id=move_id WHERE move_id=:move_id; "
+   " UPDATE move_ref SET move_id=move_id WHERE move_id=:move_id; "
+   "END;";
+  Qry.CreateVariable( "move_id", otInteger, move_id );
+  Qry.Execute(); // лочим
+}
