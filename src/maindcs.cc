@@ -189,6 +189,66 @@ void GetNotices(xmlNodePtr resNode)
   };
 };
 
+void CheckTermExpireDate(void)
+{
+  try
+  {
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    if (reqInfo->client_type!=ctTerm) return;
+    if (!reqInfo->desk.compatible(OLDEST_SUPPORTED_VERSION))
+      throw AstraLocale::UserException("MSG.TERM_VERSION.NOT_SUPPORTED");
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    Qry.SQLText=
+      "SELECT MIN(expire_date) AS expire_date "
+      "FROM term_expire_dates "
+      "WHERE (term_mode IS NULL OR term_mode=:term_mode) AND "
+      "      (first_version IS NULL OR first_version<=:version) AND "
+      "      (last_version IS NULL OR last_version>=:version) ";
+    Qry.CreateVariable("term_mode",otString,EncodeOperMode(reqInfo->desk.mode));
+    Qry.CreateVariable("version",otString,reqInfo->desk.version);
+    Qry.Execute();
+    if (Qry.Eof || Qry.FieldIsNULL("expire_date")) return;
+
+    BASIC::TDateTime expire_date=Qry.FieldAsDateTime("expire_date");
+    if (expire_date<=BASIC::NowUTC())
+      throw AstraLocale::UserException("MSG.TERM_VERSION.NOT_SUPPORTED");
+    double remainDays=expire_date-BASIC::NowUTC();
+    modf(floor(remainDays),&remainDays);
+    int remainDaysInt=(int)remainDays;
+    LexemaData lexeme;
+    if (remainDaysInt>0)
+    {
+      if (reqInfo->desk.lang==AstraLocale::LANG_RU)
+      {
+        if ((remainDaysInt%10)==1 && remainDaysInt!=11)
+          lexeme.lexema_id="MSG.TERM_VERSION.NEED_TO_UPDATE.WITHIN_DAY";
+        else
+          lexeme.lexema_id="MSG.TERM_VERSION.NEED_TO_UPDATE.WITHIN_DAYS";
+      }
+      else
+      {
+        if (remainDaysInt==1)
+          lexeme.lexema_id="MSG.TERM_VERSION.NEED_TO_UPDATE.WITHIN_DAY";
+        else
+          lexeme.lexema_id="MSG.TERM_VERSION.NEED_TO_UPDATE.WITHIN_DAYS";
+      };
+      lexeme.lparams << LParam("days", remainDaysInt);
+    }
+    else
+    {
+      lexeme.lexema_id="MSG.TERM_VERSION.NEED_TO_UPDATE.URGENT";
+    };
+    AstraLocale::showErrorMessage("WRAP.CONTACT_SUPPORT", LParams()<<LParam("text", lexeme));
+  }
+  catch(UserException &E)
+  {
+    throw UserException("WRAP.CONTACT_SUPPORT", LParams()<<LParam("text", E.getLexemaData()));
+  };
+
+  return;
+};
+
 void MainDCSInterface::DisableNotices(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   xmlNodePtr node=NodeAsNode("notices",reqNode);
@@ -1602,37 +1662,7 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     reqInfo->Initialize( reqInfoData );
 
     //здесь reqInfo нормально инициализирован
-    if (reqInfo->client_type==ctTerm &&
-        !reqInfo->desk.compatible(NEW_TERM_VERSION))
-    {
-      Qry.Clear();
-      Qry.SQLText="SELECT expire_date FROM old_term_expire_date ORDER BY expire_date";
-      Qry.Execute();
-      if (!Qry.Eof && !Qry.FieldIsNULL("expire_date"))
-      {
-        BASIC::TDateTime expire_date=Qry.FieldAsDateTime("expire_date");
-        if (expire_date<=BASIC::NowUTC())
-          throw AstraLocale::UserException("Версия терминала не поддерживается! Требуется обновление. Тел. поддержки: (495)363-3266");
-        double remainDays=expire_date-BASIC::NowUTC();
-        modf(floor(remainDays),&remainDays);
-        int remainDaysInt=(int)remainDays;
-        ostringstream str;
-        if (remainDaysInt>0)
-        {
-          str << "Необходимо обновить версию терминала в течении " << remainDaysInt;
-          if ((remainDaysInt%10)==1 && remainDaysInt!=11)
-            str << " дня!";
-          else
-            str << " дней!";
-        }
-        else
-        {
-          str << "Необходимо срочно обновить версию терминала!";
-        };
-        str << " Тел. поддержки: (495)363-3266";
-        AstraLocale::showErrorMessage(str.str());
-      };
-    };
+    CheckTermExpireDate();
     
     GetModuleList(resNode);
     ConvertDevOldFormat(reqNode,resNode);

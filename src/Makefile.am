@@ -56,7 +56,6 @@ astra_SOURCES = \
   maindcs.cc \
   obrnosir.cc \
   payment.cc \
-  payment2.cc \
   prepreg.cc \
   print.cc \
   prn_tag_store.cc \
@@ -145,7 +144,6 @@ noinst_HEADERS = \
   maindcs.h \
   obrnosir.h \
   payment.h \
-  payment2.h \
   prepreg.h \
   print.h \
   prn_tag_store.h \
