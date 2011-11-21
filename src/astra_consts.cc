@@ -9,8 +9,6 @@ const char * ClientTypeS[] =
 const char * OperModeS[] =
     {"CUSE", "CUTE", "MUSE", "RESA", "STAND"};
 
-const char * TDocTypeS[] = {"BP", "BT", "Receipt", "FltDoc", "Archiv", "Disp", "Tlg", ""};
-
 const char * EventTypeS[] =
     {"‘…‡","„ˆ‘","…‰","ƒ”","€‘","‹","ŠŒ","’‹ƒ","„‘’","‘ˆ‘","Š„","„","!","?"};
 

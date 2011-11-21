@@ -17,7 +17,6 @@ namespace fs = boost::filesystem;
 using namespace EXCEPTIONS;
 
 const string FALSE_LOCALE = "0";
-const string DEF_VERS = "000000-0000000";
 
 // тест
 

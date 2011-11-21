@@ -12,6 +12,7 @@
 #include "brd.h"
 #include "astra_misc.h"
 #include "term_version.h"
+#include "load_fr.h"
 #include "jxtlib/xml_stuff.h"
 #include "serverlib/str_utils.h"
 #include <boost/shared_array.hpp>
@@ -3008,19 +3009,14 @@ void  DocsInterface::SaveReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         version = get_report_version(name);
 
     string form = NodeAsString("form", reqNode);
-    if (TReqInfo::Instance()->desk.compatible(NEW_TERM_VERSION)) {
-        Qry.SQLText = "update fr_forms2 set form = :form where name = :name and version = :version";
-        Qry.CreateVariable("version", otString, version);
-    } else
-        Qry.SQLText = "update fr_forms set form = :form where name = :name";
+    Qry.SQLText = "update fr_forms2 set form = :form where name = :name and version = :version";
+    Qry.CreateVariable("version", otString, version);
     Qry.CreateVariable("name", otString, name);
     Qry.CreateLongVariable("form", otLong, (void *)form.c_str(), form.size());
     Qry.Execute();
     if(!Qry.RowsProcessed()) {
-        if (TReqInfo::Instance()->desk.compatible(NEW_TERM_VERSION))
-            Qry.SQLText = "insert into fr_forms2(name, version, form) values(:name, '000000-0000000', :form)";
-        else
-            Qry.SQLText = "insert into fr_forms(id, name, form) values(id__seq.nextval, :name, :form)";
+        Qry.SQLText = "insert into fr_forms2(name, version, form) values(:name, :version, :form)";
+        Qry.SetVariable("version", DEF_VERS);
         Qry.Execute();
     }
     TReqInfo::Instance()->MsgToLog( (string)"Обновлен шаблон отчета " + name, evtSystem);
@@ -3099,12 +3095,9 @@ void get_report_form(const string name, xmlNodePtr resNode)
     string form;
     string version;
     TQuery Qry(&OraSession);
-    if (TReqInfo::Instance()->desk.compatible(NEW_TERM_VERSION) or TReqInfo::Instance()->screen.name == "DOCS.EXE") {
-        Qry.SQLText = "select form, pr_locale from fr_forms2 where name = :name and version = :version ";
-        version = get_report_version(name);
-        Qry.CreateVariable("version", otString, version);
-    } else
-        Qry.SQLText = "select form from fr_forms where name = :name";
+    Qry.SQLText = "select form, pr_locale from fr_forms2 where name = :name and version = :version ";
+    version = get_report_version(name);
+    Qry.CreateVariable("version", otString, version);
     Qry.CreateVariable("name", otString, name);
     Qry.Execute();
     if(Qry.Eof) {
@@ -3122,8 +3115,7 @@ void get_report_form(const string name, xmlNodePtr resNode)
     xmlNodePtr formNode = ReplaceTextChild(resNode, "form", form);
     SetProp(formNode, "name", name);
     SetProp(formNode, "version", version);
-    if ((TReqInfo::Instance()->desk.compatible(NEW_TERM_VERSION) or TReqInfo::Instance()->screen.name == "DOCS.EXE") and
-            Qry.FieldAsInteger("pr_locale") != 0)
+    if (Qry.FieldAsInteger("pr_locale") != 0)
         SetProp(formNode, "pr_locale");
 }
 

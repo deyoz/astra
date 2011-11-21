@@ -39,7 +39,6 @@ astra_SOURCES = \
   comp_layers.cc \
   convert.cc \
   crypt.cc \
-  design_blank.cc \
   dev_consts.cc \
   dev_tuning.cc \
   dev_utils.cc \
@@ -129,7 +128,6 @@ noinst_HEADERS = \
   comp_layers.h \
   convert.h \
   crypt.h \
-  design_blank.h \
   dev_consts.h \
   dev_tuning.h \
   dev_utils.h \

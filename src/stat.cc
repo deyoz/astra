@@ -85,7 +85,6 @@ void GetSystemLogStationSQL(TQuery &Qry);
 void GetSystemLogModuleSQL(TQuery &Qry);
 
 enum TScreenState {ssNone,ssLog,ssPaxList,ssFltLog,ssSystemLog,ssPaxSrc};
-enum TDROPScreenState {dssNone,dssStat,dssPax,dssLog,dssDepStat,dssBagTagStat,dssPaxList,dssFltLog,dssSystemLog,dssPaxSrc,dssTlgArch};
 
 void GetSystemLogAgentSQL(TQuery &Qry)
 {
@@ -181,34 +180,7 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     xmlNodePtr prDelNode = GetNode("pr_del", reqNode);
     if(prDelNode)
         pr_show_del = NodeAsInteger(prDelNode) == 1;
-    TScreenState scr = ssNone;
-    if (TReqInfo::Instance()->desk.compatible(NEW_TERM_VERSION))
-        scr = TScreenState(NodeAsInteger("scr", reqNode));
-    else {
-        TDROPScreenState drop_scr = TDROPScreenState(NodeAsInteger("scr", reqNode));
-        switch(drop_scr) {
-            case dssNone:
-                scr = ssNone;
-                break;
-            case dssLog:
-                scr = ssLog;
-                break;
-            case dssPaxList:
-                scr = ssPaxList;
-                break;
-            case dssFltLog:
-                scr = ssFltLog;
-                break;
-            case dssSystemLog:
-                scr = ssSystemLog;
-                break;
-            case dssPaxSrc:
-                scr = ssPaxSrc;
-                break;
-            default:
-                throw Exception("StatInterface::FltCBoxDropDown: unexpected drop_scr: %d", drop_scr);
-        }
-    }
+    TScreenState scr = TScreenState(NodeAsInteger("scr", reqNode));
     ProgTrace(TRACE5, "scr: %d", scr);
     TReqInfo &reqInfo = *(TReqInfo::Instance());
     TQuery Qry(&OraSession);

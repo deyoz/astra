@@ -103,11 +103,7 @@ void ImagesInterface::GetImages( xmlNodePtr reqNode, xmlNodePtr resNode )
          throw Exception( "Ошибка программы" );
        Qry->FieldAsLong( "image", data );
        string res;
-       TReqInfo *reqInfo = TReqInfo::Instance();
-	     if (!reqInfo->desk.compatible(NEW_TERM_VERSION))
-         res = StrUtils::b64_encode( (const char*)data, len );
-       else
-       	 StringToHex( string((char*)data, len), res );
+       StringToHex( string((char*)data, len), res );
        NewTextChild( imageNode, "image", res.c_str() );
      }
      Qry->Next();
@@ -150,16 +146,12 @@ void ImagesInterface::SetImages(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
    if ( node != NULL ) {
      node = node->children;
      string StrDec;
-     TReqInfo *reqInfo = TReqInfo::Instance();
      while ( node ) {
        Qry->SetVariable( "code", NodeAsString( "code", node ) );
        Qry->SetVariable( "name", NodeAsString( "name", node ) );
        Qry->SetVariable( "pr_seat", NodeAsString( "pr_seat", node ) );
        StrDec = NodeAsString( "image", node );
-       if (!reqInfo->desk.compatible(NEW_TERM_VERSION))
-         StrDec = StrUtils::b64_decode( StrDec.c_str(), StrDec.length() );
-       else
-       	 HexToString( string(StrDec), StrDec );
+       HexToString( string(StrDec), StrDec );
        Qry->CreateLongVariable( "image", otLongRaw, (void*)StrDec.c_str(), StrDec.length() );
        Qry->Execute();
        node = node->next;

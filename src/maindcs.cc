@@ -981,8 +981,6 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
       if ( !sess_name.empty() && !fmt_name.empty() ) {
       	SetProp( pNode, "sess_fmt_name", sess_name + "/" + "fmt_name" );
       }
-      if (!reqInfo->desk.compatible(NEW_TERM_VERSION))
-        NewTextChild( newoperNode, "dev_model_name", ElemIdToNameLong(etDevModel,dev_model));
 
       SessParamsQry.SetVariable("dev_model",dev_model);
       SessParamsQry.SetVariable("sess_type",sess_type);
@@ -1176,6 +1174,26 @@ void MainDCSInterface::CheckUserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     };
 }
 
+// Š‚…’€–ˆŸ ‘’€ƒ ”€‰‹€ - €—€‹
+
+typedef enum {dtBP, dtBT, dtReceipt, dtFltDoc, dtArchive, dtDisp, dtTlg, dtUnknown} TDocType;
+const char * TDocTypeS[8] = {"BP", "BT", "Receipt", "FltDoc", "Archiv", "Disp", "Tlg", ""};
+
+TDocType DecodeDocType(const char* s)
+{
+  unsigned int i;
+  for(i=0;i<sizeof(TDocTypeS)/sizeof(TDocTypeS[0]);i+=1) if (strcmp(s,TDocTypeS[i])==0) break;
+  if (i<sizeof(TDocTypeS)/sizeof(TDocTypeS[0]))
+    return (TDocType)i;
+  else
+    return dtUnknown;
+};
+
+const char* EncodeDocType(TDocType doc)
+{
+  return TDocTypeS[doc];
+};
+
 struct TOldPrnParams
 {
   int code;
@@ -1203,7 +1221,58 @@ TDocTypeConvert docTypes[7] = { {dtBP,     "PRINT_BP"   },
                                 {dtArchive,"PRINT_ARCH" },
                                 {dtDisp,   "PRINT_DISP" },
                                 {dtTlg,    "PRINT_TLG"  } };
+                                
+void GetPrinterList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
 
+    TDocType doc = DecodeDocType(NodeAsString("doc_type", reqNode));
+
+    TQuery Qry(&OraSession);
+    xmlNodePtr printersNode = NewTextChild(resNode, "printers");
+
+    switch(doc) {
+        case dtBP:
+        case dtBT:
+        case dtReceipt:
+            break;
+        case dtFltDoc:
+        case dtArchive:
+        case dtDisp:
+        case dtTlg:
+            NewTextChild(printersNode, "drv");
+            return;
+        default:
+            throw Exception("Unknown DocType " + IntToString(doc));
+    }
+
+    Qry.SQLText =
+      "SELECT code, name, iface, format_id, format, pr_stock "
+      "FROM old_prn_types "
+      "WHERE doc_type=:doc_type "
+      "ORDER BY name";
+    Qry.CreateVariable("doc_type", otString, EncodeDocType(doc));
+    Qry.Execute();
+    if(Qry.Eof) throw AstraLocale::UserException("MSG.PRINTERS_NOT_FOUND");
+    while(!Qry.Eof) {
+        xmlNodePtr printerNode = NewTextChild(printersNode, "printer");
+
+        int code = Qry.FieldAsInteger("code");
+        string name = Qry.FieldAsString("name");
+        string iface = Qry.FieldAsString("iface");
+        int format_id = Qry.FieldAsInteger("format_id");
+        string format = Qry.FieldAsString("format");
+        int pr_stock = Qry.FieldAsInteger("pr_stock");
+
+        NewTextChild(printerNode, "code", code);
+        NewTextChild(printerNode, "name", name);
+        NewTextChild(printerNode, "iface", iface);
+        NewTextChild(printerNode, "format_id", format_id);
+        NewTextChild(printerNode, "format", format);
+        NewTextChild(printerNode, "pr_stock", pr_stock);
+
+        Qry.Next();
+    }
+}
 
 void ConvertDevOldFormat(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -1249,12 +1318,9 @@ void ConvertDevOldFormat(xmlNodePtr reqNode, xmlNodePtr resNode)
           node=NodeAsNode("/request",reqDoc.docPtr());
           NewTextChild(node, "doc_type", devOper);
 
-
-          JxtInterfaceMng::Instance()->
-            GetInterface("print")->
-              OnEvent("GetPrinterList",  ctxt,
-                                         NodeAsNode("/request",reqDoc.docPtr()),
-                                         NodeAsNode("/response",resDoc.docPtr()));
+          GetPrinterList(ctxt,
+                         NodeAsNode("/request",reqDoc.docPtr()),
+                         NodeAsNode("/response",resDoc.docPtr()));
 
           node = NodeAsNode("/response/printers/*[1]", resDoc.docPtr());
 
@@ -1589,6 +1655,8 @@ void ConvertDevOldFormat(xmlNodePtr reqNode, xmlNodePtr resNode)
              </printer>
   */
 }
+
+// Š‚…’€–ˆŸ ‘’€ƒ ”€‰‹€ - Š—€ˆ…
 
 void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {

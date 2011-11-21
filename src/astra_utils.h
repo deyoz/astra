@@ -257,8 +257,6 @@ ASTRA::TRptType DecodeRptType(const std::string s);
 const std::string EncodeRptType(ASTRA::TRptType s);
 ASTRA::TClientType DecodeClientType(const char* s);
 const char* EncodeClientType(ASTRA::TClientType s);
-ASTRA::TDocType DecodeDocType(const char* s);
-const char* EncodeDocType(ASTRA::TDocType doc);
 ASTRA::TClass DecodeClass(const char* s);
 const char* EncodeClass(ASTRA::TClass cl);
 ASTRA::TPerson DecodePerson(const char* s);
