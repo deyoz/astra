@@ -1225,24 +1225,28 @@ void SysReqInterface::ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     if (strcmp((char*)node->name,"msg")==0)
     {
       string error_type="ERROR";
-      Qry.SetVariable("text", NodeAsString(node));
-      Qry.Execute();
-      if (!Qry.Eof) error_type=Qry.FieldAsString("type");
+      string text=NodeAsString(node);
+      if (text.size()<=250)
+      {
+        Qry.SetVariable("text", text);
+        Qry.Execute();
+        if (!Qry.Eof) error_type=Qry.FieldAsString("type");
+      };
       if (error_type=="IGNORE") continue;
       
       if (error_type=="ERROR")
         ProgError( STDLOG, "Client error (ver. %s): %s.",
                            TReqInfo::Instance()->desk.version.c_str(),
-                           NodeAsString(node) ) ;
+                           text.c_str() ) ;
       else
         if (error_type=="TRACE0")
           ProgTrace( TRACE0, "Client error (ver. %s): %s.",
                              TReqInfo::Instance()->desk.version.c_str(),
-                             NodeAsString(node) ) ;
+                             text.c_str() ) ;
         else
           ProgTrace( TRACE5, "Client error (ver. %s): %s.",
                              TReqInfo::Instance()->desk.version.c_str(),
-                             NodeAsString(node) ) ;
+                             text.c_str() ) ;
     };
   };
 }

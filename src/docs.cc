@@ -3014,11 +3014,8 @@ void  DocsInterface::SaveReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     Qry.CreateVariable("name", otString, name);
     Qry.CreateLongVariable("form", otLong, (void *)form.c_str(), form.size());
     Qry.Execute();
-    if(!Qry.RowsProcessed()) {
-        Qry.SQLText = "insert into fr_forms2(name, version, form) values(:name, :version, :form)";
-        Qry.SetVariable("version", DEF_VERS);
-        Qry.Execute();
-    }
+    if(!Qry.RowsProcessed())
+      throw UserException("MSG.REPORT_UPDATE_FAILED.NOT_FOUND", LParams() << LParam("report_name", name));
     TReqInfo::Instance()->MsgToLog( (string)"Обновлен шаблон отчета " + name, evtSystem);
 }
 
