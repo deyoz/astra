@@ -8,6 +8,7 @@
 
 
 const std::string PARAM_WORK_DIR = "WORKDIR";
+const std::string PARAM_MAIL_INTERVAL = "MAIL_INTERVAL";
 const std::string PARAM_LOAD_DIR = "LOADDIR";
 const std::string PARAM_CANON_NAME = "CANON_NAME";
 const std::string PARAM_FILE_NAME = "FileName";
@@ -53,9 +54,11 @@ void CreateCentringFileDATA( int point_id );
 void createSofiFileDATA( int receipt_id );
 void createAODBFileDATA( int point_id );
 void sync_aodb( void );
+void sync_aodb( int point_id );
 void sync_sppcek( void );
 void sync_1ccek( void );
 void sync_checkin_data( void );
+void sync_checkin_data( int point_id );
 
 
 class AstraServiceInterface : public JxtInterface
