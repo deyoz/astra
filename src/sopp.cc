@@ -3977,9 +3977,25 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 		if ( fnode ) {
 			d.bort = NodeAsString( fnode );
 			d.bort = TrimString( d.bort );
+			//ã¤ «ï¥¬ ¢á¥ ­¥¢¨¤¨¬ë¥ á¬¨¢®«ë
       for ( string::iterator istr=d.bort.begin(); istr!=d.bort.end(); istr++ ) {
-        if ( !IsDigitIsLetter( *istr ) && *istr != '-' && *istr != ' ' )
-          throw AstraLocale::UserException( "MSG.INVALID_BOARD_NUM" ); //!!! ¢ë¢®¤¨âì ¨­äã ® â®¬, çâ® ¢®§¬®¦¥­ æ¨äà®¢®-¡ãª¢¥­­ë© ¢ à¨ ­â + ' ' + '-'
+        if ( *istr >= 0 && *istr < ' ' )
+          *istr = ' ';
+      }
+      char prior_char = 0;
+      string::iterator istr=d.bort.begin();
+      while ( istr != d.bort.end() ) {
+        if ( !IsDigitIsLetter( *istr ) ) {
+          if ( *istr != '-' && *istr != ' ' )
+            throw AstraLocale::UserException( "MSG.INVALID_CHARS_IN_BOARD_NUM",
+                                              LParams() << LParam("symbol", string(1,*istr)) );
+          if ( *istr == prior_char && prior_char == ' ' ) {
+            istr = d.bort.erase( istr );
+            continue;
+          }
+        }
+        prior_char = *istr;
+        istr++;
       }
     }
 		else
