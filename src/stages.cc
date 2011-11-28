@@ -925,6 +925,32 @@ void Takeoff( int point_id )
   if (time_end-time_start>1)
     ProgTrace(TRACE5,"Attention! create_apis_file execute time: %ld secs, point_id=%d",
                      time_end-time_start,point_id);
+  time_start=time(NULL);
+  try
+  {
+    sync_checkin_data( point_id );
+  }
+  catch(std::exception &E)
+  {
+    ProgError(STDLOG,"Takeoff.sync_checkin_data (point_id=%d): %s",point_id,E.what());
+  };
+  time_end=time(NULL);
+  if (time_end-time_start>1)
+    ProgTrace(TRACE5,"Attention! sync_checkin_data execute time: %ld secs, point_id=%d",
+                     time_end-time_start,point_id);
+  try
+  {
+    sync_aodb( point_id );
+  }
+  catch(std::exception &E)
+  {
+    ProgError(STDLOG,"Takeoff.sync_aodb (point_id=%d): %s",point_id,E.what());
+  };
+  time_end=time(NULL);
+  if (time_end-time_start>1)
+    ProgTrace(TRACE5,"Attention! sync_aodb execute time: %ld secs, point_id=%d",
+                     time_end-time_start,point_id);
+
 }
 
 
