@@ -1797,10 +1797,12 @@ int COM(TTlgInfo &info)
         TCOMZones zones;
         TCOMStats stats;
         classes.get(info);
-        zones.get(info);
         stats.get(info);
         classes.ToTlg(info, body);
-        zones.ToTlg(body);
+        if(info.tlg_type == "COM") {
+            zones.get(info);
+            zones.ToTlg(body);
+        }
         stats.ToTlg(info, body);
         tlg_row.body = body.str();
     } catch(...) {
