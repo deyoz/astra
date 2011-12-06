@@ -867,26 +867,16 @@ void TripsInterface::GetSegInfo(xmlNodePtr reqNode, xmlNodePtr resNode, xmlNodeP
     node=GetNode( "tripBPpectabs", reqNode );
     if (node!=NULL)
     {
-        int prn_type = NodeAsInteger("prn_type", node, NoExists);
-        string dev_model = NodeAsString("dev_model", node, "");
-        string fmt_type = NodeAsString("fmt_type", node, "");
-        check_CUTE_certified(prn_type, dev_model, fmt_type);
-        if(dev_model.empty())
-            GetTripBPPectabs( point_id, prn_type, dataNode );
-        else
-            GetTripBPPectabs( point_id, dev_model, fmt_type, dataNode );
+        string dev_model = NodeAsString("dev_model", node);
+        string fmt_type = NodeAsString("fmt_type", node);
+        GetTripBPPectabs( point_id, dev_model, fmt_type, dataNode );
     };
     node=GetNode( "tripBTpectabs", reqNode );
     if (node!=NULL)
     {
-        int prn_type = NodeAsInteger("prn_type", node, NoExists);
-        string dev_model = NodeAsString("dev_model", node, "");
-        string fmt_type = NodeAsString("fmt_type", node, "");
-        check_CUTE_certified(prn_type, dev_model, fmt_type);
-        if(dev_model.empty())
-            GetTripBTPectabs( point_id, prn_type, dataNode );
-        else
-            GetTripBTPectabs( point_id, dev_model, fmt_type, dataNode );
+        string dev_model = NodeAsString("dev_model", node);
+        string fmt_type = NodeAsString("fmt_type", node);
+        GetTripBTPectabs( point_id, dev_model, fmt_type, dataNode );
     };
   };
   if (reqInfo->screen.name == "CENT.EXE")
@@ -1075,22 +1065,6 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
     stage_time = UTCToClient( tripStages.time( sRemovalGangWay ), tz_region );
   if (stage_time!=0)
     NewTextChild( node, "stage_time", DateTimeToStr(stage_time,"hh:nn") );
-
-  if (!reqInfo->desk.compatible(NEW_TERM_VERSION))
-  {
-    //признак назначенного салона
-    if ( reqInfo->screen.name == "CENT.EXE" ||
-         reqInfo->screen.name == "AIR.EXE" ||
-         reqInfo->screen.name == "PREPREG.EXE" )
-    {
-      TQuery Qryh( &OraSession );
-      Qryh.Clear();
-      Qryh.SQLText="SELECT point_id FROM trip_comp_elems WHERE point_id=:point_id AND rownum<2";
-      Qryh.CreateVariable( "point_id", otInteger, point_id );
-      Qryh.Execute();
-      NewTextChild( node, "pr_saloninit", (int)(!Qryh.Eof) );
-    };
-  };
 
   if (reqInfo->screen.name == "CENT.EXE" ||
       reqInfo->screen.name == "KASSA.EXE" )

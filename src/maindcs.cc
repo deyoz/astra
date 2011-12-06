@@ -189,6 +189,66 @@ void GetNotices(xmlNodePtr resNode)
   };
 };
 
+void CheckTermExpireDate(void)
+{
+  try
+  {
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    if (reqInfo->client_type!=ctTerm) return;
+    if (!reqInfo->desk.compatible(OLDEST_SUPPORTED_VERSION))
+      throw AstraLocale::UserException("MSG.TERM_VERSION.NOT_SUPPORTED");
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    Qry.SQLText=
+      "SELECT MIN(expire_date) AS expire_date "
+      "FROM term_expire_dates "
+      "WHERE (term_mode IS NULL OR term_mode=:term_mode) AND "
+      "      (first_version IS NULL OR first_version<=:version) AND "
+      "      (last_version IS NULL OR last_version>=:version) ";
+    Qry.CreateVariable("term_mode",otString,EncodeOperMode(reqInfo->desk.mode));
+    Qry.CreateVariable("version",otString,reqInfo->desk.version);
+    Qry.Execute();
+    if (Qry.Eof || Qry.FieldIsNULL("expire_date")) return;
+
+    BASIC::TDateTime expire_date=Qry.FieldAsDateTime("expire_date");
+    if (expire_date<=BASIC::NowUTC())
+      throw AstraLocale::UserException("MSG.TERM_VERSION.NOT_SUPPORTED");
+    double remainDays=expire_date-BASIC::NowUTC();
+    modf(floor(remainDays),&remainDays);
+    int remainDaysInt=(int)remainDays;
+    LexemaData lexeme;
+    if (remainDaysInt>0)
+    {
+      if (reqInfo->desk.lang==AstraLocale::LANG_RU)
+      {
+        if ((remainDaysInt%10)==1 && remainDaysInt!=11)
+          lexeme.lexema_id="MSG.TERM_VERSION.NEED_TO_UPDATE.WITHIN_DAY";
+        else
+          lexeme.lexema_id="MSG.TERM_VERSION.NEED_TO_UPDATE.WITHIN_DAYS";
+      }
+      else
+      {
+        if (remainDaysInt==1)
+          lexeme.lexema_id="MSG.TERM_VERSION.NEED_TO_UPDATE.WITHIN_DAY";
+        else
+          lexeme.lexema_id="MSG.TERM_VERSION.NEED_TO_UPDATE.WITHIN_DAYS";
+      };
+      lexeme.lparams << LParam("days", remainDaysInt);
+    }
+    else
+    {
+      lexeme.lexema_id="MSG.TERM_VERSION.NEED_TO_UPDATE.URGENT";
+    };
+    AstraLocale::showErrorMessage("WRAP.CONTACT_SUPPORT", LParams()<<LParam("text", lexeme));
+  }
+  catch(UserException &E)
+  {
+    throw UserException("WRAP.CONTACT_SUPPORT", LParams()<<LParam("text", E.getLexemaData()));
+  };
+
+  return;
+};
+
 void MainDCSInterface::DisableNotices(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   xmlNodePtr node=NodeAsNode("notices",reqNode);
@@ -921,8 +981,6 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
       if ( !sess_name.empty() && !fmt_name.empty() ) {
       	SetProp( pNode, "sess_fmt_name", sess_name + "/" + "fmt_name" );
       }
-      if (!reqInfo->desk.compatible(NEW_TERM_VERSION))
-        NewTextChild( newoperNode, "dev_model_name", ElemIdToNameLong(etDevModel,dev_model));
 
       SessParamsQry.SetVariable("dev_model",dev_model);
       SessParamsQry.SetVariable("sess_type",sess_type);
@@ -1116,6 +1174,26 @@ void MainDCSInterface::CheckUserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     };
 }
 
+// КОНВЕРТАЦИЯ СТАРОГО ПРОФАЙЛА - НАЧАЛО
+
+typedef enum {dtBP, dtBT, dtReceipt, dtFltDoc, dtArchive, dtDisp, dtTlg, dtUnknown} TDocType;
+const char * TDocTypeS[8] = {"BP", "BT", "Receipt", "FltDoc", "Archiv", "Disp", "Tlg", ""};
+
+TDocType DecodeDocType(const char* s)
+{
+  unsigned int i;
+  for(i=0;i<sizeof(TDocTypeS)/sizeof(TDocTypeS[0]);i+=1) if (strcmp(s,TDocTypeS[i])==0) break;
+  if (i<sizeof(TDocTypeS)/sizeof(TDocTypeS[0]))
+    return (TDocType)i;
+  else
+    return dtUnknown;
+};
+
+const char* EncodeDocType(TDocType doc)
+{
+  return TDocTypeS[doc];
+};
+
 struct TOldPrnParams
 {
   int code;
@@ -1143,7 +1221,58 @@ TDocTypeConvert docTypes[7] = { {dtBP,     "PRINT_BP"   },
                                 {dtArchive,"PRINT_ARCH" },
                                 {dtDisp,   "PRINT_DISP" },
                                 {dtTlg,    "PRINT_TLG"  } };
+                                
+void GetPrinterList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
 
+    TDocType doc = DecodeDocType(NodeAsString("doc_type", reqNode));
+
+    TQuery Qry(&OraSession);
+    xmlNodePtr printersNode = NewTextChild(resNode, "printers");
+
+    switch(doc) {
+        case dtBP:
+        case dtBT:
+        case dtReceipt:
+            break;
+        case dtFltDoc:
+        case dtArchive:
+        case dtDisp:
+        case dtTlg:
+            NewTextChild(printersNode, "drv");
+            return;
+        default:
+            throw Exception("Unknown DocType " + IntToString(doc));
+    }
+
+    Qry.SQLText =
+      "SELECT code, name, iface, format_id, format, pr_stock "
+      "FROM old_prn_types "
+      "WHERE doc_type=:doc_type "
+      "ORDER BY name";
+    Qry.CreateVariable("doc_type", otString, EncodeDocType(doc));
+    Qry.Execute();
+    if(Qry.Eof) throw AstraLocale::UserException("MSG.PRINTERS_NOT_FOUND");
+    while(!Qry.Eof) {
+        xmlNodePtr printerNode = NewTextChild(printersNode, "printer");
+
+        int code = Qry.FieldAsInteger("code");
+        string name = Qry.FieldAsString("name");
+        string iface = Qry.FieldAsString("iface");
+        int format_id = Qry.FieldAsInteger("format_id");
+        string format = Qry.FieldAsString("format");
+        int pr_stock = Qry.FieldAsInteger("pr_stock");
+
+        NewTextChild(printerNode, "code", code);
+        NewTextChild(printerNode, "name", name);
+        NewTextChild(printerNode, "iface", iface);
+        NewTextChild(printerNode, "format_id", format_id);
+        NewTextChild(printerNode, "format", format);
+        NewTextChild(printerNode, "pr_stock", pr_stock);
+
+        Qry.Next();
+    }
+}
 
 void ConvertDevOldFormat(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -1189,12 +1318,9 @@ void ConvertDevOldFormat(xmlNodePtr reqNode, xmlNodePtr resNode)
           node=NodeAsNode("/request",reqDoc.docPtr());
           NewTextChild(node, "doc_type", devOper);
 
-
-          JxtInterfaceMng::Instance()->
-            GetInterface("print")->
-              OnEvent("GetPrinterList",  ctxt,
-                                         NodeAsNode("/request",reqDoc.docPtr()),
-                                         NodeAsNode("/response",resDoc.docPtr()));
+          GetPrinterList(ctxt,
+                         NodeAsNode("/request",reqDoc.docPtr()),
+                         NodeAsNode("/response",resDoc.docPtr()));
 
           node = NodeAsNode("/response/printers/*[1]", resDoc.docPtr());
 
@@ -1530,6 +1656,8 @@ void ConvertDevOldFormat(xmlNodePtr reqNode, xmlNodePtr resNode)
   */
 }
 
+// КОНВЕРТАЦИЯ СТАРОГО ПРОФАЙЛА - ОКОНЧАНИЕ
+
 void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
@@ -1602,37 +1730,7 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     reqInfo->Initialize( reqInfoData );
 
     //здесь reqInfo нормально инициализирован
-    if (reqInfo->client_type==ctTerm &&
-        !reqInfo->desk.compatible(NEW_TERM_VERSION))
-    {
-      Qry.Clear();
-      Qry.SQLText="SELECT expire_date FROM old_term_expire_date ORDER BY expire_date";
-      Qry.Execute();
-      if (!Qry.Eof && !Qry.FieldIsNULL("expire_date"))
-      {
-        BASIC::TDateTime expire_date=Qry.FieldAsDateTime("expire_date");
-        if (expire_date<=BASIC::NowUTC())
-          throw AstraLocale::UserException("Версия терминала не поддерживается! Требуется обновление. Тел. поддержки: (495)363-3266");
-        double remainDays=expire_date-BASIC::NowUTC();
-        modf(floor(remainDays),&remainDays);
-        int remainDaysInt=(int)remainDays;
-        ostringstream str;
-        if (remainDaysInt>0)
-        {
-          str << "Необходимо обновить версию терминала в течении " << remainDaysInt;
-          if ((remainDaysInt%10)==1 && remainDaysInt!=11)
-            str << " дня!";
-          else
-            str << " дней!";
-        }
-        else
-        {
-          str << "Необходимо срочно обновить версию терминала!";
-        };
-        str << " Тел. поддержки: (495)363-3266";
-        AstraLocale::showErrorMessage(str.str());
-      };
-    };
+    CheckTermExpireDate();
     
     GetModuleList(resNode);
     ConvertDevOldFormat(reqNode,resNode);

@@ -39,7 +39,6 @@ astra_SOURCES = \
   comp_layers.cc \
   convert.cc \
   crypt.cc \
-  design_blank.cc \
   dev_consts.cc \
   dev_tuning.cc \
   dev_utils.cc \
@@ -56,7 +55,6 @@ astra_SOURCES = \
   maindcs.cc \
   obrnosir.cc \
   payment.cc \
-  payment2.cc \
   prepreg.cc \
   print.cc \
   prn_tag_store.cc \
@@ -130,7 +128,6 @@ noinst_HEADERS = \
   comp_layers.h \
   convert.h \
   crypt.h \
-  design_blank.h \
   dev_consts.h \
   dev_tuning.h \
   dev_utils.h \
@@ -145,7 +142,6 @@ noinst_HEADERS = \
   maindcs.h \
   obrnosir.h \
   payment.h \
-  payment2.h \
   prepreg.h \
   print.h \
   prn_tag_store.h \

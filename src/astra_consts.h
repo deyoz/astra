@@ -1,9 +1,6 @@
 #ifndef _ASTRA_CONSTS_H_
 #define _ASTRA_CONSTS_H_
-/*
-#ifdef __WIN32__
-#define TClass TClasss
-#endif*/
+
 
 #include <limits.h>
 #include <string>
@@ -20,9 +17,6 @@ extern const char* OperModeS[omTypeNum];
 enum TEventType {evtSeason,evtDisp,evtFlt,evtGraph,evtPax,evtPay,evtComp,evtTlg,
                  evtAccess,evtSystem,evtCodif,evtPeriod,evtProgError,evtUnknown,evtTypeNum};
 extern const char* EventTypeS[evtTypeNum];
-
-typedef enum {dtBP, dtBT, dtReceipt, dtFltDoc, dtArchive, dtDisp, dtTlg, dtUnknown} TDocType;
-extern const char* TDocTypeS[8];
 
 typedef enum {F,C,Y,NoClass} TClass;
 extern const char* TClassS[4];

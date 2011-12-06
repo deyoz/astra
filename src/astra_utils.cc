@@ -164,17 +164,15 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   string sql;
 
   Qry.Clear();
-  Qry.SQLText = "SELECT id,version,pr_logon FROM screen WHERE exe = :exe";
+  Qry.SQLText = "SELECT id,pr_logon FROM screen WHERE exe = :exe";
   Qry.DeclareVariable( "exe", otString );
   Qry.SetVariable( "exe", screen.name );
   Qry.Execute();
   if ( Qry.RowCount() == 0 )
     throw EXCEPTIONS::Exception( (string)"Unknown screen " + screen.name );
   screen.id = Qry.FieldAsInteger( "id" );
-  screen.version = Qry.FieldAsInteger( "version" );
   screen.pr_logon = Qry.FieldAsInteger( "pr_logon" );
-/*  if ( Qry.FieldAsInteger( "pr_logon" ) == 0 )
-  	return; //???*/
+
   Qry.Clear();
   Qry.SQLText =
     "SELECT city,airp,airline,version,NVL(under_constr,0) AS under_constr,currency,desks.grp_id "
@@ -683,21 +681,6 @@ string EncodeEventType(const TEventType ev_type )
   return s;
 }
 
-TDocType DecodeDocType(const char* s)
-{
-  unsigned int i;
-  for(i=0;i<sizeof(TDocTypeS)/sizeof(TDocTypeS[0]);i+=1) if (strcmp(s,TDocTypeS[i])==0) break;
-  if (i<sizeof(TDocTypeS)/sizeof(TDocTypeS[0]))
-    return (TDocType)i;
-  else
-    return dtUnknown;
-};
-
-const char* EncodeDocType(TDocType doc)
-{
-  return TDocTypeS[doc];
-};
-
 TClass DecodeClass(const char* s)
 {
   unsigned int i;
@@ -1134,7 +1117,6 @@ void showBasicInfo(void)
     node = NewTextChild(resNode,"user");
     NewTextChild(node, "login",reqInfo->user.login);
     NewTextChild(node, "type",reqInfo->user.user_type);
-    NewTextChild(node, "time_form",reqInfo->user.sets.time);
     //настройки пользователя
     xmlNodePtr setsNode = NewTextChild(node, "settings");
     NewTextChild(setsNode, "time", reqInfo->user.sets.time);
@@ -1219,119 +1201,7 @@ void showBasicInfo(void)
       };
       if (trace_level>=0) NewTextChild(node,"trace_level",trace_level);
     };
-
-    xmlNodePtr modeNode=NewTextChild(node,EncodeOperMode(reqInfo->desk.mode).c_str());
-    if (reqInfo->desk.mode==omCUTE)
-    {
-      //передаем параметры для CUTE
-
-      //if (!reqInfo->user.login.empty())
-      {
-        xmlNodePtr accessNode=NewTextChild(modeNode,"airlines");
-        TAirlines &airlines=(TAirlines&)(base_tables.get("airlines"));
-        if (reqInfo->user.access.airlines_permit)
-          for(vector<string>::const_iterator i=reqInfo->user.access.airlines.begin();
-                                             i!=reqInfo->user.access.airlines.end();i++)
-          {
-            try
-            {
-              TAirlinesRow &row=(TAirlinesRow&)(airlines.get_row("code",*i));
-              xmlNodePtr airlineNode=NewTextChild(accessNode,"airline");
-              NewTextChild(airlineNode,"code",row.code);
-              NewTextChild(airlineNode,"code_lat",row.code_lat,"");
-              int aircode;
-              if (StrToInt(row.aircode.c_str(),aircode)!=EOF && row.aircode.size()==3)
-                NewTextChild(airlineNode,"aircode",row.aircode,"");
-            }
-            catch(EBaseTableError) {}
-          };
-      };
-      xmlNodePtr devNode,paramNode;
-      //ATB
-      devNode=NewTextChild(modeNode,"ATB");
-      paramNode=NewTextChild(devNode,"fmt_params");
-      NewTextChild(paramNode,"pr_lat",0);
-      NewTextChild(paramNode,"encoding","WINDOWS-1251");
-      paramNode=NewTextChild(devNode,"mode_params");
-      NewTextChild(paramNode,"multisession",(int)true,(int)false);
-      NewTextChild(paramNode,"smode","S","S");
-      NewTextChild(paramNode,"prn_type",90);
-      //BTP
-      devNode=NewTextChild(modeNode,"BTP");
-      paramNode=NewTextChild(devNode,"fmt_params");
-      NewTextChild(paramNode,"pr_lat",0);
-      NewTextChild(paramNode,"encoding","WINDOWS-1251");
-      paramNode=NewTextChild(devNode,"mode_params");
-      NewTextChild(paramNode,"multisession",(int)true,(int)false);
-      NewTextChild(paramNode,"smode","S","S");
-      NewTextChild(paramNode,"logonum","01","01");
-      NewTextChild(paramNode,"prn_type",91);
-      //DCP
-      devNode=NewTextChild(modeNode,"DCP");
-      paramNode=NewTextChild(devNode,"fmt_params");
-      NewTextChild(paramNode,"encoding","WINDOWS-1251");
-      paramNode=NewTextChild(devNode,"mode_params");
-      NewTextChild(paramNode,"multisession",(int)true,(int)true);
-      //LSR
-      devNode=NewTextChild(modeNode,"LSR");
-      paramNode=NewTextChild(devNode,"fmt_params");
-      NewTextChild(paramNode,"prefix","31");
-      //NewTextChild(paramNode,"prefix","");
-      NewTextChild(paramNode,"postfix","0D");
-      paramNode=NewTextChild(devNode,"mode_params");
-      NewTextChild(paramNode,"multisession",(int)true,(int)true);
-    };
-
-    //новый терминал
-    Qry.Clear();
-    Qry.SQLText=
-      "SELECT term_mode,op_type,param_type,param_name,subparam_name,param_value "
-      "FROM dev_params "
-      "WHERE term_mode=:term_mode AND (desk_grp_id=:desk_grp_id OR desk_grp_id IS NULL) "
-      "ORDER BY op_type,param_type,param_name,subparam_name NULLS FIRST,desk_grp_id NULLS LAST ";
-    Qry.CreateVariable("term_mode",otString,EncodeOperMode(reqInfo->desk.mode));
-    Qry.CreateVariable("desk_grp_id",otInteger,reqInfo->desk.grp_id);
-    Qry.Execute();
-
-
-    xmlNodePtr operTypeNode=NULL,paramTypeNode=NULL,paramNameNode=NULL;
-    string op_type,param_type,param_name,subparam_name;
-    for(;!Qry.Eof;Qry.Next())
-    {
-      if (op_type==Qry.FieldAsString("op_type") &&
-          param_type==Qry.FieldAsString("param_type") &&
-          param_name==Qry.FieldAsString("param_name") &&
-          subparam_name==Qry.FieldAsString("subparam_name")) continue;
-
-      op_type=Qry.FieldAsString("op_type");
-      param_type=Qry.FieldAsString("param_type");
-      param_name=Qry.FieldAsString("param_name");
-      subparam_name=Qry.FieldAsString("subparam_name");
-
-      if (operTypeNode==NULL || (const char*)operTypeNode->name!=op_type)
-      {
-        operTypeNode=NewTextChild(modeNode,op_type.c_str());
-        paramTypeNode=NULL;
-        paramNameNode=NULL;
-      };
-      if (paramTypeNode==NULL || (const char*)paramTypeNode->name!=param_type)
-      {
-        paramTypeNode=NewTextChild(operTypeNode,param_type.c_str());
-        paramNameNode=NULL;
-      };
-      if (paramNameNode==NULL || (const char*)paramNameNode->name!=param_name)
-      {
-        if (subparam_name.empty())
-          paramNameNode=NewTextChild(paramTypeNode,param_name.c_str(),Qry.FieldAsString("param_value"));
-        else
-          paramNameNode=NewTextChild(paramTypeNode,param_name.c_str());
-      };
-      if (!subparam_name.empty())
-        NewTextChild(paramNameNode,subparam_name.c_str(),Qry.FieldAsString("param_value"));
-    };
   };
-  node = NewTextChild( resNode, "screen" );
-  NewTextChild( node, "version", reqInfo->screen.version );
 };
 
 /***************************************************************************************/
@@ -1346,7 +1216,7 @@ void SysReqInterface::ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     "FROM client_error_list,locale_messages "
     "WHERE client_error_list.text=locale_messages.id(+) AND "
     "      (:text like client_error_list.text OR "
-    "       :text like '%'||locale_messages.text||'%') ";
+    "       locale_messages.text IS NOT NULL AND :text like '%'||locale_messages.text||'%') ";
   Qry.DeclareVariable("text",otString);
   
   xmlNodePtr node=reqNode->children;
@@ -1355,24 +1225,28 @@ void SysReqInterface::ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     if (strcmp((char*)node->name,"msg")==0)
     {
       string error_type="ERROR";
-      Qry.SetVariable("text", NodeAsString(node));
-      Qry.Execute();
-      if (!Qry.Eof) error_type=Qry.FieldAsString("type");
+      string text=NodeAsString(node);
+      if (text.size()<=250)
+      {
+        Qry.SetVariable("text", text);
+        Qry.Execute();
+        if (!Qry.Eof) error_type=Qry.FieldAsString("type");
+      };
       if (error_type=="IGNORE") continue;
       
       if (error_type=="ERROR")
         ProgError( STDLOG, "Client error (ver. %s): %s.",
                            TReqInfo::Instance()->desk.version.c_str(),
-                           NodeAsString(node) ) ;
+                           text.c_str() ) ;
       else
         if (error_type=="TRACE0")
           ProgTrace( TRACE0, "Client error (ver. %s): %s.",
                              TReqInfo::Instance()->desk.version.c_str(),
-                             NodeAsString(node) ) ;
+                             text.c_str() ) ;
         else
           ProgTrace( TRACE5, "Client error (ver. %s): %s.",
                              TReqInfo::Instance()->desk.version.c_str(),
-                             NodeAsString(node) ) ;
+                             text.c_str() ) ;
     };
   };
 }
