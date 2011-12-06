@@ -1216,7 +1216,7 @@ void SysReqInterface::ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     "FROM client_error_list,locale_messages "
     "WHERE client_error_list.text=locale_messages.id(+) AND "
     "      (:text like client_error_list.text OR "
-    "       :text like '%'||locale_messages.text||'%') ";
+    "       locale_messages.text IS NOT NULL AND :text like '%'||locale_messages.text||'%') ";
   Qry.DeclareVariable("text",otString);
   
   xmlNodePtr node=reqNode->children;
