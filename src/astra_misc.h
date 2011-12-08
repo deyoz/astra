@@ -365,6 +365,33 @@ class TPaxSeats {
     ~TPaxSeats();
 };
 
+struct TTrferRouteItem
+{
+  TTripInfo operFlt;
+  std::string airp_arv;
+  TElemFmt airp_arv_fmt;
+  TTrferRouteItem()
+  {
+    Clear();
+  };
+  void Clear()
+  {
+    operFlt.Clear();
+    airp_arv.clear();
+    airp_arv_fmt=efmtUnknown;
+  };
+};
+
+enum TTrferRouteType { trtNotFirstSeg,
+                       trtWithFirstSeg };
+                       
+class TTrferRoute : public std::vector<TTrferRouteItem>
+{
+  public:
+    bool GetRoute(int grp_id,
+                  TTrferRouteType route_type);
+};
+
 struct TCkinRouteItem
 {
   int grp_id;

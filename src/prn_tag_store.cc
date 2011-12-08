@@ -24,16 +24,15 @@ const int BRD_INFO = 8;
 const int FQT_INFO = 16;
 const int PNR_INFO = 32;
 
-bool TTagLang::IsInter(TBTRoute *aroute, string &country)
+bool TTagLang::IsInter(const TTrferRoute &aroute, string &country)
 {
     country.clear();
-    if(aroute == NULL) return false;
     string tmp_country;
     // 1-й эл-т вектора содержит данные из pax_grp, а нас интересуют только данные transfer
     // поэтому его не анализируем.
-    for(TBTRoute::iterator ir = aroute->begin(); ir != aroute->end(); ir++) {
-        if(ir == aroute->begin()) continue;
-        if(IsTrferInter(ir->airp_dep, ir->airp_arv, country))
+    for(TTrferRoute::const_iterator ir = aroute.begin(); ir != aroute.end(); ++ir) {
+        if(ir == aroute.begin()) continue;
+        if(IsTrferInter(ir->operFlt.airp, ir->airp_arv, country))
             return true;
         if(tmp_country.empty())
             tmp_country = country;
@@ -50,11 +49,11 @@ void TPrnTagStore::set_print_mode(int val)
     print_mode = val;
 }
 
-void TTagLang::Init(bool apr_lat, bool ais_inter, string adesk_lang) // Bag receipts
+void TTagLang::Init(const TBagReceipt &arcpt, bool apr_lat) // Bag receipts
 {
     pr_lat = apr_lat;
-    is_inter = ais_inter or apr_lat;
-    desk_lang = adesk_lang;
+    is_inter = arcpt.is_inter or apr_lat;
+    desk_lang = arcpt.desk_lang;
 }
 
 void TTagLang::Init(bool apr_lat)
@@ -64,11 +63,11 @@ void TTagLang::Init(bool apr_lat)
     desk_lang = TReqInfo::Instance()->desk.lang;
 }
 
-void TTagLang::Init(int point_dep, int point_arv, TBTRoute *aroute, bool apr_lat)
+void TTagLang::Init(int point_dep, int point_arv, const TTrferRoute &aroute, bool apr_lat)
 {
     string route_country;
     bool route_inter = IsRouteInter(point_dep, point_arv, route_country);
-    if(aroute != NULL and aroute->size() > 1) { // список стыковочных сегментов для бирки
+    if(aroute.size() > 1) { //есть трансфер багажа, список стыковочных сегментов для бирки и для квитанции
         string trfer_route_country;
         IsInter(aroute, trfer_route_country);
         if(not route_inter and route_country != trfer_route_country) {
@@ -203,12 +202,12 @@ TPrnTagStore::TTagProps::TTagProps(TDevOperType vop): op(dotUnknown)
 }
 
 // Bag receipts
-TPrnTagStore::TPrnTagStore(TBagReceipt &arcpt):
+TPrnTagStore::TPrnTagStore(const TBagReceipt &arcpt, bool apr_lat):
     rcpt(arcpt),
-    prn_tag_props(dotPrnBR),
-    tag_lang(arcpt.tag_lang)
+    prn_tag_props(dotPrnBR)
 {
     print_mode = 0;
+    tag_lang.Init(arcpt, apr_lat);
     tag_list.insert(make_pair(TAG::BULKY_BT,        TTagListItem(&TPrnTagStore::BULKY_BT, 0)));
     tag_list.insert(make_pair(TAG::BULKY_BT_LETTER, TTagListItem(&TPrnTagStore::BULKY_BT_LETTER, 0)));
     tag_list.insert(make_pair(TAG::GOLF_BT,         TTagListItem(&TPrnTagStore::GOLF_BT, 0)));
@@ -250,7 +249,7 @@ TPrnTagStore::TPrnTagStore(TBagReceipt &arcpt):
 }
 
 // Test tags
-TPrnTagStore::TPrnTagStore(bool apr_lat): rcpt(NULL), prn_tag_props(dotUnknown)
+TPrnTagStore::TPrnTagStore(bool apr_lat): prn_tag_props(dotUnknown)
 {
     print_mode = 0;
     tag_lang.Init(apr_lat);
@@ -258,15 +257,14 @@ TPrnTagStore::TPrnTagStore(bool apr_lat): rcpt(NULL), prn_tag_props(dotUnknown)
 }
 
 // BP && BT
-TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tagsNode, TBTRoute *aroute):
-    rcpt(NULL),
-    prn_tag_props(aroute == NULL ? dotPrnBP : dotPrnBT)
+TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tagsNode, const TTrferRoute &aroute):
+    prn_tag_props(aroute.empty() ? dotPrnBP : dotPrnBT)
 {
     print_mode = 0;
     grpInfo.Init(agrp_id);
     tag_lang.Init(grpInfo.point_dep, grpInfo.point_arv, aroute, apr_lat != 0);
     pax_id = apax_id;
-    if(aroute == NULL and pax_id == NoExists)
+    if(prn_tag_props.op == dotPrnBP and pax_id == NoExists)
         throw Exception("TPrnTagStore::TPrnTagStore: pax_id not defined for bp mode");
 
     tag_list.insert(make_pair(TAG::BCBP_M_2,        TTagListItem(&TPrnTagStore::BCBP_M_2, POINT_INFO | PAX_INFO | PNR_INFO)));

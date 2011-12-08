@@ -105,6 +105,8 @@ TBaseTable &TBaseTables::get(string name)
         	  base_tables[name] = new TLangTypes();
         else if(name == "STATION_MODES")
         	  base_tables[name] = new TStationModes();
+        else if(name == "FORM_TYPES")
+        	  base_tables[name] = new TFormTypes();
         else
             throw Exception("TBaseTables::get_base_table: " + name + " not found");
         mem.create(base_tables[name], STDLOG);
@@ -827,6 +829,18 @@ void TStationModes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow *
 {
 	*row = new TStationModesRow;
   mem.create(*row, STDLOG);
+	TCodeBaseTable::create_row(Qry,row,replaced_row);
+};
+
+void TFormTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+{
+	*row = new TFormTypesRow;
+  mem.create(*row, STDLOG);
+  ((TFormTypesRow*)*row)->basic_type=Qry.FieldAsString("basic_type");
+  ((TFormTypesRow*)*row)->validator=Qry.FieldAsString("validator");
+  ((TFormTypesRow*)*row)->series_len=Qry.FieldAsInteger("series_len");
+  ((TFormTypesRow*)*row)->no_len=Qry.FieldAsInteger("no_len");
+  ((TFormTypesRow*)*row)->pr_check_bit=Qry.FieldAsInteger("pr_check_bit")!=0;
 	TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 

@@ -910,14 +910,11 @@ void TripsInterface::readOperFltHeader( const TTripInfo &info, xmlNodePtr node )
     NewTextChild( node, "flight", GetTripName(info,ecCkin,true,false) );
 
   NewTextChild( node, "airline", info.airline );
-  try
-  {
-    TAirlinesRow &row = (TAirlinesRow&)base_tables.get("airlines").get_row("code",info.airline);
-    if (!reqInfo->desk.compatible(LATIN_VERSION))
-      NewTextChild( node, "airline_lat", row.code_lat );
-    NewTextChild( node, "aircode", row.aircode );
-  }
-  catch(EBaseTableError) {};
+
+  TAirlinesRow &row = (TAirlinesRow&)base_tables.get("airlines").get_row("code",info.airline);
+  if (!reqInfo->desk.compatible(LATIN_VERSION))
+    NewTextChild( node, "airline_lat", row.code_lat );
+  NewTextChild( node, "aircode", row.aircode );
 
   NewTextChild( node, "flt_no", info.flt_no );
   NewTextChild( node, "suffix", info.suffix );

@@ -11,7 +11,6 @@
 #include "stages.h"
 #include "telegram.h"
 #include "misc.h"
-#include "payment.h"
 #include "astra_misc.h"
 #include "base_tables.h"
 #include "convert.h"
@@ -4914,8 +4913,8 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_versio
 
       if (grp_id==grp_ids.begin())
       {
-        vector<CheckIn::TTransferItem> trfer;
-        LoadTransfer(*grp_id,trfer);
+        TTrferRoute trfer;
+        trfer.GetRoute(*grp_id, trtNotFirstSeg);
         BuildTransfer(trfer,resNode);
       };
 
@@ -4996,8 +4995,8 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_versio
       //несопровождаемый багаж
       if (grp_id==grp_ids.begin())
       {
-        vector<CheckIn::TTransferItem> trfer;
-        LoadTransfer(*grp_id,trfer);
+        TTrferRoute trfer;
+        trfer.GetRoute(*grp_id, trtNotFirstSeg);
         BuildTransfer(trfer,resNode);
         LoadPaxNorms(segNode,pr_unaccomp);
       };
@@ -5947,36 +5946,26 @@ string CheckInInterface::SaveTransfer(int grp_id, const vector<CheckIn::TTransfe
 void CheckInInterface::LoadTransfer(int grp_id, vector<CheckIn::TTransferItem> &trfer)
 {
   trfer.clear();
-  TQuery TrferQry(&OraSession);
-  TrferQry.Clear();
-  TrferQry.SQLText=
-    "SELECT airline,airline_fmt,flt_no,suffix,suffix_fmt,scd AS scd_out, "
-    "       airp_dep AS airp,airp_dep_fmt AS airp_fmt,airp_arv,airp_arv_fmt "
-    "FROM transfer,trfer_trips "
-    "WHERE transfer.point_id_trfer=trfer_trips.point_id AND "
-    "      grp_id=:grp_id AND transfer_num>0 "
-    "ORDER BY transfer_num";
-  TrferQry.CreateVariable("grp_id",otInteger,grp_id);
-  TrferQry.Execute();
-  for(;!TrferQry.Eof;TrferQry.Next())
+  TTrferRoute route;
+  route.GetRoute(grp_id, trtNotFirstSeg);
+  for(TTrferRoute::const_iterator r=route.begin(); r!=route.end(); ++r)
   {
     trfer.push_back(CheckIn::TTransferItem());
     CheckIn::TTransferItem &t=trfer.back();
-    t.operFlt.Init(TrferQry);
-    t.airp_arv=TrferQry.FieldAsString("airp_arv");
-    t.airp_arv_fmt=(TElemFmt)TrferQry.FieldAsInteger("airp_arv_fmt");
+    t.operFlt.Assign(r->operFlt);
+    t.airp_arv=r->airp_arv;
+    t.airp_arv_fmt=r->airp_arv_fmt;
   };
-  TrferQry.Close();
 };
 
-void CheckInInterface::BuildTransfer(const vector<CheckIn::TTransferItem> &trfer, xmlNodePtr transferNode)
+void CheckInInterface::BuildTransfer(const TTrferRoute &trfer, xmlNodePtr transferNode)
 {
   if (transferNode==NULL) return;
 
   xmlNodePtr node=NewTextChild(transferNode,"transfer");
 
   int iDay,iMonth,iYear;
-  for(vector<CheckIn::TTransferItem>::const_iterator t=trfer.begin();t!=trfer.end();t++)
+  for(TTrferRoute::const_iterator t=trfer.begin();t!=trfer.end();t++)
   {
     xmlNodePtr trferNode=NewTextChild(node,"segment");
     NewTextChild(trferNode,"airline",

@@ -584,6 +584,54 @@ bool TTripRoute::GetPriorAirp(TDateTime part_key,
   return true;
 };
 
+bool TTrferRoute::GetRoute(int grp_id,
+                           TTrferRouteType route_type)
+{
+  clear();
+  TQuery Qry(&OraSession);
+  if (route_type==trtWithFirstSeg)
+  {
+    Qry.Clear();
+    Qry.SQLText=
+      "SELECT points.airline, points.flt_no, points.suffix, points.airp, points.scd_out, "
+      "       NVL(points.act_out, NVL(points.est_out, points.scd_out)) AS real_out, "
+      "       points.pr_del, points.airline_fmt, points.suffix_fmt, points.airp_fmt, "
+      "       pax_grp.airp_arv "
+      "FROM pax_grp, points "
+      "WHERE points.point_id=pax_grp.point_dep AND "
+      "      pax_grp.grp_id = :grp_id AND points.pr_del>=0";
+    Qry.CreateVariable("grp_id", otInteger, grp_id);
+    Qry.Execute();
+    if (Qry.Eof) return false;
+    push_back(TTrferRouteItem());
+    TTrferRouteItem &item=back();
+    item.operFlt.Init(Qry);
+    item.operFlt.scd_out=UTCToLocal(item.operFlt.scd_out, AirpTZRegion(item.operFlt.airp));
+    item.operFlt.real_out=UTCToLocal(item.operFlt.real_out, AirpTZRegion(item.operFlt.airp));
+    item.airp_arv=Qry.FieldAsString("airp_arv");
+  };
+  
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT airline,airline_fmt,flt_no,suffix,suffix_fmt,scd AS scd_out, "
+    "       airp_dep AS airp,airp_dep_fmt AS airp_fmt,airp_arv,airp_arv_fmt "
+    "FROM transfer,trfer_trips "
+    "WHERE transfer.point_id_trfer=trfer_trips.point_id AND "
+    "      grp_id=:grp_id AND transfer_num>0 "
+    "ORDER BY transfer_num";
+  Qry.CreateVariable("grp_id", otInteger, grp_id);
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+  {
+    push_back(TTrferRouteItem());
+    TTrferRouteItem &item=back();
+    item.operFlt.Init(Qry);
+    item.airp_arv=Qry.FieldAsString("airp_arv");
+    item.airp_arv_fmt=(TElemFmt)Qry.FieldAsInteger("airp_arv_fmt");
+  };
+  return true;
+};
+
 void TCkinRoute::GetRoute(int tckin_id,
                           int seg_no,
                           bool after_current,
