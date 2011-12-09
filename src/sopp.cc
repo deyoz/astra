@@ -3353,16 +3353,6 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	  else
   	  	init_trip_stages = false;
 
-  	  //ProgTrace( TRACE5, "id->remark=%s", id->remark.c_str() );
-/*  	  if ( id->act_out == NoExists && id->est_out > NoExists && id->est_out != old_dest.est_out ) { //задержка
-  	  	string::size_type idx = id->remark.find( "задержка до " );
-  	  	if ( idx != string::npos )
-  	  		id->remark.replace( idx, string( "задержка до dd hh:nn" ).size(),
-  	  		                        string( "задержка до " ) + DateTimeToStr( id->est_out, "dd hh:nn" ) );
-        else
-        	id->remark = string( "задержка до " ) + DateTimeToStr( id->est_out, "dd hh:nn" ) + id->remark;
-        reqInfo->MsgToLog( string( "Изменение расчетного времени вылета до " ) + DateTimeToStr( id->est_out, "dd hh:nn" ), evtDisp, move_id, id->point_id );
-  	  }*/
   	  #ifdef NOT_CHANGE_AIRLINE_FLT_NO_SCD
   	  if ( id->pr_del!=-1 && !id->airline.empty() && !old_dest.airline.empty() && id->airline != old_dest.airline ) {
   	  	throw AstraLocale::UserException( "MSG.ROUTE.CANNOT_CHANGE_AIRLINE" );
@@ -3586,7 +3576,6 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   		id->remark = id->remark.substr( 0, 250 );
   	Qry.CreateVariable( "remark", otString, id->remark );
   	Qry.CreateVariable( "pr_reg", otInteger, id->pr_reg );
-//  	ProgTrace( TRACE5, "sqltext=%s", Qry.SQLText.SQLText() );
   	Qry.Execute();
   	Qry.Clear();
   	Qry.SQLText = "DELETE trip_delays WHERE point_id=:point_id";
@@ -3616,17 +3605,18 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
        "BEGIN "
        " sopp.set_flight_sets(:point_id,:use_seances);"
        "END;";
-/*       " INSERT INTO trip_sets(point_id,f,c,y,max_commerce,overload_alarm,pr_etstatus,pr_stat, "
-       "    pr_tranz_reg,pr_check_load,pr_overload_reg,pr_exam,pr_check_pay,pr_exam_check_pay, "
-       "    pr_reg_with_tkn,pr_reg_with_doc) "
-       "  VALUES(:point_id,0,0,0, NULL, 0, 0, 0, "
-       "    NULL, 0, 1, 0, 0, 0, 0, 0); "
-       " ckin.set_trip_sets(:point_id,:use_seances); "
-       " gtimer.puttrip_stages(:point_id); "
-       "END;";*/
   		Qry.CreateVariable( "point_id", otInteger, id->point_id );
   		Qry.CreateVariable( "use_seances", otInteger, (int)USE_SEANCES() );
   		Qry.Execute();
+  	}
+  	else { //!!!возможно изменился признак ignore_auto в trip_stages
+      if ( !insert_point ) {
+        bool old_ignore_auto = ( old_dest.act_out != NoExists || old_dest.pr_del != 0 );
+        bool new_ignore_auto = ( id->act_out != NoExists || id->pr_del != 0 );
+        if ( old_ignore_auto != new_ignore_auto ) {
+          SetTripStages_IgnoreAuto( id->point_id, new_ignore_auto );
+        }
+      }
   	}
 
   	if ( id->pr_del != -1 && id->pr_reg ) {
@@ -3717,7 +3707,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   		    	else
   		    		tolog = "Отмена задержка выполнения технологического графика";
   	      }
-	        reqInfo->MsgToLog( tolog + " порт " + id->airp, evtFlt, id->point_id );
+	        reqInfo->MsgToLog( tolog + " порт " + id->airp, evtGraph, id->point_id );
 	      }
       }
     }
@@ -4142,9 +4132,9 @@ void SoppInterface::DropFlightFact(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   int point_id = NodeAsInteger( "point_id", reqNode );
   TQuery Qry(&OraSession);
 	Qry.SQLText=
-	  "SELECT move_id,airline||flt_no||suffix as trip,act_out,point_num "
+	  "SELECT move_id,airline||flt_no||suffix as trip,act_out,point_num,pr_del "
     "FROM points "
-    "WHERE point_id=:point_id AND pr_del=0 AND act_out IS NOT NULL FOR UPDATE";
+    "WHERE point_id=:point_id AND pr_del!=-1 AND act_out IS NOT NULL FOR UPDATE";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
   if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
@@ -4152,6 +4142,7 @@ void SoppInterface::DropFlightFact(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 	int move_id = Qry.FieldAsInteger( "move_id" );
 	string trip = Qry.FieldAsString( "trip" );
 	TDateTime act_out = Qry.FieldAsDateTime( "act_out" );
+	int pr_del = Qry.FieldAsInteger( "pr_del" );
 	Qry.Clear();
 	Qry.SQLText =
 	 "UPDATE points "
@@ -4163,6 +4154,7 @@ void SoppInterface::DropFlightFact(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 	TReqInfo *reqInfo = TReqInfo::Instance();
 	reqInfo->MsgToLog( string( "Отмена факт. вылета рейса " ) + trip, evtDisp, move_id, point_id );
 	ChangeACT_OUT( point_id, act_out, NoExists );
+	SetTripStages_IgnoreAuto( point_id, pr_del != 0 );
 	ReadTrips( ctxt, reqNode, resNode );
 }
 

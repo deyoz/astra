@@ -1667,7 +1667,7 @@ try {
     bool old_ignore_auto = ( old_act != NoExists || dest.pr_del != 0 );
     bool new_ignore_auto = ( fl.act != NoExists || dest.pr_del != 0 );
     if ( old_ignore_auto != new_ignore_auto ) {
-      //new version SetTripStages_IgnoreAuto( point_id, new_ignore_auto );
+      SetTripStages_IgnoreAuto( point_id, new_ignore_auto );
     }
     overload_alarm = Get_AODB_overload_alarm( point_id, fl.max_load );
     Qry.Clear();
