@@ -184,6 +184,7 @@ void bindingAODBFlt( const std::string &point_addr, int point_id, float aodb_poi
   TQuery Qry( &OraSession );
 	Qry.SQLText =
 	 "BEGIN "
+	 " DELETE aodb_points WHERE point_addr=:point_addr AND aodb_point_id=:aodb_point_id AND point_id!=:point_id;"
 	 " UPDATE aodb_points "
 	 " SET aodb_point_id=:aodb_point_id "
 	 " WHERE point_id=:point_id AND point_addr=:point_addr; "
@@ -223,10 +224,15 @@ void bindingAODBFlt( const std::string &airline, const int flt_no, const std::st
         point_id = i->point_id;
       }
     }
+    if ( point_id == NoExists )
+      return;
     for ( map<string,int>::iterator i=aodb_point_ids.begin(); i!=aodb_point_ids.end(); i++ ) {
       Qry.Clear();
       Qry.SQLText =
-        "UPDATE aodb_points SET point_id=:point_id WHERE aodb_point_id=:aodb_point_id AND point_addr=:point_addr";
+        "BEGIN "
+        "DELETE aodb_points WHERE point_id=:point_id AND point_addr=:point_addr AND aodb_point_id!=:aodb_point_id;"
+        "UPDATE aodb_points SET point_id=:point_id WHERE aodb_point_id=:aodb_point_id AND point_addr=:point_addr;"
+        "END;";
 	    Qry.CreateVariable( "point_id", otInteger, point_id );
 	    Qry.CreateVariable( "point_addr", otString, i->first );
 	    Qry.CreateVariable( "aodb_point_id", otFloat, i->second );
@@ -1492,7 +1498,7 @@ try {
     err++;
     point_id = POINT_IDQry.FieldAsInteger( "point_id" );
     string lmes = "Ввод нового рейса ";
-    lmes +=  fl.airline + IntToString( fl.flt_no ) + fl.suffix + ", маршрут ";
+    lmes +=  fl.airline + IntToString( fl.flt_no ) + fl.suffix + ", маршрут: " + airp + "-";
     for ( vector<AODB_Dest>::iterator it=fl.dests.begin(); it!=fl.dests.end(); it++ ) {
     	if ( it != fl.dests.begin() )
     		lmes += "-";
@@ -1658,22 +1664,10 @@ try {
  	  err++;
  	  if ( change_comp )
  	  	SALONS2::AutoSetCraft( point_id, fl.craft, -1 );
- 	  // теперь работа с пунктами посадки
-/*    int num = 0;
-    int point_num = 0;*/
-    vector<AODB_Dest> old_dests;
-    Qry.Clear();
-    Qry.SQLText = "SELECT point_num,airp,pr_del FROM points WHERE move_id=:move_id ORDER BY point_num";
-    Qry.CreateVariable( "move_id", otInteger, move_id );
-    err++;
-    Qry.Execute();
-    err++;
-    while ( !Qry.Eof ) {
-    	AODB_Dest d;
-    	d.num = Qry.FieldAsInteger( "point_num" );
-    	d.airp = Qry.FieldAsString( "airp" );
-    	d.pr_del = ( Qry.FieldAsInteger( "pr_del" ) != 0 );
-    	Qry.Next();
+    bool old_ignore_auto = ( old_act != NoExists || dest.pr_del != 0 );
+    bool new_ignore_auto = ( fl.act != NoExists || dest.pr_del != 0 );
+    if ( old_ignore_auto != new_ignore_auto ) {
+      //new version SetTripStages_IgnoreAuto( point_id, new_ignore_auto );
     }
     overload_alarm = Get_AODB_overload_alarm( point_id, fl.max_load );
     Qry.Clear();
@@ -1695,24 +1689,24 @@ try {
   if ( old_est != fl.est ) {
     if ( fl.est != NoExists ) {
       ProgTrace( TRACE5, "events: %s, %d, %d",
-                 string(string("Проставление расч. время вылета порт ") + airp + " " + DateTimeToStr( fl.est, "dd hh:nn" )).c_str(), move_id, point_id );
-      reqInfo->MsgToLog( string("Проставление расч. время вылета порт ") + airp + " " + DateTimeToStr( fl.est, "dd hh:nn" ), evtDisp, move_id, point_id );
+                 string(string("Проставление расч. время вылета а/п ") + airp + " " + DateTimeToStr( fl.est, "dd hh:nn" )).c_str(), move_id, point_id );
+      reqInfo->MsgToLog( string("Проставление расч. время вылета а/п ") + airp + " " + DateTimeToStr( fl.est, "dd hh:nn" ), evtDisp, move_id, point_id );
     }
     else
       if ( old_est != NoExists ) {
       ProgTrace( TRACE5, "events: %s, %d, %d",
-                 string(string("Удаление расч. времени вылета порт ") + airp).c_str(), move_id, point_id );
-        reqInfo->MsgToLog( string("Удаление расч. времени вылета порт ") + airp, evtDisp, move_id, point_id );
+                 string(string("Удаление расч. времени вылета а/п ") + airp).c_str(), move_id, point_id );
+        reqInfo->MsgToLog( string("Удаление расч. времени вылета а/п ") + airp, evtDisp, move_id, point_id );
       }
   }
   tst();
   err++;
   if ( old_act != fl.act ) {
     if ( fl.act != NoExists )
-      reqInfo->MsgToLog( string("Проставление факт. времени вылета порт ")  + airp + " " + DateTimeToStr( fl.act, "hh:nn dd.mm.yy" ) + string(" (UTC)"), evtDisp, move_id, point_id );
+      reqInfo->MsgToLog( string("Проставление факт. времени вылета а/п ")  + airp + " " + DateTimeToStr( fl.act, "hh:nn dd.mm.yy" ) + string(" (UTC)"), evtDisp, move_id, point_id );
     else
       if ( old_act != NoExists )
-        reqInfo->MsgToLog( string("Отмена факта вылета порт ") + airp, evtDisp, move_id, point_id );
+        reqInfo->MsgToLog( string("Отмена факта вылета а/п ") + airp, evtDisp, move_id, point_id );
   }
   tst();
 	//определяем время задержки на прилет
@@ -1734,29 +1728,53 @@ try {
   }
   err++;
   Set_AODB_overload_alarm( point_id, overload_alarm );
+  TTripStages trip_stages( point_id );
 	// обновление времен технологического графика
   Qry.Clear();
-	Qry.SQLText = "UPDATE trip_stages SET est=NVL(:scd,est) WHERE point_id=:point_id AND stage_id=:stage_id";
+	Qry.SQLText = "UPDATE trip_stages SET est=NVL(:scd,est) WHERE point_id=:point_id AND stage_id=:stage_id AND act IS NULL";
 	Qry.CreateVariable( "point_id", otInteger, point_id );
 	Qry.CreateVariable( "stage_id", otInteger, sOpenCheckIn );
-	Qry.CreateVariable( "scd", otDate, fl.checkin_beg );
+  if ( fl.checkin_beg != NoExists )
+	  Qry.CreateVariable( "scd", otDate, fl.checkin_beg );
+  else
+    Qry.CreateVariable( "scd", otDate, FNull );
 	err++;
 	Qry.Execute();
+	if ( Qry.RowsProcessed() > 0 ) {
+     if ( fl.checkin_beg != NoExists && trip_stages.time( sOpenCheckIn ) != fl.checkin_beg )
+       reqInfo->MsgToLog( string( "Этап '" ) + TStagesRules::Instance()->stage_name( sOpenCheckIn, airp, false ) + "': " +
+                          " расч. время=" + DateTimeToStr( fl.checkin_beg, "hh:nn dd.mm.yy" ) + " (UTC)", evtGraph, point_id, sOpenCheckIn );
+	}
 	err++;
 	Qry.SetVariable( "stage_id", sCloseCheckIn );
 	Qry.SetVariable( "scd", fl.checkin_end );
 	err++;
 	Qry.Execute();
+	if ( Qry.RowsProcessed() > 0 ) {
+     if ( fl.checkin_end != NoExists && trip_stages.time( sCloseCheckIn ) != fl.checkin_end )
+       reqInfo->MsgToLog( string( "Этап '" ) + TStagesRules::Instance()->stage_name( sCloseCheckIn, airp, false ) + "': " +
+                          " расч. время=" + DateTimeToStr( fl.checkin_end, "hh:nn dd.mm.yy" ) + " (UTC)", evtGraph, point_id, sCloseCheckIn );
+	}
 	err++;
 	Qry.SetVariable( "stage_id", sOpenBoarding );
 	Qry.SetVariable( "scd", fl.boarding_beg );
 	err++;
 	Qry.Execute();
+	if ( Qry.RowsProcessed() > 0 ) {
+     if ( fl.boarding_beg != NoExists && trip_stages.time( sOpenBoarding ) != fl.boarding_beg )
+       reqInfo->MsgToLog( string( "Этап '" ) + TStagesRules::Instance()->stage_name( sOpenBoarding, airp, false ) + "': " +
+                          " расч. время=" + DateTimeToStr( fl.boarding_beg, "hh:nn dd.mm.yy" ) + " (UTC)", evtGraph, point_id, sOpenBoarding );
+	}
 	err++;
 	Qry.SetVariable( "stage_id", sCloseBoarding );
 	Qry.SetVariable( "scd", fl.boarding_end );
 	err++;
 	Qry.Execute();
+	if ( Qry.RowsProcessed() > 0 ) {
+     if ( fl.boarding_end != NoExists && trip_stages.time( sCloseBoarding ) != fl.boarding_end )
+       reqInfo->MsgToLog( string( "Этап '" ) + TStagesRules::Instance()->stage_name( sCloseBoarding, airp, false ) + "': " +
+                          " расч. время=" + DateTimeToStr( fl.boarding_end, "hh:nn dd.mm.yy" ) + " (UTC)", evtGraph, point_id, sCloseBoarding );
+	}
 	err++;
 	// обновление стоек регистрации и выходов на покадку
 	Qry.Clear();
