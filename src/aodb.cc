@@ -1451,6 +1451,10 @@ try {
   TFndFlts pflts;
   int move_id, point_id;
   bool pr_insert = !findFlt( fl.airline, fl.flt_no, fl.suffix, local_scd_out, airp, false, pflts );
+  if ( pr_insert ) {
+    ProgTrace( TRACE5, "ParseFlight: new flight - return" );
+    return;
+  }
   err++;
   ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl.airline.c_str(), fl.flt_no,
 	           fl.suffix.c_str(), DateTimeToStr( fl.scd ).c_str(), pr_insert );
