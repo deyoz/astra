@@ -29,6 +29,7 @@ void PaymentInterface::BuildTransfer(const TTrferRoute &trfer, xmlNodePtr transf
 
   xmlNodePtr node=NewTextChild(transferNode,"transfer");
 
+  int iDay,iMonth,iYear;
   for(TTrferRoute::const_iterator t=trfer.begin();t!=trfer.end();t++)
   {
     xmlNodePtr trferNode=NewTextChild(node,"segment");
@@ -38,6 +39,11 @@ void PaymentInterface::BuildTransfer(const TTrferRoute &trfer, xmlNodePtr transf
     
     NewTextChild(trferNode,"flt_no",t->operFlt.flt_no);
     NewTextChild(trferNode,"suffix",t->operFlt.suffix);
+    
+    //дата
+    DecodeDate(t->operFlt.scd_out,iYear,iMonth,iDay);
+    NewTextChild(trferNode,"local_date",iDay);
+    
     NewTextChild(trferNode,"airp_dep",t->operFlt.airp);
     NewTextChild(trferNode,"airp_arv",t->airp_arv);
 
@@ -799,6 +805,22 @@ int PaymentInterface::PutReceiptToDB(const TBagReceipt &rcpt, int point_id, int 
   
   if (rcpt.kit_id==NoExists && rcpt.kit_num!=NoExists)
   {
+    //проверка дублирования номеров квитанций
+    Qry.Clear();
+    Qry.SQLText=
+      "SELECT receipt_id FROM bag_receipts WHERE form_type=:form_type AND no=:no";
+    Qry.DeclareVariable("form_type", otString);
+    Qry.DeclareVariable("no", otFloat);
+    for(vector<TBagReceiptKitItem>::const_iterator i=rcpt.kit_items.begin();i!=rcpt.kit_items.end();++i)
+    {
+      if (i->form_type==rcpt.form_type && i->no==rcpt.no) continue;
+      Qry.SetVariable("form_type", i->form_type);
+      Qry.SetVariable("no", i->no);
+      Qry.Execute();
+      if (!Qry.Eof)
+        throw AstraLocale::UserException("MSG.RECEIPT_BLANK_NO_ALREADY_USED", LParams() << LParam("no", i->no));
+    };
+  
     //надо добавить комплект в bag_rcpt_kits
     Qry.Clear();
     Qry.SQLText=
