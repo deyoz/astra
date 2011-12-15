@@ -103,11 +103,13 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
 	TReqInfo *reqInfo = TReqInfo::Instance();
   TQuery Qry( &OraSession );
   Qry.SQLText =
-   "SELECT airp FROM points WHERE points.point_id=:point_id FOR UPDATE";
+   "SELECT airp,act_out,pr_del FROM points WHERE points.point_id=:point_id FOR UPDATE";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   string region, airp;
   airp = Qry.FieldAsString( "airp" );
+  int pr_del = Qry.FieldAsInteger( "pr_del" );
+  bool pr_act_out = !Qry.FieldIsNULL( "act_out" );
 	if ( reqInfo->user.sets.time == ustTimeLocalAirp )
  	  region = AirpTZRegion( airp );
   TQuery UpdQry( &OraSession );
@@ -117,8 +119,8 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
     "                        pr_manual=DECODE(:pr_manual,-1,pr_manual,:pr_manual) "
     "  WHERE point_id=:point_id AND stage_id=:stage_id; "
     " IF SQL%NOTFOUND THEN "
-    "  INSERT INTO trip_stages(point_id,stage_id,scd,est,act,pr_auto,pr_manual) "
-    "   SELECT :point_id,:stage_id,NVL(:act,:est),:est,:act,0,DECODE(:pr_manual,-1,0,:pr_manual) FROM dual; "
+    "  INSERT INTO trip_stages(point_id,stage_id,scd,est,act,pr_auto,pr_manual,ignore_auto) "
+    "   SELECT :point_id,:stage_id,NVL(:act,:est),:est,:act,0,DECODE(:pr_manual,-1,0,:pr_manual,:ignore_auto) FROM dual; "
     " END IF; "
     "END; ";
   Qry.CreateVariable( "point_id", otInteger, point_id );
@@ -127,6 +129,7 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
   Qry.DeclareVariable( "act", otDate );
   Qry.DeclareVariable( "pr_auto", otInteger );
   Qry.DeclareVariable( "pr_manual", otInteger );
+  Qry.CreateVariable( "ignore_auto", otInteger, pr_act_out || pr_del != 0 );
 
   TStagesRules *sr = TStagesRules::Instance();
   TCkinClients CkinClients;
@@ -956,4 +959,17 @@ void Takeoff( int point_id )
 }
 
 
-
+void SetTripStages_IgnoreAuto( int point_id, bool ignore_auto )
+{
+  ProgTrace( TRACE5, "SetTripStages_IgnoreAuto: point_id=%d, ignore_auto=%d", point_id, ignore_auto );
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "UPDATE trip_stages SET ignore_auto=:ignore_auto WHERE point_id=:point_id";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.CreateVariable( "ignore_auto", otInteger, ignore_auto );
+  Qry.Execute();
+  if ( Qry.RowsProcessed() > 0 ) {
+    ProgTrace( TRACE5, "SetTripStages_IgnoreAuto: point_id=%d, set ignore_auto=%d",
+               point_id, ignore_auto );
+  }
+}

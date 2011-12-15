@@ -684,11 +684,19 @@ void TPointsDest::DoEvents( int move_id, const TPointsDest &dest )
   if ( events.isFlag( dmChangeCraft ) )
     reqInfo->MsgToLog( string( "Изменение типа ВС на " ) + craft + " порт " + airp, evtDisp, move_id, point_id );
   if ( events.isFlag( dmSetCraft ) )
-		reqInfo->MsgToLog( string( "Назначение ВС " ) + craft + " порт " + airp, evtDisp, move_id, point_id );
+		reqInfo->MsgToLog( string( "Назначение типа ВС " ) + craft + " порт " + airp, evtDisp, move_id, point_id );
   if ( events.isFlag( dmChangeBort ) )
     reqInfo->MsgToLog( string( "Изменение борта на " ) + bort + " порт " + airp, evtDisp, move_id, point_id );
   if ( events.isFlag( dmSetBort ) )
     reqInfo->MsgToLog( string( "Назначение борта " ) + bort + " порт " + airp, evtDisp, move_id, point_id );
+  if ( status != tdInsert &&
+       ( events.isFlag( dmSetACTOUT ) ||
+         events.isFlag( dmDeleteACTOUT ) ||
+         events.isFlag( dmSetCancel ) ||
+         events.isFlag( dmSetUnCancel ) ||
+         events.isFlag( dmSetDelete ) ) ) {
+    SetTripStages_IgnoreAuto( point_id, act_out != NoExists || pr_del != 0 );
+  }
 }
 
 ////////////////////////////////////////////////////
@@ -1358,7 +1366,10 @@ void PointsKeyTrip<T>::DoEvents( int move_id )
   
   if ( this->events.isFlag( teInitComps ) ) {
     TReqInfo::Instance()->MsgToLog( "Была вызвана процедура автоматического назначения компоновки на рейс", evtDisp, move_id, this->key.point_id );
-    if ( SALONS2::AutoSetCraft( this->key.point_id, this->key.craft, -1 ) < 0 ) {
+    int comp_id = -1;
+    if ( this->key.comp_id != NoExists )
+      comp_id = this->key.comp_id;
+    if ( SALONS2::AutoSetCraft( this->key.point_id, this->key.craft, comp_id ) < 0 ) {
       if ( this->key.pr_reg &&
            ( this->key.events.isFlag( dmChangeAirline ) ||
              this->key.events.isFlag( dmChangeFltNo ) ||
