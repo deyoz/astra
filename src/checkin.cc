@@ -8,7 +8,6 @@
 #include "astra_consts.h"
 #include "astra_utils.h"
 #include "astra_context.h"
-#include "seats2.h"
 #include "stages.h"
 #include "telegram.h"
 #include "misc.h"

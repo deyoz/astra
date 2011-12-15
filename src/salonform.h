@@ -45,6 +45,8 @@ public:
   void AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 
+bool filterCompons( const std::string &airline, const std::string &airp );
+void SalonFormShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 void ZoneLoads(int point_id, std::map<std::string, int> &zones);
 void IntChangeSeats( int point_id, int pax_id, int &tid, std::string xname, std::string yname,
 	                   SEATS2::TSeatsType seat_type,
