@@ -867,8 +867,17 @@ void AstraServiceInterface::ThreadTaskResData( XMLRequestCtxt *ctxt, xmlNodePtr 
 
 void CommitWork( int file_id )
 {
-  ProgTrace( TRACE5, "commitFileData param file_id=%d", file_id );
+  ProgTrace( TRACE5, "CommitWork: param file_id=%d", file_id );
   TQuery Qry( &OraSession );
+  Qry.SQLText = "SELECT type FROM file_queue WHERE id=:id";
+  Qry.CreateVariable( "id", otInteger, file_id );
+  Qry.Execute();
+  if ( Qry.Eof ) {
+    ProgTrace( TRACE5, ">>>commitFileData: already commited file_id=%d", file_id );
+    return;
+  }
+  string ftype = Qry.FieldAsString( "type" );
+  Qry.Clear();
   Qry.SQLText = "SELECT value FROM file_params WHERE id=:id AND name=:name";
   Qry.CreateVariable( "id", otInteger, file_id );
   Qry.CreateVariable( "name", otString, NS_PARAM_EVENT_TYPE );
@@ -893,11 +902,6 @@ void CommitWork( int file_id )
   Qry.Execute();
   if ( !Qry.Eof )
   	msg.id3 = ToInt( Qry.FieldAsString( "value" ) );
-  Qry.Clear();
-  Qry.SQLText = "SELECT type FROM file_queue WHERE id=:id";
-  Qry.CreateVariable( "id", otInteger, file_id );
-  Qry.Execute();
-  string ftype = Qry.FieldAsString( "type" );
   doneFile( file_id );
   msg.msg = string("Файл доставлен (тип=" + ftype + ", адресат=" + desk_code + ", ид.=") + IntToString( file_id ) + ")";
   TReqInfo::Instance()->MsgToLog( msg );
