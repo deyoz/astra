@@ -1730,12 +1730,21 @@ string TPrnTagStore::BR_AIRCODE(TFieldParams fp)
 
 string TPrnTagStore::BR_AIRLINE(TFieldParams fp)
 {
+    TQuery Qry(&OraSession);
+    Qry.SQLText = "SELECT code FROM airlines WHERE aircode=:aircode AND pr_del=0";
+    Qry.CreateVariable("aircode", otString, rcpt.aircode);
+    Qry.Execute();
+    if (Qry.Eof) return "";
+    string airline=Qry.FieldAsString("code");
+    Qry.Next();
+    if (!Qry.Eof) throw Exception("TPrnTagStore::BR_AIRLINE: aircode %s duplicated", rcpt.aircode.c_str());
+
     vector<pair<TElemFmt, string> > fmts;
     fmts.push_back(make_pair(efmtNameShort, tag_lang.GetLang()));
     fmts.push_back(make_pair(efmtNameLong, tag_lang.GetLang()));
     fmts.push_back(make_pair(efmtNameShort, AstraLocale::LANG_RU));
     fmts.push_back(make_pair(efmtNameLong, AstraLocale::LANG_RU));
-    return ElemIdToElem(etAirline, rcpt.airline, fmts);
+    return ElemIdToElem(etAirline, airline, fmts);
 }
 
 string TPrnTagStore::AIRLINE_CODE(TFieldParams fp)

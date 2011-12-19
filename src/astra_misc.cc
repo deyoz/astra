@@ -1542,3 +1542,211 @@ string GetTagRangesStr(const vector<TBagTagNumber> &tags)
   return result.str();
 };
 
+string GetBagRcptStr(const vector<string> &rcpts)
+{
+  ostringstream result;
+  string prior_no;
+  for(vector<string>::const_iterator no=rcpts.begin(); no!=rcpts.end(); ++no)
+  {
+    int no_len=no->size();
+    if (no!=rcpts.begin() &&
+        no_len>2 &&
+        no_len==(int)prior_no.size() &&
+        no->substr(0,no_len-2)==prior_no.substr(0,no_len-2))
+    {
+      result << "/" << no->substr(no_len-2);
+    }
+    else
+    {
+      if (no!=rcpts.begin()) result << "/";
+      result << *no;
+    };
+    prior_no=*no;
+  };
+  return result.str();
+};
+
+string GetBagRcptStr(int grp_id, int pax_id)
+{
+  TQuery Qry(&OraSession);
+  Qry.CreateVariable("grp_id", otInteger, grp_id);
+  
+  int main_pax_id=NoExists;
+  if (pax_id!=NoExists)
+  {
+    Qry.SQLText=
+      "SELECT ckin.get_main_pax_id(:grp_id) AS main_pax_id FROM dual";
+    Qry.Execute();
+    if (!Qry.Eof && !Qry.FieldIsNULL("main_pax_id")) main_pax_id=Qry.FieldAsInteger("main_pax_id");
+  };
+  if (pax_id==NoExists ||
+      main_pax_id!=NoExists && main_pax_id==pax_id)
+  {
+    vector<string> rcpts;
+    Qry.SQLText="SELECT no FROM bag_prepay WHERE grp_id=:grp_id";
+    Qry.Execute();
+    for(;!Qry.Eof;Qry.Next())
+      rcpts.push_back(Qry.FieldAsString("no"));
+      
+    Qry.SQLText="SELECT form_type,no FROM bag_receipts WHERE grp_id=:grp_id AND annul_date IS NULL";
+    Qry.Execute();
+    for(;!Qry.Eof;Qry.Next())
+    {
+      int no_len=10;
+      try
+      {
+        no_len=base_tables.get("form_types").get_row("code",Qry.FieldAsString("form_type")).AsInteger("no_len");
+      }
+      catch(EBaseTableError) {};
+      ostringstream no_str;
+      no_str << fixed << setw(no_len) << setfill('0') << setprecision(0) << Qry.FieldAsFloat("no");
+      rcpts.push_back(no_str.str());
+    };
+    if (!rcpts.empty())
+    {
+      sort(rcpts.begin(),rcpts.end());
+      return GetBagRcptStr(rcpts);
+    };
+  };
+  return "";
+};
+
+bool BagPaymentCompleted(int grp_id, int *value_bag_count)
+{
+  vector< pair< int, int> > paid_bag;         //< bag_type, weight >
+  vector< pair< double, string > > value_bag; //< value, value_cur >
+  TQuery Qry(&OraSession);
+  Qry.CreateVariable("grp_id", otInteger, grp_id);
+  
+  Qry.SQLText="SELECT bag_type, weight FROM paid_bag WHERE grp_id=:grp_id AND weight>0";
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+  {
+    int bag_type=Qry.FieldIsNULL("bag_type")?NoExists:Qry.FieldAsInteger("bag_type");
+    paid_bag.push_back( make_pair(bag_type, Qry.FieldAsInteger("weight")) );
+  };
+  
+  Qry.SQLText="SELECT value, value_cur FROM value_bag WHERE grp_id=:grp_id AND value>0";
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+  {
+    value_bag.push_back( make_pair(Qry.FieldAsFloat("value"), Qry.FieldAsString("value_cur")) );
+  };
+  if (value_bag_count!=NULL) *value_bag_count=value_bag.size();
+  
+  if (paid_bag.empty() && value_bag.empty()) return true;
+  
+  TQuery KitQry(&OraSession);
+  KitQry.Clear();
+  KitQry.SQLText=
+    "SELECT bag_rcpt_kits.kit_id "
+    "FROM bag_rcpt_kits, bag_receipts "
+    "WHERE bag_rcpt_kits.kit_id=bag_receipts.kit_id(+) AND "
+    "      bag_rcpt_kits.kit_num=bag_receipts.kit_num(+) AND "
+    "      bag_receipts.annul_date(+) IS NULL AND "
+    "      bag_rcpt_kits.kit_id=:kit_id AND "
+    "      bag_receipts.kit_id IS NULL";
+  KitQry.DeclareVariable("kit_id", otInteger);
+    
+  if (!paid_bag.empty())
+  {
+    map< int, int > rcpt_paid_bag;
+    for(int pass=0;pass<=2;pass++)
+    {
+      switch (pass)
+      {
+        case 0: Qry.SQLText=
+                  "SELECT bag_type, ex_weight "
+                  "FROM bag_receipts "
+                  "WHERE grp_id=:grp_id AND annul_date IS NULL AND service_type IN (1,2) AND kit_id IS NULL";
+                break;
+        case 1: Qry.SQLText=
+                  "SELECT MIN(bag_type) AS bag_type, MIN(ex_weight) AS ex_weight, kit_id "
+                  "FROM bag_receipts "
+                  "WHERE grp_id=:grp_id AND service_type IN (1,2) AND kit_id IS NOT NULL "
+                  "GROUP BY kit_id";
+                break;
+        case 2: Qry.SQLText=
+                  "SELECT bag_type, ex_weight "
+                  "FROM bag_prepay "
+                  "WHERE grp_id=:grp_id AND value IS NULL";
+                break;
+      };
+      Qry.Execute();
+      for(;!Qry.Eof;Qry.Next())
+      {
+        if (pass==1)
+        {
+          KitQry.SetVariable("kit_id", Qry.FieldAsInteger("kit_id"));
+          KitQry.Execute();
+          if (!KitQry.Eof) continue;
+        };
+        int bag_type=Qry.FieldIsNULL("bag_type")?NoExists:Qry.FieldAsInteger("bag_type");
+        if (rcpt_paid_bag.find(bag_type)==rcpt_paid_bag.end())
+          rcpt_paid_bag[bag_type]=Qry.FieldAsInteger("ex_weight");
+        else
+          rcpt_paid_bag[bag_type]+=Qry.FieldAsInteger("ex_weight");
+      };
+    };
+    
+    for(vector< pair< int, int> >::const_iterator i=paid_bag.begin();i!=paid_bag.end();++i)
+    {
+      map< int, int >::const_iterator j=rcpt_paid_bag.find(i->first);
+      if (j==rcpt_paid_bag.end()) return false;
+      if (j->second<i->second) return false;
+    };
+  };
+  
+  if (!value_bag.empty())
+  {
+    map< pair< double, string >, int > rcpt_value_bag;
+    for(int pass=0;pass<=2;pass++)
+    {
+      switch (pass)
+      {
+        case 0: Qry.SQLText=
+                  "SELECT rate AS value,rate_cur AS value_cur "
+                  "FROM bag_receipts "
+                  "WHERE grp_id=:grp_id AND annul_date IS NULL AND service_type=3 AND kit_id IS NULL";
+                  break;
+        case 1: Qry.SQLText=
+                  "SELECT MIN(rate) AS value, MIN(rate_cur) AS value_cur, kit_id "
+                  "FROM bag_receipts "
+                  "WHERE grp_id=:grp_id AND service_type=3 AND kit_id IS NOT NULL "
+                  "GROUP BY kit_id";
+                  break;
+        case 2: Qry.SQLText=
+                  "SELECT value,value_cur "
+                  "FROM bag_prepay "
+                  "WHERE grp_id=:grp_id AND value IS NOT NULL";
+                  break;
+      };
+      Qry.Execute();
+      for(;!Qry.Eof;Qry.Next())
+      {
+        if (pass==1)
+        {
+          KitQry.SetVariable("kit_id", Qry.FieldAsInteger("kit_id"));
+          KitQry.Execute();
+          if (!KitQry.Eof) continue;
+        };
+        pair< double, string > bag(Qry.FieldAsFloat("value"), Qry.FieldAsString("value_cur"));
+        if (rcpt_value_bag.find(bag)==rcpt_value_bag.end())
+          rcpt_value_bag[bag]=1;
+        else
+          rcpt_value_bag[bag]+=1;
+      };
+    };
+
+    for(vector< pair< double, string > >::const_iterator i=value_bag.begin();i!=value_bag.end();++i)
+    {
+      map< pair< double, string >, int >::iterator j=rcpt_value_bag.find(*i);
+      if (j==rcpt_value_bag.end()) return false;
+      if (j->second<=0) return false;
+      j->second--;
+    };
+  };
+  
+  return true;
+};
+

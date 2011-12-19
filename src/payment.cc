@@ -1003,10 +1003,10 @@ void PaymentInterface::GetReceiptFromXML(xmlNodePtr reqNode, TBagReceipt &rcpt)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
   
-  TPrnParams prnParams(reqNode); //!!!vlad
+  TPrnParams prnParams(reqNode);
 
   xmlNodePtr rcptNode=NodeAsNode("receipt",reqNode);
-  
+
   int grp_id=NoExists;
   TQuery Qry(&OraSession);
   if (GetNode("kit_id",rcptNode)!=NULL)
@@ -1217,7 +1217,7 @@ void PaymentInterface::GetReceiptFromXML(xmlNodePtr reqNode, TBagReceipt &rcpt)
     };
   };
 
-  rcpt.remarks=""; //формируется налету !!!vlad
+  rcpt.remarks=""; //формируется налету
 
   rcpt.issue_date=NowUTC();
   rcpt.issue_desk=reqInfo->desk.code;
@@ -1330,6 +1330,10 @@ void PaymentInterface::ViewReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 
   if (GetNode("receipt/id",reqNode)==NULL)
   {
+  
+    if (!TReqInfo::Instance()->desk.compatible(BAG_RCPT_KITS_VERSION) &&
+        NodeAsNode("receipt",reqNode)->children==NULL)
+      throw UserException("MSG.BEFORE_RECEIPT_PRINT_CLOSE_PAYMENT_FORMS");
     //этот код выполняется при выводе еще не напечатанной квитанции
     TBagReceipt rcpt;
     GetReceiptFromXML(reqNode,rcpt);

@@ -501,9 +501,7 @@ void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
         "    NVL(ckin.get_rkAmount2(pax_grp.grp_id,NULL,NULL,rownum),0) AS rk_amount, "
         "    NVL(ckin.get_rkWeight2(pax_grp.grp_id,NULL,NULL,rownum),0) AS rk_weight, "
         "    NVL(pax_grp.excess,0) AS excess, "
-        "    kassa.get_value_bag_count(pax_grp.grp_id) AS value_bag_count, "
         "    ckin.get_birks2(pax_grp.grp_id,NULL,NULL,:lang) AS tags, "
-        "    kassa.pr_payment(pax_grp.grp_id) AS pr_payment, "
         "    client_type ";
     if(rpt_type == rtUnknown)
         sql << ", tckin_id, seg_no ";
@@ -761,9 +759,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       int col_rk_amount=Qry.FieldIndex("rk_amount");
       int col_rk_weight=Qry.FieldIndex("rk_weight");
       int col_excess=Qry.FieldIndex("excess");
-      int col_value_bag_count=Qry.FieldIndex("value_bag_count");
       int col_tags=Qry.FieldIndex("tags");
-      int col_pr_payment=Qry.FieldIndex("pr_payment");
       int col_client_type=Qry.FieldIndex("client_type");
       int col_tckin_id=Qry.FieldIndex("tckin_id");
       int col_seg_no=Qry.FieldIndex("seg_no");
@@ -810,8 +806,10 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           NewTextChild(paxNode, "document", GetPaxDocStr(NoExists, pax_id, PaxDocQry, false), "");
           NewTextChild(paxNode, "tid", Qry.FieldAsInteger(col_tid));
           NewTextChild(paxNode, "excess", Qry.FieldAsInteger(col_excess), 0);
-          NewTextChild(paxNode, "value_bag_count", Qry.FieldAsInteger(col_value_bag_count), 0);
-          NewTextChild(paxNode, "pr_payment", Qry.FieldAsInteger(col_pr_payment)!=0, false);
+          int value_bag_count;
+          bool pr_payment=BagPaymentCompleted(Qry.FieldAsInteger(col_grp_id), &value_bag_count);
+          NewTextChild(paxNode, "value_bag_count", value_bag_count, 0);
+          NewTextChild(paxNode, "pr_payment", (int)pr_payment, (int)false);
           NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger(col_bag_amount), 0);
           NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger(col_bag_weight), 0);
           NewTextChild(paxNode, "rk_amount", Qry.FieldAsInteger(col_rk_amount), 0);
@@ -957,8 +955,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                       AstraLocale::showErrorMessage("MSG.PASSENGER.NOT_EXAM");
                   }
                   else if
-                      (boarding && Qry.FieldAsInteger(col_pr_payment)==0 &&
-                       pr_check_pay)
+                      (boarding && !pr_payment && pr_check_pay)
                       {
                           AstraLocale::showErrorMessage("MSG.PASSENGER.NOT_BAG_PAID");
                       }
