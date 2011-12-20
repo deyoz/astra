@@ -645,7 +645,7 @@ void ParsePTMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPtmContent& con)
 void ParseBTMContent(TTlgPartInfo body, TBSMHeadingInfo& info, TBtmContent& con, TMemoryManager &mem);
 void ParseSOMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TSOMContent& con);
 
-bool ParseDOCSRem(TTlgParser &tlg,std::string &rem_text,TDocItem &doc);
+bool ParseDOCSRem(TTlgParser &tlg,BASIC::TDateTime scd_local,std::string &rem_text,TDocItem &doc);
 
 bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& con, bool forcibly);
 void SavePTMContent(int tlg_id, TDCSHeadingInfo& info, TPtmContent& con);
