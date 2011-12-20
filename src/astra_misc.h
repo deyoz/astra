@@ -560,6 +560,7 @@ void GetTagRanges(const std::vector<TBagTagNumber> &tags,
 
 std::string GetTagRangesStr(const std::vector<TBagTagNumber> &tags);
 
+std::string GetBagRcptStr(const std::vector<std::string> &rcpts);
 std::string GetBagRcptStr(int grp_id, int pax_id);
 
 bool BagPaymentCompleted(int grp_id, int *value_bag_count=NULL);

@@ -967,7 +967,7 @@ double PaymentInterface::GetNextNo(const string &form_type, double no)
 string GetKitPrevNoStr(const vector<TBagReceiptKitItem> &items)
 {
   ostringstream result;
-  string prior_no;
+  vector<string> rcpts;
   for(vector<TBagReceiptKitItem>::const_iterator i=items.begin();i!=items.end();++i)
   {
     int no_len=10;
@@ -978,23 +978,10 @@ string GetKitPrevNoStr(const vector<TBagReceiptKitItem> &items)
     catch(EBaseTableError) {};
     ostringstream no_str;
     no_str << fixed << setw(no_len) << setfill('0') << setprecision(0) << i->no;
-    no_len=no_str.str().size();
-    if (i!=items.begin() &&
-        no_len>2 &&
-        no_len==(int)prior_no.size() &&
-        no_str.str().substr(0,no_len-2)==prior_no.substr(0,no_len-2))
-    {
-      result << "/" << no_str.str().substr(no_len-2);
-    }
-    else
-    {
-      if (i==items.begin())
-        result << i->aircode << no_str.str();
-      else
-        result << "/" << no_str.str();
-    };
-    prior_no=no_str.str();
+    rcpts.push_back(no_str.str());
+    if (i==items.begin()) result << i->aircode;
   };
+  result << GetBagRcptStr(rcpts);
   return result.str();
 };
 
