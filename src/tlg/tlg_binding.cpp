@@ -66,6 +66,8 @@ void unbind_tlg(int point_id_tlg, int point_id_spp)
     crs_recount(point_id_tlg,point_id_spp,false);
     for(int layer=0;layer<(int)cltTypeNum;layer++)
       if (IsTlgCompLayer((TCompLayerType)layer)) SyncTripCompLayers(point_id_tlg, point_id_spp, (TCompLayerType)layer);
+    //попробовать опять привязать point_id_tlg к какому либо рейсу
+    bind_tlg(point_id_tlg, true);
   };
 };
 
