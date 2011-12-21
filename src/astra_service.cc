@@ -35,11 +35,12 @@ using namespace BASIC;
 const double WAIT_ANSWER_SEC = 30.0;   // ждем ответа 30 секунд
 const string PARAM_FILE_ID = "file_id";
 const string PARAM_NEXT_FILE = "NextFile";
+#define ENDL "\r\n"
 
 void CommitWork( int file_id );
 
 bool createCheckinDataFiles( int point_id, const std::string &point_addr, TFileDatas &fds );
-bool CreateCommonFileData( const std::string &point_addr,
+bool CreateCommonFileData( bool pr_commit, const std::string &point_addr,
                            int id, const std::string type,
                            const std::string &airp, const std::string &airline,
 	                         const std::string &flt_no );
@@ -122,6 +123,55 @@ int putFile( const string &receiver,
   return file_id;
 };
 
+int putMail( const string &receiver,
+             const string &sender,
+             const string &type,
+             map<string,string> &params,
+             const string &file_data )
+{
+	int file_id = ASTRA::NoExists;
+  ofstream f;
+  string filename;
+  if ( params.find( PARAM_FILE_NAME ) == params.end() )
+    throw Exception( "Can't find param FileName" );
+  filename = params[ PARAM_FILE_NAME ];
+  TQuery FilesQry(&OraSession);
+  FilesQry.Clear();
+  FilesQry.SQLText=
+    "SELECT name,dir,last_create,airp "
+    "FROM file_sets "
+    "WHERE code=:code AND pr_denial=0";
+  FilesQry.CreateVariable( "code", otString, type );
+  FilesQry.Execute();
+  if ( FilesQry.Eof )
+    throw Exception( "Can't find file type in file_sets" );
+  filename = string( FilesQry.FieldAsString( "dir" ) ) + filename;
+  f.open( filename.c_str() );
+  if (!f.is_open()) throw Exception( "Can't open file '%s'", filename.c_str() );
+  try {
+    TQuery Qry(&OraSession);
+    Qry.SQLText = "SELECT tlgs_id.nextval id FROM dual";
+    Qry.Execute();
+    file_id = Qry.FieldAsInteger( "id" );
+    f << file_data;
+    f << ENDL;
+    f.close();
+  }
+  catch(...)
+  {
+    try { f.close(); } catch( ... ) { };
+    try
+    {
+      //в случае ошибки запишем пустой файл
+      f.open( filename.c_str() );
+      if ( f.is_open() ) f.close();
+    }
+    catch( ... ) { };
+    throw;
+  };
+  return file_id;
+};
+
 bool errorFile( int id, const string &msg )
 {
 	TQuery ErrQry(&OraSession);
@@ -172,6 +222,10 @@ bool doneFile( int id )
 struct TSQLCondDates {
   string sql;
   map<string,TDateTime> dates;
+  int point_id;
+  TSQLCondDates() {
+    point_id = ASTRA::NoExists;
+  }
 };
 
 class TPointAddr {
@@ -184,7 +238,8 @@ public:
   }
   virtual ~TPointAddr() {};
   virtual bool validateParams( const string &point_addr, const vector<string> &ailines,
-                               const vector<string> &airps, const vector<int> &flt_nos ) {
+                               const vector<string> &airps, const vector<int> &flt_nos,
+                               const map<string,string> &params, int point_id ) {
     return true;
   }
   virtual bool validatePoints( int point_id ) {
@@ -194,13 +249,14 @@ public:
     TQuery Qry( &OraSession );
     TQuery PointsQry( &OraSession );
     Qry.SQLText =
-      "SELECT point_addr,airline,flt_no,airp,param_name FROM file_param_sets, desks "
+      "SELECT point_addr,airline,flt_no,airp,param_name,param_value FROM file_param_sets, desks "
       " WHERE type=:type AND own_point_addr=:own_point_addr AND pr_send=:pr_send AND "
       "       desks.code=file_param_sets.point_addr "
       "ORDER BY point_addr";
   	string point_addr;
     vector<string> airlines, airps;
 	  vector<int> flt_nos;
+    map<string,string> params;
 	  bool pr_empty_airline = false, pr_empty_airp = false, pr_empty_flt_no = false;
 	  Qry.CreateVariable( "type", otString, type );
 	  Qry.CreateVariable( "pr_send", otInteger, pr_send );
@@ -218,11 +274,12 @@ public:
           flt_nos.clear();
         ProgTrace( TRACE5, "point_addr=%s, airlines.size()=%d, airps.size()=%d,flt_nos.size()=%d",
                    point_addr.c_str(), airlines.size(), airps.size(),  flt_nos.size() );
-        if ( validateParams( point_addr, airlines, airps, flt_nos ) ) {
+        if ( validateParams( point_addr, airlines, airps, flt_nos, params, cond_dates.point_id ) ) {
+          ProgTrace( TRACE5, "validateparams" );
           PointsQry.Clear();
           string res = "SELECT point_id, airline, airp, flt_no FROM points WHERE ";
           if ( cond_dates.sql.empty() ) //такого не должно быть
-            res = " 1=1 AND ";
+            res = " 1=1 ";
           else
             res += cond_dates.sql;
           if ( !airps.empty() ) {
@@ -233,7 +290,6 @@ public:
                 res += ",";
               res += ":airp"+IntToString(idx);
               PointsQry.CreateVariable( "airp"+IntToString(idx), otString, *istr );
-//              ProgTrace( TRACE5, "airp idx=%d, value=%s", idx, istr->c_str() );
               idx++;
             }
             res += ")";
@@ -246,7 +302,6 @@ public:
                 res += ",";
               res += ":airline"+IntToString(idx);
               PointsQry.CreateVariable( "airline"+IntToString(idx), otString, *istr );
-  //            ProgTrace( TRACE5, "airline idx=%d, value=%s", idx, istr->c_str() );
               idx++;
             }
             res += ")";
@@ -259,7 +314,6 @@ public:
                 res += ",";
               res += ":flt_no"+IntToString(idx);
               PointsQry.CreateVariable( "flt_no"+IntToString(idx), otInteger, *iint );
-    //          ProgTrace( TRACE5, "flt_no idx=%d, value=%d", idx, *iint );
               idx++;
             }
             res += ")";
@@ -268,13 +322,16 @@ public:
                 idate!=cond_dates.dates.end(); idate++ ) {
             PointsQry.CreateVariable( idate->first, otDate, idate->second );
           }
+          if ( cond_dates.point_id != ASTRA::NoExists )
+            PointsQry.CreateVariable( "point_id", otInteger, cond_dates.point_id );
           PointsQry.SQLText = res;
           ProgTrace( TRACE5, "type=%s, PointsQry.SQLText=%s, point_addr=%s", type.c_str(), res.c_str(), point_addr.c_str() );
           PointsQry.Execute();
           while ( !PointsQry.Eof ) {
             if ( validatePoints( PointsQry.FieldAsInteger( "point_id" ) ) ) {
             ProgTrace( TRACE5, "type=%s, point_addr=%s, point_id=%d", type.c_str(), point_addr.c_str(), PointsQry.FieldAsInteger( "point_id" ) );
-            CreateCommonFileData( point_addr,
+            CreateCommonFileData( cond_dates.point_id == ASTRA::NoExists,
+                                  point_addr,
                                   PointsQry.FieldAsInteger( "point_id" ),
                                   type,
                                   PointsQry.FieldAsString( "airp" ),
@@ -293,6 +350,7 @@ public:
         pr_empty_airline = false;
         pr_empty_airp = false;
         pr_empty_flt_no = false;
+        params.clear();
       }
       if ( Qry.Eof )
         break;
@@ -312,8 +370,10 @@ public:
       else
         if ( find( flt_nos.begin(), flt_nos.end(), Qry.FieldAsInteger( "flt_no" ) ) == flt_nos.end() )
           flt_nos.push_back( Qry.FieldAsInteger( "flt_no" ) );
-      ProgTrace( TRACE5, "point_addr=%s, param_name=%s,airline=%s,airp=%s,flt_no=%s",
-                 point_addr.c_str(), Qry.FieldAsString( "param_name" ), Qry.FieldAsString( "airline" ),
+      params[ Qry.FieldAsString( "param_name" ) ] = Qry.FieldAsString( "param_value" );
+      ProgTrace( TRACE5, "point_addr=%s, param_name=%s,param_value=%s,airline=%s,airp=%s,flt_no=%s",
+                 point_addr.c_str(), Qry.FieldAsString( "param_name" ),
+                 Qry.FieldAsString( "param_value" ), Qry.FieldAsString( "airline" ),
                  Qry.FieldAsString( "airp" ),Qry.FieldAsString( "flt_no" ) );
       Qry.Next();
 	  }
@@ -906,7 +966,8 @@ bool isXMLFormat( const std::string type )
   return ( type == FILE_CHECKINDATA_TYPE );
 }
 
-bool CreateCommonFileData( const std::string &point_addr,
+bool CreateCommonFileData( bool pr_commit,
+                           const std::string &point_addr,
                            int id, const std::string type,
                            const std::string &airp, const std::string &airline,
 	                         const std::string &flt_no )
@@ -986,7 +1047,11 @@ bool CreateCommonFileData( const std::string &point_addr,
                               throw AstraLocale::UserException("MSG.CONVERT_INTO_ERR", LParams() << LParam("enc", encoding));
                           }
                       res = true;
-                      int file_id = putFile( client_canon_name, OWN_POINT_ADDR(), type, i->params, str_file );
+                      int file_id;
+                      if ( inparams.find( PARAM_MAIL_INTERVAL ) != inparams.end() )
+                        file_id = putMail( client_canon_name, OWN_POINT_ADDR(), type, i->params, str_file );
+                      else
+                        file_id = putFile( client_canon_name, OWN_POINT_ADDR(), type, i->params, str_file );
                       ProgTrace( TRACE5, "file create file_id=%d, type=%s", file_id, type.c_str() );
                       TLogMsg msg;
                       if ( i->params.find( NS_PARAM_EVENT_TYPE ) != i->params.end() ) {
@@ -1001,19 +1066,31 @@ bool CreateCommonFileData( const std::string &point_addr,
                     		TReqInfo::Instance()->MsgToLog( msg );
                       }
                     }
+                    if ( pr_commit ) {
+                      OraSession.Commit();
+                    }
                 }
             }
             /* ну не получилось сформировать файл, остальные файлы имеют тоже право попробовать сформироваться */
             catch(EOracleError &E)
             {
+              if ( pr_commit ) {
+                try { OraSession.Rollback(); }catch(...){};
+              }
               ProgError( STDLOG, "EOracleError file_type=%s, %d: %s", type.c_str(), E.Code, E.what());
               ProgError( STDLOG, "SQL: %s", E.SQLText());
             }
             catch( std::exception &e) {
-                ProgError(STDLOG, "exception file_type=%s, id=%d, what=%s", type.c_str(), id, e.what());
+              if ( pr_commit ) {
+                try { OraSession.Rollback(); }catch(...){};
+              }
+              ProgError(STDLOG, "exception file_type=%s, id=%d, what=%s", type.c_str(), id, e.what());
             }
             catch(...) {
-                ProgError(STDLOG, "putFile: Unknown error while trying to put file");
+              if ( pr_commit ) {
+                try { OraSession.Rollback(); }catch(...){};
+              }
+              ProgError(STDLOG, "putFile: Unknown error while trying to put file");
             };
             inparams.clear();
             master_params = false;
@@ -1095,7 +1172,8 @@ void createSofiFileDATA( int receipt_id )
     if (  flt_no != ASTRA::NoExists )
       strflt_no = IntToString( flt_no );
     while ( !Qry.Eof ) {
-  		CreateCommonFileData( Qry.FieldAsString("point_addr"),
+  		CreateCommonFileData( false,
+                            Qry.FieldAsString("point_addr"),
                             receipt_id, FILE_SOFI_TYPE, airp,
 	  	                      airline, strflt_no );
       Qry.Next();
@@ -1129,7 +1207,8 @@ public:
     delete StagesQry;
   }
   virtual bool validateParams( const string &point_addr, const vector<string> &ailines,
-                               const vector<string> &airps, const vector<int> &flt_nos ) {
+                               const vector<string> &airps, const vector<int> &flt_nos,
+                               const map<string,string> &params, int point_id ) {
     return ( airps.size() == 1 ); // выбираем рейсы. Это необходимое условие
   }
   virtual bool validatePoints( int point_id ) {
@@ -1141,7 +1220,7 @@ public:
   }
 };
 
-void sync_aodb( void )
+void sync_aodb( int point_id )
 {
   TQuery Qry( &OraSession );
   Qry.SQLText =
@@ -1151,82 +1230,20 @@ void sync_aodb( void )
   
   TAODBPointAddr point_addr;
   TSQLCondDates cond_dates;
-  cond_dates.sql = " time_out in (:day1,:day2) AND act_out IS NULL AND pr_del=0 ";
+  cond_dates.sql = " time_out in (:day1,:day2) AND pr_del=0 ";
+  if ( point_id == ASTRA::NoExists )
+    cond_dates.sql += " AND act_out IS NULL ";
+  else
+    cond_dates.sql += " AND point_id=:point_id ";
+  cond_dates.point_id = point_id;
   cond_dates.dates.insert( make_pair( "day1", currdate ) );
   cond_dates.dates.insert( make_pair( "day2", currdate + 1 ) );
   point_addr.createPointSQL( cond_dates );
-/*	Qry.Clear();
-	Qry.SQLText =
-    "SELECT record, rec_no from drop_spp1 WHERE airline='ЮТ' AND filename=:filename "
-    "ORDER BY rec_no";
-  Qry.DeclareVariable( "filename", otString );
-  TDateTime d = NowUTC() - 30;
-  string filename;
-  filename=string("SPP")+string(DateTimeToStr( d, "yymmdd" )) + ".txt";
-  Qry.SetVariable( "filename", filename );
-  Qry.Execute();
-  while ( Qry.Eof && d <= NowUTC() ) {
-     d++;
-     filename=string(DateTimeToStr( d, "yymmdd" )) + ".txt";
-     Qry.SetVariable( "filename", filename );
-     Qry.Execute();
-  };
-  if ( d > NowUTC() ) {
-    ProgTrace( TRACE5, "SPP: all record parsed" );
-    return;
-  }
-  int count_line = 15;
-  string data;
-  vector<int> recs;
-  while ( !Qry.Eof && count_line >=0 ) {
-    count_line--;
-    ProgTrace( TRACE5, "SPP: record=%s", Qry.FieldAsString( "record" ) );
-    data += Qry.FieldAsString( "record" );
-    recs.push_back( Qry.FieldAsInteger("rec_no") );
-    data += 13;
-    data += 10;
-    Qry.Next();
-  }
-  ProgTrace( TRACE5, "SPP: parse data=%s", data.c_str() );
-  Qry.Clear();
-  Qry.SQLText =
-	 "BEGIN "
-	 " SELECT rec_no INTO :rec_no FROM aodb_spp_files "
-	 "  WHERE filename=:filename AND point_addr=:point_addr AND NVL(airline,'Z')=NVL(:airline,'Z');"
-	 " EXCEPTION WHEN NO_DATA_FOUND THEN "
-	 " BEGIN "
-	 "  :rec_no := -1; "
-	 "  INSERT INTO aodb_spp_files(filename,point_addr,airline,rec_no) VALUES(:filename,:point_addr,:airline,:rec_no); "
-	 " END;"
-	 "END;";
-  Qry.CreateVariable("filename", otString, filename);
-  Qry.CreateVariable("rec_no", otInteger, -1);
-  Qry.CreateVariable("point_addr", otString,"RASTRV");
-  Qry.CreateVariable("airline", otString,"ЮТ");
-  Qry.Execute();
-  tst();
-  Qry.Clear();
-  Qry.SQLText =
-    "DELETE drop_spp1 WHERE airline='ЮТ' AND filename=:filename and rec_no=:rec_no";
-  Qry.CreateVariable( "filename", otString, filename );
-  Qry.DeclareVariable( "rec_no", otInteger );
-  for ( vector<int>::iterator i=recs.begin(); i!=recs.end(); i++ ) {
-    Qry.SetVariable( "rec_no", *i );
-    Qry.Execute();
-    ProgTrace( TRACE5, "SPP: rec_no=%d", *i );
-  }
-  map<string,string> fileparams;
-  fileparams[ NS_PARAM_AIRLINE ] = "ЮТ";
-  fileparams[ PARAM_FILE_NAME ] = filename;
-  fileparams[ PARAM_FILE_TYPE ] = FILE_AODB_IN_TYPE;
-  fileparams[ PARAM_CANON_NAME ] = "RASTRV";
-  
-  putFile( OWN_POINT_ADDR(),
-           OWN_POINT_ADDR(),
-           FILE_AODB_IN_TYPE,
-           fileparams,
-           data );
-  sendCmd( "CMD_PARSE_AODB", "P" );   */
+}
+
+void sync_aodb( void )
+{
+  sync_aodb( ASTRA::NoExists );
 }
 
 class TSPPCEKPointAddr: public TPointAddr {
@@ -1234,7 +1251,8 @@ public:
   TSPPCEKPointAddr( ):TPointAddr( FILE_SPPCEK_TYPE, true ) {}
   ~TSPPCEKPointAddr( ) {}
   virtual bool validateParams( const string &point_addr, const vector<string> &ailines,
-                               const vector<string> &airps, const vector<int> &flt_nos ) {
+                               const vector<string> &airps, const vector<int> &flt_nos,
+                               const map<string,string> &params, int point_id ) {
     return ( airps.size() == 1 ); // выбираем рейсы. Это необходимое условие
   }
 };
@@ -1269,7 +1287,7 @@ void sync_1ccek( void )
   Qry.CreateVariable( "type", otString, FILE_1CCEK_TYPE );
   Qry.Execute();
   while ( !Qry.Eof ) {
-	  CreateCommonFileData( Qry.FieldAsString( "point_addr" ), -1, FILE_1CCEK_TYPE, "ЧЛБ", "", "" );
+	  CreateCommonFileData( true, Qry.FieldAsString( "point_addr" ), -1, FILE_1CCEK_TYPE, "ЧЛБ", "", "" );
 	  Qry.Next();
   }
 }
@@ -1343,9 +1361,32 @@ public:
     delete StagesQry;
   }
   virtual bool validateParams( const string &point_addr, const vector<string> &ailines,
-                               const vector<string> &airps, const vector<int> &flt_nos ) {
-    return ( airps.size() == 1 ); // выбираем рейсы. Это необходимое условие
+                               const vector<string> &airps, const vector<int> &flt_nos,
+                               const map<string,string> &params, int point_id ) {
+
+    if ( airps.size() != 1 ) // выбираем рейсы. Это необходимое условие
+      return false;
+    if ( params.find( PARAM_MAIL_INTERVAL ) != params.end() && point_id == ASTRA::NoExists ) { // проверка на то, что пора создавать файл
+      int interval;
+      if ( StrToInt( params.find( PARAM_MAIL_INTERVAL )->second.c_str(), interval ) == EOF ) {
+        interval = 30;
+        ProgError( STDLOG, "createCheckinDataFiles: mail interval not set, default = 30 min" );
+      }
+      ProgTrace( TRACE5, "TCheckinDataPointAddr->validateParams: interval=%d", interval );
+      TQuery QryFileSets( &OraSession );
+      QryFileSets.SQLText =
+        "UPDATE file_sets SET last_create=system.UTCSYSDATE"
+        " WHERE code=:code AND pr_denial=0 AND airp=:airp AND NVL(last_create+:interval/(24*60),system.UTCSYSDATE)<=system.UTCSYSDATE";
+      QryFileSets.CreateVariable( "code", otString, FILE_CHECKINDATA_TYPE );
+      QryFileSets.CreateVariable( "airp", otString, *airps.begin() );
+      QryFileSets.CreateVariable( "interval", otInteger, interval );
+      QryFileSets.Execute();
+      ProgTrace( TRACE5, "TCheckinDataPointAddr->validateParams return %d", QryFileSets.RowsProcessed() );
+      return QryFileSets.RowsProcessed();
+    }
+    return true;
   }
+
   virtual bool validatePoints( int point_id ) {
     StagesQry->SetVariable( "point_id", point_id );
     StagesQry->Execute();
@@ -1402,7 +1443,7 @@ struct TBagData {
   }
 };
 
-void sync_checkin_data( void )
+void sync_checkin_data( int point_id )
 {
   TQuery Qry( &OraSession );
   Qry.SQLText =
@@ -1412,11 +1453,22 @@ void sync_checkin_data( void )
 
   TCheckinDataPointAddr point_addr;
   TSQLCondDates cond_dates;
-  cond_dates.sql = " time_out in (:day1,:day2) AND act_out IS NULL ";
+  cond_dates.sql = " time_out in (:day1,:day2) AND pr_del=0 ";
+  if ( point_id ==  ASTRA::NoExists )
+    cond_dates.sql += " AND act_out IS NULL ";
+  else
+    cond_dates.sql += " AND point_id=:point_id ";
+  cond_dates.point_id = point_id;
   cond_dates.dates.insert( make_pair( "day1", currdate ) );
   cond_dates.dates.insert( make_pair( "day2", currdate + 1 ) );
   point_addr.createPointSQL( cond_dates );
 };
+
+void sync_checkin_data( )
+{
+  sync_checkin_data( ASTRA::NoExists );
+}
+
 
 bool createCheckinDataFiles( int point_id, const std::string &point_addr, TFileDatas &fds )
 {
@@ -1438,9 +1490,9 @@ bool createCheckinDataFiles( int point_id, const std::string &point_addr, TFileD
   //Классы
   PaxQry.SQLText =
     "SELECT point_arv, "
-    "       NVL(SUM(DECODE(pax_grp.class,:f,1,0)),0) AS f, "
-    "       NVL(SUM(DECODE(pax_grp.class,:c,1,0)),0) AS c, "
-    "       NVL(SUM(DECODE(pax_grp.class,:y,1,0)),0) AS y "
+    "       NVL(SUM(DECODE(pax_grp.class,:f,pax.seats,0)),0) AS f, "
+    "       NVL(SUM(DECODE(pax_grp.class,:c,pax.seats,0)),0) AS c, "
+    "       NVL(SUM(DECODE(pax_grp.class,:y,pax.seats,0)),0) AS y "
     "  FROM pax_grp, pax "
     " WHERE pax_grp.grp_id=pax.grp_id AND "
     "       point_dep=:point_id AND pr_brd IS NOT NULL "
@@ -1493,8 +1545,18 @@ bool createCheckinDataFiles( int point_id, const std::string &point_addr, TFileD
   BagQry.CreateVariable( "point_id", otInteger, point_id );
   tst();
   string airline = Qry.FieldAsString( "airline" );
+  string airline_lat = ElemIdToElem( etAirline, airline, efmtCodeInter, AstraLocale::LANG_EN );
+  if ( airline_lat.empty()) {
+    ProgError( STDLOG, "createCheckinDataFiles: airline_lat empty (code=%s)",airline.c_str() );
+    return false;
+  }
   int flt_no = Qry.FieldAsInteger( "flt_no" );
   string suffix = ElemIdToElemCtxt( ecDisp, etSuffix, Qry.FieldAsString( "suffix" ), (TElemFmt)Qry.FieldAsInteger( "suffix_fmt" ) );
+  string suffix_lat = ElemIdToElem( etSuffix, suffix, efmtCodeInter, AstraLocale::LANG_EN );
+  if ( !suffix.empty() && suffix_lat.empty() ) {
+    ProgError( STDLOG, "createCheckinDataFiles: sufix_lat empty (code=%s)", suffix.c_str() );
+    return false;
+  }
 
   string airp = Qry.FieldAsString( "airp" );
   TDateTime scd_out = Qry.FieldAsDateTime( "scd_out" );
@@ -1506,7 +1568,7 @@ bool createCheckinDataFiles( int point_id, const std::string &point_addr, TFileD
     xmlNodePtr node = doc->children;
     xmlNodePtr n = NewTextChild( node, "airline" );
     SetProp( n, "code_zrt", airline );
-    SetProp( n, "code_iata", ((TAirlinesRow&)base_tables.get("airlines").get_row( "code", airline, true )).code_lat );
+    SetProp( n, "code_iata", airline_lat );
     NewTextChild( node, "flt_no", flt_no );
     if ( !suffix.empty() )
       NewTextChild( node, "suffix", suffix );
@@ -1649,13 +1711,13 @@ bool createCheckinDataFiles( int point_id, const std::string &point_addr, TFileD
     }
     //данные регистрации
     record = XMLTreeToText( doc ).c_str();
-    ProgTrace( TRACE5, "sync_checkin_data: point_id=%d, prior_record=%s", point_id, prior_record.c_str() );
-    ProgTrace( TRACE5, "sync_checkin_data: point_id=%d, record=%s", point_id, record.c_str() );
+//    ProgTrace( TRACE5, "sync_checkin_data: point_id=%d, prior_record=%s", point_id, prior_record.c_str() );
+//    ProgTrace( TRACE5, "sync_checkin_data: point_id=%d, record=%s", point_id, record.c_str() );
     if ( record != prior_record ) {
       put_string_into_snapshot_points( point_id, FILE_CHECKINDATA_TYPE, point_addr, !prior_record.empty(), record );
       TFileData fd;
       fd.file_data = record;
-  	  fd.params[ PARAM_FILE_NAME ] = airline + IntToString( flt_no ) + suffix + DateTimeToStr( scd_out, "yymmddhhnn" ) + ".xml";
+  	  fd.params[ PARAM_FILE_NAME ] = airline_lat + IntToString( flt_no ) + suffix_lat + DateTimeToStr( scd_out, "yymmddhhnn" ) + ".xml";
   	  fd.params[ NS_PARAM_EVENT_TYPE ] = EncodeEventType( ASTRA::evtFlt );
       fd.params[ NS_PARAM_EVENT_ID1 ] = IntToString( point_id );
       fd.params[ PARAM_TYPE ] = VALUE_TYPE_FILE; // FILE
@@ -1667,6 +1729,7 @@ bool createCheckinDataFiles( int point_id, const std::string &point_addr, TFileD
     xmlFreeDoc( doc );
     throw;
   }
+  ProgTrace( TRACE5, "createCheckinDataFiles return %d", !fds.empty() );
   return !fds.empty();
 }
 

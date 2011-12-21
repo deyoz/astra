@@ -181,7 +181,21 @@ void bindingAODBFlt( const std::string &point_addr, int point_id, float aodb_poi
 {
   ProgTrace( TRACE5, "bindingAODBFlt: point_addr=%s, point_id=%d, aodb_point_id=%f",
              point_addr.c_str(), point_id, aodb_point_id );
+  vector<string> strs;
   TQuery Qry( &OraSession );
+  Qry.SQLText = "SELECT point_addr,aodb_point_id, point_id FROM aodb_points "
+                " WHERE point_addr=:point_addr AND aodb_point_id=:aodb_point_id AND point_id!=:point_id";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+	Qry.CreateVariable( "point_addr", otString, point_addr );
+	Qry.CreateVariable( "aodb_point_id", otFloat, aodb_point_id );
+  Qry.Execute();
+  while ( !Qry.Eof ) {
+    string str = string( "point_addr=" ) +  Qry.FieldAsString("point_addr") +
+                 ",point_id="+Qry.FieldAsString( "point_id" ) +",aodb_point_id=" +  Qry.FieldAsString( "aodb_point_id" );
+    strs.push_back( str );
+    Qry.Next();
+  }
+  Qry.Clear();
 	Qry.SQLText =
 	 "BEGIN "
 	 " DELETE aodb_points WHERE point_addr=:point_addr AND aodb_point_id=:aodb_point_id AND point_id!=:point_id;"
@@ -196,7 +210,19 @@ void bindingAODBFlt( const std::string &point_addr, int point_id, float aodb_poi
 	Qry.CreateVariable( "point_id", otInteger, point_id );
 	Qry.CreateVariable( "point_addr", otString, point_addr );
 	Qry.CreateVariable( "aodb_point_id", otFloat, aodb_point_id );
-	Qry.Execute();
+	try {
+	  Qry.Execute();
+  }
+  catch(EOracleError &E) {  // deadlock!!!
+     ProgError( STDLOG, "bindingAODBFlt EOracleError:" );
+     try {
+       for ( vector<string>::iterator i=strs.begin(); i!=strs.end(); i++ ) {
+         ProgTrace( TRACE5, "%s", i->c_str() );
+       }
+     }
+     catch(...){};
+     throw;
+  }
 }
 
 void bindingAODBFlt( const std::string &airline, const int flt_no, const std::string suffix,
@@ -1622,7 +1648,7 @@ try {
     point_id = pflts.begin()->point_id;
 		bool change_comp=false;
 		string remark;
-		TPointsDest  dest;
+		TPointsDest dest;
 		BitSet<TUseDestData> FUseData;
 		FUseData.clearFlags();
 		dest.Load( point_id, FUseData );
@@ -1840,6 +1866,8 @@ try {
 		if ( !brd.empty() )
 		  reqInfo->MsgToLog( string( "Назначение выходов на посадку" ) + brd, evtDisp, move_id, point_id );
 	}
+  bindingAODBFlt( point_addr, point_id, fl.id );
+  err++;
 	bind_tlg_oper(flts, true);
 	tst();
 	if ( old_act != fl.act ) {
@@ -1860,8 +1888,6 @@ try {
     }
  	  ChangeACT_OUT( point_id, old_act, fl.act );
   }
-  bindingAODBFlt( point_addr, point_id, fl.id );
-  err++;
 }
 catch(EOracleError &E)
 {
@@ -1970,7 +1996,7 @@ void ParseAndSaveSPP( const std::string &filename, const std::string &canon_name
       QryLog.Execute();
     }
     catch( Exception &e ) {
-      OraSession.Rollback();
+      try { OraSession.Rollback(); }catch(...){};
       if ( fl.rec_no == NoExists )
       	QryLog.SetVariable( "rec_no", -1 );
       else
