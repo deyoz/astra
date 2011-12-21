@@ -112,7 +112,7 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
   bool pr_act_out = !Qry.FieldIsNULL( "act_out" );
 	if ( reqInfo->user.sets.time == ustTimeLocalAirp )
  	  region = AirpTZRegion( airp );
-  TQuery UpdQry( &OraSession );
+  Qry.Clear();
   Qry.SQLText =
     "BEGIN "
     " UPDATE trip_stages SET est=:est,act=:act,pr_auto=DECODE(:pr_auto,-1,pr_auto,:pr_auto), "
@@ -120,7 +120,7 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
     "  WHERE point_id=:point_id AND stage_id=:stage_id; "
     " IF SQL%NOTFOUND THEN "
     "  INSERT INTO trip_stages(point_id,stage_id,scd,est,act,pr_auto,pr_manual,ignore_auto) "
-    "   SELECT :point_id,:stage_id,NVL(:act,:est),:est,:act,0,DECODE(:pr_manual,-1,0,:pr_manual,:ignore_auto) FROM dual; "
+    "   SELECT :point_id,:stage_id,NVL(:act,:est),:est,:act,0,DECODE(:pr_manual,-1,0,:pr_manual),:ignore_auto FROM dual; "
     " END IF; "
     "END; ";
   Qry.CreateVariable( "point_id", otInteger, point_id );
