@@ -1068,19 +1068,23 @@ bool CreateCommonFileData( const std::string &point_addr,
                     		TReqInfo::Instance()->MsgToLog( msg );
                       }
                     }
+                    OraSession.Commit();
                 }
             }
             /* ну не получилось сформировать файл, остальные файлы имеют тоже право попробовать сформироваться */
             catch(EOracleError &E)
             {
+              try { OraSession.Rollback(); }catch(...){};
               ProgError( STDLOG, "EOracleError file_type=%s, %d: %s", type.c_str(), E.Code, E.what());
               ProgError( STDLOG, "SQL: %s", E.SQLText());
             }
             catch( std::exception &e) {
-                ProgError(STDLOG, "exception file_type=%s, id=%d, what=%s", type.c_str(), id, e.what());
+              try { OraSession.Rollback(); }catch(...){};
+              ProgError(STDLOG, "exception file_type=%s, id=%d, what=%s", type.c_str(), id, e.what());
             }
             catch(...) {
-                ProgError(STDLOG, "putFile: Unknown error while trying to put file");
+              try { OraSession.Rollback(); }catch(...){};
+              ProgError(STDLOG, "putFile: Unknown error while trying to put file");
             };
             inparams.clear();
             master_params = false;
