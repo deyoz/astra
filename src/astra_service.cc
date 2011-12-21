@@ -40,7 +40,7 @@ const string PARAM_NEXT_FILE = "NextFile";
 void CommitWork( int file_id );
 
 bool createCheckinDataFiles( int point_id, const std::string &point_addr, TFileDatas &fds );
-bool CreateCommonFileData( const std::string &point_addr,
+bool CreateCommonFileData( bool pr_commit, const std::string &point_addr,
                            int id, const std::string type,
                            const std::string &airp, const std::string &airline,
 	                         const std::string &flt_no );
@@ -330,7 +330,8 @@ public:
           while ( !PointsQry.Eof ) {
             if ( validatePoints( PointsQry.FieldAsInteger( "point_id" ) ) ) {
             ProgTrace( TRACE5, "type=%s, point_addr=%s, point_id=%d", type.c_str(), point_addr.c_str(), PointsQry.FieldAsInteger( "point_id" ) );
-            CreateCommonFileData( point_addr,
+            CreateCommonFileData( cond_dates.point_id == ASTRA::NoExists,
+                                  point_addr,
                                   PointsQry.FieldAsInteger( "point_id" ),
                                   type,
                                   PointsQry.FieldAsString( "airp" ),
@@ -969,7 +970,8 @@ bool isXMLFormat( const std::string type )
   return ( type == FILE_CHECKINDATA_TYPE );
 }
 
-bool CreateCommonFileData( const std::string &point_addr,
+bool CreateCommonFileData( bool pr_commit,
+                           const std::string &point_addr,
                            int id, const std::string type,
                            const std::string &airp, const std::string &airline,
 	                         const std::string &flt_no )
@@ -1068,19 +1070,31 @@ bool CreateCommonFileData( const std::string &point_addr,
                     		TReqInfo::Instance()->MsgToLog( msg );
                       }
                     }
+                    if ( pr_commit ) {
+                      OraSession.Commit();
+                    }
                 }
             }
             /* ну не получилось сформировать файл, остальные файлы имеют тоже право попробовать сформироваться */
             catch(EOracleError &E)
             {
+              if ( pr_commit ) {
+                try { OraSession.Rollback(); }catch(...){};
+              }
               ProgError( STDLOG, "EOracleError file_type=%s, %d: %s", type.c_str(), E.Code, E.what());
               ProgError( STDLOG, "SQL: %s", E.SQLText());
             }
             catch( std::exception &e) {
-                ProgError(STDLOG, "exception file_type=%s, id=%d, what=%s", type.c_str(), id, e.what());
+              if ( pr_commit ) {
+                try { OraSession.Rollback(); }catch(...){};
+              }
+              ProgError(STDLOG, "exception file_type=%s, id=%d, what=%s", type.c_str(), id, e.what());
             }
             catch(...) {
-                ProgError(STDLOG, "putFile: Unknown error while trying to put file");
+              if ( pr_commit ) {
+                try { OraSession.Rollback(); }catch(...){};
+              }
+              ProgError(STDLOG, "putFile: Unknown error while trying to put file");
             };
             inparams.clear();
             master_params = false;
@@ -1162,7 +1176,8 @@ void createSofiFileDATA( int receipt_id )
     if (  flt_no != ASTRA::NoExists )
       strflt_no = IntToString( flt_no );
     while ( !Qry.Eof ) {
-  		CreateCommonFileData( Qry.FieldAsString("point_addr"),
+  		CreateCommonFileData( false,
+                            Qry.FieldAsString("point_addr"),
                             receipt_id, FILE_SOFI_TYPE, airp,
 	  	                      airline, strflt_no );
       Qry.Next();
@@ -1276,7 +1291,7 @@ void sync_1ccek( void )
   Qry.CreateVariable( "type", otString, FILE_1CCEK_TYPE );
   Qry.Execute();
   while ( !Qry.Eof ) {
-	  CreateCommonFileData( Qry.FieldAsString( "point_addr" ), -1, FILE_1CCEK_TYPE, "ЧЛБ", "", "" );
+	  CreateCommonFileData( true, Qry.FieldAsString( "point_addr" ), -1, FILE_1CCEK_TYPE, "ЧЛБ", "", "" );
 	  Qry.Next();
   }
 }
