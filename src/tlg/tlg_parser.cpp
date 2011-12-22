@@ -80,7 +80,7 @@ void ParseNameElement(char* p, vector<string> &names, TElemPresence num_presence
 void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &pr_prev_rem, bool &pr_bag_info);
 void BindRemarks(TTlgParser &tlg, TNameElement &ne);
 void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
-                  TTlgParser &tlg, TPnrItem &pnr, TNameElement &ne);
+                  TTlgParser &tlg, const TDCSHeadingInfo &info, TPnrItem &pnr, TNameElement &ne);
 bool ParseCHDRem(TTlgParser &tlg,string &rem_text,vector<TChdItem> &chd);
 bool ParseINFRem(TTlgParser &tlg,string &rem_text,vector<TInfItem> &inf);
 bool ParseSEATRem(TTlgParser &tlg,string &rem_text,vector<TSeatRange> &seats);
@@ -2306,7 +2306,7 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
 
         for(vector<TNameElement>::iterator i=iPnrItem->ne.begin();i!=iPnrItem->ne.end();++i)
         {
-          ParseRemarks(seat_rem_priority,tlg,*iPnrItem,*i);
+          ParseRemarks(seat_rem_priority,tlg,info,*iPnrItem,*i);
         };
       };
     };
@@ -2899,7 +2899,7 @@ void BindRemarks(TTlgParser &tlg, TNameElement &ne)
 };
 
 void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
-                  TTlgParser &tlg, TPnrItem &pnr, TNameElement &ne)
+                  TTlgParser &tlg, const TDCSHeadingInfo &info, TPnrItem &pnr, TNameElement &ne)
 {
   vector<TRemItem>::iterator iRemItem;
   vector<TPaxItem>::iterator iPaxItem,iPaxItem2;
@@ -2958,7 +2958,7 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
                 strcmp(iRemItem->code,"PSPT")==0)
             {
               TDocItem doc;
-              if (ParseDOCSRem(tlg,iRemItem->text,doc))
+              if (ParseDOCSRem(tlg,info.flt.scd,iRemItem->text,doc))
               {
                 //проверим документ РМ
                 try
@@ -3171,7 +3171,7 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
             if (ne.pax.size()==1)
             {
               TDocItem doc;
-              if (ParseDOCSRem(tlg,iRemItem->text,doc))
+              if (ParseDOCSRem(tlg,info.flt.scd,iRemItem->text,doc))
               {
                 //проверим документ РМ
                 try
@@ -3778,7 +3778,7 @@ bool ParseINFRem(TTlgParser &tlg,string &rem_text,vector<TInfItem> &inf)
   return false;
 };
 
-bool ParseDOCSRem(TTlgParser &tlg,string &rem_text,TDocItem &doc)
+bool ParseDOCSRem(TTlgParser &tlg,TDateTime scd_local,string &rem_text,TDocItem &doc)
 {
   char c;
   int res,k;
@@ -3793,7 +3793,7 @@ bool ParseDOCSRem(TTlgParser &tlg,string &rem_text,TDocItem &doc)
   res=sscanf(tlg.lex,"%5[A-ZА-ЯЁ0-9]%c",doc.rem_code,&c);
   if (c!=0||res!=1) return false;
 
-  TDateTime now=NowUTC();
+  TDateTime now=(scd_local!=0 && scd_local!=NoExists)?scd_local:NowUTC();
 
   if (strcmp(doc.rem_code,"DOCS")==0)
   {
@@ -3835,6 +3835,7 @@ bool ParseDOCSRem(TTlgParser &tlg,string &rem_text,TDocItem &doc)
             if (StrToDateTime(tlg.lex,"ddmmmyy",now,doc.birth_date,true)==EOF &&
                 StrToDateTime(tlg.lex,"ddmmmyy",now,doc.birth_date,false)==EOF)
               throw ETlgError("Wrong format");
+            if (doc.birth_date!=NoExists && doc.birth_date>now) throw ETlgError("Strange data");
             break;
           case 6:
             res=sscanf(tlg.lex,"%2[A-Z]%c",doc.gender,&c);
@@ -3845,15 +3846,16 @@ bool ParseDOCSRem(TTlgParser &tlg,string &rem_text,TDocItem &doc)
             if (StrToDateTime(tlg.lex,"ddmmmyy",doc.expiry_date,true)==EOF &&
                 StrToDateTime(tlg.lex,"ddmmmyy",doc.expiry_date,false)==EOF)
               throw ETlgError("Wrong format");
+            if (doc.expiry_date!=NoExists && doc.expiry_date<now) throw ETlgError("Strange data");
             break;
           case 8:
-            doc.surname=tlg.lex;
-            break;
           case 9:
-            doc.first_name=tlg.lex;
-            break;
           case 10:
-            doc.second_name=tlg.lex;
+            res=sscanf(tlg.lex,"%[A-ZА-ЯЁ -]%c",lexh,&c);
+            if (c!=0||res!=1) throw ETlgError("Wrong format");
+            if (k==8)  doc.surname=lexh;
+            if (k==9)  doc.first_name=lexh;
+            if (k==10) doc.second_name=lexh;
             break;
           case 11:
             res=sscanf(tlg.lex,"%1[H]%c",lexh,&c);
@@ -3888,7 +3890,7 @@ bool ParseDOCSRem(TTlgParser &tlg,string &rem_text,TDocItem &doc)
             *doc.gender=0;
             throw ETlgError("gender code: %s",E.what());
           case 7:
-            doc.expiry_date=NoExists;;
+            doc.expiry_date=NoExists;
             throw ETlgError("travel document expiry date: %s",E.what());
           case 8:
             doc.surname.clear();
@@ -3946,12 +3948,14 @@ bool ParseDOCSRem(TTlgParser &tlg,string &rem_text,TDocItem &doc)
             if (StrToDateTime(tlg.lex,"ddmmmyy",now,doc.birth_date,true)==EOF &&
                 StrToDateTime(tlg.lex,"ddmmmyy",now,doc.birth_date,false)==EOF)
               throw ETlgError("Wrong format");
+            if (doc.birth_date!=NoExists && doc.birth_date>now) throw ETlgError("Strange data");
             break;
           case 4:
-            doc.surname=tlg.lex;
-            break;
           case 5:
-            doc.first_name=tlg.lex;
+            res=sscanf(tlg.lex,"%[A-ZА-ЯЁ -]%c",lexh,&c);
+            if (c!=0||res!=1) throw ETlgError("Wrong format");
+            if (k==4) doc.surname=lexh;
+            if (k==5) doc.first_name=lexh;
             break;
           case 6:
             res=sscanf(tlg.lex,"%2[A-Z]%c",doc.gender,&c);

@@ -274,7 +274,7 @@ int alter_pax_doc2(int argc,char **argv)
     if (rem_text.substr(0,5)=="DOCS/") rem_text.erase(0,5);
     rem_text="DOCS HK1/"+rem_text;
     
-    if (!ParseDOCSRem(tlg,rem_text,doc)) continue;
+    if (!ParseDOCSRem(tlg,NoExists,rem_text,doc)) continue;
     if (doc.Empty()) continue;
     if (*doc.no==0) continue;
       
@@ -467,7 +467,7 @@ int alter_arx_pax_doc2(int argc,char **argv)
     if (rem_text.substr(0,5)=="DOCS/") rem_text.erase(0,5);
     rem_text="DOCS HK1/"+rem_text;
 
-    if (!TypeB::ParseDOCSRem(tlg,rem_text,doc)) continue;
+    if (!TypeB::ParseDOCSRem(tlg,NoExists,rem_text,doc)) continue;
     if (doc.Empty()) continue;
     if (*doc.no==0) continue;
 
