@@ -2862,6 +2862,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
         doco_node_names["no"]=DOCO_NO_FIELD;
         doco_node_names["issue_place"]=DOCO_ISSUE_PLACE_FIELD;
         doco_node_names["issue_date"]=DOCO_ISSUE_DATE_FIELD;
+        doco_node_names["expiry_date"]=DOCO_EXPIRY_DATE_FIELD;
         doco_node_names["applic_country"]=DOCO_APPLIC_COUNTRY_FIELD;
       };
       TCheckDocInfo checkDocInfo=GetCheckDocInfo(point_dep, airp_arv);
@@ -4900,7 +4901,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_versio
       TQuery PaxDocoQry(&OraSession);
       PaxDocoQry.Clear();
       PaxDocoQry.SQLText=
-        "SELECT birth_place, type, no, issue_place, issue_date, applic_country, pr_inf "
+        "SELECT birth_place, type, no, issue_place, issue_date, expiry_date, applic_country, pr_inf "
         "FROM pax_doco "
         "WHERE pax_id=:pax_id ";
       PaxDocoQry.DeclareVariable("pax_id",otInteger);
@@ -5461,6 +5462,8 @@ void CheckInInterface::LoadPaxDoco(TQuery& PaxDocQry, xmlNodePtr paxNode)
   NewTextChild(docNode, "issue_place", PaxDocQry.FieldAsString("issue_place"), "");
   if (!PaxDocQry.FieldIsNULL("issue_date"))
     NewTextChild(docNode, "issue_date", DateTimeToStr(PaxDocQry.FieldAsDateTime("issue_date"), ServerFormatDateTimeAsString));
+  if (!PaxDocQry.FieldIsNULL("expiry_date"))
+    NewTextChild(docNode, "expiry_date", DateTimeToStr(PaxDocQry.FieldAsDateTime("expiry_date"), ServerFormatDateTimeAsString));
   NewTextChild(docNode, "applic_country", PaxDocQry.FieldAsString("applic_country"), "");
   NewTextChild(docNode, "pr_inf", (int)(PaxDocQry.FieldAsInteger("pr_inf")!=0), (int)false);
 };
@@ -5556,12 +5559,13 @@ void CheckInInterface::SavePaxDoco(int pax_id, xmlNodePtr docNode, TQuery& PaxDo
         "     :no IS NOT NULL OR "
         "     :issue_place IS NOT NULL OR "
         "     :issue_date IS NOT NULL OR "
+        "     :expiry_date IS NOT NULL OR "
         "     :applic_country IS NOT NULL OR "
         "     :pr_inf<>0 THEN "
         "    INSERT INTO pax_doco "
-        "      (pax_id,birth_place,type,no,issue_place,issue_date,applic_country,pr_inf) "
+        "      (pax_id,birth_place,type,no,issue_place,issue_date,expiry_date,applic_country,pr_inf) "
         "    VALUES "
-        "      (:pax_id,:birth_place,:type,:no,:issue_place,:issue_date,:applic_country,:pr_inf); "
+        "      (:pax_id,:birth_place,:type,:no,:issue_place,:issue_date,:expiry_date,:applic_country,:pr_inf); "
         "  END IF; "
         "END;";
   if (strcmp(PaxDocQry.SQLText.SQLText(),sql)!=0)
@@ -5574,6 +5578,7 @@ void CheckInInterface::SavePaxDoco(int pax_id, xmlNodePtr docNode, TQuery& PaxDo
     PaxDocQry.DeclareVariable("no",otString);
     PaxDocQry.DeclareVariable("issue_place",otString);
     PaxDocQry.DeclareVariable("issue_date",otDate);
+    PaxDocQry.DeclareVariable("expiry_date",otDate);
     PaxDocQry.DeclareVariable("applic_country",otString);
     PaxDocQry.DeclareVariable("pr_inf",otInteger);
   };
@@ -5589,6 +5594,10 @@ void CheckInInterface::SavePaxDoco(int pax_id, xmlNodePtr docNode, TQuery& PaxDo
       PaxDocQry.SetVariable("issue_date",NodeAsDateTimeFast("issue_date",docNode));
     else
       PaxDocQry.SetVariable("issue_date",FNull);
+    if (!NodeIsNULLFast("expiry_date",docNode,true))
+      PaxDocQry.SetVariable("expiry_date",NodeAsDateTimeFast("expiry_date",docNode));
+    else
+      PaxDocQry.SetVariable("expiry_date",FNull);
     PaxDocQry.SetVariable("applic_country",NodeAsStringFast("applic_country",docNode,""));
     PaxDocQry.SetVariable("pr_inf",(int)(NodeAsIntegerFast("pr_inf",docNode,0)!=0));
   }
@@ -5599,6 +5608,7 @@ void CheckInInterface::SavePaxDoco(int pax_id, xmlNodePtr docNode, TQuery& PaxDo
     PaxDocQry.SetVariable("no",FNull);
     PaxDocQry.SetVariable("issue_place",FNull);
     PaxDocQry.SetVariable("issue_date",FNull);
+    PaxDocQry.SetVariable("expiry_date",FNull);
     PaxDocQry.SetVariable("applic_country",FNull);
     PaxDocQry.SetVariable("pr_inf",(int)false);
   };
@@ -7911,6 +7921,11 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   xmlUnlinkNode(routeNode);
   xmlFreeNode(routeNode);
 
+};
+
+void CheckInInterface::ParseScanDocData(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  throw AstraLocale::UserException("MSG.DEVICE.INVALID_SCAN_FORMAT");
 };
 
 namespace CheckIn

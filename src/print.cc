@@ -888,11 +888,13 @@ string PrintDataParser::parse_tag(int offset, string tag)
                     result = delete_all_CR_LF(data);
                     break;
                 case dftEPL2:
-                case dftZEBRA:
                 case dftDPL:
                 case dftEPSON:
                     result = place_CR_LF(data);
                     break;
+                case dftSCAN1:
+                case dftSCAN2:
+                case dftBCR:
                 case dftUnknown:
                     throw Exception("AdjustCR_LF: unknown fmt_type");
             }
