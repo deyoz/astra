@@ -140,7 +140,7 @@ void OpenCheckIn( int point_id );
 void CloseCheckIn( int point_id );
 void CloseBoarding( int point_id );
 void Takeoff( int point_id );
-
+void SetTripStages_IgnoreAuto( int point_id, bool ignore_auto );
 
 
 #endif /*_STAGES_H_*/

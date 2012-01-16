@@ -98,6 +98,7 @@ public:
   std::string suffix;
   std::string craft;
   std::string bort;
+  int comp_id;
   BASIC::TDateTime scd_in;
   BASIC::TDateTime est_in;
   BASIC::TDateTime act_in;
@@ -145,6 +146,7 @@ public:
     stage_scd = ASTRA::NoExists;
     stage_est = ASTRA::NoExists;
     max_commerce = ASTRA::NoExists;
+    comp_id = ASTRA::NoExists;
   }
   void Load( int vpoint_id, BitSet<TUseDestData> FUseData );
   void getEvents( const TPointsDest &vdest );
