@@ -757,7 +757,12 @@ bool parse_tlg(void)
         	if (orae!=NULL)
         	  ProgError(STDLOG,"Telegram (tlgs_in.id: %d): %s\nSQL: %s",tlg_id,E.what(),orae->SQLText());
         	else
-            ProgError(STDLOG,"Telegram (tlgs_in.id: %d): %s",tlg_id,E.what());
+        	{
+        	  if (strcmp(E.what(),"Time limit reached")!=0)
+              ProgError(STDLOG,"Telegram (tlgs_in.id: %d): %s",tlg_id,E.what());
+            else
+              ProgTrace(TRACE0,"Telegram (tlgs_in.id: %d): %s",tlg_id,E.what());
+          };
           //sendErrorTlg("Telegram (tlgs_in.id: %d): %s",tlg_id,E.what());
           TlgInUpdQry.Execute();
           OraSession.Commit();

@@ -6005,9 +6005,6 @@ void CheckInInterface::BuildTransfer(const vector<CheckIn::TTransferItem> &trfer
                  base_tables.get("airps").get_row("code",t->operFlt.airp).AsString("city"));
     NewTextChild(trferNode,"city_arv",
                  base_tables.get("airps").get_row("code",t->airp_arv).AsString("city"));
-                 
-    if (!TReqInfo::Instance()->desk.compatible(NEW_TERM_VERSION))
-      NewTextChild(trferNode, "subclass");
   };
 };
 

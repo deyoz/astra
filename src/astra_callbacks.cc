@@ -21,10 +21,8 @@
 #include "docs.h"
 #include "access.h"
 #include "telegram.h"
-#include "design_blank.h"
 #include "astra_service.h"
 #include "payment.h"
-#include "payment2.h"
 #include "crypt.h"
 #include "dev_tuning.h"
 #include "astra_utils.h"
@@ -72,10 +70,8 @@ void AstraJxtCallbacks::InitInterfaces()
     new PrintInterface();
     new DocsInterface();
     new TelegramInterface();
-    new DesignBlankInterface();
     new AstraServiceInterface();
     new PaymentInterface();
-    new PaymentOldInterface();
     new DevTuningInterface();
     new AccessInterface();
     new CryptInterface();
