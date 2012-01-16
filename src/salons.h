@@ -316,6 +316,7 @@ class TSalons {
   bool ChangeCfg( TSalons &NewSalons, TSalons &OldSalons );
   bool EqualSalon( TPlaceList* oldsalon, TPlaceList* newsalon, bool equal_seats_cfg );
   bool IsMiscSet( int point_id, int misc_type );
+  bool point_dep_AND_layer_type_FOR_TRZT_SOM_PRL( int point_id, int &point_dep, ASTRA::TCompLayerType &layer_type );
 } // END namespace SALONS2
 
 #endif /*_SALONS2_H_*/

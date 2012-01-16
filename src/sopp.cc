@@ -7,6 +7,7 @@
 #include "oralib.h"
 #include "xml_unit.h"
 #include "basic.h"
+#include "misc.h"
 #include "exceptions.h"
 #include "sys/times.h"
 #include <map>
@@ -3973,8 +3974,30 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 		else
 			d.craft.clear();
 		fnode = GetNodeFast( "bort", snode );
-		if ( fnode )
+		if ( fnode ) {
 			d.bort = NodeAsString( fnode );
+			d.bort = TrimString( d.bort );
+			//удаляем все невидимые смиволы
+      for ( string::iterator istr=d.bort.begin(); istr!=d.bort.end(); istr++ ) {
+        if ( *istr >= 0 && *istr < ' ' )
+          *istr = ' ';
+      }
+      char prior_char = 0;
+      string::iterator istr=d.bort.begin();
+      while ( istr != d.bort.end() ) {
+        if ( !IsDigitIsLetter( *istr ) ) {
+          if ( *istr != '-' && *istr != ' ' )
+            throw AstraLocale::UserException( "MSG.INVALID_CHARS_IN_BOARD_NUM",
+                                              LParams() << LParam("symbol", string(1,*istr)) );
+          if ( *istr == prior_char && prior_char == ' ' ) {
+            istr = d.bort.erase( istr );
+            continue;
+          }
+        }
+        prior_char = *istr;
+        istr++;
+      }
+    }
 		else
 			d.bort.clear();
 		fnode = GetNodeFast( "scd_in", snode );

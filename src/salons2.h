@@ -126,20 +126,11 @@ class TSalons {
 namespace SALONS
 {
 	typedef std::pair<int,TPlace> TSalonSeat;
-	bool Checkin( int pax_id );
-  bool InternalExistsRegPassenger( int trip_id, bool SeatNoIsNull );
-  void GetTripParams( int trip_id, xmlNodePtr dataNode );
   void GetCompParams( int comp_id, xmlNodePtr dataNode );
-  int GetCompId( const std::string craft, const std::string bort, const std::string airline,
-                 std::string airp,  int f, int c, int y );
-  void InitVIP( int point_id );
-  void setTRIP_CLASSES( int point_id );
   void SetLayer( const std::map<std::string,int> &layer_priority, const std::string &layer, TPlace &pl );
   void ClearLayer( const std::map<std::string,int> &layer_priority, const std::string &layer, TPlace &pl );
   void SetFree( const std::string &layer, TPlace &pl );
   void SetBlock( const std::string &layer, TPlace &pl );
-  void getSalonChanges( TSalons &OldSalons, std::vector<TSalonSeat> &seats );
-  void BuildSalonChanges( xmlNodePtr dataNode, const std::vector<TSalonSeat> &seats );
 }
 
 #endif /*_SALONS2_H_*/

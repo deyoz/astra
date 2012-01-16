@@ -65,7 +65,6 @@ astra_SOURCES = \
   season.cc \
   seats_utils.cc \
   seats.cc \
-  seats2.cc \
   sofi.cc \
   sopp.cc \
   spp_cek.cc \
@@ -152,7 +151,6 @@ noinst_HEADERS = \
   season.h \
   seats_utils.h \
   seats.h \
-  seats2.h \
   sofi.h \
   sopp.h \
   spp_cek.h \
