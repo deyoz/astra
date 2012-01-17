@@ -8,6 +8,7 @@
 #include "astra_elems.h"
 #include "astra_misc.h"
 #include "dev_utils.h"
+#include "payment.h"
 
 namespace TAG {
     const std::string BCBP_M_2 = "BCBP_M_2";
@@ -126,24 +127,6 @@ namespace TAG {
 
 };
 
-struct TBTRouteItem {
-    std::string airline;
-    int flt_no;
-    std::string suffix;
-    std::string airp_dep;
-    std::string airp_arv;
-    BASIC::TDateTime scd;
-};
-
-typedef std::vector<TBTRouteItem> TBTRoute;
-
-struct TBagPayType
-{
-  std::string pay_type;
-  double pay_rate_sum;
-  std::string extra;
-};
-
 class TTagLang {
     private:
         std::string desk_lang;
@@ -151,7 +134,7 @@ class TTagLang {
         std::string tag_lang; // параметр тега E - лат, R - рус
         bool pr_lat;
         std::string GetLang(TElemFmt &fmt, std::string firm_lang) const;
-        bool IsInter(TBTRoute *aroute, std::string &country);
+        bool IsInter(const TTrferRoute &aroute, std::string &country);
     public:
         bool get_pr_lat() { return pr_lat; };
         bool english_tag() const { return tag_lang == "E"; }
@@ -161,73 +144,10 @@ class TTagLang {
         void set_tag_lang(std::string val) { tag_lang = val; };
         std::string ElemIdToTagElem(TElemType type, const std::string &id, TElemFmt fmt, std::string firm_lang = "") const;
         std::string ElemIdToTagElem(TElemType type, int id, TElemFmt fmt, std::string firm_lang = "") const;
-        void Init(int point_dep, int point_arv, TBTRoute *aroute, bool apr_lat); // BT, BR
+        void Init(int point_dep, int point_arv, const TTrferRoute &aroute, bool apr_lat); // BT, BR
         void Init(bool apr_lat); // Инициализация для использования в тестовых пектабах.
-        void Init(bool apr_lat, bool ais_inter, std::string adesk_lang); // Bag receipts
+        void Init(const TBagReceipt &arcpt, bool apr_lat); // Bag receipts
 };
-
-struct TPrnParams {
-    std::string encoding;
-    int offset, top, pr_lat;
-    void get_prn_params(xmlNodePtr prnParamsNode);
-    TPrnParams(): encoding("CP866"), offset(20), top(0), pr_lat(0) {};
-};
-
-struct TBagReceipt
-{
-    private:
-        std::vector<std::string> f_issue_place_idx;
-        std::string service_name, service_name_lat;
-    public:
-        TPrnParams prnParams;
-        TTagLang tag_lang;
-        std::string form_type;
-        double no;
-        std::string pax_name,pax_doc;
-        int service_type,bag_type;
-        std::string bag_name;
-        std::string tickets,prev_no;
-        std::string airline,aircode,airp_dep,airp_arv,suffix;
-        int flt_no;
-        int ex_amount,ex_weight;
-        double value_tax,rate,exch_pay_rate;
-        int exch_rate;
-        std::string rate_cur,pay_rate_cur;
-        std::vector<TBagPayType> pay_types;
-        std::string remarks;
-        BASIC::TDateTime issue_date,annul_date;
-        std::string issue_desk,annul_desk,issue_place;
-
-        TBagReceipt(xmlNodePtr node) { prnParams.get_prn_params(node); };
-
-        bool pay_bt() { return service_type == 2 && bag_type != -1; };
-        bool pr_other()
-        {
-            return not (
-                    bag_type == 20 or
-                    bag_type == 21 && form_type != "Z61" or
-                    bag_type == 4 or
-                    (bag_type == 1 || bag_type == 2)
-                    );
-        }
-        double pay_rate();
-        double rate_sum();
-        double pay_rate_sum();
-        std::string get_fmt_rate(int fmt, bool pr_inter);
-        bool pr_exchange()
-        {
-            return
-                (pay_rate_cur == "РУБ" ||
-                 pay_rate_cur == "ДОЛ" ||
-                 pay_rate_cur == "ЕВР") &&
-                pay_rate_cur != rate_cur;
-        };
-        std::string issue_place_idx(int idx);
-        std::string get_service_name(bool is_inter);
-};
-
-#define CASH_PAY_TYPE_ID "НАЛ"
-#define NONE_PAY_TYPE_ID "НЕТ"
 
 int separate_double(double d, int precision, int *iptr);
 
@@ -525,9 +445,9 @@ class TPrnTagStore {
     public:
         TTagProps prn_tag_props;
         TTagLang tag_lang;
-        TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tagsNode, TBTRoute *aroute = NULL);
-        TPrnTagStore(bool pr_lat);
-        TPrnTagStore(TBagReceipt &arcpt);
+        TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tagsNode, const TTrferRoute &aroute = TTrferRoute());
+        TPrnTagStore(bool apr_lat);
+        TPrnTagStore(const TBagReceipt &arcpt, bool apr_lat);
         void set_tag(std::string name, std::string value);
         void set_tag(std::string name, int value);
         void set_tag(std::string name, BASIC::TDateTime value);

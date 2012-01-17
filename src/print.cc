@@ -38,25 +38,17 @@ typedef enum {pfBTP, pfATB, pfEPL2, pfEPSON, pfZEBRA, pfDATAMAX} TPrnFormat;
 
 void TPrnParams::get_prn_params(xmlNodePtr reqNode)
 {
-    if(not reqNode)
-        ProgTrace(TRACE5, "get_prn_params: reqNode NULL; use default params");
-    if(reqNode == NULL) return;
-    encoding = "CP866";
-    offset = 20;
-    top = 0;
-    xmlNodePtr currNode = reqNode->children;
-    pr_lat = NodeAsIntegerFast("pr_lat", currNode, NoExists);
-    if(reqNode) {
-        xmlNodePtr prnParamsNode = GetNode("prnParams", reqNode);
-        if(prnParamsNode) {
-            currNode = prnParamsNode->children;
-            encoding = NodeAsStringFast("encoding", currNode);
-            offset = NodeAsIntegerFast("offset", currNode);
-            top = NodeAsIntegerFast("top", currNode);
-            if(pr_lat == NoExists)
-                pr_lat = NodeAsIntegerFast("pr_lat", currNode, 0);
-        }
+    if(reqNode == NULL) throw Exception("TPrnParams::get_prn_params: reqnode not defined");
+
+    xmlNodePtr prnParamsNode = GetNode("prnParams", reqNode);
+    if(prnParamsNode!=NULL) {
+        xmlNodePtr currNode = prnParamsNode->children;
+        encoding = NodeAsStringFast("encoding", currNode);
+        offset = NodeAsIntegerFast("offset", currNode);
+        top = NodeAsIntegerFast("top", currNode);
+        pr_lat = NodeAsIntegerFast("pr_lat", currNode)!=0;
     }
+
 }
 
 namespace to_esc {
@@ -1013,33 +1005,35 @@ void get_bt_forms(const string &tag_type, const string &dev_model, const string 
     };
 }
 
-void DumpRoute(TBTRoute &route)
+void DumpRoute(const TTrferRoute &route)
 {
     ProgTrace(TRACE5, "-----------DUMP ROUTE-----------");
-    for(TBTRoute::iterator iv = route.begin(); iv != route.end(); ++iv) {
-        ProgTrace(TRACE5, "airline: %s", iv->airline.c_str());
-        ProgTrace(TRACE5, "flt_no: %d", iv->flt_no);
-        ProgTrace(TRACE5, "suffix: %s", iv->suffix.c_str());
-        ProgTrace(TRACE5, "airp_dep: %s", iv->airp_dep.c_str());
+    for(TTrferRoute::const_iterator iv = route.begin(); iv != route.end(); ++iv) {
+        ProgTrace(TRACE5, "airline: %s", iv->operFlt.airline.c_str());
+        ProgTrace(TRACE5, "flt_no: %d", iv->operFlt.flt_no);
+        ProgTrace(TRACE5, "suffix: %s", iv->operFlt.suffix.c_str());
+        ProgTrace(TRACE5, "airp_dep: %s", iv->operFlt.airp.c_str());
         ProgTrace(TRACE5, "airp_arv: %s", iv->airp_arv.c_str());
-        ProgTrace(TRACE5, "scd: %s", DateTimeToStr(iv->scd, ServerFormatDateTimeAsString).c_str());
+        ProgTrace(TRACE5, "scd: %s",
+                  DateTimeToStr(iv->operFlt.real_out==ASTRA::NoExists?iv->operFlt.scd_out:iv->operFlt.real_out, ServerFormatDateTimeAsString).c_str());
         ProgTrace(TRACE5, "-----------RouteItem-----------");
     }
 }
 
-void set_via_fields(PrintDataParser &parser, TBTRoute &route, int start_idx, int end_idx)
+void set_via_fields(PrintDataParser &parser, const TTrferRoute &route, int start_idx, int end_idx)
 {
     int via_idx = 1;
     for(int j = start_idx; j < end_idx; ++j) {
         string str_via_idx = IntToString(via_idx);
         ostringstream flt_no;
-        flt_no << setw(3) << setfill('0') << route[j].flt_no;
+        flt_no << setw(3) << setfill('0') << route[j].operFlt.flt_no;
+        TDateTime real_local=route[j].operFlt.real_out==ASTRA::NoExists?route[j].operFlt.scd_out:route[j].operFlt.real_out;
 
-        parser.pts.set_tag("flt_no" + str_via_idx, flt_no.str() + route[j].suffix);
-        parser.pts.set_tag("local_date" + str_via_idx, route[j].scd);
-        parser.pts.set_tag("airline" + str_via_idx, route[j].airline);
+        parser.pts.set_tag("flt_no" + str_via_idx, flt_no.str() + route[j].operFlt.suffix);
+        parser.pts.set_tag("local_date" + str_via_idx, real_local);
+        parser.pts.set_tag("airline" + str_via_idx, route[j].operFlt.airline);
         parser.pts.set_tag("airp_arv" + str_via_idx, route[j].airp_arv);
-        parser.pts.set_tag("fltdate" + str_via_idx, route[j].scd);
+        parser.pts.set_tag("fltdate" + str_via_idx, real_local);
         parser.pts.set_tag("airp_arv_name" + str_via_idx, route[j].airp_arv);
 
 
@@ -1050,63 +1044,12 @@ void set_via_fields(PrintDataParser &parser, TBTRoute &route, int start_idx, int
 struct TTagKey {
     string dev_model;
     string fmt_type;
-    int grp_id, pr_lat;
+    int grp_id;
+    bool pr_lat;
     double no; //no = Float!
     string type, color;
-    TTagKey(): grp_id(0), pr_lat(0), no(-1.0) {};
+    TTagKey(): grp_id(0), pr_lat(false), no(-1.0) {};
 };
-
-void get_route(TTagKey &tag_key, TBTRoute &route, string airp_dep)
-{
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "select  "
-        "   nvl(points.est_out, points.scd_out) scd,  "
-        "   points.airline,  "
-        "   points.flt_no,  "
-        "   points.suffix,  "
-        "   pax_grp.airp_dep,  "
-        "   pax_grp.airp_arv,  "
-        "   0 transfer_num "
-        "from  "
-        "   pax_grp,  "
-        "   points  "
-        "where  "
-        "   pax_grp.grp_id = :grp_id and  "
-        "   pax_grp.point_dep = points.point_id and points.pr_del>=0 "
-        "union  "
-        "select  "
-        "   trfer_trips.scd,  "
-        "   trfer_trips.airline,  "
-        "   trfer_trips.flt_no,  "
-        "   trfer_trips.suffix,  "
-        "   trfer_trips.airp_dep, "
-        "   transfer.airp_arv,  "
-        "   transfer.transfer_num "
-        "from  "
-        "   transfer,  "
-        "   trfer_trips "
-        "where  "
-        "   transfer.point_id_trfer = trfer_trips.point_id and "
-        "   transfer.grp_id = :grp_id "
-        "order by "
-        "   transfer_num ";
-    Qry.CreateVariable("grp_id", otInteger, tag_key.grp_id);
-    Qry.Execute();
-    while(!Qry.Eof) {
-        TBTRouteItem RouteItem;
-        RouteItem.airline = Qry.FieldAsString("airline");
-        RouteItem.flt_no = Qry.FieldAsInteger("flt_no");
-        RouteItem.suffix = Qry.FieldAsString("suffix");
-        RouteItem.airp_dep = Qry.FieldAsString("airp_dep");
-        RouteItem.airp_arv = Qry.FieldAsString("airp_arv");
-        RouteItem.scd = UTCToLocal(Qry.FieldAsDateTime("scd"), AirpTZRegion(airp_dep));
-        route.push_back(RouteItem);
-
-        Qry.Next();
-    }
-    DumpRoute(route);
-}
 
 void big_test(PrintDataParser &parser, TDevOperType op_type)
 {
@@ -1181,7 +1124,7 @@ void big_test(PrintDataParser &parser, TDevOperType op_type)
 void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
 {
     ProgTrace(TRACE5, "bt_type: '%s'", tag_key.type.c_str());
-    TBTRoute route;
+    TTrferRoute route;
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "SELECT airp_dep, class, ckin.get_main_pax_id(:grp_id,0) AS pax_id FROM pax_grp where grp_id = :grp_id";
@@ -1189,8 +1132,9 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
     Qry.Execute();
     if (Qry.Eof)
       throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
-    get_route(tag_key, route, Qry.FieldAsString("airp_dep"));
-    ProgTrace(TRACE5, "route.size(): %d", route.size()); //!!!
+    if (!route.GetRoute(tag_key.grp_id, trtWithFirstSeg) || route.empty())
+      throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
+    DumpRoute(route);
     bool pr_unaccomp = Qry.FieldIsNULL("class");
     int pax_id=NoExists;
     if(!pr_unaccomp)
@@ -1276,7 +1220,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
         SetProp(tagNode, "type", tag_type);
         SetProp(tagNode, "no", tag_no);
 
-        PrintDataParser parser(tag_key.grp_id, pax_id, tag_key.pr_lat, NULL, &route);
+        PrintDataParser parser(tag_key.grp_id, pax_id, tag_key.pr_lat, NULL, route);
 
         parser.pts.set_tag(TAG::AIRCODE, aircode);
         parser.pts.set_tag(TAG::NO, no);
@@ -1326,12 +1270,8 @@ void PrintInterface::ReprintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     tag_key.grp_id = NodeAsInteger("grp_id", reqNode);
     tag_key.dev_model = NodeAsString("dev_model", reqNode);
     tag_key.fmt_type = NodeAsString("fmt_type", reqNode);
-    tag_key.pr_lat = NodeAsInteger("pr_lat", reqNode, NoExists);
-    if(tag_key.pr_lat == NoExists) {
-        TPrnParams prnParams;
-        prnParams.get_prn_params(reqNode);
-        tag_key.pr_lat = prnParams.pr_lat;
-    }
+    TPrnParams prnParams(reqNode);
+    tag_key.pr_lat = prnParams.pr_lat;
     tag_key.type = NodeAsString("type", reqNode);
     tag_key.color = NodeAsString("color", reqNode);
     tag_key.no = NodeAsFloat("no", reqNode);
@@ -1347,12 +1287,8 @@ void PrintInterface::GetPrintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     tag_key.grp_id = NodeAsInteger("grp_id", reqNode);
     tag_key.dev_model = NodeAsString("dev_model", reqNode);
     tag_key.fmt_type = NodeAsString("fmt_type", reqNode);
-    tag_key.pr_lat = NodeAsInteger("pr_lat", reqNode, NoExists);
-    if(tag_key.pr_lat == NoExists) {
-        TPrnParams prnParams;
-        prnParams.get_prn_params(reqNode);
-        tag_key.pr_lat = prnParams.pr_lat;
-    }
+    TPrnParams prnParams(reqNode);
+    tag_key.pr_lat = prnParams.pr_lat;
     if(tag_key.dev_model.empty())
       previewDeviceSets(false, getLocaleText("MSG.PRINTER_NOT_SPECIFIED"));
     GetPrintDataBT(dataNode, tag_key);
@@ -1437,8 +1373,7 @@ void PrintInterface::GetPrintDataBR(string &form_type, PrintDataParser &parser,
     if(dev_model.empty())
         previewDeviceSets(false, getLocaleText("MSG.PRINTER_NOT_SPECIFIED"));
 
-    TPrnParams prnParams;
-    prnParams.get_prn_params(reqNode);
+    TPrnParams prnParams(reqNode);
 
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -1475,15 +1410,16 @@ void PrintInterface::GetPrintDataBR(string &form_type, PrintDataParser &parser,
 }
 
 
-string get_validator(TBagReceipt &rcpt)
+string get_validator(const TBagReceipt &rcpt, bool pr_lat)
 {
-    tst();
     ostringstream validator;
     string agency, sale_point_city, sale_point;
     int private_num;
+    
+    TTagLang tag_lang;
+    tag_lang.Init(rcpt, pr_lat);
 
     TQuery Qry(&OraSession);
-
     Qry.Clear();
     Qry.SQLText="SELECT validator FROM form_types WHERE code=:code";
     Qry.CreateVariable("code", otString, rcpt.form_type);
@@ -1536,16 +1472,16 @@ string get_validator(TBagReceipt &rcpt)
     if(validator_type == "íäè") {
         // agency
         validator
-            << rcpt.tag_lang.ElemIdToTagElem(etAgency, agency, efmtCodeNative)
-            << " " << rcpt.tag_lang.ElemIdToTagElem(etValidatorType, validator_type, efmtCodeNative)
+            << tag_lang.ElemIdToTagElem(etAgency, agency, efmtCodeNative)
+            << " " << tag_lang.ElemIdToTagElem(etValidatorType, validator_type, efmtCodeNative)
             << endl;
         // agency descr
-        validator << rcpt.tag_lang.ElemIdToTagElem(etSalePoint, sale_point, efmtNameLong).substr(0, 19)  << endl;
+        validator << tag_lang.ElemIdToTagElem(etSalePoint, sale_point, efmtNameLong).substr(0, 19)  << endl;
         // agency city
         validator
-            << rcpt.tag_lang.ElemIdToTagElem(etCity, sale_point_city, efmtNameLong).substr(0, 16)
+            << tag_lang.ElemIdToTagElem(etCity, sale_point_city, efmtNameLong).substr(0, 16)
             << " "
-            << rcpt.tag_lang.ElemIdToTagElem(etCountry, country.AsString("code"), efmtCodeNative)
+            << tag_lang.ElemIdToTagElem(etCountry, country.AsString("code"), efmtCodeNative)
             << endl;
         // agency code
         validator
@@ -1560,14 +1496,14 @@ string get_validator(TBagReceipt &rcpt)
         validator
             << sale_point
             << " "
-            << DateTimeToStr(UTCToLocal(rcpt.issue_date, CityTZRegion(desk_city)), "ddmmmyy", rcpt.tag_lang.GetLang() != AstraLocale::LANG_RU)
+            << DateTimeToStr(UTCToLocal(rcpt.issue_date, CityTZRegion(desk_city)), "ddmmmyy", tag_lang.GetLang() != AstraLocale::LANG_RU)
             << endl;
-        validator << rcpt.tag_lang.ElemIdToTagElem(etAgency, agency, efmtNameLong).substr(0, 19) << endl;
-        validator << rcpt.tag_lang.ElemIdToTagElem(etSalePoint, sale_point, efmtNameLong).substr(0, 19) << endl;
+        validator << tag_lang.ElemIdToTagElem(etAgency, agency, efmtNameLong).substr(0, 19) << endl;
+        validator << tag_lang.ElemIdToTagElem(etSalePoint, sale_point, efmtNameLong).substr(0, 19) << endl;
         validator
-            << rcpt.tag_lang.ElemIdToTagElem(etCity, sale_point_city, efmtNameLong).substr(0, 16)
+            << tag_lang.ElemIdToTagElem(etCity, sale_point_city, efmtNameLong).substr(0, 16)
             << "/"
-            << rcpt.tag_lang.ElemIdToTagElem(etCountry, country.AsString("code"), efmtCodeNative)
+            << tag_lang.ElemIdToTagElem(etCountry, country.AsString("code"), efmtCodeNative)
             << endl;
         validator << setw(4) << setfill('0') << private_num << endl;
     }
@@ -1603,7 +1539,7 @@ bool get_bp_pr_lat(int grp_id, bool pr_lat)
     return pr_lat or not rus_airp(Qry.FieldAsString("airp_dep")) or not rus_airp(Qry.FieldAsString("airp_arv"));
 }
 
-void tst_dump(int pax_id, int grp_id, int pr_lat)
+void tst_dump(int pax_id, int grp_id, bool pr_lat)
 {
     vector<string> tags;
     {
@@ -1630,8 +1566,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     int pr_all = NodeAsIntegerFast("pr_all", currNode, NoExists);
     string dev_model = NodeAsStringFast("dev_model", currNode);
     string fmt_type = NodeAsStringFast("fmt_type", currNode);
-    TPrnParams prnParams;
-    prnParams.get_prn_params(reqNode);
+    TPrnParams prnParams(reqNode);
     xmlNodePtr clientDataNode = NodeAsNodeFast("clientData", currNode);
     if(dev_model.empty())
       previewDeviceSets(false, getLocaleText("MSG.PRINTER_NOT_SPECIFIED"));

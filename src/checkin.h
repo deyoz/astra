@@ -171,7 +171,7 @@ public:
   static void LoadPaxTransfer(int pax_id, xmlNodePtr paxNode, xmlNodePtr transferNode);
   static void LoadPaxNorms(xmlNodePtr paxNode, bool pr_unaccomp);
   static void LoadTransfer(int grp_id, std::vector<CheckIn::TTransferItem> &trfer);
-  static void BuildTransfer(const std::vector<CheckIn::TTransferItem> &trfer, xmlNodePtr transferNode);
+  static void BuildTransfer(const TTrferRoute &trfer, xmlNodePtr transferNode);
   static void LoadTransfer(int grp_id, xmlNodePtr transferNode);
   static void LoadBag(int grp_id, xmlNodePtr bagtagNode);
   static void LoadPaidBag(int grp_id, xmlNodePtr grpNode);
