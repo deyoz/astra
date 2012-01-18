@@ -1226,12 +1226,10 @@ void SysReqInterface::ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     {
       string error_type="ERROR";
       string text=NodeAsString(node);
-      if (text.size()<=250)
-      {
-        Qry.SetVariable("text", text);
-        Qry.Execute();
-        if (!Qry.Eof) error_type=Qry.FieldAsString("type");
-      };
+      Qry.SetVariable("text", text.substr(0,250));
+      Qry.Execute();
+      if (!Qry.Eof) error_type=Qry.FieldAsString("type");
+
       if (error_type=="IGNORE") continue;
       
       if (error_type=="ERROR")
