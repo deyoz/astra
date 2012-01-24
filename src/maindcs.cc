@@ -1980,6 +1980,11 @@ bool ParseScanDocData(const string& data, TScanParams& params)
   return false;
 };
 
+bool ParseScanCardData(const string& data, TScanParams& params)
+{
+  return false;
+};
+
 
 void MainDCSInterface::DetermineScanParams(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -2006,7 +2011,8 @@ void MainDCSInterface::DetermineScanParams(XMLRequestCtxt *ctxt, xmlNodePtr reqN
   	TDevOperType op_type=DecodeDevOperType(NodeAsString("operation/@type",reqNode));
   	if (op_type!=dotScnBP1 &&
         op_type!=dotScnBP2 &&
-        op_type!=dotScnDoc) throw EConvertError("op_type=%s not supported",EncodeDevOperType(op_type).c_str());
+        op_type!=dotScnDoc &&
+        op_type!=dotScnCard) throw EConvertError("op_type=%s not supported",EncodeDevOperType(op_type).c_str());
   	
   	TDevFmtType fmt_type;
     if (TReqInfo::Instance()->desk.compatible(SCAN_DOC_VERSION))
@@ -2016,7 +2022,8 @@ void MainDCSInterface::DetermineScanParams(XMLRequestCtxt *ctxt, xmlNodePtr reqN
 
   	if (fmt_type!=dftSCAN1 &&
         fmt_type!=dftBCR &&
-        fmt_type!=dftSCAN2) throw EConvertError("fmt_type=%s not supported",EncodeDevFmtType(fmt_type).c_str());
+        fmt_type!=dftSCAN2 &&
+        fmt_type!=dftSCAN3) throw EConvertError("fmt_type=%s not supported",EncodeDevFmtType(fmt_type).c_str());
   	xmlNodePtr node;
   	node=GetNode("operation/fmt_params/encoding",reqNode);
   	if (node==NULL) throw EConvertError("Node 'encoding' not found");
@@ -2040,6 +2047,11 @@ void MainDCSInterface::DetermineScanParams(XMLRequestCtxt *ctxt, xmlNodePtr reqN
         if (ParseScanDocData(data,params))
           ScanParams.push_back(params);
       };
+      if (op_type==dotScnCard)
+      {
+        if (ParseScanCardData(data,params))
+          ScanParams.push_back(params);
+      };
     };
     if (ScanParams.empty()) throw EConvertError("ScanParams empty");
     for(vector<TScanParams>::iterator i=ScanParams.begin();i!=ScanParams.end();i++)
@@ -2060,7 +2072,7 @@ void MainDCSInterface::DetermineScanParams(XMLRequestCtxt *ctxt, xmlNodePtr reqN
             if (*j1!=*j2) break;
           if (params.prefix.size()-j>params.code_id_len) params.code_id_len=params.prefix.size()-j;
         };
-        if (fmt_type==dftSCAN2)
+        if (fmt_type==dftSCAN2 || fmt_type==dftSCAN3)
         {
           if (params.prefix !=i->prefix ||
               params.postfix!=i->postfix) throw EConvertError("Different prefix or postfix");

@@ -894,6 +894,7 @@ string PrintDataParser::parse_tag(int offset, string tag)
                     break;
                 case dftSCAN1:
                 case dftSCAN2:
+                case dftSCAN3:
                 case dftBCR:
                 case dftUnknown:
                     throw Exception("AdjustCR_LF: unknown fmt_type");

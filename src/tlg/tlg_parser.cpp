@@ -223,7 +223,7 @@ TClass GetClass(char* subcl)
 {
   char subclh[2];
   TlgElemToElemId(etSubcls,subcl,subclh);
-  return DecodeClass(base_tables.get("subcls").get_row("code",subclh).AsString("cl").c_str());
+  return DecodeClass(getBaseTable(etSubcls).get_row("code",subclh).AsString("cl").c_str());
 };
 
 char* GetSubcl(char* subcl)
@@ -242,6 +242,21 @@ char GetSuffix(char &suffix)
     suffix=suffixh[0];
   };
   return suffix;
+};
+
+void GetPaxDocCountry(const char* elem, char* id)
+{
+  try
+  {
+    TlgElemToElemId(etPaxDocCountry,elem,id);
+  }
+  catch (EBaseTableError)
+  {
+    char country[3];
+    TlgElemToElemId(etCountry,elem,country);
+    //ищем в pax_doc_countries
+    strcpy(id,getBaseTable(etPaxDocCountry).get_row("country",country).AsString("code").c_str());
+  };
 };
 
 TTlgCategory GetTlgCategory(char *tlg_type)
@@ -2963,7 +2978,7 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
                 //проверим документ РМ
                 try
                 {
-                  TGenderTypesRow &row=(TGenderTypesRow&)(base_tables.get("gender_types").get_row("code/code_lat",doc.gender));
+                  TGenderTypesRow &row=(TGenderTypesRow&)(getBaseTable(etGenderType).get_row("code/code_lat",doc.gender));
                   if (row.pr_inf)
                   {
                     if (iPaxItem->inf.size()==1)
@@ -3176,7 +3191,7 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
                 //проверим документ РМ
                 try
                 {
-                  TGenderTypesRow &row=(TGenderTypesRow&)(base_tables.get("gender_types").get_row("code/code_lat",doc.gender));
+                  TGenderTypesRow &row=(TGenderTypesRow&)(getBaseTable(etGenderType).get_row("code/code_lat",doc.gender));
                   if (row.pr_inf)
                   {
                     if (ne.pax.begin()->inf.size()==1)
@@ -3823,9 +3838,9 @@ bool ParseDOCSRem(TTlgParser &tlg,TDateTime scd_local,string &rem_text,TDocItem 
             res=sscanf(tlg.lex,"%3[A-ZА-ЯЁ]%c",lexh,&c);
             if (c!=0||res!=1) throw ETlgError("Wrong format");
             if (k==2)
-              TlgElemToElemId(etCountry,lexh,doc.issue_country);
+              GetPaxDocCountry(lexh,doc.issue_country);
             else
-              TlgElemToElemId(etCountry,lexh,doc.nationality);
+              GetPaxDocCountry(lexh,doc.nationality);
             break;
           case 3:
             res=sscanf(tlg.lex,"%15[A-ZА-ЯЁ0-9 ]%c",doc.no,&c);
@@ -3942,7 +3957,7 @@ bool ParseDOCSRem(TTlgParser &tlg,TDateTime scd_local,string &rem_text,TDocItem 
           case 2:
             res=sscanf(tlg.lex,"%3[A-ZА-ЯЁ]%c",lexh,&c);
             if (c!=0||res!=1) throw ETlgError("Wrong format");
-            TlgElemToElemId(etCountry,lexh,doc.issue_country);
+            GetPaxDocCountry(lexh,doc.issue_country);
             break;
           case 3:
             if (StrToDateTime(tlg.lex,"ddmmmyy",now,doc.birth_date,true)==EOF &&

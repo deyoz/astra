@@ -5433,14 +5433,37 @@ string CheckInInterface::SaveTCkinSegs(int grp_id, xmlNodePtr segsNode, const ma
   return msg.str();
 };
 
+string PaxDocCountryToTerm(const string &pax_doc_country)
+{
+  if (TReqInfo::Instance()->desk.compatible(SCAN_DOC_VERSION) || pax_doc_country.empty())
+    return pax_doc_country;
+  else
+    return getBaseTable(etPaxDocCountry).get_row("code",pax_doc_country).AsString("country");
+};
+
+string PaxDocCountryFromTerm(const string &doc_code)
+{
+  if (TReqInfo::Instance()->desk.compatible(SCAN_DOC_VERSION) || doc_code.empty())
+    return doc_code;
+  else
+    try
+    {
+      return getBaseTable(etPaxDocCountry).get_row("country",doc_code).AsString("code");
+    }
+    catch (EBaseTableError)
+    {
+      return "";
+    };
+};
+
 void CheckInInterface::LoadPaxDoc(TQuery& PaxDocQry, xmlNodePtr paxNode)
 {
   if (PaxDocQry.Eof || paxNode==NULL) return;
   xmlNodePtr docNode=NewTextChild(paxNode,"document");
   NewTextChild(docNode, "type", PaxDocQry.FieldAsString("type"), "");
-  NewTextChild(docNode, "issue_country", PaxDocQry.FieldAsString("issue_country"), "");
+  NewTextChild(docNode, "issue_country", PaxDocCountryToTerm(GetPaxDocCountryCode(PaxDocQry.FieldAsString("issue_country"))), "");
   NewTextChild(docNode, "no", PaxDocQry.FieldAsString("no"), "");
-  NewTextChild(docNode, "nationality", PaxDocQry.FieldAsString("nationality"), "");
+  NewTextChild(docNode, "nationality", PaxDocCountryToTerm(GetPaxDocCountryCode(PaxDocQry.FieldAsString("nationality"))), "");
   if (!PaxDocQry.FieldIsNULL("birth_date"))
     NewTextChild(docNode, "birth_date", DateTimeToStr(PaxDocQry.FieldAsDateTime("birth_date"), ServerFormatDateTimeAsString));
   NewTextChild(docNode, "gender", PaxDocQry.FieldAsString("gender"), "");
@@ -5464,7 +5487,7 @@ void CheckInInterface::LoadPaxDoco(TQuery& PaxDocQry, xmlNodePtr paxNode)
     NewTextChild(docNode, "issue_date", DateTimeToStr(PaxDocQry.FieldAsDateTime("issue_date"), ServerFormatDateTimeAsString));
   if (!PaxDocQry.FieldIsNULL("expiry_date"))
     NewTextChild(docNode, "expiry_date", DateTimeToStr(PaxDocQry.FieldAsDateTime("expiry_date"), ServerFormatDateTimeAsString));
-  NewTextChild(docNode, "applic_country", PaxDocQry.FieldAsString("applic_country"), "");
+  NewTextChild(docNode, "applic_country", PaxDocCountryToTerm(GetPaxDocCountryCode(PaxDocQry.FieldAsString("applic_country"))), "");
   NewTextChild(docNode, "pr_inf", (int)(PaxDocQry.FieldAsInteger("pr_inf")!=0), (int)false);
 };
 
@@ -5514,9 +5537,9 @@ void CheckInInterface::SavePaxDoc(int pax_id, xmlNodePtr docNode, TQuery& PaxDoc
   if (docNode!=NULL)
   {
     PaxDocQry.SetVariable("type",NodeAsStringFast("type",docNode,""));
-    PaxDocQry.SetVariable("issue_country",NodeAsStringFast("issue_country",docNode,""));
+    PaxDocQry.SetVariable("issue_country",PaxDocCountryFromTerm(NodeAsStringFast("issue_country",docNode,"")));
     PaxDocQry.SetVariable("no",NodeAsStringFast("no",docNode,""));
-    PaxDocQry.SetVariable("nationality",NodeAsStringFast("nationality",docNode,""));
+    PaxDocQry.SetVariable("nationality",PaxDocCountryFromTerm(NodeAsStringFast("nationality",docNode,"")));
     if (!NodeIsNULLFast("birth_date",docNode,true))
       PaxDocQry.SetVariable("birth_date",NodeAsDateTimeFast("birth_date",docNode));
     else
@@ -5598,7 +5621,7 @@ void CheckInInterface::SavePaxDoco(int pax_id, xmlNodePtr docNode, TQuery& PaxDo
       PaxDocQry.SetVariable("expiry_date",NodeAsDateTimeFast("expiry_date",docNode));
     else
       PaxDocQry.SetVariable("expiry_date",FNull);
-    PaxDocQry.SetVariable("applic_country",NodeAsStringFast("applic_country",docNode,""));
+    PaxDocQry.SetVariable("applic_country",PaxDocCountryFromTerm(NodeAsStringFast("applic_country",docNode,"")));
     PaxDocQry.SetVariable("pr_inf",(int)(NodeAsIntegerFast("pr_inf",docNode,0)!=0));
   }
   else

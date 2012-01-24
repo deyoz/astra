@@ -1470,14 +1470,15 @@ std::string GetPaxDocStr(TDateTime part_key,
   if (!PaxDocQry.Eof && !PaxDocQry.FieldIsNULL("no"))
   {
     result << PaxDocQry.FieldAsString("no");
-    if (with_issue_country && !PaxDocQry.FieldIsNULL("issue_country"))
+    string issue_country=GetPaxDocCountryCode(PaxDocQry.FieldAsString("issue_country"));
+    if (with_issue_country && !issue_country.empty())
     {
       vector< pair<TElemFmt,string> > fmts_code;
       if (lang.empty())
         getElemFmts(efmtCodeNative, TReqInfo::Instance()->desk.lang, fmts_code);
       else
         getElemFmts(efmtCodeNative, lang, fmts_code);
-      result << " " << ElemIdToElem(etCountry, PaxDocQry.FieldAsString("issue_country"), fmts_code, true);
+      result << " " << ElemIdToElem(etPaxDocCountry, issue_country, fmts_code, true);
     };
   };
   
@@ -1753,5 +1754,27 @@ bool BagPaymentCompleted(int grp_id, int *value_bag_count)
   };
   
   return true;
+};
+
+string GetPaxDocCountryCode(const string &doc_code)
+{
+  //на входе либо countries.code либо pax_doc_countries.code
+  string pax_doc_country;
+  if (!doc_code.empty())
+  {
+    try
+    {
+      pax_doc_country=getBaseTable(etPaxDocCountry).get_row("code",doc_code).AsString("code");
+    }
+    catch (EBaseTableError)
+    {
+      try
+      {
+        pax_doc_country=getBaseTable(etPaxDocCountry).get_row("country",doc_code).AsString("code");
+      }
+      catch (EBaseTableError) {};
+    };
+  };
+  return pax_doc_country;
 };
 

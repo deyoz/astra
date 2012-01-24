@@ -2552,9 +2552,9 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
                 xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
                 NewTextChild(rowNode, "family", transliter(Qry.FieldAsString("family"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
                 NewTextChild(rowNode, "type", rpt_params.ElemIdToReportElem(etPaxDocType, docsQry.FieldAsString("type"), efmtCodeNative));
-                NewTextChild(rowNode, "issue_country", rpt_params.ElemIdToReportElem(etCountry, docsQry.FieldAsString("issue_country"), efmtCodeNative));
+                NewTextChild(rowNode, "issue_country", rpt_params.ElemIdToReportElem(etPaxDocCountry, GetPaxDocCountryCode(docsQry.FieldAsString("issue_country")), efmtCodeNative));
                 NewTextChild(rowNode, "no", docsQry.FieldAsString("no"));
-                NewTextChild(rowNode, "nationality", rpt_params.ElemIdToReportElem(etCountry, docsQry.FieldAsString("nationality"), efmtCodeNative));
+                NewTextChild(rowNode, "nationality", rpt_params.ElemIdToReportElem(etPaxDocCountry, GetPaxDocCountryCode(docsQry.FieldAsString("nationality")), efmtCodeNative));
                 if (!docsQry.FieldIsNULL("birth_date"))
                     NewTextChild(rowNode, "birth_date", DateTimeToStr(docsQry.FieldAsDateTime("birth_date"), "dd.mm.yyyy"));
                 NewTextChild(rowNode, "gender", rpt_params.ElemIdToReportElem(etGenderType, docsQry.FieldAsString("gender"), efmtCodeNative));
