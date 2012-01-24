@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <boost/crc.hpp>
 #include "salons.h"
 #include "basic.h"
 #include "exceptions.h"
@@ -30,6 +31,27 @@ namespace SALONS2
 const int REM_VIP_F = 1;
 const int REM_VIP_C = 1;
 const int REM_VIP_Y = 3;
+
+struct CompRoute {
+  int point_id;
+  string airline;
+  string airp;
+  string craft;
+  string bort;
+  bool pr_reg;
+  bool pr_alarm;
+  bool auto_comp_chg;
+  bool inRoutes;
+  CompRoute() {
+     point_id = NoExists;
+     pr_alarm = false;
+     pr_reg = false;
+     auto_comp_chg = false;
+     inRoutes = false;
+  };
+};
+
+typedef vector<CompRoute> TCompsRoutes;
 
 bool point_dep_AND_layer_type_FOR_TRZT_SOM_PRL( int point_id, int &point_dep, TCompLayerType &layer_type )
 {
@@ -468,8 +490,8 @@ void TSalons::Write()
       Qry.CreateVariable( "classes", otString, classes );
       Qry.CreateVariable( "pr_lat_seat", otString, pr_lat_seat );
     }
+    Qry.Execute();
   }
-  Qry.Execute();
   if ( readStyle == rComponSalons && modify == mDelete )
     return; /* удалили компоновку */
 
@@ -571,7 +593,6 @@ void TSalons::Write()
           countersClass[ cl ] = countersClass[ cl ] + 1;
       }
       if ( place->isLayer( cltSmoke ) ) {
-      	tst();
       	Qry.SetVariable( "pr_smoke", 1 );
       }
       else
@@ -1472,7 +1493,7 @@ struct TComp {
 };
 
 int GetCompId( const std::string craft, const std::string bort, const std::string airline,
-                        std::string airp,  int f, int c, int y )
+               std::string airp,  int f, int c, int y )
 {
 	ProgTrace( TRACE5, "craft=%s, bort=%s, airline=%s, airp=%s, f=%d, c=%d, y=%d",
 	           craft.c_str(), bort.c_str(), airline.c_str(), airp.c_str(), f, c, y );
@@ -1597,146 +1618,22 @@ void setTRIP_CLASSES( int point_id )
   Qry.Execute();
 }
 
-int AutoSetCraft( int point_id, std::string &craft, int comp_id )
+void CreateComps( const TCompsRoutes &routes, int comp_id )
 {
-	ProgTrace( TRACE5, "AutoSetCraft, point_id=%d", point_id );
-	try {
-	  TQuery Qry(&OraSession);
-    Qry.SQLText = "SELECT auto_comp_chg FROM trip_sets WHERE point_id=:point_id";
-    Qry.CreateVariable( "point_id", otInteger, point_id );
-    Qry.Execute();
-    if ( !Qry.Eof && Qry.FieldAsInteger( "auto_comp_chg" ) ) { // автоматическое назначение компоновки
-    	ProgTrace( TRACE5, "Auto set comp, point_id=%d", point_id );
-      return SetCraft( point_id, craft, comp_id );
-    }
-    return 0; // не требуется назначение компоновки
-  }
-  catch( EXCEPTIONS::Exception &e ) {
-  	ProgError( STDLOG, "AutoSetCraft: Exception %s, point_id=%d", e.what(), point_id );
-  }
-  catch( ... ) {
-  	ProgError( STDLOG, "AutoSetCraft: unknown error, point_id=%d", point_id );
-  }
-  return 0;
-}
-
-int SetCraft( int point_id, std::string &craft, int comp_id )
-{
-	TQuery Qry(&OraSession);
-	Qry.SQLText =
-	  "SELECT bort,airline,suffix,airp,craft, NVL(comp_id,-1) comp_id "
-    " FROM points, trip_sets "
-    " WHERE points.point_id=:point_id AND points.point_id=trip_sets.point_id(+)";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
-  int f,c,y;
-  string bort = Qry.FieldAsString( "bort" );
-  string airline = Qry.FieldAsString( "airline" );
-  string suffix = Qry.FieldAsString( "suffix" );
-  string airp = Qry.FieldAsString( "airp" );
-  int old_comp_id = Qry.FieldAsInteger( "comp_id" );
-  if ( craft.empty() )
-  	craft = Qry.FieldAsString( "craft" );
-  // проверка на существование заданной компоновки по типу ВС
-	Qry.Clear();
-	Qry.SQLText =
-   "SELECT comp_id FROM comps "
-   " WHERE ( comp_id=:comp_id OR :comp_id < 0 ) AND craft=:craft AND rownum < 2";
-  Qry.CreateVariable( "comp_id", otInteger, comp_id );
- 	Qry.CreateVariable( "craft", otString, craft );
- 	Qry.Execute();
- 	if ( Qry.Eof )
- 		if ( comp_id < 0 )
- 	  	return -1;
- 	  else
- 	  	return -2;
- 	while ( true ) {
-  // выбираем макс. компоновку по CFG из PNL/ADL для всех центров бронирования
-  	Qry.Clear();
-  	Qry.SQLText =
-      "SELECT NVL( MAX( DECODE( class, 'П', cfg, 0 ) ), 0 ) f, "
-      "       NVL( MAX( DECODE( class, 'Б', cfg, 0 ) ), 0 ) c, "
-      "       NVL( MAX( DECODE( class, 'Э', cfg, 0 ) ), 0 ) y "
-      " FROM crs_data,tlg_binding "
-      " WHERE crs_data.point_id=tlg_binding.point_id_tlg AND "
-      "       point_id_spp=:point_id AND system='CRS' AND airp_arv=:airp ";
-    Qry.CreateVariable( "point_id", otInteger, point_id );
-    Qry.CreateVariable( "airp", otString, airp );
-    Qry.Execute();
-    f = Qry.FieldAsInteger( "f" );
-    c = Qry.FieldAsInteger( "c" );
-    y = Qry.FieldAsInteger( "y" );
-    if ( f + c + y > 0 )
-      comp_id = GetCompId( craft, bort, airline, airp, f, c, y );
-      if ( comp_id >= 0 )
-      	break;
-  	Qry.Clear();
-	  Qry.SQLText =
-      "SELECT airp_arv,class, "
-      "       0 AS priority, "
-      "       crs_ok + crs_tranzit AS c "
-      " FROM crs_counters "
-      "WHERE point_dep=:point_id "
-      "UNION "
-      "SELECT airp_arv,class,1,resa + tranzit "
-      " FROM trip_data "
-      "WHERE point_id=:point_id "
-      "ORDER BY airp_arv,class,priority DESC ";
-    Qry.CreateVariable( "point_id", otInteger, point_id );
-    Qry.Execute();
-    string airp_arv, vclass;
-    f = 0; c = 0; y = 0;
-    while ( !Qry.Eof ) {
-    	if ( airp_arv.empty() ||
-    		   vclass.empty() ||
-    		   airp_arv != Qry.FieldAsString( "airp_arv" ) ||
-    		   vclass != Qry.FieldAsString( "class" ) ) {
-    		airp_arv = Qry.FieldAsString( "airp_arv" );
-    		vclass = Qry.FieldAsString( "class" );
-    		if ( vclass == "П" ) f = Qry.FieldAsInteger( "c" );
-    		if ( vclass == "Б" ) c = Qry.FieldAsInteger( "c" );
-    		if ( vclass == "Э" ) y = Qry.FieldAsInteger( "c" );
-    	}
-    	Qry.Next();
-    }
-    if ( f + c + y > 0 ) { // поиск варианта бронь + транзит
-    	comp_id = GetCompId( craft, bort, airline, airp, f, c, y );
-    	if ( comp_id >= 0 )
-    		break;
-    }
-    else { // данных из бронирования не поступало, тогда поиск по данным из сезонки(f,c,y)
-    	Qry.Clear();
-    	Qry.SQLText =
-    	  "SELECT ABS(f) f, ABS(c) c, ABS(y) y FROM trip_sets WHERE point_id=:point_id";
-    	Qry.CreateVariable( "point_id", otInteger, point_id );
-    	Qry.Execute();
-    	if ( Qry.Eof ) {
-    		f = 0;
-    		c = 0;
-    		y = 0;
-    	}
-    	else {
-       f = Qry.FieldAsInteger( "f" );
-       c = Qry.FieldAsInteger( "c" );
-       y = Qry.FieldAsInteger( "y" );
-    	}
-      comp_id = GetCompId( craft, bort, airline, airp, f, c, y );
-      if ( comp_id >= 0 )
-      	break;
-    }
-    return -3;
-	}
-	// найден вариант компоновки
-	if ( old_comp_id == comp_id )
-		return 0; // не нужно изменять компоновку
-	tst();
-	Qry.Clear();
+  TQuery Qry(&OraSession);
 	Qry.SQLText =
 	  "SELECT pr_lat_seat FROM comps WHERE comp_id=:comp_id";
   Qry.CreateVariable( "comp_id", otInteger, comp_id );
   Qry.Execute();
   int pr_lat_seat = Qry.FieldAsInteger( "pr_lat_seat" );
 
+  TQuery QryTripSets(&OraSession);
+  QryTripSets.SQLText =
+    "UPDATE trip_sets SET comp_id=:comp_id, pr_lat_seat=:pr_lat_seat,crc_comp=:crc_comp WHERE point_id=:point_id";
+  QryTripSets.CreateVariable( "comp_id", otInteger, comp_id );
+  QryTripSets.CreateVariable( "pr_lat_seat", otInteger, pr_lat_seat );
+  QryTripSets.DeclareVariable( "point_id", otInteger );
+  QryTripSets.DeclareVariable( "crc_comp", otInteger );
 	Qry.Clear();
 	Qry.SQLText =
 	  "BEGIN "
@@ -1758,18 +1655,468 @@ int SetCraft( int point_id, std::string &craft, int comp_id )
     "INSERT INTO trip_comp_rates(point_id,num,x,y,color,rate,rate_cur) "
     " SELECT :point_id,num,x,y,color,rate,rate_cur FROM comp_rates "
     " WHERE comp_id = :comp_id; "
-    "UPDATE trip_sets SET comp_id = :comp_id, pr_lat_seat = :pr_lat_seat WHERE point_id = :point_id; "
     "END;";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.CreateVariable( "comp_id", otInteger, comp_id );
-  Qry.CreateVariable( "pr_lat_seat", otInteger, pr_lat_seat );
+  Qry.DeclareVariable( "point_id", otInteger );
+  int crc_comp = 0;
+  for (TCompsRoutes::const_iterator i=routes.begin(); i!=routes.end(); i++ ) {
+    if ( i->inRoutes && i->auto_comp_chg && i->pr_reg ) {
+      Qry.SetVariable( "point_id", i->point_id );
+      Qry.Execute();
+      if ( crc_comp == 0 ) {
+        crc_comp = CRC32_Comp( i->point_id );
+      }
+      InitVIP( i->point_id );
+      setTRIP_CLASSES( i->point_id );
+      QryTripSets.SetVariable( "point_id", i->point_id );
+      QryTripSets.SetVariable( "crc_comp", crc_comp );
+      QryTripSets.Execute();
+      TReqInfo::Instance()->MsgToLog( string( "Назначена базовая компоновка (ид=" ) + IntToString( comp_id ) +
+      	                              "). Классы: " + GetCfgStr(NoExists, i->point_id, AstraLocale::LANG_RU), evtFlt, i->point_id );
+      check_waitlist_alarm( i->point_id );
+    }
+  }
+}
+
+bool CompRouteinRoutes( const CompRoute &item1, const CompRoute &item2 )
+{
+  return ( (item1.craft == item2.craft || item2.craft.empty()) &&
+           (item1.bort == item2.bort || item2.bort.empty()) &&
+           item1.airline == item2.airline );
+}
+
+void push_routes( const CompRoute &currroute,
+                  const TTripRoute &routes,
+                  bool pr_before,
+                  TCompsRoutes &comps_routes )
+{
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "SELECT airline,airp,bort,craft,pr_reg FROM points WHERE point_id=:point_id AND pr_del!=-1";
+  Qry.DeclareVariable( "point_id", otInteger );
+  for ( vector<TTripRouteItem>::const_iterator i=routes.begin(); i!=routes.end(); i++ ) {
+    //выделяем маршрут удовлетворяющий след. условиям:
+    //1. Задан признак авто назначения компоновки
+    //2. Задан признак регистрации
+    //3. Борт и тип ВС, авиакомпания  совпадает с исходным пунктом
+    //4. Не последний пункт в транзитном маршруте
+    CompRoute route;
+    bool inRoutes = true;
+    route.point_id = i->point_id;
+    route.auto_comp_chg = isAutoCompChg( i->point_id );
+    Qry.SetVariable( "point_id", i->point_id );
+    Qry.Execute();
+    route.airline = Qry.FieldAsString( "airline" );
+    route.airp = Qry.FieldAsString( "airp" );
+    route.craft = Qry.FieldAsString( "craft" );
+    route.bort = Qry.FieldAsString( "bort" );
+    route.pr_reg = ( Qry.FieldAsInteger( "pr_reg" ) == 1 );
+    route.inRoutes = ( CompRouteinRoutes( currroute, route ) && inRoutes);
+    if ( !pr_before && (!route.inRoutes || i == routes.end() - 1) )
+      inRoutes = false;
+    comps_routes.push_back( route );
+  }
+}
+
+void get_comp_routes( bool pr_tranzit_routes, int point_id, TCompsRoutes &routes )
+{
+  //!!! for prior version set pr_tranzit_routes = false;
+  routes.clear();
+	TQuery Qry(&OraSession);
+	Qry.SQLText =
+	  "SELECT point_num,first_point,pr_tranzit,"
+    "       airline,airp,bort,craft,pr_reg "
+    " FROM points "
+    " WHERE point_id=:point_id AND pr_del!=-1";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
-  InitVIP( point_id );
-  setTRIP_CLASSES( point_id );
-  TReqInfo::Instance()->MsgToLog( string( "Назначена базовая компоновка (ид=" ) + IntToString( comp_id ) +
-  	                              "). Классы: " + GetCfgStr(NoExists, point_id, AstraLocale::LANG_RU), evtFlt, point_id );
-  check_waitlist_alarm( point_id );
+  if ( Qry.Eof )
+    return;
+  int point_num = Qry.FieldAsInteger( "point_num" );
+  int first_point = Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point");
+  bool pr_tranzit = Qry.FieldAsInteger( "pr_tranzit" ) != 0;
+  CompRoute currroute;
+  currroute.point_id = point_id;
+  currroute.airline = Qry.FieldAsString( "airline" );
+  currroute.airp = Qry.FieldAsString( "airp" );
+  currroute.bort = Qry.FieldAsString( "bort" );
+  currroute.craft = Qry.FieldAsString( "craft" );
+  currroute.pr_reg = ( Qry.FieldAsInteger( "pr_reg" ) == 1 );
+  currroute.auto_comp_chg = isAutoCompChg( point_id );
+  currroute.inRoutes = true;
+	ProgTrace( TRACE5, "get_comp_routes: point_id=%d,pr_tranzit_routes=%d,point_num=%d,first_point=%d,pr_tranzit=%d,bort=%s,craft=%s",
+             point_id,pr_tranzit_routes,point_num,first_point,pr_tranzit,currroute.bort.c_str(),currroute.craft.c_str() );
+  TTripRoute routesB, routesA;
+  if ( pr_tranzit ) {
+    routesB.GetRouteBefore( NoExists,
+                            point_id,
+                            point_num,
+                            first_point,
+                            pr_tranzit,
+                            trtNotCurrent,
+                            trtNotCancelled );
+  }
+  routesA.GetRouteAfter( NoExists,
+                         point_id,
+                         point_num,
+                         first_point,
+                         pr_tranzit,
+                         trtNotCurrent,
+                         trtNotCancelled );
+  if ( routesA.empty() ) { // рейс на прилет
+    routes.push_back( currroute );
+    ProgTrace( TRACE5, "get_comp_routes: routesA.empty()" );
+    return;
+  }
+  tst();
+  if ( pr_tranzit_routes ) { //задание компоновки для всего маршрута
+    push_routes( currroute, routesB, true, routes );
+  }
+  routes.push_back( currroute );
+  if ( pr_tranzit_routes )  //задание компоновки для всего маршрута
+    push_routes( currroute, routesA, false, routes );
+  for ( TCompsRoutes::iterator i=routes.begin(); i!=routes.end(); i++ ) {
+    ProgTrace( TRACE5, "get_comp_routes: i->point_id=%d, i->inRoutes=%d, i->pr_reg=%d", i->point_id, i->inRoutes, i->pr_reg );
+  }
+}
+
+struct TCounters {
+  int f, c, y;
+  TCounters() {
+    f = 0;
+    c = 0;
+    y = 0;
+  };
+};
+
+void getCrsData( const vector<int> &points, map<int,TCounters> &crs_data )
+{
+  crs_data.clear();
+  TQuery Qry(&OraSession);
+	Qry.SQLText =
+    "SELECT NVL( MAX( DECODE( class, 'П', cfg, 0 ) ), 0 ) f, "
+    "       NVL( MAX( DECODE( class, 'Б', cfg, 0 ) ), 0 ) c, "
+    "       NVL( MAX( DECODE( class, 'Э', cfg, 0 ) ), 0 ) y "
+    " FROM crs_data,tlg_binding,points "
+    " WHERE crs_data.point_id=tlg_binding.point_id_tlg AND "
+    "       points.point_id=:point_id AND "
+    "       point_id_spp=:point_id AND system='CRS' AND airp_arv=points.airp ";
+  Qry.DeclareVariable( "point_id", otInteger );
+
+  for ( vector<int>::const_iterator i=points.begin(); i!=points.end(); i++ ) {
+    ProgTrace( TRACE5, "getCrsData: routes->point_id=%d", *i );
+    Qry.SetVariable( "point_id", *i );
+    Qry.Execute();
+    crs_data[ *i ].f = Qry.FieldAsInteger( "f" );
+    crs_data[ *i ].c = Qry.FieldAsInteger( "c" );
+    crs_data[ *i ].y = Qry.FieldAsInteger( "y" );
+    if ( crs_data[ -1 ].f + crs_data[ -1 ].c + crs_data[ -1 ].y <
+         crs_data[ *i ].f + crs_data[ *i ].c + crs_data[ *i ].y ) {
+      crs_data[ -1 ].f = crs_data[ *i ].f;
+      crs_data[ -1 ].c = crs_data[ *i ].c;
+      crs_data[ -1 ].y = crs_data[ *i ].y;
+    }
+  }
+}
+
+void getCountersData( int point_id, const vector<int> &points, map<int,TCounters> &crs_data )
+{
+  crs_data.clear();
+  TQuery Qry(&OraSession);
+	Qry.SQLText =
+    "SELECT airp_arv,class, "
+    "       0 AS priority, "
+    "       crs_ok + crs_tranzit AS c "
+    " FROM crs_counters "
+    "WHERE point_dep=:point_id "
+    "UNION "
+    "SELECT airp_arv,class,1,resa + tranzit "
+    " FROM trip_data "
+    "WHERE point_id=:point_id "
+    "ORDER BY airp_arv,class,priority DESC ";
+  Qry.DeclareVariable( "point_id", otInteger );
+  
+  string airp_arv, vclass;
+  for ( vector<int>::const_iterator i=points.begin(); i!=points.end(); i++ ) {
+    ProgTrace( TRACE5, "getCountersData: routes->point_id=%d", *i );
+    Qry.SetVariable( "point_id", *i );
+    Qry.Execute();
+    string airp_arv, vclass;
+    while ( !Qry.Eof ) {
+    	if ( airp_arv.empty() ||
+    		   vclass.empty() ||
+    		   airp_arv != Qry.FieldAsString( "airp_arv" ) ||
+    		   vclass != Qry.FieldAsString( "class" ) ) {
+    		airp_arv = Qry.FieldAsString( "airp_arv" );
+    		vclass = Qry.FieldAsString( "class" );
+    		if ( vclass == "П" ) crs_data[ *i ].f = Qry.FieldAsInteger( "c" );
+    		if ( vclass == "Б" ) crs_data[ *i ].c = Qry.FieldAsInteger( "c" );
+    		if ( vclass == "Э" ) crs_data[ *i ].y = Qry.FieldAsInteger( "c" );
+        if ( crs_data[ -1 ].f + crs_data[ -1 ].c + crs_data[ -1 ].y <
+           crs_data[ *i ].f + crs_data[ *i ].c + crs_data[ *i ].y ) {
+           crs_data[ -1 ].f = crs_data[ *i ].f;
+           crs_data[ -1 ].c = crs_data[ *i ].c;
+           crs_data[ -1 ].y = crs_data[ *i ].y;
+        }
+    	}
+    	Qry.Next();
+    }
+  }
+  if ( crs_data[ -1 ].f + crs_data[ -1 ].c + crs_data[ -1 ].y <= 0 ) {
+    tst();
+    //данные по счетчикам отсутствуют, пробуем сезонное расписание
+  	Qry.Clear();
+  	Qry.SQLText =
+  	  "SELECT ABS(f) f, ABS(c) c, ABS(y) y FROM trip_sets WHERE point_id=:point_id";
+  	Qry.CreateVariable( "point_id", otInteger, point_id );
+  	Qry.Execute();
+  	if ( !Qry.Eof ) {
+      ProgTrace( TRACE5, "point_id=%d", point_id );
+  	  crs_data[ point_id ].f = Qry.FieldAsInteger( "f" );
+  	  crs_data[ point_id ].c = Qry.FieldAsInteger( "c" );
+  	  crs_data[ point_id ].y = Qry.FieldAsInteger( "y" );
+  	}
+  }
+}
+
+int CRC32_Comp( int point_id )
+{
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "SELECT num,x,y,elem_type,class,xname,yname FROM trip_comp_elems "
+    " WHERE point_id=:point_id "
+    "ORDER BY num,x,y";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  if ( Qry.Eof )
+    return 0;
+  string buf;
+  int idx_num = Qry.FieldIndex( "num" );
+  int idx_x = Qry.FieldIndex( "x" );
+  int idx_y = Qry.FieldIndex( "y" );
+  int idx_elem_type = Qry.FieldIndex( "elem_type" );
+  int idx_class = Qry.FieldIndex( "class" );
+  int idx_xname = Qry.FieldIndex( "xname" );
+  int idx_yname = Qry.FieldIndex( "yname" );
+  while ( !Qry.Eof ) {
+    buf += Qry.FieldAsString( idx_num );
+    buf += Qry.FieldAsString( idx_x );
+    buf += Qry.FieldAsString( idx_y );
+    buf += Qry.FieldAsString( idx_elem_type );
+    buf += Qry.FieldAsString( idx_class );
+    buf += Qry.FieldAsString( idx_xname );
+    buf += Qry.FieldAsString( idx_yname );
+    Qry.Next();
+  }
+  boost::crc_basic<32> crc32( 0x04C11DB7, 0xFFFFFFFF, 0xFFFFFFFF, true, true );
+  crc32.reset();
+  crc32.process_bytes( buf.c_str(), buf.size() );
+  int comp_id = crc32.checksum();
+  ProgTrace( TRACE5, "CRC32_Comp: point_id=%d, crc_comp=%d", point_id, comp_id );
   return comp_id;
+}
+
+int getCRC_Comp( int point_id )
+{
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "SELECT crc_comp,comp_id FROM trip_sets WHERE point_id=:point_id";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  if ( Qry.Eof ) {
+    ProgError( STDLOG, "getCRC_Comp: point_id=%d, trip_sets not exists record", point_id );
+    return 0;
+  }
+  return Qry.FieldAsInteger( "crc_comp" );
+}
+
+void calc_diffcomp_alarm( TCompsRoutes &routes )
+{
+  TCompsRoutes::iterator iprior = routes.end();
+  for ( TCompsRoutes::iterator i=routes.begin(); i!=routes.end(); i++ ) {
+    ProgTrace( TRACE5, "i->point_id=%d, i->pr_reg=%d", i->point_id, i->pr_reg );
+    i->pr_alarm = false;
+    if ( !i->pr_reg )
+      continue;
+    if ( iprior != routes.end() && i != routes.end()-1 ) {
+      ProgTrace( TRACE5, "i->point_id=%d", i->point_id );
+      int crc_comp1 = getCRC_Comp( iprior->point_id );
+      int crc_comp2 = getCRC_Comp( i->point_id );
+      if ( !CompRouteinRoutes( *iprior, *i ) ||
+           crc_comp1 != 0 && crc_comp2 != 0 && crc_comp1 != crc_comp2 ) {
+         i->pr_alarm = true;
+      }
+    }
+    iprior = i;
+  }
+}
+
+void check_diffcomp_alarm( TCompsRoutes &routes )
+{
+ calc_diffcomp_alarm( routes );
+ for (  TCompsRoutes::iterator i=routes.begin(); i!=routes.end(); i++ ) {
+   Set_diffcomp_alarm( i->point_id, i->pr_alarm );
+ }
+}
+
+void check_diffcomp_alarm( int point_id )
+{
+  TCompsRoutes routes;
+  get_comp_routes( true, point_id, routes );
+  check_diffcomp_alarm( routes );
+}
+
+std::string getDiffCompsAlarmRoutes( int point_id )
+{
+/*  TCompsRoutes routes;
+  get_comp_routes( true, point_id, routes );
+  calc_diffcomp_alarm( routes );
+  string res;
+  for ( TCompsRoutes::iterator i=routes.begin(); i!=routes.end(); i++ ) {
+    if ( !i->pr_alarm )
+      continue;
+    if ( res.empty() )
+      res += ":";
+    else
+      res = "-";
+    res += i->airp;
+  }
+  ProgTrace( TRACE5, "getDiffCompsAlarmRoutes: point_id=%d, res=%s", point_id, res.c_str() );
+  return res; */
+  string res;
+  return res;
+}
+
+TFindSetCraft SetCraft( bool pr_tranzit_routes, int point_id, TSetsCraftPoints &points )
+{
+  points.Clear();
+	TQuery Qry(&OraSession);
+	Qry.SQLText =
+	  "SELECT bort,airline,airp,craft, NVL(comp_id,-1) comp_id "
+    " FROM points, trip_sets "
+    " WHERE points.point_id=:point_id AND points.point_id=trip_sets.point_id(+)";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  int f,c,y;
+  string bort = Qry.FieldAsString( "bort" );
+  string airline = Qry.FieldAsString( "airline" );
+  string airp = Qry.FieldAsString( "airp" );
+  int old_comp_id = Qry.FieldAsInteger( "comp_id" );
+	string craft = Qry.FieldAsString( "craft" );
+	ProgTrace( TRACE5, "SetCraft: point_id=%d,pr_tranzit_routes=%d,bort=%s,craft=%s,old_comp_id=%d",
+             point_id,pr_tranzit_routes,bort.c_str(),craft.c_str(),old_comp_id );
+	if ( craft.empty() ) {
+    ProgTrace( TRACE5, "SetCraft: return rsComp_NoCraftComps, craft.empty()" );
+    return rsComp_NoCraftComps;
+  }
+  // проверка на существование заданной компоновки по типу ВС
+	Qry.Clear();
+	Qry.SQLText =
+   "SELECT comp_id FROM comps "
+   " WHERE craft=:craft AND rownum < 2";
+ 	Qry.CreateVariable( "craft", otString, craft );
+ 	Qry.Execute();
+ 	if ( Qry.Eof ) {
+    ProgTrace( TRACE5, "SetCraft: return rsComp_NoCraftComps" );
+    return rsComp_NoCraftComps;
+  }
+  tst();
+  TCompsRoutes routes;
+  get_comp_routes( pr_tranzit_routes, point_id, routes );
+  tst();
+  for ( TCompsRoutes::iterator i=routes.begin(); i!=routes.end(); i++ ) {
+    if ( i->inRoutes && i->auto_comp_chg && i->pr_reg )
+      points.push_back( i->point_id );
+    if ( i->point_id == point_id && !i->auto_comp_chg )
+      return rsComp_NoChanges;
+  }
+  if ( points.empty() )
+    return rsComp_NoChanges;
+  map<int,TCounters> crs_data;
+  
+  for ( int step=0; step<=3; step++ ) {
+    // выбираем макс. компоновку по CFG из PNL/ADL для всех центров бронирования
+    ProgTrace( TRACE5, "step=%d", step );
+    if ( step == 0 ) {
+      getCrsData( points, crs_data );
+    }
+    if ( step == 2 ) {
+      getCountersData( point_id, points, crs_data );
+    }
+    if ( step == 0 || step == 2 ) {
+      if ( crs_data[ -1 ].f + crs_data[ -1 ].c + crs_data[ -1 ].y <= 0 )
+        continue;
+      f = crs_data[ -1 ].f;
+      c = crs_data[ -1 ].c;
+      y = crs_data[ -1 ].y;
+    }
+    if ( step == 1 || step == 3 ) {
+      if ( !pr_tranzit_routes ||
+           crs_data[ point_id ].f + crs_data[ point_id ].c + crs_data[ point_id ].y <= 0 )
+        continue;
+      f = crs_data[ point_id ].f;
+      c = crs_data[ point_id ].c;
+      y = crs_data[ point_id ].y;
+    }
+    points.comp_id = GetCompId( craft, bort, airline, airp, f, c, y );
+    if ( points.comp_id >= 0 )
+    	break;
+  }
+  if ( points.comp_id < 0 ) {
+    ProgTrace( TRACE5, "SetCraft: return rsComp_NoFound" );
+    return rsComp_NoFound;
+  }
+	// найден вариант компоновки
+	if ( old_comp_id == points.comp_id ) {
+	  ProgTrace( TRACE5, "SetCraft: return rsComp_NoChanges" );
+		return rsComp_NoChanges; // не нужно изменять компоновку
+  }
+  tst();
+	CreateComps( routes, points.comp_id );
+	tst();
+	check_diffcomp_alarm( routes );
+	ProgTrace( TRACE5, "SetCraft: return rsComp_Found" );
+  return rsComp_Found;
+}
+
+TFindSetCraft AutoSetCraft( int point_id )
+{
+  TSetsCraftPoints points;
+  return AutoSetCraft( true, point_id, points );
+}
+
+TFindSetCraft AutoSetCraft( int point_id, TSetsCraftPoints &points )
+{
+  return AutoSetCraft( true, point_id, points );
+}
+
+bool isAutoCompChg( int point_id )
+{
+	TQuery Qry(&OraSession);
+  Qry.SQLText = "SELECT auto_comp_chg FROM trip_sets WHERE point_id=:point_id";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  return ( !Qry.Eof && Qry.FieldAsInteger( "auto_comp_chg" ) ); // автоматическое назначение компоновки
+}
+
+TFindSetCraft AutoSetCraft( bool pr_tranzit_routes, int point_id, TSetsCraftPoints &points )
+{
+	ProgTrace( TRACE5, "AutoSetCraft, pr_tranzit_routes=%d, point_id=%d", pr_tranzit_routes, point_id );
+	try {
+	  points.Clear();
+    if ( isAutoCompChg( point_id ) ) {
+    	ProgTrace( TRACE5, "Auto set comp, point_id=%d", point_id );
+      return SetCraft( pr_tranzit_routes, point_id, points );
+    }
+    return rsComp_NoChanges; // не требуется назначение компоновки
+  }
+  catch( EXCEPTIONS::Exception &e ) {
+  	ProgError( STDLOG, "AutoSetCraft: Exception %s, point_id=%d", e.what(), point_id );
+  }
+  catch( ... ) {
+  	ProgError( STDLOG, "AutoSetCraft: unknown error, point_id=%d", point_id );
+  }
+  return rsComp_NoChanges;
 }
 
 void InitVIP( int point_id )
@@ -1844,7 +2191,6 @@ void InitVIP( int point_id )
   }
 }
 
-
 bool CompareRems( const vector<TRem> &rems1, const vector<TRem> &rems2 )
 {
 	if ( rems1.size() != rems2.size() )
@@ -1876,7 +2222,7 @@ bool CompareLayers( const vector<TPlaceLayer> &layer1, const vector<TPlaceLayer>
   return true;
 }
 
-bool EqualSalon( TPlaceList* oldsalon, TPlaceList* newsalon, bool equal_seats_cfg )
+bool EqualSalon( TPlaceList* oldsalon, TPlaceList* newsalon, TCompareCompsFlags compareFlags )
 {
 	//!!!возможно более тонко оценивать салон: удаление мест из ряда/линии - это места становятся невидимые, но при этом теряется само название ряда/линии
 	bool res = ( oldsalon->places.size() == newsalon->places.size() &&
@@ -1890,31 +2236,38 @@ bool EqualSalon( TPlaceList* oldsalon, TPlaceList* newsalon, bool equal_seats_cf
         po != oldsalon->places.end(),
         pn != newsalon->places.end();
         po++, pn++ ) {
-/*   	ProgTrace( TRACE5, "EqualSalon: po(%d,%d), oname=%s, pn(%d,%d) nname=%s, po->viisble=%d, pn->visible=%d",
-               po->x, po->y, string(po->xname+po->yname).c_str(),
-   	           pn->x, pn->y, string(pn->xname+pn->yname).c_str(),
-               po->visible, pn->visible );*/
-
-    if ( equal_seats_cfg ) { // сравнение конфигурации салона
+    if ( compareFlags.isFlag( ccCoord ) ) {
       if ( po->visible != pn->visible ||
            po->visible &&
            ( po->x != pn->x ||
-     	       po->y != pn->y ||
-             po->isplace != pn->isplace ) ) {
-/*       	ProgTrace( TRACE5, "EqualSalon: po(%d,%d), oname=%s, pn(%d,%d) nname=%s", po->x, po->y, string(po->xname+po->yname).c_str(),
-      	           pn->x, pn->y, string(pn->xname+pn->yname).c_str() );*/
+     	       po->y != pn->y ) ) {
      	  return false;
       }
     }
-    else {
+    if ( compareFlags.isFlag( ccCoordOnlyVisible ) ) {
       if ( po->visible && pn->visible &&
       	   ( po->x != pn->x ||
-       	     po->y != pn->y ||
-       	     po->xname != pn->xname ||
-         	   po->yname != pn->yname ) ) {
-/*       	ProgTrace( TRACE5, "EqualSalon: po(%d,%d), oname=%s, pn(%d,%d) nname=%s", po->x, po->y, string(po->xname+po->yname).c_str(),
-     	             pn->x, pn->y, string(pn->xname+pn->yname).c_str() );*/
+       	     po->y != pn->y ) ) {
      	  return false;
+      }
+    }
+    if ( compareFlags.isFlag( ccPlaceName ) ) {
+      if ( po->visible && pn->visible &&
+       	   ( po->xname != pn->xname ||
+         	   po->yname != pn->yname ) ) {
+        return false;
+      }
+    }
+    if ( compareFlags.isFlag( ccPlaceType ) ) {
+      if ( po->visible && pn->visible &&
+       	   po->isplace != pn->isplace ) {
+        return false;
+      }
+    }
+    if ( compareFlags.isFlag( ccClass ) ) {
+      if ( po->visible && pn->visible &&
+       	   po->clname != pn->clname ) {
+        return false;
       }
     }
   }
@@ -2217,11 +2570,14 @@ bool salonChangesToText( TSalons &OldSalons, TSalons &NewSalons, std::vector<std
 	vector<int> salonNums;
   // поиск в новой компоновки нужного салона
   ProgTrace( TRACE5, "pr_set_base=%d", pr_set_base );
+  TCompareCompsFlags compareFlags;
+  compareFlags.setFlag( ccCoordOnlyVisible );
+  compareFlags.setFlag( ccPlaceName );
   if ( !pr_set_base ) { //изменение базового
     for ( vector<TPlaceList*>::iterator so=OldSalons.placelists.begin(); so!=OldSalons.placelists.end(); so++ ) {
     	bool pr_find_salon=false;
     	for ( vector<TPlaceList*>::iterator sn=NewSalons.placelists.begin(); sn!=NewSalons.placelists.end(); sn++ ) {
-  	  	pr_find_salon = EqualSalon( *so, *sn, false );
+  	  	pr_find_salon = EqualSalon( *so, *sn, compareFlags );
   		  ProgTrace( TRACE5, "so->num=%d, pr_find_salon=%d", (*so)->num, pr_find_salon );
   		  if ( !pr_find_salon )
   			  continue;
@@ -2587,7 +2943,7 @@ void getLayerPlacesCompSection( SALONS2::TSalons &NSalons, TCompSections &compSe
   }
 }
 
-bool ChangeCfg( TSalons &NewSalons, TSalons &OldSalons )
+bool ChangeCfg( TSalons &NewSalons, TSalons &OldSalons, TCompareCompsFlags compareFlags )
 {
   if ( NewSalons.placelists.size() != OldSalons.placelists.size() ) {
     return true;
@@ -2597,7 +2953,7 @@ bool ChangeCfg( TSalons &NewSalons, TSalons &OldSalons )
         so!=OldSalons.placelists.end(),
         sn!=NewSalons.placelists.end();
         so++, sn++ ) {
-    if ( !EqualSalon( *so, *sn, true ) ) {
+    if ( !EqualSalon( *so, *sn, compareFlags ) ) {
       return true;
     }
   }

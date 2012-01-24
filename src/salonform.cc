@@ -175,6 +175,7 @@ bool filterCompons( const string &airline, const string &airp )
 
 struct TShowComps {
 	int comp_id;
+	int crc_comp;
 	string craft;
 	string bort;
 	string classes;
@@ -182,141 +183,242 @@ struct TShowComps {
 	int pr_comp;
 	string airline;
 	string airp;
+	string name;
+	TShowComps() {
+    crc_comp = NoExists;
+	};
 };
+
+void setCompName( TShowComps &comp )
+{
+  if ( !comp.airline.empty() )
+    comp.name = ElemIdToCodeNative(etAirline,comp.airline);
+  else
+   	comp.name = ElemIdToCodeNative(etAirp,comp.airp);
+  if ( comp.name.length() == 2 )
+    comp.name += "  ";
+  else
+    comp.name += " ";
+  if ( !comp.bort.empty() && comp.pr_comp != 1 )
+    comp.name += comp.bort;
+  else
+    comp.name += "  ";
+  comp.name += "  " + comp.classes;
+  if ( !comp.descr.empty() && comp.pr_comp != 1 )
+    comp.name += "  " + comp.descr;
+  if ( comp.pr_comp == 1 ) {
+    comp.name += " (";
+    comp.name += AstraLocale::getLocaleText( "ТЕК." );
+    comp.name += ")";
+  }
+}
+
+void getFlightTuneCompRef( int point_id, bool use_filter, const string &trip_airline, vector<TShowComps> &comps )
+{
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
+    "SELECT craft, bort, crc_comp,"
+    "       NVL( SUM( DECODE( class, 'П', 1, 0 ) ), 0 ) as f, "
+    "       NVL( SUM( DECODE( class, 'Б', 1, 0 ) ), 0 ) as c, "
+    "       NVL( SUM( DECODE( class, 'Э', 1, 0 ) ), 0 ) as y "
+    "  FROM trip_comp_elems, comp_elem_types, points, trip_sets "
+    " WHERE trip_comp_elems.elem_type = comp_elem_types.code AND "
+    "       comp_elem_types.pr_seat <> 0 AND "
+    "       trip_comp_elems.point_id = points.point_id AND "
+    "       points.point_id = :point_id AND "
+    "       trip_sets.point_id(+) = points.point_id AND "
+    "       trip_sets.comp_id IS NULL "
+    " GROUP BY craft, bort, crc_comp ";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  while ( !Qry.Eof ) {
+  	TShowComps comp;
+  	comp.comp_id = -1;
+  	comp.craft = Qry.FieldAsString("craft");
+  	comp.bort = Qry.FieldAsString("bort");
+  	if ( Qry.FieldIsNULL( "crc_comp" ) )
+  	  comp.crc_comp = NoExists;
+    else
+  	  comp.crc_comp = Qry.FieldAsInteger("crc_comp");
+  	if (Qry.FieldAsInteger("f")) {
+  	  comp.classes += ElemIdToCodeNative(etClass,"П");
+  	  comp.classes += IntToString(Qry.FieldAsInteger("f"));
+  	};
+  	if (Qry.FieldAsInteger("c")) {
+  		if ( !comp.classes.empty() )
+  			comp.classes += " ";
+  	  comp.classes += ElemIdToCodeNative(etClass,"Б");
+  	  comp.classes += IntToString(Qry.FieldAsInteger("c"));
+    }
+  	if (Qry.FieldAsInteger("y")) {
+  		if ( !comp.classes.empty() )
+  			comp.classes += " ";
+  	  comp.classes += ElemIdToCodeNative(etClass,"Э");
+  	  comp.classes += IntToString(Qry.FieldAsInteger("y"));
+    }
+    comp.pr_comp = 1;
+   	if ( !use_filter ||
+         comp.pr_comp || /* поиск компоновки только по компоновкам нужной А/К или портовым компоновкам */
+    		( comp.airline.empty() || trip_airline == comp.airline ) &&
+    		  filterCompons( comp.airline, comp.airp ) ) {
+      setCompName( comp );
+      comps.push_back( comp );
+    }
+  	Qry.Next();
+  }
+}
+
+void getFlightBaseCompRef( int point_id, bool onlySetComp, bool use_filter, const string &trip_airline, vector<TShowComps> &comps )
+{
+  TQuery Qry( &OraSession );
+  string sql;
+  if ( !onlySetComp )
+    sql =
+      "SELECT comps.comp_id,comps.craft,comps.bort,comps.classes, "
+      "       comps.descr,0 as pr_comp, comps.airline, comps.airp "
+      " FROM comps, points "
+      "WHERE points.craft = comps.craft AND points.point_id = :point_id "
+      " UNION ";
+  sql +=
+    "SELECT comps.comp_id,comps.craft,comps.bort,comps.classes, "
+    "       comps.descr,1 as pr_comp, null airline, null airp "
+    " FROM comps, points, trip_sets "
+    "WHERE points.point_id=trip_sets.point_id AND "
+    "      points.craft = comps.craft AND points.point_id = :point_id AND "
+    "      trip_sets.comp_id = comps.comp_id "
+    "ORDER BY craft, bort, classes, descr";
+  Qry.SQLText = sql;
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  while ( !Qry.Eof ) {
+  	TShowComps comp;
+    comp.comp_id = Qry.FieldAsInteger( "comp_id" );
+    comp.craft = Qry.FieldAsString( "craft" );
+    comp.bort = Qry.FieldAsString( "bort" );
+	  comp.classes = Qry.FieldAsString( "classes" );
+	  comp.descr = Qry.FieldAsString( "descr" );
+	  comp.pr_comp = Qry.FieldAsInteger( "pr_comp" );
+	  comp.airline = Qry.FieldAsString( "airline" );
+	  comp.airp = Qry.FieldAsString( "airp" );
+   	if ( !use_filter ||
+         comp.pr_comp || /* поиск компоновки только по компоновкам нужной А/К или портовым компоновкам */
+    		( comp.airline.empty() || trip_airline == comp.airline ) &&
+    		  filterCompons( comp.airline, comp.airp ) ) {
+      setCompName( comp );
+      comps.push_back( comp );
+    }
+    Qry.Next();
+  }
+}
+
+bool CompareShowComps( const TShowComps &item1, const TShowComps &item2 )
+{
+  if ( item1.pr_comp > item2.pr_comp )
+    return true;
+  else
+    if ( item1.pr_comp < item2.pr_comp )
+      return false;
+    else
+      if ( item1.name < item2.name )
+        return true;
+      else
+        if ( item1.name > item2.name )
+          return false;
+        else
+          return ( item1.comp_id < item2.comp_id );
+}
 
 void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   ProgTrace(TRACE5, "SalonFormInterface::Show" );
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
-  int trip_id = NodeAsInteger( "trip_id", reqNode );
-  ProgTrace( TRACE5, "trip_id=%d", trip_id );
+  int point_id = NodeAsInteger( "trip_id", reqNode );
+  ProgTrace( TRACE5, "trip_id=%d", point_id );
 
   TQuery Qry( &OraSession );
-  SALONS2::GetTripParams( trip_id, dataNode );
+  SALONS2::GetTripParams( point_id, dataNode );
   bool pr_comps = GetNode( "pr_comps", reqNode );
   bool pr_images = GetNode( "pr_images", reqNode ); // не используется в новом терминале!!!
   if ( pr_comps ) {
-    Qry.SQLText = "SELECT airline FROM points WHERE point_id=:point_id";
-    Qry.CreateVariable( "point_id", otInteger, trip_id );
+    Qry.SQLText =
+  	  "SELECT point_num,first_point,pr_tranzit,pr_del,scd_out, "
+  	  "       NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out, "
+  	  "       airline_fmt,suffix_fmt,airp_fmt,"
+      "       bort,airline,flt_no,suffix,airp,craft,diffcomp_alarm,NVL(comp_id,-1) comp_id "
+      " FROM points, trip_sets "
+      " WHERE points.point_id=:point_id AND points.point_id=trip_sets.point_id(+)";
+    Qry.CreateVariable( "point_id", otInteger, point_id );
     Qry.Execute();
     if ( !Qry.RowCount() )
     	throw UserException( "MSG.FLIGHT.NOT_FOUND" );
     string trip_airline = Qry.FieldAsString( "airline" );
-  	vector<TShowComps> comps;
-    Qry.Clear();
-    Qry.SQLText =
-      "SELECT craft, bort, "
-      "       NVL( SUM( DECODE( class, 'П', 1, 0 ) ), 0 ) as f, "
-      "       NVL( SUM( DECODE( class, 'Б', 1, 0 ) ), 0 ) as c, "
-      "       NVL( SUM( DECODE( class, 'Э', 1, 0 ) ), 0 ) as y "
-      "  FROM trip_comp_elems, comp_elem_types, points, trip_sets "
-      " WHERE trip_comp_elems.elem_type = comp_elem_types.code AND "
-      "       comp_elem_types.pr_seat <> 0 AND "
-      "       trip_comp_elems.point_id = points.point_id AND "
-      "       points.point_id = :point_id AND "
-      "       trip_sets.point_id(+) = points.point_id AND "
-      "       trip_sets.comp_id IS NULL "
-      " GROUP BY craft, bort ";
-    Qry.CreateVariable( "point_id", otInteger, trip_id );
-    Qry.Execute();
-    while ( !Qry.Eof ) {
-    	TShowComps comp;
-    	comp.comp_id = -1;
-    	comp.craft = Qry.FieldAsString("craft");
-    	comp.bort = Qry.FieldAsString("bort");
-    	if (Qry.FieldAsInteger("f")) {
-    	  comp.classes += ElemIdToCodeNative(etClass,"П");
-    	  comp.classes += IntToString(Qry.FieldAsInteger("f"));
-    	};
-    	if (Qry.FieldAsInteger("c")) {
-    		if ( !comp.classes.empty() )
-    			comp.classes += " ";
-    	  comp.classes += ElemIdToCodeNative(etClass,"Б");
-    	  comp.classes += IntToString(Qry.FieldAsInteger("c"));
-      }
-    	if (Qry.FieldAsInteger("y")) {
-    		if ( !comp.classes.empty() )
-    			comp.classes += " ";
-    	  comp.classes += ElemIdToCodeNative(etClass,"Э");
-    	  comp.classes += IntToString(Qry.FieldAsInteger("y"));
-      }
-	    comp.pr_comp = 1;
-	    comps.push_back( comp );
-    	Qry.Next();
-    }
-    Qry.Clear();
-    Qry.SQLText =
-      "SELECT comps.comp_id,comps.craft,comps.bort,comps.classes, "
-      "       comps.descr,0 as pr_comp, comps.airline, comps.airp "
-      " FROM comps, points "
-      "WHERE points.craft = comps.craft AND points.point_id = :point_id "
-      " UNION "
-      "SELECT comps.comp_id,comps.craft,comps.bort,comps.classes, "
-      "       comps.descr,1 as pr_comp, null, null "
-      " FROM comps, points, trip_sets "
-      "WHERE points.point_id=trip_sets.point_id AND "
-      "      points.craft = comps.craft AND points.point_id = :point_id AND "
-      "      trip_sets.comp_id = comps.comp_id "
-      "ORDER BY craft, bort, classes, descr";
-    Qry.CreateVariable( "point_id", otInteger, trip_id );
-    Qry.Execute();
-    while ( !Qry.Eof ) {
-    	TShowComps comp;
-      comp.comp_id = Qry.FieldAsInteger( "comp_id" );
-	    comp.craft = Qry.FieldAsString( "craft" );
-	    comp.bort = Qry.FieldAsString( "bort" );
-	    comp.classes = Qry.FieldAsString( "classes" );
-	    comp.descr = Qry.FieldAsString( "descr" );
-	    comp.pr_comp = Qry.FieldAsInteger( "pr_comp" );
-	    comp.airline = Qry.FieldAsString( "airline" );
-	    comp.airp = Qry.FieldAsString( "airp" );
-	    comps.push_back( comp );
-    	Qry.Next();
-    }
-    xmlNodePtr compsNode = NULL;
-    string StrVal;
-    for (vector<TShowComps>::iterator i=comps.begin(); i!=comps.end(); i++ ) {
-    	if ( i->pr_comp || /* поиск компоновки только по компоновкам нужной А/К или портовым компоновкам */
-    		   ( i->airline.empty() || trip_airline == i->airline ) &&
-    		   filterCompons( i->airline, i->airp ) ) {
-      	if ( !compsNode )
-      		compsNode = NewTextChild( dataNode, "comps"  );
-         xmlNodePtr compNode = NewTextChild( compsNode, "comp" );
-        if ( !i->airline.empty() )
-         	StrVal = ElemIdToCodeNative(etAirline,i->airline);
-         else
-        	StrVal = ElemIdToCodeNative(etAirp,i->airp);
-        if ( StrVal.length() == 2 )
-          StrVal += "  ";
-        else
-      	  StrVal += " ";
-        if ( !i->bort.empty() && i->pr_comp != 1 )
-          StrVal += i->bort;
-        else
-          StrVal += "  ";
-        StrVal += string( "  " ) + i->classes;
-        if ( !i->descr.empty() && i->pr_comp != 1 )
-          StrVal += string( "  " ) + i->descr;
-        if ( i->pr_comp == 1 ) {
-          StrVal += " (";
-          StrVal += AstraLocale::getLocaleText( "ТЕК." );
-          StrVal += ")";
+    string craft = Qry.FieldAsString( "craft" );
+    string bort = Qry.FieldAsString( "bort" );
+    vector<TShowComps> comps, comps_tmp;
+  	getFlightTuneCompRef( point_id, true, trip_airline, comps );
+  	if ( Qry.FieldAsInteger( "pr_tranzit" ) ) {
+      TTripRoute route;
+      TTripRouteItem item;
+      route.GetPriorAirp( NoExists,
+                          point_id,
+                          Qry.FieldAsInteger( "point_num" ),
+                          Qry.FieldAsInteger( "first_point" ),
+                          Qry.FieldAsInteger( "pr_tranzit" ),
+                          trtNotCancelled,
+                          item );
+      if ( item.point_id != NoExists ) { // нашли пред. пункт
+        //!!! если компоновка базовая в пред. пункте, то надо передать базовую иначе текущую
+        Qry.SetVariable( "point_id", item.point_id );
+        Qry.Execute();
+        if ( !Qry.Eof && craft == Qry.FieldAsString( "craft" ) ) {
+          ProgTrace( TRACE5, "GetPriorAirp: point_id=%d, comp_id=%d", item.point_id, Qry.FieldAsInteger( "comp_id" ) );
+          if ( Qry.FieldAsInteger( "comp_id" ) >= 0 ) { // базовая
+            getFlightBaseCompRef( item.point_id, true, false, trip_airline, comps_tmp );
+          }
+          else {
+            getFlightTuneCompRef( item.point_id, false, trip_airline, comps_tmp ); // редактированная
+          }
+          if ( !comps_tmp.empty() ) {
+            TTripInfo info;
+            info.Init( Qry );
+            string StrVal = GetTripName( info, ecDisp, true, false ) + " ";
+            if ( craft != Qry.FieldAsString( "craft" ) )
+              StrVal += string(" ") + Qry.FieldAsString( "craft" );
+            if ( bort != Qry.FieldAsString( "bort" ) )
+              StrVal += string(" ") + Qry.FieldAsString( "bort" );
+            comps_tmp.begin()->pr_comp = 2;
+            setCompName( *comps_tmp.begin() );
+            comps_tmp.begin()->name = StrVal + " " + comps_tmp.begin()->name;
+            comps.insert( comps.end(), *comps_tmp.begin() );
+          }
         }
-        NewTextChild( compNode, "name", StrVal );
-        NewTextChild( compNode, "comp_id", i->comp_id );
-        NewTextChild( compNode, "pr_comp", i->pr_comp );
-        NewTextChild( compNode, "craft", i->craft );
-        NewTextChild( compNode, "bort", i->bort );
-        NewTextChild( compNode, "classes", i->classes );
-        NewTextChild( compNode, "descr", i->descr );
       }
+    }
+    getFlightBaseCompRef( point_id, false, true, trip_airline, comps );
+    //sort comps for client
+    sort( comps.begin(), comps.end(), CompareShowComps );
+    string StrVal;
+    xmlNodePtr compsNode = NULL;
+    for (vector<TShowComps>::iterator i=comps.begin(); i!=comps.end(); i++ ) {
+      if ( !compsNode )
+        compsNode = NewTextChild( dataNode, "comps"  );
+      xmlNodePtr compNode = NewTextChild( compsNode, "comp" );
+      NewTextChild( compNode, "name", i->name );
+      xmlNodePtr tmpNode = NewTextChild( compNode, "comp_id", i->comp_id );
+      if ( i->crc_comp != NoExists )
+        SetProp( tmpNode, "crc_comp", i->crc_comp );
+      NewTextChild( compNode, "pr_comp", (int)(i->pr_comp == 1) );
+      NewTextChild( compNode, "craft", i->craft );
+      NewTextChild( compNode, "bort", i->bort );
+      NewTextChild( compNode, "classes", i->classes );
+      NewTextChild( compNode, "descr", i->descr );
     }
     if ( !compsNode ) {
     	AstraLocale::showErrorMessage( "MSG.SALONS.NOT_FOUND_FOR_THIS_CRAFT" );
     	return;
     }
   } //END PR_comps
-  SALONS2::TSalons Salons( trip_id, SALONS2::rTripSalons );
+  SALONS2::TSalons Salons( point_id, SALONS2::rTripSalons );
   if ( GetNode( "ClName", reqNode ) )
   	Salons.ClName = NodeAsString( "ClName", reqNode );
   else
@@ -331,7 +433,7 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   Salons.Build( salonsNode );
   if ( pr_comps ) {
     SEATS2::TPassengers p;
-    if ( SEATS2::GetPassengersForWaitList( trip_id, p, true ) ) {
+    if ( SEATS2::GetPassengersForWaitList( point_id, p, true ) ) {
     	AstraLocale::showErrorMessage( "MSG.SEATS.PAX_SEATS_NOT_FULL" );
     	SetProp(NewTextChild( dataNode, "passengers" ), "pr_waitlist", 1);
     }
@@ -343,7 +445,7 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     Qry.Clear();
     Qry.SQLText =
 	    "SELECT airline,flt_no,suffix,airp,scd_out FROM points WHERE point_id=:point_id";
-    Qry.CreateVariable( "point_id", otInteger, trip_id );
+    Qry.CreateVariable( "point_id", otInteger, point_id );
     Qry.Execute();
 	  TTripInfo info( Qry );
 	  if ( GetTripSets( tsCraftNoChangeSections, info ) ) {
@@ -396,7 +498,10 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Qry.Execute();
   if ( !Qry.Eof ) { // была старая компоновка
     OldSalons.Read();
-    pr_base_change = ChangeCfg( OldSalons, Salons );
+    SALONS2::TCompareCompsFlags compareFlags;
+    compareFlags.setFlag( SALONS2::ccCoord );
+    compareFlags.setFlag( SALONS2::ccPlaceType );
+    pr_base_change = ChangeCfg( OldSalons, Salons, compareFlags );
   }
   Qry.Clear();
   Qry.SQLText = "UPDATE trip_sets SET comp_id=:comp_id WHERE point_id=:point_id";
@@ -429,6 +534,7 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   bool pr_initcomp = NodeAsInteger( "initcomp", reqNode );
   /* инициализация VIP */
   SALONS2::InitVIP( trip_id );
+
   string msg;
   string comp_lang;
   if (TReqInfo::Instance()->desk.compatible(LATIN_VERSION)) {
@@ -459,8 +565,9 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   SALONS2::setTRIP_CLASSES( trip_id );
   //set flag auto change in false state
   Qry.Clear();
-	Qry.SQLText = "UPDATE trip_sets SET auto_comp_chg=0 WHERE point_id=:point_id";
+	Qry.SQLText = "UPDATE trip_sets SET auto_comp_chg=0,crc_comp=:crc_comp WHERE point_id=:point_id";
 	Qry.CreateVariable( "point_id", otInteger, trip_id );
+	Qry.CreateVariable( "crc_comp", otInteger, SALONS2::CRC32_Comp( trip_id ) );
   Qry.Execute();
 
 
@@ -477,6 +584,7 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   	TReqInfo::Instance()->MsgToLog( *i, evtFlt, trip_id );
   }
   // конец перечитки
+  SALONS2::check_diffcomp_alarm( trip_id );
   xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
   Salons.Build( salonsNode );
   if ( Salons.comp_id > 0 && pr_notchangecraft ) { //!!!строго завязать базовые компоновки с назначенными на рейс
@@ -496,27 +604,82 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
 void SalonFormInterface::ComponShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  int comp_id = NodeAsInteger( "comp_id", reqNode );
-  //TReqInfo::Instance()->user.check_access( amRead );
-  SALONS2::TSalons Salons( comp_id, SALONS2::rComponSalons );
+  xmlNodePtr tmpNode = GetNode( "comp_id", reqNode );
+  int comp_id = NodeAsInteger( tmpNode );
+  int prior_point_id = NoExists;
+  TQuery Qry( &OraSession );
+  xmlNodePtr pNode;
+  if ( comp_id < 0 && ( pNode = GetNode( "point_id", reqNode ) ) ) { // выбрана компоновка пред. пункта в транзитном маршруте
+    int point_id = NodeAsInteger( pNode );
+    int crc_comp = 0;
+    if ( GetNode( "@crc_comp", tmpNode ) )
+      crc_comp = NodeAsInteger( "@crc_comp", tmpNode );
+    ProgTrace( TRACE5, "point_id=%d, crc_comp=%d", point_id, crc_comp );
+    Qry.SQLText =
+  	  "SELECT point_num,first_point,pr_tranzit,pr_del,scd_out, "
+  	  "       NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out, "
+  	  "       airline_fmt,suffix_fmt,airp_fmt,"
+      "       bort,airline,flt_no,suffix,airp,craft,diffcomp_alarm,crc_comp "
+      " FROM points, trip_sets "
+      " WHERE points.point_id=:point_id AND points.point_id=trip_sets.point_id(+)";
+    Qry.CreateVariable( "point_id", otInteger, point_id );
+    Qry.Execute();
+    if ( !Qry.RowCount() )
+    	throw UserException( "MSG.FLIGHT.NOT_FOUND" );
+    TTripRoute route;
+    TTripRouteItem item;
+    route.GetPriorAirp( NoExists,
+                        point_id,
+                        Qry.FieldAsInteger( "point_num" ),
+                        Qry.FieldAsInteger( "first_point" ),
+                        Qry.FieldAsInteger( "pr_tranzit" ),
+                        trtNotCancelled,
+                        item );
+    ProgTrace( TRACE5, "prior_point_id=%d", item.point_id );
+    if ( item.point_id == NoExists )
+      throw UserException( "MSG.SALONS.NOT_FOUND" );
+    Qry.SetVariable( "point_id", item.point_id );
+    Qry.Execute();
+    if ( !Qry.Eof )
+      ProgTrace( TRACE5, "prior_crc_comp=%d", Qry.FieldAsInteger( "crc_comp" ) );
+    if ( Qry.Eof || crc_comp != 0 && Qry.FieldAsInteger( "crc_comp" ) != 0 &&
+         crc_comp != Qry.FieldAsInteger( "crc_comp" ) )
+      throw UserException( "MSG.SALONS.NOT_FOUND" );
+    prior_point_id = item.point_id;
+  }
+  int id;
+  SALONS2::TReadStyle readStyle;
+  if ( comp_id < 0 ) {
+    id = prior_point_id;
+    readStyle =  SALONS2::rTripSalons;
+  }
+  else {
+    id = comp_id;
+    readStyle = SALONS2::rComponSalons;
+  }
+  SALONS2::TSalons Salons( id, readStyle );
   Salons.Read( );
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
-  SALONS2::GetCompParams( comp_id, dataNode );
+  if ( comp_id < 0 )
+    SALONS2::GetTripParams( prior_point_id, dataNode );
+  else
+    SALONS2::GetCompParams( comp_id, dataNode );
   Salons.Build( salonsNode );
   bool pr_notchangecraft = true;
-  if ( xmlNodePtr pNode = GetNode( "point_id", reqNode ) ) {
+  pNode = GetNode( "point_id", reqNode );
+  if ( pNode ) {
     int point_id = NodeAsInteger( pNode );
-    TQuery Qry( &OraSession );
+    Qry.Clear();
     Qry.SQLText = "SELECT airline,flt_no,suffix,airp,scd_out FROM points WHERE point_id=:point_id";
     Qry.CreateVariable( "point_id", otInteger, point_id );
     Qry.Execute();
     TTripInfo info( Qry );
     pr_notchangecraft = GetTripSets( tsCraftNoChangeSections, info );
     SALONS2::TSalons SalonsL( point_id, SALONS2::rTripSalons );
-    	SalonsL.BuildLayersInfo( salonsNode );
+    SalonsL.BuildLayersInfo( salonsNode );
   }
-  if ( pr_notchangecraft ) {
+  if ( pr_notchangecraft && comp_id >= 0 ) {
     vector<SALONS2::TCompSections> CompSections;
     ReadCompSections( comp_id, CompSections );
     BuildCompSections( dataNode, CompSections );

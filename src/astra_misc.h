@@ -484,7 +484,7 @@ bool SeparateTCkin(int grp_id,
                    int tid,
                    int &tckin_id, int &seg_no);
 
-enum TTripAlarmsType { atSalon, atWaitlist, atBrd, atOverload, atETStatus, atSeance, atLength };
+enum TTripAlarmsType { atSalon, atWaitlist, atBrd, atOverload, atETStatus, atSeance, atDiffComps, atLength };
 void TripAlarms( int point_id, BitSet<TTripAlarmsType> &Alarms );
 std::string TripAlarmString( TTripAlarmsType &alarm );
 

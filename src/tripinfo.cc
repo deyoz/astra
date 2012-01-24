@@ -22,6 +22,7 @@
 #include "convert.h"
 #include "astra_misc.h"
 #include "term_version.h"
+#include "salons.h"
 #include "salonform.h"
 
 #define NICKNAME "VLAD"
@@ -1194,6 +1195,16 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
         case atSeance:
         	if (reqInfo->screen.name == "AIR.EXE")
           	rem = TripAlarmString( alarm );
+          break;
+      	case atDiffComps:
+          if (reqInfo->screen.name == "CENT.EXE" ||
+  	          reqInfo->screen.name == "PREPREG.EXE" ||
+  	          reqInfo->screen.name == "AIR.EXE" ||
+              reqInfo->screen.name == "BRDBUS.EXE" ||
+              reqInfo->screen.name == "EXAM.EXE" ||
+              reqInfo->screen.name == "DOCS.EXE") {
+            rem = TripAlarmString( alarm ) + SALONS2::getDiffCompsAlarmRoutes( point_id );
+          }
           break;
       	default:
           break;
@@ -2570,3 +2581,24 @@ bool check_brd_alarm( int point_id )
 	return brd_alarm;
 }
 
+void Set_diffcomp_alarm( int point_id, bool diffcomp_alarm )
+{
+  TQuery Qry(&OraSession);
+  Qry.SQLText = "SELECT diffcomp_alarm FROM trip_sets WHERE point_id=:point_id";
+  Qry.CreateVariable("point_id", otInteger, point_id);
+  Qry.Execute();
+  if ( !Qry.Eof && (int)diffcomp_alarm != Qry.FieldAsInteger( "diffcomp_alarm" ) ) {
+    Qry.Clear();
+    Qry.SQLText=
+      "UPDATE trip_sets SET diffcomp_alarm=:diffcomp_alarm WHERE point_id=:point_id";
+    Qry.CreateVariable("diffcomp_alarm", otInteger, diffcomp_alarm);
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.Execute();
+  	string msg = "Тревога 'Различие компоновок'";
+  	if ( diffcomp_alarm )
+  		msg += " установлена";
+  	else
+  		msg += " отменена";
+  	TReqInfo::Instance()->MsgToLog( msg, evtFlt, point_id );
+  }
+}

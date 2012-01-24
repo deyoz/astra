@@ -1,4 +1,4 @@
-#include "astra_misc.h"
+  #include "astra_misc.h"
 #include <string>
 #include <vector>
 #include "basic.h"
@@ -1063,7 +1063,7 @@ void TripAlarms( int point_id, BitSet<TTripAlarmsType> &Alarms )
 	Alarms.clearFlags();
 	TQuery Qry(&OraSession);
 	Qry.SQLText =
-    "SELECT overload_alarm,brd_alarm,waitlist_alarm,pr_etstatus,pr_salon,act,pr_airp_seance "
+    "SELECT overload_alarm,brd_alarm,waitlist_alarm,pr_etstatus,pr_salon,act,pr_airp_seance,diffcomp_alarm "
     " FROM trip_sets, trip_stages, "
     " ( SELECT COUNT(*) pr_salon FROM trip_comp_elems WHERE point_id=:point_id AND rownum<2 ) a "
     " WHERE trip_sets.point_id=:point_id AND "
@@ -1094,6 +1094,9 @@ void TripAlarms( int point_id, BitSet<TTripAlarmsType> &Alarms )
   	  Alarms.setFlag( atSeance );
     }
   };
+  if ( Qry.FieldAsInteger( "diffcomp_alarm" ) ) {
+   	Alarms.setFlag( atDiffComps );
+  }
 }
 
 string TripAlarmString( TTripAlarmsType &alarm )
@@ -1118,6 +1121,8 @@ string TripAlarmString( TTripAlarmsType &alarm )
 		case atSeance:
 		  mes = AstraLocale::getLocaleText("Не определен сеанс");
 			break;
+    case atDiffComps:
+      mes = AstraLocale::getLocaleText("Различие компоновок");
 		default:;
 	}
 	return mes;

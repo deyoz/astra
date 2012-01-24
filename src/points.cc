@@ -1366,10 +1366,8 @@ void PointsKeyTrip<T>::DoEvents( int move_id )
   
   if ( this->events.isFlag( teInitComps ) ) {
     TReqInfo::Instance()->MsgToLog( "Была вызвана процедура автоматического назначения компоновки на рейс", evtDisp, move_id, this->key.point_id );
-    int comp_id = -1;
-    if ( this->key.comp_id != NoExists )
-      comp_id = this->key.comp_id;
-    if ( SALONS2::AutoSetCraft( this->key.point_id, this->key.craft, comp_id ) < 0 ) {
+    SALONS2::TFindSetCraft res = SALONS2::AutoSetCraft( this->key.point_id );
+    if ( res != SALONS2::rsComp_Found && res != SALONS2::rsComp_NoChanges ) {
       if ( this->key.pr_reg &&
            ( this->key.events.isFlag( dmChangeAirline ) ||
              this->key.events.isFlag( dmChangeFltNo ) ||
@@ -1378,6 +1376,23 @@ void PointsKeyTrip<T>::DoEvents( int move_id )
              this->events.isFlag( teChangeBortTakeoff ) ) )
         this->events.setFlag( teNeedChangeComps );
     }
+  }
+  if ( this->events.isFlag( teNewLand ) ||
+       this->events.isFlag( teNewTakeoff ) ||
+       this->events.isFlag( teDeleteLand ) ||
+       this->events.isFlag( teDeleteTakeoff ) ||
+       this->events.isFlag( teSetCancelLand ) ||
+       this->events.isFlag( teSetCancelTakeoff ) ||
+       this->events.isFlag( teSetUnCancelLand ) ||
+       this->events.isFlag( teSetUnCancelTakeoff ) ||
+       this->events.isFlag( teTranzitTakeoff ) ||
+       this->events.isFlag( teRegTakeoff ) ||
+       this->events.isFlag( teChangeFlightAttrTakeoff ) ||
+       this->events.isFlag( teChangeCraftTakeoff ) ||
+       this->events.isFlag( teSetCraftTakeoff ) ||
+       this->events.isFlag( teChangeBortTakeoff ) ||
+       this->events.isFlag( teSetBortTakeoff ) ) {
+    SALONS2::check_diffcomp_alarm( this->key.point_id );
   }
   if ( this->events.isFlag( teSetACTIN ) ||
        this->events.isFlag( teChangeACTIN ) ) {

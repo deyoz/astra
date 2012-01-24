@@ -792,7 +792,8 @@ void SetCraft( int point_id, TStage stage )
   string craft = Qry.FieldAsString( "craft" );
   if ( stage == sPrepCheckIn && (!Qry.FieldIsNULL( "bort" ) || string( "СОЧ" ) != Qry.FieldAsString( "airp" )) ||
   	   stage == sOpenCheckIn && string( "СОЧ" ) == Qry.FieldAsString( "airp" ) ) {
-    if ( SALONS2::AutoSetCraft( point_id, craft, -1 ) < 0 ) {
+    SALONS2::TFindSetCraft res = SALONS2::AutoSetCraft( point_id );
+    if ( res != SALONS2::rsComp_Found && res != SALONS2::rsComp_NoChanges ) {
   	  TReqInfo::Instance()->MsgToLog( string( "Подходящая для рейса компоновка " ) + craft + " не найдена", evtFlt, point_id );
   	}
   }
