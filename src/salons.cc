@@ -1851,7 +1851,7 @@ void getCountersData( int point_id, const vector<int> &points, map<int,TCounters
     Qry.Execute();
     int priority = -1;
     while ( !Qry.Eof ) {
-      if ( priority != -1 )
+      if ( priority == -1 )
         priority = Qry.FieldAsInteger( "priority" );
       if ( priority != Qry.FieldAsInteger( "priority" ) )
         break;
