@@ -3279,6 +3279,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
          reqInfo->MsgToLog( string( "Ввод нового пункта " ) + id->airline + IntToString(id->flt_no) + id->suffix + " " + id->airp, evtDisp, move_id, id->point_id );
        else
          reqInfo->MsgToLog( string( "Ввод нового пункта " ) + id->airp, evtDisp, move_id, id->point_id );
+       reSetCraft = true;
   	}
   	else { //update
   	 Qry.Clear();
