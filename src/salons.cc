@@ -830,6 +830,14 @@ void GetValidPaxLayer( TSalons *CSalon, TPaxLayers &pax_layers, TPaxLayers::iter
   }
 }
 
+
+//typedef map<int,FilterLayers> TFilterLayerDests;
+
+//необходимо научиться собирать салон по маршруту и моментально отключать салон или заданные слои в любой момент времени в любом пункте
+/*void TSalons::Read( const TFilterLayerDests &filterLayer )
+{
+}*/
+
 void TSalons::Read( )
 {
   if ( readStyle == rTripSalons )
@@ -1493,10 +1501,10 @@ struct TComp {
 };
 
 int GetCompId( const std::string craft, const std::string bort, const std::string airline,
-               std::string airp,  int f, int c, int y )
+               vector<std::string> airps,  int f, int c, int y )
 {
-	ProgTrace( TRACE5, "craft=%s, bort=%s, airline=%s, airp=%s, f=%d, c=%d, y=%d",
-	           craft.c_str(), bort.c_str(), airline.c_str(), airp.c_str(), f, c, y );
+	ProgTrace( TRACE5, "craft=%s, bort=%s, airline=%s, f=%d, c=%d, y=%d, airps.size=%d",
+	           craft.c_str(), bort.c_str(), airline.c_str(), f, c, y, airps.size() );
 	if ( f + c + y == 0 )
 		return -1;
 	map<int,TComp,std::less<int> > CompMap;
@@ -1521,12 +1529,12 @@ int GetCompId( const std::string craft, const std::string bort, const std::strin
 	Qry.CreateVariable( "vc", otString, c );
 	Qry.CreateVariable( "vy", otString, y );
 	Qry.Execute();
-	ProgTrace( TRACE5, "bort=%s, airline=%s, airp=%s", bort.c_str(), airline.c_str(), airp.c_str() );
+	ProgTrace( TRACE5, "bort=%s, airline=%s", bort.c_str(), airline.c_str() );
   while ( !Qry.Eof ) {
   	string comp_airline = Qry.FieldAsString( "airline" );
   	string comp_airp = Qry.FieldAsString( "airp" );
   	bool airline_OR_airp = !comp_airline.empty() && airline == comp_airline ||
-    	                     comp_airline.empty() && !comp_airp.empty() && airp == comp_airp;
+    	                     comp_airline.empty() && !comp_airp.empty() && find( airps.begin(), airps.end(), comp_airp ) != airps.end();
     if ( !bort.empty() && bort == Qry.FieldAsString( "bort" ) && airline_OR_airp )
     	idx = 0; // когда совпадает борт+авиакомпания OR аэропорт
     else
@@ -2024,9 +2032,12 @@ TFindSetCraft SetCraft( bool pr_tranzit_routes, int point_id, TSetsCraftPoints &
   TCompsRoutes routes;
   get_comp_routes( pr_tranzit_routes, point_id, routes );
   tst();
+  vector<string> airps;
   for ( TCompsRoutes::iterator i=routes.begin(); i!=routes.end(); i++ ) {
-    if ( i->inRoutes && i->auto_comp_chg && i->pr_reg )
+    if ( i->inRoutes && i->auto_comp_chg && i->pr_reg ) {
       points.push_back( i->point_id );
+      airps.push_back( i->airp );
+    }
     if ( i->point_id == point_id && !i->auto_comp_chg )
       return rsComp_NoChanges;
   }
@@ -2058,7 +2069,7 @@ TFindSetCraft SetCraft( bool pr_tranzit_routes, int point_id, TSetsCraftPoints &
       c = crs_data[ point_id ].c;
       y = crs_data[ point_id ].y;
     }
-    points.comp_id = GetCompId( craft, bort, airline, airp, f, c, y );
+    points.comp_id = GetCompId( craft, bort, airline, airps, f, c, y );
     if ( points.comp_id >= 0 )
     	break;
   }
@@ -2557,7 +2568,6 @@ struct TRefPlaces {
 	vector<TPlaceList*>::iterator salonIter;
 	map<string,TRP> mapRef;
 };
-
 
 bool salonChangesToText( TSalons &OldSalons, TSalons &NewSalons, std::vector<std::string> &referStrs, bool pr_set_base, int line_len )
 {

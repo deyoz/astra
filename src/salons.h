@@ -317,7 +317,7 @@ class TSalons {
   void GetCompParams( int comp_id, xmlNodePtr dataNode );
   bool isAutoCompChg( int point_id );
   int GetCompId( const std::string craft, const std::string bort, const std::string airline,
-                 std::string airp,  int f, int c, int y );
+                 std::vector<std::string> airps,  int f, int c, int y );
   TFindSetCraft AutoSetCraft( bool pr_tranzit_routes, int point_id, TSetsCraftPoints &points );
   TFindSetCraft AutoSetCraft( int point_id, TSetsCraftPoints &points );
   TFindSetCraft AutoSetCraft( int point_id );
