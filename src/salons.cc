@@ -1849,29 +1849,29 @@ void getCountersData( int point_id, const vector<int> &points, map<int,TCounters
     ProgTrace( TRACE5, "getCountersData: routes->point_id=%d", *i );
     Qry.SetVariable( "point_id", *i );
     Qry.Execute();
-    string airp_arv, vclass;
+    int priority = -1;
     while ( !Qry.Eof ) {
-    	if ( airp_arv.empty() ||
-    		   vclass.empty() ||
-    		   airp_arv != Qry.FieldAsString( "airp_arv" ) ||
-    		   vclass != Qry.FieldAsString( "class" ) ) {
-    		airp_arv = Qry.FieldAsString( "airp_arv" );
-    		vclass = Qry.FieldAsString( "class" );
-    		if ( vclass == "П" ) crs_data[ *i ].f = Qry.FieldAsInteger( "c" );
-    		if ( vclass == "Б" ) crs_data[ *i ].c = Qry.FieldAsInteger( "c" );
-    		if ( vclass == "Э" ) crs_data[ *i ].y = Qry.FieldAsInteger( "c" );
-        if ( crs_data[ -1 ].f + crs_data[ -1 ].c + crs_data[ -1 ].y <
-           crs_data[ *i ].f + crs_data[ *i ].c + crs_data[ *i ].y ) {
-           crs_data[ -1 ].f = crs_data[ *i ].f;
-           crs_data[ -1 ].c = crs_data[ *i ].c;
-           crs_data[ -1 ].y = crs_data[ *i ].y;
-        }
-    	}
+      if ( priority != -1 )
+        priority = Qry.FieldAsInteger( "priority" );
+      if ( priority != Qry.FieldAsInteger( "priority" ) )
+        break;
+   		if ( vclass == "П" ) crs_data[ *i ].f += Qry.FieldAsInteger( "c" );
+   		if ( vclass == "Б" ) crs_data[ *i ].c += Qry.FieldAsInteger( "c" );
+   		if ( vclass == "Э" ) crs_data[ *i ].y += Qry.FieldAsInteger( "c" );
     	Qry.Next();
     }
+    if ( crs_data[ -1 ].f + crs_data[ -1 ].c + crs_data[ -1 ].y <
+      crs_data[ *i ].f + crs_data[ *i ].c + crs_data[ *i ].y ) {
+      crs_data[ -1 ].f = crs_data[ *i ].f;
+      crs_data[ -1 ].c = crs_data[ *i ].c;
+      crs_data[ -1 ].y = crs_data[ *i ].y;
+    }
+    ProgTrace( TRACE5, "crs_data[ %d ].f=%d, crs_data[ %d ].c=%d, crs_data[ %d ].y=%d",
+               *i, crs_data[ *i ].f, *i, crs_data[ *i ].c, *i, crs_data[ *i ].y );
   }
+  ProgTrace( TRACE5, "crs_data[ -1 ].f=%d, crs_data[ -1 ].c=%d, crs_data[ -1 ].y=%d",
+             crs_data[ -1 ].f, crs_data[ -1 ].c, crs_data[ -1 ].y );
   if ( crs_data[ -1 ].f + crs_data[ -1 ].c + crs_data[ -1 ].y <= 0 ) {
-    tst();
     //данные по счетчикам отсутствуют, пробуем сезонное расписание
   	Qry.Clear();
   	Qry.SQLText =
