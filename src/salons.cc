@@ -1789,11 +1789,13 @@ void get_comp_routes( bool pr_tranzit_routes, int point_id, TCompsRoutes &routes
 }
 
 struct TCounters {
+  int point_id;
   int f, c, y;
   TCounters() {
     f = 0;
     c = 0;
     y = 0;
+    point_id = -1;
   };
 };
 
@@ -1823,11 +1825,12 @@ void getCrsData( const vector<int> &points, map<int,TCounters> &crs_data )
       crs_data[ -1 ].f = crs_data[ *i ].f;
       crs_data[ -1 ].c = crs_data[ *i ].c;
       crs_data[ -1 ].y = crs_data[ *i ].y;
+      crs_data[ -1 ].point_id = *i;
     }
   }
 }
 
-void getCountersData( int point_id, const vector<int> &points, map<int,TCounters> &crs_data )
+void getCountersData( const vector<int> &points, map<int,TCounters> &crs_data )
 {
   crs_data.clear();
   TQuery Qry(&OraSession);
@@ -1841,23 +1844,26 @@ void getCountersData( int point_id, const vector<int> &points, map<int,TCounters
     "SELECT airp_arv,class,1,resa + tranzit "
     " FROM trip_data "
     "WHERE point_id=:point_id "
-    "ORDER BY airp_arv,class,priority DESC ";
+    "ORDER BY priority DESC ";
   Qry.DeclareVariable( "point_id", otInteger );
   
-  string airp_arv, vclass;
+  string vclass;
   for ( vector<int>::const_iterator i=points.begin(); i!=points.end(); i++ ) {
     ProgTrace( TRACE5, "getCountersData: routes->point_id=%d", *i );
     Qry.SetVariable( "point_id", *i );
     Qry.Execute();
     int priority = -1;
     while ( !Qry.Eof ) {
-      if ( priority == -1 )
-        priority = Qry.FieldAsInteger( "priority" );
-      if ( priority != Qry.FieldAsInteger( "priority" ) )
-        break;
-   		if ( vclass == "П" ) crs_data[ *i ].f += Qry.FieldAsInteger( "c" );
-   		if ( vclass == "Б" ) crs_data[ *i ].c += Qry.FieldAsInteger( "c" );
-   		if ( vclass == "Э" ) crs_data[ *i ].y += Qry.FieldAsInteger( "c" );
+   		if ( Qry.FieldAsInteger( "c" ) > 0 ) {
+   		  priority = Qry.FieldAsInteger( "priority" );
+        if ( priority != Qry.FieldAsInteger( "priority" ) )
+          break;
+        vclass = Qry.FieldAsString( "class" );
+        ProgTrace( TRACE5, "point_id=%d, class=%s, count=%d", *i, vclass.c_str(), Qry.FieldAsInteger( "c" ) );
+   	  	if ( vclass == "П" ) crs_data[ *i ].f += Qry.FieldAsInteger( "c" );
+     		if ( vclass == "Б" ) crs_data[ *i ].c += Qry.FieldAsInteger( "c" );
+   	  	if ( vclass == "Э" ) crs_data[ *i ].y += Qry.FieldAsInteger( "c" );
+      }
     	Qry.Next();
     }
     if ( crs_data[ -1 ].f + crs_data[ -1 ].c + crs_data[ -1 ].y <
@@ -1865,26 +1871,52 @@ void getCountersData( int point_id, const vector<int> &points, map<int,TCounters
       crs_data[ -1 ].f = crs_data[ *i ].f;
       crs_data[ -1 ].c = crs_data[ *i ].c;
       crs_data[ -1 ].y = crs_data[ *i ].y;
+      crs_data[ -1 ].point_id = *i;
     }
     ProgTrace( TRACE5, "crs_data[ %d ].f=%d, crs_data[ %d ].c=%d, crs_data[ %d ].y=%d",
                *i, crs_data[ *i ].f, *i, crs_data[ *i ].c, *i, crs_data[ *i ].y );
   }
-  ProgTrace( TRACE5, "crs_data[ -1 ].f=%d, crs_data[ -1 ].c=%d, crs_data[ -1 ].y=%d",
-             crs_data[ -1 ].f, crs_data[ -1 ].c, crs_data[ -1 ].y );
-  if ( crs_data[ -1 ].f + crs_data[ -1 ].c + crs_data[ -1 ].y <= 0 ) {
-    //данные по счетчикам отсутствуют, пробуем сезонное расписание
-  	Qry.Clear();
-  	Qry.SQLText =
-  	  "SELECT ABS(f) f, ABS(c) c, ABS(y) y FROM trip_sets WHERE point_id=:point_id";
-  	Qry.CreateVariable( "point_id", otInteger, point_id );
-  	Qry.Execute();
-  	if ( !Qry.Eof ) {
-      ProgTrace( TRACE5, "point_id=%d", point_id );
-  	  crs_data[ point_id ].f = Qry.FieldAsInteger( "f" );
-  	  crs_data[ point_id ].c = Qry.FieldAsInteger( "c" );
-  	  crs_data[ point_id ].y = Qry.FieldAsInteger( "y" );
-  	}
+  ProgTrace( TRACE5, "point_id=%d, crs_data[ -1 ].f=%d, crs_data[ -1 ].c=%d, crs_data[ -1 ].y=%d",
+             crs_data[ -1 ].point_id, crs_data[ -1 ].f, crs_data[ -1 ].c, crs_data[ -1 ].y );
+}
+
+void getSeasonData( const vector<int> &points, map<int,TCounters> &crs_data )
+{
+  crs_data.clear();
+  TQuery Qry(&OraSession);
+	Qry.SQLText =
+  	"SELECT ABS(f) f, ABS(c) c, ABS(y) y FROM trip_sets WHERE point_id=:point_id";
+  Qry.DeclareVariable( "point_id", otInteger );
+  
+  int priorf = NoExists, priorc = NoExists, priory = NoExists;
+  for ( vector<int>::const_iterator i=points.begin(); i!=points.end(); i++ ) {
+    Qry.SetVariable( "point_id", *i );
+    Qry.Execute();
+    if ( !Qry.Eof ) {
+      ProgTrace( TRACE5, "point_id=%d", *i );
+      if ( priorf == Qry.FieldAsInteger( "f" ) &&
+           priorc == Qry.FieldAsInteger( "c" ) &&
+           priory == Qry.FieldAsInteger( "y" ) )
+        continue;
+      crs_data[ *i ].f = Qry.FieldAsInteger( "f" );
+      crs_data[ *i ].c = Qry.FieldAsInteger( "c" );
+      crs_data[ *i ].y = Qry.FieldAsInteger( "y" );
+      priorf = Qry.FieldAsInteger( "f" );
+      priorc = Qry.FieldAsInteger( "c" );
+      priory = Qry.FieldAsInteger( "y" );
+    }
+    if ( crs_data[ -1 ].f + crs_data[ -1 ].c + crs_data[ -1 ].y <
+      crs_data[ *i ].f + crs_data[ *i ].c + crs_data[ *i ].y ) {
+      crs_data[ -1 ].f = crs_data[ *i ].f;
+      crs_data[ -1 ].c = crs_data[ *i ].c;
+      crs_data[ -1 ].y = crs_data[ *i ].y;
+      crs_data[ -1 ].point_id = *i;
+    }
+    ProgTrace( TRACE5, "crs_data[ %d ].f=%d, crs_data[ %d ].c=%d, crs_data[ %d ].y=%d",
+               *i, crs_data[ *i ].f, *i, crs_data[ *i ].c, *i, crs_data[ *i ].y );
   }
+  ProgTrace( TRACE5, "point_id=%d, crs_data[ -1 ].f=%d, crs_data[ -1 ].c=%d, crs_data[ -1 ].y=%d",
+             crs_data[ -1 ].point_id, crs_data[ -1 ].f, crs_data[ -1 ].c, crs_data[ -1 ].y );
 }
 
 int CRC32_Comp( int point_id )
@@ -2005,7 +2037,6 @@ TFindSetCraft SetCraft( bool pr_tranzit_routes, int point_id, TSetsCraftPoints &
     " WHERE points.point_id=:point_id AND points.point_id=trip_sets.point_id(+)";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
-  int f,c,y;
   string bort = Qry.FieldAsString( "bort" );
   string airline = Qry.FieldAsString( "airline" );
   string airp = Qry.FieldAsString( "airp" );
@@ -2045,31 +2076,35 @@ TFindSetCraft SetCraft( bool pr_tranzit_routes, int point_id, TSetsCraftPoints &
     return rsComp_NoChanges;
   map<int,TCounters> crs_data;
   
-  for ( int step=0; step<=3; step++ ) {
+  for ( int step=0; step<=5; step++ ) {
     // выбираем макс. компоновку по CFG из PNL/ADL для всех центров бронирования
     ProgTrace( TRACE5, "step=%d", step );
     if ( step == 0 ) {
       getCrsData( points, crs_data );
     }
     if ( step == 2 ) {
-      getCountersData( point_id, points, crs_data );
+      getCountersData( points, crs_data );
     }
-    if ( step == 0 || step == 2 ) {
-      if ( crs_data[ -1 ].f + crs_data[ -1 ].c + crs_data[ -1 ].y <= 0 )
-        continue;
-      f = crs_data[ -1 ].f;
-      c = crs_data[ -1 ].c;
-      y = crs_data[ -1 ].y;
+    if ( step == 4 ) {
+      getSeasonData( points, crs_data );
     }
-    if ( step == 1 || step == 3 ) {
-      if ( !pr_tranzit_routes ||
-           crs_data[ point_id ].f + crs_data[ point_id ].c + crs_data[ point_id ].y <= 0 )
-        continue;
-      f = crs_data[ point_id ].f;
-      c = crs_data[ point_id ].c;
-      y = crs_data[ point_id ].y;
+    for ( map<int,TCounters>::iterator i=crs_data.begin(); i!=crs_data.end(); i++ ) {
+      if ( step == 0 || step == 2 || step == 4 ) {
+        if ( i->first != -1 ||
+             i->second.f + i->second.c + i->second.y <= 0 )
+          continue;
+      }
+      if ( step == 1 || step == 3 || step == 5 ) {
+        if ( !pr_tranzit_routes ||
+             i->first == -1 ||
+             i->first == crs_data[ -1 ].point_id ||
+             i->second.f + i->second.c + i->second.y <= 0 )
+          continue;
+      }
+      points.comp_id = GetCompId( craft, bort, airline, airps, i->second.f, i->second.c, i->second.y );
+      if ( points.comp_id >= 0 )
+      	break;
     }
-    points.comp_id = GetCompId( craft, bort, airline, airps, f, c, y );
     if ( points.comp_id >= 0 )
     	break;
   }
