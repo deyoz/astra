@@ -25,60 +25,62 @@ using namespace BASIC;
 
 const string SYSTEM_USER = "Система";
 
+const int arx_trip_date_range=5;
+
 const string AIRP_PERIODS =
-" (SELECT DECODE(SIGN(period_first_date-:FirstDate),1,period_first_date,:FirstDate) AS period_first_date, \n"
-"        DECODE(SIGN(period_last_date- :LastDate),-1,period_last_date, :LastDate) AS period_last_date \n"
-" FROM \n"
-" (SELECT distinct change_point AS period_first_date, \n"
-"         report.get_airp_period_last_date(:ap,change_point) AS period_last_date \n"
-"  FROM pacts, \n"
-"   (SELECT first_date AS change_point \n"
-"    FROM pacts \n"
-"    WHERE airp=:ap \n"
-"    UNION \n"
-"    SELECT last_date   \n"
-"    FROM pacts \n"
-"    WHERE airp=:ap AND last_date IS NOT NULL) a \n"
-"  WHERE airp=:ap AND  \n"
-"        change_point>=first_date AND  \n"
-"        (last_date IS NULL OR change_point<last_date) AND \n"
-"        airline IS NULL) periods \n"
-"WHERE (period_last_date IS NULL OR period_last_date>:FirstDate) AND  \n"
-"      period_first_date<:LastDate) periods \n";
+"(SELECT DECODE(SIGN(period_first_date-:FirstDate),1,period_first_date,:FirstDate) AS period_first_date, \n"
+"         DECODE(SIGN(period_last_date- :LastDate),-1,period_last_date, :LastDate) AS period_last_date \n"
+"  FROM \n"
+"   (SELECT distinct change_point AS period_first_date, \n"
+"           report.get_airp_period_last_date(:ap,change_point) AS period_last_date \n"
+"    FROM pacts, \n"
+"     (SELECT first_date AS change_point \n"
+"      FROM pacts \n"
+"      WHERE airp=:ap \n"
+"      UNION \n"
+"      SELECT last_date   \n"
+"      FROM pacts \n"
+"      WHERE airp=:ap AND last_date IS NOT NULL) a \n"
+"    WHERE airp=:ap AND  \n"
+"          change_point>=first_date AND  \n"
+"          (last_date IS NULL OR change_point<last_date) AND \n"
+"          airline IS NULL) periods \n"
+"  WHERE (period_last_date IS NULL OR period_last_date>:FirstDate) AND period_first_date<:LastDate \n"
+" ) periods \n";
 const string AIRLINE_PERIODS =
-" (SELECT DECODE(SIGN(period_first_date-:FirstDate),1,period_first_date,:FirstDate) AS period_first_date, \n"
-"        DECODE(SIGN(period_last_date- :LastDate),-1,period_last_date, :LastDate) AS period_last_date \n"
-" FROM \n"
-"  (SELECT distinct change_point AS period_first_date, \n"
-"          report.get_airline_period_last_date(:ak,change_point) AS period_last_date \n"
-"   FROM pacts,  \n"
-"    (SELECT first_date AS change_point \n"
-"     FROM pacts \n"
-"     WHERE airline=:ak \n"
-"     UNION \n"
-"     SELECT last_date   \n"
-"     FROM pacts \n"
-"     WHERE airline=:ak AND last_date IS NOT NULL) a \n"
-"  WHERE airline=:ak AND  \n"
-"        change_point>=first_date AND  \n"
-"        (last_date IS NULL OR change_point<last_date)) periods \n"
-" WHERE (period_last_date IS NULL OR period_last_date>:FirstDate) AND  \n"
-"       period_first_date<:LastDate) periods \n";
+"(SELECT DECODE(SIGN(period_first_date-:FirstDate),1,period_first_date,:FirstDate) AS period_first_date, \n"
+"         DECODE(SIGN(period_last_date- :LastDate),-1,period_last_date, :LastDate) AS period_last_date \n"
+"  FROM \n"
+"   (SELECT distinct change_point AS period_first_date, \n"
+"           report.get_airline_period_last_date(:ak,change_point) AS period_last_date \n"
+"    FROM pacts,  \n"
+"     (SELECT first_date AS change_point \n"
+"      FROM pacts \n"
+"      WHERE airline=:ak \n"
+"      UNION \n"
+"      SELECT last_date   \n"
+"      FROM pacts \n"
+"      WHERE airline=:ak AND last_date IS NOT NULL) a \n"
+"    WHERE airline=:ak AND  \n"
+"          change_point>=first_date AND  \n"
+"          (last_date IS NULL OR change_point<last_date)) periods \n"
+"  WHERE (period_last_date IS NULL OR period_last_date>:FirstDate) AND period_first_date<:LastDate \n"
+" ) periods \n";
 
 const string AIRLINE_LIST =
 " (SELECT airline  \n"
 "  FROM pacts  \n"
 "  WHERE airp=:ap AND \n"
-"  first_date<=periods.period_first_date AND  \n"
-"  (last_date IS NULL OR periods.period_first_date<last_date) AND \n"
-"  airline IS NOT NULL) \n";
+"        first_date<=periods.period_first_date AND  \n"
+"        (last_date IS NULL OR periods.period_first_date<last_date) AND \n"
+"        airline IS NOT NULL) \n";
 
 const string AIRP_LIST =
 " (SELECT airp  \n"
 "  FROM pacts  \n"
 "  WHERE airline=:ak AND \n"
-"  first_date<=periods.period_first_date AND  \n"
-"  (last_date IS NULL OR periods.period_first_date<last_date) ) \n";
+"        first_date<=periods.period_first_date AND  \n"
+"        (last_date IS NULL OR periods.period_first_date<last_date) ) \n";
 
 void GetSystemLogAgentSQL(TQuery &Qry);
 void GetSystemLogStationSQL(TQuery &Qry);
@@ -146,11 +148,19 @@ void GetSystemLogModuleSQL(TQuery &Qry)
 }
 
 
-typedef struct {
+class TPointsRow
+{
+  public:
     TDateTime part_key, real_out_client;
     string airline, suffix, name;
     int point_id, flt_no, move_id, point_num;
-} TPointsRow;
+    bool operator == (const TPointsRow &item) const
+    {
+      return part_key==item.part_key &&
+             name==item.name &&
+             point_id==item.point_id;
+    };
+} ;
 
 bool lessPointsRow(const TPointsRow& item1,const TPointsRow& item2)
 {
@@ -174,31 +184,93 @@ bool lessPointsRow(const TPointsRow& item1,const TPointsRow& item2)
     return result;
 };
 
-void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void GetFltCBoxList(bool pr_new, TScreenState scr, TDateTime first_date, TDateTime last_date, bool pr_show_del, vector<TPointsRow> &points)
 {
-    bool pr_show_del = false;
-    xmlNodePtr prDelNode = GetNode("pr_del", reqNode);
-    if(prDelNode)
-        pr_show_del = NodeAsInteger(prDelNode) == 1;
-    TScreenState scr = TScreenState(NodeAsInteger("scr", reqNode));
-    ProgTrace(TRACE5, "scr: %d", scr);
     TReqInfo &reqInfo = *(TReqInfo::Instance());
     TQuery Qry(&OraSession);
-    Qry.CreateVariable("FirstDate", otDate, ClientToUTC(NodeAsDateTime("FirstDate", reqNode), reqInfo.desk.tz_region));
-    Qry.CreateVariable("LastDate", otDate, ClientToUTC(NodeAsDateTime("LastDate", reqNode), reqInfo.desk.tz_region));
+    Qry.CreateVariable("FirstDate", otDate, ClientToUTC(first_date, reqInfo.desk.tz_region));
+    Qry.CreateVariable("LastDate", otDate, ClientToUTC(last_date, reqInfo.desk.tz_region));
     string trip_name;
-    typedef vector<TPointsRow> TPoints;
-    TPoints points;
     TPerfTimer tm;
     tm.Init();
     int count = 0;
-    ProgTrace(TRACE5, "TRACC");
     if (!(reqInfo.user.access.airlines.empty() && reqInfo.user.access.airlines_permit ||
-            reqInfo.user.access.airps.empty() && reqInfo.user.access.airps_permit))
+          reqInfo.user.access.airps.empty() && reqInfo.user.access.airps_permit))
     {
-        for(int i = 0; i < 2; i++) {
+        for(int pass=0; pass<=(pr_new?2:1); pass++)
+        {
+          if (pr_new)
+          {
+            ostringstream sql;
+            if (pass==0)
+              sql << "SELECT \n"
+                     "    NULL part_key, \n"
+                     "    move_id, \n";
+            else
+              sql << "SELECT \n"
+                     "    arx_points.part_key, \n"
+                     "    arx_points.move_id, \n";
+
+            sql << "    point_id, airp, airline, flt_no, \n"
+                   "    airline_fmt, airp_fmt, suffix_fmt, \n"
+                   "    suffix, \n"
+                   "    scd_out, trunc(NVL(act_out,NVL(est_out,scd_out))) AS real_out, \n"
+                   "    pr_del, point_num \n";
+            if (pass==0)
+              sql << "FROM points \n"
+                     "WHERE points.scd_out >= :FirstDate AND points.scd_out < :LastDate \n";
+            if (pass==1)
+              sql << "FROM arx_points \n"
+                     "WHERE arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate AND \n"
+                     "      arx_points.part_key >= :FirstDate and arx_points.part_key < :LastDate + :arx_trip_date_range \n";
+            if (pass==2)
+              sql << "FROM arx_points, \n"
+                     "     (SELECT part_key, move_id FROM move_arx_ext \n"
+                     "      WHERE part_key >= :LastDate + :arx_trip_date_range AND part_key <= :LastDate + date_range) arx_ext \n"
+                     "WHERE arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate AND \n"
+                     "      arx_points.part_key=arx_ext.part_key AND arx_points.move_id=arx_ext.move_id \n";
+
+            if(scr == ssPaxList)
+              sql << " AND pr_del = 0 \n";
+            if(scr == ssFltLog and !pr_show_del)
+              sql << " AND pr_del >= 0 \n";
+            if (!reqInfo.user.access.airlines.empty()) {
+                if (reqInfo.user.access.airlines_permit)
+                    sql << " AND airline IN " << GetSQLEnum(reqInfo.user.access.airlines) << "\n";
+                else
+                    sql << " AND airline NOT IN " << GetSQLEnum(reqInfo.user.access.airlines) << "\n";
+            }
+            if (!reqInfo.user.access.airps.empty()) {
+                if (reqInfo.user.access.airps_permit)
+                {
+                    sql << "AND (airp IN " << GetSQLEnum(reqInfo.user.access.airps) << " OR \n";
+                    if (pass==0)
+                      sql << "ckin.next_airp(DECODE(pr_tranzit,0,point_id,first_point), point_num) IN \n";
+                    else
+                      sql << "arch.next_airp(DECODE(pr_tranzit,0,point_id,first_point), point_num, arx_points.part_key) IN \n";
+                    sql << GetSQLEnum(reqInfo.user.access.airps) << ") \n";
+                }
+                else
+                {
+                    sql << "AND (airp NOT IN " << GetSQLEnum(reqInfo.user.access.airps) << " OR \n";
+                    if (pass==0)
+                      sql << "ckin.next_airp(DECODE(pr_tranzit,0,point_id,first_point), point_num) NOT IN \n";
+                    else
+                      sql << "arch.next_airp(DECODE(pr_tranzit,0,point_id,first_point), point_num, arx_points.part_key) NOT IN \n";
+                    sql << GetSQLEnum(reqInfo.user.access.airps) << ") \n";
+                };
+            };
+
+            if (pass!=0)
+              Qry.CreateVariable("arx_trip_date_range", otInteger, ARX_TRIP_DATE_RANGE());
+              
+            //ProgTrace(TRACE5, "FltCBoxDropDown: pass=%d SQL=\n%s", pass, sql.str().c_str());
+            Qry.SQLText = sql.str().c_str();
+          }
+          else
+          {
             string SQLText;
-            if(i == 0) {
+            if(pass == 0) {
                 SQLText =
                     "SELECT "
                     "    null part_key, "
@@ -284,6 +356,7 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                 }
             }
             Qry.SQLText = SQLText;
+          };
             try {
                 Qry.Execute();
             } catch (EOracleError &E) {
@@ -333,17 +406,160 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                 }
             }
         }
-    }
-    ProgTrace(TRACE5, "FltCBoxDropDown QRY: %s", Qry.SQLText.SQLText());
+    };
     ProgTrace(TRACE5, "FltCBoxDropDown EXEC QRY: %s", tm.PrintWithMessage().c_str());
     if(count == 0)
         throw AstraLocale::UserException("MSG.FLIGHTS_NOT_FOUND");
     tm.Init();
     sort(points.begin(), points.end(), lessPointsRow);
     ProgTrace(TRACE5, "FltCBoxDropDown SORT: %s", tm.PrintWithMessage().c_str());
+};
+
+void GetMinMaxPartKey(const string &where, TDateTime &min_part_key, TDateTime &max_part_key)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText="SELECT TRUNC(MIN(part_key)) AS min_part_key FROM arx_points";
+  Qry.Execute();
+  if (Qry.Eof || Qry.FieldIsNULL("min_part_key"))
+    min_part_key=NoExists;
+  else
+    min_part_key=Qry.FieldAsDateTime("min_part_key");
+
+  Qry.SQLText="SELECT MAX(part_key) AS max_part_key FROM arx_points";
+  Qry.Execute();
+  if (Qry.Eof || Qry.FieldIsNULL("max_part_key"))
+    max_part_key=NoExists;
+  else
+    max_part_key=Qry.FieldAsDateTime("max_part_key");
+
+  ProgTrace(TRACE5, "%s: min_part_key=%s max_part_key=%s",
+                    where.c_str(),
+                    DateTimeToStr(min_part_key, ServerFormatDateTimeAsString).c_str(),
+                    DateTimeToStr(max_part_key, ServerFormatDateTimeAsString).c_str());
+};
+
+template <class T>
+bool EqualCollections(const string &where, const T &c1, const T &c2, const string &err1, const string &err2,
+                      pair<typename T::const_iterator, typename T::const_iterator> &diff)
+{
+  diff.first=c1.end();
+  diff.second=c2.end();
+  if (!err1.empty() || !err2.empty())
+  {
+    if (err1!=err2)
+    {
+      ProgError(STDLOG, "%s: err1=%s err2=%s", where.c_str(), err1.c_str(), err2.c_str());
+      return false;
+    };
+  }
+  else
+  {
+    //ошибок нет
+    if (c1.size() != c2.size())
+    {
+      ProgError(STDLOG, "%s: c1.size()=%d c2.size()=%d", where.c_str(), c1.size(), c2.size());
+      diff.first=c1.begin();
+      diff.second=c2.begin();
+      for(;diff.first!=c1.end() && diff.second!=c2.end(); diff.first++,diff.second++)
+      {
+        if (*(diff.first)==*(diff.second)) continue;
+        break;
+      };
+      return false;
+    }
+    else
+    {
+      //размер векторов совпадает
+      if (!c1.empty() && !c2.empty())
+      {
+        diff=mismatch(c1.begin(),c1.end(),c2.begin());
+        if (diff.first!=c1.end() || diff.second!=c2.end()) return false;
+      };
+    };
+  };
+  return true;
+};
+
+void StatInterface::TestFltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  ProgTrace(TRACE5, "TestFltCBoxDropDown: started");
+  
+  TDateTime min_part_key, max_part_key;
+  GetMinMaxPartKey("TestFltCBoxDropDown", min_part_key, max_part_key);
+  if (min_part_key==NoExists || max_part_key==NoExists) return;
+  
+  vector<TPointsRow> points[2];
+  string error[2];
+  int days=0;
+  for(TDateTime curr_part_key=min_part_key; curr_part_key<=max_part_key; curr_part_key+=1.0)
+  {
+    for(int i=1;i<=1;i++)
+    {
+      TScreenState scr=(i==0)?ssPaxList:ssFltLog;
+      for(int pr_show_del=0;pr_show_del<=0;pr_show_del++)
+      {
+        for(int pr_new=0;pr_new<=1;pr_new++)
+        {
+          points[pr_new].clear();
+          error[pr_new].clear();
+          try
+          {
+            GetFltCBoxList((bool)pr_new, scr, curr_part_key, curr_part_key+1.0, (bool)pr_show_del, points[pr_new]);
+          }
+          catch(Exception &e)
+          {
+            error[pr_new]=e.what();
+          }
+          catch(...)
+          {
+            error[pr_new]="unknown error";
+          };
+        };
+        pair<vector<TPointsRow>::const_iterator, vector<TPointsRow>::const_iterator> diff;
+        if (!EqualCollections("TestFltCBoxDropDown", points[0], points[1], error[0], error[1], diff))
+        {
+          if (diff.first!=points[0].end())
+            ProgError(STDLOG, "TestFltCBoxDropDown: part_key=%s point_id=%d name=%s",
+                              DateTimeToStr(diff.first->part_key, ServerFormatDateTimeAsString).c_str(),
+                              diff.first->point_id,
+                              diff.first->name.c_str());
+          if (diff.second!=points[1].end())
+            ProgError(STDLOG, "TestFltCBoxDropDown: part_key=%s point_id=%d name=%s",
+                              DateTimeToStr(diff.second->part_key, ServerFormatDateTimeAsString).c_str(),
+                              diff.second->point_id,
+                              diff.second->name.c_str());
+          ProgError(STDLOG, "TestFltCBoxDropDown: scr=%s first_date=%s last_date=%s pr_show_del=%s points not equal",
+                            (scr==ssPaxList?"ssPaxList":"ssFltLog"),
+                            DateTimeToStr(curr_part_key, ServerFormatDateTimeAsString).c_str(),
+                            DateTimeToStr(curr_part_key+1.0, ServerFormatDateTimeAsString).c_str(),
+                            (((bool)pr_show_del)?"true":"false"));
+        };
+      };
+    };
+    days++;
+    if (days % 30 == 0) ProgTrace(TRACE5, "TestFltCBoxDropDown: curr_part_key=%s",
+                                          DateTimeToStr(curr_part_key, ServerFormatDateTimeAsString).c_str());
+  };
+  ProgTrace(TRACE5, "TestFltCBoxDropDown: finished");
+};
+
+void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    bool pr_show_del = false;
+    xmlNodePtr prDelNode = GetNode("pr_del", reqNode);
+    if(prDelNode)
+        pr_show_del = NodeAsInteger(prDelNode) == 1;
+    TScreenState scr = TScreenState(NodeAsInteger("scr", reqNode));
+    TDateTime first_date=NodeAsDateTime("FirstDate", reqNode);
+    TDateTime last_date=NodeAsDateTime("LastDate", reqNode);
+    vector<TPointsRow> points;
+    GetFltCBoxList(true, scr, first_date, last_date, pr_show_del, points);
+    
+    TPerfTimer tm;
     tm.Init();
     xmlNodePtr cboxNode = NewTextChild(resNode, "cbox");
-    for(TPoints::iterator iv = points.begin(); iv != points.end(); iv++) {
+    for(vector<TPointsRow>::const_iterator iv = points.begin(); iv != points.end(); iv++) {
         xmlNodePtr fNode = NewTextChild(cboxNode, "f");
         NewTextChild( fNode, "name", iv->name);
         NewTextChild(fNode, "point_id", iv->point_id);
@@ -424,14 +640,13 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     if (part_key == NoExists) {
         {
             TQuery Qry(&OraSession);
-            Qry.SQLText = "select move_id, airline from points where point_id = :point_id";
+            Qry.SQLText = "select move_id, airline from points where point_id = :point_id and pr_del>=0";
             Qry.CreateVariable("point_id", otInteger, point_id);
             Qry.Execute();
             if(Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.MOVED_TO_ARX_OR_DEL.SELECT_AGAIN");
             move_id = Qry.FieldAsInteger("move_id");
             airline = Qry.FieldAsString("airline");
         }
-        ProgTrace(TRACE5, "FltLogRun: work base qry");
         qry1 =
             "SELECT msg, time,  "
             "       id1 AS point_id,  "
@@ -467,7 +682,6 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             move_id = Qry.FieldAsInteger("move_id");
             airline = Qry.FieldAsString("airline");
         }
-        ProgTrace(TRACE5, "FltLogRun: arx base qry");
         qry1 =
             "SELECT msg, time,  "
             "       id1 AS point_id,  "
@@ -592,7 +806,6 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         }
         if(count > MAX_STAT_ROWS) break;
     }
-    ProgTrace(TRACE5, "count: %d", count);
     if(!count)
         throw AstraLocale::UserException("MSG.OPERATIONS_NOT_FOUND");
 }
@@ -629,8 +842,7 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
     TQuery AirlineQry(&OraSession);
     AirlineQry.CreateVariable("point_id", otInteger, point_id);
     if (part_key == NoExists) {
-        AirlineQry.SQLText = "select airline from points where point_id = :point_id";
-        ProgTrace(TRACE5, "LogRun: work base qry");
+        AirlineQry.SQLText = "select airline from points where point_id = :point_id and pr_del >= 0";
         Qry.SQLText =
             "SELECT msg, time, id1 AS point_id, null as screen, id2 AS reg_no, id3 AS grp_id, "
             "       ev_user, station, ev_order "
@@ -643,7 +855,6 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
     } else {
         AirlineQry.SQLText = "select airline from arx_points where point_id = :point_id and part_key = :part_key and pr_del >= 0";
         AirlineQry.CreateVariable("part_key", otDate, part_key);
-        ProgTrace(TRACE5, "LogRun: arx base qry");
         Qry.SQLText =
             "SELECT msg, time, id1 AS point_id, null as screen, id2 AS reg_no, id3 AS grp_id, "
             "       ev_user, station, ev_order "
@@ -730,7 +941,6 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
             }
         }
     }
-    ProgTrace(TRACE5, "count: %d", count);
     if(!count)
         throw AstraLocale::UserException("MSG.OPERATIONS_NOT_FOUND");
 }
@@ -921,8 +1131,6 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         Qry.CreateVariable("station", otString, station);
         Qry.CreateVariable("module", otString, module);
 
-        ProgTrace(TRACE5, "SQLText %d: %s", j, Qry.SQLText.SQLText());
-
         TPerfTimer tm;
         tm.Init();
         try {
@@ -1054,7 +1262,6 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
             }
         }
         ProgTrace(TRACE5, "FORM XML2: %s", tm.PrintWithMessage().c_str());
-        ProgTrace(TRACE5, "count %d: %d", j, count);
     }
     if(!count)
         throw AstraLocale::UserException("MSG.OPERATIONS_NOT_FOUND");
@@ -1089,7 +1296,6 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         TQuery PaxDocQry(&OraSession);
         string SQLText;
         if(part_key == NoExists)  {
-            ProgTrace(TRACE5, "PaxListRun: current base qry");
             SQLText =
                 "SELECT "
                 "   null part_key, "
@@ -1137,7 +1343,6 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                     SQLText += " AND points.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
             }
         } else {
-            ProgTrace(TRACE5, "PaxListRun: arx base qry");
             SQLText =
                 "SELECT "
                 "   arx_points.part_key, "
@@ -1204,10 +1409,9 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         xmlNodePtr paxListNode = NULL;
         xmlNodePtr rowsNode = NULL;
         if(!Qry.Eof) {
-            tm.Init();
             paxListNode = NewTextChild(resNode, "paxList");
             rowsNode = NewTextChild(paxListNode, "rows");
-            ProgTrace(TRACE5, "Header: %s", tm.PrintWithMessage().c_str());
+
             tm.Init();
 
             int col_point_id = Qry.FieldIndex("point_id");
@@ -1484,6 +1688,7 @@ enum TStatType { statTrferFull, statFull, statShort, statDetail };
 enum TSeanceType { seanceAirline, seanceAirport, seanceAll };
 
 struct TStatParams {
+    TStatType statType;
     vector<string> airlines,airps;
     bool airlines_permit,airps_permit;
     bool airp_column_first;
@@ -1493,164 +1698,7 @@ struct TStatParams {
     void get(xmlNodePtr resNode);
 };
 
-string GetPactStatSQLText( TStatType statType, const TStatParams &params, bool pr_arx, vector<string> &denied_airlines)
-{
-    string SQLText;
-    if(not pr_arx) {
-        SQLText =
-            "select "
-            "  NULL seance, ";
-        if (statType==statShort)
-        {
-            if(params.airp_column_first)
-                SQLText +=
-                    "    points.airp,  \n";
-            else
-                SQLText +=
-                    "    points.airline,  \n";
-            SQLText +=
-                "    count(distinct stat.point_id) flt_amount, \n"
-                "    sum(decode(client_type, :web, adult + child + baby, 0)) web, \n"
-                "    sum(decode(client_type, :kiosk, adult + child + baby, 0)) kiosk, \n"
-                "    sum(adult + child + baby) pax_amount \n";
-        };
-        if (statType==statDetail)
-        {
-            SQLText +=
-                "  points.airp, \n"
-                "  points.airline, \n"
-                "  count(distinct stat.point_id) flt_amount, \n"
-                "  sum(decode(client_type, :web, adult + child + baby, 0)) web, \n"
-                "  sum(decode(client_type, :kiosk, adult + child + baby, 0)) kiosk, \n"
-                "  sum(adult + child + baby) pax_amount \n";
-        };
-        SQLText +=
-            "from "
-            "  points, "
-            "  stat "
-            "where "
-            "  points.point_id = stat.point_id and points.pr_del>=0 and "
-            "  points.scd_out >= :first_date AND points.scd_out < :last_date and "
-            "  points.airp = :airp and "
-            "  (:airline is null or :airline = points.airline) ";
-        if(params.flt_no != NoExists)
-            SQLText += " and points.flt_no = :flt_no ";
-        if(not denied_airlines.empty())
-            SQLText += " and points.airline not in " + GetSQLEnum(denied_airlines);
-        if (!params.airps.empty()) {
-            if (params.airps_permit)
-                SQLText += " AND points.airp IN "+GetSQLEnum(params.airps)+"\n";
-            else
-                SQLText += " AND points.airp NOT IN "+GetSQLEnum(params.airps)+"\n";
-        };
-        if (!params.airlines.empty()) {
-            if (params.airlines_permit)
-                SQLText += " AND points.airline IN "+GetSQLEnum(params.airlines)+"\n";
-            else
-                SQLText += " AND points.airline NOT IN "+GetSQLEnum(params.airlines)+"\n";
-        }
-
-
-        if (statType==statShort)
-        {
-            SQLText +=
-                "group by \n";
-            if(params.airp_column_first)
-                SQLText +=
-                    "    points.airp \n";
-            else
-                SQLText +=
-                    "    points.airline \n";
-        };
-        if (statType==statDetail)
-        {
-            SQLText +=
-                "group by \n";
-            SQLText +=
-                "  points.airp, \n"
-                "  points.airline \n";
-        };
-    } else {
-        SQLText =
-            "select "
-            "  NULL seance, ";
-        if (statType==statShort)
-        {
-            if(params.airp_column_first)
-                SQLText +=
-                    "    arx_points.airp,  \n";
-            else
-                SQLText +=
-                    "    arx_points.airline,  \n";
-            SQLText +=
-                "    count(distinct arx_stat.point_id) flt_amount, \n"
-                "    sum(decode(client_type, :web, adult + child + baby, 0)) web, \n"
-                "    sum(decode(client_type, :kiosk, adult + child + baby, 0)) kiosk, \n"
-                "    sum(adult + child + baby) pax_amount \n";
-        };
-        if (statType==statDetail)
-        {
-            SQLText +=
-                "  arx_points.airp, \n"
-                "  arx_points.airline, \n"
-                "  count(distinct arx_stat.point_id) flt_amount, \n"
-                "  sum(decode(client_type, :web, adult + child + baby, 0)) web, \n"
-                "  sum(decode(client_type, :kiosk, adult + child + baby, 0)) kiosk, \n"
-                "  sum(adult + child + baby) pax_amount \n";
-        };
-        SQLText +=
-            "from "
-            "  arx_points, "
-            "  arx_stat "
-            "where "
-            "  arx_points.part_key = arx_stat.part_key AND \n"
-            "  arx_points.point_id = arx_stat.point_id and arx_points.pr_del>=0 and "
-            "  arx_points.part_key >= :first_date AND arx_points.part_key < :last_date + :arx_trip_date_range AND \n"
-            "  arx_points.scd_out >= :first_date AND arx_points.scd_out < :last_date and "
-            "  arx_points.airp = :airp and "
-            "  (:airline is null or :airline = arx_points.airline) ";
-        if(params.flt_no != NoExists)
-            SQLText += " and arx_points.flt_no = :flt_no ";
-        if(not denied_airlines.empty())
-            SQLText += " and arx_points.airline not in " + GetSQLEnum(denied_airlines);
-        if (!params.airps.empty()) {
-            if (params.airps_permit)
-                SQLText += " AND arx_points.airp IN "+GetSQLEnum(params.airps)+"\n";
-            else
-                SQLText += " AND arx_points.airp NOT IN "+GetSQLEnum(params.airps)+"\n";
-        };
-        if (!params.airlines.empty()) {
-            if (params.airlines_permit)
-                SQLText += " AND arx_points.airline IN "+GetSQLEnum(params.airlines)+"\n";
-            else
-                SQLText += " AND arx_points.airline NOT IN "+GetSQLEnum(params.airlines)+"\n";
-        }
-
-
-        if (statType==statShort)
-        {
-            SQLText +=
-                "group by \n";
-            if(params.airp_column_first)
-                SQLText +=
-                    "    arx_points.airp \n";
-            else
-                SQLText +=
-                    "    arx_points.airline \n";
-        };
-        if (statType==statDetail)
-        {
-            SQLText +=
-                "group by \n";
-            SQLText +=
-                "  arx_points.airp, \n"
-                "  arx_points.airline \n";
-        };
-    }
-    return SQLText;
-}
-
-string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_arx)
+string GetStatSQLTextOld(const TStatParams &params, bool pr_arx)
 {
     if (!pr_arx)
     {
@@ -1662,7 +1710,7 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
         else
           mainSQLText +=
             "  NULL seance, \n";
-        if (statType==statTrferFull)
+        if (params.statType==statTrferFull)
         {
             mainSQLText +=
                 "  points.airp, \n"
@@ -1680,7 +1728,7 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
                 "  weight bag_weight, \n"
                 "  excess \n";
         };
-        if (statType==statFull)
+        if (params.statType==statFull)
         {
             mainSQLText +=
                 "  points.airp, \n"
@@ -1699,7 +1747,7 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
                 "  sum(weight) bag_weight, \n"
                 "  sum(excess) excess \n";
         };
-        if (statType==statShort)
+        if (params.statType==statShort)
         {
             if(params.airp_column_first)
                 mainSQLText +=
@@ -1713,7 +1761,7 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
                 "    sum(decode(client_type, :kiosk, adult + child + baby, 0)) kiosk, \n"
                 "    sum(adult + child + baby) pax_amount \n";
         };
-        if (statType==statDetail)
+        if (params.statType==statDetail)
         {
             mainSQLText +=
                 "  points.airp, \n"
@@ -1726,12 +1774,12 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
         mainSQLText +=
             "from \n"
             "  points, \n";
-        if (statType==statTrferFull)
+        if (params.statType==statTrferFull)
         {
             mainSQLText +=
                 "  trfer_stat \n";
         };
-        if (statType==statFull || statType==statShort || statType==statDetail)
+        if (params.statType==statFull || params.statType==statShort || params.statType==statDetail)
         {
             mainSQLText +=
                 "  stat \n";
@@ -1755,12 +1803,12 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
             mainSQLText += "  trip_sets.pr_airp_seance = :pr_airp_seance and \n";
         };
 
-        if (statType==statTrferFull)
+        if (params.statType==statTrferFull)
         {
             mainSQLText +=
                 "  points.point_id = trfer_stat.point_id and points.pr_del>=0 and \n";
         };
-        if (statType==statFull || statType==statShort || statType==statDetail)
+        if (params.statType==statFull || params.statType==statShort || params.statType==statDetail)
         {
             mainSQLText +=
                 "  points.point_id = stat.point_id and points.pr_del>=0 and \n";
@@ -1821,7 +1869,7 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
               " and points.airp in " + AIRP_LIST + "\n";
         };
 
-        if (statType==statFull)
+        if (params.statType==statFull)
         {
             mainSQLText +=
                 "group by \n";
@@ -1835,7 +1883,7 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
                 "  points.scd_out, \n"
                 "  stat.point_id \n";
         };
-        if (statType==statShort)
+        if (params.statType==statShort)
         {
             mainSQLText +=
                 "group by \n";
@@ -1849,7 +1897,7 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
                 mainSQLText +=
                     "    points.airline \n";
         };
-        if (statType==statDetail)
+        if (params.statType==statDetail)
         {
             mainSQLText +=
                 "group by \n";
@@ -1872,7 +1920,7 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
         else
           arxSQLText +=
             "  NULL seance, \n";
-        if (statType==statTrferFull)
+        if (params.statType==statTrferFull)
         {
             arxSQLText +=
                 "  arx_points.airp, \n"
@@ -1890,7 +1938,7 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
                 "  weight bag_weight, \n"
                 "  excess \n";
         };
-        if (statType==statFull)
+        if (params.statType==statFull)
         {
             arxSQLText +=
                 "  arx_points.airp, \n"
@@ -1910,7 +1958,7 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
                 "  sum(weight) bag_weight, \n"
                 "  sum(excess) excess \n";
         };
-        if (statType==statShort)
+        if (params.statType==statShort)
         {
             if(params.airp_column_first)
                 arxSQLText +=
@@ -1924,7 +1972,7 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
                 "    sum(decode(client_type, :web, adult + child + baby, 0)) web, \n"
                 "    sum(decode(client_type, :kiosk, adult + child + baby, 0)) kiosk \n";
         };
-        if (statType==statDetail)
+        if (params.statType==statDetail)
         {
             arxSQLText +=
                 "  arx_points.airp, \n"
@@ -1937,12 +1985,12 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
         arxSQLText +=
             "from \n"
             "  arx_points, \n";
-        if (statType==statTrferFull)
+        if (params.statType==statTrferFull)
         {
             arxSQLText +=
                 "  arx_trfer_stat \n";
         };
-        if (statType==statFull || statType==statShort || statType==statDetail)
+        if (params.statType==statFull || params.statType==statShort || params.statType==statDetail)
         {
             arxSQLText +=
                 "  arx_stat \n";
@@ -1991,13 +2039,13 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
         };
         arxSQLText +=
             "  arx_points.pr_del>=0 AND \n";
-        if (statType==statTrferFull)
+        if (params.statType==statTrferFull)
         {
             arxSQLText +=
                 "  arx_points.part_key = arx_trfer_stat.part_key AND \n"
                 "  arx_points.point_id = arx_trfer_stat.point_id \n";
         };
-        if (statType==statFull || statType==statShort || statType==statDetail)
+        if (params.statType==statFull || params.statType==statShort || params.statType==statDetail)
         {
             arxSQLText +=
                 "  arx_points.part_key = arx_stat.part_key AND \n"
@@ -2042,7 +2090,7 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
             arxSQLText +=
               " and arx_points.airp in " + AIRP_LIST + "\n";
         };
-        if (statType==statFull)
+        if (params.statType==statFull)
         {
             arxSQLText +=
                 "group by \n";
@@ -2057,7 +2105,7 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
                 "  arx_stat.point_id, \n"
                 "  arx_stat.part_key \n";
         };
-        if (statType==statShort)
+        if (params.statType==statShort)
         {
             arxSQLText +=
                 "group by  \n";
@@ -2071,7 +2119,7 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
                 arxSQLText +=
                     "    arx_points.airline \n";
         };
-        if (statType==statDetail)
+        if (params.statType==statDetail)
         {
             arxSQLText +=
                 "group by \n";
@@ -2086,6 +2134,269 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
     };
 }
 
+string GetStatSQLText(const TStatParams &params, int pass)
+{
+  ostringstream sql;
+  sql << "SELECT \n";
+  if (USE_SEANCES())
+    sql << " DECODE(trip_sets.pr_airp_seance, NULL, '', 1, 'АП', 'АК') seance, \n";
+  else
+    sql << " NULL seance, \n";
+
+  if (params.statType==statTrferFull)
+  {
+    sql << " points.airp, \n"
+           " points.airline, \n"
+           " points.flt_no, \n"
+           " points.scd_out, \n"
+           " trfer_stat.point_id, \n"
+           " trfer_stat.trfer_route places, \n"
+           " adult + child + baby pax_amount, \n"
+           " adult, \n"
+           " child, \n"
+           " baby, \n"
+           " unchecked rk_weight, \n"
+           " pcs bag_amount, \n"
+           " weight bag_weight, \n"
+           " excess \n";
+  };
+  if (params.statType==statFull)
+  {
+    sql << " points.airp, \n"
+           " points.airline, \n"
+           " points.flt_no, \n"
+           " points.scd_out, \n";
+    if (pass!=0)
+      sql << " stat.part_key, \n";
+    sql << " stat.point_id, \n"
+           " SUM(adult + child + baby) pax_amount, \n"
+           " SUM(DECODE(client_type, :web, adult + child + baby, 0)) web, \n"
+           " SUM(DECODE(client_type, :kiosk, adult + child + baby, 0)) kiosk, \n"
+           " SUM(adult) adult, \n"
+           " SUM(child) child, \n"
+           " SUM(baby) baby, \n"
+           " SUM(unchecked) rk_weight, \n"
+           " SUM(pcs) bag_amount, \n"
+           " SUM(weight) bag_weight, \n"
+           " SUM(excess) excess \n";
+  };
+  if (params.statType==statShort)
+  {
+    if(params.airp_column_first)
+      sql << " points.airp, \n";
+    else
+      sql << " points.airline, \n";
+    sql << " COUNT(distinct stat.point_id) flt_amount, \n"
+           " SUM(adult + child + baby) pax_amount, \n"
+           " SUM(DECODE(client_type, :web, adult + child + baby, 0)) web, \n"
+           " SUM(DECODE(client_type, :kiosk, adult + child + baby, 0)) kiosk \n";
+  };
+  if (params.statType==statDetail)
+  {
+    sql << " points.airp, \n"
+           " points.airline, \n"
+           " COUNT(distinct stat.point_id) flt_amount, \n"
+           " SUM(adult + child + baby) pax_amount, \n"
+           " SUM(DECODE(client_type, :web, adult + child + baby, 0)) web, \n"
+           " SUM(DECODE(client_type, :kiosk, adult + child + baby, 0)) kiosk \n";
+  };
+  sql << "FROM \n";
+  if (pass==0)
+    sql << " points, \n";
+  else
+    sql << " arx_points points, \n";
+  if (params.statType==statTrferFull)
+  {
+    if (pass==0)
+      sql << " trfer_stat \n";
+    else
+      sql << " arx_trfer_stat trfer_stat \n";
+  };
+  if (params.statType==statFull || params.statType==statShort || params.statType==statDetail)
+  {
+    if (pass==0)
+      sql << " stat \n";
+    else
+      sql << " arx_stat stat \n";
+  };
+
+  if (USE_SEANCES())
+  {
+    if (pass==0)
+      sql << ", trip_sets \n";
+    else
+      sql << ", arx_trip_sets trip_sets \n";
+    if (pass==2)
+      sql << ", (SELECT part_key, move_id FROM move_arx_ext \n"
+             "   WHERE part_key >= :LastDate+:arx_trip_date_range AND part_key <= :LastDate+date_range) arx_ext \n";
+  }
+  else
+  {
+    if (params.seance==seanceAirport ||
+        params.seance==seanceAirline)
+    {
+      if (pass!=2)
+      {
+        if(params.seance==seanceAirport)
+          sql << "," << AIRP_PERIODS;
+        if(params.seance==seanceAirline)
+          sql << "," << AIRLINE_PERIODS;
+      }
+      else
+      {
+        sql << ", (SELECT arx_points.part_key, arx_points.point_id \n"
+               "   FROM move_arx_ext, arx_points \n";
+        if(params.seance==seanceAirport)
+          sql << "," << AIRP_PERIODS;
+        if(params.seance==seanceAirline)
+          sql << "," << AIRLINE_PERIODS;
+        sql << "   WHERE move_arx_ext.part_key >= periods.period_last_date + :arx_trip_date_range AND \n"
+               "         move_arx_ext.part_key <= periods.period_last_date + move_arx_ext.date_range AND \n"
+               "         move_arx_ext.part_key = arx_points.part_key AND move_arx_ext.move_id = arx_points.move_id AND \n"
+               "         arx_points.scd_out >= periods.period_first_date AND arx_points.scd_out < periods.period_last_date AND \n";
+        if(params.seance==seanceAirport)
+          sql << "         arx_points.airline NOT IN \n" << AIRLINE_LIST;
+        if(params.seance==seanceAirline)
+          sql << "         arx_points.airp IN \n" << AIRP_LIST;
+        sql << "  ) arx_ext \n";
+      };
+    }
+    else
+    {
+      if (pass==2)
+        sql << ", (SELECT part_key, move_id FROM move_arx_ext \n"
+               "   WHERE part_key >= :LastDate+:arx_trip_date_range AND part_key <= :LastDate+date_range) arx_ext \n";
+    };
+  };
+  
+  sql << "WHERE \n";
+  if(params.flt_no != NoExists)
+    sql << " points.flt_no = :flt_no AND \n";
+  if (USE_SEANCES())
+  {
+    if (params.seance!=seanceAll)
+      sql << " trip_sets.pr_airp_seance = :pr_airp_seance AND \n";
+  };
+  if (params.statType==statTrferFull)
+  {
+    if (pass!=0)
+      sql << " points.part_key = trfer_stat.part_key AND \n";
+    sql << " points.point_id = trfer_stat.point_id AND \n";
+  };
+  if (params.statType==statFull || params.statType==statShort || params.statType==statDetail)
+  {
+    if (pass!=0)
+      sql << " points.part_key = stat.part_key AND \n";
+    sql << " points.point_id = stat.point_id AND \n";
+  };
+  if (USE_SEANCES())
+  {
+    if (pass==1)
+      sql << " points.part_key >= :FirstDate AND points.part_key < :LastDate + :arx_trip_date_range AND \n";
+    if (pass==2)
+      sql << " points.part_key=arx_ext.part_key AND points.move_id=arx_ext.move_id AND \n";
+    sql << " points.scd_out >= :FirstDate AND points.scd_out < :LastDate AND \n";
+    if (pass!=0)
+      sql << " points.part_key = trip_sets.part_key AND \n";
+    sql << " points.point_id = trip_sets.point_id AND \n";
+  }
+  else
+  {
+    if (params.seance==seanceAirport ||
+        params.seance==seanceAirline)
+    {
+      if (pass!=2)
+      {
+        if (pass!=0)
+          sql << " points.part_key >= periods.period_first_date AND points.part_key < periods.period_last_date + :arx_trip_date_range AND \n";
+        sql << " points.scd_out >= periods.period_first_date AND points.scd_out < periods.period_last_date AND \n";
+      }
+      else
+        sql << " points.part_key=arx_ext.part_key AND points.point_id=arx_ext.point_id AND \n";
+    }
+    else
+    {
+      if (pass==1)
+        sql << " points.part_key >= :FirstDate AND points.part_key < :LastDate + :arx_trip_date_range AND \n";
+      if (pass==2)
+        sql << " points.part_key=arx_ext.part_key AND points.move_id=arx_ext.move_id AND \n";
+      sql << " points.scd_out >= :FirstDate AND points.scd_out < :LastDate AND \n";
+    };
+  };
+  sql << " points.pr_del>=0 \n";
+  if (!USE_SEANCES() && params.seance==seanceAirport)
+  {
+    sql << " AND points.airp = :ap \n";
+  }
+  else
+  {
+    if (!params.airps.empty()) {
+      if (params.airps_permit)
+        sql << " AND points.airp IN " << GetSQLEnum(params.airps) << "\n";
+      else
+        sql << " AND points.airp NOT IN " << GetSQLEnum(params.airps) << "\n";
+    };
+  };
+
+  if (!USE_SEANCES() && params.seance==seanceAirline)
+  {
+    sql << " AND points.airline = :ak \n";
+  }
+  else
+  {
+    if (!params.airlines.empty()) {
+      if (params.airlines_permit)
+        sql << " AND points.airline IN " << GetSQLEnum(params.airlines) << "\n";
+      else
+        sql << " AND points.airline NOT IN " << GetSQLEnum(params.airlines) << "\n";
+    }
+  };
+
+  if (!USE_SEANCES())
+  {
+    if (pass!=2)
+    {
+      if(params.seance==seanceAirport)
+        sql << " AND points.airline NOT IN \n" << AIRLINE_LIST;
+      if(params.seance==seanceAirline)
+        sql << " AND points.airp IN \n" << AIRP_LIST;
+    };
+  };
+
+  if (params.statType==statFull)
+  {
+    sql << "GROUP BY \n";
+    if (USE_SEANCES())
+      sql << " trip_sets.pr_airp_seance, \n";
+    sql << " points.airp, \n"
+           " points.airline, \n"
+           " points.flt_no, \n"
+           " points.scd_out, \n";
+    if (pass!=0)
+      sql << " stat.part_key, \n";
+    sql << " stat.point_id \n";
+  };
+  if (params.statType==statShort)
+  {
+    sql << "GROUP BY \n";
+    if (USE_SEANCES())
+      sql << " trip_sets.pr_airp_seance, \n";
+    if(params.airp_column_first)
+      sql << " points.airp \n";
+    else
+      sql << " points.airline \n";
+  };
+  if (params.statType==statDetail)
+  {
+    sql << "GROUP BY \n";
+    if (USE_SEANCES())
+      sql << " trip_sets.pr_airp_seance, \n";
+    sql << " points.airp, \n"
+           " points.airline \n";
+  };
+  return sql.str();
+}
+
 struct TPrintAirline {
     private:
         string val;
@@ -2093,10 +2404,10 @@ struct TPrintAirline {
     public:
         TPrintAirline(): multi_airlines(false) {};
         void check(string val);
-        string get();
+        string get() const;
 };
 
-string TPrintAirline::get()
+string TPrintAirline::get() const
 {
     if(multi_airlines)
         return "";
@@ -2114,6 +2425,17 @@ void TPrintAirline::check(string val)
 
 void TStatParams::get(xmlNodePtr reqNode)
 {
+    string name = NodeAsString("stat_mode", reqNode);
+
+    if(name == "Подробная") statType=statFull;
+    else
+      if(name == "Общая") statType=statShort;
+      else
+        if(name == "Детализированная") statType=statDetail;
+        else
+          if(name == "Трансфер") statType=statTrferFull;
+          else throw Exception("Unknown stat mode " + name);
+
     FirstDate = NodeAsDateTime("FirstDate", reqNode);
     LastDate = NodeAsDateTime("LastDate", reqNode);
     TReqInfo &info = *(TReqInfo::Instance());
@@ -2211,11 +2533,26 @@ struct TDetailStatRow {
         pax_amount(NoExists),
         web(NoExists),
         kiosk(NoExists)
-    {}
+    {};
+    bool operator == (const TDetailStatRow &item) const
+    {
+        return flt_amount==item.flt_amount &&
+               pax_amount==item.pax_amount &&
+               web==item.web &&
+               kiosk==item.kiosk &&
+               flts.size()==item.flts.size();
+    };
 };
 
 struct TDetailStatKey {
     string pact_descr, seance, col1, col2;
+    bool operator == (const TDetailStatKey &item) const
+    {
+        return pact_descr==item.pact_descr &&
+               seance==item.seance &&
+               col1==item.col1 &&
+               col2==item.col2;
+    };
 };
 struct TDetailCmp {
     bool operator() (const TDetailStatKey &lr, const TDetailStatKey &rr) const
@@ -2234,7 +2571,127 @@ struct TDetailCmp {
 };
 typedef map<TDetailStatKey, TDetailStatRow, TDetailCmp> TDetailStat;
 
-void GetDetailStat(TStatType statType, const TStatParams &params, TQuery &Qry,
+struct TFullStatRow {
+    int pax_amount;
+    int web;
+    int kiosk;
+    int adult;
+    int child;
+    int baby;
+    int rk_weight;
+    int bag_amount;
+    int bag_weight;
+    int excess;
+    TFullStatRow():
+        pax_amount(NoExists),
+        web(NoExists),
+        kiosk(NoExists),
+        adult(NoExists),
+        child(NoExists),
+        baby(NoExists),
+        rk_weight(NoExists),
+        bag_amount(NoExists),
+        bag_weight(NoExists),
+        excess(NoExists)
+    {}
+    bool operator == (const TFullStatRow &item) const
+    {
+        return pax_amount == item.pax_amount &&
+               web == item.web &&
+               kiosk == item.kiosk &&
+               adult == item.adult &&
+               child == item.child &&
+               baby == item.baby &&
+               rk_weight == item.rk_weight &&
+               bag_amount == item.bag_amount &&
+               bag_weight == item.bag_weight &&
+               excess == item.excess;
+    };
+};
+
+struct TStatPlaces {
+    private:
+        string result;
+    public:
+        void set(string aval, bool pr_locale);
+        string get() const;
+};
+
+void TStatPlaces::set(string aval, bool pr_locale)
+{
+    if(not result.empty())
+        throw Exception("TStatPlaces::set(): already set");
+    if(pr_locale) {
+        vector<string> tokens;
+        while(true) {
+            size_t idx = aval.find('-');
+            if(idx == string::npos) break;
+            tokens.push_back(aval.substr(0, idx));
+            aval.erase(0, idx + 1);
+        }
+        tokens.push_back(aval);
+        for(vector<string>::iterator is = tokens.begin(); is != tokens.end(); is++)
+            result += (result.empty() ? "" : "-") + ElemIdToCodeNative(etAirp, *is);
+    } else
+        result = aval;
+}
+
+string TStatPlaces::get() const
+{
+    return result;
+}
+
+struct TFullStatKey {
+    string seance, col1, col2;
+    string airp; // в сортировке не участвует, нужен для AirpTZRegion
+    int flt_no;
+    TDateTime scd_out;
+    int point_id;
+    TStatPlaces places;
+    TFullStatKey():
+        flt_no(NoExists),
+        scd_out(NoExists),
+        point_id(NoExists)
+    {}
+    bool operator == (const TFullStatKey &item) const
+    {
+        return seance == item.seance &&
+               col1 == item.col1 &&
+               col2 == item.col2 &&
+               airp == item.airp &&
+               flt_no == item.flt_no &&
+               scd_out == item.scd_out &&
+               point_id == item.point_id &&
+               places.get() == item.places.get();
+    };
+};
+struct TFullCmp {
+    bool operator() (const TFullStatKey &lr, const TFullStatKey &rr) const
+    {
+        if(lr.seance == rr.seance)
+            if(lr.col1 == rr.col1)
+                if(lr.col2 == rr.col2)
+                    if(lr.flt_no == rr.flt_no)
+                        if(lr.scd_out == rr.scd_out)
+                            if(lr.point_id == rr.point_id)
+                                return lr.places.get() < rr.places.get();
+                            else
+                                return lr.point_id < rr.point_id;
+                        else
+                            return lr.scd_out < rr.scd_out;
+                    else
+                        return lr.flt_no < rr.flt_no;
+                else
+                    return lr.col2 < rr.col2;
+            else
+                return lr.col1 < rr.col1;
+        else
+            return lr.seance < rr.seance;
+    };
+};
+typedef map<TFullStatKey, TFullStatRow, TFullCmp> TFullStat;
+
+void GetDetailStat(const TStatParams &params, TQuery &Qry,
                    TDetailStat &DetailStat, TPrintAirline &airline, string pact_descr = "")
 {
   Qry.Execute();
@@ -2244,14 +2701,14 @@ void GetDetailStat(TStatType statType, const TStatParams &params, TQuery &Qry,
       key.pact_descr = pact_descr;
       if(params.airp_column_first) {
           key.col1 = ElemIdToCodeNative(etAirp, Qry.FieldAsString("airp"));
-          if (statType==statDetail)
+          if (params.statType==statDetail)
           {
             key.col2 = ElemIdToCodeNative(etAirline, Qry.FieldAsString("airline"));
             airline.check(key.col2);
           };
       } else {
           key.col1 = ElemIdToCodeNative(etAirline, Qry.FieldAsString("airline"));
-          if (statType==statDetail)
+          if (params.statType==statDetail)
           {
             key.col2 = ElemIdToCodeNative(etAirp, Qry.FieldAsString("airp"));
           };
@@ -2268,6 +2725,92 @@ void GetDetailStat(TStatType statType, const TStatParams &params, TQuery &Qry,
           row.pax_amount += Qry.FieldAsInteger("pax_amount");
           row.web += Qry.FieldAsInteger("web");
           row.kiosk += Qry.FieldAsInteger("kiosk");
+      }
+  }
+};
+
+void GetFullStat(const TStatParams &params, TQuery &Qry,
+                 TFullStat &FullStat, TPrintAirline &airline)
+{
+  Qry.Execute();
+  if(!Qry.Eof) {
+      int col_seance = Qry.FieldIndex("seance");
+      int col_point_id = Qry.FieldIndex("point_id");
+      int col_airp = Qry.FieldIndex("airp");
+      int col_airline = Qry.FieldIndex("airline");
+      int col_pax_amount = Qry.FieldIndex("pax_amount");
+      int col_web = -1;
+      int col_kiosk = -1;
+      if (params.statType==statFull)
+      {
+        col_web = Qry.FieldIndex("web");
+        col_kiosk = Qry.FieldIndex("kiosk");
+      };
+      int col_adult = Qry.FieldIndex("adult");
+      int col_child = Qry.FieldIndex("child");
+      int col_baby = Qry.FieldIndex("baby");
+      int col_rk_weight = Qry.FieldIndex("rk_weight");
+      int col_bag_amount = Qry.FieldIndex("bag_amount");
+      int col_bag_weight = Qry.FieldIndex("bag_weight");
+      int col_excess = Qry.FieldIndex("excess");
+      int col_flt_no = Qry.FieldIndex("flt_no");
+      int col_scd_out = Qry.FieldIndex("scd_out");
+      int col_places = Qry.GetFieldIndex("places");
+      int col_part_key = Qry.GetFieldIndex("part_key");
+      for(; !Qry.Eof; Qry.Next()) {
+          TFullStatKey key;
+          key.seance = Qry.FieldAsString(col_seance);
+          key.airp = Qry.FieldAsString(col_airp);
+          if(params.airp_column_first) {
+              key.col1 = ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp));
+              key.col2 = ElemIdToCodeNative(etAirline, Qry.FieldAsString(col_airline));
+              airline.check(key.col2);
+          } else {
+              key.col1 = ElemIdToCodeNative(etAirline, Qry.FieldAsString(col_airline));
+              key.col2 = ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp));
+              airline.check(key.col1);
+          }
+          key.flt_no = Qry.FieldAsInteger(col_flt_no);
+          key.scd_out = Qry.FieldAsDateTime(col_scd_out);
+          key.point_id = Qry.FieldAsInteger(col_point_id);
+          if (params.statType==statTrferFull)
+            key.places.set(Qry.FieldAsString(col_places), true);
+          else
+            key.places.set(GetRouteAfterStr( col_part_key>=0?Qry.FieldAsDateTime(col_part_key):NoExists,
+                                             Qry.FieldAsInteger(col_point_id),
+                                             trtNotCurrent,
+                                             trtNotCancelled),
+                           false);
+          TFullStatRow &row = FullStat[key];
+          if(row.pax_amount == NoExists) {
+              row.pax_amount = Qry.FieldAsInteger(col_pax_amount);
+              if (params.statType==statFull)
+              {
+                row.web = Qry.FieldAsInteger(col_web);
+                row.kiosk = Qry.FieldAsInteger(col_kiosk);
+              };
+              row.adult = Qry.FieldAsInteger(col_adult);
+              row.child = Qry.FieldAsInteger(col_child);
+              row.baby = Qry.FieldAsInteger(col_baby);
+              row.rk_weight = Qry.FieldAsInteger(col_rk_weight);
+              row.bag_amount = Qry.FieldAsInteger(col_bag_amount);
+              row.bag_weight = Qry.FieldAsInteger(col_bag_weight);
+              row.excess = Qry.FieldAsInteger(col_excess);
+          } else {
+              row.pax_amount += Qry.FieldAsInteger(col_pax_amount);
+              if (params.statType==statFull)
+              {
+                row.web += Qry.FieldAsInteger(col_web);
+                row.kiosk += Qry.FieldAsInteger(col_kiosk);
+              };
+              row.adult += Qry.FieldAsInteger(col_adult);
+              row.child += Qry.FieldAsInteger(col_child);
+              row.baby += Qry.FieldAsInteger(col_baby);
+              row.rk_weight += Qry.FieldAsInteger(col_rk_weight);
+              row.bag_amount += Qry.FieldAsInteger(col_bag_amount);
+              row.bag_weight += Qry.FieldAsInteger(col_bag_weight);
+              row.excess += Qry.FieldAsInteger(col_excess);
+          }
       }
   }
 };
@@ -2363,7 +2906,7 @@ void correct_airp_pacts(vector<TPact> &airp_pacts, TPact &airline_pact)
     }
 }
 
-void createXMLDetailStat(TDetailStat &DetailStat, xmlNodePtr resNode, TPrintAirline &airline, TStatParams &params, TStatType statType, bool pr_pact = false)
+void createXMLDetailStat(const TStatParams &params, bool pr_pact, const TDetailStat &DetailStat, const TPrintAirline &airline, xmlNodePtr resNode)
 {
     if(!DetailStat.empty()) {
         NewTextChild(resNode, "airline", airline.get(), "");
@@ -2374,7 +2917,7 @@ void createXMLDetailStat(TDetailStat &DetailStat, xmlNodePtr resNode, TPrintAirl
             colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/п"));
             SetProp(colNode, "width", 50);
             SetProp(colNode, "align", taLeftJustify);
-            if (statType==statDetail)
+            if (params.statType==statDetail)
             {
                 colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
                 SetProp(colNode, "width", 50);
@@ -2384,7 +2927,7 @@ void createXMLDetailStat(TDetailStat &DetailStat, xmlNodePtr resNode, TPrintAirl
             colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
             SetProp(colNode, "width", 50);
             SetProp(colNode, "align", taLeftJustify);
-            if (statType==statDetail)
+            if (params.statType==statDetail)
             {
                 colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/п"));
                 SetProp(colNode, "width", 50);
@@ -2428,23 +2971,20 @@ void createXMLDetailStat(TDetailStat &DetailStat, xmlNodePtr resNode, TPrintAirl
         int total_web = 0;
         int total_kiosk = 0;
         int count = 0;
-        for(TDetailStat::iterator si = DetailStat.begin(); si != DetailStat.end(); si++) {
+        for(TDetailStat::const_iterator si = DetailStat.begin(); si != DetailStat.end(); si++) {
             rowNode = NewTextChild(rowsNode, "row");
             NewTextChild(rowNode, "col", si->first.col1);
-            if (statType==statDetail)
+            if (params.statType==statDetail)
                 NewTextChild(rowNode, "col", si->first.col2);
-
-            if(si->second.flt_amount == NoExists)
-                si->second.flt_amount = si->second.flts.size();
-
-            total_flt_amount += si->second.flt_amount;
+                
+            total_flt_amount += (si->second.flt_amount == NoExists?si->second.flts.size():si->second.flt_amount);
             total_pax_amount += si->second.pax_amount;
             total_web += si->second.web;
             total_kiosk += si->second.kiosk;
 
             if (USE_SEANCES())
                 NewTextChild(rowNode, "col", getLocaleText(si->first.seance));
-            NewTextChild(rowNode, "col", si->second.flt_amount);
+            NewTextChild(rowNode, "col", (int)(si->second.flt_amount == NoExists?si->second.flts.size():si->second.flt_amount));
             NewTextChild(rowNode, "col", si->second.pax_amount);
             NewTextChild(rowNode, "col", si->second.web);
             NewTextChild(rowNode, "col", si->second.kiosk);
@@ -2459,7 +2999,7 @@ void createXMLDetailStat(TDetailStat &DetailStat, xmlNodePtr resNode, TPrintAirl
         }
         rowNode = NewTextChild(rowsNode, "row");
         NewTextChild(rowNode, "col", getLocaleText("Итого:"));
-        if (statType==statDetail)
+        if (params.statType==statDetail)
             NewTextChild(rowNode, "col");
         if (USE_SEANCES())
         {
@@ -2475,539 +3015,10 @@ void createXMLDetailStat(TDetailStat &DetailStat, xmlNodePtr resNode, TPrintAirl
         throw AstraLocale::UserException("MSG.NOT_DATA");
     xmlNodePtr variablesNode = STAT::set_variables(resNode);
     NewTextChild(variablesNode, "pr_pact", pr_pact);
-}
-
-void RunPactDetailStat(TStatType statType, TStatParams &params, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    TReqInfo &info = *(TReqInfo::Instance());
-    if (info.user.access.airlines.empty() && info.user.access.airlines_permit ||
-            info.user.access.airps.empty() && info.user.access.airps_permit)
-        throw AstraLocale::UserException("MSG.NOT_DATA");
-
-    if (statType==statShort)
-        get_compatible_report_form("ShortStat", reqNode, resNode);
-    else
-        get_compatible_report_form("DetailStat", reqNode, resNode);
-
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "select\n"
-        "    descr,\n"
-        "    airline,\n"
-        "    airp,\n"
-        "    DECODE(SIGN(first_date-:FirstDate),1,first_date,:FirstDate) AS first_date,\n"
-        "    DECODE(SIGN(last_date- :LastDate),-1,last_date, :LastDate) AS last_date\n"
-        "from pacts where\n"
-        "  first_date >= :FirstDate and first_date < :LastDate or\n"
-        "  last_date >= :FirstDate and last_date < :LastDate or\n"
-        "  first_date < :FirstDate and (last_date >= :LastDate or last_date is null)\n"
-        "order by \n"
-        "  airline nulls first \n";
-
-    Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
-    Qry.CreateVariable("LastDate", otDate, params.LastDate);
-    Qry.Execute();
-    map<string, vector<TPact> > airp_pacts;
-    vector<TPact> result_pacts;
-    for(; !Qry.Eof; Qry.Next()) {
-        TPact pact(
-                Qry.FieldAsString("descr"),
-                Qry.FieldAsString("airline"),
-                Qry.FieldAsString("airp"),
-                Qry.FieldAsDateTime("first_date"),
-                Qry.FieldAsDateTime("last_date")
-                );
-        if(pact.airline.empty())
-            airp_pacts[pact.airp].push_back(pact);
-        else {
-            ProgTrace(TRACE5, "before correct_airp_pacts:");
-            ProgTrace(TRACE5, "descr: %s, first_date: %s, last_date: %s",
-                    pact.descr.c_str(),
-                    DateTimeToStr(pact.first_date, "ddmmyy").c_str(),
-                    DateTimeToStr(pact.last_date, "ddmmyy").c_str()
-                    );
-            /*
-            for(map<string, vector<TPact> >::iterator im = airp_pacts.begin(); im != airp_pacts.end(); im++)
-                correct_airp_pacts(im->second, pact);
-                */
-            correct_airp_pacts(airp_pacts[pact.airp], pact);
-
-            result_pacts.push_back(pact);
-        }
-    }
-    /*
-    ProgTrace(TRACE5, "AIRP_PACTS:");
-    for(map<string, vector<TPact> >::iterator im = airp_pacts.begin(); im != airp_pacts.end(); im++) {
-        ProgTrace(TRACE5, "airp: %s", im->first.c_str());
-        ProgTrace(TRACE5, "periods:");
-        for(vector<TPact>::iterator iv = im->second.begin(); iv != im->second.end(); iv++) {
-            ProgTrace(TRACE5, "first_date: %s, last_date: %s",
-                    DateTimeToStr(iv->first_date, "ddmmyy").c_str(),
-                    DateTimeToStr(iv->last_date, "ddmmyy").c_str()
-                    );
-            string denied;
-            for(set<string>::iterator is = iv->airlines.begin(); is != iv->airlines.end(); is++) {
-                if(not denied.empty())
-                    denied += ", ";
-                denied += *is;
-            }
-            ProgTrace(TRACE5, "denied airlines: %s", denied.c_str());
-        }
-    }
-    */
-    for(map<string, vector<TPact> >::iterator im = airp_pacts.begin(); im != airp_pacts.end(); im++) {
-        if(im->second.empty())
-            continue;
-        result_pacts.insert(result_pacts.end(), im->second.begin(), im->second.end());
-    }
-
-    TDetailStat DetailStat;
-    TPrintAirline prn_airline;
-
-    Qry.Clear();
-    for(int pr_arx = 0; pr_arx < 2; pr_arx++) {
-        string SQLText =
-            "select "
-            "   points.airline, "
-            "   points.airp, "
-            "   points.scd_out, "
-            "   stat.point_id, "
-            "   adult, "
-            "   child, "
-            "   baby, "
-            "   client_type "
-            "from ";
-        if(pr_arx)
-            SQLText +=
-                "   arx_points points, "
-                "   arx_stat stat ";
-        else
-            SQLText +=
-                "   points, "
-                "   stat ";
-        SQLText +=
-            "where "
-            "   points.point_id = stat.point_id and "
-            "   points.pr_del>=0 and "
-            "   points.scd_out >= :first_date AND "
-            "   points.scd_out < :last_date ";
-        if(pr_arx) {
-            SQLText +=
-                "   and points.part_key = stat.part_key and "
-                "   points.part_key >= :first_date AND points.part_key < :last_date + :arx_trip_date_range ";
-            Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
-        }
-        if(params.flt_no != NoExists) {
-            SQLText += " and points.flt_no = :flt_no ";
-            Qry.CreateVariable("flt_no", otInteger, params.flt_no);
-        }
-        if (!params.airps.empty()) {
-            if (params.airps_permit)
-                SQLText += " AND points.airp IN "+GetSQLEnum(params.airps)+"\n";
-            else
-                SQLText += " AND points.airp NOT IN "+GetSQLEnum(params.airps)+"\n";
-        };
-        if (!params.airlines.empty()) {
-            if (params.airlines_permit)
-                SQLText += " AND points.airline IN "+GetSQLEnum(params.airlines)+"\n";
-            else
-                SQLText += " AND points.airline NOT IN "+GetSQLEnum(params.airlines)+"\n";
-        }
-
-        Qry.SQLText = SQLText;
-        Qry.CreateVariable("first_date", otDate, params.FirstDate);
-        Qry.CreateVariable("last_date", otDate, params.LastDate);
-        Qry.Execute();
-        if(not Qry.Eof) {
-            int col_airline = Qry.FieldIndex("airline");
-            int col_airp = Qry.FieldIndex("airp");
-            int col_scd_out = Qry.FieldIndex("scd_out");
-            int col_point_id = Qry.FieldIndex("point_id");
-            int col_adult = Qry.FieldIndex("adult");
-            int col_child = Qry.FieldIndex("child");
-            int col_baby = Qry.FieldIndex("baby");
-            int col_client_type = Qry.FieldIndex("client_type");
-            for(; not Qry.Eof; Qry.Next()) {
-
-                string airline = Qry.FieldAsString(col_airline);
-                string airp = Qry.FieldAsString(col_airp);
-                TDateTime scd_out = Qry.FieldAsDateTime(col_scd_out);
-                int point_id = Qry.FieldAsInteger(col_point_id);
-                int adult = Qry.FieldAsInteger(col_adult);
-                int child = Qry.FieldAsInteger(col_child);
-                int baby = Qry.FieldAsInteger(col_baby);
-                TClientType client_type = DecodeClientType(Qry.FieldAsString(col_client_type));
-
-                vector<TPact>::iterator iv = result_pacts.begin();
-                for(; iv != result_pacts.end(); iv++) {
-                    if(
-                            scd_out >= iv->first_date and
-                            scd_out < iv->last_date and
-                            airp == iv->airp and
-                            (iv->airline.empty() or iv->airline == airline) and
-                            (iv->airlines.empty() or find(iv->airlines.begin(), iv->airlines.end(), airline) == iv->airlines.end())
-                      )
-                    {
-                        break;
-                    }
-                }
-                TDetailStatKey key;
-                if(iv != result_pacts.end())
-                    key.pact_descr = iv->descr;
-                if(params.airp_column_first) {
-                    key.col1 = ElemIdToCodeNative(etAirp, airp);
-                    if (statType==statDetail)
-                    {
-                        key.col2 = ElemIdToCodeNative(etAirline, airline);
-                        prn_airline.check(key.col2);
-                    };
-                } else {
-                    key.col1 = ElemIdToCodeNative(etAirline, airline);
-                    if (statType==statDetail)
-                    {
-                        key.col2 = ElemIdToCodeNative(etAirp, airp);
-                    };
-                    prn_airline.check(key.col1);
-                }
-
-                TDetailStatRow &row = DetailStat[key];
-                if(row.pax_amount == NoExists) {
-                    row.flts.insert(point_id);
-                    row.pax_amount = adult + child + baby;
-                    row.web = (client_type == ctWeb ? adult + child + baby : 0);
-                    row.kiosk = (client_type == ctKiosk ? adult + child + baby : 0);
-                } else {
-                    row.flts.insert(point_id);
-                    row.pax_amount += adult + child + baby;
-                    row.web += (client_type == ctWeb ? adult + child + baby : 0);
-                    row.kiosk += (client_type == ctKiosk ? adult + child + baby : 0);
-                }
-            }
-        }
-    }
-    createXMLDetailStat(DetailStat, resNode, prn_airline, params, statType, true);
-}
-
-void RunDetailStat(TStatType statType, TStatParams &params, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    TReqInfo &info = *(TReqInfo::Instance());
-    if (info.user.access.airlines.empty() && info.user.access.airlines_permit ||
-            info.user.access.airps.empty() && info.user.access.airps_permit)
-        throw AstraLocale::UserException("MSG.NOT_DATA");
-
-    if (statType==statShort)
-      get_compatible_report_form("ShortStat", reqNode, resNode);
-    else
-      get_compatible_report_form("DetailStat", reqNode, resNode);
-
-    TQuery Qry(&OraSession);
-
-    Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
-    Qry.CreateVariable("LastDate", otDate, params.LastDate);
-    Qry.CreateVariable("web", otString, EncodeClientType(ctWeb));
-    Qry.CreateVariable("kiosk", otString, EncodeClientType(ctKiosk));
-    if (!USE_SEANCES() && params.seance==seanceAirline) Qry.DeclareVariable("ak",otString);
-    if (!USE_SEANCES() && params.seance==seanceAirport) Qry.DeclareVariable("ap",otString);
-    if (USE_SEANCES() && params.seance!=seanceAll)
-        Qry.CreateVariable("pr_airp_seance", otInteger, (int)(params.seance==seanceAirport));
-    if(params.flt_no != NoExists)
-        Qry.CreateVariable("flt_no", otString, params.flt_no);
-
-    TDetailStat DetailStat;
-    TPrintAirline airline;
-
-    for(int pass = 0; pass < 2; pass++) {
-        Qry.SQLText = GetStatSQLText(statType,params,pass!=0).c_str();
-        if(pass != 0)
-            Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
-        ProgTrace(TRACE5, "RunDetailStat: SQL=\n%s", Qry.SQLText.SQLText());
-
-        if (!USE_SEANCES() && params.seance==seanceAirline)
-        {
-          //цикл по компаниям
-          if (params.airlines_permit)
-          {
-            for(vector<string>::iterator i=params.airlines.begin();
-                                         i!=params.airlines.end(); i++)
-            {
-              Qry.SetVariable("ak",*i);
-              GetDetailStat(statType, params, Qry, DetailStat, airline);
-            };
-          };
-          continue;
-        };
-
-        if (!USE_SEANCES() && params.seance==seanceAirport)
-        {
-          //цикл по портам
-          if (params.airps_permit)
-          {
-            for(vector<string>::iterator i=params.airps.begin();
-                                         i!=params.airps.end(); i++)
-            {
-              Qry.SetVariable("ap",*i);
-              GetDetailStat(statType, params, Qry, DetailStat, airline);
-            };
-          };
-          continue;
-        };
-        GetDetailStat(statType, params, Qry, DetailStat, airline);
-    }
-
-    createXMLDetailStat(DetailStat, resNode, airline, params, statType);
-}
-
-struct TFullStatRow {
-    int pax_amount;
-    int web;
-    int kiosk;
-    int adult;
-    int child;
-    int baby;
-    int rk_weight;
-    int bag_amount;
-    int bag_weight;
-    int excess;
-    TFullStatRow():
-        pax_amount(NoExists),
-        web(NoExists),
-        kiosk(NoExists),
-        adult(NoExists),
-        child(NoExists),
-        baby(NoExists),
-        rk_weight(NoExists),
-        bag_amount(NoExists),
-        bag_weight(NoExists),
-        excess(NoExists)
-    {}
 };
 
-struct TStatPlaces {
-    private:
-        string result;
-    public:
-        void set(string aval, bool pr_locale);
-        string get() const;
-};
-
-void TStatPlaces::set(string aval, bool pr_locale)
+void createXMLFullStat(const TStatParams &params, const TFullStat &FullStat, const TPrintAirline &airline, xmlNodePtr resNode)
 {
-    if(not result.empty())
-        throw Exception("TStatPlaces::set(): already set");
-    if(pr_locale) {
-        vector<string> tokens;
-        while(true) {
-            size_t idx = aval.find('-');
-            if(idx == string::npos) break;
-            tokens.push_back(aval.substr(0, idx));
-            aval.erase(0, idx + 1);
-        }
-        tokens.push_back(aval);
-        for(vector<string>::iterator is = tokens.begin(); is != tokens.end(); is++)
-            result += (result.empty() ? "" : "-") + ElemIdToCodeNative(etAirp, *is);
-    } else
-        result = aval;
-}
-
-string TStatPlaces::get() const
-{
-    return result;
-}
-
-struct TFullStatKey {
-    string seance, col1, col2;
-    string airp; // в сортировке не участвует, нужен для AirpTZRegion
-    int flt_no;
-    TDateTime scd_out;
-    int point_id;
-    TStatPlaces places;
-    TFullStatKey():
-        flt_no(NoExists),
-        scd_out(NoExists),
-        point_id(NoExists)
-    {}
-};
-struct TFullCmp {
-    bool operator() (const TFullStatKey &lr, const TFullStatKey &rr) const
-    {
-        if(lr.seance == rr.seance)
-            if(lr.col1 == rr.col1)
-                if(lr.col2 == rr.col2)
-                    if(lr.flt_no == rr.flt_no)
-                        if(lr.scd_out == rr.scd_out)
-                            if(lr.point_id == rr.point_id)
-                                return lr.places.get() < rr.places.get();
-                            else
-                                return lr.point_id < rr.point_id;
-                        else
-                            return lr.scd_out < rr.scd_out;
-                    else
-                        return lr.flt_no < rr.flt_no;
-                else
-                    return lr.col2 < rr.col2;
-            else
-                return lr.col1 < rr.col1;
-        else
-            return lr.seance < rr.seance;
-    };
-};
-typedef map<TFullStatKey, TFullStatRow, TFullCmp> TFullStat;
-
-void GetFullStat(TStatType statType, const TStatParams &params, TQuery &Qry,
-                 TFullStat &FullStat, TPrintAirline &airline)
-{
-  Qry.Execute();
-  if(!Qry.Eof) {
-      int col_seance = Qry.FieldIndex("seance");
-      int col_point_id = Qry.FieldIndex("point_id");
-      int col_airp = Qry.FieldIndex("airp");
-      int col_airline = Qry.FieldIndex("airline");
-      int col_pax_amount = Qry.FieldIndex("pax_amount");
-      int col_web = -1;
-      int col_kiosk = -1;
-      if (statType==statFull)
-      {
-        col_web = Qry.FieldIndex("web");
-        col_kiosk = Qry.FieldIndex("kiosk");
-      };
-      int col_adult = Qry.FieldIndex("adult");
-      int col_child = Qry.FieldIndex("child");
-      int col_baby = Qry.FieldIndex("baby");
-      int col_rk_weight = Qry.FieldIndex("rk_weight");
-      int col_bag_amount = Qry.FieldIndex("bag_amount");
-      int col_bag_weight = Qry.FieldIndex("bag_weight");
-      int col_excess = Qry.FieldIndex("excess");
-      int col_flt_no = Qry.FieldIndex("flt_no");
-      int col_scd_out = Qry.FieldIndex("scd_out");
-      int col_places = Qry.GetFieldIndex("places");
-      int col_part_key = Qry.GetFieldIndex("part_key");
-      for(; !Qry.Eof; Qry.Next()) {
-          TFullStatKey key;
-          key.seance = Qry.FieldAsString(col_seance);
-          key.airp = Qry.FieldAsString(col_airp);
-          if(params.airp_column_first) {
-              key.col1 = ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp));
-              key.col2 = ElemIdToCodeNative(etAirline, Qry.FieldAsString(col_airline));
-              airline.check(key.col2);
-          } else {
-              key.col1 = ElemIdToCodeNative(etAirline, Qry.FieldAsString(col_airline));
-              key.col2 = ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp));
-              airline.check(key.col1);
-          }
-          key.flt_no = Qry.FieldAsInteger(col_flt_no);
-          key.scd_out = Qry.FieldAsDateTime(col_scd_out);
-          key.point_id = Qry.FieldAsInteger(col_point_id);
-          if (statType==statTrferFull)
-            key.places.set(Qry.FieldAsString(col_places), true);
-          else
-            key.places.set(GetRouteAfterStr( col_part_key>=0?Qry.FieldAsDateTime(col_part_key):NoExists,
-                                             Qry.FieldAsInteger(col_point_id),
-                                             trtNotCurrent,
-                                             trtNotCancelled),
-                           false);
-          TFullStatRow &row = FullStat[key];
-          if(row.pax_amount == NoExists) {
-              row.pax_amount = Qry.FieldAsInteger(col_pax_amount);
-              if (statType==statFull)
-              {
-                row.web = Qry.FieldAsInteger(col_web);
-                row.kiosk = Qry.FieldAsInteger(col_kiosk);
-              };
-              row.adult = Qry.FieldAsInteger(col_adult);
-              row.child = Qry.FieldAsInteger(col_child);
-              row.baby = Qry.FieldAsInteger(col_baby);
-              row.rk_weight = Qry.FieldAsInteger(col_rk_weight);
-              row.bag_amount = Qry.FieldAsInteger(col_bag_amount);
-              row.bag_weight = Qry.FieldAsInteger(col_bag_weight);
-              row.excess = Qry.FieldAsInteger(col_excess);
-          } else {
-              row.pax_amount += Qry.FieldAsInteger(col_pax_amount);
-              if (statType==statFull)
-              {
-                row.web += Qry.FieldAsInteger(col_web);
-                row.kiosk += Qry.FieldAsInteger(col_kiosk);
-              };
-              row.adult += Qry.FieldAsInteger(col_adult);
-              row.child += Qry.FieldAsInteger(col_child);
-              row.baby += Qry.FieldAsInteger(col_baby);
-              row.rk_weight += Qry.FieldAsInteger(col_rk_weight);
-              row.bag_amount += Qry.FieldAsInteger(col_bag_amount);
-              row.bag_weight += Qry.FieldAsInteger(col_bag_weight);
-              row.excess += Qry.FieldAsInteger(col_excess);
-          }
-      }
-  }
-};
-
-void RunFullStat(TStatType statType, TStatParams &params, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    TReqInfo &info = *(TReqInfo::Instance());
-    if (info.user.access.airlines.empty() && info.user.access.airlines_permit ||
-            info.user.access.airps.empty() && info.user.access.airps_permit)
-        throw AstraLocale::UserException("MSG.NOT_DATA");
-    if (statType==statFull)
-      get_compatible_report_form("FullStat", reqNode, resNode);
-    else
-      get_compatible_report_form("TrferFullStat", reqNode, resNode);
-
-    TQuery Qry(&OraSession);
-    if(IncMonth(params.FirstDate, 1) < params.LastDate)
-        throw AstraLocale::UserException("MSG.SEARCH_PERIOD_SHOULD_NOT_EXCEED_ONE_MONTH");
-    Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
-    Qry.CreateVariable("LastDate", otDate, params.LastDate);
-    if (statType==statFull)
-    {
-      Qry.CreateVariable("web", otString, EncodeClientType(ctWeb));
-      Qry.CreateVariable("kiosk", otString, EncodeClientType(ctKiosk));
-    };
-    if (!USE_SEANCES() && params.seance==seanceAirline) Qry.DeclareVariable("ak",otString);
-    if (!USE_SEANCES() && params.seance==seanceAirport) Qry.DeclareVariable("ap",otString);
-    if (USE_SEANCES() && params.seance!=seanceAll)
-        Qry.CreateVariable("pr_airp_seance", otInteger, (int)(params.seance==seanceAirport));
-    if(params.flt_no != NoExists)
-        Qry.CreateVariable("flt_no", otString, params.flt_no);
-
-    TFullStat FullStat;
-    TPrintAirline airline;
-
-    for(int pass = 0; pass < 2; pass++) {
-        Qry.SQLText = GetStatSQLText(statType,params,pass!=0).c_str();
-        if(pass != 0)
-            Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
-        ProgTrace(TRACE5, "RunFullStat: SQL=\n%s", Qry.SQLText.SQLText());
-
-        if (!USE_SEANCES() && params.seance==seanceAirline)
-        {
-          //цикл по компаниям
-          if (params.airlines_permit)
-          {
-            for(vector<string>::iterator i=params.airlines.begin();
-                                         i!=params.airlines.end(); i++)
-            {
-              Qry.SetVariable("ak",*i);
-              GetFullStat(statType, params, Qry, FullStat, airline);
-            };
-          };
-          continue;
-        };
-
-        if (!USE_SEANCES() && params.seance==seanceAirport)
-        {
-          //цикл по портам
-          if (params.airps_permit)
-          {
-            for(vector<string>::iterator i=params.airps.begin();
-                                         i!=params.airps.end(); i++)
-            {
-              Qry.SetVariable("ap",*i);
-              GetFullStat(statType, params, Qry, FullStat, airline);
-            };
-          };
-          continue;
-        };
-        GetFullStat(statType, params, Qry, FullStat, airline);
-    }
-
     if(!FullStat.empty()) {
         NewTextChild(resNode, "airline", airline.get(), "");
         xmlNodePtr grdNode = NewTextChild(resNode, "grd");
@@ -3053,7 +3064,7 @@ void RunFullStat(TStatType statType, TStatParams &params, xmlNodePtr reqNode, xm
         SetProp(colNode, "width", 75);
         SetProp(colNode, "align", taRightJustify);
 
-        if (statType==statFull)
+        if (params.statType==statFull)
         {
           colNode = NewTextChild(headerNode, "col", getLocaleText("Web"));
           SetProp(colNode, "width", 35);
@@ -3101,7 +3112,7 @@ void RunFullStat(TStatType statType, TStatParams &params, xmlNodePtr reqNode, xm
         int total_bag_weight = 0;
         int total_excess = 0;
         int count = 0;
-        for(TFullStat::iterator im = FullStat.begin(); im != FullStat.end(); im++) {
+        for(TFullStat::const_iterator im = FullStat.begin(); im != FullStat.end(); im++) {
             string region;
             try
             {
@@ -3118,7 +3129,7 @@ void RunFullStat(TStatType statType, TStatParams &params, xmlNodePtr reqNode, xm
             NewTextChild(rowNode, "col", im->first.col2);
 
             total_pax_amount += im->second.pax_amount;
-            if (statType==statFull)
+            if (params.statType==statFull)
             {
               total_web += im->second.web;
               total_kiosk += im->second.kiosk;
@@ -3139,7 +3150,7 @@ void RunFullStat(TStatType statType, TStatParams &params, xmlNodePtr reqNode, xm
             if (USE_SEANCES())
               NewTextChild(rowNode, "col", getLocaleText(im->first.seance));
             NewTextChild(rowNode, "col", im->second.pax_amount);
-            if (statType==statFull)
+            if (params.statType==statFull)
             {
               NewTextChild(rowNode, "col", im->second.web);
               NewTextChild(rowNode, "col", im->second.kiosk);
@@ -3150,7 +3161,7 @@ void RunFullStat(TStatType statType, TStatParams &params, xmlNodePtr reqNode, xm
             NewTextChild(rowNode, "col", im->second.rk_weight);
             NewTextChild(rowNode, "col", IntToString(im->second.bag_amount) + "/" + IntToString(im->second.bag_weight));
             NewTextChild(rowNode, "col", im->second.excess);
-            if (statType==statTrferFull)
+            if (params.statType==statTrferFull)
               NewTextChild(rowNode, "col", im->first.point_id);
             count++;
             if(count > MAX_STAT_ROWS) {
@@ -3170,7 +3181,7 @@ void RunFullStat(TStatType statType, TStatParams &params, xmlNodePtr reqNode, xm
           NewTextChild(rowNode, "col");
         };
         NewTextChild(rowNode, "col", total_pax_amount);
-        if (statType==statFull)
+        if (params.statType==statFull)
         {
           NewTextChild(rowNode, "col", total_web);
           NewTextChild(rowNode, "col", total_kiosk);
@@ -3184,48 +3195,687 @@ void RunFullStat(TStatType statType, TStatParams &params, xmlNodePtr reqNode, xm
     } else
         throw AstraLocale::UserException("MSG.NOT_DATA");
     xmlNodePtr variablesNode = STAT::set_variables(resNode);
-    if (statType==statFull)
+    if (params.statType==statFull)
       NewTextChild(variablesNode, "caption", getLocaleText("Подробная сводка"));
     else
       NewTextChild(variablesNode, "caption", getLocaleText("Трансферная сводка"));
+};
+
+void RunPactDetailStat(bool pr_new, const TStatParams &params,
+                       TDetailStat &DetailStat, TPrintAirline &prn_airline)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "select\n"
+        "    descr,\n"
+        "    airline,\n"
+        "    airp,\n"
+        "    DECODE(SIGN(first_date-:FirstDate),1,first_date,:FirstDate) AS first_date,\n"
+        "    DECODE(SIGN(last_date- :LastDate),-1,last_date, :LastDate) AS last_date\n"
+        "from pacts where\n"
+        "  first_date >= :FirstDate and first_date < :LastDate or\n"
+        "  last_date >= :FirstDate and last_date < :LastDate or\n"
+        "  first_date < :FirstDate and (last_date >= :LastDate or last_date is null)\n"
+        "order by \n"
+        "  airline nulls first \n";
+
+    Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
+    Qry.CreateVariable("LastDate", otDate, params.LastDate);
+    Qry.Execute();
+    map<string, vector<TPact> > airp_pacts;
+    vector<TPact> result_pacts;
+    for(; !Qry.Eof; Qry.Next()) {
+        TPact pact(
+                Qry.FieldAsString("descr"),
+                Qry.FieldAsString("airline"),
+                Qry.FieldAsString("airp"),
+                Qry.FieldAsDateTime("first_date"),
+                Qry.FieldAsDateTime("last_date")
+                );
+        if(pact.airline.empty())
+            airp_pacts[pact.airp].push_back(pact);
+        else {
+            /*
+            ProgTrace(TRACE5, "before correct_airp_pacts:");
+            ProgTrace(TRACE5, "descr: %s, first_date: %s, last_date: %s",
+                    pact.descr.c_str(),
+                    DateTimeToStr(pact.first_date, "ddmmyy").c_str(),
+                    DateTimeToStr(pact.last_date, "ddmmyy").c_str()
+                    );*/
+            /*
+            for(map<string, vector<TPact> >::iterator im = airp_pacts.begin(); im != airp_pacts.end(); im++)
+                correct_airp_pacts(im->second, pact);
+                */
+            correct_airp_pacts(airp_pacts[pact.airp], pact);
+
+            result_pacts.push_back(pact);
+        }
+    }
+    /*
+    ProgTrace(TRACE5, "AIRP_PACTS:");
+    for(map<string, vector<TPact> >::iterator im = airp_pacts.begin(); im != airp_pacts.end(); im++) {
+        ProgTrace(TRACE5, "airp: %s", im->first.c_str());
+        ProgTrace(TRACE5, "periods:");
+        for(vector<TPact>::iterator iv = im->second.begin(); iv != im->second.end(); iv++) {
+            ProgTrace(TRACE5, "first_date: %s, last_date: %s",
+                    DateTimeToStr(iv->first_date, "ddmmyy").c_str(),
+                    DateTimeToStr(iv->last_date, "ddmmyy").c_str()
+                    );
+            string denied;
+            for(set<string>::iterator is = iv->airlines.begin(); is != iv->airlines.end(); is++) {
+                if(not denied.empty())
+                    denied += ", ";
+                denied += *is;
+            }
+            ProgTrace(TRACE5, "denied airlines: %s", denied.c_str());
+        }
+    }
+    */
+    for(map<string, vector<TPact> >::iterator im = airp_pacts.begin(); im != airp_pacts.end(); im++) {
+        if(im->second.empty())
+            continue;
+        result_pacts.insert(result_pacts.end(), im->second.begin(), im->second.end());
+    }
+
+    Qry.Clear();
+    for(int pass = 0; pass <= (pr_new?2:1); pass++) {
+      if (pr_new)
+      {
+        ostringstream sql;
+        sql << "SELECT \n"
+               " points.airline, \n"
+               " points.airp, \n"
+               " points.scd_out, \n"
+               " stat.point_id, \n"
+               " adult, \n"
+               " child, \n"
+               " baby, \n"
+               " client_type \n"
+               "FROM \n";
+        if (pass!=0)
+        {
+          sql << " arx_points points, \n"
+                 " arx_stat stat \n";
+          if (pass==2)
+            sql << ",(SELECT part_key, move_id FROM move_arx_ext \n"
+                   "  WHERE part_key >= :last_date+:arx_trip_date_range AND part_key <= :last_date+date_range) arx_ext \n";
+        }
+        else
+          sql << " points, \n"
+                 " stat \n";
+        sql << "WHERE \n";
+        if (pass==1)
+          sql << " points.part_key >= :first_date AND points.part_key < :last_date + :arx_trip_date_range AND \n";
+        if (pass==2)
+          sql << " points.part_key=arx_ext.part_key AND points.move_id=arx_ext.move_id AND \n";
+        if (pass!=0)
+          sql << " stat.part_key = points.part_key AND \n";
+        sql << " stat.point_id = points.point_id AND \n"
+               " points.pr_del>=0 AND \n"
+               " points.scd_out >= :first_date AND points.scd_out < :last_date \n";
+               
+        if(params.flt_no != NoExists) {
+          sql << " AND points.flt_no = :flt_no \n";
+          Qry.CreateVariable("flt_no", otInteger, params.flt_no);
+        }
+        if (!params.airps.empty()) {
+          if (params.airps_permit)
+            sql << " AND points.airp IN " << GetSQLEnum(params.airps) << "\n";
+          else
+            sql << " AND points.airp NOT IN " << GetSQLEnum(params.airps) << "\n";
+        };
+        if (!params.airlines.empty()) {
+          if (params.airlines_permit)
+            sql << " AND points.airline IN " << GetSQLEnum(params.airlines) << "\n";
+          else
+            sql << " AND points.airline NOT IN " << GetSQLEnum(params.airlines) << "\n";
+        };
+
+        //ProgTrace(TRACE5, "RunPactDetailStat: pass=%d SQL=\n%s", pass, sql.str().c_str());
+        Qry.SQLText = sql.str().c_str();
+        if (pass!=0)
+          Qry.CreateVariable("arx_trip_date_range", otInteger, ARX_TRIP_DATE_RANGE());
+      }
+      else
+      {
+        string SQLText =
+            "select "
+            "   points.airline, "
+            "   points.airp, "
+            "   points.scd_out, "
+            "   stat.point_id, "
+            "   adult, "
+            "   child, "
+            "   baby, "
+            "   client_type "
+            "from ";
+        if(pass)
+            SQLText +=
+                "   arx_points points, "
+                "   arx_stat stat ";
+        else
+            SQLText +=
+                "   points, "
+                "   stat ";
+        SQLText +=
+            "where "
+            "   points.point_id = stat.point_id and "
+            "   points.pr_del>=0 and "
+            "   points.scd_out >= :first_date AND "
+            "   points.scd_out < :last_date ";
+        if(pass) {
+            SQLText +=
+                "   and points.part_key = stat.part_key and "
+                "   points.part_key >= :first_date AND points.part_key < :last_date + :arx_trip_date_range ";
+            Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
+        }
+        if(params.flt_no != NoExists) {
+            SQLText += " and points.flt_no = :flt_no ";
+            Qry.CreateVariable("flt_no", otInteger, params.flt_no);
+        }
+        if (!params.airps.empty()) {
+            if (params.airps_permit)
+                SQLText += " AND points.airp IN "+GetSQLEnum(params.airps)+"\n";
+            else
+                SQLText += " AND points.airp NOT IN "+GetSQLEnum(params.airps)+"\n";
+        };
+        if (!params.airlines.empty()) {
+            if (params.airlines_permit)
+                SQLText += " AND points.airline IN "+GetSQLEnum(params.airlines)+"\n";
+            else
+                SQLText += " AND points.airline NOT IN "+GetSQLEnum(params.airlines)+"\n";
+        }
+
+        Qry.SQLText = SQLText;
+      };
+        
+        Qry.CreateVariable("first_date", otDate, params.FirstDate);
+        Qry.CreateVariable("last_date", otDate, params.LastDate);
+        Qry.Execute();
+        if(not Qry.Eof) {
+            int col_airline = Qry.FieldIndex("airline");
+            int col_airp = Qry.FieldIndex("airp");
+            int col_scd_out = Qry.FieldIndex("scd_out");
+            int col_point_id = Qry.FieldIndex("point_id");
+            int col_adult = Qry.FieldIndex("adult");
+            int col_child = Qry.FieldIndex("child");
+            int col_baby = Qry.FieldIndex("baby");
+            int col_client_type = Qry.FieldIndex("client_type");
+            for(; not Qry.Eof; Qry.Next()) {
+
+                string airline = Qry.FieldAsString(col_airline);
+                string airp = Qry.FieldAsString(col_airp);
+                TDateTime scd_out = Qry.FieldAsDateTime(col_scd_out);
+                int point_id = Qry.FieldAsInteger(col_point_id);
+                int adult = Qry.FieldAsInteger(col_adult);
+                int child = Qry.FieldAsInteger(col_child);
+                int baby = Qry.FieldAsInteger(col_baby);
+                TClientType client_type = DecodeClientType(Qry.FieldAsString(col_client_type));
+
+                vector<TPact>::iterator iv = result_pacts.begin();
+                for(; iv != result_pacts.end(); iv++) {
+                    if(
+                            scd_out >= iv->first_date and
+                            scd_out < iv->last_date and
+                            airp == iv->airp and
+                            (iv->airline.empty() or iv->airline == airline) and
+                            (iv->airlines.empty() or find(iv->airlines.begin(), iv->airlines.end(), airline) == iv->airlines.end())
+                      )
+                    {
+                        break;
+                    }
+                }
+                TDetailStatKey key;
+                if(iv != result_pacts.end())
+                    key.pact_descr = iv->descr;
+                if(params.airp_column_first) {
+                    key.col1 = ElemIdToCodeNative(etAirp, airp);
+                    if (params.statType==statDetail)
+                    {
+                        key.col2 = ElemIdToCodeNative(etAirline, airline);
+                        prn_airline.check(key.col2);
+                    };
+                } else {
+                    key.col1 = ElemIdToCodeNative(etAirline, airline);
+                    if (params.statType==statDetail)
+                    {
+                        key.col2 = ElemIdToCodeNative(etAirp, airp);
+                    };
+                    prn_airline.check(key.col1);
+                }
+
+                TDetailStatRow &row = DetailStat[key];
+                if(row.pax_amount == NoExists) {
+                    row.flts.insert(point_id);
+                    row.pax_amount = adult + child + baby;
+                    row.web = (client_type == ctWeb ? adult + child + baby : 0);
+                    row.kiosk = (client_type == ctKiosk ? adult + child + baby : 0);
+                } else {
+                    row.flts.insert(point_id);
+                    row.pax_amount += adult + child + baby;
+                    row.web += (client_type == ctWeb ? adult + child + baby : 0);
+                    row.kiosk += (client_type == ctKiosk ? adult + child + baby : 0);
+                }
+            }
+        }
+    }
 }
+
+void RunDetailStat(bool pr_new, const TStatParams &params,
+                   TDetailStat &DetailStat, TPrintAirline &airline)
+{
+    TQuery Qry(&OraSession);
+    Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
+    Qry.CreateVariable("LastDate", otDate, params.LastDate);
+    Qry.CreateVariable("web", otString, EncodeClientType(ctWeb));
+    Qry.CreateVariable("kiosk", otString, EncodeClientType(ctKiosk));
+    if (!USE_SEANCES() && params.seance==seanceAirline) Qry.DeclareVariable("ak",otString);
+    if (!USE_SEANCES() && params.seance==seanceAirport) Qry.DeclareVariable("ap",otString);
+    if (USE_SEANCES() && params.seance!=seanceAll)
+        Qry.CreateVariable("pr_airp_seance", otInteger, (int)(params.seance==seanceAirport));
+    if(params.flt_no != NoExists)
+        Qry.CreateVariable("flt_no", otString, params.flt_no);
+
+    for(int pass = 0; pass <= (pr_new?2:1); pass++) {
+        if (pr_new)
+          Qry.SQLText = GetStatSQLText(params,pass).c_str();
+        else
+          Qry.SQLText = GetStatSQLText(params,pass!=0).c_str();
+        if (pass!=0)
+          Qry.CreateVariable("arx_trip_date_range", otInteger, pr_new?ARX_TRIP_DATE_RANGE():arx_trip_date_range);
+        //ProgTrace(TRACE5, "RunDetailStat: pass=%d SQL=\n%s", pass, Qry.SQLText.SQLText());
+
+        if (!USE_SEANCES() && params.seance==seanceAirline)
+        {
+          //цикл по компаниям
+          if (params.airlines_permit)
+          {
+            for(vector<string>::const_iterator i=params.airlines.begin();
+                                               i!=params.airlines.end(); i++)
+            {
+              Qry.SetVariable("ak",*i);
+              GetDetailStat(params, Qry, DetailStat, airline);
+            };
+          };
+          continue;
+        };
+
+        if (!USE_SEANCES() && params.seance==seanceAirport)
+        {
+          //цикл по портам
+          if (params.airps_permit)
+          {
+            for(vector<string>::const_iterator i=params.airps.begin();
+                                               i!=params.airps.end(); i++)
+            {
+              Qry.SetVariable("ap",*i);
+              GetDetailStat(params, Qry, DetailStat, airline);
+            };
+          };
+          continue;
+        };
+        GetDetailStat(params, Qry, DetailStat, airline);
+    }
+};
+
+void RunFullStat(bool pr_new, const TStatParams &params,
+                 TFullStat &FullStat, TPrintAirline &airline)
+{
+    TQuery Qry(&OraSession);
+    Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
+    Qry.CreateVariable("LastDate", otDate, params.LastDate);
+    if (params.statType==statFull)
+    {
+      Qry.CreateVariable("web", otString, EncodeClientType(ctWeb));
+      Qry.CreateVariable("kiosk", otString, EncodeClientType(ctKiosk));
+    };
+    if (!USE_SEANCES() && params.seance==seanceAirline) Qry.DeclareVariable("ak",otString);
+    if (!USE_SEANCES() && params.seance==seanceAirport) Qry.DeclareVariable("ap",otString);
+    if (USE_SEANCES() && params.seance!=seanceAll)
+        Qry.CreateVariable("pr_airp_seance", otInteger, (int)(params.seance==seanceAirport));
+    if(params.flt_no != NoExists)
+        Qry.CreateVariable("flt_no", otString, params.flt_no);
+
+    for(int pass = 0; pass <= (pr_new?2:1); pass++) {
+        if (pr_new)
+          Qry.SQLText = GetStatSQLText(params,pass).c_str();
+        else
+          Qry.SQLText = GetStatSQLText(params,pass!=0).c_str();
+        if (pass!=0)
+          Qry.CreateVariable("arx_trip_date_range", otInteger, pr_new?ARX_TRIP_DATE_RANGE():arx_trip_date_range);
+        //ProgTrace(TRACE5, "RunFullStat: pass=%d SQL=\n%s", pass, Qry.SQLText.SQLText());
+
+        if (!USE_SEANCES() && params.seance==seanceAirline)
+        {
+          //цикл по компаниям
+          if (params.airlines_permit)
+          {
+            for(vector<string>::const_iterator i=params.airlines.begin();
+                                               i!=params.airlines.end(); i++)
+            {
+              Qry.SetVariable("ak",*i);
+              GetFullStat(params, Qry, FullStat, airline);
+            };
+          };
+          continue;
+        };
+
+        if (!USE_SEANCES() && params.seance==seanceAirport)
+        {
+          //цикл по портам
+          if (params.airps_permit)
+          {
+            for(vector<string>::const_iterator i=params.airps.begin();
+                                               i!=params.airps.end(); i++)
+            {
+              Qry.SetVariable("ap",*i);
+              GetFullStat(params, Qry, FullStat, airline);
+            };
+          };
+          continue;
+        };
+        GetFullStat(params, Qry, FullStat, airline);
+    }
+};
 
 void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
     if(find( reqInfo->user.access.rights.begin(),
-                reqInfo->user.access.rights.end(), 600 ) == reqInfo->user.access.rights.end())
-        throw AstraLocale::UserException("MSG.INSUFFICIENT_RIGHTS.NOT_ACCESS");
-
-    string name = NodeAsString("stat_mode", reqNode);
-
+             reqInfo->user.access.rights.end(), 600 ) == reqInfo->user.access.rights.end())
+      throw AstraLocale::UserException("MSG.INSUFFICIENT_RIGHTS.NOT_ACCESS");
+      
+    if (reqInfo->user.access.airlines.empty() && reqInfo->user.access.airlines_permit ||
+        reqInfo->user.access.airps.empty() && reqInfo->user.access.airps_permit)
+      throw AstraLocale::UserException("MSG.NOT_DATA");
+          
     TStatParams params;
     params.get(reqNode);
-    bool pr_pacts =
-        find( reqInfo->user.access.rights.begin(), reqInfo->user.access.rights.end(), 605 ) != reqInfo->user.access.rights.end() and
-        params.seance == seanceAll and not USE_SEANCES();
+    
+    if (params.statType==statFull || params.statType==statTrferFull)
+    {
+      if(IncMonth(params.FirstDate, 1) < params.LastDate)
+        throw AstraLocale::UserException("MSG.SEARCH_PERIOD_SHOULD_NOT_EXCEED_ONE_MONTH");
+    };
 
-    try {
-        if(name == "Подробная") RunFullStat(statFull, params, reqNode, resNode);
-        else if(name == "Общая") {
-            if(pr_pacts)
-                RunPactDetailStat(statShort, params, reqNode, resNode);
-            else
-                RunDetailStat(statShort, params, reqNode, resNode);
-        } else if(name == "Детализированная") {
-            if(pr_pacts)
-                RunPactDetailStat(statDetail, params, reqNode, resNode);
-            else
-                RunDetailStat(statDetail, params, reqNode, resNode);
-        } else if(name == "Трансфер") RunFullStat(statTrferFull, params, reqNode, resNode);
-        else throw Exception("Unknown stat mode " + name);
-    } catch (EOracleError &E) {
+    switch(params.statType)
+    {
+      case statFull:
+        get_compatible_report_form("FullStat", reqNode, resNode);
+        break;
+      case statTrferFull:
+        get_compatible_report_form("TrferFullStat", reqNode, resNode);
+        break;
+      case statShort:
+        get_compatible_report_form("ShortStat", reqNode, resNode);
+        break;
+      case statDetail:
+        get_compatible_report_form("DetailStat", reqNode, resNode);
+        break;
+    };
+        
+
+    try
+    {
+        if (params.statType==statShort || params.statType==statDetail)
+        {
+          bool pr_pacts =
+            find( reqInfo->user.access.rights.begin(), reqInfo->user.access.rights.end(), 605 ) != reqInfo->user.access.rights.end() and
+            params.seance == seanceAll and not USE_SEANCES();
+        
+          TDetailStat DetailStat;
+          TPrintAirline airline;
+
+          if (pr_pacts)
+            RunPactDetailStat(true, params, DetailStat, airline);
+          else
+            RunDetailStat(true, params, DetailStat, airline);
+
+          createXMLDetailStat(params, pr_pacts, DetailStat, airline, resNode);
+        };
+        if (params.statType==statFull || params.statType==statTrferFull)
+        {
+          TFullStat FullStat;
+          TPrintAirline airline;
+
+          RunFullStat(true, params, FullStat, airline);
+
+          createXMLFullStat(params, FullStat, airline, resNode);
+        };
+    }
+    catch (EOracleError &E)
+    {
         if(E.Code == 376)
             throw AstraLocale::UserException("MSG.ONE_OF_DB_FILES_UNAVAILABLE.CALL_ADMIN");
         else
             throw;
     }
 }
+
+void StatInterface::TestRunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  ProgTrace(TRACE5, "TestRunStat: started");
+
+  TDateTime min_part_key, max_part_key;
+  GetMinMaxPartKey("TestRunStat", min_part_key, max_part_key);
+  if (min_part_key==NoExists || max_part_key==NoExists) return;
+  
+  StrToDateTime("01.01.2011","dd.mm.yyyy",min_part_key);
+  max_part_key=max_part_key+120;
+  
+  vector<string> pact_airlines, pact_airps;
+  
+/*  pact_airlines.push_back("ЮТ");
+  pact_airlines.push_back("ЮР");
+  pact_airlines.push_back("ЛА");
+  pact_airlines.push_back("ПО");
+  pact_airps.push_back("ВНК");
+  pact_airps.push_back("ДМД");
+  pact_airps.push_back("РЩН");
+  pact_airps.push_back("СУР");*/
+  
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT DISTINCT airline FROM pacts WHERE airline IS NOT NULL";
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+    pact_airlines.push_back(Qry.FieldAsString("airline"));
+    
+  Qry.SQLText=
+    "SELECT DISTINCT airp FROM pacts WHERE airp IS NOT NULL";
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+    pact_airps.push_back(Qry.FieldAsString("airp"));
+  
+
+  TReqInfo *reqInfo = TReqInfo::Instance();
+    
+  TStatParams params;
+
+  params.flt_no=NoExists;
+  
+  TDetailStat DetailStat[2];
+  TFullStat FullStat[2];
+  string error[2];
+  TPrintAirline airline;
+  
+  int days=0;
+  for(TDateTime curr_part_key=min_part_key; curr_part_key<=max_part_key; curr_part_key+=1.0)
+  {
+    params.FirstDate=curr_part_key;
+    params.LastDate=curr_part_key+1.0;
+    for(params.seance=seanceAirline; params.seance<=seanceAll; params.seance=(TSeanceType)(params.seance+1))
+    {
+      if (params.seance==seanceAll)
+      {
+        params.airlines.assign(reqInfo->user.access.airlines.begin(),reqInfo->user.access.airlines.end());
+        params.airlines_permit=reqInfo->user.access.airlines_permit;
+        params.airps.assign(reqInfo->user.access.airps.begin(),reqInfo->user.access.airps.end());
+        params.airps_permit=reqInfo->user.access.airps_permit;
+      }
+      else
+      {
+        params.airlines.assign(pact_airlines.begin(),pact_airlines.end());
+        params.airlines_permit=true;
+        params.airps.assign(pact_airps.begin(),pact_airps.end());
+        params.airps_permit=true;
+      };
+    
+      for(params.statType=statTrferFull; params.statType<=statDetail; params.statType=(TStatType)(params.statType+1))
+      {
+        for(int airp_column_first=0;airp_column_first<=1;airp_column_first++)
+        {
+          params.airp_column_first=(bool)airp_column_first;
+          
+          int pr_pacts=(params.statType==statShort || params.statType==statDetail)?0:1;
+          for(;pr_pacts<=1;pr_pacts++)
+          {
+            if (pr_pacts!=0 && params.seance!=seanceAll) continue;
+            for(int pr_new=0;pr_new<=1;pr_new++)
+            {
+              DetailStat[pr_new].clear();
+              FullStat[pr_new].clear();
+              error[pr_new].clear();
+              try
+              {
+                if (params.statType==statShort || params.statType==statDetail)
+                {
+                  if (pr_pacts!=0)
+                    RunPactDetailStat((bool)pr_new, params, DetailStat[pr_new], airline);
+                  else
+                    RunDetailStat((bool)pr_new, params, DetailStat[pr_new], airline);
+                }
+                else
+                {
+                  RunFullStat((bool)pr_new, params, FullStat[pr_new], airline);
+                };
+              }
+              catch(Exception &e)
+              {
+                error[pr_new]=e.what();
+              }
+              catch(...)
+              {
+                error[pr_new]="unknown error";
+              };
+            };
+            /*
+            if (params.statType==statShort || params.statType==statDetail)
+              ProgTrace(TRACE5, "TestRunStat: first_date=%s last_date=%s seance=%d statType=%s airp_column_first=%s pr_pacts=%s size1=%d size2=%d error1=%s error2=%s",
+                                DateTimeToStr(params.FirstDate, ServerFormatDateTimeAsString).c_str(),
+                                DateTimeToStr(params.LastDate, ServerFormatDateTimeAsString).c_str(),
+                                (int)params.seance,
+                                (params.statType==statShort?"statShort":"statDetail"),
+                                (params.airp_column_first?"true":"false"),
+                                (pr_pacts!=0?"true":"false"),
+                                DetailStat[0].size(),
+                                DetailStat[1].size(),
+                                error[0].c_str(),
+                                error[1].c_str());
+            else
+              ProgTrace(TRACE5, "TestRunStat: first_date=%s last_date=%s seance=%d statType=%s airp_column_first=%s pr_pacts=%s size1=%d size2=%d error1=%s error2=%s",
+                                DateTimeToStr(params.FirstDate, ServerFormatDateTimeAsString).c_str(),
+                                DateTimeToStr(params.LastDate, ServerFormatDateTimeAsString).c_str(),
+                                (int)params.seance,
+                                (params.statType==statFull?"statFull":"statTrferFull"),
+                                (params.airp_column_first?"true":"false"),
+                                (pr_pacts!=0?"true":"false"),
+                                FullStat[0].size(),
+                                FullStat[1].size(),
+                                error[0].c_str(),
+                                error[1].c_str());
+            */
+
+            if (params.statType==statShort || params.statType==statDetail)
+            {
+              pair<TDetailStat::const_iterator, TDetailStat::const_iterator> diff;
+              if (!EqualCollections("TestRunStat", DetailStat[0], DetailStat[1], error[0], error[1], diff))
+              {
+                 if (diff.first!=DetailStat[0].end())
+                   ProgError(STDLOG, "TestRunStat:  pact_descr=%s seance=%s col1=%s col2=%s flt_amount=%d pax_amount=%d web=%d kiosk=%d",
+                                     diff.first->first.pact_descr.c_str(), diff.first->first.seance.c_str(), diff.first->first.col1.c_str(), diff.first->first.col2.c_str(),
+                                     diff.first->second.flt_amount, diff.first->second.pax_amount, diff.first->second.web, diff.first->second.kiosk);
+                 if (diff.second!=DetailStat[1].end())
+                   ProgError(STDLOG, "TestRunStat:  pact_descr=%s seance=%s col1=%s col2=%s flt_amount=%d pax_amount=%d web=%d kiosk=%d",
+                                     diff.second->first.pact_descr.c_str(), diff.second->first.seance.c_str(), diff.second->first.col1.c_str(), diff.second->first.col2.c_str(),
+                                     diff.second->second.flt_amount, diff.second->second.pax_amount, diff.second->second.web, diff.second->second.kiosk);
+                 ProgError(STDLOG, "TestRunStat: first_date=%s last_date=%s seance=%d statType=%s airp_column_first=%s pr_pacts=%s",
+                                   DateTimeToStr(params.FirstDate, ServerFormatDateTimeAsString).c_str(),
+                                   DateTimeToStr(params.LastDate, ServerFormatDateTimeAsString).c_str(),
+                                   (int)params.seance,
+                                   (params.statType==statShort?"statShort":"statDetail"),
+                                   (params.airp_column_first?"true":"false"),
+                                   (pr_pacts!=0?"true":"false"));
+                                   
+              };
+            };
+            if (params.statType==statTrferFull || params.statType==statFull)
+            {
+              pair<TFullStat::const_iterator, TFullStat::const_iterator> diff;
+              if (!EqualCollections("TestRunStat", FullStat[0], FullStat[1], error[0], error[1], diff))
+              {
+                 if (diff.first!=FullStat[0].end())
+                   ProgError(STDLOG, "TestRunStat: seance=%s col1=%s col2=%s airp=%s flt_no=%d scd_out=%s point_id=%d places=%s %d %d %d %d %d %d %d %d %d %d",
+                                     diff.first->first.seance.c_str(),
+                                     diff.first->first.col1.c_str(),
+                                     diff.first->first.col2.c_str(),
+                                     diff.first->first.airp.c_str(),
+                                     diff.first->first.flt_no,
+                                     DateTimeToStr(diff.first->first.scd_out, ServerFormatDateTimeAsString).c_str(),
+                                     diff.first->first.point_id,
+                                     diff.first->first.places.get().c_str(),
+                                     diff.first->second.pax_amount,
+                                     diff.first->second.web,
+                                     diff.first->second.kiosk,
+                                     diff.first->second.adult,
+                                     diff.first->second.child,
+                                     diff.first->second.baby,
+                                     diff.first->second.rk_weight,
+                                     diff.first->second.bag_amount,
+                                     diff.first->second.bag_weight,
+                                     diff.first->second.excess);
+                 if (diff.second!=FullStat[1].end())
+                   ProgError(STDLOG, "TestRunStat: seance=%s col1=%s col2=%s airp=%s flt_no=%d scd_out=%s point_id=%d places=%s %d %d %d %d %d %d %d %d %d %d",
+                                     diff.second->first.seance.c_str(),
+                                     diff.second->first.col1.c_str(),
+                                     diff.second->first.col2.c_str(),
+                                     diff.second->first.airp.c_str(),
+                                     diff.second->first.flt_no,
+                                     DateTimeToStr(diff.second->first.scd_out, ServerFormatDateTimeAsString).c_str(),
+                                     diff.second->first.point_id,
+                                     diff.second->first.places.get().c_str(),
+                                     diff.second->second.pax_amount,
+                                     diff.second->second.web,
+                                     diff.second->second.kiosk,
+                                     diff.second->second.adult,
+                                     diff.second->second.child,
+                                     diff.second->second.baby,
+                                     diff.second->second.rk_weight,
+                                     diff.second->second.bag_amount,
+                                     diff.second->second.bag_weight,
+                                     diff.second->second.excess);
+                 ProgError(STDLOG, "TestRunStat: first_date=%s last_date=%s seance=%d statType=%s airp_column_first=%s",
+                                   DateTimeToStr(params.FirstDate, ServerFormatDateTimeAsString).c_str(),
+                                   DateTimeToStr(params.LastDate, ServerFormatDateTimeAsString).c_str(),
+                                   (int)params.seance,
+                                   (params.statType==statFull?"statFull":"statTrferFull"),
+                                   (params.airp_column_first?"true":"false"));
+
+              };
+            };
+          };
+        };
+      };
+    };
+  
+    days++;
+    /*if (days % 30 == 0)*/ ProgTrace(TRACE5, "TestRunStat: curr_part_key=%s",
+                                              DateTimeToStr(curr_part_key, ServerFormatDateTimeAsString).c_str());
+  };
+
+  ProgTrace(TRACE5, "TestRunStat: finished");
+};
 
 void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -3282,177 +3932,131 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     int count = 0;
     xmlNodePtr paxListNode = NULL;
     xmlNodePtr rowsNode = NULL;
-    for(int i = 0; (i < 2) && (count < MAX_STAT_ROWS); i++) {
-        string SQLText;
-        if(i == 0) {
-            ProgTrace(TRACE5, "PaxSrcRun: current base qry");
-            SQLText =
-                "SELECT "
-                "   null part_key, "
-                "   pax_grp.point_dep point_id, "
-                "   points.airline, "
-                "   points.flt_no, "
-                "   points.suffix, "
-                "   points.airline_fmt, "
-                "   points.airp_fmt, "
-                "   points.suffix_fmt, "
-                "   points.airp, "
-                "   points.scd_out, "
-                "   NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out, "
-                "   pax.reg_no, "
-                "   pax_grp.airp_arv, "
-                "   pax.surname||' '||pax.name full_name, "
-                "   NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_amount, "
-                "   NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_weight, "
-                "   NVL(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) rk_weight, "
-                "   NVL(ckin.get_excess(pax.grp_id,pax.pax_id),0) excess, "
-                "   pax_grp.grp_id, "
-                "   ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:pr_lat) tags, "
-                "   pax.pr_brd, "
-                "   pax.refuse, "
-                "   pax_grp.class_grp, "
-                "   salons.get_seat_no(pax.pax_id, pax.seats, pax_grp.status, pax_grp.point_dep, 'seats', rownum) seat_no, "
-                "   pax_grp.hall, "
-                "   pax.ticket_no, "
-                "   pax.pax_id "
-                "FROM  pax_grp,pax, points ";
-            if(!document.empty())
-                SQLText +=
-                    " , pax_doc ";
-            if(!tag_no.empty())
-                SQLText +=
-                    " , bag_tags ";
-            SQLText +=
-                "WHERE "
-                "   points.scd_out >= :FirstDate AND points.scd_out < :LastDate and "
-                "   points.point_id = pax_grp.point_dep and points.pr_del>=0 and "
-                "   pax_grp.grp_id=pax.grp_id ";
-            if(!document.empty())
-                SQLText +=
-                    " and pax.pax_id = pax_doc.pax_id and "
-                    " pax_doc.no like '%'||:document||'%' ";
-            if(!tag_no.empty())
-                SQLText +=
-                    " and pax_grp.grp_id = bag_tags.grp_id and "
-                    " bag_tags.no like '%'||:tag_no ";
-            if (!info.user.access.airps.empty()) {
-                if (info.user.access.airps_permit)
-                    SQLText += " AND points.airp IN "+GetSQLEnum(info.user.access.airps);
-                else
-                    SQLText += " AND points.airp NOT IN "+GetSQLEnum(info.user.access.airps);
-            }
-            if (!info.user.access.airlines.empty()) {
-                if (info.user.access.airlines_permit)
-                    SQLText += " AND points.airline IN "+GetSQLEnum(info.user.access.airlines);
-                else
-                    SQLText += " AND points.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
-            }
-            if(!airline.empty())
-                SQLText += " and points.airline = :airline ";
-            if(!city.empty())
-                SQLText += " and pax_grp.airp_arv = :city ";
-            if(!flt_no.empty())
-                SQLText += " and points.flt_no = :flt_no ";
-            if(!surname.empty()) {
-                if(FirstDate + 1 < LastDate && surname.size() < 4)
-                    SQLText += " and pax.surname = :surname ";
-                else
-                    SQLText += " and pax.surname like :surname||'%' ";
-            }
-            if(!ticket_no.empty())
-                SQLText += " and pax.ticket_no like '%'||:ticket_no||'%' ";
-        } else {
-            ProgTrace(TRACE5, "PaxSrcRun: arx base qry");
-            SQLText =
-                "SELECT "
-                "   arx_points.part_key, "
-                "   arx_pax_grp.point_dep point_id, "
-                "   arx_points.airline, "
-                "   arx_points.flt_no, "
-                "   arx_points.suffix, "
-                "   arx_points.airline_fmt, "
-                "   arx_points.airp_fmt, "
-                "   arx_points.suffix_fmt, "
-                "   arx_points.airp, "
-                "   arx_points.scd_out, "
-                "   NVL(arx_points.act_out,NVL(arx_points.est_out,arx_points.scd_out)) AS real_out, "
-                "   arx_pax.reg_no, "
-                "   arx_pax_grp.airp_arv, "
-                "   arx_pax.surname||' '||arx_pax.name full_name, "
-                "   NVL(arch.get_bagAmount(arx_pax.part_key,arx_pax.grp_id,arx_pax.pax_id,rownum),0) bag_amount, "
-                "   NVL(arch.get_bagWeight(arx_pax.part_key,arx_pax.grp_id,arx_pax.pax_id,rownum),0) bag_weight, "
-                "   NVL(arch.get_rkWeight(arx_pax.part_key,arx_pax.grp_id,arx_pax.pax_id,rownum),0) rk_weight, "
-                "   NVL(arch.get_excess(arx_pax.part_key,arx_pax.grp_id,arx_pax.pax_id),0) excess, "
-                "   arx_pax_grp.grp_id, "
-                "   arch.get_birks(arx_pax.part_key,arx_pax.grp_id,arx_pax.pax_id,:pr_lat) tags, "
-                "   arx_pax.refuse, "
-                "   arx_pax.pr_brd, "
-                "   arx_pax_grp.class_grp, "
-                "   LPAD(seat_no,3,'0')|| "
-                "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') seat_no, "
-                "   arx_pax_grp.hall, "
-                "   arx_pax.ticket_no, "
-                "   arx_pax.pax_id "
-                "FROM  arx_pax_grp,arx_pax, arx_points ";
-            if(!document.empty())
-                SQLText +=
-                    " , arx_pax_doc ";
-            if(!tag_no.empty())
-                SQLText +=
-                    " , arx_bag_tags ";
-            SQLText +=
-                "WHERE "
-                "   arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
-                "   arx_points.part_key = arx_pax_grp.part_key and "
-                "   arx_points.point_id = arx_pax_grp.point_dep and arx_points.pr_del>=0 and "
-                "   arx_pax_grp.part_key = arx_pax.part_key and "
-                "   arx_pax_grp.grp_id=arx_pax.grp_id AND "
-                "   arx_points.part_key >= :FirstDate and arx_points.part_key < :LastDate + :arx_trip_date_range and "
-                "   pr_brd IS NOT NULL ";
-            Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
-            if(!document.empty())
-                SQLText +=
-                    " and arx_pax.part_key = arx_pax_doc.part_key and "
-                    " arx_pax.pax_id = arx_pax_doc.pax_id and "
-                    " arx_pax_doc.no like '%'||:document||'%' ";
-            if(!tag_no.empty())
-                SQLText +=
-                    " and arx_pax_grp.part_key = arx_bag_tags.part_key and "
-                    " arx_pax_grp.grp_id = arx_bag_tags.grp_id and "
-                    " arx_bag_tags.no like '%'||:tag_no ";
-            if (!info.user.access.airps.empty()) {
-                if (info.user.access.airps_permit)
-                    SQLText += " AND arx_points.airp IN "+GetSQLEnum(info.user.access.airps);
-                else
-                    SQLText += " AND arx_points.airp NOT IN "+GetSQLEnum(info.user.access.airps);
-            }
-            if (!info.user.access.airlines.empty()) {
-                if (info.user.access.airlines_permit)
-                    SQLText += " AND arx_points.airline IN "+GetSQLEnum(info.user.access.airlines);
-                else
-                    SQLText += " AND arx_points.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
-            }
-            if(!airline.empty())
-                SQLText += " and arx_points.airline = :airline ";
-            if(!city.empty())
-                SQLText += " and arx_pax_grp.airp_arv = :city ";
-            if(!flt_no.empty())
-                SQLText += " and arx_points.flt_no = :flt_no ";
-            if(!surname.empty()) {
-                if(FirstDate + 1 < LastDate && surname.size() < 4)
-                    SQLText += " and arx_pax.surname = :surname ";
-                else
-                    SQLText += " and arx_pax.surname like :surname||'%' ";
-            }
-            if(!ticket_no.empty())
-                SQLText += " and arx_pax.ticket_no = :ticket_no ";
+    for(int pass = 0; (pass <= 2) && (count < MAX_STAT_ROWS); pass++) {
+        ostringstream sql;
+        sql << "SELECT \n";
+        if (pass==0)
+          sql << " NULL part_key, \n";
+        else
+          sql << " points.part_key, \n";
+        sql << " pax_grp.point_dep point_id, \n"
+               " points.airline, \n"
+               " points.flt_no, \n"
+               " points.suffix, \n"
+               " points.airline_fmt, \n"
+               " points.airp_fmt, \n"
+               " points.suffix_fmt, \n"
+               " points.airp, \n"
+               " points.scd_out, \n"
+               " NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out, \n"
+               " pax.reg_no, \n"
+               " pax_grp.airp_arv, \n"
+               " pax.surname||' '||pax.name full_name, \n";
+        if (pass==0)
+          sql << " NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_amount, \n"
+                 " NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_weight, \n"
+                 " NVL(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) rk_weight, \n"
+                 " NVL(ckin.get_excess(pax.grp_id,pax.pax_id),0) excess, \n"
+                 " ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:pr_lat) tags, \n"
+                 " salons.get_seat_no(pax.pax_id, pax.seats, pax_grp.status, pax_grp.point_dep, 'seats', rownum) seat_no, \n";
+        else
+          sql << " NVL(arch.get_bagAmount(pax.part_key,pax.grp_id,pax.pax_id,rownum),0) bag_amount, \n"
+                 " NVL(arch.get_bagWeight(pax.part_key,pax.grp_id,pax.pax_id,rownum),0) bag_weight, \n"
+                 " NVL(arch.get_rkWeight(pax.part_key,pax.grp_id,pax.pax_id,rownum),0) rk_weight, \n"
+                 " NVL(arch.get_excess(pax.part_key,pax.grp_id,pax.pax_id),0) excess, \n"
+                 " arch.get_birks(pax.part_key,pax.grp_id,pax.pax_id,:pr_lat) tags, \n"
+                 " LPAD(seat_no,3,'0')|| \n"
+                 "      DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') seat_no, \n";
+        sql << " pax_grp.grp_id, \n"
+               " pax.pr_brd, \n"
+               " pax.refuse, \n"
+               " pax_grp.class_grp, \n"
+               " pax_grp.hall, \n"
+               " pax.ticket_no, \n"
+               " pax.pax_id \n";
+        if (pass==0)
+          sql << "FROM pax_grp, pax, points \n";
+        else
+          sql << "FROM arx_pax_grp pax_grp, arx_pax pax, arx_points points \n";
+        if (pass==2)
+          sql << " , (SELECT part_key, move_id FROM move_arx_ext \n"
+                 "    WHERE part_key >= :LastDate+:arx_trip_date_range AND part_key <= :LastDate+date_range) arx_ext \n";
+        if(!document.empty())
+        {
+          if (pass==0)
+            sql << " , pax_doc \n";
+          else
+            sql << " , arx_pax_doc pax_doc \n";
+        };
+        if(!tag_no.empty())
+        {
+          if (pass==0)
+            sql << " , bag_tags \n";
+          else
+            sql << " , arx_bag_tags bag_tags \n";
+        };
+        sql << "WHERE \n";
+        if (pass==1)
+          sql << " points.part_key >= :FirstDate AND points.part_key < :LastDate + :arx_trip_date_range AND \n";
+        if (pass==2)
+          sql << " points.part_key = arx_ext.part_key AND points.move_id = arx_ext.move_id AND \n";
+        sql << " points.scd_out >= :FirstDate AND points.scd_out < :LastDate AND \n";
+        if (pass!=0)
+          sql << " points.part_key = pax_grp.part_key AND \n";
+        sql << " points.point_id = pax_grp.point_dep AND \n";
+        if (pass!=0)
+          sql << " pax_grp.part_key = pax.part_key AND \n";
+        sql << " pax_grp.grp_id=pax.grp_id AND \n"
+               " points.pr_del>=0 \n";
+        if(!document.empty())
+        {
+          if (pass!=0)
+            sql << " AND pax.part_key = pax_doc.part_key \n";
+          sql << " AND pax.pax_id = pax_doc.pax_id \n"
+                 " AND pax_doc.no like '%'||:document||'%' \n";
+        };
+        if(!tag_no.empty())
+        {
+          if (pass!=0)
+            sql << " AND pax_grp.part_key = bag_tags.part_key \n";
+          sql << " AND pax_grp.grp_id = bag_tags.grp_id \n"
+                 " AND bag_tags.no like '%'||:tag_no \n";
+        };
+        if (!info.user.access.airps.empty()) {
+          if (info.user.access.airps_permit)
+            sql << " AND points.airp IN " << GetSQLEnum(info.user.access.airps) << "\n";
+          else
+            sql << " AND points.airp NOT IN " << GetSQLEnum(info.user.access.airps) << "\n";
         }
-        ProgTrace(TRACE5, "Qry.SQLText [%d] : %s", i, SQLText.c_str());
-        Qry.SQLText = SQLText;
+        if (!info.user.access.airlines.empty()) {
+          if (info.user.access.airlines_permit)
+            sql << " AND points.airline IN " << GetSQLEnum(info.user.access.airlines) << "\n";
+          else
+            sql << " AND points.airline NOT IN " << GetSQLEnum(info.user.access.airlines) << "\n";
+        }
+        if(!airline.empty())
+          sql << " AND points.airline = :airline \n";
+        if(!city.empty())
+          sql << " AND pax_grp.airp_arv = :city \n";
+        if(!flt_no.empty())
+          sql << " AND points.flt_no = :flt_no \n";
+        if(!surname.empty()) {
+          if(FirstDate + 1 < LastDate && surname.size() < 4)
+            sql << " AND pax.surname = :surname \n";
+          else
+            sql << " AND pax.surname like :surname||'%' \n";
+        }
+        if(!ticket_no.empty())
+          sql << " AND pax.ticket_no like '%'||:ticket_no||'%' \n";
+        if (pass!=0)
+          Qry.CreateVariable("arx_trip_date_range", otInteger, ARX_TRIP_DATE_RANGE());
+
+        //ProgTrace(TRACE5, "PaxSrcRun: pass=%d SQL=\n%s", pass, sql.str().c_str());
+        Qry.SQLText = sql.str().c_str();
         try {
             tm.Init();
             Qry.Execute();
-            ProgTrace(TRACE5, "EXEC QRY%d: %s", i, tm.PrintWithMessage().c_str());
+            ProgTrace(TRACE5, "EXEC QRY%d: %s", pass, tm.PrintWithMessage().c_str());
         } catch (EOracleError &E) {
             if(E.Code == 376)
                 throw AstraLocale::UserException("MSG.ONE_OF_DB_FILES_UNAVAILABLE.CALL_ADMIN");
@@ -3553,8 +4157,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                     break;
                 }
             }
-            ProgTrace(TRACE5, "XML%d: %s", i, tm.PrintWithMessage().c_str());
-            ProgTrace(TRACE5, "count: %d", count);
+            ProgTrace(TRACE5, "XML%d: %s", pass, tm.PrintWithMessage().c_str());
         }
     }
     if(count == 0)

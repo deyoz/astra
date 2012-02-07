@@ -34,8 +34,9 @@ class TArxMoveFlt : public TArxMove
   private:
     int step, move_ids_count;
     std::map<int,BASIC::TDateTime> move_ids;
+  protected:
     TQuery *PointsQry;
-    bool GetPartKey(int move_id, BASIC::TDateTime& part_key);
+    bool GetPartKey(int move_id, BASIC::TDateTime& part_key, double &date_range);
   public:
     TArxMoveFlt(BASIC::TDateTime utc_date);
     virtual ~TArxMoveFlt();

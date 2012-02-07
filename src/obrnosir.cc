@@ -57,7 +57,7 @@ const
     {"-alter_arx_pax_doc3",alter_arx_pax_doc3,  NULL,                     NULL},
     {"-alter_arx_pax_doco3",alter_arx_pax_doco3,NULL,                     NULL},
     {"-alter_arx_pax_doc4",alter_arx_pax_doc4,  NULL,                     NULL},
-    {"-move_flt_stat",     move_flt_stat,       NULL,                     NULL}
+    {"-put_move_arx_ext",put_move_arx_ext,      NULL,                     NULL}
   };
 
 int nosir_test(int argc,char **argv)
