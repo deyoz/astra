@@ -639,10 +639,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
 /*      }*/
     }
     else {
-    	PointsQry.CreateVariable( "first_date", otDate, FNull );
-    	PointsQry.CreateVariable( "next_date", otDate, FNull );
-    	if ( arx )
-    	  PointsQry.CreateVariable( "arx_trip_date_range", otInteger, FNull ); //!!!vlad это зачем?
+      throw Exception( "internal_ReadData: invalid params" );
     }
   }
   TQuery ClassesQry( &OraSession );
