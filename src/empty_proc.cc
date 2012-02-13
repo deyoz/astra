@@ -134,7 +134,7 @@ int alter_pax_doc(int argc,char **argv)
   if (Qry.Eof || Qry.FieldIsNULL("max_pax_id")) return 0;
   int max_pax_id=Qry.FieldAsInteger("max_pax_id");
   
-  Qry.SQLText="SELECT tid__seq.nextval AS tid FROM dual";
+  Qry.SQLText="SELECT cycle_tid__seq.nextval AS tid FROM dual";
   Qry.Execute();
   int tid=Qry.FieldAsInteger("tid");
   
@@ -225,7 +225,7 @@ int alter_pax_doc(int argc,char **argv)
 int alter_pax_doc2(int argc,char **argv)
 {
   TQuery Qry(&OraSession);
-  Qry.SQLText="SELECT tid__seq.nextval AS tid FROM dual";
+  Qry.SQLText="SELECT cycle_tid__seq.nextval AS tid FROM dual";
   Qry.Execute();
   int tid=Qry.FieldAsInteger("tid");
   

@@ -3203,7 +3203,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	if ( id->modify ) {
   	  Qry.Clear();
   	  Qry.SQLText =
-  	   "SELECT tid__seq.nextval n FROM dual ";
+  	   "SELECT cycle_tid__seq.nextval n FROM dual ";
     	Qry.Execute();
     	new_tid = Qry.FieldAsInteger( "n" );
 

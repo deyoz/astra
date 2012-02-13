@@ -969,7 +969,7 @@ void CreateSPP( BASIC::TDateTime localdate )
    " INSERT INTO points(point_id,move_id,point_num,airp,airp_fmt,pr_tranzit,first_point,airline,airline_fmt,"
    "                    flt_no,suffix,suffix_fmt,craft,craft_fmt,scd_in,scd_out,trip_type,litera,pr_del,tid,pr_reg) "\
    " SELECT :point_id,:move_id,:point_num,:airp,:airp_fmt,:pr_tranzit,:first_point,:airline,:airline_fmt,"\
-   "        :flt_no,:suffix,:suffix_fmt,:craft,:craft_fmt,:scd_in,:scd_out,:trip_type,:litera,:pr_del,tid__seq.nextval,:pr_reg FROM dual; "\
+   "        :flt_no,:suffix,:suffix_fmt,:craft,:craft_fmt,:scd_in,:scd_out,:trip_type,:litera,:pr_del,cycle_tid__seq.nextval,:pr_reg FROM dual; "\
    "END;";
   PQry.DeclareVariable( "point_id", otInteger );
   PQry.DeclareVariable( "move_id", otInteger );
