@@ -1683,7 +1683,15 @@ xmlNodePtr STAT::set_variables(xmlNodePtr resNode, string lang)
     return variablesNode;
 }
 
-enum TStatType { statTrferFull, statFull, statShort, statDetail };
+enum TStatType {
+    statTrferFull,
+    statFull,
+    statShort,
+    statDetail,
+    statKioskFull,
+    statKioskShort,
+    statKioskDetail
+};
 
 enum TSeanceType { seanceAirline, seanceAirport, seanceAll };
 
@@ -2426,15 +2434,28 @@ void TPrintAirline::check(string val)
 void TStatParams::get(xmlNodePtr reqNode)
 {
     string name = NodeAsString("stat_mode", reqNode);
+    string type = NodeAsString("stat_type", reqNode);
 
-    if(name == "Подробная") statType=statFull;
-    else
-      if(name == "Общая") statType=statShort;
-      else
-        if(name == "Детализированная") statType=statDetail;
+    if(type == "Общая") {
+        if(name == "Подробная") statType=statFull;
         else
-          if(name == "Трансфер") statType=statTrferFull;
-          else throw Exception("Unknown stat mode " + name);
+            if(name == "Общая") statType=statShort;
+            else
+                if(name == "Детализированная") statType=statDetail;
+                else
+                    if(name == "Трансфер") statType=statTrferFull;
+                    else throw Exception("Unknown stat mode " + name);
+    } else if(type == "По киоскам") {
+        if(name == "Подробная")
+            statType=statKioskFull;
+        else if(name == "Общая")
+            statType=statKioskShort;
+        else if(name == "Детализированная")
+            statType=statKioskDetail;
+        else
+            throw Exception("Unknown stat mode " + name);
+    } else
+        throw Exception("Unknown stat type " + type);
 
     FirstDate = NodeAsDateTime("FirstDate", reqNode);
     LastDate = NodeAsDateTime("LastDate", reqNode);
@@ -3483,7 +3504,7 @@ void RunDetailStat(bool pr_new, const TStatParams &params,
           Qry.SQLText = GetStatSQLText(params,pass!=0).c_str();
         if (pass!=0)
           Qry.CreateVariable("arx_trip_date_range", otInteger, pr_new?ARX_TRIP_DATE_RANGE():arx_trip_date_range);
-        //ProgTrace(TRACE5, "RunDetailStat: pass=%d SQL=\n%s", pass, Qry.SQLText.SQLText());
+        ProgTrace(TRACE5, "RunDetailStat: pass=%d SQL=\n%s", pass, Qry.SQLText.SQLText()); //!!!
 
         if (!USE_SEANCES() && params.seance==seanceAirline)
         {
@@ -3578,6 +3599,254 @@ void RunFullStat(bool pr_new, const TStatParams &params,
     }
 };
 
+
+
+struct TKioskStatRow {
+    int pax_amount;
+    int adult;
+    int child;
+    int baby;
+    int tckin;
+    set<int> flts;
+    TKioskStatRow():
+        pax_amount(NoExists),
+        adult(NoExists),
+        child(NoExists),
+        baby(NoExists),
+        tckin(NoExists)
+    {};
+};
+
+struct TKioskStatKey {
+    string kiosk, descr, ak, ap;
+    int flt_no;
+    TDateTime scd_out;
+    TKioskStatKey(): flt_no(NoExists) {};
+};
+
+struct TKioskCmp {
+    bool operator() (const TKioskStatKey &lr, const TKioskStatKey &rr) const
+    {
+        if(lr.kiosk == rr.kiosk)
+            if(lr.ak == rr.ak)
+                if(lr.ap == rr.ap)
+                    return lr.flt_no < rr.flt_no;
+                else
+                    return lr.ap < rr.ap;
+            else
+                return lr.ak < rr.ak;
+        else
+            return lr.kiosk < rr.kiosk;
+    }
+};
+
+typedef map<TKioskStatKey, TKioskStatRow, TKioskCmp> TKioskStat;
+
+void RunKioskStat(const TStatParams &params, TKioskStat &KioskStat, TPrintAirline &airline)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "select "
+        "    points.airline, "
+        "    points.airp, "
+        "    points.scd_out, "
+        "    points.flt_no, "
+        "    kiosk_stat.point_id, "
+        "    desk, "
+        "    desk_airp, "
+        "    descr, "
+        "    adult, "
+        "    child, "
+        "    baby, "
+        "    tckin "
+        "from "
+        "    kiosk_stat, "
+        "    points "
+        "where "
+        "    kiosk_stat.point_id = points.point_id and "
+        "    points.scd_out >= :FirstDate and "
+        "    points.scd_out < :LastDate ";
+    Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
+    Qry.CreateVariable("LastDate", otDate, params.LastDate);
+    Qry.Execute();
+    if(not Qry.Eof) {
+        int col_airline = Qry.FieldIndex("airline");
+        int col_airp = Qry.FieldIndex("airp");
+        int col_scd_out = Qry.FieldIndex("scd_out");
+        int col_flt_no = Qry.FieldIndex("flt_no");
+        int col_point_id = Qry.FieldIndex("point_id");
+        int col_desk = Qry.FieldIndex("desk");
+        int col_desk_airp = Qry.FieldIndex("desk_airp");
+        int col_descr = Qry.FieldIndex("descr");
+        int col_adult = Qry.FieldIndex("adult");
+        int col_child = Qry.FieldIndex("child");
+        int col_baby = Qry.FieldIndex("baby");
+        int col_tckin = Qry.FieldIndex("tckin");
+        for(; not Qry.Eof; Qry.Next()) {
+            string airline = Qry.FieldAsString(col_airline);
+            string airp = Qry.FieldAsString(col_airp);
+            TDateTime scd_out = Qry.FieldAsDateTime(col_scd_out);
+            int flt_no = Qry.FieldAsInteger(col_flt_no);
+            int point_id = Qry.FieldAsInteger(col_point_id);
+            string desk = Qry.FieldAsString(col_desk);
+            string desk_airp = Qry.FieldAsString(col_desk_airp);
+            string descr = Qry.FieldAsString(col_descr);
+            int adult = Qry.FieldAsInteger(col_adult);
+            int child = Qry.FieldAsInteger(col_child);
+            int baby = Qry.FieldAsInteger(col_baby);
+            int tckin = Qry.FieldAsInteger(col_tckin);
+            TKioskStatKey key;
+            key.kiosk = desk + "/" + desk_airp;
+            key.descr = descr;
+            key.ak = airline;
+            if(
+                    params.statType == statKioskDetail or
+                    params.statType == statKioskFull
+                    )
+                key.ap = airp;
+            if(params.statType == statKioskFull) {
+                key.flt_no = flt_no;
+                key.scd_out = scd_out;
+            }
+            TKioskStatRow &row = KioskStat[key];
+            row.flts.insert(point_id);
+            if(row.pax_amount == NoExists) {
+                row.pax_amount = adult + child + baby;
+                row.adult = adult;
+                row.child = child;
+                row.baby = baby;
+                row.tckin = tckin;
+            } else {
+                row.pax_amount += adult + child + baby;
+                row.adult += adult;
+                row.child += child;
+                row.baby += baby;
+                row.tckin += tckin;
+            }
+
+        }
+    }
+}
+
+void createXMLKioskStat(const TStatParams &params, const TKioskStat &KioskStat, const TPrintAirline &airline, xmlNodePtr resNode)
+{
+    if(false /*!!!KioskStat.empty()*/)
+        throw AstraLocale::UserException("MSG.NOT_DATA");
+    else {
+        NewTextChild(resNode, "airline", airline.get(), "");
+        xmlNodePtr grdNode = NewTextChild(resNode, "grd");
+        xmlNodePtr headerNode = NewTextChild(grdNode, "header");
+        xmlNodePtr colNode;
+        colNode = NewTextChild(headerNode, "col", getLocaleText("№ киоска"));
+        SetProp(colNode, "width", 50);
+        SetProp(colNode, "align", taLeftJustify);
+        if(params.statType == statKioskFull) {
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Примечание"));
+            SetProp(colNode, "width", 50);
+            SetProp(colNode, "align", taLeftJustify);
+        }
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
+        SetProp(colNode, "width", 50);
+        SetProp(colNode, "align", taLeftJustify);
+        if(
+                params.statType == statKioskDetail or
+                params.statType == statKioskFull
+          ) {
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/п"));
+            SetProp(colNode, "width", 50);
+            SetProp(colNode, "align", taLeftJustify);
+        }
+        if(
+                params.statType == statKioskShort or
+                params.statType == statKioskDetail
+          ) {
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во рейсов"));
+            SetProp(colNode, "width", 50);
+            SetProp(colNode, "align", taLeftJustify);
+        }
+        if(params.statType == statKioskFull) {
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Номер рейса"));
+            SetProp(colNode, "width", 50);
+            SetProp(colNode, "align", taLeftJustify);
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Дата"));
+            SetProp(colNode, "width", 50);
+            SetProp(colNode, "align", taLeftJustify);
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Направление"));
+            SetProp(colNode, "width", 50);
+            SetProp(colNode, "align", taLeftJustify);
+        }
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во пасс."));
+        SetProp(colNode, "width", 50);
+        SetProp(colNode, "align", taLeftJustify);
+        if(params.statType == statKioskFull) {
+            colNode = NewTextChild(headerNode, "col", getLocaleText("ВЗ"));
+            SetProp(colNode, "width", 50);
+            SetProp(colNode, "align", taLeftJustify);
+            colNode = NewTextChild(headerNode, "col", getLocaleText("РБ"));
+            SetProp(colNode, "width", 50);
+            SetProp(colNode, "align", taLeftJustify);
+            colNode = NewTextChild(headerNode, "col", getLocaleText("РМ"));
+            SetProp(colNode, "width", 50);
+            SetProp(colNode, "align", taLeftJustify);
+        }
+        if(
+                params.statType == statKioskDetail or
+                params.statType == statKioskFull
+          ) {
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Сквоз. рег."));
+            SetProp(colNode, "width", 50);
+            SetProp(colNode, "align", taLeftJustify);
+        }
+        if(
+                params.statType == statKioskShort or
+                params.statType == statKioskDetail
+          ) {
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Примечание"));
+            SetProp(colNode, "width", 50);
+            SetProp(colNode, "align", taLeftJustify);
+        }
+        xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
+        xmlNodePtr rowNode;
+
+        rowNode = NewTextChild(rowsNode, "row");
+
+        NewTextChild(rowNode, "col", "tst");
+        if(params.statType == statKioskFull) NewTextChild(rowNode, "col", "tst");
+        NewTextChild(rowNode, "col", "tst");
+        if(
+                params.statType == statKioskDetail or
+                params.statType == statKioskFull
+          )
+            NewTextChild(rowNode, "col", "tst");
+        if(
+                params.statType == statKioskShort or
+                params.statType == statKioskDetail
+          )
+            NewTextChild(rowNode, "col", "tst");
+        if(params.statType == statKioskFull) {
+            NewTextChild(rowNode, "col", "tst");
+            NewTextChild(rowNode, "col", "tst");
+            NewTextChild(rowNode, "col", "tst");
+        }
+        NewTextChild(rowNode, "col", "tst");
+        if(params.statType == statKioskFull) {
+            NewTextChild(rowNode, "col", "tst");
+            NewTextChild(rowNode, "col", "tst");
+            NewTextChild(rowNode, "col", "tst");
+        }
+        if(
+                params.statType == statKioskDetail or
+                params.statType == statKioskFull
+          ) 
+            NewTextChild(rowNode, "col", "tst");
+        if(
+                params.statType == statKioskShort or
+                params.statType == statKioskDetail
+          )
+            NewTextChild(rowNode, "col", "tst");
+    }
+}
+
 void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
@@ -3612,6 +3881,11 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
       case statDetail:
         get_compatible_report_form("DetailStat", reqNode, resNode);
         break;
+      case statKioskFull:
+      case statKioskShort:
+      case statKioskDetail:
+        get_compatible_report_form("KioskStat", reqNode, resNode);
+        break;
     };
         
 
@@ -3642,6 +3916,16 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
 
           createXMLFullStat(params, FullStat, airline, resNode);
         };
+        if(
+                params.statType == statKioskShort or
+                params.statType == statKioskDetail or
+                params.statType == statKioskFull
+                ) {
+            TKioskStat KioskStat;
+            TPrintAirline airline;
+            RunKioskStat(params, KioskStat, airline);
+            createXMLKioskStat(params, KioskStat, airline, resNode);
+        }
     }
     catch (EOracleError &E)
     {
