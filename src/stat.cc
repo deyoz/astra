@@ -3741,6 +3741,21 @@ void RunKioskStat(const TStatParams &params, TKioskStat &KioskStat, TPrintAirlin
     }
 }
 
+struct TTotalsUpdater {
+    int col_idx;
+    bool pr_init;
+    vector<int> &totals;
+    TTotalsUpdater(vector<int> &atotals, bool apr_init): col_idx(0), pr_init(apr_init), totals(atotals) {};
+    void update(int value)
+    {
+        if(pr_init)
+            totals.push_back(value);
+        else if(value != NoExists)
+            totals[col_idx] += value;
+        col_idx++;
+    }
+};
+
 void createXMLKioskStat(const TStatParams &params, const TKioskStat &KioskStat, const TPrintAirline &airline, xmlNodePtr resNode)
 {
     if(KioskStat.empty())
@@ -3820,31 +3835,42 @@ void createXMLKioskStat(const TStatParams &params, const TKioskStat &KioskStat, 
         }
         xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
         xmlNodePtr rowNode;
+        vector<int> totals;
 
         for(TKioskStat::const_iterator im = KioskStat.begin(); im != KioskStat.end(); im++) {
             rowNode = NewTextChild(rowsNode, "row");
+            TTotalsUpdater tot_upd(totals, im == KioskStat.begin());
 
             // № киоска
             NewTextChild(rowNode, "col", im->first.kiosk);
             // примечание
-            if(params.statType == statKioskFull) NewTextChild(rowNode, "col", im->first.descr);
+            if(params.statType == statKioskFull) {
+                NewTextChild(rowNode, "col", im->first.descr);
+                tot_upd.update(NoExists);
+            }
             // код а/к
             NewTextChild(rowNode, "col", im->first.ak);
+            tot_upd.update(NoExists);
             if(
                     params.statType == statKioskDetail or
                     params.statType == statKioskFull
-              )
+              ) {
                 // код а/п
                 NewTextChild(rowNode, "col", im->first.ap);
+                tot_upd.update(NoExists);
+            }
             if(
                     params.statType == statKioskShort or
                     params.statType == statKioskDetail
-              )
+              ) {
                 // Кол-во рейсов
                 NewTextChild(rowNode, "col", (int)im->second.flts.size());
+                tot_upd.update((int)im->second.flts.size());
+            }
             if(params.statType == statKioskFull) {
                 // номер рейса
                 NewTextChild(rowNode, "col", im->first.flt_no);
+                tot_upd.update(NoExists);
 
                 // Дата
                 string region;
@@ -3860,36 +3886,55 @@ void createXMLKioskStat(const TStatParams &params, const TKioskStat &KioskStat, 
                 NewTextChild(rowNode, "col", DateTimeToStr(
                             UTCToClient(im->first.scd_out, region), "dd.mm.yy")
                         );
+                tot_upd.update(NoExists);
 
                 // Направление
                 NewTextChild(rowNode, "col", im->first.places.get());
+                tot_upd.update(NoExists);
             }
             // Кол-во пасс.
             NewTextChild(rowNode, "col", im->second.adult + im->second.child + im->second.baby);
+            tot_upd.update(im->second.adult + im->second.child + im->second.baby);
             if(params.statType == statKioskFull) {
                 // ВЗ
                 NewTextChild(rowNode, "col", im->second.adult);
+                tot_upd.update(im->second.adult);
                 // РБ
                 NewTextChild(rowNode, "col", im->second.child);
+                tot_upd.update(im->second.child);
                 // РМ
                 NewTextChild(rowNode, "col", im->second.baby);
+                tot_upd.update(im->second.baby);
             }
             if(
                     params.statType == statKioskDetail or
                     params.statType == statKioskFull
-              ) 
+              ) {
                 // Сквоз. рег.
                 NewTextChild(rowNode, "col", im->second.tckin);
+                tot_upd.update(im->second.tckin);
+            }
             if(
                     params.statType == statKioskShort or
                     params.statType == statKioskDetail
-              )
+              ) {
                 // Примечание
                 NewTextChild(rowNode, "col", im->first.descr);
+                tot_upd.update(NoExists);
+            }
         }
+        rowNode = NewTextChild(rowsNode, "row");
+        NewTextChild(rowNode, "col", getLocaleText("Итого:"));
+        for(vector<int>::iterator iv = totals.begin(); iv != totals.end(); iv++)
+            if(*iv == NoExists)
+                NewTextChild(rowNode, "col");
+            else
+                NewTextChild(rowNode, "col", *iv);
+
         xmlNodePtr variablesNode = STAT::set_variables(resNode);
         NewTextChild(variablesNode, "stat_type", params.statType);
     }
+    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str()); //!!!
 }
 
 void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
