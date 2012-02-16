@@ -4919,11 +4919,11 @@ void SoppInterface::WriteCrew(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 	Qry.SQLText =
 	  "BEGIN "
 	  "  UPDATE trip_crew "
-	  "  SET commander=:commander, cockpit=:cockpit, cabin=:cabin "
+	  "  SET commander=SUBSTR(:commander,1,100), cockpit=:cockpit, cabin=:cabin "
 	  "  WHERE point_id=:point_id; "
 	  "  IF SQL%NOTFOUND THEN "
 	  "    INSERT INTO trip_crew(point_id, commander, cockpit, cabin) "
-	  "    VALUES(:point_id, :commander, :cockpit, :cabin); "
+	  "    VALUES(:point_id, SUBSTR(:commander,1,100), :cockpit, :cabin); "
 	  "  END IF;"
 	  "END;";
 	xmlNodePtr dataNode = NodeAsNode( "data/crew", reqNode );
