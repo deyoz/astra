@@ -3620,6 +3620,8 @@ struct TKioskStatRow {
 struct TKioskStatKey {
     string kiosk, descr, ak, ap;
     int flt_no;
+    int point_id;
+    TStatPlaces places;
     TDateTime scd_out;
     TKioskStatKey(): flt_no(NoExists) {};
 };
@@ -3630,7 +3632,16 @@ struct TKioskCmp {
         if(lr.kiosk == rr.kiosk)
             if(lr.ak == rr.ak)
                 if(lr.ap == rr.ap)
-                    return lr.flt_no < rr.flt_no;
+                    if(lr.flt_no == rr.flt_no)
+                        if(lr.scd_out == rr.scd_out)
+                            if(lr.point_id == rr.point_id)
+                                return lr.places.get() < rr.places.get();
+                            else
+                                return lr.point_id < rr.point_id;
+                        else
+                            return lr.scd_out < rr.scd_out;
+                    else
+                        return lr.flt_no < rr.flt_no;
                 else
                     return lr.ap < rr.ap;
             else
@@ -3707,6 +3718,8 @@ void RunKioskStat(const TStatParams &params, TKioskStat &KioskStat, TPrintAirlin
             if(params.statType == statKioskFull) {
                 key.flt_no = flt_no;
                 key.scd_out = scd_out;
+                key.point_id = point_id;
+                key.places.set(GetRouteAfterStr( NoExists, point_id, trtNotCurrent, trtNotCancelled), false);
             }
             TKioskStatRow &row = KioskStat[key];
             row.flts.insert(point_id);
@@ -3730,7 +3743,7 @@ void RunKioskStat(const TStatParams &params, TKioskStat &KioskStat, TPrintAirlin
 
 void createXMLKioskStat(const TStatParams &params, const TKioskStat &KioskStat, const TPrintAirline &airline, xmlNodePtr resNode)
 {
-    if(false /*!!!KioskStat.empty()*/)
+    if(KioskStat.empty())
         throw AstraLocale::UserException("MSG.NOT_DATA");
     else {
         NewTextChild(resNode, "airline", airline.get(), "");
@@ -3738,11 +3751,11 @@ void createXMLKioskStat(const TStatParams &params, const TKioskStat &KioskStat, 
         xmlNodePtr headerNode = NewTextChild(grdNode, "header");
         xmlNodePtr colNode;
         colNode = NewTextChild(headerNode, "col", getLocaleText("№ киоска"));
-        SetProp(colNode, "width", 50);
+        SetProp(colNode, "width", 75);
         SetProp(colNode, "align", taLeftJustify);
         if(params.statType == statKioskFull) {
             colNode = NewTextChild(headerNode, "col", getLocaleText("Примечание"));
-            SetProp(colNode, "width", 50);
+            SetProp(colNode, "width", 200);
             SetProp(colNode, "align", taLeftJustify);
         }
         colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
@@ -3761,89 +3774,121 @@ void createXMLKioskStat(const TStatParams &params, const TKioskStat &KioskStat, 
                 params.statType == statKioskDetail
           ) {
             colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во рейсов"));
-            SetProp(colNode, "width", 50);
-            SetProp(colNode, "align", taLeftJustify);
+            SetProp(colNode, "width", 85);
+            SetProp(colNode, "align", taRightJustify);
         }
         if(params.statType == statKioskFull) {
             colNode = NewTextChild(headerNode, "col", getLocaleText("Номер рейса"));
-            SetProp(colNode, "width", 50);
-            SetProp(colNode, "align", taLeftJustify);
+            SetProp(colNode, "width", 75);
+            SetProp(colNode, "align", taRightJustify);
             colNode = NewTextChild(headerNode, "col", getLocaleText("Дата"));
             SetProp(colNode, "width", 50);
             SetProp(colNode, "align", taLeftJustify);
             colNode = NewTextChild(headerNode, "col", getLocaleText("Направление"));
-            SetProp(colNode, "width", 50);
+            SetProp(colNode, "width", 90);
             SetProp(colNode, "align", taLeftJustify);
         }
         colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во пасс."));
-        SetProp(colNode, "width", 50);
-        SetProp(colNode, "align", taLeftJustify);
+        SetProp(colNode, "width", 75);
+        SetProp(colNode, "align", taRightJustify);
         if(params.statType == statKioskFull) {
             colNode = NewTextChild(headerNode, "col", getLocaleText("ВЗ"));
-            SetProp(colNode, "width", 50);
-            SetProp(colNode, "align", taLeftJustify);
+            SetProp(colNode, "width", 30);
+            SetProp(colNode, "align", taRightJustify);
             colNode = NewTextChild(headerNode, "col", getLocaleText("РБ"));
-            SetProp(colNode, "width", 50);
-            SetProp(colNode, "align", taLeftJustify);
+            SetProp(colNode, "width", 30);
+            SetProp(colNode, "align", taRightJustify);
             colNode = NewTextChild(headerNode, "col", getLocaleText("РМ"));
-            SetProp(colNode, "width", 50);
-            SetProp(colNode, "align", taLeftJustify);
+            SetProp(colNode, "width", 30);
+            SetProp(colNode, "align", taRightJustify);
         }
         if(
                 params.statType == statKioskDetail or
                 params.statType == statKioskFull
           ) {
             colNode = NewTextChild(headerNode, "col", getLocaleText("Сквоз. рег."));
-            SetProp(colNode, "width", 50);
-            SetProp(colNode, "align", taLeftJustify);
+            SetProp(colNode, "width", 75);
+            SetProp(colNode, "align", taRightJustify);
         }
         if(
                 params.statType == statKioskShort or
                 params.statType == statKioskDetail
           ) {
             colNode = NewTextChild(headerNode, "col", getLocaleText("Примечание"));
-            SetProp(colNode, "width", 50);
+            SetProp(colNode, "width", 200);
             SetProp(colNode, "align", taLeftJustify);
         }
         xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
         xmlNodePtr rowNode;
 
-        rowNode = NewTextChild(rowsNode, "row");
+        for(TKioskStat::const_iterator im = KioskStat.begin(); im != KioskStat.end(); im++) {
+            rowNode = NewTextChild(rowsNode, "row");
 
-        NewTextChild(rowNode, "col", "tst");
-        if(params.statType == statKioskFull) NewTextChild(rowNode, "col", "tst");
-        NewTextChild(rowNode, "col", "tst");
-        if(
-                params.statType == statKioskDetail or
-                params.statType == statKioskFull
-          )
-            NewTextChild(rowNode, "col", "tst");
-        if(
-                params.statType == statKioskShort or
-                params.statType == statKioskDetail
-          )
-            NewTextChild(rowNode, "col", "tst");
-        if(params.statType == statKioskFull) {
-            NewTextChild(rowNode, "col", "tst");
-            NewTextChild(rowNode, "col", "tst");
-            NewTextChild(rowNode, "col", "tst");
+            // № киоска
+            NewTextChild(rowNode, "col", im->first.kiosk);
+            // примечание
+            if(params.statType == statKioskFull) NewTextChild(rowNode, "col", im->first.descr);
+            // код а/к
+            NewTextChild(rowNode, "col", im->first.ak);
+            if(
+                    params.statType == statKioskDetail or
+                    params.statType == statKioskFull
+              )
+                // код а/п
+                NewTextChild(rowNode, "col", im->first.ap);
+            if(
+                    params.statType == statKioskShort or
+                    params.statType == statKioskDetail
+              )
+                // Кол-во рейсов
+                NewTextChild(rowNode, "col", (int)im->second.flts.size());
+            if(params.statType == statKioskFull) {
+                // номер рейса
+                NewTextChild(rowNode, "col", im->first.flt_no);
+
+                // Дата
+                string region;
+                try
+                {
+                    region = AirpTZRegion(im->first.ap);
+                }
+                catch(AstraLocale::UserException &E)
+                {
+                    AstraLocale::showErrorMessage("MSG.ERR_MSG.NOT_ALL_FLIGHTS_ARE_SHOWN", LParams() << LParam("msg", getLocaleText(E.getLexemaData())));
+                    continue;
+                };
+                NewTextChild(rowNode, "col", DateTimeToStr(
+                            UTCToClient(im->first.scd_out, region), "dd.mm.yy")
+                        );
+
+                // Направление
+                NewTextChild(rowNode, "col", im->first.places.get());
+            }
+            // Кол-во пасс.
+            NewTextChild(rowNode, "col", im->second.adult + im->second.child + im->second.baby);
+            if(params.statType == statKioskFull) {
+                // ВЗ
+                NewTextChild(rowNode, "col", im->second.adult);
+                // РБ
+                NewTextChild(rowNode, "col", im->second.child);
+                // РМ
+                NewTextChild(rowNode, "col", im->second.baby);
+            }
+            if(
+                    params.statType == statKioskDetail or
+                    params.statType == statKioskFull
+              ) 
+                // Сквоз. рег.
+                NewTextChild(rowNode, "col", im->second.tckin);
+            if(
+                    params.statType == statKioskShort or
+                    params.statType == statKioskDetail
+              )
+                // Примечание
+                NewTextChild(rowNode, "col", im->first.descr);
         }
-        NewTextChild(rowNode, "col", "tst");
-        if(params.statType == statKioskFull) {
-            NewTextChild(rowNode, "col", "tst");
-            NewTextChild(rowNode, "col", "tst");
-            NewTextChild(rowNode, "col", "tst");
-        }
-        if(
-                params.statType == statKioskDetail or
-                params.statType == statKioskFull
-          ) 
-            NewTextChild(rowNode, "col", "tst");
-        if(
-                params.statType == statKioskShort or
-                params.statType == statKioskDetail
-          )
-            NewTextChild(rowNode, "col", "tst");
+        xmlNodePtr variablesNode = STAT::set_variables(resNode);
+        NewTextChild(variablesNode, "stat_type", params.statType);
     }
 }
 
