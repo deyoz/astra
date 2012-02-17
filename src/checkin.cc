@@ -11,7 +11,6 @@
 #include "stages.h"
 #include "telegram.h"
 #include "misc.h"
-#include "payment.h"
 #include "astra_misc.h"
 #include "base_tables.h"
 #include "convert.h"
@@ -2017,6 +2016,8 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   string def_class=ElemIdToCodeNative(etClass, EncodeClass(ASTRA::Y));
   int def_client_type_id=(int)ctTerm;
   int def_status_id=(int)psCheckin;
+  
+  bool with_rcpt_info=(strcmp((char *)reqNode->name, "BagPaxList")==0);
 
   ostringstream sql;
   sql <<
@@ -2048,14 +2049,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "  pax.grp_id, "
     "  pax.pax_id, "
     "  pax_grp.class_grp AS cl_grp_id,pax_grp.hall AS hall_id, "
-    "  pax_grp.point_arv,pax_grp.user_id,pax_grp.client_type ";
-
-  if (strcmp((char *)reqNode->name, "BagPaxList")==0)
-    sql <<
-    " ,ckin.get_receipts(pax.grp_id,pax.pax_id) AS receipts, "
-    "  kassa.pr_payment(pax.grp_id) AS pr_payment ";
-
-  sql <<
+    "  pax_grp.point_arv,pax_grp.user_id,pax_grp.client_type "
     "FROM pax_grp,pax,mark_trips, "
     "     (SELECT trfer_trips.airline,trfer_trips.flt_no,trfer_trips.suffix,transfer.airp_arv, "
     "             transfer.grp_id "
@@ -2076,7 +2070,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "      pax_grp.grp_id=last_trfer.grp_id(+) AND "
     "      pax_grp.grp_id=last_tckin_seg.grp_id(+) AND "
     "      point_dep=:point_id AND pr_brd IS NOT NULL ";
-  if (strcmp((char *)reqNode->name, "BagPaxList")==0)
+  if (with_rcpt_info)
     sql <<
     "  AND pax_grp.excess>0 ";
 
@@ -2128,38 +2122,13 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     int col_point_arv=Qry.FieldIndex("point_arv");
     int col_user_id=Qry.FieldIndex("user_id");
     int col_client_type=Qry.FieldIndex("client_type");
-    int col_receipts=-1;
-    int col_pr_payment=-1;
-    if (strcmp((char *)reqNode->name, "BagPaxList")==0)
-    {
-      col_receipts=Qry.FieldIndex("receipts");
-      col_pr_payment=Qry.FieldIndex("pr_payment");
-    };
 
-    int grp_id = -1;
-    bool rcpt_exists = false;
-    vector<xmlNodePtr> v_rcpt_complete;
-    // В вектор v_rcpt_complete записываются указатели на узлы, в которых хранится признак
-    // все ли квитанции распечатаны 0 - частично напечатаны, 1 - все напечатаны, 2 - нет ни одной квитанции
-    // Поскольку инфа по квитанциям есть только у одного пассажира из группы, понять значение
-    // признака можно только пробежав группу до конца. Отсюда такой гемор.
-    // При смене группы (и после отработки цикла) происходит инициализация признака у всех пассажиров предыдущей группы.
-    int rcpt_complete = 0;
+    map< int/*grp_id*/, pair<bool/*pr_payment*/, bool/*pr_receipts*/> > rcpt_complete;
     TPaxSeats priorSeats(point_id);
     TQuery PaxDocQry(&OraSession);
     for(;!Qry.Eof;Qry.Next())
     {
-      int tmp_grp_id = Qry.FieldAsInteger(col_grp_id);
-      if(grp_id != tmp_grp_id) {
-          if(!v_rcpt_complete.empty()) {
-              for(vector<xmlNodePtr>::iterator iv = v_rcpt_complete.begin(); iv != v_rcpt_complete.end(); iv++)
-                  NodeSetContent(*iv, rcpt_exists ? rcpt_complete : 2);
-              v_rcpt_complete.clear();
-              rcpt_exists = false;
-          }
-          grp_id = tmp_grp_id;
-      }
-
+      int grp_id = Qry.FieldAsInteger(col_grp_id);
       int pax_id = Qry.FieldAsInteger(col_pax_id);
 
       xmlNodePtr paxNode=NewTextChild(node,"pax");
@@ -2244,15 +2213,24 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       if (!mark_equal_oper)
         NewTextChild(paxNode,"mark_flt_str",mark_flt_str);
 
-      if (strcmp((char *)reqNode->name, "BagPaxList")==0)
+      if (with_rcpt_info)
       {
-        NewTextChild(paxNode,"rcpt_no_list",Qry.FieldAsString(col_receipts));
-        v_rcpt_complete.push_back(NewTextChild(paxNode,"rcpt_complete"));
-        rcpt_complete = Qry.FieldAsInteger(col_pr_payment);
-        rcpt_exists = rcpt_exists || !Qry.FieldIsNULL(col_receipts);
+        string receipts=GetBagRcptStr(grp_id, pax_id);
+        NewTextChild(paxNode,"rcpt_no_list",receipts,"");
+
+        map<int, pair<bool, bool> >::iterator i=rcpt_complete.find(grp_id);
+        if (i==rcpt_complete.end())
+        {
+          bool pr_payment=BagPaymentCompleted(grp_id);
+          rcpt_complete[grp_id]=make_pair(pr_payment, !receipts.empty());
+        }
+        else
+        {
+          i->second.second= i->second.second || !receipts.empty();
+        };
       };
       //идентификаторы
-      NewTextChild(paxNode,"grp_id",Qry.FieldAsInteger(col_grp_id));
+      NewTextChild(paxNode,"grp_id",grp_id);
       NewTextChild(paxNode,"cl_grp_id",Qry.FieldAsInteger(col_cl_grp_id));
       if (!Qry.FieldIsNULL(col_hall_id))
         NewTextChild(paxNode,"hall_id",Qry.FieldAsInteger(col_hall_id));
@@ -2275,11 +2253,26 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         NewTextChild(paxNode,"status_id",(int)DecodePaxStatus(Qry.FieldAsString(col_status)));
       };
     };
-    if(!v_rcpt_complete.empty()) {
-        for(vector<xmlNodePtr>::iterator iv = v_rcpt_complete.begin(); iv != v_rcpt_complete.end(); iv++)
-            NodeSetContent(*iv, rcpt_exists ? rcpt_complete : 2);
-        v_rcpt_complete.clear();
-        rcpt_exists = false;
+    if (with_rcpt_info)
+    {
+      for(xmlNodePtr paxNode=node->children;paxNode!=NULL;paxNode=paxNode->next)
+      {
+        xmlNodePtr node2=paxNode->children;
+        int grp_id=NodeAsIntegerFast("grp_id",node2);
+        map<int, pair<bool, bool> >::iterator i=rcpt_complete.find(grp_id);
+        if (i==rcpt_complete.end())
+          throw EXCEPTIONS::Exception("CheckInInterface::PaxList: grp_id=%d not found", grp_id);
+        // все ли квитанции распечатаны:
+        // 0 - частично напечатаны
+        // 1 - все напечатаны
+        // 2 - нет ни одной квитанции
+        int rcpt_complete=2;
+        if (i->second.second) rcpt_complete=(int)i->second.first;
+        if (reqInfo->desk.compatible(BAG_RCPT_KITS_VERSION))
+          NewTextChild(paxNode,"rcpt_complete",rcpt_complete,2);
+        else
+          NewTextChild(paxNode,"rcpt_complete",rcpt_complete,0);
+      };
     };
   };
 
@@ -2305,13 +2298,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "  ckin.get_birks2(pax_grp.grp_id,NULL,NULL,:lang) AS tags, "
     "  pax_grp.grp_id, "
     "  pax_grp.hall AS hall_id, "
-    "  pax_grp.point_arv,pax_grp.user_id,pax_grp.client_type ";
-  if (strcmp((char *)reqNode->name, "BagPaxList")==0)
-    sql <<
-    " ,ckin.get_receipts(pax_grp.grp_id,NULL) AS receipts, "
-    "  kassa.pr_payment(pax_grp.grp_id) AS pr_payment ";
-
-  sql <<
+    "  pax_grp.point_arv,pax_grp.user_id,pax_grp.client_type "
     "FROM pax_grp, "
     "     (SELECT trfer_trips.airline,trfer_trips.flt_no,trfer_trips.suffix,transfer.airp_arv, "
     "             transfer.grp_id "
@@ -2331,7 +2318,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "      pax_grp.grp_id=last_tckin_seg.grp_id(+) AND "
     "      point_dep=:point_id AND class IS NULL ";
 
-  if (strcmp((char *)reqNode->name, "BagPaxList")==0)
+  if (with_rcpt_info)
     sql <<
     "  AND pax_grp.excess>0 ";
 
@@ -2348,6 +2335,8 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     createDefaults=true;
     for(;!Qry.Eof;Qry.Next())
     {
+      int grp_id=Qry.FieldAsInteger("grp_id");
+    
       xmlNodePtr paxNode=NewTextChild(node,"bag");
       NewTextChild(paxNode,"airp_arv",ElemIdToCodeNative(etAirp, Qry.FieldAsString("airp_arv")));
 
@@ -2361,17 +2350,23 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       NewTextChild(paxNode,"rk_weight",Qry.FieldAsInteger("rk_weight"),0);
       NewTextChild(paxNode,"excess",Qry.FieldAsInteger("excess"),0);
       NewTextChild(paxNode,"tags",Qry.FieldAsString("tags"),"");
-      if (strcmp((char *)reqNode->name, "BagPaxList")==0)
+      if (with_rcpt_info)
       {
-        NewTextChild(paxNode,"rcpt_no_list",Qry.FieldAsString("receipts"));
-        // все ли квитанции распечатаны 0 - частично напечатаны, 1 - все напечатаны, 2 - нет ни одной квитанции
-        if (!Qry.FieldIsNULL("receipts"))
-          NewTextChild(paxNode,"rcpt_complete",Qry.FieldAsInteger("pr_payment"));
+        string receipts=GetBagRcptStr(grp_id, NoExists);
+        NewTextChild(paxNode,"rcpt_no_list",receipts,"");
+        // все ли квитанции распечатаны
+        //0 - частично напечатаны
+        //1 - все напечатаны
+        //2 - нет ни одной квитанции
+        int rcpt_complete=2;
+        if (!receipts.empty()) rcpt_complete=(int)BagPaymentCompleted(grp_id);
+        if (reqInfo->desk.compatible(BAG_RCPT_KITS_VERSION))
+          NewTextChild(paxNode,"rcpt_complete",rcpt_complete,2);
         else
-          NewTextChild(paxNode,"rcpt_complete",2);
+          NewTextChild(paxNode,"rcpt_complete",rcpt_complete,0);
       };
       //идентификаторы
-      NewTextChild(paxNode,"grp_id",Qry.FieldAsInteger("grp_id"));
+      NewTextChild(paxNode,"grp_id",grp_id);
       if (!Qry.FieldIsNULL("hall_id"))
         NewTextChild(paxNode,"hall_id",Qry.FieldAsInteger("hall_id"));
       else
@@ -2418,10 +2413,10 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     NewTextChild(defNode, "ticket_no", "");
     NewTextChild(defNode, "rems", "");
     NewTextChild(defNode, "mark_flt_str", "");
-    if (strcmp((char *)reqNode->name, "BagPaxList")==0)
+    if (with_rcpt_info)
     {
       NewTextChild(defNode, "rcpt_no_list", "");
-      NewTextChild(defNode, "rcpt_complete", 0);
+      NewTextChild(defNode, "rcpt_complete", 2);
     };
     //идентификаторы
     NewTextChild(defNode, "client_type_id", def_client_type_id);
@@ -4914,8 +4909,8 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_versio
 
       if (grp_id==grp_ids.begin())
       {
-        vector<CheckIn::TTransferItem> trfer;
-        LoadTransfer(*grp_id,trfer);
+        TTrferRoute trfer;
+        trfer.GetRoute(*grp_id, trtNotFirstSeg);
         BuildTransfer(trfer,resNode);
       };
 
@@ -4996,8 +4991,8 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_versio
       //несопровождаемый багаж
       if (grp_id==grp_ids.begin())
       {
-        vector<CheckIn::TTransferItem> trfer;
-        LoadTransfer(*grp_id,trfer);
+        TTrferRoute trfer;
+        trfer.GetRoute(*grp_id, trtNotFirstSeg);
         BuildTransfer(trfer,resNode);
         LoadPaxNorms(segNode,pr_unaccomp);
       };
@@ -5947,36 +5942,26 @@ string CheckInInterface::SaveTransfer(int grp_id, const vector<CheckIn::TTransfe
 void CheckInInterface::LoadTransfer(int grp_id, vector<CheckIn::TTransferItem> &trfer)
 {
   trfer.clear();
-  TQuery TrferQry(&OraSession);
-  TrferQry.Clear();
-  TrferQry.SQLText=
-    "SELECT airline,airline_fmt,flt_no,suffix,suffix_fmt,scd AS scd_out, "
-    "       airp_dep AS airp,airp_dep_fmt AS airp_fmt,airp_arv,airp_arv_fmt "
-    "FROM transfer,trfer_trips "
-    "WHERE transfer.point_id_trfer=trfer_trips.point_id AND "
-    "      grp_id=:grp_id AND transfer_num>0 "
-    "ORDER BY transfer_num";
-  TrferQry.CreateVariable("grp_id",otInteger,grp_id);
-  TrferQry.Execute();
-  for(;!TrferQry.Eof;TrferQry.Next())
+  TTrferRoute route;
+  route.GetRoute(grp_id, trtNotFirstSeg);
+  for(TTrferRoute::const_iterator r=route.begin(); r!=route.end(); ++r)
   {
     trfer.push_back(CheckIn::TTransferItem());
     CheckIn::TTransferItem &t=trfer.back();
-    t.operFlt.Init(TrferQry);
-    t.airp_arv=TrferQry.FieldAsString("airp_arv");
-    t.airp_arv_fmt=(TElemFmt)TrferQry.FieldAsInteger("airp_arv_fmt");
+    t.operFlt.Assign(r->operFlt);
+    t.airp_arv=r->airp_arv;
+    t.airp_arv_fmt=r->airp_arv_fmt;
   };
-  TrferQry.Close();
 };
 
-void CheckInInterface::BuildTransfer(const vector<CheckIn::TTransferItem> &trfer, xmlNodePtr transferNode)
+void CheckInInterface::BuildTransfer(const TTrferRoute &trfer, xmlNodePtr transferNode)
 {
   if (transferNode==NULL) return;
 
   xmlNodePtr node=NewTextChild(transferNode,"transfer");
 
   int iDay,iMonth,iYear;
-  for(vector<CheckIn::TTransferItem>::const_iterator t=trfer.begin();t!=trfer.end();t++)
+  for(TTrferRoute::const_iterator t=trfer.begin();t!=trfer.end();t++)
   {
     xmlNodePtr trferNode=NewTextChild(node,"segment");
     NewTextChild(trferNode,"airline",

@@ -365,6 +365,33 @@ class TPaxSeats {
     ~TPaxSeats();
 };
 
+struct TTrferRouteItem
+{
+  TTripInfo operFlt;
+  std::string airp_arv;
+  TElemFmt airp_arv_fmt;
+  TTrferRouteItem()
+  {
+    Clear();
+  };
+  void Clear()
+  {
+    operFlt.Clear();
+    airp_arv.clear();
+    airp_arv_fmt=efmtUnknown;
+  };
+};
+
+enum TTrferRouteType { trtNotFirstSeg,
+                       trtWithFirstSeg };
+                       
+class TTrferRoute : public std::vector<TTrferRouteItem>
+{
+  public:
+    bool GetRoute(int grp_id,
+                  TTrferRouteType route_type);
+};
+
 struct TCkinRouteItem
 {
   int grp_id;
@@ -532,6 +559,11 @@ void GetTagRanges(const std::vector<TBagTagNumber> &tags,
                   std::vector<std::string> &ranges);   //ranges сортирован
 
 std::string GetTagRangesStr(const std::vector<TBagTagNumber> &tags);
+
+std::string GetBagRcptStr(const std::vector<std::string> &rcpts);
+std::string GetBagRcptStr(int grp_id, int pax_id);
+
+bool BagPaymentCompleted(int grp_id, int *value_bag_count=NULL);
 
 #endif /*_ASTRA_MISC_H_*/
 

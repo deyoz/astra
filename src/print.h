@@ -8,6 +8,15 @@
 #include <set>
 #include "prn_tag_store.h"
 
+struct TPrnParams {
+    std::string encoding;
+    int offset, top;
+    bool pr_lat;
+    void get_prn_params(xmlNodePtr prnParamsNode);
+    TPrnParams(): encoding("CP866"), offset(20), top(0), pr_lat(false) {};
+    TPrnParams(xmlNodePtr prnParamsNode): encoding("CP866"), offset(20), top(0), pr_lat(false) {get_prn_params(prnParamsNode);};
+};
+
 //////////////////////////////// CLASS PrintDataParser ///////////////////////////////////
 
 class PrintDataParser {
@@ -20,9 +29,9 @@ class PrintDataParser {
         std::string parse_tag(int offset, std::string tag);
     public:
         TPrnTagStore pts;
-        PrintDataParser(int pr_lat = 0): pectab_format(0), pts(pr_lat != 0) {};
-        PrintDataParser(TBagReceipt &rcpt): pectab_format(0), pts(rcpt) {};
-        PrintDataParser(int grp_id, int pax_id, bool pr_lat, xmlNodePtr tagsNode, TBTRoute *route = NULL):
+        PrintDataParser(bool pr_lat = false): pectab_format(0), pts(pr_lat) {};
+        PrintDataParser(const TBagReceipt &rcpt, bool pr_lat): pectab_format(0), pts(rcpt, pr_lat) {};
+        PrintDataParser(int grp_id, int pax_id, bool pr_lat, xmlNodePtr tagsNode, const TTrferRoute &route = TTrferRoute()):
             pectab_format(0), pts(grp_id, pax_id, pr_lat, tagsNode, route) {};
         std::string parse(std::string &form);
 };
@@ -31,8 +40,7 @@ class PrintDataParser {
 void GetTripBPPectabs(int point_id, const std::string &dev_model, const std::string &fmt_type, xmlNodePtr node);
 void GetTripBTPectabs(int point_id, const std::string &dev_model, const std::string &fmt_type, xmlNodePtr node);
 
-void GetPrintDataBT(xmlNodePtr dataNode, int grp_id, int pr_lat);
-std::string get_validator(TBagReceipt &rcpt);
+std::string get_validator(const TBagReceipt &rcpt, bool pr_lat);
 double CalcPayRate(const TBagReceipt &rcpt);
 double CalcRateSum(const TBagReceipt &rcpt);
 double CalcPayRateSum(const TBagReceipt &rcpt);

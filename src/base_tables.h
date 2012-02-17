@@ -952,7 +952,41 @@ class TStationModes: public TCodeBaseTable {
   	};
 };
 
+class TFormTypesRow: public TCodeBaseTableRow {
+	public:
+	  std::string basic_type, validator;
+	  int series_len, no_len;
+	  bool pr_check_bit;
+    const char *get_row_name() const { return "TFormTypesRow"; };
+    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU) const
+    {
+      if (lowerc(field)=="basic_type") return basic_type;
+      if (lowerc(field)=="validator") return validator;
+      return TCodeBaseTableRow::AsString(field);
+    }
+    int AsInteger(std::string field) const
+    {
+      if (lowerc(field)=="series_len") return series_len;
+      if (lowerc(field)=="no_len") return no_len;
+      return TCodeBaseTableRow::AsInteger(field);
+    }
+    bool AsBoolean(std::string field) const
+    {
+      if (lowerc(field)=="pr_check_bit") return pr_check_bit;
+      return TCodeBaseTableRow::AsBoolean(field);
+    }
+};
 
+class TFormTypes: public TCodeBaseTable {
+  protected:
+    const char *get_table_name() { return "TFormTypes"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+    void Invalidate() {}; //всегда актуальна
+  public:
+  	TFormTypes() {
+    Init( "form_types" );
+  	};
+};
 
 class TBaseTables {
     private:
