@@ -3658,109 +3658,132 @@ typedef map<TKioskStatKey, TKioskStatRow, TKioskCmp> TKioskStat;
 void RunKioskStat(const TStatParams &params, TKioskStat &KioskStat, TPrintAirline &prn_airline)
 {
     TQuery Qry(&OraSession);
-    string SQLText =
-        "select "
-        "    points.airline, "
-        "    points.airp, "
-        "    points.scd_out, "
-        "    points.flt_no, "
-        "    kiosk_stat.point_id, "
-        "    desk, "
-        "    desk_airp, "
-        "    descr, "
-        "    adult, "
-        "    child, "
-        "    baby, "
-        "    tckin "
-        "from "
-        "    kiosk_stat, "
-        "    points "
-        "where "
-        "    kiosk_stat.point_id = points.point_id and "
-        "    points.scd_out >= :FirstDate and "
-        "    points.scd_out < :LastDate ";
-    if(params.flt_no != NoExists) {
-        SQLText += " and points.flt_no = :flt_no ";
-        Qry.CreateVariable("flt_no", otInteger, params.flt_no);
-    }
-    if (!params.airps.empty()) {
-        if (params.airps_permit)
-            SQLText += " AND points.airp IN " + GetSQLEnum(params.airps) + "\n";
-        else
-            SQLText += " AND points.airp NOT IN " + GetSQLEnum(params.airps) + "\n";
-    };
-    if (!params.airlines.empty()) {
-        if (params.airlines_permit)
-            SQLText += " AND points.airline IN " + GetSQLEnum(params.airlines) + "\n";
-        else
-            SQLText += " AND points.airline NOT IN " + GetSQLEnum(params.airlines) + "\n";
-    };
-    if(not params.kiosk.empty()) {
-        SQLText += "and kiosk_stat.desk = :kiosk ";
-        Qry.CreateVariable("kiosk", otString, params.kiosk);
-    }
-    Qry.SQLText = SQLText;
-    Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
-    Qry.CreateVariable("LastDate", otDate, params.LastDate);
-    Qry.Execute();
-    if(not Qry.Eof) {
-        int col_airline = Qry.FieldIndex("airline");
-        int col_airp = Qry.FieldIndex("airp");
-        int col_scd_out = Qry.FieldIndex("scd_out");
-        int col_flt_no = Qry.FieldIndex("flt_no");
-        int col_point_id = Qry.FieldIndex("point_id");
-        int col_desk = Qry.FieldIndex("desk");
-        int col_desk_airp = Qry.FieldIndex("desk_airp");
-        int col_descr = Qry.FieldIndex("descr");
-        int col_adult = Qry.FieldIndex("adult");
-        int col_child = Qry.FieldIndex("child");
-        int col_baby = Qry.FieldIndex("baby");
-        int col_tckin = Qry.FieldIndex("tckin");
-        for(; not Qry.Eof; Qry.Next()) {
-            string airline = Qry.FieldAsString(col_airline);
-            string airp = Qry.FieldAsString(col_airp);
-            TDateTime scd_out = Qry.FieldAsDateTime(col_scd_out);
-            int flt_no = Qry.FieldAsInteger(col_flt_no);
-            int point_id = Qry.FieldAsInteger(col_point_id);
-            string desk = Qry.FieldAsString(col_desk);
-            string desk_airp = Qry.FieldAsString(col_desk_airp);
-            string descr = Qry.FieldAsString(col_descr);
-            int adult = Qry.FieldAsInteger(col_adult);
-            int child = Qry.FieldAsInteger(col_child);
-            int baby = Qry.FieldAsInteger(col_baby);
-            int tckin = Qry.FieldAsInteger(col_tckin);
-            TKioskStatKey key;
-            key.kiosk = desk + "/" + ElemIdToCodeNative(etAirp, desk_airp);
-            key.descr = descr;
-            key.ak = ElemIdToCodeNative(etAirline, airline);
-            prn_airline.check(airline);
-            if(
-                    params.statType == statKioskDetail or
-                    params.statType == statKioskFull
-              )
-                key.ap = airp;
-            if(params.statType == statKioskFull) {
-                key.flt_no = flt_no;
-                key.scd_out = scd_out;
-                key.point_id = point_id;
-                key.places.set(GetRouteAfterStr( NoExists, point_id, trtNotCurrent, trtNotCancelled), false);
-            }
-            TKioskStatRow &row = KioskStat[key];
-            row.flts.insert(point_id);
-            if(row.pax_amount == NoExists) {
-                row.pax_amount = adult + child + baby;
-                row.adult = adult;
-                row.child = child;
-                row.baby = baby;
-                row.tckin = tckin;
-            } else {
-                row.pax_amount += adult + child + baby;
-                row.adult += adult;
-                row.child += child;
-                row.baby += baby;
-                row.tckin += tckin;
-            }
+    for(int pass = 0; pass <= 2; pass++) {
+        string SQLText =
+            "select "
+            "    points.airline, "
+            "    points.airp, "
+            "    points.scd_out, "
+            "    points.flt_no, "
+            "    kiosk_stat.point_id, "
+            "    desk, "
+            "    desk_airp, "
+            "    descr, "
+            "    adult, "
+            "    child, "
+            "    baby, "
+            "    tckin "
+            "from ";
+        if(pass != 0) {
+            SQLText +=
+                " arx_points points, "
+                " arx_kiosk_stat kiosk_stat ";
+            if(pass == 2)
+                SQLText +=
+                    ",(SELECT part_key, move_id FROM move_arx_ext \n"
+                    "  WHERE part_key >= :LastDate+:arx_trip_date_range AND part_key <= :LastDate+date_range) arx_ext \n";
+        } else {
+            SQLText +=
+                " points, "
+                " kiosk_stat ";
+        }
+        SQLText += "where ";
+        if (pass==1)
+            SQLText += " points.part_key >= :FirstDate AND points.part_key < :LastDate + :arx_trip_date_range AND \n";
+        if (pass==2)
+            SQLText += " points.part_key=arx_ext.part_key AND points.move_id=arx_ext.move_id AND \n";
+        if (pass!=0)
+            SQLText += " kiosk_stat.part_key = points.part_key AND \n";
+        SQLText +=
+            "    kiosk_stat.point_id = points.point_id and "
+            "    points.pr_del >= 0 and "
+            "    points.scd_out >= :FirstDate and "
+            "    points.scd_out < :LastDate ";
+        if(params.flt_no != NoExists) {
+            SQLText += " and points.flt_no = :flt_no ";
+            Qry.CreateVariable("flt_no", otInteger, params.flt_no);
+        }
+        if (!params.airps.empty()) {
+            if (params.airps_permit)
+                SQLText += " AND points.airp IN " + GetSQLEnum(params.airps) + "\n";
+            else
+                SQLText += " AND points.airp NOT IN " + GetSQLEnum(params.airps) + "\n";
+        };
+        if (!params.airlines.empty()) {
+            if (params.airlines_permit)
+                SQLText += " AND points.airline IN " + GetSQLEnum(params.airlines) + "\n";
+            else
+                SQLText += " AND points.airline NOT IN " + GetSQLEnum(params.airlines) + "\n";
+        };
+        if(not params.kiosk.empty()) {
+            SQLText += "and kiosk_stat.desk = :kiosk ";
+            Qry.CreateVariable("kiosk", otString, params.kiosk);
+        }
+        Qry.SQLText = SQLText;
+        Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
+        Qry.CreateVariable("LastDate", otDate, params.LastDate);
+        if (pass!=0)
+            Qry.CreateVariable("arx_trip_date_range", otInteger, ARX_TRIP_DATE_RANGE());
+        Qry.Execute();
+        if(not Qry.Eof) {
+            int col_airline = Qry.FieldIndex("airline");
+            int col_airp = Qry.FieldIndex("airp");
+            int col_scd_out = Qry.FieldIndex("scd_out");
+            int col_flt_no = Qry.FieldIndex("flt_no");
+            int col_point_id = Qry.FieldIndex("point_id");
+            int col_desk = Qry.FieldIndex("desk");
+            int col_desk_airp = Qry.FieldIndex("desk_airp");
+            int col_descr = Qry.FieldIndex("descr");
+            int col_adult = Qry.FieldIndex("adult");
+            int col_child = Qry.FieldIndex("child");
+            int col_baby = Qry.FieldIndex("baby");
+            int col_tckin = Qry.FieldIndex("tckin");
+            for(; not Qry.Eof; Qry.Next()) {
+                string airline = Qry.FieldAsString(col_airline);
+                string airp = Qry.FieldAsString(col_airp);
+                TDateTime scd_out = Qry.FieldAsDateTime(col_scd_out);
+                int flt_no = Qry.FieldAsInteger(col_flt_no);
+                int point_id = Qry.FieldAsInteger(col_point_id);
+                string desk = Qry.FieldAsString(col_desk);
+                string desk_airp = Qry.FieldAsString(col_desk_airp);
+                string descr = Qry.FieldAsString(col_descr);
+                int adult = Qry.FieldAsInteger(col_adult);
+                int child = Qry.FieldAsInteger(col_child);
+                int baby = Qry.FieldAsInteger(col_baby);
+                int tckin = Qry.FieldAsInteger(col_tckin);
+                TKioskStatKey key;
+                key.kiosk = desk + "/" + ElemIdToCodeNative(etAirp, desk_airp);
+                key.descr = descr;
+                key.ak = ElemIdToCodeNative(etAirline, airline);
+                prn_airline.check(airline);
+                if(
+                        params.statType == statKioskDetail or
+                        params.statType == statKioskFull
+                  )
+                    key.ap = airp;
+                if(params.statType == statKioskFull) {
+                    key.flt_no = flt_no;
+                    key.scd_out = scd_out;
+                    key.point_id = point_id;
+                    key.places.set(GetRouteAfterStr( NoExists, point_id, trtNotCurrent, trtNotCancelled), false);
+                }
+                TKioskStatRow &row = KioskStat[key];
+                row.flts.insert(point_id);
+                if(row.pax_amount == NoExists) {
+                    row.pax_amount = adult + child + baby;
+                    row.adult = adult;
+                    row.child = child;
+                    row.baby = baby;
+                    row.tckin = tckin;
+                } else {
+                    row.pax_amount += adult + child + baby;
+                    row.adult += adult;
+                    row.child += child;
+                    row.baby += baby;
+                    row.tckin += tckin;
+                }
 
+            }
         }
     }
 }
