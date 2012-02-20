@@ -3506,7 +3506,6 @@ void RunDetailStat(bool pr_new, const TStatParams &params,
           Qry.SQLText = GetStatSQLText(params,pass!=0).c_str();
         if (pass!=0)
           Qry.CreateVariable("arx_trip_date_range", otInteger, pr_new?ARX_TRIP_DATE_RANGE():arx_trip_date_range);
-        ProgTrace(TRACE5, "RunDetailStat: pass=%d SQL=\n%s", pass, Qry.SQLText.SQLText()); //!!!
 
         if (!USE_SEANCES() && params.seance==seanceAirline)
         {
@@ -3998,7 +3997,6 @@ void createXMLKioskStat(const TStatParams &params, const TKioskStat &KioskStat, 
         }
         NewTextChild(variablesNode, "stat_type_caption", buf);
     }
-    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str()); //!!!
 }
 
 void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
