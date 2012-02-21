@@ -196,6 +196,7 @@ const long int DOCO_NO_FIELD=0x0004;
 const long int DOCO_ISSUE_PLACE_FIELD=0x0008;
 const long int DOCO_ISSUE_DATE_FIELD=0x0010;
 const long int DOCO_APPLIC_COUNTRY_FIELD=0x0020;
+const long int DOCO_EXPIRY_DATE_FIELD=0x0040;
 
 const long int TKN_TICKET_NO_FIELD=0x0001;
                                   
@@ -564,6 +565,8 @@ std::string GetBagRcptStr(const std::vector<std::string> &rcpts);
 std::string GetBagRcptStr(int grp_id, int pax_id);
 
 bool BagPaymentCompleted(int grp_id, int *value_bag_count=NULL);
+
+std::string GetPaxDocCountryCode(const std::string &doc_code);
 
 #endif /*_ASTRA_MISC_H_*/
 

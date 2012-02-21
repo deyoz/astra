@@ -514,10 +514,10 @@ void create_apis_file(int point_id)
       "       system.transliter(pax_doc.surname,1,1) AS doc_surname, "
       "       system.transliter(pax_doc.first_name,1,1) AS doc_first_name, "
       "       system.transliter(pax_doc.second_name,1,1) AS doc_second_name, "
-      "       pax_doc.type AS doc_type, issue_country, pax_doc.no AS doc_no, "
-      "       nationality, birth_date, gender, expiry_date, pr_multi, "
-      "       birth_place, pax_doco.type AS doco_type, pax_doco.no AS doco_no, "
-      "       issue_place, issue_date, applic_country, pr_inf, "
+      "       pax_doc.type AS doc_type, pax_doc.issue_country, pax_doc.no AS doc_no, "
+      "       pax_doc.nationality, pax_doc.birth_date, pax_doc.gender, pax_doc.expiry_date, pax_doc.pr_multi, "
+      "       pax_doco.birth_place, pax_doco.type AS doco_type, pax_doco.no AS doco_no, "
+      "       pax_doco.issue_place, pax_doco.issue_date, pax_doco.applic_country, pax_doco.pr_inf, "
       "       tckin_segments.airp_arv AS airp_final "
       "FROM pax_grp,pax,pax_doc,pax_doco,tckin_segments "
       "WHERE pax_grp.grp_id=pax.grp_id AND "
@@ -778,24 +778,12 @@ void create_apis_file(int point_id)
       	    	string nationality;
       	    	if (!PaxQry.FieldIsNULL("nationality"))
       	    	{
-      	    	  TCountriesRow &nationality_row = (TCountriesRow&)base_tables.get("countries").get_row("code",PaxQry.FieldAsString("nationality"));
-      	    	  if (nationality_row.code_iso.empty()) throw Exception("nationality.code_iso empty (code=%s)",PaxQry.FieldAsString("nationality"));
-      	    	  nationality=nationality_row.code_iso;
-      	    	  if (fmt=="CSV_DE")
-      	    	  {
-      	    	    if (nationality=="DEU") nationality="D";
-      	    	  };
+      	    	  nationality=GetPaxDocCountryCode(PaxQry.FieldAsString("nationality"));
       	    	};
       	    	string issue_country;
       	    	if (!PaxQry.FieldIsNULL("issue_country"))
       	    	{
-      	    	  TCountriesRow &issue_country_row = (TCountriesRow&)base_tables.get("countries").get_row("code",PaxQry.FieldAsString("issue_country"));
-      	    	  if (issue_country_row.code_iso.empty()) throw Exception("issue_country.code_iso empty (code=%s)",PaxQry.FieldAsString("issue_country"));
-      	    	  issue_country=issue_country_row.code_iso;
-      	    	  if (fmt=="CSV_DE")
-      	    	  {
-      	    	    if (issue_country=="DEU") issue_country="D";
-      	    	  };
+      	    	  issue_country=GetPaxDocCountryCode(PaxQry.FieldAsString("issue_country"));
       	    	};
       	    	string birth_date;
       	    	if (!PaxQry.FieldIsNULL("birth_date"))
@@ -893,13 +881,7 @@ void create_apis_file(int point_id)
       	    	string applic_country;
       	    	if (!PaxQry.FieldIsNULL("applic_country"))
       	    	{
-      	    	  TCountriesRow &applic_country_row = (TCountriesRow&)base_tables.get("countries").get_row("code",PaxQry.FieldAsString("applic_country"));
-      	    	  if (applic_country_row.code_iso.empty()) throw Exception("applic_country.code_iso empty (code=%s)",PaxQry.FieldAsString("applic_country"));
-      	    	  applic_country=applic_country_row.code_iso;
-      	    	  if (fmt=="CSV_DE")
-      	    	  {
-      	    	    if (applic_country=="DEU") applic_country="D";
-      	    	  };
+      	    	  applic_country=GetPaxDocCountryCode(PaxQry.FieldAsString("applic_country"));
       	    	};
       	    
       	      if (fmt=="CSV_DE")
