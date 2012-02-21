@@ -982,6 +982,9 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
       	SetProp( pNode, "sess_fmt_name", sess_name + "/" + "fmt_name" );
       }
 
+      if (!reqInfo->desk.compatible(OLDEST_SUPPORTED_VERSION))
+        NewTextChild( newoperNode, "dev_model_name", ElemIdToNameLong(etDevModel,dev_model));
+
       SessParamsQry.SetVariable("dev_model",dev_model);
       SessParamsQry.SetVariable("sess_type",sess_type);
       SessParamsQry.SetVariable("fmt_type",fmt_type);
