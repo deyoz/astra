@@ -253,7 +253,7 @@ void TIdBaseTable::delete_row(TBaseTableRow *row)
 void TIdBaseTable::add_row(TBaseTableRow *row)
 {
   TBaseTable::add_row(row);
-  if (row!=NULL /*&& !row->deleted()*/)
+  if (row!=NULL && !row->deleted())
   {
       id[((TIdBaseTableRow*)row)->id]=row;
   };
@@ -307,7 +307,7 @@ void TCodeBaseTable::delete_row(TBaseTableRow *row)
 void TCodeBaseTable::add_row(TBaseTableRow *row)
 {
   TBaseTable::add_row(row);
-  if (row!=NULL /*&& !row->deleted()*/)
+  if (row!=NULL && !row->deleted())
   {
     if(strcmp(get_table_name(), "TClsGrp") != 0) {   //!!!vlad плохое решение проблемы
       if (!((TCodeBaseTableRow*)row)->code.empty())

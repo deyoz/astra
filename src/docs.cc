@@ -2736,7 +2736,8 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(paxNode, "rk_amount", Qry.FieldAsInteger("rk_amount"));
         NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
         NewTextChild(paxNode, "excess", Qry.FieldAsInteger("excess"));
-        NewTextChild(paxNode, "pr_payment", Qry.FieldAsInteger("pr_payment"));
+        bool pr_payment=BagPaymentCompleted(Qry.FieldAsInteger("grp_id"));
+        NewTextChild(paxNode, "pr_payment", (int)pr_payment);
         NewTextChild(paxNode, "tags", Qry.FieldAsString("tags"));
         NewTextChild(paxNode, "remarks", Qry.FieldAsString("remarks"));
     }
