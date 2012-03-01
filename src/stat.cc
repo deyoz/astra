@@ -1690,7 +1690,9 @@ enum TStatType {
     statDetail,
     statKioskFull,
     statKioskShort,
-    statKioskDetail
+    statKioskDetail,
+    statAgentFull,
+    statAgentShort
 };
 
 enum TSeanceType { seanceAirline, seanceAirport, seanceAll };
@@ -2453,6 +2455,13 @@ void TStatParams::get(xmlNodePtr reqNode)
             statType=statKioskShort;
         else if(name == "Детализированная")
             statType=statKioskDetail;
+        else
+            throw Exception("Unknown stat mode " + name);
+    } else if(type == "По агентам") {
+        if(name == "Подробная")
+            statType=statAgentFull;
+        else if(name == "Общая")
+            statType=statAgentShort;
         else
             throw Exception("Unknown stat mode " + name);
     } else
@@ -3999,6 +4008,303 @@ void createXMLKioskStat(const TStatParams &params, const TKioskStat &KioskStat, 
     }
 }
 
+/****************** AgentStat *************************/
+struct TAgentStatKey {
+    string airline;
+    string airp;
+    int flt_no;
+    TDateTime scd_out;
+    string login;
+    TAgentStatKey(): flt_no(NoExists), scd_out(0) {};
+};
+
+struct TAgentStatRow {
+    int rowcount; // amount of groupped rows
+    int pax_amount;
+    int bag_amount;
+    int bag_weight;
+    int rk_amount;
+    int rk_weight;
+    double time_per_pax;
+    TAgentStatRow():
+        rowcount(1),
+        pax_amount(NoExists),
+        bag_amount(NoExists),
+        bag_weight(NoExists),
+        rk_amount(NoExists),
+        rk_weight(NoExists),
+        time_per_pax(NoExists)
+    {}
+};
+
+struct TAgentCmp {
+    bool operator() (const TAgentStatKey &lr, const TAgentStatKey &rr) const
+    {
+        if(lr.airline == rr.airline)
+            if(lr.airp == rr.airp)
+                if(lr.flt_no == rr.flt_no)
+                    if(lr.scd_out == rr.scd_out)
+                        return lr.login < rr.login;
+                    else
+                        return lr.scd_out < rr.scd_out;
+                else
+                    return lr.flt_no < rr.flt_no;
+            else
+                return lr.airp < rr.airp;
+        else
+            return lr.airline < rr.airline;
+    }
+};
+
+typedef map<TAgentStatKey, TAgentStatRow, TAgentCmp> TAgentStat;
+
+void RunAgentStat(const TStatParams &params, TAgentStat &AgentStat, TPrintAirline &prn_airline)
+{
+    TQuery Qry(&OraSession);
+    for(int pass = 0; pass <= 2; pass++) {
+        string SQLText =
+            "select "
+            "    points.airp, "
+            "    points.airline, "
+            "    points.scd_out, "
+            "    points.flt_no, "
+            "    users2.login, "
+            "    agent_stat.desk, "
+            "    pax_amount, "
+            "    bag_amount, "
+            "    bag_weight, "
+            "    rk_amount, "
+            "    rk_weight, "
+            "    time_per_pax "
+            "from "
+            "    users2, ";
+        if(pass != 0) {
+            SQLText +=
+                " arx_points points, "
+                " arx_agent_stat agent_stat ";
+            if(pass == 2)
+                SQLText +=
+                    ",(SELECT part_key, move_id FROM move_arx_ext \n"
+                    "  WHERE part_key >= :LastDate+:arx_trip_date_range AND part_key <= :LastDate+date_range) arx_ext \n";
+        } else {
+            SQLText +=
+                " points, "
+                " agent_stat ";
+        }
+        SQLText += "where ";
+        if (pass==1)
+            SQLText += " points.part_key >= :FirstDate AND points.part_key < :LastDate + :arx_trip_date_range AND \n";
+        if (pass==2)
+            SQLText += " points.part_key=arx_ext.part_key AND points.move_id=arx_ext.move_id AND \n";
+        if (pass!=0)
+            SQLText += " agent_stat.part_key = points.part_key AND \n";
+        SQLText +=
+            "    agent_stat.user_id = users2.user_id and "
+            "    agent_stat.point_id = points.point_id and "
+            "    points.pr_del >= 0 and "
+            "    points.scd_out >= :FirstDate and "
+            "    points.scd_out < :LastDate ";
+        if(params.flt_no != NoExists) {
+            SQLText += " and points.flt_no = :flt_no ";
+            Qry.CreateVariable("flt_no", otInteger, params.flt_no);
+        }
+        if (!params.airps.empty()) {
+            if (params.airps_permit)
+                SQLText += " AND points.airp IN " + GetSQLEnum(params.airps) + "\n";
+            else
+                SQLText += " AND points.airp NOT IN " + GetSQLEnum(params.airps) + "\n";
+        };
+        if (!params.airlines.empty()) {
+            if (params.airlines_permit)
+                SQLText += " AND points.airline IN " + GetSQLEnum(params.airlines) + "\n";
+            else
+                SQLText += " AND points.airline NOT IN " + GetSQLEnum(params.airlines) + "\n";
+        };
+        if(not params.kiosk.empty()) {
+            SQLText += "and agent_stat.desk = :kiosk ";
+            Qry.CreateVariable("kiosk", otString, params.kiosk);
+        }
+        Qry.SQLText = SQLText;
+        Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
+        Qry.CreateVariable("LastDate", otDate, params.LastDate);
+        if (pass!=0)
+            Qry.CreateVariable("arx_trip_date_range", otInteger, ARX_TRIP_DATE_RANGE());
+        Qry.Execute();
+        if(not Qry.Eof) {
+            int col_airp = Qry.FieldIndex("airp");
+            int col_airline = Qry.FieldIndex("airline");
+            int col_scd_out = Qry.FieldIndex("scd_out");
+            int col_flt_no = Qry.FieldIndex("flt_no");
+            int col_login = Qry.FieldIndex("login");
+            int col_desk = Qry.FieldIndex("desk");
+            int col_pax_amount = Qry.FieldIndex("pax_amount");
+            int col_bag_amount = Qry.FieldIndex("bag_amount");
+            int col_bag_weight = Qry.FieldIndex("bag_weight");
+            int col_rk_amount = Qry.FieldIndex("rk_amount");
+            int col_rk_weight = Qry.FieldIndex("rk_weight");
+            int col_time_per_pax = Qry.FieldIndex("time_per_pax");
+            for(; not Qry.Eof; Qry.Next()) {
+                string airline = Qry.FieldAsString(col_airline);
+                string airp = Qry.FieldAsString(col_airp);
+                TDateTime scd_out = Qry.FieldAsDateTime(col_scd_out);
+                int flt_no = Qry.FieldAsInteger(col_flt_no);
+                string login = Qry.FieldAsString(col_login);
+                string desk = Qry.FieldAsString(col_desk);
+                int pax_amount = Qry.FieldAsInteger(col_pax_amount);
+                int bag_amount = Qry.FieldAsInteger(col_bag_amount);
+                int bag_weight = Qry.FieldAsInteger(col_bag_weight);
+                int rk_amount = Qry.FieldAsInteger(col_rk_amount);
+                int rk_weight = Qry.FieldAsInteger(col_rk_weight);
+                double time_per_pax = Qry.FieldAsFloat(col_time_per_pax);
+                TAgentStatKey key;
+                key.airp = airp;
+                key.airline = ElemIdToCodeNative(etAirline, airline);
+                prn_airline.check(airline);
+                key.flt_no = flt_no;
+                key.scd_out = scd_out;
+                if(params.statType == statAgentFull)
+                    key.login = login;
+                TAgentStatRow &row = AgentStat[key];
+                if(row.pax_amount == NoExists) {
+                    row.pax_amount = pax_amount;
+                    row.bag_amount = bag_amount;
+                    row.bag_weight = bag_weight;
+                    row.rk_amount = rk_amount;
+                    row.rk_weight = rk_weight;
+                    row.time_per_pax = time_per_pax;
+                } else {
+                    row.rowcount++;
+                    row.pax_amount += pax_amount;
+                    row.bag_amount += bag_amount;
+                    row.bag_weight += bag_weight;
+                    row.rk_amount += rk_amount;
+                    row.rk_weight += rk_weight;
+                    row.time_per_pax += time_per_pax;
+                }
+            }
+        }
+    }
+}
+
+void createXMLAgentStat(const TStatParams &params, const TAgentStat &AgentStat, const TPrintAirline &airline, xmlNodePtr resNode)
+{
+    if(AgentStat.empty())
+        throw AstraLocale::UserException("MSG.NOT_DATA");
+    else {
+        NewTextChild(resNode, "airline", airline.get(), "");
+        xmlNodePtr grdNode = NewTextChild(resNode, "grd");
+        xmlNodePtr headerNode = NewTextChild(grdNode, "header");
+        xmlNodePtr colNode;
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
+        SetProp(colNode, "width", 50);
+        SetProp(colNode, "align", taLeftJustify);
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Дата"));
+        SetProp(colNode, "width", 50);
+        SetProp(colNode, "align", taLeftJustify);
+        if(params.statType == statAgentFull) {
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Пользователь"));
+            SetProp(colNode, "width", 80);
+            SetProp(colNode, "align", taLeftJustify);
+        }
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во пасс."));
+        SetProp(colNode, "width", 75);
+        SetProp(colNode, "align", taRightJustify);
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Багаж (мест/вес)"));
+        SetProp(colNode, "width", 100);
+        SetProp(colNode, "align", taCenter);
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Р/кладь (вес)"));
+        SetProp(colNode, "width", 80);
+        SetProp(colNode, "align", taRightJustify);
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Среднее время, затраченное на пассажира"));
+        SetProp(colNode, "width", 230);
+        SetProp(colNode, "align", taRightJustify);
+
+        xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
+        xmlNodePtr rowNode;
+        int total_pax_amount = 0;
+        int total_rk_weight = 0;
+        int total_bag_amount = 0;
+        int total_bag_weight = 0;
+        double total_time_per_pax = 0;
+        int total_rowcount = 0;
+
+
+        for(TAgentStat::const_iterator im = AgentStat.begin(); im != AgentStat.end(); im++) {
+            rowNode = NewTextChild(rowsNode, "row");
+            // Код а/к
+            ostringstream buf;
+            buf << im->first.airline << setw(3) << setfill('0') << im->first.flt_no;
+            NewTextChild(rowNode, "col", buf.str());
+            // Дата
+            string region;
+            try
+            {
+                region = AirpTZRegion(im->first.airp);
+            }
+            catch(AstraLocale::UserException &E)
+            {
+                AstraLocale::showErrorMessage("MSG.ERR_MSG.NOT_ALL_FLIGHTS_ARE_SHOWN", LParams() << LParam("msg", getLocaleText(E.getLexemaData())));
+                continue;
+            };
+            NewTextChild(rowNode, "col", DateTimeToStr(
+                        UTCToClient(im->first.scd_out, region), "dd.mm.yy")
+                    );
+            if(params.statType == statAgentFull) {
+                // Пользователь
+                NewTextChild(rowNode, "col", im->first.login);
+            }
+            // Кол-во пасс.
+            NewTextChild(rowNode, "col", im->second.pax_amount);
+            total_pax_amount += im->second.pax_amount;
+            // Багаж (мест/вес)
+            NewTextChild(rowNode, "col", IntToString(im->second.bag_amount) + "/" + IntToString(im->second.bag_weight));
+            total_bag_amount += im->second.bag_amount;
+            total_bag_weight += im->second.bag_weight;
+            // Р/кладь (вес)
+            NewTextChild(rowNode, "col", im->second.rk_weight);
+            total_rk_weight += im->second.rk_weight;
+            // Среднее время, затраченное на пассажира
+            buf.str("");
+            buf << fixed << setprecision(2) << im->second.time_per_pax / im->second.rowcount;
+            total_time_per_pax += im->second.time_per_pax;
+            total_rowcount += im->second.rowcount;
+            NewTextChild(rowNode, "col", buf.str());
+        }
+        rowNode = NewTextChild(rowsNode, "row");
+        NewTextChild(rowNode, "col", getLocaleText("Итого:"));
+        NewTextChild(rowNode, "col");
+        if(params.statType == statAgentFull)
+            NewTextChild(rowNode, "col");
+        NewTextChild(rowNode, "col", total_pax_amount);
+        NewTextChild(rowNode, "col", IntToString(total_bag_amount) + "/" + IntToString(total_bag_weight));
+        NewTextChild(rowNode, "col", total_rk_weight);
+        {
+            ostringstream buf;
+            buf << fixed << setprecision(2) << total_time_per_pax / total_rowcount;
+            NewTextChild(rowNode, "col", buf.str());
+        }
+
+        xmlNodePtr variablesNode = STAT::set_variables(resNode);
+        NewTextChild(variablesNode, "stat_type", params.statType);
+        NewTextChild(variablesNode, "stat_mode", getLocaleText("Статистика по агентам"));
+        string buf;
+        switch(params.statType) {
+            case statAgentShort:
+                buf = getLocaleText("Общая");
+                break;
+            case statAgentFull:
+                buf = getLocaleText("Подробная");
+                break;
+            default:
+                throw Exception("createXMLAgentStat: unexpected statType %d", params.statType);
+                break;
+        }
+        NewTextChild(variablesNode, "stat_type_caption", buf);
+    }
+}
+
+/****************** end of AgentStat ******************/
+
 void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
@@ -4036,6 +4342,8 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
       case statKioskFull:
       case statKioskShort:
       case statKioskDetail:
+      case statAgentFull:
+      case statAgentShort:
         get_compatible_report_form("KioskStat", reqNode, resNode);
         break;
     };
@@ -4077,6 +4385,15 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             TPrintAirline airline;
             RunKioskStat(params, KioskStat, airline);
             createXMLKioskStat(params, KioskStat, airline, resNode);
+        }
+        if(
+                params.statType == statAgentShort or
+                params.statType == statAgentFull
+                ) {
+            TAgentStat AgentStat;
+            TPrintAirline airline;
+            RunAgentStat(params, AgentStat, airline);
+            createXMLAgentStat(params, AgentStat, airline, resNode);
         }
     }
     catch (EOracleError &E)
