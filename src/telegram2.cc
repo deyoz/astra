@@ -1620,7 +1620,7 @@ namespace PRL_SPACE {
             "WHERE "
             "   pax_grp.point_dep = :point_id AND "
             "   pax_grp.grp_id = bag2.grp_id AND "
-            "   pax_grp.bag_refuse = 0 "
+            "   ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse) = 0 "
             "GROUP BY "
             "   pax_grp.point_arv "
             "   ) b "
@@ -4314,19 +4314,13 @@ void TLDMBag::get(TTlgInfo &info, int point_arv)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
-        "SELECT "
-        "  NVL(SUM(weight),0) AS weight "
-        "FROM bag2, "
-        "     (SELECT DISTINCT pax_grp.grp_id FROM pax_grp,pax "
-        "      WHERE pax_grp.grp_id=pax.grp_id AND "
-        "            point_dep=:point_id AND point_arv=:point_arv AND  "
-        "            bag_refuse=0 AND pr_brd=1 "
-        "      UNION "
-        "      SELECT pax_grp.grp_id FROM pax_grp  "
-        "      WHERE point_dep=:point_id AND point_arv=:point_arv AND  "
-        "            bag_refuse=0 AND class IS NULL "
-        "     ) pax_grp "
-        "WHERE bag2.grp_id=pax_grp.grp_id AND pr_cabin=0 ";
+        "SELECT NVL(SUM(weight),0) AS weight "
+        "FROM pax_grp,bag2 "
+        "WHERE pax_grp.grp_id=bag2.grp_id AND "
+        "      pax_grp.point_dep=:point_id AND "
+        "      pax_grp.point_arv=:point_arv AND "
+        "      bag2.pr_cabin=0 AND "
+        "      ckin.bag_pool_boarded(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)<>0";
     Qry.CreateVariable("point_arv", otInteger, point_arv);
     Qry.CreateVariable("point_id", otInteger, info.point_id);
     Qry.Execute();

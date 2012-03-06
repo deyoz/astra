@@ -1,0 +1,904 @@
+#include "baggage.h"
+#include "astra_locale.h"
+#include "astra_utils.h"
+#include "base_tables.h"
+#include "basic.h"
+#include "term_version.h"
+
+#define NICKNAME "VLAD"
+#define NICKTRACE SYSTEM_TRACE
+#include "serverlib/test.h"
+
+using namespace std;
+using namespace AstraLocale;
+
+namespace CheckIn
+{
+
+const TValueBagItem& TValueBagItem::toXML(xmlNodePtr node) const
+{
+  if (node==NULL) return *this;
+  NewTextChild(node,"num",num);
+  NewTextChild(node,"value",value);
+  NewTextChild(node,"value_cur",value_cur);
+  if (tax_id!=ASTRA::NoExists)
+  {
+    NewTextChild(node,"tax_id",tax_id);
+    NewTextChild(node,"tax",tax);
+    NewTextChild(node,"tax_trfer",(int)tax_trfer);
+  }
+  else
+  {
+    NewTextChild(node,"tax_id");
+    NewTextChild(node,"tax");
+    NewTextChild(node,"tax_trfer");
+  };
+  return *this;
+};
+
+TValueBagItem& TValueBagItem::fromXML(xmlNodePtr node)
+{
+  clear();
+  if (node==NULL) return *this;
+  xmlNodePtr node2=node->children;
+  num=NodeAsIntegerFast("num",node2);
+  value=NodeAsFloatFast("value",node2);
+  value_cur=NodeAsStringFast("value_cur",node2);
+  if (!NodeIsNULLFast("tax_id",node2))
+  {
+    tax_id=NodeAsIntegerFast("tax_id",node2);
+    tax=NodeAsFloatFast("tax",node2);
+    tax_trfer=NodeAsIntegerFast("tax_trfer",node2,0)!=0;
+  };
+  return *this;
+};
+
+const TValueBagItem& TValueBagItem::toDB(TQuery &Qry) const
+{
+  Qry.SetVariable("num",num);
+  Qry.SetVariable("value",value);
+  Qry.SetVariable("value_cur",value_cur);
+  if (tax_id!=ASTRA::NoExists)
+  {
+    Qry.SetVariable("tax_id",tax_id);
+    Qry.SetVariable("tax",tax);
+    Qry.SetVariable("tax_trfer",(int)tax_trfer);
+  }
+  else
+  {
+    Qry.SetVariable("tax_id",FNull);
+    Qry.SetVariable("tax",FNull);
+    Qry.SetVariable("tax_trfer",FNull);
+  };
+  return *this;
+};
+
+TValueBagItem& TValueBagItem::fromDB(TQuery &Qry)
+{
+  clear();
+  num=Qry.FieldAsInteger("num");
+  value=Qry.FieldAsFloat("value");
+  value_cur=Qry.FieldAsString("value_cur");
+  if (!Qry.FieldIsNULL("tax_id"))
+  {
+    tax_id=Qry.FieldAsInteger("tax_id");
+    tax=Qry.FieldAsFloat("tax");
+    tax_trfer=Qry.FieldAsInteger("tax_trfer")!=0;
+  };
+  return *this;
+};
+
+const TBagItem& TBagItem::toXML(xmlNodePtr node) const
+{
+  if (node==NULL) return *this;
+  NewTextChild(node,"id",id);
+  NewTextChild(node,"num",num);
+  if (bag_type!=ASTRA::NoExists)
+    NewTextChild(node,"bag_type",bag_type);
+  else
+    NewTextChild(node,"bag_type");
+  NewTextChild(node,"pr_cabin",(int)pr_cabin);
+  NewTextChild(node,"amount",amount);
+  NewTextChild(node,"weight",weight);
+  if (value_bag_num!=ASTRA::NoExists)
+    NewTextChild(node,"value_bag_num",value_bag_num);
+  else
+    NewTextChild(node,"value_bag_num");
+  NewTextChild(node,"pr_liab_limit",(int)pr_liab_limit);
+  if (TReqInfo::Instance()->desk.compatible(VERSION_WITH_BAG_POOLS))
+    NewTextChild(node,"bag_pool_num",bag_pool_num);
+  return *this;
+};
+
+TBagItem& TBagItem::fromXML(xmlNodePtr node)
+{
+  clear();
+  if (node==NULL) return *this;
+  xmlNodePtr node2=node->children;
+  id=NodeAsIntegerFast("id",node2,ASTRA::NoExists);
+  num=NodeAsIntegerFast("num",node2);
+  if (!NodeIsNULLFast("bag_type",node2))
+    bag_type=NodeAsIntegerFast("bag_type",node2);
+  pr_cabin=NodeAsIntegerFast("pr_cabin",node2)!=0;
+  amount=NodeAsIntegerFast("amount",node2);
+  weight=NodeAsIntegerFast("weight",node2);
+  if (!NodeIsNULLFast("value_bag_num",node2))
+    value_bag_num=NodeAsIntegerFast("value_bag_num",node2);
+  pr_liab_limit=NodeAsIntegerFast("pr_liab_limit",node2)!=0;
+
+  if (TReqInfo::Instance()->desk.compatible(VERSION_WITH_BAG_POOLS))
+    bag_pool_num=NodeAsIntegerFast("bag_pool_num",node2);
+  else
+    bag_pool_num=1;
+  return *this;
+};
+
+const TBagItem& TBagItem::toDB(TQuery &Qry) const
+{
+  if (id!=ASTRA::NoExists)
+    Qry.SetVariable("id",id);
+  else
+    Qry.SetVariable("id",FNull);
+  Qry.SetVariable("num",num);
+  if (bag_type!=ASTRA::NoExists)
+    Qry.SetVariable("bag_type",bag_type);
+  else
+    Qry.SetVariable("bag_type",FNull);
+  Qry.SetVariable("pr_cabin",(int)pr_cabin);
+  Qry.SetVariable("amount",amount);
+  Qry.SetVariable("weight",weight);
+  if (value_bag_num!=ASTRA::NoExists)
+    Qry.SetVariable("value_bag_num",value_bag_num);
+  else
+    Qry.SetVariable("value_bag_num",FNull);
+  Qry.SetVariable("pr_liab_limit",(int)pr_liab_limit);
+  if (bag_pool_num!=ASTRA::NoExists)
+    Qry.SetVariable("bag_pool_num",bag_pool_num);
+  else
+    Qry.SetVariable("bag_pool_num",FNull);
+  if (hall!=ASTRA::NoExists)
+    Qry.SetVariable("hall",hall);
+  else
+    Qry.SetVariable("hall",FNull);
+  Qry.SetVariable("user_id",user_id);
+  return *this;
+};
+
+TBagItem& TBagItem::fromDB(TQuery &Qry)
+{
+  clear();
+  id=Qry.FieldAsInteger("id");
+  num=Qry.FieldAsInteger("num");
+  if (!Qry.FieldIsNULL("bag_type"))
+    bag_type=Qry.FieldAsInteger("bag_type");
+  pr_cabin=Qry.FieldAsInteger("pr_cabin")!=0;
+  amount=Qry.FieldAsInteger("amount");
+  weight=Qry.FieldAsInteger("weight");
+  if (!Qry.FieldIsNULL("value_bag_num"))
+    value_bag_num=Qry.FieldAsInteger("value_bag_num");
+  pr_liab_limit=Qry.FieldAsInteger("pr_liab_limit")!=0;
+  bag_pool_num=Qry.FieldAsInteger("bag_pool_num");
+  if (!Qry.FieldIsNULL("hall"))
+    hall=Qry.FieldAsInteger("hall");
+  user_id=Qry.FieldAsInteger("user_id");
+  return *this;
+};
+
+const TTagItem& TTagItem::toXML(xmlNodePtr node) const
+{
+  if (node==NULL) return *this;
+  NewTextChild(node,"num",num);
+  NewTextChild(node,"tag_type",tag_type);
+  NewTextChild(node,"no_len",no_len);
+  NewTextChild(node,"no",no);
+  NewTextChild(node,"color",color);
+  if (bag_num!=ASTRA::NoExists)
+    NewTextChild(node,"bag_num",bag_num);
+  else
+    NewTextChild(node,"bag_num");
+  NewTextChild(node,"printable",(int)printable);
+  NewTextChild(node,"pr_print",(int)pr_print);
+  return *this;
+};
+
+TTagItem& TTagItem::fromXML(xmlNodePtr node)
+{
+  clear();
+  if (node==NULL) return *this;
+  xmlNodePtr node2=node->children;
+  num=NodeAsIntegerFast("num",node2);
+  tag_type=NodeAsStringFast("tag_type",node2);
+  no=NodeAsFloatFast("no",node2);
+  color=NodeAsStringFast("color",node2);
+  if (!NodeIsNULLFast("bag_num",node2))
+    bag_num=NodeAsIntegerFast("bag_num",node2);
+  pr_print=NodeAsIntegerFast("pr_print",node2)!=0;
+  return *this;
+};
+
+const TTagItem& TTagItem::toDB(TQuery &Qry) const
+{
+  Qry.SetVariable("num",num);
+  Qry.SetVariable("tag_type",tag_type);
+  Qry.SetVariable("no",no);
+  Qry.SetVariable("color",color);
+  if (bag_num!=ASTRA::NoExists)
+    Qry.SetVariable("bag_num",bag_num);
+  else
+    Qry.SetVariable("bag_num",FNull);
+  Qry.SetVariable("pr_print",(int)pr_print);
+  Qry.SetVariable("seg_no",seg_no);
+  return *this;
+};
+
+TTagItem& TTagItem::fromDB(TQuery &Qry)
+{
+  clear();
+  num=Qry.FieldAsInteger("num");
+  tag_type=Qry.FieldAsString("tag_type");
+  no_len=Qry.FieldAsInteger("no_len");
+  no=Qry.FieldAsFloat("no");
+  color=Qry.FieldAsString("color");
+  if (!Qry.FieldIsNULL("bag_num"))
+    bag_num=Qry.FieldAsInteger("bag_num");
+  printable=Qry.FieldAsInteger("printable")!=0;
+  pr_print=Qry.FieldAsInteger("pr_print")!=0;
+  seg_no=Qry.FieldAsInteger("seg_no");
+  return *this;
+};
+
+void GetNextTagNo(int grp_id, int tag_count, vector< pair<int,int> >& tag_ranges)
+{
+  tag_ranges.clear();
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT points.airline, "
+    "       pax_grp.point_dep,pax_grp.airp_dep,pax_grp.class, "
+    "       NVL(transfer.airp_arv,pax_grp.airp_arv) AS airp_arv "
+    "FROM points, pax_grp, transfer "
+    "WHERE points.point_id=pax_grp.point_dep AND "
+    "      pax_grp.grp_id=transfer.grp_id(+) AND transfer.pr_final(+)<>0 AND "
+    "      pax_grp.grp_id=:grp_id";
+  Qry.CreateVariable("grp_id",otInteger,grp_id);
+  Qry.Execute();
+  if (Qry.Eof) throw EXCEPTIONS::Exception("CheckInInterface::GetNextTagNo: group not found (grp_id=%d)",grp_id);
+
+  int point_id=Qry.FieldAsInteger("point_dep");
+  string airp_dep=Qry.FieldAsString("airp_dep");
+  string airp_arv=Qry.FieldAsString("airp_arv");
+  string cl=Qry.FieldAsString("class");
+  int aircode=-1;
+  try
+  {
+    aircode=ToInt(base_tables.get("airlines").get_row("code",Qry.FieldAsString("airline")).AsString("aircode"));
+    if (aircode<=0 || aircode>999) throw EXCEPTIONS::EConvertError("");
+  }
+  catch(EBaseTableError) { aircode=-1; }
+  catch(EXCEPTIONS::EConvertError)   { aircode=-1; };
+
+  if (aircode==-1) aircode=954;
+
+  Qry.Clear();
+  Qry.SQLText=
+    "BEGIN "
+    "  SELECT range INTO :range FROM last_tag_ranges2 WHERE aircode=:aircode FOR UPDATE; "
+    "EXCEPTION "
+    "  WHEN NO_DATA_FOUND THEN "
+    "  BEGIN "
+    "    :range:=9999; "
+    "    INSERT INTO last_tag_ranges2(aircode,range) VALUES(:aircode,:range); "
+    "  EXCEPTION "
+    "    WHEN DUP_VAL_ON_INDEX THEN "
+    "      SELECT range INTO :range FROM last_tag_ranges2 WHERE aircode=:aircode FOR UPDATE; "
+    "  END; "
+    "END;";
+  Qry.CreateVariable("aircode",otInteger,aircode);
+  Qry.CreateVariable("range",otInteger,FNull);
+  Qry.Execute();
+  //получим последний использованный диапазон (+лочка):
+  int last_range=Qry.GetVariableAsInteger("range");
+
+  int range;
+  int no;
+  bool use_new_range=false;
+  while (tag_count>0)
+  {
+    if (!use_new_range)
+    {
+      int k;
+      for(k=1;k<=5;k++)
+      {
+        Qry.Clear();
+        Qry.CreateVariable("aircode",otInteger,aircode);
+        ostringstream sql;
+
+        sql << "SELECT range,no FROM tag_ranges2 ";
+        if (k>=2) sql << ",points ";
+        sql << "WHERE aircode=:aircode AND ";
+
+
+        if (k==1)
+        {
+          sql <<
+            "      point_id=:point_id AND airp_dep=:airp_dep AND airp_arv=:airp_arv AND "
+            "      (class IS NULL AND :class IS NULL OR class=:class) ";
+          Qry.CreateVariable("point_id",otInteger,point_id);
+          Qry.CreateVariable("airp_dep",otString,airp_dep);
+          Qry.CreateVariable("airp_arv",otString,airp_arv);
+          Qry.CreateVariable("class",otString,cl);
+        };
+
+        if (k>=2)
+        {
+          sql <<
+            "      tag_ranges2.point_id=points.point_id(+) AND "
+            "      (points.point_id IS NULL OR "
+            "       points.pr_del<>0 OR "
+            "       NVL(points.act_out,NVL(points.est_out,points.scd_out))<:now_utc AND last_access<:now_utc-2/24 OR "
+            "       NVL(points.act_out,NVL(points.est_out,NVL(points.scd_out,:now_utc+1)))>=:now_utc AND last_access<:now_utc-2) AND ";
+          Qry.CreateVariable("now_utc",otDate,BASIC::NowUTC());
+          if (k==2)
+          {
+            sql <<
+              "      airp_dep=:airp_dep AND airp_arv=:airp_arv AND "
+              "      (class IS NULL AND :class IS NULL OR class=:class) ";
+            Qry.CreateVariable("airp_dep",otString,airp_dep);
+            Qry.CreateVariable("airp_arv",otString,airp_arv);
+            Qry.CreateVariable("class",otString,cl);
+          };
+          if (k==3)
+          {
+            sql <<
+              "      airp_dep=:airp_dep AND airp_arv=:airp_arv ";
+            Qry.CreateVariable("airp_dep",otString,airp_dep);
+            Qry.CreateVariable("airp_arv",otString,airp_arv);
+          };
+          if (k==4)
+          {
+            sql <<
+              "      airp_dep=:airp_dep ";
+            Qry.CreateVariable("airp_dep",otString,airp_dep);
+          };
+          if (k==5)
+          {
+            sql <<
+              "      last_access<:now_utc-1 ";
+          };
+        };
+        sql << "ORDER BY last_access";
+
+
+        Qry.SQLText=sql.str().c_str();
+        Qry.Execute();
+        if (!Qry.Eof)
+        {
+          range=Qry.FieldAsInteger("range");
+          no=Qry.FieldAsInteger("no");
+          break;
+        };
+      };
+      if (k>5) //среди уже существующих диапазонов нет подходящего - берем новый
+      {
+        use_new_range=true;
+        range=last_range;
+      };
+    };
+    if (use_new_range)
+    {
+      range++;
+      no=-1;
+      if (range>9999)
+      {
+        range=0;
+        no=0; //нулевая бирка 000000 запрещена IATA
+      };
+
+
+      if (range==last_range)
+        throw EXCEPTIONS::Exception("CheckInInterface::GetNextTagNo: free range not found (aircode=%d)",aircode);
+
+      Qry.Clear();
+      Qry.SQLText="SELECT range FROM tag_ranges2 WHERE aircode=:aircode AND range=:range";
+      Qry.CreateVariable("aircode",otInteger,aircode);
+      Qry.CreateVariable("range",otInteger,range);
+      Qry.Execute();
+      if (!Qry.Eof) continue; //этот диапазон используется
+    };
+
+    pair<int,int> tag_range;
+    tag_range.first=aircode*1000000+range*100+no+1; //первая неиспользовання бирка от старого диапазона
+
+    if (tag_count>=99-no)
+    {
+      tag_count-=99-no;
+      no=99;
+    }
+    else
+    {
+      no+=tag_count;
+      tag_count=0;
+    };
+
+    tag_range.second=aircode*1000000+range*100+no; //последняя использовання бирка нового диапазона
+    if (tag_range.first<=tag_range.second) tag_ranges.push_back(tag_range);
+
+    Qry.Clear();
+    Qry.CreateVariable("aircode",otInteger,aircode);
+    Qry.CreateVariable("range",otInteger,range);
+    if (no>=99)
+      Qry.SQLText="DELETE FROM tag_ranges2 WHERE aircode=:aircode AND range=:range";
+    else
+    {
+      Qry.SQLText=
+        "BEGIN "
+        "  UPDATE tag_ranges2 "
+        "  SET no=:no, airp_dep=:airp_dep, airp_arv=:airp_arv, class=:class, point_id=:point_id, "
+        "      last_access=system.UTCSYSDATE "
+        "  WHERE aircode=:aircode AND range=:range; "
+        "  IF SQL%NOTFOUND THEN "
+        "    INSERT INTO tag_ranges2(aircode,range,no,airp_dep,airp_arv,class,point_id,last_access) "
+        "    VALUES(:aircode,:range,:no,:airp_dep,:airp_arv,:class,:point_id,system.UTCSYSDATE); "
+        "  END IF; "
+        "END;";
+      Qry.CreateVariable("no",otInteger,no);
+      Qry.CreateVariable("airp_dep",otString,airp_dep);
+      Qry.CreateVariable("airp_arv",otString,airp_arv);
+      Qry.CreateVariable("class",otString,cl);
+      Qry.CreateVariable("point_id",otInteger,point_id);
+    };
+    Qry.Execute();
+  };
+  if (use_new_range)
+  {
+    Qry.Clear();
+    Qry.SQLText=
+      "BEGIN "
+      "  UPDATE last_tag_ranges2 SET range=:range WHERE aircode=:aircode; "
+      "  IF SQL%NOTFOUND THEN "
+      "    INSERT INTO last_tag_ranges2(aircode,range) VALUES(:aircode,:range); "
+      "  END IF; "
+      "END;";
+    Qry.CreateVariable("aircode",otInteger,aircode);
+    Qry.CreateVariable("range",otInteger,range);
+    Qry.Execute();
+  };
+};
+
+void SaveBag(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode)
+{
+  if (bagtagNode==NULL) return;
+  xmlNodePtr node,node2;
+
+  xmlNodePtr valueBagNode=GetNode("value_bags",bagtagNode);
+  xmlNodePtr bagNode=GetNode("bags",bagtagNode);
+  xmlNodePtr tagNode=GetNode("tags",bagtagNode);
+
+  TReqInfo *reqInfo = TReqInfo::Instance();
+
+  if ( reqInfo->screen.name == "AIR.EXE" )
+  {
+
+    if (bagNode==NULL&&tagNode==NULL) return;
+    //подсчитаем кол-во багажа и баг. бирок
+    int bagAmount=0,tagCount=0;
+    if (bagNode!=NULL)
+      for(node=bagNode->children;node!=NULL;node=node->next)
+      {
+        node2=node->children;
+        if (NodeAsIntegerFast("pr_cabin",node2)==0) bagAmount+=NodeAsIntegerFast("amount",node2);
+      };
+    if (tagNode!=NULL)
+      for(node=tagNode->children;node!=NULL;)
+      {
+        if (strcmp((const char*)node->name,"generated_tag")==0)
+        {
+          //отвяжем бирки, сгенерированные при откаченной транзакции перед сменой ЭБ
+          node2=node->next;
+          xmlUnlinkNode(node);
+          xmlFreeNode(node);
+          node=node2;
+        }
+        else
+        {
+          tagCount++;
+          node=node->next;
+        };
+      };
+
+    ProgTrace(TRACE5,"bagAmount=%d tagCount=%d",bagAmount,tagCount);
+    bool pr_tag_print=NodeAsInteger("@pr_print",tagNode)!=0;
+    TQuery Qry(&OraSession);
+    if (bagAmount!=tagCount)
+    {
+      if (pr_tag_print && tagCount<bagAmount )
+      {
+        Qry.Clear();
+        Qry.SQLText=
+          "SELECT tag_type FROM trip_bt WHERE point_id=:point_id";
+        Qry.CreateVariable("point_id",otInteger,point_id);
+        Qry.Execute();
+        if (Qry.Eof) throw UserException("MSG.CHECKIN.LUGGAGE_BLANK_NOT_SET");
+        string tag_type = Qry.FieldAsString("tag_type");
+        //получим номера печатаемых бирок
+        vector< pair<int,int> > tag_ranges;
+        GetNextTagNo(grp_id, bagAmount-tagCount, tag_ranges);
+        for(vector< pair<int,int> >::iterator r=tag_ranges.begin();r!=tag_ranges.end();r++)
+        {
+          for(int i=r->first;i<=r->second;i++,tagCount++)
+          {
+            node=NewTextChild(tagNode,"generated_tag");
+            NewTextChild(node,"num",tagCount+1);
+            NewTextChild(node,"tag_type",tag_type);
+            NewTextChild(node,"no",i);
+            NewTextChild(node,"color");
+            NewTextChild(node,"bag_num");
+            NewTextChild(node,"pr_print",(int)false);
+          };
+        };
+
+        xmlNodePtr bNode,tNode;
+        int bag_num,bag_amount;
+
+        //пробуем привязать к багажу
+        if (bagNode!=NULL && tagNode!=NULL)
+        {
+          tNode=tagNode->last;
+          for(bNode=bagNode->last;bNode!=NULL;bNode=bNode->prev)
+          {
+            if (tNode==NULL) break;
+            node2=bNode->children;
+            bag_num=NodeAsIntegerFast("num",node2);
+            bag_amount=NodeAsIntegerFast("amount",node2);
+            if (NodeAsIntegerFast("pr_cabin",node2)!=0) continue;
+
+            //проверим чтобы на этот багаж не было назначено ни одной бирки
+            for(node=tagNode->children;node!=NULL&&node!=tNode->next;node=node->next)
+            {
+              node2=node->children;
+              if (!NodeIsNULLFast("bag_num",node2) &&
+                  bag_num==NodeAsIntegerFast("bag_num",node2)) break;
+            };
+            if (node!=NULL&&node!=tNode->next) break; //выйдем, если на текущий багаж ссылается бирка
+
+            int k=0;
+            for(;k<bag_amount;k++)
+            {
+              if (tNode==NULL) break;
+              node2=tNode->children;
+              if (/*NodeAsIntegerFast("printable",node2)==0 ||*/ !NodeIsNULLFast("bag_num",node2)) break;
+              ReplaceTextChild(tNode,"bag_num",bag_num);
+              tNode=tNode->prev;
+            };
+            if (k<bag_amount) break; //выйдем, если текущая бирка ссылается на багаж или она не печатаемая
+          };
+        };
+      }
+      else throw UserException(1,"MSG.CHECKIN.COUNT_BIRKS_NOT_EQUAL_PLACES");
+    };
+  };
+
+  TQuery BagQry(&OraSession);
+  if (valueBagNode!=NULL)
+  {
+    BagQry.Clear();
+    BagQry.SQLText="DELETE FROM value_bag WHERE grp_id=:grp_id";
+    BagQry.CreateVariable("grp_id",otInteger,grp_id);
+    BagQry.Execute();
+    BagQry.SQLText=
+      "INSERT INTO value_bag(grp_id,num,value,value_cur,tax_id,tax,tax_trfer) "
+      "VALUES(:grp_id,:num,:value,:value_cur,:tax_id,:tax,:tax_trfer)";
+    BagQry.DeclareVariable("num",otInteger);
+    BagQry.DeclareVariable("value",otFloat);
+    BagQry.DeclareVariable("value_cur",otString);
+    BagQry.DeclareVariable("tax_id",otInteger);
+    BagQry.DeclareVariable("tax",otFloat);
+    BagQry.DeclareVariable("tax_trfer",otInteger);
+    for(node=valueBagNode->children;node!=NULL;node=node->next)
+    {
+      TValueBagItem val;
+      val.fromXML(node);
+      val.toDB(BagQry);
+      BagQry.Execute();
+    };
+  };
+  if (bagNode!=NULL)
+  {
+    vector<TBagItem> old_bag,new_bag;
+
+    BagQry.Clear();
+    BagQry.SQLText="SELECT * FROM bag2 WHERE grp_id=:grp_id ORDER BY num FOR UPDATE";
+    BagQry.CreateVariable("grp_id",otInteger,grp_id);
+    BagQry.Execute();
+    for(;!BagQry.Eof;BagQry.Next())
+    {
+      TBagItem bag;
+      bag.fromDB(BagQry);
+      old_bag.push_back(bag);
+    };
+    sort(old_bag.begin(), old_bag.end());
+    for(node=bagNode->children;node!=NULL;node=node->next)
+    {
+      TBagItem bag;
+      bag.fromXML(node);
+      new_bag.push_back(bag);
+    };
+    sort(new_bag.begin(), new_bag.end());
+    //пробегаемся по сортированным массивам с целью заполнения старых hall и user_id в массиве нового багажа
+    if (reqInfo->desk.compatible(BAG_WITH_HALL_VERSION))
+    {
+      for(vector<TBagItem>::iterator nb=new_bag.begin();nb!=new_bag.end();nb++)
+      {
+        if (nb->id==ASTRA::NoExists)
+        {
+          //вновь введенный багаж
+          nb->hall=hall;
+          nb->user_id=reqInfo->user.user_id;
+        }
+        else
+        {
+          //старый багаж
+          vector<TBagItem>::iterator ob=old_bag.begin();
+          for(;ob!=old_bag.end();ob++)
+            if (ob->id==nb->id) break;
+          if (ob!=old_bag.end())
+          {
+            nb->hall=ob->hall;
+            nb->user_id=ob->user_id;
+          }
+          else
+          {
+            nb->hall=hall;
+            nb->user_id=reqInfo->user.user_id;
+          };
+        };
+      };
+    }
+    else
+    {
+      vector<TBagItem>::iterator ob=old_bag.begin();
+      for(vector<TBagItem>::iterator nb=new_bag.begin();nb!=new_bag.end();nb++)
+      {
+        for(;ob!=old_bag.end();ob++)
+        {
+          if (ob->bag_type==nb->bag_type &&
+              ob->pr_cabin==nb->pr_cabin &&
+              ob->amount==  nb->amount &&
+              ob->weight==  nb->weight) break;
+        };
+        if (ob!=old_bag.end())
+        {
+          nb->id=ob->id;
+          nb->hall=ob->hall;
+          nb->user_id=ob->user_id;
+          ob++;
+        }
+        else
+        {
+          if (hall==ASTRA::NoExists)
+            throw EXCEPTIONS::Exception("CheckInInterface::SaveBag: unknown hall");
+          nb->hall=hall;
+          nb->user_id=reqInfo->user.user_id;
+        };
+      };
+    };
+
+    BagQry.Clear();
+    BagQry.SQLText="DELETE FROM bag2 WHERE grp_id=:grp_id";
+    BagQry.CreateVariable("grp_id",otInteger,grp_id);
+    BagQry.Execute();
+    BagQry.SQLText=
+      "BEGIN "
+      "  IF :id IS NULL THEN "
+      "    SELECT id__seq.nextval INTO :id FROM dual; "
+      "  END IF; "
+      "  INSERT INTO bag2 (grp_id,num,id,bag_type,pr_cabin,amount,weight,value_bag_num,pr_liab_limit,bag_pool_num,hall,user_id) "
+      "  VALUES (:grp_id,:num,:id,:bag_type,:pr_cabin,:amount,:weight,:value_bag_num,:pr_liab_limit,:bag_pool_num,:hall,:user_id); "
+      "END;";
+    BagQry.DeclareVariable("num",otInteger);
+    BagQry.DeclareVariable("id",otInteger);
+    BagQry.DeclareVariable("bag_type",otInteger);
+    BagQry.DeclareVariable("pr_cabin",otInteger);
+    BagQry.DeclareVariable("amount",otInteger);
+    BagQry.DeclareVariable("weight",otInteger);
+    BagQry.DeclareVariable("value_bag_num",otInteger);
+    BagQry.DeclareVariable("pr_liab_limit",otInteger);
+    BagQry.DeclareVariable("bag_pool_num",otInteger);
+    BagQry.DeclareVariable("hall",otInteger);
+    BagQry.DeclareVariable("user_id",otInteger);
+    for(vector<TBagItem>::iterator nb=new_bag.begin();nb!=new_bag.end();nb++)
+    {
+      nb->toDB(BagQry);
+      BagQry.Execute();
+    };
+  };
+  if (tagNode!=NULL)
+  {
+    BagQry.Clear();
+    BagQry.SQLText="SELECT seg_no FROM tckin_pax_grp WHERE grp_id=:grp_id";
+    BagQry.CreateVariable("grp_id",otInteger,grp_id);
+    BagQry.Execute();
+    int seg_no=1;
+    if (!BagQry.Eof)
+      seg_no=BagQry.FieldAsInteger("seg_no");
+
+    BagQry.Clear();
+    BagQry.SQLText="DELETE FROM bag_tags WHERE grp_id=:grp_id";
+    BagQry.CreateVariable("grp_id",otInteger,grp_id);
+    BagQry.Execute();
+    BagQry.SQLText=
+      "INSERT INTO bag_tags(grp_id,num,tag_type,no,color,seg_no,bag_num,pr_print) "
+      "VALUES (:grp_id,:num,:tag_type,:no,:color,:seg_no,:bag_num,:pr_print)";
+    BagQry.DeclareVariable("num",otInteger);
+    BagQry.DeclareVariable("tag_type",otString);
+    BagQry.DeclareVariable("no",otFloat);
+    BagQry.DeclareVariable("color",otString);
+    BagQry.DeclareVariable("seg_no",otInteger);
+    BagQry.DeclareVariable("bag_num",otInteger);
+    BagQry.DeclareVariable("pr_print",otInteger);
+    for(node=tagNode->children;node!=NULL;node=node->next)
+    {
+      TTagItem tag;
+      tag.fromXML(node);
+      tag.seg_no=seg_no;
+      tag.toDB(BagQry);
+      try
+      {
+        BagQry.Execute();
+      }
+      catch(EOracleError E)
+      {
+        if (E.Code==1)
+          throw UserException("MSG.CHECKIN.BIRK_ALREADY_CHECKED",
+                              LParams()<<LParam("tag_type",tag.tag_type)
+                                       <<LParam("color",tag.color)
+                                       <<LParam("no",tag.no));
+        else
+          throw;
+      };
+    };
+  };
+};
+
+void LoadBag(int grp_id, xmlNodePtr bagtagNode)
+{
+  if (bagtagNode==NULL) return;
+
+  TQuery BagQry(&OraSession);
+  
+  vector<TValueBagItem> vals;
+  vector<TBagItem> bags;
+  vector<TTagItem> tags;
+
+  BagQry.Clear();
+  BagQry.SQLText="SELECT * FROM value_bag WHERE grp_id=:grp_id";
+  BagQry.CreateVariable("grp_id",otInteger,grp_id);
+  BagQry.Execute();
+  for(;!BagQry.Eof;BagQry.Next())
+    vals.push_back(TValueBagItem().fromDB(BagQry));
+
+  BagQry.Clear();
+  BagQry.SQLText="SELECT * FROM bag2 WHERE grp_id=:grp_id";
+  BagQry.CreateVariable("grp_id",otInteger,grp_id);
+  BagQry.Execute();
+  for(;!BagQry.Eof;BagQry.Next())
+    bags.push_back(TBagItem().fromDB(BagQry));
+
+  BagQry.Clear();
+  BagQry.SQLText=
+    "SELECT num,tag_type,no_len,no,color,bag_num,printable,pr_print,seg_no "
+    "FROM bag_tags,tag_types "
+    "WHERE bag_tags.tag_type=tag_types.code AND grp_id=:grp_id";
+  BagQry.CreateVariable("grp_id",otInteger,grp_id);
+  BagQry.Execute();
+  for(;!BagQry.Eof;BagQry.Next())
+    tags.push_back(TTagItem().fromDB(BagQry));
+  
+  sort(vals.begin(), vals.end());
+  sort(bags.begin(), bags.end());
+  sort(tags.begin(), tags.end());
+  
+  if (!TReqInfo::Instance()->desk.compatible(VERSION_WITH_BAG_POOLS))
+  {
+    //старый терминал не поддерживает привязку багажа к разрегистрированным пассажирам
+    //следовательно, мы должны убрать разрегистрированный багаж
+    BagQry.Clear();
+    BagQry.SQLText="SELECT class, bag_refuse FROM pax_grp WHERE grp_id=:grp_id";
+    BagQry.CreateVariable("grp_id",otInteger,grp_id);
+    BagQry.Execute();
+    if (BagQry.Eof) return;
+    string cl=BagQry.FieldAsString("class");
+    bool bag_refuse=BagQry.FieldAsInteger("bag_refuse")!=0;
+    if (!bag_refuse)
+    {
+      //точно не весь багаж разрегистрирован
+      BagQry.Clear();
+      BagQry.SQLText=
+        "SELECT ckin.bag_pool_refused(:grp_id, :bag_pool_num, :class, :bag_refuse) AS refused FROM dual";
+      BagQry.CreateVariable("grp_id",otInteger,grp_id);
+      BagQry.DeclareVariable("bag_pool_num",otInteger);
+      BagQry.CreateVariable("class",otString,cl);
+      BagQry.CreateVariable("bag_refuse",otInteger,(int)bag_refuse);
+      map<int/*bag_pool_num*/, bool/*refused*/> del_pools;
+      bool del_pool_exists=false;
+      for(vector<TBagItem>::iterator i=bags.begin();i!=bags.end();)
+      {
+        if (del_pools.find(i->bag_pool_num)==del_pools.end())
+        {
+          BagQry.SetVariable("bag_pool_num",i->bag_pool_num);
+          BagQry.Execute();
+          del_pools[i->bag_pool_num]=BagQry.Eof || BagQry.FieldAsInteger("refused")!=0;
+        };
+        if (del_pools[i->bag_pool_num])
+        {
+          del_pool_exists=true;
+          //удаляем связанную ценность
+          if (i->value_bag_num!=ASTRA::NoExists)
+            for(vector<TValueBagItem>::iterator j=vals.begin();j!=vals.end();)
+            {
+              if (j->num==i->value_bag_num) j=vals.erase(j); else j++;
+            };
+          //удаляем связанные бирки
+          for(vector<TTagItem>::iterator j=tags.begin();j!=tags.end();)
+          {
+            if (j->bag_num!=ASTRA::NoExists && j->bag_num==i->num) j=tags.erase(j); else j++;
+          };
+          //удаляем багаж
+          i=bags.erase(i);
+        }
+        else i++;
+      };
+      if (del_pool_exists)
+      {
+        int num;
+        //уплотняем объявленную ценность
+        num=1;
+        for(vector<TValueBagItem>::iterator i=vals.begin();i!=vals.end();i++,num++)
+        {
+          if (num!=i->num)
+          {
+            for(vector<TBagItem>::iterator j=bags.begin();j!=bags.end();j++)
+              if (j->value_bag_num!=ASTRA::NoExists && j->value_bag_num==i->num) j->value_bag_num=num;
+            i->num=num;
+          };
+        };
+        //уплотняем багаж
+        num=1;
+        for(vector<TBagItem>::iterator i=bags.begin();i!=bags.end();i++,num++)
+        {
+          if (num!=i->num)
+          {
+            for(vector<TTagItem>::iterator j=tags.begin();j!=tags.end();j++)
+              if (j->bag_num!=ASTRA::NoExists && j->bag_num==i->num) j->bag_num=num;
+            i->num=num;
+          };
+        };
+        //уплотняем бирки
+        num=1;
+        for(vector<TTagItem>::iterator i=tags.begin();i!=tags.end();i++,num++)
+        {
+          if (num!=i->num) i->num=num;
+        };
+      };
+    };
+  };
+  
+  xmlNodePtr node;
+  node=NewTextChild(bagtagNode,"value_bags");
+  for(vector<TValueBagItem>::const_iterator i=vals.begin();i!=vals.end();i++)
+    i->toXML(NewTextChild(node,"value_bag"));
+  
+  node=NewTextChild(bagtagNode,"bags");
+  for(vector<TBagItem>::const_iterator i=bags.begin();i!=bags.end();i++)
+    i->toXML(NewTextChild(node,"bag"));
+    
+  node=NewTextChild(bagtagNode,"tags");
+  for(vector<TTagItem>::const_iterator i=tags.begin();i!=tags.end();i++)
+    i->toXML(NewTextChild(node,"tag"));
+};
+
+};
+
+
+    
+    

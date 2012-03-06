@@ -2524,38 +2524,26 @@ void GetLuggage( int point_id, Luggage &lug, bool pr_brd )
      "   (SELECT pax_grp.point_arv, NVL(class,' ') AS class, "
      "           SUM(DECODE(pr_cabin,0,weight,0)) AS bag_weight, "
      "           SUM(DECODE(pr_cabin,1,weight,0)) AS rk_weight "
-     "    FROM bag2, "
-     "       (SELECT DISTINCT pax_grp.grp_id,point_arv,class FROM pax_grp,pax "
-     "        WHERE pax_grp.grp_id=pax.grp_id AND "
-     "              point_dep=:point_id AND bag_refuse=0 AND ";
+     "    FROM pax_grp,bag2 "
+     "    WHERE pax_grp.grp_id=bag2.grp_id AND "
+     "          pax_grp.point_dep=:point_id AND ";
   if (pr_brd)
-    sql << "        pr_brd=1 ";
+    sql << "    ckin.bag_pool_boarded(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)<>0 ";
   else
-    sql << "        pr_brd IS NOT NULL ";
+    sql << "    ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 ";
   sql <<
-     "        UNION "
-     "        SELECT pax_grp.grp_id,point_arv,class FROM pax_grp "
-     "        WHERE point_dep=:point_id AND bag_refuse=0 AND class IS NULL "
-     "       ) pax_grp "
-     "    WHERE bag2.grp_id=pax_grp.grp_id "
      "    GROUP BY pax_grp.point_arv, NVL(class,' ')) b, "
 
      //подзапрос по оплачиваемому весу:
      "   (SELECT pax_grp.point_arv, NVL(class,' ') AS class, "
      "	         SUM(excess) AS excess "
-     "	  FROM "
-     "	     (SELECT DISTINCT pax_grp.grp_id,point_arv,class,excess FROM pax_grp,pax "
-     "        WHERE pax_grp.grp_id=pax.grp_id AND "
-     "              point_dep=:point_id AND bag_refuse=0 AND ";
+     "	  FROM pax_grp "
+     "    WHERE point_dep=:point_id AND ";
   if (pr_brd)
-    sql << "        pr_brd=1 ";
+    sql << "    ckin.excess_boarded(grp_id,class,bag_refuse)<>0 ";
   else
-    sql << "        pr_brd IS NOT NULL ";
+    sql << "    bag_refuse=0 ";
   sql <<
-     "        UNION "
-     "        SELECT pax_grp.grp_id,point_arv,class,excess FROM pax_grp "
-     "        WHERE point_dep=:point_id AND bag_refuse=0 AND class IS NULL "
-     "       ) pax_grp "
      "    GROUP BY pax_grp.point_arv, NVL(class,' ')) e "
      "WHERE a.point_arv=b.point_arv(+) AND "
      "      a.class=b.class(+) AND "

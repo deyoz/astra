@@ -1313,7 +1313,8 @@ int GetFltLoad( int point_id, const TTripInfo &fltInfo)
     "SELECT NVL(SUM(weight),0) AS weight "
     "FROM pax_grp,bag2 "
     "WHERE pax_grp.grp_id=bag2.grp_id AND "
-    "      pax_grp.point_dep=:point_id AND pax_grp.bag_refuse=0";
+    "      pax_grp.point_dep=:point_id AND "
+    "      ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0";
   Qry.Execute();
   if (!Qry.Eof)
     load+=Qry.FieldAsInteger("weight");
@@ -1605,7 +1606,8 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     "         NVL(SUM(DECODE(pr_cabin,0,0,weight)),0) AS rk_weight "
     "  FROM pax_grp,bag2 "
     "  WHERE pax_grp.grp_id=bag2.grp_id AND "
-    "        point_dep=:point_id AND bag_refuse=0) b, "
+    "        point_dep=:point_id AND "
+    "        ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0) b, "
     " (SELECT NVL(SUM(crs_ok),0) AS crs_ok, "
     "         NVL(SUM(crs_tranzit),0) AS crs_tranzit "
     "  FROM counters2 "
@@ -1779,7 +1781,8 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
                           << last_trfer_sql << endl;
 
         sql << "WHERE pax_grp.grp_id=bag2.grp_id AND " << endl
-            << "      pax_grp.point_dep=:point_id AND pax_grp.bag_refuse=0 " << endl;
+            << "      pax_grp.point_dep=:point_id AND " << endl
+            << "      ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 " << endl;
         if (pr_trfer) sql << "      AND pax_grp.grp_id=last_trfer.grp_id(+) " << endl;
       };
       if (pass==5)

@@ -12,6 +12,7 @@
 #include "term_version.h"
 #include "astra_misc.h"
 #include "checkin.h"
+#include "baggage.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -351,8 +352,33 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     NewTextChild(markFltNode,"pr_mark_norms",(int)(Qry.FieldAsInteger("pr_mark_norms")!=0));
     NewTextChild(markFltNode,"pr_mark_rates",(int)(Qry.FieldAsInteger("pr_mark_norms")!=0));
   };
+  
+  if (!pr_unaccomp)
+  {
+    //загрузка главных пассажиров багажных пулов
+    Qry.Clear();
+    Qry.SQLText=
+      "SELECT pax_id, bag_pool_num, surname, name, pers_type, seats, refuse "
+      "FROM pax "
+      "WHERE grp_id=:grp_id AND bag_pool_num IS NOT NULL AND "
+      "      pax_id=ckin.get_bag_pool_pax_id(grp_id,bag_pool_num)";
+    Qry.CreateVariable("grp_id",otInteger,grp_id);
+    Qry.Execute();
+    xmlNodePtr paxsNode=NewTextChild(dataNode,"passengers");
+    for(;!Qry.Eof;Qry.Next())
+    {
+      xmlNodePtr paxNode=NewTextChild(paxsNode,"pax");
+      NewTextChild(paxNode,"pax_id",Qry.FieldAsInteger("pax_id"));
+      NewTextChild(paxNode,"surname",Qry.FieldAsString("surname"));
+      NewTextChild(paxNode,"name",Qry.FieldAsString("name"),"");
+      NewTextChild(paxNode,"pers_type",Qry.FieldAsString("pers_type"),EncodePerson(ASTRA::adult));
+      NewTextChild(paxNode,"seats",Qry.FieldAsInteger("seats"),1);
+      NewTextChild(paxNode,"refuse",Qry.FieldAsString("refuse"),"");
+      NewTextChild(paxNode,"bag_pool_num",Qry.FieldAsInteger("bag_pool_num"));
+    };
+  };
 
-  CheckInInterface::LoadBag(grp_id,dataNode);
+  CheckIn::LoadBag(grp_id,dataNode);
   CheckInInterface::LoadPaidBag(grp_id,dataNode);
   LoadReceipts(grp_id,true,prnParams.pr_lat,dataNode);
 };
@@ -451,7 +477,7 @@ void PaymentInterface::SaveBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     int tid=LockAndUpdTid(point_dep,grp_id,NodeAsInteger("tid",reqNode));
     NewTextChild(resNode,"tid",tid);
 
-    CheckInInterface::SaveBag(point_dep,grp_id,ASTRA::NoExists,reqNode);
+    CheckIn::SaveBag(point_dep,grp_id,ASTRA::NoExists,reqNode);
     CheckInInterface::SavePaidBag(grp_id,reqNode);
 
     TReqInfo::Instance()->MsgToLog(

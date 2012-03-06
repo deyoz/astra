@@ -31,6 +31,7 @@ astra_SOURCES = \
   astra_tick_read_edi.cpp \
   astra_tick_view_xml.cc \
   astra_utils.cc \
+  baggage.cc \
   base_tables.cc \
   brd.cc \
   cache.cc \
@@ -119,6 +120,7 @@ noinst_HEADERS = \
   astra_tick_view.h \
   astra_ticket.h \
   astra_utils.h \
+  baggage.h \
   base_tables.h \
   brd.h \
   cache.h \

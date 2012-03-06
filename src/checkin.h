@@ -163,10 +163,8 @@ public:
   static std::string SaveTransfer(int grp_id, const std::vector<CheckIn::TTransferItem> &trfer, bool pr_unaccomp, int seg_no);
   static std::string SaveTCkinSegs(int grp_id, xmlNodePtr segsNode, const std::map<int,TSegInfo> &segs, int seg_no);
   static bool SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode);
-  static void SaveBag(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode);
   static void SavePaidBag(int grp_id, xmlNodePtr paidbagNode);
 
-  static void SaveBagToLog(int point_id, int grp_id, xmlNodePtr bagtagNode);
   static void SaveTagPacks(xmlNodePtr node);
 
   static void LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_version);
@@ -176,7 +174,6 @@ public:
   static void LoadTransfer(int grp_id, std::vector<CheckIn::TTransferItem> &trfer);
   static void BuildTransfer(const TTrferRoute &trfer, xmlNodePtr transferNode);
   static void LoadTransfer(int grp_id, xmlNodePtr transferNode);
-  static void LoadBag(int grp_id, xmlNodePtr bagtagNode);
   static void LoadPaidBag(int grp_id, xmlNodePtr grpNode);
   
   static void LoadPaxDoc(TQuery& PaxDocQry, xmlNodePtr paxNode);

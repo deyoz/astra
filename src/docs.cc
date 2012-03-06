@@ -1283,19 +1283,27 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "    pax_grp, "
         "    points, "
         "    bag2, "
-        "    halls2 ";
+        "    halls2, "
+        "    pax ";
     if(rpt_params.pr_trfer)
         SQLText += ", transfer, trfer_trips ";
-    SQLText += ", pax ";
     SQLText +=
         "where "
         "    points.pr_del>=0 AND "
         "    pax_grp.point_dep = :point_id and "
         "    pax_grp.point_arv = points.point_id and "
-        "    pax_grp.grp_id = bag2.grp_id and "
-        "    pax_grp.bag_refuse = 0 and "
+        "    pax_grp.grp_id = bag2.grp_id and ";
+        
+    if (rpt_params.pr_brd)
+      SQLText +=
+          "    ckin.bag_pool_boarded(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)<>0 and ";
+    else
+      SQLText +=
+          "    ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 and ";
+    SQLText +=
         "    bag2.pr_cabin = 0 and "
-        "    bag2.hall = halls2.id(+) ";
+        "    bag2.hall = halls2.id(+) and "
+        "    ckin.get_bag_pool_pax_id(bag2.grp_id, bag2.bag_pool_num) = pax.pax_id(+) ";
     if(!rpt_params.airp_arv.empty()) {
         SQLText += " and pax_grp.airp_arv = :target ";
         Qry.CreateVariable("target", otString, rpt_params.airp_arv);
@@ -1310,11 +1318,7 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             " and pax_grp.grp_id=transfer.grp_id(+) and \n"
             " transfer.pr_final(+) <> 0 and \n"
             " transfer.point_id_trfer = trfer_trips.point_id(+) \n";
-    SQLText +=
-        "   and pax.pax_id(+) = ckin.get_main_pax_id(pax_grp.grp_id) and "
-        "   decode(:pr_brd_pax, 0, nvl2(pax.pr_brd(+), 0, -1), pax.pr_brd(+))  = :pr_brd_pax and "
-        "   (pax_grp.class is not null and pax.pax_id is not null or pax_grp.class is null) ";
-    Qry.CreateVariable("pr_brd_pax", otInteger, rpt_params.pr_brd);
+
     Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
     ProgTrace(TRACE5, "SQLText: %s", SQLText.c_str());
@@ -1559,7 +1563,7 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "  pax_grp.point_dep = :point_id and "
         "  pax_grp.grp_id = bag2.grp_id and "
         "  pax_grp.grp_id = transfer.grp_id and "
-        "  pax_grp.bag_refuse = 0 and "
+        "  ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 and "
         "  bag2.pr_cabin = 0 and "
         "  transfer.pr_final <> 0 ";
     if(rpt_params.ckin_zone != ALL_CKIN_ZONES) {
