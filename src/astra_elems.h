@@ -31,6 +31,7 @@ enum TElemType {
                  etHall,
                  etLangType,
                  etMiscSetType,
+                 etPaxDocCountry,
                  etPaxDocType,
                  etPayType,
                  etPersType,

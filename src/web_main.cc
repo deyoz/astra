@@ -2884,9 +2884,9 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
               if (!PaxDocQry.Eof)
               {
                 pax.document.type=PaxDocQry.FieldAsString("type");
-                pax.document.issue_country=PaxDocQry.FieldAsString("issue_country");
+                pax.document.issue_country=GetPaxDocCountryCode(PaxDocQry.FieldAsString("issue_country"));
                 pax.document.no=PaxDocQry.FieldAsString("no");
-                pax.document.nationality=PaxDocQry.FieldAsString("nationality");
+                pax.document.nationality=GetPaxDocCountryCode(PaxDocQry.FieldAsString("nationality"));
                 if (!PaxDocQry.FieldIsNULL("birth_date"))
                   pax.document.birth_date=PaxDocQry.FieldAsDateTime("birth_date");
                 else

@@ -1887,7 +1887,7 @@ class TScanParams
 };
 
 
-bool ParseScanData(const string& data, TScanParams& params)
+bool ParseScanBPData(const string& data, TScanParams& params)
 {
   TQuery Qry(&OraSession);
   Qry.Clear();
@@ -1910,9 +1910,9 @@ bool ParseScanData(const string& data, TScanParams& params)
     if (str_size<p+10) break;
 
   /*  if (p<str_size)
-      ProgTrace(TRACE5,"ParseScanData: p=%d str=%s", p, str.substr(p).c_str());
+      ProgTrace(TRACE5,"ParseScanBPData: p=%d str=%s", p, str.substr(p).c_str());
     else
-      ProgTrace(TRACE5,"ParseScanData: p=%d",p);*/
+      ProgTrace(TRACE5,"ParseScanBPData: p=%d",p);*/
 
     ph=p;
     try
@@ -1929,17 +1929,17 @@ bool ParseScanData(const string& data, TScanParams& params)
         if (str_size<p+4) throw EConvertError("04");
         if (!HexToString(str.substr(p+2,2),c) || c.size()<1) throw EConvertError("05");
         len_u=(int)c[0]; //item number=10
-        //ProgTrace(TRACE5,"ParseScanData: len_u=%d",len_u);
+        //ProgTrace(TRACE5,"ParseScanBPData: len_u=%d",len_u);
         p+=4;
         if (str_size<p+len_u+2) throw EConvertError("06");
         if (!HexToString(str.substr(p+len_u,2),c) || c.size()<1) throw EConvertError("07");
         len_r=(int)c[0]; //item number=17
-        //ProgTrace(TRACE5,"ParseScanData: len_r=%d",len_r);
+        //ProgTrace(TRACE5,"ParseScanBPData: len_r=%d",len_r);
         p+=len_u+2;
         if (str_size<p+len_r) throw EConvertError("08");
         p+=len_r;
         if (i>p)
-          ProgTrace(TRACE5,"ParseScanData: airline use=%s",str.substr(p,i-p).c_str());
+          ProgTrace(TRACE5,"ParseScanBPData: airline use=%s",str.substr(p,i-p).c_str());
         if (i-p!=10) throw EConvertError("09");
       };
 
@@ -1967,58 +1967,66 @@ bool ParseScanData(const string& data, TScanParams& params)
     catch(EConvertError &e)
     {
       /*if (p<str_size)
-        ProgTrace(TRACE5,"ParseScanData: EConvertError %s: p=%d str=%s", e.what(), p, str.substr(p).c_str());
+        ProgTrace(TRACE5,"ParseScanBPData: EConvertError %s: p=%d str=%s", e.what(), p, str.substr(p).c_str());
       else
-        ProgTrace(TRACE5,"ParseScanData: EConvertError %s: p=%d", e.what(), p);*/
+        ProgTrace(TRACE5,"ParseScanBPData: EConvertError %s: p=%d", e.what(), p);*/
     };
     ph++;
   }
   while (p!=string::npos);
 
-/*str:=parsedData.proc_value;
-  try
-    if Length(str)<60 then raise EConvertError.Create('');
-    i:=StrToInt('$'+Copy(str,59,2));
-    Delete(str,1,60);
-    if i>Length(str) then raise EConvertError.Create('');
-    str:=Copy(str,1,i);
-    if Length(str)<4 then raise EConvertError.Create('');
-    len_u:=StrToInt('$'+Copy(str,3,2));
-    Delete(str,1,4);
-    if len_u+2>Length(str) then raise EConvertError.Create('');
-    len_r:=StrToInt('$'+Copy(str,len_u+1,2));
-    Delete(str,1,len_u+2);
-    if len_r>Length(str) then raise EConvertError.Create('');
-    Delete(str,1,len_r);
-  except
-    on EConvertError do
-      str:=parsedData.proc_value;  //тючьюцэю ¤Єю 2/5
-  end;
-
-  if Length(str)=10 then
-  begin
-    i:=1;
-    for i:=i to Length(str) do
-      if not(IsDigit(str[i])) then break;
-    if i>Length(str) then
-    try
-      parsedData.pax_id:=StrToInt(str);
-      Result:=true;
-      Exit;
-    except
-      on EConvertError do ;
-    end;
-  end;*/
   return init;
+};
+
+bool ParseScanDocData(const string& data, TScanParams& params)
+{
+  return false;
+};
+
+bool ParseScanCardData(const string& data, TScanParams& params)
+{
+  return false;
 };
 
 
 void MainDCSInterface::DetermineScanParams(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+ /*
+   <DetermineScanParams>
+     <operation type="SCAN_DOC">
+       <fmt_params type="SCAN2">
+         <encoding editable="0">CP1251</encoding>
+         <postfix editable="1">031D</postfix>
+         <prefix editable="1">1C02</prefix>
+         <server_check editable="0">1</server_check>
+       </fmt_params>
+     </operation>
+     <scan_data>
+       <data>1C025643443C3C564...</data>
+     </scan_data>
+   </DetermineScanParams>
+ */
+
   try
   {
   	vector<TScanParams> ScanParams;
   	TScanParams params;
+  	TDevOperType op_type=DecodeDevOperType(NodeAsString("operation/@type",reqNode));
+  	if (op_type!=dotScnBP1 &&
+        op_type!=dotScnBP2 &&
+        op_type!=dotScnDoc &&
+        op_type!=dotScnCard) throw EConvertError("op_type=%s not supported",EncodeDevOperType(op_type).c_str());
+  	
+  	TDevFmtType fmt_type;
+    if (TReqInfo::Instance()->desk.compatible(SCAN_DOC_VERSION))
+      fmt_type=DecodeDevFmtType(NodeAsString("operation/fmt_params/@type",reqNode));
+    else
+      fmt_type=dftSCAN1;
+
+  	if (fmt_type!=dftSCAN1 &&
+        fmt_type!=dftBCR &&
+        fmt_type!=dftSCAN2 &&
+        fmt_type!=dftSCAN3) throw EConvertError("fmt_type=%s not supported",EncodeDevFmtType(fmt_type).c_str());
   	xmlNodePtr node;
   	node=GetNode("operation/fmt_params/encoding",reqNode);
   	if (node==NULL) throw EConvertError("Node 'encoding' not found");
@@ -2032,8 +2040,21 @@ void MainDCSInterface::DetermineScanParams(XMLRequestCtxt *ctxt, xmlNodePtr reqN
       data=ConvertCodepage(data,encoding,"CP866"); //иногда возвращает EConvertError
       ProgTrace(TRACE5,"DetermineScanParams: data=%s", data.c_str());
 
-      if (ParseScanData(data,params))
-        ScanParams.push_back(params);
+      if (op_type==dotScnBP1 || op_type==dotScnBP2)
+      {
+        if (ParseScanBPData(data,params))
+          ScanParams.push_back(params);
+      };
+      if (op_type==dotScnDoc)
+      {
+        if (ParseScanDocData(data,params))
+          ScanParams.push_back(params);
+      };
+      if (op_type==dotScnCard)
+      {
+        if (ParseScanCardData(data,params))
+          ScanParams.push_back(params);
+      };
     };
     if (ScanParams.empty()) throw EConvertError("ScanParams empty");
     for(vector<TScanParams>::iterator i=ScanParams.begin();i!=ScanParams.end();i++)
@@ -2042,29 +2063,44 @@ void MainDCSInterface::DetermineScanParams(XMLRequestCtxt *ctxt, xmlNodePtr reqN
         params=*i;
       else
       {
-        if (params.prefix.size()!=i->prefix.size() ||
-            params.postfix!=i->postfix) throw EConvertError("Different prefix size or postfix");
-        //пробуем выделить изменяемую часть префикса - это codeID
-        string::iterator j1=params.prefix.begin();
-        string::iterator j2=i->prefix.begin();
-        int j=0;
-        for(;j1!=params.prefix.end() && j2!=i->prefix.end();j1++,j2++,j++)
-          if (*j1!=*j2) break;
-        if (params.prefix.size()-j>params.code_id_len) params.code_id_len=params.prefix.size()-j;
+        if (fmt_type==dftSCAN1 || fmt_type==dftBCR)
+        {
+          if (params.prefix.size()!=i->prefix.size() ||
+              params.postfix!=i->postfix) throw EConvertError("Different prefix size or postfix");
+          //пробуем выделить изменяемую часть префикса - это codeID
+          string::iterator j1=params.prefix.begin();
+          string::iterator j2=i->prefix.begin();
+          int j=0;
+          for(;j1!=params.prefix.end() && j2!=i->prefix.end();j1++,j2++,j++)
+            if (*j1!=*j2) break;
+          if (params.prefix.size()-j>params.code_id_len) params.code_id_len=params.prefix.size()-j;
+        };
+        if (fmt_type==dftSCAN2 || fmt_type==dftSCAN3)
+        {
+          if (params.prefix !=i->prefix ||
+              params.postfix!=i->postfix) throw EConvertError("Different prefix or postfix");
+        };
       };
     };
-    if (params.code_id_len<0 ||
-        params.code_id_len>9 ||
-        params.code_id_len>params.prefix.size())
-      throw EConvertError("Wrong params.code_id_len=%lu",params.code_id_len);
-    params.prefix.erase(params.prefix.size()-params.code_id_len);
+    if (fmt_type==dftSCAN1 || fmt_type==dftBCR)
+    {
+      //вычисляем prefix с учетом code_id_len
+      if (params.code_id_len<0 ||
+          params.code_id_len>9 ||
+          params.code_id_len>params.prefix.size())
+        throw EConvertError("Wrong params.code_id_len=%lu",params.code_id_len);
+      params.prefix.erase(params.prefix.size()-params.code_id_len);
+    };
     node=NewTextChild(resNode,"fmt_params");
     string data;
     StringToHex(ConvertCodepage(params.prefix,"CP866",encoding),data);
     NewTextChild(node,"prefix",data);
     StringToHex(ConvertCodepage(params.postfix,"CP866",encoding),data);
     NewTextChild(node,"postfix",data);
-    NewTextChild(node,"code_id_len",(int)params.code_id_len);
+    if (fmt_type==dftSCAN1 || fmt_type==dftBCR)
+    {
+      NewTextChild(node,"code_id_len",(int)params.code_id_len);
+    };
   }
   catch(EConvertError &e)
   {

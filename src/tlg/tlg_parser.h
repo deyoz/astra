@@ -205,8 +205,8 @@ typedef struct
 class TDocItem
 {
   public:
-    char rem_code[6],rem_status[3],type[3],issue_country[3],no[16];
-    char nationality[3],gender[3];
+    char rem_code[6],rem_status[3],type[3],issue_country[4],no[16];
+    char nationality[4],gender[3];
     BASIC::TDateTime birth_date,expiry_date;
     std::string surname,first_name,second_name;
     bool pr_multi;

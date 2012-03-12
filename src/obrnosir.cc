@@ -47,8 +47,17 @@ const
     {"-dst_seasons",   seasons_dst_format,      NULL,                     NULL},
     {"-alter_pax_doc", alter_pax_doc,           NULL,                     NULL},
     {"-alter_pax_doc2",alter_pax_doc2,          NULL,                     NULL},
+    {"-alter_pax_doc3",alter_pax_doc3,          NULL,                     NULL},
+    {"-alter_pax_doco3",alter_pax_doco3,        NULL,                     NULL},
+    {"-alter_crs_pax_doc3",alter_crs_pax_doc3,  NULL,                     NULL},
+    {"-alter_crs_pax_doco3",alter_crs_pax_doco3,NULL,                     NULL},
     {"-alter_arx_pax_doc", alter_arx_pax_doc,   NULL,                     NULL},
-    {"-alter_arx_pax_doc2", alter_arx_pax_doc2, NULL,                     NULL}
+    {"-alter_arx_pax_doc2", alter_arx_pax_doc2, NULL,                     NULL},
+    {"-alter_pax_doc4",alter_pax_doc4,          NULL,                     NULL},
+    {"-alter_arx_pax_doc3",alter_arx_pax_doc3,  NULL,                     NULL},
+    {"-alter_arx_pax_doco3",alter_arx_pax_doco3,NULL,                     NULL},
+    {"-alter_arx_pax_doc4",alter_arx_pax_doc4,  NULL,                     NULL},
+    {"-move_flt_stat",     move_flt_stat,       NULL,                     NULL}
   };
 
 int nosir_test(int argc,char **argv)

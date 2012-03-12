@@ -324,6 +324,32 @@ class TTagColors: public TCodeBaseTable {
   	}
 };
 
+class TPaxDocCountriesRow: public TTIDBaseTableRow {
+  public:
+    std::string country;
+    const char *get_row_name() const { return "TPaxDocCountriesRow"; };
+    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU) const
+    {
+      if (lowerc(field)=="country") return country;
+      return TTIDBaseTableRow::AsString(field,lang);
+    };
+};
+
+class TPaxDocCountries: public TTIDBaseTable {
+  private:
+    std::map<std::string, TBaseTableRow*> country;
+  protected:
+    const char *get_table_name() { return "TPaxDocCountries"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+    void delete_row(TBaseTableRow *row);
+    void add_row(TBaseTableRow *row);
+  public:
+    virtual const TBaseTableRow& get_row(std::string field, std::string value, bool with_deleted=false);
+    TPaxDocCountries( ) {
+ 		  Init("pax_doc_countries");
+  	}
+};
+
 class TPaxDocTypesRow: public TCodeBaseTableRow {
   public:
     const char *get_row_name() const { return "TPaxDocTypesRow"; };

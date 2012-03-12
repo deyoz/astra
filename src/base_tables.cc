@@ -45,6 +45,8 @@ TBaseTable &TBaseTables::get(string name)
             base_tables[name] = new TGenderTypes();
         else if(name == "TAG_COLORS")
             base_tables[name] = new TTagColors();
+        else if(name == "PAX_DOC_COUNTRIES")
+            base_tables[name] = new TPaxDocCountries();
         else if(name == "PAX_DOC_TYPES")
             base_tables[name] = new TPaxDocTypes();
         else if(name == "CITIES")
@@ -562,6 +564,48 @@ void TTagColors::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **re
   *row = new TTagColorsRow;
   mem.create(*row, STDLOG);
   TCodeBaseTable::create_row(Qry,row,replaced_row);
+};
+
+void TPaxDocCountries::delete_row(TBaseTableRow *row)
+{
+  if (row!=NULL)
+  {
+    map<string, TBaseTableRow*>::iterator i;
+    i=country.find(((TPaxDocCountriesRow*)row)->country);
+    if (i->second==row) country.erase(i);
+  };
+  TTIDBaseTable::delete_row(row);
+};
+
+void TPaxDocCountries::add_row(TBaseTableRow *row)
+{
+  TTIDBaseTable::add_row(row);
+  if (row!=NULL && !((TPaxDocCountriesRow*)row)->country.empty())
+    country[((TPaxDocCountriesRow*)row)->country]=row;
+};
+
+const TBaseTableRow& TPaxDocCountries::get_row(std::string field, std::string value, bool with_deleted)
+{
+  load_table();
+  if (lowerc(field)=="country")
+  {
+    std::map<string, TBaseTableRow*>::iterator i;
+    i=country.find(value);
+    if (i==country.end()||
+        !with_deleted && i->second->deleted())
+      throw EBaseTableError("%s::get_row: %s=%s not found",
+                            get_table_name(),field.c_str(),value.c_str());
+    return *(i->second);
+  };
+  return TCodeBaseTable::get_row(field,value,with_deleted);
+};
+
+void TPaxDocCountries::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+{
+  *row = new TPaxDocCountriesRow;
+  mem.create(*row, STDLOG);
+  ((TPaxDocCountriesRow*)*row)->country=Qry.FieldAsString("country");
+  TTIDBaseTable::create_row(Qry,row,replaced_row);
 };
 
 void TPaxDocTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
