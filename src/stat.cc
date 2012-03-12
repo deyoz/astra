@@ -1706,6 +1706,7 @@ struct TStatParams {
     TDateTime FirstDate, LastDate;
     int flt_no;
     string kiosk;
+    int user;
     void get(xmlNodePtr resNode);
 };
 
@@ -2477,6 +2478,7 @@ void TStatParams::get(xmlNodePtr reqNode)
     string ap = NodeAsStringFast("ap", curNode);
     flt_no = NodeAsIntegerFast("flt_no", curNode, NoExists);
     kiosk = NodeAsStringFast("kiosk", curNode, "");
+    user = NodeAsIntegerFast("user", curNode, NoExists);
 
     ProgTrace(TRACE5, "ak: %s", ak.c_str());
     ProgTrace(TRACE5, "ap: %s", ap.c_str());
@@ -4123,6 +4125,10 @@ void RunAgentStat(const TStatParams &params, TAgentStat &AgentStat, TPrintAirlin
         if(not params.kiosk.empty()) {
             SQLText += "and agent_stat.desk = :kiosk ";
             Qry.CreateVariable("kiosk", otString, params.kiosk);
+        }
+        if(params.user != NoExists) {
+            SQLText += "and agent_stat.user_id = :user_id ";
+            Qry.CreateVariable("user_id", otInteger, params.user);
         }
         Qry.SQLText = SQLText;
         Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
