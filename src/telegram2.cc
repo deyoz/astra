@@ -2067,7 +2067,6 @@ struct TPLine {
             << info.TlgElemIdToElem(etAirp, FItem.airp_arv)
             << " "
             << seats
-            << " "
             << info.TlgElemIdToElem(etSubcls, FItem.trfer_cls)
             << " ";
         if(print_bag)
@@ -2522,7 +2521,6 @@ struct TPTMFItem:TFItem {
             }
             result
                 << seats
-                << " "
                 << info.TlgElemIdToElem(etClass, trfer_cls)
                 << " "
                 << baggage
