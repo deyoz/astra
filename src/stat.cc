@@ -2438,7 +2438,7 @@ void TPrintAirline::check(string val)
 void TStatParams::get(xmlNodePtr reqNode)
 {
     string name = NodeAsString("stat_mode", reqNode);
-    string type = NodeAsString("stat_type", reqNode);
+    string type = NodeAsString("stat_type", reqNode, "Общая");
 
     if(type == "Общая") {
         if(name == "Подробная") statType=statFull;
