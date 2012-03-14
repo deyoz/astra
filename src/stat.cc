@@ -4929,6 +4929,125 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     get_compatible_report_form("ArxPaxList", reqNode, resNode);
 }
 
+int STAT::agent_stat_delta(int argc,char **argv)
+{
+    try {
+        TQuery Qry(&OraSession);
+        Qry.SQLText =
+            "begin "
+            "   delete from agent_stat_delta; "
+            "   delete from agent_stat; "
+            "end; ";
+        Qry.Execute();
+        Qry.SQLText = "select * from agent_stat_delta_params";
+        Qry.Execute();
+        set<int> points;
+        for(; not Qry.Eof; Qry.Next()) {
+            int point_id = Qry.FieldAsInteger("point_id");
+            points.insert(point_id);
+            STAT::agent_stat_delta(
+                    point_id,
+                    Qry.FieldAsInteger("user_id"),
+                    Qry.FieldAsString("desk"),
+                    Qry.FieldAsDateTime("first_date"),
+                    Qry.FieldAsDateTime("last_date"),
+                    Qry.FieldAsInteger("pax_amount"),
+                    Qry.FieldAsInteger("dpax_amount"),
+                    Qry.FieldAsInteger("dbag_amount"),
+                    Qry.FieldAsInteger("dbag_weight"),
+                    Qry.FieldAsInteger("drk_amount"),
+                    Qry.FieldAsInteger("drk_weight")
+                    );
+        }
+        Qry.Clear();
+        Qry.SQLText = "begin statist.get_agent_stat(:point_id); end;";
+        Qry.DeclareVariable("point_id", otInteger);
+        for(set<int>::iterator is = points.begin(); is != points.end(); is++) {
+            Qry.SetVariable("point_id", *is);
+            Qry.Execute();
+        }
+    } catch(Exception &E) {
+        cout << "Error: " << E.what() << endl;
+        return 1;
+    }
+    return 0;
+}
+
+void STAT::agent_stat_delta(
+        int point_id,
+        int user_id,
+        const std::string &desk,
+        TDateTime first_date,
+        TDateTime last_date,
+        int pax_amount,
+        int dpax_amount,
+        int dbag_amount,
+        int dbag_weight,
+        int drk_amount,
+        int drk_weight
+        )
+{
+    if(last_date <= first_date)
+        throw Exception("agent_stat_delta: wrong time interval");
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "declare "
+        "   cursor cur is "
+        "   select * from agent_stat_delta where "
+        "        point_id = :point_id and "
+        "        user_id = :user_id and "
+        "        desk = :desk and "
+        "        (:first_date <= last_date and :first_date >= first_date or "
+        "         :last_date <= last_date and :last_date >= first_date); "
+        "   c cur%rowtype; "
+        "begin "
+        "   open cur; "
+        "   fetch cur into c; "
+        "   if cur%found then "
+        "       raise_application_error(-20000, 'crossed time interval found'); "
+        "   else "
+        "       insert into agent_stat_delta( "
+        "           point_id, "
+        "           user_id, "
+        "           desk, "
+        "           first_date, "
+        "           last_date, "
+        "           pax_amount, "
+        "           dpax_amount, "
+        "           dbag_amount, "
+        "           dbag_weight, "
+        "           drk_amount, "
+        "           drk_weight "
+        "       ) values ( "
+        "           :point_id, "
+        "           :user_id, "
+        "           :desk, "
+        "           :first_date, "
+        "           :last_date, "
+        "           :pax_amount, "
+        "           :dpax_amount, "
+        "           :dbag_amount, "
+        "           :dbag_weight, "
+        "           :drk_amount, "
+        "           :drk_weight "
+        "       ); "
+        "   end if; "
+        "end; ";
+
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.CreateVariable("user_id", otInteger, user_id);
+    Qry.CreateVariable("desk", otString, desk);
+    Qry.CreateVariable("first_date", otDate, first_date);
+    Qry.CreateVariable("last_date", otDate, last_date);
+    Qry.CreateVariable("pax_amount", otInteger, pax_amount);
+    Qry.CreateVariable("dpax_amount", otInteger, dpax_amount);
+    Qry.CreateVariable("dbag_amount", otInteger, dbag_amount);
+    Qry.CreateVariable("dbag_weight", otInteger, dbag_weight);
+    Qry.CreateVariable("drk_amount", otInteger, drk_amount);
+    Qry.CreateVariable("drk_weight", otInteger, drk_weight);
+    Qry.Execute();
+}
+
 void StatInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
 

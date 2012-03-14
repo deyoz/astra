@@ -3,9 +3,24 @@
 
 #include <libxml/tree.h>
 #include "jxtlib/JxtInterface.h"
+#include "basic.h"
 
 namespace STAT {
     xmlNodePtr set_variables(xmlNodePtr resNode, std::string lang = "");
+    void agent_stat_delta(
+            int point_id,
+            int user_id,
+            const std::string &desk,
+            BASIC::TDateTime first_date,
+            BASIC::TDateTime last_date,
+            int pax_amount,
+            int dpax_amount, // d prefix stands for delta
+            int dbag_amount,
+            int dbag_weight,
+            int drk_amount,
+            int drk_weight
+            );
+    int agent_stat_delta(int argc,char **argv);
 }
 
 class StatInterface : public JxtInterface
