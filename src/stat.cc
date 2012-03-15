@@ -4016,6 +4016,7 @@ struct TAgentStatKey {
     string airp;
     int flt_no;
     TDateTime scd_out;
+    string desk;
     string login;
     TAgentStatKey(): flt_no(NoExists), scd_out(0) {};
 };
@@ -4026,14 +4027,37 @@ struct TAgentStatRow {
     int bag_weight;
     int rk_amount;
     int rk_weight;
+    int unreg_pax_amount;
+    int unreg_bag_amount;
+    int unreg_bag_weight;
+    int unreg_rk_amount;
+    int unreg_rk_weight;
     int processed_pax;
     int time;
+    void set_delta(int &reg, int &unreg, int val)
+    {
+        if(reg == NoExists and unreg == NoExists) {
+            reg = 0;
+            unreg = 0;
+        }
+        if(val != 0) {
+            if(val > 0)
+                reg += val;
+            else
+                unreg -= val;
+        }
+    }
     TAgentStatRow():
         pax_amount(NoExists),
         bag_amount(NoExists),
         bag_weight(NoExists),
         rk_amount(NoExists),
         rk_weight(NoExists),
+        unreg_pax_amount(NoExists),
+        unreg_bag_amount(NoExists),
+        unreg_bag_weight(NoExists),
+        unreg_rk_amount(NoExists),
+        unreg_rk_weight(NoExists),
         processed_pax(NoExists),
         time(NoExists)
     {}
@@ -4046,7 +4070,10 @@ struct TAgentCmp {
             if(lr.airp == rr.airp)
                 if(lr.flt_no == rr.flt_no)
                     if(lr.scd_out == rr.scd_out)
-                        return lr.login < rr.login;
+                        if(lr.desk == rr.desk)
+                            return lr.login < rr.login;
+                        else
+                            return lr.desk < rr.desk;
                     else
                         return lr.scd_out < rr.scd_out;
                 else
@@ -4179,26 +4206,26 @@ void RunAgentStat(const TStatParams &params, TAgentStat &AgentStat, TPrintAirlin
                 prn_airline.check(airline);
                 key.flt_no = flt_no;
                 key.scd_out = scd_out;
-                if(params.statType == statAgentFull)
+                if(params.statType == statAgentFull) {
+                    key.desk = desk;
                     key.login = login;
+                }
                 TAgentStatRow &row = AgentStat[key];
+
                 if(row.pax_amount == NoExists) {
-                    row.pax_amount = dpax_amount;
-                    row.bag_amount = dbag_amount;
-                    row.bag_weight = dbag_weight;
-                    row.rk_amount = drk_amount;
-                    row.rk_weight = drk_weight;
                     row.processed_pax = pax_amount;
                     row.time = time;
                 } else {
-                    row.pax_amount += dpax_amount;
-                    row.bag_amount += dbag_amount;
-                    row.bag_weight += dbag_weight;
-                    row.rk_amount += drk_amount;
-                    row.rk_weight += drk_weight;
                     row.processed_pax += pax_amount;
                     row.time += time;
                 }
+
+                row.set_delta(row.pax_amount, row.unreg_pax_amount, dpax_amount);
+                row.set_delta(row.bag_amount, row.unreg_bag_amount, dbag_amount);
+                row.set_delta(row.bag_weight, row.unreg_bag_weight, dbag_weight);
+                row.set_delta(row.rk_amount, row.unreg_rk_amount, drk_amount);
+                row.set_delta(row.rk_weight, row.unreg_rk_weight, drk_weight);
+
                 AgentStat.total_processed_pax += pax_amount;
                 AgentStat.total_time += time;
             }
@@ -4360,29 +4387,45 @@ void createXMLAgentStat(const TStatParams &params, const TAgentStat &AgentStat, 
         SetProp(colNode, "width", 50);
         SetProp(colNode, "align", taLeftJustify);
         if(params.statType == statAgentFull) {
-            colNode = NewTextChild(headerNode, "col", getLocaleText("Пользователь"));
-            SetProp(colNode, "width", 80);
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Пульт"));
+            SetProp(colNode, "width", 55);
+            SetProp(colNode, "align", taLeftJustify);
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Логин"));
+            SetProp(colNode, "width", 55);
             SetProp(colNode, "align", taLeftJustify);
         }
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во пасс."));
-        SetProp(colNode, "width", 75);
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во пасс. (+)"));
+        SetProp(colNode, "width", 90);
         SetProp(colNode, "align", taRightJustify);
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Багаж (мест/вес)"));
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во пасс. (-)"));
+        SetProp(colNode, "width", 90);
+        SetProp(colNode, "align", taRightJustify);
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Баг. (мест/вес) (+)"));
         SetProp(colNode, "width", 100);
         SetProp(colNode, "align", taCenter);
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Р/кладь (вес)"));
-        SetProp(colNode, "width", 80);
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Баг. (мест/вес) (-)"));
+        SetProp(colNode, "width", 100);
+        SetProp(colNode, "align", taCenter);
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Р/к (вес) (+)"));
+        SetProp(colNode, "width", 70);
         SetProp(colNode, "align", taRightJustify);
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Среднее время, затраченное на пассажира"));
-        SetProp(colNode, "width", 230);
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Р/к (вес) (-)"));
+        SetProp(colNode, "width", 70);
+        SetProp(colNode, "align", taRightJustify);
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Вр. на пасс."));
+        SetProp(colNode, "width", 65);
         SetProp(colNode, "align", taRightJustify);
 
         xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
         xmlNodePtr rowNode;
         int total_pax_amount = 0;
+        int total_unreg_pax_amount = 0;
         int total_rk_weight = 0;
         int total_bag_amount = 0;
         int total_bag_weight = 0;
+        int total_unreg_rk_weight = 0;
+        int total_unreg_bag_amount = 0;
+        int total_unreg_bag_weight = 0;
 
 
         for(TAgentStat::const_iterator im = AgentStat.begin(); im != AgentStat.end(); im++) {
@@ -4406,35 +4449,54 @@ void createXMLAgentStat(const TStatParams &params, const TAgentStat &AgentStat, 
                         UTCToClient(im->first.scd_out, region), "dd.mm.yy")
                     );
             if(params.statType == statAgentFull) {
+                // Пульт
+                NewTextChild(rowNode, "col", im->first.desk);
                 // Пользователь
                 NewTextChild(rowNode, "col", im->first.login);
             }
-            // Кол-во пасс.
+            // Кол-во пасс. (+)
             NewTextChild(rowNode, "col", im->second.pax_amount);
             total_pax_amount += im->second.pax_amount;
-            // Багаж (мест/вес)
+            // Кол-во пасс. (-)
+            NewTextChild(rowNode, "col", im->second.unreg_pax_amount);
+            total_unreg_pax_amount += im->second.unreg_pax_amount;
+            // Багаж (мест/вес) (+)
             NewTextChild(rowNode, "col", IntToString(im->second.bag_amount) + "/" + IntToString(im->second.bag_weight));
             total_bag_amount += im->second.bag_amount;
             total_bag_weight += im->second.bag_weight;
-            // Р/кладь (вес)
+            // Багаж (мест/вес) (-)
+            NewTextChild(rowNode, "col", IntToString(im->second.unreg_bag_amount) + "/" + IntToString(im->second.unreg_bag_weight));
+            total_unreg_bag_amount += im->second.unreg_bag_amount;
+            total_unreg_bag_weight += im->second.unreg_bag_weight;
+            // Р/кладь (вес) (+)
             NewTextChild(rowNode, "col", im->second.rk_weight);
             total_rk_weight += im->second.rk_weight;
+            // Р/кладь (вес) (-)
+            NewTextChild(rowNode, "col", im->second.unreg_rk_weight);
+            total_unreg_rk_weight += im->second.unreg_rk_weight;
             // Среднее время, затраченное на пассажира
             buf.str("");
-            buf << fixed << setprecision(2) << im->second.time / im->second.processed_pax;
+            buf << fixed << setprecision(2) << (float)im->second.time / im->second.processed_pax;
             NewTextChild(rowNode, "col", buf.str());
         }
         rowNode = NewTextChild(rowsNode, "row");
         NewTextChild(rowNode, "col", getLocaleText("Итого:"));
         NewTextChild(rowNode, "col");
-        if(params.statType == statAgentFull)
+        if(params.statType == statAgentFull) {
             NewTextChild(rowNode, "col");
+            NewTextChild(rowNode, "col");
+        }
         NewTextChild(rowNode, "col", total_pax_amount);
+        NewTextChild(rowNode, "col", total_unreg_pax_amount);
         NewTextChild(rowNode, "col", IntToString(total_bag_amount) + "/" + IntToString(total_bag_weight));
+        NewTextChild(rowNode, "col", IntToString(total_unreg_bag_amount) + "/" + IntToString(total_unreg_bag_weight));
         NewTextChild(rowNode, "col", total_rk_weight);
+        NewTextChild(rowNode, "col", total_unreg_rk_weight);
         {
+            ProgTrace(TRACE5, "AgentStat.total_time = %d", AgentStat.total_time);
+            ProgTrace(TRACE5, "AgentStat.total_time = %d", AgentStat.total_processed_pax);
             ostringstream buf;
-            buf << fixed << setprecision(2) << AgentStat.total_time / AgentStat.total_processed_pax;
+            buf << fixed << setprecision(2) << (float)AgentStat.total_time / AgentStat.total_processed_pax;
             NewTextChild(rowNode, "col", buf.str());
         }
 
