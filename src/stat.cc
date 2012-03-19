@@ -4033,7 +4033,7 @@ struct TAgentStatRow {
     int unreg_rk_amount;
     int unreg_rk_weight;
     int processed_pax;
-    int time;
+    double time;
     void set_delta(int &reg, int &unreg, int val)
     {
         if(reg == NoExists and unreg == NoExists) {
@@ -4087,7 +4087,7 @@ struct TAgentCmp {
 
 struct TAgentStat:map<TAgentStatKey, TAgentStatRow, TAgentCmp> {
     int total_processed_pax;
-    int total_time;
+    double total_time;
     TAgentStat():
         total_processed_pax(0),
         total_time(0)
@@ -4193,7 +4193,7 @@ void RunAgentStat(const TStatParams &params, TAgentStat &AgentStat, TPrintAirlin
                 int flt_no = Qry.FieldAsInteger(col_flt_no);
                 string login = Qry.FieldAsString(col_login);
                 string desk = Qry.FieldAsString(col_desk);
-                int time = Qry.FieldAsInteger(col_time);
+                double time = Qry.FieldAsFloat(col_time);
                 int pax_amount = Qry.FieldAsInteger(col_pax_amount);
                 int dpax_amount = Qry.FieldAsInteger(col_dpax_amount);
                 int dbag_amount = Qry.FieldAsInteger(col_dbag_amount);
@@ -4226,6 +4226,11 @@ void RunAgentStat(const TStatParams &params, TAgentStat &AgentStat, TPrintAirlin
                 row.set_delta(row.rk_amount, row.unreg_rk_amount, drk_amount);
                 row.set_delta(row.rk_weight, row.unreg_rk_weight, drk_weight);
 
+                ostringstream buf;
+                buf
+                    << setw(10) << time
+                    << setw(10) << pax_amount;
+                ProgTrace(TRACE5, "add totals: %s", buf.str().c_str());
                 AgentStat.total_processed_pax += pax_amount;
                 AgentStat.total_time += time;
             }
@@ -4476,7 +4481,7 @@ void createXMLAgentStat(const TStatParams &params, const TAgentStat &AgentStat, 
             total_unreg_rk_weight += im->second.unreg_rk_weight;
             // Среднее время, затраченное на пассажира
             buf.str("");
-            buf << fixed << setprecision(2) << (float)im->second.time / im->second.processed_pax;
+            buf << fixed << setprecision(2) << im->second.time / im->second.processed_pax;
             NewTextChild(rowNode, "col", buf.str());
         }
         rowNode = NewTextChild(rowsNode, "row");
@@ -4493,10 +4498,8 @@ void createXMLAgentStat(const TStatParams &params, const TAgentStat &AgentStat, 
         NewTextChild(rowNode, "col", total_rk_weight);
         NewTextChild(rowNode, "col", total_unreg_rk_weight);
         {
-            ProgTrace(TRACE5, "AgentStat.total_time = %d", AgentStat.total_time);
-            ProgTrace(TRACE5, "AgentStat.total_time = %d", AgentStat.total_processed_pax);
             ostringstream buf;
-            buf << fixed << setprecision(2) << (float)AgentStat.total_time / AgentStat.total_processed_pax;
+            buf << fixed << setprecision(2) << AgentStat.total_time / AgentStat.total_processed_pax;
             NewTextChild(rowNode, "col", buf.str());
         }
 
