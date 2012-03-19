@@ -3762,7 +3762,9 @@ void RunKioskStat(const TStatParams &params, TKioskStat &KioskStat, TPrintAirlin
                 int baby = Qry.FieldAsInteger(col_baby);
                 int tckin = Qry.FieldAsInteger(col_tckin);
                 TKioskStatKey key;
-                key.kiosk = desk + "/" + ElemIdToCodeNative(etAirp, desk_airp);
+                key.kiosk = desk;
+                if(not desk_airp.empty())
+                    key.kiosk += "/" + ElemIdToCodeNative(etAirp, desk_airp);
                 key.descr = descr;
                 key.ak = ElemIdToCodeNative(etAirline, airline);
                 prn_airline.check(airline);
@@ -3926,7 +3928,9 @@ void createXMLKioskStat(const TStatParams &params, const TKioskStat &KioskStat, 
             }
             if(params.statType == statKioskFull) {
                 // номер рейса
-                NewTextChild(rowNode, "col", im->first.flt_no);
+                ostringstream buf;
+                buf << setw(3) << setfill('0') << im->first.flt_no;
+                NewTextChild(rowNode, "col", buf.str().c_str());
                 tot_upd.update(NoExists);
 
                 // Дата
