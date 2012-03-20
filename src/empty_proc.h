@@ -21,6 +21,6 @@ int alter_pax_doc4(int argc,char **argv);
 int alter_arx_pax_doc3(int argc,char **argv);
 int alter_arx_pax_doco3(int argc,char **argv);
 int alter_arx_pax_doc4(int argc,char **argv);
-int move_flt_stat(int argc,char **argv);
+int put_move_arx_ext(int argc,char **argv);
 
 #endif

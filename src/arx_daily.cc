@@ -89,9 +89,10 @@ TArxMoveFlt::~TArxMoveFlt()
   OraSession.DeleteQuery(*PointsQry);
 };
 
-bool TArxMoveFlt::GetPartKey(int move_id, TDateTime& part_key)
+bool TArxMoveFlt::GetPartKey(int move_id, TDateTime& part_key, double &date_range)
 {
   part_key=NoExists;
+  date_range=NoExists;
 
   PointsQry->SetVariable("move_id",move_id);
   PointsQry->Execute();
@@ -110,95 +111,103 @@ bool TArxMoveFlt::GetPartKey(int move_id, TDateTime& part_key)
   {
     if (PointsQry->FieldAsInteger("pr_del")!=-1) deleted=false;
 
-    max_time_out=NoExists;
-    min_time_out=NoExists;
-    for(int i=0;i<=2;i++)
     {
-      int idx;
-      switch(i)
+      max_time_out=NoExists;
+      min_time_out=NoExists;
+      for(int i=0;i<=2;i++)
       {
-        case 0: idx=PointsQry->FieldIndex("scd_out");
-                break;
-        case 1: idx=PointsQry->FieldIndex("est_out");
-                break;
-       default: idx=PointsQry->FieldIndex("act_out");
-                break;
+        int idx;
+        switch(i)
+        {
+          case 0: idx=PointsQry->FieldIndex("scd_out");
+                  break;
+          case 1: idx=PointsQry->FieldIndex("est_out");
+                  break;
+         default: idx=PointsQry->FieldIndex("act_out");
+                  break;
+        };
+        if (PointsQry->FieldIsNULL(idx)) continue;
+        if (max_time_out==NoExists || max_time_out<PointsQry->FieldAsDateTime(idx))
+          max_time_out=PointsQry->FieldAsDateTime(idx);
+        if (min_time_out==NoExists || min_time_out>PointsQry->FieldAsDateTime(idx))
+          min_time_out=PointsQry->FieldAsDateTime(idx);
       };
-      if (PointsQry->FieldIsNULL(idx)) continue;
-      if (max_time_out==NoExists || max_time_out<PointsQry->FieldAsDateTime(idx))
-        max_time_out=PointsQry->FieldAsDateTime(idx);
-      if (min_time_out==NoExists || min_time_out>PointsQry->FieldAsDateTime(idx))
-        min_time_out=PointsQry->FieldAsDateTime(idx);
+
+      if (max_time_out!=NoExists &&
+          (max_time==NoExists || max_time<max_time_out))
+        max_time=max_time_out;
+
+      if (PointsQry->FieldAsInteger("pr_del")!=-1)
+      {
+        if (max_time_out!=NoExists &&
+            (last_date==NoExists || last_date<max_time_out))
+          last_date=max_time_out;
+        if (min_time_out!=NoExists &&
+            (first_date==NoExists || first_date>min_time_out))
+          first_date=min_time_out;
+      };
     };
 
     PointsQry->Next();
 
     if (PointsQry->Eof) break;
 
-    max_time_in=NoExists;
-    min_time_in=NoExists;
-    for(int i=0;i<=2;i++)
     {
-      int idx;
-      switch(i)
+      max_time_in=NoExists;
+      min_time_in=NoExists;
+      for(int i=0;i<=2;i++)
       {
-        case 0: idx=PointsQry->FieldIndex("scd_in");
-                break;
-        case 1: idx=PointsQry->FieldIndex("est_in");
-                break;
-       default: idx=PointsQry->FieldIndex("act_in");
-                break;
+        int idx;
+        switch(i)
+        {
+          case 0: idx=PointsQry->FieldIndex("scd_in");
+                  break;
+          case 1: idx=PointsQry->FieldIndex("est_in");
+                  break;
+         default: idx=PointsQry->FieldIndex("act_in");
+                  break;
+        };
+        if (PointsQry->FieldIsNULL(idx)) continue;
+        if (max_time_in==NoExists || max_time_in<PointsQry->FieldAsDateTime(idx))
+          max_time_in=PointsQry->FieldAsDateTime(idx);
+        if (min_time_in==NoExists || min_time_in>PointsQry->FieldAsDateTime(idx))
+          min_time_in=PointsQry->FieldAsDateTime(idx);
       };
-      if (PointsQry->FieldIsNULL(idx)) continue;
-      if (max_time_in==NoExists || max_time_in<PointsQry->FieldAsDateTime(idx))
-        max_time_in=PointsQry->FieldAsDateTime(idx);
-      if (min_time_in==NoExists || min_time_in>PointsQry->FieldAsDateTime(idx))
-        min_time_in=PointsQry->FieldAsDateTime(idx);
-    };
 
-    if (max_time_out!=NoExists &&
-        (max_time==NoExists || max_time<max_time_out))
-      max_time=max_time_out;
-    if (max_time_in!=NoExists &&
-        (max_time==NoExists || max_time<max_time_in))
-      max_time=max_time_in;
-
-    if (PointsQry->FieldAsInteger("pr_del")!=-1)
-    {
-      if (max_time_out!=NoExists &&
-          (last_date==NoExists || last_date<max_time_out))
-        last_date=max_time_out;
       if (max_time_in!=NoExists &&
-          (last_date==NoExists || last_date<max_time_in))
-        last_date=max_time_in;
+          (max_time==NoExists || max_time<max_time_in))
+        max_time=max_time_in;
 
-      if (min_time_out!=NoExists &&
-          (first_date==NoExists || first_date>min_time_out))
-        first_date=min_time_out;
-      if (min_time_in!=NoExists &&
-          (first_date==NoExists || first_date>min_time_in))
-        first_date=min_time_in;
-
-      if (PointsQry->FieldAsInteger("pr_del")==0)
+      if (PointsQry->FieldAsInteger("pr_del")!=-1)
       {
-     	  if (!PointsQry->FieldIsNULL("act_in"))
-          final_act_in=PointsQry->FieldAsDateTime("act_in");
-        else
-          final_act_in=NoExists;
+        if (max_time_in!=NoExists &&
+            (last_date==NoExists || last_date<max_time_in))
+          last_date=max_time_in;
+        if (min_time_in!=NoExists &&
+            (first_date==NoExists || first_date>min_time_in))
+          first_date=min_time_in;
+
+        if (PointsQry->FieldAsInteger("pr_del")==0)
+        {
+       	  if (!PointsQry->FieldIsNULL("act_in"))
+            final_act_in=PointsQry->FieldAsDateTime("act_in");
+          else
+            final_act_in=NoExists;
+        };
       };
     };
   };
   if (!deleted)
   {
-    if (first_date!=NoExists && last_date!=NoExists &&
-        last_date-first_date>=0 &&
-        last_date-first_date<arx_trip_date_range)
+    if (first_date!=NoExists && last_date!=NoExists)
     {
+
       if ( final_act_in!=NoExists && last_date<utcdate-ARX_MIN_DAYS() ||
            final_act_in==NoExists && last_date<utcdate-ARX_MAX_DAYS() )
       {
         //переместить в архив
         part_key=last_date;
+        date_range=last_date-first_date;
         return true;
       };
     };
@@ -210,6 +219,7 @@ bool TArxMoveFlt::GetPartKey(int move_id, TDateTime& part_key)
     {
       //удалить
       part_key=NoExists;
+      date_range=NoExists;
       return true;
     };
   };
@@ -254,8 +264,9 @@ bool TArxMoveFlt::Next(int max_rows, int duration)
       if (move_ids.find(move_id)!=move_ids.end()) continue;
 
       TDateTime part_key;
+      double date_range;
 
-      if (GetPartKey(move_id,part_key))
+      if (GetPartKey(move_id,part_key,date_range))
       {
         move_ids[move_id]=part_key;
         move_ids_count++;
@@ -282,10 +293,11 @@ bool TArxMoveFlt::Next(int max_rows, int duration)
       Qry->Clear();
       Qry->SQLText =
         "BEGIN "
-        "  arch.move(:move_id,:part_key); "
+        "  arch.move(:move_id,:part_key,:date_range); "
         "END;";
       Qry->DeclareVariable("move_id",otInteger);
       Qry->DeclareVariable("part_key",otDate);
+      Qry->DeclareVariable("date_range",otInteger);
     };
     while (!move_ids.empty())
     {
@@ -294,8 +306,9 @@ bool TArxMoveFlt::Next(int max_rows, int duration)
       move_ids_count--;
 
       TDateTime part_key;
+      double date_range;
 
-      if (GetPartKey(move_id,part_key))
+      if (GetPartKey(move_id,part_key,date_range))
       {
         try
         {
@@ -305,6 +318,15 @@ bool TArxMoveFlt::Next(int max_rows, int duration)
           	Qry->SetVariable("part_key",part_key);
           else
           	Qry->SetVariable("part_key",FNull);
+          if (date_range<0) throw Exception("date_range=%f", date_range);
+          if (date_range==NoExists || date_range<1)
+            Qry->SetVariable("date_range",FNull);
+          else
+          {
+            int date_range_int=(int)ceil(date_range);
+            if (date_range_int>999) throw Exception("date_range_int=%d", date_range_int);
+          	Qry->SetVariable("date_range",date_range_int);
+          };
           Qry->Execute();
           OraSession.Commit();
           proc_count++;

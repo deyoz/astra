@@ -256,7 +256,7 @@ void InsertTlgSeatRanges(int point_id_tlg,
     Qry.SQLText=
       "BEGIN "
       "  IF :tid IS NULL THEN "
-      "    SELECT tid__seq.nextval INTO :tid FROM dual; "
+      "    SELECT cycle_tid__seq.nextval INTO :tid FROM dual; "
       "  END IF; "
       "  UPDATE crs_pax SET tid=:tid WHERE pax_id=:pax_id "
       "  RETURNING surname,name,pers_type INTO :surname,:name,:pers_type; "
@@ -465,7 +465,7 @@ void DeleteTlgSeatRanges(vector<int> range_ids,
     Qry.SQLText=
       "BEGIN "
       "  IF :tid IS NULL THEN "
-      "    SELECT tid__seq.nextval INTO :tid FROM dual; "
+      "    SELECT cycle_tid__seq.nextval INTO :tid FROM dual; "
       "  END IF; "
       "  UPDATE crs_pax SET tid=:tid WHERE pax_id=:pax_id "
       "  RETURNING surname,name,pers_type INTO :surname,:name,:pers_type; "

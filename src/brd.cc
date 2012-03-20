@@ -243,7 +243,7 @@ int get_new_tid(int point_id)
 {
   TQuery Qry(&OraSession);
   Qry.SQLText=
-    "SELECT tid__seq.nextval AS tid FROM points "
+    "SELECT cycle_tid__seq.nextval AS tid FROM points "
     "WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0 FOR UPDATE";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
@@ -281,10 +281,10 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     sql.str("");
     sql << "BEGIN ";
     if (reqInfo->screen.name == "BRDBUS.EXE")
-      sql << "  UPDATE pax SET pr_brd=DECODE(:mark,0,1,0),tid=tid__seq.currval "
+      sql << "  UPDATE pax SET pr_brd=DECODE(:mark,0,1,0),tid=cycle_tid__seq.currval "
              "  WHERE pax_id=:pax_id AND pr_brd=:mark; ";
     else
-      sql << "  UPDATE pax SET pr_exam=DECODE(:mark,0,1,0),tid=tid__seq.currval "
+      sql << "  UPDATE pax SET pr_exam=DECODE(:mark,0,1,0),tid=cycle_tid__seq.currval "
              "  WHERE pax_id=:pax_id AND pr_exam=:mark; ";
     sql << "  IF SQL%FOUND THEN "
            "    mvd.sync_pax(:pax_id,:term); "
@@ -353,13 +353,13 @@ bool BrdInterface::PaxUpdate(int point_id, int pax_id, int &tid, bool mark, bool
       "UPDATE pax "
       "SET pr_brd=:mark, "
       "    pr_exam=DECODE(:pr_exam_with_brd,0,pr_exam,:mark), "
-      "    tid=tid__seq.currval "
+      "    tid=cycle_tid__seq.currval "
       "WHERE pax_id=:pax_id AND tid=:tid";
     Qry.CreateVariable("pr_exam_with_brd",otInteger,(int)pr_exam_with_brd);
   }
   else
     Qry.SQLText=
-      "UPDATE pax SET pr_exam=:mark, tid=tid__seq.currval "
+      "UPDATE pax SET pr_exam=:mark, tid=cycle_tid__seq.currval "
       "WHERE pax_id=:pax_id AND tid=:tid";
   Qry.CreateVariable("pax_id", otInteger, pax_id);
   Qry.CreateVariable("tid", otInteger, tid);

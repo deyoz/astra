@@ -423,7 +423,7 @@ int PaymentInterface::LockAndUpdTid(int point_dep, int grp_id, int tid)
   //лочим рейс
   Qry.Clear();
   Qry.SQLText=
-    "SELECT point_id,tid__seq.nextval AS tid "
+    "SELECT point_id,cycle_tid__seq.nextval AS tid "
     "FROM points "
     "WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0 FOR UPDATE";
   Qry.CreateVariable("point_id",otInteger,point_dep);
@@ -434,7 +434,7 @@ int PaymentInterface::LockAndUpdTid(int point_dep, int grp_id, int tid)
   Qry.Clear();
   Qry.SQLText=
     "UPDATE pax_grp "
-    "SET tid=tid__seq.currval "
+    "SET tid=cycle_tid__seq.currval "
     "WHERE grp_id=:grp_id AND tid=:tid";
   Qry.CreateVariable("grp_id",otInteger,grp_id);
   Qry.CreateVariable("tid",otInteger,tid);

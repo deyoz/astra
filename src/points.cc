@@ -716,7 +716,7 @@ void TPoints::WriteDest( TPointsDest &dest )
     return;
   TQuery Qry(&OraSession);
   Qry.SQLText =
-    "SELECT tid__seq.nextval n FROM dual ";
+    "SELECT cycle_tid__seq.nextval n FROM dual ";
  	Qry.Execute();
  	dest.tid = Qry.FieldAsInteger( "n" );
  	if ( dest.status == tdInsert ) {

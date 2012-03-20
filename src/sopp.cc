@@ -88,42 +88,67 @@ const char* points_ISG_SQL =
     "      points.pr_del!=-1 "
     "ORDER BY points.move_id,point_num,point_id ";
 const char * arx_points_SOPP_SQL =
-    "SELECT arx_points.move_id,arx_points.point_id,point_num,airp,airp_fmt,first_point,airline,airline_fmt,flt_no,"
-    "       suffix,suffix_fmt,craft,craft_fmt,bort, "
-    "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
-    "       pr_tranzit,pr_reg,arx_points.pr_del pr_del,arx_points.tid tid, arx_points.part_key "
-    " FROM arx_points, "
-    " (SELECT DISTINCT move_id, part_key FROM arx_points "
-    "   WHERE part_key>=:first_date AND part_key<:next_date+:arx_trip_date_range AND "
-    "         pr_del!=-1 "
-    "         :where_sql AND "
-    "         ( :first_date IS NULL OR "
-    "           NVL(act_in,NVL(est_in,scd_in)) >= :first_date AND NVL(act_in,NVL(est_in,scd_in)) < :next_date OR "
-    "           NVL(act_out,NVL(est_out,scd_out)) >= :first_date AND NVL(act_out,NVL(est_out,scd_out)) < :next_date ) ) p "
-    "WHERE arx_points.part_key = p.part_key AND "
-    "      arx_points.move_id = p.move_id AND "
-    "      arx_points.pr_del!=-1 "
-    "ORDER BY arx_points.move_id,point_num,point_id ";
+    "SELECT arx_points.move_id,arx_points.point_id,point_num,airp,airp_fmt,first_point,airline,airline_fmt,flt_no, \n"
+    "       suffix,suffix_fmt,craft,craft_fmt,bort, \n"
+    "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark, \n"
+    "       pr_tranzit,pr_reg,arx_points.pr_del pr_del,arx_points.tid tid, arx_points.part_key \n"
+    " FROM arx_points, \n"
+    " (SELECT DISTINCT move_id, part_key FROM arx_points \n"
+    "   WHERE part_key>=:first_date AND part_key<:next_date+:arx_trip_date_range AND \n"
+    "         pr_del!=-1 \n"
+    "         :where_sql AND \n"
+    "         ( :first_date IS NULL OR \n"
+    "           NVL(act_in,NVL(est_in,scd_in)) >= :first_date AND NVL(act_in,NVL(est_in,scd_in)) < :next_date OR \n"
+    "           NVL(act_out,NVL(est_out,scd_out)) >= :first_date AND NVL(act_out,NVL(est_out,scd_out)) < :next_date ) \n"
+    "  UNION \n"
+    "  SELECT DISTINCT arx_points.move_id, arx_points.part_key \n"
+    "  FROM arx_points, \n"
+    "       (SELECT part_key, move_id FROM move_arx_ext \n"
+    "        WHERE part_key >= :next_date+:arx_trip_date_range AND part_key <= :next_date+date_range) arx_ext \n"
+    "   WHERE arx_points.part_key=arx_ext.part_key AND arx_points.move_id=arx_ext.move_id AND \n"
+    "         pr_del!=-1 \n"
+    "         :where_sql AND \n"
+    "         ( :first_date IS NULL OR \n"
+    "           NVL(act_in,NVL(est_in,scd_in)) >= :first_date AND NVL(act_in,NVL(est_in,scd_in)) < :next_date OR \n"
+    "           NVL(act_out,NVL(est_out,scd_out)) >= :first_date AND NVL(act_out,NVL(est_out,scd_out)) < :next_date ) \n"
+    " ) p \n"
+    "WHERE arx_points.part_key = p.part_key AND \n"
+    "      arx_points.move_id = p.move_id AND \n"
+    "      arx_points.pr_del!=-1 \n"
+    "ORDER BY arx_points.move_id,point_num,point_id";
 const char * arx_points_ISG_SQL =
-    "SELECT arx_points.move_id,arx_points.point_id,point_num,airp,airp_fmt,first_point,airline,airline_fmt,flt_no,"
-    "       suffix,suffix_fmt,craft,craft_fmt,bort, "
-    "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
-    "       pr_tranzit,pr_reg,arx_points.pr_del pr_del,arx_points.tid tid, reference ref, arx_points.part_key "
-    " FROM arx_points, arx_move_ref, "
-    " (SELECT DISTINCT move_id, part_key FROM arx_points "
-    "   WHERE part_key>=:first_date AND part_key<:next_date+:arx_trip_date_range AND "
-    "         pr_del!=-1 "
-    "         :where_sql AND "
-    "         ( :first_date IS NULL OR "
-    "           NVL(act_in,NVL(est_in,scd_in)) >= :first_date AND NVL(act_in,NVL(est_in,scd_in)) < :next_date OR "
-    "           NVL(act_out,NVL(est_out,scd_out)) >= :first_date AND NVL(act_out,NVL(est_out,scd_out)) < :next_date OR "
-    "           NVL(act_in,NVL(est_in,scd_in)) IS NULL AND NVL(act_out,NVL(est_out,scd_out)) IS NULL ) ) p "
-    "WHERE arx_points.part_key=p.part_key AND "
-    "      arx_points.move_id = p.move_id AND "
-    "      arx_move_ref.part_key=p.part_key AND "
-    "      arx_move_ref.move_id = p.move_id AND "
-    "      arx_points.pr_del!=-1 "
-    "ORDER BY arx_points.move_id,point_num,point_id ";
+    "SELECT arx_points.move_id,arx_points.point_id,point_num,airp,airp_fmt,first_point,airline,airline_fmt,flt_no, \n"
+    "       suffix,suffix_fmt,craft,craft_fmt,bort, \n"
+    "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark, \n"
+    "       pr_tranzit,pr_reg,arx_points.pr_del pr_del,arx_points.tid tid, reference ref, arx_points.part_key \n"
+    " FROM arx_points, arx_move_ref, \n"
+    " (SELECT DISTINCT move_id, part_key FROM arx_points \n"
+    "   WHERE part_key>=:first_date AND part_key<:next_date+:arx_trip_date_range AND \n"
+    "         pr_del!=-1 \n"
+    "         :where_sql AND \n"
+    "         ( :first_date IS NULL OR \n"
+    "           NVL(act_in,NVL(est_in,scd_in)) >= :first_date AND NVL(act_in,NVL(est_in,scd_in)) < :next_date OR \n"
+    "           NVL(act_out,NVL(est_out,scd_out)) >= :first_date AND NVL(act_out,NVL(est_out,scd_out)) < :next_date OR \n"
+    "           NVL(act_in,NVL(est_in,scd_in)) IS NULL AND NVL(act_out,NVL(est_out,scd_out)) IS NULL ) \n"
+    "  UNION \n"
+    "  SELECT DISTINCT arx_points.move_id, arx_points.part_key \n"
+    "  FROM arx_points, \n"
+    "       (SELECT part_key, move_id FROM move_arx_ext \n"
+    "        WHERE part_key >= :next_date+:arx_trip_date_range AND part_key <= :next_date+date_range) arx_ext \n"
+    "   WHERE arx_points.part_key=arx_ext.part_key AND arx_points.move_id=arx_ext.move_id AND \n"
+    "         pr_del!=-1 \n"
+    "         :where_sql AND \n"
+    "         ( :first_date IS NULL OR \n"
+    "           NVL(act_in,NVL(est_in,scd_in)) >= :first_date AND NVL(act_in,NVL(est_in,scd_in)) < :next_date OR \n"
+    "           NVL(act_out,NVL(est_out,scd_out)) >= :first_date AND NVL(act_out,NVL(est_out,scd_out)) < :next_date OR \n"
+    "           NVL(act_in,NVL(est_in,scd_in)) IS NULL AND NVL(act_out,NVL(est_out,scd_out)) IS NULL ) \n"
+    " ) p \n"
+    "WHERE arx_points.part_key=p.part_key AND \n"
+    "      arx_points.move_id = p.move_id AND \n"
+    "      arx_move_ref.part_key=p.part_key AND \n"
+    "      arx_move_ref.move_id = p.move_id AND \n"
+    "      arx_points.pr_del!=-1 \n"
+    "ORDER BY arx_points.move_id,point_num,point_id";
 const char* classesSQL =
     "SELECT class,cfg "\
     " FROM trip_classes,classes "\
@@ -553,11 +578,13 @@ string addCondition( const char *sql, bool pr_arx )
     if ( pr_OR )
     	where_sql += " ) ";
   };
-  string::size_type idx = text_sql.find( ":where_sql" );
-  if ( idx != string::npos ) {
-  	text_sql.erase( idx, strlen( ":where_sql" ) );
-  	text_sql.insert( idx, where_sql );
-  }
+  string::size_type idx;
+  while ( (idx = text_sql.find( ":where_sql" )) != string::npos )
+  {
+    text_sql.erase( idx, strlen( ":where_sql" ) );
+    text_sql.insert( idx, where_sql );
+  };
+  //ProgTrace( TRACE5, "addCondition: SQL=\n%s", text_sql.c_str());
   return text_sql;
 }
 
@@ -608,14 +635,14 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
         PointsQry.CreateVariable( "next_date", otDate, l+1 );
       }
         if ( arx )
-          PointsQry.CreateVariable( "arx_trip_date_range", otInteger, arx_trip_date_range );
+          PointsQry.CreateVariable( "arx_trip_date_range", otInteger, ARX_TRIP_DATE_RANGE() );
 /*      }*/
     }
     else {
     	PointsQry.CreateVariable( "first_date", otDate, FNull );
     	PointsQry.CreateVariable( "next_date", otDate, FNull );
     	if ( arx )
-    	  PointsQry.CreateVariable( "arx_trip_date_range", otInteger, FNull );
+    	  PointsQry.CreateVariable( "arx_trip_date_range", otInteger, FNull ); //!!!vlad это зачем?
     }
   }
   TQuery ClassesQry( &OraSession );
@@ -2713,37 +2740,23 @@ void SoppInterface::ReadTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   }
 }
 
-void internal_ReadDests( int move_id, TSOPPDests &dests, string &reference, TDateTime part_key, TDateTime arx_date )
+void internal_ReadDests( int move_id, TSOPPDests &dests, string &reference, TDateTime part_key )
 {
 	TReqInfo *reqInfo = TReqInfo::Instance();
   TQuery Qry(&OraSession);
-  if ( part_key > NoExists ) {
+  if ( part_key != NoExists ) {
       Qry.SQLText =
-        "SELECT reference, part_key FROM arx_move_ref WHERE part_key=:part_key AND move_id=:move_id";
+        "SELECT reference FROM arx_move_ref WHERE part_key=:part_key AND move_id=:move_id";
       Qry.CreateVariable( "part_key", otDate, part_key );
   }
   else
-    if ( arx_date > NoExists ) {
-    	//ProgTrace( TRACE5, "arx_date=%s, move_id=%d", DateTimeToStr( arx_date, "dd.mm.yyyy hh:nn" ).c_str(), move_id );
-      Qry.SQLText =
-        "SELECT reference, part_key FROM arx_move_ref "
-        "WHERE part_key>=:arx_date AND part_key<:arx_date+:arx_trip_date_range AND move_id=:move_id";
-      Qry.CreateVariable( "arx_date", otDate, arx_date );
-      Qry.CreateVariable( "arx_trip_date_range", otInteger, arx_trip_date_range);
-    }
-    else
+  {
       Qry.SQLText =
         "SELECT reference FROM move_ref WHERE move_id=:move_id";
+  };
   Qry.CreateVariable( "move_id", otInteger, move_id );
   Qry.Execute();
-  if ( !Qry.Eof ) {
-  	//ProgTrace( TRACE5, "part_key=%f", part_key );
-  	 if ( !Qry.FieldIsNULL( "reference" ) )
-  	   reference = Qry.FieldAsString( "reference" );
-  	 if ( arx_date > NoExists )
-  	   part_key = Qry.FieldAsDateTime( "part_key" );
-  	//ProgTrace( TRACE5, "part_key=%f", part_key );
-  }
+  if ( !Qry.Eof )  reference = Qry.FieldAsString( "reference" );
   dests.clear();
   Qry.Clear();
   if ( part_key > NoExists ) {
@@ -2859,7 +2872,7 @@ void ReBindTlgs( int move_id, TSOPPDests &dests )
   vector<TTripInfo> flts;
 	TSOPPDests vdests;
 	string reference;
-	internal_ReadDests( move_id, vdests, reference, NoExists, NoExists );
+	internal_ReadDests( move_id, vdests, reference, NoExists);
   // создаем все возможные рейсы из нового маршрута исключая удаленные пункты
   for( TSOPPDests::iterator i=vdests.begin(); i!=vdests.end(); i++ ) {
     /*ProgTrace( TRACE5, "move_id=%d, point_id=%d, airline=%s, flt_no=%d, scd_out=%f",
@@ -2884,20 +2897,14 @@ void SoppInterface::ReadDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 {
   xmlNodePtr node = NewTextChild( resNode, "data" );
 	int move_id = NodeAsInteger( "move_id", reqNode );
-	xmlNodePtr pNode = GetNode( "arx_date", reqNode );
-	TDateTime arx_date;
-	if ( pNode )
-		arx_date = NodeAsDateTime( pNode ) - 3;
-	else
-		arx_date = NoExists;
 	TDateTime part_key = NoExists;
-	pNode = GetNode( "part_key", reqNode );
+	xmlNodePtr pNode = GetNode( "part_key", reqNode );
 	if ( pNode )
 		part_key = NodeAsDateTime( pNode );
 	NewTextChild( node, "move_id", move_id );
 	TSOPPDests dests;
 	string reference;
-	internal_ReadDests( move_id, dests, reference, part_key, arx_date );
+	internal_ReadDests( move_id, dests, reference, part_key);
   if ( !reference.empty() )
   	NewTextChild( node, "reference", reference );
   node = NewTextChild( node, "dests" );
@@ -3194,7 +3201,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	if ( id->modify ) {
   	  Qry.Clear();
   	  Qry.SQLText =
-  	   "SELECT tid__seq.nextval n FROM dual ";
+  	   "SELECT cycle_tid__seq.nextval n FROM dual ";
     	Qry.Execute();
     	new_tid = Qry.FieldAsInteger( "n" );
 
@@ -4547,7 +4554,7 @@ void SoppInterface::WriteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 	  tripNode = node->children;
 	  int move_id = NodeAsIntegerFast( "move_id", tripNode );
     int point_id = NodeAsIntegerFast( "point_id", tripNode );
-   internal_ReadDests( move_id, dests, reference, NoExists, NoExists );
+   internal_ReadDests( move_id, dests, reference, NoExists );
 	  xmlNodePtr snode = GetNodeFast( "reference", tripNode );
 	  if ( snode )
 	  	reference = NodeAsString( snode );
@@ -4658,7 +4665,7 @@ void SoppInterface::DeleteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 	int move_id = NodeAsInteger( "move_id", node );
 	TSOPPDests dests_del;
 	string reference;
-	internal_ReadDests( move_id, dests_del, reference, NoExists, NoExists );
+	internal_ReadDests( move_id, dests_del, reference, NoExists );
   vector<TSOPPTrip> trs;
   // создаем все возможные рейсы из нового маршрута исключая удаленные пункты
   for( TSOPPDests::iterator i=dests_del.begin(); i!=dests_del.end(); i++ ) {

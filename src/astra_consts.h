@@ -84,9 +84,6 @@ enum TRptType {
 };
 extern const char *RptTypeS[rtTypeNum];
 
-
-const int arx_trip_date_range=5;  //изменять можно только в большую сторону из-за уже проведенной архивации
-
 };
 
 #endif
