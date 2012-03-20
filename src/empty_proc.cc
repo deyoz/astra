@@ -1158,9 +1158,10 @@ int put_move_arx_ext(int argc,char **argv)
   InsQry.DeclareVariable("date_range", otInteger);
   
   TArxMoveFltExt arx(NowUTC()+ARX_MAX_DAYS()*2);
-  for(TDateTime curr_part_key=min_part_key; curr_part_key<=max_part_key; curr_part_key+=1.0)
+  int processed=0;
+  for(TDateTime curr_part_key=min_part_key; curr_part_key<=max_part_key; curr_part_key+=1.0, processed++)
   {
-    //alter_wait(processed);
+    alter_wait(processed);
     Qry.SetVariable("low_part_key",curr_part_key);
     Qry.SetVariable("high_part_key",curr_part_key+1.0);
     Qry.Execute();
