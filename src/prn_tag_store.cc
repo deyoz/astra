@@ -936,7 +936,7 @@ string TPrnTagStore::BCBP_M_2(TFieldParams fp)
         << setw(4) << right << setfill('0') << pointInfo.flt_no
         << setw(1) << setfill(' ') << tag_lang.ElemIdToTagElem(etSuffix, pointInfo.suffix, efmtCodeNative);
     // Date of Flight
-    TDateTime scd = pointInfo.scd;
+    TDateTime scd = UTCToLocal(pointInfo.scd, AirpTZRegion(grpInfo.airp_dep));
     int Year, Month, Day;
     DecodeDate(scd, Year, Month, Day);
     TDateTime first, last;
