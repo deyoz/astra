@@ -182,6 +182,7 @@ void bindingAODBFlt( const std::string &point_addr, int point_id, float aodb_poi
   ProgTrace( TRACE5, "bindingAODBFlt: point_addr=%s, point_id=%d, aodb_point_id=%f",
              point_addr.c_str(), point_id, aodb_point_id );
   vector<string> strs;
+  vector<int> points;
   TQuery Qry( &OraSession );
   Qry.SQLText = "SELECT point_addr,aodb_point_id, point_id FROM aodb_points "
                 " WHERE point_addr=:point_addr AND aodb_point_id=:aodb_point_id AND point_id!=:point_id";
@@ -192,25 +193,39 @@ void bindingAODBFlt( const std::string &point_addr, int point_id, float aodb_poi
   while ( !Qry.Eof ) {
     string str = string( "point_addr=" ) +  Qry.FieldAsString("point_addr") +
                  ",point_id="+Qry.FieldAsString( "point_id" ) +",aodb_point_id=" +  Qry.FieldAsString( "aodb_point_id" );
+    points.push_back( Qry.FieldAsInteger( "point_id" ) );
     strs.push_back( str );
     Qry.Next();
   }
-  Qry.Clear();
-	Qry.SQLText =
-	 "BEGIN "
-	 " DELETE aodb_points WHERE point_addr=:point_addr AND aodb_point_id=:aodb_point_id AND point_id!=:point_id;"
-	 " UPDATE aodb_points "
-	 " SET aodb_point_id=:aodb_point_id "
-	 " WHERE point_id=:point_id AND point_addr=:point_addr; "
-	 " IF SQL%NOTFOUND THEN "
-	 "  INSERT INTO aodb_points(aodb_point_id,point_addr,point_id,rec_no_pax,rec_no_bag,rec_no_flt,rec_no_unaccomp,overload_alarm) "
-	 "    VALUES(:aodb_point_id,:point_addr,:point_id,-1,-1,-1,-1,0);"
-	 " END IF; "
-	 "END;";
-	Qry.CreateVariable( "point_id", otInteger, point_id );
-	Qry.CreateVariable( "point_addr", otString, point_addr );
-	Qry.CreateVariable( "aodb_point_id", otFloat, aodb_point_id );
 	try {
+    Qry.Clear();
+	  Qry.SQLText =
+	    "BEGIN "
+	    " DELETE aodb_bag WHERE point_addr=:point_addr AND "
+      "   pax_id IN ( SELECT pax_id FROM aodb_pax WHERE point_id=:point_id AND point_addr=:point_addr ); "
+	    " DELETE aodb_pax WHERE point_addr=:point_addr AND point_id=:point_id; "
+	    " DELETE aodb_points WHERE point_addr=:point_addr AND point_id=:point_id; "
+	    "END;";
+	  Qry.CreateVariable( "point_addr", otString, point_addr );
+	  Qry.DeclareVariable( "point_id", otInteger );
+  	for ( vector<int>::iterator i=points.begin(); i!=points.end(); i++ ) {
+      Qry.SetVariable( "point_id", *i );
+      Qry.Execute();
+	  }
+    Qry.Clear();
+	  Qry.SQLText =
+	   "BEGIN "
+	   " UPDATE aodb_points "
+	   " SET aodb_point_id=:aodb_point_id "
+	   " WHERE point_id=:point_id AND point_addr=:point_addr; "
+	   " IF SQL%NOTFOUND THEN "
+	   "  INSERT INTO aodb_points(aodb_point_id,point_addr,point_id,rec_no_pax,rec_no_bag,rec_no_flt,rec_no_unaccomp,overload_alarm) "
+	   "    VALUES(:aodb_point_id,:point_addr,:point_id,-1,-1,-1,-1,0);"
+	   " END IF; "
+	   "END;";
+	  Qry.CreateVariable( "point_id", otInteger, point_id );
+	  Qry.CreateVariable( "point_addr", otString, point_addr );
+  	Qry.CreateVariable( "aodb_point_id", otFloat, aodb_point_id );
 	  Qry.Execute();
   }
   catch(EOracleError &E) {  // deadlock!!!
