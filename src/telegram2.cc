@@ -2481,7 +2481,7 @@ void TBTMGrpList::get(TTlgInfo &info, TFItem &FItem)
     Qry.SQLText =
         "select distinct \n"
         "   transfer.grp_id, \n"
-        "   pax.bag_pool_num, \n"
+        "   nvl2(pax.grp_id, pax.bag_pool_num, 1) bag_pool_num, \n" // для несопровождаемого багажа bag_pool_num = 1
         "   ckin.get_bag_pool_pax_id(transfer.grp_id, pax.bag_pool_num) bag_pool_pax_id \n"
         "from  \n"
         "   transfer, \n"
