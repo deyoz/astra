@@ -19,6 +19,7 @@
 #include "checkin.h"
 #include "astra_locale.h"
 #include "comp_layers.h"
+#include "passenger.h"
 #include "serverlib/perfom.h"
 #include "serverlib/ourtime.h"
 #include "serverlib/query_runner.h"
@@ -2628,21 +2629,6 @@ struct TWebPaxForChng
   int seats;
 };
 
-struct TWebPaxDoc
-{
-  string type;
-  string issue_country;
-  string no;
-  string nationality;
-  TDateTime birth_date;
-  string gender;
-  TDateTime expiry_date;
-  string surname;
-  string first_name;
-  string second_name;
-  bool pr_multi;
-};
-
 struct TWebPaxForCkin
 {
   int crs_pax_id;
@@ -2655,7 +2641,7 @@ struct TWebPaxForCkin
   int seats;
   string eticket;
   string ticket;
-  TWebPaxDoc document;
+  CheckIn::TPaxDocItem document;
   string subclass;
   
   bool operator == (const TWebPaxForCkin &pax) const
@@ -2764,7 +2750,7 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
   TQuery PaxDocQry(&OraSession);
   PaxDocQry.SQLText =
     "SELECT type, issue_country, no, nationality, birth_date, gender, expiry_date, "
-    "       surname AS doc_surname, first_name, second_name, pr_multi "
+    "       surname, first_name, second_name, pr_multi "
     "FROM crs_pax_doc "
     "WHERE pax_id=:pax_id AND no IS NOT NULL "
     "ORDER BY DECODE(type,'P',0,NULL,2,1),DECODE(rem_code,'DOCS',0,1),no ";
@@ -2882,38 +2868,10 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
               PaxDocQry.SetVariable("pax_id", pax.crs_pax_id);
               PaxDocQry.Execute();
               if (!PaxDocQry.Eof)
-              {
-                pax.document.type=PaxDocQry.FieldAsString("type");
-                pax.document.issue_country=GetPaxDocCountryCode(PaxDocQry.FieldAsString("issue_country"));
-                pax.document.no=PaxDocQry.FieldAsString("no");
-                pax.document.nationality=GetPaxDocCountryCode(PaxDocQry.FieldAsString("nationality"));
-                if (!PaxDocQry.FieldIsNULL("birth_date"))
-                  pax.document.birth_date=PaxDocQry.FieldAsDateTime("birth_date");
-                else
-                  pax.document.birth_date=NoExists;
-                pax.document.gender=PaxDocQry.FieldAsString("gender");
-                if (!PaxDocQry.FieldIsNULL("expiry_date"))
-                  pax.document.expiry_date=PaxDocQry.FieldAsDateTime("expiry_date");
-                else
-                  pax.document.expiry_date=NoExists;
-                pax.document.surname=PaxDocQry.FieldAsString("doc_surname");
-                pax.document.first_name=PaxDocQry.FieldAsString("first_name");
-                pax.document.second_name=PaxDocQry.FieldAsString("second_name");
-                pax.document.pr_multi=PaxDocQry.FieldAsInteger("pr_multi")!=0;
-              }
+                pax.document.fromDB(PaxDocQry);
               else
               {
-                pax.document.type.clear();
-                pax.document.issue_country.clear();
-                pax.document.no.clear();
-                pax.document.nationality.clear();
-                pax.document.birth_date=NoExists;
-                pax.document.gender.clear();
-                pax.document.expiry_date=NoExists;
-                pax.document.surname.clear();
-                pax.document.first_name.clear();
-                pax.document.second_name.clear();
-                pax.document.pr_multi=false;
+                pax.document.clear();
               
                 GetPSPT2Qry.SetVariable("pax_id", pax.crs_pax_id);
                 GetPSPT2Qry.Execute();
@@ -3219,22 +3177,7 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
                 NewTextChild(paxNode,"ticket_rem");
               NewTextChild(paxNode,"ticket_confirm",(int)false);
             };
-            //документ
-            xmlNodePtr docNode=NewTextChild(paxNode,"document");
-            NewTextChild(docNode, "type", iPaxForCkin->document.type, "");
-            NewTextChild(docNode, "issue_country", iPaxForCkin->document.issue_country, "");
-            NewTextChild(docNode, "no", iPaxForCkin->document.no, "");
-            NewTextChild(docNode, "nationality", iPaxForCkin->document.nationality, "");
-            if (iPaxForCkin->document.birth_date!=NoExists)
-              NewTextChild(docNode, "birth_date", DateTimeToStr(iPaxForCkin->document.birth_date, ServerFormatDateTimeAsString));
-            NewTextChild(docNode, "gender", iPaxForCkin->document.gender, "");
-            if (iPaxForCkin->document.expiry_date!=NoExists)
-              NewTextChild(docNode, "expiry_date", DateTimeToStr(iPaxForCkin->document.expiry_date, ServerFormatDateTimeAsString));
-            NewTextChild(docNode, "surname", iPaxForCkin->document.surname, "");
-            NewTextChild(docNode, "first_name", iPaxForCkin->document.first_name, "");
-            NewTextChild(docNode, "second_name", iPaxForCkin->document.second_name, "");
-            NewTextChild(docNode, "pr_multi", (int)(iPaxForCkin->document.pr_multi), (int)false);
-            
+            iPaxForCkin->document.toXML(paxNode);
 
             NewTextChild(paxNode,"subclass",iPaxForCkin->subclass);
             NewTextChild(paxNode,"transfer"); //пустой тег - трансфера нет
@@ -3332,7 +3275,7 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
               NewTextChild(emulChngNode,"excess",iPaxForChng->excess);
               NewTextChild(emulChngNode,"hall");
               if (iPaxForChng->bag_refuse)
-                NewTextChild(emulChngNode,"bag_refuse","А");
+                NewTextChild(emulChngNode,"bag_refuse",refuseAgentError);
               else
                 NewTextChild(emulChngNode,"bag_refuse");
             };

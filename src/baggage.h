@@ -120,6 +120,43 @@ class TTagItem
 void SaveBag(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode);
 void LoadBag(int grp_id, xmlNodePtr bagtagNode);
 
+class TNormItem
+{
+  public:
+    std::string norm_type;
+    int amount;
+    int weight;
+    int per_unit;
+  TNormItem()
+  {
+    clear();
+  };
+  void clear()
+  {
+    norm_type.clear();
+    amount=ASTRA::NoExists;
+    weight=ASTRA::NoExists;
+    per_unit=ASTRA::NoExists;
+  };
+  bool operator == (const TNormItem &item) const
+  {
+    return norm_type == item.norm_type &&
+           amount == item.amount &&
+           weight == item.weight &&
+           per_unit == item.per_unit;
+  };
+  bool empty() const
+  {
+    return norm_type.empty() &&
+           amount==ASTRA::NoExists &&
+           weight==ASTRA::NoExists &&
+           per_unit==ASTRA::NoExists;
+  };
+  const TNormItem& toXML(xmlNodePtr node) const;
+  TNormItem& fromDB(TQuery &Qry);
+  std::string str() const;
+};
+
 };
 
 #endif

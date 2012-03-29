@@ -8,6 +8,7 @@
 #include "tlg/tlg_parser.h"
 #include "astra_consts.h"
 #include "astra_misc.h"
+#include "baggage.h"
 
 
 struct TTlgCompLayer {
@@ -178,59 +179,6 @@ struct TTlgSeatList {
 
 // End of previous stuff
 
-class TBSMTagItem
-{
-  public:
-    double no;
-    int bag_amount,bag_weight;
-    TBSMTagItem()
-    {
-      no=-1;
-      bag_amount=-1;
-      bag_weight=-1;
-    };
-};
-
-class TBSMBagItem
-{
-  public:
-    int rk_weight;
-    TBSMBagItem()
-    {
-      rk_weight=-1;
-    };
-};
-
-class TBSMPaxItem
-{
-  public:
-    std::string surname,name,status,pnr_addr;
-    TTlgSeatList seat_no;
-    int reg_no;
-    TBSMPaxItem()
-    {
-      reg_no=-1;
-    };
-};
-
-class TBSMContent
-{
-  public:
-    TypeB::TIndicator indicator;
-    TypeB::TTransferItem OutFlt;
-    bool pr_lat_seat;
-    std::vector<TypeB::TTransferItem> OnwardFlt;
-    std::vector<TBSMTagItem> tags;
-    TBSMPaxItem pax;
-    TBSMBagItem bag;
-    TBSMContent()
-    {
-      indicator=TypeB::None;
-      pr_lat_seat=false;
-    };
-};
-
-
 struct TTypeBSendInfo
 {
   std::string tlg_type,airline,airp_dep,airp_arv;
@@ -282,6 +230,63 @@ struct TTlgOutPartInfo
     time_send_scd=ASTRA::NoExists;
     pr_tst = true; // telegram in tst mode
   };
+};
+
+std::string TlgElemIdToElem(TElemType type, int id, TElemFmt fmt, std::string lang);
+std::string TlgElemIdToElem(TElemType type, std::string id, TElemFmt fmt, std::string lang);
+
+namespace BSM
+{
+
+class TPaxItem
+{
+  public:
+    std::string surname,name,status,pnr_addr;
+    TTlgSeatList seat_no;
+    int reg_no;
+    int bag_amount, bag_weight, rk_weight;
+    int bag_pool_num;
+    TPaxItem()
+    {
+      reg_no=ASTRA::NoExists;
+      bag_amount=0;
+      bag_weight=0;
+      rk_weight=0;
+      bag_pool_num=ASTRA::NoExists;
+    };
+    bool operator < (const TPaxItem &item) const
+    {
+      return reg_no < item.reg_no;
+    };
+};
+
+class TTlgContent
+{
+  public:
+    TypeB::TIndicator indicator;
+    TTrferRouteItem OutFlt;
+    TTrferRoute OnwardFlt;
+    bool pr_lat_seat;
+
+    std::map<double, CheckIn::TTagItem> tags;
+    std::map<int/*bag_num*/, CheckIn::TBagItem> bags;
+    std::map<int/*bag_pool_num*/, TPaxItem> pax;
+    TTlgContent()
+    {
+      indicator=TypeB::None;
+      pr_lat_seat=false;
+    };
+    bool addTag(double no, const TTlgContent& src);
+    bool addTag(const CheckIn::TTagItem &tag);
+    bool addBag(const CheckIn::TBagItem &bag);
+};
+
+void LoadContent(int grp_id, TTlgContent& con);
+void CompareContent(const TTlgContent& con1, const TTlgContent& con2, std::vector<TTlgContent>& bsms);
+std::string CreateTlgBody(const TTlgContent& con, bool pr_lat);
+bool IsSend( TTypeBSendInfo info, std::map<bool,std::string> &addrs );
+void Send( int point_dep, int grp_id, const TTlgContent &con1, const std::map<bool,std::string> &addrs );
+
 };
 
 class TelegramInterface : public JxtInterface
@@ -341,13 +346,6 @@ public:
   static std::string GetTypeBAddrs( std::string tlg_type, bool pr_lat );
 
   static void SaveTlgOutPart( TTlgOutPartInfo &info );
-
-  //BSM
-  static void LoadBSMContent(int grp_id, TBSMContent& con);
-  static void CompareBSMContent(const TBSMContent& con1, const TBSMContent& con2, std::vector<TBSMContent>& bsms);
-  static std::string CreateBSMBody(const TBSMContent& con, bool pr_lat);
-  static bool IsBSMSend( TTypeBSendInfo info, std::map<bool,std::string> &addrs );
-  static void SendBSM(int point_dep, int grp_id, const TBSMContent &con1, const std::map<bool,std::string> &addrs );
 };
 
 std::string fetch_addr(std::string &addr, TTlgInfo *info = NULL);

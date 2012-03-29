@@ -159,7 +159,6 @@ public:
 
   static void SavePaxRem(xmlNodePtr paxNode);
   static void SavePaxTransfer(int pax_id, int pax_no, const std::vector<CheckIn::TTransferItem> &trfer, int seg_no);
-  static std::string SavePaxNorms(xmlNodePtr paxNode, std::map<int,std::string> &norms, bool pr_unaccomp);
   static std::string SaveTransfer(int grp_id, const std::vector<CheckIn::TTransferItem> &trfer, bool pr_unaccomp, int seg_no);
   static std::string SaveTCkinSegs(int grp_id, xmlNodePtr segsNode, const std::map<int,TSegInfo> &segs, int seg_no);
   static bool SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode);
@@ -170,16 +169,10 @@ public:
   static void LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_version);
   static void LoadPaxRem(xmlNodePtr paxNode);
   static void LoadPaxTransfer(int pax_id, xmlNodePtr paxNode, xmlNodePtr transferNode);
-  static void LoadPaxNorms(xmlNodePtr paxNode, bool pr_unaccomp);
   static void LoadTransfer(int grp_id, std::vector<CheckIn::TTransferItem> &trfer);
   static void BuildTransfer(const TTrferRoute &trfer, xmlNodePtr transferNode);
   static void LoadTransfer(int grp_id, xmlNodePtr transferNode);
   static void LoadPaidBag(int grp_id, xmlNodePtr grpNode);
-  
-  static void LoadPaxDoc(TQuery& PaxDocQry, xmlNodePtr paxNode);
-  static void LoadPaxDoco(TQuery& PaxDocQry, xmlNodePtr paxNode);
-  static void SavePaxDoc(int pax_id, xmlNodePtr docNode, TQuery& PaxDocQry);
-  static void SavePaxDoco(int pax_id, xmlNodePtr docNode, TQuery& PaxDocQry);
 
   static int CheckCounters(int point_dep, int point_arv, char* cl, ASTRA::TPaxStatus grp_status);
 

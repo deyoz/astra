@@ -1,4 +1,4 @@
-  #include "astra_misc.h"
+#include "astra_misc.h"
 #include <string>
 #include <vector>
 #include "basic.h"
@@ -1581,7 +1581,7 @@ string GetBagRcptStr(int grp_id, int pax_id)
   if (pax_id!=NoExists)
   {
     Qry.SQLText=
-      "SELECT ckin.get_main_pax_id(:grp_id) AS main_pax_id FROM dual";
+      "SELECT ckin.get_main_pax_id2(:grp_id) AS main_pax_id FROM dual";
     Qry.Execute();
     if (!Qry.Eof && !Qry.FieldIsNULL("main_pax_id")) main_pax_id=Qry.FieldAsInteger("main_pax_id");
   };
@@ -1632,7 +1632,15 @@ bool BagPaymentCompleted(int grp_id, int *value_bag_count)
     paid_bag.push_back( make_pair(bag_type, Qry.FieldAsInteger("weight")) );
   };
   
-  Qry.SQLText="SELECT value, value_cur FROM value_bag WHERE grp_id=:grp_id AND value>0";
+  Qry.SQLText=
+    "SELECT DISTINCT value_bag.num, value_bag.value, value_bag.value_cur "
+    "FROM pax_grp, value_bag, bag2 "
+    "WHERE pax_grp.grp_id=value_bag.grp_id AND "
+    "      value_bag.grp_id=bag2.grp_id(+) AND "
+    "      value_bag.num=bag2.value_bag_num(+) AND "
+    "      (bag2.grp_id IS NULL OR "
+    "       ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0) AND "
+    "      pax_grp.grp_id=:grp_id AND value_bag.value>0";
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next())
   {

@@ -300,116 +300,124 @@ string TTlgInfo::add_err(string err, const char *format, ...)
     return buf.str();
 }
 
+string TlgElemIdToElem(TElemType type, int id, TElemFmt fmt, string lang)
+{
+  if(not(fmt==efmtCodeNative || fmt==efmtCodeInter))
+      throw Exception("TlgElemIdToElem: Wrong fmt");
+
+  vector< pair<TElemFmt,string> > fmts;
+  fmts.push_back( make_pair(fmt, lang) );
+  if(fmt == efmtCodeNative)
+      fmts.push_back( make_pair(efmtCodeInter, lang) );
+
+  string result = ElemIdToElem(type, id, fmts);
+  if(result.empty() || fmt==efmtCodeInter &&!is_lat(result)) {
+      string code_name;
+      switch(type)
+      {
+          case etClsGrp:
+              code_name = "CLS_GRP";
+              break;
+          default:
+              throw Exception("TlgElemIdToElem: Unsupported int elem type");
+      }
+      throw AstraLocale::UserException((string)"MSG." + code_name + "_LAT_CODE_NOT_FOUND", LParams() << LParam("id", id));
+  }
+  return result;
+};
+
 string TTlgInfo::TlgElemIdToElem(TElemType type, int id, TElemFmt fmt)
 {
     if(fmt == efmtUnknown)
         fmt = elem_fmt;
-    string result;
     try {
-        if(not(fmt==efmtCodeNative || fmt==efmtCodeInter))
-            throw Exception("Wrong fmt");
-
-        vector< pair<TElemFmt,string> > fmts;
-        fmts.push_back( make_pair(fmt, lang) );
-        if(fmt == efmtCodeNative)
-            fmts.push_back( make_pair(efmtCodeInter, lang) );
-
-        result = ElemIdToElem(type, id, fmts);
-        if(result.empty() || fmt==efmtCodeInter &&!is_lat(result)) {
-            string code_name;
-            switch(type)
-            {
-                case etClsGrp:
-                    code_name = "CLS_GRP";
-                    break;
-                default:
-                    throw Exception("Unsupported int elem type");
-            }
-            throw AstraLocale::UserException((string)"MSG." + code_name + "_LAT_CODE_NOT_FOUND", LParams() << LParam("id", id));
-        }
+        return ::TlgElemIdToElem(type, id, fmt, lang);
     } catch(UserException &E) {
-        result = add_err(DEFAULT_ERR, getLocaleText(E.getLexemaData()));
+        return add_err(DEFAULT_ERR, getLocaleText(E.getLexemaData()));
     } catch(exception &E) {
-        result = add_err(DEFAULT_ERR, "TTlgInfo::TlgElemIdToElem: tlg_type: %s, elem_type: %s, fmt: %s, what: %s", tlg_type.c_str(), EncodeElemType(type), EncodeElemFmt(fmt), E.what());
+        return add_err(DEFAULT_ERR, "TTlgInfo::TlgElemIdToElem: tlg_type: %s, elem_type: %s, fmt: %s, what: %s", tlg_type.c_str(), EncodeElemType(type), EncodeElemFmt(fmt), E.what());
     } catch(...) {
-        result = add_err(DEFAULT_ERR, "TTlgInfo::TlgElemIdToElem: unknown except caught. tlg_type: %s, elem_type: %s, fmt: %s", tlg_type.c_str(), EncodeElemType(type), EncodeElemFmt(fmt));
+        return add_err(DEFAULT_ERR, "TTlgInfo::TlgElemIdToElem: unknown except caught. tlg_type: %s, elem_type: %s, fmt: %s", tlg_type.c_str(), EncodeElemType(type), EncodeElemFmt(fmt));
     }
-    return result;
 }
+
+string TlgElemIdToElem(TElemType type, string id, TElemFmt fmt, string lang)
+{
+  if(id.empty())
+      throw Exception("TlgElemIdToElem: id is empty.");
+  if(not(fmt==efmtCodeNative || fmt==efmtCodeInter))
+      throw Exception("TlgElemIdToElem: Wrong fmt.");
+
+  vector< pair<TElemFmt,string> > fmts;
+  fmts.push_back( make_pair(fmt, lang) );
+  if(fmt == efmtCodeNative)
+      fmts.push_back( make_pair(efmtCodeInter, lang) );
+
+  string result = ElemIdToElem(type, id, fmts);
+  if(result.empty() || fmt==efmtCodeInter &&!is_lat(result)) {
+      string code_name;
+      switch(type)
+      {
+          case etCountry:
+              code_name="COUNTRY";
+              break;
+          case etCity:
+              code_name="CITY";
+              break;
+          case etAirline:
+              code_name="AIRLINE";
+              break;
+          case etAirp:
+              code_name="AIRP";
+              break;
+          case etCraft:
+              code_name="CRAFT";
+              break;
+          case etClass:
+              code_name="CLS";
+              break;
+          case etSubcls:
+              code_name="SUBCLS";
+              break;
+          case etPersType:
+              code_name="PAX_TYPE";
+              break;
+          case etGenderType:
+              code_name="GENDER";
+              break;
+          case etPaxDocType:
+              code_name="DOC";
+              break;
+          case etPayType:
+              code_name="PAY_TYPE";
+              break;
+          case etCurrency:
+              code_name="CURRENCY";
+              break;
+          case etSuffix:
+              code_name="SUFFIX";
+              break;
+          default:
+              throw Exception("TlgElemIdToElem: Unsupported elem type.");
+      };
+      throw AstraLocale::UserException((string)"MSG." + code_name + "_LAT_CODE_NOT_FOUND", LParams() << LParam("id", id));
+  }
+  return result;
+};
 
 string TTlgInfo::TlgElemIdToElem(TElemType type, string id, TElemFmt fmt)
 {
     if(fmt == efmtUnknown)
         fmt = elem_fmt;
-    string result;
     try {
-        if(id.empty())
-            throw Exception("id is empty.");
-        if(not(fmt==efmtCodeNative || fmt==efmtCodeInter))
-            throw Exception("Wrong fmt.");
-
-        vector< pair<TElemFmt,string> > fmts;
-        fmts.push_back( make_pair(fmt, lang) );
-        if(fmt == efmtCodeNative)
-            fmts.push_back( make_pair(efmtCodeInter, lang) );
-
-        result = ElemIdToElem(type, id, fmts);
-        if(result.empty() || fmt==efmtCodeInter &&!is_lat(result)) {
-            string code_name;
-            switch(type)
-            {
-                case etCountry:
-                    code_name="COUNTRY";
-                    break;
-                case etCity:
-                    code_name="CITY";
-                    break;
-                case etAirline:
-                    code_name="AIRLINE";
-                    break;
-                case etAirp:
-                    code_name="AIRP";
-                    break;
-                case etCraft:
-                    code_name="CRAFT";
-                    break;
-                case etClass:
-                    code_name="CLS";
-                    break;
-                case etSubcls:
-                    code_name="SUBCLS";
-                    break;
-                case etPersType:
-                    code_name="PAX_TYPE";
-                    break;
-                case etGenderType:
-                    code_name="GENDER";
-                    break;
-                case etPaxDocType:
-                    code_name="DOC";
-                    break;
-                case etPayType:
-                    code_name="PAY_TYPE";
-                    break;
-                case etCurrency:
-                    code_name="CURRENCY";
-                    break;
-                case etSuffix:
-                    code_name="SUFFIX";
-                    break;
-                default:
-                    throw Exception("Unsupported elem type.");
-            };
-            throw AstraLocale::UserException((string)"MSG." + code_name + "_LAT_CODE_NOT_FOUND", LParams() << LParam("id", id));
-        }
+        return ::TlgElemIdToElem(type, id, fmt, lang);
     } catch(UserException &E) {
-        result = add_err(id, getLocaleText(E.getLexemaData()));
+        return add_err(id, getLocaleText(E.getLexemaData()));
     } catch(exception &E) {
-        result = add_err(id, "TTlgInfo::TlgElemIdToElem: tlg_type: %s, elem_type: %s, fmt: %s, what: %s", tlg_type.c_str(), EncodeElemType(type), EncodeElemFmt(fmt), E.what());
+        return add_err(id, "TTlgInfo::TlgElemIdToElem: tlg_type: %s, elem_type: %s, fmt: %s, what: %s", tlg_type.c_str(), EncodeElemType(type), EncodeElemFmt(fmt), E.what());
     } catch(...) {
-        result = add_err(id, "TTlgInfo::TlgElemIdToElem: unknown except caught. tlg_type: %s, elem_type: %s, fmt: %s", tlg_type.c_str(), EncodeElemType(type), EncodeElemFmt(fmt));
+        return add_err(id, "TTlgInfo::TlgElemIdToElem: unknown except caught. tlg_type: %s, elem_type: %s, fmt: %s", tlg_type.c_str(), EncodeElemType(type), EncodeElemFmt(fmt));
     }
-    return result;
 }
 
 string fetch_addr(string &addr, TTlgInfo *info)

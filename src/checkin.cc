@@ -23,6 +23,7 @@
 #include "events.h"
 #include "term_version.h"
 #include "baggage.h"
+#include "passenger.h"
 #include "jxtlib/jxt_cont.h"
 
 #define NICKNAME "VLAD"
@@ -1111,7 +1112,7 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry,  xmlNodePtr resNode)
   
   TQuery PaxDocoQry(&OraSession);
   PaxDocoQry.SQLText =
-    "SELECT birth_place, type, no, issue_place, issue_date, applic_country, pr_inf "
+    "SELECT birth_place, type, no, issue_place, issue_date, NULL AS expiry_date, applic_country, pr_inf "
     "FROM crs_pax_doco "
     "WHERE pax_id=:pax_id AND rem_code='DOCO' AND type='V' "
     "ORDER BY no ";
@@ -1275,7 +1276,7 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry,  xmlNodePtr resNode)
     {
       if (TReqInfo::Instance()->desk.compatible(DOCS_VERSION))
       {
-        CheckInInterface::LoadPaxDoc(PaxDocQry, node);
+        CheckIn::LoadPaxDoc(PaxDocQry, node);
       }
       else
       {
@@ -1303,7 +1304,7 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry,  xmlNodePtr resNode)
       PaxDocoQry.SetVariable("pax_id", pax_id);
       PaxDocoQry.Execute();
       if (!PaxDocoQry.Eof)
-        CheckInInterface::LoadPaxDoco(PaxDocoQry, node);
+        CheckIn::LoadPaxDoco(PaxDocoQry, node);
     };
     //обработка билетов
     string ticket_no;
@@ -1311,9 +1312,6 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry,  xmlNodePtr resNode)
     {
       //билет TKNE
       ticket_no=PaxQry.FieldAsString("eticket");
-      NewTextChild(node,"ticket",ticket_no);  // потом убрать 31.10.08
-      NewTextChild(node,"is_tkne",(int)true); // потом убрать 31.10.08
-
       int coupon_no=0;
       string::size_type pos=ticket_no.find_last_of('/');
       if (pos!=string::npos)
@@ -1335,9 +1333,6 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry,  xmlNodePtr resNode)
       {
         //билет TKNA
         ticket_no=PaxQry.FieldAsString("ticket");
-        NewTextChild(node,"ticket",ticket_no); //потом убрать 31.10.08
-        NewTextChild(node,"is_tkne",(int)false); // потом убрать 31.10.08
-
         NewTextChild(node,"ticket_no",ticket_no);
         NewTextChild(node,"ticket_rem","TKNA");
       };
@@ -2074,8 +2069,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "      point_dep=:point_id AND pr_brd IS NOT NULL ";
   if (with_rcpt_info)
     sql <<
-    "  AND pax_grp.excess>0 ";
-
+    "  AND ckin.need_for_payment(pax_grp.grp_id, pax_grp.class, pax_grp.bag_refuse, pax_grp.excess)<>0 ";
   sql <<
     "ORDER BY reg_no"; //в будущем убрать ORDER BY
 
@@ -2322,7 +2316,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
   if (with_rcpt_info)
     sql <<
-    "  AND pax_grp.excess>0 ";
+    "  AND ckin.need_for_payment(pax_grp.grp_id, pax_grp.class, pax_grp.bag_refuse, pax_grp.excess)<>0 ";
 
   ProgTrace(TRACE5, "%s", sql.str().c_str());
 
@@ -2794,13 +2788,8 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
 
       //BSM
       map<bool,string> BSMaddrs;
-      TBSMContent BSMContentBefore;
-      bool BSMsend=TelegramInterface::IsBSMSend(sendInfo,BSMaddrs);
-      bool SyncAODB=is_sync_aodb(point_dep);
-      int old_main_pax_id=NoExists;
-
-      //map для норм
-      map<int,string> norms;
+      BSM::TTlgContent BSMContentBefore;
+      bool BSMsend=BSM::IsSend(sendInfo,BSMaddrs);
 
       TQuery CrsQry(&OraSession);
       CrsQry.Clear();
@@ -3187,8 +3176,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
         };
       };
 
-      TBagToLogGrpInfo grpInfoBefore;
-
+      TGrpToLogInfo grpInfoBefore;
       if (new_checkin)
       {
         cl=NodeAsString("class",segNode);
@@ -3681,38 +3669,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                 else
                   Qry.SetVariable("wl_type",FNull);
                 Qry.SetVariable("reg_no",reg_no);
-                Qry.SetVariable("ticket_no",NodeAsStringFast("ticket_no",node2));
-                if (!NodeIsNULLFast("coupon_no",node2))
-                  Qry.SetVariable("coupon_no",NodeAsIntegerFast("coupon_no",node2));
-                else
-                  Qry.SetVariable("coupon_no",FNull);
-                if (GetNodeFast("ticket_rem",node2)!=NULL)
-                {
-                  Qry.SetVariable("ticket_rem",NodeAsStringFast("ticket_rem",node2));
-                  Qry.SetVariable("ticket_confirm",
-                                  (int)(NodeAsIntegerFast("ticket_confirm",node2)!=0));
-                }
-                else
-                { //потом убрать 31.10.08 !!!
-                  if (!NodeIsNULLFast("ticket_no",node2))
-                  {
-                    if (!NodeIsNULLFast("coupon_no",node2))
-                    {
-                      Qry.SetVariable("ticket_rem","TKNE");
-                      Qry.SetVariable("ticket_confirm",(int)true);
-                    }
-                    else
-                    {
-                      Qry.SetVariable("ticket_rem","TKNA");
-                      Qry.SetVariable("ticket_confirm",(int)false);
-                    };
-                  }
-                  else
-                  {
-                    Qry.SetVariable("ticket_rem",FNull);
-                    Qry.SetVariable("ticket_confirm",(int)false);
-                  };
-                };
+                CheckIn::TPaxTknItem().fromXML(node).toDB(Qry);
                 Qry.SetVariable("subclass",NodeAsStringFast("subclass",node2));
                 if (reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS))
                 {
@@ -3737,8 +3694,6 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                 };
                 int pax_id=Qry.GetVariableAsInteger("pax_id");
                 ReplaceTextChild(node,"generated_pax_id",pax_id);
-
-                ostringstream seat_no_str;
 
                 if (wl_type.empty())
                 {
@@ -3775,10 +3730,6 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                     vector<TSeatRange> ranges;
                     for(vector<TSeat>::iterator iSeat=pas.seat_no.begin();iSeat!=pas.seat_no.end();iSeat++)
                     {
-                      seat_no_str << " "
-                                  << denorm_iata_row(iSeat->row,NULL)
-                                  << denorm_iata_line(iSeat->line,Salons.getLatSeat());
-
                       TSeatRange range(*iSeat,*iSeat);
                       ranges.push_back(range);
                     };
@@ -3811,14 +3762,12 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                   	  if ( change_agent_seat_no || change_preseat_no )
                     		  AstraLocale::showErrorMessage("MSG.SEATS.PART_REQUIRED_PLACES_NOT_AVAIL");
                 };
-                if (seat_no_str.str().empty()) seat_no_str << " нет";
-
 
                 //запись pax_doc
                 if (reqInfo->client_type!=ctTerm || reqInfo->desk.compatible(DOCS_VERSION))
                 {
-                  SavePaxDoc(pax_id,GetNodeFast("document",node2),PaxDocQry);
-                  SavePaxDoco(pax_id,GetNodeFast("doco",node2),PaxDocoQry);
+                  CheckIn::SavePaxDoc(pax_id,GetNodeFast("document",node2),PaxDocQry);
+                  CheckIn::SavePaxDoco(pax_id,GetNodeFast("doco",node2),PaxDocoQry);
                 }
                 else
                 {
@@ -3835,36 +3784,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                 //запись ремарок
                 SavePaxRem(node);
                 //запись норм
-                string normStr;
-                string normMarkFlt;
-                if (first_segment)
-                {
-                  if (pr_mark_norms &&
-                      fltInfo.airline!=markFltInfo.airline) normMarkFlt=markFltInfo.airline;
-                  normStr=SavePaxNorms(node,norms,pr_unaccomp);
-                }
-                else
-                  normStr="нет";
-                if (SyncAODB)
-                {
-                  update_aodb_pax_change( point_dep, pax_id, reg_no, "Р" );
-                  if (pr_brd_with_reg)
-                    update_aodb_pax_change( point_dep, pax_id, reg_no, "П" );
-                };
-                //запись информации по пассажиру в лог
-                TLogMsg msg;
-                msg.ev_type=ASTRA::evtPax;
-                msg.id1=point_dep;
-                msg.id2=reg_no;
-                msg.id3=grp_id;
-                msg.msg=(string)"Пассажир "+surname+(*name!=0?" ":"")+name+" ("+pers_type+") зарегистрирован"+
-                        ((pr_brd_with_reg && pr_exam_with_brd)?", прошел досмотр":"")+
-                        (pr_brd_with_reg?" , прошел посадку":"")+
-                        ". "+
-                        "П/н: "+airp_arv+", класс: "+cl+", статус: "+EncodePaxStatus(grp_status)+
-                        ", место:"+seat_no_str.str()+
-                        ". Баг.нормы"+(normMarkFlt.empty()?"":" ("+normMarkFlt+")")+": "+normStr;
-                reqInfo->MsgToLog(msg);
+                if (first_segment) CheckIn::SaveNorms(node,pr_unaccomp);
                 reg_no++;
               }
               catch(CheckIn::UserException)
@@ -3886,26 +3806,13 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
         {
           //несопровождаемый багаж
           //запись норм
-          string normStr;
-          if (first_segment)
-            normStr=SavePaxNorms(segNode,norms,pr_unaccomp);
-          else
-            normStr="нет";
-          //запись информации по пассажиру в лог
-          TLogMsg msg;
-          msg.ev_type=ASTRA::evtPax;
-          msg.id1=point_dep;
-          msg.id2=0;
-          msg.id3=grp_id;
-          msg.msg=(string)"Багаж без сопровождения зарегистрирован. "+
-                  "П/н: "+airp_arv+", статус: "+EncodePaxStatus(grp_status)+
-                  ". Баг.нормы: "+normStr;
-          reqInfo->MsgToLog(msg);
+          if (first_segment) CheckIn::SaveNorms(segNode,pr_unaccomp);
         };
+        
         TLogMsg msg;
         msg.ev_type=ASTRA::evtPax;
         msg.id1=point_dep;
-        msg.id2=0;
+        msg.id2=NoExists;
         msg.id3=grp_id;
         if (save_trfer)
         {
@@ -3917,11 +3824,12 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
       }
       else
       {
-        GetBagToLogInfo(grp_id, grpInfoBefore); //для всех сегментов
+        GetGrpToLogInfo(grp_id, grpInfoBefore); //для всех сегментов
+        //BSM
+        if (BSMsend)
+          BSM::LoadContent(grp_id,BSMContentBefore);
       
         //запись изменений
-        bool bag_refuse=(GetNode("bag_refuse",reqNode)!=NULL &&
-                         !NodeIsNULL("bag_refuse",reqNode));
         bool save_trfer=false;
         if (reqInfo->desk.compatible(TRFER_CONFIRM_VERSION))
           save_trfer=GetNode("transfer",reqNode)!=NULL;
@@ -3941,7 +3849,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
         Qry.SQLText=
           "UPDATE pax_grp "
           "SET excess=:excess, "
-          "    bag_refuse=NVL(:bag_refuse,bag_refuse), "
+          "    bag_refuse=:bag_refuse, "
           "    trfer_confirm=NVL(:trfer_confirm,trfer_confirm), "
           "    tid=cycle_tid__seq.nextval "
           "WHERE grp_id=:grp_id AND tid=:tid";
@@ -3951,10 +3859,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
           Qry.CreateVariable("excess",otInteger,NodeAsInteger("excess",reqNode));
         else
           Qry.CreateVariable("excess",otInteger,(int)0);
-        if (GetNode("bag_refuse",reqNode)!=NULL) //потом убрать!!!
-          Qry.CreateVariable("bag_refuse",otInteger,(int)bag_refuse);
-        else
-          Qry.CreateVariable("bag_refuse",otInteger,FNull);
+        Qry.CreateVariable("bag_refuse",otInteger,(int)(!NodeIsNULL("bag_refuse",reqNode)));
         if (reqInfo->client_type==ctTerm)
           Qry.CreateVariable("trfer_confirm",otInteger,(int)true);
         else
@@ -3962,10 +3867,6 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
         Qry.Execute();
         if (Qry.RowsProcessed()<=0)
           throw UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA"); //WEB
-
-        //BSM
-        if (BSMsend)
-          TelegramInterface::LoadBSMContent(grp_id,BSMContentBefore);
 
         if (!pr_unaccomp)
         {
@@ -3983,15 +3884,6 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
             markFltInfo.Init(Qry);
             pr_mark_norms=Qry.FieldAsInteger("pr_mark_norms")!=0;
           };
-          //читаем old_main_pax_id
-          Qry.Clear();
-          Qry.SQLText=
-            "SELECT ckin.get_main_pax_id(:grp_id) AS old_main_pax_id FROM dual";
-          Qry.CreateVariable("grp_id",otInteger,grp_id);
-          Qry.Execute();
-          if (!Qry.Eof && !Qry.FieldIsNULL("old_main_pax_id"))
-            old_main_pax_id=Qry.FieldAsInteger("old_main_pax_id");
-            
 
           TQuery PaxQry(&OraSession);
           PaxQry.Clear();
@@ -4058,16 +3950,6 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
               {
                 const char* surname=NodeAsStringFast("surname",node2);
                 const char* name=NodeAsStringFast("name",node2);
-                Qry.Clear();
-                Qry.SQLText="SELECT refuse,reg_no,pr_brd FROM pax WHERE pax_id=:pax_id";
-                Qry.CreateVariable("pax_id",otInteger,pax_id);
-                Qry.Execute();
-                if (Qry.Eof)
-                  throw UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA",
-                                      LParams()<<LParam("surname",string(surname)+(*name!=0?" ":"")+name)); //WEB
-                string old_refuse=Qry.FieldAsString("refuse");
-                int reg_no=Qry.FieldAsInteger("reg_no");
-                bool boarded=!Qry.FieldIsNULL("pr_brd") && Qry.FieldAsInteger("pr_brd")!=0;
                 if (GetNodeFast("refuse",node2)!=NULL)
                 {
                   //были изменения в информации по пассажиру
@@ -4084,38 +3966,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                   PaxQry.SetVariable("name",name);
                   PaxQry.SetVariable("pers_type",pers_type);
                   PaxQry.SetVariable("refuse",refuse);
-                  PaxQry.SetVariable("ticket_no",NodeAsStringFast("ticket_no",node2));
-                  if (!NodeIsNULLFast("coupon_no",node2))
-                    PaxQry.SetVariable("coupon_no",NodeAsIntegerFast("coupon_no",node2));
-                  else
-                    PaxQry.SetVariable("coupon_no",FNull);
-                  if (GetNodeFast("ticket_rem",node2)!=NULL)
-                  {
-                    PaxQry.SetVariable("ticket_rem",NodeAsStringFast("ticket_rem",node2));
-                    PaxQry.SetVariable("ticket_confirm",
-                                  (int)(NodeAsIntegerFast("ticket_confirm",node2)!=0));
-                  }
-                  else
-                  { //потом убрать 31.10.08
-                    if (!NodeIsNULLFast("ticket_no",node2))
-                    {
-                      if (!NodeIsNULLFast("coupon_no",node2))
-                      {
-                        PaxQry.SetVariable("ticket_rem","TKNE");
-                        PaxQry.SetVariable("ticket_confirm",(int)true);
-                      }
-                      else
-                      {
-                        PaxQry.SetVariable("ticket_rem","TKNA");
-                        PaxQry.SetVariable("ticket_confirm",(int)false);
-                      };
-                    }
-                    else
-                    {
-                      PaxQry.SetVariable("ticket_rem",FNull);
-                      PaxQry.SetVariable("ticket_confirm",(int)false);
-                    };
-                  };
+                  CheckIn::TPaxTknItem().fromXML(node).toDB(PaxQry);
                   PaxQry.SetVariable("subclass",NodeAsStringFast("subclass",node2));
                   if (reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS))
                   {
@@ -4130,41 +3981,11 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                     throw UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA",
                                         LParams()<<LParam("surname",string(surname)+(*name!=0?" ":"")+name)); //WEB
 
-                  //запись информации по пассажиру в лог
-                  if (old_refuse!=refuse)
-                  {
-                    if (SyncAODB)
-                    {
-                      update_aodb_pax_change( point_dep, pax_id, reg_no, "Р" );
-                      if (boarded)
-                        update_aodb_pax_change( point_dep, pax_id, reg_no, "П" );
-                    };
-                  
-                    if (old_refuse.empty())
-                      reqInfo->MsgToLog((string)"Пассажир "+surname+(*name!=0?" ":"")+name+" ("+pers_type+") разрегистрирован. "+
-                                        "Причина отказа в регистрации: "+refuse+". ",
-                                        ASTRA::evtPax,point_dep,reg_no,grp_id);
-                    else
-                      reqInfo->MsgToLog((string)"Пассажир "+surname+(*name!=0?" ":"")+name+" ("+pers_type+"). "+
-                                        "Изменена причина отказа в регистрации: "+refuse+". ",
-                                        ASTRA::evtPax,point_dep,reg_no,grp_id);
-                  }
-                  else
-                  {
-                    if (SyncAODB)
-                      update_aodb_pax_change( point_dep, pax_id, reg_no, "Р" );
-                  
-                    //проверить на PaxUpdatesPending!!!
-                    reqInfo->MsgToLog((string)"Пассажир "+surname+(*name!=0?" ":"")+name+" ("+pers_type+"). "+
-                                      "Изменены данные пассажира.",
-                                      ASTRA::evtPax,point_dep,reg_no,grp_id);
-                  };
-                  
                   //запись pax_doc
                   if (reqInfo->client_type!=ctTerm || reqInfo->desk.compatible(DOCS_VERSION))
                   {
-                    SavePaxDoc(pax_id,GetNodeFast("document",node2),PaxDocQry);
-                    SavePaxDoco(pax_id,GetNodeFast("doco",node2),PaxDocoQry);
+                    CheckIn::SavePaxDoc(pax_id,GetNodeFast("document",node2),PaxDocQry);
+                    CheckIn::SavePaxDoco(pax_id,GetNodeFast("doco",node2),PaxDocoQry);
                   }
                   else
                   {
@@ -4183,8 +4004,6 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                   if (Qry.RowsProcessed()<=0)
                     throw UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA",
                                         LParams()<<LParam("surname",string(surname)+(*name!=0?" ":"")+name)); //WEB
-                  if (old_refuse.empty() && SyncAODB)
-                    update_aodb_pax_change( point_dep, pax_id, reg_no, "Р" );
                 };
                 
                 if (save_trfer)
@@ -4195,20 +4014,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                 //запись ремарок
                 SavePaxRem(node);
                 //запись норм
-                string normStr;
-                string normMarkFlt;
-                if (first_segment)
-                {
-                  if (pr_mark_norms &&
-                      fltInfo.airline!=markFltInfo.airline) normMarkFlt=markFltInfo.airline;
-                  normStr=SavePaxNorms(node,norms,pr_unaccomp);
-                }
-                else
-                  normStr="нет";
-                if (normStr!="")
-                  reqInfo->MsgToLog((string)"Пассажир "+surname+(*name!=0?" ":"")+name+". "+
-                                    "Баг.нормы"+(normMarkFlt.empty()?"":" ("+normMarkFlt+")")+": "+normStr,
-                                    ASTRA::evtPax,point_dep,reg_no,grp_id);
+                if (first_segment) CheckIn::SaveNorms(node,pr_unaccomp);
               }
               catch(CheckIn::UserException)
               {
@@ -4224,25 +4030,15 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
         else
         {
           //запись норм
-          string normStr;
-          if (first_segment)
-            normStr=SavePaxNorms(segNode,norms,pr_unaccomp);
-          else
-            normStr="нет";
-          if (normStr!="")
-            reqInfo->MsgToLog((string)"Багаж без сопровождения. "+
-                              "Баг.нормы: "+normStr,
-                              ASTRA::evtPax,point_dep,0,grp_id);
-          if (bag_refuse)
-            reqInfo->MsgToLog("Багаж без сопровождения удален",
-                              ASTRA::evtPax,point_dep,0,grp_id);
+          if (first_segment) CheckIn::SaveNorms(segNode,pr_unaccomp);
         };
+        
         if (save_trfer)
         {
           TLogMsg msg;
           msg.ev_type=ASTRA::evtPax;
           msg.id1=point_dep;
-          msg.id2=0;
+          msg.id2=NoExists;
           msg.id3=grp_id;
           msg.msg=SaveTransfer(grp_id,trfer,pr_unaccomp,seg_no);
           if (!msg.msg.empty()) reqInfo->MsgToLog(msg);
@@ -4269,7 +4065,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
             "  DELETE FROM paid_bag WHERE grp_id=:grp_id; "
             "  DELETE FROM bag_tags WHERE grp_id=:grp_id; "
             "  INSERT INTO value_bag(grp_id,num,value,value_cur,tax_id,tax,tax_trfer) "
-            "  SELECT :grp_id,num,value,value_cur,NULL,NULL,NULL "
+            "  SELECT :grp_id ,num,value,value_cur,NULL,NULL,NULL "
             "  FROM value_bag WHERE grp_id=:first_grp_id; "
             "  INSERT INTO bag2(grp_id,num,id,bag_type,pr_cabin,amount,weight,value_bag_num,pr_liab_limit,bag_pool_num,hall,user_id) "
             "  SELECT :grp_id,num,id,99,pr_cabin,amount,weight,value_bag_num,pr_liab_limit,bag_pool_num,hall,user_id "
@@ -4310,26 +4106,6 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
             "END;";
           Qry.CreateVariable("grp_id",otInteger,grp_id);
           Qry.Execute();
-        };
-      };
-      if (!pr_unaccomp && SyncAODB)
-      {
-        //читаем old_main_pax_id
-        Qry.Clear();
-        Qry.SQLText=
-          "SELECT pax_id,reg_no,refuse FROM pax WHERE pax_id=ckin.get_main_pax_id(:grp_id)";
-        Qry.CreateVariable("grp_id",otInteger,grp_id);
-        Qry.Execute();
-        if (!Qry.Eof && Qry.FieldIsNULL("refuse"))
-        {
-          int new_main_pax_id=Qry.FieldAsInteger("pax_id");
-          if (old_main_pax_id!=NoExists &&
-              old_main_pax_id!=new_main_pax_id ||
-              GetNode("bags",reqNode) ||
-              GetNode("tags",reqNode))
-          {
-            update_aodb_pax_change( point_dep, new_main_pax_id, Qry.FieldAsInteger("reg_no"), "Р" );
-          };
         };
       };
 
@@ -4447,9 +4223,6 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
             };
           };
         };
-
-
-
       };
 
       //вот здесь ETCheckStatus::CheckGrpStatus
@@ -4461,6 +4234,14 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
         {
           et_processed=true; //хотя бы один билет будет обрабатываться
         };
+      };
+
+      if (!et_processed)
+      {
+        //записываем в лог только если не будет отката транзакции из-за обращения к СЭБ
+        TGrpToLogInfo grpInfoAfter;
+        GetGrpToLogInfo(grp_id, grpInfoAfter);
+        SaveGrpToLog(point_dep, fltInfo, markFltInfo, grpInfoBefore, grpInfoAfter);
       };
 
       //обновление counters
@@ -4476,11 +4257,6 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
       Qry.CreateVariable("desk",otString,reqInfo->desk.code);
       Qry.Execute();
       Qry.Close();
-      
-      //пишем в лог изменения багажа только после ckin.check_grp!
-      TBagToLogGrpInfo grpInfoAfter;
-      GetBagToLogInfo(grp_id, grpInfoAfter);
-      SaveBagToLog(point_dep, grpInfoBefore, grpInfoAfter);
 
       //проверим максимальную загрузку
       bool overload_alarm = Calc_overload_alarm( point_dep, fltInfo ); // вычислили признак перегрузки
@@ -4651,7 +4427,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
       };
 
       //BSM
-      if (BSMsend) TelegramInterface::SendBSM(point_dep,grp_id,BSMContentBefore,BSMaddrs);
+      if (BSMsend) BSM::Send(point_dep,grp_id,BSMContentBefore,BSMaddrs);
 
       if (first_segment && reqInfo->client_type==ctTerm)
       {
@@ -4767,6 +4543,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_versio
 
   xmlNodePtr node,paxNode;
   TQuery Qry(&OraSession);
+  TQuery NormQry(&OraSession);
   vector<int> grp_ids;
   grp_ids.push_back(grp_id);
   if (tckin_version)
@@ -4806,7 +4583,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_versio
     TTripInfo operFlt(Qry);
     
     CheckIn::TTransferItem seg;
-    seg.operFlt.Assign(operFlt);
+    seg.operFlt=operFlt;
     seg.grp_id=*grp_id;
     seg.airp_arv=Qry.FieldAsString("airp_arv");
 
@@ -4850,11 +4627,11 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_versio
     NewTextChild(segNode,"status",Qry.FieldAsString("status"));
     NewTextChild(segNode,"hall",Qry.FieldAsInteger("hall"));
     if (Qry.FieldAsInteger("bag_refuse")!=0)
-      NewTextChild(segNode,"bag_refuse","А");
+      NewTextChild(segNode,"bag_refuse",refuseAgentError);
     else
       NewTextChild(segNode,"bag_refuse");
     NewTextChild(segNode,"tid",Qry.FieldAsInteger("tid"));
-
+    
     bool pr_unaccomp=Qry.FieldIsNULL("class");
     if (!pr_unaccomp)
     {
@@ -4898,21 +4675,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_versio
       PaxQry.CreateVariable("grp_id",otInteger,*grp_id);
       
       TQuery PaxDocQry(&OraSession);
-      PaxDocQry.Clear();
-      PaxDocQry.SQLText=
-        "SELECT type, issue_country, no, nationality, birth_date, gender, expiry_date, "
-        "       surname, first_name, second_name, pr_multi "
-        "FROM pax_doc "
-        "WHERE pax_id=:pax_id ";
-      PaxDocQry.DeclareVariable("pax_id",otInteger);
-        
       TQuery PaxDocoQry(&OraSession);
-      PaxDocoQry.Clear();
-      PaxDocoQry.SQLText=
-        "SELECT birth_place, type, no, issue_place, issue_date, expiry_date, applic_country, pr_inf "
-        "FROM pax_doco "
-        "WHERE pax_id=:pax_id ";
-      PaxDocoQry.DeclareVariable("pax_id",otInteger);
       
       PaxQry.Execute();
 
@@ -4943,33 +4706,20 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_versio
         NewTextChild(paxNode,"seats",PaxQry.FieldAsInteger("seats"));
         NewTextChild(paxNode,"refuse",PaxQry.FieldAsString("refuse"));
         NewTextChild(paxNode,"reg_no",PaxQry.FieldAsInteger("reg_no"));
-        NewTextChild(paxNode,"ticket_no",PaxQry.FieldAsString("ticket_no"));
-        if (!PaxQry.FieldIsNULL("coupon_no"))
-          NewTextChild(paxNode,"coupon_no",PaxQry.FieldAsInteger("coupon_no"));
-        else
-          NewTextChild(paxNode,"coupon_no");
-        NewTextChild(paxNode,"ticket_rem",PaxQry.FieldAsString("ticket_rem"));
-        NewTextChild(paxNode,"ticket_confirm",
-                             (int)(PaxQry.FieldAsInteger("ticket_confirm")!=0));
-
-        NewTextChild(paxNode,"is_tkne",
-                     (int)(strcmp(PaxQry.FieldAsString("ticket_rem"),"TKNE")==0)); //потом убрать 31.10.08
+        CheckIn::TPaxTknItem().fromDB(PaxQry).toXML(paxNode);
 
         if (TReqInfo::Instance()->desk.compatible(DOCS_VERSION))
         {
-          PaxDocQry.SetVariable("pax_id",pax_id);
-          PaxDocQry.Execute();
-          LoadPaxDoc(PaxDocQry, paxNode);
-          PaxDocoQry.SetVariable("pax_id",pax_id);
-          PaxDocoQry.Execute();
-          LoadPaxDoco(PaxDocoQry, paxNode);
+          CheckIn::TPaxDocItem doc;
+          if (CheckIn::LoadPaxDoc(pax_id, doc, PaxDocQry)) doc.toXML(paxNode);
+          CheckIn::TPaxDocoItem doco;
+          if (CheckIn::LoadPaxDoco(pax_id, doco, PaxDocoQry)) doco.toXML(paxNode);
         }
         else
         {
-          PaxDocQry.SetVariable("pax_id",pax_id);
-          PaxDocQry.Execute();
-          if (!PaxDocQry.Eof)
-            NewTextChild(paxNode, "document", PaxDocQry.FieldAsString("no"));
+          CheckIn::TPaxDocItem doc;
+          if (CheckIn::LoadPaxDoc(pax_id, doc, PaxDocQry))
+            NewTextChild(paxNode, "document", doc.no);
           else
             NewTextChild(paxNode, "document");
         };
@@ -4992,7 +4742,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_versio
           LoadPaxTransfer(pax_id,paxNode,resNode);
         LoadPaxRem(paxNode);
         if (grp_id==grp_ids.begin())
-          LoadPaxNorms(paxNode,pr_unaccomp);
+          CheckIn::LoadNorms(paxNode,pr_unaccomp,NormQry);
       };
     }
     else
@@ -5003,7 +4753,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_versio
         TTrferRoute trfer;
         trfer.GetRoute(*grp_id, trtNotFirstSeg);
         BuildTransfer(trfer,resNode);
-        LoadPaxNorms(segNode,pr_unaccomp);
+        CheckIn::LoadNorms(segNode,pr_unaccomp,NormQry);
       };
     };
     if (grp_id==grp_ids.begin())
@@ -5172,185 +4922,6 @@ void CheckInInterface::LoadPaxTransfer(int pax_id, xmlNodePtr paxNode, xmlNodePt
   TrferQry.Close();
 };
 
-void CheckInInterface::LoadPaxNorms(xmlNodePtr paxNode, bool pr_unaccomp)
-{
-  if (paxNode==NULL) return;
-  xmlNodePtr node2=paxNode->children;
-
-  xmlNodePtr node=NewTextChild(paxNode,"norms");
-  TQuery NormQry(&OraSession);
-  NormQry.Clear();
-  if (!pr_unaccomp)
-  {
-    int pax_id=NodeAsIntegerFast("pax_id",node2);
-    NormQry.SQLText=
-      "SELECT norm_id,pax_norms.bag_type,norm_type,amount,weight,per_unit,norm_trfer "
-      "FROM pax_norms,bag_norms "
-      "WHERE pax_norms.norm_id=bag_norms.id(+) AND pax_norms.pax_id=:pax_id ";
-    NormQry.CreateVariable("pax_id",otInteger,pax_id);
-  }
-  else
-  {
-    int grp_id=NodeAsIntegerFast("grp_id",node2);
-    NormQry.SQLText=
-      "SELECT norm_id,grp_norms.bag_type,norm_type,amount,weight,per_unit,norm_trfer "
-      "FROM grp_norms,bag_norms "
-      "WHERE grp_norms.norm_id=bag_norms.id(+) AND grp_norms.grp_id=:grp_id ";
-    NormQry.CreateVariable("grp_id",otInteger,grp_id);
-  };
-  NormQry.Execute();
-  for(;!NormQry.Eof;NormQry.Next())
-  {
-    xmlNodePtr normNode=NewTextChild(node,"norm");
-    if (!NormQry.FieldIsNULL("bag_type"))
-      NewTextChild(normNode,"bag_type",NormQry.FieldAsInteger("bag_type"));
-    else
-      NewTextChild(normNode,	"bag_type");
-    if (!NormQry.FieldIsNULL("norm_id"))
-      NewTextChild(normNode,"norm_id",NormQry.FieldAsInteger("norm_id"));
-    else
-      NewTextChild(normNode,"norm_id");
-    NewTextChild(normNode,"norm_type",NormQry.FieldAsString("norm_type"));
-    if (!NormQry.FieldIsNULL("amount"))
-      NewTextChild(normNode,"amount",NormQry.FieldAsInteger("amount"));
-    else
-      NewTextChild(normNode,"amount");
-    if (!NormQry.FieldIsNULL("weight"))
-      NewTextChild(normNode,"weight",NormQry.FieldAsInteger("weight"));
-    else
-      NewTextChild(normNode,"weight");
-    if (!NormQry.FieldIsNULL("per_unit"))
-      NewTextChild(normNode,"per_unit",(int)(NormQry.FieldAsInteger("per_unit")!=0));
-    else
-      NewTextChild(normNode,"per_unit");
-    if (!NormQry.FieldIsNULL("norm_trfer"))
-      NewTextChild(normNode,"norm_trfer",(int)(NormQry.FieldAsInteger("norm_trfer")!=0));
-    else
-      NewTextChild(normNode,"norm_trfer");
-  };
-  NormQry.Close();
-};
-
-string CheckInInterface::SavePaxNorms(xmlNodePtr paxNode, map<int,string> &norms, bool pr_unaccomp)
-{
-  if (paxNode==NULL) return "";
-  xmlNodePtr node2=paxNode->children;
-
-  xmlNodePtr normNode=GetNodeFast("norms",node2);
-  if (normNode==NULL) return "";
-
-  TQuery NormQry(&OraSession);
-  NormQry.Clear();
-  if (!pr_unaccomp)
-  {
-    int pax_id;
-    if (GetNodeFast("generated_pax_id",node2)!=NULL)
-      pax_id=NodeAsIntegerFast("generated_pax_id",node2);
-    else
-      pax_id=NodeAsIntegerFast("pax_id",node2);
-    NormQry.SQLText="DELETE FROM pax_norms WHERE pax_id=:pax_id";
-    NormQry.CreateVariable("pax_id",otInteger,pax_id);
-    NormQry.Execute();
-    NormQry.SQLText=
-      "INSERT INTO pax_norms(pax_id,bag_type,norm_id,norm_trfer) "
-      "VALUES(:pax_id,:bag_type,:norm_id,:norm_trfer)";
-  }
-  else
-  {
-    int grp_id;
-    if (GetNodeFast("generated_grp_id",node2)!=NULL)
-      grp_id=NodeAsIntegerFast("generated_grp_id",node2);
-    else
-      grp_id=NodeAsIntegerFast("grp_id",node2);
-    NormQry.SQLText="DELETE FROM grp_norms WHERE grp_id=:grp_id";
-    NormQry.CreateVariable("grp_id",otInteger,grp_id);
-    NormQry.Execute();
-    NormQry.SQLText=
-      "INSERT INTO grp_norms(grp_id,bag_type,norm_id,norm_trfer) "
-      "VALUES(:grp_id,:bag_type,:norm_id,:norm_trfer)";
-  };
-  NormQry.DeclareVariable("bag_type",otInteger);
-  NormQry.DeclareVariable("norm_id",otInteger);
-  NormQry.DeclareVariable("norm_trfer",otInteger);
-  string logStr;
-  for(normNode=normNode->children;normNode!=NULL;normNode=normNode->next)
-  {
-    node2=normNode->children;
-    //ищем норму в norms
-    if (!NodeIsNULLFast("norm_id",node2) && norms.find(NodeAsIntegerFast("norm_id",node2))==norms.end())
-    {
-        int norm_id=NodeAsIntegerFast("norm_id",node2);
-        TQuery Qry(&OraSession);
-        Qry.Clear();
-        Qry.SQLText="SELECT norm_type,amount,weight,per_unit FROM bag_norms WHERE id=:norm_id";
-        Qry.CreateVariable("norm_id",otInteger,norm_id);
-        Qry.Execute();
-        if (Qry.Eof) throw EXCEPTIONS::Exception("Baggage norm not found (norm_id=%d)",norm_id);
-        string normStr=lowerc(Qry.FieldAsString("norm_type"));
-        if (!Qry.FieldIsNULL("weight"))
-        {
-          if (!Qry.FieldIsNULL("amount"))
-            normStr=normStr+" "+Qry.FieldAsString("amount")+"м"+Qry.FieldAsString("weight");
-          else
-            normStr=normStr+" "+Qry.FieldAsString("weight");
-          if (!Qry.FieldIsNULL("per_unit")&&Qry.FieldAsInteger("per_unit")>0)
-            normStr+="кг/м";
-          else
-            normStr+="кг";
-        }
-        else
-        {
-          if (!Qry.FieldIsNULL("amount"))
-            normStr=normStr+" "+Qry.FieldAsString("amount")+"м";
-        };
-        norms[norm_id]=normStr;
-        ProgTrace(TRACE5,"Added baggage norm %s",normStr.c_str());
-    };
-    if (!NodeIsNULLFast("bag_type",node2))
-      NormQry.SetVariable("bag_type",NodeAsIntegerFast("bag_type",node2));
-    else
-      NormQry.SetVariable("bag_type",FNull);
-    if (!NodeIsNULLFast("norm_id",node2))
-    {
-      NormQry.SetVariable("norm_id",NodeAsIntegerFast("norm_id",node2));
-      NormQry.SetVariable("norm_trfer",(int)(NodeAsIntegerFast("norm_trfer",node2,0)!=0));
-    }
-    else
-    {
-      NormQry.SetVariable("norm_id",FNull);
-      NormQry.SetVariable("norm_trfer",FNull);
-    };
-    NormQry.Execute();
-    //составим строчку для записи в журнал операций
-    if (!NodeIsNULLFast("bag_type",node2))
-    {
-      if (!logStr.empty()) logStr+=", ";
-      if (!NodeIsNULLFast("norm_id",node2))
-      {
-        logStr=logStr+
-               NodeAsStringFast("bag_type",node2)+": "+
-               norms[NodeAsIntegerFast("norm_id",node2)];
-      }
-      else
-        logStr=logStr+NodeAsStringFast("bag_type",node2)+": нет";
-    }
-    else
-    {
-      if (!logStr.empty()) logStr=", "+logStr;
-      if (!NodeIsNULLFast("norm_id",node2))
-      {
-        logStr=norms[NodeAsIntegerFast("norm_id",node2)]+
-               logStr;
-      }
-      else
-        logStr="нет"+logStr;
-    };
-  };
-  NormQry.Close();
-  if (logStr=="") logStr="нет";
-  return logStr;
-};
-
 string CheckInInterface::SaveTCkinSegs(int grp_id, xmlNodePtr segsNode, const map<int,TSegInfo> &segs, int seg_no)
 {
   if (segsNode==NULL) return "";
@@ -5439,212 +5010,6 @@ string CheckInInterface::SaveTCkinSegs(int grp_id, xmlNodePtr segsNode, const ma
   };
 
   return msg.str();
-};
-
-string PaxDocCountryToTerm(const string &pax_doc_country)
-{
-  if (TReqInfo::Instance()->desk.compatible(SCAN_DOC_VERSION) || pax_doc_country.empty())
-    return pax_doc_country;
-  else
-    return getBaseTable(etPaxDocCountry).get_row("code",pax_doc_country).AsString("country");
-};
-
-string PaxDocCountryFromTerm(const string &doc_code)
-{
-  if (TReqInfo::Instance()->desk.compatible(SCAN_DOC_VERSION) || doc_code.empty())
-    return doc_code;
-  else
-    try
-    {
-      return getBaseTable(etPaxDocCountry).get_row("country",doc_code).AsString("code");
-    }
-    catch (EBaseTableError)
-    {
-      return "";
-    };
-};
-
-void CheckInInterface::LoadPaxDoc(TQuery& PaxDocQry, xmlNodePtr paxNode)
-{
-  if (PaxDocQry.Eof || paxNode==NULL) return;
-  xmlNodePtr docNode=NewTextChild(paxNode,"document");
-  NewTextChild(docNode, "type", PaxDocQry.FieldAsString("type"), "");
-  NewTextChild(docNode, "issue_country", PaxDocCountryToTerm(GetPaxDocCountryCode(PaxDocQry.FieldAsString("issue_country"))), "");
-  NewTextChild(docNode, "no", PaxDocQry.FieldAsString("no"), "");
-  NewTextChild(docNode, "nationality", PaxDocCountryToTerm(GetPaxDocCountryCode(PaxDocQry.FieldAsString("nationality"))), "");
-  if (!PaxDocQry.FieldIsNULL("birth_date"))
-    NewTextChild(docNode, "birth_date", DateTimeToStr(PaxDocQry.FieldAsDateTime("birth_date"), ServerFormatDateTimeAsString));
-  NewTextChild(docNode, "gender", PaxDocQry.FieldAsString("gender"), "");
-  if (!PaxDocQry.FieldIsNULL("expiry_date"))
-    NewTextChild(docNode, "expiry_date", DateTimeToStr(PaxDocQry.FieldAsDateTime("expiry_date"), ServerFormatDateTimeAsString));
-  NewTextChild(docNode, "surname", PaxDocQry.FieldAsString("surname"), "");
-  NewTextChild(docNode, "first_name", PaxDocQry.FieldAsString("first_name"), "");
-  NewTextChild(docNode, "second_name", PaxDocQry.FieldAsString("second_name"), "");
-  NewTextChild(docNode, "pr_multi", (int)(PaxDocQry.FieldAsInteger("pr_multi")!=0), (int)false);
-};
-
-void CheckInInterface::LoadPaxDoco(TQuery& PaxDocQry, xmlNodePtr paxNode)
-{
-  if (PaxDocQry.Eof || paxNode==NULL) return;
-  xmlNodePtr docNode=NewTextChild(paxNode,"doco");
-  NewTextChild(docNode, "birth_place", PaxDocQry.FieldAsString("birth_place"), "");
-  NewTextChild(docNode, "type", PaxDocQry.FieldAsString("type"), "");
-  NewTextChild(docNode, "no", PaxDocQry.FieldAsString("no"), "");
-  NewTextChild(docNode, "issue_place", PaxDocQry.FieldAsString("issue_place"), "");
-  if (!PaxDocQry.FieldIsNULL("issue_date"))
-    NewTextChild(docNode, "issue_date", DateTimeToStr(PaxDocQry.FieldAsDateTime("issue_date"), ServerFormatDateTimeAsString));
-  if (!PaxDocQry.FieldIsNULL("expiry_date"))
-    NewTextChild(docNode, "expiry_date", DateTimeToStr(PaxDocQry.FieldAsDateTime("expiry_date"), ServerFormatDateTimeAsString));
-  NewTextChild(docNode, "applic_country", PaxDocCountryToTerm(GetPaxDocCountryCode(PaxDocQry.FieldAsString("applic_country"))), "");
-  NewTextChild(docNode, "pr_inf", (int)(PaxDocQry.FieldAsInteger("pr_inf")!=0), (int)false);
-};
-
-void CheckInInterface::SavePaxDoc(int pax_id, xmlNodePtr docNode, TQuery& PaxDocQry)
-{
-  const char* sql=
-        "BEGIN "
-        "  DELETE FROM pax_doc WHERE pax_id=:pax_id; "
-        "  IF :type IS NOT NULL OR "
-        "     :issue_country IS NOT NULL OR "
-        "     :no IS NOT NULL OR "
-        "     :nationality IS NOT NULL OR "
-        "     :birth_date IS NOT NULL OR "
-        "     :gender IS NOT NULL OR "
-        "     :expiry_date IS NOT NULL OR "
-        "     :surname IS NOT NULL OR "
-        "     :first_name IS NOT NULL OR "
-        "     :second_name IS NOT NULL OR "
-        "     :pr_multi<>0 THEN "
-        "    INSERT INTO pax_doc "
-        "      (pax_id,type,issue_country,no,nationality,birth_date,gender,expiry_date, "
-        "       surname,first_name,second_name,pr_multi) "
-        "    VALUES "
-        "      (:pax_id,:type,:issue_country,:no,:nationality,:birth_date,:gender,:expiry_date, "
-        "       :surname,:first_name,:second_name,:pr_multi); "
-        "  END IF; "
-        "END;";
-  if (strcmp(PaxDocQry.SQLText.SQLText(),sql)!=0)
-  {
-    PaxDocQry.Clear();
-    PaxDocQry.SQLText=sql;
-    PaxDocQry.DeclareVariable("pax_id",otInteger);
-    PaxDocQry.DeclareVariable("type",otString);
-    PaxDocQry.DeclareVariable("issue_country",otString);
-    PaxDocQry.DeclareVariable("no",otString);
-    PaxDocQry.DeclareVariable("nationality",otString);
-    PaxDocQry.DeclareVariable("birth_date",otDate);
-    PaxDocQry.DeclareVariable("gender",otString);
-    PaxDocQry.DeclareVariable("expiry_date",otDate);
-    PaxDocQry.DeclareVariable("surname",otString);
-    PaxDocQry.DeclareVariable("first_name",otString);
-    PaxDocQry.DeclareVariable("second_name",otString);
-    PaxDocQry.DeclareVariable("pr_multi",otInteger);
-  };
-
-  if (docNode!=NULL) docNode=docNode->children;
-  if (docNode!=NULL)
-  {
-    PaxDocQry.SetVariable("type",NodeAsStringFast("type",docNode,""));
-    PaxDocQry.SetVariable("issue_country",PaxDocCountryFromTerm(NodeAsStringFast("issue_country",docNode,"")));
-    PaxDocQry.SetVariable("no",NodeAsStringFast("no",docNode,""));
-    PaxDocQry.SetVariable("nationality",PaxDocCountryFromTerm(NodeAsStringFast("nationality",docNode,"")));
-    if (!NodeIsNULLFast("birth_date",docNode,true))
-      PaxDocQry.SetVariable("birth_date",NodeAsDateTimeFast("birth_date",docNode));
-    else
-      PaxDocQry.SetVariable("birth_date",FNull);
-    PaxDocQry.SetVariable("gender",NodeAsStringFast("gender",docNode,""));
-    if (!NodeIsNULLFast("expiry_date",docNode,true))
-      PaxDocQry.SetVariable("expiry_date",NodeAsDateTimeFast("expiry_date",docNode));
-    else
-      PaxDocQry.SetVariable("expiry_date",FNull);
-    PaxDocQry.SetVariable("surname",NodeAsStringFast("surname",docNode,""));
-    PaxDocQry.SetVariable("first_name",NodeAsStringFast("first_name",docNode,""));
-    PaxDocQry.SetVariable("second_name",NodeAsStringFast("second_name",docNode,""));
-    PaxDocQry.SetVariable("pr_multi",(int)(NodeAsIntegerFast("pr_multi",docNode,0)!=0));
-  }
-  else
-  {
-    PaxDocQry.SetVariable("type",FNull);
-    PaxDocQry.SetVariable("issue_country",FNull);
-    PaxDocQry.SetVariable("no",FNull);
-    PaxDocQry.SetVariable("nationality",FNull);
-    PaxDocQry.SetVariable("birth_date",FNull);
-    PaxDocQry.SetVariable("gender",FNull);
-    PaxDocQry.SetVariable("expiry_date",FNull);
-    PaxDocQry.SetVariable("surname",FNull);
-    PaxDocQry.SetVariable("first_name",FNull);
-    PaxDocQry.SetVariable("second_name",FNull);
-    PaxDocQry.SetVariable("pr_multi",(int)false);
-  };
-  PaxDocQry.SetVariable("pax_id",pax_id);
-  PaxDocQry.Execute();
-};
-
-void CheckInInterface::SavePaxDoco(int pax_id, xmlNodePtr docNode, TQuery& PaxDocQry)
-{
-  const char* sql=
-        "BEGIN "
-        "  DELETE FROM pax_doco WHERE pax_id=:pax_id; "
-        "  IF :birth_place IS NOT NULL OR "
-        "     :type IS NOT NULL OR "
-        "     :no IS NOT NULL OR "
-        "     :issue_place IS NOT NULL OR "
-        "     :issue_date IS NOT NULL OR "
-        "     :expiry_date IS NOT NULL OR "
-        "     :applic_country IS NOT NULL OR "
-        "     :pr_inf<>0 THEN "
-        "    INSERT INTO pax_doco "
-        "      (pax_id,birth_place,type,no,issue_place,issue_date,expiry_date,applic_country,pr_inf) "
-        "    VALUES "
-        "      (:pax_id,:birth_place,:type,:no,:issue_place,:issue_date,:expiry_date,:applic_country,:pr_inf); "
-        "  END IF; "
-        "END;";
-  if (strcmp(PaxDocQry.SQLText.SQLText(),sql)!=0)
-  {
-    PaxDocQry.Clear();
-    PaxDocQry.SQLText=sql;
-    PaxDocQry.DeclareVariable("pax_id",otInteger);
-    PaxDocQry.DeclareVariable("birth_place",otString);
-    PaxDocQry.DeclareVariable("type",otString);
-    PaxDocQry.DeclareVariable("no",otString);
-    PaxDocQry.DeclareVariable("issue_place",otString);
-    PaxDocQry.DeclareVariable("issue_date",otDate);
-    PaxDocQry.DeclareVariable("expiry_date",otDate);
-    PaxDocQry.DeclareVariable("applic_country",otString);
-    PaxDocQry.DeclareVariable("pr_inf",otInteger);
-  };
-
-  if (docNode!=NULL) docNode=docNode->children;
-  if (docNode!=NULL)
-  {
-    PaxDocQry.SetVariable("birth_place",NodeAsStringFast("birth_place",docNode,""));
-    PaxDocQry.SetVariable("type",NodeAsStringFast("type",docNode,""));
-    PaxDocQry.SetVariable("no",NodeAsStringFast("no",docNode,""));
-    PaxDocQry.SetVariable("issue_place",NodeAsStringFast("issue_place",docNode,""));
-    if (!NodeIsNULLFast("issue_date",docNode,true))
-      PaxDocQry.SetVariable("issue_date",NodeAsDateTimeFast("issue_date",docNode));
-    else
-      PaxDocQry.SetVariable("issue_date",FNull);
-    if (!NodeIsNULLFast("expiry_date",docNode,true))
-      PaxDocQry.SetVariable("expiry_date",NodeAsDateTimeFast("expiry_date",docNode));
-    else
-      PaxDocQry.SetVariable("expiry_date",FNull);
-    PaxDocQry.SetVariable("applic_country",PaxDocCountryFromTerm(NodeAsStringFast("applic_country",docNode,"")));
-    PaxDocQry.SetVariable("pr_inf",(int)(NodeAsIntegerFast("pr_inf",docNode,0)!=0));
-  }
-  else
-  {
-    PaxDocQry.SetVariable("birth_place",FNull);
-    PaxDocQry.SetVariable("type",FNull);
-    PaxDocQry.SetVariable("no",FNull);
-    PaxDocQry.SetVariable("issue_place",FNull);
-    PaxDocQry.SetVariable("issue_date",FNull);
-    PaxDocQry.SetVariable("expiry_date",FNull);
-    PaxDocQry.SetVariable("applic_country",FNull);
-    PaxDocQry.SetVariable("pr_inf",(int)false);
-  };
-  PaxDocQry.SetVariable("pax_id",pax_id);
-  PaxDocQry.Execute();
 };
 
 void CheckInInterface::ParseTransfer(xmlNodePtr trferNode,
@@ -5989,7 +5354,7 @@ void CheckInInterface::LoadTransfer(int grp_id, vector<CheckIn::TTransferItem> &
   {
     trfer.push_back(CheckIn::TTransferItem());
     CheckIn::TTransferItem &t=trfer.back();
-    t.operFlt.Assign(r->operFlt);
+    t.operFlt=r->operFlt;
     t.airp_arv=r->airp_arv;
     t.airp_arv_fmt=r->airp_arv_fmt;
   };

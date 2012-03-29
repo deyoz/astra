@@ -560,15 +560,15 @@ void MsgToLog(TLogMsg &msg, const string &screen, const string &user, const stri
     Qry.SetVariable("screen", screen);
     Qry.SetVariable("ev_user", user);
     Qry.SetVariable("station", desk);
-    if(msg.id1!=0)
+    if(msg.id1!=0 && msg.id1!=NoExists)
         Qry.SetVariable("id1", msg.id1);
     else
         Qry.SetVariable("id1", FNull);
-    if(msg.id2!=0)
+    if(msg.id2!=0 && msg.id2!=NoExists)
         Qry.SetVariable("id2", msg.id2);
     else
         Qry.SetVariable("id2", FNull);
-    if(msg.id3!=0)
+    if(msg.id3!=0 && msg.id3!=NoExists)
         Qry.SetVariable("id3", msg.id3);
     else
         Qry.SetVariable("id3", FNull);

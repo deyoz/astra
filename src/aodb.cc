@@ -370,55 +370,6 @@ bool getFlightData( int point_id, const string &point_addr,
 	return true;
 }
 
-/*bool createAODBUnaccompBagFile( int point_id, std::map<std::string,std::string> &bag_params, std::string &bag_file_data )
-{
-	string point_addr = params[PARAM_CANON_NAME];
-  double aodb_point_id;
-	string flight;
-	string region = CityTZRegion( "МОВ" );
-	string scd_date;
-	vector<AODB_STRUCT> prior_aodb_bag, aodb_bag;
-	if ( !getFlightData( point_id, point_addr, aodb_point_id, flight, scd_date ) )
-		return false;
-	TQuery Qry(&OraSession);
-	// достаем старый слепок из БД
-	Qry.SQLText =
-	 "SELECT grp_id, record FROM aodb_unaccomp "
-	 " WHERE point_id=:point_id AND point_addr=:point_addr "
-	 " ORDER BY pr_cabin DESC, num ";
-	Qry.CreateVariable( "point_id", otInteger, point_id );
-	Qry.CreateVariable( "point_addr", otString, point_addr );
-	Qry.Execute();
-	AODB_STRUCT STRAO;
-	STRAO.doit = false;
-	STRAO.unaccomp = true;
-	while ( !Qry.Eof ) {
-		STRAO.pax_id = Qry.FieldAsInteger( "pax_id" );
-	  STRAO.num = Qry.FieldAsInteger( "bag_num" );
-	  STRAO.record = Qry.FieldAsString( "bag_record" );
-	  STRAO.pr_cabin = Qry.FieldAsInteger( "pr_cabin" );
-	  prior_aodb_bag.push_back( STRAO );
-		Qry.Next();
-	}
-	// создаем новый слепок на основе данных по регистрации
-	TQuery BagQry( &OraSession );
-	BagQry.Clear();
-	BagQry.SQLText =
-		 "SELECT bag2.bag_type,bag2.weight,color,no,"
-		 "       bag2.num bag_num "
-		 " FROM bag2,bag_tags "
-		 " WHERE bag2.grp_id=:grp_id AND "
-		 "       bag2.grp_id=bag_tags.grp_id(+) AND "
-		 "       bag2.num=bag_tags.bag_num(+) AND "
-		 "       bag2.pr_cabin=:pr_cabin "
-		 " ORDER BY bag2.num, no";
-	BagQry.DeclareVariable( "grp_id", otInteger );
-	BagQry.DeclareVariable( "pr_cabin", otInteger );
-
-
-}
-*/
-
 string GetTermInfo( TQuery &Qry, int pax_id, int reg_no, bool pr_tcheckin, const string &client_type,
                     const string &work_mode, const string &airp_dep,
                     int &length_time_value )
@@ -539,14 +490,16 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 	BagQry.Clear();
 	BagQry.SQLText =
 		 "SELECT bag2.bag_type,bag2.weight,color,no,"
-		 "       bag2.num bag_num, bag_tags.bag_num pr_idx "
+		 "       bag2.num bag_num "
 		 " FROM bag2,bag_tags "
 		 " WHERE bag2.grp_id=:grp_id AND "
+     "       bag2.bag_pool_num=:bag_pool_num AND "
 		 "       bag2.grp_id=bag_tags.grp_id(+) AND "
 		 "       bag2.num=bag_tags.bag_num(+) AND "
 		 "       bag2.pr_cabin=:pr_cabin "
 		 " ORDER BY bag2.num, no";
 	BagQry.DeclareVariable( "grp_id", otInteger );
+  BagQry.DeclareVariable( "bag_pool_num", otInteger );
 	BagQry.DeclareVariable( "pr_cabin", otInteger );
 	Qry.Clear();
 	if ( pr_unaccomp )
@@ -564,11 +517,13 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 	   "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'one',rownum) AS seat_no, "
 	   "       pax.seats seats, "
 	   "       ckin.get_excess(pax_grp.grp_id,pax.pax_id) excess,"
-	   "       ckin.get_rkAmount2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rkamount,"
-	   "       ckin.get_rkWeight2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rkweight,"
-	   "       ckin.get_bagAmount2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bagamount,"
-	   "       ckin.get_bagWeight2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bagweight,"
-	   "       pax.pr_brd,ckin.get_main_pax_id(pax.grp_id) as main_pax_id, "
+	   "       ckin.get_rkAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rkamount,"
+	   "       ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rkweight,"
+	   "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bagamount,"
+	   "       ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bagweight,"
+     "       ckin.get_bag_pool_pax_id(pax.grp_id,pax.bag_pool_num) AS bag_pool_pax_id, "
+     "       pax.bag_pool_num, "
+	   "       pax.pr_brd, "
 	   "       pax_grp.status, "
 	   "       pax_grp.client_type, "
 	   "       pax_doc.no document, "
@@ -751,8 +706,14 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 	  STRAO.reg_no = Qry.FieldAsInteger( "reg_no" );
 		aodb_pax.push_back( STRAO );
 		// ручная кладь
-		if ( pr_unaccomp || Qry.FieldAsInteger( "main_pax_id" ) == Qry.FieldAsInteger( "pax_id" ) ) {
+		if ( pr_unaccomp ||
+         !Qry.FieldIsNULL( "bag_pool_pax_id" ) && !Qry.FieldIsNULL( "bag_pool_num" ) &&
+         Qry.FieldAsInteger( "bag_pool_pax_id" ) == Qry.FieldAsInteger( "pax_id" ) ) {
 		  BagQry.SetVariable( "grp_id", Qry.FieldAsInteger( "grp_id" ) );
+      if (pr_unaccomp)
+        BagQry.SetVariable( "bag_pool_num", 1 );
+      else
+        BagQry.SetVariable( "bag_pool_num", Qry.FieldAsInteger( "bag_pool_num" ) );
 		  BagQry.SetVariable( "pr_cabin", 1 );
 		  BagQry.Execute();
 
@@ -775,7 +736,7 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 		  // багаж
 		  BagQry.SetVariable( "pr_cabin", 0 );
 		  BagQry.Execute();
-		  int prior_idx = -1, prior_bag_num = -1;
+		  int prior_bag_num = -1;
 		  while ( !BagQry.Eof ) {
 		  	ostringstream record_bag;
 		  	record_bag<<setfill(' ')<<std::fixed;
@@ -783,12 +744,10 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 		  	record_bag<<setw(2)<<code<<setw(20)<<type_name.substr(0,20);
 		  	record_bag<<setw(10)<<setprecision(0)<<BagQry.FieldAsFloat( "no" );
 		  	record_bag<<setw(2)<<string(BagQry.FieldAsString( "color" )).substr(0,2);
-		  	if ( prior_idx == BagQry.FieldAsInteger( "pr_idx" ) &&
-		  		   prior_bag_num == BagQry.FieldAsInteger( "bag_num" ) )
+		  	if ( prior_bag_num == BagQry.FieldAsInteger( "bag_num" ) )
 		  		record_bag<<setw(4)<<0;
 		  	else
 		  		record_bag<<setw(4)<<BagQry.FieldAsInteger( "weight" );
-		  	prior_idx = BagQry.FieldAsInteger( "pr_idx" );
 		  	prior_bag_num = BagQry.FieldAsInteger( "bag_num" );
 	  		STRAO.pax_id = Qry.FieldAsInteger( "pax_id" );
 	  		STRAO.num = BagQry.FieldAsInteger( "bag_num" );

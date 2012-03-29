@@ -54,6 +54,7 @@ astra_SOURCES = \
   locale.cc \
   maindcs.cc \
   obrnosir.cc \
+  passenger.cc \
   payment.cc \
   prepreg.cc \
   print.cc \
@@ -140,6 +141,7 @@ noinst_HEADERS = \
   images.h \
   maindcs.h \
   obrnosir.h \
+  passenger.h \
   payment.h \
   prepreg.h \
   print.h \

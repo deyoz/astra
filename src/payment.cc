@@ -91,7 +91,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   {
     Qry.Clear();
     Qry.SQLText=
-      "SELECT receipt_id,annul_date,point_id,grp_id,ckin.get_main_pax_id(grp_id) AS pax_id "
+      "SELECT receipt_id,annul_date,point_id,grp_id,ckin.get_main_pax_id2(grp_id) AS pax_id "
       "FROM bag_receipts WHERE no=:no";
     Qry.CreateVariable("no",otFloat,NodeAsFloat("receipt_no",reqNode));
     Qry.Execute();
@@ -134,7 +134,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   {
     Qry.Clear();
     Qry.SQLText=
-      "SELECT grp_id,ckin.get_main_pax_id(grp_id) AS pax_id "
+      "SELECT grp_id,ckin.get_main_pax_id2(grp_id) AS pax_id "
       "FROM pax_grp "
       "WHERE grp_id=:grp_id";
     Qry.CreateVariable("grp_id",otInteger,NodeAsInteger("grp_id",reqNode));
@@ -1069,8 +1069,7 @@ void PaymentInterface::GetReceiptFromXML(xmlNodePtr reqNode, TBagReceipt &rcpt)
 
   Qry.Clear();
   Qry.SQLText=
-    "SELECT ckin.get_main_pax_id(pax_grp.grp_id) AS pax_id, "
-    "       point_dep, point_arv, pr_mark_norms, "
+    "SELECT point_dep, point_arv, pr_mark_norms, "
     "       mark_trips.airline AS airline_mark, "
     "       mark_trips.flt_no AS flt_no_mark, "
     "       mark_trips.suffix AS suffix_mark "

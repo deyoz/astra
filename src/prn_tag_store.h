@@ -286,24 +286,20 @@ class TPrnTagStore {
             bool pr_smoke;
             int seats;
             std::string pers_type;
+            int bag_amount, bag_weight;
             std::string tags;
             TPaxInfo():
                 pax_id(ASTRA::NoExists),
                 coupon_no(ASTRA::NoExists),
                 reg_no(ASTRA::NoExists),
                 pr_smoke(false),
-                seats(ASTRA::NoExists)
+                seats(ASTRA::NoExists),
+                bag_amount(ASTRA::NoExists),
+                bag_weight(ASTRA::NoExists)
             {};
             void Init(int apax_id, TTagLang &tag_lang);
         };
         TPaxInfo paxInfo;
-
-        struct TBagInfo {
-            int bag_amount, bag_weight;
-            TBagInfo(): bag_amount(ASTRA::NoExists), bag_weight(ASTRA::NoExists) {};
-            void Init(int grp_id);
-        };
-        TBagInfo bagInfo;
 
         struct TBrdInfo {
             BASIC::TDateTime brd_from, brd_to;

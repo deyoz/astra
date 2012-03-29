@@ -1514,7 +1514,7 @@ bool createCheckinDataFiles( int point_id, const std::string &point_addr, TFileD
     "FROM pax_grp, bag2 "
     " WHERE pax_grp.point_dep = :point_id AND "
     "       pax_grp.grp_id = bag2.grp_id AND "
-    "       pax_grp.bag_refuse = 0 "
+    "       ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 "
     " GROUP BY pax_grp.point_arv ";
   BagQry.CreateVariable( "point_id", otInteger, point_id );
   tst();

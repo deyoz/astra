@@ -1,6 +1,9 @@
 #ifndef _EVENTS_H_
 #define _EVENTS_H_
 #include "astra_consts.h"
+#include "passenger.h"
+#include "baggage.h"
+#include "astra_misc.h"
 
 #include <sstream>
 #include <libxml/tree.h>
@@ -19,7 +22,7 @@ public:
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 };
 
-class TBagToLogPaxInfoKey
+class TPaxToLogInfoKey
 {
   public:
     int pax_id, reg_no;
@@ -28,84 +31,70 @@ class TBagToLogPaxInfoKey
       pax_id=ASTRA::NoExists;
       reg_no=ASTRA::NoExists;
     };
-    bool operator < (const TBagToLogPaxInfoKey &item) const
+    bool operator < (const TPaxToLogInfoKey &item) const
     {
       if (reg_no!=item.reg_no)
         return reg_no<item.reg_no;
       return pax_id<item.pax_id;
     };
-    bool operator == (const TBagToLogPaxInfoKey &item) const
+    bool operator == (const TPaxToLogInfoKey &item) const
     {
       return reg_no == item.reg_no &&
              pax_id == item.pax_id;
     };
-    TBagToLogPaxInfoKey()
+    TPaxToLogInfoKey()
     {
       clear();
     };
 };
 
-class TBagToLogPaxInfo
+class TPaxToLogInfo
 {
   public:
-    std::string surname, name, pers_type, refuse;
+    std::string airp_arv, cl, status;
+    bool pr_mark_norms;
+    std::string surname, name, pers_type, refuse, subcl, seat_no;
+    bool pr_brd, pr_exam;
+    CheckIn::TPaxTknItem tkn;
+    CheckIn::TPaxDocItem doc;
+    CheckIn::TPaxDocoItem doco;
     int bag_amount, bag_weight, rk_amount, rk_weight;
     std::string tags;
+    std::map< int/*bag_type*/, CheckIn::TNormItem> norms;
+    TPaxToLogInfo()
+    {
+      clear();
+    };
     void clear()
     {
+      airp_arv.clear();
+      cl.clear();
+      status.clear();
+      pr_mark_norms=false;
+      surname.clear();
+      name.clear();
+      pers_type.clear();
       refuse.clear();
+      subcl.clear();
+      seat_no.clear();
+      pr_brd=false;
+      pr_exam=false;
+      tkn.clear();
+      doc.clear();
+      doco.clear();
       bag_amount=0;
       bag_weight=0;
       rk_amount=0;
       rk_weight=0;
       tags.clear();
+      norms.clear();
     };
-    bool operator == (const TBagToLogPaxInfo &item) const
-    {
-      return refuse == item.refuse &&
-             bag_amount == item.bag_amount &&
-             bag_weight == item.bag_weight &&
-             rk_amount == item.rk_amount &&
-             rk_weight == item.rk_weight &&
-             tags == item.tags;
-    };
-    TBagToLogPaxInfo()
-    {
-      clear();
-    };
-    std::string getBagStr() const
-    {
-      std::ostringstream msg;
-      if (bag_amount!=0 || bag_weight!=0)
-      {
-        if (!msg.str().empty()) msg << ", ";
-        msg << "багаж " << bag_amount << "/" << bag_weight;
-      };
-      if (rk_amount!=0 || rk_weight!=0)
-      {
-        if (!msg.str().empty()) msg << ", ";
-        msg << "р/кладь " << rk_amount << "/" << rk_weight;
-      };
-      if (!tags.empty())
-      {
-        if (!msg.str().empty()) msg << ", ";
-        msg << "бирки " << tags;
-      };
-      return msg.str();
-    };
-    std::string getPaxStr() const
-    {
-      std::ostringstream msg;
-      if (pers_type.empty())
-        msg << "Багаж без сопровождения";
-      else
-        msg << "Пассажир " << surname << (name.empty()?"":" ") << name
-                           << " (" << pers_type << ")";
-      return msg.str();
-    };
+    std::string getBagStr() const;
+    std::string getPaxNameStr() const;
+    std::string getNormStr() const;
 };
 
-class TBagToLogPaidInfo
+class TPaidToLogInfo
 {
   public:
     int bag_type, bag_amount, bag_weight, paid_weight;
@@ -116,25 +105,25 @@ class TBagToLogPaidInfo
       bag_weight=0;
       paid_weight=0;
     };
-    bool operator == (const TBagToLogPaidInfo &item) const
+    bool operator == (const TPaidToLogInfo &item) const
     {
       return bag_type == item.bag_type &&
              bag_amount== item.bag_amount &&
              bag_weight== item.bag_weight &&
              paid_weight== item.paid_weight;
     };
-    TBagToLogPaidInfo()
+    TPaidToLogInfo()
     {
       clear();
     };
 };
 
-class TBagToLogGrpInfo
+class TGrpToLogInfo
 {
   public:
     int grp_id, excess;
-    std::map< TBagToLogPaxInfoKey, TBagToLogPaxInfo> pax;
-    std::map< int/*bag_type*/, TBagToLogPaidInfo> paid;
+    std::map< TPaxToLogInfoKey, TPaxToLogInfo> pax;
+    std::map< int/*bag_type*/, TPaidToLogInfo> paid;
     void clear()
     {
       grp_id=ASTRA::NoExists;
@@ -142,22 +131,18 @@ class TBagToLogGrpInfo
       pax.clear();
       paid.clear();
     };
-    bool operator == (const TBagToLogGrpInfo &item) const
-    {
-      return grp_id == item.grp_id &&
-             excess == item.excess &&
-             pax == item.pax &&
-             paid == item.paid;
-    };
-    TBagToLogGrpInfo()
+    TGrpToLogInfo()
     {
       clear();
     };
 };
 
-void GetBagToLogInfo(int grp_id, TBagToLogGrpInfo &grpInfo);
-void SaveBagToLog(int point_id, const TBagToLogGrpInfo &grpInfoBefore,
-                                const TBagToLogGrpInfo &grpInfoAfter);
+void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo);
+void SaveGrpToLog(int point_id,
+                  const TTripInfo &operFlt,
+                  const TTripInfo &markFlt,
+                  const TGrpToLogInfo &grpInfoBefore,
+                  const TGrpToLogInfo &grpInfoAfter);
 
 
 #endif

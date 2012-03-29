@@ -496,12 +496,12 @@ void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
         "    coupon_no, "
         "    pax.tid, "
         "    ckin.get_remarks(pax.pax_id,', ',0) AS remarks, "
-        "    NVL(ckin.get_bagAmount2(pax_grp.grp_id,NULL,NULL,rownum),0) AS bag_amount, "
-        "    NVL(ckin.get_bagWeight2(pax_grp.grp_id,NULL,NULL,rownum),0) AS bag_weight, "
-        "    NVL(ckin.get_rkAmount2(pax_grp.grp_id,NULL,NULL,rownum),0) AS rk_amount, "
-        "    NVL(ckin.get_rkWeight2(pax_grp.grp_id,NULL,NULL,rownum),0) AS rk_weight, "
-        "    NVL(pax_grp.excess,0) AS excess, "
-        "    ckin.get_birks2(pax_grp.grp_id,NULL,NULL,:lang) AS tags, "
+        "    NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS bag_amount, "
+        "    NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS bag_weight, "
+        "    NVL(ckin.get_rkAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS rk_amount, "
+        "    NVL(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS rk_weight, "
+        "    DECODE(pax_grp.bag_refuse,0,pax_grp.excess,0) AS excess, "
+        "    ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags, "
         "    client_type ";
     if(rpt_type == rtUnknown)
         sql << ", tckin_id, seg_no ";

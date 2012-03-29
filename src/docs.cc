@@ -1092,19 +1092,22 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
         NewTextChild(rowNode, "bag_weight", Qry.FieldAsInteger("bag_weight"));
         NewTextChild(rowNode, "excess", Qry.FieldAsInteger("excess"));
-        string pers_type = Qry.FieldAsString("pers_type");
-        if(pers_type == "Çá")
-            NewTextChild(rowNode, "pers_type", "ADL");
-        else if(pers_type == "êÅ")
-            NewTextChild(rowNode, "pers_type", "CHD");
-        else if(pers_type == "êå")
-            NewTextChild(rowNode, "pers_type", "INF");
-        else
-            throw Exception("RunPM: unknown pers_type " + pers_type);
-        NewTextChild(rowNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
-        NewTextChild(rowNode, "bag_weight", Qry.FieldAsInteger("bag_weight"));
-        NewTextChild(rowNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
-        NewTextChild(rowNode, "excess", Qry.FieldAsInteger("excess"));
+        {
+            TPerson pers_type = DecodePerson(Qry.FieldAsString("pers_type"));
+            switch(pers_type) {
+                case adult:
+                    NewTextChild(rowNode, "pers_type", "ADL");
+                    break;
+                case child:
+                    NewTextChild(rowNode, "pers_type", "CHD");
+                    break;
+                case baby:
+                    NewTextChild(rowNode, "pers_type", "INF");
+                    break;
+                default:
+                    throw Exception("DecodePerson failed");
+            }
+        }
         NewTextChild(rowNode, "tags", Qry.FieldAsString("tags"));
         NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
         NewTextChild(rowNode, "remarks", Qry.FieldAsString("remarks"));
@@ -2215,7 +2218,6 @@ void NOTPRES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "       pax.pers_type, "
         "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'_seats',rownum) AS seat_no, "
         "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bagAmount, "
-        "       ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bagWeight, "
         "       ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags "
         "FROM   pax_grp,pax "
         "WHERE  pax_grp.grp_id=pax.grp_id AND "
@@ -2249,7 +2251,6 @@ void NOTPRES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, Qry.FieldAsString("pers_type"), efmtCodeNative));
         NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
         NewTextChild(rowNode, "bagamount", Qry.FieldAsInteger("bagamount"));
-        NewTextChild(rowNode, "bagweight", Qry.FieldAsInteger("bagweight"));
         NewTextChild(rowNode, "tags", Qry.FieldAsString("tags"));
 
         Qry.Next();

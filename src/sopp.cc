@@ -2000,7 +2000,7 @@ void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
 struct TSegBSMInfo
 {
   map<bool/*pr_lat*/,string> BSMaddrs;
-  map<int/*grp_id*/,TBSMContent> BSMContentBefore;
+  map<int/*grp_id*/,BSM::TTlgContent> BSMContentBefore;
 };
 
 void DeletePaxGrp( const TTypeBSendInfo &sendInfo, int grp_id, bool toLog,
@@ -2044,14 +2044,14 @@ void DeletePaxGrp( const TTypeBSendInfo &sendInfo, int grp_id, bool toLog,
   //набираем вектор BSMsegs
   if (BSMsegs.find(sendInfo.point_id)==BSMsegs.end())
   {
-    TelegramInterface::IsBSMSend(sendInfo,BSMsegs[sendInfo.point_id].BSMaddrs);
+    BSM::IsSend(sendInfo,BSMsegs[sendInfo.point_id].BSMaddrs);
   };
   
   TSegBSMInfo &BSMseg=BSMsegs[sendInfo.point_id];
   if (!BSMseg.BSMaddrs.empty())
   {
-    TBSMContent BSMContent;
-    TelegramInterface::LoadBSMContent(grp_id,BSMContent);
+    BSM::TTlgContent BSMContent;
+    BSM::LoadContent(grp_id,BSMContent);
     BSMseg.BSMContentBefore[grp_id]=BSMContent;
   };
   //AODB
@@ -2255,10 +2255,10 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
                                                        s!=BSMsegs.end(); ++s)
   {
     if (s->second.BSMaddrs.empty()) continue; //для сегмента не заданы адреса отправки
-    for(map<int/*grp_id*/,TBSMContent>::const_iterator i=s->second.BSMContentBefore.begin();
-                                                       i!=s->second.BSMContentBefore.end(); ++i)
+    for(map<int/*grp_id*/,BSM::TTlgContent>::const_iterator i=s->second.BSMContentBefore.begin();
+                                                            i!=s->second.BSMContentBefore.end(); ++i)
     {
-      TelegramInterface::SendBSM(s->first,i->first,i->second,s->second.BSMaddrs);
+      BSM::Send(s->first,i->first,i->second,s->second.BSMaddrs);
     };
   };
 }
@@ -2571,6 +2571,18 @@ void GetLuggage( int point_id, Luggage &lug, bool pr_brd )
     paxload.rk_weight = Qry.FieldAsInteger( "rk_weight" );
     paxload.excess = Qry.FieldAsInteger( "excess" );
     lug.vpaxload.push_back( paxload );
+    ProgTrace(TRACE5, "GetLuggage: point_arv=%d cl=%s seatsadult=%d seatschild=%d seatsbaby=%d adult=%d child=%d baby=%d bag_weight=%d rk_weight=%d excess=%d",
+                      paxload.point_arv,
+                      paxload.cl.c_str(),
+                      paxload.seatsadult,
+                      paxload.seatschild,
+                      paxload.seatsbaby,
+                      paxload.adult,
+                      paxload.child,
+                      paxload.baby,
+                      paxload.bag_weight,
+                      paxload.rk_weight,
+                      paxload.excess);
   };
 
   Qry.Clear();
