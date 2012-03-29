@@ -2362,17 +2362,21 @@ void SoppInterface::WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     	  string tolog;
     	  string name;
     	  bool pr_main;
+	      vector<string> terms;
       	while ( stnode ) {
       		name = NodeAsString( stnode );
-      		Qry.SetVariable( "name", name );
-      		pr_main = GetNode( "pr_main", stnode );
-      		Qry.SetVariable( "pr_main", pr_main );
-      		Qry.Execute();
-      		if ( !tolog.empty() )
-      				tolog += ", ";
-      			tolog += name;
-      		if ( pr_main )
-      			tolog += " (главная)";
+          if ( find( terms.begin(), terms.end(), name ) == terms.end() ) {
+            terms.push_back( name );
+      		  Qry.SetVariable( "name", name );
+      	  	pr_main = GetNode( "pr_main", stnode );
+        		Qry.SetVariable( "pr_main", pr_main );
+        		Qry.Execute();
+        		if ( !tolog.empty() )
+        				tolog += ", ";
+        			tolog += name;
+        		if ( pr_main )
+        			tolog += " (главная)";
+          }
     		  stnode = stnode->next;
       	}
       	if ( work_mode == "Р" ) {
