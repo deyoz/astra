@@ -2940,14 +2940,14 @@ void getXYName( int point_id, std::string seat_no, std::string &xname, std::stri
 	}
 }
 
-void ParseCompSections( xmlNodePtr sectionsNode, std::vector<TCompSections> &CompSections )
+void ParseCompSections( xmlNodePtr sectionsNode, std::vector<TCompSection> &CompSections )
 {
   CompSections.clear();
   if ( !sectionsNode )
     return;
   sectionsNode = sectionsNode->children;
   while ( sectionsNode && string((char*)sectionsNode->name) == "section" ) {
-    TCompSections cs;
+    TCompSection cs;
     cs.name = NodeAsString( sectionsNode );
     cs.firstRowIdx = NodeAsInteger( "@FirstRowIdx", sectionsNode );
     cs.lastRowIdx = NodeAsInteger( "@LastRowIdx", sectionsNode );
@@ -2957,9 +2957,12 @@ void ParseCompSections( xmlNodePtr sectionsNode, std::vector<TCompSections> &Com
   ProgTrace( TRACE5, "CompSections.size()=%d", CompSections.size() );
 }
 
-void getLayerPlacesCompSection( SALONS2::TSalons &NSalons, TCompSections &compSection,
-                                bool only_high_layer, map<ASTRA::TCompLayerType, int> &uselayers_count )
+void getLayerPlacesCompSection( SALONS2::TSalons &NSalons, TCompSection &compSection,
+                                bool only_high_layer,
+                                map<ASTRA::TCompLayerType, int> &uselayers_count,
+                                int &seats_count )
 {
+  seats_count = 0;
   for ( map<ASTRA::TCompLayerType, int>::iterator il=uselayers_count.begin(); il!=uselayers_count.end(); il++ ) {
     uselayers_count[ il->first ] = 0;
   }
@@ -2971,6 +2974,7 @@ void getLayerPlacesCompSection( SALONS2::TSalons &NSalons, TCompSections &compSe
          TPlace *p = (*si)->place( (*si)->GetPlaceIndex( x, y ) );
          if ( !p->isplace || !p->visible )
            continue;
+         seats_count++;
          for ( map<ASTRA::TCompLayerType, int>::iterator il=uselayers_count.begin(); il!=uselayers_count.end(); il++ ) {
            if ( only_high_layer && !p->layers.empty() && p->layers.begin()->layer_type == il->first || // !!!вверху самый приоритетный слой
                 !only_high_layer && p->isLayer( il->first ) ) {

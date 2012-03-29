@@ -50,7 +50,6 @@ astra_SOURCES = \
   etick_change_status.cpp \
   etick.cc \
   events.cc \
-  flight_cent_dbf.cc \
   images.cc \
   locale.cc \
   maindcs.cc \
@@ -138,7 +137,6 @@ noinst_HEADERS = \
   etick_change_status.h \
   etick.h \
   events.h \
-  flight_cent_dbf.h \
   images.h \
   maindcs.h \
   obrnosir.h \

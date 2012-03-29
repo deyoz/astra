@@ -829,16 +829,6 @@ void CloseCheckIn( int point_id )
   {
     ProgError(STDLOG,"CloseCheckIn.SendTlg (point_id=%d): %s",point_id,E.what());
   };
-
-  try
-  {
-    CreateCentringFileDATA( point_id );
-  }
-  catch(std::exception &E)
-  {
-    ProgError(STDLOG,"CloseCheckIn.CreateCentringFileDATA (point_id=%d): %s",point_id,E.what());
-  };
-
 };
 
 void CloseBoarding( int point_id )
@@ -853,15 +843,6 @@ void CloseBoarding( int point_id )
   catch(std::exception &E)
   {
     ProgError(STDLOG,"CloseBoarding.SendTlg (point_id=%d): %s",point_id,E.what());
-  };
-
-  try
-  {
-    CreateCentringFileDATA( point_id );
-  }
-  catch(std::exception &E)
-  {
-    ProgError(STDLOG,"CloseBoarding.CreateCentringFileDATA (point_id=%d): %s",point_id,E.what());
   };
 };
 
