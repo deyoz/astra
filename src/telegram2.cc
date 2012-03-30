@@ -1969,6 +1969,7 @@ struct TPPax {
             ProgTrace(TRACE5, "name: %s", name.c_str());
             ProgTrace(TRACE5, "surname: %s", surname.c_str());
             ProgTrace(TRACE5, "grp_id: %d", grp_id);
+            ProgTrace(TRACE5, "bag_pool_num: %d", bag_pool_num);
             ProgTrace(TRACE5, "pax_id: %d", pax_id);
             ProgTrace(TRACE5, "trfer_cls: %s", trfer_cls.c_str());
             ProgTrace(TRACE5, "----------");
@@ -2043,15 +2044,15 @@ struct TBTMGrpListItem {
 
 struct TBTMGrpList {
     vector<TBTMGrpListItem> items;
-    TBTMGrpListItem &get_grp_item(int grp_id)
+    TBTMGrpListItem &get_grp_item(int grp_id, int bag_pool_num)
     {
         vector<TBTMGrpListItem>::iterator iv = items.begin();
         for(; iv != items.end(); iv++) {
-            if(iv->grp_id == grp_id)
+            if(iv->grp_id == grp_id and iv->bag_pool_num == bag_pool_num)
                 break;
         }
         if(iv == items.end())
-            throw Exception("TBTMGrpList::get_grp_item: item not found, grp_id %d", grp_id);
+            throw Exception("TBTMGrpList::get_grp_item: item not found, grp_id %d, bag_pool_num %d", grp_id, bag_pool_num);
         return *iv;
     }
     void get(TTlgInfo &info, TFItem &AFItem);
@@ -2060,9 +2061,9 @@ struct TBTMGrpList {
     void dump() {
         ProgTrace(TRACE5, "TBTMGrpList::dump");
         for(vector<TBTMGrpListItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
-            ProgTrace(TRACE5, "SURNAMES FOR GRP_ID %d", iv->grp_id);
+            ProgTrace(TRACE5, "SURNAMES FOR GRP_ID %d, BAG_POOL_NUM %d", iv->grp_id, iv->bag_pool_num);
             iv->PList.dump_surnames();
-            ProgTrace(TRACE5, "END OF SURNAMES FOR GRP_ID %d", iv->grp_id);
+            ProgTrace(TRACE5, "END OF SURNAMES FOR GRP_ID %d, BAG_POOL_NUM %d", iv->grp_id, iv->bag_pool_num);
         }
         ProgTrace(TRACE5, "END OF TBTMGrpList::dump");
     }
@@ -2070,7 +2071,7 @@ struct TBTMGrpList {
 
 // Представление списка полей .P/ как он будет в телеграмме.
 // причем список этот будет представлять отдельную группу пассажиров
-// объединенную по grp_id
+// объединенную по grp_id и bag_pool_num
 struct TPLine {
     bool include_exst;
     bool print_bag;
@@ -2079,6 +2080,7 @@ struct TPLine {
     size_t inf;
     size_t chd;
     int grp_id;
+    int bag_pool_num; //!!!
     string surname;
     vector<string> names;
 
@@ -2089,7 +2091,8 @@ struct TPLine {
         seats(0),
         inf(0),
         chd(0),
-        grp_id(NoExists)
+        grp_id(NoExists),
+        bag_pool_num(NoExists)
     {};
     size_t get_line_size() {
         return get_line().size() + br.size();
@@ -2125,7 +2128,7 @@ struct TPLine {
             << " ";
         if(print_bag)
             result
-                << FItem.get_grp_list()->get_grp_item(grp_id).W.bagAmount;
+                << FItem.get_grp_list()->get_grp_item(grp_id, bag_pool_num).W.bagAmount;
         else
             result
                 << 0;
@@ -2143,8 +2146,9 @@ struct TPLine {
     {
         if(grp_id == NoExists) {
             grp_id = pax.grp_id;
+            bag_pool_num = pax.bag_pool_num;
         } else {
-            if(grp_id != pax.grp_id)
+            if(grp_id != pax.grp_id and bag_pool_num != pax.grp_id)
                 throw Exception("TPLine operator +=: cannot add pax with different grp_id");
         }
         seats += pax.seats;
@@ -2416,6 +2420,7 @@ void TPList::get(TTlgInfo &info, string trfer_cls)
     if(Qry.Eof) {
         TPPax item;
         item.grp_id = grp->grp_id;
+        item.bag_pool_num = grp->bag_pool_num;
         item.seats = 1;
         item.surname = "UNACCOMPANIED";
         item.unaccomp = true;
@@ -2687,6 +2692,9 @@ void TFList<T>::ToTlg(TTlgInfo &info, vector<string> &body)
     for(size_t i = 0; i < items.size(); i++) {
         vector<string> grp_list_body;
         items[i].grp_list.ToTlg(info, grp_list_body, items[i]);
+        ProgTrace(TRACE5, "AFTER grp_list.ToTlg");
+        for(vector<string>::iterator iv = grp_list_body.begin(); iv != grp_list_body.end(); iv++)
+            ProgTrace(TRACE5, "%s", iv->c_str());
         // все типы телеграмм кроме PTMN проверяют grp_list_body.
         // для PTMN он всегда пустой.
         if(info.tlg_type != "PTMN" and grp_list_body.empty())
