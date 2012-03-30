@@ -50,7 +50,6 @@ bool errorFile( int id, std::string err, std::string msg );
 bool sendFile( int id );
 bool doneFile( int id );
 
-void CreateCentringFileDATA( int point_id );
 void createSofiFileDATA( int receipt_id );
 void createAODBFileDATA( int point_id );
 void sync_aodb( void );
