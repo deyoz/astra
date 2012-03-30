@@ -82,8 +82,6 @@ public:
      AddEvent("saveFileData",evHandle);
      evHandle=JxtHandler<AstraServiceInterface>::CreateHandler(&AstraServiceInterface::errorFileData);
      AddEvent("errorFileData",evHandle);
-     evHandle=JxtHandler<AstraServiceInterface>::CreateHandler(&AstraServiceInterface::createFileData);
-     AddEvent("createFileData",evHandle);
      evHandle=JxtHandler<AstraServiceInterface>::CreateHandler(&AstraServiceInterface::viewFileData);
      AddEvent("viewFileData",evHandle);
      evHandle=JxtHandler<AstraServiceInterface>::CreateHandler(&AstraServiceInterface::getFileParams);

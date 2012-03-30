@@ -10,7 +10,6 @@
 #include "basic.h"
 #include "stl_utils.h"
 #include "develop_dbf.h"
-#include "flight_cent_dbf.h"
 #include "sofi.h"
 #include "aodb.h"
 #include "spp_cek.h"
@@ -934,17 +933,6 @@ void AstraServiceInterface::errorFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqN
   }
 }
 
-void AstraServiceInterface::createFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
-{
-/*	int point_id = NodeAsInteger( "point_id", reqNode );
-	string client_canon_name = NodeAsString( "canon_name", reqNode );
-	ProgTrace( TRACE5, "createFileData point_id=%d, client_canon_name=%s", point_id, client_canon_name.c_str() );
-	map<string,string> params;
-	params[ PARAM_WORK_DIR ] = "C:\\Temp";
-	string data;
-	createCentringFile( point_id, params, data );*/
-}
-
 string getFileEncoding( const string &file_type, const string &point_addr, bool pr_send )
 {
 	string res;
@@ -1026,7 +1014,6 @@ bool CreateCommonFileData( bool pr_commit,
             TFileData fd;
             try {
                 if (
-                        type == FILE_CENT_TYPE && createCentringFile( id, client_canon_name, fds ) ||
                         type == FILE_SOFI_TYPE && createSofiFile( id, inparams, client_canon_name, fds ) ||
                         type == FILE_AODB_OUT_TYPE && createAODBFiles( id, client_canon_name, fds ) ||
                         type == FILE_SPPCEK_TYPE && createSPPCEKFile( id, client_canon_name, fds ) ||
@@ -1118,23 +1105,6 @@ bool CreateCommonFileData( bool pr_commit,
         Qry.Next();
     }
   return res;
-}
-
-void CreateCentringFileDATA( int point_id )
-{
-/*	TQuery Qry( &OraSession );
-	Qry.SQLText = "SELECT airp, airline, flt_no FROM points WHERE point_id=:point_id";
-	Qry.CreateVariable( "point_id", otInteger, point_id );
-	Qry.Execute();
-	if ( !Qry.Eof )
-		CreateCommonFileData( point_id, FILE_CENT_TYPE, Qry.FieldAsString( "airp" ),
-		                      Qry.FieldAsString( "airline" ), Qry.FieldAsString( "flt_no" ) );*/
-	//client_canon_name = "CENTST";
-	//createCentringFile( point_id, OWN_POINT_ADDR(), string( "ASWFMG" ) );
-	//createCentringFile( point_id, OWN_POINT_ADDR(), string( "GABFMG" ) );
-	//createCentringFile( point_id, OWN_POINT_ADDR(), string( "UT_FMG" ) );
-	//createCentringFile( point_id, OWN_POINT_ADDR(), string( "TJMFMG" ) );
-	//createCentringFile( point_id, OWN_POINT_ADDR(), string( "SGCFMG" ) );
 }
 
 void createSofiFileDATA( int receipt_id )

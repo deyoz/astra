@@ -71,6 +71,9 @@ class BitSet
     }
     return true;
   }
+  void operator = (const BitSet &bs) {
+    flags = bs.flags;
+  }
 };
 
 class TAccess {
