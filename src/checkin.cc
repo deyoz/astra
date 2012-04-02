@@ -3517,7 +3517,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
           "                      point_id_mark,pr_mark_norms,tid) "
           "  VALUES(:grp_id,:point_dep,:point_arv,:airp_dep,:airp_arv,:class, "
           "         :status,:excess,:hall,0,:trfer_confirm,:user_id,:client_type, "
-          "         :point_id_mark,:pr_mark_norms,tid__seq.nextval); "
+          "         :point_id_mark,:pr_mark_norms,cycle_tid__seq.nextval); "
           "  IF :seg_no IS NOT NULL THEN "
           "    IF :seg_no=1 THEN :tckin_id:=:grp_id; END IF; "
           "    INSERT INTO tckin_pax_grp(tckin_id,seg_no,grp_id,pr_depend) "
@@ -3616,7 +3616,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
             "                  pr_exam,subclass,bag_pool_num,tid) "
             "  VALUES(:pax_id,pax_grp__seq.currval,:surname,:name,:pers_type,:seat_type,:seats,:pr_brd, "
             "         :wl_type,NULL,:reg_no,:ticket_no,:coupon_no,:ticket_rem,:ticket_confirm, "
-            "         :pr_exam,:subclass,:bag_pool_num,tid__seq.currval); "
+            "         :pr_exam,:subclass,:bag_pool_num,cycle_tid__seq.currval); "
             "END;";
           Qry.DeclareVariable("pax_id",otInteger);
           Qry.DeclareVariable("surname",otString);
@@ -3937,7 +3937,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
           "SET excess=:excess, "
           "    bag_refuse=NVL(:bag_refuse,bag_refuse), "
           "    trfer_confirm=NVL(:trfer_confirm,trfer_confirm), "
-          "    tid=tid__seq.nextval "
+          "    tid=cycle_tid__seq.nextval "
           "WHERE grp_id=:grp_id AND tid=:tid";
         Qry.CreateVariable("grp_id",otInteger,grp_id);
         Qry.CreateVariable("tid",otInteger,NodeAsInteger("tid",segNode));
@@ -4002,7 +4002,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                          "    bag_pool_num=:bag_pool_num, "
                          "    pr_brd=DECODE(:refuse,NULL,pr_brd,NULL), "
                          "    pr_exam=DECODE(:refuse,NULL,pr_exam,0), "
-                         "    tid=tid__seq.currval "
+                         "    tid=cycle_tid__seq.currval "
                          "WHERE pax_id=:pax_id AND tid=:tid";
           PaxQry.DeclareVariable("pax_id",otInteger);
           PaxQry.DeclareVariable("tid",otInteger);
@@ -4170,7 +4170,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                 else
                 {
                   Qry.Clear();
-                  Qry.SQLText="UPDATE pax SET tid=tid__seq.currval WHERE pax_id=:pax_id AND tid=:tid";
+                  Qry.SQLText="UPDATE pax SET tid=cycle_tid__seq.currval WHERE pax_id=:pax_id AND tid=:tid";
                   Qry.CreateVariable("pax_id",otInteger,pax_id);
                   Qry.CreateVariable("tid",otInteger,NodeAsIntegerFast("tid",node2));
                   Qry.Execute();
@@ -4299,7 +4299,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
             "  END IF; "
             "  UPDATE pax "
             "  SET bag_pool_num=DECODE(pax_id,new_main_pax_id,1,NULL), "
-            "      tid=DECODE(bag_pool_num,DECODE(pax_id,new_main_pax_id,1,NULL),tid,tid__seq.currval) "
+            "      tid=DECODE(bag_pool_num,DECODE(pax_id,new_main_pax_id,1,NULL),tid,cycle_tid__seq.currval) "
             "  WHERE grp_id=:grp_id; "
             "END;";
           Qry.CreateVariable("grp_id",otInteger,grp_id);
@@ -4377,7 +4377,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
           Qry.SQLText=
             "BEGIN "
             "  IF :pax_id IS NOT NULL THEN "
-            "    UPDATE pax SET ticket_confirm=1,tid=tid__seq.currval "
+            "    UPDATE pax SET ticket_confirm=1,tid=cycle_tid__seq.currval "
             "    WHERE pax_id=:pax_id AND "
             "          ticket_rem=:ticket_rem AND ticket_no=:ticket_no AND coupon_no=:coupon_no "
             "    RETURNING grp_id,reg_no INTO :grp_id,:reg_no; "

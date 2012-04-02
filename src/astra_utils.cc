@@ -1091,6 +1091,13 @@ const bool USE_SEANCES()
   return VAR!=0;
 };
 
+const int ARX_TRIP_DATE_RANGE()
+{
+  static int VAR=NoExists;
+  if (VAR==NoExists)
+    VAR=getTCLParam("ARX_TRIP_DATE_RANGE",1,999,1);
+  return VAR;
+};
 
 void showBasicInfo(void)
 {

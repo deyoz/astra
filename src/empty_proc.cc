@@ -134,7 +134,7 @@ int alter_pax_doc(int argc,char **argv)
   if (Qry.Eof || Qry.FieldIsNULL("max_pax_id")) return 0;
   int max_pax_id=Qry.FieldAsInteger("max_pax_id");
   
-  Qry.SQLText="SELECT tid__seq.nextval AS tid FROM dual";
+  Qry.SQLText="SELECT cycle_tid__seq.nextval AS tid FROM dual";
   Qry.Execute();
   int tid=Qry.FieldAsInteger("tid");
   
@@ -225,7 +225,7 @@ int alter_pax_doc(int argc,char **argv)
 int alter_pax_doc2(int argc,char **argv)
 {
   TQuery Qry(&OraSession);
-  Qry.SQLText="SELECT tid__seq.nextval AS tid FROM dual";
+  Qry.SQLText="SELECT cycle_tid__seq.nextval AS tid FROM dual";
   Qry.Execute();
   int tid=Qry.FieldAsInteger("tid");
   
@@ -1101,216 +1101,150 @@ int alter_arx_pax_doco3(int argc,char **argv)
   return 0;
 };
 
-int move_flt_stat(int argc,char **argv)
+class TArxMoveFltExt : public TArxMoveFlt
 {
-  /*
-  CREATE TABLE drop_move_flt_stat
-  (
-    move_id NUMBER(9),
-    scd_min DATE,
-    scd_max DATE,
-    est_min DATE,
-    est_max DATE,
-    act_min DATE,
-    act_max DATE
-  );
-  */
+  public:
+    TArxMoveFltExt(BASIC::TDateTime utc_date);
+    bool GetPartKey(int move_id, BASIC::TDateTime& part_key, double &date_range);
+};
 
-  TDateTime utcdate=NowUTC();
-  
-  TQuery PointsQry(&OraSession);
-  PointsQry.Clear();
-  PointsQry.SQLText =
+TArxMoveFltExt::TArxMoveFltExt(TDateTime utc_date):TArxMoveFlt(utc_date)
+{
+  PointsQry->Clear();
+  PointsQry->SQLText =
     "SELECT act_out,est_out,scd_out,act_in,est_in,scd_in,pr_del "
-    "FROM points "
-    "WHERE move_id=:move_id "
+    "FROM arx_points "
+    "WHERE part_key=:part_key AND move_id=:move_id "
     "ORDER BY point_num";
-  PointsQry.DeclareVariable("move_id",otInteger);
+  PointsQry->DeclareVariable("part_key",otDate);
+  PointsQry->DeclareVariable("move_id",otInteger);
+};
+
+bool TArxMoveFltExt::GetPartKey(int move_id, TDateTime& part_key, double &date_range)
+{
+  PointsQry->SetVariable("part_key",part_key);
+  return TArxMoveFlt::GetPartKey(move_id, part_key, date_range);
+};
+
+int put_move_arx_ext(int argc,char **argv)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText="SELECT MIN(part_key) AS min_part_key FROM arx_points";
+  Qry.Execute();
+  if (Qry.Eof || Qry.FieldIsNULL("min_part_key")) return 0;
+  TDateTime min_part_key=Qry.FieldAsDateTime("min_part_key");
+
+  Qry.SQLText="SELECT MAX(part_key) AS max_part_key FROM arx_points";
+  Qry.Execute();
+  if (Qry.Eof || Qry.FieldIsNULL("max_part_key")) return 0;
+  TDateTime max_part_key=Qry.FieldAsDateTime("max_part_key");
+  
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT DISTINCT part_key, move_id "
+    "FROM arx_points "
+    "WHERE part_key>=:low_part_key AND part_key<:high_part_key";
+  Qry.DeclareVariable("low_part_key", otDate);
+  Qry.DeclareVariable("high_part_key", otDate);
   
   TQuery InsQry(&OraSession);
   InsQry.Clear();
   InsQry.SQLText=
-    "INSERT INTO drop_move_flt_stat(move_id,scd_min,scd_max,est_min,est_max,act_min,act_max) "
-    "VALUES(:move_id,:scd_min,:scd_max,:est_min,:est_max,:act_min,:act_max)";
+    "INSERT INTO move_arx_ext(part_key,move_id,date_range) "
+    "VALUES(:part_key,:move_id,:date_range)";
+  InsQry.DeclareVariable("part_key", otDate);
   InsQry.DeclareVariable("move_id", otInteger);
-  InsQry.DeclareVariable("scd_min", otDate);
-  InsQry.DeclareVariable("scd_max", otDate);
-  InsQry.DeclareVariable("est_min", otDate);
-  InsQry.DeclareVariable("est_max", otDate);
-  InsQry.DeclareVariable("act_min", otDate);
-  InsQry.DeclareVariable("act_max", otDate);
-
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT DISTINCT move_id FROM points "
-    "WHERE time_in > TO_DATE('01.01.0001','DD.MM.YYYY') AND time_in<:arx_date "
-    "UNION "
-    "SELECT DISTINCT move_id FROM points "
-    "WHERE time_out > TO_DATE('01.01.0001','DD.MM.YYYY') AND time_out<:arx_date ";
- /*   "UNION "
-    "SELECT DISTINCT move_id FROM points "
-    "WHERE time_in  = TO_DATE('01.01.0001','DD.MM.YYYY') AND "
-    "      time_out = TO_DATE('01.01.0001','DD.MM.YYYY')";*/
-  Qry.CreateVariable("arx_date",otDate,utcdate-ARX_MAX_DAYS()-5);
-  Qry.Execute();
-  for(;!Qry.Eof;Qry.Next())
-  {
-    PointsQry.SetVariable("move_id",Qry.FieldAsInteger("move_id"));
-    PointsQry.Execute();
-    
-    TDateTime first_date[3]={NoExists, NoExists, NoExists};
-    TDateTime last_date[3]={NoExists, NoExists, NoExists};
-    TDateTime max_time_out[3]={NoExists, NoExists, NoExists};
-    TDateTime min_time_out[3]={NoExists, NoExists, NoExists};
-    TDateTime max_time_in[3]={NoExists, NoExists, NoExists};
-    TDateTime min_time_in[3]={NoExists, NoExists, NoExists};
-    //TDateTime final_act_in=NoExists;
-    //TDateTime max_time=NoExists;
-    bool deleted=true;
-
-    while(!PointsQry.Eof)
-    {
-      if (PointsQry.FieldAsInteger("pr_del")!=-1) deleted=false;
-
-      for(int i=0;i<=2;i++) max_time_out[i]=NoExists;
-      for(int i=0;i<=2;i++) min_time_out[i]=NoExists;
-      for(int i=0;i<=2;i++)
-      {
-        int idx;
-        switch(i)
-        {
-          case 0: idx=PointsQry.FieldIndex("scd_out");
-                  break;
-          case 1: idx=PointsQry.FieldIndex("est_out");
-                  break;
-         default: idx=PointsQry.FieldIndex("act_out");
-                  break;
-        };
-        if (PointsQry.FieldIsNULL(idx)) continue;
-        if (max_time_out[i]==NoExists || max_time_out[i]<PointsQry.FieldAsDateTime(idx))
-          max_time_out[i]=PointsQry.FieldAsDateTime(idx);
-        if (min_time_out[i]==NoExists || min_time_out[i]>PointsQry.FieldAsDateTime(idx))
-          min_time_out[i]=PointsQry.FieldAsDateTime(idx);
-      };
-
-      PointsQry.Next();
-
-      if (PointsQry.Eof) break;
-
-      for(int i=0;i<=2;i++) max_time_in[i]=NoExists;
-      for(int i=0;i<=2;i++) min_time_in[i]=NoExists;
-      for(int i=0;i<=2;i++)
-      {
-        int idx;
-        switch(i)
-        {
-          case 0: idx=PointsQry.FieldIndex("scd_in");
-                  break;
-          case 1: idx=PointsQry.FieldIndex("est_in");
-                  break;
-         default: idx=PointsQry.FieldIndex("act_in");
-                  break;
-        };
-        if (PointsQry.FieldIsNULL(idx)) continue;
-        if (max_time_in[i]==NoExists || max_time_in[i]<PointsQry.FieldAsDateTime(idx))
-          max_time_in[i]=PointsQry.FieldAsDateTime(idx);
-        if (min_time_in[i]==NoExists || min_time_in[i]>PointsQry.FieldAsDateTime(idx))
-          min_time_in[i]=PointsQry.FieldAsDateTime(idx);
-      };
-      /*
-      if (max_time_out!=NoExists &&
-          (max_time==NoExists || max_time<max_time_out))
-        max_time=max_time_out;
-      if (max_time_in!=NoExists &&
-          (max_time==NoExists || max_time<max_time_in))
-        max_time=max_time_in;
-      */
-      if (PointsQry.FieldAsInteger("pr_del")!=-1)
-      {
-        for(int i=0;i<=2;i++)
-        {
-          if (max_time_out[i]!=NoExists &&
-              (last_date[i]==NoExists || last_date[i]<max_time_out[i]))
-            last_date[i]=max_time_out[i];
-          if (max_time_in[i]!=NoExists &&
-              (last_date[i]==NoExists || last_date[i]<max_time_in[i]))
-            last_date[i]=max_time_in[i];
-
-          if (min_time_out[i]!=NoExists &&
-              (first_date[i]==NoExists || first_date[i]>min_time_out[i]))
-            first_date[i]=min_time_out[i];
-          if (min_time_in[i]!=NoExists &&
-              (first_date[i]==NoExists || first_date[i]>min_time_in[i]))
-            first_date[i]=min_time_in[i];
-        };
-
-   /*     if (PointsQry.FieldAsInteger("pr_del")==0)
-        {
-       	  if (!PointsQry.FieldIsNULL("act_in"))
-            final_act_in=PointsQry.FieldAsDateTime("act_in");
-          else
-            final_act_in=NoExists;
-        };*/
-      };
-    };
-    
-    if (!deleted)
-    {
-      InsQry.SetVariable("move_id", Qry.FieldAsInteger("move_id"));
-      if (first_date[0]!=NoExists)
-        InsQry.SetVariable("scd_min", first_date[0]);
-      else
-        InsQry.SetVariable("scd_min", FNull);
-      if (last_date[0]!=NoExists)
-        InsQry.SetVariable("scd_max", last_date[0]);
-      else
-        InsQry.SetVariable("scd_max", FNull);
-      if (first_date[1]!=NoExists)
-        InsQry.SetVariable("est_min", first_date[1]);
-      else
-        InsQry.SetVariable("est_min", FNull);
-      if (last_date[1]!=NoExists)
-        InsQry.SetVariable("est_max", last_date[1]);
-      else
-        InsQry.SetVariable("est_max", FNull);
-      if (first_date[2]!=NoExists)
-        InsQry.SetVariable("act_min", first_date[2]);
-      else
-        InsQry.SetVariable("act_min", FNull);
-      if (last_date[2]!=NoExists)
-        InsQry.SetVariable("act_max", last_date[2]);
-      else
-        InsQry.SetVariable("act_max", FNull);
-      InsQry.Execute();
-      OraSession.Commit();
-    };
-  };
+  InsQry.DeclareVariable("date_range", otInteger);
   
+  TArxMoveFltExt arx(NowUTC()+ARX_MAX_DAYS()*2);
+  int processed=0;
+  for(TDateTime curr_part_key=min_part_key; curr_part_key<=max_part_key; curr_part_key+=1.0, processed++)
+  {
+    alter_wait(processed);
+    Qry.SetVariable("low_part_key",curr_part_key);
+    Qry.SetVariable("high_part_key",curr_part_key+1.0);
+    Qry.Execute();
+    for(;!Qry.Eof;Qry.Next())
+    {
+      int move_id=Qry.FieldAsInteger("move_id");
+      TDateTime part_key=Qry.FieldAsDateTime("part_key");
+      double date_range;
+      if (arx.GetPartKey(move_id, part_key, date_range))
+      {
+        //в архив
+        InsQry.SetVariable("move_id",move_id);
+        if (part_key==NoExists)
+        {
+          printf("arx.GetPartKey: part_key=NoExists");
+          continue;
+        };
+        if (date_range==NoExists)
+        {
+          printf("arx.GetPartKey: date_range=NoExists");
+          continue;
+        };
+        if (part_key!=Qry.FieldAsDateTime("part_key"))
+        {
+          if (part_key>Qry.FieldAsDateTime("part_key"))
+          {
+            ProgError(STDLOG, "put_move_arx_ext: arx_move.part_key=%s GetPartKey.part_key=%s",
+                              DateTimeToStr(Qry.FieldAsDateTime("part_key"), ServerFormatDateTimeAsString).c_str(),
+                              DateTimeToStr(part_key, ServerFormatDateTimeAsString).c_str());
+          };
+          date_range=Qry.FieldAsDateTime("part_key")-part_key+date_range;
+          part_key=Qry.FieldAsDateTime("part_key");
+        };
+        InsQry.SetVariable("part_key",part_key);
+        if (date_range<0)
+        {
+          printf("arx.GetPartKey: date_range<0");
+          continue;
+        };
+        if (date_range<1) continue;
+        int date_range_int=(int)ceil(date_range);
+        if (date_range_int>999)
+        {
+          printf("arx.GetPartKey: date_range_int>999");
+          continue;
+        };
+        InsQry.SetVariable("date_range",date_range_int);
+        InsQry.Execute();
+      }
+      else
+      {
+        printf("arx.GetPartKey: false");
+      };
+    };
+    OraSession.Commit();
+  };
+
   return 0;
 };
 /*
-SELECT count(*)
-FROM drop_move_flt_stat
-WHERE scd_max-scd_min>5;
+SELECT move_arx_ext.part_key, move_arx_ext.move_id
+FROM arx_points, move_arx_ext
+WHERE move_arx_ext.date_range>=5 AND
+      move_arx_ext.part_key=arx_points.part_key AND
+      move_arx_ext.move_id=arx_points.move_id
+GROUP BY move_arx_ext.part_key, move_arx_ext.move_id
+HAVING MAX(GREATEST(NVL(scd_in,TO_DATE('01.01.0001','DD.MM.YYYY')),
+                    NVL(est_in,TO_DATE('01.01.0001','DD.MM.YYYY')),
+                    NVL(act_in,TO_DATE('01.01.0001','DD.MM.YYYY')),
+                    NVL(scd_out,TO_DATE('01.01.0001','DD.MM.YYYY')),
+                    NVL(est_out,TO_DATE('01.01.0001','DD.MM.YYYY')),
+                    NVL(act_out,TO_DATE('01.01.0001','DD.MM.YYYY'))))-
+       MIN(LEAST(NVL(scd_in,TO_DATE('01.01.3000','DD.MM.YYYY')),
+                 NVL(est_in,TO_DATE('01.01.3000','DD.MM.YYYY')),
+                 NVL(act_in,TO_DATE('01.01.3000','DD.MM.YYYY')),
+                 NVL(scd_out,TO_DATE('01.01.3000','DD.MM.YYYY')),
+                 NVL(est_out,TO_DATE('01.01.3000','DD.MM.YYYY')),
+                 NVL(act_out,TO_DATE('01.01.3000','DD.MM.YYYY'))))>=5
 
-SELECT count(*)
-FROM drop_move_flt_stat
-WHERE GREATEST(NVL(act_max,scd_max),scd_max)-
-         LEAST(NVL(act_min,scd_min),scd_min)>5;
-
-SELECT count(*)
-FROM drop_move_flt_stat
-WHERE GREATEST(NVL(act_max,NVL(est_max,scd_max)),NVL(est_max,scd_max),scd_max)-
-         LEAST(NVL(act_min,NVL(est_min,scd_min)),NVL(est_min,scd_min),scd_min)>5;
+SELECT move_arx_ext.date_range,scd_in, est_in, act_in, scd_out, est_out, act_out
+FROM arx_points, move_arx_ext
+WHERE move_arx_ext.date_range>=5 AND
+      move_arx_ext.part_key=arx_points.part_key AND
+      move_arx_ext.move_id=arx_points.move_id
+ORDER BY arx_points.part_key, arx_points.move_id*/
          
-SELECT count(*)
-FROM drop_move_flt_stat
-WHERE scd_max IS NULL AND est_max IS NULL AND act_max IS NULL
-
-SELECT DISTINCT DECODE(act_min,NULL,'NULL','NOT NULL') AS min,
-                DECODE(act_max,NULL,'NULL','NOT NULL') AS max
-FROM drop_move_flt_stat
-       
-*/
-

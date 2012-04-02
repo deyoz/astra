@@ -1513,7 +1513,7 @@ try {
 		  fl.invalid_field = "Неизвестный тип ВС, значение=" + fl.craft;
 			fl.craft.clear(); // очищаем значение типа ВС - это не должно попасть в БД
     }
- 	TIDQry.SQLText = "SELECT tid__seq.nextval n FROM dual ";
+ 	TIDQry.SQLText = "SELECT cycle_tid__seq.nextval n FROM dual ";
 	POINT_IDQry.SQLText = "SELECT point_id.nextval point_id FROM dual";
 	TDateTime time_in_delay; //определяем время задержки
   TDateTime old_act = NoExists, old_est = NoExists;

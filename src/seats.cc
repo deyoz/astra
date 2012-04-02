@@ -3014,7 +3014,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
             "        layer_type=:layer_type AND "
             "        pax_id=:pax_id; "
             " IF :tid IS NULL THEN "
-            "   SELECT tid__seq.nextval INTO :tid FROM dual; "
+            "   SELECT cycle_tid__seq.nextval INTO :tid FROM dual; "
             "   UPDATE pax SET tid=:tid WHERE pax_id=:pax_id;"
             "   mvd.sync_pax(:pax_id,:term); "
             " END IF;"
@@ -3051,7 +3051,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   		  Qry.SQLText =
           "BEGIN "
           " IF :tid IS NULL THEN "
-          "   SELECT tid__seq.nextval INTO :tid FROM dual; "
+          "   SELECT cycle_tid__seq.nextval INTO :tid FROM dual; "
           "   UPDATE pax SET tid=:tid WHERE pax_id=:pax_id;"
           "   mvd.sync_pax(:pax_id,:term); "
           " END IF;"
@@ -3243,7 +3243,7 @@ void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &APass, TSeatA
     QryLayer.DeclareVariable( "pax_id", otInteger );
     QryUpd.SQLText =
       "BEGIN "
-      " UPDATE pax SET tid=tid__seq.nextval WHERE pax_id=:pax_id;"
+      " UPDATE pax SET tid=cycle_tid__seq.nextval WHERE pax_id=:pax_id;"
       " mvd.sync_pax(:pax_id,:term); "
       "END;";
     QryUpd.DeclareVariable( "pax_id", otInteger );

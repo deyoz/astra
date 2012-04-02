@@ -5188,7 +5188,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
       {
         //получим идентификатор транзакции
         Qry.Clear();
-        Qry.SQLText="SELECT tid__seq.nextval AS tid FROM dual";
+        Qry.SQLText="SELECT cycle_tid__seq.nextval AS tid FROM dual";
         Qry.Execute();
         tid=Qry.FieldAsInteger("tid");
 
@@ -5215,11 +5215,11 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
           "  IF :pnr_id IS NULL THEN "
           "    SELECT crs_pnr__seq.nextval INTO :pnr_id FROM dual; "
           "    INSERT INTO crs_pnr(pnr_id,point_id,system,sender,airp_arv,subclass,class,grp_name,status,priority,tid) "
-          "    VALUES(:pnr_id,:point_id,:system,:sender,:airp_arv,:subclass,:class,:grp_name,:status,:priority,tid__seq.currval); "
+          "    VALUES(:pnr_id,:point_id,:system,:sender,:airp_arv,:subclass,:class,:grp_name,:status,:priority,cycle_tid__seq.currval); "
           "  ELSE "
           "    UPDATE crs_pnr SET grp_name=NVL(:grp_name,grp_name), "
           "                       status=:status, priority=:priority, "
-          "                       tid=tid__seq.currval "
+          "                       tid=cycle_tid__seq.currval "
           "    WHERE pnr_id= :pnr_id; "
           "  END IF; "
           "END;";
@@ -5255,11 +5255,11 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
           "  IF :pax_id IS NULL THEN "
           "    SELECT pax_id.nextval INTO :pax_id FROM dual; "
           "    INSERT INTO crs_pax(pax_id,pnr_id,surname,name,pers_type,seat_xname,seat_yname,seat_rem,seat_type,seats,bag_pool,pr_del,last_op,tid) "
-          "    VALUES(:pax_id,:pnr_id,:surname,:name,:pers_type,:seat_xname,:seat_yname,:seat_rem,:seat_type,:seats,:bag_pool,:pr_del,:last_op,tid__seq.currval); "
+          "    VALUES(:pax_id,:pnr_id,:surname,:name,:pers_type,:seat_xname,:seat_yname,:seat_rem,:seat_type,:seats,:bag_pool,:pr_del,:last_op,cycle_tid__seq.currval); "
           "  ELSE "
           "    UPDATE crs_pax "
           "    SET pers_type= :pers_type, seat_xname= :seat_xname, seat_yname= :seat_yname, seat_rem= :seat_rem, "
-          "        seat_type= :seat_type, bag_pool= :bag_pool, pr_del= :pr_del, last_op= :last_op, tid=tid__seq.currval "
+          "        seat_type= :seat_type, bag_pool= :bag_pool, pr_del= :pr_del, last_op= :last_op, tid=cycle_tid__seq.currval "
           "    WHERE pax_id=:pax_id; "
           "  END IF; "
           "END;";
@@ -5670,7 +5670,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
               Qry.SQLText=
                 "BEGIN "
                 "  DELETE FROM crs_transfer WHERE pnr_id= :pnr_id; "
-                "  UPDATE crs_pnr SET tid=tid__seq.currval WHERE pnr_id= :pnr_id; "
+                "  UPDATE crs_pnr SET tid=cycle_tid__seq.currval WHERE pnr_id= :pnr_id; "
                 "END;";
               Qry.CreateVariable("pnr_id",otInteger,pnr_id);
               Qry.Execute();
@@ -5705,7 +5705,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
               Qry.SQLText=
                 "BEGIN "
                 "  DELETE FROM pnr_market_flt WHERE pnr_id= :pnr_id; "
-                "  UPDATE crs_pnr SET tid=tid__seq.currval WHERE pnr_id= :pnr_id; "
+                "  UPDATE crs_pnr SET tid=cycle_tid__seq.currval WHERE pnr_id= :pnr_id; "
                 "END;";
               Qry.CreateVariable("pnr_id",otInteger,pnr_id);
               Qry.Execute();
