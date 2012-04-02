@@ -805,7 +805,7 @@ void SaveBag(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode)
   BagQry.SQLText=
     "BEGIN "
     "  IF :id IS NULL THEN "
-    "    SELECT id__seq.nextval INTO :id FROM dual; "
+    "    SELECT cycle_id__seq.nextval INTO :id FROM dual; "
     "  END IF; "
     "  INSERT INTO bag2 (grp_id,num,id,bag_type,pr_cabin,amount,weight,value_bag_num,pr_liab_limit,bag_pool_num,hall,user_id) "
     "  VALUES (:grp_id,:num,:id,:bag_type,:pr_cabin,:amount,:weight,:value_bag_num,:pr_liab_limit,:bag_pool_num,:hall,:user_id); "

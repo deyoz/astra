@@ -522,7 +522,7 @@ void PaymentInterface::UpdPrepay(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         if (idNode==NULL)
             Qry.SQLText=
                 "BEGIN "
-                "  SELECT id__seq.nextval INTO :receipt_id FROM dual; "
+                "  SELECT cycle_id__seq.nextval INTO :receipt_id FROM dual; "
                 "  INSERT INTO bag_prepay "
                 "        (receipt_id,grp_id,no,aircode,ex_weight,bag_type,value,value_cur) "
                 "  VALUES(:receipt_id,:grp_id,:no,:aircode,:ex_weight,:bag_type,:value,:value_cur); "
@@ -720,7 +720,7 @@ int PaymentInterface::PutReceiptToDB(const TBagReceipt &rcpt, int point_id, int 
   Qry.Clear();
   Qry.SQLText=
     "BEGIN "
-    "  SELECT id__seq.nextval,SYSTEM.UTCSYSDATE INTO :receipt_id,:issue_date FROM dual; "
+    "  SELECT cycle_id__seq.nextval,SYSTEM.UTCSYSDATE INTO :receipt_id,:issue_date FROM dual; "
     "  INSERT INTO bag_receipts "
     "        (receipt_id,point_id,grp_id,status,is_inter,desk_lang,form_type,no,pax_name,pax_doc,service_type,bag_type,bag_name, "
     "         tickets,prev_no,airline,aircode,flt_no,suffix,airp_dep,airp_arv,ex_amount,ex_weight,value_tax, "

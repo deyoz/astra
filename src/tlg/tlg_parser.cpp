@@ -4476,7 +4476,7 @@ void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, TBtmContent& con)
   TQuery TrferQry(&OraSession);
   TrferQry.SQLText=
     "INSERT INTO tlg_transfer(trfer_id,point_id_in,subcl_in,point_id_out,subcl_out,tlg_id) "
-    "VALUES(id__seq.nextval,:point_id_in,:subcl_in,:point_id_out,:subcl_out,:tlg_id)";
+    "VALUES(cycle_id__seq.nextval,:point_id_in,:subcl_in,:point_id_out,:subcl_out,:tlg_id)";
   TrferQry.DeclareVariable("point_id_in",otInteger);
   TrferQry.DeclareVariable("subcl_in",otString);
   TrferQry.DeclareVariable("point_id_out",otInteger);
@@ -4486,7 +4486,7 @@ void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, TBtmContent& con)
   TQuery GrpQry(&OraSession);
   GrpQry.SQLText=
     "INSERT INTO trfer_grp(grp_id,trfer_id,seats,bag_amount,bag_weight,rk_weight,weight_unit) "
-    "VALUES(pax_grp__seq.nextval,id__seq.currval,NULL,:bag_amount,:bag_weight,:rk_weight,:weight_unit) ";
+    "VALUES(pax_grp__seq.nextval,cycle_id__seq.currval,NULL,:bag_amount,:bag_weight,:rk_weight,:weight_unit) ";
   GrpQry.DeclareVariable("bag_amount",otInteger);
   GrpQry.DeclareVariable("bag_weight",otInteger);
   GrpQry.DeclareVariable("rk_weight",otInteger);
@@ -4572,7 +4572,7 @@ void SavePTMContent(int tlg_id, TDCSHeadingInfo& info, TPtmContent& con)
   TQuery TrferQry(&OraSession);
   TrferQry.SQLText=
     "INSERT INTO tlg_transfer(trfer_id,point_id_in,subcl_in,point_id_out,subcl_out,tlg_id) "
-    "VALUES(id__seq.nextval,:point_id_in,:subcl_in,:point_id_out,:subcl_out,:tlg_id)";
+    "VALUES(cycle_id__seq.nextval,:point_id_in,:subcl_in,:point_id_out,:subcl_out,:tlg_id)";
   TrferQry.CreateVariable("point_id_in",otInteger,point_id_in);
   TrferQry.CreateVariable("subcl_in",otString,FNull); //подкласс прилета неизвестен
   TrferQry.DeclareVariable("point_id_out",otInteger);
@@ -4582,7 +4582,7 @@ void SavePTMContent(int tlg_id, TDCSHeadingInfo& info, TPtmContent& con)
   TQuery GrpQry(&OraSession);
   GrpQry.SQLText=
     "INSERT INTO trfer_grp(grp_id,trfer_id,seats,bag_amount,bag_weight,rk_weight,weight_unit) "
-    "VALUES(pax_grp__seq.nextval,id__seq.currval,:seats,:bag_amount,:bag_weight,NULL,:weight_unit) ";
+    "VALUES(pax_grp__seq.nextval,cycle_id__seq.currval,:seats,:bag_amount,:bag_weight,NULL,:weight_unit) ";
   GrpQry.DeclareVariable("seats",otInteger);
   GrpQry.DeclareVariable("bag_amount",otInteger);
   GrpQry.DeclareVariable("bag_weight",otInteger);

@@ -97,7 +97,7 @@ int SetTermVersionNotice(int argc,char **argv)
     "    DELETE FROM desk_disable_notices WHERE notice_id=curRow.notice_id; "
     "    DELETE FROM desk_notices WHERE notice_id=curRow.notice_id; "
     "  END LOOP; "
-    "  SELECT id__seq.nextval INTO :notice_id FROM dual; "
+    "  SELECT cycle_id__seq.nextval INTO :notice_id FROM dual; "
     "  INSERT INTO desk_notices(notice_id, notice_type, term_mode, last_version, default_disable, time_create, pr_del) "
     "  VALUES(:notice_id, :notice_type, :term_mode, :last_version, 0, system.UTCSYSDATE, 0); "
     "END; ";
