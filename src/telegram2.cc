@@ -801,7 +801,7 @@ namespace PRL_SPACE {
             virtual void format_tag_no(ostringstream &line, const TTagItem &prev_item, const int num, TTlgInfo &info)=0;
         public:
             vector<TTagItem> items;
-            void get(int grp_id, int bag_pool_num = NoExists);
+            void get(int grp_id, int bag_pool_num);
             void ToTlg(TTlgInfo &info, vector<string> &body);
             virtual ~TTagList(){};
     };
@@ -857,64 +857,38 @@ namespace PRL_SPACE {
 
     void TTagList::get(int grp_id, int bag_pool_num)
     {
-        ProgTrace(TRACE5, "TTagList::get INPUT: grp_id = %d, bag_pool_num = %d", grp_id, bag_pool_num);
         TQuery Qry(&OraSession);
-        if(bag_pool_num == NoExists) {
-            Qry.SQLText =
-                "SELECT "
-                "  bag_tags.tag_type, "
-                "  tag_types.no_len, "
-                "  bag_tags.no, "
-                "  bag_tags.color, "
-                "  nvl(transfer.airp_arv, pax_grp.airp_arv) airp_arv "
-                "FROM "
-                "  bag_tags, "
-                "  tag_types, "
-                "  pax_grp, "
-                "  transfer "
-                "WHERE "
-                "  bag_tags.tag_type=tag_types.code AND "
-                "  bag_tags.grp_id=:grp_id and "
-                "  bag_tags.grp_id = transfer.grp_id(+) and transfer.pr_final(+)<>0 and "
-                "  bag_tags.grp_id = pax_grp.grp_id "
-                "ORDER BY "
-                "  bag_tags.tag_type, "
-                "  bag_tags.color, "
-                "  bag_tags.no ";
-            Qry.CreateVariable("grp_id", otInteger, grp_id);
-        } else {
-            string SQLText =
-                "select "
-                "    bag_tags.tag_type,  "
-                "    tag_types.no_len,  "
-                "    bag_tags.no,  "
-                "    bag_tags.color,  "
-                "    nvl(transfer.airp_arv, pax_grp.airp_arv) airp_arv  "
-                "from "
-                "    bag_tags, "
-                "    bag2, "
-                "    tag_types, "
-                "    transfer, "
-                "    pax_grp "
-                "where "
-                "    bag_tags.grp_id = :grp_id and "
-                "    bag_tags.grp_id = bag2.grp_id(+) and "
-                "    bag_tags.bag_num = bag2.num(+) and ";
-            if(bag_pool_num == 1) // непривязанные бирки приобщаем к bag_pool_num = 1
-                SQLText += 
-                    "    (bag2.bag_pool_num = :bag_pool_num or bag_tags.bag_num is null) and ";
-            else
-                SQLText += 
-                    "    bag2.bag_pool_num = :bag_pool_num and ";
+        string SQLText =
+            "select "
+            "    bag_tags.tag_type,  "
+            "    tag_types.no_len,  "
+            "    bag_tags.no,  "
+            "    bag_tags.color,  "
+            "    nvl(transfer.airp_arv, pax_grp.airp_arv) airp_arv  "
+            "from "
+            "    bag_tags, "
+            "    bag2, "
+            "    tag_types, "
+            "    transfer, "
+            "    pax_grp "
+            "where "
+            "    bag_tags.grp_id = :grp_id and "
+            "    bag_tags.grp_id = bag2.grp_id(+) and "
+            "    bag_tags.bag_num = bag2.num(+) and ";
+        if(bag_pool_num == 1) // непривязанные бирки приобщаем к bag_pool_num = 1
             SQLText += 
-                "    bag_tags.tag_type = tag_types.code and "
-                "    bag_tags.grp_id = transfer.grp_id(+) and transfer.pr_final(+)<>0 and "
-                "    bag_tags.grp_id = pax_grp.grp_id ";
+                "    (bag2.bag_pool_num = :bag_pool_num or bag_tags.bag_num is null) and ";
+        else
+            SQLText += 
+                "    bag2.bag_pool_num = :bag_pool_num and ";
+        SQLText += 
+            "    bag_tags.tag_type = tag_types.code and "
+            "    bag_tags.grp_id = transfer.grp_id(+) and transfer.pr_final(+)<>0 and "
+            "    bag_tags.grp_id = pax_grp.grp_id ";
 
-            Qry.SQLText = SQLText;
-            Qry.CreateVariable("grp_id", otInteger, grp_id);
-            Qry.CreateVariable("bag_pool_num", otInteger, bag_pool_num);
-        }
+        Qry.SQLText = SQLText;
+        Qry.CreateVariable("grp_id", otInteger, grp_id);
+        Qry.CreateVariable("bag_pool_num", otInteger, bag_pool_num);
         Qry.Execute();
         if(!Qry.Eof) {
             int col_tag_type = Qry.FieldIndex("tag_type");
@@ -2101,7 +2075,7 @@ struct TPLine {
     size_t inf;
     size_t chd;
     int grp_id;
-    int bag_pool_num; //!!!
+    int bag_pool_num;
     string surname;
     vector<string> names;
 
@@ -4464,7 +4438,7 @@ void TExcess::get(int point_id)
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "SELECT NVL(SUM(excess),0) excess FROM pax_grp "
-        "WHERE point_dep=:point_id AND bag_refuse=0 ";
+        "WHERE point_dep=:point_id AND ckin.excess_boarded(grp_id,class,bag_refuse)<>0 ";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.Execute();
     excess = Qry.FieldAsInteger("excess");
