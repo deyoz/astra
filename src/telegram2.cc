@@ -511,7 +511,7 @@ struct TWItem {
     int bagAmount;
     int bagWeight;
     int rkWeight;
-    void get(int grp_id, int bag_pool_num = NoExists);
+    void get(int grp_id, int bag_pool_num);
     void ToTlg(vector<string> &body);
     TWItem():
         bagAmount(0),
@@ -1101,9 +1101,12 @@ namespace PRL_SPACE {
     };
 
     struct TGRPMap {
-        map<int, TGRPItem> items;
-        void get(int grp_id);
-        void ToTlg(TTlgInfo &info, int grp_id, vector<string> &body);
+        map<int, map<int, TGRPItem> > items;
+        int items_count;
+        bool find(int grp_id, int bag_pool_num);
+        void get(int grp_id, int bag_pool_num);
+        void ToTlg(TTlgInfo &info, int grp_id, int bag_pool_num, vector<string> &body);
+        TGRPMap(): items_count(0) {};
     };
 
     struct TFirmSpaceAvail {
@@ -1132,6 +1135,7 @@ namespace PRL_SPACE {
         string crs;
         int pax_id;
         int grp_id;
+        int bag_pool_num;
         string subcls;
         TPNRList pnrs;
         TMItem M;
@@ -1143,12 +1147,13 @@ namespace PRL_SPACE {
             pnr_id = NoExists;
             pax_id = NoExists;
             grp_id = NoExists;
+            bag_pool_num = NoExists;
         }
     };
 
-    void TGRPMap::ToTlg(TTlgInfo &info, int grp_id, vector<string> &body)
+    void TGRPMap::ToTlg(TTlgInfo &info, int grp_id, int bag_pool_num, vector<string> &body)
     {
-        TGRPItem &grp_map = items[grp_id];
+        TGRPItem &grp_map = items[grp_id][bag_pool_num];
         if(not(grp_map.W.bagAmount == 0 and grp_map.W.bagWeight == 0 and grp_map.W.rkWeight == 0)) {
             ostringstream line;
             if(grp_map.pax_count > 1) {
@@ -1164,20 +1169,33 @@ namespace PRL_SPACE {
         }
     }
 
-    void TGRPMap::get(int grp_id)
+    bool TGRPMap::find(int grp_id, int bag_pool_num)
     {
-        if(items.find(grp_id) != items.end()) return; // olready got
+        map<int, map<int, TGRPItem> >::iterator ix = items.find(grp_id);
+        bool result = ix != items.end();
+        if(result) {
+            map<int, TGRPItem>::iterator iy = ix->second.find(bag_pool_num);
+            result = iy != ix->second.end();
+        }
+
+        return result;
+    }
+
+    void TGRPMap::get(int grp_id, int bag_pool_num)
+    {
+        if(find(grp_id, bag_pool_num)) return; // olready got
         TGRPItem item;
-        item.W.get(grp_id);
+        item.W.get(grp_id, bag_pool_num);
         TQuery Qry(&OraSession);
         Qry.SQLText =
-            "select count(*) from pax where grp_id = :grp_id and refuse is null";
+            "select count(*) from pax where grp_id = :grp_id and bag_pool_num = :bag_pool_num and refuse is null";
         Qry.CreateVariable("grp_id", otInteger, grp_id);
+        Qry.CreateVariable("bag_pool_num", otInteger, bag_pool_num);
         Qry.Execute();
         item.pax_count = Qry.FieldAsInteger(0);
-        item.tags.get(grp_id);
-        item.bg = items.size() + 1;
-        items[grp_id] = item;
+        item.tags.get(grp_id, bag_pool_num);
+        item.bg = ++items_count;
+        items[grp_id][bag_pool_num] = item;
     }
 
     void TRemList::ToTlg(TTlgInfo &info, vector<string> &body)
@@ -1262,7 +1280,7 @@ namespace PRL_SPACE {
             iv->pnrs.ToTlg(info, body);
             iv->M.ToTlg(info, body);
             iv->firm_space_avail.ToTlg(info, body);
-            grp_map->ToTlg(info, iv->grp_id, body);
+            grp_map->ToTlg(info, iv->grp_id, iv->bag_pool_num, body);
             iv->OList.ToTlg(info, body);
             iv->rems.ToTlg(info, body);
         }
@@ -1283,6 +1301,7 @@ namespace PRL_SPACE {
             "    crs_pnr.priority, "
             "    pax.pax_id, "
             "    pax.grp_id, "
+            "    pax.bag_pool_num, "
             "    NVL(pax.subclass,pax_grp.class) subclass "
             "from "
             "    pax, "
@@ -1327,6 +1346,7 @@ namespace PRL_SPACE {
             int col_priority = Qry.FieldIndex("priority");
             int col_pax_id = Qry.FieldIndex("pax_id");
             int col_grp_id = Qry.FieldIndex("grp_id");
+            int col_bag_pool_num = Qry.FieldIndex("bag_pool_num");
             int col_subcls = Qry.FieldIndex("subclass");
             for(; !Qry.Eof; Qry.Next()) {
                 TPRLPax pax(infants);
@@ -1344,6 +1364,7 @@ namespace PRL_SPACE {
                     continue;
                 pax.pax_id = Qry.FieldAsInteger(col_pax_id);
                 pax.grp_id = Qry.FieldAsInteger(col_grp_id);
+                pax.bag_pool_num = Qry.FieldAsInteger(col_bag_pool_num);
                 pax.M.get(info, pax.pax_id);
                 if(not info.mark_info.IsNULL() and not(info.mark_info == pax.M.m_flight))
                     continue;
@@ -1351,7 +1372,7 @@ namespace PRL_SPACE {
                 if(!Qry.FieldIsNULL(col_subcls))
                     pax.subcls = Qry.FieldAsString(col_subcls);
                 pax.rems.get(info, pax, complayers);
-                grp_map->get(pax.grp_id);
+                grp_map->get(pax.grp_id, pax.bag_pool_num);
                 pax.OList.get(pax.pax_id);
                 PaxList.push_back(pax);
             }
@@ -3985,6 +4006,7 @@ struct TETLPax {
     string ticket_no;
     int coupon_no;
     int grp_id;
+    int bag_pool_num;
     TPNRListAddressee pnrs;
     TMItem M;
     TRemList rems;
@@ -3993,6 +4015,7 @@ struct TETLPax {
         pnr_id = NoExists;
         pax_id = NoExists;
         grp_id = NoExists;
+        bag_pool_num = NoExists;
     }
 };
 
@@ -4242,7 +4265,8 @@ void TETLDest::GetPaxList(TTlgInfo &info,vector<TTlgCompLayer> &complayers)
         "    pax.pax_id, "
         "    pax.ticket_no, "
         "    pax.coupon_no, "
-        "    pax.grp_id "
+        "    pax.grp_id, "
+        "    pax.bag_pool_num "
         "from "
         "    pax, "
         "    pax_grp, "
@@ -4282,6 +4306,7 @@ void TETLDest::GetPaxList(TTlgInfo &info,vector<TTlgCompLayer> &complayers)
         int col_ticket_no = Qry.FieldIndex("ticket_no");
         int col_coupon_no = Qry.FieldIndex("coupon_no");
         int col_grp_id = Qry.FieldIndex("grp_id");
+        int col_bag_pool_num = Qry.FieldIndex("bag_pool_num");
         for(; !Qry.Eof; Qry.Next()) {
             TETLPax pax(infants);
             pax.target = Qry.FieldAsString(col_target);
@@ -4301,9 +4326,10 @@ void TETLDest::GetPaxList(TTlgInfo &info,vector<TTlgCompLayer> &complayers)
             pax.ticket_no = Qry.FieldAsString(col_ticket_no);
             pax.coupon_no = Qry.FieldAsInteger(col_coupon_no);
             pax.grp_id = Qry.FieldAsInteger(col_grp_id);
+            pax.bag_pool_num = Qry.FieldAsInteger(col_bag_pool_num);
             pax.pnrs.get(pax.pnr_id);
             pax.rems.get(info, pax);
-            grp_map->get(pax.grp_id);
+            grp_map->get(pax.grp_id, pax.bag_pool_num);
             PaxList.push_back(pax);
         }
     }
@@ -4315,7 +4341,7 @@ void TETLDest::PaxListToTlg(TTlgInfo &info, vector<string> &body)
         iv->name.ToTlg(info, body);
         iv->pnrs.ToTlg(info, body);
         iv->rems.ToTlg(info, body);
-        grp_map->ToTlg(info, iv->grp_id, body);
+        grp_map->ToTlg(info, iv->grp_id, iv->bag_pool_num, body);
     }
 }
 
