@@ -2484,30 +2484,49 @@ void TBTMGrpList::get(TTlgInfo &info, TFItem &FItem)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
-        "select distinct \n"
-        "   transfer.grp_id, \n"
-        "   nvl2(pax.grp_id, pax.bag_pool_num, 1) bag_pool_num, \n" // для несопровождаемого багажа bag_pool_num = 1
-        "   ckin.get_bag_pool_pax_id(transfer.grp_id, pax.bag_pool_num) bag_pool_pax_id \n"
-        "from  \n"
-        "   transfer, \n"
-        "   pax_grp, \n"
-        "   pax \n"
-        "where  \n"
-        "   pax_grp.grp_id = pax.grp_id(+) and \n"
-        "   transfer.point_id_trfer = :point_id_trfer and \n"
-        "   transfer.grp_id = pax_grp.grp_id and \n"
-        "   transfer.transfer_num = 1 and \n"
-        "   transfer.airp_arv = :trfer_airp and \n"
-        "   pax_grp.status <> 'T' and \n"
-        "   pax_grp.point_dep = :point_id and \n"
-        "   pax_grp.airp_arv = :airp_arv \n"
-        "order by \n"
-        "   grp_id, \n"
+        "select distinct  \n"
+        "   transfer.grp_id,  \n"
+        "   nvl2(pax.grp_id, pax.bag_pool_num, 1) bag_pool_num, \n"
+        "   ckin.get_bag_pool_pax_id(transfer.grp_id, pax.bag_pool_num) bag_pool_pax_id  \n"
+        "from   \n"
+        "   transfer,  \n"
+        "   pax_grp,  \n"
+        "   pax, \n"
+        "   (select  \n"
+        "       pax_grp.grp_id,  \n"
+        "       subcls.class  \n"
+        "    from  \n"
+        "       pax_grp,  \n"
+        "       pax,  \n"
+        "       transfer_subcls,  \n"
+        "       subcls  \n"
+        "    where  \n"
+        "      pax_grp.point_dep = :point_id and  \n"
+        "      pax_grp.airp_arv = :airp_arv and  \n"
+        "      pax_grp.grp_id = pax.grp_id and  \n"
+        "      pax.pax_id = transfer_subcls.pax_id and  \n"
+        "      transfer_subcls.transfer_num = 1 and  \n"
+        "      transfer_subcls.subclass = subcls.code  \n"
+        "   ) a \n"
+        "where   \n"
+        "   pax_grp.grp_id = pax.grp_id(+) and  \n"
+        "   transfer.point_id_trfer = :point_id_trfer and  \n"
+        "   transfer.grp_id = pax_grp.grp_id and  \n"
+        "   transfer.transfer_num = 1 and  \n"
+        "   transfer.airp_arv = :trfer_airp and  \n"
+        "   pax_grp.status <> 'T' and  \n"
+        "   pax_grp.point_dep = :point_id and  \n"
+        "   pax_grp.airp_arv = :airp_arv and \n"
+        "   pax_grp.grp_id = a.grp_id(+) and \n"
+        "   nvl(a.class, ' ') = nvl(:trfer_cls, ' ') \n"
+        "order by  \n"
+        "   grp_id,  \n"
         "   bag_pool_num \n";
     Qry.CreateVariable("point_id", otInteger, info.point_id);
     Qry.CreateVariable("airp_arv", otString, info.airp_arv);
     Qry.CreateVariable("trfer_airp", otString, FItem.airp_arv);
     Qry.CreateVariable("point_id_trfer", otInteger, FItem.point_id_trfer);
+    Qry.CreateVariable("trfer_cls", otString, FItem.trfer_cls);
     Qry.Execute();
     if(!Qry.Eof) {
         int col_grp_id = Qry.FieldIndex("grp_id");
@@ -2527,7 +2546,6 @@ void TBTMGrpList::get(TTlgInfo &info, TFItem &FItem)
                 continue;
             item.W.get(item.grp_id, item.bag_pool_num);
             items.push_back(item);
-            ProgTrace(TRACE5, "GRP LIST GET: grp_id = %d, bag_pool_num = %d", item.grp_id, item.bag_pool_num);
         }
     }
 }
