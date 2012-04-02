@@ -2571,18 +2571,6 @@ void GetLuggage( int point_id, Luggage &lug, bool pr_brd )
     paxload.rk_weight = Qry.FieldAsInteger( "rk_weight" );
     paxload.excess = Qry.FieldAsInteger( "excess" );
     lug.vpaxload.push_back( paxload );
-    ProgTrace(TRACE5, "GetLuggage: point_arv=%d cl=%s seatsadult=%d seatschild=%d seatsbaby=%d adult=%d child=%d baby=%d bag_weight=%d rk_weight=%d excess=%d",
-                      paxload.point_arv,
-                      paxload.cl.c_str(),
-                      paxload.seatsadult,
-                      paxload.seatschild,
-                      paxload.seatsbaby,
-                      paxload.adult,
-                      paxload.child,
-                      paxload.baby,
-                      paxload.bag_weight,
-                      paxload.rk_weight,
-                      paxload.excess);
   };
 
   Qry.Clear();
