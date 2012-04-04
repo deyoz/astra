@@ -4542,11 +4542,19 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
     TStatParams params;
     params.get(reqNode);
     
-    if (params.statType==statFull || params.statType==statTrferFull)
+    if (
+            params.statType==statFull ||
+            params.statType==statTrferFull ||
+            params.statType==statKioskFull ||
+            params.statType==statAgentFull
+            )
     {
       if(IncMonth(params.FirstDate, 1) < params.LastDate)
         throw AstraLocale::UserException("MSG.SEARCH_PERIOD_SHOULD_NOT_EXCEED_ONE_MONTH");
-    };
+    } else {
+      if(IncMonth(params.FirstDate, 12) < params.LastDate)
+        throw AstraLocale::UserException("MSG.SEARCH_PERIOD_SHOULD_NOT_EXCEED_ONE_YEAR");
+    }
 
     switch(params.statType)
     {
