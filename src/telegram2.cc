@@ -2145,8 +2145,8 @@ struct TPLine {
             grp_id = pax.grp_id;
             bag_pool_num = pax.bag_pool_num;
         } else {
-            if(grp_id != pax.grp_id and bag_pool_num != pax.grp_id)
-                throw Exception("TPLine operator +=: cannot add pax with different grp_id");
+            if(grp_id != pax.grp_id and bag_pool_num != pax.bag_pool_num)
+                throw Exception("TPLine operator +=: cannot add pax with different grp_id & bag_pool_num");
         }
         seats += pax.seats;
         switch(pax.pers_type) {
@@ -2403,7 +2403,7 @@ void TPList::get(TTlgInfo &info, string trfer_cls)
         "   subcls \n"
         "where \n"
         "  pax.grp_id = :grp_id and \n"
-        "  pax.bag_pool_num = :bag_pool_num and \n"
+        "  nvl(pax.bag_pool_num, 0) = nvl(:bag_pool_num, 0) and \n"
         "  pax.seats > 0 and \n"
         "  pax.pax_id = transfer_subcls.pax_id(+) and \n"
         "  transfer_subcls.transfer_num(+) = 1 and \n"
@@ -2412,7 +2412,10 @@ void TPList::get(TTlgInfo &info, string trfer_cls)
         "   pax.surname, \n"
         "   pax.name \n";
     Qry.CreateVariable("grp_id", otInteger, grp->grp_id);
-    Qry.CreateVariable("bag_pool_num", otInteger, grp->bag_pool_num);
+    if(grp->bag_pool_num == NoExists)
+        Qry.CreateVariable("bag_pool_num", otInteger, FNull);
+    else
+        Qry.CreateVariable("bag_pool_num", otInteger, grp->bag_pool_num);
     Qry.Execute();
     if(Qry.Eof) {
         TPPax item;
@@ -2530,11 +2533,10 @@ void TBTMGrpList::get(TTlgInfo &info, TFItem &FItem)
         int col_bag_pool_num = Qry.FieldIndex("bag_pool_num");
         int col_main_pax_id = Qry.FieldIndex("bag_pool_pax_id");
         for(; !Qry.Eof; Qry.Next()) {
-            if(Qry.FieldIsNULL(col_bag_pool_num))
-                continue;
             TBTMGrpListItem item;
             item.grp_id = Qry.FieldAsInteger(col_grp_id);
-            item.bag_pool_num = Qry.FieldAsInteger(col_bag_pool_num);
+            if(not Qry.FieldIsNULL(col_bag_pool_num))
+                item.bag_pool_num = Qry.FieldAsInteger(col_bag_pool_num);
             if(not Qry.FieldIsNULL(col_main_pax_id))
                 item.main_pax_id = Qry.FieldAsInteger(col_main_pax_id);
             item.NList.get(item.grp_id, item.bag_pool_num);
