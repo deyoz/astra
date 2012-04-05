@@ -1338,7 +1338,8 @@ namespace PRL_SPACE {
                     continue;
                 pax.pax_id = Qry.FieldAsInteger(col_pax_id);
                 pax.grp_id = Qry.FieldAsInteger(col_grp_id);
-                pax.bag_pool_num = Qry.FieldAsInteger(col_bag_pool_num);
+                if(not Qry.FieldIsNULL(col_bag_pool_num))
+                    pax.bag_pool_num = Qry.FieldAsInteger(col_bag_pool_num);
                 pax.M.get(info, pax.pax_id);
                 if(not info.mark_info.IsNULL() and not(info.mark_info == pax.M.m_flight))
                     continue;
@@ -1868,6 +1869,7 @@ void TWItem::ToTlg(vector<string> &body)
 
 void TWItem::get(int grp_id, int bag_pool_num)
 {
+    if(bag_pool_num == NoExists) return;
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "declare "
@@ -4300,7 +4302,8 @@ void TETLDest::GetPaxList(TTlgInfo &info,vector<TTlgCompLayer> &complayers)
             pax.ticket_no = Qry.FieldAsString(col_ticket_no);
             pax.coupon_no = Qry.FieldAsInteger(col_coupon_no);
             pax.grp_id = Qry.FieldAsInteger(col_grp_id);
-            pax.bag_pool_num = Qry.FieldAsInteger(col_bag_pool_num);
+            if(not Qry.FieldIsNULL(col_bag_pool_num))
+                pax.bag_pool_num = Qry.FieldAsInteger(col_bag_pool_num);
             pax.pnrs.get(pax.pnr_id);
             pax.rems.get(info, pax);
             grp_map->get(pax.grp_id, pax.bag_pool_num);
