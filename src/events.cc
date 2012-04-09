@@ -488,7 +488,7 @@ void SaveGrpToLog(int point_id,
       if (bagStrBefore.empty())
         msg << ". Добавлено: " << bagStrAfter;
       if (!bagStrAfter.empty() && !bagStrBefore.empty())
-        msg << ". Изменено: " << bagStrAfter;
+        msg << ". Изменен багаж. Общее кол-во: " << bagStrAfter;
         
       reqInfo->MsgToLog(msg.str(), ASTRA::evtPax,
                         point_id, aPax!=grpInfoAfter.pax.end()?aPax->first.reg_no:bPax->first.reg_no, grp_id);
