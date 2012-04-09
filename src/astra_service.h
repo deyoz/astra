@@ -50,7 +50,6 @@ bool errorFile( int id, std::string err, std::string msg );
 bool sendFile( int id );
 bool doneFile( int id );
 
-void CreateCentringFileDATA( int point_id );
 void createSofiFileDATA( int receipt_id );
 void createAODBFileDATA( int point_id );
 void sync_aodb( void );
@@ -82,8 +81,6 @@ public:
      AddEvent("saveFileData",evHandle);
      evHandle=JxtHandler<AstraServiceInterface>::CreateHandler(&AstraServiceInterface::errorFileData);
      AddEvent("errorFileData",evHandle);
-     evHandle=JxtHandler<AstraServiceInterface>::CreateHandler(&AstraServiceInterface::createFileData);
-     AddEvent("createFileData",evHandle);
      evHandle=JxtHandler<AstraServiceInterface>::CreateHandler(&AstraServiceInterface::viewFileData);
      AddEvent("viewFileData",evHandle);
      evHandle=JxtHandler<AstraServiceInterface>::CreateHandler(&AstraServiceInterface::getFileParams);

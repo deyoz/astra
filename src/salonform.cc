@@ -29,11 +29,11 @@ using namespace ASTRA;
 
 //new terminal
 
-void BuildCompSections( xmlNodePtr dataNode, const vector<SALONS2::TCompSections> &CompSections )
+void BuildCompSections( xmlNodePtr dataNode, const vector<SALONS2::TCompSection> &CompSections )
 {
   if ( !CompSections.empty() ) {
     xmlNodePtr n = NewTextChild( dataNode, "CompSections" );
-    for ( vector<SALONS2::TCompSections>::const_iterator i=CompSections.begin(); i!=CompSections.end(); i++ ) {
+    for ( vector<SALONS2::TCompSection>::const_iterator i=CompSections.begin(); i!=CompSections.end(); i++ ) {
       xmlNodePtr cnode = NewTextChild( n, "section", i->name );
       SetProp( cnode, "FirstRowIdx", i->firstRowIdx );
       SetProp( cnode, "LastRowIdx", i->lastRowIdx );
@@ -41,7 +41,7 @@ void BuildCompSections( xmlNodePtr dataNode, const vector<SALONS2::TCompSections
   }
 }
 
-void ReadCompSections( int comp_id, vector<SALONS2::TCompSections> &CompSections )
+void ReadCompSections( int comp_id, vector<SALONS2::TCompSection> &CompSections )
 {
   CompSections.clear();
   TQuery Qry( &OraSession );
@@ -51,7 +51,7 @@ void ReadCompSections( int comp_id, vector<SALONS2::TCompSections> &CompSections
   Qry.CreateVariable( "comp_id", otInteger, comp_id );
   Qry.Execute();
   while ( !Qry.Eof ) {
-    SALONS2::TCompSections cs;
+    SALONS2::TCompSection cs;
     cs.name = Qry.FieldAsString( "name" );
     cs.firstRowIdx = Qry.FieldAsInteger( "first_rownum" );
     cs.lastRowIdx = Qry.FieldAsInteger( "last_rownum" );
@@ -62,6 +62,13 @@ void ReadCompSections( int comp_id, vector<SALONS2::TCompSections> &CompSections
 
 void ZoneLoads(int point_id, map<string, int> &zones)
 {
+  std::vector<SALONS2::TCompSectionLayers> CompSectionsLayers;
+  ZoneLoads(point_id,zones,CompSectionsLayers);
+}
+
+void ZoneLoads(int point_id, map<string, int> &zones, std::vector<SALONS2::TCompSectionLayers> &CompSectionsLayers )
+{
+    CompSectionsLayers.clear();
     zones.clear();
     SALONS2::TSalons SalonsTmp( point_id, SALONS2::rTripSalons, false );
     TQuery Qry(&OraSession);
@@ -73,21 +80,35 @@ void ZoneLoads(int point_id, map<string, int> &zones)
 	      TTripInfo info( Qry );
 	      tst();
         SalonsTmp.Read();
+        vector<SALONS2::TCompSection> compSections;
         if ( SalonsTmp.comp_id > 0 && GetTripSets( tsCraftNoChangeSections, info ) ) { //!!!строго завязать базовые компоновки с назначенными на рейс
             tst();
-            vector<SALONS2::TCompSections> CompSections;
-            ReadCompSections( SalonsTmp.comp_id, CompSections );
-            std::map<ASTRA::TCompLayerType, int> uselayers_count;
+            ReadCompSections( SalonsTmp.comp_id, compSections );
             TQuery Qry(&OraSession);
             Qry.SQLText = "select layer_type from grp_status_types";
             Qry.Execute();
+            std::map<ASTRA::TCompLayerType,int> layersSeats, checkinLayersSeats;
             for(; not Qry.Eof; Qry.Next())
-                uselayers_count[DecodeCompLayerType(Qry.FieldAsString("layer_type"))] = 0;
-
-            for ( vector<SALONS2::TCompSections>::iterator i=CompSections.begin(); i!=CompSections.end(); i++ ) {
-                getLayerPlacesCompSection( SalonsTmp, *i, false, uselayers_count );
-                for(std::map<ASTRA::TCompLayerType, int>::iterator im = uselayers_count.begin(); im != uselayers_count.end(); im++)
+                checkinLayersSeats[DecodeCompLayerType(Qry.FieldAsString("layer_type"))] = 0;
+            Qry.Clear();
+            Qry.SQLText =
+              "SELECT code from comp_layer_types WHERE pr_occupy = 1";
+            Qry.Execute();
+            for(; not Qry.Eof; Qry.Next())
+              layersSeats[DecodeCompLayerType(Qry.FieldAsString("code"))] = 0;
+            for ( vector<SALONS2::TCompSection>::iterator i=compSections.begin(); i!=compSections.end(); i++ ) {
+                SALONS2::TCompSectionLayers compSectionLayers;
+                compSectionLayers.layersSeats = layersSeats;
+                getLayerPlacesCompSection( SalonsTmp, *i, false, compSectionLayers.layersSeats, i->seats );
+                compSectionLayers.compSection = *i;
+                for(std::map<ASTRA::TCompLayerType, int>::iterator im = compSectionLayers.layersSeats.begin(); im != compSectionLayers.layersSeats.end(); im++) {
+                  ProgTrace( TRACE5, "im->first=%s, im->second=%d", EncodeCompLayerType( im->first ), im->second );
+                  if ( checkinLayersSeats.find( im->first ) != checkinLayersSeats.end() ) { // работаем только со слоями регистрации??? ДЕН!!!
                     zones[i->name] += im->second;
+                    tst();
+                  }
+                }
+                CompSectionsLayers.push_back( compSectionLayers );
             }
         }
     } catch(exception &E) {
@@ -97,7 +118,7 @@ void ZoneLoads(int point_id, map<string, int> &zones)
     }
 }
 
-void WriteCompSections( int id, const vector<SALONS2::TCompSections> &CompSections )
+void WriteCompSections( int id, const vector<SALONS2::TCompSection> &CompSections )
 {
   string msg, ms;
   TQuery Qry( &OraSession );
@@ -116,7 +137,7 @@ void WriteCompSections( int id, const vector<SALONS2::TCompSections> &CompSectio
   Qry.DeclareVariable( "last_rownum", otInteger );
   if ( CompSections.empty() && pr_exists )
     msg = "Удалены все багажные секции";
-  for ( vector<SALONS2::TCompSections>::const_iterator i=CompSections.begin(); i!=CompSections.end(); i++ ) {
+  for ( vector<SALONS2::TCompSection>::const_iterator i=CompSections.begin(); i!=CompSections.end(); i++ ) {
     if ( i == CompSections.begin() )
       msg = "Назначены багажные секции: ";
     ms = "название:" + i->name + ",первый ряд:" + IntToString( i->firstRowIdx ) + ",последний ряд:" + IntToString( i->lastRowIdx );
@@ -347,7 +368,7 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     Qry.Execute();
 	  TTripInfo info( Qry );
 	  if ( GetTripSets( tsCraftNoChangeSections, info ) ) {
- 	    vector<SALONS2::TCompSections> CompSections;
+ 	    vector<SALONS2::TCompSection> CompSections;
       ReadCompSections( Salons.comp_id, CompSections );
       BuildCompSections( dataNode, CompSections );
     }
@@ -480,7 +501,7 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
   Salons.Build( salonsNode );
   if ( Salons.comp_id > 0 && pr_notchangecraft ) { //!!!строго завязать базовые компоновки с назначенными на рейс
- 	  vector<SALONS2::TCompSections> CompSections;
+ 	  vector<SALONS2::TCompSection> CompSections;
     ReadCompSections( Salons.comp_id, CompSections );
     BuildCompSections( dataNode, CompSections );
   }
@@ -517,7 +538,7 @@ void SalonFormInterface::ComponShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     	SalonsL.BuildLayersInfo( salonsNode );
   }
   if ( pr_notchangecraft ) {
-    vector<SALONS2::TCompSections> CompSections;
+    vector<SALONS2::TCompSection> CompSections;
     ReadCompSections( comp_id, CompSections );
     BuildCompSections( dataNode, CompSections );
   }
@@ -648,7 +669,7 @@ void SalonFormInterface::ComponWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     r->MsgToLog( msg, evtComp, comp_id );
   }
   //bagsections
-  vector<SALONS2::TCompSections> CompSections;
+  vector<SALONS2::TCompSection> CompSections;
   xmlNodePtr sectionsNode = GetNode( "CompSections", reqNode );
   if ( sectionsNode && Salons.modify != SALONS2::mDelete ) {
     ParseCompSections( sectionsNode, CompSections );
@@ -901,7 +922,7 @@ void IntChangeSeats( int point_id, int pax_id, int &tid, string xname, string yn
     }
     if ( Salons.comp_id > 0 && GetTripSets( tsCraftNoChangeSections, fltInfo ) &&
          TReqInfo::Instance()->client_type == ctTerm ) { //!!!строго завязать базовые компоновки с назначенными на рейс
-   	  vector<SALONS2::TCompSections> CompSections;
+   	  vector<SALONS2::TCompSection> CompSections;
       ReadCompSections( Salons.comp_id, CompSections );
       BuildCompSections( dataNode, CompSections );
     }
@@ -999,7 +1020,7 @@ void SalonFormInterface::DeleteProtCkinSeat(XMLRequestCtxt *ctxt, xmlNodePtr req
         Qry.Execute();
 	      TTripInfo info( Qry );
         if ( GetTripSets( tsCraftNoChangeSections, info ) ) {
-   	      vector<SALONS2::TCompSections> CompSections;
+   	      vector<SALONS2::TCompSection> CompSections;
           ReadCompSections( Salons.comp_id, CompSections );
           BuildCompSections( dataNode, CompSections );
         }
@@ -1045,7 +1066,7 @@ void SalonFormInterface::WaitList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
         Qry.Execute();
 	      TTripInfo info( Qry );
         if ( GetTripSets( tsCraftNoChangeSections, info ) ) { //!!!строго завязать базовые компоновки с назначенными на рейс
-   	      vector<SALONS2::TCompSections> CompSections;
+   	      vector<SALONS2::TCompSection> CompSections;
           ReadCompSections( Salons.comp_id, CompSections );
           BuildCompSections( dataNode, CompSections );
         }
@@ -1091,7 +1112,7 @@ void SalonFormInterface::AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     tst();
     if ( Salons.comp_id > 0 && pr_notchangecraft ) { //!!!строго завязать базовые компоновки с назначенными на рейс
       tst();
- 	    vector<SALONS2::TCompSections> CompSections;
+ 	    vector<SALONS2::TCompSection> CompSections;
       ReadCompSections( Salons.comp_id, CompSections );
       BuildCompSections( dataNode, CompSections );
     }
@@ -1116,7 +1137,7 @@ void SalonFormInterface::AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
       p.Build( dataNode );
     }
     if ( Salons.comp_id > 0 && pr_notchangecraft ) { //!!!строго завязать базовые компоновки с назначенными на рейс
- 	    vector<SALONS2::TCompSections> CompSections;
+ 	    vector<SALONS2::TCompSection> CompSections;
       ReadCompSections( Salons.comp_id, CompSections );
       BuildCompSections( dataNode, CompSections );
     }

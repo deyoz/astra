@@ -10,9 +10,9 @@
 #include "basic.h"
 #include "stl_utils.h"
 #include "develop_dbf.h"
-#include "flight_cent_dbf.h"
 #include "sofi.h"
 #include "aodb.h"
+#include "cent.h"
 #include "spp_cek.h"
 #include "timer.h"
 #include "stages.h"
@@ -934,17 +934,6 @@ void AstraServiceInterface::errorFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqN
   }
 }
 
-void AstraServiceInterface::createFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
-{
-/*	int point_id = NodeAsInteger( "point_id", reqNode );
-	string client_canon_name = NodeAsString( "canon_name", reqNode );
-	ProgTrace( TRACE5, "createFileData point_id=%d, client_canon_name=%s", point_id, client_canon_name.c_str() );
-	map<string,string> params;
-	params[ PARAM_WORK_DIR ] = "C:\\Temp";
-	string data;
-	createCentringFile( point_id, params, data );*/
-}
-
 string getFileEncoding( const string &file_type, const string &point_addr, bool pr_send )
 {
 	string res;
@@ -1026,7 +1015,6 @@ bool CreateCommonFileData( bool pr_commit,
             TFileData fd;
             try {
                 if (
-                        type == FILE_CENT_TYPE && createCentringFile( id, client_canon_name, fds ) ||
                         type == FILE_SOFI_TYPE && createSofiFile( id, inparams, client_canon_name, fds ) ||
                         type == FILE_AODB_OUT_TYPE && createAODBFiles( id, client_canon_name, fds ) ||
                         type == FILE_SPPCEK_TYPE && createSPPCEKFile( id, client_canon_name, fds ) ||
@@ -1118,23 +1106,6 @@ bool CreateCommonFileData( bool pr_commit,
         Qry.Next();
     }
   return res;
-}
-
-void CreateCentringFileDATA( int point_id )
-{
-/*	TQuery Qry( &OraSession );
-	Qry.SQLText = "SELECT airp, airline, flt_no FROM points WHERE point_id=:point_id";
-	Qry.CreateVariable( "point_id", otInteger, point_id );
-	Qry.Execute();
-	if ( !Qry.Eof )
-		CreateCommonFileData( point_id, FILE_CENT_TYPE, Qry.FieldAsString( "airp" ),
-		                      Qry.FieldAsString( "airline" ), Qry.FieldAsString( "flt_no" ) );*/
-	//client_canon_name = "CENTST";
-	//createCentringFile( point_id, OWN_POINT_ADDR(), string( "ASWFMG" ) );
-	//createCentringFile( point_id, OWN_POINT_ADDR(), string( "GABFMG" ) );
-	//createCentringFile( point_id, OWN_POINT_ADDR(), string( "UT_FMG" ) );
-	//createCentringFile( point_id, OWN_POINT_ADDR(), string( "TJMFMG" ) );
-	//createCentringFile( point_id, OWN_POINT_ADDR(), string( "SGCFMG" ) );
 }
 
 void createSofiFileDATA( int receipt_id )
@@ -1479,7 +1450,7 @@ bool createCheckinDataFiles( int point_id, const std::string &point_addr, TFileD
   fds.clear();
   TQuery Qry( &OraSession );
   Qry.SQLText =
-    "SELECT airline, flt_no, suffix, suffix_fmt, airp, scd_out, est_out, act_out, pr_del FROM points "
+    "SELECT point_num,first_point,pr_tranzit,airline, flt_no, suffix,suffix_fmt,airp,scd_out,est_out,act_out,pr_del FROM points "
     " WHERE point_id=:point_id";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   TQuery StageQry( &OraSession );
@@ -1490,64 +1461,7 @@ bool createCheckinDataFiles( int point_id, const std::string &point_addr, TFileD
   Qry.Execute();
   if ( Qry.Eof )
     return false;
-  TQuery PaxQry( &OraSession );
-  //Классы
-  PaxQry.SQLText =
-    "SELECT point_arv, "
-    "       NVL(SUM(DECODE(pax_grp.class,:f,pax.seats,0)),0) AS f, "
-    "       NVL(SUM(DECODE(pax_grp.class,:c,pax.seats,0)),0) AS c, "
-    "       NVL(SUM(DECODE(pax_grp.class,:y,pax.seats,0)),0) AS y "
-    "  FROM pax_grp, pax "
-    " WHERE pax_grp.grp_id=pax.grp_id AND "
-    "       point_dep=:point_id AND pr_brd IS NOT NULL "
-    "GROUP BY point_arv";
-  PaxQry.CreateVariable( "point_id", otInteger, point_id );
-  PaxQry.CreateVariable( "f", otString, "П" );
-  PaxQry.CreateVariable( "c", otString, "Б" );
-  PaxQry.CreateVariable( "y", otString, "Э" );
-  //Типы пассажиров
-  TQuery PassQry( &OraSession );
-  PassQry.SQLText =
-    "SELECT point_arv, "
-    "       NVL(SUM(DECODE(pax.pers_type,:adl,DECODE(pax_doc.gender,:male,1,NULL,1,0),0)),0) AS male, "
-    "       NVL(SUM(DECODE(pax.pers_type,:adl,DECODE(pax_doc.gender,:female,1,0),0)),0) AS female, "
-    "       NVL(SUM(DECODE(pax.pers_type,:chd,1,0)),0) AS chd, "
-    "       NVL(SUM(DECODE(pax.pers_type,:inf,1,0)),0) AS inf "
-    " FROM pax_grp, pax, pax_doc "
-    " WHERE pax_grp.grp_id=pax.grp_id AND "
-    "       pax.pax_id=pax_doc.pax_id(+) AND "
-    "       point_dep=:point_id AND pr_brd IS NOT NULL "
-    "GROUP BY point_arv";
-  PassQry.CreateVariable( "point_id", otInteger, point_id );
-  PassQry.CreateVariable( "adl", otString, "ВЗ" );
-  PassQry.CreateVariable( "male", otString, "M" );
-  PassQry.CreateVariable( "female", otString, "F" );
-  PassQry.CreateVariable( "chd", otString, "РБ" );
-  PassQry.CreateVariable( "inf", otString, "РМ" );
-  TQuery ResaQry( &OraSession );
-  ResaQry.SQLText =
-    "SELECT COUNT(*) resa, airp_arv, class FROM tlg_binding,crs_pnr,crs_pax "
-    " WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
-    "       crs_pax.pr_del=0 AND "
-    "       tlg_binding.point_id_spp=:point_id AND "
-    "       tlg_binding.point_id_tlg=crs_pnr.point_id AND "
-    "       crs_pnr.system='CRS' "
-    "GROUP BY airp_arv, class";
-  ResaQry.CreateVariable( "point_id", otInteger, point_id );
-  TQuery BagQry( &OraSession );
-  BagQry.SQLText =
-    "SELECT pax_grp.point_arv, "
-    "       SUM(DECODE(bag2.pr_cabin, 0, amount, 0)) bag_amount, "
-    "       SUM(DECODE(bag2.pr_cabin, 0, weight, 0)) bag_weight, "
-    "       SUM(DECODE(bag2.pr_cabin, 0, 0, amount)) rk_amount, "
-    "       SUM(DECODE(bag2.pr_cabin, 0, 0, weight)) rk_weight "
-    "FROM pax_grp, bag2 "
-    " WHERE pax_grp.point_dep = :point_id AND "
-    "       pax_grp.grp_id = bag2.grp_id AND "
-    "       pax_grp.bag_refuse = 0 "
-    " GROUP BY pax_grp.point_arv ";
-  BagQry.CreateVariable( "point_id", otInteger, point_id );
-  tst();
+    
   string airline = Qry.FieldAsString( "airline" );
   string airline_lat = ElemIdToElem( etAirline, airline, efmtCodeInter, AstraLocale::LANG_EN );
   if ( airline_lat.empty()) {
@@ -1564,6 +1478,39 @@ bool createCheckinDataFiles( int point_id, const std::string &point_addr, TFileD
 
   string airp = Qry.FieldAsString( "airp" );
   TDateTime scd_out = Qry.FieldAsDateTime( "scd_out" );
+  TTripRoute routesB, routesA;
+  routesA.GetRouteAfter( ASTRA::NoExists,
+                         point_id,
+                         Qry.FieldAsInteger( "point_num" ),
+                         Qry.FieldIsNULL("first_point")?ASTRA::NoExists:Qry.FieldAsInteger("first_point"),
+                         Qry.FieldAsInteger( "pr_tranzit" ),
+                         trtNotCurrent,
+                         trtNotCancelled );
+  ProgTrace( TRACE5, "point_id=%d, routesA.size()=%d", point_id, routesA.size() );
+  if ( routesA.empty() ) {
+      return false;
+  }
+  routesB.GetRouteBefore( ASTRA::NoExists,
+                          point_id,
+                          Qry.FieldAsInteger( "point_num" ),
+                          Qry.FieldIsNULL("first_point")?ASTRA::NoExists:Qry.FieldAsInteger("first_point"),
+                          Qry.FieldAsInteger( "pr_tranzit" ),
+                          trtWithCurrent,
+                          trtNotCancelled );
+
+  TBalanceData balanceData;
+  balanceData.get( point_id, Qry.FieldAsInteger( "pr_tranzit" ), routesB, routesA, true );
+ TQuery ResaQry( &OraSession );
+  ResaQry.SQLText =
+    "SELECT COUNT(*) resa, airp_arv, class FROM tlg_binding,crs_pnr,crs_pax "
+    " WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
+    "       crs_pax.pr_del=0 AND "
+    "       tlg_binding.point_id_spp=:point_id AND "
+    "       tlg_binding.point_id_tlg=crs_pnr.point_id AND "
+    "       crs_pnr.system='CRS' "
+    "GROUP BY airp_arv, class";
+  ResaQry.CreateVariable( "point_id", otInteger, point_id );
+  tst();
   string prior_record, record;
   get_string_into_snapshot_points( point_id, FILE_CHECKINDATA_TYPE, point_addr, prior_record );
   xmlDocPtr doc = CreateXMLDoc( "UTF-8", "flight" );
@@ -1594,9 +1541,6 @@ bool createCheckinDataFiles( int point_id, const std::string &point_addr, TFileD
             NewTextChild( node ,"status", "close" );
         }
     map<string,vector<TResaData> > resaData;
-    map<int,TCheckInData> checkinData;
-    map<int,TPassTypeData> passtypeData;
-    map<int,TBagData> bagData;
     tst();
     ResaQry.Execute();
     tst();
@@ -1610,47 +1554,6 @@ bool createCheckinDataFiles( int point_id, const std::string &point_addr, TFileD
       ResaQry.Next();
       tst();
     }
-    tst();
-    PaxQry.Execute();
-    tst();
-    while ( !PaxQry.Eof ) {
-      if ( PaxQry.FieldAsInteger( "f" ) +
-           PaxQry.FieldAsInteger( "c" ) +
-           PaxQry.FieldAsInteger( "y" )!= 0 ) {
-        checkinData[ PaxQry.FieldAsInteger( "point_arv" ) ].f = PaxQry.FieldAsInteger( "f" );
-        checkinData[ PaxQry.FieldAsInteger( "point_arv" ) ].c = PaxQry.FieldAsInteger( "c" );
-        checkinData[ PaxQry.FieldAsInteger( "point_arv" ) ].y = PaxQry.FieldAsInteger( "y" );
-        ProgTrace( TRACE5, "f=%d, c=%d, y=%d",
-                   checkinData[ PaxQry.FieldAsInteger( "point_arv" ) ].f,
-                   checkinData[ PaxQry.FieldAsInteger( "point_arv" ) ].c,
-                   checkinData[ PaxQry.FieldAsInteger( "point_arv" ) ].y );
-      }
-      PaxQry.Next();
-    }
-    tst();
-    PassQry.Execute();
-    tst();
-    while ( !PassQry.Eof ) {
-      if ( PassQry.FieldAsInteger( "male" ) +
-           PassQry.FieldAsInteger( "female" ) +
-           PassQry.FieldAsInteger( "chd" ) +
-           PassQry.FieldAsInteger( "inf" ) != 0 ) {
-        passtypeData[ PassQry.FieldAsInteger( "point_arv" ) ].male = PassQry.FieldAsInteger( "male" );
-        passtypeData[ PassQry.FieldAsInteger( "point_arv" ) ].female = PassQry.FieldAsInteger( "female" );
-        passtypeData[ PassQry.FieldAsInteger( "point_arv" ) ].chd = PassQry.FieldAsInteger( "chd" );
-        passtypeData[ PassQry.FieldAsInteger( "point_arv" ) ].inf = PassQry.FieldAsInteger( "inf" );
-      }
-      PassQry.Next();
-    }
-    BagQry.Execute();
-    while ( !BagQry.Eof ) {
-      bagData[ BagQry.FieldAsInteger( "point_arv" ) ].bag_amount = BagQry.FieldAsInteger( "bag_amount" );
-      bagData[ BagQry.FieldAsInteger( "point_arv" ) ].bag_weight = BagQry.FieldAsInteger( "bag_weight" );
-      bagData[ BagQry.FieldAsInteger( "point_arv" ) ].rk_amount = BagQry.FieldAsInteger( "rk_amount" );
-      bagData[ BagQry.FieldAsInteger( "point_arv" ) ].rk_weight = BagQry.FieldAsInteger( "rk_weight" );
-      BagQry.Next();
-    }
-
     tst();
     int route_num = 1;
     TTripRoute routes;
@@ -1686,31 +1589,57 @@ bool createCheckinDataFiles( int point_id, const std::string &point_addr, TFileD
         }
       }
       n1 = NewTextChild( n, "checkin" );
-      if ( checkinData.find( i->point_id ) != checkinData.end() ) {
-        if ( checkinData[ i->point_id ].f != 0 )
-          SetProp( NewTextChild( n1, "class", checkinData[ i->point_id ].f ), "code", "П" );
-        if ( checkinData[ i->point_id ].c != 0 )
-          SetProp( NewTextChild( n1, "class", checkinData[ i->point_id ].c ), "code", "Б" );
-        if ( checkinData[ i->point_id ].y != 0 )
-          SetProp( NewTextChild( n1, "class", checkinData[ i->point_id ].y ), "code", "Э" );
-      }
-      if ( passtypeData.find( i->point_id ) != passtypeData.end() ) {
-        if (  passtypeData[ i->point_id ].male != 0 )
-          SetProp( NewTextChild( n1, "pass", passtypeData[ i->point_id ].male ), "type", "М" );
-        if (  passtypeData[ i->point_id ].female != 0 )
-          SetProp( NewTextChild( n1, "pass", passtypeData[ i->point_id ].female ), "type", "Ж" );
-        if (  passtypeData[ i->point_id ].chd != 0 )
-          SetProp( NewTextChild( n1, "pass", passtypeData[ i->point_id ].chd ), "type", "РБ" );
-        if (  passtypeData[ i->point_id ].inf != 0 )
-          SetProp( NewTextChild( n1, "pass", passtypeData[ i->point_id ].inf ), "type", "РМ" );
-      }
-      if ( bagData.find( i->point_id ) != bagData.end() ) {
-        xmlNodePtr n2 = NewTextChild( n1, "baggage" );
-        NewTextChild( n2,"weight", bagData[ i->point_id ].bag_weight );
-        NewTextChild( n2,"amount", bagData[ i->point_id ].bag_amount );
-        n2 = NewTextChild( n1, "hand_bag" );
-        NewTextChild( n2, "weight", bagData[ i->point_id ].rk_weight );
-        NewTextChild( n2, "amount", bagData[ i->point_id ].rk_amount );
+      for ( vector<TDestBalance>::iterator ibal=balanceData.balances.begin(); ibal!=balanceData.balances.end(); ibal++ ) {
+        if ( ibal->point_id == i->point_id ) {
+          // включая транзитных пассажиров
+          xmlNodePtr n2 = NULL;
+          for( map<string,TBalance>::iterator iclass=ibal->tranzit_classbal.begin(); iclass!=ibal->tranzit_classbal.end(); iclass++ ) {
+            if ( n2 == NULL )
+              n2 = NewTextChild( n1, "tranzit" );
+            xmlNodePtr n3 = NewTextChild( n2, "class" );
+            SetProp( n3, "code", iclass->first );
+            if ( iclass->second.male > 0 )
+              SetProp( NewTextChild( n3, "male", iclass->second.male ), "seats", iclass->second.male_seats );
+            if ( iclass->second.female > 0 )
+              SetProp( NewTextChild( n3, "female", iclass->second.female ), "seats", iclass->second.female_seats );
+            if ( iclass->second.chd > 0 )
+              SetProp( NewTextChild( n3, "chd", iclass->second.chd ), "seats", iclass->second.chd_seats );
+            if ( iclass->second.inf > 0 )
+              SetProp( NewTextChild( n3, "inf", iclass->second.inf ), "seats", iclass->second.inf_seats );
+            if ( iclass->second.rk_weight > 0 )
+              NewTextChild( n3, "rk_weight", iclass->second.rk_weight );
+            if ( iclass->second.bag_amount > 0 )
+              NewTextChild( n3, "bag_amount", iclass->second.bag_amount );
+            if ( iclass->second.bag_weight > 0 )
+              NewTextChild( n3, "bag_weight", iclass->second.bag_weight );
+            if ( iclass->second.paybag_weight > 0 )
+              NewTextChild( n3, "paybag_weight", iclass->second.paybag_weight );
+
+          }
+          n2 = NULL;
+          for( map<string,TBalance>::iterator iclass=ibal->goshow_classbal.begin(); iclass!=ibal->goshow_classbal.end(); iclass++ ) {
+            if ( n2 == NULL )
+              n2 = NewTextChild( n1, "goshow" );
+            xmlNodePtr n3 = NewTextChild( n2, "class" );
+            SetProp( n3, "code", iclass->first );
+            if ( iclass->second.male > 0 )
+              SetProp( NewTextChild( n3, "male", iclass->second.male ), "seats", iclass->second.male_seats );
+            if ( iclass->second.female > 0 )
+              SetProp( NewTextChild( n3, "female", iclass->second.female ), "seats", iclass->second.female_seats );
+            if ( iclass->second.chd > 0 )
+              SetProp( NewTextChild( n3, "chd", iclass->second.chd ), "seats", iclass->second.chd_seats );
+            if ( iclass->second.inf > 0 )
+              SetProp( NewTextChild( n3, "inf", iclass->second.inf ), "seats", iclass->second.inf_seats );
+            if ( iclass->second.rk_weight > 0 )
+              NewTextChild( n3, "rk_weight", iclass->second.rk_weight );
+            if ( iclass->second.bag_amount > 0 )
+              NewTextChild( n3, "bag_amount", iclass->second.bag_amount );
+            if ( iclass->second.bag_weight > 0 )
+              NewTextChild( n3, "bag_weight", iclass->second.bag_weight );
+            if ( iclass->second.paybag_weight > 0 )
+              NewTextChild( n3, "paybag_weight", iclass->second.paybag_weight );
+          }
+        }
       }
     }
     //данные регистрации

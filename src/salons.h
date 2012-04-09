@@ -78,14 +78,27 @@ struct TPlaceWebTariff {
 	};
 };
 
-struct TCompSections {
+struct TCompSection {
   std::string name;
   int firstRowIdx;
   int lastRowIdx;
-  TCompSections() {
+  int seats;
+  TCompSection() {
     firstRowIdx = ASTRA::NoExists;
     lastRowIdx = ASTRA::NoExists;
+    seats = -1;
   };
+  void operator = (const TCompSection &compSection) {
+    name = compSection.name;
+    firstRowIdx = compSection.firstRowIdx;
+    lastRowIdx = compSection.lastRowIdx;
+    seats = compSection.seats;
+  }
+};
+
+struct TCompSectionLayers {
+  TCompSection compSection;
+  std::map<ASTRA::TCompLayerType,int> layersSeats;
 };
 
 class TPlace {
@@ -310,9 +323,11 @@ class TSalons {
   bool getSalonChanges( TSalons &OldSalons, TSalons &NewSalon, std::vector<TSalonSeat> &seats );
   void BuildSalonChanges( xmlNodePtr dataNode, const std::vector<TSalonSeat> &seats );
   bool salonChangesToText( TSalons &OldSalons, TSalons &NewSalons, std::vector<std::string> &referStrs, bool pr_set_base, int line_len );
-  void ParseCompSections( xmlNodePtr sectionsNode, std::vector<TCompSections> &CompSections );
-  void getLayerPlacesCompSection( TSalons &NSalons, TCompSections &compSection,
-                                  bool only_high_layer, std::map<ASTRA::TCompLayerType, int> &uselayers_count );
+  void ParseCompSections( xmlNodePtr sectionsNode, std::vector<TCompSection> &CompSections );
+  void getLayerPlacesCompSection( TSalons &NSalons, TCompSection &compSection,
+                                  bool only_high_layer,
+                                  std::map<ASTRA::TCompLayerType, int> &uselayers_count,
+                                  int &seats_count );
   bool ChangeCfg( TSalons &NewSalons, TSalons &OldSalons );
   bool EqualSalon( TPlaceList* oldsalon, TPlaceList* newsalon, bool equal_seats_cfg );
   bool IsMiscSet( int point_id, int misc_type );
