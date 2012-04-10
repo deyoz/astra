@@ -318,15 +318,19 @@ bool TArxMoveFlt::Next(int max_rows, int duration)
           	Qry->SetVariable("part_key",part_key);
           else
           	Qry->SetVariable("part_key",FNull);
-          if (date_range<0) throw Exception("date_range=%f", date_range);
-          if (date_range==NoExists || date_range<1)
-            Qry->SetVariable("date_range",FNull);
-          else
+          if (date_range!=NoExists)
           {
-            int date_range_int=(int)ceil(date_range);
-            if (date_range_int>999) throw Exception("date_range_int=%d", date_range_int);
-          	Qry->SetVariable("date_range",date_range_int);
-          };
+            if (date_range<0) throw Exception("date_range=%f", date_range);
+            if (date_range<1)
+              Qry->SetVariable("date_range",FNull);
+            else
+            {
+              int date_range_int=(int)ceil(date_range);
+              if (date_range_int>999) throw Exception("date_range_int=%d", date_range_int);
+            	Qry->SetVariable("date_range",date_range_int);
+            };
+          }
+          else Qry->SetVariable("date_range",FNull);
           Qry->Execute();
           OraSession.Commit();
           proc_count++;
