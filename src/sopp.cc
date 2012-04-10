@@ -2590,16 +2590,19 @@ void SoppInterface::WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
 void GetBirks( int point_id, xmlNodePtr dataNode )
 {
+  xmlNodePtr node = NewTextChild( dataNode, "birks" );
 	TQuery Qry(&OraSession);
 	Qry.SQLText =
-	 "SELECT COUNT(*) AS nobrd, sopp.get_birks(:point_id,:vlang) AS birks "
-	 " FROM pax_grp,pax "
-	 "WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_id AND pr_brd=0";
+	  "SELECT COUNT(*) AS nobrd "
+	  "FROM pax_grp, pax "
+	  "WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_id AND pr_brd=0";
 	Qry.CreateVariable( "point_id", otInteger, point_id );
-	Qry.CreateVariable( "vlang", otString, TReqInfo::Instance()->desk.lang.empty() );
 	Qry.Execute();
-	xmlNodePtr node = NewTextChild( dataNode, "birks", Qry.FieldAsString( "birks" ) );
 	NewTextChild( node, "nobrd", Qry.FieldAsInteger( "nobrd" ) );
+  Qry.SQLText =
+    "SELECT sopp.get_birks(:point_id,:vlang) AS birks FROM dual";
+  Qry.CreateVariable( "vlang", otString, TReqInfo::Instance()->desk.lang.empty() );
+	Qry.Execute();
 	NewTextChild( node, "birks", Qry.FieldAsString( "birks" ) );
 }
 
