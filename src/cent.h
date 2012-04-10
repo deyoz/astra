@@ -53,7 +53,8 @@ const std::string qryBalanceBagWOCheckinTranzit =
     "       SUM(DECODE(bag2.pr_cabin, 0, 0, weight)) rk_weight "
     "FROM pax_grp, bag2 "
     " WHERE pax_grp.grp_id = bag2.grp_id AND "
-    "       point_arv=:point_arv AND pax_grp.bag_refuse = 0 "
+    "       point_arv=:point_arv AND "
+    "       ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 "
     " GROUP BY point_dep, DECODE(point_dep,:point_dep,0,1), class";
 const std::string qryBalanceBagWithCheckinTranzit =
     "SELECT point_dep, "
@@ -65,7 +66,8 @@ const std::string qryBalanceBagWithCheckinTranzit =
     "FROM pax_grp, bag2 "
     " WHERE pax_grp.grp_id = bag2.grp_id AND "
     "       point_dep=:point_dep AND "
-    "       point_arv=:point_arv AND pax_grp.bag_refuse = 0 "
+    "       point_arv=:point_arv AND "
+    "       ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 "
     " GROUP BY point_dep, DECODE(status,:status_tranzit,1,0), class";
 const std::string qryBalanceExcessBagWOCheckinTranzit =
     "SELECT point_dep, "

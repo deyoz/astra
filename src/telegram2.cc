@@ -300,116 +300,124 @@ string TTlgInfo::add_err(string err, const char *format, ...)
     return buf.str();
 }
 
+string TlgElemIdToElem(TElemType type, int id, TElemFmt fmt, string lang)
+{
+  if(not(fmt==efmtCodeNative || fmt==efmtCodeInter))
+      throw Exception("TlgElemIdToElem: Wrong fmt");
+
+  vector< pair<TElemFmt,string> > fmts;
+  fmts.push_back( make_pair(fmt, lang) );
+  if(fmt == efmtCodeNative)
+      fmts.push_back( make_pair(efmtCodeInter, lang) );
+
+  string result = ElemIdToElem(type, id, fmts);
+  if(result.empty() || fmt==efmtCodeInter &&!is_lat(result)) {
+      string code_name;
+      switch(type)
+      {
+          case etClsGrp:
+              code_name = "CLS_GRP";
+              break;
+          default:
+              throw Exception("TlgElemIdToElem: Unsupported int elem type");
+      }
+      throw AstraLocale::UserException((string)"MSG." + code_name + "_LAT_CODE_NOT_FOUND", LParams() << LParam("id", id));
+  }
+  return result;
+};
+
 string TTlgInfo::TlgElemIdToElem(TElemType type, int id, TElemFmt fmt)
 {
     if(fmt == efmtUnknown)
         fmt = elem_fmt;
-    string result;
     try {
-        if(not(fmt==efmtCodeNative || fmt==efmtCodeInter))
-            throw Exception("Wrong fmt");
-
-        vector< pair<TElemFmt,string> > fmts;
-        fmts.push_back( make_pair(fmt, lang) );
-        if(fmt == efmtCodeNative)
-            fmts.push_back( make_pair(efmtCodeInter, lang) );
-
-        result = ElemIdToElem(type, id, fmts);
-        if(result.empty() || fmt==efmtCodeInter &&!is_lat(result)) {
-            string code_name;
-            switch(type)
-            {
-                case etClsGrp:
-                    code_name = "CLS_GRP";
-                    break;
-                default:
-                    throw Exception("Unsupported int elem type");
-            }
-            throw AstraLocale::UserException((string)"MSG." + code_name + "_LAT_CODE_NOT_FOUND", LParams() << LParam("id", id));
-        }
+        return ::TlgElemIdToElem(type, id, fmt, lang);
     } catch(UserException &E) {
-        result = add_err(DEFAULT_ERR, getLocaleText(E.getLexemaData()));
+        return add_err(DEFAULT_ERR, getLocaleText(E.getLexemaData()));
     } catch(exception &E) {
-        result = add_err(DEFAULT_ERR, "TTlgInfo::TlgElemIdToElem: tlg_type: %s, elem_type: %s, fmt: %s, what: %s", tlg_type.c_str(), EncodeElemType(type), EncodeElemFmt(fmt), E.what());
+        return add_err(DEFAULT_ERR, "TTlgInfo::TlgElemIdToElem: tlg_type: %s, elem_type: %s, fmt: %s, what: %s", tlg_type.c_str(), EncodeElemType(type), EncodeElemFmt(fmt), E.what());
     } catch(...) {
-        result = add_err(DEFAULT_ERR, "TTlgInfo::TlgElemIdToElem: unknown except caught. tlg_type: %s, elem_type: %s, fmt: %s", tlg_type.c_str(), EncodeElemType(type), EncodeElemFmt(fmt));
+        return add_err(DEFAULT_ERR, "TTlgInfo::TlgElemIdToElem: unknown except caught. tlg_type: %s, elem_type: %s, fmt: %s", tlg_type.c_str(), EncodeElemType(type), EncodeElemFmt(fmt));
     }
-    return result;
 }
+
+string TlgElemIdToElem(TElemType type, string id, TElemFmt fmt, string lang)
+{
+  if(id.empty())
+      throw Exception("TlgElemIdToElem: id is empty.");
+  if(not(fmt==efmtCodeNative || fmt==efmtCodeInter))
+      throw Exception("TlgElemIdToElem: Wrong fmt.");
+
+  vector< pair<TElemFmt,string> > fmts;
+  fmts.push_back( make_pair(fmt, lang) );
+  if(fmt == efmtCodeNative)
+      fmts.push_back( make_pair(efmtCodeInter, lang) );
+
+  string result = ElemIdToElem(type, id, fmts);
+  if(result.empty() || fmt==efmtCodeInter &&!is_lat(result)) {
+      string code_name;
+      switch(type)
+      {
+          case etCountry:
+              code_name="COUNTRY";
+              break;
+          case etCity:
+              code_name="CITY";
+              break;
+          case etAirline:
+              code_name="AIRLINE";
+              break;
+          case etAirp:
+              code_name="AIRP";
+              break;
+          case etCraft:
+              code_name="CRAFT";
+              break;
+          case etClass:
+              code_name="CLS";
+              break;
+          case etSubcls:
+              code_name="SUBCLS";
+              break;
+          case etPersType:
+              code_name="PAX_TYPE";
+              break;
+          case etGenderType:
+              code_name="GENDER";
+              break;
+          case etPaxDocType:
+              code_name="DOC";
+              break;
+          case etPayType:
+              code_name="PAY_TYPE";
+              break;
+          case etCurrency:
+              code_name="CURRENCY";
+              break;
+          case etSuffix:
+              code_name="SUFFIX";
+              break;
+          default:
+              throw Exception("TlgElemIdToElem: Unsupported elem type.");
+      };
+      throw AstraLocale::UserException((string)"MSG." + code_name + "_LAT_CODE_NOT_FOUND", LParams() << LParam("id", id));
+  }
+  return result;
+};
 
 string TTlgInfo::TlgElemIdToElem(TElemType type, string id, TElemFmt fmt)
 {
     if(fmt == efmtUnknown)
         fmt = elem_fmt;
-    string result;
     try {
-        if(id.empty())
-            throw Exception("id is empty.");
-        if(not(fmt==efmtCodeNative || fmt==efmtCodeInter))
-            throw Exception("Wrong fmt.");
-
-        vector< pair<TElemFmt,string> > fmts;
-        fmts.push_back( make_pair(fmt, lang) );
-        if(fmt == efmtCodeNative)
-            fmts.push_back( make_pair(efmtCodeInter, lang) );
-
-        result = ElemIdToElem(type, id, fmts);
-        if(result.empty() || fmt==efmtCodeInter &&!is_lat(result)) {
-            string code_name;
-            switch(type)
-            {
-                case etCountry:
-                    code_name="COUNTRY";
-                    break;
-                case etCity:
-                    code_name="CITY";
-                    break;
-                case etAirline:
-                    code_name="AIRLINE";
-                    break;
-                case etAirp:
-                    code_name="AIRP";
-                    break;
-                case etCraft:
-                    code_name="CRAFT";
-                    break;
-                case etClass:
-                    code_name="CLS";
-                    break;
-                case etSubcls:
-                    code_name="SUBCLS";
-                    break;
-                case etPersType:
-                    code_name="PAX_TYPE";
-                    break;
-                case etGenderType:
-                    code_name="GENDER";
-                    break;
-                case etPaxDocType:
-                    code_name="DOC";
-                    break;
-                case etPayType:
-                    code_name="PAY_TYPE";
-                    break;
-                case etCurrency:
-                    code_name="CURRENCY";
-                    break;
-                case etSuffix:
-                    code_name="SUFFIX";
-                    break;
-                default:
-                    throw Exception("Unsupported elem type.");
-            };
-            throw AstraLocale::UserException((string)"MSG." + code_name + "_LAT_CODE_NOT_FOUND", LParams() << LParam("id", id));
-        }
+        return ::TlgElemIdToElem(type, id, fmt, lang);
     } catch(UserException &E) {
-        result = add_err(id, getLocaleText(E.getLexemaData()));
+        return add_err(id, getLocaleText(E.getLexemaData()));
     } catch(exception &E) {
-        result = add_err(id, "TTlgInfo::TlgElemIdToElem: tlg_type: %s, elem_type: %s, fmt: %s, what: %s", tlg_type.c_str(), EncodeElemType(type), EncodeElemFmt(fmt), E.what());
+        return add_err(id, "TTlgInfo::TlgElemIdToElem: tlg_type: %s, elem_type: %s, fmt: %s, what: %s", tlg_type.c_str(), EncodeElemType(type), EncodeElemFmt(fmt), E.what());
     } catch(...) {
-        result = add_err(id, "TTlgInfo::TlgElemIdToElem: unknown except caught. tlg_type: %s, elem_type: %s, fmt: %s", tlg_type.c_str(), EncodeElemType(type), EncodeElemFmt(fmt));
+        return add_err(id, "TTlgInfo::TlgElemIdToElem: unknown except caught. tlg_type: %s, elem_type: %s, fmt: %s", tlg_type.c_str(), EncodeElemType(type), EncodeElemFmt(fmt));
     }
-    return result;
 }
 
 string fetch_addr(string &addr, TTlgInfo *info)
@@ -503,7 +511,7 @@ struct TWItem {
     int bagAmount;
     int bagWeight;
     int rkWeight;
-    void get(int grp_id);
+    void get(int grp_id, int bag_pool_num);
     void ToTlg(vector<string> &body);
     TWItem():
         bagAmount(0),
@@ -793,7 +801,7 @@ namespace PRL_SPACE {
             virtual void format_tag_no(ostringstream &line, const TTagItem &prev_item, const int num, TTlgInfo &info)=0;
         public:
             vector<TTagItem> items;
-            void get(int grp_id);
+            void get(int grp_id, int bag_pool_num);
             void ToTlg(TTlgInfo &info, vector<string> &body);
             virtual ~TTagList(){};
     };
@@ -847,31 +855,40 @@ namespace PRL_SPACE {
         }
     }
 
-    void TTagList::get(int grp_id)
+    void TTagList::get(int grp_id, int bag_pool_num)
     {
         TQuery Qry(&OraSession);
-        Qry.SQLText =
-            "SELECT "
-            "  bag_tags.tag_type, "
-            "  tag_types.no_len, "
-            "  bag_tags.no, "
-            "  bag_tags.color, "
-            "  nvl(transfer.airp_arv, pax_grp.airp_arv) airp_arv "
-            "FROM "
-            "  bag_tags, "
-            "  tag_types, "
-            "  pax_grp, "
-            "  transfer "
-            "WHERE "
-            "  bag_tags.tag_type=tag_types.code AND "
-            "  bag_tags.grp_id=:grp_id and "
-            "  bag_tags.grp_id = transfer.grp_id(+) and transfer.pr_final(+)<>0 and "
-            "  bag_tags.grp_id = pax_grp.grp_id "
-            "ORDER BY "
-            "  bag_tags.tag_type, "
-            "  bag_tags.color, "
-            "  bag_tags.no ";
+        string SQLText =
+            "select "
+            "    bag_tags.tag_type,  "
+            "    tag_types.no_len,  "
+            "    bag_tags.no,  "
+            "    bag_tags.color,  "
+            "    nvl(transfer.airp_arv, pax_grp.airp_arv) airp_arv  "
+            "from "
+            "    bag_tags, "
+            "    bag2, "
+            "    tag_types, "
+            "    transfer, "
+            "    pax_grp "
+            "where "
+            "    bag_tags.grp_id = :grp_id and "
+            "    bag_tags.grp_id = bag2.grp_id(+) and "
+            "    bag_tags.bag_num = bag2.num(+) and ";
+        if(bag_pool_num == 1) // непривязанные бирки приобщаем к bag_pool_num = 1
+            SQLText += 
+                "    (bag2.bag_pool_num = :bag_pool_num or bag_tags.bag_num is null) and ";
+        else
+            SQLText += 
+                "    bag2.bag_pool_num = :bag_pool_num and ";
+        SQLText += 
+            "    bag_tags.tag_type = tag_types.code and "
+            "    bag_tags.grp_id = transfer.grp_id(+) and transfer.pr_final(+)<>0 and "
+            "    bag_tags.grp_id = pax_grp.grp_id ";
+
+        Qry.SQLText = SQLText;
         Qry.CreateVariable("grp_id", otInteger, grp_id);
+        Qry.CreateVariable("bag_pool_num", otInteger, bag_pool_num);
         Qry.Execute();
         if(!Qry.Eof) {
             int col_tag_type = Qry.FieldIndex("tag_type");
@@ -1058,9 +1075,12 @@ namespace PRL_SPACE {
     };
 
     struct TGRPMap {
-        map<int, TGRPItem> items;
-        void get(int grp_id);
-        void ToTlg(TTlgInfo &info, int grp_id, vector<string> &body);
+        map<int, map<int, TGRPItem> > items;
+        int items_count;
+        bool find(int grp_id, int bag_pool_num);
+        void get(int grp_id, int bag_pool_num);
+        void ToTlg(TTlgInfo &info, int grp_id, int bag_pool_num, vector<string> &body);
+        TGRPMap(): items_count(0) {};
     };
 
     struct TFirmSpaceAvail {
@@ -1089,6 +1109,7 @@ namespace PRL_SPACE {
         string crs;
         int pax_id;
         int grp_id;
+        int bag_pool_num;
         string subcls;
         TPNRList pnrs;
         TMItem M;
@@ -1100,12 +1121,13 @@ namespace PRL_SPACE {
             pnr_id = NoExists;
             pax_id = NoExists;
             grp_id = NoExists;
+            bag_pool_num = NoExists;
         }
     };
 
-    void TGRPMap::ToTlg(TTlgInfo &info, int grp_id, vector<string> &body)
+    void TGRPMap::ToTlg(TTlgInfo &info, int grp_id, int bag_pool_num, vector<string> &body)
     {
-        TGRPItem &grp_map = items[grp_id];
+        TGRPItem &grp_map = items[grp_id][bag_pool_num];
         if(not(grp_map.W.bagAmount == 0 and grp_map.W.bagWeight == 0 and grp_map.W.rkWeight == 0)) {
             ostringstream line;
             if(grp_map.pax_count > 1) {
@@ -1121,20 +1143,33 @@ namespace PRL_SPACE {
         }
     }
 
-    void TGRPMap::get(int grp_id)
+    bool TGRPMap::find(int grp_id, int bag_pool_num)
     {
-        if(items.find(grp_id) != items.end()) return; // olready got
+        map<int, map<int, TGRPItem> >::iterator ix = items.find(grp_id);
+        bool result = ix != items.end();
+        if(result) {
+            map<int, TGRPItem>::iterator iy = ix->second.find(bag_pool_num);
+            result = iy != ix->second.end();
+        }
+
+        return result;
+    }
+
+    void TGRPMap::get(int grp_id, int bag_pool_num)
+    {
+        if(find(grp_id, bag_pool_num)) return; // olready got
         TGRPItem item;
-        item.W.get(grp_id);
+        item.W.get(grp_id, bag_pool_num);
         TQuery Qry(&OraSession);
         Qry.SQLText =
-            "select count(*) from pax where grp_id = :grp_id and refuse is null";
+            "select count(*) from pax where grp_id = :grp_id and bag_pool_num = :bag_pool_num and refuse is null";
         Qry.CreateVariable("grp_id", otInteger, grp_id);
+        Qry.CreateVariable("bag_pool_num", otInteger, bag_pool_num);
         Qry.Execute();
         item.pax_count = Qry.FieldAsInteger(0);
-        item.tags.get(grp_id);
-        item.bg = items.size() + 1;
-        items[grp_id] = item;
+        item.tags.get(grp_id, bag_pool_num);
+        item.bg = ++items_count;
+        items[grp_id][bag_pool_num] = item;
     }
 
     void TRemList::ToTlg(TTlgInfo &info, vector<string> &body)
@@ -1219,7 +1254,7 @@ namespace PRL_SPACE {
             iv->pnrs.ToTlg(info, body);
             iv->M.ToTlg(info, body);
             iv->firm_space_avail.ToTlg(info, body);
-            grp_map->ToTlg(info, iv->grp_id, body);
+            grp_map->ToTlg(info, iv->grp_id, iv->bag_pool_num, body);
             iv->OList.ToTlg(info, body);
             iv->rems.ToTlg(info, body);
         }
@@ -1240,6 +1275,7 @@ namespace PRL_SPACE {
             "    crs_pnr.priority, "
             "    pax.pax_id, "
             "    pax.grp_id, "
+            "    pax.bag_pool_num, "
             "    NVL(pax.subclass,pax_grp.class) subclass "
             "from "
             "    pax, "
@@ -1284,6 +1320,7 @@ namespace PRL_SPACE {
             int col_priority = Qry.FieldIndex("priority");
             int col_pax_id = Qry.FieldIndex("pax_id");
             int col_grp_id = Qry.FieldIndex("grp_id");
+            int col_bag_pool_num = Qry.FieldIndex("bag_pool_num");
             int col_subcls = Qry.FieldIndex("subclass");
             for(; !Qry.Eof; Qry.Next()) {
                 TPRLPax pax(infants);
@@ -1301,6 +1338,8 @@ namespace PRL_SPACE {
                     continue;
                 pax.pax_id = Qry.FieldAsInteger(col_pax_id);
                 pax.grp_id = Qry.FieldAsInteger(col_grp_id);
+                if(not Qry.FieldIsNULL(col_bag_pool_num))
+                    pax.bag_pool_num = Qry.FieldAsInteger(col_bag_pool_num);
                 pax.M.get(info, pax.pax_id);
                 if(not info.mark_info.IsNULL() and not(info.mark_info == pax.M.m_flight))
                     continue;
@@ -1308,7 +1347,7 @@ namespace PRL_SPACE {
                 if(!Qry.FieldIsNULL(col_subcls))
                     pax.subcls = Qry.FieldAsString(col_subcls);
                 pax.rems.get(info, pax, complayers);
-                grp_map->get(pax.grp_id);
+                grp_map->get(pax.grp_id, pax.bag_pool_num);
                 pax.OList.get(pax.pax_id);
                 PaxList.push_back(pax);
             }
@@ -1620,7 +1659,7 @@ namespace PRL_SPACE {
             "WHERE "
             "   pax_grp.point_dep = :point_id AND "
             "   pax_grp.grp_id = bag2.grp_id AND "
-            "   pax_grp.bag_refuse = 0 "
+            "   ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse) = 0 "
             "GROUP BY "
             "   pax_grp.point_arv "
             "   ) b "
@@ -1828,20 +1867,28 @@ void TWItem::ToTlg(vector<string> &body)
     body.push_back(buf.str());
 }
 
-void TWItem::get(int grp_id)
+void TWItem::get(int grp_id, int bag_pool_num)
 {
+    if(bag_pool_num == NoExists) return;
     TQuery Qry(&OraSession);
     Qry.SQLText =
-        "SELECT "
-        "  NVL(ckin.get_bagAmount2(:grp_id,NULL,NULL),0) bagAmount, "
-        "  NVL(ckin.get_bagWeight2(:grp_id,NULL,NULL),0) bagWeight, "
-        "  NVL(ckin.get_rkWeight2(:grp_id,NULL,NULL),0) rkWeight "
-        "FROM dual ";
+        "declare "
+        "   bag_pool_pax_id pax.pax_id%type; "
+        "begin "
+        "   bag_pool_pax_id := ckin.get_bag_pool_pax_id(:grp_id, :bag_pool_num); "
+        "   :bagAmount := ckin.get_bagAmount2(:grp_id, bag_pool_pax_id, :bag_pool_num); "
+        "   :bagWeight := ckin.get_bagWeight2(:grp_id, bag_pool_pax_id, :bag_pool_num); "
+        "   :rkWeight := ckin.get_rkWeight2(:grp_id, bag_pool_pax_id, :bag_pool_num); "
+        "end;";
     Qry.CreateVariable("grp_id", otInteger, grp_id);
+    Qry.CreateVariable("bag_pool_num", otInteger, bag_pool_num);
+    Qry.DeclareVariable("bagAmount", otInteger);
+    Qry.DeclareVariable("bagWeight", otInteger);
+    Qry.DeclareVariable("rkWeight", otInteger);
     Qry.Execute();
-    bagAmount = Qry.FieldAsInteger("bagAmount");
-    bagWeight = Qry.FieldAsInteger("bagWeight");
-    rkWeight = Qry.FieldAsInteger("rkWeight");
+    bagAmount = Qry.GetVariableAsInteger("bagAmount");
+    bagWeight = Qry.GetVariableAsInteger("bagWeight");
+    rkWeight = Qry.GetVariableAsInteger("rkWeight");
 }
 
 struct TBTMGrpList;
@@ -1905,6 +1952,7 @@ struct TExtraSeatName {
 struct TPPax {
     public:
         int seats, grp_id;
+        int bag_pool_num;
         int pax_id;
         TPerson pers_type;
         bool unaccomp;
@@ -1918,6 +1966,7 @@ struct TPPax {
             ProgTrace(TRACE5, "name: %s", name.c_str());
             ProgTrace(TRACE5, "surname: %s", surname.c_str());
             ProgTrace(TRACE5, "grp_id: %d", grp_id);
+            ProgTrace(TRACE5, "bag_pool_num: %d", bag_pool_num);
             ProgTrace(TRACE5, "pax_id: %d", pax_id);
             ProgTrace(TRACE5, "trfer_cls: %s", trfer_cls.c_str());
             ProgTrace(TRACE5, "----------");
@@ -1932,6 +1981,7 @@ struct TPPax {
         TPPax():
             seats(0),
             grp_id(NoExists),
+            bag_pool_num(NoExists),
             pax_id(NoExists),
             pers_type(NoPerson),
             unaccomp(false)
@@ -1970,15 +2020,17 @@ void TPList::dump_surnames()
 
 struct TBTMGrpListItem {
     int grp_id;
+    int bag_pool_num;
     int main_pax_id;
     TBTMTagList NList;
     TWItem W;
     TPList PList;
-    TBTMGrpListItem(): grp_id(NoExists), main_pax_id(NoExists), PList(this) {};
+    TBTMGrpListItem(): grp_id(NoExists), bag_pool_num(NoExists), main_pax_id(NoExists), PList(this) {};
     TBTMGrpListItem(const TBTMGrpListItem &val): grp_id(NoExists), main_pax_id(NoExists), PList(this)
     {
         // Конструктор копирования нужен, чтобы PList.grp содержал правильный указатель
         grp_id = val.grp_id;
+        bag_pool_num = val.bag_pool_num;
         main_pax_id = val.main_pax_id;
         NList = val.NList;
         W = val.W;
@@ -1989,15 +2041,15 @@ struct TBTMGrpListItem {
 
 struct TBTMGrpList {
     vector<TBTMGrpListItem> items;
-    TBTMGrpListItem &get_grp_item(int grp_id)
+    TBTMGrpListItem &get_grp_item(int grp_id, int bag_pool_num)
     {
         vector<TBTMGrpListItem>::iterator iv = items.begin();
         for(; iv != items.end(); iv++) {
-            if(iv->grp_id == grp_id)
+            if(iv->grp_id == grp_id and iv->bag_pool_num == bag_pool_num)
                 break;
         }
         if(iv == items.end())
-            throw Exception("TBTMGrpList::get_grp_item: item not found, grp_id %d", grp_id);
+            throw Exception("TBTMGrpList::get_grp_item: item not found, grp_id %d, bag_pool_num %d", grp_id, bag_pool_num);
         return *iv;
     }
     void get(TTlgInfo &info, TFItem &AFItem);
@@ -2006,9 +2058,9 @@ struct TBTMGrpList {
     void dump() {
         ProgTrace(TRACE5, "TBTMGrpList::dump");
         for(vector<TBTMGrpListItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
-            ProgTrace(TRACE5, "SURNAMES FOR GRP_ID %d", iv->grp_id);
+            ProgTrace(TRACE5, "SURNAMES FOR GRP_ID %d, BAG_POOL_NUM %d", iv->grp_id, iv->bag_pool_num);
             iv->PList.dump_surnames();
-            ProgTrace(TRACE5, "END OF SURNAMES FOR GRP_ID %d", iv->grp_id);
+            ProgTrace(TRACE5, "END OF SURNAMES FOR GRP_ID %d, BAG_POOL_NUM %d", iv->grp_id, iv->bag_pool_num);
         }
         ProgTrace(TRACE5, "END OF TBTMGrpList::dump");
     }
@@ -2016,7 +2068,7 @@ struct TBTMGrpList {
 
 // Представление списка полей .P/ как он будет в телеграмме.
 // причем список этот будет представлять отдельную группу пассажиров
-// объединенную по grp_id
+// объединенную по grp_id и bag_pool_num
 struct TPLine {
     bool include_exst;
     bool print_bag;
@@ -2025,6 +2077,7 @@ struct TPLine {
     size_t inf;
     size_t chd;
     int grp_id;
+    int bag_pool_num;
     string surname;
     vector<string> names;
 
@@ -2035,7 +2088,8 @@ struct TPLine {
         seats(0),
         inf(0),
         chd(0),
-        grp_id(NoExists)
+        grp_id(NoExists),
+        bag_pool_num(NoExists)
     {};
     size_t get_line_size() {
         return get_line().size() + br.size();
@@ -2071,7 +2125,7 @@ struct TPLine {
             << " ";
         if(print_bag)
             result
-                << FItem.get_grp_list()->get_grp_item(grp_id).W.bagAmount;
+                << FItem.get_grp_list()->get_grp_item(grp_id, bag_pool_num).W.bagAmount;
         else
             result
                 << 0;
@@ -2089,9 +2143,10 @@ struct TPLine {
     {
         if(grp_id == NoExists) {
             grp_id = pax.grp_id;
+            bag_pool_num = pax.bag_pool_num;
         } else {
-            if(grp_id != pax.grp_id)
-                throw Exception("TPLine operator +=: cannot add pax with different grp_id");
+            if(grp_id != pax.grp_id and bag_pool_num != pax.bag_pool_num)
+                throw Exception("TPLine operator +=: cannot add pax with different grp_id & bag_pool_num");
         }
         seats += pax.seats;
         switch(pax.pers_type) {
@@ -2348,6 +2403,7 @@ void TPList::get(TTlgInfo &info, string trfer_cls)
         "   subcls \n"
         "where \n"
         "  pax.grp_id = :grp_id and \n"
+        "  nvl(pax.bag_pool_num, 0) = nvl(:bag_pool_num, 0) and \n"
         "  pax.seats > 0 and \n"
         "  pax.pax_id = transfer_subcls.pax_id(+) and \n"
         "  transfer_subcls.transfer_num(+) = 1 and \n"
@@ -2356,10 +2412,15 @@ void TPList::get(TTlgInfo &info, string trfer_cls)
         "   pax.surname, \n"
         "   pax.name \n";
     Qry.CreateVariable("grp_id", otInteger, grp->grp_id);
+    if(grp->bag_pool_num == NoExists)
+        Qry.CreateVariable("bag_pool_num", otInteger, FNull);
+    else
+        Qry.CreateVariable("bag_pool_num", otInteger, grp->bag_pool_num);
     Qry.Execute();
     if(Qry.Eof) {
         TPPax item;
         item.grp_id = grp->grp_id;
+        item.bag_pool_num = grp->bag_pool_num;
         item.seats = 1;
         item.surname = "UNACCOMPANIED";
         item.unaccomp = true;
@@ -2378,6 +2439,7 @@ void TPList::get(TTlgInfo &info, string trfer_cls)
             TPPax item;
             item.pax_id = Qry.FieldAsInteger(col_pax_id);
             item.grp_id = grp->grp_id;
+            item.bag_pool_num = grp->bag_pool_num;
             item.seats = Qry.FieldAsInteger(col_seats);
             if(item.seats > 1)
                 item.exst.get(Qry.FieldAsInteger(col_pax_id));
@@ -2422,40 +2484,66 @@ void TBTMGrpList::get(TTlgInfo &info, TFItem &FItem)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
-        "select  \n"
-        "   transfer.grp_id, \n"
-        "   ckin.get_main_pax_id(transfer.grp_id) main_pax_id \n"
-        "from  \n"
-        "   transfer, \n"
-        "   pax_grp \n"
-        "where  \n"
-        "   transfer.point_id_trfer = :point_id_trfer and \n"
-        "   transfer.grp_id = pax_grp.grp_id and \n"
-        "   transfer.transfer_num = 1 and \n"
-        "   transfer.airp_arv = :trfer_airp and \n"
-        "   pax_grp.status <> 'T' and \n"
-        "   pax_grp.point_dep = :point_id and \n"
-        "   pax_grp.airp_arv = :airp_arv \n"
-        "order by \n"
-        "   grp_id \n";
+        "select distinct  \n"
+        "   transfer.grp_id,  \n"
+        "   nvl2(pax.grp_id, pax.bag_pool_num, 1) bag_pool_num, \n"
+        "   ckin.get_bag_pool_pax_id(transfer.grp_id, pax.bag_pool_num) bag_pool_pax_id  \n"
+        "from   \n"
+        "   transfer,  \n"
+        "   pax_grp,  \n"
+        "   pax, \n"
+        "   (select  \n"
+        "       pax_grp.grp_id,  \n"
+        "       subcls.class  \n"
+        "    from  \n"
+        "       pax_grp,  \n"
+        "       pax,  \n"
+        "       transfer_subcls,  \n"
+        "       subcls  \n"
+        "    where  \n"
+        "      pax_grp.point_dep = :point_id and  \n"
+        "      pax_grp.airp_arv = :airp_arv and  \n"
+        "      pax_grp.grp_id = pax.grp_id and  \n"
+        "      pax.pax_id = transfer_subcls.pax_id and  \n"
+        "      transfer_subcls.transfer_num = 1 and  \n"
+        "      transfer_subcls.subclass = subcls.code  \n"
+        "   ) a \n"
+        "where   \n"
+        "   pax_grp.grp_id = pax.grp_id(+) and  \n"
+        "   transfer.point_id_trfer = :point_id_trfer and  \n"
+        "   transfer.grp_id = pax_grp.grp_id and  \n"
+        "   transfer.transfer_num = 1 and  \n"
+        "   transfer.airp_arv = :trfer_airp and  \n"
+        "   pax_grp.status <> 'T' and  \n"
+        "   pax_grp.point_dep = :point_id and  \n"
+        "   pax_grp.airp_arv = :airp_arv and \n"
+        "   pax_grp.grp_id = a.grp_id(+) and \n"
+        "   nvl(a.class, ' ') = nvl(:trfer_cls, ' ') \n"
+        "order by  \n"
+        "   grp_id,  \n"
+        "   bag_pool_num \n";
     Qry.CreateVariable("point_id", otInteger, info.point_id);
     Qry.CreateVariable("airp_arv", otString, info.airp_arv);
     Qry.CreateVariable("trfer_airp", otString, FItem.airp_arv);
     Qry.CreateVariable("point_id_trfer", otInteger, FItem.point_id_trfer);
+    Qry.CreateVariable("trfer_cls", otString, FItem.trfer_cls);
     Qry.Execute();
     if(!Qry.Eof) {
         int col_grp_id = Qry.FieldIndex("grp_id");
-        int col_main_pax_id = Qry.FieldIndex("main_pax_id");
+        int col_bag_pool_num = Qry.FieldIndex("bag_pool_num");
+        int col_main_pax_id = Qry.FieldIndex("bag_pool_pax_id");
         for(; !Qry.Eof; Qry.Next()) {
             TBTMGrpListItem item;
             item.grp_id = Qry.FieldAsInteger(col_grp_id);
+            if(not Qry.FieldIsNULL(col_bag_pool_num))
+                item.bag_pool_num = Qry.FieldAsInteger(col_bag_pool_num);
             if(not Qry.FieldIsNULL(col_main_pax_id))
                 item.main_pax_id = Qry.FieldAsInteger(col_main_pax_id);
-            item.NList.get(item.grp_id);
+            item.NList.get(item.grp_id, item.bag_pool_num);
             item.PList.get(info, FItem.trfer_cls);
             if(item.PList.surnames.empty())
                 continue;
-            item.W.get(item.grp_id);
+            item.W.get(item.grp_id, item.bag_pool_num);
             items.push_back(item);
         }
     }
@@ -2531,8 +2619,9 @@ struct TPTMFItem:TFItem {
     }
 };
 
+// Список направлений трансфера
 template <class T>
-struct TFList { // Список направлений трансфера
+struct TFList {
     vector<T> items;
     void get(TTlgInfo &info);
     void ToTlg(TTlgInfo &info, vector<string> &body);
@@ -2620,6 +2709,9 @@ void TFList<T>::ToTlg(TTlgInfo &info, vector<string> &body)
     for(size_t i = 0; i < items.size(); i++) {
         vector<string> grp_list_body;
         items[i].grp_list.ToTlg(info, grp_list_body, items[i]);
+        ProgTrace(TRACE5, "AFTER grp_list.ToTlg");
+        for(vector<string>::iterator iv = grp_list_body.begin(); iv != grp_list_body.end(); iv++)
+            ProgTrace(TRACE5, "%s", iv->c_str());
         // все типы телеграмм кроме PTMN проверяют grp_list_body.
         // для PTMN он всегда пустой.
         if(info.tlg_type != "PTMN" and grp_list_body.empty())
@@ -3892,6 +3984,7 @@ struct TETLPax {
     string ticket_no;
     int coupon_no;
     int grp_id;
+    int bag_pool_num;
     TPNRListAddressee pnrs;
     TMItem M;
     TRemList rems;
@@ -3900,6 +3993,7 @@ struct TETLPax {
         pnr_id = NoExists;
         pax_id = NoExists;
         grp_id = NoExists;
+        bag_pool_num = NoExists;
     }
 };
 
@@ -4149,7 +4243,8 @@ void TETLDest::GetPaxList(TTlgInfo &info,vector<TTlgCompLayer> &complayers)
         "    pax.pax_id, "
         "    pax.ticket_no, "
         "    pax.coupon_no, "
-        "    pax.grp_id "
+        "    pax.grp_id, "
+        "    pax.bag_pool_num "
         "from "
         "    pax, "
         "    pax_grp, "
@@ -4189,6 +4284,7 @@ void TETLDest::GetPaxList(TTlgInfo &info,vector<TTlgCompLayer> &complayers)
         int col_ticket_no = Qry.FieldIndex("ticket_no");
         int col_coupon_no = Qry.FieldIndex("coupon_no");
         int col_grp_id = Qry.FieldIndex("grp_id");
+        int col_bag_pool_num = Qry.FieldIndex("bag_pool_num");
         for(; !Qry.Eof; Qry.Next()) {
             TETLPax pax(infants);
             pax.target = Qry.FieldAsString(col_target);
@@ -4208,9 +4304,11 @@ void TETLDest::GetPaxList(TTlgInfo &info,vector<TTlgCompLayer> &complayers)
             pax.ticket_no = Qry.FieldAsString(col_ticket_no);
             pax.coupon_no = Qry.FieldAsInteger(col_coupon_no);
             pax.grp_id = Qry.FieldAsInteger(col_grp_id);
+            if(not Qry.FieldIsNULL(col_bag_pool_num))
+                pax.bag_pool_num = Qry.FieldAsInteger(col_bag_pool_num);
             pax.pnrs.get(pax.pnr_id);
             pax.rems.get(info, pax);
-            grp_map->get(pax.grp_id);
+            grp_map->get(pax.grp_id, pax.bag_pool_num);
             PaxList.push_back(pax);
         }
     }
@@ -4222,7 +4320,7 @@ void TETLDest::PaxListToTlg(TTlgInfo &info, vector<string> &body)
         iv->name.ToTlg(info, body);
         iv->pnrs.ToTlg(info, body);
         iv->rems.ToTlg(info, body);
-        grp_map->ToTlg(info, iv->grp_id, body);
+        grp_map->ToTlg(info, iv->grp_id, iv->bag_pool_num, body);
     }
 }
 
@@ -4312,19 +4410,13 @@ void TLDMBag::get(TTlgInfo &info, int point_arv)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
-        "SELECT "
-        "  NVL(SUM(weight),0) AS weight "
-        "FROM bag2, "
-        "     (SELECT DISTINCT pax_grp.grp_id FROM pax_grp,pax "
-        "      WHERE pax_grp.grp_id=pax.grp_id AND "
-        "            point_dep=:point_id AND point_arv=:point_arv AND  "
-        "            bag_refuse=0 AND pr_brd=1 "
-        "      UNION "
-        "      SELECT pax_grp.grp_id FROM pax_grp  "
-        "      WHERE point_dep=:point_id AND point_arv=:point_arv AND  "
-        "            bag_refuse=0 AND class IS NULL "
-        "     ) pax_grp "
-        "WHERE bag2.grp_id=pax_grp.grp_id AND pr_cabin=0 ";
+        "SELECT NVL(SUM(weight),0) AS weight "
+        "FROM pax_grp,bag2 "
+        "WHERE pax_grp.grp_id=bag2.grp_id AND "
+        "      pax_grp.point_dep=:point_id AND "
+        "      pax_grp.point_arv=:point_arv AND "
+        "      bag2.pr_cabin=0 AND "
+        "      ckin.bag_pool_boarded(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)<>0";
     Qry.CreateVariable("point_arv", otInteger, point_arv);
     Qry.CreateVariable("point_id", otInteger, info.point_id);
     Qry.Execute();
@@ -4351,7 +4443,7 @@ void TExcess::get(int point_id)
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "SELECT NVL(SUM(excess),0) excess FROM pax_grp "
-        "WHERE point_dep=:point_id AND bag_refuse=0 ";
+        "WHERE point_dep=:point_id AND ckin.excess_boarded(grp_id,class,bag_refuse)<>0 ";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.Execute();
     excess = Qry.FieldAsInteger("excess");

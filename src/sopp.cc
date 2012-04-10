@@ -639,10 +639,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
 /*      }*/
     }
     else {
-    	PointsQry.CreateVariable( "first_date", otDate, FNull );
-    	PointsQry.CreateVariable( "next_date", otDate, FNull );
-    	if ( arx )
-    	  PointsQry.CreateVariable( "arx_trip_date_range", otInteger, FNull ); //!!!vlad это зачем?
+      throw Exception( "internal_ReadData: invalid params" );
     }
   }
   TQuery ClassesQry( &OraSession );
@@ -1606,6 +1603,17 @@ class TTransferPaxItem
 {
   public:
     string surname, name;
+    int seats;
+    int bag_amount, bag_weight, rk_weight;
+    string weight_unit;
+    vector<TBagTagNumber> tags;
+    TTransferPaxItem()
+    {
+      seats=NoExists;
+      bag_amount=NoExists;
+      bag_weight=NoExists;
+      rk_weight=NoExists;
+    };
 };
 
 class TTransferGrpItem
@@ -1661,6 +1669,8 @@ void SoppInterface::GetTransfer(bool pr_inbound_tckin,
                                 int point_id,
                                 xmlNodePtr resNode)
 {
+  TReqInfo *reqInfo = TReqInfo::Instance();
+
   TQuery Qry(&OraSession);
   TQuery PointsQry(&OraSession);
   TQuery PaxQry(&OraSession);
@@ -1732,39 +1742,61 @@ void SoppInterface::GetTransfer(bool pr_inbound_tckin,
   }
   else
   {
+    ostringstream sql;
+  
     if (pr_inbound_tckin)
     {
-      Qry.SQLText=
-        "SELECT tckin_pax_grp.tckin_id,tckin_pax_grp.seg_no, "
-        "       pax_grp.grp_id,pax_grp.airp_arv,pax_grp.class AS subcl, "
-        "       NVL(ckin.get_bagAmount2(pax_grp.grp_id,NULL,NULL,rownum),0) AS bag_amount, "
-        "       NVL(ckin.get_bagWeight2(pax_grp.grp_id,NULL,NULL,rownum),0) AS bag_weight, "
-        "       NVL(ckin.get_rkWeight2(pax_grp.grp_id,NULL,NULL,rownum),0) AS rk_weight, "
-        "       'K' AS weight_unit "
-        "FROM pax_grp,tckin_pax_grp "
-        "WHERE pax_grp.grp_id=tckin_pax_grp.grp_id AND "
-        "      pax_grp.point_dep=:point_id AND bag_refuse=0 AND pax_grp.status<>'T' ";
+      sql << "SELECT tckin_pax_grp.tckin_id,tckin_pax_grp.seg_no, "
+             "       pax_grp.grp_id,pax_grp.airp_arv,pax_grp.class AS subcl ";
+      if (!reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS))
+      {
+        sql << ", "
+               "       NVL(ckin.get_bagAmount2(pax_grp.grp_id,NULL,NULL,rownum),0) AS bag_amount, "
+               "       NVL(ckin.get_bagWeight2(pax_grp.grp_id,NULL,NULL,rownum),0) AS bag_weight, "
+               "       NVL(ckin.get_rkWeight2(pax_grp.grp_id,NULL,NULL,rownum),0) AS rk_weight, "
+               "       'K' AS weight_unit ";
+      };
+      sql << "FROM pax_grp,tckin_pax_grp "
+             "WHERE pax_grp.grp_id=tckin_pax_grp.grp_id AND "
+             "      pax_grp.point_dep=:point_id AND bag_refuse=0 AND pax_grp.status<>'T' ";
     }
     else
     {
-      Qry.SQLText=
-        "SELECT trfer_trips.airline,trfer_trips.flt_no,trfer_trips.suffix,trfer_trips.scd, "
-        "       trfer_trips.airp_dep,transfer.airp_arv, "
-        "       pax_grp.grp_id,pax_grp.class AS subcl, "
-        "       NVL(ckin.get_bagAmount2(pax_grp.grp_id,NULL,NULL,rownum),0) AS bag_amount, "
-        "       NVL(ckin.get_bagWeight2(pax_grp.grp_id,NULL,NULL,rownum),0) AS bag_weight, "
-        "       NVL(ckin.get_rkWeight2(pax_grp.grp_id,NULL,NULL,rownum),0) AS rk_weight, "
-        "       'K' AS weight_unit "
-        "FROM pax_grp,transfer,trfer_trips "
-        "WHERE pax_grp.grp_id=transfer.grp_id AND "
-        "      transfer.point_id_trfer=trfer_trips.point_id AND "
-        "      transfer.transfer_num=1 AND "
-        "      pax_grp.point_dep=:point_id AND bag_refuse=0 AND pax_grp.status<>'T' ";
+      sql << "SELECT trfer_trips.airline,trfer_trips.flt_no,trfer_trips.suffix,trfer_trips.scd, "
+             "       trfer_trips.airp_dep,transfer.airp_arv, "
+             "       pax_grp.grp_id,pax_grp.class AS subcl ";
+      if (!reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS))
+      {
+        sql << ", "
+               "       NVL(ckin.get_bagAmount2(pax_grp.grp_id,NULL,NULL,rownum),0) AS bag_amount, "
+               "       NVL(ckin.get_bagWeight2(pax_grp.grp_id,NULL,NULL,rownum),0) AS bag_weight, "
+               "       NVL(ckin.get_rkWeight2(pax_grp.grp_id,NULL,NULL,rownum),0) AS rk_weight, "
+               "       'K' AS weight_unit ";
+      };
+      sql << "FROM pax_grp,transfer,trfer_trips "
+             "WHERE pax_grp.grp_id=transfer.grp_id AND "
+             "      transfer.point_id_trfer=trfer_trips.point_id AND "
+             "      transfer.transfer_num=1 AND "
+             "      pax_grp.point_dep=:point_id AND bag_refuse=0 AND pax_grp.status<>'T' ";
     };
+    Qry.SQLText=sql.str().c_str();
     Qry.CreateVariable("point_id",otInteger,point_id);
-
-    PaxQry.SQLText=
-      "SELECT pax_id,surname,name,seats FROM pax WHERE grp_id=:grp_id AND pr_brd IS NOT NULL";
+    
+    sql.str("");
+    sql << "SELECT pax_id,surname,name,seats ";
+    if (reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS))
+    {
+      sql << ", "
+             "       bag_pool_num, "
+             "       ckin.get_bag_pool_pax_id(pax.grp_id,pax.bag_pool_num) AS bag_pool_pax_id, "
+             "       NVL(ckin.get_bagAmount2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS bag_amount, "
+             "       NVL(ckin.get_bagWeight2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS bag_weight, "
+             "       NVL(ckin.get_rkWeight2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS rk_weight, "
+             "       'K' AS weight_unit ";
+    };
+    sql << "FROM pax_grp, pax "
+           "WHERE pax_grp.grp_id=pax.grp_id(+) AND pax_grp.grp_id=:grp_id AND pax.pr_brd(+) IS NOT NULL";
+    PaxQry.SQLText=sql.str().c_str();
     PaxQry.DeclareVariable("grp_id",otInteger);
 
     RemQry.SQLText=
@@ -1773,8 +1805,22 @@ void SoppInterface::GetTransfer(bool pr_inbound_tckin,
       "ORDER BY DECODE(rem_code,'STCR',0,'EXST',1,2) ";
     RemQry.DeclareVariable("pax_id",otInteger);
 
-    TagQry.SQLText=
-      "SELECT no FROM bag_tags WHERE grp_id=:grp_id";
+    if (reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS))
+    {
+      TagQry.SQLText=
+        "SELECT bag_tags.no "
+        "FROM bag_tags,bag2 "
+        "WHERE bag_tags.grp_id=bag2.grp_id(+) AND "
+        "      bag_tags.bag_num=bag2.num(+) AND "
+        "      bag_tags.grp_id=:grp_id AND "
+        "      NVL(bag2.bag_pool_num,1)=:bag_pool_num";
+      TagQry.DeclareVariable("bag_pool_num",otInteger);
+    }
+    else
+    {
+      TagQry.SQLText=
+        "SELECT no FROM bag_tags WHERE grp_id=:grp_id";
+    };
     TagQry.DeclareVariable("grp_id",otInteger);
   };
 
@@ -1821,10 +1867,26 @@ void SoppInterface::GetTransfer(bool pr_inbound_tckin,
       grp.airp_dep_view=ElemIdToCodeNative(etAirp,Qry.FieldAsString("airp_dep"));
       grp.airp_arv_view=ElemIdToCodeNative(etAirp,Qry.FieldAsString("airp_arv"));
     };
-    grp.bag_amount=!Qry.FieldIsNULL("bag_amount")?Qry.FieldAsInteger("bag_amount"):NoExists;
-    grp.bag_weight=!Qry.FieldIsNULL("bag_weight")?Qry.FieldAsInteger("bag_weight"):NoExists;
-    grp.rk_weight=!Qry.FieldIsNULL("rk_weight")?Qry.FieldAsInteger("rk_weight"):NoExists;
-    grp.weight_unit=Qry.FieldAsString("weight_unit");
+    if (pr_tlg || !reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS))
+    {
+      grp.bag_amount=!Qry.FieldIsNULL("bag_amount")?Qry.FieldAsInteger("bag_amount"):NoExists;
+      grp.bag_weight=!Qry.FieldIsNULL("bag_weight")?Qry.FieldAsInteger("bag_weight"):NoExists;
+      grp.rk_weight=!Qry.FieldIsNULL("rk_weight")?Qry.FieldAsInteger("rk_weight"):NoExists;
+      grp.weight_unit=Qry.FieldAsString("weight_unit");
+      if (pr_bag)
+      {
+        TagQry.SetVariable("grp_id",grp.grp_id);
+        TagQry.Execute();
+        for(;!TagQry.Eof;TagQry.Next())
+          grp.tags.push_back(TBagTagNumber("",TagQry.FieldAsFloat("no")));
+      };
+    }
+    else
+    {
+      grp.bag_amount=NoExists;
+      grp.bag_weight=NoExists;
+      grp.rk_weight=NoExists;
+    };
     if (pr_tlg)
     {
       grp.tlg_airp_view=ElemIdToCodeNative(etAirp,Qry.FieldAsString("airp"));
@@ -1833,31 +1895,32 @@ void SoppInterface::GetTransfer(bool pr_inbound_tckin,
     else
     {
       grp.seats=0;
-
     };
-
-    if (!pr_tlg && Qry.FieldIsNULL("subcl"))
+    
+    //разберемся с классом
+    string subcl=Qry.FieldAsString("subcl");
+    if (!subcl.empty())
     {
-      //несопровождаемый багаж
-      grp.subcl_priority=10;
-      sopp::TTransferPaxItem pax;
-      pax.surname="UNACCOMPANIED";
-      grp.pax.push_back(pax);
-    }
-    else
-    {
-      grp.subcl_view=ElemIdToCodeNative(etSubcls,Qry.FieldAsString("subcl")); //пустой для несопровождаемого багажа
+      grp.subcl_view=ElemIdToCodeNative(etSubcls,subcl); //пустой для несопровождаемого багажа
       grp.subcl_priority=0;
       try
       {
-        TSubclsRow &subclsRow=(TSubclsRow&)base_tables.get("subcls").get_row("code",Qry.FieldAsString("subcl"));
+        TSubclsRow &subclsRow=(TSubclsRow&)base_tables.get("subcls").get_row("code",subcl);
         grp.subcl_priority=((TClassesRow&)base_tables.get("classes").get_row("code",subclsRow.cl)).priority;
       }
       catch(EBaseTableError){};
-
-      PaxQry.SetVariable("grp_id",grp.grp_id);
-      PaxQry.Execute();
-      if (PaxQry.Eof) continue; //пустая группа - не помещаем в grps
+    }
+    else
+    {
+      grp.subcl_priority=pr_tlg?0:10;
+    };
+    
+    //пассажиры
+    PaxQry.SetVariable("grp_id",grp.grp_id);
+    PaxQry.Execute();
+    if (PaxQry.Eof) continue; //пустая группа - не помещаем в grps
+    if (pr_tlg)
+    {
       for(;!PaxQry.Eof;PaxQry.Next())
       {
         sopp::TTransferPaxItem pax;
@@ -1866,34 +1929,65 @@ void SoppInterface::GetTransfer(bool pr_inbound_tckin,
         pax.surname=PaxQry.FieldAsString("surname");
         pax.name=PaxQry.FieldAsString("name");
         grp.pax.push_back(pax);
-        if (!pr_tlg)
+      };
+    }
+    else
+    {
+      for(;!PaxQry.Eof;PaxQry.Next())
+      {
+        sopp::TTransferPaxItem pax;
+        if (subcl.empty())
         {
-          int seats=PaxQry.FieldAsInteger("seats");
-          if (seats>0) grp.seats++;
-          if (seats>1)
+          pax.surname="UNACCOMPANIED";
+        }
+        else
+        {
+          pax.surname=PaxQry.FieldAsString("surname");
+          pax.name=PaxQry.FieldAsString("name");
+          pax.seats=PaxQry.FieldAsInteger("seats");
+          if (pax.seats>0) grp.seats+=pax.seats;
+          if (pax.seats>1)
           {
             RemQry.SetVariable("pax_id",PaxQry.FieldAsInteger("pax_id"));
             RemQry.Execute();
-            for(int i=2; i<=seats; i++)
+            for(int i=2; i<=pax.seats; i++)
             {
+              pax.name+="/";
               if (!RemQry.Eof)
-                pax.name=RemQry.FieldAsString("rem_code");
+                pax.name+=RemQry.FieldAsString("rem_code");
               else
-                pax.name="EXST";
-              grp.pax.push_back(pax);
+                pax.name+="EXST";
             };
           };
         };
+        //багаж пассажира
+        if (reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS))
+        {
+          pax.bag_amount=!PaxQry.FieldIsNULL("bag_amount")?PaxQry.FieldAsInteger("bag_amount"):NoExists;
+          pax.bag_weight=!PaxQry.FieldIsNULL("bag_weight")?PaxQry.FieldAsInteger("bag_weight"):NoExists;
+          pax.rk_weight=!PaxQry.FieldIsNULL("rk_weight")?PaxQry.FieldAsInteger("rk_weight"):NoExists;
+          pax.weight_unit=PaxQry.FieldAsString("weight_unit");
+          if (pr_bag &&
+              (subcl.empty() ||
+               !PaxQry.FieldIsNULL("bag_pool_num") &&
+               !PaxQry.FieldIsNULL("pax_id") &&
+               !PaxQry.FieldIsNULL("bag_pool_pax_id") &&
+               PaxQry.FieldAsInteger("pax_id")==PaxQry.FieldAsInteger("bag_pool_pax_id")))
+          {
+            TagQry.SetVariable("grp_id",grp.grp_id);
+            if (subcl.empty())
+              TagQry.SetVariable("bag_pool_num", 1);
+            else
+              TagQry.SetVariable("bag_pool_num", PaxQry.FieldAsInteger("bag_pool_num"));
+            TagQry.Execute();
+            for(;!TagQry.Eof;TagQry.Next())
+              pax.tags.push_back(TBagTagNumber("",TagQry.FieldAsFloat("no")));
+          };
+        };
+        grp.pax.push_back(pax);
       };
     };
-
-    if (pr_bag)
-    {
-      TagQry.SetVariable("grp_id",grp.grp_id);
-      TagQry.Execute();
-      for(;!TagQry.Eof;TagQry.Next())
-        grp.tags.push_back(TBagTagNumber("",TagQry.FieldAsFloat("no")));
-    };
+    
     grps.push_back(grp);
   };
 
@@ -1938,20 +2032,32 @@ void SoppInterface::GetTransfer(bool pr_inbound_tckin,
     };
 
     xmlNodePtr grpNode=NewTextChild(grpsNode,"grp");
-    if (iGrp->bag_amount!=NoExists)
-      NewTextChild(grpNode,"bag_amount",iGrp->bag_amount);
-    else
-      NewTextChild(grpNode,"bag_amount");
-    if (iGrp->bag_weight!=NoExists)
-      NewTextChild(grpNode,"bag_weight",iGrp->bag_weight);
-    else
-      NewTextChild(grpNode,"bag_weight");
-    if (iGrp->rk_weight!=NoExists)
-      NewTextChild(grpNode,"rk_weight",iGrp->rk_weight);
-    else
-      NewTextChild(grpNode,"rk_weight");
-    NewTextChild(grpNode,"weight_unit",iGrp->weight_unit);
-    NewTextChild(grpNode,"seats",iGrp->seats);
+    if (pr_tlg || !reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS))
+    {
+      if (iGrp->bag_amount!=NoExists)
+        NewTextChild(grpNode,"bag_amount",iGrp->bag_amount);
+      else
+        NewTextChild(grpNode,"bag_amount");
+      if (iGrp->bag_weight!=NoExists)
+        NewTextChild(grpNode,"bag_weight",iGrp->bag_weight);
+      else
+        NewTextChild(grpNode,"bag_weight");
+      if (iGrp->rk_weight!=NoExists)
+        NewTextChild(grpNode,"rk_weight",iGrp->rk_weight);
+      else
+        NewTextChild(grpNode,"rk_weight");
+      NewTextChild(grpNode,"weight_unit",iGrp->weight_unit);
+      NewTextChild(grpNode,"seats",iGrp->seats);
+
+      vector<string> tagRanges;
+      GetTagRanges(iGrp->tags, tagRanges);
+      if (!tagRanges.empty())
+      {
+        xmlNodePtr node=NewTextChild(grpNode,"tag_ranges");
+        for(vector<string>::const_iterator r=tagRanges.begin(); r!=tagRanges.end(); ++r)
+          NewTextChild(node,"range",*r);
+      };
+    };
 
     if (!iGrp->pax.empty())
     {
@@ -1961,16 +2067,26 @@ void SoppInterface::GetTransfer(bool pr_inbound_tckin,
         xmlNodePtr paxNode=NewTextChild(paxsNode,"pax");
         NewTextChild(paxNode,"surname",iPax->surname);
         NewTextChild(paxNode,"name",iPax->name,"");
-      };
-    };
+        if (!pr_tlg && reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS))
+        {
+          if (iPax->bag_amount!=NoExists)
+            NewTextChild(paxNode,"bag_amount",iPax->bag_amount,0);
+          if (iPax->bag_weight!=NoExists)
+            NewTextChild(paxNode,"bag_weight",iPax->bag_weight,0);
+          if (iPax->rk_weight!=NoExists)
+            NewTextChild(paxNode,"rk_weight",iPax->rk_weight,0);
+          NewTextChild(paxNode,"seats",iPax->seats,1);
 
-    vector<string> tagRanges;
-    GetTagRanges(iGrp->tags, tagRanges);
-    if (!tagRanges.empty())
-    {
-      xmlNodePtr node=NewTextChild(grpNode,"tag_ranges");
-      for(vector<string>::const_iterator r=tagRanges.begin(); r!=tagRanges.end(); ++r)
-        NewTextChild(node,"range",*r);
+          vector<string> tagRanges;
+          GetTagRanges(iPax->tags, tagRanges);
+          if (!tagRanges.empty())
+          {
+            xmlNodePtr node=NewTextChild(paxNode,"tag_ranges");
+            for(vector<string>::const_iterator r=tagRanges.begin(); r!=tagRanges.end(); ++r)
+              NewTextChild(node,"range",*r);
+          };
+        };
+      };
     };
 
     iGrpPrior=iGrp;
@@ -1999,7 +2115,7 @@ void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
 struct TSegBSMInfo
 {
   map<bool/*pr_lat*/,string> BSMaddrs;
-  map<int/*grp_id*/,TBSMContent> BSMContentBefore;
+  map<int/*grp_id*/,BSM::TTlgContent> BSMContentBefore;
 };
 
 void DeletePaxGrp( const TTypeBSendInfo &sendInfo, int grp_id, bool toLog,
@@ -2043,14 +2159,14 @@ void DeletePaxGrp( const TTypeBSendInfo &sendInfo, int grp_id, bool toLog,
   //набираем вектор BSMsegs
   if (BSMsegs.find(sendInfo.point_id)==BSMsegs.end())
   {
-    TelegramInterface::IsBSMSend(sendInfo,BSMsegs[sendInfo.point_id].BSMaddrs);
+    BSM::IsSend(sendInfo,BSMsegs[sendInfo.point_id].BSMaddrs);
   };
   
   TSegBSMInfo &BSMseg=BSMsegs[sendInfo.point_id];
   if (!BSMseg.BSMaddrs.empty())
   {
-    TBSMContent BSMContent;
-    TelegramInterface::LoadBSMContent(grp_id,BSMContent);
+    BSM::TTlgContent BSMContent;
+    BSM::LoadContent(grp_id,BSMContent);
     BSMseg.BSMContentBefore[grp_id]=BSMContent;
   };
   //AODB
@@ -2254,10 +2370,10 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
                                                        s!=BSMsegs.end(); ++s)
   {
     if (s->second.BSMaddrs.empty()) continue; //для сегмента не заданы адреса отправки
-    for(map<int/*grp_id*/,TBSMContent>::const_iterator i=s->second.BSMContentBefore.begin();
-                                                       i!=s->second.BSMContentBefore.end(); ++i)
+    for(map<int/*grp_id*/,BSM::TTlgContent>::const_iterator i=s->second.BSMContentBefore.begin();
+                                                            i!=s->second.BSMContentBefore.end(); ++i)
     {
-      TelegramInterface::SendBSM(s->first,i->first,i->second,s->second.BSMaddrs);
+      BSM::Send(s->first,i->first,i->second,s->second.BSMaddrs);
     };
   };
 }
@@ -2466,16 +2582,19 @@ void SoppInterface::WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
 void GetBirks( int point_id, xmlNodePtr dataNode )
 {
+  xmlNodePtr node = NewTextChild( dataNode, "birks" );
 	TQuery Qry(&OraSession);
 	Qry.SQLText =
-	 "SELECT COUNT(*) AS nobrd, sopp.get_birks(:point_id,:vlang) AS birks "
-	 " FROM pax_grp,pax "
-	 "WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_id AND pr_brd=0";
+	  "SELECT COUNT(*) AS nobrd "
+	  "FROM pax_grp, pax "
+	  "WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_id AND pr_brd=0";
 	Qry.CreateVariable( "point_id", otInteger, point_id );
-	Qry.CreateVariable( "vlang", otString, TReqInfo::Instance()->desk.lang.empty() );
 	Qry.Execute();
-	xmlNodePtr node = NewTextChild( dataNode, "birks", Qry.FieldAsString( "birks" ) );
 	NewTextChild( node, "nobrd", Qry.FieldAsInteger( "nobrd" ) );
+  Qry.SQLText =
+    "SELECT sopp.get_birks(:point_id,:vlang) AS birks FROM dual";
+  Qry.CreateVariable( "vlang", otString, TReqInfo::Instance()->desk.lang.empty() );
+	Qry.Execute();
 	NewTextChild( node, "birks", Qry.FieldAsString( "birks" ) );
 }
 
@@ -2523,38 +2642,26 @@ void GetLuggage( int point_id, Luggage &lug, bool pr_brd )
      "   (SELECT pax_grp.point_arv, NVL(class,' ') AS class, "
      "           SUM(DECODE(pr_cabin,0,weight,0)) AS bag_weight, "
      "           SUM(DECODE(pr_cabin,1,weight,0)) AS rk_weight "
-     "    FROM bag2, "
-     "       (SELECT DISTINCT pax_grp.grp_id,point_arv,class FROM pax_grp,pax "
-     "        WHERE pax_grp.grp_id=pax.grp_id AND "
-     "              point_dep=:point_id AND bag_refuse=0 AND ";
+     "    FROM pax_grp,bag2 "
+     "    WHERE pax_grp.grp_id=bag2.grp_id AND "
+     "          pax_grp.point_dep=:point_id AND ";
   if (pr_brd)
-    sql << "        pr_brd=1 ";
+    sql << "    ckin.bag_pool_boarded(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)<>0 ";
   else
-    sql << "        pr_brd IS NOT NULL ";
+    sql << "    ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 ";
   sql <<
-     "        UNION "
-     "        SELECT pax_grp.grp_id,point_arv,class FROM pax_grp "
-     "        WHERE point_dep=:point_id AND bag_refuse=0 AND class IS NULL "
-     "       ) pax_grp "
-     "    WHERE bag2.grp_id=pax_grp.grp_id "
      "    GROUP BY pax_grp.point_arv, NVL(class,' ')) b, "
 
      //подзапрос по оплачиваемому весу:
      "   (SELECT pax_grp.point_arv, NVL(class,' ') AS class, "
      "	         SUM(excess) AS excess "
-     "	  FROM "
-     "	     (SELECT DISTINCT pax_grp.grp_id,point_arv,class,excess FROM pax_grp,pax "
-     "        WHERE pax_grp.grp_id=pax.grp_id AND "
-     "              point_dep=:point_id AND bag_refuse=0 AND ";
+     "	  FROM pax_grp "
+     "    WHERE point_dep=:point_id AND ";
   if (pr_brd)
-    sql << "        pr_brd=1 ";
+    sql << "    ckin.excess_boarded(grp_id,class,bag_refuse)<>0 ";
   else
-    sql << "        pr_brd IS NOT NULL ";
+    sql << "    bag_refuse=0 ";
   sql <<
-     "        UNION "
-     "        SELECT pax_grp.grp_id,point_arv,class,excess FROM pax_grp "
-     "        WHERE point_dep=:point_id AND bag_refuse=0 AND class IS NULL "
-     "       ) pax_grp "
      "    GROUP BY pax_grp.point_arv, NVL(class,' ')) e "
      "WHERE a.point_arv=b.point_arv(+) AND "
      "      a.class=b.class(+) AND "
@@ -4896,11 +5003,11 @@ void SoppInterface::WriteCrew(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 	Qry.SQLText =
 	  "BEGIN "
 	  "  UPDATE trip_crew "
-	  "  SET commander=:commander, cockpit=:cockpit, cabin=:cabin "
+	  "  SET commander=SUBSTR(:commander,1,100), cockpit=:cockpit, cabin=:cabin "
 	  "  WHERE point_id=:point_id; "
 	  "  IF SQL%NOTFOUND THEN "
 	  "    INSERT INTO trip_crew(point_id, commander, cockpit, cabin) "
-	  "    VALUES(:point_id, :commander, :cockpit, :cabin); "
+	  "    VALUES(:point_id, SUBSTR(:commander,1,100), :cockpit, :cabin); "
 	  "  END IF;"
 	  "END;";
 	xmlNodePtr dataNode = NodeAsNode( "data/crew", reqNode );

@@ -19,7 +19,7 @@ using namespace AstraLocale;
 
 const int POINT_INFO = 1;
 const int PAX_INFO = 2;
-const int BAG_INFO = 4;
+//const int BAG_INFO = 4; не используется с момента привязки конкретного пассажира к багажу
 const int BRD_INFO = 8;
 const int FQT_INFO = 16;
 const int PNR_INFO = 32;
@@ -276,10 +276,10 @@ TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tag
     tag_list.insert(make_pair(TAG::AIRP_ARV_NAME,   TTagListItem(&TPrnTagStore::AIRP_ARV_NAME)));
     tag_list.insert(make_pair(TAG::AIRP_DEP,        TTagListItem(&TPrnTagStore::AIRP_DEP)));
     tag_list.insert(make_pair(TAG::AIRP_DEP_NAME,   TTagListItem(&TPrnTagStore::AIRP_DEP_NAME)));
-    tag_list.insert(make_pair(TAG::BAG_AMOUNT,      TTagListItem(&TPrnTagStore::BAG_AMOUNT, BAG_INFO)));
+    tag_list.insert(make_pair(TAG::BAG_AMOUNT,      TTagListItem(&TPrnTagStore::BAG_AMOUNT, PAX_INFO)));
     tag_list.insert(make_pair(TAG::TAGS,            TTagListItem(&TPrnTagStore::TAGS, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::BAG_WEIGHT,      TTagListItem(&TPrnTagStore::BAG_WEIGHT, BAG_INFO)));
-    tag_list.insert(make_pair(TAG::BAGGAGE,         TTagListItem(&TPrnTagStore::BAGGAGE, BAG_INFO)));
+    tag_list.insert(make_pair(TAG::BAG_WEIGHT,      TTagListItem(&TPrnTagStore::BAG_WEIGHT, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::BAGGAGE,         TTagListItem(&TPrnTagStore::BAGGAGE, PAX_INFO)));
     tag_list.insert(make_pair(TAG::BRD_FROM,        TTagListItem(&TPrnTagStore::BRD_FROM, BRD_INFO)));
     tag_list.insert(make_pair(TAG::BRD_TO,          TTagListItem(&TPrnTagStore::BRD_TO, BRD_INFO)));
     tag_list.insert(make_pair(TAG::CHD,             TTagListItem(&TPrnTagStore::CHD, PAX_INFO)));
@@ -422,8 +422,6 @@ string TPrnTagStore::get_real_field(std::string name, size_t len, std::string da
         pointInfo.Init(grpInfo.point_dep, grpInfo.grp_id);
     if((im->second.info_type & PAX_INFO) == PAX_INFO)
         paxInfo.Init(pax_id, tag_lang);
-    if((im->second.info_type & BAG_INFO) == BAG_INFO)
-        bagInfo.Init(grpInfo.grp_id);
     if((im->second.info_type & BRD_INFO) == BRD_INFO)
         brdInfo.Init(grpInfo.point_dep);
     if((im->second.info_type & FQT_INFO) == FQT_INFO)
@@ -661,11 +659,11 @@ void TPrnTagStore::get_prn_qry(TQuery &Qry)
     if(tag_list[TAG::NO_SMOKE].processed)
         prnQry.add_part("pr_smoke", paxInfo.pr_smoke);
     if(tag_list[TAG::BAG_AMOUNT].processed or tag_list[TAG::BAGGAGE].processed)
-        prnQry.add_part(TAG::BAG_AMOUNT, bagInfo.bag_amount);
+        prnQry.add_part(TAG::BAG_AMOUNT, paxInfo.bag_amount);
     if(tag_list[TAG::TAGS].processed)
         prnQry.add_part(TAG::TAGS, paxInfo.tags);
     if(tag_list[TAG::BAG_WEIGHT].processed or tag_list[TAG::BAGGAGE].processed)
-        prnQry.add_part(TAG::BAG_WEIGHT, bagInfo.bag_weight);
+        prnQry.add_part(TAG::BAG_WEIGHT, paxInfo.bag_weight);
     if(tag_list[TAG::EXCESS].processed)
         prnQry.add_part(TAG::EXCESS, grpInfo.excess);
     if(tag_list[TAG::FLT_NO].processed) {
@@ -729,25 +727,6 @@ void TPrnTagStore::TBrdInfo::Init(int point_id)
     }
 }
 
-void TPrnTagStore::TBagInfo::Init(int grp_id)
-{
-    if(bag_amount == NoExists) {
-        TQuery Qry(&OraSession);
-        Qry.SQLText =
-            "select "
-            "   ckin.get_bagAmount2(:grp_id, null, null) bag_amount, "
-            "   ckin.get_bagWeight2(:grp_id, null, null) bag_weight "
-            "from "
-            "   dual ";
-        Qry.CreateVariable("grp_id", otInteger, grp_id);
-        Qry.Execute();
-        if(Qry.Eof)
-            throw Exception("TPrnTagStore::TBagInfo::Init no data found for grp_id = %d", grp_id);
-        bag_amount = Qry.FieldAsInteger("bag_amount");
-        bag_weight = Qry.FieldAsInteger("bag_weight");
-    }
-}
-
 void TPrnTagStore::TPaxInfo::Init(int apax_id, TTagLang &tag_lang)
 {
     if(apax_id == NoExists) return;
@@ -770,6 +749,8 @@ void TPrnTagStore::TPaxInfo::Init(int apax_id, TTagLang &tag_lang)
             "   reg_no, "
             "   seats, "
             "   pers_type, "
+            "   ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bag_amount, "
+            "   ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bag_weight, "
             "   ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags "
             "from "
             "   pax "
@@ -791,6 +772,8 @@ void TPrnTagStore::TPaxInfo::Init(int apax_id, TTagLang &tag_lang)
         reg_no = Qry.FieldAsInteger("reg_no");
         seats = Qry.FieldAsInteger("seats");
         pers_type = Qry.FieldAsString("pers_type");
+        bag_amount = Qry.FieldAsInteger("bag_amount");
+        bag_weight = Qry.FieldAsInteger("bag_weight");
         tags = Qry.FieldAsString("tags");
     }
 }
@@ -807,7 +790,7 @@ void TPrnTagStore::TGrpInfo::Init(int agrp_id)
             "   airp_dep, "
             "   airp_arv, "
             "   class_grp, "
-            "   excess "
+            "   DECODE(pax_grp.bag_refuse,0,pax_grp.excess,0) AS excess "
             "from "
             "   pax_grp "
             "where "
@@ -1078,14 +1061,14 @@ string TPrnTagStore::AIRP_DEP_NAME(TFieldParams fp)
 string TPrnTagStore::BAGGAGE(TFieldParams fp)
 {
     ostringstream result;
-    if(bagInfo.bag_amount != 0)
-        result << bagInfo.bag_amount << "/" << bagInfo.bag_weight;
+    if(paxInfo.bag_amount != 0)
+        result << paxInfo.bag_amount << "/" << paxInfo.bag_weight;
     return result.str();
 }
 
 string TPrnTagStore::BAG_AMOUNT(TFieldParams fp)
 {
-    return IntToString(bagInfo.bag_amount);
+    return IntToString(paxInfo.bag_amount);
 }
 
 string TPrnTagStore::TAGS(TFieldParams fp)
@@ -1095,7 +1078,7 @@ string TPrnTagStore::TAGS(TFieldParams fp)
 
 string TPrnTagStore::BAG_WEIGHT(TFieldParams fp)
 {
-    return IntToString(bagInfo.bag_weight);
+    return IntToString(paxInfo.bag_weight);
 }
 
 string TPrnTagStore::BRD_FROM(TFieldParams fp)

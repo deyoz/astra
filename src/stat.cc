@@ -247,7 +247,7 @@ void GetFltCBoxList(bool pr_new, TScreenState scr, TDateTime first_date, TDateTi
                     if (pass==0)
                       sql << "ckin.next_airp(DECODE(pr_tranzit,0,point_id,first_point), point_num) IN \n";
                     else
-                      sql << "arch.next_airp(DECODE(pr_tranzit,0,point_id,first_point), point_num, arx_points.part_key) IN \n";
+                      sql << "arch.next_airp(arx_points.part_key, DECODE(pr_tranzit,0,point_id,first_point), point_num) IN \n";
                     sql << GetSQLEnum(reqInfo.user.access.airps) << ") \n";
                 }
                 else
@@ -256,7 +256,7 @@ void GetFltCBoxList(bool pr_new, TScreenState scr, TDateTime first_date, TDateTi
                     if (pass==0)
                       sql << "ckin.next_airp(DECODE(pr_tranzit,0,point_id,first_point), point_num) NOT IN \n";
                     else
-                      sql << "arch.next_airp(DECODE(pr_tranzit,0,point_id,first_point), point_num, arx_points.part_key) NOT IN \n";
+                      sql << "arch.next_airp(arx_points.part_key, DECODE(pr_tranzit,0,point_id,first_point), point_num) NOT IN \n";
                     sql << GetSQLEnum(reqInfo.user.access.airps) << ") \n";
                 };
             };
@@ -347,11 +347,11 @@ void GetFltCBoxList(bool pr_new, TScreenState scr, TDateTime first_date, TDateTi
                 if (!reqInfo.user.access.airps.empty()) {
                     if (reqInfo.user.access.airps_permit)
                         SQLText+="AND (arx_points.airp IN "+GetSQLEnum(reqInfo.user.access.airps)+" OR "+
-                            "     arch.next_airp(DECODE(arx_points.pr_tranzit,0,arx_points.point_id,arx_points.first_point),arx_points.point_num, arx_points.part_key) IN "+
+                            "     arch.next_airp(arx_points.part_key, DECODE(arx_points.pr_tranzit,0,arx_points.point_id,arx_points.first_point),arx_points.point_num) IN "+
                             GetSQLEnum(reqInfo.user.access.airps)+")";
                     else
                         SQLText+="AND (arx_points.airp NOT IN "+GetSQLEnum(reqInfo.user.access.airps)+" OR "+
-                            "          arch.next_airp(DECODE(arx_points.pr_tranzit,0,arx_points.point_id,arx_points.first_point),arx_points.point_num,arx_points.part_key) NOT IN "+
+                            "     arch.next_airp(arx_points.part_key, DECODE(arx_points.pr_tranzit,0,arx_points.point_id,arx_points.first_point),arx_points.point_num) NOT IN "+
                             GetSQLEnum(reqInfo.user.access.airps)+")";
                 }
             }
@@ -1359,12 +1359,12 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   arx_pax.reg_no, "
                 "   arx_pax_grp.airp_arv, "
                 "   arx_pax.surname||' '||arx_pax.name full_name, "
-                "   NVL(arch.get_bagAmount(arx_pax.part_key,arx_pax.grp_id,arx_pax.pax_id,rownum),0) bag_amount, "
-                "   NVL(arch.get_bagWeight(arx_pax.part_key,arx_pax.grp_id,arx_pax.pax_id,rownum),0) bag_weight, "
-                "   NVL(arch.get_rkWeight(arx_pax.part_key,arx_pax.grp_id,arx_pax.pax_id,rownum),0) rk_weight, "
+                "   NVL(arch.get_bagAmount2(arx_pax.part_key,arx_pax.grp_id,arx_pax.pax_id,arx_pax.bag_pool_num,rownum),0) bag_amount, "
+                "   NVL(arch.get_bagWeight2(arx_pax.part_key,arx_pax.grp_id,arx_pax.pax_id,arx_pax.bag_pool_num,rownum),0) bag_weight, "
+                "   NVL(arch.get_rkWeight2(arx_pax.part_key,arx_pax.grp_id,arx_pax.pax_id,arx_pax.bag_pool_num,rownum),0) rk_weight, "
                 "   NVL(arch.get_excess(arx_pax.part_key,arx_pax.grp_id,arx_pax.pax_id),0) excess, "
                 "   arx_pax_grp.grp_id, "
-                "   arch.get_birks(arx_pax.part_key,arx_pax.grp_id,arx_pax.pax_id,:pr_lat) tags, "
+                "   arch.get_birks2(arx_pax.part_key,arx_pax.grp_id,arx_pax.pax_id,arx_pax.bag_pool_num,:pr_lat) tags, "
                 "   arx_pax.refuse, "
                 "   arx_pax.pr_brd, "
                 "   arx_pax_grp.class_grp, "
@@ -1508,11 +1508,11 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   points.scd_out, "
                 "   NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out, "
                 "   pax_grp.airp_arv, "
-                "   ckin.get_bagAmount2(pax_grp.grp_id,NULL,null) AS bag_amount, "
-                "   ckin.get_bagWeight2(pax_grp.grp_id,NULL,null) AS bag_weight, "
-                "   ckin.get_rkWeight2(pax_grp.grp_id,NULL,null) AS rk_weight, "
+                "   ckin.get_bagAmount2(pax_grp.grp_id,NULL,NULL) AS bag_amount, "
+                "   ckin.get_bagWeight2(pax_grp.grp_id,NULL,NULL) AS bag_weight, "
+                "   ckin.get_rkWeight2(pax_grp.grp_id,NULL,NULL) AS rk_weight, "
                 "   ckin.get_excess(pax_grp.grp_id,NULL) AS excess, "
-                "   ckin.get_birks2(pax_grp.grp_id,NULL,null, :pr_lat) AS tags, "
+                "   ckin.get_birks2(pax_grp.grp_id,NULL,NULL,:pr_lat) AS tags, "
                 "   pax_grp.grp_id, "
                 "   pax_grp.hall, "
                 "   pax_grp.point_arv,pax_grp.user_id "
@@ -1548,11 +1548,11 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "  arx_points.scd_out, "
                 "  NVL(arx_points.act_out,NVL(arx_points.est_out,arx_points.scd_out)) AS real_out, "
                 "  arx_pax_grp.airp_arv, "
-                "  arch.get_bagAmount(arx_pax_grp.part_key,arx_pax_grp.grp_id,NULL) AS bag_amount, "
-                "  arch.get_bagWeight(arx_pax_grp.part_key,arx_pax_grp.grp_id,NULL) AS bag_weight, "
-                "  arch.get_rkWeight(arx_pax_grp.part_key,arx_pax_grp.grp_id,NULL) AS rk_weight, "
+                "  arch.get_bagAmount2(arx_pax_grp.part_key,arx_pax_grp.grp_id,NULL,NULL) AS bag_amount, "
+                "  arch.get_bagWeight2(arx_pax_grp.part_key,arx_pax_grp.grp_id,NULL,NULL) AS bag_weight, "
+                "  arch.get_rkWeight2(arx_pax_grp.part_key,arx_pax_grp.grp_id,NULL,NULL) AS rk_weight, "
                 "  arch.get_excess(arx_pax_grp.part_key,arx_pax_grp.grp_id,NULL) AS excess, "
-                "  arch.get_birks(arx_pax_grp.part_key,arx_pax_grp.grp_id,NULL, :pr_lat) AS tags, "
+                "  arch.get_birks2(arx_pax_grp.part_key,arx_pax_grp.grp_id,NULL,NULL,:pr_lat) AS tags, "
                 "  arx_pax_grp.grp_id, "
                 "  arx_pax_grp.hall, "
                 "  arx_pax_grp.point_arv,arx_pax_grp.user_id "
@@ -4407,11 +4407,11 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                  " ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:pr_lat) tags, \n"
                  " salons.get_seat_no(pax.pax_id, pax.seats, pax_grp.status, pax_grp.point_dep, 'seats', rownum) seat_no, \n";
         else
-          sql << " NVL(arch.get_bagAmount(pax.part_key,pax.grp_id,pax.pax_id,rownum),0) bag_amount, \n"
-                 " NVL(arch.get_bagWeight(pax.part_key,pax.grp_id,pax.pax_id,rownum),0) bag_weight, \n"
-                 " NVL(arch.get_rkWeight(pax.part_key,pax.grp_id,pax.pax_id,rownum),0) rk_weight, \n"
+          sql << " NVL(arch.get_bagAmount2(pax.part_key,pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_amount, \n"
+                 " NVL(arch.get_bagWeight2(pax.part_key,pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_weight, \n"
+                 " NVL(arch.get_rkWeight2(pax.part_key,pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) rk_weight, \n"
                  " NVL(arch.get_excess(pax.part_key,pax.grp_id,pax.pax_id),0) excess, \n"
-                 " arch.get_birks(pax.part_key,pax.grp_id,pax.pax_id,:pr_lat) tags, \n"
+                 " arch.get_birks2(pax.part_key,pax.grp_id,pax.pax_id,pax.bag_pool_num,:pr_lat) tags, \n"
                  " LPAD(seat_no,3,'0')|| \n"
                  "      DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') seat_no, \n";
         sql << " pax_grp.grp_id, \n"

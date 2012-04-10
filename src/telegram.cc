@@ -1374,258 +1374,279 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
 
 };
 
-void TelegramInterface::CompareBSMContent(const TBSMContent& con1, const TBSMContent& con2, vector<TBSMContent>& bsms)
+namespace BSM
 {
-  bsms.clear();
 
-  TBSMContent conADD,conCHG,conDEL;
-  conADD=con2;
-  conADD.indicator=TypeB::None;
-  conADD.tags.clear();
+bool TTlgContent::addTag(double no, const TTlgContent& src)
+{
+  map<double, CheckIn::TTagItem>::const_iterator srcTag=src.tags.find(no);
+  if (srcTag==src.tags.end()) return false;
+  map<int, CheckIn::TBagItem>::const_iterator srcBag=src.bags.find(srcTag->second.bag_num);
+  if (srcBag==src.bags.end()) return false;
+  map<int, TPaxItem>::const_iterator srcPax=src.pax.find(srcBag->second.bag_pool_num);
+  if (srcPax==src.pax.end()) return false;
 
-  conCHG=con2;
-  conCHG.indicator=TypeB::CHG;
-  conCHG.tags.clear();
-
-  conDEL=con1;
-  conDEL.indicator=TypeB::DEL;
-  conDEL.tags.clear();
-
-  //проверяем рейс
-  if (strcmp(con1.OutFlt.airline,con2.OutFlt.airline)==0 &&
-      con1.OutFlt.flt_no==con2.OutFlt.flt_no &&
-      strcmp(con1.OutFlt.suffix,con2.OutFlt.suffix)==0 &&
-      con1.OutFlt.scd==con2.OutFlt.scd &&
-      strcmp(con1.OutFlt.airp_dep,con2.OutFlt.airp_dep)==0)
+  map<int, TPaxItem>::iterator destPax=pax.find(srcPax->second.bag_pool_num);
+  if (destPax==pax.end())
   {
-    //проверим отличалась ли информация по пассажиру
-    bool pr_chd=!(strcmp(con1.OutFlt.airp_arv,con2.OutFlt.airp_arv)==0 &&
-                 strcmp(con1.OutFlt.subcl,con2.OutFlt.subcl)==0 &&
-                 con1.pax.reg_no==con2.pax.reg_no &&
-                 con1.pax.surname==con2.pax.surname &&
-                 con1.pax.name==con2.pax.name &&
-                 con1.pax.seat_no.get_seat_one(con1.pr_lat_seat)==
-                   con2.pax.seat_no.get_seat_one(con2.pr_lat_seat) &&
-                 con1.pax.pnr_addr==con2.pax.pnr_addr &&
-                 con1.bag.rk_weight==con2.bag.rk_weight);
-    if (!pr_chd)
-    {
-      //придется проверить изменения в стыковочных рейсах
-      vector<TypeB::TTransferItem>::const_iterator i1,i2;
-      i1=con1.OnwardFlt.begin();
-      i2=con2.OnwardFlt.begin();
-      for(;i1!=con1.OnwardFlt.end()&&i2!=con2.OnwardFlt.end();i1++,i2++)
-      {
-        if (!(strcmp(i1->airline,i2->airline)==0 &&
-              i1->flt_no==i2->flt_no &&
-              strcmp(i1->suffix,i2->suffix)==0 &&
-              i1->scd==i2->scd &&
-              strcmp(i1->airp_dep,i2->airp_dep)==0 &&
-              strcmp(i1->airp_arv,i2->airp_arv)==0 &&
-              strcmp(i1->subcl,i2->subcl)==0)) break;
-      };
-      pr_chd= i1!=con1.OnwardFlt.end() || i2!=con2.OnwardFlt.end();
-    };
-    ProgTrace(TRACE5,"OutFlt1 != OutFlt2 pr_chd=%d",(int)pr_chd);
+    TPaxItem tmpPax=srcPax->second;
+    tmpPax.bag_amount=0;
+    tmpPax.bag_weight=0;
+      
+    pax[tmpPax.bag_pool_num]=tmpPax;
+  };
 
-    vector<TBSMTagItem>::const_iterator i1,i2;
-    i1=con1.tags.begin();
-    i2=con2.tags.begin();
-    int res;
-    while(i1!=con1.tags.end() || i2!=con2.tags.end())
-    {
-      res=0;
-      if (i1==con1.tags.end() ||
-          i2!=con2.tags.end() && i1->no>i2->no) res=-1;
-      if (i2==con2.tags.end() ||
-          i1!=con1.tags.end() && i1->no<i2->no) res=1;
+  map<int, CheckIn::TBagItem>::const_iterator destBag=bags.find(srcBag->second.num);
+  if (destBag==bags.end())
+  {
+    if (!addBag(srcBag->second)) return false;
+  };
 
-      if (res>0) conDEL.tags.push_back(*i1);
+  map<double, CheckIn::TTagItem>::const_iterator destTag=tags.find(srcTag->second.no);
+  if (destTag==tags.end())
+  {
+    if (!addTag(srcTag->second)) return false;
+  };
+  return true;
+};
 
-      if (res<0) conADD.tags.push_back(*i2);
+bool TTlgContent::addTag(const CheckIn::TTagItem &tag)
+{
+  if (tag.bag_num==ASTRA::NoExists ||
+      bags.find(tag.bag_num)==bags.end()) return false;
+  tags[tag.no]=tag;
+  return true;
+};
 
-      if (res==0 &&
-          (pr_chd ||
-           i1->bag_amount != i2->bag_amount ||
-           i1->bag_weight != i2->bag_weight)) conCHG.tags.push_back(*i2);
-
-      if (res>=0) i1++;
-      if (res<=0) i2++;
-    };
+bool TTlgContent::addBag(const CheckIn::TBagItem &bag)
+{
+  if (bag.bag_pool_num==ASTRA::NoExists) return false;
+  std::map<int, TPaxItem>::iterator iPax=pax.find(bag.bag_pool_num);
+  if (iPax==pax.end()) return false;
+  if (!bag.pr_cabin)
+  {
+    iPax->second.bag_amount+=bag.amount;
+    iPax->second.bag_weight+=bag.weight;
   }
   else
   {
-    conDEL.tags=con1.tags;
-    conADD.tags=con2.tags;
+    iPax->second.rk_weight+=bag.weight;
   };
-  if (!conDEL.tags.empty())
-  {
-    bsms.push_back(conDEL);
-  };
-  vector<TBSMTagItem>::iterator i;
-  for(i=conCHG.tags.begin();i!=conCHG.tags.end();i++)
-  {
-    bsms.push_back(conCHG);
-    TBSMContent &con=bsms.back();
-    con.tags.clear();
-    con.tags.push_back(*i);
-  };
-  for(i=conADD.tags.begin();i!=conADD.tags.end();i++)
-  {
-    bsms.push_back(conADD);
-    TBSMContent &con=bsms.back();
-    con.tags.clear();
-    con.tags.push_back(*i);
-  };
-  return;
+  bags[bag.num]=bag;
+  return true;
 };
 
-void TelegramInterface::LoadBSMContent(int grp_id, TBSMContent& con)
+void LoadContent(int grp_id, TTlgContent& con)
 {
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
-    "SELECT points.point_id,points.point_num,points.first_point,points.pr_tranzit, "
-    "       airline,flt_no,suffix,airp,scd_out, "
-    "       airp_arv,class,NVL(trip_sets.pr_lat_seat,1) AS pr_lat_seat "
+    "SELECT points.point_id, points.point_num, points.first_point, points.pr_tranzit, "
+    "       NVL(trip_sets.pr_lat_seat,1) AS pr_lat_seat, pax_grp.class "
     "FROM points,pax_grp,trip_sets "
     "WHERE points.point_id=pax_grp.point_dep AND points.pr_del>=0 AND "
     "      points.point_id=trip_sets.point_id(+) AND "
     "      grp_id=:grp_id AND bag_refuse=0";
-
   Qry.CreateVariable("grp_id",otInteger,grp_id);
   Qry.Execute();
   if (Qry.Eof) return;
-  strcpy(con.OutFlt.airline,Qry.FieldAsString("airline"));
-  con.OutFlt.flt_no=Qry.FieldAsInteger("flt_no");
-  strcpy(con.OutFlt.suffix,Qry.FieldAsString("suffix"));
-  strcpy(con.OutFlt.airp_dep,Qry.FieldAsString("airp"));
-  strcpy(con.OutFlt.airp_arv,Qry.FieldAsString("airp_arv"));
-  strcpy(con.OutFlt.subcl,Qry.FieldAsString("class"));
-  con.OutFlt.scd=UTCToLocal(Qry.FieldAsDateTime("scd_out"),AirpTZRegion(con.OutFlt.airp_dep));
   con.pr_lat_seat=Qry.FieldAsInteger("pr_lat_seat")!=0;
 
   TTlgInfo info;
-
   info.point_id=Qry.FieldAsInteger("point_id");
   info.point_num=Qry.FieldAsInteger("point_num");
   info.first_point=Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point");
   info.pr_tranzit=Qry.FieldAsInteger("pr_tranzit")!=0;
 
   bool pr_unaccomp=Qry.FieldIsNULL("class");
-
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT airline,flt_no,suffix,scd,airp_dep,airp_arv "
-    "FROM transfer,trfer_trips "
-    "WHERE transfer.point_id_trfer=trfer_trips.point_id AND "
-    "      grp_id=:grp_id AND transfer_num>0 "
-    "ORDER BY transfer_num";
-  Qry.CreateVariable("grp_id",otInteger,grp_id);
-  Qry.Execute();
-  TBaseTable &airlines=base_tables.get("airlines");
-  TBaseTable &airps=base_tables.get("airps");
-  //TBaseTable &subcls=base_tables.get("subcls");
-
-  vector<TTlgCompLayer> complayers;
-  ReadSalons( info, complayers );
-
-  for(;!Qry.Eof;Qry.Next())
-  {
-    TypeB::TTransferItem flt;
-
-    strcpy(flt.airline,Qry.FieldAsString("airline"));
-    string airline=airlines.get_row("code/code_lat",flt.airline).AsString("code");
-    strcpy(flt.airline,airline.c_str());
-
-    flt.flt_no=Qry.FieldAsInteger("flt_no");
-    strcpy(flt.suffix,Qry.FieldAsString("suffix"));
-
-    strcpy(flt.airp_arv,Qry.FieldAsString("airp_arv"));
-    string airp=airps.get_row("code/code_lat",flt.airp_arv).AsString("code");
-    strcpy(flt.airp_arv,airp.c_str());
-
-   /* strcpy(flt.subcl,Qry.FieldAsString("subclass")); по причине того что подкласс у каждого пассажира свой
-    if (*(flt.subcl)!=0)
-    {
-      string subcl=subcls.get_row("code/code_lat",flt.subcl).AsString("code");
-      strcpy(flt.subcl,subcl.c_str());
-    };*/
-
-    flt.scd=Qry.FieldAsDateTime("scd");
-
-    con.OnwardFlt.push_back(flt);
-  };
-
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT no,amount,weight FROM bag2,bag_tags "
-    "WHERE bag_tags.grp_id=bag2.grp_id(+) AND "
-    "      bag_tags.bag_num=bag2.num(+) AND "
-    "      bag_tags.grp_id=:grp_id "
-    "ORDER BY no";
-  Qry.CreateVariable("grp_id",otInteger,grp_id);
-  Qry.Execute();
-  for(;!Qry.Eof;Qry.Next())
-  {
-    TBSMTagItem tag;
-    tag.no=Qry.FieldAsFloat("no");
-    if (!Qry.FieldIsNULL("amount"))
-      tag.bag_amount=Qry.FieldAsInteger("amount");
-    if (!Qry.FieldIsNULL("weight"))
-      tag.bag_weight=Qry.FieldAsInteger("weight");
-
-    con.tags.push_back(tag);
-  };
+  
+  //читаем OutFlt и OnwardFlt
+  if (!con.OnwardFlt.GetRoute(grp_id, trtWithFirstSeg)) return;
+  if (con.OnwardFlt.empty()) return;
+  con.OutFlt=*con.OnwardFlt.begin();
+  con.OnwardFlt.erase(con.OnwardFlt.begin());
 
   if (!pr_unaccomp)
   {
+    vector<TTlgCompLayer> complayers;
+    ReadSalons( info, complayers );
+  
     Qry.Clear();
-    Qry.SQLText =
-        "SELECT ckin.get_main_pax_id(:grp_id,0) AS pax_id FROM dual";
+    Qry.SQLText=
+      "SELECT pax_id, bag_pool_num, reg_no, surname, name,  "
+      "       DECODE(pr_brd,NULL,'N',0,'C','B') AS status "
+      "FROM pax "
+      "WHERE grp_id=:grp_id AND bag_pool_num IS NOT NULL AND "
+      "      pax_id=ckin.get_bag_pool_pax_id(grp_id,bag_pool_num,0)";
     Qry.CreateVariable("grp_id",otInteger,grp_id);
     Qry.Execute();
-    if (!(Qry.Eof||Qry.FieldIsNULL("pax_id")))
+    for(;!Qry.Eof;Qry.Next())
     {
+      TPaxItem pax;
       int pax_id=Qry.FieldAsInteger("pax_id");
-      Qry.Clear();
-      Qry.SQLText =
-        "SELECT reg_no,surname,name, "
-        "       DECODE(pr_brd,NULL,'N',0,'C','B') AS status "
-        "FROM pax WHERE pax_id=:pax_id";
-      Qry.CreateVariable("pax_id",otInteger,pax_id);
-      Qry.Execute();
-      if (!Qry.Eof)
-      {
-        con.pax.reg_no=Qry.FieldAsInteger("reg_no");
-        con.pax.surname=Qry.FieldAsString("surname");
-        con.pax.name=Qry.FieldAsString("name");
-        con.pax.status=Qry.FieldAsString("status");
-      };
-      con.pax.seat_no.add_seats(pax_id, complayers);
+      pax.reg_no=Qry.FieldAsInteger("reg_no");
+      pax.surname=Qry.FieldAsString("surname");
+      pax.name=Qry.FieldAsString("name");
+      pax.status=Qry.FieldAsString("status");
+      pax.seat_no.add_seats(pax_id, complayers);
       vector<TPnrAddrItem> pnrs;
-      con.pax.pnr_addr=GetPaxPnrAddr(pax_id,pnrs);
+      pax.pnr_addr=GetPaxPnrAddr(pax_id,pnrs);
+      pax.bag_pool_num=Qry.FieldAsInteger("bag_pool_num");
+      con.pax[pax.bag_pool_num]=pax;
     };
+  }
+  else
+  {
+    TPaxItem pax;
+    pax.surname="UNACCOMPANIED";
+    pax.bag_pool_num=1;
+    con.pax[pax.bag_pool_num]=pax;
   };
-
+  
   Qry.Clear();
-  Qry.SQLText =
-    "SELECT SUM(weight) AS weight FROM bag2 "
-    "WHERE grp_id=:grp_id AND pr_cabin<>0 ";
+  Qry.SQLText=
+    "SELECT * FROM bag2 WHERE grp_id=:grp_id";
   Qry.CreateVariable("grp_id",otInteger,grp_id);
   Qry.Execute();
-  if (!Qry.Eof && !Qry.FieldIsNULL("weight"))
-  {
-    con.bag.rk_weight=Qry.FieldAsInteger("weight");
-  };
+  for(;!Qry.Eof;Qry.Next())
+    con.addBag(CheckIn::TBagItem().fromDB(Qry));
+  
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT * FROM bag_tags WHERE grp_id=:grp_id";
+  Qry.CreateVariable("grp_id",otInteger,grp_id);
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+    con.addTag(CheckIn::TTagItem().fromDB(Qry));
 };
 
-string TelegramInterface::CreateBSMBody(const TBSMContent& con, bool pr_lat)
+void CompareContent(const TTlgContent& con1, const TTlgContent& con2, vector<TTlgContent>& bsms)
 {
-  TBaseTable &airlines=base_tables.get("airlines");
-  TBaseTable &airps=base_tables.get("airps");
-  TBaseTable &trip_suffixes=base_tables.get("trip_suffixes");
-  TBaseTable &subcls=base_tables.get("subcls");
+  bsms.clear();
+
+  TTlgContent conADD,conCHG,conDEL;
+  conADD.indicator=TypeB::None;
+  conADD.OutFlt=con2.OutFlt;
+  conADD.OnwardFlt=con2.OnwardFlt;
+  conADD.pr_lat_seat=con2.pr_lat_seat;
+
+  conCHG.indicator=TypeB::CHG;
+  conCHG.OutFlt=con2.OutFlt;
+  conCHG.OnwardFlt=con2.OnwardFlt;
+  conCHG.pr_lat_seat=con2.pr_lat_seat;
+
+  conDEL.indicator=TypeB::DEL;
+  conDEL.OutFlt=con1.OutFlt;
+  conDEL.OnwardFlt=con1.OnwardFlt;
+  conDEL.pr_lat_seat=con1.pr_lat_seat;
+
+
+  //проверяем рейс
+  if (con1.OutFlt.operFlt.airline==con2.OutFlt.operFlt.airline &&
+      con1.OutFlt.operFlt.flt_no==con2.OutFlt.operFlt.flt_no &&
+      con1.OutFlt.operFlt.suffix==con2.OutFlt.operFlt.suffix &&
+      con1.OutFlt.operFlt.scd_out==con2.OutFlt.operFlt.scd_out &&
+      con1.OutFlt.operFlt.airp==con2.OutFlt.operFlt.airp)
+  {
+    bool pr_chd=!(con1.OutFlt.airp_arv==con2.OutFlt.airp_arv);
+    if (!pr_chd)
+    {
+      //придется проверить изменения в стыковочных рейсах
+      TTrferRoute::const_iterator i1=con1.OnwardFlt.begin();
+      TTrferRoute::const_iterator i2=con2.OnwardFlt.begin();
+      for(;i1!=con1.OnwardFlt.end()&&i2!=con2.OnwardFlt.end();++i1,++i2)
+      {
+        if (!(i1->operFlt.airline==i2->operFlt.airline &&
+              i1->operFlt.flt_no==i2->operFlt.flt_no &&
+              i1->operFlt.suffix==i2->operFlt.suffix &&
+              i1->operFlt.scd_out==i2->operFlt.scd_out &&
+              i1->operFlt.airp==i2->operFlt.airp &&
+              i1->airp_arv==i2->airp_arv)) break;
+      };
+      pr_chd= i1!=con1.OnwardFlt.end() || i2!=con2.OnwardFlt.end();
+    };
+
+    map<double, CheckIn::TTagItem>::const_iterator i1=con1.tags.begin();
+    map<double, CheckIn::TTagItem>::const_iterator i2=con2.tags.begin();
+    int res;
+    for(;i1!=con1.tags.end() || i2!=con2.tags.end();)
+    {
+      res=0;
+      if (i1==con1.tags.end() ||
+          i2!=con2.tags.end() && i1->first>i2->first) res=-1;
+      if (i2==con2.tags.end() ||
+          i1!=con1.tags.end() && i1->first<i2->first) res=1;
+
+      if (res>0) conDEL.addTag(i1->first, con1);
+
+      if (res<0) conADD.addTag(i2->first, con2);
+
+      if (res==0)
+      {
+        if (!pr_chd)
+        {
+          std::map<int, CheckIn::TBagItem>::const_iterator bag1=con1.bags.find(i1->second.bag_num);
+          std::map<int, CheckIn::TBagItem>::const_iterator bag2=con2.bags.find(i2->second.bag_num);
+          if (bag1!=con1.bags.end() && bag2!=con2.bags.end())
+          {
+            std::map<int, TPaxItem>::const_iterator pax1=con1.pax.find(bag1->second.bag_pool_num);
+            std::map<int, TPaxItem>::const_iterator pax2=con2.pax.find(bag2->second.bag_pool_num);
+            if (pax1!=con1.pax.end() && pax2!=con2.pax.end())
+            {
+              if (pax1->second.surname != pax2->second.surname ||
+                  pax1->second.name != pax2->second.name ||
+                  pax1->second.status != pax2->second.status ||
+                  pax1->second.pnr_addr != pax2->second.pnr_addr ||
+                  pax1->second.seat_no.get_seat_one(con1.pr_lat_seat) !=
+                  pax2->second.seat_no.get_seat_one(con2.pr_lat_seat) ||
+                  pax1->second.reg_no != pax2->second.reg_no ||
+                  bag1->second.amount != bag2->second.amount ||
+                  bag1->second.weight != bag2->second.weight)
+              {
+                conCHG.addTag(i2->first, con2);
+              };
+            };
+          };
+        }
+        else conCHG.addTag(i2->first, con2);
+      };
+      if (res>=0) ++i1;
+      if (res<=0) ++i2;
+    };
+  }
+  else
+  {
+    conDEL.tags=con1.tags;
+    conDEL.bags=con1.bags;
+    conDEL.pax=con1.pax;
+    conADD.tags=con2.tags;
+    conADD.bags=con2.bags;
+    conADD.pax=con2.pax;
+  };
+
+  if (!conADD.tags.empty()) bsms.push_back(conADD);
+  if (!conCHG.tags.empty()) bsms.push_back(conCHG);
+  if (!conDEL.tags.empty()) bsms.push_back(conDEL);
+};
+
+string CreateTlgBody(const TTlgContent& con, bool pr_lat)
+{
+  map<int/*reg_no*/, pair<TPaxItem, vector<CheckIn::TTagItem> > > tmpPax;
+  for(map<double, CheckIn::TTagItem>::const_iterator iTag=con.tags.begin();iTag!=con.tags.end();++iTag)
+  {
+    map<int, CheckIn::TBagItem>::const_iterator iBag=con.bags.find(iTag->second.bag_num);
+    if (iBag==con.bags.end()) continue;
+    map<int, TPaxItem>::const_iterator iPax=con.pax.find(iBag->second.bag_pool_num);
+    if (iPax==con.pax.end()) continue;
+    
+    map<int, pair<TPaxItem, vector<CheckIn::TTagItem> > >::iterator p=tmpPax.find(iPax->second.reg_no);
+    if (p==tmpPax.end())
+      tmpPax[iPax->second.reg_no]=make_pair(iPax->second, vector<CheckIn::TTagItem>(1,iTag->second));
+    else
+      p->second.second.push_back(iTag->second);
+  };
+  if (tmpPax.empty()) throw Exception("BSM::CreateTlgBody: tmpPax empty");
+  
 
   ostringstream body;
 
@@ -1641,129 +1662,138 @@ string TelegramInterface::CreateBSMBody(const TBSMContent& con, bool pr_lat)
                      break;
      default: ;
   };
+  
+  TElemFmt elem_fmt=prLatToElemFmt(efmtCodeNative, pr_lat);
+  string lang=AstraLocale::LANG_RU;
 
-  bool pr_unaccomp=*(con.OutFlt.subcl)==0;
-
-  body << ".V/1L"
-       << airps.get_row("code",con.OutFlt.airp_dep).AsString("code",pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU) << ENDL;
-
+  body << ".V/1L" << TlgElemIdToElem(etAirp, con.OutFlt.operFlt.airp, elem_fmt, lang) << ENDL;
 
   body << ".F/"
-       << airlines.get_row("code",con.OutFlt.airline).AsString("code",pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU)
-       << setw(3) << setfill('0') << con.OutFlt.flt_no
-       << (*con.OutFlt.suffix==0 ? "" : trip_suffixes.get_row("code",con.OutFlt.suffix).AsString("code",pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU)) << '/'
-       << DateTimeToStr( con.OutFlt.scd, "ddmmm", pr_lat) << '/'
-       << airps.get_row("code",con.OutFlt.airp_arv).AsString("code",pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU);
-  if (*(con.OutFlt.subcl)!=0)
-    body  << '/'
-          << subcls.get_row("code",con.OutFlt.subcl).AsString("code",pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU);
-  body << ENDL;
+       << TlgElemIdToElem(etAirline, con.OutFlt.operFlt.airline, elem_fmt, lang)
+       << setw(3) << setfill('0') << con.OutFlt.operFlt.flt_no
+       << (con.OutFlt.operFlt.suffix.empty() ? "" : TlgElemIdToElem(etSuffix, con.OutFlt.operFlt.suffix, elem_fmt, lang)) << '/'
+       << DateTimeToStr( con.OutFlt.operFlt.scd_out, "ddmmm", pr_lat) << '/'
+       << TlgElemIdToElem(etAirp, con.OutFlt.airp_arv, elem_fmt, lang) << ENDL;
 
-  for(vector<TypeB::TTransferItem>::const_iterator i=con.OnwardFlt.begin();i!=con.OnwardFlt.end();i++)
+  for(TTrferRoute::const_iterator i=con.OnwardFlt.begin();i!=con.OnwardFlt.end();++i)
   {
     body << ".O/"
-         << airlines.get_row("code",i->airline).AsString("code",pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU)
-         << setw(3) << setfill('0') << i->flt_no
-         << (*i->suffix==0 ? "" : trip_suffixes.get_row("code",i->suffix).AsString("code",pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU)) << '/'
-         << DateTimeToStr( i->scd, "ddmmm", pr_lat) << '/'
-         << airps.get_row("code",i->airp_arv).AsString("code",pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU);
-    if (*(i->subcl)!=0)
-      body  << '/'
-            << subcls.get_row("code",i->subcl).AsString("code",pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU);
-    body << ENDL;
+         << TlgElemIdToElem(etAirline, i->operFlt.airline, elem_fmt, lang)
+         << setw(3) << setfill('0') << i->operFlt.flt_no
+         << (i->operFlt.suffix.empty() ? "" : TlgElemIdToElem(etSuffix, i->operFlt.suffix, elem_fmt, lang)) << '/'
+         << DateTimeToStr( i->operFlt.scd_out, "ddmmm", pr_lat) << '/'
+         << TlgElemIdToElem(etAirp, i->airp_arv, elem_fmt, lang) << ENDL;
   };
-
-  if (!con.tags.empty())
+  
+  map<int, pair<TPaxItem, vector<CheckIn::TTagItem> > >::const_iterator p=tmpPax.begin();
+  for(;p!=tmpPax.end();++p)
   {
+    const vector<CheckIn::TTagItem> &tmpTags=p->second.second;
+    if (tmpTags.empty()) throw Exception("BSM::CreateTlgBody: tmpTags empty");
     double first_no;
     int num;
-    vector<TBSMTagItem>::const_iterator i=con.tags.begin();
+    vector<CheckIn::TTagItem>::const_iterator i=tmpTags.begin();
     while(true)
     {
-      if (i!=con.tags.begin() &&
-          (i==con.tags.end() || i->no!=first_no+num))
+      if (i!=tmpTags.begin() &&
+          (i==tmpTags.end() || i->no!=first_no+num))
       {
         body << ".N/"
              << setw(10) << setfill('0') << setprecision(0) << first_no
              << setw(3) << setfill('0') << num << ENDL;
       };
-      if (i==con.tags.end()) break;
-      if (i==con.tags.begin() || i->no!=first_no+num)
+      if (i==tmpTags.end()) break;
+      if (i==tmpTags.begin() || i->no!=first_no+num)
       {
         first_no=i->no;
         num=1;
       }
       else num++;
-      i++;
+      ++i;
     };
-  };
-
-  if (con.pax.reg_no!=-1)
     body << ".S/"
-         << (con.indicator==TypeB::DEL?'N':'Y') << '/'
-         << con.pax.seat_no.get_seat_one(con.pr_lat_seat || pr_lat) << '/'
-         << con.pax.status << '/'
-         << setw(3) << setfill('0') << con.pax.reg_no << ENDL;
-
-  int bag_amount=0,bag_weight=0;
-  bool pr_W=true;
-  if (con.tags.size()==1)
-  {
-    vector<TBSMTagItem>::const_iterator i=con.tags.begin();
-    bag_amount=i->bag_amount;
-    bag_weight=i->bag_weight;
-  }
-  else
-  {
-    for(vector<TBSMTagItem>::const_iterator i=con.tags.begin();i!=con.tags.end();i++)
-    {
-      if (i->bag_amount!=1)
-      {
-        pr_W=false;
-        break;
-      };
-      bag_amount+=i->bag_amount;
-      bag_weight+=i->bag_weight;
-    };
-  };
-
-  if (pr_W && (bag_amount>0 || bag_weight>0 || con.bag.rk_weight>0))
-  {
-    body << ".W/K/";
-    if (bag_amount>0) body << bag_amount;
-    if (bag_weight>0 || con.bag.rk_weight>0)
-    {
-      body << '/';
-      if (bag_weight>0) body << bag_weight;
-      if (con.bag.rk_weight>0)
-        body << '/' << con.bag.rk_weight;
-    };
+         << (con.indicator==TypeB::DEL?'N':'Y');
+    if (p->second.first.reg_no!=ASTRA::NoExists)
+      body << '/'
+           << p->second.first.seat_no.get_seat_one(con.pr_lat_seat || pr_lat) << '/'
+           << p->second.first.status << '/'
+           << setw(3) << setfill('0') << p->second.first.reg_no;
     body << ENDL;
-  };
 
-  if (con.pax.reg_no!=-1)
-  {
-    body << ".P/"
-         << transliter(con.pax.surname,1,pr_lat);
-    if (!con.pax.name.empty())
-      body << '/' << transliter(con.pax.name,1,pr_lat);
+    body << ".W/K/" << p->second.first.bag_amount << '/' << p->second.first.bag_weight; //всегда пишем
+/*    if (p->second.first.rk_weight!=0)
+      body << '/' << p->second.first.rk_weight;*/
+    body << ENDL;
+    
+    body << ".P/" << transliter(p->second.first.surname,1,pr_lat);
+    if (!p->second.first.name.empty())
+      body << '/' << transliter(p->second.first.name,1,pr_lat);
     body  << ENDL;
-
-    if (!con.pax.pnr_addr.empty())
-      body << ".L/" << convert_pnr_addr(con.pax.pnr_addr,pr_lat) << ENDL;
-  }
-  else
-  {
-    if (pr_unaccomp)
-      body << ".P/UNACCOMPANIED" << ENDL;
+    
+    if (!p->second.first.pnr_addr.empty())
+      body << ".L/" << convert_pnr_addr(p->second.first.pnr_addr,pr_lat) << ENDL;
   };
-
 
   body << "ENDBSM" << ENDL;
 
-  ProgTrace(TRACE5,"/n%s",body.str().c_str());
-
   return body.str();
+};
+
+bool IsSend( TTypeBSendInfo info, map<bool,string> &addrs )
+{
+  info.tlg_type="BSM";
+  if (!TelegramInterface::IsTypeBSend(info)) return false;
+
+  TTypeBAddrInfo addrInfo(info);
+
+  addrInfo.airp_trfer="";
+  addrInfo.crs="";
+  for(int pr_lat=0; pr_lat<=1; pr_lat++)
+  {
+    addrInfo.pr_lat=(bool)pr_lat;
+    string a=TelegramInterface::GetTypeBAddrs(addrInfo);
+    if (!a.empty()) addrs[addrInfo.pr_lat]=a;
+  };
+  return !addrs.empty();
+};
+
+void Send( int point_dep, int grp_id, const TTlgContent &con1, const map<bool,string> &addrs )
+{
+    TTlgContent con2;
+    LoadContent(grp_id,con2);
+    vector<TTlgContent> bsms;
+    CompareContent(con1,con2,bsms);
+    TTlgOutPartInfo p;
+    p.tlg_type="BSM";
+    p.point_id=point_dep;
+    p.time_create=NowUTC();
+    ostringstream heading;
+    heading << '.' << OWN_SITA_ADDR() << ' ' << DateTimeToStr(p.time_create,"ddhhnn") << ENDL;
+    p.heading=heading.str();
+
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    Qry.SQLText="UPDATE tlg_out SET completed=1 WHERE id=:id";
+    Qry.DeclareVariable("id",otInteger);
+
+    for(vector<TTlgContent>::iterator i=bsms.begin();i!=bsms.end();++i)
+    {
+      for(map<bool,string>::const_iterator j=addrs.begin();j!=addrs.end();++j)
+      {
+        if (j->second.empty()) continue;
+        p.id=-1;
+        p.num=1;
+        p.pr_lat=j->first;
+        p.addr=format_addr_line(j->second);
+        p.body=CreateTlgBody(*i,p.pr_lat);
+        TelegramInterface::SaveTlgOutPart(p);
+        Qry.SetVariable("id",p.id);
+        Qry.Execute();
+        TelegramInterface::SendTlg(p.id);
+      };
+    };
+};
+
 };
 
 void TelegramInterface::SaveTlgOutPart( TTlgOutPartInfo &info )
@@ -1821,62 +1851,6 @@ void TelegramInterface::SaveTlgOutPart( TTlgOutPartInfo &info )
   Qry.Execute();
 
   info.num++;
-};
-
-bool TelegramInterface::IsBSMSend( TTypeBSendInfo info, map<bool,string> &addrs )
-{
-  info.tlg_type="BSM";
-  if (!IsTypeBSend(info)) return false;
-
-  TTypeBAddrInfo addrInfo(info);
-
-  addrInfo.airp_trfer="";
-  addrInfo.crs="";
-  for(int pr_lat=0; pr_lat<=1; pr_lat++)
-  {
-    addrInfo.pr_lat=(bool)pr_lat;
-    string a=TelegramInterface::GetTypeBAddrs(addrInfo);
-    if (!a.empty()) addrs[addrInfo.pr_lat]=a;
-  };
-  return !addrs.empty();
-};
-
-void TelegramInterface::SendBSM
-  (int point_dep, int grp_id, const TBSMContent &con1, const map<bool,string> &addrs )
-{
-    TBSMContent con2;
-    TelegramInterface::LoadBSMContent(grp_id,con2);
-    vector<TBSMContent> bsms;
-    TelegramInterface::CompareBSMContent(con1,con2,bsms);
-    TTlgOutPartInfo p;
-    p.tlg_type="BSM";
-    p.point_id=point_dep;
-    p.time_create=NowUTC();
-    ostringstream heading;
-    heading << '.' << OWN_SITA_ADDR() << ' ' << DateTimeToStr(p.time_create,"ddhhnn") << ENDL;
-    p.heading=heading.str();
-
-    TQuery Qry(&OraSession);
-    Qry.Clear();
-    Qry.SQLText="UPDATE tlg_out SET completed=1 WHERE id=:id";
-    Qry.DeclareVariable("id",otInteger);
-
-    for(vector<TBSMContent>::iterator i=bsms.begin();i!=bsms.end();i++)
-    {
-      for(map<bool,string>::const_iterator j=addrs.begin();j!=addrs.end();j++)
-      {
-        if (j->second.empty()) continue;
-        p.id=-1;
-        p.num=1;
-        p.pr_lat=j->first;
-        p.addr=format_addr_line(j->second);
-        p.body=TelegramInterface::CreateBSMBody(*i,p.pr_lat);
-        TelegramInterface::SaveTlgOutPart(p);
-        Qry.SetVariable("id",p.id);
-        Qry.Execute();
-        TelegramInterface::SendTlg(p.id);
-      };
-    };
 };
 
 void TelegramInterface::TestSeatRanges(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

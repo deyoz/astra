@@ -8,6 +8,7 @@
 #include "astra_utils.h"
 #include "astra_consts.h"
 #include "docs.h"
+#include "aodb.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -149,3 +150,399 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     get_new_report_form("EventsLog", reqNode, resNode);
     NewTextChild(logNode, "short_page_number_fmt", getLocaleText("CAP.SHORT_PAGE_NUMBER_FMT"));
 };
+
+std::string TPaxToLogInfo::getBagStr() const
+{
+  std::ostringstream msg;
+  if (bag_amount!=0 || bag_weight!=0)
+  {
+    if (!msg.str().empty()) msg << ", ";
+    msg << "багаж " << bag_amount << "/" << bag_weight;
+  };
+  if (rk_amount!=0 || rk_weight!=0)
+  {
+    if (!msg.str().empty()) msg << ", ";
+    msg << "р/кладь " << rk_amount << "/" << rk_weight;
+  };
+  if (!tags.empty())
+  {
+    if (!msg.str().empty()) msg << ", ";
+    msg << "бирки " << tags;
+  };
+  return msg.str();
+};
+
+std::string TPaxToLogInfo::getPaxNameStr() const
+{
+  std::ostringstream msg;
+  if (pers_type.empty())
+    msg << "Багаж без сопровождения";
+  else
+    msg << "Пассажир " << surname << (name.empty()?"":" ") << name
+                       << " (" << pers_type << ")";
+  return msg.str();
+};
+
+std::string TPaxToLogInfo::getNormStr() const
+{
+  std::ostringstream msg;
+  if (norms.empty()) return "нет";
+  std::map< int/*bag_type*/, CheckIn::TNormItem>::const_iterator n=norms.begin();
+  for(;n!=norms.end();++n)
+  {
+    if (n!=norms.begin()) msg << ", ";
+    if (n->first!=-1) msg << setw(2) << setfill('0') << n->first << ": ";
+    msg << n->second.str();
+  };
+  return msg.str();
+};
+
+void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
+{
+  grpInfo.clear();
+  TQuery PaxDocQry(&OraSession);
+  TQuery PaxDocoQry(&OraSession);
+  TQuery NormQry(&OraSession);
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT "
+    "       pax_grp.airp_arv, pax_grp.class, pax_grp.status, "
+    "       pax_grp.pr_mark_norms, pax_grp.bag_refuse, "
+    "       pax.pax_id, pax.reg_no, "
+    "       pax.surname, pax.name, pax.pers_type, pax.refuse, pax.subclass, "
+    "       salons.get_seat_no(pax.pax_id, pax.seats, pax_grp.status, pax_grp.point_dep, 'seats', rownum) seat_no, "
+    "       pax.ticket_no, pax.coupon_no, pax.ticket_rem, 0 AS ticket_confirm, "
+    "       pax.pr_brd, pax.pr_exam, "
+    "       NVL(ckin.get_bagAmount2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS bag_amount, "
+    "       NVL(ckin.get_bagWeight2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS bag_weight, "
+    "       NVL(ckin.get_rkAmount2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS rk_amount, "
+    "       NVL(ckin.get_rkWeight2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS rk_weight, "
+    "       ckin.get_birks2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags, "
+    "       DECODE(pax_grp.bag_refuse,0,pax_grp.excess,0) AS excess "
+    "FROM pax_grp, pax "
+    "WHERE pax_grp.grp_id=pax.grp_id(+) AND pax_grp.grp_id=:grp_id";
+  Qry.CreateVariable("grp_id",otInteger,grp_id);
+  Qry.CreateVariable("lang",otString,AstraLocale::LANG_RU); //пока в лог пишем всегда на русском
+  Qry.Execute();
+  if (!Qry.Eof)
+  {
+    grpInfo.grp_id=grp_id;
+    grpInfo.excess=Qry.FieldAsInteger("excess");
+    for(;!Qry.Eof;Qry.Next())
+    {
+      TPaxToLogInfoKey paxInfoKey;
+      paxInfoKey.pax_id=Qry.FieldIsNULL("pax_id")?NoExists:Qry.FieldAsInteger("pax_id");
+      paxInfoKey.reg_no=Qry.FieldIsNULL("reg_no")?NoExists:Qry.FieldAsInteger("reg_no");
+      TPaxToLogInfo &paxInfo=grpInfo.pax[paxInfoKey];
+      paxInfo.clear();
+      paxInfo.airp_arv=Qry.FieldAsString("airp_arv");
+      paxInfo.cl=Qry.FieldAsString("class");
+      paxInfo.status=Qry.FieldAsString("status");
+      paxInfo.pr_mark_norms=Qry.FieldAsInteger("pr_mark_norms")!=0;
+      
+      if (paxInfoKey.pax_id!=NoExists)
+      {
+        paxInfo.surname=Qry.FieldAsString("surname");
+        paxInfo.name=Qry.FieldAsString("name");
+        paxInfo.pers_type=Qry.FieldAsString("pers_type");
+        paxInfo.refuse=Qry.FieldAsString("refuse");
+        paxInfo.subcl=Qry.FieldAsString("subclass");
+        paxInfo.seat_no=Qry.FieldAsString("seat_no");
+        paxInfo.tkn.fromDB(Qry);
+        paxInfo.pr_brd=paxInfo.refuse.empty() && !Qry.FieldIsNULL("pr_brd") && Qry.FieldAsInteger("pr_brd")!=0;
+        paxInfo.pr_exam=paxInfo.refuse.empty() && !Qry.FieldIsNULL("pr_exam") && Qry.FieldAsInteger("pr_exam")!=0;
+        LoadPaxDoc(paxInfoKey.pax_id, paxInfo.doc, PaxDocQry);
+        LoadPaxDoco(paxInfoKey.pax_id, paxInfo.doco, PaxDocoQry);
+      }
+      else
+      {
+        paxInfo.refuse=Qry.FieldAsInteger("bag_refuse")!=0?refuseAgentError:"";
+      };
+      
+      paxInfo.bag_amount=Qry.FieldAsInteger("bag_amount");
+      paxInfo.bag_weight=Qry.FieldAsInteger("bag_weight");
+      paxInfo.rk_amount=Qry.FieldAsInteger("rk_amount");
+      paxInfo.rk_weight=Qry.FieldAsInteger("rk_weight");
+      paxInfo.tags=Qry.FieldAsString("tags");
+
+      std::vector< std::pair<CheckIn::TPaxNormItem, CheckIn::TNormItem> > norms;
+      if (paxInfoKey.pax_id!=NoExists)
+        CheckIn::LoadPaxNorms(paxInfoKey.pax_id, norms, NormQry);
+      else
+        CheckIn::LoadGrpNorms(grp_id, norms, NormQry);
+      paxInfo.norms.clear();
+      std::vector< std::pair<CheckIn::TPaxNormItem, CheckIn::TNormItem> >::const_iterator i=norms.begin();
+      for(; i!=norms.end(); ++i)
+      {
+        if (i->second.empty()) continue;
+        int bag_type=i->first.bag_type==NoExists?-1:i->first.bag_type;
+        paxInfo.norms[bag_type]=i->second;
+      };
+    };
+
+    Qry.Clear();
+    Qry.SQLText=
+      "SELECT bag_type, "
+      "       SUM(amount) AS amount, "
+      "       SUM(weight) AS weight "
+      "FROM pax_grp,bag2 "
+      "WHERE pax_grp.grp_id=bag2.grp_id AND "
+      "      pax_grp.grp_id=:grp_id AND "
+      "      ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 "
+      "GROUP BY bag_type";
+    Qry.CreateVariable("grp_id",otInteger,grp_id);
+    Qry.Execute();
+    if (!Qry.Eof)
+    {
+      //багаж есть
+      for(;!Qry.Eof;Qry.Next())
+      {
+        int bag_type=Qry.FieldIsNULL("bag_type")?-1:Qry.FieldAsInteger("bag_type");
+        TPaidToLogInfo &paidInfo=grpInfo.paid[bag_type];
+        paidInfo.bag_type=bag_type;
+        paidInfo.bag_amount=Qry.FieldAsInteger("amount");
+        paidInfo.bag_weight=Qry.FieldAsInteger("weight");
+      };
+
+      Qry.Clear();
+      Qry.SQLText=
+        "SELECT bag_type, weight FROM paid_bag WHERE grp_id=:grp_id";
+      Qry.CreateVariable("grp_id",otInteger,grp_id);
+      Qry.Execute();
+      for(;!Qry.Eof;Qry.Next())
+      {
+        int bag_type=Qry.FieldIsNULL("bag_type")?-1:Qry.FieldAsInteger("bag_type");
+        TPaidToLogInfo &paidInfo=grpInfo.paid[bag_type];
+        paidInfo.bag_type=bag_type;
+        paidInfo.paid_weight=Qry.FieldAsInteger("weight");
+      };
+    };
+  };
+};
+
+void SaveGrpToLog(int point_id,
+                  const TTripInfo &operFlt,
+                  const TTripInfo &markFlt,
+                  const TGrpToLogInfo &grpInfoBefore,
+                  const TGrpToLogInfo &grpInfoAfter)
+{
+  bool SyncAODB=is_sync_aodb(point_id);
+
+  int grp_id=grpInfoAfter.grp_id==NoExists?grpInfoBefore.grp_id:grpInfoAfter.grp_id;
+
+  TReqInfo* reqInfo = TReqInfo::Instance();
+  map< TPaxToLogInfoKey, TPaxToLogInfo>::const_iterator a=grpInfoAfter.pax.begin();
+  map< TPaxToLogInfoKey, TPaxToLogInfo>::const_iterator b=grpInfoBefore.pax.begin();
+  bool allGrpAgentError=true;
+  for(;a!=grpInfoAfter.pax.end() || b!=grpInfoBefore.pax.end();)
+  {
+    map< TPaxToLogInfoKey, TPaxToLogInfo>::const_iterator aPax=grpInfoAfter.pax.end();
+    map< TPaxToLogInfoKey, TPaxToLogInfo>::const_iterator bPax=grpInfoBefore.pax.end();
+  
+    if (a==grpInfoAfter.pax.end() ||
+        a!=grpInfoAfter.pax.end() && b!=grpInfoBefore.pax.end() && b->first < a->first)
+    {
+      bPax=b;
+      ++b;
+    } else
+    if (b==grpInfoBefore.pax.end() ||
+        a!=grpInfoAfter.pax.end() && b!=grpInfoBefore.pax.end() && a->first < b->first)
+    {
+      aPax=a;
+      ++a;
+    } else
+    if (a!=grpInfoAfter.pax.end() && b!=grpInfoBefore.pax.end() && a->first==b->first)
+    {
+      aPax=a;
+      bPax=b;
+      ++a;
+      ++b;
+    };
+    
+    if (aPax!=grpInfoAfter.pax.end() && aPax->second.refuse!=refuseAgentError) allGrpAgentError=false;
+    
+    bool changed=false;
+    if (aPax!=grpInfoAfter.pax.end())
+    {
+      if (aPax->second.refuse.empty())
+      {
+        //пассажир не разрегистрирован
+        if (bPax!=grpInfoBefore.pax.end() && bPax->second.refuse.empty())
+        {
+          if (!aPax->second.cl.empty() &&
+              !(aPax->second.surname==bPax->second.surname &&
+                aPax->second.name==bPax->second.name &&
+                aPax->second.pers_type==bPax->second.pers_type &&
+                aPax->second.subcl==bPax->second.subcl &&
+                aPax->second.seat_no==bPax->second.seat_no &&
+                aPax->second.tkn==bPax->second.tkn &&
+                aPax->second.doc==bPax->second.doc &&
+                aPax->second.doco==bPax->second.doco))
+          {
+            //пассажир изменен
+            ostringstream msg;
+            msg << aPax->second.getPaxNameStr() << ". "
+                << "Изменены данные пассажира.";
+            reqInfo->MsgToLog(msg.str(), ASTRA::evtPax, point_id, aPax->first.reg_no, grp_id);
+            changed=true;
+          };
+          if (!(aPax->second.norms==bPax->second.norms))
+          {
+            ostringstream msg;
+            msg << aPax->second.getPaxNameStr() << ". "
+                << "Баг.нормы";
+            if (aPax->second.pr_mark_norms && operFlt.airline!=markFlt.airline)
+              msg << " (" << markFlt.airline << ")";
+            msg << ": " << aPax->second.getNormStr();
+            reqInfo->MsgToLog(msg.str(), ASTRA::evtPax, point_id, aPax->first.reg_no, grp_id);
+            changed=true;
+          };
+        }
+        else
+        {
+          //пассажир добавлен
+          ostringstream msg;
+          msg << aPax->second.getPaxNameStr() << " зарегистрирован";
+          if (!aPax->second.cl.empty())
+          {
+            if (aPax->second.pr_exam) msg << ", прошел досмотр";
+            if (aPax->second.pr_brd) msg << ", прошел посадку";
+            msg << ". П/н: " << aPax->second.airp_arv
+                << ", класс: " << aPax->second.cl
+                << ", статус: " << aPax->second.status
+                << ", место: " << (aPax->second.seat_no.empty()?"нет":aPax->second.seat_no);
+          }
+          else
+          {
+            msg << ". П/н: " << aPax->second.airp_arv
+                << ", статус: " << aPax->second.status;
+          };
+          msg << ". Баг.нормы";
+          if (aPax->second.pr_mark_norms && operFlt.airline!=markFlt.airline)
+            msg << " (" << markFlt.airline << ")";
+          msg << ": " << aPax->second.getNormStr();
+          reqInfo->MsgToLog(msg.str(), ASTRA::evtPax, point_id, aPax->first.reg_no, grp_id);
+          changed=true;
+        };
+      }
+      else
+      {
+        //пассажир разрегистрирован
+        if (!aPax->second.cl.empty())
+        {
+          if (bPax==grpInfoBefore.pax.end() || bPax->second.refuse.empty())
+          {
+            //ранее не были разрегистрированы
+            ostringstream msg;
+            msg << aPax->second.getPaxNameStr() << " разрегистрирован. "
+                << "Причина отказа в регистрации: " << aPax->second.refuse << ". ";
+            reqInfo->MsgToLog(msg.str(), ASTRA::evtPax, point_id, aPax->first.reg_no, grp_id);
+            changed=true;
+          }
+          else
+          {
+            //ранее были разрегистрированы
+            if (aPax->second.refuse!=bPax->second.refuse)
+            {
+              ostringstream msg;
+              msg << aPax->second.getPaxNameStr() << ". "
+                  << "Изменена причина отказа в регистрации: " << aPax->second.refuse << ". ";
+              reqInfo->MsgToLog(msg.str(), ASTRA::evtPax, point_id, aPax->first.reg_no, grp_id);
+              changed=true;
+            };
+          };
+        }
+        else
+        {
+          ostringstream msg;
+          msg << aPax->second.getPaxNameStr() << " удален";
+          reqInfo->MsgToLog(msg.str(), ASTRA::evtPax, point_id, aPax->first.reg_no, grp_id);
+          changed=true;
+        };
+      };
+    }
+    else
+    {
+      if (bPax==grpInfoBefore.pax.end()) continue;
+      //пассажир удален
+      ostringstream msg;
+      msg << bPax->second.getPaxNameStr() << " удален";
+      reqInfo->MsgToLog(msg.str(), ASTRA::evtPax, point_id, bPax->first.reg_no, grp_id);
+      changed=true;
+    };
+    
+    string bagStrAfter, bagStrBefore;
+    if (aPax!=grpInfoAfter.pax.end() && aPax->second.refuse!=refuseAgentError)
+      bagStrAfter=aPax->second.getBagStr();
+    if (bPax!=grpInfoBefore.pax.end() && bPax->second.refuse!=refuseAgentError)
+      bagStrBefore=bPax->second.getBagStr();
+    if (bagStrAfter!=bagStrBefore)
+    {
+      //багаж изменился
+      ostringstream msg;
+      msg << (aPax!=grpInfoAfter.pax.end()?aPax->second.getPaxNameStr():bPax->second.getPaxNameStr());
+      
+      if (bagStrAfter.empty())
+        msg << ". Удалено: " << bagStrBefore;
+      if (bagStrBefore.empty())
+        msg << ". Добавлено: " << bagStrAfter;
+      if (!bagStrAfter.empty() && !bagStrBefore.empty())
+        msg << ". Изменен багаж. Общее кол-во: " << bagStrAfter;
+        
+      reqInfo->MsgToLog(msg.str(), ASTRA::evtPax,
+                        point_id, aPax!=grpInfoAfter.pax.end()?aPax->first.reg_no:bPax->first.reg_no, grp_id);
+      changed=true;
+    };
+    if (SyncAODB)
+    {
+      int aodb_pax_id=NoExists;
+      int aodb_reg_no=NoExists;
+      if (aPax!=grpInfoAfter.pax.end())
+      {
+        aodb_pax_id=aPax->first.pax_id;
+        aodb_reg_no=aPax->first.reg_no;
+      }
+      else
+      {
+        aodb_pax_id=bPax->first.pax_id;
+        aodb_reg_no=bPax->first.reg_no;
+      };
+      if (aodb_pax_id!=NoExists && aodb_reg_no!=NoExists)
+      {
+        if (changed) //были изменения по регистрации
+          update_aodb_pax_change( point_id, aodb_pax_id, aodb_reg_no, "Р" );
+        
+        bool boardedAfter=false, boardedBefore=false;
+        if (aPax!=grpInfoAfter.pax.end())
+          boardedAfter=aPax->second.pr_brd;
+        if (bPax!=grpInfoBefore.pax.end())
+          boardedBefore=bPax->second.pr_brd;
+        if (boardedAfter!=boardedBefore) //были изменения с посадкой/высадкой
+          update_aodb_pax_change( point_id, aodb_pax_id, aodb_reg_no, "П" );
+      };
+    };
+  };
+
+  if (allGrpAgentError) return;
+
+  if (grpInfoBefore.paid==grpInfoAfter.paid &&
+      grpInfoBefore.excess==grpInfoAfter.excess) return;
+  ostringstream msg;
+  msg << "Опл. вес: " << grpInfoAfter.excess << " кг. "
+      << "Багаж по типам (мест/вес/опл): ";
+  if (!grpInfoAfter.paid.empty())
+  {
+    map< int/*bag_type*/, TPaidToLogInfo>::const_iterator p=grpInfoAfter.paid.begin();
+    for(;p!=grpInfoAfter.paid.end();++p)
+    {
+      if (p!=grpInfoAfter.paid.begin()) msg << ", ";
+      if (p->second.bag_type!=-1) msg << setw(2) << setfill('0') << p->second.bag_type << ":";
+      msg << p->second.bag_amount << "/" << p->second.bag_weight << "/" << p->second.paid_weight;
+    };
+  }
+  else msg << "нет";
+
+  reqInfo->MsgToLog(msg.str(), ASTRA::evtPax, point_id, ASTRA::NoExists, grp_id);
+};
+
