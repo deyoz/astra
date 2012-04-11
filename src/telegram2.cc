@@ -1267,8 +1267,8 @@ namespace PRL_SPACE {
             "select "
             "    pax_grp.airp_arv target, "
             "    cls_grp.id cls, "
-            "    pax.surname, "
-            "    pax.name, "
+            "    system.transliter(pax.surname, 1, :pr_lat) surname, "
+            "    system.transliter(pax.name, 1, :pr_lat) name, "
             "    crs_pnr.pnr_id, "
             "    crs_pnr.sender crs, "
             "    crs_pnr.status, "
@@ -1301,13 +1301,14 @@ namespace PRL_SPACE {
             "order by "
             "    target, "
             "    cls, "
-            "    pax.surname, "
-            "    pax.name nulls first, "
+            "    surname, "
+            "    name nulls first, "
             "    pax.pax_id ";
         Qry.SQLText = SQLText;
         Qry.CreateVariable("point_id", otInteger, info.point_id);
         Qry.CreateVariable("airp", otString, airp);
         Qry.CreateVariable("class", otString, cls);
+        Qry.CreateVariable("pr_lat", otInteger, info.pr_lat);
         Qry.Execute();
         if(!Qry.Eof) {
             int col_target = Qry.FieldIndex("target");
@@ -2393,9 +2394,9 @@ void TPList::get(TTlgInfo &info, string trfer_cls)
         "   pax.pax_id, \n"
         "   pax.pr_brd, \n"
         "   pax.seats, \n"
-        "   pax.surname, \n"
+        "   system.transliter(pax.surname, 1, :pr_lat) surname, \n"
         "   pax.pers_type, \n"
-        "   pax.name, \n"
+        "   system.transliter(pax.name, 1, :pr_lat) name, \n"
         "   subcls.class \n"
         "from \n"
         "   pax, \n"
@@ -2409,9 +2410,10 @@ void TPList::get(TTlgInfo &info, string trfer_cls)
         "  transfer_subcls.transfer_num(+) = 1 and \n"
         "  transfer_subcls.subclass = subcls.code(+) \n"
         "order by \n"
-        "   pax.surname, \n"
-        "   pax.name \n";
+        "   surname, \n"
+        "   name \n";
     Qry.CreateVariable("grp_id", otInteger, grp->grp_id);
+    Qry.CreateVariable("pr_lat", otInteger, info.pr_lat);
     if(grp->bag_pool_num == NoExists)
         Qry.CreateVariable("bag_pool_num", otInteger, FNull);
     else
@@ -2443,9 +2445,9 @@ void TPList::get(TTlgInfo &info, string trfer_cls)
             item.seats = Qry.FieldAsInteger(col_seats);
             if(item.seats > 1)
                 item.exst.get(Qry.FieldAsInteger(col_pax_id));
-            item.surname = transliter(Qry.FieldAsString(col_surname), 1, info.pr_lat);
+            item.surname = Qry.FieldAsString(col_surname);
             item.pers_type = DecodePerson(Qry.FieldAsString(col_pers_type));
-            item.name = transliter(Qry.FieldAsString(col_name), 1, info.pr_lat);
+            item.name = Qry.FieldAsString(col_name);
             item.trfer_cls = Qry.FieldAsString(col_cls);
             if(not trfer_cls.empty() and item.trfer_cls != trfer_cls)
                 continue;
@@ -4236,8 +4238,8 @@ void TETLDest::GetPaxList(TTlgInfo &info,vector<TTlgCompLayer> &complayers)
         "select "
         "    pax_grp.airp_arv target, "
         "    cls_grp.id cls, "
-        "    pax.surname, "
-        "    pax.name, "
+        "    system.transliter(pax.surname, 1, :pr_lat) surname, "
+        "    system.transliter(pax.name, 1, :pr_lat) name, "
         "    crs_pnr.pnr_id, "
         "    crs_pnr.sender crs, "
         "    pax.pax_id, "
@@ -4266,12 +4268,13 @@ void TETLDest::GetPaxList(TTlgInfo &info,vector<TTlgCompLayer> &complayers)
         "order by "
         "    target, "
         "    cls, "
-        "    pax.surname, "
-        "    pax.name nulls first, "
+        "    surname, "
+        "    name nulls first, "
         "    pax.pax_id ";
     Qry.CreateVariable("point_id", otInteger, info.point_id);
     Qry.CreateVariable("airp", otString, airp);
     Qry.CreateVariable("class", otString, cls);
+    Qry.CreateVariable("pr_lat", otInteger, info.pr_lat);
     Qry.Execute();
     if(!Qry.Eof) {
         int col_target = Qry.FieldIndex("target");
@@ -5160,6 +5163,8 @@ void TDestList<T>::get(TTlgInfo &info,vector<TTlgCompLayer> &complayers)
     Qry.CreateVariable("vpoint_id", otInteger, info.point_id);
     Qry.CreateVariable("vfirst_point", otInteger, info.pr_tranzit ? info.first_point : info.point_id);
     Qry.CreateVariable("vpoint_num", otInteger, info.point_num);
+    for(int i = 0; i < Qry.Variables->GetVariablesCount(); i++)
+        ProgTrace(TRACE5, "%s -> %s", Qry.VariableName(i), Qry.GetVariableAsString(Qry.VariableName(i)));
     Qry.Execute();
     for(; !Qry.Eof; Qry.Next()) {
         T dest(&grp_map, &infants);
