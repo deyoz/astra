@@ -927,7 +927,7 @@ namespace PRL_SPACE {
             virtual string format(const TOnwardItem &item, const int i, TTlgInfo &info)=0;
         public:
             vector<TOnwardItem> items;
-            void get(int pax_id);
+            void get(int grp_id, int pax_id);
             void ToTlg(TTlgInfo &info, vector<string> &body);
             virtual ~TOnwardList(){};
     };
@@ -999,35 +999,55 @@ namespace PRL_SPACE {
             }
     };
 
-    void TOnwardList::get(int pax_id)
+    void TOnwardList::get(int grp_id, int pax_id)
     {
         TQuery Qry(&OraSession);
-        Qry.SQLText =
+        string SQLText =
             "SELECT \n"
             "    trfer_trips.airline, \n"
             "    trfer_trips.flt_no, \n"
             "    trfer_trips.suffix, \n"
             "    trfer_trips.scd, \n"
-            "    transfer.airp_arv, \n"
-            "    transfer_subcls.subclass trfer_subclass, \n"
-            "    subcls.class trfer_class \n"
+            "    transfer.airp_arv, \n";
+        if(pax_id == NoExists)
+            SQLText +=
+                "    null trfer_subclass, \n"
+                "    null trfer_class \n";
+        else
+            SQLText +=
+                "    transfer_subcls.subclass trfer_subclass, \n"
+                "    subcls.class trfer_class \n";
+        SQLText +=
             "FROM \n"
-            "    pax, \n"
             "    transfer, \n"
-            "    trfer_trips, \n"
-            "    transfer_subcls, \n"
-            "    subcls \n"
-            "WHERE  \n"
-            "    pax.pax_id = :pax_id and \n"
-            "    pax.grp_id = transfer.grp_id and \n"
+            "    trfer_trips \n";
+        if(pax_id != NoExists)
+            SQLText +=
+                "    , pax, \n"
+                "    transfer_subcls, \n"
+                "    subcls \n";
+        SQLText +=
+            "WHERE  \n";
+        if(pax_id == NoExists)
+            SQLText +=
+                "       transfer.grp_id = :grp_id and ";
+        else
+            SQLText +=
+                "    pax.pax_id = :pax_id and \n"
+                "    pax.grp_id = transfer.grp_id and \n"
+                "    transfer_subcls.pax_id = pax.pax_id and \n"
+                "    transfer_subcls.transfer_num = transfer.transfer_num and \n"
+                "    transfer_subcls.subclass = subcls.code and \n";
+        SQLText +=
             "    transfer.transfer_num>=1 and \n"
-            "    transfer.point_id_trfer=trfer_trips.point_id and \n"
-            "    transfer_subcls.pax_id = pax.pax_id and \n"
-            "    transfer_subcls.transfer_num = transfer.transfer_num and \n"
-            "    transfer_subcls.subclass = subcls.code \n"
+            "    transfer.point_id_trfer=trfer_trips.point_id \n"
             "ORDER BY \n"
             "    transfer.transfer_num \n";
-        Qry.CreateVariable("pax_id", otInteger, pax_id);
+        Qry.SQLText = SQLText;
+        if(pax_id == NoExists)
+            Qry.CreateVariable("grp_id", otInteger, grp_id);
+        else
+            Qry.CreateVariable("pax_id", otInteger, pax_id);
         Qry.Execute();
         if(!Qry.Eof) {
             int col_airline = Qry.FieldIndex("airline");
@@ -1349,7 +1369,7 @@ namespace PRL_SPACE {
                     pax.subcls = Qry.FieldAsString(col_subcls);
                 pax.rems.get(info, pax, complayers);
                 grp_map->get(pax.grp_id, pax.bag_pool_num);
-                pax.OList.get(pax.pax_id);
+                pax.OList.get(pax.grp_id, pax.pax_id);
                 PaxList.push_back(pax);
             }
         }
@@ -2426,6 +2446,7 @@ void TPList::get(TTlgInfo &info, string trfer_cls)
         item.seats = 1;
         item.surname = "UNACCOMPANIED";
         item.unaccomp = true;
+        item.OList.get(item.grp_id, item.pax_id);
         surnames[item.surname].push_back(item);
     } else {
         int col_pax_id = Qry.FieldIndex("pax_id");
@@ -2451,7 +2472,7 @@ void TPList::get(TTlgInfo &info, string trfer_cls)
             item.trfer_cls = Qry.FieldAsString(col_cls);
             if(not trfer_cls.empty() and item.trfer_cls != trfer_cls)
                 continue;
-            item.OList.get(item.pax_id);
+            item.OList.get(item.grp_id, item.pax_id);
             surnames[item.surname].push_back(item);
         }
     }
@@ -3001,7 +3022,7 @@ void TPSM::get(TTlgInfo &info)
             if(item.ssr.items.empty())
                 continue;
             item.seat_no.add_seats(item.pax_id, complayers);
-            item.OItem.get(item.pax_id);
+            item.OItem.get(NoExists, item.pax_id);
             items[item.airp_arv][item.cls].push_back(item);
         }
     }
