@@ -2091,7 +2091,6 @@ struct TBTMGrpList {
 // причем список этот будет представлять отдельную группу пассажиров
 // объединенную по grp_id и bag_pool_num
 struct TPLine {
-    bool include_exst;
     bool print_bag;
     bool skip;
     int seats;
@@ -2102,8 +2101,7 @@ struct TPLine {
     string surname;
     vector<string> names;
 
-    TPLine(bool ainclude_exst):
-        include_exst(ainclude_exst),
+    TPLine():
         print_bag(false),
         skip(false),
         seats(0),
@@ -2121,8 +2119,6 @@ struct TPLine {
     string get_line() {
         ostringstream buf;
         buf << ".P/";
-        if(seats > 1)
-            buf << seats;
         buf << surname;
         for(vector<string>::iterator iv = names.begin(); iv != names.end(); iv++) {
             if(!iv->empty())
@@ -2186,9 +2182,8 @@ struct TPLine {
             names.push_back(pax.name);
             name_count = 1;
         }
-        if(include_exst)
-            for(int i = 0; i < pax.seats - name_count; i++)
-                names.push_back(pax.exst.value);
+        for(int i = 0; i < pax.seats - name_count; i++)
+            names.push_back(pax.exst.value);
         return *this;
     }
     TPLine operator + (const TPPax & pax)
@@ -2239,7 +2234,7 @@ void TPList::ToPTMTlg(TTlgInfo &info, vector<string> &body, TFItem &FItem)
             // обработка one
             // Записываем в строку столько имен, сколько влезет, остальные обрубаем.
             sort(one.begin(), one.end(), *this);
-            TPLine pax_line(true); // ??? vlad индикатор EXST/STCR
+            TPLine pax_line;
             pax_line.surname = im->first;
             for(vector<TPPax>::iterator iv = one.begin(); iv != one.end(); iv++) {
                 pax_line += *iv;
@@ -2263,7 +2258,7 @@ void TPList::ToPTMTlg(TTlgInfo &info, vector<string> &body, TFItem &FItem)
             // Обработка many_name. Записываем в строку сколько влезет.
             // Потом на след строку. Если и один не влезает, обрезаем имя до одного символа, затем фамилию.
             sort(many_name.begin(), many_name.end(), *this);
-            TPLine pax_line(true); // ??? vlad индикатор EXST/STCR
+            TPLine pax_line;
             pax_line.print_bag = print_bag;
             print_bag = false;
             pax_line.surname = im->first;
@@ -2315,7 +2310,7 @@ void TPList::ToPTMTlg(TTlgInfo &info, vector<string> &body, TFItem &FItem)
             // Записываем каждого пассажира по отдельности
             // Если не влезает, обрезаем фамилию
             for(vector<TPPax>::iterator iv = many_noname.begin(); iv != many_noname.end(); iv++) {
-                TPLine pax_line(true); // ??? vlad индикатор EXST/STCR
+                TPLine pax_line;
                 pax_line.print_bag = print_bag;
                 print_bag = false;
                 pax_line.surname = im->first;
@@ -2351,7 +2346,7 @@ void TPList::ToBTMTlg(TTlgInfo &info, vector<string> &body, TFItem &FItem)
             iv++;
         if(iv == pax_list.end())
             continue;
-        TPLine line(false); // ??? vlad индикатор EXST/STCR
+        TPLine line;
         line.surname = im->first;
         lines.push_back(line);
         while(iv != pax_list.end()) {
