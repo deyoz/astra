@@ -1330,7 +1330,7 @@ int alter_bag_pool_num(int argc,char **argv)
 
   int processed=0;
 
-  for(TDateTime curr_part_key=min_part_key; curr_part_key<=max_part_key; curr_part_key+=0.2)
+  for(TDateTime curr_part_key=min_part_key; curr_part_key<=max_part_key; curr_part_key+=0.2, processed++)
   {
     alter_wait(processed);
     Qry.SetVariable("low_part_key",curr_part_key);
