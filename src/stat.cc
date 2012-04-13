@@ -4052,18 +4052,18 @@ struct TAgentStatRow {
         }
     }
     TAgentStatRow():
-        pax_amount(NoExists),
-        bag_amount(NoExists),
-        bag_weight(NoExists),
-        rk_amount(NoExists),
-        rk_weight(NoExists),
-        unreg_pax_amount(NoExists),
-        unreg_bag_amount(NoExists),
-        unreg_bag_weight(NoExists),
-        unreg_rk_amount(NoExists),
-        unreg_rk_weight(NoExists),
-        processed_pax(NoExists),
-        time(NoExists)
+        pax_amount(0),
+        bag_amount(0),
+        bag_weight(0),
+        rk_amount(0),
+        rk_weight(0),
+        unreg_pax_amount(0),
+        unreg_bag_amount(0),
+        unreg_bag_weight(0),
+        unreg_rk_amount(0),
+        unreg_rk_weight(0),
+        processed_pax(0),
+        time(0)
     {}
 };
 
@@ -4105,25 +4105,30 @@ void RunAgentStat(const TStatParams &params, TAgentStat &AgentStat, TPrintAirlin
     for(int pass = 0; pass <= 2; pass++) {
         string SQLText =
             "select "
-            "   points.airp, "
-            "   points.airline, "
-            "   points.scd_out, "
-            "   points.flt_no, "
-            "   users2.login, "
-            "   agent_stat.desk, "
-            "   (last_date - first_date)*86400 time, "
-            "   pax_amount, "
-            "   dpax_amount, "
-            "   dbag_amount, "
-            "   dbag_weight, "
-            "   drk_amount, "
-            "   drk_weight "
+            "  points.airp, "
+            "  points.airline, "
+            "  points.scd_out, "
+            "  points.flt_no, "
+            "  users2.login, "
+            "  ags.desk, "
+            "  pax_time, "
+            "  pax_amount, "
+            "  ags.dpax_amount.inc pax_am_inc, "
+            "  ags.dpax_amount.dec pax_am_dec, "
+            "  ags.dbag_amount.inc bag_am_inc, "
+            "  ags.dbag_amount.dec bag_am_dec, "
+            "  ags.dbag_weight.inc bag_we_inc, "
+            "  ags.dbag_weight.dec bag_we_dec, "
+            "  ags.drk_amount.inc rk_am_inc, "
+            "  ags.drk_amount.dec rk_am_dec, "
+            "  ags.drk_weight.inc rk_we_inc, "
+            "  ags.drk_weight.dec rk_we_dec "
             "from "
             "   users2, ";
         if(pass != 0) {
             SQLText +=
                 " arx_points points, "
-                " arx_agent_stat agent_stat ";
+                " arx_agent_stat ags ";
             if(pass == 2)
                 SQLText +=
                     ",(SELECT part_key, move_id FROM move_arx_ext \n"
@@ -4131,7 +4136,7 @@ void RunAgentStat(const TStatParams &params, TAgentStat &AgentStat, TPrintAirlin
         } else {
             SQLText +=
                 " points, "
-                " agent_stat ";
+                " agent_stat ags ";
         }
         SQLText += "where ";
         if (pass==1)
@@ -4139,13 +4144,13 @@ void RunAgentStat(const TStatParams &params, TAgentStat &AgentStat, TPrintAirlin
         if (pass==2)
             SQLText += " points.part_key=arx_ext.part_key AND points.move_id=arx_ext.move_id AND \n";
         if (pass!=0)
-            SQLText += " agent_stat.part_key = points.part_key AND \n";
+            SQLText += " ags.part_key = points.part_key AND \n";
         SQLText +=
-            "    agent_stat.user_id = users2.user_id and "
-            "    agent_stat.point_id = points.point_id and "
+            "    ags.user_id = users2.user_id and "
+            "    ags.point_id = points.point_id and "
             "    points.pr_del >= 0 and "
-            "    points.scd_out >= :FirstDate and "
-            "    points.scd_out < :LastDate ";
+            "    ags.ondate >= :FirstDate and "
+            "    ags.ondate < :LastDate ";
         if(params.flt_no != NoExists) {
             SQLText += " and points.flt_no = :flt_no ";
             Qry.CreateVariable("flt_no", otInteger, params.flt_no);
@@ -4163,11 +4168,11 @@ void RunAgentStat(const TStatParams &params, TAgentStat &AgentStat, TPrintAirlin
                 SQLText += " AND points.airline NOT IN " + GetSQLEnum(params.airlines) + "\n";
         };
         if(not params.kiosk.empty()) {
-            SQLText += "and agent_stat.desk = :kiosk ";
+            SQLText += "and ags.desk = :kiosk ";
             Qry.CreateVariable("kiosk", otString, params.kiosk);
         }
         if(params.user != NoExists) {
-            SQLText += "and agent_stat.user_id = :user_id ";
+            SQLText += "and ags.user_id = :user_id ";
             Qry.CreateVariable("user_id", otInteger, params.user);
         }
         Qry.SQLText = SQLText;
@@ -4183,13 +4188,18 @@ void RunAgentStat(const TStatParams &params, TAgentStat &AgentStat, TPrintAirlin
             int col_flt_no = Qry.FieldIndex("flt_no");
             int col_login = Qry.FieldIndex("login");
             int col_desk = Qry.FieldIndex("desk");
-            int col_time = Qry.FieldIndex("time");
+            int col_pax_time = Qry.FieldIndex("pax_time");
             int col_pax_amount = Qry.FieldIndex("pax_amount");
-            int col_dpax_amount = Qry.FieldIndex("dpax_amount");
-            int col_dbag_amount = Qry.FieldIndex("dbag_amount");
-            int col_dbag_weight = Qry.FieldIndex("dbag_weight");
-            int col_drk_amount = Qry.FieldIndex("drk_amount");
-            int col_drk_weight = Qry.FieldIndex("drk_weight");
+            int col_pax_am_inc = Qry.FieldIndex("pax_am_inc");
+            int col_pax_am_dec = Qry.FieldIndex("pax_am_dec");
+            int col_bag_am_inc = Qry.FieldIndex("bag_am_inc");
+            int col_bag_am_dec = Qry.FieldIndex("bag_am_dec");
+            int col_bag_we_inc = Qry.FieldIndex("bag_we_inc");
+            int col_bag_we_dec = Qry.FieldIndex("bag_we_dec");
+            int col_rk_am_inc = Qry.FieldIndex("rk_am_inc");
+            int col_rk_am_dec = Qry.FieldIndex("rk_am_dec");
+            int col_rk_we_inc = Qry.FieldIndex("rk_we_inc");
+            int col_rk_we_dec = Qry.FieldIndex("rk_we_dec");
             for(; not Qry.Eof; Qry.Next()) {
                 string airp = Qry.FieldAsString(col_airp);
                 string airline = Qry.FieldAsString(col_airline);
@@ -4197,13 +4207,14 @@ void RunAgentStat(const TStatParams &params, TAgentStat &AgentStat, TPrintAirlin
                 int flt_no = Qry.FieldAsInteger(col_flt_no);
                 string login = Qry.FieldAsString(col_login);
                 string desk = Qry.FieldAsString(col_desk);
-                double time = Qry.FieldAsFloat(col_time);
+                int pax_time = Qry.FieldAsInteger(col_pax_time);
                 int pax_amount = Qry.FieldAsInteger(col_pax_amount);
-                int dpax_amount = Qry.FieldAsInteger(col_dpax_amount);
-                int dbag_amount = Qry.FieldAsInteger(col_dbag_amount);
-                int dbag_weight = Qry.FieldAsInteger(col_dbag_weight);
-                int drk_amount = Qry.FieldAsInteger(col_drk_amount);
-                int drk_weight = Qry.FieldAsInteger(col_drk_weight);
+                STAT::agent_stat_t dpax_amount(Qry.FieldAsInteger(col_pax_am_inc), Qry.FieldAsInteger(col_pax_am_dec));
+                STAT::agent_stat_t dbag_amount(Qry.FieldAsInteger(col_bag_am_inc), Qry.FieldAsInteger(col_bag_am_dec));
+                STAT::agent_stat_t dbag_weight(Qry.FieldAsInteger(col_bag_we_inc), Qry.FieldAsInteger(col_bag_we_dec));
+                STAT::agent_stat_t drk_amount(Qry.FieldAsInteger(col_rk_am_inc), Qry.FieldAsInteger(col_rk_am_dec));
+                STAT::agent_stat_t drk_weight(Qry.FieldAsInteger(col_rk_we_inc), Qry.FieldAsInteger(col_rk_we_dec));
+
                 TAgentStatKey key;
                 key.airp = airp;
                 key.airline = ElemIdToCodeNative(etAirline, airline);
@@ -4216,27 +4227,28 @@ void RunAgentStat(const TStatParams &params, TAgentStat &AgentStat, TPrintAirlin
                 }
                 TAgentStatRow &row = AgentStat[key];
 
-                if(row.pax_amount == NoExists) {
-                    row.processed_pax = pax_amount;
-                    row.time = time;
-                } else {
-                    row.processed_pax += pax_amount;
-                    row.time += time;
-                }
+                row.processed_pax += pax_amount;
+                row.time += pax_time;
 
-                row.set_delta(row.pax_amount, row.unreg_pax_amount, dpax_amount);
-                row.set_delta(row.bag_amount, row.unreg_bag_amount, dbag_amount);
-                row.set_delta(row.bag_weight, row.unreg_bag_weight, dbag_weight);
-                row.set_delta(row.rk_amount, row.unreg_rk_amount, drk_amount);
-                row.set_delta(row.rk_weight, row.unreg_rk_weight, drk_weight);
+                row.pax_amount += dpax_amount.inc;
+                row.bag_amount += dbag_amount.inc;
+                row.bag_weight += dbag_weight.inc;
+                row.rk_amount += drk_amount.inc;
+                row.rk_weight += drk_weight.inc;
+
+                row.unreg_pax_amount -= dpax_amount.dec;
+                row.unreg_bag_amount -= dbag_amount.dec;
+                row.unreg_bag_weight -= dbag_weight.dec;
+                row.unreg_rk_amount -= drk_amount.dec;
+                row.unreg_rk_weight -= drk_weight.dec;
 
                 ostringstream buf;
                 buf
-                    << setw(10) << time
+                    << setw(10) << pax_time
                     << setw(10) << pax_amount;
                 ProgTrace(TRACE5, "add totals: %s", buf.str().c_str());
                 AgentStat.total_processed_pax += pax_amount;
-                AgentStat.total_time += time;
+                AgentStat.total_time += pax_time;
             }
         }
     }
@@ -5284,7 +5296,7 @@ void STAT::agent_stat_delta(
     Qry.CreateVariable("rk_am_inc", otInteger, drk_amount.inc);
     Qry.CreateVariable("rk_am_dec", otInteger, drk_amount.dec);
     Qry.CreateVariable("rk_we_inc", otInteger, drk_weight.inc);
-    Qry.CreateVariable("rk_we_dec", otInteger, drk_amount.dec);
+    Qry.CreateVariable("rk_we_dec", otInteger, drk_weight.dec);
     Qry.Execute();
 }
 
