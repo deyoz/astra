@@ -6,19 +6,23 @@
 #include "basic.h"
 
 namespace STAT {
+    struct agent_stat_t {
+        int inc, dec;
+        agent_stat_t(int ainc, int adec): inc(ainc), dec(adec) {}
+    };
     xmlNodePtr set_variables(xmlNodePtr resNode, std::string lang = "");
     void agent_stat_delta(
             int point_id,
             int user_id,
             const std::string &desk,
-            BASIC::TDateTime first_date,
-            BASIC::TDateTime last_date,
+            BASIC::TDateTime ondate,
+            int pax_time,
             int pax_amount,
-            int dpax_amount, // d prefix stands for delta
-            int dbag_amount,
-            int dbag_weight,
-            int drk_amount,
-            int drk_weight
+            agent_stat_t dpax_amount, // d prefix stands for delta
+            agent_stat_t dbag_amount,
+            agent_stat_t dbag_weight,
+            agent_stat_t drk_amount,
+            agent_stat_t drk_weight
             );
     int agent_stat_delta(int argc,char **argv);
 }

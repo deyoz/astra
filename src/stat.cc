@@ -5163,22 +5163,39 @@ int STAT::agent_stat_delta(int argc,char **argv)
             "   delete from agent_stat; "
             "end; ";
         Qry.Execute();
-        Qry.SQLText = "select * from agent_stat_params";
+        Qry.SQLText =
+            "select "
+            "  point_id, "
+            "  user_id, "
+            "  desk, "
+            "  ondate, "
+            "  pax_time, "
+            "  pax_amount, "
+            "  asp.dpax_amount.inc pax_am_inc, "
+            "  asp.dpax_amount.dec pax_am_dec, "
+            "  asp.dbag_amount.inc bag_am_inc, "
+            "  asp.dbag_amount.dec bag_am_dec, "
+            "  asp.dbag_weight.inc bag_we_inc, "
+            "  asp.dbag_weight.dec bag_we_dec, "
+            "  asp.drk_amount.inc rk_am_inc, "
+            "  asp.drk_amount.dec rk_am_dec, "
+            "  asp.drk_weight.inc rk_we_inc, "
+            "  asp.drk_weight.dec rk_we_dec "
+            "from agent_stat_params asp";
         Qry.Execute();
         for(; not Qry.Eof; Qry.Next()) {
-            int point_id = Qry.FieldAsInteger("point_id");
-            STAT::agent_stat_delta(
-                    point_id,
+            agent_stat_delta(
+                    Qry.FieldAsInteger("point_id"),
                     Qry.FieldAsInteger("user_id"),
                     Qry.FieldAsString("desk"),
-                    Qry.FieldAsDateTime("first_date"),
-                    Qry.FieldAsDateTime("last_date"),
+                    Qry.FieldAsDateTime("ondate"),
+                    Qry.FieldAsInteger("pax_time"),
                     Qry.FieldAsInteger("pax_amount"),
-                    Qry.FieldAsInteger("dpax_amount"),
-                    Qry.FieldAsInteger("dbag_amount"),
-                    Qry.FieldAsInteger("dbag_weight"),
-                    Qry.FieldAsInteger("drk_amount"),
-                    Qry.FieldAsInteger("drk_weight")
+                    agent_stat_t(Qry.FieldAsInteger("pax_am_inc"), Qry.FieldAsInteger("pax_am_dec")),
+                    agent_stat_t(Qry.FieldAsInteger("bag_am_inc"), Qry.FieldAsInteger("bag_am_dec")),
+                    agent_stat_t(Qry.FieldAsInteger("bag_we_inc"), Qry.FieldAsInteger("bag_we_dec")),
+                    agent_stat_t(Qry.FieldAsInteger("rk_am_inc"), Qry.FieldAsInteger("rk_am_dec")),
+                    agent_stat_t(Qry.FieldAsInteger("rk_we_inc"), Qry.FieldAsInteger("rk_we_dec"))
                     );
         }
         Qry.Clear();
@@ -5193,74 +5210,81 @@ void STAT::agent_stat_delta(
         int point_id,
         int user_id,
         const std::string &desk,
-        TDateTime first_date,
-        TDateTime last_date,
+        TDateTime ondate,
+        int pax_time,
         int pax_amount,
-        int dpax_amount,
-        int dbag_amount,
-        int dbag_weight,
-        int drk_amount,
-        int drk_weight
+        agent_stat_t dpax_amount,
+        agent_stat_t dbag_amount,
+        agent_stat_t dbag_weight,
+        agent_stat_t drk_amount,
+        agent_stat_t drk_weight
         )
 {
-    if(last_date <= first_date)
-        throw Exception("agent_stat_delta: wrong time interval");
     TQuery Qry(&OraSession);
     Qry.SQLText =
-        "declare "
-        "   cursor cur is "
-        "   select * from agent_stat where "
-        "        point_id = :point_id and "
-        "        user_id = :user_id and "
-        "        desk = :desk and "
-        "        (:first_date <= last_date and :first_date >= first_date or "
-        "         :last_date <= last_date and :last_date >= first_date); "
-        "   c cur%rowtype; "
         "begin "
-        "   open cur; "
-        "   fetch cur into c; "
-        "   if cur%found then "
-        "       raise_application_error(-20000, 'crossed time interval found'); "
-        "   else "
-        "       insert into agent_stat( "
-        "           point_id, "
-        "           user_id, "
-        "           desk, "
-        "           first_date, "
-        "           last_date, "
-        "           pax_amount, "
-        "           dpax_amount, "
-        "           dbag_amount, "
-        "           dbag_weight, "
-        "           drk_amount, "
-        "           drk_weight "
-        "       ) values ( "
-        "           :point_id, "
-        "           :user_id, "
-        "           :desk, "
-        "           :first_date, "
-        "           :last_date, "
-        "           :pax_amount, "
-        "           :dpax_amount, "
-        "           :dbag_amount, "
-        "           :dbag_weight, "
-        "           :drk_amount, "
-        "           :drk_weight "
-        "       ); "
-        "   end if; "
+        "  update agent_stat ags set "
+        "    pax_time = pax_time + :pax_time, "
+        "    pax_amount = pax_amount + :pax_amount, "
+        "    ags.dpax_amount.inc = ags.dpax_amount.inc + :pax_am_inc, "
+        "    ags.dpax_amount.dec = ags.dpax_amount.dec + :pax_am_dec, "
+        "    ags.dbag_amount.inc = ags.dbag_amount.inc + :bag_am_inc, "
+        "    ags.dbag_amount.dec = ags.dbag_amount.dec + :bag_am_dec, "
+        "    ags.dbag_weight.inc = ags.dbag_weight.inc + :bag_we_inc, "
+        "    ags.dbag_weight.dec = ags.dbag_weight.dec + :bag_we_dec, "
+        "    ags.drk_amount.inc = ags.drk_amount.inc + :rk_am_inc, "
+        "    ags.drk_amount.dec = ags.drk_amount.dec + :rk_am_dec, "
+        "    ags.drk_weight.inc = ags.drk_weight.inc + :rk_we_inc, "
+        "    ags.drk_weight.dec = ags.drk_weight.dec + :rk_we_dec "
+        "  where "
+        "    point_id = :point_id and "
+        "    user_id = :user_id and "
+        "    desk = :desk and "
+        "    ondate = :ondate; "
+        "  if sql%notfound then "
+        "    insert into agent_stat( "
+        "        point_id, "
+        "        user_id, "
+        "        desk, "
+        "        ondate, "
+        "        pax_time, "
+        "        pax_amount, "
+        "        dpax_amount, "
+        "        dbag_amount, "
+        "        dbag_weight, "
+        "        drk_amount, "
+        "        drk_weight "
+        "    ) values ( "
+        "        :point_id, "
+        "        :user_id, "
+        "        :desk, "
+        "        trunc(:ondate), "
+        "        :pax_time, "
+        "        :pax_amount, "
+        "        agent_stat_t(:pax_am_inc, :pax_am_dec), "
+        "        agent_stat_t(:bag_am_inc, :bag_am_dec), "
+        "        agent_stat_t(:bag_we_inc, :bag_we_dec), "
+        "        agent_stat_t(:rk_am_inc, :rk_am_dec), "
+        "        agent_stat_t(:rk_we_inc, :rk_we_dec) "
+        "    ); "
+        "  end if; "
         "end; ";
-
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.CreateVariable("user_id", otInteger, user_id);
     Qry.CreateVariable("desk", otString, desk);
-    Qry.CreateVariable("first_date", otDate, first_date);
-    Qry.CreateVariable("last_date", otDate, last_date);
+    Qry.CreateVariable("ondate", otDate, ondate);
+    Qry.CreateVariable("pax_time", otInteger, pax_time);
     Qry.CreateVariable("pax_amount", otInteger, pax_amount);
-    Qry.CreateVariable("dpax_amount", otInteger, dpax_amount);
-    Qry.CreateVariable("dbag_amount", otInteger, dbag_amount);
-    Qry.CreateVariable("dbag_weight", otInteger, dbag_weight);
-    Qry.CreateVariable("drk_amount", otInteger, drk_amount);
-    Qry.CreateVariable("drk_weight", otInteger, drk_weight);
+    Qry.CreateVariable("pax_am_inc", otInteger, dpax_amount.inc);
+    Qry.CreateVariable("pax_am_dec", otInteger, dpax_amount.dec);
+    Qry.CreateVariable("bag_am_inc", otInteger, dbag_amount.inc);
+    Qry.CreateVariable("bag_am_dec", otInteger, dbag_amount.dec);
+    Qry.CreateVariable("bag_we_inc", otInteger, dbag_weight.inc);
+    Qry.CreateVariable("bag_we_dec", otInteger, dbag_weight.dec);
+    Qry.CreateVariable("rk_am_inc", otInteger, drk_amount.inc);
+    Qry.CreateVariable("rk_am_dec", otInteger, drk_amount.dec);
+    Qry.CreateVariable("rk_we_inc", otInteger, drk_weight.inc);
+    Qry.CreateVariable("rk_we_dec", otInteger, drk_amount.dec);
     Qry.Execute();
 }
 
