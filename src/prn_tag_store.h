@@ -264,7 +264,7 @@ class TPrnTagStore {
                 grp_id(ASTRA::NoExists),
                 class_grp(ASTRA::NoExists)
             {};
-            void Init(int agrp_id);
+            void Init(int agrp_id, int apax_id);
         };
         TGrpInfo grpInfo;
 

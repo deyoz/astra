@@ -1786,3 +1786,8 @@ string GetPaxDocCountryCode(const string &doc_code)
   return pax_doc_country;
 };
 
+bool isTestPaxId(int id)
+{
+  return id!=NoExists && id>=TEST_ID_BASE && id<=TEST_ID_BASE+999999999;
+}
+
