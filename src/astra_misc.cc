@@ -1490,7 +1490,7 @@ void GetTagRanges(const vector<TBagTagNumber> &tags,
   double first_no,first_pack,curr_no,curr_pack;
   first_alpha_part=tags.begin()->alpha_part;
   first_no=fmod(tags.begin()->numeric_part, 1000.0);
-  first_pack=round(tags.begin()->numeric_part/1000.0);
+  modf(tags.begin()->numeric_part/1000.0,&first_pack);
   int num=0;
   for(std::vector<TBagTagNumber>::const_iterator iTag=tags.begin();; ++iTag)
   {
@@ -1498,7 +1498,7 @@ void GetTagRanges(const vector<TBagTagNumber> &tags,
     {
       curr_alpha_part=iTag->alpha_part;
       curr_no=fmod(iTag->numeric_part, 1000.0);
-      curr_pack=round(iTag->numeric_part/1000.0);
+      modf(iTag->numeric_part/1000.0,&curr_pack);
     };
      
     if (iTag==tags.end() ||
