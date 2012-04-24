@@ -39,7 +39,7 @@ using namespace AstraLocale;
 using namespace BASIC;
 using namespace EXCEPTIONS;
 
-#define MAX_TICKETS_IN_TLG 100
+#define MAX_TICKETS_IN_TLG 5
 
 void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
