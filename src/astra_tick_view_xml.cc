@@ -128,30 +128,27 @@ void FreeTextInfoXmlView::operator () (ViewerData &Data, const list<FreeTextInfo
 
     for(list<FreeTextInfo>::const_iterator i=lift.begin(); i!=lift.end(); i++)
     {
-	const FreeTextInfo &Ift = (*i);
-	if(Ift.fTType()->type() == FreeTextType::FareCalc){
-	    // Строка расчёта тарифа
-	    ProgTrace(TRACE3, "Ift fare calc xml view");
-	    xmlNodePtr paymentNode=getNode(mainNode,"payment");
-	    xmlNewTextChild(paymentNode,NULL,"fare_calc", Ift.fullText());
-	} else if(Ift.fTType()->type() == FreeTextType::AgnAirName){
-	    //Полное имя города/агенства
-	    xmlNodePtr origNode=getNode(mainNode,"origin");
-	    xmlNewTextChild(origNode,NULL,"city_name", Ift.text(0));
-	    if(Ift.text(0).size()<25){
-		//Если название короче, чем отведено место в интерфейсе
-		setElemProp(mainNode->parent, "city_name" ,"col",
-			    HelpCpp::string_cast(Ift.text(0).size()).c_str());
-	    }
-	    if(Ift.numParts()>1){
-		xmlNewTextChild(origNode,NULL,"agency_name", Ift.text(1));
-  //Если название короче, чем отведено место в интерфейсе
-		if(Ift.text(1).size()<30){
-		    setElemProp(mainNode->parent, "agency_name" ,"col",
-				HelpCpp::string_cast(Ift.text(1).size()).c_str());
-		}
-	    }
-	}
+    	const FreeTextInfo &Ift = (*i);
+    	if(Ift.fTType()->type() == FreeTextType::FareCalc) {
+    	    // Строка расчёта тарифа
+    	    ProgTrace(TRACE3, "Ift fare calc xml view");
+    	    xmlNodePtr paymentNode=getNode(mainNode,"payment");
+    	    xmlNewTextChild(paymentNode,NULL,"fare_calc", Ift.fullText());
+    	} else if(Ift.fTType()->type() == FreeTextType::AgnAirName){
+    	    //Полное имя города/агенства
+    	    xmlNodePtr origNode=getNode(mainNode,"origin");
+    	    xmlNewTextChild(origNode,NULL,"city_name", Ift.text(0));
+    	    if(Ift.text(0).size() < 25) {
+      	    	//Если название короче, чем отведено место в интерфейсе
+          		setElemProp(mainNode->parent, "city_name" ,"col",
+    			    HelpCpp::string_cast(Ift.text(0).size()).c_str());
+    	    }
+    	    std::string agn_name;
+    	    if(Ift.numParts() > 1){
+    	       agn_name = Ift.text(1);
+    	    }
+    	    xmlNewTextChild(origNode,NULL,"agency_name", agn_name);
+      }
     }
 }
 
