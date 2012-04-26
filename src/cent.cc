@@ -1039,7 +1039,7 @@ void importDBF( int external_point_id, string &dbf_file )
     }
     catch( Exception &e ) {
       dbf.RollBackRow( irow );
-      ProgError( STDLOG, "Rollback: exception.what()=%s, point_id=%d", e.what(), point_id );
+      ProgTrace( TRACE5, "Rollback: exception.what()=%s, point_id=%d", e.what(), point_id );
     }
   }
   for ( map<string,bool>::iterator i=points.begin(); i!=points.end(); i++ ) {
