@@ -1257,8 +1257,7 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry,  xmlNodePtr resNode)
           NewTextChild(node2,"airline",PnrAddrQry.FieldAsString("airline"));
           NewTextChild(node2,"addr",PnrAddrQry.FieldAsString("addr"));
         };
-      }
-     else NewTextChild(node,"pnr_addrs"); //это времмено пока не обновлен терминал 07.08.2008 !!!
+      };
     };
     node=NewTextChild(paxNode,"pax");
     pax_id=PaxQry.FieldAsInteger("pax_id");
@@ -2653,20 +2652,9 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
   TChangeStatusList ETInfo;
   bool et_processed=false;
 
-  bool tckin_version=GetNode("segments",reqNode)!=NULL;
+  xmlNodePtr segNode=NodeAsNode("segments/segment",reqNode);
+  bool only_one=segNode->next==NULL;
 
-  bool only_one;
-  xmlNodePtr segNode;
-  if (tckin_version)
-  {
-    segNode=NodeAsNode("segments/segment",reqNode);
-    only_one=segNode->next==NULL;
-  }
-  else
-  {
-    segNode=reqNode;
-    only_one=true;
-  };
   bool defer_etstatus=false;
 
   TQuery Qry(&OraSession);
@@ -2698,7 +2686,6 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
     if (segs.find(segInfo.point_dep)!=segs.end())
       throw UserException("MSG.CHECKIN.DUPLICATED_FLIGHT_IN_ROUTE"); //WEB
     segs[segInfo.point_dep]=segInfo;
-    if (!tckin_version) break; //старый терминал
   };
 
   //лочить рейсы надо по возрастанию poind_dep иначе может быть deadlock
@@ -2737,18 +2724,16 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
     "END;";
   Qry.Execute();
   
-  bool pr_unaccomp=strcmp((char *)reqNode->name, "SaveUnaccompBag") == 0 ||
-                   strcmp((char *)reqNode->name, "TCkinSaveUnaccompBag") == 0;
+  bool pr_unaccomp=strcmp((char *)reqNode->name, "TCkinSaveUnaccompBag") == 0;
 
   //reqInfo->user.check_access(amPartialWrite);
   //определим, открыт ли рейс для регистрации
 
   int tckin_id=-1,first_grp_id=-1;
+  int agent_stat_point_id=NoExists;
+  TDateTime agent_stat_ondate=NowUTC();
 
-  if (tckin_version)
-    segNode=NodeAsNode("segments/segment",reqNode);
-  else
-    segNode=reqNode;
+  segNode=NodeAsNode("segments/segment",reqNode);
   bool first_segment=true;
   int seg_no=1,tckin_seg_no=1;
   vector<CheckIn::TTransferItem> trfer;
@@ -3207,16 +3192,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
         else
           grp_status=psTCheckin;
 
-        string wl_type;
-        if (GetNode("pr_waitlist",segNode)!=NULL) //!!! старый терминал 15.03.09
-        {
-          if (NodeAsInteger("pr_waitlist",segNode)!=0) wl_type="O";
-        }
-        else
-          if (GetNode("wl_type",segNode)!=NULL)  //!!! старый терминал 17.02.09
-          {
-            wl_type=NodeAsString("wl_type",segNode);
-          };
+        string wl_type=NodeAsString("wl_type",segNode);
 
         SEATS2::TSalons Salons( point_dep, SEATS2::rTripSalons );
 
@@ -3836,13 +3812,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
 
         if (first_segment && reqInfo->client_type == ctTerm)
         {
-          if (!tckin_version)
-              //старый терминал
-              //придется отвязать сквозной маршрут, так как не можем поддерживать
-              //синхронизацию данных по следующим сегментам маршрута
-            SeparateTCkin(grp_id,cssAllPrevCurrNext,cssNone,-1,tckin_id,tckin_seg_no);
-          else
-            SeparateTCkin(grp_id,cssAllPrevCurr,cssNone,-1,tckin_id,tckin_seg_no);
+          SeparateTCkin(grp_id,cssAllPrevCurr,cssNone,-1,tckin_id,tckin_seg_no);
         };
         
         Qry.Clear();
@@ -4238,10 +4208,32 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
 
       if (!et_processed)
       {
+        if (agent_stat_point_id==NoExists) agent_stat_point_id=point_dep;
+      
         //записываем в лог только если не будет отката транзакции из-за обращения к СЭБ
         TGrpToLogInfo grpInfoAfter;
         GetGrpToLogInfo(grp_id, grpInfoAfter);
-        SaveGrpToLog(point_dep, fltInfo, markFltInfo, grpInfoBefore, grpInfoAfter);
+        TAgentStatInfo agentStat;
+        SaveGrpToLog(point_dep, fltInfo, markFltInfo, grpInfoBefore, grpInfoAfter, agentStat);
+        if (reqInfo->client_type==ctTerm &&
+            reqInfo->desk.compatible(AGENT_STAT_VERSION))
+        {
+          int agent_stat_period=NodeAsInteger("agent_stat_period",reqNode);
+          if (agent_stat_period<1) agent_stat_period=1;
+          //собираем агентскую статистику
+          STAT::agent_stat_delta(agent_stat_point_id,
+                                 reqInfo->user.user_id,
+                                 reqInfo->desk.code,
+                                 agent_stat_ondate,
+                                 first_segment?agent_stat_period:0,
+                                 agentStat.pax_amount,
+                                 agentStat.dpax_amount,
+                                 first_segment?STAT::agent_stat_t(0,0):agentStat.dpax_amount,
+                                 first_segment?agentStat.dbag_amount:STAT::agent_stat_t(0,0),
+                                 first_segment?agentStat.dbag_weight:STAT::agent_stat_t(0,0),
+                                 first_segment?agentStat.drk_amount:STAT::agent_stat_t(0,0),
+                                 first_segment?agentStat.drk_weight:STAT::agent_stat_t(0,0));
+        };
       };
 
       //обновление counters
@@ -4467,7 +4459,6 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
       };
     };
 
-    if (!tckin_version) break; //старый терминал
   }; //цикл по сегментам
 
   if (et_processed)
@@ -4484,8 +4475,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
   if (reqInfo->client_type==ctTerm)
 	{
     //пересчитать данные по группе и отправить на клиент
-    LoadPax(first_grp_id,resNode,strcmp((char *)reqNode->name, "SavePax") != 0 &&
-                                 strcmp((char *)reqNode->name, "SaveUnaccompBag") != 0);
+    LoadPax(first_grp_id,resNode);
   };
   return true;
 };
@@ -4534,10 +4524,10 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   }
   else grp_id=NodeAsInteger(node);
 
-  LoadPax(grp_id,resNode,strcmp((char *)reqNode->name, "LoadPax") != 0);
+  LoadPax(grp_id,resNode);
 };
 
-void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_version)
+void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
 
@@ -4546,13 +4536,12 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_versio
   TQuery NormQry(&OraSession);
   vector<int> grp_ids;
   grp_ids.push_back(grp_id);
-  if (tckin_version)
-  {
-    TCkinRoute tckin_route;
-    tckin_route.GetRouteAfter(grp_id, crtNotCurrent, crtOnlyDependent);
-    for(TCkinRoute::const_iterator r=tckin_route.begin(); r!=tckin_route.end(); r++)
-      grp_ids.push_back(r->grp_id);
-  };
+
+  TCkinRoute tckin_route;
+  tckin_route.GetRouteAfter(grp_id, crtNotCurrent, crtOnlyDependent);
+  for(TCkinRoute::const_iterator r=tckin_route.begin(); r!=tckin_route.end(); r++)
+    grp_ids.push_back(r->grp_id);
+
   bool trfer_confirm=true;
   vector<CheckIn::TTransferItem> segs;
   xmlNodePtr segsNode=NewTextChild(resNode,"segments");
@@ -4574,11 +4563,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_versio
     if (grp_id==grp_ids.begin())
       trfer_confirm=Qry.FieldAsInteger("trfer_confirm")!=0;
 
-    xmlNodePtr segNode;
-    if (tckin_version)
-      segNode=NewTextChild(segsNode,"segment");
-    else
-      segNode=resNode;
+    xmlNodePtr segNode=NewTextChild(segsNode,"segment");
 
     TTripInfo operFlt(Qry);
     
@@ -4739,7 +4724,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_versio
           NewTextChild(paxNode,"bag_pool_num");
 
         if (grp_id==grp_ids.begin())
-          LoadPaxTransfer(pax_id,paxNode,resNode);
+          LoadPaxTransfer(pax_id,paxNode);
         LoadPaxRem(paxNode);
         if (grp_id==grp_ids.begin())
           CheckIn::LoadNorms(paxNode,pr_unaccomp,NormQry);
@@ -4888,7 +4873,7 @@ void CheckInInterface::SavePaxTransfer(int pax_id, int pax_no, const vector<Chec
   TrferQry.Close();
 };
 
-void CheckInInterface::LoadPaxTransfer(int pax_id, xmlNodePtr paxNode, xmlNodePtr transferNode)
+void CheckInInterface::LoadPaxTransfer(int pax_id, xmlNodePtr paxNode)
 {
   if (paxNode==NULL) return;
 
@@ -4902,7 +4887,6 @@ void CheckInInterface::LoadPaxTransfer(int pax_id, xmlNodePtr paxNode, xmlNodePt
   if (!TrferQry.Eof)
   {
     xmlNodePtr node=NewTextChild(paxNode,"transfer");
-    xmlNodePtr trferNode2=GetNode("transfer/segment",transferNode); //для совместимости со старым форматом 27.01.09 !!!
     string str;
     for(;!TrferQry.Eof;TrferQry.Next())
     {
@@ -4910,13 +4894,6 @@ void CheckInInterface::LoadPaxTransfer(int pax_id, xmlNodePtr paxNode, xmlNodePt
       str=ElemIdToClientElem(etSubcls,TrferQry.FieldAsString("subclass"),
                                 (TElemFmt)TrferQry.FieldAsInteger("subclass_fmt"));
       NewTextChild(trferNode,"subclass",str);
-      //для совместимости со старым форматом 27.01.09 !!!
-      if (trferNode2!=NULL)
-      {
-        ReplaceTextChild(trferNode2,"subclass",str);
-        trferNode2=trferNode2->next;
-      };
-      //для совместимости со старым форматом 27.01.09 !!!
     };
   };
   TrferQry.Close();
@@ -6465,7 +6442,6 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     {
       if (total_permit && total_waitlist)
         NewTextChild(seg2Node,"wl_type",wl_type);
-      NewTextChild(seg2Node,"pr_waitlist",(int)(total_permit && total_waitlist)); //!!! старый терминал 15.03.09
       xmlNodePtr operFltNode;
       if (reqInfo->desk.compatible(PAD_VERSION))
         operFltNode=NodeAsNode("tripheader",seg2Node);

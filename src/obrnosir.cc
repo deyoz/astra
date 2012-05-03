@@ -14,6 +14,7 @@
 #include "docs.h"
 #include "season.h"
 #include "load_fr.h"
+#include "stat.h"
 #include "empty_proc.h"
 #include "serverlib/query_runner.h"
 #include "edilib/edi_loading.h"
@@ -58,7 +59,8 @@ const
     {"-alter_arx_pax_doco3",alter_arx_pax_doco3,NULL,                     NULL},
     {"-alter_arx_pax_doc4",alter_arx_pax_doc4,  NULL,                     NULL},
     {"-put_move_arx_ext",put_move_arx_ext,      NULL,                     NULL},
-    {"-alter_bag_pool_num",alter_bag_pool_num,  NULL,                     NULL}
+    {"-alter_bag_pool_num",alter_bag_pool_num,  NULL,                     NULL},
+    {"-agent_stat_delta",STAT::agent_stat_delta,NULL,                     NULL}
   };
 
 int nosir_test(int argc,char **argv)
