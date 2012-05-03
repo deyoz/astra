@@ -3145,8 +3145,7 @@ void createXMLFullStat(const TStatParams &params, const TFullStat &FullStat, con
         int total_bag_amount = 0;
         int total_bag_weight = 0;
         int total_excess = 0;
-        for(int i=0; i<100; i++)
-        {
+
         int count = 0;
         for(TFullStat::const_iterator im = FullStat.begin(); im != FullStat.end(); im++) {
             string region;
@@ -3205,7 +3204,6 @@ void createXMLFullStat(const TStatParams &params, const TFullStat &FullStat, con
                         LParams() << LParam("num", MAX_STAT_ROWS));
                 break;
             }
-        }
         };
         rowNode = NewTextChild(rowsNode, "row");
         NewTextChild(rowNode, "col", getLocaleText("Итого:"));
