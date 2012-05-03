@@ -19,6 +19,7 @@ namespace STAT {
             int pax_time,
             int pax_amount,
             agent_stat_t dpax_amount, // d prefix stands for delta
+            agent_stat_t dtckin_amount,
             agent_stat_t dbag_amount,
             agent_stat_t dbag_weight,
             agent_stat_t drk_amount,

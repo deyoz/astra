@@ -22,5 +22,7 @@
 #define SCAN_DOC_VERSION          "201202-0133820"
 #define VERSION_WITH_BAG_POOLS    "201204-0135473"
 
+#define AGENT_STAT_VERSION        "201205-0000000"
+
 #endif
 

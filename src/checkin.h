@@ -93,12 +93,9 @@ public:
      evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::SearchPax);
      AddEvent("SearchPax",evHandle);
      evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::SavePax);
-     AddEvent("SavePax",evHandle);
-     AddEvent("SaveUnaccompBag",evHandle);
      AddEvent("TCkinSavePax",evHandle);
      AddEvent("TCkinSaveUnaccompBag",evHandle);
      evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::LoadPax);
-     AddEvent("LoadPax",evHandle);
      AddEvent("TCkinLoadPax",evHandle);
      evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::PaxList);
      AddEvent("PaxList",evHandle);
@@ -166,9 +163,9 @@ public:
 
   static void SaveTagPacks(xmlNodePtr node);
 
-  static void LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_version);
+  static void LoadPax(int grp_id, xmlNodePtr resNode);
   static void LoadPaxRem(xmlNodePtr paxNode);
-  static void LoadPaxTransfer(int pax_id, xmlNodePtr paxNode, xmlNodePtr transferNode);
+  static void LoadPaxTransfer(int pax_id, xmlNodePtr paxNode);
   static void LoadTransfer(int grp_id, std::vector<CheckIn::TTransferItem> &trfer);
   static void BuildTransfer(const TTrferRoute &trfer, xmlNodePtr transferNode);
   static void LoadTransfer(int grp_id, xmlNodePtr transferNode);
