@@ -4316,6 +4316,7 @@ void createXMLAgentStat(const TStatParams &params, const TAgentStat &AgentStat, 
         xmlNodePtr rowNode;
         TAgentStatRow total;
 
+        for(int i = 0; i < 3000; i++)
         for(TAgentStat::const_iterator im = AgentStat.begin(); im != AgentStat.end(); im++) {
             rowNode = NewTextChild(rowsNode, "row");
             // Код а/к
