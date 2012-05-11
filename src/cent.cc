@@ -926,11 +926,15 @@ void importDBF( int external_point_id, string &dbf_file )
       dbf.SetFieldValue( irow, "TYPE", Qry.FieldAsString( "craft" ) );
       dbf.SetFieldValue( irow, "BORT", Qry.FieldAsString( "bort" ) );
       tst();
-      dbf.SetFieldValue( irow, "PLANDAT", DateTimeToStr( Qry.FieldAsDateTime( "scd_out" ), "yyyymmdd" ) );
+      string region = AirpTZRegion( Qry.FieldAsString( "airp" ) );
+      TDateTime scd_out =  UTCToLocal( Qry.FieldAsDateTime( "scd_out" ), region );
+      dbf.SetFieldValue( irow, "PLANDAT", DateTimeToStr( scd_out, "yyyymmdd" ) );
       if ( Qry.FieldIsNULL( "est_out" ) )
-        dbf.SetFieldValue( irow, "TIME", DateTimeToStr( Qry.FieldAsDateTime( "scd_out" ), "hhnn" ) );
-      else
-        dbf.SetFieldValue( irow, "TIME", DateTimeToStr( Qry.FieldAsDateTime( "est_out" ), "hhnn" ) );
+        dbf.SetFieldValue( irow, "TIME", DateTimeToStr( scd_out, "hhnn" ) );
+      else {
+        scd_out =  UTCToLocal( Qry.FieldAsDateTime( "est_out" ), region );
+        dbf.SetFieldValue( irow, "TIME", DateTimeToStr( scd_out, "hhnn" ) );
+      }
       tst();
       dbf.SetFieldValue( irow, "STAND", Qry.FieldAsString( "park_out" ) );
       CrewsQry.SetVariable( "point_id", point_id );
