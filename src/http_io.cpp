@@ -95,7 +95,6 @@ void my_test_old()
 }
 
 struct IOHandler {
-    TCPConnectionPtr tcp_conn;
     string answer;
     HTTPRequestPtr post;
     HTTPRequestWriterPtr writer;
@@ -104,7 +103,7 @@ struct IOHandler {
     void handleWrite(const boost::system::error_code &write_error, std::size_t bytes_written);
     void handleRead(pion::net::HTTPResponsePtr& response, pion::net::TCPConnectionPtr& tcp_conn);
     IOHandler(
-            io_service &io_service,
+            TCPConnectionPtr tcp_conn,
             string host,
             u_int port,
             string resource
@@ -112,19 +111,14 @@ struct IOHandler {
 };
 
 IOHandler::IOHandler(
-        io_service &io_service,
+        TCPConnectionPtr tcp_conn,
         string host,
         u_int port,
         string resource
         )
 {
     processed = false;
-    tcp_conn = TCPConnectionPtr(new TCPConnection(io_service, false));
 
-    ProgTrace(TRACE1, "connect(%s, %u)", host.c_str(), port);
-    if(boost::system::error_code error_code = tcp_conn->connect(host,port))
-        throw Exception("connect failed: %s", error_code.message().c_str());
-    ProgTrace(TRACE1,"connected");
 
     ostringstream host_port;
     host_port << host << ":" << port;
@@ -161,7 +155,7 @@ void IOHandler::handleRead(pion::net::HTTPResponsePtr& response, pion::net::TCPC
 
     const char* content_ptr = response->getContent();
     answer = content_ptr ? content_ptr : "";
-    //ProgTrace(TRACE1, "handleRead() : content_ptr: %s", (content_ptr ? content_ptr : "(nil)"));
+    ProgTrace(TRACE5, "handleRead() : content_ptr: %s", (content_ptr ? content_ptr : "(nil)"));
 
     if(response->getStatusCode() != 200 /*and response->getStatusCode() != 500*/) // as the peer is a complete moron
         throw Exception("Failed request: %s", post->getContent());
@@ -178,24 +172,30 @@ void my_test()
     string resource = "/OutBsmService.asmx/BsmProccess?message=string";
 
     io_service io_service;
+    TCPConnectionPtr tcp_conn = TCPConnectionPtr(new TCPConnection(io_service, false));
+    ProgTrace(TRACE1, "connect(%s, %u)", host.c_str(), port);
+    if(boost::system::error_code error_code = tcp_conn->connect(host,port))
+        throw Exception("connect failed: %s", error_code.message().c_str());
+    ProgTrace(TRACE1,"connected");
+
     typedef boost::shared_ptr<IOHandler> IOHPtr;
     vector<IOHPtr> ioh_list;
-    ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, resource)));
-    ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, resource)));
-    ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, resource)));
-    ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, resource)));
-    ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, resource)));
-    ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, resource)));
-    ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, resource)));
-    ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, resource)));
-    ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, resource)));
-    ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, resource)));
-    ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, resource)));
-    ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, resource)));
-    ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, resource)));
-    ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, resource)));
-    ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, resource)));
-    ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, resource)));
+    ioh_list.push_back(IOHPtr(new IOHandler(tcp_conn, host, port, resource)));
+    ioh_list.push_back(IOHPtr(new IOHandler(tcp_conn, host, port, resource)));
+    ioh_list.push_back(IOHPtr(new IOHandler(tcp_conn, host, port, resource)));
+    ioh_list.push_back(IOHPtr(new IOHandler(tcp_conn, host, port, resource)));
+    ioh_list.push_back(IOHPtr(new IOHandler(tcp_conn, host, port, resource)));
+    ioh_list.push_back(IOHPtr(new IOHandler(tcp_conn, host, port, resource)));
+    ioh_list.push_back(IOHPtr(new IOHandler(tcp_conn, host, port, resource)));
+    ioh_list.push_back(IOHPtr(new IOHandler(tcp_conn, host, port, resource)));
+    ioh_list.push_back(IOHPtr(new IOHandler(tcp_conn, host, port, resource)));
+    ioh_list.push_back(IOHPtr(new IOHandler(tcp_conn, host, port, resource)));
+    ioh_list.push_back(IOHPtr(new IOHandler(tcp_conn, host, port, resource)));
+    ioh_list.push_back(IOHPtr(new IOHandler(tcp_conn, host, port, resource)));
+    ioh_list.push_back(IOHPtr(new IOHandler(tcp_conn, host, port, resource)));
+    ioh_list.push_back(IOHPtr(new IOHandler(tcp_conn, host, port, resource)));
+    ioh_list.push_back(IOHPtr(new IOHandler(tcp_conn, host, port, resource)));
+    ioh_list.push_back(IOHPtr(new IOHandler(tcp_conn, host, port, resource)));
 
     io_service.run();
 
