@@ -167,34 +167,52 @@ void IOHandler::handleRead(pion::net::HTTPResponsePtr& response, pion::net::TCPC
         throw Exception("Failed request: %s", post->getContent());
 }
 
+void web_replace(string &val, string olds, string news)
+{
+    size_t idx = val.find(olds);
+    while(idx != string::npos) {
+        val.replace(idx, olds.size(), news);
+        idx = val.find(olds);
+    }
+}
+
+string web_replace(string val)
+{
+    web_replace(val, " ", "%20");
+    web_replace(val, "&", "%26");
+    web_replace(val, "=", "%3D");
+    return val;
+}
+
 void my_test()
 {
     TPerfTimer tm;
     tm.Init();
 
+    static const string br = "%0D%0A";
+    string bsm =
+        web_replace("0TSTBSM") + br +
+        web_replace(".MOWKK1H 140658") + br +
+        web_replace("BSM") + br +
+        web_replace(".V/1LDME") + br +
+        web_replace(".F/UT245/14MAY/SGC/Y") + br +
+        web_replace(".N/0298604768001") + br +
+        web_replace(".S/Y/12E/C/100") + br +
+        web_replace(".W/K/1/20") + br +
+        web_replace(".P/SAPRONOV/VALERIY PAVLOVICH") + br +
+        web_replace(".L/1S3G26") + br +
+        web_replace("ENDBSM") + br;
+
+
     vector<string> result;
     string host = "bsm.icfairports.com";
+    //    string host = "astrabeta.komtex";
     u_int port = 80;
-    string resource = "/OutBsmService.asmx/BsmProccess?message=string";
+    string resource = "/OutBsmService.asmx/BsmProccess?message=" + bsm;
 
     io_service io_service;
     typedef boost::shared_ptr<IOHandler> IOHPtr;
     vector<IOHPtr> ioh_list;
-    ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, resource)));
-    ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, resource)));
-    ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, resource)));
-    ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, resource)));
-    ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, resource)));
-    ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, resource)));
-    ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, resource)));
-    ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, resource)));
-    ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, resource)));
-    ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, resource)));
-    ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, resource)));
-    ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, resource)));
-    ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, resource)));
-    ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, resource)));
-    ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, resource)));
     ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, resource)));
 
     io_service.run();
