@@ -787,7 +787,7 @@ void importDBF( int external_point_id, string &dbf_file )
     "SELECT point_id,point_num,first_point,pr_tranzit,airline,flt_no,suffix,"
     "       craft,bort,airp,trip_type,SUBSTR( park_out, 1, 5 ) park_out,"
     "       scd_out,est_out,act_out,time_out FROM points "
-    " WHERE time_out in (:day1,:day2) AND pr_del=0 AND pr_reg=1 AND act_out IS NULL ";
+    " WHERE time_out in (:day1,:day2) AND pr_del=0 AND pr_reg=1 ";
   if ( external_point_id != NoExists )
     sql += " AND point_id=:point_id ";
   if ( !airps.empty() ) {
