@@ -213,7 +213,8 @@ typedef BasePnr< OrigOfRequest,
                  TaxDetails,
                  MonetaryInfo,
                  FormOfPayment,
-                 FreeTextInfo>  Pnr;
+                 FreeTextInfo,
+                 FormOfId>  Pnr;
 
 typedef BasePnrListItem<OrigOfRequest,
                         ResContrInfo,
