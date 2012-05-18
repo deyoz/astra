@@ -10,6 +10,7 @@
 #include "serverlib/test.h"
 #include "exceptions.h"
 #include "misc.h"
+#include "oralib.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -123,7 +124,7 @@ IOHandler::IOHandler(
 
     ProgTrace(TRACE1, "connect(%s, %u)", host.c_str(), port);
     if(boost::system::error_code error_code = tcp_conn->connect(host,port))
-        throw Exception("connect failed: %s", error_code.message().c_str());
+        throw Exception("connect failed: %d, %s", error_code.value(), error_code.message().c_str());
     ProgTrace(TRACE1,"connected");
 
     ostringstream host_port;
@@ -184,36 +185,27 @@ string web_replace(string val)
     return val;
 }
 
-void my_test()
+typedef vector< vector<string> > TBSMList;
+
+void send_bsm(const vector<string> host_list, const TBSMList &bsm_list)
 {
     TPerfTimer tm;
     tm.Init();
 
     static const string br = "%0D%0A";
-    string bsm =
-        web_replace("0TSTBSM") + br +
-        web_replace(".MOWKK1H 140658") + br +
-        web_replace("BSM") + br +
-        web_replace(".V/1LDME") + br +
-        web_replace(".F/UT245/14MAY/SGC/Y") + br +
-        web_replace(".N/0298604768001") + br +
-        web_replace(".S/Y/12E/C/100") + br +
-        web_replace(".W/K/1/20") + br +
-        web_replace(".P/SAPRONOV/VALERIY PAVLOVICH") + br +
-        web_replace(".L/1S3G26") + br +
-        web_replace("ENDBSM") + br;
-
 
     vector<string> result;
-    string host = "bsm.icfairports.com";
-    //    string host = "astrabeta.komtex";
     u_int port = 80;
-    string resource = "/OutBsmService.asmx/BsmProccess?message=" + bsm;
 
     io_service io_service;
     typedef boost::shared_ptr<IOHandler> IOHPtr;
     vector<IOHPtr> ioh_list;
-    ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, resource)));
+    for(TBSMList::const_iterator iv = bsm_list.begin(); iv != bsm_list.end(); iv++) {
+        string bsm;
+        for(vector<string>::const_iterator i_bsm = iv->begin(); i_bsm != iv->end(); i_bsm++)
+            bsm += web_replace(*i_bsm) + br;
+        ioh_list.push_back(IOHPtr(new IOHandler(io_service, host_list[0], port, "/OutBsmService.asmx/BsmProccess?message=" + bsm)));
+    }
 
     io_service.run();
 
@@ -227,4 +219,38 @@ void my_test()
         ProgTrace(TRACE5, "result: %s", iv->c_str());
 
     ProgTrace(TRACE5, "send msg: %s", tm.PrintWithMessage().c_str());
+}
+
+void my_test()
+{
+    vector<string> host_list;
+    //    host_list.push_back("bsm.icfairports.com");
+    host_list.push_back("bsm.icfairports.com");
+    host_list.push_back("bsm2.icfairports.com");
+    TBSMList bsm_list;
+
+
+    TQuery Qry(&OraSession);
+    Qry.SQLText = "select body from tlg_out where type = 'BSM' and point_id = :point_id";
+    Qry.CreateVariable("point_id", otInteger, 2042638);
+    Qry.Execute();
+    static const string br = "\xd\xa";
+    for(; not Qry.Eof; Qry.Next()) {
+        vector<string> bsm;
+        string body = Qry.FieldAsString("body");
+        size_t idx = body.find(br);
+        while(idx != string::npos) {
+            bsm.push_back(body.substr(0, idx));
+            body.erase(0, idx + br.size());
+            idx = body.find(br);
+        }
+        bsm_list.push_back(bsm);
+    }
+
+    for(TBSMList::iterator iv = bsm_list.begin(); iv != bsm_list.end(); iv++) {
+        for(vector<string>::iterator i_bsm = iv->begin(); i_bsm != iv->end(); i_bsm++)
+            ProgTrace(TRACE5, "<%s>", i_bsm->c_str());
+    }
+
+    send_bsm(host_list, bsm_list);
 }

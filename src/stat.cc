@@ -4425,7 +4425,6 @@ void createXMLAgentStat(const TStatParams &params, const TAgentStat &AgentStat, 
 void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     my_test(); // !!!
-    return;
     TReqInfo *reqInfo = TReqInfo::Instance();
     if(find( reqInfo->user.access.rights.begin(),
              reqInfo->user.access.rights.end(), 600 ) == reqInfo->user.access.rights.end())
