@@ -1024,13 +1024,13 @@ int getTCLParam(const char* name, int min, int max, int def)
 //если def==NULL, тогда в случае ненахождения name ругаемся
 string getTCLParam(const char* name, const char* def)
 {
-  const char* res=NULL;
+  string res;
   try
   {
     string r=readStringFromTcl( name, "");
     if ( r.empty() )
       throw EXCEPTIONS::Exception( "Can't read TCL param %s", name );
-    res=r.c_str();
+    res=r;
   }
   catch(EXCEPTIONS::Exception &e)
   {
@@ -1039,7 +1039,7 @@ string getTCLParam(const char* name, const char* def)
     ProgTrace( TRACE0, e.what() );
   };
 
-  ProgTrace( TRACE5, "TCL param %s='%s'", name, res );
+  ProgTrace( TRACE5, "TCL param %s='%s'", name, res.c_str() );
   return res;
 };
 
