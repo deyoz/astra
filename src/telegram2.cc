@@ -9,6 +9,8 @@
 #include "salons.h"
 #include "salonform.h"
 #include "astra_consts.h"
+#include "passenger.h"
+#include "remarks.h"
 #include "serverlib/logger.h"
 
 #define NICKNAME "DEN"
@@ -1236,19 +1238,35 @@ namespace PRL_SPACE {
         Qry.Clear();
         Qry.SQLText =
             "select "
-            "    rem "
+            "    rem_code, rem "
             "from "
             "    pax_rem "
             "where "
             "    pax_rem.pax_id = :pax_id and "
-            "    pax_rem.rem_code not in (/*'PSPT',*/ 'OTHS', /*'DOCS', */'CHD', 'CHLD', 'INF', 'INFT', 'FQTV', 'FQTU', 'FQTR') ";
+            "    pax_rem.rem_code not in ('OTHS', 'CHD', 'CHLD', 'INF', 'INFT') ";
         Qry.CreateVariable("pax_id", otInteger, pax.pax_id);
         Qry.Execute();
-        if(!Qry.Eof) {
-            int col_rem = Qry.FieldIndex("rem");
-            for(; !Qry.Eof; Qry.Next())
-                items.push_back(transliter(Qry.FieldAsString(col_rem), 1, info.pr_lat));
-        }
+        for(; !Qry.Eof; Qry.Next())
+        {
+          TRemCategory cat=getRemCategory(Qry.FieldAsString("rem_code"));
+          if (isDisabledRemCategory(cat)) continue;
+          if (cat==remFQT) continue;
+          items.push_back(transliter(Qry.FieldAsString("rem"), 1, info.pr_lat));
+        };
+        
+        CheckIn::TPaxRemItem rem;
+        //билет
+        CheckIn::TPaxTknItem tkn;
+        LoadPaxTkn(pax.pax_id, tkn, Qry);
+        if (getPaxRem(info, tkn, rem)) items.push_back(rem.text);
+        //документ
+        CheckIn::TPaxDocItem doc;
+        LoadPaxDoc(pax.pax_id, doc, Qry);
+        if (getPaxRem(info, doc, rem)) items.push_back(rem.text);
+        //виза
+        CheckIn::TPaxDocoItem doco;
+        LoadPaxDoco(pax.pax_id, doco, Qry);
+        if (getPaxRem(info, doco, rem)) items.push_back(rem.text);
     }
 
     struct TPRLDest {
@@ -2828,6 +2846,7 @@ void TSSR::get(int pax_id)
         for(; !Qry.Eof; Qry.Next()) {
             TSSRItem item;
             item.code = Qry.FieldAsString(col_rem_code);
+            if (isDisabledRem(item.code)) continue;
             item.free_text = Qry.FieldAsString(col_rem);
             if(item.code == item.free_text)
                 item.free_text.erase();
@@ -4058,6 +4077,76 @@ struct TFTLDest {
     string subcls;
     vector<TFTLPax> PaxList;
     void ToTlg(TTlgInfo &info, vector<string> &body);
+};
+
+bool getPaxRem(TTlgInfo &info, const CheckIn::TPaxTknItem &tkn, CheckIn::TPaxRemItem &rem)
+{
+  if (tkn.empty() || tkn.rem.empty()) return false;
+  rem.clear();
+  rem.code=tkn.rem;
+  ostringstream text;
+  text << rem.code << " HK1 " << (tkn.pr_inf?"INF":"") << tkn.no;
+  if (tkn.coupon!=ASTRA::NoExists)
+    text << "/" << tkn.coupon;
+  rem.text=text.str();
+  rem.calcPriority();
+  return true;
+};
+
+bool getPaxRem(TTlgInfo &info, const CheckIn::TPaxDocItem &doc, CheckIn::TPaxRemItem &rem)
+{
+  if (doc.empty()) return false;
+  rem.clear();
+  rem.code="DOCS";
+  ostringstream text;
+  text << rem.code
+       << " " << "HK1"
+       << "/" << (doc.type.empty()?"":info.TlgElemIdToElem(etPaxDocType, doc.type))
+       << "/" << (doc.issue_country.empty()?"":info.TlgElemIdToElem(etPaxDocCountry, doc.issue_country))
+       << "/" << doc.no
+       << "/" << (doc.nationality.empty()?"":info.TlgElemIdToElem(etPaxDocCountry, doc.nationality))
+       << "/" << (doc.birth_date!=ASTRA::NoExists?DateTimeToStr(doc.birth_date, "ddmmmyy", info.pr_lat):"")
+       << "/" << (doc.gender.empty()?"":info.TlgElemIdToElem(etGenderType, doc.gender))
+       << "/" << (doc.expiry_date!=ASTRA::NoExists?DateTimeToStr(doc.expiry_date, "ddmmmyy", info.pr_lat):"")
+       << "/" << transliter(doc.surname, 1, info.pr_lat)
+       << "/" << transliter(doc.first_name, 1, info.pr_lat)
+       << "/" << transliter(doc.second_name, 1, info.pr_lat)
+       << "/" << (doc.pr_multi?"H":"");
+  rem.text=text.str();
+  for(int i=rem.text.size()-1;i>=0;i--)
+    if (rem.text[i]!='/')
+    {
+      rem.text.erase(i+1);
+      break;
+    };
+  rem.calcPriority();
+  return true;
+};
+
+bool getPaxRem(TTlgInfo &info, const CheckIn::TPaxDocoItem &doco, CheckIn::TPaxRemItem &rem)
+{
+  if (doco.empty()) return false;
+  rem.clear();
+  rem.code="DOCO";
+  ostringstream text;
+  text << rem.code
+       << " " << "HK1"
+       << "/" << transliter(doco.birth_place, 1, info.pr_lat)
+       << "/" << (doco.type.empty()?"":info.TlgElemIdToElem(etPaxDocType, doco.type))
+       << "/" << doco.no
+       << "/" << transliter(doco.issue_place, 1, info.pr_lat)
+       << "/" << (doco.issue_date!=ASTRA::NoExists?DateTimeToStr(doco.issue_date, "ddmmmyy", info.pr_lat):"")
+       << "/" << (doco.applic_country.empty()?"":info.TlgElemIdToElem(etPaxDocCountry, doco.applic_country))
+       << "/" << (doco.pr_inf?"I":"");
+  rem.text=text.str();
+  for(int i=rem.text.size()-1;i>=0;i--)
+    if (rem.text[i]!='/')
+    {
+      rem.text.erase(i+1);
+      break;
+    };
+  rem.calcPriority();
+  return true;
 };
 
 void TRemList::internal_get(TTlgInfo &info, int pax_id, string subcls)

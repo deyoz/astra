@@ -6,6 +6,7 @@
 #include "astra_consts.h"
 #include "basic.h"
 #include "telegram.h"
+#include "remarks.h"
 
 enum TSortType {stRegNo, stSurname, stSeatNo};
 
@@ -26,12 +27,12 @@ struct TRptParams {
         bool pr_brd;
         TCodeShareInfo mkt_flt;
         std::string client_type;
-        std::vector<std::string> rems;
+        std::map< TRemCategory, std::vector<std::string> > rems;
         int text;
         std::string ElemIdToReportElem(TElemType type, const std::string &id, TElemFmt fmt, std::string firm_lang = "") const;
         std::string ElemIdToReportElem(TElemType type, int id, TElemFmt fmt, std::string firm_lang = "") const;
         bool IsInter() const;
-        std::string GetLang();
+        std::string GetLang() const;
         std::string dup_lang() { return GetLang()==AstraLocale::LANG_EN ? AstraLocale::LANG_RU : GetLang(); }; // lang for duplicated captions
         void Init(xmlNodePtr node);
         TRptParams(std::string lang) {

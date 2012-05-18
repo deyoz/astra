@@ -24,6 +24,7 @@
 #include "term_version.h"
 #include "salons.h"
 #include "salonform.h"
+#include "remarks.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -1657,12 +1658,18 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   bool pr_ticket_rem= GetNodeFast("ticket_rem",node2)!=NULL;
   bool pr_rems=       GetNodeFast("rems",node2)!=NULL;
   bool pr_section=    GetNodeFast("section",node2)!=NULL;
-  vector<string> rems;
+  map< TRemCategory, vector<string> > rems;
   if (pr_rems)
   {
     xmlNodePtr node=NodeAsNodeFast("rems",node2)->children;
     for(;node!=NULL;node=node->next)
-      rems.push_back(NodeAsString(node));
+    {
+      TRemCategory cat=getRemCategory(NodeAsString(node));
+      if (isDisabledRemCategory(cat))
+        rems[cat].push_back(NodeAsString(node));
+      else
+        rems[remUnknown].push_back(NodeAsString(node));
+    };
     if (rems.empty()) pr_rems=false;
   };
   
@@ -1746,9 +1753,46 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
                           << last_trfer_sql << endl;
         if (pr_rems)
         {
-          sql << "    ,(SELECT DISTINCT pax_id,rem_code FROM pax_rem" << endl
-              << "      WHERE rem_code IN " << GetSQLEnum(rems) << endl
-              << "     ) pax_rem " << endl;
+          sql << ",( " << endl;
+          for(map< TRemCategory, vector<string> >::const_iterator iRem=rems.begin(); iRem!=rems.end(); iRem++)
+          {
+            if (iRem!=rems.begin()) sql << "  UNION " << endl;
+            switch(iRem->first)
+            {
+              case remTKN:
+                sql << "  SELECT pax.pax_id,pax.ticket_rem AS rem_code" << endl
+                    << "  FROM pax_grp,pax " << endl
+                    << "  WHERE pax_grp.grp_id=pax.grp_id AND " << endl
+                    << "        pax_grp.point_dep=:point_id AND pax.pr_brd IS NOT NULL AND " << endl
+                    << "        pax.ticket_rem IN " << GetSQLEnum(iRem->second) << endl;
+                break;
+              case remDOC:
+                sql << "  SELECT pax.pax_id,'DOCS' AS rem_code " << endl
+                    << "  FROM pax_grp,pax,pax_doc " << endl
+                    << "  WHERE pax_grp.grp_id=pax.grp_id AND " << endl
+                    << "        pax.pax_id=pax_doc.pax_id AND " << endl
+                    << "        pax_grp.point_dep=:point_id AND pax.pr_brd IS NOT NULL AND " << endl
+                    << "        'DOCS' IN " << GetSQLEnum(iRem->second) << endl;
+                break;
+              case remDOCO:
+                sql << "  SELECT pax.pax_id,'DOCO' AS rem_code " << endl
+                    << "  FROM pax_grp,pax,pax_doco " << endl
+                    << "  WHERE pax_grp.grp_id=pax.grp_id AND " << endl
+                    << "        pax.pax_id=pax_doco.pax_id AND " << endl
+                    << "        pax_grp.point_dep=:point_id AND pax.pr_brd IS NOT NULL AND " << endl
+                    << "        'DOCO' IN " << GetSQLEnum(iRem->second) << endl;
+                break;
+              default:
+                sql << "  SELECT DISTINCT pax.pax_id,pax_rem.rem_code " << endl
+                    << "  FROM pax_grp,pax,pax_rem " << endl
+                    << "  WHERE pax_grp.grp_id=pax.grp_id AND " << endl
+                    << "        pax.pax_id=pax_rem.pax_id AND " << endl
+                    << "        pax_grp.point_dep=:point_id AND pax.pr_brd IS NOT NULL AND " << endl
+                    << "        pax_rem.rem_code IN " << GetSQLEnum(iRem->second) << endl;
+                break;
+            };
+          };
+          sql << " ) pax_rem " << endl;
         };
 
         sql << "WHERE pax_grp.grp_id=pax.grp_id AND " << endl

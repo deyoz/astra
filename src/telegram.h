@@ -9,6 +9,8 @@
 #include "astra_consts.h"
 #include "astra_misc.h"
 #include "baggage.h"
+#include "passenger.h"
+#include "remarks.h"
 
 
 struct TTlgCompLayer {
@@ -124,6 +126,10 @@ struct TTlgInfo {
         vcompleted = false;
     }
 };
+
+bool getPaxRem(TTlgInfo &info, const CheckIn::TPaxTknItem &tkn, CheckIn::TPaxRemItem &rem);
+bool getPaxRem(TTlgInfo &info, const CheckIn::TPaxDocItem &doc, CheckIn::TPaxRemItem &rem);
+bool getPaxRem(TTlgInfo &info, const CheckIn::TPaxDocoItem &doco, CheckIn::TPaxRemItem &rem);
 
 // stuff used to form seat ranges in tlgs
 struct TTlgPlace {

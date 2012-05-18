@@ -1014,6 +1014,27 @@ class TFormTypes: public TCodeBaseTable {
   	};
 };
 
+class TRemTypesRow: public TTIDBaseTableRow {
+  public:
+    int priority;
+    const char *get_row_name() const { return "TRemTypesRow"; };
+    int AsInteger(std::string field) const
+    {
+      if (lowerc(field)=="priority") return priority;
+      return TTIDBaseTableRow::AsInteger(field);
+    };
+};
+
+class TRemTypes: public TTIDBaseTable {
+  protected:
+    const char *get_table_name() { return "TRemTypes"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+  public:
+  	TRemTypes( ) {
+  		Init( "rem_types" );
+  	}
+};
+
 class TBaseTables {
     private:
         typedef std::map<std::string, TBaseTable *> TTables;

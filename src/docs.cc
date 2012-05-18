@@ -13,6 +13,8 @@
 #include "astra_misc.h"
 #include "term_version.h"
 #include "load_fr.h"
+#include "passenger.h"
+#include "remarks.h"
 #include "jxtlib/xml_stuff.h"
 #include "serverlib/str_utils.h"
 #include <boost/shared_array.hpp>
@@ -419,7 +421,10 @@ void TRptParams::Init(xmlNodePtr node)
     if(remsNode != NULL) {
         xmlNodePtr currNode = remsNode->children;
         for(; currNode; currNode = currNode->next)
-            rems.push_back(NodeAsString(currNode));
+        {
+          TRemCategory cat=getRemCategory(NodeAsString(currNode));
+          rems[cat].push_back(NodeAsString(currNode));
+        };
     }
 }
 
@@ -428,7 +433,7 @@ bool TRptParams::IsInter() const
     return route_inter || route_country_lang.empty() || route_country_lang!=TReqInfo::Instance()->desk.lang;
 }
 
-string TRptParams::GetLang()
+string TRptParams::GetLang() const
 {
   string lang = req_lang;
   if (lang.empty())
@@ -934,7 +939,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             "    ticket_no||'/'||coupon_no AS remarks, \n";
     } else {
         SQLText +=
-            " SUBSTR(report.get_remarks(pax_id,0),1,250) AS remarks, \n";
+            " ckin.get_remarks(pax_id,' ') AS remarks, \n";
     }
     SQLText +=
         "   NVL(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS rk_weight, \n"
@@ -2337,6 +2342,95 @@ void NOTPRESTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     }
 }
 
+bool getPaxRem(const TRptParams &rpt_params, const CheckIn::TPaxTknItem &tkn, CheckIn::TPaxRemItem &rem)
+{
+  if (tkn.empty() || tkn.rem.empty()) return false;
+  rem.clear();
+  rem.code=tkn.rem;
+  ostringstream text;
+  text << rem.code << " HK1 " << (tkn.pr_inf?"INF":"") << tkn.no;
+  if (tkn.coupon!=ASTRA::NoExists)
+    text << "/" << tkn.coupon;
+  rem.text=text.str();
+  rem.calcPriority();
+  return true;
+};
+
+bool getPaxRem(const TRptParams &rpt_params, const CheckIn::TPaxDocItem &doc, CheckIn::TPaxRemItem &rem)
+{
+  if (doc.empty()) return false;
+  rem.clear();
+  rem.code="DOCS";
+  bool pr_lat=rpt_params.GetLang() != AstraLocale::LANG_RU;
+  ostringstream text;
+  text << rem.code
+       << " " << "HK1"
+       << "/" << rpt_params.ElemIdToReportElem(etPaxDocType, doc.type, efmtCodeNative)
+       << "/" << rpt_params.ElemIdToReportElem(etPaxDocCountry, doc.issue_country, efmtCodeNative)
+       << "/" << doc.no
+       << "/" << rpt_params.ElemIdToReportElem(etPaxDocCountry, doc.nationality, efmtCodeNative)
+       << "/" << (doc.birth_date!=ASTRA::NoExists?DateTimeToStr(doc.birth_date, "ddmmmyy", pr_lat):"")
+       << "/" << rpt_params.ElemIdToReportElem(etGenderType, doc.gender, efmtCodeNative)
+       << "/" << (doc.expiry_date!=ASTRA::NoExists?DateTimeToStr(doc.expiry_date, "ddmmmyy", pr_lat):"")
+       << "/" << transliter(doc.surname, 1, pr_lat)
+       << "/" << transliter(doc.first_name, 1, pr_lat)
+       << "/" << transliter(doc.second_name, 1, pr_lat)
+       << "/" << (doc.pr_multi?"H":"");
+  rem.text=text.str();
+  for(int i=rem.text.size()-1;i>=0;i--)
+    if (rem.text[i]!='/')
+    {
+      rem.text.erase(i+1);
+      break;
+    };
+  rem.calcPriority();
+  return true;
+};
+
+bool getPaxRem(const TRptParams &rpt_params, const CheckIn::TPaxDocoItem &doco, CheckIn::TPaxRemItem &rem)
+{
+  if (doco.empty()) return false;
+  rem.clear();
+  rem.code="DOCO";
+  bool pr_lat=rpt_params.GetLang() != AstraLocale::LANG_RU;
+  ostringstream text;
+  text << rem.code
+       << " " << "HK1"
+       << "/" << transliter(doco.birth_place, 1, pr_lat)
+       << "/" << rpt_params.ElemIdToReportElem(etPaxDocType, doco.type, efmtCodeNative)
+       << "/" << doco.no
+       << "/" << transliter(doco.issue_place, 1, pr_lat)
+       << "/" << (doco.issue_date!=ASTRA::NoExists?DateTimeToStr(doco.issue_date, "ddmmmyy", pr_lat):"")
+       << "/" << rpt_params.ElemIdToReportElem(etPaxDocCountry, doco.applic_country, efmtCodeNative)
+       << "/" << (doco.pr_inf?"I":"");
+  rem.text=text.str();
+  for(int i=rem.text.size()-1;i>=0;i--)
+    if (rem.text[i]!='/')
+    {
+      rem.text.erase(i+1);
+      break;
+    };
+  rem.calcPriority();
+  return true;
+};
+
+bool getPaxRem(const TRptParams &rpt_params, const CheckIn::TPaxFQTItem &fqt, CheckIn::TPaxRemItem &rem)
+{
+  if (fqt.empty()) return false;
+  rem.clear();
+  rem.code=fqt.rem;
+  bool pr_lat=rpt_params.GetLang() != AstraLocale::LANG_RU;
+  ostringstream text;
+  text << rem.code
+       << " " << rpt_params.ElemIdToReportElem(etAirline, fqt.airline, efmtCodeNative)
+       << " " << fqt.no;
+  if (!fqt.extra.empty())
+    text << "/" << transliter(fqt.extra, 1, pr_lat);
+  rem.text=text.str();
+  rem.calcPriority();
+  return true;
+};
+
 void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     if(rpt_params.rpt_type == rtREMTXT)
@@ -2345,20 +2439,18 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         get_compatible_report_form("rem", reqNode, resNode);
     TQuery Qry(&OraSession);
     string SQLText =
-        "SELECT point_dep AS point_id, "
-        "       reg_no, "
-        "       surname||' '||pax.name family, "
+        "SELECT pax_grp.point_dep AS point_id, "
+        "       pax.pax_id, "
+        "       pax.reg_no, "
+        "       TRIM(pax.surname||' '||pax.name) AS family, "
         "       pax.pers_type, "
-        "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'_seats',rownum) AS seat_no, ";
-    if(not rpt_params.rems.empty())
-        SQLText += "       report.get_remarks(pax_id) rems, ";
-    SQLText +=
-        "       report.get_reminfo(pax_id,',') AS info "
+        "       pax.seats, "
+        "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'_seats',rownum) AS seat_no, "
+        "       pax.ticket_no, pax.coupon_no, pax.ticket_rem, pax.ticket_confirm "
         "FROM   pax_grp,pax "
         "WHERE  pax_grp.grp_id=pax.grp_id AND "
         "       pr_brd IS NOT NULL and "
-        "       point_dep = :point_id and "
-        "       report.get_reminfo(pax_id,',') is not null "
+        "       point_dep = :point_id "
         "order by ";
     switch(rpt_params.sort) {
         case stRegNo:
@@ -2374,27 +2466,126 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
     Qry.Execute();
+
+    TQuery PaxDocQry(&OraSession);
+    TQuery PaxDocoQry(&OraSession);
+    TQuery PaxFQTQry(&OraSession);
+    TQuery PaxRemQry(&OraSession);
+
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
     xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_rem");
-    for(; !Qry.Eof; Qry.Next()) {
-        if(not rpt_params.rems.empty()) {
-            string rems = Qry.FieldAsString("rems");
-            vector<string>::iterator iv = rpt_params.rems.begin();
-            for(; iv != rpt_params.rems.end(); iv++)
-                if(rems.find(*iv) != string::npos)
-                    break;
-            if(iv == rpt_params.rems.end())
-                continue;
-        }
-        xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
-
-        NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("point_id"));
-        NewTextChild(rowNode, "reg_no", Qry.FieldAsInteger("reg_no"));
-        NewTextChild(rowNode, "family", transliter(Qry.FieldAsString("family"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
-        NewTextChild(rowNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, Qry.FieldAsString("pers_type"), efmtCodeNative));
-        NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
-        NewTextChild(rowNode, "info", Qry.FieldAsString("info"));
+    for(; !Qry.Eof; Qry.Next())
+    {
+      CheckIn::TPaxTknItem tkn;
+      CheckIn::TPaxDocItem doc;
+      CheckIn::TPaxDocoItem doco;
+      vector<CheckIn::TPaxFQTItem> fqts;
+      vector<CheckIn::TPaxRemItem> rems;
+      map< TRemCategory, bool > cats;
+      cats[remTKN]=false;
+      cats[remDOC]=false;
+      cats[remDOCO]=false;
+      cats[remFQT]=false;
+      cats[remUnknown]=false;
+      int pax_id=Qry.FieldAsInteger("pax_id");
+      if (!rpt_params.rems.empty())
+      {
+        bool pr_find=false;
+        //фильтр по конкретным ремаркам
+        map< TRemCategory, vector<string> >::const_iterator iRem=rpt_params.rems.begin();
+        for(; iRem!=rpt_params.rems.end(); iRem++)
+        {
+          switch(iRem->first)
+          {
+            case remTKN:
+              tkn.fromDB(Qry);
+              if (!tkn.empty() && !tkn.rem.empty() &&
+                  find(iRem->second.begin(),iRem->second.end(),tkn.rem)!=iRem->second.end())
+                pr_find=true;
+              cats[remTKN]=true;
+              break;
+            case remDOC:
+              if (find(iRem->second.begin(),iRem->second.end(),"DOCS")!=iRem->second.end())
+              {
+                if (LoadPaxDoc(pax_id, doc, PaxDocQry)) pr_find=true;
+                cats[remDOC]=true;
+              };
+              break;
+            case remDOCO:
+              if (find(iRem->second.begin(),iRem->second.end(),"DOCO")!=iRem->second.end())
+              {
+                if (LoadPaxDoco(pax_id, doco, PaxDocoQry)) pr_find=true;
+                cats[remDOCO]=true;
+              };
+              break;
+            case remFQT:
+              LoadPaxFQT(pax_id, fqts, PaxFQTQry);
+              for(vector<CheckIn::TPaxFQTItem>::const_iterator f=fqts.begin();f!=fqts.end();f++)
+              {
+                if (!f->rem.empty() &&
+                    find(iRem->second.begin(),iRem->second.end(),f->rem)!=iRem->second.end())
+                {
+                  pr_find=true;
+                  break;
+                };
+              };
+              cats[remFQT]=true;
+              break;
+            default:
+              LoadPaxRem(pax_id, rems, PaxRemQry);
+              for(vector<CheckIn::TPaxRemItem>::const_iterator r=rems.begin();r!=rems.end();r++)
+              {
+                if (!r->code.empty() &&
+                    find(iRem->second.begin(),iRem->second.end(),r->code)!=iRem->second.end())
+                {
+                  pr_find=true;
+                  break;
+                };
+              };
+              cats[remUnknown]=true;
+              break;
+          };
+          if (pr_find) break;
+        };
+        if (!pr_find) continue;
+      };
+      
+      CheckIn::TPaxRemItem rem;
+      //обычные ремарки (обязательно обрабатываем первыми)
+      if (!cats[remUnknown]) LoadPaxRem(pax_id, rems, PaxRemQry);
+      for(vector<CheckIn::TPaxRemItem>::iterator r=rems.begin();r!=rems.end();r++)
+        r->text=transliter(r->text, 1, rpt_params.GetLang() != AstraLocale::LANG_RU);
+      
+      //билет
+      if (!cats[remTKN]) tkn.fromDB(Qry);
+      if (getPaxRem(rpt_params, tkn, rem)) rems.push_back(rem);
+      //документ
+      if (!cats[remDOC]) LoadPaxDoc(pax_id, doc, PaxDocQry);
+      if (getPaxRem(rpt_params, doc, rem)) rems.push_back(rem);
+      //виза
+      if (!cats[remDOCO]) LoadPaxDoco(pax_id, doco, PaxDocoQry);
+      if (getPaxRem(rpt_params, doco, rem)) rems.push_back(rem);
+      //бонус-программа
+      if (!cats[remFQT]) LoadPaxFQT(pax_id, fqts, PaxFQTQry);
+      for(vector<CheckIn::TPaxFQTItem>::const_iterator f=fqts.begin();f!=fqts.end();f++)
+        if (getPaxRem(rpt_params, *f, rem)) rems.push_back(rem);
+        
+      if (rems.empty()) continue;
+      
+      xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
+      NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("point_id"));
+      NewTextChild(rowNode, "reg_no", Qry.FieldAsInteger("reg_no"));
+      NewTextChild(rowNode, "family", transliter(Qry.FieldAsString("family"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+      NewTextChild(rowNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, Qry.FieldAsString("pers_type"), efmtCodeNative));
+      NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
+      ostringstream rem_info;
+      sort(rems.begin(),rems.end()); //сортировка по priority
+      for(vector<CheckIn::TPaxRemItem>::const_iterator r=rems.begin();r!=rems.end();r++)
+      {
+        rem_info << ".R/" << r->text << " ";
+      };
+      NewTextChild(rowNode, "info", rem_info.str());
     }
 
     // Теперь переменные отчета

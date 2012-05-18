@@ -20,6 +20,7 @@
 #include "astra_locale.h"
 #include "comp_layers.h"
 #include "passenger.h"
+#include "remarks.h"
 #include "serverlib/perfom.h"
 #include "serverlib/ourtime.h"
 #include "serverlib/query_runner.h"
@@ -2774,9 +2775,11 @@ void CreateEmulRems(xmlNodePtr paxNode, TQuery &RemQry, const vector<string> &fq
   xmlNodePtr remsNode=NewTextChild(paxNode,"rems");
   for(;!RemQry.Eof;RemQry.Next())
   {
-    if (strcmp(RemQry.FieldAsString("rem_code"),"FQTV")==0) continue;
+    const char* rem_code=RemQry.FieldAsString("rem_code");
+    if (isDisabledRem(rem_code)) continue;
+    if (strcmp(rem_code,"FQTV")==0) continue;
     xmlNodePtr remNode=NewTextChild(remsNode,"rem");
-    NewTextChild(remNode,"rem_code",RemQry.FieldAsString("rem_code"));
+    NewTextChild(remNode,"rem_code",rem_code);
     NewTextChild(remNode,"rem_text",RemQry.FieldAsString("rem"));
   };
   //добавим переданные fqtv_rems

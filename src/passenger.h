@@ -16,6 +16,7 @@ class TPaxTknItem
     int coupon;
     std::string rem;
     bool confirm;
+    bool pr_inf;
   TPaxTknItem()
   {
     clear();
@@ -26,6 +27,13 @@ class TPaxTknItem
     coupon=ASTRA::NoExists;
     rem.clear();
     confirm=false;
+    pr_inf=false;
+  };
+  bool empty() const
+  {
+    return no.empty() &&
+           coupon==ASTRA::NoExists &&
+           rem.empty();
   };
   bool operator == (const TPaxTknItem &item) const
   {
@@ -39,6 +47,8 @@ class TPaxTknItem
   const TPaxTknItem& toDB(TQuery &Qry) const;
   TPaxTknItem& fromDB(TQuery &Qry);
 };
+
+bool LoadPaxTkn(int pax_id, TPaxTknItem &tkn, TQuery& PaxTknQry);
 
 class TPaxDocItem
 {
