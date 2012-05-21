@@ -12,7 +12,6 @@
 #include "astra_utils.h"
 #include "astra_misc.h"
 #include "term_version.h"
-#include "http_io.h" //!!!
 
 #define NICKNAME "DENIS"
 #include "serverlib/test.h"
@@ -4424,7 +4423,6 @@ void createXMLAgentStat(const TStatParams &params, const TAgentStat &AgentStat, 
 
 void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    my_test(); // !!!
     TReqInfo *reqInfo = TReqInfo::Instance();
     if(find( reqInfo->user.access.rights.begin(),
              reqInfo->user.access.rights.end(), 600 ) == reqInfo->user.access.rights.end())
