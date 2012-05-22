@@ -11,11 +11,15 @@
 #include "exceptions.h"
 #include "misc.h"
 #include "oralib.h"
+#include "astra_utils.h"
+#include "astra_service.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
 using namespace boost::asio;
 using namespace pion::net;
+
+const string FILE_HTTPGET_TYPE = "HTTPGET";
 
 
 void my_test_old()
@@ -254,3 +258,18 @@ void my_test()
 
     send_bsm(host_list, bsm_list);
 }
+
+void http_send_zaglushka(vector<string> &bsm_bodies)
+{
+    ProgTrace(TRACE5, "http_send_zaglushka");
+    map<string, string> fileparams;
+
+    for(vector<string>::iterator iv = bsm_bodies.begin(); iv != bsm_bodies.end(); iv++) {
+        putFile( OWN_POINT_ADDR(),
+                OWN_POINT_ADDR(),
+                FILE_HTTPGET_TYPE,
+                fileparams,
+                *iv );
+    }
+}
+

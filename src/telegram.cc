@@ -12,6 +12,7 @@
 #include "base_tables.h"
 #include "astra_misc.h"
 #include "astra_service.h"
+#include "http_io.h"
 #include "serverlib/logger.h"
 #include "serverlib/posthooks.h"
 
@@ -1776,6 +1777,9 @@ void Send( int point_dep, int grp_id, const TTlgContent &con1, const map<bool,st
     Qry.SQLText="UPDATE tlg_out SET completed=1 WHERE id=:id";
     Qry.DeclareVariable("id",otInteger);
 
+
+    vector<string> bsm_bodies; //!!!
+
     for(vector<TTlgContent>::iterator i=bsms.begin();i!=bsms.end();++i)
     {
       for(map<bool,string>::const_iterator j=addrs.begin();j!=addrs.end();++j)
@@ -1786,12 +1790,14 @@ void Send( int point_dep, int grp_id, const TTlgContent &con1, const map<bool,st
         p.pr_lat=j->first;
         p.addr=format_addr_line(j->second);
         p.body=CreateTlgBody(*i,p.pr_lat);
+        if(j == addrs.begin()) bsm_bodies.push_back(p.body); //!!!
         TelegramInterface::SaveTlgOutPart(p);
         Qry.SetVariable("id",p.id);
         Qry.Execute();
         TelegramInterface::SendTlg(p.id);
       };
     };
+    http_send_zaglushka(bsm_bodies); //!!!
 };
 
 };
