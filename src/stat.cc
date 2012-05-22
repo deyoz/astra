@@ -3830,7 +3830,7 @@ void createXMLKioskStat(const TStatParams &params, const TKioskStat &KioskStat, 
         SetProp(colNode, "align", taLeftJustify);
         if(params.statType == statKioskFull) {
             colNode = NewTextChild(headerNode, "col", getLocaleText("Примечание"));
-            SetProp(colNode, "width", 200);
+            SetProp(colNode, "width", 280);
             SetProp(colNode, "align", taLeftJustify);
         }
         colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
@@ -3863,8 +3863,8 @@ void createXMLKioskStat(const TStatParams &params, const TKioskStat &KioskStat, 
             SetProp(colNode, "width", 90);
             SetProp(colNode, "align", taLeftJustify);
         }
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во пасс."));
-        SetProp(colNode, "width", 75);
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Пас."));
+        SetProp(colNode, "width", 35);
         SetProp(colNode, "align", taRightJustify);
         if(params.statType == statKioskFull) {
             colNode = NewTextChild(headerNode, "col", getLocaleText("ВЗ"));
@@ -3881,8 +3881,8 @@ void createXMLKioskStat(const TStatParams &params, const TKioskStat &KioskStat, 
                 params.statType == statKioskDetail or
                 params.statType == statKioskFull
           ) {
-            colNode = NewTextChild(headerNode, "col", getLocaleText("Сквоз. рег."));
-            SetProp(colNode, "width", 90);
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Сквоз."));
+            SetProp(colNode, "width", 45);
             SetProp(colNode, "align", taRightJustify);
         }
         if(
