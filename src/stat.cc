@@ -3890,7 +3890,7 @@ void createXMLKioskStat(const TStatParams &params, const TKioskStat &KioskStat, 
                 params.statType == statKioskDetail
           ) {
             colNode = NewTextChild(headerNode, "col", getLocaleText("Примечание"));
-            SetProp(colNode, "width", 200);
+            SetProp(colNode, "width", 280);
             SetProp(colNode, "align", taLeftJustify);
         }
         xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
