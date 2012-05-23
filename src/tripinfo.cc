@@ -1664,7 +1664,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     xmlNodePtr node=NodeAsNodeFast("rems",node2)->children;
     for(;node!=NULL;node=node->next)
     {
-      TRemCategory cat=getRemCategory(NodeAsString(node));
+      TRemCategory cat=getRemCategory(NodeAsString(node), "");
       if (isDisabledRemCategory(cat))
         rems[cat].push_back(NodeAsString(node));
       else

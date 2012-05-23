@@ -1248,7 +1248,8 @@ namespace PRL_SPACE {
         Qry.Execute();
         for(; !Qry.Eof; Qry.Next())
         {
-          TRemCategory cat=getRemCategory(Qry.FieldAsString("rem_code"));
+          TRemCategory cat=getRemCategory(Qry.FieldAsString("rem_code"),
+                                          Qry.FieldAsString("rem"));
           if (isDisabledRemCategory(cat)) continue;
           if (cat==remFQT) continue;
           items.push_back(transliter(Qry.FieldAsString("rem"), 1, info.pr_lat));
@@ -2846,8 +2847,8 @@ void TSSR::get(int pax_id)
         for(; !Qry.Eof; Qry.Next()) {
             TSSRItem item;
             item.code = Qry.FieldAsString(col_rem_code);
-            if (isDisabledRem(item.code)) continue;
             item.free_text = Qry.FieldAsString(col_rem);
+            if (isDisabledRem(item.code, item.free_text)) continue;
             if(item.code == item.free_text)
                 item.free_text.erase();
             else

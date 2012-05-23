@@ -7,9 +7,9 @@
 
 enum TRemCategory { remTKN, remDOC, remDOCO, remFQT, remUnknown };
 
-TRemCategory getRemCategory( const std::string &rem_code );
+TRemCategory getRemCategory( const std::string &rem_code, const std::string &rem_text );
 bool isDisabledRemCategory( TRemCategory cat );
-bool isDisabledRem( const std::string &rem_code );
+bool isDisabledRem( const std::string &rem_code, const std::string &rem_text );
 
 namespace CheckIn
 {

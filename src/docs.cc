@@ -422,7 +422,7 @@ void TRptParams::Init(xmlNodePtr node)
         xmlNodePtr currNode = remsNode->children;
         for(; currNode; currNode = currNode->next)
         {
-          TRemCategory cat=getRemCategory(NodeAsString(currNode));
+          TRemCategory cat=getRemCategory(NodeAsString(currNode), "");
           rems[cat].push_back(NodeAsString(currNode));
         };
     }

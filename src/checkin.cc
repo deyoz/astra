@@ -1344,12 +1344,13 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry,  xmlNodePtr resNode)
     for(;!RemQry.Eof;RemQry.Next())
     {
       const char* rem_code=RemQry.FieldAsString("rem_code");
-      if (isDisabledRem(rem_code)) continue;
+      const char* rem_text=RemQry.FieldAsString("rem");
+      if (isDisabledRem(rem_code, rem_text)) continue;
       
       if (remsNode==NULL) remsNode=NewTextChild(node,"rems");
       xmlNodePtr remNode=NewTextChild(remsNode,"rem");
       NewTextChild(remNode,"rem_code",rem_code,"");
-      NewTextChild(remNode,"rem_text",RemQry.FieldAsString("rem"));
+      NewTextChild(remNode,"rem_text",rem_text);
     };
   };
   return count;
@@ -3225,7 +3226,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                 {
                   node2=remNode->children;
                   rem_code=NodeAsStringFast("rem_code",node2);
-                  //rem_text=NodeAsStringFast("rem_text",node2);
+                  rem_text=NodeAsStringFast("rem_text",node2);
                   if (rem_code=="VIP") flagVIP=true;
                   if (rem_code=="STCR") flagSTCR=true;
                   if (rem_code=="EXST") flagEXST=true;
@@ -3234,8 +3235,8 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                   TypeB::TFQTItem FQTItem;
                   CheckFQTRem(remNode,FQTItem);
                   //проверим запрещенные для ввода ремарки...
-                  if (isDisabledRem(rem_code))
-                    throw UserException("MSG.REMARK.INPUT_CODE_DENIAL", LParams()<<LParam("remark",rem_code));
+                  if (isDisabledRem(rem_code, rem_text))
+                    throw UserException("MSG.REMARK.INPUT_CODE_DENIAL", LParams()<<LParam("remark",rem_code.empty()?rem_text.substr(0,5):rem_code));
                 };
               if (addVIP && !flagVIP)
               {
@@ -4820,7 +4821,8 @@ void CheckInInterface::SavePaxRem(xmlNodePtr paxNode)
     //важно что зачитываем после CheckFQTRem, так как функция может менять код и текст ремарки
     rem_code=NodeAsStringFast("rem_code",node2);
     rem_text=NodeAsStringFast("rem_text",node2);
-    if (isDisabledRem(rem_code)) continue;
+    if (isDisabledRem(rem_code, rem_text))
+      throw UserException("MSG.REMARK.INPUT_CODE_DENIAL", LParams()<<LParam("remark",rem_code.empty()?rem_text.substr(0,5):rem_code));
     RemQry.SetVariable("rem",rem_text.c_str());
     RemQry.SetVariable("rem_code",rem_code.c_str());
     RemQry.Execute();
@@ -4843,9 +4845,10 @@ void CheckInInterface::LoadPaxRem(xmlNodePtr paxNode)
   for(;!RemQry.Eof;RemQry.Next())
   {
     const char* rem_code=RemQry.FieldAsString("rem_code");
-    if (isDisabledRem(rem_code)) continue;
+    const char* rem_text=RemQry.FieldAsString("rem");
+    if (isDisabledRem(rem_code, rem_text)) continue;
     xmlNodePtr remNode=NewTextChild(remsNode,"rem");
-    NewTextChild(remNode,"rem_text",RemQry.FieldAsString("rem"));
+    NewTextChild(remNode,"rem_text",rem_text);
     NewTextChild(remNode,"rem_code",rem_code);
   };
   RemQry.Close();

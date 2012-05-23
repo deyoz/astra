@@ -2776,11 +2776,12 @@ void CreateEmulRems(xmlNodePtr paxNode, TQuery &RemQry, const vector<string> &fq
   for(;!RemQry.Eof;RemQry.Next())
   {
     const char* rem_code=RemQry.FieldAsString("rem_code");
-    if (isDisabledRem(rem_code)) continue;
+    const char* rem_text=RemQry.FieldAsString("rem");
+    if (isDisabledRem(rem_code, rem_text)) continue;
     if (strcmp(rem_code,"FQTV")==0) continue;
     xmlNodePtr remNode=NewTextChild(remsNode,"rem");
     NewTextChild(remNode,"rem_code",rem_code);
-    NewTextChild(remNode,"rem_text",RemQry.FieldAsString("rem"));
+    NewTextChild(remNode,"rem_text",rem_text);
   };
   //добавим переданные fqtv_rems
   for(vector<string>::const_iterator r=fqtv_rems.begin();r!=fqtv_rems.end();r++)

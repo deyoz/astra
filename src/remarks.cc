@@ -9,7 +9,7 @@
 
 using namespace std;
 
-TRemCategory getRemCategory( const string &rem_code )
+TRemCategory getRemCategory( const string &rem_code, const string &rem_text )
 {
   static map<string, TRemCategory> rem_cats;
   static bool init=false;
@@ -30,8 +30,19 @@ TRemCategory getRemCategory( const string &rem_code )
     };
     init=true;
   };
-  map<string, TRemCategory>::const_iterator iRem=rem_cats.find(rem_code);
-  if (iRem!=rem_cats.end()) return iRem->second;
+  if (!rem_code.empty())
+  {
+    //код ремарки не пустой
+    map<string, TRemCategory>::const_iterator iRem=rem_cats.find(rem_code);
+    if (iRem!=rem_cats.end()) return iRem->second;
+  };
+  if (!rem_text.empty())
+  {
+    for(map<string, TRemCategory>::const_iterator iRem=rem_cats.begin(); iRem!=rem_cats.end(); ++iRem)
+    {
+      if (rem_text.substr(0,iRem->first.size())==iRem->first) return iRem->second;
+    };
+  };
   return remUnknown;
 };
 
@@ -40,9 +51,9 @@ bool isDisabledRemCategory( TRemCategory cat )
   return cat==remTKN || cat==remDOC || cat==remDOCO;
 };
 
-bool isDisabledRem( const string &rem_code )
+bool isDisabledRem( const string &rem_code, const string &rem_text )
 {
-  return isDisabledRemCategory(getRemCategory(rem_code));
+  return isDisabledRemCategory(getRemCategory(rem_code, rem_text));
 };
 
 namespace CheckIn
@@ -97,7 +108,8 @@ bool LoadPaxRem(int pax_id, vector<TPaxRemItem> &rems, TQuery& PaxRemQry)
   for(;!PaxRemQry.Eof;PaxRemQry.Next())
   {
     TPaxRemItem rem;
-    if (getRemCategory(rem.fromDB(PaxRemQry).code)==remUnknown)
+    rem.fromDB(PaxRemQry);
+    if (getRemCategory(rem.code, rem.text)==remUnknown)
       rems.push_back(rem);
   };
   return !rems.empty();
