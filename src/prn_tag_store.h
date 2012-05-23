@@ -33,6 +33,7 @@ namespace TAG {
     const std::string CLASS_NAME = "CLASS_NAME";
     const std::string DESK = "DESK";
     const std::string DOCUMENT = "DOCUMENT";
+    const std::string DUPLICATE = "DUPLICATE";
     const std::string EST = "EST";
     const std::string ETICKET_NO = "ETICKET_NO";
     const std::string ETKT = "ETKT";
@@ -292,6 +293,7 @@ class TPrnTagStore {
             std::string pers_type;
             int bag_amount, bag_weight;
             std::string tags;
+            bool pr_bp_print;
             TPaxInfo():
                 pax_id(ASTRA::NoExists),
                 coupon_no(ASTRA::NoExists),
@@ -299,7 +301,8 @@ class TPrnTagStore {
                 pr_smoke(false),
                 seats(ASTRA::NoExists),
                 bag_amount(ASTRA::NoExists),
-                bag_weight(ASTRA::NoExists)
+                bag_weight(ASTRA::NoExists),
+                pr_bp_print(false)
             {};
             void Init(int apax_id, TTagLang &tag_lang);
         };
@@ -360,6 +363,7 @@ class TPrnTagStore {
         std::string CLASS_NAME(TFieldParams fp);
         std::string DESK(TFieldParams fp);
         std::string DOCUMENT(TFieldParams fp);
+        std::string DUPLICATE(TFieldParams fp);
         std::string EST(TFieldParams fp);
         std::string ETICKET_NO(TFieldParams fp);
         std::string ETKT(TFieldParams fp);

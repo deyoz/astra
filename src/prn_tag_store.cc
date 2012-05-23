@@ -292,6 +292,7 @@ TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tag
     tag_list.insert(make_pair(TAG::CLASS_NAME,      TTagListItem(&TPrnTagStore::CLASS_NAME)));
     tag_list.insert(make_pair(TAG::DESK,            TTagListItem(&TPrnTagStore::DESK)));
     tag_list.insert(make_pair(TAG::DOCUMENT,        TTagListItem(&TPrnTagStore::DOCUMENT, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::DUPLICATE,       TTagListItem(&TPrnTagStore::DUPLICATE, PAX_INFO)));
     tag_list.insert(make_pair(TAG::EST,             TTagListItem(&TPrnTagStore::EST, POINT_INFO)));
     tag_list.insert(make_pair(TAG::ETICKET_NO,      TTagListItem(&TPrnTagStore::ETICKET_NO, PAX_INFO))); // !!!
     tag_list.insert(make_pair(TAG::ETKT,            TTagListItem(&TPrnTagStore::ETKT, PAX_INFO))); // !!!
@@ -784,6 +785,13 @@ void TPrnTagStore::TPaxInfo::Init(int apax_id, TTagLang &tag_lang)
               "where "
               "   pax_id = :pax_id ";
           Qry.CreateVariable("lang", otString, tag_lang.GetLang());
+
+          TQuery bpPrintQry(&OraSession);
+          bpPrintQry.SQLText = "SELECT pax_id FROM bp_print WHERE pax_id=:pax_id AND pr_print=1 AND rownum=1";
+          bpPrintQry.CreateVariable("pax_id", otInteger, pax_id);
+          bpPrintQry.Execute();
+          pr_bp_print = not bpPrintQry.Eof;
+
         }
         else
         {
@@ -806,6 +814,7 @@ void TPrnTagStore::TPaxInfo::Init(int apax_id, TTagLang &tag_lang)
               "WHERE "
               "   id = :pax_id ";
           Qry.CreateVariable("adult", otString, EncodePerson(adult));
+          pr_bp_print = false;
         };
         Qry.CreateVariable("pax_id", otInteger, pax_id);
         Qry.Execute();
@@ -1238,6 +1247,14 @@ string TPrnTagStore::DESK(TFieldParams fp)
 string TPrnTagStore::DOCUMENT(TFieldParams fp)
 {
     return paxInfo.document;
+}
+
+string TPrnTagStore::DUPLICATE(TFieldParams fp)
+{
+    string result;
+    if(paxInfo.pr_bp_print)
+        result = getLocaleText("Дубликат", tag_lang.GetLang());
+    return result;
 }
 
 string TPrnTagStore::EST(TFieldParams fp)
