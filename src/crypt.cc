@@ -148,6 +148,7 @@ int form_crypt_error(char *res, char *head, int hlen, int error)
 void GetError( const string &func_name, int err )
 {
 	if ( err == 0 ) return;
+	ProgTrace( TRACE5, "GetError: func_name=%s, err=%d", func_name.c_str(), err );
 	AstraLocale::LexemaData lexema;
 	switch( err ) {
 		case 2: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_2"; break;
@@ -329,6 +330,7 @@ bool GetClientCertificate( TQuery *Qry, int grp_id, bool pr_grp, const std::stri
   }
   if ( pkcs_id >= 0 )
     ProgTrace( TRACE5, "pkcs_id=%d", pkcs_id );
+  ProgTrace( TRACE5, "pr_exists=%d", pr_exists );
   return pr_exists;
 }
 
@@ -421,7 +423,7 @@ void TCrypt::Init( const std::string &desk )
   bool pr_grp;
   if ( !GetCryptGrp( &Qry, desk, grp_id, pr_grp ) )
   	return;
-  ProgTrace( TRACE5, "grp_id=%d", grp_id );
+  ProgTrace( TRACE5, "grp_id=%d,pr_grp=%d", grp_id, pr_grp );
   string pk;
   GetServerCertificate( &Qry, ca_cert, pk, server_cert );
   if ( ca_cert.empty() || server_cert.empty() )
@@ -467,12 +469,14 @@ void IntGetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr res
   if ( Crypt.pkcs_id >= 0 ) {
     TQuery Qry(&OraSession);
     Qry.SQLText =
-      "SELECT keyname, certname, password, desk, desk_grp_id "
+      "SELECT keyname, certname, password, desk, desk_grp_id, send_count "
       " FROM crypt_file_params "
       " WHERE pkcs_id=:pkcs_id";
     Qry.CreateVariable( "pkcs_id", otInteger, Crypt.pkcs_id );
     Qry.Execute();
-    if ( Qry.Eof ) return;
+    if ( Qry.Eof ||
+         GetNode( "getkeys", reqNode ) == NULL && Qry.FieldAsInteger( "send_count" ) != 0 )
+      return;
 
     node = NewTextChild( node, "pkcs", Crypt.pkcs_id );
     if ( Qry.FieldIsNULL( "desk" ) )
@@ -611,14 +615,16 @@ void ValidateCertificateRequest( const string &desk, bool pr_grp )
   }
 }
 
-// запрос может быть подписан и сертификат залит в БД, но пока это не отправлено на клиент - выполнения заново цикла откладывется!
+// запрос может быть подписан и сертификат залит в БД, но пока это не отправлено на клиент - выполнения заново цикла откладывается!
 void ValidatePKCSData( const string &desk, bool pr_grp )
 {
+  tst();
   TQuery Qry(&OraSession);
   Qry.SQLText =
     "SELECT crypt_file_params.desk_grp_id grp_id, crypt_file_params.desk desk "
     " FROM crypt_file_params, desks, desk_grp"
-    " WHERE desks.code = :desk AND "
+    " WHERE send_count = 0 AND "
+    "       desks.code = :desk AND "
     "       desks.grp_id = desk_grp.grp_id AND "
     "       crypt_file_params.desk_grp_id=desk_grp.grp_id AND "
     "      ( crypt_file_params.desk IS NULL OR crypt_file_params.desk=desks.code )"
@@ -628,7 +634,7 @@ void ValidatePKCSData( const string &desk, bool pr_grp )
   while ( !Qry.Eof ) {
   	if ( Qry.FieldIsNULL( "desk" ) && pr_grp ||
   		  !Qry.FieldIsNULL( "desk" ) && !pr_grp )
-  	  throw AstraLocale::UserException( "MSG.MESSAGEPRO.CERT_QRY_CREATED_EARLIER.NOT_PROCESSED_YET" );
+  	  throw AstraLocale::UserException( "MSG.MESSAGEPRO.CERT_CREATED_EARLIER.NOT_PROCESSED_YET" );
   	Qry.Next();
   }
 }
@@ -637,7 +643,7 @@ void IntRequestCertificateData(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 {
 
   bool pr_grp = GetNode( "pr_grp", reqNode );
-
+  ProgTrace( TRACE5, "IntRequestCertificateData: pr_grp=%d", pr_grp );
   ValidateCertificateRequest( TReqInfo::Instance()->desk.code, pr_grp );
 
   TCertRequest req;
@@ -806,8 +812,10 @@ struct TPKCS {
 
 void DeletePSE( const string &PSEpath, const string &file_key, const string &file_req )
 {
-  unlink( file_key.c_str() );
-  unlink( file_req.c_str() );
+  if ( !file_key.empty() )
+    unlink( file_key.c_str() );
+  if ( !file_req.empty() )
+    unlink( file_req.c_str() );
 	Erase_PSE31( (char*)PSEpath.c_str() );
 	remove( PSEpath.c_str() );
 }
@@ -830,17 +838,64 @@ void readPSEFile( const string &filename, const string &name, TPSEFile &pse_file
   pse_file.data = tmpstream.str();
 }
 
+void writePSEFile( const string &dirname, TPSEFile &pse_file )
+{
+  ofstream f;
+  f.open( string(dirname + pse_file.filename).c_str() );
+  if (!f.is_open()) throw Exception( "Can't open file '%s'", string(dirname + pse_file.filename).c_str() );
+  try {
+    f << pse_file.data;
+    f.close();
+  }
+  catch(...) {
+    try { f.close(); } catch( ... ) { };
+    throw;
+  };
+}
+
 void WritePSEFiles( const TPKCS &pkcs, const string &desk, bool pr_grp )
 {
   TQuery Qry(&OraSession);
+  std::string certificate;
+  int pkcs_id;
+  Qry.SQLText =
+   "SELECT grp_id FROM desks WHERE code=:code";
+  Qry.CreateVariable( "code", otString, desk );
+  Qry.Execute();
+  if ( Qry.Eof )
+    throw Exception( "invalid desk: %s", desk.c_str() );
+  int grp_id = Qry.FieldAsInteger( "grp_id" );
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT pkcs_id FROM crypt_file_params "
+    " WHERE desk_grp_id=:grp_id AND ( :pr_grp!=0 AND desk IS NULL OR :pr_grp=0 AND desk=:desk )";
+  Qry.CreateVariable( "grp_id", otInteger, grp_id );
+  Qry.CreateVariable( "desk", otString, desk );
+  Qry.CreateVariable( "pr_grp", otInteger, pr_grp );
+  Qry.Execute();
+  ProgTrace( TRACE5, "grp_id=%d, desk=%s, pr_grp=%d, Qry.Eof=%d", grp_id, desk.c_str(), pr_grp, Qry.Eof );
+  if ( !Qry.Eof ) {
+    pkcs_id = Qry.FieldAsInteger( "pkcs_id" );
+    ProgTrace( TRACE5, "pkcs_id=%d", pkcs_id );
+    Qry.Clear(); //!!! удаляем
+    Qry.SQLText =
+	    "BEGIN "
+      " UPDATE crypt_term_cert SET pkcs_id=NULL WHERE pkcs_id=:pkcs_id;"
+	    " DELETE crypt_files WHERE pkcs_id=:pkcs_id;"
+	    " DELETE crypt_file_params WHERE pkcs_id=:pkcs_id;"
+	    "END;";
+	  Qry.CreateVariable( "pkcs_id", otInteger, pkcs_id );
+	  Qry.Execute();
+  }
+	Qry.Clear();
   Qry.SQLText =
     "SELECT id__seq.nextval pkcs_id FROM dual";
   Qry.Execute();
-  int pkcs_id = Qry.FieldAsInteger( "pkcs_id" );
+  pkcs_id = Qry.FieldAsInteger( "pkcs_id" );
   Qry.Clear();
   Qry.SQLText =
-    "INSERT INTO crypt_file_params(pkcs_id,keyname,certname,password,desk,desk_grp_id)"
-    " SELECT :pkcs_id,:keyname,:certname,:password,DECODE(:pr_grp,0,:desk,NULL),grp_id FROM desks"
+    "INSERT INTO crypt_file_params(pkcs_id,keyname,certname,password,desk,desk_grp_id,send_count)"
+    " SELECT :pkcs_id,:keyname,:certname,:password,DECODE(:pr_grp,0,:desk,NULL),grp_id,0 FROM desks"
     "  WHERE code=:desk";
   Qry.CreateVariable( "pkcs_id", otInteger, pkcs_id );
   Qry.CreateVariable( "keyname", otString, pkcs.key_filename );
@@ -892,6 +947,7 @@ string getPassword( )
 void CreatePSE( const string &desk, bool pr_grp, int password_len, TPKCS &pkcs )
 {
 	pkcs.pse_files.clear();
+	tst();
 	ValidateCertificateRequest( desk, pr_grp );
 	ValidatePKCSData( desk, pr_grp ); //нельзя создавать несколько PKCS для одного пульта или группы пультов
 	TCertRequest req;
@@ -972,21 +1028,146 @@ void CryptInterface::CryptValidateServerKey(XMLRequestCtxt *ctxt, xmlNodePtr req
 	int pkcs_id = NodeAsInteger( "pkcs_id", reqNode );
 	ProgTrace( TRACE5, "CryptValidateServerKey, pkcs_id=%d", pkcs_id );
 	TQuery Qry(&OraSession);
-	Qry.SQLText =
-	  "BEGIN "
-    " UPDATE crypt_term_cert SET pkcs_id=NULL WHERE pkcs_id=:pkcs_id;"
-	  " DELETE crypt_files WHERE pkcs_id=:pkcs_id;"
-	  " DELETE crypt_file_params WHERE pkcs_id=:pkcs_id;"
-	  "END;";
+	//!!! изменение пароля на новый
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT name, data FROM crypt_files "
+    " WHERE pkcs_id=:pkcs_id";
 	Qry.CreateVariable( "pkcs_id", otInteger, pkcs_id );
 	Qry.Execute();
+	tst();
+  void *pkeydata = NULL;
+  int len = 0;
+  TPKCS pkcs;
+  bool pr_GOST;
+  try {
+    while ( !Qry.Eof ) {
+      len = Qry.GetSizeLongField( "data" );
+      if ( pkeydata == NULL )
+        pkeydata = malloc( len );
+      else
+        pkeydata = realloc( pkeydata, len );
+      if ( pkeydata == NULL )
+        throw Exception( "Ошибка программы" );
+      Qry.FieldAsLong( "data", pkeydata );
+      TPSEFile psefile;
+      psefile.filename = Qry.FieldAsString( "name" );
+      ProgTrace( TRACE5, "psefile.filename=%s", psefile.filename.c_str() );
+      psefile.data = string( (char*)pkeydata, len );
+      pkcs.pse_files.push_back( psefile );
+      Qry.Next();
+	  }
+	  tst();
+    Qry.Clear();
+    Qry.SQLText =
+      "SELECT certificate FROM crypt_term_cert WHERE pkcs_id=:pkcs_id";
+    Qry.CreateVariable( "pkcs_id", otInteger, pkcs_id );
+    Qry.Execute();
+    if ( Qry.Eof )
+      throw Exception( "CryptValidateServerKey: cert not found" );
+    string cert = Qry.FieldAsString( "certificate" );
+    string algo = GetCertPublicKeyAlgorithmBuffer( (char*)cert.c_str(), cert.size() );
+    ProgTrace( TRACE5, "algo=%s", algo.c_str() );
+    if ( algo.empty() )
+      throw Exception( "Ошибка программы" );
+    bool pr_GOST = ( algo == string( "ECR3410" ) ||
+                     algo == string( "R3410" ) );
+    ProgTrace( TRACE5, "pr_GOST=%d, algo=%s", pr_GOST, algo.c_str() );
+  }
+  catch(...) {
+  	if ( pkeydata )
+  	  free( pkeydata );
+    throw;
+  }
+	if ( pkeydata )
+    free( pkeydata );
+	if ( pkcs.pse_files.empty() )
+    throw Exception( "CryptValidateServerKey: keys not found" );
+	Qry.Clear();
+	Qry.SQLText =
+    "SELECT keyname,certname,password FROM crypt_file_params "
+    " WHERE pkcs_id=:pkcs_id";
+	Qry.CreateVariable( "pkcs_id", otInteger, pkcs_id );
+	tst();
+	Qry.Execute();
+  if ( Qry.Eof )
+    throw Exception( "CryptValidateServerKey: keys not found" );
+  pkcs.key_filename = Qry.FieldAsString( "keyname" );
+  pkcs.cert_filename = Qry.FieldAsString( "certname" );
+  pkcs.password = Qry.FieldAsString( "password" );
+	string PSEpath = readStringFromTcl( "MESPRO_PSE_PATH", "./crypt" );
+  PSEpath += "/pses";
+  mkdir( PSEpath.c_str(), 0777 );
+  int i = 1;
+  while ( i < 100 && mkdir( string( PSEpath + "/" + IntToString(i) ).c_str(), 0777 )) i++;
+  if ( i == 100 )
+  	throw Exception( "Can't create dir=" + string( PSEpath + "/" + IntToString(i) ) + ", error=" + IntToString( errno ) );
+  ProgTrace( TRACE5, "i=%d", i );
+  PSEpath += "/" + IntToString(i);
+  ProgTrace( TRACE5, "CryptValidateServerKey: PSEpath=%s", PSEpath.c_str() );
+  pkcs.key_filename = PSEpath + "/" + pkcs.key_filename;
+  SetRandInitCallbackFun((void *)init_rand_callback1);
+  GetError( "PKCS7Init", PKCS7Init( 0, 0 ) );
+  try {
+    try {
+      for ( vector<TPSEFile>::iterator i=pkcs.pse_files.begin(); i!=pkcs.pse_files.end(); i++ ) {
+        ProgTrace( TRACE5, "filename=%s", i->filename.c_str() );
+        writePSEFile( PSEpath + "/", *i );
+        tst();
+      }
+      string newpassword = getPassword( );
+      ProgTrace( TRACE5, "oldpassword=%s, newpassword=%s, keyfile=%s", pkcs.password.c_str(), newpassword.c_str(), pkcs.key_filename.c_str() );
+      if ( pr_GOST )
+        GetError( "ChangePrivateKeyPasswordEx", ChangePrivateKeyPasswordEx( (char*)PSEpath.c_str(), NULL, (char*)pkcs.key_filename.c_str(),
+                                                                            (char*)pkcs.password.c_str(), (char*)newpassword.c_str() ) );
+      else
+        GetError( "ChangePrivateKeyPassword", ChangePrivateKeyPassword( (char*)PSEpath.c_str(), (char*)pkcs.password.c_str(), (char*)newpassword.c_str() ) );
+      tst();
+      pkcs.password = newpassword;
+      Qry.Clear();
+      Qry.SQLText =
+        "UPDATE crypt_files SET data=:data WHERE pkcs_id=:pkcs_id AND name=:name";
+      Qry.CreateVariable( "pkcs_id", otInteger, pkcs_id );
+      Qry.DeclareVariable( "name", otString );
+      Qry.DeclareVariable( "data", otLongRaw );
+      for ( vector<TPSEFile>::iterator i=pkcs.pse_files.begin(); i!=pkcs.pse_files.end(); i++ ) {
+        TPSEFile pse_file;
+        readPSEFile( PSEpath + "/" + i->filename, i->filename, *i );
+        Qry.SetVariable( "name", i->filename );
+        Qry.SetLongVariable( "data", (void*)i->data.c_str(), i->data.size() );
+        ProgTrace( TRACE5, "filename=%s", i->filename.c_str() );
+        Qry.Execute();
+      }
+      tst();
+      Qry.Clear();
+      Qry.SQLText =
+        "UPDATE crypt_file_params SET password=:password, send_count=send_count+1 WHERE pkcs_id=:pkcs_id";
+      Qry.CreateVariable( "pkcs_id", otInteger, pkcs_id );
+      Qry.CreateVariable( "password", otString, pkcs.password );
+      Qry.Execute();
+      tst();
+    }
+    catch(...) {
+    	DeletePSE( PSEpath, pkcs.key_filename, "" );
+     	throw;
+    }
+    tst();
+    DeletePSE( PSEpath, pkcs.key_filename, "" );
+  }
+  catch( ... ) {
+  	PKCS7Final();
+  	throw;
+  }
+  PKCS7Final();
+  tst();
 }
 
 void CryptInterface::RequestPSE(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
 	TPKCS pkcs;
 	bool pr_grp = GetNode( "pr_grp", reqNode );
-  CreatePSE( NodeAsString( "desk", reqNode ), pr_grp, 16, pkcs );
+  ProgTrace( TRACE5, "IntRequestCertificateData: pr_grp=%d", pr_grp );
+  CreatePSE( NodeAsString( "desk", reqNode ), pr_grp, PASSWORD_LENGTH, pkcs );
   AstraLocale::showMessage( "MSG.MESSAGE_PRO.KEY_AND_REQUEST_OK" );
 }
 
