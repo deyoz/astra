@@ -487,6 +487,7 @@ class TPrnTagStore {
         bool tag_processed(std::string name);
         void set_print_mode(int val);
         void clear();
+        BASIC::TDateTime get_time_print() { return time_print.val; };
 
         void tst_get_tag_list(std::vector<std::string> &tag_list);
 };
