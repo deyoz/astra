@@ -13,7 +13,6 @@
 namespace TAG {
     const std::string BCBP_M_2 = "BCBP_M_2";
     const std::string ACT = "ACT";
-    const std::string AGENT = "AGENT";
     const std::string AIRLINE = "AIRLINE";
     const std::string AIRLINE_SHORT = "AIRLINE_SHORT";
     const std::string AIRP_ARV = "AIRP_ARV";
@@ -31,9 +30,7 @@ namespace TAG {
     const std::string CITY_DEP_NAME = "CITY_DEP_NAME";
     const std::string CLASS = "CLASS";
     const std::string CLASS_NAME = "CLASS_NAME";
-    const std::string DESK = "DESK";
     const std::string DOCUMENT = "DOCUMENT";
-    const std::string DUPLICATE = "DUPLICATE";
     const std::string EST = "EST";
     const std::string ETICKET_NO = "ETICKET_NO";
     const std::string ETKT = "ETKT";
@@ -55,14 +52,12 @@ namespace TAG {
     const std::string PLACE_ARV = "PLACE_ARV";
     const std::string PLACE_DEP = "PLACE_DEP";
     const std::string REG_NO = "REG_NO";
-    const std::string RSTATION = "RSTATION";
     const std::string SCD = "SCD";
     const std::string SEAT_NO = "SEAT_NO";
     const std::string STR_SEAT_NO = "STR_SEAT_NO";
     const std::string LIST_SEAT_NO = "LIST_SEAT_NO";
     const std::string SURNAME = "SURNAME";
     const std::string TEST_SERVER = "TEST_SERVER";
-    const std::string TIME_PRINT = "TIME_PRINT";
 
     // specific for bag tags
     const std::string AIRCODE = "AIRCODE";
@@ -293,7 +288,6 @@ class TPrnTagStore {
             std::string pers_type;
             int bag_amount, bag_weight;
             std::string tags;
-            bool pr_bp_print;
             TPaxInfo():
                 pax_id(ASTRA::NoExists),
                 coupon_no(ASTRA::NoExists),
@@ -301,8 +295,7 @@ class TPrnTagStore {
                 pr_smoke(false),
                 seats(ASTRA::NoExists),
                 bag_amount(ASTRA::NoExists),
-                bag_weight(ASTRA::NoExists),
-                pr_bp_print(false)
+                bag_weight(ASTRA::NoExists)
             {};
             void Init(int apax_id, TTagLang &tag_lang);
         };
@@ -324,26 +317,10 @@ class TPrnTagStore {
         };
         TPnrInfo pnrInfo;
 
-        struct TTimePrint {
-            BASIC::TDateTime val;
-            TTimePrint(BASIC::TDateTime aval): val(aval) {};
-        };
-
-        TTimePrint time_print;
-
-        struct TRStationInfo {
-            bool pr_init;
-            std::string name;
-            TRStationInfo(): pr_init(false) {};
-            void Init();
-        };
-        TRStationInfo rstationInfo;
-
         std::string get_fmt_seat(std::string fmt, bool english_tag);
 
         std::string BCBP_M_2(TFieldParams fp);
         std::string ACT(TFieldParams fp);
-        std::string AGENT(TFieldParams fp);
         std::string AIRLINE(TFieldParams fp);
         std::string AIRLINE_SHORT(TFieldParams fp);
         std::string AIRP_ARV(TFieldParams fp);
@@ -361,9 +338,7 @@ class TPrnTagStore {
         std::string CITY_DEP_NAME(TFieldParams fp);
         std::string CLASS(TFieldParams fp);
         std::string CLASS_NAME(TFieldParams fp);
-        std::string DESK(TFieldParams fp);
         std::string DOCUMENT(TFieldParams fp);
-        std::string DUPLICATE(TFieldParams fp);
         std::string EST(TFieldParams fp);
         std::string ETICKET_NO(TFieldParams fp);
         std::string ETKT(TFieldParams fp);
@@ -385,14 +360,12 @@ class TPrnTagStore {
         std::string PLACE_ARV(TFieldParams fp);
         std::string PLACE_DEP(TFieldParams fp);
         std::string REG_NO(TFieldParams fp);
-        std::string RSTATION(TFieldParams fp);
         std::string SCD(TFieldParams fp);
         std::string SEAT_NO(TFieldParams fp);
         std::string STR_SEAT_NO(TFieldParams fp);
         std::string LIST_SEAT_NO(TFieldParams fp);
         std::string SURNAME(TFieldParams fp);
         std::string TEST_SERVER(TFieldParams fp);
-        std::string TIME_PRINT(TFieldParams fp);
 
         // specific for bag tags
         std::string AIRCODE(TFieldParams fp);
@@ -475,7 +448,7 @@ class TPrnTagStore {
         void set_tag(std::string name, int value);
         void set_tag(std::string name, BASIC::TDateTime value);
         std::string get_field(std::string name, size_t len, std::string align, std::string date_format, std::string tag_lang, bool pr_user_except = true);
-        void save_bp_print(bool pr_print = false);
+        void get_prn_qry(TQuery &Qry);
         std::string get_tag_no_err( // Версия get_tag, которая игнорирует ошибку "Данные печати не латинские"
                 std::string name,
                 std::string date_format = BASIC::ServerFormatDateTimeAsString,
@@ -487,7 +460,6 @@ class TPrnTagStore {
         bool tag_processed(std::string name);
         void set_print_mode(int val);
         void clear();
-        BASIC::TDateTime get_time_print() { return time_print.val; };
 
         void tst_get_tag_list(std::vector<std::string> &tag_list);
 };
