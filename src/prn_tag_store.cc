@@ -609,22 +609,28 @@ TPrnQryBuilder::TPrnQryBuilder(TQuery &aQry): Qry(aQry)
         "       pax_id, "
         "       time_print, "
         "       pr_print, "
-        "       desk ";
+        "       desk, "
+        "       client_type ";
     part2 =
         "   ) values( "
         "       :pax_id, "
         "       :now_utc, "
-        "       0, "
-        "       :desk ";
+        "       :pr_print, "
+        "       :desk, "
+        "       :client_type ";
 };
 
-void TPrnTagStore::get_prn_qry(TQuery &Qry)
+void TPrnTagStore::save_bp_print(bool pr_print)
 {
     if(not prn_test_tags.items.empty())
-        throw Exception("get_prn_qry can't be called in test mode");
+        throw Exception("save_bp_print can't be called in test mode");
+    TQuery Qry(&OraSession);
     TPrnQryBuilder prnQry(Qry);
     Qry.CreateVariable("pax_id", otInteger, pax_id);
+    Qry.CreateVariable("now_utc", otDate, time_print.val);
+    Qry.CreateVariable("pr_print", otInteger, pr_print);
     Qry.CreateVariable("DESK", otString, TReqInfo::Instance()->desk.code);
+    Qry.CreateVariable("client_type", otString, EncodeClientType(TReqInfo::Instance()->client_type));
 
     if(tag_list[TAG::AIRLINE].processed or tag_list[TAG::AIRLINE_NAME].processed)
         prnQry.add_part(TAG::AIRLINE, pointInfo.airline);
@@ -683,6 +689,7 @@ void TPrnTagStore::get_prn_qry(TQuery &Qry)
         prnQry.add_part(TAG::SURNAME, paxInfo.surname);
     string SQLText = prnQry.text();
     Qry.SQLText = SQLText;
+    Qry.Execute();
 }
 
 void TPrnTagStore::TRStationInfo::Init()

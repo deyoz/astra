@@ -3777,6 +3777,8 @@ void WebRequestsIface::GetBPTags(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
             ProgTrace( TRACE5, "field name=%s, value=%s", (*i + (j == 0 ? "" : "_lat")).c_str(), value.c_str() );
         }
     }
+    parser.pts.save_bp_print(true);
+
 	Qry.Clear();
 	Qry.SQLText =
     "SELECT stations.name FROM stations,trip_stations "
