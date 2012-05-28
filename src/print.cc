@@ -1544,7 +1544,6 @@ void tst_dump(int pax_id, int grp_id, bool pr_lat)
         TPrnTagStore tmp_pts(grp_id, pax_id, pr_lat, NULL);
         tmp_pts.set_tag("gate", "");
         ProgTrace(TRACE5, "tag: %s; value: '%s'", iv->c_str(), tmp_pts.get_field(*iv, 0, "L", "dd.mm hh:nn", "R").c_str());
-        TQuery Qry(&OraSession);
         tmp_pts.save_bp_print();
     }
 }
@@ -1709,7 +1708,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
             SetProp(paxNode, "pax_id", iprint->pax_id);
             //!!!SetProp(paxNode, "seg_no", iv->seg_no);
             SetProp(paxNode, "reg_no", parser.pts.get_tag(TAG::REG_NO));
-            SetProp(paxNode, "time_print", parser.pts.get_tag(TAG::TIME_PRINT));
+            SetProp(paxNode, "time_print", DateTimeToStr(parser.pts.get_time_print()));
         }
     }
 }
