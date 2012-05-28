@@ -1694,7 +1694,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         if(DecodeDevFmtType(fmt_type) == dftEPSON) {
             to_esc::TConvertParams ConvertParams;
             ConvertParams.init(dev_model);
-            ProgTrace(TRACE5, "prn_form: %s", prn_form.c_str());
+//!!!            ProgTrace(TRACE5, "prn_form: %s", prn_form.c_str());
             to_esc::convert(prn_form, ConvertParams, prnParams);
             StringToHex( string(prn_form), prn_form );
             hex=true;
