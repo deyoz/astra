@@ -23,6 +23,7 @@ const int PAX_INFO = 2;
 const int BRD_INFO = 8;
 const int FQT_INFO = 16;
 const int PNR_INFO = 32;
+const int RSTATION_INFO = 64;
 
 bool TTagLang::IsInter(const TTrferRoute &aroute, string &country)
 {
@@ -204,6 +205,7 @@ TPrnTagStore::TTagProps::TTagProps(TDevOperType vop): op(dotUnknown)
 // Bag receipts
 TPrnTagStore::TPrnTagStore(const TBagReceipt &arcpt, bool apr_lat):
     rcpt(arcpt),
+    time_print(NowUTC()),
     prn_tag_props(dotPrnBR)
 {
     print_mode = 0;
@@ -249,7 +251,7 @@ TPrnTagStore::TPrnTagStore(const TBagReceipt &arcpt, bool apr_lat):
 }
 
 // Test tags
-TPrnTagStore::TPrnTagStore(bool apr_lat): prn_tag_props(dotUnknown)
+TPrnTagStore::TPrnTagStore(bool apr_lat): time_print(NowUTC()), prn_tag_props(dotUnknown)
 {
     print_mode = 0;
     tag_lang.Init(apr_lat);
@@ -258,7 +260,7 @@ TPrnTagStore::TPrnTagStore(bool apr_lat): prn_tag_props(dotUnknown)
 
 // BP && BT
 TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tagsNode, const TTrferRoute &aroute):
-    prn_tag_props(aroute.empty() ? dotPrnBP : dotPrnBT)
+    time_print(NowUTC()), prn_tag_props(aroute.empty() ? dotPrnBP : dotPrnBT)
 {
     print_mode = 0;
     grpInfo.Init(agrp_id, apax_id);
@@ -269,6 +271,7 @@ TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tag
 
     tag_list.insert(make_pair(TAG::BCBP_M_2,        TTagListItem(&TPrnTagStore::BCBP_M_2, POINT_INFO | PAX_INFO | PNR_INFO)));
     tag_list.insert(make_pair(TAG::ACT,             TTagListItem(&TPrnTagStore::ACT, POINT_INFO)));
+    tag_list.insert(make_pair(TAG::AGENT,           TTagListItem(&TPrnTagStore::AGENT)));
     tag_list.insert(make_pair(TAG::AIRLINE,         TTagListItem(&TPrnTagStore::AIRLINE, POINT_INFO)));
     tag_list.insert(make_pair(TAG::AIRLINE_SHORT,   TTagListItem(&TPrnTagStore::AIRLINE_SHORT, POINT_INFO)));
     tag_list.insert(make_pair(TAG::AIRLINE_NAME,    TTagListItem(&TPrnTagStore::AIRLINE_NAME, POINT_INFO)));
@@ -287,7 +290,9 @@ TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tag
     tag_list.insert(make_pair(TAG::CITY_DEP_NAME,   TTagListItem(&TPrnTagStore::CITY_DEP_NAME)));
     tag_list.insert(make_pair(TAG::CLASS,           TTagListItem(&TPrnTagStore::CLASS)));
     tag_list.insert(make_pair(TAG::CLASS_NAME,      TTagListItem(&TPrnTagStore::CLASS_NAME)));
+    tag_list.insert(make_pair(TAG::DESK,            TTagListItem(&TPrnTagStore::DESK)));
     tag_list.insert(make_pair(TAG::DOCUMENT,        TTagListItem(&TPrnTagStore::DOCUMENT, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::DUPLICATE,       TTagListItem(&TPrnTagStore::DUPLICATE, PAX_INFO)));
     tag_list.insert(make_pair(TAG::EST,             TTagListItem(&TPrnTagStore::EST, POINT_INFO)));
     tag_list.insert(make_pair(TAG::ETICKET_NO,      TTagListItem(&TPrnTagStore::ETICKET_NO, PAX_INFO))); // !!!
     tag_list.insert(make_pair(TAG::ETKT,            TTagListItem(&TPrnTagStore::ETKT, PAX_INFO))); // !!!
@@ -309,12 +314,14 @@ TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tag
     tag_list.insert(make_pair(TAG::PLACE_ARV,       TTagListItem(&TPrnTagStore::PLACE_ARV)));
     tag_list.insert(make_pair(TAG::PLACE_DEP,       TTagListItem(&TPrnTagStore::PLACE_DEP)));
     tag_list.insert(make_pair(TAG::REG_NO,          TTagListItem(&TPrnTagStore::REG_NO, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::RSTATION,        TTagListItem(&TPrnTagStore::RSTATION, RSTATION_INFO)));
     tag_list.insert(make_pair(TAG::SCD,             TTagListItem(&TPrnTagStore::SCD, POINT_INFO)));
     tag_list.insert(make_pair(TAG::SEAT_NO,         TTagListItem(&TPrnTagStore::SEAT_NO, PAX_INFO)));
     tag_list.insert(make_pair(TAG::STR_SEAT_NO,     TTagListItem(&TPrnTagStore::STR_SEAT_NO, PAX_INFO)));
     tag_list.insert(make_pair(TAG::LIST_SEAT_NO,    TTagListItem(&TPrnTagStore::LIST_SEAT_NO, PAX_INFO)));
     tag_list.insert(make_pair(TAG::SURNAME,         TTagListItem(&TPrnTagStore::SURNAME, PAX_INFO)));
     tag_list.insert(make_pair(TAG::TEST_SERVER,     TTagListItem(&TPrnTagStore::TEST_SERVER)));
+    tag_list.insert(make_pair(TAG::TIME_PRINT,      TTagListItem(&TPrnTagStore::TIME_PRINT)));
 
     // specific for bag tags
     tag_list.insert(make_pair(TAG::AIRCODE,         TTagListItem(&TPrnTagStore::AIRCODE)));
@@ -428,6 +435,8 @@ string TPrnTagStore::get_real_field(std::string name, size_t len, std::string da
         fqtInfo.Init(pax_id);
     if((im->second.info_type & PNR_INFO) == PNR_INFO)
         pnrInfo.Init(pax_id);
+    if((im->second.info_type & RSTATION_INFO) == RSTATION_INFO)
+        rstationInfo.Init();
     string result;
     try {
         result = (this->*im->second.tag_funct)(TFieldParams(date_format, im->second.TagInfo, len));
@@ -600,22 +609,28 @@ TPrnQryBuilder::TPrnQryBuilder(TQuery &aQry): Qry(aQry)
         "       pax_id, "
         "       time_print, "
         "       pr_print, "
-        "       desk ";
+        "       desk, "
+        "       client_type ";
     part2 =
         "   ) values( "
         "       :pax_id, "
         "       :now_utc, "
-        "       0, "
-        "       :desk ";
+        "       :pr_print, "
+        "       :desk, "
+        "       :client_type ";
 };
 
-void TPrnTagStore::get_prn_qry(TQuery &Qry)
+void TPrnTagStore::save_bp_print(bool pr_print)
 {
     if(not prn_test_tags.items.empty())
-        throw Exception("get_prn_qry can't be called in test mode");
+        throw Exception("save_bp_print can't be called in test mode");
+    TQuery Qry(&OraSession);
     TPrnQryBuilder prnQry(Qry);
     Qry.CreateVariable("pax_id", otInteger, pax_id);
+    Qry.CreateVariable("now_utc", otDate, time_print.val);
+    Qry.CreateVariable("pr_print", otInteger, pr_print);
     Qry.CreateVariable("DESK", otString, TReqInfo::Instance()->desk.code);
+    Qry.CreateVariable("client_type", otString, EncodeClientType(TReqInfo::Instance()->client_type));
 
     if(tag_list[TAG::AIRLINE].processed or tag_list[TAG::AIRLINE_NAME].processed)
         prnQry.add_part(TAG::AIRLINE, pointInfo.airline);
@@ -674,6 +689,21 @@ void TPrnTagStore::get_prn_qry(TQuery &Qry)
         prnQry.add_part(TAG::SURNAME, paxInfo.surname);
     string SQLText = prnQry.text();
     Qry.SQLText = SQLText;
+    Qry.Execute();
+}
+
+void TPrnTagStore::TRStationInfo::Init()
+{
+    if(not pr_init) {
+        pr_init = true;
+        TQuery Qry(&OraSession);
+        Qry.SQLText = "select name from stations where desk = :desk and work_mode = :wm";
+        Qry.CreateVariable("desk", otString, TReqInfo::Instance()->desk.code);
+        Qry.CreateVariable("wm", otString, "");
+        Qry.Execute();
+        if(not Qry.Eof)
+            name = Qry.FieldAsString("name");
+    }
 }
 
 void TPrnTagStore::TPnrInfo::Init(int apax_id)
@@ -762,6 +792,13 @@ void TPrnTagStore::TPaxInfo::Init(int apax_id, TTagLang &tag_lang)
               "where "
               "   pax_id = :pax_id ";
           Qry.CreateVariable("lang", otString, tag_lang.GetLang());
+
+          TQuery bpPrintQry(&OraSession);
+          bpPrintQry.SQLText = "SELECT pax_id FROM bp_print WHERE pax_id=:pax_id AND pr_print=1 AND rownum=1";
+          bpPrintQry.CreateVariable("pax_id", otInteger, pax_id);
+          bpPrintQry.Execute();
+          pr_bp_print = not bpPrintQry.Eof;
+
         }
         else
         {
@@ -784,6 +821,7 @@ void TPrnTagStore::TPaxInfo::Init(int apax_id, TTagLang &tag_lang)
               "WHERE "
               "   id = :pax_id ";
           Qry.CreateVariable("adult", otString, EncodePerson(adult));
+          pr_bp_print = false;
         };
         Qry.CreateVariable("pax_id", otInteger, pax_id);
         Qry.Execute();
@@ -1086,6 +1124,11 @@ string TPrnTagStore::BCBP_M_2(TFieldParams fp)
     return buf;
 }
 
+string TPrnTagStore::AGENT(TFieldParams fp)
+{
+    return TReqInfo::Instance()->user.login;
+}
+
 string TPrnTagStore::AIRLINE(TFieldParams fp)
 {
     return tag_lang.ElemIdToTagElem(etAirline, pointInfo.airline, efmtCodeNative);
@@ -1203,9 +1246,22 @@ string TPrnTagStore::CLASS_NAME(TFieldParams fp)
     return result;
 }
 
+string TPrnTagStore::DESK(TFieldParams fp)
+{
+    return TReqInfo::Instance()->desk.code;
+}
+
 string TPrnTagStore::DOCUMENT(TFieldParams fp)
 {
     return paxInfo.document;
+}
+
+string TPrnTagStore::DUPLICATE(TFieldParams fp)
+{
+    string result;
+    if(paxInfo.pr_bp_print)
+        result = getLocaleText("„“‹ˆŠ€’", tag_lang.GetLang());
+    return result;
 }
 
 string TPrnTagStore::EST(TFieldParams fp)
@@ -1469,6 +1525,11 @@ string TPrnTagStore::REG_NO(TFieldParams fp)
     return result.str();
 }
 
+string TPrnTagStore::RSTATION(TFieldParams fp)
+{
+    return rstationInfo.name;
+}
+
 string TPrnTagStore::SCD(TFieldParams fp)
 {
     return DateTimeToStr(UTCToLocal(pointInfo.scd, AirpTZRegion(grpInfo.airp_dep)), fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU);
@@ -1559,6 +1620,12 @@ string TPrnTagStore::SURNAME(TFieldParams fp)
             throw Exception("TPrnTagStore::SURNAME: unexpected TagInfo type");
     }
     return result.substr(0, fp.len > 8 ? fp.len : fp.len == 0 ? string::npos : 8);
+}
+
+string TPrnTagStore::TIME_PRINT(TFieldParams fp)
+{
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    return DateTimeToStr(UTCToLocal(time_print.val, reqInfo->desk.tz_region), fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU);
 }
 
 string TPrnTagStore::TEST_SERVER(TFieldParams fp)

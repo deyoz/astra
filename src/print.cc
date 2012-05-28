@@ -1544,11 +1544,7 @@ void tst_dump(int pax_id, int grp_id, bool pr_lat)
         TPrnTagStore tmp_pts(grp_id, pax_id, pr_lat, NULL);
         tmp_pts.set_tag("gate", "");
         ProgTrace(TRACE5, "tag: %s; value: '%s'", iv->c_str(), tmp_pts.get_field(*iv, 0, "L", "dd.mm hh:nn", "R").c_str());
-        TQuery Qry(&OraSession);
-        tmp_pts.get_prn_qry(Qry);
-        TDateTime time_print = NowUTC();
-        Qry.CreateVariable("now_utc", otDate, time_print);
-        Qry.Execute();
+        tmp_pts.save_bp_print();
     }
 }
 
@@ -1698,7 +1694,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         if(DecodeDevFmtType(fmt_type) == dftEPSON) {
             to_esc::TConvertParams ConvertParams;
             ConvertParams.init(dev_model);
-//            ProgTrace(TRACE5, "prn_form: %s", prn_form.c_str());
+//!!!            ProgTrace(TRACE5, "prn_form: %s", prn_form.c_str());
             to_esc::convert(prn_form, ConvertParams, prnParams);
             StringToHex( string(prn_form), prn_form );
             hex=true;
@@ -1708,15 +1704,11 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         SetProp(NewTextChild(paxNode, "prn_form", prn_form),"hex",(int)hex);
 
         {
-            TQuery Qry(&OraSession);
-            parser.pts.get_prn_qry(Qry);
-            TDateTime time_print = NowUTC();
-            Qry.CreateVariable("now_utc", otDate, time_print);
-            Qry.Execute();
+            parser.pts.save_bp_print();
             SetProp(paxNode, "pax_id", iprint->pax_id);
             //!!!SetProp(paxNode, "seg_no", iv->seg_no);
             SetProp(paxNode, "reg_no", parser.pts.get_tag(TAG::REG_NO));
-            SetProp(paxNode, "time_print", DateTimeToStr(time_print));
+            SetProp(paxNode, "time_print", DateTimeToStr(parser.pts.get_time_print()));
         }
     }
 }
