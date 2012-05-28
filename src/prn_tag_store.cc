@@ -1260,7 +1260,7 @@ string TPrnTagStore::DUPLICATE(TFieldParams fp)
 {
     string result;
     if(paxInfo.pr_bp_print)
-        result = getLocaleText("„ã¡«¨ª â", tag_lang.GetLang());
+        result = getLocaleText("„“‹ˆŠ€’", tag_lang.GetLang());
     return result;
 }
 
