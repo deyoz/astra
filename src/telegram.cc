@@ -1797,7 +1797,7 @@ void Send( int point_dep, int grp_id, const TTlgContent &con1, const map<bool,st
         TelegramInterface::SendTlg(p.id);
       };
     };
-    http_send_zaglushka(bsm_bodies); //!!!
+//    http_send_zaglushka(bsm_bodies); //!!!
 };
 
 };
