@@ -13,6 +13,8 @@
 #include "oralib.h"
 #include "astra_utils.h"
 #include "astra_service.h"
+#include "tlg/tlg.h"
+#include "serverlib/posthooks.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -169,7 +171,9 @@ void IOHandler::handleRead(pion::net::HTTPResponsePtr& response, pion::net::TCPC
     //ProgTrace(TRACE1, "handleRead() : content_ptr: %s", (content_ptr ? content_ptr : "(nil)"));
 
     if(response->getStatusCode() != 200 /*and response->getStatusCode() != 500*/) // as the peer is a complete moron
-        throw Exception("Failed request: %s", post->getContent());
+        throw Exception("Failed request: %d %s",
+                response->getStatusCode(),
+                response->getStatusMessage().c_str());
 }
 
 void web_replace(string &val, string olds, string news)
@@ -186,6 +190,7 @@ string web_replace(string val)
     web_replace(val, " ", "%20");
     web_replace(val, "&", "%26");
     web_replace(val, "=", "%3D");
+    web_replace(val, "\xd\xa", "%0D%0A");
     return val;
 }
 
@@ -223,6 +228,33 @@ void send_bsm(const vector<string> host_list, const TBSMList &bsm_list)
         ProgTrace(TRACE5, "result: %s", iv->c_str());
 
     ProgTrace(TRACE5, "send msg: %s", tm.PrintWithMessage().c_str());
+}
+
+string send_bsm(const string host, const string &bsm)
+{
+    TPerfTimer tm;
+    tm.Init();
+
+    u_int port = 80;
+
+    io_service io_service;
+    typedef boost::shared_ptr<IOHandler> IOHPtr;
+    vector<IOHPtr> ioh_list;
+
+//!!!    ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, "/OutBsmService.asmx/BsmProccess?message=" + web_replace(bsm))));
+    ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, "/cgi-bin/first.pl?message=" + web_replace(bsm))));
+
+    io_service.run();
+
+    string result;
+    for(vector<IOHPtr>::iterator iv = ioh_list.begin(); iv != ioh_list.end(); iv++) {
+        if(not (*iv)->processed)
+            throw Exception("no answer for request: %s", (*iv)->post->getContent());
+        result= (*iv)->answer;
+    }
+
+    ProgTrace(TRACE5, "send msg: %s", tm.PrintWithMessage().c_str());
+    return result;
 }
 
 void my_test()
@@ -264,6 +296,14 @@ void http_send_zaglushka(vector<string> &bsm_bodies)
     ProgTrace(TRACE5, "http_send_zaglushka");
     map<string, string> fileparams;
 
+    fileparams["ADDR1_HTTP"] = "astrabet.komtex";
+    fileparams["ADDR2_HTTP"] = "astrabeta1.komtex";
+    fileparams["ADDR3_HTTP"] = "astrabeta2.komtex";
+    fileparams["ADDR4_HTTP"] = "astrabeta3.komtex";
+    fileparams["ADDR5_HTTP"] = "astrabeta4.komtex";
+    fileparams["ADDR6_HTTP"] = "astrabeta5.komtex";
+    fileparams["ADDR7_SITA"] = "astrabeta2.komtex";
+
     for(vector<string>::iterator iv = bsm_bodies.begin(); iv != bsm_bodies.end(); iv++) {
         putFile( OWN_POINT_ADDR(),
                 OWN_POINT_ADDR(),
@@ -271,5 +311,6 @@ void http_send_zaglushka(vector<string> &bsm_bodies)
                 fileparams,
                 *iv );
     }
+    registerHookAfter(sendCmdTlgHttpSnd);
 }
 

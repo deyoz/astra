@@ -40,6 +40,8 @@ typedef std::vector<TFileData> TFileDatas;
 
 std::string getFileEncoding( const std::string &file_type, const std::string &point_addr, bool pr_send=true );
 void getFileParams( int id, std::map<std::string,std::string> &fileparams );
+void getFileParams( const std::string client_canon_name, const std::string &type,
+	                  int id, std::map<std::string,std::string> &fileparams, bool send );
 bool deleteFile( int id );
 int putFile(const std::string &receiver,
             const std::string &sender,
