@@ -58,6 +58,7 @@ static void scan_tlg(void)
     }
     TlgQry.Execute();
     for(; not TlgQry.Eof; TlgQry.Next(), OraSession.Commit()) {
+        bool result = false;
         int id = TlgQry.FieldAsInteger("id");
         ProgTrace(TRACE5, "processing id %d", id);
         try {
@@ -82,6 +83,10 @@ static void scan_tlg(void)
                             << "HTTPGET: Телеграмма BSM "
                             << "(ид=" << id << ", " << im->first << "=" << im->second << ") "
                             << "отправлена.";
+                        if(str_result.empty()) {
+                            err = true;
+                            msg << " Нет ответа от сервера.";
+                        }
                     } catch(Exception &E) {
                         err = true;
                         msg
@@ -98,7 +103,6 @@ static void scan_tlg(void)
                         TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,id);
                         continue;
                     }
-                    bool result = false;
                     xmlDocPtr xml_res = NULL;
                     try {
                         xml_res = TextToXMLTree( str_result );
@@ -124,7 +128,8 @@ static void scan_tlg(void)
             ProgTrace(TRACE5, "Something goes wrong");
         }
 
-        deleteFile(id);
+//!!!        if(result)
+            deleteFile(id);
     }
 
 }

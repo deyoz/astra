@@ -21,7 +21,6 @@ using namespace EXCEPTIONS;
 using namespace boost::asio;
 using namespace pion::net;
 
-const string FILE_HTTPGET_TYPE = "HTTPGET";
 
 
 void my_test_old()
@@ -144,7 +143,7 @@ IOHandler::IOHandler(
     writer->send(boost::bind(&IOHandler::handleWrite, this, _1, _2));
 
     reader = HTTPResponseReader::create(tcp_conn, *(post), boost::bind(&IOHandler::handleRead, this, _1, _2));
-    //        reader->setTimeout(15);
+//    reader->setTimeout(0);
     reader->receive();
 }
 
@@ -249,8 +248,9 @@ string send_bsm(const string host, const string &bsm)
     string result;
     for(vector<IOHPtr>::iterator iv = ioh_list.begin(); iv != ioh_list.end(); iv++) {
         if(not (*iv)->processed)
-            throw Exception("no answer for request: %s", (*iv)->post->getContent());
+            throw Exception("no answer for request: %s", (*iv)->post->getQueryString().c_str());
         result= (*iv)->answer;
+        ProgTrace(TRACE5, "host: %s, result: '%s'", host.c_str(), result.c_str());
     }
 
     ProgTrace(TRACE5, "send msg: %s", tm.PrintWithMessage().c_str());
@@ -302,7 +302,8 @@ void http_send_zaglushka(vector<string> &bsm_bodies)
     fileparams["ADDR4_HTTP"] = "astrabeta3.komtex";
     fileparams["ADDR5_HTTP"] = "astrabeta4.komtex";
     fileparams["ADDR6_HTTP"] = "astrabeta5.komtex";
-    fileparams["ADDR7_SITA"] = "astrabeta2.komtex";
+    fileparams["ADDR7_HTTP"] = "astrabeta6.komtex";
+    fileparams["ADDR8_SITA"] = "astrabeta2.komtex";
 
     for(vector<string>::iterator iv = bsm_bodies.begin(); iv != bsm_bodies.end(); iv++) {
         putFile( OWN_POINT_ADDR(),

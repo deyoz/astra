@@ -290,8 +290,13 @@ class TTlgContent
 void LoadContent(int grp_id, TTlgContent& con);
 void CompareContent(const TTlgContent& con1, const TTlgContent& con2, std::vector<TTlgContent>& bsms);
 std::string CreateTlgBody(const TTlgContent& con, bool pr_lat);
-bool IsSend( TTypeBSendInfo info, std::map<bool,std::string> &addrs );
-void Send( int point_dep, int grp_id, const TTlgContent &con1, const std::map<bool,std::string> &addrs );
+struct TBSMAddrs {
+    std::map<bool,std::string> addrs;
+    std::map<std::string, std::string> HTTPGETparams;
+    bool empty() const { return addrs.empty() and HTTPGETparams.empty(); }
+};
+bool IsSend( TTypeBSendInfo info, TBSMAddrs &addrs );
+void Send( int point_dep, int grp_id, const TTlgContent &con1, const TBSMAddrs &addrs );
 
 };
 

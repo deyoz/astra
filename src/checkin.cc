@@ -2775,7 +2775,8 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
 
 
       //BSM
-      map<bool,string> BSMaddrs;
+      BSM::TBSMAddrs BSMaddrs;
+      map<string, string> HTTPGETparams;
       BSM::TTlgContent BSMContentBefore;
       bool BSMsend=BSM::IsSend(sendInfo,BSMaddrs);
 

@@ -1740,25 +1740,35 @@ string CreateTlgBody(const TTlgContent& con, bool pr_lat)
   return body.str();
 };
 
-bool IsSend( TTypeBSendInfo info, map<bool,string> &addrs )
+bool IsSend( TTypeBSendInfo info, TBSMAddrs &addrs )
 {
-  info.tlg_type="BSM";
-  if (!TelegramInterface::IsTypeBSend(info)) return false;
+    info.tlg_type="BSM";
+    if (!TelegramInterface::IsTypeBSend(info)) return false;
 
-  TTypeBAddrInfo addrInfo(info);
+    TTypeBAddrInfo addrInfo(info);
 
-  addrInfo.airp_trfer="";
-  addrInfo.crs="";
-  for(int pr_lat=0; pr_lat<=1; pr_lat++)
-  {
-    addrInfo.pr_lat=(bool)pr_lat;
-    string a=TelegramInterface::GetTypeBAddrs(addrInfo);
-    if (!a.empty()) addrs[addrInfo.pr_lat]=a;
-  };
-  return !addrs.empty();
+    addrInfo.airp_trfer="";
+    addrInfo.crs="";
+    for(int pr_lat=0; pr_lat<=1; pr_lat++)
+    {
+        addrInfo.pr_lat=(bool)pr_lat;
+        string a=TelegramInterface::GetTypeBAddrs(addrInfo);
+        if (!a.empty()) addrs.addrs[addrInfo.pr_lat]=a;
+    };
+
+    getFileParams(
+            addrInfo.airp_dep,
+            addrInfo.airline,
+            IntToString(addrInfo.flt_no),
+            OWN_POINT_ADDR(),
+            FILE_HTTPGET_TYPE,
+            1,
+            addrs.HTTPGETparams);
+
+    return !addrs.empty();
 };
 
-void Send( int point_dep, int grp_id, const TTlgContent &con1, const map<bool,string> &addrs )
+void Send( int point_dep, int grp_id, const TTlgContent &con1, const TBSMAddrs &addrs )
 {
     TTlgContent con2;
     LoadContent(grp_id,con2);
@@ -1777,12 +1787,9 @@ void Send( int point_dep, int grp_id, const TTlgContent &con1, const map<bool,st
     Qry.SQLText="UPDATE tlg_out SET completed=1 WHERE id=:id";
     Qry.DeclareVariable("id",otInteger);
 
-
-    vector<string> bsm_bodies; //!!!
-
     for(vector<TTlgContent>::iterator i=bsms.begin();i!=bsms.end();++i)
     {
-      for(map<bool,string>::const_iterator j=addrs.begin();j!=addrs.end();++j)
+      for(map<bool,string>::const_iterator j=addrs.addrs.begin();j!=addrs.addrs.end();++j)
       {
         if (j->second.empty()) continue;
         p.id=-1;
@@ -1790,14 +1797,22 @@ void Send( int point_dep, int grp_id, const TTlgContent &con1, const map<bool,st
         p.pr_lat=j->first;
         p.addr=format_addr_line(j->second);
         p.body=CreateTlgBody(*i,p.pr_lat);
-        if(j == addrs.begin()) bsm_bodies.push_back(p.body); //!!!
         TelegramInterface::SaveTlgOutPart(p);
         Qry.SetVariable("id",p.id);
         Qry.Execute();
         TelegramInterface::SendTlg(p.id);
       };
+      if(not addrs.HTTPGETparams.empty()) {
+          map<string, string> params = addrs.HTTPGETparams;
+          putFile( OWN_POINT_ADDR(),
+                  OWN_POINT_ADDR(),
+                  FILE_HTTPGET_TYPE,
+                  params,
+                  CreateTlgBody(*i, true));
+      }
     };
-//    http_send_zaglushka(bsm_bodies); //!!!
+    if(not addrs.HTTPGETparams.empty())
+        registerHookAfter(sendCmdTlgHttpSnd);
 };
 
 };
