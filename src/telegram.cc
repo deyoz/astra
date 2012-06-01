@@ -1804,6 +1804,11 @@ void Send( int point_dep, int grp_id, const TTlgContent &con1, const TBSMAddrs &
       };
       if(not addrs.HTTPGETparams.empty()) {
           map<string, string> params = addrs.HTTPGETparams;
+
+          params[PARAM_HEADING] = p.heading;
+          params[PARAM_TIME_CREATE] = DateTimeToStr(p.time_create, ServerFormatDateTimeAsString);
+          params[PARAM_POINT_ID] = IntToString(p.point_id);
+
           putFile( OWN_POINT_ADDR(),
                   OWN_POINT_ADDR(),
                   FILE_HTTPGET_TYPE,

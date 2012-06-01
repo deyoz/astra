@@ -7,6 +7,8 @@
 #include "http_io.h"
 #include "misc.h"
 #include "xml_unit.h"
+#include "serverlib/posthooks.h"
+#include "telegram.h"
 
 #define NICKNAME "DEN"
 #include "serverlib/test.h"
@@ -14,6 +16,7 @@
 using namespace EXCEPTIONS;
 using namespace ASTRA;
 using namespace std;
+using namespace BASIC;
 
 static int sockfd=-1;
 
@@ -41,6 +44,16 @@ bool validate_param_name(const string &val, TParamName pn)
 
 static void scan_tlg(void)
 {
+    static TQuery paramQry(&OraSession);
+    if(paramQry.SQLText.IsEmpty()) {
+        paramQry.SQLText = "select name, value from file_params where id = :id";
+        paramQry.DeclareVariable("id", otInteger);
+    }
+    static TQuery completeQry(&OraSession);
+    if(completeQry.SQLText.IsEmpty()) {
+        completeQry.SQLText="UPDATE tlg_out SET completed=1 WHERE id=:id";
+        completeQry.DeclareVariable("id",otInteger);
+    }
     static TQuery TlgQry(&OraSession);
     if (TlgQry.SQLText.IsEmpty()) {
         TlgQry.Clear();
@@ -50,8 +63,9 @@ static void scan_tlg(void)
             "   file_queue.sender = :sender and "
             "   file_queue.receiver = :receiver and "
             "   file_queue.status = :status and "
-            "   file_queue.id = files.id ";
-        TlgQry.CreateVariable("type", otString, "HTTPGET");
+            "   file_queue.id = files.id "
+            "order by file_queue.id ";
+        TlgQry.CreateVariable("type", otString, FILE_HTTPGET_TYPE);
         TlgQry.CreateVariable("sender", otString, OWN_POINT_ADDR());
         TlgQry.CreateVariable("receiver", otString, OWN_POINT_ADDR());
         TlgQry.CreateVariable("status", otString, "PUT");
@@ -61,16 +75,22 @@ static void scan_tlg(void)
         bool result = false;
         int id = TlgQry.FieldAsInteger("id");
         ProgTrace(TRACE5, "processing id %d", id);
+        void *p = NULL;
         try {
             int len = TlgQry.GetSizeLongField( "data" );
-            void *p = (char*)malloc( len );
+            p = (char*)malloc( len );
             if ( !p )
                 throw Exception( string( "Can't malloc " ) + IntToString( len ) + " byte" );
             TlgQry.FieldAsLong( "data", p );
             string data( (char*)p, len );
+            if(p) free(p);
 
             map<string, string> fileparams;
-            getFileParams(OWN_POINT_ADDR(), "HTTPGET", id, fileparams, true);
+            paramQry.SetVariable("id", id);
+            paramQry.Execute();
+            for(; not paramQry.Eof; paramQry.Next())
+                fileparams[paramQry.FieldAsString("name")] = paramQry.FieldAsString("value");
+            int point_id = ToInt(fileparams[PARAM_POINT_ID]);
             for(map<string, string>::iterator im = fileparams.begin(); im != fileparams.end(); im++) {
                 if(validate_param_name(im->first, pnHTTP)) { // handle HTTP
                     //!!!            send_bsm("bsm.icfairports.com", data);
@@ -100,7 +120,7 @@ static void scan_tlg(void)
                             << "(ид=" << id << ", " << im->first << "=" << im->second << "): ";
                     }
                     if(err) {
-                        TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,id);
+                        TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,id);
                         continue;
                     }
                     xmlDocPtr xml_res = NULL;
@@ -115,21 +135,48 @@ static void scan_tlg(void)
                         if(xml_res)
                             xmlFreeDoc(xml_res);
                         msg << " Ошибка разбора XML-ответа.";
-                        TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,id);
+                        TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,id);
                         continue;
                     }
                     if(not result) msg << " Получен ответ false.";
-                    TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,id);
-                    if(result) break;
-                } else if(validate_param_name(im->first, pnSITA)) // handle SITA
-                    ;
+                    TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,id);
+                    break;
+                } else if(validate_param_name(im->first, pnSITA)) { // handle SITA
+                    TTlgOutPartInfo p;
+                    p.tlg_type="BSM";
+                    p.point_id=ToInt(fileparams[PARAM_POINT_ID]);
+                    StrToDateTime(fileparams[PARAM_TIME_CREATE].c_str(), ServerFormatDateTimeAsString, p.time_create);
+                    p.heading = fileparams[PARAM_HEADING];
+                    p.id=-1;
+                    p.num=1;
+                    p.pr_lat=1; //???
+                    p.addr=format_addr_line(im->second);
+                    p.body=data;
+                    TelegramInterface::SaveTlgOutPart(p);
+                    completeQry.SetVariable("id",p.id);
+                    completeQry.Execute();
+                    TelegramInterface::SendTlg(p.id);
+                    break;
+                }
             }
+            deleteFile(id);
+        } catch(Exception &E) {
+            OraSession.Rollback();
+            try
+            {
+                EOracleError *orae=dynamic_cast<EOracleError*>(&E);
+                if (orae!=NULL&&
+                        (orae->Code==4061||orae->Code==4068)) continue;
+                ProgError(STDLOG,"Exception: %s (file id=%d)",E.what(),id);
+            }
+            catch(...) {};
+
+            if(p) free(p);
         } catch(...) {
+            OraSession.Rollback();
+            if(p) free(p);
             ProgTrace(TRACE5, "Something goes wrong");
         }
-
-//!!!        if(result)
-            deleteFile(id);
     }
 
 }

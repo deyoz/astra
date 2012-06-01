@@ -31,6 +31,10 @@ const std::string PARAM_FILE_REC_NO = "rec_no";
 const std::string FILE_CHECKINDATA_TYPE = "CHCKD";
 const std::string FILE_HTTPGET_TYPE = "HTTPGET";
 
+const std::string PARAM_HEADING = "HEADING";
+const std::string PARAM_POINT_ID = "POINT_ID";
+const std::string PARAM_TIME_CREATE = "TIME_CREATE";
+
 struct TFileData {
 	std::string file_data;
 	std::map<std::string,std::string> params;
