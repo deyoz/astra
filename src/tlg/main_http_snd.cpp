@@ -44,6 +44,7 @@ bool validate_param_name(const string &val, TParamName pn)
 
 static void scan_tlg(void)
 {
+    time_t time_start=time(NULL);
     static TQuery paramQry(&OraSession);
     if(paramQry.SQLText.IsEmpty()) {
         paramQry.SQLText = "select name, value from file_params where id = :id";
@@ -71,10 +72,10 @@ static void scan_tlg(void)
         TlgQry.CreateVariable("status", otString, "PUT");
     }
     TlgQry.Execute();
-    for(; not TlgQry.Eof; TlgQry.Next(), OraSession.Commit()) {
+    int trace_count=0;
+    for(; not TlgQry.Eof; trace_count++, TlgQry.Next(), OraSession.Commit()) {
         bool result = false;
         int id = TlgQry.FieldAsInteger("id");
-        ProgTrace(TRACE5, "processing id %d", id);
         void *p = NULL;
         try {
             int len = TlgQry.GetSizeLongField( "data" );
@@ -93,7 +94,6 @@ static void scan_tlg(void)
             int point_id = ToInt(fileparams[PARAM_POINT_ID]);
             for(map<string, string>::iterator im = fileparams.begin(); im != fileparams.end(); im++) {
                 if(validate_param_name(im->first, pnHTTP)) { // handle HTTP
-                    //!!!            send_bsm("bsm.icfairports.com", data);
                     string str_result;
                     ostringstream msg;
                     bool err = false;
@@ -178,8 +178,19 @@ static void scan_tlg(void)
             ProgTrace(TRACE5, "Something goes wrong");
         }
     }
-
+    time_t time_end=time(NULL);
+    if (time_end-time_start>5)
+        ProgTrace(TRACE5,"Attention! HTTPGET scan_tlg execute time: %ld secs, count=%d",
+                time_end-time_start,trace_count);
 }
+
+static const int WAIT_HTTPGET_INTERVAL()       //миллисекунды
+{
+  static int VAR=NoExists;
+  if (VAR==NoExists)
+    VAR=getTCLParam("TLG_SND_WAIT_HTTPGET_INTERVAL",1,NoExists,60000);
+  return VAR;
+};
 
 int main_http_snd_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
 {
@@ -199,7 +210,7 @@ int main_http_snd_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
 
             scan_tlg();
 
-            waitCmd("CMD_TLG_HTTP_SND",60000,buf,sizeof(buf));
+            waitCmd("CMD_TLG_HTTP_SND",WAIT_HTTPGET_INTERVAL(),buf,sizeof(buf));
         }; // end of loop
     }
     catch(EOracleError &E)

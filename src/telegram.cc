@@ -1843,6 +1843,7 @@ void TelegramInterface::SaveTlgOutPart( TTlgOutPartInfo &info )
     "VALUES(:id,:num,:type,:point_id,:addr,:heading,:body,:ending,:extra, "
     "       :pr_lat,0,0,NVL(:time_create,system.UTCSYSDATE),:time_send_scd,NULL)";
 
+  /*
   ProgTrace(TRACE5, "-------SaveTlgOutPart--------");
   ProgTrace(TRACE5, "id: %d", info.id);
   ProgTrace(TRACE5, "num: %d", info.num);
@@ -1852,6 +1853,7 @@ void TelegramInterface::SaveTlgOutPart( TTlgOutPartInfo &info )
   ProgTrace(TRACE5, "body: %s, size: %d", info.body.c_str(), info.body.size());
   ProgTrace(TRACE5, "ending: %s", info.ending.c_str());
   ProgTrace(TRACE5, "extra: %s", info.extra.c_str());
+  */
 
   Qry.CreateVariable("id",otInteger,info.id);
   Qry.CreateVariable("num",otInteger,info.num);

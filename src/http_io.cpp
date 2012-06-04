@@ -127,10 +127,8 @@ IOHandler::IOHandler(
     processed = false;
     tcp_conn = TCPConnectionPtr(new TCPConnection(io_service, false));
 
-    ProgTrace(TRACE1, "connect(%s, %u)", host.c_str(), port);
     if(boost::system::error_code error_code = tcp_conn->connect(host,port))
         throw Exception("connect failed: %d, %s", error_code.value(), error_code.message().c_str());
-    ProgTrace(TRACE1,"connected");
 
     ostringstream host_port;
     host_port << host << ":" << port;
@@ -151,23 +149,14 @@ void IOHandler::handleWrite(const boost::system::error_code &write_error, std::s
 {
     if(write_error) // encountered error sending request data
         throw Exception("connect failed: %s", write_error.message().c_str());
-    else {
-        ProgTrace(TRACE5, "hanldeWrite request: %s", post->getContent());
-        ProgTrace(TRACE1, "handleWrite() : %d bytes_written", bytes_written);
-    }
 }
 
 void IOHandler::handleRead(pion::net::HTTPResponsePtr& response, pion::net::TCPConnectionPtr& tcp_conn)
 {
     processed = true;
-    //        ProgTrace(TRACE1,"handleRead() : valid: %s",(response->isValid() ? "true" : "false"));
-    ProgTrace(TRACE5,"handleRead() : status: %d",response->getStatusCode());
-    //ProgTrace(TRACE5,"handleRead() : message: %s",response->getStatusMessage().c_str());
-    //        ProgTrace(TRACE5,"handleRead() : content_length: %d",response->getContentLength());
 
     const char* content_ptr = response->getContent();
     answer = content_ptr ? content_ptr : "";
-    //ProgTrace(TRACE1, "handleRead() : content_ptr: %s", (content_ptr ? content_ptr : "(nil)"));
 
     if(response->getStatusCode() != 200 /*and response->getStatusCode() != 500*/) // as the peer is a complete moron
         throw Exception("Failed request: %d %s",
@@ -250,10 +239,8 @@ string send_bsm(const string host, const string &bsm)
         if(not (*iv)->processed)
             throw Exception("no answer for request: %s", (*iv)->post->getQueryString().c_str());
         result= (*iv)->answer;
-        ProgTrace(TRACE5, "host: %s, result: '%s'", host.c_str(), result.c_str());
     }
 
-    ProgTrace(TRACE5, "send msg: %s", tm.PrintWithMessage().c_str());
     return result;
 }
 
@@ -290,28 +277,3 @@ void my_test()
 
     send_bsm(host_list, bsm_list);
 }
-
-void http_send_zaglushka(vector<string> &bsm_bodies)
-{
-    ProgTrace(TRACE5, "http_send_zaglushka");
-    map<string, string> fileparams;
-
-    fileparams["ADDR1_HTTP"] = "astrabet.komtex";
-    fileparams["ADDR2_HTTP"] = "astrabeta1.komtex";
-    fileparams["ADDR3_HTTP"] = "astrabeta2.komtex";
-    fileparams["ADDR4_HTTP"] = "astrabeta3.komtex";
-    fileparams["ADDR5_HTTP"] = "astrabeta4.komtex";
-    fileparams["ADDR6_HTTP"] = "astrabeta5.komtex";
-    fileparams["ADDR7_HTTP"] = "astrabeta6.komtex";
-    fileparams["ADDR8_SITA"] = "astrabeta2.komtex";
-
-    for(vector<string>::iterator iv = bsm_bodies.begin(); iv != bsm_bodies.end(); iv++) {
-        putFile( OWN_POINT_ADDR(),
-                OWN_POINT_ADDR(),
-                FILE_HTTPGET_TYPE,
-                fileparams,
-                *iv );
-    }
-    registerHookAfter(sendCmdTlgHttpSnd);
-}
-
