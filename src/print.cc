@@ -1127,64 +1127,63 @@ void big_test(PrintDataParser &parser, TDevOperType op_type)
 void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
 {
     ProgTrace(TRACE5, "bt_type: '%s'", tag_key.type.c_str());
+    //трансфер
     TTrferRoute route;
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "SELECT airp_dep, class, ckin.get_main_pax_id(:grp_id,0) AS pax_id FROM pax_grp where grp_id = :grp_id";
-    Qry.CreateVariable("GRP_ID", otInteger, tag_key.grp_id);
-    Qry.Execute();
-    if (Qry.Eof)
-      throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
     if (!route.GetRoute(tag_key.grp_id, trtWithFirstSeg) || route.empty())
       throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
     DumpRoute(route);
-    bool pr_unaccomp = Qry.FieldIsNULL("class");
-    int pax_id=NoExists;
-    if(!pr_unaccomp)
-    {
-      if (Qry.FieldIsNULL("pax_id"))
-        throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
-      pax_id = Qry.FieldAsInteger("pax_id");
-    };
+    //бирки
+    TQuery Qry(&OraSession);
     string SQLText =
         "SELECT "
-        "   bag_tags.num, "
-        "   bag2.pr_liab_limit, "
-        "   bag_tags.no, "
-        "   bag_tags.color, "
-        "   bag_tags.tag_type, "
-        "   to_char(bag2.amount) bag_amount, "
-        "   to_char(bag2.weight) bag_weight "
+        "  pax_grp.class, "
+        "  bag_tags.tag_type, "
+        "  bag_tags.no, "
+        "  bag_tags.color, "
+        "  bag2.bag_type, "
+        "  bag2.amount AS bag_amount, "
+        "  bag2.weight AS bag_weight, "
+        "  bag2.pr_liab_limit, "
+        "  ckin.get_bag_pool_pax_id(bag_tags.grp_id,NVL(bag2.bag_pool_num,1)) AS pax_id "
         "FROM "
-        "   bag_tags, "
-        "   tag_types, "
-        "   bag2 "
+        "  pax_grp, "
+        "  bag_tags, "
+        "  tag_types, "
+        "  bag2 "
         "WHERE "
-        "   bag_tags.tag_type=tag_types.code AND "
-        "   bag_tags.grp_id = :grp_id AND "
-        "   bag_tags.grp_id = bag2.grp_id(+) and "
-        "   bag_tags.bag_num = bag2.num(+) and ";
+        "  bag_tags.grp_id=pax_grp.grp_id AND "
+        "  tag_types.code=bag_tags.tag_type AND "
+        "  bag_tags.grp_id = bag2.grp_id(+) AND "
+        "  bag_tags.bag_num = bag2.num(+) AND "
+        "  pax_grp.grp_id = :grp_id AND "
+        "  ckin.bag_pool_refused(bag_tags.grp_id, "
+        "                        NVL(bag2.bag_pool_num,1), "
+        "                        pax_grp.class, "
+        "                        pax_grp.bag_refuse)=0 AND ";
     if(tag_key.no >= 0.0) {
         SQLText +=
-            "   bag_tags.tag_type = :tag_type and "
-            "   nvl(bag_tags.color, ' ') = nvl(:color, ' ') and "
-            "   bag_tags.no = :no and ";
+        "  bag_tags.tag_type = :tag_type AND "
+        "  bag_tags.no = :no AND "
+        "  NVL(bag_tags.color, ' ') = NVL(:color, ' ') AND ";
         Qry.CreateVariable("tag_type", otString, tag_key.type);
         Qry.CreateVariable("color", otString, tag_key.color);
         Qry.CreateVariable("no", otFloat, tag_key.no);
     } else
         SQLText +=
-            "   bag_tags.pr_print = 0 AND ";
+        "  bag_tags.pr_print = 0 AND ";
     SQLText +=
-        "   tag_types.printable <> 0"
+        "  tag_types.printable <> 0 "
         "ORDER BY "
         "   bag_tags.tag_type, "
         "   bag_tags.num";
     Qry.SQLText = SQLText;
+    Qry.CreateVariable("grp_id", otInteger, tag_key.grp_id);
     Qry.Execute();
-    ProgTrace(TRACE5, "SQLText: %s", Qry.SQLText.SQLText());
+    //ProgTrace(TRACE5, "SQLText: %s", Qry.SQLText.SQLText());
     if (Qry.Eof) return;
-    string tag_type;
+
+    bool pr_unaccomp = Qry.FieldIsNULL("class");
+
     vector<string> prn_forms;
     xmlNodePtr printBTNode = NewTextChild(dataNode, "printBT");
     xmlNodePtr pectabsNode = NewTextChild(printBTNode, "pectabs");
@@ -1192,25 +1191,11 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
 
     TReqInfo *reqInfo = TReqInfo::Instance();
     TDateTime issued = UTCToLocal(NowUTC(),reqInfo->desk.tz_region);
-
-    TQuery unaccQry(&OraSession);
-    unaccQry.SQLText =
-        "select "
-        "   bag2.bag_type "
-        "from "
-        "   bag_tags, "
-        "   bag2 "
-        "where "
-        "   bag_tags.grp_id=bag2.grp_id and "
-        "   bag_tags.bag_num=bag2.num and "
-        "   bag_tags.grp_id=:grp_id and bag_tags.num=:tag_num ";
-    unaccQry.CreateVariable("grp_id",otInteger,tag_key.grp_id);
-    unaccQry.DeclareVariable("tag_num",otInteger);
-
+    string prior_tag_type;
     while(!Qry.Eof) {
-        string tmp_tag_type = Qry.FieldAsString("tag_type");
-        if(tag_type != tmp_tag_type) {
-            tag_type = tmp_tag_type;
+        string tag_type = Qry.FieldAsString("tag_type");
+        if(prior_tag_type != tag_type) {
+            prior_tag_type = tag_type;
             get_bt_forms(tag_type, tag_key.dev_model, tag_key.fmt_type, pectabsNode, prn_forms);
         }
 
@@ -1219,9 +1204,17 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
         int no = tag_no % 1000000;
 
         xmlNodePtr tagNode = NewTextChild(tagsNode, "tag");
+        SetProp(tagNode, "type", Qry.FieldAsString("tag_type"));
         SetProp(tagNode, "color", Qry.FieldAsString("color"));
-        SetProp(tagNode, "type", tag_type);
-        SetProp(tagNode, "no", tag_no);
+        SetProp(tagNode, "no", FloatToString(Qry.FieldAsFloat("no")));
+
+        int pax_id=NoExists;
+        if(!pr_unaccomp)
+        {
+          if (Qry.FieldIsNULL("pax_id"))
+            throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
+          pax_id = Qry.FieldAsInteger("pax_id");
+        };
 
         PrintDataParser parser(tag_key.grp_id, pax_id, tag_key.pr_lat, NULL, route);
 
@@ -1236,11 +1229,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
         parser.pts.set_tag("liab_limit", upperc((pr_liab ? "Огр. ответственности" : "")));
 
         if(pr_unaccomp) {
-            unaccQry.SetVariable("tag_num",Qry.FieldAsInteger("num"));
-            unaccQry.Execute();
-            int bag_type = NoExists;
-            if (!unaccQry.Eof)
-                bag_type = unaccQry.FieldAsInteger("bag_type");
+            int bag_type = Qry.FieldIsNULL("bag_type")?NoExists:Qry.FieldAsInteger("bag_type");
             parser.pts.set_tag(TAG::SURNAME, bag_type);
             parser.pts.set_tag(TAG::FULLNAME, bag_type);
         }
@@ -1254,12 +1243,14 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
             set_via_fields(parser, route, i * VIA_num, (i + 1) * VIA_num);
 //!!!            big_test(parser, dotPrnBT);
             string prn_form = parser.parse(prn_forms.back());
+//            ProgTrace(TRACE5, "prn_form: %s", prn_form.c_str());
             SetProp(NewTextChild(tagNode, "prn_form", prn_form),"hex",(int)false);
         }
 
         if(BT_reminder) {
             set_via_fields(parser, route, route_size - BT_reminder, route_size);
             string prn_form = parser.parse(prn_forms[BT_reminder - 1]);
+//            ProgTrace(TRACE5, "prn_form: %s", prn_form.c_str());
             SetProp(NewTextChild(tagNode, "prn_form", prn_form),"hex",(int)false);
         }
         Qry.Next();
@@ -1707,7 +1698,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         if(DecodeDevFmtType(fmt_type) == dftEPSON) {
             to_esc::TConvertParams ConvertParams;
             ConvertParams.init(dev_model);
-            //ProgTrace(TRACE5, "prn_form: %s", prn_form.c_str());
+//            ProgTrace(TRACE5, "prn_form: %s", prn_form.c_str());
             to_esc::convert(prn_form, ConvertParams, prnParams);
             StringToHex( string(prn_form), prn_form );
             hex=true;

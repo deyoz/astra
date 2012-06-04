@@ -31,9 +31,9 @@ struct TLogMsg {
       ev_order = ASTRA::NoExists;
       ev_type = ASTRA::evtUnknown;
       msg = "";
-      id1 = 0;
-      id2 = 0;
-      id3 = 0;
+      id1 = ASTRA::NoExists;
+      id2 = ASTRA::NoExists;
+      id3 = ASTRA::NoExists;
     };
 };
 
@@ -226,13 +226,13 @@ class TReqInfo
     void MsgToLog(TLogMsg &msg);
     void MsgToLog(std::string msg, ASTRA::TEventType ev_type, int id1, int id2, int id3);
     void MsgToLog(std::string msg, ASTRA::TEventType ev_type) {
-      MsgToLog(msg, ev_type,0,0,0);
+      MsgToLog(msg, ev_type, ASTRA::NoExists, ASTRA::NoExists, ASTRA::NoExists);
     }
     void MsgToLog(std::string msg, ASTRA::TEventType ev_type, int id1) {
-      MsgToLog(msg, ev_type,id1,0,0);
+      MsgToLog(msg, ev_type, id1, ASTRA::NoExists, ASTRA::NoExists);
     }
     void MsgToLog(std::string msg, ASTRA::TEventType ev_type, int id1, int id2) {
-      MsgToLog(msg, ev_type,id1,id2,0);
+      MsgToLog(msg, ev_type, id1, id2, ASTRA::NoExists);
     }
     void setPerform();
     void clearPerform();
@@ -252,9 +252,9 @@ void MsgToLog(TLogMsg &msg,
               const std::string &desk);
 void MsgToLog(std::string msg,
               ASTRA::TEventType ev_type,
-              int id1 = 0,
-              int id2 = 0,
-              int id3 = 0);
+              int id1 = ASTRA::NoExists,
+              int id2 = ASTRA::NoExists,
+              int id3 = ASTRA::NoExists);
 
 ASTRA::TRptType DecodeRptType(const std::string s);
 const std::string EncodeRptType(ASTRA::TRptType s);

@@ -1247,4 +1247,104 @@ WHERE move_arx_ext.date_range>=5 AND
       move_arx_ext.part_key=arx_points.part_key AND
       move_arx_ext.move_id=arx_points.move_id
 ORDER BY arx_points.part_key, arx_points.move_id*/
+
+int alter_bag_pool_num(int argc,char **argv)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText="SELECT MIN(part_key) AS min_part_key FROM arx_pax";
+  Qry.Execute();
+  if (Qry.Eof || Qry.FieldIsNULL("min_part_key")) return 0;
+  TDateTime min_part_key=Qry.FieldAsDateTime("min_part_key");
+
+  Qry.SQLText="SELECT MAX(part_key) AS max_part_key FROM arx_pax";
+  Qry.Execute();
+  if (Qry.Eof || Qry.FieldIsNULL("max_part_key")) return 0;
+  TDateTime max_part_key=Qry.FieldAsDateTime("max_part_key");
+
+  Qry.SQLText=
+    "CREATE OR REPLACE "
+    "  FUNCTION get_arx_main_pax_id(vpart_key in date, "
+    "                               vgrp_id IN arx_pax_grp.grp_id%TYPE) RETURN arx_pax.pax_id%TYPE "
+    "IS "
+    "  CURSOR cur IS "
+    "    SELECT pax_id FROM arx_pax "
+    "    WHERE part_key=vpart_key AND grp_id=vgrp_id "
+    "    ORDER BY DECODE(refuse,NULL,0,1), "
+    "             DECODE(seats,0,1,0), "
+    "             DECODE(pers_type,'‚‡',0,'',1,2), "
+    "             reg_no; "
+    "curRow	cur%ROWTYPE; "
+    "res	arx_pax.pax_id%TYPE; "
+    "BEGIN "
+    "  res:=NULL; "
+    "  OPEN cur; "
+    "  FETCH cur INTO curRow; "
+    "  IF cur%FOUND THEN "
+    "    res:=curRow.pax_id; "
+    "  END IF; "
+    "  CLOSE cur; "
+    "  RETURN res; "
+    "END get_arx_main_pax_id; ";
+  Qry.Execute();
+
+
+  Qry.SQLText=
+    "CREATE OR REPLACE PROCEDURE alter_bag_pool_num(low_part_key DATE, "
+    "                                               high_part_key DATE) "
+    "IS "
+    "  CURSOR cur(vlow_part_key DATE, "
+    "             vhigh_part_key DATE) IS "
+    "    SELECT part_key,grp_id,class "
+    "    FROM arx_pax_grp "
+    "    WHERE part_key>=vlow_part_key AND part_key<vhigh_part_key; "
+    "  main_pax_id arx_pax.pax_id%TYPE; "
+    "BEGIN "
+    "  FOR curRow IN cur(low_part_key, high_part_key) LOOP "
+    "    IF curRow.class IS NOT NULL THEN "
+    "      UPDATE arx_bag2 SET bag_pool_num=1 "
+    "      WHERE part_key=curRow.part_key AND grp_id=curRow.grp_id AND bag_pool_num IS NULL; "
+    "      IF SQL%FOUND THEN "
+    "        SELECT get_arx_main_pax_id(curRow.part_key, curRow.grp_id) INTO main_pax_id FROM dual; "
+    "        UPDATE arx_pax SET bag_pool_num=1 "
+    "        WHERE part_key=curRow.part_key AND grp_id=curRow.grp_id AND pax_id=main_pax_id; "
+    "        IF SQL%NOTFOUND THEN "
+    "          raise_application_error(-20000,'UPDATE arx_pax error'); "
+    "        END IF; "
+    "      END IF; "
+    "    ELSE "
+    "      UPDATE arx_bag2 SET bag_pool_num=1 "
+    "      WHERE part_key=curRow.part_key AND grp_id=curRow.grp_id; "
+    "    END IF; "
+    "  END LOOP; "
+    "END alter_bag_pool_num; ";
+  Qry.Execute();
+
+  Qry.Clear();
+  Qry.SQLText=
+    "BEGIN "
+    "  alter_bag_pool_num(:low_part_key, :high_part_key); "
+    "END;";
+  Qry.DeclareVariable("low_part_key", otDate);
+  Qry.DeclareVariable("high_part_key", otDate);
+
+  int processed=0;
+
+  for(TDateTime curr_part_key=min_part_key; curr_part_key<=max_part_key; curr_part_key+=0.2, processed++)
+  {
+    alter_wait(processed);
+    Qry.SetVariable("low_part_key",curr_part_key);
+    Qry.SetVariable("high_part_key",curr_part_key+0.2);
+    Qry.Execute();
+    OraSession.Commit();
+  };
+
+  Qry.Clear();
+  Qry.SQLText="DROP PROCEDURE alter_bag_pool_num";
+  Qry.Execute();
+  Qry.SQLText="DROP FUNCTION get_arx_main_pax_id";
+  Qry.Execute();
+
+  return 0;
+};
          

@@ -12,6 +12,7 @@
 #include "term_version.h"
 #include "astra_misc.h"
 #include "checkin.h"
+#include "baggage.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -90,7 +91,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   {
     Qry.Clear();
     Qry.SQLText=
-      "SELECT receipt_id,annul_date,point_id,grp_id,ckin.get_main_pax_id(grp_id) AS pax_id "
+      "SELECT receipt_id,annul_date,point_id,grp_id,ckin.get_main_pax_id2(grp_id) AS pax_id "
       "FROM bag_receipts WHERE no=:no";
     Qry.CreateVariable("no",otFloat,NodeAsFloat("receipt_no",reqNode));
     Qry.Execute();
@@ -133,7 +134,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   {
     Qry.Clear();
     Qry.SQLText=
-      "SELECT grp_id,ckin.get_main_pax_id(grp_id) AS pax_id "
+      "SELECT grp_id,ckin.get_main_pax_id2(grp_id) AS pax_id "
       "FROM pax_grp "
       "WHERE grp_id=:grp_id";
     Qry.CreateVariable("grp_id",otInteger,NodeAsInteger("grp_id",reqNode));
@@ -351,8 +352,33 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     NewTextChild(markFltNode,"pr_mark_norms",(int)(Qry.FieldAsInteger("pr_mark_norms")!=0));
     NewTextChild(markFltNode,"pr_mark_rates",(int)(Qry.FieldAsInteger("pr_mark_norms")!=0));
   };
+  
+  if (!pr_unaccomp)
+  {
+    //загрузка главных пассажиров багажных пулов
+    Qry.Clear();
+    Qry.SQLText=
+      "SELECT pax_id, bag_pool_num, surname, name, pers_type, seats, refuse "
+      "FROM pax "
+      "WHERE grp_id=:grp_id AND bag_pool_num IS NOT NULL AND "
+      "      pax_id=ckin.get_bag_pool_pax_id(grp_id,bag_pool_num)";
+    Qry.CreateVariable("grp_id",otInteger,grp_id);
+    Qry.Execute();
+    xmlNodePtr paxsNode=NewTextChild(dataNode,"passengers");
+    for(;!Qry.Eof;Qry.Next())
+    {
+      xmlNodePtr paxNode=NewTextChild(paxsNode,"pax");
+      NewTextChild(paxNode,"pax_id",Qry.FieldAsInteger("pax_id"));
+      NewTextChild(paxNode,"surname",Qry.FieldAsString("surname"));
+      NewTextChild(paxNode,"name",Qry.FieldAsString("name"),"");
+      NewTextChild(paxNode,"pers_type",Qry.FieldAsString("pers_type"),EncodePerson(ASTRA::adult));
+      NewTextChild(paxNode,"seats",Qry.FieldAsInteger("seats"),1);
+      NewTextChild(paxNode,"refuse",Qry.FieldAsString("refuse"),"");
+      NewTextChild(paxNode,"bag_pool_num",Qry.FieldAsInteger("bag_pool_num"));
+    };
+  };
 
-  CheckInInterface::LoadBag(grp_id,dataNode);
+  CheckIn::LoadBag(grp_id,dataNode);
   CheckInInterface::LoadPaidBag(grp_id,dataNode);
   LoadReceipts(grp_id,true,prnParams.pr_lat,dataNode);
 };
@@ -451,7 +477,7 @@ void PaymentInterface::SaveBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     int tid=LockAndUpdTid(point_dep,grp_id,NodeAsInteger("tid",reqNode));
     NewTextChild(resNode,"tid",tid);
 
-    CheckInInterface::SaveBag(point_dep,grp_id,ASTRA::NoExists,reqNode);
+    CheckIn::SaveBag(point_dep,grp_id,ASTRA::NoExists,reqNode);
     CheckInInterface::SavePaidBag(grp_id,reqNode);
 
     TReqInfo::Instance()->MsgToLog(
@@ -496,7 +522,7 @@ void PaymentInterface::UpdPrepay(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         if (idNode==NULL)
             Qry.SQLText=
                 "BEGIN "
-                "  SELECT id__seq.nextval INTO :receipt_id FROM dual; "
+                "  SELECT cycle_id__seq.nextval INTO :receipt_id FROM dual; "
                 "  INSERT INTO bag_prepay "
                 "        (receipt_id,grp_id,no,aircode,ex_weight,bag_type,value,value_cur) "
                 "  VALUES(:receipt_id,:grp_id,:no,:aircode,:ex_weight,:bag_type,:value,:value_cur); "
@@ -694,7 +720,7 @@ int PaymentInterface::PutReceiptToDB(const TBagReceipt &rcpt, int point_id, int 
   Qry.Clear();
   Qry.SQLText=
     "BEGIN "
-    "  SELECT id__seq.nextval,SYSTEM.UTCSYSDATE INTO :receipt_id,:issue_date FROM dual; "
+    "  SELECT cycle_id__seq.nextval,SYSTEM.UTCSYSDATE INTO :receipt_id,:issue_date FROM dual; "
     "  INSERT INTO bag_receipts "
     "        (receipt_id,point_id,grp_id,status,is_inter,desk_lang,form_type,no,pax_name,pax_doc,service_type,bag_type,bag_name, "
     "         tickets,prev_no,airline,aircode,flt_no,suffix,airp_dep,airp_arv,ex_amount,ex_weight,value_tax, "
@@ -1043,8 +1069,7 @@ void PaymentInterface::GetReceiptFromXML(xmlNodePtr reqNode, TBagReceipt &rcpt)
 
   Qry.Clear();
   Qry.SQLText=
-    "SELECT ckin.get_main_pax_id(pax_grp.grp_id) AS pax_id, "
-    "       point_dep, point_arv, pr_mark_norms, "
+    "SELECT point_dep, point_arv, pr_mark_norms, "
     "       mark_trips.airline AS airline_mark, "
     "       mark_trips.flt_no AS flt_no_mark, "
     "       mark_trips.suffix AS suffix_mark "
