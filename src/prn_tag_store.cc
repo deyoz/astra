@@ -261,7 +261,7 @@ TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tag
     prn_tag_props(aroute.empty() ? dotPrnBP : dotPrnBT)
 {
     print_mode = 0;
-    grpInfo.Init(agrp_id);
+    grpInfo.Init(agrp_id, apax_id);
     tag_lang.Init(grpInfo.point_dep, grpInfo.point_arv, aroute, apr_lat != 0);
     pax_id = apax_id;
     if(prn_tag_props.op == dotPrnBP and pax_id == NoExists)
@@ -689,7 +689,10 @@ void TPrnTagStore::TFqtInfo::Init(int apax_id)
     if(not pr_init) {
         pr_init = true;
         TQuery Qry(&OraSession);
-        Qry.SQLText = "select airline, no, extra from pax_fqt where pax_id = :pax_id and rownum < 2";
+        if (!isTestPaxId(apax_id))
+          Qry.SQLText = "select airline, no, extra from pax_fqt where pax_id = :pax_id and rownum < 2";
+        else
+          Qry.SQLText = "SELECT pnr_airline AS airline, fqt_no AS no, NULL AS extra FROM test_pax WHERE id=:pax_id";
         Qry.CreateVariable("pax_id", otInteger, apax_id);
         Qry.Execute();
         if(!Qry.Eof) {
@@ -733,31 +736,56 @@ void TPrnTagStore::TPaxInfo::Init(int apax_id, TTagLang &tag_lang)
     if(pax_id == NoExists) {
         pax_id = apax_id;
         TQuery Qry(&OraSession);
-        Qry.SQLText =
-            "select "
-            "   surname, "
-            "   name, "
-            "   ticket_rem, "
-            "   ticket_no, "
-            "   coupon_no, "
-            "   DECODE( "
-            "       pax.SEAT_TYPE, "
-            "       'SMSA',1, "
-            "       'SMSW',1, "
-            "       'SMST',1, "
-            "       0) pr_smoke, "
-            "   reg_no, "
-            "   seats, "
-            "   pers_type, "
-            "   ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bag_amount, "
-            "   ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bag_weight, "
-            "   ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags "
-            "from "
-            "   pax "
-            "where "
-            "   pax_id = :pax_id ";
+        if (!isTestPaxId(pax_id))
+        {
+          Qry.SQLText =
+              "select "
+              "   surname, "
+              "   name, "
+              "   ticket_rem, "
+              "   ticket_no, "
+              "   coupon_no, "
+              "   DECODE( "
+              "       pax.SEAT_TYPE, "
+              "       'SMSA',1, "
+              "       'SMSW',1, "
+              "       'SMST',1, "
+              "       0) pr_smoke, "
+              "   reg_no, "
+              "   seats, "
+              "   pers_type, "
+              "   ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bag_amount, "
+              "   ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bag_weight, "
+              "   ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags "
+              "from "
+              "   pax "
+              "where "
+              "   pax_id = :pax_id ";
+          Qry.CreateVariable("lang", otString, tag_lang.GetLang());
+        }
+        else
+        {
+          Qry.SQLText =
+              "SELECT "
+              "   surname, "
+              "   NULL AS name, "
+              "   'TKNE' AS ticket_rem, "
+              "   tkn_no AS ticket_no, "
+              "   1 AS coupon_no, "
+              "   0 AS pr_smoke, "
+              "   reg_no, "
+              "   1 AS seats, "
+              "   :adult AS pers_type, "
+              "   0 AS bag_amount, "
+              "   0 AS bag_weight, "
+              "   NULL AS tags "
+              "FROM "
+              "   test_pax "
+              "WHERE "
+              "   id = :pax_id ";
+          Qry.CreateVariable("adult", otString, EncodePerson(adult));
+        };
         Qry.CreateVariable("pax_id", otInteger, pax_id);
-        Qry.CreateVariable("lang", otString, tag_lang.GetLang());
         Qry.Execute();
         if(Qry.Eof)
             throw Exception("TPrnTagStore::TPaxInfo::Init no data found for pax_id = %d", pax_id);
@@ -778,34 +806,71 @@ void TPrnTagStore::TPaxInfo::Init(int apax_id, TTagLang &tag_lang)
     }
 }
 
-void TPrnTagStore::TGrpInfo::Init(int agrp_id)
+void TPrnTagStore::TGrpInfo::Init(int agrp_id, int apax_id)
 {
     if(grp_id == NoExists) {
         grp_id = agrp_id;
         TQuery Qry(&OraSession);
-        Qry.SQLText =
-            "select "
-            "   point_dep, "
-            "   point_arv, "
-            "   airp_dep, "
-            "   airp_arv, "
-            "   class_grp, "
-            "   DECODE(pax_grp.bag_refuse,0,pax_grp.excess,0) AS excess "
-            "from "
-            "   pax_grp "
-            "where "
-            "   grp_id = :grp_id ";
-        Qry.CreateVariable("grp_id", otInteger, grp_id);
-        Qry.Execute();
-        if(Qry.Eof)
+        if (!isTestPaxId(grp_id))
+        {
+          Qry.SQLText =
+              "select "
+              "   point_dep, "
+              "   point_arv, "
+              "   airp_dep, "
+              "   airp_arv, "
+              "   class_grp, "
+              "   DECODE(pax_grp.bag_refuse,0,pax_grp.excess,0) AS excess "
+              "from "
+              "   pax_grp "
+              "where "
+              "   grp_id = :grp_id ";
+          Qry.CreateVariable("grp_id", otInteger, grp_id);
+          Qry.Execute();
+          if(Qry.Eof)
+              throw Exception("TPrnTagStore::TGrpInfo::Init no data found for grp_id = %d", grp_id);
+          airp_dep = Qry.FieldAsString("airp_dep");
+          airp_arv = Qry.FieldAsString("airp_arv");
+          point_dep = Qry.FieldAsInteger("point_dep");
+          point_arv = Qry.FieldAsInteger("point_arv");
+          if(not Qry.FieldIsNULL("class_grp"))
+              class_grp = Qry.FieldAsInteger("class_grp");
+          excess = Qry.FieldAsInteger("excess");
+        }
+        else
+        {
+          point_dep=grp_id-TEST_ID_BASE;
+          Qry.Clear();
+          Qry.SQLText =
+            "SELECT airp AS airp_dep FROM points WHERE point_id=:point_id AND pr_del>=0";
+          Qry.CreateVariable("point_id", otInteger, point_dep);
+          Qry.Execute();
+          if(Qry.Eof)
+              throw Exception("TPrnTagStore::TGrpInfo::Init no data found for grp_id = %d", grp_id);
+          airp_dep = Qry.FieldAsString("airp_dep");
+          
+          TTripRouteItem next;
+          TTripRoute().GetNextAirp(NoExists,point_dep,trtNotCancelled,next);
+          if (next.point_id==NoExists || next.airp.empty())
             throw Exception("TPrnTagStore::TGrpInfo::Init no data found for grp_id = %d", grp_id);
-        airp_dep = Qry.FieldAsString("airp_dep");
-        airp_arv = Qry.FieldAsString("airp_arv");
-        point_dep = Qry.FieldAsInteger("point_dep");
-        point_arv = Qry.FieldAsInteger("point_arv");
-        if(not Qry.FieldIsNULL("class_grp"))
-            class_grp = Qry.FieldAsInteger("class_grp");
-        excess = Qry.FieldAsInteger("excess");
+          point_arv = next.point_id;
+          airp_arv = next.airp;
+        
+          Qry.Clear();
+          Qry.SQLText =
+            "SELECT cls_grp.id AS class_grp "
+            "FROM test_pax, subcls, cls_grp "
+	          "WHERE test_pax.subclass=subcls.code AND "
+	          "      subcls.class=cls_grp.class AND "
+            "      cls_grp.airline IS NULL AND cls_grp.airp IS NULL AND "
+            "      test_pax.id=:pax_id";
+          Qry.CreateVariable("pax_id", otInteger, apax_id);
+          Qry.Execute();
+          if(Qry.Eof)
+              throw Exception("TPrnTagStore::TGrpInfo::Init no data found for grp_id = %d", grp_id);
+          class_grp = Qry.FieldAsInteger("class_grp");
+          excess =0;
+        };
     }
 }
 
@@ -842,26 +907,29 @@ void TPrnTagStore::TPointInfo::Init(int apoint_id, int agrp_id)
         airline = operFlt.airline;
         flt_no = operFlt.flt_no;
         suffix = operFlt.suffix;
-        Qry.Clear();
-        Qry.SQLText=
-            "SELECT mark_trips.airline,mark_trips.flt_no,mark_trips.suffix, "
-            "       mark_trips.scd AS scd_out,mark_trips.airp_dep AS airp "
-            "FROM pax_grp,mark_trips "
-            "WHERE pax_grp.point_id_mark=mark_trips.point_id AND pax_grp.grp_id=:grp_id";
-        Qry.CreateVariable("grp_id",otInteger,agrp_id);
-        Qry.Execute();
-        if (!Qry.Eof)
+        if (!isTestPaxId(agrp_id))
         {
-            TTripInfo markFlt(Qry);
-            TCodeShareSets codeshareSets;
-            codeshareSets.get(operFlt,markFlt);
-            if ( codeshareSets.pr_mark_bp )
-            {
-                airline = markFlt.airline;
-                flt_no = markFlt.flt_no;
-                suffix = markFlt.suffix;
-            };
-        }
+          Qry.Clear();
+          Qry.SQLText=
+              "SELECT mark_trips.airline,mark_trips.flt_no,mark_trips.suffix, "
+              "       mark_trips.scd AS scd_out,mark_trips.airp_dep AS airp "
+              "FROM pax_grp,mark_trips "
+              "WHERE pax_grp.point_id_mark=mark_trips.point_id AND pax_grp.grp_id=:grp_id";
+          Qry.CreateVariable("grp_id",otInteger,agrp_id);
+          Qry.Execute();
+          if (!Qry.Eof)
+          {
+              TTripInfo markFlt(Qry);
+              TCodeShareSets codeshareSets;
+              codeshareSets.get(operFlt,markFlt);
+              if ( codeshareSets.pr_mark_bp )
+              {
+                  airline = markFlt.airline;
+                  flt_no = markFlt.flt_no;
+                  suffix = markFlt.suffix;
+              };
+          }
+        };
         TripsInterface::readGates(point_id, gates);
     }
 }
@@ -1419,22 +1487,38 @@ string TPrnTagStore::STR_SEAT_NO(TFieldParams fp)
 string TPrnTagStore::get_fmt_seat(string fmt, bool english_tag)
 {
     TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "select "
-        "   salons.get_seat_no(:pax_id,:seats,NULL,NULL,:fmt,NULL,:is_inter) AS seat_no "
-        "from dual";
-    Qry.CreateVariable("pax_id", otInteger, paxInfo.pax_id);
-    Qry.CreateVariable("seats", otInteger, paxInfo.seats);
-    Qry.CreateVariable("fmt", otString, fmt);
+    if (!isTestPaxId(paxInfo.pax_id))
+    {
+      Qry.SQLText =
+          "select "
+          "   salons.get_seat_no(:pax_id,:seats,NULL,NULL,:fmt,NULL,:is_inter) AS seat_no "
+          "from dual";
+      Qry.CreateVariable("pax_id", otInteger, paxInfo.pax_id);
+      Qry.CreateVariable("seats", otInteger, paxInfo.seats);
+      Qry.CreateVariable("fmt", otString, fmt);
 
-    Qry.CreateVariable("is_inter", otInteger, 0);
-    Qry.Execute();
-    if ((tag_lang.get_pr_lat() or english_tag) && not is_lat(Qry.FieldAsString("seat_no")))
-    {        
-        Qry.SetVariable("is_inter",1);
-        Qry.Execute();
+      Qry.CreateVariable("is_inter", otInteger, 0);
+      Qry.Execute();
+      if ((tag_lang.get_pr_lat() or english_tag) && not is_lat(Qry.FieldAsString("seat_no")))
+      {
+          Qry.SetVariable("is_inter",1);
+          Qry.Execute();
+      }
+      return Qry.FieldAsString("seat_no");
     }
-    return Qry.FieldAsString("seat_no");
+    else
+    {
+      Qry.SQLText =
+        "SELECT seat_xname, seat_yname FROM test_pax WHERE id=:pax_id";
+      Qry.CreateVariable("pax_id", otInteger, paxInfo.pax_id);
+      Qry.Execute();
+      if (Qry.Eof || Qry.FieldIsNULL("seat_yname") || Qry.FieldIsNULL("seat_xname")) return "";
+      TSeat seat(Qry.FieldAsString("seat_yname"),Qry.FieldAsString("seat_xname"));
+      string result=GetSeatView(seat, lowerc(fmt), false);
+      if ((tag_lang.get_pr_lat() or english_tag) && not is_lat(result))
+        result=GetSeatView(seat, lowerc(fmt), true);
+      return result;
+    };
 }
 
 string TPrnTagStore::LIST_SEAT_NO(TFieldParams fp)
