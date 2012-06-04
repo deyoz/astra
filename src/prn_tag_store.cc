@@ -622,6 +622,7 @@ TPrnQryBuilder::TPrnQryBuilder(TQuery &aQry): Qry(aQry)
 
 void TPrnTagStore::save_bp_print(bool pr_print)
 {
+    if (isTestPaxId(pax_id)) return;
     if(not prn_test_tags.items.empty())
         throw Exception("save_bp_print can't be called in test mode");
     TQuery Qry(&OraSession);
@@ -629,7 +630,7 @@ void TPrnTagStore::save_bp_print(bool pr_print)
     Qry.CreateVariable("pax_id", otInteger, pax_id);
     Qry.CreateVariable("now_utc", otDate, time_print.val);
     Qry.CreateVariable("pr_print", otInteger, pr_print);
-    Qry.CreateVariable("DESK", otString, TReqInfo::Instance()->desk.code);
+    Qry.CreateVariable("desk", otString, TReqInfo::Instance()->desk.code);
     Qry.CreateVariable("client_type", otString, EncodeClientType(TReqInfo::Instance()->client_type));
 
     if(tag_list[TAG::AIRLINE].processed or tag_list[TAG::AIRLINE_NAME].processed)
@@ -1338,7 +1339,7 @@ string TPrnTagStore::FULLNAME(TFieldParams fp)
 
 string TPrnTagStore::GATE(TFieldParams fp)
 {
-    if(fp.TagInfo.empty())
+    if(fp.TagInfo.empty() && TReqInfo::Instance()->client_type == ctTerm)
         throw AstraLocale::UserException("MSG.GATE_NOT_SPECIFIED");
     return boost::any_cast<string>(fp.TagInfo);
 }
