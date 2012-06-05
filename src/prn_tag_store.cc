@@ -620,7 +620,7 @@ TPrnQryBuilder::TPrnQryBuilder(TQuery &aQry): Qry(aQry)
         "       :client_type ";
 };
 
-void TPrnTagStore::save_bp_print(bool pr_print, bool pr_save_tags)
+void TPrnTagStore::save_bp_print(bool pr_print)
 {
     if (isTestPaxId(pax_id)) return;
     if(not prn_test_tags.items.empty())
@@ -633,64 +633,63 @@ void TPrnTagStore::save_bp_print(bool pr_print, bool pr_save_tags)
     Qry.CreateVariable("desk", otString, TReqInfo::Instance()->desk.code);
     Qry.CreateVariable("client_type", otString, EncodeClientType(TReqInfo::Instance()->client_type));
 
-    if(pr_save_tags) {
-        if(tag_list[TAG::AIRLINE].processed or tag_list[TAG::AIRLINE_NAME].processed)
-            prnQry.add_part(TAG::AIRLINE, pointInfo.airline);
-        if(tag_list[TAG::SCD].processed)
-            prnQry.add_part(TAG::SCD, pointInfo.scd);
-        if(tag_list[TAG::BRD_FROM].processed)
-            prnQry.add_part(TAG::BRD_FROM, brdInfo.brd_from);
-        if(tag_list[TAG::BRD_TO].processed)
-            prnQry.add_part(TAG::BRD_TO, brdInfo.brd_to);
-        if(tag_list[TAG::AIRP_ARV].processed or tag_list[TAG::AIRP_ARV_NAME].processed)
-            prnQry.add_part(TAG::AIRP_ARV, grpInfo.airp_arv);
-        if(tag_list[TAG::AIRP_DEP].processed or tag_list[TAG::AIRP_DEP_NAME].processed)
-            prnQry.add_part(TAG::AIRP_DEP, grpInfo.airp_dep);
-        if(tag_list[TAG::CLASS].processed)
-            prnQry.add_part("class_grp", grpInfo.class_grp);
-        if(tag_list[TAG::GATE].processed)
-            prnQry.add_part(TAG::GATE, boost::any_cast<string>(tag_list[TAG::GATE].TagInfo));
-        if(tag_list[TAG::REG_NO].processed)
-            prnQry.add_part(TAG::REG_NO, paxInfo.reg_no);
-        if(
-                tag_list[TAG::SEAT_NO].processed or
-                tag_list[TAG::ONE_SEAT_NO].processed or
-                tag_list[TAG::STR_SEAT_NO].processed or
-                tag_list[TAG::LIST_SEAT_NO].processed
-          ) {
-            bool seat_no_lat = true;
+    if(tag_list[TAG::AIRLINE].processed or tag_list[TAG::AIRLINE_NAME].processed)
+        prnQry.add_part(TAG::AIRLINE, pointInfo.airline);
+    if(tag_list[TAG::SCD].processed)
+        prnQry.add_part(TAG::SCD, pointInfo.scd);
+    if(tag_list[TAG::BRD_FROM].processed)
+        prnQry.add_part(TAG::BRD_FROM, brdInfo.brd_from);
+    if(tag_list[TAG::BRD_TO].processed)
+        prnQry.add_part(TAG::BRD_TO, brdInfo.brd_to);
+    if(tag_list[TAG::AIRP_ARV].processed or tag_list[TAG::AIRP_ARV_NAME].processed)
+        prnQry.add_part(TAG::AIRP_ARV, grpInfo.airp_arv);
+    if(tag_list[TAG::AIRP_DEP].processed or tag_list[TAG::AIRP_DEP_NAME].processed)
+        prnQry.add_part(TAG::AIRP_DEP, grpInfo.airp_dep);
+    if(tag_list[TAG::CLASS].processed)
+        prnQry.add_part("class_grp", grpInfo.class_grp);
+    if(tag_list[TAG::GATE].processed)
+        prnQry.add_part(TAG::GATE, boost::any_cast<string>(tag_list[TAG::GATE].TagInfo));
+    if(tag_list[TAG::REG_NO].processed)
+        prnQry.add_part(TAG::REG_NO, paxInfo.reg_no);
+    if(
+            tag_list[TAG::SEAT_NO].processed or
+            tag_list[TAG::ONE_SEAT_NO].processed or
+            tag_list[TAG::STR_SEAT_NO].processed or
+            tag_list[TAG::LIST_SEAT_NO].processed
+      ) {
+        bool seat_no_lat = true;
 
-            if(tag_list[TAG::SEAT_NO].processed)
-                seat_no_lat &= tag_list[TAG::SEAT_NO].english_only;
-            if(tag_list[TAG::ONE_SEAT_NO].processed)
-                seat_no_lat &= tag_list[TAG::ONE_SEAT_NO].english_only;
-            if(tag_list[TAG::STR_SEAT_NO].processed)
-                seat_no_lat &= tag_list[TAG::STR_SEAT_NO].english_only;
-            if(tag_list[TAG::LIST_SEAT_NO].processed)
-                seat_no_lat &= tag_list[TAG::LIST_SEAT_NO].english_only;
+        if(tag_list[TAG::SEAT_NO].processed)
+            seat_no_lat &= tag_list[TAG::SEAT_NO].english_only;
+        if(tag_list[TAG::ONE_SEAT_NO].processed)
+            seat_no_lat &= tag_list[TAG::ONE_SEAT_NO].english_only;
+        if(tag_list[TAG::STR_SEAT_NO].processed)
+            seat_no_lat &= tag_list[TAG::STR_SEAT_NO].english_only;
+        if(tag_list[TAG::LIST_SEAT_NO].processed)
+            seat_no_lat &= tag_list[TAG::LIST_SEAT_NO].english_only;
 
-            prnQry.add_part("seat_no", get_fmt_seat("list", seat_no_lat));
-        }
-        if(tag_list[TAG::NAME].processed)
-            prnQry.add_part(TAG::NAME, paxInfo.name);
-        if(tag_list[TAG::NO_SMOKE].processed)
-            prnQry.add_part("pr_smoke", paxInfo.pr_smoke);
-        if(tag_list[TAG::BAG_AMOUNT].processed or tag_list[TAG::BAGGAGE].processed)
-            prnQry.add_part(TAG::BAG_AMOUNT, paxInfo.bag_amount);
-        if(tag_list[TAG::TAGS].processed)
-            prnQry.add_part(TAG::TAGS, paxInfo.tags);
-        if(tag_list[TAG::BAG_WEIGHT].processed or tag_list[TAG::BAGGAGE].processed)
-            prnQry.add_part(TAG::BAG_WEIGHT, paxInfo.bag_weight);
-        if(tag_list[TAG::EXCESS].processed)
-            prnQry.add_part(TAG::EXCESS, grpInfo.excess);
-        if(tag_list[TAG::FLT_NO].processed) {
-            prnQry.add_part(TAG::FLT_NO, pointInfo.flt_no);
-            prnQry.add_part("suffix", pointInfo.suffix);
-        }
-        if(tag_list[TAG::SURNAME].processed)
-            prnQry.add_part(TAG::SURNAME, paxInfo.surname);
+        prnQry.add_part("seat_no", get_fmt_seat("list", seat_no_lat));
     }
-    Qry.SQLText = prnQry.text().c_str();
+    if(tag_list[TAG::NAME].processed)
+        prnQry.add_part(TAG::NAME, paxInfo.name);
+    if(tag_list[TAG::NO_SMOKE].processed)
+        prnQry.add_part("pr_smoke", paxInfo.pr_smoke);
+    if(tag_list[TAG::BAG_AMOUNT].processed or tag_list[TAG::BAGGAGE].processed)
+        prnQry.add_part(TAG::BAG_AMOUNT, paxInfo.bag_amount);
+    if(tag_list[TAG::TAGS].processed)
+        prnQry.add_part(TAG::TAGS, paxInfo.tags);
+    if(tag_list[TAG::BAG_WEIGHT].processed or tag_list[TAG::BAGGAGE].processed)
+        prnQry.add_part(TAG::BAG_WEIGHT, paxInfo.bag_weight);
+    if(tag_list[TAG::EXCESS].processed)
+        prnQry.add_part(TAG::EXCESS, grpInfo.excess);
+    if(tag_list[TAG::FLT_NO].processed) {
+        prnQry.add_part(TAG::FLT_NO, pointInfo.flt_no);
+        prnQry.add_part("suffix", pointInfo.suffix);
+    }
+    if(tag_list[TAG::SURNAME].processed)
+        prnQry.add_part(TAG::SURNAME, paxInfo.surname);
+    string SQLText = prnQry.text();
+    Qry.SQLText = SQLText;
     Qry.Execute();
 }
 
