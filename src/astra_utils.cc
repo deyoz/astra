@@ -175,9 +175,11 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
 
   Qry.Clear();
   Qry.SQLText =
-    "SELECT city,airp,airline,version,NVL(under_constr,0) AS under_constr,currency,desks.grp_id "
+    "SELECT desks.version, NVL(desks.under_constr,0) AS under_constr, "
+    "       desks.currency, desks.term_id, "
+    "       desk_grp.grp_id, desk_grp.city, desk_grp.airp, desk_grp.airline "
     "FROM desks,desk_grp "
-    "WHERE desks.code = UPPER(:pult) AND desks.grp_id = desk_grp.grp_id ";
+    "WHERE desks.grp_id = desk_grp.grp_id AND desks.code = UPPER(:pult)";
   Qry.DeclareVariable( "pult", otString );
   Qry.SetVariable( "pult", InitData.pult );
   Qry.Execute();
@@ -191,6 +193,7 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   desk.version = Qry.FieldAsString( "version" );
   desk.currency = Qry.FieldAsString( "currency" );
   desk.grp_id = Qry.FieldAsInteger( "grp_id" );
+  double term_id = Qry.FieldIsNULL("term_id")?NoExists:Qry.FieldAsFloat( "term_id" );
 
   ProgTrace( TRACE5, "terminal version='%s'", desk.version.c_str() );
 
@@ -226,6 +229,9 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
       throw AstraLocale::UserException( "MSG.USER.ACCESS_DENIED");
   }
   else {
+    //if (InitData.term_id!=term_id)
+    //  throw AstraLocale::UserException( "MSG.USER.NEED_TO_LOGIN" );
+
     Qry.SQLText =
       "SELECT user_id, login, descr, type, pr_denial "
       "FROM users2 "

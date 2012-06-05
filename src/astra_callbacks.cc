@@ -91,13 +91,16 @@ void AstraJxtCallbacks::UserBefore(const std::string &head, const std::string &b
     reqInfoData.screen = NodeAsString("@screen", node);
     reqInfoData.pult = xmlRC->pult;
     reqInfoData.opr = NodeAsString("@opr", node);
-    xmlNodePtr modeNode = GetNode("@mode", node);
-    std::string mode;
-    if (modeNode!=NULL)
-      reqInfoData.mode = NodeAsString(modeNode);
-
-    if ( GetNode( "@lang", node ) ) {
-    	reqInfoData.lang = NodeAsString("@lang",node);
+    //режим
+    xmlNodePtr propNode;
+    if ((propNode = GetNode("@mode", node))!=NULL)
+      reqInfoData.mode = NodeAsString(propNode);
+    //ид. терминала
+    if ((propNode = GetNode("@term_id", node))!=NULL)
+      reqInfoData.term_id = NodeAsFloat(propNode);
+    //язык терминала
+    if ((propNode = GetNode("@lang", node))!=NULL) {
+    	reqInfoData.lang = NodeAsString(propNode);
     	ProgTrace( TRACE5, "reqInfoData.lang=%s", reqInfoData.lang.c_str() );
     	if ( GetNode( "UserLogon", node ) != NULL && reqInfoData.lang != AstraLocale::LANG_DEFAULT ) {
     		TLangTypes langs = (TLangTypes&)base_tables.get("lang_types");
@@ -124,7 +127,6 @@ void AstraJxtCallbacks::UserBefore(const std::string &head, const std::string &b
 
 
     reqInfoData.checkUserLogon =
-        GetNode( "CheckUserLogon", node ) == NULL &&
         GetNode( "UserLogon", node ) == NULL &&
         GetNode( "ClientError", node ) == NULL &&
         GetNode( "SaveDeskTraces", node ) == NULL &&

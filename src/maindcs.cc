@@ -1151,32 +1151,6 @@ bool MainDCSInterface::GetSessionAirlines(xmlNodePtr node, string &str, std::str
   return true;
 };
 
-void MainDCSInterface::CheckUserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    TReqInfo *reqinfo = TReqInfo::Instance();
-    try
-    {
-      throw 0; //никаких автологонов!
-      if(reqinfo->user.login.empty()) throw 0;
-
-      string airlines;
-      string airlines_params;
-      if (!GetSessionAirlines(GetNode("airlines", reqNode),airlines,airlines_params)) throw 0;
-
-      // проверим session_airlines
-      if (JxtContext::getJxtContHandler()->sysContext()->read("session_airlines")!=airlines)
-        throw 0;
-
-      GetModuleList(resNode);
-    }
-    catch(int)
-    {
-      reqinfo->user.clear();
-      reqinfo->desk.clear();
-      showBasicInfo();
-    };
-}
-
 // КОНВЕРТАЦИЯ СТАРОГО ПРОФАЙЛА - НАЧАЛО
 
 typedef enum {dtBP, dtBT, dtReceipt, dtFltDoc, dtArchive, dtDisp, dtTlg, dtUnknown} TDocType;
@@ -1698,21 +1672,18 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       "  UPDATE users2 SET desk = NULL WHERE desk = :desk; "
       "  UPDATE users2 SET desk = :desk WHERE user_id = :user_id; "
       "  UPDATE desks "
-      "  SET version = :version, last_logon = system.UTCSYSDATE "
+      "  SET version = :version, last_logon = system.UTCSYSDATE, term_id=:term_id "
       "  WHERE code = :desk; "
       "END;";
-    Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
-    Qry.CreateVariable("desk",otString,reqInfo->desk.code);
-    string version;
-    if (GetNode("term_version", reqNode)!=NULL)
-      version=NodeAsString("term_version", reqNode);
-    if (!version.empty())
-      Qry.CreateVariable("version",otString,version);
+    Qry.CreateVariable("user_id", otInteger, reqInfo->user.user_id);
+    Qry.CreateVariable("desk", otString, reqInfo->desk.code);
+    Qry.CreateVariable("version", otString, NodeAsString("term_version", reqNode));
+    xmlNodePtr propNode;
+    if ((propNode = GetNode("/term/query/@term_id",ctxt->reqDoc))!=NULL)
+      Qry.CreateVariable("term_id", otFloat, NodeAsFloat(propNode));
     else
-      Qry.CreateVariable("version",otString,UNKNOWN_VERSION);
+      Qry.CreateVariable("term_id", otFloat, FNull);
     Qry.Execute();
-
-    TReqInfoInitData reqInfoData;
 
     string airlines;
     string airlines_params;
@@ -1721,13 +1692,16 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     JxtContext::getJxtContHandler()->sysContext()->write("session_airlines",airlines);
     JxtContext::getJxtContHandler()->sysContext()->write("session_airlines_params",airlines_params);
     xmlNodePtr node=NodeAsNode("/term/query",ctxt->reqDoc);
+    
+    TReqInfoInitData reqInfoData;
     reqInfoData.screen = NodeAsString("@screen", node);
     reqInfoData.pult = ctxt->pult;
     reqInfoData.opr = NodeAsString("@opr", node);
   	reqInfoData.lang = reqInfo->desk.lang; //!определение языка вынесено в astracallbacks.cc::UserBefore т.к. там задается контекст xmlRC->setLang(RUSSIAN) и не требуется делать повторно эту долгую операцию
-    xmlNodePtr modeNode = GetNode("@mode", node);
-    if (modeNode!=NULL)
-      reqInfoData.mode = NodeAsString(modeNode);
+    if ((propNode = GetNode("@mode", node))!=NULL)
+      reqInfoData.mode = NodeAsString(propNode);
+    if ((propNode = GetNode("@term_id", node))!=NULL)
+      reqInfoData.term_id = NodeAsFloat(propNode);
     reqInfoData.checkUserLogon = true; // имеет смысл т.к. надо начитать инфу по пользователю
     reqInfoData.checkCrypt = false; // не имеет смысла делать повторную проверку
     reqInfo->Initialize( reqInfoData );
