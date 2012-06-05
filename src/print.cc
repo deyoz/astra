@@ -1365,8 +1365,7 @@ void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     PaxQry.SQLText =
       "SELECT pax.grp_id, surname||' '||name full_name, reg_no, point_dep "
       "FROM pax, pax_grp  "
-      "WHERE pax.grp_id = pax_grp.grp_id AND "
-      "      pax_id=:pax_id AND pax.tid=:tid";
+      "WHERE pax.grp_id = pax_grp.grp_id AND pax_id=:pax_id";
     PaxQry.DeclareVariable("pax_id",otInteger);
     PaxQry.DeclareVariable("tid",otInteger);
     vector<BPPax> paxs;
@@ -1378,10 +1377,8 @@ void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         pax.time_print=NodeAsDateTime("@time_print", curNode);
         
         PaxQry.SetVariable("pax_id", pax.pax_id);
-        PaxQry.SetVariable("tid", NodeAsInteger("@tid", curNode));
         PaxQry.Execute();
-        if(PaxQry.Eof)
-            throw AstraLocale::UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
+        if(PaxQry.Eof) continue;
 
         pax.point_dep=PaxQry.FieldAsInteger("point_dep");
         pax.grp_id=PaxQry.FieldAsInteger("grp_id");
@@ -1390,8 +1387,7 @@ void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         paxs.push_back(pax);
     };
     CheckIn::UserException ue;
-    ConfirmPrintBP(paxs, ue);
-    if (!ue.empty()) throw ue;
+    ConfirmPrintBP(paxs, ue); //не надо прокидывать ue в терминал - подтверждаем все что можем!
 };
 
 void PrintInterface::ConfirmPrintBT(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

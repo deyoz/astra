@@ -3727,7 +3727,7 @@ void BPTags::getFields( vector<string> &atags )
 	atags = tags;
 }
 
-void GetBPPax(xmlNodePtr paxNode, bool is_test, PrintInterface::BPPax &pax)
+void GetBPPax(xmlNodePtr paxNode, bool is_test, bool check_tids, PrintInterface::BPPax &pax)
 {
   pax.clear();
   pax.pax_id = NodeAsInteger( "pax_id", paxNode );
@@ -3736,7 +3736,7 @@ void GetBPPax(xmlNodePtr paxNode, bool is_test, PrintInterface::BPPax &pax)
 	int crs_pax_tid = NodeAsInteger( "crs_pax_tid", node );
 	int pax_grp_tid = NodeAsInteger( "pax_grp_tid", node );
 	int pax_tid = NodeAsInteger( "pax_tid", node );
-	verifyPaxTids( pax.pax_id, crs_pnr_tid, crs_pax_tid, pax_grp_tid, pax_tid );
+	if (check_tids) verifyPaxTids( pax.pax_id, crs_pnr_tid, crs_pax_tid, pax_grp_tid, pax_tid );
 	TQuery Qry(&OraSession);
 	if (!is_test)
 	{
@@ -3819,23 +3819,20 @@ void WebRequestsIface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     PrintInterface::BPPax pax;
     try
     {
-      GetBPPax( paxNode, is_test, pax );
+      GetBPPax( paxNode, is_test, false, pax );
       pax.time_print=NodeAsDateTime("prn_form_key", paxNode);
       paxs.push_back(pax);
     }
     catch(UserException &e)
     {
+      //не надо прокидывать ue в терминал - подтверждаем все что можем!
       ue.addError(e.getLexemaData(), pax.point_dep, pax.pax_id);
     };
   };
 
-  if (!ue.empty()) throw ue;
-
   if (!is_test)
   {
-    PrintInterface::ConfirmPrintBP(paxs, ue);
-    OraSession.Commit(); //подтвердим то, что сможем
-    if (!ue.empty()) throw ue;
+    PrintInterface::ConfirmPrintBP(paxs, ue);  //не надо прокидывать ue в терминал - подтверждаем все что можем!
   };
   
   NewTextChild( resNode, "ConfirmPrintBP" );
@@ -3880,7 +3877,7 @@ void WebRequestsIface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     PrintInterface::BPPax pax;
     try
     {
-      GetBPPax( paxNode, is_test, pax );
+      GetBPPax( paxNode, is_test, true, pax );
       if (gates.find(pax.point_dep)==gates.end()) gates[pax.point_dep]=GetBPGate(pax.point_dep);
       pax.gate=make_pair(gates[pax.point_dep], true);
       paxs.push_back(pax);
@@ -3922,7 +3919,7 @@ void WebRequestsIface::GetBPTags(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 	ProgTrace(TRACE1,"WebRequestsIface::GetBPTags");
 	PrintInterface::BPPax pax;
 	bool is_test=isTestPaxId(NodeAsInteger("pax_id", reqNode));
-	GetBPPax( reqNode, is_test, pax );
+	GetBPPax( reqNode, is_test, true, pax );
 	PrintDataParser parser( pax.grp_id, pax.pax_id, 0, NULL );
 	vector<string> tags;
 	BPTags::Instance()->getFields( tags );
