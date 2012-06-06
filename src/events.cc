@@ -9,6 +9,7 @@
 #include "astra_consts.h"
 #include "docs.h"
 #include "aodb.h"
+#include "stat.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -283,14 +284,11 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
 
     Qry.Clear();
     Qry.SQLText=
-      "SELECT bag_type, "
-      "       SUM(amount) AS amount, "
-      "       SUM(weight) AS weight "
+      "SELECT id, bag_type, pr_cabin, amount, weight, "
+      "       ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse) AS refused "
       "FROM pax_grp,bag2 "
       "WHERE pax_grp.grp_id=bag2.grp_id AND "
-      "      pax_grp.grp_id=:grp_id AND "
-      "      ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 "
-      "GROUP BY bag_type";
+      "      pax_grp.grp_id=:grp_id";
     Qry.CreateVariable("grp_id",otInteger,grp_id);
     Qry.Execute();
     if (!Qry.Eof)
@@ -299,10 +297,28 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
       for(;!Qry.Eof;Qry.Next())
       {
         int bag_type=Qry.FieldIsNULL("bag_type")?-1:Qry.FieldAsInteger("bag_type");
-        TPaidToLogInfo &paidInfo=grpInfo.paid[bag_type];
-        paidInfo.bag_type=bag_type;
-        paidInfo.bag_amount=Qry.FieldAsInteger("amount");
-        paidInfo.bag_weight=Qry.FieldAsInteger("weight");
+        TBagToLogInfo bagInfo;
+        bagInfo.id=Qry.FieldAsInteger("id");
+        bagInfo.pr_cabin=Qry.FieldAsInteger("pr_cabin")!=0;
+        bagInfo.amount=Qry.FieldAsInteger("amount");
+        bagInfo.weight=Qry.FieldAsInteger("weight");
+        grpInfo.bag[bagInfo.id]=bagInfo;
+
+        if (Qry.FieldAsInteger("refused")!=0) continue;
+
+        std::map< int/*bag_type*/, TPaidToLogInfo>::iterator i=grpInfo.paid.find(bag_type);
+        if (i!=grpInfo.paid.end())
+        {
+          i->second.bag_amount+=bagInfo.amount;
+          i->second.bag_weight+=bagInfo.weight;
+        }
+        else
+        {
+          TPaidToLogInfo &paidInfo=grpInfo.paid[bag_type];
+          paidInfo.bag_type=bag_type;
+          paidInfo.bag_amount=bagInfo.amount;
+          paidInfo.bag_weight=bagInfo.weight;
+        };
       };
 
       Qry.Clear();
@@ -325,9 +341,12 @@ void SaveGrpToLog(int point_id,
                   const TTripInfo &operFlt,
                   const TTripInfo &markFlt,
                   const TGrpToLogInfo &grpInfoBefore,
-                  const TGrpToLogInfo &grpInfoAfter)
+                  const TGrpToLogInfo &grpInfoAfter,
+                  TAgentStatInfo &agentStat)
 {
   bool SyncAODB=is_sync_aodb(point_id);
+  
+  agentStat.clear();
 
   int grp_id=grpInfoAfter.grp_id==NoExists?grpInfoBefore.grp_id:grpInfoAfter.grp_id;
 
@@ -473,10 +492,21 @@ void SaveGrpToLog(int point_id,
     };
     
     string bagStrAfter, bagStrBefore;
+    int d=0;
     if (aPax!=grpInfoAfter.pax.end() && aPax->second.refuse!=refuseAgentError)
+    {
       bagStrAfter=aPax->second.getBagStr();
+      d++;
+    };
     if (bPax!=grpInfoBefore.pax.end() && bPax->second.refuse!=refuseAgentError)
+    {
       bagStrBefore=bPax->second.getBagStr();
+      d--;
+    };
+    if (d>0) agentStat.dpax_amount.inc++;
+    if (d<0) agentStat.dpax_amount.dec++;
+    if (changed) agentStat.pax_amount++;
+    
     if (bagStrAfter!=bagStrBefore)
     {
       //багаж изменился
@@ -521,6 +551,69 @@ void SaveGrpToLog(int point_id,
         if (boardedAfter!=boardedBefore) //были изменения с посадкой/высадкой
           update_aodb_pax_change( point_id, aodb_pax_id, aodb_reg_no, "П" );
       };
+    };
+  };
+
+  //агентская статистика по изменениям багажа
+  {
+    std::map< int/*id*/, TBagToLogInfo>::const_iterator a=grpInfoAfter.bag.begin();
+    std::map< int/*id*/, TBagToLogInfo>::const_iterator b=grpInfoBefore.bag.begin();
+    for(;a!=grpInfoAfter.bag.end() || b!=grpInfoBefore.bag.end();)
+    {
+      std::map< int/*id*/, TBagToLogInfo>::const_iterator aBag=grpInfoAfter.bag.end();
+      std::map< int/*id*/, TBagToLogInfo>::const_iterator bBag=grpInfoBefore.bag.end();
+
+      if (a==grpInfoAfter.bag.end() ||
+          a!=grpInfoAfter.bag.end() && b!=grpInfoBefore.bag.end() && b->first < a->first)
+      {
+        bBag=b;
+        ++b;
+      } else
+      if (b==grpInfoBefore.bag.end() ||
+          a!=grpInfoAfter.bag.end() && b!=grpInfoBefore.bag.end() && a->first < b->first)
+      {
+        aBag=a;
+        ++a;
+      } else
+      if (a!=grpInfoAfter.bag.end() && b!=grpInfoBefore.bag.end() && a->first==b->first)
+      {
+        if (!(a->second==b->second))
+        {
+          aBag=a;
+          bBag=b;
+        };
+        ++a;
+        ++b;
+      };
+
+      if (aBag!=grpInfoAfter.bag.end())
+      {
+        if (aBag->second.pr_cabin)
+        {
+          agentStat.drk_amount.inc+=aBag->second.amount;
+          agentStat.drk_weight.inc+=aBag->second.weight;
+        }
+        else
+        {
+          agentStat.dbag_amount.inc+=aBag->second.amount;
+          agentStat.dbag_weight.inc+=aBag->second.weight;
+        };
+      };
+
+      if (bBag!=grpInfoBefore.bag.end())
+      {
+        if (bBag->second.pr_cabin)
+        {
+          agentStat.drk_amount.dec+=bBag->second.amount;
+          agentStat.drk_weight.dec+=bBag->second.weight;
+        }
+        else
+        {
+          agentStat.dbag_amount.dec+=bBag->second.amount;
+          agentStat.dbag_weight.dec+=bBag->second.weight;
+        };
+      };
+
     };
   };
 

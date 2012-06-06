@@ -4,6 +4,7 @@
 #include "passenger.h"
 #include "baggage.h"
 #include "astra_misc.h"
+#include "stat.h"
 
 #include <sstream>
 #include <libxml/tree.h>
@@ -94,6 +95,30 @@ class TPaxToLogInfo
     std::string getNormStr() const;
 };
 
+class TBagToLogInfo
+{
+  public:
+    int id, pr_cabin, amount, weight;
+    void clear()
+    {
+      id=ASTRA::NoExists;
+      pr_cabin=false;
+      amount=0;
+      weight=0;
+    };
+    bool operator == (const TBagToLogInfo &item) const
+    {
+      return id == item.id &&
+             pr_cabin == item.pr_cabin &&
+             amount == item.amount &&
+             weight == item.weight;
+    };
+    TBagToLogInfo()
+    {
+      clear();
+    };
+};
+
 class TPaidToLogInfo
 {
   public:
@@ -108,9 +133,9 @@ class TPaidToLogInfo
     bool operator == (const TPaidToLogInfo &item) const
     {
       return bag_type == item.bag_type &&
-             bag_amount== item.bag_amount &&
-             bag_weight== item.bag_weight &&
-             paid_weight== item.paid_weight;
+             bag_amount == item.bag_amount &&
+             bag_weight == item.bag_weight &&
+             paid_weight == item.paid_weight;
     };
     TPaidToLogInfo()
     {
@@ -123,6 +148,7 @@ class TGrpToLogInfo
   public:
     int grp_id, excess;
     std::map< TPaxToLogInfoKey, TPaxToLogInfo> pax;
+    std::map< int/*id*/, TBagToLogInfo> bag;
     std::map< int/*bag_type*/, TPaidToLogInfo> paid;
     void clear()
     {
@@ -137,12 +163,44 @@ class TGrpToLogInfo
     };
 };
 
+class TAgentStatInfo
+{
+  public:
+    int pax_amount;
+    STAT::agent_stat_t dpax_amount;
+    STAT::agent_stat_t dbag_amount;
+    STAT::agent_stat_t dbag_weight;
+    STAT::agent_stat_t drk_amount;
+    STAT::agent_stat_t drk_weight;
+    void clear()
+    {
+      pax_amount=0;
+      dpax_amount.inc=0;
+      dpax_amount.dec=0;
+      dbag_amount.inc=0;
+      dbag_amount.dec=0;
+      dbag_weight.inc=0;
+      dbag_weight.dec=0;
+      drk_amount.inc=0;
+      drk_amount.dec=0;
+      drk_weight.inc=0;
+      drk_weight.dec=0;
+    };
+    TAgentStatInfo():pax_amount(0),
+                     dpax_amount(0,0),
+                     dbag_amount(0,0),
+                     dbag_weight(0,0),
+                     drk_amount(0,0),
+                     drk_weight(0,0) {};
+};
+
 void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo);
 void SaveGrpToLog(int point_id,
                   const TTripInfo &operFlt,
                   const TTripInfo &markFlt,
                   const TGrpToLogInfo &grpInfoBefore,
-                  const TGrpToLogInfo &grpInfoAfter);
+                  const TGrpToLogInfo &grpInfoAfter,
+                  TAgentStatInfo &agentStat);
 
 
 #endif
