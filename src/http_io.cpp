@@ -230,7 +230,7 @@ string send_bsm(const string host, const string &bsm)
     vector<IOHPtr> ioh_list;
 
 //!!!    ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, "/OutBsmService.asmx/BsmProccess?message=" + web_replace(bsm))));
-    ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, "/cgi-bin/first.pl?message=" + web_replace(bsm))));
+    ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, "/OutBsmService.asmx/BsmProccess?message=" + web_replace(bsm))));
 
     io_service.run();
 

@@ -140,6 +140,7 @@ static void scan_tlg(void)
                     }
                     if(not result) msg << " Получен ответ false.";
                     TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,id);
+                    deleteFile(id);
                     break;
                 } else if(validate_param_name(im->first, pnSITA)) { // handle SITA
                     TTlgOutPartInfo p;
@@ -156,10 +157,10 @@ static void scan_tlg(void)
                     completeQry.SetVariable("id",p.id);
                     completeQry.Execute();
                     TelegramInterface::SendTlg(p.id);
+                    deleteFile(id);
                     break;
                 }
             }
-            deleteFile(id);
         } catch(Exception &E) {
             OraSession.Rollback();
             try
