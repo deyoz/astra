@@ -54,6 +54,7 @@ typedef struct H2H_MSG
 
 int init_edifact();
 
+int main_http_snd_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
 int main_snd_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
 int main_srv_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
 int main_typeb_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
@@ -77,6 +78,7 @@ bool procTlg(int tlg_id);
 void sendCmd(const char* receiver, const char* cmd);
 bool waitCmd(const char* receiver, int msecs, const char* buf, int buflen);
 
+void sendCmdTlgHttpSnd();
 void sendCmdTlgSnd();
 void sendCmdTypeBHandler();
 
