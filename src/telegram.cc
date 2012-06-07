@@ -12,6 +12,7 @@
 #include "base_tables.h"
 #include "astra_misc.h"
 #include "astra_service.h"
+#include "http_io.h"
 #include "serverlib/logger.h"
 #include "serverlib/posthooks.h"
 
@@ -1739,25 +1740,35 @@ string CreateTlgBody(const TTlgContent& con, bool pr_lat)
   return body.str();
 };
 
-bool IsSend( TTypeBSendInfo info, map<bool,string> &addrs )
+bool IsSend( TTypeBSendInfo info, TBSMAddrs &addrs )
 {
-  info.tlg_type="BSM";
-  if (!TelegramInterface::IsTypeBSend(info)) return false;
+    info.tlg_type="BSM";
+    if (!TelegramInterface::IsTypeBSend(info)) return false;
 
-  TTypeBAddrInfo addrInfo(info);
+    TTypeBAddrInfo addrInfo(info);
 
-  addrInfo.airp_trfer="";
-  addrInfo.crs="";
-  for(int pr_lat=0; pr_lat<=1; pr_lat++)
-  {
-    addrInfo.pr_lat=(bool)pr_lat;
-    string a=TelegramInterface::GetTypeBAddrs(addrInfo);
-    if (!a.empty()) addrs[addrInfo.pr_lat]=a;
-  };
-  return !addrs.empty();
+    addrInfo.airp_trfer="";
+    addrInfo.crs="";
+    for(int pr_lat=0; pr_lat<=1; pr_lat++)
+    {
+        addrInfo.pr_lat=(bool)pr_lat;
+        string a=TelegramInterface::GetTypeBAddrs(addrInfo);
+        if (!a.empty()) addrs.addrs[addrInfo.pr_lat]=a;
+    };
+
+    getFileParams(
+            addrInfo.airp_dep,
+            addrInfo.airline,
+            IntToString(addrInfo.flt_no),
+            OWN_POINT_ADDR(),
+            FILE_HTTPGET_TYPE,
+            1,
+            addrs.HTTPGETparams);
+
+    return !addrs.empty();
 };
 
-void Send( int point_dep, int grp_id, const TTlgContent &con1, const map<bool,string> &addrs )
+void Send( int point_dep, int grp_id, const TTlgContent &con1, const TBSMAddrs &addrs )
 {
     TTlgContent con2;
     LoadContent(grp_id,con2);
@@ -1778,7 +1789,7 @@ void Send( int point_dep, int grp_id, const TTlgContent &con1, const map<bool,st
 
     for(vector<TTlgContent>::iterator i=bsms.begin();i!=bsms.end();++i)
     {
-      for(map<bool,string>::const_iterator j=addrs.begin();j!=addrs.end();++j)
+      for(map<bool,string>::const_iterator j=addrs.addrs.begin();j!=addrs.addrs.end();++j)
       {
         if (j->second.empty()) continue;
         p.id=-1;
@@ -1791,7 +1802,22 @@ void Send( int point_dep, int grp_id, const TTlgContent &con1, const map<bool,st
         Qry.Execute();
         TelegramInterface::SendTlg(p.id);
       };
+      if(not addrs.HTTPGETparams.empty()) {
+          map<string, string> params = addrs.HTTPGETparams;
+
+          params[PARAM_HEADING] = p.heading;
+          params[PARAM_TIME_CREATE] = DateTimeToStr(p.time_create, ServerFormatDateTimeAsString);
+          params[PARAM_POINT_ID] = IntToString(p.point_id);
+
+          putFile( OWN_POINT_ADDR(),
+                  OWN_POINT_ADDR(),
+                  FILE_HTTPGET_TYPE,
+                  params,
+                  CreateTlgBody(*i, true));
+      }
     };
+    if(not addrs.HTTPGETparams.empty())
+        registerHookAfter(sendCmdTlgHttpSnd);
 };
 
 };
@@ -1817,6 +1843,7 @@ void TelegramInterface::SaveTlgOutPart( TTlgOutPartInfo &info )
     "VALUES(:id,:num,:type,:point_id,:addr,:heading,:body,:ending,:extra, "
     "       :pr_lat,0,0,NVL(:time_create,system.UTCSYSDATE),:time_send_scd,NULL)";
 
+  /*
   ProgTrace(TRACE5, "-------SaveTlgOutPart--------");
   ProgTrace(TRACE5, "id: %d", info.id);
   ProgTrace(TRACE5, "num: %d", info.num);
@@ -1826,6 +1853,7 @@ void TelegramInterface::SaveTlgOutPart( TTlgOutPartInfo &info )
   ProgTrace(TRACE5, "body: %s, size: %d", info.body.c_str(), info.body.size());
   ProgTrace(TRACE5, "ending: %s", info.ending.c_str());
   ProgTrace(TRACE5, "extra: %s", info.extra.c_str());
+  */
 
   Qry.CreateVariable("id",otInteger,info.id);
   Qry.CreateVariable("num",otInteger,info.num);
