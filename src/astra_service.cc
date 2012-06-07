@@ -380,122 +380,93 @@ public:
   }
 };
 
-void getFileParams(
-        const std::string &airp,
-        const std::string &airline,
-        const std::string &flt_no,
-        const std::string &client_canon_name,
-        const std::string &type,
-        bool send,
-        map<string,string> &fileparams)
-{
-    TQuery ParamQry(&OraSession);
-    ParamQry.SQLText =
-        "SELECT param_name, param_value,"
-        "       DECODE( file_param_sets.airp, NULL, 0, 4 ) + "
-        "       DECODE( file_param_sets.airline, NULL, 0, 2 ) + "
-        "       DECODE( file_param_sets.flt_no, NULL, 0, 1 ) AS priority "
-        " FROM file_param_sets, desks "
-        " WHERE file_param_sets.own_point_addr=:own_point_addr AND "
-        "       file_param_sets.point_addr=:point_addr AND "
-        "       file_param_sets.type=:type AND "
-
-        "       file_param_sets.pr_send=:send AND "
-        "       desks.code=file_param_sets.point_addr AND "
-        "       ( file_param_sets.airp IS NULL OR file_param_sets.airp=:airp ) AND "
-        "       ( file_param_sets.airline IS NULL OR file_param_sets.airline=:airline ) AND "
-        "       ( file_param_sets.flt_no IS NULL OR file_param_sets.flt_no=:flt_no ) "
-        " ORDER BY priority DESC";
-    if ( airp.empty() )
-        ParamQry.CreateVariable( "airp", otString, FNull );
-    else
-        ParamQry.CreateVariable( "airp", otString, airp );
-    if ( airline.empty() )
-        ParamQry.CreateVariable( "airline", otString, FNull );
-    else
-        ParamQry.CreateVariable( "airline", otString, airline );
-    if ( flt_no.empty() )
-        ParamQry.CreateVariable( "flt_no", otInteger, FNull );
-    else
-        ParamQry.CreateVariable( "flt_no", otInteger, flt_no );
-    ParamQry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
-    ParamQry.CreateVariable( "point_addr", otString, client_canon_name );
-    ParamQry.CreateVariable( "type", otString, type );
-    ParamQry.CreateVariable( "send", otInteger, send );
-
-    ProgTrace(TRACE5, "airp: %s", airp.c_str());
-    ProgTrace(TRACE5, "airline: %s", airline.c_str());
-    ProgTrace(TRACE5, "flt_no: %s", flt_no.c_str());
-    ProgTrace(TRACE5, "own_point_addr: %s", OWN_POINT_ADDR());
-    ProgTrace(TRACE5, "point_addr: %s", client_canon_name.c_str());
-    ProgTrace(TRACE5, "type: %s", type.c_str());
-    ProgTrace(TRACE5, "send: %d", send);
-
-    ParamQry.Execute();
-    int priority = -1;
-    while ( !ParamQry.Eof ) {
-        if ( priority < 0 ) {
-            priority = ParamQry.FieldAsInteger( "priority" );
-        }
-        if ( priority != ParamQry.FieldAsInteger( "priority" ) )
-            break;
-        fileparams[ ParamQry.FieldAsString( "param_name" ) ] = ParamQry.FieldAsString( "param_value" );
-        //		ProgTrace( TRACE5, "name=%s, value=%s", ParamQry.FieldAsString( "param_name" ), ParamQry.FieldAsString( "param_value" ) );
-        ParamQry.Next();
-    }
-}
-
 void getFileParams( const std::string client_canon_name, const std::string &type,
 	                  int id, map<string,string> &fileparams, bool send )
 {
-    fileparams.clear();
-    TQuery ParamQry( &OraSession );
-    ParamQry.SQLText = "SELECT name,value FROM file_params WHERE id=:id";
-    ParamQry.CreateVariable( "id", otInteger, id );
-    ParamQry.Execute();
-    //  ProgTrace( TRACE5, "id=%d", id );
-    string airline, airp, flt_no;
-    while ( !ParamQry.Eof ) {
-        if ( ParamQry.FieldAsString( "name" ) == NS_PARAM_AIRP )
-            airp = ParamQry.FieldAsString( "value" );
-        else
-            if ( ParamQry.FieldAsString( "name" ) == NS_PARAM_AIRLINE )
-                airline = ParamQry.FieldAsString( "value" );
-            else
-                if ( ParamQry.FieldAsString( "name" ) == NS_PARAM_FLT_NO )
-                    flt_no = ParamQry.FieldAsString( "value" );
-                else
-                    if ( ParamQry.FieldAsString( "name" ) != NS_PARAM_EVENT_TYPE &&
-                            ParamQry.FieldAsString( "name" ) != NS_PARAM_EVENT_ID1 &&
-                            ParamQry.FieldAsString( "name" ) != NS_PARAM_EVENT_ID2 &&
-                            ParamQry.FieldAsString( "name" ) != NS_PARAM_EVENT_ID3 ) {
-                        fileparams[ string( ParamQry.FieldAsString( "name" ) ) ] = ParamQry.FieldAsString( "value" );
-                        //		      ProgTrace( TRACE5, "name=%s, value=%s", ParamQry.FieldAsString( "name" ), ParamQry.FieldAsString( "value" ) );
-                    }
-        ParamQry.Next();
-    }
-    getFileParams(
-            airp,
-            airline,
-            flt_no,
-            client_canon_name,
-            type,
-            send,
-            fileparams);
-    // ¨á¯à ë¢¨âì!!!! ‚‹€„ €“!!!
-    if ( type != "BSM" )
-        fileparams[ PARAM_FILE_TYPE ] = type;
-    else
-        fileparams[ PARAM_TYPE ] = type;
-    fileparams[ PARAM_FILE_ID ] = IntToString( id );
-    ParamQry.Clear();
-    ParamQry.SQLText = "SELECT NVL(in_order,0) as in_order FROM file_types WHERE code=:type";
-    ParamQry.CreateVariable( "type", otString, type );
-    ParamQry.Execute();
-    //	ProgTrace( TRACE5, "type=%s", type.c_str() );
-    if ( !ParamQry.Eof && ParamQry.FieldAsInteger( "in_order" ) ) {
-        fileparams[ PARAM_IN_ORDER ] = "TRUE";
-    }
+	fileparams.clear();
+	TQuery ParamQry( &OraSession );
+	ParamQry.SQLText = "SELECT name,value FROM file_params WHERE id=:id";
+	ParamQry.CreateVariable( "id", otInteger, id );
+  ParamQry.Execute();
+//  ProgTrace( TRACE5, "id=%d", id );
+  string airline, airp, flt_no;
+	while ( !ParamQry.Eof ) {
+		if ( ParamQry.FieldAsString( "name" ) == NS_PARAM_AIRP )
+			airp = ParamQry.FieldAsString( "value" );
+		else
+			if ( ParamQry.FieldAsString( "name" ) == NS_PARAM_AIRLINE )
+				airline = ParamQry.FieldAsString( "value" );
+			else
+				if ( ParamQry.FieldAsString( "name" ) == NS_PARAM_FLT_NO )
+					flt_no = ParamQry.FieldAsString( "value" );
+				else
+					if ( ParamQry.FieldAsString( "name" ) != NS_PARAM_EVENT_TYPE &&
+						   ParamQry.FieldAsString( "name" ) != NS_PARAM_EVENT_ID1 &&
+						   ParamQry.FieldAsString( "name" ) != NS_PARAM_EVENT_ID2 &&
+						   ParamQry.FieldAsString( "name" ) != NS_PARAM_EVENT_ID3 ) {
+					  fileparams[ string( ParamQry.FieldAsString( "name" ) ) ] = ParamQry.FieldAsString( "value" );
+//		      ProgTrace( TRACE5, "name=%s, value=%s", ParamQry.FieldAsString( "name" ), ParamQry.FieldAsString( "value" ) );
+			    }
+		ParamQry.Next();
+	}
+	ParamQry.Clear();
+	ParamQry.SQLText =
+	  "SELECT param_name, param_value,"
+    "       DECODE( file_param_sets.airp, NULL, 0, 4 ) + "
+    "       DECODE( file_param_sets.airline, NULL, 0, 2 ) + "
+    "       DECODE( file_param_sets.flt_no, NULL, 0, 1 ) AS priority "
+    " FROM file_param_sets, desks "
+	  " WHERE file_param_sets.own_point_addr=:own_point_addr AND "
+	  "       file_param_sets.point_addr=:point_addr AND "
+	  "       file_param_sets.type=:type AND "
+	  "       file_param_sets.pr_send=:send AND "
+	  "       desks.code=file_param_sets.point_addr AND "
+	  "       ( file_param_sets.airp IS NULL OR file_param_sets.airp=:airp ) AND "
+	  "       ( file_param_sets.airline IS NULL OR file_param_sets.airline=:airline ) AND "
+	  "       ( file_param_sets.flt_no IS NULL OR file_param_sets.flt_no=:flt_no ) "
+	  " ORDER BY priority DESC";
+	if ( airp.empty() )
+		ParamQry.CreateVariable( "airp", otString, FNull );
+	else
+		ParamQry.CreateVariable( "airp", otString, airp );
+	if ( airline.empty() )
+		ParamQry.CreateVariable( "airline", otString, FNull );
+	else
+		ParamQry.CreateVariable( "airline", otString, airline );
+	if ( flt_no.empty() )
+		ParamQry.CreateVariable( "flt_no", otInteger, FNull );
+	else
+		ParamQry.CreateVariable( "flt_no", otInteger, flt_no );
+	ParamQry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
+	ParamQry.CreateVariable( "point_addr", otString, client_canon_name );
+	ParamQry.CreateVariable( "type", otString, type );
+  ParamQry.CreateVariable( "send", otInteger, send );
+	ParamQry.Execute();
+	int priority = -1;
+	while ( !ParamQry.Eof ) {
+		if ( priority < 0 ) {
+			priority = ParamQry.FieldAsInteger( "priority" );
+		}
+		if ( priority != ParamQry.FieldAsInteger( "priority" ) )
+			break;
+		fileparams[ ParamQry.FieldAsString( "param_name" ) ] = ParamQry.FieldAsString( "param_value" );
+//		ProgTrace( TRACE5, "name=%s, value=%s", ParamQry.FieldAsString( "param_name" ), ParamQry.FieldAsString( "param_value" ) );
+		ParamQry.Next();
+  }
+  // ¨á¯à ë¢¨âì!!!! ‚‹€„ €“!!!
+  if ( type != "BSM" )
+    fileparams[ PARAM_FILE_TYPE ] = type;
+  else
+  	fileparams[ PARAM_TYPE ] = type;
+  fileparams[ PARAM_FILE_ID ] = IntToString( id );
+	ParamQry.Clear();
+	ParamQry.SQLText = "SELECT NVL(in_order,0) as in_order FROM file_types WHERE code=:type";
+	ParamQry.CreateVariable( "type", otString, type );
+	ParamQry.Execute();
+//	ProgTrace( TRACE5, "type=%s", type.c_str() );
+	if ( !ParamQry.Eof && ParamQry.FieldAsInteger( "in_order" ) ) {
+		fileparams[ PARAM_IN_ORDER ] = "TRUE";
+	}
 }
 
 void buildFileParams( xmlNodePtr dataNode, const map<string,string> &fileparams )

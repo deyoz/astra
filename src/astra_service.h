@@ -29,11 +29,6 @@ const std::string NS_PARAM_EVENT_ID3 = "EVENT_ID3";
 const std::string PARAM_FILE_REC_NO = "rec_no";
 
 const std::string FILE_CHECKINDATA_TYPE = "CHCKD";
-const std::string FILE_HTTPGET_TYPE = "HTTPGET";
-
-const std::string PARAM_HEADING = "HEADING";
-const std::string PARAM_POINT_ID = "POINT_ID";
-const std::string PARAM_TIME_CREATE = "TIME_CREATE";
 
 struct TFileData {
 	std::string file_data;
@@ -45,16 +40,6 @@ typedef std::vector<TFileData> TFileDatas;
 
 std::string getFileEncoding( const std::string &file_type, const std::string &point_addr, bool pr_send=true );
 void getFileParams( int id, std::map<std::string,std::string> &fileparams );
-void getFileParams( const std::string client_canon_name, const std::string &type,
-	                  int id, std::map<std::string,std::string> &fileparams, bool send );
-void getFileParams(
-        const std::string &airp,
-        const std::string &airline,
-        const std::string &flt_no,
-        const std::string &client_canon_name,
-        const std::string &type,
-        bool send,
-        std::map<std::string,std::string> &fileparams);
 bool deleteFile( int id );
 int putFile(const std::string &receiver,
             const std::string &sender,

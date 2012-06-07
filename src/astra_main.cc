@@ -76,7 +76,6 @@ class AstraApplication : public ApplicationCallbacks
     AstraApplication()
     {
       Obrzapnik::getInstance()
-              ->add("tlg_http_snd", main_http_snd_tcl)
               ->add("tlg_snd", main_snd_tcl)
               ->add("tlg_srv", main_srv_tcl)
               ->add("typeb_handler", main_typeb_handler_tcl)

@@ -69,11 +69,6 @@ const int HANDLER_PROC_ATTEMPTS()
   return VAR;
 };
 
-void sendCmdTlgHttpSnd()
-{
-  sendCmd("CMD_TLG_HTTP_SND","H");
-}
-
 void sendCmdTlgSnd()
 {
   sendCmd("CMD_TLG_SND","H");

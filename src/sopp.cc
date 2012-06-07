@@ -2083,7 +2083,7 @@ void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
 
 struct TSegBSMInfo
 {
-  BSM::TBSMAddrs BSMaddrs;
+  map<bool/*pr_lat*/,string> BSMaddrs;
   map<int/*grp_id*/,BSM::TTlgContent> BSMContentBefore;
 };
 
