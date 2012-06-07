@@ -669,6 +669,7 @@ void TPrnTagStore::save_bp_print(bool pr_print)
             seat_no_lat &= tag_list[TAG::LIST_SEAT_NO].english_only;
 
         prnQry.add_part("seat_no", get_fmt_seat("list", seat_no_lat));
+        prnQry.add_part("seat_no_lat", get_fmt_seat("list", true));
     }
     if(tag_list[TAG::NAME].processed)
         prnQry.add_part(TAG::NAME, paxInfo.name);

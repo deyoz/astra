@@ -1367,7 +1367,6 @@ void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
       "FROM pax, pax_grp  "
       "WHERE pax.grp_id = pax_grp.grp_id AND pax_id=:pax_id";
     PaxQry.DeclareVariable("pax_id",otInteger);
-    PaxQry.DeclareVariable("tid",otInteger);
     vector<BPPax> paxs;
     xmlNodePtr curNode = NodeAsNode("passengers/pax", reqNode);
     for(; curNode != NULL; curNode = curNode->next)
