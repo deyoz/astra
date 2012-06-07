@@ -4642,7 +4642,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode)
       };
 
       Qry.Clear();
-      Qry.SQLText="SELECT pax_id FROM bp_print WHERE pax_id=:pax_id AND pr_print=1 AND rownum=1";
+      Qry.SQLText="SELECT pax_id FROM bp_print WHERE pax_id=:pax_id AND pr_print<>0 AND rownum=1";
       Qry.DeclareVariable("pax_id",otInteger);
       TQuery PaxQry(&OraSession);
       PaxQry.Clear();

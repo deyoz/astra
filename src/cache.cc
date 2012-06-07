@@ -1000,16 +1000,24 @@ void OnLoggingF( TCacheTable &cache, const TRow &row, TCacheUpdateStatus UpdateS
       {
         msg << "Отменен бланк пос. талона '"
             << cache.FieldOldValue( "bp_name", row ) << "'";
+        bool first=true;
         if ( !cache.FieldOldValue( "class", row ).empty() )
-          msg << " для класса " + cache.FieldOldValue( "class", row );
+        {
+          msg << (first?" для ":", ") << "класса " << cache.FieldOldValue( "class", row );
+          first=false;
+        };
         msg << ". ";
       };
       if ( UpdateStatus == usInserted || UpdateStatus == usModified )
       {
         msg << "Установлен бланк пос. талона '"
             << cache.FieldValue( "bp_name", row ) << "'";
+        bool first=true;
         if ( !cache.FieldValue( "class", row ).empty() )
-          msg << " для класса " + cache.FieldValue( "class", row );
+        {
+          msg << (first?" для ":", ") << "класса " << cache.FieldValue( "class", row );
+          first=false;
+        };
         msg << ". ";
       };
     };

@@ -7,6 +7,7 @@
 #include "oralib.h"
 #include <set>
 #include "prn_tag_store.h"
+#include "checkin.h"
 
 struct TPrnParams {
     std::string encoding;
@@ -48,6 +49,49 @@ double CalcPayRateSum(const TBagReceipt &rcpt);
 class PrintInterface: public JxtInterface
 {
     public:
+        struct BPPax {
+          int point_dep;
+          int grp_id;
+          int pax_id;
+          int reg_no;
+          std::string full_name;
+          std::pair<std::string, bool> gate; //bool=true, если делать set_tag, иначе с gate ничего не делаем
+          BASIC::TDateTime time_print;
+          std::string prn_form;
+          bool hex;
+          BPPax()
+          {
+            clear();
+          };
+          BPPax( int vgrp_id, int vpax_id, int vreg_no )
+          {
+            clear();
+            grp_id=vgrp_id;
+        	  pax_id=vpax_id;
+        	  reg_no=vreg_no;
+        	};
+        	void clear()
+        	{
+        	  point_dep=ASTRA::NoExists;
+            grp_id=ASTRA::NoExists;
+        	  pax_id=ASTRA::NoExists;
+        	  reg_no=ASTRA::NoExists;
+        	  full_name.clear();
+        	  gate=std::make_pair("", false);
+        	  time_print=ASTRA::NoExists;
+        	  prn_form.clear();
+        	  hex=false;
+          };
+        };
+
+        struct BPParams {
+          std::string dev_model;
+          std::string fmt_type;
+          std::string form_type;
+          TPrnParams prnParams;
+          xmlNodePtr clientDataNode;
+        };
+    
         PrintInterface(): JxtInterface("123", "print")
         {
             Handler *evHandle;
@@ -76,6 +120,12 @@ class PrintInterface: public JxtInterface
                 std::string &Print, bool &hex, xmlNodePtr reqNode
                 );
         virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+        
+        static void GetPrintDataBP(const BPParams &params,
+                                   std::string &pectab,
+                                   std::vector<BPPax> &paxs);
+        static void ConfirmPrintBP(const std::vector<BPPax> &paxs,
+                                   CheckIn::UserException &ue);
 };
 
 #endif

@@ -1653,15 +1653,17 @@ xmlNodePtr STAT::set_variables(xmlNodePtr resNode, string lang)
         variablesNode = NewTextChild(formDataNode, "variables");
 
     TReqInfo *reqInfo = TReqInfo::Instance();
-    TDateTime issued = UTCToLocal(NowUTC(),reqInfo->desk.tz_region);
+    TDateTime issued = NowUTC();
     string tz;
     if(reqInfo->user.sets.time == ustTimeUTC)
         tz = "(GMT)";
     else if(
             reqInfo->user.sets.time == ustTimeLocalDesk ||
             reqInfo->user.sets.time == ustTimeLocalAirp
-           )
+           ) {
+        issued = UTCToLocal(issued,reqInfo->desk.tz_region);
         tz = "(" + ElemIdToCodeNative(etCity, reqInfo->desk.city) + ")";
+    }
 
     NewTextChild(variablesNode, "print_date",
             DateTimeToStr(issued, "dd.mm.yyyy hh:nn:ss ") + tz);

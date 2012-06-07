@@ -44,8 +44,8 @@ void TPrnParams::get_prn_params(xmlNodePtr reqNode)
     if(prnParamsNode!=NULL) {
         xmlNodePtr currNode = prnParamsNode->children;
         encoding = NodeAsStringFast("encoding", currNode);
-        offset = NodeAsIntegerFast("offset", currNode);
-        top = NodeAsIntegerFast("top", currNode);
+        offset = NodeAsIntegerFast("offset", currNode, 20);
+        top = NodeAsIntegerFast("top", currNode, 0);
         pr_lat = NodeAsIntegerFast("pr_lat", currNode)!=0;
     }
 
@@ -914,25 +914,51 @@ void GetTripBPPectabs(int point_id, const string &dev_model, const string &fmt_t
     TQuery Qry(&OraSession);
     Qry.Clear();
     Qry.SQLText =
+        "SELECT bp_type, "
+        "       class, "
+        "       0 AS priority "
+        "FROM trip_bp "
+        "WHERE point_id=:point_id "
+        "ORDER BY class, priority DESC ";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.Execute();
+    vector<string> bp_types;
+    string prior_class;
+    for(;!Qry.Eof;Qry.Next())
+    {
+      if (bp_types.empty() || prior_class!=Qry.FieldAsString("class"))
+      {
+        const char* bp_type=Qry.FieldAsString("bp_type");
+        if (find(bp_types.begin(), bp_types.end(), bp_type)==bp_types.end()) bp_types.push_back(bp_type);
+        prior_class=Qry.FieldAsString("class");
+      };
+    };
+
+    Qry.Clear();
+    Qry.SQLText =
         "select "
         "   prn_form_vers.form "
         "from "
         "   bp_models, "
         "   prn_form_vers "
         "where "
-        "   bp_models.form_type IN (SELECT DISTINCT bp_type FROM trip_bp WHERE point_id=:point_id) and "
+        "   bp_models.form_type = :form_type and "
         "   bp_models.dev_model = :dev_model and "
         "   bp_models.fmt_type = :fmt_type and "
         "   bp_models.id = prn_form_vers.id and "
         "   bp_models.version = prn_form_vers.version and "
         "   prn_form_vers.form IS NOT NULL";
-    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.DeclareVariable("form_type", otString);
     Qry.CreateVariable("dev_model", otString, dev_model);
     Qry.CreateVariable("fmt_type", otString, fmt_type);
-    Qry.Execute();
     xmlNodePtr formNode=NewTextChild(node,"bp_forms");
-    for(;!Qry.Eof;Qry.Next())
+    for(vector<string>::const_iterator i=bp_types.begin();i!=bp_types.end();i++)
+    {
+      Qry.SetVariable("form_type", *i);
+      Qry.Execute();
+      if (Qry.Eof) continue;
       NewTextChild(formNode,"form",AdjustCR_LF::DoIt(fmt_type, Qry.FieldAsString("form")));
+    };
 }
 
 void GetTripBTPectabs(int point_id, const string &dev_model, const string &fmt_type, xmlNodePtr node)
@@ -997,12 +1023,12 @@ void get_bt_forms(const string &tag_type, const string &dev_model, const string 
     FormsQry.CreateVariable("fmt_type", otString, fmt_type);
     FormsQry.Execute();
     if(FormsQry.Eof)
-      previewDeviceSets(true, getLocaleText("MSG.PRINT.BAG_TAG_UNAVAILABLE_FOR_THIS_DEVICE"));
+      previewDeviceSets(true, "MSG.PRINT.BAG_TAG_UNAVAILABLE_FOR_THIS_DEVICE");
     while(!FormsQry.Eof)
     {
         NewTextChild(pectabsNode, "pectab", AdjustCR_LF::DoIt(fmt_type, FormsQry.FieldAsString("form")));
         if (FormsQry.FieldIsNULL("data"))
-          previewDeviceSets(true, getLocaleText("MSG.PRINT.BAG_TAG_UNAVAILABLE_FOR_THIS_DEVICE"));
+          previewDeviceSets(true, "MSG.PRINT.BAG_TAG_UNAVAILABLE_FOR_THIS_DEVICE");
         prn_forms.push_back(AdjustCR_LF::DoIt(fmt_type, FormsQry.FieldAsString("data")));
         FormsQry.Next();
     };
@@ -1241,7 +1267,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
 
         for(int i = 0; i < BT_count; ++i) {
             set_via_fields(parser, route, i * VIA_num, (i + 1) * VIA_num);
-//!!!            big_test(parser, dotPrnBT);
+//            big_test(parser, dotPrnBT);
             string prn_form = parser.parse(prn_forms.back());
 //            ProgTrace(TRACE5, "prn_form: %s", prn_form.c_str());
             SetProp(NewTextChild(tagNode, "prn_form", prn_form),"hex",(int)false);
@@ -1270,7 +1296,7 @@ void PrintInterface::ReprintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     tag_key.color = NodeAsString("color", reqNode);
     tag_key.no = NodeAsFloat("no", reqNode);
     if(tag_key.dev_model.empty())
-      previewDeviceSets(false, getLocaleText("MSG.PRINTER_NOT_SPECIFIED"));
+      previewDeviceSets(false, "MSG.PRINTER_NOT_SPECIFIED");
     GetPrintDataBT(dataNode, tag_key);
 }
 
@@ -1284,57 +1310,84 @@ void PrintInterface::GetPrintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     TPrnParams prnParams(reqNode);
     tag_key.pr_lat = prnParams.pr_lat;
     if(tag_key.dev_model.empty())
-      previewDeviceSets(false, getLocaleText("MSG.PRINTER_NOT_SPECIFIED"));
+      previewDeviceSets(false, "MSG.PRINTER_NOT_SPECIFIED");
     GetPrintDataBT(dataNode, tag_key);
 }
 
-void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void PrintInterface::ConfirmPrintBP(const std::vector<BPPax> &paxs,
+                                    CheckIn::UserException &ue)
 {
-    TQuery PaxQry(&OraSession);
-    PaxQry.SQLText =
-      "SELECT pax.pax_id, pax.grp_id, surname||' '||name fullname, reg_no,  "
-      " point_dep point_id  "
-      "FROM pax, pax_grp  "
-      "WHERE pax_id=:pax_id AND pax.tid=:tid and  "
-      " pax.grp_id = pax_grp.grp_id ";
-    PaxQry.DeclareVariable("pax_id",otInteger);
-    PaxQry.DeclareVariable("tid",otInteger);
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "BEGIN "
-        "  update bp_print set pr_print = 1 where pax_id = :pax_id and time_print = :time_print and pr_print = 0 RETURNING seat_no INTO :seat_no; "
+        "  UPDATE bp_print "
+        "  SET pr_print = 1 "
+        "  WHERE pax_id = :pax_id AND time_print = :time_print AND pr_print = 0 AND desk=:desk "
+        "  RETURNING seat_no INTO :seat_no; "
         "  :rows:=SQL%ROWCOUNT; "
         "END;";
     Qry.DeclareVariable("rows", otInteger);
     Qry.DeclareVariable("seat_no", otString);
     Qry.DeclareVariable("pax_id", otInteger);
     Qry.DeclareVariable("time_print", otDate);
+    Qry.CreateVariable("desk", otString, TReqInfo::Instance()->desk.code);
+    for (vector<BPPax>::const_iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax )
+    {
+        try
+        {
+            Qry.SetVariable("pax_id", iPax->pax_id);
+            Qry.SetVariable("time_print", iPax->time_print);
+            Qry.Execute();
+            if (Qry.GetVariableAsInteger("rows")==0)
+                throw AstraLocale::UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
+            string seat_no = Qry.GetVariableAsString("seat_no");
+            ostringstream msg;
+            msg << "Напечатан пос. талон для " << iPax->full_name
+                << ". Место в пос. талоне: " << (seat_no.empty() ? "нет" : seat_no) << ".";
+            TReqInfo::Instance()->MsgToLog(
+                    msg.str(),
+                    ASTRA::evtPax,
+                    iPax->point_dep,
+                    iPax->reg_no,
+                    iPax->grp_id
+                    );
+        }
+        catch(AstraLocale::UserException &e)
+        {
+          ue.addError(e.getLexemaData(), iPax->point_dep, iPax->pax_id);
+        };
+    };
+};
+
+void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    TQuery PaxQry(&OraSession);
+    PaxQry.SQLText =
+      "SELECT pax.grp_id, surname||' '||name full_name, reg_no, point_dep "
+      "FROM pax, pax_grp  "
+      "WHERE pax.grp_id = pax_grp.grp_id AND pax_id=:pax_id";
+    PaxQry.DeclareVariable("pax_id",otInteger);
+    vector<BPPax> paxs;
     xmlNodePtr curNode = NodeAsNode("passengers/pax", reqNode);
-    for(; curNode != NULL; curNode = curNode->next) {
-        PaxQry.SetVariable("pax_id", NodeAsInteger("@pax_id", curNode));
-        PaxQry.SetVariable("tid", NodeAsInteger("@tid", curNode));
+    for(; curNode != NULL; curNode = curNode->next)
+    {
+        BPPax pax;
+        pax.pax_id=NodeAsInteger("@pax_id", curNode);
+        pax.time_print=NodeAsDateTime("@time_print", curNode);
+        
+        PaxQry.SetVariable("pax_id", pax.pax_id);
         PaxQry.Execute();
-        if(PaxQry.Eof)
-            throw AstraLocale::UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
-        Qry.SetVariable("pax_id", NodeAsInteger("@pax_id", curNode));
-        Qry.SetVariable("time_print", NodeAsDateTime("@time_print", curNode));
-        Qry.Execute();
-        if (Qry.GetVariableAsInteger("rows")==0)
-            throw AstraLocale::UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
-        string seat_no = Qry.GetVariableAsString("seat_no");
-        string msg =
-                (string)"Напечатан пос. талон для " + PaxQry.FieldAsString("fullname") +
-                ". Место в пос. талоне: " + (seat_no.empty() ? "нет" : seat_no) + ".";
-        ProgTrace(TRACE5, "CONFIRM PRINT_BP LOG MSG: %s", msg.c_str());
-        TReqInfo::Instance()->MsgToLog(
-                msg,
-                ASTRA::evtPax,
-                PaxQry.FieldAsInteger("point_id"),
-                PaxQry.FieldAsInteger("reg_no"),
-                PaxQry.FieldAsInteger("grp_id")
-                );
-    }
-}
+        if(PaxQry.Eof) continue;
+
+        pax.point_dep=PaxQry.FieldAsInteger("point_dep");
+        pax.grp_id=PaxQry.FieldAsInteger("grp_id");
+        pax.reg_no=PaxQry.FieldAsInteger("reg_no");
+        pax.full_name=PaxQry.FieldAsString("full_name");
+        paxs.push_back(pax);
+    };
+    CheckIn::UserException ue;
+    ConfirmPrintBP(paxs, ue); //не надо прокидывать ue в терминал - подтверждаем все что можем!
+};
 
 void PrintInterface::ConfirmPrintBT(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -1360,12 +1413,12 @@ void PrintInterface::ConfirmPrintBT(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 void PrintInterface::GetPrintDataBR(string &form_type, PrintDataParser &parser,
         string &Print, bool &hex, xmlNodePtr reqNode)
 {
-//!!!    big_test(parser, dotPrnBR);
+//    big_test(parser, dotPrnBR);
     xmlNodePtr currNode = reqNode->children;
     string dev_model = NodeAsStringFast("dev_model", currNode);
     string fmt_type = NodeAsStringFast("fmt_type", currNode);
     if(dev_model.empty())
-        previewDeviceSets(false, getLocaleText("MSG.PRINTER_NOT_SPECIFIED"));
+        previewDeviceSets(false, "MSG.PRINTER_NOT_SPECIFIED");
 
     TPrnParams prnParams(reqNode);
 
@@ -1388,7 +1441,7 @@ void PrintInterface::GetPrintDataBR(string &form_type, PrintDataParser &parser,
     Qry.CreateVariable("fmt_type", otString, fmt_type);
     Qry.Execute();
     if(Qry.Eof||Qry.FieldIsNULL("data"))
-        previewDeviceSets(true, getLocaleText("MSG.PRINT.RECEIPT_UNAVAILABLE_FOR_THIS_DEVICE"));
+        previewDeviceSets(true, "MSG.PRINT.RECEIPT_UNAVAILABLE_FOR_THIS_DEVICE");
 
     string mso_form = AdjustCR_LF::DoIt(fmt_type, Qry.FieldAsString("data"));
     mso_form = parser.parse(mso_form);
@@ -1504,17 +1557,6 @@ string get_validator(const TBagReceipt &rcpt, bool pr_lat)
     return validator.str();
 }
 
-struct TPaxPrint {
-  int grp_id;
-  int pax_id;
-  int reg_no;
-  TPaxPrint( int vgrp_id, int vpax_id, int vreg_no ) {
-    grp_id=vgrp_id;
-	  pax_id=vpax_id;
-	  reg_no=vreg_no;
-	};
-};
-
 bool rus_airp(string airp)
 {
     string city = base_tables.get("AIRPS").get_row("code", airp).AsString("city");
@@ -1548,52 +1590,11 @@ void tst_dump(int pax_id, int grp_id, bool pr_lat)
     }
 }
 
-void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void PrintInterface::GetPrintDataBP(const BPParams &params,
+                                    string &pectab,
+                                    vector<BPPax> &paxs)
 {
-    xmlNodePtr currNode = reqNode->children;
-    int grp_id = NodeAsIntegerFast("grp_id", currNode, NoExists); // grp_id - первого сегмента или ид. группы
-    int pax_id = NodeAsIntegerFast("pax_id", currNode, NoExists);
-    int pr_all = NodeAsIntegerFast("pr_all", currNode, NoExists);
-    string dev_model = NodeAsStringFast("dev_model", currNode);
-    string fmt_type = NodeAsStringFast("fmt_type", currNode);
-    TPrnParams prnParams(reqNode);
-    xmlNodePtr clientDataNode = NodeAsNodeFast("clientData", currNode);
-    if(dev_model.empty())
-      previewDeviceSets(false, getLocaleText("MSG.PRINTER_NOT_SPECIFIED"));
-
     TQuery Qry(&OraSession);
-    if(grp_id == NoExists) {
-        Qry.Clear();
-        Qry.SQLText="SELECT grp_id from pax where pax_id = :pax_id";
-        Qry.CreateVariable("pax_id", otInteger, pax_id);
-        Qry.Execute();
-        if(Qry.Eof)
-            throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
-        grp_id = Qry.FieldAsInteger("grp_id");
-    }
-
-
-    Qry.Clear();
-    Qry.SQLText="SELECT point_dep, class FROM pax_grp WHERE grp_id=:grp_id";
-    Qry.CreateVariable("grp_id",otInteger,grp_id);
-    Qry.Execute();
-    if(Qry.Eof)
-        throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
-    if(Qry.FieldIsNULL("class"))
-        throw AstraLocale::UserException("MSG.BOARDINGPASS_NOT_AVAILABLE_FOR_UNACC_BAGGAGE");
-    int point_id = Qry.FieldAsInteger("point_dep");
-    string cl = Qry.FieldAsString("class");
-    Qry.Clear();
-    Qry.SQLText =
-        "SELECT bp_type FROM trip_bp "
-        "WHERE point_id=:point_id AND (class IS NULL OR class=:class) "
-        "ORDER BY class ";
-    Qry.CreateVariable("point_id", otInteger, point_id);
-    Qry.CreateVariable("class", otString, cl);
-    Qry.Execute();
-    if(Qry.Eof) throw AstraLocale::UserException("MSG.BP_TYPE_NOT_ASSIGNED_FOR_FLIGHT_OR_CLASS");
-    string form_type = Qry.FieldAsString("bp_type");
-    ProgTrace(TRACE5, "bp_type: %s", form_type.c_str());
     Qry.Clear();
     Qry.SQLText =
         "select "
@@ -1608,31 +1609,108 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         "   bp_models.fmt_type = :fmt_type and "
         "   bp_models.id = prn_form_vers.id and "
         "   bp_models.version = prn_form_vers.version ";
-    Qry.CreateVariable("form_type", otString, form_type);
-    Qry.CreateVariable("dev_model", otString, dev_model);
-    Qry.CreateVariable("fmt_type", otString, fmt_type);
+    Qry.CreateVariable("form_type", otString, params.form_type);
+    Qry.CreateVariable("dev_model", otString, params.dev_model);
+    Qry.CreateVariable("fmt_type", otString, params.fmt_type);
     Qry.Execute();
-    if(Qry.Eof||Qry.FieldIsNULL("data")||
-            Qry.FieldIsNULL( "form" ) && (DecodeDevFmtType(fmt_type) == dftBTP || DecodeDevFmtType(fmt_type) == dftATB)
+    if(Qry.Eof||
+       Qry.FieldIsNULL("data")||
+       Qry.FieldIsNULL( "form" ) && (DecodeDevFmtType(params.fmt_type) == dftBTP ||
+                                     DecodeDevFmtType(params.fmt_type) == dftATB)
       )
-        previewDeviceSets(true, getLocaleText("MSG.PRINT.BP_UNAVAILABLE_FOR_THIS_DEVICE"));
-    string form = AdjustCR_LF::DoIt(fmt_type, Qry.FieldAsString("form"));
-    string data = AdjustCR_LF::DoIt(fmt_type, Qry.FieldAsString("data"));
-    xmlNodePtr dataNode = NewTextChild(resNode, "data");
-    xmlNodePtr BPNode = NewTextChild(dataNode, "printBP");
-    NewTextChild(BPNode, "pectab", form);
+        previewDeviceSets(true, "MSG.PRINT.BP_UNAVAILABLE_FOR_THIS_DEVICE");
+    pectab = AdjustCR_LF::DoIt(params.fmt_type, Qry.FieldAsString("form"));
+    string data = AdjustCR_LF::DoIt(params.fmt_type, Qry.FieldAsString("data"));
+
+
+    for (vector<BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
+//        tst_dump(iPax->pax_id, iPax->grp_id, prnParams.pr_lat);
+        PrintDataParser parser( iPax->grp_id, iPax->pax_id, params.prnParams.pr_lat, params.clientDataNode );
+//        big_test(parser, dotPrnBP);
+        // если это нулевой сегмент, то тогда печатаем выход на посадку иначе не нечатаем
+        //надо удалить выход на посадку из данных по пассажиру
+        if (iPax->gate.second)
+            parser.pts.set_tag("gate", iPax->gate.first);
+
+        iPax->prn_form = parser.parse(data);
+        iPax->hex=false;
+        if(DecodeDevFmtType(params.fmt_type) == dftEPSON) {
+            to_esc::TConvertParams ConvertParams;
+            ConvertParams.init(params.dev_model);
+//            ProgTrace(TRACE5, "prn_form: %s", prn_form.c_str());
+            to_esc::convert(iPax->prn_form, ConvertParams, params.prnParams);
+            StringToHex( string(iPax->prn_form), iPax->prn_form );
+            iPax->hex=true;
+        }
+        parser.pts.save_bp_print();
+        iPax->time_print=parser.pts.get_time_print();
+    }
+};
+
+
+void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    xmlNodePtr currNode = reqNode->children;
+    BPParams params;
+    int first_seg_grp_id = NodeAsIntegerFast("grp_id", currNode, NoExists); // grp_id - первого сегмента или ид. группы
+    int pax_id = NodeAsIntegerFast("pax_id", currNode, NoExists);
+    int pr_all = NodeAsIntegerFast("pr_all", currNode, NoExists);
+    params.dev_model = NodeAsStringFast("dev_model", currNode);
+    params.fmt_type = NodeAsStringFast("fmt_type", currNode);
+    params.prnParams.get_prn_params(reqNode);
+    params.clientDataNode = NodeAsNodeFast("clientData", currNode);
+    if(params.dev_model.empty())
+      previewDeviceSets(false, "MSG.PRINTER_NOT_SPECIFIED");
+
+    TQuery Qry(&OraSession);
+    if(first_seg_grp_id == NoExists) {
+        Qry.Clear();
+        Qry.SQLText="SELECT grp_id from pax where pax_id = :pax_id";
+        Qry.CreateVariable("pax_id", otInteger, pax_id);
+        Qry.Execute();
+        if(Qry.Eof)
+            throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
+        first_seg_grp_id = Qry.FieldAsInteger("grp_id");
+    }
+
+
+    Qry.Clear();
+    Qry.SQLText="SELECT point_dep, class FROM pax_grp WHERE grp_id=:grp_id";
+    Qry.CreateVariable("grp_id",otInteger,first_seg_grp_id);
+    Qry.Execute();
+    if(Qry.Eof)
+        throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
+    if(Qry.FieldIsNULL("class"))
+        throw AstraLocale::UserException("MSG.BOARDINGPASS_NOT_AVAILABLE_FOR_UNACC_BAGGAGE");
+    int point_id = Qry.FieldAsInteger("point_dep");
+    string cl = Qry.FieldAsString("class");
+    Qry.Clear();
+    Qry.SQLText =
+        "SELECT bp_type, "
+        "       DECODE(class,NULL,0,1) AS priority "
+        "FROM trip_bp "
+        "WHERE point_id=:point_id AND "
+        "      (class IS NULL OR class=:class) "
+        "ORDER BY priority DESC ";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.CreateVariable("class", otString, cl);
+    Qry.Execute();
+    if(Qry.Eof) throw AstraLocale::UserException("MSG.BP_TYPE_NOT_ASSIGNED_FOR_FLIGHT_OR_CLASS");
+    params.form_type = Qry.FieldAsString("bp_type");
+    ProgTrace(TRACE5, "bp_type: %s", params.form_type.c_str());
+    
     vector<int> grps;
-    vector<TPaxPrint> paxs;
+    vector<BPPax> paxs;
     Qry.Clear();
     if ( pax_id == NoExists ) { // печать всех или только тех, у которых не подтверждена распечатка
         TCkinRoute cr;
-        cr.GetRouteAfter(grp_id, crtWithCurrent, crtOnlyDependent);
+        cr.GetRouteAfter(first_seg_grp_id, crtWithCurrent, crtOnlyDependent);
         if (!cr.empty())
-        {    
+        {
           for(vector<TCkinRouteItem>::iterator iv = cr.begin(); iv != cr.end(); iv++)
               grps.push_back(iv->grp_id);
         }
-        else grps.push_back(grp_id);
+        else grps.push_back(first_seg_grp_id);
 
         Qry.Clear();
         if ( pr_all )
@@ -1656,12 +1734,12 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         for( vector<int>::iterator igrp=grps.begin(); igrp!=grps.end(); igrp++ ) {
             Qry.SetVariable( "grp_id", *igrp );
             Qry.Execute();
-            if ( Qry.Eof && pr_all ) //!!! анализ на клиенте по сегментам, значит и мы должны анализировать по сегментам
+            if ( Qry.Eof && pr_all ) // анализ на клиенте по сегментам, значит и мы должны анализировать по сегментам
                 throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA"); //все посадочные отпечатаны
             while ( !Qry.Eof ) {
-                paxs.push_back( TPaxPrint( Qry.FieldAsInteger("grp_id"),
-                            Qry.FieldAsInteger("pax_id"),
-                            Qry.FieldAsInteger("reg_no") ) );
+                paxs.push_back( BPPax( Qry.FieldAsInteger("grp_id"),
+                                       Qry.FieldAsInteger("pax_id"),
+                                       Qry.FieldAsInteger("reg_no") ) );
                 Qry.Next();
             }
         }
@@ -1675,41 +1753,26 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         Qry.Execute();
         if ( Qry.Eof )
             throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
-        paxs.push_back( TPaxPrint( Qry.FieldAsInteger("grp_id"),
-                    Qry.FieldAsInteger("pax_id"),
-                    Qry.FieldAsInteger("reg_no") ) );
-    }
+        paxs.push_back( BPPax( Qry.FieldAsInteger("grp_id"),
+                               Qry.FieldAsInteger("pax_id"),
+                               Qry.FieldAsInteger("reg_no") ) );
+    };
+    
+    for (vector<BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax )
+      if(first_seg_grp_id != iPax->grp_id) iPax->gate=make_pair("", true);
+    
+    string pectab;
+    GetPrintDataBP(params, pectab, paxs);
+
+    xmlNodePtr BPNode = NewTextChild(NewTextChild(resNode, "data"), "printBP");
+    NewTextChild(BPNode, "pectab", pectab);
     xmlNodePtr passengersNode = NewTextChild(BPNode, "passengers");
-    for (vector<TPaxPrint>::iterator iprint=paxs.begin(); iprint!=paxs.end(); iprint++ ) {
-//!!!        tst_dump(iprint->pax_id, iprint->grp_id, prnParams.pr_lat);
-        PrintDataParser parser( iprint->grp_id, iprint->pax_id, prnParams.pr_lat, clientDataNode );
-//!!!        big_test(parser, dotPrnBP);
-        // если это нулевой сегмент, то тогда печатаем выход на посадку иначе не нечатаем
-        //надо удалить выход на посадку из данных по пассажиру
-        if(grp_id != iprint->grp_id)
-            parser.pts.set_tag("gate", "");
-
-        string prn_form = parser.parse(data);
-        bool hex=false;
-        if(DecodeDevFmtType(fmt_type) == dftEPSON) {
-            to_esc::TConvertParams ConvertParams;
-            ConvertParams.init(dev_model);
-//!!!            ProgTrace(TRACE5, "prn_form: %s", prn_form.c_str());
-            to_esc::convert(prn_form, ConvertParams, prnParams);
-            StringToHex( string(prn_form), prn_form );
-            hex=true;
-        }
-
+    for (vector<BPPax>::const_iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
         xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
-        SetProp(NewTextChild(paxNode, "prn_form", prn_form),"hex",(int)hex);
-
-        {
-            parser.pts.save_bp_print();
-            SetProp(paxNode, "pax_id", iprint->pax_id);
-            //!!!SetProp(paxNode, "seg_no", iv->seg_no);
-            SetProp(paxNode, "reg_no", parser.pts.get_tag(TAG::REG_NO));
-            SetProp(paxNode, "time_print", DateTimeToStr(parser.pts.get_time_print()));
-        }
+        SetProp(NewTextChild(paxNode, "prn_form", iPax->prn_form),"hex",(int)iPax->hex);
+        SetProp(paxNode, "pax_id", iPax->pax_id);
+        SetProp(paxNode, "reg_no", (int)iPax->reg_no);
+        SetProp(paxNode, "time_print", DateTimeToStr(iPax->time_print));
     }
 }
 

@@ -3723,33 +3723,46 @@ void BPTags::getFields( vector<string> &atags )
 	atags = tags;
 }
 
-void WebRequestsIface::GetBPTags(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void GetBPPax(xmlNodePtr paxNode, bool is_test, bool check_tids, PrintInterface::BPPax &pax)
 {
-  TReqInfo *reqInfo = TReqInfo::Instance();
-  if (reqInfo->client_type==ctTerm) reqInfo->client_type=EMUL_CLIENT_TYPE;
-
-	ProgTrace(TRACE1,"WebRequestsIface::GetBPTags");
-	int pax_id = NodeAsInteger( "pax_id", reqNode );
-	xmlNodePtr node = NodeAsNode( "tids", reqNode );
+  pax.clear();
+  pax.pax_id = NodeAsInteger( "pax_id", paxNode );
+	xmlNodePtr node = NodeAsNode( "tids", paxNode );
 	int crs_pnr_tid = NodeAsInteger( "crs_pnr_tid", node );
 	int crs_pax_tid = NodeAsInteger( "crs_pax_tid", node );
 	int pax_grp_tid = NodeAsInteger( "pax_grp_tid", node );
 	int pax_tid = NodeAsInteger( "pax_tid", node );
-	verifyPaxTids( pax_id, crs_pnr_tid, crs_pax_tid, pax_grp_tid, pax_tid );
+	if (check_tids) verifyPaxTids( pax.pax_id, crs_pnr_tid, crs_pax_tid, pax_grp_tid, pax_tid );
 	TQuery Qry(&OraSession);
-	if (!isTestPaxId(pax_id))
+	if (!is_test)
 	{
+	  Qry.Clear();
   	Qry.SQLText =
-  	 "SELECT pax_grp.grp_id, pax_grp.point_dep "
+  	 "SELECT pax_grp.grp_id, pax_grp.point_dep, "
+     "       pax.reg_no, pax.surname||' '||pax.name full_name "
   	 "FROM pax_grp, pax "
   	 "WHERE pax_id=:pax_id AND pax.grp_id=pax_grp.grp_id";
-  	Qry.CreateVariable( "pax_id", otInteger, pax_id );
+  	Qry.CreateVariable( "pax_id", otInteger, pax.pax_id );
   	Qry.Execute();
   	if ( Qry.Eof )
   		throw UserException( "MSG.PASSENGER.NOT_FOUND" );
+  	pax.reg_no = Qry.FieldAsInteger( "reg_no" );
+    pax.full_name = Qry.FieldAsString( "full_name" );
   }
   else
   {
+    Qry.Clear();
+    Qry.SQLText =
+      "SELECT reg_no, surname||' '||name full_name "
+      "FROM test_pax WHERE id=:pax_id";
+    Qry.CreateVariable( "pax_id", otInteger, pax.pax_id );
+  	Qry.Execute();
+  	if ( Qry.Eof )
+  		throw UserException( "MSG.PASSENGER.NOT_FOUND" );
+  	pax.reg_no = Qry.FieldAsInteger( "reg_no" );
+    pax.full_name = Qry.FieldAsString( "full_name" );
+
+    Qry.Clear();
     Qry.SQLText =
      "SELECT :grp_id AS grp_id, point_id AS point_dep "
      "FROM points "
@@ -3760,22 +3773,15 @@ void WebRequestsIface::GetBPTags(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   	if ( Qry.Eof )
   	  throw UserException( "MSG.FLIGHT.NOT_FOUND" );
   };
+	pax.point_dep = Qry.FieldAsInteger( "point_dep" );
+	pax.grp_id = Qry.FieldAsInteger( "grp_id" );
+};
 
-	int point_id = Qry.FieldAsInteger( "point_dep" );
-	PrintDataParser parser( Qry.FieldAsInteger( "grp_id" ), pax_id, 0, NULL );
-	vector<string> tags;
-	BPTags::Instance()->getFields( tags );
-	node = NewTextChild( resNode, "GetBPTags" );
-    for ( vector<string>::iterator i=tags.begin(); i!=tags.end(); i++ ) {
-        for(int j = 0; j < 2; j++) {
-            string value = parser.pts.get_tag(*i, ServerFormatDateTimeAsString, (j == 0 ? "R" : "E"));
-            NewTextChild( node, (*i + (j == 0 ? "" : "_lat")), value );
-            ProgTrace( TRACE5, "field name=%s, value=%s", (*i + (j == 0 ? "" : "_lat")).c_str(), value.c_str() );
-        }
-    }
-    parser.pts.save_bp_print(true, false);
-
-	Qry.Clear();
+string GetBPGate(int point_id)
+{
+  string gate;
+  TQuery Qry(&OraSession);
+  Qry.Clear();
 	Qry.SQLText =
     "SELECT stations.name FROM stations,trip_stations "
     " WHERE point_id=:point_id AND "
@@ -3786,11 +3792,146 @@ void WebRequestsIface::GetBPTags(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 	Qry.CreateVariable( "work_mode", otString, "П" );
 	Qry.Execute();
 	if ( !Qry.Eof ) {
-		string gate = Qry.FieldAsString( "name" );
+		gate = Qry.FieldAsString( "name" );
 		Qry.Next();
-		if ( Qry.Eof )
-			NewTextChild( node, "gate", gate );
-	}
+		if ( !Qry.Eof )
+      gate.clear();
+	};
+	return gate;
+};
+
+void WebRequestsIface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  if (reqInfo->client_type==ctTerm) reqInfo->client_type=EMUL_CLIENT_TYPE;
+
+  ProgTrace(TRACE1,"WebRequestsIface::ConfirmPrintBP");
+  CheckIn::UserException ue;
+  vector<PrintInterface::BPPax> paxs;
+  bool is_test=isTestPaxId(NodeAsInteger("passengers/pax/pax_id", reqNode));
+  xmlNodePtr paxNode = NodeAsNode("passengers", reqNode)->children;
+  for(;paxNode!=NULL;paxNode=paxNode->next)
+  {
+    PrintInterface::BPPax pax;
+    try
+    {
+      GetBPPax( paxNode, is_test, false, pax );
+      pax.time_print=NodeAsDateTime("prn_form_key", paxNode);
+      paxs.push_back(pax);
+    }
+    catch(UserException &e)
+    {
+      //не надо прокидывать ue в терминал - подтверждаем все что можем!
+      ue.addError(e.getLexemaData(), pax.point_dep, pax.pax_id);
+    };
+  };
+
+  if (!is_test)
+  {
+    PrintInterface::ConfirmPrintBP(paxs, ue);  //не надо прокидывать ue в терминал - подтверждаем все что можем!
+  };
+  
+  NewTextChild( resNode, "ConfirmPrintBP" );
+};
+
+void WebRequestsIface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  if (reqInfo->client_type==ctTerm) reqInfo->client_type=EMUL_CLIENT_TYPE;
+  
+  ProgTrace(TRACE1,"WebRequestsIface::GetPrintDataBP");
+  PrintInterface::BPParams params;
+  params.dev_model = NodeAsString("dev_model", reqNode);
+  params.fmt_type = NodeAsString("fmt_type", reqNode);
+  params.prnParams.get_prn_params(reqNode);
+  params.clientDataNode = NULL;
+  
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText =
+      "SELECT bp_type, "
+      "       DECODE(desk_grp_id,NULL,0,2)+ "
+      "       DECODE(desk,NULL,0,4) AS priority "
+      "FROM desk_bp_set "
+      "WHERE (desk_grp_id IS NULL OR desk_grp_id=:desk_grp_id) AND "
+      "      (desk IS NULL OR desk=:desk) "
+      "ORDER BY priority DESC ";
+  Qry.CreateVariable("desk_grp_id", otInteger, reqInfo->desk.grp_id);
+  Qry.CreateVariable("desk", otString, reqInfo->desk.code);
+  Qry.Execute();
+  if(Qry.Eof) throw AstraLocale::UserException("MSG.BP_TYPE_NOT_ASSIGNED_FOR_DESK");
+  params.form_type = Qry.FieldAsString("bp_type");
+  ProgTrace(TRACE5, "bp_type: %s", params.form_type.c_str());
+  
+  CheckIn::UserException ue;
+  vector<PrintInterface::BPPax> paxs;
+  map<int/*point_dep*/, string/*gate*/> gates;
+  bool is_test=isTestPaxId(NodeAsInteger("passengers/pax/pax_id", reqNode));
+  xmlNodePtr paxNode = NodeAsNode("passengers", reqNode)->children;
+  for(;paxNode!=NULL;paxNode=paxNode->next)
+  {
+    PrintInterface::BPPax pax;
+    try
+    {
+      GetBPPax( paxNode, is_test, true, pax );
+      if (gates.find(pax.point_dep)==gates.end()) gates[pax.point_dep]=GetBPGate(pax.point_dep);
+      pax.gate=make_pair(gates[pax.point_dep], true);
+      paxs.push_back(pax);
+    }
+    catch(UserException &e)
+    {
+      ue.addError(e.getLexemaData(), pax.point_dep, pax.pax_id);
+    };
+  };
+  
+  if (!ue.empty()) throw ue;
+
+  string pectab;
+  PrintInterface::GetPrintDataBP(params, pectab, paxs);
+
+  xmlNodePtr BPNode = NewTextChild( resNode, "GetPrintDataBP" );
+  NewTextChild(BPNode, "pectab", pectab);
+  xmlNodePtr passengersNode = NewTextChild(BPNode, "passengers");
+  for (vector<PrintInterface::BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax )
+  {
+    xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
+    NewTextChild(paxNode, "pax_id", iPax->pax_id);
+    if (!iPax->hex && params.prnParams.encoding!="UTF-8")
+    {
+      iPax->prn_form = ConvertCodepage(iPax->prn_form, "CP866", params.prnParams.encoding);
+      StringToHex( string(iPax->prn_form), iPax->prn_form );
+      iPax->hex=true;
+    };
+    SetProp(NewTextChild(paxNode, "prn_form", iPax->prn_form),"hex",(int)iPax->hex);
+    NewTextChild(paxNode, "prn_form_key", DateTimeToStr(iPax->time_print));
+  };
+};
+
+void WebRequestsIface::GetBPTags(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  if (reqInfo->client_type==ctTerm) reqInfo->client_type=EMUL_CLIENT_TYPE;
+
+	ProgTrace(TRACE1,"WebRequestsIface::GetBPTags");
+	PrintInterface::BPPax pax;
+	bool is_test=isTestPaxId(NodeAsInteger("pax_id", reqNode));
+	GetBPPax( reqNode, is_test, true, pax );
+	PrintDataParser parser( pax.grp_id, pax.pax_id, 0, NULL );
+	vector<string> tags;
+	BPTags::Instance()->getFields( tags );
+	xmlNodePtr node = NewTextChild( resNode, "GetBPTags" );
+    for ( vector<string>::iterator i=tags.begin(); i!=tags.end(); i++ ) {
+        for(int j = 0; j < 2; j++) {
+            string value = parser.pts.get_tag(*i, ServerFormatDateTimeAsString, (j == 0 ? "R" : "E"));
+            NewTextChild( node, (*i + (j == 0 ? "" : "_lat")), value );
+            ProgTrace( TRACE5, "field name=%s, value=%s", (*i + (j == 0 ? "" : "_lat")).c_str(), value.c_str() );
+        }
+    }
+  parser.pts.save_bp_print(true);
+    
+  string gate=GetBPGate(pax.point_dep);
+  if (!gate.empty())
+    NewTextChild( node, "gate", gate );
 }
 
 void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
