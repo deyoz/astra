@@ -795,7 +795,7 @@ void TPrnTagStore::TPaxInfo::Init(int apax_id, TTagLang &tag_lang)
           Qry.CreateVariable("lang", otString, tag_lang.GetLang());
 
           TQuery bpPrintQry(&OraSession);
-          bpPrintQry.SQLText = "SELECT pax_id FROM bp_print WHERE pax_id=:pax_id AND pr_print=1 AND rownum=1";
+          bpPrintQry.SQLText = "SELECT pax_id FROM bp_print WHERE pax_id=:pax_id AND pr_print<>0 AND rownum=1";
           bpPrintQry.CreateVariable("pax_id", otInteger, pax_id);
           bpPrintQry.Execute();
           pr_bp_print = not bpPrintQry.Eof;
