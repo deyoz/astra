@@ -549,6 +549,25 @@ void SaveBag(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode)
   if (!is_payment)
   {
     //в кассе не можем привязывать бирки и добавлять багаж поэтому делаем это только для регистрации
+    if (unbound_tags>0 && !reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS))
+    {
+      //автоматическая привязка бирок для старых терминалов
+      for(map<int, TTagItem>::iterator t=tags.begin();t!=tags.end();++t)
+      {
+        if (t->second.bag_num!=ASTRA::NoExists) continue;
+        for(map<int, TBagItem>::const_iterator b=bags.begin();b!=bags.end();b++)
+        {
+          if (!b->second.pr_cabin && bound_tags[b->second.num]<b->second.amount)
+          {
+            t->second.bag_num=b->second.num;
+            ++bound_tags[b->second.num];
+            --unbound_tags;
+            break;
+          };
+        };
+      };
+    };
+    
     if (unbound_tags>0)
     {
       if (unbound_tags==1)
