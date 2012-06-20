@@ -343,8 +343,12 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   {
     xmlNodePtr markFltNode=NewTextChild(dataNode,"mark_flight");
     NewTextChild(markFltNode,"airline",Qry.FieldAsString("airline"));
-    NewTextChild(markFltNode,"aircode",
-                 base_tables.get("airlines").get_row("code",Qry.FieldAsString("airline")).AsString("aircode"));
+    if (TReqInfo::Instance()->desk.compatible(BAG_RCPT_KITS_VERSION) &&
+        !TReqInfo::Instance()->desk.compatible(AIRCODE_BUGFIX_VERSION))
+      NewTextChild(markFltNode,"aircode",Qry.FieldAsString("airline"));
+    else
+      NewTextChild(markFltNode,"aircode",
+                   base_tables.get("airlines").get_row("code",Qry.FieldAsString("airline")).AsString("aircode"));
     NewTextChild(markFltNode,"flt_no",Qry.FieldAsInteger("flt_no"));
     NewTextChild(markFltNode,"suffix",Qry.FieldAsString("suffix"));
     NewTextChild(markFltNode,"scd",DateTimeToStr(Qry.FieldAsDateTime("scd")));
