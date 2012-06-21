@@ -2548,27 +2548,27 @@ void SeatsPassengers( SALONS2::TSalons *Salons, TSeatAlgoParams ASeatAlgoParams 
   throw UserException( "MSG.SEATS.NOT_AVAIL_AUTO_SEATS" );
 }
 
-bool GetPassengersForWaitList( int point_id, TPassengers &p, bool pr_exists )
+bool GetPassengersForWaitList( int point_id, TPassengers &p )
 {
 	bool res = false;
 	TQuery Qry( &OraSession );
   TQuery RemsQry( &OraSession );
   TQuery PaxDocQry( &OraSession );
   TPaxSeats priorSeats( point_id );
-	if ( !pr_exists ) {
-	  p.Clear();
-    RemsQry.SQLText =
-      "SELECT rem, rem_code, pax.pax_id, rem_types.pr_comp "
-      " FROM pax_rem, pax_grp, pax, rem_types "
-      "WHERE pax_grp.grp_id=pax.grp_id AND "
-      "      pax_grp.point_dep=:point_id AND "
-      "      pax.pr_brd IS NOT NULL AND "
-      "      pax.seats > 0 AND "
-      "      pax_rem.pax_id=pax.pax_id AND "
-      "      rem_code=rem_types.code(+) "
-      " ORDER BY pax.pax_id, pr_comp, code ";
-    RemsQry.CreateVariable( "point_id", otInteger, point_id );
-  }
+
+  p.Clear();
+  RemsQry.SQLText =
+    "SELECT rem, rem_code, pax.pax_id, rem_types.pr_comp "
+    " FROM pax_rem, pax_grp, pax, rem_types "
+    "WHERE pax_grp.grp_id=pax.grp_id AND "
+    "      pax_grp.point_dep=:point_id AND "
+    "      pax.pr_brd IS NOT NULL AND "
+    "      pax.seats > 0 AND "
+    "      pax_rem.pax_id=pax.pax_id AND "
+    "      rem_code=rem_types.code(+) "
+    " ORDER BY pax.pax_id, pr_comp, code ";
+  RemsQry.CreateVariable( "point_id", otInteger, point_id );
+
   Qry.SQLText =
     "SELECT airline "
     " FROM points "
@@ -2581,46 +2581,36 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p, bool pr_exists )
   TGrpStatusTypes &grp_status_types = (TGrpStatusTypes &)base_tables.get("GRP_STATUS_TYPES");
 
   Qry.Clear();
-  string sql;
-  if ( pr_exists )
-    sql += "SELECT pax.pax_id ";
-  else
-    sql += "SELECT pax_grp.grp_id,"
-           "       pax.pax_id,"
-           "       pax.reg_no,"
-           "       surname,"
-           "       pax.name, "
-           "       pax_grp.class,"
-           "       cls_grp.code subclass,"
-           "       pax.seats,"
-           "       pax_grp.status, "
-           "       pax.pers_type, "
-           "       pax.ticket_no, "
-           "       ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_weight,"
-           "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_amount, "
-           "       ckin.get_excess(pax.grp_id,pax.pax_id) AS excess,"
-           "       pax.tid,"
-           "       pax.wl_type, "
-           "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'list',rownum) AS seat_no, "
-           "       tckin_pax_grp.tckin_id, tckin_pax_grp.seg_no  ";
-  sql +=
-    " FROM pax_grp, pax, cls_grp, tckin_pax_grp "
+  Qry.SQLText =
+    "SELECT pax_grp.grp_id, "
+    "       pax.pax_id, "
+    "       pax.reg_no, "
+    "       surname, "
+    "       pax.name, "
+    "       pax_grp.class, "
+    "       cls_grp.code subclass, "
+    "       pax.seats, "
+    "       pax_grp.status, "
+    "       pax.pers_type, "
+    "       pax.ticket_no, "
+    "       ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_weight, "
+    "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_amount, "
+    "       ckin.get_excess(pax.grp_id,pax.pax_id) AS excess, "
+    "       pax.tid, "
+    "       pax.wl_type, "
+    "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'list',rownum) AS seat_no, "
+    "       tckin_pax_grp.tckin_id, tckin_pax_grp.seg_no "
+    "FROM pax_grp, pax, cls_grp, tckin_pax_grp "
     "WHERE pax_grp.grp_id=pax.grp_id AND "
     "      pax_grp.point_dep=:point_id AND "
     "      pax_grp.class_grp = cls_grp.id AND "
     "      pax_grp.grp_id=tckin_pax_grp.grp_id(+) AND "
     "      pax.pr_brd IS NOT NULL AND "
-    "      pax.seats > 0 ";
-  if ( pr_exists )
-  	sql += " AND salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'list',rownum) IS NULL AND rownum<2 ";
-  else
-    sql += " ORDER BY pax.pax_id";
-  Qry.SQLText = sql;
+    "      pax.seats > 0 "
+    " ORDER BY pax.pax_id";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
-  if ( pr_exists ) {
-  	return !Qry.Eof;
-  }
+
   TSublsRems subcls_rems(airline);
 
   RemsQry.Execute();

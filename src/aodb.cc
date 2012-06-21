@@ -1688,7 +1688,7 @@ try {
     QryTripInfo.Execute();
     if ( !QryTripInfo.Eof ) {
     	fltInfo.Init(QryTripInfo);
-    	Set_overload_alarm( point_id, Calc_overload_alarm( point_id, fltInfo ) );
+    	check_overload_alarm( point_id, fltInfo );
     }
 	} // end update
   tst();

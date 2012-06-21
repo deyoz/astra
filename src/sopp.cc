@@ -2325,7 +2325,7 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
   {
     Qry.SetVariable("point_id",i->first);
     Qry.Execute();
-    Set_overload_alarm( i->first, Calc_overload_alarm( i->first, i->second ) );
+    check_overload_alarm( i->first, i->second );
     check_waitlist_alarm( i->first );
     check_brd_alarm( i->first );
   };
@@ -2548,7 +2548,7 @@ void SoppInterface::WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   			QryTripInfo.Execute();
   			if ( !QryTripInfo.Eof ) {
   				fltInfo.Init(QryTripInfo);
-  				Set_overload_alarm( point_id, Calc_overload_alarm( point_id, fltInfo ) );
+  				check_overload_alarm( point_id, fltInfo );
   			}
   		}
   	}

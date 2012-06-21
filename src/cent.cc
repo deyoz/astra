@@ -1019,8 +1019,7 @@ void importDBF( int external_point_id, string &dbf_file )
         idx++;
       }
     
-      SEATS2::TPassengers p;
-      if ( SEATS2::GetPassengersForWaitList( point_id, p, true ) ) {
+      if ( get_alarm( point_id, atWaitlist ) ) {
         ProgTrace( TRACE5, "waitlist exists, point_id=%d", point_id );
         throw Exception( "waitlist exists" );
       }

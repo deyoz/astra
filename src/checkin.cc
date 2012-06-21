@@ -4258,7 +4258,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
       Qry.Close();
 
       //проверим максимальную загрузку
-      bool overload_alarm = Calc_overload_alarm( point_dep, fltInfo ); // вычислили признак перегрузки
+      bool overload_alarm = calc_overload_alarm( point_dep, fltInfo ); // вычислили признак перегрузки
       
       if (overload_alarm)
       {
@@ -4304,14 +4304,14 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
               CheckIn::showError(ce.segs);
             };
             
-            Set_overload_alarm( point_dep, true ); // установили признак перегрузки несмотря на то что реальной перегрузки нет
+            set_alarm( point_dep, atOverload, true ); // установили признак перегрузки несмотря на то что реальной перегрузки нет
             Set_AODB_overload_alarm( point_dep, true );
             return false;
           };
         };
       };
       
-      Set_overload_alarm( point_dep, overload_alarm ); // установили признак перегрузки
+      set_alarm( point_dep, atOverload, overload_alarm ); // установили признак перегрузки
       
 
       if (!pr_unaccomp)

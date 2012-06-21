@@ -2519,7 +2519,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
 
 };
 
-bool Calc_overload_alarm( int point_id, const TTripInfo &fltInfo )
+bool calc_overload_alarm( int point_id, const TTripInfo &fltInfo )
 {
   TQuery Qry(&OraSession);
   Qry.SQLText=
@@ -2527,61 +2527,47 @@ bool Calc_overload_alarm( int point_id, const TTripInfo &fltInfo )
   Qry.CreateVariable("point_id", otInteger, point_id);
   Qry.Execute();
   if (Qry.Eof) throw Exception("Flight not found in trip_sets (point_id=%d)",point_id);
-  if (Qry.FieldIsNULL("max_commerce")) return false;
-	int load=GetFltLoad(point_id,fltInfo);
-  ProgTrace(TRACE5,"max_commerce=%d load=%d",Qry.FieldAsInteger("max_commerce"),load);
-	return (load>Qry.FieldAsInteger("max_commerce"));
-}
+  bool overload_alarm=false;
+  if (!Qry.FieldIsNULL("max_commerce"))
+  {
+  	int load=GetFltLoad(point_id,fltInfo);
+    ProgTrace(TRACE5,"check_overload_alarm: max_commerce=%d load=%d",Qry.FieldAsInteger("max_commerce"),load);
+    overload_alarm=(load>Qry.FieldAsInteger("max_commerce"));
+  };
+  return overload_alarm;
+};
 
-void Set_overload_alarm( int point_id, bool overload_alarm )
+bool check_overload_alarm( int point_id, const TTripInfo &fltInfo )
+{
+  bool overload_alarm=calc_overload_alarm( point_id, fltInfo );
+  set_alarm( point_id, atOverload, overload_alarm );
+	return overload_alarm;
+};
+
+bool calc_waitlist_alarm( int point_id )
 {
   TQuery Qry(&OraSession);
-  Qry.SQLText = "SELECT overload_alarm FROM trip_sets WHERE point_id=:point_id";
-  Qry.CreateVariable("point_id", otInteger, point_id);
+  Qry.SQLText =
+    "SELECT pax.pax_id "
+    "FROM pax_grp, pax "
+    "WHERE pax_grp.grp_id=pax.grp_id AND "
+    "      pax_grp.point_dep=:point_id AND "
+    "      pax.pr_brd IS NOT NULL AND pax.seats > 0 AND "
+    "      salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'list',rownum) IS NULL AND "
+    "      rownum<2";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
-  if ( !Qry.Eof && (int)overload_alarm != Qry.FieldAsInteger( "overload_alarm" ) ) {
-    Qry.Clear();
-    Qry.SQLText=
-      "UPDATE trip_sets SET overload_alarm=:overload_alarm WHERE point_id=:point_id";
-    Qry.CreateVariable("overload_alarm", otInteger, overload_alarm);
-    Qry.CreateVariable("point_id", otInteger, point_id);
-    Qry.Execute();
-  	string msg = "Тревога 'Перегрузка'";
-  	if ( overload_alarm )
-  		msg += " установлена";
-  	else
-  		msg += " отменена";
-  	TReqInfo::Instance()->MsgToLog( msg, evtFlt, point_id );
-  }
-}
-
+  return !Qry.Eof;
+};
 
 /* есть пассажиры, которые на листе ожидания */
 bool check_waitlist_alarm( int point_id )
 {
-	TQuery Qry(&OraSession);
-	Qry.SQLText =
-	  "SELECT waitlist_alarm FROM trip_sets WHERE point_id=:point_id";
-	Qry.CreateVariable( "point_id", otInteger, point_id );
-	Qry.Execute();
-	SEATS2::TPassengers p;
-	bool waitlist_alarm = SEATS2::GetPassengersForWaitList( point_id, p, true );
-	if ( !Qry.Eof && (int)waitlist_alarm != Qry.FieldAsInteger( "waitlist_alarm" ) ) {
-		Qry.Clear();
-		Qry.SQLText =
-		  "UPDATE trip_sets SET waitlist_alarm=:waitlist_alarm WHERE point_id=:point_id";
-	  Qry.CreateVariable( "point_id", otInteger, point_id );
-	  Qry.CreateVariable( "waitlist_alarm", otInteger, waitlist_alarm );
-  	Qry.Execute();
-  	string msg = "Тревога 'Лист ожидания'";
-  	if ( waitlist_alarm )
-  		msg += " установлена";
-  	else
-  		msg += " отменена";
-  	TReqInfo::Instance()->MsgToLog( msg, evtFlt, point_id );
-	}
+	bool waitlist_alarm = calc_waitlist_alarm( point_id );
+
+  set_alarm( point_id, atWaitlist, waitlist_alarm );
 	return waitlist_alarm;
-}
+};
 
 /* есть пассажиры, которые зарегистрированы, но не посажены */
 bool check_brd_alarm( int point_id )
@@ -2606,46 +2592,8 @@ bool check_brd_alarm( int point_id )
   	Qry.Execute();
 	  brd_alarm = !Qry.Eof;
 	}
-	Qry.Clear();
-	Qry.SQLText =
-	  "SELECT brd_alarm FROM trip_sets WHERE point_id=:point_id";
-	Qry.CreateVariable( "point_id", otInteger, point_id );
-	Qry.Execute();
-	if ( !Qry.Eof && (int)brd_alarm != Qry.FieldAsInteger( "brd_alarm" ) ) {
-		Qry.Clear();
-		Qry.SQLText =
-		  "UPDATE trip_sets SET brd_alarm=:brd_alarm WHERE point_id=:point_id";
-	  Qry.CreateVariable( "point_id", otInteger, point_id );
-	  Qry.CreateVariable( "brd_alarm", otInteger, brd_alarm );
-  	Qry.Execute();
-  	string msg = "Тревога 'Посадка'";
-  	if ( brd_alarm )
-  		msg += " установлена";
-  	else
-  		msg += " отменена";
-  	TReqInfo::Instance()->MsgToLog( msg, evtFlt, point_id );
-  }
+	set_alarm( point_id, atBrd, brd_alarm );
 	return brd_alarm;
-}
+};
 
-void Set_diffcomp_alarm( int point_id, bool diffcomp_alarm )
-{
-  TQuery Qry(&OraSession);
-  Qry.SQLText = "SELECT diffcomp_alarm FROM trip_sets WHERE point_id=:point_id";
-  Qry.CreateVariable("point_id", otInteger, point_id);
-  Qry.Execute();
-  if ( !Qry.Eof && (int)diffcomp_alarm != Qry.FieldAsInteger( "diffcomp_alarm" ) ) {
-    Qry.Clear();
-    Qry.SQLText=
-      "UPDATE trip_sets SET diffcomp_alarm=:diffcomp_alarm WHERE point_id=:point_id";
-    Qry.CreateVariable("diffcomp_alarm", otInteger, diffcomp_alarm);
-    Qry.CreateVariable("point_id", otInteger, point_id);
-    Qry.Execute();
-  	string msg = "Тревога 'Различие компоновок'";
-  	if ( diffcomp_alarm )
-  		msg += " установлена";
-  	else
-  		msg += " отменена";
-  	TReqInfo::Instance()->MsgToLog( msg, evtFlt, point_id );
-  }
-}
+

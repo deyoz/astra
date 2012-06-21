@@ -474,7 +474,9 @@ bool SeparateTCkin(int grp_id,
 
 enum TTripAlarmsType { atSalon, atWaitlist, atBrd, atOverload, atETStatus, atSeance, atDiffComps, atLength };
 void TripAlarms( int point_id, BitSet<TTripAlarmsType> &Alarms );
-std::string TripAlarmString( TTripAlarmsType &alarm );
+std::string TripAlarmString( TTripAlarmsType alarm );
+bool get_alarm( int point_id, TTripAlarmsType alarm_type );
+void set_alarm( int point_id, TTripAlarmsType alarm_type, bool alarm_value );
 
 struct TCodeShareSets {
   private:

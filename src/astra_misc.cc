@@ -1099,33 +1099,89 @@ void TripAlarms( int point_id, BitSet<TTripAlarmsType> &Alarms )
   }
 }
 
-string TripAlarmString( TTripAlarmsType &alarm )
+string TripAlarmName( TTripAlarmsType alarm )
 {
-	string mes;
-	switch( alarm ) {
-		case atOverload:
-			mes = AstraLocale::getLocaleText("Перегрузка");
-			break;
-		case atWaitlist:
-			mes = AstraLocale::getLocaleText("Лист ожидания");
-			break;
-		case atBrd:
-			mes = AstraLocale::getLocaleText("Посадка");
-			break;
-		case atSalon:
-			mes = AstraLocale::getLocaleText("Не назначен салон");
-			break;
-		case atETStatus:
-			mes = AstraLocale::getLocaleText("Нет связи с СЭБ");
-			break;
-		case atSeance:
-		  mes = AstraLocale::getLocaleText("Не определен сеанс");
-			break;
+  switch( alarm )
+  {
+    case atOverload:  return "Перегрузка";
+		case atWaitlist:  return "Лист ожидания";
+		case atBrd:       return "Посадка";
+		case atSalon:     return "Не назначен салон";
+		case atETStatus:  return "Нет связи с СЭБ";
+		case atSeance:    return "Не определен сеанс";
+    case atDiffComps: return "Различие компоновок";
+		default:          return "";
+  };
+}
+
+string TripAlarmString( TTripAlarmsType alarm )
+{
+  return AstraLocale::getLocaleText( TripAlarmName( alarm ) );
+}
+
+bool get_alarm( int point_id, TTripAlarmsType alarm_type )
+{
+  string alarm_column;
+  switch(alarm_type)
+  {
+    case atWaitlist:
+      alarm_column="waitlist_alarm";
+      break;
+    case atBrd:
+      alarm_column="brd_alarm";
+      break;
+    case atOverload:
+      alarm_column="overload_alarm";
+      break;
     case atDiffComps:
-      mes = AstraLocale::getLocaleText("Различие компоновок");
-		default:;
-	}
-	return mes;
+      alarm_column="diffcomp_alarm";
+      break;
+    default: throw Exception("get_alarm: alarm_type=%d not processed", (int)alarm_type);
+  };
+  TQuery Qry(&OraSession);
+  ostringstream msg;
+  msg << "SELECT " << alarm_column << " FROM trip_sets WHERE point_id=:point_id";
+  Qry.SQLText = msg.str().c_str();
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+	Qry.Execute();
+	return (!Qry.Eof && Qry.FieldAsInteger(alarm_column)!=0);
+}
+
+void set_alarm( int point_id, TTripAlarmsType alarm_type, bool alarm_value )
+{
+  string alarm_column;
+  switch(alarm_type)
+  {
+    case atWaitlist:
+      alarm_column="waitlist_alarm";
+      break;
+    case atBrd:
+      alarm_column="brd_alarm";
+      break;
+    case atOverload:
+      alarm_column="overload_alarm";
+      break;
+    case atDiffComps:
+      alarm_column="diffcomp_alarm";
+      break;
+    default: throw Exception("set_alarm: alarm_type=%d not processed", (int)alarm_type);
+  };
+
+  TQuery Qry(&OraSession);
+  ostringstream msg;
+  msg << "UPDATE trip_sets SET " << alarm_column << "=:alarm "
+      << "WHERE point_id=:point_id AND " << alarm_column << "<>:alarm ";
+  Qry.SQLText = msg.str().c_str();
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+	Qry.CreateVariable( "alarm", otInteger, (int)alarm_value );
+	Qry.Execute();
+	if (Qry.RowsProcessed()>0)
+	{
+	  msg.str("");
+	  msg << "Тревога '" << TripAlarmName(alarm_type) << "' "
+	      << (alarm_value?"установлена":"отменена");
+	  TReqInfo::Instance()->MsgToLog( msg.str(), evtFlt, point_id );
+  }
 }
 
 TPaxSeats::TPaxSeats( int point_id )

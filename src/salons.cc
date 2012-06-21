@@ -1995,7 +1995,7 @@ void check_diffcomp_alarm( TCompsRoutes &routes )
 {
  calc_diffcomp_alarm( routes );
  for (  TCompsRoutes::iterator i=routes.begin(); i!=routes.end(); i++ ) {
-   Set_diffcomp_alarm( i->point_id, i->pr_alarm );
+   set_alarm( i->point_id, atDiffComps, i->pr_alarm );
  }
 }
 

@@ -1567,7 +1567,7 @@ void PointsKeyTrip<T>::DoEvents( int move_id )
     fltInfo.suffix = this->key.suffix;
     fltInfo.airp = this->key.airp;
     fltInfo.scd_out = this->key.scd_out;
-    Set_overload_alarm( this->key.point_id, Calc_overload_alarm( this->key.point_id, fltInfo ) );
+    check_overload_alarm( this->key.point_id, fltInfo );
   }
   tst();
 }

@@ -140,11 +140,10 @@ public:
   static void readHalls( std::string airp_dep, std::string work_mode, xmlNodePtr dataNode);
 };
 
-bool Calc_overload_alarm( int point_id, const TTripInfo &fltInfo );
-void Set_overload_alarm( int point_id, bool overload_alarm );
+bool calc_overload_alarm( int point_id, const TTripInfo &fltInfo );
+bool check_overload_alarm( int point_id, const TTripInfo &fltInfo );
 bool check_waitlist_alarm( int point_id );
 bool check_brd_alarm( int point_id );
-void Set_diffcomp_alarm( int point_id, bool diffcomp_alarm );
 
 #endif /*_TRIPINFO_H_*/
 
