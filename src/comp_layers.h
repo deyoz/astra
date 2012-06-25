@@ -27,14 +27,16 @@ void DeleteTlgSeatRanges(std::vector<int> range_ids,
                          int crs_pax_id,           //может быть NoExists
                          int &curr_tid);           //если NoExists, то инициализируется в процедуре, служит для обновления crs_pax.tid
                          
-void InsertTripCompLayers(int point_id_tlg, //point_id_tlg либо point_id_spp м.б. NoExists
+/*void InsertTripCompLayers(int point_id_tlg, //point_id_tlg либо point_id_spp м.б. NoExists
                           int point_id_spp,
-                          ASTRA::TCompLayerType layer_type);
+                          ASTRA::TCompLayerType layer_type); не используется. Для использования проверьте вызов check_waitlist_alarm( point_id );*/
 
+//Для использования проверьте вызов check_waitlist_alarm( point_id );
 void DeleteTripCompLayers(int point_id_tlg, //point_id_tlg либо point_id_spp м.б. NoExists
                           int point_id_spp,
                           ASTRA::TCompLayerType layer_type);
                           
+//Для использования проверьте вызов check_waitlist_alarm( point_id );*/
 void SyncTripCompLayers(int point_id_tlg, //point_id_tlg либо point_id_spp м.б. NoExists
                         int point_id_spp,
                         ASTRA::TCompLayerType layer_type);

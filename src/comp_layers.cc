@@ -11,6 +11,11 @@
 using namespace std;
 using namespace ASTRA;
 
+void InsertTripCompLayers(int point_id_tlg, //point_id_tlg либо point_id_spp м.б. NoExists
+                          int point_id_spp,
+                          ASTRA::TCompLayerType layer_type);
+
+
 struct TPointIds
 {
   int point_dep,point_arv,point_id;
