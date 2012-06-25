@@ -561,6 +561,35 @@ std::string GetPaxDocCountryCode(const std::string &doc_code);
 const int TEST_ID_BASE = 1000000000;
 bool isTestPaxId(int id);
 
+/* должны быть заполнены поля в типе T1:
+  grp_id, pax_id, crs_pax_id - из таблицы crs_inf, surname
+  в типе T2:
+  grp_id, pax_id, surname */
+template <class T1, class T2>
+void SetInfantsToAdults( std::vector<T1> &InfItems, std::vector<T2> AdultItems )
+{
+  for(int k = 1; k <= 3; k++) {
+    for(typename std::vector<T1>::iterator infRow = InfItems.begin(); infRow != InfItems.end(); infRow++) {
+      if(k == 1 and infRow->parent_pax_id != ASTRA::NoExists or
+         k > 1 and infRow->parent_pax_id == ASTRA::NoExists) {
+         infRow->parent_pax_id = ASTRA::NoExists;
+        for(typename std::vector<T2>::iterator adultRow = AdultItems.begin(); adultRow != AdultItems.end(); adultRow++) {
+          if(
+             (infRow->grp_id == adultRow->grp_id) and
+             (k == 1 and infRow->crs_pax_id == adultRow->pax_id or
+              k == 2 and infRow->surname == adultRow->surname or
+              k == 3)
+            ) {
+                infRow->parent_pax_id = adultRow->pax_id;
+                AdultItems.erase(adultRow);
+                break;
+              }
+         }
+      }
+    }
+  }
+};
+
 #endif /*_ASTRA_MISC_H_*/
 
 
