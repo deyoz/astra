@@ -63,14 +63,32 @@ void ReadCompSections( int comp_id, vector<SALONS2::TCompSection> &CompSections 
 void ZoneLoads(int point_id, map<string, int> &zones)
 {
   std::vector<SALONS2::TCompSectionLayers> CompSectionsLayers;
-  ZoneLoads(point_id,zones,CompSectionsLayers);
+  vector<TZoneOccupiedSeats> zoneSeats;
+  ZoneLoads(point_id, false, false, false, zoneSeats,CompSectionsLayers);
+  for ( vector<TZoneOccupiedSeats>::iterator i=zoneSeats.begin(); i!=zoneSeats.end(); i++ ) {
+    zones[ i->name ] = i->seats.size();
+  }
 }
 
-void ZoneLoads(int point_id, map<string, int> &zones, std::vector<SALONS2::TCompSectionLayers> &CompSectionsLayers )
+void ZoneLoads(int point_id,
+               bool only_checkin_layers, bool only_high_layer, bool drop_not_used_pax_layers,
+               std::vector<TZoneOccupiedSeats> &zones, std::vector<SALONS2::TCompSectionLayers> &CompSectionsLayers )
 {
+  vector<SALONS2::TCompSection> compSections;
+  ZoneLoads( point_id, only_checkin_layers, only_high_layer, drop_not_used_pax_layers,
+             zones, CompSectionsLayers, compSections );
+}
+
+void ZoneLoads(int point_id,
+               bool only_checkin_layers, bool only_high_layer, bool drop_not_used_pax_layers,
+               vector<TZoneOccupiedSeats> &zones,
+               std::vector<SALONS2::TCompSectionLayers> &CompSectionsLayers,
+               vector<SALONS2::TCompSection> &compSections )
+{
+    compSections.clear();
     CompSectionsLayers.clear();
     zones.clear();
-    SALONS2::TSalons SalonsTmp( point_id, SALONS2::rTripSalons, false );
+    SALONS2::TSalons SalonsTmp( point_id, SALONS2::rTripSalons, drop_not_used_pax_layers );
     TQuery Qry(&OraSession);
     try {
 	      Qry.SQLText =
@@ -80,34 +98,35 @@ void ZoneLoads(int point_id, map<string, int> &zones, std::vector<SALONS2::TComp
 	      TTripInfo info( Qry );
 	      tst();
         SalonsTmp.Read();
-        vector<SALONS2::TCompSection> compSections;
         if ( SalonsTmp.comp_id > 0 && GetTripSets( tsCraftNoChangeSections, info ) ) { //!!!строго завязать базовые компоновки с назначенными на рейс
             tst();
             ReadCompSections( SalonsTmp.comp_id, compSections );
             TQuery Qry(&OraSession);
             Qry.SQLText = "select layer_type from grp_status_types";
             Qry.Execute();
-            std::map<ASTRA::TCompLayerType,int> layersSeats, checkinLayersSeats;
+            std::map<ASTRA::TCompLayerType,SALONS2::TPlaces> layersSeats, checkinLayersSeats;
             for(; not Qry.Eof; Qry.Next())
-                checkinLayersSeats[DecodeCompLayerType(Qry.FieldAsString("layer_type"))] = 0;
+                checkinLayersSeats[DecodeCompLayerType(Qry.FieldAsString("layer_type"))].clear();
             Qry.Clear();
             Qry.SQLText =
               "SELECT code from comp_layer_types WHERE pr_occupy = 1";
             Qry.Execute();
             for(; not Qry.Eof; Qry.Next())
-              layersSeats[DecodeCompLayerType(Qry.FieldAsString("code"))] = 0;
+              layersSeats[DecodeCompLayerType(Qry.FieldAsString("code"))].clear();
             for ( vector<SALONS2::TCompSection>::iterator i=compSections.begin(); i!=compSections.end(); i++ ) {
                 SALONS2::TCompSectionLayers compSectionLayers;
                 compSectionLayers.layersSeats = layersSeats;
-                getLayerPlacesCompSection( SalonsTmp, *i, false, compSectionLayers.layersSeats, i->seats );
+                getLayerPlacesCompSection( SalonsTmp, *i, only_high_layer, compSectionLayers.layersSeats, i->seats );
                 compSectionLayers.compSection = *i;
-                for(std::map<ASTRA::TCompLayerType, int>::iterator im = compSectionLayers.layersSeats.begin(); im != compSectionLayers.layersSeats.end(); im++) {
-                  ProgTrace( TRACE5, "im->first=%s, im->second=%d", EncodeCompLayerType( im->first ), im->second );
-                  if ( checkinLayersSeats.find( im->first ) != checkinLayersSeats.end() ) { // работаем только со слоями регистрации??? ДЕН!!!
-                    zones[i->name] += im->second;
-                    tst();
+                TZoneOccupiedSeats zs;
+                zs.name = i->name;
+                for(std::map<ASTRA::TCompLayerType, SALONS2::TPlaces>::iterator im = compSectionLayers.layersSeats.begin(); im != compSectionLayers.layersSeats.end(); im++) {
+                  ProgTrace( TRACE5, "im->first=%s, im->second=%d", EncodeCompLayerType( im->first ), im->second.size() );
+                  if ( !only_checkin_layers || checkinLayersSeats.find( im->first ) != checkinLayersSeats.end() ) { // работаем только со слоями регистрации??? ДЕН!!!
+                    zs.seats.insert( zs.seats.end(), im->second.begin(), im->second.end() );
                   }
                 }
+                zones.push_back( zs );
                 CompSectionsLayers.push_back( compSectionLayers );
             }
         }
@@ -1303,4 +1322,10 @@ void SalonFormInterface::AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     }
   	showErrorMessageAndRollback( ue.getLexemaData( ) );
   }
+}
+
+void trace( int pax_id, int grp_id, int parent_pax_id, int crs_pax_id, const std::string &pers_type, int seats )
+{
+  ProgTrace( TRACE5, "pax_id=%d, grp_id=%d, parent_pax_id=%d, crs_pax_id=%d, pers_type=%s, seats=%d",
+             pax_id, grp_id, parent_pax_id, crs_pax_id, pers_type.c_str(), seats );
 }

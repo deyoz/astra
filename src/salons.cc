@@ -2959,12 +2959,12 @@ void ParseCompSections( xmlNodePtr sectionsNode, std::vector<TCompSection> &Comp
 
 void getLayerPlacesCompSection( SALONS2::TSalons &NSalons, TCompSection &compSection,
                                 bool only_high_layer,
-                                map<ASTRA::TCompLayerType, int> &uselayers_count,
+                                map<ASTRA::TCompLayerType, TPlaces> &uselayers_places,
                                 int &seats_count )
 {
   seats_count = 0;
-  for ( map<ASTRA::TCompLayerType, int>::iterator il=uselayers_count.begin(); il!=uselayers_count.end(); il++ ) {
-    uselayers_count[ il->first ] = 0;
+  for ( map<ASTRA::TCompLayerType, TPlaces>::iterator il=uselayers_places.begin(); il!=uselayers_places.end(); il++ ) {
+    uselayers_places[ il->first ].clear();
   }
   int Idx = 0;
   for ( vector<TPlaceList*>::iterator si=NSalons.placelists.begin(); si!=NSalons.placelists.end(); si++ ) {
@@ -2975,10 +2975,10 @@ void getLayerPlacesCompSection( SALONS2::TSalons &NSalons, TCompSection &compSec
          if ( !p->isplace || !p->visible )
            continue;
          seats_count++;
-         for ( map<ASTRA::TCompLayerType, int>::iterator il=uselayers_count.begin(); il!=uselayers_count.end(); il++ ) {
+         for ( map<ASTRA::TCompLayerType, TPlaces>::iterator il=uselayers_places.begin(); il!=uselayers_places.end(); il++ ) {
            if ( only_high_layer && !p->layers.empty() && p->layers.begin()->layer_type == il->first || // !!!вверху самый приоритетный слой
                 !only_high_layer && p->isLayer( il->first ) ) {
-             uselayers_count[ il->first ] = uselayers_count[ il->first ] + 1;
+             uselayers_places[ il->first ].push_back( *p );
              break;
            }
          }
@@ -2987,8 +2987,8 @@ void getLayerPlacesCompSection( SALONS2::TSalons &NSalons, TCompSection &compSec
       Idx++;
     }
   }
-  for ( map<ASTRA::TCompLayerType, int>::iterator il=uselayers_count.begin(); il!=uselayers_count.end(); il++ ) {
-    ProgTrace( TRACE5, "getPaxPlacesCompSection: layer_type=%s, count=%d", EncodeCompLayerType(il->first), il->second );
+  for ( map<ASTRA::TCompLayerType, TPlaces>::iterator il=uselayers_places.begin(); il!=uselayers_places.end(); il++ ) {
+    ProgTrace( TRACE5, "getPaxPlacesCompSection: layer_type=%s, count=%d", EncodeCompLayerType(il->first), il->second.size() );
   }
 }
 
