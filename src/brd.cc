@@ -13,6 +13,7 @@
 #include "etick.h"
 #include "astra_ticket.h"
 #include "aodb.h"
+#include "alarms.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"

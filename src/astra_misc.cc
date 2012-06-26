@@ -1058,132 +1058,6 @@ bool SeparateTCkin(int grp_id,
   return true;
 };
 
-void TripAlarms( int point_id, BitSet<TTripAlarmsType> &Alarms )
-{
-	Alarms.clearFlags();
-	TQuery Qry(&OraSession);
-	Qry.SQLText =
-    "SELECT overload_alarm,brd_alarm,waitlist_alarm,pr_etstatus,pr_salon,act,pr_airp_seance,diffcomp_alarm "
-    " FROM trip_sets, trip_stages, "
-    " ( SELECT COUNT(*) pr_salon FROM trip_comp_elems WHERE point_id=:point_id AND rownum<2 ) a "
-    " WHERE trip_sets.point_id=:point_id AND "
-    "       trip_stages.point_id(+)=trip_sets.point_id AND "
-    "       trip_stages.stage_id(+)=:OpenCheckIn ";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.CreateVariable( "OpenCheckIn", otInteger, sOpenCheckIn );
-  Qry.Execute();
-	if (Qry.Eof) throw Exception("Flight not found in trip_sets (point_id=%d)",point_id);
-  if ( Qry.FieldAsInteger( "overload_alarm" ) ) {
-   	Alarms.setFlag( atOverload );
-  }
-  if ( Qry.FieldAsInteger( "waitlist_alarm" ) ) {
-   	Alarms.setFlag( atWaitlist );
-  }
-  if ( Qry.FieldAsInteger( "brd_alarm" ) ) {
-   	Alarms.setFlag( atBrd );
-  }
-	if ( !Qry.FieldAsInteger( "pr_salon" ) && !Qry.FieldIsNULL( "act" ) ) {
-		Alarms.setFlag( atSalon );
-	}
-	if ( Qry.FieldAsInteger( "pr_etstatus" ) < 0 ) {
-		Alarms.setFlag( atETStatus );
-	}
-	if (USE_SEANCES())
-	{
-  	if ( Qry.FieldIsNULL( "pr_airp_seance" ) ) {
-  	  Alarms.setFlag( atSeance );
-    }
-  };
-  if ( Qry.FieldAsInteger( "diffcomp_alarm" ) ) {
-   	Alarms.setFlag( atDiffComps );
-  }
-}
-
-string TripAlarmName( TTripAlarmsType alarm )
-{
-  switch( alarm )
-  {
-    case atOverload:  return "Перегрузка";
-		case atWaitlist:  return "Лист ожидания";
-		case atBrd:       return "Посадка";
-		case atSalon:     return "Не назначен салон";
-		case atETStatus:  return "Нет связи с СЭБ";
-		case atSeance:    return "Не определен сеанс";
-    case atDiffComps: return "Различие компоновок";
-		default:          return "";
-  };
-}
-
-string TripAlarmString( TTripAlarmsType alarm )
-{
-  return AstraLocale::getLocaleText( TripAlarmName( alarm ) );
-}
-
-bool get_alarm( int point_id, TTripAlarmsType alarm_type )
-{
-  string alarm_column;
-  switch(alarm_type)
-  {
-    case atWaitlist:
-      alarm_column="waitlist_alarm";
-      break;
-    case atBrd:
-      alarm_column="brd_alarm";
-      break;
-    case atOverload:
-      alarm_column="overload_alarm";
-      break;
-    case atDiffComps:
-      alarm_column="diffcomp_alarm";
-      break;
-    default: throw Exception("get_alarm: alarm_type=%d not processed", (int)alarm_type);
-  };
-  TQuery Qry(&OraSession);
-  ostringstream msg;
-  msg << "SELECT " << alarm_column << " FROM trip_sets WHERE point_id=:point_id";
-  Qry.SQLText = msg.str().c_str();
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-	Qry.Execute();
-	return (!Qry.Eof && Qry.FieldAsInteger(alarm_column)!=0);
-}
-
-void set_alarm( int point_id, TTripAlarmsType alarm_type, bool alarm_value )
-{
-  string alarm_column;
-  switch(alarm_type)
-  {
-    case atWaitlist:
-      alarm_column="waitlist_alarm";
-      break;
-    case atBrd:
-      alarm_column="brd_alarm";
-      break;
-    case atOverload:
-      alarm_column="overload_alarm";
-      break;
-    case atDiffComps:
-      alarm_column="diffcomp_alarm";
-      break;
-    default: throw Exception("set_alarm: alarm_type=%d not processed", (int)alarm_type);
-  };
-
-  TQuery Qry(&OraSession);
-  ostringstream msg;
-  msg << "UPDATE trip_sets SET " << alarm_column << "=:alarm "
-      << "WHERE point_id=:point_id AND " << alarm_column << "<>:alarm ";
-  Qry.SQLText = msg.str().c_str();
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-	Qry.CreateVariable( "alarm", otInteger, (int)alarm_value );
-	Qry.Execute();
-	if (Qry.RowsProcessed()>0)
-	{
-	  msg.str("");
-	  msg << "Тревога '" << TripAlarmName(alarm_type) << "' "
-	      << (alarm_value?"установлена":"отменена");
-	  TReqInfo::Instance()->MsgToLog( msg.str(), evtFlt, point_id );
-  }
-}
-
 TPaxSeats::TPaxSeats( int point_id )
 {
 	pr_lat_seat = 1;
@@ -1846,4 +1720,55 @@ bool isTestPaxId(int id)
 {
   return id!=NoExists && id>=TEST_ID_BASE && id<=TEST_ID_BASE+999999999;
 }
+
+int GetFltLoad( int point_id, const TTripInfo &fltInfo)
+{
+  TQuery Qry(&OraSession);
+  Qry.CreateVariable("point_id", otInteger, point_id);
+
+  bool prSummer=is_dst(fltInfo.scd_out,
+                       AirpTZRegion(fltInfo.airp));
+
+  int load=0;
+  //пассажиры
+  Qry.SQLText=
+    "SELECT NVL(SUM(weight_win),0) AS weight_win, "
+    "       NVL(SUM(weight_sum),0) AS weight_sum "
+    "FROM pax_grp,pax,pers_types "
+    "WHERE pax_grp.grp_id=pax.grp_id AND "
+    "      pax.pers_type=pers_types.code AND "
+    "      pax_grp.point_dep=:point_id AND pax.refuse IS NULL";
+  Qry.Execute();
+  if (!Qry.Eof)
+  {
+    if (prSummer)
+      load+=Qry.FieldAsInteger("weight_sum");
+    else
+      load+=Qry.FieldAsInteger("weight_win");
+  };
+
+  //багаж
+  Qry.SQLText=
+    "SELECT NVL(SUM(weight),0) AS weight "
+    "FROM pax_grp,bag2 "
+    "WHERE pax_grp.grp_id=bag2.grp_id AND "
+    "      pax_grp.point_dep=:point_id AND "
+    "      ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0";
+  Qry.Execute();
+  if (!Qry.Eof)
+    load+=Qry.FieldAsInteger("weight");
+
+  //груз, почта
+  Qry.SQLText=
+    "SELECT NVL(SUM(cargo),0) AS cargo, "
+    "       NVL(SUM(mail),0) AS mail "
+    "FROM trip_load, points "
+    "WHERE trip_load.point_dep=:point_id AND "
+    "      points.point_id=trip_load.point_arv AND "
+    "      points.pr_del=0";
+  Qry.Execute();
+  if (!Qry.Eof)
+    load+=Qry.FieldAsInteger("cargo")+Qry.FieldAsInteger("mail");
+  return load;
+};
 

@@ -25,6 +25,7 @@
 #include "baggage.h"
 #include "passenger.h"
 #include "remarks.h"
+#include "alarms.h"
 #include "jxtlib/jxt_cont.h"
 
 #define NICKNAME "VLAD"

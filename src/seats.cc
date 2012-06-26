@@ -17,6 +17,7 @@
 #include "tripinfo.h"
 #include "aodb.h"
 #include "term_version.h"
+#include "alarms.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -2989,7 +2990,8 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   }
 
   int curr_tid = NoExists;
-  
+  TPointIdsForCheck point_ids_spp;
+  point_ids_spp.insert( make_pair(point_id, layer_type) );
   if ( seat_type != stSeat ) { // пересадка, высадка - удаление старого слоя
     	switch( layer_type ) {
     		case cltGoShow:
@@ -3022,7 +3024,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
         	break;
     		case cltProtCkin:
     			// удаление из салона, если есть разметка
-    			DeleteTlgSeatRanges( layer_type, pax_id, curr_tid );
+    			DeleteTlgSeatRanges( layer_type, pax_id, curr_tid, point_ids_spp );
           break;
         default:
         	ProgTrace( TRACE5, "!!! Unusible layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
@@ -3057,7 +3059,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
         curr_tid = Qry.GetVariableAsInteger( "tid" );
         break;
       case cltProtCkin:
-        InsertTlgSeatRanges( point_id_tlg, airp_arv, layer_type, seats, pax_id, NoExists, NoExists, false, curr_tid );
+        InsertTlgSeatRanges( point_id_tlg, airp_arv, layer_type, seats, pax_id, NoExists, NoExists, false, curr_tid, point_ids_spp );
       	break;
       default:
       	ProgTrace( TRACE5, "!!! Unuseable layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
@@ -3123,7 +3125,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   		}
   		break;
   }
-  check_waitlist_alarm( point_id );
+  check_alarms( point_ids_spp );
 }
 
 void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &APass, TSeatAlgoParams ASeatAlgoParams )

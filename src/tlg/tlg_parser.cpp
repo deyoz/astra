@@ -18,7 +18,7 @@
 #include "memory_manager.h"
 #include "comp_layers.h"
 #include "tlg_binding.h"
-
+#include "alarms.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -4813,8 +4813,9 @@ void SaveSOMContent(int tlg_id, TDCSHeadingInfo& info, TSOMContent& con)
   for(vector<TSeatsByDest>::iterator i=con.seats.begin();i!=con.seats.end();i++)
   {
     //здесь надо удалить все слои телеграмм SOM из более ранних пунктов из trip_comp_layers
-
-    InsertTlgSeatRanges(point_id,i->airp_arv,cltSOMTrzt,i->ranges,NoExists,tlg_id,NoExists,usePriorContext,curr_tid);
+    TPointIdsForCheck point_ids_spp;
+    InsertTlgSeatRanges(point_id,i->airp_arv,cltSOMTrzt,i->ranges,NoExists,tlg_id,NoExists,usePriorContext,curr_tid,point_ids_spp);
+    check_alarms(point_ids_spp);
     usePriorContext=true;
   };
 };
@@ -5329,6 +5330,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
         int pnr_id,pax_id;
         bool pr_sync_pnr;
         bool UsePriorContext=false;
+        TPointIdsForCheck point_ids_spp;
         for(iTotals=con.resa.begin();iTotals!=con.resa.end();iTotals++)
         {
           CrsPnrQry.SetVariable("airp_arv",iTotals->dest);
@@ -5579,14 +5581,14 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                   Qry.CreateVariable("pax_id",otInteger,pax_id);
                   Qry.Execute();
                   
-                  DeleteTlgSeatRanges(cltPNLCkin, pax_id, tid);
-                  DeleteTlgSeatRanges(cltPNLBeforePay, pax_id, tid);
-                  DeleteTlgSeatRanges(cltPNLAfterPay, pax_id, tid);
+                  DeleteTlgSeatRanges(cltPNLCkin, pax_id, tid, point_ids_spp);
+                  DeleteTlgSeatRanges(cltPNLBeforePay, pax_id, tid, point_ids_spp);
+                  DeleteTlgSeatRanges(cltPNLAfterPay, pax_id, tid, point_ids_spp);
                   if (ne.indicator==DEL)
                   {
-                    DeleteTlgSeatRanges(cltProtCkin, pax_id, tid);
-                    DeleteTlgSeatRanges(cltProtBeforePay, pax_id, tid);
-                    DeleteTlgSeatRanges(cltProtAfterPay, pax_id, tid);
+                    DeleteTlgSeatRanges(cltProtCkin, pax_id, tid, point_ids_spp);
+                    DeleteTlgSeatRanges(cltProtBeforePay, pax_id, tid, point_ids_spp);
+                    DeleteTlgSeatRanges(cltProtAfterPay, pax_id, tid, point_ids_spp);
                   };
                 };
                 if (ne.indicator!=DEL)
@@ -5621,8 +5623,9 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                   SaveDOCSRem(pax_id,iPaxItem->doc);
                   SaveTKNRem(pax_id,iPaxItem->tkn);
                   SaveFQTRem(pax_id,iPaxItem->fqt);
+                  //разметка слоев
                   InsertTlgSeatRanges(point_id,iTotals->dest,isPRL?cltPRLTrzt:cltPNLCkin,iPaxItem->seatRanges,
-                                      pax_id,tlg_id,NoExists,UsePriorContext,tid);
+                                      pax_id,tlg_id,NoExists,UsePriorContext,tid,point_ids_spp);
                   if (!isPRL)
                   {
                     TCompLayerType rem_layer=GetSeatRemLayer(pnr.market_flt.Empty()?con.flt.airline:
@@ -5631,13 +5634,13 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                     if (rem_layer!=cltPNLCkin && rem_layer!=cltUnknown)
                       InsertTlgSeatRanges(point_id,iTotals->dest,rem_layer,
                                           vector<TSeatRange>(1,TSeatRange(iPaxItem->seat,iPaxItem->seat)),
-                                          pax_id,tlg_id,NoExists,UsePriorContext,tid);
+                                          pax_id,tlg_id,NoExists,UsePriorContext,tid,point_ids_spp);
                   };
                   UsePriorContext=true;
                   //ремарки, не привязанные к пассажиру
                   SavePNLADLRemarks(pax_id,ne.rem);
                   InsertTlgSeatRanges(point_id,iTotals->dest,isPRL?cltPRLTrzt:cltPNLCkin,ne.seatRanges,
-                                      pax_id,tlg_id,NoExists,UsePriorContext,tid);
+                                      pax_id,tlg_id,NoExists,UsePriorContext,tid,point_ids_spp);
                   //восстановим номер места предварительной рассадки
                 };
 
@@ -5734,6 +5737,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
             };
           };//for(iPnrItem=iTotals->pnr.begin()
         };
+        check_alarms(point_ids_spp);
       };
 
       if (!isPRL)

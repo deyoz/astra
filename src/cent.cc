@@ -10,6 +10,7 @@
 #include "salonform.h"
 #include "develop_dbf.h"
 #include "oralib.h"
+#include "alarms.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"

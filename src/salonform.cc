@@ -16,8 +16,9 @@
 #include "convert.h"
 #include "astra_misc.h"
 #include "tlg/tlg_parser.h" // only for convert_salons
-#include "serverlib/str_utils.h"
 #include "term_version.h"
+#include "alarms.h"
+#include "serverlib/str_utils.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"

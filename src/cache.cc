@@ -13,7 +13,7 @@
 #include "comp_layers.h"
 #include "astra_misc.h"
 #include "timer.h"
-#include "tripinfo.h"
+#include "alarms.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -1581,22 +1581,23 @@ void AfterApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TCa
       else
         point_id=ToInt(cache.FieldOldValue( "point_id", row ));
     
+      TPointIdsForCheck point_ids_spp;
       if ((qryType == cqtInsert || qryType == cqtUpdate) &&
           ToInt(cache.FieldValue( "pr_permit", row )) != 0)
       {
-        SyncTripCompLayers(NoExists, point_id, cltPNLBeforePay);
-        SyncTripCompLayers(NoExists, point_id, cltPNLAfterPay);
-        SyncTripCompLayers(NoExists, point_id, cltProtBeforePay);
-        SyncTripCompLayers(NoExists, point_id, cltProtAfterPay);
+        SyncTripCompLayers(NoExists, point_id, cltPNLBeforePay, point_ids_spp);
+        SyncTripCompLayers(NoExists, point_id, cltPNLAfterPay, point_ids_spp);
+        SyncTripCompLayers(NoExists, point_id, cltProtBeforePay, point_ids_spp);
+        SyncTripCompLayers(NoExists, point_id, cltProtAfterPay, point_ids_spp);
       }
       else
       {
-        DeleteTripCompLayers(NoExists, point_id, cltPNLBeforePay);
-        DeleteTripCompLayers(NoExists, point_id, cltPNLAfterPay);
-        DeleteTripCompLayers(NoExists, point_id, cltProtBeforePay);
-        DeleteTripCompLayers(NoExists, point_id, cltProtAfterPay);
+        DeleteTripCompLayers(NoExists, point_id, cltPNLBeforePay, point_ids_spp);
+        DeleteTripCompLayers(NoExists, point_id, cltPNLAfterPay, point_ids_spp);
+        DeleteTripCompLayers(NoExists, point_id, cltProtBeforePay, point_ids_spp);
+        DeleteTripCompLayers(NoExists, point_id, cltProtAfterPay, point_ids_spp);
       };
-      check_waitlist_alarm( point_id );
+      check_alarms( point_ids_spp );
     };
   };
   

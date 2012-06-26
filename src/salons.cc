@@ -12,10 +12,10 @@
 #include "images.h"
 #include "convert.h"
 #include "astra_misc.h"
-#include "tripinfo.h"
 #include "astra_locale.h"
 #include "base_tables.h"
 #include "term_version.h"
+#include "alarms.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"

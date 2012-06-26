@@ -25,6 +25,7 @@
 #include "salons.h"
 #include "salonform.h"
 #include "remarks.h"
+#include "alarms.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -1283,57 +1284,6 @@ void TripsInterface::readHalls( std::string airp_dep, std::string work_mode, xml
   };
 };
 
-int GetFltLoad( int point_id, const TTripInfo &fltInfo)
-{
-  TQuery Qry(&OraSession);
-  Qry.CreateVariable("point_id", otInteger, point_id);
-
-  bool prSummer=is_dst(fltInfo.scd_out,
-                       AirpTZRegion(fltInfo.airp));
-
-  int load=0;
-  //пассажиры
-  Qry.SQLText=
-    "SELECT NVL(SUM(weight_win),0) AS weight_win, "
-    "       NVL(SUM(weight_sum),0) AS weight_sum "
-    "FROM pax_grp,pax,pers_types "
-    "WHERE pax_grp.grp_id=pax.grp_id AND "
-    "      pax.pers_type=pers_types.code AND "
-    "      pax_grp.point_dep=:point_id AND pax.refuse IS NULL";
-  Qry.Execute();
-  if (!Qry.Eof)
-  {
-    if (prSummer)
-      load+=Qry.FieldAsInteger("weight_sum");
-    else
-      load+=Qry.FieldAsInteger("weight_win");
-  };
-
-  //багаж
-  Qry.SQLText=
-    "SELECT NVL(SUM(weight),0) AS weight "
-    "FROM pax_grp,bag2 "
-    "WHERE pax_grp.grp_id=bag2.grp_id AND "
-    "      pax_grp.point_dep=:point_id AND "
-    "      ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0";
-  Qry.Execute();
-  if (!Qry.Eof)
-    load+=Qry.FieldAsInteger("weight");
-
-  //груз, почта
-  Qry.SQLText=
-    "SELECT NVL(SUM(cargo),0) AS cargo, "
-    "       NVL(SUM(mail),0) AS mail "
-    "FROM trip_load, points "
-    "WHERE trip_load.point_dep=:point_id AND "
-    "      points.point_id=trip_load.point_arv AND "
-    "      points.pr_del=0";
-  Qry.Execute();
-  if (!Qry.Eof)
-    load+=Qry.FieldAsInteger("cargo")+Qry.FieldAsInteger("mail");
-  return load;
-};
-
 class TPaxLoadItem
 {
   public:
@@ -2519,81 +2469,6 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
 
 };
 
-bool calc_overload_alarm( int point_id, const TTripInfo &fltInfo )
-{
-  TQuery Qry(&OraSession);
-  Qry.SQLText=
-    "SELECT max_commerce FROM trip_sets WHERE point_id=:point_id";
-  Qry.CreateVariable("point_id", otInteger, point_id);
-  Qry.Execute();
-  if (Qry.Eof) throw Exception("Flight not found in trip_sets (point_id=%d)",point_id);
-  bool overload_alarm=false;
-  if (!Qry.FieldIsNULL("max_commerce"))
-  {
-  	int load=GetFltLoad(point_id,fltInfo);
-    ProgTrace(TRACE5,"check_overload_alarm: max_commerce=%d load=%d",Qry.FieldAsInteger("max_commerce"),load);
-    overload_alarm=(load>Qry.FieldAsInteger("max_commerce"));
-  };
-  return overload_alarm;
-};
 
-bool check_overload_alarm( int point_id, const TTripInfo &fltInfo )
-{
-  bool overload_alarm=calc_overload_alarm( point_id, fltInfo );
-  set_alarm( point_id, atOverload, overload_alarm );
-	return overload_alarm;
-};
-
-bool calc_waitlist_alarm( int point_id )
-{
-  TQuery Qry(&OraSession);
-  Qry.SQLText =
-    "SELECT pax.pax_id "
-    "FROM pax_grp, pax "
-    "WHERE pax_grp.grp_id=pax.grp_id AND "
-    "      pax_grp.point_dep=:point_id AND "
-    "      pax.pr_brd IS NOT NULL AND pax.seats > 0 AND "
-    "      salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'list',rownum) IS NULL AND "
-    "      rownum<2";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
-  return !Qry.Eof;
-};
-
-/* есть пассажиры, которые на листе ожидания */
-bool check_waitlist_alarm( int point_id )
-{
-	bool waitlist_alarm = calc_waitlist_alarm( point_id );
-
-  set_alarm( point_id, atWaitlist, waitlist_alarm );
-	return waitlist_alarm;
-};
-
-/* есть пассажиры, которые зарегистрированы, но не посажены */
-bool check_brd_alarm( int point_id )
-{
-	TQuery Qry(&OraSession);
-	Qry.SQLText =
-	  "SELECT act FROM trip_stages WHERE point_id=:point_id AND stage_id=:CloseBoarding AND act IS NOT NULL";
-	Qry.CreateVariable( "point_id", otInteger, point_id );
-	Qry.CreateVariable( "CloseBoarding", otInteger, sCloseBoarding );
-	Qry.Execute();
-	bool brd_alarm = false;
-	if ( !Qry.Eof ) {
-	  Qry.Clear();
-	  Qry.SQLText =
-	    "SELECT pax_id FROM pax, pax_grp "
-	    " WHERE pax_grp.point_dep=:point_id AND "
-	    "       pax_grp.grp_id=pax.grp_id AND "
-	    "       pax.wl_type IS NULL AND "
-	    "       pax.pr_brd = 0 AND "
-	    "       rownum < 2 ";
-  	Qry.CreateVariable( "point_id", otInteger, point_id );
-  	Qry.Execute();
-	  brd_alarm = !Qry.Eof;
-	}
-	set_alarm( point_id, atBrd, brd_alarm );
-	return brd_alarm;
-};
 
 

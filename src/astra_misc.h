@@ -472,12 +472,6 @@ bool SeparateTCkin(int grp_id,
                    int tid,
                    int &tckin_id, int &seg_no);
 
-enum TTripAlarmsType { atSalon, atWaitlist, atBrd, atOverload, atETStatus, atSeance, atDiffComps, atLength };
-void TripAlarms( int point_id, BitSet<TTripAlarmsType> &Alarms );
-std::string TripAlarmString( TTripAlarmsType alarm );
-bool get_alarm( int point_id, TTripAlarmsType alarm_type );
-void set_alarm( int point_id, TTripAlarmsType alarm_type, bool alarm_value );
-
 struct TCodeShareSets {
   private:
     TQuery *Qry;
@@ -589,6 +583,8 @@ void SetInfantsToAdults( std::vector<T1> &InfItems, std::vector<T2> AdultItems )
     }
   }
 };
+
+int GetFltLoad( int point_id, const TTripInfo &fltInfo);
 
 #endif /*_ASTRA_MISC_H_*/
 

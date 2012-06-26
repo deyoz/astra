@@ -17,6 +17,7 @@ AM_CXXFLAGS = $(TCLINCLUDE)
 astra_SOURCES = \
   adm.cc \
   access.cc \
+  alarms.cc \
   aodb.cc \
   apis_edi_file.cc \
   arx_daily.cc \
@@ -106,6 +107,7 @@ DISTCLEANFILES = local_after.tcl local_before.tcl
 noinst_HEADERS = \
   adm.h \
   access.h \
+  alarms.h \
   aodb.h \
   apis_edi_file.h \
   arx_daily.h \

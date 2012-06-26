@@ -9,7 +9,7 @@
 #include "astra_consts.h"
 #include "astra_utils.h"
 #include "astra_misc.h"
-#include "tripinfo.h"
+#include "alarms.h"
 
 struct Cargo {
 	int cargo;
