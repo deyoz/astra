@@ -481,11 +481,11 @@ bool handle_tlg(void)
   return queue_not_empty;
 };
 
-#define PARTS_NOT_RECEIVE_TIMEOUT  1.0      //1 день
-#define OUT_OF_MEMORY_TIMEOUT      5.0/1440 //5 мин
-#define PARSING_FORCE_TIMEOUT      5.0/1440 //5 мин
-#define PARSING_MAX_TIMEOUT        1.0      //1 день
-#define SCAN_TIMEOUT               2.0      //2 дня
+#define PARTS_NOT_RECEIVE_TIMEOUT  30.0/1440 //30 мин
+#define OUT_OF_MEMORY_TIMEOUT      5.0/1440  //5 мин
+#define PARSING_FORCE_TIMEOUT      5.0/1440  //5 мин
+#define PARSING_MAX_TIMEOUT        0         //вообще не тормозим разборщик
+#define SCAN_TIMEOUT               60.0/1440 //1 час
 
 bool parse_tlg(void)
 {

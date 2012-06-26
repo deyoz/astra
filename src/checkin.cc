@@ -24,6 +24,7 @@
 #include "term_version.h"
 #include "baggage.h"
 #include "passenger.h"
+#include "remarks.h"
 #include "alarms.h"
 #include "jxtlib/jxt_cont.h"
 
@@ -1340,15 +1341,17 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry,  xmlNodePtr resNode)
 
     RemQry.SetVariable("pax_id",pax_id);
     RemQry.Execute();
-    if (!RemQry.Eof)
+    xmlNodePtr remsNode=NULL;
+    for(;!RemQry.Eof;RemQry.Next())
     {
-      xmlNodePtr remNode=NewTextChild(node,"rems");
-      for(;!RemQry.Eof;RemQry.Next())
-      {
-        xmlNodePtr node2=NewTextChild(remNode,"rem");
-        NewTextChild(node2,"rem_code",RemQry.FieldAsString("rem_code"),"");
-        NewTextChild(node2,"rem_text",RemQry.FieldAsString("rem"));
-      };
+      const char* rem_code=RemQry.FieldAsString("rem_code");
+      const char* rem_text=RemQry.FieldAsString("rem");
+      if (isDisabledRem(rem_code, rem_text)) continue;
+      
+      if (remsNode==NULL) remsNode=NewTextChild(node,"rems");
+      xmlNodePtr remNode=NewTextChild(remsNode,"rem");
+      NewTextChild(remNode,"rem_code",rem_code,"");
+      NewTextChild(remNode,"rem_text",rem_text);
     };
   };
   return count;
@@ -1775,8 +1778,8 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
           "      pax.pax_id IS NULL \n"
           "ORDER BY crs_pnr.point_id,crs_pax.pnr_id,crs_pax.surname,crs_pax.pax_id \n";
 
-    ProgTrace(TRACE5,"CheckInInterface::SearchPax: status=%s",EncodePaxStatus(pax_status));
-    ProgTrace(TRACE5,"CheckInInterface::SearchPax: sql=\n%s",sql.c_str());
+//    ProgTrace(TRACE5,"CheckInInterface::SearchPax: status=%s",EncodePaxStatus(pax_status));
+//    ProgTrace(TRACE5,"CheckInInterface::SearchPax: sql=\n%s",sql.c_str());
 
     PaxQry.SQLText = sql;
     PaxQry.CreateVariable("point_id",otInteger,point_dep);
@@ -2037,7 +2040,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "  ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS rk_weight, "
     "  ckin.get_excess(pax.grp_id,pax.pax_id) AS excess, "
     "  ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags, "
-    "  report.get_remarks(pax_id,0) AS rems, "
+    "  ckin.get_remarks(pax.pax_id,' ',0) AS rems, "
     "  mark_trips.airline AS airline_mark, "
     "  mark_trips.flt_no AS flt_no_mark, "
     "  mark_trips.suffix AS suffix_mark, "
@@ -3225,7 +3228,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                 {
                   node2=remNode->children;
                   rem_code=NodeAsStringFast("rem_code",node2);
-                  //rem_text=NodeAsStringFast("rem_text",node2);
+                  rem_text=NodeAsStringFast("rem_text",node2);
                   if (rem_code=="VIP") flagVIP=true;
                   if (rem_code=="STCR") flagSTCR=true;
                   if (rem_code=="EXST") flagEXST=true;
@@ -3233,6 +3236,9 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                   //проверим корректность ремарки FQT...
                   TypeB::TFQTItem FQTItem;
                   CheckFQTRem(remNode,FQTItem);
+                  //проверим запрещенные для ввода ремарки...
+                  if (isDisabledRem(rem_code, rem_text))
+                    throw UserException("MSG.REMARK.INPUT_CODE_DENIAL", LParams()<<LParam("remark",rem_code.empty()?rem_text.substr(0,5):rem_code));
                 };
               if (addVIP && !flagVIP)
               {
@@ -4817,6 +4823,8 @@ void CheckInInterface::SavePaxRem(xmlNodePtr paxNode)
     //важно что зачитываем после CheckFQTRem, так как функция может менять код и текст ремарки
     rem_code=NodeAsStringFast("rem_code",node2);
     rem_text=NodeAsStringFast("rem_text",node2);
+    if (isDisabledRem(rem_code, rem_text))
+      throw UserException("MSG.REMARK.INPUT_CODE_DENIAL", LParams()<<LParam("remark",rem_code.empty()?rem_text.substr(0,5):rem_code));
     RemQry.SetVariable("rem",rem_text.c_str());
     RemQry.SetVariable("rem_code",rem_code.c_str());
     RemQry.Execute();
@@ -4830,7 +4838,7 @@ void CheckInInterface::LoadPaxRem(xmlNodePtr paxNode)
   xmlNodePtr node2=paxNode->children;
   int pax_id=NodeAsIntegerFast("pax_id",node2);
 
-  xmlNodePtr node=NewTextChild(paxNode,"rems");
+  xmlNodePtr remsNode=NewTextChild(paxNode,"rems");
   TQuery RemQry(&OraSession);
   RemQry.Clear();
   RemQry.SQLText="SELECT rem_code,rem FROM pax_rem WHERE pax_id=:pax_id";
@@ -4838,9 +4846,12 @@ void CheckInInterface::LoadPaxRem(xmlNodePtr paxNode)
   RemQry.Execute();
   for(;!RemQry.Eof;RemQry.Next())
   {
-    xmlNodePtr remNode=NewTextChild(node,"rem");
-    NewTextChild(remNode,"rem_text",RemQry.FieldAsString("rem"));
-    NewTextChild(remNode,"rem_code",RemQry.FieldAsString("rem_code"));
+    const char* rem_code=RemQry.FieldAsString("rem_code");
+    const char* rem_text=RemQry.FieldAsString("rem");
+    if (isDisabledRem(rem_code, rem_text)) continue;
+    xmlNodePtr remNode=NewTextChild(remsNode,"rem");
+    NewTextChild(remNode,"rem_text",rem_text);
+    NewTextChild(remNode,"rem_code",rem_code);
   };
   RemQry.Close();
 };

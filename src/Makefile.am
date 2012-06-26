@@ -60,6 +60,7 @@ astra_SOURCES = \
   prepreg.cc \
   print.cc \
   prn_tag_store.cc \
+  remarks.cc \
   salonform.cc \
   salonform2.cc \
   salons.cc \
@@ -150,6 +151,7 @@ noinst_HEADERS = \
   prepreg.h \
   print.h \
   prn_tag_store.h \
+  remarks.h \
   salonform.h \
   salonform2.h \
   salons.h \

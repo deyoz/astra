@@ -1,6 +1,7 @@
 #include "passenger.h"
 #include "astra_consts.h"
 #include "astra_misc.h"
+#include "astra_utils.h"
 #include "term_version.h"
 #include "baggage.h"
 
@@ -63,9 +64,30 @@ TPaxTknItem& TPaxTknItem::fromDB(TQuery &Qry)
     coupon=ASTRA::NoExists;
   rem=Qry.FieldAsString("ticket_rem");
   confirm=Qry.FieldAsInteger("ticket_confirm")!=0;
+  if (Qry.GetFieldIndex("pers_type")>=0 && Qry.GetFieldIndex("seats")>=0)
+    pr_inf=DecodePerson(Qry.FieldAsString("pers_type"))==ASTRA::baby && Qry.FieldAsInteger("seats")==0;
+  else
+    pr_inf=false;
   return *this;
 };
 
+bool LoadPaxTkn(int pax_id, TPaxTknItem &tkn, TQuery& PaxTknQry)
+{
+  tkn.clear();
+  const char* sql=
+    "SELECT ticket_no, coupon_no, ticket_rem, ticket_confirm, pers_type, seats "
+    "FROM pax WHERE pax_id=:pax_id";
+  if (strcmp(PaxTknQry.SQLText.SQLText(),sql)!=0)
+  {
+    PaxTknQry.Clear();
+    PaxTknQry.SQLText=sql;
+    PaxTknQry.DeclareVariable("pax_id",otInteger);
+  };
+  PaxTknQry.SetVariable("pax_id",pax_id);
+  PaxTknQry.Execute();
+  if (!PaxTknQry.Eof) tkn.fromDB(PaxTknQry);
+  return !tkn.empty();
+};
 
 string PaxDocCountryToTerm(const string &pax_doc_country)
 {

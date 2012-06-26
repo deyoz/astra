@@ -175,9 +175,11 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
 
   Qry.Clear();
   Qry.SQLText =
-    "SELECT city,airp,airline,version,NVL(under_constr,0) AS under_constr,currency,desks.grp_id "
+    "SELECT desks.version, NVL(desks.under_constr,0) AS under_constr, "
+    "       desks.currency, desks.term_id, "
+    "       desk_grp.grp_id, desk_grp.city, desk_grp.airp, desk_grp.airline "
     "FROM desks,desk_grp "
-    "WHERE desks.code = UPPER(:pult) AND desks.grp_id = desk_grp.grp_id ";
+    "WHERE desks.grp_id = desk_grp.grp_id AND desks.code = UPPER(:pult)";
   Qry.DeclareVariable( "pult", otString );
   Qry.SetVariable( "pult", InitData.pult );
   Qry.Execute();
@@ -191,6 +193,7 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   desk.version = Qry.FieldAsString( "version" );
   desk.currency = Qry.FieldAsString( "currency" );
   desk.grp_id = Qry.FieldAsInteger( "grp_id" );
+  double term_id = Qry.FieldIsNULL("term_id")?NoExists:Qry.FieldAsFloat( "term_id" );
 
   ProgTrace( TRACE5, "terminal version='%s'", desk.version.c_str() );
 
@@ -226,6 +229,9 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
       throw AstraLocale::UserException( "MSG.USER.ACCESS_DENIED");
   }
   else {
+    //if (InitData.term_id!=term_id)
+    //  throw AstraLocale::UserException( "MSG.USER.NEED_TO_LOGIN" );
+
     Qry.SQLText =
       "SELECT user_id, login, descr, type, pr_denial "
       "FROM users2 "
@@ -1425,80 +1431,46 @@ bool is_lat(const std::string &value)
     return result;
 }
 
+class TTranslitLetter
+{
+  public:
+    string lat1, lat2;
+    TTranslitLetter(const char* l1, const char* l2):lat1(l1), lat2(l2) {};
+    TTranslitLetter() {};
+};
+
 string transliter(const string &value, int fmt, bool pr_lat)
 {
   string result;
   if (pr_lat)
   {
+    static map<char, TTranslitLetter> dicts;
+    if (dicts.empty())
+    {
+      TQuery Qry(&OraSession);
+      Qry.Clear();
+      Qry.SQLText = "SELECT letter, lat1, lat2 FROM translit_dicts";
+      Qry.Execute();
+      for(;!Qry.Eof;Qry.Next())
+      {
+        const char* letter=Qry.FieldAsString("letter");
+        dicts[*letter]=TTranslitLetter(Qry.FieldAsString("lat1"), Qry.FieldAsString("lat2"));
+      };
+      ProgTrace(TRACE5, "dicts loaded");
+    };
+  
     char c;
-    char *c2;
+    string c2;
     for(string::const_iterator i=value.begin();i!=value.end();i++)
     {
       c=*i;
       if ((unsigned char)c>=0x80)
       {
-        switch(ToUpper(c))
-        {
-          case 'Ä': c2 = "A"; break;
-          case 'Å': c2 = "B"; break;
-          case 'Ç': c2 = "V"; break;
-          case 'É': c2 = "G"; break;
-          case 'Ñ': c2 = "D"; break;
-          case 'Ö': c2 = "E"; break;
-          case '': switch(fmt)
-                    {
-                      case 2:  c2 = "IO"; break;
-                      default: c2 = "YO"; break;
-                    };
-                    break;
-          case 'Ü': c2 = "ZH"; break;
-          case 'á': c2 = "Z"; break;
-          case 'à': c2 = "I"; break;
-          case 'â': switch(fmt)
-                    {
-                      case 2:  c2 = "I"; break;
-                      default: c2 = "Y"; break;
-                    };
-                    break;
-          case 'ä': c2 = "K"; break;
-          case 'ã': c2 = "L"; break;
-          case 'å': c2 = "M"; break;
-          case 'ç': c2 = "N"; break;
-          case 'é': c2 = "O"; break;
-          case 'è': c2 = "P"; break;
-          case 'ê': c2 = "R"; break;
-          case 'ë': c2 = "S"; break;
-          case 'í': c2 = "T"; break;
-          case 'ì': c2 = "U"; break;
-          case 'î': c2 = "F"; break;
-          case 'ï': c2 = "KH"; break;
-          case 'ñ': c2 = "TS"; break;
-          case 'ó': c2 = "CH"; break;
-          case 'ò': c2 = "SH"; break;
-          case 'ô': switch(fmt)
-                    {
-                      case 2:  c2 = "SHCH"; break;
-                      default: c2 = "SH";   break;
-                    };
-                    break;
-          case 'ö': c2 = ""; break;
-          case 'õ': c2 = "Y"; break;
-          case 'ú': c2 = ""; break;
-          case 'ù': c2 = "E"; break;
-          case 'û': switch(fmt)
-                    {
-                      case 2:  c2 = "IU"; break;
-                      default: c2 = "YU"; break;
-                    };
-                    break;
-          case 'ü': switch(fmt)
-                    {
-                      case 2:  c2 = "IA"; break;
-                      default: c2 = "YA"; break;
-                    };
-                    break;
-          default:  c2 = "?";
-        };
+        map<char, TTranslitLetter>::const_iterator letter=dicts.find(ToUpper(c));
+        if (letter!=dicts.end())
+          c2=(fmt==2?letter->second.lat2:letter->second.lat1);
+        else
+          c2 = "?";
         if (ToUpper(c)!=c) result+=lowerc(c2); else result+=c2;
       }
       else result+=c;

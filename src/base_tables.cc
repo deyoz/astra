@@ -3,6 +3,7 @@
 #include "oralib.h"
 #include "exceptions.h"
 #include "stl_utils.h"
+#include "astra_consts.h"
 #include "serverlib/logger.h"
 
 #define NICKNAME "VLAD"
@@ -109,6 +110,8 @@ TBaseTable &TBaseTables::get(string name)
         	  base_tables[name] = new TStationModes();
         else if(name == "FORM_TYPES")
         	  base_tables[name] = new TFormTypes();
+        else if(name == "REM_TYPES")
+        	  base_tables[name] = new TRemTypes();
         else
             throw Exception("TBaseTables::get_base_table: " + name + " not found");
         mem.create(base_tables[name], STDLOG);
@@ -888,5 +891,12 @@ void TFormTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **re
 	TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 
+void TRemTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+{
+	*row = new TRemTypesRow;
+  mem.create(*row, STDLOG);
+  ((TRemTypesRow*)*row)->priority=Qry.FieldIsNULL("priority")?ASTRA::NoExists:Qry.FieldAsInteger("priority");
+	TTIDBaseTable::create_row(Qry,row,replaced_row);
+}
 
 TBaseTables base_tables;
