@@ -11,9 +11,9 @@
 #include "astra_service.h"
 #include "timer.h"
 #include "salons.h"
-#include "tripinfo.h"
 #include "term_version.h"
 #include "comp_layers.h"
+#include "alarms.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -754,7 +754,9 @@ void astra_timer( TDateTime utcdate )
     {
       try
       {
-        DeleteTlgSeatRanges(range_ids, crs_pax_id, curr_tid);
+        TPointIdsForCheck point_ids_spp;
+        DeleteTlgSeatRanges(range_ids, crs_pax_id, curr_tid, point_ids_spp);
+        check_alarms(point_ids_spp);
       }
       catch(Exception &E)
       {
@@ -792,7 +794,8 @@ void SetCraft( int point_id, TStage stage )
   string craft = Qry.FieldAsString( "craft" );
   if ( stage == sPrepCheckIn && (!Qry.FieldIsNULL( "bort" ) || string( "СОЧ" ) != Qry.FieldAsString( "airp" )) ||
   	   stage == sOpenCheckIn && string( "СОЧ" ) == Qry.FieldAsString( "airp" ) ) {
-    if ( SALONS2::AutoSetCraft( point_id, craft, -1 ) < 0 ) {
+    SALONS2::TFindSetCraft res = SALONS2::AutoSetCraft( point_id );
+    if ( res != SALONS2::rsComp_Found && res != SALONS2::rsComp_NoChanges ) {
   	  TReqInfo::Instance()->MsgToLog( string( "Подходящая для рейса компоновка " ) + craft + " не найдена", evtFlt, point_id );
   	}
   }

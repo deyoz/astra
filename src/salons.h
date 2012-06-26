@@ -16,6 +16,25 @@ enum TReadStyle { rTripSalons, rComponSalons };
 
 enum TModify { mNone, mDelete, mAdd, mChange };
 
+enum TFindSetCraft { rsComp_NoCraftComps /* нет компоновок для типа ВС*/,
+                     rsComp_NoFound /* по условиям компоновка не найдена */,
+                     rsComp_NoChanges /* компоновка не изменилась */,
+                     rsComp_Found /* найдена новая компоновка */ };
+enum TCompareComps { ccCoord, ccCoordOnlyVisible, ccPlaceName, ccPlaceType, ccClass };
+
+typedef BitSet<TCompareComps> TCompareCompsFlags;
+
+struct TSetsCraftPoints: public std::vector<int> {
+   int comp_id;
+   void Clear() {
+     clear();
+     comp_id = -1;
+   };
+   TSetsCraftPoints() {
+     Clear();
+   };
+};
+
 struct TSalonPoint {
 	int x;
 	int y;
@@ -309,10 +328,12 @@ class TSalons {
   bool InternalExistsRegPassenger( int trip_id, bool SeatNoIsNull );
   void GetTripParams( int trip_id, xmlNodePtr dataNode );
   void GetCompParams( int comp_id, xmlNodePtr dataNode );
+  bool isAutoCompChg( int point_id );
   int GetCompId( const std::string craft, const std::string bort, const std::string airline,
-                 std::string airp,  int f, int c, int y );
-  int AutoSetCraft( int point_id, std::string &craft, int comp_id );
-  int SetCraft( int point_id, std::string &craft, int comp_id );
+                 std::vector<std::string> airps,  int f, int c, int y );
+  TFindSetCraft AutoSetCraft( bool pr_tranzit_routes, int point_id, TSetsCraftPoints &points );
+  TFindSetCraft AutoSetCraft( int point_id, TSetsCraftPoints &points );
+  TFindSetCraft AutoSetCraft( int point_id );
   void InitVIP( int point_id );
   void setTRIP_CLASSES( int point_id );
   void SetLayer( const std::map<std::string,int> &layer_priority, ASTRA::TCompLayerType layer, TPlace &pl );
@@ -328,10 +349,13 @@ class TSalons {
                                   bool only_high_layer,
                                   std::map<ASTRA::TCompLayerType, int> &uselayers_count,
                                   int &seats_count );
-  bool ChangeCfg( TSalons &NewSalons, TSalons &OldSalons );
-  bool EqualSalon( TPlaceList* oldsalon, TPlaceList* newsalon, bool equal_seats_cfg );
+  bool ChangeCfg( TSalons &NewSalons, TSalons &OldSalons, TCompareCompsFlags compareFlags );
+  bool EqualSalon( TPlaceList* oldsalon, TPlaceList* newsalon, TCompareCompsFlags compareFlags );
   bool IsMiscSet( int point_id, int misc_type );
   bool point_dep_AND_layer_type_FOR_TRZT_SOM_PRL( int point_id, int &point_dep, ASTRA::TCompLayerType &layer_type );
+  void check_diffcomp_alarm( int point_id );
+  std::string getDiffCompsAlarmRoutes( int point_id );
+  int CRC32_Comp( int point_id );
 } // END namespace SALONS2
 
 #endif /*_SALONS2_H_*/

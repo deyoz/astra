@@ -209,7 +209,7 @@ const char* crs_displace_to_SQL =
   " FROM tlg_binding, crs_displace2, points "
   " WHERE tlg_binding.point_id_spp=:point_id_spp AND "
   "       tlg_binding.point_id_tlg=crs_displace2.point_id_tlg AND "
-  "       points.point_id=crs_displace2.point_id_spp "
+  "       points.point_id=crs_displace2.point_id_spp " //!!! points.pr_del != -1
   "ORDER BY points.point_id,points.airline,points.flt_no,points.suffix,points.scd_out ";
 const char* arx_trip_delays_SQL =
   "SELECT delay_num,delay_code,time "
@@ -1249,6 +1249,10 @@ void buildSOPP( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
       			break;
       	  case atSeance:
       			an = NewTextChild( alarmsNode, "alarm", "Seance" );
+      			SetProp( an, "text", TripAlarmString( alarm ) );
+      			break;
+      	  case atDiffComps:
+      			an = NewTextChild( alarmsNode, "alarm", "DiffComps" );
       			SetProp( an, "text", TripAlarmString( alarm ) );
       			break;
       		default:;
@@ -2321,7 +2325,7 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
   {
     Qry.SetVariable("point_id",i->first);
     Qry.Execute();
-    Set_overload_alarm( i->first, Calc_overload_alarm( i->first, i->second ) );
+    check_overload_alarm( i->first, i->second );
     check_waitlist_alarm( i->first );
     check_brd_alarm( i->first );
   };
@@ -2446,17 +2450,21 @@ void SoppInterface::WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     	  string tolog;
     	  string name;
     	  bool pr_main;
+	      vector<string> terms;
       	while ( stnode ) {
       		name = NodeAsString( stnode );
-      		Qry.SetVariable( "name", name );
-      		pr_main = GetNode( "pr_main", stnode );
-      		Qry.SetVariable( "pr_main", pr_main );
-      		Qry.Execute();
-      		if ( !tolog.empty() )
-      				tolog += ", ";
-      			tolog += name;
-      		if ( pr_main )
-      			tolog += " (главная)";
+          if ( find( terms.begin(), terms.end(), name ) == terms.end() ) {
+            terms.push_back( name );
+      		  Qry.SetVariable( "name", name );
+      	  	pr_main = GetNode( "pr_main", stnode );
+        		Qry.SetVariable( "pr_main", pr_main );
+        		Qry.Execute();
+        		if ( !tolog.empty() )
+        				tolog += ", ";
+        			tolog += name;
+        		if ( pr_main )
+        			tolog += " (главная)";
+          }
     		  stnode = stnode->next;
       	}
       	if ( work_mode == "Р" ) {
@@ -2540,7 +2548,7 @@ void SoppInterface::WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   			QryTripInfo.Execute();
   			if ( !QryTripInfo.Eof ) {
   				fltInfo.Init(QryTripInfo);
-  				Set_overload_alarm( point_id, Calc_overload_alarm( point_id, fltInfo ) );
+  				check_overload_alarm( point_id, fltInfo );
   			}
   		}
   	}
@@ -3266,6 +3274,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   bool pr_begin = true;
   bool change_stages_out;
   bool pr_change_tripinfo;
+  vector<int> setcraft_points;
   bool reSetCraft;
   string change_dests_msg;
   TBaseTable &baseairps = base_tables.get( "airps" );
@@ -3316,6 +3325,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
           }
     }
 
+    ProgTrace( TRACE5, "point_id=%d, id->modify=%d", id->point_id, id->modify );
     if ( !id->modify ) { //??? remark
   	  voldDests.push_back( *id );
     	point_num++;
@@ -3356,6 +3366,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
          reqInfo->MsgToLog( string( "Ввод нового пункта " ) + id->airline + IntToString(id->flt_no) + id->suffix + " " + id->airp, evtDisp, move_id, id->point_id );
        else
          reqInfo->MsgToLog( string( "Ввод нового пункта " ) + id->airp, evtDisp, move_id, id->point_id );
+       reSetCraft = true;
   	}
   	else { //update
   	 Qry.Clear();
@@ -3449,7 +3460,8 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	  }
   	  #endif
 
-  	  if ( id->pr_del != -1 && id->airline+IntToString(id->flt_no)+id->suffix != old_dest.airline+IntToString(old_dest.flt_no)+old_dest.suffix ) {
+  	  if ( id->pr_del != -1 && !id->airline.empty() && id->flt_no != NoExists &&
+           id->airline+IntToString(id->flt_no)+id->suffix != old_dest.airline+IntToString(old_dest.flt_no)+old_dest.suffix ) {
   	  	reSetCraft = true;
   	  }
   	  if ( id->pr_del != -1 && !id->craft.empty() && id->craft != old_dest.craft && !old_dest.craft.empty() ) {
@@ -3478,7 +3490,11 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	  		reqInfo->MsgToLog( string( "Назначение борта " ) + id->bort + " порт " + id->airp, evtDisp, move_id, id->point_id );
   	  	}
   	  	reSetCraft = true;
-  	  }
+      }
+      if ( id->pr_reg != old_dest.pr_reg || id->pr_del != old_dest.pr_del ||
+           id->pr_tranzit != old_dest.pr_tranzit ) {
+        reSetCraft = true;
+      }
   	  if ( id->pr_del != old_dest.pr_del ) {
   	  	if ( id->pr_del == 1 )
   	  		reqInfo->MsgToLog( string( "Отмена пункта " ) + id->airp, evtDisp, move_id, id->point_id );
@@ -3558,8 +3574,8 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
        " WHERE point_id=:point_id AND move_id=:move_id ";
   	} // end update else
 
-  	ProgTrace( TRACE5, "move_id=%d,point_id=%d,point_num=%d,first_point=%d,flt_no=%d",
-  	           move_id,id->point_id,id->point_num,id->first_point,id->flt_no );
+  	ProgTrace( TRACE5, "ch_point_num=%d,move_id=%d,point_id=%d,point_num=%d,first_point=%d,flt_no=%d",
+  	           ch_point_num, move_id,id->point_id,id->point_num,id->first_point,id->flt_no );
   	ProgTrace( TRACE5, "airp=%s,airp_fmt=%d,airline=%s,airline_fmt=%d,craft=%s,craft_fmt=%d,suffix=%s,suffix_fmt=%d",
                id->airp.c_str(), id->airp_fmt, id->airline.c_str(), id->airline_fmt, id->craft.c_str(), id->craft_fmt, id->suffix.c_str(), id->suffix_fmt );
   	Qry.CreateVariable( "move_id", otInteger, move_id );
@@ -3837,12 +3853,10 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   					                                 LParams() << LParam("airp", ElemIdToCodeNative(etAirp,id->airp)));
   	}
    if ( reSetCraft ) {
-     int comp_id = SALONS2::AutoSetCraft( id->point_id, id->craft, -1 );
-     //ProgTrace( TRACE5, "SALONS2::AutoSetCraft: comp_id=%d", comp_id );
-   	 if ( comp_id >= 0 )
-   	 	 ch_craft = false;
+     ProgTrace( TRACE5, "reSetCraft: point_id=%d", id->point_id );
+     setcraft_points.push_back( id->point_id );
    }
-  	point_num++;
+   point_num++;
   } // end for
   if ( ch_point_num ) {
   	Qry.Clear();
@@ -3856,12 +3870,28 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     	Qry.Execute();
     }
   }
-
- if ( ch_craft ) {
- 	 AstraLocale::showErrorMessage( "MSG.DATA_SAVED.CRAFT_CHANGED.NEED_SET_COMPON" );
- }
- else
-   AstraLocale::showMessage( "MSG.DATA_SAVED" );
+  
+  reSetCraft = false;
+  SALONS2::TSetsCraftPoints cpoints;
+  for ( vector<int>::iterator i=setcraft_points.begin(); i!=setcraft_points.end(); i++ ) {
+    if ( find( cpoints.begin(), cpoints.end(), *i ) != cpoints.end() ) {
+      tst();
+      continue;
+    }
+    SALONS2::TFindSetCraft res = SALONS2::AutoSetCraft( *i, cpoints );
+    if ( ch_craft && res != SALONS2::rsComp_Found && res != SALONS2::rsComp_NoChanges ) {
+ 	 	  reSetCraft = true;
+ 	 	  ch_craft = false;
+    }
+  }
+  for ( vector<int>::iterator i=setcraft_points.begin(); i!=setcraft_points.end(); i++ ) {
+    SALONS2::check_diffcomp_alarm( *i );
+  }
+  
+  if ( reSetCraft )
+    AstraLocale::showErrorMessage( "MSG.DATA_SAVED.CRAFT_CHANGED.NEED_SET_COMPON" );
+  else
+    AstraLocale::showMessage( "MSG.DATA_SAVED" );
 
   for( vector<change_act>::iterator i=vchangeAct.begin(); i!=vchangeAct.end(); i++ ){
    if ( i->pr_land )

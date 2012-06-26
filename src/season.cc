@@ -1770,6 +1770,8 @@ bool ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TD
         catch( EConvertError &e ) {
     	    throw AstraLocale::UserException( "MSG.AIRP.INVALID_GIVEN_CODE" );
         }
+        if ( dest.airp.empty() )
+          throw AstraLocale::UserException( "MSG.AIRP.INVALID_GIVEN_CODE" );
         dest.city = ((TAirpsRow&)baseairps.get_row( "code", dest.airp )).city;
         dest.region = CityTZRegion( dest.city );
         node = GetNodeFast( "cancel", curNode );

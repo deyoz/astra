@@ -472,10 +472,6 @@ bool SeparateTCkin(int grp_id,
                    int tid,
                    int &tckin_id, int &seg_no);
 
-enum TTripAlarmsType { atSalon, atWaitlist, atBrd, atOverload, atETStatus, atSeance, atLength };
-void TripAlarms( int point_id, BitSet<TTripAlarmsType> &Alarms );
-std::string TripAlarmString( TTripAlarmsType &alarm );
-
 struct TCodeShareSets {
   private:
     TQuery *Qry;
@@ -558,6 +554,8 @@ std::string GetPaxDocCountryCode(const std::string &doc_code);
 
 const int TEST_ID_BASE = 1000000000;
 bool isTestPaxId(int id);
+
+int GetFltLoad( int point_id, const TTripInfo &fltInfo);
 
 #endif /*_ASTRA_MISC_H_*/
 

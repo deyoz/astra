@@ -364,8 +364,8 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
                                       evtFlt, point_id );
       node = node->next;
     };
-    string craft;
-    SALONS2::AutoSetCraft( point_id, craft, -1 );
+    SALONS2::AutoSetCraft( point_id );
+    SALONS2::check_diffcomp_alarm( point_id );
   };
 
   node = GetNode( "trip_sets", reqNode );

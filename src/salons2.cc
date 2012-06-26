@@ -11,7 +11,7 @@
 #include "oralib.h"
 #include "images.h"
 #include "convert.h"
-#include "tripinfo.h"
+#include "alarms.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
