@@ -214,6 +214,8 @@ bool filterCompons( const string &airline, const string &airp )
   		 );
 }
 
+enum TCompType { ctBase = 0, ctPrior = 1, ctCurrent = 2 };
+
 struct TShowComps {
 	int comp_id;
 	int crc_comp;
@@ -221,7 +223,7 @@ struct TShowComps {
 	string bort;
 	string classes;
 	string descr;
-	int pr_comp;
+	TCompType comp_type;
 	string airline;
 	string airp;
 	string name;
@@ -240,14 +242,14 @@ void setCompName( TShowComps &comp )
     comp.name += "  ";
   else
     comp.name += " ";
-  if ( !comp.bort.empty() && comp.pr_comp != 1 )
+  if ( !comp.bort.empty() && comp.comp_type != ctCurrent )
     comp.name += comp.bort;
   else
     comp.name += "  ";
   comp.name += "  " + comp.classes;
-  if ( !comp.descr.empty() && comp.pr_comp != 1 )
+  if ( !comp.descr.empty() && comp.comp_type != ctCurrent )
     comp.name += "  " + comp.descr;
-  if ( comp.pr_comp == 1 ) {
+  if ( comp.comp_type == ctCurrent ) {
     comp.name += " (";
     comp.name += AstraLocale::getLocaleText( "ТЕК." );
     comp.name += ")";
@@ -294,9 +296,9 @@ void getFlightTuneCompRef( int point_id, bool use_filter, const string &trip_air
   	  comp.classes += ElemIdToCodeNative(etClass,"Э");
   	  comp.classes += IntToString(Qry.FieldAsInteger("y"));
     }
-    comp.pr_comp = 1;
+    comp.comp_type = ctCurrent;
    	if ( !use_filter ||
-         comp.pr_comp || /* поиск компоновки только по компоновкам нужной А/К или портовым компоновкам */
+         comp.comp_type != ctBase || /* поиск компоновки только по компоновкам нужной А/К или портовым компоновкам */
     		( comp.airline.empty() || trip_airline == comp.airline ) &&
     		  filterCompons( comp.airline, comp.airp ) ) {
       setCompName( comp );
@@ -335,11 +337,18 @@ void getFlightBaseCompRef( int point_id, bool onlySetComp, bool use_filter, cons
     comp.bort = Qry.FieldAsString( "bort" );
 	  comp.classes = Qry.FieldAsString( "classes" );
 	  comp.descr = Qry.FieldAsString( "descr" );
-	  comp.pr_comp = Qry.FieldAsInteger( "pr_comp" );
+    switch ( Qry.FieldAsInteger( "pr_comp" ) ) {
+      case 0:
+        comp.comp_type = ctBase;
+        break;
+      case 1:
+        comp.comp_type = ctCurrent;
+        break;
+    };
 	  comp.airline = Qry.FieldAsString( "airline" );
 	  comp.airp = Qry.FieldAsString( "airp" );
    	if ( !use_filter ||
-         comp.pr_comp || /* поиск компоновки только по компоновкам нужной А/К или портовым компоновкам */
+         comp.comp_type != ctBase || /* поиск компоновки только по компоновкам нужной А/К или портовым компоновкам */
     		( comp.airline.empty() || trip_airline == comp.airline ) &&
     		  filterCompons( comp.airline, comp.airp ) ) {
       setCompName( comp );
@@ -351,10 +360,10 @@ void getFlightBaseCompRef( int point_id, bool onlySetComp, bool use_filter, cons
 
 bool CompareShowComps( const TShowComps &item1, const TShowComps &item2 )
 {
-  if ( item1.pr_comp > item2.pr_comp )
+  if ( (int)item1.comp_type > (int)item2.comp_type )
     return true;
   else
-    if ( item1.pr_comp < item2.pr_comp )
+    if ( (int)item1.comp_type < (int)item2.comp_type )
       return false;
     else
       if ( item1.name < item2.name )
@@ -424,7 +433,7 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
               StrVal += string(" ") + Qry.FieldAsString( "craft" );
             if ( bort != Qry.FieldAsString( "bort" ) )
               StrVal += string(" ") + Qry.FieldAsString( "bort" );
-            comps_tmp.begin()->pr_comp = 2;
+            comps_tmp.begin()->comp_type = ctPrior;
             setCompName( *comps_tmp.begin() );
             comps_tmp.begin()->name = StrVal + " " + comps_tmp.begin()->name;
             comps.insert( comps.end(), *comps_tmp.begin() );
@@ -445,7 +454,7 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
       xmlNodePtr tmpNode = NewTextChild( compNode, "comp_id", i->comp_id );
       if ( i->crc_comp != 0 )
         SetProp( tmpNode, "crc_comp", i->crc_comp );
-      NewTextChild( compNode, "pr_comp", (int)(i->pr_comp == 1) );
+      NewTextChild( compNode, "pr_comp", (int)(i->comp_type == ctCurrent) );
       NewTextChild( compNode, "craft", i->craft );
       NewTextChild( compNode, "bort", i->bort );
       NewTextChild( compNode, "classes", i->classes );
