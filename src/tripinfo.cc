@@ -832,6 +832,25 @@ void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   //ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 };
 
+void TripsInterface::PectabsResponse(int point_id, xmlNodePtr reqNode, xmlNodePtr dataNode)
+{
+  xmlNodePtr node;
+  node=GetNode( "tripBPpectabs", reqNode );
+  if (node!=NULL)
+  {
+      string dev_model = NodeAsString("dev_model", node);
+      string fmt_type = NodeAsString("fmt_type", node);
+      GetTripBPPectabs( point_id, dev_model, fmt_type, dataNode );
+  };
+  node=GetNode( "tripBTpectabs", reqNode );
+  if (node!=NULL)
+  {
+      string dev_model = NodeAsString("dev_model", node);
+      string fmt_type = NodeAsString("fmt_type", node);
+      GetTripBTPectabs( point_id, dev_model, fmt_type, dataNode );
+  };
+};
+
 void TripsInterface::GetSegInfo(xmlNodePtr reqNode, xmlNodePtr resNode, xmlNodePtr dataNode)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
@@ -866,21 +885,7 @@ void TripsInterface::GetSegInfo(xmlNodePtr reqNode, xmlNodePtr resNode, xmlNodeP
     if ( GetNode( "tripsets", reqNode ) )
       CheckInInterface::readTripSets( point_id, dataNode );
 
-    xmlNodePtr node;
-    node=GetNode( "tripBPpectabs", reqNode );
-    if (node!=NULL)
-    {
-        string dev_model = NodeAsString("dev_model", node);
-        string fmt_type = NodeAsString("fmt_type", node);
-        GetTripBPPectabs( point_id, dev_model, fmt_type, dataNode );
-    };
-    node=GetNode( "tripBTpectabs", reqNode );
-    if (node!=NULL)
-    {
-        string dev_model = NodeAsString("dev_model", node);
-        string fmt_type = NodeAsString("fmt_type", node);
-        GetTripBTPectabs( point_id, dev_model, fmt_type, dataNode );
-    };
+    PectabsResponse(point_id, reqNode, dataNode);
   };
   if (reqInfo->screen.name == "CENT.EXE")
   {
