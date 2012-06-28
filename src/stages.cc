@@ -810,11 +810,7 @@ void OpenCheckIn( int point_id )
 {
 	tst();
 	SetCraft( point_id, sOpenCheckIn );
-	TQuery Qry(&OraSession);
-	Qry.SQLText = "UPDATE trip_sets SET auto_comp_chg=0 WHERE point_id=:point_id";
-	Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
-  tst();
+  SALONS2::setManualCompChg( point_id );
 }
 
 void CloseCheckIn( int point_id )

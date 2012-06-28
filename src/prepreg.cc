@@ -542,6 +542,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
         msg.ev_type=evtFlt;
         msg.id1=point_id;
         TReqInfo::Instance()->MsgToLog(msg);
+        SALONS2::check_diffcomp_alarm( point_id );
       };
     };
     if (old_pr_check_load!=new_pr_check_load ||

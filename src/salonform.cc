@@ -604,8 +604,9 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   }
   SALONS2::setTRIP_CLASSES( trip_id );
   //set flag auto change in false state
+  SALONS2::setManualCompChg( trip_id );
   Qry.Clear();
-	Qry.SQLText = "UPDATE trip_sets SET auto_comp_chg=0,crc_comp=:crc_comp WHERE point_id=:point_id";
+	Qry.SQLText = "UPDATE trip_sets SET crc_comp=:crc_comp WHERE point_id=:point_id";
 	Qry.CreateVariable( "point_id", otInteger, trip_id );
 	Qry.CreateVariable( "crc_comp", otInteger, SALONS2::CRC32_Comp( trip_id ) );
   Qry.Execute();
