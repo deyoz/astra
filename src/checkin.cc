@@ -4519,15 +4519,58 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       int pax_id=NodeAsInteger(node);
       Qry.Clear();
       Qry.SQLText=
-        "SELECT pax_grp.grp_id,point_dep FROM pax_grp,pax "
+        "SELECT pax_grp.grp_id,point_dep,class FROM pax_grp,pax "
         "WHERE pax_grp.grp_id=pax.grp_id AND pax_id=:pax_id";
       Qry.CreateVariable("pax_id",otInteger,pax_id);
       Qry.Execute();
       if (Qry.Eof)
         throw UserException("MSG.PASSENGER.NOT_CHECKIN");
-      if (Qry.FieldAsInteger("point_dep")!=point_id)
-        throw UserException("MSG.PASSENGER.OTHER_FLIGHT");
       grp_id=Qry.FieldAsInteger("grp_id");
+      bool pr_unaccomp=Qry.FieldIsNULL("class");
+      int point_dep=Qry.FieldAsInteger("point_dep");
+      if (point_dep!=point_id)
+      {
+        if (!TReqInfo::Instance()->desk.compatible(CKIN_SCAN_BP_VERSION))
+          throw UserException("MSG.PASSENGER.OTHER_FLIGHT");
+        point_id=point_dep;
+        xmlNodePtr dataNode=NewTextChild( resNode, "data" );
+        NewTextChild( dataNode, "point_id", point_id );
+        if (!TripsInterface::readTripHeader( point_id, dataNode ))
+        {
+          TQuery FltQry(&OraSession);
+          FltQry.Clear();
+          FltQry.SQLText=
+            "SELECT airline,flt_no,suffix,airp,scd_out, "
+            "       NVL(act_out,NVL(est_out,scd_out)) AS real_out "
+            "FROM points WHERE point_id=:point_id AND pr_del>=0";
+          FltQry.CreateVariable("point_id",otInteger,point_id);
+          FltQry.Execute();
+          string msg;
+          if (!FltQry.Eof)
+          {
+            TTripInfo info(FltQry);
+            if (!pr_unaccomp)
+              msg=getLocaleText("MSG.PASSENGER.FROM_FLIGHT", LParams() << LParam("flt", GetTripName(info,ecCkin)));
+            else
+              msg=getLocaleText("MSG.BAGGAGE.FROM_FLIGHT", LParams() << LParam("flt", GetTripName(info,ecCkin)));
+          }
+          else
+          {
+            if (!pr_unaccomp)
+              msg=getLocaleText("MSG.PASSENGER.FROM_OTHER_FLIGHT");
+            else
+              msg=getLocaleText("MSG.BAGGAGE.FROM_OTHER_FLIGHT");
+          };
+          throw AstraLocale::UserException(msg);
+        }
+        else
+        {
+          readTripCounters( point_id, dataNode );
+          readTripData( point_id, dataNode );
+          readTripSets( point_id, dataNode );
+          TripsInterface::PectabsResponse(point_id, reqNode, dataNode);
+        };
+      };
     };
   }
   else grp_id=NodeAsInteger(node);
