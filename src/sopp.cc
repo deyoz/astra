@@ -3215,9 +3215,10 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   TSOPPDests::iterator pid=dests.end();
   for( TSOPPDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
   	if ( id->pr_del == -1 ) continue;
-  	if( pid == dests.end() )
+  	if( pid == dests.end() || id + 1 == dests.end() )
   		id->pr_tranzit = 0;
   	else
+      if ( id->point_id == NoExists || ch_point_num ) //???
       id->pr_tranzit=( pid->airline + IntToString( pid->flt_no ) + pid->suffix /*+ p->triptype ???*/ ==
                        id->airline + IntToString( id->flt_no ) + id->suffix /*+ id->triptype*/ );
 
