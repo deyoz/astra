@@ -226,7 +226,7 @@ struct TShowComps {
 	string airp;
 	string name;
 	TShowComps() {
-    crc_comp = NoExists;
+    crc_comp = 0;
 	};
 };
 
@@ -277,10 +277,7 @@ void getFlightTuneCompRef( int point_id, bool use_filter, const string &trip_air
   	comp.comp_id = -1;
   	comp.craft = Qry.FieldAsString("craft");
   	comp.bort = Qry.FieldAsString("bort");
-  	if ( Qry.FieldIsNULL( "crc_comp" ) )
-  	  comp.crc_comp = NoExists;
-    else
-  	  comp.crc_comp = Qry.FieldAsInteger("crc_comp");
+	  comp.crc_comp = Qry.FieldAsInteger("crc_comp");
   	if (Qry.FieldAsInteger("f")) {
   	  comp.classes += ElemIdToCodeNative(etClass,"");
   	  comp.classes += IntToString(Qry.FieldAsInteger("f"));
@@ -446,7 +443,7 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
       xmlNodePtr compNode = NewTextChild( compsNode, "comp" );
       NewTextChild( compNode, "name", i->name );
       xmlNodePtr tmpNode = NewTextChild( compNode, "comp_id", i->comp_id );
-      if ( i->crc_comp != NoExists )
+      if ( i->crc_comp != 0 )
         SetProp( tmpNode, "crc_comp", i->crc_comp );
       NewTextChild( compNode, "pr_comp", (int)(i->pr_comp == 1) );
       NewTextChild( compNode, "craft", i->craft );
