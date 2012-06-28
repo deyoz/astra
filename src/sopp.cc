@@ -3217,10 +3217,13 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	if ( id->pr_del == -1 ) continue;
   	if( pid == dests.end() || id + 1 == dests.end() )
   		id->pr_tranzit = 0;
-  	else
+  	else {
+      ProgTrace( TRACE5, "id->point_id=%d, ch_point_num=%d", id->point_id, ch_point_num );
       if ( id->point_id == NoExists || ch_point_num ) //???
       id->pr_tranzit=( pid->airline + IntToString( pid->flt_no ) + pid->suffix /*+ p->triptype ???*/ ==
                        id->airline + IntToString( id->flt_no ) + id->suffix /*+ id->triptype*/ );
+        id->modify = true;
+    }
 
     id->pr_reg = ( id->scd_out > NoExists &&
                    ((TTripTypesRow&)base_tables.get("trip_types").get_row( "code", id->triptype, true )).pr_reg!=0 &&
@@ -3311,7 +3314,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
       	    id->modify = true;
       	  }
       }
-      else
+      else {
         if ( !id->pr_tranzit ) {
         	if ( id->first_point != first_point ) {
             id->first_point = first_point;
@@ -3324,6 +3327,9 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
             id->first_point = first_point;
             id->modify = true;
           }
+        ProgTrace( TRACE5, "id->point_id=%d, id->first_point=%d, id->pr_tranzit=%d, id->modify=%d",
+                   id->point_id, id->first_point, id->pr_tranzit, id->modify );
+      }
     }
 
     ProgTrace( TRACE5, "point_id=%d, id->modify=%d", id->point_id, id->modify );
