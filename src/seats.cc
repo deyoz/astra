@@ -2991,7 +2991,6 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
 
   int curr_tid = NoExists;
   TPointIdsForCheck point_ids_spp;
-  point_ids_spp.insert( make_pair(point_id, layer_type) );
   if ( seat_type != stSeat ) { // пересадка, высадка - удаление старого слоя
     	switch( layer_type ) {
     		case cltGoShow:
@@ -3126,6 +3125,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   		break;
   }
   check_alarms( point_ids_spp );
+  check_waitlist_alarm( point_id );
 }
 
 void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &APass, TSeatAlgoParams ASeatAlgoParams )
