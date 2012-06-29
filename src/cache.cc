@@ -13,7 +13,6 @@
 #include "comp_layers.h"
 #include "astra_misc.h"
 #include "timer.h"
-#include "alarms.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -1597,7 +1596,7 @@ void AfterApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TCa
         DeleteTripCompLayers(NoExists, point_id, cltProtBeforePay, point_ids_spp);
         DeleteTripCompLayers(NoExists, point_id, cltProtAfterPay, point_ids_spp);
       };
-      check_alarms( point_ids_spp );
+      check_layer_change( point_ids_spp );
     };
   };
   

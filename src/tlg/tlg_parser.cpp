@@ -18,7 +18,6 @@
 #include "memory_manager.h"
 #include "comp_layers.h"
 #include "tlg_binding.h"
-#include "alarms.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -4815,7 +4814,7 @@ void SaveSOMContent(int tlg_id, TDCSHeadingInfo& info, TSOMContent& con)
     //здесь надо удалить все слои телеграмм SOM из более ранних пунктов из trip_comp_layers
     TPointIdsForCheck point_ids_spp;
     InsertTlgSeatRanges(point_id,i->airp_arv,cltSOMTrzt,i->ranges,NoExists,tlg_id,NoExists,usePriorContext,curr_tid,point_ids_spp);
-    check_alarms(point_ids_spp);
+    check_layer_change(point_ids_spp);
     usePriorContext=true;
   };
 };
@@ -5737,7 +5736,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
             };
           };//for(iPnrItem=iTotals->pnr.begin()
         };
-        check_alarms(point_ids_spp);
+        check_layer_change(point_ids_spp);
       };
 
       if (!isPRL)

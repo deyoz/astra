@@ -815,5 +815,21 @@ void GetSeatRemPriority(const string &airline_mark, TSeatRemPriority &rems)
   stable_sort(rems.begin(),rems.end(),lessSeatRemPriority);
 };
 
-
+void check_layer_change(const TPointIdsForCheck &point_ids_spp)
+{
+  for(TPointIdsForCheck::const_iterator i=point_ids_spp.begin();i!=point_ids_spp.end();i++)
+  {
+    if (i->second==cltBlockCent ||
+        i->second==cltTranzit ||
+        i->second==cltCheckin ||
+        i->second==cltTCheckin ||
+        i->second==cltGoShow ||
+        i->second==cltBlockTrzt ||
+        i->second==cltSOMTrzt ||
+        i->second==cltPRLTrzt)
+    {
+      check_waitlist_alarm(i->first);
+    };
+  };
+};
 
