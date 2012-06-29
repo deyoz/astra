@@ -587,8 +587,7 @@ void TBalanceData::getPassBalance( bool pr_tranzit_pass, int point_id, const TTr
           p.pax_id = PassQry->FieldAsInteger( idx_pax_id );
           p.grp_id = PassQry->FieldAsInteger( idx_grp_id );
           if ( !PassQry->FieldIsNULL( idx_crs_pax_id ) ) {
-            p.crs_pax_id = PassQry->FieldAsInteger( idx_crs_pax_id );
-            p.parent_pax_id = p.crs_pax_id;
+            p.parent_pax_id = PassQry->FieldAsInteger( idx_crs_pax_id );
           }
           p.point_dep = PassQry->FieldAsInteger( idx_point_dep );
           p.point_arv = routesA[ num - 1 ].point_id;

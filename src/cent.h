@@ -142,7 +142,7 @@ enum TBalanceDataFlag { tdPass, tdBag, tdExcess, tdPad, tdCargo };
 struct TPassenger {
   int pax_id;
   int parent_pax_id;
-  int crs_pax_id;
+  int temp_parent_id;
   int grp_id;
   int point_dep;
   int point_arv;
@@ -157,7 +157,7 @@ struct TPassenger {
     pr_pad = false;
     pr_wl = false;
     pax_id = ASTRA::NoExists;
-    crs_pax_id = ASTRA::NoExists;
+    temp_parent_id = ASTRA::NoExists;
     parent_pax_id = ASTRA::NoExists;
     seats = 0;
   };

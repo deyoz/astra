@@ -627,16 +627,16 @@ namespace PRL_SPACE {
         int grp_id;
         string surname;
         string name;
-        int pax_id;
-        int crs_pax_id;
+        int parent_pax_id;
+        int temp_parent_id;
         string ticket_no;
         int coupon_no;
         string ticket_rem;
         void dump();
         TInfantsItem() {
             grp_id = NoExists;
-            pax_id = NoExists;
-            crs_pax_id = NoExists;
+            parent_pax_id = NoExists;
+            temp_parent_id = NoExists;
             coupon_no = NoExists;
         }
     };
@@ -647,8 +647,8 @@ namespace PRL_SPACE {
         ProgTrace(TRACE5, "grp_id: %d", grp_id);
         ProgTrace(TRACE5, "surname: %s", surname.c_str());
         ProgTrace(TRACE5, "name: %s", name.c_str());
-        ProgTrace(TRACE5, "pax_id: %d", pax_id);
-        ProgTrace(TRACE5, "crs_pax_id: %d", crs_pax_id);
+        ProgTrace(TRACE5, "pax_id: %d", parent_pax_id);
+        ProgTrace(TRACE5, "crs_pax_id: %d", parent_pax_id);
         ProgTrace(TRACE5, "ticket_no: %s", ticket_no.c_str());
         ProgTrace(TRACE5, "coupon_no: %d", coupon_no);
         ProgTrace(TRACE5, "ticket_rem: %s", ticket_rem.c_str());
@@ -717,8 +717,7 @@ namespace PRL_SPACE {
                 item.coupon_no = Qry.FieldAsInteger(col_coupon_no);
                 item.ticket_rem = Qry.FieldAsString(col_ticket_rem);
                 if(!Qry.FieldIsNULL(col_crs_pax_id)) {
-                    item.crs_pax_id = Qry.FieldAsInteger(col_crs_pax_id);
-                    item.pax_id = item.crs_pax_id;
+                    item.parent_pax_id = Qry.FieldAsInteger(col_crs_pax_id);
                 }
                 items.push_back(item);
             }
@@ -749,7 +748,8 @@ namespace PRL_SPACE {
                     adults.push_back(item);
                 }
             }
-            for(int k = 1; k <= 3; k++) {
+            SetInfantsToAdults( items, adults );
+/*            for(int k = 1; k <= 3; k++) {
                 for(vector<TInfantsItem>::iterator infRow = items.begin(); infRow != items.end(); infRow++) {
                     if(k == 1 and infRow->pax_id != NoExists or
                             k > 1 and infRow->pax_id == NoExists) {
@@ -768,7 +768,7 @@ namespace PRL_SPACE {
                         }
                     }
                 }
-            }
+            }*/
         }
     }
 
@@ -1214,7 +1214,7 @@ namespace PRL_SPACE {
         if(pax.pax_id == NoExists) return;
         // rems must be push_backed exactly in this order. Don't swap!
         for(vector<TInfantsItem>::iterator infRow = infants->items.begin(); infRow != infants->items.end(); infRow++) {
-            if(infRow->grp_id == pax.grp_id and infRow->pax_id == pax.pax_id) {
+            if(infRow->grp_id == pax.grp_id and infRow->parent_pax_id == pax.pax_id) {
                 string rem;
                 rem = "1INF " + transliter(infRow->surname, 1, info.pr_lat);
                 if(!infRow->name.empty()) {
@@ -3226,7 +3226,7 @@ void TTPM::ToTlg(TTlgInfo &info, vector<string> &body)
         int inf_count = 0;
         ostringstream buf, buf2;
         for(vector<TInfantsItem>::iterator infRow = infants.items.begin(); infRow != infants.items.end(); infRow++) {
-            if(infRow->grp_id == iv->grp_id and infRow->pax_id == iv->pax_id) {
+            if(infRow->grp_id == iv->grp_id and infRow->parent_pax_id == iv->pax_id) {
                 inf_count++;
                 if(!infRow->name.empty())
                     buf << "/" << transliter(infRow->name, 1, info.pr_lat);
@@ -4045,7 +4045,7 @@ void TRemList::get(TTlgInfo &info, TETLPax &pax)
     for(vector<TInfantsItem>::iterator infRow = infants->items.begin(); infRow != infants->items.end(); infRow++) {
         if(infRow->ticket_rem != "TKNE")
             continue;
-        if(infRow->grp_id == pax.grp_id and infRow->pax_id == pax.pax_id) {
+        if(infRow->grp_id == pax.grp_id and infRow->parent_pax_id == pax.pax_id) {
             buf.str("");
             buf
                 << "TKNE INF"
