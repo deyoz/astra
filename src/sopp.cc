@@ -3568,6 +3568,12 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     		A.pr_land = true;
     		vchangeAct.push_back( A );
     	}
+    	if ( id->pr_del != -1 && old_dest.pr_del != -1 && id->pr_tranzit != old_dest.pr_tranzit ) {
+        if ( id->pr_tranzit )
+          reqInfo->MsgToLog( string( "Проставление признака транзита " ) + " порт " + id->airp, evtDisp, move_id, id->point_id );
+        else
+          reqInfo->MsgToLog( string( "Отмена признака транзита " ) + " порт " + id->airp, evtDisp, move_id, id->point_id );
+    	}
   	  Qry.Clear();
       Qry.SQLText =
        "UPDATE points "
