@@ -1499,6 +1499,14 @@ class TPaxLoadOrder
     };
 };
 
+class TZonePaxItem
+{
+  public:
+    int pax_id, grp_id, seats, parent_pax_id, temp_parent_id;
+    string surname, pers_type, zone;
+    int rk_weight,bag_amount,bag_weight;
+};
+
 void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
 {
   reqNode=GetNode("tripcounters",reqNode);
@@ -2029,14 +2037,61 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   else
   {
     //pr_section=true
-    map<string,int> zones;
-    ZoneLoads( point_id, zones );
-    for ( map<string,int>::iterator iz=zones.begin(); iz != zones.end(); iz++ ) {
+    Qry.Clear();
+    Qry.SQLText=
+      "SELECT pax.pax_id, pax.grp_id, pax.surname, pax.pers_type, pax.seats, "
+      "       crs_inf.pax_id AS parent_pax_id, "
+      "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_amount, "
+      "       ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_weight, "
+      "       ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS rk_weight "
+      "FROM pax_grp, pax, crs_inf "
+      "WHERE pax_grp.grp_id=pax.grp_id AND "
+      "      pax_grp.point_dep=:point_id AND pax.pr_brd IS NOT NULL AND "
+      "      pax.pax_id=crs_inf.inf_id(+)";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.Execute();
+    vector<TZonePaxItem> zonePaxs;
+    //читаем пассажиров на рейсе
+    for(;!Qry.Eof;Qry.Next())
+    {
+      TZonePaxItem pax;
+      pax.pax_id=Qry.FieldAsInteger("pax_id");
+      pax.grp_id=Qry.FieldAsInteger("grp_id");
+      pax.seats=Qry.FieldAsInteger("seats");
+      pax.surname=Qry.FieldAsString("surname");
+      pax.pers_type=Qry.FieldAsString("pers_type");
+      pax.parent_pax_id=Qry.FieldIsNULL("parent_pax_id")?NoExists:Qry.FieldAsInteger("parent_pax_id");
+      pax.rk_weight=Qry.FieldAsInteger("rk_weight");
+      pax.bag_amount=Qry.FieldAsInteger("bag_amount");
+      pax.bag_weight=Qry.FieldAsInteger("bag_weight");
+      zonePaxs.push_back(pax);
+    };
+    
+    vector<SALONS2::TCompSection> compSections;
+    //получаем информацию по зонам
+    ZonePax(point_id, zonePaxs, compSections);
+    
+    for(vector<SALONS2::TCompSection>::const_iterator i=compSections.begin();i!=compSections.end();i++)
+    {
       TPaxLoadItem item;
-      item.section = iz->first;
-      item.seats = iz->second;
+      item.section = i->name;
+      for(vector<TZonePaxItem>::const_iterator p=zonePaxs.begin();p!=zonePaxs.end();p++)
+      {
+        if (item.section!=p->zone) continue;
+        item.seats+=p->seats;
+        switch(DecodePerson(p->pers_type.c_str()))
+        {
+          case adult: item.adult++; break;
+          case child: item.child++; break;
+          case baby:  item.baby++;  break;
+          default: ;
+        };
+        item.rk_weight+=p->rk_weight;
+        item.bag_amount+=p->bag_amount;
+        item.bag_weight+=p->bag_weight;
+      };
       paxLoad.push_back(item);
-    }
+    };
   };
     
   //сортируем массив
@@ -2047,19 +2102,18 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   {
     rowNode=NewTextChild(rowsNode,"row");
     NewTextChild(rowNode,"seats",i->seats,0);
-    if (!pr_section)
+    NewTextChild(rowNode,"adult",i->adult,0);
+    NewTextChild(rowNode,"child",i->child,0);
+    NewTextChild(rowNode,"baby",i->baby,0);
+
+    if (!pr_ticket_rem && !pr_rems)
     {
-      NewTextChild(rowNode,"adult",i->adult,0);
-      NewTextChild(rowNode,"child",i->child,0);
-      NewTextChild(rowNode,"baby",i->baby,0);
-
-      if (!pr_ticket_rem && !pr_rems)
+      NewTextChild(rowNode,"bag_amount",i->bag_amount,0);
+      NewTextChild(rowNode,"bag_weight",i->bag_weight,0);
+      NewTextChild(rowNode,"rk_weight",i->rk_weight,0);
+      if (!pr_section)
       {
-        NewTextChild(rowNode,"bag_amount",i->bag_amount,0);
-        NewTextChild(rowNode,"bag_weight",i->bag_weight,0);
-        NewTextChild(rowNode,"rk_weight",i->rk_weight,0);
         NewTextChild(rowNode,"excess",i->excess,0);
-
         if (!pr_cl_grp && !pr_trfer && !pr_client_type && !pr_status && !pr_hall && !pr_user)
         {
           NewTextChild(rowNode,"crs_ok",i->crs_ok,0);
