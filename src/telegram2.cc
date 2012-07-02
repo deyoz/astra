@@ -625,6 +625,7 @@ namespace PRL_SPACE {
 
     struct TInfantsItem {
         int grp_id;
+        int reg_no;
         string surname;
         string name;
         int parent_pax_id;
@@ -635,6 +636,7 @@ namespace PRL_SPACE {
         void dump();
         TInfantsItem() {
             grp_id = NoExists;
+            reg_no = NoExists;
             parent_pax_id = NoExists;
             temp_parent_id = NoExists;
             coupon_no = NoExists;
@@ -645,6 +647,7 @@ namespace PRL_SPACE {
     {
         ProgTrace(TRACE5, "TInfantsItem");
         ProgTrace(TRACE5, "grp_id: %d", grp_id);
+        ProgTrace(TRACE5, "reg_no: %d", reg_no);
         ProgTrace(TRACE5, "surname: %s", surname.c_str());
         ProgTrace(TRACE5, "name: %s", name.c_str());
         ProgTrace(TRACE5, "pax_id: %d", parent_pax_id);
@@ -658,11 +661,13 @@ namespace PRL_SPACE {
     struct TAdultsItem {
         int grp_id;
         int pax_id;
+        int reg_no;
         string surname;
         void dump();
         TAdultsItem() {
             grp_id = NoExists;
             pax_id = NoExists;
+            reg_no = NoExists;
         }
     };
 
@@ -671,6 +676,7 @@ namespace PRL_SPACE {
         ProgTrace(TRACE5, "TAdultsItem");
         ProgTrace(TRACE5, "grp_id: %d", grp_id);
         ProgTrace(TRACE5, "pax_id: %d", pax_id);
+        ProgTrace(TRACE5, "reg_no: %d", reg_no);
         ProgTrace(TRACE5, "surname: %s", surname.c_str());
         ProgTrace(TRACE5, "--------------------");
     }
@@ -686,6 +692,7 @@ namespace PRL_SPACE {
         TQuery Qry(&OraSession);
         Qry.SQLText =
             "SELECT pax.grp_id, "
+            "       pax.reg_no, "
             "       pax.surname, "
             "       pax.name, "
             "       pax.ticket_no, "
@@ -702,6 +709,7 @@ namespace PRL_SPACE {
         Qry.Execute();
         if(!Qry.Eof) {
             int col_grp_id = Qry.FieldIndex("grp_id");
+            int col_reg_no = Qry.FieldIndex("reg_no");
             int col_surname = Qry.FieldIndex("surname");
             int col_name = Qry.FieldIndex("name");
             int col_crs_pax_id = Qry.FieldIndex("crs_pax_id");
@@ -711,6 +719,7 @@ namespace PRL_SPACE {
             for(; !Qry.Eof; Qry.Next()) {
                 TInfantsItem item;
                 item.grp_id = Qry.FieldAsInteger(col_grp_id);
+                item.reg_no = Qry.FieldAsInteger(col_reg_no);
                 item.surname = Qry.FieldAsString(col_surname);
                 item.name = Qry.FieldAsString(col_name);
                 item.ticket_no = Qry.FieldAsString(col_ticket_no);
@@ -739,11 +748,13 @@ namespace PRL_SPACE {
             if(!Qry.Eof) {
                 int col_grp_id = Qry.FieldIndex("grp_id");
                 int col_pax_id = Qry.FieldIndex("pax_id");
+                int col_reg_no = Qry.FieldIndex("reg_no");
                 int col_surname = Qry.FieldIndex("surname");
                 for(; !Qry.Eof; Qry.Next()) {
                     TAdultsItem item;
                     item.grp_id = Qry.FieldAsInteger(col_grp_id);
                     item.pax_id = Qry.FieldAsInteger(col_pax_id);
+                    item.reg_no = Qry.FieldAsInteger(col_reg_no);
                     item.surname = Qry.FieldAsString(col_surname);
                     adults.push_back(item);
                 }

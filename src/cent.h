@@ -16,7 +16,7 @@ const std::string qryBalancePassWOCheckinTranzit =
     "SELECT point_dep, "
     "       DECODE(point_dep,:point_dep,0,1) as  pr_tranzit, class, "
     "       pax.grp_id, pax.pax_id, pax.pers_type, pax_doc.gender, pax.surname, "
-    "       crs_inf.pax_id AS crs_pax_id, seats  "
+    "       crs_inf.pax_id AS parent_pax_id, seats, reg_no  "
     " FROM pax_grp, pax, pax_doc, crs_inf "
     " WHERE pax_grp.grp_id=pax.grp_id AND "
     "       pax.pax_id=pax_doc.pax_id(+) AND "
@@ -42,7 +42,7 @@ const std::string qryBalancePassWithCheckinTranzit =
     "SELECT point_dep, "
     "       DECODE(status,:status_tranzit,1,0) as  pr_tranzit, class, "
     "       pax.grp_id, pax.pax_id, pax.pers_type, pax_doc.gender, pax.surname, "
-    "       crs_inf.pax_id AS crs_pax_id, seats  "
+    "       crs_inf.pax_id AS parent_pax_id, seats, reg_no  "
     " FROM pax_grp, pax, pax_doc, crs_inf "
     " WHERE pax_grp.grp_id=pax.grp_id AND "
     "       pax.pax_id=pax_doc.pax_id(+) AND "
@@ -144,6 +144,7 @@ struct TPassenger {
   int parent_pax_id;
   int temp_parent_id;
   int grp_id;
+  int reg_no;
   int point_dep;
   int point_arv;
   int seats;
@@ -159,6 +160,7 @@ struct TPassenger {
     pax_id = ASTRA::NoExists;
     temp_parent_id = ASTRA::NoExists;
     parent_pax_id = ASTRA::NoExists;
+    reg_no = ASTRA::NoExists;
     seats = 0;
   };
 };

@@ -1502,7 +1502,7 @@ class TPaxLoadOrder
 class TZonePaxItem
 {
   public:
-    int pax_id, grp_id, seats, parent_pax_id, temp_parent_id;
+    int pax_id, grp_id, seats, parent_pax_id, temp_parent_id, reg_no;
     string surname, pers_type, zone;
     int rk_weight,bag_amount,bag_weight;
 };
@@ -2039,7 +2039,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     //pr_section=true
     Qry.Clear();
     Qry.SQLText=
-      "SELECT pax.pax_id, pax.grp_id, pax.surname, pax.pers_type, pax.seats, "
+      "SELECT pax.pax_id, pax.grp_id, pax.surname, pax.pers_type, pax.seats, pax.reg_no, "
       "       crs_inf.pax_id AS parent_pax_id, "
       "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_amount, "
       "       ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_weight, "
@@ -2058,6 +2058,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
       pax.pax_id=Qry.FieldAsInteger("pax_id");
       pax.grp_id=Qry.FieldAsInteger("grp_id");
       pax.seats=Qry.FieldAsInteger("seats");
+      pax.reg_no=Qry.FieldAsInteger("reg_no");
       pax.surname=Qry.FieldAsString("surname");
       pax.pers_type=Qry.FieldAsString("pers_type");
       pax.parent_pax_id=Qry.FieldIsNULL("parent_pax_id")?NoExists:Qry.FieldAsInteger("parent_pax_id");

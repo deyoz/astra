@@ -556,7 +556,8 @@ void TBalanceData::getPassBalance( bool pr_tranzit_pass, int point_id, const TTr
         tst();
         int idx_pax_id = PassQry->FieldIndex( "pax_id" );
         int idx_grp_id = PassQry->FieldIndex( "grp_id" );
-        int idx_crs_pax_id = PassQry->FieldIndex( "crs_pax_id" );
+        int idx_parent_pax_id = PassQry->FieldIndex( "parent_pax_id" );
+        int idx_reg_no = PassQry->FieldIndex( "reg_no" );
         int idx_point_dep = PassQry->FieldIndex( "point_dep" );
         int idx_seats = PassQry->FieldIndex( "seats" );
         int idx_pers_type = PassQry->FieldIndex( "pers_type" );
@@ -586,8 +587,9 @@ void TBalanceData::getPassBalance( bool pr_tranzit_pass, int point_id, const TTr
           TPassenger p;
           p.pax_id = PassQry->FieldAsInteger( idx_pax_id );
           p.grp_id = PassQry->FieldAsInteger( idx_grp_id );
-          if ( !PassQry->FieldIsNULL( idx_crs_pax_id ) ) {
-            p.parent_pax_id = PassQry->FieldAsInteger( idx_crs_pax_id );
+          p.reg_no = PassQry->FieldAsInteger( idx_reg_no );
+          if ( !PassQry->FieldIsNULL( idx_parent_pax_id ) ) {
+            p.parent_pax_id = PassQry->FieldAsInteger( idx_parent_pax_id );
           }
           p.point_dep = PassQry->FieldAsInteger( idx_point_dep );
           p.point_arv = routesA[ num - 1 ].point_id;

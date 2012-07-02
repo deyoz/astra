@@ -555,13 +555,21 @@ std::string GetPaxDocCountryCode(const std::string &doc_code);
 const int TEST_ID_BASE = 1000000000;
 bool isTestPaxId(int id);
 
+template <class T1>
+bool ComparePass( const T1 &item1, const T1 &item2 )
+{
+  return item1.reg_no < item2.reg_no;
+};
+
 /* должны быть заполнены поля в типе T1:
-  grp_id, pax_id, parent_pax_id - из таблицы crs_inf, surname
+  grp_id, pax_id, reg_no, parent_pax_id - из таблицы crs_inf, surname
   в типе T2:
-  grp_id, pax_id, surname */
+  grp_id, pax_id, reg_no, surname */
 template <class T1, class T2>
 void SetInfantsToAdults( std::vector<T1> &InfItems, std::vector<T2> AdultItems )
 {
+  sort( InfItems.begin(), InfItems.end(), ComparePass<T1> );
+  sort( AdultItems.begin(), AdultItems.end(), ComparePass<T2> );
   for ( int k = 1; k <= 3; k++ ) {
     for(typename std::vector<T1>::iterator infRow = InfItems.begin(); infRow != InfItems.end(); infRow++) {
       if ( k == 1 )
