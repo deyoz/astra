@@ -101,6 +101,7 @@ void TelegramInterface::readTripData( int point_id, xmlNodePtr dataNode )
 
 struct TTlgSearchParams {
     int err_cls;
+    int tlg_id;
     string tlg_type;
     string airline;
     string airp;
@@ -129,6 +130,7 @@ struct TTlgSearchParams {
 void TTlgSearchParams::dump()
 {
     ProgTrace(TRACE5, "err_cls: %d", err_cls);
+    ProgTrace(TRACE5, "tlg_id: %d", tlg_id);
     ProgTrace(TRACE5, "tlg_type: '%s'", tlg_type.c_str());
     ProgTrace(TRACE5, "airline: '%s'", airline.c_str());
     ProgTrace(TRACE5, "airp: '%s'", airp.c_str());
@@ -155,6 +157,7 @@ void TTlgSearchParams::get(xmlNodePtr reqNode)
     if(currNode == NULL) return;
 
     err_cls = NodeAsIntegerFast("err_cls", currNode, 0);
+    tlg_id = NodeAsIntegerFast("tlg_id", currNode, NoExists);
     tlg_type = NodeAsStringFast("tlg_type", currNode, "");
     airline = NodeAsStringFast("airline", currNode, "");
     airp = NodeAsStringFast("airp", currNode, "");
@@ -162,6 +165,9 @@ void TTlgSearchParams::get(xmlNodePtr reqNode)
     suffix = NodeAsStringFast("suffix", currNode, "");
     pr_time_create = NodeAsIntegerFast("pr_time_create", currNode, 0) != 0;
     pr_time_receive = NodeAsIntegerFast("pr_time_receive", currNode, 0) != 0;
+    if (!pr_time_create && !pr_time_receive && tlg_id==NoExists)
+      throw AstraLocale::UserException("MSG.NOT_SET_RANGE_OR_TLG_ID");
+    
     if(pr_time_create) {
         TimeCreateFrom = NodeAsDateTimeFast("TimeCreateFrom", currNode);
         TimeCreateTo = NodeAsDateTimeFast("TimeCreateTo", currNode);
@@ -176,20 +182,32 @@ void TTlgSearchParams::get(xmlNodePtr reqNode)
     }
 }
 
-void set_time_intervals(TTlgSearchParams &search_params, string &sql, TQuery &Qry)
+void set_tlgs_in_search_params(TTlgSearchParams &search_params, string &sql, TQuery &Qry)
 {
     if(search_params.pr_time_create) {
         sql +=
-            " and tlgs_in.time_create >= :TimeCreateFrom and tlgs_in.time_create < :TimeCreateTo \n";
+            " AND tlgs_in.time_create >= :TimeCreateFrom AND tlgs_in.time_create < :TimeCreateTo \n";
         Qry.CreateVariable("TimeCreateFrom", otDate, search_params.TimeCreateFrom);
         Qry.CreateVariable("TimeCreateTo", otDate, search_params.TimeCreateTo);
     }
 
     if(search_params.pr_time_receive) {
         sql +=
-            " and tlgs_in.time_receive >= :TimeReceiveFrom and tlgs_in.time_receive < :TimeReceiveTo \n";
+            " AND tlgs_in.time_receive >= :TimeReceiveFrom AND tlgs_in.time_receive < :TimeReceiveTo \n";
         Qry.CreateVariable("TimeReceiveFrom", otDate, search_params.TimeReceiveFrom);
         Qry.CreateVariable("TimeReceiveTo", otDate, search_params.TimeReceiveTo);
+    }
+    
+    if(!search_params.tlg_type.empty()) {
+        sql +=
+            " AND tlgs_in.type = :tlg_type \n";
+        Qry.CreateVariable("tlg_type", otString, search_params.tlg_type);
+    }
+    
+    if(search_params.tlg_id!=NoExists) {
+        sql +=
+            " AND tlgs_in.id = :tlg_id \n";
+        Qry.CreateVariable("tlg_id", otInteger, search_params.tlg_id);
     }
 
 }
@@ -231,8 +249,7 @@ void TelegramInterface::GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
             " SELECT DISTINCT tlgs_in.id \n"
             " FROM tlgs_in,tlg_source \n"
             " WHERE tlgs_in.id=tlg_source.tlg_id(+) AND tlg_source.tlg_id IS NULL \n";
-        //            "       and time_receive>=TRUNC(system.UTCSYSDATE)-2 \n";
-        set_time_intervals(search_params, sql, Qry);
+        set_tlgs_in_search_params(search_params, sql, Qry);
     } else {
         if (!info.user.access.airlines.empty()||
                 !info.user.access.airps.empty() ||
@@ -254,8 +271,7 @@ void TelegramInterface::GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
             "WHERE tlgs_in.id=tlg_source.tlg_id AND \n"
             "      tlg_source.point_id_tlg=tlg_binding.point_id_tlg(+) AND \n"
             "      tlg_binding.point_id_tlg IS NULL \n";
-        //            "      time_receive>=TRUNC(system.UTCSYSDATE)-2 \n";
-        set_time_intervals(search_params, sql, Qry);
+        set_tlgs_in_search_params(search_params, sql, Qry);
         if (!info.user.access.airlines.empty()||
                 !info.user.access.airps.empty() ||
                 is_trip_info
@@ -306,18 +322,10 @@ void TelegramInterface::GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
         };
     }
 
-    /*
-       if(not search_params.tlg_type.empty()) {
-       sql +=
-       " and tlgs_in.type = :type \n";
-       Qry.CreateVariable("type", otString, search_params.tlg_type);
-       }
-     */
-
     sql+=
         ") ids \n";
     sql+="WHERE tlgs_in.id=ids.id \n"
-        "ORDER BY id,num \n";
+         "ORDER BY id,num \n";
 
     xmlNodePtr tlgsNode = NewTextChild( resNode, "tlgs" );
     if (info.user.access.airps_permit && info.user.access.airps.empty() ||
@@ -331,55 +339,70 @@ void TelegramInterface::GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     char *ph,*buf=NULL;
     try
     {
-        if(!Qry.Eof) {
-            int col_type = Qry.FieldIndex("type");
-            int col_id = Qry.FieldIndex("id");
-            int col_num = Qry.FieldIndex("num");
-            int col_addr = Qry.FieldIndex("addr");
-            int col_heading = Qry.FieldIndex("heading");
-            int col_ending = Qry.FieldIndex("ending");
-            int col_time_receive = Qry.FieldIndex("time_receive");
-            int col_body = Qry.FieldIndex("body");
-
-            int rowcount = 0;
-            for(;!Qry.Eof;Qry.Next())
+        int rowcount = 0;
+        for(int pass=1; pass<=2; pass++)
+        {
+          if (pass==2)
+          {
+            if (search_params.err_cls == 1 && search_params.tlg_id!=NoExists)
             {
-                string type = Qry.FieldAsString(col_type);
-                if(not search_params.tlg_type.empty() and search_params.tlg_type != type)
-                    continue;
+              Qry.Clear();
+              Qry.SQLText=
+                "SELECT id, 1 AS num, NULL AS type, NULL AS addr, NULL AS heading, \n"
+                "       tlg_text AS body, NULL AS ending, time AS time_receive \n"
+                "FROM tlgs \n"
+                "WHERE id=:tlg_id AND error IS NOT NULL AND type IN ('INA','INB') \n";
+              Qry.CreateVariable("tlg_id", otInteger, search_params.tlg_id);
+              Qry.Execute();
+            }
+            else break;
+          };
+        
+          if(!Qry.Eof) {
+              int col_type = Qry.FieldIndex("type");
+              int col_id = Qry.FieldIndex("id");
+              int col_num = Qry.FieldIndex("num");
+              int col_addr = Qry.FieldIndex("addr");
+              int col_heading = Qry.FieldIndex("heading");
+              int col_ending = Qry.FieldIndex("ending");
+              int col_time_receive = Qry.FieldIndex("time_receive");
+              int col_body = Qry.FieldIndex("body");
 
-                node = NewTextChild( tlgsNode, "tlg" );
-                NewTextChild( node, "id", Qry.FieldAsInteger(col_id) );
-                NewTextChild( node, "num", Qry.FieldAsInteger(col_num) );
-                NewTextChild( node, "type", type);
-                NewTextChild( node, "addr", GetValidXMLString(Qry.FieldAsString(col_addr)) );
-                NewTextChild( node, "heading", GetValidXMLString(Qry.FieldAsString(col_heading)) );
-                NewTextChild( node, "ending", GetValidXMLString(Qry.FieldAsString(col_ending)) );
-                TDateTime time_receive = UTCToClient( Qry.FieldAsDateTime(col_time_receive), tz_region );
-                NewTextChild( node, "time_receive", DateTimeToStr( time_receive ) );
+              for(;!Qry.Eof;Qry.Next())
+              {
+                  node = NewTextChild( tlgsNode, "tlg" );
+                  NewTextChild( node, "id", Qry.FieldAsInteger(col_id) );
+                  NewTextChild( node, "num", Qry.FieldAsInteger(col_num) );
+                  NewTextChild( node, "type", Qry.FieldAsString(col_type));
+                  NewTextChild( node, "addr", GetValidXMLString(Qry.FieldAsString(col_addr)) );
+                  NewTextChild( node, "heading", GetValidXMLString(Qry.FieldAsString(col_heading)) );
+                  NewTextChild( node, "ending", GetValidXMLString(Qry.FieldAsString(col_ending)) );
+                  TDateTime time_receive = UTCToClient( Qry.FieldAsDateTime(col_time_receive), tz_region );
+                  NewTextChild( node, "time_receive", DateTimeToStr( time_receive ) );
 
-                len=Qry.GetSizeLongField(col_body)+1;
-                if (len>bufLen)
-                {
-                    if (buf==NULL)
-                        ph=(char*)malloc(len);
-                    else
-                        ph=(char*)realloc(buf,len);
-                    if (ph==NULL) throw EMemoryError("Out of memory");
-                    buf=ph;
-                    bufLen=len;
-                };
-                Qry.FieldAsLong("body",buf);
-                buf[len-1]=0;
-                
-                string body(buf,len-1);
-                NewTextChild( node, "body", GetValidXMLString(body) );
-                rowcount++;
-            };
-            if(rowcount >= 4000)
-                throw AstraLocale::UserException("MSG.TOO_MANY_DATA.ADJUST_SEARCH_PARAMS");
-            if (buf!=NULL) free(buf);
-        }
+                  len=Qry.GetSizeLongField(col_body)+1;
+                  if (len>bufLen)
+                  {
+                      if (buf==NULL)
+                          ph=(char*)malloc(len);
+                      else
+                          ph=(char*)realloc(buf,len);
+                      if (ph==NULL) throw EMemoryError("Out of memory");
+                      buf=ph;
+                      bufLen=len;
+                  };
+                  Qry.FieldAsLong("body",buf);
+                  buf[len-1]=0;
+
+                  string body(buf,len-1);
+                  NewTextChild( node, "body", GetValidXMLString(body) );
+                  rowcount++;
+              };
+              if(rowcount >= 4000)
+                  throw AstraLocale::UserException("MSG.TOO_MANY_DATA.ADJUST_SEARCH_PARAMS");
+          }
+        };
+        if (buf!=NULL) free(buf);
     }
     catch(...)
     {
