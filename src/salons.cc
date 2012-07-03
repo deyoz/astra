@@ -2145,6 +2145,15 @@ bool isAutoCompChg( int point_id )
   return ( !Qry.Eof && Qry.FieldAsInteger( "auto_comp_chg" ) ); // автоматическое назначение компоновки
 }
 
+void setManualCompChg( int point_id )
+{
+  //set flag auto change in false state
+  TQuery Qry(&OraSession);
+	Qry.SQLText = "UPDATE trip_sets SET auto_comp_chg=0 WHERE point_id=:point_id";
+	Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+}
+
 TFindSetCraft AutoSetCraft( bool pr_tranzit_routes, int point_id, TSetsCraftPoints &points )
 {
 	ProgTrace( TRACE5, "AutoSetCraft, pr_tranzit_routes=%d, point_id=%d", pr_tranzit_routes, point_id );

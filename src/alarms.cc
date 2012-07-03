@@ -215,15 +215,4 @@ bool check_brd_alarm( int point_id )
 	return brd_alarm;
 };
 
-void check_alarms(const TPointIdsForCheck &point_ids_spp)
-{
-  for(TPointIdsForCheck::const_iterator i=point_ids_spp.begin();i!=point_ids_spp.end();i++)
-  {
-    if (i->second==cltSOMTrzt ||
-        i->second==cltPRLTrzt)
-    {
-      check_waitlist_alarm(i->first);
-    };
-  };
-};
 

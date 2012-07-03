@@ -21,7 +21,6 @@
 #include "comp_layers.h"
 #include "passenger.h"
 #include "remarks.h"
-#include "alarms.h"
 #include "serverlib/perfom.h"
 #include "serverlib/ourtime.h"
 #include "serverlib/query_runner.h"
@@ -4201,7 +4200,7 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
           };
         };
       };
-      check_alarms(point_ids_spp);
+      check_layer_change(point_ids_spp);
     }; //!pnr.empty()
     if (error_exists) return; //если есть ошибки, выйти из обработки сегмента
     

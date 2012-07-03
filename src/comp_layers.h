@@ -56,6 +56,8 @@ typedef std::vector< std::pair<std::string, int> > TSeatRemPriority;
 //возвращает сортированный! по приоритетам список ремарок
 void GetSeatRemPriority(const std::string &airline_mark, TSeatRemPriority &rems);
 
+void check_layer_change(const TPointIdsForCheck &point_ids_spp);
+
 
 #endif
 

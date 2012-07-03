@@ -3125,7 +3125,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   		}
   		break;
   }
-  check_alarms( point_ids_spp );
+  check_layer_change( point_ids_spp );
 }
 
 void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &APass, TSeatAlgoParams ASeatAlgoParams )

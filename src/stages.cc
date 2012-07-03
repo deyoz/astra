@@ -756,7 +756,7 @@ void astra_timer( TDateTime utcdate )
       {
         TPointIdsForCheck point_ids_spp;
         DeleteTlgSeatRanges(range_ids, crs_pax_id, curr_tid, point_ids_spp);
-        check_alarms(point_ids_spp);
+        check_layer_change(point_ids_spp);
       }
       catch(Exception &E)
       {
@@ -810,11 +810,7 @@ void OpenCheckIn( int point_id )
 {
 	tst();
 	SetCraft( point_id, sOpenCheckIn );
-	TQuery Qry(&OraSession);
-	Qry.SQLText = "UPDATE trip_sets SET auto_comp_chg=0 WHERE point_id=:point_id";
-	Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
-  tst();
+  SALONS2::setManualCompChg( point_id );
 }
 
 void CloseCheckIn( int point_id )

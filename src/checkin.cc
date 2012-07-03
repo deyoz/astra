@@ -16,6 +16,7 @@
 #include "convert.h"
 #include "tripinfo.h"
 #include "aodb.h"
+#include "salons.h"
 #include "tlg/tlg_parser.h"
 #include "docs.h"
 #include "stat.h"
@@ -3167,6 +3168,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
       };
 
       TGrpToLogInfo grpInfoBefore;
+      bool first_pax_on_flight = false;
       if (new_checkin)
       {
         cl=NodeAsString("class",segNode);
@@ -3548,7 +3550,6 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
 
         ReplaceTextChild(segNode,"generated_grp_id",grp_id);
 
-
         if (!pr_unaccomp)
         {
           //получим рег. номера и признак совместной регистрации и посадки
@@ -3559,6 +3560,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
           Qry.CreateVariable("point_dep",otInteger,point_dep);
           Qry.Execute();
           int reg_no = Qry.FieldAsInteger("reg_no");
+          first_pax_on_flight = ( reg_no == 1 );
           bool pr_brd_with_reg=false,pr_exam_with_brd=false;
           if (first_segment && reqInfo->client_type == ctTerm)
           {
@@ -3769,6 +3771,8 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                 SavePaxRem(node);
                 //запись норм
                 if (first_segment) CheckIn::SaveNorms(node,pr_unaccomp);
+                if ( reg_no == 1 ) {
+                }
                 reg_no++;
               }
               catch(CheckIn::UserException)
@@ -4313,7 +4317,6 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
       };
       
       set_alarm( point_dep, atOverload, overload_alarm ); // установили признак перегрузки
-      
 
       if (!pr_unaccomp)
       {
@@ -4424,6 +4427,10 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
         //вычисляем и записываем признак waitlist_alarm и brd_alarm
         check_waitlist_alarm( point_dep );
         check_brd_alarm( point_dep );
+        if ( first_pax_on_flight ) {
+          SALONS2::setManualCompChg( point_dep );
+        }
+
       };
 
       //BSM
