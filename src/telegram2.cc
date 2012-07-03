@@ -736,6 +736,7 @@ namespace PRL_SPACE {
             Qry.SQLText =
                 "SELECT pax.grp_id, "
                 "       pax.pax_id, "
+                "       pax.reg_no, "
                 "       pax.surname "
                 "FROM pax_grp,pax "
                 "WHERE "
