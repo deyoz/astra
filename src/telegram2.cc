@@ -4049,22 +4049,12 @@ struct TETLPax {
 
 void TRemList::get(TTlgInfo &info, TETLPax &pax)
 {
-    ostringstream buf;
-    buf
-        << "TKNE "
-        << pax.ticket_no << "/" << pax.coupon_no;
-    items.push_back(buf.str());
-    for(vector<TInfantsItem>::iterator infRow = infants->items.begin(); infRow != infants->items.end(); infRow++) {
-        if(infRow->ticket_rem != "TKNE")
-            continue;
-        if(infRow->grp_id == pax.grp_id and infRow->parent_pax_id == pax.pax_id) {
-            buf.str("");
-            buf
-                << "TKNE INF"
-                << infRow->ticket_no << "/" << infRow->coupon_no;
-            items.push_back(buf.str());
-        }
-    }
+    CheckIn::TPaxRemItem rem;
+    //билет
+    CheckIn::TPaxTknItem tkn;
+    TQuery Qry(&OraSession);
+    LoadPaxTkn(pax.pax_id, tkn, Qry);
+    if (tkn.rem == "TKNE" and getPaxRem(info, tkn, rem)) items.push_back(rem.text);
 }
 
 
