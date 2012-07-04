@@ -30,7 +30,7 @@ class ETlgError:public EXCEPTIONS::Exception
     ETlgError(std::string msg):EXCEPTIONS::Exception(msg) {};
 };
 
-enum TTlgCategory{tcUnknown,tcDCS,tcBSM,tcAHM};
+enum TTlgCategory{tcUnknown,tcDCS,tcBSM,tcAHM,tcSSM};
 
 enum TTlgElement
               {//общие
@@ -150,6 +150,13 @@ class TBSMHeadingInfo : public THeadingInfo
       *airp=0;
       part_no=0;
     };
+};
+
+class TSSMHeadingInfo : public THeadingInfo
+{
+  public:
+    TSSMHeadingInfo() : THeadingInfo() {};
+    TSSMHeadingInfo(THeadingInfo &info) : THeadingInfo(info)  {};
 };
 
 class TAHMHeadingInfo : public THeadingInfo
@@ -612,6 +619,12 @@ class TBtmTransferInfo
     std::vector<TBtmOutFltInfo> OutFlt;
 };
 
+class TSSMContent
+{
+    public:
+        void Clear() {};
+};
+
 class TBtmContent
 {
   public:
@@ -643,6 +656,7 @@ void ParseEnding(TTlgPartInfo ending, THeadingInfo *headingInfo, TEndingInfo* &i
 void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLContent& con);
 void ParsePTMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPtmContent& con);
 void ParseBTMContent(TTlgPartInfo body, TBSMHeadingInfo& info, TBtmContent& con, TMemoryManager &mem);
+void ParseSSMContent(TTlgPartInfo body, TSSMHeadingInfo& info, TSSMContent& con, TMemoryManager &mem);
 void ParseSOMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TSOMContent& con);
 
 bool ParseDOCSRem(TTlgParser &tlg,BASIC::TDateTime scd_local,std::string &rem_text,TDocItem &doc);
@@ -650,6 +664,7 @@ bool ParseDOCSRem(TTlgParser &tlg,BASIC::TDateTime scd_local,std::string &rem_te
 bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& con, bool forcibly);
 void SavePTMContent(int tlg_id, TDCSHeadingInfo& info, TPtmContent& con);
 void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, TBtmContent& con);
+void SaveSSMContent(int tlg_id, TSSMHeadingInfo& info, TSSMContent& con);
 void SaveSOMContent(int tlg_id, TDCSHeadingInfo& info, TSOMContent& con);
 
 void ParseAHMFltInfo(TTlgPartInfo body, const TAHMHeadingInfo &info, TFltInfo& flt, TBindType &bind_type);
