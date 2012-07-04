@@ -736,19 +736,6 @@ bool parse_tlg(void)
             count++;
             break;
           }
-          case tcSSM:
-          {
-            part.p=buf;
-            part.line=1;
-            TSSMHeadingInfo &info = *(dynamic_cast<TSSMHeadingInfo*>(HeadingInfo));
-            TSSMContent con;
-            ParseSSMContent(part,info,con,mem);
-            SaveSSMContent(tlg_id,info,con);
-            TlgInUpdQry.Execute();
-            OraSession.Commit();
-            count++;
-            break;
-          }
           default:
           {
             //телеграмму неизвестного типа сразу пишем в разобранные

@@ -270,7 +270,6 @@ TTlgCategory GetTlgCategory(char *tlg_type)
   if (strcmp(tlg_type,"BTM")==0) cat=tcBSM;
   if (strcmp(tlg_type,"MVT")==0||
       strcmp(tlg_type,"LDM")==0) cat=tcAHM;
-  if (strcmp(tlg_type,"SSM")==0) cat=tcSSM;
   return cat;
 };
 
@@ -601,25 +600,6 @@ TTlgPartInfo ParseBSMHeading(TTlgPartInfo heading, TBSMHeadingInfo &info, TMemor
   return next;
 };
 
-void ParseSSMContent(TTlgPartInfo body, TSSMHeadingInfo& info, TSSMContent& con, TMemoryManager &mem)
-{
-    con.Clear();
-    TTlgParser tlg;
-    char *line_p=body.p;
-    int line=body.line-1;
-    try
-    {
-    }
-    catch (ETlgError E)
-    {
-        if (tlg.GetToEOLLexeme(line_p)!=NULL)
-            throw ETlgError("%s\n>>>>>LINE %d: %s",E.what(),line,tlg.lex);
-        else
-            throw ETlgError("%s\n>>>>>LINE %d",E.what(),line);
-    };
-    return;
-}
-
 void ParseBTMContent(TTlgPartInfo body, TBSMHeadingInfo& info, TBtmContent& con, TMemoryManager &mem)
 {
   vector<TBtmTransferInfo>::iterator iIn;
@@ -908,61 +888,6 @@ TTlgPartInfo ParseAHMHeading(TTlgPartInfo heading, TAHMHeadingInfo &info)
   return next;
 };
 
-TTlgPartInfo ParseSSMHeading(TTlgPartInfo heading, TSSMHeadingInfo &info)
-{
-    /*
-  int line;
-  char c,*line_p;
-  TTlgParser tlg;
-  TTlgPartInfo next;
-
-  try
-  {
-    line_p=heading.p;
-    line=heading.line-1;
-    do
-    {
-      line++;
-      if (tlg.GetLexeme(line_p)==NULL) continue;
-
-      TBSMInfo *data=NULL;
-      c=ParseBSMElement(line_p,tlg,data,mem);
-      try
-      {
-        if (c!='V') throw ("Version and supplementary data not found");
-        TBSMVersionInfo &verInfo = *(dynamic_cast<TBSMVersionInfo*>(data));
-        info.part_no=verInfo.part_no;
-        strcpy(info.airp,verInfo.airp);
-        info.reference_number=verInfo.message_number;
-        mem.destroy(data, STDLOG);
-        if (data!=NULL) delete data;
-      }
-      catch(...)
-      {
-        mem.destroy(data, STDLOG);
-        if (data!=NULL) delete data;
-        throw;
-      };
-      next.p=tlg.NextLine(line_p);
-      next.line=line+1;
-      return next;
-    }
-    while ((line_p=tlg.NextLine(line_p))!=NULL);
-  }
-  catch(ETlgError E)
-  {
-    //вывести ошибку+номер строки
-    throw ETlgError("Line %d: %s",line,E.what());
-  };
-  next.p=line_p;
-  next.line=line;
-  return next;
-  */
-  TTlgPartInfo next;
-  next=heading;
-  return next;
-};
-
 void ParseAHMFltInfo(TTlgPartInfo body, const TAHMHeadingInfo &info, TFltInfo& flt, TBindType &bind_type)
 {
   flt.Clear();
@@ -1234,11 +1159,6 @@ TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo* &info, TMemoryMana
               info = new TAHMHeadingInfo(infoh);
               mem.create(info, STDLOG);
               next=ParseAHMHeading(heading,*(TAHMHeadingInfo*)info);
-              break;
-            case tcSSM:
-              info = new TSSMHeadingInfo(infoh);
-              mem.create(info, STDLOG);
-              next=ParseSSMHeading(heading,*(TSSMHeadingInfo*)info);
               break;
             default:
               info = new THeadingInfo(infoh);
@@ -4541,10 +4461,6 @@ bool DeletePTMBTMContent(int point_id_in, const THeadingInfo& info)
   };
   return false;
 };
-
-void SaveSSMContent(int tlg_id, TSSMHeadingInfo& info, TSSMContent& con)
-{
-}
 
 void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, TBtmContent& con)
 {
