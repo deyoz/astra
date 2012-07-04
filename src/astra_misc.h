@@ -562,7 +562,7 @@ bool ComparePass( const T1 &item1, const T1 &item2 )
 };
 
 /* должны быть заполнены поля в типе T1:
-  grp_id, pax_id, reg_no, parent_pax_id - из таблицы crs_inf, surname
+  grp_id, pax_id, reg_no, surname, parent_pax_id - из таблицы crs_inf,
   в типе T2:
   grp_id, pax_id, reg_no, surname */
 template <class T1, class T2>

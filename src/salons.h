@@ -115,6 +115,15 @@ struct TCompSection {
   }
 };
 
+struct TDrawProp {
+   std::string figure;
+   std::string color;
+   TDrawProp( const std::string &vfigure, const std::string &vcolor ) {
+     figure = vfigure;
+     color = vcolor;
+   };
+};
+
 class TPlace {
   public:
     bool visible;
@@ -130,6 +139,7 @@ class TPlace {
     std::vector<TRem> rems;
     std::vector<TPlaceLayer> layers;
     TPlaceWebTariff WebTariff;
+    std::vector<TDrawProp> drawProps;
     bool isPax;
     TPlace() {
       x = -1;
