@@ -374,6 +374,14 @@ void TSalons::Build( xmlNodePtr salonsNode )
       	SetProp( remNode, "color", place->WebTariff.color );
       	SetProp( remNode, "currency_id", place->WebTariff.currency_id );
       }
+      if ( !place->drawProps.empty() ) {
+        remsNode = NewTextChild( placeNode, "drawProps" );
+        for ( vector<TDrawProp>::iterator iprop=place->drawProps.begin(); iprop!=place->drawProps.end(); iprop++ ) {
+          remNode = NewTextChild( remsNode, "drawProp" );
+          SetProp( remNode, "figure", iprop->figure );
+          SetProp( remNode, "color", iprop->color );
+        }
+      }
     }
     SetProp( placeListNode, "xcount", xcount + 1 );
     SetProp( placeListNode, "ycount", ycount + 1 );
@@ -838,6 +846,24 @@ void GetValidPaxLayer( TSalons *CSalon, TPaxLayers &pax_layers, TPaxLayers::iter
 {
 }*/
 
+struct TPass {
+  int grp_id;
+  int pax_id;
+  int reg_no;
+  std::string surname;
+  int parent_pax_id;
+  int temp_parent_id;
+  bool pr_inf;
+  TPass() {
+    grp_id = NoExists;
+    pax_id = NoExists;
+    reg_no = NoExists;
+    parent_pax_id = NoExists;
+    temp_parent_id = NoExists;
+    pr_inf = false;
+  }
+};
+
 void TSalons::Read( )
 {
   if ( readStyle == rTripSalons )
@@ -876,20 +902,23 @@ void TSalons::Read( )
   if ( readStyle == rTripSalons ) {
   	PaxQry.Clear();
   	PaxQry.SQLText =
-      " SELECT pax.pax_id, pax.seats, class, 1 priority "
-      "    FROM pax_grp,pax "
+      " SELECT pax.grp_id, pax.pax_id, pax.pers_type, pax.seats, class, "
+      "        reg_no, pax.surname, crs_inf.pax_id AS parent_pax_id, 1 priority "
+      "    FROM pax_grp, pax, crs_inf "
       "   WHERE pax.grp_id=pax_grp.grp_id AND "
       "         pax_grp.point_dep=:point_dep AND "
-      "         pax.seats >= 1 AND "
+      "         pax.pax_id=crs_inf.inf_id(+) AND "
+      //"         pax.seats >= 1 AND "
       "         pax.refuse IS NULL "
       " UNION "
-      " SELECT pax_id, crs_pax.seats, crs_pnr.class, 2 priority "
+      " SELECT NULL, pax_id, crs_pax.pers_type, crs_pax.seats, crs_pnr.class, "
+      "        NULL, crs_pax.surname, NULL, 2 priority "
       "    FROM crs_pax, crs_pnr, tlg_binding "
       "   WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
       "         crs_pnr.point_id=tlg_binding.point_id_tlg AND "
       "         tlg_binding.point_id_spp=:point_dep AND "
       "         crs_pnr.system='CRS' AND "
-      "         crs_pax.seats >= 1 AND "
+      //"         crs_pax.seats >= 1 AND "
       "         crs_pax.pr_del=0 "
       " ORDER BY priority ";
     PaxQry.CreateVariable( "point_dep", otInteger, trip_id );
@@ -998,14 +1027,57 @@ void TSalons::Read( )
   TPlaceLayer PlaceLayer( 0, 0, 0, cltUnknown, ASTRA::NoExists, 10000 );
   TPaxLayers pax_layers;
   //PaxsOnPlaces.clear();
+  
+  vector<TPass> InfItems, AdultItems;
   if ( readStyle == rTripSalons ) { // заполняем инфу по пассажиру
   	PaxQry.Execute();
+    int idx_pax_id = PaxQry.FieldIndex( "pax_id" );
+    int idx_grp_id = PaxQry.FieldIndex( "grp_id" );
+    int idx_parent_pax_id = PaxQry.FieldIndex( "parent_pax_id" );
+    int idx_reg_no = PaxQry.FieldIndex( "reg_no" );
+    int idx_seats = PaxQry.FieldIndex( "seats" );
+    int idx_pers_type = PaxQry.FieldIndex( "pers_type" );
+    int idx_surname = PaxQry.FieldIndex( "surname" );
+    int idx_class = PaxQry.FieldIndex( "class" );
+    int idx_priority = PaxQry.FieldIndex( "priority" );
     while ( !PaxQry.Eof ) {
-    	if ( pax_layers.find( PaxQry.FieldAsInteger( "pax_id" ) ) == pax_layers.end() ) {
-    	  pax_layers[ PaxQry.FieldAsInteger( "pax_id" ) ].seats = PaxQry.FieldAsInteger( "seats" );
-    	  pax_layers[ PaxQry.FieldAsInteger( "pax_id" ) ].cl = PaxQry.FieldAsString( "class" );
+      if ( PaxQry.FieldAsInteger( idx_priority ) == 1 ) {
+        TPass pass;
+        pass.grp_id = PaxQry.FieldAsInteger( idx_grp_id );
+        pass.pax_id = PaxQry.FieldAsInteger( idx_pax_id );
+        pass.reg_no = PaxQry.FieldAsInteger( idx_reg_no );
+        pass.surname = PaxQry.FieldAsString( idx_surname );
+        pass.parent_pax_id = PaxQry.FieldAsInteger( idx_parent_pax_id );
+        if ( PaxQry.FieldAsInteger( idx_seats ) == 0 ) {
+          InfItems.push_back( pass );
+        }
+        else {
+          ProgTrace( TRACE5, "PaxQry.FieldAsString( idx_pers_type )=%s", PaxQry.FieldAsString( idx_pers_type ) );
+          if ( string(PaxQry.FieldAsString( idx_pers_type )) == string("ВЗ") ) {
+            tst();
+            AdultItems.push_back( pass );
+          }
+        }
+      }
+    	if ( PaxQry.FieldAsInteger( idx_seats ) >= 1 &&
+           pax_layers.find( PaxQry.FieldAsInteger( idx_pax_id ) ) == pax_layers.end() ) {
+    	  pax_layers[ PaxQry.FieldAsInteger( idx_pax_id ) ].seats = PaxQry.FieldAsInteger( idx_seats );
+    	  pax_layers[ PaxQry.FieldAsInteger( idx_pax_id ) ].cl = PaxQry.FieldAsString( idx_class );
     	}
     	PaxQry.Next();
+    }
+    //привязали детей к взрослым
+    ProgTrace( TRACE5, "SetInfantsToAdults: InfItems.size()=%d, AdultItems.size()=%d", InfItems.size(), AdultItems.size() );
+    SetInfantsToAdults<TPass,TPass>( InfItems, AdultItems );
+    for ( vector<TPass>::iterator i=InfItems.begin(); i!=InfItems.end(); i++ ) {
+      ProgTrace( TRACE5, "Infant pax_id=%d", i->pax_id );
+      for ( vector<TPass>::iterator j=AdultItems.begin(); j!=AdultItems.end(); j++ ) {
+        if ( i->parent_pax_id == j->pax_id ) {
+          j->pr_inf = true;
+          ProgTrace( TRACE5, "Infant to pax_id=%d", j->pax_id );
+          break;
+        }
+      }
     }
   }
 
@@ -1144,6 +1216,26 @@ void TSalons::Read( )
     }
     for( TPaxLayers::iterator ipax=pax_layers.begin(); ipax!=pax_layers.end(); ipax++ ) { // пробег по пассажирам
       ClearInvalidPaxLayers( this, ipax );
+    }
+  }
+  
+  if ( readStyle == rTripSalons ) { // пометить пассажиров с детьми
+    for( vector<TPlaceList*>::iterator placeList = placelists.begin();
+      placeList != placelists.end(); placeList++ ) {
+      for ( TPlaces::iterator place = (*placeList)->places.begin();
+            place != (*placeList)->places.end(); place++ ) {
+        if ( !place->visible || !place->isplace ||
+             place->layers.empty() || place->layers.begin()->pax_id == NoExists )
+         continue;
+        for ( vector<TPass>::iterator j=AdultItems.begin(); j!=AdultItems.end(); j++ ) {
+          if ( !j->pr_inf || place->layers.begin()->pax_id != j->pax_id )
+            continue;
+          ProgTrace( TRACE5, "TDrawProp: seat_no=%s", string(place->yname+place->xname).c_str() );
+          TDrawProp drawProp( "framework", "$0005A5FA" );
+          place->drawProps.push_back( drawProp );
+          break;
+        }
+      }
     }
   }
 }
@@ -2277,6 +2369,22 @@ bool CompareLayers( const vector<TPlaceLayer> &layer1, const vector<TPlaceLayer>
   return true;
 }
 
+bool ComparedrawProps( const vector<TDrawProp> &drawProps1, const vector<TDrawProp> &drawProps2 )
+{
+  if ( drawProps1.size() != drawProps2.size() )
+    return false;
+  for ( vector<TDrawProp>::const_iterator p1=drawProps1.begin(),
+        p2=drawProps2.begin();
+        p1!=drawProps1.end(),
+        p2!=drawProps2.end();
+        p1++, p2++ ) {
+    if ( p1->figure != p2->figure ||
+         p1->color != p2->color )
+      return false;
+  }
+  return true;
+};
+
 bool EqualSalon( TPlaceList* oldsalon, TPlaceList* newsalon, TCompareCompsFlags compareFlags )
 {
 	//!!!возможно более тонко оценивать салон: удаление мест из ряда/линии - это места становятся невидимые, но при этом теряется само название ряда/линии
@@ -2872,7 +2980,8 @@ bool getSalonChanges( TSalons &OldSalons, TSalons &NewSalons, vector<TSalonSeat>
       if ( !po->visible )
       	continue;
       if ( !CompareRems( po->rems, pn->rems ) ||
-      	   !CompareLayers( po->layers, pn->layers ) ) {
+      	   !CompareLayers( po->layers, pn->layers ) ||
+           !ComparedrawProps( po->drawProps, pn->drawProps ) ) {
        seats.push_back( make_pair((*so)->num,*pn) );
       }
     }
@@ -2925,6 +3034,14 @@ void BuildSalonChanges( xmlNodePtr dataNode, const vector<TSalonSeat> &seats )
       	NewTextChild( remNode, "layer_type", EncodeCompLayerType( l->layer_type ) );
       }
     }
+    if ( !p->second.drawProps.empty() ) {
+      remsNode = NewTextChild( n, "drawProps" );
+      for ( vector<TDrawProp>::const_iterator iprop=p->second.drawProps.begin(); iprop!=p->second.drawProps.end(); iprop++ ) {
+        remNode = NewTextChild( remsNode, "drawProp" );
+        SetProp( remNode, "figure", iprop->figure );
+        SetProp( remNode, "color", iprop->color );
+      }
+    }
 	}
 }
 
@@ -2968,12 +3085,12 @@ void ParseCompSections( xmlNodePtr sectionsNode, std::vector<TCompSection> &Comp
 
 void getLayerPlacesCompSection( SALONS2::TSalons &NSalons, TCompSection &compSection,
                                 bool only_high_layer,
-                                map<ASTRA::TCompLayerType, int> &uselayers_count,
+                                map<ASTRA::TCompLayerType, TPlaces> &uselayers_places,
                                 int &seats_count )
 {
   seats_count = 0;
-  for ( map<ASTRA::TCompLayerType, int>::iterator il=uselayers_count.begin(); il!=uselayers_count.end(); il++ ) {
-    uselayers_count[ il->first ] = 0;
+  for ( map<ASTRA::TCompLayerType, TPlaces>::iterator il=uselayers_places.begin(); il!=uselayers_places.end(); il++ ) {
+    uselayers_places[ il->first ].clear();
   }
   int Idx = 0;
   for ( vector<TPlaceList*>::iterator si=NSalons.placelists.begin(); si!=NSalons.placelists.end(); si++ ) {
@@ -2984,10 +3101,10 @@ void getLayerPlacesCompSection( SALONS2::TSalons &NSalons, TCompSection &compSec
          if ( !p->isplace || !p->visible )
            continue;
          seats_count++;
-         for ( map<ASTRA::TCompLayerType, int>::iterator il=uselayers_count.begin(); il!=uselayers_count.end(); il++ ) {
+         for ( map<ASTRA::TCompLayerType, TPlaces>::iterator il=uselayers_places.begin(); il!=uselayers_places.end(); il++ ) {
            if ( only_high_layer && !p->layers.empty() && p->layers.begin()->layer_type == il->first || // !!!вверху самый приоритетный слой
                 !only_high_layer && p->isLayer( il->first ) ) {
-             uselayers_count[ il->first ] = uselayers_count[ il->first ] + 1;
+             uselayers_places[ il->first ].push_back( *p );
              break;
            }
          }
@@ -2996,8 +3113,8 @@ void getLayerPlacesCompSection( SALONS2::TSalons &NSalons, TCompSection &compSec
       Idx++;
     }
   }
-  for ( map<ASTRA::TCompLayerType, int>::iterator il=uselayers_count.begin(); il!=uselayers_count.end(); il++ ) {
-    ProgTrace( TRACE5, "getPaxPlacesCompSection: layer_type=%s, count=%d", EncodeCompLayerType(il->first), il->second );
+  for ( map<ASTRA::TCompLayerType, TPlaces>::iterator il=uselayers_places.begin(); il!=uselayers_places.end(); il++ ) {
+    ProgTrace( TRACE5, "getPaxPlacesCompSection: layer_type=%s, count=%d", EncodeCompLayerType(il->first), il->second.size() );
   }
 }
 

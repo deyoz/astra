@@ -6,6 +6,7 @@
 #include "astra_utils.h"
 #include "astra_consts.h"
 #include "astra_misc.h"
+#include "salons.h"
 #include "salonform.h"
 #include "develop_dbf.h"
 #include "oralib.h"
@@ -360,17 +361,18 @@ bool getBalanceFlightPermit( TQuery &FlightPermitQry,
                              const string &airline,
                              const string &airp,
                              int flt_no,
-                             const string &bort )
+                             const string &bort,
+                             const string &balance_type )
 {
   FlightPermitQry.SetVariable( "airline", airline );
   FlightPermitQry.SetVariable( "airp", airp );
   FlightPermitQry.SetVariable( "flt_no", flt_no );
   FlightPermitQry.SetVariable( "bort", bort );
   FlightPermitQry.Execute();
-  ProgTrace( TRACE5, "point_id=%d, FlightPermitQry.Eof=%d, balance_type=%s",
-             point_id, FlightPermitQry.Eof, FlightPermitQry.FieldAsString( "balance_type" ) );
+  ProgTrace( TRACE5, "point_id=%d, FlightPermitQry.Eof=%d, incomming balance_type=%s",
+             point_id, FlightPermitQry.Eof, balance_type.c_str() );
   return ( !FlightPermitQry.Eof &&
-            ROGNOV_BALANCE_TYPE == string(FlightPermitQry.FieldAsString( "balance_type" )) &&
+            balance_type == string(FlightPermitQry.FieldAsString( "balance_type" )) &&
             FlightPermitQry.FieldAsInteger( "pr_denial" ) == 0 );
 }
 
@@ -521,6 +523,7 @@ void TBalanceData::getPassBalance( bool pr_tranzit_pass, int point_id, const TTr
     
   TQuery *PassQry, *BagQry, *ExcessBagQry;
   
+  ProgTrace( TRACE5, "pr_tranzit_pass=%d", pr_tranzit_pass );
   if ( pr_tranzit_pass ) {
     PassQry = qPassQry;
     BagQry = qBagQry;
@@ -532,6 +535,12 @@ void TBalanceData::getPassBalance( bool pr_tranzit_pass, int point_id, const TTr
     ExcessBagQry = qExcessBagTQry;
   }
 
+  int male;
+  int female;
+  int chd;
+  int inf;
+  int seats;
+  string strclass;
     
   for ( unsigned int num=1; num<=maxdestnum; num++ ) {
     TDestBalance dest_bal;
@@ -544,8 +553,20 @@ void TBalanceData::getPassBalance( bool pr_tranzit_pass, int point_id, const TTr
         PassQry->SetVariable( "point_arv", routesA[ num - 1 ].point_id );
         ProgTrace( TRACE5, "point_dep=%d, point_arv=%d", point_id, routesA[ num - 1 ].point_id );
         PassQry->Execute();
+        tst();
+        int idx_pax_id = PassQry->FieldIndex( "pax_id" );
+        int idx_grp_id = PassQry->FieldIndex( "grp_id" );
+        int idx_parent_pax_id = PassQry->FieldIndex( "parent_pax_id" );
+        int idx_reg_no = PassQry->FieldIndex( "reg_no" );
+        int idx_point_dep = PassQry->FieldIndex( "point_dep" );
+        int idx_seats = PassQry->FieldIndex( "seats" );
+        int idx_pers_type = PassQry->FieldIndex( "pers_type" );
+        int idx_surname = PassQry->FieldIndex( "surname" );
+        int idx_gender = PassQry->FieldIndex( "gender" );
+        int idx_class = PassQry->FieldIndex( "class" );
+        int idx_pr_tranzit = PassQry->FieldIndex( "pr_tranzit" );
         for ( ;!PassQry->Eof; PassQry->Next() ) {
-          int point_dep = PassQry->FieldAsInteger( "point_dep" );
+          int point_dep = PassQry->FieldAsInteger( idx_point_dep );
           TTripRoute::const_iterator i = routesB.begin();
           for ( ; i!=routesB.end(); i++ ) {
             if ( point_dep == i->point_id )
@@ -555,7 +576,7 @@ void TBalanceData::getPassBalance( bool pr_tranzit_pass, int point_id, const TTr
             continue;
           TBalance bal;
           std::map<std::string,TBalance> classbal;
-          if ( PassQry->FieldAsInteger( "pr_tranzit" ) == 0 ) {
+          if ( PassQry->FieldAsInteger( idx_pr_tranzit ) == 0 ) {
             bal = dest_bal.goshow;
             classbal = dest_bal.goshow_classbal;
           }
@@ -563,32 +584,53 @@ void TBalanceData::getPassBalance( bool pr_tranzit_pass, int point_id, const TTr
             bal = dest_bal.tranzit;
             classbal = dest_bal.tranzit_classbal;
           }
-
-          bal.male += PassQry->FieldAsInteger( "male" );
-          bal.male_seats += PassQry->FieldAsInteger( "male_seats" );
-          dest_bal.total_classbal[ PassQry->FieldAsString( "class" ) ].male += PassQry->FieldAsInteger( "male" );
-          dest_bal.total_classbal[ PassQry->FieldAsString( "class" ) ].male_seats += PassQry->FieldAsInteger( "male_seats" );
-          classbal[ PassQry->FieldAsString( "class" ) ].male += PassQry->FieldAsInteger( "male" );
-          classbal[ PassQry->FieldAsString( "class" ) ].male_seats += PassQry->FieldAsInteger( "male_seats" );
-          bal.female += PassQry->FieldAsInteger( "female" );
-          bal.female_seats += PassQry->FieldAsInteger( "female_seats" );
-          dest_bal.total_classbal[ PassQry->FieldAsString( "class" ) ].female += PassQry->FieldAsInteger( "female" );
-          dest_bal.total_classbal[ PassQry->FieldAsString( "class" ) ].female_seats += PassQry->FieldAsInteger( "female_seats" );
-          classbal[ PassQry->FieldAsString( "class" ) ].female += PassQry->FieldAsInteger( "female" );
-          classbal[ PassQry->FieldAsString( "class" ) ].female_seats += PassQry->FieldAsInteger( "female_seats" );
-          bal.chd += PassQry->FieldAsInteger( "chd" );
-          bal.chd_seats += PassQry->FieldAsInteger( "chd_seats" );
-          dest_bal.total_classbal[ PassQry->FieldAsString( "class" ) ].chd += PassQry->FieldAsInteger( "chd" );
-          dest_bal.total_classbal[ PassQry->FieldAsString( "class" ) ].chd_seats += PassQry->FieldAsInteger( "chd_seats" );
-          classbal[ PassQry->FieldAsString( "class" ) ].chd += PassQry->FieldAsInteger( "chd" );
-          classbal[ PassQry->FieldAsString( "class" ) ].chd_seats += PassQry->FieldAsInteger( "chd_seats" );
-          bal.inf += PassQry->FieldAsInteger( "inf" );
-          bal.inf_seats += PassQry->FieldAsInteger( "inf_seats" );
-          dest_bal.total_classbal[ PassQry->FieldAsString( "class" ) ].inf += PassQry->FieldAsInteger( "inf" );
-          dest_bal.total_classbal[ PassQry->FieldAsString( "class" ) ].inf_seats += PassQry->FieldAsInteger( "inf_seats" );
-          classbal[ PassQry->FieldAsString( "class" ) ].inf += PassQry->FieldAsInteger( "inf" );
-          classbal[ PassQry->FieldAsString( "class" ) ].inf_seats += PassQry->FieldAsInteger( "inf_seats" );
-          if ( PassQry->FieldAsInteger( "pr_tranzit" ) == 0 ) {
+          TPassenger p;
+          p.pax_id = PassQry->FieldAsInteger( idx_pax_id );
+          p.grp_id = PassQry->FieldAsInteger( idx_grp_id );
+          p.reg_no = PassQry->FieldAsInteger( idx_reg_no );
+          if ( !PassQry->FieldIsNULL( idx_parent_pax_id ) ) {
+            p.parent_pax_id = PassQry->FieldAsInteger( idx_parent_pax_id );
+          }
+          p.point_dep = PassQry->FieldAsInteger( idx_point_dep );
+          p.point_arv = routesA[ num - 1 ].point_id;
+          p.pers_type = PassQry->FieldAsString( idx_pers_type );
+          p.surname = PassQry->FieldAsString( idx_surname );
+          seats = PassQry->FieldAsInteger( idx_seats );
+          p.seats = seats;
+          p.gender = PassQry->FieldAsString( idx_gender );
+          passengers[ p.pax_id ] = p;
+          strclass = PassQry->FieldAsString( idx_class );
+          male = ( p.pers_type == "ВЗ" )&&(( p.gender.empty() || (p.gender.substr( 0, 1 ) == "M")  ));
+          female = ( p.pers_type == "ВЗ" )&&( !p.gender.empty() && (p.gender.substr( 0, 1 ) == "F") );
+          chd = ( p.pers_type == "РБ" );
+          inf = ( p.pers_type == "РМ" );
+          ProgTrace( TRACE5, "pax_id=%d, gender=%s, male=%d, female=%d, chd=%d, inf=%d",
+                     p.pax_id, p.gender.c_str(), male, female, chd, inf );
+          bal.male += male;
+          bal.male_seats += seats*male;
+          dest_bal.total_classbal[ strclass ].male +=male;
+          dest_bal.total_classbal[ strclass ].male_seats += seats*male;
+          classbal[ strclass ].male += male;
+          classbal[ strclass ].male_seats += seats*male;
+          bal.female += female;
+          bal.female_seats += seats*female;
+          dest_bal.total_classbal[ strclass ].female += female;
+          dest_bal.total_classbal[ strclass ].female_seats += seats*female;
+          classbal[ strclass ].female += female;
+          classbal[ strclass ].female_seats += seats*female;
+          bal.chd += chd;
+          bal.chd_seats += seats*chd;
+          dest_bal.total_classbal[ strclass ].chd += chd;
+          dest_bal.total_classbal[ strclass ].chd_seats += seats*chd;
+          classbal[ strclass ].chd += chd;
+          classbal[ strclass ].chd_seats += seats*chd;
+          bal.inf += inf;
+          bal.inf_seats += seats*inf;
+          dest_bal.total_classbal[ strclass ].inf += inf;
+          dest_bal.total_classbal[ strclass ].inf_seats += seats*inf;
+          classbal[ strclass ].inf += inf;
+          classbal[ strclass ].inf_seats += seats*inf;
+          if ( PassQry->FieldAsInteger( idx_pr_tranzit ) == 0 ) {
             dest_bal.goshow = bal;
             dest_bal.goshow_classbal = classbal;
           }
@@ -601,7 +643,9 @@ void TBalanceData::getPassBalance( bool pr_tranzit_pass, int point_id, const TTr
       if ( dataFlags.isFlag( tdBag ) ) {
         BagQry->SetVariable( "point_dep", point_id );
         BagQry->SetVariable( "point_arv", routesA[ num - 1 ].point_id );
+        tst();
         BagQry->Execute();
+        tst();
         for ( ;!BagQry->Eof; BagQry->Next() ) {
           int point_dep = BagQry->FieldAsInteger( "point_dep" );
           TTripRoute::const_iterator i = routesB.begin();
@@ -649,7 +693,9 @@ void TBalanceData::getPassBalance( bool pr_tranzit_pass, int point_id, const TTr
       if ( dataFlags.isFlag( tdExcess ) ) {
         ExcessBagQry->SetVariable( "point_dep", point_id );
         ExcessBagQry->SetVariable( "point_arv", routesA[ num - 1 ].point_id );
+        tst();
         ExcessBagQry->Execute();
+        tst();
         for ( ;!ExcessBagQry->Eof; ExcessBagQry->Next() ) {
           int point_dep = ExcessBagQry->FieldAsInteger( "point_dep" );
           TTripRoute::const_iterator i = routesB.begin();
@@ -689,7 +735,9 @@ void TBalanceData::getPassBalance( bool pr_tranzit_pass, int point_id, const TTr
       if ( dataFlags.isFlag( tdCargo ) ) {
         qCargoQry->SetVariable( "point_dep", point_id );
         qCargoQry->SetVariable( "point_arv", routesA[ num - 1 ].point_id );
+        tst();
         qCargoQry->Execute();
+        tst();
         for ( ;!qCargoQry->Eof; qCargoQry->Next() ) {
           int point_dep = qCargoQry->FieldAsInteger( "point_dep" );
           TTripRoute::const_iterator i = routesB.begin();
@@ -715,7 +763,9 @@ void TBalanceData::getPassBalance( bool pr_tranzit_pass, int point_id, const TTr
       if ( dataFlags.isFlag( tdPad ) ) {
         qPADQry->SetVariable( "point_dep", point_id );
         qPADQry->SetVariable( "point_arv", routesA[ num - 1 ].point_id );
+        tst();
         qPADQry->Execute();
+        tst();
         for ( ;!qPADQry->Eof; qPADQry->Next() ) {
           int point_dep = qPADQry->FieldAsInteger( "point_dep" );
           TTripRoute::const_iterator i = routesB.begin();
@@ -726,8 +776,11 @@ void TBalanceData::getPassBalance( bool pr_tranzit_pass, int point_id, const TTr
           if ( i == routesB.end() ) // это не транзит через наш пункт, это регистрация пассажиров за нашим пунктом
             continue;
           TBalance bal;
-          dest_bal.total_classbal[ qPADQry->FieldAsString( "class" ) ].pad += qPADQry->FieldAsInteger( "count" );
-          ProgTrace( TRACE5, "pad=%d", dest_bal.total_classbal[ qPADQry->FieldAsString( "class" ) ].pad );
+          dest_bal.total_classbal[ qPADQry->FieldAsString( "class" ) ].pad_seats += qPADQry->FieldAsInteger( "seats" );
+          dest_bal.total_classbal[ qPADQry->FieldAsString( "class" ) ].pad++;
+          if ( passengers.find( qPADQry->FieldAsInteger( "pax_id" ) ) == passengers.end() )
+            throw EXCEPTIONS::Exception( "passengers not found, pax_id=%d", qPADQry->FieldAsInteger( "pax_id" ) );
+          passengers[ qPADQry->FieldAsInteger( "pax_id" ) ].pr_pad = true;
         }
       }
     }  //end for num
@@ -869,7 +922,8 @@ void importDBF( int external_point_id, string &dbf_file )
                                   Qry.FieldAsString( "airline" ),
                                   Qry.FieldAsString( "airp" ),
                                   Qry.FieldAsInteger( "flt_no" ),
-                                  Qry.FieldAsString( "bort" ) ) )
+                                  Qry.FieldAsString( "bort" ),
+                                  ROGNOV_BALANCE_TYPE ) )
       continue;
     prior_constraint_balance_value.clear();
     routesA.GetRouteAfter( NoExists,
@@ -907,8 +961,8 @@ void importDBF( int external_point_id, string &dbf_file )
 
     try {
       vector<SALONS2::TCompSectionLayers> CompSectionsLayers;
-      map<string, int> zones;
-      ZoneLoads( point_id, zones, CompSectionsLayers );
+      vector<TZoneOccupiedSeats> zones;
+      ZoneLoads( point_id, true, true, true, zones, CompSectionsLayers );
       if ( CompSectionsLayers.empty() ) { //нет информации по зонам
         ProgTrace( TRACE5, "CompSectionsLayers.empty(), point_id=%d", point_id );
         throw Exception( "CompSectionsLayers is empty" );
@@ -985,33 +1039,33 @@ void importDBF( int external_point_id, string &dbf_file )
       dbf.SetFieldValue( irow, "K_MAN", IntToString( total_tranzit_man_seats + total_goshow_man_seats ) );
       dbf.SetFieldValue( irow, "K_RB", IntToString( total_tranzit_chd_seats + total_goshow_chd_seats ) );
       dbf.SetFieldValue( irow, "K_RM", IntToString( total_tranzit_inf_seats + total_goshow_inf_seats ) );
-      dbf.SetFieldValue( irow, "PAD_F", IntToString( classbal[ "П" ].pad ) );
-      dbf.SetFieldValue( irow, "PAD_C", IntToString( classbal[ "Б" ].pad ) );
-      dbf.SetFieldValue( irow, "PAD_Y", IntToString( classbal[ "Э" ].pad ) );
+      dbf.SetFieldValue( irow, "PAD_F", IntToString( classbal[ "П" ].pad_seats ) );
+      dbf.SetFieldValue( irow, "PAD_C", IntToString( classbal[ "Б" ].pad_seats ) );
+      dbf.SetFieldValue( irow, "PAD_Y", IntToString( classbal[ "Э" ].pad_seats ) );
 
       int idx=1;
       total_tranzit_man_seats += total_tranzit_chd_seats + total_tranzit_inf_seats; // кол-во транзитных мест
       total_goshow_man_seats += total_goshow_chd_seats + total_goshow_inf_seats; // кол-во зарегистрированных мест
       for ( vector<SALONS2::TCompSectionLayers>::iterator i=CompSectionsLayers.begin(); i!=CompSectionsLayers.end(); i++ ) {
         if ( i->layersSeats.find( cltBlockTrzt ) != i->layersSeats.end() )
-          total_tranzit_man_seats -= i->layersSeats[ cltBlockTrzt ];
+          total_tranzit_man_seats -= i->layersSeats[ cltBlockTrzt ].size();
         if ( i->layersSeats.find( cltSOMTrzt ) != i->layersSeats.end() )
-          total_tranzit_man_seats -= i->layersSeats[ cltSOMTrzt ];
+          total_tranzit_man_seats -= i->layersSeats[ cltSOMTrzt ].size();
         if ( i->layersSeats.find( cltPRLTrzt ) != i->layersSeats.end() )
-          total_tranzit_man_seats -= i->layersSeats[ cltPRLTrzt ];
+          total_tranzit_man_seats -= i->layersSeats[ cltPRLTrzt ].size();
         if ( i->layersSeats.find( cltTranzit ) != i->layersSeats.end() )
-          total_goshow_man_seats -= i->layersSeats[ cltTranzit ];
+          total_goshow_man_seats -= i->layersSeats[ cltTranzit ].size();
         if ( i->layersSeats.find( cltCheckin ) != i->layersSeats.end() )
-          total_goshow_man_seats -= i->layersSeats[ cltCheckin ];
+          total_goshow_man_seats -= i->layersSeats[ cltCheckin ].size();
         if ( i->layersSeats.find( cltTCheckin ) != i->layersSeats.end() )
-          total_goshow_man_seats -= i->layersSeats[ cltTCheckin ];
+          total_goshow_man_seats -= i->layersSeats[ cltTCheckin ].size();
         if ( i->layersSeats.find( cltGoShow ) != i->layersSeats.end() )
-          total_goshow_man_seats -= i->layersSeats[ cltGoShow ];
+          total_goshow_man_seats -= i->layersSeats[ cltGoShow ].size();
         dbf.SetFieldValue( irow, string("ZONENAME")+IntToString( idx ), i->compSection.name );
         dbf.SetFieldValue( irow, string("CAPACITY")+IntToString( idx ), IntToString( i->compSection.seats ) );
         int occupy=0;
-        for ( std::map<ASTRA::TCompLayerType,int>::iterator ilayer=i->layersSeats.begin(); ilayer!=i->layersSeats.end(); ilayer++ ) {
-          occupy += ilayer->second;
+        for ( std::map<ASTRA::TCompLayerType,SALONS2::TPlaces>::iterator ilayer=i->layersSeats.begin(); ilayer!=i->layersSeats.end(); ilayer++ ) {
+          occupy += ilayer->second.size();
         };
         dbf.SetFieldValue( irow, string("OCCUPIED")+IntToString( idx ), IntToString( occupy ) );
         ProgTrace( TRACE5, "i->compSection.name=%s, i->compSection.seats=%d, zones[ i->compSection.name ]=%d",
@@ -1058,7 +1112,6 @@ void importDBF( int external_point_id, string &dbf_file )
       }
     }
   }
-  //dbf.Build( "CP1251" ); //!!!убрать РОЖНОВ CP866
   dbf.Build( "CP866" );
   dbf_file = dbf.Result();
   tst();

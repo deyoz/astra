@@ -115,9 +115,13 @@ struct TCompSection {
   }
 };
 
-struct TCompSectionLayers {
-  TCompSection compSection;
-  std::map<ASTRA::TCompLayerType,int> layersSeats;
+struct TDrawProp {
+   std::string figure;
+   std::string color;
+   TDrawProp( const std::string &vfigure, const std::string &vcolor ) {
+     figure = vfigure;
+     color = vcolor;
+   };
 };
 
 class TPlace {
@@ -135,6 +139,7 @@ class TPlace {
     std::vector<TRem> rems;
     std::vector<TPlaceLayer> layers;
     TPlaceWebTariff WebTariff;
+    std::vector<TDrawProp> drawProps;
     bool isPax;
     TPlace() {
       x = -1;
@@ -205,6 +210,11 @@ class TPlace {
 
 typedef std::vector<TPlace> TPlaces;
 typedef TPlaces::iterator IPlace;
+
+struct TCompSectionLayers {
+  TCompSection compSection;
+  std::map<ASTRA::TCompLayerType,TPlaces> layersSeats;
+};
 
 class TPlaceList {
   private:
@@ -348,7 +358,7 @@ class TSalons {
   void ParseCompSections( xmlNodePtr sectionsNode, std::vector<TCompSection> &CompSections );
   void getLayerPlacesCompSection( TSalons &NSalons, TCompSection &compSection,
                                   bool only_high_layer,
-                                  std::map<ASTRA::TCompLayerType, int> &uselayers_count,
+                                  std::map<ASTRA::TCompLayerType, TPlaces> &uselayers_places,
                                   int &seats_count );
   bool ChangeCfg( TSalons &NewSalons, TSalons &OldSalons, TCompareCompsFlags compareFlags );
   bool EqualSalon( TPlaceList* oldsalon, TPlaceList* newsalon, TCompareCompsFlags compareFlags );
