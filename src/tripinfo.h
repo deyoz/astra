@@ -112,7 +112,6 @@ class TTripInfoSQLParams: public TTripListSQLFilter
     virtual void set(void);
 };
 
-int GetFltLoad( int point_id, const TTripInfo &fltInfo);
 void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode );
 void viewCRSList( int point_id, xmlNodePtr dataNode );
 
