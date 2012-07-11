@@ -69,6 +69,10 @@ const char* TTlgElementS[] =
                "AircraftMovementInfo",
                //LDM
                "LoadInfoAndRemarks",
+               //SSM
+               "TimeModeElement",
+               "MessageSequenceReference",
+               "ActionIdentifier",
                //общие
                "EndOfMessage"};
 
@@ -270,6 +274,7 @@ TTlgCategory GetTlgCategory(char *tlg_type)
   if (strcmp(tlg_type,"BTM")==0) cat=tcBSM;
   if (strcmp(tlg_type,"MVT")==0||
       strcmp(tlg_type,"LDM")==0) cat=tcAHM;
+  if (strcmp(tlg_type,"SSM")==0) cat=tcSSM;
   return cat;
 };
 
@@ -600,6 +605,266 @@ TTlgPartInfo ParseBSMHeading(TTlgPartInfo heading, TBSMHeadingInfo &info, TMemor
   return next;
 };
 
+const char *TActionIdentifierS[] =
+{
+    "NEW",
+    "CNL",
+    "RPL",
+    "SKD",
+    "ACK",
+    "ADM",
+    "CON",
+    "EQT",
+    "FLT",
+    "NAC",
+    "REV",
+    "RSD",
+    "TIM",
+    ""
+};
+
+TActionIdentifier DecodeActionIdentifier(const char* s)
+{
+    unsigned int i;
+    for(i=0;i<sizeof(TActionIdentifierS)/sizeof(TActionIdentifierS[0]);i+=1) if (strcmp(s,TActionIdentifierS[i])==0) break;
+    if (i<sizeof(TActionIdentifierS)/sizeof(TActionIdentifierS[0]))
+        return (TActionIdentifier)i;
+    else
+        return aiUnknown;
+};
+
+const char* EncodeActionIdentifier(TActionIdentifier p)
+{
+    return TActionIdentifierS[p];
+};
+
+void TSSMContent::dump()
+{
+    ProgTrace(TRACE5, "-------TSSMContent::dump()-----------");
+    ProgTrace(TRACE5, "action_identifier: %s", EncodeActionIdentifier(action_identifier));
+    ProgTrace(TRACE5, "xasm: %s", (xasm ? "true" : "false"));
+    ProgTrace(TRACE5, "    Flight Information:");
+
+    ProgTrace(TRACE5, "    airline: %s", flt_info.flt.airline);
+    ProgTrace(TRACE5, "    flt_no: %lu", flt_info.flt.flt_no);
+    ProgTrace(TRACE5, "    suffix: %s", flt_info.flt.suffix);
+    ProgTrace(TRACE5, "    oper_period From Date: %s",
+            (flt_info.oper_period.from == NoExists ? "NoExists" : DateTimeToStr(flt_info.oper_period.from, "dd.mm.yy").c_str()));
+    ProgTrace(TRACE5, "    oper_period To Date: %s",
+            (flt_info.oper_period.to == NoExists ? "NoExists" : DateTimeToStr(flt_info.oper_period.to, "dd.mm.yy").c_str()));
+    ProgTrace(TRACE5, "    oper_days: %s", flt_info.oper_days);
+    ProgTrace(TRACE5, "    rate: %s", (flt_info.rate == frW ? "W" : "W2"));
+    ProgTrace(TRACE5, "-------------------------------------");
+}
+
+void TPeriodOfOper::parse(bool pr_from, const char *val)
+{
+    try {
+        if(*val == 0) throw Exception("not found");
+        char sday[3];
+        char smonth[4];
+        char syear[3];
+        *syear = 0;
+        char c = 0;
+        int res;
+        res = sscanf(val, "%2[0-9]%3[A-Z]%2[0-9]%c", sday, smonth, syear, &c);
+        if(c != 0 or res != 3) {
+            *syear = 0;
+            c = 0;
+            res=sscanf(val,"%2[0-9]%3[A-Z]%c", sday, smonth, &c);
+            if(c != 0 or res != 2)
+                throw Exception("wrong format");
+        }
+        if(
+                strlen(sday) != 2 or
+                strlen(smonth) != 3 or
+                res == 3 and strlen(syear) != 2
+          )
+            throw Exception("wrong format");
+
+        TDateTime today=NowUTC();
+        int year,mon,currday, day;
+        StrToInt(sday, day);
+
+        if(*syear != 0)
+            StrToInt(syear, year);
+        else
+            DecodeDate(today,year,mon,currday);
+
+        try
+        {
+            for(mon=1;mon<=12;mon++)
+                if (strcmp(smonth,Months[mon-1].lat)==0||
+                        strcmp(smonth,Months[mon-1].rus)==0) break;
+            EncodeDate(year,mon,day,(pr_from ? from : to));
+        }
+        catch(EConvertError)
+        {
+            throw ETlgError("Can't convert UTC date");
+        };
+    } catch(Exception &E) {
+        throw ETlgError("period of operation, %s: %s", (pr_from ? "From Date" : "To Date"), E.what());
+    }
+
+}
+
+void ParseSSMContent(TTlgPartInfo body, TSSMHeadingInfo& info, TSSMContent& con, TMemoryManager &mem)
+{
+    con.Clear();
+    TTlgParser tlg;
+    int res;
+    char *line_p=body.p, c, *ph;
+    int line=body.line-1;
+    TTlgElement e = ActionIdentifier;
+    try
+    {
+        do {
+            line++;
+            if (tlg.GetToEOLLexeme(line_p)==NULL) continue;
+            switch(e) {
+                case ActionIdentifier:
+                    c = 0;
+                    res = sscanf(tlg.lex, "%3[A-Z]%[ XASM]", lexh, tlg.lex);
+                    if(res < 1 or strlen(lexh) != 3)
+                        throw ETlgError("wrong Action Identifier");
+                    con.action_identifier = DecodeActionIdentifier(lexh);
+                    if(con.action_identifier == aiUnknown)
+                        throw ETlgError("Unknown Action Identifier '%s'", lexh);
+                    ProgTrace(TRACE5, "XASM: '%s'", tlg.lex);
+                    if(res == 2) {
+                        if(strcmp(tlg.lex, " XASM") != 0)
+                            throw ETlgError("wrong XASM");
+                        con.xasm = true;
+                        if( not (
+                                    con.action_identifier == aiNEW or
+                                    con.action_identifier == aiCNL or
+                                    con.action_identifier == aiRPL or
+                                    con.action_identifier == aiSKD
+                                )
+                          )
+                            throw ETlgError("XASM not applicable for Action Identifier '%s'", EncodeActionIdentifier(con.action_identifier));
+                    }
+                    e = FlightElement;
+                    break;
+                case FlightElement:
+                    {
+                        char flt[9];
+                        strcpy(lexh, tlg.lex);
+                        ph = tlg.GetLexeme(lexh);
+                        c = 0;
+                        res=sscanf(tlg.lex,"%8[A-ZА-ЯЁ0-9]%c",flt,&c);
+                        if(c !=0 or res != 1) throw ETlgError("wrong flight");
+                        if (IsDigit(flt[2]))
+                            res=sscanf(flt,"%2[A-ZА-ЯЁ0-9]%5lu%c%c",
+                                    con.flt_info.flt.airline,&con.flt_info.flt.flt_no,&(con.flt_info.flt.suffix[0]),&c);
+                        else
+                            res=sscanf(flt,"%3[A-ZА-ЯЁ0-9]%5lu%c%c",
+                                    con.flt_info.flt.airline,&con.flt_info.flt.flt_no,&(con.flt_info.flt.suffix[0]),&c);
+                        if (c!=0||res<2||con.flt_info.flt.flt_no<0) throw ETlgError("Wrong flight");
+                        if (res==3&&
+                                !IsUpperLetter(con.flt_info.flt.suffix[0])) throw ETlgError("Wrong flight");
+                        if(*con.flt_info.flt.suffix != 0 and
+                                (con.action_identifier == aiSKD or
+                                 con.action_identifier == aiRSD
+                                )
+                          )
+                            throw ETlgError("flt suffix not allowed for Action Identifier '%s'", EncodeActionIdentifier(con.action_identifier));
+                        GetAirline(con.flt_info.flt.airline);
+                        GetSuffix(con.flt_info.flt.suffix[0]);
+                        ph = tlg.GetLexeme(ph);
+                        if(con.action_identifier == aiREV) {
+                            if(ph == NULL)
+                                throw ETlgError("Existing period of Operation not found");
+                            // Parse Existing period of Operation
+                            con.flt_info.oper_period.parse(true, tlg.lex);
+                            ph = tlg.GetLexeme(ph);
+                            con.flt_info.oper_period.parse(false, tlg.lex);
+                            // Day(s) of Operation
+                            if((ph = tlg.GetLexeme(ph)) == NULL)
+                                throw ETlgError("Day(s) of Operation not found");
+                            c = 0;
+                            res = sscanf(tlg.lex, "%7[0-9]%c", con.flt_info.oper_days, &c);
+                            if(c != 0 or res != 1) {
+                                c = 0;
+                                char buf[3];
+                                res = sscanf(tlg.lex, "%7[0-9]/%2[W2]%c", con.flt_info.oper_days, buf, &c);
+                                if(c != 0 or res != 2 or strcmp(buf, "W2") != 0)
+                                    throw ETlgError("wrong Day(s) of Operation / Frequency Rate format");
+                                con.flt_info.rate = frW2;
+                            }
+                            if((ph = tlg.GetLexeme(ph)) == NULL) throw ETlgError("Unknown lexeme");
+                        } else {
+                            // parse Joint Operation Ariline Designators (DEI 1)
+                            c = 0;
+                            char airline1[4];
+                            char airline2[4];
+                            char airline3[4];
+                            *airline3 = 0;
+                            res = sscanf(tlg.lex, "1/%3[A-Z0-9]/%3[A-Z0-9]/%3[A-Z0-9]%c", airline1, airline2, airline3, &c);
+                            if(c != 0 or res != 3) {
+                                c = 0;
+                                *airline3 = 0;
+                                res = sscanf(tlg.lex, "1/%3[A-Z0-9]/%3[A-Z0-9]%c", airline1, airline2, &c);
+                                if(c != 0 or res != 2)
+                                    throw ETlgError("wrong DEI 1");
+                            }
+                        }
+
+                        e = EndOfMessage;
+                        break;
+                    }
+                default:;
+            }
+        } while ((line_p=tlg.NextLine(line_p))!=NULL);
+    }
+    catch (ETlgError E)
+    {
+        if (tlg.GetToEOLLexeme(line_p)!=NULL)
+            throw ETlgError("SSM: %s\n>>>>>LINE %d: %s",E.what(),line,tlg.lex);
+        else
+            throw ETlgError("SSM: %s\n>>>>>LINE %d",E.what(),line);
+    };
+    con.dump();
+    return;
+}
+
+int ssm(int argc,char **argv)
+{
+    try {
+        if(argc != 2) {
+            cout << "Usage: ssm <ssm tlg file name>" << endl;
+            return 1;
+        }
+        ifstream in(argv[1]);
+        if(!in.good())
+            throw Exception("Cannot open file %s", argv[1]);
+        char c;
+        streambuf *sb;
+        sb = in.rdbuf();
+        ostringstream buf;
+        while(sb->sgetc() != EOF) {
+            c = sb->sbumpc();
+            buf << c;
+        }
+
+        ProgTrace(TRACE5, "SSM body: %s", buf.str().c_str());
+
+        string ssm = buf.str().c_str();
+        TTlgPartInfo body;
+        body.p = (char *)ssm.c_str();
+        body.line = 1;
+        TSSMHeadingInfo info;
+        TSSMContent con;
+        TMemoryManager mem(STDLOG);
+
+        ParseSSMContent(body, info, con, mem);
+    } catch(Exception &E) {
+        cout << "ssm failed: " << E.what() << endl;
+        return 1;
+    }
+    return 0;
+}
+
 void ParseBTMContent(TTlgPartInfo body, TBSMHeadingInfo& info, TBtmContent& con, TMemoryManager &mem)
 {
   vector<TBtmTransferInfo>::iterator iIn;
@@ -888,6 +1153,89 @@ TTlgPartInfo ParseAHMHeading(TTlgPartInfo heading, TAHMHeadingInfo &info)
   return next;
 };
 
+TTlgPartInfo ParseSSMHeading(TTlgPartInfo heading, TSSMHeadingInfo &info)
+{
+    int line,res;
+    char c,*p,*line_p;
+    TTlgParser tlg;
+    TTlgElement e;
+    TTlgPartInfo next;
+
+    try
+    {
+        line_p=heading.p;
+        line=heading.line-1;
+        e=TimeModeElement;
+        do
+        {
+            line++;
+            if ((p=tlg.GetLexeme(line_p))==NULL) continue;
+            switch (e)
+            {
+                case TimeModeElement:
+                    {
+                        if(strcmp(tlg.lex, "LT") == 0) {
+                            info.time_mode = tmLT;
+                            if (tlg.GetLexeme(p)!=NULL) throw ETlgError("Unknown lexeme");
+                        } else if(strcmp(tlg.lex, "UTC") == 0) {
+                            info.time_mode = tmUTC;
+                        }
+                        e = MessageSequenceReference;
+                        if(info.time_mode == tmUnknown)
+                            info.time_mode = tmUTC; // по умолчанию, согласно стандарту
+                        else {
+                            if (tlg.GetLexeme(p)!=NULL) throw ETlgError("Unknown lexeme");
+                            break;
+                        }
+                    }
+                case MessageSequenceReference:
+                    {
+                        bool success = true;
+                        res = sscanf(tlg.lex, "%2[0-9]%3[A-ZА-ЯЁ]%5[0-9]%c%3[0-9]%s",
+                                info.msr.day, info.msr.month, info.msr.grp, &info.msr.type, info.msr.num, tlg.lex);
+                        if(res < 5 or
+                                strlen(info.msr.day) != 2 or
+                                strlen(info.msr.month) != 3 or
+                                strlen(info.msr.grp) != 5 or
+                                info.msr.type != 'C' and info.msr.type != 'E' or
+                                strlen(info.msr.num) != 3
+                          )
+                            success = false;
+                        if(res == 6) {
+                            c = 0;
+                            res = sscanf(tlg.lex, "/%35s%c", info.msr.creator, &c);
+                            if(c != 0 or res != 1 or
+                                    strlen(info.msr.creator) < 1
+                              )
+                                success = false;
+                        }
+                        if (tlg.GetLexeme(p)!=NULL) throw success = false;
+
+                        if(success) {
+                            info.dump();
+                            next.p=tlg.NextLine(line_p);
+                            next.line=line+1;
+                        } else {
+                            next.p=line_p;
+                            next.line=line;
+                        }
+                        return next;
+                    }
+                default:;
+            };
+        }
+        while ((line_p=tlg.NextLine(line_p))!=NULL);
+    }
+    catch(ETlgError E)
+    {
+        //вывести ошибку+номер строки
+        throw ETlgError("SSM, Line %d: %s",line,E.what());
+    };
+    next.p=line_p;
+    next.line=line;
+    return next;
+};
+
 void ParseAHMFltInfo(TTlgPartInfo body, const TAHMHeadingInfo &info, TFltInfo& flt, TBindType &bind_type)
 {
   flt.Clear();
@@ -1159,6 +1507,11 @@ TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo* &info, TMemoryMana
               info = new TAHMHeadingInfo(infoh);
               mem.create(info, STDLOG);
               next=ParseAHMHeading(heading,*(TAHMHeadingInfo*)info);
+              break;
+            case tcSSM:
+              info = new TSSMHeadingInfo(infoh);
+              mem.create(info, STDLOG);
+              next=ParseSSMHeading(heading,*(TSSMHeadingInfo*)info);
               break;
             default:
               info = new THeadingInfo(infoh);
@@ -1501,6 +1854,7 @@ void ParsePTMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPtmContent& con)
             GetSuffix(flt.suffix[0]);
             if ((ph=tlg.GetSlashedLexeme(ph))!=NULL)
             {
+                ProgTrace(TRACE5, "PTM tlg.lex: '%s'", tlg.lex);
               //либо дата, либо признак курящего
               long int day=0;
               c=0;
@@ -4461,6 +4815,33 @@ bool DeletePTMBTMContent(int point_id_in, const THeadingInfo& info)
   };
   return false;
 };
+
+void TSSMHeadingInfo::dump()
+{
+    ProgTrace(TRACE5, "-----TSSMHeadingInfo::dump-------");
+    switch(time_mode) {
+        case tmLT:
+            ProgTrace(TRACE5, "time_mode: LT");
+            break;
+        case tmUTC:
+            ProgTrace(TRACE5, "time_mode: UTC");
+            break;
+        case tmUnknown:
+            ProgTrace(TRACE5, "time_mode: Unknown");
+            break;
+    }
+    ProgTrace(TRACE5, "msr.day: %s", msr.day);
+    ProgTrace(TRACE5, "msr.month: %s", msr.month);
+    ProgTrace(TRACE5, "msr.grp: %s", msr.grp);
+    ProgTrace(TRACE5, "msr.type: %c", msr.type);
+    ProgTrace(TRACE5, "msr.num: %s", msr.num);
+    ProgTrace(TRACE5, "msr.creator: '%s'", msr.creator);
+    ProgTrace(TRACE5, "---------------------------------");
+}
+
+void SaveSSMContent(int tlg_id, TSSMHeadingInfo& info, TSSMContent& con)
+{
+}
 
 void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, TBtmContent& con)
 {

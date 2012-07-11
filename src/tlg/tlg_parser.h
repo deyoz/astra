@@ -30,7 +30,8 @@ class ETlgError:public EXCEPTIONS::Exception
     ETlgError(std::string msg):EXCEPTIONS::Exception(msg) {};
 };
 
-enum TTlgCategory{tcUnknown,tcDCS,tcBSM,tcAHM};
+enum TTimeMode{tmLT, tmUTC, tmUnknown};
+enum TTlgCategory{tcUnknown,tcDCS,tcBSM,tcAHM,tcSSM};
 
 enum TTlgElement
               {//общие
@@ -59,10 +60,14 @@ enum TTlgElement
                AircraftMovementInfo,
                //LDM
                LoadInfoAndRemarks,
+               //SSM
+               TimeModeElement,
+               MessageSequenceReference,
+               ActionIdentifier,
                //общие
                EndOfMessage};
 
-extern const char* TTlgElementS[18];
+extern const char* TTlgElementS[];
 
 enum TIndicator{None,ADD,CHG,DEL};
 
@@ -150,6 +155,23 @@ class TBSMHeadingInfo : public THeadingInfo
       *airp=0;
       part_no=0;
     };
+};
+
+struct TMsgSeqRef {
+    char day[3], month[4], grp[6], type, num[4], creator[36];
+    TMsgSeqRef() { creator[0] = 0; }
+};
+
+class TSSMHeadingInfo : public THeadingInfo
+{
+    public:
+        TTimeMode time_mode;
+        TMsgSeqRef msr;
+
+        void dump();
+
+        TSSMHeadingInfo() : THeadingInfo(), time_mode(tmUnknown) {};
+        TSSMHeadingInfo(THeadingInfo &info) : THeadingInfo(info), time_mode(tmUnknown)  {};
 };
 
 class TAHMHeadingInfo : public THeadingInfo
@@ -612,6 +634,60 @@ class TBtmTransferInfo
     std::vector<TBtmOutFltInfo> OutFlt;
 };
 
+enum TActionIdentifier {
+    aiNEW,
+    aiCNL,
+    aiRPL,
+    aiSKD,
+    aiACK,
+    aiADM,
+    aiCON,
+    aiEQT,
+    aiFLT,
+    aiNAC,
+    aiREV,
+    aiRSD,
+    aiTIM,
+    aiUnknown
+};
+
+extern const char *TActionIdentifierS[];
+
+struct TPeriodOfOper {
+    BASIC::TDateTime from, to;
+    void parse(bool pr_from, const char *val);
+    TPeriodOfOper():
+        from(ASTRA::NoExists),
+        to(ASTRA::NoExists)
+    {};
+};
+
+enum TFrequencyRate {frW, frW2}; // Every week, Every two weeks (fortnightly)
+
+struct TFlightInformation {
+    TFltInfo flt;
+    TPeriodOfOper oper_period; // Existing Period of Operation;
+    char oper_days[8]; // Day(s) of operation
+    TFrequencyRate rate;
+    TFlightInformation():
+        rate(frW)
+    {
+        *oper_days = 0;
+    }
+
+};
+
+class TSSMContent
+{
+    public:
+        TActionIdentifier action_identifier;
+        bool xasm;
+        TFlightInformation flt_info;
+        void Clear() {};
+        void dump();
+        TSSMContent(): action_identifier(aiUnknown), xasm(false) {}
+};
+
 class TBtmContent
 {
   public:
@@ -643,6 +719,7 @@ void ParseEnding(TTlgPartInfo ending, THeadingInfo *headingInfo, TEndingInfo* &i
 void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLContent& con);
 void ParsePTMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPtmContent& con);
 void ParseBTMContent(TTlgPartInfo body, TBSMHeadingInfo& info, TBtmContent& con, TMemoryManager &mem);
+void ParseSSMContent(TTlgPartInfo body, TSSMHeadingInfo& info, TSSMContent& con, TMemoryManager &mem);
 void ParseSOMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TSOMContent& con);
 
 bool ParseDOCSRem(TTlgParser &tlg,BASIC::TDateTime scd_local,std::string &rem_text,TDocItem &doc);
@@ -650,12 +727,15 @@ bool ParseDOCSRem(TTlgParser &tlg,BASIC::TDateTime scd_local,std::string &rem_te
 bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& con, bool forcibly);
 void SavePTMContent(int tlg_id, TDCSHeadingInfo& info, TPtmContent& con);
 void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, TBtmContent& con);
+void SaveSSMContent(int tlg_id, TSSMHeadingInfo& info, TSSMContent& con);
 void SaveSOMContent(int tlg_id, TDCSHeadingInfo& info, TSOMContent& con);
 
 void ParseAHMFltInfo(TTlgPartInfo body, const TAHMHeadingInfo &info, TFltInfo& flt, TBindType &bind_type);
 int SaveFlt(int tlg_id, TFltInfo& flt, TBindType bind_type);
 
 void ParseSeatRange(std::string str, std::vector<TSeatRange> &ranges, bool usePriorContext);
+
+int ssm(int argc,char **argv);
 
 }
 
