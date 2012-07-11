@@ -11,6 +11,8 @@
 #include "astra_misc.h"
 #include "alarms.h"
 
+enum TTrip_Calc_Data { tDesksGates, tTrferExists };
+
 struct Cargo {
 	int cargo;
 	int mail;
@@ -320,6 +322,7 @@ public:
 };
 
 void ChangeACT_OUT( int point_id, BASIC::TDateTime old_act, BASIC::TDateTime act );
+void check_TrferExists( int point_id );
 
 #endif /*_SOPP_H_*/
 
