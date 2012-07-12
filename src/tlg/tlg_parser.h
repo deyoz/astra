@@ -64,6 +64,7 @@ enum TTlgElement
                TimeModeElement,
                MessageSequenceReference,
                ActionIdentifier,
+               PeriodFrequency,
                //общие
                EndOfMessage};
 
@@ -653,50 +654,13 @@ enum TActionIdentifier {
 
 extern const char *TActionIdentifierS[];
 
-struct TPeriodOfOper {
-    BASIC::TDateTime from, to;
-    void parse(bool pr_from, const char *val);
-    TPeriodOfOper():
-        from(ASTRA::NoExists),
-        to(ASTRA::NoExists)
-    {};
+struct TSSMDate {
+    BASIC::TDateTime date;
+    void parse(const char *val);
+    TSSMDate(): date(ASTRA::NoExists) {};
 };
 
 enum TFrequencyRate {frW, frW2}; // Every week, Every two weeks (fortnightly)
-
-struct TFlightInformation {
-    TFltInfo flt;
-    TPeriodOfOper oper_period; // Existing Period of Operation;
-    char oper_days[8]; // Day(s) of operation
-    TFrequencyRate rate;
-    TFlightInformation():
-        rate(frW)
-    {
-        *oper_days = 0;
-    }
-
-};
-
-class TSSMContent
-{
-    public:
-        TActionIdentifier action_identifier;
-        bool xasm;
-        TFlightInformation flt_info;
-        void Clear() {};
-        void dump();
-        TSSMContent(): action_identifier(aiUnknown), xasm(false) {}
-};
-
-class TBtmContent
-{
-  public:
-    std::vector<TBtmTransferInfo> Transfer;
-    void Clear()
-    {
-      Transfer.clear();
-    };
-};
 
 #define MAX_LEXEME_SIZE 70
 
@@ -710,6 +674,107 @@ class TTlgParser
     char* GetToEOLLexeme(char* p);
     char* GetWord(char* p);
     char* GetNameElement(char* p, bool trimRight);
+};
+
+struct TPeriodOfOper {
+    private:
+        void parse(bool pr_from, const char *val);
+    public:
+        TSSMDate from, to;
+        char oper_days[8]; // Day(s) of operation
+        TFrequencyRate rate;
+        void parse(char *&ph, TTlgParser &tlg);
+        TPeriodOfOper():
+            rate(frW)
+    {
+        *oper_days = 0;
+    }
+};
+
+struct TDEI {
+    int id;
+    TDEI(int aid) { id = aid; };
+    virtual ~TDEI() {};
+    virtual void parse(const char *val) = 0;
+    virtual void dump() = 0;
+    virtual bool empty() = 0;
+};
+
+struct TDEI_1:TDEI {
+    std::vector<std::string> airlines;
+    void parse(const char *val);
+    void dump();
+    bool empty() { return airlines.empty(); };
+    TDEI_1(): TDEI(1) {};
+};
+
+struct TDEI_airline:TDEI {
+    char airline[4];
+    void parse(const char *val);
+    void dump();
+    bool empty() { return strlen(airline) == 0; };
+    TDEI_airline(int aid): TDEI(aid) { *airline = 0; };
+};
+
+struct TDEIHolder:std::vector<TDEI *> {
+    private:
+        void parse(const char *val);
+    public:
+        void parse(TActionIdentifier ai, char *&ph, TTlgParser &tlg);
+};
+
+struct TFlightInformation {
+    TFltInfo flt;
+    TPeriodOfOper oper_period; // Existing Period of Operation;
+    TDEI_1 dei1;
+    TDEI_airline dei2;
+    TDEI_airline dei3;
+    TDEI_airline dei4;
+    TDEI_airline dei5;
+    TDEI_airline dei9;
+    TDEIHolder dei_list;
+    TFlightInformation():
+        dei2(2),
+        dei3(3),
+        dei4(4),
+        dei5(5),
+        dei9(9)
+    {
+        dei_list.push_back(&dei1);
+        dei_list.push_back(&dei2);
+        dei_list.push_back(&dei3);
+        dei_list.push_back(&dei4);
+        dei_list.push_back(&dei5);
+        dei_list.push_back(&dei9);
+    }
+
+};
+
+struct TPeriodFrequency {
+    TSSMDate effective_date, discontinue_date; //Schedule Validity Effective/Discontinue Dates
+    TPeriodOfOper oper_period;
+};
+
+class TSSMContent
+{
+    public:
+        TActionIdentifier action_identifier;
+        bool xasm;
+        TFlightInformation flt_info;
+        TPeriodFrequency period_frequency;
+        void Clear() {};
+        void dump();
+        TSSMContent(): action_identifier(aiUnknown), xasm(false) {}
+};
+
+class TBtmContent
+{
+  public:
+    std::vector<TBtmTransferInfo> Transfer;
+    void Clear()
+    {
+      Transfer.clear();
+    };
 };
 
 TTlgCategory GetTlgCategory(char *tlg_type);

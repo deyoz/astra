@@ -73,6 +73,7 @@ const char* TTlgElementS[] =
                "TimeModeElement",
                "MessageSequenceReference",
                "ActionIdentifier",
+               "PeriodFrequency",
                //общие
                "EndOfMessage"};
 
@@ -649,63 +650,223 @@ void TSSMContent::dump()
     ProgTrace(TRACE5, "    flt_no: %lu", flt_info.flt.flt_no);
     ProgTrace(TRACE5, "    suffix: %s", flt_info.flt.suffix);
     ProgTrace(TRACE5, "    oper_period From Date: %s",
-            (flt_info.oper_period.from == NoExists ? "NoExists" : DateTimeToStr(flt_info.oper_period.from, "dd.mm.yy").c_str()));
+            (flt_info.oper_period.from.date == NoExists ? "NoExists" : DateTimeToStr(flt_info.oper_period.from.date, "dd.mm.yy").c_str()));
     ProgTrace(TRACE5, "    oper_period To Date: %s",
-            (flt_info.oper_period.to == NoExists ? "NoExists" : DateTimeToStr(flt_info.oper_period.to, "dd.mm.yy").c_str()));
-    ProgTrace(TRACE5, "    oper_days: %s", flt_info.oper_days);
-    ProgTrace(TRACE5, "    rate: %s", (flt_info.rate == frW ? "W" : "W2"));
+            (flt_info.oper_period.to.date == NoExists ? "NoExists" : DateTimeToStr(flt_info.oper_period.to.date, "dd.mm.yy").c_str()));
+    ProgTrace(TRACE5, "    oper_days: %s", flt_info.oper_period.oper_days);
+    ProgTrace(TRACE5, "    rate: %s", (flt_info.oper_period.rate == frW ? "W" : "W2"));
+    ProgTrace(TRACE5, "    DEI list");
+    for(vector<TDEI *>::iterator iv = flt_info.dei_list.begin(); iv != flt_info.dei_list.end(); iv++)
+        if(not (*iv)->empty()) (*iv)->dump();
+    ProgTrace(TRACE5, "Period/Frequency Information");
+    ProgTrace(TRACE5, "    effective_date: %s",
+            (period_frequency.effective_date.date == NoExists ? "NoExists" : DateTimeToStr(period_frequency.effective_date.date, "dd.mm.yy").c_str()));
+    ProgTrace(TRACE5, "    discontinue_date: %s",
+            (period_frequency.discontinue_date.date == NoExists ? "NoExists" : DateTimeToStr(period_frequency.discontinue_date.date, "dd.mm.yy").c_str()));
+
+    ProgTrace(TRACE5, " ");
+    ProgTrace(TRACE5, "    oper_period From Date: %s",
+            (period_frequency.oper_period.from.date == NoExists ? "NoExists" : DateTimeToStr(period_frequency.oper_period.from.date, "dd.mm.yy").c_str()));
+    ProgTrace(TRACE5, "    oper_period To Date: %s",
+            (period_frequency.oper_period.to.date == NoExists ? "NoExists" : DateTimeToStr(period_frequency.oper_period.to.date, "dd.mm.yy").c_str()));
+    ProgTrace(TRACE5, "    oper_days: %s", period_frequency.oper_period.oper_days);
+    ProgTrace(TRACE5, "    rate: %s", (period_frequency.oper_period.rate == frW ? "W" : "W2"));
+
+
+
     ProgTrace(TRACE5, "-------------------------------------");
+}
+
+void TSSMDate::parse(const char *val)
+{
+    char sday[3];
+    char smonth[4];
+    char syear[3];
+    *syear = 0;
+    char c = 0;
+    int res;
+    res = sscanf(val, "%2[0-9]%3[A-Z]%2[0-9]%c", sday, smonth, syear, &c);
+    if(c != 0 or res != 3) {
+        *syear = 0;
+        c = 0;
+        res=sscanf(val,"%2[0-9]%3[A-Z]%c", sday, smonth, &c);
+        if(c != 0 or res != 2)
+            throw Exception("wrong format");
+    }
+    if(
+            strlen(sday) != 2 or
+            strlen(smonth) != 3 or
+            res == 3 and strlen(syear) != 2
+      )
+        throw Exception("wrong format");
+
+    TDateTime today=NowUTC();
+    int year,mon,currday, day;
+    StrToInt(sday, day);
+
+    if(*syear != 0)
+        StrToInt(syear, year);
+    else
+        DecodeDate(today,year,mon,currday);
+
+    try
+    {
+        for(mon=1;mon<=12;mon++)
+            if (strcmp(smonth,Months[mon-1].lat)==0||
+                    strcmp(smonth,Months[mon-1].rus)==0) break;
+        EncodeDate(year,mon,day,date);
+    }
+    catch(EConvertError)
+    {
+        throw ETlgError("Can't convert UTC date");
+    };
+}
+
+void TPeriodOfOper::parse(char *&ph, TTlgParser &tlg)
+{
+    // Parse Existing period of Operation
+    parse(true, tlg.lex);
+    ph = tlg.GetLexeme(ph);
+    parse(false, tlg.lex);
+    // Day(s) of Operation
+    if((ph = tlg.GetLexeme(ph)) == NULL)
+        throw ETlgError("Day(s) of Operation not found");
+    char c = 0;
+    int res = sscanf(tlg.lex, "%7[0-9]%c", oper_days, &c);
+    if(c != 0 or res != 1) {
+        c = 0;
+        char buf[3];
+        res = sscanf(tlg.lex, "%7[0-9]/%2[W2]%c", oper_days, buf, &c);
+        if(c != 0 or res != 2 or strcmp(buf, "W2") != 0)
+            throw ETlgError("wrong Day(s) of Operation / Frequency Rate format");
+        rate = frW2;
+    }
 }
 
 void TPeriodOfOper::parse(bool pr_from, const char *val)
 {
     try {
         if(*val == 0) throw Exception("not found");
-        char sday[3];
-        char smonth[4];
-        char syear[3];
-        *syear = 0;
-        char c = 0;
-        int res;
-        res = sscanf(val, "%2[0-9]%3[A-Z]%2[0-9]%c", sday, smonth, syear, &c);
-        if(c != 0 or res != 3) {
-            *syear = 0;
-            c = 0;
-            res=sscanf(val,"%2[0-9]%3[A-Z]%c", sday, smonth, &c);
-            if(c != 0 or res != 2)
-                throw Exception("wrong format");
-        }
-        if(
-                strlen(sday) != 2 or
-                strlen(smonth) != 3 or
-                res == 3 and strlen(syear) != 2
-          )
-            throw Exception("wrong format");
-
-        TDateTime today=NowUTC();
-        int year,mon,currday, day;
-        StrToInt(sday, day);
-
-        if(*syear != 0)
-            StrToInt(syear, year);
+        if(pr_from)
+            from.parse(val);
         else
-            DecodeDate(today,year,mon,currday);
-
-        try
-        {
-            for(mon=1;mon<=12;mon++)
-                if (strcmp(smonth,Months[mon-1].lat)==0||
-                        strcmp(smonth,Months[mon-1].rus)==0) break;
-            EncodeDate(year,mon,day,(pr_from ? from : to));
-        }
-        catch(EConvertError)
-        {
-            throw ETlgError("Can't convert UTC date");
-        };
+            to.parse(val);
     } catch(Exception &E) {
         throw ETlgError("period of operation, %s: %s", (pr_from ? "From Date" : "To Date"), E.what());
     }
 
+}
+
+void TDEI_airline::dump()
+{
+    ProgTrace(TRACE5, "-----DEI %d-----", id);
+    ProgTrace(TRACE5, "airline: %s", airline);
+    ProgTrace(TRACE5, "----------------");
+}
+
+void TDEI_airline::parse(const char *val)
+{
+    string format = IntToString(id) + "/%3[A-Z0-9]%c";
+    char c = 0;
+    int res = sscanf(val, format.c_str(), airline, &c);
+    if(c != 0 or res != 1)
+        throw ETlgError("wrong DEI %d format", id);
+    if(not(strlen(airline) == 1 and *airline == 'X'))
+        GetAirline(airline, true);
+}
+
+void TDEI_1::dump()
+{
+    ProgTrace(TRACE5, "-----DEI 1-----");
+    int i = 1;
+    for(vector<string>::iterator iv = airlines.begin(); iv != airlines.end(); iv++, i++)
+        ProgTrace(TRACE5, "airline %d: '%s'", i, iv->c_str());
+    ProgTrace(TRACE5, "----------------");
+}
+
+void TDEI_1::parse(const char *val)
+{
+    char airline1[4];
+    char airline2[4];
+    char airline3[4];
+    *airline3 = 0;
+    ProgTrace(TRACE5, "TDEI_1::parse: val: '%s'", val);
+    char c = 0;
+    int res = sscanf(val, "1/%3[A-Z0-9]/%3[A-Z0-9]/%3[A-Z0-9]%c", airline1, airline2, airline3, &c);
+    if(c != 0 or res != 3) {
+        c = 0;
+        *airline3 = 0;
+        res = sscanf(val, "1/%3[A-Z0-9]/%3[A-Z0-9]%c", airline1, airline2, &c);
+        if(c != 0 or res != 2)
+            throw ETlgError("wrong DEI 1");
+    }
+    airlines.push_back(GetAirline(airline1));
+    airlines.push_back(GetAirline(airline2));
+    if(*airline3)
+        airlines.push_back(GetAirline(airline3));
+}
+
+void TDEIHolder::parse(const char *val)
+{
+    char idx[2], buf[2];
+    int res;
+    res = sscanf(val, "%1[0-9]%1[/]", idx, buf);
+    if(res != 2)
+        throw ETlgError("wrong DEI format");
+    int id;
+    StrToInt(idx, id);
+    vector<TDEI *>::reverse_iterator iv = rbegin();
+    for(; iv != rend(); iv++) {
+        TDEI &dei = *(*iv);
+
+        if(not dei.empty()) {
+            if(dei.id == id)
+                throw ETlgError("DEI %d already exitst", id);
+            else if(dei.id > id)
+                throw ETlgError("DEI %d wrong order", id);
+        } else if(dei.id == id) {
+            dei.parse(val);
+            break;
+        }
+    }
+    if(iv == rend())
+        throw ETlgError("unexpected DEI %d found", id);
+}
+
+void TDEIHolder::parse(TActionIdentifier ai, char *&ph, TTlgParser &tlg)
+{
+    ph = tlg.GetLexeme(ph);
+    for(vector<TDEI *>::iterator iv = begin(); iv != end(); iv++) {
+        if(ph) {
+            parse(tlg.lex);
+            ph = tlg.GetLexeme(ph);
+            if(not ph) break;
+        }
+    }
+    if(ph) throw ETlgError("Unknown lexeme");
+    for(vector<TDEI *>::iterator iv = begin(); iv != end(); iv++) {
+        if(not (*iv)->empty()) {
+            if((*iv)->id == 1) {
+                if(
+                        ai != aiNEW and
+                        ai != aiRPL and
+                        ai != aiADM
+                  )
+                    throw ETlgError("DEI 1 not applicable for Action Identifier '%s'",
+                            EncodeActionIdentifier(ai));
+            } else {
+                if(
+                        ai != aiNEW and
+                        ai != aiRPL and
+                        ai != aiADM and
+                        ai != aiCON and
+                        ai != aiEQT
+                  )
+                    throw ETlgError("DEI %d not applicable for Action Identifier '%s'",
+                            (*iv)->id, EncodeActionIdentifier(ai));
+            }
+        }
+    }
 }
 
 void ParseSSMContent(TTlgPartInfo body, TSSMHeadingInfo& info, TSSMContent& con, TMemoryManager &mem)
@@ -771,45 +932,36 @@ void ParseSSMContent(TTlgPartInfo body, TSSMHeadingInfo& info, TSSMContent& con,
                             throw ETlgError("flt suffix not allowed for Action Identifier '%s'", EncodeActionIdentifier(con.action_identifier));
                         GetAirline(con.flt_info.flt.airline);
                         GetSuffix(con.flt_info.flt.suffix[0]);
-                        ph = tlg.GetLexeme(ph);
                         if(con.action_identifier == aiREV) {
+                            ph = tlg.GetLexeme(ph);
                             if(ph == NULL)
                                 throw ETlgError("Existing period of Operation not found");
-                            // Parse Existing period of Operation
-                            con.flt_info.oper_period.parse(true, tlg.lex);
-                            ph = tlg.GetLexeme(ph);
-                            con.flt_info.oper_period.parse(false, tlg.lex);
-                            // Day(s) of Operation
-                            if((ph = tlg.GetLexeme(ph)) == NULL)
-                                throw ETlgError("Day(s) of Operation not found");
-                            c = 0;
-                            res = sscanf(tlg.lex, "%7[0-9]%c", con.flt_info.oper_days, &c);
-                            if(c != 0 or res != 1) {
-                                c = 0;
-                                char buf[3];
-                                res = sscanf(tlg.lex, "%7[0-9]/%2[W2]%c", con.flt_info.oper_days, buf, &c);
-                                if(c != 0 or res != 2 or strcmp(buf, "W2") != 0)
-                                    throw ETlgError("wrong Day(s) of Operation / Frequency Rate format");
-                                con.flt_info.rate = frW2;
-                            }
-                            if((ph = tlg.GetLexeme(ph)) == NULL) throw ETlgError("Unknown lexeme");
+                            con.flt_info.oper_period.parse(ph, tlg);
+                            if((ph = tlg.GetLexeme(ph)) != NULL) throw ETlgError("Unknown lexeme");
+                        } else // parse Data Element Identifiers (DEI)
+                            con.flt_info.dei_list.parse(con.action_identifier, ph, tlg);
+                        e = PeriodFrequency;
+                        break;
+                    }
+                case PeriodFrequency:
+                    {
+                        strcpy(lexh, tlg.lex);
+                        if(
+                                con.action_identifier == aiSKD or
+                                con.action_identifier == aiRSD
+                          ) {
+                            ph = tlg.GetLexeme(lexh);
+                            con.period_frequency.effective_date.parse(tlg.lex);
+                            if((ph = tlg.GetLexeme(ph)))
+                                con.period_frequency.discontinue_date.parse(tlg.lex);
+                            if((ph = tlg.GetLexeme(ph)))
+                                throw ETlgError("Unknown lexeme");
                         } else {
-                            // parse Joint Operation Ariline Designators (DEI 1)
-                            c = 0;
-                            char airline1[4];
-                            char airline2[4];
-                            char airline3[4];
-                            *airline3 = 0;
-                            res = sscanf(tlg.lex, "1/%3[A-Z0-9]/%3[A-Z0-9]/%3[A-Z0-9]%c", airline1, airline2, airline3, &c);
-                            if(c != 0 or res != 3) {
-                                c = 0;
-                                *airline3 = 0;
-                                res = sscanf(tlg.lex, "1/%3[A-Z0-9]/%3[A-Z0-9]%c", airline1, airline2, &c);
-                                if(c != 0 or res != 2)
-                                    throw ETlgError("wrong DEI 1");
-                            }
+                            ph = tlg.GetLexeme(lexh);
+                            if(ph == NULL)
+                                throw ETlgError("Period of Operation not found");
+                            con.period_frequency.oper_period.parse(ph, tlg);
                         }
-
                         e = EndOfMessage;
                         break;
                     }
