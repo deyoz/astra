@@ -700,6 +700,20 @@ struct TDEI {
     virtual bool empty() = 0;
 };
 
+struct TDEI_6:TDEI {
+    char airline[4];
+    char suffix[2];
+    int flt_no, layover;
+    void parse(const char *val);
+    void dump();
+    bool empty() { return *airline == 0; };
+    TDEI_6(): TDEI(6), flt_no(ASTRA::NoExists), layover(ASTRA::NoExists)
+    {
+        *airline = 0;
+        *suffix = 0;
+    };
+};
+
 struct TDEI_1:TDEI {
     std::vector<std::string> airlines;
     void parse(const char *val);
@@ -725,13 +739,14 @@ struct TDEIHolder:std::vector<TDEI *> {
 
 struct TFlightInformation {
     TFltInfo flt;
-    TPeriodOfOper oper_period; // Existing Period of Operation;
-    TDEI_1 dei1;
-    TDEI_airline dei2;
-    TDEI_airline dei3;
-    TDEI_airline dei4;
-    TDEI_airline dei5;
-    TDEI_airline dei9;
+    TPeriodOfOper oper_period;  // Existing Period of Operation;
+    TDEI_1 dei1;                // Joint Operation Airline Designators
+    TDEI_airline dei2;          // Code Sharing - Commercial duplicate
+    TDEI_airline dei3;          // Aircraft Owner
+    TDEI_airline dei4;          // Cockpit Crew Employer
+    TDEI_airline dei5;          // Cabin Crew Employer
+    TDEI_airline dei9;          // Code Sharing - Shared Airline Designation or
+                                // Wet Lease Airline Designation
     TDEIHolder dei_list;
     TFlightInformation():
         dei2(2),
@@ -753,6 +768,29 @@ struct TFlightInformation {
 struct TPeriodFrequency {
     TSSMDate effective_date, discontinue_date; //Schedule Validity Effective/Discontinue Dates
     TPeriodOfOper oper_period;
+    TDEI_1 dei1;                // Joint Operation Airline Designators
+    TDEI_airline dei2;          // Code Sharing - Commercial duplicate
+    TDEI_airline dei3;          // Aircraft Owner
+    TDEI_airline dei4;          // Cockpit Crew Employer
+    TDEI_airline dei5;          // Cabin Crew Employer
+    TDEI_6 dei6;                // Onward Flight
+    TDEI_airline dei9;          // Code Sharing - Shared Airline Designation or
+                                // Wet Lease Airline Designation
+    TDEIHolder dei_list;
+    TPeriodFrequency():
+        dei2(2),
+        dei3(3),
+        dei4(4),
+        dei5(5),
+        dei9(9)
+    {
+        dei_list.push_back(&dei1);
+        dei_list.push_back(&dei2);
+        dei_list.push_back(&dei3);
+        dei_list.push_back(&dei4);
+        dei_list.push_back(&dei5);
+        dei_list.push_back(&dei9);
+    }
 };
 
 class TSSMContent

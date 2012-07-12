@@ -655,7 +655,7 @@ void TSSMContent::dump()
             (flt_info.oper_period.to.date == NoExists ? "NoExists" : DateTimeToStr(flt_info.oper_period.to.date, "dd.mm.yy").c_str()));
     ProgTrace(TRACE5, "    oper_days: %s", flt_info.oper_period.oper_days);
     ProgTrace(TRACE5, "    rate: %s", (flt_info.oper_period.rate == frW ? "W" : "W2"));
-    ProgTrace(TRACE5, "    DEI list");
+    ProgTrace(TRACE5, "----DEI list");
     for(vector<TDEI *>::iterator iv = flt_info.dei_list.begin(); iv != flt_info.dei_list.end(); iv++)
         if(not (*iv)->empty()) (*iv)->dump();
     ProgTrace(TRACE5, "Period/Frequency Information");
@@ -671,6 +671,9 @@ void TSSMContent::dump()
             (period_frequency.oper_period.to.date == NoExists ? "NoExists" : DateTimeToStr(period_frequency.oper_period.to.date, "dd.mm.yy").c_str()));
     ProgTrace(TRACE5, "    oper_days: %s", period_frequency.oper_period.oper_days);
     ProgTrace(TRACE5, "    rate: %s", (period_frequency.oper_period.rate == frW ? "W" : "W2"));
+    ProgTrace(TRACE5, "----DEI list");
+    for(vector<TDEI *>::iterator iv = period_frequency.dei_list.begin(); iv != period_frequency.dei_list.end(); iv++)
+        if(not (*iv)->empty()) (*iv)->dump();
 
 
 
@@ -784,13 +787,72 @@ void TDEI_1::dump()
     ProgTrace(TRACE5, "----------------");
 }
 
+void TDEI_6::dump()
+{
+    ProgTrace(TRACE5, "-----DEI 6-----");
+    ProgTrace(TRACE5, "airline: '%s'", airline);
+    ProgTrace(TRACE5, "flt_no: %d", flt_no);
+    ProgTrace(TRACE5, "suffix: %s", (*suffix == 0 ? "EMPTY" : suffix));
+    if(layover == NoExists)
+        ProgTrace(TRACE5, "layover: NoExists");
+    else
+        ProgTrace(TRACE5, "layover: %d", layover);
+    ProgTrace(TRACE5, "----------------");
+}
+
+void TDEI_6::parse(const char *val)
+{
+    char c = 0;
+    char sflt_no[5];
+    char slayover[2];
+    *suffix = 0;
+    *slayover = 0;
+    int res = sscanf(val, "6/%3[A-Z0-9]%4[0-9]%1[A-Z]/%1[0-9]%c", airline, sflt_no, suffix, slayover, &c);
+    if(c != 0 or res != 4) {
+        c = 0;
+        res = sscanf(val, "6/%3[A-Z0-9]%4[0-9]%1[A-Z]%c", airline, sflt_no, suffix, &c);
+        if(c != 0 or res != 3) {
+            c = 0;
+            res = sscanf(val, "6/%3[A-Z0-9]%4[0-9]/%1[0-9]%c", airline, sflt_no, slayover, &c);
+            if(c != 0 or res != 3) {
+                c = 0;
+                res = sscanf(val, "6/%3[A-Z0-9]%4[0-9]%c", airline, sflt_no, &c);
+                if(c != 0 or res != 2)
+                    throw ETlgError("wrong flt format");
+            } else if(IsDigit(airline[2])) {
+                c = 0;
+                res = sscanf(val, "6/%2[A-Z0-9]%4[0-9]/%1[0-9]%c", airline, sflt_no, slayover, &c);
+                if(c != 0 or res != 3) throw ETlgError("wrong flt format");
+            }
+        } else if(IsDigit(airline[2])) {
+            c = 0;
+            res = sscanf(val, "6/%2[A-Z0-9]%4[0-9]%1[A-Z]%c", airline, sflt_no, suffix, &c);
+            if(c != 0 or res != 3) throw ETlgError("wrong flt format");
+        }
+    } else {
+        if(IsDigit(airline[2])) {
+            c = 0;
+            res = sscanf(val, "6/%2[A-Z0-9]%4[0-9]%1[A-Z]/%1[0-9]%c", airline, sflt_no, suffix, slayover, &c);
+            if(c != 0 or res != 4)
+                throw ETlgError("wrong flt format");
+        }
+    }
+    if(
+            strlen(airline) < 2 or
+            strlen(sflt_no) < 3
+      )
+        throw ETlgError("wrong flt format: airline, flt_no lengths");
+    StrToInt(sflt_no, flt_no);
+    if(*slayover != 0)
+        StrToInt(slayover, layover);
+}
+
 void TDEI_1::parse(const char *val)
 {
     char airline1[4];
     char airline2[4];
     char airline3[4];
     *airline3 = 0;
-    ProgTrace(TRACE5, "TDEI_1::parse: val: '%s'", val);
     char c = 0;
     int res = sscanf(val, "1/%3[A-Z0-9]/%3[A-Z0-9]/%3[A-Z0-9]%c", airline1, airline2, airline3, &c);
     if(c != 0 or res != 3) {
