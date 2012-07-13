@@ -74,6 +74,9 @@ const char* TTlgElementS[] =
                "MessageSequenceReference",
                "ActionIdentifier",
                "PeriodFrequency",
+               "NewFlight",
+               "Equipment",
+               "Routing",
                //®¡é¨¥
                "EndOfMessage"};
 
@@ -675,6 +678,22 @@ void TSSMContent::dump()
     for(vector<TDEI *>::iterator iv = period_frequency.dei_list.begin(); iv != period_frequency.dei_list.end(); iv++)
         if(not (*iv)->empty()) (*iv)->dump();
 
+    if(*new_flt.airline) {
+        ProgTrace(TRACE5, "New Flight Information:");
+        ProgTrace(TRACE5, "    airline: %s", new_flt.airline);
+        ProgTrace(TRACE5, "    flt_no: %lu", new_flt.flt_no);
+        ProgTrace(TRACE5, "    suffix: %s", new_flt.suffix);
+    }
+    ProgTrace(TRACE5, "Equipment information:");
+    ProgTrace(TRACE5, "    service_type: %c", equipment.service_type);
+    ProgTrace(TRACE5, "    aircraft: '%s'", equipment.aircraft);
+    ProgTrace(TRACE5, "    PRBD: '%s'", equipment.PRBD.c_str());
+    ProgTrace(TRACE5, "    PRBM: '%s'", equipment.PRBM.c_str());
+    ProgTrace(TRACE5, "    craft_cfg: '%s'", equipment.craft_cfg.c_str());
+    ProgTrace(TRACE5, "----DEI list");
+    for(vector<TDEI *>::iterator iv = equipment.dei_list.begin(); iv != equipment.dei_list.end(); iv++)
+        if(not (*iv)->empty()) (*iv)->dump();
+
 
 
     ProgTrace(TRACE5, "-------------------------------------");
@@ -931,10 +950,64 @@ void TDEIHolder::parse(TActionIdentifier ai, char *&ph, TTlgParser &tlg)
     }
 }
 
+void TSSMFltInfo::parse(const char *val)
+{
+    char flt[9];
+    char c = 0;
+    suffix[1] = 0;
+    int res=sscanf(val,"%8[A-Z€-Ÿð0-9]%c",flt,&c);
+    if(c !=0 or res != 1) throw ETlgError("wrong flight");
+    if (IsDigit(flt[2]))
+        res=sscanf(flt,"%2[A-Z€-Ÿð0-9]%5lu%c%c",
+                airline,&flt_no,&(suffix[0]),&c);
+    else
+        res=sscanf(flt,"%3[A-Z€-Ÿð0-9]%5lu%c%c",
+                airline,&flt_no,&(suffix[0]),&c);
+    if (c!=0||res<2||flt_no<0) throw ETlgError("Wrong flight");
+    if (res==3&&
+            !IsUpperLetter(suffix[0])) throw ETlgError("Wrong flight");
+    GetAirline(airline);
+    GetSuffix(suffix[0]);
+}
+
+bool isLatUpperString(string val)
+{
+    if(not is_lat(val)) return false;
+    string::iterator is = val.begin();
+    for(; is != val.end(); is++) {
+        if(not IsLetter(*is)) continue;
+        if(not IsUpperLetter(*is)) break;
+    }
+    return is == val.end();
+}
+
+void TRouting::parse_leg_airps(string buf)
+{
+    try {
+        for(size_t idx = 0; idx != string::npos; idx = buf.find('/')) {
+            if(not idx) continue;
+            string airp = buf.substr(0, idx);
+            if(airp.size() != 3)
+                throw Exception("wrong airp");
+            leg_airps.push_back(airp);
+            buf.erase(0, idx + 1);
+        }
+        if(buf.size() != 3)
+            throw Exception("wrong airp");
+        leg_airps.push_back(buf);
+        if(leg_airps.size() > 12 or
+                leg_airps.size() < 2)
+            throw Exception("wrong airp");
+    } catch(Exception &E) {
+        leg_airps.clear();
+    }
+}
+
 void ParseSSMContent(TTlgPartInfo body, TSSMHeadingInfo& info, TSSMContent& con, TMemoryManager &mem)
 {
     con.Clear();
     TTlgParser tlg;
+    size_t idx;
     int res;
     char *line_p=body.p, c, *ph;
     int line=body.line-1;
@@ -944,6 +1017,8 @@ void ParseSSMContent(TTlgPartInfo body, TSSMHeadingInfo& info, TSSMContent& con,
         do {
             line++;
             if (tlg.GetToEOLLexeme(line_p)==NULL) continue;
+            if(not isLatUpperString(tlg.lex))
+                throw ETlgError("isLatUpperString failed");
             switch(e) {
                 case ActionIdentifier:
                     c = 0;
@@ -967,41 +1042,40 @@ void ParseSSMContent(TTlgPartInfo body, TSSMHeadingInfo& info, TSSMContent& con,
                           )
                             throw ETlgError("XASM not applicable for Action Identifier '%s'", EncodeActionIdentifier(con.action_identifier));
                     }
-                    e = FlightElement;
+                    if(
+                            con.action_identifier == aiACK or
+                            con.action_identifier == aiNAC
+                      )
+                        e = EndOfMessage;
+                    else
+                        e = FlightElement;
                     break;
                 case FlightElement:
                     {
-                        char flt[9];
                         strcpy(lexh, tlg.lex);
                         ph = tlg.GetLexeme(lexh);
-                        c = 0;
-                        res=sscanf(tlg.lex,"%8[A-Z€-Ÿð0-9]%c",flt,&c);
-                        if(c !=0 or res != 1) throw ETlgError("wrong flight");
-                        if (IsDigit(flt[2]))
-                            res=sscanf(flt,"%2[A-Z€-Ÿð0-9]%5lu%c%c",
-                                    con.flt_info.flt.airline,&con.flt_info.flt.flt_no,&(con.flt_info.flt.suffix[0]),&c);
-                        else
-                            res=sscanf(flt,"%3[A-Z€-Ÿð0-9]%5lu%c%c",
-                                    con.flt_info.flt.airline,&con.flt_info.flt.flt_no,&(con.flt_info.flt.suffix[0]),&c);
-                        if (c!=0||res<2||con.flt_info.flt.flt_no<0) throw ETlgError("Wrong flight");
-                        if (res==3&&
-                                !IsUpperLetter(con.flt_info.flt.suffix[0])) throw ETlgError("Wrong flight");
+                        con.flt_info.flt.parse(tlg.lex);
                         if(*con.flt_info.flt.suffix != 0 and
                                 (con.action_identifier == aiSKD or
                                  con.action_identifier == aiRSD
                                 )
                           )
                             throw ETlgError("flt suffix not allowed for Action Identifier '%s'", EncodeActionIdentifier(con.action_identifier));
-                        GetAirline(con.flt_info.flt.airline);
-                        GetSuffix(con.flt_info.flt.suffix[0]);
                         if(con.action_identifier == aiREV) {
                             ph = tlg.GetLexeme(ph);
                             if(ph == NULL)
                                 throw ETlgError("Existing period of Operation not found");
                             con.flt_info.oper_period.parse(ph, tlg);
                             if((ph = tlg.GetLexeme(ph)) != NULL) throw ETlgError("Unknown lexeme");
-                        } else // parse Data Element Identifiers (DEI)
-                            con.flt_info.dei_list.parse(con.action_identifier, ph, tlg);
+                        }
+                        if(
+                                con.action_identifier == aiSKD or 
+                                con.action_identifier == aiFLT or 
+                                con.action_identifier == aiRSD or 
+                                con.action_identifier == aiTIM
+                          )
+                            if((ph = tlg.GetLexeme(ph)) != NULL) throw ETlgError("Unknown lexeme");
+                        con.flt_info.dei_list.parse(con.action_identifier, ph, tlg);
                         e = PeriodFrequency;
                         break;
                     }
@@ -1023,6 +1097,99 @@ void ParseSSMContent(TTlgPartInfo body, TSSMHeadingInfo& info, TSSMContent& con,
                             if(ph == NULL)
                                 throw ETlgError("Period of Operation not found");
                             con.period_frequency.oper_period.parse(ph, tlg);
+                        }
+                        con.period_frequency.dei_list.parse(con.action_identifier, ph, tlg);
+                        switch(con.action_identifier) {
+                            case aiFLT:
+                                e = NewFlight;
+                                break;
+                            case aiNEW:
+                            case aiRPL:
+                            case aiCON:
+                            case aiEQT:
+                                e = Equipment;
+                                break;
+                            default:
+                                e = EndOfMessage;
+                                break;
+                        }
+                        break;
+                    }
+                case NewFlight:
+                    {
+                        con.new_flt.parse(tlg.lex);
+                        e = EndOfMessage;
+                        break;
+                    }
+                case Equipment:
+                    {
+                        switch(con.action_identifier) {
+                            case aiNEW:
+                            case aiRPL:
+                            case aiCON:
+                            case aiEQT:
+                                break;
+                            default:
+                                throw ETlgError("Equimpent not appicable for ActionIdentifier '%s'", EncodeActionIdentifier(con.action_identifier));
+                                break;
+                        }
+                        strcpy(lexh, tlg.lex);
+                        ph = tlg.GetLexeme(lexh);
+                        if(
+                                strlen(tlg.lex) != 1 or
+                                not IsUpperLetter(tlg.lex[0])
+                          )
+                            throw ETlgError("wrong Service Type format");
+                        con.equipment.service_type = tlg.lex[0];
+                        ph = tlg.GetLexeme(ph);
+                        if(not ph or strlen(tlg.lex) != 3)
+                            throw ETlgError("wrong aircraft format");
+                        strcpy(con.equipment.aircraft, tlg.lex);
+                        ph = tlg.GetLexeme(ph);
+                        if(not ph or not IsUpperLetter(tlg.lex[0]))
+                            throw ETlgError("wrong PRBD format");
+                        con.equipment.PRBD = tlg.lex;
+                        idx = con.equipment.PRBD.find("/");
+                        if(idx != string::npos) {
+                            size_t idx2 = con.equipment.PRBD.find(".");
+                            if(idx2 < idx)
+                                throw ETlgError("/ must be earlier than .");
+                            con.equipment.PRBM = con.equipment.PRBD.substr(idx + 1, idx2 - idx - 1);
+                            con.equipment.PRBD.erase(idx, idx2 - idx);
+                        }
+                        idx = con.equipment.PRBD.find(".");
+                        if(idx != string::npos) {
+                            con.equipment.craft_cfg = con.equipment.PRBD.substr(idx + 1);
+                            con.equipment.PRBD.erase(idx);
+                        }
+                        con.equipment.dei_list.parse(con.action_identifier, ph, tlg);
+                        e = Routing;
+                        break;
+                    }
+                case Routing:
+                    {
+                        switch(con.action_identifier) {
+                            case aiSKD:
+                            case aiACK:
+                            case aiFLT:
+                            case aiNAC:
+                            case aiREV:
+                            case aiRSD:
+                                throw ETlgError("Routing not appicable for ActionIdentifier '%s'", EncodeActionIdentifier(con.action_identifier));
+                                break;
+                            default:
+                                break;
+                        }
+                        strcpy(lexh, tlg.lex);
+                        ph = tlg.GetLexeme(lexh);
+                        switch(con.action_identifier) {
+                            case aiADM:
+                            case aiCON:
+                            case aiEQT:
+                                con.routing.parse_leg_airps(tlg.lex);
+                                break;
+                            default:
+                                break;
                         }
                         e = EndOfMessage;
                         break;

@@ -65,6 +65,9 @@ enum TTlgElement
                MessageSequenceReference,
                ActionIdentifier,
                PeriodFrequency,
+               NewFlight,
+               Equipment,
+               Routing,
                //общие
                EndOfMessage};
 
@@ -737,8 +740,12 @@ struct TDEIHolder:std::vector<TDEI *> {
         void parse(TActionIdentifier ai, char *&ph, TTlgParser &tlg);
 };
 
+struct TSSMFltInfo: TFltInfo {
+    void parse(const char *val);
+};
+
 struct TFlightInformation {
-    TFltInfo flt;
+    TSSMFltInfo flt;
     TPeriodOfOper oper_period;  // Existing Period of Operation;
     TDEI_1 dei1;                // Joint Operation Airline Designators
     TDEI_airline dei2;          // Code Sharing - Commercial duplicate
@@ -789,8 +796,45 @@ struct TPeriodFrequency {
         dei_list.push_back(&dei3);
         dei_list.push_back(&dei4);
         dei_list.push_back(&dei5);
+        dei_list.push_back(&dei6);
         dei_list.push_back(&dei9);
     }
+};
+
+struct TEquipment {
+    char service_type;
+    char aircraft[4];
+    std::string PRBD;   //Passenger Reservations Booking Designator
+                        //or Aircraft Configuration/Version
+    std::string PRBM;   //Passenger Reservations Booking Modifier
+    std::string craft_cfg;
+    TDEI_airline dei2;          // Code Sharing - Commercial duplicate
+    TDEI_airline dei3;          // Aircraft Owner
+    TDEI_airline dei4;          // Cockpit Crew Employer
+    TDEI_airline dei5;          // Cabin Crew Employer
+    TDEI_6 dei6;                // Onward Flight
+    TDEI_airline dei9;          // Code Sharing - Shared Airline Designation or
+                                // Wet Lease Airline Designation
+    TDEIHolder dei_list;
+    TEquipment():
+        dei2(2),
+        dei3(3),
+        dei4(4),
+        dei5(5),
+        dei9(9)
+    {
+        dei_list.push_back(&dei2);
+        dei_list.push_back(&dei3);
+        dei_list.push_back(&dei4);
+        dei_list.push_back(&dei5);
+        dei_list.push_back(&dei6);
+        dei_list.push_back(&dei9);
+    }
+};
+
+struct TRouting {
+    std::vector<std::string> leg_airps;
+    void parse_leg_airps(std::string buf);
 };
 
 class TSSMContent
@@ -800,6 +844,9 @@ class TSSMContent
         bool xasm;
         TFlightInformation flt_info;
         TPeriodFrequency period_frequency;
+        TSSMFltInfo new_flt; // for FLT message only
+        TEquipment equipment;
+        TRouting routing; // Routing or Leg Information
         void Clear() {};
         void dump();
         TSSMContent(): action_identifier(aiUnknown), xasm(false) {}
