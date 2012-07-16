@@ -251,8 +251,8 @@ void process_tlg(void)
             TlgInsQry.Execute();
             // tlg_queue
             TlgInsQry.SQLText=
-              "INSERT INTO tlg_queue(id,sender,tlg_num,receiver,type,status,time,ttl,time_msec,last_send) "
-              "VALUES(tlgs_id.currval,:sender,:tlg_num,:receiver,:type,'PUT',:time,:ttl,:time_msec,NULL)";
+              "INSERT INTO tlg_queue(id,sender,tlg_num,receiver,type,priority,status,time,ttl,time_msec,last_send) "
+              "VALUES(tlgs_id.currval,:sender,:tlg_num,:receiver,:type,1,'PUT',:time,:ttl,:time_msec,NULL)";
             if (tlg_in.TTL>0)
               TlgInsQry.CreateVariable("ttl",otInteger,(int)(tlg_in.TTL-(time(NULL)-start_time)));
             else
