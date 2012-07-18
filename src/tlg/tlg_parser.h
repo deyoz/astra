@@ -703,6 +703,22 @@ struct TDEI {
     virtual bool empty() = 0;
 };
 
+struct TMealItem {
+    std::string cls;
+    std::string meal;
+};
+
+struct TDEI_7:TDEI {
+    private:
+        void insert(bool default_meal, std::string &meal);
+    public:
+        std::vector<TMealItem> meal_service;
+        void parse(const char *val);
+        void dump();
+        bool empty() { return meal_service.empty(); };
+        TDEI_7(): TDEI(7) {};
+};
+
 struct TDEI_6:TDEI {
     char airline[4];
     char suffix[2];
@@ -832,8 +848,49 @@ struct TEquipment {
     }
 };
 
+struct TRouteStation {
+    char airp[4];
+    BASIC::TDateTime scd, pax_scd;
+    int date_variation;
+    void dump();
+    void parse(const char *val);
+    TRouteStation() {
+        *airp = 0;
+        scd = ASTRA::NoExists;
+        pax_scd = ASTRA::NoExists;
+        date_variation = 0;
+    }
+};
+
 struct TRouting {
     std::vector<std::string> leg_airps;
+    TRouteStation station_dep;
+    TRouteStation station_arv;
+    TDEI_1 dei1;                // Joint Operation Airline Designators
+    TDEI_airline dei2;          // Code Sharing - Commercial duplicate
+    TDEI_airline dei3;          // Aircraft Owner
+    TDEI_airline dei4;          // Cockpit Crew Employer
+    TDEI_airline dei5;          // Cabin Crew Employer
+    TDEI_6 dei6;                // Onward Flight
+    TDEI_7 dei7;                // Meal Service Note
+    TDEI_airline dei9;          // Code Sharing - Shared Airline Designation or
+    TDEIHolder dei_list;
+    TRouting():
+        dei2(2),
+        dei3(3),
+        dei4(4),
+        dei5(5),
+        dei9(9)
+    {
+        dei_list.push_back(&dei1);
+        dei_list.push_back(&dei2);
+        dei_list.push_back(&dei3);
+        dei_list.push_back(&dei4);
+        dei_list.push_back(&dei5);
+        dei_list.push_back(&dei6);
+        dei_list.push_back(&dei7);
+        dei_list.push_back(&dei9);
+    }
     void parse_leg_airps(std::string buf);
 };
 

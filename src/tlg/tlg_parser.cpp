@@ -693,6 +693,19 @@ void TSSMContent::dump()
     ProgTrace(TRACE5, "----DEI list");
     for(vector<TDEI *>::iterator iv = equipment.dei_list.begin(); iv != equipment.dei_list.end(); iv++)
         if(not (*iv)->empty()) (*iv)->dump();
+    ProgTrace(TRACE5, "Routing or leg information:");
+    if(not routing.leg_airps.empty()) {
+        ProgTrace(TRACE5, "----leg_airps list");
+        for(vector<string>::iterator iv = routing.leg_airps.begin(); iv != routing.leg_airps.end(); iv++)
+            ProgTrace(TRACE5, "%s", iv->c_str());
+    }
+    ProgTrace(TRACE5, "    routing.station_dep:");
+    routing.station_dep.dump();
+    ProgTrace(TRACE5, "    routing.station_arv:");
+    routing.station_arv.dump();
+    ProgTrace(TRACE5, "----DEI list");
+    for(vector<TDEI *>::iterator iv = routing.dei_list.begin(); iv != routing.dei_list.end(); iv++)
+        if(not (*iv)->empty()) (*iv)->dump();
 
 
 
@@ -817,6 +830,75 @@ void TDEI_6::dump()
     else
         ProgTrace(TRACE5, "layover: %d", layover);
     ProgTrace(TRACE5, "----------------");
+}
+
+bool isLetterString(const string &val)
+{
+    for(string::const_iterator is = val.begin(); is != val.end(); is++)
+        if(not IsLetter(*is))
+            return false;
+    return true;
+}
+
+void TDEI_7::dump()
+{
+    ProgTrace(TRACE5, "-----DEI 7-----");
+    int idx = 0;
+    for(vector<TMealItem>::iterator iv = meal_service.begin(); iv != meal_service.end(); iv++, idx++)
+        ProgTrace(TRACE5, "meal %d: class: '%s', meal: '%s'", idx, iv->cls.c_str(), iv->meal.c_str());
+    ProgTrace(TRACE5, "----------------");
+}
+
+void TDEI_7::insert(bool default_meal, string &meal)
+{
+    if(
+            not isLetterString(meal) or
+            not default_meal and (meal.size() > 3 or meal.size() < 2) or
+            default_meal and (meal.size() > 2 or meal.empty())
+      )
+        throw Exception("wrong meal format '%s'", meal.c_str());
+    TMealItem meal_item;
+    if(default_meal) {
+        // Для всех классов в PRBD, которые правее
+        // последнего не пустого в этом списке
+        // присваивается meal по умолчанию
+        // Напр. PRBD = FCYML
+        // DEI_7 = 7/FDC/CD/YS/MS/LS - для всех классов определены meal
+        // DEI_7 = 7/FDC/CD//S - для всех классов правее С из PRBD (т.е. Y, M, L) определен meal S
+        meal_item.meal = meal;
+    } else {
+        meal_item.cls.assign(1, meal[0]);
+        TElemFmt fmt;
+        string lang;
+        meal_item.cls = ElemToElemId(etSubcls, meal_item.cls, fmt, lang);
+        meal_item.meal = meal.substr(1);
+    }
+    meal_service.push_back(meal_item);
+}
+
+void TDEI_7::parse(const char *val)
+{
+    string buf = val;
+    buf.erase(0, 2); // '7/' get off
+    bool default_meal = false;
+    while(true) {
+        size_t idx = buf.find('/');
+        if(idx == string::npos) {
+            if(buf.empty())
+                throw ETlgError("wrong meal format");
+            insert(default_meal, buf);
+            break;
+        } else if(default_meal)
+            throw ETlgError("wrong format");
+        string meal = buf.substr(0, idx);
+        if(meal.empty()) { // 2 слеша подряд
+            default_meal = true;
+        } else {
+            insert(default_meal, meal);
+        }
+
+        buf.erase(0, idx + 1);
+    }
 }
 
 void TDEI_6::parse(const char *val)
@@ -984,23 +1066,90 @@ bool isLatUpperString(string val)
 void TRouting::parse_leg_airps(string buf)
 {
     try {
+        TElemFmt fmt;
+        string lang;
         for(size_t idx = 0; idx != string::npos; idx = buf.find('/')) {
             if(not idx) continue;
             string airp = buf.substr(0, idx);
             if(airp.size() != 3)
                 throw Exception("wrong airp");
-            leg_airps.push_back(airp);
+            leg_airps.push_back(ElemToElemId(etAirp, airp, fmt, lang));
             buf.erase(0, idx + 1);
         }
         if(buf.size() != 3)
             throw Exception("wrong airp");
-        leg_airps.push_back(buf);
+        leg_airps.push_back(ElemToElemId(etAirp, buf, fmt, lang));
         if(leg_airps.size() > 12 or
                 leg_airps.size() < 2)
             throw Exception("wrong airp");
     } catch(Exception &E) {
         leg_airps.clear();
     }
+}
+
+void TRouteStation::dump()
+{
+    ProgTrace(TRACE5, "----TRouteStation----");
+    ProgTrace(TRACE5, "airp: %s", airp);
+    ProgTrace(TRACE5, "scd: %s", (scd == NoExists ? "NoExists" : DateTimeToStr(scd, "dd.mm.yy").c_str()));
+    ProgTrace(TRACE5, "pax_scd: %s", (pax_scd == NoExists ? "NoExists" : DateTimeToStr(pax_scd, "dd.mm.yy").c_str()));
+    ProgTrace(TRACE5, "date_variation: %d", date_variation);
+    ProgTrace(TRACE5, "---------------------");
+}
+
+void TRouteStation::parse(const char *val)
+{
+    char scd[5], day[3], pax_scd[5], c = 0;
+    int res;
+    int fmt = 1;
+    while(fmt) {
+        *airp = 0;
+        *scd = 0;
+        *day = 0;
+        *pax_scd = 0;
+        switch(fmt) {
+            case 1:
+                fmt = 0; c = 0;
+                res = sscanf(val, "%3[A-Z]%4[0-9]/%2[M0-9]/%4[0-9]%c", airp, scd, day, pax_scd, &c);
+                if(c != 0 or res != 4) fmt = 2;
+                break;
+            case 2:
+                fmt = 0; c = 0;
+                res = sscanf(val, "%3[A-Z]%4[0-9]/%4[0-9]%c", airp, scd, pax_scd, &c);
+                if(c != 0 or res != 3) fmt = 3;
+                break;
+            case 3:
+                fmt = 0; c = 0;
+                res = sscanf(val, "%3[A-Z]%4[0-9]/%2[M0-9]%c", airp, scd, day, &c);
+                if(c != 0 or res != 3) fmt = 4;
+                break;
+            case 4:
+                fmt = 0; c = 0;
+                res = sscanf(val, "%3[A-Z]%4[0-9]%c", airp, scd, &c);
+                if(c != 0 or res != 2)
+                    throw ETlgError("wrong format");
+                break;
+        }
+    }
+    if(
+            strlen(airp) != 3 or
+            strlen(scd) != 4 or
+            *pax_scd != 0 and strlen(pax_scd) != 4
+      )
+        throw ETlgError("wrong format");
+    TlgElemToElemId(etAirp, airp, airp);
+    StrToDateTime(scd, "hhnn", this->scd);
+    if(*pax_scd)
+        StrToDateTime(pax_scd, "hhnn", this->pax_scd);
+    if(*day == 'M') {
+        if(strlen(day) != 2)
+            throw ETlgError("wrong route station day '%s'", day);
+        else {
+            StrToInt(day + 1, date_variation);
+            date_variation = -date_variation;
+        }
+    } else
+        StrToInt(day, date_variation);
 }
 
 void ParseSSMContent(TTlgPartInfo body, TSSMHeadingInfo& info, TSSMContent& con, TMemoryManager &mem)
@@ -1169,6 +1318,7 @@ void ParseSSMContent(TTlgPartInfo body, TSSMHeadingInfo& info, TSSMContent& con,
                 case Routing:
                     {
                         switch(con.action_identifier) {
+                            case aiCNL:
                             case aiSKD:
                             case aiACK:
                             case aiFLT:
@@ -1181,12 +1331,34 @@ void ParseSSMContent(TTlgPartInfo body, TSSMHeadingInfo& info, TSSMContent& con,
                                 break;
                         }
                         strcpy(lexh, tlg.lex);
-                        ph = tlg.GetLexeme(lexh);
                         switch(con.action_identifier) {
                             case aiADM:
                             case aiCON:
                             case aiEQT:
+                                ph = tlg.GetLexeme(lexh);
                                 con.routing.parse_leg_airps(tlg.lex);
+                                break;
+                            default:
+                                break;
+                        }
+                        switch(con.action_identifier) {
+                            case aiCON:
+                            case aiEQT:
+                                ph = tlg.GetLexeme(lexh);
+                                if(ph) throw ETlgError("Unknown lexeme");
+                            case aiNEW:
+                            case aiRPL:
+                            case aiTIM:
+                                {
+                                    ph = tlg.GetLexeme(lexh);
+                                    con.routing.station_dep.parse(tlg.lex);
+                                    ProgTrace(TRACE5, "after statioin_dep");
+                                    ph = tlg.GetLexeme(ph);
+                                    con.routing.station_arv.parse(tlg.lex);
+                                    ProgTrace(TRACE5, "after statioin_arv");
+                                    con.routing.dei_list.parse(con.action_identifier, ph, tlg);
+                                    ProgTrace(TRACE5, "after routing.dei_list");
+                                }
                                 break;
                             default:
                                 break;
