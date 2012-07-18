@@ -1692,11 +1692,17 @@ string CreateTlgBody(const TTlgContent& con, bool pr_lat)
 
   body << ".V/1L" << TlgElemIdToElem(etAirp, con.OutFlt.operFlt.airp, elem_fmt, lang) << ENDL;
 
+  TDateTime scd_out;
+  if(con.OutFlt.operFlt.airp == "€Ÿ’")
+      scd_out = con.OutFlt.operFlt.real_out;
+  else
+      scd_out = con.OutFlt.operFlt.scd_out;
+
   body << ".F/"
        << TlgElemIdToElem(etAirline, con.OutFlt.operFlt.airline, elem_fmt, lang)
        << setw(3) << setfill('0') << con.OutFlt.operFlt.flt_no
        << (con.OutFlt.operFlt.suffix.empty() ? "" : TlgElemIdToElem(etSuffix, con.OutFlt.operFlt.suffix, elem_fmt, lang)) << '/'
-       << DateTimeToStr( con.OutFlt.operFlt.scd_out, "ddmmm", pr_lat) << '/'
+       << DateTimeToStr( scd_out, "ddmmm", pr_lat) << '/'
        << TlgElemIdToElem(etAirp, con.OutFlt.airp_arv, elem_fmt, lang) << ENDL;
 
   for(TTrferRoute::const_iterator i=con.OnwardFlt.begin();i!=con.OnwardFlt.end();++i)
