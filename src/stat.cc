@@ -4550,7 +4550,7 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
       case statAgentFull:
       case statAgentShort:
       case statAgentTotal:
-        get_compatible_report_form("KioskStat", reqNode, resNode);
+        get_compatible_report_form("stat", reqNode, resNode);
         break;
     };
         
