@@ -649,7 +649,7 @@ const char* EncodeActionIdentifier(TActionIdentifier p)
     return TActionIdentifierS[p];
 };
 
-void TSSMContent::dump()
+void TSSMSubMessage::dump()
 {
     ProgTrace(TRACE5, "-------TSSMContent::dump()-----------");
     ProgTrace(TRACE5, "action_identifier: %s", EncodeActionIdentifier(action_identifier));
@@ -717,6 +717,16 @@ void TSSMContent::dump()
 
 
     ProgTrace(TRACE5, "-------------------------------------");
+
+}
+
+void TSSMContent::dump()
+{
+    int idx = 0;
+    for(vector<TSSMSubMessage>::iterator iv = msgs.begin(); iv != msgs.end(); iv++, idx++) {
+        ProgTrace(TRACE5, "SSM submessage %d", idx);
+        iv->dump();
+    }
 }
 
 void TSSMDate::parse(const char *val)
@@ -1282,6 +1292,7 @@ void ParseSSMContent(TTlgPartInfo body, TSSMHeadingInfo& info, TSSMContent& con,
     char *line_p=body.p, c, *ph;
     int line=body.line-1;
     TTlgElement e = ActionIdentifier;
+    TSSMSubMessage *ssm_msg = NULL;
     try
     {
         do {
@@ -1291,30 +1302,32 @@ void ParseSSMContent(TTlgPartInfo body, TSSMHeadingInfo& info, TSSMContent& con,
                 throw ETlgError("isLatUpperString failed");
             switch(e) {
                 case ActionIdentifier:
+                    con.msgs.push_back(TSSMSubMessage());
+                    ssm_msg = &con.msgs.back();
                     c = 0;
                     res = sscanf(tlg.lex, "%3[A-Z]%[ XASM]", lexh, tlg.lex);
                     if(res < 1 or strlen(lexh) != 3)
                         throw ETlgError("wrong Action Identifier");
-                    con.action_identifier = DecodeActionIdentifier(lexh);
-                    if(con.action_identifier == aiUnknown)
+                    ssm_msg->action_identifier = DecodeActionIdentifier(lexh);
+                    if(ssm_msg->action_identifier == aiUnknown)
                         throw ETlgError("Unknown Action Identifier '%s'", lexh);
                     ProgTrace(TRACE5, "XASM: '%s'", tlg.lex);
                     if(res == 2) {
                         if(strcmp(tlg.lex, " XASM") != 0)
                             throw ETlgError("wrong XASM");
-                        con.xasm = true;
+                        ssm_msg->xasm = true;
                         if( not (
-                                    con.action_identifier == aiNEW or
-                                    con.action_identifier == aiCNL or
-                                    con.action_identifier == aiRPL or
-                                    con.action_identifier == aiSKD
+                                    ssm_msg->action_identifier == aiNEW or
+                                    ssm_msg->action_identifier == aiCNL or
+                                    ssm_msg->action_identifier == aiRPL or
+                                    ssm_msg->action_identifier == aiSKD
                                 )
                           )
-                            throw ETlgError("XASM not applicable for Action Identifier '%s'", EncodeActionIdentifier(con.action_identifier));
+                            throw ETlgError("XASM not applicable for Action Identifier '%s'", EncodeActionIdentifier(ssm_msg->action_identifier));
                     }
                     if(
-                            con.action_identifier == aiACK or
-                            con.action_identifier == aiNAC
+                            ssm_msg->action_identifier == aiACK or
+                            ssm_msg->action_identifier == aiNAC
                       )
                         e = EndOfMessage;
                     else
@@ -1324,28 +1337,28 @@ void ParseSSMContent(TTlgPartInfo body, TSSMHeadingInfo& info, TSSMContent& con,
                     {
                         strcpy(lexh, tlg.lex);
                         ph = tlg.GetLexeme(lexh);
-                        con.flt_info.flt.parse(tlg.lex);
-                        if(*con.flt_info.flt.suffix != 0 and
-                                (con.action_identifier == aiSKD or
-                                 con.action_identifier == aiRSD
+                        ssm_msg->flt_info.flt.parse(tlg.lex);
+                        if(*ssm_msg->flt_info.flt.suffix != 0 and
+                                (ssm_msg->action_identifier == aiSKD or
+                                 ssm_msg->action_identifier == aiRSD
                                 )
                           )
-                            throw ETlgError("flt suffix not allowed for Action Identifier '%s'", EncodeActionIdentifier(con.action_identifier));
-                        if(con.action_identifier == aiREV) {
+                            throw ETlgError("flt suffix not allowed for Action Identifier '%s'", EncodeActionIdentifier(ssm_msg->action_identifier));
+                        if(ssm_msg->action_identifier == aiREV) {
                             ph = tlg.GetLexeme(ph);
                             if(ph == NULL)
                                 throw ETlgError("Existing period of Operation not found");
-                            con.flt_info.oper_period.parse(ph, tlg);
+                            ssm_msg->flt_info.oper_period.parse(ph, tlg);
                             if((ph = tlg.GetLexeme(ph)) != NULL) throw ETlgError("Unknown lexeme");
                         }
                         if(
-                                con.action_identifier == aiSKD or 
-                                con.action_identifier == aiFLT or 
-                                con.action_identifier == aiRSD or 
-                                con.action_identifier == aiTIM
+                                ssm_msg->action_identifier == aiSKD or 
+                                ssm_msg->action_identifier == aiFLT or 
+                                ssm_msg->action_identifier == aiRSD or 
+                                ssm_msg->action_identifier == aiTIM
                           )
                             if((ph = tlg.GetLexeme(ph)) != NULL) throw ETlgError("Unknown lexeme");
-                        con.flt_info.dei_list.parse(con.action_identifier, ph, tlg);
+                        ssm_msg->flt_info.dei_list.parse(ssm_msg->action_identifier, ph, tlg);
                         e = PeriodFrequency;
                         break;
                     }
@@ -1353,23 +1366,23 @@ void ParseSSMContent(TTlgPartInfo body, TSSMHeadingInfo& info, TSSMContent& con,
                     {
                         strcpy(lexh, tlg.lex);
                         if(
-                                con.action_identifier == aiSKD or
-                                con.action_identifier == aiRSD
+                                ssm_msg->action_identifier == aiSKD or
+                                ssm_msg->action_identifier == aiRSD
                           ) {
                             ph = tlg.GetLexeme(lexh);
-                            con.period_frequency.effective_date.parse(tlg.lex);
+                            ssm_msg->period_frequency.effective_date.parse(tlg.lex);
                             if((ph = tlg.GetLexeme(ph)))
-                                con.period_frequency.discontinue_date.parse(tlg.lex);
+                                ssm_msg->period_frequency.discontinue_date.parse(tlg.lex);
                             if((ph = tlg.GetLexeme(ph)))
                                 throw ETlgError("Unknown lexeme");
                         } else {
                             ph = tlg.GetLexeme(lexh);
                             if(ph == NULL)
                                 throw ETlgError("Period of Operation not found");
-                            con.period_frequency.oper_period.parse(ph, tlg);
+                            ssm_msg->period_frequency.oper_period.parse(ph, tlg);
                         }
-                        con.period_frequency.dei_list.parse(con.action_identifier, ph, tlg);
-                        switch(con.action_identifier) {
+                        ssm_msg->period_frequency.dei_list.parse(ssm_msg->action_identifier, ph, tlg);
+                        switch(ssm_msg->action_identifier) {
                             case aiFLT:
                                 e = NewFlight;
                                 break;
@@ -1387,20 +1400,20 @@ void ParseSSMContent(TTlgPartInfo body, TSSMHeadingInfo& info, TSSMContent& con,
                     }
                 case NewFlight:
                     {
-                        con.new_flt.parse(tlg.lex);
+                        ssm_msg->new_flt.parse(tlg.lex);
                         e = EndOfMessage;
                         break;
                     }
                 case Equipment:
                     {
-                        switch(con.action_identifier) {
+                        switch(ssm_msg->action_identifier) {
                             case aiNEW:
                             case aiRPL:
                             case aiCON:
                             case aiEQT:
                                 break;
                             default:
-                                throw ETlgError("Equimpent not appicable for ActionIdentifier '%s'", EncodeActionIdentifier(con.action_identifier));
+                                throw ETlgError("Equimpent not appicable for ActionIdentifier '%s'", EncodeActionIdentifier(ssm_msg->action_identifier));
                                 break;
                         }
                         strcpy(lexh, tlg.lex);
@@ -1410,35 +1423,35 @@ void ParseSSMContent(TTlgPartInfo body, TSSMHeadingInfo& info, TSSMContent& con,
                                 not IsUpperLetter(tlg.lex[0])
                           )
                             throw ETlgError("wrong Service Type format");
-                        con.equipment.service_type = tlg.lex[0];
+                        ssm_msg->equipment.service_type = tlg.lex[0];
                         ph = tlg.GetLexeme(ph);
                         if(not ph or strlen(tlg.lex) != 3)
                             throw ETlgError("wrong aircraft format");
-                        strcpy(con.equipment.aircraft, tlg.lex);
+                        strcpy(ssm_msg->equipment.aircraft, tlg.lex);
                         ph = tlg.GetLexeme(ph);
                         if(not ph or not IsUpperLetter(tlg.lex[0]))
                             throw ETlgError("wrong PRBD format");
-                        con.equipment.PRBD = tlg.lex;
-                        idx = con.equipment.PRBD.find("/");
+                        ssm_msg->equipment.PRBD = tlg.lex;
+                        idx = ssm_msg->equipment.PRBD.find("/");
                         if(idx != string::npos) {
-                            size_t idx2 = con.equipment.PRBD.find(".");
+                            size_t idx2 = ssm_msg->equipment.PRBD.find(".");
                             if(idx2 < idx)
                                 throw ETlgError("/ must be earlier than .");
-                            con.equipment.PRBM = con.equipment.PRBD.substr(idx + 1, idx2 - idx - 1);
-                            con.equipment.PRBD.erase(idx, idx2 - idx);
+                            ssm_msg->equipment.PRBM = ssm_msg->equipment.PRBD.substr(idx + 1, idx2 - idx - 1);
+                            ssm_msg->equipment.PRBD.erase(idx, idx2 - idx);
                         }
-                        idx = con.equipment.PRBD.find(".");
+                        idx = ssm_msg->equipment.PRBD.find(".");
                         if(idx != string::npos) {
-                            con.equipment.craft_cfg = con.equipment.PRBD.substr(idx + 1);
-                            con.equipment.PRBD.erase(idx);
+                            ssm_msg->equipment.craft_cfg = ssm_msg->equipment.PRBD.substr(idx + 1);
+                            ssm_msg->equipment.PRBD.erase(idx);
                         }
-                        con.equipment.dei_list.parse(con.action_identifier, ph, tlg);
+                        ssm_msg->equipment.dei_list.parse(ssm_msg->action_identifier, ph, tlg);
                         e = Routing;
                         break;
                     }
                 case Routing:
                     {
-                        switch(con.action_identifier) {
+                        switch(ssm_msg->action_identifier) {
                             case aiCNL:
                             case aiSKD:
                             case aiACK:
@@ -1446,23 +1459,23 @@ void ParseSSMContent(TTlgPartInfo body, TSSMHeadingInfo& info, TSSMContent& con,
                             case aiNAC:
                             case aiREV:
                             case aiRSD:
-                                throw ETlgError("Routing not appicable for ActionIdentifier '%s'", EncodeActionIdentifier(con.action_identifier));
+                                throw ETlgError("Routing not appicable for ActionIdentifier '%s'", EncodeActionIdentifier(ssm_msg->action_identifier));
                                 break;
                             default:
                                 break;
                         }
                         strcpy(lexh, tlg.lex);
-                        switch(con.action_identifier) {
+                        switch(ssm_msg->action_identifier) {
                             case aiADM:
                             case aiCON:
                             case aiEQT:
                                 ph = tlg.GetLexeme(lexh);
-                                con.routing.parse_leg_airps(tlg.lex);
+                                ssm_msg->routing.parse_leg_airps(tlg.lex);
                                 break;
                             default:
                                 break;
                         }
-                        switch(con.action_identifier) {
+                        switch(ssm_msg->action_identifier) {
                             case aiCON:
                             case aiEQT:
                                 ph = tlg.GetLexeme(lexh);
@@ -1472,12 +1485,12 @@ void ParseSSMContent(TTlgPartInfo body, TSSMHeadingInfo& info, TSSMContent& con,
                             case aiTIM:
                                 {
                                     ph = tlg.GetLexeme(lexh);
-                                    con.routing.station_dep.parse(tlg.lex);
+                                    ssm_msg->routing.station_dep.parse(tlg.lex);
                                     ProgTrace(TRACE5, "after statioin_dep");
                                     ph = tlg.GetLexeme(ph);
-                                    con.routing.station_arv.parse(tlg.lex);
+                                    ssm_msg->routing.station_arv.parse(tlg.lex);
                                     ProgTrace(TRACE5, "after statioin_arv");
-                                    con.routing.dei_list.parse(con.action_identifier, ph, tlg);
+                                    ssm_msg->routing.dei_list.parse(ssm_msg->action_identifier, ph, tlg);
                                     ProgTrace(TRACE5, "after routing.dei_list");
                                 }
                                 break;
@@ -1492,7 +1505,7 @@ void ParseSSMContent(TTlgPartInfo body, TSSMHeadingInfo& info, TSSMContent& con,
                         try {
                             TSegment seg;
                             seg.parse(tlg.lex);
-                            con.segs.push_back(seg);
+                            ssm_msg->segs.push_back(seg);
                             e = Segment;
                             break;
                         } catch(...) {
@@ -1503,21 +1516,28 @@ void ParseSSMContent(TTlgPartInfo body, TSSMHeadingInfo& info, TSSMContent& con,
                     {
                         string buf = tlg.lex;
                         if(buf.substr(0, 2) == SI_INDICATOR) {
-                        }
-                        e = SubSIMore;
+                            ssm_msg->si.push_back(buf.substr(4));
+                            e = SubSIMore;
+                        } else
+                            e = SubSeparator;
                         break;
                     }
                 case SubSIMore:
                     {
                         if(SUB_SEPARATOR == tlg.lex)
                             e = ActionIdentifier;
-                        else
-                            e = SubSeparator;
+                        else {
+                            ssm_msg->si.push_back(tlg.lex);
+                            e = SubSIMore;
+                        }
                         break;
                     }
                 case SubSeparator:
                     {
-                        e = SI;
+                        if(SUB_SEPARATOR == tlg.lex)
+                            e = ActionIdentifier;
+                        else
+                            throw ETlgError("Unknown lexeme, expected sub msg separator");
                         break;
                     }
                 case SI:

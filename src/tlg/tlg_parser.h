@@ -925,20 +925,26 @@ struct TSegment {
     void parse(const char *val);
 };
 
+struct TSSMSubMessage {
+    TActionIdentifier action_identifier;
+    bool xasm;
+    TFlightInformation flt_info;
+    TPeriodFrequency period_frequency;
+    TSSMFltInfo new_flt; // for FLT message only
+    TEquipment equipment;
+    TRouting routing; // Routing or Leg Information
+    std::vector<TSegment> segs;
+    std::vector<std::string> si; // up to 3 items
+    void dump();
+    TSSMSubMessage(): action_identifier(aiUnknown), xasm(false) {};
+};
+
 class TSSMContent
 {
     public:
-        TActionIdentifier action_identifier;
-        bool xasm;
-        TFlightInformation flt_info;
-        TPeriodFrequency period_frequency;
-        TSSMFltInfo new_flt; // for FLT message only
-        TEquipment equipment;
-        TRouting routing; // Routing or Leg Information
-        std::vector<TSegment> segs;
+        std::vector<TSSMSubMessage> msgs;
         void Clear() {};
         void dump();
-        TSSMContent(): action_identifier(aiUnknown), xasm(false) {}
 };
 
 class TBtmContent
