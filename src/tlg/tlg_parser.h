@@ -68,6 +68,13 @@ enum TTlgElement
                NewFlight,
                Equipment,
                Routing,
+               Segment,
+               SubSI,
+               SubSIMore,
+               SubSeparator,
+               SI,
+               Reject,
+               RepeatOfRejected,
                //общие
                EndOfMessage};
 
@@ -894,6 +901,30 @@ struct TRouting {
     void parse_leg_airps(std::string buf);
 };
 
+struct TDEI_8:TDEI {
+    char TRC;
+    int DEI;
+    std::string data;
+    void parse(const char *val);
+    void dump() {};
+    bool empty() { return true; };
+    TDEI_8(): TDEI(8), TRC(0), DEI(ASTRA::NoExists) {};
+};
+
+struct TOther {
+    int DEI;
+    std::string data;
+    void parse(const char *val);
+    TOther():DEI(ASTRA::NoExists) {};
+};
+
+struct TSegment {
+    std::string airp_dep, airp_arv;
+    TDEI_8 dei8; // Traffic Restriction Note
+    TOther other;
+    void parse(const char *val);
+};
+
 class TSSMContent
 {
     public:
@@ -904,6 +935,7 @@ class TSSMContent
         TSSMFltInfo new_flt; // for FLT message only
         TEquipment equipment;
         TRouting routing; // Routing or Leg Information
+        std::vector<TSegment> segs;
         void Clear() {};
         void dump();
         TSSMContent(): action_identifier(aiUnknown), xasm(false) {}

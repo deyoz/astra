@@ -77,6 +77,13 @@ const char* TTlgElementS[] =
                "NewFlight",
                "Equipment",
                "Routing",
+               "Segment",
+               "SubSI",
+               "SubSIMore",
+               "SubSeparator",
+               "SI",
+               "Reject",
+               "RepeatOfRejected",
                //общие
                "EndOfMessage"};
 
@@ -879,6 +886,8 @@ void TDEI_7::insert(bool default_meal, string &meal)
 void TDEI_7::parse(const char *val)
 {
     string buf = val;
+    if(buf.substr(0, 2) != "7/")
+        throw ETlgError("wrong DEI 7 identifier: '%s'", buf.substr(0, 2).c_str());
     buf.erase(0, 2); // '7/' get off
     bool default_meal = false;
     while(true) {
@@ -1152,6 +1161,118 @@ void TRouteStation::parse(const char *val)
         StrToInt(day, date_variation);
 }
 
+void TDEI_8::parse(const char *val)
+{
+    char TRC[2]; // Traffic Restriction Code
+    char DEI[4];
+    int fmt = 1;
+    char c;
+    int res;
+    while(fmt) {
+        *TRC = 0;
+        *DEI = 0;
+        switch(fmt) {
+            case 1:
+                fmt = 0; c = 0;
+                res = sscanf(val, "8/%1[A-Z]%c", TRC, &c);
+                if(c != 0 or res != 1) fmt = 2;
+                break;
+            case 2:
+                fmt = 0; c = 0;
+                res = sscanf(val, "8/%1[A-Z]/%3[0-9]%c", TRC, DEI, &c);
+                if(c != 0 or res != 2) fmt = 3;
+                break;
+            case 3:
+                fmt = 0; c = 0;
+                res = sscanf(val, "8/%1[A-Z]/%3[0-9]/%s", TRC, DEI, lexh);
+                if(res != 3)
+                    throw ETlgError("wrong format");
+                break;
+        }
+    }
+    if(strlen(DEI) != 0 and strlen(DEI) != 3)
+        throw ETlgError("wrong format");
+    this->TRC = *TRC;
+    if(*DEI) StrToInt(DEI, this->DEI);
+    data = lexh;
+    if(this->DEI != NoExists) {
+        if(
+                (this->DEI < 170 or
+                 this->DEI > 173) and
+                (this->DEI < 710 or
+                 this->DEI > 799)
+          )
+            throw ETlgError("TDEI_8::parse: wrong DEI %d", this->DEI);
+        if(
+                this->TRC == 'Z' and 
+                this->DEI >= 170 and
+                this->DEI <= 173 and
+                data.empty()
+          )
+            throw ETlgError("TDEI_8::parse: data must be stated for TRC = Z; DEI = %d", this->DEI);
+        if(
+                not data.empty() and
+                this->DEI >= 710 and
+                this->DEI <= 712
+          )
+            throw ETlgError("TDEI_8::parse: data must not be stated for DEI = %d", this->DEI);
+        if(
+                data.empty() and
+                this->DEI >= 713 and
+                this->DEI <= 779
+          )
+            throw ETlgError("TDEI_8::parse: data must be stated for DEI = %d", this->DEI);
+    }
+}
+
+void TOther::parse(const char *val)
+{
+    char DEI[4];
+    int fmt = 1;
+    char c;
+    int res;
+    *lexh = 0;
+    while(fmt) {
+        *DEI = 0;
+        switch(fmt) {
+            case 1:
+                fmt = 0; c = 0;
+                res = sscanf(val, "%3[0-9]%c", DEI, &c);
+                if(c != 0 or res != 1) fmt = 2;
+                break;
+            case 2:
+                fmt = 0; c = 0;
+                res = sscanf(val, "%3[0-9]/%s", DEI, lexh);
+                if(res != 2)
+                    throw ETlgError("wrong format");
+                break;
+        }
+    }
+    if(strlen(DEI) != 0 and (strlen(DEI) < 2 or strlen(DEI) > 3))
+        throw ETlgError("TOther::parse: wrong DEI format");
+    StrToInt(DEI, this->DEI);
+    data = lexh;
+}
+
+void TSegment::parse(const char *val)
+{
+    string buf = val;
+    airp_dep = buf.substr(0, 3);
+    airp_arv = buf.substr(3, 3);
+    TElemFmt fmt;
+    string lang;
+    airp_dep = ElemToElemId(etAirp, airp_dep, fmt, lang);
+    airp_arv = ElemToElemId(etAirp, airp_arv, fmt, lang);
+    try {
+        dei8.parse(buf.c_str());
+    } catch(...) {
+        other.parse(buf.c_str());
+    }
+}
+
+const string SUB_SEPARATOR = "//";
+const string SI_INDICATOR = "SI";
+
 void ParseSSMContent(TTlgPartInfo body, TSSMHeadingInfo& info, TSSMContent& con, TMemoryManager &mem)
 {
     con.Clear();
@@ -1363,6 +1484,54 @@ void ParseSSMContent(TTlgPartInfo body, TSSMHeadingInfo& info, TSSMContent& con,
                             default:
                                 break;
                         }
+                        e = Segment;
+                        break;
+                    }
+                case Segment:
+                    {
+                        try {
+                            TSegment seg;
+                            seg.parse(tlg.lex);
+                            con.segs.push_back(seg);
+                            e = Segment;
+                            break;
+                        } catch(...) {
+                            e = SubSI;
+                        }
+                    }
+                case SubSI:
+                    {
+                        string buf = tlg.lex;
+                        if(buf.substr(0, 2) == SI_INDICATOR) {
+                        }
+                        e = SubSIMore;
+                        break;
+                    }
+                case SubSIMore:
+                    {
+                        if(SUB_SEPARATOR == tlg.lex)
+                            e = ActionIdentifier;
+                        else
+                            e = SubSeparator;
+                        break;
+                    }
+                case SubSeparator:
+                    {
+                        e = SI;
+                        break;
+                    }
+                case SI:
+                    {
+                        e = Reject;
+                        break;
+                    }
+                case Reject:
+                    {
+                        e = RepeatOfRejected;
+                        break;
+                    }
+                case RepeatOfRejected:
+                    {
                         e = EndOfMessage;
                         break;
                     }
