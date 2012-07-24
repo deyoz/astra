@@ -1554,7 +1554,7 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
     NewTextChild(variablesNode, "TotPcs", TotAmount);
     NewTextChild(variablesNode, "TotWeight", TotWeight);
-    NewTextChild(variablesNode, "Tot", (rpt_params.IsInter() ? "" : vs_number(TotAmount)));
+    NewTextChild(variablesNode, "Tot", vs_number(TotAmount, rpt_params.IsInter()));
     Qry.Clear();
     SQLText =
         "select "
