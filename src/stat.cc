@@ -4441,7 +4441,8 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             params.statType==statFull ||
             params.statType==statTrferFull ||
             params.statType==statKioskFull ||
-            params.statType==statAgentFull
+            params.statType==statAgentFull ||
+            params.statType==statAgentShort
             )
     {
       if(IncMonth(params.FirstDate, 1) < params.LastDate)

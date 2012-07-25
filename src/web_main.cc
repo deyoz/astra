@@ -20,6 +20,7 @@
 #include "astra_locale.h"
 #include "comp_layers.h"
 #include "passenger.h"
+#include "remarks.h"
 #include "serverlib/perfom.h"
 #include "serverlib/ourtime.h"
 #include "serverlib/query_runner.h"
@@ -2774,10 +2775,13 @@ void CreateEmulRems(xmlNodePtr paxNode, TQuery &RemQry, const vector<string> &fq
   xmlNodePtr remsNode=NewTextChild(paxNode,"rems");
   for(;!RemQry.Eof;RemQry.Next())
   {
-    if (strcmp(RemQry.FieldAsString("rem_code"),"FQTV")==0) continue;
+    const char* rem_code=RemQry.FieldAsString("rem_code");
+    const char* rem_text=RemQry.FieldAsString("rem");
+    if (isDisabledRem(rem_code, rem_text)) continue;
+    if (strcmp(rem_code,"FQTV")==0) continue;
     xmlNodePtr remNode=NewTextChild(remsNode,"rem");
-    NewTextChild(remNode,"rem_code",RemQry.FieldAsString("rem_code"));
-    NewTextChild(remNode,"rem_text",RemQry.FieldAsString("rem"));
+    NewTextChild(remNode,"rem_code",rem_code);
+    NewTextChild(remNode,"rem_text",rem_text);
   };
   //добавим переданные fqtv_rems
   for(vector<string>::const_iterator r=fqtv_rems.begin();r!=fqtv_rems.end();r++)
@@ -4068,6 +4072,7 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
     vector< pair<TWebPlace, LexemaData> > pax_seats;
     if (!pnr.empty())
     {
+      TPointIdsForCheck point_ids_spp;
       if (!pr_del)
       {
         TQuery LayerQry(&OraSession);
@@ -4157,7 +4162,7 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
             LayerQry.Execute();
             if (LayerQry.GetVariableAsInteger("delete_seat_ranges")!=0)
             {
-              DeleteTlgSeatRanges(cltProtBeforePay, iPax->crs_pax_id, curr_tid);
+              DeleteTlgSeatRanges(cltProtBeforePay, iPax->crs_pax_id, curr_tid, point_ids_spp);
               InsertTlgSeatRanges(point_id_tlg,
                                   airp_arv,
                                   cltProtBeforePay,
@@ -4166,7 +4171,8 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
                                   NoExists,
                                   time_limit,
                                   UsePriorContext,
-                                  curr_tid);
+                                  curr_tid,
+                                  point_ids_spp);
               UsePriorContext=true;
             };
           }
@@ -4185,7 +4191,7 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
           try
           {
             if (isTestPaxId(iPax->crs_pax_id)) continue;
-            DeleteTlgSeatRanges(cltProtBeforePay, iPax->crs_pax_id, curr_tid);
+            DeleteTlgSeatRanges(cltProtBeforePay, iPax->crs_pax_id, curr_tid, point_ids_spp);
           }
           catch(UserException &e)
           {
@@ -4194,6 +4200,7 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
           };
         };
       };
+      check_layer_change(point_ids_spp);
     }; //!pnr.empty()
     if (error_exists) return; //если есть ошибки, выйти из обработки сегмента
     

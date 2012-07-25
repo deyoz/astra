@@ -193,10 +193,12 @@ struct TReqInfoInitData {
   std::string opr;
   std::string mode;
   std::string lang;
+  double term_id;
   bool checkUserLogon;
   bool checkCrypt;
   bool pr_web;
   TReqInfoInitData() {
+    term_id = ASTRA::NoExists;
   	checkUserLogon = false;
   	checkCrypt = false;
   	pr_web = false;

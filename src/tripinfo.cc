@@ -22,7 +22,10 @@
 #include "convert.h"
 #include "astra_misc.h"
 #include "term_version.h"
+#include "salons.h"
 #include "salonform.h"
+#include "remarks.h"
+#include "alarms.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -1200,6 +1203,16 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
         	if (reqInfo->screen.name == "AIR.EXE")
           	rem = TripAlarmString( alarm );
           break;
+      	case atDiffComps:
+          if (reqInfo->screen.name == "CENT.EXE" ||
+  	          reqInfo->screen.name == "PREPREG.EXE" ||
+  	          reqInfo->screen.name == "AIR.EXE" ||
+              reqInfo->screen.name == "BRDBUS.EXE" ||
+              reqInfo->screen.name == "EXAM.EXE" ||
+              reqInfo->screen.name == "DOCS.EXE") {
+            rem = TripAlarmString( alarm ) + SALONS2::getDiffCompsAlarmRoutes( point_id );
+          }
+          break;
       	default:
           break;
       }
@@ -1274,57 +1287,6 @@ void TripsInterface::readHalls( std::string airp_dep, std::string work_mode, xml
     NewTextChild( itemNode, "id", Qry.FieldAsInteger( "id" ) );
     NewTextChild( itemNode, "name", ElemIdToNameLong( etHall, Qry.FieldAsInteger( "id" ) ) );
   };
-};
-
-int GetFltLoad( int point_id, const TTripInfo &fltInfo)
-{
-  TQuery Qry(&OraSession);
-  Qry.CreateVariable("point_id", otInteger, point_id);
-
-  bool prSummer=is_dst(fltInfo.scd_out,
-                       AirpTZRegion(fltInfo.airp));
-
-  int load=0;
-  //пассажиры
-  Qry.SQLText=
-    "SELECT NVL(SUM(weight_win),0) AS weight_win, "
-    "       NVL(SUM(weight_sum),0) AS weight_sum "
-    "FROM pax_grp,pax,pers_types "
-    "WHERE pax_grp.grp_id=pax.grp_id AND "
-    "      pax.pers_type=pers_types.code AND "
-    "      pax_grp.point_dep=:point_id AND pax.refuse IS NULL";
-  Qry.Execute();
-  if (!Qry.Eof)
-  {
-    if (prSummer)
-      load+=Qry.FieldAsInteger("weight_sum");
-    else
-      load+=Qry.FieldAsInteger("weight_win");
-  };
-
-  //багаж
-  Qry.SQLText=
-    "SELECT NVL(SUM(weight),0) AS weight "
-    "FROM pax_grp,bag2 "
-    "WHERE pax_grp.grp_id=bag2.grp_id AND "
-    "      pax_grp.point_dep=:point_id AND "
-    "      ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0";
-  Qry.Execute();
-  if (!Qry.Eof)
-    load+=Qry.FieldAsInteger("weight");
-
-  //груз, почта
-  Qry.SQLText=
-    "SELECT NVL(SUM(cargo),0) AS cargo, "
-    "       NVL(SUM(mail),0) AS mail "
-    "FROM trip_load, points "
-    "WHERE trip_load.point_dep=:point_id AND "
-    "      points.point_id=trip_load.point_arv AND "
-    "      points.pr_del=0";
-  Qry.Execute();
-  if (!Qry.Eof)
-    load+=Qry.FieldAsInteger("cargo")+Qry.FieldAsInteger("mail");
-  return load;
 };
 
 class TPaxLoadItem
@@ -1537,6 +1499,14 @@ class TPaxLoadOrder
     };
 };
 
+class TZonePaxItem
+{
+  public:
+    int pax_id, grp_id, seats, parent_pax_id, temp_parent_id, reg_no;
+    string surname, pers_type, zone;
+    int rk_weight,bag_amount,bag_weight;
+};
+
 void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
 {
   reqNode=GetNode("tripcounters",reqNode);
@@ -1651,12 +1621,18 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   bool pr_ticket_rem= GetNodeFast("ticket_rem",node2)!=NULL;
   bool pr_rems=       GetNodeFast("rems",node2)!=NULL;
   bool pr_section=    GetNodeFast("section",node2)!=NULL;
-  vector<string> rems;
+  map< TRemCategory, vector<string> > rems;
   if (pr_rems)
   {
     xmlNodePtr node=NodeAsNodeFast("rems",node2)->children;
     for(;node!=NULL;node=node->next)
-      rems.push_back(NodeAsString(node));
+    {
+      TRemCategory cat=getRemCategory(NodeAsString(node), "");
+      if (isDisabledRemCategory(cat))
+        rems[cat].push_back(NodeAsString(node));
+      else
+        rems[remUnknown].push_back(NodeAsString(node));
+    };
     if (rems.empty()) pr_rems=false;
   };
   
@@ -1740,9 +1716,46 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
                           << last_trfer_sql << endl;
         if (pr_rems)
         {
-          sql << "    ,(SELECT DISTINCT pax_id,rem_code FROM pax_rem" << endl
-              << "      WHERE rem_code IN " << GetSQLEnum(rems) << endl
-              << "     ) pax_rem " << endl;
+          sql << ",( " << endl;
+          for(map< TRemCategory, vector<string> >::const_iterator iRem=rems.begin(); iRem!=rems.end(); iRem++)
+          {
+            if (iRem!=rems.begin()) sql << "  UNION " << endl;
+            switch(iRem->first)
+            {
+              case remTKN:
+                sql << "  SELECT pax.pax_id,pax.ticket_rem AS rem_code" << endl
+                    << "  FROM pax_grp,pax " << endl
+                    << "  WHERE pax_grp.grp_id=pax.grp_id AND " << endl
+                    << "        pax_grp.point_dep=:point_id AND pax.pr_brd IS NOT NULL AND " << endl
+                    << "        pax.ticket_rem IN " << GetSQLEnum(iRem->second) << endl;
+                break;
+              case remDOC:
+                sql << "  SELECT pax.pax_id,'DOCS' AS rem_code " << endl
+                    << "  FROM pax_grp,pax,pax_doc " << endl
+                    << "  WHERE pax_grp.grp_id=pax.grp_id AND " << endl
+                    << "        pax.pax_id=pax_doc.pax_id AND " << endl
+                    << "        pax_grp.point_dep=:point_id AND pax.pr_brd IS NOT NULL AND " << endl
+                    << "        'DOCS' IN " << GetSQLEnum(iRem->second) << endl;
+                break;
+              case remDOCO:
+                sql << "  SELECT pax.pax_id,'DOCO' AS rem_code " << endl
+                    << "  FROM pax_grp,pax,pax_doco " << endl
+                    << "  WHERE pax_grp.grp_id=pax.grp_id AND " << endl
+                    << "        pax.pax_id=pax_doco.pax_id AND " << endl
+                    << "        pax_grp.point_dep=:point_id AND pax.pr_brd IS NOT NULL AND " << endl
+                    << "        'DOCO' IN " << GetSQLEnum(iRem->second) << endl;
+                break;
+              default:
+                sql << "  SELECT DISTINCT pax.pax_id,pax_rem.rem_code " << endl
+                    << "  FROM pax_grp,pax,pax_rem " << endl
+                    << "  WHERE pax_grp.grp_id=pax.grp_id AND " << endl
+                    << "        pax.pax_id=pax_rem.pax_id AND " << endl
+                    << "        pax_grp.point_dep=:point_id AND pax.pr_brd IS NOT NULL AND " << endl
+                    << "        pax_rem.rem_code IN " << GetSQLEnum(iRem->second) << endl;
+                break;
+            };
+          };
+          sql << " ) pax_rem " << endl;
         };
 
         sql << "WHERE pax_grp.grp_id=pax.grp_id AND " << endl
@@ -2024,14 +2037,62 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   else
   {
     //pr_section=true
-    map<string,int> zones;
-    ZoneLoads( point_id, zones );
-    for ( map<string,int>::iterator iz=zones.begin(); iz != zones.end(); iz++ ) {
+    Qry.Clear();
+    Qry.SQLText=
+      "SELECT pax.pax_id, pax.grp_id, pax.surname, pax.pers_type, pax.seats, pax.reg_no, "
+      "       crs_inf.pax_id AS parent_pax_id, "
+      "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_amount, "
+      "       ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_weight, "
+      "       ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS rk_weight "
+      "FROM pax_grp, pax, crs_inf "
+      "WHERE pax_grp.grp_id=pax.grp_id AND "
+      "      pax_grp.point_dep=:point_id AND pax.pr_brd IS NOT NULL AND "
+      "      pax.pax_id=crs_inf.inf_id(+)";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.Execute();
+    vector<TZonePaxItem> zonePaxs;
+    //читаем пассажиров на рейсе
+    for(;!Qry.Eof;Qry.Next())
+    {
+      TZonePaxItem pax;
+      pax.pax_id=Qry.FieldAsInteger("pax_id");
+      pax.grp_id=Qry.FieldAsInteger("grp_id");
+      pax.seats=Qry.FieldAsInteger("seats");
+      pax.reg_no=Qry.FieldAsInteger("reg_no");
+      pax.surname=Qry.FieldAsString("surname");
+      pax.pers_type=Qry.FieldAsString("pers_type");
+      pax.parent_pax_id=Qry.FieldIsNULL("parent_pax_id")?NoExists:Qry.FieldAsInteger("parent_pax_id");
+      pax.rk_weight=Qry.FieldAsInteger("rk_weight");
+      pax.bag_amount=Qry.FieldAsInteger("bag_amount");
+      pax.bag_weight=Qry.FieldAsInteger("bag_weight");
+      zonePaxs.push_back(pax);
+    };
+    
+    vector<SALONS2::TCompSection> compSections;
+    //получаем информацию по зонам
+    ZonePax(point_id, zonePaxs, compSections);
+    
+    for(vector<SALONS2::TCompSection>::const_iterator i=compSections.begin();i!=compSections.end();i++)
+    {
       TPaxLoadItem item;
-      item.section = iz->first;
-      item.seats = iz->second;
+      item.section = i->name;
+      for(vector<TZonePaxItem>::const_iterator p=zonePaxs.begin();p!=zonePaxs.end();p++)
+      {
+        if (item.section!=p->zone) continue;
+        item.seats+=p->seats;
+        switch(DecodePerson(p->pers_type.c_str()))
+        {
+          case adult: item.adult++; break;
+          case child: item.child++; break;
+          case baby:  item.baby++;  break;
+          default: ;
+        };
+        item.rk_weight+=p->rk_weight;
+        item.bag_amount+=p->bag_amount;
+        item.bag_weight+=p->bag_weight;
+      };
       paxLoad.push_back(item);
-    }
+    };
   };
     
   //сортируем массив
@@ -2042,19 +2103,18 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   {
     rowNode=NewTextChild(rowsNode,"row");
     NewTextChild(rowNode,"seats",i->seats,0);
-    if (!pr_section)
+    NewTextChild(rowNode,"adult",i->adult,0);
+    NewTextChild(rowNode,"child",i->child,0);
+    NewTextChild(rowNode,"baby",i->baby,0);
+
+    if (!pr_ticket_rem && !pr_rems)
     {
-      NewTextChild(rowNode,"adult",i->adult,0);
-      NewTextChild(rowNode,"child",i->child,0);
-      NewTextChild(rowNode,"baby",i->baby,0);
-
-      if (!pr_ticket_rem && !pr_rems)
+      NewTextChild(rowNode,"bag_amount",i->bag_amount,0);
+      NewTextChild(rowNode,"bag_weight",i->bag_weight,0);
+      NewTextChild(rowNode,"rk_weight",i->rk_weight,0);
+      if (!pr_section)
       {
-        NewTextChild(rowNode,"bag_amount",i->bag_amount,0);
-        NewTextChild(rowNode,"bag_weight",i->bag_weight,0);
-        NewTextChild(rowNode,"rk_weight",i->rk_weight,0);
         NewTextChild(rowNode,"excess",i->excess,0);
-
         if (!pr_cl_grp && !pr_trfer && !pr_client_type && !pr_status && !pr_hall && !pr_user)
         {
           NewTextChild(rowNode,"crs_ok",i->crs_ok,0);
@@ -2469,112 +2529,6 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
 
 };
 
-bool Calc_overload_alarm( int point_id, const TTripInfo &fltInfo )
-{
-  TQuery Qry(&OraSession);
-  Qry.SQLText=
-    "SELECT max_commerce FROM trip_sets WHERE point_id=:point_id";
-  Qry.CreateVariable("point_id", otInteger, point_id);
-  Qry.Execute();
-  if (Qry.Eof) throw Exception("Flight not found in trip_sets (point_id=%d)",point_id);
-  if (Qry.FieldIsNULL("max_commerce")) return false;
-	int load=GetFltLoad(point_id,fltInfo);
-  ProgTrace(TRACE5,"max_commerce=%d load=%d",Qry.FieldAsInteger("max_commerce"),load);
-	return (load>Qry.FieldAsInteger("max_commerce"));
-}
-
-void Set_overload_alarm( int point_id, bool overload_alarm )
-{
-  TQuery Qry(&OraSession);
-  Qry.SQLText = "SELECT overload_alarm FROM trip_sets WHERE point_id=:point_id";
-  Qry.CreateVariable("point_id", otInteger, point_id);
-  Qry.Execute();
-  if ( !Qry.Eof && (int)overload_alarm != Qry.FieldAsInteger( "overload_alarm" ) ) {
-    Qry.Clear();
-    Qry.SQLText=
-      "UPDATE trip_sets SET overload_alarm=:overload_alarm WHERE point_id=:point_id";
-    Qry.CreateVariable("overload_alarm", otInteger, overload_alarm);
-    Qry.CreateVariable("point_id", otInteger, point_id);
-    Qry.Execute();
-  	string msg = "Тревога 'Перегрузка'";
-  	if ( overload_alarm )
-  		msg += " установлена";
-  	else
-  		msg += " отменена";
-  	TReqInfo::Instance()->MsgToLog( msg, evtFlt, point_id );
-  }
-}
 
 
-/* есть пассажиры, которые на листе ожидания */
-bool check_waitlist_alarm( int point_id )
-{
-	TQuery Qry(&OraSession);
-	Qry.SQLText =
-	  "SELECT waitlist_alarm FROM trip_sets WHERE point_id=:point_id";
-	Qry.CreateVariable( "point_id", otInteger, point_id );
-	Qry.Execute();
-	SEATS2::TPassengers p;
-	bool waitlist_alarm = SEATS2::GetPassengersForWaitList( point_id, p, true );
-	if ( !Qry.Eof && (int)waitlist_alarm != Qry.FieldAsInteger( "waitlist_alarm" ) ) {
-		Qry.Clear();
-		Qry.SQLText =
-		  "UPDATE trip_sets SET waitlist_alarm=:waitlist_alarm WHERE point_id=:point_id";
-	  Qry.CreateVariable( "point_id", otInteger, point_id );
-	  Qry.CreateVariable( "waitlist_alarm", otInteger, waitlist_alarm );
-  	Qry.Execute();
-  	string msg = "Тревога 'Лист ожидания'";
-  	if ( waitlist_alarm )
-  		msg += " установлена";
-  	else
-  		msg += " отменена";
-  	TReqInfo::Instance()->MsgToLog( msg, evtFlt, point_id );
-	}
-	return waitlist_alarm;
-}
-
-/* есть пассажиры, которые зарегистрированы, но не посажены */
-bool check_brd_alarm( int point_id )
-{
-	TQuery Qry(&OraSession);
-	Qry.SQLText =
-	  "SELECT act FROM trip_stages WHERE point_id=:point_id AND stage_id=:CloseBoarding AND act IS NOT NULL";
-	Qry.CreateVariable( "point_id", otInteger, point_id );
-	Qry.CreateVariable( "CloseBoarding", otInteger, sCloseBoarding );
-	Qry.Execute();
-	bool brd_alarm = false;
-	if ( !Qry.Eof ) {
-	  Qry.Clear();
-	  Qry.SQLText =
-	    "SELECT pax_id FROM pax, pax_grp "
-	    " WHERE pax_grp.point_dep=:point_id AND "
-	    "       pax_grp.grp_id=pax.grp_id AND "
-	    "       pax.wl_type IS NULL AND "
-	    "       pax.pr_brd = 0 AND "
-	    "       rownum < 2 ";
-  	Qry.CreateVariable( "point_id", otInteger, point_id );
-  	Qry.Execute();
-	  brd_alarm = !Qry.Eof;
-	}
-	Qry.Clear();
-	Qry.SQLText =
-	  "SELECT brd_alarm FROM trip_sets WHERE point_id=:point_id";
-	Qry.CreateVariable( "point_id", otInteger, point_id );
-	Qry.Execute();
-	if ( !Qry.Eof && (int)brd_alarm != Qry.FieldAsInteger( "brd_alarm" ) ) {
-		Qry.Clear();
-		Qry.SQLText =
-		  "UPDATE trip_sets SET brd_alarm=:brd_alarm WHERE point_id=:point_id";
-	  Qry.CreateVariable( "point_id", otInteger, point_id );
-	  Qry.CreateVariable( "brd_alarm", otInteger, brd_alarm );
-  	Qry.Execute();
-  	string msg = "Тревога 'Посадка'";
-  	if ( brd_alarm )
-  		msg += " установлена";
-  	else
-  		msg += " отменена";
-  	TReqInfo::Instance()->MsgToLog( msg, evtFlt, point_id );
-  }
-	return brd_alarm;
-}
 

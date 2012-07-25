@@ -472,10 +472,6 @@ bool SeparateTCkin(int grp_id,
                    int tid,
                    int &tckin_id, int &seg_no);
 
-enum TTripAlarmsType { atSalon, atWaitlist, atBrd, atOverload, atETStatus, atSeance, atLength };
-void TripAlarms( int point_id, BitSet<TTripAlarmsType> &Alarms );
-std::string TripAlarmString( TTripAlarmsType &alarm );
-
 struct TCodeShareSets {
   private:
     TQuery *Qry;
@@ -558,6 +554,48 @@ std::string GetPaxDocCountryCode(const std::string &doc_code);
 
 const int TEST_ID_BASE = 1000000000;
 bool isTestPaxId(int id);
+
+template <class T1>
+bool ComparePass( const T1 &item1, const T1 &item2 )
+{
+  return item1.reg_no < item2.reg_no;
+};
+
+/* должны быть заполнены поля в типе T1:
+  grp_id, pax_id, reg_no, surname, parent_pax_id - из таблицы crs_inf,
+  в типе T2:
+  grp_id, pax_id, reg_no, surname */
+template <class T1, class T2>
+void SetInfantsToAdults( std::vector<T1> &InfItems, std::vector<T2> AdultItems )
+{
+  sort( InfItems.begin(), InfItems.end(), ComparePass<T1> );
+  sort( AdultItems.begin(), AdultItems.end(), ComparePass<T2> );
+  for ( int k = 1; k <= 3; k++ ) {
+    for(typename std::vector<T1>::iterator infRow = InfItems.begin(); infRow != InfItems.end(); infRow++) {
+      if ( k == 1 )
+        infRow->temp_parent_id = infRow->parent_pax_id;
+      if ( k == 1 and infRow->temp_parent_id != ASTRA::NoExists or
+           k > 1 and infRow->temp_parent_id == ASTRA::NoExists) {
+         infRow->temp_parent_id = ASTRA::NoExists;
+        for(typename std::vector<T2>::iterator adultRow = AdultItems.begin(); adultRow != AdultItems.end(); adultRow++) {
+          if(
+             (infRow->grp_id == adultRow->grp_id) and
+             (k == 1 and infRow->parent_pax_id == adultRow->pax_id or
+              k == 2 and infRow->surname == adultRow->surname or
+              k == 3)
+            ) {
+                infRow->temp_parent_id = adultRow->pax_id;
+                infRow->parent_pax_id = adultRow->pax_id;
+                AdultItems.erase(adultRow);
+                break;
+              }
+         }
+      }
+    }
+  }
+};
+
+int GetFltLoad( int point_id, const TTripInfo &fltInfo);
 
 #endif /*_ASTRA_MISC_H_*/
 

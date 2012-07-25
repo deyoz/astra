@@ -1666,8 +1666,10 @@ try {
  	    time_in_delay = 0.0;
  	  Qry.Execute();
  	  err++;
- 	  if ( change_comp )
- 	  	SALONS2::AutoSetCraft( point_id, fl.craft, -1 );
+ 	  if ( change_comp ) {
+ 	  	SALONS2::AutoSetCraft( point_id );
+    }
+    SALONS2::check_diffcomp_alarm( point_id );
     bool old_ignore_auto = ( old_act != NoExists || dest.pr_del != 0 );
     bool new_ignore_auto = ( fl.act != NoExists || dest.pr_del != 0 );
     if ( old_ignore_auto != new_ignore_auto ) {
@@ -1686,7 +1688,7 @@ try {
     QryTripInfo.Execute();
     if ( !QryTripInfo.Eof ) {
     	fltInfo.Init(QryTripInfo);
-    	Set_overload_alarm( point_id, Calc_overload_alarm( point_id, fltInfo ) );
+    	check_overload_alarm( point_id, fltInfo );
     }
 	} // end update
   tst();
@@ -1780,7 +1782,7 @@ try {
                           " расч. время=" + DateTimeToStr( fl.boarding_end, "hh:nn dd.mm.yy" ) + " (UTC)", evtGraph, point_id, sCloseBoarding );
 	}
 	err++;
-	// обновление стоек регистрации и выходов на покадку
+	// обновление стоек регистрации и выходов на поcадку
 	Qry.Clear();
 	Qry.SQLText =
 	 "BEGIN "

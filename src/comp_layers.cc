@@ -3,6 +3,7 @@
 #include "astra_misc.h"
 #include "astra_utils.h"
 #include "oralib.h"
+#include "alarms.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -46,7 +47,8 @@ void InsertTripSeatRanges(const vector< pair<int, TSeatRange> > &ranges, //векто
                           TCompLayerType layer_type,
                           int crs_pax_id,            //может быть NoExists
                           const string &crs_pax_name,
-                          bool UsePriorContext)
+                          bool UsePriorContext,
+                          TPointIdsForCheck &point_ids_spp) //вектор point_id_spp по которым были изменения
 {
   if (ranges.empty()) return;
   if (!IsTlgCompLayer(layer_type)) return;
@@ -193,6 +195,8 @@ void InsertTripSeatRanges(const vector< pair<int, TSeatRange> > &ranges, //векто
       InsQry.Execute();
     };
     
+    point_ids_spp.insert( make_pair(i->point_id, layer_type) );
+    
     if (crs_pax_id!=NoExists &&
         (layer_type==cltProtBeforePay||
          layer_type==cltProtAfterPay||
@@ -242,7 +246,8 @@ void InsertTlgSeatRanges(int point_id_tlg,
                          int tlg_id,     //может быть NoExists
                          int timeout,    //может быть NoExists
                          bool UsePriorContext,
-                         int &curr_tid)
+                         int &curr_tid,
+                         TPointIdsForCheck &point_ids_spp) //вектор point_id_spp по которым были изменения
 {
   if (ranges.empty()) return;
   if (!IsTlgCompLayer(layer_type)) return;
@@ -334,20 +339,21 @@ void InsertTlgSeatRanges(int point_id_tlg,
                        layer_type,
                        crs_pax_id,
                        crs_pax_name,
-                       UsePriorContext);
+                       UsePriorContext,
+                       point_ids_spp);
 };
 
 void DeleteTripSeatRanges(const vector<int> range_ids,
                           int point_id_spp, //может быть NoExists
                           int crs_pax_id,   //может быть NoExists
-                          const string& crs_pax_name)
+                          const string& crs_pax_name,
+                          TPointIdsForCheck &point_ids_spp) //вектор point_id_spp по которым были изменения
 {
   if (range_ids.empty()) return;
 
   TQuery Qry(&OraSession);
   if (crs_pax_id!=NoExists)
   {
-    //все это делаем лишь только для логиирования
     Qry.Clear();
     ostringstream sql;
     sql << "SELECT trip_comp_layers.point_id, layer_type, "
@@ -373,6 +379,7 @@ void DeleteTripSeatRanges(const vector<int> range_ids,
       {
         TCompLayerType layer_type=DecodeCompLayerType(Qry.FieldAsString("layer_type"));
         int point_id=Qry.FieldAsInteger("point_id");
+        point_ids_spp.insert( make_pair(point_id, layer_type) );
         pair<vector<TSeatRange>, bool> &seat_view_ranges=ranges[ make_pair(layer_type,point_id) ];
 
         TSeatRange range(TSeat(Qry.FieldAsString("first_yname"),
@@ -431,6 +438,33 @@ void DeleteTripSeatRanges(const vector<int> range_ids,
         TReqInfo::Instance()->MsgToLog(msg);
       };
     };
+  }
+  else
+  {
+    Qry.Clear();
+    ostringstream sql;
+    sql << "SELECT point_id, layer_type "
+           "FROM trip_comp_layers "
+           "WHERE trip_comp_layers.range_id=:range_id ";
+    if (point_id_spp!=NoExists)
+    {
+      sql << "AND trip_comp_layers.point_id=:point_id_spp ";
+      Qry.CreateVariable("point_id_spp",otInteger,point_id_spp);
+    };
+    sql << "FOR UPDATE";
+    Qry.SQLText=sql.str().c_str();
+    Qry.DeclareVariable("range_id", otInteger);
+    for(vector<int>::const_iterator i=range_ids.begin(); i!=range_ids.end(); i++)
+    {
+      Qry.SetVariable("range_id", *i);
+      Qry.Execute();
+      for(;!Qry.Eof;Qry.Next())
+      {
+        TCompLayerType layer_type=DecodeCompLayerType(Qry.FieldAsString("layer_type"));
+        int point_id=Qry.FieldAsInteger("point_id");
+        point_ids_spp.insert( make_pair(point_id, layer_type) );
+      };
+    };
   };
   
   Qry.Clear();
@@ -454,7 +488,8 @@ void DeleteTripSeatRanges(const vector<int> range_ids,
 
 void DeleteTlgSeatRanges(vector<int> range_ids,
                          int crs_pax_id,
-                         int &curr_tid)
+                         int &curr_tid,
+                         TPointIdsForCheck &point_ids_spp) //вектор point_id_spp по которым были изменения
 {
   if (range_ids.empty()) return;
   TQuery Qry(&OraSession);
@@ -488,7 +523,8 @@ void DeleteTlgSeatRanges(vector<int> range_ids,
   DeleteTripSeatRanges(range_ids,
                        NoExists,
                        crs_pax_id,
-                       crs_pax_name);
+                       crs_pax_name,
+                       point_ids_spp);
   Qry.Clear();
   Qry.SQLText="DELETE FROM tlg_comp_layers WHERE range_id=:range_id";
   Qry.DeclareVariable("range_id", otInteger);
@@ -501,7 +537,8 @@ void DeleteTlgSeatRanges(vector<int> range_ids,
 
 void DeleteTlgSeatRanges(TCompLayerType layer_type,
                          int crs_pax_id,
-                         int &curr_tid)            //может быть NoExists, тогда устанавливается в процедуре
+                         int &curr_tid,                    //может быть NoExists, тогда устанавливается в процедуре
+                         TPointIdsForCheck &point_ids_spp) //вектор point_id_spp по которым были изменения
 {
   if (!IsTlgCompLayer(layer_type)) return;
   if (crs_pax_id==NoExists) return;
@@ -520,20 +557,22 @@ void DeleteTlgSeatRanges(TCompLayerType layer_type,
     range_ids.push_back(Qry.FieldAsInteger("range_id"));
   };
   
-  DeleteTlgSeatRanges(range_ids, crs_pax_id, curr_tid);
+  DeleteTlgSeatRanges(range_ids, crs_pax_id, curr_tid, point_ids_spp);
 };
 
 void SyncTripCompLayers(int point_id_tlg,
                         int point_id_spp,
-                        TCompLayerType layer_type)
+                        TCompLayerType layer_type,
+                        TPointIdsForCheck &point_ids_spp) //вектор point_id_spp по которым были изменения
 {
-  DeleteTripCompLayers(point_id_tlg, point_id_spp, layer_type);
-  InsertTripCompLayers(point_id_tlg, point_id_spp, layer_type);
+  DeleteTripCompLayers(point_id_tlg, point_id_spp, layer_type, point_ids_spp);
+  InsertTripCompLayers(point_id_tlg, point_id_spp, layer_type, point_ids_spp);
 };
 
 void InsertTripCompLayers(int point_id_tlg,
                           int point_id_spp,
-                          TCompLayerType layer_type)
+                          TCompLayerType layer_type,
+                          TPointIdsForCheck &point_ids_spp) //вектор point_id_spp по которым были изменения
 {
   if (!IsTlgCompLayer(layer_type)) return;
 
@@ -615,7 +654,8 @@ void InsertTripCompLayers(int point_id_tlg,
                            layer_type,
                            crs_pax_id,
                            crs_pax_name,
-                           UsePriorContext);
+                           UsePriorContext,
+                           point_ids_spp);
       ranges_for_sync.clear();
       UsePriorContext=true;
     };
@@ -624,7 +664,8 @@ void InsertTripCompLayers(int point_id_tlg,
 
 void DeleteTripCompLayers(int point_id_tlg,
                           int point_id_spp,
-                          TCompLayerType layer_type)
+                          TCompLayerType layer_type,
+                          TPointIdsForCheck &point_ids_spp) //вектор point_id_spp по которым были изменения
 {
   if (!IsTlgCompLayer(layer_type)) return;
 
@@ -700,7 +741,8 @@ void DeleteTripCompLayers(int point_id_tlg,
       DeleteTripSeatRanges(ranges_for_sync,
                            point_id_spp,
                            crs_pax_id,
-                           crs_pax_name);
+                           crs_pax_name,
+                           point_ids_spp);
       ranges_for_sync.clear();
       prior_range_id=NoExists; //можно этого было и не делать
     };
@@ -774,6 +816,21 @@ void GetSeatRemPriority(const string &airline_mark, TSeatRemPriority &rems)
   stable_sort(rems.begin(),rems.end(),lessSeatRemPriority);
 };
 
-
-
+void check_layer_change(const TPointIdsForCheck &point_ids_spp)
+{
+  for(TPointIdsForCheck::const_iterator i=point_ids_spp.begin();i!=point_ids_spp.end();i++)
+  {
+    if (i->second==cltBlockCent ||
+        i->second==cltTranzit ||
+        i->second==cltCheckin ||
+        i->second==cltTCheckin ||
+        i->second==cltGoShow ||
+        i->second==cltBlockTrzt ||
+        i->second==cltSOMTrzt ||
+        i->second==cltPRLTrzt)
+    {
+      check_waitlist_alarm(i->first);
+    };
+  };
+};
 

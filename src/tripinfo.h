@@ -112,7 +112,6 @@ class TTripInfoSQLParams: public TTripListSQLFilter
     virtual void set(void);
 };
 
-int GetFltLoad( int point_id, const TTripInfo &fltInfo);
 void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode );
 void viewCRSList( int point_id, xmlNodePtr dataNode );
 
@@ -140,11 +139,6 @@ public:
   static void readGates(int point_id, std::vector<std::string> &gates);
   static void readHalls( std::string airp_dep, std::string work_mode, xmlNodePtr dataNode);
 };
-
-bool Calc_overload_alarm( int point_id, const TTripInfo &fltInfo );
-void Set_overload_alarm( int point_id, bool overload_alarm );
-bool check_waitlist_alarm( int point_id );
-bool check_brd_alarm( int point_id );
 
 #endif /*_TRIPINFO_H_*/
 

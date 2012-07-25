@@ -9,10 +9,21 @@
 #include "oralib.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
+#include "oralib.h"
 #include "astra_misc.h"
 
 const std::string qryBalancePassWOCheckinTranzit =
     "SELECT point_dep, "
+    "       DECODE(point_dep,:point_dep,0,1) as  pr_tranzit, class, "
+    "       pax.grp_id, pax.pax_id, pax.pers_type, pax_doc.gender, pax.surname, "
+    "       crs_inf.pax_id AS parent_pax_id, seats, reg_no  "
+    " FROM pax_grp, pax, pax_doc, crs_inf "
+    " WHERE pax_grp.grp_id=pax.grp_id AND "
+    "       pax.pax_id=pax_doc.pax_id(+) AND "
+    "       pax.pax_id=crs_inf.inf_id(+) AND "
+    "       point_arv=:point_arv AND pr_brd IS NOT NULL";
+
+    /*"SELECT point_dep, "
     "       DECODE(point_dep,:point_dep,0,1) as  pr_tranzit, class, "
     "       NVL(SUM(DECODE(pax.pers_type,:adl,DECODE(pax_doc.gender,:male,1,NULL,1,0),0)),0) AS male, "
     "       NVL(SUM(DECODE(pax.pers_type,:adl,DECODE(pax_doc.gender,:female,1,0),0)),0) AS female, "
@@ -26,9 +37,19 @@ const std::string qryBalancePassWOCheckinTranzit =
     " WHERE pax_grp.grp_id=pax.grp_id AND "
     "       pax.pax_id=pax_doc.pax_id(+) AND "
     "       point_arv=:point_arv AND pr_brd IS NOT NULL "
-    "GROUP BY point_dep, DECODE(point_dep,:point_dep,0,1), class";
+    "GROUP BY point_dep, DECODE(point_dep,:point_dep,0,1), class"; */
 const std::string qryBalancePassWithCheckinTranzit =
     "SELECT point_dep, "
+    "       DECODE(status,:status_tranzit,1,0) as  pr_tranzit, class, "
+    "       pax.grp_id, pax.pax_id, pax.pers_type, pax_doc.gender, pax.surname, "
+    "       crs_inf.pax_id AS parent_pax_id, seats, reg_no  "
+    " FROM pax_grp, pax, pax_doc, crs_inf "
+    " WHERE pax_grp.grp_id=pax.grp_id AND "
+    "       pax.pax_id=pax_doc.pax_id(+) AND "
+    "       pax.pax_id=crs_inf.inf_id(+) AND "
+    "       point_dep=:point_dep AND "
+    "       point_arv=:point_arv AND pr_brd IS NOT NULL ";
+/*    "SELECT point_dep, "
     "       DECODE(status,:status_tranzit,1,0) as  pr_tranzit, class, "
     "       NVL(SUM(DECODE(pax.pers_type,:adl,DECODE(pax_doc.gender,:male,1,NULL,1,0),0)),0) AS male, "
     "       NVL(SUM(DECODE(pax.pers_type,:adl,DECODE(pax_doc.gender,:female,1,0),0)),0) AS female, "
@@ -43,7 +64,7 @@ const std::string qryBalancePassWithCheckinTranzit =
     "       pax.pax_id=pax_doc.pax_id(+) AND "
     "       point_dep=:point_dep AND "
     "       point_arv=:point_arv AND pr_brd IS NOT NULL "
-    "GROUP BY point_dep, DECODE(status,:status_tranzit,1,0), class";
+    "GROUP BY point_dep, DECODE(status,:status_tranzit,1,0), class"; */
 const std::string qryBalanceBagWOCheckinTranzit =
     "SELECT point_dep, "
     "       DECODE(point_dep,:point_dep,0,1) as  pr_tranzit, class, "
@@ -84,7 +105,7 @@ const std::string qryBalanceExcessBagWithCheckinTranzit =
     " WHERE point_dep=:point_dep AND "
     "       point_arv=:point_arv AND pax_grp.bag_refuse = 0 "
     " GROUP BY point_dep, DECODE(status,:status_tranzit,1,0), class";
-const std::string qryBalancePad =
+/*const std::string qryBalancePad =
     "SELECT point_dep, "
     "       DECODE(point_dep,:point_dep,0,1) as  pr_tranzit, pax_grp.class, "
     "       SUM(pax.seats) as count "
@@ -95,7 +116,18 @@ const std::string qryBalancePad =
     "       crs_pax.pnr_id=crs_pnr.pnr_id AND "
     "       crs_pax.pr_del=0 AND "
     "       crs_pnr.status IN ('ID1','DG1','RG1','ID2','DG2','RG2') "
-    "GROUP BY point_dep, DECODE(point_dep,:point_dep,0,1), pax_grp.class";
+    "GROUP BY point_dep, DECODE(point_dep,:point_dep,0,1), pax_grp.class";*/
+const std::string qryBalancePad =
+    "SELECT pax.pax_id, point_dep, point_arv, "
+    "       DECODE(point_dep,:point_dep,0,1) as  pr_tranzit, pax_grp.class, "
+    "       pax.seats "
+    " FROM pax_grp, pax, crs_pax, crs_pnr "
+    " WHERE pax_grp.grp_id=pax.grp_id AND "
+    "       point_arv=:point_arv AND pr_brd IS NOT NULL AND "
+    "       pax.pax_id=crs_pax.pax_id AND "
+    "       crs_pax.pnr_id=crs_pnr.pnr_id AND "
+    "       crs_pax.pr_del=0 AND "
+    "       crs_pnr.status IN ('ID1','DG1','RG1','ID2','DG2','RG2') ";
 const std::string qryBalanceCargo =
     "SELECT point_dep, "
     "       DECODE(point_dep,:point_dep,0,1) as  pr_tranzit, "
@@ -106,6 +138,32 @@ const std::string qryBalanceCargo =
 
 enum TBalanceDataFlag { tdPass, tdBag, tdExcess, tdPad, tdCargo };
 
+
+struct TPassenger {
+  int pax_id;
+  int parent_pax_id;
+  int temp_parent_id;
+  int grp_id;
+  int reg_no;
+  int point_dep;
+  int point_arv;
+  int seats;
+  std::string pers_type;
+  std::string gender;
+  std::string surname;
+  bool pr_pad;
+  bool pr_wl;
+  std::string zone;
+  TPassenger() {
+    pr_pad = false;
+    pr_wl = false;
+    pax_id = ASTRA::NoExists;
+    temp_parent_id = ASTRA::NoExists;
+    parent_pax_id = ASTRA::NoExists;
+    reg_no = ASTRA::NoExists;
+    seats = 0;
+  };
+};
 
 struct TBalance {
   int male;
@@ -122,6 +180,7 @@ struct TBalance {
   int paybag_weight;
   int cargo;
   int mail;
+  int pad_seats;
   int pad;
   TBalance() {
     male = 0;
@@ -138,6 +197,7 @@ struct TBalance {
     paybag_weight = 0;
     cargo = 0;
     mail = 0;
+    pad_seats = 0;
     pad = 0;
   };
   void operator = (const TBalance &bal) {
@@ -155,6 +215,7 @@ struct TBalance {
     paybag_weight = bal.paybag_weight;
     cargo = bal.cargo;
     mail = bal.mail;
+    pad_seats = bal.pad_seats;
     pad = bal.pad;
   };
   void operator += (const TBalance &bal) {
@@ -172,6 +233,7 @@ struct TBalance {
     paybag_weight += bal.paybag_weight;
     cargo += bal.cargo;
     mail += bal.mail;
+    pad_seats += bal.pad_seats;
     pad += bal.pad;
   }
 };
@@ -205,6 +267,8 @@ class TBalanceData
     qTripSetsQry->DeclareVariable( "point_id", otInteger );
 
     balances.clear();
+    //total_classpads.clear();
+    passengers.clear();
     qPassQry = NULL;
     qPassTQry = NULL;
     qBagQry = NULL;
@@ -219,22 +283,12 @@ class TBalanceData
       qPassQry->SQLText = qryBalancePassWOCheckinTranzit.c_str();
       qPassQry->DeclareVariable( "point_dep", otInteger );
       qPassQry->DeclareVariable( "point_arv", otInteger );
-      qPassQry->CreateVariable( "adl", otString, "Çá" );
-      qPassQry->CreateVariable( "male", otString, "M" );
-      qPassQry->CreateVariable( "female", otString, "F" );
-      qPassQry->CreateVariable( "chd", otString, "êÅ" );
-      qPassQry->CreateVariable( "inf", otString, "êå" );
 
       qPassTQry = new TQuery( &OraSession );
       qPassTQry->SQLText = qryBalancePassWithCheckinTranzit.c_str();
       qPassTQry->DeclareVariable( "point_dep", otInteger );
       qPassTQry->DeclareVariable( "point_arv", otInteger );
       qPassTQry->CreateVariable( "status_tranzit", otString, EncodePaxStatus( ASTRA::psTransit ) );
-      qPassTQry->CreateVariable( "adl", otString, "Çá" );
-      qPassTQry->CreateVariable( "male", otString, "M" );
-      qPassTQry->CreateVariable( "female", otString, "F" );
-      qPassTQry->CreateVariable( "chd", otString, "êÅ" );
-      qPassTQry->CreateVariable( "inf", otString, "êå" );
     }
     if ( dataFlags.isFlag( tdBag ) ) {
       qBagQry = new TQuery( &OraSession );
@@ -311,6 +365,7 @@ class TBalanceData
               const TTripRoute &routesB, const TTripRoute &routesA,
               bool isLimitDest4 );
     std::vector<TDestBalance> balances;
+    std::map<int,TPassenger> passengers;
 };
     
 class CentInterface : public JxtInterface
@@ -330,6 +385,14 @@ public:
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 };
 
+
+bool getBalanceFlightPermit( TQuery &FlightPermitQry,
+                             int point_id,
+                             const std::string &airline,
+                             const std::string &airp,
+                             int flt_no,
+                             const std::string &bort,
+                             const std::string &balance_type );
 
 #endif /*_CENT_H_*/
 

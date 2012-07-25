@@ -13,6 +13,7 @@
 #include "etick.h"
 #include "astra_ticket.h"
 #include "aodb.h"
+#include "alarms.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -507,7 +508,7 @@ void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
         "    ticket_no, "
         "    coupon_no, "
         "    pax.tid, "
-        "    ckin.get_remarks(pax.pax_id,', ',0) AS remarks, "
+        "    ckin.get_remarks(pax.pax_id,' ',0) AS remarks, "
         "    NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS bag_amount, "
         "    NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS bag_weight, "
         "    NVL(ckin.get_rkAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS rk_amount, "

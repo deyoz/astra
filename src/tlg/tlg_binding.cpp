@@ -45,8 +45,7 @@ void crs_recount(int point_id_tlg, int point_id_spp, bool check_comp)
     ProgTrace(TRACE5, "crs_recount: point_id_spp=%d, check_comp=%s", Qry.FieldAsInteger("point_id_spp"), check_comp?"true":"false");
     if (check_comp)
     {
-      string craft;
-  	  SALONS2::AutoSetCraft( Qry.FieldAsInteger("point_id_spp"), craft, -1 );
+  	  SALONS2::AutoSetCraft( Qry.FieldAsInteger("point_id_spp") );
   	};
   };
 };
@@ -65,7 +64,12 @@ void unbind_tlg(int point_id_tlg, int point_id_spp)
     //действия по синхронизации
     crs_recount(point_id_tlg,point_id_spp,false);
     for(int layer=0;layer<(int)cltTypeNum;layer++)
-      if (IsTlgCompLayer((TCompLayerType)layer)) SyncTripCompLayers(point_id_tlg, point_id_spp, (TCompLayerType)layer);
+      if (IsTlgCompLayer((TCompLayerType)layer))
+      {
+        TPointIdsForCheck point_ids_spp;
+        SyncTripCompLayers(point_id_tlg, point_id_spp, (TCompLayerType)layer, point_ids_spp);
+        check_layer_change(point_ids_spp);
+      };
     //попробовать опять привязать point_id_tlg к какому либо рейсу
     bind_tlg(point_id_tlg, true);
   };
@@ -92,7 +96,12 @@ void bind_tlg(int point_id_tlg, const vector<int> &spp_point_ids, bool check_com
         //действия по синхронизации
         crs_recount(point_id_tlg,point_id_spp,check_comp);
         for(int layer=0;layer<(int)cltTypeNum;layer++)
-          if (IsTlgCompLayer((TCompLayerType)layer)) SyncTripCompLayers(point_id_tlg, point_id_spp, (TCompLayerType)layer);
+          if (IsTlgCompLayer((TCompLayerType)layer))
+          {
+            TPointIdsForCheck point_ids_spp;
+            SyncTripCompLayers(point_id_tlg, point_id_spp, (TCompLayerType)layer, point_ids_spp);
+            check_layer_change(point_ids_spp);
+          };
       };
     }
     catch(EOracleError E)

@@ -9,6 +9,8 @@
 #include "salons.h"
 #include "salonform.h"
 #include "astra_consts.h"
+#include "passenger.h"
+#include "remarks.h"
 #include "serverlib/logger.h"
 
 #define NICKNAME "DEN"
@@ -623,18 +625,20 @@ namespace PRL_SPACE {
 
     struct TInfantsItem {
         int grp_id;
+        int reg_no;
         string surname;
         string name;
-        int pax_id;
-        int crs_pax_id;
+        int parent_pax_id;
+        int temp_parent_id;
         string ticket_no;
         int coupon_no;
         string ticket_rem;
         void dump();
         TInfantsItem() {
             grp_id = NoExists;
-            pax_id = NoExists;
-            crs_pax_id = NoExists;
+            reg_no = NoExists;
+            parent_pax_id = NoExists;
+            temp_parent_id = NoExists;
             coupon_no = NoExists;
         }
     };
@@ -643,10 +647,11 @@ namespace PRL_SPACE {
     {
         ProgTrace(TRACE5, "TInfantsItem");
         ProgTrace(TRACE5, "grp_id: %d", grp_id);
+        ProgTrace(TRACE5, "reg_no: %d", reg_no);
         ProgTrace(TRACE5, "surname: %s", surname.c_str());
         ProgTrace(TRACE5, "name: %s", name.c_str());
-        ProgTrace(TRACE5, "pax_id: %d", pax_id);
-        ProgTrace(TRACE5, "crs_pax_id: %d", crs_pax_id);
+        ProgTrace(TRACE5, "pax_id: %d", parent_pax_id);
+        ProgTrace(TRACE5, "crs_pax_id: %d", parent_pax_id);
         ProgTrace(TRACE5, "ticket_no: %s", ticket_no.c_str());
         ProgTrace(TRACE5, "coupon_no: %d", coupon_no);
         ProgTrace(TRACE5, "ticket_rem: %s", ticket_rem.c_str());
@@ -656,11 +661,13 @@ namespace PRL_SPACE {
     struct TAdultsItem {
         int grp_id;
         int pax_id;
+        int reg_no;
         string surname;
         void dump();
         TAdultsItem() {
             grp_id = NoExists;
             pax_id = NoExists;
+            reg_no = NoExists;
         }
     };
 
@@ -669,6 +676,7 @@ namespace PRL_SPACE {
         ProgTrace(TRACE5, "TAdultsItem");
         ProgTrace(TRACE5, "grp_id: %d", grp_id);
         ProgTrace(TRACE5, "pax_id: %d", pax_id);
+        ProgTrace(TRACE5, "reg_no: %d", reg_no);
         ProgTrace(TRACE5, "surname: %s", surname.c_str());
         ProgTrace(TRACE5, "--------------------");
     }
@@ -684,6 +692,7 @@ namespace PRL_SPACE {
         TQuery Qry(&OraSession);
         Qry.SQLText =
             "SELECT pax.grp_id, "
+            "       pax.reg_no, "
             "       pax.surname, "
             "       pax.name, "
             "       pax.ticket_no, "
@@ -700,6 +709,7 @@ namespace PRL_SPACE {
         Qry.Execute();
         if(!Qry.Eof) {
             int col_grp_id = Qry.FieldIndex("grp_id");
+            int col_reg_no = Qry.FieldIndex("reg_no");
             int col_surname = Qry.FieldIndex("surname");
             int col_name = Qry.FieldIndex("name");
             int col_crs_pax_id = Qry.FieldIndex("crs_pax_id");
@@ -709,14 +719,14 @@ namespace PRL_SPACE {
             for(; !Qry.Eof; Qry.Next()) {
                 TInfantsItem item;
                 item.grp_id = Qry.FieldAsInteger(col_grp_id);
+                item.reg_no = Qry.FieldAsInteger(col_reg_no);
                 item.surname = Qry.FieldAsString(col_surname);
                 item.name = Qry.FieldAsString(col_name);
                 item.ticket_no = Qry.FieldAsString(col_ticket_no);
                 item.coupon_no = Qry.FieldAsInteger(col_coupon_no);
                 item.ticket_rem = Qry.FieldAsString(col_ticket_rem);
                 if(!Qry.FieldIsNULL(col_crs_pax_id)) {
-                    item.crs_pax_id = Qry.FieldAsInteger(col_crs_pax_id);
-                    item.pax_id = item.crs_pax_id;
+                    item.parent_pax_id = Qry.FieldAsInteger(col_crs_pax_id);
                 }
                 items.push_back(item);
             }
@@ -726,6 +736,7 @@ namespace PRL_SPACE {
             Qry.SQLText =
                 "SELECT pax.grp_id, "
                 "       pax.pax_id, "
+                "       pax.reg_no, "
                 "       pax.surname "
                 "FROM pax_grp,pax "
                 "WHERE "
@@ -738,16 +749,19 @@ namespace PRL_SPACE {
             if(!Qry.Eof) {
                 int col_grp_id = Qry.FieldIndex("grp_id");
                 int col_pax_id = Qry.FieldIndex("pax_id");
+                int col_reg_no = Qry.FieldIndex("reg_no");
                 int col_surname = Qry.FieldIndex("surname");
                 for(; !Qry.Eof; Qry.Next()) {
                     TAdultsItem item;
                     item.grp_id = Qry.FieldAsInteger(col_grp_id);
                     item.pax_id = Qry.FieldAsInteger(col_pax_id);
+                    item.reg_no = Qry.FieldAsInteger(col_reg_no);
                     item.surname = Qry.FieldAsString(col_surname);
                     adults.push_back(item);
                 }
             }
-            for(int k = 1; k <= 3; k++) {
+            SetInfantsToAdults( items, adults );
+/*            for(int k = 1; k <= 3; k++) {
                 for(vector<TInfantsItem>::iterator infRow = items.begin(); infRow != items.end(); infRow++) {
                     if(k == 1 and infRow->pax_id != NoExists or
                             k > 1 and infRow->pax_id == NoExists) {
@@ -766,7 +780,7 @@ namespace PRL_SPACE {
                         }
                     }
                 }
-            }
+            }*/
         }
     }
 
@@ -1212,7 +1226,7 @@ namespace PRL_SPACE {
         if(pax.pax_id == NoExists) return;
         // rems must be push_backed exactly in this order. Don't swap!
         for(vector<TInfantsItem>::iterator infRow = infants->items.begin(); infRow != infants->items.end(); infRow++) {
-            if(infRow->grp_id == pax.grp_id and infRow->pax_id == pax.pax_id) {
+            if(infRow->grp_id == pax.grp_id and infRow->parent_pax_id == pax.pax_id) {
                 string rem;
                 rem = "1INF " + transliter(infRow->surname, 1, info.pr_lat);
                 if(!infRow->name.empty()) {
@@ -1236,19 +1250,36 @@ namespace PRL_SPACE {
         Qry.Clear();
         Qry.SQLText =
             "select "
-            "    rem "
+            "    rem_code, rem "
             "from "
             "    pax_rem "
             "where "
             "    pax_rem.pax_id = :pax_id and "
-            "    pax_rem.rem_code not in (/*'PSPT',*/ 'OTHS', /*'DOCS', */'CHD', 'CHLD', 'INF', 'INFT', 'FQTV', 'FQTU', 'FQTR') ";
+            "    pax_rem.rem_code not in ('OTHS', 'CHD', 'CHLD', 'INF', 'INFT') ";
         Qry.CreateVariable("pax_id", otInteger, pax.pax_id);
         Qry.Execute();
-        if(!Qry.Eof) {
-            int col_rem = Qry.FieldIndex("rem");
-            for(; !Qry.Eof; Qry.Next())
-                items.push_back(transliter(Qry.FieldAsString(col_rem), 1, info.pr_lat));
-        }
+        for(; !Qry.Eof; Qry.Next())
+        {
+          TRemCategory cat=getRemCategory(Qry.FieldAsString("rem_code"),
+                                          Qry.FieldAsString("rem"));
+          if (isDisabledRemCategory(cat)) continue;
+          if (cat==remFQT) continue;
+          items.push_back(transliter(Qry.FieldAsString("rem"), 1, info.pr_lat));
+        };
+        
+        CheckIn::TPaxRemItem rem;
+        //билет
+        CheckIn::TPaxTknItem tkn;
+        LoadPaxTkn(pax.pax_id, tkn, Qry);
+        if (getPaxRem(info, tkn, rem)) items.push_back(rem.text);
+        //документ
+        CheckIn::TPaxDocItem doc;
+        LoadPaxDoc(pax.pax_id, doc, Qry);
+        if (getPaxRem(info, doc, rem)) items.push_back(rem.text);
+        //виза
+        CheckIn::TPaxDocoItem doco;
+        LoadPaxDoco(pax.pax_id, doco, Qry);
+        if (getPaxRem(info, doco, rem)) items.push_back(rem.text);
     }
 
     struct TPRLDest {
@@ -2829,6 +2860,7 @@ void TSSR::get(int pax_id)
             TSSRItem item;
             item.code = Qry.FieldAsString(col_rem_code);
             item.free_text = Qry.FieldAsString(col_rem);
+            if (isDisabledRem(item.code, item.free_text)) continue;
             if(item.code == item.free_text)
                 item.free_text.erase();
             else
@@ -3206,7 +3238,7 @@ void TTPM::ToTlg(TTlgInfo &info, vector<string> &body)
         int inf_count = 0;
         ostringstream buf, buf2;
         for(vector<TInfantsItem>::iterator infRow = infants.items.begin(); infRow != infants.items.end(); infRow++) {
-            if(infRow->grp_id == iv->grp_id and infRow->pax_id == iv->pax_id) {
+            if(infRow->grp_id == iv->grp_id and infRow->parent_pax_id == iv->pax_id) {
                 inf_count++;
                 if(!infRow->name.empty())
                     buf << "/" << transliter(infRow->name, 1, info.pr_lat);
@@ -4017,22 +4049,12 @@ struct TETLPax {
 
 void TRemList::get(TTlgInfo &info, TETLPax &pax)
 {
-    ostringstream buf;
-    buf
-        << "TKNE "
-        << pax.ticket_no << "/" << pax.coupon_no;
-    items.push_back(buf.str());
-    for(vector<TInfantsItem>::iterator infRow = infants->items.begin(); infRow != infants->items.end(); infRow++) {
-        if(infRow->ticket_rem != "TKNE")
-            continue;
-        if(infRow->grp_id == pax.grp_id and infRow->pax_id == pax.pax_id) {
-            buf.str("");
-            buf
-                << "TKNE INF"
-                << infRow->ticket_no << "/" << infRow->coupon_no;
-            items.push_back(buf.str());
-        }
-    }
+    CheckIn::TPaxRemItem rem;
+    //билет
+    CheckIn::TPaxTknItem tkn;
+    TQuery Qry(&OraSession);
+    LoadPaxTkn(pax.pax_id, tkn, Qry);
+    if (tkn.rem == "TKNE" and getPaxRem(info, tkn, rem)) items.push_back(rem.text);
 }
 
 
@@ -4058,6 +4080,76 @@ struct TFTLDest {
     string subcls;
     vector<TFTLPax> PaxList;
     void ToTlg(TTlgInfo &info, vector<string> &body);
+};
+
+bool getPaxRem(TTlgInfo &info, const CheckIn::TPaxTknItem &tkn, CheckIn::TPaxRemItem &rem)
+{
+  if (tkn.empty() || tkn.rem.empty()) return false;
+  rem.clear();
+  rem.code=tkn.rem;
+  ostringstream text;
+  text << rem.code << " HK1 " << (tkn.pr_inf?"INF":"") << tkn.no;
+  if (tkn.coupon!=ASTRA::NoExists)
+    text << "/" << tkn.coupon;
+  rem.text=text.str();
+  rem.calcPriority();
+  return true;
+};
+
+bool getPaxRem(TTlgInfo &info, const CheckIn::TPaxDocItem &doc, CheckIn::TPaxRemItem &rem)
+{
+  if (doc.empty()) return false;
+  rem.clear();
+  rem.code="DOCS";
+  ostringstream text;
+  text << rem.code
+       << " " << "HK1"
+       << "/" << (doc.type.empty()?"":info.TlgElemIdToElem(etPaxDocType, doc.type))
+       << "/" << (doc.issue_country.empty()?"":info.TlgElemIdToElem(etPaxDocCountry, doc.issue_country))
+       << "/" << doc.no
+       << "/" << (doc.nationality.empty()?"":info.TlgElemIdToElem(etPaxDocCountry, doc.nationality))
+       << "/" << (doc.birth_date!=ASTRA::NoExists?DateTimeToStr(doc.birth_date, "ddmmmyy", info.pr_lat):"")
+       << "/" << (doc.gender.empty()?"":info.TlgElemIdToElem(etGenderType, doc.gender))
+       << "/" << (doc.expiry_date!=ASTRA::NoExists?DateTimeToStr(doc.expiry_date, "ddmmmyy", info.pr_lat):"")
+       << "/" << transliter(doc.surname, 1, info.pr_lat)
+       << "/" << transliter(doc.first_name, 1, info.pr_lat)
+       << "/" << transliter(doc.second_name, 1, info.pr_lat)
+       << "/" << (doc.pr_multi?"H":"");
+  rem.text=text.str();
+  for(int i=rem.text.size()-1;i>=0;i--)
+    if (rem.text[i]!='/')
+    {
+      rem.text.erase(i+1);
+      break;
+    };
+  rem.calcPriority();
+  return true;
+};
+
+bool getPaxRem(TTlgInfo &info, const CheckIn::TPaxDocoItem &doco, CheckIn::TPaxRemItem &rem)
+{
+  if (doco.empty()) return false;
+  rem.clear();
+  rem.code="DOCO";
+  ostringstream text;
+  text << rem.code
+       << " " << "HK1"
+       << "/" << transliter(doco.birth_place, 1, info.pr_lat)
+       << "/" << (doco.type.empty()?"":info.TlgElemIdToElem(etPaxDocType, doco.type))
+       << "/" << doco.no
+       << "/" << transliter(doco.issue_place, 1, info.pr_lat)
+       << "/" << (doco.issue_date!=ASTRA::NoExists?DateTimeToStr(doco.issue_date, "ddmmmyy", info.pr_lat):"")
+       << "/" << (doco.applic_country.empty()?"":info.TlgElemIdToElem(etPaxDocCountry, doco.applic_country))
+       << "/" << (doco.pr_inf?"I":"");
+  rem.text=text.str();
+  for(int i=rem.text.size()-1;i>=0;i--)
+    if (rem.text[i]!='/')
+    {
+      rem.text.erase(i+1);
+      break;
+    };
+  rem.calcPriority();
+  return true;
 };
 
 void TRemList::internal_get(TTlgInfo &info, int pax_id, string subcls)
