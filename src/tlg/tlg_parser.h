@@ -73,6 +73,7 @@ enum TTlgElement
                SubSIMore,
                SubSeparator,
                SI,
+               SIMore,
                Reject,
                RepeatOfRejected,
                //общие
@@ -906,8 +907,8 @@ struct TDEI_8:TDEI {
     int DEI;
     std::string data;
     void parse(const char *val);
-    void dump() {};
-    bool empty() { return true; };
+    void dump();
+    bool empty() { return TRC != 0; };
     TDEI_8(): TDEI(8), TRC(0), DEI(ASTRA::NoExists) {};
 };
 
@@ -925,9 +926,15 @@ struct TSegment {
     void parse(const char *val);
 };
 
-struct TSSMSubMessage {
-    TActionIdentifier action_identifier;
+struct TActionInfo {
+    TActionIdentifier id;
     bool xasm;
+    void parse(char *val);
+    TActionInfo(): id(aiUnknown), xasm(false) {};
+};
+
+struct TSSMSubMessage {
+    TActionInfo ainfo;
     TFlightInformation flt_info;
     TPeriodFrequency period_frequency;
     TSSMFltInfo new_flt; // for FLT message only
@@ -936,13 +943,13 @@ struct TSSMSubMessage {
     std::vector<TSegment> segs;
     std::vector<std::string> si; // up to 3 items
     void dump();
-    TSSMSubMessage(): action_identifier(aiUnknown), xasm(false) {};
 };
 
 class TSSMContent
 {
     public:
         std::vector<TSSMSubMessage> msgs;
+        std::vector<std::string> si; // up to 3 items
         void Clear() {};
         void dump();
 };
