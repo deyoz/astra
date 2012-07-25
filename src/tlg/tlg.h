@@ -68,9 +68,15 @@ const char* DEF_CANON_NAME();
 const char* OWN_SITA_ADDR();
 const int HANDLER_PROC_ATTEMPTS();
 
+enum TTlgQueuePriority { qpOutA=1, qpOutAStepByStep=3, qpOutB=2 };
+
 bool deleteTlg(int tlg_id);
 bool errorTlg(int tlg_id, std::string type, std::string msg="");
-void sendTlg(const char* receiver, const char* sender, bool isEdi, int ttl, const std::string &text);
+void sendTlg(const char* receiver,
+             const char* sender,
+             TTlgQueuePriority queuePriority,
+             int ttl,
+             const std::string &text);
 void loadTlg(const std::string &text);
 bool procTlg(int tlg_id);
 //void sendErrorTlg(const char *format, ...);
@@ -80,6 +86,7 @@ bool waitCmd(const char* receiver, int msecs, const char* buf, int buflen);
 
 void sendCmdTlgHttpSnd();
 void sendCmdTlgSnd();
+void sendCmdTlgSndStepByStep();
 void sendCmdTypeBHandler();
 
 #endif
