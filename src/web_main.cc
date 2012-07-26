@@ -2021,13 +2021,29 @@ void verifyPaxTids( int pax_id, int crs_pnr_tid, int crs_pax_tid, int pax_grp_ti
   };
 }
 
-bool is_agent_checkin(const string &pnr_status)
+bool is_valid_pnr_status(const string &pnr_status)
 {
-  return (//pax.name=="CBBG" ||  надо спросить у Сергиенко
+  return !(//pax.name=="CBBG" ||  надо спросить у Сергиенко
      		   pnr_status=="DG2" ||
      		   pnr_status=="RG2" ||
      		   pnr_status=="ID2" ||
      		   pnr_status=="WL");
+};
+
+bool is_valid_doc_info(const TCheckDocInfo &checkDocInfo,
+                       const CheckIn::TPaxDocItem &doc,
+                       const CheckIn::TPaxDocoItem &doco)
+{
+  if ((checkDocInfo.first.required_fields&doc.getNotEmptyFieldsMask())!=checkDocInfo.first.required_fields) return false;
+  if ((checkDocInfo.second.required_fields&doco.getNotEmptyFieldsMask())!=checkDocInfo.second.required_fields) return false;
+  return true;
+};
+
+bool is_valid_tkn_info(const TCheckDocTknInfo &checkTknInfo,
+                       const CheckIn::TPaxTknItem &tkn)
+{
+  if ((checkTknInfo.required_fields&tkn.getNotEmptyFieldsMask())!=checkTknInfo.required_fields) return false;
+  return true;
 };
 
 void getPnr( int point_id, int pnr_id, vector<TWebPax> &pnr, bool pr_throw, bool afterSave )
@@ -2039,27 +2055,16 @@ void getPnr( int point_id, int pnr_id, vector<TWebPax> &pnr, bool pr_throw, bool
     if (!isTestPaxId(pnr_id))
     {
     	TQuery PaxDocQry(&OraSession);
-    	PaxDocQry.SQLText =
-    	 "SELECT birth_date "
-       "FROM pax_doc "
-       "WHERE pax_id=:pax_id AND "
-       "      birth_date IS NOT NULL ";
-      PaxDocQry.DeclareVariable( "pax_id", otInteger );
-
-    	TQuery CrsDocQry(&OraSession);
-    	CrsDocQry.SQLText =
-        "SELECT birth_date "
-        "FROM crs_pax_doc "
-        "WHERE pax_id=:pax_id AND "
-        "      birth_date IS NOT NULL "
-        "ORDER BY DECODE(type,'P',0,NULL,2,1),DECODE(rem_code,'DOCS',0,1),no";
-      CrsDocQry.DeclareVariable( "pax_id", otInteger );
+    	TQuery CrsPaxDocQry(&OraSession);
+    	TQuery GetPSPT2Qry(&OraSession);
+    	TQuery CrsPaxDocoQry(&OraSession);
 
       TQuery CrsTKNQry(&OraSession);
       CrsTKNQry.SQLText =
         "SELECT rem_code AS ticket_rem, "
         "       ticket_no, "
-        "       DECODE(rem_code,'TKNE',coupon_no,NULL) AS coupon_no "
+        "       DECODE(rem_code,'TKNE',coupon_no,NULL) AS coupon_no, "
+        "       0 AS ticket_confirm "
         "FROM crs_pax_tkn "
         "WHERE pax_id=:pax_id "
         "ORDER BY DECODE(rem_code,'TKNE',0,'TKNA',1,'TKNO',2,3),ticket_no,coupon_no";
@@ -2103,6 +2108,7 @@ void getPnr( int point_id, int pnr_id, vector<TWebPax> &pnr, bool pr_throw, bool
         "       DECODE(pax.pax_id,NULL,crs_pax.seats,pax.seats) AS seats, "
         "       DECODE(pax_grp.class,NULL,crs_pnr.class,pax_grp.class) AS class, "
         "       DECODE(pax.subclass,NULL,crs_pnr.subclass,pax.subclass) AS subclass, "
+        "       DECODE(pax.pax_id,NULL,crs_pnr.airp_arv,pax_grp.airp_arv) AS airp_arv, "
         "       crs_pnr.status AS pnr_status, "
         "       crs_pnr.tid AS crs_pnr_tid, "
         "       crs_pax.tid AS crs_pax_tid, "
@@ -2124,6 +2130,9 @@ void getPnr( int point_id, int pnr_id, vector<TWebPax> &pnr, bool pr_throw, bool
     	SeatQry.SetVariable("crs_row", 1);
     	SeatQry.SetVariable("layer_type", FNull);
       SeatQry.SetVariable("crs_seat_no", FNull);
+      TCheckDocInfo checkDocInfo;
+      TCheckDocTknInfo checkTknInfo;
+      bool checkInfoInit=false;
       for(;!Qry.Eof;Qry.Next())
       {
         TWebPax pax;
@@ -2165,10 +2174,9 @@ void getPnr( int point_id, int pnr_id, vector<TWebPax> &pnr, bool pr_throw, bool
         	  };
       	  };
       		pax.pax_id = Qry.FieldAsInteger( "pax_id" );
-       		PaxDocQry.SetVariable( "pax_id", pax.pax_id );
-       		PaxDocQry.Execute();
-       		if ( !PaxDocQry.Eof )
-       			pax.birth_date = PaxDocQry.FieldAsDateTime( "birth_date" );
+      		CheckIn::TPaxDocItem doc;
+      		LoadPaxDoc(pax.pax_id, doc, PaxDocQry);
+       		pax.birth_date = doc.birth_date;
        		pax.pr_eticket = strcmp(Qry.FieldAsString("ticket_rem"),"TKNE")==0;
        		pax.ticket_no	= Qry.FieldAsString("ticket_no");
        		FQTQry.SQLText=PaxFQTQrySQL;
@@ -2176,10 +2184,11 @@ void getPnr( int point_id, int pnr_id, vector<TWebPax> &pnr, bool pr_throw, bool
        	}
        	else {
       		pax.checkin_status = "not_checked";
-       		CrsDocQry.SetVariable( "pax_id", pax.crs_pax_id );
-       		CrsDocQry.Execute();
-       		if ( !CrsDocQry.Eof )
-       			pax.birth_date = CrsDocQry.FieldAsDateTime( "birth_date" );
+      		CheckIn::TPaxDocItem doc;
+      		LoadCrsPaxDoc(pax.crs_pax_id, doc, CrsPaxDocQry, GetPSPT2Qry);
+          pax.birth_date = doc.birth_date;
+          //ProgTrace(TRACE5, "getPnr: pax.crs_pax_id=%d doc.getNotEmptyFieldsMask=%ld", pax.crs_pax_id, doc.getNotEmptyFieldsMask());
+      		
        		//проверка CBBG (доп место багажа в салоне)
        		/*CrsPaxRemQry.SetVariable( "pax_id", pax.pax_id );
        		CrsPaxRemQry.SetVariable( "rem_code", "CBBG" );
@@ -2188,16 +2197,41 @@ void getPnr( int point_id, int pnr_id, vector<TWebPax> &pnr, bool pr_throw, bool
        		if (pax.name=="CBBG")
        		  pax.pers_type_extended = "БГ"; //CBBG
 
-          if (is_agent_checkin(Qry.FieldAsString("pnr_status")))
-            pax.checkin_status = "agent_checkin";
-
+          CheckIn::TPaxTknItem tkn;
        		CrsTKNQry.SetVariable( "pax_id", pax.crs_pax_id );
        		CrsTKNQry.Execute();
-       		if ( !CrsTKNQry.Eof )
+       		if (!CrsTKNQry.Eof)
        		{
-       		  pax.pr_eticket = strcmp(CrsTKNQry.FieldAsString("ticket_rem"),"TKNE")==0;
-       		  pax.ticket_no	= CrsTKNQry.FieldAsString("ticket_no");
+            tkn.fromDB(CrsTKNQry);
+       		  pax.pr_eticket = (tkn.rem=="TKNE");
+       		  pax.ticket_no = tkn.no;
        		};
+       		//ProgTrace(TRACE5, "getPnr: pax.crs_pax_id=%d tkn.getNotEmptyFieldsMask=%ld", pax.crs_pax_id, tkn.getNotEmptyFieldsMask());
+       		
+       		if (!is_valid_pnr_status(Qry.FieldAsString("pnr_status")))
+            pax.checkin_status = "agent_checkin";
+          else
+          {
+            CheckIn::TPaxDocoItem doco;
+      		  LoadCrsPaxDoco(pax.crs_pax_id, doco, CrsPaxDocoQry);
+      		  //ProgTrace(TRACE5, "getPnr: pax.crs_pax_id=%d doco.getNotEmptyFieldsMask=%ld", pax.crs_pax_id, doco.getNotEmptyFieldsMask());
+      		  if (!checkInfoInit)
+      		  {
+      		    checkDocInfo=GetCheckDocInfo(point_id, Qry.FieldAsString("airp_arv"));
+              checkTknInfo=GetCheckTknInfo(point_id);
+              checkInfoInit=true;
+              //ProgTrace(TRACE5, "getPnr: point_id=%d airp_arv=%s", point_id, Qry.FieldAsString("airp_arv"));
+              //ProgTrace(TRACE5, "getPnr: checkDocInfo.first.required_fields=%ld", checkDocInfo.first.required_fields);
+              //ProgTrace(TRACE5, "getPnr: checkDocInfo.second.required_fields=%ld", checkDocInfo.second.required_fields);
+              //ProgTrace(TRACE5, "getPnr: checkTknInfo.required_fields=%ld", checkTknInfo.required_fields);
+            };
+            if (!is_valid_doc_info(checkDocInfo, doc, doco))
+              pax.checkin_status = "agent_checkin";
+            else
+              if (!is_valid_tkn_info(checkTknInfo, tkn))
+                pax.checkin_status = "agent_checkin";
+          };
+       		
        		FQTQry.SQLText=CrsFQTQrySQL;
        		FQTQry.SetVariable( "pax_id", pax.crs_pax_id );
        	}
@@ -2959,18 +2993,7 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
   RemQry.DeclareVariable("pax_id",otInteger);
   
   TQuery PaxDocQry(&OraSession);
-  PaxDocQry.SQLText =
-    "SELECT type, issue_country, no, nationality, birth_date, gender, expiry_date, "
-    "       surname, first_name, second_name, pr_multi "
-    "FROM crs_pax_doc "
-    "WHERE pax_id=:pax_id AND no IS NOT NULL "
-    "ORDER BY DECODE(type,'P',0,NULL,2,1),DECODE(rem_code,'DOCS',0,1),no ";
-  PaxDocQry.DeclareVariable("pax_id",otInteger);
-  
   TQuery GetPSPT2Qry(&OraSession);
-  GetPSPT2Qry.SQLText =
-    "SELECT report.get_PSPT2(:pax_id) AS no FROM dual";
-  GetPSPT2Qry.DeclareVariable("pax_id",otInteger);
   
   seg_no=1;
   for(vector< pair<int, TWebPnrForSave > >::iterator s=segs.begin(); s!=segs.end(); s++, seg_no++)
@@ -3014,7 +3037,7 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
                     iPax->crs_pax_tid!=Qry.FieldAsInteger("crs_pax_tid"))
                   throw UserException("MSG.PASSENGER.CHANGED.REFRESH_DATA");
 
-                if (is_agent_checkin(Qry.FieldAsString("pnr_status")))
+                if (!is_valid_pnr_status(Qry.FieldAsString("pnr_status")))
                   throw UserException("MSG.PASSENGER.CHECKIN_DENIAL");
               }
               else
@@ -3090,21 +3113,7 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
               }
               else
               {
-                PaxDocQry.SetVariable("pax_id", pax.crs_pax_id);
-                PaxDocQry.Execute();
-                if (!PaxDocQry.Eof)
-                  pax.document.fromDB(PaxDocQry);
-                else
-                {
-                  pax.document.clear();
-
-                  GetPSPT2Qry.SetVariable("pax_id", pax.crs_pax_id);
-                  GetPSPT2Qry.Execute();
-                  if (!GetPSPT2Qry.Eof && !GetPSPT2Qry.FieldIsNULL("no"))
-                  {
-                    pax.document.no=GetPSPT2Qry.FieldAsString("no");
-                  };
-                };
+                LoadCrsPaxDoc(pax.crs_pax_id, pax.document, PaxDocQry, GetPSPT2Qry);
               };
     
               pax.subclass = Qry.FieldAsString("subclass");
@@ -4041,7 +4050,7 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
             pax.crs_pax_tid!=Qry.FieldAsInteger("crs_pax_tid"))
           throw UserException("MSG.PASSENGER.CHANGED.REFRESH_DATA");
 
-        if (is_agent_checkin(Qry.FieldAsString("pnr_status")))
+        if (!is_valid_pnr_status(Qry.FieldAsString("pnr_status")))
           throw UserException("MSG.PASSENGER.CHECKIN_DENIAL");
 
         if (pnr_id==NoExists)
