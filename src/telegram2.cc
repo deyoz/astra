@@ -4136,7 +4136,7 @@ bool getPaxRem(TTlgInfo &info, const CheckIn::TPaxDocoItem &doco, CheckIn::TPaxR
        << " " << "HK1"
        << "/" << transliter(doco.birth_place, 1, info.pr_lat)
        << "/" << (doco.type.empty()?"":info.TlgElemIdToElem(etPaxDocType, doco.type))
-       << "/" << doco.no
+       << "/" << convert_char_view(doco.no, info.pr_lat)
        << "/" << transliter(doco.issue_place, 1, info.pr_lat)
        << "/" << (doco.issue_date!=ASTRA::NoExists?DateTimeToStr(doco.issue_date, "ddmmmyy", info.pr_lat):"")
        << "/" << (doco.applic_country.empty()?"":info.TlgElemIdToElem(etPaxDocCountry, doco.applic_country))
