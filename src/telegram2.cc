@@ -4106,7 +4106,7 @@ bool getPaxRem(TTlgInfo &info, const CheckIn::TPaxDocItem &doc, CheckIn::TPaxRem
        << " " << "HK1"
        << "/" << (doc.type.empty()?"":info.TlgElemIdToElem(etPaxDocType, doc.type))
        << "/" << (doc.issue_country.empty()?"":info.TlgElemIdToElem(etPaxDocCountry, doc.issue_country))
-       << "/" << doc.no
+       << "/" << convert_char_view(doc.no, info.pr_lat)
        << "/" << (doc.nationality.empty()?"":info.TlgElemIdToElem(etPaxDocCountry, doc.nationality))
        << "/" << (doc.birth_date!=ASTRA::NoExists?DateTimeToStr(doc.birth_date, "ddmmmyy", info.pr_lat):"")
        << "/" << (doc.gender.empty()?"":info.TlgElemIdToElem(etGenderType, doc.gender))
@@ -4136,7 +4136,7 @@ bool getPaxRem(TTlgInfo &info, const CheckIn::TPaxDocoItem &doco, CheckIn::TPaxR
        << " " << "HK1"
        << "/" << transliter(doco.birth_place, 1, info.pr_lat)
        << "/" << (doco.type.empty()?"":info.TlgElemIdToElem(etPaxDocType, doco.type))
-       << "/" << doco.no
+       << "/" << convert_char_view(doco.no, info.pr_lat)
        << "/" << transliter(doco.issue_place, 1, info.pr_lat)
        << "/" << (doco.issue_date!=ASTRA::NoExists?DateTimeToStr(doco.issue_date, "ddmmmyy", info.pr_lat):"")
        << "/" << (doco.applic_country.empty()?"":info.TlgElemIdToElem(etPaxDocCountry, doco.applic_country))
