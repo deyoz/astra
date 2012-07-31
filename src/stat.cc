@@ -1710,6 +1710,7 @@ struct TStatParams {
     int flt_no;
     string desk;
     int user;
+    bool skip_rows;
     void get(xmlNodePtr resNode);
 };
 
@@ -2491,40 +2492,40 @@ void TStatParams::get(xmlNodePtr reqNode)
     //составим вектор доступных компаний
     if (ak.empty())
     {
-      //не указан фильтр по компании
-      airlines.assign(info.user.access.airlines.begin(),info.user.access.airlines.end());
-      airlines_permit=info.user.access.airlines_permit;
+        //не указан фильтр по компании
+        airlines.assign(info.user.access.airlines.begin(),info.user.access.airlines.end());
+        airlines_permit=info.user.access.airlines_permit;
     }
     else
     {
-      //проверим среди запрещенных/разрешенных
-      bool found=find( info.user.access.airlines.begin(),
-                       info.user.access.airlines.end(), ak ) != info.user.access.airlines.end();
-      if ( info.user.access.airlines_permit &&  found ||
-          !info.user.access.airlines_permit && !found) airlines.push_back(ak);
-      airlines_permit=true;
+        //проверим среди запрещенных/разрешенных
+        bool found=find( info.user.access.airlines.begin(),
+                info.user.access.airlines.end(), ak ) != info.user.access.airlines.end();
+        if ( info.user.access.airlines_permit &&  found ||
+                !info.user.access.airlines_permit && !found) airlines.push_back(ak);
+        airlines_permit=true;
     };
 
     //составим вектор доступных портов
     if (ap.empty())
     {
-      //не указан фильтр по компании
-      airps.assign(info.user.access.airps.begin(),info.user.access.airps.end());
-      airps_permit=info.user.access.airps_permit;
+        //не указан фильтр по компании
+        airps.assign(info.user.access.airps.begin(),info.user.access.airps.end());
+        airps_permit=info.user.access.airps_permit;
     }
     else
     {
-      //проверим среди запрещенных/разрешенных
-      bool found=find( info.user.access.airps.begin(),
-                       info.user.access.airps.end(), ap ) != info.user.access.airps.end();
-      if ( info.user.access.airps_permit &&  found ||
-          !info.user.access.airps_permit && !found) airps.push_back(ap);
-      airps_permit=true;
+        //проверим среди запрещенных/разрешенных
+        bool found=find( info.user.access.airps.begin(),
+                info.user.access.airps.end(), ap ) != info.user.access.airps.end();
+        if ( info.user.access.airps_permit &&  found ||
+                !info.user.access.airps_permit && !found) airps.push_back(ap);
+        airps_permit=true;
     };
 
     if (airlines.empty() && airlines_permit ||
-        airps.empty() && airps_permit)
-      throw AstraLocale::UserException("MSG.NO_ACCESS");
+            airps.empty() && airps_permit)
+        throw AstraLocale::UserException("MSG.NO_ACCESS");
 
     airp_column_first = (info.user.user_type == utAirport);
 
@@ -2535,33 +2536,41 @@ void TStatParams::get(xmlNodePtr reqNode)
     if (seance_str=="АП") seance=seanceAirport;
 
     bool all_seances_permit = find( info.user.access.rights.begin(),
-                                    info.user.access.rights.end(), 615 ) != info.user.access.rights.end();
+            info.user.access.rights.end(), 615 ) != info.user.access.rights.end();
 
     if (USE_SEANCES() || info.desk.compatible(AIRL_AIRP_STAT_VERSION))
     {
-      if (info.user.user_type != utSupport && !all_seances_permit)
-      {
-        if (info.user.user_type == utAirline)
-          seance=seanceAirline;
-        else
-          seance=seanceAirport;
-      };
+        if (info.user.user_type != utSupport && !all_seances_permit)
+        {
+            if (info.user.user_type == utAirline)
+                seance=seanceAirline;
+            else
+                seance=seanceAirport;
+        };
     }
     else
     {
-      if (!ak.empty()) seance=seanceAirline;
-      if (!ap.empty()) seance=seanceAirport;
+        if (!ak.empty()) seance=seanceAirline;
+        if (!ap.empty()) seance=seanceAirport;
     };
 
     if (!USE_SEANCES() && seance==seanceAirline)
     {
-      if (!airlines_permit) throw UserException("MSG.NEED_SET_CODE_AIRLINE");
+        if (!airlines_permit) throw UserException("MSG.NEED_SET_CODE_AIRLINE");
     };
 
     if (!USE_SEANCES() && seance==seanceAirport)
     {
-      if (!airps_permit) throw UserException("MSG.NEED_SET_CODE_AIRP");
+        if (!airps_permit) throw UserException("MSG.NEED_SET_CODE_AIRP");
     };
+
+    skip_rows = 
+        info.user.user_type == utAirline and
+        statType == statTrferFull and
+        ak.empty() and
+        ap.empty() and
+        flt_no == NoExists and
+        seance == seanceAll;
 };
 
 struct TDetailStatRow {
@@ -3152,6 +3161,7 @@ void createXMLFullStat(const TStatParams &params, const TFullStat &FullStat, con
         int total_excess = 0;
 
         int count = 0;
+
         for(TFullStat::const_iterator im = FullStat.begin(); im != FullStat.end(); im++) {
             string region;
             try
@@ -3164,9 +3174,6 @@ void createXMLFullStat(const TStatParams &params, const TFullStat &FullStat, con
                 continue;
             };
 
-            rowNode = NewTextChild(rowsNode, "row");
-            NewTextChild(rowNode, "col", im->first.col1);
-            NewTextChild(rowNode, "col", im->first.col2);
 
             total_pax_amount += im->second.pax_amount;
             if (params.statType==statFull)
@@ -3182,32 +3189,37 @@ void createXMLFullStat(const TStatParams &params, const TFullStat &FullStat, con
             total_bag_weight += im->second.bag_weight;
             total_excess += im->second.excess;
 
-            NewTextChild(rowNode, "col", im->first.flt_no);
-            NewTextChild(rowNode, "col", DateTimeToStr(
-                        UTCToClient(im->first.scd_out, region), "dd.mm.yy")
-                    );
-            NewTextChild(rowNode, "col", im->first.places.get());
-            if (USE_SEANCES())
-              NewTextChild(rowNode, "col", getLocaleText(im->first.seance));
-            NewTextChild(rowNode, "col", im->second.pax_amount);
-            if (params.statType==statFull)
-            {
-              NewTextChild(rowNode, "col", im->second.web);
-              NewTextChild(rowNode, "col", im->second.kiosk);
-            };
-            NewTextChild(rowNode, "col", im->second.adult);
-            NewTextChild(rowNode, "col", im->second.child);
-            NewTextChild(rowNode, "col", im->second.baby);
-            NewTextChild(rowNode, "col", im->second.rk_weight);
-            NewTextChild(rowNode, "col", IntToString(im->second.bag_amount) + "/" + IntToString(im->second.bag_weight));
-            NewTextChild(rowNode, "col", im->second.excess);
-            if (params.statType==statTrferFull)
-              NewTextChild(rowNode, "col", im->first.point_id);
-            count++;
-            if(count > MAX_STAT_ROWS) {
-                AstraLocale::showErrorMessage("MSG.TOO_MANY_FLIGHTS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_SEARCH",
-                        LParams() << LParam("num", MAX_STAT_ROWS));
-                break;
+            if(not params.skip_rows) {
+                rowNode = NewTextChild(rowsNode, "row");
+                NewTextChild(rowNode, "col", im->first.col1);
+                NewTextChild(rowNode, "col", im->first.col2);
+                NewTextChild(rowNode, "col", im->first.flt_no);
+                NewTextChild(rowNode, "col", DateTimeToStr(
+                            UTCToClient(im->first.scd_out, region), "dd.mm.yy")
+                        );
+                NewTextChild(rowNode, "col", im->first.places.get());
+                if (USE_SEANCES())
+                    NewTextChild(rowNode, "col", getLocaleText(im->first.seance));
+                NewTextChild(rowNode, "col", im->second.pax_amount);
+                if (params.statType==statFull)
+                {
+                    NewTextChild(rowNode, "col", im->second.web);
+                    NewTextChild(rowNode, "col", im->second.kiosk);
+                };
+                NewTextChild(rowNode, "col", im->second.adult);
+                NewTextChild(rowNode, "col", im->second.child);
+                NewTextChild(rowNode, "col", im->second.baby);
+                NewTextChild(rowNode, "col", im->second.rk_weight);
+                NewTextChild(rowNode, "col", IntToString(im->second.bag_amount) + "/" + IntToString(im->second.bag_weight));
+                NewTextChild(rowNode, "col", im->second.excess);
+                if (params.statType==statTrferFull)
+                    NewTextChild(rowNode, "col", im->first.point_id);
+                count++;
+                if(count > MAX_STAT_ROWS) {
+                    AstraLocale::showErrorMessage("MSG.TOO_MANY_FLIGHTS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_SEARCH",
+                            LParams() << LParam("num", MAX_STAT_ROWS));
+                    break;
+                }
             }
         };
         rowNode = NewTextChild(rowsNode, "row");
