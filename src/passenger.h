@@ -17,35 +17,37 @@ class TPaxTknItem
     std::string rem;
     bool confirm;
     bool pr_inf;
-  TPaxTknItem()
-  {
-    clear();
-  };
-  void clear()
-  {
-    no.clear();
-    coupon=ASTRA::NoExists;
-    rem.clear();
-    confirm=false;
-    pr_inf=false;
-  };
-  bool empty() const
-  {
-    return no.empty() &&
-           coupon==ASTRA::NoExists &&
-           rem.empty();
-  };
-  bool operator == (const TPaxTknItem &item) const
-  {
-    return  no == item.no &&
-            coupon == item.coupon &&
-            rem == item.rem &&
-            confirm == item.confirm;
-  };
-  const TPaxTknItem& toXML(xmlNodePtr node) const;
-  TPaxTknItem& fromXML(xmlNodePtr node);
-  const TPaxTknItem& toDB(TQuery &Qry) const;
-  TPaxTknItem& fromDB(TQuery &Qry);
+    TPaxTknItem()
+    {
+      clear();
+    };
+    void clear()
+    {
+      no.clear();
+      coupon=ASTRA::NoExists;
+      rem.clear();
+      confirm=false;
+      pr_inf=false;
+    };
+    bool empty() const
+    {
+      return no.empty() &&
+             coupon==ASTRA::NoExists &&
+             rem.empty();
+    };
+    bool operator == (const TPaxTknItem &item) const
+    {
+      return  no == item.no &&
+              coupon == item.coupon &&
+              rem == item.rem &&
+              confirm == item.confirm;
+    };
+    const TPaxTknItem& toXML(xmlNodePtr node) const;
+    TPaxTknItem& fromXML(xmlNodePtr node);
+    const TPaxTknItem& toDB(TQuery &Qry) const;
+    TPaxTknItem& fromDB(TQuery &Qry);
+    
+    long int getNotEmptyFieldsMask() const;
 };
 
 bool LoadPaxTkn(int pax_id, TPaxTknItem &tkn, TQuery& PaxTknQry);
@@ -114,6 +116,8 @@ class TPaxDocItem
     TPaxDocItem& fromXML(xmlNodePtr node);
     const TPaxDocItem& toDB(TQuery &Qry) const;
     TPaxDocItem& fromDB(TQuery &Qry);
+    
+    long int getNotEmptyFieldsMask() const;
 };
 
 class TPaxDocoItem
@@ -168,12 +172,16 @@ class TPaxDocoItem
     TPaxDocoItem& fromXML(xmlNodePtr node);
     const TPaxDocoItem& toDB(TQuery &Qry) const;
     TPaxDocoItem& fromDB(TQuery &Qry);
+    
+    long int getNotEmptyFieldsMask() const;
 };
 
 void LoadPaxDoc(TQuery& PaxDocQry, xmlNodePtr paxNode);
 void LoadPaxDoco(TQuery& PaxDocQry, xmlNodePtr paxNode);
 bool LoadPaxDoc(int pax_id, TPaxDocItem &doc, TQuery& PaxDocQry);
 bool LoadPaxDoco(int pax_id, TPaxDocoItem &doc, TQuery& PaxDocQry);
+bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc, TQuery& PaxDocQry, TQuery& GetPSPT2Qry);
+bool LoadCrsPaxDoco(int pax_id, TPaxDocoItem &doc, TQuery& PaxDocQry);
 void SavePaxDoc(int pax_id, xmlNodePtr docNode, TQuery& PaxDocQry);
 void SavePaxDoco(int pax_id, xmlNodePtr docNode, TQuery& PaxDocQry);
 

@@ -71,6 +71,14 @@ TPaxTknItem& TPaxTknItem::fromDB(TQuery &Qry)
   return *this;
 };
 
+long int TPaxTknItem::getNotEmptyFieldsMask() const
+{
+  long int result=0x0000;
+
+  if (!no.empty()) result|=TKN_TICKET_NO_FIELD;
+  return result;
+};
+
 bool LoadPaxTkn(int pax_id, TPaxTknItem &tkn, TQuery& PaxTknQry)
 {
   tkn.clear();
@@ -205,6 +213,23 @@ TPaxDocItem& TPaxDocItem::fromDB(TQuery &Qry)
   return *this;
 };
 
+long int TPaxDocItem::getNotEmptyFieldsMask() const
+{
+  long int result=0x0000;
+  
+  if (!type.empty()) result|=DOC_TYPE_FIELD;
+  if (!issue_country.empty()) result|=DOC_ISSUE_COUNTRY_FIELD;
+  if (!no.empty()) result|=DOC_NO_FIELD;
+  if (!nationality.empty()) result|=DOC_NATIONALITY_FIELD;
+  if (birth_date!=ASTRA::NoExists) result|=DOC_BIRTH_DATE_FIELD;
+  if (!gender.empty()) result|=DOC_GENDER_FIELD;
+  if (expiry_date!=ASTRA::NoExists) result|=DOC_EXPIRY_DATE_FIELD;
+  if (!surname.empty()) result|=DOC_SURNAME_FIELD;
+  if (!first_name.empty()) result|=DOC_FIRST_NAME_FIELD;
+  if (!second_name.empty()) result|=DOC_SECOND_NAME_FIELD;
+  return result;
+};
+
 const TPaxDocoItem& TPaxDocoItem::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return *this;
@@ -281,6 +306,20 @@ TPaxDocoItem& TPaxDocoItem::fromDB(TQuery &Qry)
   return *this;
 };
 
+long int TPaxDocoItem::getNotEmptyFieldsMask() const
+{
+  long int result=0x0000;
+
+  if (!birth_place.empty()) result|=DOCO_BIRTH_PLACE_FIELD;
+  if (!type.empty()) result|=DOCO_TYPE_FIELD;
+  if (!no.empty()) result|=DOCO_NO_FIELD;
+  if (!issue_place.empty()) result|=DOCO_ISSUE_PLACE_FIELD;
+  if (issue_date!=ASTRA::NoExists) result|=DOCO_ISSUE_DATE_FIELD;
+  if (expiry_date!=ASTRA::NoExists) result|=DOCO_EXPIRY_DATE_FIELD;
+  if (!applic_country.empty()) result|=DOCO_APPLIC_COUNTRY_FIELD;
+  return result;
+};
+
 void LoadPaxDoc(TQuery& PaxDocQry, xmlNodePtr paxNode)
 {
   if (PaxDocQry.Eof || paxNode==NULL) return;
@@ -310,11 +349,69 @@ bool LoadPaxDoc(int pax_id, TPaxDocItem &doc, TQuery& PaxDocQry)
   return !doc.empty();
 };
 
+bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc, TQuery& PaxDocQry, TQuery& GetPSPT2Qry)
+{
+  doc.clear();
+  const char* sql1=
+    "SELECT * "
+    "FROM crs_pax_doc "
+    "WHERE pax_id=:pax_id AND no IS NOT NULL "
+    "ORDER BY DECODE(type,'P',0,NULL,2,1),DECODE(rem_code,'DOCS',0,1),no ";
+  const char* sql2=
+    "SELECT report.get_PSPT2(:pax_id) AS no FROM dual";
+  
+  if (strcmp(PaxDocQry.SQLText.SQLText(),sql1)!=0)
+  {
+    PaxDocQry.Clear();
+    PaxDocQry.SQLText=sql1;
+    PaxDocQry.DeclareVariable("pax_id",otInteger);
+  };
+  PaxDocQry.SetVariable("pax_id", pax_id);
+  PaxDocQry.Execute();
+  if (!PaxDocQry.Eof) doc.fromDB(PaxDocQry);
+  else
+  {
+    if (strcmp(GetPSPT2Qry.SQLText.SQLText(),sql2)!=0)
+    {
+      GetPSPT2Qry.Clear();
+      GetPSPT2Qry.SQLText=sql2;
+      GetPSPT2Qry.DeclareVariable("pax_id",otInteger);
+    };
+    GetPSPT2Qry.SetVariable("pax_id", pax_id);
+    GetPSPT2Qry.Execute();
+    if (!GetPSPT2Qry.Eof && !GetPSPT2Qry.FieldIsNULL("no"))
+    {
+      doc.no=GetPSPT2Qry.FieldAsString("no");
+    };
+  };
+  return !doc.empty();
+};
+
 bool LoadPaxDoco(int pax_id, TPaxDocoItem &doc, TQuery& PaxDocQry)
 {
   doc.clear();
   const char* sql=
     "SELECT * FROM pax_doco WHERE pax_id=:pax_id";
+  if (strcmp(PaxDocQry.SQLText.SQLText(),sql)!=0)
+  {
+    PaxDocQry.Clear();
+    PaxDocQry.SQLText=sql;
+    PaxDocQry.DeclareVariable("pax_id",otInteger);
+  };
+  PaxDocQry.SetVariable("pax_id",pax_id);
+  PaxDocQry.Execute();
+  if (!PaxDocQry.Eof) doc.fromDB(PaxDocQry);
+  return !doc.empty();
+};
+
+bool LoadCrsPaxDoco(int pax_id, TPaxDocoItem &doc, TQuery& PaxDocQry)
+{
+  doc.clear();
+  const char* sql=
+    "SELECT birth_place, type, no, issue_place, issue_date, NULL AS expiry_date, applic_country, pr_inf "
+    "FROM crs_pax_doco "
+    "WHERE pax_id=:pax_id AND rem_code='DOCO' AND type='V' "
+    "ORDER BY no ";
   if (strcmp(PaxDocQry.SQLText.SQLText(),sql)!=0)
   {
     PaxDocQry.Clear();
