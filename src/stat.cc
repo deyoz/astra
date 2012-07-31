@@ -2565,6 +2565,7 @@ void TStatParams::get(xmlNodePtr reqNode)
     };
 
     skip_rows = 
+        info.user.user_type == utAirline and
         statType == statTrferFull and
         ak.empty() and
         ap.empty() and
