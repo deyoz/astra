@@ -1682,6 +1682,7 @@ xmlNodePtr STAT::set_variables(xmlNodePtr resNode, string lang)
                 << LParam("term", reqInfo->desk.code),
                 lang
                 ));
+    NewTextChild(variablesNode, "skip_header", 0);
     return variablesNode;
 }
 
@@ -3024,7 +3025,7 @@ void createXMLDetailStat(const TStatParams &params, bool pr_pact, const TDetailS
             NewTextChild(rowNode, "col", si->first.col1);
             if (params.statType==statDetail)
                 NewTextChild(rowNode, "col", si->first.col2);
-                
+
             total_flt_amount += (si->second.flt_amount == NoExists?si->second.flts.size():si->second.flt_amount);
             total_pax_amount += si->second.pax_amount;
             total_web += si->second.web;
