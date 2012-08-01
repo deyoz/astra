@@ -3019,33 +3019,31 @@ void createXMLDetailStat(const TStatParams &params, bool pr_pact, const TDetailS
         int total_pax_amount = 0;
         int total_web = 0;
         int total_kiosk = 0;
-        for(int i = 0; i < 1000; i++) { // !!!
-            int count = 0;
-            for(TDetailStat::const_iterator si = DetailStat.begin(); si != DetailStat.end(); si++) {
-                rowNode = NewTextChild(rowsNode, "row");
-                NewTextChild(rowNode, "col", si->first.col1);
-                if (params.statType==statDetail)
-                    NewTextChild(rowNode, "col", si->first.col2);
+        int count = 0;
+        for(TDetailStat::const_iterator si = DetailStat.begin(); si != DetailStat.end(); si++) {
+            rowNode = NewTextChild(rowsNode, "row");
+            NewTextChild(rowNode, "col", si->first.col1);
+            if (params.statType==statDetail)
+                NewTextChild(rowNode, "col", si->first.col2);
 
-                total_flt_amount += (si->second.flt_amount == NoExists?si->second.flts.size():si->second.flt_amount);
-                total_pax_amount += si->second.pax_amount;
-                total_web += si->second.web;
-                total_kiosk += si->second.kiosk;
+            total_flt_amount += (si->second.flt_amount == NoExists?si->second.flts.size():si->second.flt_amount);
+            total_pax_amount += si->second.pax_amount;
+            total_web += si->second.web;
+            total_kiosk += si->second.kiosk;
 
-                if (USE_SEANCES())
-                    NewTextChild(rowNode, "col", getLocaleText(si->first.seance));
-                NewTextChild(rowNode, "col", (int)(si->second.flt_amount == NoExists?si->second.flts.size():si->second.flt_amount));
-                NewTextChild(rowNode, "col", si->second.pax_amount);
-                NewTextChild(rowNode, "col", si->second.web);
-                NewTextChild(rowNode, "col", si->second.kiosk);
-                if(pr_pact)
-                    NewTextChild(rowNode, "col", si->first.pact_descr);
-                count++;
-                if(count > MAX_STAT_ROWS) {
-                    AstraLocale::showErrorMessage("MSG.TOO_MANY_FLIGHTS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_SEARCH",
-                            LParams() << LParam("num", MAX_STAT_ROWS));
-                    break;
-                }
+            if (USE_SEANCES())
+                NewTextChild(rowNode, "col", getLocaleText(si->first.seance));
+            NewTextChild(rowNode, "col", (int)(si->second.flt_amount == NoExists?si->second.flts.size():si->second.flt_amount));
+            NewTextChild(rowNode, "col", si->second.pax_amount);
+            NewTextChild(rowNode, "col", si->second.web);
+            NewTextChild(rowNode, "col", si->second.kiosk);
+            if(pr_pact)
+                NewTextChild(rowNode, "col", si->first.pact_descr);
+            count++;
+            if(count > MAX_STAT_ROWS) {
+                AstraLocale::showErrorMessage("MSG.TOO_MANY_FLIGHTS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_SEARCH",
+                        LParams() << LParam("num", MAX_STAT_ROWS));
+                break;
             }
         }
         rowNode = NewTextChild(rowsNode, "row");
