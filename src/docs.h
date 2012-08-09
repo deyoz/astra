@@ -13,8 +13,8 @@ enum TSortType {stRegNo, stSurname, stSeatNo};
 struct TRptParams {
     private:
         bool route_inter;
-        std::string route_country_lang; //╤П╨╖╤Л╨║ ╤Б╤В╤А╨░╨╜╤Л, ╨│╨┤╨╡ ╨▓╤Л╨┐╨╛╨╗╨╜╤П╨╡╤В╤Б╤П ╨▓╨╜╤Г╤В╤А╨╡╨╜╨╜╨╕╨╣ ╤А╨╡╨╣╤Б
-        std::string req_lang; // ╨п╨╖╤Л╨║, ╨╖╨░╤В╤А╨╡╨▒╨╛╨▓╨░╨╜╨╜╤Л╨╣ ╤Б ╨║╨╗╨╕╨╡╨╜╤В╨░, ╨╡╤Б╨╗╨╕ ╨┐╤Г╤Б╤В╨╛╨╣, ╤В╨╛ ╨▓╤Л╤З╨╕╤Б╨╗╤П╨╡╨╝ ╤П╨╖╤Л╨║ ╨╜╨░ ╨╛╤Б╨╜╨╛╨▓╨╡ ╨╝╨░╤А╤И╤А╤Г╤В╨░
+        std::string route_country_lang; //язык страны, где выполняется внутренний рейс
+        std::string req_lang; // Язык, затребованный с клиента, если пустой, то вычисляем язык на основе маршрута
         std::string GetLang(TElemFmt &fmt, std::string firm_lang) const;
     public:
         TSortType sort;

@@ -1682,6 +1682,7 @@ xmlNodePtr STAT::set_variables(xmlNodePtr resNode, string lang)
                 << LParam("term", reqInfo->desk.code),
                 lang
                 ));
+    NewTextChild(variablesNode, "skip_header", 0);
     return variablesNode;
 }
 
@@ -1694,7 +1695,8 @@ enum TStatType {
     statKioskShort,
     statKioskDetail,
     statAgentFull,
-    statAgentShort
+    statAgentShort,
+    statAgentTotal
 };
 
 enum TSeanceType { seanceAirline, seanceAirport, seanceAll };
@@ -1709,6 +1711,7 @@ struct TStatParams {
     int flt_no;
     string desk;
     int user;
+    bool skip_rows;
     void get(xmlNodePtr resNode);
 };
 
@@ -2465,6 +2468,8 @@ void TStatParams::get(xmlNodePtr reqNode)
             statType=statAgentFull;
         else if(name == "Общая")
             statType=statAgentShort;
+        else if(name == "Итого")
+            statType=statAgentTotal;
         else
             throw Exception("Unknown stat mode " + name);
     } else
@@ -2488,40 +2493,40 @@ void TStatParams::get(xmlNodePtr reqNode)
     //составим вектор доступных компаний
     if (ak.empty())
     {
-      //не указан фильтр по компании
-      airlines.assign(info.user.access.airlines.begin(),info.user.access.airlines.end());
-      airlines_permit=info.user.access.airlines_permit;
+        //не указан фильтр по компании
+        airlines.assign(info.user.access.airlines.begin(),info.user.access.airlines.end());
+        airlines_permit=info.user.access.airlines_permit;
     }
     else
     {
-      //проверим среди запрещенных/разрешенных
-      bool found=find( info.user.access.airlines.begin(),
-                       info.user.access.airlines.end(), ak ) != info.user.access.airlines.end();
-      if ( info.user.access.airlines_permit &&  found ||
-          !info.user.access.airlines_permit && !found) airlines.push_back(ak);
-      airlines_permit=true;
+        //проверим среди запрещенных/разрешенных
+        bool found=find( info.user.access.airlines.begin(),
+                info.user.access.airlines.end(), ak ) != info.user.access.airlines.end();
+        if ( info.user.access.airlines_permit &&  found ||
+                !info.user.access.airlines_permit && !found) airlines.push_back(ak);
+        airlines_permit=true;
     };
 
     //составим вектор доступных портов
     if (ap.empty())
     {
-      //не указан фильтр по компании
-      airps.assign(info.user.access.airps.begin(),info.user.access.airps.end());
-      airps_permit=info.user.access.airps_permit;
+        //не указан фильтр по компании
+        airps.assign(info.user.access.airps.begin(),info.user.access.airps.end());
+        airps_permit=info.user.access.airps_permit;
     }
     else
     {
-      //проверим среди запрещенных/разрешенных
-      bool found=find( info.user.access.airps.begin(),
-                       info.user.access.airps.end(), ap ) != info.user.access.airps.end();
-      if ( info.user.access.airps_permit &&  found ||
-          !info.user.access.airps_permit && !found) airps.push_back(ap);
-      airps_permit=true;
+        //проверим среди запрещенных/разрешенных
+        bool found=find( info.user.access.airps.begin(),
+                info.user.access.airps.end(), ap ) != info.user.access.airps.end();
+        if ( info.user.access.airps_permit &&  found ||
+                !info.user.access.airps_permit && !found) airps.push_back(ap);
+        airps_permit=true;
     };
 
     if (airlines.empty() && airlines_permit ||
-        airps.empty() && airps_permit)
-      throw AstraLocale::UserException("MSG.NO_ACCESS");
+            airps.empty() && airps_permit)
+        throw AstraLocale::UserException("MSG.NO_ACCESS");
 
     airp_column_first = (info.user.user_type == utAirport);
 
@@ -2532,33 +2537,41 @@ void TStatParams::get(xmlNodePtr reqNode)
     if (seance_str=="АП") seance=seanceAirport;
 
     bool all_seances_permit = find( info.user.access.rights.begin(),
-                                    info.user.access.rights.end(), 615 ) != info.user.access.rights.end();
+            info.user.access.rights.end(), 615 ) != info.user.access.rights.end();
 
     if (USE_SEANCES() || info.desk.compatible(AIRL_AIRP_STAT_VERSION))
     {
-      if (info.user.user_type != utSupport && !all_seances_permit)
-      {
-        if (info.user.user_type == utAirline)
-          seance=seanceAirline;
-        else
-          seance=seanceAirport;
-      };
+        if (info.user.user_type != utSupport && !all_seances_permit)
+        {
+            if (info.user.user_type == utAirline)
+                seance=seanceAirline;
+            else
+                seance=seanceAirport;
+        };
     }
     else
     {
-      if (!ak.empty()) seance=seanceAirline;
-      if (!ap.empty()) seance=seanceAirport;
+        if (!ak.empty()) seance=seanceAirline;
+        if (!ap.empty()) seance=seanceAirport;
     };
 
     if (!USE_SEANCES() && seance==seanceAirline)
     {
-      if (!airlines_permit) throw UserException("MSG.NEED_SET_CODE_AIRLINE");
+        if (!airlines_permit) throw UserException("MSG.NEED_SET_CODE_AIRLINE");
     };
 
     if (!USE_SEANCES() && seance==seanceAirport)
     {
-      if (!airps_permit) throw UserException("MSG.NEED_SET_CODE_AIRP");
+        if (!airps_permit) throw UserException("MSG.NEED_SET_CODE_AIRP");
     };
+
+    skip_rows = 
+        info.user.user_type == utAirline and
+        statType == statTrferFull and
+        ak.empty() and
+        ap.empty() and
+        flt_no == NoExists and
+        seance == seanceAll;
 };
 
 struct TDetailStatRow {
@@ -3012,7 +3025,7 @@ void createXMLDetailStat(const TStatParams &params, bool pr_pact, const TDetailS
             NewTextChild(rowNode, "col", si->first.col1);
             if (params.statType==statDetail)
                 NewTextChild(rowNode, "col", si->first.col2);
-                
+
             total_flt_amount += (si->second.flt_amount == NoExists?si->second.flts.size():si->second.flt_amount);
             total_pax_amount += si->second.pax_amount;
             total_web += si->second.web;
@@ -3149,6 +3162,7 @@ void createXMLFullStat(const TStatParams &params, const TFullStat &FullStat, con
         int total_excess = 0;
 
         int count = 0;
+
         for(TFullStat::const_iterator im = FullStat.begin(); im != FullStat.end(); im++) {
             string region;
             try
@@ -3161,9 +3175,6 @@ void createXMLFullStat(const TStatParams &params, const TFullStat &FullStat, con
                 continue;
             };
 
-            rowNode = NewTextChild(rowsNode, "row");
-            NewTextChild(rowNode, "col", im->first.col1);
-            NewTextChild(rowNode, "col", im->first.col2);
 
             total_pax_amount += im->second.pax_amount;
             if (params.statType==statFull)
@@ -3179,32 +3190,37 @@ void createXMLFullStat(const TStatParams &params, const TFullStat &FullStat, con
             total_bag_weight += im->second.bag_weight;
             total_excess += im->second.excess;
 
-            NewTextChild(rowNode, "col", im->first.flt_no);
-            NewTextChild(rowNode, "col", DateTimeToStr(
-                        UTCToClient(im->first.scd_out, region), "dd.mm.yy")
-                    );
-            NewTextChild(rowNode, "col", im->first.places.get());
-            if (USE_SEANCES())
-              NewTextChild(rowNode, "col", getLocaleText(im->first.seance));
-            NewTextChild(rowNode, "col", im->second.pax_amount);
-            if (params.statType==statFull)
-            {
-              NewTextChild(rowNode, "col", im->second.web);
-              NewTextChild(rowNode, "col", im->second.kiosk);
-            };
-            NewTextChild(rowNode, "col", im->second.adult);
-            NewTextChild(rowNode, "col", im->second.child);
-            NewTextChild(rowNode, "col", im->second.baby);
-            NewTextChild(rowNode, "col", im->second.rk_weight);
-            NewTextChild(rowNode, "col", IntToString(im->second.bag_amount) + "/" + IntToString(im->second.bag_weight));
-            NewTextChild(rowNode, "col", im->second.excess);
-            if (params.statType==statTrferFull)
-              NewTextChild(rowNode, "col", im->first.point_id);
-            count++;
-            if(count > MAX_STAT_ROWS) {
-                AstraLocale::showErrorMessage("MSG.TOO_MANY_FLIGHTS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_SEARCH",
-                        LParams() << LParam("num", MAX_STAT_ROWS));
-                break;
+            if(not params.skip_rows) {
+                rowNode = NewTextChild(rowsNode, "row");
+                NewTextChild(rowNode, "col", im->first.col1);
+                NewTextChild(rowNode, "col", im->first.col2);
+                NewTextChild(rowNode, "col", im->first.flt_no);
+                NewTextChild(rowNode, "col", DateTimeToStr(
+                            UTCToClient(im->first.scd_out, region), "dd.mm.yy")
+                        );
+                NewTextChild(rowNode, "col", im->first.places.get());
+                if (USE_SEANCES())
+                    NewTextChild(rowNode, "col", getLocaleText(im->first.seance));
+                NewTextChild(rowNode, "col", im->second.pax_amount);
+                if (params.statType==statFull)
+                {
+                    NewTextChild(rowNode, "col", im->second.web);
+                    NewTextChild(rowNode, "col", im->second.kiosk);
+                };
+                NewTextChild(rowNode, "col", im->second.adult);
+                NewTextChild(rowNode, "col", im->second.child);
+                NewTextChild(rowNode, "col", im->second.baby);
+                NewTextChild(rowNode, "col", im->second.rk_weight);
+                NewTextChild(rowNode, "col", IntToString(im->second.bag_amount) + "/" + IntToString(im->second.bag_weight));
+                NewTextChild(rowNode, "col", im->second.excess);
+                if (params.statType==statTrferFull)
+                    NewTextChild(rowNode, "col", im->first.point_id);
+                count++;
+                if(count > MAX_STAT_ROWS) {
+                    AstraLocale::showErrorMessage("MSG.TOO_MANY_FLIGHTS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_SEARCH",
+                            LParams() << LParam("num", MAX_STAT_ROWS));
+                    break;
+                }
             }
         };
         rowNode = NewTextChild(rowsNode, "row");
@@ -4221,21 +4237,31 @@ void RunAgentStat(const TStatParams &params, TAgentStat &AgentStat, TPrintAirlin
                 STAT::agent_stat_t drk_weight(Qry.FieldAsInteger(col_rk_we_inc), Qry.FieldAsInteger(col_rk_we_dec));
 
                 TAgentStatKey key;
-                key.point_id = Qry.FieldAsInteger(col_point_id);
-                key.airline_view = ElemIdToCodeNative(etAirline, airline);
-                key.flt_no = Qry.FieldAsInteger(col_flt_no);
-                key.suffix_view = ElemIdToCodeNative(etSuffix, Qry.FieldAsString(col_suffix));
-                key.airp = Qry.FieldAsString(col_airp);
-                key.airp_view = ElemIdToCodeNative(etAirp, key.airp);
-                key.scd_out = Qry.FieldAsDateTime(col_scd_out);
-                try
-                {
-                    key.scd_out_local = UTCToClient(key.scd_out, AirpTZRegion(key.airp));
+                if(
+                        params.statType == statAgentFull or
+                        params.statType == statAgentShort
+                        ) {
+                    key.point_id = Qry.FieldAsInteger(col_point_id);
+                    key.airline_view = ElemIdToCodeNative(etAirline, airline);
+                    key.flt_no = Qry.FieldAsInteger(col_flt_no);
+                    key.suffix_view = ElemIdToCodeNative(etSuffix, Qry.FieldAsString(col_suffix));
+                    key.airp = Qry.FieldAsString(col_airp);
+                    key.airp_view = ElemIdToCodeNative(etAirp, key.airp);
+                    key.scd_out = Qry.FieldAsDateTime(col_scd_out);
+                    try
+                    {
+                        key.scd_out_local = UTCToClient(key.scd_out, AirpTZRegion(key.airp));
+                    }
+                    catch(AstraLocale::UserException &E) {};
                 }
-                catch(AstraLocale::UserException &E) {};
 
                 if(params.statType == statAgentFull) {
                     key.desk = Qry.FieldAsString(col_desk);
+                }
+                if(
+                        params.statType == statAgentFull or
+                        params.statType == statAgentTotal
+                  ) {
                     key.user_id = Qry.FieldAsInteger(col_user_id);
                     key.user_descr = Qry.FieldAsString(col_user_descr);
                 }
@@ -4272,47 +4298,72 @@ void createXMLAgentStat(const TStatParams &params, const TAgentStat &AgentStat, 
         xmlNodePtr grdNode = NewTextChild(resNode, "grd");
         xmlNodePtr headerNode = NewTextChild(grdNode, "header");
         xmlNodePtr colNode;
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Рейс"));
-        SetProp(colNode, "width", 70);
-        SetProp(colNode, "align", taLeftJustify);
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Дата"));
-        SetProp(colNode, "width", 50);
-        SetProp(colNode, "align", taLeftJustify);
+        if(
+                params.statType == statAgentFull or
+                params.statType == statAgentShort
+          ) {
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Рейс"));
+            SetProp(colNode, "width", 70);
+            SetProp(colNode, "align", taLeftJustify);
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Дата"));
+            SetProp(colNode, "width", 50);
+            SetProp(colNode, "align", taLeftJustify);
+        }
         if(params.statType == statAgentFull) {
             colNode = NewTextChild(headerNode, "col", getLocaleText("Стойка"));
             SetProp(colNode, "width", 50);
             SetProp(colNode, "align", taLeftJustify);
+        }
+        if(
+                params.statType == statAgentFull or
+                params.statType == statAgentTotal
+          ) {
             colNode = NewTextChild(headerNode, "col", getLocaleText("Агент"));
             SetProp(colNode, "width", 100);
             SetProp(colNode, "align", taLeftJustify);
         }
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Пас.")+" (+)");
-        SetProp(colNode, "width", 45);
-        SetProp(colNode, "align", taRightJustify);
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Пас.")+" (-)");
-        SetProp(colNode, "width", 45);
-        SetProp(colNode, "align", taRightJustify);
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Сквоз.")+"(+)");
-        SetProp(colNode, "width", 50);
-        SetProp(colNode, "align", taRightJustify);
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Сквоз.")+"(-)");
-        SetProp(colNode, "width", 50);
-        SetProp(colNode, "align", taRightJustify);
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Баг.")+" (+)");
-        SetProp(colNode, "width", 70);
-        SetProp(colNode, "align", taCenter);
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Баг.")+" (-)");
-        SetProp(colNode, "width", 70);
-        SetProp(colNode, "align", taCenter);
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Р/к")+" (+)");
-        SetProp(colNode, "width", 45);
-        SetProp(colNode, "align", taRightJustify);
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Р/к")+" (-)");
-        SetProp(colNode, "width", 45);
-        SetProp(colNode, "align", taRightJustify);
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Сек./пас."));
-        SetProp(colNode, "width", 65);
-        SetProp(colNode, "align", taRightJustify);
+        if(params.statType == statAgentTotal) {
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Пас."));
+            SetProp(colNode, "width", 45);
+            SetProp(colNode, "align", taRightJustify);
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Сквоз."));
+            SetProp(colNode, "width", 50);
+            SetProp(colNode, "align", taRightJustify);
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Баг."));
+            SetProp(colNode, "width", 70);
+            SetProp(colNode, "align", taCenter);
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Р/к"));
+            SetProp(colNode, "width", 45);
+            SetProp(colNode, "align", taRightJustify);
+        } else {
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Пас.")+" (+)");
+            SetProp(colNode, "width", 45);
+            SetProp(colNode, "align", taRightJustify);
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Пас.")+" (-)");
+            SetProp(colNode, "width", 45);
+            SetProp(colNode, "align", taRightJustify);
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Сквоз.")+"(+)");
+            SetProp(colNode, "width", 50);
+            SetProp(colNode, "align", taRightJustify);
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Сквоз.")+"(-)");
+            SetProp(colNode, "width", 50);
+            SetProp(colNode, "align", taRightJustify);
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Баг.")+" (+)");
+            SetProp(colNode, "width", 70);
+            SetProp(colNode, "align", taCenter);
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Баг.")+" (-)");
+            SetProp(colNode, "width", 70);
+            SetProp(colNode, "align", taCenter);
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Р/к")+" (+)");
+            SetProp(colNode, "width", 45);
+            SetProp(colNode, "align", taRightJustify);
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Р/к")+" (-)");
+            SetProp(colNode, "width", 45);
+            SetProp(colNode, "align", taRightJustify);
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Сек./пас."));
+            SetProp(colNode, "width", 65);
+            SetProp(colNode, "align", taRightJustify);
+        }
 
         xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
         xmlNodePtr rowNode;
@@ -4320,86 +4371,122 @@ void createXMLAgentStat(const TStatParams &params, const TAgentStat &AgentStat, 
 
         for(TAgentStat::const_iterator im = AgentStat.begin(); im != AgentStat.end(); im++) {
             rowNode = NewTextChild(rowsNode, "row");
-            // Код а/к
             ostringstream buf;
-            buf << im->first.airline_view
-                << setw(3) << setfill('0') << im->first.flt_no
-                << im->first.suffix_view << " "
-                << im->first.airp_view;
-            NewTextChild(rowNode, "col", buf.str());
-            // Дата
-            TDateTime scd_out_local=im->first.scd_out_local;
-            if (scd_out_local==NoExists)
-            try
-            {
-                scd_out_local = UTCToClient(im->first.scd_out, AirpTZRegion(im->first.airp));
-            }
-            catch(AstraLocale::UserException &E)
-            {
-                AstraLocale::showErrorMessage("MSG.ERR_MSG.NOT_ALL_FLIGHTS_ARE_SHOWN", LParams() << LParam("msg", getLocaleText(E.getLexemaData())));
-                continue;
-            };
+            if(
+                    params.statType == statAgentFull or
+                    params.statType == statAgentShort
+              ) {
+                // Код а/к
+                buf << im->first.airline_view
+                    << setw(3) << setfill('0') << im->first.flt_no
+                    << im->first.suffix_view << " "
+                    << im->first.airp_view;
+                NewTextChild(rowNode, "col", buf.str());
+                // Дата
+                TDateTime scd_out_local=im->first.scd_out_local;
+                if (scd_out_local==NoExists)
+                    try
+                    {
+                        scd_out_local = UTCToClient(im->first.scd_out, AirpTZRegion(im->first.airp));
+                    }
+                catch(AstraLocale::UserException &E)
+                {
+                    AstraLocale::showErrorMessage("MSG.ERR_MSG.NOT_ALL_FLIGHTS_ARE_SHOWN", LParams() << LParam("msg", getLocaleText(E.getLexemaData())));
+                    continue;
+                };
 
-            NewTextChild(rowNode, "col", DateTimeToStr( scd_out_local, "dd.mm.yy"));
-            
+                NewTextChild(rowNode, "col", DateTimeToStr( scd_out_local, "dd.mm.yy"));
+            }
+
             if(params.statType == statAgentFull) {
                 // Пульт
                 NewTextChild(rowNode, "col", im->first.desk);
+            }
+            if(
+                    params.statType == statAgentFull or
+                    params.statType == statAgentTotal
+              ) {
                 // Пользователь
                 NewTextChild(rowNode, "col", im->first.user_descr);
             }
-            // Кол-во пасс. (+)
-            NewTextChild(rowNode, "col", im->second.pax_amount);
-            total.pax_amount += im->second.pax_amount;
-            // Кол-во пасс. (-)
-            NewTextChild(rowNode, "col", im->second.unreg_pax_amount);
-            total.unreg_pax_amount += im->second.unreg_pax_amount;
-            // Кол-во сквоз. (+)
-            NewTextChild(rowNode, "col", im->second.tckin_amount);
-            total.tckin_amount += im->second.tckin_amount;
-            // Кол-во сквоз. (-)
-            NewTextChild(rowNode, "col", im->second.unreg_tckin_amount);
-            total.unreg_tckin_amount += im->second.unreg_tckin_amount;
-            // Багаж (мест/вес) (+)
-            NewTextChild(rowNode, "col", IntToString(im->second.bag_amount) + "/" + IntToString(im->second.bag_weight));
-            total.bag_amount += im->second.bag_amount;
-            total.bag_weight += im->second.bag_weight;
-            // Багаж (мест/вес) (-)
-            NewTextChild(rowNode, "col", IntToString(im->second.unreg_bag_amount) + "/" + IntToString(im->second.unreg_bag_weight));
-            total.unreg_bag_amount += im->second.unreg_bag_amount;
-            total.unreg_bag_weight += im->second.unreg_bag_weight;
-            // Р/кладь (вес) (+)
-            NewTextChild(rowNode, "col", im->second.rk_weight);
-            total.rk_weight += im->second.rk_weight;
-            // Р/кладь (вес) (-)
-            NewTextChild(rowNode, "col", im->second.unreg_rk_weight);
-            total.unreg_rk_weight += im->second.unreg_rk_weight;
-            // Среднее время, затраченное на пассажира
-            buf.str("");
-            buf << fixed << setprecision(2) << im->second.time / im->second.processed_pax;
-            NewTextChild(rowNode, "col", buf.str());
-            total.processed_pax += im->second.processed_pax;
-            total.time += im->second.time;
+            if(params.statType == statAgentTotal) {
+                // Кол-во пасс.
+                NewTextChild(rowNode, "col", im->second.pax_amount + im->second.unreg_pax_amount);
+                total.pax_amount += im->second.pax_amount + im->second.unreg_pax_amount;
+                // Кол-во сквоз.
+                NewTextChild(rowNode, "col", im->second.tckin_amount + im->second.unreg_tckin_amount);
+                total.tckin_amount += im->second.tckin_amount + im->second.unreg_tckin_amount;
+                // Багаж (мест/вес)
+                NewTextChild(rowNode, "col",
+                        IntToString(im->second.bag_amount + im->second.unreg_bag_amount) +
+                        "/" +
+                        IntToString(im->second.bag_weight + im->second.unreg_bag_weight));
+                total.bag_amount += im->second.bag_amount + im->second.unreg_bag_amount;
+                total.bag_weight += im->second.bag_weight + im->second.unreg_bag_weight;
+                // Р/кладь (вес)
+                NewTextChild(rowNode, "col", im->second.rk_weight + im->second.unreg_rk_weight);
+                total.rk_weight += im->second.rk_weight + im->second.unreg_rk_weight;
+            } else {
+                // Кол-во пасс. (+)
+                NewTextChild(rowNode, "col", im->second.pax_amount);
+                total.pax_amount += im->second.pax_amount;
+                // Кол-во пасс. (-)
+                NewTextChild(rowNode, "col", im->second.unreg_pax_amount);
+                total.unreg_pax_amount += im->second.unreg_pax_amount;
+                // Кол-во сквоз. (+)
+                NewTextChild(rowNode, "col", im->second.tckin_amount);
+                total.tckin_amount += im->second.tckin_amount;
+                // Кол-во сквоз. (-)
+                NewTextChild(rowNode, "col", im->second.unreg_tckin_amount);
+                total.unreg_tckin_amount += im->second.unreg_tckin_amount;
+                // Багаж (мест/вес) (+)
+                NewTextChild(rowNode, "col", IntToString(im->second.bag_amount) + "/" + IntToString(im->second.bag_weight));
+                total.bag_amount += im->second.bag_amount;
+                total.bag_weight += im->second.bag_weight;
+                // Багаж (мест/вес) (-)
+                NewTextChild(rowNode, "col", IntToString(im->second.unreg_bag_amount) + "/" + IntToString(im->second.unreg_bag_weight));
+                total.unreg_bag_amount += im->second.unreg_bag_amount;
+                total.unreg_bag_weight += im->second.unreg_bag_weight;
+                // Р/кладь (вес) (+)
+                NewTextChild(rowNode, "col", im->second.rk_weight);
+                total.rk_weight += im->second.rk_weight;
+                // Р/кладь (вес) (-)
+                NewTextChild(rowNode, "col", im->second.unreg_rk_weight);
+                total.unreg_rk_weight += im->second.unreg_rk_weight;
+                // Среднее время, затраченное на пассажира
+                buf.str("");
+                buf << fixed << setprecision(2) << im->second.time / im->second.processed_pax;
+                NewTextChild(rowNode, "col", buf.str());
+                total.processed_pax += im->second.processed_pax;
+                total.time += im->second.time;
+            }
         }
         rowNode = NewTextChild(rowsNode, "row");
         NewTextChild(rowNode, "col", getLocaleText("Итого:"));
-        NewTextChild(rowNode, "col");
-        if(params.statType == statAgentFull) {
+        if(params.statType == statAgentTotal) {
+            NewTextChild(rowNode, "col", total.pax_amount);
+            NewTextChild(rowNode, "col", total.tckin_amount);
+            NewTextChild(rowNode, "col", IntToString(total.bag_amount) + "/" + IntToString(total.bag_weight));
+            NewTextChild(rowNode, "col", total.rk_weight);
+        } else {
             NewTextChild(rowNode, "col");
-            NewTextChild(rowNode, "col");
-        }
-        NewTextChild(rowNode, "col", total.pax_amount);
-        NewTextChild(rowNode, "col", total.unreg_pax_amount);
-        NewTextChild(rowNode, "col", total.tckin_amount);
-        NewTextChild(rowNode, "col", total.unreg_tckin_amount);
-        NewTextChild(rowNode, "col", IntToString(total.bag_amount) + "/" + IntToString(total.bag_weight));
-        NewTextChild(rowNode, "col", IntToString(total.unreg_bag_amount) + "/" + IntToString(total.unreg_bag_weight));
-        NewTextChild(rowNode, "col", total.rk_weight);
-        NewTextChild(rowNode, "col", total.unreg_rk_weight);
-        {
-            ostringstream buf;
-            buf << fixed << setprecision(2) << total.time / total.processed_pax;
-            NewTextChild(rowNode, "col", buf.str());
+            if(params.statType == statAgentFull) {
+                NewTextChild(rowNode, "col");
+                NewTextChild(rowNode, "col");
+            }
+            NewTextChild(rowNode, "col", total.pax_amount);
+            NewTextChild(rowNode, "col", total.unreg_pax_amount);
+            NewTextChild(rowNode, "col", total.tckin_amount);
+            NewTextChild(rowNode, "col", total.unreg_tckin_amount);
+            NewTextChild(rowNode, "col", IntToString(total.bag_amount) + "/" + IntToString(total.bag_weight));
+            NewTextChild(rowNode, "col", IntToString(total.unreg_bag_amount) + "/" + IntToString(total.unreg_bag_weight));
+            NewTextChild(rowNode, "col", total.rk_weight);
+            NewTextChild(rowNode, "col", total.unreg_rk_weight);
+            {
+                ostringstream buf;
+                buf << fixed << setprecision(2) << total.time / total.processed_pax;
+                NewTextChild(rowNode, "col", buf.str());
+            }
         }
 
         xmlNodePtr variablesNode = STAT::set_variables(resNode);
@@ -4412,6 +4499,9 @@ void createXMLAgentStat(const TStatParams &params, const TAgentStat &AgentStat, 
                 break;
             case statAgentFull:
                 buf = getLocaleText("Подробная");
+                break;
+            case statAgentTotal:
+                buf = getLocaleText("Итого");
                 break;
             default:
                 throw Exception("createXMLAgentStat: unexpected statType %d", params.statType);
@@ -4442,7 +4532,8 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             params.statType==statTrferFull ||
             params.statType==statKioskFull ||
             params.statType==statAgentFull ||
-            params.statType==statAgentShort
+            params.statType==statAgentShort ||
+            params.statType==statAgentTotal
             )
     {
       if(IncMonth(params.FirstDate, 1) < params.LastDate)
@@ -4471,7 +4562,8 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
       case statKioskDetail:
       case statAgentFull:
       case statAgentShort:
-        get_compatible_report_form("KioskStat", reqNode, resNode);
+      case statAgentTotal:
+        get_compatible_report_form("stat", reqNode, resNode);
         break;
     };
         
@@ -4515,7 +4607,8 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         }
         if(
                 params.statType == statAgentShort or
-                params.statType == statAgentFull
+                params.statType == statAgentFull or
+                params.statType == statAgentTotal
                 ) {
             TAgentStat AgentStat;
             TPrintAirline airline;
