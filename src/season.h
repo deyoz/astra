@@ -92,7 +92,8 @@ class TDoubleTrip
 		 ~TDoubleTrip();
      bool IsExists( int move_id, std::string airline, int flt_no,
      	              std::string suffix, std::string airp,
-	                  BASIC::TDateTime scd_in, BASIC::TDateTime scd_out );
+	                  BASIC::TDateTime scd_in, BASIC::TDateTime scd_out,
+                    int &point_id );
 };
 
 

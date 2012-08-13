@@ -614,7 +614,6 @@ inline void convertStrToStations( string str_desks, const string &work_mode, tst
   }
 }
 
-
 string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime next_date,
                           bool arx, TModule module, int point_id = NoExists )
 {
@@ -1025,11 +1024,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
       	read_TripStages( tr->stages, NoExists, tr->point_id );
       ////////////////////////// stations //////////////////////////////
       if ( !arx && module != tISG ) {
-        string ckin_desks, gates;
-        get_DesksGates( tr->point_id, ckin_desks, gates );
-        tr->stations.clear();
-        convertStrToStations( ckin_desks, "Р", tr->stations );
-        convertStrToStations( gates, "П", tr->stations );
+        get_DesksGates( tr->point_id, tr->stations );
       }
       //crs_displace2
       if ( !arx ) {
@@ -3209,9 +3204,10 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
           throw AstraLocale::UserException( "MSG.CRAFT.NOT_SET" );
         }
       }
+      int point_id;
       if ( !existsTrip &&
       	   id != dests.end() - 1 &&
-      	   doubletrip.IsExists( move_id, id->airline, id->flt_no, id->suffix, id->airp, id->scd_in, id->scd_out ) ) { //??? почему идет сравнение локальных времен в СОПП??? в Сезонке сравнение в UTC!!!
+      	   doubletrip.IsExists( move_id, id->airline, id->flt_no, id->suffix, id->airp, id->scd_in, id->scd_out, point_id ) ) { //??? почему идет сравнение локальных времен в СОПП??? в Сезонке сравнение в UTC!!!
       	existsTrip = true;
       	break;
       }
@@ -5074,6 +5070,8 @@ void SoppInterface::GetTime(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
 bool trip_calc_data( int point_id, BitSet<TTrip_Calc_Data> &whatcalc,
                      bool &trfer_exists, string &ckin_desks, string &gates )
 {
+	if ( point_id == ASTRA::NoExists )
+    throw Exception( "MSG.FLIGHT.NOT_FOUND" );
   TQuery Qry(&OraSession);
   Qry.SQLText =
     "SELECT trfer_exists, ckin_desks, gates FROM trip_calc_data "
@@ -5167,6 +5165,15 @@ void get_DesksGates( int point_id, string &ckin_desks, string &gates )
   BitSet<TTrip_Calc_Data> calcType;
   bool trfer_exists;
   trip_calc_data( point_id, calcType, trfer_exists, ckin_desks, gates );
+}
+
+void get_DesksGates( int point_id, tstations &stations )
+{
+  string ckin_desks, gates;
+  get_DesksGates( point_id, ckin_desks, gates );
+  stations.clear();
+  convertStrToStations( ckin_desks, "Р", stations );
+  convertStrToStations( gates, "П", stations );
 }
 
 void get_TrferExists( int point_id, bool &trfer_exists )
