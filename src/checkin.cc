@@ -27,6 +27,7 @@
 #include "passenger.h"
 #include "remarks.h"
 #include "alarms.h"
+#include "sopp.h"
 #include "jxtlib/jxt_cont.h"
 
 #define NICKNAME "VLAD"
@@ -4432,6 +4433,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
         }
 
       };
+      check_TrferExists( point_dep );
 
       //BSM
       if (BSMsend) BSM::Send(point_dep,grp_id,BSMContentBefore,BSMaddrs);

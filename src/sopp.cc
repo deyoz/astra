@@ -2342,6 +2342,7 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
     check_overload_alarm( i->first, i->second );
     check_waitlist_alarm( i->first );
     check_brd_alarm( i->first );
+    check_TrferExists( i->first );
   };
 
   if ( filter.inbound_point_dep==NoExists )
