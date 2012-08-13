@@ -4088,7 +4088,8 @@ bool getPaxRem(TTlgInfo &info, const CheckIn::TPaxTknItem &tkn, CheckIn::TPaxRem
   rem.clear();
   rem.code=tkn.rem;
   ostringstream text;
-  text << rem.code << " HK1 " << (tkn.pr_inf?"INF":"") << tkn.no;
+  text << rem.code << " HK1 " << (tkn.pr_inf?"INF":"")
+       << transliter(convert_char_view(tkn.no, info.pr_lat), 1, info.pr_lat);
   if (tkn.coupon!=ASTRA::NoExists)
     text << "/" << tkn.coupon;
   rem.text=text.str();
