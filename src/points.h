@@ -23,7 +23,8 @@ enum TDestField { dfPoint_num, dfAirp, dfPr_tranzit, dfFirst_point,
                   dfStations, dfStages, dfEvents };
                   
                   
-enum TUseDestData { udDelays, udCargo, udMaxCommerce, udNum };
+enum TUseDestData { udNoCalcESTTimeStage, udDelays, udCargo, udMaxCommerce,
+                    udNum, udStations };
 enum TDestEvents { dmChangeCraft, dmSetCraft, dmInitStages, dmInitComps,
                    dmChangeBort, dmSetBort, dmSetCancel, dmSetUnCancel, dmSetDelete,
                    dmSetSCDOUT, dmChangeSCDOUT, dmDeleteSCDOUT,
@@ -36,7 +37,7 @@ enum TDestEvents { dmChangeCraft, dmSetCraft, dmInitStages, dmInitComps,
                    dmChangeParkOut, dmChangeDelays,
                    dmChangeAirline, dmChangeFltNo, dmChangeSuffix, dmChangeAirp,
                    dmTranzit, dmReg, dmFirst_Point, dmChangeRemark,
-                   dmChangeStageESTTime, dmPoint_Num };
+                   dmChangeStageESTTime, dmPoint_Num, dmChangeStages };
                    
 enum TPointsEvents { peInsert, pePointNum };
 enum TTripEvents { teNewLand, teNewTakeoff, teDeleteLand, teDeleteTakeoff,
@@ -59,13 +60,17 @@ enum TTripEvents { teNewLand, teNewTakeoff, teDeleteLand, teDeleteTakeoff,
                    teTranzitTakeoff, teRegTakeoff, teFirst_PointTakeoff,
                    teChangeRemarkTakeoff, tePoint_NumTakeoff,
                    teNeedChangeComps, teNeedUnBindTlgs, teNeedBindTlgs,
-                   teChangeCargos, teChangeMaxCommerce };
+                   teChangeCargos, teChangeMaxCommerce, teChangeStages,
+                   teChangeStations };
                    
 class TPointsDestDelay {
 public:
 	std::string code;
 	BASIC::TDateTime time;
 };
+
+class TPointsDest;
+class TPointDests;
 
 struct TPointsDestCargo {
 	int cargo;
@@ -74,16 +79,154 @@ struct TPointsDestCargo {
 	std::string key;
 	std::string airp_arv;
 	TElemFmt airp_arv_fmt;
-	int dosbag_weight;
+	//int dosbag_weight;
 	TPointsDestCargo() {
 		cargo = 0;
 		mail = 0;
 		point_arv = ASTRA::NoExists;
+		airp_arv_fmt = efmtUnknown;
+	}
+	bool equal( const TPointsDestCargo &vcargo ) {
+    return ( cargo == vcargo.cargo &&
+             mail == vcargo.mail &&
+             point_arv == vcargo.point_arv &&
+             airp_arv == vcargo.airp_arv &&
+             airp_arv_fmt == vcargo.airp_arv_fmt &&
+             key == vcargo.key );
 	}
 };
 
+class TFlightCargos {
+  private:
+    std::vector<TPointsDestCargo> cargos;
+    bool calc_point_id;
+  public:
+    TFlightCargos() {
+      calc_point_id = false;
+    }
+    void Load( int point_id, bool pr_tranzit, int first_point, int point_num, int pr_cancel );
+    void Save( int point_id, const std::vector<TPointsDest> &dests );
+    void Add( TPointsDestCargo &cargo ) {
+      if ( !cargo.key.empty() )
+        calc_point_id = true;
+      cargos.push_back( cargo );
+    }
+    void Clear() {
+      cargos.clear();
+    }
+    bool equal( const TFlightCargos &flightCargos ) {
+      std::vector<TPointsDestCargo>::iterator icargo=cargos.begin();
+      std::vector<TPointsDestCargo>::const_iterator iprior_cargo=flightCargos.cargos.begin();
+      if ( cargos.size() != flightCargos.cargos.size() )
+        return false;
+      for ( ;
+            icargo!=cargos.end() &&
+            iprior_cargo!=flightCargos.cargos.end();
+            icargo++, iprior_cargo++ ) {
+        if ( !icargo->equal( *iprior_cargo ) ) {
+          return false;
+        }
+      }
+      return true;
+    }
+    bool calcPoint_id() {
+      return calc_point_id;
+    }
+};
+
+class TFlightMaxCommerce {
+  private:
+    int value;
+  public:
+    TFlightMaxCommerce() {
+      value = ASTRA::NoExists;
+    }
+    void SetValue( int vvalue ) {
+      value = vvalue;
+    }
+    void Load( int point_id );
+    void Save( int point_id );
+    bool equal( const TFlightMaxCommerce &flightMaxCommerce ) {
+      return ( value == flightMaxCommerce.value );
+    }
+};
+
+class TFlightStages {
+  private:
+    TMapTripStages stages;
+  public:
+    void Load( int point_id );
+    void Save( int point_id );
+    bool Empty() {
+      return stages.empty();
+    }
+    TTripStage GetStage( const TStage &stage_id ) {
+      return stages[ stage_id ];
+    }
+    void SetStage( const TStage &stage_id, const TTripStage &stage ) {
+      stages[ stage_id ].est = stage.est;
+      stages[ stage_id ].act = stage.act;
+      stages[ stage_id ].pr_auto = stage.pr_auto;
+    }
+    bool equal( const TFlightStages &flightStages ) {
+      if ( stages.size() != flightStages.stages.size() )
+        return false;
+     TMapTripStages::iterator istage=stages.begin();
+     TMapTripStages::const_iterator iprior_stage=flightStages.stages.begin();
+      for ( ;
+            istage!=stages.end() &&
+            iprior_stage!=flightStages.stages.end();
+            istage++, iprior_stage++ ) {
+        if ( istage->first != iprior_stage->first ||
+             !istage->second.equal( iprior_stage->second ) ) {
+          return false;
+        }
+      }
+      return true;
+    }
+};
+
+class TFlightStations {
+  private:
+    tstations stations;
+    bool intequal( const tstations &oldstations, const tstations &newstations, std::string work_mode ) {
+      for ( tstations::const_iterator istation=oldstations.begin(); istation!=oldstations.end(); istation++ ) {
+        if ( !work_mode.empty() && istation->work_mode != work_mode )
+          continue;
+        tstations::const_iterator jstation=newstations.begin();
+        for ( ; jstation!=newstations.end(); jstation++ ) {
+          if ( istation->work_mode == jstation->work_mode &&
+               istation->name == jstation->name &&
+               istation->pr_main == jstation->pr_main )
+            break;
+        }
+        if ( jstation == newstations.end() )
+          return false;
+      }
+      return true;
+    }
+  public:
+    void Load( int point_id );
+    void Save( int point_id );
+    void Add( TSOPPStation &station ) {
+      stations.push_back( station );
+    }
+    bool equal( const TFlightStations &flightStations, std::string work_mode ) {
+      return ( intequal( stations, flightStations.stations, work_mode ) &&
+               intequal( flightStations.stations, stations, work_mode ) );
+    }
+    bool equal( const TFlightStations &flightStations ) {
+      std::string work_mode;
+      return ( intequal( stations, flightStations.stations, work_mode ) &&
+               intequal( flightStations.stations, stations, work_mode ) );
+    }
+    void Get( tstations &vstations ) {
+      vstations = stations;
+    }
+};
 
 class TPointsDest {
+private:
 public:
   BitSet<TDestEvents> events;
   BitSet<TUseDestData> UseData;
@@ -117,11 +260,12 @@ public:
   TElemFmt airp_fmt;
   TElemFmt suffix_fmt;
   TElemFmt craft_fmt;
-  TMapTripStages stages;
+  TFlightStages stages;
   std::vector<TPointsDestDelay> delays;
   BASIC::TDateTime stage_scd, stage_est; //для расчета задержки шага тех. графика
-  std::vector<TPointsDestCargo> cargos;
-  int max_commerce;
+  TFlightCargos cargos;
+  TFlightMaxCommerce max_commerce;
+  TFlightStations stations;
   std::string key;
   TPointsDest() {
     status = tdUpdate;
@@ -145,13 +289,22 @@ public:
     craft_fmt = efmtUnknown;
     stage_scd = ASTRA::NoExists;
     stage_est = ASTRA::NoExists;
-    max_commerce = ASTRA::NoExists;
     comp_id = ASTRA::NoExists;
   }
+  void getDestData( TQuery &Qry );
   void Load( int vpoint_id, BitSet<TUseDestData> FUseData );
   void getEvents( const TPointsDest &vdest );
   void setRemark( const TPointsDest &dest );
   void DoEvents( int move_id, const TPointsDest &dest );
+};
+
+class TPointDests {
+  private:
+  public:
+    std::vector<TPointsDest> items;
+    void Load( int move_id );
+    //возвращаем new_dests с заданными point_id
+    void sychDests( TPointDests &new_dests, bool pr_change_dests, bool pr_compare_date ); // возвращаем изменение в объекте, но не синхронизируем по существующим строкам. Надо делать отдельно
 };
 
 template <typename T> class KeyTrip {
@@ -186,12 +339,11 @@ public:
   TPointsEvents status;
   int move_id;
   std::string ref;
-  std::vector<TPointsDest> dests;
+  TPointDests dests;
   TPoints() {
     status = peInsert;
     move_id = ASTRA::NoExists;
   }
-  void Load( int vmove_id ) {};
   void Verify( bool ignoreException, AstraLocale::LexemaData &lexemaData );
   void WriteDest( TPointsDest &dest );
   void Save( bool isShowMsg );
@@ -199,6 +351,20 @@ public:
   static bool isDouble( int move_id, std::string airline, int flt_no,
 	                      std::string suffix, std::string airp,
 	                      BASIC::TDateTime scd_in, BASIC::TDateTime scd_out );
+  static bool isDouble( int move_id, const TPointsDest &dest ) {
+    return isDouble( move_id, dest.airline, dest.flt_no,
+                     dest.suffix, dest.airp, dest.scd_in, dest.scd_out );
+  }
+  static bool isDouble( int move_id, std::string airline, int flt_no,
+	                      std::string suffix, std::string airp,
+	                      BASIC::TDateTime scd_in, BASIC::TDateTime scd_out,
+                        int &findMove_id, int &point_id );
+  static bool isDouble( int move_id, const TPointsDest &dest,
+                        int &findMove_id, int &point_id ) {
+    return isDouble( move_id, dest.airline, dest.flt_no,
+                     dest.suffix, dest.airp, dest.scd_in, dest.scd_out,
+                     findMove_id, point_id );
+  }
 };
 
 void ConvertSOPPToPOINTS( int move_id, const TSOPPDests &dests, std::string reference, TPoints &points );
