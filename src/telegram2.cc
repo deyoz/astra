@@ -624,6 +624,7 @@ namespace PRL_SPACE {
     }
 
     struct TInfantsItem {
+        int pax_id;
         int grp_id;
         int reg_no;
         string surname;
@@ -635,6 +636,7 @@ namespace PRL_SPACE {
         string ticket_rem;
         void dump();
         TInfantsItem() {
+            pax_id = NoExists;
             grp_id = NoExists;
             reg_no = NoExists;
             parent_pax_id = NoExists;
@@ -646,6 +648,7 @@ namespace PRL_SPACE {
     void TInfantsItem::dump()
     {
         ProgTrace(TRACE5, "TInfantsItem");
+        ProgTrace(TRACE5, "pax_id: %d", pax_id);
         ProgTrace(TRACE5, "grp_id: %d", grp_id);
         ProgTrace(TRACE5, "reg_no: %d", reg_no);
         ProgTrace(TRACE5, "surname: %s", surname.c_str());
@@ -692,6 +695,7 @@ namespace PRL_SPACE {
         TQuery Qry(&OraSession);
         Qry.SQLText =
             "SELECT pax.grp_id, "
+            "       pax.pax_id, "
             "       pax.reg_no, "
             "       pax.surname, "
             "       pax.name, "
@@ -708,6 +712,7 @@ namespace PRL_SPACE {
         Qry.CreateVariable("point_id", otInteger, point_id);
         Qry.Execute();
         if(!Qry.Eof) {
+            int col_pax_id = Qry.FieldIndex("pax_id");
             int col_grp_id = Qry.FieldIndex("grp_id");
             int col_reg_no = Qry.FieldIndex("reg_no");
             int col_surname = Qry.FieldIndex("surname");
@@ -718,6 +723,7 @@ namespace PRL_SPACE {
             int col_ticket_rem = Qry.FieldIndex("ticket_rem");
             for(; !Qry.Eof; Qry.Next()) {
                 TInfantsItem item;
+                item.pax_id = Qry.FieldAsInteger(col_pax_id);
                 item.grp_id = Qry.FieldAsInteger(col_grp_id);
                 item.reg_no = Qry.FieldAsInteger(col_reg_no);
                 item.surname = Qry.FieldAsString(col_surname);
@@ -4055,6 +4061,12 @@ void TRemList::get(TTlgInfo &info, TETLPax &pax)
     TQuery Qry(&OraSession);
     LoadPaxTkn(pax.pax_id, tkn, Qry);
     if (tkn.rem == "TKNE" and getPaxRem(info, tkn, rem)) items.push_back(rem.text);
+    for(vector<TInfantsItem>::iterator infRow = infants->items.begin(); infRow != infants->items.end(); infRow++) {
+        if(infRow->grp_id == pax.grp_id and infRow->parent_pax_id == pax.pax_id) {
+            LoadPaxTkn(infRow->pax_id, tkn, Qry);
+            if (tkn.rem == "TKNE" and getPaxRem(info, tkn, rem)) items.push_back(rem.text);
+        }
+    }
 }
 
 
