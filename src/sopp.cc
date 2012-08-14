@@ -193,9 +193,6 @@ const char* trfer_in_SQL =
     "SELECT 1 "
     " FROM tlg_binding,tlg_transfer "
     "WHERE tlg_binding.point_id_spp=:point_id AND tlg_binding.point_id_tlg=tlg_transfer.point_id_out AND rownum<2";
-/*const char* trfer_reg_SQL =
-    "SELECT 1 FROM transfer, pax_grp "
-    "WHERE pax_grp.point_dep=:point_id AND transfer.grp_id=pax_grp.grp_id AND bag_refuse=0 AND rownum<2";*/
 const char* crs_displace_from_SQL =
    "SELECT class_spp,airp_arv_spp,airline,flt_no,suffix,scd, "
    "       tlg_binding.point_id_spp,class_tlg,airp_arv_tlg "
@@ -1005,11 +1002,6 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
        		Trfer_inQry.Execute();
           if ( !Trfer_inQry.Eof )
           	tr->TrferType.setFlag( trferOut );
-    		  /*Trfer_regQry.SetVariable( "point_id", tr->point_id );
-     		  Trfer_regQry.Execute();
-          if ( !Trfer_regQry.Eof )
-          	tr->TrferType.setFlag( trferCkin );
-          */
           bool trferExists;
           get_TrferExists( tr->point_id, trferExists );
           if ( trferExists ) {
