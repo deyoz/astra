@@ -229,8 +229,8 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
       throw AstraLocale::UserException( "MSG.USER.ACCESS_DENIED");
   }
   else {
-    //if (InitData.term_id!=term_id)
-    //  throw AstraLocale::UserException( "MSG.USER.NEED_TO_LOGIN" );
+    if (InitData.term_id!=term_id)
+      throw AstraLocale::UserException( "MSG.USER.NEED_TO_LOGIN" );
 
     Qry.SQLText =
       "SELECT user_id, login, descr, type, pr_denial "

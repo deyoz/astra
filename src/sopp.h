@@ -11,6 +11,8 @@
 #include "astra_misc.h"
 #include "alarms.h"
 
+enum TTrip_Calc_Data { tDesksGates, tTrferExists };
+
 struct Cargo {
 	int cargo;
 	int mail;
@@ -126,6 +128,9 @@ struct TSOPPStation {
   std::string name;
   std::string work_mode;
   bool pr_main;
+  TSOPPStation() {
+    pr_main = false;
+  };
 };
 typedef std::vector<TSOPPStation> tstations;
 
@@ -320,6 +325,9 @@ public:
 };
 
 void ChangeACT_OUT( int point_id, BASIC::TDateTime old_act, BASIC::TDateTime act );
+void check_TrferExists( int point_id );
+void get_DesksGates( int point_id, tstations &stations );
+void check_DesksGates( int point_id );
 
 #endif /*_SOPP_H_*/
 

@@ -21,6 +21,9 @@
 #include "comp_layers.h"
 #include "passenger.h"
 #include "remarks.h"
+#include "sopp.h"
+#include "points.h"
+#include "stages.h"
 #include "serverlib/perfom.h"
 #include "serverlib/ourtime.h"
 #include "serverlib/query_runner.h"
@@ -4338,5 +4341,139 @@ void WebRequestsIface::RemoveProtPaidLayer(XMLRequestCtxt *ctxt, xmlNodePtr reqN
   if (!ue.empty()) throw ue;
 };
 
+inline void CreateXMLStage( const TCkinClients &CkinClients, TStage stage_id, const TTripStage &stage,
+                            xmlNodePtr node, const string &region )
+{
+  TStagesRules *sr = TStagesRules::Instance();
+  if ( sr->isClientStage( (int)stage_id ) && !sr->canClientStage( CkinClients, (int)stage_id ) )
+    return;
+  xmlNodePtr node1 = NewTextChild( node, "stage" );
+  SetProp( node1, "stage_id", stage_id );
+  NewTextChild( node1, "scd", DateTimeToStr( UTCToClient( stage.scd, region ), "dd.mm.yyyy hh:nn" ) );
+  if ( stage.est != ASTRA::NoExists )
+    NewTextChild( node1, "est", DateTimeToStr( UTCToClient( stage.est, region ), "dd.mm.yyyy hh:nn" ) );
+  if ( stage.act != ASTRA::NoExists )
+    NewTextChild( node1, "act", DateTimeToStr( UTCToClient( stage.act, region ), "dd.mm.yyyy hh:nn" ) );
+}
+
+////////////////////////////////////MERIDIAN SYSTEM/////////////////////////////
+void WebRequestsIface::GetFlightInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  string airline;
+  int flt_no;
+  string str_flt_no;
+  string suffix;
+  string str_scd_out;
+  TDateTime scd_out;
+  string airp_dep;
+  string region;
+  TElemFmt fmt;
+  
+  xmlNodePtr node = GetNode( "airline", reqNode );
+  if ( node == NULL )
+    throw AstraLocale::UserException( "Tag 'airline' not found" );
+  airline = NodeAsString( node );
+  airline = ElemToElemId( etAirline, airline, fmt );
+  if ( fmt == efmtUnknown )
+    throw UserException( "MSG.AIRLINE.INVALID",
+    	                   LParams()<<LParam("airline",NodeAsString(node)) );
+  node = GetNode( "flt_no", reqNode );
+  if ( node == NULL )
+    throw AstraLocale::UserException( "Tag 'flt_no' not found" );
+  str_flt_no =  NodeAsString( node );
+	if ( StrToInt( str_flt_no.c_str(), flt_no ) == EOF ||
+		   flt_no > 99999 || flt_no <= 0 )
+		throw UserException( "MSG.FLT_NO.INVALID",
+			                   LParams()<<LParam("flt_no", str_flt_no) );
+  node = GetNode( "suffix", reqNode );
+  if ( node != NULL ) {
+    suffix =  NodeAsString( node );
+    if ( !suffix.empty() ) {
+      suffix = ElemToElemId( etSuffix, suffix, fmt );
+      if ( fmt == efmtUnknown )
+        throw UserException( "MSG.SUFFIX.INVALID",
+    	                       LParams()<<LParam("suffix",NodeAsString(node)) );
+    }
+  }
+  node = GetNode( "scd_out", reqNode );
+  if ( node == NULL )
+    throw AstraLocale::UserException( "Tag 'scd_out' not found" );
+  str_scd_out = NodeAsString( node );
+  ProgTrace( TRACE5, "str_scd_out=|%s|", str_scd_out.c_str() );
+  if ( str_scd_out.empty() )
+		throw UserException( "MSG.FLIGHT_DATE.NOT_SET" );
+	else
+		if ( BASIC::StrToDateTime( str_scd_out.c_str(), "dd.mm.yyyy hh:nn", scd_out ) == EOF )
+			throw UserException( "MSG.FLIGHT_DATE.INVALID",
+				                   LParams()<<LParam("scd_out", str_scd_out) );
+	node = GetNode( "airp_dep", reqNode );
+  if ( node == NULL )
+    throw AstraLocale::UserException( "Tag 'airp_dep' not found" );
+  airp_dep = NodeAsString( node );
+  airp_dep = ElemToElemId( etAirp, airp_dep, fmt );
+  if ( fmt == efmtUnknown )
+    throw UserException( "MSG.AIRP.INVALID_INPUT_VALUE",
+    	                   LParams()<<LParam("airp",NodeAsString(node)) );
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  region = AirpTZRegion( airp_dep );
+  scd_out = LocalToUTC( scd_out, region );
+  ProgTrace( TRACE5, "scd_out=%f", scd_out );
+  if ( !reqInfo->CheckAirline( airline ) ||
+       !reqInfo->CheckAirp( airp_dep ) )
+    throw UserException( "MSG.FLIGHT.ACCESS_DENIED" );
+    
+  int findMove_id, point_id;
+  if ( !TPoints::isDouble( ASTRA::NoExists, airline, flt_no, suffix, airp_dep, ASTRA::NoExists, scd_out,
+        findMove_id, point_id  ) )
+     throw UserException( "MSG.FLIGHT.NOT_FOUND" );
+
+	TFlightStations stations;
+	stations.Load( point_id );
+	TFlightStages stages;
+	stages.Load( point_id );
+	TCkinClients CkinClients;
+	TTripStages::ReadCkinClients( point_id, CkinClients );
+	xmlNodePtr flightNode = NewTextChild( resNode, "trip" );
+	airline += str_flt_no + suffix;
+	SetProp( flightNode, "flightNumber", airline );
+  SetProp( flightNode, "date", DateTimeToStr( UTCToClient( scd_out, region ), "dd.mm.yyyy hh:nn" ) );
+  SetProp( flightNode, "departureAirport", airp_dep );
+  node = NewTextChild( flightNode, "stages" );
+  CreateXMLStage( CkinClients, sPrepCheckIn, stages.GetStage( sPrepCheckIn ), node, region );
+  CreateXMLStage( CkinClients, sOpenCheckIn, stages.GetStage( sOpenCheckIn ), node, region );
+  CreateXMLStage( CkinClients, sCloseCheckIn, stages.GetStage( sCloseCheckIn ), node, region );
+  CreateXMLStage( CkinClients, sOpenBoarding, stages.GetStage( sOpenBoarding ), node, region );
+  CreateXMLStage( CkinClients, sCloseBoarding, stages.GetStage( sCloseBoarding ), node, region );
+  CreateXMLStage( CkinClients, sOpenWEBCheckIn, stages.GetStage( sOpenWEBCheckIn ), node, region );
+  CreateXMLStage( CkinClients, sCloseWEBCheckIn, stages.GetStage( sCloseWEBCheckIn ), node, region );
+  CreateXMLStage( CkinClients, sOpenKIOSKCheckIn, stages.GetStage( sOpenKIOSKCheckIn ), node, region );
+  CreateXMLStage( CkinClients, sCloseKIOSKCheckIn, stages.GetStage( sCloseKIOSKCheckIn ), node, region );
+  tstations sts;
+  stations.Get( sts );
+  xmlNodePtr node1 = NULL;
+  for ( tstations::iterator i=sts.begin(); i!=sts.end(); i++ ) {
+    if ( node1 == NULL )
+      node1 = NewTextChild( flightNode, "stations" );
+    SetProp( NewTextChild( node1, "station", i->name ), "work_mode", i->work_mode );
+  }
+}
+
+void WebRequestsIface::ParseMessage(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  tst();
+  xmlNodePtr node = GetNode( "@type", reqNode );
+  if ( node == NULL )
+    throw AstraLocale::UserException( "Tag '@type' not found" );
+  string stype = NodeAsString( node );
+  string body = NodeAsString( reqNode );
+  ProgTrace( TRACE5, "ParseMessage: stype=%s, body=|%s|", stype.c_str(), body.c_str() );
+  //разборка телеграммы Дена ssm
+  TQuery Qry(&OraSession);
+  Qry.SQLText = "insert into ssm_in(id, type, data) values(ssm_in__seq.nextval, :type, :data)";
+  Qry.CreateVariable("data", otString, body);
+  Qry.CreateVariable("type", otString, stype);
+  Qry.Execute();
+}
+////////////////////////////////////END MERIDIAN SYSTEM/////////////////////////////
 } //end namespace AstraWeb
 

@@ -1028,11 +1028,12 @@ void CreateSPP( BASIC::TDateTime localdate )
       	else
       		vscd_out = NoExists;
 
-
+        int point_id;
       	if ( doubletrip.IsExists( NoExists, d->airline,
       		                        d->trip, d->suffix,
       		                        d->airp,
-      		                        vscd_in, vscd_out ) ) {
+      		                        vscd_in, vscd_out,
+                                  point_id ) ) {
       		exists = true;
       		break;
       	}
@@ -3753,7 +3754,7 @@ TDoubleTrip::TDoubleTrip( )
 {
 	Qry = new TQuery( &OraSession );
 	Qry->SQLText =
-     "SELECT scd_in, scd_out FROM points "
+     "SELECT point_id, scd_in, scd_out FROM points "
      " WHERE airline=:airline AND flt_no=:flt_no AND NVL(suffix,' ')=NVL(:suffix,' ') AND "
      "       move_id!=:move_id AND airp=:airp AND pr_del!=-1 AND "
      "       ( scd_in BETWEEN :scd_in-2 AND :scd_in+2 OR "
@@ -3769,8 +3770,10 @@ TDoubleTrip::TDoubleTrip( )
 
 bool TDoubleTrip::IsExists( int move_id, string airline, int flt_no,
 	                          string suffix, string airp,
-	                          TDateTime scd_in, TDateTime scd_out )
+	                          TDateTime scd_in, TDateTime scd_out,
+                            int &point_id )
 {
+  point_id = NoExists;
 	TElemFmt fmt;
 	airp = ElemToElemId( etAirp, airp, fmt );
 	suffix = ElemToElemId( etSuffix, suffix, fmt );
@@ -3810,6 +3813,7 @@ bool TDoubleTrip::IsExists( int move_id, string airline, int flt_no,
       modf( (double)UTCToLocal( Qry->FieldAsDateTime( "scd_in" ), region ), &d1 );
       if ( d1 == local_scd_in ) {
    			res = true;
+   			point_id = Qry->FieldAsInteger( "point_id" );
         break;
       }
     }
@@ -3817,6 +3821,7 @@ bool TDoubleTrip::IsExists( int move_id, string airline, int flt_no,
       modf( (double)UTCToLocal( Qry->FieldAsDateTime( "scd_out" ), region ), &d1 );
       if ( d1 == local_scd_out ) {
    			res = true;
+   			point_id = Qry->FieldAsInteger( "point_id" );
         break;
       }
     }

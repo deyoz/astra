@@ -179,11 +179,11 @@ const char *arx_stagesSQL =
     "SELECT stage_id,scd,est,act,pr_auto,pr_manual FROM arx_trip_stages "
     " WHERE part_key=:part_key AND point_id=:point_id "
     " ORDER BY stage_id ";
-const char* stationsSQL =
+/*const char* stationsSQL =
     "SELECT stations.name,stations.work_mode,trip_stations.pr_main FROM stations,trip_stations "\
     " WHERE point_id=:point_id AND stations.desk=trip_stations.desk AND stations.work_mode=trip_stations.work_mode "\
     " ORDER BY stations.work_mode,stations.name";
-
+*/
 const char* trfer_out_SQL =
     "SELECT 1 "
     " FROM tlg_binding,tlg_transfer "
@@ -193,9 +193,6 @@ const char* trfer_in_SQL =
     "SELECT 1 "
     " FROM tlg_binding,tlg_transfer "
     "WHERE tlg_binding.point_id_spp=:point_id AND tlg_binding.point_id_tlg=tlg_transfer.point_id_out AND rownum<2";
-const char* trfer_reg_SQL =
-    "SELECT 1 FROM transfer, pax_grp "
-    "WHERE pax_grp.point_dep=:point_id AND transfer.grp_id=pax_grp.grp_id AND bag_refuse=0 AND rownum<2";
 const char* crs_displace_from_SQL =
    "SELECT class_spp,airp_arv_spp,airline,flt_no,suffix,scd, "
    "       tlg_binding.point_id_spp,class_tlg,airp_arv_tlg "
@@ -257,6 +254,10 @@ void ChangeACT_IN( int point_id, TDateTime old_act, TDateTime act );
 
 enum TSOPPTripChange { tsNew, tsDelete, tsAttr, tsAddFltOut, tsDelFltOut, tsCancelFltOut, tsRestoreFltOut };
 void ChangeTrip( int point_id, TSOPPTrip tr1, TSOPPTrip tr2, BitSet<TSOPPTripChange> FltChange );
+
+void get_TrferExists( int point_id, bool &trfer_exists );
+void get_DesksGates( int point_id, string &ckin_desks, string &gates );
+void check_DesksGates( int point_id );
 
 string GetRemark( string remark, TDateTime scd_out, TDateTime est_out, string region )
 {
@@ -588,6 +589,28 @@ string addCondition( const char *sql, bool pr_arx )
   return text_sql;
 }
 
+inline void convertStrToStations( string str_desks, const string &work_mode, tstations &stations )
+{
+  while ( !str_desks.empty() ) {
+    string::size_type idx = str_desks.find( " " );
+    TSOPPStation station;
+    if ( idx == string::npos ) {
+      station.name = str_desks;
+      str_desks.clear();
+    }
+    else {
+      ProgTrace( TRACE5, "names=%s", str_desks.c_str() );
+      station.name = str_desks.substr( 0, idx );
+      ProgTrace( TRACE5, "name=%s", station.name.c_str() );
+      str_desks.erase( 0, idx + 1 );
+      ProgTrace( TRACE5, "names=%s", str_desks.c_str() );
+    }
+    station.work_mode = work_mode;
+    station.pr_main = false;
+    stations.push_back( station );
+  }
+}
+
 string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime next_date,
                           bool arx, TModule module, int point_id = NoExists )
 {
@@ -663,21 +686,21 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
     ResaQry.SQLText = resaSQL;
     ResaQry.DeclareVariable( "point_id", otInteger );
   }
-  TQuery StationsQry( &OraSession );
+  /*TQuery StationsQry( &OraSession );
   if ( !arx ) {
     StationsQry.SQLText = stationsSQL;
     StationsQry.DeclareVariable( "point_id", otInteger );
-  }
+  } */
   TQuery Trfer_outQry( &OraSession );
   TQuery Trfer_inQry( &OraSession );
-  TQuery Trfer_regQry( &OraSession );
+  /*TQuery Trfer_regQry( &OraSession );*/
   if ( !arx ) {
   	Trfer_outQry.SQLText = trfer_out_SQL;
   	Trfer_outQry.DeclareVariable( "point_id", otInteger );
   	Trfer_inQry.SQLText = trfer_in_SQL;
   	Trfer_inQry.DeclareVariable( "point_id", otInteger );
-  	Trfer_regQry.SQLText = trfer_reg_SQL;
-  	Trfer_regQry.DeclareVariable( "point_id", otInteger );
+  	/*Trfer_regQry.SQLText = trfer_reg_SQL;
+  	Trfer_regQry.DeclareVariable( "point_id", otInteger );*/
   }
   TQuery CRS_DispltoQry( &OraSession );
   TQuery CRS_DisplfromQry( &OraSession );
@@ -760,9 +783,6 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
 	int col_tid = PointsQry.FieldIndex( "tid" );
 	int col_class = -1;
 	int col_cfg = -1;
-	int col_name = -1;
-	int col_work_mode = -1;
-	int col_pr_main = -1;
 	int col_part_key = -1;
 	if ( arx )
 		col_part_key = PointsQry.FieldIndex( "part_key" );
@@ -982,10 +1002,11 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
        		Trfer_inQry.Execute();
           if ( !Trfer_inQry.Eof )
           	tr->TrferType.setFlag( trferOut );
-    		  Trfer_regQry.SetVariable( "point_id", tr->point_id );
-     		  Trfer_regQry.Execute();
-          if ( !Trfer_regQry.Eof )
-          	tr->TrferType.setFlag( trferCkin );
+          bool trferExists;
+          get_TrferExists( tr->point_id, trferExists );
+          if ( trferExists ) {
+            tr->TrferType.setFlag( trferCkin );
+          }
         }
       } // module != tISG
       ////////////////////// stages ///////////////////////////////
@@ -995,22 +1016,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
       	read_TripStages( tr->stages, NoExists, tr->point_id );
       ////////////////////////// stations //////////////////////////////
       if ( !arx && module != tISG ) {
-        StationsQry.SetVariable( "point_id", tr->point_id );
-        StationsQry.Execute();
-
-        while ( !StationsQry.Eof ) {
-        	if ( col_name == -1 ) {
-        		col_name = StationsQry.FieldIndex( "name" );
-        		col_work_mode = StationsQry.FieldIndex( "work_mode" );
-        		col_pr_main = StationsQry.FieldIndex( "pr_main" );
-         	}
-          TSOPPStation station;
-          station.name = StationsQry.FieldAsString( col_name );
-          station.work_mode = StationsQry.FieldAsString( col_work_mode );
-          station.pr_main = StationsQry.FieldAsInteger( col_pr_main );
-          tr->stations.push_back( station );
-          StationsQry.Next();
-        }
+        get_DesksGates( tr->point_id, tr->stations );
       }
       //crs_displace2
       if ( !arx ) {
@@ -2328,6 +2334,7 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
     check_overload_alarm( i->first, i->second );
     check_waitlist_alarm( i->first );
     check_brd_alarm( i->first );
+    check_TrferExists( i->first );
   };
 
   if ( filter.inbound_point_dep==NoExists )
@@ -2428,6 +2435,7 @@ void SoppInterface::WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 		int point_id = NodeAsIntegerFast( "point_id", n );
 		ProgTrace( TRACE5, "point_id=%d", point_id );
 		xmlNodePtr ddddNode = GetNodeFast( "stations", n );
+		
 		if ( ddddNode ) {
 			ddddNode = ddddNode->children;
 			while ( ddddNode ) {
@@ -2482,6 +2490,7 @@ void SoppInterface::WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       	TReqInfo::Instance()->MsgToLog( tolog, evtFlt, point_id );
 				ddddNode = ddddNode->next;
 			}
+      check_DesksGates( point_id );
 		}
   	xmlNodePtr stagesNode = GetNode( "tripstages", node );
     if ( stagesNode ) {
@@ -3188,9 +3197,10 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
           throw AstraLocale::UserException( "MSG.CRAFT.NOT_SET" );
         }
       }
+      int point_id;
       if ( !existsTrip &&
       	   id != dests.end() - 1 &&
-      	   doubletrip.IsExists( move_id, id->airline, id->flt_no, id->suffix, id->airp, id->scd_in, id->scd_out ) ) { //??? почему идет сравнение локальных времен в СОПП??? в Сезонке сравнение в UTC!!!
+      	   doubletrip.IsExists( move_id, id->airline, id->flt_no, id->suffix, id->airp, id->scd_in, id->scd_out, point_id ) ) { //??? почему идет сравнение локальных времен в СОПП??? в Сезонке сравнение в UTC!!!
       	existsTrip = true;
       	break;
       }
@@ -5050,3 +5060,136 @@ void SoppInterface::GetTime(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
 	NewTextChild( resNode, "time", DateTimeToStr( time, ServerFormatDateTimeAsString ) );
 }
 
+bool trip_calc_data( int point_id, BitSet<TTrip_Calc_Data> &whatcalc,
+                     bool &trfer_exists, string &ckin_desks, string &gates )
+{
+	if ( point_id == ASTRA::NoExists )
+    throw Exception( "MSG.FLIGHT.NOT_FOUND" );
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "SELECT trfer_exists, ckin_desks, gates FROM trip_calc_data "
+    " WHERE point_id=:point_id";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  bool pr_empty = Qry.Eof;
+  if ( !pr_empty ) {
+    trfer_exists = Qry.FieldAsInteger( "trfer_exists" );
+    ckin_desks = Qry.FieldAsString( "ckin_desks" );
+    gates = Qry.FieldAsString( "gates" );
+  }
+
+  bool new_trfer_exists;
+  string new_ckin_desks;
+  string new_gates;
+  Qry.Clear();
+  if ( pr_empty || whatcalc.isFlag( tDesksGates ) ) {
+    Qry.SQLText =
+      "SELECT stations.name,stations.work_mode FROM stations,trip_stations "
+      " WHERE point_id=:point_id AND stations.desk=trip_stations.desk AND stations.work_mode=trip_stations.work_mode "
+      " ORDER BY stations.work_mode,stations.name";
+    Qry.CreateVariable( "point_id", otInteger, point_id );
+    Qry.Execute();
+    int col_name = Qry.FieldIndex( "name" );
+	  int col_work_mode = Qry.FieldIndex( "work_mode" );
+
+    while ( !Qry.Eof ) {
+      if ( string( "Р" ) == Qry.FieldAsString( col_work_mode ) ) {
+        if ( !new_ckin_desks.empty() )
+          new_ckin_desks += " ";
+        new_ckin_desks += Qry.FieldAsString( col_name );
+      }
+      else {
+        if ( !new_gates.empty() )
+          new_gates += " ";
+        new_gates += Qry.FieldAsString( col_name );
+      }
+      Qry.Next();
+    }
+  }
+  if ( pr_empty || whatcalc.isFlag( tTrferExists ) ) {
+    Qry.SQLText =
+      "SELECT 1 FROM transfer, pax_grp "
+      "WHERE pax_grp.point_dep=:point_id AND transfer.grp_id=pax_grp.grp_id AND bag_refuse=0 AND rownum<2";
+    Qry.CreateVariable( "point_id", otInteger, point_id );
+    Qry.Execute();
+    new_trfer_exists = !Qry.Eof;
+  }
+  bool pr_update = false;
+  if ( !pr_empty ) {
+    if ( whatcalc.isFlag( tDesksGates ) &&
+         ( ckin_desks != new_ckin_desks ||
+           gates != new_gates  ) )
+      pr_update = true;
+    if ( whatcalc.isFlag( tTrferExists ) &&
+         trfer_exists != new_trfer_exists )
+      pr_update = true;
+  }
+  if ( !pr_empty && !pr_update )
+    return false;
+    
+  if ( pr_empty || whatcalc.isFlag( tDesksGates ) ) {
+    ckin_desks = new_ckin_desks;
+    gates = new_gates;
+  }
+  if ( pr_empty || whatcalc.isFlag( tTrferExists ) ) {
+    trfer_exists = new_trfer_exists;
+  }
+  Qry.Clear();
+  if ( pr_empty ) {
+    Qry.SQLText =
+      "INSERT INTO trip_calc_data(point_id,trfer_exists,ckin_desks,gates) "
+      " VALUES(:point_id,:trfer_exists,:ckin_desks,:gates) ";
+  }
+  else
+    Qry.SQLText =
+      "UPDATE trip_calc_data "
+      " SET trfer_exists=:trfer_exists, ckin_desks=:ckin_desks, gates=:gates "
+      " WHERE point_id=:point_id";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.CreateVariable( "trfer_exists", otInteger, trfer_exists );
+  Qry.CreateVariable( "ckin_desks", otString, ckin_desks );
+  Qry.CreateVariable( "gates", otString, gates );
+  Qry.Execute();
+  return true;
+}
+
+void get_DesksGates( int point_id, string &ckin_desks, string &gates )
+{
+  BitSet<TTrip_Calc_Data> calcType;
+  bool trfer_exists;
+  trip_calc_data( point_id, calcType, trfer_exists, ckin_desks, gates );
+}
+
+void get_DesksGates( int point_id, tstations &stations )
+{
+  string ckin_desks, gates;
+  get_DesksGates( point_id, ckin_desks, gates );
+  stations.clear();
+  convertStrToStations( ckin_desks, "Р", stations );
+  convertStrToStations( gates, "П", stations );
+}
+
+void get_TrferExists( int point_id, bool &trfer_exists )
+{
+  BitSet<TTrip_Calc_Data> calcType;
+  string ckin_desks, gates;
+  trip_calc_data( point_id, calcType, trfer_exists, ckin_desks, gates );
+}
+
+void check_DesksGates( int point_id )
+{
+  BitSet<TTrip_Calc_Data> calcType;
+  calcType.setFlag( tDesksGates );
+  bool trfer_exists;
+  string ckin_desks, gates;
+  trip_calc_data( point_id, calcType, trfer_exists, ckin_desks, gates );
+}
+
+void check_TrferExists( int point_id )
+{
+  BitSet<TTrip_Calc_Data> calcType;
+  calcType.setFlag( tTrferExists );
+  string ckin_desks, gates;
+  bool trfer_exists;
+  trip_calc_data( point_id, calcType, trfer_exists, ckin_desks, gates );
+}

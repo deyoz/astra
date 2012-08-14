@@ -49,10 +49,12 @@ void TTripStages::LoadStages( int vpoint_id, TMapTripStages &ts )
       tripStage.est = NoExists;
     else
       tripStage.est = Qry.FieldAsDateTime( "est" );
+    tripStage.old_est = tripStage.est;
     if ( Qry.FieldIsNULL( "act" ) )
       tripStage.act = NoExists;
     else
       tripStage.act = Qry.FieldAsDateTime( "act" );
+    tripStage.old_act = tripStage.act;
     tripStage.pr_auto = Qry.FieldAsInteger( "pr_auto" );
     TStage stage = (TStage)Qry.FieldAsInteger( "stage_id" );
     ts.insert( make_pair( stage, tripStage ) );
@@ -98,20 +100,18 @@ void TTripStages::ParseStages( xmlNodePtr node, TMapTripStages &ts )
 	}
 }
 
-void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
+void TTripStages::WriteStagesUTC( int point_id, TMapTripStages &ts )
 {
 	TReqInfo *reqInfo = TReqInfo::Instance();
+	std::string airp;
   TQuery Qry( &OraSession );
   Qry.SQLText =
-   "SELECT airp,act_out,pr_del FROM points WHERE points.point_id=:point_id FOR UPDATE";
+   "SELECT act_out,airp,pr_del FROM points WHERE points.point_id=:point_id FOR UPDATE";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
-  string region, airp;
-  airp = Qry.FieldAsString( "airp" );
   int pr_del = Qry.FieldAsInteger( "pr_del" );
+  airp = Qry.FieldAsString( "airp" );
   bool pr_act_out = !Qry.FieldIsNULL( "act_out" );
-	if ( reqInfo->user.sets.time == ustTimeLocalAirp )
- 	  region = AirpTZRegion( airp );
   Qry.Clear();
   Qry.SQLText =
     "BEGIN "
@@ -144,25 +144,11 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
     if ( i->second.est == NoExists )
        Qry.SetVariable( "est", FNull );
     else
-   	 try {
-    	  Qry.SetVariable( "est", ClientToUTC( i->second.est, region ) );
-     }
-     catch( boost::local_time::ambiguous_result ) {
-       throw AstraLocale::UserException( "MSG.STAGE.EST_TIME_NOT_EXACTLY_DEFINED_FOR_AIRP",
-               LParams() << LParam("stage", TStagesRules::Instance()->stage_name( i->first, airp, true ))
-               << LParam("airp", ElemIdToCodeNative(etAirp,airp)));
-     }
+    	 Qry.SetVariable( "est", i->second.est );
     if ( i->second.act == NoExists )
       Qry.SetVariable( "act", FNull );
     else
-    	try {
-        Qry.SetVariable( "act", ClientToUTC( i->second.act, region ) );
-      }
-      catch( boost::local_time::ambiguous_result ) {
-       throw AstraLocale::UserException( "MSG.STAGE.ACT_TIME_NOT_EXACTLY_DEFINED_FOR_AIRP",
-               LParams() << LParam("stage", TStagesRules::Instance()->stage_name( i->first, airp, true ))
-               << LParam("airp", ElemIdToCodeNative(etAirp,airp)));
-      }
+      Qry.SetVariable( "act", i->second.act );
     if ( i->second.old_act > NoExists && i->second.act == NoExists )
        Qry.SetVariable( "pr_auto", 0 );
      else
@@ -177,7 +163,6 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
      	  pr_manual = 1;
     Qry.SetVariable( "pr_manual", pr_manual );
     Qry.Execute( );
-
 
     if ( i->second.old_act == NoExists && i->second.act > NoExists ) { // вызов функции обработки шага
       try {
@@ -200,12 +185,12 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
       tolog += " отменен";
     tolog += ": расч. время";
     if ( i->second.est > NoExists )
-      tolog += DateTimeToStr( ClientToUTC( i->second.est, region ), "=hh:nn dd.mm.yy (UTC)" );
+      tolog += DateTimeToStr( i->second.est, "=hh:nn dd.mm.yy (UTC)" );
     else
       tolog += " не задано";
     tolog += ", факт. время";
     if ( i->second.act > NoExists )
-      tolog += DateTimeToStr( ClientToUTC( i->second.act, region ), "=hh:nn dd.mm.yy (UTC)" );
+      tolog += DateTimeToStr( i->second.act, "=hh:nn dd.mm.yy (UTC)" );
     else
        tolog += " не задано";
     reqInfo->MsgToLog( tolog, evtGraph, point_id, (int)i->first );
@@ -219,6 +204,43 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
   Qry.Execute();
 }
 
+void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
+{
+	TReqInfo *reqInfo = TReqInfo::Instance();
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
+   "SELECT airp FROM points WHERE points.point_id=:point_id FOR UPDATE";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  string region, airp;
+  airp = Qry.FieldAsString( "airp" );
+  tst();
+	if ( reqInfo->user.sets.time == ustTimeLocalAirp )
+ 	  region = AirpTZRegion( airp );
+  for ( TMapTripStages::iterator i=ts.begin(); i!=ts.end(); i++ ) {
+    if ( i->second.est != NoExists ) {
+      try {
+   	    i->second.est = ClientToUTC( i->second.est, region );
+      }
+      catch( boost::local_time::ambiguous_result ) {
+         throw AstraLocale::UserException( "MSG.STAGE.EST_TIME_NOT_EXACTLY_DEFINED_FOR_AIRP",
+                 LParams() << LParam("stage", TStagesRules::Instance()->stage_name( i->first, airp, true ))
+                 << LParam("airp", ElemIdToCodeNative(etAirp,airp)));
+      }
+    }
+    if ( i->second.act != NoExists ) {
+   	  try {
+        i->second.act = ClientToUTC( i->second.act, region );
+      }
+      catch( boost::local_time::ambiguous_result ) {
+         throw AstraLocale::UserException( "MSG.STAGE.ACT_TIME_NOT_EXACTLY_DEFINED_FOR_AIRP",
+                 LParams() << LParam("stage", TStagesRules::Instance()->stage_name( i->first, airp, true ))
+                 << LParam("airp", ElemIdToCodeNative(etAirp,airp)));
+      }
+    }
+  }
+  WriteStagesUTC( point_id, ts );
+}
 
 void TTripStages::LoadStages( int vpoint_id )
 {
