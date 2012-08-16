@@ -1637,7 +1637,7 @@ void PrintInterface::GetPrintDataBP(const BPParams &params,
         if(DecodeDevFmtType(params.fmt_type) == dftEPSON) {
             to_esc::TConvertParams ConvertParams;
             ConvertParams.init(params.dev_model);
-//            ProgTrace(TRACE5, "prn_form: %s", prn_form.c_str());
+//            ProgTrace(TRACE5, "prn_form: %s", iPax->prn_form.c_str());
             to_esc::convert(iPax->prn_form, ConvertParams, params.prnParams);
             StringToHex( string(iPax->prn_form), iPax->prn_form );
             iPax->hex=true;
