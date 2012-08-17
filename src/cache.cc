@@ -41,6 +41,7 @@ const
                          {"KIOSK_CKIN_DESK_GRP", etDeskGrp},
                          {"MISC_SET_TYPES",      etMiscSetType},
                          {"RIGHTS",              etRight},
+                         {"SEASON_TYPES",        etSeasonType},
                          {"SEAT_ALGO_TYPES",     etSeatAlgoType},
                          {"SELF_CKIN_TYPES",     etClientType},
                          {"STATION_MODES",       etStationMode},

@@ -978,6 +978,26 @@ class TStationModes: public TCodeBaseTable {
   	};
 };
 
+class TSeasonTypesRow: public TIdBaseTableRow {
+	public:
+    const char *get_row_name() const { return "TSeasonTypesRow"; };
+};
+
+class TSeasonTypes: public TIdBaseTable {
+  protected:
+    const char *get_table_name() { return "TSeasonTypes"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+    void Invalidate() {}; //всегда актуальна
+  public:
+  	TSeasonTypes() {
+      Init();
+  		select_sql =
+  		  "SELECT 0 AS id, 'Зима' AS name, 'Winter' AS name_lat FROM dual "
+        "UNION "
+        "SELECT 1, 'Лето', 'Summer' FROM dual";
+  	};
+};
+
 class TFormTypesRow: public TCodeBaseTableRow {
 	public:
 	  std::string basic_type, validator;

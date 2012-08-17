@@ -38,6 +38,7 @@ enum TElemType {
                  etRefusalType,
                  etRight,
                  etSalePoint,
+                 etSeasonType,
                  etSeatAlgoType,
                  etStationMode,
                  etSubcls,

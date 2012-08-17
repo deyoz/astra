@@ -108,6 +108,8 @@ TBaseTable &TBaseTables::get(string name)
         	  base_tables[name] = new TLangTypes();
         else if(name == "STATION_MODES")
         	  base_tables[name] = new TStationModes();
+        else if(name == "SEASON_TYPES")
+        	  base_tables[name] = new TSeasonTypes();
         else if(name == "FORM_TYPES")
         	  base_tables[name] = new TFormTypes();
         else if(name == "REM_TYPES")
@@ -877,6 +879,13 @@ void TStationModes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow *
 	*row = new TStationModesRow;
   mem.create(*row, STDLOG);
 	TCodeBaseTable::create_row(Qry,row,replaced_row);
+};
+
+void TSeasonTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+{
+	*row = new TSeasonTypesRow;
+  mem.create(*row, STDLOG);
+	TIdBaseTable::create_row(Qry,row,replaced_row);
 };
 
 void TFormTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)

@@ -92,6 +92,7 @@ const
                          {etRefusalType,           "etRefusalType",           "refusal_types"},
                          {etRight,                 "etRight",                 "rights"},
                          {etSalePoint,             "etSalePoint",             ""},
+                         {etSeasonType,            "etSeasonType",            "season_types"},
                          {etSeatAlgoType,          "etSeatAlgoType",          "seat_algo_types"},
                          {etStationMode,           "etStationMode",           "station_modes"},
                          {etSubcls,                "etSubcls",                "subcls"},
