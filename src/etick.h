@@ -53,6 +53,23 @@ typedef std::map<TTicketListKey, std::vector<TTicketListCtxt> > TChangeStatusLis
 class ETStatusInterface : public JxtInterface
 {
 public:
+  class TFltParams
+  {
+    public:
+      TTripInfo fltInfo;
+      bool etl_only, in_final_status;
+      int pr_etstatus, et_final_attempt;
+      void clear()
+      {
+        fltInfo.Clear();
+        etl_only=false;
+        in_final_status=false;
+        pr_etstatus=ASTRA::NoExists;
+        et_final_attempt=ASTRA::NoExists;
+      };
+      bool get(int point_id);
+  };
+
   ETStatusInterface() : JxtInterface("ETStatus","ETStatus")
   {
      Handler *evHandle;

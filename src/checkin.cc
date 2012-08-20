@@ -4212,7 +4212,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
       if (ediResNode==NULL && !defer_etstatus &&
           (new_checkin || reqInfo->client_type==ctTerm)) //не производим изменение статуса при записи изменений веб регистрации!
       {
-        if (ETStatusInterface::ETCheckStatus(grp_id,csaGrp,-1,false,ETInfo,true))
+        if (ETStatusInterface::ETCheckStatus(grp_id,csaGrp,NoExists,false,ETInfo,true))
         {
           et_processed=true; //хотя бы один билет будет обрабатываться
         };

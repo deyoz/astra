@@ -162,6 +162,9 @@ int FuncAfterEdiProc(edi_mes_head *pHead, void *udata, int *err)
         /*Если обрабатываем ответ*/
         try{
             data->sessData()->ediSession()->CommitEdiSession();
+            
+            if (data->sessData()->ediSession()->pult()=="SYSTEM")
+              registerHookAfter(sendCmdTlgSndStepByStep);
         }
         catch (edilib::Exception &x){
             *err=ret=-110;
@@ -223,7 +226,13 @@ int FuncAfterEdiSend(edi_mes_head *pHead, void *udata, int *err)
         DeleteMesOutgoing();
 
         ProgTrace(TRACE1,"tlg out: %s", tlg.c_str());
-        sendTlg(get_canon_name(edi_addr).c_str(), OWN_CANON_NAME(), true, 20, tlg);
+        TTlgQueuePriority queuePriority=qpOutA;
+        if (ed->sessData()->ediSession()->pult()=="SYSTEM")
+          queuePriority=qpOutAStepByStep;
+        sendTlg(get_canon_name(edi_addr).c_str(),
+                OWN_CANON_NAME(),
+                queuePriority,
+                20, tlg);
         registerHookAfter(sendCmdTlgSnd);
     }
     catch (std::exception &x){

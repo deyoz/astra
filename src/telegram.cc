@@ -867,7 +867,7 @@ void TelegramInterface::SendTlg(int tlg_id)
           }
           else
           {
-            sendTlg(i->first.c_str(),OWN_CANON_NAME(),false,0,
+            sendTlg(i->first.c_str(),OWN_CANON_NAME(),qpOutB,0,
                     addrs+tlg_text);
             registerHookAfter(sendCmdTlgSnd);
           };

@@ -73,8 +73,11 @@ class TTripInfo
       flt_no=Qry.FieldAsInteger("flt_no");
       suffix=Qry.FieldAsString("suffix");
       airp=Qry.FieldAsString("airp");
-      scd_out=Qry.FieldAsDateTime("scd_out");
-      if (Qry.GetFieldIndex("real_out")>=0)
+      if (!Qry.FieldIsNULL("scd_out"))
+        scd_out = Qry.FieldAsDateTime("scd_out");
+      else
+        scd_out = ASTRA::NoExists;
+      if (Qry.GetFieldIndex("real_out")>=0 && !Qry.FieldIsNULL("real_out"))
         real_out = Qry.FieldAsDateTime("real_out");
       else
         real_out = ASTRA::NoExists;

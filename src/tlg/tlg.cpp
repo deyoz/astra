@@ -79,6 +79,11 @@ void sendCmdTlgSnd()
   sendCmd("CMD_TLG_SND","H");
 }
 
+void sendCmdTlgSndStepByStep()
+{
+  sendCmd("CMD_TLG_SND","S");
+}
+
 void sendCmdTypeBHandler()
 {
   sendCmd("CMD_TYPEB_HANDLER","H");
@@ -86,7 +91,7 @@ void sendCmdTypeBHandler()
 
 void sendTlg(const char* receiver,
              const char* sender,
-             bool isEdi,
+             TTlgQueuePriority queuePriority,
              int ttl,
              const std::string &text)
 {
@@ -97,14 +102,28 @@ void sendTlg(const char* receiver,
         Qry.SQLText=
           "BEGIN "
           "  SELECT tlgs_id.nextval INTO :tlg_num FROM dual; "
-          "  INSERT INTO tlg_queue(id,sender,tlg_num,receiver,type,status,time,ttl,time_msec,last_send) "
-          "  VALUES(:tlg_num,:sender,:tlg_num,:receiver,:type,'PUT',:time,:ttl,:time_msec,NULL); "
+          "  INSERT INTO tlg_queue(id,sender,tlg_num,receiver,type,priority,status,time,ttl,time_msec,last_send) "
+          "  VALUES(:tlg_num,:sender,:tlg_num,:receiver,:type,:priority,'PUT',:time,:ttl,:time_msec,NULL); "
           "END;";
         Qry.CreateVariable("sender",otString,sender);
         Qry.CreateVariable("receiver",otString,receiver);
-        Qry.CreateVariable("type",otString,isEdi?"OUTA":"OUTB");
+        switch(queuePriority)
+        {
+          case qpOutA:
+            Qry.CreateVariable("type",otString,"OUTA");
+            Qry.CreateVariable("priority",otInteger,(int)qpOutA);
+            break;
+          case qpOutAStepByStep:
+            Qry.CreateVariable("type",otString,"OUTA");
+            Qry.CreateVariable("priority",otInteger,(int)qpOutAStepByStep);
+            break;
+          default:
+            Qry.CreateVariable("type",otString,"OUTB");
+            Qry.CreateVariable("priority",otInteger,(int)qpOutB);
+            break;
+        };
         Qry.CreateVariable("time",otDate,nowUTC);
-        if (isEdi&&ttl>0)
+        if ((queuePriority==qpOutA || queuePriority==qpOutAStepByStep) && ttl>0)
           Qry.CreateVariable("ttl",otInteger,ttl);
         else
           Qry.CreateVariable("ttl",otInteger,FNull);
@@ -118,11 +137,13 @@ void sendTlg(const char* receiver,
         Qry.SetLongVariable("text",(void *)text.c_str(),text.size());
         Qry.DeleteVariable("ttl");
         Qry.DeleteVariable("time_msec");
+        Qry.DeleteVariable("priority");
         Qry.Execute();
-        ProgTrace(TRACE5,"OUT: PUT (sender=%s, tlg_num=%ld, time=%.10f)",
+        ProgTrace(TRACE5,"OUT: PUT (sender=%s, tlg_num=%ld, time=%.10f, priority=%d)",
                          Qry.GetVariableAsString("sender"),
                          (long int)Qry.GetVariableAsInteger("tlg_num"),
-                         nowUTC);
+                         nowUTC,
+                         (int)queuePriority);
         Qry.Close();
     }
     catch( std::exception &e)
@@ -146,8 +167,8 @@ void loadTlg(const std::string &text)
         Qry.SQLText=
           "BEGIN "
           "  SELECT tlgs_id.nextval INTO :tlg_num FROM dual; "
-          "  INSERT INTO tlg_queue(id,sender,tlg_num,receiver,type,status,time,ttl,time_msec,last_send) "
-          "  VALUES(:tlg_num,:sender,:tlg_num,:receiver,:type,'PUT',:time,:ttl,:time_msec,NULL); "
+          "  INSERT INTO tlg_queue(id,sender,tlg_num,receiver,type,priority,status,time,ttl,time_msec,last_send) "
+          "  VALUES(:tlg_num,:sender,:tlg_num,:receiver,:type,1,'PUT',:time,:ttl,:time_msec,NULL); "
           "END;";
         Qry.CreateVariable("sender",otString,OWN_CANON_NAME());
         Qry.CreateVariable("receiver",otString,OWN_CANON_NAME());
