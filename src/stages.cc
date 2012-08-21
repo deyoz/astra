@@ -904,6 +904,7 @@ void Takeoff( int point_id )
     tlg_types.push_back("PFSN");
     tlg_types.push_back("FTL");
     tlg_types.push_back("PRL");
+    tlg_types.push_back("PIM");
     tlg_types.push_back("SOM");
 //    tlg_types.push_back("ETL"); формируем по прилету в конечные пункт если не было интерактива с СЭБ
     tlg_types.push_back("LDM");
