@@ -3,6 +3,7 @@
 #include "exceptions.h"
 #include "oralib.h"
 #include "stages.h"
+#include "pers_weights.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -138,7 +139,7 @@ void set_alarm( int point_id, TTripAlarmsType alarm_type, bool alarm_value )
   }
 }
 
-bool calc_overload_alarm( int point_id, const TTripInfo &fltInfo )
+bool calc_overload_alarm( int point_id )
 {
   TQuery Qry(&OraSession);
   Qry.SQLText=
@@ -149,16 +150,16 @@ bool calc_overload_alarm( int point_id, const TTripInfo &fltInfo )
   bool overload_alarm=false;
   if (!Qry.FieldIsNULL("max_commerce"))
   {
-  	int load=GetFltLoad(point_id,fltInfo);
+  	int load = getCommerceWeight( point_id, onlyCheckin );
     ProgTrace(TRACE5,"check_overload_alarm: max_commerce=%d load=%d",Qry.FieldAsInteger("max_commerce"),load);
     overload_alarm=(load>Qry.FieldAsInteger("max_commerce"));
   };
   return overload_alarm;
 };
 
-bool check_overload_alarm( int point_id, const TTripInfo &fltInfo )
+bool check_overload_alarm( int point_id )
 {
-  bool overload_alarm=calc_overload_alarm( point_id, fltInfo );
+  bool overload_alarm=calc_overload_alarm( point_id );
   set_alarm( point_id, atOverload, overload_alarm );
 	return overload_alarm;
 };

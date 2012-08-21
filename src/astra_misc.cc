@@ -1721,54 +1721,7 @@ bool isTestPaxId(int id)
   return id!=NoExists && id>=TEST_ID_BASE && id<=TEST_ID_BASE+999999999;
 }
 
-int GetFltLoad( int point_id, const TTripInfo &fltInfo)
-{
-  TQuery Qry(&OraSession);
-  Qry.CreateVariable("point_id", otInteger, point_id);
 
-  bool prSummer=is_dst(fltInfo.scd_out,
-                       AirpTZRegion(fltInfo.airp));
 
-  int load=0;
-  //пассажиры
-  Qry.SQLText=
-    "SELECT NVL(SUM(weight_win),0) AS weight_win, "
-    "       NVL(SUM(weight_sum),0) AS weight_sum "
-    "FROM pax_grp,pax,pers_types "
-    "WHERE pax_grp.grp_id=pax.grp_id AND "
-    "      pax.pers_type=pers_types.code AND "
-    "      pax_grp.point_dep=:point_id AND pax.refuse IS NULL";
-  Qry.Execute();
-  if (!Qry.Eof)
-  {
-    if (prSummer)
-      load+=Qry.FieldAsInteger("weight_sum");
-    else
-      load+=Qry.FieldAsInteger("weight_win");
-  };
 
-  //багаж
-  Qry.SQLText=
-    "SELECT NVL(SUM(weight),0) AS weight "
-    "FROM pax_grp,bag2 "
-    "WHERE pax_grp.grp_id=bag2.grp_id AND "
-    "      pax_grp.point_dep=:point_id AND "
-    "      ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0";
-  Qry.Execute();
-  if (!Qry.Eof)
-    load+=Qry.FieldAsInteger("weight");
-
-  //груз, почта
-  Qry.SQLText=
-    "SELECT NVL(SUM(cargo),0) AS cargo, "
-    "       NVL(SUM(mail),0) AS mail "
-    "FROM trip_load, points "
-    "WHERE trip_load.point_dep=:point_id AND "
-    "      points.point_id=trip_load.point_arv AND "
-    "      points.pr_del=0";
-  Qry.Execute();
-  if (!Qry.Eof)
-    load+=Qry.FieldAsInteger("cargo")+Qry.FieldAsInteger("mail");
-  return load;
-};
 

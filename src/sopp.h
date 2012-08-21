@@ -55,20 +55,19 @@ struct PaxLoad {
 
 struct Luggage {
 	int pr_edit;
+	BASIC::TDateTime scd_out;
 	std::string region;
 
 	std::vector<PaxLoad> vpaxload;
 	int max_commerce;
 	std::vector<Cargo> vcargo;
 	Luggage() {
+    scd_out = ASTRA::NoExists;
 		pr_edit = 0;
 		max_commerce = 0;
 	}
 };
 
-
-void GetLuggage( int point_id, Luggage &lug, bool pr_brd );
-void GetLuggage( int point_id, Luggage &lug );
 
 struct TSOPPDelay {
 	std::string code;
@@ -249,7 +248,8 @@ void createSOPPTrip( int point_id, TSOPPTrips &trips );
 bool filter_time( BASIC::TDateTime time, TSOPPTrip &tr, BASIC::TDateTime first_date, BASIC::TDateTime next_date, std::string &errcity );
 bool FilterFlightDate( TSOPPTrip &tr, BASIC::TDateTime first_date, BASIC::TDateTime next_date, /*bool LocalAll,*/
                        std::string &errcity, bool pr_isg );
-                       
+
+
 class TDeletePaxFilter
 {
   public:

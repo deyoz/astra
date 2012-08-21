@@ -583,9 +583,9 @@ void createXMLTrips( const string &dbf_type, bool pr_remove, TDateTime spp_date,
   ProgTrace( TRACE5, "CEK point_id=%d, spp_date=%s", tr->point_id, DateTimeToStr( spp_date, ServerFormatDateTimeAsString ).c_str() );
   xmlNodePtr tripNode;
 	TDateTime tm;
-	Luggage lug_in, lug_out;
+	/*Luggage lug_in, lug_out;
   int cargo_in=0, cargo_out=0, mail_in=0, mail_out=0;
-  lug_in.max_commerce = 0; lug_out.max_commerce = 0;
+  lug_in.max_commerce = 0; lug_out.max_commerce = 0; */
   if ( !doc ) {
     doc = CreateXMLDoc( "UTF-8", "trips" );
 	  SetProp( doc->children, "point_id", tr->point_id );
@@ -713,7 +713,7 @@ void createXMLTrips( const string &dbf_type, bool pr_remove, TDateTime spp_date,
       //NewTextChild( NodeAK, "GRU", IntToString( 0 ) );
       //NewTextChild( NodeAK, "TGRU", IntToString( 0 ) );
     };
-		if ( prior_point_id > ASTRA::NoExists ) {
+/*		if ( prior_point_id > ASTRA::NoExists ) {
  			GetLuggage( prior_point_id, lug_in );
  		}
  		else lug_in.max_commerce = 0;
@@ -722,13 +722,13 @@ void createXMLTrips( const string &dbf_type, bool pr_remove, TDateTime spp_date,
      	  cargo_in += wc->cargo;
        	mail_in += wc->mail;
        }
-     }
+     }*/
     //NewTextChild( NodeA, "PKZ", IntToString( lug_in.max_commerce ) );
     //NewTextChild( NodeA, "F9", IntToString( cargo_in ) );
     //NewTextChild( NodeA, "F11", IntToString( mail_in ) );
 	} // end if !place_in.empty()
 	if ( dbf_type == "D" ) {
-  	GetLuggage( tr->point_id, lug_out );
+  	//GetLuggage( tr->point_id, lug_out );
 		xmlNodePtr NodeD = NewTextChild( tripNode, dbf_type.c_str() );
 		NewTextChild( NodeD, "PNR", getPNRParam( tr->airline_out, tr->airline_out_fmt, tr->flt_no_out, tr->suffix_out, tr->suffix_out_fmt, getRemoveSuffix( spp_date, tr->scd_out ) ) );
 		NewTextChild( NodeD, "DN", GetStrDate( tr->scd_out ) );
@@ -756,7 +756,7 @@ void createXMLTrips( const string &dbf_type, bool pr_remove, TDateTime spp_date,
     int k = 0;
     for ( TSOPPDests::iterator d=tr->places_out.begin(); d!=tr->places_out.end(); d++, k++ ) {
     	//ProgTrace( TRACE5, "k=%d, end=%d", k, (d==tr->places_out.end()) );
-      vector<Cargo>::iterator c=lug_out.vcargo.end();
+      //vector<Cargo>::iterator c=lug_out.vcargo.end();
       xmlNodePtr NodeDK = NewTextChild( NodeD, "DK" );
       NewTextChild( NodeDK, "PNR", getPNRParam( tr->airline_out, tr->airline_out_fmt, tr->flt_no_out, tr->suffix_out, tr->suffix_out_fmt, getRemoveSuffix( spp_date, tr->scd_out ) ) );
       ProgTrace( TRACE5, "tr->places_out.size=%d, d->airp=%s", tr->places_out.size(), d->airp.c_str() );
@@ -805,10 +805,10 @@ void createXMLTrips( const string &dbf_type, bool pr_remove, TDateTime spp_date,
           NewTextChild( NodeDK, "FDV", GetStrDate( n->scd_out ) );
        	modf( n->act_out, &tm );
         NewTextChild( NodeDK, "FVV", GetMinutes( tm, n->act_out ) );
-        for ( c=lug_out.vcargo.begin(); c!=lug_out.vcargo.end(); c++ ) {
+/*        for ( c=lug_out.vcargo.begin(); c!=lug_out.vcargo.end(); c++ ) {
    	      if ( c->point_arv == n->point_id ) //???
      	      break;
-        }
+        }*/
       }
       else {
       	string airp_tmp = ElemIdToElemCtxt( ecDisp, etAirp, tr->airp, tr->airp_fmt );
@@ -841,28 +841,28 @@ void createXMLTrips( const string &dbf_type, bool pr_remove, TDateTime spp_date,
           NewTextChild( NodeDK, "FDV", GetStrDate( tr->scd_out ) );
        	modf( tr->act_out, &tm );
        	NewTextChild( NodeDK, "FVV", GetMinutes( tm, tr->act_out ) );
-        for ( c=lug_in.vcargo.begin(); c!=lug_in.vcargo.end(); c++ ) {
+/*        for ( c=lug_in.vcargo.begin(); c!=lug_in.vcargo.end(); c++ ) {
   	      if ( c->point_arv == tr->point_id )
      	      break;
-        }
+        }*/
       }
       NewTextChild( NodeDK, "PUR", IntToString( k + 1 ) );
       NewTextChild( NodeDK, "PR", IntToString( 0 ) );
-      if ( c!=lug_out.vcargo.end() && c!=lug_in.vcargo.end() ) {
+/*      if ( c!=lug_out.vcargo.end() && c!=lug_in.vcargo.end() ) {
       	//NewTextChild( NodeDK, "PC", IntToString( c->mail ) );
       	//NewTextChild( NodeDK, "GRU", IntToString( c->cargo ) );
       }
       else {
       	//NewTextChild( NodeDK, "PC", IntToString( 0 ) );
       	//NewTextChild( NodeDK, "GRU", IntToString( 0 ) );
-      }
+      }*/
       //NewTextChild( NodeDK, "TPC", IntToString( 0 ) );
       //NewTextChild( NodeDK, "TGRU", IntToString( 0 ) );
     }; // end for
-    for ( vector<Cargo>::iterator wc=lug_out.vcargo.begin(); wc!=lug_out.vcargo.end(); wc++ ) {
+/*    for ( vector<Cargo>::iterator wc=lug_out.vcargo.begin(); wc!=lug_out.vcargo.end(); wc++ ) {
     	cargo_out += wc->cargo;
     	mail_out += wc->mail;
-    }
+    } */
  	  //NewTextChild( NodeD, "PKZ", IntToString( lug_out.max_commerce ) );
  	  //NewTextChild( NodeD, "F9", IntToString( cargo_out ) );
  	  //NewTextChild( NodeD, "F11", IntToString( mail_out ) );

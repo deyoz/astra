@@ -108,7 +108,8 @@ public:
      AddEvent("getAodbData",evHandle);
      evHandle=JxtHandler<AstraServiceInterface>::CreateHandler(&AstraServiceInterface::logFileData);
      AddEvent("Log",evHandle);
-
+     evHandle=JxtHandler<AstraServiceInterface>::CreateHandler(&AstraServiceInterface::getTcpClientData);
+     AddEvent("getTcpClientData",evHandle);
   };
 
   void AstraTasksLogon( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode );
@@ -125,6 +126,7 @@ public:
   void getAodbFiles( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode );
   void getAodbData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode );
   void logFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode );
+  void getTcpClientData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode );
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 

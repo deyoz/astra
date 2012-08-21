@@ -4300,7 +4300,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
       Qry.Close();
 
       //проверим максимальную загрузку
-      bool overload_alarm = calc_overload_alarm( point_dep, fltInfo ); // вычислили признак перегрузки
+      bool overload_alarm = calc_overload_alarm( point_dep ); // вычислили признак перегрузки
       
       if (overload_alarm)
       {

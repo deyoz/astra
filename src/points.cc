@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include "points.h"
+#include "pers_weights.h"
 #include "stages.h"
 #include "astra_utils.h"
 #include "astra_misc.h"
@@ -158,7 +159,8 @@ void TPointsDest::Load( int vpoint_id, BitSet<TUseDestData> FUseData )
   getDestData( Qry );
 
 
-  stages.Load( point_id );
+  if ( UseData.isFlag( udStages ) )
+    stages.Load( point_id );
   if ( UseData.isFlag( udDelays ) ) {
     Qry.Clear();
     Qry.SQLText = points_delays_SQL;
@@ -1455,6 +1457,20 @@ void PointsKeyTrip<T>::DoEvents( int move_id )
       ProgError(STDLOG,"teDeleteACTOUT.ETStatus (point_id=%d): %s",this->key.point_id,E.what());
     };
   }
+  if ( this->events.isFlag( teSetSCDOUT ) ||
+       this->events.isFlag( teChangeSCDOUT ) ||
+       this->events.isFlag( teDeleteSCDOUT ) ||
+       this->events.isFlag( teChangeCraftTakeoff ) ||
+       this->events.isFlag( teSetCraftTakeoff ) ||
+       this->events.isFlag( teChangeBortTakeoff ) ||
+       this->events.isFlag( teSetBortTakeoff ) ||
+       this->events.isFlag( teChangeFlightAttrTakeoff ) ) {
+     TPersWeights persWeights; // некрасиво, т.к. каждый раз начитка
+     PersWeightRules weights;
+     persWeights.getRules( this->key.point_id, weights );
+     weights.write( this->key.point_id );
+  }
+       
   //отвязка PNL-телеграмм
   if ( this->events.isFlag( teNeedUnBindTlgs ) ) {
     vector<int> point_ids;
@@ -1518,13 +1534,7 @@ void PointsKeyTrip<T>::DoEvents( int move_id )
     this->key.max_commerce.Save( this->key.point_id );
   }
   if ( this->events.isFlag( teChangeCargos ) || this->events.isFlag( teChangeMaxCommerce ) ) {
-    TTripInfo fltInfo;
-    fltInfo.airline = this->key.airline;
-    fltInfo.flt_no = this->key.flt_no;
-    fltInfo.suffix = this->key.suffix;
-    fltInfo.airp = this->key.airp;
-    fltInfo.scd_out = this->key.scd_out;
-    check_overload_alarm( this->key.point_id, fltInfo );
+    check_overload_alarm( this->key.point_id );
   }
   if ( this->events.isFlag( teChangeStations ) ) {
     this->key.stations.Save( this->key.point_id );
