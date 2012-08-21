@@ -4221,11 +4221,95 @@ void TFTLDest::ToTlg(TTlgInfo &info, vector<string> &body)
     }
 }
 
+struct TPIMPax {
+    int pax_id;
+    string name;
+    string surname;
+    TPIMPax(int apax_id, string aname, string asurname):
+        pax_id(apax_id),
+        name(aname),
+        surname(asurname)
+    {};
+};
+
+struct TPIMDest {
+    string target;
+    vector<TPIMPax> PaxList;
+    void ToTlg(TTlgInfo &info, vector<string> &body);
+};
+
+void TPIMDest::ToTlg(TTlgInfo &info, vector<string> &body)
+{
+    TQuery Qry(&OraSession);
+    CheckIn::TPaxDocItem doc;
+    vector<string> pax_body;
+    for(vector<TPIMPax>::iterator iv = PaxList.begin(); iv != PaxList.end(); iv++) {
+        LoadPaxDoc(iv->pax_id, doc, Qry);
+        string vsurname, vname;
+        if(doc.surname.empty() and doc.first_name.empty()) {
+            vname = transliter(iv->name, 1, info.pr_lat);
+            vsurname = transliter(iv->surname, 1, info.pr_lat);
+        } else {
+            vname = transliter(doc.first_name, 1, info.pr_lat);
+            vsurname = transliter(doc.surname, 1, info.pr_lat);
+        }
+        ostringstream line;
+        line
+            << "/" << (doc.type.empty()?"":info.TlgElemIdToElem(etPaxDocType, doc.type))
+            << "/" << transliter(convert_char_view(doc.no, info.pr_lat), 1, info.pr_lat)
+            << "/" << (doc.nationality.empty()?"":info.TlgElemIdToElem(etPaxDocCountry, doc.nationality))
+            << "/" << (doc.birth_date!=ASTRA::NoExists?DateTimeToStr(doc.birth_date, "ddmmmyy", info.pr_lat):"")
+            << "/" << (doc.gender.empty()?"":info.TlgElemIdToElem(etGenderType, doc.gender))
+            << "/" << (doc.expiry_date!=ASTRA::NoExists?DateTimeToStr(doc.expiry_date, "ddmmmyy", info.pr_lat):"")
+            << "/" << (doc.issue_country.empty()?"":info.TlgElemIdToElem(etPaxDocCountry, doc.issue_country))
+            << "/";
+        /* Алгоритм обрезания Воланду не понравился
+           Обрезаем сначала имя, потом фамилию.
+        size_t str_len = vname.size() + 1 + vsurname.size() + line.str().size();
+        if(str_len > LINE_SIZE) {
+            size_t to_del = str_len - LINE_SIZE;
+            if(vname.empty()) {
+                vsurname = vsurname.substr(0, vsurname.size() - to_del);
+            } else if(to_del >= vname.size()) {
+                to_del -= vname.size() - 1;
+                vname = vname.substr(0, 1);
+                if(to_del >= vsurname.size())
+                    vsurname = vsurname.substr(0, 1);
+                else
+                    vsurname = vsurname.substr(0, vsurname.size() - to_del);
+            } else
+                vname = vname.substr(0, vname.size() - to_del);
+        }
+        */
+        body.push_back((vsurname + "/" + vname + line.str()).substr(0, LINE_SIZE));
+    }
+}
+
+struct TPIMBody {
+    vector<TPIMDest> items;
+    void get(TTlgInfo &info);
+    void ToTlg(TTlgInfo &info, vector<string> &body);
+};
+
 struct TFTLBody {
     vector<TFTLDest> items;
     void get(TTlgInfo &info);
     void ToTlg(TTlgInfo &info, vector<string> &body);
 };
+
+void TPIMBody::ToTlg(TTlgInfo &info, vector<string> &body)
+{
+    if(items.empty()) {
+        body.clear();
+        body.push_back("NIL");
+    } else
+        for(vector<TPIMDest>::iterator iv = items.begin(); iv != items.end(); iv++) {
+            ostringstream buf;
+            buf << "-" << info.TlgElemIdToElem(etAirp, iv->target);
+            body.push_back(buf.str());
+            iv->ToTlg(info, body);
+        }
+}
 
 void TFTLBody::ToTlg(TTlgInfo &info, vector<string> &body)
 {
@@ -4242,6 +4326,59 @@ void TFTLBody::ToTlg(TTlgInfo &info, vector<string> &body)
             body.push_back(buf.str());
             iv->ToTlg(info, body);
         }
+}
+
+void TPIMBody::get(TTlgInfo &info)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "SELECT "
+        "    pax_grp.airp_arv target, "
+        "    pax.pax_id, "
+        "    pax.name, "
+        "    pax.surname "
+        "FROM "
+        "    pax_grp, "
+        "    pax "
+        "WHERE "
+        "    pax_grp.grp_id=pax.grp_id AND "
+        "    pax_grp.point_dep=:point_id AND "
+        "    pr_brd = 1"
+        "ORDER BY "
+        "    pax_grp.airp_arv, "
+        "    pax.surname, "
+        "    pax.name ";
+    Qry.CreateVariable("point_id", otInteger, info.point_id);
+    Qry.Execute();
+    if(!Qry.Eof) {
+        int col_target = Qry.FieldIndex("target");
+        int col_pax_id = Qry.FieldIndex("pax_id");
+        int col_name = Qry.FieldIndex("name");
+        int col_surname = Qry.FieldIndex("surname");
+        TPIMDest *curr_dest = NULL;
+        items.push_back(TPIMDest());
+        curr_dest = &items.back();
+        for(; !Qry.Eof; Qry.Next()) {
+            string target = Qry.FieldAsString(col_target);
+            if(curr_dest->target != target) {
+                if(
+                        not curr_dest->target.empty() and
+                        not curr_dest->PaxList.empty()
+                  ) {
+                    items.push_back(TPIMDest());
+                    curr_dest = &items.back();
+                }
+                curr_dest->target = target;
+            }
+            curr_dest->PaxList.push_back(
+                    TPIMPax (
+                        Qry.FieldAsInteger(col_pax_id),
+                        Qry.FieldAsString(col_name),
+                        Qry.FieldAsString(col_surname)
+                        )
+                    );
+        }
+    }
 }
 
 void TFTLBody::get(TTlgInfo &info)
@@ -5149,6 +5286,50 @@ int AHL(TTlgInfo &info)
         + "PN" + br
         + "TP" + br
         + "AG" + br;
+    tlg_draft.Save(tlg_row);
+    tlg_draft.Commit(tlg_row);
+    return tlg_row.id;
+}
+
+int PIM(TTlgInfo &info)
+{
+    TTlgDraft tlg_draft(info);
+    TTlgOutPartInfo tlg_row;
+    tlg_row.num = 1;
+    tlg_row.tlg_type = info.tlg_type;
+    tlg_row.point_id = info.point_id;
+    tlg_row.pr_lat = info.pr_lat;
+    tlg_row.extra = info.extra;
+    tlg_row.addr = info.addrs;
+    tlg_row.time_create = NowUTC();
+    string airline_view = info.airline_view;
+    int flt_no_view = info.flt_no;
+    string suffix_view = info.suffix_view;
+
+    if(not info.mark_info.IsNULL() and info.mark_info.pr_mark_header) {
+        airline_view = info.TlgElemIdToElem(etAirline, info.mark_info.airline);
+        flt_no_view = info.mark_info.flt_no;
+        suffix_view = info.mark_info.suffix.empty() ? "" : info.TlgElemIdToElem(etSuffix, info.mark_info.suffix);
+    }
+    ostringstream heading;
+    heading
+        << "." << info.sender << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
+        << "PIM" << br
+        << airline_view << setw(3) << setfill('0') << flt_no_view << suffix_view << "/"
+        << DateTimeToStr(info.scd_local, "ddmmm", 1) << " " << info.airp_dep_view << " ";
+    tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + br;
+    tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
+    size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
+    vector<string> body;
+    try {
+        TPIMBody PIM;
+        PIM.get(info);
+        PIM.ToTlg(info, body);
+    } catch(...) {
+        ExceptionFilter(body, info);
+    }
+    split_n_save(heading, part_len, tlg_draft, tlg_row, body);
+    tlg_row.ending = "ENDPIM" + br;
     tlg_draft.Save(tlg_row);
     tlg_draft.Commit(tlg_row);
     return tlg_row.id;
@@ -6150,6 +6331,7 @@ int TelegramInterface::create_tlg(const TCreateTlgInfo &createInfo)
     else if(vbasic_type == "FTL") vid = FTL(info);
     else if(vbasic_type == "COM") vid = COM(info);
     else if(vbasic_type == "SOM") vid = SOM(info);
+    else if(vbasic_type == "PIM") vid = PIM(info);
     else vid = Unknown(info);
 
     info.err_lst.dump();
