@@ -3208,7 +3208,6 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
         {
           //простановка ремарок VIP,EXST, если нужно
           //подсчет seats
-          bool adultwithbaby = false;
           int seats,seats_sum=0;
           string rem_code, rem_text;
           node=NodeAsNode("passengers",segNode);
@@ -3218,8 +3217,6 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
             try
             {
               seats=NodeAsIntegerFast("seats",node2);
-              if ( !seats )
-              	adultwithbaby = true;
               seats_sum+=seats;
               bool flagVIP=false,
                    flagSTCR=false,
@@ -3304,98 +3301,137 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
               throw UserException("MSG.CHECKIN.AVAILABLE_SEATS",
                                   LParams()<<LParam("count",free)); //WEB
 
-            node=NodeAsNode("passengers",segNode);
-
+            //разметка детей по взрослым
+            vector<TInfantAdults> InfItems, AdultItems;
+            for(int k=0;k<=1;k++)
+            {
+              node=NodeAsNode("passengers",segNode);
+              int pax_no=1;
+              for(node=node->children;node!=NULL;node=node->next,pax_no++)
+              {
+                node2=node->children;
+                int seats=NodeAsIntegerFast("seats",node2);
+                if (seats<=0&&k==0||seats>0&&k==1) continue;
+                TInfantAdults pass;       // infant из таблицы crs_pax, pax, crs_inf
+                pass.grp_id = 1;
+                if ( !NodeIsNULLFast("pax_id",node2) )
+                  pass.pax_id = NodeAsIntegerFast( "pax_id", node2 ); //NULL - не из бронирования - norec
+                else
+                  pass.pax_id = 0 - pax_no; // для уникальности
+                pass.reg_no = pax_no;
+                ProgTrace( TRACE5, "pax_id=%d", pass.pax_id );
+                pass.surname = NodeAsStringFast("surname",node2); //???всегда есть этот тег
+                if ( NodeAsIntegerFast("seats",node2) == 0 ) {
+                  if ( !NodeIsNULLFast("pax_id",node2) ) {
+                    Qry.Clear();
+                    Qry.SQLText =
+                     "SELECT pax_id FROM crs_inf WHERE inf_id=:inf_id";
+                    Qry.CreateVariable( "inf_id", otInteger, pass.pax_id );
+                    Qry.Execute();
+                    if ( !Qry.Eof )
+                      pass.parent_pax_id = Qry.FieldAsInteger( "pax_id" );
+                  }
+                  InfItems.push_back( pass );
+                }
+                else {
+                  if ( DecodePerson( NodeAsStringFast("pers_type",node2) ) == ASTRA::adult ) {
+                    AdultItems.push_back( pass );
+                  }
+                }
+              }
+            }
+            //ProgTrace( TRACE5, "InfItems.size()=%d, AdultItems.size()=%d", InfItems.size(), AdultItems.size() );
+            SetInfantsToAdults( InfItems, AdultItems );
             SEATS2::Passengers.Clear();
             SEATS2::TSublsRems subcls_rems( fltInfo.airline );
             // начитка салона
             Salons.ClName = cl;
             Salons.Read();
-
+//            node=NodeAsNode("passengers",segNode);
             //заполним массив для рассадки
-            for(node=node->children;node!=NULL;node=node->next)
+            for(int k=0;k<=1;k++)
             {
-              node2=node->children;
-              try
-              {
-                if (NodeAsIntegerFast("seats",node2)==0)
-                	continue;
-                const char *subclass=NodeAsStringFast("subclass",node2);
-
-                SEATS2::TPassenger pas;
-
-                pas.clname=cl;
-                if ( !NodeIsNULLFast("pax_id",node2) )
-                  pas.paxId = NodeAsIntegerFast( "pax_id", node2 );
-                /*01.04.11 djek
-                if (grp_status!=psTransit&&
-                    !NodeIsNULLFast("pax_id",node2)&&
-                    !NodeIsNULLFast("seat_no",node2)) {
-                  pas.layer = cltPNLCkin;
-                  pas.pax_id = NodeAsIntegerFast( "pax_id", node2 );
-                }
-                else {
-                  pas.pax_id = 0;
-                	if ( grp_status==psTransit ) {
-                    pas.layer = cltProtTrzt;
-                	}
-                	else {
-              		  pas.layer = cltUnknown;
-                 }
-                }*/
-                switch ( grp_status )  {
-                	case psCheckin:
-                		pas.grp_status = cltCheckin;
-                		break;
-                	case psTCheckin:
-                		pas.grp_status = cltTCheckin;
-                		break;
-                	case psTransit:
-                		pas.grp_status = cltTranzit;
-                		break;
-                	case psGoshow:
-                		pas.grp_status = cltGoShow;
-                		break;
-                }
-                //pas.agent_seat=NodeAsStringFast("seat_no",node2); // crs or hand made
-                pas.preseat_no=NodeAsStringFast("seat_no",node2); // crs or hand made
-                pas.countPlace=NodeAsIntegerFast("seats",node2);
-                pas.placeRem=NodeAsStringFast("seat_type",node2);
-                remNode=GetNodeFast("rems",node2);
-                pas.pers_type = NodeAsStringFast("pers_type",node2);
-                bool flagCHIN=DecodePerson(pas.pers_type.c_str()) != ASTRA::adult;
-                if (remNode!=NULL) {
-                	for(remNode=remNode->children;remNode!=NULL;remNode=remNode->next) {
-               		  node2=remNode->children;
-                    const char *rem_code=NodeAsStringFast("rem_code",node2);
-                    if ( strcmp(rem_code,"BLND")==0 ||
-                         strcmp(rem_code,"STCR")==0 ||
-                         strcmp(rem_code,"UMNR")==0 ||
-                         strcmp(rem_code,"WCHS")==0 ||
-                         strcmp(rem_code,"MEDA")==0 ) flagCHIN=true;
-                    pas.add_rem(rem_code);
-                	}
-                }
-                string pass_rem;
-                if ( subcls_rems.IsSubClsRem( subclass, pass_rem ) )  pas.add_rem(pass_rem);
-
-                if ( flagCHIN || adultwithbaby ) {
-                	adultwithbaby = false;
-                	pas.add_rem("CHIN");
-                }
-                SEATS2::Passengers.Add(Salons,pas);
-              }
-              catch(CheckIn::UserException)
-              {
-                throw;
-              }
-              catch(UserException &e)
+              node=NodeAsNode("passengers",segNode);
+              int pax_no=1;
+              for(node=node->children;node!=NULL;node=node->next,pax_no++)
               {
                 node2=node->children;
-                if (!NodeIsNULLFast("pax_id",node2))
-                  throw CheckIn::UserException(e.getLexemaData(), point_dep, NodeAsIntegerFast("pax_id",node2));
-                else
+                try
+                {
+                  int seats=NodeAsIntegerFast("seats",node2);
+                  if (seats<=0||seats>0&&k==1) continue;
+
+                  const char *subclass=NodeAsStringFast("subclass",node2);
+
+                  SEATS2::TPassenger pas;
+
+                  pas.clname=cl;
+                  int pax_id;
+                  if ( !NodeIsNULLFast("pax_id",node2) ) {
+                    pax_id = NodeAsIntegerFast( "pax_id", node2 ); //NULL - не из бронирования - norec
+                    pas.paxId = pax_id;
+                  }
+                  else
+                    pax_id = 0 - pax_no; // для уникальности
+                  ProgTrace( TRACE5, "pax_id=%d", pax_id );
+                  switch ( grp_status )  {
+                  	case psCheckin:
+                  		pas.grp_status = cltCheckin;
+                  		break;
+                  	case psTCheckin:
+                	  	pas.grp_status = cltTCheckin;
+                		  break;
+                	  case psTransit:
+                	  	pas.grp_status = cltTranzit;
+                	  	break;
+                	  case psGoshow:
+                	  	pas.grp_status = cltGoShow;
+                	  	break;
+                  }
+                  pas.preseat_no=NodeAsStringFast("seat_no",node2); // crs or hand made
+                  pas.countPlace=NodeAsIntegerFast("seats",node2);
+                  pas.placeRem=NodeAsStringFast("seat_type",node2);
+                  remNode=GetNodeFast("rems",node2);
+                  pas.pers_type = NodeAsStringFast("pers_type",node2);
+                  bool flagCHIN=DecodePerson(pas.pers_type.c_str()) != ASTRA::adult;
+                  if (remNode!=NULL) {
+                  	for(remNode=remNode->children;remNode!=NULL;remNode=remNode->next) {
+                 		  node2=remNode->children;
+                      const char *rem_code=NodeAsStringFast("rem_code",node2);
+                      if ( strcmp(rem_code,"BLND")==0 ||
+                           strcmp(rem_code,"STCR")==0 ||
+                           strcmp(rem_code,"UMNR")==0 ||
+                           strcmp(rem_code,"WCHS")==0 ||
+                           strcmp(rem_code,"MEDA")==0 ) flagCHIN=true;
+                      pas.add_rem(rem_code);
+                  	}
+                  }
+                  string pass_rem;
+                  if ( subcls_rems.IsSubClsRem( subclass, pass_rem ) )  pas.add_rem(pass_rem);
+                  for ( vector<TInfantAdults>::iterator infItem=InfItems.begin(); infItem!= InfItems.end(); infItem++ ) {
+                    if ( infItem->parent_pax_id == pax_id ) {
+                      //ProgTrace( TRACE5, "infItem->parent_pax_id=%d", infItem->parent_pax_id );
+                      flagCHIN = true;
+                      break;
+                    }
+                  }
+                  if ( flagCHIN ) {
+                  	pas.add_rem("CHIN");
+                  }
+                  SEATS2::Passengers.Add(Salons,pas);
+                }
+                catch(CheckIn::UserException)
+                {
                   throw;
+                }
+                catch(UserException &e)
+                {
+                  node2=node->children;
+                  if (!NodeIsNULLFast("pax_id",node2))
+                    throw CheckIn::UserException(e.getLexemaData(), point_dep, NodeAsIntegerFast("pax_id",node2));
+                  else
+                    throw;
+                };
               };
             };
             //определим алгоритм рассадки

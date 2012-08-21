@@ -558,6 +558,21 @@ std::string GetPaxDocCountryCode(const std::string &doc_code);
 const int TEST_ID_BASE = 1000000000;
 bool isTestPaxId(int id);
 
+struct TInfantAdults {
+  int grp_id;
+  int pax_id;
+  int reg_no;
+  std::string surname;
+  int parent_pax_id;
+  int temp_parent_id;
+  TInfantAdults() {
+   grp_id = ASTRA::NoExists;
+   pax_id = ASTRA::NoExists;
+   reg_no = ASTRA::NoExists;
+   parent_pax_id = ASTRA::NoExists;
+  };
+};
+
 template <class T1>
 bool ComparePass( const T1 &item1, const T1 &item2 )
 {
@@ -565,7 +580,7 @@ bool ComparePass( const T1 &item1, const T1 &item2 )
 };
 
 /* должны быть заполнены поля в типе T1:
-  grp_id, pax_id, reg_no, surname, parent_pax_id - из таблицы crs_inf,
+  grp_id, pax_id, reg_no, surname, parent_pax_id, temp_parent_id - из таблицы crs_inf,
   в типе T2:
   grp_id, pax_id, reg_no, surname */
 template <class T1, class T2>
