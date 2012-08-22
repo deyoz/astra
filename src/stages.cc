@@ -907,6 +907,7 @@ void Takeoff( int point_id )
     tlg_types.push_back("PIM");
     tlg_types.push_back("SOM");
 //    tlg_types.push_back("ETL"); формируем по прилету в конечные пункт если не было интерактива с СЭБ
+    tlg_types.push_back("ETLD");
     tlg_types.push_back("LDM");
     tlg_types.push_back("CPM");
     TelegramInterface::SendTlg(point_id,tlg_types);
