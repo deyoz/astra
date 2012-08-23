@@ -4246,7 +4246,7 @@ void TPIMDest::ToTlg(TTlgInfo &info, vector<string> &body)
     for(vector<TPIMPax>::iterator iv = PaxList.begin(); iv != PaxList.end(); iv++) {
         LoadPaxDoc(iv->pax_id, doc, Qry);
         string vsurname, vname;
-        if(doc.surname.empty() and doc.first_name.empty()) {
+        if(doc.surname.empty()) {
             vname = transliter(iv->name, 1, info.pr_lat);
             vsurname = transliter(iv->surname, 1, info.pr_lat);
         } else {
