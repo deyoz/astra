@@ -205,9 +205,6 @@ struct TPnrInfo {
     pnr_id(NoExists) {};
 };
 
-#define TRACE_SIGNATURE int Level, const char *nickname, const char *filename, int line
-#define TRACE_PARAMS Level, nickname, filename, line
-
 void tracePax( TRACE_SIGNATURE,
                const string &descr,
                const int pass,
@@ -241,144 +238,6 @@ void tracePax( TRACE_SIGNATURE,
   };
 
   ProgTrace(TRACE_PARAMS, "^^^^^^^^^^^^ %s, pass=%d ^^^^^^^^^^^^", descr.c_str(), pass);
-};
-
-void traceTrfer( TRACE_SIGNATURE,
-                 const string &descr,
-                 const vector<TypeB::TTransferItem> &trfer )
-{
-  ProgTrace(TRACE_PARAMS, "============ %s ============", descr.c_str());
-  for(vector<TypeB::TTransferItem>::const_iterator iTrfer=trfer.begin();iTrfer!=trfer.end();iTrfer++)
-  {
-    ostringstream str;
-
-    if (iTrfer==trfer.begin())
-    {
-      str << setw(3) << right << "num" << " "
-          << setw(3) << left  << "a/l" << " "
-          << setw(6) << right << "flt_no" << " "
-          << setw(4) << right << "date" << " "
-          << setw(3) << left  << "dep" << " "
-          << setw(3) << left  << "arv" << " "
-          << setw(3) << left  << "scl";
-      ProgTrace(TRACE_PARAMS, "%s", str.str().c_str());
-
-      str.str("");
-    };
-
-    str << setw(2) << right << (iTrfer->num !=NoExists ? IntToString(iTrfer->num) : " ") << ": "
-        << setw(3) << left  << iTrfer->airline << " "
-        << setw(5) << right << (iTrfer->flt_no !=NoExists ? IntToString(iTrfer->flt_no) : " ")
-        << setw(1) << left  << iTrfer->suffix << " "
-        << setw(4) << right << (iTrfer->local_date !=NoExists ? IntToString(iTrfer->local_date) : " ") << " "
-        << setw(3) << left  << iTrfer->airp_dep << " "
-        << setw(3) << left  << iTrfer->airp_arv << " "
-        << setw(3) << left  << iTrfer->subcl;
-    ProgTrace(TRACE_PARAMS, "%s", str.str().c_str());
-  };
-
-  ProgTrace(TRACE_PARAMS, "^^^^^^^^^^^^ %s ^^^^^^^^^^^^", descr.c_str());
-};
-
-void traceTrfer( TRACE_SIGNATURE,
-                 const string &descr,
-                 const vector<CheckIn::TTransferItem> &trfer )
-{
-  ProgTrace(TRACE_PARAMS, "============ %s ============", descr.c_str());
-  int trfer_num=1;
-  for(vector<CheckIn::TTransferItem>::const_iterator iTrfer=trfer.begin();iTrfer!=trfer.end();iTrfer++,trfer_num++)
-  {
-    ostringstream str;
-
-    if (iTrfer==trfer.begin())
-    {
-      str << setw(3) << right << "num" << " "
-          << setw(3) << left  << "a/l" << " "
-          << setw(6) << right << "flt_no" << " "
-          << setw(4) << right << "date" << " "
-          << setw(3) << left  << "dep" << " "
-          << setw(3) << left  << "arv" << " "
-          << setw(3) << left  << "scl";
-      ProgTrace(TRACE_PARAMS, "%s", str.str().c_str());
-
-      str.str("");
-    };
-
-    str << setw(2) << right << trfer_num << ": "
-        << setw(3) << left  << iTrfer->operFlt.airline << " "
-        << setw(5) << right << (iTrfer->operFlt.flt_no !=NoExists ? IntToString(iTrfer->operFlt.flt_no) : " ")
-        << setw(1) << left  << iTrfer->operFlt.suffix << " "
-        << setw(4) << right << (iTrfer->operFlt.scd_out !=NoExists ? DateTimeToStr(iTrfer->operFlt.scd_out,"dd") : " ") << " "
-        << setw(3) << left  << iTrfer->operFlt.airp << " "
-        << setw(3) << left  << iTrfer->airp_arv << " "
-        << setw(3) << left  << iTrfer->subclass;
-    ProgTrace(TRACE_PARAMS, "%s", str.str().c_str());
-  };
-
-  ProgTrace(TRACE_PARAMS, "^^^^^^^^^^^^ %s ^^^^^^^^^^^^", descr.c_str());
-};
-
-void traceTCkinSegs( TRACE_SIGNATURE,
-                    const string &descr,
-                    const vector<TCkinSegFlts> &segs )
-{
-  ProgTrace(TRACE_PARAMS, "============ %s ============", descr.c_str());
-  int seg_no=1;
-  for(vector<TCkinSegFlts>::const_iterator iSeg=segs.begin();iSeg!=segs.end();iSeg++)
-  {
-    ostringstream str;
-
-    if (iSeg==segs.begin())
-    {
-      str << setw(3) << right << "seg" << " "
-          << setw(3) << left  << "a/l" << " "
-          << setw(6) << right << "flt_no" << " "
-          << setw(3) << left  << "a/p" << " "
-          << setw(9) << left  << "scd_out" << " "
-          << setw(9) << right << "point_dep" << " "
-          << setw(9) << right << "point_arv" << " "
-          << setw(3) << left  << "dep" << " "
-          << setw(3) << left  << "arv";
-      ProgTrace(TRACE_PARAMS, "%s", str.str().c_str());
-
-      str.str("");
-    };
-
-    if (!iSeg->flts.empty())
-    {
-      for(vector<TSegInfo>::const_iterator f=iSeg->flts.begin();f!=iSeg->flts.end();f++)
-      {
-        if (f==iSeg->flts.begin())
-          str << setw(2) << right << seg_no << ": ";
-        else
-          str << setw(2) << right << " " << "  ";
-
-        str << setw(3) << left  << f->fltInfo.airline << " "
-            << setw(5) << right << (f->fltInfo.flt_no != NoExists ? IntToString(f->fltInfo.flt_no) : " ")
-            << setw(1) << left  << f->fltInfo.suffix << " "
-            << setw(3) << left  << f->fltInfo.airp << " "
-            << setw(9) << left  << DateTimeToStr(f->fltInfo.scd_out,"ddmm hhnn") << " "
-            << setw(9) << right << (f->point_dep != NoExists ? IntToString(f->point_dep) : "NoExists") << " "
-            << setw(9) << right << (f->point_arv != NoExists ? IntToString(f->point_arv) : "NoExists") << " "
-            << setw(3) << left  << f->airp_dep << " "
-            << setw(3) << left  << f->airp_arv;
-        ProgTrace(TRACE_PARAMS, "%s", str.str().c_str());
-
-        str.str("");
-      };
-    }
-    else
-    {
-      str << setw(2) << right << seg_no << ": " << "not found!";
-
-      ProgTrace(TRACE_PARAMS, "%s", str.str().c_str());
-
-      str.str("");
-    };
-
-    seg_no++;
-  };
-  ProgTrace(TRACE_PARAMS, "^^^^^^^^^^^^ %s ^^^^^^^^^^^^", descr.c_str());
 };
 
 bool getTripData( int point_id, bool first_segment, TSearchPnrData &SearchPnrData, bool pr_throw )
@@ -635,10 +494,16 @@ void getTCkinData( const TSearchPnrData &firstPnrData,
   TReqInfo *reqInfo = TReqInfo::Instance();
   
   //поиск стыковочных сегментов (возвращаем вектор point_id)
+  
   TQuery Qry(&OraSession);
-  vector<TypeB::TTransferItem> crs_trfer;
-  vector<CheckIn::TTransferItem> trfer;
-  CheckInInterface::GetOnwardCrsTransfer(firstPnrData.pnr_id, Qry, crs_trfer);
+  map<int, CheckIn::TTransferItem> crs_trfer;
+  TTripInfo operFlt;
+  operFlt.airline=firstPnrData.airline;
+  operFlt.flt_no=firstPnrData.flt_no;
+  operFlt.suffix=firstPnrData.suffix;
+  operFlt.airp=firstPnrData.airp_dep;
+  operFlt.scd_out=firstPnrData.scd_out;
+  CheckInInterface::GetOnwardCrsTransfer(firstPnrData.pnr_id, Qry, operFlt, firstPnrData.airp_arv, crs_trfer);
   if (!crs_trfer.empty())
   {
     //проверяем разрешение сквозной регистрации для данного типа клиента
@@ -666,66 +531,43 @@ void getTCkinData( const TSearchPnrData &firstPnrData,
                         firstPnrData.point_id, EncodeClientType(reqInfo->client_type), reqInfo->desk.grp_id);
       return;
     };
-  
-  
-    TTripInfo operFlt;
-    operFlt.airline=firstPnrData.airline;
-    operFlt.flt_no=firstPnrData.flt_no;
-    operFlt.suffix=firstPnrData.suffix;
-    operFlt.airp=firstPnrData.airp_dep;
-    operFlt.scd_out=firstPnrData.scd_out;
 
-    //трансфер есть. проверим сквозняк
-    CheckInInterface::LoadOnwardCrsTransfer(operFlt,
-                                            firstPnrData.airp_arv,
-                                            "",
-                                            crs_trfer, trfer, NULL);
-
-    if (crs_trfer.size()!=trfer.size())
-    {
-      traceTrfer(TRACE5, "crs_trfer", crs_trfer);
-      traceTrfer(TRACE5, "trfer", trfer);
-    };
-
-    vector<TCkinSegFlts> segs;
-    CheckInInterface::GetTCkinFlights(trfer, segs);
-
+    map<int, pair<TCkinSegFlts, TTrferSetsInfo> > trfer_segs;
+    traceTrfer(TRACE5, "getTCkinData: crs_trfer", crs_trfer);
+    CheckInInterface::GetTrferSets(operFlt,
+                                   firstPnrData.airp_arv,
+                                   "",
+                                   crs_trfer,
+                                   false,
+                                   trfer_segs);
+    traceTrfer(TRACE5, "getTCkinData: trfer_segs", trfer_segs);
+    if (crs_trfer.size()!=trfer_segs.size())
+      throw EXCEPTIONS::Exception("getTCkinData: different array sizes "
+                                  "(crs_trfer.size()=%d, trfer_segs.size()=%d)",
+                                  crs_trfer.size(),trfer_segs.size());
+    
     int seg_no=1;
     try
     {
-      string airline_in=operFlt.airline;
-      int flt_no_in=operFlt.flt_no;
-
       //цикл по стыковочным сегментам и по трансферным рейсам
-      vector<TCkinSegFlts>::const_iterator s=segs.begin();
-      vector<CheckIn::TTransferItem>::const_iterator f=trfer.begin();
-      for(;s!=segs.end() && f!=trfer.end();s++,f++)
+      map<int, pair<TCkinSegFlts, TTrferSetsInfo> >::const_iterator s=trfer_segs.begin();
+      map<int, CheckIn::TTransferItem>::const_iterator f=crs_trfer.begin();
+      for(;s!=trfer_segs.end() && f!=crs_trfer.end();++s,++f)
       {
         seg_no++;
-        //возможность сквозной регистрации
-        TCkinSetsInfo tckinSets;
-        CheckInInterface::CheckTCkinPermit(airline_in,
-                                           flt_no_in,
-                                           f->operFlt.airp,
-                                           f->operFlt.airline,
-                                           f->operFlt.flt_no,
-                                           tckinSets);
-        if (!tckinSets.pr_permit)
-          throw "Check-in not permitted";
-
-        if (s->is_edi)
+        if (s->second.first.is_edi)
           throw "Flight from the other DCS";
 
-        airline_in=f->operFlt.airline;
-        flt_no_in=f->operFlt.flt_no;
-
-        if (s->flts.empty())
+        if (s->second.first.flts.empty())
           throw "Flight not found";
 
-        if (s->flts.size()>1)
+        if (s->second.first.flts.size()>1)
           throw "More than one flight found";
+          
+        if (!s->second.second.tckin_permit)
+          throw "Check-in not permitted";
 
-        const TSegInfo &currSeg=*(s->flts.begin());
+        const TSegInfo &currSeg=*(s->second.first.flts.begin());
 
         if (currSeg.fltInfo.pr_del!=0)
           throw "Flight canceled";
@@ -776,8 +618,8 @@ void getTCkinData( const TSearchPnrData &firstPnrData,
             "      crs_pax.pr_del=0 "
             "ORDER BY pnr_addrs.pnr_id, pnr_addrs.airline";
           Qry.CreateVariable("point_id", otInteger, currSeg.point_dep);
-          Qry.CreateVariable("airp_arv", otString, currSeg.airp_arv); //идет проверка совпадения а/п назначения из трансферного маршрута
-          Qry.CreateVariable("subclass", otString, f->subclass);      //идет проверка совпадения подкласса из трансферного маршрута
+          Qry.CreateVariable("airp_arv", otString, currSeg.airp_arv);  //идет проверка совпадения а/п назначения из трансферного маршрута
+          Qry.CreateVariable("subclass", otString, f->second.subclass);//идет проверка совпадения подкласса из трансферного маршрута
           Qry.Execute();
           int prior_pnr_id=NoExists;
           //по ходу заполняем pnrData.pnr_id, pnrData.cls, pnrData.pnr_addrs
@@ -821,7 +663,7 @@ void getTCkinData( const TSearchPnrData &firstPnrData,
 
         //дозаполним поля pnrData
       	pnrData.airp_arv = currSeg.airp_arv;
-      	pnrData.subcls = f->subclass;
+      	pnrData.subcls = f->second.subclass;
       	pnrData.point_arv = currSeg.point_arv; //NoExists быть не может - проверено ранее
 
       	if (!getTripData2(pnrData, false))
@@ -835,8 +677,8 @@ void getTCkinData( const TSearchPnrData &firstPnrData,
     catch(const char* error)
     {
       ProgTrace(TRACE5, ">>>> seg_no=%d: %s ", seg_no, error);
-      traceTrfer(TRACE5, "trfer", trfer);
-      traceTCkinSegs(TRACE5, "segs", segs);
+      traceTrfer(TRACE5, "crs_trfer", crs_trfer);
+      traceTrfer(TRACE5, "trfer_segs", trfer_segs);
     };
   };
 };
