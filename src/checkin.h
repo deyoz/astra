@@ -27,19 +27,21 @@ struct TCkinSegFlts
   bool is_edi;
 };
 
-class TCkinSetsInfo
+class TTrferSetsInfo
 {
   public:
-    bool pr_permit,pr_waitlist,pr_norec;
-    TCkinSetsInfo()
+    bool trfer_permit;
+    bool tckin_permit, tckin_waitlist, tckin_norec;
+    TTrferSetsInfo()
     {
       Clear();
     };
     void Clear()
     {
-      pr_permit=false;
-      pr_waitlist=false;
-      pr_norec=false;
+      trfer_permit=false;
+      tckin_permit=false;
+      tckin_waitlist=false;
+      tckin_norec=false;
     };
 };
 
@@ -64,6 +66,7 @@ class TTransferItem
   public:
     std::string flight_view;
     TTripInfo operFlt;
+    int local_date;
     int grp_id;
     std::string airp_arv;
     TElemFmt airp_arv_fmt;
@@ -72,13 +75,33 @@ class TTransferItem
     std::vector<TPaxTransferItem> pax;
     TTransferItem()
     {
+      local_date=ASTRA::NoExists;
       grp_id=ASTRA::NoExists;
       airp_arv_fmt=efmtUnknown;
       subclass_fmt=efmtUnknown;
     };
+    bool Valid() const
+    {
+      return !operFlt.airline.empty() &&
+             operFlt.flt_no!=0 &&
+             !operFlt.airp.empty() &&
+             operFlt.scd_out!=ASTRA::NoExists &&
+             !airp_arv.empty();
+    };
 };
 
 };
+
+#define TRACE_SIGNATURE int Level, const char *nickname, const char *filename, int line
+#define TRACE_PARAMS Level, nickname, filename, line
+
+void traceTrfer( TRACE_SIGNATURE,
+                 const std::string &descr,
+                 const std::map<int, CheckIn::TTransferItem> &trfer );
+                 
+void traceTrfer( TRACE_SIGNATURE,
+                 const std::string &descr,
+                 const std::map<int, std::pair<TCkinSegFlts, TTrferSetsInfo> > &segs );
 
 class CheckInInterface : public JxtInterface
 {
@@ -141,8 +164,8 @@ public:
                               const std::string& airp_arv,
                               bool lock,
                               TSegInfo& segInfo);
-  static void GetTCkinFlights(const std::vector<CheckIn::TTransferItem> &trfer,
-                              std::vector< TCkinSegFlts > &segs);
+  static void GetTCkinFlights(const std::map<int, CheckIn::TTransferItem> &trfer,
+                              std::map<int, std::pair<CheckIn::TTransferItem, TCkinSegFlts> > &segs);
 
   static void ParseTransfer(xmlNodePtr trferNode,
                             xmlNodePtr paxNode,
@@ -156,7 +179,11 @@ public:
 
   static void SavePaxRem(xmlNodePtr paxNode);
   static void SavePaxTransfer(int pax_id, int pax_no, const std::vector<CheckIn::TTransferItem> &trfer, int seg_no);
-  static std::string SaveTransfer(int grp_id, const std::vector<CheckIn::TTransferItem> &trfer, bool pr_unaccomp, int seg_no);
+  static std::string SaveTransfer(int grp_id,
+                                  const std::vector<CheckIn::TTransferItem> &trfer,
+                                  const std::map<int, std::pair<TCkinSegFlts, TTrferSetsInfo> > &trfer_segs,
+                                  bool pr_unaccomp,
+                                  int seg_no);
   static std::string SaveTCkinSegs(int grp_id, xmlNodePtr segsNode, const std::map<int,TSegInfo> &segs, int seg_no);
   static bool SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode);
   static void SavePaidBag(int grp_id, xmlNodePtr paidbagNode);
@@ -182,20 +209,23 @@ public:
   static void readTripSets( int point_id, const TTripInfo &fltInfo, xmlNodePtr tripSetsNode );
   static void readTripSets( const TTripInfo &fltInfo, int pr_etstatus, xmlNodePtr tripSetsNode);
   
-  static void GetOnwardCrsTransfer(int pnr_id, TQuery &Qry, std::vector<TypeB::TTransferItem> &trfer);
-  static void LoadOnwardCrsTransfer(const TTripInfo &operFlt,
-                                    const std::string &oper_airp_arv,
-                                    const std::string &tlg_airp_dep,
-                                    const std::vector<TypeB::TTransferItem> &crs_trfer,
-                                    std::vector<CheckIn::TTransferItem> &trfer,
-                                    xmlNodePtr trferNode);
+  static void GetOnwardCrsTransfer(int pnr_id, TQuery &Qry,
+                                   const TTripInfo &operFlt,
+                                   const std::string &oper_airp_arv,
+                                   std::map<int, CheckIn::TTransferItem> &trfer);
 
-  static bool CheckTCkinPermit(const std::string &airline_in,
-                               const int flt_no_in,
-                               const std::string &airp,
-                               const std::string &airline_out,
-                               const int flt_no_out,
-                               TCkinSetsInfo &sets);
+  static void LoadOnwardCrsTransfer(const std::map<int, CheckIn::TTransferItem> &trfer,
+                                    const std::map<int, std::pair<TCkinSegFlts, TTrferSetsInfo> > &trfer_segs,
+                                    xmlNodePtr trferNode);
+  static void LoadOnwardCrsTransfer(const std::map<int, std::pair<CheckIn::TTransferItem, TTrferSetsInfo> > &trfer,
+                                    xmlNodePtr trferNode);
+                               
+  static void GetTrferSets(const TTripInfo &operFlt,
+                           const std::string &oper_airp_arv,
+                           const std::string &tlg_airp_dep,
+                           const std::map<int, CheckIn::TTransferItem> &trfer,
+                           const bool get_trfer_permit_only,
+                           std::map<int, std::pair<TCkinSegFlts, TTrferSetsInfo> > &trfer_segs);
 };
 
 namespace CheckIn
