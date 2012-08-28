@@ -4253,35 +4253,26 @@ void TPIMDest::ToTlg(TTlgInfo &info, vector<string> &body)
             vname = transliter(doc.first_name, 1, info.pr_lat);
             vsurname = transliter(doc.surname, 1, info.pr_lat);
         }
-        ostringstream line;
-        line
-            << "/" << (doc.type.empty()?"":info.TlgElemIdToElem(etPaxDocType, doc.type))
-            << "/" << transliter(convert_char_view(doc.no, info.pr_lat), 1, info.pr_lat)
-            << "/" << (doc.nationality.empty()?"":info.TlgElemIdToElem(etPaxDocCountry, doc.nationality))
-            << "/" << (doc.birth_date!=ASTRA::NoExists?DateTimeToStr(doc.birth_date, "ddmmmyy", info.pr_lat):"")
-            << "/" << (doc.gender.empty()?"":info.TlgElemIdToElem(etGenderType, doc.gender))
-            << "/" << (doc.expiry_date!=ASTRA::NoExists?DateTimeToStr(doc.expiry_date, "ddmmmyy", info.pr_lat):"")
-            << "/" << (doc.issue_country.empty()?"":info.TlgElemIdToElem(etPaxDocCountry, doc.issue_country))
-            << "/";
-        /* Алгоритм обрезания Воланду не понравился
-           Обрезаем сначала имя, потом фамилию.
-        size_t str_len = vname.size() + 1 + vsurname.size() + line.str().size();
-        if(str_len > LINE_SIZE) {
-            size_t to_del = str_len - LINE_SIZE;
-            if(vname.empty()) {
-                vsurname = vsurname.substr(0, vsurname.size() - to_del);
-            } else if(to_del >= vname.size()) {
-                to_del -= vname.size() - 1;
-                vname = vname.substr(0, 1);
-                if(to_del >= vsurname.size())
-                    vsurname = vsurname.substr(0, 1);
-                else
-                    vsurname = vsurname.substr(0, vsurname.size() - to_del);
-            } else
-                vname = vname.substr(0, vname.size() - to_del);
+        string line;
+        line =
+            vsurname
+            + "/" + vname
+            + "/" + (doc.type.empty()?"":info.TlgElemIdToElem(etPaxDocType, doc.type))
+            + "/" + transliter(convert_char_view(doc.no, info.pr_lat), 1, info.pr_lat)
+            + "/" + (doc.nationality.empty()?"":info.TlgElemIdToElem(etPaxDocCountry, doc.nationality))
+            + "/" + (doc.birth_date!=ASTRA::NoExists?DateTimeToStr(doc.birth_date, "ddmmmyy", info.pr_lat):"")
+            + "/" + (doc.gender.empty()?"":info.TlgElemIdToElem(etGenderType, doc.gender))
+            + "/" + (doc.expiry_date!=ASTRA::NoExists?DateTimeToStr(doc.expiry_date, "ddmmmyy", info.pr_lat):"")
+            + "/" + (doc.issue_country.empty()?"":info.TlgElemIdToElem(etPaxDocCountry, doc.issue_country))
+            + "/";
+        while(line.size() > LINE_SIZE) {
+            body.push_back(line.substr(0, LINE_SIZE));
+            line.erase(0, LINE_SIZE);
+            if(not line.empty())
+                line = ".RN/" + line;
         }
-        */
-        body.push_back((vsurname + "/" + vname + line.str()).substr(0, LINE_SIZE));
+        if(not line.empty())
+            body.push_back(line);
     }
 }
 
