@@ -4251,6 +4251,9 @@ void TPIMDest::ToTlg(TTlgInfo &info, vector<string> &body)
             vsurname = transliter(iv->surname, 1, info.pr_lat);
         } else {
             vname = transliter(doc.first_name, 1, info.pr_lat);
+            if(not vname.empty() and not doc.second_name.empty())
+                vname += " ";
+            vname += transliter(doc.second_name, 1, info.pr_lat);
             vsurname = transliter(doc.surname, 1, info.pr_lat);
         }
         string line;
