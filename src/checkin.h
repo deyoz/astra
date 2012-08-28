@@ -165,7 +165,7 @@ public:
                               bool lock,
                               TSegInfo& segInfo);
   static void GetTCkinFlights(const std::map<int, CheckIn::TTransferItem> &trfer,
-                              std::map<int, TCkinSegFlts> &segs);
+                              std::map<int, std::pair<CheckIn::TTransferItem, TCkinSegFlts> > &segs);
 
   static void ParseTransfer(xmlNodePtr trferNode,
                             xmlNodePtr paxNode,

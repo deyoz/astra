@@ -642,20 +642,14 @@ void CreateNoRecResponse(TInquiryGroupSummary &sum, xmlNodePtr resNode)
   };
 };
 
-void CheckTrferPermit(const TCkinSegFlts &in,
-                      const TCkinSegFlts &out,
+void CheckTrferPermit(const pair<CheckIn::TTransferItem, TCkinSegFlts> &in,
+                      const pair<CheckIn::TTransferItem, TCkinSegFlts> &out,
                       const bool outboard_trfer,
                       TTrferSetsInfo &sets)
 {
   sets.Clear();
-  if (in.is_edi || out.is_edi ||
-      in.flts.size()!=1 || out.flts.size()!=1) return;
-
-  const TSegInfo &inSeg=*(in.flts.begin());
-  const TSegInfo &outSeg=*(out.flts.begin());
-  if (inSeg.fltInfo.pr_del!=0 || outSeg.fltInfo.pr_del!=0 ||
-      inSeg.point_arv==ASTRA::NoExists || outSeg.point_arv==ASTRA::NoExists ||
-      inSeg.airp_arv!=outSeg.airp_dep) return;
+  if (!in.first.Valid() || !out.first.Valid()) return;
+  if (in.first.airp_arv!=out.first.operFlt.airp) return; //разные а/п прилета и вылета
   
   TQuery Qry(&OraSession);
   Qry.Clear();
@@ -671,11 +665,11 @@ void CheckTrferPermit(const TCkinSegFlts &in,
     "      (flts_in.flt_no IS NULL OR flts_in.flt_no=:flt_no_in) AND "
     "      (flts_out.flt_no IS NULL OR flts_out.flt_no=:flt_no_out) "
     "ORDER BY flts_out.flt_no,flts_in.flt_no ";
-  Qry.CreateVariable("airline_in",otString,inSeg.fltInfo.airline);
-  Qry.CreateVariable("flt_no_in",otInteger,inSeg.fltInfo.flt_no);
-  Qry.CreateVariable("airp",otString,outSeg.airp_dep);
-  Qry.CreateVariable("airline_out",otString,outSeg.fltInfo.airline);
-  Qry.CreateVariable("flt_no_out",otInteger,outSeg.fltInfo.flt_no);
+  Qry.CreateVariable("airline_in",otString,in.first.operFlt.airline);
+  Qry.CreateVariable("flt_no_in",otInteger,in.first.operFlt.flt_no);
+  Qry.CreateVariable("airp",otString,out.first.operFlt.airp);
+  Qry.CreateVariable("airline_out",otString,out.first.operFlt.airline);
+  Qry.CreateVariable("flt_no_out",otInteger,out.first.operFlt.flt_no);
   Qry.Execute();
   if (Qry.Eof)
   {
@@ -684,8 +678,8 @@ void CheckTrferPermit(const TCkinSegFlts &in,
       "SELECT id FROM trfer_set_airps "
       "WHERE (airline_in=:airline_in AND airline_out=:airline_out OR "
       "       airline_in=:airline_out AND airline_out=:airline_in) AND rownum<2";
-    Qry.CreateVariable("airline_in",otString,inSeg.fltInfo.airline);
-    Qry.CreateVariable("airline_out",otString,outSeg.fltInfo.airline);
+    Qry.CreateVariable("airline_in",otString,in.first.operFlt.airline);
+    Qry.CreateVariable("airline_out",otString,out.first.operFlt.airline);
     Qry.Execute();
     if (Qry.Eof)
       sets.trfer_permit=outboard_trfer;
@@ -699,8 +693,31 @@ void CheckTrferPermit(const TCkinSegFlts &in,
       sets.tckin_waitlist=Qry.FieldAsInteger("tckin_waitlist")!=0;
       sets.tckin_norec=Qry.FieldAsInteger("tckin_norec")!=0;
     };
+  
     int min_interval=Qry.FieldIsNULL("min_interval")?NoExists:Qry.FieldAsInteger("min_interval");
     int max_interval=Qry.FieldIsNULL("max_interval")?NoExists:Qry.FieldAsInteger("max_interval");
+
+    if (in.second.is_edi || out.second.is_edi ||
+        in.second.flts.size()!=1 || out.second.flts.size()!=1)
+    {
+      sets.Clear();
+      if (min_interval==NoExists && max_interval==NoExists)
+        sets.trfer_permit=Qry.FieldAsInteger("trfer_permit")!=0;
+      return;
+    };
+
+    const TSegInfo &inSeg=*(in.second.flts.begin());
+    const TSegInfo &outSeg=*(out.second.flts.begin());
+    if (inSeg.fltInfo.pr_del!=0 || outSeg.fltInfo.pr_del!=0 ||
+        inSeg.point_arv==ASTRA::NoExists || outSeg.point_arv==ASTRA::NoExists ||
+        inSeg.airp_arv!=outSeg.airp_dep)
+    {
+      sets.Clear();
+      if (min_interval==NoExists && max_interval==NoExists)
+        sets.trfer_permit=Qry.FieldAsInteger("trfer_permit")!=0;
+      return;
+    };
+
     if ((sets.trfer_permit || sets.tckin_permit) &&
         (min_interval!=NoExists || max_interval!=NoExists))
     {
@@ -714,8 +731,7 @@ void CheckTrferPermit(const TCkinSegFlts &in,
       {
         if (outSeg.fltInfo.real_out==NoExists)
           throw EXCEPTIONS::Exception("CheckTrferPermit: outSeg.fltInfo.real_out==NoExists");
-        double interval;
-        modf((outSeg.fltInfo.real_out-Qry.FieldAsDateTime("real_in"))*1440, &interval);
+        double interval=round((outSeg.fltInfo.real_out-Qry.FieldAsDateTime("real_in"))*1440);
         //ProgTrace(TRACE5, "interval=%f, min_interval=%d, max_interval=%d", interval, min_interval, max_interval);
         if (min_interval!=NoExists && interval<min_interval ||
             max_interval!=NoExists && interval>max_interval) sets.Clear();
@@ -925,22 +941,23 @@ void CheckInInterface::GetTrferSets(const TTripInfo &operFlt,
   
     //traceTrfer( TRACE5, "GetTrferSets: trfer_tmp", trfer_tmp );
   
-    map<int, TCkinSegFlts> trfer_segs_tmp;
+    map<int, pair<CheckIn::TTransferItem, TCkinSegFlts> > trfer_segs_tmp;
     GetTCkinFlights(trfer_tmp, trfer_segs_tmp);
     
     //traceTrfer( TRACE5, "GetTrferSets: trfer_segs_tmp", trfer_segs_tmp );
     
     bool outboard_trfer=GetTripSets( tsOutboardTrfer, operFlt );
     
-    pair<int, TCkinSegFlts> prior_trfer_seg;
-    for(map<int, TCkinSegFlts>::const_iterator s=trfer_segs_tmp.begin(); s!=trfer_segs_tmp.end(); ++s)
+    pair<int, pair<CheckIn::TTransferItem, TCkinSegFlts> > prior_trfer_seg;
+    for(map<int, pair<CheckIn::TTransferItem, TCkinSegFlts> >::const_iterator s=trfer_segs_tmp.begin();
+                                                                              s!=trfer_segs_tmp.end(); ++s)
     {
       if (s!=trfer_segs_tmp.begin())
       {
         TTrferSetsInfo sets;
         if (prior_trfer_seg.first+1==s->first)
           CheckTrferPermit(prior_trfer_seg.second, s->second, outboard_trfer, sets);
-        trfer_segs[s->first]=make_pair(s->second, sets);
+        trfer_segs[s->first]=make_pair(s->second.second, sets);
       };
       prior_trfer_seg=*s;
     };
@@ -6112,7 +6129,7 @@ struct TCkinPaxInfo
 };
 
 void CheckInInterface::GetTCkinFlights(const map<int, CheckIn::TTransferItem> &trfer,
-                                       map<int, TCkinSegFlts > &segs)
+                                       map<int, pair<CheckIn::TTransferItem, TCkinSegFlts> > &segs)
 {
   segs.clear();
   if (trfer.empty()) return;
@@ -6196,7 +6213,7 @@ void CheckInInterface::GetTCkinFlights(const map<int, CheckIn::TTransferItem> &t
         };
       };
     };
-    segs[t->first]=seg;
+    segs[t->first]=make_pair(t->second, seg);
   };
 };
 
