@@ -63,7 +63,9 @@ const
     {"-put_move_arx_ext",put_move_arx_ext,      NULL,                     NULL},
     {"-alter_bag_pool_num",alter_bag_pool_num,  NULL,                     NULL},
     {"-agent_stat_delta",STAT::agent_stat_delta,NULL,                     NULL},
-    {"-ssm",        TypeB::ssm,                 NULL,                     NULL}
+    {"-ssm",        TypeB::ssm,                 NULL,                     NULL},
+    {"-check_trfer_tckin_set", check_trfer_tckin_set, NULL, NULL},
+    {"-alter_trfer_tckin_set", alter_trfer_tckin_set, NULL, NULL}
   };
 
 int nosir_test(int argc,char **argv)

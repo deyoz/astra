@@ -3,9 +3,11 @@
 #include "astra_consts.h"
 #include "astra_utils.h"
 #include "arx_daily.h"
+#include "checkin.h"
 #include "tlg/tlg_parser.h"
 #include "tclmon/tcl_utils.h"
 #include "serverlib/ourtime.h"
+#include <set>
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -1347,4 +1349,472 @@ int alter_bag_pool_num(int argc,char **argv)
 
   return 0;
 };
+
+typedef pair< vector<int>, TTrferSetsInfo > TIdsRow;
+
+class TIdsKey
+{
+  public:
+    int id;
+    TTrferSetsInfo sets;
+    int flt_in;
+    bool operator < (const TIdsKey &item) const
+    {
+      if (id!=item.id) return id<item.id;
+      if (sets.trfer_permit!=item.sets.trfer_permit) return sets.trfer_permit<item.sets.trfer_permit;
+      if (sets.tckin_permit!=item.sets.tckin_permit) return sets.tckin_permit<item.sets.tckin_permit;
+      if (sets.tckin_waitlist!=item.sets.tckin_waitlist) return sets.tckin_waitlist<item.sets.tckin_waitlist;
+      if (sets.tckin_norec!=item.sets.tckin_norec) return sets.tckin_norec<item.sets.tckin_norec;
+      if (flt_in!=item.flt_in) return flt_in<item.flt_in;
+      return false;
+    };
+};
+
+class TIds2Key
+{
+  public:
+    int id;
+    TTrferSetsInfo sets;
+    set<int> flt_out;
+    bool operator < (const TIds2Key &item) const
+    {
+      if (id!=item.id) return id<item.id;
+      if (sets.trfer_permit!=item.sets.trfer_permit) return sets.trfer_permit<item.sets.trfer_permit;
+      if (sets.tckin_permit!=item.sets.tckin_permit) return sets.tckin_permit<item.sets.tckin_permit;
+      if (sets.tckin_waitlist!=item.sets.tckin_waitlist) return sets.tckin_waitlist<item.sets.tckin_waitlist;
+      if (sets.tckin_norec!=item.sets.tckin_norec) return sets.tckin_norec<item.sets.tckin_norec;
+      if (flt_out!=item.flt_out) return flt_out<item.flt_out;
+      return false;
+    };
+};
+
+int alter_trfer_tckin_set(int argc,char **argv)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "DECLARE "
+    "  CURSOR cur IS "
+    "    SELECT id FROM trfer_sets FOR UPDATE; "
+    "BEGIN "
+    "  FOR curRow IN cur LOOP "
+    "    DELETE FROM trfer_set_flts WHERE id=curRow.id; "
+    "    DELETE FROM trfer_sets WHERE id=curRow.id; "
+    "    DELETE FROM trfer_set_airps WHERE id=curRow.id; "
+    "  END LOOP; "
+    "END; ";
+  Qry.Execute();
+
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT trfer_set_airps.id, "
+    "       airline_in, airp, airline_out, "
+    "       trfer_set.pr_permit AS trfer_permit, "
+    "       tckin_set.pr_permit AS tckin_permit, "
+    "       tckin_set.pr_waitlist AS tckin_waitlist, "
+    "       tckin_set.pr_norec AS tckin_norec "
+    "FROM trfer_set_airps, trfer_set, tckin_set "
+    "WHERE trfer_set_airps.id=trfer_set.id(+) AND "
+    "      trfer_set_airps.id=tckin_set.id(+) AND "
+    "      (trfer_set.pr_permit IS NOT NULL OR tckin_set.pr_permit IS NOT NULL) "
+    "ORDER BY airp, airline_in, airline_out";
+  TQuery Qry2(&OraSession);
+  Qry2.Clear();
+  Qry2.SQLText=
+    "SELECT pr_onward, flt_no FROM trfer_set_flts WHERE id=:id";
+  Qry2.DeclareVariable("id", otInteger);
+
+  TQuery Ins1Qry(&OraSession);
+  Ins1Qry.Clear();
+  Ins1Qry.SQLText=
+    "BEGIN "
+    "  INSERT INTO trfer_set_airps(id, airline_in, airp, airline_out) "
+    "  VALUES(id__seq.nextval, :airline_in, :airp, :airline_out); "
+    "  INSERT INTO trfer_sets(id, trfer_permit, tckin_permit, tckin_waitlist, tckin_norec) "
+    "  VALUES(id__seq.currval, :trfer_permit, :tckin_permit, :tckin_waitlist, :tckin_norec); "
+    "END;";
+  Ins1Qry.DeclareVariable("trfer_permit", otInteger);
+  Ins1Qry.DeclareVariable("tckin_permit", otInteger);
+  Ins1Qry.DeclareVariable("tckin_waitlist", otInteger);
+  Ins1Qry.DeclareVariable("tckin_norec", otInteger);
+  Ins1Qry.DeclareVariable("airline_in", otString);
+  Ins1Qry.DeclareVariable("airp", otString);
+  Ins1Qry.DeclareVariable("airline_out", otString);
+
+  TQuery Ins2Qry(&OraSession);
+  Ins2Qry.Clear();
+  Ins2Qry.SQLText=
+    "INSERT INTO trfer_set_flts(id, pr_onward, flt_no) "
+    "VALUES(id__seq.currval, :pr_onward, :flt_no)";
+  Ins2Qry.DeclareVariable("pr_onward", otInteger);
+  Ins2Qry.DeclareVariable("flt_no", otInteger);
+
+  map< pair<int, int>, pair<TIdsRow, TIdsRow> > permits;
+  map< TIdsKey, set<int>/*flt_out*/ > ids[2];
+  map< TIds2Key, set<int>/*flt_in*/ > ids2[2];
+  Qry.Execute();
+  for(;!Qry.Eof;)
+  {
+    int id=Qry.FieldAsInteger("id");
+    string airline_in=Qry.FieldAsString("airline_in");
+    string airp=Qry.FieldAsString("airp");
+    string airline_out=Qry.FieldAsString("airline_out");
+  
+    set<int> flt_in_row, flt_out_row;
+    Qry2.SetVariable("id", id);
+    Qry2.Execute();
+    for(;!Qry2.Eof;Qry2.Next())
+    {
+      if (Qry2.FieldAsInteger("pr_onward")==0)
+        flt_in_row.insert(Qry2.FieldAsInteger("flt_no"));
+      else
+        flt_out_row.insert(Qry2.FieldAsInteger("flt_no"));
+    };
+    if (flt_in_row.empty()) flt_in_row.insert(NoExists);
+    if (flt_out_row.empty()) flt_out_row.insert(NoExists);
+    
+    for(int pass=0; pass<=1; pass++)
+    {
+      TTrferSetsInfo sets;
+      if (!Qry.FieldIsNULL("trfer_permit"))
+      {
+        if (pass!=0) continue;
+        sets.trfer_permit=Qry.FieldAsInteger("trfer_permit")!=0;
+      };
+      if (!Qry.FieldIsNULL("tckin_permit"))
+      {
+        if (pass==0) continue;
+        sets.tckin_permit=Qry.FieldAsInteger("tckin_permit")!=0;
+        sets.tckin_waitlist=Qry.FieldAsInteger("tckin_waitlist")!=0;
+        sets.tckin_norec=Qry.FieldAsInteger("tckin_norec")!=0;
+      };
+      
+      for(set<int>::const_iterator i=flt_in_row.begin();i!=flt_in_row.end();++i)
+        for(set<int>::const_iterator o=flt_out_row.begin();o!=flt_out_row.end();++o)
+        {
+          map< pair<int, int>, pair<TIdsRow, TIdsRow> >::iterator ip=permits.find(make_pair(*i,*o));
+          if (ip==permits.end())
+          {
+            if (pass==0)
+              permits[make_pair(*i,*o)]=make_pair( make_pair( vector<int>(1,id), sets ),
+                                                   make_pair( vector<int>(), TTrferSetsInfo() ) );
+            else
+              permits[make_pair(*i,*o)]=make_pair( make_pair( vector<int>(), TTrferSetsInfo() ),
+                                                   make_pair( vector<int>(1,id), sets ) );
+          }
+          else
+          {
+            if (pass==0)
+            {
+              if (!ip->second.first.first.empty())
+              {
+                if(ip->second.first.second.trfer_permit!=sets.trfer_permit  ||
+                   ip->second.first.second.tckin_permit!=sets.tckin_permit  ||
+                   ip->second.first.second.tckin_waitlist!=sets.tckin_waitlist  ||
+                   ip->second.first.second.tckin_norec!=sets.tckin_norec)
+                {
+                  printf("conflict in %s: airline_in=%s airp=%s airline_out=%s flt_in=%d flt_out=%d",
+                         (pass==0?"trfer_set":"tckin_set"),
+                         airline_in.c_str(),
+                         airp.c_str(),
+                         airline_out.c_str(),
+                         *i, *o);
+                  return 1;
+                };
+              }
+              else ip->second.first.second=sets;
+              ip->second.first.first.push_back(id);
+            }
+            else
+            {
+              if (!ip->second.second.first.empty())
+              {
+                if(ip->second.second.second.trfer_permit!=sets.trfer_permit  ||
+                   ip->second.second.second.tckin_permit!=sets.tckin_permit  ||
+                   ip->second.second.second.tckin_waitlist!=sets.tckin_waitlist  ||
+                   ip->second.second.second.tckin_norec!=sets.tckin_norec)
+                {
+                  printf("conflict in %s: airline_in=%s airp=%s airline_out=%s flt_in=%d flt_out=%d",
+                         (pass==0?"trfer_set":"tckin_set"),
+                         airline_in.c_str(),
+                         airp.c_str(),
+                         airline_out.c_str(),
+                         *i, *o);
+                  return 1;
+                };
+              }
+              else ip->second.second.second=sets;
+              ip->second.second.first.push_back(id);
+            };
+          };
+        };
+    };
+    Qry.Next();
+
+    if (Qry.Eof ||
+        airline_in!=Qry.FieldAsString("airline_in") ||
+        airp!=Qry.FieldAsString("airp") ||
+        airline_out!=Qry.FieldAsString("airline_out"))
+    {
+      //printf("permits.size=%d\n", permits.size());
+
+      map< pair<int, int>, pair<TIdsRow, TIdsRow> >::iterator ip=permits.begin();
+      for(;ip!=permits.end();++ip)
+      {
+        if (ip->second.first.first.empty()) ip->second.first.first.push_back(NoExists);
+        if (ip->second.second.first.empty()) ip->second.second.first.push_back(NoExists);
+        TIdsKey key;
+        key.flt_in=ip->first.first;
+        key.sets.trfer_permit=ip->second.first.second.trfer_permit || ip->second.second.second.trfer_permit;
+        key.sets.tckin_permit=ip->second.first.second.tckin_permit || ip->second.second.second.tckin_permit;
+        key.sets.tckin_waitlist=ip->second.first.second.tckin_waitlist || ip->second.second.second.tckin_waitlist;
+        key.sets.tckin_norec=ip->second.first.second.tckin_norec || ip->second.second.second.tckin_norec;
+
+        for(vector<int>::const_iterator id1=ip->second.first.first.begin();
+                                        id1!=ip->second.first.first.end(); ++id1)
+        {
+          for(vector<int>::const_iterator id2=ip->second.second.first.begin();
+                                          id2!=ip->second.second.first.end(); ++id2)
+          {
+            if (*id1==NoExists && *id2==NoExists) continue;
+            for(int pass=0; pass<=1; pass++)
+            {
+              if (pass==0)
+              {
+                if (*id1!=NoExists) key.id=*id1; else key.id=*id2;
+              }
+              else
+              {
+                if (*id2!=NoExists) key.id=*id2; else key.id=*id1;
+              };
+              (ids[pass])[key].insert(ip->first.second);
+            };
+          };
+        };
+      };
+
+      //printf("ids.size=%d\n", ids.size());
+
+      for(int pass=0; pass<=1; pass++)
+      {
+        for(map< TIdsKey, set<int> >::const_iterator id=ids[pass].begin(); id!=ids[pass].end(); ++id)
+        {
+          TIds2Key key2;
+          key2.id=id->first.id;
+          key2.sets=id->first.sets;
+          key2.flt_out=id->second;
+          (ids2[pass])[key2].insert(id->first.flt_in);
+        };
+      };
+
+      int min=ids2[0].size()<ids2[1].size()?0:1;
+      //пишем в базу
+      for(map< TIds2Key, set<int> >::const_iterator id=ids2[min].begin(); id!=ids2[min].end(); ++id)
+      {
+        if (id->second.find(NoExists)!=id->second.end() && id->second.size()>1)
+        {
+          printf("wrong ids2.flt_in");
+          return(1);
+        };
+        if (id->first.flt_out.find(NoExists)!=id->first.flt_out.end() && id->first.flt_out.size()>1)
+        {
+          printf("wrong ids2.flt_out");
+          return(1);
+        };
+
+        Ins1Qry.SetVariable("trfer_permit", id->first.sets.trfer_permit);
+        Ins1Qry.SetVariable("tckin_permit", id->first.sets.tckin_permit);
+        Ins1Qry.SetVariable("tckin_waitlist", id->first.sets.tckin_waitlist);
+        Ins1Qry.SetVariable("tckin_norec", id->first.sets.tckin_norec);
+        Ins1Qry.SetVariable("airline_in", airline_in);
+        Ins1Qry.SetVariable("airp", airp);
+        Ins1Qry.SetVariable("airline_out", airline_out);
+        Ins1Qry.Execute();
+
+        Ins2Qry.SetVariable("pr_onward", (int)false);
+        for(set<int>::const_iterator f=id->second.begin(); f!=id->second.end(); ++f)
+        {
+          if (*f!=NoExists)
+          {
+            Ins2Qry.SetVariable("flt_no", *f);
+            Ins2Qry.Execute();
+          };
+        };
+
+        Ins2Qry.SetVariable("pr_onward", (int)true);
+        for(set<int>::const_iterator f=id->first.flt_out.begin(); f!=id->first.flt_out.end(); ++f)
+        {
+          if (*f!=NoExists)
+          {
+            Ins2Qry.SetVariable("flt_no", *f);
+            Ins2Qry.Execute();
+          };
+        };
+      };
+
+
+      permits.clear();
+      for(int pass=0; pass<=1; pass++)
+      {
+        ids[pass].clear();
+        ids2[pass].clear();
+      };
+    };
+  };
+
+  return 0;
+};
+
+int check_trfer_tckin_set(int argc,char **argv)
+{
+  for(int pass=1;pass<=2;pass++)
+  {
+    string file_name=(pass==1?"trfer_tckin_set.old.txt":"trfer_tckin_set.new.txt");
+    ofstream f;
+    f.open(file_name.c_str());
+    if (!f.is_open()) throw EXCEPTIONS::Exception("Can't open file '%s'",file_name.c_str());
+    try
+    {
+      TQuery Qry(&OraSession);
+      TQuery Qry2(&OraSession);
+      Qry2.Clear();
+      Qry2.SQLText=
+        "SELECT pr_onward, flt_no FROM trfer_set_flts WHERE id=:id";
+      Qry2.DeclareVariable("id", otInteger);
+
+      Qry.Clear();
+      if (pass==1)
+        Qry.SQLText=
+          "SELECT trfer_set_airps.id, "
+          "       airline_in, airp, airline_out, "
+          "       trfer_set.pr_permit AS trfer_permit, "
+          "       tckin_set.pr_permit AS tckin_permit, "
+          "       tckin_set.pr_waitlist AS tckin_waitlist, "
+          "       tckin_set.pr_norec AS tckin_norec "
+          "FROM trfer_set_airps, trfer_set, tckin_set "
+          "WHERE trfer_set_airps.id=trfer_set.id(+) AND "
+          "      trfer_set_airps.id=tckin_set.id(+) AND "
+          "      (trfer_set.pr_permit IS NOT NULL OR tckin_set.pr_permit IS NOT NULL) "
+          "ORDER BY airp, airline_in, airline_out";
+      else
+        Qry.SQLText=
+          "SELECT trfer_set_airps.id, "
+          "       airline_in, airp, airline_out, "
+          "       trfer_permit, "
+          "       tckin_permit, "
+          "       tckin_waitlist, "
+          "       tckin_norec "
+          "FROM trfer_set_airps, trfer_sets "
+          "WHERE trfer_set_airps.id=trfer_sets.id "
+          "ORDER BY airp, airline_in, airline_out";
+
+      Qry.Execute();
+      map< pair<int,int>, pair<int,int> > permits;
+      set<int> flt_in, flt_out;
+      for(;!Qry.Eof;)
+      {
+        string airline_in=Qry.FieldAsString("airline_in");
+        string airp=Qry.FieldAsString("airp");
+        string airline_out=Qry.FieldAsString("airline_out");
+
+        set<int> flt_in_row, flt_out_row;
+        Qry2.SetVariable("id", Qry.FieldAsInteger("id"));
+        Qry2.Execute();
+        for(;!Qry2.Eof;Qry2.Next())
+        {
+          if (Qry2.FieldAsInteger("pr_onward")==0)
+            flt_in_row.insert(Qry2.FieldAsInteger("flt_no"));
+          else
+            flt_out_row.insert(Qry2.FieldAsInteger("flt_no"));
+        };
+        if (flt_in_row.empty()) flt_in_row.insert(NoExists);
+        if (flt_out_row.empty()) flt_out_row.insert(NoExists);
+
+        pair<int,int> p=make_pair(NoExists, NoExists);
+        if (!Qry.FieldIsNULL("trfer_permit"))
+          p.first=(int)(Qry.FieldAsInteger("trfer_permit")!=0)*8;
+        if (!Qry.FieldIsNULL("tckin_permit"))
+          p.second=(int)(Qry.FieldAsInteger("tckin_permit")!=0)*4+
+                   (int)(Qry.FieldAsInteger("tckin_waitlist")!=0)*2+
+                   (int)(Qry.FieldAsInteger("tckin_norec")!=0)*1;
+        for(set<int>::const_iterator i=flt_in_row.begin();i!=flt_in_row.end();++i)
+          for(set<int>::const_iterator o=flt_out_row.begin();o!=flt_out_row.end();++o)
+          {
+            map< pair<int,int>, pair<int,int> >::iterator iP=permits.find(make_pair(*i,*o));
+            if (iP==permits.end())
+              permits[make_pair(*i,*o)]=p;
+            else
+            {
+              //найдена настройка
+              if (iP->second.first!=NoExists &&
+                  p.first!=NoExists &&
+                  iP->second.first!=p.first ||
+                  iP->second.second!=NoExists &&
+                  p.second!=NoExists &&
+                  iP->second.second!=p.second)
+                printf("conflict: airline_in=%s airp=%s airline_out=%s old=<%d,%d> new=<%d,%d>\n",
+                       airline_in.c_str(),
+                       airp.c_str(),
+                       airline_out.c_str(),
+                       iP->second.first, iP->second.second, p.first, p.second);
+              if (iP->second.first==NoExists && p.first!=NoExists) iP->second.first=p.first;
+              if (iP->second.second==NoExists && p.second!=NoExists) iP->second.second=p.second;
+            };
+          };
+
+        flt_in.insert(flt_in_row.begin(),flt_in_row.end());
+        flt_out.insert(flt_out_row.begin(),flt_out_row.end());
+
+        Qry.Next();
+
+        if (Qry.Eof ||
+            airline_in!=Qry.FieldAsString("airline_in") ||
+            airp!=Qry.FieldAsString("airp") ||
+            airline_out!=Qry.FieldAsString("airline_out"))
+        {
+          f << airline_in << "-" << airp << "-" << airline_out << endl;
+          f << setw(6) << " ";
+          for(set<int>::const_iterator o=flt_out.begin();o!=flt_out.end();++o)
+          {
+            ostringstream flt;
+            if (*o==NoExists) flt << "ALL"; else flt << setw(3) << setfill('0') << *o;
+            f << setw(6) << right << flt.str();
+          };
+          f << endl;
+          for(set<int>::const_iterator i=flt_in.begin();i!=flt_in.end();++i)
+          {
+            ostringstream flt;
+            if (*i==NoExists) flt << "ALL"; else flt << setw(3) << setfill('0') << *i;
+            f << setw(6) << right << flt.str();
+            for(set<int>::const_iterator o=flt_out.begin();o!=flt_out.end();++o)
+            {
+              map< pair<int,int>, pair<int,int> >::const_iterator iP=permits.find(make_pair(*i,*o));
+              if (iP==permits.end() ||
+                  iP->second.first==NoExists && iP->second.second==NoExists)
+                f << setw(6) << right << "-";
+              else
+                f << setw(6) << right
+                  << ((iP->second.first==NoExists?0:iP->second.first) +
+                      (iP->second.second==NoExists?0:iP->second.second));
+            };
+            f << endl;
+          };
+          f << endl;
+          f << endl;
+
+          permits.clear();
+          flt_in.clear();
+          flt_out.clear();
+        };
+      };
+      f.close();
+    }
+    catch(...)
+    {
+      f.close();
+    };
+  };
+  return 0;
+};
          
+
