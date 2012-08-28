@@ -29,7 +29,7 @@ public:
   {
      Handler *evHandle;
      // Информация о рейсе
-    /* evHandle=JxtHandler<WebRequestsIface>::CreateHandler(&WebRequestsIface::SearchFlt);
+     evHandle=JxtHandler<WebRequestsIface>::CreateHandler(&WebRequestsIface::SearchFlt);
      AddEvent("SearchFlt",evHandle);
      // Загрузка PNR
      evHandle=JxtHandler<WebRequestsIface>::CreateHandler(&WebRequestsIface::LoadPnr);
@@ -54,7 +54,7 @@ public:
      AddEvent("AddProtPaidLayer",evHandle);
      // Удаление слоя "Резервирование оплачиваемого места"
      evHandle=JxtHandler<WebRequestsIface>::CreateHandler(&WebRequestsIface::RemoveProtPaidLayer);
-     AddEvent("RemoveProtPaidLayer",evHandle);     */
+     AddEvent("RemoveProtPaidLayer",evHandle);
      
      //Система Меридиан
      evHandle=JxtHandler<WebRequestsIface>::CreateHandler(&WebRequestsIface::GetFlightInfo);
