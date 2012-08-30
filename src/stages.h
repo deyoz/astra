@@ -40,6 +40,12 @@ struct TTripStage {
     old_act = ASTRA::NoExists;
     pr_auto = 0;
   }
+  bool equal( TTripStage stage ) {
+    return ( scd == stage.scd &&
+             est == stage.est &&
+             act == stage.act &&
+             pr_auto == stage.pr_auto );
+  }
 };
 
 typedef std::map<TStage, TTripStage> TMapTripStages;
@@ -55,8 +61,9 @@ class TTripStages {
     TTripStages( int vpoint_id );
     void LoadStages( int vpoint_id );
     static void LoadStages( int vpoint_id, TMapTripStages &ts );
-    static void ParseStages( xmlNodePtr tripNode, TMapTripStages &ts );
+    static void ParseStages( xmlNodePtr tripNode, TMapTripStages&ts );
     static void WriteStages( int point_id, TMapTripStages &t );
+    static void WriteStagesUTC( int point_id, TMapTripStages &ts );
     static void ReadCkinClients( int point_id, TCkinClients &ckin_clients );
     BASIC::TDateTime time( TStage stage );
     TStage getStage( TStage_Type stage_type );
