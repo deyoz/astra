@@ -9,6 +9,7 @@ enum TElemType {
                  etAgency,
                  etAirline,
                  etAirp,
+                 etAlarmType,
                  etBagNormType,
                  etCity,
                  etClass,

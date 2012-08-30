@@ -667,6 +667,22 @@ class TCompElemTypes: public TCodeBaseTable {
     }
 };
 
+class TAlarmTypesRow: public TCodeBaseTableRow {
+    public:
+        const char *get_row_name() const { return "TAlarmTypesRow"; };
+};
+
+class TAlarmTypes: public TCodeBaseTable {
+    protected:
+        const char *get_table_name() { return "TAlarmTypes"; };
+        void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+        void Invalidate() {}; //всегда актуальна
+    public:
+        TAlarmTypes() {
+            Init( "alarm_types" );
+        }
+};
+
 class TDevModelsRow: public TCodeBaseTableRow {
 	public:
 	  const char *get_row_name() const { return "TDevModelsRow"; };

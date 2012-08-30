@@ -78,6 +78,8 @@ TBaseTable &TBaseTables::get(string name)
         	  base_tables[name] = new TClientTypes();
         else if(name == "COMP_LAYER_TYPES")
         	  base_tables[name] = new TCompLayerTypes();
+        else if(name == "ALARM_TYPES")
+        	  base_tables[name] = new TAlarmTypes();
         else if(name == "DEV_MODELS")
         	  base_tables[name] = new TDevModels();
         else if(name == "DEV_SESS_TYPES")
@@ -758,6 +760,12 @@ void TClsGrp::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **repla
 
 void TCompElemTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row) {
 	*row = new TCompElemTypesRow;
+  mem.create(*row, STDLOG);
+  TCodeBaseTable::create_row(Qry, row, replaced_row);
+};
+
+void TAlarmTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row) {
+	*row = new TAlarmTypesRow;
   mem.create(*row, STDLOG);
   TCodeBaseTable::create_row(Qry, row, replaced_row);
 };

@@ -63,6 +63,7 @@ const
                          {etAgency,                "etAgency",                ""},
                          {etAirline,               "etAirline",               "airlines"},
                          {etAirp,                  "etAirp",                  "airps"},
+                         {etAlarmType,             "etAlarmType",             "alarm_types"},
                          {etBagNormType,           "etBagNormType",           "bag_norm_types"},
                          {etCity,                  "etCity",                  "cities"},
                          {etClass,                 "etClass",                 "classes"},

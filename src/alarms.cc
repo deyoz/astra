@@ -4,6 +4,7 @@
 #include "oralib.h"
 #include "stages.h"
 #include "pers_weights.h"
+#include "astra_elems.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -15,63 +16,82 @@ using namespace EXCEPTIONS;
 
 void TripAlarms( int point_id, BitSet<TTripAlarmsType> &Alarms )
 {
-	Alarms.clearFlags();
-	TQuery Qry(&OraSession);
-	Qry.SQLText =
-    "SELECT overload_alarm,brd_alarm,waitlist_alarm,pr_etstatus,pr_salon,act,pr_airp_seance,diffcomp_alarm "
-    " FROM trip_sets, trip_stages, "
-    " ( SELECT COUNT(*) pr_salon FROM trip_comp_elems WHERE point_id=:point_id AND rownum<2 ) a "
-    " WHERE trip_sets.point_id=:point_id AND "
-    "       trip_stages.point_id(+)=trip_sets.point_id AND "
-    "       trip_stages.stage_id(+)=:OpenCheckIn ";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.CreateVariable( "OpenCheckIn", otInteger, sOpenCheckIn );
-  Qry.Execute();
-	if (Qry.Eof) throw Exception("Flight not found in trip_sets (point_id=%d)",point_id);
-  if ( Qry.FieldAsInteger( "overload_alarm" ) ) {
-   	Alarms.setFlag( atOverload );
-  }
-  if ( Qry.FieldAsInteger( "waitlist_alarm" ) ) {
-   	Alarms.setFlag( atWaitlist );
-  }
-  if ( Qry.FieldAsInteger( "brd_alarm" ) ) {
-   	Alarms.setFlag( atBrd );
-  }
-	if ( !Qry.FieldAsInteger( "pr_salon" ) && !Qry.FieldIsNULL( "act" ) ) {
-		Alarms.setFlag( atSalon );
-	}
-	if ( Qry.FieldAsInteger( "pr_etstatus" ) < 0 ) {
-		Alarms.setFlag( atETStatus );
-	}
-	if (USE_SEANCES())
-	{
-  	if ( Qry.FieldIsNULL( "pr_airp_seance" ) ) {
-  	  Alarms.setFlag( atSeance );
+    Alarms.clearFlags();
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "SELECT overload_alarm,brd_alarm,waitlist_alarm,pr_etstatus,pr_salon,act,pr_airp_seance,diffcomp_alarm "
+        " FROM trip_sets, trip_stages, "
+        " ( SELECT COUNT(*) pr_salon FROM trip_comp_elems WHERE point_id=:point_id AND rownum<2 ) a "
+        " WHERE trip_sets.point_id=:point_id AND "
+        "       trip_stages.point_id(+)=trip_sets.point_id AND "
+        "       trip_stages.stage_id(+)=:OpenCheckIn ";
+    Qry.CreateVariable( "point_id", otInteger, point_id );
+    Qry.CreateVariable( "OpenCheckIn", otInteger, sOpenCheckIn );
+    Qry.Execute();
+    if (Qry.Eof) throw Exception("Flight not found in trip_sets (point_id=%d)",point_id);
+    if ( Qry.FieldAsInteger( "overload_alarm" ) ) {
+        Alarms.setFlag( atOverload );
     }
-  };
-  if ( Qry.FieldAsInteger( "diffcomp_alarm" ) ) {
-   	Alarms.setFlag( atDiffComps );
-  }
+    if ( Qry.FieldAsInteger( "waitlist_alarm" ) ) {
+        Alarms.setFlag( atWaitlist );
+    }
+    if ( Qry.FieldAsInteger( "brd_alarm" ) ) {
+        Alarms.setFlag( atBrd );
+    }
+    if ( !Qry.FieldAsInteger( "pr_salon" ) && !Qry.FieldIsNULL( "act" ) ) {
+        Alarms.setFlag( atSalon );
+    }
+    if ( Qry.FieldAsInteger( "pr_etstatus" ) < 0 ) {
+        Alarms.setFlag( atETStatus );
+    }
+    if (USE_SEANCES())
+    {
+        if ( Qry.FieldIsNULL( "pr_airp_seance" ) ) {
+            Alarms.setFlag( atSeance );
+        }
+    };
+    if ( Qry.FieldAsInteger( "diffcomp_alarm" ) ) {
+        Alarms.setFlag( atDiffComps );
+    }
+}
+
+const char *TripAlarmsTypeS[] = {
+    "SALON",
+    "WAITLIST",
+    "BRD",
+    "OVERLOAD",
+    "ET_STATUS",
+    "SEANCE",
+    "DIFF_COMPS",
+    "SPEC_SERVICE",
+    "TLG_OUT"
+};
+
+TTripAlarmsType DecodeAlarmType( const string &alarm )
+{
+  int i;
+  for( i=0; i<(int)atLength; i++ )
+    if ( alarm == TripAlarmsTypeS[ i ] )
+      break;
+  if ( i == atLength )
+      throw Exception("DecodeAlarmType: unknown alarm type %s", alarm.c_str());
+  else
+    return (TTripAlarmsType)i;
+}
+
+string EncodeAlarmType(const TTripAlarmsType alarm )
+{
+  return TripAlarmsTypeS[ alarm ];
 }
 
 string TripAlarmName( TTripAlarmsType alarm )
 {
-  switch( alarm )
-  {
-    case atOverload:  return "Перегрузка";
-		case atWaitlist:  return "Лист ожидания";
-		case atBrd:       return "Посадка";
-		case atSalon:     return "Не назначен салон";
-		case atETStatus:  return "Нет связи с СЭБ";
-		case atSeance:    return "Не определен сеанс";
-    case atDiffComps: return "Различие компоновок";
-		default:          return "";
-  };
+    return ElemIdToElem(etAlarmType, EncodeAlarmType(alarm), efmtNameLong, "RU");
 }
 
 string TripAlarmString( TTripAlarmsType alarm )
 {
-  return AstraLocale::getLocaleText( TripAlarmName( alarm ) );
+    return ElemIdToElem(etAlarmType, EncodeAlarmType(alarm), efmtNameLong, TReqInfo::Instance()->desk.lang);
 }
 
 bool get_alarm( int point_id, TTripAlarmsType alarm_type )

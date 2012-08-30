@@ -4,7 +4,12 @@
 #include "astra_utils.h"
 #include "astra_misc.h"
 
-enum TTripAlarmsType { atSalon, atWaitlist, atBrd, atOverload, atETStatus, atSeance, atDiffComps, atLength };
+enum TTripAlarmsType { atSalon, atWaitlist, atBrd, atOverload, atETStatus, atSeance, atDiffComps, atSpecService, atTlgOut, atLength };
+extern const char *TripAlarmsTypeS[];
+
+std::string EncodeAlarmType(TTripAlarmsType alarm);
+TTripAlarmsType DecodeAlarmType(const std::string &alarm);
+
 void TripAlarms( int point_id, BitSet<TTripAlarmsType> &Alarms );
 std::string TripAlarmString( TTripAlarmsType alarm );
 bool get_alarm( int point_id, TTripAlarmsType alarm_type );
