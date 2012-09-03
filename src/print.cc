@@ -1232,7 +1232,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
         xmlNodePtr tagNode = NewTextChild(tagsNode, "tag");
         SetProp(tagNode, "type", Qry.FieldAsString("tag_type"));
         SetProp(tagNode, "color", Qry.FieldAsString("color"));
-        SetProp(tagNode, "no", FloatToString(Qry.FieldAsFloat("no")));
+        SetProp(tagNode, "no", FloatToString(Qry.FieldAsFloat("no"),0));
 
         int pax_id=NoExists;
         if(!pr_unaccomp)

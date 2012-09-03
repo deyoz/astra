@@ -193,7 +193,7 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   desk.version = Qry.FieldAsString( "version" );
   desk.currency = Qry.FieldAsString( "currency" );
   desk.grp_id = Qry.FieldAsInteger( "grp_id" );
-  double term_id = Qry.FieldIsNULL("term_id")?NoExists:Qry.FieldAsFloat( "term_id" );
+  desk.term_id = Qry.FieldIsNULL("term_id")?NoExists:Qry.FieldAsFloat( "term_id" );
 
   ProgTrace( TRACE5, "terminal version='%s'", desk.version.c_str() );
 
@@ -229,8 +229,8 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
       throw AstraLocale::UserException( "MSG.USER.ACCESS_DENIED");
   }
   else {
-    //if (InitData.term_id!=term_id)
-//      throw AstraLocale::UserException( "MSG.USER.NEED_TO_LOGIN" );
+    if (InitData.term_id!=desk.term_id)
+      throw AstraLocale::UserException( "MSG.USER.NEED_TO_LOGIN" );
 
     Qry.SQLText =
       "SELECT user_id, login, descr, type, pr_denial "
