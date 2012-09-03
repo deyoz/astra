@@ -1831,6 +1831,8 @@ try {
 		if ( !brd.empty() )
 		  reqInfo->MsgToLog( string( "Назначение выходов на посадку" ) + brd, evtDisp, move_id, point_id );
 	}
+	if ( pr_change_reg || pr_change_brd ) check_DesksGates( point_id );
+	
   bindingAODBFlt( point_addr, point_id, fl.id );
   err++;
 	bind_tlg_oper(flts, true);
