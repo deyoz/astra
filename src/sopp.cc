@@ -1263,6 +1263,10 @@ void buildSOPP( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
       			an = NewTextChild( alarmsNode, "alarm", "DiffComps" );
       			SetProp( an, "text", TripAlarmString( alarm ) );
       			break;
+      	  case atTlgOut:
+      			an = NewTextChild( alarmsNode, "alarm", "TlgOut" );
+      			SetProp( an, "text", TripAlarmString( alarm ) );
+      			break;
       		default:;
       	}
       }

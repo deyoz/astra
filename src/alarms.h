@@ -19,6 +19,7 @@ bool calc_overload_alarm( int point_id );
 bool check_overload_alarm( int point_id );
 bool check_waitlist_alarm( int point_id );
 bool check_brd_alarm( int point_id );
+bool check_tlg_out_alarm(int point_id);
 
 
 #endif

@@ -18,6 +18,8 @@
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/test.h"
 
+#include "alarms.h"
+
 using namespace std;
 using namespace EXCEPTIONS;
 using namespace AstraLocale;
@@ -6336,6 +6338,7 @@ int TelegramInterface::create_tlg(const TCreateTlgInfo &createInfo)
     Qry.CreateVariable("vhas_errors", otInteger, not info.err_lst.empty());
     Qry.CreateVariable("vid", otInteger, vid);
     Qry.Execute();
+    check_tlg_out_alarm(createInfo.point_id);
 
     ProgTrace(TRACE5, "END OF CREATE %s", createInfo.type.c_str());
     return vid;
