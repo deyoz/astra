@@ -3567,7 +3567,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                 else
                   pass.pax_id = 0 - pax_no; // для уникальности
                 pass.reg_no = pax_no;
-                ProgTrace( TRACE5, "pax_id=%d", pass.pax_id );
+                //ProgTrace( TRACE5, "pax_id=%d", pass.pax_id );
                 pass.surname = NodeAsStringFast("surname",node2); //???всегда есть этот тег
                 if ( NodeAsIntegerFast("seats",node2) == 0 ) {
                   if ( !NodeIsNULLFast("pax_id",node2) ) {
@@ -3621,7 +3621,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                   }
                   else
                     pax_id = 0 - pax_no; // для уникальности
-                  ProgTrace( TRACE5, "pax_id=%d", pax_id );
+                  //ProgTrace( TRACE5, "pax_id=%d", pax_id );
                   switch ( grp_status )  {
                   	case psCheckin:
                   		pas.grp_status = cltCheckin;
