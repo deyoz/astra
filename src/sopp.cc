@@ -599,11 +599,11 @@ inline void convertStrToStations( string str_desks, const string &work_mode, tst
       str_desks.clear();
     }
     else {
-      ProgTrace( TRACE5, "names=%s", str_desks.c_str() );
+      //ProgTrace( TRACE5, "names=%s", str_desks.c_str() );
       station.name = str_desks.substr( 0, idx );
-      ProgTrace( TRACE5, "name=%s", station.name.c_str() );
+      //ProgTrace( TRACE5, "name=%s", station.name.c_str() );
       str_desks.erase( 0, idx + 1 );
-      ProgTrace( TRACE5, "names=%s", str_desks.c_str() );
+      //ProgTrace( TRACE5, "names=%s", str_desks.c_str() );
     }
     station.work_mode = work_mode;
     station.pr_main = false;
