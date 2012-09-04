@@ -4709,9 +4709,10 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
           Qry.CreateVariable("class_grp",otInteger,class_grp);
           Qry.Execute();
         };
-        //вычисляем и записываем признак waitlist_alarm и brd_alarm
+        //вычисляем и записываем признак waitlist_alarm и brd_alarm и spec_service_alarm
         check_waitlist_alarm( point_dep );
         check_brd_alarm( point_dep );
+        check_spec_service_alarm( point_dep );
         if ( first_pax_on_flight ) {
           SALONS2::setManualCompChg( point_dep );
         }

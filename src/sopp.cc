@@ -1267,6 +1267,10 @@ void buildSOPP( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
       			an = NewTextChild( alarmsNode, "alarm", "TlgOut" );
       			SetProp( an, "text", TripAlarmString( alarm ) );
       			break;
+      	  case atSpecService:
+      			an = NewTextChild( alarmsNode, "alarm", "SpecService" );
+      			SetProp( an, "text", TripAlarmString( alarm ) );
+      			break;
       		default:;
       	}
       }
