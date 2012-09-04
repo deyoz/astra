@@ -221,11 +221,15 @@ bool check_brd_alarm( int point_id )
 	return brd_alarm;
 };
 
-/* есть ошибочные телеграммы */
+/* есть ошибочные или требующие коррекции телеграммы */
 bool check_tlg_out_alarm(int point_id)
 {
     TQuery Qry(&OraSession);
-    Qry.SQLText = "select * from tlg_out where point_id = :point_id and has_errors <> 0 and rownum < 2";
+    Qry.SQLText =
+        "select * from tlg_out where "
+        "   point_id = :point_id and "
+        "   (has_errors <> 0 or completed = 0) and "
+        "   rownum < 2";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.Execute();
     bool result = not Qry.Eof;
