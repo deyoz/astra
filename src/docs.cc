@@ -2414,6 +2414,25 @@ bool getPaxRem(const TRptParams &rpt_params, const CheckIn::TPaxDocoItem &doco, 
   return true;
 };
 
+void LoadSpecRems(int point_id, vector<string> &spec_rems)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "select rem_grp_list.rem_code from "
+        "  rem_grp_list, "
+        "  rem_grp_sets, "
+        "  points "
+        "where "
+        "  points.point_id = :point_id and "
+        "  points.airline = rem_grp_sets.airline and "
+        "  rem_grp_sets.rpt <> 0 and "
+        "  rem_grp_sets.rem_grp_id = rem_grp_list.id ";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.Execute();
+    for(; not Qry.Eof; Qry.Next())
+        spec_rems.push_back(Qry.FieldAsString("rem_code"));
+}
+
 bool getPaxRem(const TRptParams &rpt_params, const CheckIn::TPaxFQTItem &fqt, CheckIn::TPaxRemItem &rem)
 {
   if (fqt.empty()) return false;
@@ -2433,10 +2452,18 @@ bool getPaxRem(const TRptParams &rpt_params, const CheckIn::TPaxFQTItem &fqt, Ch
 
 void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    if(rpt_params.rpt_type == rtREMTXT)
+    if(rpt_params.rpt_type == rtREMTXT or rpt_params.rpt_type == rtSPECTXT)
         get_compatible_report_form("docTxt", reqNode, resNode);
     else
         get_compatible_report_form("rem", reqNode, resNode);
+
+    vector<string> spec_rems;
+    string CAP_DOC = "CAP.DOC.REM";
+    if(rpt_params.rpt_type == rtSPEC or rpt_params.rpt_type == rtSPECTXT) {
+        LoadSpecRems(rpt_params.point_id, spec_rems);
+        CAP_DOC = "CAP.DOC.SPEC";
+    }
+
     TQuery Qry(&OraSession);
     string SQLText =
         "SELECT pax_grp.point_dep AS point_id, "
@@ -2572,6 +2599,12 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         if (getPaxRem(rpt_params, *f, rem)) rems.push_back(rem);
         
       if (rems.empty()) continue;
+
+      if(rpt_params.rpt_type == rtSPEC or rpt_params.rpt_type == rtSPECTXT) {
+          vector<CheckIn::TPaxRemItem>::const_iterator r=rems.begin();
+          for(;r!=rems.end();r++) if(find(spec_rems.begin(), spec_rems.end(), r->code) != spec_rems.end()) break;
+          if(r == rems.end()) continue;
+      }
       
       xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
       NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("point_id"));
@@ -2591,7 +2624,7 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     // Теперь переменные отчета
     xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
     PaxListVars(rpt_params.point_id, rpt_params, variablesNode);
-    NewTextChild(variablesNode, "caption", getLocaleText("CAP.DOC.REM",
+    NewTextChild(variablesNode, "caption", getLocaleText(CAP_DOC,
                 LParams() << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang()));
     populate_doc_cap(variablesNode, rpt_params.GetLang());
 }
@@ -3164,9 +3197,11 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         case rtNOTPRESTXT:
             NOTPRESTXT(rpt_params, reqNode, resNode);
             break;
+        case rtSPEC:
         case rtREM:
             REM(rpt_params, reqNode, resNode);
             break;
+        case rtSPECTXT:
         case rtREMTXT:
             REMTXT(rpt_params, reqNode, resNode);
             break;
