@@ -240,21 +240,10 @@ bool check_tlg_out_alarm(int point_id)
 /* есть пассажиры спецобслуживания */
 bool check_spec_service_alarm(int point_id)
 {
+    vector<string> alarm_rems;
+    LoadRemGrp(retALARM_SS, point_id, alarm_rems);
     TQuery Qry(&OraSession);
     Qry.SQLText =
-        "select * from "
-        "( "
-        "select rem_grp_list.rem_code from "
-        "  rem_grp_list, "
-        "  rem_grp_sets, "
-        "  points "
-        "where "
-        "  points.point_id = :point_id and "
-        "  points.airline = rem_grp_sets.airline and "
-        "  rem_grp_sets.alarm <> 0 and "
-        "  rem_grp_sets.rem_grp_id = rem_grp_list.id "
-        ") a, "
-        "( "
         "select pax_rem.rem_code from "
         "  pax_grp, "
         "  pax,  "
@@ -263,12 +252,11 @@ bool check_spec_service_alarm(int point_id)
         "  pax_grp.point_dep = :point_id and "
         "  pax_grp.grp_id = pax.grp_id and "
         "  pax.refuse is null and "  
-        "  pax.pax_id = pax_rem.pax_id "
-        ") b "
-        "where "
-        "  a.rem_code = b.rem_code ";
+        "  pax.pax_id = pax_rem.pax_id ";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.Execute();
+    for(; not Qry.Eof; Qry.Next())
+        if(find(alarm_rems.begin(), alarm_rems.end(), Qry.FieldAsString("rem_code")) != alarm_rems.end()) break;
     bool result = not Qry.Eof;
     set_alarm(point_id, atSpecService, result);
     return result;

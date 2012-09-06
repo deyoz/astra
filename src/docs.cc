@@ -2414,25 +2414,6 @@ bool getPaxRem(const TRptParams &rpt_params, const CheckIn::TPaxDocoItem &doco, 
   return true;
 };
 
-void LoadSpecRems(int point_id, vector<string> &spec_rems)
-{
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "select rem_grp_list.rem_code from "
-        "  rem_grp_list, "
-        "  rem_grp_sets, "
-        "  points "
-        "where "
-        "  points.point_id = :point_id and "
-        "  points.airline = rem_grp_sets.airline and "
-        "  rem_grp_sets.rpt <> 0 and "
-        "  rem_grp_sets.rem_grp_id = rem_grp_list.id ";
-    Qry.CreateVariable("point_id", otInteger, point_id);
-    Qry.Execute();
-    for(; not Qry.Eof; Qry.Next())
-        spec_rems.push_back(Qry.FieldAsString("rem_code"));
-}
-
 bool getPaxRem(const TRptParams &rpt_params, const CheckIn::TPaxFQTItem &fqt, CheckIn::TPaxRemItem &rem)
 {
   if (fqt.empty()) return false;
@@ -2460,7 +2441,7 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     vector<string> spec_rems;
     string CAP_DOC = "CAP.DOC.REM";
     if(rpt_params.rpt_type == rtSPEC or rpt_params.rpt_type == rtSPECTXT) {
-        LoadSpecRems(rpt_params.point_id, spec_rems);
+        LoadRemGrp(retRPT_SS, rpt_params.point_id, spec_rems);
         CAP_DOC = "CAP.DOC.SPEC";
     }
 
