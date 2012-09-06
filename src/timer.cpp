@@ -584,10 +584,10 @@ void create_apis_file(int point_id)
 
           if (fmt=="EDI_CZ")
             file_name << ApisSetsQry.FieldAsString("dir") <<
-               Paxlst::CreateEdiPaxlstFileName(flight.str(),
+               Paxlst::createEdiPaxlstFileName(flight.str(),
                                                airp_dep.code_lat,
                                                airp_arv.code_lat,
-                                               DateTimeToStr(scd_out_local,"yyyymmdd"),
+                                               scd_out_local,
                                                "TXT");
           if (fmt=="CSV_CZ" || fmt=="CSV_DE")
           	file_name << ApisSetsQry.FieldAsString("dir")
@@ -624,15 +624,13 @@ void create_apis_file(int point_id)
             if (i!=strs.end()) paxlstInfo.setRecipientName(*i++);
             if (i!=strs.end()) paxlstInfo.setRecipientCarrierCode(*i++);
 
-            string iataCode;
-            if (!Paxlst::CreateIATACode(iataCode,flight.str(),act_in_local))
-              throw Exception("CreateIATACode error");
-            paxlstInfo.setIATAcode( iataCode );
+            string iataCode = Paxlst::createIataCode(flight.str(),act_in_local);
+            paxlstInfo.setIataCode( iataCode );
             paxlstInfo.setFlight(flight.str());
-            paxlstInfo.setDepartureAirport(airp_dep.code_lat);
-            paxlstInfo.setDepartureDate(act_out_local);
-            paxlstInfo.setArrivalAirport(airp_arv.code_lat);
-            paxlstInfo.setArrivalDate(act_in_local);
+            paxlstInfo.setDepPort(airp_dep.code_lat);
+            paxlstInfo.setDepDateTime(act_out_local);
+            paxlstInfo.setArrPort(airp_arv.code_lat);
+            paxlstInfo.setArrDateTime(act_in_local);
           };
 
         	int count=0;
@@ -660,9 +658,9 @@ void create_apis_file(int point_id)
       	  	  //документ пассажира не найден
               if (fmt=="EDI_CZ")
               {
-        	      paxInfo.setPassengerName(PaxQry.FieldAsString("name"));
-        	      paxInfo.setPassengerSurname(PaxQry.FieldAsString("surname"));
-        	      paxInfo.setIdNumber("");
+        	      paxInfo.setName(PaxQry.FieldAsString("name"));
+        	      paxInfo.setSurname(PaxQry.FieldAsString("surname"));
+        	      paxInfo.setDocNumber("");
         	    };
               if (fmt=="CSV_CZ")
         	    {
@@ -802,26 +800,26 @@ void create_apis_file(int point_id)
 
               if (fmt=="EDI_CZ")
               {
-                paxInfo.setPassengerName(doc_first_name);
-        	      paxInfo.setPassengerSurname(doc_surname);
-                paxInfo.setPassengerSex(gender);
+                paxInfo.setName(doc_first_name);
+        	      paxInfo.setSurname(doc_surname);
+                paxInfo.setSex(gender);
 
         	      if (!PaxQry.FieldIsNULL("birth_date"))
         	        paxInfo.setBirthDate( PaxQry.FieldAsDateTime("birth_date"));
 
-        	      paxInfo.setDeparturePassenger(airp_dep.code_lat);
-                paxInfo.setArrivalPassenger(airp_arv.code_lat);
-                paxInfo.setPassengerCountry(nationality);
+        	      paxInfo.setDepPort(airp_dep.code_lat);
+                paxInfo.setArrPort(airp_arv.code_lat);
+                paxInfo.setNationality(nationality);
                 //PNR
                 vector<TPnrAddrItem> pnrs;
                 GetPaxPnrAddr(pax_id,pnrs);
                 if (!pnrs.empty())
-                  paxInfo.setPassengerNumber(convert_pnr_addr(pnrs.begin()->addr, 1));
+                  paxInfo.setReservNum(convert_pnr_addr(pnrs.begin()->addr, 1));
 
-                paxInfo.setPassengerType(doc_type);
-                paxInfo.setIdNumber(PaxQry.FieldAsString("doc_no"));
+                paxInfo.setDocType(doc_type);
+                paxInfo.setDocNumber(PaxQry.FieldAsString("doc_no"));
                 if (!PaxQry.FieldIsNULL("expiry_date"))
-                  paxInfo.setExpirateDate(PaxQry.FieldAsDateTime("expiry_date"));
+                  paxInfo.setDocExpirateDate(PaxQry.FieldAsDateTime("expiry_date"));
                 paxInfo.setDocCountry(issue_country);
               };
 
@@ -911,10 +909,9 @@ void create_apis_file(int point_id)
       	      paxlstInfo.addPassenger( paxInfo );
       	  };
 
-          if (fmt=="EDI_CZ" && !paxlstInfo.getPassengersList().empty())
+          if (fmt=="EDI_CZ" && !paxlstInfo.passengersList().empty())
           {
-            string tlg,err;
-      	    if (!paxlstInfo.toEdiString(tlg,err)) throw Exception(err);
+            string tlg = paxlstInfo.toEdiString();
       	    body << tlg;
       	  };
 
