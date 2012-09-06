@@ -91,6 +91,7 @@ const
                          {etPayType,               "etPayType",               "pay_types"},
                          {etPersType,              "etPersType",              "pers_types"},
                          {etRefusalType,           "etRefusalType",           "refusal_types"},
+                         {etRemGrp,                "etRemGrp",                ""},
                          {etRight,                 "etRight",                 "rights"},
                          {etSalePoint,             "etSalePoint",             ""},
                          {etSeasonType,            "etSeasonType",            "season_types"},
@@ -646,6 +647,7 @@ string ElemIdToElem(TElemType type, int id, const vector< pair<TElemFmt,string> 
     {
          case etHall: Qry.SQLText="SELECT name,name_lat FROM halls2 WHERE id=:id"; break;
       case etDeskGrp: Qry.SQLText="SELECT descr AS name, descr_lat AS name_lat FROM desk_grp WHERE grp_id=:id"; break;
+       case etRemGrp: Qry.SQLText="SELECT name, name_lat FROM rem_grp WHERE id=:id"; break;
       default: throw Exception("Unexpected elem type %s", EncodeElemType(type));
     };
     Qry.CreateVariable("id",otInteger,id);

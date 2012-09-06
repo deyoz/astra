@@ -40,6 +40,7 @@ const
                          {"HALLS",               etHall},
                          {"KIOSK_CKIN_DESK_GRP", etDeskGrp},
                          {"MISC_SET_TYPES",      etMiscSetType},
+                         {"REM_GRP",             etRemGrp},
                          {"RIGHTS",              etRight},
                          {"SEASON_TYPES",        etSeasonType},
                          {"SEAT_ALGO_TYPES",     etSeatAlgoType},

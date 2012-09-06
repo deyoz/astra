@@ -37,6 +37,7 @@ enum TElemType {
                  etPayType,
                  etPersType,
                  etRefusalType,
+                 etRemGrp,
                  etRight,
                  etSalePoint,
                  etSeasonType,
