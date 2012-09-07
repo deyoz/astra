@@ -438,6 +438,9 @@ const char* APIS_PARTY_INFO()
   return VAR.c_str();
 };
 
+#define MAX_PAX_PER_EDI_PART 15
+#define MAX_LEN_OF_EDI_PART 3000
+
 string TruncNameTitles(const char *str)
 {
   const char* titles[]={"MR", "MRS", "MS"};
@@ -457,6 +460,47 @@ string TruncNameTitles(const char *str)
     };
   };
   return value;
+};
+
+void create_apis_nosir_help(const char *name)
+{
+  printf("  %-15.15s ", name);
+  puts("<points.point_id>  ");
+};
+
+int create_apis_nosir(int argc,char **argv)
+{
+  TQuery Qry(&OraSession);
+  int point_id=ASTRA::NoExists;
+  try
+  {
+    //проверяем параметры
+    if (argc<2) throw EConvertError("wrong parameters");
+    point_id = ToInt(argv[1]);
+    Qry.Clear();
+    Qry.SQLText="SELECT point_id FROM points WHERE point_id=:point_id";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.Execute();
+    if (Qry.Eof) throw EConvertError("point_id not found");
+  }
+  catch(EConvertError &E)
+  {
+    printf("Error: %s\n", E.what());
+    if (argc>0)
+    {
+      puts("Usage:");
+      create_apis_nosir_help(argv[0]);
+      puts("Example:");
+      printf("  %s 1234567\n",argv[0]);
+    };
+    return 1;
+  };
+
+  if (init_edifact()<0) throw Exception("'init_edifact' error");
+  create_apis_file(point_id);
+
+  puts("create_apis successfully completed");
+  return 0;
 };
 
 void create_apis_file(int point_id)
@@ -578,33 +622,12 @@ void create_apis_file(int point_id)
    	    	  if (airlineCountryRow.code_iso.empty()) throw Exception("airlineCountryRow.code_iso empty (code=%s)",airlineCityRow.country.c_str());
    	    	  airline_country = airlineCountryRow.code_iso;
           };
-          
-
-          ostringstream file_name;
-
-          if (fmt=="EDI_CZ")
-            file_name << ApisSetsQry.FieldAsString("dir") <<
-               Paxlst::createEdiPaxlstFileName(flight.str(),
-                                               airp_dep.code_lat,
-                                               airp_arv.code_lat,
-                                               scd_out_local,
-                                               "TXT");
-          if (fmt=="CSV_CZ" || fmt=="CSV_DE")
-          	file_name << ApisSetsQry.FieldAsString("dir")
-          	          << flight.str()
-          	          << airp_dep.code_lat
-          	          << airp_arv.code_lat
-          	          << DateTimeToStr(scd_out_local,"yyyymmdd") << ".CSV";
-          	          
-          if (fmt=="TXT_EE")
-            file_name << ApisSetsQry.FieldAsString("dir")
-                      << "LL-" << airline.code_lat << setw(3) << setfill('0') << flt_no << suffix
-                      << "-" << DateTimeToStr(act_in_local,"ddmmyyyy-hhnn") << "-S.TXT";
 
         	Paxlst::PaxlstInfo paxlstInfo;
 
-          if (fmt=="EDI_CZ")
+          if (fmt=="EDI_CZ" || fmt=="EDI_CN")
           {
+            if (fmt=="EDI_CN") paxlstInfo.settings().setRespAgnCode("ZZZ");
             //информация о том, кто формирует сообщение
             vector<string> strs;
             SeparateString(string(APIS_PARTY_INFO()), ':', strs);
@@ -656,7 +679,7 @@ void create_apis_file(int point_id)
       	    if (PaxQry.FieldIsNULL("doc_pax_id"))
       	  	{
       	  	  //документ пассажира не найден
-              if (fmt=="EDI_CZ")
+              if (fmt=="EDI_CZ" || fmt=="EDI_CN")
               {
         	      paxInfo.setName(PaxQry.FieldAsString("name"));
         	      paxInfo.setSurname(PaxQry.FieldAsString("surname"));
@@ -714,7 +737,7 @@ void create_apis_file(int point_id)
                 doc_first_name=TruncNameTitles(doc_first_name.c_str());
                 doc_second_name=TruncNameTitles(doc_second_name.c_str());
               };
-              if (fmt=="EDI_CZ" || fmt=="CSV_DE" || fmt=="TXT_EE")
+              if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="CSV_DE" || fmt=="TXT_EE")
               {
                 if (!doc_second_name.empty())
                 {
@@ -729,7 +752,7 @@ void create_apis_file(int point_id)
       	    	  TGenderTypesRow &gender_row = (TGenderTypesRow&)base_tables.get("gender_types").get_row("code",PaxQry.FieldAsString("gender"));
       	    	  if (gender_row.code_lat.empty()) throw Exception("gender.code_lat empty (code=%s)",PaxQry.FieldAsString("gender"));
       	    	  gender=gender_row.code_lat;
-      	    	  if (fmt=="EDI_CZ")
+      	    	  if (fmt=="EDI_CZ" || fmt=="EDI_CN")
                 {
                   gender = gender.substr(0,1);
                   if (gender!="M" &&
@@ -757,7 +780,7 @@ void create_apis_file(int point_id)
       	    	  TPaxDocTypesRow &doc_type_row = (TPaxDocTypesRow&)base_tables.get("pax_doc_types").get_row("code",PaxQry.FieldAsString("doc_type"));
       	    	  if (doc_type_row.code_lat.empty()) throw Exception("doc_type.code_lat empty (code=%s)",PaxQry.FieldAsString("doc_type"));
       	    	  doc_type=doc_type_row.code_lat;
-      	    	  if (fmt=="EDI_CZ")
+      	    	  if (fmt=="EDI_CZ" || fmt=="EDI_CN")
                 {
                   if (doc_type!="P") doc_type.clear();
                 };
@@ -798,7 +821,7 @@ void create_apis_file(int point_id)
       	    	    expiry_date=DateTimeToStr(PaxQry.FieldAsDateTime("expiry_date"),"ddmmmyy",true);
       	    	};
 
-              if (fmt=="EDI_CZ")
+              if (fmt=="EDI_CZ" || fmt=="EDI_CN")
               {
                 paxInfo.setName(doc_first_name);
         	      paxInfo.setSurname(doc_surname);
@@ -905,35 +928,77 @@ void create_apis_file(int point_id)
             if (fmt=="CSV_CZ" || fmt=="CSV_DE")
               body << ENDL;
       	    
-            if (fmt=="EDI_CZ")
+            if (fmt=="EDI_CZ" || fmt=="EDI_CN")
       	      paxlstInfo.addPassenger( paxInfo );
-      	  };
+      	  }; //цикл по пассажирам
 
-          if (fmt=="EDI_CZ" && !paxlstInfo.passengersList().empty())
-          {
-            string tlg = paxlstInfo.toEdiString();
-      	    body << tlg;
-      	  };
+          vector< pair<string, string> > files;
 
-        	ofstream f;
-          f.open(file_name.str().c_str());
-          if (!f.is_open()) throw Exception("Can't open file '%s'",file_name.str().c_str());
-          try
+          if (fmt=="EDI_CZ" || fmt=="EDI_CN")
           {
+            if (!paxlstInfo.passengersList().empty())
+            {
+              vector<string> parts;
+              if (fmt=="EDI_CZ")
+              {
+                parts.push_back(paxlstInfo.toEdiString());
+              };
+              if (fmt=="EDI_CN")
+              {
+                for(unsigned maxPaxPerString=MAX_PAX_PER_EDI_PART;maxPaxPerString>0;maxPaxPerString--)
+                {
+                  parts=paxlstInfo.toEdiStrings(maxPaxPerString);
+                  vector<string>::const_iterator p=parts.begin();
+                  for(; p!=parts.end(); ++p)
+                    if (p->size()>MAX_LEN_OF_EDI_PART) break;
+                  if (p==parts.end()) break;
+                };
+              };
+
+              int part_num=parts.size()>1?1:0;
+              for(vector<string>::const_iterator p=parts.begin(); p!=parts.end(); ++p, part_num++)
+              {
+                ostringstream file_name;
+                file_name << ApisSetsQry.FieldAsString("dir")
+                          << Paxlst::createEdiPaxlstFileName(flight.str(),
+                                                             airp_dep.code_lat,
+                                                             airp_arv.code_lat,
+                                                             scd_out_local,
+                                                             "TXT",
+                                                             part_num);
+                files.push_back( make_pair(file_name.str(), *p) );
+              };
+            };
+      	  }
+      	  else
+          {
+      	    ostringstream file_name;
+      	    if (fmt=="CSV_CZ" || fmt=="CSV_DE")
+            	file_name << ApisSetsQry.FieldAsString("dir")
+            	          << flight.str()
+            	          << airp_dep.code_lat
+            	          << airp_arv.code_lat
+            	          << DateTimeToStr(scd_out_local,"yyyymmdd") << ".CSV";
+            	          
+            if (fmt=="TXT_EE")
+              file_name << ApisSetsQry.FieldAsString("dir")
+                        << "LL-" << airline.code_lat << setw(3) << setfill('0') << flt_no << suffix
+                        << "-" << DateTimeToStr(act_in_local,"ddmmyyyy-hhnn") << "-S.TXT";
+
+            //доклеиваем заголовочную часть
+            ostringstream header;
             if (fmt=="CSV_CZ")
-            	f << "csv;ROSSIYA;"
-            	  << airline.code_lat << setw(3) << setfill('0') << flt_no << ";"
-          	    << airp_dep.code_lat << ";" << DateTimeToStr(act_out_local,"yyyy-mm-dd'T'hh:nn:00.0") << ";"
-          	    << airp_arv.code_lat << ";" << DateTimeToStr(act_in_local,"yyyy-mm-dd'T'hh:nn:00.0") << ";"
-          	    << count << ";" << ENDL;
-
+            	header << "csv;ROSSIYA;"
+            	    	 << airline.code_lat << setw(3) << setfill('0') << flt_no << ";"
+          	      	 << airp_dep.code_lat << ";" << DateTimeToStr(act_out_local,"yyyy-mm-dd'T'hh:nn:00.0") << ";"
+          	      	 << airp_arv.code_lat << ";" << DateTimeToStr(act_in_local,"yyyy-mm-dd'T'hh:nn:00.0") << ";"
+          	      	 << count << ";" << ENDL;
           	if (fmt=="CSV_DE")
-              f << airline.code_lat << ";"
-                << airline.code_lat << setw(3) << setfill('0') << flt_no << ";"
-                << airp_dep.code_lat << ";" << DateTimeToStr(act_out_local,"yymmddhhnn") << ";"
-                << airp_arv.code_lat << ";" << DateTimeToStr(act_in_local,"yymmddhhnn") << ";"
-                << count << ENDL;
-                
+              header << airline.code_lat << ";"
+                  	 << airline.code_lat << setw(3) << setfill('0') << flt_no << ";"
+                  	 << airp_dep.code_lat << ";" << DateTimeToStr(act_out_local,"yymmddhhnn") << ";"
+                  	 << airp_arv.code_lat << ";" << DateTimeToStr(act_in_local,"yymmddhhnn") << ";"
+                  	 << count << ENDL;
             if (fmt=="TXT_EE")
             {
               string airline_name=airline.short_name_lat;
@@ -941,40 +1006,50 @@ void create_apis_file(int point_id)
                 airline_name=airline.name_lat;
               if (airline_name.empty())
                 airline_name=airline.code_lat;
-                
-              f << "1$ " << airline_name << ENDL
-                << "2$ " << ENDL
-                << "3$ " << airline_country << ENDL
-                << "4$ " << ENDL
-                << "5$ " << ENDL
-                << "6$ " << ENDL
-                << "7$ " << ENDL
-                << "8$ " << ENDL
-                << "9$ " << DateTimeToStr(act_in_local,"dd.mm.yy hh:nn") << ENDL
-                << "10$ " << (airp_arv.code=="TLL"?"Tallinna Lennujaama piiripunkt":
-                              airp_arv.code=="TAY"?"Tartu piiripunkt":
-                              airp_arv.code=="URE"?"Kuressaare-2 piiripunkt":
-                              airp_arv.code=="KDL"?"Kardla Lennujaama piiripunkt":"") << ENDL
-                << "11$ " << ENDL
-                << "1$ " << airline.code_lat << setw(3) << setfill('0') << flt_no << suffix << ENDL
-                << "2$ " << ENDL
-                << "3$ " << count << ENDL;
-            };
 
-          	f << body.str();
-          	f.close();
-          }
-          catch(...)
+              header << "1$ " << airline_name << ENDL
+                  	 << "2$ " << ENDL
+                  	 << "3$ " << airline_country << ENDL
+                  	 << "4$ " << ENDL
+                  	 << "5$ " << ENDL
+                  	 << "6$ " << ENDL
+                  	 << "7$ " << ENDL
+                  	 << "8$ " << ENDL
+                  	 << "9$ " << DateTimeToStr(act_in_local,"dd.mm.yy hh:nn") << ENDL
+                  	 << "10$ " << (airp_arv.code=="TLL"?"Tallinna Lennujaama piiripunkt":
+                       	          airp_arv.code=="TAY"?"Tartu piiripunkt":
+                           	      airp_arv.code=="URE"?"Kuressaare-2 piiripunkt":
+                               	  airp_arv.code=="KDL"?"Kardla Lennujaama piiripunkt":"") << ENDL
+                  	 << "11$ " << ENDL
+                  	 << "1$ " << airline.code_lat << setw(3) << setfill('0') << flt_no << suffix << ENDL
+                  	 << "2$ " << ENDL
+                  	 << "3$ " << count << ENDL;
+            };
+            files.push_back( make_pair(file_name.str(), string(header.str()).append(body.str())) );
+      	  };
+      	  
+          for(vector< pair<string, string> >::const_iterator iFile=files.begin();iFile!=files.end();++iFile)
           {
-            try { f.close(); } catch( ... ) { };
+          	ofstream f;
+            f.open(iFile->first.c_str());
+            if (!f.is_open()) throw Exception("Can't open file '%s'",iFile->first.c_str());
             try
             {
-              //в случае ошибки запишем пустой файл
-              f.open(file_name.str().c_str());
-              if (f.is_open()) f.close();
+            	f << iFile->second;
+            	f.close();
             }
-            catch( ... ) { };
-            throw;
+            catch(...)
+            {
+              try { f.close(); } catch( ... ) { };
+              try
+              {
+                //в случае ошибки запишем пустой файл
+                f.open(iFile->first.c_str());
+                if (f.is_open()) f.close();
+              }
+              catch( ... ) { };
+              throw;
+            };
           };
         };
       };
