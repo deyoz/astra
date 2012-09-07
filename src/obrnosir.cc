@@ -15,6 +15,7 @@
 #include "season.h"
 #include "load_fr.h"
 #include "stat.h"
+#include "timer.h"
 #include "empty_proc.h"
 #include "serverlib/query_runner.h"
 #include "edilib/edi_loading.h"
@@ -42,6 +43,7 @@ const
     {"-load_fr",       load_fr,                 NULL,                     "loading FR files to database"},
     {"-get_fr",        get_fr,                  NULL,                     "getting FR files from database to local path"},
     {"-termversion",   SetTermVersionNotice,    SetTermVersionNoticeHelp, NULL},
+    {"-create_apis",   create_apis_nosir,       create_apis_nosir_help,   NULL},
     {"-alter_db",      alter_db,                NULL,                     NULL},
     {"-send_tlg",      send_tlg,                send_tlg_help,            NULL},
    // {"-voland_vko",    voland_vko_event,        NULL,                     NULL},

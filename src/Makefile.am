@@ -77,11 +77,13 @@ astra_SOURCES = \
   telegram2.cc \
   timer.cpp \
   tripinfo.cc \
+  view_edi_elements.cc \
   web_main.cc \
   xml_unit.cc \
   load_fr.cc \
   http_io.cc \
-  points.cc
+  points.cc \
+  xp_testing.cc
   
 
 astra_LDADD = $(all_libraries) \
@@ -139,6 +141,7 @@ noinst_HEADERS = \
   dev_utils.h \
   develop_dbf.h \
   docs.h \
+  edi_elements.h \
   empty_proc.h \
   etick_change_status.h \
   etick.h \
@@ -166,6 +169,7 @@ noinst_HEADERS = \
   stat.h \
   timer.h \
   tripinfo.h \
+  view_edi_elements.h \
   web_main.h \
   xml_unit.h \
   load_fr.h \
