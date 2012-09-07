@@ -779,6 +779,9 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 
       TCkinRoute tckin_route;
       TPaxSeats priorSeats(point_id);
+      TRemGrp rem_grp;
+      if(not Qry.Eof) rem_grp.Load(retBRD_VIEW, point_id);
+      TQuery remQry(&OraSession);
       for(;!Qry.Eof;Qry.Next())
       {
           int pax_id=Qry.FieldAsInteger(col_pax_id);
@@ -828,7 +831,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           NewTextChild(paxNode, "rk_amount", Qry.FieldAsInteger(col_rk_amount), 0);
           NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger(col_rk_weight), 0);
           NewTextChild(paxNode, "tags", Qry.FieldAsString(col_tags), "");
-          NewTextChild(paxNode, "remarks", Qry.FieldAsString(col_remarks), "");
+          NewTextChild(paxNode, "remarks", get_remarks(rem_grp, pax_id, remQry, " "), "");
           if (DecodeClientType(Qry.FieldAsString(col_client_type))!=ctTerm)
             NewTextChild(paxNode, "client_name", ElemIdToNameShort(etClientType, Qry.FieldAsString(col_client_type)));
 

@@ -2792,7 +2792,7 @@ struct TSSRItem {
 
 struct TSSR {
     vector<TSSRItem> items;
-    void get(const vector<string> &ssr_rem_grp, int pax_id);
+    void get(const TRemGrp &ssr_rem_grp, int pax_id);
     void ToTlg(TTlgInfo &info, vector<string> &body);
     string ToPILTlg(TTlgInfo &info) const;
 };
@@ -2833,7 +2833,7 @@ void TSSR::ToTlg(TTlgInfo &info, vector<string> &body)
     }
 }
 
-void TSSR::get(const vector<string> &ssr_rem_grp, int pax_id)
+void TSSR::get(const TRemGrp &ssr_rem_grp, int pax_id)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -2854,7 +2854,7 @@ void TSSR::get(const vector<string> &ssr_rem_grp, int pax_id)
         for(; !Qry.Eof; Qry.Next()) {
             TSSRItem item;
             item.code = Qry.FieldAsString(col_rem_code);
-            if(find(ssr_rem_grp.begin(), ssr_rem_grp.end(), item.code) == ssr_rem_grp.end())
+            if(not ssr_rem_grp.exists(item.code))
                 continue;
             item.free_text = Qry.FieldAsString(col_rem);
             if (isDisabledRem(item.code, item.free_text)) continue;
@@ -3030,8 +3030,8 @@ void TPSM::get(TTlgInfo &info)
         "   pax.surname ";
     Qry.CreateVariable("point_dep", otInteger, info.point_id);
     Qry.Execute();
-    vector<string> ssr_rem_grp;
-    LoadRemGrp(retTYPEB_PSM, info.point_id, ssr_rem_grp);
+    TRemGrp ssr_rem_grp;
+    ssr_rem_grp.Load(retTYPEB_PSM, info.point_id);
     if(!Qry.Eof) {
         int col_pax_id = Qry.FieldIndex("pax_id");
         int col_surname = Qry.FieldIndex("surname");
@@ -3099,8 +3099,8 @@ void TPIL::get(TTlgInfo &info)
         "   pax.surname, "
         "   pax.name ";
     Qry.CreateVariable("point_dep", otInteger, info.point_id);
-    vector<string> ssr_rem_grp;
-    LoadRemGrp(retTYPEB_PIL, info.point_id, ssr_rem_grp);
+    TRemGrp ssr_rem_grp;
+    ssr_rem_grp.Load(retTYPEB_PIL, info.point_id);
     Qry.Execute(); if(!Qry.Eof) {
         int col_pax_id = Qry.FieldIndex("pax_id");
         int col_surname = Qry.FieldIndex("surname");

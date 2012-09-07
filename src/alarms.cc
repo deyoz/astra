@@ -5,6 +5,7 @@
 #include "stages.h"
 #include "pers_weights.h"
 #include "astra_elems.h"
+#include "remarks.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -240,8 +241,8 @@ bool check_tlg_out_alarm(int point_id)
 /* есть пассажиры спецобслуживания */
 bool check_spec_service_alarm(int point_id)
 {
-    vector<string> alarm_rems;
-    LoadRemGrp(retALARM_SS, point_id, alarm_rems);
+    TRemGrp alarm_rems;
+    alarm_rems.Load(retALARM_SS, point_id);
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "select pax_rem.rem_code from "
@@ -256,7 +257,7 @@ bool check_spec_service_alarm(int point_id)
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.Execute();
     for(; not Qry.Eof; Qry.Next())
-        if(find(alarm_rems.begin(), alarm_rems.end(), Qry.FieldAsString("rem_code")) != alarm_rems.end()) break;
+        if(alarm_rems.exists(Qry.FieldAsString("rem_code"))) break;
     bool result = not Qry.Eof;
     set_alarm(point_id, atSpecService, result);
     return result;

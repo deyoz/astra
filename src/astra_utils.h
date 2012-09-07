@@ -379,18 +379,4 @@ std::string& EOracleError2UserException(std::string& msg);
 
 std::string get_internal_msgid_hex();
 
-enum TRemEventType {
-    retALARM_SS,
-    retPNL_SEL,
-    retBRD_VIEW,
-    retBRD_WARN,
-    retRPT_SS,
-    retRPT_PM,
-    retCKIN_VEW,
-    retTYPEB_PSM,
-    retTYPEB_PIL
-};
-
-void LoadRemGrp(TRemEventType rem_set_type, int point_id, std::vector<std::string> &result);
-
 #endif /*_ASTRA_UTILS_H_*/
