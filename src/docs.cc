@@ -937,10 +937,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     if(rpt_params.pr_et) { //ЭБ
         SQLText +=
             "    ticket_no||'/'||coupon_no AS remarks, \n";
-    } else {
-        SQLText +=
-            " ckin.get_remarks(pax_id,' ') AS remarks, \n";
-    }
+    };
     SQLText +=
         "   NVL(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS rk_weight, \n"
         "   NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS bag_amount, \n"
@@ -1124,7 +1121,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             rem_grp.Load(retRPT_PM, rpt_params.point_id);
         }
         NewTextChild(rowNode, "remarks",
-                (rpt_params.pr_et ? Qry.FieldAsString("remarks") : get_remarks(rem_grp, pax_id, remQry, " ")));
+                (rpt_params.pr_et ? Qry.FieldAsString("remarks") : GetRemarkStr(rem_grp, pax_id, remQry)));
     }
 
     dataSetNode = NewTextChild(dataSetsNode, rpt_params.pr_trfer ? "v_pm_trfer_total" : "v_pm_total");
@@ -2963,7 +2960,7 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         bool pr_payment=BagPaymentCompleted(Qry.FieldAsInteger("grp_id"));
         NewTextChild(paxNode, "pr_payment", (int)pr_payment);
         NewTextChild(paxNode, "tags", Qry.FieldAsString("tags"));
-        NewTextChild(paxNode, "remarks", get_remarks(rem_grp, pax_id, remQry, " "));
+        NewTextChild(paxNode, "remarks", GetRemarkStr(rem_grp, pax_id, remQry));
     }
 
     // Теперь переменные отчета

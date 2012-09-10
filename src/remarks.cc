@@ -93,7 +93,7 @@ void TRemGrp::Load(TRemEventType rem_set_type, const string &airline)
         case retRPT_PM:
             event_type = "RPT_PM";
             break;
-        case retCKIN_VEW:
+        case retCKIN_VIEW:
             event_type = "CKIN_VIEW";
             break;
         case retTYPEB_PSM:
@@ -106,49 +106,42 @@ void TRemGrp::Load(TRemEventType rem_set_type, const string &airline)
             throw Exception("LoadRemGrp: unknown event type %d", rem_set_type);
     }
     TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "select event_value, rem_code from "
-        "  rem_grp_list, "
-        "  rem_grp_sets "
-        "where "
-        "  nvl(rem_grp_sets.airline, ' ') = nvl(:airline, ' ') and "
-        "  rem_grp_sets.event_type = :event_type and "
-        "  rem_grp_sets.rem_grp_id = rem_grp_list.id(+) ";
-    Qry.CreateVariable("airline", otString, airline);
+    Qry.Clear();
     Qry.CreateVariable("event_type", otString, event_type);
-    Qry.Execute();
-    bool processed = not Qry.Eof;
-    for(; not Qry.Eof; Qry.Next()) {
+    for(int pass=airline.empty()?2:1; pass<=2; pass++)
+    {
+      ostringstream sql;
+      sql << "SELECT event_value, rem_code "
+          << "FROM rem_grp_sets, rem_grp_list "
+          << "WHERE rem_grp_sets.rem_grp_id = rem_grp_list.id(+) AND "
+          << "      rem_grp_sets.event_type = :event_type AND ";
+      if (pass==1)
+      {
+        sql << "      rem_grp_sets.airline=:airline";
+        Qry.CreateVariable("airline", otString, airline);
+      }
+      else
+      {
+        sql << "      rem_grp_sets.airline IS NULL";
+        Qry.DeleteVariable("airline");
+      };
+      Qry.SQLText=sql.str().c_str();
+      Qry.Execute();
+      bool processed = !Qry.Eof;
+      for(; !Qry.Eof; Qry.Next())
+      {
         if(Qry.FieldIsNULL("rem_code")) {
             any = true;
             break;
-        } else if(Qry.FieldAsInteger("event_value"))
+        } else if(Qry.FieldAsInteger("event_value")!=0)
             push_back(Qry.FieldAsString("rem_code"));
-    }
-    if(not processed) {
-        Qry.Clear();
-        Qry.SQLText =
-            "select rem_code from "
-            "  rem_grp_list, "
-            "  rem_grp_sets "
-            "where "
-            "  rem_grp_sets.airline is null and "
-            "  rem_grp_sets.event_type = :event_type and "
-            "  rem_grp_sets.event_value <> 0 and "
-            "  rem_grp_sets.rem_grp_id = rem_grp_list.id(+) ";
-        Qry.CreateVariable("event_type", otString, event_type);
-        Qry.Execute();
-        for(; not Qry.Eof; Qry.Next()) {
-            if(Qry.FieldIsNULL("rem_code")) {
-                any = true;
-                break;
-            } else
-                push_back(Qry.FieldAsString("rem_code"));
-        }
-    }
+      }
+      if (processed) break;
+    };
+    if (any) clear();
 }
 
-string get_remarks(const TRemGrp &rem_grp, int pax_id, TQuery &Qry, const string &term)
+string GetRemarkStr(const TRemGrp &rem_grp, int pax_id, TQuery &Qry, const string &term)
 {
     const char *sql =
         "SELECT rem_code "

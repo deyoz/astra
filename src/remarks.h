@@ -18,7 +18,7 @@ enum TRemEventType {
     retBRD_WARN,
     retRPT_SS,
     retRPT_PM,
-    retCKIN_VEW,
+    retCKIN_VIEW,
     retTYPEB_PSM,
     retTYPEB_PIL
 };
@@ -35,7 +35,7 @@ struct TRemGrp:private std::vector<std::string> {
 };
 
 
-std::string get_remarks(const TRemGrp &rem_grp, int pax_id, TQuery &Qry, const std::string &term = ", ");
+std::string GetRemarkStr(const TRemGrp &rem_grp, int pax_id, TQuery &Qry, const std::string &term = " ");
 
 namespace CheckIn
 {
