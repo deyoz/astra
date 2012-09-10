@@ -391,7 +391,7 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   	  "SELECT point_num,first_point,pr_tranzit,pr_del,scd_out, "
   	  "       NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out, "
   	  "       airline_fmt,suffix_fmt,airp_fmt,"
-      "       bort,airline,flt_no,suffix,airp,craft,diffcomp_alarm,NVL(comp_id,-1) comp_id "
+      "       bort,airline,flt_no,suffix,airp,craft,NVL(comp_id,-1) comp_id "
       " FROM points, trip_sets "
       " WHERE points.point_id=:point_id AND points.point_id=trip_sets.point_id(+)";
     Qry.CreateVariable( "point_id", otInteger, point_id );
@@ -664,7 +664,7 @@ void SalonFormInterface::ComponShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
   	  "SELECT point_num,first_point,pr_tranzit,pr_del,scd_out, "
   	  "       NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out, "
   	  "       airline_fmt,suffix_fmt,airp_fmt,"
-      "       bort,airline,flt_no,suffix,airp,craft,diffcomp_alarm,crc_comp "
+      "       bort,airline,flt_no,suffix,airp,craft,crc_comp "
       " FROM points, trip_sets "
       " WHERE points.point_id=:point_id AND points.point_id=trip_sets.point_id(+)";
     Qry.CreateVariable( "point_id", otInteger, point_id );
