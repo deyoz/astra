@@ -30,6 +30,8 @@ struct TRemGrp:private std::vector<std::string> {
         TRemGrp(): any(false) {};
         bool exists (const std::string &rem) const { return any or find(begin(), end(), rem) != end(); }
         void Load(TRemEventType rem_set_type, int point_id);
+        void Load(TRemEventType rem_set_type, const std::string &airline);
+        void Clear() { clear(); any = false; };
 };
 
 

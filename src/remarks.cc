@@ -60,8 +60,19 @@ bool isDisabledRem( const string &rem_code, const string &rem_text )
 
 void TRemGrp::Load(TRemEventType rem_set_type, int point_id)
 {
-    clear();
-    any = false;
+    Clear();
+    TQuery Qry(&OraSession);
+    Qry.SQLText = "select airline from points where point_id = :point_id";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.Execute();
+    if(Qry.Eof)
+        throw Exception("TRemGrp::Load: point_id %d not found", point_id);
+    Load(rem_set_type, Qry.FieldAsString("airline"));
+}
+
+void TRemGrp::Load(TRemEventType rem_set_type, const string &airline)
+{
+    Clear();
     string event_type;
     switch(rem_set_type) {
         case retALARM_SS:
@@ -98,14 +109,12 @@ void TRemGrp::Load(TRemEventType rem_set_type, int point_id)
     Qry.SQLText =
         "select event_value, rem_code from "
         "  rem_grp_list, "
-        "  rem_grp_sets, "
-        "  points "
+        "  rem_grp_sets "
         "where "
-        "  points.point_id = :point_id and  "
-        "  points.airline = rem_grp_sets.airline and "
+        "  nvl(rem_grp_sets.airline, ' ') = nvl(:airline, ' ') and "
         "  rem_grp_sets.event_type = :event_type and "
         "  rem_grp_sets.rem_grp_id = rem_grp_list.id(+) ";
-    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.CreateVariable("airline", otString, airline);
     Qry.CreateVariable("event_type", otString, event_type);
     Qry.Execute();
     bool processed = not Qry.Eof;
