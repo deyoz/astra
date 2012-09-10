@@ -61,6 +61,7 @@ bool isDisabledRem( const string &rem_code, const string &rem_text )
 void TRemGrp::Load(TRemEventType rem_set_type, int point_id)
 {
     clear();
+    any = false;
     string event_type;
     switch(rem_set_type) {
         case retALARM_SS:
