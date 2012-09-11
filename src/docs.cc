@@ -390,7 +390,7 @@ void TRptParams::Init(xmlNodePtr node)
     pr_trfer = NodeAsIntegerFast("pr_trfer", node, 0) != 0;
     pr_brd = NodeAsIntegerFast("pr_brd", node, 0) != 0;
     sort = (TSortType)NodeAsIntegerFast("sort", node, 0);
-    if(text != NoExists and text != 0)
+    if(text != NoExists and text != 0 and rpt_type != rtBDOCS) // т.к. у отчета BDOCS нет текстового варианта
         rpt_type = TRptType((int)rpt_type + 1);
     string route_country;
     route_inter = IsRouteInter(point_id, NoExists, route_country);
