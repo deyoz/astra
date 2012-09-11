@@ -23,5 +23,7 @@ int alter_arx_pax_doco3(int argc,char **argv);
 int alter_arx_pax_doc4(int argc,char **argv);
 int put_move_arx_ext(int argc,char **argv);
 int alter_bag_pool_num(int argc,char **argv);
+int check_trfer_tckin_set(int argc,char **argv);
+int alter_trfer_tckin_set(int argc,char **argv);
 
 #endif
