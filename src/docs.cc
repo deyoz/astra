@@ -381,6 +381,7 @@ void PaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode,
 
 void TRptParams::Init(xmlNodePtr node)
 {
+    prn_params.get_prn_params(node->parent);
     point_id = NodeAsIntegerFast("point_id", node);
     rpt_type = DecodeRptType(NodeAsStringFast("rpt_type", node));
     airp_arv = NodeAsStringFast("airp_arv", node, "");
@@ -408,12 +409,14 @@ void TRptParams::Init(xmlNodePtr node)
     xmlNodePtr clientTypeNode = GetNodeFast("client_type", node);
     if(clientTypeNode != NULL)
         client_type = NodeAsString(clientTypeNode);
-    if(
+    if(prn_params.pr_lat)
+        req_lang = AstraLocale::LANG_EN;
+    else if(
             rpt_type == rtPTM or
             rpt_type == rtPTMTXT or
             rpt_type == rtBTM or
             rpt_type == rtBTMTXT
-      )
+           )
         req_lang = "";
     else
         req_lang = TReqInfo::Instance()->desk.lang;
@@ -422,15 +425,15 @@ void TRptParams::Init(xmlNodePtr node)
         xmlNodePtr currNode = remsNode->children;
         for(; currNode; currNode = currNode->next)
         {
-          TRemCategory cat=getRemCategory(NodeAsString(currNode), "");
-          rems[cat].push_back(NodeAsString(currNode));
+            TRemCategory cat=getRemCategory(NodeAsString(currNode), "");
+            rems[cat].push_back(NodeAsString(currNode));
         };
     }
 }
 
 bool TRptParams::IsInter() const
 {
-    return route_inter || route_country_lang.empty() || route_country_lang!=TReqInfo::Instance()->desk.lang;
+    return req_lang == AstraLocale::LANG_EN || route_inter || route_country_lang.empty() || route_country_lang!=TReqInfo::Instance()->desk.lang;
 }
 
 string TRptParams::GetLang() const
@@ -932,7 +935,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "   DECODE(pax_grp.status, 'T', pax_grp.status, 'N') status, \n"
         "   surname||' '||pax.name AS full_name, \n"
         "   pax.pers_type, \n"
-        "   salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'_seats',rownum) AS seat_no, \n"
+        "   salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'_seats',rownum,:pr_lat) AS seat_no, \n"
         "   pax.seats, \n";
     if(rpt_params.pr_et) { //ùÅ
         SQLText +=
@@ -1017,6 +1020,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
     Qry.CreateVariable("lang", otString, rpt_params.GetLang());
+    Qry.CreateVariable("pr_lat", otInteger, rpt_params.IsInter());
     Qry.Execute();
 
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
@@ -2227,7 +2231,7 @@ void NOTPRES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "       reg_no, "
         "       surname||' '||pax.name family, "
         "       pax.pers_type, "
-        "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'_seats',rownum) AS seat_no, "
+        "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'_seats',rownum,:pr_lat) AS seat_no, "
         "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bagAmount, "
         "       ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags "
         "FROM   pax_grp,pax "
@@ -2249,6 +2253,7 @@ void NOTPRES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
     Qry.CreateVariable("lang", otString, rpt_params.GetLang());
+    Qry.CreateVariable("pr_lat", otInteger, rpt_params.IsInter());
     Qry.Execute();
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
@@ -2459,7 +2464,7 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "       TRIM(pax.surname||' '||pax.name) AS family, "
         "       pax.pers_type, "
         "       pax.seats, "
-        "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'_seats',rownum) AS seat_no, "
+        "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'_seats',rownum,:pr_lat) AS seat_no, "
         "       pax.ticket_no, pax.coupon_no, pax.ticket_rem, pax.ticket_confirm "
         "FROM   pax_grp,pax "
         "WHERE  pax_grp.grp_id=pax.grp_id AND "
@@ -2479,6 +2484,7 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     }
     Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
+    Qry.CreateVariable("pr_lat", otInteger, rpt_params.IsInter());
     Qry.Execute();
 
     TQuery PaxDocQry(&OraSession);
