@@ -2591,14 +2591,15 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       for(vector<CheckIn::TPaxFQTItem>::const_iterator f=fqts.begin();f!=fqts.end();f++)
         if (getPaxRem(rpt_params, *f, rem)) rems.push_back(rem);
         
-      if (rems.empty()) continue;
-
       if(rpt_params.rpt_type == rtSPEC or rpt_params.rpt_type == rtSPECTXT) {
-          vector<CheckIn::TPaxRemItem>::const_iterator r=rems.begin();
-          for(;r!=rems.end();r++) if(spec_rems.exists(r->code)) break;
-          if(r == rems.end()) continue;
+          vector<CheckIn::TPaxRemItem> tmp_rems;
+          for(vector<CheckIn::TPaxRemItem>::const_iterator r=rems.begin();r!=rems.end();r++)
+              if(spec_rems.exists(r->code)) tmp_rems.push_back(*r);
+          rems = tmp_rems;
       }
       
+      if (rems.empty()) continue;
+
       xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
       NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("point_id"));
       NewTextChild(rowNode, "reg_no", Qry.FieldAsInteger("reg_no"));
