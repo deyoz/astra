@@ -691,7 +691,15 @@ void TPrnTagStore::save_bp_print(bool pr_print)
         prnQry.add_part(TAG::SURNAME, paxInfo.surname);
     string SQLText = prnQry.text();
     Qry.SQLText = SQLText;
-    Qry.Execute();
+    try {
+        Qry.Execute();
+    } catch(EOracleError &E) {
+        if(E.Code == 1) {
+            if(TReqInfo::Instance()->client_type == ctTerm)
+                throw UserException("MSG.ALREADY_PRINT");
+        } else
+            throw;
+    }
 }
 
 void TPrnTagStore::TRStationInfo::Init()
