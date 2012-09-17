@@ -92,6 +92,7 @@ const
                          {etPersType,              "etPersType",              "pers_types"},
                          {etRefusalType,           "etRefusalType",           "refusal_types"},
                          {etRemGrp,                "etRemGrp",                ""},
+                         {etRemType,               "etRemType",               "rem_types2"},
                          {etRight,                 "etRight",                 "rights"},
                          {etSalePoint,             "etSalePoint",             ""},
                          {etSeasonType,            "etSeasonType",            "season_types"},

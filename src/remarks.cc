@@ -105,40 +105,26 @@ void TRemGrp::Load(TRemEventType rem_set_type, const string &airline)
         default:
             throw Exception("LoadRemGrp: unknown event type %d", rem_set_type);
     }
+    
     TQuery Qry(&OraSession);
     Qry.Clear();
+    Qry.SQLText=
+      "SELECT NVL(airline_rem_event_sets.rem_code,basic_rem_event_sets.rem_code) AS rem_code, "
+      "       NVL(airline_rem_event_sets.event_value,basic_rem_event_sets.event_value) AS event_value "
+      "FROM "
+      "  (SELECT * FROM rem_event_sets WHERE event_type=:event_type AND airline=:airline) airline_rem_event_sets "
+      "  FULL OUTER JOIN "
+      "  (SELECT * FROM rem_event_sets WHERE event_type=:event_type AND airline IS NULL) basic_rem_event_sets "
+      "ON basic_rem_event_sets.event_type=airline_rem_event_sets.event_type AND "
+      "   basic_rem_event_sets.rem_code=airline_rem_event_sets.rem_code ";
     Qry.CreateVariable("event_type", otString, event_type);
-    for(int pass=airline.empty()?2:1; pass<=2; pass++)
+    Qry.CreateVariable("airline", otString, airline);
+    Qry.Execute();
+    for(; !Qry.Eof; Qry.Next())
     {
-      ostringstream sql;
-      sql << "SELECT event_value, rem_code "
-          << "FROM rem_grp_sets, rem_grp_list "
-          << "WHERE rem_grp_sets.rem_grp_id = rem_grp_list.id(+) AND "
-          << "      rem_grp_sets.event_type = :event_type AND ";
-      if (pass==1)
-      {
-        sql << "      rem_grp_sets.airline=:airline";
-        Qry.CreateVariable("airline", otString, airline);
-      }
-      else
-      {
-        sql << "      rem_grp_sets.airline IS NULL";
-        Qry.DeleteVariable("airline");
-      };
-      Qry.SQLText=sql.str().c_str();
-      Qry.Execute();
-      bool processed = !Qry.Eof;
-      for(; !Qry.Eof; Qry.Next())
-      {
-        if(Qry.FieldIsNULL("rem_code")) {
-            any = true;
-            break;
-        } else if(Qry.FieldAsInteger("event_value")!=0)
-            push_back(Qry.FieldAsString("rem_code"));
-      }
-      if (processed) break;
+      if (Qry.FieldAsInteger("event_value")!=0)
+        push_back(Qry.FieldAsString("rem_code"));
     };
-    if (any) clear();
 }
 
 string GetRemarkStr(const TRemGrp &rem_grp, int pax_id, TQuery &Qry, const string &term)
