@@ -696,7 +696,7 @@ void TPrnTagStore::save_bp_print(bool pr_print)
     } catch(EOracleError &E) {
         if(E.Code == 1) {
             if(TReqInfo::Instance()->client_type == ctTerm)
-                throw UserException("MSG.ALREADY_PRINT");
+                throw UserException("MSG.PRINT.BP_ALREADY_PRODUCED");
         } else
             throw;
     }
