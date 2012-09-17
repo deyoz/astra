@@ -127,22 +127,18 @@ void set_alarm( int point_id, TTripAlarmsType alarm_type, bool alarm_value )
 
     TQuery Qry(&OraSession);
     if(alarm_value)
-        Qry.SQLText =
-            "begin "
-            "    insert into trip_alarms(point_id, alarm_type) values(:point_id, :alarm_type); "
-            "exception when dup_val_on_index then "
-            "    null; "
-            "end; ";
+        Qry.SQLText = "insert into trip_alarms(point_id, alarm_type) values(:point_id, :alarm_type)";
     else
         Qry.SQLText = "delete from trip_alarms where point_id = :point_id and alarm_type = :alarm_type";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.CreateVariable("alarm_type", otString, EncodeAlarmType(alarm_type));
     Qry.Execute();
-
-    ostringstream msg;
-    msg << "Тревога '" << TripAlarmName(alarm_type) << "' "
-        << (alarm_value?"установлена":"отменена");
-    TReqInfo::Instance()->MsgToLog( msg.str(), evtFlt, point_id );
+    if(Qry.RowsProcessed()) {
+        ostringstream msg;
+        msg << "Тревога '" << TripAlarmName(alarm_type) << "' "
+            << (alarm_value?"установлена":"отменена");
+        TReqInfo::Instance()->MsgToLog( msg.str(), evtFlt, point_id );
+    }
 }
 
 bool calc_overload_alarm( int point_id )
