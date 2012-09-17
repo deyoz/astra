@@ -132,12 +132,16 @@ void set_alarm( int point_id, TTripAlarmsType alarm_type, bool alarm_value )
         Qry.SQLText = "delete from trip_alarms where point_id = :point_id and alarm_type = :alarm_type";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.CreateVariable("alarm_type", otString, EncodeAlarmType(alarm_type));
-    Qry.Execute();
-    if(Qry.RowsProcessed()) {
-        ostringstream msg;
-        msg << "Тревога '" << TripAlarmName(alarm_type) << "' "
-            << (alarm_value?"установлена":"отменена");
-        TReqInfo::Instance()->MsgToLog( msg.str(), evtFlt, point_id );
+    try {
+        Qry.Execute();
+        if(Qry.RowsProcessed()) {
+            ostringstream msg;
+            msg << "Тревога '" << TripAlarmName(alarm_type) << "' "
+                << (alarm_value?"установлена":"отменена");
+            TReqInfo::Instance()->MsgToLog( msg.str(), evtFlt, point_id );
+        }
+    } catch (EOracleError &E) {
+        if(E.Code != 1) throw;
     }
 }
 
