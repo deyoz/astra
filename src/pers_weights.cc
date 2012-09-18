@@ -31,7 +31,7 @@ void TPersWeights::Update()
     "SELECT id,airline,craft,bort,class,subclass,pr_summer,first_date,"
     "       last_date,male,female,child,infant FROM pers_weights";
   Qry.Execute();
-  while ( !Qry.Eof ) {
+  for ( ; !Qry.Eof; Qry.Next() ) {
     TPerTypeWeight p;
     p.id = Qry.FieldAsInteger( "id" );
     if ( Qry.FieldIsNULL( "first_date" ) )
@@ -42,6 +42,8 @@ void TPersWeights::Update()
       p.last_date = NoExists;
     else
       p.last_date = Qry.FieldAsDateTime( "last_date" );
+    if ( p.first_date == NoExists && p.last_date == NoExists && Qry.FieldIsNULL( "pr_summer" ) )
+      continue;
     p.pr_summer = Qry.FieldAsInteger( "pr_summer" );
     p.airline = Qry.FieldAsString( "airline" );
     p.craft = Qry.FieldAsString( "craft" );
@@ -57,7 +59,6 @@ void TPersWeights::Update()
     p.weight.child = Qry.FieldAsInteger( "child" );
     p.weight.infant = Qry.FieldAsInteger( "infant" );
     weights.push_back( p );
-    Qry.Next();
   }
 }
 
@@ -111,17 +112,19 @@ void TPersWeights::getRules( const BASIC::TDateTime &scd_utc, const std::string 
   DecodeDate( scd_local, Year, Month, Month );
   for ( vector<TPerTypeWeight>::iterator p=weights.begin(); p!=weights.end(); p++ ) {
     ProgTrace( TRACE5, "id=%d, first_date=%f, last_date=%f, scd_local=%f, pr_summer=%d, is_dst( scd_utc, region )=%d",
-               p->id, first_date, last_date, scd_local, p->pr_summer, is_dst( scd_utc, region ) );
+               p->id, p->first_date, p->last_date, scd_local, p->pr_summer, is_dst( scd_utc, region ) );
     bool good_cond = false;
-    if ( p->first_date != ASTRA::NoExists && p->last_date != ASTRA::NoExists )
-      Year += ( p->first_date > p->last_date );
     first_date = SetDate( p->first_date, Year, 1 );
-    last_date = SetDate( p->last_date, Year, -1 );
+    int vYear = Year;
+    if ( p->first_date != ASTRA::NoExists && p->last_date != ASTRA::NoExists )
+      vYear += ( p->first_date > p->last_date );
+    last_date = SetDate( p->last_date, vYear, -1 );
     if ( ( first_date == ASTRA::NoExists || scd_local >= first_date ) &&
          ( last_date == ASTRA::NoExists || scd_local <= last_date ) ) {
       if ( p->first_date == ASTRA::NoExists &&
            p->last_date == ASTRA::NoExists &&
            is_dst( scd_utc, region ) == p->pr_summer ) {
+         tst();
          good_cond = true;
       }
       else
@@ -418,16 +421,16 @@ int getCommerceWeight( int point_id, TTypeFlightWeight weight_type )
   ClassesPersWeight weight;
   r.read( point_id );
 	TFlightWeights w;
-	w.read( point_id, withBrd );
+	w.read( point_id, weight_type );
 	TPointsDest dest;
 	BitSet<TUseDestData> UseData;
 	UseData.setFlag( udCargo );
-	UseData.setFlag( udMaxCommerce );
+	//UseData.setFlag( udMaxCommerce );
 	dest.Load( point_id, UseData );
   TFlightCargos cargos;
-  cargos.Load( point_id, dest.pr_tranzit, dest.first_point, dest.point_num, dest.pr_del ); //  dest.pr_del == 1 ???
+  //cargos.Load( point_id, dest.pr_tranzit, dest.first_point, dest.point_num, dest.pr_del ); //  dest.pr_del == 1 ???
   std::vector<TPointsDestCargo> cargs;
-  cargos.Get( cargs );
+  dest.cargos.Get( cargs );
   int weight_cargos = 0;
   for ( vector<TPointsDestCargo>::iterator c=cargs.begin(); c!=cargs.end(); c++ ) {
     weight_cargos += c->cargo;
