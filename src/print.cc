@@ -1232,7 +1232,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
         xmlNodePtr tagNode = NewTextChild(tagsNode, "tag");
         SetProp(tagNode, "type", Qry.FieldAsString("tag_type"));
         SetProp(tagNode, "color", Qry.FieldAsString("color"));
-        SetProp(tagNode, "no", FloatToString(Qry.FieldAsFloat("no")));
+        SetProp(tagNode, "no", FloatToString(Qry.FieldAsFloat("no"),0));
 
         int pax_id=NoExists;
         if(!pr_unaccomp)
@@ -1637,7 +1637,7 @@ void PrintInterface::GetPrintDataBP(const BPParams &params,
         if(DecodeDevFmtType(params.fmt_type) == dftEPSON) {
             to_esc::TConvertParams ConvertParams;
             ConvertParams.init(params.dev_model);
-//            ProgTrace(TRACE5, "prn_form: %s", prn_form.c_str());
+//            ProgTrace(TRACE5, "prn_form: %s", iPax->prn_form.c_str());
             to_esc::convert(iPax->prn_form, ConvertParams, params.prnParams);
             StringToHex( string(iPax->prn_form), iPax->prn_form );
             iPax->hex=true;

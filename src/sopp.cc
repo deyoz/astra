@@ -1261,6 +1261,14 @@ void buildSOPP( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
       			an = NewTextChild( alarmsNode, "alarm", "DiffComps" );
       			SetProp( an, "text", TripAlarmString( alarm ) );
       			break;
+      	  case atTlgOut:
+      			an = NewTextChild( alarmsNode, "alarm", "TlgOut" );
+      			SetProp( an, "text", TripAlarmString( alarm ) );
+      			break;
+      	  case atSpecService:
+      			an = NewTextChild( alarmsNode, "alarm", "SpecService" );
+      			SetProp( an, "text", TripAlarmString( alarm ) );
+      			break;
       		default:;
       	}
       }
@@ -5137,8 +5145,14 @@ bool trip_calc_data( int point_id, BitSet<TTrip_Calc_Data> &whatcalc,
   Qry.Clear();
   if ( pr_empty ) {
     Qry.SQLText =
-      "INSERT INTO trip_calc_data(point_id,trfer_exists,ckin_desks,gates) "
-      " VALUES(:point_id,:trfer_exists,:ckin_desks,:gates) ";
+      "BEGIN "
+      " INSERT INTO trip_calc_data(point_id,trfer_exists,ckin_desks,gates) "
+      "  VALUES(:point_id,:trfer_exists,:ckin_desks,:gates); "
+      "EXCEPTION WHEN DUP_VAL_ON_INDEX THEN "
+      " UPDATE trip_calc_data "
+      "  SET trfer_exists=:trfer_exists, ckin_desks=:ckin_desks, gates=:gates "
+      "  WHERE point_id=:point_id; "
+      "END;";
   }
   else
     Qry.SQLText =

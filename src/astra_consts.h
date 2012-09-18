@@ -79,6 +79,8 @@ enum TRptType {
     rtGOSHO,
     rtGOSHOTXT,
     rtBDOCS,
+    rtSPEC,
+    rtSPECTXT,
     rtUnknown,
     rtTypeNum
 };

@@ -667,6 +667,22 @@ class TCompElemTypes: public TCodeBaseTable {
     }
 };
 
+class TAlarmTypesRow: public TCodeBaseTableRow {
+    public:
+        const char *get_row_name() const { return "TAlarmTypesRow"; };
+};
+
+class TAlarmTypes: public TCodeBaseTable {
+    protected:
+        const char *get_table_name() { return "TAlarmTypes"; };
+        void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+        void Invalidate() {}; //всегда актуальна
+    public:
+        TAlarmTypes() {
+            Init( "alarm_types" );
+        }
+};
+
 class TDevModelsRow: public TCodeBaseTableRow {
 	public:
 	  const char *get_row_name() const { return "TDevModelsRow"; };
@@ -1032,6 +1048,33 @@ class TRemTypes: public TTIDBaseTable {
   public:
   	TRemTypes( ) {
   		Init( "rem_types" );
+  	}
+};
+
+class TRemTypes2Row: public TTIDBaseTableRow {
+  public:
+    int grp_id;
+    bool is_iata;
+    const char *get_row_name() const { return "TRemTypes2Row"; };
+    int AsInteger(std::string field) const
+    {
+      if (lowerc(field)=="grp_id") return grp_id;
+      return TTIDBaseTableRow::AsInteger(field);
+    };
+    bool AsBoolean(std::string field) const
+    {
+      if (lowerc(field)=="is_iata") return is_iata;
+      return TTIDBaseTableRow::AsBoolean(field);
+    }
+};
+
+class TRemTypes2: public TTIDBaseTable {
+  protected:
+    const char *get_table_name() { return "TRemTypes2"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+  public:
+  	TRemTypes2( ) {
+  		Init( "rem_types2" );
   	}
 };
 

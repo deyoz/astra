@@ -17,6 +17,8 @@
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/test.h"
 
+#include "alarms.h"
+
 using namespace std;
 using namespace EXCEPTIONS;
 using namespace AstraLocale;
@@ -2800,7 +2802,7 @@ struct TSSRItem {
 
 struct TSSR {
     vector<TSSRItem> items;
-    void get(int pax_id);
+    void get(const TRemGrp &ssr_rem_grp, int pax_id);
     void ToTlg(TTlgInfo &info, vector<string> &body);
     string ToPILTlg(TTlgInfo &info) const;
 };
@@ -2841,22 +2843,19 @@ void TSSR::ToTlg(TTlgInfo &info, vector<string> &body)
     }
 }
 
-void TSSR::get(int pax_id)
+void TSSR::get(const TRemGrp &ssr_rem_grp, int pax_id)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "select "
-        "   pax_rem.rem_code, "
-        "   pax_rem.rem "
+        "   rem_code, "
+        "   rem "
         "from "
-        "   pax_rem, "
-        "   rem_types "
+        "   pax_rem "
         "where "
-        "   pax_rem.pax_id = :pax_id and "
-        "   pax_rem.rem_code = rem_types.code and "
-        "   rem_types.pr_psm <> 0 "
+        "   pax_id = :pax_id "
         "order by "
-        "   pax_rem.rem_code ";
+        "   rem_code ";
     Qry.CreateVariable("pax_id", otInteger, pax_id);
     Qry.Execute();
     if(!Qry.Eof) {
@@ -2865,6 +2864,8 @@ void TSSR::get(int pax_id)
         for(; !Qry.Eof; Qry.Next()) {
             TSSRItem item;
             item.code = Qry.FieldAsString(col_rem_code);
+            if(not ssr_rem_grp.exists(item.code))
+                continue;
             item.free_text = Qry.FieldAsString(col_rem);
             if (isDisabledRem(item.code, item.free_text)) continue;
             if(item.code == item.free_text)
@@ -2900,6 +2901,7 @@ struct TCFG {
 
 struct TPSMPax {
     int pax_id;
+    int point_id;
     TName name;
     TPSMOnwardList OItem;
     TTlgSeatList seat_no;
@@ -3038,6 +3040,8 @@ void TPSM::get(TTlgInfo &info)
         "   pax.surname ";
     Qry.CreateVariable("point_dep", otInteger, info.point_id);
     Qry.Execute();
+    TRemGrp ssr_rem_grp;
+    ssr_rem_grp.Load(retTYPEB_PSM, info.point_id);
     if(!Qry.Eof) {
         int col_pax_id = Qry.FieldIndex("pax_id");
         int col_surname = Qry.FieldIndex("surname");
@@ -3051,7 +3055,7 @@ void TPSM::get(TTlgInfo &info)
             item.name.name = Qry.FieldAsString(col_name);
             item.airp_arv = Qry.FieldAsString(col_airp_arv);
             item.cls = Qry.FieldAsString(col_class);
-            item.ssr.get(item.pax_id);
+            item.ssr.get(ssr_rem_grp, item.pax_id);
             if(item.ssr.items.empty())
                 continue;
             item.seat_no.add_seats(item.pax_id, complayers);
@@ -3105,6 +3109,8 @@ void TPIL::get(TTlgInfo &info)
         "   pax.surname, "
         "   pax.name ";
     Qry.CreateVariable("point_dep", otInteger, info.point_id);
+    TRemGrp ssr_rem_grp;
+    ssr_rem_grp.Load(retTYPEB_PIL, info.point_id);
     Qry.Execute(); if(!Qry.Eof) {
         int col_pax_id = Qry.FieldIndex("pax_id");
         int col_surname = Qry.FieldIndex("surname");
@@ -3118,7 +3124,7 @@ void TPIL::get(TTlgInfo &info)
             item.name.name = Qry.FieldAsString(col_name);
             item.airp_arv = Qry.FieldAsString(col_airp_arv);
             item.cls = Qry.FieldAsString(col_class);
-            item.ssr.get(item.pax_id);
+            item.ssr.get(ssr_rem_grp, item.pax_id);
             item.seat_no.add_seats(item.pax_id, complayers);
             items[item.cls].push_back(item);
         }
@@ -6346,6 +6352,7 @@ int TelegramInterface::create_tlg(const TCreateTlgInfo &createInfo)
     Qry.CreateVariable("vhas_errors", otInteger, not info.err_lst.empty());
     Qry.CreateVariable("vid", otInteger, vid);
     Qry.Execute();
+    check_tlg_out_alarm(createInfo.point_id);
 
     ProgTrace(TRACE5, "END OF CREATE %s", createInfo.type.c_str());
     return vid;

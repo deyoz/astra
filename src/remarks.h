@@ -11,6 +11,32 @@ TRemCategory getRemCategory( const std::string &rem_code, const std::string &rem
 bool isDisabledRemCategory( TRemCategory cat );
 bool isDisabledRem( const std::string &rem_code, const std::string &rem_text );
 
+enum TRemEventType {
+    retALARM_SS,
+    retPNL_SEL,
+    retBRD_VIEW,
+    retBRD_WARN,
+    retRPT_SS,
+    retRPT_PM,
+    retCKIN_VIEW,
+    retTYPEB_PSM,
+    retTYPEB_PIL
+};
+
+struct TRemGrp:private std::vector<std::string> {
+    private:
+        bool any;
+    public:
+        TRemGrp(): any(false) {};
+        bool exists (const std::string &rem) const { return any or find(begin(), end(), rem) != end(); }
+        void Load(TRemEventType rem_set_type, int point_id);
+        void Load(TRemEventType rem_set_type, const std::string &airline);
+        void Clear() { clear(); any = false; };
+};
+
+
+std::string GetRemarkStr(const TRemGrp &rem_grp, int pax_id, TQuery &Qry, const std::string &term = " ");
+
 namespace CheckIn
 {
 

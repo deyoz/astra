@@ -390,7 +390,7 @@ void TRptParams::Init(xmlNodePtr node)
     pr_trfer = NodeAsIntegerFast("pr_trfer", node, 0) != 0;
     pr_brd = NodeAsIntegerFast("pr_brd", node, 0) != 0;
     sort = (TSortType)NodeAsIntegerFast("sort", node, 0);
-    if(text != NoExists and text != 0)
+    if(text != NoExists and text != 0 and rpt_type != rtBDOCS) // т.к. у отчета BDOCS нет текстового варианта
         rpt_type = TRptType((int)rpt_type + 1);
     string route_country;
     route_inter = IsRouteInter(point_id, NoExists, route_country);
@@ -937,10 +937,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     if(rpt_params.pr_et) { //ЭБ
         SQLText +=
             "    ticket_no||'/'||coupon_no AS remarks, \n";
-    } else {
-        SQLText +=
-            " ckin.get_remarks(pax_id,' ') AS remarks, \n";
-    }
+    };
     SQLText +=
         "   NVL(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS rk_weight, \n"
         "   NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS bag_amount, \n"
@@ -1029,10 +1026,14 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     int fr_target_ref_idx = 0;
 
     TPMTotals PMTotals;
+    TQuery remQry(&OraSession);
+    TRemGrp rem_grp;
+    bool rem_grp_loaded = false;
     for(; !Qry.Eof; Qry.Next()) {
+        int pax_id = Qry.FieldAsInteger("pax_id");
         if(not rpt_params.mkt_flt.IsNULL()) {
             TMktFlight mkt_flt;
-            mkt_flt.getByPaxId(Qry.FieldAsInteger("pax_id"));
+            mkt_flt.getByPaxId(pax_id);
             if(mkt_flt.IsNULL() or not(rpt_params.mkt_flt == mkt_flt))
                 continue;
         }
@@ -1115,7 +1116,12 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         }
         NewTextChild(rowNode, "tags", Qry.FieldAsString("tags"));
         NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
-        NewTextChild(rowNode, "remarks", Qry.FieldAsString("remarks"));
+        if(not rem_grp_loaded) {
+            rem_grp_loaded = true;
+            rem_grp.Load(retRPT_PM, rpt_params.point_id);
+        }
+        NewTextChild(rowNode, "remarks",
+                (rpt_params.pr_et ? Qry.FieldAsString("remarks") : GetRemarkStr(rem_grp, pax_id, remQry)));
     }
 
     dataSetNode = NewTextChild(dataSetsNode, rpt_params.pr_trfer ? "v_pm_trfer_total" : "v_pm_total");
@@ -2433,10 +2439,18 @@ bool getPaxRem(const TRptParams &rpt_params, const CheckIn::TPaxFQTItem &fqt, Ch
 
 void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    if(rpt_params.rpt_type == rtREMTXT)
+    if(rpt_params.rpt_type == rtREMTXT or rpt_params.rpt_type == rtSPECTXT)
         get_compatible_report_form("docTxt", reqNode, resNode);
     else
         get_compatible_report_form("rem", reqNode, resNode);
+
+    TRemGrp spec_rems;
+    string CAP_DOC = "CAP.DOC.REM";
+    if(rpt_params.rpt_type == rtSPEC or rpt_params.rpt_type == rtSPECTXT) {
+        spec_rems.Load(retRPT_SS, rpt_params.point_id);
+        CAP_DOC = "CAP.DOC.SPEC";
+    }
+
     TQuery Qry(&OraSession);
     string SQLText =
         "SELECT pax_grp.point_dep AS point_id, "
@@ -2571,8 +2585,15 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       for(vector<CheckIn::TPaxFQTItem>::const_iterator f=fqts.begin();f!=fqts.end();f++)
         if (getPaxRem(rpt_params, *f, rem)) rems.push_back(rem);
         
-      if (rems.empty()) continue;
+      if(rpt_params.rpt_type == rtSPEC or rpt_params.rpt_type == rtSPECTXT) {
+          vector<CheckIn::TPaxRemItem> tmp_rems;
+          for(vector<CheckIn::TPaxRemItem>::const_iterator r=rems.begin();r!=rems.end();r++)
+              if(spec_rems.exists(r->code)) tmp_rems.push_back(*r);
+          rems = tmp_rems;
+      }
       
+      if (rems.empty()) continue;
+
       xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
       NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("point_id"));
       NewTextChild(rowNode, "reg_no", Qry.FieldAsInteger("reg_no"));
@@ -2591,7 +2612,7 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     // Теперь переменные отчета
     xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
     PaxListVars(rpt_params.point_id, rpt_params, variablesNode);
-    NewTextChild(variablesNode, "caption", getLocaleText("CAP.DOC.REM",
+    NewTextChild(variablesNode, "caption", getLocaleText(CAP_DOC,
                 LParams() << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang()));
     populate_doc_cap(variablesNode, rpt_params.GetLang());
 }
@@ -2913,8 +2934,13 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
     xmlNodePtr datasetsNode = NewTextChild(formDataNode, "datasets");
     xmlNodePtr passengersNode = NewTextChild(datasetsNode, "passengers");
+    TRemGrp rem_grp;
+    if(not Qry.Eof)
+        rem_grp.Load(retBRD_VIEW, rpt_params.point_id);
+    TQuery remQry(&OraSession);
     for( ; !Qry.Eof; Qry.Next()) {
         xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
+        int pax_id = Qry.FieldAsInteger("pax_id");
         NewTextChild(paxNode, "reg_no", Qry.FieldAsInteger("reg_no"));
         NewTextChild(paxNode, "surname", transliter(Qry.FieldAsString("surname"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
         NewTextChild(paxNode, "name", transliter(Qry.FieldAsString("name"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
@@ -2924,7 +2950,7 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(paxNode, "pr_exam", Qry.FieldAsInteger("pr_exam"), 0);
         NewTextChild(paxNode, "pr_brd", Qry.FieldAsInteger("pr_brd"), 0);
         NewTextChild(paxNode, "seat_no", Qry.FieldAsString("seat_no"));
-        NewTextChild(paxNode, "document", GetPaxDocStr(NoExists, Qry.FieldAsInteger("pax_id"), PaxDocQry, false, rpt_params.GetLang()));
+        NewTextChild(paxNode, "document", GetPaxDocStr(NoExists, pax_id, PaxDocQry, false, rpt_params.GetLang()));
         NewTextChild(paxNode, "ticket_no", Qry.FieldAsString("ticket_no"));
         NewTextChild(paxNode, "coupon_no", Qry.FieldAsInteger("coupon_no"));
         NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
@@ -2935,7 +2961,7 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         bool pr_payment=BagPaymentCompleted(Qry.FieldAsInteger("grp_id"));
         NewTextChild(paxNode, "pr_payment", (int)pr_payment);
         NewTextChild(paxNode, "tags", Qry.FieldAsString("tags"));
-        NewTextChild(paxNode, "remarks", Qry.FieldAsString("remarks"));
+        NewTextChild(paxNode, "remarks", GetRemarkStr(rem_grp, pax_id, remQry));
     }
 
     // Теперь переменные отчета
@@ -3164,9 +3190,11 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         case rtNOTPRESTXT:
             NOTPRESTXT(rpt_params, reqNode, resNode);
             break;
+        case rtSPEC:
         case rtREM:
             REM(rpt_params, reqNode, resNode);
             break;
+        case rtSPECTXT:
         case rtREMTXT:
             REMTXT(rpt_params, reqNode, resNode);
             break;

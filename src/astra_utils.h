@@ -148,6 +148,7 @@ class TDesk {
     BASIC::TDateTime time;
     ASTRA::TOperMode mode;
     int grp_id;
+    double term_id;
     TDesk()
     {
       clear();
@@ -165,6 +166,7 @@ class TDesk {
       time = 0;
       mode = ASTRA::omSTAND;
       grp_id = -1;
+      term_id = ASTRA::NoExists;
     };
     bool compatible(const std::string &ver);
     static bool isValidVersion(const std::string &ver);

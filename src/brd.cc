@@ -508,7 +508,6 @@ void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
         "    ticket_no, "
         "    coupon_no, "
         "    pax.tid, "
-        "    ckin.get_remarks(pax.pax_id,' ',0) AS remarks, "
         "    NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS bag_amount, "
         "    NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS bag_weight, "
         "    NVL(ckin.get_rkAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS rk_amount, "
@@ -766,7 +765,6 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       int col_ticket_no=Qry.FieldIndex("ticket_no");
       int col_coupon_no=Qry.FieldIndex("coupon_no");
       int col_tid=Qry.FieldIndex("tid");
-      int col_remarks=Qry.FieldIndex("remarks");
       int col_bag_amount=Qry.FieldIndex("bag_amount");
       int col_bag_weight=Qry.FieldIndex("bag_weight");
       int col_rk_amount=Qry.FieldIndex("rk_amount");
@@ -779,6 +777,9 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 
       TCkinRoute tckin_route;
       TPaxSeats priorSeats(point_id);
+      TRemGrp rem_grp;
+      if(not Qry.Eof) rem_grp.Load(retBRD_VIEW, point_id);
+      TQuery remQry(&OraSession);
       for(;!Qry.Eof;Qry.Next())
       {
           int pax_id=Qry.FieldAsInteger(col_pax_id);
@@ -828,7 +829,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           NewTextChild(paxNode, "rk_amount", Qry.FieldAsInteger(col_rk_amount), 0);
           NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger(col_rk_weight), 0);
           NewTextChild(paxNode, "tags", Qry.FieldAsString(col_tags), "");
-          NewTextChild(paxNode, "remarks", Qry.FieldAsString(col_remarks), "");
+          NewTextChild(paxNode, "remarks", GetRemarkStr(rem_grp, pax_id, remQry), "");
           if (DecodeClientType(Qry.FieldAsString(col_client_type))!=ctTerm)
             NewTextChild(paxNode, "client_name", ElemIdToNameShort(etClientType, Qry.FieldAsString(col_client_type)));
 
@@ -959,7 +960,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 
                   if (boarding && !Qry.FieldIsNULL(col_wl_type))
                   {
-                      AstraLocale::showErrorMessage("MSG.PASSENGER.NOT_CONFIRM_FOROM_WAIT_LIST");
+                      AstraLocale::showErrorMessage("MSG.PASSENGER.NOT_CONFIRM_FROM_WAIT_LIST");
                   }
                   else if (reqInfo->screen.name == "BRDBUS.EXE" &&
                            boarding && Qry.FieldAsInteger(col_pr_exam)==0 &&
@@ -967,99 +968,130 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                   {
                       AstraLocale::showErrorMessage("MSG.PASSENGER.NOT_EXAM");
                   }
-                  else if
-                      (boarding && !pr_payment && pr_check_pay)
-                      {
-                          AstraLocale::showErrorMessage("MSG.PASSENGER.NOT_BAG_PAID");
-                      }
+                  else if (boarding && !pr_payment && pr_check_pay)
+                  {
+                      AstraLocale::showErrorMessage("MSG.PASSENGER.NOT_BAG_PAID");
+                  }
                   else
                   {
-                      string curr_seat_no;
-                      if(reqInfo->screen.name == "BRDBUS.EXE" &&
-                              boarding &&
-                              GetNode("confirmations/seat_no",reqNode)==NULL &&
-                              !ChckSt(pax_id, curr_seat_no))
+                    try
+                    {
+                      bool reset=true;
+                      for(int pass=1;pass<=3;pass++)
                       {
-                          xmlNodePtr confirmNode=NewTextChild(dataNode,"confirmation");
-                          NewTextChild(confirmNode,"reset",true);
-                          NewTextChild(confirmNode,"type","seat_no");
-                          ostringstream msg;
-                          if (curr_seat_no.empty())
-                              msg << AstraLocale::getLocaleText("MSG.PASSENGER.SALON_SEAT_NO_NOT_DEFINED") << endl;
-                          else
-                              msg << AstraLocale::getLocaleText("MSG.PASSENGER.SALON_SEAT_NO_CHANGED_TO", AstraLocale::LParams() << LParam("seat_no", curr_seat_no)) << endl;
+                        switch(pass)
+                        {
+                          case 1: if (reqInfo->screen.name == "BRDBUS.EXE" &&
+                                      boarding &&
+                                      GetNode("confirmations/ssr",reqNode)==NULL)
+                                  {
+                                    TQuery RemQry(&OraSession);
+                                    TRemGrp rem_grp;
+                                    rem_grp.Load(retBRD_WARN, point_id);
+                                    if (GetRemarkStr(rem_grp, pax_id, RemQry).empty()) break;
 
-                          msg << getLocaleText("MSG.PASSENGER.INVALID_BP_SEAT_NO") << endl
-                              << getLocaleText("QST.CONTINUE_BRD");
-                          NewTextChild(confirmNode,"message",msg.str());
-                      }
-                      else
+                                    xmlNodePtr confirmNode=NewTextChild(dataNode,"confirmation");
+                                    NewTextChild(confirmNode,"reset",(int)reset);
+                                    NewTextChild(confirmNode,"type","ssr");
+                                    ostringstream msg;
+                                    msg << getLocaleText("MSG.PASSENGER.NEEDS_SPECIAL_SERVICE") << endl
+                                        << getLocaleText("QST.CONTINUE_BRD");
+                                    NewTextChild(confirmNode,"message",msg.str());
+                                    throw 1;
+                                  };
+                                  break;
+                          case 2: if (reqInfo->screen.name == "BRDBUS.EXE" &&
+                                      boarding &&
+                                      GetNode("confirmations/seat_no",reqNode)==NULL)
+                                  {
+                                    string curr_seat_no;
+                                    if (ChckSt(pax_id, curr_seat_no)) break;
+                                    
+                                    xmlNodePtr confirmNode=NewTextChild(dataNode,"confirmation");
+                                    NewTextChild(confirmNode,"reset",(int)reset);
+                                    NewTextChild(confirmNode,"type","seat_no");
+                                    ostringstream msg;
+                                    if (curr_seat_no.empty())
+                                        msg << AstraLocale::getLocaleText("MSG.PASSENGER.SALON_SEAT_NO_NOT_DEFINED") << endl;
+                                    else
+                                        msg << AstraLocale::getLocaleText("MSG.PASSENGER.SALON_SEAT_NO_CHANGED_TO", AstraLocale::LParams() << LParam("seat_no", curr_seat_no)) << endl;
+
+                                    msg << getLocaleText("MSG.PASSENGER.INVALID_BP_SEAT_NO") << endl
+                                        << getLocaleText("QST.CONTINUE_BRD");
+                                    NewTextChild(confirmNode,"message",msg.str());
+                                    throw 1;
+                                  };
+                                  break;
+                          case 3: if (reqInfo->screen.name != "BRDBUS.EXE" &&
+                                      !boarding &&
+                                      GetNode("confirmations/pr_brd",reqNode)==NULL &&
+                                      Qry.FieldAsInteger(col_pr_brd)!=0)
+                                  {
+                                    xmlNodePtr confirmNode=NewTextChild(dataNode,"confirmation");
+                                    NewTextChild(confirmNode,"reset",(int)reset);
+                                    NewTextChild(confirmNode,"type","pr_brd");
+                                    ostringstream msg;
+                                    msg << getLocaleText("MSG.PASSENGER.BOARDED_ALREADY") << endl
+                                        << getLocaleText("QST.PASSENGER.RETURN_FOR_EXAM");
+                                    NewTextChild(confirmNode,"message",msg.str());
+                                    throw 1;
+                                  };
+                                  break;
+                        };
+                      };
+
+                      // update
+                      if (PaxUpdate(point_id,pax_id,tid,!mark,pr_exam_with_brd))
                       {
-                          if(reqInfo->screen.name != "BRDBUS.EXE" &&
-                                  !boarding &&
-                                  GetNode("confirmations/pr_brd",reqNode)==NULL &&
-                                  Qry.FieldAsInteger(col_pr_brd)!=0)
+                          mark = !mark;
+                          if (reqInfo->screen.name == "BRDBUS.EXE")
                           {
-                              xmlNodePtr confirmNode=NewTextChild(dataNode,"confirmation");
-                              NewTextChild(confirmNode,"reset",true);
-                              NewTextChild(confirmNode,"type","pr_brd");
-                              ostringstream msg;
-                              msg << getLocaleText("MSG.PASSENGER.BOARDED_ALREADY") << endl
-                                  << getLocaleText("QST.PASSENGER.RETURN_FOR_EXAM");
-                              NewTextChild(confirmNode,"message",msg.str());
+                              ReplaceTextChild(paxNode, "pr_brd", mark);
+                              if (pr_exam_with_brd)
+                                  ReplaceTextChild(paxNode, "pr_exam", mark);
                           }
                           else
-                              // update
-                              if (PaxUpdate(point_id,pax_id,tid,!mark,pr_exam_with_brd))
+                              ReplaceTextChild(paxNode, "pr_exam", mark);
+                          ReplaceTextChild(paxNode, "tid", tid);
+                          ReplaceTextChild(dataNode,"updated",pax_id);
+                          //pr_etl_only
+                          FltQry.SetVariable("point_id",point_id);
+                          FltQry.Execute();
+                          if (!FltQry.Eof)
+                          {
+                            TTripInfo info(FltQry);
+                            xmlNodePtr node=NewTextChild(dataNode,"trip_sets");
+                            NewTextChild( node, "pr_etl_only", (int)GetTripSets(tsETLOnly,info) );
+                            NewTextChild( node, "pr_etstatus", pr_etstatus );
+                          }
+                          else
+                            throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
+
+                          if (reqInfo->screen.name == "BRDBUS.EXE")
+                          {
+                              if (mark)
                               {
-                                  mark = !mark;
-                                  if (reqInfo->screen.name == "BRDBUS.EXE")
-                                  {
-                                      ReplaceTextChild(paxNode, "pr_brd", mark);
-                                      if (pr_exam_with_brd)
-                                          ReplaceTextChild(paxNode, "pr_exam", mark);
-                                  }
-                                  else
-                                      ReplaceTextChild(paxNode, "pr_exam", mark);
-                                  ReplaceTextChild(paxNode, "tid", tid);
-                                  ReplaceTextChild(dataNode,"updated",pax_id);
-                                  //pr_etl_only
-                                  FltQry.SetVariable("point_id",point_id);
-                                  FltQry.Execute();
-                                  if (!FltQry.Eof)
-                                  {
-                                    TTripInfo info(FltQry);
-                                    xmlNodePtr node=NewTextChild(dataNode,"trip_sets");
-                                    NewTextChild( node, "pr_etl_only", (int)GetTripSets(tsETLOnly,info) );
-                                    NewTextChild( node, "pr_etstatus", pr_etstatus );
-                                  }
-                                  else
-                                    throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
-
-                                  if (reqInfo->screen.name == "BRDBUS.EXE")
-                                  {
-                                      if (mark)
-                                      {
-                                        if (DecodePaxStatus(Qry.FieldAsString(col_status))==psTCheckin)
-                                          AstraLocale::showErrorMessage("MSG.ATTENTION_TCKIN_GET_COUPON");
-                                        else
-                                          AstraLocale::showMessage("MSG.PASSENGER.BOARDING");
-                                      }
-                                      else
-                                          AstraLocale::showMessage("MSG.PASSENGER.DEBARKED");
-                                  }
-                                  else
-                                  {
-                                      if (mark)
-                                          AstraLocale::showMessage("MSG.PASSENGER.EXAM");
-                                      else
-                                          AstraLocale::showMessage("MSG.PASSENGER.RETURNED_EXAM");
-                                  };
-
+                                if (DecodePaxStatus(Qry.FieldAsString(col_status))==psTCheckin)
+                                  AstraLocale::showErrorMessage("MSG.ATTENTION_TCKIN_GET_COUPON");
+                                else
+                                  AstraLocale::showMessage("MSG.PASSENGER.BOARDING");
                               }
                               else
-                                  throw AstraLocale::UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA", LParams() << LParam("surname", Qry.FieldAsString(col_surname)));
-                      };
+                                  AstraLocale::showMessage("MSG.PASSENGER.DEBARKED");
+                          }
+                          else
+                          {
+                              if (mark)
+                                  AstraLocale::showMessage("MSG.PASSENGER.EXAM");
+                              else
+                                  AstraLocale::showMessage("MSG.PASSENGER.RETURNED_EXAM");
+                          };
+
+                      }
+                      else
+                          throw AstraLocale::UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA", LParams() << LParam("surname", Qry.FieldAsString(col_surname)));
+                    }
+                    catch(int) {};
                   };
               };
           };

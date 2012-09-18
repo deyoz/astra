@@ -40,6 +40,8 @@ const
                          {"HALLS",               etHall},
                          {"KIOSK_CKIN_DESK_GRP", etDeskGrp},
                          {"MISC_SET_TYPES",      etMiscSetType},
+                         {"REM_GRP",             etRemGrp},
+                         {"REM_TYPES",           etRemType},
                          {"RIGHTS",              etRight},
                          {"SEAT_ALGO_TYPES",     etSeatAlgoType},
                          {"SELF_CKIN_TYPES",     etClientType},
