@@ -23,7 +23,7 @@ enum TDestField { dfPoint_num, dfAirp, dfPr_tranzit, dfFirst_point,
                   dfStations, dfStages, dfEvents };
                   
                   
-enum TUseDestData { udNoCalcESTTimeStage, udDelays, udCargo, udMaxCommerce,
+enum TUseDestData { udNoCalcESTTimeStage, udDelays, udStages, udCargo, udMaxCommerce,
                     udNum, udStations };
 enum TDestEvents { dmChangeCraft, dmSetCraft, dmInitStages, dmInitComps,
                    dmChangeBort, dmSetBort, dmSetCancel, dmSetUnCancel, dmSetDelete,
@@ -111,6 +111,11 @@ class TFlightCargos {
         calc_point_id = true;
       cargos.push_back( cargo );
     }
+    void Get( std::vector<TPointsDestCargo> &vcargos ) {
+       vcargos.clear();
+       vcargos.insert( vcargos.begin(),  cargos.begin(), cargos.end() );
+       return;
+    }
     void Clear() {
       cargos.clear();
     }
@@ -143,6 +148,9 @@ class TFlightMaxCommerce {
     }
     void SetValue( int vvalue ) {
       value = vvalue;
+    }
+    int GetValue( ) {
+      return value;
     }
     void Load( int point_id );
     void Save( int point_id );

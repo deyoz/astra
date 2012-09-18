@@ -1826,6 +1826,80 @@ void AstraServiceInterface::getAodbData( XMLRequestCtxt *ctxt, xmlNodePtr reqNod
 	}
 }
 
+void AstraServiceInterface::getTcpClientData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
+{
+  string client_type = NodeAsString( "client_type", reqNode );
+  int last_id = NodeAsInteger( "last_id", reqNode, ASTRA::NoExists );
+  int minutes = NodeAsInteger( "minutes", reqNode, ASTRA::NoExists );
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
+    "SELECT id, file_in_id, file_out_id, time "
+    " FROM tcp_data_events "
+    " WHERE client_type=:client_type AND "
+    "       ( :minutes IS NULL OR time>system.UTCSYSDATE() - :minutes/24 ) AND "
+    "       ( :last_id IS NULL OR id > :last_id ) "
+    "ORDER BY id ";
+  Qry.CreateVariable( "client_type", otString, client_type );
+  if ( last_id == ASTRA::NoExists )
+    Qry.CreateVariable( "last_id", otInteger, FNull );
+  else
+    Qry.CreateVariable( "last_id", otInteger, last_id );
+  if ( minutes == ASTRA::NoExists )
+    Qry.CreateVariable( "minutes", otInteger, FNull );
+  else
+    Qry.CreateVariable( "minutes", otInteger, minutes );
+  TQuery FilesQry( &OraSession );
+  FilesQry.SQLText =
+    "SELECT data from files WHERE id=:id";
+  FilesQry.DeclareVariable( "id", otInteger );
+  Qry.Execute();
+  xmlNodePtr node = NewTextChild( resNode, "datas" );
+  char *p = NULL;
+  while ( !Qry.Eof ) {
+    xmlNodePtr nodeItem = NewTextChild( node, "item" );
+    NewTextChild( nodeItem, "id", Qry.FieldAsInteger( "id" ) );
+    NewTextChild( nodeItem, "time", DateTimeToStr( Qry.FieldAsDateTime( "time" ), ServerFormatDateTimeAsString ) );
+    if ( Qry.FieldIsNULL( "file_in_id" ) )
+      NewTextChild( nodeItem, "data_in" );
+    else {
+      FilesQry.SetVariable( "id", Qry.FieldAsInteger( "file_in_id" ) );
+      FilesQry.Execute();
+      int len = FilesQry.GetSizeLongField( "data" );
+     	if ( p )
+     		p = (char*)realloc( p, len );
+     	else
+     	  p = (char*)malloc( len );
+     	if ( !p )
+     		throw Exception( string( "Can't malloc " ) + IntToString( len ) + " byte" );
+      FilesQry.FieldAsLong( "data", p );
+      string strbuf( (const char*)p, len );
+      string sss;
+      StringToHex( strbuf, sss );
+      NewTextChild( nodeItem, "data_in", sss );
+    }
+    if ( Qry.FieldIsNULL( "file_out_id" ) )
+      NewTextChild( nodeItem, "data_out" );
+    else {
+      FilesQry.SetVariable( "id", Qry.FieldAsInteger( "file_out_id" ) );
+      FilesQry.Execute();
+      int len = FilesQry.GetSizeLongField( "data" );
+     	if ( p )
+     		p = (char*)realloc( p, len );
+     	else
+     	  p = (char*)malloc( len );
+     	if ( !p )
+     		throw Exception( string( "Can't malloc " ) + IntToString( len ) + " byte" );
+      FilesQry.FieldAsLong( "data", p );
+      string strbuf( (const char*)p, len );
+      string sss;
+      StringToHex( strbuf, sss );
+      NewTextChild( nodeItem, "data_out", sss );
+    }
+    Qry.Next();
+  }
+}
+
+
 void AstraServiceInterface::logFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
 {
   xmlNodePtr n = GetNode( "mes", reqNode );

@@ -12,6 +12,7 @@
 #include "stl_utils.h"
 #include "stat.h"
 #include "docs.h"
+#include "pers_weights.h"
 #include "base_tables.h"
 #include "astra_misc.h"
 #include "tlg/tlg_binding.h"
@@ -952,6 +953,7 @@ void SeasonInterface::DelRangeList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 void CreateSPP( BASIC::TDateTime localdate )
 {
   //throw UserException( "Работа с экраном 'Сезонное расписание' временно остановлено. Идет обновление" );
+  TPersWeights persWeights;
   TQuery MIDQry(&OraSession);
   MIDQry.SQLText =
    "BEGIN "\
@@ -1150,6 +1152,10 @@ void CreateSPP( BASIC::TDateTime localdate )
           TQry.SetVariable( "y", d->y );
           TQry.Execute();
         }
+        //вычисление весов пассажиров по рейсу
+        PersWeightRules weights;
+        persWeights.getRules( point_id, weights );
+        weights.write( point_id );
         p = d;
         if ( !airline.empty() &&
               d->trip != NoExists &&

@@ -26,6 +26,7 @@
 #include "salonform.h"
 #include "remarks.h"
 #include "alarms.h"
+#include "pers_weights.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -1605,7 +1606,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   NewTextChild(rowNode,"crs_tranzit",Qry.FieldAsInteger("crs_tranzit"),0);
   NewTextChild(rowNode,"excess",Qry.FieldAsInteger("excess"),0);
   NewTextChild(rowNode,"cfg",Qry.FieldAsInteger("cfg"),0);
-  NewTextChild(rowNode,"load",GetFltLoad(point_id,fltInfo),0);
+  NewTextChild(rowNode,"load",getCommerceWeight( point_id, onlyCheckin ),0);
 
   if (paxLoadOrder.fields.empty()) return;
 

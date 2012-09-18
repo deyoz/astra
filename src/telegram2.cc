@@ -11,6 +11,7 @@
 #include "astra_consts.h"
 #include "passenger.h"
 #include "remarks.h"
+#include "pers_weights.h"
 #include "serverlib/logger.h"
 
 #define NICKNAME "DEN"
@@ -1479,23 +1480,12 @@ namespace PRL_SPACE {
 
     void TTotalPaxWeight::get(TTlgInfo &info)
     {
-        TQuery Qry(&OraSession);
-        Qry.SQLText =
-            "SELECT "
-            "      NVL(SUM(DECODE(:pr_summer, 0, pers_types.weight_win, pers_types.weight_sum)),0) "
-            "FROM "
-            "      pax_grp, "
-            "      pax, "
-            "      pers_types "
-            "WHERE "
-            "      pax_grp.grp_id = pax.grp_id AND "
-            "      pax.pers_type = pers_types.code AND "
-            "      pax_grp.point_dep = :point_id AND "
-            "      pax.refuse IS NULL ";
-        Qry.CreateVariable("point_id", otInteger, info.point_id);
-        Qry.CreateVariable("pr_summer", otInteger, info.pr_summer);
-        Qry.Execute();
-        weight = Qry.FieldAsInteger(0);
+        TFlightWeights w;
+        w.read( info.point_id, onlyCheckin );
+        weight = w.weight_male +
+                 w.weight_female +
+                 w.weight_child +
+                 w.weight_infant;
     }
     
     struct TCOMZones {
