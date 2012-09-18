@@ -555,8 +555,6 @@ void TPersTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **re
   *row = new TPersTypesRow;
   mem.create(*row, STDLOG);
   ((TPersTypesRow*)*row)->priority=Qry.FieldAsInteger("priority");
-  ((TPersTypesRow*)*row)->weight_win=Qry.FieldAsInteger("weight_win");
-  ((TPersTypesRow*)*row)->weight_sum=Qry.FieldAsInteger("weight_sum");
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 }
 

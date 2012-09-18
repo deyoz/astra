@@ -264,13 +264,11 @@ class TAirps: public TICAOBaseTable {
 
 class TPersTypesRow: public TCodeBaseTableRow {
   public:
-    int priority,weight_win,weight_sum;
+    int priority;
     const char *get_row_name() const { return "TPersTypesRow"; };
     int AsInteger(std::string field) const
     {
       if (lowerc(field)=="priority") return priority;
-      if (lowerc(field)=="weight_win") return weight_win;
-      if (lowerc(field)=="weight_sum") return weight_sum;
       return TCodeBaseTableRow::AsInteger(field);
     };
 };
