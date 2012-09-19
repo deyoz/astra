@@ -156,7 +156,7 @@ bool calc_overload_alarm( int point_id )
   bool overload_alarm=false;
   if (!Qry.FieldIsNULL("max_commerce"))
   {
-  	int load = getCommerceWeight( point_id, onlyCheckin );
+  	int load = getCommerceWeight( point_id, onlyCheckin, CWTotal );
     ProgTrace(TRACE5,"check_overload_alarm: max_commerce=%d load=%d",Qry.FieldAsInteger("max_commerce"),load);
     overload_alarm=(load>Qry.FieldAsInteger("max_commerce"));
   };
