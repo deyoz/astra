@@ -28,6 +28,7 @@
 #include "remarks.h"
 #include "alarms.h"
 #include "sopp.h"
+#include "pers_weights.h"
 #include "jxtlib/jxt_cont.h"
 
 #define NICKNAME "VLAD"
@@ -5881,6 +5882,12 @@ void CheckInInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
     NewTextChild( itemNode, "free_goshow", Qry.FieldAsInteger( "free_goshow" ) );
     NewTextChild( itemNode, "nooccupy", Qry.FieldAsInteger( "nooccupy" ) );
   };
+  
+  int load_residue=getCommerceWeight( point_id, onlyCheckin, CWResidual );
+  if (load_residue!=NoExists)
+    NewTextChild(dataNode,"load_residue",load_residue);
+  else
+    NewTextChild(dataNode,"load_residue");
 }
 
 void CheckInInterface::readTripData( int point_id, xmlNodePtr dataNode )
