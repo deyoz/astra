@@ -976,7 +976,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                   {
                     try
                     {
-                      bool reset=true;
+                      bool reset=false;
                       for(int pass=1;pass<=3;pass++)
                       {
                         switch(pass)

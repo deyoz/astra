@@ -2297,10 +2297,12 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   //ремарки пассажиров
   TQuery RQry( &OraSession );
   RQry.SQLText =
-    "SELECT crs_pax_rem.rem, crs_pax_rem.rem_code, NVL(rem_types.priority,-1) AS priority "
-    "FROM crs_pax_rem,rem_types "
-    "WHERE crs_pax_rem.rem_code=rem_types.code(+) AND crs_pax_rem.pax_id=:pax_id "
-    "ORDER BY priority DESC,rem_code,rem ";
+    "SELECT crs_pax_rem.rem, crs_pax_rem.rem_code "
+    "FROM crs_pax_rem,ckin_rem_types,rem_grp "
+    "WHERE crs_pax_rem.rem_code=ckin_rem_types.code(+) AND "
+    "      ckin_rem_types.grp_id=rem_grp.id(+) AND "
+    "      crs_pax_rem.pax_id=:pax_id "
+    "ORDER BY rem_grp.priority NULLS LAST,rem_code,rem ";
   RQry.DeclareVariable( "pax_id", otInteger );
 
   //рейс пассажиров

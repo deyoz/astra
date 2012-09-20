@@ -131,7 +131,7 @@ string GetRemarkStr(const TRemGrp &rem_grp, int pax_id, TQuery &Qry, const strin
 {
     const char *sql =
         "SELECT rem_code "
-        "FROM rem_types, "
+        "FROM ckin_rem_types, rem_grp, "
         "     (SELECT ticket_rem AS rem_code FROM pax  "
         "      WHERE pax_id=:pax_id AND ticket_rem IS NOT NULL "
         "      UNION "
@@ -142,8 +142,8 @@ string GetRemarkStr(const TRemGrp &rem_grp, int pax_id, TQuery &Qry, const strin
         "      SELECT rem_code FROM pax_rem  "
         "      WHERE pax_id=:pax_id AND  "
         "            rem_code NOT IN (SELECT rem_code FROM rem_cats WHERE category IN ('DOC','DOCO','TKN'))) pax_rem "
-        "WHERE pax_rem.rem_code=rem_types.code(+) "
-        "ORDER BY NVL(priority,-1) DESC, rem_code ";
+        "WHERE pax_rem.rem_code=ckin_rem_types.code(+) AND ckin_rem_types.grp_id=rem_grp.id(+) "
+        "ORDER BY rem_grp.priority NULLS LAST, rem_code ";
     if (strcmp(Qry.SQLText.SQLText(),sql)!=0)
     {
         Qry.Clear();
@@ -184,7 +184,7 @@ void TPaxRemItem::calcPriority()
   priority=ASTRA::NoExists;
   try
   {
-    priority=base_tables.get("REM_TYPES").get_row("code",code).AsInteger("priority");
+    priority=base_tables.get("CKIN_REM_TYPES").get_row("code",code).AsInteger("priority");
   }
   catch (EBaseTableError) {};
 };

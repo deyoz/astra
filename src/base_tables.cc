@@ -114,10 +114,8 @@ TBaseTable &TBaseTables::get(string name)
         	  base_tables[name] = new TSeasonTypes();
         else if(name == "FORM_TYPES")
         	  base_tables[name] = new TFormTypes();
-        else if(name == "REM_TYPES")
-        	  base_tables[name] = new TRemTypes();
-        else if(name == "REM_TYPES2")
-        	  base_tables[name] = new TRemTypes2();
+        else if(name == "CKIN_REM_TYPES")
+        	  base_tables[name] = new TCkinRemTypes();
         else
             throw Exception("TBaseTables::get_base_table: " + name + " not found");
         mem.create(base_tables[name], STDLOG);
@@ -908,20 +906,13 @@ void TFormTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **re
 	TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 
-void TRemTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TCkinRemTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
-	*row = new TRemTypesRow;
+	*row = new TCkinRemTypesRow;
   mem.create(*row, STDLOG);
-  ((TRemTypesRow*)*row)->priority=Qry.FieldIsNULL("priority")?ASTRA::NoExists:Qry.FieldAsInteger("priority");
-	TTIDBaseTable::create_row(Qry,row,replaced_row);
-}
-
-void TRemTypes2::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
-{
-	*row = new TRemTypes2Row;
-  mem.create(*row, STDLOG);
-  ((TRemTypes2Row*)*row)->grp_id=Qry.FieldAsInteger("grp_id");
-  ((TRemTypes2Row*)*row)->is_iata=Qry.FieldAsInteger("is_iata")!=0;
+  ((TCkinRemTypesRow*)*row)->grp_id=Qry.FieldAsInteger("grp_id");
+  ((TCkinRemTypesRow*)*row)->is_iata=Qry.FieldAsInteger("is_iata")!=0;
+  ((TCkinRemTypesRow*)*row)->priority=Qry.FieldIsNULL("priority")?ASTRA::NoExists:Qry.FieldAsInteger("priority");
 	TTIDBaseTable::create_row(Qry,row,replaced_row);
 }
 
