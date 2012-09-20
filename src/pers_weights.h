@@ -87,6 +87,7 @@ class TPersWeights
 };
 
 enum TTypeFlightWeight { withBrd, onlyCheckin };
+enum TTypeCalcCommerceWeight { CWTotal, CWResidual };
 
 class TFlightWeights
 {
@@ -121,7 +122,7 @@ class TFlightWeights
     void read( int point_id, TTypeFlightWeight weight_type );
 };
 
-int getCommerceWeight( int point_id, TTypeFlightWeight weight_type );
+int getCommerceWeight( int point_id, TTypeFlightWeight weight_type, TTypeCalcCommerceWeight calc_type );
 
 
 #endif /*_PERS_WEIGHTS_H_*/

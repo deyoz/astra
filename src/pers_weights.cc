@@ -68,14 +68,6 @@ TPersWeights::TPersWeights()
   Update();
 }
 
-/*TPersWeights *TPersWeights::Instance()
-{
-  static TPersWeights *instance_ = 0;
-  if ( !instance_ )
-    instance_ = new TPersWeights();
-  return instance_;
-}*/
-
 inline TDateTime SetDate( TDateTime date, int Year, int diffday )
 {
   if ( date == ASTRA::NoExists )
@@ -415,7 +407,7 @@ void TFlightWeights::read( int point_id, TTypeFlightWeight weight_type )
     weight_bag += Qry.FieldAsInteger( "unnacomp_bag" );
 }
 
-int getCommerceWeight( int point_id, TTypeFlightWeight weight_type )
+int getCommerceWeight( int point_id, TTypeFlightWeight weight_type, TTypeCalcCommerceWeight calc_type )
 {
   PersWeightRules r;
   ClassesPersWeight weight;
@@ -425,7 +417,8 @@ int getCommerceWeight( int point_id, TTypeFlightWeight weight_type )
 	TPointsDest dest;
 	BitSet<TUseDestData> UseData;
 	UseData.setFlag( udCargo );
-	//UseData.setFlag( udMaxCommerce );
+	if ( calc_type == CWResidual )
+	  UseData.setFlag( udMaxCommerce );
 	dest.Load( point_id, UseData );
   TFlightCargos cargos;
   //cargos.Load( point_id, dest.pr_tranzit, dest.first_point, dest.point_num, dest.pr_del ); //  dest.pr_del == 1 ???
@@ -443,10 +436,13 @@ int getCommerceWeight( int point_id, TTypeFlightWeight weight_type )
                    w.weight_bag +
                    w.weight_cabin_bag +
                    weight_cargos;
-  ProgTrace( TRACE5, "getCommerceWeight: return %d", weight_cargos );
-  return weight_cargos;
+  ProgTrace( TRACE5, "getCommerceWeight: weight_cargos=%d", weight_cargos );
+  if ( calc_type == CWTotal )
+    return weight_cargos;
+  ProgTrace( TRACE5, "getCommerceWeight: max_commerce=%d", dest.max_commerce.GetValue() );
+  if ( dest.max_commerce.GetValue() == ASTRA::NoExists )
+    return ASTRA::NoExists;
+  else
+    return dest.max_commerce.GetValue() - weight_cargos;
 }
-
-
-
 
