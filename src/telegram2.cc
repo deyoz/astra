@@ -3163,6 +3163,7 @@ int PIL(TTlgInfo &info)
     tlg_row.time_create = NowUTC();
     ostringstream heading;
     heading
+        << "." << info.sender << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
         << "PIL" << br
         << info.airline_view << setw(3) << setfill('0') << info.flt_no << info.suffix_view << "/"
         << DateTimeToStr(info.scd_local, "ddmmm", 1) << " " << info.airp_dep_view << br;
