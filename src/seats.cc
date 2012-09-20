@@ -1964,7 +1964,7 @@ void TPassengers::LoadRemarksPriority( std::map<std::string, int> &rems )
 {
 	rems.clear();
   TQuery Qry( &OraSession );
-  Qry.SQLText = "SELECT code, pr_comp FROM rem_types WHERE pr_comp IS NOT NULL";
+  Qry.SQLText = "SELECT code, pr_comp FROM comp_rem_types WHERE pr_comp IS NOT NULL";
   Qry.Execute();
   while ( !Qry.Eof ) {
     rems[ Qry.FieldAsString( "code" ) ] = Qry.FieldAsInteger( "pr_comp" );
@@ -2559,14 +2559,14 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p )
 
   p.Clear();
   RemsQry.SQLText =
-    "SELECT rem, rem_code, pax.pax_id, rem_types.pr_comp "
-    " FROM pax_rem, pax_grp, pax, rem_types "
+    "SELECT rem, rem_code, pax.pax_id, comp_rem_types.pr_comp "
+    " FROM pax_rem, pax_grp, pax, comp_rem_types "
     "WHERE pax_grp.grp_id=pax.grp_id AND "
     "      pax_grp.point_dep=:point_id AND "
     "      pax.pr_brd IS NOT NULL AND "
     "      pax.seats > 0 AND "
     "      pax_rem.pax_id=pax.pax_id AND "
-    "      rem_code=rem_types.code(+) "
+    "      rem_code=comp_rem_types.code(+) "
     " ORDER BY pax.pax_id, pr_comp, code ";
   RemsQry.CreateVariable( "point_id", otInteger, point_id );
 

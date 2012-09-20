@@ -1048,35 +1048,16 @@ class TFormTypes: public TCodeBaseTable {
   	};
 };
 
-class TRemTypesRow: public TTIDBaseTableRow {
-  public:
-    int priority;
-    const char *get_row_name() const { return "TRemTypesRow"; };
-    int AsInteger(std::string field) const
-    {
-      if (lowerc(field)=="priority") return priority;
-      return TTIDBaseTableRow::AsInteger(field);
-    };
-};
-
-class TRemTypes: public TTIDBaseTable {
-  protected:
-    const char *get_table_name() { return "TRemTypes"; };
-    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
-  public:
-  	TRemTypes( ) {
-  		Init( "rem_types" );
-  	}
-};
-
-class TRemTypes2Row: public TTIDBaseTableRow {
+class TCkinRemTypesRow: public TTIDBaseTableRow {
   public:
     int grp_id;
     bool is_iata;
-    const char *get_row_name() const { return "TRemTypes2Row"; };
+    int priority;
+    const char *get_row_name() const { return "TCkinRemTypesRow"; };
     int AsInteger(std::string field) const
     {
       if (lowerc(field)=="grp_id") return grp_id;
+      if (lowerc(field)=="priority") return priority;
       return TTIDBaseTableRow::AsInteger(field);
     };
     bool AsBoolean(std::string field) const
@@ -1086,14 +1067,31 @@ class TRemTypes2Row: public TTIDBaseTableRow {
     }
 };
 
-class TRemTypes2: public TTIDBaseTable {
+class TCkinRemTypes: public TTIDBaseTable {
+  private:
+    const char *get_select_sql_text()
+    {
+      return
+        "SELECT ckin_rem_types.id, ckin_rem_types.code, ckin_rem_types.code_lat, "
+        "       ckin_rem_types.name, ckin_rem_types.name_lat, ckin_rem_types.grp_id, "
+        "       ckin_rem_types.is_iata, ckin_rem_types.pr_del, ckin_rem_types.tid, "
+        "       rem_grp.priority "
+        "FROM ckin_rem_types, rem_grp "
+        "WHERE ckin_rem_types.grp_id=rem_grp.id";
+    };
+    const char *get_refresh_sql_text()
+    {
+      return
+      	"SELECT ckin_rem_types.id, ckin_rem_types.code, ckin_rem_types.code_lat, "
+        "       ckin_rem_types.name, ckin_rem_types.name_lat, ckin_rem_types.grp_id, "
+        "       ckin_rem_types.is_iata, ckin_rem_types.pr_del, ckin_rem_types.tid, "
+        "       rem_grp.priority "
+        "FROM ckin_rem_types, rem_grp "
+        "WHERE ckin_rem_types.grp_id=rem_grp.id AND ckin_rem_types.tid>:tid";
+    };
   protected:
-    const char *get_table_name() { return "TRemTypes2"; };
+    const char *get_table_name() { return "TCkinRemTypes"; };
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
-  public:
-  	TRemTypes2( ) {
-  		Init( "rem_types2" );
-  	}
 };
 
 class TBaseTables {
