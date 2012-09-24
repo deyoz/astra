@@ -81,7 +81,7 @@ astra_SOURCES = \
   web_main.cc \
   xml_unit.cc \
   load_fr.cc \
-  http_io.cc \
+  http_io.cpp \
   points.cc \
   cobra.cc \
   pers_weights.cc \
