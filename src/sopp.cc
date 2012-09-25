@@ -2828,12 +2828,12 @@ void GetLuggage( int point_id, xmlNodePtr dataNode )
 		NewTextChild( weightNode, "weight", weight.infant );
   	NewTextChild( node, "bag_weight", w.weight_bag );
 	  NewTextChild( node, "rk_weight", w.weight_cabin_bag );
-	  NewTextChild( node, "adult", w.male );
+	  NewTextChild( node, "adult", w.male + w.female  );
 	  NewTextChild( node, "child", w.child );
 	  NewTextChild( node, "baby", w.infant );
 		// сообщение в терминале о несоответствии фактической загрузке в терминале реальной в системе
 		int commerce_weight = 0, newcommerce_weight = 0;
-		commerce_weight += w.male*weight.male;
+    commerce_weight += (w.male + w.female)*weight.male;
 		commerce_weight += w.child*weight.child;
 		commerce_weight += w.infant*weight.infant;
 		commerce_weight += w.weight_cabin_bag;
