@@ -1236,6 +1236,9 @@ void LoadUnconfirmedTransfer(const vector<CheckIn::TTransferItem> &segs, xmlNode
     {
       if (s==segs.begin()) continue; //первый сегмент отбрасываем
       CheckIn::TTransferItem trferItem=*s;
+      trferItem.operFlt.airline_fmt = efmtCodeNative;
+      trferItem.operFlt.suffix_fmt = efmtCodeNative;
+      trferItem.operFlt.airp_fmt = efmtCodeNative;
       trferItem.operFlt.scd_out=UTCToLocal(trferItem.operFlt.scd_out,AirpTZRegion(trferItem.operFlt.airp));
       modf(trferItem.operFlt.scd_out,&trferItem.operFlt.scd_out); //обрубаем часы
       DecodeDate(trferItem.operFlt.scd_out,iYear,iMonth,iDay);
