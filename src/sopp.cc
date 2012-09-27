@@ -2509,16 +2509,13 @@ void SoppInterface::WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                r->user.access.rights.end(), 370 ) != r->user.access.rights.end() ) {
   		xmlNodePtr max_cNode = GetNode( "max_commerce", luggageNode );
   		if ( max_cNode ) {
-  			int max_commerce = NodeAsInteger( max_cNode );
-  			bool pr_overload_alarm = Get_AODB_overload_alarm( point_id, max_commerce );
- 		    Qry.Clear();
-  	    Qry.SQLText =
-  	     "UPDATE trip_sets SET max_commerce=:max_commerce WHERE point_id=:point_id";
-  	    Qry.CreateVariable( "point_id", otInteger, point_id );
-  	    Qry.CreateVariable( "max_commerce", otInteger, max_commerce );
-  	    Qry.Execute();
-  	    Set_AODB_overload_alarm( point_id, pr_overload_alarm );
-  	    TReqInfo::Instance()->MsgToLog( string( "Макс. коммерческая загрузка: " ) + IntToString( max_commerce ) + "кг.", evtFlt, point_id );
+  		  TFlightMaxCommerce maxCommerce;
+  		  int mc = NodeAsInteger( max_cNode );
+  		  if ( mc == 0 )
+  			  maxCommerce.SetValue( ASTRA::NoExists );
+        else
+          maxCommerce.SetValue( mc );
+        maxCommerce.Save( point_id );
   		}
   		xmlNodePtr trip_loadNode = GetNode( "trip_load", luggageNode );
   		if ( trip_loadNode ) {
