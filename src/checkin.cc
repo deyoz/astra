@@ -2886,6 +2886,46 @@ LexemaData GetLexemeDataWithFlight(const LexemaData &data, const TTripInfo &fltI
   return result;
 };
 
+bool CheckRefusability(int point_dep, int pax_id)
+{
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  if (reqInfo->client_type==ctTerm) return true;
+  if (reqInfo->client_type==ctKiosk) return false; //для киосков разрегистрация запрещена
+  //отмена регистрации не с терминала (с сайта или киоска)
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT pax_grp.grp_id, pax_grp.client_type, pax.pr_brd "
+    "FROM pax_grp, pax "
+    "WHERE pax_grp.grp_id=pax.grp_id AND pax.pax_id=:pax_id";
+  Qry.CreateVariable("pax_id", otInteger, pax_id);
+  Qry.Execute();
+  if (Qry.Eof ||
+      Qry.FieldIsNULL("pr_brd") ||     //отмена регистрации
+      Qry.FieldAsInteger("pr_brd")!=0) return false;
+  int grp_id=Qry.FieldAsInteger("grp_id");
+  TClientType ckinClientType=DecodeClientType(Qry.FieldAsString("client_type"));
+  if (!(ckinClientType==ctWeb && reqInfo->client_type==ctWeb /*||
+        ckinClientType==ctWeb && reqInfo->client_type==ctKiosk ||
+        ckinClientType==ctKiosk && reqInfo->client_type==ctKiosk*/)) return false;
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT events.station "
+    "FROM "
+    "  (SELECT station FROM events "
+    "   WHERE type=:evtPax AND id1=:point_dep AND id3=:grp_id) events, "
+    "  web_clients "
+    "WHERE events.station=web_clients.desk(+) AND "
+    "      web_clients.desk IS NULL AND rownum<2";
+  Qry.CreateVariable("evtPax", otString, EncodeEventType(ASTRA::evtPax));
+  Qry.CreateVariable("point_dep", otInteger, point_dep);
+  Qry.CreateVariable("grp_id", otInteger, grp_id);
+  Qry.Execute();
+  if (!Qry.Eof) return false;
+
+  return true;
+};
+
 void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   SavePax(reqNode, reqNode, NULL, resNode);
@@ -3161,6 +3201,12 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
               else
                 throw UserException("MSG.ETICK.NOT_CONFIRM.NEED_RELOGIN");
             };
+
+            //проверка refusability для киосков и веба
+            if (!new_checkin &&
+                !NodeIsNULLFast("refuse",node2,true) &&
+                !CheckRefusability(point_dep, NodeAsIntegerFast("pax_id",node2)))
+              throw UserException("MSG.PASSENGER.UNREGISTRATION_DENIAL");
 
             if (NodeIsNULLFast("pers_type",node2,true)) continue;
             if (strcmp(NodeAsStringFast("pers_type",node2),EncodePerson(ASTRA::baby))==0) continue; //младенцев не анализируем
@@ -4159,33 +4205,40 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
 
           TQuery PaxQry(&OraSession);
           PaxQry.Clear();
-          PaxQry.SQLText="UPDATE pax "
-                         "SET surname=:surname, "
-                         "    name=:name, "
-                         "    pers_type=:pers_type, "
-                         "    refuse=:refuse, "
-                         "    ticket_no=:ticket_no, "
-                         "    coupon_no=:coupon_no, "
-                         "    ticket_rem=:ticket_rem, "
-                         "    ticket_confirm=:ticket_confirm, "
-                         "    subclass=:subclass, "
-                         "    bag_pool_num=:bag_pool_num, "
-                         "    pr_brd=DECODE(:refuse,NULL,pr_brd,NULL), "
-                         "    pr_exam=DECODE(:refuse,NULL,pr_exam,0), "
-                         "    tid=cycle_tid__seq.currval "
-                         "WHERE pax_id=:pax_id AND tid=:tid";
+          ostringstream sql;
+          sql << "UPDATE pax SET ";
+          if (reqInfo->client_type==ctTerm)
+          {
+            sql << "    surname=:surname, "
+                   "    name=:name, "
+                   "    pers_type=:pers_type, "
+                   "    ticket_no=:ticket_no, "
+                   "    coupon_no=:coupon_no, "
+                   "    ticket_rem=:ticket_rem, "
+                   "    ticket_confirm=:ticket_confirm, "
+                   "    subclass=:subclass, "
+                   "    bag_pool_num=:bag_pool_num, ";
+            PaxQry.DeclareVariable("surname",otString);
+            PaxQry.DeclareVariable("name",otString);
+            PaxQry.DeclareVariable("pers_type",otString);
+            PaxQry.DeclareVariable("ticket_no",otString);
+            PaxQry.DeclareVariable("coupon_no",otInteger);
+            PaxQry.DeclareVariable("ticket_rem",otString);
+            PaxQry.DeclareVariable("ticket_confirm",otInteger);
+            PaxQry.DeclareVariable("subclass",otString);
+            PaxQry.DeclareVariable("bag_pool_num",otInteger);
+          };
+          sql << "    refuse=:refuse, "
+                 "    pr_brd=DECODE(:refuse,NULL,pr_brd,NULL), "
+                 "    pr_exam=DECODE(:refuse,NULL,pr_exam,0), "
+                 "    tid=cycle_tid__seq.currval "
+                 "WHERE pax_id=:pax_id AND tid=:tid";
           PaxQry.DeclareVariable("pax_id",otInteger);
           PaxQry.DeclareVariable("tid",otInteger);
-          PaxQry.DeclareVariable("surname",otString);
-          PaxQry.DeclareVariable("name",otString);
-          PaxQry.DeclareVariable("pers_type",otString);
           PaxQry.DeclareVariable("refuse",otString);
-          PaxQry.DeclareVariable("ticket_no",otString);
-          PaxQry.DeclareVariable("coupon_no",otInteger);
-          PaxQry.DeclareVariable("ticket_rem",otString);
-          PaxQry.DeclareVariable("ticket_confirm",otInteger);
-          PaxQry.DeclareVariable("subclass",otString);
-          PaxQry.DeclareVariable("bag_pool_num",otInteger);
+          
+          PaxQry.SQLText=sql.str().c_str();
+
 
           TQuery LayerQry(&OraSession);
           LayerQry.Clear();
@@ -4225,45 +4278,64 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                 if (GetNodeFast("refuse",node2)!=NULL)
                 {
                   //были изменения в информации по пассажиру
-                  if (!NodeIsNULLFast("refuse",node2))
+                  string refuse=NodeAsStringFast("refuse",node2);
+                  if (!refuse.empty())
                   {
                     LayerQry.SetVariable("pax_id",pax_id);
                     LayerQry.Execute();
                   };
-                  const char* pers_type=NodeAsStringFast("pers_type",node2);
-                  const char* refuse=NodeAsStringFast("refuse",node2);
                   PaxQry.SetVariable("pax_id",pax_id);
                   PaxQry.SetVariable("tid",NodeAsIntegerFast("tid",node2));
-                  PaxQry.SetVariable("surname",surname);
-                  PaxQry.SetVariable("name",name);
-                  PaxQry.SetVariable("pers_type",pers_type);
                   PaxQry.SetVariable("refuse",refuse);
-                  CheckIn::TPaxTknItem().fromXML(node).toDB(PaxQry);
-                  PaxQry.SetVariable("subclass",NodeAsStringFast("subclass",node2));
-                  if (reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS))
+                  if (reqInfo->client_type==ctTerm)
                   {
-                    if (!NodeIsNULLFast("bag_pool_num",node2))
-                      PaxQry.SetVariable("bag_pool_num",NodeAsIntegerFast("bag_pool_num",node2));
-                    else
-                      PaxQry.SetVariable("bag_pool_num",FNull);
-                  }
-                  else PaxQry.SetVariable("bag_pool_num",FNull);
+                    PaxQry.SetVariable("surname",surname);
+                    PaxQry.SetVariable("name",name);
+                    PaxQry.SetVariable("pers_type",NodeAsStringFast("pers_type",node2));
+                    CheckIn::TPaxTknItem().fromXML(node).toDB(PaxQry);
+                    PaxQry.SetVariable("subclass",NodeAsStringFast("subclass",node2));
+                    if (reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS))
+                    {
+                      if (!NodeIsNULLFast("bag_pool_num",node2))
+                        PaxQry.SetVariable("bag_pool_num",NodeAsIntegerFast("bag_pool_num",node2));
+                      else
+                        PaxQry.SetVariable("bag_pool_num",FNull);
+                    }
+                    else PaxQry.SetVariable("bag_pool_num",FNull);
+                  };
                   PaxQry.Execute();
                   if (PaxQry.RowsProcessed()<=0)
                     throw UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA",
                                         LParams()<<LParam("surname",string(surname)+(*name!=0?" ":"")+name)); //WEB
 
-                  //запись pax_doc
-                  if (reqInfo->client_type!=ctTerm || reqInfo->desk.compatible(DOCS_VERSION))
+                  if (reqInfo->client_type==ctTerm)
                   {
-                    CheckIn::SavePaxDoc(pax_id,GetNodeFast("document",node2),PaxDocQry);
-                    CheckIn::SavePaxDoco(pax_id,GetNodeFast("doco",node2),PaxDocoQry);
+                    //запись pax_doc
+                    if (reqInfo->desk.compatible(DOCS_VERSION))
+                    {
+                      CheckIn::SavePaxDoc(pax_id,GetNodeFast("document",node2),PaxDocQry);
+                      CheckIn::SavePaxDoco(pax_id,GetNodeFast("doco",node2),PaxDocoQry);
+                    }
+                    else
+                    {
+                      CrsQry.SetVariable("pax_id",pax_id);
+                      CrsQry.SetVariable("document",NodeAsStringFast("document",node2));
+                      CrsQry.Execute();
+                    };
                   }
                   else
                   {
-                    CrsQry.SetVariable("pax_id",pax_id);
-                    CrsQry.SetVariable("document",NodeAsStringFast("document",node2));
-                    CrsQry.Execute();
+                    if (refuse==refuseAgentError)
+                    {
+                      Qry.Clear();
+                      Qry.SQLText=
+                        "INSERT INTO crs_pax_refuse(pax_id, client_type, time) "
+                        "SELECT pax_id, :client_type, SYSTEM.UTCSYSDATE "
+                        "FROM crs_pax WHERE pax_id=:pax_id";
+                      Qry.CreateVariable("pax_id", otInteger, pax_id);
+                      Qry.CreateVariable("client_type", otString, EncodeClientType(reqInfo->client_type));
+                      Qry.Execute();
+                    };
                   };
                 }
                 else
