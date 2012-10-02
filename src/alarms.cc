@@ -82,12 +82,12 @@ void TripAlarms( int point_id, BitSet<TTripAlarmsType> &Alarms )
 
 string TripAlarmName( TTripAlarmsType alarm )
 {
-    return ElemIdToElem(etAlarmType, EncodeAlarmType(alarm), efmtNameLong, "RU");
+    return ElemIdToElem(etAlarmType, EncodeAlarmType(alarm), efmtNameLong, AstraLocale::LANG_RU);
 }
 
 string TripAlarmString( TTripAlarmsType alarm )
 {
-    return ElemIdToElem(etAlarmType, EncodeAlarmType(alarm), efmtNameLong, TReqInfo::Instance()->desk.lang);
+    return ElemIdToNameLong(etAlarmType, EncodeAlarmType(alarm));
 }
 
 bool get_alarm( int point_id, TTripAlarmsType alarm_type )

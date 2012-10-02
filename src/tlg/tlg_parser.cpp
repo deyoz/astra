@@ -5569,6 +5569,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                     "    DELETE FROM crs_pax_doco WHERE pax_id=curRow.inf_id; "
                     "    DELETE FROM crs_pax_tkn WHERE pax_id=curRow.inf_id; "
                     "    DELETE FROM crs_pax_fqt WHERE pax_id=curRow.inf_id; "
+                    "    DELETE FROM crs_pax_refuse WHERE pax_id=curRow.inf_id; "
                     "    DELETE FROM crs_pax WHERE pax_id=curRow.inf_id; "
                     "  END LOOP; "
                     "  DELETE FROM crs_pax_rem WHERE pax_id=:pax_id; "
