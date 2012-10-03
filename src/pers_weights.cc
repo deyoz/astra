@@ -114,10 +114,9 @@ void TPersWeights::getRules( const BASIC::TDateTime &scd_utc, const std::string 
     if ( ( first_date == ASTRA::NoExists || scd_local >= first_date ) &&
          ( last_date == ASTRA::NoExists || scd_local <= last_date ) ) {
       if ( p->first_date == ASTRA::NoExists &&
-           p->last_date == ASTRA::NoExists &&
-           is_dst( scd_utc, region ) == p->pr_summer ) {
-         tst();
-         good_cond = true;
+           p->last_date == ASTRA::NoExists ) {
+        tst();
+        good_cond = ( is_dst( scd_utc, region ) == p->pr_summer );
       }
       else
         good_cond = true;
