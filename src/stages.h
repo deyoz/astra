@@ -14,11 +14,11 @@ enum TStage { sNoActive = 0, /*не активен*/
               sOpenWEBCheckIn = 25, /*Открытие WEB-регистрации*/
               sOpenKIOSKCheckIn = 26, /*Открытие само-регистрации*/
               sCloseCheckIn = 30, /*Закрытие регистрации*/
+              sBanCancelWebCheckin = 31, /* Запрет отмены web-регистрации */
               sCloseWEBCheckIn = 35, /*Закрытие WEB-регистрации*/
               sCloseKIOSKCheckIn = 36, /*Закрытие само-регистрации*/
               sOpenBoarding = 40, /*Начало посадки*/
               sCloseBoarding = 50, /*Окончание посадки*/
-//              sRegDoc = 60, /*Оформление документации*/
               sRemovalGangWay = 70, /*Уборка трапа*/
               sTakeoff = 99 /*Вылетел*/ };
 
@@ -139,6 +139,8 @@ class TStageTimes {
      BASIC::TDateTime GetTime( const std::string &airp, const std::string &craft, const std::string &triptype,
      	                         BASIC::TDateTime vtime );
 };
+
+bool CompatibleStage( TStage stage );
 
 void astra_timer( BASIC::TDateTime utcdate );
 void exec_stage( int point_id, int stage_id );

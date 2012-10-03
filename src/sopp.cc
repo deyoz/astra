@@ -465,7 +465,7 @@ void build_TripStages( const vector<TSoppStage> &stages, const string &region, x
   xmlNodePtr lNode = NULL;
   for ( tstages::const_iterator st=stages.begin(); st!=stages.end(); st++ ) {
   	if ( pr_isg && st->stage_id != sRemovalGangWay ||
-  		   TStagesRules::Instance()->isClientStage( st->stage_id ) && !TReqInfo::Instance()->desk.compatible( WEB_CHECKIN_VERSION ) )
+         !CompatibleStage(  (TStage)st->stage_id ) )
   		continue;
     if ( !lNode )
       lNode = NewTextChild( tripNode, "stages" );
