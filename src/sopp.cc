@@ -1,6 +1,8 @@
 #include <stdlib.h>
 #include "sopp.h"
 #include "stages.h"
+#include "points.h"
+#include "pers_weights.h"
 #include "astra_utils.h"
 #include "astra_misc.h"
 #include "stl_utils.h"
@@ -1261,6 +1263,14 @@ void buildSOPP( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
       			an = NewTextChild( alarmsNode, "alarm", "DiffComps" );
       			SetProp( an, "text", TripAlarmString( alarm ) );
       			break;
+      	  case atTlgOut:
+      			an = NewTextChild( alarmsNode, "alarm", "TlgOut" );
+      			SetProp( an, "text", TripAlarmString( alarm ) );
+      			break;
+      	  case atSpecService:
+      			an = NewTextChild( alarmsNode, "alarm", "SpecService" );
+      			SetProp( an, "text", TripAlarmString( alarm ) );
+      			break;
       		default:;
       	}
       }
@@ -2331,7 +2341,7 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
   {
     Qry.SetVariable("point_id",i->first);
     Qry.Execute();
-    check_overload_alarm( i->first, i->second );
+    check_overload_alarm( i->first );
     check_waitlist_alarm( i->first );
     check_brd_alarm( i->first );
     check_TrferExists( i->first );
@@ -2422,12 +2432,6 @@ void SoppInterface::WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 	xmlNodePtr node = NodeAsNode( "trips", reqNode );
 	node = node->children;
 	TQuery Qry(&OraSession);
-	TQuery QryTripInfo(&OraSession);
-  QryTripInfo.SQLText=
-    "SELECT airline,flt_no,suffix,airp,scd_out FROM points "
-    "WHERE point_id=:point_id AND pr_del>=0";
-	QryTripInfo.DeclareVariable("point_id", otInteger);
-
 	xmlNodePtr n, stnode;
 	TTripInfo fltInfo;
 	while ( node ) {
@@ -2505,16 +2509,13 @@ void SoppInterface::WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                r->user.access.rights.end(), 370 ) != r->user.access.rights.end() ) {
   		xmlNodePtr max_cNode = GetNode( "max_commerce", luggageNode );
   		if ( max_cNode ) {
-  			int max_commerce = NodeAsInteger( max_cNode );
-  			bool pr_overload_alarm = Get_AODB_overload_alarm( point_id, max_commerce );
- 		    Qry.Clear();
-  	    Qry.SQLText =
-  	     "UPDATE trip_sets SET max_commerce=:max_commerce WHERE point_id=:point_id";
-  	    Qry.CreateVariable( "point_id", otInteger, point_id );
-  	    Qry.CreateVariable( "max_commerce", otInteger, max_commerce );
-  	    Qry.Execute();
-  	    Set_AODB_overload_alarm( point_id, pr_overload_alarm );
-  	    TReqInfo::Instance()->MsgToLog( string( "Макс. коммерческая загрузка: " ) + IntToString( max_commerce ) + "кг.", evtFlt, point_id );
+  		  TFlightMaxCommerce maxCommerce;
+  		  int mc = NodeAsInteger( max_cNode );
+  		  if ( mc == 0 )
+  			  maxCommerce.SetValue( ASTRA::NoExists );
+        else
+          maxCommerce.SetValue( mc );
+        maxCommerce.Save( point_id );
   		}
   		xmlNodePtr trip_loadNode = GetNode( "trip_load", luggageNode );
   		if ( trip_loadNode ) {
@@ -2553,12 +2554,7 @@ void SoppInterface::WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   		}
   		if ( max_cNode || trip_loadNode ) { // были изменения в весе
   			//проверим максимальную загрузку
-  			QryTripInfo.SetVariable( "point_id", point_id );
-  			QryTripInfo.Execute();
-  			if ( !QryTripInfo.Eof ) {
-  				fltInfo.Init(QryTripInfo);
-  				check_overload_alarm( point_id, fltInfo );
-  			}
+				check_overload_alarm( point_id );
   		}
   	}
 		node = node->next;
@@ -2584,13 +2580,8 @@ void GetBirks( int point_id, xmlNodePtr dataNode )
 	NewTextChild( node, "birks", Qry.FieldAsString( "birks" ) );
 }
 
-void GetLuggage( int point_id, Luggage &lug )
-{
-	GetLuggage( point_id, lug, true );
-}
 
-
-void GetLuggage( int point_id, Luggage &lug, bool pr_brd )
+/*void GetLuggage( int point_id, Luggage &lug, bool pr_brd )
 {
 	TQuery Qry(&OraSession);
 
@@ -2675,13 +2666,14 @@ void GetLuggage( int point_id, Luggage &lug, bool pr_brd )
 
   Qry.Clear();
   Qry.SQLText =
-   "SELECT airp,act_out,points.pr_del pr_del,max_commerce,pr_tranzit,first_point,point_num "
+   "SELECT airp,scd_out,act_out,points.pr_del pr_del,max_commerce,pr_tranzit,first_point,point_num "
    " FROM points,trip_sets "
     "WHERE points.point_id=:point_id AND trip_sets.point_id(+)=points.point_id ";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   lug.max_commerce = Qry.FieldAsInteger( "max_commerce" );
   lug.pr_edit = !Qry.FieldIsNULL( "act_out" ) || Qry.FieldAsInteger( "pr_del" ) != 0;
+  lug.scd_out = Qry.FieldAsDateTime( "scd_out" );
   lug.region = AirpTZRegion( Qry.FieldAsString( "airp" ) );
   int pr_tranzit = Qry.FieldAsInteger( "pr_tranzit" );
   int first_point = Qry.FieldAsInteger( "first_point" );
@@ -2718,8 +2710,11 @@ void GetLuggage( int point_id, Luggage &lug, bool pr_brd )
 
 void GetLuggage( int point_id, xmlNodePtr dataNode )
 {
+
+
+
 	Luggage lug;
-	GetLuggage( point_id, lug );
+//	GetLuggage( point_id, lug );
 	xmlNodePtr node = NewTextChild( dataNode, "luggage" );
   NewTextChild( node, "max_commerce", lug.max_commerce );
   NewTextChild( node, "pr_edit", lug.pr_edit );
@@ -2761,6 +2756,103 @@ void GetLuggage( int point_id, xmlNodePtr dataNode )
 
   xmlNodePtr loadNode = NewTextChild( node, "trip_load" );
   for ( vector<Cargo>::iterator c=lug.vcargo.begin(); c!=lug.vcargo.end(); c++ ) {
+  	xmlNodePtr fn = NewTextChild( loadNode, "load" );
+  	NewTextChild( fn, "cargo", c->cargo );
+  	NewTextChild( fn, "mail", c->mail );
+  	NewTextChild( fn, "airp_arv", ElemIdToElemCtxt( ecDisp, etAirp, c->airp_arv, c->airp_arv_fmt ) );
+  	NewTextChild( fn, "point_arv", c->point_arv );
+  }
+} */
+
+
+void GetLuggage( int point_id, xmlNodePtr dataNode )
+{
+	xmlNodePtr node = NewTextChild( dataNode, "luggage" );
+  PersWeightRules r;
+  ClassesPersWeight weight;
+  r.read( point_id );
+	TFlightWeights w;
+	w.read( point_id, withBrd );
+	TPointsDest dest;
+	BitSet<TUseDestData> UseData;
+	UseData.setFlag( udCargo );
+	UseData.setFlag( udMaxCommerce );
+	dest.Load( point_id, UseData );
+  TFlightCargos cargos;
+  cargos.Load( point_id, dest.pr_tranzit, dest.first_point, dest.point_num, dest.pr_del ); //  dest.pr_del == 1 ???
+  std::vector<TPointsDestCargo> cargs;
+  cargos.Get( cargs );
+	int max_commerce = dest.max_commerce.GetValue();
+	if ( max_commerce == ASTRA::NoExists )
+	  max_commerce = 0;
+	NewTextChild( node, "max_commerce", max_commerce );
+  NewTextChild( node, "pr_edit", dest.act_out != NoExists || dest.pr_del != 0 );
+  if ( TReqInfo::Instance()->desk.compatible( PERS_WEIGHT_VERSION ) ) {
+    tst();
+    int weight_cargos = 0;
+    for ( vector<TPointsDestCargo>::iterator c=cargs.begin(); c!=cargs.end(); c++ ) {
+      weight_cargos += c->cargo;
+      weight_cargos += c->mail;
+    }
+    NewTextChild( node, "adult", w.male + w.female );
+    NewTextChild( node, "child", w.child );
+    NewTextChild( node, "infant", w.infant );
+    NewTextChild( node, "weight_adult", w.weight_male + w.weight_female );
+    NewTextChild( node, "weight_child", w.weight_child );
+    NewTextChild( node, "weight_infant", w.weight_infant );
+    NewTextChild( node, "weight_bag", w.weight_bag );
+    NewTextChild( node, "weight_cabin_bag", w.weight_cabin_bag );
+    NewTextChild( node, "weight_commerce", w.weight_male +
+                                           w.weight_female +
+                                           w.weight_child +
+                                           w.weight_infant +
+                                           w.weight_bag +
+                                           w.weight_cabin_bag +
+                                           weight_cargos );
+  }
+  else {
+    tst();
+    r.weight( "", "", weight );
+    xmlNodePtr wm = NewTextChild( node, "weightman" );
+		xmlNodePtr weightNode = NewTextChild( wm, "weight" );
+		NewTextChild( weightNode, "code", string(EncodePerson( ASTRA::adult )) );
+		NewTextChild( weightNode, "weight", weight.male );
+		weightNode = NewTextChild( wm, "weight" );
+		NewTextChild( weightNode, "code", string(EncodePerson( ASTRA::child )) );
+		NewTextChild( weightNode, "weight", weight.child );
+		weightNode = NewTextChild( wm, "weight" );
+		NewTextChild( weightNode, "code", string(EncodePerson( ASTRA::baby )) );
+		NewTextChild( weightNode, "weight", weight.infant );
+  	NewTextChild( node, "bag_weight", w.weight_bag );
+	  NewTextChild( node, "rk_weight", w.weight_cabin_bag );
+	  NewTextChild( node, "adult", w.male + w.female  );
+	  NewTextChild( node, "child", w.child );
+	  NewTextChild( node, "baby", w.infant );
+		// сообщение в терминале о несоответствии фактической загрузке в терминале реальной в системе
+		int commerce_weight = 0, newcommerce_weight = 0;
+    commerce_weight += (w.male + w.female)*weight.male;
+		commerce_weight += w.child*weight.child;
+		commerce_weight += w.infant*weight.infant;
+		commerce_weight += w.weight_cabin_bag;
+		commerce_weight += w.weight_bag;
+		newcommerce_weight += w.weight_male;
+		newcommerce_weight += w.weight_female;
+		newcommerce_weight += w.weight_child;
+		newcommerce_weight += w.weight_infant;
+		newcommerce_weight += w.weight_cabin_bag;
+		newcommerce_weight += w.weight_bag;
+		if ( commerce_weight != newcommerce_weight ) {
+      ProgTrace( TRACE5, "commerce_weight=%d, newcommerce_weight=%d, w.male=%d, weight.male=%d, w.weight_male=%d, w.child=%d, weight.child=%d, w.infant=%d, weight.infant=%d,"
+                 "w.weight_bag=%d, w.weight_male=%d, w.weight_female=%d, w.weight_child=%d, "
+                 "w.weight_infant=%d, w.weight_cabin_bag=%d",
+                 commerce_weight, newcommerce_weight, w.male, weight.male, w.weight_male, w.child, weight.child, w.infant, weight.infant,
+                 w.weight_bag, w.weight_male, w.weight_female, w.weight_child,
+                 w.weight_infant, w.weight_cabin_bag );
+      showErrorMessage( "MSG.INVALID_CALC_PERS_WEIGHTS" );
+		}
+  }
+  xmlNodePtr loadNode = NewTextChild( node, "trip_load" );
+  for ( vector<TPointsDestCargo>::iterator c=cargs.begin(); c!=cargs.end(); c++ ) {
   	xmlNodePtr fn = NewTextChild( loadNode, "load" );
   	NewTextChild( fn, "cargo", c->cargo );
   	NewTextChild( fn, "mail", c->mail );
@@ -3065,6 +3157,7 @@ void SoppInterface::ReadDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &reference, bool canExcept,
                           XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
 {
+  TPersWeights persWeights;
   vector<change_act> vchangeAct;
   TSOPPDests voldDests;
 	bool ch_point_num = false;
@@ -3290,6 +3383,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   bool pr_change_tripinfo;
   vector<int> setcraft_points;
   bool reSetCraft;
+  bool reSetWeights;
   string change_dests_msg;
   TBaseTable &baseairps = base_tables.get( "airps" );
   for( TSOPPDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
@@ -3350,6 +3444,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     }
   	change_stages_out = false;
   	reSetCraft = false;
+  	reSetWeights = false;
   	pr_change_tripinfo = false;
     TSOPPDest old_dest;
     if ( id->pr_del != -1 ) {
@@ -3384,6 +3479,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
        else
          reqInfo->MsgToLog( string( "Ввод нового пункта " ) + id->airp, evtDisp, move_id, id->point_id );
        reSetCraft = true;
+       reSetWeights = true;
   	}
   	else { //update
   	 Qry.Clear();
@@ -3480,6 +3576,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	  if ( id->pr_del != -1 && !id->airline.empty() && id->flt_no != NoExists &&
            id->airline+IntToString(id->flt_no)+id->suffix != old_dest.airline+IntToString(old_dest.flt_no)+old_dest.suffix ) {
   	  	reSetCraft = true;
+  	  	reSetWeights = true;
   	  }
   	  if ( id->pr_del != -1 && !id->craft.empty() && id->craft != old_dest.craft && !old_dest.craft.empty() ) {
   	  	ch_craft = true;
@@ -3494,6 +3591,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	  		reqInfo->MsgToLog( string( "Назначение ВС " ) + id->craft + " порт " + id->airp, evtDisp, move_id, id->point_id );
   	  	}
   	  	reSetCraft = true;
+  	  	reSetWeights = true;
   	  }
   	  if ( id->pr_del != -1 && id->bort != old_dest.bort ) {
   	  	if ( !old_dest.bort.empty() ) {
@@ -3507,10 +3605,12 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	  		reqInfo->MsgToLog( string( "Назначение борта " ) + id->bort + " порт " + id->airp, evtDisp, move_id, id->point_id );
   	  	}
   	  	reSetCraft = true;
+  	  	reSetWeights = true;
       }
       if ( id->pr_reg != old_dest.pr_reg || id->pr_del != old_dest.pr_del ||
            id->pr_tranzit != old_dest.pr_tranzit ) {
         reSetCraft = true;
+        reSetWeights = true;
       }
   	  if ( id->pr_del != old_dest.pr_del ) {
   	  	if ( id->pr_del == 1 )
@@ -3549,12 +3649,15 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
      }
  	   if ( !insert_point && id->pr_del!=-1 && id->scd_out > NoExists && old_dest.scd_out > NoExists && id->scd_out != old_dest.scd_out ) {
   	  	reqInfo->MsgToLog( string( "Изменение планового времени вылета на ") + DateTimeToStr( id->scd_out, "hh:nn dd.mm.yy (UTC)" ) + " порт " + id->airp, evtDisp, move_id, id->point_id );
+  	  	reSetWeights = true;
   	 }
  	   if ( !insert_point && id->pr_del!=-1 && id->scd_out == NoExists && old_dest.scd_out > NoExists ) {
   	  	reqInfo->MsgToLog( string( "Удаление планового времени вылета ") + DateTimeToStr( old_dest.scd_out, "hh:nn dd.mm.yy (UTC)" ) + " порт " + id->airp, evtDisp, move_id, id->point_id );
+  	  	reSetWeights = true;
   	 }
  	   if ( !insert_point && id->pr_del!=-1 && id->scd_out > NoExists && old_dest.scd_out == NoExists ) {
   	  	reqInfo->MsgToLog( string( "Вввод планового времени вылета ") + DateTimeToStr( id->scd_out, "hh:nn dd.mm.yy (UTC)" ) + " порт " + id->airp, evtDisp, move_id, id->point_id );
+  	  	reSetWeights = true;
   	 }
 
     	set_pr_del = ( !old_dest.pr_del && id->pr_del );
@@ -3879,6 +3982,15 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
      ProgTrace( TRACE5, "reSetCraft: point_id=%d", id->point_id );
      setcraft_points.push_back( id->point_id );
    }
+   if ( reSetWeights ) {
+     ProgTrace( TRACE5, "reSetWeights: point_id=%d", id->point_id );
+     PersWeightRules newweights;
+     persWeights.getRules( id->point_id, newweights );
+     PersWeightRules oldweights;
+     oldweights.read( id->point_id );
+     if ( !oldweights.equal( &newweights ) )
+       newweights.write( id->point_id );
+  }
    point_num++;
   } // end for
   if ( ch_point_num ) {
@@ -5137,8 +5249,14 @@ bool trip_calc_data( int point_id, BitSet<TTrip_Calc_Data> &whatcalc,
   Qry.Clear();
   if ( pr_empty ) {
     Qry.SQLText =
-      "INSERT INTO trip_calc_data(point_id,trfer_exists,ckin_desks,gates) "
-      " VALUES(:point_id,:trfer_exists,:ckin_desks,:gates) ";
+      "BEGIN "
+      " INSERT INTO trip_calc_data(point_id,trfer_exists,ckin_desks,gates) "
+      "  VALUES(:point_id,:trfer_exists,:ckin_desks,:gates); "
+      "EXCEPTION WHEN DUP_VAL_ON_INDEX THEN "
+      " UPDATE trip_calc_data "
+      "  SET trfer_exists=:trfer_exists, ckin_desks=:ckin_desks, gates=:gates "
+      "  WHERE point_id=:point_id; "
+      "END;";
   }
   else
     Qry.SQLText =
@@ -5193,3 +5311,5 @@ void check_TrferExists( int point_id )
   bool trfer_exists;
   trip_calc_data( point_id, calcType, trfer_exists, ckin_desks, gates );
 }
+
+

@@ -20,6 +20,8 @@
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/test.h"
 
+#include "alarms.h"
+
 #define ENDL "\015\012"
 
 using namespace std;
@@ -938,6 +940,7 @@ void TelegramInterface::DeleteTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
         TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,tlg_id);
         AstraLocale::showMessage("MSG.TLG.DELETED");
     };
+    check_tlg_out_alarm(point_id);
     GetTlgOut(ctxt,reqNode,resNode);
 };
 

@@ -613,8 +613,6 @@ void SetInfantsToAdults( std::vector<T1> &InfItems, std::vector<T2> AdultItems )
   }
 };
 
-int GetFltLoad( int point_id, const TTripInfo &fltInfo);
-
 #endif /*_ASTRA_MISC_H_*/
 
 

@@ -264,13 +264,11 @@ class TAirps: public TICAOBaseTable {
 
 class TPersTypesRow: public TCodeBaseTableRow {
   public:
-    int priority,weight_win,weight_sum;
+    int priority;
     const char *get_row_name() const { return "TPersTypesRow"; };
     int AsInteger(std::string field) const
     {
       if (lowerc(field)=="priority") return priority;
-      if (lowerc(field)=="weight_win") return weight_win;
-      if (lowerc(field)=="weight_sum") return weight_sum;
       return TCodeBaseTableRow::AsInteger(field);
     };
 };
@@ -667,6 +665,22 @@ class TCompElemTypes: public TCodeBaseTable {
     }
 };
 
+class TAlarmTypesRow: public TCodeBaseTableRow {
+    public:
+        const char *get_row_name() const { return "TAlarmTypesRow"; };
+};
+
+class TAlarmTypes: public TCodeBaseTable {
+    protected:
+        const char *get_table_name() { return "TAlarmTypes"; };
+        void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+        void Invalidate() {}; //всегда актуальна
+    public:
+        TAlarmTypes() {
+            Init( "alarm_types" );
+        }
+};
+
 class TDevModelsRow: public TCodeBaseTableRow {
 	public:
 	  const char *get_row_name() const { return "TDevModelsRow"; };
@@ -978,6 +992,26 @@ class TStationModes: public TCodeBaseTable {
   	};
 };
 
+class TSeasonTypesRow: public TIdBaseTableRow {
+	public:
+    const char *get_row_name() const { return "TSeasonTypesRow"; };
+};
+
+class TSeasonTypes: public TIdBaseTable {
+  protected:
+    const char *get_table_name() { return "TSeasonTypes"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+    void Invalidate() {}; //всегда актуальна
+  public:
+  	TSeasonTypes() {
+      Init();
+  		select_sql =
+  		  "SELECT 0 AS id, 'Зима' AS name, 'Winter' AS name_lat FROM dual "
+        "UNION "
+        "SELECT 1, 'Лето', 'Summer' FROM dual";
+  	};
+};
+
 class TFormTypesRow: public TCodeBaseTableRow {
 	public:
 	  std::string basic_type, validator;
@@ -1014,25 +1048,50 @@ class TFormTypes: public TCodeBaseTable {
   	};
 };
 
-class TRemTypesRow: public TTIDBaseTableRow {
+class TCkinRemTypesRow: public TTIDBaseTableRow {
   public:
+    int grp_id;
+    bool is_iata;
     int priority;
-    const char *get_row_name() const { return "TRemTypesRow"; };
+    const char *get_row_name() const { return "TCkinRemTypesRow"; };
     int AsInteger(std::string field) const
     {
+      if (lowerc(field)=="grp_id") return grp_id;
       if (lowerc(field)=="priority") return priority;
       return TTIDBaseTableRow::AsInteger(field);
     };
+    bool AsBoolean(std::string field) const
+    {
+      if (lowerc(field)=="is_iata") return is_iata;
+      return TTIDBaseTableRow::AsBoolean(field);
+    }
 };
 
-class TRemTypes: public TTIDBaseTable {
+class TCkinRemTypes: public TTIDBaseTable {
+  private:
+    const char *get_select_sql_text()
+    {
+      return
+        "SELECT ckin_rem_types.id, ckin_rem_types.code, ckin_rem_types.code_lat, "
+        "       ckin_rem_types.name, ckin_rem_types.name_lat, ckin_rem_types.grp_id, "
+        "       ckin_rem_types.is_iata, ckin_rem_types.pr_del, ckin_rem_types.tid, "
+        "       rem_grp.priority "
+        "FROM ckin_rem_types, rem_grp "
+        "WHERE ckin_rem_types.grp_id=rem_grp.id";
+    };
+    const char *get_refresh_sql_text()
+    {
+      return
+      	"SELECT ckin_rem_types.id, ckin_rem_types.code, ckin_rem_types.code_lat, "
+        "       ckin_rem_types.name, ckin_rem_types.name_lat, ckin_rem_types.grp_id, "
+        "       ckin_rem_types.is_iata, ckin_rem_types.pr_del, ckin_rem_types.tid, "
+        "       rem_grp.priority "
+        "FROM ckin_rem_types, rem_grp "
+        "WHERE ckin_rem_types.grp_id=rem_grp.id AND ckin_rem_types.tid>:tid";
+    };
   protected:
-    const char *get_table_name() { return "TRemTypes"; };
+    const char *get_table_name() { return "TCkinRemTypes"; };
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
-  public:
-  	TRemTypes( ) {
-  		Init( "rem_types" );
-  	}
 };
 
 class TBaseTables {

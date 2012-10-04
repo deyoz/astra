@@ -63,8 +63,10 @@ const
                          {etAgency,                "etAgency",                ""},
                          {etAirline,               "etAirline",               "airlines"},
                          {etAirp,                  "etAirp",                  "airps"},
+                         {etAlarmType,             "etAlarmType",             "alarm_types"},
                          {etBagNormType,           "etBagNormType",           "bag_norm_types"},
                          {etCity,                  "etCity",                  "cities"},
+                         {etCkinRemType,           "etCkinRemType",           "ckin_rem_types"},
                          {etClass,                 "etClass",                 "classes"},
                          {etClientType,            "etClientType",            "client_types"},
                          {etClsGrp,                "etClsGrp",                "cls_grp"},
@@ -90,8 +92,10 @@ const
                          {etPayType,               "etPayType",               "pay_types"},
                          {etPersType,              "etPersType",              "pers_types"},
                          {etRefusalType,           "etRefusalType",           "refusal_types"},
+                         {etRemGrp,                "etRemGrp",                ""},
                          {etRight,                 "etRight",                 "rights"},
                          {etSalePoint,             "etSalePoint",             ""},
+                         {etSeasonType,            "etSeasonType",            "season_types"},
                          {etSeatAlgoType,          "etSeatAlgoType",          "seat_algo_types"},
                          {etStationMode,           "etStationMode",           "station_modes"},
                          {etSubcls,                "etSubcls",                "subcls"},
@@ -644,6 +648,7 @@ string ElemIdToElem(TElemType type, int id, const vector< pair<TElemFmt,string> 
     {
          case etHall: Qry.SQLText="SELECT name,name_lat FROM halls2 WHERE id=:id"; break;
       case etDeskGrp: Qry.SQLText="SELECT descr AS name, descr_lat AS name_lat FROM desk_grp WHERE grp_id=:id"; break;
+       case etRemGrp: Qry.SQLText="SELECT name, name_lat FROM rem_grp WHERE id=:id"; break;
       default: throw Exception("Unexpected elem type %s", EncodeElemType(type));
     };
     Qry.CreateVariable("id",otInteger,id);

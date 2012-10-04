@@ -7,6 +7,7 @@
 #include "basic.h"
 #include "telegram.h"
 #include "remarks.h"
+#include "print.h"
 
 enum TSortType {stRegNo, stSurname, stSeatNo};
 
@@ -17,6 +18,7 @@ struct TRptParams {
         std::string req_lang; // Язык, затребованный с клиента, если пустой, то вычисляем язык на основе маршрута
         std::string GetLang(TElemFmt &fmt, std::string firm_lang) const;
     public:
+        TPrnParams prn_params;
         TSortType sort;
         int point_id;
         ASTRA::TRptType rpt_type;

@@ -78,6 +78,8 @@ TBaseTable &TBaseTables::get(string name)
         	  base_tables[name] = new TClientTypes();
         else if(name == "COMP_LAYER_TYPES")
         	  base_tables[name] = new TCompLayerTypes();
+        else if(name == "ALARM_TYPES")
+        	  base_tables[name] = new TAlarmTypes();
         else if(name == "DEV_MODELS")
         	  base_tables[name] = new TDevModels();
         else if(name == "DEV_SESS_TYPES")
@@ -108,10 +110,12 @@ TBaseTable &TBaseTables::get(string name)
         	  base_tables[name] = new TLangTypes();
         else if(name == "STATION_MODES")
         	  base_tables[name] = new TStationModes();
+        else if(name == "SEASON_TYPES")
+        	  base_tables[name] = new TSeasonTypes();
         else if(name == "FORM_TYPES")
         	  base_tables[name] = new TFormTypes();
-        else if(name == "REM_TYPES")
-        	  base_tables[name] = new TRemTypes();
+        else if(name == "CKIN_REM_TYPES")
+        	  base_tables[name] = new TCkinRemTypes();
         else
             throw Exception("TBaseTables::get_base_table: " + name + " not found");
         mem.create(base_tables[name], STDLOG);
@@ -549,8 +553,6 @@ void TPersTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **re
   *row = new TPersTypesRow;
   mem.create(*row, STDLOG);
   ((TPersTypesRow*)*row)->priority=Qry.FieldAsInteger("priority");
-  ((TPersTypesRow*)*row)->weight_win=Qry.FieldAsInteger("weight_win");
-  ((TPersTypesRow*)*row)->weight_sum=Qry.FieldAsInteger("weight_sum");
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 }
 
@@ -760,6 +762,12 @@ void TCompElemTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow 
   TCodeBaseTable::create_row(Qry, row, replaced_row);
 };
 
+void TAlarmTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row) {
+	*row = new TAlarmTypesRow;
+  mem.create(*row, STDLOG);
+  TCodeBaseTable::create_row(Qry, row, replaced_row);
+};
+
 void TDevModels::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row) {
 	*row = new TDevModelsRow;
   mem.create(*row, STDLOG);
@@ -879,6 +887,13 @@ void TStationModes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow *
 	TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 
+void TSeasonTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+{
+	*row = new TSeasonTypesRow;
+  mem.create(*row, STDLOG);
+	TIdBaseTable::create_row(Qry,row,replaced_row);
+};
+
 void TFormTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
 	*row = new TFormTypesRow;
@@ -891,11 +906,13 @@ void TFormTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **re
 	TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 
-void TRemTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TCkinRemTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
-	*row = new TRemTypesRow;
+	*row = new TCkinRemTypesRow;
   mem.create(*row, STDLOG);
-  ((TRemTypesRow*)*row)->priority=Qry.FieldIsNULL("priority")?ASTRA::NoExists:Qry.FieldAsInteger("priority");
+  ((TCkinRemTypesRow*)*row)->grp_id=Qry.FieldAsInteger("grp_id");
+  ((TCkinRemTypesRow*)*row)->is_iata=Qry.FieldAsInteger("is_iata")!=0;
+  ((TCkinRemTypesRow*)*row)->priority=Qry.FieldIsNULL("priority")?ASTRA::NoExists:Qry.FieldAsInteger("priority");
 	TTIDBaseTable::create_row(Qry,row,replaced_row);
 }
 

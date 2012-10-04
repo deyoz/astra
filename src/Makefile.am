@@ -55,10 +55,10 @@ astra_SOURCES = \
   locale.cc \
   maindcs.cc \
   obrnosir.cc \
-  passenger.cc \
   payment.cc \
   prepreg.cc \
   print.cc \
+  passenger.cc \
   prn_tag_store.cc \
   remarks.cc \
   salonform.cc \
@@ -83,6 +83,7 @@ astra_SOURCES = \
   load_fr.cc \
   http_io.cc \
   points.cc \
+  pers_weights.cc \
   xp_testing.cc
   
 
@@ -95,8 +96,8 @@ astra_LDADD = $(all_libraries) \
 	$(XML_LIBS) @CHECK_LIBS@\
 	@BOOST_SYSTEM_LIB@\
 	@BOOST_FILESYSTEM_LIB@\
-	@PION_LDFLAGS@\
-	@BOOST_REGEX_LIB@
+	@BOOST_REGEX_LIB@\
+        @PION_LDFLAGS@
 #	-L/usr/lib -lboost_filesystem
 #	-L/home/beta/crypt/locallibs/mespro -lmesprox
 
@@ -149,11 +150,11 @@ noinst_HEADERS = \
   images.h \
   maindcs.h \
   obrnosir.h \
-  passenger.h \
   payment.h \
   prepreg.h \
   print.h \
   prn_tag_store.h \
+  passenger.h \
   remarks.h \
   salonform.h \
   salonform2.h \
@@ -174,7 +175,8 @@ noinst_HEADERS = \
   xml_unit.h \
   load_fr.h \
   http_io.h \
-  points.h
+  points.h \
+  pers_weights.h
 
 
 

@@ -28,6 +28,7 @@
 #include "remarks.h"
 #include "alarms.h"
 #include "sopp.h"
+#include "pers_weights.h"
 #include "jxtlib/jxt_cont.h"
 
 #define NICKNAME "VLAD"
@@ -2282,7 +2283,6 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "  ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS rk_weight, "
     "  ckin.get_excess(pax.grp_id,pax.pax_id) AS excess, "
     "  ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags, "
-    "  ckin.get_remarks(pax.pax_id,' ',0) AS rems, "
     "  mark_trips.airline AS airline_mark, "
     "  mark_trips.flt_no AS flt_no_mark, "
     "  mark_trips.suffix AS suffix_mark, "
@@ -2349,7 +2349,6 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     int col_rk_weight=Qry.FieldIndex("rk_weight");
     int col_excess=Qry.FieldIndex("excess");
     int col_tags=Qry.FieldIndex("tags");
-    int col_rems=Qry.FieldIndex("rems");
 
     int col_airline_mark=Qry.FieldIndex("airline_mark");
     int col_flt_no_mark=Qry.FieldIndex("flt_no_mark");
@@ -2363,10 +2362,13 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     int col_point_arv=Qry.FieldIndex("point_arv");
     int col_user_id=Qry.FieldIndex("user_id");
     int col_client_type=Qry.FieldIndex("client_type");
-
+    
     map< int/*grp_id*/, pair<bool/*pr_payment*/, bool/*pr_receipts*/> > rcpt_complete;
     TPaxSeats priorSeats(point_id);
     TQuery PaxDocQry(&OraSession);
+    TRemGrp rem_grp;
+    rem_grp.Load(retCKIN_VIEW, operFlt.airline);
+    TQuery RemQry(&OraSession);
     for(;!Qry.Eof;Qry.Next())
     {
       int grp_id = Qry.FieldAsInteger(col_grp_id);
@@ -2437,7 +2439,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       NewTextChild(paxNode,"rk_weight",Qry.FieldAsInteger(col_rk_weight),0);
       NewTextChild(paxNode,"excess",Qry.FieldAsInteger(col_excess),0);
       NewTextChild(paxNode,"tags",Qry.FieldAsString(col_tags),"");
-      NewTextChild(paxNode,"rems",Qry.FieldAsString(col_rems),"");
+      NewTextChild(paxNode,"rems",GetRemarkStr(rem_grp, pax_id, RemQry),"");
 
 
       //коммерческий рейс
@@ -4551,7 +4553,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
       Qry.Close();
 
       //проверим максимальную загрузку
-      bool overload_alarm = calc_overload_alarm( point_dep, fltInfo ); // вычислили признак перегрузки
+      bool overload_alarm = calc_overload_alarm( point_dep ); // вычислили признак перегрузки
       
       if (overload_alarm)
       {
@@ -4712,9 +4714,10 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
           Qry.CreateVariable("class_grp",otInteger,class_grp);
           Qry.Execute();
         };
-        //вычисляем и записываем признак waitlist_alarm и brd_alarm
+        //вычисляем и записываем признак waitlist_alarm и brd_alarm и spec_service_alarm
         check_waitlist_alarm( point_dep );
         check_brd_alarm( point_dep );
+        check_spec_service_alarm( point_dep );
         if ( first_pax_on_flight ) {
           SALONS2::setManualCompChg( point_dep );
         }
@@ -5882,6 +5885,12 @@ void CheckInInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
     NewTextChild( itemNode, "free_goshow", Qry.FieldAsInteger( "free_goshow" ) );
     NewTextChild( itemNode, "nooccupy", Qry.FieldAsInteger( "nooccupy" ) );
   };
+  
+  int load_residue=getCommerceWeight( point_id, onlyCheckin, CWResidual );
+  if (load_residue!=NoExists)
+    NewTextChild(dataNode,"load_residue",load_residue);
+  else
+    NewTextChild(dataNode,"load_residue");
 }
 
 void CheckInInterface::readTripData( int point_id, xmlNodePtr dataNode )

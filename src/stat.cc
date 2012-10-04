@@ -4455,7 +4455,10 @@ void createXMLAgentStat(const TStatParams &params, const TAgentStat &AgentStat, 
                 total.unreg_rk_weight += im->second.unreg_rk_weight;
                 // Среднее время, затраченное на пассажира
                 buf.str("");
-                buf << fixed << setprecision(2) << im->second.time / im->second.processed_pax;
+                if (im->second.processed_pax!=0)
+                  buf << fixed << setprecision(2) << im->second.time / im->second.processed_pax;
+                else
+                  buf << fixed << setprecision(2) << 0.0;
                 NewTextChild(rowNode, "col", buf.str());
                 total.processed_pax += im->second.processed_pax;
                 total.time += im->second.time;
@@ -4484,7 +4487,10 @@ void createXMLAgentStat(const TStatParams &params, const TAgentStat &AgentStat, 
             NewTextChild(rowNode, "col", total.unreg_rk_weight);
             {
                 ostringstream buf;
-                buf << fixed << setprecision(2) << total.time / total.processed_pax;
+                if (total.processed_pax!=0)
+                  buf << fixed << setprecision(2) << total.time / total.processed_pax;
+                else
+                  buf << fixed << setprecision(2) << 0.0;
                 NewTextChild(rowNode, "col", buf.str());
             }
         }

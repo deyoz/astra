@@ -1045,12 +1045,6 @@ void createRecord( int point_id, int pax_id, int reg_no, const string &point_add
 
 void ParseFlight( const std::string &point_addr, const std::string &airp, std::string &linestr, AODB_Flight &fl )
 {
-	TQuery QryTripInfo(&OraSession);
-  QryTripInfo.SQLText=
-    "SELECT airline,flt_no,suffix,airp,scd_out FROM points "
-    "WHERE point_id=:point_id AND pr_del>=0";
-	QryTripInfo.DeclareVariable("point_id", otInteger);
-  TTripInfo fltInfo;
 	int err=0;
 try {
 	fl.invalid_field.clear();
@@ -1684,12 +1678,7 @@ try {
     err++;
     Qry.Execute();
     err++;
-  	QryTripInfo.SetVariable( "point_id", point_id );
-    QryTripInfo.Execute();
-    if ( !QryTripInfo.Eof ) {
-    	fltInfo.Init(QryTripInfo);
-    	check_overload_alarm( point_id, fltInfo );
-    }
+  	check_overload_alarm( point_id );
 	} // end update
   tst();
   if ( old_est != fl.est ) {
