@@ -103,16 +103,16 @@ void TPersWeights::getRules( const BASIC::TDateTime &scd_utc, const std::string 
   scd_local = UTCToLocal( scd_utc, region );
   DecodeDate( scd_local, Year, Month, Month );
   for ( vector<TPerTypeWeight>::iterator p=weights.begin(); p!=weights.end(); p++ ) {
-    ProgTrace( TRACE5, "id=%d, first_date=%f, last_date=%f, scd_local=%f, pr_summer=%d, is_dst( scd_utc, region )=%d",
-               p->id, p->first_date, p->last_date, scd_local, p->pr_summer, is_dst( scd_utc, region ) );
     bool good_cond = false;
     first_date = SetDate( p->first_date, Year, 1 );
     int vYear = Year;
     if ( p->first_date != ASTRA::NoExists && p->last_date != ASTRA::NoExists )
       vYear += ( p->first_date > p->last_date );
     last_date = SetDate( p->last_date, vYear, -1 );
+    if ( last_date != ASTRA::NoExists )
+      last_date += 1.0;
     if ( ( first_date == ASTRA::NoExists || scd_local >= first_date ) &&
-         ( last_date == ASTRA::NoExists || scd_local <= last_date ) ) {
+         ( last_date == ASTRA::NoExists || scd_local < last_date ) ) {
       if ( p->first_date == ASTRA::NoExists &&
            p->last_date == ASTRA::NoExists ) {
         tst();
