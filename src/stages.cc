@@ -578,7 +578,8 @@ void TStageTimes::GetStageTimes( )
 {
   times.clear();
   TQuery Qry( &OraSession );
-  Qry.SQLText  = "SELECT airp, craft, trip_type, time, "
+  Qry.SQLText  = "SELECT airline, airp, craft, trip_type, time, "
+                 "       DECODE( airline, NULL, 0, 8 )+ "
                  "       DECODE( airp, NULL, 0, 4 )+ "
                  "       DECODE( craft, NULL, 0, 2 )+ "
                  "       DECODE( trip_type, NULL, 0, 1 ) AS priority "
@@ -587,11 +588,12 @@ void TStageTimes::GetStageTimes( )
                  "UNION "
                  "SELECT NULL, NULL, NULL, time, -1 FROM graph_stages "
                  "WHERE stage_id=:stage "
-                 " ORDER BY priority, airp, craft, trip_type ";
+                 " ORDER BY priority, airline, airp, craft, trip_type ";
   Qry.CreateVariable( "stage", otInteger, stage );
   Qry.Execute();
   while ( !Qry.Eof ) {
     TStageTime st;
+    st.airline = Qry.FieldAsString( "airline" );
     st.airp = Qry.FieldAsString( "airp" );
     st.craft = Qry.FieldAsString( "craft" );
     st.trip_type = Qry.FieldAsString( "trip_type" );
@@ -602,7 +604,8 @@ void TStageTimes::GetStageTimes( )
   }
 }
 
-TDateTime TStageTimes::GetTime( const string &airp, const string &craft, const string &triptype,
+TDateTime TStageTimes::GetTime( const string &airline, const string &airp,
+                                const string &craft, const string &triptype,
                                 TDateTime vtime )
 {
 	TDateTime res = NoExists;
@@ -611,7 +614,8 @@ TDateTime TStageTimes::GetTime( const string &airp, const string &craft, const s
 	if ( times.empty() )
 	  GetStageTimes( );
 	for ( vector<TStageTime>::iterator st=times.begin(); st!=times.end(); st++ ) {
-   	if ( ( st->airp == airp || st->airp.empty() ) &&
+   	if ( ( st->airline == airline || st->airline.empty() ) &&
+         ( st->airp == airp || st->airp.empty() ) &&
    		   ( st->craft == craft || st->craft.empty() ) &&
          ( st->trip_type == triptype || st->trip_type.empty() ) ) {
        res = vtime - (double)st->time/1440.0;

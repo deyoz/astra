@@ -122,6 +122,7 @@ class TStagesRules {
 };
 
 struct TStageTime {
+  std::string airline;
 	std::string airp;
   std::string craft;
   std::string trip_type;
@@ -136,7 +137,8 @@ class TStageTimes {
      void GetStageTimes( );
 	 public:
 	 	 TStageTimes( TStage istage );
-     BASIC::TDateTime GetTime( const std::string &airp, const std::string &craft, const std::string &triptype,
+     BASIC::TDateTime GetTime( const std::string &airline, const std::string &airp,
+                               const std::string &craft, const std::string &triptype,
      	                         BASIC::TDateTime vtime );
 };
 
