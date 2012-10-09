@@ -646,6 +646,9 @@ void exec_stage( int point_id, int stage_id )
   	case sOpenKIOSKCheckIn:
            /*открытие KIOSK-регистрации*/
   	     break;
+    case sBanCancelWebCheckin:
+          /*Запрет разрегистрации web-пассажира*/
+          break;
     case sCloseCheckIn:
            /*Закрытие регистрации*/
            CloseCheckIn( point_id );
