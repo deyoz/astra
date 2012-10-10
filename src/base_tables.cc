@@ -825,6 +825,7 @@ void TGraphStages::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **
   mem.create(*row, STDLOG);
   ((TGraphStagesRow*)*row)->stage_time=Qry.FieldAsInteger("time");
   ((TGraphStagesRow*)*row)->pr_auto=(Qry.FieldAsInteger("pr_auto")!=0);
+  ((TGraphStagesRow*)*row)->pr_airp_stage=(Qry.FieldAsInteger("pr_airp_stage")!=0);
   TIdBaseTable::create_row(Qry,row,replaced_row);
 };
 

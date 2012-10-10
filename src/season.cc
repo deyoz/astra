@@ -106,6 +106,10 @@ struct trip {
   string name;
   string print_name;
   string crafts;
+  string airlineId;
+  string airpId;
+  string craftId;
+  string triptypeId;
   string owncraft;
   string ownport;
   string portsForAirline;
@@ -1310,9 +1314,8 @@ void createTrips( TDateTime utc_spp_date, TDateTime localdate, TFilter &filter, 
       // создаем рейсы относительно разрешенных портов reqInfo->user.access.airps
 
       createAirportTrip( *s, NoExists, filter, offset, ds, utc_spp_date, false, true, err_city );
-      TElemFmt fmt;
       for ( int i=vcount; i<(int)ds.trips.size(); i++ ) {
-      	ds.trips[ i ].trap = stagetimes.GetTime( *s, ds.trips[ i ].owncraft, ElemToElemId(etTripType,ds.trips[ i ].triptype,fmt), ds.trips[ i ].scd_out );
+      	ds.trips[ i ].trap = stagetimes.GetTime( ds.trips[ i ].airlineId, ds.trips[ i ].airpId, ds.trips[ i ].craftId, ds.trips[ i ].triptypeId, ds.trips[ i ].scd_out );
       }
     }
   }
@@ -2565,6 +2568,8 @@ bool createAirportTrip( string airp, int trip_id, TFilter filter, int offset, TD
         tr.name = GetTrip( PriorDest, OwnDest ); // local format
         tr.print_name = GetPrintName( PriorDest, OwnDest ); // local format
         tr.ownport = ElemIdToElemCtxt( ecDisp, etAirp, OwnDest->airp, OwnDest->airp_fmt ); // local format
+        tr.airlineId = OwnDest->airline;
+        tr.airpId = OwnDest->airp;
         tr.crafts = crafts; // local format
         tr.vecportsFrom = vecportsFrom;
         tr.vecportsTo = vecportsTo;
@@ -2572,10 +2577,14 @@ bool createAirportTrip( string airp, int trip_id, TFilter filter, int offset, TD
         if ( OwnDest == NDest ) {
           tr.owncraft = ElemIdToElemCtxt( ecDisp, etCraft, PriorDest->craft, PriorDest->craft_fmt ); // local format
           tr.triptype = ElemIdToCodeNative(etTripType,PriorDest->triptype);
+          tr.craftId = PriorDest->craft;
+          tr.triptypeId = PriorDest->triptype;
         }
         else {
           tr.owncraft = ElemIdToElemCtxt( ecDisp, etCraft, OwnDest->craft, OwnDest->craft_fmt );
           tr.triptype = ElemIdToCodeNative(etTripType,OwnDest->triptype);
+          tr.craftId = OwnDest->craft;
+          tr.triptypeId = OwnDest->triptype;
         }
         tr.pr_del = OwnDest->pr_del; //!!! неправильно так, надо расчитывать
         /* переводим времена вылета прилета в локальные */ //!!! error tz
