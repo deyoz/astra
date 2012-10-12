@@ -586,7 +586,7 @@ void TStageTimes::GetStageTimes( )
                  " FROM graph_times "
                  " WHERE stage_id=:stage "
                  "UNION "
-                 "SELECT NULL, NULL, NULL, time, -1 FROM graph_stages "
+                 "SELECT NULL, NULL, NULL, NULL, time, -1 FROM graph_stages "
                  "WHERE stage_id=:stage "
                  " ORDER BY priority, airline, airp, craft, trip_type ";
   Qry.CreateVariable( "stage", otInteger, stage );
