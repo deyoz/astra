@@ -797,14 +797,8 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 NewTextChild(rowNode, "screen", screen, "");
 
                 count++;
-                if(count > MAX_STAT_ROWS) {
-                    AstraLocale::showErrorMessage("MSG.TOO_MANY_FLIGHTS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_SEARCH",
-                            LParams() << LParam("num", MAX_STAT_ROWS));
-                    break;
-                }
             }
         }
-        if(count > MAX_STAT_ROWS) break;
     }
     if(!count)
         throw AstraLocale::UserException("MSG.OPERATIONS_NOT_FOUND");
