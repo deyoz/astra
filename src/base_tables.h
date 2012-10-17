@@ -822,7 +822,7 @@ class TCompLayerTypes: public TCodeBaseTable {
 class TGraphStagesRow: public TIdBaseTableRow {
 	  public:
     int stage_time;
-    bool pr_auto;
+    bool pr_auto, pr_airp_stage;
     const char *get_row_name() const { return "TGraphStagesRow"; };
     int AsInteger(std::string field) const
     {
@@ -832,6 +832,7 @@ class TGraphStagesRow: public TIdBaseTableRow {
     bool AsBoolean(std::string field) const
     {
       if (lowerc(field)=="pr_auto") return pr_auto;
+      if (lowerc(field)=="pr_airp_stage") return pr_airp_stage;
       return TIdBaseTableRow::AsBoolean(field);
     }
 };
@@ -844,7 +845,7 @@ class TGraphStages: public TIdBaseTable {
   public:
   	TGraphStages() {
   		Init();
-  		select_sql = "SELECT stage_id id,name,name_lat,time,pr_auto FROM graph_stages";
+  		select_sql = "SELECT stage_id id,name,name_lat,time,pr_auto,pr_airp_stage FROM graph_stages";
   	};
 };
 
