@@ -389,11 +389,12 @@ void TTripRoute::GetRoute(TDateTime part_key,
                           TQuery& Qry)
 {
   ostringstream sql;
-  sql << "SELECT point_id,point_num,airp,pr_del ";
   if (part_key!=NoExists)
-    sql << "FROM arx_points ";
+    sql << "SELECT part_key,point_id,point_num,airp,pr_del "
+           "FROM arx_points ";
   else
-    sql << "FROM points ";
+    sql << "SELECT point_id,point_num,airp,pr_del "
+        << "FROM points ";
     
   if (after_current)
   {
@@ -441,6 +442,8 @@ void TTripRoute::GetRoute(TDateTime part_key,
   for(;!Qry.Eof;Qry.Next())
   {
     TTripRouteItem item;
+    if (part_key!=NoExists)
+      item.part_key=Qry.FieldAsDateTime("part_key");
     item.point_id=Qry.FieldAsInteger("point_id");
     item.point_num=Qry.FieldAsInteger("point_num");
     item.airp=Qry.FieldAsString("airp");
@@ -583,6 +586,19 @@ bool TTripRoute::GetPriorAirp(TDateTime part_key,
   if (!empty()) item=back();
   return true;
 };
+
+string TTripRoute::GetStr() const
+{
+  ostringstream res;
+  for(TTripRoute::const_iterator r=begin();r!=end();r++)
+  {
+    if (r!=begin()) res << " -> ";
+    res << r->point_num << ":" << r->airp
+        << "(" << (r->part_key==NoExists?"":DateTimeToStr(r->part_key, "dd.mm.yy hh:nn:ss + "))
+        << r->point_id << ")";
+  };
+  return res.str();
+}
 
 bool TTrferRoute::GetRoute(int grp_id,
                            TTrferRouteType route_type)
@@ -1361,57 +1377,6 @@ string GetCfgStr(TDateTime part_key,
     result << ElemIdToElem(etClass, Qry.FieldAsString("class"), fmts_code, true)
            << Qry.FieldAsInteger("cfg");
   };
-  return result.str();
-};
-
-std::string GetPaxDocStr(TDateTime part_key,
-                         int pax_id,
-                         TQuery& PaxDocQry,
-                         bool with_issue_country,
-                         const string &lang)
-{
-  ostringstream result;
-
-  const char* sql="SELECT no, issue_country FROM pax_doc WHERE pax_id=:pax_id";
-  const char* sql_arx="SELECT no, issue_country FROM arx_pax_doc WHERE part_key=:part_key AND pax_id=:pax_id";
-  
-  if (part_key!=NoExists)
-  {
-    if (strcmp(PaxDocQry.SQLText.SQLText(),sql_arx)!=0)
-    {
-      PaxDocQry.Clear();
-      PaxDocQry.SQLText=sql_arx;
-      PaxDocQry.DeclareVariable("part_key", otDate);
-      PaxDocQry.DeclareVariable("pax_id", otInteger);
-    };
-    PaxDocQry.SetVariable("part_key", part_key);
-  }
-  else
-  {
-    if (strcmp(PaxDocQry.SQLText.SQLText(),sql)!=0)
-    {
-      PaxDocQry.Clear();
-      PaxDocQry.SQLText=sql;
-      PaxDocQry.DeclareVariable("pax_id", otInteger);
-    };
-  };
-  PaxDocQry.SetVariable("pax_id", pax_id);
-  PaxDocQry.Execute();
-  if (!PaxDocQry.Eof && !PaxDocQry.FieldIsNULL("no"))
-  {
-    result << PaxDocQry.FieldAsString("no");
-    string issue_country=GetPaxDocCountryCode(PaxDocQry.FieldAsString("issue_country"));
-    if (with_issue_country && !issue_country.empty())
-    {
-      vector< pair<TElemFmt,string> > fmts_code;
-      if (lang.empty())
-        getElemFmts(efmtCodeNative, TReqInfo::Instance()->desk.lang, fmts_code);
-      else
-        getElemFmts(efmtCodeNative, lang, fmts_code);
-      result << " " << ElemIdToElem(etPaxDocCountry, issue_country, fmts_code, true);
-    };
-  };
-  
   return result.str();
 };
 

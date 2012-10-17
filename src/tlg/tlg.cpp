@@ -53,14 +53,6 @@ const char* DEF_CANON_NAME()
   return VAR.c_str();
 }
 
-const char* OWN_SITA_ADDR()
-{
-  static string VAR;
-  if ( VAR.empty() )
-    VAR=getTCLParam("OWN_SITA_ADDR",NULL);
-  return VAR.c_str();
-}
-
 const int HANDLER_PROC_ATTEMPTS()
 {
   static int VAR=ASTRA::NoExists;

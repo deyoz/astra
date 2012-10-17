@@ -2956,7 +2956,7 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(paxNode, "pr_exam", Qry.FieldAsInteger("pr_exam"), 0);
         NewTextChild(paxNode, "pr_brd", Qry.FieldAsInteger("pr_brd"), 0);
         NewTextChild(paxNode, "seat_no", Qry.FieldAsString("seat_no"));
-        NewTextChild(paxNode, "document", GetPaxDocStr(NoExists, pax_id, PaxDocQry, false, rpt_params.GetLang()));
+        NewTextChild(paxNode, "document", CheckIn::GetPaxDocStr(NoExists, pax_id, PaxDocQry, false, rpt_params.GetLang()));
         NewTextChild(paxNode, "ticket_no", Qry.FieldAsString("ticket_no"));
         NewTextChild(paxNode, "coupon_no", Qry.FieldAsInteger("coupon_no"));
         NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));

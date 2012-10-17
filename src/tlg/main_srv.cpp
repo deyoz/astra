@@ -164,14 +164,14 @@ void process_tlg(void)
 
     TQuery RotQry(&OraSession);
     RotQry.SQLText=
-      "SELECT 1,router_num,ip_port FROM rot\
-       WHERE ip_address=:addr AND ip_port=:port AND\
-             own_canon_name=:own_canon_name AND canon_name=:canon_name\
-       union\
-       SELECT 2,router_num,ip_port FROM rot\
-       WHERE ip_address=:addr AND ip_port=:port AND\
-             own_canon_name=:own_canon_name\
-       ORDER BY 1";
+      "SELECT 1,ip_port FROM rot "
+      "WHERE ip_address=:addr AND ip_port=:port AND "
+      "      own_canon_name=:own_canon_name AND canon_name=:canon_name "
+      "union "
+      "SELECT 2,ip_port FROM rot "
+      "WHERE ip_address=:addr AND ip_port=:port AND "
+      "      own_canon_name=:own_canon_name "
+      "ORDER BY 1";
     RotQry.CreateVariable("addr",otString,inet_ntoa(from_addr.sin_addr));
     RotQry.CreateVariable("port",otInteger,ntohs(from_addr.sin_port));
     RotQry.CreateVariable("own_canon_name",otString,OWN_CANON_NAME());

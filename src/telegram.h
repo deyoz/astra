@@ -70,6 +70,8 @@ struct TTlgInfo {
     std::string addrs;
     //адрес отправителя
     std::string sender;
+    //время создания
+    BASIC::TDateTime time_create;
     //рейс
     int point_id;
     std::string airline;
@@ -81,17 +83,11 @@ struct TTlgInfo {
     BASIC::TDateTime scd_local;
     BASIC::TDateTime act_local;
     int scd_local_day;
-    bool pr_summer;
     std::string bort;
     //вспомогательные чтобы вытаскивать маршрут
     int first_point;
     int point_num;
     bool pr_tranzit;
-    //для вывода в телеграммы
-    std::string airline_view;
-    std::string suffix_view;
-    std::string airp_dep_view;
-    std::string airp_arv_view;
     //центр бронирования
     std::string crs;
     //дополнительная инфа
@@ -109,17 +105,22 @@ struct TTlgInfo {
     std::string TlgElemIdToElem(TElemType type, int id, TElemFmt fmt = efmtUnknown);
     std::string TlgElemIdToElem(TElemType type, std::string id, TElemFmt fmt = efmtUnknown);
     bool operator == (const TMktFlight &s) const;
-    /*TTlgInfo(const TCodeShareInfo &aCodeShareInfo): mark_info(aCodeShareInfo) {
-    	TTlgInfo();
-    };*/
+
+    std::string airline_view(bool always_operating = true);
+    int flt_no_view(bool always_operating = true);
+    std::string suffix_view(bool always_operating = true);
+    std::string airp_dep_view();
+    std::string airp_arv_view();
+    std::string flight_view(bool always_operating = true);
+
     TTlgInfo(){
+        time_create = ASTRA::NoExists;
         point_id = -1;
         flt_no = -1;
         scd_utc = 0;
         scd_local = 0;
         act_local = 0;
         scd_local_day = 0;
-        pr_summer = false;
         first_point = ASTRA::NoExists;
         point_num = -1;
         pr_lat = false;
@@ -226,7 +227,7 @@ struct TTlgOutPartInfo
 {
   int id,num,point_id;
   std::string tlg_type,addr,heading,body,ending,extra;
-  bool pr_lat, pr_tst;
+  bool pr_lat;
   BASIC::TDateTime time_create,time_send_scd;
   TTlgOutPartInfo ()
   {
@@ -234,12 +235,28 @@ struct TTlgOutPartInfo
     num=1;
     time_create=ASTRA::NoExists;
     time_send_scd=ASTRA::NoExists;
-    pr_tst = true; // telegram in tst mode
+  };
+  TTlgOutPartInfo (const TTlgInfo &info)
+  {
+    id=-1;
+    num = 1;
+    tlg_type = info.tlg_type;
+    point_id = info.point_id;
+    pr_lat = info.pr_lat;
+    extra = info.extra;
+    addr = info.addrs;
+    time_create = info.time_create;
+    time_send_scd=ASTRA::NoExists;
   };
 };
 
 std::string TlgElemIdToElem(TElemType type, int id, TElemFmt fmt, std::string lang);
 std::string TlgElemIdToElem(TElemType type, std::string id, TElemFmt fmt, std::string lang);
+std::string getOriginator(const std::string &airline,
+                          const std::string &airp_dep,
+                          const std::string &tlg_type,
+                          const BASIC::TDateTime &time_create,
+                          bool with_exception);
 
 namespace BSM
 {

@@ -2424,12 +2424,12 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       if (reqInfo->desk.compatible(LATIN_VERSION))
       {
         NewTextChild(paxNode,"pers_type",ElemIdToCodeNative(etPersType, Qry.FieldAsString(col_pers_type)), def_pers_type);
-        NewTextChild(paxNode,"document", GetPaxDocStr(NoExists, pax_id, PaxDocQry, true), "");
+        NewTextChild(paxNode,"document", CheckIn::GetPaxDocStr(NoExists, pax_id, PaxDocQry, true), "");
       }
       else
       {
         NewTextChild(paxNode,"pers_type",ElemIdToCodeNative(etPersType, Qry.FieldAsString(col_pers_type)));
-        NewTextChild(paxNode,"document", GetPaxDocStr(NoExists, pax_id, PaxDocQry, true));
+        NewTextChild(paxNode,"document", CheckIn::GetPaxDocStr(NoExists, pax_id, PaxDocQry, true));
       };
 
       NewTextChild(paxNode,"ticket_rem",Qry.FieldAsString(col_ticket_rem),"");
