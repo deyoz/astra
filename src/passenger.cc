@@ -81,15 +81,37 @@ long int TPaxTknItem::getNotEmptyFieldsMask() const
 
 bool LoadPaxTkn(int pax_id, TPaxTknItem &tkn, TQuery& PaxTknQry)
 {
+  return LoadPaxTkn(ASTRA::NoExists, pax_id, tkn, PaxTknQry);
+};
+
+bool LoadPaxTkn(TDateTime part_key, int pax_id, TPaxTknItem &tkn, TQuery& PaxTknQry)
+{
   tkn.clear();
   const char* sql=
     "SELECT ticket_no, coupon_no, ticket_rem, ticket_confirm, pers_type, seats "
     "FROM pax WHERE pax_id=:pax_id";
-  if (strcmp(PaxTknQry.SQLText.SQLText(),sql)!=0)
+  const char* sql_arx=
+    "SELECT ticket_no, coupon_no, ticket_rem, ticket_confirm, pers_type, seats "
+    "FROM arx_pax WHERE part_key=:part_key AND pax_id=:pax_id";
+  if (part_key!=ASTRA::NoExists)
   {
-    PaxTknQry.Clear();
-    PaxTknQry.SQLText=sql;
-    PaxTknQry.DeclareVariable("pax_id",otInteger);
+    if (strcmp(PaxTknQry.SQLText.SQLText(),sql_arx)!=0)
+    {
+      PaxTknQry.Clear();
+      PaxTknQry.SQLText=sql_arx;
+      PaxTknQry.DeclareVariable("part_key", otDate);
+      PaxTknQry.DeclareVariable("pax_id", otInteger);
+    };
+    PaxTknQry.SetVariable("part_key", part_key);
+  }
+  else
+  {
+    if (strcmp(PaxTknQry.SQLText.SQLText(),sql)!=0)
+    {
+      PaxTknQry.Clear();
+      PaxTknQry.SQLText=sql;
+      PaxTknQry.DeclareVariable("pax_id",otInteger);
+    };
   };
   PaxTknQry.SetVariable("pax_id",pax_id);
   PaxTknQry.Execute();
@@ -334,19 +356,65 @@ void LoadPaxDoco(TQuery& PaxDocQry, xmlNodePtr paxNode)
 
 bool LoadPaxDoc(int pax_id, TPaxDocItem &doc, TQuery& PaxDocQry)
 {
+  return LoadPaxDoc(ASTRA::NoExists, pax_id, doc, PaxDocQry);
+};
+
+bool LoadPaxDoc(TDateTime part_key, int pax_id, TPaxDocItem &doc, TQuery& PaxDocQry)
+{
   doc.clear();
   const char* sql=
     "SELECT * FROM pax_doc WHERE pax_id=:pax_id";
-  if (strcmp(PaxDocQry.SQLText.SQLText(),sql)!=0)
+  const char* sql_arx=
+    "SELECT * FROM arx_pax_doc WHERE part_key=:part_key AND pax_id=:pax_id";
+  if (part_key!=ASTRA::NoExists)
   {
-    PaxDocQry.Clear();
-    PaxDocQry.SQLText=sql;
-    PaxDocQry.DeclareVariable("pax_id",otInteger);
+    if (strcmp(PaxDocQry.SQLText.SQLText(),sql_arx)!=0)
+    {
+      PaxDocQry.Clear();
+      PaxDocQry.SQLText=sql_arx;
+      PaxDocQry.DeclareVariable("part_key", otDate);
+      PaxDocQry.DeclareVariable("pax_id", otInteger);
+    };
+    PaxDocQry.SetVariable("part_key", part_key);
+  }
+  else
+  {
+    if (strcmp(PaxDocQry.SQLText.SQLText(),sql)!=0)
+    {
+      PaxDocQry.Clear();
+      PaxDocQry.SQLText=sql;
+      PaxDocQry.DeclareVariable("pax_id", otInteger);
+    };
   };
   PaxDocQry.SetVariable("pax_id",pax_id);
   PaxDocQry.Execute();
   if (!PaxDocQry.Eof) doc.fromDB(PaxDocQry);
   return !doc.empty();
+};
+
+std::string GetPaxDocStr(TDateTime part_key,
+                         int pax_id,
+                         TQuery& PaxDocQry,
+                         bool with_issue_country,
+                         const string &lang)
+{
+  ostringstream result;
+  
+  TPaxDocItem doc;
+  if (LoadPaxDoc(part_key, pax_id, doc, PaxDocQry) && !doc.no.empty())
+  {
+    result << doc.no;
+    if (with_issue_country && !doc.issue_country.empty())
+    {
+      vector< pair<TElemFmt,string> > fmts_code;
+      if (lang.empty())
+        getElemFmts(efmtCodeNative, TReqInfo::Instance()->desk.lang, fmts_code);
+      else
+        getElemFmts(efmtCodeNative, lang, fmts_code);
+      result << " " << ElemIdToElem(etPaxDocCountry, doc.issue_country, fmts_code, true);
+    };
+  };
+  return result.str();
 };
 
 bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc, TQuery& PaxDocQry, TQuery& GetPSPT2Qry)
@@ -389,14 +457,35 @@ bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc, TQuery& PaxDocQry, TQuery& GetP
 
 bool LoadPaxDoco(int pax_id, TPaxDocoItem &doc, TQuery& PaxDocQry)
 {
+  return LoadPaxDoco(ASTRA::NoExists, pax_id, doc, PaxDocQry);
+};
+
+bool LoadPaxDoco(TDateTime part_key, int pax_id, TPaxDocoItem &doc, TQuery& PaxDocQry)
+{
   doc.clear();
   const char* sql=
     "SELECT * FROM pax_doco WHERE pax_id=:pax_id";
-  if (strcmp(PaxDocQry.SQLText.SQLText(),sql)!=0)
+  const char* sql_arx=
+    "SELECT * FROM arx_pax_doco WHERE part_key=:part_key AND pax_id=:pax_id";
+  if (part_key!=ASTRA::NoExists)
   {
-    PaxDocQry.Clear();
-    PaxDocQry.SQLText=sql;
-    PaxDocQry.DeclareVariable("pax_id",otInteger);
+    if (strcmp(PaxDocQry.SQLText.SQLText(),sql_arx)!=0)
+    {
+      PaxDocQry.Clear();
+      PaxDocQry.SQLText=sql_arx;
+      PaxDocQry.DeclareVariable("part_key", otDate);
+      PaxDocQry.DeclareVariable("pax_id", otInteger);
+    };
+    PaxDocQry.SetVariable("part_key", part_key);
+  }
+  else
+  {
+    if (strcmp(PaxDocQry.SQLText.SQLText(),sql)!=0)
+    {
+      PaxDocQry.Clear();
+      PaxDocQry.SQLText=sql;
+      PaxDocQry.DeclareVariable("pax_id", otInteger);
+    };
   };
   PaxDocQry.SetVariable("pax_id",pax_id);
   PaxDocQry.Execute();

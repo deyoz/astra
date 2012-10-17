@@ -51,6 +51,7 @@ class TPaxTknItem
 };
 
 bool LoadPaxTkn(int pax_id, TPaxTknItem &tkn, TQuery& PaxTknQry);
+bool LoadPaxTkn(BASIC::TDateTime part_key, int pax_id, TPaxTknItem &tkn, TQuery& PaxTknQry);
 
 class TPaxDocItem
 {
@@ -179,7 +180,14 @@ class TPaxDocoItem
 void LoadPaxDoc(TQuery& PaxDocQry, xmlNodePtr paxNode);
 void LoadPaxDoco(TQuery& PaxDocQry, xmlNodePtr paxNode);
 bool LoadPaxDoc(int pax_id, TPaxDocItem &doc, TQuery& PaxDocQry);
+bool LoadPaxDoc(BASIC::TDateTime part_key, int pax_id, TPaxDocItem &doc, TQuery& PaxDocQry);
+std::string GetPaxDocStr(BASIC::TDateTime part_key,
+                         int pax_id,
+                         TQuery& PaxDocQry,
+                         bool with_issue_country=false,
+                         const std::string &lang="");
 bool LoadPaxDoco(int pax_id, TPaxDocoItem &doc, TQuery& PaxDocQry);
+bool LoadPaxDoco(BASIC::TDateTime part_key, int pax_id, TPaxDocoItem &doc, TQuery& PaxDocQry);
 bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc, TQuery& PaxDocQry, TQuery& GetPSPT2Qry);
 bool LoadCrsPaxDoco(int pax_id, TPaxDocoItem &doc, TQuery& PaxDocQry);
 void SavePaxDoc(int pax_id, xmlNodePtr docNode, TQuery& PaxDocQry);

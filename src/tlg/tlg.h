@@ -65,7 +65,6 @@ const char* ETS_CANON_NAME();
 const char* OWN_CANON_NAME();
 const char* ERR_CANON_NAME();
 const char* DEF_CANON_NAME();
-const char* OWN_SITA_ADDR();
 const int HANDLER_PROC_ATTEMPTS();
 
 enum TTlgQueuePriority { qpOutA=1, qpOutAStepByStep=3, qpOutB=2 };

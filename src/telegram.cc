@@ -616,21 +616,6 @@ void TelegramInterface::GetTlgOut(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
         completed = not has_errors;
     NewTextChild( node, "editable", editable, false );
 
-    //потом удалить !!! (обновление терминала 13.03.08)
-
-  /*  NewTextChild( node, "type", basic_type );
-
-    if (basic_type=="PFS")
-      NewTextChild( node, "crs", Qry.FieldAsString("extra") );
-    else
-      NewTextChild( node, "crs" );
-    if (basic_type=="PTM" ||
-        basic_type=="BTM")
-      NewTextChild( node, "airp", Qry.FieldAsString("extra") );
-    else
-      NewTextChild( node, "airp" );*/
-    //потом удалить !!!
-
     NewTextChild( node, "addr", Qry.FieldAsString("addr") );
     NewTextChild( node, "heading", Qry.FieldAsString("heading") );
     NewTextChild( node, "ending", Qry.FieldAsString("ending") );
@@ -694,18 +679,6 @@ void TelegramInterface::GetAddrs(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     info.crs=NodeAsStringFast( "crs", node, "");
     info.pr_lat=NodeAsIntegerFast( "pr_lat", node)!=0;
     info.mark_info.init(reqNode);
-
-    //!!!потом удалить (17.03.08)
-    if (GetNodeFast("pr_numeric",node)!=NULL)
-    {
-      if (NodeAsIntegerFast("pr_numeric",node)!=0)
-      {
-        if (info.tlg_type=="PFS") info.tlg_type="PFSN";
-        if (info.tlg_type=="PTM") info.tlg_type="PTMN";
-      };
-    };
-    if (info.tlg_type=="MVT") info.tlg_type="MVTA";
-    //!!!потом удалить (17.03.08)
 
     addrs=TelegramInterface::GetTypeBAddrs(info);
   }
@@ -1810,9 +1783,6 @@ void Send( int point_dep, int grp_id, const TTlgContent &con1, const TBSMAddrs &
     p.tlg_type="BSM";
     p.point_id=point_dep;
     p.time_create=NowUTC();
-    ostringstream heading;
-    heading << '.' << OWN_SITA_ADDR() << ' ' << DateTimeToStr(p.time_create,"ddhhnn") << ENDL;
-    p.heading=heading.str();
 
     TQuery Qry(&OraSession);
     Qry.Clear();
@@ -1828,6 +1798,12 @@ void Send( int point_dep, int grp_id, const TTlgContent &con1, const TBSMAddrs &
         p.num=1;
         p.pr_lat=j->first;
         p.addr=format_addr_line(j->second);
+        ostringstream heading;
+        heading << '.' << getOriginator(i->OutFlt.operFlt.airline,
+                                        i->OutFlt.operFlt.airp,
+                                        p.tlg_type, p.time_create, true)
+                << ' ' << DateTimeToStr(p.time_create,"ddhhnn") << ENDL;
+        p.heading=heading.str();
         p.body=CreateTlgBody(*i,p.pr_lat);
         TelegramInterface::SaveTlgOutPart(p);
         Qry.SetVariable("id",p.id);

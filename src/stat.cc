@@ -12,6 +12,7 @@
 #include "astra_utils.h"
 #include "astra_misc.h"
 #include "term_version.h"
+#include "passenger.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/test.h"
@@ -1471,10 +1472,10 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 NewTextChild(paxNode, "status", status);
                 NewTextChild(paxNode, "class", ElemIdToCodeNative(etClsGrp, Qry.FieldAsInteger(col_class_grp)));
                 NewTextChild(paxNode, "seat_no", Qry.FieldAsString(col_seat_no));
-                NewTextChild(paxNode, "document", GetPaxDocStr(part_key,
-                                                               Qry.FieldAsInteger(col_pax_id),
-                                                               PaxDocQry,
-                                                               true));
+                NewTextChild(paxNode, "document", CheckIn::GetPaxDocStr(part_key,
+                                                                        Qry.FieldAsInteger(col_pax_id),
+                                                                        PaxDocQry,
+                                                                        true));
                 NewTextChild(paxNode, "ticket_no", Qry.FieldAsString(col_ticket_no));
                 if(Qry.FieldIsNULL(col_hall))
                     NewTextChild(paxNode, "hall");
@@ -5113,10 +5114,10 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 NewTextChild(paxNode, "status", status);
                 NewTextChild(paxNode, "class", ElemIdToCodeNative(etClsGrp, Qry.FieldAsInteger(col_class_grp)));
                 NewTextChild(paxNode, "seat_no", Qry.FieldAsString(col_seat_no));
-                NewTextChild(paxNode, "document", GetPaxDocStr(part_key,
-                                                               Qry.FieldAsInteger(col_pax_id),
-                                                               PaxDocQry,
-                                                               true));
+                NewTextChild(paxNode, "document", CheckIn::GetPaxDocStr(part_key,
+                                                                        Qry.FieldAsInteger(col_pax_id),
+                                                                        PaxDocQry,
+                                                                        true));
                 NewTextChild(paxNode, "ticket_no", Qry.FieldAsString(col_ticket_no));
                 if(Qry.FieldIsNULL(col_hall))
                     NewTextChild(paxNode, "hall");
