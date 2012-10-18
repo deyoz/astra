@@ -109,22 +109,22 @@ void TRemGrp::Load(TRemEventType rem_set_type, const string &airline)
     TQuery Qry(&OraSession);
     Qry.Clear();
     Qry.SQLText=
-      "SELECT NVL(airline_rem_event_sets.rem_code,basic_rem_event_sets.rem_code) AS rem_code, "
-      "       NVL(airline_rem_event_sets.event_value,basic_rem_event_sets.event_value) AS event_value "
-      "FROM "
-      "  (SELECT * FROM rem_event_sets WHERE event_type=:event_type AND airline=:airline) airline_rem_event_sets "
-      "  FULL OUTER JOIN "
-      "  (SELECT * FROM rem_event_sets WHERE event_type=:event_type AND airline IS NULL) basic_rem_event_sets "
-      "ON basic_rem_event_sets.event_type=airline_rem_event_sets.event_type AND "
-      "   basic_rem_event_sets.rem_code=airline_rem_event_sets.rem_code ";
+      "SELECT ckin_rem_types.code AS rem_code "
+      "FROM ckin_rem_types, "
+      "     rem_event_sets airline_rem_event_sets, "
+      "     rem_event_sets basic_rem_event_sets "
+      "WHERE ckin_rem_types.code=airline_rem_event_sets.rem_code(+) AND "
+      "      airline_rem_event_sets.event_type(+)=:event_type AND "
+      "      airline_rem_event_sets.airline(+)=:airline AND "
+      "      ckin_rem_types.code=basic_rem_event_sets.rem_code(+) AND "
+      "      basic_rem_event_sets.event_type(+)=:event_type AND "
+      "      basic_rem_event_sets.airline(+) IS NULL AND "
+      "      NVL(airline_rem_event_sets.event_value,NVL(basic_rem_event_sets.event_value,0))<>0";
     Qry.CreateVariable("event_type", otString, event_type);
     Qry.CreateVariable("airline", otString, airline);
     Qry.Execute();
     for(; !Qry.Eof; Qry.Next())
-    {
-      if (Qry.FieldAsInteger("event_value")!=0)
-        push_back(Qry.FieldAsString("rem_code"));
-    };
+      push_back(Qry.FieldAsString("rem_code"));
 }
 
 string GetRemarkStr(const TRemGrp &rem_grp, int pax_id, TQuery &Qry, const string &term)
