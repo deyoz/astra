@@ -731,6 +731,8 @@ void TelegramInterface::SaveTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   Qry.CreateVariable( "body", otString, tlg_body );
   Qry.Execute();
 
+  check_tlg_out_alarm(point_id);
+
   ostringstream msg;
   msg << "Телеграмма " << tlg_short_name << " (ид=" << tlg_id << ") изменена";
   TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,tlg_id);
@@ -1826,6 +1828,8 @@ void Send( int point_dep, int grp_id, const TTlgContent &con1, const TBSMAddrs &
     };
     if(not addrs.HTTPGETparams.empty())
         registerHookAfter(sendCmdTlgHttpSnd);
+
+    check_tlg_out_alarm(point_dep);
 };
 
 };
