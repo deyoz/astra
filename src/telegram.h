@@ -12,6 +12,7 @@
 #include "passenger.h"
 #include "remarks.h"
 
+const size_t PART_SIZE = 3500;
 
 struct TTlgCompLayer {
 	int pax_id;
@@ -59,6 +60,13 @@ struct TErrLst:std::map<int, std::string> {
     void fetch_err(std::set<int> &txt_errs, std::string body);
 };
 
+struct TOriginatorInfo
+{
+  int id;
+  std::string addr;
+  TOriginatorInfo():id(ASTRA::NoExists) {};
+};
+
 struct TTlgInfo {
     // Информация о коммерческом рейсе
     /*const TCodeShareInfo &mark_info;*/
@@ -69,7 +77,7 @@ struct TTlgInfo {
     //адреса получателей
     std::string addrs;
     //адрес отправителя
-    std::string sender;
+    TOriginatorInfo originator;
     //время создания
     BASIC::TDateTime time_create;
     //рейс
@@ -126,6 +134,40 @@ struct TTlgInfo {
         pr_lat = false;
         vcompleted = false;
     }
+};
+
+struct TTlgStatPoint
+{
+  std::string sita_addr;
+  std::string canon_name;
+  std::string descr;
+  std::string country;
+  TTlgStatPoint(std::string v_sita_addr,
+                std::string v_canon_name,
+                std::string v_descr,
+                std::string v_country):sita_addr(v_sita_addr),
+                                       canon_name(v_canon_name),
+                                       descr(v_descr),
+                                       country(v_country) {};
+};
+
+class TTlgStat
+{
+  public:
+    void putTypeBOut(const int queue_tlg_id,
+                     const int tlg_id,
+                     const int tlg_num,
+                     const TTlgStatPoint &sender,
+                     const TTlgStatPoint &receiver,
+                     const BASIC::TDateTime time_create,
+                     const std::string &tlg_type,
+                     const int tlg_len,
+                     const TTripInfo &fltInfo,
+                     const std::string &extra);
+
+  /*  putTypeBOut()
+    sendTypeBOut()
+    doneTypeBOut()*/
 };
 
 bool getPaxRem(TTlgInfo &info, const CheckIn::TPaxTknItem &tkn, CheckIn::TPaxRemItem &rem);
@@ -229,12 +271,14 @@ struct TTlgOutPartInfo
   std::string tlg_type,addr,heading,body,ending,extra;
   bool pr_lat;
   BASIC::TDateTime time_create,time_send_scd;
+  int originator_id;
   TTlgOutPartInfo ()
   {
     id=-1;
     num=1;
     time_create=ASTRA::NoExists;
     time_send_scd=ASTRA::NoExists;
+    originator_id=ASTRA::NoExists;
   };
   TTlgOutPartInfo (const TTlgInfo &info)
   {
@@ -246,17 +290,18 @@ struct TTlgOutPartInfo
     extra = info.extra;
     addr = info.addrs;
     time_create = info.time_create;
-    time_send_scd=ASTRA::NoExists;
+    time_send_scd = ASTRA::NoExists;
+    originator_id = info.originator.id;
   };
 };
 
 std::string TlgElemIdToElem(TElemType type, int id, TElemFmt fmt, std::string lang);
 std::string TlgElemIdToElem(TElemType type, std::string id, TElemFmt fmt, std::string lang);
-std::string getOriginator(const std::string &airline,
-                          const std::string &airp_dep,
-                          const std::string &tlg_type,
-                          const BASIC::TDateTime &time_create,
-                          bool with_exception);
+TOriginatorInfo getOriginator(const std::string &airline,
+                              const std::string &airp_dep,
+                              const std::string &tlg_type,
+                              const BASIC::TDateTime &time_create,
+                              bool with_exception);
 
 namespace BSM
 {

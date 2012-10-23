@@ -81,11 +81,11 @@ void sendCmdTypeBHandler()
   sendCmd("CMD_TYPEB_HANDLER","H");
 }
 
-void sendTlg(const char* receiver,
-             const char* sender,
-             TTlgQueuePriority queuePriority,
-             int ttl,
-             const std::string &text)
+int sendTlg(const char* receiver,
+            const char* sender,
+            TTlgQueuePriority queuePriority,
+            int ttl,
+            const std::string &text)
 {
     try
     {
@@ -137,6 +137,7 @@ void sendTlg(const char* receiver,
                          nowUTC,
                          (int)queuePriority);
         Qry.Close();
+        return Qry.GetVariableAsInteger("tlg_num");
     }
     catch( std::exception &e)
     {
