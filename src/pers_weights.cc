@@ -433,8 +433,7 @@ int getCommerceWeight( int point_id, TTypeFlightWeight weight_type, TTypeCalcCom
                    w.weight_child +
                    w.weight_infant +
                    w.weight_bag +
-                   w.weight_cabin_bag +
-                   weight_cargos;
+                   w.weight_cabin_bag;
   ProgTrace( TRACE5, "getCommerceWeight: weight_cargos=%d", weight_cargos );
   if ( calc_type == CWTotal )
     return weight_cargos;
