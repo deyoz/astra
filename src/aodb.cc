@@ -738,12 +738,17 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 		  BagQry.Execute();
 		  int prior_bag_num = -1;
 		  while ( !BagQry.Eof ) {
-		  	ostringstream record_bag;
+		  	ostringstream record_bag, numstr;
 		  	record_bag<<setfill(' ')<<std::fixed;
 		  	DecodeBagType( BagQry.FieldAsInteger( "bag_type" ), code, type_name, format );
 		  	record_bag<<setw(2)<<code<<setw(20)<<type_name.substr(0,20);
-		  	record_bag<<setw(10)<<setprecision(0)<<BagQry.FieldAsFloat( "no" );
-		  	record_bag<<setw(2)<<string(BagQry.FieldAsString( "color" )).substr(0,2);
+		  	numstr<<setfill('0')<<std::fixed<<setw(10)<<setprecision(0)<<BagQry.FieldAsFloat( "no" );
+		  	record_bag<<setw(10);
+        if ( numstr.str().size() <= 10 )
+          record_bag<<numstr.str();
+        else
+          record_bag<<" ";
+ 	  	  record_bag<<setw(2)<<string(BagQry.FieldAsString( "color" )).substr(0,2);
 		  	if ( prior_bag_num == BagQry.FieldAsInteger( "bag_num" ) )
 		  		record_bag<<setw(4)<<0;
 		  	else
