@@ -14,7 +14,7 @@ enum TStage { sNoActive = 0, /*не активен*/
               sOpenWEBCheckIn = 25, /*Открытие WEB-регистрации*/
               sOpenKIOSKCheckIn = 26, /*Открытие само-регистрации*/
               sCloseCheckIn = 30, /*Закрытие регистрации*/
-              sBanCancelWebCheckin = 31, /* Запрет отмены web-регистрации */
+              sCloseWEBCancel = 31, /* Запрет отмены web-регистрации */
               sCloseWEBCheckIn = 35, /*Закрытие WEB-регистрации*/
               sCloseKIOSKCheckIn = 36, /*Закрытие само-регистрации*/
               sOpenBoarding = 40, /*Начало посадки*/
@@ -22,7 +22,12 @@ enum TStage { sNoActive = 0, /*не активен*/
               sRemovalGangWay = 70, /*Уборка трапа*/
               sTakeoff = 99 /*Вылетел*/ };
 
-enum TStage_Type { stCheckIn = 1, stBoarding = 2, stCraft = 3, stWEB = 4, stKIOSK = 5 };
+enum TStage_Type { stCheckIn = 1,
+                   stBoarding = 2,
+                   stCraft = 3,
+                   stWEBCheckIn = 4,
+                   stKIOSKCheckIn = 5,
+                   stWEBCancel = 6 };
 enum TStageStep { stPrior, stNext };
 
 struct TTripStage {

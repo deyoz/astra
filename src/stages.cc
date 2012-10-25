@@ -35,8 +35,8 @@ bool CompatibleStage( TStage stage )
        stage == sCloseKIOSKCheckIn )
     return TReqInfo::Instance()->desk.compatible( WEB_CHECKIN_VERSION );
     
-  if ( stage == sBanCancelWebCheckin )
-    return TReqInfo::Instance()->desk.compatible( BAN_CNL_WEB_CHECKIN_VERSION );
+  if ( stage == sCloseWEBCancel )
+    return TReqInfo::Instance()->desk.compatible( WEB_CANCEL_VERSION );
   return false;
 }
 
@@ -646,7 +646,7 @@ void exec_stage( int point_id, int stage_id )
   	case sOpenKIOSKCheckIn:
            /*открытие KIOSK-регистрации*/
   	     break;
-    case sBanCancelWebCheckin:
+    case sCloseWEBCancel:
           /*Запрет разрегистрации web-пассажира*/
           break;
     case sCloseCheckIn:

@@ -166,9 +166,10 @@ struct TSearchPnrData {
 	string airp_dep;
 	string city_dep;
 	map<TStage, TDateTime> stages;
-	TStage web_stage;
-	TStage kiosk_stage;
-	TStage checkin_stage;
+	TStage web_checkin_stage;
+  TStage web_cancel_stage;
+	TStage kiosk_checkin_stage;
+	TStage term_checkin_stage;
 	TStage brd_stage;
 	std::vector<TTripInfo> mark_flights;
 
@@ -283,15 +284,17 @@ bool getTripData( int point_id, bool first_segment, TSearchPnrData &SearchPnrDat
       throw UserException( "MSG.FLIGHT_DATE.NOT_SET" );
 
   	TTripStages tripStages( point_id );
-  	SearchPnrData.web_stage = tripStages.getStage( stWEB );
-    SearchPnrData.kiosk_stage = tripStages.getStage( stKIOSK );
-  	SearchPnrData.checkin_stage = tripStages.getStage( stCheckIn );
+  	SearchPnrData.web_checkin_stage = tripStages.getStage( stWEBCheckIn );
+    SearchPnrData.web_cancel_stage = tripStages.getStage( stWEBCancel );
+    SearchPnrData.kiosk_checkin_stage = tripStages.getStage( stKIOSKCheckIn );
+  	SearchPnrData.term_checkin_stage = tripStages.getStage( stCheckIn );
   	SearchPnrData.brd_stage = tripStages.getStage( stBoarding );
 
-  	ProgTrace( TRACE5, "web_stage=%d, kiosk_stage=%d, checkin_stage=%d, brd_stage=%d",
-  	           (int)SearchPnrData.web_stage,
-  	           (int)SearchPnrData.kiosk_stage,
-               (int)SearchPnrData.checkin_stage,
+  	ProgTrace( TRACE5, "stages: web_checkin=%d, web_cancel=%d, kiosk_checkin=%d, term_checkin=%d, brd=%d",
+  	           (int)SearchPnrData.web_checkin_stage,
+               (int)SearchPnrData.web_cancel_stage,
+  	           (int)SearchPnrData.kiosk_checkin_stage,
+               (int)SearchPnrData.term_checkin_stage,
                (int)SearchPnrData.brd_stage );
   	TBaseTable &baseairps = base_tables.get( "airps" );
 
@@ -347,7 +350,7 @@ bool getTripData( int point_id, bool first_segment, TSearchPnrData &SearchPnrDat
   	TCkinClients ckin_clients;
   	TTripStages::ReadCkinClients( point_id, ckin_clients );
   	TStage stage;
-    for(int pass=0; pass<6; pass++)
+    for(int pass=0; pass<7; pass++)
     {
       switch(pass)
       {
@@ -361,13 +364,18 @@ bool getTripData( int point_id, bool first_segment, TSearchPnrData &SearchPnrDat
                 else
                   stage=sCloseWEBCheckIn;
                 break;
-        case 2: stage=sOpenCheckIn;
+        case 2: if ( reqInfo->client_type == ctKiosk )
+                  continue;
+                else
+                  stage=sCloseWEBCancel;
                 break;
-        case 3: stage=sCloseCheckIn;
+        case 3: stage=sOpenCheckIn;
                 break;
-        case 4: stage=sOpenBoarding;
+        case 4: stage=sCloseCheckIn;
                 break;
-        case 5: stage=sCloseBoarding;
+        case 5: stage=sOpenBoarding;
+                break;
+        case 6: stage=sCloseBoarding;
                 break;
       };
       
@@ -388,9 +396,9 @@ bool getTripData( int point_id, bool first_segment, TSearchPnrData &SearchPnrDat
           if (Qry.Eof || Qry.FieldAsInteger("pr_permit")==0)
           {
             ckin_clients.erase(iClient);
-            if (SearchPnrData.kiosk_stage==sOpenKIOSKCheckIn ||
-                SearchPnrData.kiosk_stage==sCloseKIOSKCheckIn)
-              SearchPnrData.kiosk_stage=sNoActive;
+            if (SearchPnrData.kiosk_checkin_stage==sOpenKIOSKCheckIn ||
+                SearchPnrData.kiosk_checkin_stage==sCloseKIOSKCheckIn)
+              SearchPnrData.kiosk_checkin_stage=sNoActive;
           };
         };
       };
@@ -595,7 +603,8 @@ void getTCkinData( const TSearchPnrData &firstPnrData,
         else
         {
           if ( pnrData.stages[ sOpenWEBCheckIn ] == NoExists ||
-               pnrData.stages[ sCloseWEBCheckIn ] == NoExists )
+               pnrData.stages[ sCloseWEBCheckIn ] == NoExists ||
+               pnrData.stages[ sCloseWEBCancel ] == NoExists)
             throw "Stage of web check-in not found";
         };
 
@@ -1699,9 +1708,9 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     else
     {
       if ( reqInfo->client_type == ctKiosk )
-        stage=pnrData->kiosk_stage;
+        stage=pnrData->kiosk_checkin_stage;
       else
-        stage=pnrData->web_stage;
+        stage=pnrData->web_checkin_stage;
       switch ( stage ) {
       	case sNoActive:
       		NewTextChild( node, "status", "sNoActive" );
@@ -1728,7 +1737,7 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     xmlNodePtr stagesNode = NewTextChild( node, "stages" );
     xmlNodePtr stageNode;
     string stage_name;
-    for(int pass=0; pass<6; pass++)
+    for(int pass=0; pass<7; pass++)
     {
       switch(pass)
       {
@@ -1754,16 +1763,24 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                   stage_name="sCloseWEBCheckIn";
                 };
                 break;
-        case 2: stage=sOpenCheckIn;
+        case 2: if ( reqInfo->client_type == ctKiosk )
+                  continue;
+                else
+                {
+                  stage=sCloseWEBCancel;
+                  stage_name="sCloseWEBCancel";
+                };
+                break;
+        case 3: stage=sOpenCheckIn;
                 stage_name="sOpenCheckIn";
                 break;
-        case 3: stage=sCloseCheckIn;
+        case 4: stage=sCloseCheckIn;
                 stage_name="sCloseCheckIn";
                 break;
-        case 4: stage=sOpenBoarding;
+        case 5: stage=sOpenBoarding;
                 stage_name="sOpenBoarding";
                 break;
-        case 5: stage=sCloseBoarding;
+        case 6: stage=sCloseBoarding;
                 stage_name="sCloseBoarding";
                 break;
       };
@@ -1776,10 +1793,13 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     
     xmlNodePtr semNode = NewTextChild( node, "semaphors" );
     if ( reqInfo->client_type == ctKiosk )
-      NewTextChild( semNode, "kiosk_checkin", (int)(pnrData->act_out == NoExists && pnrData->kiosk_stage == sOpenKIOSKCheckIn) );
+      NewTextChild( semNode, "kiosk_checkin", (int)(pnrData->act_out == NoExists && pnrData->kiosk_checkin_stage == sOpenKIOSKCheckIn) );
     else
-      NewTextChild( semNode, "web_checkin", (int)(pnrData->act_out == NoExists && pnrData->web_stage == sOpenWEBCheckIn) );
-    NewTextChild( semNode, "term_checkin", (int)(pnrData->act_out == NoExists && pnrData->checkin_stage == sOpenCheckIn) );
+    {
+      NewTextChild( semNode, "web_checkin", (int)(pnrData->act_out == NoExists && pnrData->web_checkin_stage == sOpenWEBCheckIn) );
+      NewTextChild( semNode, "web_cancel", (int)(pnrData->act_out == NoExists && pnrData->web_cancel_stage == sOpenWEBCheckIn) );
+    };
+    NewTextChild( semNode, "term_checkin", (int)(pnrData->act_out == NoExists && pnrData->term_checkin_stage == sOpenCheckIn) );
     NewTextChild( semNode, "term_brd", (int)(pnrData->act_out == NoExists && pnrData->brd_stage == sOpenBoarding) );
     
     NewTextChild( node, "paid_checkin", (int)pnrData->pr_paid_ckin );
@@ -2798,10 +2818,13 @@ struct TWebPnrForSave
 {
   int pnr_id;
   vector<TWebPaxFromReq> paxFromReq;
+  bool req_refusal_exists;
   list<TWebPaxForChng> paxForChng;
   list<TWebPaxForCkin> paxForCkin;
+
   TWebPnrForSave() {
     pnr_id = NoExists;
+    req_refusal_exists = false;
   };
 };
 
@@ -3189,10 +3212,10 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
 
   	    if ( reqInfo->client_type == ctKiosk )
         {
-          if (!(iPnrData->kiosk_stage == sOpenKIOSKCheckIn ||
-                iPnrData->kiosk_stage == sNoActive && s!=segs.begin())) //для сквозных сегментов регистрация может быть еще не открыта
+          if (!(iPnrData->kiosk_checkin_stage == sOpenKIOSKCheckIn ||
+                iPnrData->kiosk_checkin_stage == sNoActive && s!=segs.begin())) //для сквозных сегментов регистрация может быть еще не открыта
           {
-            if (iPnrData->kiosk_stage == sNoActive)
+            if (iPnrData->kiosk_checkin_stage == sNoActive)
               throw UserException( "MSG.CHECKIN.NOT_OPEN" );
             else
               throw UserException( "MSG.CHECKIN.CLOSED_OR_DENIAL" );
@@ -3200,9 +3223,9 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
         }
         else
         {
-          if (!(iPnrData->web_stage == sOpenWEBCheckIn ||
-                iPnrData->web_stage == sNoActive && s!=segs.begin())) //для сквозных сегментов регистрация может быть еще не открыта
-            if (iPnrData->web_stage == sNoActive)
+          if (!(iPnrData->web_checkin_stage == sOpenWEBCheckIn ||
+                iPnrData->web_checkin_stage == sNoActive && s!=segs.begin())) //для сквозных сегментов регистрация может быть еще не открыта
+            if (iPnrData->web_checkin_stage == sNoActive)
               throw UserException( "MSG.CHECKIN.NOT_OPEN" );
             else
               throw UserException( "MSG.CHECKIN.CLOSED_OR_DENIAL" );
@@ -3560,6 +3583,7 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
         sort(pax.fqt_rems.begin(),pax.fqt_rems.end());
         
         pax.refuse=NodeAsIntegerFast("refuse", node2, 0)!=0;
+        if (pax.refuse) pnr.req_refusal_exists=true;
         
         xmlNodePtr tidsNode=NodeAsNode("tids", paxNode);
         pax.crs_pnr_tid=NodeAsInteger("crs_pnr_tid",tidsNode);
