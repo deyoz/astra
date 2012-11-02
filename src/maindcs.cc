@@ -1087,14 +1087,76 @@ void MainDCSInterface::GetEventCmd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   CopyNodeList(resNode,reqNode);
 };
 
-bool MainDCSInterface::GetSessionAirlines(xmlNodePtr node, string &str, std::string &airline_params)
+void NormalizeAirlines( vector<string> &airlines,
+                        map<string,string> &air_params,
+                        string &str, string &airline_params )
+{
+  if (airlines.empty())
+    return;
+  sort(airlines.begin(),airlines.end());
+  string prior_airline;
+  //удалим одинаковые компании
+  for(vector<string>::iterator i=airlines.begin();i!=airlines.end();i++)
+  {
+    if (*i!=prior_airline)
+    {
+      if (!str.empty()) str.append("/");
+      str.append(*i);
+      if (!airline_params.empty()) airline_params.append( string(1,5) );
+      airline_params.append(air_params[*i]);
+      prior_airline=*i;
+    };
+  };
+  ProgTrace( TRACE5, "airline_params=%s", airline_params.c_str() );
+}
+
+bool MainDCSInterface::GetSessionAirlines(xmlNodePtr reqNode, string &str, std::string &airline_params)
 {
   str.clear();
-  if (node==NULL) return true;
+  airline_params.clear();
+  xmlNodePtr node;
+  string value_airline;
   vector<string> airlines;
   map<string,string> air_params;
+  if ( TReqInfo::Instance()->desk.mode == omCUSE ) {
+    node = GetNode("command_line_params", reqNode);
+    if ( node != NULL ) {
+      for(node=node->children;node!=NULL;node=node->next) {
+        string param_value = NodeAsString( node );
+        size_t p = param_value.find( "AirlineCode=" );
+        if ( p != string::npos ) {
+          param_value = param_value.erase( p, string( "AirlineCode=" ).size() );
+          ProgTrace( TRACE5, "param_value=%s", param_value.c_str() );
+          while ( !param_value.empty() ) {
+            size_t p = param_value.find( "," );
+            if ( p != string::npos ) {
+              value_airline = param_value.substr( 0, p );
+              param_value.erase( 0, p + 1 );
+            }
+            else {
+              value_airline = param_value;
+              param_value.clear();
+            }
+            ProgTrace( TRACE5, "value_airline=|%s|", value_airline.c_str() );
+          	try {
+          		airlines.push_back(base_tables.get("airlines").get_row("aircode",value_airline).AsString("code"));
+    	      }
+    	      catch(EBaseTableError) {
+             str=value_airline;
+             return false;
+            }
+            ProgTrace( TRACE5, "param_value=|%s|", param_value.c_str() );
+          }
+          NormalizeAirlines( airlines, air_params, str, airline_params );
+          return true;
+        }
+      }
+    }
+  }
+  
+  node = GetNode("airlines", reqNode);
+  if (node==NULL) return true;
   xmlNodePtr run_paramNode;
-  string value_airline;
   string run_param_airline;
   for(node=node->children;node!=NULL;node=node->next)
   {
@@ -1132,22 +1194,7 @@ bool MainDCSInterface::GetSessionAirlines(xmlNodePtr node, string &str, std::str
        }
 
   };
-  if (airlines.empty()) return true;
-  sort(airlines.begin(),airlines.end());
-  string prior_airline;
-  //удалим одинаковые компании
-  for(vector<string>::iterator i=airlines.begin();i!=airlines.end();i++)
-  {
-    if (*i!=prior_airline)
-    {
-      if (!str.empty()) str.append("/");
-      str.append(*i);
-      if (!airline_params.empty()) airline_params.append( string(1,5) );
-      airline_params.append(air_params[*i]);
-      prior_airline=*i;
-    };
-  };
-  ProgTrace( TRACE5, "airline_params=%s", airline_params.c_str() );
+  NormalizeAirlines( airlines, air_params, str, airline_params );
   return true;
 };
 
@@ -1203,7 +1250,7 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
     string airlines;
     string airlines_params;
-    if (!GetSessionAirlines(GetNode("airlines", reqNode),airlines,airlines_params))
+    if (!GetSessionAirlines(reqNode,airlines,airlines_params))
       throw AstraLocale::UserException("MSG.AIRLINE_CODE_NOT_FOUND", LParams() << LParam("airline", airlines));
     JxtContext::getJxtContHandler()->sysContext()->write("session_airlines",airlines);
     JxtContext::getJxtContHandler()->sysContext()->write("session_airlines_params",airlines_params);
