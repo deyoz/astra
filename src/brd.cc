@@ -407,9 +407,7 @@ bool BrdInterface::PaxUpdate(int point_id, int pax_id, int &tid, bool mark, bool
                                      grp_id);
 
       //отвяжем сквозняков от предыдущих сегментов
-      int tckin_id;
-      int tckin_seg_no;
-      SeparateTCkin(grp_id,cssAllPrevCurr,cssCurr,new_tid,tckin_id,tckin_seg_no);
+      SeparateTCkin(grp_id,cssAllPrevCurr,cssCurr,new_tid);
 
       if (reqInfo->screen.name == "BRDBUS.EXE")
       {

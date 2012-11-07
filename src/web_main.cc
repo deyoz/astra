@@ -11,6 +11,7 @@
 #include "images.h"
 #include "xml_unit.h"
 #include "astra_utils.h"
+#include "astra_context.h"
 #include "convert.h"
 #include "basic.h"
 #include "astra_misc.h"
@@ -2818,13 +2819,13 @@ struct TWebPnrForSave
 {
   int pnr_id;
   vector<TWebPaxFromReq> paxFromReq;
-  bool req_refusal_exists;
+  unsigned int refusalCountFromReq;
   list<TWebPaxForChng> paxForChng;
   list<TWebPaxForCkin> paxForCkin;
 
   TWebPnrForSave() {
     pnr_id = NoExists;
-    req_refusal_exists = false;
+    refusalCountFromReq = 0;
   };
 };
 
@@ -3204,7 +3205,8 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
     try
     {
       if (iPnrData!=PNRs.end() &&
-          (!s->second.paxForCkin.empty() || !s->second.paxForChng.empty())) //типа есть пассажиры
+          (!s->second.paxForCkin.empty() ||
+           !s->second.paxForChng.empty() && s->second.paxForChng.size()>s->second.refusalCountFromReq)) //типа есть пассажиры
       {
         //проверяем на сегменте вылет рейса и состояние соответствующего этапа
         if ( iPnrData->act_out != NoExists )
@@ -3229,6 +3231,16 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
               throw UserException( "MSG.CHECKIN.NOT_OPEN" );
             else
               throw UserException( "MSG.CHECKIN.CLOSED_OR_DENIAL" );
+        };
+      };
+      
+      if (iPnrData!=PNRs.end() && s->second.refusalCountFromReq>0)
+      {
+        if ( reqInfo->client_type != ctKiosk )
+        {
+          if (!(iPnrData->web_cancel_stage == sOpenWEBCheckIn ||
+                iPnrData->web_cancel_stage == sNoActive && s!=segs.begin())) //для сквозных сегментов регистрация может быть еще не открыта
+            throw UserException("MSG.PASSENGER.UNREGISTRATION_DENIAL");
         };
       };
 
@@ -3583,7 +3595,7 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
         sort(pax.fqt_rems.begin(),pax.fqt_rems.end());
         
         pax.refuse=NodeAsIntegerFast("refuse", node2, 0)!=0;
-        if (pax.refuse) pnr.req_refusal_exists=true;
+        if (pax.refuse) pnr.refusalCountFromReq++;
         
         xmlNodePtr tidsNode=NodeAsNode("tids", paxNode);
         pax.crs_pnr_tid=NodeAsInteger("crs_pnr_tid",tidsNode);
@@ -3611,13 +3623,26 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
   vector<TIdsPnrData> ids;
   VerifyPax(segs, emulDocHeader, emulCkinDoc, emulChngDocs, ids);
 
+  int first_grp_id, tckin_id;
+  TChangeStatusList ETInfo;
+  set<int> tckin_ids;
   bool result=true;
+  //важно, что сначала вызывается CheckInInterface::SavePax для emulCkinDoc
+  //только при веб-регистрации НОВОЙ группы возможен ROLLBACK CHECKIN в SavePax при перегрузке
+  //и соответственно возвращение result=false
+  //и соответственно вызов ETStatusInterface::ETRollbackStatus для ВСЕХ ЭБ
+  
   if (emulCkinDoc.docPtr()!=NULL) //регистрация новой группы
   {
     xmlNodePtr emulReqNode=NodeAsNode("/term/query",emulCkinDoc.docPtr())->children;
     if (emulReqNode==NULL)
       throw EXCEPTIONS::Exception("WebRequestsIface::SavePax: emulReqNode=NULL");
-    if (!CheckInInterface::SavePax(reqNode, emulReqNode, ediResNode, resNode)) result=false;
+    if (CheckInInterface::SavePax(emulReqNode, ediResNode, first_grp_id, ETInfo, tckin_id))
+    {
+      if (tckin_id!=NoExists) tckin_ids.insert(tckin_id);
+    }
+    else
+      result=false;
   };
   if (result)
   {
@@ -3627,16 +3652,39 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
       xmlNodePtr emulReqNode=NodeAsNode("/term/query",emulChngDoc.docPtr())->children;
       if (emulReqNode==NULL)
         throw EXCEPTIONS::Exception("WebRequestsIface::SavePax: emulReqNode=NULL");
-      if (!CheckInInterface::SavePax(reqNode, emulReqNode, ediResNode, resNode))
+      if (CheckInInterface::SavePax(emulReqNode, ediResNode, first_grp_id, ETInfo, tckin_id))
       {
-        result=false;
-        break;
+        if (tckin_id!=NoExists) tckin_ids.insert(tckin_id);
+      }
+      else
+      {
+        //по идее сюда мы никогда не должны попадать (см. комментарий выше)
+        //для этого никогда не возвращаем false и делаем специальную защиту в SavePax:
+        //при записи изменений веб и киосков не откатываемся при перегрузке
+        throw EXCEPTIONS::Exception("WebRequestsIface::SavePax: CheckInInterface::SavePax=false");
+        //result=false;
+        //break;
       };
+
     };
   };
 
   if (result)
   {
+    if (ediResNode==NULL && !ETInfo.empty())
+    {
+      //хотя бы один билет будет обрабатываться
+      OraSession.Rollback();  //откат
+
+      int req_ctxt=AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc));
+      if (!ETStatusInterface::ETChangeStatus(req_ctxt,ETInfo))
+        throw EXCEPTIONS::Exception("WebRequestsIface::SavePax: Wrong ETInfo");
+      AstraLocale::showProgError("MSG.ETS_CONNECT_ERROR");
+      return false;
+    };
+    
+    CheckTCkinIntegrity(tckin_ids, NoExists);
+  
     vector< vector<TWebPax> > pnrs;
     xmlNodePtr segsNode = NewTextChild( NewTextChild( resNode, "SavePax" ), "segments" );
     IntLoadPnr( ids, pnrs, segsNode, true );

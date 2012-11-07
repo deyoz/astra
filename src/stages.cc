@@ -37,6 +37,7 @@ bool CompatibleStage( TStage stage )
     
   if ( stage == sCloseWEBCancel )
     return TReqInfo::Instance()->desk.compatible( WEB_CANCEL_VERSION );
+    
   return false;
 }
 
@@ -53,6 +54,8 @@ bool CompatibleStageType( TStage_Type stage_type )
     
   if ( stage_type == stWEBCancel )
     return TReqInfo::Instance()->desk.compatible( WEB_CANCEL_VERSION );
+
+  return false;
 }
 
 TTripStages::TTripStages( int vpoint_id )

@@ -487,10 +487,9 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
   		    		return;
   		      }
   		      map<int,TTripInfo> segs; // набор рейсов
-  		      bool tckin_version=true;
             TDeletePaxFilter filter;
             filter.status=EncodePaxStatus( psTransit );
-  		      DeletePassengers( point_id, filter, segs, tckin_version );
+  		      DeletePassengers( point_id, filter, segs );
   		      DeletePassengersAnswer( segs, resNode );
   		    }
         }
