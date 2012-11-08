@@ -244,6 +244,9 @@ std::string TlgElemIdToElem(TElemType type, std::string id, TElemFmt fmt, std::s
 namespace BSM
 {
 
+std::string TlgElemIdToElem(TElemType type, int id, bool pr_lat);
+std::string TlgElemIdToElem(TElemType type, std::string id, bool pr_lat);
+
 class TPaxItem
 {
   public:

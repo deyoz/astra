@@ -1658,6 +1658,40 @@ void CompareContent(const TTlgContent& con1, const TTlgContent& con2, vector<TTl
   if (!conDEL.tags.empty()) bsms.push_back(conDEL);
 };
 
+std::string TlgElemIdToElem(TElemType type, int id, bool pr_lat)
+{
+    TElemFmt fmt=prLatToElemFmt(efmtCodeNative, pr_lat);
+    try {
+        return ::TlgElemIdToElem(type, id, fmt, AstraLocale::LANG_RU);
+    } catch(UserException &E) {
+        ProgTrace(TRACE5, "BSM::TlgElemIdToElem: elem_type: %s, fmt: %s, what: %s", EncodeElemType(type), EncodeElemFmt(fmt), E.what());
+        return "";
+    } catch(exception &E) {
+        ProgError(STDLOG, "BSM::TlgElemIdToElem: elem_type: %s, fmt: %s, what: %s", EncodeElemType(type), EncodeElemFmt(fmt), E.what());
+        return "";
+    } catch(...) {
+        ProgError(STDLOG, "BSM::TlgElemIdToElem: unknown except caught. elem_type: %s, fmt: %s", EncodeElemType(type), EncodeElemFmt(fmt));
+        return "";
+    }
+};
+
+std::string TlgElemIdToElem(TElemType type, std::string id, bool pr_lat)
+{
+    TElemFmt fmt=prLatToElemFmt(efmtCodeNative, pr_lat);
+    try {
+        return ::TlgElemIdToElem(type, id, fmt, AstraLocale::LANG_RU);
+    } catch(UserException &E) {
+        ProgTrace(TRACE5, "BSM::TlgElemIdToElem: elem_type: %s, fmt: %s, what: %s", EncodeElemType(type), EncodeElemFmt(fmt), E.what());
+        return "";
+    } catch(exception &E) {
+        ProgError(STDLOG, "BSM::TlgElemIdToElem: elem_type: %s, fmt: %s, what: %s", EncodeElemType(type), EncodeElemFmt(fmt), E.what());
+        return "";
+    } catch(...) {
+        ProgError(STDLOG, "BSM::TlgElemIdToElem: unknown except caught. elem_type: %s, fmt: %s", EncodeElemType(type), EncodeElemFmt(fmt));
+        return "";
+    }
+};
+
 string CreateTlgBody(const TTlgContent& con, bool pr_lat)
 {
   map<int/*reg_no*/, pair<TPaxItem, vector<CheckIn::TTagItem> > > tmpPax;
@@ -1691,11 +1725,8 @@ string CreateTlgBody(const TTlgContent& con, bool pr_lat)
                      break;
      default: ;
   };
-  
-  TElemFmt elem_fmt=prLatToElemFmt(efmtCodeNative, pr_lat);
-  string lang=AstraLocale::LANG_RU;
 
-  body << ".V/1L" << TlgElemIdToElem(etAirp, con.OutFlt.operFlt.airp, elem_fmt, lang) << ENDL;
+  body << ".V/1L" << TlgElemIdToElem(etAirp, con.OutFlt.operFlt.airp, pr_lat) << ENDL;
 
   TDateTime scd_out;
   if(con.OutFlt.operFlt.airp == "€Ÿ’")
@@ -1704,20 +1735,20 @@ string CreateTlgBody(const TTlgContent& con, bool pr_lat)
       scd_out = con.OutFlt.operFlt.scd_out;
 
   body << ".F/"
-       << TlgElemIdToElem(etAirline, con.OutFlt.operFlt.airline, elem_fmt, lang)
+       << TlgElemIdToElem(etAirline, con.OutFlt.operFlt.airline, pr_lat)
        << setw(3) << setfill('0') << con.OutFlt.operFlt.flt_no
-       << (con.OutFlt.operFlt.suffix.empty() ? "" : TlgElemIdToElem(etSuffix, con.OutFlt.operFlt.suffix, elem_fmt, lang)) << '/'
+       << (con.OutFlt.operFlt.suffix.empty() ? "" : TlgElemIdToElem(etSuffix, con.OutFlt.operFlt.suffix, pr_lat)) << '/'
        << DateTimeToStr( scd_out, "ddmmm", pr_lat) << '/'
-       << TlgElemIdToElem(etAirp, con.OutFlt.airp_arv, elem_fmt, lang) << ENDL;
+       << TlgElemIdToElem(etAirp, con.OutFlt.airp_arv, pr_lat) << ENDL;
 
   for(TTrferRoute::const_iterator i=con.OnwardFlt.begin();i!=con.OnwardFlt.end();++i)
   {
     body << ".O/"
-         << TlgElemIdToElem(etAirline, i->operFlt.airline, elem_fmt, lang)
+         << TlgElemIdToElem(etAirline, i->operFlt.airline, pr_lat)
          << setw(3) << setfill('0') << i->operFlt.flt_no
-         << (i->operFlt.suffix.empty() ? "" : TlgElemIdToElem(etSuffix, i->operFlt.suffix, elem_fmt, lang)) << '/'
+         << (i->operFlt.suffix.empty() ? "" : TlgElemIdToElem(etSuffix, i->operFlt.suffix, pr_lat)) << '/'
          << DateTimeToStr( i->operFlt.scd_out, "ddmmm", pr_lat) << '/'
-         << TlgElemIdToElem(etAirp, i->airp_arv, elem_fmt, lang) << ENDL;
+         << TlgElemIdToElem(etAirp, i->airp_arv, pr_lat) << ENDL;
   };
   
   map<int, pair<TPaxItem, vector<CheckIn::TTagItem> > >::const_iterator p=tmpPax.begin();
