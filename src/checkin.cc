@@ -4643,7 +4643,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
       //вот здесь ETCheckStatus::CheckGrpStatus
       //обязательно до ckin.check_grp
-      if (ediResNode==NULL && !defer_etstatus) //не производим изменение статуса при записи изменений веб регистрации!
+      if (ediResNode==NULL && !defer_etstatus)
       {
         ETStatusInterface::ETCheckStatus(grp_id,csaGrp,NoExists,false,ETInfo,true);
       };
