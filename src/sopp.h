@@ -258,7 +258,7 @@ class TDeletePaxFilter
   TDeletePaxFilter():inbound_point_dep(ASTRA::NoExists) {};
 };
 
-void DeletePassengers( int point_id, const TDeletePaxFilter &filter, std::map<int,TTripInfo> &segs, bool tckin_version );
+void DeletePassengers( int point_id, const TDeletePaxFilter &filter, std::map<int,TTripInfo> &segs );
 void DeletePassengersAnswer( std::map<int,TTripInfo> &segs, xmlNodePtr resNode );
 
 class SoppInterface : public JxtInterface
@@ -275,7 +275,6 @@ public:
      AddEvent("GetBagTransfer",evHandle);
      AddEvent("GetInboundTCkin",evHandle);
      evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::DeleteAllPassangers);
-     AddEvent("DeleteAllPassangers",evHandle);
      AddEvent("TCkinDeleteAllPassangers",evHandle);
      evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::WriteTrips);
      AddEvent("WriteTrips",evHandle);

@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <string>
+#include <set>
 #include "basic.h"
 #include "astra_consts.h"
 #include "oralib.h"
@@ -472,11 +473,13 @@ enum TCkinSegmentSet { cssNone,
                        cssAllPrevCurrNext,
                        cssCurr };
 
-bool SeparateTCkin(int grp_id,
-                   TCkinSegmentSet upd_depend,
-                   TCkinSegmentSet upd_tid,
-                   int tid,
-                   int &tckin_id, int &seg_no);
+//возвращает tckin_id
+int SeparateTCkin(int grp_id,
+                  TCkinSegmentSet upd_depend,
+                  TCkinSegmentSet upd_tid,
+                  int tid);
+
+void CheckTCkinIntegrity(const std::set<int> &tckin_ids, int tid);
 
 struct TCodeShareSets {
   private:

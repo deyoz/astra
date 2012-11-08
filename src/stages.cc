@@ -24,6 +24,40 @@ using namespace EXCEPTIONS;
 using namespace AstraLocale;
 using namespace ASTRA;
 
+bool CompatibleStage( TStage stage )
+{
+  if ( !TStagesRules::Instance()->isClientStage( stage ) )
+    return true;
+    
+  if ( stage == sOpenWEBCheckIn ||
+       stage == sOpenKIOSKCheckIn ||
+       stage == sCloseWEBCheckIn ||
+       stage == sCloseKIOSKCheckIn )
+    return TReqInfo::Instance()->desk.compatible( WEB_CHECKIN_VERSION );
+    
+  if ( stage == sCloseWEBCancel )
+    return TReqInfo::Instance()->desk.compatible( WEB_CANCEL_VERSION );
+    
+  return false;
+}
+
+bool CompatibleStageType( TStage_Type stage_type )
+{
+  if ( stage_type == stCheckIn ||
+  		 stage_type == stBoarding ||
+  		 stage_type == stCraft )
+  	return true;
+  	
+  if ( stage_type == stWEBCheckIn ||
+  		 stage_type == stKIOSKCheckIn )
+    return TReqInfo::Instance()->desk.compatible( WEB_CHECKIN_VERSION );
+    
+  if ( stage_type == stWEBCancel )
+    return TReqInfo::Instance()->desk.compatible( WEB_CANCEL_VERSION );
+
+  return false;
+}
+
 TTripStages::TTripStages( int vpoint_id )
 {
   point_id = vpoint_id;
@@ -429,7 +463,7 @@ void TStagesRules::BuildGraph_Stages( const string airp, xmlNodePtr dataNode )
   	SetProp( node, "airp", airp );
   for ( vector<TStage_name>::iterator i=Graph_Stages.begin(); i!=Graph_Stages.end(); i++ ) {
   	if ( airp.empty() || airp == i->airp ) {
-      if ( !isClientStage( i->stage ) || TReqInfo::Instance()->desk.compatible( WEB_CHECKIN_VERSION ) )	{
+      if ( CompatibleStage( i->stage ) )	{
         snode = NewTextChild( node, "stage" );
         NewTextChild( snode, "stage_id", (int)i->stage );
         NewTextChild( snode, "name", getLocaleName( i->name, i->name_lat, true ) );
@@ -450,11 +484,11 @@ void TStagesRules::Build( xmlNodePtr dataNode )
     else
       SetProp( snode, "step", "stNext" );
     for ( map<TStage,vecRules>::iterator r=st->second.begin(); r!=st->second.end(); r++ ) {
-    	if ( !isClientStage( r->first ) || TReqInfo::Instance()->desk.compatible( WEB_CHECKIN_VERSION ) )	{
+    	if ( CompatibleStage( r->first ) )	{
         xmlNodePtr stagerulesNode = NewTextChild( snode, "stagerules" );
         SetProp( stagerulesNode, "stage", r->first );
         for ( vecRules::iterator v=r->second.begin(); v!=r->second.end(); v++ ) {
-        	if ( !isClientStage( v->cond_stage ) || TReqInfo::Instance()->desk.compatible( WEB_CHECKIN_VERSION ) )	{
+        	if ( CompatibleStage( v->cond_stage ) )	{
             xmlNodePtr ruleNode = NewTextChild( stagerulesNode, "rule" );
             NewTextChild( ruleNode, "num", v->num );
             NewTextChild( ruleNode, "cond_stage", v->cond_stage );
@@ -465,15 +499,12 @@ void TStagesRules::Build( xmlNodePtr dataNode )
   }
   node = NewTextChild( dataNode, "StageStatuses" );
   for ( TMapStatuses::iterator m=StageStatuses.begin(); m!=StageStatuses.end(); m++ ) {
-  	if ( m->first != stCheckIn &&
-  		   m->first != stBoarding &&
-  		   m->first != stCraft &&
-  		   !TReqInfo::Instance()->desk.compatible( WEB_CHECKIN_VERSION ) )
+  	if ( !CompatibleStageType( m->first ) )
   		continue;
     snode = NewTextChild( node, "stage_type" );
     SetProp( snode, "type", m->first );
     for ( TStage_Statuses::iterator s=m->second.begin(); s!=m->second.end(); s++ ) {
-      if ( !isClientStage( s->stage ) || TReqInfo::Instance()->desk.compatible( WEB_CHECKIN_VERSION ) )	{
+      if ( CompatibleStage( s->stage ) )	{
         xmlNodePtr stagestatusNode = NewTextChild( snode, "stagestatus" );
         NewTextChild( stagestatusNode, "stage", (int)s->stage );
         NewTextChild( stagestatusNode, "status", getLocaleName( s->status, s->status_lat, true ) );
@@ -485,7 +516,7 @@ void TStagesRules::Build( xmlNodePtr dataNode )
 
   node = NewTextChild( dataNode, "GrphLvl" );
   for ( TGraph_Level::iterator l=GrphLvl.begin(); l!=GrphLvl.end(); l++ ) {
-    if ( !isClientStage( l->stage ) || TReqInfo::Instance()->desk.compatible( WEB_CHECKIN_VERSION ) )	{
+    if ( CompatibleStage( l->stage ) )	{
  	    snode = NewTextChild( node, "stage_level" );
       NewTextChild( snode, "stage", (int)l->stage );
       NewTextChild( snode, "level", (int)l->level );
@@ -625,9 +656,9 @@ void exec_stage( int point_id, int stage_id )
   	case sOpenKIOSKCheckIn:
            /*открытие KIOSK-регистрации*/
   	     break;
-//    case sBanCancelWebCheckin:
+    case sCloseWEBCancel:
           /*Запрет разрегистрации web-пассажира*/
-//          break;
+          break;
     case sCloseCheckIn:
            /*Закрытие регистрации*/
            CloseCheckIn( point_id );
