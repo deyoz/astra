@@ -2012,6 +2012,7 @@ struct TPPax {
             ProgTrace(TRACE5, "bag_pool_num: %d", bag_pool_num);
             ProgTrace(TRACE5, "pax_id: %d", pax_id);
             ProgTrace(TRACE5, "trfer_cls: %s", trfer_cls.c_str());
+            ProgTrace(TRACE5, "unaccomp: %s", (unaccomp ? "true" : "false"));
             ProgTrace(TRACE5, "----------");
         }
         size_t name_length() const
@@ -2442,7 +2443,6 @@ void TPList::get(TTlgInfo &info, string trfer_cls)
         "where \n"
         "  pax.grp_id = :grp_id and \n"
         "  nvl(pax.bag_pool_num, 0) = nvl(:bag_pool_num, 0) and \n"
-        "  pax.seats > 0 and \n"
         "  pax.pax_id = transfer_subcls.pax_id(+) and \n"
         "  transfer_subcls.transfer_num(+) = 1 and \n"
         "  transfer_subcls.subclass = subcls.code(+) \n"
@@ -2481,6 +2481,7 @@ void TPList::get(TTlgInfo &info, string trfer_cls)
             item.grp_id = grp->grp_id;
             item.bag_pool_num = grp->bag_pool_num;
             item.seats = Qry.FieldAsInteger(col_seats);
+            if(item.seats == 0) continue;
             if(item.seats > 1)
                 item.exst.get(Qry.FieldAsInteger(col_pax_id));
             item.surname = Qry.FieldAsString(col_surname);
@@ -2617,7 +2618,7 @@ struct TPTMFItem:TFItem {
     TBTMGrpList *get_grp_list() { return &grp_list; };
     void ToTlg(TTlgInfo &info, vector<string> &body)
     {
-        if(info.tlg_type == "PTMN") {
+        if(info.tlg_type == "PTMN" and not trfer_cls.empty()) {
             ostringstream result;
             result
                 << info.TlgElemIdToElem(etAirline, airline)
@@ -2630,19 +2631,14 @@ struct TPTMFItem:TFItem {
                 << " ";
             int seats = 0;
             int baggage = 0;
-            bool pr_unaccomp = false;
             for(vector<TBTMGrpListItem>::iterator iv = grp_list.items.begin(); iv != grp_list.items.end(); iv++) {
                 baggage += iv->W.bagAmount;
                 map<string, vector<TPPax> > &surnames = iv->PList.surnames;
                 for(map<string, vector<TPPax> >::iterator im = surnames.begin(); im != surnames.end(); im++) {
                     vector<TPPax> &paxes = im->second;
                     for(vector<TPPax>::iterator i_paxes = paxes.begin(); i_paxes != paxes.end(); i_paxes++) {
-                        if(i_paxes->unaccomp) {
-                            pr_unaccomp = true;
+                        if(i_paxes->unaccomp)
                             continue;
-                        }
-                        if(pr_unaccomp)
-                            throw Exception("TPTMFItem::ToTlg: real pax encountered with unaccompanied baggage");
                         seats += i_paxes->seats;
                     }
                 }
@@ -2653,8 +2649,7 @@ struct TPTMFItem:TFItem {
                 << " "
                 << baggage
                 << "B";
-            if(not pr_unaccomp)
-                body.push_back(result.str());
+            body.push_back(result.str());
         }
     }
 };
