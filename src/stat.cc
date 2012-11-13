@@ -1691,7 +1691,10 @@ enum TStatType {
     statKioskDetail,
     statAgentFull,
     statAgentShort,
-    statAgentTotal
+    statAgentTotal,
+    statTlgOutFull,
+    statTlgOutShort,
+    statTlgOutDetail
 };
 
 enum TSeanceType { seanceAirline, seanceAirport, seanceAll };
@@ -1705,7 +1708,11 @@ struct TStatParams {
     TDateTime FirstDate, LastDate;
     int flt_no;
     string desk;
-    int user;
+    int user_id;
+    string user_login;
+    string typeb_type;
+    string sender_addr;
+    string receiver_descr;
     bool skip_rows;
     void get(xmlNodePtr resNode);
 };
@@ -2467,6 +2474,15 @@ void TStatParams::get(xmlNodePtr reqNode)
             statType=statAgentTotal;
         else
             throw Exception("Unknown stat mode " + name);
+    } else if(type == "Вых. телеграммы") {
+        if(name == "Подробная")
+            statType=statTlgOutFull;
+        else if(name == "Общая")
+            statType=statTlgOutShort;
+        else if(name == "Детализированная")
+            statType=statTlgOutDetail;
+        else
+            throw Exception("Unknown stat mode " + name);
     } else
         throw Exception("Unknown stat type " + type);
 
@@ -2476,11 +2492,21 @@ void TStatParams::get(xmlNodePtr reqNode)
 
     xmlNodePtr curNode = reqNode->children;
 
-    string ak = NodeAsStringFast("ak", curNode);
-    string ap = NodeAsStringFast("ap", curNode);
-    flt_no = NodeAsIntegerFast("flt_no", curNode, NoExists);
-    desk = NodeAsStringFast("kiosk", curNode, "");
-    user = NodeAsIntegerFast("user", curNode, NoExists);
+    string ak = NodeAsStringFast("ak", curNode, "");
+    string ap = NodeAsStringFast("ap", curNode, "");
+    if (!NodeIsNULLFast("flt_no", curNode, true))
+      flt_no = NodeAsIntegerFast("flt_no", curNode, NoExists);
+    else
+      flt_no = NoExists;
+    desk = NodeAsStringFast("desk", curNode, NodeAsStringFast("kiosk", curNode, ""));
+    if (!NodeIsNULLFast("user", curNode, true))
+      user_id = NodeAsIntegerFast("user", curNode, NoExists);
+    else
+      user_id = NoExists;
+    user_login = NodeAsStringFast("user_login", curNode, "");
+    typeb_type = NodeAsStringFast("typeb_type", curNode, "");
+    sender_addr = NodeAsStringFast("sender_addr", curNode, "");
+    receiver_descr = NodeAsStringFast("receiver_descr", curNode, "");
 
     ProgTrace(TRACE5, "ak: %s", ak.c_str());
     ProgTrace(TRACE5, "ap: %s", ap.c_str());
@@ -4028,6 +4054,321 @@ void createXMLKioskStat(const TStatParams &params, const TKioskStat &KioskStat, 
     }
 }
 
+/****************** TlgOutStat *************************/
+struct TTlgOutStatKey {
+    string sender_sita_addr;
+    string receiver_descr;
+    string receiver_sita_addr;
+    string receiver_country_view;
+    TDateTime time_send;
+    string airline_view;
+    int flt_no;
+    string suffix_view;
+    string airp_dep_view;
+    TDateTime scd_local_date;
+    string tlg_type;
+    string extra;
+    TTlgOutStatKey():time_send(NoExists),
+                     flt_no(NoExists),
+                     scd_local_date(NoExists) {};
+};
+
+struct TTlgOutStatRow {
+    int tlg_count;
+    double tlg_len;
+    TTlgOutStatRow():tlg_count(0),
+                     tlg_len(0.0) {};
+};
+
+struct TTlgOutStatCmp {
+    bool operator() (const TTlgOutStatKey &key1, const TTlgOutStatKey &key2) const
+    {
+      if (key1.sender_sita_addr!=key2.sender_sita_addr)
+        return key1.sender_sita_addr < key2.sender_sita_addr;
+      if (key1.receiver_descr!=key2.receiver_descr)
+        return key1.receiver_descr < key2.receiver_descr;
+      if (key1.receiver_sita_addr!=key2.receiver_sita_addr)
+        return key1.receiver_sita_addr < key2.receiver_sita_addr;
+      if (key1.receiver_country_view!=key2.receiver_country_view)
+        return key1.receiver_country_view < key2.receiver_country_view;
+      if (key1.time_send!=key2.time_send)
+        return key1.time_send < key2.time_send;
+      if (key1.airline_view!=key2.airline_view)
+        return key1.airline_view < key2.airline_view;
+      if (key1.flt_no!=key2.flt_no)
+        return key1.flt_no < key2.flt_no;
+      if (key1.suffix_view!=key2.suffix_view)
+        return key1.suffix_view < key2.suffix_view;
+      if (key1.airp_dep_view!=key2.airp_dep_view)
+        return key1.airp_dep_view < key2.airp_dep_view;
+      if (key1.scd_local_date!=key2.scd_local_date)
+        return key1.scd_local_date < key2.scd_local_date;
+      if (key1.tlg_type!=key2.tlg_type)
+        return key1.tlg_type < key2.tlg_type;
+      return key1.extra < key2.extra;
+    }
+};
+
+typedef map<TTlgOutStatKey, TTlgOutStatRow, TTlgOutStatCmp> TTlgOutStat;
+
+void RunTlgOutStat(const TStatParams &params, TTlgOutStat &TlgOutStat, TPrintAirline &prn_airline)
+{
+    TQuery Qry(&OraSession);
+    for(int pass = 0; pass <= 0; pass++) { //!!!vlad
+        string SQLText =
+            "SELECT \n"
+            "  tlg_stat.sender_sita_addr, \n"
+            "  tlg_stat.receiver_descr, \n"
+            "  tlg_stat.receiver_sita_addr, \n"
+            "  tlg_stat.receiver_country, \n"
+            "  tlg_stat.time_send, \n"
+            "  tlg_stat.airline, \n"
+            "  tlg_stat.flt_no, \n"
+            "  tlg_stat.suffix, \n"
+            "  tlg_stat.airp_dep, \n"
+            "  tlg_stat.scd_local_date, \n"
+            "  tlg_stat.tlg_type, \n"
+            "  tlg_stat.extra, \n"
+            "  tlg_stat.tlg_len \n"
+            "FROM \n";
+        if(pass != 0) {
+            SQLText +=
+                "   arx_tlg_stat tlg_stat \n";
+        } else {
+            SQLText +=
+                "   tlg_stat \n";
+        }
+        SQLText += "WHERE \n";
+        if (pass!=0)
+          SQLText +=
+            "    tlg_stat.part_key >= :FirstDate AND tlg_stat.part_key < :LastDate \n";
+        else
+          SQLText +=
+            "    tlg_stat.time_send >= :FirstDate AND tlg_stat.time_send < :LastDate \n";
+        if (!params.airps.empty()) {
+            if (params.airps_permit)
+                SQLText += " AND tlg_stat.airp_dep IN " + GetSQLEnum(params.airps) + "\n";
+            else
+                SQLText += " AND tlg_stat.airp_dep NOT IN " + GetSQLEnum(params.airps) + "\n";
+        };
+        if (!params.airlines.empty()) {
+            if (params.airlines_permit)
+                SQLText += " AND tlg_stat.airline IN " + GetSQLEnum(params.airlines) + "\n";
+            else
+                SQLText += " AND tlg_stat.airline NOT IN " + GetSQLEnum(params.airlines) + "\n";
+        };
+        if(!params.typeb_type.empty()) {
+            SQLText += " AND tlg_stat.tlg_type = :tlg_type \n";
+            Qry.CreateVariable("tlg_type", otString, params.typeb_type);
+        }
+        if(!params.sender_addr.empty()) {
+            SQLText += " AND tlg_stat.sender_sita_addr = :sender_sita_addr \n";
+            Qry.CreateVariable("sender_sita_addr", otString, params.sender_addr);
+        }
+        if(!params.receiver_descr.empty()) {
+            SQLText += " AND tlg_stat.receiver_descr = :receiver_descr \n";
+            Qry.CreateVariable("receiver_descr", otString, params.receiver_descr);
+        }
+
+        //ProgTrace(TRACE5, "RunTlgOutStat: pass=%d SQL=\n%s", pass, SQLText.c_str());
+        Qry.SQLText = SQLText;
+        Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
+        Qry.CreateVariable("LastDate", otDate, params.LastDate);
+        Qry.Execute();
+        if(not Qry.Eof) {
+            int col_sender_sita_addr = Qry.FieldIndex("sender_sita_addr");
+            int col_receiver_descr = Qry.FieldIndex("receiver_descr");
+            int col_receiver_sita_addr = Qry.FieldIndex("receiver_sita_addr");
+            int col_receiver_country = Qry.FieldIndex("receiver_country");
+            int col_time_send = Qry.FieldIndex("time_send");
+            int col_airline = Qry.FieldIndex("airline");
+            int col_flt_no = Qry.FieldIndex("flt_no");
+            int col_suffix = Qry.FieldIndex("suffix");
+            int col_airp_dep = Qry.FieldIndex("airp_dep");
+            int col_scd_local_date = Qry.FieldIndex("scd_local_date");
+            int col_tlg_type = Qry.FieldIndex("tlg_type");
+            int col_extra = Qry.FieldIndex("extra");
+            int col_tlg_len = Qry.FieldIndex("tlg_len");
+            for(; not Qry.Eof; Qry.Next()) {
+                string airline = Qry.FieldAsString(col_airline);
+                prn_airline.check(airline);
+
+                TTlgOutStatKey key;
+                key.sender_sita_addr = Qry.FieldAsString(col_sender_sita_addr);
+                key.receiver_descr = Qry.FieldAsString(col_receiver_descr);
+                key.receiver_country_view = ElemIdToCodeNative(etCountry, Qry.FieldAsString(col_receiver_country));
+                key.extra = Qry.FieldAsString(col_extra);
+                if (params.statType == statTlgOutDetail ||
+                    params.statType == statTlgOutFull)
+                {
+                  key.airline_view = ElemIdToCodeNative(etAirline, airline);
+                  key.airp_dep_view = ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp_dep));
+
+                  if (params.statType == statTlgOutFull)
+                  {
+                    key.receiver_sita_addr = Qry.FieldAsString(col_receiver_sita_addr);
+                    key.time_send = Qry.FieldAsDateTime(col_time_send);
+                    modf(key.time_send, &key.time_send);
+                    key.flt_no = Qry.FieldAsInteger(col_flt_no);
+                    key.suffix_view = ElemIdToCodeNative(etSuffix, Qry.FieldAsString(col_suffix));
+                    key.scd_local_date = Qry.FieldAsDateTime(col_scd_local_date);
+                    modf(key.scd_local_date, &key.scd_local_date);
+                    key.tlg_type=Qry.FieldAsString(col_tlg_type);
+                  };
+                };
+
+                TTlgOutStatRow &row = TlgOutStat[key];
+
+                row.tlg_count++;
+                row.tlg_len += Qry.FieldAsInteger(col_tlg_len);
+            }
+        }
+    }
+    return;
+}
+
+void createXMLTlgOutStat(const TStatParams &params, const TTlgOutStat &TlgOutStat, const TPrintAirline &airline, xmlNodePtr resNode)
+{
+    if(TlgOutStat.empty())
+        throw AstraLocale::UserException("MSG.NOT_DATA");
+    else {
+        NewTextChild(resNode, "airline", airline.get(), "");
+        xmlNodePtr grdNode = NewTextChild(resNode, "grd");
+        xmlNodePtr headerNode = NewTextChild(grdNode, "header");
+        xmlNodePtr colNode;
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Адрес отпр."));   //перевод
+        SetProp(colNode, "width", 70);
+        SetProp(colNode, "align", taLeftJustify);
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Канал"));         //перевод
+        SetProp(colNode, "width", 50);
+        SetProp(colNode, "align", taLeftJustify);
+        if (params.statType == statTlgOutFull)
+        {
+          colNode = NewTextChild(headerNode, "col", getLocaleText("Адрес получ.")); //перевод
+          SetProp(colNode, "width", 70);
+          SetProp(colNode, "align", taLeftJustify);
+        };
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Гос-во"));
+        SetProp(colNode, "width", 40);
+        SetProp(colNode, "align", taLeftJustify);
+        if (params.statType == statTlgOutFull)
+        {
+          colNode = NewTextChild(headerNode, "col", getLocaleText("Дата отпр."));  //перевод
+          SetProp(colNode, "width", 60);
+          SetProp(colNode, "align", taLeftJustify);
+        };
+        if (params.statType == statTlgOutDetail ||
+            params.statType == statTlgOutFull)
+        {
+          colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
+          SetProp(colNode, "width", 50);
+          SetProp(colNode, "align", taLeftJustify);
+          colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/п"));
+          SetProp(colNode, "width", 50);
+          SetProp(colNode, "align", taLeftJustify);
+        };
+        if (params.statType == statTlgOutFull)
+        {
+          colNode = NewTextChild(headerNode, "col", getLocaleText("Тип тлг."));    //перевод
+          SetProp(colNode, "width", 50);
+          SetProp(colNode, "align", taLeftJustify);
+          colNode = NewTextChild(headerNode, "col", getLocaleText("Дата вылета")); //перевод
+          SetProp(colNode, "width", 70);
+          SetProp(colNode, "align", taLeftJustify);
+          colNode = NewTextChild(headerNode, "col", getLocaleText("Рейс"));
+          SetProp(colNode, "width", 50);
+          SetProp(colNode, "align", taLeftJustify);
+        };
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во")); //pr_term=NULL
+        SetProp(colNode, "width", params.statType == statTlgOutFull?40:70);
+        SetProp(colNode, "align", taRightJustify);
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Объем")); //перевод
+        SetProp(colNode, "width", params.statType == statTlgOutFull?60:90);
+        SetProp(colNode, "align", taRightJustify);
+        colNode = NewTextChild(headerNode, "col", getLocaleText("№ договора"));
+        SetProp(colNode, "width", 150);
+        SetProp(colNode, "align", taLeftJustify);
+
+        xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
+        xmlNodePtr rowNode;
+        TTlgOutStatRow total;
+        ostringstream buf;
+
+        for(TTlgOutStat::const_iterator im = TlgOutStat.begin(); im != TlgOutStat.end(); im++) {
+            rowNode = NewTextChild(rowsNode, "row");
+            NewTextChild(rowNode, "col", im->first.sender_sita_addr);
+            NewTextChild(rowNode, "col", im->first.receiver_descr);
+            if (params.statType == statTlgOutFull)
+              NewTextChild(rowNode, "col", im->first.receiver_sita_addr);
+            NewTextChild(rowNode, "col", im->first.receiver_country_view);
+            if (params.statType == statTlgOutFull)
+              NewTextChild(rowNode, "col", DateTimeToStr(im->first.time_send, "dd.mm.yy"));
+            if (params.statType == statTlgOutDetail ||
+                params.statType == statTlgOutFull)
+            {
+              NewTextChild(rowNode, "col", im->first.airline_view);
+              NewTextChild(rowNode, "col", im->first.airp_dep_view);
+            };
+            if (params.statType == statTlgOutFull)
+            {
+              NewTextChild(rowNode, "col", im->first.tlg_type);
+              NewTextChild(rowNode, "col", DateTimeToStr(im->first.scd_local_date, "dd.mm.yy"));
+              buf.str("");
+              buf << setw(3) << setfill('0') << im->first.flt_no
+                  << im->first.suffix_view;
+              NewTextChild(rowNode, "col", buf.str());
+            };
+            NewTextChild(rowNode, "col", im->second.tlg_count);
+            buf.str("");
+            buf << fixed << setprecision(0) << im->second.tlg_len;
+            NewTextChild(rowNode, "col", buf.str());
+            NewTextChild(rowNode, "col", im->first.extra);
+            
+            total.tlg_count += im->second.tlg_count;
+            total.tlg_len += im->second.tlg_len;
+        }
+        
+        rowNode = NewTextChild(rowsNode, "row");
+        NewTextChild(rowNode, "col", getLocaleText("Итого:"));
+        int tlg_count_col_idx;
+        switch(params.statType)
+        {
+            case statTlgOutFull: tlg_count_col_idx=10; break;
+          case statTlgOutDetail: tlg_count_col_idx=5; break;
+                        default: tlg_count_col_idx=3; break;
+          
+        };
+        for(int i=0; i<tlg_count_col_idx-1; i++) NewTextChild(rowNode, "col");
+        NewTextChild(rowNode, "col", total.tlg_count);
+        buf.str("");
+        buf << fixed << setprecision(0) << total.tlg_len;
+        NewTextChild(rowNode, "col", buf.str());
+        NewTextChild(rowNode, "col");
+
+        xmlNodePtr variablesNode = STAT::set_variables(resNode);
+        NewTextChild(variablesNode, "stat_type", params.statType);
+        NewTextChild(variablesNode, "stat_mode", getLocaleText("Статистика выходных телеграмм")); //перевод
+        string stat_type_caption;
+        switch(params.statType) {
+            case statTlgOutShort:
+                stat_type_caption = getLocaleText("Общая");
+                break;
+            case statTlgOutDetail:
+                stat_type_caption = getLocaleText("Детализированная");
+                break;
+            case statTlgOutFull:
+                stat_type_caption = getLocaleText("Подробная");
+                break;
+            default:
+                throw Exception("createXMLTlgOutStat: unexpected statType %d", params.statType);
+                break;
+        }
+        NewTextChild(variablesNode, "stat_type_caption", stat_type_caption);
+    }
+}
+
+/****************** end of TlgOutStat ******************/
+
 /****************** AgentStat *************************/
 struct TAgentStatKey {
     int point_id;
@@ -4185,9 +4526,13 @@ void RunAgentStat(const TStatParams &params, TAgentStat &AgentStat, TPrintAirlin
             SQLText += " AND ags.desk = :desk \n";
             Qry.CreateVariable("desk", otString, params.desk);
         }
-        if(params.user != NoExists) {
-            SQLText += " AND ags.user_id = :user_id \n";
-            Qry.CreateVariable("user_id", otInteger, params.user);
+        if(params.user_id != NoExists) {
+            SQLText += " AND users2.user_id = :user_id \n";
+            Qry.CreateVariable("user_id", otInteger, params.user_id);
+        }
+        if(!params.user_login.empty()) {
+            SQLText += " AND users2.login = :user_login \n";
+            Qry.CreateVariable("user_login", otString, params.user_login);
         }
         //ProgTrace(TRACE5, "RunAgentStat: pass=%d SQL=\n%s", pass, SQLText.c_str());
         Qry.SQLText = SQLText;
@@ -4534,7 +4879,10 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             params.statType==statKioskFull ||
             params.statType==statAgentFull ||
             params.statType==statAgentShort ||
-            params.statType==statAgentTotal
+            params.statType==statAgentTotal ||
+            params.statType==statTlgOutShort ||
+            params.statType==statTlgOutDetail ||
+            params.statType==statTlgOutFull
             )
     {
       if(IncMonth(params.FirstDate, 1) < params.LastDate)
@@ -4564,6 +4912,9 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
       case statAgentFull:
       case statAgentShort:
       case statAgentTotal:
+      case statTlgOutFull:
+      case statTlgOutShort:
+      case statTlgOutDetail:
         get_compatible_report_form("stat", reqNode, resNode);
         break;
     };
@@ -4615,6 +4966,16 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             TPrintAirline airline;
             RunAgentStat(params, AgentStat, airline);
             createXMLAgentStat(params, AgentStat, airline, resNode);
+        }
+        if(
+                params.statType == statTlgOutShort or
+                params.statType == statTlgOutDetail or
+                params.statType == statTlgOutFull
+                ) {
+            TTlgOutStat TlgOutStat;
+            TPrintAirline airline;
+            RunTlgOutStat(params, TlgOutStat, airline);
+            createXMLTlgOutStat(params, TlgOutStat, airline, resNode);
         }
     }
     catch (EOracleError &E)
