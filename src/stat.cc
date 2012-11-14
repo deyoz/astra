@@ -88,6 +88,13 @@ void GetSystemLogStationSQL(TQuery &Qry);
 void GetSystemLogModuleSQL(TQuery &Qry);
 
 enum TScreenState {ssNone,ssLog,ssPaxList,ssFltLog,ssSystemLog,ssPaxSrc};
+enum TColumnSortType {sortString,
+                      sortInteger,
+                      sortFloat,
+                      sortDate,
+                      sortDateTime,
+                      sortTime,
+                      sortIntegerSlashInteger};
 
 void GetSystemLogAgentSQL(TQuery &Qry)
 {
@@ -2764,6 +2771,7 @@ typedef map<TFullStatKey, TFullStatRow, TFullCmp> TFullStat;
 void GetDetailStat(const TStatParams &params, TQuery &Qry,
                    TDetailStat &DetailStat, TPrintAirline &airline, string pact_descr = "")
 {
+  int rows=0;
   Qry.Execute();
   for(; !Qry.Eof; Qry.Next()) {
       TDetailStatKey key;
@@ -2784,24 +2792,35 @@ void GetDetailStat(const TStatParams &params, TQuery &Qry,
           };
           airline.check(key.col1);
       }
-      TDetailStatRow &row = DetailStat[key];
-      if(row.flt_amount == NoExists) {
-          row.flt_amount = Qry.FieldAsInteger("flt_amount");
-          row.pax_amount = Qry.FieldAsInteger("pax_amount");
-          row.web = Qry.FieldAsInteger("web");
-          row.kiosk = Qry.FieldAsInteger("kiosk");
-      } else {
-          row.flt_amount += Qry.FieldAsInteger("flt_amount");
-          row.pax_amount += Qry.FieldAsInteger("pax_amount");
-          row.web += Qry.FieldAsInteger("web");
-          row.kiosk += Qry.FieldAsInteger("kiosk");
-      }
+
+      TDetailStat::iterator i = DetailStat.find(key);
+      if (i==DetailStat.end() && rows<=MAX_STAT_ROWS)
+      {
+        i = DetailStat.insert(make_pair(key,TDetailStatRow())).first;
+        rows++;
+      };
+      if (i!=DetailStat.end())
+      {
+        TDetailStatRow &row = i->second;
+        if(row.flt_amount == NoExists) {
+            row.flt_amount = Qry.FieldAsInteger("flt_amount");
+            row.pax_amount = Qry.FieldAsInteger("pax_amount");
+            row.web = Qry.FieldAsInteger("web");
+            row.kiosk = Qry.FieldAsInteger("kiosk");
+        } else {
+            row.flt_amount += Qry.FieldAsInteger("flt_amount");
+            row.pax_amount += Qry.FieldAsInteger("pax_amount");
+            row.web += Qry.FieldAsInteger("web");
+            row.kiosk += Qry.FieldAsInteger("kiosk");
+        }
+      };
   }
 };
 
 void GetFullStat(const TStatParams &params, TQuery &Qry,
                  TFullStat &FullStat, TPrintAirline &airline)
 {
+  int rows=0;
   Qry.Execute();
   if(!Qry.Eof) {
       int col_seance = Qry.FieldIndex("seance");
@@ -2851,36 +2870,45 @@ void GetFullStat(const TStatParams &params, TQuery &Qry,
                                              trtNotCurrent,
                                              trtNotCancelled),
                            false);
-          TFullStatRow &row = FullStat[key];
-          if(row.pax_amount == NoExists) {
-              row.pax_amount = Qry.FieldAsInteger(col_pax_amount);
-              if (params.statType==statFull)
-              {
-                row.web = Qry.FieldAsInteger(col_web);
-                row.kiosk = Qry.FieldAsInteger(col_kiosk);
-              };
-              row.adult = Qry.FieldAsInteger(col_adult);
-              row.child = Qry.FieldAsInteger(col_child);
-              row.baby = Qry.FieldAsInteger(col_baby);
-              row.rk_weight = Qry.FieldAsInteger(col_rk_weight);
-              row.bag_amount = Qry.FieldAsInteger(col_bag_amount);
-              row.bag_weight = Qry.FieldAsInteger(col_bag_weight);
-              row.excess = Qry.FieldAsInteger(col_excess);
-          } else {
-              row.pax_amount += Qry.FieldAsInteger(col_pax_amount);
-              if (params.statType==statFull)
-              {
-                row.web += Qry.FieldAsInteger(col_web);
-                row.kiosk += Qry.FieldAsInteger(col_kiosk);
-              };
-              row.adult += Qry.FieldAsInteger(col_adult);
-              row.child += Qry.FieldAsInteger(col_child);
-              row.baby += Qry.FieldAsInteger(col_baby);
-              row.rk_weight += Qry.FieldAsInteger(col_rk_weight);
-              row.bag_amount += Qry.FieldAsInteger(col_bag_amount);
-              row.bag_weight += Qry.FieldAsInteger(col_bag_weight);
-              row.excess += Qry.FieldAsInteger(col_excess);
-          }
+          TFullStat::iterator i = FullStat.find(key);
+          if (i==FullStat.end() && rows<=MAX_STAT_ROWS)
+          {
+            i = FullStat.insert(make_pair(key,TFullStatRow())).first;
+            rows++;
+          };
+          if (i!=FullStat.end())
+          {
+            TFullStatRow &row =  i->second;
+            if(row.pax_amount == NoExists) {
+                row.pax_amount = Qry.FieldAsInteger(col_pax_amount);
+                if (params.statType==statFull)
+                {
+                  row.web = Qry.FieldAsInteger(col_web);
+                  row.kiosk = Qry.FieldAsInteger(col_kiosk);
+                };
+                row.adult = Qry.FieldAsInteger(col_adult);
+                row.child = Qry.FieldAsInteger(col_child);
+                row.baby = Qry.FieldAsInteger(col_baby);
+                row.rk_weight = Qry.FieldAsInteger(col_rk_weight);
+                row.bag_amount = Qry.FieldAsInteger(col_bag_amount);
+                row.bag_weight = Qry.FieldAsInteger(col_bag_weight);
+                row.excess = Qry.FieldAsInteger(col_excess);
+            } else {
+                row.pax_amount += Qry.FieldAsInteger(col_pax_amount);
+                if (params.statType==statFull)
+                {
+                  row.web += Qry.FieldAsInteger(col_web);
+                  row.kiosk += Qry.FieldAsInteger(col_kiosk);
+                };
+                row.adult += Qry.FieldAsInteger(col_adult);
+                row.child += Qry.FieldAsInteger(col_child);
+                row.baby += Qry.FieldAsInteger(col_baby);
+                row.rk_weight += Qry.FieldAsInteger(col_rk_weight);
+                row.bag_amount += Qry.FieldAsInteger(col_bag_amount);
+                row.bag_weight += Qry.FieldAsInteger(col_bag_weight);
+                row.excess += Qry.FieldAsInteger(col_excess);
+            }
+          };
       }
   }
 };
@@ -2987,21 +3015,25 @@ void createXMLDetailStat(const TStatParams &params, bool pr_pact, const TDetailS
             colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/п"));
             SetProp(colNode, "width", 50);
             SetProp(colNode, "align", taLeftJustify);
+            SetProp(colNode, "sort", sortString);
             if (params.statType==statDetail)
             {
                 colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
                 SetProp(colNode, "width", 50);
                 SetProp(colNode, "align", taLeftJustify);
+                SetProp(colNode, "sort", sortString);
             };
         } else {
             colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
             SetProp(colNode, "width", 50);
             SetProp(colNode, "align", taLeftJustify);
+            SetProp(colNode, "sort", sortString);
             if (params.statType==statDetail)
             {
                 colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/п"));
                 SetProp(colNode, "width", 50);
                 SetProp(colNode, "align", taLeftJustify);
+                SetProp(colNode, "sort", sortString);
             };
         }
         if (USE_SEANCES())
@@ -3009,29 +3041,35 @@ void createXMLDetailStat(const TStatParams &params, bool pr_pact, const TDetailS
             colNode = NewTextChild(headerNode, "col", getLocaleText("Сеанс"));
             SetProp(colNode, "width", 40);
             SetProp(colNode, "align", taLeftJustify);
+            SetProp(colNode, "sort", sortString);
         };
 
         colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во рейсов"));
         SetProp(colNode, "width", 85);
         SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "sort", sortInteger);
 
         colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во пасс."));
         SetProp(colNode, "width", 85);
         SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "sort", sortInteger);
 
         colNode = NewTextChild(headerNode, "col", getLocaleText("Web"));
         SetProp(colNode, "width", 85);
         SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "sort", sortInteger);
 
         colNode = NewTextChild(headerNode, "col", getLocaleText("Киоски"));
         SetProp(colNode, "width", 85);
         SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "sort", sortInteger);
 
         if(pr_pact)
         {
             colNode = NewTextChild(headerNode, "col", getLocaleText("№ договора"));
             SetProp(colNode, "width", 230);
             SetProp(colNode, "align", taLeftJustify);
+            SetProp(colNode, "sort", sortString);
         }
 
         xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
@@ -3098,76 +3136,93 @@ void createXMLFullStat(const TStatParams &params, const TFullStat &FullStat, con
             colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/п"));
             SetProp(colNode, "width", 50);
             SetProp(colNode, "align", taLeftJustify);
+            SetProp(colNode, "sort", sortString);
 
             colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
             SetProp(colNode, "width", 50);
             SetProp(colNode, "align", taLeftJustify);
+            SetProp(colNode, "sort", sortString);
         } else {
             colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
             SetProp(colNode, "width", 50);
             SetProp(colNode, "align", taLeftJustify);
+            SetProp(colNode, "sort", sortString);
 
             colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/п"));
             SetProp(colNode, "width", 50);
             SetProp(colNode, "align", taLeftJustify);
+            SetProp(colNode, "sort", sortString);
         }
         colNode = NewTextChild(headerNode, "col", getLocaleText("Номер рейса"));
         SetProp(colNode, "width", 75);
         SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "sort", sortInteger);
 
         colNode = NewTextChild(headerNode, "col", getLocaleText("Дата"));
         SetProp(colNode, "width", 50);
         SetProp(colNode, "align", taLeftJustify);
+        SetProp(colNode, "sort", sortDate);
 
         colNode = NewTextChild(headerNode, "col", getLocaleText("Направление"));
         SetProp(colNode, "width", 90);
         SetProp(colNode, "align", taLeftJustify);
+        SetProp(colNode, "sort", sortString);
 
         if (USE_SEANCES())
         {
           colNode = NewTextChild(headerNode, "col", getLocaleText("Сеанс"));
           SetProp(colNode, "width", 40);
           SetProp(colNode, "align", taLeftJustify);
+          SetProp(colNode, "sort", sortString);
         };
 
         colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во пасс."));
         SetProp(colNode, "width", 75);
         SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "sort", sortInteger);
 
         if (params.statType==statFull)
         {
           colNode = NewTextChild(headerNode, "col", getLocaleText("Web"));
           SetProp(colNode, "width", 35);
           SetProp(colNode, "align", taRightJustify);
+          SetProp(colNode, "sort", sortInteger);
 
           colNode = NewTextChild(headerNode, "col", getLocaleText("Киоски"));
           SetProp(colNode, "width", 40);
           SetProp(colNode, "align", taRightJustify);
+          SetProp(colNode, "sort", sortInteger);
         };
 
         colNode = NewTextChild(headerNode, "col", getLocaleText("ВЗ"));
         SetProp(colNode, "width", 30);
         SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "sort", sortInteger);
 
         colNode = NewTextChild(headerNode, "col", getLocaleText("РБ"));
         SetProp(colNode, "width", 30);
         SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "sort", sortInteger);
 
         colNode = NewTextChild(headerNode, "col", getLocaleText("РМ"));
         SetProp(colNode, "width", 30);
         SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "sort", sortInteger);
 
         colNode = NewTextChild(headerNode, "col", getLocaleText("Р/кладь (вес)"));
         SetProp(colNode, "width", 80);
         SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "sort", sortInteger);
 
         colNode = NewTextChild(headerNode, "col", getLocaleText("Багаж (мест/вес)"));
         SetProp(colNode, "width", 100);
         SetProp(colNode, "align", taCenter);
+        SetProp(colNode, "sort", sortIntegerSlashInteger);
 
         colNode = NewTextChild(headerNode, "col", getLocaleText("Платн. (вес)"));
         SetProp(colNode, "width", 70);
         SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "sort", sortInteger);
 
         xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
         xmlNodePtr rowNode;
@@ -3867,14 +3922,17 @@ void createXMLKioskStat(const TStatParams &params, const TKioskStat &KioskStat, 
         colNode = NewTextChild(headerNode, "col", getLocaleText("№ киоска"));
         SetProp(colNode, "width", 75);
         SetProp(colNode, "align", taLeftJustify);
+        SetProp(colNode, "sort", sortString);
         if(params.statType == statKioskFull) {
             colNode = NewTextChild(headerNode, "col", getLocaleText("Примечание"));
             SetProp(colNode, "width", 280);
             SetProp(colNode, "align", taLeftJustify);
+            SetProp(colNode, "sort", sortString);
         }
         colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
         SetProp(colNode, "width", 50);
         SetProp(colNode, "align", taLeftJustify);
+        SetProp(colNode, "sort", sortString);
         if(
                 params.statType == statKioskDetail or
                 params.statType == statKioskFull
@@ -3882,6 +3940,7 @@ void createXMLKioskStat(const TStatParams &params, const TKioskStat &KioskStat, 
             colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/п"));
             SetProp(colNode, "width", 50);
             SetProp(colNode, "align", taLeftJustify);
+            SetProp(colNode, "sort", sortString);
         }
         if(
                 params.statType == statKioskShort or
@@ -3890,31 +3949,39 @@ void createXMLKioskStat(const TStatParams &params, const TKioskStat &KioskStat, 
             colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во рейсов"));
             SetProp(colNode, "width", 85);
             SetProp(colNode, "align", taRightJustify);
+            SetProp(colNode, "sort", sortInteger);
         }
         if(params.statType == statKioskFull) {
             colNode = NewTextChild(headerNode, "col", getLocaleText("Номер рейса"));
             SetProp(colNode, "width", 75);
             SetProp(colNode, "align", taRightJustify);
+            SetProp(colNode, "sort", sortInteger);
             colNode = NewTextChild(headerNode, "col", getLocaleText("Дата"));
             SetProp(colNode, "width", 50);
             SetProp(colNode, "align", taLeftJustify);
+            SetProp(colNode, "sort", sortDate);
             colNode = NewTextChild(headerNode, "col", getLocaleText("Направление"));
             SetProp(colNode, "width", 90);
             SetProp(colNode, "align", taLeftJustify);
+            SetProp(colNode, "sort", sortString);
         }
         colNode = NewTextChild(headerNode, "col", getLocaleText("Пас."));
         SetProp(colNode, "width", 35);
         SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "sort", sortInteger);
         if(params.statType == statKioskFull) {
             colNode = NewTextChild(headerNode, "col", getLocaleText("ВЗ"));
             SetProp(colNode, "width", 30);
             SetProp(colNode, "align", taRightJustify);
+            SetProp(colNode, "sort", sortInteger);
             colNode = NewTextChild(headerNode, "col", getLocaleText("РБ"));
             SetProp(colNode, "width", 30);
             SetProp(colNode, "align", taRightJustify);
+            SetProp(colNode, "sort", sortInteger);
             colNode = NewTextChild(headerNode, "col", getLocaleText("РМ"));
             SetProp(colNode, "width", 30);
             SetProp(colNode, "align", taRightJustify);
+            SetProp(colNode, "sort", sortInteger);
         }
         if(
                 params.statType == statKioskDetail or
@@ -3923,6 +3990,7 @@ void createXMLKioskStat(const TStatParams &params, const TKioskStat &KioskStat, 
             colNode = NewTextChild(headerNode, "col", getLocaleText("Сквоз."));
             SetProp(colNode, "width", 45);
             SetProp(colNode, "align", taRightJustify);
+            SetProp(colNode, "sort", sortInteger);
         }
         if(
                 params.statType == statKioskShort or
@@ -3931,6 +3999,7 @@ void createXMLKioskStat(const TStatParams &params, const TKioskStat &KioskStat, 
             colNode = NewTextChild(headerNode, "col", getLocaleText("Примечание"));
             SetProp(colNode, "width", 280);
             SetProp(colNode, "align", taLeftJustify);
+            SetProp(colNode, "sort", sortString);
         }
         xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
         xmlNodePtr rowNode;
@@ -4236,26 +4305,31 @@ void createXMLTlgOutStat(const TStatParams &params, const TTlgOutStat &TlgOutSta
         xmlNodePtr grdNode = NewTextChild(resNode, "grd");
         xmlNodePtr headerNode = NewTextChild(grdNode, "header");
         xmlNodePtr colNode;
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Адрес отпр."));   //перевод
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Адрес отпр."));   //перевод !!!vlad
         SetProp(colNode, "width", 70);
         SetProp(colNode, "align", taLeftJustify);
+        SetProp(colNode, "sort", sortString);
         colNode = NewTextChild(headerNode, "col", getLocaleText("Канал"));         //перевод
         SetProp(colNode, "width", 50);
         SetProp(colNode, "align", taLeftJustify);
+        SetProp(colNode, "sort", sortString);
         if (params.statType == statTlgOutFull)
         {
           colNode = NewTextChild(headerNode, "col", getLocaleText("Адрес получ.")); //перевод
           SetProp(colNode, "width", 70);
           SetProp(colNode, "align", taLeftJustify);
+          SetProp(colNode, "sort", sortString);
         };
         colNode = NewTextChild(headerNode, "col", getLocaleText("Гос-во"));
         SetProp(colNode, "width", 40);
         SetProp(colNode, "align", taLeftJustify);
+        SetProp(colNode, "sort", sortString);
         if (params.statType == statTlgOutFull)
         {
           colNode = NewTextChild(headerNode, "col", getLocaleText("Дата отпр."));  //перевод
           SetProp(colNode, "width", 60);
           SetProp(colNode, "align", taLeftJustify);
+          SetProp(colNode, "sort", sortDate);
         };
         if (params.statType == statTlgOutDetail ||
             params.statType == statTlgOutFull)
@@ -4263,31 +4337,39 @@ void createXMLTlgOutStat(const TStatParams &params, const TTlgOutStat &TlgOutSta
           colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
           SetProp(colNode, "width", 50);
           SetProp(colNode, "align", taLeftJustify);
+          SetProp(colNode, "sort", sortString);
           colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/п"));
           SetProp(colNode, "width", 50);
           SetProp(colNode, "align", taLeftJustify);
+          SetProp(colNode, "sort", sortString);
         };
         if (params.statType == statTlgOutFull)
         {
           colNode = NewTextChild(headerNode, "col", getLocaleText("Тип тлг."));    //перевод
           SetProp(colNode, "width", 50);
           SetProp(colNode, "align", taLeftJustify);
+          SetProp(colNode, "sort", sortString);
           colNode = NewTextChild(headerNode, "col", getLocaleText("Дата вылета")); //перевод
           SetProp(colNode, "width", 70);
           SetProp(colNode, "align", taLeftJustify);
+          SetProp(colNode, "sort", sortDate);
           colNode = NewTextChild(headerNode, "col", getLocaleText("Рейс"));
           SetProp(colNode, "width", 50);
           SetProp(colNode, "align", taLeftJustify);
+          SetProp(colNode, "sort", sortString);
         };
         colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во")); //pr_term=NULL
         SetProp(colNode, "width", params.statType == statTlgOutFull?40:70);
         SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "sort", sortInteger);
         colNode = NewTextChild(headerNode, "col", getLocaleText("Объем")); //перевод
         SetProp(colNode, "width", params.statType == statTlgOutFull?60:90);
         SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "sort", sortFloat);
         colNode = NewTextChild(headerNode, "col", getLocaleText("№ договора"));
         SetProp(colNode, "width", 150);
         SetProp(colNode, "align", taLeftJustify);
+        SetProp(colNode, "sort", sortString);
 
         xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
         xmlNodePtr rowNode;
@@ -4645,14 +4727,17 @@ void createXMLAgentStat(const TStatParams &params, const TAgentStat &AgentStat, 
             colNode = NewTextChild(headerNode, "col", getLocaleText("Рейс"));
             SetProp(colNode, "width", 70);
             SetProp(colNode, "align", taLeftJustify);
+            SetProp(colNode, "sort", sortString);
             colNode = NewTextChild(headerNode, "col", getLocaleText("Дата"));
             SetProp(colNode, "width", 50);
             SetProp(colNode, "align", taLeftJustify);
+            SetProp(colNode, "sort", sortDate);
         }
         if(params.statType == statAgentFull) {
             colNode = NewTextChild(headerNode, "col", getLocaleText("Стойка"));
             SetProp(colNode, "width", 50);
             SetProp(colNode, "align", taLeftJustify);
+            SetProp(colNode, "sort", sortString);
         }
         if(
                 params.statType == statAgentFull or
@@ -4661,48 +4746,62 @@ void createXMLAgentStat(const TStatParams &params, const TAgentStat &AgentStat, 
             colNode = NewTextChild(headerNode, "col", getLocaleText("Агент"));
             SetProp(colNode, "width", 100);
             SetProp(colNode, "align", taLeftJustify);
+            SetProp(colNode, "sort", sortString);
         }
         if(params.statType == statAgentTotal) {
             colNode = NewTextChild(headerNode, "col", getLocaleText("Пас."));
             SetProp(colNode, "width", 45);
             SetProp(colNode, "align", taRightJustify);
+            SetProp(colNode, "sort", sortInteger);
             colNode = NewTextChild(headerNode, "col", getLocaleText("Сквоз."));
             SetProp(colNode, "width", 50);
             SetProp(colNode, "align", taRightJustify);
+            SetProp(colNode, "sort", sortInteger);
             colNode = NewTextChild(headerNode, "col", getLocaleText("Баг."));
             SetProp(colNode, "width", 70);
             SetProp(colNode, "align", taCenter);
+            SetProp(colNode, "sort", sortIntegerSlashInteger);
             colNode = NewTextChild(headerNode, "col", getLocaleText("Р/к"));
             SetProp(colNode, "width", 45);
             SetProp(colNode, "align", taRightJustify);
+            SetProp(colNode, "sort", sortInteger);
         } else {
             colNode = NewTextChild(headerNode, "col", getLocaleText("Пас.")+" (+)");
             SetProp(colNode, "width", 45);
             SetProp(colNode, "align", taRightJustify);
+            SetProp(colNode, "sort", sortInteger);
             colNode = NewTextChild(headerNode, "col", getLocaleText("Пас.")+" (-)");
             SetProp(colNode, "width", 45);
             SetProp(colNode, "align", taRightJustify);
+            SetProp(colNode, "sort", sortInteger);
             colNode = NewTextChild(headerNode, "col", getLocaleText("Сквоз.")+"(+)");
             SetProp(colNode, "width", 50);
             SetProp(colNode, "align", taRightJustify);
+            SetProp(colNode, "sort", sortInteger);
             colNode = NewTextChild(headerNode, "col", getLocaleText("Сквоз.")+"(-)");
             SetProp(colNode, "width", 50);
             SetProp(colNode, "align", taRightJustify);
+            SetProp(colNode, "sort", sortInteger);
             colNode = NewTextChild(headerNode, "col", getLocaleText("Баг.")+" (+)");
             SetProp(colNode, "width", 70);
             SetProp(colNode, "align", taCenter);
+            SetProp(colNode, "sort", sortIntegerSlashInteger);
             colNode = NewTextChild(headerNode, "col", getLocaleText("Баг.")+" (-)");
             SetProp(colNode, "width", 70);
             SetProp(colNode, "align", taCenter);
+            SetProp(colNode, "sort", sortIntegerSlashInteger);
             colNode = NewTextChild(headerNode, "col", getLocaleText("Р/к")+" (+)");
             SetProp(colNode, "width", 45);
             SetProp(colNode, "align", taRightJustify);
+            SetProp(colNode, "sort", sortInteger);
             colNode = NewTextChild(headerNode, "col", getLocaleText("Р/к")+" (-)");
             SetProp(colNode, "width", 45);
             SetProp(colNode, "align", taRightJustify);
+            SetProp(colNode, "sort", sortInteger);
             colNode = NewTextChild(headerNode, "col", getLocaleText("Сек./пас."));
             SetProp(colNode, "width", 65);
             SetProp(colNode, "align", taRightJustify);
+            SetProp(colNode, "sort", sortFloat);
         }
 
         xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
