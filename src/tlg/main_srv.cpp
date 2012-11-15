@@ -302,6 +302,10 @@ void process_tlg(void)
                              tlg_in.Receiver, tlg_in.num);
             return;
           };
+          TlgUpdQry.SQLText=
+            "UPDATE tlg_stat SET time_send=SYSTEM.UTCSYSDATE "
+            "WHERE queue_tlg_id=:tlg_num AND sender_canon_name=:sender";
+          TlgUpdQry.Execute();
         };
         break;
       case TLG_F_ACK:
@@ -313,6 +317,10 @@ void process_tlg(void)
             "      type IN ('OUTA','OUTB') AND status='SEND'";
           TlgUpdQry.CreateVariable("sender",otString,tlg_in.Receiver); //OWN_CANON_NAME
           TlgUpdQry.CreateVariable("tlg_num",otInteger,(int)tlg_in.num);
+          TlgUpdQry.Execute();
+          TlgUpdQry.SQLText=
+            "UPDATE tlg_stat SET time_receive=SYSTEM.UTCSYSDATE "
+            "WHERE queue_tlg_id=:tlg_num AND sender_canon_name=:sender";
           TlgUpdQry.Execute();
         };
         break;

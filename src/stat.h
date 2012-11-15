@@ -8,7 +8,17 @@
 namespace STAT {
     struct agent_stat_t {
         int inc, dec;
-        agent_stat_t(int ainc, int adec): inc(ainc), dec(adec) {}
+        agent_stat_t(int ainc, int adec): inc(ainc), dec(adec) {};
+        bool operator == (const agent_stat_t &item) const
+        {
+            return inc == item.inc &&
+                   dec == item.dec;
+        };
+        void operator += (const agent_stat_t &item)
+        {
+            inc += item.inc;
+            dec += item.dec;
+        };
     };
     xmlNodePtr set_variables(xmlNodePtr resNode, std::string lang = "");
     void agent_stat_delta(

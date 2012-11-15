@@ -30,7 +30,6 @@ using namespace ASTRA;
 using namespace SALONS2;
 
 const string br = "\xa";
-const size_t PART_SIZE = 2000;
 const size_t LINE_SIZE = 64;
 int TST_TLG_ID; // for test purposes
 const string ERR_TAG_NAME = "ERROR";
@@ -1866,7 +1865,7 @@ int COM(TTlgInfo &info)
     TTlgOutPartInfo tlg_row(info);
     ostringstream heading;
     heading
-        << "." << info.sender << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
+        << "." << info.originator.addr << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
         << "COM" << br;
     tlg_row.heading = heading.str();
     tlg_row.ending = "ENDCOM" + br;
@@ -3145,7 +3144,7 @@ int PIL(TTlgInfo &info)
     TTlgOutPartInfo tlg_row(info);
     ostringstream heading;
     heading
-        << "." << info.sender << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
+        << "." << info.originator.addr << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
         << "PIL" << br
         << info.flight_view() << "/"
         << DateTimeToStr(info.scd_local, "ddmmm", 1) << " " << info.airp_dep_view() << br;
@@ -3242,7 +3241,7 @@ int TPM(TTlgInfo &info)
     TTlgOutPartInfo tlg_row(info);
     ostringstream heading;
     heading
-        << "." << info.sender << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
+        << "." << info.originator.addr << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
         << "TPM" << br
         << info.flight_view() << "/"
         << DateTimeToStr(info.scd_local, "ddmmm", 1) << " " << info.airp_dep_view() << " ";
@@ -3270,7 +3269,7 @@ int PSM(TTlgInfo &info)
     TTlgOutPartInfo tlg_row(info);
     ostringstream heading;
     heading
-        << "." << info.sender << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
+        << "." << info.originator.addr << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
         << "PSM" << br
         << info.flight_view() << "/"
         << DateTimeToStr(info.scd_local, "ddmmm", 1) << " " << info.airp_dep_view() << " ";
@@ -3298,7 +3297,7 @@ int BTM(TTlgInfo &info)
     TTlgOutPartInfo tlg_row(info);
     ostringstream heading1, heading2;
     heading1
-        << "." << info.sender << " " << DateTimeToStr(tlg_row.time_create,"ddhhnn") << br
+        << "." << info.originator.addr << " " << DateTimeToStr(tlg_row.time_create,"ddhhnn") << br
         << "BTM" << br
         << ".V/1T" << info.airp_arv_view();
     heading2
@@ -3364,7 +3363,7 @@ int PTM(TTlgInfo &info)
     TTlgOutPartInfo tlg_row(info);
     ostringstream heading;
     heading
-        << "." << info.sender << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
+        << "." << info.originator.addr << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
         << "PTM" << br
         << info.flight_view() << "/"
         << DateTimeToStr(info.scd_local, "ddmmm", 1) << " " << info.airp_dep_view() << info.airp_arv_view() << " ";
@@ -3900,7 +3899,7 @@ int SOM(TTlgInfo &info)
     TTlgOutPartInfo tlg_row(info);
     ostringstream heading;
     heading
-        << "." << info.sender << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
+        << "." << info.originator.addr << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
         << "SOM" << br
         << info.flight_view() << "/"
         << DateTimeToStr(info.scd_local, "ddmmm", 1) << " " << info.airp_dep_view() << " ";
@@ -5086,7 +5085,7 @@ int CPM(TTlgInfo &info)
     info.vcompleted = false;
     ostringstream buf;
     buf
-        << "." << info.sender << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
+        << "." << info.originator.addr << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
         << "CPM" << br;
     tlg_row.heading = buf.str();
     tlg_row.ending = "PART " + IntToString(tlg_row.num) + " END" + br;
@@ -5115,7 +5114,7 @@ int MVT(TTlgInfo &info)
     info.vcompleted = true;
     ostringstream buf;
     buf
-        << "." << info.sender << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
+        << "." << info.originator.addr << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
         << "MVT" << br;
     tlg_row.heading = buf.str();
     tlg_row.ending = "PART " + IntToString(tlg_row.num) + " END" + br;
@@ -5161,7 +5160,7 @@ int LDM(TTlgInfo &info)
     info.vcompleted = true;
     ostringstream buf;
     buf
-        << "." << info.sender << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
+        << "." << info.originator.addr << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
         << "LDM" << br;
     tlg_row.heading = buf.str();
     tlg_row.ending = "PART " + IntToString(tlg_row.num) + " END" + br;
@@ -5187,7 +5186,7 @@ int AHL(TTlgInfo &info)
     info.vcompleted = false;
     ostringstream heading;
     heading
-        << "." << info.sender << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br;
+        << "." << info.originator.addr << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br;
     tlg_row.heading = heading.str();
     tlg_row.body =
         "AHL" + br
@@ -5217,7 +5216,7 @@ int PIM(TTlgInfo &info)
     TTlgOutPartInfo tlg_row(info);
     ostringstream heading;
     heading
-        << "." << info.sender << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
+        << "." << info.originator.addr << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
         << "PIM" << br
         << info.flight_view() << "/"
         << DateTimeToStr(info.scd_local, "ddmmm", 1) << " " << info.airp_dep_view() << " ";
@@ -5245,7 +5244,7 @@ int FTL(TTlgInfo &info)
     TTlgOutPartInfo tlg_row(info);
     ostringstream heading;
     heading
-        << "." << info.sender << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
+        << "." << info.originator.addr << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
         << "FTL" << br
         << info.flight_view(false) << "/"
         << DateTimeToStr(info.scd_local, "ddmmm", 1) << " " << info.airp_dep_view() << " ";
@@ -5273,7 +5272,7 @@ int ETL(TTlgInfo &info)
     TTlgOutPartInfo tlg_row(info);
     ostringstream heading;
     heading
-        << "." << info.sender << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
+        << "." << info.originator.addr << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
         << "ETL" << br
         << info.flight_view(false) << "/"
         << DateTimeToStr(info.scd_local, "ddmmm", 1) << " " << info.airp_dep_view() << " ";
@@ -5938,7 +5937,7 @@ int PFS(TTlgInfo &info)
     TTlgOutPartInfo tlg_row(info);
     ostringstream heading;
     heading
-        << "." << info.sender << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
+        << "." << info.originator.addr << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
         << "PFS" << br
         << info.flight_view(false) << "/"
         << DateTimeToStr(info.scd_local, "ddmmm", 1) << " " << info.airp_dep_view() << " ";
@@ -5967,7 +5966,7 @@ int PRL(TTlgInfo &info)
     TTlgOutPartInfo tlg_row(info);
     ostringstream heading;
     heading
-        << "." << info.sender << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
+        << "." << info.originator.addr << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
         << "PRL" << br
         << info.flight_view(false) << "/"
         << DateTimeToStr(info.scd_local, "ddmmm", 1) << " " << info.airp_dep_view() << " ";
@@ -5998,22 +5997,22 @@ int Unknown(TTlgInfo &info)
     TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row(info);
     info.vcompleted = false;
-    tlg_row.heading = '.' + info.sender + ' ' + DateTimeToStr(tlg_row.time_create,"ddhhnn") + br;
+    tlg_row.heading = '.' + info.originator.addr + ' ' + DateTimeToStr(tlg_row.time_create,"ddhhnn") + br;
     tlg_draft.Save(tlg_row);
     tlg_draft.Commit(tlg_row);
     return tlg_row.id;
 }
 
-string getOriginator(const string &airline,
-                     const string &airp_dep,
-                     const string &tlg_type,
-                     const TDateTime &time_create,
-                     bool with_exception)
+TOriginatorInfo getOriginator(const string &airline,
+                              const string &airp_dep,
+                              const string &tlg_type,
+                              const TDateTime &time_create,
+                              bool with_exception)
 {
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText =
-    "SELECT addr, "
+    "SELECT id, addr, "
     "       DECODE(airline,NULL,0,8) + "
     "       DECODE(airp_dep,NULL,0,4) + "
     "       DECODE(tlg_type,NULL,0,2) AS priority "
@@ -6029,16 +6028,20 @@ string getOriginator(const string &airline,
   Qry.CreateVariable("tlg_type", otString, tlg_type);
   Qry.CreateVariable("time_create", otDate, time_create);
   Qry.Execute();
-  string originator;
-  if (!Qry.Eof) originator=Qry.FieldAsString("addr");
+  TOriginatorInfo originator;
+  if (!Qry.Eof)
+  {
+    originator.id=Qry.FieldAsInteger("id");
+    originator.addr=Qry.FieldAsString("addr");
+  };
 
   if (with_exception)
   {
-    if(originator.empty())
+    if(originator.addr.empty())
       throw AstraLocale::UserException("MSG.TLG.SRC_ADDR_NOT_SET");
-    if(originator.size() != 7)
+    if(originator.addr.size() != 7)
       throw AstraLocale::UserException("MSG.TLG.SRC_ADDR_WRONG_SET");
-    for(string::const_iterator c=originator.begin(); c!=originator.end(); c++)
+    for(string::const_iterator c=originator.addr.begin(); c!=originator.addr.end(); c++)
       if (!(is_lat_char(*c) && (IsDigit(*c) || IsUpperLetter(*c))))
         throw AstraLocale::UserException("MSG.TLG.SRC_ADDR_WRONG_SET");
   };
@@ -6122,12 +6125,11 @@ int TelegramInterface::create_tlg(const TCreateTlgInfo &createInfo)
     }
     
     //вычисление отправителя
-    info.sender = getOriginator( info.mark_info.IsNULL()?info.airline:info.mark_info.airline,
-                                 info.airp_dep,
-                                 info.tlg_type,
-                                 info.time_create,
-                                 true);
-    
+    info.originator = getOriginator( info.mark_info.IsNULL()?info.airline:info.mark_info.airline,
+                                     info.airp_dep,
+                                     info.tlg_type,
+                                     info.time_create,
+                                     true);
     ostringstream extra;
     if (vbasic_type == "PTM" ||
         vbasic_type == "BTM")
