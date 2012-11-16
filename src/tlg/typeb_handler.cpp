@@ -10,7 +10,7 @@
 #include "oralib.h"
 #include "tlg.h"
 #include "tlg_parser.h"
-#include "ssm_parser.h"
+//#include "ssm_parser.h"
 #include "memory_manager.h"
 #include "serverlib/ourtime.h"
 
@@ -737,6 +737,7 @@ bool parse_tlg(void)
             count++;
             break;
           }
+          /*
           case tcSSM:
           {
             part.p=buf;
@@ -763,6 +764,7 @@ bool parse_tlg(void)
             count++;
             break;
           }
+          */
           default:
           {
             //телеграмму неизвестного типа сразу пишем в разобранные
