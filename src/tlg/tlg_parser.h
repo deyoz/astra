@@ -30,8 +30,7 @@ class ETlgError:public EXCEPTIONS::Exception
     ETlgError(std::string msg):EXCEPTIONS::Exception(msg) {};
 };
 
-enum TTimeMode{tmLT, tmUTC, tmUnknown};
-enum TTlgCategory{tcUnknown,tcDCS,tcBSM,tcAHM,tcSSM};
+enum TTlgCategory{tcUnknown,tcDCS,tcBSM,tcAHM,tcSSM,tcASM};
 
 enum TTlgElement
               {//общие
@@ -75,6 +74,7 @@ enum TTlgElement
                SI,
                SIMore,
                Reject,
+               RejectBody,
                RepeatOfRejected,
                //общие
                EndOfMessage};
@@ -167,23 +167,6 @@ class TBSMHeadingInfo : public THeadingInfo
       *airp=0;
       part_no=0;
     };
-};
-
-struct TMsgSeqRef {
-    char day[3], month[4], grp[6], type, num[4], creator[36];
-    TMsgSeqRef() { creator[0] = 0; }
-};
-
-class TSSMHeadingInfo : public THeadingInfo
-{
-    public:
-        TTimeMode time_mode;
-        TMsgSeqRef msr;
-
-        void dump();
-
-        TSSMHeadingInfo() : THeadingInfo(), time_mode(tmUnknown) {};
-        TSSMHeadingInfo(THeadingInfo &info) : THeadingInfo(info), time_mode(tmUnknown)  {};
 };
 
 class TAHMHeadingInfo : public THeadingInfo
@@ -646,32 +629,15 @@ class TBtmTransferInfo
     std::vector<TBtmOutFltInfo> OutFlt;
 };
 
-enum TActionIdentifier {
-    aiNEW,
-    aiCNL,
-    aiRPL,
-    aiSKD,
-    aiACK,
-    aiADM,
-    aiCON,
-    aiEQT,
-    aiFLT,
-    aiNAC,
-    aiREV,
-    aiRSD,
-    aiTIM,
-    aiUnknown
+class TBtmContent
+{
+  public:
+    std::vector<TBtmTransferInfo> Transfer;
+    void Clear()
+    {
+      Transfer.clear();
+    };
 };
-
-extern const char *TActionIdentifierS[];
-
-struct TSSMDate {
-    BASIC::TDateTime date;
-    void parse(const char *val);
-    TSSMDate(): date(ASTRA::NoExists) {};
-};
-
-enum TFrequencyRate {frW, frW2}; // Every week, Every two weeks (fortnightly)
 
 #define MAX_LEXEME_SIZE 70
 
@@ -687,283 +653,13 @@ class TTlgParser
     char* GetNameElement(char* p, bool trimRight);
 };
 
-struct TPeriodOfOper {
-    private:
-        void parse(bool pr_from, const char *val);
-    public:
-        TSSMDate from, to;
-        char oper_days[8]; // Day(s) of operation
-        TFrequencyRate rate;
-        void parse(char *&ph, TTlgParser &tlg);
-        TPeriodOfOper():
-            rate(frW)
-    {
-        *oper_days = 0;
-    }
-};
+extern char lexh[];
+extern const TMonthCode Months[];
 
-struct TDEI {
-    int id;
-    TDEI(int aid) { id = aid; };
-    virtual ~TDEI() {};
-    virtual void parse(const char *val) = 0;
-    virtual void dump() = 0;
-    virtual bool empty() = 0;
-};
-
-struct TMealItem {
-    std::string cls;
-    std::string meal;
-};
-
-struct TDEI_7:TDEI {
-    private:
-        void insert(bool default_meal, std::string &meal);
-    public:
-        std::vector<TMealItem> meal_service;
-        void parse(const char *val);
-        void dump();
-        bool empty() { return meal_service.empty(); };
-        TDEI_7(): TDEI(7) {};
-};
-
-struct TDEI_6:TDEI {
-    char airline[4];
-    char suffix[2];
-    int flt_no, layover;
-    void parse(const char *val);
-    void dump();
-    bool empty() { return *airline == 0; };
-    TDEI_6(): TDEI(6), flt_no(ASTRA::NoExists), layover(ASTRA::NoExists)
-    {
-        *airline = 0;
-        *suffix = 0;
-    };
-};
-
-struct TDEI_1:TDEI {
-    std::vector<std::string> airlines;
-    void parse(const char *val);
-    void dump();
-    bool empty() { return airlines.empty(); };
-    TDEI_1(): TDEI(1) {};
-};
-
-struct TDEI_airline:TDEI {
-    char airline[4];
-    void parse(const char *val);
-    void dump();
-    bool empty() { return strlen(airline) == 0; };
-    TDEI_airline(int aid): TDEI(aid) { *airline = 0; };
-};
-
-struct TDEIHolder:std::vector<TDEI *> {
-    private:
-        void parse(const char *val);
-    public:
-        void parse(TActionIdentifier ai, char *&ph, TTlgParser &tlg);
-};
-
-struct TSSMFltInfo: TFltInfo {
-    void parse(const char *val);
-};
-
-struct TFlightInformation {
-    TSSMFltInfo flt;
-    TPeriodOfOper oper_period;  // Existing Period of Operation;
-    TDEI_1 dei1;                // Joint Operation Airline Designators
-    TDEI_airline dei2;          // Code Sharing - Commercial duplicate
-    TDEI_airline dei3;          // Aircraft Owner
-    TDEI_airline dei4;          // Cockpit Crew Employer
-    TDEI_airline dei5;          // Cabin Crew Employer
-    TDEI_airline dei9;          // Code Sharing - Shared Airline Designation or
-                                // Wet Lease Airline Designation
-    TDEIHolder dei_list;
-    TFlightInformation():
-        dei2(2),
-        dei3(3),
-        dei4(4),
-        dei5(5),
-        dei9(9)
-    {
-        dei_list.push_back(&dei1);
-        dei_list.push_back(&dei2);
-        dei_list.push_back(&dei3);
-        dei_list.push_back(&dei4);
-        dei_list.push_back(&dei5);
-        dei_list.push_back(&dei9);
-    }
-
-};
-
-struct TPeriodFrequency {
-    TSSMDate effective_date, discontinue_date; //Schedule Validity Effective/Discontinue Dates
-    TPeriodOfOper oper_period;
-    TDEI_1 dei1;                // Joint Operation Airline Designators
-    TDEI_airline dei2;          // Code Sharing - Commercial duplicate
-    TDEI_airline dei3;          // Aircraft Owner
-    TDEI_airline dei4;          // Cockpit Crew Employer
-    TDEI_airline dei5;          // Cabin Crew Employer
-    TDEI_6 dei6;                // Onward Flight
-    TDEI_airline dei9;          // Code Sharing - Shared Airline Designation or
-                                // Wet Lease Airline Designation
-    TDEIHolder dei_list;
-    TPeriodFrequency():
-        dei2(2),
-        dei3(3),
-        dei4(4),
-        dei5(5),
-        dei9(9)
-    {
-        dei_list.push_back(&dei1);
-        dei_list.push_back(&dei2);
-        dei_list.push_back(&dei3);
-        dei_list.push_back(&dei4);
-        dei_list.push_back(&dei5);
-        dei_list.push_back(&dei6);
-        dei_list.push_back(&dei9);
-    }
-};
-
-struct TEquipment {
-    char service_type;
-    char aircraft[4];
-    std::string PRBD;   //Passenger Reservations Booking Designator
-                        //or Aircraft Configuration/Version
-    std::string PRBM;   //Passenger Reservations Booking Modifier
-    std::string craft_cfg;
-    TDEI_airline dei2;          // Code Sharing - Commercial duplicate
-    TDEI_airline dei3;          // Aircraft Owner
-    TDEI_airline dei4;          // Cockpit Crew Employer
-    TDEI_airline dei5;          // Cabin Crew Employer
-    TDEI_6 dei6;                // Onward Flight
-    TDEI_airline dei9;          // Code Sharing - Shared Airline Designation or
-                                // Wet Lease Airline Designation
-    TDEIHolder dei_list;
-    TEquipment():
-        dei2(2),
-        dei3(3),
-        dei4(4),
-        dei5(5),
-        dei9(9)
-    {
-        dei_list.push_back(&dei2);
-        dei_list.push_back(&dei3);
-        dei_list.push_back(&dei4);
-        dei_list.push_back(&dei5);
-        dei_list.push_back(&dei6);
-        dei_list.push_back(&dei9);
-    }
-};
-
-struct TRouteStation {
-    char airp[4];
-    BASIC::TDateTime scd, pax_scd;
-    int date_variation;
-    void dump();
-    void parse(const char *val);
-    TRouteStation() {
-        *airp = 0;
-        scd = ASTRA::NoExists;
-        pax_scd = ASTRA::NoExists;
-        date_variation = 0;
-    }
-};
-
-struct TRouting {
-    std::vector<std::string> leg_airps;
-    TRouteStation station_dep;
-    TRouteStation station_arv;
-    TDEI_1 dei1;                // Joint Operation Airline Designators
-    TDEI_airline dei2;          // Code Sharing - Commercial duplicate
-    TDEI_airline dei3;          // Aircraft Owner
-    TDEI_airline dei4;          // Cockpit Crew Employer
-    TDEI_airline dei5;          // Cabin Crew Employer
-    TDEI_6 dei6;                // Onward Flight
-    TDEI_7 dei7;                // Meal Service Note
-    TDEI_airline dei9;          // Code Sharing - Shared Airline Designation or
-    TDEIHolder dei_list;
-    TRouting():
-        dei2(2),
-        dei3(3),
-        dei4(4),
-        dei5(5),
-        dei9(9)
-    {
-        dei_list.push_back(&dei1);
-        dei_list.push_back(&dei2);
-        dei_list.push_back(&dei3);
-        dei_list.push_back(&dei4);
-        dei_list.push_back(&dei5);
-        dei_list.push_back(&dei6);
-        dei_list.push_back(&dei7);
-        dei_list.push_back(&dei9);
-    }
-    void parse_leg_airps(std::string buf);
-};
-
-struct TDEI_8:TDEI {
-    char TRC;
-    int DEI;
-    std::string data;
-    void parse(const char *val);
-    void dump();
-    bool empty() { return TRC != 0; };
-    TDEI_8(): TDEI(8), TRC(0), DEI(ASTRA::NoExists) {};
-};
-
-struct TOther {
-    int DEI;
-    std::string data;
-    void parse(const char *val);
-    TOther():DEI(ASTRA::NoExists) {};
-};
-
-struct TSegment {
-    std::string airp_dep, airp_arv;
-    TDEI_8 dei8; // Traffic Restriction Note
-    TOther other;
-    void parse(const char *val);
-};
-
-struct TActionInfo {
-    TActionIdentifier id;
-    bool xasm;
-    void parse(char *val);
-    TActionInfo(): id(aiUnknown), xasm(false) {};
-};
-
-struct TSSMSubMessage {
-    TActionInfo ainfo;
-    TFlightInformation flt_info;
-    TPeriodFrequency period_frequency;
-    TSSMFltInfo new_flt; // for FLT message only
-    TEquipment equipment;
-    TRouting routing; // Routing or Leg Information
-    std::vector<TSegment> segs;
-    std::vector<std::string> si; // up to 3 items
-    void dump();
-};
-
-class TSSMContent
-{
-    public:
-        std::vector<TSSMSubMessage> msgs;
-        std::vector<std::string> si; // up to 3 items
-        void Clear() {};
-        void dump();
-};
-
-class TBtmContent
-{
-  public:
-    std::vector<TBtmTransferInfo> Transfer;
-    void Clear()
-    {
-      Transfer.clear();
-    };
-};
-
+char* TlgElemToElemId(TElemType type, const char* elem, char* id, bool with_icao=false);
+char GetSuffix(char &suffix);
+char* GetAirline(char* airline, bool with_icao=false);
+char* GetTlgElementName(TTlgElement e);
 TTlgCategory GetTlgCategory(char *tlg_type);
 TTlgParts GetParts(char* tlg_p, TMemoryManager &mem);
 TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo* &info, TMemoryManager &mem);
@@ -971,7 +667,6 @@ void ParseEnding(TTlgPartInfo ending, THeadingInfo *headingInfo, TEndingInfo* &i
 void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLContent& con);
 void ParsePTMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPtmContent& con);
 void ParseBTMContent(TTlgPartInfo body, TBSMHeadingInfo& info, TBtmContent& con, TMemoryManager &mem);
-void ParseSSMContent(TTlgPartInfo body, TSSMHeadingInfo& info, TSSMContent& con, TMemoryManager &mem);
 void ParseSOMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TSOMContent& con);
 
 bool ParseDOCSRem(TTlgParser &tlg,BASIC::TDateTime scd_local,std::string &rem_text,TDocItem &doc);
@@ -979,15 +674,12 @@ bool ParseDOCSRem(TTlgParser &tlg,BASIC::TDateTime scd_local,std::string &rem_te
 bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& con, bool forcibly);
 void SavePTMContent(int tlg_id, TDCSHeadingInfo& info, TPtmContent& con);
 void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, TBtmContent& con);
-void SaveSSMContent(int tlg_id, TSSMHeadingInfo& info, TSSMContent& con);
 void SaveSOMContent(int tlg_id, TDCSHeadingInfo& info, TSOMContent& con);
 
 void ParseAHMFltInfo(TTlgPartInfo body, const TAHMHeadingInfo &info, TFltInfo& flt, TBindType &bind_type);
 int SaveFlt(int tlg_id, TFltInfo& flt, TBindType bind_type);
 
 void ParseSeatRange(std::string str, std::vector<TSeatRange> &ranges, bool usePriorContext);
-
-int ssm(int argc,char **argv);
 
 }
 

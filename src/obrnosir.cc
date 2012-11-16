@@ -23,7 +23,7 @@
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
 
-#include "tlg/tlg_parser.h"
+#include "tlg/ssm_parser.h"
 
 /*
 int LocalIsNosir=0;
