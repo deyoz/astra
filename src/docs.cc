@@ -2715,8 +2715,7 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             "      crs_pnr.airp_arv AS target, "
             "      crs_pnr.airp_arv_final AS last_target, "
             "      report.get_TKNO(crs_pax.pax_id) ticket_no, "
-            "      report.get_PSPT(crs_pax.pax_id, 1, :lang) AS document, "
-            "      report.get_crsRemarks(crs_pax.pax_id) AS remarks ";
+            "      report.get_PSPT(crs_pax.pax_id, 1, :lang) AS document ";
         Qry.CreateVariable("lang", otString, rpt_params.GetLang());
     }
     SQLText +=
@@ -2753,9 +2752,16 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     TQuery docsQry(&OraSession);
     docsQry.SQLText = "select * from crs_pax_doc where pax_id = :pax_id and rem_code = 'DOCS'";
     docsQry.DeclareVariable("pax_id", otInteger);
+    //ремарки пассажиров
+    TQuery RQry( &OraSession );
+    
+    TRemGrp rem_grp;
+    if(rpt_params.rpt_type != rtBDOCS)
+      rem_grp.Load(retPNL_SEL, rpt_params.point_id);
     for(; !Qry.Eof; Qry.Next()) {
+        int pax_id=Qry.FieldAsInteger("pax_id");
         if(rpt_params.rpt_type == rtBDOCS) {
-            docsQry.SetVariable("pax_id", Qry.FieldAsInteger("pax_id"));
+            docsQry.SetVariable("pax_id", pax_id);
             docsQry.Execute();
             if (!docsQry.Eof)
             {
@@ -2808,7 +2814,7 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             NewTextChild(rowNode, "last_target", last_target);
             NewTextChild(rowNode, "ticket_no", Qry.FieldAsString("ticket_no"));
             NewTextChild(rowNode, "document", Qry.FieldAsString("document"));
-            NewTextChild(rowNode, "remarks", Qry.FieldAsString("remarks"));
+            NewTextChild(rowNode, "remarks", GetCrsRemarkStr(rem_grp, pax_id, RQry));
         }
     }
 

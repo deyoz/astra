@@ -165,7 +165,15 @@ string GetRemarkStr(const TRemGrp &rem_grp, int pax_id, TQuery &Qry, const strin
       rems.push_back(CheckIn::TPaxRemItem().fromDB(Qry));
     sort(rems.begin(), rems.end());
     return GetRemarkStr(rem_grp, rems, term);
-}
+};
+
+string GetCrsRemarkStr(const TRemGrp &rem_grp, int pax_id, TQuery &Qry, const string &term)
+{
+  vector<CheckIn::TPaxRemItem> rems;
+  LoadCrsPaxRem(pax_id, rems, Qry);
+  sort(rems.begin(),rems.end());
+  return GetRemarkStr(rem_grp, rems, term);
+};
 
 namespace CheckIn
 {

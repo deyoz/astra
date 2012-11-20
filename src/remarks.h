@@ -109,6 +109,7 @@ bool LoadPaxFQT(int pax_id, std::vector<TPaxFQTItem> &fqts, TQuery& PaxFQTQry);
 
 std::string GetRemarkStr(const TRemGrp &rem_grp, const std::vector<CheckIn::TPaxRemItem> &rems, const std::string &term = " ");
 std::string GetRemarkStr(const TRemGrp &rem_grp, int pax_id, TQuery &Qry, const std::string &term = " ");
+std::string GetCrsRemarkStr(const TRemGrp &rem_grp, int pax_id, TQuery &Qry, const std::string &term = " ");
 
 #endif
 
