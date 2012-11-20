@@ -34,9 +34,6 @@ struct TRemGrp:private std::vector<std::string> {
         void Clear() { clear(); any = false; };
 };
 
-
-std::string GetRemarkStr(const TRemGrp &rem_grp, int pax_id, TQuery &Qry, const std::string &term = " ");
-
 namespace CheckIn
 {
 
@@ -67,7 +64,7 @@ class TPaxRemItem
     {
       if (priority!=item.priority)
         return (item.priority==ASTRA::NoExists ||
-                priority!=ASTRA::NoExists && item.priority<priority);
+                priority!=ASTRA::NoExists && priority<item.priority);
       if (code!=item.code)
         return code<item.code;
       return text<item.text;
@@ -105,9 +102,13 @@ class TPaxFQTItem
 };
 
 bool LoadPaxRem(int pax_id, std::vector<TPaxRemItem> &rems, TQuery& PaxRemQry);
+bool LoadCrsPaxRem(int pax_id, std::vector<TPaxRemItem> &rems, TQuery& PaxRemQry);
 bool LoadPaxFQT(int pax_id, std::vector<TPaxFQTItem> &fqts, TQuery& PaxFQTQry);
 
 };
+
+std::string GetRemarkStr(const TRemGrp &rem_grp, const std::vector<CheckIn::TPaxRemItem> &rems, const std::string &term = " ");
+std::string GetRemarkStr(const TRemGrp &rem_grp, int pax_id, TQuery &Qry, const std::string &term = " ");
 
 #endif
 

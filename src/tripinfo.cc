@@ -1923,7 +1923,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
 
     TQuery UsersQry(&OraSession);
     UsersQry.Clear();
-    UsersQry.SQLText="SELECT descr FROM users2 WHERE user_id=:user_id AND pr_denial>=0";
+    UsersQry.SQLText="SELECT descr FROM users2 WHERE user_id=:user_id";
     UsersQry.DeclareVariable("user_id",otInteger);
     map<int, string> users; //кэшируем информацию по агентам
 
@@ -2296,14 +2296,6 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
 
   //ремарки пассажиров
   TQuery RQry( &OraSession );
-  RQry.SQLText =
-    "SELECT crs_pax_rem.rem, crs_pax_rem.rem_code "
-    "FROM crs_pax_rem,ckin_rem_types,rem_grp "
-    "WHERE crs_pax_rem.rem_code=ckin_rem_types.code(+) AND "
-    "      ckin_rem_types.grp_id=rem_grp.id(+) AND "
-    "      crs_pax_rem.pax_id=:pax_id "
-    "ORDER BY rem_grp.priority NULLS LAST,rem_code,rem ";
-  RQry.DeclareVariable( "pax_id", otInteger );
 
   //рейс пассажиров
   TQuery TlgTripsQry( &OraSession );
@@ -2336,6 +2328,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   NewTextChild(defNode, "ticket", "");
   NewTextChild(defNode, "document", "");
   NewTextChild(defNode, "status", def_status);
+  NewTextChild(defNode, "rems", "");
   NewTextChild(defNode, "rem", "");
   NewTextChild(defNode, "nseat_no", "");
   NewTextChild(defNode, "wl_type", "");
@@ -2343,6 +2336,9 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   NewTextChild(defNode, "isseat", 1);
   NewTextChild(defNode, "reg_no", "");
   NewTextChild(defNode, "refuse", "");
+
+  TRemGrp rem_grp;
+  rem_grp.Load(retPNL_SEL, point_id);
 
   int point_id_tlg=-1;
   xmlNodePtr tripNode,paxNode,node;
@@ -2433,21 +2429,23 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
 
     NewTextChild( node, "status", Qry.FieldAsString( col_status ), def_status );
 
-    RQry.SetVariable( "pax_id", Qry.FieldAsInteger( col_pax_id ) );
-    RQry.Execute();
-    string rem, rem_code;
+    int pax_id=Qry.FieldAsInteger( col_pax_id );
+    vector<CheckIn::TPaxRemItem> rems;
+    LoadCrsPaxRem(pax_id, rems, RQry);
+    ostringstream rem_detail;
+    sort(rems.begin(),rems.end()); //сортировка по priority
     xmlNodePtr stcrNode = NULL;
-    for(;!RQry.Eof;RQry.Next())
+    for(vector<CheckIn::TPaxRemItem>::const_iterator r=rems.begin();r!=rems.end();++r)
     {
-      rem += string( ".R/" ) + RQry.FieldAsString( "rem" ) + "   ";
-      rem_code = RQry.FieldAsString( "rem_code" );
-      if ( rem_code == "STCR" && !stcrNode )
+      rem_detail << ".R/" << r->text << "   ";
+      if ( r->code == "STCR" && !stcrNode )
       {
       	stcrNode = NewTextChild( node, "step", "down" );
       };
     };
-    NewTextChild( node, "rem", rem, "" );
-    NewTextChild( node, "pax_id", Qry.FieldAsInteger( col_pax_id ) );
+    NewTextChild( node, "rems", GetRemarkStr(rem_grp, rems), "" );
+    NewTextChild( node, "rem", rem_detail.str(), "" );
+    NewTextChild( node, "pax_id", pax_id );
     NewTextChild( node, "pnr_id", Qry.FieldAsInteger( col_pnr_id ) );
     NewTextChild( node, "tid", Qry.FieldAsInteger( col_tid ) );
    	if ( !Qry.FieldIsNULL( col_wl_type ) )
@@ -2465,7 +2463,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
       SQry.SetVariable( "point_id", point_id );
       SQry.SetVariable( "pax_row", pax_row );
       ProgTrace( TRACE5, "mode=%d, pax_id=%d, seats=%d, point_id=%d, pax_row=%d, layer_type=%s",
-                         mode, Qry.FieldAsInteger( col_pax_id ), Qry.FieldAsInteger(col_pax_seats), point_id,
+                         mode, pax_id, Qry.FieldAsInteger(col_pax_seats), point_id,
                          pax_row, Qry.FieldAsString( col_grp_status ) );
     }
     else {
@@ -2477,11 +2475,11 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     	SQry.SetVariable( "point_id", Qry.FieldAsInteger(col_point_id_tlg) );
     	SQry.SetVariable( "crs_row", crs_row );
       ProgTrace( TRACE5, "mode=%d, pax_id=%d, seats=%d, point_id=%d, crs_row=%d, layer_type=%s",
-                         mode, Qry.FieldAsInteger( col_pax_id ), Qry.FieldAsInteger(col_seats), point_id,
+                         mode, pax_id, Qry.FieldAsInteger(col_seats), point_id,
                          crs_row, "" );
     }
     SQry.SetVariable( "mode", mode );
-    SQry.SetVariable( "pax_id", Qry.FieldAsInteger( col_pax_id ) );
+    SQry.SetVariable( "pax_id", pax_id );
     SQry.SetVariable( "seat_no", FNull );
     SQry.Execute();
     if ( mode == 0 )
@@ -2519,7 +2517,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     	if ( mode == 0 && Qry.FieldAsInteger( col_seats ) ) {
     		string old_seat_no;
     		if ( Qry.FieldIsNULL( col_wl_type ) ) {
-    		  old_seat_no = priorSeats.getSeats( Qry.FieldAsInteger( col_pax_id ), "seats" );
+    		  old_seat_no = priorSeats.getSeats( pax_id, "seats" );
     		  if ( !old_seat_no.empty() )
     		  	old_seat_no = "(" + old_seat_no + ")";
     		}
