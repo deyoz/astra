@@ -619,6 +619,120 @@ struct TDevModelDefaults
   };
 };
 
+void GetCUSEAddrs( map<TDevOperType, pair<string, string> > &opers, map<string, vector<string> > &addrs, xmlNodePtr reqNode )
+{
+  opers.clear();
+  addrs.clear();
+  xmlNodePtr n = GetNode("cuse_variables",reqNode);
+  if ( n == NULL || n->children == NULL ) {
+    // GetDeviceInfo - запрос из терминала
+    vector<string> oper_vars;
+    vector<string> dev_vars;
+    SeparateString( JxtContext::getJxtContHandler()->sysContext()->read("cuse_device_variables"), 5, oper_vars );
+    for ( vector<string>::iterator istr=oper_vars.begin(); istr!=oper_vars.end(); istr++ ) {
+      ProgTrace( TRACE5, "vars=%s", istr->c_str() );
+      SeparateString( *istr, '=', dev_vars );
+      vector<string>::iterator idev_var = dev_vars.begin();
+      if ( idev_var != dev_vars.end() && ++idev_var != dev_vars.end() ) {
+        vector<string> devs;
+        SeparateString( *idev_var, ',', devs );
+        addrs[ *(dev_vars.begin()) ] = devs;
+      }
+    }
+    return;
+  }
+  for ( int pass=0; pass<3; pass++ ) {
+   xmlNodePtr node = n->children;
+    while ( node != NULL ) {
+      string addr = (char*)node->name;
+      if ( addr == "ATB" && pass==0 ||
+           addr == "BTP" && pass==0 ||
+           addr == "BGR" && pass==0 ||
+           addr == "DCP" && pass==0 ||
+           addr == "SCN" && pass==1 ||
+           addr == "OCR" && pass==1 ||
+           addr == "SCL" && pass==1 ||
+           addr == "MSR" && pass==1 ||
+           addr == "WGE" && pass==2 ) {
+        vector<string> dev_addrs;
+        SeparateString((string)NodeAsString( node ), ',', dev_addrs);
+
+        if ( dev_addrs.empty() ) {
+          node = node->next;
+          continue;
+        }
+        if ( pass == 0 ) {
+          if ( addr == "ATB" ) {
+            opers.insert( make_pair( dotPrnBP, make_pair("ATB CUSE", *dev_addrs.begin() ) ) );
+            addrs[ "ATB CUSE" ] = dev_addrs;
+          }
+          if ( addr == "BTP" ) {
+            opers.insert( make_pair( dotPrnBT, make_pair("BTP CUSE", *dev_addrs.begin()) ) );
+            addrs[ "BTP CUSE" ] = dev_addrs;
+          }
+          if ( addr == "DCP" ) {
+            opers.insert( make_pair( dotPrnFlt, make_pair("DCP CUSE", *dev_addrs.begin()) ) );
+            opers.insert( make_pair( dotPrnArch, make_pair("DCP CUSE", *dev_addrs.begin()) ) );
+            opers.insert( make_pair( dotPrnDisp, make_pair("DCP CUSE", *dev_addrs.begin()) ) );
+            opers.insert( make_pair( dotPrnTlg, make_pair("DCP CUSE", *dev_addrs.begin()) ) );
+            addrs[ "DCP CUSE" ] = dev_addrs;
+          }
+          if ( addr == "BGR" ) {
+            opers.insert( make_pair( dotScnBP1,  make_pair("BCR CUSE", *dev_addrs.begin()) ) );
+            vector<string>::const_iterator idev_addr = dev_addrs.begin();
+            idev_addr++;
+            if ( idev_addr != dev_addrs.end() ) {
+              opers.insert( make_pair( dotScnBP2,  make_pair("BCR CUSE", *idev_addr) ) );
+            }
+            addrs[ "BCR CUSE" ] = dev_addrs;
+          }
+        }
+        if ( pass == 1 ) {
+          if ( addr == "SCN" )
+          {
+            if ( opers.find( dotScnBP1 ) == opers.end() )
+              opers.insert( make_pair( dotScnBP1, make_pair("SCN CUSE", *dev_addrs.begin()) ) );
+            addrs[ "SCN CUSE" ] = dev_addrs;
+          }
+          if ( addr == "OCR" ) {
+            opers.insert( make_pair( dotScnDoc, make_pair("OCR CUSE", *dev_addrs.begin()) ) );
+            addrs[ "OCR CUSE" ] = dev_addrs;
+          }
+          if ( addr == "MSR" ) {
+            opers.insert( make_pair( dotScnCard, make_pair("MSR CUSE", *dev_addrs.begin()) ) );
+            addrs[ "MSR CUSE" ] = dev_addrs;
+          }
+        }
+        if ( pass == 2 ) {
+          if ( addr == "WGE" ) {
+            if ( opers.find( dotScnBP1 ) == opers.end() )
+              opers.insert( make_pair( dotScnBP1, make_pair("WGE CUSE", *dev_addrs.begin()) ) );
+            if ( opers.find( dotScnDoc ) == opers.end() )
+              opers.insert( make_pair( dotScnDoc, make_pair("WGE CUSE", *dev_addrs.begin()) ) );
+            if ( opers.find( dotScnCard ) == opers.end() )
+              opers.insert( make_pair( dotScnCard, make_pair("WGE CUSE", *dev_addrs.begin()) ) );
+             addrs[ "WGE CUSE" ] = dev_addrs;
+          }
+        }
+      }
+      node = node->next;
+    }
+  }
+  string str_addrs;
+  for ( map<string, vector<string> >::iterator ivar=addrs.begin(); ivar!=addrs.end(); ivar++ ) {
+    if ( !str_addrs.empty() )
+      str_addrs.append( string( 1, 5 ) );
+    str_addrs += ivar->first + "=";
+    for ( vector<string>::iterator iaddr=ivar->second.begin(); iaddr!=ivar->second.end(); iaddr++ ) {
+      if ( iaddr != ivar->second.begin() )
+        str_addrs += ",";
+      str_addrs += *iaddr;
+    }
+  }
+  ProgTrace( TRACE5, "write to context variables=%s", str_addrs.c_str() );
+  JxtContext::getJxtContHandler()->sysContext()->write("cuse_device_variables",str_addrs);
+}
+
 void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
 {
 	/*Ограничение на передачу/прием параметров:
@@ -675,16 +789,16 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
   
   resNode=NewTextChild(resNode,"devices");
 
-  reqNode=GetNode("devices",reqNode);
-  string variant_model = NodeAsString( "@variant_model", reqNode, "" );
-  bool pr_default_sets = GetNode( "@operation_default_sets", reqNode );
+  xmlNodePtr devNode = GetNode("devices",reqNode);
+  string variant_model = NodeAsString( "@variant_model", devNode, "" );
+  bool pr_default_sets = GetNode( "@operation_default_sets", devNode );
 
   ProgTrace( TRACE5, "variants mode=%s, pr_default_sets=%d", variant_model.c_str(), pr_default_sets );
   if ( variant_model.empty() && !pr_default_sets )
     GetDeviceAirlines(resNode);
 
-   if (reqNode==NULL) return; // если в запросе нет этoго параметра, то не нужно собирать данные по устройствам
-  //string VariantsOperation = NodeAsString( "@variants_operation", reqNode, "" );
+   if (devNode==NULL) return; // если в запросе нет этoго параметра, то не нужно собирать данные по устройствам
+  //string VariantsOperation = NodeAsString( "@variants_operation", devNode, "" );
 
   TReqInfo *reqInfo = TReqInfo::Instance();
 
@@ -778,7 +892,7 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
   }
   DefQry.CreateVariable("term_mode",otString,EncodeOperMode(reqInfo->desk.mode));
   if ( !variant_model.empty() || pr_default_sets )
-    DefQry.CreateVariable( "op_type", otString, NodeAsString( "operation/@type", reqNode ) );
+    DefQry.CreateVariable( "op_type", otString, NodeAsString( "operation/@type", devNode ) );
   DefQry.Execute();
   
   vector<TDevModelDefaults> DevModelDefaults;
@@ -790,70 +904,79 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
   }
   
   map<TDevOperType, pair<string, string> > opers; //операция, dev_model, addr
-  if ( reqInfo->desk.mode==omRESA )
+  map<string, vector<string> > valid_addrs;
+  if ( reqInfo->desk.mode==omRESA ||
+       reqInfo->desk.mode==omCUSE)
   {
-    const char* equip_param_name="EQUIPMENT";
-    string param_name, param_value;
-
-    //ищем переменную EQUIPMENT
-    for ( vector<string>::const_iterator istr=paramsList.begin(); istr!=paramsList.end(); istr++ )
+    if ( reqInfo->desk.mode==omRESA )
     {
-      size_t pos=istr->find("=");
-      if (pos!=string::npos)
-      {
-        param_name=istr->substr(0,pos);
-        param_value=istr->substr(pos+1);
-      }
-      else
-      {
-        param_name=*istr;
-        param_value.clear();
-      };
-      TrimString(param_name);
-      TrimString(param_value);
-      if (param_name==equip_param_name) break;
-    };
-    if (param_name!=equip_param_name) param_value="ATB0,BTP0,BGR0,BGR1,DCP0";
+      const char* equip_param_name="EQUIPMENT";
+      string param_name, param_value;
 
-    ProgTrace( TRACE5, "%s=%s", equip_param_name, param_value.c_str()  );
-    
-    vector<string> addrs;
-    SeparateString( param_value, ',', addrs );
-    for ( vector<string>::iterator addr=addrs.begin(); addr!=addrs.end(); addr++ ) {
-      TrimString( *addr );
-      //определим к какой операции относится адрес
-      if (addr->size()!=4) continue;
-      if (!IsDigit((*addr)[3])) continue;
-      string devName=addr->substr(0,3);
-      ProgTrace( TRACE5, "addr=%s devName=%s", addr->c_str(), devName.c_str() );
-
-      if (devName=="BPP" || devName=="ATB")
+      //ищем переменную EQUIPMENT
+      for ( vector<string>::const_iterator istr=paramsList.begin(); istr!=paramsList.end(); istr++ )
       {
-         if (opers[dotPrnBP].second.empty()) opers[dotPrnBP]=make_pair("ATB RESA",*addr);
-         continue;
-      };
-      if (devName=="BTP")
-      {
-         if (opers[dotPrnBT].second.empty()) opers[dotPrnBT]=make_pair("BTP RESA",*addr);
-         continue;
-      };
-      if (devName=="BCD" || devName=="BGR" || devName=="RTE")
-      {
-        if (opers[dotScnBP1].second==*addr || opers[dotScnBP2].second==*addr) continue;
-      
-        if (opers[dotScnBP1].second.empty()) opers[dotScnBP1]=make_pair(devName=="RTE"?"SCN RESA":"BCR RESA",*addr);
+        size_t pos=istr->find("=");
+        if (pos!=string::npos)
+        {
+          param_name=istr->substr(0,pos);
+          param_value=istr->substr(pos+1);
+        }
         else
-          if (opers[dotScnBP2].second.empty()) opers[dotScnBP2]=make_pair(devName=="RTE"?"SCN RESA":"BCR RESA",*addr);
-        continue;
+        {
+          param_name=*istr;
+          param_value.clear();
+        };
+        TrimString(param_name);
+        TrimString(param_value);
+        if (param_name==equip_param_name) break;
       };
-      if (devName=="DCP" || devName=="MSG")
-      {
-        if (opers[dotPrnFlt].second.empty()) opers[dotPrnFlt]=make_pair("DCP RESA",*addr);
-        if (opers[dotPrnArch].second.empty()) opers[dotPrnArch]=make_pair("DCP RESA",*addr);
-        if (opers[dotPrnDisp].second.empty()) opers[dotPrnDisp]=make_pair("DCP RESA",*addr);
-        if (opers[dotPrnTlg].second.empty()) opers[dotPrnTlg]=make_pair("DCP RESA",*addr);
-        continue;
+      if (param_name!=equip_param_name) param_value="ATB0,BTP0,BGR0,BGR1,DCP0";
+
+      ProgTrace( TRACE5, "%s=%s", equip_param_name, param_value.c_str()  );
+
+      vector<string> addrs;
+      SeparateString( param_value, ',', addrs );
+      for ( vector<string>::iterator addr=addrs.begin(); addr!=addrs.end(); addr++ ) {
+        TrimString( *addr );
+        //определим к какой операции относится адрес
+        if (addr->size()!=4) continue;
+        if (!IsDigit((*addr)[3])) continue;
+        string devName=addr->substr(0,3);
+        ProgTrace( TRACE5, "addr=%s devName=%s", addr->c_str(), devName.c_str() );
+
+        if (devName=="BPP" || devName=="ATB")
+        {
+           if (opers[dotPrnBP].second.empty()) opers[dotPrnBP]=make_pair("ATB RESA",*addr);
+           continue;
+        };
+        if (devName=="BTP")
+        {
+           if (opers[dotPrnBT].second.empty()) opers[dotPrnBT]=make_pair("BTP RESA",*addr);
+           continue;
+        };
+        if (devName=="BCD" || devName=="BGR" || devName=="RTE")
+        {
+          if (opers[dotScnBP1].second==*addr || opers[dotScnBP2].second==*addr) continue;
+
+          if (opers[dotScnBP1].second.empty()) opers[dotScnBP1]=make_pair(devName=="RTE"?"SCN RESA":"BCR RESA",*addr);
+          else
+            if (opers[dotScnBP2].second.empty()) opers[dotScnBP2]=make_pair(devName=="RTE"?"SCN RESA":"BCR RESA",*addr);
+          continue;
+        };
+        if (devName=="DCP" || devName=="MSG")
+        {
+          if (opers[dotPrnFlt].second.empty()) opers[dotPrnFlt]=make_pair("DCP RESA",*addr);
+          if (opers[dotPrnArch].second.empty()) opers[dotPrnArch]=make_pair("DCP RESA",*addr);
+          if (opers[dotPrnDisp].second.empty()) opers[dotPrnDisp]=make_pair("DCP RESA",*addr);
+          if (opers[dotPrnTlg].second.empty()) opers[dotPrnTlg]=make_pair("DCP RESA",*addr);
+          continue;
+        };
       };
+    };
+    if ( reqInfo->desk.mode==omCUSE )
+    {
+      GetCUSEAddrs(opers, valid_addrs, reqNode);
     };
     
     if (variant_model.empty())
@@ -915,7 +1038,7 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
     if ( variant_model.empty() && operation == def->op_type ) continue;
     operation = def->op_type;
 
-    for ( operNode=GetNode( "operation", reqNode ); operNode!=NULL; operNode=operNode->next ) // пробег по операциям клиента
+    for ( operNode=GetNode( "operation", devNode ); operNode!=NULL; operNode=operNode->next ) // пробег по операциям клиента
     	if ( operation == NodeAsString( "@type", operNode ) )
     		break;
     ProgTrace( TRACE5, "operation=%s, is client=%d", operation.c_str(), (int)operNode );
@@ -935,9 +1058,10 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
       client_fmt_type = NodeAsString( "fmt_params/@type", operNode, "" );
       fmt_type = client_fmt_type;
     }
-    //ProgTrace( TRACE5, "VariantsOperation=%s, !VariantsOperation.empty()=%d", VariantsOperation.c_str(), (int)!VariantsOperation.empty() );
+    //ProgTrace( TRACE5, "variant_model=%s", variant_model.c_str() );
     for ( int k=!variant_model.empty(); k<=1; k++ ) { // два прохода: 0-параметры с клиента, 1 - c сервера
-//    	ProgTrace( TRACE5, "k=%d", k );
+    	//ProgTrace( TRACE5, "k=%d", k );
+
     	if ( k == 1 ) {
         dev_model = def->dev_model;
         sess_type = def->sess_type;
@@ -945,6 +1069,24 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
     	}
     	if ( dev_model.empty() && sess_type.empty() && fmt_type.empty() ) continue;
     	bool pr_parse_client_params = ( client_dev_model == dev_model && client_sess_type == sess_type && client_fmt_type == fmt_type );
+    	
+    	if ( pr_parse_client_params ) {
+    	  if (reqInfo->desk.mode==omCUSE)
+        {
+          //проверить что адрес валидный пришедший с клиента
+          pr_parse_client_params = false;
+          if (operNode!=NULL)
+          {
+            string addr = NodeAsString( "sess_params/addr", operNode, "" );
+            if ( !addr.empty() )  {
+              vector<string> &dev_model_addrs=valid_addrs[client_dev_model];
+              pr_parse_client_params = ( find(dev_model_addrs.begin(),dev_model_addrs.end(),addr) != dev_model_addrs.end() );
+            }
+          }
+          if ( k == 0 && !pr_parse_client_params )
+            continue;
+        };
+    	}
 
       Qry.SetVariable( "dev_model", dev_model );
       Qry.SetVariable( "sess_type", sess_type );
@@ -990,17 +1132,22 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
       SessParamsQry.SetVariable("fmt_type",fmt_type);
       SessParamsQry.Execute();
       GetParams( SessParamsQry, params );
-      if ( reqInfo->desk.mode==omRESA )
+      if ( reqInfo->desk.mode==omRESA ||
+           reqInfo->desk.mode==omCUSE)
       {
         TDevOperType oper=DecodeDevOperType(operation);
         if (!opers[oper].first.empty() && opers[oper].first==dev_model)
         {
-          for(TCategoryDevParams::iterator p=params.begin();p!=params.end();p++)
+          for(TCategoryDevParams::iterator p=params.begin();p!=params.end();++p)
             if (p->param_name=="addr") p->param_value=opers[oper].second;
         };
       };
+      //ProgTrace( TRACE5, "pr_parse_client_params=%d, k=%d", pr_parse_client_params, k );
       if ( pr_parse_client_params )
         ParseParams( GetNode( "sess_params", operNode ), params );
+      //for(TCategoryDevParams::iterator p=params.begin();p!=params.end();++p)
+      //  ProgTrace( TRACE5, "p->param_name=%s p->param_value=%s", p->param_name.c_str(),  p->param_value.c_str() );
+      
       pNode = NewTextChild( newoperNode, "sess_params" );
       SetProp( pNode, "type", sess_type );
       BuildParams( pNode, params, pr_editable );
@@ -1118,41 +1265,6 @@ bool MainDCSInterface::GetSessionAirlines(xmlNodePtr reqNode, string &str, std::
   string value_airline;
   vector<string> airlines;
   map<string,string> air_params;
-  if ( TReqInfo::Instance()->desk.mode == omCUSE ) {
-    node = GetNode("command_line_params", reqNode);
-    if ( node != NULL ) {
-      for(node=node->children;node!=NULL;node=node->next) {
-        string param_value = NodeAsString( node );
-        size_t p = param_value.find( "AirlineCode=" );
-        if ( p != string::npos ) {
-          param_value = param_value.erase( p, string( "AirlineCode=" ).size() );
-          ProgTrace( TRACE5, "param_value=%s", param_value.c_str() );
-          while ( !param_value.empty() ) {
-            size_t p = param_value.find( "," );
-            if ( p != string::npos ) {
-              value_airline = param_value.substr( 0, p );
-              param_value.erase( 0, p + 1 );
-            }
-            else {
-              value_airline = param_value;
-              param_value.clear();
-            }
-            ProgTrace( TRACE5, "value_airline=|%s|", value_airline.c_str() );
-          	try {
-          		airlines.push_back(base_tables.get("airlines").get_row("aircode",value_airline).AsString("code"));
-    	      }
-    	      catch(EBaseTableError) {
-             str=value_airline;
-             return false;
-            }
-            ProgTrace( TRACE5, "param_value=|%s|", param_value.c_str() );
-          }
-          NormalizeAirlines( airlines, air_params, str, airline_params );
-          return true;
-        }
-      }
-    }
-  }
   
   node = GetNode("airlines", reqNode);
   if (node==NULL) return true;
