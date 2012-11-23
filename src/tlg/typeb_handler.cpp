@@ -10,6 +10,7 @@
 #include "oralib.h"
 #include "tlg.h"
 #include "tlg_parser.h"
+//#include "ssm_parser.h"
 #include "memory_manager.h"
 #include "serverlib/ourtime.h"
 
@@ -736,6 +737,34 @@ bool parse_tlg(void)
             count++;
             break;
           }
+          /*
+          case tcSSM:
+          {
+            part.p=buf;
+            part.line=1;
+            TSSMHeadingInfo &info = *(dynamic_cast<TSSMHeadingInfo*>(HeadingInfo));
+            TSSMContent con;
+            ParseSSMContent(part,info,con,mem);
+            SaveSSMContent(tlg_id,info,con);
+            TlgInUpdQry.Execute();
+            OraSession.Commit();
+            count++;
+            break;
+          }
+          case tcASM:
+          {
+            part.p=buf;
+            part.line=1;
+            TSSMHeadingInfo &info = *(dynamic_cast<TSSMHeadingInfo*>(HeadingInfo));
+            TASMContent con;
+            ParseASMContent(part,info,con,mem);
+            SaveASMContent(tlg_id,info,con);
+            TlgInUpdQry.Execute();
+            OraSession.Commit();
+            count++;
+            break;
+          }
+          */
           default:
           {
             //телеграмму неизвестного типа сразу пишем в разобранные

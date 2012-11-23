@@ -5,6 +5,7 @@
 #include <time.h>
 #include <list>
 #include "tlg_parser.h"
+#include "ssm_parser.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
 #include "base_tables.h"
@@ -69,6 +70,23 @@ const char* TTlgElementS[] =
                "AircraftMovementInfo",
                //LDM
                "LoadInfoAndRemarks",
+               //SSM
+               "TimeModeElement",
+               "MessageSequenceReference",
+               "ActionIdentifier",
+               "PeriodFrequency",
+               "NewFlight",
+               "Equipment",
+               "Routing",
+               "Segment",
+               "SubSI",
+               "SubSIMore",
+               "SubSeparator",
+               "SI",
+               "SIMore",
+               "Reject",
+               "RejectBody",
+               "RepeatOfRejected",
                //общие
                "EndOfMessage"};
 
@@ -188,7 +206,7 @@ char* GetTlgElementName(TTlgElement e)
   return (char*)TTlgElementS[e];
 };
 
-char* TlgElemToElemId(TElemType type, const char* elem, char* id, bool with_icao=false)
+char* TlgElemToElemId(TElemType type, const char* elem, char* id, bool with_icao)
 {
   TElemFmt fmt;
   string id2;
@@ -208,7 +226,7 @@ char* TlgElemToElemId(TElemType type, const char* elem, char* id, bool with_icao
   return id;
 };
 
-char* GetAirline(char* airline, bool with_icao=false)
+char* GetAirline(char* airline, bool with_icao)
 {
   return TlgElemToElemId(etAirline,airline,airline,with_icao);
 };
@@ -270,6 +288,8 @@ TTlgCategory GetTlgCategory(char *tlg_type)
   if (strcmp(tlg_type,"BTM")==0) cat=tcBSM;
   if (strcmp(tlg_type,"MVT")==0||
       strcmp(tlg_type,"LDM")==0) cat=tcAHM;
+  if (strcmp(tlg_type,"SSM")==0) cat=tcSSM;
+  if (strcmp(tlg_type,"ASM")==0) cat=tcASM;
   return cat;
 };
 
@@ -1159,6 +1179,16 @@ TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo* &info, TMemoryMana
               info = new TAHMHeadingInfo(infoh);
               mem.create(info, STDLOG);
               next=ParseAHMHeading(heading,*(TAHMHeadingInfo*)info);
+              break;
+            case tcSSM:
+              info = new TSSMHeadingInfo(infoh);
+              mem.create(info, STDLOG);
+              next=ParseSSMHeading(heading,*(TSSMHeadingInfo*)info);
+              break;
+            case tcASM:
+              info = new TSSMHeadingInfo(infoh);
+              mem.create(info, STDLOG);
+              next=ParseSSMHeading(heading,*(TSSMHeadingInfo*)info);
               break;
             default:
               info = new THeadingInfo(infoh);

@@ -30,7 +30,7 @@ class ETlgError:public EXCEPTIONS::Exception
     ETlgError(std::string msg):EXCEPTIONS::Exception(msg) {};
 };
 
-enum TTlgCategory{tcUnknown,tcDCS,tcBSM,tcAHM};
+enum TTlgCategory{tcUnknown,tcDCS,tcBSM,tcAHM,tcSSM,tcASM};
 
 enum TTlgElement
               {//общие
@@ -59,10 +59,27 @@ enum TTlgElement
                AircraftMovementInfo,
                //LDM
                LoadInfoAndRemarks,
+               //SSM
+               TimeModeElement,
+               MessageSequenceReference,
+               ActionIdentifier,
+               PeriodFrequency,
+               NewFlight,
+               Equipment,
+               Routing,
+               Segment,
+               SubSI,
+               SubSIMore,
+               SubSeparator,
+               SI,
+               SIMore,
+               Reject,
+               RejectBody,
+               RepeatOfRejected,
                //общие
                EndOfMessage};
 
-extern const char* TTlgElementS[18];
+extern const char* TTlgElementS[];
 
 enum TIndicator{None,ADD,CHG,DEL};
 
@@ -636,6 +653,13 @@ class TTlgParser
     char* GetNameElement(char* p, bool trimRight);
 };
 
+extern char lexh[];
+extern const TMonthCode Months[];
+
+char* TlgElemToElemId(TElemType type, const char* elem, char* id, bool with_icao=false);
+char GetSuffix(char &suffix);
+char* GetAirline(char* airline, bool with_icao=false);
+char* GetTlgElementName(TTlgElement e);
 TTlgCategory GetTlgCategory(char *tlg_type);
 TTlgParts GetParts(char* tlg_p, TMemoryManager &mem);
 TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo* &info, TMemoryManager &mem);
