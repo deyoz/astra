@@ -292,10 +292,12 @@ void GetModuleList(xmlNodePtr resNode)
   {
     for(;!Qry.Eof;Qry.Next())
     {
+      string exe=Qry.FieldAsString("exe");
+      if (exe=="ACCESS.EXE" && !reqinfo->desk.compatible(ACCESS_MODULE_VERSION)) continue;
       xmlNodePtr moduleNode = NewTextChild(modulesNode, "module");
       NewTextChild(moduleNode, "id", Qry.FieldAsInteger("id"));
       NewTextChild(moduleNode, "name", Qry.FieldAsString("name"));
-      NewTextChild(moduleNode, "exe", Qry.FieldAsString("exe"));
+      NewTextChild(moduleNode, "exe", exe);
     };
   }
   else AstraLocale::showErrorMessage("MSG.ALL_MODULES_DENIED_FOR_USER");
