@@ -245,6 +245,7 @@ BASIC::TDateTime DayToDate(int day, BASIC::TDateTime base_date, bool back);
 
 struct TTripRouteItem
 {
+  BASIC::TDateTime part_key;
   int point_id;
   int point_num;
   std::string airp;
@@ -255,6 +256,7 @@ struct TTripRouteItem
   };
   void Clear()
   {
+    part_key = ASTRA::NoExists;
     point_id = ASTRA::NoExists;
     point_num = ASTRA::NoExists;
     airp.clear();
@@ -346,6 +348,7 @@ class TTripRoute : public std::vector<TTripRouteItem>
                       int point_id,
                       TTripRouteType2 route_type2,
                       TTripRouteItem& item);
+    std::string GetStr() const;
 };
 
 class TPaxSeats {
@@ -525,12 +528,6 @@ std::string GetCfgStr(BASIC::TDateTime part_key,  //NoExists если в оперативной 
                       int point_id,
                       const std::string &lang="",
                       const std::string &separator=" ");
-                      
-std::string GetPaxDocStr(BASIC::TDateTime part_key,
-                         int pax_id,
-                         TQuery& PaxDocQry,
-                         bool with_issue_country=false,
-                         const std::string &lang="");
                          
 class TBagTagNumber
 {

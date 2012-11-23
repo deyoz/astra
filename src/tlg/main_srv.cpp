@@ -164,14 +164,14 @@ void process_tlg(void)
 
     TQuery RotQry(&OraSession);
     RotQry.SQLText=
-      "SELECT 1,router_num,ip_port FROM rot\
-       WHERE ip_address=:addr AND ip_port=:port AND\
-             own_canon_name=:own_canon_name AND canon_name=:canon_name\
-       union\
-       SELECT 2,router_num,ip_port FROM rot\
-       WHERE ip_address=:addr AND ip_port=:port AND\
-             own_canon_name=:own_canon_name\
-       ORDER BY 1";
+      "SELECT 1,ip_port FROM rot "
+      "WHERE ip_address=:addr AND ip_port=:port AND "
+      "      own_canon_name=:own_canon_name AND canon_name=:canon_name "
+      "union "
+      "SELECT 2,ip_port FROM rot "
+      "WHERE ip_address=:addr AND ip_port=:port AND "
+      "      own_canon_name=:own_canon_name "
+      "ORDER BY 1";
     RotQry.CreateVariable("addr",otString,inet_ntoa(from_addr.sin_addr));
     RotQry.CreateVariable("port",otInteger,ntohs(from_addr.sin_port));
     RotQry.CreateVariable("own_canon_name",otString,OWN_CANON_NAME());
@@ -302,6 +302,10 @@ void process_tlg(void)
                              tlg_in.Receiver, tlg_in.num);
             return;
           };
+          TlgUpdQry.SQLText=
+            "UPDATE tlg_stat SET time_send=SYSTEM.UTCSYSDATE "
+            "WHERE queue_tlg_id=:tlg_num AND sender_canon_name=:sender";
+          TlgUpdQry.Execute();
         };
         break;
       case TLG_F_ACK:
@@ -313,6 +317,10 @@ void process_tlg(void)
             "      type IN ('OUTA','OUTB') AND status='SEND'";
           TlgUpdQry.CreateVariable("sender",otString,tlg_in.Receiver); //OWN_CANON_NAME
           TlgUpdQry.CreateVariable("tlg_num",otInteger,(int)tlg_in.num);
+          TlgUpdQry.Execute();
+          TlgUpdQry.SQLText=
+            "UPDATE tlg_stat SET time_receive=SYSTEM.UTCSYSDATE "
+            "WHERE queue_tlg_id=:tlg_num AND sender_canon_name=:sender";
           TlgUpdQry.Execute();
         };
         break;

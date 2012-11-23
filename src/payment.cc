@@ -13,6 +13,7 @@
 #include "astra_misc.h"
 #include "checkin.h"
 #include "baggage.h"
+#include "passenger.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -247,7 +248,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   NewTextChild(dataNode,"pax_name",Qry.FieldAsString("pax_name"));
   TQuery PaxDocQry(&OraSession);
   if (!Qry.FieldIsNULL("pax_id"))
-    NewTextChild(dataNode,"pax_doc",GetPaxDocStr(NoExists, Qry.FieldAsInteger("pax_id"), PaxDocQry));
+    NewTextChild(dataNode,"pax_doc",CheckIn::GetPaxDocStr(NoExists, Qry.FieldAsInteger("pax_id"), PaxDocQry));
   else
     NewTextChild(dataNode,"pax_doc");
   NewTextChild(dataNode,"tid",Qry.FieldAsInteger("tid"));

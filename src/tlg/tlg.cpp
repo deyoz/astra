@@ -53,14 +53,6 @@ const char* DEF_CANON_NAME()
   return VAR.c_str();
 }
 
-const char* OWN_SITA_ADDR()
-{
-  static string VAR;
-  if ( VAR.empty() )
-    VAR=getTCLParam("OWN_SITA_ADDR",NULL);
-  return VAR.c_str();
-}
-
 const int HANDLER_PROC_ATTEMPTS()
 {
   static int VAR=ASTRA::NoExists;
@@ -89,11 +81,11 @@ void sendCmdTypeBHandler()
   sendCmd("CMD_TYPEB_HANDLER","H");
 }
 
-void sendTlg(const char* receiver,
-             const char* sender,
-             TTlgQueuePriority queuePriority,
-             int ttl,
-             const std::string &text)
+int sendTlg(const char* receiver,
+            const char* sender,
+            TTlgQueuePriority queuePriority,
+            int ttl,
+            const std::string &text)
 {
     try
     {
@@ -145,6 +137,7 @@ void sendTlg(const char* receiver,
                          nowUTC,
                          (int)queuePriority);
         Qry.Close();
+        return Qry.GetVariableAsInteger("tlg_num");
     }
     catch( std::exception &e)
     {
