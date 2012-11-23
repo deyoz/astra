@@ -10,6 +10,7 @@
 #include "astra_consts.h"
 #include "astra_misc.h"
 #include "oralib.h"
+#include "etick.h"
 #include "tlg/tlg_parser.h"
 
 struct TSegInfo
@@ -185,12 +186,14 @@ public:
                                   bool pr_unaccomp,
                                   int seg_no);
   static std::string SaveTCkinSegs(int grp_id, xmlNodePtr segsNode, const std::map<int,TSegInfo> &segs, int seg_no);
-  static bool SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode);
+  static bool SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode);
+  static bool SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
+                      int &first_grp_id, TChangeStatusList &ETInfo, int &tckin_id);
   static void SavePaidBag(int grp_id, xmlNodePtr paidbagNode);
 
   static void SaveTagPacks(xmlNodePtr node);
 
-  static void LoadPax(int grp_id, xmlNodePtr resNode);
+  static void LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax);
   static void LoadPaxRem(xmlNodePtr paxNode);
   static void LoadPaxTransfer(int pax_id, xmlNodePtr paxNode);
   static void LoadTransfer(int grp_id, std::vector<CheckIn::TTransferItem> &trfer);
@@ -207,7 +210,6 @@ public:
   static void readTripData( int point_id, xmlNodePtr dataNode );
   static void readTripSets( int point_id, xmlNodePtr dataNode );
   static void readTripSets( int point_id, const TTripInfo &fltInfo, xmlNodePtr tripSetsNode );
-  static void readTripSets( const TTripInfo &fltInfo, int pr_etstatus, xmlNodePtr tripSetsNode);
   
   static void GetOnwardCrsTransfer(int pnr_id, TQuery &Qry,
                                    const TTripInfo &operFlt,

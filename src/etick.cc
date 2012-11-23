@@ -222,7 +222,6 @@ void ChangeAreaStatus(TETCheckStatusArea area, XMLRequestCtxt *ctxt, xmlNodePtr 
     segNode=reqNode;
     only_one=true;
   };
-  bool processed=false;
   TChangeStatusList mtick;
   for(;segNode!=NULL;segNode=segNode->next)
   {
@@ -246,10 +245,7 @@ void ChangeAreaStatus(TETCheckStatusArea area, XMLRequestCtxt *ctxt, xmlNodePtr 
       xmlNodePtr node=GetNode("check_point_id",segNode);
       int check_point_id=NoExists;
       if (node!=NULL) check_point_id=NodeAsInteger(node);
-      if (ETStatusInterface::ETCheckStatus(id,area,check_point_id,false,mtick))
-      {
-        processed=true;
-      };
+      ETStatusInterface::ETCheckStatus(id,area,check_point_id,false,mtick);
     }
     catch(AstraLocale::UserException &e)
     {
@@ -300,7 +296,7 @@ void ChangeAreaStatus(TETCheckStatusArea area, XMLRequestCtxt *ctxt, xmlNodePtr 
     if (!tckin_version) break; //старый терминал
   };
 
-  if (processed)
+  if (!mtick.empty())
   {
     int req_ctxt=AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc));
     if (!ETStatusInterface::ETChangeStatus(req_ctxt,mtick))
@@ -537,12 +533,10 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
       {
       	if (reqInfo->client_type==ctTerm)
       	{
-          if (termReqName=="SavePax" ||
-              termReqName=="SaveUnaccompBag" ||
-              termReqName=="TCkinSavePax" ||
+          if (termReqName=="TCkinSavePax" ||
               termReqName=="TCkinSaveUnaccompBag")
           {
-            if (!CheckInInterface::SavePax(termReqNode, termReqNode, ediResNode, resNode))
+            if (!CheckInInterface::SavePax(termReqNode, ediResNode, resNode))
             {
               //откатываем статусы так как запись группы так и не прошла
               ETStatusInterface::ETRollbackStatus(ediResCtxt.docPtr(),false);
@@ -650,16 +644,35 @@ bool ETStatusInterface::TFltParams::get(int point_id)
   return true;
 };
 
-bool ETStatusInterface::ETCheckStatus(int point_id,
+xmlNodePtr TChangeStatusList::addTicket(const TTicketListKey &key,
+                                        const Ticketing::Ticket &tick)
+{
+  if ((*this)[key].empty() ||
+      (*this)[key].back().first.size()>=MAX_TICKETS_IN_TLG)
+  {
+    (*this)[key].push_back(TTicketListCtxt());
+  };
+
+  TTicketListCtxt &ltick=(*this)[key].back();
+  if (ltick.second.docPtr()==NULL)
+  {
+    ltick.second.set("UTF-8","context");
+    if (ltick.second.docPtr()==NULL)
+      throw EXCEPTIONS::Exception("ETCheckStatus: CreateXMLDoc failed");
+    NewTextChild(NodeAsNode("/context",ltick.second.docPtr()),"tickets");
+  };
+  ltick.first.push_back(tick);
+  return NewTextChild(NodeAsNode("/context/tickets",ltick.second.docPtr()),"ticket");
+};
+
+void ETStatusInterface::ETCheckStatus(int point_id,
                                       xmlDocPtr ediResDocPtr,
                                       bool check_connect,
                                       TChangeStatusList &mtick)
 {
-  bool result=false;
-
   //mtick.clear(); добавляем уже к заполненному
 
-  if (ediResDocPtr==NULL) return result;
+  if (ediResDocPtr==NULL) return;
 
   TFltParams fltParams;
   if (fltParams.get(point_id))
@@ -744,22 +757,6 @@ bool ETStatusInterface::ETCheckStatus(int point_id,
           };
           key.coupon_status=real_status->codeInt();
 
-          if (mtick[key].empty() ||
-              mtick[key].back().first.size()>=MAX_TICKETS_IN_TLG)
-          {
-            TTicketListCtxt ltick;
-            mtick[key].push_back(ltick);
-          };
-
-          TTicketListCtxt &ltick=mtick[key].back();
-          if (ltick.second.docPtr()==NULL)
-          {
-            ltick.second.set("UTF-8","context");
-            if (ltick.second.docPtr()==NULL)
-              throw EXCEPTIONS::Exception("ETCheckStatus: CreateXMLDoc failed");
-            NewTextChild(NodeAsNode("/context",ltick.second.docPtr()),"tickets");
-          };
-
           ProgTrace(TRACE5,"status=%s prior_status=%s real_status=%s",
                            status->dispCode(),prior_status->dispCode(),real_status->dispCode());
           Coupon_info ci (coupon_no,real_status);
@@ -779,12 +776,8 @@ bool ETStatusInterface::ETCheckStatus(int point_id,
 
           list<Coupon> lcpn;
           lcpn.push_back(cpn);
+          xmlNodePtr node=mtick.addTicket(key, Ticket(ticket_no, lcpn));
 
-          Ticket tick(ticket_no, lcpn);
-          ltick.first.push_back(tick);
-          result=true;
-
-          xmlNodePtr node=NewTextChild(NodeAsNode("/context/tickets",ltick.second.docPtr()),"ticket");
           NewTextChild(node,"ticket_no",ticket_no);
           NewTextChild(node,"coupon_no",coupon_no);
           NewTextChild(node,"point_id",point_id);
@@ -817,19 +810,15 @@ bool ETStatusInterface::ETCheckStatus(int point_id,
       throw CheckIn::UserException(e.getLexemaData(), point_id);
     };
   };
-
-  return result;
 };
 
-bool ETStatusInterface::ETCheckStatus(int id,
+void ETStatusInterface::ETCheckStatus(int id,
                                       TETCheckStatusArea area,
                                       int check_point_id,  //м.б. NoExists
                                       bool check_connect,
                                       TChangeStatusList &mtick,
                                       bool before_checkin)
 {
-  bool result=false;
-
   //mtick.clear(); добавляем уже к заполненному
   int point_id=NoExists;
   TQuery Qry(&OraSession);
@@ -963,22 +952,6 @@ bool ETStatusInterface::ETCheckStatus(int id,
               };
               key.coupon_status=real_status->codeInt();
 
-              if (mtick[key].empty() ||
-                  mtick[key].back().first.size()>=MAX_TICKETS_IN_TLG)
-              {
-                TTicketListCtxt ltick;
-                mtick[key].push_back(ltick);
-              };
-
-              TTicketListCtxt &ltick=mtick[key].back();
-              if (ltick.second.docPtr()==NULL)
-              {
-                ltick.second.set("UTF-8","context");
-                if (ltick.second.docPtr()==NULL)
-                  throw EXCEPTIONS::Exception("ETCheckStatus: CreateXMLDoc failed");
-                NewTextChild(NodeAsNode("/context",ltick.second.docPtr()),"tickets");
-              };
-
               ProgTrace(TRACE5,"status=%s real_status=%s",status->dispCode(),real_status->dispCode());
               Coupon_info ci (coupon_no,real_status);
 
@@ -997,12 +970,8 @@ bool ETStatusInterface::ETCheckStatus(int id,
 
               list<Coupon> lcpn;
               lcpn.push_back(cpn);
+              xmlNodePtr node=mtick.addTicket(key, Ticket(ticket_no, lcpn));
 
-              Ticket tick(ticket_no, lcpn);
-              ltick.first.push_back(tick);
-              result=true;
-
-              xmlNodePtr node=NewTextChild(NodeAsNode("/context/tickets",ltick.second.docPtr()),"ticket");
               NewTextChild(node,"ticket_no",ticket_no);
               NewTextChild(node,"coupon_no",coupon_no);
               NewTextChild(node,"point_id",point_id);
@@ -1088,22 +1057,6 @@ bool ETStatusInterface::ETCheckStatus(int id,
 
             CouponStatus status=CouponStatus::fromDispCode(Qry.FieldAsString("coupon_status"));
 
-            if (mtick[key].empty() ||
-                mtick[key].back().first.size()>=MAX_TICKETS_IN_TLG)
-            {
-              TTicketListCtxt ltick;
-              mtick[key].push_back(ltick);
-            };
-
-            TTicketListCtxt &ltick=mtick[key].back();
-            if (ltick.second.docPtr()==NULL)
-            {
-              ltick.second.set("UTF-8","context");
-              if (ltick.second.docPtr()==NULL)
-                throw EXCEPTIONS::Exception("ETCheckStatus: CreateXMLDoc failed");
-              NewTextChild(NodeAsNode("/context",ltick.second.docPtr()),"tickets");
-            };
-
             Coupon_info ci (coupon_no,real_status);
             TDateTime scd_local=UTCToLocal(fltParams.fltInfo.scd_out,
                                            AirpTZRegion(fltParams.fltInfo.airp));
@@ -1119,11 +1072,8 @@ bool ETStatusInterface::ETCheckStatus(int id,
             Coupon cpn(ci,itin);
             list<Coupon> lcpn;
             lcpn.push_back(cpn);
-            Ticket tick(ticket_no, lcpn);
-            ltick.first.push_back(tick);
-            result=true;
+            xmlNodePtr node=mtick.addTicket(key, Ticket(ticket_no, lcpn));
 
-            xmlNodePtr node=NewTextChild(NodeAsNode("/context/tickets",ltick.second.docPtr()),"ticket");
             NewTextChild(node,"ticket_no",ticket_no);
             NewTextChild(node,"coupon_no",coupon_no);
             NewTextChild(node,"point_id",check_point_id);
@@ -1149,7 +1099,6 @@ bool ETStatusInterface::ETCheckStatus(int id,
       throw CheckIn::UserException(e.getLexemaData(), check_point_id);
     };
   };
-  return result;
 }
 
 bool ETStatusInterface::ETChangeStatus(const int reqCtxtId,

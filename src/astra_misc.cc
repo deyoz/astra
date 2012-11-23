@@ -1,6 +1,7 @@
 #include "astra_misc.h"
 #include <string>
 #include <vector>
+#include <set>
 #include "basic.h"
 #include "exceptions.h"
 #include "oralib.h"
@@ -973,11 +974,10 @@ void TMktFlight::getByPnrId(int pnr_id)
     get(Qry, pnr_id);
 }
 
-bool SeparateTCkin(int grp_id,
-                   TCkinSegmentSet upd_depend,
-                   TCkinSegmentSet upd_tid,
-                   int tid,
-                   int &tckin_id, int &seg_no)
+int SeparateTCkin(int grp_id,
+                  TCkinSegmentSet upd_depend,
+                  TCkinSegmentSet upd_tid,
+                  int tid)
 {
   TQuery Qry(&OraSession);
   Qry.Clear();
@@ -985,45 +985,48 @@ bool SeparateTCkin(int grp_id,
     "SELECT tckin_id,seg_no FROM tckin_pax_grp WHERE grp_id=:grp_id";
   Qry.CreateVariable("grp_id",otInteger,grp_id);
   Qry.Execute();
-  if (Qry.Eof) return false;
+  if (Qry.Eof) return NoExists;
 
-  tckin_id=Qry.FieldAsInteger("tckin_id");
-  seg_no=Qry.FieldAsInteger("seg_no");
+  int tckin_id=Qry.FieldAsInteger("tckin_id");
+  int seg_no=Qry.FieldAsInteger("seg_no");
 
-  if (upd_depend==cssNone) return true;
+  if (upd_depend==cssNone) return tckin_id;
 
   ostringstream sql;
   string where_str;
 
-  switch (upd_tid)
+  if (tid!=NoExists)
   {
-    case cssAllPrev:
-      where_str=" WHERE tckin_id=:tckin_id AND seg_no<:seg_no";
-      break;
-    case cssAllPrevCurr:
-      where_str=" WHERE tckin_id=:tckin_id AND seg_no<=:seg_no";
-      break;
-    case cssAllPrevCurrNext:
-      where_str=" WHERE tckin_id=:tckin_id AND seg_no<=:seg_no+1";
-      break;
-    case cssCurr:
-      where_str=" WHERE tckin_id=:tckin_id AND seg_no=:seg_no";
-      break;
-    default:
-      where_str="";
-  };
-  if (!where_str.empty())
-  {
-    sql.str("");
-    sql << "UPDATE pax_grp SET tid=:tid "
-        << "WHERE grp_id IN (SELECT grp_id FROM tckin_pax_grp " << where_str << ") ";
+    switch (upd_tid)
+    {
+      case cssAllPrev:
+        where_str=" WHERE tckin_id=:tckin_id AND seg_no<:seg_no";
+        break;
+      case cssAllPrevCurr:
+        where_str=" WHERE tckin_id=:tckin_id AND seg_no<=:seg_no";
+        break;
+      case cssAllPrevCurrNext:
+        where_str=" WHERE tckin_id=:tckin_id AND seg_no<=:seg_no+1";
+        break;
+      case cssCurr:
+        where_str=" WHERE tckin_id=:tckin_id AND seg_no=:seg_no";
+        break;
+      default:
+        where_str="";
+    };
+    if (!where_str.empty())
+    {
+      sql.str("");
+      sql << "UPDATE pax_grp SET tid=:tid "
+          << "WHERE grp_id IN (SELECT grp_id FROM tckin_pax_grp " << where_str << ") ";
 
-    Qry.Clear();
-    Qry.SQLText=sql.str().c_str();
-    Qry.CreateVariable("tckin_id",otInteger,tckin_id);
-    Qry.CreateVariable("seg_no",otInteger,seg_no);
-    Qry.CreateVariable("tid",otInteger,tid);
-    Qry.Execute();
+      Qry.Clear();
+      Qry.SQLText=sql.str().c_str();
+      Qry.CreateVariable("tckin_id",otInteger,tckin_id);
+      Qry.CreateVariable("seg_no",otInteger,seg_no);
+      Qry.CreateVariable("tid",otInteger,tid);
+      Qry.Execute();
+    };
   };
 
   switch (upd_depend)
@@ -1055,7 +1058,115 @@ bool SeparateTCkin(int grp_id,
     Qry.Execute();
   };
 
-  return true;
+  return tckin_id;
+};
+
+class TCkinIntegritySeg
+{
+  public:
+    int seg_no;
+    int grp_id;
+    bool pr_depend;
+    map<int/*pax_no=reg_no-first_reg_no*/, string/*refuse*/> pax;
+    TCkinIntegritySeg(int vseg_no, int vgrp_id, bool vpr_depend):
+      seg_no(vseg_no),
+      grp_id(vgrp_id),
+      pr_depend(vpr_depend) {};
+};
+
+void CheckTCkinIntegrity(const set<int> &tckin_ids, int tid)
+{
+  if (tckin_ids.empty()) return;
+
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT pax.reg_no, pax.refuse, "
+    "       tckin_pax_grp.seg_no, tckin_pax_grp.grp_id, "
+    "       tckin_pax_grp.first_reg_no, tckin_pax_grp.pr_depend "
+    "FROM pax, tckin_pax_grp "
+    "WHERE tckin_pax_grp.grp_id=pax.grp_id AND tckin_id=:tckin_id "
+    "ORDER BY seg_no ";
+  Qry.DeclareVariable("tckin_id", otInteger);
+  
+  TQuery UpdQry(&OraSession);
+  UpdQry.Clear();
+  UpdQry.SQLText=
+    "BEGIN "
+    "  UPDATE tckin_pax_grp SET pr_depend=0 WHERE grp_id=:grp_id AND pr_depend<>0; "
+    "  IF SQL%FOUND AND :tid IS NOT NULL THEN "
+    "    UPDATE pax_grp SET tid=:tid WHERE grp_id=:grp_id; "
+    "  END IF; "
+    "END;";
+  UpdQry.DeclareVariable("grp_id", otInteger);
+  if (tid!=NoExists)
+    UpdQry.CreateVariable("tid", otInteger, tid);
+  else
+    UpdQry.CreateVariable("tid", otInteger, FNull);
+  
+  for(set<int>::const_iterator tckin_id=tckin_ids.begin(); tckin_id!=tckin_ids.end(); ++tckin_id)
+  {
+    if (*tckin_id==NoExists) continue;
+  
+    Qry.SetVariable("tckin_id", *tckin_id);
+    Qry.Execute();
+    if (Qry.Eof) continue;
+
+    int prior_seg_no=NoExists;
+    int first_reg_no=NoExists;
+    map<int/*seg_no*/, TCkinIntegritySeg> segs;
+    map<int/*seg_no*/, TCkinIntegritySeg>::iterator iSeg=segs.end();
+    for(;!Qry.Eof;Qry.Next())
+    {
+      int curr_seg_no=Qry.FieldAsInteger("seg_no");
+      if (prior_seg_no==NoExists || prior_seg_no!=curr_seg_no)
+      {
+        iSeg=segs.insert(make_pair(curr_seg_no,
+                                   TCkinIntegritySeg(curr_seg_no,
+                                                     Qry.FieldAsInteger("grp_id"),
+                                                     Qry.FieldAsInteger("pr_depend")!=0))).first;
+        first_reg_no=Qry.FieldIsNULL("first_reg_no")?NoExists:Qry.FieldAsInteger("first_reg_no");
+        prior_seg_no=curr_seg_no;
+      };
+
+      if (first_reg_no!=NoExists && iSeg!=segs.end())
+      {
+        iSeg->second.pax[Qry.FieldAsInteger("reg_no")-first_reg_no]=Qry.FieldAsString("refuse");
+      };
+    };
+
+    map<int/*seg_no*/, TCkinIntegritySeg>::const_iterator iPriorSeg=segs.end();
+    for(map<int/*seg_no*/, TCkinIntegritySeg>::const_iterator iCurrSeg=segs.begin(); iCurrSeg!=segs.end(); ++iCurrSeg)
+    {
+      /*
+      ProgTrace(TRACE5,"CheckTCkinIntegrity: tckin_id=%d seg_no=%d grp_id=%d pr_depend=%d",
+                       *tckin_id,
+                       iCurrSeg->second.seg_no,
+                       iCurrSeg->second.grp_id,
+                       (int)iCurrSeg->second.pr_depend);
+      for(map<int, string>::const_iterator p=iCurrSeg->second.pax.begin();p!=iCurrSeg->second.pax.end();++p)
+      {
+        ProgTrace(TRACE5,"CheckTCkinIntegrity: tckin_id=%d seg_no=%d pax_no=%d refuse=%s",
+                         *tckin_id,
+                         iCurrSeg->second.seg_no,
+                         p->first,
+                         p->second.c_str());
+      };
+      */
+      if (iCurrSeg->second.pr_depend)
+      {
+
+        if (iPriorSeg==segs.end() || //первый сегмент
+            iPriorSeg->second.seg_no+1!=iCurrSeg->second.seg_no ||
+            iPriorSeg->second.pax!=iCurrSeg->second.pax)
+        {
+          UpdQry.SetVariable("grp_id", iCurrSeg->second.grp_id);
+          UpdQry.Execute();
+        };
+      };
+      iPriorSeg=iCurrSeg;
+    };
+  };
 };
 
 TPaxSeats::TPaxSeats( int point_id )

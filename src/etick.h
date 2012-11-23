@@ -48,7 +48,12 @@ class TTicketListKey
     };
 };
 
-typedef std::map<TTicketListKey, std::vector<TTicketListCtxt> > TChangeStatusList;
+class TChangeStatusList : public std::map<TTicketListKey, std::vector<TTicketListCtxt> >
+{
+  public:
+    xmlNodePtr addTicket(const TTicketListKey &key,
+                         const Ticketing::Ticket &tick);
+};
 
 class ETStatusInterface : public JxtInterface
 {
@@ -89,11 +94,11 @@ public:
   void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 
-  static bool ETCheckStatus(int point_id,
+  static void ETCheckStatus(int point_id,
                             xmlDocPtr ediResDocPtr,
                             bool check_connect,
                             TChangeStatusList &mtick);
-  static bool ETCheckStatus(int id,
+  static void ETCheckStatus(int id,
                             TETCheckStatusArea area,
                             int check_point_id,
                             bool check_connect,

@@ -454,8 +454,11 @@ void SaveGrpToLog(int point_id,
           {
             //ранее не были разрегистрированы
             ostringstream msg;
-            msg << aPax->second.getPaxNameStr() << " разрегистрирован. "
-                << "Причина отказа в регистрации: " << aPax->second.refuse << ". ";
+            msg << aPax->second.getPaxNameStr() << " разрегистрирован. ";
+            if (reqInfo->client_type!=ctTerm && aPax->second.refuse==refuseAgentError)
+              msg << "Причина: отказ от регистрации с сайта. ";
+            else
+              msg << "Причина отказа в регистрации: " << aPax->second.refuse << ". ";
             reqInfo->MsgToLog(msg.str(), ASTRA::evtPax, point_id, aPax->first.reg_no, grp_id);
             changed=true;
           }
@@ -465,8 +468,11 @@ void SaveGrpToLog(int point_id,
             if (aPax->second.refuse!=bPax->second.refuse)
             {
               ostringstream msg;
-              msg << aPax->second.getPaxNameStr() << ". "
-                  << "Изменена причина отказа в регистрации: " << aPax->second.refuse << ". ";
+              msg << aPax->second.getPaxNameStr() << ". ";
+              if (reqInfo->client_type!=ctTerm && aPax->second.refuse==refuseAgentError)
+                msg << "Отказ от регистрации с сайта. ";
+              else
+                msg << "Изменена причина отказа в регистрации: " << aPax->second.refuse << ". ";
               reqInfo->MsgToLog(msg.str(), ASTRA::evtPax, point_id, aPax->first.reg_no, grp_id);
               changed=true;
             };

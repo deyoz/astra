@@ -299,6 +299,7 @@ TDateTime NodeAsDateTime(const char* expr, xmlNodePtr cur)
 
 xmlNodePtr GetNodeFast(const char *expr, xmlNodePtr &node)
 {
+  if (node==NULL) return NULL;
   xmlNodePtr node2=node;
   while (node2!=NULL)
   {

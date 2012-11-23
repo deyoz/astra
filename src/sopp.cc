@@ -465,7 +465,7 @@ void build_TripStages( const vector<TSoppStage> &stages, const string &region, x
   xmlNodePtr lNode = NULL;
   for ( tstages::const_iterator st=stages.begin(); st!=stages.end(); st++ ) {
   	if ( pr_isg && st->stage_id != sRemovalGangWay ||
-  		   TStagesRules::Instance()->isClientStage( st->stage_id ) && !TReqInfo::Instance()->desk.compatible( WEB_CHECKIN_VERSION ) )
+         !CompatibleStage(  (TStage)st->stage_id ) )
   		continue;
     if ( !lNode )
       lNode = NewTextChild( tripNode, "stages" );
@@ -2193,7 +2193,7 @@ void DeletePaxGrp( const TTypeBSendInfo &sendInfo, int grp_id, bool toLog,
 };
 
 void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
-                       map<int,TTripInfo> &segs, bool tckin_version )
+                       map<int,TTripInfo> &segs )
 {
   segs.clear();
   TReqInfo *reqInfo = TReqInfo::Instance();
@@ -2238,21 +2238,18 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
   TCkinQry.DeclareVariable("seg_no",otInteger);
 
   ostringstream sql;
-  //select
-  sql << "SELECT pax_grp.grp_id";
+  sql << "SELECT pax_grp.grp_id, \n"
+         "       tckin_pax_grp.tckin_id, tckin_pax_grp.seg_no \n"
+         "FROM pax_grp, tckin_pax_grp \n"
+         "WHERE pax_grp.point_dep=:point_id \n";
   if ( filter.inbound_point_dep!=NoExists )
-    sql << ", tckin_pax_grp.tckin_id, tckin_pax_grp.seg_no ";
-  //from
-  sql << "\nFROM pax_grp";
-  if ( filter.inbound_point_dep!=NoExists )
-    sql << ", tckin_pax_grp ";
-  //where
-  sql << "\nWHERE pax_grp.point_dep=:point_id ";
+    sql << "      AND pax_grp.grp_id=tckin_pax_grp.grp_id \n";
+  else
+    sql << "      AND pax_grp.grp_id=tckin_pax_grp.grp_id(+) \n";
   if ( !filter.status.empty() )
-    sql << "\n      AND pax_grp.status=:status ";
+    sql << "      AND pax_grp.status=:status \n";
   if ( filter.inbound_point_dep!=NoExists )
-    sql << "\n      AND pax_grp.grp_id=tckin_pax_grp.grp_id "
-           "\n      AND bag_refuse=0 AND pax_grp.status<>'T' ";
+    sql << "      AND pax_grp.bag_refuse=0 AND pax_grp.status<>'T' \n";
 
   Qry.Clear();
   Qry.SQLText=sql.str().c_str();
@@ -2265,12 +2262,15 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
   segs[point_id]=fltInfo;
   for(;!Qry.Eof;Qry.Next())
   {
+    int tckin_id=Qry.FieldIsNULL("tckin_id")?NoExists:Qry.FieldAsInteger("tckin_id");
+    int tckin_seg_no=Qry.FieldIsNULL("seg_no")?NoExists:Qry.FieldAsInteger("seg_no");
+  
     if ( filter.inbound_point_dep!=NoExists )
     {
+      if (tckin_id==NoExists || tckin_seg_no==NoExists) continue;
+    
       TCkinRouteItem inboundSeg;
-      TCkinRoute().GetPriorSeg(Qry.FieldAsInteger("tckin_id"),
-                               Qry.FieldAsInteger("seg_no"),
-                               crtIgnoreDependent, inboundSeg);
+      TCkinRoute().GetPriorSeg(tckin_id, tckin_seg_no, crtIgnoreDependent, inboundSeg);
       if (inboundSeg.grp_id==NoExists) continue;
       
       TTripRouteItem priorAirp;
@@ -2284,11 +2284,9 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
     int grp_id=Qry.FieldAsInteger("grp_id");
 
     //отвяжем сквозняков от предыдущих сегментов
-    int tckin_id;
-    int tckin_seg_no;
-    if (tckin_version)
+    if (tckin_id!=NoExists && tckin_seg_no!=NoExists)
     {
-      if (SeparateTCkin(grp_id,cssAllPrevCurr,cssNone,-1,tckin_id,tckin_seg_no))
+      if (SeparateTCkin(grp_id,cssAllPrevCurr,cssNone,NoExists)!=NoExists)
       {
         //разрегистрируем все сквозные сегменты после нашего
         TCkinQry.SetVariable("tckin_id",tckin_id);
@@ -2307,24 +2305,17 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
             fltInfo.Init(TCkinQry);
             segs[tckin_point_id]=fltInfo;
           };
-          
+
           TTypeBSendInfo tckinSendInfo(fltInfo);
           tckinSendInfo.point_id=tckin_point_id;
           tckinSendInfo.point_num=TCkinQry.FieldAsInteger("point_num");
           tckinSendInfo.first_point=TCkinQry.FieldIsNULL("first_point")?NoExists:TCkinQry.FieldAsInteger("first_point");
           tckinSendInfo.pr_tranzit=TCkinQry.FieldAsInteger("pr_tranzit")!=0;
           tckinSendInfo.tlg_type="BSM";
-          
+
           DeletePaxGrp( tckinSendInfo, tckin_grp_id, true, PaxQry, DelQry, BSMsegs);
         };
       };
-    }
-    else
-    {
-      //старый терминал
-      //придется отвязать сквозной маршрут, так как не можем поддерживать
-      //изменение статуса ЭБ по следующим сегментам маршрута
-      SeparateTCkin(grp_id,cssAllPrevCurrNext,cssNone,-1,tckin_id,tckin_seg_no);
     };
     
     DeletePaxGrp( sendInfo, grp_id, filter.inbound_point_dep!=NoExists, PaxQry, DelQry, BSMsegs);
@@ -2400,9 +2391,8 @@ void SoppInterface::DeleteAllPassangers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   TDeletePaxFilter filter;
   if (GetNode( "inbound_point_dep", reqNode )!=NULL)
     filter.inbound_point_dep = NodeAsInteger( "inbound_point_dep", reqNode );
-  bool tckin_version=strcmp((char *)reqNode->name, "DeleteAllPassangers") != 0;
   map<int,TTripInfo> segs;
-	DeletePassengers( point_id, filter, segs, tckin_version );
+	DeletePassengers( point_id, filter, segs );
   DeletePassengersAnswer( segs, resNode );
   if (filter.inbound_point_dep==NoExists)
   {

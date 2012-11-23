@@ -2886,19 +2886,96 @@ LexemaData GetLexemeDataWithFlight(const LexemaData &data, const TTripInfo &fltI
   return result;
 };
 
+bool CheckRefusability(int point_dep, int pax_id)
+{
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  if (reqInfo->client_type==ctTerm) return true;
+  if (reqInfo->client_type==ctKiosk) return false; //для киосков разрегистрация запрещена
+  //отмена регистрации не с терминала (с сайта или киоска)
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT pax_grp.grp_id, pax_grp.client_type, pax.pr_brd "
+    "FROM pax_grp, pax "
+    "WHERE pax_grp.grp_id=pax.grp_id AND pax.pax_id=:pax_id";
+  Qry.CreateVariable("pax_id", otInteger, pax_id);
+  Qry.Execute();
+  if (Qry.Eof ||
+      Qry.FieldIsNULL("pr_brd") ||     //отмена регистрации
+      Qry.FieldAsInteger("pr_brd")!=0) return false;
+  int grp_id=Qry.FieldAsInteger("grp_id");
+  TClientType ckinClientType=DecodeClientType(Qry.FieldAsString("client_type"));
+  if (!(ckinClientType==ctWeb && reqInfo->client_type==ctWeb /*||
+        ckinClientType==ctWeb && reqInfo->client_type==ctKiosk ||
+        ckinClientType==ctKiosk && reqInfo->client_type==ctKiosk*/)) return false;
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT events.station "
+    "FROM "
+    "  (SELECT station FROM events "
+    "   WHERE type=:evtPax AND id1=:point_dep AND id3=:grp_id) events, "
+    "  web_clients "
+    "WHERE events.station=web_clients.desk(+) AND "
+    "      web_clients.desk IS NULL AND rownum<2";
+  Qry.CreateVariable("evtPax", otString, EncodeEventType(ASTRA::evtPax));
+  Qry.CreateVariable("point_dep", otInteger, point_dep);
+  Qry.CreateVariable("grp_id", otInteger, grp_id);
+  Qry.Execute();
+  if (!Qry.Eof) return false;
+
+  return true;
+};
+
 void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  SavePax(reqNode, reqNode, NULL, resNode);
+  SavePax(reqNode, NULL, resNode);
+};
+
+
+//процедура должна возвращать true только в том случае если произведена реальная регистрация
+bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode)
+{
+  int first_grp_id, tckin_id;
+  TChangeStatusList ETInfo;
+  set<int> tckin_ids;
+  bool result=true;
+  if (SavePax(reqNode, ediResNode, first_grp_id, ETInfo, tckin_id))
+  {
+    if (tckin_id!=NoExists) tckin_ids.insert(tckin_id);
+  }
+  else
+    result=false;
+  
+  if (result)
+  {
+    if (ediResNode==NULL && !ETInfo.empty())
+    {
+      //хотя бы один билет будет обрабатываться
+      OraSession.Rollback();  //откат
+
+      int req_ctxt=AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc));
+      if (!ETStatusInterface::ETChangeStatus(req_ctxt,ETInfo))
+        throw EXCEPTIONS::Exception("CheckInInterface::SavePax: Wrong ETInfo");
+      AstraLocale::showProgError("MSG.ETS_CONNECT_ERROR");
+      return false;
+    };
+
+    CheckTCkinIntegrity(tckin_ids, NoExists);
+    LoadPax(first_grp_id, resNode, true);
+  };
+  return result;
 };
 
 //процедура должна возвращать true только в том случае если произведена реальная регистрация
-bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode)
+bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
+                               int &first_grp_id, TChangeStatusList &ETInfo, int &tckin_id)
 {
+  first_grp_id=NoExists;
+  tckin_id=NoExists;
+
   TReqInfo *reqInfo = TReqInfo::Instance();
 
   map<int,TSegInfo> segs;
-  TChangeStatusList ETInfo;
-  bool et_processed=false;
 
   xmlNodePtr segNode=NodeAsNode("segments/segment",reqNode);
   bool only_one=segNode->next==NULL;
@@ -2977,18 +3054,17 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
   //reqInfo->user.check_access(amPartialWrite);
   //определим, открыт ли рейс для регистрации
 
-  int tckin_id=-1,first_grp_id=-1;
   int agent_stat_point_id=NoExists;
   TDateTime agent_stat_ondate=NowUTC();
 
   segNode=NodeAsNode("segments/segment",reqNode);
   bool first_segment=true;
-  int seg_no=1,tckin_seg_no=1;
+  int seg_no=1;
   vector<CheckIn::TTransferItem> trfer;
   vector<CheckIn::TTransferItem>::const_iterator iTrfer;
   map<int, std::pair<TCkinSegFlts, TTrferSetsInfo> > trfer_segs;
   bool save_trfer=false;
-  for(;segNode!=NULL;segNode=segNode->next,seg_no++,tckin_seg_no++,first_segment=false)
+  for(;segNode!=NULL;segNode=segNode->next,seg_no++,first_segment=false)
   {
     int point_dep,point_arv,grp_id,hall=ASTRA::NoExists;
     string cl,airp_dep,airp_arv;
@@ -3161,6 +3237,12 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
               else
                 throw UserException("MSG.ETICK.NOT_CONFIRM.NEED_RELOGIN");
             };
+
+            //проверка refusability для киосков и веба
+            if (!new_checkin &&
+                !NodeIsNULLFast("refuse",node2,true) &&
+                !CheckRefusability(point_dep, NodeAsIntegerFast("pax_id",node2)))
+              throw UserException("MSG.PASSENGER.UNREGISTRATION_DENIAL");
 
             if (NodeIsNULLFast("pers_type",node2,true)) continue;
             if (strcmp(NodeAsStringFast("pers_type",node2),EncodePerson(ASTRA::baby))==0) continue; //младенцев не анализируем
@@ -3696,6 +3778,8 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
           };
         };
         
+        int first_reg_no=NoExists;
+        
         if (!pr_unaccomp)
         {
           //запишем коммерческий рейс
@@ -3751,6 +3835,15 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                                            <<LParam("flight",flt.str())); //WEB
             markFltInfo.airp=str;
           };
+          
+          //получим рег. номера и признак совместной регистрации и посадки
+          Qry.Clear();
+          Qry.SQLText=
+            "SELECT NVL(MAX(reg_no)+1,1) AS reg_no FROM pax_grp,pax "
+            "WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_dep";
+          Qry.CreateVariable("point_dep",otInteger,point_dep);
+          Qry.Execute();
+          first_reg_no = Qry.FieldAsInteger("reg_no");
         };
 
         Qry.Clear();
@@ -3788,8 +3881,8 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
           "         :point_id_mark,:pr_mark_norms,cycle_tid__seq.nextval); "
           "  IF :seg_no IS NOT NULL THEN "
           "    IF :seg_no=1 THEN :tckin_id:=:grp_id; END IF; "
-          "    INSERT INTO tckin_pax_grp(tckin_id,seg_no,grp_id,pr_depend) "
-          "    VALUES(:tckin_id,:seg_no,:grp_id,DECODE(:seg_no,1,0,1)); "
+          "    INSERT INTO tckin_pax_grp(tckin_id,seg_no,grp_id,first_reg_no,pr_depend) "
+          "    VALUES(:tckin_id,:seg_no,:grp_id,:first_reg_no,DECODE(:seg_no,1,0,1)); "
           "  END IF; "
           "END;";
         if (GetNode("generated_grp_id",segNode)!=NULL)
@@ -3821,6 +3914,10 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
           Qry.CreateVariable("seg_no",otInteger,FNull);
         else
           Qry.CreateVariable("seg_no",otInteger,seg_no);
+        if (!pr_unaccomp)
+          Qry.CreateVariable("first_reg_no",otInteger,first_reg_no);
+        else
+          Qry.CreateVariable("first_reg_no",otInteger,FNull);
           
         if (IsMarkEqualOper(fltInfo, markFltInfo))
           Qry.CreateVariable("point_id_mark",otInteger,point_dep);
@@ -3842,14 +3939,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
 
         if (!pr_unaccomp)
         {
-          //получим рег. номера и признак совместной регистрации и посадки
-          Qry.Clear();
-          Qry.SQLText=
-            "SELECT NVL(MAX(reg_no)+1,1) AS reg_no FROM pax_grp,pax "
-            "WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_dep";
-          Qry.CreateVariable("point_dep",otInteger,point_dep);
-          Qry.Execute();
-          int reg_no = Qry.FieldAsInteger("reg_no");
+          int reg_no=first_reg_no;
           first_pax_on_flight = ( reg_no == 1 );
           bool pr_brd_with_reg=false,pr_exam_with_brd=false;
           if (first_segment && reqInfo->client_type == ctTerm)
@@ -4102,19 +4192,28 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
       }
       else
       {
+        //ЗАПИСЬ ИЗМЕНЕНИЙ
         GetGrpToLogInfo(grp_id, grpInfoBefore); //для всех сегментов
         //BSM
         if (BSMsend)
           BSM::LoadContent(grp_id,BSMContentBefore);
       
-        //запись изменений
         bool save_trfer=false;
         if (reqInfo->desk.compatible(TRFER_CONFIRM_VERSION))
           save_trfer=GetNode("transfer",reqNode)!=NULL;
 
-        if (first_segment && reqInfo->client_type == ctTerm)
+        if (first_segment)
         {
-          SeparateTCkin(grp_id,cssAllPrevCurr,cssNone,-1,tckin_id,tckin_seg_no);
+          if (reqInfo->client_type == ctTerm)
+          {
+            //для терминала всегда отвязываем
+            tckin_id=SeparateTCkin(grp_id,cssAllPrevCurr,cssNone,NoExists);
+          }
+          else
+          {
+            //для веб и киоска просто получаем tckin_id
+            tckin_id=SeparateTCkin(grp_id,cssNone,cssNone,NoExists);
+          };
         };
         
         Qry.Clear();
@@ -4159,33 +4258,40 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
 
           TQuery PaxQry(&OraSession);
           PaxQry.Clear();
-          PaxQry.SQLText="UPDATE pax "
-                         "SET surname=:surname, "
-                         "    name=:name, "
-                         "    pers_type=:pers_type, "
-                         "    refuse=:refuse, "
-                         "    ticket_no=:ticket_no, "
-                         "    coupon_no=:coupon_no, "
-                         "    ticket_rem=:ticket_rem, "
-                         "    ticket_confirm=:ticket_confirm, "
-                         "    subclass=:subclass, "
-                         "    bag_pool_num=:bag_pool_num, "
-                         "    pr_brd=DECODE(:refuse,NULL,pr_brd,NULL), "
-                         "    pr_exam=DECODE(:refuse,NULL,pr_exam,0), "
-                         "    tid=cycle_tid__seq.currval "
-                         "WHERE pax_id=:pax_id AND tid=:tid";
+          ostringstream sql;
+          sql << "UPDATE pax SET ";
+          if (reqInfo->client_type==ctTerm)
+          {
+            sql << "    surname=:surname, "
+                   "    name=:name, "
+                   "    pers_type=:pers_type, "
+                   "    ticket_no=:ticket_no, "
+                   "    coupon_no=:coupon_no, "
+                   "    ticket_rem=:ticket_rem, "
+                   "    ticket_confirm=:ticket_confirm, "
+                   "    subclass=:subclass, "
+                   "    bag_pool_num=:bag_pool_num, ";
+            PaxQry.DeclareVariable("surname",otString);
+            PaxQry.DeclareVariable("name",otString);
+            PaxQry.DeclareVariable("pers_type",otString);
+            PaxQry.DeclareVariable("ticket_no",otString);
+            PaxQry.DeclareVariable("coupon_no",otInteger);
+            PaxQry.DeclareVariable("ticket_rem",otString);
+            PaxQry.DeclareVariable("ticket_confirm",otInteger);
+            PaxQry.DeclareVariable("subclass",otString);
+            PaxQry.DeclareVariable("bag_pool_num",otInteger);
+          };
+          sql << "    refuse=:refuse, "
+                 "    pr_brd=DECODE(:refuse,NULL,pr_brd,NULL), "
+                 "    pr_exam=DECODE(:refuse,NULL,pr_exam,0), "
+                 "    tid=cycle_tid__seq.currval "
+                 "WHERE pax_id=:pax_id AND tid=:tid";
           PaxQry.DeclareVariable("pax_id",otInteger);
           PaxQry.DeclareVariable("tid",otInteger);
-          PaxQry.DeclareVariable("surname",otString);
-          PaxQry.DeclareVariable("name",otString);
-          PaxQry.DeclareVariable("pers_type",otString);
           PaxQry.DeclareVariable("refuse",otString);
-          PaxQry.DeclareVariable("ticket_no",otString);
-          PaxQry.DeclareVariable("coupon_no",otInteger);
-          PaxQry.DeclareVariable("ticket_rem",otString);
-          PaxQry.DeclareVariable("ticket_confirm",otInteger);
-          PaxQry.DeclareVariable("subclass",otString);
-          PaxQry.DeclareVariable("bag_pool_num",otInteger);
+          
+          PaxQry.SQLText=sql.str().c_str();
+
 
           TQuery LayerQry(&OraSession);
           LayerQry.Clear();
@@ -4225,45 +4331,64 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                 if (GetNodeFast("refuse",node2)!=NULL)
                 {
                   //были изменения в информации по пассажиру
-                  if (!NodeIsNULLFast("refuse",node2))
+                  string refuse=NodeAsStringFast("refuse",node2);
+                  if (!refuse.empty())
                   {
                     LayerQry.SetVariable("pax_id",pax_id);
                     LayerQry.Execute();
                   };
-                  const char* pers_type=NodeAsStringFast("pers_type",node2);
-                  const char* refuse=NodeAsStringFast("refuse",node2);
                   PaxQry.SetVariable("pax_id",pax_id);
                   PaxQry.SetVariable("tid",NodeAsIntegerFast("tid",node2));
-                  PaxQry.SetVariable("surname",surname);
-                  PaxQry.SetVariable("name",name);
-                  PaxQry.SetVariable("pers_type",pers_type);
                   PaxQry.SetVariable("refuse",refuse);
-                  CheckIn::TPaxTknItem().fromXML(node).toDB(PaxQry);
-                  PaxQry.SetVariable("subclass",NodeAsStringFast("subclass",node2));
-                  if (reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS))
+                  if (reqInfo->client_type==ctTerm)
                   {
-                    if (!NodeIsNULLFast("bag_pool_num",node2))
-                      PaxQry.SetVariable("bag_pool_num",NodeAsIntegerFast("bag_pool_num",node2));
-                    else
-                      PaxQry.SetVariable("bag_pool_num",FNull);
-                  }
-                  else PaxQry.SetVariable("bag_pool_num",FNull);
+                    PaxQry.SetVariable("surname",surname);
+                    PaxQry.SetVariable("name",name);
+                    PaxQry.SetVariable("pers_type",NodeAsStringFast("pers_type",node2));
+                    CheckIn::TPaxTknItem().fromXML(node).toDB(PaxQry);
+                    PaxQry.SetVariable("subclass",NodeAsStringFast("subclass",node2));
+                    if (reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS))
+                    {
+                      if (!NodeIsNULLFast("bag_pool_num",node2))
+                        PaxQry.SetVariable("bag_pool_num",NodeAsIntegerFast("bag_pool_num",node2));
+                      else
+                        PaxQry.SetVariable("bag_pool_num",FNull);
+                    }
+                    else PaxQry.SetVariable("bag_pool_num",FNull);
+                  };
                   PaxQry.Execute();
                   if (PaxQry.RowsProcessed()<=0)
                     throw UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA",
                                         LParams()<<LParam("surname",string(surname)+(*name!=0?" ":"")+name)); //WEB
 
-                  //запись pax_doc
-                  if (reqInfo->client_type!=ctTerm || reqInfo->desk.compatible(DOCS_VERSION))
+                  if (reqInfo->client_type==ctTerm)
                   {
-                    CheckIn::SavePaxDoc(pax_id,GetNodeFast("document",node2),PaxDocQry);
-                    CheckIn::SavePaxDoco(pax_id,GetNodeFast("doco",node2),PaxDocoQry);
+                    //запись pax_doc
+                    if (reqInfo->desk.compatible(DOCS_VERSION))
+                    {
+                      CheckIn::SavePaxDoc(pax_id,GetNodeFast("document",node2),PaxDocQry);
+                      CheckIn::SavePaxDoco(pax_id,GetNodeFast("doco",node2),PaxDocoQry);
+                    }
+                    else
+                    {
+                      CrsQry.SetVariable("pax_id",pax_id);
+                      CrsQry.SetVariable("document",NodeAsStringFast("document",node2));
+                      CrsQry.Execute();
+                    };
                   }
                   else
                   {
-                    CrsQry.SetVariable("pax_id",pax_id);
-                    CrsQry.SetVariable("document",NodeAsStringFast("document",node2));
-                    CrsQry.Execute();
+                    if (refuse==refuseAgentError)
+                    {
+                      Qry.Clear();
+                      Qry.SQLText=
+                        "INSERT INTO crs_pax_refuse(pax_id, client_type, time) "
+                        "SELECT pax_id, :client_type, SYSTEM.UTCSYSDATE "
+                        "FROM crs_pax WHERE pax_id=:pax_id";
+                      Qry.CreateVariable("pax_id", otInteger, pax_id);
+                      Qry.CreateVariable("client_type", otString, EncodeClientType(reqInfo->client_type));
+                      Qry.Execute();
+                    };
                   };
                 }
                 else
@@ -4331,6 +4456,8 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
         {
           Qry.Clear();
           Qry.SQLText=
+            "DECLARE "
+            "  vseg_no bag_tags.seg_no%TYPE; "
             "BEGIN "
             "  DELETE FROM value_bag WHERE grp_id=:grp_id; "
             "  DELETE FROM bag2 WHERE grp_id=:grp_id; "
@@ -4346,13 +4473,17 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
             "    INSERT INTO paid_bag(grp_id,bag_type,weight,rate_id,rate_trfer) "
             "    VALUES(:grp_id,99,0,NULL,NULL); "
             "  END IF; "
+            "  BEGIN "
+            "    SELECT seg_no INTO vseg_no FROM tckin_pax_grp WHERE grp_id=:grp_id; "
+            "  EXCEPTION "
+            "    WHEN NO_DATA_FOUND THEN vseg_no:=1; "
+            "  END; "
             "  INSERT INTO bag_tags(grp_id,num,tag_type,no,color,seg_no,bag_num,pr_print) "
-            "  SELECT :grp_id,num,tag_type,no,color,:seg_no,bag_num,pr_print "
+            "  SELECT :grp_id,num,tag_type,no,color,vseg_no,bag_num,pr_print "
             "  FROM bag_tags WHERE grp_id=:first_grp_id; "
             "END; ";
           Qry.CreateVariable("grp_id",otInteger,grp_id);
           Qry.CreateVariable("first_grp_id",otInteger,first_grp_id);
-          Qry.CreateVariable("seg_no",otInteger,tckin_seg_no);
           Qry.Execute();
         };
       };
@@ -4404,7 +4535,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
             Qry.SetVariable("coupon_no",NodeAsIntegerFast("coupon_no",node2));
             Qry.Execute();
             if (!Qry.Eof)
-              throw UserException("MSG.CHECKIN.DOUPLICATED_ETICKET",
+              throw UserException("MSG.CHECKIN.DUPLICATED_ETICKET",
                                   LParams()<<LParam("eticket",NodeAsStringFast("ticket_no",node2))
                                            <<LParam("coupon",NodeAsStringFast("coupon_no",node2))); //WEB
           }
@@ -4446,52 +4577,65 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
           Qry.DeclareVariable("ev_time",otDate);
           Qry.DeclareVariable("ev_order",otInteger);
           Qry.CreateVariable("ticket_rem",otString,"TKNE");
-
+          
           xmlNodePtr ticketNode=NodeAsNode("tickets",ediResNode)->children;
           for(;ticketNode!=NULL;ticketNode=ticketNode->next)
           {
-            xmlNodePtr node2=ticketNode->children;
-            if (GetNodeFast("coupon_status",node2)==NULL) continue;
-            if (NodeAsIntegerFast("point_id",node2)!=point_dep) continue;
-
-            Qry.SetVariable("ticket_no",NodeAsStringFast("ticket_no",node2));
-            Qry.SetVariable("coupon_no",NodeAsIntegerFast("coupon_no",node2));
-
-            if (GetNodeFast("pax_id",node2)!=NULL)
-              Qry.SetVariable("pax_id",NodeAsIntegerFast("pax_id",node2));
-            else
-              Qry.SetVariable("pax_id",FNull);
-
-            Qry.SetVariable("grp_id",FNull);
-            Qry.SetVariable("reg_no",FNull);
-
-            xmlNodePtr eventNode=GetNode("coupon_status/event",ticketNode);
-            if (eventNode!=NULL &&
-                GetNodeFast("reg_no",node2)==NULL &&
-                GetNode("@ev_time",eventNode)!=NULL &&
-                GetNode("@ev_order",eventNode)!=NULL)
+            xmlNodePtr ticketNode2=ticketNode->children;
+            if (GetNodeFast("coupon_status",ticketNode2)==NULL) continue;
+            if (GetNodeFast("pax_id",ticketNode2)==NULL)
+              throw EXCEPTIONS::Exception("CheckInInterface::SavePax: pax_id not defined in ediRes");
+              
+            int ticket_pax_id=NodeAsIntegerFast("pax_id",ticketNode2);
+            
+            node=NodeAsNode("passengers",segNode);
+            for(node=node->children;node!=NULL;node=node->next)
             {
-              Qry.SetVariable("ev_time",NodeAsDateTime("@ev_time",eventNode));
-              Qry.SetVariable("ev_order",NodeAsInteger("@ev_order",eventNode));
-            }
-            else
-            {
-              Qry.SetVariable("ev_time",FNull);
-              Qry.SetVariable("ev_order",FNull);
+              node2=node->children;
+              int pax_id;
+              if (GetNodeFast("generated_pax_id",node2)!=NULL)
+                pax_id=NodeAsIntegerFast("generated_pax_id",node2);
+              else
+                pax_id=NodeAsIntegerFast("pax_id",node2);
+              if (ticket_pax_id==pax_id) break;
             };
-            Qry.Execute();
-            if (eventNode!=NULL &&
-                GetNodeFast("reg_no",node2)==NULL &&
-                !Qry.VariableIsNULL("reg_no") &&
-                !Qry.VariableIsNULL("grp_id"))
+            if (node!=NULL)
             {
-              TLogMsg msg;
-              msg.ev_type=ASTRA::evtPax;
-              msg.id1=point_dep;
-              msg.id2=Qry.GetVariableAsInteger("reg_no");
-              msg.id3=Qry.GetVariableAsInteger("grp_id");
-              msg.msg=NodeAsString(eventNode);
-              reqInfo->MsgToLog(msg);
+              Qry.SetVariable("ticket_no",NodeAsStringFast("ticket_no",ticketNode2));
+              Qry.SetVariable("coupon_no",NodeAsIntegerFast("coupon_no",ticketNode2));
+              Qry.SetVariable("pax_id",ticket_pax_id);
+              Qry.SetVariable("grp_id",FNull);
+              Qry.SetVariable("reg_no",FNull);
+
+              xmlNodePtr eventNode=GetNode("coupon_status/event",ticketNode);
+              if (eventNode!=NULL &&
+                  GetNodeFast("reg_no",ticketNode2)==NULL &&
+                  GetNode("@ev_time",eventNode)!=NULL &&
+                  GetNode("@ev_order",eventNode)!=NULL)
+              {
+                Qry.SetVariable("ev_time",NodeAsDateTime("@ev_time",eventNode));
+                Qry.SetVariable("ev_order",NodeAsInteger("@ev_order",eventNode));
+              }
+              else
+              {
+                Qry.SetVariable("ev_time",FNull);
+                Qry.SetVariable("ev_order",FNull);
+              };
+              Qry.Execute();
+              if (eventNode!=NULL &&
+                  GetNodeFast("reg_no",ticketNode2)==NULL &&
+                  !Qry.VariableIsNULL("reg_no") &&
+                  !Qry.VariableIsNULL("grp_id"))
+              {
+                TLogMsg msg;
+                msg.ev_type=ASTRA::evtPax;
+                msg.id1=point_dep;
+                msg.id2=Qry.GetVariableAsInteger("reg_no");
+                msg.id3=Qry.GetVariableAsInteger("grp_id");
+                msg.msg=NodeAsString(eventNode);
+                reqInfo->MsgToLog(msg);
+              };
+            
             };
           };
         };
@@ -4499,16 +4643,12 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
 
       //вот здесь ETCheckStatus::CheckGrpStatus
       //обязательно до ckin.check_grp
-      if (ediResNode==NULL && !defer_etstatus &&
-          (new_checkin || reqInfo->client_type==ctTerm)) //не производим изменение статуса при записи изменений веб регистрации!
+      if (ediResNode==NULL && !defer_etstatus)
       {
-        if (ETStatusInterface::ETCheckStatus(grp_id,csaGrp,NoExists,false,ETInfo,true))
-        {
-          et_processed=true; //хотя бы один билет будет обрабатываться
-        };
+        ETStatusInterface::ETCheckStatus(grp_id,csaGrp,NoExists,false,ETInfo,true);
       };
 
-      if (!et_processed)
+      if (ETInfo.empty())
       {
         if (agent_stat_point_id==NoExists) agent_stat_point_id=point_dep;
       
@@ -4575,33 +4715,41 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
           }
           catch(OverloadException &E)
           {
-            //работает если запрещена регистрация при превышении загрузки
-            //откатываем регистрацию не снимая лочки с рейса и зажигаем тревогу
-            //при сквозной регистрации будет зажжена тревога на первом перегруженном сегменте
-            Qry.Clear();
-            Qry.SQLText=
-              "BEGIN "
-              "  ROLLBACK TO CHECKIN; "
-              "END;";
-            Qry.Execute();
-
-            if (reqInfo->client_type==ctTerm)
-            {
-              if (!only_one)
-                showError( GetLexemeDataWithFlight(E.getLexemaData( ), fltInfo) );
-              else
-                showError( E.getLexemaData( ) );
-            }
+            if (!new_checkin && reqInfo->client_type!=ctTerm)
+              //делаем специальную защиту в SavePax:
+              //при записи изменений веб и киосков не откатываемся при перегрузке
+              Set_AODB_overload_alarm( point_dep, true );
             else
             {
-              //веб, киоски
-              CheckIn::UserException ce(E.getLexemaData(), point_dep);
-              CheckIn::showError(ce.segs);
+
+              //работает если запрещена регистрация при превышении загрузки
+              //откатываем регистрацию не снимая лочки с рейса и зажигаем тревогу
+              //при сквозной регистрации будет зажжена тревога на первом перегруженном сегменте
+              Qry.Clear();
+              Qry.SQLText=
+                "BEGIN "
+                "  ROLLBACK TO CHECKIN; "
+                "END;";
+              Qry.Execute();
+
+              if (reqInfo->client_type==ctTerm)
+              {
+                if (!only_one)
+                  showError( GetLexemeDataWithFlight(E.getLexemaData( ), fltInfo) );
+                else
+                  showError( E.getLexemaData( ) );
+              }
+              else
+              {
+                //веб, киоски
+                CheckIn::UserException ce(E.getLexemaData(), point_dep);
+                CheckIn::showError(ce.segs);
+              };
+
+              set_alarm( point_dep, atOverload, true ); // установили признак перегрузки несмотря на то что реальной перегрузки нет
+              Set_AODB_overload_alarm( point_dep, true );
+              return false;
             };
-            
-            set_alarm( point_dep, atOverload, true ); // установили признак перегрузки несмотря на то что реальной перегрузки нет
-            Set_AODB_overload_alarm( point_dep, true );
-            return false;
           };
         };
       };
@@ -4728,16 +4876,6 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
       //BSM
       if (BSMsend) BSM::Send(point_dep,grp_id,BSMContentBefore,BSMaddrs);
 
-      if (first_segment && reqInfo->client_type==ctTerm)
-      {
-        //отправить на клиент счетчики
-        readTripCounters(point_dep,resNode);
-        if (!reqInfo->desk.compatible(PAD_VERSION))
-        {
-          //pr_etl_only
-          readTripSets( fltInfo, pr_etstatus, NewTextChild(resNode,"trip_sets") );
-        };
-      };
     }
     catch(UserException &e)
     {
@@ -4768,22 +4906,6 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
 
   }; //цикл по сегментам
 
-  if (et_processed)
-  {
-    OraSession.Rollback();  //откат
-
-    int req_ctxt=AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(termReqNode->doc));
-    if (!ETStatusInterface::ETChangeStatus(req_ctxt,ETInfo))
-      throw EXCEPTIONS::Exception("CheckInInterface::SavePax: Wrong variable 'et_processed'");
-    AstraLocale::showProgError("MSG.ETS_CONNECT_ERROR");
-    return false;
-  };
-
-  if (reqInfo->client_type==ctTerm)
-	{
-    //пересчитать данные по группе и отправить на клиент
-    LoadPax(first_grp_id,resNode);
-  };
   return true;
 };
 
@@ -4874,10 +4996,10 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   }
   else grp_id=NodeAsInteger(node);
 
-  LoadPax(grp_id,resNode);
+  LoadPax(grp_id,resNode,false);
 };
 
-void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode)
+void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
 
@@ -5096,6 +5218,17 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode)
       CheckIn::LoadBag(*grp_id,resNode);
       CheckInInterface::LoadPaidBag(*grp_id,resNode);
       readTripCounters(point_dep, segNode);
+      
+      if (afterSavePax)
+      {
+        //только после записи изменений
+        readTripCounters(point_dep, resNode);
+        if (!reqInfo->desk.compatible(PAD_VERSION))
+        {
+          //pr_etl_only
+          readTripSets( point_dep, operFlt, NewTextChild(resNode,"trip_sets") );
+        };
+      };
     };
 
     readTripSets( point_dep, operFlt, operFltNode );
@@ -6090,18 +6223,11 @@ void CheckInInterface::readTripSets( int point_id,
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
   if (Qry.Eof) throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
-  readTripSets(fltInfo, Qry.FieldAsInteger("pr_etstatus"), tripSetsNode);
-};
-
-void CheckInInterface::readTripSets( const TTripInfo &fltInfo,
-                                     int pr_etstatus,
-                                     xmlNodePtr tripSetsNode)
-{
+  
   NewTextChild( tripSetsNode, "pr_etl_only", (int)GetTripSets(tsETLOnly,fltInfo) );
-  NewTextChild( tripSetsNode, "pr_etstatus", pr_etstatus );
+  NewTextChild( tripSetsNode, "pr_etstatus", Qry.FieldAsInteger("pr_etstatus") );
   NewTextChild( tripSetsNode, "pr_no_ticket_check", (int)GetTripSets(tsNoTicketCheck,fltInfo) );
 };
-
 
 void CheckInInterface::GetTripCounters(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
