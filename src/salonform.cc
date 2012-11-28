@@ -712,6 +712,7 @@ void SalonFormInterface::ComponShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     SALONS2::GetCompParams( comp_id, dataNode );
   Salons.Build( salonsNode );
   bool pr_notchangecraft = true;
+  std::vector<SALONS2::TDrawPropsType> props;
   pNode = GetNode( "point_id", reqNode );
   if ( pNode ) {
     int point_id = NodeAsInteger( pNode );
@@ -722,7 +723,12 @@ void SalonFormInterface::ComponShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     TTripInfo info( Qry );
     pr_notchangecraft = GetTripSets( tsCraftNoChangeSections, info );
     SALONS2::TSalons SalonsL( point_id, SALONS2::rTripSalons );
-    SalonsL.BuildLayersInfo( salonsNode );
+    SalonsL.BuildLayersInfo( salonsNode, props );
+    ProgTrace( TRACE5, "BuildLayersInfo for point_id=%d", point_id );
+  }
+  else {
+    Salons.BuildLayersInfo( salonsNode, props );
+    ProgTrace( TRACE5, "BuildLayersInfo for base comp" );
   }
   if ( pr_notchangecraft && comp_id >= 0 ) {
     vector<SALONS2::TCompSection> CompSections;

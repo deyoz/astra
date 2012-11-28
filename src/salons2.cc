@@ -277,6 +277,7 @@ void TSalons::Write()
                   " UPDATE points SET point_id=point_id WHERE point_id=:point_id; "
                   " UPDATE trip_sets SET pr_lat_seat=:pr_lat_seat WHERE point_id=:point_id; "
                   " DELETE trip_comp_rem WHERE point_id=:point_id; "
+                  " DELETE trip_comp_baselayers WHERE point_id=:point_id; "
                   " DELETE trip_comp_elems WHERE point_id=:point_id; "
                   " DELETE trip_comp_layers "
                   " WHERE point_id=:point_id AND layer_type IN ( :tranzit_layer, :blockcent_layer, :prot_layer );"
@@ -306,7 +307,8 @@ void TSalons::Write()
                        " UPDATE comps SET airline=:airline,airp=:airp,craft=:craft,bort=:bort,descr=:descr, "\
                        "        time_create=system.UTCSYSDATE,classes=:classes,pr_lat_seat=:pr_lat_seat "\
                        "  WHERE comp_id=:comp_id; "\
-                       " DELETE comp_rem WHERE comp_id=:comp_id; "\
+                       " DELETE comp_rem WHERE comp_id=:comp_id; "
+                       " DELETE comp_baselayers WHERE comp_id=:comp_id; "\
                        " DELETE comp_rates WHERE comp_id=:comp_id; "
                        " DELETE comp_elems WHERE comp_id=:comp_id; "
                        " DELETE comp_classes WHERE comp_id=:comp_id; "
@@ -320,6 +322,7 @@ void TSalons::Write()
          Qry.SQLText = "BEGIN "
                        " UPDATE trip_sets SET comp_id=NULL WHERE comp_id=:comp_id; "
                        " DELETE comp_rem WHERE comp_id=:comp_id; "
+                       " DELETE comp_baselayers WHERE comp_id=:comp_id; "
                        " DELETE comp_rates WHERE comp_id=:comp_id; "
                        " DELETE comp_elems WHERE comp_id=:comp_id; "
                        " DELETE comp_sections WHERE comp_id=:comp_id; "
@@ -345,17 +348,30 @@ void TSalons::Write()
     return; /* удалили компоновку */
 
   TQuery RQry( &OraSession );
+  TQuery LQry( &OraSession );
   if ( readStyle == SALONS2::rTripSalons ) {
-    RQry.SQLText = "INSERT INTO trip_comp_rem(point_id,num,x,y,rem,pr_denial) "\
-                   " VALUES(:point_id,:num,:x,:y,:rem,:pr_denial)";
+    RQry.SQLText =
+      "INSERT INTO trip_comp_rem(point_id,num,x,y,rem,pr_denial) "
+      " VALUES(:point_id,:num,:x,:y,:rem,:pr_denial)";
     RQry.DeclareVariable( "point_id", otInteger );
     RQry.SetVariable( "point_id", trip_id );
+    LQry.SQLText =
+      "INSERT INTO trip_comp_baselayers(point_id,num,x,y,layer_type) "
+      " VALUES(:point_id,:num,:x,:y,:layer_type)";
+    LQry.DeclareVariable( "point_id", otInteger );
+    LQry.SetVariable( "point_id", trip_id );
   }
   else {
-    RQry.SQLText = "INSERT INTO comp_rem(comp_id,num,x,y,rem,pr_denial) "\
-                   " VALUES(:comp_id,:num,:x,:y,:rem,:pr_denial)";
+    RQry.SQLText =
+      "INSERT INTO comp_rem(comp_id,num,x,y,rem,pr_denial) "
+      " VALUES(:comp_id,:num,:x,:y,:rem,:pr_denial)";
     RQry.DeclareVariable( "comp_id", otInteger );
     RQry.SetVariable( "comp_id", comp_id );
+    LQry.SQLText =
+      "INSERT INTO comp_baselayers(comp_id,num,x,y,layer_type) "
+      " VALUES(:comp_id,:num,:x,:y,:layer_type)";
+    LQry.DeclareVariable( "comp_id", otInteger );
+    LQry.SetVariable( "comp_id", comp_id );
   }
 
   RQry.DeclareVariable( "num", otInteger );
@@ -363,21 +379,24 @@ void TSalons::Write()
   RQry.DeclareVariable( "y", otInteger );
   RQry.DeclareVariable( "rem", otString );
   RQry.DeclareVariable( "pr_denial", otInteger );
+  
+  LQry.DeclareVariable( "num", otInteger );
+  LQry.DeclareVariable( "x", otInteger );
+  LQry.DeclareVariable( "y", otInteger );
+  LQry.DeclareVariable( "layer_type", otString );
 
   Qry.Clear();
   if ( readStyle == SALONS2::rTripSalons ) {
-    Qry.SQLText = "INSERT INTO trip_comp_elems(point_id,num,x,y,elem_type,xprior,yprior,agle,class, "
-                  "                            pr_smoke,not_good,xname,yname) "
-                  " VALUES(:point_id,:num,:x,:y,:elem_type,:xprior,:yprior,:agle,:class, "
-                  "        :pr_smoke,:not_good,:xname,:yname)";
+    Qry.SQLText =
+      "INSERT INTO trip_comp_elems(point_id,num,x,y,elem_type,xprior,yprior,agle,class,xname,yname) "
+      " VALUES(:point_id,:num,:x,:y,:elem_type,:xprior,:yprior,:agle,:class,:xname,:yname) ";
     Qry.DeclareVariable( "point_id", otInteger );
     Qry.SetVariable( "point_id", trip_id );
   }
   else {
-    Qry.SQLText = "INSERT INTO comp_elems(comp_id,num,x,y,elem_type,xprior,yprior,agle,class, "\
-                  "                       pr_smoke,not_good,xname,yname) "\
-                  " VALUES(:comp_id,:num,:x,:y,:elem_type,:xprior,:yprior,:agle,:class, "\
-                  "        :pr_smoke,:not_good,:xname,:yname) ";
+    Qry.SQLText =
+      "INSERT INTO comp_elems(comp_id,num,x,y,elem_type,xprior,yprior,agle,class,xname,yname) "
+      " VALUES(:comp_id,:num,:x,:y,:elem_type,:xprior,:yprior,:agle,:class,:xname,:yname) ";
     Qry.DeclareVariable( "comp_id", otInteger );
     Qry.SetVariable( "comp_id", comp_id );
   }
@@ -389,8 +408,6 @@ void TSalons::Write()
   Qry.DeclareVariable( "yprior", otInteger );
   Qry.DeclareVariable( "agle", otInteger );
   Qry.DeclareVariable( "class", otString );
-  Qry.DeclareVariable( "pr_smoke", otInteger );
-  Qry.DeclareVariable( "not_good", otInteger );
   Qry.DeclareVariable( "xname", otString );
   Qry.DeclareVariable( "yname", otString );
 
@@ -400,6 +417,7 @@ void TSalons::Write()
   for ( plist = placelists.begin(); plist != placelists.end(); plist++ ) {
     Qry.SetVariable( "num", (*plist)->num );
     RQry.SetVariable( "num", (*plist)->num );
+    LQry.SetVariable( "num", (*plist)->num );
     for ( TPlaces::iterator place = (*plist)->places.begin(); place != (*plist)->places.end(); place++ ) {
       if ( !place->visible )
        continue;
@@ -423,14 +441,18 @@ void TSalons::Write()
         if ( cl != NoClass )
           countersClass[ cl ] = countersClass[ cl ] + 1;
       }
-      if ( !place->pr_smoke )
-        Qry.SetVariable( "pr_smoke", FNull );
-      else
-        Qry.SetVariable( "pr_smoke", 1 );
-      if ( !place->not_good )
-        Qry.SetVariable( "not_good", FNull );
-      else
-        Qry.SetVariable( "not_good", 1 );
+     	if ( place->pr_smoke ) {
+        LQry.SetVariable( "x", place->x );
+        LQry.SetVariable( "y", place->y );
+        LQry.SetVariable( "layer_type", EncodeCompLayerType( cltSmoke ) );
+        LQry.Execute();
+      }
+     	if ( place->not_good ) {
+        LQry.SetVariable( "x", place->x );
+        LQry.SetVariable( "y", place->y );
+        LQry.SetVariable( "layer_type", EncodeCompLayerType( cltUncomfort ) );
+        LQry.Execute();
+      }
       Qry.SetVariable( "xname", place->xname );
       Qry.SetVariable( "yname", place->yname );
       Qry.Execute();
@@ -446,6 +468,7 @@ void TSalons::Write()
           RQry.Execute();
         }
       }
+
       if ( !place->layers.empty() ) {
       	//!надо вставить слой
       	QryLayers.SetVariable( "first_xname", place->xname );
@@ -495,21 +518,16 @@ void TSalons::Write()
 
 void TSalons::Read( bool wo_invalid_seat_no )
 {
-  if ( readStyle == SALONS2::rTripSalons )
-  	;
-/*    ProgTrace( TRACE5, "TSalons::Read TripSalons with params trip_id=%d, ClassName=%s",
-               trip_id, ClName.c_str() );*/
+  if ( readStyle == SALONS2::rTripSalons );
   else {
     ClName.clear();
-/*    ProgTrace( TRACE5, "TSalons::Read ComponSalons with params comp_id=%d",
-               comp_id );*/
   }
   Clear();
   map<string,bool> ispl;
   ImagesInterface::GetisPlaceMap( ispl );
   TQuery Qry( &OraSession );
   TQuery RQry( &OraSession );
-
+  TQuery LQry( &OraSession );
 
   if ( readStyle == SALONS2::rTripSalons ) {
     Qry.SQLText =
@@ -532,7 +550,7 @@ void TSalons::Read( bool wo_invalid_seat_no )
   if ( readStyle == SALONS2::rTripSalons ) {
   	string sql_text =
       "SELECT DISTINCT t.num,t.x,t.y,t.elem_type,t.xprior,t.yprior,t.agle,"
-      "                t.pr_smoke,t.not_good,t.xname,t.yname,t.class,r.layer_type, "
+      "                t.xname,t.yname,t.class,r.layer_type, "
       "                NVL(l.pax_id, l.crs_pax_id) pax_id, l.point_dep "
       " FROM trip_comp_elems t, trip_comp_ranges r, trip_comp_layers l "
       "WHERE t.point_id=:point_id AND "
@@ -545,7 +563,7 @@ void TSalons::Read( bool wo_invalid_seat_no )
     	sql_text +=
     	  " MINUS "
         "SELECT DISTINCT t1.num,t1.x,t1.y,t1.elem_type,t1.xprior,t1.yprior,t1.agle, "
-        "                t1.pr_smoke,t1.not_good,t1.xname,t1.yname,t1.class,r.layer_type, "
+        "                t1.xname,t1.yname,t1.class,r.layer_type, "
         "                NVL(l.pax_id, l.crs_pax_id) pax_id, l.point_dep "
         " FROM trip_comp_layers l, pax, pax_grp, "
         "      trip_comp_ranges r, trip_comp_elems t1 "
@@ -568,8 +586,8 @@ void TSalons::Read( bool wo_invalid_seat_no )
       Qry.CreateVariable( "layer_type", otString, EncodeCompLayerType(cltCheckin) );
   }
   else {
-    Qry.SQLText = "SELECT num,x,y,elem_type,xprior,yprior,agle,pr_smoke,not_good,xname,yname,class "
-                  " FROM comp_elems "\
+    Qry.SQLText = "SELECT num,x,y,elem_type,xprior,yprior,agle,xname,yname,class "
+                  " FROM comp_elems "
                   "WHERE comp_id=:comp_id "
                   "ORDER BY num, x desc, y desc ";
     Qry.CreateVariable( "comp_id", otInteger, comp_id );
@@ -588,26 +606,50 @@ void TSalons::Read( bool wo_invalid_seat_no )
   int col_xprior = Qry.FieldIndex( "xprior" );
   int col_yprior = Qry.FieldIndex( "yprior" );
   int col_agle = Qry.FieldIndex( "agle" );
-  int col_pr_smoke = Qry.FieldIndex( "pr_smoke" );
-  int col_not_good = Qry.FieldIndex( "not_good" );
   int col_xname = Qry.FieldIndex( "xname" );
   int col_yname = Qry.FieldIndex( "yname" );
   int col_class = Qry.FieldIndex( "class" );
   if ( readStyle == SALONS2::rTripSalons ) {
-    RQry.SQLText = "SELECT num,x,y,rem,pr_denial FROM trip_comp_rem "
-                   " WHERE point_id=:point_id "
-                   "ORDER BY num, x desc, y desc ";
+    RQry.SQLText =
+      "SELECT num,x,y,rem,pr_denial FROM trip_comp_rem "
+      " WHERE point_id=:point_id "
+      "ORDER BY num, x desc, y desc ";
     RQry.DeclareVariable( "point_id", otInteger );
     RQry.SetVariable( "point_id", trip_id );
+    LQry.SQLText =
+      "SELECT num,x,y,layer_type FROM trip_comp_baselayers "
+      " WHERE point_id=:point_id "
+      "ORDER BY num, x desc, y desc ";
+    LQry.DeclareVariable( "point_id", otInteger );
+    LQry.SetVariable( "point_id", trip_id );
   }
   else {
-    RQry.SQLText = "SELECT num,x,y,rem,pr_denial FROM comp_rem "
-                   " WHERE comp_id=:comp_id "
-                   "ORDER BY num, x desc, y desc ";
+    RQry.SQLText =
+      "SELECT num,x,y,rem,pr_denial FROM comp_rem "
+      " WHERE comp_id=:comp_id "
+      "ORDER BY num, x desc, y desc ";
     RQry.DeclareVariable( "comp_id", otInteger );
     RQry.SetVariable( "comp_id", comp_id );
+    LQry.SQLText =
+      "SELECT num,x,y,layer_type FROM comp_baselayers "
+      " WHERE comp_id=:comp_id "
+      "ORDER BY num, x desc, y desc ";
+    LQry.DeclareVariable( "comp_id", otInteger );
+    LQry.SetVariable( "comp_id", comp_id );
   }
   RQry.Execute();
+  int rem_col_num = RQry.FieldIndex( "num" );
+  int rem_col_x = RQry.FieldIndex( "x" );
+  int rem_col_y = RQry.FieldIndex( "y" );
+  int rem_col_rem = RQry.FieldIndex( "rem" );
+  int rem_col_pr_denial = RQry.FieldIndex( "pr_denial" );
+
+  LQry.Execute();
+  int baselayer_col_num = LQry.FieldIndex( "num" );
+  int baselayer_col_x = LQry.FieldIndex( "x" );
+  int baselayer_col_y = LQry.FieldIndex( "y" );
+  int baselayer_col_layer_type = LQry.FieldIndex( "layer_type" );
+  
   string ClName = ""; /* перечисление всех классов, которые есть в салоне */
   TPlaceList *placeList = NULL;
   int num = -1;
@@ -652,21 +694,25 @@ void TSalons::Read( bool wo_invalid_seat_no )
         place.yprior = Qry.FieldAsInteger( col_yprior );
       place.agle = Qry.FieldAsInteger( col_agle );
       place.clname = Qry.FieldAsString( col_class );
-      place.pr_smoke = Qry.FieldAsInteger( col_pr_smoke );
-      if ( Qry.FieldIsNULL( col_not_good ) )
-        place.not_good = 0;
-      else
-        place.not_good = Qry.FieldAsInteger( col_not_good );
       place.xname = Qry.FieldAsString( col_xname );
       place.yname = Qry.FieldAsString( col_yname );
-      while ( !RQry.Eof && RQry.FieldAsInteger( col_num ) == num &&
-              RQry.FieldAsInteger( col_x ) == place.x &&
-              RQry.FieldAsInteger( col_y ) == place.y ) {
+      while ( !RQry.Eof && RQry.FieldAsInteger( rem_col_num ) == num &&
+              RQry.FieldAsInteger( rem_col_x ) == place.x &&
+              RQry.FieldAsInteger( rem_col_y ) == place.y ) {
         SALONS2::TRem rem;
-        rem.rem = RQry.FieldAsString( "rem" );
-        rem.pr_denial = RQry.FieldAsInteger( "pr_denial" );
+        rem.rem = RQry.FieldAsString( rem_col_rem );
+        rem.pr_denial = RQry.FieldAsInteger( rem_col_pr_denial );
         place.rems.push_back( rem );
         RQry.Next();
+      }
+      place.pr_smoke = false;
+      place.not_good = false;
+      while ( !LQry.Eof && LQry.FieldAsInteger( baselayer_col_num ) == num &&
+              LQry.FieldAsInteger( baselayer_col_x ) == place.x &&
+              LQry.FieldAsInteger( baselayer_col_y ) == place.y ) {
+        place.pr_smoke = place.pr_smoke || ( DecodeCompLayerType( LQry.FieldAsString( baselayer_col_layer_type ) ) == cltSmoke );
+        place.not_good = place.not_good || ( DecodeCompLayerType( LQry.FieldAsString( baselayer_col_layer_type ) ) == cltUncomfort );
+        LQry.Next();
       }
       if ( ClName.find( Qry.FieldAsString( col_class ) ) == string::npos )
         ClName += Qry.FieldAsString( col_class );

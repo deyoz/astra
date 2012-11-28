@@ -27,6 +27,7 @@
 #define CKIN_SCAN_BP_VERSION          "201206-0138390"
 #define PERS_WEIGHT_VERSION           "201209-0140697"
 #define WEB_CANCEL_VERSION            "201211-0142166"
+#define DISABLE_LAYERS                "201301-0000000"
 
 #endif
 

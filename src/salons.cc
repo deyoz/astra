@@ -32,6 +32,18 @@ const int REM_VIP_F = 1;
 const int REM_VIP_C = 1;
 const int REM_VIP_Y = 3;
 
+
+TDrawPropInfo getDrawProps( TDrawPropsType proptype )
+{
+  TDrawPropInfo res;
+  if ( proptype == dpInfantWoSeats ) {
+    res.figure = "framework";
+    res.color = "$0005A5FA";
+    res.name = "Взрослый с младенцем";
+  }
+  return res;
+};
+
 struct CompRoute {
   int point_id;
   string airline;
@@ -52,6 +64,27 @@ struct CompRoute {
 };
 
 typedef vector<CompRoute> TCompsRoutes;
+
+bool compatibleLayer( TCompLayerType layer_type )
+{
+  if ( layer_type == cltDisable &&
+       !TReqInfo::Instance()->desk.compatible( DISABLE_LAYERS ) )
+    return false;
+  if ( ( layer_type == ASTRA::cltProtBeforePay ||
+         layer_type == ASTRA::cltProtAfterPay ||
+         layer_type == ASTRA::cltPNLBeforePay ||
+         layer_type == ASTRA::cltPNLAfterPay ) &&
+        !TReqInfo::Instance()->desk.compatible( PROT_PAID_VERSION ) )
+    return false;
+  return true;
+}
+
+bool isBaseLayer( TCompLayerType layer_type, TReadStyle readStyle )
+{
+  return ( layer_type == cltSmoke ||
+           layer_type == cltUncomfort ||
+           ( layer_type == cltDisable || layer_type == cltProtect ) && readStyle == rComponSalons );
+}
 
 bool point_dep_AND_layer_type_FOR_TRZT_SOM_PRL( int point_id, int &point_dep, TCompLayerType &layer_type )
 {
@@ -118,10 +151,10 @@ void TFilterLayers::getFilterLayers( int point_id )
 	Qry.Execute();
 	
 	if ( !Qry.Eof && Qry.FieldAsInteger( "pr_permit" )!=0 ) {
-      setFlag( cltProtBeforePay );
-      setFlag( cltProtAfterPay );
-      setFlag( cltPNLBeforePay );
-      setFlag( cltPNLAfterPay );
+    setFlag( cltProtBeforePay );
+    setFlag( cltProtAfterPay );
+    setFlag( cltPNLBeforePay );
+    setFlag( cltPNLAfterPay );
   }
   
   Qry.Clear();
@@ -134,16 +167,17 @@ void TFilterLayers::getFilterLayers( int point_id )
 	
 	if ( !Qry.Eof && Qry.FieldAsInteger( "pr_tranzit" ) ) { // это транзитный рейс
 		if ( Qry.FieldAsInteger( "pr_tranz_reg" ) ) {
-			setFlag( cltProtTrzt );
-			setFlag( cltTranzit );
+  	  setFlag( cltProtTrzt );
+  	  setFlag( cltTranzit );
 		}
 		else {
-			if ( Qry.FieldAsInteger( "pr_block_trzt" ) )
-				setFlag( cltBlockTrzt );
+			if ( Qry.FieldAsInteger( "pr_block_trzt" ) ) {
+			  setFlag( cltBlockTrzt );
+      }
 			else {
 				 TCompLayerType layer_tlg;
 				if ( point_dep_AND_layer_type_FOR_TRZT_SOM_PRL( point_id, point_dep, layer_tlg ) ) {
-					setFlag( layer_tlg );
+				  setFlag( layer_tlg );
 				}
 			}
 		}
@@ -195,16 +229,22 @@ TSalons::TSalons( int id, TReadStyle vreadStyle, bool vdrop_not_used_pax_layers 
   	}
   	Qry.Next();
   }
+  
+ 	layers_priority[ cltUncomfort ].editable = true;
+  layers_priority[ cltUncomfort ].name_view = layers_priority[ cltUncomfort ].name;
+ 	layers_priority[ cltSmoke ].editable = true;
+  layers_priority[ cltSmoke ].name_view = layers_priority[ cltSmoke ].name;
+ 	layers_priority[ cltDisable ].editable = compatibleLayer( cltDisable );
+  layers_priority[ cltDisable ].name_view = layers_priority[ cltDisable ].name;
+  layers_priority[ cltProtect ].editable = true;
+  layers_priority[ cltProtect ].name_view = layers_priority[ cltProtect ].name;
 
   if ( readStyle == rTripSalons ) {
 
     FilterLayers.getFilterLayers( trip_id ); // определение режима учета транзитных слоев
 
-  	layers_priority[ cltUncomfort ].editable = true;
-   	layers_priority[ cltSmoke ].editable = true;
    	layers_priority[ cltBlockCent ].editable = true;
    	layers_priority[ cltBlockCent ].notfree = true;
-   	layers_priority[ cltProtect ].editable = true;
     if ( FilterLayers.isFlag( cltProtTrzt ) )
     	layers_priority[ cltProtTrzt ].editable = true;
     else
@@ -245,15 +285,14 @@ TSalons::TSalons( int id, TReadStyle vreadStyle, bool vdrop_not_used_pax_layers 
          FilterLayers.isFlag( cltPNLBeforePay ) ||
          FilterLayers.isFlag( cltPNLAfterPay ) )
       layers_priority[ cltProtBeforePay ].name_view = AstraLocale::getLocaleText("Резервирование платного места");
-    layers_priority[ cltProtect ].name_view = layers_priority[ cltProtect ].name;
     if ( FilterLayers.isFlag( cltProtect ) )
       layers_priority[ cltProtect ].func_key = "Shift+F4";
-    layers_priority[ cltUncomfort ].name_view = layers_priority[ cltUncomfort ].name;
     if ( FilterLayers.isFlag( cltUncomfort ) )
     	layers_priority[ cltUncomfort ].func_key = "Shift+F5";
-    layers_priority[ cltSmoke ].name_view = layers_priority[ cltSmoke ].name;
     if ( FilterLayers.isFlag( cltSmoke ) )
     	layers_priority[ cltSmoke ].func_key = "Shift+F6";
+    if ( FilterLayers.isFlag( cltDisable ) )
+    	layers_priority[ cltDisable ].func_key = "Shift+F1";
   }
 }
 
@@ -272,37 +311,49 @@ void TSalons::SetCurrPlaceList( TPlaceList *newPlaceList )
   FCurrPlaceList = newPlaceList;
 }
 
-void TSalons::BuildLayersInfo( xmlNodePtr salonsNode )
+void TSalons::BuildLayersInfo( xmlNodePtr salonsNode, const std::vector<TDrawPropsType> &props )
 {
-  xmlNodePtr editNode = NewTextChild( salonsNode, "layers_prop" );
+  int max_priority = -1;
+  int id = 0;
+  xmlNodePtr editNode = GetNode( "layers_prop", salonsNode );
+  if ( editNode ) {
+    ProgTrace( TRACE5, "TSalons::BuildLayersInfo - recreate" );
+    xmlUnlinkNode( editNode );
+    xmlFreeNode( editNode );
+  }
+  else
+    ProgTrace( TRACE5, "TSalons::BuildLayersInfo - create" );
+  editNode = NewTextChild( salonsNode, "layers_prop" );
   TReqInfo *r = TReqInfo::Instance();
   for( map<TCompLayerType,TLayerProp>::iterator i=layers_priority.begin(); i!=layers_priority.end(); i++ ) {
-    if (
-         ( i->first == ASTRA::cltProtBeforePay ||
-           i->first == ASTRA::cltProtAfterPay ||
-           i->first == ASTRA::cltPNLBeforePay ||
-           i->first == ASTRA::cltPNLAfterPay ) &&
-         !TReqInfo::Instance()->desk.compatible( PROT_PAID_VERSION ) ) {
+    if ( !compatibleLayer( i->first ) )
       continue;
-    }
-
+    if ( readStyle == rComponSalons &&
+         !isBaseLayer( i->first, readStyle ) )
+      continue;
   	xmlNodePtr n = NewTextChild( editNode, "layer", EncodeCompLayerType( i->first ) );
+  	SetProp( n, "id", id );
   	SetProp( n, "name", i->second.name );
   	SetProp( n, "priority", i->second.priority );
+  	if ( max_priority < i->second.priority )
+      max_priority = i->second.priority;
   	if ( i->second.editable ) { // надо еще проверить на права редактирования того или иного слоя
   		bool pr_edit = true;
     	if ( (i->first == cltBlockTrzt || i->first == cltProtTrzt )&&
   		   find( r->user.access.rights.begin(),  r->user.access.rights.end(), 430 ) == r->user.access.rights.end() )
   		  pr_edit = false;
-  	if ( i->first == cltBlockCent &&
+  	  if ( i->first == cltBlockCent &&
   		   find( r->user.access.rights.begin(),  r->user.access.rights.end(), 420 ) == r->user.access.rights.end() )
-   	  pr_edit = false;
-    if ( (i->first == cltUncomfort || i->first == cltProtect || i->first == cltSmoke) &&
-    	   find( r->user.access.rights.begin(),  r->user.access.rights.end(), 410 ) == r->user.access.rights.end() )
-    	pr_edit = false;
+   	    pr_edit = false;
+      if ( (i->first == cltUncomfort || i->first == cltProtect || i->first == cltSmoke) &&
+    	     find( r->user.access.rights.begin(),  r->user.access.rights.end(), 410 ) == r->user.access.rights.end() )
+    	  pr_edit = false;
+      if ( i->first == cltDisable &&
+      	   find( r->user.access.rights.begin(),  r->user.access.rights.end(), 425 ) == r->user.access.rights.end() )
+      	pr_edit = false;
     	if ( pr_edit ) {
   		  SetProp( n, "edit", 1 );
-  		  if ( i->first == cltSmoke || i->first == cltUncomfort )
+  		  if ( isBaseLayer( i->first, readStyle ) )
   		  	SetProp( n, "base_edit", 1 );
   		}
   	}
@@ -313,17 +364,34 @@ void TSalons::BuildLayersInfo( xmlNodePtr salonsNode )
   		if ( !i->second.func_key.empty() )
   			SetProp( n, "func_key", i->second.func_key );
   	}
+   id++;
   }
- 	xmlNodePtr n = NewTextChild( editNode, "layer",  EncodeCompLayerType( cltUnknown ) );
+  xmlNodePtr n = NewTextChild( editNode, "layer",  EncodeCompLayerType( cltUnknown ) );
+  SetProp( n, "id", id );
  	SetProp( n, "name", "LAYER_CLEAR_ALL" );
  	SetProp( n, "priority", 10000 );
  	SetProp( n, "edit", 1 );
   SetProp( n, "name_view_help", AstraLocale::getLocaleText("Очистить все статусы мест") );
   SetProp( n, "func_key", "Shift+F8" );
+  xmlNodePtr propNode = NewTextChild( salonsNode, "draw_props" );
+  max_priority++;
+  id++;
+  ProgTrace( TRACE5, "max_priority=%d, props.size()=%d", max_priority, props.size() );
+  for ( vector<TDrawPropsType>::const_iterator i=props.begin(); i!=props.end(); i++ ) {
+    TDrawPropInfo p = getDrawProps( *i );
+    ProgTrace( TRACE5, "priority=%d, name=%s", max_priority, p.name.c_str() );
+    n = NewTextChild( propNode, "draw_item", p.name );
+    SetProp( n, "id", id );
+    SetProp( n, "figure", p.figure );
+    SetProp( n, "color", p.color );
+    SetProp( n, "priority", max_priority );
+    max_priority++;
+  }
 }
 
 void TSalons::Build( xmlNodePtr salonsNode )
 {
+  vector<TDrawPropsType> props;
 	SetProp( salonsNode, "pr_lat_seat", pr_lat_seat );
   for( vector<TPlaceList*>::iterator placeList = placelists.begin();
        placeList != placelists.end(); placeList++ ) {
@@ -376,19 +444,28 @@ void TSalons::Build( xmlNodePtr salonsNode )
       }
       if ( !place->drawProps.empty() ) {
         remsNode = NewTextChild( placeNode, "drawProps" );
-        for ( vector<TDrawProp>::iterator iprop=place->drawProps.begin(); iprop!=place->drawProps.end(); iprop++ ) {
+        for ( vector<TDrawPropsType>::iterator iprop=place->drawProps.begin(); iprop!=place->drawProps.end(); iprop++ ) {
           remNode = NewTextChild( remsNode, "drawProp" );
-          SetProp( remNode, "figure", iprop->figure );
-          SetProp( remNode, "color", iprop->color );
+          TDrawPropInfo pinfo = getDrawProps( *iprop );
+          SetProp( remNode, "figure", pinfo.figure );
+          SetProp( remNode, "color", pinfo.color );
+          vector<TDrawPropsType>::const_iterator jprop=props.begin();
+          for ( ; jprop!=props.end(); jprop++ ) {
+            if ( *iprop == *jprop )
+             break;
+          }
+          if ( jprop == props.end() ) {
+            props.push_back( *iprop );
+          }
         }
       }
     }
     SetProp( placeListNode, "xcount", xcount + 1 );
     SetProp( placeListNode, "ycount", ycount + 1 );
   }
-  if ( readStyle == rTripSalons ) {
-  	BuildLayersInfo( salonsNode );
-  }
+/*  if ( readStyle == rTripSalons ) {*/
+  	BuildLayersInfo( salonsNode, props );
+/*  }*/
 }
 
 void TSalons::Write()
@@ -431,6 +508,7 @@ void TSalons::Write()
                   " UPDATE points SET point_id=point_id WHERE point_id=:point_id; "
                   " UPDATE trip_sets SET pr_lat_seat=:pr_lat_seat WHERE point_id=:point_id; "
                   " DELETE trip_comp_rem WHERE point_id=:point_id; "
+                  " DELETE trip_comp_baselayers WHERE point_id=:point_id; "
                   " DELETE trip_comp_rates WHERE point_id=:point_id; "
                   " DELETE trip_comp_elems WHERE point_id=:point_id; "
                   "END;";
@@ -466,6 +544,7 @@ void TSalons::Write()
                        "        time_create=system.UTCSYSDATE,classes=:classes,pr_lat_seat=:pr_lat_seat "
                        "  WHERE comp_id=:comp_id; "
                        " DELETE comp_rem WHERE comp_id=:comp_id; "
+                       " DELETE comp_baselayers WHERE comp_id=:comp_id; "
                        " DELETE comp_rates WHERE comp_id=:comp_id; "
                        " DELETE comp_elems WHERE comp_id=:comp_id; "
                        " DELETE comp_classes WHERE comp_id=:comp_id; "
@@ -479,6 +558,7 @@ void TSalons::Write()
          Qry.SQLText = "BEGIN "
                        " UPDATE trip_sets SET comp_id=NULL WHERE comp_id=:comp_id; "
                        " DELETE comp_rem WHERE comp_id=:comp_id; "
+                       " DELETE comp_baselayers WHERE comp_id=:comp_id; "
                        " DELETE comp_rates WHERE comp_id=:comp_id; "
                        " DELETE comp_elems WHERE comp_id=:comp_id; "
                        " DELETE comp_sections WHERE comp_id=:comp_id; "
@@ -505,12 +585,17 @@ void TSalons::Write()
 
   TQuery QryWebTariff( &OraSession );
   TQuery RQry( &OraSession );
+  TQuery LQry( &OraSession );
   if ( readStyle == rTripSalons ) {
     RQry.SQLText =
       "INSERT INTO trip_comp_rem(point_id,num,x,y,rem,pr_denial) "
       " VALUES(:point_id,:num,:x,:y,:rem,:pr_denial)";
     RQry.DeclareVariable( "point_id", otInteger );
     RQry.SetVariable( "point_id", trip_id );
+    LQry.SQLText =
+      "INSERT INTO trip_comp_baselayers(point_id,num,x,y,layer_type) "
+      " VALUES(:point_id,:num,:x,:y,:layer_type)";
+    LQry.CreateVariable( "point_id", otInteger, trip_id );
     QryWebTariff.SQLText =
       "INSERT INTO trip_comp_rates(point_id,num,x,y,color,rate,rate_cur) "
       " VALUES(:point_id,:num,:x,:y,:color,:rate,:rate_cur)";
@@ -521,6 +606,10 @@ void TSalons::Write()
                    " VALUES(:comp_id,:num,:x,:y,:rem,:pr_denial)";
     RQry.DeclareVariable( "comp_id", otInteger );
     RQry.SetVariable( "comp_id", comp_id );
+    LQry.SQLText =
+      "INSERT INTO comp_baselayers(comp_id,num,x,y,layer_type) "
+      " VALUES(:comp_id,:num,:x,:y,:layer_type)";
+    LQry.CreateVariable( "comp_id", otInteger, comp_id );
     QryWebTariff.SQLText =
       "INSERT INTO comp_rates(comp_id,num,x,y,color,rate,rate_cur) "
       " VALUES(:comp_id,:num,:x,:y,:color,:rate,:rate_cur)";
@@ -540,21 +629,23 @@ void TSalons::Write()
   QryWebTariff.DeclareVariable( "rate", otFloat );
   QryWebTariff.DeclareVariable( "rate_cur", otString );
 
+  LQry.DeclareVariable( "num", otInteger );
+  LQry.DeclareVariable( "x", otInteger );
+  LQry.DeclareVariable( "y", otInteger );
+  LQry.DeclareVariable( "layer_type", otString );
 
   Qry.Clear();
   if ( readStyle == rTripSalons ) {
-    Qry.SQLText = "INSERT INTO trip_comp_elems(point_id,num,x,y,elem_type,xprior,yprior,agle,class, "
-                  "                            pr_smoke,not_good,xname,yname) "
-                  " VALUES(:point_id,:num,:x,:y,:elem_type,:xprior,:yprior,:agle,:class, "
-                  "        :pr_smoke,:not_good,:xname,:yname)";
+    Qry.SQLText =
+      "INSERT INTO trip_comp_elems(point_id,num,x,y,elem_type,xprior,yprior,agle,class,xname,yname) "
+      " VALUES(:point_id,:num,:x,:y,:elem_type,:xprior,:yprior,:agle,:class, :xname,:yname)";
     Qry.DeclareVariable( "point_id", otInteger );
     Qry.SetVariable( "point_id", trip_id );
   }
   else {
-    Qry.SQLText = "INSERT INTO comp_elems(comp_id,num,x,y,elem_type,xprior,yprior,agle,class, "\
-                  "                       pr_smoke,not_good,xname,yname) "\
-                  " VALUES(:comp_id,:num,:x,:y,:elem_type,:xprior,:yprior,:agle,:class, "\
-                  "        :pr_smoke,:not_good,:xname,:yname) ";
+    Qry.SQLText =
+      "INSERT INTO comp_elems(comp_id,num,x,y,elem_type,xprior,yprior,agle,class,xname,yname) "
+      " VALUES(:comp_id,:num,:x,:y,:elem_type,:xprior,:yprior,:agle,:class,:xname,:yname) ";
     Qry.DeclareVariable( "comp_id", otInteger );
     Qry.SetVariable( "comp_id", comp_id );
   }
@@ -566,8 +657,6 @@ void TSalons::Write()
   Qry.DeclareVariable( "yprior", otInteger );
   Qry.DeclareVariable( "agle", otInteger );
   Qry.DeclareVariable( "class", otString );
-  Qry.DeclareVariable( "pr_smoke", otInteger );
-  Qry.DeclareVariable( "not_good", otInteger );
   Qry.DeclareVariable( "xname", otString );
   Qry.DeclareVariable( "yname", otString );
 
@@ -577,6 +666,7 @@ void TSalons::Write()
   for ( plist = placelists.begin(); plist != placelists.end(); plist++ ) {
     Qry.SetVariable( "num", (*plist)->num );
     RQry.SetVariable( "num", (*plist)->num );
+    LQry.SetVariable( "num", (*plist)->num );
     for ( TPlaces::iterator place = (*plist)->places.begin(); place != (*plist)->places.end(); place++ ) {
       if ( !place->visible )
        continue;
@@ -600,17 +690,6 @@ void TSalons::Write()
         if ( cl != NoClass )
           countersClass[ cl ] = countersClass[ cl ] + 1;
       }
-      if ( place->isLayer( cltSmoke ) ) {
-      	Qry.SetVariable( "pr_smoke", 1 );
-      }
-      else
-        Qry.SetVariable( "pr_smoke", FNull );
-      if ( place->isLayer( cltUncomfort ) ) {
-      	tst();
-      	Qry.SetVariable( "not_good", 1 );
-      }
-      else
-        Qry.SetVariable( "not_good", FNull );
       Qry.SetVariable( "xname", place->xname );
       Qry.SetVariable( "yname", place->yname );
       Qry.Execute();
@@ -632,9 +711,18 @@ void TSalons::Write()
       	QryLayers.SetVariable( "first_yname", place->yname );
       	QryLayers.SetVariable( "last_yname", place->yname );
       	for ( vector<TPlaceLayer>::iterator l=place->layers.begin(); l!=place->layers.end(); l++ ) {
-      	  ProgTrace( TRACE5, "write layer=%s, editable=%d", EncodeCompLayerType( l->layer_type ), layers_priority[ l->layer_type ].editable );
-      		if ( !layers_priority[ l->layer_type ].editable || l->layer_type == cltUncomfort || l->layer_type == cltSmoke )
+      	  ProgTrace( TRACE5, "write layers_priority.empty()=%d, layer=%s, editable=%d",
+                     layers_priority.empty(), EncodeCompLayerType( l->layer_type ), layers_priority[ l->layer_type ].editable );
+      	  if ( !layers_priority[ l->layer_type ].editable )
+            continue;
+      		if ( isBaseLayer( l->layer_type, readStyle ) ) {
+            LQry.SetVariable( "x", place->x );
+            LQry.SetVariable( "y", place->y );
+            LQry.SetVariable( "layer_type", EncodeCompLayerType( l->layer_type ) );
+            ProgTrace( TRACE5, "(%d,%d)=%s", place->x, place->y, EncodeCompLayerType( l->layer_type ) );
+            LQry.Execute();
       			continue;
+          }
       		QryLayers.SetVariable( "layer_type", EncodeCompLayerType( l->layer_type ) );
       		QryLayers.Execute();
       	}
@@ -876,6 +964,7 @@ void TSalons::Read( )
   ImagesInterface::GetisPlaceMap( ispl );
   TQuery Qry( &OraSession );
   TQuery RQry( &OraSession );
+  TQuery LQry( &OraSession );
   TQuery QryWebTariff( &OraSession );
   TQuery PaxQry( &OraSession );
 
@@ -925,7 +1014,7 @@ void TSalons::Read( )
   	// зачитываем все слои в салоне
   	Qry.SQLText =
       "SELECT DISTINCT t.num,t.x,t.y,t.elem_type,t.xprior,t.yprior,t.agle,"
-      "                t.pr_smoke,t.not_good,t.xname,t.yname,t.class,r.layer_type, "
+      "                t.xname,t.yname,t.class,r.layer_type, "
       "                NVL(l.pax_id, l.crs_pax_id) pax_id, l.point_dep, l.point_arv, l.time_create "
       " FROM trip_comp_elems t, trip_comp_ranges r, trip_comp_layers l "
       "WHERE t.point_id=:point_id AND "
@@ -939,7 +1028,7 @@ void TSalons::Read( )
   }
   else {
     Qry.SQLText =
-      "SELECT num,x,y,elem_type,xprior,yprior,agle,pr_smoke,not_good,xname,yname,class "
+      "SELECT num,x,y,elem_type,xprior,yprior,agle,xname,yname,class "
       " FROM comp_elems "
       "WHERE comp_id=:comp_id "
       "ORDER BY num, x desc, y desc ";
@@ -958,8 +1047,6 @@ void TSalons::Read( )
   int col_xprior = Qry.FieldIndex( "xprior" );
   int col_yprior = Qry.FieldIndex( "yprior" );
   int col_agle = Qry.FieldIndex( "agle" );
-  int col_pr_smoke = Qry.FieldIndex( "pr_smoke" );
-  int col_not_good = Qry.FieldIndex( "not_good" );
   int col_xname = Qry.FieldIndex( "xname" );
   int col_yname = Qry.FieldIndex( "yname" );
   int col_class = Qry.FieldIndex( "class" );
@@ -969,6 +1056,12 @@ void TSalons::Read( )
       " WHERE point_id=:point_id "
       "ORDER BY num, x desc, y desc ";
     RQry.CreateVariable( "point_id", otInteger, trip_id );
+    LQry.SQLText =
+      "SELECT num,x,y,layer_type FROM trip_comp_baselayers "
+      " WHERE point_id=:point_id "
+      "ORDER BY num, x desc, y desc ";
+    LQry.CreateVariable( "point_id", otInteger, trip_id );
+
     
     if ( FilterLayers.CanUseLayer( cltProtBeforePay, -1 ) ||
          FilterLayers.CanUseLayer( cltProtAfterPay, -1 ) ||
@@ -986,6 +1079,10 @@ void TSalons::Read( )
                    " WHERE comp_id=:comp_id "
                    "ORDER BY num, x desc, y desc ";
     RQry.CreateVariable( "comp_id", otInteger, comp_id );
+    LQry.SQLText = "SELECT num,x,y,layer_type FROM comp_baselayers "
+                   " WHERE comp_id=:comp_id "
+                   "ORDER BY num, x desc, y desc ";
+    LQry.CreateVariable( "comp_id", otInteger, comp_id );
     QryWebTariff.SQLText =
       "SELECT num,x,y,color,rate,rate_cur FROM comp_rates "
       " WHERE comp_id=:comp_id "
@@ -998,6 +1095,13 @@ void TSalons::Read( )
   int rem_col_y = RQry.FieldIndex( "y" );
   int rem_col_rem = RQry.FieldIndex( "rem" );
   int rem_col_pr_denial = RQry.FieldIndex( "pr_denial" );
+  
+  LQry.Execute();
+  int baselayer_col_num = LQry.FieldIndex( "num" );
+  int baselayer_col_x = LQry.FieldIndex( "x" );
+  int baselayer_col_y = LQry.FieldIndex( "y" );
+  int baselayer_col_layer_type = LQry.FieldIndex( "layer_type" );
+
   
   int webtariff_col_num;
   int webtariff_col_x;
@@ -1119,10 +1223,6 @@ void TSalons::Read( )
         place.yprior = Qry.FieldAsInteger( col_yprior );
       place.agle = Qry.FieldAsInteger( col_agle );
       place.clname = Qry.FieldAsString( col_class );
-      if ( !Qry.FieldIsNULL( col_pr_smoke ) )
-      	place.AddLayerToPlace( cltSmoke, 0, 0, NoExists, NoExists, layers_priority[ cltSmoke ].priority );
-      if ( !Qry.FieldIsNULL( col_not_good ) )
-      	place.AddLayerToPlace( cltUncomfort, 0, 0, NoExists, NoExists, layers_priority[ cltUncomfort ].priority );
       place.xname = Qry.FieldAsString( col_xname );
       place.yname = Qry.FieldAsString( col_yname );
       while ( !RQry.Eof && RQry.FieldAsInteger( rem_col_num ) == num &&
@@ -1133,6 +1233,14 @@ void TSalons::Read( )
         rem.pr_denial = RQry.FieldAsInteger( rem_col_pr_denial );
         place.rems.push_back( rem );
         RQry.Next();
+      }
+      while ( !LQry.Eof && LQry.FieldAsInteger( baselayer_col_num ) == num &&
+              LQry.FieldAsInteger( baselayer_col_x ) == place.x &&
+              LQry.FieldAsInteger( baselayer_col_y ) == place.y ) {
+      	place.AddLayerToPlace( DecodeCompLayerType( LQry.FieldAsString( baselayer_col_layer_type ) ),
+                               0, 0, NoExists, NoExists,
+                               layers_priority[ DecodeCompLayerType( LQry.FieldAsString( baselayer_col_layer_type ) ) ].priority );
+        LQry.Next();
       }
       if ( readStyle != rTripSalons ||
            FilterLayers.CanUseLayer( cltProtBeforePay, -1 ) ||
@@ -1231,8 +1339,7 @@ void TSalons::Read( )
           if ( !j->pr_inf || place->layers.begin()->pax_id != j->pax_id )
             continue;
           ProgTrace( TRACE5, "TDrawProp: seat_no=%s", string(place->yname+place->xname).c_str() );
-          TDrawProp drawProp( "framework", "$0005A5FA" );
-          place->drawProps.push_back( drawProp );
+          place->drawProps.push_back( dpInfantWoSeats );
           break;
         }
       }
@@ -1689,7 +1796,7 @@ void setTRIP_CLASSES( int point_id )
     "          NVL(prot,0) "
     "  FROM "
     " ( SELECT class, "
-    "          NVL(SUM(DECODE( layer_type, :blockcent_layer, 1, 0 )),0) block, "
+    "          NVL(SUM(DECODE( layer_type, :blockcent_layer, 1, :disable_layer, 1, 0 )),0) block, "
     "          NVL(SUM(DECODE( layer_type, :reserve_layer, 1, 0 )),0) prot "
     "    FROM trip_comp_ranges r, trip_comp_elems t, comp_elem_types "
     "   WHERE r.point_id=:point_id AND "
@@ -1714,6 +1821,7 @@ void setTRIP_CLASSES( int point_id )
     "END; ";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.CreateVariable( "blockcent_layer", otString, EncodeCompLayerType(ASTRA::cltBlockCent) );
+  Qry.CreateVariable( "disable_layer", otString, EncodeCompLayerType(ASTRA::cltDisable) );
   Qry.CreateVariable( "reserve_layer", otString, EncodeCompLayerType(ASTRA::cltProtect) );
   Qry.Execute();
 }
@@ -1739,18 +1847,21 @@ void CreateComps( const TCompsRoutes &routes, int comp_id )
 	  "BEGIN "
 	  "DELETE trip_comp_rates WHERE point_id = :point_id;"
 	  "DELETE trip_comp_rem WHERE point_id = :point_id; "
+	  "DELETE trip_comp_baselayers WHERE point_id = :point_id; "
     "DELETE trip_comp_elems WHERE point_id = :point_id; "
     "DELETE trip_comp_layers "
     " WHERE point_id=:point_id AND layer_type IN ( SELECT code from comp_layer_types where del_if_comp_chg<>0 ); "
-    "INSERT INTO trip_comp_elems(point_id,num,x,y,elem_type,xprior,yprior,agle,class, "
-    "                            pr_smoke,not_good,xname,yname) "
-    " SELECT :point_id,num,x,y,elem_type,xprior,yprior,agle,class, "
-    "        pr_smoke,not_good,xname,yname "
+    "INSERT INTO trip_comp_elems(point_id,num,x,y,elem_type,xprior,yprior,agle,class,xname,yname) "
+    " SELECT :point_id,num,x,y,elem_type,xprior,yprior,agle,class,xname,yname "
     "  FROM comp_elems "
     " WHERE comp_id = :comp_id; "
     "INSERT INTO trip_comp_rem(point_id,num,x,y,rem,pr_denial) "
     " SELECT :point_id,num,x,y,rem,pr_denial "
     "  FROM comp_rem "
+    " WHERE comp_id = :comp_id; "
+    "INSERT INTO trip_comp_baselayers(point_id,num,x,y,layer_type) "
+    " SELECT :point_id,num,x,y,layer_type "
+    "  FROM comp_baselayers "
     " WHERE comp_id = :comp_id; "
     "INSERT INTO trip_comp_rates(point_id,num,x,y,color,rate,rate_cur) "
     " SELECT :point_id,num,x,y,color,rate,rate_cur FROM comp_rates "
@@ -2369,17 +2480,16 @@ bool CompareLayers( const vector<TPlaceLayer> &layer1, const vector<TPlaceLayer>
   return true;
 }
 
-bool ComparedrawProps( const vector<TDrawProp> &drawProps1, const vector<TDrawProp> &drawProps2 )
+bool ComparedrawProps( const vector<TDrawPropsType> &drawProps1, const vector<TDrawPropsType> &drawProps2 )
 {
   if ( drawProps1.size() != drawProps2.size() )
     return false;
-  for ( vector<TDrawProp>::const_iterator p1=drawProps1.begin(),
+  for ( vector<TDrawPropsType>::const_iterator p1=drawProps1.begin(),
         p2=drawProps2.begin();
         p1!=drawProps1.end(),
         p2!=drawProps2.end();
         p1++, p2++ ) {
-    if ( p1->figure != p2->figure ||
-         p1->color != p2->color )
+    if ( *p1 != *p2 )
       return false;
   }
   return true;
@@ -3036,10 +3146,11 @@ void BuildSalonChanges( xmlNodePtr dataNode, const vector<TSalonSeat> &seats )
     }
     if ( !p->second.drawProps.empty() ) {
       remsNode = NewTextChild( n, "drawProps" );
-      for ( vector<TDrawProp>::const_iterator iprop=p->second.drawProps.begin(); iprop!=p->second.drawProps.end(); iprop++ ) {
+      for ( vector<TDrawPropsType>::const_iterator iprop=p->second.drawProps.begin(); iprop!=p->second.drawProps.end(); iprop++ ) {
+        TDrawPropInfo pinfo = getDrawProps( *iprop );
         remNode = NewTextChild( remsNode, "drawProp" );
-        SetProp( remNode, "figure", iprop->figure );
-        SetProp( remNode, "color", iprop->color );
+        SetProp( remNode, "figure", pinfo.figure );
+        SetProp( remNode, "color", pinfo.color );
       }
     }
 	}

@@ -115,13 +115,12 @@ struct TCompSection {
   }
 };
 
-struct TDrawProp {
+enum TDrawPropsType { dpInfantWoSeats };
+
+struct TDrawPropInfo {
    std::string figure;
    std::string color;
-   TDrawProp( const std::string &vfigure, const std::string &vcolor ) {
-     figure = vfigure;
-     color = vcolor;
-   };
+   std::string name;
 };
 
 class TPlace {
@@ -139,7 +138,7 @@ class TPlace {
     std::vector<TRem> rems;
     std::vector<TPlaceLayer> layers;
     TPlaceWebTariff WebTariff;
-    std::vector<TDrawProp> drawProps;
+    std::vector<TDrawPropsType> drawProps;
     bool isPax;
     TPlace() {
       x = -1;
@@ -325,7 +324,7 @@ class TSalons {
     	return layers_priority[ layer_type ].editable;
     };
     bool getLatSeat() { return pr_lat_seat; };
-    void BuildLayersInfo( xmlNodePtr salonsNode );
+    void BuildLayersInfo( xmlNodePtr salonsNode, const std::vector<TDrawPropsType> &props );
     void Build( xmlNodePtr salonsNode );
     void Read( );
     void Write( );

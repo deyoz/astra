@@ -3729,6 +3729,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   remNode=GetNodeFast("rems",node2);
                   pas.pers_type = NodeAsStringFast("pers_type",node2);
                   bool flagCHIN=DecodePerson(pas.pers_type.c_str()) != ASTRA::adult;
+                  bool flagINFT = false;
                   if (remNode!=NULL) {
                   	for(remNode=remNode->children;remNode!=NULL;remNode=remNode->next) {
                  		  node2=remNode->children;
@@ -3747,11 +3748,15 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                     if ( infItem->parent_pax_id == pax_id ) {
                       //ProgTrace( TRACE5, "infItem->parent_pax_id=%d", infItem->parent_pax_id );
                       flagCHIN = true;
+                      flagINFT = true;
                       break;
                     }
                   }
                   if ( flagCHIN ) {
                   	pas.add_rem("CHIN");
+                  }
+                  if ( flagINFT ) {
+                    pas.add_rem("INFT");
                   }
                   SEATS2::Passengers.Add(Salons,pas);
                 }
