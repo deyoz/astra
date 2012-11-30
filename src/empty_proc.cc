@@ -6,6 +6,7 @@
 #include "checkin.h"
 #include "passenger.h"
 #include "telegram.h"
+#include "empty_proc.h"
 #include "tlg/tlg_parser.h"
 #include "tclmon/tcl_utils.h"
 #include "serverlib/ourtime.h"
@@ -17,6 +18,16 @@
 
 const int sleepsec = 25;
 
+
+void TestInterface::TestRequestDup(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  BASIC::TDateTime start_time = BASIC::NowUTC();
+  for(;;)
+  {
+    if ((BASIC::NowUTC()-start_time)*86400000>200) break;  //задержка на 50 мсек
+  };
+  NewTextChild(resNode, "iteration", NodeAsInteger("iteration", reqNode) );
+};
 
 int main_empty_proc_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
 {
@@ -82,7 +93,7 @@ int get_events_stat(int argc,char **argv)
   TDateTime min_date=Qry.FieldAsDateTime("min_date");
 
   Qry.Clear();
-  Qry.SQLText="SELECT TO_DATE('01.05.2012','DD.MM.YYYY') AS max_date FROM dual";
+  Qry.SQLText="SELECT TO_DATE('01.07.2012','DD.MM.YYYY') AS max_date FROM dual";
   Qry.Execute();
   if (Qry.Eof || Qry.FieldIsNULL("max_date")) return 0;
   TDateTime max_date=Qry.FieldAsDateTime("max_date");
@@ -121,7 +132,7 @@ int get_events_stat2(int argc,char **argv)
   TDateTime min_date=Qry.FieldAsDateTime("min_date");
 
   Qry.Clear();
-  Qry.SQLText="SELECT TO_DATE('01.06.2012','DD.MM.YYYY') AS max_date FROM dual";
+  Qry.SQLText="SELECT TO_DATE('25.07.2012','DD.MM.YYYY') AS max_date FROM dual";
   Qry.Execute();
   if (Qry.Eof || Qry.FieldIsNULL("max_date")) return 0;
   TDateTime max_date=Qry.FieldAsDateTime("max_date");
