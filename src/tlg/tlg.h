@@ -82,6 +82,7 @@ bool procTlg(int tlg_id);
 
 #define MAX_CMD_LEN 50000
 void sendCmd(const char* receiver, const char* cmd);
+void sendCmd(const char* receiver, const char* cmd, int cmd_len);
 int waitCmd(const char* receiver, int msecs, const char* buf, int buflen);
 
 void sendCmdTlgHttpSnd();

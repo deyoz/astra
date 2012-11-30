@@ -34,6 +34,8 @@
 #include "base_tables.h"
 #include "web_main.h"
 #include "astra_locale.h"
+#include "empty_proc.h"
+#include "tlg/tlg.h"
 #include "jxtlib/jxtlib.h"
 #include "serverlib/query_runner.h"
 #include "serverlib/ocilocal.h"
@@ -75,12 +77,58 @@ void AstraJxtCallbacks::InitInterfaces()
     new DevTuningInterface();
     new AccessInterface();
     new CryptInterface();
+    new TestInterface();
 
     new AstraWeb::WebRequestsIface();
 };
 
+
+bool ENABLE_REQUEST_DUP()
+{
+  static int VAR=NoExists;
+  if (VAR==NoExists)
+    VAR=getTCLParam("ENABLE_REQUEST_DUP",0,1,0);
+  return VAR!=0;
+}
+
+void BuildMsgForRequestDup(char first_byte,
+                           const std::string &pult,
+                           const std::string &opr,
+                           const std::string &body,
+                           std::string &msg)
+{
+  msg.clear();
+  std::string body_utf8=ConvertCodepage(body, "CP866", "UTF-8");
+  
+  char head[100];
+  memset( &head, 0, sizeof(head) );
+  char *p=head+4*3+4*8;
+  strncpy(p+=6,pult.c_str(),6);
+  strcpy(p+=2,"  ");
+  strcpy(p,opr.c_str());
+  head[84]=char(0x10);
+  *(int*)head=htonl(body_utf8.size());
+  msg+=first_byte;
+  msg+=std::string(head,sizeof(head));
+  msg+=body_utf8;
+};
+
 void AstraJxtCallbacks::UserBefore(const std::string &head, const std::string &body)
 {
+    try
+    {
+      if (ENABLE_REQUEST_DUP())
+      {
+        std::string msg;
+        BuildMsgForRequestDup(char(3), getXmlCtxt()->GetPult(), getXmlCtxt()->GetOpr(), body, msg);
+        /*std::string msg_hex;
+        StringToHex(msg, msg_hex);
+        ProgTrace(TRACE5, "UserBefore: msg_hex=%s", msg_hex.c_str());*/
+        sendCmd("REQUEST_DUP", msg.c_str(), msg.size());
+      };
+    }
+    catch(...) {};
+
     TReqInfo *reqInfo = TReqInfo::Instance();
 	  reqInfo->setPerform();
 	  base_tables.Invalidate();
