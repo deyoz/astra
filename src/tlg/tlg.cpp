@@ -363,7 +363,7 @@ void sendCmd(const char* receiver, const char* cmd)
   };
 };
 
-bool waitCmd(const char* receiver, int msecs, const char* buf, int buflen)
+int waitCmd(const char* receiver, int msecs, const char* buf, int buflen)
 {
   if (receiver==NULL || *receiver==0)
     throw EXCEPTIONS::Exception( "waitCmd: receiver not defined");
@@ -425,8 +425,11 @@ bool waitCmd(const char* receiver, int msecs, const char* buf, int buflen)
       }
       else
       {
-        ProgTrace(TRACE5,"waitCmd: cmd '%s' received from %s (time=%ld)",buf,receiver,time(NULL));
-        return true;
+        if (len>10)
+          ProgTrace(TRACE5,"waitCmd: %d bytes received from %s (time=%ld)",len,receiver,time(NULL));
+        else
+          ProgTrace(TRACE5,"waitCmd: cmd '%s' received from %s (time=%ld)",buf,receiver,time(NULL));
+        return len;
       };
     };
   }
@@ -434,7 +437,7 @@ bool waitCmd(const char* receiver, int msecs, const char* buf, int buflen)
   {
     ProgError(STDLOG,"Exception: %s",E.what());
   };
-  return false;
+  return 0;
 };
 
 
