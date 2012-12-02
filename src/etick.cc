@@ -673,6 +673,7 @@ void ETStatusInterface::ETCheckStatus(int point_id,
   //mtick.clear(); добавляем уже к заполненному
 
   if (ediResDocPtr==NULL) return;
+  if (TReqInfo::Instance()->duplicate) return;
 
   TFltParams fltParams;
   if (fltParams.get(point_id))
@@ -820,6 +821,7 @@ void ETStatusInterface::ETCheckStatus(int id,
                                       bool before_checkin)
 {
   //mtick.clear(); добавляем уже к заполненному
+  if (TReqInfo::Instance()->duplicate) return;
   int point_id=NoExists;
   TQuery Qry(&OraSession);
   Qry.Clear();
