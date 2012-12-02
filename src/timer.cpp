@@ -238,31 +238,42 @@ void ETCheckStatusFlt(void)
     UpdQry.DeclareVariable("point_id",otInteger);
     UpdQry.DeclareVariable("pr_etstatus",otInteger);
 
-    Qry.Clear();
-/*    Qry.SQLText=
-      "SELECT points.point_id "
+
+    TQuery ETQry(&OraSession);
+    ETQry.Clear();
+    ETQry.SQLText=
+      "SELECT points.point_id,point_num, "
+      "       DECODE(pr_tranzit,0,points.point_id,first_point) AS first_point, "
+      "       pr_etstatus "
       "FROM points,trip_sets "
       "WHERE points.point_id=trip_sets.point_id AND points.pr_del>=0 AND "
-      "      (act_out IS NOT NULL AND pr_etstatus=0 OR pr_etstatus<0)";*/
-    Qry.SQLText=
-      "SELECT p.point_id "
-      "FROM points, "
-      "  (SELECT points.point_id,point_num, "
-      "          DECODE(pr_tranzit,0,points.point_id,first_point) AS first_point, "
-      "          pr_etstatus "
-      "   FROM points,trip_sets "
-      "   WHERE points.point_id=trip_sets.point_id AND points.pr_del>=0 AND "
-      "         (act_out IS NOT NULL AND pr_etstatus=0 OR pr_etstatus<0)) p "
-      "WHERE points.first_point=p.first_point AND "
-      "      points.point_num>p.point_num AND points.pr_del=0 AND "
-      "      ckin.get_pr_tranzit(points.point_id)=0 AND "
-      "      (NVL(act_in,NVL(est_in,scd_in))<:now AND pr_etstatus=0 OR pr_etstatus<0)";
-    Qry.CreateVariable("now",otDate,now);
-    Qry.Execute();
+      "      (act_out IS NOT NULL AND pr_etstatus=0 OR pr_etstatus<0)";
+      
 
-    for(;!Qry.Eof;Qry.Next(),OraSession.Rollback())
+    Qry.Clear();
+    Qry.SQLText=
+      "SELECT 1 "
+      "FROM points "
+      "WHERE points.first_point=:first_point AND "
+      "      points.point_num>:point_num AND points.pr_del=0 AND "
+      "      ckin.get_pr_tranzit(points.point_id)=0 AND "
+      "      (NVL(act_in,NVL(est_in,scd_in))<:now AND :pr_etstatus=0 OR :pr_etstatus<0) ";
+    Qry.DeclareVariable("first_point", otInteger);
+    Qry.DeclareVariable("point_num", otInteger);
+    Qry.DeclareVariable("pr_etstatus", otInteger);
+    Qry.CreateVariable("now",otDate,now);
+    
+    ETQry.Execute();
+    for(;!ETQry.Eof;ETQry.Next(),OraSession.Rollback())
     {
-      int point_id=Qry.FieldAsInteger("point_id");
+      Qry.SetVariable("first_point", ETQry.FieldAsInteger("first_point"));
+      Qry.SetVariable("point_num", ETQry.FieldAsInteger("point_num"));
+      Qry.SetVariable("pr_etstatus", ETQry.FieldAsInteger("pr_etstatus"));
+      Qry.Execute();
+
+      if (Qry.Eof) continue;
+
+      int point_id=ETQry.FieldAsInteger("point_id");
       try
       {
         ETStatusInterface::TFltParams fltParams;
@@ -330,7 +341,7 @@ void ETCheckStatusFlt(void)
         ProgError(STDLOG,"ETCheckStatusFlt (point_id=%d): unknown error",point_id);
       };
     };
-    Qry.Close();
+    ETQry.Close();
     UpdQry.Close();
   }
   catch(...)
