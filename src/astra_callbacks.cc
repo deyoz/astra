@@ -34,6 +34,8 @@
 #include "base_tables.h"
 #include "web_main.h"
 #include "astra_locale.h"
+#include "empty_proc.h"
+#include "tlg/tlg.h"
 #include "jxtlib/jxtlib.h"
 #include "serverlib/query_runner.h"
 #include "serverlib/ocilocal.h"
@@ -75,12 +77,80 @@ void AstraJxtCallbacks::InitInterfaces()
     new DevTuningInterface();
     new AccessInterface();
     new CryptInterface();
+    new TestInterface();
 
     new AstraWeb::WebRequestsIface();
 };
 
+
+bool ENABLE_REQUEST_DUP()
+{
+  static int VAR=NoExists;
+  if (VAR==NoExists)
+    VAR=getTCLParam("ENABLE_REQUEST_DUP",0,1,0);
+  return VAR!=0;
+}
+
+bool BuildMsgForTermRequestDup(const std::string &pult,
+                               const std::string &opr,
+                               const std::string &body,
+                               std::string &msg)
+{
+  msg.clear();
+  char head[100];
+  memset( &head, 0, sizeof(head) );
+  char *p=head+4*3+4*8;
+  strncpy(p,pult.c_str(),6);
+  strcpy(p+6,"  ");
+  strcpy(p+6+2,opr.c_str());
+  head[84]=char(0x10);
+  head[99]='D'; //признах что REQUEST_DUP
+  *(long int*)head=htonl(body.size());
+  msg+=char(3);
+  msg+=std::string(head,sizeof(head));
+  msg+=body;
+  return true;
+};
+
+bool BuildMsgForWebRequestDup(short int client_id,
+                              const std::string &body,
+                              std::string &msg)
+{
+  msg.clear();
+  char head[100];
+  memset( &head, 0, sizeof(head) );
+  char *p=head+4*3+4*8;
+  *(short int*)p=htons(client_id);
+  *(long int*)head=htonl(body.size());
+  head[99]='D'; //признах что REQUEST_DUP
+  msg+=char(2);
+  msg+=std::string(head,sizeof(head));
+  msg+=body;
+  return true;
+};
+
 void AstraJxtCallbacks::UserBefore(const std::string &head, const std::string &body)
 {
+    try
+    {
+      if (ENABLE_REQUEST_DUP() &&
+          !head.empty() && *(head.begin())==char(3))
+      {
+        if ( body.find("<kick") == std::string::npos )
+        {
+          std::string msg;
+          if (BuildMsgForTermRequestDup(getXmlCtxt()->GetPult(), getXmlCtxt()->GetOpr(), body, msg))
+          {
+            /*std::string msg_hex;
+            StringToHex(msg, msg_hex);
+            ProgTrace(TRACE5, "UserBefore: msg_hex=%s", msg_hex.c_str());*/
+            sendCmd("REQUEST_DUP", msg.c_str(), msg.size());
+          };
+        };
+      };
+    }
+    catch(...) {};
+
     TReqInfo *reqInfo = TReqInfo::Instance();
 	  reqInfo->setPerform();
 	  base_tables.Invalidate();
@@ -143,6 +213,7 @@ void AstraJxtCallbacks::UserBefore(const std::string &head, const std::string &b
         !((head)[getGrp3ParamsByte()+1]&MSG_MESPRO_CRYPT);
 
     reqInfoData.pr_web = (head[0]==2);
+    reqInfoData.duplicate = (head[100]=='D');
 
     try
     {

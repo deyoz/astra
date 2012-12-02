@@ -80,8 +80,10 @@ void loadTlg(const std::string &text);
 bool procTlg(int tlg_id);
 //void sendErrorTlg(const char *format, ...);
 
+#define MAX_CMD_LEN 50000
 void sendCmd(const char* receiver, const char* cmd);
-bool waitCmd(const char* receiver, int msecs, const char* buf, int buflen);
+void sendCmd(const char* receiver, const char* cmd, int cmd_len);
+int waitCmd(const char* receiver, int msecs, const char* buf, int buflen);
 
 void sendCmdTlgHttpSnd();
 void sendCmdTlgSnd();

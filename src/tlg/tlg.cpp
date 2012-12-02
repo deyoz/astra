@@ -319,12 +319,19 @@ bool procTlg(int tlg_id)
 
 void sendCmd(const char* receiver, const char* cmd)
 {
+  sendCmd(receiver, cmd, strlen(cmd));
+};
+
+void sendCmd(const char* receiver, const char* cmd, int cmd_len)
+{
   try
   {
     if (receiver==NULL || *receiver==0)
       throw EXCEPTIONS::Exception( "sendCmd: receiver not defined");
-    if (cmd==NULL || *cmd==0)
+    if (cmd==NULL || cmd_len<=0)
       throw EXCEPTIONS::Exception( "sendCmd: cmd not defined");
+    if (cmd_len>MAX_CMD_LEN)
+      throw EXCEPTIONS::Exception( "sendCmd: cmd too long (%d)", cmd_len);
     static int sockfd=-1;
     static struct sockaddr_un sock_addr;
     static map<string,string> addrs;
@@ -347,15 +354,21 @@ void sendCmd(const char* receiver, const char* cmd)
     };
     strcpy(sock_addr.sun_path,addrs[receiver].c_str());
 
-    if (sendto(sockfd,cmd,strlen(cmd),MSG_DONTWAIT,
-               (struct sockaddr*)&sock_addr,sizeof(sock_addr))==-1)
+    int len;
+    if ((len=sendto(sockfd,cmd,cmd_len,MSG_DONTWAIT,
+                    (struct sockaddr*)&sock_addr,sizeof(sock_addr)))==-1)
     {
       if (errno!=EAGAIN)
         throw EXCEPTIONS::Exception("sendCmd: 'sendto' error %d: %s",errno,strerror(errno));
       ProgTrace(TRACE5,"sendCmd: 'sendto' error %d: %s",errno,strerror(errno));
     }
     else
-      ProgTrace(TRACE5,"sendCmd: cmd '%s' sended to %s (time=%ld)",cmd,receiver,time(NULL));
+    {
+      if (len>10)
+        ProgTrace(TRACE5,"sendCmd: %d bytes sended to %s (time=%ld)",len,receiver,time(NULL));
+      else
+        ProgTrace(TRACE5,"sendCmd: cmd '%s' sended to %s (time=%ld)",cmd,receiver,time(NULL));
+    };
   }
   catch(EXCEPTIONS::Exception E)
   {
@@ -363,7 +376,7 @@ void sendCmd(const char* receiver, const char* cmd)
   };
 };
 
-bool waitCmd(const char* receiver, int msecs, const char* buf, int buflen)
+int waitCmd(const char* receiver, int msecs, const char* buf, int buflen)
 {
   if (receiver==NULL || *receiver==0)
     throw EXCEPTIONS::Exception( "waitCmd: receiver not defined");
@@ -425,8 +438,11 @@ bool waitCmd(const char* receiver, int msecs, const char* buf, int buflen)
       }
       else
       {
-        ProgTrace(TRACE5,"waitCmd: cmd '%s' received from %s (time=%ld)",buf,receiver,time(NULL));
-        return true;
+        if (len>10)
+          ProgTrace(TRACE5,"waitCmd: %d bytes received from %s (time=%ld)",len,receiver,time(NULL));
+        else
+          ProgTrace(TRACE5,"waitCmd: cmd '%s' received from %s (time=%ld)",buf,receiver,time(NULL));
+        return len;
       };
     };
   }
@@ -434,7 +450,7 @@ bool waitCmd(const char* receiver, int msecs, const char* buf, int buflen)
   {
     ProgError(STDLOG,"Exception: %s",E.what());
   };
-  return false;
+  return 0;
 };
 
 

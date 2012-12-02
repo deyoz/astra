@@ -25,6 +25,8 @@
 #include "sopp.h"
 #include "points.h"
 #include "stages.h"
+#include "astra_callbacks.h"
+#include "tlg/tlg.h"
 #include "serverlib/perfom.h"
 #include "serverlib/ourtime.h"
 #include "serverlib/query_runner.h"
@@ -80,6 +82,27 @@ int internet_main(const char *body, int blen, const char *head,
   PerfomInit();
   int client_id=readInetClientId(head);
   ProgTrace(TRACE1,"new web request received from client %i",client_id);
+
+  try
+  {
+    if (ENABLE_REQUEST_DUP() &&
+        hlen>0 && *head==char(2))
+    {
+      std::string b(body,blen);
+      if ( b.find("<kick") == string::npos )
+      {
+        std::string msg;
+        if (BuildMsgForWebRequestDup(client_id, b, msg))
+        {
+          /*std::string msg_hex;
+          StringToHex(msg, msg_hex);
+          ProgTrace(TRACE5, "internet_main: msg_hex=%s", msg_hex.c_str());*/
+          sendCmd("REQUEST_DUP", msg.c_str(), msg.size());
+        };
+      };
+    };
+  }
+  catch(...) {};
 
   string answer;
   int newlen=0;
