@@ -2529,7 +2529,7 @@ int season_to_schedules(int argc,char **argv)
   TDateTime first_date = NowUTC()-500;
   TDateTime last_date = NowUTC() + 750;
   try {
-    ConvertSeason( first_date, last_date );
+//    ConvertSeason( first_date, last_date );
   }
   catch(EXCEPTIONS::Exception e){
     ProgError( STDLOG,"EXCEPTIONS::Exception, what=%s", e.what() );
