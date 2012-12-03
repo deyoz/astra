@@ -368,7 +368,7 @@ void getMesProParams(const char *head, int hlen, int *error, MPCryptParams &para
   	ProgError( STDLOG, "getMesProParams: message is not crypted" );
   	return;
   }
-
+  
   using namespace std;
   string desk = string(head+45,6);
   TQuery *Qry = new TQuery(&OraSession);
@@ -417,6 +417,8 @@ void getMesProParams(const char *head, int hlen, int *error, MPCryptParams &para
 void TCrypt::Init( const std::string &desk )
 {
 	Clear();
+  if ( TReqInfo::Instance()->duplicate ) //!!! не работаем в режиме дуплицирования в режиме шифрования
+    return;
 	#ifdef USE_MESPRO
   TQuery Qry(&OraSession);
   int grp_id;
