@@ -4,6 +4,7 @@
 #include "astra_utils.h"
 #include "arx_daily.h"
 #include "checkin.h"
+#include "empty_proc.h"
 #include "tlg/tlg_parser.h"
 #include "tclmon/tcl_utils.h"
 #include "serverlib/ourtime.h"
@@ -15,6 +16,16 @@
 
 const int sleepsec = 25;
 
+
+void TestInterface::TestRequestDup(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  BASIC::TDateTime start_time = BASIC::NowUTC();
+  for(;;)
+  {
+    if ((BASIC::NowUTC()-start_time)*86400000>200) break;  //задержка на 50 мсек
+  };
+  NewTextChild(resNode, "iteration", NodeAsInteger("iteration", reqNode) );
+};
 
 int main_empty_proc_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
 {

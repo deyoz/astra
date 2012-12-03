@@ -26,4 +26,18 @@ int alter_bag_pool_num(int argc,char **argv);
 int check_trfer_tckin_set(int argc,char **argv);
 int alter_trfer_tckin_set(int argc,char **argv);
 
+class TestInterface : public JxtInterface
+{
+public:
+  TestInterface() : JxtInterface("","test")
+  {
+     Handler *evHandle;
+     evHandle=JxtHandler<TestInterface>::CreateHandler(&TestInterface::TestRequestDup);
+     AddEvent("test_request_dup",evHandle);
+  };
+
+  void TestRequestDup(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
+};
+
 #endif

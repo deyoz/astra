@@ -199,11 +199,13 @@ struct TReqInfoInitData {
   bool checkUserLogon;
   bool checkCrypt;
   bool pr_web;
+  bool duplicate;
   TReqInfoInitData() {
     term_id = ASTRA::NoExists;
   	checkUserLogon = false;
   	checkCrypt = false;
   	pr_web = false;
+    duplicate = false;
   }
 };
 
@@ -216,12 +218,14 @@ class TReqInfo
     TDesk desk;
     TScreen screen;
     ASTRA::TClientType client_type;
+    bool duplicate;
     void clear()
     {
       desk.clear();
       user.clear();
       screen.clear();
       client_type = ASTRA::ctTerm;
+      duplicate = false;
     };
     virtual ~TReqInfo() {}
     static TReqInfo *Instance();

@@ -129,6 +129,8 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
 		setPerform();
   clear();
 
+  duplicate=InitData.duplicate;
+
   if (!InitData.lang.empty() /*desk.compatible(LATIN_VERSION)*/)
     desk.lang=InitData.lang;
   else

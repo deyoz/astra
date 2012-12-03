@@ -1220,6 +1220,7 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       reqInfoData.term_id = NodeAsFloat(propNode);
     reqInfoData.checkUserLogon = true; // имеет смысл т.к. надо начитать инфу по пользователю
     reqInfoData.checkCrypt = false; // не имеет смысла делать повторную проверку
+    reqInfoData.duplicate = reqInfo->duplicate; //!определение дубликата запроса вынесено в astracallbacks.cc::UserBefore т.к. там разбирается head
     reqInfo->Initialize( reqInfoData );
 
     //здесь reqInfo нормально инициализирован
