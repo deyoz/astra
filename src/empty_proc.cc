@@ -1,4 +1,16 @@
 //---------------------------------------------------------------------------
+#include <stdio.h>
+#include <signal.h>
+#include <errno.h>
+#include <string>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
+
 #include "basic.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
@@ -8,16 +20,25 @@
 #include "telegram.h"
 #include "empty_proc.h"
 #include "tlg/tlg_parser.h"
+#include "tlg/tlg.h"
 #include "tclmon/tcl_utils.h"
 #include "serverlib/ourtime.h"
 #include <set>
+#include "season.h"
+#include "serverlib/posthooks.h"
+
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/test.h"
 
 const int sleepsec = 25;
+#define WAIT_INTERVAL           60000      //миллисекунды
+const unsigned int SERVER_HEADER_SIZE = 100;
+const unsigned int MAX_INCOMMING_BUF_SIZE = 1000000;
+const int SOCKET_ERROR = -1;
 
+using namespace std;
 
 void TestInterface::TestRequestDup(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -29,21 +50,148 @@ void TestInterface::TestRequestDup(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   NewTextChild(resNode, "iteration", NodeAsInteger("iteration", reqNode) );
 };
 
+int GetLastError1( int Ret, int errCode )
+{
+  if ( Ret != errCode )
+    return 0;
+  else {
+    ProgTrace( TRACE5, "GetLastError, ret=%d", Ret );
+    return errno;
+  }
+}
+
+int GetErr1( int code, const char *func )
+{
+  if ( code != 0 ) {
+    throw EXCEPTIONS::Exception("TCPSession error:%s, error=%d, func=%s", strerror( code ), code, func);
+  }
+  return code;
+}
+
+int init_socket_grp( const string &var_addr_grp, const string &var_port_grp )
+{
+  string addr_grp = getTCLParam( var_addr_grp.c_str(), "" );
+  string port_grp = getTCLParam( var_port_grp.c_str(), "" );
+  ProgTrace( TRACE5, "%s, %s, %s:%s", var_addr_grp.c_str(), var_port_grp.c_str(),
+             addr_grp.c_str(), port_grp.c_str() );
+
+  int handle = socket( AF_INET, SOCK_STREAM, 0 );
+  GetErr1( GetLastError1( handle, SOCKET_ERROR ), "socket()" );
+  GetErr1( GetLastError1( fcntl( handle, F_SETFL, O_NONBLOCK ), SOCKET_ERROR ), "fcntl" );
+  sockaddr_in addr_in;
+  addr_in.sin_family = AF_INET;
+  int port;
+  if ( BASIC::StrToInt( port_grp.c_str(), port ) == EOF )
+    port = -1;
+  addr_in.sin_port = htons( port );
+  addr_in.sin_addr.s_addr = inet_addr( addr_grp.c_str() );
+  int val = 1;
+  GetErr1( GetLastError1( setsockopt(handle, SOL_SOCKET, SO_REUSEADDR, &val, sizeof (val)), SOCKET_ERROR ), "setsockopt" );
+  int one = 1;
+  GetErr1( GetLastError1( setsockopt( handle, SOL_SOCKET, SO_KEEPALIVE, &one, sizeof(one) ), SOCKET_ERROR ), "setsockopt" );
+  int err = connect( handle, (struct sockaddr *)&addr_in, sizeof(addr_in) );
+  err = GetLastError1( err, SOCKET_ERROR );
+  if ( err != 0 && err != EINPROGRESS )
+    GetErr1( err, "connect" );
+  return handle;
+}
+
+int exec_grp( int handle, const char *buf, int len )
+{
+  fd_set rsets, wsets, esets;
+  FD_ZERO( &rsets );
+  FD_ZERO( &wsets );
+  FD_ZERO( &esets );
+  FD_SET( handle, &rsets );
+  FD_SET( handle, &wsets );
+  FD_SET( handle, &esets );
+
+  timeval timeout;
+  timeout.tv_sec = 0;
+  timeout.tv_usec = 0;
+  GetErr1( GetLastError1( select( handle + 1, &rsets, &wsets, &esets, &timeout ), SOCKET_ERROR ), "select" );
+  socklen_t err_len;
+  int error, received = 0, sended = 0;
+  err_len = sizeof( error );
+  if ( FD_ISSET( handle, &esets ) ||
+       GetErr1( GetLastError1( getsockopt( handle, SOL_SOCKET, SO_ERROR, &error, &err_len ), -1 ), "getsockopt" ) || error != 0 ) {
+    throw EXCEPTIONS::Exception("exec_grp: invalid socket stat");
+    return 0;
+  }
+  if ( FD_ISSET( handle, &rsets ) ) {
+    int BLen = 0;
+    GetErr1( GetLastError1( ioctl( handle, FIONREAD, &BLen ), SOCKET_ERROR ), "ioctl" );
+    if ( BLen == 0 )
+      throw EXCEPTIONS::Exception("Connect aborted");
+    char recbuf[1000000];
+    received = recv( handle, recbuf, sizeof(recbuf), 0 );
+    GetErr1( GetLastError1( received, SOCKET_ERROR ), "recv" );
+  }
+  if ( !FD_ISSET( handle, &wsets ) ) {
+    ProgError( STDLOG, "send_grp - cannot write to socket" );
+  }
+  else
+    if ( len > 0 ) {
+      sended = send( handle, buf, len, 0 ); // отправляем сколько сможем
+      GetErr1( GetLastError1( sended, SOCKET_ERROR ), "send" );
+    }
+  if ( received + sended > 0 )
+    ProgTrace( TRACE5, "received=%d, sended=%d", received, sended );
+  return sended;
+}
+
 int main_empty_proc_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
 {
-  try
-  {
-    sleep(10);
+  try {
+    sleep(1);
     InitLogTime(NULL);
     OpenLogFile("log1");
+    
+    int handle_grp2 = init_socket_grp( "DUB_ADDR_GRP2", "DUB_PORT_GRP2" );
+    int handle_grp3 = init_socket_grp( "DUB_ADDR_GRP3", "DUB_PORT_GRP3" );
 
-
+    char buf[100000];
+    vector<string> bufs;
     for( ;; )
     {
-      sleep( sleepsec );
       InitLogTime(NULL);
-      ProgTrace( TRACE0, "empty_proc: Next iteration");
-    };
+      int len = waitCmd("REQUEST_DUP",10,buf,sizeof(buf));
+      if ( len > 0 ) {
+        ProgTrace( TRACE5, "incomming msg, size()=%d", len - 1 );
+        if ( bufs.size() < 1000 )
+          bufs.push_back( string( buf, len ) );
+        else
+          ProgError( STDLOG, "incomming buffers more then 1000 msgs" );
+      }
+      int handle;
+      for ( int igrp=2; igrp<4; igrp++ ) {
+        if ( igrp == 2  )
+          handle = handle_grp2;
+         else
+          handle = handle_grp3;
+        for ( vector<string>::iterator i=bufs.begin(); i!=bufs.end();  ) {
+          if ( i->c_str()[ 0 ] != igrp  ) {
+            i++;
+            continue;
+          }
+          int sended = exec_grp( handle, i->data() + 1, i->size() - 1 );
+          if ( sended ) {
+            i->erase( 1, sended );
+          }
+          if ( i->size() == 1 ) {
+            i = bufs.erase( i );
+          }
+          else
+            break;
+        }
+        exec_grp( handle, NULL, 0 );
+      }
+      //sleep(30); расскоментарив эту строку можно создать ситуацию переполнения sendto,
+      //           которая однако не приводит к плохим последствиям для сервера, перенаправляющего поток запросов
+    }
+  }
+  catch( EXCEPTIONS:: Exception &e ) {
+    ProgError( STDLOG, "Exception: %s", e.what() );
   }
   catch( ... ) {
     ProgError( STDLOG, "Unknown error" );
@@ -93,7 +241,7 @@ int get_events_stat(int argc,char **argv)
   TDateTime min_date=Qry.FieldAsDateTime("min_date");
 
   Qry.Clear();
-  Qry.SQLText="SELECT TO_DATE('01.07.2012','DD.MM.YYYY') AS max_date FROM dual";
+  Qry.SQLText="SELECT TO_DATE('01.05.2012','DD.MM.YYYY') AS max_date FROM dual";
   Qry.Execute();
   if (Qry.Eof || Qry.FieldIsNULL("max_date")) return 0;
   TDateTime max_date=Qry.FieldAsDateTime("max_date");
@@ -132,7 +280,7 @@ int get_events_stat2(int argc,char **argv)
   TDateTime min_date=Qry.FieldAsDateTime("min_date");
 
   Qry.Clear();
-  Qry.SQLText="SELECT TO_DATE('25.07.2012','DD.MM.YYYY') AS max_date FROM dual";
+  Qry.SQLText="SELECT TO_DATE('01.06.2012','DD.MM.YYYY') AS max_date FROM dual";
   Qry.Execute();
   if (Qry.Eof || Qry.FieldIsNULL("max_date")) return 0;
   TDateTime max_date=Qry.FieldAsDateTime("max_date");
@@ -2375,5 +2523,21 @@ int create_tlg(int argc,char **argv)
   return 1;
 };
 
-         
+int season_to_schedules(int argc,char **argv)
+{
+  //!!!TDateTime first_date = NowUTC()-3000;
+  TDateTime first_date = NowUTC()-500;
+  TDateTime last_date = NowUTC() + 750;
+  try {
+//    ConvertSeason( first_date, last_date );
+  }
+  catch(EXCEPTIONS::Exception e){
+    ProgError( STDLOG,"EXCEPTIONS::Exception, what=%s", e.what() );
+  }
+  catch(...){
+    ProgError( STDLOG,"unknown error" );
+  }
+  return 0;
+}
+
 
