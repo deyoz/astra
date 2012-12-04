@@ -315,6 +315,8 @@ TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tag
     tag_list.insert(make_pair(TAG::PLACE_ARV,       TTagListItem(&TPrnTagStore::PLACE_ARV)));
     tag_list.insert(make_pair(TAG::PLACE_DEP,       TTagListItem(&TPrnTagStore::PLACE_DEP)));
     tag_list.insert(make_pair(TAG::REG_NO,          TTagListItem(&TPrnTagStore::REG_NO, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::RK_AMOUNT,       TTagListItem(&TPrnTagStore::RK_AMOUNT, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::RK_WEIGHT,       TTagListItem(&TPrnTagStore::RK_WEIGHT, PAX_INFO)));
     tag_list.insert(make_pair(TAG::RSTATION,        TTagListItem(&TPrnTagStore::RSTATION, RSTATION_INFO)));
     tag_list.insert(make_pair(TAG::SCD,             TTagListItem(&TPrnTagStore::SCD, POINT_INFO)));
     tag_list.insert(make_pair(TAG::SEAT_NO,         TTagListItem(&TPrnTagStore::SEAT_NO, PAX_INFO)));
@@ -797,6 +799,8 @@ void TPrnTagStore::TPaxInfo::Init(int apax_id, TTagLang &tag_lang)
               "   pers_type, "
               "   ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bag_amount, "
               "   ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bag_weight, "
+              "   ckin.get_rkAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rk_amount, "
+              "   ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rk_weight, "
               "   ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags "
               "from "
               "   pax "
@@ -826,6 +830,8 @@ void TPrnTagStore::TPaxInfo::Init(int apax_id, TTagLang &tag_lang)
               "   :adult AS pers_type, "
               "   0 AS bag_amount, "
               "   0 AS bag_weight, "
+              "   0 AS rk_amount, "
+              "   0 AS rk_weight, "
               "   NULL AS tags "
               "FROM "
               "   test_pax "
@@ -851,6 +857,8 @@ void TPrnTagStore::TPaxInfo::Init(int apax_id, TTagLang &tag_lang)
         pers_type = Qry.FieldAsString("pers_type");
         bag_amount = Qry.FieldAsInteger("bag_amount");
         bag_weight = Qry.FieldAsInteger("bag_weight");
+        rk_amount = Qry.FieldAsInteger("rk_amount");
+        rk_weight = Qry.FieldAsInteger("rk_weight");
         tags = Qry.FieldAsString("tags");
     }
 }
@@ -1186,6 +1194,16 @@ string TPrnTagStore::BAGGAGE(TFieldParams fp)
     if(paxInfo.bag_amount != 0)
         result << paxInfo.bag_amount << "/" << paxInfo.bag_weight;
     return result.str();
+}
+
+string TPrnTagStore::RK_AMOUNT(TFieldParams fp)
+{
+    return IntToString(paxInfo.rk_amount);
+}
+
+string TPrnTagStore::RK_WEIGHT(TFieldParams fp)
+{
+    return IntToString(paxInfo.rk_weight);
 }
 
 string TPrnTagStore::BAG_AMOUNT(TFieldParams fp)

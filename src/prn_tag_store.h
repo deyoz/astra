@@ -55,6 +55,8 @@ namespace TAG {
     const std::string PLACE_ARV = "PLACE_ARV";
     const std::string PLACE_DEP = "PLACE_DEP";
     const std::string REG_NO = "REG_NO";
+    const std::string RK_AMOUNT = "RK_AMOUNT";
+    const std::string RK_WEIGHT = "RK_WEIGHT";
     const std::string RSTATION = "RSTATION";
     const std::string SCD = "SCD";
     const std::string SEAT_NO = "SEAT_NO";
@@ -292,6 +294,7 @@ class TPrnTagStore {
             int seats;
             std::string pers_type;
             int bag_amount, bag_weight;
+            int rk_amount, rk_weight;
             std::string tags;
             bool pr_bp_print;
             TPaxInfo():
@@ -302,6 +305,8 @@ class TPrnTagStore {
                 seats(ASTRA::NoExists),
                 bag_amount(ASTRA::NoExists),
                 bag_weight(ASTRA::NoExists),
+                rk_amount(ASTRA::NoExists),
+                rk_weight(ASTRA::NoExists),
                 pr_bp_print(false)
             {};
             void Init(int apax_id, TTagLang &tag_lang);
@@ -385,6 +390,8 @@ class TPrnTagStore {
         std::string PLACE_ARV(TFieldParams fp);
         std::string PLACE_DEP(TFieldParams fp);
         std::string REG_NO(TFieldParams fp);
+        std::string RK_AMOUNT(TFieldParams fp);
+        std::string RK_WEIGHT(TFieldParams fp);
         std::string RSTATION(TFieldParams fp);
         std::string SCD(TFieldParams fp);
         std::string SEAT_NO(TFieldParams fp);
