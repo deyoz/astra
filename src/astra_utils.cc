@@ -142,7 +142,7 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   screen.name = upperc( InitData.screen );
   desk.code = InitData.pult;
   desk.mode = DecodeOperMode(InitData.mode);
-  if ( InitData.checkCrypt ) { // пришло не зашифрованное сообщение - проверка на то, что пользователь шифруется
+  if ( InitData.checkCrypt && !InitData.duplicate ) { // пришло не зашифрованное сообщение - проверка на то, что пользователь шифруется
     Qry.Clear();
     Qry.SQLText =
       "SELECT pr_crypt "
