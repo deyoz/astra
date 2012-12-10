@@ -170,6 +170,7 @@ class TCacheTable {
         {
           OnBeforeApply = NULL;
           OnBeforeRefresh = NULL;
+          OnAfterApply = NULL;
         };
         virtual void Init(xmlNodePtr cacheNode);
         virtual ~TCacheTable();
