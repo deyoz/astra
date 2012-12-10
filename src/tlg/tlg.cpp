@@ -360,7 +360,8 @@ void sendCmd(const char* receiver, const char* cmd, int cmd_len)
     {
       if (errno!=EAGAIN)
         throw EXCEPTIONS::Exception("sendCmd: 'sendto' error %d: %s",errno,strerror(errno));
-      ProgTrace(TRACE5,"sendCmd: 'sendto' error %d: %s",errno,strerror(errno));
+      ProgError(STDLOG,"sendCmd: cmd '%s' 'sendto' error %d: %s",cmd,errno,strerror(errno));
+      //ProgTrace(TRACE5,"sendCmd: 'sendto' error %d: %s",errno,strerror(errno));
     }
     else
     {

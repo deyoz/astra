@@ -199,7 +199,7 @@ bool handle_tlg(void)
      "  SELECT id INTO :id FROM tlgs_in "
      "  WHERE type= :tlg_type AND "
      "        time_create BETWEEN :min_time_create AND :max_time_create AND "
-     "        merge_key= :merge_key AND rownum=1 FOR UPDATE; "
+     "        merge_key= :merge_key AND rownum<2; "
      "EXCEPTION "
      "  WHEN NO_DATA_FOUND THEN "
      "    SELECT tlg_in_out__seq.nextval INTO :id FROM dual; "
@@ -245,7 +245,7 @@ bool handle_tlg(void)
   TlgQry.Execute();
   try
   {
-    for (;!TlgQry.Eof&&count<HANDLER_PROC_COUNT();count++,TlgQry.Next(),OraSession.Commit())
+    for (;!TlgQry.Eof&&count<HANDLER_PROC_COUNT();OraSession.Rollback(),TlgQry.Next(),count++)
     {
       //проверим TTL
       tlg_id=TlgQry.FieldAsInteger("id");
@@ -253,12 +253,14 @@ bool handle_tlg(void)
            (NowUTC()-TlgQry.FieldAsDateTime("time"))*BASIC::SecsPerDay>=TlgQry.FieldAsInteger("ttl"))
       {
       	errorTlg(tlg_id,"TTL");
+        OraSession.Commit();
       }
       else
       if (TlgQry.FieldAsInteger("proc_attempt")>=HANDLER_PROC_ATTEMPTS())
       {
         ProgTrace(TRACE5, "handle_tlg: tlg_id=%d proc_attempt=%d", tlg_id, TlgQry.FieldAsInteger("proc_attempt"));
         errorTlg(tlg_id,"PROC");
+        OraSession.Commit();
       }
       else
       try
@@ -432,6 +434,7 @@ bool handle_tlg(void)
             else throw;
           };
         };
+        OraSession.Commit();
       }
       catch(EXCEPTIONS::Exception &E)
       {
@@ -446,6 +449,7 @@ bool handle_tlg(void)
           errorTlg(tlg_id,"PARS",E.what());
           //sendErrorTlg("Exception: %s (tlgs.id=%d)",
           //             E.what(),TlgQry.FieldAsInteger("id"));
+          OraSession.Commit();
         }
         catch(...) {};
       };
