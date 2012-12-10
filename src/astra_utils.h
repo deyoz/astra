@@ -346,13 +346,14 @@ public:
   SysReqInterface() : JxtInterface("","SysRequest")
   {
      Handler *evHandle;
-     evHandle=JxtHandler<SysReqInterface>::CreateHandler(&SysReqInterface::ErrorToLog);
+     evHandle=JxtHandler<SysReqInterface>::CreateHandler(&SysReqInterface::ClientError);
      AddEvent("ClientError",evHandle);
      evHandle=JxtHandler<SysReqInterface>::CreateHandler(&SysReqInterface::GetBasicInfo);
      AddEvent("GetBasicInfo",evHandle);
   };
 
-  void ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  static void ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void ClientError(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void GetBasicInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode){};
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode){};
 };

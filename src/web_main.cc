@@ -4351,6 +4351,12 @@ void WebRequestsIface::RemoveProtPaidLayer(XMLRequestCtxt *ctxt, xmlNodePtr reqN
   if (!ue.empty()) throw ue;
 };
 
+void WebRequestsIface::ClientError(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  SysReqInterface::ErrorToLog(ctxt, reqNode, resNode);
+  NewTextChild(resNode, "ClientError");
+};
+
 inline void CreateXMLStage( const TCkinClients &CkinClients, TStage stage_id, const TTripStage &stage,
                             xmlNodePtr node, const string &region )
 {
