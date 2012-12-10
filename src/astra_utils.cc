@@ -1220,6 +1220,11 @@ void showBasicInfo(void)
 };
 
 /***************************************************************************************/
+void SysReqInterface::ClientError(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  ErrorToLog(ctxt, reqNode, resNode);
+};
+
 void SysReqInterface::ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   if (reqNode==NULL) return;
