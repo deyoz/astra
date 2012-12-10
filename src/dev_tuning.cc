@@ -126,6 +126,51 @@ void BeforeApplyUpdates(TCacheTable &cache, const TRow &row, TQuery &applyQry, c
     }
 }
 
+int test_tune(int argc,char **argv)
+{
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    reqInfo->Initialize("ŒŽ‚");
+    string data =
+        "<?xml version='1.0' encoding='UTF-8'?>"
+        "<term>"
+        "  <answer/>"
+        "  <query handle='0' id='DevTuning' ver='1' opr='DEN' screen='AIR.EXE' mode='STAND' lang='RU' term_id='874497869'>"
+        "    <cache_apply>"
+        "      <params>"
+        "        <code>BP_TYPES</code>"
+//        "        <interface_ver>35807602</interface_ver>"
+        "        <interface_ver>3927478</interface_ver>"
+        "        <data_ver>-1</data_ver>"
+        "      </params>"
+        "      <rows>"
+        "        <row index='126' status='inserted'>"
+        "          <col index='0'>TST1</col>"
+        "          <col index='1'/>"
+        "          <col index='2'/>"
+        "          <col index='3'/>"
+        "          <col index='4'/>"
+        "          <col index='5'>tst</col>"
+        "        </row>"
+        "      </rows>"
+        "    </cache_apply>"
+        "  </query>"
+        "</term>";
+    xmlDocPtr doc = NULL;
+    try {
+        doc = TextToXMLTree(data);
+        xmlNodePtr reqNode = xmlDocGetRootElement(doc);
+        xmlNodePtr resNode = reqNode->children;
+        reqNode = reqNode->children->next->children;
+        DevTuningInterface iface;
+        iface.ApplyCache(NULL, reqNode, resNode);
+    } catch(...) {
+        xmlFreeDoc(doc);
+        throw;
+    }
+    xmlFreeDoc(doc);
+    return 0;
+}
+
 void DevTuningInterface::ApplyCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     ProgTrace(TRACE2, "DevTuningInterface::ApplyCache");
@@ -142,7 +187,7 @@ void DevTuningInterface::ApplyCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     SetProp(ifaceNode, "id", "cache");
     SetProp(ifaceNode, "ver", "1");
     cache.buildAnswer(resNode);
-    AstraLocale::showMessage( "MSG.CHANGED_DATA_COMMIT" );
+//    AstraLocale::showMessage( "MSG.CHANGED_DATA_COMMIT" );
 }
 
 void DevTuningInterface::Cache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

@@ -12,6 +12,7 @@
 #include "oralib.h"
 #include "maindcs.h"
 #include "docs.h"
+#include "dev_tuning.h"
 #include "season.h"
 #include "load_fr.h"
 #include "stat.h"
@@ -42,6 +43,7 @@ const
     {"-test",                   nosir_test,             nosir_test_help,            NULL},
     {"-ediinsert",              edi_load_messages_main, NULL,                       "loading edifact templates"},
     {"-testbm",                 testbm,                 NULL,                       NULL},
+    {"-test_tune",              test_tune,              NULL,                       NULL},
     {"-load_fr",                load_fr,                NULL,                       "loading FR files to database"},
     {"-get_fr",                 get_fr,                 NULL,                       "getting FR files from database to local path"},
     {"-termversion",            SetTermVersionNotice,   SetTermVersionNoticeHelp,   NULL},

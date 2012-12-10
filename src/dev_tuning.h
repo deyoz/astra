@@ -34,6 +34,8 @@ public:
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 };
 
+int test_tune(int argc,char **argv);
+
 
 #endif /*_DEV_TUNING_H_*/
 
