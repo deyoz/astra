@@ -20,7 +20,7 @@ const string FALSE_LOCALE = "0";
 
 // тест
 
-void my(fs::path &full_path, string fname)
+void my(const fs::path &full_path, string fname)
 {
     fs::path apath = full_path / fname;
     ifstream in(apath.native_file_string().c_str());
@@ -166,11 +166,14 @@ int load_fr(int argc,char **argv)
                     if(dir_itr->leaf().substr(dir_itr->leaf().size() - 4, 4) == ".fr3") {
                         ProgTrace(TRACE5, "loading %s", dir_itr->leaf().c_str());
                         my(full_path, dir_itr->leaf());
+                        cout << dir_itr->filename() << "  ok." << endl;
                     }
                 }
             }
+        } else {
+            my(full_path.parent_path(), full_path.filename());
+            cout << full_path.filename() << "  ok." << endl;
         }
-        cout << "The templates were loaded successfully" << endl;
     } catch(Exception &E) {
         usage(argv[0], E.what());
         return 1;

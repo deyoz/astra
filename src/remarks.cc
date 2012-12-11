@@ -127,23 +127,31 @@ void TRemGrp::Load(TRemEventType rem_set_type, const string &airline)
       push_back(Qry.FieldAsString("rem_code"));
 }
 
+string GetRemarkStr(const TRemGrp &rem_grp, const vector<CheckIn::TPaxRemItem> &rems, const string &term)
+{
+  string result;
+  for(vector<CheckIn::TPaxRemItem>::const_iterator r=rems.begin();r!=rems.end();++r)
+  {
+    if (r->code.empty() || !rem_grp.exists(r->code)) continue;
+    if (!result.empty()) result+=term;
+    result+=r->code;
+  };
+  return result;
+};
+
 string GetRemarkStr(const TRemGrp &rem_grp, int pax_id, TQuery &Qry, const string &term)
 {
     const char *sql =
-        "SELECT rem_code "
-        "FROM ckin_rem_types, rem_grp, "
-        "     (SELECT ticket_rem AS rem_code FROM pax  "
-        "      WHERE pax_id=:pax_id AND ticket_rem IS NOT NULL "
-        "      UNION "
-        "      SELECT 'DOCS' FROM pax_doc WHERE pax_id=:pax_id "
-        "      UNION "
-        "      SELECT 'DOCO' FROM pax_doco WHERE pax_id=:pax_id "
-        "      UNION "
-        "      SELECT rem_code FROM pax_rem  "
-        "      WHERE pax_id=:pax_id AND  "
-        "            rem_code NOT IN (SELECT rem_code FROM rem_cats WHERE category IN ('DOC','DOCO','TKN'))) pax_rem "
-        "WHERE pax_rem.rem_code=ckin_rem_types.code(+) AND ckin_rem_types.grp_id=rem_grp.id(+) "
-        "ORDER BY rem_grp.priority NULLS LAST, rem_code ";
+        "SELECT TRIM(ticket_rem) AS rem_code, NULL AS rem FROM pax "
+        "WHERE pax_id=:pax_id AND ticket_rem IS NOT NULL "
+        "UNION "
+        "SELECT 'DOCS', NULL FROM pax_doc WHERE pax_id=:pax_id "
+        "UNION "
+        "SELECT 'DOCO', NULL FROM pax_doco WHERE pax_id=:pax_id "
+        "UNION "
+        "SELECT TRIM(rem_code), NULL FROM pax_rem "
+        "WHERE pax_id=:pax_id AND "
+        "      rem_code NOT IN (SELECT rem_code FROM rem_cats WHERE category IN ('DOC','DOCO','TKN'))";
     if (strcmp(Qry.SQLText.SQLText(),sql)!=0)
     {
         Qry.Clear();
@@ -152,16 +160,20 @@ string GetRemarkStr(const TRemGrp &rem_grp, int pax_id, TQuery &Qry, const strin
     };
     Qry.SetVariable("pax_id", pax_id);
     Qry.Execute();
-    string result;
-    for(; not Qry.Eof; Qry.Next()) {
-        string rem = StrUtils::rtrim(Qry.FieldAsString("rem_code"));
-        if(rem.empty() or not rem_grp.exists(rem)) continue;
-        if(not result.empty())
-            result += term;
-        result += rem;
-    }
-    return result;
-}
+    vector<CheckIn::TPaxRemItem> rems;
+    for(;!Qry.Eof;Qry.Next())
+      rems.push_back(CheckIn::TPaxRemItem().fromDB(Qry));
+    sort(rems.begin(), rems.end());
+    return GetRemarkStr(rem_grp, rems, term);
+};
+
+string GetCrsRemarkStr(const TRemGrp &rem_grp, int pax_id, TQuery &Qry, const string &term)
+{
+  vector<CheckIn::TPaxRemItem> rems;
+  LoadCrsPaxRem(pax_id, rems, Qry);
+  sort(rems.begin(),rems.end());
+  return GetRemarkStr(rem_grp, rems, term);
+};
 
 namespace CheckIn
 {
@@ -219,6 +231,24 @@ bool LoadPaxRem(int pax_id, vector<TPaxRemItem> &rems, TQuery& PaxRemQry)
     if (getRemCategory(rem.code, rem.text)==remUnknown)
       rems.push_back(rem);
   };
+  return !rems.empty();
+};
+
+bool LoadCrsPaxRem(int pax_id, vector<TPaxRemItem> &rems, TQuery& PaxRemQry)
+{
+  rems.clear();
+  const char* sql=
+    "SELECT * FROM crs_pax_rem WHERE pax_id=:pax_id";
+  if (strcmp(PaxRemQry.SQLText.SQLText(),sql)!=0)
+  {
+    PaxRemQry.Clear();
+    PaxRemQry.SQLText=sql;
+    PaxRemQry.DeclareVariable("pax_id",otInteger);
+  };
+  PaxRemQry.SetVariable("pax_id",pax_id);
+  PaxRemQry.Execute();
+  for(;!PaxRemQry.Eof;PaxRemQry.Next())
+    rems.push_back(TPaxRemItem().fromDB(PaxRemQry));
   return !rems.empty();
 };
 

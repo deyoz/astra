@@ -142,7 +142,7 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   screen.name = upperc( InitData.screen );
   desk.code = InitData.pult;
   desk.mode = DecodeOperMode(InitData.mode);
-  if ( InitData.checkCrypt ) { // пришло не зашифрованное сообщение - проверка на то, что пользователь шифруется
+  if ( InitData.checkCrypt && !InitData.duplicate ) { // пришло не зашифрованное сообщение - проверка на то, что пользователь шифруется
     Qry.Clear();
     Qry.SQLText =
       "SELECT pr_crypt "
@@ -1220,6 +1220,11 @@ void showBasicInfo(void)
 };
 
 /***************************************************************************************/
+void SysReqInterface::ClientError(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  ErrorToLog(ctxt, reqNode, resNode);
+};
+
 void SysReqInterface::ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   if (reqNode==NULL) return;
