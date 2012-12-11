@@ -187,7 +187,7 @@ void DevTuningInterface::ApplyCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     SetProp(ifaceNode, "id", "cache");
     SetProp(ifaceNode, "ver", "1");
     cache.buildAnswer(resNode);
-//    AstraLocale::showMessage( "MSG.CHANGED_DATA_COMMIT" );
+    AstraLocale::showMessage( "MSG.CHANGED_DATA_COMMIT" );
 }
 
 void DevTuningInterface::Cache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
