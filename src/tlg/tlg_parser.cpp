@@ -1339,7 +1339,8 @@ void ParseEnding(TTlgPartInfo ending, THeadingInfo *headingInfo, TEndingInfo* &i
   catch(...)
   {
     mem.destroy(info, STDLOG);
-    delete info;
+    if (info!=NULL) delete info;
+    info=NULL;
     throw;
   };
   return;
