@@ -933,7 +933,7 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
         TrimString(param_value);
         if (param_name==equip_param_name) break;
       };
-      if (param_name!=equip_param_name) param_value="ATB0,BTP0,BGR0,BGR1,DCP0";
+      if (param_name!=equip_param_name) param_value="ATB0,BTP0,BGR0,BGR1,RTE0,DCP0";
 
       ProgTrace( TRACE5, "%s=%s", equip_param_name, param_value.c_str()  );
 
@@ -964,6 +964,12 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
           if (opers[dotScnBP1].second.empty()) opers[dotScnBP1]=make_pair(devName=="RTE"?"SCN RESA":"BCR RESA",*addr);
           else
             if (opers[dotScnBP2].second.empty()) opers[dotScnBP2]=make_pair(devName=="RTE"?"SCN RESA":"BCR RESA",*addr);
+            
+          if (devName=="RTE")
+          {
+            if (opers[dotScnDoc].second.empty()) opers[dotScnDoc]=make_pair("WGE RESA",*addr);
+            if (opers[dotScnCard].second.empty()) opers[dotScnCard]=make_pair("WGE RESA",*addr);
+          };
           continue;
         };
         if (devName=="DCP" || devName=="MSG")
