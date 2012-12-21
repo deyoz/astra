@@ -226,9 +226,18 @@ void TSalons::Build( xmlNodePtr salonsNode )
           NewTextChild( remNode, "pr_denial" );
       }
       if ( place->layers.size() > 0 ) {
-      	remsNode = NewTextChild( placeNode, "layers" );
+      	xmlNodePtr layersNode = NewTextChild( placeNode, "layers" );
       	for( std::vector<std::string>::iterator l=place->layers.begin(); l!=place->layers.end(); l++ ) {
-      		remNode = NewTextChild( remsNode, "layer" );
+          ProgTrace( TRACE5, "layer_type=%s", l->c_str() );
+      		if ( string(EncodeCompLayerType( cltDisable )) == *l && !SALONS2::compatibleLayer( cltDisable ) ) {
+            if ( !remsNode ) {
+              remsNode = NewTextChild( placeNode, "rems" );
+            }
+      		  remNode = NewTextChild( remsNode, "rem" );
+      		  NewTextChild( remNode, "rem", "X" );    //!!!
+      		  continue;
+      		}
+      		remNode = NewTextChild( layersNode, "layer" );
       		NewTextChild( remNode, "layer_type", *l );
       	}
       }
@@ -441,34 +450,27 @@ void TSalons::Write()
         if ( cl != NoClass )
           countersClass[ cl ] = countersClass[ cl ] + 1;
       }
-     	if ( place->pr_smoke ) {
-        LQry.SetVariable( "x", place->x );
-        LQry.SetVariable( "y", place->y );
-        LQry.SetVariable( "layer_type", EncodeCompLayerType( cltSmoke ) );
-        LQry.Execute();
-      }
-     	if ( place->not_good ) {
-        LQry.SetVariable( "x", place->x );
-        LQry.SetVariable( "y", place->y );
-        LQry.SetVariable( "layer_type", EncodeCompLayerType( cltUncomfort ) );
-        LQry.Execute();
-      }
       Qry.SetVariable( "xname", place->xname );
       Qry.SetVariable( "yname", place->yname );
       Qry.Execute();
+      bool pr_disable_layer = false;
       if ( !place->rems.empty() ) {
         RQry.SetVariable( "x", place->x );
         RQry.SetVariable( "y", place->y );
         for( vector<SALONS2::TRem>::iterator rem = place->rems.begin(); rem != place->rems.end(); rem++ ) {
-          RQry.SetVariable( "rem", rem->rem );
-          if ( !rem->pr_denial )
-            RQry.SetVariable( "pr_denial", 0 );
-          else
-            RQry.SetVariable( "pr_denial", 1 );
-          RQry.Execute();
+          if ( rem->rem == "X" && !rem->pr_denial ) {
+            pr_disable_layer = true;
+          }
+          else {
+            RQry.SetVariable( "rem", rem->rem );
+            if ( !rem->pr_denial )
+              RQry.SetVariable( "pr_denial", 0 );
+            else
+              RQry.SetVariable( "pr_denial", 1 );
+            RQry.Execute();
+          }
         }
       }
-
       if ( !place->layers.empty() ) {
       	//!надо вставить слой
       	QryLayers.SetVariable( "first_xname", place->xname );
@@ -476,9 +478,26 @@ void TSalons::Write()
       	QryLayers.SetVariable( "first_yname", place->yname );
       	QryLayers.SetVariable( "last_yname", place->yname );
       	for ( vector<string>::iterator l=place->layers.begin(); l!=place->layers.end(); l++ ) {
-      		QryLayers.SetVariable( "layer_type", *l );
-      		QryLayers.Execute();
+          if ( ( DecodeCompLayerType( l->c_str() ) == cltProtect ||
+                 DecodeCompLayerType( l->c_str() ) == cltSmoke ||
+                 DecodeCompLayerType( l->c_str() ) == cltUncomfort ) &&
+               readStyle != SALONS2::rTripSalons ) {
+            LQry.SetVariable( "x", place->x );
+            LQry.SetVariable( "y", place->y );
+            LQry.SetVariable( "layer_type", *l );
+            LQry.Execute();
+          }
+          else {
+      		  QryLayers.SetVariable( "layer_type", *l );
+      		  QryLayers.Execute();
+          }
       	}
+      }
+      if ( pr_disable_layer ) {
+        LQry.SetVariable( "x", place->x );
+        LQry.SetVariable( "y", place->y );
+        LQry.SetVariable( "layer_type", EncodeCompLayerType( cltDisable ) );
+        LQry.Execute();
       }
     } //for place
   }
@@ -710,8 +729,7 @@ void TSalons::Read( bool wo_invalid_seat_no )
       while ( !LQry.Eof && LQry.FieldAsInteger( baselayer_col_num ) == num &&
               LQry.FieldAsInteger( baselayer_col_x ) == place.x &&
               LQry.FieldAsInteger( baselayer_col_y ) == place.y ) {
-        place.pr_smoke = place.pr_smoke || ( DecodeCompLayerType( LQry.FieldAsString( baselayer_col_layer_type ) ) == cltSmoke );
-        place.not_good = place.not_good || ( DecodeCompLayerType( LQry.FieldAsString( baselayer_col_layer_type ) ) == cltUncomfort );
+        SALONS::SetLayer( this->status_priority, LQry.FieldAsString( baselayer_col_layer_type ), place );
         LQry.Next();
       }
       if ( ClName.find( Qry.FieldAsString( col_class ) ) == string::npos )
@@ -722,7 +740,6 @@ void TSalons::Read( bool wo_invalid_seat_no )
     }
     if ( readStyle == SALONS2::rTripSalons ) { // здесь работа со всеми слоями для выявления разных признаков
       if ( FilterLayers.CanUseLayer( DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) ), Qry.FieldAsInteger( "point_dep" ) ) ) { // этот слой используем
-//      	ProgTrace( TRACE5, "seat_no=%s", string(string(Qry.FieldAsString("yname"))+Qry.FieldAsString("xname")).c_str() );
         SALONS::SetLayer( this->status_priority, Qry.FieldAsString( "layer_type" ), place );
         SALONS::SetFree( Qry.FieldAsString( "layer_type" ), place );
         SALONS::SetBlock( Qry.FieldAsString( "layer_type" ), place );
@@ -735,8 +752,6 @@ void TSalons::Read( bool wo_invalid_seat_no )
           	}
           }
           if ( priority >= 0 ) {
-          	//    		ProgTrace( TRACE5, "pax_id=%d, layer=%s, mp[ pax_id ].priority=%d, priority=%d, place.x=%d, place.y=%d",
-          	//    		           pax_id, Qry.FieldAsString( "layer_type" ), mp[ pax_id ].priority, priority, place.x, place.y );
           	if ( mp[ pax_id ].priority > priority ) {
           		if ( mp[ pax_id ].placelist ) {
           			SALONS2::TPoint p(mp[ pax_id ].x,mp[ pax_id ].y);
@@ -855,10 +870,10 @@ void TSalons::Parse( xmlNodePtr salonsNode )
       	remsNode = remsNode->children; //layer
       	while( remsNode ) {
       		remNode = remsNode->children;
-      		//???string l = EncodeLayer( NodeAsStringFast( "layer_type", remNode ) );
-/*new version      		if ( !l.empty() )
-      		  place.layers.push_back( l ); */
-      		remsNode = remsNode->next;
+      		TCompLayerType l = DecodeCompLayerType( NodeAsStringFast( "layer_type", remNode ) );
+      		if ( l != cltUnknown )
+      		  place.layers.push_back( NodeAsStringFast( "layer_type", remNode ) );
+       		remsNode = remsNode->next;
       	}
       }
       else { //old version

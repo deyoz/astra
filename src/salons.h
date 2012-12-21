@@ -366,6 +366,7 @@ class TSalons {
   void check_diffcomp_alarm( int point_id );
   std::string getDiffCompsAlarmRoutes( int point_id );
   int CRC32_Comp( int point_id );
+  bool compatibleLayer( ASTRA::TCompLayerType layer_type );
 } // END namespace SALONS2
 
 #endif /*_SALONS2_H_*/

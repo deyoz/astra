@@ -234,7 +234,7 @@ TSalons::TSalons( int id, TReadStyle vreadStyle, bool vdrop_not_used_pax_layers 
   layers_priority[ cltUncomfort ].name_view = layers_priority[ cltUncomfort ].name;
  	layers_priority[ cltSmoke ].editable = true;
   layers_priority[ cltSmoke ].name_view = layers_priority[ cltSmoke ].name;
- 	layers_priority[ cltDisable ].editable = compatibleLayer( cltDisable );
+ 	layers_priority[ cltDisable ].editable = true;
   layers_priority[ cltDisable ].name_view = layers_priority[ cltDisable ].name;
   layers_priority[ cltProtect ].editable = true;
   layers_priority[ cltProtect ].name_view = layers_priority[ cltProtect ].name;
@@ -431,9 +431,17 @@ void TSalons::Build( xmlNodePtr salonsNode )
           NewTextChild( remNode, "pr_denial" );
       }
       if ( !place->layers.empty() ) {
-      	remsNode = NewTextChild( placeNode, "layers" );
+      	xmlNodePtr layersNode = NewTextChild( placeNode, "layers" );
       	for( std::vector<TPlaceLayer>::iterator l=place->layers.begin(); l!=place->layers.end(); l++ ) {
-      		remNode = NewTextChild( remsNode, "layer" );
+      		if ( l->layer_type  == cltDisable && !compatibleLayer( l->layer_type ) ) {
+            if ( !remsNode ) {
+              remsNode = NewTextChild( placeNode, "rems" );
+            }
+      		  remNode = NewTextChild( remsNode, "rem" );
+      		  NewTextChild( remNode, "rem", "X" );    //!!!
+      		  continue;
+      		}
+      		remNode = NewTextChild( layersNode, "layer" );
       		NewTextChild( remNode, "layer_type", EncodeCompLayerType( l->layer_type ) );
       	}
       }
@@ -1414,13 +1422,21 @@ void TSalons::Parse( xmlNodePtr salonsNode )
 
       xmlNodePtr remsNode = GetNodeFast( "rems", node );
       xmlNodePtr remNode;
+      bool pr_disable_layer = false;
       if ( remsNode ) {
       	remsNode = remsNode->children;
       	while ( remsNode ) {
       	  remNode = remsNode->children;
       	  rem.rem = NodeAsStringFast( "rem", remNode );
       	  rem.pr_denial = GetNodeFast( "pr_denial", remNode );
-      	  place.rems.push_back( rem );
+      	  if ( rem.rem == "X" ) {
+            if ( !pr_disable_layer && !compatibleLayer( cltDisable ) && !rem.pr_denial ) {
+              TReqInfo *r = TReqInfo::Instance();
+              pr_disable_layer = ( find( r->user.access.rights.begin(),  r->user.access.rights.end(), 425 ) != r->user.access.rights.end() );
+            }
+          }
+      	  else
+      	    place.rems.push_back( rem );
       	  remsNode = remsNode->next;
         }
       }
@@ -1429,12 +1445,14 @@ void TSalons::Parse( xmlNodePtr salonsNode )
       	remsNode = remsNode->children; //layer
       	while( remsNode ) {
       		remNode = remsNode->children;
-//      		ProgTrace( TRACE5, "la
       		TCompLayerType l = DecodeCompLayerType( NodeAsStringFast( "layer_type", remNode ) );
       		if ( l != cltUnknown && !place.isLayer( l ) )
       			 place.AddLayerToPlace( l, 0, 0, NoExists, NoExists, layers_priority[ l ].priority );
       		remsNode = remsNode->next;
       	}
+      }
+      if ( !compatibleLayer( cltDisable ) && pr_disable_layer ) {
+        place.AddLayerToPlace( cltDisable, 0, 0, NoExists, NoExists, layers_priority[ cltDisable ].priority );
       }
       remNode = GetNodeFast( "tarif", node );
       if ( remNode ) {
@@ -3138,9 +3156,17 @@ void BuildSalonChanges( xmlNodePtr dataNode, const vector<TSalonSeat> &seats )
         NewTextChild( remNode, "pr_denial" );
       }
     if ( p->second.layers.size() > 0 ) {
-      remsNode = NewTextChild( n, "layers" );
+      xmlNodePtr layersNode = NewTextChild( n, "layers" );
       for( std::vector<TPlaceLayer>::const_iterator l=p->second.layers.begin(); l!=p->second.layers.end(); l++ ) {
-      	remNode = NewTextChild( remsNode, "layer" );
+    		if ( l->layer_type  == cltDisable && !compatibleLayer( l->layer_type ) ) {
+          if ( !remsNode ) {
+            remsNode = NewTextChild( n, "rems" );
+          }
+    		  remNode = NewTextChild( remsNode, "rem" );
+    		  NewTextChild( remNode, "rem", "X" );    //!!!
+          continue;
+    		}
+      	remNode = NewTextChild( layersNode, "layer" );
       	NewTextChild( remNode, "layer_type", EncodeCompLayerType( l->layer_type ) );
       }
     }
