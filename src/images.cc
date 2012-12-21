@@ -8,6 +8,7 @@
 #include "astra_consts.h"
 #include "base_tables.h"
 #include "stl_utils.h"
+#include "salons.h"
 #include "term_version.h"
 #include "serverlib/str_utils.h"
 
@@ -183,15 +184,11 @@ void GetDrawSalonProp( xmlNodePtr reqNode, xmlNodePtr resNode )
   	layersNode = NewTextChild( imagesNode, "layers_color" );
   while ( !Qry.Eof ) {
       ASTRA::TCompLayerType l = DecodeCompLayerType( Qry.FieldAsString( "code" ) );
-      if (
-           ( l == ASTRA::cltProtBeforePay ||
-             l == ASTRA::cltProtAfterPay ||
-             l == ASTRA::cltPNLBeforePay ||
-             l == ASTRA::cltPNLAfterPay ) &&
-           !TReqInfo::Instance()->desk.compatible( PROT_PAID_VERSION ) ) {
+      if ( !SALONS2::compatibleLayer( l ) ) {
         Qry.Next();
         continue;
       }
+
 			xmlNodePtr n = NewTextChild( layersNode, "layer", Qry.FieldAsString( "code" ) );
       if ( !Qry.FieldIsNULL( "color" ) )
 			  SetProp( n, "color", Qry.FieldAsString( "color" ) );
