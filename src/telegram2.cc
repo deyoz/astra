@@ -4935,8 +4935,92 @@ struct TMVTABodyItem {
     {};
 };
 
+struct TTripDelayItem {
+    string delay_code;
+    TDateTime time;
+    TTripDelayItem(const string &adelay_code, TDateTime atime):
+        delay_code(adelay_code), time(atime) {}
+};
+
+struct TTripDelays:vector<TTripDelayItem> {
+    double max_delay_mins;
+    TDateTime scd_utc;
+    void get(TTlgInfo &info);
+    void ToTlg(TTlgInfo &info, vector<string> &body, bool extra);
+    TTripDelays() {
+        max_delay_mins = 99*60 + 59;
+        scd_utc = 0;
+    }
+};
+
+void TTripDelays::ToTlg(TTlgInfo &info, vector<string> &body, bool extra)
+{
+    vector< pair<string, string> > delays;
+    TTripDelays::iterator iv = begin();
+    if(extra) {
+        if(size() > 3)
+            for(int i = 0; i < 3; i++, iv++); // Установить итератор на 4-й элемент
+        else
+            iv = end();
+    }
+    for(int i = 0; iv != end() and i < (extra ? 1 : 3); iv++, i++) {
+        string delay_code = iv->delay_code;
+        if(not is_lat(delay_code) or delay_code.size() != 2) {
+            delay_code = info.add_err(delay_code, "Wrong delay code");
+        }
+        ostringstream buf;
+        TDateTime begin_delay = (iv == begin() ? scd_utc : (iv - 1)->time);
+        int delay_mins = int(round((iv->time - begin_delay)*24*60));
+        if(delay_mins <= 0 or delay_mins > max_delay_mins) {
+            buf << info.add_err(IntToString(delay_mins), "Delay out of range 1-%.0f minutes", max_delay_mins);
+        } else {
+            int hours = delay_mins / 60;
+            buf << setfill('0') << setw(2) << hours << setw(2) << delay_mins - hours * 60;
+        }
+        delays.push_back(make_pair(delay_code, buf.str()));
+        if(delay_code.find(ERR_TAG_NAME) != string::npos or buf.str().find(ERR_TAG_NAME) != string::npos)
+            break;
+    }
+    if(delays.size() != 0) {
+        ostringstream buf;
+        string id = extra ? "EDL" : "DL";
+        switch(delays.size()) {
+            case 1:
+                buf << id << delays[0].first << "/" << delays[0].second;
+                break;
+            case 2:
+                buf
+                    << id << delays[0].first << "/" << delays[1].first << "/"
+                    << delays[0].second << "/" << delays[1].second;
+                break;
+            case 3:
+                buf
+                    << id << delays[0].first << "/" << delays[0].second << " "
+                    << id << delays[1].first << "/" << delays[2].first << "/"
+                    << delays[1].second << "/" << delays[2].second;
+                break;
+            default:
+                throw UserException("wrong delay count");
+        }
+        body.push_back(buf.str());
+    }
+}
+
+void TTripDelays::get(TTlgInfo &info)
+{
+    scd_utc = info.scd_utc;
+    TQuery Qry(&OraSession);
+    Qry.SQLText = "select * from trip_delays where point_id = :point_id and time > :scd_utc order by delay_num";
+    Qry.CreateVariable("point_id", otInteger, info.point_id);
+    Qry.CreateVariable("scd_utc", otDate, scd_utc);
+    Qry.Execute();
+    for(; not Qry.Eof; Qry.Next())
+        push_back(TTripDelayItem(Qry.FieldAsString("delay_code"), Qry.FieldAsDateTime("time")));
+}
+
 struct TMVTABody {
     TDateTime act;
+    TTripDelays delays;
     vector<TMVTABodyItem> items;
     void get(TTlgInfo &info);
     void ToTlg(TTlgInfo &info, bool &vcompleted, vector<string> &body);
@@ -5023,6 +5107,7 @@ void TMVTABody::ToTlg(TTlgInfo &info, bool &vcompleted, vector<string> &body)
                 buf << DateTimeToStr(i->est_in, "hhnn");
             buf << " " << info.TlgElemIdToElem(etAirp, i->target);
             body.push_back(buf.str());
+            delays.ToTlg(info, body, false);
             buf.str("");
             buf << "PX" << i->seats;
         } else {
@@ -5030,6 +5115,7 @@ void TMVTABody::ToTlg(TTlgInfo &info, bool &vcompleted, vector<string> &body)
         }
     }
     body.push_back(buf.str());
+    delays.ToTlg(info, body, true);
 }
 
 void TMVTABody::get(TTlgInfo &info)
@@ -5076,6 +5162,7 @@ void TMVTABody::get(TTlgInfo &info)
             items.push_back(item);
         }
     }
+    delays.get(info);
 }
 
 int CPM(TTlgInfo &info)
