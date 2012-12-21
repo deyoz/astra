@@ -4943,18 +4943,23 @@ struct TTripDelayItem {
 };
 
 struct TTripDelays:vector<TTripDelayItem> {
-    double max_delay_mins;
-    TDateTime scd_utc;
-    void get(TTlgInfo &info);
-    void ToTlg(TTlgInfo &info, vector<string> &body, bool extra);
-    TTripDelays() {
-        max_delay_mins = 99*60 + 59;
-        scd_utc = 0;
-    }
+    private:
+        bool pr_err;
+    public:
+        double max_delay_mins;
+        TDateTime scd_utc;
+        void get(TTlgInfo &info);
+        void ToTlg(TTlgInfo &info, vector<string> &body, bool extra);
+        TTripDelays():
+            pr_err(false),
+            max_delay_mins(99*60 + 59),
+            scd_utc(0)
+    {}
 };
 
 void TTripDelays::ToTlg(TTlgInfo &info, vector<string> &body, bool extra)
 {
+    if(pr_err) return;
     vector< pair<string, string> > delays;
     TTripDelays::iterator iv = begin();
     if(extra) {
@@ -4967,19 +4972,20 @@ void TTripDelays::ToTlg(TTlgInfo &info, vector<string> &body, bool extra)
         string delay_code = iv->delay_code;
         if(not is_lat(delay_code) or delay_code.size() != 2) {
             delay_code = info.add_err(delay_code, "Wrong delay code");
+            pr_err = true;
         }
         ostringstream buf;
         TDateTime begin_delay = (iv == begin() ? scd_utc : (iv - 1)->time);
         int delay_mins = int(round((iv->time - begin_delay)*24*60));
         if(delay_mins <= 0 or delay_mins > max_delay_mins) {
             buf << info.add_err(IntToString(delay_mins), "Delay out of range 1-%.0f minutes", max_delay_mins);
+            pr_err = true;
         } else {
             int hours = delay_mins / 60;
             buf << setfill('0') << setw(2) << hours << setw(2) << delay_mins - hours * 60;
         }
         delays.push_back(make_pair(delay_code, buf.str()));
-        if(delay_code.find(ERR_TAG_NAME) != string::npos or buf.str().find(ERR_TAG_NAME) != string::npos)
-            break;
+        if(pr_err) break;
     }
     if(delays.size() != 0) {
         ostringstream buf;
