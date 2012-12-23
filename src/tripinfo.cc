@@ -349,37 +349,6 @@ class TTripListOrder
     };
 };
 
-template <class T>
-void MergeSortedRanges(vector< pair<T,T> > &ranges, const pair<T,T> &range)
-{
-  if (range.first>=range.second)
-  {
-    ostringstream err;
-    err << "Wrong range [" << range.first << ", " << range.second << ")";
-    throw Exception("MergeSortedRanges: %s", err.str().c_str());
-  };
-  
-  if (!ranges.empty())
-  {
-    pair<T,T> &last_range=ranges.back();
-    if (range.first<last_range.first)
-    {
-      ostringstream err;
-      err << "Not sorted range [" << range.first << ", " << range.second << ")";
-      throw Exception("MergeSortedRanges: %s", err.str().c_str());
-    };
-    
-    if (range.first<=last_range.second)
-    {
-      if (range.second>last_range.second) last_range.second=range.second;
-    }
-    else
-      ranges.push_back( range );
-  }
-  else
-    ranges.push_back( range );
-};
-
 void TTripListSQLFilter::set(void)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();

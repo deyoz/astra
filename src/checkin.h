@@ -93,9 +93,6 @@ class TTransferItem
 
 };
 
-#define TRACE_SIGNATURE int Level, const char *nickname, const char *filename, int line
-#define TRACE_PARAMS Level, nickname, filename, line
-
 void traceTrfer( TRACE_SIGNATURE,
                  const std::string &descr,
                  const std::map<int, CheckIn::TTransferItem> &trfer );

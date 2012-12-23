@@ -67,7 +67,12 @@ TPaxTknItem& TPaxTknItem::fromDB(TQuery &Qry)
   if (Qry.GetFieldIndex("pers_type")>=0 && Qry.GetFieldIndex("seats")>=0)
     pr_inf=DecodePerson(Qry.FieldAsString("pers_type"))==ASTRA::baby && Qry.FieldAsInteger("seats")==0;
   else
-    pr_inf=false;
+  {
+    if (Qry.GetFieldIndex("pr_inf")>=0)
+      pr_inf=Qry.FieldAsInteger("pr_inf")!=0;
+    else
+      pr_inf=false;
+  };
   return *this;
 };
 
@@ -116,6 +121,58 @@ bool LoadPaxTkn(TDateTime part_key, int pax_id, TPaxTknItem &tkn, TQuery& PaxTkn
   PaxTknQry.SetVariable("pax_id",pax_id);
   PaxTknQry.Execute();
   if (!PaxTknQry.Eof) tkn.fromDB(PaxTknQry);
+  return !tkn.empty();
+};
+
+bool LoadCrsPaxTkn(int pax_id, TPaxTknItem &tkn, TQuery& PaxTknQry, TQuery& GetTKNO2Qry)
+{
+  tkn.clear();
+  const char* sql1=
+    "SELECT ticket_no, coupon_no, rem_code AS ticket_rem, 0 AS ticket_confirm, pr_inf "
+    "FROM crs_pax_tkn "
+    "WHERE pax_id=:pax_id "
+    "ORDER BY DECODE(rem_code,'TKNE',0,'TKNA',1,'TKNO',2,3),ticket_no,coupon_no ";
+  const char* sql2=
+    "SELECT report.get_TKNO2(:pax_id, '/') AS no FROM dual";
+
+  if (strcmp(PaxTknQry.SQLText.SQLText(),sql1)!=0)
+  {
+    PaxTknQry.Clear();
+    PaxTknQry.SQLText=sql1;
+    PaxTknQry.DeclareVariable("pax_id",otInteger);
+  };
+  PaxTknQry.SetVariable("pax_id", pax_id);
+  PaxTknQry.Execute();
+  if (!PaxTknQry.Eof) tkn.fromDB(PaxTknQry);
+  else
+  {
+    if (strcmp(GetTKNO2Qry.SQLText.SQLText(),sql2)!=0)
+    {
+      GetTKNO2Qry.Clear();
+      GetTKNO2Qry.SQLText=sql2;
+      GetTKNO2Qry.DeclareVariable("pax_id",otInteger);
+    };
+    GetTKNO2Qry.SetVariable("pax_id", pax_id);
+    GetTKNO2Qry.Execute();
+    if (!GetTKNO2Qry.Eof && !GetTKNO2Qry.FieldIsNULL("no"))
+    {
+      tkn.no=GetTKNO2Qry.FieldAsString("no");
+      if (!tkn.no.empty())
+      {
+        string::size_type pos=tkn.no.find_last_of('/');
+        if (pos!=string::npos)
+        {
+          if (StrToInt(tkn.no.substr(pos+1).c_str(),tkn.coupon)!=EOF)
+            tkn.no.erase(pos);
+          else
+            tkn.coupon=ASTRA::NoExists;
+          tkn.rem="TKNE";
+        }
+        else
+          tkn.rem="TKNA";
+      };
+    };
+  };
   return !tkn.empty();
 };
 
@@ -586,73 +643,6 @@ void SavePaxDoco(int pax_id, xmlNodePtr docNode, TQuery& PaxDocQry)
   PaxDocQry.SetVariable("pax_id",pax_id);
   PaxDocQry.SetVariable("only_delete",(int)doc.empty());
   PaxDocQry.Execute();
-};
-
-const TPaxNormItem& TPaxNormItem::toXML(xmlNodePtr node) const
-{
-  if (node==NULL) return *this;
-  if (bag_type!=ASTRA::NoExists)
-    NewTextChild(node,"bag_type",bag_type);
-  else
-    NewTextChild(node,"bag_type");
-  if (norm_id!=ASTRA::NoExists)
-  {
-    NewTextChild(node,"norm_id",norm_id);
-    NewTextChild(node,"norm_trfer",(int)norm_trfer);
-  }
-  else
-  {
-    NewTextChild(node,"norm_id");
-    NewTextChild(node,"norm_trfer");
-  };
-  return *this;
-};
-
-TPaxNormItem& TPaxNormItem::fromXML(xmlNodePtr node)
-{
-  clear();
-  if (node==NULL) return *this;
-  xmlNodePtr node2=node->children;
-  if (!NodeIsNULLFast("bag_type",node2))
-    bag_type=NodeAsIntegerFast("bag_type",node2);
-  if (!NodeIsNULLFast("norm_id",node2))
-  {
-    norm_id=NodeAsIntegerFast("norm_id",node2);
-    norm_trfer=NodeAsIntegerFast("norm_trfer",node2,0)!=0;
-  };
-  return *this;
-};
-
-const TPaxNormItem& TPaxNormItem::toDB(TQuery &Qry) const
-{
-  if (bag_type!=ASTRA::NoExists)
-    Qry.SetVariable("bag_type",bag_type);
-  else
-    Qry.SetVariable("bag_type",FNull);
-  if (norm_id!=ASTRA::NoExists)
-  {
-    Qry.SetVariable("norm_id",norm_id);
-    Qry.SetVariable("norm_trfer",(int)norm_trfer);
-  }
-  else
-  {
-    Qry.SetVariable("norm_id",FNull);
-    Qry.SetVariable("norm_trfer",FNull);
-  };
-  return *this;
-};
-
-TPaxNormItem& TPaxNormItem::fromDB(TQuery &Qry)
-{
-  clear();
-  if (!Qry.FieldIsNULL("bag_type"))
-    bag_type=Qry.FieldAsInteger("bag_type");
-  if (!Qry.FieldIsNULL("norm_id"))
-  {
-    norm_id=Qry.FieldAsInteger("norm_id");
-    norm_trfer=Qry.FieldAsInteger("norm_trfer")!=0;
-  };
-  return *this;
 };
 
 bool LoadPaxNorms(int pax_id, vector< pair<TPaxNormItem, TNormItem> > &norms, TQuery& NormQry)
