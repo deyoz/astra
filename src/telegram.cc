@@ -174,13 +174,13 @@ void TTlgSearchParams::get(xmlNodePtr reqNode)
         TimeCreateFrom = NodeAsDateTimeFast("TimeCreateFrom", currNode);
         TimeCreateTo = NodeAsDateTimeFast("TimeCreateTo", currNode);
         if(TimeCreateFrom + 7 < TimeCreateTo)
-            throw AstraLocale::UserException("MSG.SEARCH_PERIOD_MAX_7_DAYS");
+            throw AstraLocale::UserException("MSG.SEARCH_PERIOD_MAX_N_DAYS", LParams()<<LParam("days", 7));
     }
     if(pr_time_receive) {
         TimeReceiveFrom = NodeAsDateTimeFast("TimeReceiveFrom", currNode);
         TimeReceiveTo = NodeAsDateTimeFast("TimeReceiveTo", currNode);
         if(TimeReceiveFrom + 7 < TimeReceiveTo)
-            throw AstraLocale::UserException("MSG.SEARCH_PERIOD_MAX_7_DAYS");
+            throw AstraLocale::UserException("MSG.SEARCH_PERIOD_MAX_N_DAYS", LParams()<<LParam("days", 7));
     }
 }
 

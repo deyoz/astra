@@ -253,7 +253,6 @@ class TReqInfo
 void MergeAccess(std::vector<std::string> &a, bool &ap,
                  std::vector<std::string> b, bool bp);
 
-std::string GetSQLEnum(const std::vector<std::string> &values);
 void MsgToLog(TLogMsg &msg,
               const std::string &screen,
               const std::string &user,
@@ -383,5 +382,54 @@ bool get_test_server();
 std::string& EOracleError2UserException(std::string& msg);
 
 std::string get_internal_msgid_hex();
+
+template <class T>
+std::string GetSQLEnum(const T &values)
+{
+  std::ostringstream res;
+  bool first_iteration=true;
+  for(typename T::const_iterator i=values.begin();i!=values.end();++i)
+  {
+    if (i->empty()) continue;
+    if (!first_iteration) res << ", ";
+    res << "'" << *i << "'";
+    first_iteration=false;
+  };
+  if (!first_iteration)
+    return " ("+res.str()+") ";
+  else
+    return "";
+};
+
+template <class T>
+void MergeSortedRanges(std::vector< std::pair<T,T> > &ranges, const std::pair<T,T> &range)
+{
+  if (range.first>=range.second)
+  {
+    std::ostringstream err;
+    err << "Wrong range [" << range.first << ", " << range.second << ")";
+    throw EXCEPTIONS::Exception("MergeSortedRanges: %s", err.str().c_str());
+  };
+
+  if (!ranges.empty())
+  {
+    std::pair<T,T> &last_range=ranges.back();
+    if (range.first<last_range.first)
+    {
+      std::ostringstream err;
+      err << "Not sorted range [" << range.first << ", " << range.second << ")";
+      throw EXCEPTIONS::Exception("MergeSortedRanges: %s", err.str().c_str());
+    };
+
+    if (range.first<=last_range.second)
+    {
+      if (range.second>last_range.second) last_range.second=range.second;
+    }
+    else
+      ranges.push_back( range );
+  }
+  else
+    ranges.push_back( range );
+};
 
 #endif /*_ASTRA_UTILS_H_*/

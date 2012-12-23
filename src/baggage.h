@@ -157,7 +157,64 @@ class TNormItem
   std::string str() const;
 };
 
+class TPaxNormItem
+{
+  public:
+    int bag_type;
+    int norm_id;
+    bool norm_trfer;
+  TPaxNormItem()
+  {
+    clear();
+  };
+  void clear()
+  {
+    bag_type=ASTRA::NoExists;
+    norm_id=ASTRA::NoExists;
+    norm_trfer=false;
+  };
+  bool empty() const
+  {
+    return bag_type==ASTRA::NoExists &&
+           norm_id==ASTRA::NoExists &&
+           norm_trfer==false;
+  };
+  const TPaxNormItem& toXML(xmlNodePtr node) const;
+  TPaxNormItem& fromXML(xmlNodePtr node);
+  const TPaxNormItem& toDB(TQuery &Qry) const;
+  TPaxNormItem& fromDB(TQuery &Qry);
 };
+
+}; //namespace CheckIn
+
+namespace BagPayment
+{
+  class TPaxInfo
+  {
+    public:
+      std::string pax_cat;
+      std::string target;
+      std::string final_target;
+      std::string subcl;
+      std::string cl;
+    TPaxInfo() {clear();};
+    void clear()
+    {
+      pax_cat.clear();
+      target.clear();
+      final_target.clear();
+      subcl.clear();
+      cl.clear();
+    };
+  };
+
+  void GetPaxBagNorm(TQuery &Qry,
+                     const bool use_mixed_norms,
+                     const TPaxInfo &pax,
+                     const bool onlyCategory,
+                     std::pair<CheckIn::TPaxNormItem, CheckIn::TNormItem> &norm);
+
+}; //namespace BagPayment
 
 #endif
 

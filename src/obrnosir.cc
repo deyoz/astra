@@ -46,31 +46,14 @@ const
     {"-get_fr",                 get_fr,                 NULL,                       "getting FR files from database to local path"},
     {"-termversion",            SetTermVersionNotice,   SetTermVersionNoticeHelp,   NULL},
     {"-create_apis",            create_apis_nosir,      create_apis_nosir_help,     NULL},
-    {"-alter_db",               alter_db,               NULL,                       NULL},
     {"-send_tlg",               send_tlg,               send_tlg_help,              NULL},
     {"-create_tlg",             create_tlg,             NULL,                       NULL},
-    //{"-voland_vko",             voland_vko_event,       NULL,                       NULL},
     {"-dst_seasons",            seasons_dst_format,     NULL,                       NULL},
-    {"-alter_pax_doc",          alter_pax_doc,          NULL,                       NULL},
-    {"-alter_pax_doc2",         alter_pax_doc2,         NULL,                       NULL},
-    {"-alter_pax_doc3",         alter_pax_doc3,         NULL,                       NULL},
-    {"-alter_pax_doco3",        alter_pax_doco3,        NULL,                       NULL},
-    {"-alter_crs_pax_doc3",     alter_crs_pax_doc3,     NULL,                       NULL},
-    {"-alter_crs_pax_doco3",    alter_crs_pax_doco3,    NULL,                       NULL},
-    {"-alter_arx_pax_doc",      alter_arx_pax_doc,      NULL,                       NULL},
-    {"-alter_arx_pax_doc2",     alter_arx_pax_doc2,     NULL,                       NULL},
-    {"-alter_pax_doc4",         alter_pax_doc4,         NULL,                       NULL},
-    {"-alter_arx_pax_doc3",     alter_arx_pax_doc3,     NULL,                       NULL},
-    {"-alter_arx_pax_doco3",    alter_arx_pax_doco3,    NULL,                       NULL},
-    {"-alter_arx_pax_doc4",     alter_arx_pax_doc4,     NULL,                       NULL},
-    {"-put_move_arx_ext",       put_move_arx_ext,       NULL,                       NULL},
-    {"-alter_bag_pool_num",     alter_bag_pool_num,     NULL,                       NULL},
     {"-agent_stat_delta",       STAT::agent_stat_delta, NULL,                       NULL},
     {"-ssm",                    TypeB::ssm,             NULL,                       NULL},
-    {"-check_trfer_tckin_set",  check_trfer_tckin_set,  NULL,                       NULL},
-    {"-alter_trfer_tckin_set",  alter_trfer_tckin_set,  NULL,                       NULL},
     {"-get_sirena_rozysk_stat", get_sirena_rozysk_stat, NULL,                       NULL},
-    {"-get_events_stat",        get_events_stat2,       NULL,                       NULL}
+    {"-get_events_stat",        get_events_stat2,       NULL,                       NULL},
+    {"-get_basel_aero_stat",    get_basel_aero_stat,    NULL,                       NULL}
   };
 
 int nosir_test(int argc,char **argv)

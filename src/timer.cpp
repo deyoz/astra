@@ -138,11 +138,9 @@ void exec_tasks( const char *proc_name )
 	    	  			  		else
 	    	  			  			if ( name == "sync_1ccek" ) sync_1ccek();
 	    	  			  			else
-	    	  			  			  if ( name == "alter_arx" ) Result = alter_arx();
-                          else
-                            if ( name == "sync_checkin_data" ) sync_checkin_data( );
+                          if ( name == "sync_checkin_data" ) sync_checkin_data( );
 /*	    	  			  			    else
-                              if ( name == "cobra" ) cobra();*/
+                            if ( name == "cobra" ) cobra();*/
 
       TDateTime next_exec;
       if ( Qry.FieldIsNULL( "next_exec" ) )
