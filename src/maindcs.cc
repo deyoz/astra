@@ -959,17 +959,17 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
         };
         if (devName=="BCD" || devName=="BGR" || devName=="RTE")
         {
-          if (opers[dotScnBP1].second==*addr || opers[dotScnBP2].second==*addr) continue;
-
-          if (opers[dotScnBP1].second.empty()) opers[dotScnBP1]=make_pair(devName=="RTE"?"SCN RESA":"BCR RESA",*addr);
-          else
-            if (opers[dotScnBP2].second.empty()) opers[dotScnBP2]=make_pair(devName=="RTE"?"SCN RESA":"BCR RESA",*addr);
-            
           if (devName=="RTE")
           {
             if (opers[dotScnDoc].second.empty()) opers[dotScnDoc]=make_pair("WGE RESA",*addr);
             if (opers[dotScnCard].second.empty()) opers[dotScnCard]=make_pair("WGE RESA",*addr);
           };
+          
+          if (opers[dotScnBP1].second==*addr || opers[dotScnBP2].second==*addr) continue;
+
+          if (opers[dotScnBP1].second.empty()) opers[dotScnBP1]=make_pair(devName=="RTE"?"SCN RESA":"BCR RESA",*addr);
+          else
+            if (opers[dotScnBP2].second.empty()) opers[dotScnBP2]=make_pair(devName=="RTE"?"SCN RESA":"BCR RESA",*addr);
           continue;
         };
         if (devName=="DCP" || devName=="MSG")
