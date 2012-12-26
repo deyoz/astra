@@ -2623,8 +2623,7 @@ struct TDetailStatRow {
     };
     void operator += (const TDetailStatRow &item)
     {
-        if (flt_amount!=NoExists && item.flt_amount!=NoExists)
-          flt_amount += item.flt_amount;
+        flt_amount += item.flt_amount;
         pax_amount += item.pax_amount;
         web += item.web;
         kiosk += item.kiosk;
@@ -3052,7 +3051,7 @@ void createXMLDetailStat(const TStatParams &params, bool pr_pact,
 
           if (USE_SEANCES())
               NewTextChild(rowNode, "col", getLocaleText(si->first.seance));
-          NewTextChild(rowNode, "col", (int)(si->second.flt_amount == NoExists?si->second.flts.size():si->second.flt_amount));
+          NewTextChild(rowNode, "col", (int)(pr_pact?si->second.flts.size():si->second.flt_amount));
           NewTextChild(rowNode, "col", si->second.pax_amount);
           NewTextChild(rowNode, "col", si->second.web);
           NewTextChild(rowNode, "col", si->second.kiosk);
@@ -3109,7 +3108,7 @@ void createXMLDetailStat(const TStatParams &params, bool pr_pact,
     SetProp(colNode, "width", 85);
     SetProp(colNode, "align", taRightJustify);
     SetProp(colNode, "sort", sortInteger);
-    NewTextChild(rowNode, "col", (int)(total.flt_amount == NoExists?total.flts.size():total.flt_amount));
+    NewTextChild(rowNode, "col", (int)(pr_pact?total.flts.size():total.flt_amount));
 
     colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во пасс."));
     SetProp(colNode, "width", 85);
@@ -3550,7 +3549,6 @@ void RunPactDetailStat(bool pr_new, const TStatParams &params,
                              Qry.FieldAsInteger(col_baby);
                              
               row.flts.insert(Qry.FieldAsInteger(col_point_id));
-              row.flt_amount = NoExists;
               row.pax_amount = pax_amount;
               row.web = (client_type == ctWeb ? pax_amount : 0);
               row.kiosk = (client_type == ctKiosk ? pax_amount : 0);
