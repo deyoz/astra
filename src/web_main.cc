@@ -3359,7 +3359,7 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
                                 NULL );
             	}
             };
-            bool FQTRemUpdatesPending;
+            bool FQTRemUpdatesPending=false;
             if (iPaxFromReq->fqt_rems_present) //тег <fqt_rems> пришел
             {
               vector<string> prior_fqt_rems;
