@@ -5435,7 +5435,7 @@ void TDestList<T>::get(TTlgInfo &info,vector<TTlgCompLayer> &complayers)
 
 struct TNumByDestItem {
     int f, c, y;
-    void add(string cls);
+    void add(string cls, int seats);
     void ToTlg(TTlgInfo &info, string airp, vector<string> &body);
     TNumByDestItem():
         f(0),
@@ -5456,20 +5456,20 @@ void TNumByDestItem::ToTlg(TTlgInfo &info, string airp, vector<string> &body)
     body.push_back(buf.str());
 }
 
-void TNumByDestItem::add(string cls)
+void TNumByDestItem::add(string cls, int seats)
 {
     if(cls.empty())
         return;
     switch(cls[0])
     {
         case 'П':
-            f++;
+            f += seats;
                 break;
         case 'Б':
-            c++;
+            c += seats;
                 break;
         case 'Э':
-            y++;
+            y += seats;
                 break;
         default:
             throw Exception("TNumByDestItem::add: strange cls: %s", cls.c_str());
@@ -5817,7 +5817,7 @@ void nameToTlg(const string &name, const string &asurname, int seats, const stri
         names_sum_size += name.size();
         name_count = 1;
     }
-    for(int i = 0; i < seats - name_count; i++) {
+    for(int i = 0; seats != 1 and i < seats - name_count; i++) {
         names.push_back(exst_name);
         names_sum_size += exst_name.size();
     }
@@ -6095,7 +6095,7 @@ void TPFSBody::get(TTlgInfo &info)
         if(not info.mark_info.IsNULL() and not(info.mark_info == PFSPax.M.m_flight))
             continue;
         if(item.pax_id != NoExists) // для зарегистрированных пассажиров собираем инфу для цифровой PFS
-            pfsn[ckin_pax.target].add(ckin_pax.cls);
+            pfsn[ckin_pax.target].add(ckin_pax.cls, ckin_pax.seats);
         if(category.empty())
             continue;
         PFSPax.pnrs.get(PFSPax.pnr_id);
