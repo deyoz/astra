@@ -89,6 +89,11 @@ struct TDestInfo
   std::string airp_arv, city_arv;
   int arv_utc_offset;
   TDestInfo() { clear(); };
+  TDestInfo(int point_id)
+  {
+    clear();
+    point_arv=point_id;
+  };
 
   void clear()
   {
@@ -107,7 +112,7 @@ struct TDestInfo
   };
 
   bool fromDB(int point_id, bool pr_throw);
-  void toXML(xmlNodePtr node) const;
+  void toXML(xmlNodePtr node, bool old_style=false) const;
 };
 
 struct TFlightInfo
@@ -132,6 +137,11 @@ struct TFlightInfo
   std::map<TStage_Type, TStage> stage_statuses;
   bool pr_paid_ckin;
   TFlightInfo() { clear(); };
+  TFlightInfo(int point_id)
+  {
+    clear();
+    point_dep=point_id;
+  };
 
   void clear()
   {
@@ -158,9 +168,9 @@ struct TFlightInfo
     
   bool fromDB(TQuery &Qry);
   bool fromDB(int point_id, bool first_segment, bool pr_throw);
-  bool fromDBadditional(bool first_segment);
+  bool fromDBadditional(bool first_segment, bool pr_throw);
   void add(const TDestInfo &dest);
-  void toXML(xmlNodePtr node) const;
+  void toXML(xmlNodePtr node, bool old_style=false) const;
 };
 
 struct TPNRSegInfo
@@ -185,7 +195,8 @@ struct TPNRSegInfo
   bool filterFromDB(const TPNRFilter &filter);
   bool filterFromDB(const std::vector<TPNRAddrInfo> &filter);
   bool fromTestPax(int point_id, const TTripRoute &route, const TTestPaxInfo &pax);
-  void toXML(xmlNodePtr node) const;
+  void getMarkFlt(const TFlightInfo &flt, bool is_test, TTripInfo &mark) const;
+  void toXML(xmlNodePtr node, bool old_style=false) const;
 };
 
 struct TPaxInfo
@@ -226,7 +237,7 @@ struct TPNRInfo
     
   void add(const TPaxInfo &pax);
   bool fromDBadditional(const TFlightInfo &flt, const TDestInfo &dest, bool is_test);
-  void toXML(xmlNodePtr node) const;
+  void toXML(xmlNodePtr node, bool old_style=false) const;
 };
 
 struct TPNRs

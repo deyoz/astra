@@ -550,7 +550,7 @@ bool LoadPaxDoco(TDateTime part_key, int pax_id, TPaxDocoItem &doc, TQuery& PaxD
   return !doc.empty();
 };
 
-bool LoadCrsPaxDoco(int pax_id, TPaxDocoItem &doc, TQuery& PaxDocQry)
+bool LoadCrsPaxVisa(int pax_id, TPaxDocoItem &doc, TQuery& PaxDocQry)
 {
   doc.clear();
   const char* sql=
