@@ -190,7 +190,7 @@ std::string GetPaxDocStr(BASIC::TDateTime part_key,
 bool LoadPaxDoco(int pax_id, TPaxDocoItem &doc, TQuery& PaxDocQry);
 bool LoadPaxDoco(BASIC::TDateTime part_key, int pax_id, TPaxDocoItem &doc, TQuery& PaxDocQry);
 bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc, TQuery& PaxDocQry, TQuery& GetPSPT2Qry);
-bool LoadCrsPaxDoco(int pax_id, TPaxDocoItem &doc, TQuery& PaxDocQry);
+bool LoadCrsPaxVisa(int pax_id, TPaxDocoItem &doc, TQuery& PaxDocQry);
 void SavePaxDoc(int pax_id, xmlNodePtr docNode, TQuery& PaxDocQry);
 void SavePaxDoco(int pax_id, xmlNodePtr docNode, TQuery& PaxDocQry);
 

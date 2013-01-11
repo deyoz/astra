@@ -4383,6 +4383,19 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   }
                   else
                   {
+                    xmlNodePtr docNode=GetNodeFast("document",node2);
+                    if (docNode!=NULL)
+                    {
+                      CheckIn::SavePaxDoc(pax_id,docNode,PaxDocQry);
+                    };
+                    
+                    xmlNodePtr docoNode=GetNodeFast("doco",node2);
+                    if (docoNode!=NULL)
+                    {
+                      CheckIn::SavePaxDoco(pax_id,docoNode,PaxDocoQry);
+                    };
+                  
+                    //веб и киоск регистрация
                     if (refuse==refuseAgentError)
                     {
                       Qry.Clear();
