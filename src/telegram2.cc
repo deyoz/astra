@@ -4964,12 +4964,12 @@ void TTripDelays::ToTlg(TTlgInfo &info, vector<string> &body, bool extra)
     vector< pair<string, string> > delays;
     TTripDelays::iterator iv = begin();
     if(extra) {
-        if(size() > 3)
-            for(int i = 0; i < 3; i++, iv++); // Установить итератор на 4-й элемент
+        if(size() > 2)
+            for(int i = 0; i < 2; i++, iv++); // Установить итератор на 3-й элемент
         else
             iv = end();
     }
-    for(int i = 0; iv != end() and i < (extra ? 1 : 3); iv++, i++) {
+    for(int i = 0; iv != end() and i < 2; iv++, i++) {
         string delay_code = iv->delay_code;
         if(not is_lat(delay_code) or delay_code.size() != 2) {
             delay_code = info.add_err(delay_code, "Wrong delay code");
@@ -4999,12 +4999,6 @@ void TTripDelays::ToTlg(TTlgInfo &info, vector<string> &body, bool extra)
                 buf
                     << id << delays[0].first << "/" << delays[1].first << "/"
                     << delays[0].second << "/" << delays[1].second;
-                break;
-            case 3:
-                buf
-                    << id << delays[0].first << "/" << delays[0].second << " "
-                    << id << delays[1].first << "/" << delays[2].first << "/"
-                    << delays[1].second << "/" << delays[2].second;
                 break;
             default:
                 throw UserException("wrong delay count");
