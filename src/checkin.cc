@@ -3729,6 +3729,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   remNode=GetNodeFast("rems",node2);
                   pas.pers_type = NodeAsStringFast("pers_type",node2);
                   bool flagCHIN=DecodePerson(pas.pers_type.c_str()) != ASTRA::adult;
+                  bool flagINFT = false;
                   if (remNode!=NULL) {
                   	for(remNode=remNode->children;remNode!=NULL;remNode=remNode->next) {
                  		  node2=remNode->children;
@@ -3747,11 +3748,15 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                     if ( infItem->parent_pax_id == pax_id ) {
                       //ProgTrace( TRACE5, "infItem->parent_pax_id=%d", infItem->parent_pax_id );
                       flagCHIN = true;
+                      flagINFT = true;
                       break;
                     }
                   }
                   if ( flagCHIN ) {
                   	pas.add_rem("CHIN");
+                  }
+                  if ( flagINFT ) {
+                    pas.add_rem("INFT");
                   }
                   SEATS2::Passengers.Add(Salons,pas);
                 }
@@ -3772,7 +3777,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             //определим алгоритм рассадки
             SEATS2::TSeatAlgoParams algo=SEATS2::GetSeatAlgo(Qry,fltInfo.airline,fltInfo.flt_no,fltInfo.airp);
             //рассадка
-            SEATS2::SeatsPassengers( &Salons, algo, SEATS2::Passengers );
+            SEATS2::SeatsPassengers( &Salons, algo, reqInfo->client_type, SEATS2::Passengers );
             /*!!! иногда True - возможна рассажка на забронированные места, когда */
             /* есть право на регистрацию, статус рейса окончание, есть право сажать на чужие заброн. места */
           };

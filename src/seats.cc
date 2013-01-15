@@ -2123,7 +2123,12 @@ bool TSeatPlaces::LSD( int G3, int G2, int G, int V3, int V2, TWhere Where )
 }
 
 
-void SetLayers( vector<TCompLayerType> &Layers, bool &CanUseMutiLayer, TCompLayerType layer, int Step, const TUseLayers &preseat_layers )
+void SetLayers( vector<TCompLayerType> &Layers,
+                bool &CanUseMutiLayer,
+                TCompLayerType layer,
+                int Step,
+                const TUseLayers &preseat_layers,
+                TClientType client_type )
 {
   Layers.clear();
   CanUseMutiLayer = ( Step <= -1 );
@@ -2136,7 +2141,8 @@ void SetLayers( vector<TCompLayerType> &Layers, bool &CanUseMutiLayer, TCompLaye
         Layers.push_back( cltUncomfort );
       };
       if ( Step != 1 ) {
-        Layers.push_back( cltProtect );
+        if ( client_type == ASTRA::ctTerm )
+          Layers.push_back( cltProtect );
         Layers.push_back( cltPNLCkin );
       	for( TUseLayers::const_iterator l=preseat_layers.begin(); l!=preseat_layers.end(); l++ ) {
           if ( l->second )
@@ -2146,7 +2152,8 @@ void SetLayers( vector<TCompLayerType> &Layers, bool &CanUseMutiLayer, TCompLaye
       break;
     case cltProtect:
       if ( Step != 0 ) {
-        Layers.push_back( cltProtect );
+        if ( client_type == ASTRA::ctTerm )
+          Layers.push_back( cltProtect );
         Layers.push_back( cltUnknown );
       };
       if ( Step != 1 ) {
@@ -2164,7 +2171,8 @@ void SetLayers( vector<TCompLayerType> &Layers, bool &CanUseMutiLayer, TCompLaye
         Layers.push_back( cltUncomfort );
       };
       if ( Step != 1 ) {
-        Layers.push_back( cltProtect );
+        if ( client_type == ASTRA::ctTerm )
+          Layers.push_back( cltProtect );
         Layers.push_back( cltPNLCkin );
       	for( TUseLayers::const_iterator l=preseat_layers.begin(); l!=preseat_layers.end(); l++ ) {
           if ( l->second )
@@ -2179,7 +2187,8 @@ void SetLayers( vector<TCompLayerType> &Layers, bool &CanUseMutiLayer, TCompLaye
         Layers.push_back( cltUncomfort );
       };
       if ( Step != 1 ) {
-        Layers.push_back( cltProtect );
+        if ( client_type == ASTRA::ctTerm )
+          Layers.push_back( cltProtect );
        	for( TUseLayers::const_iterator l=preseat_layers.begin(); l!=preseat_layers.end(); l++ ) {
           if ( l->second )
             Layers.push_back( l->first );
@@ -2200,7 +2209,8 @@ void SetLayers( vector<TCompLayerType> &Layers, bool &CanUseMutiLayer, TCompLaye
         Layers.push_back( cltUncomfort );
       }
       if ( Step != 1 ) {
-      	Layers.push_back( cltProtect );
+        if ( client_type == ASTRA::ctTerm )
+      	  Layers.push_back( cltProtect );
       	Layers.push_back( cltPNLCkin );
       }
       break;
@@ -2272,7 +2282,10 @@ bool ExistsBasePlace( SALONS2::TSalons &Salons, TPassenger &pass )
 }
 
 /* рассадка пассажиров */
-void SeatsPassengers( SALONS2::TSalons *Salons, TSeatAlgoParams ASeatAlgoParams /* sdUpDown_Line - умолчание */,  TPassengers &passengers )
+void SeatsPassengers( SALONS2::TSalons *Salons,
+                      TSeatAlgoParams ASeatAlgoParams /* sdUpDown_Line - умолчание */,
+                      TClientType client_type,
+                      TPassengers &passengers )
 {
 	ProgTrace( TRACE5, "NEWSEATS, ASeatAlgoParams=%d", (int)ASeatAlgoParams.SeatAlgoType );
   if ( !passengers.getCount() )
@@ -2449,7 +2462,12 @@ void SeatsPassengers( SALONS2::TSalons *Salons, TSeatAlgoParams ASeatAlgoParams 
                  curr_preseat_layers[ cltPNLAfterPay ] = true;
                }
                /* задаем массив статусов мест */
-               SetLayers( SeatsLayers, CanUseMutiLayer, passengers.Get( 0 ).preseat_layer, KeyLayers, curr_preseat_layers );
+               SetLayers( SeatsLayers,
+                          CanUseMutiLayer,
+                          passengers.Get( 0 ).preseat_layer,
+                          KeyLayers,
+                          curr_preseat_layers,
+                          client_type );
                /* пробег по статусом */
                for ( vector<TCompLayerType>::iterator l=SeatsLayers.begin(); l!=SeatsLayers.end(); l++ ) {
                  PlaceLayer = *l;
