@@ -244,8 +244,13 @@ typedef std::map<ASTRA::TCompLayerType,bool> TUseLayers;
 
 /* тут описаны будут доступные ф-ции */
 /* автоматическая пересадка пассажиров при изменении компоновки */
-void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &passengers, TSeatAlgoParams ASeatAlgoParams );
-void SeatsPassengers( SALONS2::TSalons *Salons, TSeatAlgoParams ASeatAlgoParams, TPassengers &passengers );
+void AutoReSeatsPassengers( SALONS2::TSalons &Salons,
+                            TPassengers &passengers,
+                            TSeatAlgoParams ASeatAlgoParams );
+void SeatsPassengers( SALONS2::TSalons *Salons,
+                      TSeatAlgoParams ASeatAlgoParams,
+                      ASTRA::TClientType client_type,
+                      TPassengers &passengers );
 void ChangeLayer( ASTRA::TCompLayerType layer_type, int point_id, int pax_id, int &tid,
                   std::string first_xname, std::string first_yname, TSeatsType seat_type, bool pr_lat_seat );
 void SaveTripSeatRanges( int point_id, ASTRA::TCompLayerType layer_type, std::vector<TSeatRange> &seats,
