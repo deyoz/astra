@@ -214,7 +214,7 @@ bool filterCompons( const string &airline, const string &airp )
   		 );
 }
 
-enum TCompType { ctBase = 0, ctPrior = 1, ctCurrent = 2 };
+enum TCompType { ctBase = 0, ctBaseBort = 1, ctPrior = 2, ctCurrent = 3 };
 
 struct TShowComps {
 	int comp_id;
@@ -298,7 +298,7 @@ void getFlightTuneCompRef( int point_id, bool use_filter, const string &trip_air
     }
     comp.comp_type = ctCurrent;
    	if ( !use_filter ||
-         comp.comp_type != ctBase || /* поиск компоновки только по компоновкам нужной А/К или портовым компоновкам */
+         comp.comp_type != ctBase && comp.comp_type != ctBaseBort || /* поиск компоновки только по компоновкам нужной А/К или портовым компоновкам */
     		( comp.airline.empty() || trip_airline == comp.airline ) &&
     		  filterCompons( comp.airline, comp.airp ) ) {
       setCompName( comp );
@@ -308,7 +308,11 @@ void getFlightTuneCompRef( int point_id, bool use_filter, const string &trip_air
   }
 }
 
-void getFlightBaseCompRef( int point_id, bool onlySetComp, bool use_filter, const string &trip_airline, vector<TShowComps> &comps )
+void getFlightBaseCompRef( int point_id, bool onlySetComp, bool use_filter,
+                           const string &trip_airline,
+                           const string &trip_craft,
+                           const string &trip_bort,
+                           vector<TShowComps> &comps )
 {
   TQuery Qry( &OraSession );
   string sql;
@@ -339,7 +343,11 @@ void getFlightBaseCompRef( int point_id, bool onlySetComp, bool use_filter, cons
 	  comp.descr = Qry.FieldAsString( "descr" );
     switch ( Qry.FieldAsInteger( "pr_comp" ) ) {
       case 0:
-        comp.comp_type = ctBase;
+        if ( !comp.craft.empty() && comp.craft == trip_craft &&
+             !comp.bort.empty() && comp.bort == trip_bort )
+          comp.comp_type = ctBaseBort;
+        else
+          comp.comp_type = ctBase;
         break;
       case 1:
         comp.comp_type = ctCurrent;
@@ -348,7 +356,7 @@ void getFlightBaseCompRef( int point_id, bool onlySetComp, bool use_filter, cons
 	  comp.airline = Qry.FieldAsString( "airline" );
 	  comp.airp = Qry.FieldAsString( "airp" );
    	if ( !use_filter ||
-         comp.comp_type != ctBase || /* поиск компоновки только по компоновкам нужной А/К или портовым компоновкам */
+         comp.comp_type != ctBase && comp.comp_type != ctBaseBort || /* поиск компоновки только по компоновкам нужной А/К или портовым компоновкам */
     		( comp.airline.empty() || trip_airline == comp.airline ) &&
     		  filterCompons( comp.airline, comp.airp ) ) {
       setCompName( comp );
@@ -420,7 +428,7 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         if ( !Qry.Eof && craft == Qry.FieldAsString( "craft" ) ) {
           ProgTrace( TRACE5, "GetPriorAirp: point_id=%d, comp_id=%d", item.point_id, Qry.FieldAsInteger( "comp_id" ) );
           if ( Qry.FieldAsInteger( "comp_id" ) >= 0 ) { // базовая
-            getFlightBaseCompRef( item.point_id, true, false, trip_airline, comps_tmp );
+            getFlightBaseCompRef( item.point_id, true, false, trip_airline, craft, bort, comps_tmp );
           }
           else {
             getFlightTuneCompRef( item.point_id, false, trip_airline, comps_tmp ); // редактированная
@@ -441,7 +449,7 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         }
       }
     }
-    getFlightBaseCompRef( point_id, false, true, trip_airline, comps );
+    getFlightBaseCompRef( point_id, false, true, trip_airline, craft, bort, comps );
     //sort comps for client
     sort( comps.begin(), comps.end(), CompareShowComps );
     string StrVal;
