@@ -432,6 +432,9 @@ void ReadSalons( TTlgInfo &info, std::vector<TTlgCompLayer> &complayers, bool pr
 void send_tlg_help(const char *name);
 int send_tlg(int argc,char **argv);
 
+bool check_delay_code(int delay_code);
+bool check_delay_value(int delay_mins);
+
 #endif /*_TELEGRAM_H_*/
 
 
