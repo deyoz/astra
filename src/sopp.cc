@@ -4133,6 +4133,24 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   //новая отвязка телеграмм
   ReBindTlgs( move_id, voldDests );
   // список SendTlg( point_id, types )
+  // отправка телеграмм задержек
+  vector<string> tlg_types;
+  tlg_types.push_back("MVTC");
+  for( TSOPPDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
+      TTripInfo t;
+      t.airline = id->airline;
+      t.flt_no = id->flt_no;
+      t.airp = id->airp;
+      if(GetTripSets(tsSendMVTDelays, t) and not id->delays.empty()) {
+          try {
+              TelegramInterface::SendTlg(id->point_id,tlg_types);
+          }
+          catch(std::exception &E)
+          {
+              ProgError(STDLOG,"internal_WriteDests (point_id=%d): %s",id->point_id,E.what());
+          };
+      }
+  }
 }
 
 void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
