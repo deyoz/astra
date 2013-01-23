@@ -4966,6 +4966,16 @@ bool check_delay_code(int delay_code)
     return delay_code >= 0 and delay_code <= 99;
 }
 
+bool check_delay_code(const string &delay_code)
+{
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "SELECT num FROM delays WHERE code=:code";
+  Qry.CreateVariable( "code", otString, delay_code );
+  Qry.Execute();
+  return ( !Qry.Eof && check_delay_code( Qry.FieldAsInteger( "num" ) ) );
+}
+
 string TTripDelays::delay_value(TTlgInfo &info, TDateTime prev, TDateTime curr, bool pr_MVTC = false)
 {
     ostringstream result;
@@ -4973,11 +4983,12 @@ string TTripDelays::delay_value(TTlgInfo &info, TDateTime prev, TDateTime curr, 
         if(pr_MVTC) {
             result << DateTimeToStr(curr, "ddhhnn");
         } else {
-            int hours = delay_mins / 60;
-            result << setfill('0') << setw(2) << hours << setw(2) << delay_mins - hours * 60;
+            int hours, mins, secs;
+            BASIC::DecodeTime( curr - prev, hours, mins, secs );
+            result << setfill('0') << setw(2) << hours << setw(2) << mins;
         }
     } else {
-        result << info.add_err(IntToString(delay_mins), "Delay out of range 1-%d minutes", MAX_DELAY_TIME);
+        result << info.add_err(IntToString(int((curr-prev-MAX_DELAY_TIME)*24*60)), "Delay out of range 1-%d minutes", MAX_DELAY_TIME);
         pr_err = true;
     }
     return result.str();
