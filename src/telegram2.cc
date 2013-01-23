@@ -35,7 +35,7 @@ int TST_TLG_ID; // for test purposes
 const string ERR_TAG_NAME = "ERROR";
 const string DEFAULT_ERR = "?";
 const string ERR_FIELD = "<" + ERR_TAG_NAME + ">" + DEFAULT_ERR + "</" + ERR_TAG_NAME + ">";
-const int MAX_DELAY_MINS = 99*60 + 59;
+const TDateTime MAX_DELAY_TIME = 100.0/24.0;
 
 bool TTlgInfo::operator == (const TMktFlight &s) const
 {
@@ -4956,9 +4956,9 @@ struct TTripDelays:vector<TTripDelayItem> {
     {}
 };
 
-bool check_delay_value(int delay_mins)
+bool check_delay_value(TDateTime delay_time)
 {
-    return delay_mins > 0 and delay_mins <= MAX_DELAY_MINS;
+    return delay_time > 0 and delay_time < MAX_DELAY_TIME;
 }
 
 bool check_delay_code(int delay_code)
@@ -4969,8 +4969,7 @@ bool check_delay_code(int delay_code)
 string TTripDelays::delay_value(TTlgInfo &info, TDateTime prev, TDateTime curr, bool pr_MVTC = false)
 {
     ostringstream result;
-    int delay_mins = int(round((curr - prev)*24*60));
-    if(check_delay_value(delay_mins)) {
+    if(check_delay_value( curr - prev)) {
         if(pr_MVTC) {
             result << DateTimeToStr(curr, "ddhhnn");
         } else {
@@ -4978,7 +4977,7 @@ string TTripDelays::delay_value(TTlgInfo &info, TDateTime prev, TDateTime curr, 
             result << setfill('0') << setw(2) << hours << setw(2) << delay_mins - hours * 60;
         }
     } else {
-        result << info.add_err(IntToString(delay_mins), "Delay out of range 1-%d minutes", MAX_DELAY_MINS);
+        result << info.add_err(IntToString(delay_mins), "Delay out of range 1-%d minutes", MAX_DELAY_TIME);
         pr_err = true;
     }
     return result.str();

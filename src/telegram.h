@@ -433,7 +433,7 @@ void send_tlg_help(const char *name);
 int send_tlg(int argc,char **argv);
 
 bool check_delay_code(int delay_code);
-bool check_delay_value(int delay_mins);
+bool check_delay_value(BASIC::TDateTime delay_time);
 
 #endif /*_TELEGRAM_H_*/
 
