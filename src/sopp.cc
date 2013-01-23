@@ -3287,6 +3287,25 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
       	existsTrip = true;
       	break;
       }
+      if ( id->pr_del != -1 && id != dests.end() &&
+           ( !id->delays.empty() || id->est_out != NoExists ) ) {
+        TTripInfo info;
+        info.airline = id->airline;
+        info.flt_no = id->flt_no;
+        info.airp = id->airp;
+        if ( GetTripSets( tsCheckMVTDelays, info ) ) { //проверка задержек на совместимость с телеграммами
+          if ( id->delays.empty() )
+            throw AstraLocale::UserException( "MSG.MVTDELAY.NOT_SET" );
+          TDateTime prior_delay_time  = id->scd_out;
+          for ( vector<TSOPPDelay>::iterator q=id->delays.begin(); q!=id->delays.end(); q++ ) {
+            if ( !check_delay_code( q->code ) )
+              throw AstraLocale::UserException( "MSG.MVTDELAY.INVALID_CODE" );
+            if ( !check_delay_value( q->time - prior_delay_time ) )
+              throw AstraLocale::UserException( "MSG.MVTDELAY.INVALID_TIME" );
+            prior_delay_time = q->time;
+          }
+        }
+      }
     } // end for
     if ( !pr_time )
     	throw AstraLocale::UserException( "MSG.ROUTE.IN_OUT_TIMES_NOT_SPECIFIED" );
@@ -4113,7 +4132,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   }
   //новая отвязка телеграмм
   ReBindTlgs( move_id, voldDests );
-
+  // список SendTlg( point_id, types )
 }
 
 void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
