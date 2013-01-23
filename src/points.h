@@ -67,6 +67,11 @@ class TPointsDestDelay {
 public:
 	std::string code;
 	BASIC::TDateTime time;
+	TPointsDestDelay( const TSOPPDelay &delay ) {
+    code = delay.code;
+    time = delay.time;
+	};
+	TPointsDestDelay(){};
 };
 
 class TPointsDest;
@@ -163,6 +168,13 @@ class TFlightDelays {
   private:
     std::vector<TPointsDestDelay> delays;
   public:
+    TFlightDelays( const std::vector<TSOPPDelay> &soppdelays ) {
+      for ( std::vector<TSOPPDelay>::const_iterator i=soppdelays.begin(); i!=soppdelays.end(); i++ ) {
+        TPointsDestDelay pdelay( *i );
+        Add( pdelay );
+      }
+    }
+    TFlightDelays(){};
     void Load( int point_id );
     void Save( int point_id );
     bool Empty() {
