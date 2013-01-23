@@ -169,7 +169,9 @@ enum TTripSetType { tsCraftInitVIP=1,
                     tsMixedNorms=13,
                     tsNoTicketCheck=15,
                     tsCharterSearch=16,
-                    tsCraftNoChangeSections=17 };
+                    tsCraftNoChangeSections=17,
+                    tsCheckMVTDelays=18,
+                    tsSendMVTDelays=19};
                     
 const long int DOC_TYPE_FIELD=0x0001;
 const long int DOC_ISSUE_COUNTRY_FIELD=0x0002;
@@ -228,7 +230,7 @@ class TCheckDocInfo: public std::pair<TCheckDocTknInfo, TCheckDocTknInfo>
     };
 };
                     
-bool GetTripSets( const TTripSetType setType, const TTripInfo &info );
+bool GetTripSets( const TTripSetTypesetType, const TTripInfo &info );
 
 TCheckDocInfo GetCheckDocInfo(const int point_dep, const std::string& airp_arv);
 TCheckDocInfo GetCheckDocInfo(const int point_dep, const std::string& airp_arv,
