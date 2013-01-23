@@ -230,7 +230,7 @@ class TCheckDocInfo: public std::pair<TCheckDocTknInfo, TCheckDocTknInfo>
     };
 };
                     
-bool GetTripSets( const TTripSetTypesetType, const TTripInfo &info );
+bool GetTripSets( const TTripSetType setType, const TTripInfo &info );
 
 TCheckDocInfo GetCheckDocInfo(const int point_dep, const std::string& airp_arv);
 TCheckDocInfo GetCheckDocInfo(const int point_dep, const std::string& airp_arv,
