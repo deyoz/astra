@@ -2571,24 +2571,33 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
      	  wp.pr_free = ( wp.pr_free || pr_first ); // 0 - занято, 1 - свободно, 2 - частично занято
 
         if ( wp.pr_free ) {
-        	if ( !pass_rem.empty() ) {
-        	  wp.pr_free = 2; // свободно без учета подкласса
-            for ( vector<TRem>::iterator i=place->rems.begin(); i!=place->rems.end(); i++ ) {
-            	if ( i->rem == pass_rem ) {
-            		if ( !i->pr_denial ) {
-            		  wp.pr_free = 3;  // свободно с учетом подкласса
-            		  pr_find_free_subcls_place=true;
-            		}
-            		break;
-            	}
-            }
+          //место свободно
+          //вычисляем подкласс места
+          string seat_subcls;
+        	for ( vector<TRem>::iterator i=place->rems.begin(); i!=place->rems.end(); i++ ) {
+        		if ( isREM_SUBCLS( i->rem ) && !i->pr_denial ) {
+              seat_subcls = i->rem;
+        			break;
+        		}
           }
-          else { // пассажир без подкласса
-          	for ( vector<TRem>::iterator i=place->rems.begin(); i!=place->rems.end(); i++ ) {
-          		if ( isREM_SUBCLS( i->rem ) ) {
-          			wp.pr_free = 0;
-          			break;
-          		}
+          if ( !pass_rem.empty() ) {
+            //у пассажира есть подкласс
+            if ( pass_rem == seat_subcls ) {
+              wp.pr_free = 3;  // свободно с учетом подкласса
+              pr_find_free_subcls_place = true;
+            }
+            else
+              if ( seat_subcls.empty() ) { // нет подкласса у места
+                wp.pr_free = 2; // свободно без учета подкласса
+              }
+              else { // подклассы не совпали
+                wp.pr_free = 0; // занято
+              }
+          }
+          else {
+            // у пассажира нет подкласса
+            if ( !seat_subcls.empty() ) { // подкласс у места
+              	wp.pr_free = 0; // занято
             }
           }
         }
@@ -2618,16 +2627,16 @@ int get_seat_status( TWebPlace &wp, bool pr_find_free_subcls_place )
 {
   int status;
   switch( wp.pr_free ) {
-  	case 0:
+  	case 0: // занято
    		status = 1;
    		break;
-   	case 1:
+   	case 1: // свободно
    		status = 0;
    		break;
-   	case 2:
+   	case 2: // свободно без учета подкласса
    		status = pr_find_free_subcls_place;
    		break;
-   	case 3:
+   	case 3: // свободно с учетом подкласса
    		status = !pr_find_free_subcls_place;
    		break;
   };
