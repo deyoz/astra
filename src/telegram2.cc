@@ -5047,11 +5047,9 @@ void TTripDelays::get(TTlgInfo &info)
     Qry.SQLText =
         "select * from trip_delays, delays where "
         "   point_id = :point_id and "
-        "   time > :scd_utc and "
         "   trip_delays.delay_code = delays.code "
         "order by delay_num";
     Qry.CreateVariable("point_id", otInteger, info.point_id);
-    Qry.CreateVariable("scd_utc", otDate, info.scd_utc);
     Qry.Execute();
     int err_idx = NoExists;
     for(int idx = 0; not Qry.Eof; Qry.Next(), idx++) {
