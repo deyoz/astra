@@ -4962,7 +4962,7 @@ bool check_delay_value(TDateTime delay_time)
     double f;
     double remain = modf(delay_time, &f);
     BASIC::DecodeTime( remain, hours, mins, secs );
-    return f * 24 * 60 + hours * 60 + mins < MAX_DELAY_TIME;
+    return delay_time > 0 && f * 24 * 60 + hours * 60 + mins < MAX_DELAY_TIME;
 }
 
 bool check_delay_code(int delay_code)

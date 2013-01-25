@@ -3295,13 +3295,14 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
         info.airp = id->airp;
         if ( GetTripSets( tsCheckMVTDelays, info ) ) { //проверка задержек на совместимость с телеграммами
           if ( id->delays.empty() )
-            throw AstraLocale::UserException( "MSG.MVTDELAY.NOT_SET" );
+            throw AstraLocale::UserException( "MSG.MVTDELAY.INVALID_CODE" );
           vector<TSOPPDelay>::iterator q = id->delays.end() - 1;
           if ( q->time != id->est_out )
-            throw AstraLocale::UserException( "MSG.MVTDELAY.NOT_SET" );
+            throw AstraLocale::UserException( "MSG.MVTDELAY.INVALID_CODE" );
           for ( q=id->delays.begin(); q!=id->delays.end(); q++ ) {
             if ( !check_delay_code( q->code ) )
               throw AstraLocale::UserException( "MSG.MVTDELAY.INVALID_CODE" );
+            ProgTrace( TRACE5, "%f", q->time - id->scd_out );
             if ( !check_delay_value( q->time - id->scd_out ) )
               throw AstraLocale::UserException( "MSG.MVTDELAY.INVALID_TIME" );
           }
