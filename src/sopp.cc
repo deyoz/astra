@@ -3303,7 +3303,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
             if ( !check_delay_code( q->code ) )
               throw AstraLocale::UserException( "MSG.MVTDELAY.INVALID_CODE" );
             ProgTrace( TRACE5, "%f", q->time - id->scd_out );
-            if ( !check_delay_value( q->time - id->scd_out ) )
+            if ( q->time != id->scd_out && !check_delay_value( q->time - id->scd_out ) )
               throw AstraLocale::UserException( "MSG.MVTDELAY.INVALID_TIME" );
           }
         }
