@@ -35,7 +35,7 @@ int TST_TLG_ID; // for test purposes
 const string ERR_TAG_NAME = "ERROR";
 const string DEFAULT_ERR = "?";
 const string ERR_FIELD = "<" + ERR_TAG_NAME + ">" + DEFAULT_ERR + "</" + ERR_TAG_NAME + ">";
-const TDateTime MAX_DELAY_TIME = 100.0/24.0;
+const int MAX_DELAY_TIME = 6000; //mins, more than 99 hours 59 mins
 
 bool TTlgInfo::operator == (const TMktFlight &s) const
 {
@@ -4946,19 +4946,23 @@ struct TTripDelayItem {
 
 struct TTripDelays:vector<TTripDelayItem> {
     private:
-        bool pr_err;
+        bool pr_MVTC;
     public:
         string delay_code(TTlgInfo &info, int delay_code);
-        string delay_value(TTlgInfo &info, TDateTime prev, TDateTime curr, bool pr_MVTC);
+        string delay_value(TTlgInfo &info, TDateTime prev, TDateTime curr);
         void get(TTlgInfo &info);
         void ToTlg(TTlgInfo &info, vector<string> &body, bool extra);
-        TTripDelays(): pr_err(false)
+        TTripDelays(bool apr_MVTC): pr_MVTC(apr_MVTC)
     {}
 };
 
 bool check_delay_value(TDateTime delay_time)
 {
-    return delay_time > 0 and delay_time < MAX_DELAY_TIME;
+    int hours, mins, secs;
+    double f;
+    double remain = modf(delay_time, &f);
+    BASIC::DecodeTime( remain, hours, mins, secs );
+    return f * 24 * 60 + hours * 60 + mins < MAX_DELAY_TIME;
 }
 
 bool check_delay_code(int delay_code)
@@ -4976,57 +4980,32 @@ bool check_delay_code(const string &delay_code)
   return ( !Qry.Eof && check_delay_code( Qry.FieldAsInteger( "num" ) ) );
 }
 
-string TTripDelays::delay_value(TTlgInfo &info, TDateTime prev, TDateTime curr, bool pr_MVTC = false)
+string TTripDelays::delay_value(TTlgInfo &info, TDateTime prev, TDateTime curr)
 {
     ostringstream result;
-    if(check_delay_value( curr - prev)) {
-        if(pr_MVTC) {
-            result << DateTimeToStr(curr, "ddhhnn");
-        } else {
-            int hours, mins, secs;
-            BASIC::DecodeTime( curr - prev, hours, mins, secs );
-            result << setfill('0') << setw(2) << hours << setw(2) << mins;
-        }
-    } else {
-        result << info.add_err(IntToString(int((curr-prev-MAX_DELAY_TIME)*24*60)), "Delay out of range 1-%d minutes", MAX_DELAY_TIME);
-        pr_err = true;
-    }
+    if(check_delay_value(curr - prev)) {
+        int hours, mins, secs;
+        double f;
+        double remain = modf(curr - prev, &f);
+        BASIC::DecodeTime( remain, hours, mins, secs );
+        result << setfill('0') << setw(2) << f * 24 + hours << setw(2) << mins;
+    } else
+        result << info.add_err(DEFAULT_ERR, "Delay out of range %d mins", MAX_DELAY_TIME);
     return result.str();
 }
 
 string TTripDelays::delay_code(TTlgInfo &info, int delay_code)
 {
-    ostringstream adelay_code;
+    ostringstream result;
     if(check_delay_code(delay_code)) {
-        adelay_code << setw(2) << setfill('0') << delay_code;
-    } else {
-        adelay_code << info.add_err(IntToString(delay_code), "Wrong delay code");
-        pr_err = true;
-    }
-    return adelay_code.str();
-}
-
-struct TTripDelaysMVTC:TTripDelays {
-    void ToTlg(TTlgInfo &info, vector<string> &body);
-};
-
-void TTripDelaysMVTC::ToTlg(TTlgInfo &info, vector<string> &body)
-{
-    if(empty())
-        body.push_back(info.add_err(DEFAULT_ERR, "delays not found"));
-    else {
-        ostringstream buf;
-        buf << "ED" << delay_value(info, size() == 1 ? info.scd_utc : at(size() - 2).time, back().time, true);
-        body.push_back(buf.str());
-        buf.str("");
-        buf << "DL" << delay_code(info, back().delay_code);
-        body.push_back(buf.str());
-    }
+        result << setw(2) << setfill('0') << delay_code;
+    } else
+        result << info.add_err(IntToString(delay_code), getLocaleText("MSG.MVTDELAY.INVALID_CODE"));
+    return result.str();
 }
 
 void TTripDelays::ToTlg(TTlgInfo &info, vector<string> &body, bool extra)
 {
-    if(pr_err) return;
     vector< pair<string, string> > delays;
     TTripDelays::iterator iv = begin();
     if(extra) {
@@ -5038,21 +5017,22 @@ void TTripDelays::ToTlg(TTlgInfo &info, vector<string> &body, bool extra)
     for(int i = 0; iv != end() and i < 2; iv++, i++) {
         delays.push_back(make_pair(
                     delay_code(info, iv->delay_code),
-                    delay_value(info, (iv == begin() ? info.scd_utc : (iv - 1)->time), iv->time)
+                    delay_value(info, info.scd_utc, iv->time)
                     ));
-        if(pr_err) break;
     }
     if(delays.size() != 0) {
         ostringstream buf;
         string id = extra ? "EDL" : "DL";
         switch(delays.size()) {
             case 1:
-                buf << id << delays[0].first << "/" << delays[0].second;
+                buf << id << delays[0].first;
+                if(not pr_MVTC)
+                    buf << "/" << delays[0].second;
                 break;
             case 2:
-                buf
-                    << id << delays[0].first << "/" << delays[1].first << "/"
-                    << delays[0].second << "/" << delays[1].second;
+                buf << id << delays[0].first << "/" << delays[1].first;
+                if(not pr_MVTC)
+                    buf << "/" << delays[0].second << "/" << delays[1].second;
                 break;
             default:
                 throw UserException("wrong delay count");
@@ -5073,14 +5053,30 @@ void TTripDelays::get(TTlgInfo &info)
     Qry.CreateVariable("point_id", otInteger, info.point_id);
     Qry.CreateVariable("scd_utc", otDate, info.scd_utc);
     Qry.Execute();
-    for(; not Qry.Eof; Qry.Next())
-        push_back(TTripDelayItem(Qry.FieldAsInteger("num"), Qry.FieldAsDateTime("time")));
+    int err_idx = NoExists;
+    for(int idx = 0; not Qry.Eof; Qry.Next(), idx++) {
+        int adelay_code = Qry.FieldAsInteger("num");
+        TDateTime adelay_value = Qry.FieldAsDateTime("time");
+        push_back(TTripDelayItem(adelay_code, adelay_value));
+        // В MVTC выводятся только коды задержек, поэтому проверять формат интервала не нужно
+        if(not check_delay_code(adelay_code) or (not pr_MVTC and not check_delay_value(adelay_value - info.scd_utc)))
+            err_idx = idx;
+    }
+    if(err_idx != NoExists) { // есть ошибочные задержки
+        if(err_idx == (int)size() - 1) { // последняя задержка с ошибкой
+            erase(begin(), begin() + err_idx); // оставляем только ее
+        } else
+            erase(begin(), begin() + err_idx + 1); // выкидываем все задержки до последней ошибочной включительно
+    }
+    if(size() > 4)
+        erase(begin(), (begin() + size() - 4)); // оставляем 4 последние задержки
 }
 
 struct TMVTCBody {
-    TTripDelaysMVTC delays;
+    TTripDelays delays;
     void get(TTlgInfo &info);
     void ToTlg(TTlgInfo &info, vector<string> &body);
+    TMVTCBody(): delays(true) {};
 };
 
 void TMVTCBody::get(TTlgInfo &info)
@@ -5090,7 +5086,15 @@ void TMVTCBody::get(TTlgInfo &info)
 
 void TMVTCBody::ToTlg(TTlgInfo &info, vector<string> &body)
 {
-    delays.ToTlg(info, body);
+    if(delays.empty())
+        body.push_back(info.add_err(DEFAULT_ERR, "delays not found"));
+    else {
+        ostringstream buf;
+        buf << "ED" << DateTimeToStr(info.est_utc, "ddhhnn");
+        body.push_back(buf.str());
+        delays.ToTlg(info, body, false);
+        delays.ToTlg(info, body, true);
+    }
 }
 
 struct TMVTABody {
@@ -5099,7 +5103,7 @@ struct TMVTABody {
     vector<TMVTABodyItem> items;
     void get(TTlgInfo &info);
     void ToTlg(TTlgInfo &info, vector<string> &body);
-    TMVTABody(): act(NoExists) {};
+    TMVTABody(): act(NoExists), delays(false) {};
 };
 
 struct TMVTBBody {
@@ -5237,7 +5241,12 @@ void TMVTABody::get(TTlgInfo &info)
             items.push_back(item);
         }
     }
-    delays.get(info);
+    TTripInfo t;
+    t.airline = info.airline;
+    t.flt_no = info.flt_no;
+    t.airp = info.airp_dep;
+    if(GetTripSets(tsSendMVTDelays, t))
+        delays.get(info);
 }
 
 int CPM(TTlgInfo &info)
@@ -6334,6 +6343,7 @@ int TelegramInterface::create_tlg(const TCreateTlgInfo &createInfo)
             "   points.flt_no, "
             "   points.suffix, "
             "   points.scd_out scd, "
+            "   points.est_out, "
             "   points.act_out, "
             "   points.bort, "
             "   points.airp, "
@@ -6355,6 +6365,8 @@ int TelegramInterface::create_tlg(const TCreateTlgInfo &createInfo)
         info.flt_no = Qry.FieldAsInteger("flt_no");
         info.suffix = Qry.FieldAsString("suffix");
         info.scd_utc = Qry.FieldAsDateTime("scd");
+        if(not Qry.FieldIsNULL("est_out"))
+            info.est_utc = Qry.FieldAsDateTime("est_out");
         info.bort = Qry.FieldAsString("bort");
         info.airp_dep = Qry.FieldAsString("airp");
         info.point_num = Qry.FieldAsInteger("point_num");

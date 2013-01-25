@@ -88,6 +88,7 @@ struct TTlgInfo {
     std::string airp_dep;
     std::string airp_arv;
     BASIC::TDateTime scd_utc;
+    BASIC::TDateTime est_utc;
     BASIC::TDateTime scd_local;
     BASIC::TDateTime act_local;
     int scd_local_day;
@@ -126,6 +127,7 @@ struct TTlgInfo {
         point_id = -1;
         flt_no = -1;
         scd_utc = 0;
+        est_utc = 0;
         scd_local = 0;
         act_local = 0;
         scd_local_day = 0;

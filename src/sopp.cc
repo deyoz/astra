@@ -3299,13 +3299,11 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
           vector<TSOPPDelay>::iterator q = id->delays.end() - 1;
           if ( q->time != id->est_out )
             throw AstraLocale::UserException( "MSG.MVTDELAY.NOT_SET" );
-          TDateTime prior_delay_time  = id->scd_out;
           for ( q=id->delays.begin(); q!=id->delays.end(); q++ ) {
             if ( !check_delay_code( q->code ) )
               throw AstraLocale::UserException( "MSG.MVTDELAY.INVALID_CODE" );
-            if ( !check_delay_value( q->time - prior_delay_time ) )
+            if ( !check_delay_value( q->time - id->scd_out ) )
               throw AstraLocale::UserException( "MSG.MVTDELAY.INVALID_TIME" );
-            prior_delay_time = q->time;
           }
         }
       }
@@ -4132,12 +4130,12 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   vector<string> tlg_types;
   tlg_types.push_back("MVTC");
   for ( vector<int>::iterator pdel=points_MVTdelays.begin(); pdel!=points_MVTdelays.end(); pdel++ ) {
-    try {
-         TelegramInterface::SendTlg(*pdel,tlg_types);
-    }
-    catch(std::exception &E) {
-      ProgError(STDLOG,"internal_WriteDests (point_id=%d): %s",*pdel,E.what());
-    };
+      try {
+          TelegramInterface::SendTlg(*pdel,tlg_types);
+      }
+      catch(std::exception &E) {
+          ProgError(STDLOG,"internal_WriteDests.SendTlg (point_id=%d): %s",*pdel,E.what());
+      };
   }
 }
 
