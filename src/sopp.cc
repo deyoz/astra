@@ -3287,8 +3287,8 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
       	existsTrip = true;
       	break;
       }
-      if ( id->pr_del != -1 && id != dests.end() &&
-           ( !id->delays.empty() || id->est_out != NoExists && id->est_out != id->scd_out ) ) {
+      if ( id->pr_del != -1 && id != dests.end() && id->est_out != id->scd_out &&
+           ( !id->delays.empty() || id->est_out != NoExists ) ) {
         TTripInfo info;
         info.airline = id->airline;
         info.flt_no = id->flt_no;
