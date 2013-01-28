@@ -3823,7 +3823,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
       info.airline = id->airline;
       info.flt_no = id->flt_no;
       info.airp = id->airp;
-      if( GetTripSets( tsSendMVTDelays, info ) && !delays.Empty() ) {
+      if( !delays.Empty() ) {
         ProgTrace( TRACE5, "points_MVTdelays insert point_id=%d", id->point_id );
         points_MVTdelays.push_back( id->point_id );
       }
