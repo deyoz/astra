@@ -88,6 +88,7 @@ struct TTlgInfo {
     std::string airp_dep;
     std::string airp_arv;
     BASIC::TDateTime scd_utc;
+    BASIC::TDateTime est_utc;
     BASIC::TDateTime scd_local;
     BASIC::TDateTime act_local;
     int scd_local_day;
@@ -126,6 +127,7 @@ struct TTlgInfo {
         point_id = -1;
         flt_no = -1;
         scd_utc = 0;
+        est_utc = 0;
         scd_local = 0;
         act_local = 0;
         scd_local_day = 0;
@@ -431,6 +433,10 @@ void ReadSalons( TTlgInfo &info, std::vector<TTlgCompLayer> &complayers, bool pr
 
 void send_tlg_help(const char *name);
 int send_tlg(int argc,char **argv);
+
+bool check_delay_code(int delay_code);
+bool check_delay_code(const std::string &delay_code);
+bool check_delay_value(BASIC::TDateTime delay_time);
 
 #endif /*_TELEGRAM_H_*/
 

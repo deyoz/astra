@@ -3287,6 +3287,27 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
       	existsTrip = true;
       	break;
       }
+      if ( id->pr_del != -1 && id != dests.end() && id->est_out != id->scd_out &&
+           ( !id->delays.empty() || id->est_out != NoExists ) ) {
+        TTripInfo info;
+        info.airline = id->airline;
+        info.flt_no = id->flt_no;
+        info.airp = id->airp;
+        if ( GetTripSets( tsCheckMVTDelays, info ) ) { //проверка задержек на совместимость с телеграммами
+          if ( id->delays.empty() )
+            throw AstraLocale::UserException( "MSG.MVTDELAY.INVALID_CODE" );
+          vector<TSOPPDelay>::iterator q = id->delays.end() - 1;
+          if ( q->time != id->est_out )
+            throw AstraLocale::UserException( "MSG.MVTDELAY.INVALID_CODE" );
+          for ( q=id->delays.begin(); q!=id->delays.end(); q++ ) {
+            if ( !check_delay_code( q->code ) )
+              throw AstraLocale::UserException( "MSG.MVTDELAY.INVALID_CODE" );
+            ProgTrace( TRACE5, "%f", q->time - id->scd_out );
+            if ( q->time != id->scd_out && !check_delay_value( q->time - id->scd_out ) )
+              throw AstraLocale::UserException( "MSG.MVTDELAY.INVALID_TIME" );
+          }
+        }
+      }
     } // end for
     if ( !pr_time )
     	throw AstraLocale::UserException( "MSG.ROUTE.IN_OUT_TIMES_NOT_SPECIFIED" );
@@ -3376,6 +3397,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   bool reSetWeights;
   string change_dests_msg;
   TBaseTable &baseairps = base_tables.get( "airps" );
+  vector<int> points_MVTdelays;
   for( TSOPPDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
   	set_pr_del = false;
   	set_act_out = false;
@@ -3792,27 +3814,19 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	Qry.CreateVariable( "remark", otString, id->remark );
   	Qry.CreateVariable( "pr_reg", otInteger, id->pr_reg );
   	Qry.Execute();
-  	Qry.Clear();
-  	Qry.SQLText = "DELETE trip_delays WHERE point_id=:point_id";
-  	Qry.CreateVariable( "point_id", otInteger, id->point_id );
-  	Qry.Execute();
-  	if ( !id->delays.empty() ) {
-  		Qry.Clear();
-  		Qry.SQLText =
-  		 "INSERT INTO trip_delays(point_id,delay_num,delay_code,time) "\
-  		 " VALUES(:point_id,:delay_num,:delay_code,:time) ";
-  		Qry.CreateVariable( "point_id", otInteger, id->point_id );
-  		Qry.DeclareVariable( "delay_num", otInteger );
-  		Qry.DeclareVariable( "delay_code", otString );
-  		Qry.DeclareVariable( "time", otDate );
-  		int r=0;
-  		for ( vector<TSOPPDelay>::iterator q=id->delays.begin(); q!=id->delays.end(); q++ ) {
-  			Qry.SetVariable( "delay_num", r );
-  			Qry.SetVariable( "delay_code", q->code );
-  			Qry.SetVariable( "time", q->time );
-  			Qry.Execute();
-  			r++;
-  		}
+  	TFlightDelays delays( id->delays );
+  	TFlightDelays olddelays;
+  	olddelays.Load( id->point_id );
+  	if ( !delays.equal( olddelays ) ) {
+      delays.Save( id->point_id );
+      TTripInfo info;
+      info.airline = id->airline;
+      info.flt_no = id->flt_no;
+      info.airp = id->airp;
+      if( !delays.Empty() ) {
+        ProgTrace( TRACE5, "points_MVTdelays insert point_id=%d", id->point_id );
+        points_MVTdelays.push_back( id->point_id );
+      }
   	}
   	if ( init_trip_stages ) {
   		Qry.Clear();
@@ -4113,7 +4127,17 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   }
   //новая отвязка телеграмм
   ReBindTlgs( move_id, voldDests );
-
+  // отправка телеграмм задержек
+  vector<string> tlg_types;
+  tlg_types.push_back("MVTC");
+  for ( vector<int>::iterator pdel=points_MVTdelays.begin(); pdel!=points_MVTdelays.end(); pdel++ ) {
+      try {
+          TelegramInterface::SendTlg(*pdel,tlg_types);
+      }
+      catch(std::exception &E) {
+          ProgError(STDLOG,"internal_WriteDests.SendTlg (point_id=%d): %s",*pdel,E.what());
+      };
+  }
 }
 
 void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
