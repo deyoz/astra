@@ -671,6 +671,7 @@ void TSalons::Write()
   vector<TPlaceList*>::iterator plist;
   map<TClass,int> countersClass;
   TClass cl;
+
   for ( plist = placelists.begin(); plist != placelists.end(); plist++ ) {
     Qry.SetVariable( "num", (*plist)->num );
     RQry.SetVariable( "num", (*plist)->num );
@@ -723,17 +724,17 @@ void TSalons::Write()
                      layers_priority.empty(), EncodeCompLayerType( l->layer_type ), layers_priority[ l->layer_type ].editable );
       	  if ( !layers_priority[ l->layer_type ].editable )
             continue;
-      		if ( isBaseLayer( l->layer_type, readStyle ) ) {
+    		  if ( isBaseLayer( l->layer_type, readStyle ) ) {
             LQry.SetVariable( "x", place->x );
             LQry.SetVariable( "y", place->y );
             LQry.SetVariable( "layer_type", EncodeCompLayerType( l->layer_type ) );
             ProgTrace( TRACE5, "(%d,%d)=%s", place->x, place->y, EncodeCompLayerType( l->layer_type ) );
             LQry.Execute();
-      			continue;
+    		  	continue;
           }
-      		QryLayers.SetVariable( "layer_type", EncodeCompLayerType( l->layer_type ) );
-      		QryLayers.Execute();
-      	}
+    		  QryLayers.SetVariable( "layer_type", EncodeCompLayerType( l->layer_type ) );
+    		  QryLayers.Execute();
+        }
       }
       if ( place->WebTariff.value != 0.0 ) {
         QryWebTariff.SetVariable( "num", (*plist)->num );
@@ -1431,8 +1432,7 @@ void TSalons::Parse( xmlNodePtr salonsNode )
       	  rem.pr_denial = GetNodeFast( "pr_denial", remNode );
       	  if ( rem.rem == "X" ) {
             if ( !pr_disable_layer && !compatibleLayer( cltDisable ) && !rem.pr_denial ) {
-              TReqInfo *r = TReqInfo::Instance();
-              pr_disable_layer = ( find( r->user.access.rights.begin(),  r->user.access.rights.end(), 425 ) != r->user.access.rights.end() );
+              pr_disable_layer = true;
             }
           }
       	  else
