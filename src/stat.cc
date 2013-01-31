@@ -4316,7 +4316,13 @@ void RunTlgOutStat(const TStatParams &params,
                 TTlgOutStatKey key;
                 key.sender_sita_addr = Qry.FieldAsString(col_sender_sita_addr);
                 key.receiver_descr = Qry.FieldAsString(col_receiver_descr);
-                key.receiver_country_view = ElemIdToCodeNative(etCountry, Qry.FieldAsString(col_receiver_country));
+                if (params.statType == statTlgOutShort)
+                {
+                  //для общей статистики выводим помимо кода гос-ва еще и полное название
+                  key.receiver_country_view = ElemIdToNameLong(etCountry, Qry.FieldAsString(col_receiver_country));
+                  if (!key.receiver_country_view.empty()) key.receiver_country_view += " / ";
+                };
+                key.receiver_country_view += ElemIdToCodeNative(etCountry, Qry.FieldAsString(col_receiver_country));
                 key.extra = Qry.FieldAsString(col_extra);
                 if (params.statType == statTlgOutDetail ||
                     params.statType == statTlgOutFull)
@@ -4451,7 +4457,10 @@ void createXMLTlgOutStat(const TStatParams &params,
       NewTextChild(rowNode, "col");
     };
     colNode = NewTextChild(headerNode, "col", getLocaleText("Гос-во"));
-    SetProp(colNode, "width", 40);
+    if (params.statType == statTlgOutShort)
+      SetProp(colNode, "width", 200);
+    else
+      SetProp(colNode, "width", 40);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
     NewTextChild(rowNode, "col");
