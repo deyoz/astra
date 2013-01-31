@@ -1969,17 +1969,18 @@ struct TExtraSeatName {
             throw Exception("TExtraSeatName:ord: rem %s not found in rems", rem.c_str());
         return result;
     }
-    void get(int pax_id)
+    void get(int pax_id, bool pr_crs = false)
     {
         TQuery Qry(&OraSession);
-        Qry.SQLText =
+        string SQLText = (string)
             "select distinct "
             "   rem_code "
             "from "
-            "   pax_rem "
+            "   " + (pr_crs ? "crs_pax_rem" : "pax_rem") + " "
             "where "
             "   pax_id = :pax_id and "
             "   rem_code in('STCR', 'CBBG', 'EXST')";
+        Qry.SQLText = SQLText;
         Qry.CreateVariable("pax_id", otInteger, pax_id);
         Qry.Execute();
         if(Qry.Eof)
@@ -5516,7 +5517,7 @@ void TDestList<T>::get(TTlgInfo &info,vector<TTlgCompLayer> &complayers)
 
 struct TNumByDestItem {
     int f, c, y;
-    void add(string cls);
+    void add(string cls, int seats);
     void ToTlg(TTlgInfo &info, string airp, vector<string> &body);
     TNumByDestItem():
         f(0),
@@ -5537,20 +5538,20 @@ void TNumByDestItem::ToTlg(TTlgInfo &info, string airp, vector<string> &body)
     body.push_back(buf.str());
 }
 
-void TNumByDestItem::add(string cls)
+void TNumByDestItem::add(string cls, int seats)
 {
     if(cls.empty())
         return;
     switch(cls[0])
     {
         case 'П':
-            f++;
+            f += seats;
                 break;
         case 'Б':
-            c++;
+            c += seats;
                 break;
         case 'Э':
-            y++;
+            y += seats;
                 break;
         default:
             throw Exception("TNumByDestItem::add: strange cls: %s", cls.c_str());
@@ -5564,6 +5565,7 @@ struct TPNLPaxInfo {
         int col_pnr_id;
         int col_surname;
         int col_name;
+        int col_seats;
         int col_pers_type;
         int col_subclass;
         int col_target;
@@ -5574,6 +5576,8 @@ struct TPNLPaxInfo {
         int pnr_id;
         string surname;
         string name;
+        string exst_name;
+        int seats;
         string pers_type;
         string subclass;
         string target;
@@ -5584,6 +5588,7 @@ struct TPNLPaxInfo {
         {
             pax_id = NoExists;
             pnr_id = NoExists;
+            seats = 0;
             surname.erase();
             name.erase();
             pers_type.erase();
@@ -5604,6 +5609,7 @@ struct TPNLPaxInfo {
                     col_pnr_id = Qry.FieldIndex("pnr_id");
                     col_surname = Qry.FieldIndex("surname");
                     col_name = Qry.FieldIndex("name");
+                    col_seats = Qry.FieldIndex("seats");
                     col_pers_type = Qry.FieldIndex("pers_type");
                     col_subclass = Qry.FieldIndex("subclass");
                     col_target = Qry.FieldIndex("airp_arv");
@@ -5614,6 +5620,10 @@ struct TPNLPaxInfo {
                 pnr_id = Qry.FieldAsInteger(col_pnr_id);
                 surname = Qry.FieldAsString(col_surname);
                 name = Qry.FieldAsString(col_name);
+                TExtraSeatName exst;
+                exst.get(pax_id, true);
+                exst_name = exst.value;
+                seats = Qry.FieldAsInteger(col_seats);
                 pers_type = Qry.FieldAsString(col_pers_type);
                 subclass = Qry.FieldAsString(col_subclass);
                 target = Qry.FieldAsString(col_target);
@@ -5627,6 +5637,7 @@ struct TPNLPaxInfo {
             col_pnr_id(NoExists),
             col_surname(NoExists),
             col_name(NoExists),
+            col_seats(NoExists),
             col_pers_type(NoExists),
             col_subclass(NoExists),
             col_target(NoExists),
@@ -5641,6 +5652,7 @@ struct TPNLPaxInfo {
                 "    crs_pax.pnr_id, "
                 "    crs_pax.surname, "
                 "    crs_pax.name, "
+                "    crs_pax.seats, "
                 "    crs_pax.pers_type, "
                 "    crs_pnr.subclass, "
                 "    crs_pnr.airp_arv, "
@@ -5673,6 +5685,7 @@ struct TCKINPaxInfo {
         int col_pax_id;
         int col_surname;
         int col_name;
+        int col_seats;
         int col_pers_type;
         int col_cls;
         int col_subclass;
@@ -5683,6 +5696,8 @@ struct TCKINPaxInfo {
         int pax_id;
         string surname;
         string name;
+        string exst_name;
+        int seats;
         string pers_type;
         string cls;
         string subclass;
@@ -5703,6 +5718,8 @@ struct TCKINPaxInfo {
             pax_id = NoExists;
             surname.erase();
             name.erase();
+            exst_name.erase();
+            seats = 0;
             pers_type.erase();
             cls.erase();
             subclass.erase();
@@ -5726,6 +5743,7 @@ struct TCKINPaxInfo {
                         col_pax_id = Qry.FieldIndex("pax_id");
                         col_surname = Qry.FieldIndex("surname");
                         col_name = Qry.FieldIndex("name");
+                        col_seats = Qry.FieldIndex("seats");
                         col_pers_type = Qry.FieldIndex("pers_type");
                         col_cls = Qry.FieldIndex("cls");
                         col_subclass = Qry.FieldIndex("subclass");
@@ -5736,6 +5754,10 @@ struct TCKINPaxInfo {
                     pax_id = Qry.FieldAsInteger(col_pax_id);
                     surname = Qry.FieldAsString(col_surname);
                     name = Qry.FieldAsString(col_name);
+                    TExtraSeatName exst;
+                    exst.get(pax_id);
+                    exst_name = exst.value;
+                    seats = Qry.FieldAsInteger(col_seats);
                     pers_type = Qry.FieldAsString(col_pers_type);
                     cls = Qry.FieldAsString(col_cls);
                     subclass = Qry.FieldAsString(col_subclass);
@@ -5752,6 +5774,7 @@ struct TCKINPaxInfo {
             col_pax_id(NoExists),
             col_surname(NoExists),
             col_name(NoExists),
+            col_seats(NoExists),
             col_pers_type(NoExists),
             col_cls(NoExists),
             col_subclass(NoExists),
@@ -5767,6 +5790,7 @@ struct TCKINPaxInfo {
                 "    pax.pax_id, "
                 "    pax.surname, "
                 "    pax.name, "
+                "    pax.seats, "
                 "    pax.pers_type, "
                 "    pax_grp.class cls, "
                 "    nvl(pax.subclass, pax_grp.class) subclass, "
@@ -5818,7 +5842,9 @@ void TCKINPaxInfo::dump()
 struct TPFSPax {
     int pax_id;
     int pnr_id;
-    TName name;
+    string name, surname;
+    string exst_name;
+    int seats;
     string target;
     string subcls;
     string crs;
@@ -5839,8 +5865,10 @@ void TPFSPax::operator = (const TCKINPaxInfo &ckin_pax)
 {
         if(ckin_pax.pax_id != NoExists) {
             pax_id = ckin_pax.pax_id;
-            name.name = ckin_pax.name;
-            name.surname = ckin_pax.surname;
+            name = ckin_pax.name;
+            surname = ckin_pax.surname;
+            exst_name = ckin_pax.exst_name;
+            seats = ckin_pax.seats;
             target = ckin_pax.target;
             subcls = ckin_pax.subclass;
             M.m_flight.getByPaxId(pax_id);
@@ -5848,8 +5876,10 @@ void TPFSPax::operator = (const TCKINPaxInfo &ckin_pax)
             if(ckin_pax.crs_pax.pax_id == NoExists)
                 throw Exception("TPFSPax::operator =: both ckin and crs pax_id are not exists");
             pax_id = ckin_pax.crs_pax.pax_id;
-            name.name = ckin_pax.crs_pax.name;
-            name.surname = ckin_pax.crs_pax.surname;
+            name = ckin_pax.crs_pax.name;
+            surname = ckin_pax.crs_pax.surname;
+            exst_name = ckin_pax.crs_pax.exst_name;
+            seats = ckin_pax.crs_pax.seats;
             target = ckin_pax.crs_pax.target;
             subcls = ckin_pax.crs_pax.subclass;
             M.m_flight.getByCrsPaxId(pax_id);
@@ -5858,9 +5888,50 @@ void TPFSPax::operator = (const TCKINPaxInfo &ckin_pax)
         pnr_id = ckin_pax.crs_pax.pnr_id;
 }
 
+void nameToTlg(const string &name, const string &asurname, int seats, const string &exst_name, vector<string> &body)
+{
+    string surname = asurname;
+    int name_count = 0;
+    int names_sum_size = 0;
+    vector<string> names;
+    if(not name.empty()) {
+        names.push_back(name);
+        names_sum_size += name.size();
+        name_count = 1;
+    }
+    for(int i = 0; seats != 1 and i < seats - name_count; i++) {
+        names.push_back(exst_name);
+        names_sum_size += exst_name.size();
+    }
+    size_t len = surname.size() + names.size() + names_sum_size + br.size();
+    if(len > LINE_SIZE) {
+        size_t diff = len - LINE_SIZE;
+        if(name.empty()) {
+            surname = surname.substr(0, surname.size() - diff);
+        } else {
+            if(diff >= name.size()) {
+                names[0] = names[0].substr(0, 1);
+                diff -= name.size() - 1;
+                surname = surname.substr(0, surname.size() - diff);
+            } else {
+                names[0] = names[0].substr(0, names[0].size() - diff);
+            }
+        }
+    }
+
+    ostringstream buf;
+    buf << seats << surname;
+    for(vector<string>::iterator iv = names.begin(); iv != names.end(); iv++)
+        buf << "/" << *iv;
+    body.push_back(buf.str());
+}
+
+
 void TPFSPax::ToTlg(TTlgInfo &info, vector<string> &body)
 {
-    name.ToTlg(info, body);
+    name = transliter(name, 1, info.pr_lat);
+    surname = transliter(surname, 1, info.pr_lat);
+    nameToTlg(name, surname, seats, exst_name, body);
     pnrs.ToTlg(info, body);
     M.ToTlg(info, body);
 }
@@ -5881,7 +5952,15 @@ struct TSubClsCmp {
     }
 };
 
-typedef vector<TPFSPax> TPFSPaxList;
+struct TPFSPaxList:vector<TPFSPax> {
+    size_t size() {
+        size_t result = 0;
+        for(TPFSPaxList::iterator iv = begin(); iv != end(); iv++)
+            result += iv->seats;
+        return result;
+    }
+};
+
 typedef map<string, TPFSPaxList, TSubClsCmp> TPFSClsList;
 typedef map<string, TPFSClsList> TPFSCtgryList;
 typedef map<string, TPFSCtgryList> TPFSItems;
@@ -6098,7 +6177,7 @@ void TPFSBody::get(TTlgInfo &info)
         if(not info.mark_info.IsNULL() and not(info.mark_info == PFSPax.M.m_flight))
             continue;
         if(item.pax_id != NoExists) // для зарегистрированных пассажиров собираем инфу для цифровой PFS
-            pfsn[ckin_pax.target].add(ckin_pax.cls);
+            pfsn[ckin_pax.target].add(ckin_pax.cls, ckin_pax.seats);
         if(category.empty())
             continue;
         PFSPax.pnrs.get(PFSPax.pnr_id);
