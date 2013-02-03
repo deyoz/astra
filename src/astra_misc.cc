@@ -1812,7 +1812,6 @@ bool is_sync_paxs( int point_id )
 
 void update_pax_change( int point_id, int pax_id, int reg_no, const string &work_mode )
 {
-  tst();
   TQuery Qry( &OraSession );
   Qry.Clear();
   Qry.SQLText =
