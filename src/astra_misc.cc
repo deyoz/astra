@@ -1807,7 +1807,7 @@ bool isTestPaxId(int id)
 
 bool is_sync_paxs( int point_id )
 {
-  true;
+  return true;
 }
 
 void update_pax_change( int point_id, int pax_id, int reg_no, const string &work_mode )
