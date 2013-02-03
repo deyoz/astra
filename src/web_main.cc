@@ -3427,6 +3427,7 @@ void WebRequestsIface::GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
         NewTextChild( paxNode, "status", "checkin" );
       else
         NewTextChild( paxNode, "status", "boarded" );
+    NewTextChild( paxNode, "client_type", PaxQry.FieldAsString( "client_type" ) );
     res.clear();
     TCkinRoute ckinRoute;
     if ( ckinRoute.GetRouteAfter( PaxQry.FieldAsInteger( "grp_id" ), crtNotCurrent, crtIgnoreDependent ) ) { // есть сквозная регистрация
