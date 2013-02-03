@@ -3365,6 +3365,17 @@ void WebRequestsIface::GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
       continue; // предыдущий пассажир он же и текущий
     ProgTrace( TRACE5, "pax_id=%d", pax_id );
     prior_pax_id = pax_id;
+    FltQry.SetVariable( "point_id", Qry.FieldAsInteger( "point_id" ) );
+    FltQry.Execute();
+    if ( FltQry.Eof )
+      throw EXCEPTIONS::Exception("WebRequestsIface::GetPaxsInfo: flight not found, (point_id=%d)", Qry.FieldAsInteger( "point_id" ) );
+    string airline = FltQry.FieldAsString( "airline" );
+    if ( airline != "ЮТ" &&
+         airline != "ЮР" &&
+         airline != "QU" ) {
+      tst();
+      continue;
+    }
     if ( max_time != NoExists && max_time != Qry.FieldAsDateTime( "time" ) ) { // сравнение времени с пред. значением, если изменилось, то
       ProgTrace( TRACE5, "Paxs.clear(), vdate=%s, max_time=%s",
                  DateTimeToStr( vdate, ServerFormatDateTimeAsString ).c_str(),
@@ -3399,8 +3410,6 @@ void WebRequestsIface::GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
       NewTextChild( paxNode, "status", "delete" );
       continue;
     }
-    FltQry.SetVariable( "point_id", Qry.FieldAsInteger( "point_id" ) );
-    FltQry.Execute();
     NewTextChild( paxNode, "flight", string(FltQry.FieldAsString( "airline" )) + FltQry.FieldAsString( "flt_no" ) + FltQry.FieldAsString( "suffix" ) );
     NewTextChild( paxNode, "scd_out", DateTimeToStr( FltQry.FieldAsDateTime( "scd_out" ), ServerFormatDateTimeAsString ) );
     NewTextChild( paxNode, "grp_id", PaxQry.FieldAsInteger( "grp_id" ) );
