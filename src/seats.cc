@@ -3106,8 +3106,8 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
                              " посажен на место: " +
                              new_seat_no,
                              evtPax, point_id, idx1, idx2 );
-          if ( is_sync_aodb( point_id ) )
-            update_aodb_pax_change( point_id, pax_id, idx1, "Р" );
+          if ( is_sync_paxs( point_id ) )
+            update_pax_change( point_id, pax_id, idx1, "Р" );
           break;
         default:;
   		}
@@ -3122,8 +3122,8 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
                              " пересажен. Новое место: " +
                              new_seat_no,
                              evtPax, point_id, idx1, idx2 );
-          if ( is_sync_aodb( point_id ) )
-            update_aodb_pax_change( point_id, pax_id, idx1, "Р" );
+          if ( is_sync_paxs( point_id ) )
+            update_pax_change( point_id, pax_id, idx1, "Р" );
           break;
         default:;
   		}
@@ -3137,8 +3137,8 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
           reqinfo->MsgToLog( string( "Пассажир " ) + fullname +
                              " высажен. Место: " + prior_seat,
                              evtPax, point_id, idx1, idx2 );
-          if ( is_sync_aodb( point_id ) )
-            update_aodb_pax_change( point_id, pax_id, idx1, "Р" );
+          if ( is_sync_paxs( point_id ) )
+            update_pax_change( point_id, pax_id, idx1, "Р" );
           break;
         default:;
   		}
@@ -3283,8 +3283,8 @@ void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &APass, TSeatA
           TReqInfo::Instance()->MsgToLog( string("Пассажир " ) + pass.fullName +
                                           " из-за смены компоновки высажен с места " +
                                           prev_seat_no, evtPax, Salons.trip_id, pass.regNo, pass.grpId );
-          if ( is_sync_aodb( Salons.trip_id ) )
-            update_aodb_pax_change( Salons.trip_id, pass.paxId, pass.regNo, "Р" );
+          if ( is_sync_paxs( Salons.trip_id ) )
+            update_pax_change( Salons.trip_id, pass.paxId, pass.regNo, "Р" );
         }
       }
       else {
@@ -3307,8 +3307,8 @@ void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &APass, TSeatA
           TReqInfo::Instance()->MsgToLog( string( "Пассажир " ) + pass.fullName +
                                           " из-за смены компоновки пересажен на место " +
                                           new_seat_no, evtPax, Salons.trip_id, pass.regNo, pass.grpId );
-          if ( is_sync_aodb( Salons.trip_id ) )
-            update_aodb_pax_change( Salons.trip_id, pass.paxId, pass.regNo, "Р" );
+          if ( is_sync_paxs( Salons.trip_id ) )
+            update_pax_change( Salons.trip_id, pass.paxId, pass.regNo, "Р" );
         }
       }
     }

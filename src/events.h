@@ -3,6 +3,7 @@
 #include "astra_consts.h"
 #include "passenger.h"
 #include "baggage.h"
+#include "remarks.h"
 #include "astra_misc.h"
 #include "stat.h"
 
@@ -62,6 +63,7 @@ class TPaxToLogInfo
     int bag_amount, bag_weight, rk_amount, rk_weight;
     std::string tags;
     std::map< int/*bag_type*/, CheckIn::TNormItem> norms;
+    std::vector<CheckIn::TPaxRemItem> rems;
     TPaxToLogInfo()
     {
       clear();
@@ -89,6 +91,7 @@ class TPaxToLogInfo
       rk_weight=0;
       tags.clear();
       norms.clear();
+      rems.clear();
     };
     std::string getBagStr() const;
     std::string getPaxNameStr() const;

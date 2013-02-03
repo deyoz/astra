@@ -2158,8 +2158,8 @@ void DeletePaxGrp( const TTypeBSendInfo &sendInfo, int grp_id, bool toLog,
     BSM::LoadContent(grp_id,BSMContent);
     BSMseg.BSMContentBefore[grp_id]=BSMContent;
   };
-  //AODB
-  bool SyncAODB=is_sync_aodb(point_id);
+
+  bool SyncPaxs=is_sync_paxs(point_id);
 
   PaxQry.SetVariable("grp_id",grp_id);
   PaxQry.Execute();
@@ -2172,11 +2172,11 @@ void DeletePaxGrp( const TTypeBSendInfo &sendInfo, int grp_id, bool toLog,
     int reg_no=PaxQry.FieldAsInteger("reg_no");
     bool boarded=!PaxQry.FieldIsNULL("pr_brd") && PaxQry.FieldAsInteger("pr_brd")!=0;
 
-    if (SyncAODB)
+    if (SyncPaxs)
     {
-      update_aodb_pax_change(point_id, pax_id, reg_no, "ê");
+      update_pax_change(point_id, pax_id, reg_no, "ê");
       if (boarded)
-        update_aodb_pax_change(point_id, pax_id, reg_no, "è");
+        update_pax_change(point_id, pax_id, reg_no, "è");
     };
 
     if (toLog)

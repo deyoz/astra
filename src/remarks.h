@@ -60,6 +60,11 @@ class TPaxRemItem
       return code.empty() &&
              text.empty();
     };
+    bool operator == (const TPaxRemItem &item) const
+    {
+      return code==item.code &&
+             text==item.text;
+    };
     bool operator < (const TPaxRemItem &item) const
     {
       if (priority!=item.priority)

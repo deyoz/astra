@@ -2264,49 +2264,6 @@ int main_aodb_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
   return 0;
 };
 
-
-void update_aodb_pax_change( int point_id, int pax_id, int reg_no, const string &work_mode )
-{
-  TQuery Qry( &OraSession );
-  Qry.Clear();
-  Qry.SQLText =
-     "BEGIN "
-     " UPDATE aodb_pax_change "
-     "  SET point_id=:point_id, desk=:desk, client_type=:client_type, time=:time "
-     " WHERE pax_id=:pax_id AND reg_no=:reg_no AND work_mode=:work_mode; "
-     " IF SQL%NOTFOUND THEN "
-     "  INSERT INTO aodb_pax_change(pax_id,reg_no,work_mode,point_id,desk,client_type,time) "
-     "   VALUES(:pax_id,:reg_no,:work_mode,:point_id,:desk,:client_type,:time); "
-     " END IF; "
-     "END;";
-  Qry.CreateVariable( "pax_id", otInteger, pax_id );
-  Qry.CreateVariable( "reg_no", otInteger, reg_no );
-  Qry.CreateVariable( "work_mode", otString, work_mode );
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.CreateVariable( "desk", otString, TReqInfo::Instance()->desk.code );
-  Qry.CreateVariable( "client_type", otString,  EncodeClientType(TReqInfo::Instance()->client_type) );
-  Qry.CreateVariable( "time", otDate, NowUTC() );
-  Qry.Execute();
-}
-
-bool is_sync_aodb( int point_id )
-{
-  TQuery Qry( &OraSession );
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT file_param_sets.id FROM points,file_param_sets "
-    " WHERE points.point_id=:point_id AND "
- 	  "       ( file_param_sets.airp IS NULL OR file_param_sets.airp=points.airp ) AND "
-		"       ( file_param_sets.airline IS NULL OR file_param_sets.airline=points.airline ) AND "
-		"       ( file_param_sets.flt_no IS NULL OR file_param_sets.flt_no=points.flt_no ) AND "
-		"       file_param_sets.type=:type AND pr_send=1 AND own_point_addr=:own_point_addr";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-	Qry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
-	Qry.CreateVariable( "type", otString, FILE_AODB_OUT_TYPE );
-  Qry.Execute();
-  return ( !Qry.Eof );
-};
-
 void VerifyParseFlight( )
 {
 	std::string linestr =
