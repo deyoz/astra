@@ -3255,6 +3255,242 @@ void WebRequestsIface::ParseMessage(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
   Qry.CreateVariable("type", otString, stype);
   Qry.Execute();
 }
+
+struct Tids {
+  int pax_tid;
+  int grp_tid;
+  Tids( ) {
+    pax_tid = -1;
+    grp_tid = -1;
+  };
+  Tids( int vpax_tid, int vgrp_tid ) {
+    pax_tid = vpax_tid;
+    grp_tid = vgrp_tid;
+  };
+};
+
+void WebRequestsIface::GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  xmlNodePtr node = GetNode( "@time", reqNode );
+  if ( node == NULL )
+    throw AstraLocale::UserException( "Tag '@time' not found" );
+  string str_date = NodeAsString( node );
+  TDateTime vdate, vpriordate;
+  if ( BASIC::StrToDateTime( str_date.c_str(), "dd.mm.yyyy hh:nn:ss", vdate ) == EOF )
+		throw UserException( "Invalid tag value '@time'" );
+  string prior_paxs;
+  map<int,Tids> Paxs; // pax_id, <pax_tid, grp_tid> список пассажиров переданных ранее
+  xmlDocPtr paxsDoc;
+  if ( AstraContext::GetContext( "meridian_sync", 0, prior_paxs ) != NoExists ) {
+    paxsDoc = TextToXMLTree( prior_paxs );
+    try {
+      xmlNodePtr nodePax = paxsDoc->children;
+      node = GetNode( "@time", nodePax );
+      if ( node == NULL )
+        throw AstraLocale::UserException( "Tag '@time' not found in context" );
+      if ( BASIC::StrToDateTime( NodeAsString( node ), "dd.mm.yyyy hh:nn:ss", vpriordate ) == EOF )
+		    throw UserException( "Invalid tag value '@time' in context" );
+      if ( vpriordate == vdate ) { // разбор дерева при условии, что предыдущий запрос не передал всех пассажиров за заданный момент времени
+        nodePax = nodePax->children;
+        for ( ; nodePax!=NULL && string((char*)nodePax->name) == "pax"; nodePax=nodePax->next ) {
+          Paxs[ NodeAsInteger( "@pax_id", nodePax ) ] = Tids( NodeAsInteger( "@pax_tid", nodePax ), NodeAsInteger( "@grp_tid", nodePax ) );
+          ProgTrace( TRACE5, "pax_id=%d, pax_tid=%d, grp_tid=%d",
+                     NodeAsInteger( "@pax_id", nodePax ),
+                     NodeAsInteger( "@pax_tid", nodePax ),
+                     NodeAsInteger( "@grp_tid", nodePax ) );
+        }
+      }
+    }
+    catch( ... ) {
+      xmlFreeDoc( paxsDoc );
+      throw;
+    }
+    xmlFreeDoc( paxsDoc );
+  }
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "SELECT pax_id,reg_no,work_mode,point_id,desk,client_type,time "
+    " FROM aodb_pax_change "
+    "WHERE time >= :time AND time > system.UTCSYSDATE - 1"
+    "ORDER BY time, pax_id, work_mode ";
+  Qry.CreateVariable( "time", otDate, vdate );
+  Qry.Execute();
+  TQuery PaxQry(&OraSession);
+  PaxQry.SQLText =
+	   "SELECT pax.pax_id,pax.reg_no,pax.surname||RTRIM(' '||pax.name) name,"
+     "       pax_grp.grp_id,"
+	   "       pax_grp.airp_arv,pax_grp.airp_dep,"
+     "       pax_grp.class,pax.refuse,"
+	   "       pax.pers_type, "
+	   "       pax.subclass, "
+	   "       NVL(pax_doc.gender,'F') as gender, "
+	   "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'tlg',rownum) AS seat_no, "
+	   "       pax.seats seats, "
+	   "       ckin.get_excess(pax_grp.grp_id,pax.pax_id) excess,"
+	   "       ckin.get_rkAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rkamount,"
+	   "       ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rkweight,"
+	   "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bagamount,"
+	   "       ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bagweight,"
+     "       ckin.get_bag_pool_pax_id(pax.grp_id,pax.bag_pool_num) AS bag_pool_pax_id, "
+     "       pax.bag_pool_num, "
+	   "       pax.pr_brd, "
+	   "       pax_grp.status, "
+	   "       pax_grp.client_type, "
+	   "       pax_doc.no document, "
+	   "       pax.ticket_no, pax.tid pax_tid, pax_grp.tid grp_tid "
+	   " FROM pax_grp, pax, pax_doc "
+	   " WHERE pax_grp.grp_id=pax.grp_id AND "
+	   "       pax.pax_id=:pax_id AND "
+	   "       pax.wl_type IS NULL AND "
+	   "       pax.pax_id=pax_doc.pax_id(+) ";
+  PaxQry.DeclareVariable( "pax_id", otInteger );
+  TQuery RemQry(&OraSession);
+  RemQry.SQLText =
+    "SELECT rem FROM pax_rem WHERE pax_id=:pax_id";
+  RemQry.DeclareVariable( "pax_id", otInteger );
+  TQuery FltQry(&OraSession);
+  FltQry.SQLText =
+    "SELECT airline,flt_no,suffix,scd_out FROM points WHERE point_id=:point_id";
+  FltQry.DeclareVariable( "point_id", otInteger );
+  TDateTime max_time = NoExists;
+  node = NULL;
+  string res;
+  int pax_count = 0;
+  int prior_pax_id = -1;
+  Tids tids;
+  // пробег по всем пассажирам у которых время больше или равно текущему
+  for ( ;!Qry.Eof && pax_count<=100; Qry.Next() ) {
+    int pax_id = Qry.FieldAsInteger( "pax_id" );
+    if ( pax_id == prior_pax_id ) // удаляем дублирование строки с одним и тем же pax_id для регистрации и посадки
+      continue; // предыдущий пассажир он же и текущий
+    ProgTrace( TRACE5, "pax_id=%d", pax_id );
+    prior_pax_id = pax_id;
+    FltQry.SetVariable( "point_id", Qry.FieldAsInteger( "point_id" ) );
+    FltQry.Execute();
+    if ( FltQry.Eof )
+      throw EXCEPTIONS::Exception("WebRequestsIface::GetPaxsInfo: flight not found, (point_id=%d)", Qry.FieldAsInteger( "point_id" ) );
+    string airline = FltQry.FieldAsString( "airline" );
+    if ( airline != "ЮТ" &&
+         airline != "ЮР" &&
+         airline != "QU" ) {
+      tst();
+      continue;
+    }
+    if ( max_time != NoExists && max_time != Qry.FieldAsDateTime( "time" ) ) { // сравнение времени с пред. значением, если изменилось, то
+      ProgTrace( TRACE5, "Paxs.clear(), vdate=%s, max_time=%s",
+                 DateTimeToStr( vdate, ServerFormatDateTimeAsString ).c_str(),
+                 DateTimeToStr( max_time, ServerFormatDateTimeAsString ).c_str() );
+      Paxs.clear(); // изменилось время - удаляем всех предыдущих пассажиров с пред. временем
+    }
+    max_time = Qry.FieldAsDateTime( "time" );
+    PaxQry.SetVariable( "pax_id", pax_id );
+    PaxQry.Execute();
+    if ( !PaxQry.Eof ) {
+      tids.pax_tid = PaxQry.FieldAsInteger( "pax_tid" );
+      tids.grp_tid = PaxQry.FieldAsInteger( "grp_tid" );
+    }
+    else {
+      tids.pax_tid = -1; // пассажир был удален в пред. раз
+      tids.grp_tid = -1;
+    }
+    // пассажир передавался и не изменился
+    if ( Paxs.find( pax_id ) != Paxs.end() &&
+         Paxs[ pax_id ].pax_tid == tids.pax_tid &&
+         Paxs[ pax_id ].grp_tid == tids.grp_tid )
+      continue; // уже передавали пассажира
+    // пассажира не передавали или он изменился
+    if ( node == NULL )
+      node = NewTextChild( resNode, "passengers" );
+    Paxs[ pax_id ] = tids; // изменения
+    pax_count++;
+    xmlNodePtr paxNode = NewTextChild( node, "pax" );
+    NewTextChild( paxNode, "pax_id", pax_id );
+    NewTextChild( paxNode, "point_id", Qry.FieldAsInteger( "point_id" ) );
+    if ( PaxQry.Eof ) {
+      NewTextChild( paxNode, "status", "delete" );
+      continue;
+    }
+    NewTextChild( paxNode, "flight", string(FltQry.FieldAsString( "airline" )) + FltQry.FieldAsString( "flt_no" ) + FltQry.FieldAsString( "suffix" ) );
+    NewTextChild( paxNode, "scd_out", DateTimeToStr( FltQry.FieldAsDateTime( "scd_out" ), ServerFormatDateTimeAsString ) );
+    NewTextChild( paxNode, "grp_id", PaxQry.FieldAsInteger( "grp_id" ) );
+    NewTextChild( paxNode, "name", PaxQry.FieldAsString( "name" ) );
+    NewTextChild( paxNode, "class", PaxQry.FieldAsString( "class" ) );
+    NewTextChild( paxNode, "subclass", PaxQry.FieldAsString( "subclass" ) );
+    NewTextChild( paxNode, "pers_type", PaxQry.FieldAsString( "pers_type" ) );
+    if ( DecodePerson( PaxQry.FieldAsString( "pers_type" ) ) == ASTRA::adult ) {
+      NewTextChild( paxNode, "gender", PaxQry.FieldAsString( "gender" ) );
+    }
+    NewTextChild( paxNode, "airp_dep", PaxQry.FieldAsString("airp_dep") );
+    NewTextChild( paxNode, "airp_arv", PaxQry.FieldAsString("airp_arv") );
+    NewTextChild( paxNode, "seat_no", PaxQry.FieldAsString("seat_no") );
+    NewTextChild( paxNode, "seats", PaxQry.FieldAsInteger("seats") );
+    NewTextChild( paxNode, "excess", PaxQry.FieldAsInteger( "excess" ) );
+    NewTextChild( paxNode, "rkamount", PaxQry.FieldAsInteger( "rkamount" ) );
+    NewTextChild( paxNode, "rkweight", PaxQry.FieldAsInteger( "rkweight" ) );
+    NewTextChild( paxNode, "bagamount", PaxQry.FieldAsInteger( "bagamount" ) );
+    NewTextChild( paxNode, "bagweight", PaxQry.FieldAsInteger( "bagweight" ) );
+    if ( PaxQry.FieldIsNULL( "pr_brd" ) )
+      NewTextChild( paxNode, "status", "uncheckin" );
+    else
+      if ( PaxQry.FieldAsInteger( "pr_brd" ) == 0 )
+        NewTextChild( paxNode, "status", "checkin" );
+      else
+        NewTextChild( paxNode, "status", "boarded" );
+    NewTextChild( paxNode, "client_type", PaxQry.FieldAsString( "client_type" ) );
+    res.clear();
+    TCkinRoute ckinRoute;
+    if ( ckinRoute.GetRouteAfter( PaxQry.FieldAsInteger( "grp_id" ), crtNotCurrent, crtIgnoreDependent ) ) { // есть сквозная регистрация
+      xmlNodePtr rnode = NewTextChild( paxNode, "tckin_route" );
+      int seg_no=1;
+      for ( vector<TCkinRouteItem>::iterator i=ckinRoute.begin(); i!=ckinRoute.end(); i++ ) {
+         xmlNodePtr inode = NewTextChild( rnode, "seg" );
+         SetProp( inode, "num", seg_no );
+         NewTextChild( inode, "flight", i->operFlt.airline + IntToString(i->operFlt.flt_no) + i->operFlt.suffix );
+         NewTextChild( inode, "airp_dep", i->airp_dep );
+         NewTextChild( inode, "airp_arv", i->airp_arv );
+         NewTextChild( inode, "scd_out", DateTimeToStr( i->operFlt.scd_out, ServerFormatDateTimeAsString ) );
+         seg_no++;
+      }
+    }
+    RemQry.SetVariable( "pax_id", pax_id );
+    RemQry.Execute();
+    res.clear();
+    for ( ;!RemQry.Eof; RemQry.Next() ) {
+      if ( !res.empty() )
+        res += "\n";
+      res += RemQry.FieldAsString( "rem" );
+    }
+    if ( !res.empty() )
+      NewTextChild( paxNode, "rems", res );
+    NewTextChild( paxNode, "time", DateTimeToStr( max_time, ServerFormatDateTimeAsString ) );
+  }
+  if ( max_time == NoExists )
+    max_time = vdate; // не выбрано ни одного пассажира - передаем время, которые пришло с терминала
+  SetProp( resNode, "time", DateTimeToStr( max_time, ServerFormatDateTimeAsString ) );
+  AstraContext::ClearContext( "meridian_sync", 0 );
+  if ( !Paxs.empty() ) { // есть пассажиры - сохраняем всех переданных
+    paxsDoc = CreateXMLDoc( "UTF-8", "paxs" );
+    try {
+      node = paxsDoc->children;
+      SetProp( node, "time", DateTimeToStr( max_time, ServerFormatDateTimeAsString ) );
+      for ( map<int,Tids>::iterator p=Paxs.begin(); p!=Paxs.end(); p++ ) {
+        xmlNodePtr n = NewTextChild( node, "pax" );
+        SetProp( n, "pax_id", p->first );
+        SetProp( n, "pax_tid", p->second.pax_tid );
+        SetProp( n, "grp_tid", p->second.grp_tid );
+      }
+      AstraContext::SetContext( "meridian_sync", 0, XMLTreeToText( paxsDoc ) );
+      ProgTrace( TRACE5, "xmltreetotext=%s", XMLTreeToText( paxsDoc ).c_str() );
+    }
+    catch( ... ) {
+      xmlFreeDoc( paxsDoc );
+      throw;
+    }
+    xmlFreeDoc( paxsDoc );
+  }
+}
 ////////////////////////////////////END MERIDIAN SYSTEM/////////////////////////////
+
+
 } //end namespace AstraWeb
 
