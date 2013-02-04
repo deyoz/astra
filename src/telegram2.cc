@@ -35,6 +35,7 @@ int TST_TLG_ID; // for test purposes
 const string ERR_TAG_NAME = "ERROR";
 const string DEFAULT_ERR = "?";
 const string ERR_FIELD = "<" + ERR_TAG_NAME + ">" + DEFAULT_ERR + "</" + ERR_TAG_NAME + ">";
+const int MAX_DELAY_TIME = 6000; //mins, more than 99 hours 59 mins
 
 bool TTlgInfo::operator == (const TMktFlight &s) const
 {
@@ -1968,17 +1969,18 @@ struct TExtraSeatName {
             throw Exception("TExtraSeatName:ord: rem %s not found in rems", rem.c_str());
         return result;
     }
-    void get(int pax_id)
+    void get(int pax_id, bool pr_crs = false)
     {
         TQuery Qry(&OraSession);
-        Qry.SQLText =
+        string SQLText = (string)
             "select distinct "
             "   rem_code "
             "from "
-            "   pax_rem "
+            "   " + (pr_crs ? "crs_pax_rem" : "pax_rem") + " "
             "where "
             "   pax_id = :pax_id and "
             "   rem_code in('STCR', 'CBBG', 'EXST')";
+        Qry.SQLText = SQLText;
         Qry.CreateVariable("pax_id", otInteger, pax_id);
         Qry.Execute();
         if(Qry.Eof)
@@ -4935,12 +4937,171 @@ struct TMVTABodyItem {
     {};
 };
 
+struct TTripDelayItem {
+    int delay_code;
+    TDateTime time;
+    TTripDelayItem(const int &adelay_code, TDateTime atime):
+        delay_code(adelay_code), time(atime) {}
+};
+
+struct TTripDelays:vector<TTripDelayItem> {
+    private:
+        bool pr_MVTC;
+    public:
+        string delay_code(TTlgInfo &info, int delay_code);
+        string delay_value(TTlgInfo &info, TDateTime prev, TDateTime curr);
+        void get(TTlgInfo &info);
+        void ToTlg(TTlgInfo &info, vector<string> &body, bool extra);
+        TTripDelays(bool apr_MVTC): pr_MVTC(apr_MVTC)
+    {}
+};
+
+bool check_delay_value(TDateTime delay_time)
+{
+    int hours, mins, secs;
+    double f;
+    double remain = modf(delay_time, &f);
+    BASIC::DecodeTime( remain, hours, mins, secs );
+    return delay_time > 0 && f * 24 * 60 + hours * 60 + mins < MAX_DELAY_TIME;
+}
+
+bool check_delay_code(int delay_code)
+{
+    return delay_code >= 0 and delay_code <= 99;
+}
+
+bool check_delay_code(const string &delay_code)
+{
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "SELECT num FROM delays WHERE code=:code";
+  Qry.CreateVariable( "code", otString, delay_code );
+  Qry.Execute();
+  return ( !Qry.Eof && check_delay_code( Qry.FieldAsInteger( "num" ) ) );
+}
+
+string TTripDelays::delay_value(TTlgInfo &info, TDateTime prev, TDateTime curr)
+{
+    ostringstream result;
+    if(check_delay_value(curr - prev)) {
+        int hours, mins, secs;
+        double f;
+        double remain = modf(curr - prev, &f);
+        BASIC::DecodeTime( remain, hours, mins, secs );
+        result << setfill('0') << setw(2) << f * 24 + hours << setw(2) << mins;
+    } else
+        result << info.add_err(DEFAULT_ERR, "Delay out of range %d mins", MAX_DELAY_TIME);
+    return result.str();
+}
+
+string TTripDelays::delay_code(TTlgInfo &info, int delay_code)
+{
+    ostringstream result;
+    if(check_delay_code(delay_code)) {
+        result << setw(2) << setfill('0') << delay_code;
+    } else
+        result << info.add_err(IntToString(delay_code), getLocaleText("MSG.MVTDELAY.INVALID_CODE"));
+    return result.str();
+}
+
+void TTripDelays::ToTlg(TTlgInfo &info, vector<string> &body, bool extra)
+{
+    vector< pair<string, string> > delays;
+    TTripDelays::iterator iv = begin();
+    if(extra) {
+        if(size() > 2)
+            for(int i = 0; i < 2; i++, iv++); // Установить итератор на 3-й элемент
+        else
+            iv = end();
+    }
+    for(int i = 0; iv != end() and i < 2; iv++, i++) {
+        delays.push_back(make_pair(
+                    delay_code(info, iv->delay_code),
+                    delay_value(info, info.scd_utc, iv->time)
+                    ));
+    }
+    if(delays.size() != 0) {
+        ostringstream buf;
+        string id = extra ? "EDL" : "DL";
+        switch(delays.size()) {
+            case 1:
+                buf << id << delays[0].first;
+                if(not pr_MVTC)
+                    buf << "/" << delays[0].second;
+                break;
+            case 2:
+                buf << id << delays[0].first << "/" << delays[1].first;
+                if(not pr_MVTC)
+                    buf << "/" << delays[0].second << "/" << delays[1].second;
+                break;
+            default:
+                throw UserException("wrong delay count");
+        }
+        body.push_back(buf.str());
+    }
+}
+
+void TTripDelays::get(TTlgInfo &info)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "select * from trip_delays, delays where "
+        "   point_id = :point_id and "
+        "   trip_delays.delay_code = delays.code "
+        "order by delay_num";
+    Qry.CreateVariable("point_id", otInteger, info.point_id);
+    Qry.Execute();
+    int err_idx = NoExists;
+    for(int idx = 0; not Qry.Eof; Qry.Next(), idx++) {
+        int adelay_code = Qry.FieldAsInteger("num");
+        TDateTime adelay_value = Qry.FieldAsDateTime("time");
+        push_back(TTripDelayItem(adelay_code, adelay_value));
+        // В MVTC выводятся только коды задержек, поэтому проверять формат интервала не нужно
+        if(not check_delay_code(adelay_code) or (not pr_MVTC and not check_delay_value(adelay_value - info.scd_utc)))
+            err_idx = idx;
+    }
+    if(err_idx != NoExists) { // есть ошибочные задержки
+        if(err_idx == (int)size() - 1) { // последняя задержка с ошибкой
+            erase(begin(), begin() + err_idx); // оставляем только ее
+        } else
+            erase(begin(), begin() + err_idx + 1); // выкидываем все задержки до последней ошибочной включительно
+    }
+    if(size() > 4)
+        erase(begin(), (begin() + size() - 4)); // оставляем 4 последние задержки
+}
+
+struct TMVTCBody {
+    TTripDelays delays;
+    void get(TTlgInfo &info);
+    void ToTlg(TTlgInfo &info, vector<string> &body);
+    TMVTCBody(): delays(true) {};
+};
+
+void TMVTCBody::get(TTlgInfo &info)
+{
+    delays.get(info);
+}
+
+void TMVTCBody::ToTlg(TTlgInfo &info, vector<string> &body)
+{
+    if(delays.empty())
+        body.push_back(info.add_err(DEFAULT_ERR, "delays not found"));
+    else {
+        ostringstream buf;
+        buf << "ED" << DateTimeToStr(info.est_utc, "ddhhnn");
+        body.push_back(buf.str());
+        delays.ToTlg(info, body, false);
+        delays.ToTlg(info, body, true);
+    }
+}
+
 struct TMVTABody {
     TDateTime act;
+    TTripDelays delays;
     vector<TMVTABodyItem> items;
     void get(TTlgInfo &info);
-    void ToTlg(TTlgInfo &info, bool &vcompleted, vector<string> &body);
-    TMVTABody(): act(NoExists) {};
+    void ToTlg(TTlgInfo &info, vector<string> &body);
+    TMVTABody(): act(NoExists), delays(false) {};
 };
 
 struct TMVTBBody {
@@ -4992,7 +5153,7 @@ void TMVTBBody::ToTlg(bool &vcompleted, vector<string> &body)
     body.push_back(buf.str());
 }
 
-void TMVTABody::ToTlg(TTlgInfo &info, bool &vcompleted, vector<string> &body)
+void TMVTABody::ToTlg(TTlgInfo &info, vector<string> &body)
 {
     ostringstream buf;
     if(act != NoExists) {
@@ -5010,19 +5171,20 @@ void TMVTABody::ToTlg(TTlgInfo &info, bool &vcompleted, vector<string> &body)
             << "/"
             << DateTimeToStr(act, fmt);
     } else {
-        vcompleted = false;
+        info.vcompleted = false;
         buf << "AD\?\?\?\?/\?\?\?\?";
     }
     for(vector<TMVTABodyItem>::iterator i = items.begin(); i != items.end(); i++) {
         if(i == items.begin()) {
             buf << " EA";
             if(i->est_in == NoExists) {
-                vcompleted = false;
+                info.vcompleted = false;
                 buf << "????";
             } else
                 buf << DateTimeToStr(i->est_in, "hhnn");
             buf << " " << info.TlgElemIdToElem(etAirp, i->target);
             body.push_back(buf.str());
+            delays.ToTlg(info, body, false);
             buf.str("");
             buf << "PX" << i->seats;
         } else {
@@ -5030,6 +5192,7 @@ void TMVTABody::ToTlg(TTlgInfo &info, bool &vcompleted, vector<string> &body)
         }
     }
     body.push_back(buf.str());
+    delays.ToTlg(info, body, true);
 }
 
 void TMVTABody::get(TTlgInfo &info)
@@ -5076,6 +5239,12 @@ void TMVTABody::get(TTlgInfo &info)
             items.push_back(item);
         }
     }
+    TTripInfo t;
+    t.airline = info.airline;
+    t.flt_no = info.flt_no;
+    t.airp = info.airp_dep;
+    if(GetTripSets(tsSendMVTDelays, t))
+        delays.get(info);
 }
 
 int CPM(TTlgInfo &info)
@@ -5129,6 +5298,8 @@ int MVT(TTlgInfo &info)
       buf << "." << info.airp_dep_view();
     if(info.tlg_type == "MVTB")
       buf << "." << info.airp_arv_view();
+    if(info.tlg_type == "MVTC")
+      buf << "." << info.airp_dep_view();
     vector<string> body;
     body.push_back(buf.str());
     buf.str("");
@@ -5136,12 +5307,17 @@ int MVT(TTlgInfo &info)
         if(info.tlg_type == "MVTA") {
             TMVTABody MVTABody;
             MVTABody.get(info);
-            MVTABody.ToTlg(info, info.vcompleted, body);
+            MVTABody.ToTlg(info, body);
         };
         if(info.tlg_type == "MVTB") {
             TMVTBBody MVTBBody;
             MVTBBody.get(info);
             MVTBBody.ToTlg(info.vcompleted, body);
+        }
+        if(info.tlg_type == "MVTC") {
+            TMVTCBody MVTCBody;
+            MVTCBody.get(info);
+            MVTCBody.ToTlg(info, body);
         }
     } catch(...) {
         ExceptionFilter(body, info);
@@ -5341,7 +5517,7 @@ void TDestList<T>::get(TTlgInfo &info,vector<TTlgCompLayer> &complayers)
 
 struct TNumByDestItem {
     int f, c, y;
-    void add(string cls);
+    void add(string cls, int seats);
     void ToTlg(TTlgInfo &info, string airp, vector<string> &body);
     TNumByDestItem():
         f(0),
@@ -5362,20 +5538,20 @@ void TNumByDestItem::ToTlg(TTlgInfo &info, string airp, vector<string> &body)
     body.push_back(buf.str());
 }
 
-void TNumByDestItem::add(string cls)
+void TNumByDestItem::add(string cls, int seats)
 {
     if(cls.empty())
         return;
     switch(cls[0])
     {
         case 'П':
-            f++;
+            f += seats;
                 break;
         case 'Б':
-            c++;
+            c += seats;
                 break;
         case 'Э':
-            y++;
+            y += seats;
                 break;
         default:
             throw Exception("TNumByDestItem::add: strange cls: %s", cls.c_str());
@@ -5389,6 +5565,7 @@ struct TPNLPaxInfo {
         int col_pnr_id;
         int col_surname;
         int col_name;
+        int col_seats;
         int col_pers_type;
         int col_subclass;
         int col_target;
@@ -5399,6 +5576,8 @@ struct TPNLPaxInfo {
         int pnr_id;
         string surname;
         string name;
+        string exst_name;
+        int seats;
         string pers_type;
         string subclass;
         string target;
@@ -5409,6 +5588,7 @@ struct TPNLPaxInfo {
         {
             pax_id = NoExists;
             pnr_id = NoExists;
+            seats = 0;
             surname.erase();
             name.erase();
             pers_type.erase();
@@ -5429,6 +5609,7 @@ struct TPNLPaxInfo {
                     col_pnr_id = Qry.FieldIndex("pnr_id");
                     col_surname = Qry.FieldIndex("surname");
                     col_name = Qry.FieldIndex("name");
+                    col_seats = Qry.FieldIndex("seats");
                     col_pers_type = Qry.FieldIndex("pers_type");
                     col_subclass = Qry.FieldIndex("subclass");
                     col_target = Qry.FieldIndex("airp_arv");
@@ -5439,6 +5620,10 @@ struct TPNLPaxInfo {
                 pnr_id = Qry.FieldAsInteger(col_pnr_id);
                 surname = Qry.FieldAsString(col_surname);
                 name = Qry.FieldAsString(col_name);
+                TExtraSeatName exst;
+                exst.get(pax_id, true);
+                exst_name = exst.value;
+                seats = Qry.FieldAsInteger(col_seats);
                 pers_type = Qry.FieldAsString(col_pers_type);
                 subclass = Qry.FieldAsString(col_subclass);
                 target = Qry.FieldAsString(col_target);
@@ -5452,6 +5637,7 @@ struct TPNLPaxInfo {
             col_pnr_id(NoExists),
             col_surname(NoExists),
             col_name(NoExists),
+            col_seats(NoExists),
             col_pers_type(NoExists),
             col_subclass(NoExists),
             col_target(NoExists),
@@ -5466,6 +5652,7 @@ struct TPNLPaxInfo {
                 "    crs_pax.pnr_id, "
                 "    crs_pax.surname, "
                 "    crs_pax.name, "
+                "    crs_pax.seats, "
                 "    crs_pax.pers_type, "
                 "    crs_pnr.subclass, "
                 "    crs_pnr.airp_arv, "
@@ -5498,6 +5685,7 @@ struct TCKINPaxInfo {
         int col_pax_id;
         int col_surname;
         int col_name;
+        int col_seats;
         int col_pers_type;
         int col_cls;
         int col_subclass;
@@ -5508,6 +5696,8 @@ struct TCKINPaxInfo {
         int pax_id;
         string surname;
         string name;
+        string exst_name;
+        int seats;
         string pers_type;
         string cls;
         string subclass;
@@ -5528,6 +5718,8 @@ struct TCKINPaxInfo {
             pax_id = NoExists;
             surname.erase();
             name.erase();
+            exst_name.erase();
+            seats = 0;
             pers_type.erase();
             cls.erase();
             subclass.erase();
@@ -5551,6 +5743,7 @@ struct TCKINPaxInfo {
                         col_pax_id = Qry.FieldIndex("pax_id");
                         col_surname = Qry.FieldIndex("surname");
                         col_name = Qry.FieldIndex("name");
+                        col_seats = Qry.FieldIndex("seats");
                         col_pers_type = Qry.FieldIndex("pers_type");
                         col_cls = Qry.FieldIndex("cls");
                         col_subclass = Qry.FieldIndex("subclass");
@@ -5561,6 +5754,10 @@ struct TCKINPaxInfo {
                     pax_id = Qry.FieldAsInteger(col_pax_id);
                     surname = Qry.FieldAsString(col_surname);
                     name = Qry.FieldAsString(col_name);
+                    TExtraSeatName exst;
+                    exst.get(pax_id);
+                    exst_name = exst.value;
+                    seats = Qry.FieldAsInteger(col_seats);
                     pers_type = Qry.FieldAsString(col_pers_type);
                     cls = Qry.FieldAsString(col_cls);
                     subclass = Qry.FieldAsString(col_subclass);
@@ -5577,6 +5774,7 @@ struct TCKINPaxInfo {
             col_pax_id(NoExists),
             col_surname(NoExists),
             col_name(NoExists),
+            col_seats(NoExists),
             col_pers_type(NoExists),
             col_cls(NoExists),
             col_subclass(NoExists),
@@ -5592,6 +5790,7 @@ struct TCKINPaxInfo {
                 "    pax.pax_id, "
                 "    pax.surname, "
                 "    pax.name, "
+                "    pax.seats, "
                 "    pax.pers_type, "
                 "    pax_grp.class cls, "
                 "    nvl(pax.subclass, pax_grp.class) subclass, "
@@ -5643,7 +5842,9 @@ void TCKINPaxInfo::dump()
 struct TPFSPax {
     int pax_id;
     int pnr_id;
-    TName name;
+    string name, surname;
+    string exst_name;
+    int seats;
     string target;
     string subcls;
     string crs;
@@ -5664,8 +5865,10 @@ void TPFSPax::operator = (const TCKINPaxInfo &ckin_pax)
 {
         if(ckin_pax.pax_id != NoExists) {
             pax_id = ckin_pax.pax_id;
-            name.name = ckin_pax.name;
-            name.surname = ckin_pax.surname;
+            name = ckin_pax.name;
+            surname = ckin_pax.surname;
+            exst_name = ckin_pax.exst_name;
+            seats = ckin_pax.seats;
             target = ckin_pax.target;
             subcls = ckin_pax.subclass;
             M.m_flight.getByPaxId(pax_id);
@@ -5673,8 +5876,10 @@ void TPFSPax::operator = (const TCKINPaxInfo &ckin_pax)
             if(ckin_pax.crs_pax.pax_id == NoExists)
                 throw Exception("TPFSPax::operator =: both ckin and crs pax_id are not exists");
             pax_id = ckin_pax.crs_pax.pax_id;
-            name.name = ckin_pax.crs_pax.name;
-            name.surname = ckin_pax.crs_pax.surname;
+            name = ckin_pax.crs_pax.name;
+            surname = ckin_pax.crs_pax.surname;
+            exst_name = ckin_pax.crs_pax.exst_name;
+            seats = ckin_pax.crs_pax.seats;
             target = ckin_pax.crs_pax.target;
             subcls = ckin_pax.crs_pax.subclass;
             M.m_flight.getByCrsPaxId(pax_id);
@@ -5683,9 +5888,50 @@ void TPFSPax::operator = (const TCKINPaxInfo &ckin_pax)
         pnr_id = ckin_pax.crs_pax.pnr_id;
 }
 
+void nameToTlg(const string &name, const string &asurname, int seats, const string &exst_name, vector<string> &body)
+{
+    string surname = asurname;
+    int name_count = 0;
+    int names_sum_size = 0;
+    vector<string> names;
+    if(not name.empty()) {
+        names.push_back(name);
+        names_sum_size += name.size();
+        name_count = 1;
+    }
+    for(int i = 0; seats != 1 and i < seats - name_count; i++) {
+        names.push_back(exst_name);
+        names_sum_size += exst_name.size();
+    }
+    size_t len = surname.size() + names.size() + names_sum_size + br.size();
+    if(len > LINE_SIZE) {
+        size_t diff = len - LINE_SIZE;
+        if(name.empty()) {
+            surname = surname.substr(0, surname.size() - diff);
+        } else {
+            if(diff >= name.size()) {
+                names[0] = names[0].substr(0, 1);
+                diff -= name.size() - 1;
+                surname = surname.substr(0, surname.size() - diff);
+            } else {
+                names[0] = names[0].substr(0, names[0].size() - diff);
+            }
+        }
+    }
+
+    ostringstream buf;
+    buf << seats << surname;
+    for(vector<string>::iterator iv = names.begin(); iv != names.end(); iv++)
+        buf << "/" << *iv;
+    body.push_back(buf.str());
+}
+
+
 void TPFSPax::ToTlg(TTlgInfo &info, vector<string> &body)
 {
-    name.ToTlg(info, body);
+    name = transliter(name, 1, info.pr_lat);
+    surname = transliter(surname, 1, info.pr_lat);
+    nameToTlg(name, surname, seats, exst_name, body);
     pnrs.ToTlg(info, body);
     M.ToTlg(info, body);
 }
@@ -5706,7 +5952,15 @@ struct TSubClsCmp {
     }
 };
 
-typedef vector<TPFSPax> TPFSPaxList;
+struct TPFSPaxList:vector<TPFSPax> {
+    size_t size() {
+        size_t result = 0;
+        for(TPFSPaxList::iterator iv = begin(); iv != end(); iv++)
+            result += iv->seats;
+        return result;
+    }
+};
+
 typedef map<string, TPFSPaxList, TSubClsCmp> TPFSClsList;
 typedef map<string, TPFSClsList> TPFSCtgryList;
 typedef map<string, TPFSCtgryList> TPFSItems;
@@ -5923,7 +6177,7 @@ void TPFSBody::get(TTlgInfo &info)
         if(not info.mark_info.IsNULL() and not(info.mark_info == PFSPax.M.m_flight))
             continue;
         if(item.pax_id != NoExists) // для зарегистрированных пассажиров собираем инфу для цифровой PFS
-            pfsn[ckin_pax.target].add(ckin_pax.cls);
+            pfsn[ckin_pax.target].add(ckin_pax.cls, ckin_pax.seats);
         if(category.empty())
             continue;
         PFSPax.pnrs.get(PFSPax.pnr_id);
@@ -6087,6 +6341,7 @@ int TelegramInterface::create_tlg(const TCreateTlgInfo &createInfo)
             "   points.flt_no, "
             "   points.suffix, "
             "   points.scd_out scd, "
+            "   points.est_out, "
             "   points.act_out, "
             "   points.bort, "
             "   points.airp, "
@@ -6108,6 +6363,8 @@ int TelegramInterface::create_tlg(const TCreateTlgInfo &createInfo)
         info.flt_no = Qry.FieldAsInteger("flt_no");
         info.suffix = Qry.FieldAsString("suffix");
         info.scd_utc = Qry.FieldAsDateTime("scd");
+        if(not Qry.FieldIsNULL("est_out"))
+            info.est_utc = Qry.FieldAsDateTime("est_out");
         info.bort = Qry.FieldAsString("bort");
         info.airp_dep = Qry.FieldAsString("airp");
         info.point_num = Qry.FieldAsInteger("point_num");

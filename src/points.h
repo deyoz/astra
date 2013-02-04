@@ -67,6 +67,11 @@ class TPointsDestDelay {
 public:
 	std::string code;
 	BASIC::TDateTime time;
+	TPointsDestDelay( const TSOPPDelay &delay ) {
+    code = delay.code;
+    time = delay.time;
+	};
+	TPointsDestDelay(){};
 };
 
 class TPointsDest;
@@ -156,6 +161,48 @@ class TFlightMaxCommerce {
     void Save( int point_id );
     bool equal( const TFlightMaxCommerce &flightMaxCommerce ) {
       return ( value == flightMaxCommerce.value );
+    }
+};
+
+class TFlightDelays {
+  private:
+    std::vector<TPointsDestDelay> delays;
+  public:
+    TFlightDelays( const std::vector<TSOPPDelay> &soppdelays ) {
+      for ( std::vector<TSOPPDelay>::const_iterator i=soppdelays.begin(); i!=soppdelays.end(); i++ ) {
+        TPointsDestDelay pdelay( *i );
+        Add( pdelay );
+      }
+    }
+    TFlightDelays(){};
+    void Load( int point_id );
+    void Save( int point_id );
+    bool Empty() {
+      return delays.empty();
+    }
+    void Add( TPointsDestDelay &delay ) {
+      delays.push_back( delay );
+    }
+    bool equal( const TFlightDelays &flightDelays ) {
+      if ( delays.size() != flightDelays.delays.size() )
+        return false;
+      std::vector<TPointsDestDelay>::iterator idelay=delays.begin();
+      std::vector<TPointsDestDelay>::const_iterator ipriordelay=flightDelays.delays.begin();
+      for ( ;
+            idelay!=delays.end() &&
+            ipriordelay!=flightDelays.delays.end();
+            idelay++, ipriordelay++ ) {
+        if ( idelay->code != ipriordelay->code ||
+             idelay->time != ipriordelay->time ) {
+          return false;
+        }
+      }
+      return true;
+    }
+    void Get( std::vector<TPointsDestDelay> &vdelays ) {
+      vdelays.clear();
+      vdelays.insert( vdelays.begin(),  delays.begin(), delays.end() );
+      return;
     }
 };
 
@@ -269,7 +316,7 @@ public:
   TElemFmt suffix_fmt;
   TElemFmt craft_fmt;
   TFlightStages stages;
-  std::vector<TPointsDestDelay> delays;
+  TFlightDelays delays;
   BASIC::TDateTime stage_scd, stage_est; //для расчета задержки шага тех. графика
   TFlightCargos cargos;
   TFlightMaxCommerce max_commerce;

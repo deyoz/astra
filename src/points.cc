@@ -162,18 +162,7 @@ void TPointsDest::Load( int vpoint_id, BitSet<TUseDestData> FUseData )
   if ( UseData.isFlag( udStages ) )
     stages.Load( point_id );
   if ( UseData.isFlag( udDelays ) ) {
-    Qry.Clear();
-    Qry.SQLText = points_delays_SQL;
-    Qry.CreateVariable( "point_id", otInteger, point_id );
-    Qry.Execute();
-    while ( !Qry.Eof ) {
-      tst();
-  		TPointsDestDelay delay;
-  		delay.code = Qry.FieldAsString( "delay_code" );
-  		delay.time = Qry.FieldAsDateTime( "time" );
-  		delays.push_back( delay );
-  		Qry.Next();
-    }
+    delays.Load( point_id );
   }
   if ( UseData.isFlag( udCargo ) ) {
     tst();
@@ -296,6 +285,27 @@ void TPoints::Verify( bool ignoreException, LexemaData &lexemaData )
                      id->scd_in, id->scd_out ) ) {
       	doubleTrip = true;
       	break;
+      }
+      if ( id->pr_del != -1 && id != dests.items.end() &&
+           ( !id->delays.Empty() || id->est_out != NoExists ) ) {
+        TTripInfo info;
+        info.airline = id->airline;
+        info.flt_no = id->flt_no;
+        info.airp = id->airp;
+        if ( GetTripSets( tsCheckMVTDelays, info ) ) { //проверка задержек на совместимость с телеграммами
+          if ( id->delays.Empty() )
+            throw AstraLocale::UserException( "MSG.MVTDELAY.NOT_SET" );
+          TDateTime prior_delay_time  = id->scd_out;
+          std::vector<TPointsDestDelay> vdelays;
+          id->delays.Get( vdelays );
+          for ( vector<TPointsDestDelay>::iterator q=vdelays.begin(); q!=vdelays.end(); q++ ) {
+            if ( !check_delay_code( q->code ) )
+              throw AstraLocale::UserException( "MSG.MVTDELAY.INVALID_CODE" );
+            if ( check_delay_value( q->time - prior_delay_time ) )
+              throw AstraLocale::UserException( "MSG.MVTDELAY.INVALID_TIME" );
+            prior_delay_time = q->time;
+          }
+        }
       }
     } // end for
     if ( !pr_time )
@@ -493,25 +503,8 @@ void TPointsDest::getEvents( const TPointsDest &vdest )
       events.setFlag( dmFirst_Point );
   }
   if ( status != tdDelete && UseData.isFlag( udDelays ) ) {
-    if ( status == tdInsert && delays.size() ||
-         status != tdInsert && delays.size() != vdest.delays.size() ) {
-      ProgTrace( TRACE5, "delays.size()=%d, vdest.delays.size()=%d", delays.size(), vdest.delays.size() );
+    if ( !delays.equal( vdest.delays ) )
       events.setFlag( dmChangeDelays );
-    }
-    else {
-      vector<TPointsDestDelay>::iterator iddel=delays.begin();
-      vector<TPointsDestDelay>::const_iterator vdestdel=vdest.delays.begin();
-      for ( ;
-            iddel!=delays.end() &&
-            vdestdel!=vdest.delays.end();
-            iddel++, vdestdel++ ) {
-        if ( iddel->code != vdestdel->code ||
-             iddel->time != vdestdel->time ) {
-          events.setFlag( dmChangeDelays );
-          break;
-        }
-      }
-    }
   }
   
 	if ( !UseData.isFlag( udNoCalcESTTimeStage ) && status != tdDelete && pr_reg ) {
@@ -818,28 +811,7 @@ void TPoints::WriteDest( TPointsDest &dest )
   Qry.CreateVariable( "pr_reg", otInteger, dest.pr_reg );
   Qry.Execute();
   if ( dest.events.isFlag( dmChangeDelays ) ) {
-  	Qry.Clear();
-  	Qry.SQLText = "DELETE trip_delays WHERE point_id=:point_id";
-  	Qry.CreateVariable( "point_id", otInteger, dest.point_id );
-  	Qry.Execute();
-  	if ( !dest.delays.empty() ) {
-  		Qry.Clear();
-  		Qry.SQLText =
-  		 "INSERT INTO trip_delays(point_id,delay_num,delay_code,time) "\
-  		 " VALUES(:point_id,:delay_num,:delay_code,:time) ";
-  		Qry.CreateVariable( "point_id", otInteger, dest.point_id );
-  		Qry.DeclareVariable( "delay_num", otInteger );
-  		Qry.DeclareVariable( "delay_code", otString );
-  		Qry.DeclareVariable( "time", otDate );
-  		int r=0;
-  		for ( vector<TPointsDestDelay>::iterator q=dest.delays.begin(); q!=dest.delays.end(); q++ ) {
-  			Qry.SetVariable( "delay_num", r );
-  			Qry.SetVariable( "delay_code", q->code );
-  			Qry.SetVariable( "time", q->time );
-  			Qry.Execute();
-  			r++;
-  		}
-  	}
+     dest.delays.Save( dest.point_id );
   }
   if ( dest.events.isFlag( dmInitStages ) ) {
     ProgTrace( TRACE5, "dmInitStages, point_id=%d", dest.point_id );
@@ -1954,7 +1926,7 @@ void ConvertSOPPToPOINTS( int move_id, const TSOPPDests &dests, string reference
       TPointsDestDelay dd;
       dd.code = d->code;
       dd.time = d->time;
-      dest.delays.push_back( dd );
+      dest.delays.Add( dd );
     }
     points.dests.items.push_back( dest );
   }
@@ -2210,6 +2182,51 @@ void TFlightMaxCommerce::Save( int point_id )
     TReqInfo::Instance()->MsgToLog( string( "Макс. коммерческая загрузка: " ) + IntToString( value ) + "кг.", evtFlt, point_id );
   Set_AODB_overload_alarm( point_id, pr_overload_alarm );
 }
+////////////////////////////////////TFlightDelays///////////////////////////////
+
+void TFlightDelays::Load( int point_id )
+{
+   TQuery Qry(&OraSession);
+   Qry.SQLText = points_delays_SQL;
+   Qry.CreateVariable( "point_id", otInteger, point_id );
+   Qry.Execute();
+   while ( !Qry.Eof ) {
+     tst();
+ 		 TPointsDestDelay delay;
+ 		 delay.code = Qry.FieldAsString( "delay_code" );
+ 		 delay.time = Qry.FieldAsDateTime( "time" );
+ 		 delays.push_back( delay );
+ 		 Qry.Next();
+   }
+}
+
+void TFlightDelays::Save( int point_id )
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText = "DELETE trip_delays WHERE point_id=:point_id";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  if ( !delays.empty() ) {
+  	Qry.Clear();
+  	Qry.SQLText =
+  	 "INSERT INTO trip_delays(point_id,delay_num,delay_code,time) "\
+  	 " VALUES(:point_id,:delay_num,:delay_code,:time) ";
+  	Qry.CreateVariable( "point_id", otInteger, point_id );
+  	Qry.DeclareVariable( "delay_num", otInteger );
+  	Qry.DeclareVariable( "delay_code", otString );
+  	Qry.DeclareVariable( "time", otDate );
+  	int r=0;
+  	for ( vector<TPointsDestDelay>::iterator q=delays.begin(); q!=delays.end(); q++ ) {
+  		Qry.SetVariable( "delay_num", r );
+  		Qry.SetVariable( "delay_code", q->code );
+  		Qry.SetVariable( "time", q->time );
+  		Qry.Execute();
+  		r++;
+  	}
+  }
+}
+
 ////////////////////////////////////TFlightStages///////////////////////////////
 void TFlightStages::Load( int point_id )
 {
