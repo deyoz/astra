@@ -3278,10 +3278,11 @@ void WebRequestsIface::GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   TDateTime vdate, vpriordate;
   if ( BASIC::StrToDateTime( str_date.c_str(), "dd.mm.yyyy hh:nn:ss", vdate ) == EOF )
 		throw UserException( "Invalid tag value '@time'" );
+  bool pr_reset = ( GetNode( "@reset", reqNode ) != NULL );
   string prior_paxs;
   map<int,Tids> Paxs; // pax_id, <pax_tid, grp_tid> список пассажиров переданных ранее
   xmlDocPtr paxsDoc;
-  if ( AstraContext::GetContext( "meridian_sync", 0, prior_paxs ) != NoExists ) {
+  if ( !pr_reset && AstraContext::GetContext( "meridian_sync", 0, prior_paxs ) != NoExists ) {
     paxsDoc = TextToXMLTree( prior_paxs );
     try {
       xmlNodePtr nodePax = paxsDoc->children;
@@ -3370,12 +3371,12 @@ void WebRequestsIface::GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     if ( FltQry.Eof )
       throw EXCEPTIONS::Exception("WebRequestsIface::GetPaxsInfo: flight not found, (point_id=%d)", Qry.FieldAsInteger( "point_id" ) );
     string airline = FltQry.FieldAsString( "airline" );
-    if ( airline != "ЮТ" &&
+/*    if ( airline != "ЮТ" &&
          airline != "ЮР" &&
          airline != "QU" ) {
       tst();
       continue;
-    }
+    }*/
     if ( max_time != NoExists && max_time != Qry.FieldAsDateTime( "time" ) ) { // сравнение времени с пред. значением, если изменилось, то
       ProgTrace( TRACE5, "Paxs.clear(), vdate=%s, max_time=%s",
                  DateTimeToStr( vdate, ServerFormatDateTimeAsString ).c_str(),
