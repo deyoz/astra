@@ -14,6 +14,7 @@
 #include "astra_context.h"
 #include "convert.h"
 #include "basic.h"
+#include "misc.h"
 #include "astra_misc.h"
 #include "print.h"
 #include "web_main.h"
@@ -509,32 +510,94 @@ string ElemToPaxDocCountryId(const string &elem, TElemFmt &fmt)
   return result;
 };
 
+bool CheckDocNumber(const string &str, const TCheckDocTknInfo &checkDocInfo, string::size_type &errorIdx)
+{
+  errorIdx=0;
+  for(string::const_iterator i=str.begin(); i!=str.end(); ++i, errorIdx++)
+    if (!(( !checkDocInfo.is_inter || IsAscii7(*i) ) &&
+          ( IsUpperLetter(*i) || IsDigit(*i) || *i==' ' )
+         ))
+      return false;
+  errorIdx=string::npos;
+  return true;
+};
+
+bool CheckDocSurname(const string &str, const TCheckDocTknInfo &checkDocInfo, string::size_type &errorIdx)
+{
+  errorIdx=0;
+  for(string::const_iterator i=str.begin(); i!=str.end(); ++i, errorIdx++)
+    if (!(( !checkDocInfo.is_inter || IsAscii7(*i) ) &&
+          ( IsUpperLetter(*i) || *i==' ' || *i=='-' )
+         ))
+      return false;
+  errorIdx=string::npos;
+  return true;
+};
+
+bool CheckDocPlace(const string &str, const TCheckDocTknInfo &checkDocInfo, string::size_type &errorIdx)
+{
+  errorIdx=0;
+  for(string::const_iterator i=str.begin(); i!=str.end(); ++i, errorIdx++)
+    if (!(( !checkDocInfo.is_inter || IsAscii7(*i) ) &&
+          ( IsUpperLetter(*i) || IsDigit(*i) || *i==' ' || *i=='-' )
+         ))
+      return false;
+  errorIdx=string::npos;
+  return true;
+};
+
+void CheckDoc(const CheckIn::TPaxDocItem &doc,
+              const TCheckDocTknInfo &checkDocInfo,
+              TDateTime nowLocal)
+{
+  string::size_type errorIdx;
+  
+  modf(nowLocal, &nowLocal);
+  
+  if (doc.birth_date!=NoExists && doc.birth_date>nowLocal)
+    throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "document/birth_date" ));
+    
+  if (doc.expiry_date!=NoExists && doc.expiry_date<nowLocal)
+    throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "document/expiry_date" ));
+  
+  if (!CheckDocNumber(doc.no, checkDocInfo, errorIdx))
+    throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "document/no" ));
+
+  if (!CheckDocSurname(doc.surname, checkDocInfo, errorIdx))
+    throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "document/surname" ));
+    
+  if (!CheckDocSurname(doc.first_name, checkDocInfo, errorIdx))
+    throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "document/first_name" ));
+    
+  if (!CheckDocSurname(doc.second_name, checkDocInfo, errorIdx))
+    throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "document/second_name" ));
+};
+
 CheckIn::TPaxDocItem NormalizeDoc(const CheckIn::TPaxDocItem &doc)
 {
-  //!!!vlad проверка на символы + тестировать тестового пассажира!
-
   CheckIn::TPaxDocItem result;
   TElemFmt fmt;
+
   if (!doc.type.empty())
   {
-    result.type=ElemToElemId(etPaxDocType, doc.type, fmt);
+    result.type=ElemToElemId(etPaxDocType, upperc(doc.type), fmt);
     if (fmt==efmtUnknown || result.type=="V")
       throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "document/type" ));
   };
   if (!doc.issue_country.empty())
   {
-    result.issue_country=ElemToPaxDocCountryId(doc.issue_country, fmt);
+    result.issue_country=ElemToPaxDocCountryId(upperc(doc.issue_country), fmt);
     if (fmt==efmtUnknown)
       throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "document/issue_country" ));
   };
   
-  if (doc.no.size()>15)
+  result.no=upperc(doc.no);
+  if (result.no.size()>15)
     throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "document/no" ));
-  result.no=doc.no;
   
   if (!doc.nationality.empty())
   {
-    result.nationality=ElemToPaxDocCountryId(doc.nationality, fmt);
+    result.nationality=ElemToPaxDocCountryId(upperc(doc.nationality), fmt);
     if (fmt==efmtUnknown)
       throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "document/nationality" ));
   };
@@ -544,7 +607,7 @@ CheckIn::TPaxDocItem NormalizeDoc(const CheckIn::TPaxDocItem &doc)
   
   if (!doc.gender.empty())
   {
-    result.gender=ElemToElemId(etGenderType, doc.gender, fmt);
+    result.gender=ElemToElemId(etGenderType, upperc(doc.gender), fmt);
     if (fmt==efmtUnknown)
       throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "document/gender" ));
   };
@@ -552,54 +615,78 @@ CheckIn::TPaxDocItem NormalizeDoc(const CheckIn::TPaxDocItem &doc)
   if (doc.expiry_date!=NoExists)
     modf(doc.expiry_date, &result.expiry_date);
     
-  if (doc.surname.size()>64)
+  result.surname=upperc(doc.surname);
+  if (result.surname.size()>64)
     throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "document/surname" ));
-  result.surname=doc.surname;
   
-  if (doc.first_name.size()>64)
+  result.first_name=upperc(doc.first_name);
+  if (result.first_name.size()>64)
     throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "document/first_name" ));
-  result.first_name=doc.first_name;
   
-  if (doc.second_name.size()>64)
+  result.second_name=upperc(doc.second_name);
+  if (result.second_name.size()>64)
     throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "document/second_name" ));
-  result.second_name=doc.second_name;
+
   return result;
 };
 
-CheckIn::TPaxDocoItem NormalizeDoco(const CheckIn::TPaxDocoItem &doco)
+void CheckDoco(const CheckIn::TPaxDocoItem &doc,
+               const TCheckDocTknInfo &checkDocInfo,
+               TDateTime nowLocal)
 {
-  //!!!vlad проверка на символы + тестировать тестового пассажира!
+  string::size_type errorIdx;
+
+  modf(nowLocal, &nowLocal);
+  
+  if (doc.issue_date!=NoExists && doc.issue_date>nowLocal)
+    throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "doco/issue_date" ));
+
+  if (doc.expiry_date!=NoExists && doc.expiry_date<nowLocal)
+    throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "doco/expiry_date" ));
+    
+  if (!CheckDocPlace(doc.birth_place, checkDocInfo, errorIdx))
+    throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "doco/birth_place" ));
+
+  if (!CheckDocNumber(doc.no, checkDocInfo, errorIdx))
+    throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "doco/no" ));
+    
+  if (!CheckDocPlace(doc.issue_place, checkDocInfo, errorIdx))
+    throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "doco/issue_place" ));
+};
+
+CheckIn::TPaxDocoItem NormalizeDoco(const CheckIn::TPaxDocoItem &doc)
+{
   CheckIn::TPaxDocoItem result;
   TElemFmt fmt;
   
-  if (doco.birth_place.size()>35)
-    throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "document/birth_place" ));
-  result.birth_place=doco.birth_place;
+  result.birth_place=upperc(doc.birth_place);
+  if (result.birth_place.size()>35)
+    throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "doco/birth_place" ));
   
-  if (!doco.type.empty())
+  if (!doc.type.empty())
   {
-    result.type=ElemToElemId(etPaxDocType, doco.type, fmt);
+    result.type=ElemToElemId(etPaxDocType, upperc(doc.type), fmt);
     if (fmt==efmtUnknown || result.type!="V")
       throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "doco/type" ));
   };
   
-  if (doco.no.size()>15)
-    throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "document/no" ));
-  result.no=doco.no;
+  result.no=upperc(doc.no);
+  if (result.no.size()>15)
+    throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "doco/no" ));
   
-  if (doco.issue_place.size()>35)
-    throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "document/issue_place" ));
-  result.issue_place=doco.issue_place;
+  result.issue_place=upperc(doc.issue_place);
+  if (result.issue_place.size()>35)
+    throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "doco/issue_place" ));
   
-  if (doco.issue_date!=NoExists)
-    modf(doco.issue_date, &result.issue_date);
+  if (doc.issue_date!=NoExists)
+    modf(doc.issue_date, &result.issue_date);
     
-  if (doco.expiry_date!=NoExists)
-    modf(doco.expiry_date, &result.expiry_date);
+  if (doc.expiry_date!=NoExists)
+    modf(doc.expiry_date, &result.expiry_date);
   
-  if (!doco.applic_country.empty())
+  if (!doc.applic_country.empty())
   {
-    result.applic_country=ElemToPaxDocCountryId(doco.applic_country, fmt);
+    result.applic_country=ElemToPaxDocCountryId(upperc(doc.applic_country), fmt);
     if (fmt==efmtUnknown)
       throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "doco/applic_country" ));
   };
@@ -1608,6 +1695,7 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
   WebSearch::TPnrData first;
   first.flt.fromDB(segs.begin()->first, true, true);
   first.flt.fromDBadditional(true, true);
+  TDateTime now_local=UTCToLocal(NowUTC(), AirpTZRegion(first.flt.oper.airp));
 	
   const char* PaxQrySQL=
 	    "SELECT point_dep,point_arv,airp_dep,airp_arv,class,excess,bag_refuse, "
@@ -2046,6 +2134,8 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
       {
         if (iPnrData==PNRs.end()) //лишние сегменты в запросе на регистрацию
           throw EXCEPTIONS::Exception("VerifyPax: iPnrData==PNRs.end() (seg_no=%d)", seg_no);
+          
+        TCheckDocInfo checkDocInfo=GetCheckDocInfo(iPnrData->flt.point_dep, iPnrData->dest.airp_arv);
 
         const TWebPnrForSave &currPnr=s->second;
         //пассажиры для регистрации
@@ -2147,7 +2237,13 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
                   NewTextChild(paxNode,"ticket_rem");
                 NewTextChild(paxNode,"ticket_confirm",(int)false);
               };
+              
+              if (iPaxFromReq->doc_present)
+                CheckDoc(iPaxForCkin->doc, checkDocInfo.first, now_local);
               iPaxForCkin->doc.toXML(paxNode);
+              
+              if (iPaxFromReq->doco_present)
+                CheckDoco(iPaxForCkin->doco, checkDocInfo.second, now_local);
               iPaxForCkin->doco.toXML(paxNode);
 
               NewTextChild(paxNode,"subclass",iPaxForCkin->subclass);
@@ -2210,6 +2306,7 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
             bool DocUpdatesPending=false;
             if (iPaxFromReq->doc_present) //тег <document> пришел
             {
+              CheckDoc(iPaxForChng->doc, checkDocInfo.first, now_local);
               CheckIn::TPaxDocItem prior_doc;
               LoadPaxDoc(iPaxForChng->crs_pax_id, prior_doc, PaxDocQry);
               DocUpdatesPending=!(prior_doc==iPaxForChng->doc);
@@ -2218,6 +2315,7 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
             bool DocoUpdatesPending=false;
             if (iPaxFromReq->doco_present) //тег <doco> пришел
             {
+              CheckDoco(iPaxForChng->doco, checkDocInfo.second, now_local);
               CheckIn::TPaxDocoItem prior_doco;
               LoadPaxDoco(iPaxForChng->crs_pax_id, prior_doco, PaxDocoQry);
               DocoUpdatesPending=!(prior_doco==iPaxForChng->doco);

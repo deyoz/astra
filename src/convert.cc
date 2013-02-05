@@ -109,7 +109,7 @@ string prev_iata_row(string row)
 
 string prev_iata_line(string line)
 {
-    const char *seat = is_lat(line) ? lat_seat : rus_seat;
+    const char *seat = IsAscii7(line) ? lat_seat : rus_seat;
     size_t i = 0;
     for(; i < strlen(seat); i++)
         if(seat[i] == line[0])
@@ -122,7 +122,7 @@ string prev_iata_line(string line)
 
 string next_iata_line(string line)
 {
-    const char *seat = is_lat(line) ? lat_seat : rus_seat;
+    const char *seat = IsAscii7(line) ? lat_seat : rus_seat;
     size_t i = 0;
     for(; i < strlen(seat); i++)
         if(seat[i] == line[0])
@@ -136,8 +136,8 @@ string next_iata_line(string line)
 // функция line1 < line2. Можно было и напрямую сравнить, но я че-то побоялся.
 bool less_iata_line(std::string line1, std::string line2)
 {
-    const char *seat = is_lat(line1) ? lat_seat : rus_seat;
-    if(is_lat(line2) and seat != lat_seat)
+    const char *seat = IsAscii7(line1) ? lat_seat : rus_seat;
+    if(IsAscii7(line2) and seat != lat_seat)
         throw Exception("less_iata_line: unmatched encoding");
     size_t i1 = 0;
     size_t i2 = 0;

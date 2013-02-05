@@ -3293,31 +3293,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                    if (checkDocInfo.first.required_fields!=0x0000)
                    {
                      xmlNodePtr docNode=GetNodeFast("document",node2);
-                     if (docNode!=NULL) docNode=docNode->children;
-
-                     //вычисляем маску по присутствию данных
-                     long int not_empty_fields=0x0000;
-                     for(;docNode!=NULL;docNode=docNode->next)
+                     if (reqInfo->client_type==ctTerm || new_checkin || docNode!=NULL)
                      {
-                       if (NodeIsNULL(docNode)) continue;
-                       map<string, long int>::const_iterator iMask=doc_node_names.find((char*)docNode->name);
-                       if (iMask!=doc_node_names.end()) not_empty_fields|=iMask->second;
-                     };
-
-                     if ((checkDocInfo.first.required_fields&not_empty_fields)!=checkDocInfo.first.required_fields)
-                     {
-
-                       if (checkDocInfo.first.required_fields==DOC_NO_FIELD)
-                         throw UserException("MSG.CHECKIN.PASSENGERS_DOCUMENTS_NOT_SET"); //WEB
-                       else
-                         throw UserException("MSG.CHECKIN.PASSENGERS_COMPLETE_DOC_INFO_NOT_SET"); //WEB
-                     };
-                   };
-                   if (checkDocInfo.second.required_fields!=0x0000)
-                   {
-                     if (reqInfo->client_type!=ctTerm || reqInfo->desk.compatible(DOCS_VERSION))
-                     {
-                       xmlNodePtr docNode=GetNodeFast("doco",node2);
+                       //если это веб или киоск запись изменений и нет тега <document> - игнорируем проверку
                        if (docNode!=NULL) docNode=docNode->children;
 
                        //вычисляем маску по присутствию данных
@@ -3325,14 +3303,44 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                        for(;docNode!=NULL;docNode=docNode->next)
                        {
                          if (NodeIsNULL(docNode)) continue;
-                         map<string, long int>::const_iterator iMask=doco_node_names.find((char*)docNode->name);
-                         if (iMask!=doco_node_names.end()) not_empty_fields|=iMask->second;
+                         map<string, long int>::const_iterator iMask=doc_node_names.find((char*)docNode->name);
+                         if (iMask!=doc_node_names.end()) not_empty_fields|=iMask->second;
                        };
-                       if (not_empty_fields!=0x0000)
+
+                       if ((checkDocInfo.first.required_fields&not_empty_fields)!=checkDocInfo.first.required_fields)
                        {
-                         //пришла непустая информация о визе
-                         if ((checkDocInfo.second.required_fields&not_empty_fields)!=checkDocInfo.second.required_fields)
-                           throw UserException("MSG.CHECKIN.PASSENGERS_COMPLETE_DOCO_INFO_NOT_SET"); //WEB
+
+                         if (checkDocInfo.first.required_fields==DOC_NO_FIELD)
+                           throw UserException("MSG.CHECKIN.PASSENGERS_DOCUMENTS_NOT_SET"); //WEB
+                         else
+                           throw UserException("MSG.CHECKIN.PASSENGERS_COMPLETE_DOC_INFO_NOT_SET"); //WEB
+                       };
+                     };
+                   };
+                   if (checkDocInfo.second.required_fields!=0x0000)
+                   {
+                     if (reqInfo->client_type!=ctTerm || reqInfo->desk.compatible(DOCS_VERSION))
+                     {
+                       xmlNodePtr docNode=GetNodeFast("doco",node2);
+                       if (reqInfo->client_type==ctTerm || new_checkin || docNode!=NULL)
+                       {
+                         //если это веб или киоск запись изменений и нет тега <doco> - игнорируем проверку
+                         if (docNode!=NULL) docNode=docNode->children;
+
+                         //вычисляем маску по присутствию данных
+                         long int not_empty_fields=0x0000;
+                         for(;docNode!=NULL;docNode=docNode->next)
+                         {
+                           if (NodeIsNULL(docNode)) continue;
+                           map<string, long int>::const_iterator iMask=doco_node_names.find((char*)docNode->name);
+                           if (iMask!=doco_node_names.end()) not_empty_fields|=iMask->second;
+                         };
+                         if (not_empty_fields!=0x0000)
+                         {
+                           //пришла непустая информация о визе
+                           if ((checkDocInfo.second.required_fields&not_empty_fields)!=checkDocInfo.second.required_fields)
+                             throw UserException("MSG.CHECKIN.PASSENGERS_COMPLETE_DOCO_INFO_NOT_SET"); //WEB
+                         };
                        };
                      };
                    };

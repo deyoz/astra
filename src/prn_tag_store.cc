@@ -524,11 +524,11 @@ string TPrnTagStore::get_field(std::string name, size_t len, std::string align, 
                 result = result.substr(0, len);
         } else
             result = AlignString(result, len, align);
-        if(this->tag_lang.get_pr_lat() and not is_lat(result)) {
+        if(this->tag_lang.get_pr_lat() and not IsAscii7(result)) {
             bool replace_good = false;
             if(iprops->second.convert_char_view) {
                 result = convert_char_view(result, true);
-                replace_good = is_lat(result);
+                replace_good = IsAscii7(result);
             }
             if(not replace_good) {
                 LexemaData err;
@@ -541,7 +541,7 @@ string TPrnTagStore::get_field(std::string name, size_t len, std::string align, 
                 } else {
                     showErrorMessage(err);
                     for(string::iterator si = result.begin(); si != result.end(); si++)
-                        if(not is_lat_char(*si)) *si = '_';
+                        if(not IsAscii7(*si)) *si = '_';
                 }
             }
         }
@@ -1137,9 +1137,9 @@ string TPrnTagStore::BCBP_M_2(TFieldParams fp)
     result << cond1.str();
 
     string buf = result.str();
-    if((tag_lang.get_pr_lat() or tag_lang.english_tag()) and not is_lat(buf))
+    if((tag_lang.get_pr_lat() or tag_lang.english_tag()) and not IsAscii7(buf))
         for(string::iterator si = buf.begin(); si != buf.end(); si++)
-            if(not is_lat_char(*si)) *si = 'X';
+            if(not IsAscii7(*si)) *si = 'X';
     return buf;
 }
 
@@ -1592,7 +1592,7 @@ string TPrnTagStore::get_fmt_seat(string fmt, bool english_tag)
 
       Qry.CreateVariable("is_inter", otInteger, 0);
       Qry.Execute();
-      if ((tag_lang.get_pr_lat() or english_tag) && not is_lat(Qry.FieldAsString("seat_no")))
+      if ((tag_lang.get_pr_lat() or english_tag) && not IsAscii7(Qry.FieldAsString("seat_no")))
       {
           Qry.SetVariable("is_inter",1);
           Qry.Execute();
@@ -1608,7 +1608,7 @@ string TPrnTagStore::get_fmt_seat(string fmt, bool english_tag)
       if (Qry.Eof || Qry.FieldIsNULL("seat_yname") || Qry.FieldIsNULL("seat_xname")) return "";
       TSeat seat(Qry.FieldAsString("seat_yname"),Qry.FieldAsString("seat_xname"));
       string result=GetSeatView(seat, lowerc(fmt), false);
-      if ((tag_lang.get_pr_lat() or english_tag) && not is_lat(result))
+      if ((tag_lang.get_pr_lat() or english_tag) && not IsAscii7(result))
         result=GetSeatView(seat, lowerc(fmt), true);
       return result;
     };

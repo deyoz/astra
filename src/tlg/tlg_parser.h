@@ -247,7 +247,7 @@ class TDocItem
       second_name.clear();
       pr_multi=false;
     };
-    bool Empty()
+    bool Empty() const
     {
       return  *type==0 &&
               *issue_country==0 &&
@@ -260,6 +260,41 @@ class TDocItem
               first_name.empty() &&
               second_name.empty() &&
               pr_multi==false;
+    };
+};
+
+class TDocoItem
+{
+  public:
+    char rem_code[6],rem_status[3],type[3],no[16],applic_country[4];
+    BASIC::TDateTime issue_date;
+    std::string birth_place, issue_place;
+    bool pr_inf;
+    TDocoItem()
+    {
+      Clear();
+    };
+    void Clear()
+    {
+      *rem_code=0;
+      *rem_status=0;
+      *type=0;
+      *no=0;
+      *applic_country=0;
+      issue_date=ASTRA::NoExists;
+      birth_place.clear();
+      issue_place.clear();
+      pr_inf=false;
+    };
+    bool Empty() const
+    {
+      return  *type==0 &&
+              *no==0 &&
+              *applic_country==0 &&
+              issue_date==ASTRA::NoExists &&
+              birth_place.empty() &&
+              issue_place.empty() &&
+              pr_inf==false;
     };
 };
 
@@ -321,6 +356,7 @@ class TInfItem
     long age;
     std::vector<TRemItem> rem;
     std::vector<TDocItem> doc;
+    std::vector<TDocoItem> doco;
     std::vector<TTKNItem> tkn;
     TInfItem()
     {
@@ -348,6 +384,7 @@ class TPaxItem
     std::vector<TRemItem> rem;
     std::vector<TInfItem> inf;
     std::vector<TDocItem> doc;
+    std::vector<TDocoItem> doco;
     std::vector<TTKNItem> tkn;
     std::vector<TFQTItem> fqt;
     TPaxItem()
@@ -668,8 +705,6 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
 void ParsePTMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPtmContent& con);
 void ParseBTMContent(TTlgPartInfo body, TBSMHeadingInfo& info, TBtmContent& con, TMemoryManager &mem);
 void ParseSOMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TSOMContent& con);
-
-bool ParseDOCSRem(TTlgParser &tlg,BASIC::TDateTime scd_local,std::string &rem_text,TDocItem &doc);
 
 bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& con, bool forcibly);
 void SavePTMContent(int tlg_id, TDCSHeadingInfo& info, TPtmContent& con);
