@@ -211,12 +211,11 @@ TPNRFilter& TPNRFilter::fromXML(xmlNodePtr node)
     throw UserException("MSG.PASSENGER.NOT_SET.SURNAME");
   };
   surname=upperc(surname);
- /* for(string::const_iterator c=surname.begin();c!=surname.end();++c)
-    if (!(IsUpperLetter(*c)||*c=='-'))*/
   
   name=NodeAsStringFast("name", node2, "");
   TrimString(name);
   name=upperc(name);
+  name.erase(find(name.begin(), name.end(), ' '), name.end()); //оставляем часть до пробела
   
   str=NodeAsStringFast("pnr_addr", node2, "");
   TrimString(str);
@@ -288,8 +287,11 @@ TPNRFilter& TPNRFilter::testPaxFromDB()
 
     if (!name.empty())
     {
-      //проверим совпадение имени (может быть надо сравнивать по первым символам)
-      if (!transliter_equal(pax.name, name)) continue;
+      string pax_name_normal=pax.name;
+      //оставляем часть до пробела
+      pax_name_normal.erase(find(pax_name_normal.begin(), pax_name_normal.end(), ' '), pax_name_normal.end());
+      //проверим совпадение имени
+      if (!transliter_equal(pax_name_normal, name)) continue;
     };
 
     if (!document.empty() &&
@@ -972,8 +974,11 @@ bool TPaxInfo::filterFromDB(const TPNRFilter &filter, TQuery &Qry)
   name=Qry.FieldAsString("name");
   if (!filter.name.empty())
   {
-    //проверим совпадение имени (может быть надо сравнивать по первым символам)
-    if (!transliter_equal(name, filter.name)) return false;
+    string pax_name_normal=name;
+    //оставляем часть до пробела
+    pax_name_normal.erase(find(pax_name_normal.begin(), pax_name_normal.end(), ' '), pax_name_normal.end());
+    //проверим совпадение имени
+    if (!transliter_equal(pax_name_normal, filter.name)) return false;
   };
   
   TQuery Qry1(&OraSession);

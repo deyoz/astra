@@ -1388,10 +1388,10 @@ bool is_dst(TDateTime d, string region)
 
 char ToLatPnrAddr(char c)
 {
-  if ((unsigned char)c>=0x80)
+  if (!IsAscii7(c))
   {
     ByteReplace(&c,1,rus_pnr,lat_pnr);
-    if ((unsigned char)c>=0x80) c='?';
+    if (!IsAscii7(c)) c='?';
   };
   return c;
 };
@@ -1404,26 +1404,6 @@ string convert_pnr_addr(const string &value, bool pr_lat)
   return result;
 
 };
-
-bool is_lat_char(char c)
-{
-    return not ((unsigned char)c>=0x80);
-}
-
-bool is_lat(const std::string &value)
-{
-    bool result = true;
-    char c;
-    for(string::const_iterator i=value.begin();i!=value.end();i++)
-    {
-        c=*i;
-        if ((unsigned char)c>=0x80) {
-            result = false;
-            break;
-        }
-    }
-    return result;
-}
 
 class TTranslitLetter
 {
@@ -1458,7 +1438,7 @@ string transliter(const string &value, int fmt, bool pr_lat)
     for(string::const_iterator i=value.begin();i!=value.end();i++)
     {
       c=*i;
-      if ((unsigned char)c>=0x80)
+      if (!IsAscii7(c))
       {
         map<char, TTranslitLetter>::const_iterator letter=dicts.find(ToUpper(c));
         if (letter!=dicts.end())
@@ -1491,7 +1471,7 @@ const char *lat_char_view = "ABCEHKMOPTXacekmopxb";
 
 char ToLatCharView(char c)
 {
-  if ((unsigned char)c>=0x80)
+  if (!IsAscii7(c))
   {
     ByteReplace(&c,1,rus_char_view,lat_char_view);
   };

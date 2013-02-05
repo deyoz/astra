@@ -173,7 +173,7 @@ void TTlgDraft::check(string &value)
     for(string::const_iterator i=value.begin();i!=value.end();i++)
     {
         char c=*i;
-        if ((unsigned char)c>=0x80) {
+        if (!IsAscii7(c)) {
             // rus
             if(not opened) {
                 opened = true;
@@ -317,7 +317,7 @@ string TlgElemIdToElem(TElemType type, int id, TElemFmt fmt, string lang)
       fmts.push_back( make_pair(efmtCodeInter, lang) );
 
   string result = ElemIdToElem(type, id, fmts);
-  if(result.empty() || fmt==efmtCodeInter &&!is_lat(result)) {
+  if(result.empty() || fmt==efmtCodeInter &&!IsAscii7(result)) {
       string code_name;
       switch(type)
       {
@@ -360,7 +360,7 @@ string TlgElemIdToElem(TElemType type, string id, TElemFmt fmt, string lang)
       fmts.push_back( make_pair(efmtCodeInter, lang) );
 
   string result = ElemIdToElem(type, id, fmts);
-  if(result.empty() || fmt==efmtCodeInter &&!is_lat(result)) {
+  if(result.empty() || fmt==efmtCodeInter &&!IsAscii7(result)) {
       string code_name;
       switch(type)
       {
@@ -6296,7 +6296,7 @@ TOriginatorInfo getOriginator(const string &airline,
     if(originator.addr.size() != 7)
       throw AstraLocale::UserException("MSG.TLG.SRC_ADDR_WRONG_SET");
     for(string::const_iterator c=originator.addr.begin(); c!=originator.addr.end(); c++)
-      if (!(is_lat_char(*c) && (IsDigit(*c) || IsUpperLetter(*c))))
+      if (!(IsAscii7(*c) && (IsDigit(*c) || IsUpperLetter(*c))))
         throw AstraLocale::UserException("MSG.TLG.SRC_ADDR_WRONG_SET");
   };
   return originator;

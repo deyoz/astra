@@ -2943,6 +2943,9 @@ void BindRemarks(TTlgParser &tlg, TNameElement &ne)
   };
 };
 
+bool ParseDOCSRem(TTlgParser &tlg, BASIC::TDateTime scd_local, std::string &rem_text, TDocItem &doc);
+bool ParseDOCORem(TTlgParser &tlg, BASIC::TDateTime scd_local, std::string &rem_text, TDocoItem &doc);
+
 void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
                   TTlgParser &tlg, const TDCSHeadingInfo &info, TPnrItem &pnr, TNameElement &ne)
 {
@@ -3025,6 +3028,27 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
                 {
                   iPaxItem->doc.push_back(doc);
                 };
+              };
+              continue;
+            };
+            
+            if (strcmp(iRemItem->code,"DOCO")==0)
+            {
+              TDocoItem doc;
+              if (ParseDOCORem(tlg,info.flt.scd,iRemItem->text,doc))
+              {
+                //проверим документ РМ
+                if (doc.pr_inf)
+                {
+                  if (iPaxItem->inf.size()==1)
+                  {
+                    iPaxItem->inf.begin()->doco.push_back(doc);
+                    iPaxItem->inf.begin()->rem.push_back(*iRemItem);
+                    iRemItem->text.clear();
+                  };
+                }
+                else
+                  iPaxItem->doco.push_back(doc);
               };
               continue;
             };
@@ -3823,7 +3847,117 @@ bool ParseINFRem(TTlgParser &tlg,string &rem_text,vector<TInfItem> &inf)
   return false;
 };
 
-bool ParseDOCSRem(TTlgParser &tlg,TDateTime scd_local,string &rem_text,TDocItem &doc)
+bool ParseDOCORem(TTlgParser &tlg, TDateTime scd_local, string &rem_text, TDocoItem &doc)
+{
+  char c;
+  int res,k;
+
+  char *p=(char*)rem_text.c_str();
+
+  doc.Clear();
+
+  if (rem_text.empty()) return false;
+  p=tlg.GetWord(p);
+  c=0;
+  res=sscanf(tlg.lex,"%5[A-ZА-ЯЁ0-9]%c",doc.rem_code,&c);
+  if (c!=0||res!=1) return false;
+
+  TDateTime now=(scd_local!=0 && scd_local!=NoExists)?scd_local:NowUTC();
+
+  if (strcmp(doc.rem_code,"DOCO")==0)
+  {
+    for(k=0;k<=7;k++)
+    try
+    {
+      try
+      {
+        p=tlg.GetSlashedLexeme(p);
+        if (p==NULL && k>=10) break;
+        if (p==NULL) throw ETlgError("Lexeme not found");
+        if (*tlg.lex==0) continue;
+        c=0;
+        switch(k)
+        {
+          case 0:
+            res=sscanf(tlg.lex,"%2[A-Z]%1[1]%c",doc.rem_status,lexh,&c);
+            if (c!=0||res!=2) throw ETlgError("Wrong format");
+            break;
+          case 1:
+          case 4:
+            res=sscanf(tlg.lex,"%[A-ZА-ЯЁ0-9 -]%c",lexh,&c);
+            if (c!=0||res!=1) throw ETlgError("Wrong format");
+            if (k==1)  doc.birth_place=lexh;
+            if (k==4)  doc.issue_place=lexh;
+            break;
+          case 2:
+            res=sscanf(tlg.lex,"%2[A-Z]%c",doc.type,&c);
+            if (c!=0||res!=1) throw ETlgError("Wrong format");
+            TlgElemToElemId(etPaxDocType,doc.type,doc.type);
+            break;
+          case 3:
+            res=sscanf(tlg.lex,"%15[A-ZА-ЯЁ0-9 ]%c",doc.no,&c);
+            if (c!=0||res!=1) throw ETlgError("Wrong format");
+            break;
+          case 5:
+            if (StrToDateTime(tlg.lex,"ddmmmyy",now,doc.issue_date,true)==EOF &&
+                StrToDateTime(tlg.lex,"ddmmmyy",now,doc.issue_date,false)==EOF)
+              throw ETlgError("Wrong format");
+            if (doc.issue_date!=NoExists && doc.issue_date>now) throw ETlgError("Strange data");
+            break;
+          case 6:
+            res=sscanf(tlg.lex,"%3[A-ZА-ЯЁ]%c",lexh,&c);
+            if (c!=0||res!=1) throw ETlgError("Wrong format");
+            GetPaxDocCountry(lexh,doc.applic_country);
+            break;
+          case 7:
+            res=sscanf(tlg.lex,"%1[I]%c",lexh,&c);
+            if (c!=0||res!=1||strcmp(lexh,"I")!=0) throw ETlgError("Wrong format");
+            doc.pr_inf=true;
+            break;
+        }
+      }
+      catch(exception &E)
+      {
+        switch(k)
+        {
+          case 0:
+            *doc.rem_status=0;
+            throw ETlgError("action/status code: %s",E.what());
+          case 1:
+            doc.birth_place.clear();
+            throw ETlgError("place of birth: %s",E.what());
+          case 2:
+            *doc.type=0;
+            throw ETlgError("travel document type: %s",E.what());
+          case 3:
+            *doc.no=0;
+            throw ETlgError("visa document number: %s",E.what());
+          case 4:
+            doc.issue_place.clear();
+            throw ETlgError("visa document place of issue: %s",E.what());
+          case 5:
+            doc.issue_date=NoExists;
+            throw ETlgError("visa document issue date: %s",E.what());
+          case 6:
+            *doc.applic_country=0;
+            throw ETlgError("country/state for which visa is applicable: %s",E.what());
+          case 7:
+            doc.pr_inf=false;
+            throw ETlgError("infant indicator: %s",E.what());
+        };
+      };
+    }
+    catch(ETlgError &E)
+    {
+      ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",doc.rem_code,E.what(),rem_text.c_str());
+    };
+    return true;
+  };
+  
+  return false;
+};
+
+bool ParseDOCSRem(TTlgParser &tlg, TDateTime scd_local, string &rem_text, TDocItem &doc)
 {
   char c;
   int res,k;
@@ -3904,7 +4038,7 @@ bool ParseDOCSRem(TTlgParser &tlg,TDateTime scd_local,string &rem_text,TDocItem 
             break;
           case 11:
             res=sscanf(tlg.lex,"%1[H]%c",lexh,&c);
-            if (c!=0||res!=2||strcmp(lexh,"H")!=0) throw ETlgError("Wrong format");
+            if (c!=0||res!=1||strcmp(lexh,"H")!=0) throw ETlgError("Wrong format");
             doc.pr_multi=true;
             break;
         }
@@ -4683,7 +4817,7 @@ void SavePNLADLRemarks(int pax_id, vector<TRemItem> &rem)
   };
 };
 
-void SaveDOCSRem(int pax_id, vector<TDocItem> &doc)
+void SaveDOCSRem(int pax_id, const vector<TDocItem> &doc)
 {
   if (doc.empty()) return;
   TQuery Qry(&OraSession);
@@ -4709,7 +4843,7 @@ void SaveDOCSRem(int pax_id, vector<TDocItem> &doc)
   Qry.DeclareVariable("first_name",otString);
   Qry.DeclareVariable("second_name",otString);
   Qry.DeclareVariable("pr_multi",otInteger);
-  for(vector<TDocItem>::iterator i=doc.begin();i!=doc.end();i++)
+  for(vector<TDocItem>::const_iterator i=doc.begin();i!=doc.end();i++)
   {
     if (i->Empty()) continue;
     Qry.SetVariable("rem_code",i->rem_code);
@@ -4727,13 +4861,51 @@ void SaveDOCSRem(int pax_id, vector<TDocItem> &doc)
       Qry.SetVariable("expiry_date",i->expiry_date);
     else
       Qry.SetVariable("expiry_date",FNull);
-    if (i->surname.size()>64) i->surname.erase(64);
-    Qry.SetVariable("surname",i->surname);
-    if (i->first_name.size()>64) i->first_name.erase(64);
-    Qry.SetVariable("first_name",i->first_name);
-    if (i->second_name.size()>64) i->second_name.erase(64);
-    Qry.SetVariable("second_name",i->second_name);
+    Qry.SetVariable("surname",i->surname.substr(0,64));
+    Qry.SetVariable("first_name",i->first_name.substr(0,64));
+    Qry.SetVariable("second_name",i->second_name.substr(0,64));
     Qry.SetVariable("pr_multi",(int)i->pr_multi);
+    Qry.Execute();
+  };
+};
+
+void SaveDOCORem(int pax_id, const vector<TDocoItem> &doc)
+{
+  if (doc.empty()) return;
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "INSERT INTO crs_pax_doco "
+    "  (pax_id,rem_code,rem_status,birth_place,type,no,issue_place,issue_date, "
+    "   applic_country,pr_inf) "
+    "VALUES "
+    "  (:pax_id,:rem_code,:rem_status,:birth_place,:type,:no,:issue_place,:issue_date, "
+    "   :applic_country,:pr_inf) ";
+  Qry.CreateVariable("pax_id",otInteger,pax_id);
+  Qry.DeclareVariable("rem_code",otString);
+  Qry.DeclareVariable("rem_status",otString);
+  Qry.DeclareVariable("birth_place",otString);
+  Qry.DeclareVariable("type",otString);
+  Qry.DeclareVariable("no",otString);
+  Qry.DeclareVariable("issue_place",otString);
+  Qry.DeclareVariable("issue_date",otDate);
+  Qry.DeclareVariable("applic_country",otString);
+  Qry.DeclareVariable("pr_inf",otInteger);
+  for(vector<TDocoItem>::const_iterator i=doc.begin();i!=doc.end();i++)
+  {
+    if (i->Empty()) continue;
+    Qry.SetVariable("rem_code",i->rem_code);
+    Qry.SetVariable("rem_status",i->rem_status);
+    Qry.SetVariable("birth_place",i->birth_place.substr(0,35));
+    Qry.SetVariable("type",i->type);
+    Qry.SetVariable("no",i->no);
+    Qry.SetVariable("issue_place",i->issue_place.substr(0,35));
+    if (i->issue_date!=NoExists)
+      Qry.SetVariable("issue_date",i->issue_date);
+    else
+      Qry.SetVariable("issue_date",FNull);
+    Qry.SetVariable("applic_country",i->applic_country);
+    Qry.SetVariable("pr_inf",(int)i->pr_inf);
     Qry.Execute();
   };
 };
@@ -5646,12 +5818,14 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                     CrsInfInsQry.Execute();
                     SavePNLADLRemarks(inf_id,iInfItem->rem);
                     SaveDOCSRem(inf_id,iInfItem->doc);
+                    SaveDOCORem(inf_id,iInfItem->doco);
                     SaveTKNRem(inf_id,iInfItem->tkn);
                   };
 
                   //ремарки пассажира
                   SavePNLADLRemarks(pax_id,iPaxItem->rem);
                   SaveDOCSRem(pax_id,iPaxItem->doc);
+                  SaveDOCORem(pax_id,iPaxItem->doco);
                   SaveTKNRem(pax_id,iPaxItem->tkn);
                   SaveFQTRem(pax_id,iPaxItem->fqt);
                   //разметка слоев
