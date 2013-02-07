@@ -86,7 +86,8 @@ astra_SOURCES = \
   points.cc \
   cobra.cc \
   pers_weights.cc \
-  xp_testing.cc
+  xp_testing.cc \
+  basel_aero.cc
   
 
 astra_LDADD = $(all_libraries) \
@@ -180,7 +181,8 @@ noinst_HEADERS = \
   http_io.h \
   points.h \
   cobra.h \
-  pers_weights.h
+  pers_weights.h \
+  basel_aero.h
 
 
 

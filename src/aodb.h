@@ -28,6 +28,6 @@ int main_aodb_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
 //bool is_sync_aodb( int point_id );
 void bindingAODBFlt( const std::string &airline, const int flt_no, const std::string suffix,
                      const BASIC::TDateTime locale_scd_out, const std::string airp );
-
+bool is_sync_aodb_pax( int point_id );
 
 #endif /*_AODB_H_*/

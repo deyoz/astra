@@ -8,6 +8,8 @@
 #include "convert.h"
 #include "astra_locale.h"
 #include "seats_utils.h"
+#include "aodb.h"
+#include "get_checkin_info.h"
 
 #define NICKNAME "DEN"
 #define NICKTRACE SYSTEM_TRACE
@@ -1807,7 +1809,7 @@ bool isTestPaxId(int id)
 
 bool is_sync_paxs( int point_id )
 {
-  return true;
+  return is_sync_basel_pax( point_id ) || is_sync_aodb_pax( point_id );
 }
 
 void update_pax_change( int point_id, int pax_id, int reg_no, const string &work_mode )
@@ -1833,6 +1835,8 @@ void update_pax_change( int point_id, int pax_id, int reg_no, const string &work
   Qry.CreateVariable( "time", otDate, NowUTC() );
   Qry.Execute();
 }
+
+
 
 
 
