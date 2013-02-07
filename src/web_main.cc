@@ -3367,6 +3367,25 @@ struct Tids {
   };
 };
 
+const char * SyncMeridian_airlines[] =
+    {"ЮТ", "ЮР", "QU" };
+
+bool is_sync_meridian( int point_id )
+{
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
+    "SELECT airline FROM points WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  if ( !Qry.Eof ) {
+    for( unsigned int i=0;i<sizeof(SyncMeridian_airlines)/sizeof(SyncMeridian_airlines[0]);i+=1) {
+     if ( strcmp(Qry.FieldAsString( "airline" ),SyncMeridian_airlines[i])==0 )
+       return true;
+    }
+  }
+  return false;
+}
+
 void WebRequestsIface::GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   xmlNodePtr node = GetNode( "@time", reqNode );
@@ -3469,12 +3488,12 @@ void WebRequestsIface::GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     if ( FltQry.Eof )
       throw EXCEPTIONS::Exception("WebRequestsIface::GetPaxsInfo: flight not found, (point_id=%d)", Qry.FieldAsInteger( "point_id" ) );
     string airline = FltQry.FieldAsString( "airline" );
-/*    if ( airline != "ЮТ" &&
+    if ( airline != "ЮТ" &&
          airline != "ЮР" &&
-         airline != "QU" ) {
-      tst();
+         airline != "QU" ||
+         TReqInfo::Instance()->client_type != ctWeb ) {
       continue;
-    }*/
+    }
     if ( max_time != NoExists && max_time != Qry.FieldAsDateTime( "time" ) ) { // сравнение времени с пред. значением, если изменилось, то
       ProgTrace( TRACE5, "Paxs.clear(), vdate=%s, max_time=%s",
                  DateTimeToStr( vdate, ServerFormatDateTimeAsString ).c_str(),

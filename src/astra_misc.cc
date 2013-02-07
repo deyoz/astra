@@ -9,8 +9,8 @@
 #include "astra_locale.h"
 #include "seats_utils.h"
 #include "aodb.h"
-#include "get_checkin_info.h"
-
+#include "web_main.h"
+#include "basel_aero.h"
 #define NICKNAME "DEN"
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/test.h"
@@ -1809,7 +1809,9 @@ bool isTestPaxId(int id)
 
 bool is_sync_paxs( int point_id )
 {
-  return is_sync_basel_pax( point_id ) || is_sync_aodb_pax( point_id );
+  return is_sync_basel_pax( point_id ) ||
+         is_sync_aodb_pax( point_id ) ||
+         AstraWeb::is_sync_meridian( point_id );
 }
 
 void update_pax_change( int point_id, int pax_id, int reg_no, const string &work_mode )
