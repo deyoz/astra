@@ -241,7 +241,15 @@ class TRolesARO:public TARO {
     public:
         TRolesARO()
         {
-            Qry.SQLText = "select role_id from user_roles where user_id = :user_id";
+            Qry.SQLText =
+                "select "
+                "   roles.role_id||';'||roles.name "
+                "from "
+                "   user_roles, "
+                "   roles "
+                "where "
+                "   user_roles.user_id = :user_id and "
+                "   user_roles.role_id = roles.role_id";
             usersSQLText =
                 "select user_id from user_roles where user_id in "
                 "   (select user_id from user_roles where role_id = :aro user_cond) "
@@ -727,7 +735,10 @@ void TUserData::update_aro()
     Qry.CreateVariable("user_id", otInteger, user_id);
     Qry.DeclareVariable("role", otInteger);
     for(set<string>::iterator iv = roles.begin(); iv != roles.end(); iv++) {
-        Qry.SetVariable("role", *iv);
+        size_t idx = iv->find(';');
+        if(idx == string::npos)
+            throw Exception("TUserData::update_aro: wrong role format");
+        Qry.SetVariable("role", iv->substr(0, idx));
         Qry.Execute();
     }
 }
