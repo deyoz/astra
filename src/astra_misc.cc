@@ -1809,9 +1809,20 @@ bool isTestPaxId(int id)
 
 bool is_sync_paxs( int point_id )
 {
-  return is_sync_basel_pax( point_id ) ||
-         is_sync_aodb_pax( point_id ) ||
-         AstraWeb::is_sync_meridian( point_id );
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
+    "SELECT point_id, airline, flt_no, suffix, airp, scd_out, "
+    "       NVL(act_out,NVL(est_out,scd_out)) AS real_out "
+    " FROM points "
+    " WHERE point_id=:point_id AND pr_reg<>0 AND pr_del=0";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  if ( Qry.Eof )
+    return false;
+  TTripInfo tripInfo( Qry );
+  return AstraWeb::is_sync_meridian( tripInfo ) ||
+         is_sync_basel_pax( tripInfo ) ||
+         is_sync_aodb_pax( tripInfo );
 }
 
 void update_pax_change( int point_id, int pax_id, int reg_no, const string &work_mode )

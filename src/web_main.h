@@ -18,7 +18,7 @@ struct InetClient
   std::string client_type;
 };
 
-bool is_sync_meridian( int point_id );
+bool is_sync_meridian( const TTripInfo &tripInfo );
 
 int internet_main(const char *body, int blen, const char *head,
                   int hlen, char **res, int len);

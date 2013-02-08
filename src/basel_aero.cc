@@ -30,31 +30,37 @@ using namespace EXCEPTIONS;
 using namespace BASIC;
 using namespace ASTRA;
 
+const std::string BASEL_AERO = "BASEL_AERO";
 
-const char * SyncBasel_airps[] =
-    {"СОЧ", "АНА", "ГДЖ", "КПА" };
 
-void getSyncBaselAirps( std::vector<std::string> &airps )
+TBaselAeroAirps *TBaselAeroAirps::Instance()
 {
-  airps.clear();
-  for( unsigned int i=0;i<sizeof(SyncBasel_airps)/sizeof(SyncBasel_airps[0]);i+=1) {
-    airps.push_back( string(SyncBasel_airps[i]) );
+  static TBaselAeroAirps *instance_ = 0;
+  if ( !instance_ )
+    instance_ = new TBaselAeroAirps();
+  return instance_;
+}
+
+TBaselAeroAirps::TBaselAeroAirps()
+{
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "SELECT airp, dir FROM file_sets WHERE code=:code AND pr_denial=0";
+  Qry.CreateVariable( "code", otString, BASEL_AERO );
+  Qry.Execute();
+  for ( ; !Qry.Eof; Qry.Next() ) {
+    insert( make_pair( Qry.FieldAsString( "airp" ), Qry.FieldAsString( "dir" ) ) );
   }
 }
 
-bool is_sync_basel_pax( int point_id )
+
+bool is_sync_basel_pax( const TTripInfo &tripInfo )
 {
-  TQuery Qry( &OraSession );
-  Qry.SQLText =
-    "SELECT airp FROM points WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
-  if ( !Qry.Eof ) {
-    for( unsigned int i=0;i<sizeof(SyncBasel_airps)/sizeof(SyncBasel_airps[0]);i+=1) {
-     if ( strcmp(Qry.FieldAsString( "airp" ),SyncBasel_airps[i])==0 )
-       return true;
-    }
-  }
+  TBaselAeroAirps *airps = TBaselAeroAirps::Instance();
+  for ( map<string,string>::iterator i=airps->begin(); i!=airps->end(); i++ ) {
+    if ( i->first == tripInfo.airp )
+      return true;
+  };
   return false;
 }
 
@@ -93,15 +99,17 @@ void read_basel_aero_stat( const string &airp, ofstream &f );
 
 void sych_basel_aero_stat( BASIC::TDateTime utcdate )
 {
-  ProgTrace( TRACE5,"sych_basel_aero_stat: utcdate=%s", DateTimeToStr( utcdate, "dd.mm.yyyy hh:nn" ).c_str() );
-  vector<string> airps;
-  getSyncBaselAirps( airps );
   TQuery Qry(&OraSession);
 	Qry.SQLText =
-    "SELECT points.point_id FROM points, trip_sets "
-    "WHERE points.point_id=trip_sets.point_id AND points.time_out<:vdate AND "
+    "SELECT points.point_id, NVL(act_out,NVL(est_out,scd_out)) real_time FROM points, trip_sets "
+    "WHERE points.point_id=trip_sets.point_id AND points.time_out<=:vdate AND "
     "      pr_del=0 AND airp=:airp AND trip_sets.pr_basel_stat=0 AND pr_reg<>0";
-  Qry.CreateVariable( "vdate", otDate, utcdate );
+  TDateTime trunc_date;
+  modf( utcdate, &trunc_date );
+  ProgTrace( TRACE5,"sych_basel_aero_stat: utcdate=%s, trunc_date=%s",
+             DateTimeToStr( utcdate, "dd.mm.yyyy hh:nn" ).c_str(),
+             DateTimeToStr(  trunc_date - 2, "dd.mm.yyyy hh:nn" ).c_str() );
+  Qry.CreateVariable( "vdate", otDate, trunc_date - 2 );
   Qry.DeclareVariable( "airp", otString );
   TQuery TripSetsQry(&OraSession);
   TripSetsQry.SQLText =
@@ -112,56 +120,71 @@ void sych_basel_aero_stat( BASIC::TDateTime utcdate )
   TripSetsQry.DeclareVariable( "point_id", otInteger );
   TQuery ReWriteQry(&OraSession);
   ReWriteQry.SQLText =
-    "SELECT MAX(time_create) last_time FROM basel_stat WHERE airp=:airp ";
+    "SELECT last_create FROM file_sets WHERE airp=:airp AND code=:code";
   ReWriteQry.DeclareVariable( "airp", otString );
+  ReWriteQry.CreateVariable( "code", otString, BASEL_AERO );
   TQuery DeleteQry(&OraSession);
   DeleteQry.SQLText =
     "DELETE basel_stat WHERE airp=:airp AND rownum <= 10000";
   DeleteQry.DeclareVariable( "airp", otString );
+  TQuery FileSetsQry(&OraSession);
+  FileSetsQry.SQLText =
+    "UPDATE file_sets SET last_create=:vdate WHERE code=:code AND airp=:airp";
+  FileSetsQry.CreateVariable( "vdate", otDate, utcdate );
+  FileSetsQry.CreateVariable( "code", otString, BASEL_AERO );
+  FileSetsQry.DeclareVariable( "airp", otString );
+
   std::vector<TBaselStat> stats;
-  for ( vector<string>::iterator iairp=airps.begin(); iairp!=airps.end(); iairp++ ) {
-    ReWriteQry.SetVariable( "airp", *iairp );
+  TBaselAeroAirps *airps = TBaselAeroAirps::Instance();
+  for ( map<string,string>::iterator iairp=airps->begin(); iairp!=airps->end(); iairp++ ) {
+    ReWriteQry.SetVariable( "airp", iairp->first );
     ReWriteQry.Execute();
     bool clear_before_write = true;
-    if ( !ReWriteQry.FieldIsNULL( "last_time" ) ) { // проверка на то, что последние данные были собраны в пред. месяцах
-      int last_year, last_month, last_day;
-      int curr_year, curr_month, curr_day;
-      DecodeDate( ReWriteQry.FieldAsDateTime( "last_time" ), last_year, last_month, last_day );
+    int last_year, last_month, last_day;
+    int curr_year, curr_month, curr_day;
+    if ( !ReWriteQry.FieldIsNULL( "last_create" ) ) { // проверка на то, что последние данные были собраны в пред. месяцах
+      DecodeDate( ReWriteQry.FieldAsDateTime( "last_create" ), last_year, last_month, last_day );
       DecodeDate( utcdate, curr_year, curr_month, curr_day );
       clear_before_write = ( curr_month != last_month || curr_year != last_year );
-      ProgTrace( TRACE5, "clear_before_write=%d, curr_month=%d, last_month=%d, curr_year=%d, last_year=%d",
-                          clear_before_write, curr_month, last_month, curr_year, last_year );
     }
     if ( clear_before_write ) { // надо очистить таблицу по аэропорту
-       DeleteQry.SetVariable( "airp", *iairp );
+       ProgTrace( TRACE5, "airp=%s, clear_before_write=%d, curr_month=%d, last_month=%d, curr_year=%d, last_year=%d",
+                          iairp->first.c_str(), clear_before_write, curr_month, last_month, curr_year, last_year );
+       DeleteQry.SetVariable( "airp", iairp->first );
        DeleteQry.Execute();
        while ( DeleteQry.RowsProcessed() ) {
          DeleteQry.Execute();
          OraSession.Commit();
        }
     }
-    Qry.SetVariable( "airp", *iairp );
+    Qry.SetVariable( "airp", iairp->first );
     Qry.Execute();
     for ( ; !Qry.Eof; Qry.Next() ) {
+      if ( Qry.FieldAsDateTime( "real_time" ) > utcdate - 2 ) {
+        continue;
+      }
       stats.clear();
       TripSetsQry.SetVariable( "point_id", Qry.FieldAsInteger( "point_id" ) );
       TripSetsQry.Execute(); //лочим рейс
       get_basel_aero_flight_stat( ASTRA::NoExists, Qry.FieldAsInteger( "point_id" ), stats );
       if ( !stats.empty() ) {
         ProgTrace( TRACE5, "point_id=%d, stats.size()=%d", Qry.FieldAsInteger( "point_id" ), stats.size() );
+        write_basel_aero_stat( utcdate, stats );
       }
-      write_basel_aero_stat( utcdate, stats );
       OraSession.Commit();
     }
     ostringstream filename;
-    filename << "basel_aero/"<<"ASTRA-" << ElemIdToElem(etAirp, *iairp, efmtCodeNative, AstraLocale::LANG_EN)
+    filename <<iairp->second<<"ASTRA-" << ElemIdToElem(etAirp, iairp->first, efmtCodeNative, AstraLocale::LANG_EN)
                << "-" << DateTimeToStr(utcdate, "yyyymm") << ".csv";
     ofstream f;
     f.open( filename.str().c_str() );
     if (!f.is_open()) throw EXCEPTIONS::Exception("Can't open file '%s'",filename.str().c_str());
     try {
-      read_basel_aero_stat( *iairp, f );
+      read_basel_aero_stat( iairp->first, f );
       f.close();
+      FileSetsQry.SetVariable( "airp", iairp->first );
+      Qry.Execute();
+      OraSession.Commit();
     }
     catch(...) {
       try { f.close(); } catch( ... ) { };

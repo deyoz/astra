@@ -2264,20 +2264,21 @@ int main_aodb_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
   return 0;
 };
 
-bool is_sync_aodb_pax( int point_id )
+bool is_sync_aodb_pax( const TTripInfo &tripInfo )
 {
   TQuery Qry( &OraSession );
   Qry.Clear();
   Qry.SQLText =
-    "SELECT file_param_sets.id FROM points,file_param_sets "
-    " WHERE points.point_id=:point_id AND "
- 	  "       ( file_param_sets.airp IS NULL OR file_param_sets.airp=points.airp ) AND "
-		"       ( file_param_sets.airline IS NULL OR file_param_sets.airline=points.airline ) AND "
-		"       ( file_param_sets.flt_no IS NULL OR file_param_sets.flt_no=points.flt_no ) AND "
+    "SELECT id FROM file_param_sets "
+    " WHERE ( file_param_sets.airp IS NULL OR file_param_sets.airp=:airp ) AND "
+		"       ( file_param_sets.airline IS NULL OR file_param_sets.airline=:airline ) AND "
+		"       ( file_param_sets.flt_no IS NULL OR file_param_sets.flt_no=:flt_no ) AND "
 		"       file_param_sets.type=:type AND pr_send=1 AND own_point_addr=:own_point_addr";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
 	Qry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
 	Qry.CreateVariable( "type", otString, FILE_AODB_OUT_TYPE );
+	Qry.CreateVariable( "airline", otString, tripInfo.airline );
+	Qry.CreateVariable( "airp", otString, tripInfo.airp );
+	Qry.CreateVariable( "flt_no", otInteger, tripInfo.flt_no );
   Qry.Execute();
   return ( !Qry.Eof );
 };
