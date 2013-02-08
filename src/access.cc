@@ -298,10 +298,12 @@ bool real_equal(T &a, T &b)
 
 string get_role_id(const string &role)
 {
+    string result;
     size_t idx = role.find(';');
-    if(idx == string::npos)
-        throw Exception("get_role_id: wrong role format: %s", role.c_str());
-    return role.substr(0, idx);
+    int i;
+    if(idx != string::npos and BASIC::StrToInt(role.substr(0, idx).c_str(), i) != EOF)
+            result = role.substr(0, idx);
+    return result;
 }
 
 void TARO::get_users(set<string> &aro_params, vector<int> &users, bool &pr_find)
@@ -309,8 +311,10 @@ void TARO::get_users(set<string> &aro_params, vector<int> &users, bool &pr_find)
     if(not pr_find) return;
     if(aro_params.empty()) return;
     usersQry.Clear();
-    ProgTrace(TRACE5, "aro_params.begin: %s", aro_params.begin()->c_str());
-    usersQry.CreateVariable("aro", otString, get_role_id(*aro_params.begin()));
+
+    string role_id = get_role_id(*aro_params.begin());
+    usersQry.CreateVariable("aro", otString, (role_id.empty() ? *aro_params.begin() : role_id));
+
     usersQry.CreateVariable("count", otInteger, (int)aro_params.size());
     if(users.empty()) {
         usersQry.SQLText = replace_user_cond(usersSQLText, "").c_str();
