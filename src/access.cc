@@ -296,12 +296,21 @@ bool real_equal(T &a, T &b)
     return a.size() == b.size() and equal(a.begin(), a.end(), b.begin());
 }
 
+string get_role_id(const string &role)
+{
+    size_t idx = role.find(';');
+    if(idx == string::npos)
+        throw Exception("get_role_id: wrong role format: %s", role.c_str());
+    return role.substr(0, idx);
+}
+
 void TARO::get_users(set<string> &aro_params, vector<int> &users, bool &pr_find)
 {
     if(not pr_find) return;
     if(aro_params.empty()) return;
     usersQry.Clear();
-    usersQry.CreateVariable("aro", otString, *aro_params.begin());
+    ProgTrace(TRACE5, "aro_params.begin: %s", aro_params.begin()->c_str());
+    usersQry.CreateVariable("aro", otString, get_role_id(*aro_params.begin()));
     usersQry.CreateVariable("count", otInteger, (int)aro_params.size());
     if(users.empty()) {
         usersQry.SQLText = replace_user_cond(usersSQLText, "").c_str();
@@ -462,13 +471,13 @@ void TSearchResultXML::build(
             NewTextChild(rowNode, "user_id", new_user_id);
             NewTextChild(rowNode, "descr", Qry.FieldAsString(col_descr));
             NewTextChild(rowNode, "login", Qry.FieldAsString(col_login));
-            NewTextChild(rowNode, "type", ElemIdToCodeNative(etUserType, Qry.FieldAsInteger(col_type)));
-            NewTextChild(rowNode, "pr_denial", Qry.FieldAsString(col_pr_denial));
-            NewTextChild(rowNode, "time_fmt_code", Qry.FieldAsString(col_time_fmt_code));
-            NewTextChild(rowNode, "disp_airline_fmt_code", Qry.FieldAsString(col_disp_airline_fmt_code));
-            NewTextChild(rowNode, "disp_airp_fmt_code", Qry.FieldAsString(col_disp_airp_fmt_code));
-            NewTextChild(rowNode, "disp_craft_fmt_code", Qry.FieldAsString(col_disp_craft_fmt_code));
-            NewTextChild(rowNode, "disp_suffix_fmt_code", Qry.FieldAsString(col_disp_suffix_fmt_code));
+            NewTextChild(rowNode, "type", Qry.FieldAsInteger(col_type));
+            NewTextChild(rowNode, "pr_denial", Qry.FieldAsInteger(col_pr_denial));
+            NewTextChild(rowNode, "time_fmt_code", Qry.FieldAsInteger(col_time_fmt_code));
+            NewTextChild(rowNode, "disp_airline_fmt_code", Qry.FieldAsInteger(col_disp_airline_fmt_code));
+            NewTextChild(rowNode, "disp_airp_fmt_code", Qry.FieldAsInteger(col_disp_airp_fmt_code));
+            NewTextChild(rowNode, "disp_craft_fmt_code", Qry.FieldAsInteger(col_disp_craft_fmt_code));
+            NewTextChild(rowNode, "disp_suffix_fmt_code", Qry.FieldAsInteger(col_disp_suffix_fmt_code));
             user_airps.to_xml(new_user_id, rowNode);
             user_airlines.to_xml(new_user_id, rowNode);
             user_roles.to_xml(new_user_id, rowNode);
@@ -593,8 +602,11 @@ void TUserData::search(xmlNodePtr resNode)
         "      DECODE(user_sets.disp_airline,05,05,06,06,07,07,08,08,09,09,09)=disp_airline_fmt.code AND  "
         "      DECODE(user_sets.disp_airp,   05,05,06,06,07,07,08,08,09,09,09)=disp_airp_fmt.code AND "
         "      DECODE(user_sets.disp_craft,  05,05,06,06,07,07,08,08,09,09,09)=disp_craft_fmt.code AND "
-        "      DECODE(user_sets.disp_suffix, 15,15,16,16,17,17,17)=disp_suffix_fmt.code "
-        "      and adm.check_user_view_access(users2.user_id,:SYS_user_id)<>0 ";
+        "      DECODE(user_sets.disp_suffix, 15,15,16,16,17,17,17)=disp_suffix_fmt.code and "
+        "      adm.check_user_view_access(users2.user_id,:SYS_user_id)<>0 ";
+    // связки с user_set_types необходимы для правильной работы поиска по параметрам *_fmt_code
+    // чтобы юзеры с параметрами по умолчанию (т.е. для к-рых нет записей в user_set_types)
+    // правильно доставались
     if(not users.empty()) {
         SQLText += "      and users2.user_id = :user_id ";
         Qry.DeclareVariable("user_id", otInteger);
@@ -701,8 +713,6 @@ void TUserData::del()
     };
 }
 
-
-
 void TUserData::update_aro()
 {
     TQuery Qry(&OraSession);
@@ -735,10 +745,7 @@ void TUserData::update_aro()
     Qry.CreateVariable("user_id", otInteger, user_id);
     Qry.DeclareVariable("role", otInteger);
     for(set<string>::iterator iv = roles.begin(); iv != roles.end(); iv++) {
-        size_t idx = iv->find(';');
-        if(idx == string::npos)
-            throw Exception("TUserData::update_aro: wrong role format");
-        Qry.SetVariable("role", iv->substr(0, idx));
+        Qry.SetVariable("role", get_role_id(*iv));
         Qry.Execute();
     }
 }
