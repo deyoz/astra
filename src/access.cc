@@ -204,7 +204,6 @@ void AccessInterface::RoleRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         NewTextChild(itemNode, "id", Qry.FieldAsInteger("ida"));
         NewTextChild(itemNode, "name", Qry.FieldAsString("name"));
     }
-    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
 class TARO {
@@ -654,7 +653,6 @@ void TUserData::search(xmlNodePtr resNode)
             Qry.CreateVariable("pr_denial", otInteger, pr_denial);
         }
     }
-    ProgTrace(TRACE5, "SQLText: %s", SQLText.c_str());
     Qry.SQLText = SQLText;
     Qry.CreateVariable("SYS_user_id", otInteger, TReqInfo::Instance()->user.user_id);
 
@@ -667,7 +665,6 @@ void TUserData::search(xmlNodePtr resNode)
             Qry.SetVariable("user_id", *iv);
             srx.build(user_roles, user_airps, user_airlines, Qry, resNode, rowsNode, user_id);
         }
-    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
 void TUserData::create_vars(TQuery &Qry, bool pr_update)
