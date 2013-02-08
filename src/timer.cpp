@@ -21,6 +21,7 @@
 #include "base_tables.h"
 #include "stl_utils.h"
 #include "empty_proc.h"
+#include "basel_aero.h"
 #include "serverlib/posthooks.h"
 #include "serverlib/perfom.h"
 
@@ -139,6 +140,8 @@ void exec_tasks( const char *proc_name )
 	    	  			  			if ( name == "sync_1ccek" ) sync_1ccek();
 	    	  			  			else
                           if ( name == "sync_checkin_data" ) sync_checkin_data( );
+                          else
+                            if ( name == "sych_basel_aero_stat" ) sych_basel_aero_stat( utcdate );
 /*	    	  			  			    else
                             if ( name == "cobra" ) cobra();*/
 

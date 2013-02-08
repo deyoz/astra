@@ -3367,6 +3367,18 @@ struct Tids {
   };
 };
 
+const char * SyncMeridian_airlines[] =
+    {"ЮТ", "ЮР", "QU" };
+
+bool is_sync_meridian( const TTripInfo &tripInfo )
+{
+  for( unsigned int i=0;i<sizeof(SyncMeridian_airlines)/sizeof(SyncMeridian_airlines[0]);i+=1) {
+   if ( strcmp(tripInfo.airline.c_str(),SyncMeridian_airlines[i])==0 )
+     return true;
+  }
+  return false;
+}
+
 void WebRequestsIface::GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   xmlNodePtr node = GetNode( "@time", reqNode );
@@ -3449,7 +3461,7 @@ void WebRequestsIface::GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   RemQry.DeclareVariable( "pax_id", otInteger );
   TQuery FltQry(&OraSession);
   FltQry.SQLText =
-    "SELECT airline,flt_no,suffix,scd_out FROM points WHERE point_id=:point_id";
+    "SELECT airline,flt_no,suffix,airp,scd_out FROM points WHERE point_id=:point_id";
   FltQry.DeclareVariable( "point_id", otInteger );
   TDateTime max_time = NoExists;
   node = NULL;
@@ -3468,13 +3480,12 @@ void WebRequestsIface::GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     FltQry.Execute();
     if ( FltQry.Eof )
       throw EXCEPTIONS::Exception("WebRequestsIface::GetPaxsInfo: flight not found, (point_id=%d)", Qry.FieldAsInteger( "point_id" ) );
-    string airline = FltQry.FieldAsString( "airline" );
-/*    if ( airline != "ЮТ" &&
-         airline != "ЮР" &&
-         airline != "QU" ) {
-      tst();
+    TTripInfo tripInfo( FltQry );
+    if ( TReqInfo::Instance()->client_type != ctWeb ||
+         !is_sync_meridian( tripInfo ) ) {
       continue;
-    }*/
+    }
+
     if ( max_time != NoExists && max_time != Qry.FieldAsDateTime( "time" ) ) { // сравнение времени с пред. значением, если изменилось, то
       ProgTrace( TRACE5, "Paxs.clear(), vdate=%s, max_time=%s",
                  DateTimeToStr( vdate, ServerFormatDateTimeAsString ).c_str(),
