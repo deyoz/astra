@@ -175,5 +175,8 @@ class TCacheTable {
         virtual void Init(xmlNodePtr cacheNode);
         virtual ~TCacheTable();
 };
+
+std::string get_role_name(int role_id, TQuery &Qry);
+
 #endif /*_CACHE_H_*/
 

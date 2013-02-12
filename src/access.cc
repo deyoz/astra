@@ -213,11 +213,13 @@ class TARO {
         string node_name;
         map<int, set<string> > items;
         string replace_user_cond(const string sql, const string cond);
+        virtual string get_item(TQuery &Qry);
     public:
         set<string> &get(int user_id);
         void to_xml(int user_id, xmlNodePtr node);
         void get_users(set<string> &aro_params, vector<int> &users, bool &pr_find);
         TARO();
+        virtual ~TARO(){};
 };
 
 string TARO::replace_user_cond(const string sql, const string cond)
@@ -237,12 +239,23 @@ TARO::TARO():
 };
 
 class TRolesARO:public TARO {
+    private:
+        string get_item(TQuery &Qry)
+        {
+            int id = Qry.FieldAsInteger(0);
+            ostringstream result;
+            TQuery dummyQry(&OraSession);
+            result << id << ";" << get_role_name(id, dummyQry);
+            return result.str();
+
+        }
+
     public:
         TRolesARO()
         {
             Qry.SQLText =
                 "select "
-                "   roles.role_id||';'||roles.name "
+                "   roles.role_id "
                 "from "
                 "   user_roles, "
                 "   roles "
@@ -358,6 +371,10 @@ void TARO::to_xml(int user_id, xmlNodePtr node)
     }
 }
 
+string TARO::get_item(TQuery &Qry)
+{
+    return Qry.FieldAsString(0);
+}
 set<string> &TARO::get(int user_id)
 {
     map<int, set<string> >::iterator mi = items.find(user_id);
@@ -366,7 +383,7 @@ set<string> &TARO::get(int user_id)
         Qry.Execute();
         set<string> &s = items[user_id];
         for(; not Qry.Eof; Qry.Next())
-            s.insert(Qry.FieldAsString(0));
+            s.insert(get_item(Qry));
         mi = items.find(user_id);
     }
     return mi->second;
