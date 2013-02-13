@@ -50,7 +50,7 @@ class TBagItem
     int weight;
     int hall,user_id; //для old_bag
     int value_bag_num,bag_pool_num; //для new_bag
-    bool pr_liab_limit;  //для new_bag
+    bool pr_liab_limit, to_ramp;  //для new_bag
     TBagItem()
     {
       clear();
@@ -68,6 +68,7 @@ class TBagItem
       value_bag_num=ASTRA::NoExists;
       bag_pool_num=ASTRA::NoExists;
       pr_liab_limit=false;
+      to_ramp=false;
     };
     bool operator < (const TBagItem &item) const
     {
