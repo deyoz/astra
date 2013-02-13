@@ -183,7 +183,7 @@ void sych_basel_aero_stat( BASIC::TDateTime utcdate )
       read_basel_aero_stat( iairp->first, f );
       f.close();
       FileSetsQry.SetVariable( "airp", iairp->first );
-      Qry.Execute();
+      FileSetsQry.Execute();
       OraSession.Commit();
     }
     catch(...) {
