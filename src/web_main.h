@@ -19,6 +19,8 @@ struct InetClient
   std::string client_type;
 };
 
+bool is_sync_meridian( const TTripInfo &tripInfo );
+
 int internet_main(const char *body, int blen, const char *head,
                   int hlen, char **res, int len);
 
@@ -64,7 +66,8 @@ public:
      AddEvent("GetFlightInfo",evHandle);
      evHandle=JxtHandler<WebRequestsIface>::CreateHandler(&WebRequestsIface::ParseMessage);
      AddEvent("Message",evHandle);
-
+     evHandle=JxtHandler<WebRequestsIface>::CreateHandler(&WebRequestsIface::GetPaxsInfo);
+     AddEvent("GetPaxsInfo",evHandle);
   };
 
   void SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -82,6 +85,7 @@ public:
   
   void GetFlightInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ParseMessage(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode){};
 };

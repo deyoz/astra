@@ -52,6 +52,7 @@ class TPaxTknItem
 
 bool LoadPaxTkn(int pax_id, TPaxTknItem &tkn, TQuery& PaxTknQry);
 bool LoadPaxTkn(BASIC::TDateTime part_key, int pax_id, TPaxTknItem &tkn, TQuery& PaxTknQry);
+bool LoadCrsPaxTkn(int pax_id, TPaxTknItem &tkn, TQuery& PaxTknQry, TQuery& GetTKNO2Qry);
 
 class TPaxDocItem
 {
@@ -192,28 +193,6 @@ bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc, TQuery& PaxDocQry, TQuery& GetP
 bool LoadCrsPaxDoco(int pax_id, TPaxDocoItem &doc, TQuery& PaxDocQry);
 void SavePaxDoc(int pax_id, xmlNodePtr docNode, TQuery& PaxDocQry);
 void SavePaxDoco(int pax_id, xmlNodePtr docNode, TQuery& PaxDocQry);
-
-class TPaxNormItem
-{
-  public:
-    int bag_type;
-    int norm_id;
-    bool norm_trfer;
-  TPaxNormItem()
-  {
-    clear();
-  };
-  void clear()
-  {
-    bag_type=ASTRA::NoExists;
-    norm_id=ASTRA::NoExists;
-    norm_trfer=false;
-  };
-  const TPaxNormItem& toXML(xmlNodePtr node) const;
-  TPaxNormItem& fromXML(xmlNodePtr node);
-  const TPaxNormItem& toDB(TQuery &Qry) const;
-  TPaxNormItem& fromDB(TQuery &Qry);
-};
 
 bool LoadPaxNorms(int pax_id, std::vector< std::pair<TPaxNormItem, TNormItem> > &norms, TQuery& NormQry);
 bool LoadGrpNorms(int grp_id, std::vector< std::pair<TPaxNormItem, TNormItem> > &norms, TQuery& NormQry);

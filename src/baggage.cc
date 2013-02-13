@@ -1087,8 +1087,191 @@ std::string TNormItem::str() const
   return result.str();
 };
 
+const TPaxNormItem& TPaxNormItem::toXML(xmlNodePtr node) const
+{
+  if (node==NULL) return *this;
+  if (bag_type!=ASTRA::NoExists)
+    NewTextChild(node,"bag_type",bag_type);
+  else
+    NewTextChild(node,"bag_type");
+  if (norm_id!=ASTRA::NoExists)
+  {
+    NewTextChild(node,"norm_id",norm_id);
+    NewTextChild(node,"norm_trfer",(int)norm_trfer);
+  }
+  else
+  {
+    NewTextChild(node,"norm_id");
+    NewTextChild(node,"norm_trfer");
+  };
+  return *this;
 };
 
+TPaxNormItem& TPaxNormItem::fromXML(xmlNodePtr node)
+{
+  clear();
+  if (node==NULL) return *this;
+  xmlNodePtr node2=node->children;
+  if (!NodeIsNULLFast("bag_type",node2))
+    bag_type=NodeAsIntegerFast("bag_type",node2);
+  if (!NodeIsNULLFast("norm_id",node2))
+  {
+    norm_id=NodeAsIntegerFast("norm_id",node2);
+    norm_trfer=NodeAsIntegerFast("norm_trfer",node2,0)!=0;
+  };
+  return *this;
+};
 
+const TPaxNormItem& TPaxNormItem::toDB(TQuery &Qry) const
+{
+  if (bag_type!=ASTRA::NoExists)
+    Qry.SetVariable("bag_type",bag_type);
+  else
+    Qry.SetVariable("bag_type",FNull);
+  if (norm_id!=ASTRA::NoExists)
+  {
+    Qry.SetVariable("norm_id",norm_id);
+    Qry.SetVariable("norm_trfer",(int)norm_trfer);
+  }
+  else
+  {
+    Qry.SetVariable("norm_id",FNull);
+    Qry.SetVariable("norm_trfer",FNull);
+  };
+  return *this;
+};
+
+TPaxNormItem& TPaxNormItem::fromDB(TQuery &Qry)
+{
+  clear();
+  if (!Qry.FieldIsNULL("bag_type"))
+    bag_type=Qry.FieldAsInteger("bag_type");
+  if (!Qry.FieldIsNULL("norm_id"))
+  {
+    norm_id=Qry.FieldAsInteger("norm_id");
+    norm_trfer=Qry.FieldAsInteger("norm_trfer")!=0;
+  };
+  return *this;
+};
+
+};
+
+namespace BagPayment
+{
+
+class TBagNormFields
+{
+  public:
+    //string name;
+    int amount;
+    bool filtered;
+    int fieldIdx;
+    otFieldType fieldType;
+    string value;
+    TBagNormFields(/*string pname,*/ int pamount, bool pfiltered):
+                   /*name(pname),*/amount(pamount),filtered(pfiltered)
+    {};
+};
+
+void GetPaxBagNorm(TQuery &Qry,
+                   const bool use_mixed_norms,
+                   const TPaxInfo &pax,
+                   const bool onlyCategory,
+                   pair<CheckIn::TPaxNormItem, CheckIn::TNormItem> &norm)
+{
+  norm.first.clear();
+  norm.second.clear();
+
+  static map<string,TBagNormFields> BagNormFields;
+  if (BagNormFields.empty())
+  {
+    BagNormFields.insert(make_pair("city_arv",TBagNormFields(  1, false)));
+    BagNormFields.insert(make_pair("pax_cat", TBagNormFields(100, false)));
+    BagNormFields.insert(make_pair("subclass",TBagNormFields( 50, false)));
+    BagNormFields.insert(make_pair("class",   TBagNormFields(  1, false)));
+    BagNormFields.insert(make_pair("flt_no",  TBagNormFields(  1, true)));
+    BagNormFields.insert(make_pair("craft",   TBagNormFields(  1, true)));
+  };
+
+  map<string,TBagNormFields>::iterator i;
+
+  for(i=BagNormFields.begin();i!=BagNormFields.end();i++)
+  {
+    i->second.fieldIdx=Qry.FieldIndex(i->first);
+    i->second.fieldType=Qry.FieldType(i->second.fieldIdx);
+    i->second.value.clear();
+  };
+
+  if ((i=BagNormFields.find("pax_cat"))!=BagNormFields.end())
+    i->second.value=pax.pax_cat;
+  if ((i=BagNormFields.find("subclass"))!=BagNormFields.end())
+    i->second.value=pax.subcl;
+  if ((i=BagNormFields.find("class"))!=BagNormFields.end())
+    i->second.value=pax.cl;
+
+  bool pr_basic=(!Qry.Eof && Qry.FieldIsNULL("airline"));
+  int max_amount=ASTRA::NoExists;
+  int curr_amount=ASTRA::NoExists;
+  pair<CheckIn::TPaxNormItem, CheckIn::TNormItem> max_norm,curr_norm;
+
+  int pr_trfer=(int)(!pax.final_target.empty());
+  for(;pr_trfer>=0;pr_trfer--)
+  {
+    if ((i=BagNormFields.find("city_arv"))!=BagNormFields.end())
+    {
+      i->second.value.clear();
+      if (pr_trfer!=0)
+        i->second.value=pax.final_target;
+      else
+        i->second.value=pax.target;
+    };
+
+    for(;!Qry.Eof;Qry.Next())
+    {
+      curr_norm.first.clear();
+      if (!Qry.FieldIsNULL("bag_type"))
+        curr_norm.first.bag_type=Qry.FieldAsInteger("bag_type");
+      curr_norm.first.norm_id=Qry.FieldAsInteger("id");
+      curr_norm.first.norm_trfer=pr_trfer!=0;
+
+      curr_norm.second.fromDB(Qry);
+
+      if (Qry.FieldIsNULL("airline") && !pr_basic) continue;
+      if (!Qry.FieldIsNULL("pr_trfer") && (Qry.FieldAsInteger("pr_trfer")!=0)!=(pr_trfer!=0)) continue;
+      if (curr_norm.first.bag_type!=norm.first.bag_type) continue;
+      if (onlyCategory && Qry.FieldAsString("pax_cat")!=pax.pax_cat) continue;
+
+      curr_amount=0;
+      i=BagNormFields.begin();
+      for(;i!=BagNormFields.end();i++)
+      {
+        if (Qry.FieldIsNULL(i->second.fieldIdx)) continue;
+        if (i->second.filtered)
+          curr_amount+=i->second.amount;
+        else
+          if (!i->second.value.empty())
+          {
+            if (i->second.value==Qry.FieldAsString(i->second.fieldIdx))
+              curr_amount+=i->second.amount;
+            else
+              break;
+          }
+          else break;
+      };
+      if (i==BagNormFields.end())
+      {
+        if (max_amount==ASTRA::NoExists || curr_amount>max_amount)
+        {
+          max_norm=curr_norm;
+          max_amount=curr_amount;
+        };
+      };
+    };
+    if (pr_trfer!=0 && max_amount!=ASTRA::NoExists || !use_mixed_norms) break;
+  };
+  norm=max_norm;
+};
+
+};
     
     

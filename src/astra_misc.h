@@ -615,6 +615,9 @@ void SetInfantsToAdults( std::vector<T1> &InfItems, std::vector<T2> AdultItems )
   }
 };
 
+bool is_sync_paxs( int point_id );
+void update_pax_change( int point_id, int pax_id, int reg_no, const std::string &work_mode );
+
 #endif /*_ASTRA_MISC_H_*/
 
 

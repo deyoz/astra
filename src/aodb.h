@@ -6,6 +6,7 @@
 #include <tcl.h>
 #include "astra_service.h"
 #include "basic.h"
+#include "astra_misc.h"
 
 const std::string FILE_AODB_TYPE = "AODB";
 const std::string FILE_AODB_IN_TYPE = "AODBI";
@@ -24,10 +25,10 @@ void Set_AODB_overload_alarm( int point_id, bool overload_alarm );
 void VerifyParseFlight( );
 
 int main_aodb_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
-void update_aodb_pax_change( int point_id, int pax_id, int reg_no, const std::string &work_mode );
-bool is_sync_aodb( int point_id );
+//void update_aodb_pax_change( int point_id, int pax_id, int reg_no, const std::string &work_mode );
+//bool is_sync_aodb( int point_id );
 void bindingAODBFlt( const std::string &airline, const int flt_no, const std::string suffix,
                      const BASIC::TDateTime locale_scd_out, const std::string airp );
-
+bool is_sync_aodb_pax( const TTripInfo &tripInfo );
 
 #endif /*_AODB_H_*/

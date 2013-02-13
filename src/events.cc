@@ -203,6 +203,7 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
   grpInfo.clear();
   TQuery PaxDocQry(&OraSession);
   TQuery PaxDocoQry(&OraSession);
+  TQuery PaxRemQry(&OraSession);
   TQuery NormQry(&OraSession);
   TQuery Qry(&OraSession);
   Qry.Clear();
@@ -255,6 +256,8 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
         paxInfo.pr_exam=paxInfo.refuse.empty() && !Qry.FieldIsNULL("pr_exam") && Qry.FieldAsInteger("pr_exam")!=0;
         LoadPaxDoc(paxInfoKey.pax_id, paxInfo.doc, PaxDocQry);
         LoadPaxDoco(paxInfoKey.pax_id, paxInfo.doco, PaxDocoQry);
+        LoadPaxRem(paxInfoKey.pax_id, paxInfo.rems, PaxRemQry);
+        sort(paxInfo.rems.begin(), paxInfo.rems.end());
       }
       else
       {
@@ -344,7 +347,7 @@ void SaveGrpToLog(int point_id,
                   const TGrpToLogInfo &grpInfoAfter,
                   TAgentStatInfo &agentStat)
 {
-  bool SyncAODB=is_sync_aodb(point_id);
+  bool SyncPaxs=is_sync_paxs(point_id);
   
   agentStat.clear();
 
@@ -397,7 +400,8 @@ void SaveGrpToLog(int point_id,
                 aPax->second.seat_no==bPax->second.seat_no &&
                 aPax->second.tkn==bPax->second.tkn &&
                 aPax->second.doc==bPax->second.doc &&
-                aPax->second.doco==bPax->second.doco))
+                aPax->second.doco==bPax->second.doco &&
+                aPax->second.rems==bPax->second.rems))
           {
             //пассажир изменен
             ostringstream msg;
@@ -530,7 +534,7 @@ void SaveGrpToLog(int point_id,
                         point_id, aPax!=grpInfoAfter.pax.end()?aPax->first.reg_no:bPax->first.reg_no, grp_id);
       changed=true;
     };
-    if (SyncAODB)
+    if (SyncPaxs)
     {
       int aodb_pax_id=NoExists;
       int aodb_reg_no=NoExists;
@@ -547,7 +551,7 @@ void SaveGrpToLog(int point_id,
       if (aodb_pax_id!=NoExists && aodb_reg_no!=NoExists)
       {
         if (changed) //были изменения по регистрации
-          update_aodb_pax_change( point_id, aodb_pax_id, aodb_reg_no, "Р" );
+          update_pax_change( point_id, aodb_pax_id, aodb_reg_no, "Р" );
         
         bool boardedAfter=false, boardedBefore=false;
         if (aPax!=grpInfoAfter.pax.end())
@@ -555,7 +559,7 @@ void SaveGrpToLog(int point_id,
         if (bPax!=grpInfoBefore.pax.end())
           boardedBefore=bPax->second.pr_brd;
         if (boardedAfter!=boardedBefore) //были изменения с посадкой/высадкой
-          update_aodb_pax_change( point_id, aodb_pax_id, aodb_reg_no, "П" );
+          update_pax_change( point_id, aodb_pax_id, aodb_reg_no, "П" );
       };
     };
   };

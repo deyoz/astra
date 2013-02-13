@@ -305,7 +305,7 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
       {
         bool boarded=!PaxQry.FieldIsNULL("pr_brd") && PaxQry.FieldAsInteger("pr_brd")!=0;
         if (boarded)
-          update_aodb_pax_change( point_id, pax_id, PaxQry.FieldAsInteger("reg_no"), "П" );
+          update_pax_change( point_id, pax_id, PaxQry.FieldAsInteger("reg_no"), "П" );
       };
     };
   };
@@ -395,8 +395,8 @@ bool BrdInterface::PaxUpdate(int point_id, int pax_id, int &tid, bool mark, bool
         if (pr_exam_with_brd)
           msg+=     (mark ? " прошел досмотр," : " возвращен на досмотр,");
         msg+=     (mark ? " прошел посадку" : " высажен");
-        if (is_sync_aodb(point_id))
-          update_aodb_pax_change( point_id, pax_id, Qry.FieldAsInteger("reg_no"), "П");
+        if (is_sync_paxs(point_id))
+          update_pax_change( point_id, pax_id, Qry.FieldAsInteger("reg_no"), "П");
       }
       else
         msg+=     (mark ? " прошел досмотр" : " возвращен на досмотр");

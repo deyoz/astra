@@ -8,7 +8,9 @@
 #include "convert.h"
 #include "astra_locale.h"
 #include "seats_utils.h"
-
+#include "aodb.h"
+#include "web_main.h"
+#include "basel_aero.h"
 #define NICKNAME "DEN"
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/test.h"
@@ -1795,6 +1797,48 @@ string GetPaxDocCountryCode(const string &doc_code)
 bool isTestPaxId(int id)
 {
   return id!=NoExists && id>=TEST_ID_BASE && id<=TEST_ID_BASE+999999999;
+}
+
+bool is_sync_paxs( int point_id )
+{
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
+    "SELECT point_id, airline, flt_no, suffix, airp, scd_out, "
+    "       NVL(act_out,NVL(est_out,scd_out)) AS real_out "
+    " FROM points "
+    " WHERE point_id=:point_id AND pr_reg<>0 AND pr_del=0";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  if ( Qry.Eof )
+    return false;
+  TTripInfo tripInfo( Qry );
+  return AstraWeb::is_sync_meridian( tripInfo ) ||
+         is_sync_basel_pax( tripInfo ) ||
+         is_sync_aodb_pax( tripInfo );
+}
+
+void update_pax_change( int point_id, int pax_id, int reg_no, const string &work_mode )
+{
+  TQuery Qry( &OraSession );
+  Qry.Clear();
+  Qry.SQLText =
+     "BEGIN "
+     " UPDATE aodb_pax_change "
+     "  SET point_id=:point_id, desk=:desk, client_type=:client_type, time=:time "
+     " WHERE pax_id=:pax_id AND reg_no=:reg_no AND work_mode=:work_mode; "
+     " IF SQL%NOTFOUND THEN "
+     "  INSERT INTO aodb_pax_change(pax_id,reg_no,work_mode,point_id,desk,client_type,time) "
+     "   VALUES(:pax_id,:reg_no,:work_mode,:point_id,:desk,:client_type,:time); "
+     " END IF; "
+     "END;";
+  Qry.CreateVariable( "pax_id", otInteger, pax_id );
+  Qry.CreateVariable( "reg_no", otInteger, reg_no );
+  Qry.CreateVariable( "work_mode", otString, work_mode );
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.CreateVariable( "desk", otString, TReqInfo::Instance()->desk.code );
+  Qry.CreateVariable( "client_type", otString,  EncodeClientType(TReqInfo::Instance()->client_type) );
+  Qry.CreateVariable( "time", otDate, NowUTC() );
+  Qry.Execute();
 }
 
 
