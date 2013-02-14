@@ -1,10 +1,10 @@
 #include "http_io.h"
 #include <boost/asio.hpp>
-#include <pion/net/HTTPRequest.hpp>
-#include <pion/net/HTTPResponse.hpp>
-#include <pion/net/HTTPRequestWriter.hpp>
-#include <pion/net/HTTPResponseReader.hpp>
-#include <pion/net/TCPConnection.hpp>
+#include <pion/http/request.hpp>
+#include <pion/http/response.hpp>
+#include <pion/http/request_writer.hpp>
+#include <pion/http/response_reader.hpp>
+#include <pion/tcp/connection.hpp>
 
 #define NICKNAME "DENIS"
 #include "serverlib/test.h"
@@ -19,14 +19,14 @@
 using namespace std;
 using namespace EXCEPTIONS;
 using namespace boost::asio;
-using namespace pion::net;
+using namespace pion::http;
 
 
 
 void my_test_old()
 {
     boost::asio::io_service io_service;
-    pion::net::TCPConnection tcp_conn(io_service, false);
+    pion::tcp::connection tcp_conn(io_service, false);
 
     string host = "bsm.icfairports.com";
     u_int port = 80;
@@ -52,22 +52,22 @@ void my_test_old()
     ProgTrace(TRACE5,"connect succeed");
 
 //    pion::net::HTTPRequest post(resource);
-    pion::net::HTTPRequest post("/OutBsmService.asmx/BsmProccess?message=string");
+    pion::http::request post("/OutBsmService.asmx/BsmProccess?message=string");
 
     if(false) {
         // POST
-        post.setMethod("POST");
-        post.addHeader("SOAPAction", action);
-        post.addHeader("Host", host_port.str());
-        post.setContentType("text/xml; charset=utf-8");
-        post.setContent(content);
+        post.set_method("POST");
+        post.add_header("SOAPAction", action);
+        post.add_header("Host", host_port.str());
+        post.set_content_type("text/xml; charset=utf-8");
+        post.set_content(content);
     } else {
         // GET
-        post.setMethod("GET");
-        post.addHeader("Host", host_port.str());
+        post.set_method("GET");
+        post.add_header("Host", host_port.str());
     }
 
-    pion::net::HTTPResponse rc(post);
+    pion::http::response rc(post);
 
     for(int i = 0; i < 2; i++) {
 
@@ -82,15 +82,15 @@ void my_test_old()
         if(error_code)
             throw Exception("receive failed: %s", error_code.message().c_str());
 
-        if(rc.getStatusCode() != 200)
+        if(rc.get_status_code() != 200)
         {
-            ProgTrace(TRACE5, "Status(%i :: %s)", rc.getStatusCode(), rc.getStatusMessage().c_str());
-            ProgTrace(TRACE5, "    |%s|", rc.getContent());
-            throw Exception(rc.getContent());
+            ProgTrace(TRACE5, "Status(%i :: %s)", rc.get_status_code(), rc.get_status_message().c_str());
+            ProgTrace(TRACE5, "    |%s|", rc.get_content());
+            throw Exception(rc.get_content());
         }
 
-        const char* content_ptr = rc.getContent();
-        string result = content_ptr ? std::string(content_ptr, rc.getContentLength()) : "";
+        const char* content_ptr = rc.get_content();
+        string result = content_ptr ? std::string(content_ptr, rc.get_content_length()) : "";
         ProgTrace(TRACE5, "response: %s", result.c_str());
         ProgTrace(TRACE5, "send msg %d: %s", i, tm.PrintWithMessage().c_str());
 
@@ -101,14 +101,14 @@ void my_test_old()
 }
 
 struct IOHandler {
-    TCPConnectionPtr tcp_conn;
+    pion::tcp::connection_ptr tcp_conn;
     string answer;
-    HTTPRequestPtr post;
-    HTTPRequestWriterPtr writer;
-    HTTPResponseReaderPtr reader;
+    request_ptr post;
+    request_writer_ptr writer;
+    response_reader_ptr reader;
     bool processed;
     void handleWrite(const boost::system::error_code &write_error, std::size_t bytes_written);
-    void handleRead(pion::net::HTTPResponsePtr& response, pion::net::TCPConnectionPtr& tcp_conn);
+    void handleRead(response_ptr& response, pion::tcp::connection_ptr& tcp_conn);
     IOHandler(
             io_service &io_service,
             string host,
@@ -125,7 +125,7 @@ IOHandler::IOHandler(
         )
 {
     processed = false;
-    tcp_conn = TCPConnectionPtr(new TCPConnection(io_service, false));
+    tcp_conn = pion::tcp::connection_ptr(new pion::tcp::connection(io_service, false));
 
     if(boost::system::error_code error_code = tcp_conn->connect(host,port))
         throw Exception("connect failed: %d, %s", error_code.value(), error_code.message().c_str());
@@ -133,14 +133,14 @@ IOHandler::IOHandler(
     ostringstream host_port;
     host_port << host << ":" << port;
 
-    post = HTTPRequestPtr(new HTTPRequest(resource));
-    post->setMethod("GET");
-    post->addHeader("Host", host_port.str());
+    post = request_ptr(new request(resource));
+    post->set_method("GET");
+    post->add_header("Host", host_port.str());
 
-    writer = HTTPRequestWriter::create(tcp_conn, post);
+    writer = request_writer::create(tcp_conn, post);
     writer->send(boost::bind(&IOHandler::handleWrite, this, _1, _2));
 
-    reader = HTTPResponseReader::create(tcp_conn, *(post), boost::bind(&IOHandler::handleRead, this, _1, _2));
+    reader = response_reader::create(tcp_conn, *(post), boost::bind(&IOHandler::handleRead, this, _1, _2));
 //    reader->setTimeout(0);
     reader->receive();
 }
@@ -151,17 +151,17 @@ void IOHandler::handleWrite(const boost::system::error_code &write_error, std::s
         throw Exception("connect failed: %s", write_error.message().c_str());
 }
 
-void IOHandler::handleRead(pion::net::HTTPResponsePtr& response, pion::net::TCPConnectionPtr& tcp_conn)
+void IOHandler::handleRead(response_ptr& response, pion::tcp::connection_ptr& tcp_conn)
 {
     processed = true;
 
-    const char* content_ptr = response->getContent();
+    const char* content_ptr = response->get_content();
     answer = content_ptr ? content_ptr : "";
 
-    if(response->getStatusCode() != 200 /*and response->getStatusCode() != 500*/) // as the peer is a complete moron
+    if(response->get_status_code() != 200 /*and response->getStatusCode() != 500*/) // as the peer is a complete moron
         throw Exception("Failed request: %d %s",
-                response->getStatusCode(),
-                response->getStatusMessage().c_str());
+                response->get_status_code(),
+                response->get_status_message().c_str());
 }
 
 void web_replace(string &val, string olds, string news)
@@ -208,7 +208,7 @@ void send_bsm(const vector<string> host_list, const TBSMList &bsm_list)
 
     for(vector<IOHPtr>::iterator iv = ioh_list.begin(); iv != ioh_list.end(); iv++) {
         if(not (*iv)->processed)
-            throw Exception("no answer for request: %s", (*iv)->post->getContent());
+            throw Exception("no answer for request: %s", (*iv)->post->get_content());
         result.push_back((*iv)->answer);
     }
 
@@ -237,7 +237,7 @@ string send_bsm(const string host, const string &bsm)
     string result;
     for(vector<IOHPtr>::iterator iv = ioh_list.begin(); iv != ioh_list.end(); iv++) {
         if(not (*iv)->processed)
-            throw Exception("no answer for request: %s", (*iv)->post->getQueryString().c_str());
+            throw Exception("no answer for request: %s", (*iv)->post->get_query_string().c_str());
         result= (*iv)->answer;
     }
 
