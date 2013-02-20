@@ -5,5 +5,6 @@
 #include<vector>
 
 std::string send_bsm(const std::string host, const std::string &bsm);
+int test_soap(int argc, char **argv);
 
 #endif

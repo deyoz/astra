@@ -15,6 +15,7 @@
 #include "astra_service.h"
 #include "tlg/tlg.h"
 #include "serverlib/posthooks.h"
+#include "xml_unit.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -276,4 +277,140 @@ void my_test()
     }
 
     send_bsm(host_list, bsm_list);
+}
+
+int test_soap(int argc, char **argv)
+{
+    string host = "uat2.vtsft.ru";
+    u_int port = 80;
+    string resource = "/ss-services/SirenaSearchService";
+    string action = "importASTDate";
+
+    string content1 =
+        "<soapenv:Envelope xmlns:soapenv='http://schemas.xmlsoap.org/soap/envelope/' xmlns:sir='http://vtsft.ru/sirenaSearchService/'>\n"
+        "   <soapenv:Header/>\n"
+        "   <soapenv:Body>\n"
+        "      <sir:importASTDateRequest>\n"
+        "         <sir:login>test</sir:login>\n"
+        "         <sir:policyParameters>\n"
+        "            <sir:transactionDate>2013-08-30</sir:transactionDate>\n"
+        "            <sir:transactionTime>02:00:00+04:00</sir:transactionTime>\n"
+        "            <sir:flightNumber>7853456745574</sir:flightNumber>\n"
+        "            <sir:departureDate>2013-08-30</sir:departureDate>\n"
+        "            <sir:rackNumber>3</sir:rackNumber>\n"
+        "            <sir:seatNumber>22</sir:seatNumber>\n"
+        "            <sir:firstName>Ivanov</sir:firstName>\n"
+        "            <sir:lastName>Ivan</sir:lastName>\n"
+        "            <sir:patronymic>Ivanovich</sir:patronymic>\n"
+        "            <sir:documentNumber>7789365364</sir:documentNumber>\n"
+        "            <sir:operationType>K1</sir:operationType>\n"
+        "            <sir:baggageReceiptsNumber>123</sir:baggageReceiptsNumber>\n"
+        "            <sir:airline>S7</sir:airline>\n"
+        "            <sir:departureAirport>Airport1</sir:departureAirport>\n"
+        "            <sir:arrivalAirport>Airport2</sir:arrivalAirport>\n"
+        "            <sir:baggageWeight>28</sir:baggageWeight>\n"
+        "            <sir:departureTime>02:00:00+04:00</sir:departureTime>\n"
+        "            <sir:PNR>22A</sir:PNR>\n"
+        "            <sir:visaNumber>775</sir:visaNumber>\n"
+        "            <sir:visaDate>2013-08-30</sir:visaDate>\n"
+        "            <sir:visaPlace>Moscow</sir:visaPlace>\n"
+        "            <sir:visaCountryCode>RF</sir:visaCountryCode>\n"
+        "         </sir:policyParameters>\n"
+        "      </sir:importASTDateRequest>\n"
+        "   </soapenv:Body>\n"
+        "</soapenv:Envelope>";
+    string content2 =
+        "<soapenv:Envelope xmlns:soapenv='http://schemas.xmlsoap.org/soap/envelope/' xmlns:sir='http://vtsft.ru/sirenaSearchService/'>\n"
+        "   <soapenv:Header/>\n"
+        "   <soapenv:Body>\n"
+        "      <sir:importASTDateRequest>\n"
+        "         <sir:login>test</sir:login>\n"
+        "         <sir:policyParameter/>\n"
+        "      </sir:importASTDateRequest>\n"
+        "   </soapenv:Body>\n"
+        "</soapenv:Envelope>";
+    string content = content2;
+
+    ostringstream host_port;
+    host_port << host << ":" << port;
+
+    io_service io_service;
+    pion::tcp::connection tcp_conn(io_service, false);
+
+    cout << "connect(" << host << ", " << port << ")" << endl;
+    if(boost::system::error_code error_code = tcp_conn.connect(host,port))
+        throw Exception("connect failed: %s", error_code.message().c_str());
+    cout << "connected" << endl;
+
+    request post(resource);
+    post.set_method("POST");
+    post.add_header("SOAPAction", action);
+    post.add_header("Host", host_port.str());
+    post.set_content_type("text/xml;charset=UTF-8");
+    post.set_content(content);
+
+    boost::system::error_code failed;
+    post.send(tcp_conn, failed);
+    ProgTrace(TRACE1,"1");
+    if(failed)
+    {
+        ProgTrace(TRACE1,"send failed");
+        ProgTrace(TRACE1,"%s",failed.message().c_str());
+        ProgTrace(TRACE1,"%i",failed.value());
+        throw failed;
+    }
+    ProgTrace(TRACE1,"2");
+
+    response rc(post);
+    ProgTrace(TRACE1,"3");
+    rc.receive(tcp_conn, failed);
+    ProgTrace(TRACE1,"4");
+    if(failed)
+        throw failed;
+    ProgTrace(TRACE1,"5");
+
+    if(rc.get_status_code() != 200)
+    {
+        ProgTrace(TRACE1, "Status(%i :: %s)", rc.get_status_code(), rc.get_status_message().c_str());
+        ProgTrace(TRACE1, "    |%s|", rc.get_content());
+        throw std::runtime_error(rc.get_content());
+    }
+    ProgTrace(TRACE1,"6");
+
+    const char* content_ptr = rc.get_content();
+    ProgTrace(TRACE1,"content_ptr returned successfully");
+
+    string result = (content_ptr ? std::string(content_ptr, rc.get_content_length()) : "");
+    cout << result << endl;
+    if(not result.empty()) {
+        xmlDocPtr doc = NULL;
+        try {
+            doc = TextToXMLTree(result);
+        } catch(...) {
+        }
+        if(doc != NULL) {
+            try {
+                xmlNodePtr rootNode=xmlDocGetRootElement(doc);
+                xmlNodePtr bodyNode = NodeAsNodeFast("Body", rootNode->children);
+                if(bodyNode) {
+                    xmlNodePtr resultNode = NodeAsNodeFast("importASTDateResult", bodyNode->children);
+                    if(resultNode) {
+                        xmlNodePtr statusNode = NodeAsNodeFast("operationStatus", resultNode->children);
+                        string status = (statusNode ? NodeAsString(statusNode) : "");
+                        if(status != "OK")
+                            throw Exception("Return status not OK: '%s'", status.c_str());
+                        else
+                            cout << "Success" << endl;
+                    }
+                }
+            } catch(...) {
+                xmlFreeDoc(doc);
+                throw;
+            }
+            xmlFreeDoc(doc);
+        } else
+            throw Exception("wrong answer format");
+    }
+
+    return 0;
 }

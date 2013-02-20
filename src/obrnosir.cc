@@ -17,6 +17,7 @@
 #include "stat.h"
 #include "timer.h"
 #include "empty_proc.h"
+#include "http_io.h"
 #include "serverlib/query_runner.h"
 #include "edilib/edi_loading.h"
 
@@ -53,7 +54,8 @@ const
     {"-ssm",                    TypeB::ssm,             NULL,                       NULL},
     {"-get_sirena_rozysk_stat", get_sirena_rozysk_stat, NULL,                       NULL},
     {"-get_events_stat",        get_events_stat2,       NULL,                       NULL},
-    {"-get_basel_aero_stat",    get_basel_aero_stat,    NULL,                       NULL}
+    {"-get_basel_aero_stat",    get_basel_aero_stat,    NULL,                       NULL},
+    {"-test_soap",              test_soap,              NULL,                       NULL}
   };
 
 int nosir_test(int argc,char **argv)
