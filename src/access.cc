@@ -182,7 +182,8 @@ void AccessInterface::RoleRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     string SQLText =
         "select "
         "   rights_list.ida, "
-        "   rights_list.name "
+        "   rights_list.name, "
+        "   rights_list.name_lat "
         "from "
         "   " + table + ", "
         "   rights_list "
@@ -197,12 +198,16 @@ void AccessInterface::RoleRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     Qry.CreateVariable("user_id", otInteger, info.user.user_id);
     Qry.Execute();
     xmlNodePtr roleRightsNode = NULL;
+    ProgTrace(TRACE5, "Qry.Eof: %d", Qry.Eof);
     for(; !Qry.Eof; Qry.Next()) {
         if(!roleRightsNode)
             roleRightsNode = NewTextChild(resNode, "role_rights");
         xmlNodePtr itemNode = NewTextChild(roleRightsNode, "item");
         NewTextChild(itemNode, "id", Qry.FieldAsInteger("ida"));
-        NewTextChild(itemNode, "name", Qry.FieldAsString("name"));
+        ProgTrace(TRACE5, "DESK LANG: %d", TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
+        NewTextChild(itemNode, "name",
+                (TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU ?
+                 Qry.FieldAsString("name_lat") : Qry.FieldAsString("name")));
     }
 }
 
