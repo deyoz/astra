@@ -144,7 +144,7 @@ string make_soap_content(const vector<TPaxWanted> &paxs)
         "      </sir:importASTDateRequest>\n"
         "   </soapenv:Body>\n"
         "</soapenv:Envelope>";
-    return result.str();
+    return ConvertCodepage(result.str(), "CP866", "UTF-8");
 }
 
 void send_pax_wanted( const vector<TPaxWanted> &paxs )
