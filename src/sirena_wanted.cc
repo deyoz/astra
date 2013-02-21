@@ -145,9 +145,7 @@ void get_pax_wanted( vector<TPaxWanted> &paxs )
     pax.gender = Qry.FieldAsString( idx_gender );
     paxs.push_back( pax );
   }
-  if ( prior_time == ASTRA::NoExists )
-    AstraContext::ClearContext( "sync_sirena_wanted" );
-  else
+  if ( prior_time != ASTRA::NoExists )
     AstraContext::SetContext( "sync_sirena_wanted", 0, DateTimeToStr( prior_time, "dd.mm.yyyy hh:nn" ) );
   ProgTrace( TRACE5, "pax.size()=%d", paxs.size() );
 /*    TDateTime time_now = NowUTC();
