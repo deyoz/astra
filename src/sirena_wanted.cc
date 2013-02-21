@@ -11,8 +11,7 @@
 #include "astra_utils.h"
 #include "xml_unit.h"
 #include "cache.h"
-#include "passenger.h"
-#include "events.h"
+#include "astra_context.h"
 #include "jxtlib/xml_stuff.h"
 #include "serverlib/logger.h"
 #include "http_io.h"
@@ -60,7 +59,98 @@ struct TPaxWanted {
 
 void get_pax_wanted( vector<TPaxWanted> &paxs )
 {
-    TDateTime time_now = NowUTC();
+  paxs.clear();
+  string prior_val;
+  TDateTime prior_time = ASTRA::NoExists;
+  if ( AstraContext::GetContext( "sync_sirena_wanted", 0, prior_val ) != ASTRA::NoExists ) {
+    if ( StrToDateTime( prior_val.c_str(), "dd.mm.yyyy hh:nn", prior_time ) == EOF )
+      throw Exception( "get_pax_wanted: invalid context 'sync_sirena_wanted' %s", prior_val.c_str() );
+  }
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+      "SELECT time, "
+      "       airline,flt_no,suffix, "
+      "       takeoff, "
+      "       SUBSTR(term,1,6) AS term, "
+      "       seat_no, "
+      "       SUBSTR(surname,1,20) AS surname, "
+      "       SUBSTR(LTRIM(RTRIM(SUBSTR(name||' ',1,INSTR(name||' ',' ')))),1,20) AS name, "
+      "       SUBSTR(LTRIM(RTRIM(SUBSTR(name||' ',INSTR(name||' ',' ')+1))),1,20) AS patronymic, "
+      "       SUBSTR(document,1,20) AS document, "
+      "       operation, "
+      "       tags, "
+      "       airp_dep, "
+      "       airp_arv, "
+      "       bag_weight, "
+      "       SUBSTR(pnr,1,12) AS pnr, "
+      "       visano,issue_date,issue_place,"
+      "       nationality,NVL(gender,'N') gender,applic_country "
+      "FROM rozysk "
+      "WHERE time>=:first_time "
+      "ORDER BY time";
+  if ( prior_time == ASTRA::NoExists )
+    prior_time =  NowUTC() - 10.0/1440.0;
+  Qry.CreateVariable( "time", otDate, prior_time );
+  Qry.Execute();
+  prior_time = ASTRA::NoExists;
+  int idx_time = Qry.FieldIndex( "time" );
+  int idx_airline = Qry.FieldIndex( "airline" );
+  int idx_flt_no = Qry.FieldIndex( "flt_no" );
+  int idx_suffix = Qry.FieldIndex( "suffix" );
+  int idx_takeoff = Qry.FieldIndex( "takeoff" );
+  int idx_term = Qry.FieldIndex( "term" );
+  int idx_surname = Qry.FieldIndex( "surname" );
+  int idx_name = Qry.FieldIndex( "name" );
+  int idx_patronymic = Qry.FieldIndex( "patronymic" );
+  int idx_document = Qry.FieldIndex( "document" );
+  int idx_airp_dep = Qry.FieldIndex( "airp_dep" );
+  int idx_airp_arv = Qry.FieldIndex( "airp_arv" );
+  int idx_seat_no = Qry.FieldIndex( "seat_no" );
+  int idx_bag_weight = Qry.FieldIndex( "bag_weight" );
+  int idx_tags = Qry.FieldIndex( "tags" );
+  int idx_pnr = Qry.FieldIndex( "pnr" );
+  int idx_operation = Qry.FieldIndex( "operation" );
+  int idx_visano = Qry.FieldIndex( "visano" );
+  int idx_issue_date = Qry.FieldIndex( "issue_date" );
+  int idx_issue_place = Qry.FieldIndex( "issue_place" );
+  int idx_nationality = Qry.FieldIndex( "nationality" );
+  int idx_gender = Qry.FieldIndex( "gender" );
+  int idx_applic_country = Qry.FieldIndex( "applic_country" );
+
+  for ( ;!Qry.Eof; Qry.Next() ) {
+    if ( prior_time < Qry.FieldAsDateTime( idx_time ) )
+      prior_time = Qry.FieldAsDateTime( idx_time );
+    TPaxWanted pax;
+    pax.transactionDate = Qry.FieldAsDateTime( idx_time );
+    pax.airline = Qry.FieldAsString( idx_airline );
+    pax.flightNumber = string(Qry.FieldAsString( idx_flt_no )) + Qry.FieldAsString( idx_suffix );
+    pax.departureDate = Qry.FieldAsDateTime( idx_takeoff );
+    pax.rackNumber = Qry.FieldAsString( idx_term );
+    pax.seatNumber = Qry.FieldAsString( idx_seat_no );
+    pax.firstName = Qry.FieldAsString( idx_surname );
+    pax.lastName = Qry.FieldAsString( idx_name );
+    pax.patronymic = Qry.FieldAsString( idx_patronymic );
+    pax.documentNumber = Qry.FieldAsString( idx_document );
+    pax.operationType = Qry.FieldAsString( idx_operation );
+    pax.baggageReceiptsNumber = Qry.FieldAsString( idx_tags );
+    pax.departureAirport = Qry.FieldAsString( idx_airp_dep );
+    pax.arrivalAirport = Qry.FieldAsString( idx_airp_arv );
+    pax.baggageWeight = Qry.FieldAsString( idx_bag_weight );
+    pax.departureTime = Qry.FieldAsDateTime( idx_takeoff );
+    pax.PNR = Qry.FieldAsString( idx_pnr );
+    pax.visaNumber = Qry.FieldAsString( idx_visano );
+    pax.visaDate = Qry.FieldAsDateTime( idx_issue_date );
+    pax.visaPlace = Qry.FieldAsString( idx_issue_place );
+    pax.visaCountryCode = Qry.FieldAsString( idx_applic_country );
+    pax.gender = Qry.FieldAsString( idx_gender );
+    paxs.push_back( pax );
+  }
+  if ( prior_time == ASTRA::NoExists )
+    AstraContext::ClearContext( "sync_sirena_wanted" );
+  else
+    AstraContext::SetContext( "sync_sirena_wanted", 0, DateTimeToStr( prior_time, "dd.mm.yyyy hh:nn" ) );
+  ProgTrace( TRACE5, "pax.size()=%d", paxs.size() );
+/*    TDateTime time_now = NowUTC();
     paxs.clear();
     TPaxWanted pax;
 
@@ -100,7 +190,7 @@ void get_pax_wanted( vector<TPaxWanted> &paxs )
     pax.departureAirport =  "ñÑÉ";
     pax.arrivalAirport = "ãÅÉ";
     pax.nationality = "íÑ";
-    paxs.push_back(pax);
+    paxs.push_back(pax);    */
 }
 
 string make_soap_content(const vector<TPaxWanted> &paxs)
