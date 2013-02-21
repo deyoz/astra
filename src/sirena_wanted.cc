@@ -159,7 +159,7 @@ void send_pax_wanted( const vector<TPaxWanted> &paxs )
 
 void sync_sirena_wanted( TDateTime utcdate )
 {
-    ProgTrace(TRACE5,"sync_sirena_codes started");
+    ProgTrace(TRACE5,"sync_sirena_wanted started");
     vector<TPaxWanted> paxs;
     get_pax_wanted( paxs );
     send_pax_wanted( paxs );
