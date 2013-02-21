@@ -137,8 +137,8 @@ string make_soap_content(const vector<TPaxWanted> &paxs)
             "            <sir:visaDate>" << DateTimeToStr(iv->visaDate, "yyyy-mm-dd") << "</sir:visaDate>\n"
             "            <sir:visaPlace>" << iv->visaPlace << "</sir:visaPlace>\n"
             "            <sir:visaCountryCode>" << iv->visaCountryCode << "</sir:visaCountryCode>\n"
-            "            <sir:nationality>" << iv->nationality << "</sir:nationality>\n"
-            "            <sir:gender>" << iv->gender << "</sir:gender>\n"
+//            "            <sir:nationality>" << iv->nationality << "</sir:nationality>\n"
+            "            <sir:sex>" << iv->gender << "</sir:sex>\n"
             "         </sir:policyParameters>\n";
     result <<
         "      </sir:importASTDateRequest>\n"
