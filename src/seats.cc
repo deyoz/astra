@@ -3027,7 +3027,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
             " IF :tid IS NULL THEN "
             "   SELECT cycle_tid__seq.nextval INTO :tid FROM dual; "
             "   UPDATE pax SET tid=:tid WHERE pax_id=:pax_id;"
-            "   mvd.sync_pax(:pax_id,:term); "
+            //"   mvd.sync_pax(:pax_id,:term); "
             " END IF;"
             "END;";
           Qry.CreateVariable( "point_id", otInteger, point_id );
@@ -3037,7 +3037,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
             Qry.CreateVariable( "tid", otInteger, FNull );
           else
             Qry.CreateVariable( "tid", otInteger, curr_tid );
-          Qry.CreateVariable( "term", otString, TReqInfo::Instance()->desk.code );
+          //Qry.CreateVariable( "term", otString, TReqInfo::Instance()->desk.code );
           Qry.Execute();
           curr_tid = Qry.GetVariableAsInteger( "tid" );
         	break;
@@ -3064,16 +3064,16 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
           " IF :tid IS NULL THEN "
           "   SELECT cycle_tid__seq.nextval INTO :tid FROM dual; "
           "   UPDATE pax SET tid=:tid WHERE pax_id=:pax_id;"
-          "   mvd.sync_pax(:pax_id,:term); "
+          //"   mvd.sync_pax(:pax_id,:term); "
           " END IF;"
           "END;";
-        Qry.CreateVariable( "term", otString, TReqInfo::Instance()->desk.code );
+        //Qry.CreateVariable( "term", otString, TReqInfo::Instance()->desk.code );
         Qry.CreateVariable( "pax_id", otInteger, pax_id );
         if ( curr_tid == NoExists )
           Qry.CreateVariable( "tid", otInteger, FNull );
         else
           Qry.CreateVariable( "tid", otInteger, curr_tid );
-        Qry.CreateVariable( "term", otString, TReqInfo::Instance()->desk.code );
+        //Qry.CreateVariable( "term", otString, TReqInfo::Instance()->desk.code );
         Qry.Execute();
         curr_tid = Qry.GetVariableAsInteger( "tid" );
         break;
@@ -3085,7 +3085,30 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
       	throw UserException( "MSG.SEATS.SET_LAYER_NOT_AVAIL" );
     }
   }
-  
+  { //mvd
+    Qry.Clear();
+    switch ( layer_type ) {
+      case cltGoShow:
+     	case cltTranzit:
+  	  case cltCheckin:
+  	  case cltTCheckin:
+      	Qry.SQLText =
+          "BEGIN "
+          "mvd.sync_pax(:pax_id,:term);"
+          "END;";
+        Qry.CreateVariable( "term", otString, TReqInfo::Instance()->desk.code );
+        Qry.CreateVariable( "pax_id", otInteger, pax_id );
+        Qry.Execute();
+        break;
+    case cltProtCkin:
+/*???      	Qry.SQLText =
+          "BEGIN "
+          "mvd.sync_crs_pax(:pax_id);"
+          "END;";*/
+        break;
+    }
+  }
+
   tid = curr_tid;
 
   TReqInfo *reqinfo = TReqInfo::Instance();
