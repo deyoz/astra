@@ -6,6 +6,7 @@
 #include "astra_utils.h"
 #include "astra_consts.h"
 #include "oralib.h"
+#include "term_version.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -47,8 +48,20 @@ void AdmInterface::LoadAdm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
   xmlNodePtr rowNode=NULL;
   for(;!Qry.Eof;Qry.Next())
   {
+    string cache = Qry.FieldAsString("cache");
+    if(TReqInfo::Instance()->desk.compatible(ACCESS_MODULE_VERSION) and
+            (cache == "ROLES" or
+             cache == "ROLE_RIGHTS" or
+             cache == "ROLE_ASSIGN_RIGHTS" or
+             cache == "USERS" or
+             cache == "USER_ROLES" or
+             cache == "USER_AIRLINES" or
+             cache == "USER_AIRPS"
+            )
+      )
+        continue;
     rowNode = NewTextChild( node, "CacheTable" );
-    NewTextChild( rowNode, "cache", Qry.FieldAsString("cache") );
+    NewTextChild( rowNode, "cache", cache );
     NewTextChild( rowNode, "title", AstraLocale::getLocaleText(Qry.FieldAsString("title")) );
     NewTextChild( rowNode, "depth", Qry.FieldAsInteger("depth") );
   };
