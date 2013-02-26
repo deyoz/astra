@@ -551,6 +551,7 @@ struct TBagTagRow {
     int amount;
     int weight;
     int pr_liab_limit;
+    int to_ramp;
     string tag_type;
     string color;
     double no;
@@ -568,6 +569,7 @@ struct TBagTagRow {
         amount = -1;
         weight = -1;
         pr_liab_limit = -1;
+        to_ramp = -1;
         no = -1.;
         num = -1;
     }
@@ -611,19 +613,22 @@ class t_rpt_bm_bag_name {
         vector<TBagNameRow> bag_names;
     public:
         void init(string airp);
-        string get(string class_code, int bag_type, bool is_inter);
+        string get(string class_code, int bag_type, bool to_ramp, TRptParams &rpt_params);
 };
 
-string t_rpt_bm_bag_name::get(string class_code, int bag_type, bool is_inter)
+string t_rpt_bm_bag_name::get(string class_code, int bag_type, bool to_ramp, TRptParams &rpt_params)
 {
     string result;
     for(vector<TBagNameRow>::iterator iv = bag_names.begin(); iv != bag_names.end(); iv++)
         if(iv->class_code == class_code && iv->bag_type == bag_type) {
-            result = is_inter ? iv->name_lat : iv->name;
+            result = rpt_params.IsInter() ? iv->name_lat : iv->name;
             if(result.empty())
                 result = iv->name;
             break;
         }
+    if(result.empty() and to_ramp)
+        result = getLocaleText("У трапа", rpt_params.GetLang());
+
     return result;
 }
 
@@ -1296,7 +1301,8 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "    bag2.num bag_num, "
         "    bag2.amount, "
         "    bag2.weight, "
-        "    bag2.pr_liab_limit "
+        "    bag2.pr_liab_limit, "
+        "    bag2.to_ramp "
         "from "
         "    pax_grp, "
         "    points, "
@@ -1360,18 +1366,23 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         bag_tag_row.grp_id = cur_grp_id;
         bag_tag_row.airp_arv = Qry.FieldAsString("airp_arv");
         bag_tag_row.bag_type = Qry.FieldAsInteger("bag_type");
+        bag_tag_row.to_ramp = Qry.FieldAsInteger("to_ramp");
 
         if(Qry.FieldIsNULL("class"))
             bag_tag_row.class_priority = 100;
         else {
             string class_code = Qry.FieldAsString("class");
-            bag_tag_row.bag_name = bag_names.get(class_code, bag_tag_row.bag_type, rpt_params.IsInter());
+            bag_tag_row.bag_name = bag_names.get(class_code, bag_tag_row.bag_type, bag_tag_row.to_ramp, rpt_params);
             bag_tag_row.class_priority = ((TClassesRow&)base_tables.get("classes").get_row( "code", class_code)).priority;
             bag_tag_row.class_code = rpt_params.ElemIdToReportElem(etClass, class_code, efmtCodeNative);
             bag_tag_row.class_name = rpt_params.ElemIdToReportElem(etClass, class_code, efmtNameLong);
         }
-        if(!bag_tag_row.bag_name.empty())
-            bag_tag_row.bag_name_priority = bag_tag_row.bag_type;
+        if(!bag_tag_row.bag_name.empty()) {
+            if(bag_tag_row.bag_name == getLocaleText("У трапа", rpt_params.GetLang()))
+                bag_tag_row.bag_name_priority = INT_MAX;
+            else
+                bag_tag_row.bag_name_priority = bag_tag_row.bag_type;
+        }
         bag_tag_row.bag_num = cur_bag_num;
         bag_tag_row.amount = Qry.FieldAsInteger("amount");
         bag_tag_row.weight = Qry.FieldAsInteger("weight");

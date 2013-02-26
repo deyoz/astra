@@ -107,6 +107,7 @@ const TBagItem& TBagItem::toXML(xmlNodePtr node) const
   else
     NewTextChild(node,"value_bag_num");
   NewTextChild(node,"pr_liab_limit",(int)pr_liab_limit);
+  NewTextChild(node,"to_ramp",(int)to_ramp);
   if (TReqInfo::Instance()->desk.compatible(VERSION_WITH_BAG_POOLS))
     NewTextChild(node,"bag_pool_num",bag_pool_num);
   return *this;
@@ -127,6 +128,11 @@ TBagItem& TBagItem::fromXML(xmlNodePtr node)
   if (!NodeIsNULLFast("value_bag_num",node2))
     value_bag_num=NodeAsIntegerFast("value_bag_num",node2);
   pr_liab_limit=NodeAsIntegerFast("pr_liab_limit",node2)!=0;
+  
+  if (TReqInfo::Instance()->desk.compatible(BAG_TO_RAMP_VERSION))
+    to_ramp=NodeAsIntegerFast("to_ramp",node2)!=0;
+  else
+    to_ramp=false;
 
   if (TReqInfo::Instance()->desk.compatible(VERSION_WITH_BAG_POOLS))
     bag_pool_num=NodeAsIntegerFast("bag_pool_num",node2);
@@ -154,6 +160,7 @@ const TBagItem& TBagItem::toDB(TQuery &Qry) const
   else
     Qry.SetVariable("value_bag_num",FNull);
   Qry.SetVariable("pr_liab_limit",(int)pr_liab_limit);
+  Qry.SetVariable("to_ramp",(int)to_ramp);
   Qry.SetVariable("bag_pool_num",bag_pool_num);
   if (hall!=ASTRA::NoExists)
     Qry.SetVariable("hall",hall);
@@ -176,6 +183,7 @@ TBagItem& TBagItem::fromDB(TQuery &Qry)
   if (!Qry.FieldIsNULL("value_bag_num"))
     value_bag_num=Qry.FieldAsInteger("value_bag_num");
   pr_liab_limit=Qry.FieldAsInteger("pr_liab_limit")!=0;
+  to_ramp=Qry.FieldAsInteger("to_ramp")!=0;
   bag_pool_num=Qry.FieldAsInteger("bag_pool_num");
   if (!Qry.FieldIsNULL("hall"))
     hall=Qry.FieldAsInteger("hall");
@@ -695,6 +703,7 @@ void SaveBag(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode)
         "       bag2.weight, "
         "       bag2.value_bag_num, "
         "       bag2.pr_liab_limit, "
+        "       bag2.to_ramp, "
         "       bag2.bag_pool_num, "
         "       bag2.id, "
         "       bag2.hall, "
@@ -778,6 +787,8 @@ void SaveBag(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode)
           {
             nb->second.hall=ob->second.hall;
             nb->second.user_id=ob->second.user_id;
+            if (!reqInfo->desk.compatible(BAG_TO_RAMP_VERSION))
+              nb->second.to_ramp=ob->second.to_ramp;
           }
           else
           {
@@ -804,6 +815,8 @@ void SaveBag(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode)
           nb->second.id=ob->second.id;
           nb->second.hall=ob->second.hall;
           nb->second.user_id=ob->second.user_id;
+          if (!reqInfo->desk.compatible(BAG_TO_RAMP_VERSION))
+            nb->second.to_ramp=ob->second.to_ramp;
           ++ob;
         }
         else
@@ -826,8 +839,10 @@ void SaveBag(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode)
     "  IF :id IS NULL THEN "
     "    SELECT cycle_id__seq.nextval INTO :id FROM dual; "
     "  END IF; "
-    "  INSERT INTO bag2 (grp_id,num,id,bag_type,pr_cabin,amount,weight,value_bag_num,pr_liab_limit,bag_pool_num,hall,user_id) "
-    "  VALUES (:grp_id,:num,:id,:bag_type,:pr_cabin,:amount,:weight,:value_bag_num,:pr_liab_limit,:bag_pool_num,:hall,:user_id); "
+    "  INSERT INTO bag2 (grp_id,num,id,bag_type,pr_cabin,amount,weight,value_bag_num, "
+    "    pr_liab_limit,to_ramp,bag_pool_num,hall,user_id) "
+    "  VALUES (:grp_id,:num,:id,:bag_type,:pr_cabin,:amount,:weight,:value_bag_num, "
+    "    :pr_liab_limit,:to_ramp,:bag_pool_num,:hall,:user_id); "
     "END;";
   BagQry.DeclareVariable("num",otInteger);
   BagQry.DeclareVariable("id",otInteger);
@@ -837,6 +852,7 @@ void SaveBag(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode)
   BagQry.DeclareVariable("weight",otInteger);
   BagQry.DeclareVariable("value_bag_num",otInteger);
   BagQry.DeclareVariable("pr_liab_limit",otInteger);
+  BagQry.DeclareVariable("to_ramp",otInteger);
   BagQry.DeclareVariable("bag_pool_num",otInteger);
   BagQry.DeclareVariable("hall",otInteger);
   BagQry.DeclareVariable("user_id",otInteger);
