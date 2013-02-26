@@ -3100,11 +3100,13 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
         Qry.CreateVariable( "pax_id", otInteger, pax_id );
         Qry.Execute();
         break;
-    case cltProtCkin:
+      case cltProtCkin:
 /*???      	Qry.SQLText =
           "BEGIN "
           "mvd.sync_crs_pax(:pax_id);"
           "END;";*/
+        break;
+      default:
         break;
     }
   }
