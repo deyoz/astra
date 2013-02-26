@@ -13,6 +13,7 @@
 #include "cache.h"
 #include "passenger.h"
 #include "events.h"
+#include "stl_utils.h"
 #include "jxtlib/xml_stuff.h"
 #include "serverlib/logger.h"
 
@@ -309,34 +310,39 @@ void read_basel_aero_stat( const string &airp, ofstream &f )
   int viewclass_idx = Qry.FieldIndex( "viewclass" );
   int fields_count = Qry.FieldsCount();
   for ( int idx=0; idx<fields_count; idx++ ) {
-    f << string(Qry.FieldName( idx )) + ";";
+    f << string(Qry.FieldName( idx ));
+    if ( idx < fields_count - 1 )
+      f << ";";
   }
   f << endl;
   string region = AirpTZRegion( airp );
+  ostringstream strline;
   for ( ; !Qry.Eof; Qry.Next() ) {
-    f << (Qry.FieldAsDateTime( viewdate_idx ) == NoExists?"":DateTimeToStr(UTCToLocal(Qry.FieldAsDateTime( viewdate_idx ),region), "dd.mm.yyyy")) << ";";
-    f << Qry.FieldAsString( viewflight_idx ) << ";";
-    f << Qry.FieldAsString( viewname_idx ) << ";";
-    f << Qry.FieldAsInteger( viewgroup_idx ) << ";";
-    f << (Qry.FieldAsInteger( viewpct_idx ) == 0?"":Qry.FieldAsString( viewpct_idx )) << ";";
-    f << (Qry.FieldAsInteger( viewweight_idx ) == 0?"":Qry.FieldAsString( viewweight_idx )) << ";";
-    f << (Qry.FieldAsInteger( viewcarryon_idx ) == 0?"":Qry.FieldAsString( viewcarryon_idx )) << ";";
-    f << (Qry.FieldAsInteger( viewpayweight_idx ) == 0?"":Qry.FieldAsString( viewpayweight_idx )) << ";";
-    f << Qry.FieldAsString( viewtag_idx ) << ";";
-    f << Qry.FieldAsString( viewuncheckin_idx ) << ";";
-    f << Qry.FieldAsString( viewstatus_idx ) << ";";
-    f << (Qry.FieldAsInteger( viewcheckinno_idx ) == NoExists?"":Qry.FieldAsString( viewcarryon_idx )) << ";";
-    f << Qry.FieldAsString( viewstation_idx ) << ";";
-    f << Qry.FieldAsString( viewclienttype_idx ) << ";";
-    f << (Qry.FieldAsDateTime( viewcheckintime_idx ) == NoExists?"":DateTimeToStr(UTCToLocal(Qry.FieldAsDateTime( viewcheckintime_idx ),region), "dd.mm.yyyy hh:nn")) << ";";
-    f << (Qry.FieldAsDateTime( viewcheckinduration_idx ) == NoExists?"":DateTimeToStr(UTCToLocal(Qry.FieldAsDateTime( viewcheckinduration_idx ),region), "dd.mm.yyyy hh:nn")) << ";";
-    f << (Qry.FieldAsDateTime( viewboardingtime_idx ) == NoExists?"":DateTimeToStr(UTCToLocal(Qry.FieldAsDateTime( viewboardingtime_idx ),region), "dd.mm.yyyy hh:nn")) << ";";
-    f << (Qry.FieldAsDateTime( viewdepartureplantime_idx ) == NoExists?"":DateTimeToStr(UTCToLocal(Qry.FieldAsDateTime( viewdepartureplantime_idx ),region), "dd.mm.yyyy hh:nn")) << ";";
-    f << (Qry.FieldAsDateTime( viewdeparturerealtime_idx ) == NoExists?"":DateTimeToStr(UTCToLocal(Qry.FieldAsDateTime( viewdeparturerealtime_idx ),region), "dd.mm.yyyy hh:nn")) << ";";
-    f << Qry.FieldAsString( viewbagnorms_idx ) << ";";
-    f << Qry.FieldAsString( viewpctweightpaidbytype_idx ) << ";";
-    f << Qry.FieldAsString( viewclass_idx ) << ";";
-    f << endl;
+    strline << (Qry.FieldAsDateTime( viewdate_idx ) == NoExists?"":DateTimeToStr(UTCToLocal(Qry.FieldAsDateTime( viewdate_idx ),region), "dd.mm.yyyy")) << ";";
+    strline << Qry.FieldAsString( viewflight_idx ) << ";";
+    strline << Qry.FieldAsString( viewname_idx ) << ";";
+    strline << Qry.FieldAsInteger( viewgroup_idx ) << ";";
+    strline << (Qry.FieldAsInteger( viewpct_idx ) == 0?"":Qry.FieldAsString( viewpct_idx )) << ";";
+    strline << (Qry.FieldAsInteger( viewweight_idx ) == 0?"":Qry.FieldAsString( viewweight_idx )) << ";";
+    strline << (Qry.FieldAsInteger( viewcarryon_idx ) == 0?"":Qry.FieldAsString( viewcarryon_idx )) << ";";
+    strline << (Qry.FieldAsInteger( viewpayweight_idx ) == 0?"":Qry.FieldAsString( viewpayweight_idx )) << ";";
+    strline << Qry.FieldAsString( viewtag_idx ) << ";";
+    strline << Qry.FieldAsString( viewuncheckin_idx ) << ";";
+    strline << Qry.FieldAsString( viewstatus_idx ) << ";";
+    strline << (Qry.FieldAsInteger( viewcheckinno_idx ) == NoExists?"":Qry.FieldAsString( viewcarryon_idx )) << ";";
+    strline << Qry.FieldAsString( viewstation_idx ) << ";";
+    strline << Qry.FieldAsString( viewclienttype_idx ) << ";";
+    strline << (Qry.FieldAsDateTime( viewcheckintime_idx ) == NoExists?"":DateTimeToStr(UTCToLocal(Qry.FieldAsDateTime( viewcheckintime_idx ),region), "dd.mm.yyyy hh:nn")) << ";";
+    strline << (Qry.FieldAsDateTime( viewcheckinduration_idx ) == NoExists?"":DateTimeToStr(UTCToLocal(Qry.FieldAsDateTime( viewcheckinduration_idx ),region), "dd.mm.yyyy hh:nn")) << ";";
+    strline << (Qry.FieldAsDateTime( viewboardingtime_idx ) == NoExists?"":DateTimeToStr(UTCToLocal(Qry.FieldAsDateTime( viewboardingtime_idx ),region), "dd.mm.yyyy hh:nn")) << ";";
+    strline << (Qry.FieldAsDateTime( viewdepartureplantime_idx ) == NoExists?"":DateTimeToStr(UTCToLocal(Qry.FieldAsDateTime( viewdepartureplantime_idx ),region), "dd.mm.yyyy hh:nn")) << ";";
+    strline << (Qry.FieldAsDateTime( viewdeparturerealtime_idx ) == NoExists?"":DateTimeToStr(UTCToLocal(Qry.FieldAsDateTime( viewdeparturerealtime_idx ),region), "dd.mm.yyyy hh:nn")) << ";";
+    strline << Qry.FieldAsString( viewbagnorms_idx ) << ";";
+    strline << Qry.FieldAsString( viewpctweightpaidbytype_idx ) << ";";
+    strline << Qry.FieldAsString( viewclass_idx );
+    f << ConvertCodepage( strline.str(), "CP866", "WINDOWS-1251" ) << endl;
+    strline.str(string());
+    strline.str();
   }
 }
 
