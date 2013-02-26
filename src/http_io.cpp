@@ -327,12 +327,15 @@ void sirena_wanted_send(const std::string &content)
         if(doc != NULL) {
             try {
                 xmlNodePtr rootNode=xmlDocGetRootElement(doc);
-                xmlNodePtr bodyNode = NodeAsNodeFast("Body", rootNode->children);
-                if(bodyNode) {
-                    xmlNodePtr resultNode = NodeAsNodeFast("importASTDateResult", bodyNode->children);
-                    if(resultNode) {
-                        xmlNodePtr statusNode = NodeAsNodeFast("operationStatus", resultNode->children);
-                        string status = (statusNode ? NodeAsString(statusNode) : "");
+                xmlNodePtr node = rootNode->children;
+                node = NodeAsNodeFast("Body", node);
+                if(node) {
+                    node = node->children;
+                    node = NodeAsNodeFast("importASTDateResult", node);
+                    if(node) {
+                        node = node->children;
+                        node = NodeAsNodeFast("operationStatus", node);
+                        string status = (node ? NodeAsString(node) : "");
                         if(status != "OK")
                             throw Exception("Return status not OK: '%s'", status.c_str());
                     }
