@@ -5,5 +5,6 @@
 #include<vector>
 
 std::string send_bsm(const std::string host, const std::string &bsm);
+void sirena_wanted_send(const std::string &content);
 
 #endif

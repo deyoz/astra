@@ -22,6 +22,7 @@
 #include "stl_utils.h"
 #include "empty_proc.h"
 #include "basel_aero.h"
+#include "sirena_wanted.h"
 #include "serverlib/posthooks.h"
 #include "serverlib/perfom.h"
 
@@ -142,6 +143,9 @@ void exec_tasks( const char *proc_name )
                           if ( name == "sync_checkin_data" ) sync_checkin_data( );
                           else
                             if ( name == "sych_basel_aero_stat" ) sych_basel_aero_stat( utcdate );
+                            else
+                              if ( name == "sync_sirena_wanted" ) sync_sirena_wanted( utcdate );
+
 /*	    	  			  			    else
                             if ( name == "cobra" ) cobra();*/
 
@@ -1218,6 +1222,4 @@ void sync_sirena_codes( void )
   OraSession.Commit();
 	ProgTrace(TRACE5,"sync_sirena_codes stopped");
 };
-
-
 

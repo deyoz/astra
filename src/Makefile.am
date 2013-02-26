@@ -73,6 +73,7 @@ astra_SOURCES = \
   spp_cek.cc \
   stages.cc \
   stat.cc \
+  sirena_wanted.cc \
   telegram.cc \
   telegram2.cc \
   timer.cpp \
@@ -170,6 +171,7 @@ noinst_HEADERS = \
   spp_cek.h \
   stages.h \
   stat.h \
+  sirena_wanted.h \
   timer.h \
   tripinfo.h \
   view_edi_elements.h \
