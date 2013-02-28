@@ -42,7 +42,8 @@ enum TModify { sppnochange, sppinsert, sppupdate, sppdelete };
 const string spp__a_dbf_fields =
 "AA CHAR(2),"
 "ZADERGKA CHAR(34),"
-"PNR CHAR(8),"
+//"PNR CHAR(8),"
+"PNR CHAR(7),"
 "PNRS CHAR(7),"
 "PR CHAR(3),"
 "AR NUMERIC(10,0),"
@@ -146,7 +147,8 @@ const string spp__a_dbf_fields =
 const string spp__d_dbf_fields =
 "AA CHAR(2),"
 "ZADERGKA CHAR(34),"
-"PNR CHAR(8),"
+//"PNR CHAR(8),"
+"PNR CHAR(7),"
 "PNRS CHAR(7),"
 "PR CHAR(3),"
 "AR NUMERIC(10,0),"
@@ -253,7 +255,8 @@ const string spp__ak_dbf_fields =
 "AR NUMERIC(4,0),"
 "PR CHAR(3),"
 "BL CHAR(3),"
-"PNR CHAR(8),"
+//"PNR CHAR(8),"
+"PNR CHAR(7),"
 "NR CHAR(5),"
 "DR CHAR(1),"
 "AV CHAR(3),"
@@ -314,7 +317,8 @@ const string spp__dk_dbf_fields =
 "AR NUMERIC(4,0),"
 "PR CHAR(3),"
 "BL CHAR(3),"
-"PNR CHAR(8),"
+//"PNR CHAR(8),"
+"PNR CHAR(7),"
 "NR CHAR(5),"
 "DR CHAR(1),"
 "AV CHAR(3),"
@@ -1092,8 +1096,8 @@ void createDBF( xmlDocPtr &sqldoc, xmlNodePtr xml_oldtrip, xmlNodePtr xml_newtri
 bool validateFlight( bool pr_in, TDateTime spp_date, const TSOPPTrips::iterator &tr )
 {
  	try {
- 		if ( pr_in && getPNRParam( tr->airline_in, tr->airline_in_fmt, tr->flt_no_in, tr->suffix_in, tr->suffix_in_fmt, getRemoveSuffix( spp_date, tr->scd_in ) ).size() > 8 ||
-  		  !pr_in && getPNRParam( tr->airline_out, tr->airline_out_fmt, tr->flt_no_out, tr->suffix_out, tr->suffix_out_fmt, getRemoveSuffix( spp_date, tr->scd_out ) ).size() > 8 )
+ 	if ( pr_in && getPNRParam( tr->airline_in, tr->airline_in_fmt, tr->flt_no_in, tr->suffix_in, tr->suffix_in_fmt, getRemoveSuffix( spp_date, tr->scd_in ) ).size() > 7 ||
+  	  !pr_in && getPNRParam( tr->airline_out, tr->airline_out_fmt, tr->flt_no_out, tr->suffix_out, tr->suffix_out_fmt, getRemoveSuffix( spp_date, tr->scd_out ) ).size() > 7 )
       return false;
   }
   catch(...) {
@@ -1270,8 +1274,9 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
       bool canuseTR = false;
       if ( !canuseTR && tr->act_in != NoExists )
       	canuseTR = filter_time( tr->act_in, *tr, *iday, *iday + 1, errcity );
-      if ( !canuseTR && tr->est_in != NoExists )
+/*      if ( !canuseTR && tr->est_in != NoExists )
         canuseTR = filter_time( tr->est_in, *tr, *iday, *iday + 1, errcity );
+*/
       if ( !canuseTR && tr->scd_in != NoExists )
         canuseTR = filter_time( tr->scd_in, *tr, *iday, *iday + 1, errcity );
       if ( canuseTR &&
@@ -1284,8 +1289,10 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
       canuseTR = false;
       if ( !canuseTR && tr->act_out != NoExists )
         canuseTR = filter_time( tr->act_out, *tr, *iday, *iday + 1, errcity );
-      if ( !canuseTR && tr->est_out != NoExists )
-        canuseTR = filter_time( tr->est_out, *tr, *iday, *iday + 1, errcity );
+/*      if ( !canuseTR && tr->est_out != NoExists )
+        canuseTR = filter_time( tr->est_out, *tr, *iday, *iday + 1, errcity
+);
+*/
       if ( !canuseTR && tr->scd_out != NoExists )
         canuseTR = filter_time( tr->scd_out, *tr, *iday, *iday + 1, errcity );
       if ( canuseTR &&
