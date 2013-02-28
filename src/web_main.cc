@@ -226,6 +226,8 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   TReqInfo *reqInfo = TReqInfo::Instance();
   if (reqInfo->client_type==ctTerm) reqInfo->client_type=EMUL_CLIENT_TYPE;
 
+  xmlNodePtr scanCodeNode=GetNode("scan_code", reqNode);
+
   resNode=NewTextChild(resNode,"SearchFlt");
 
   if (reqInfo->user.access.airps_permit && reqInfo->user.access.airps.empty() ||
@@ -236,13 +238,16 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   };
   
   WebSearch::TPNRFilter filter;
-  filter.fromXML(reqNode);
+  if (scanCodeNode!=NULL)
+    filter.fromBCBP_M(NodeAsString(scanCodeNode));
+  else
+    filter.fromXML(reqNode);
   filter.testPaxFromDB();
   filter.trace(TRACE5);
   
   WebSearch::TPNRs PNRs;
   findPNRs(filter, PNRs, 1);
-  if (PNRs.pnrs.empty())
+  if (PNRs.pnrs.empty() && scanCodeNode==NULL)  //если сканирование штрих-кода, тогда только поиск по оперирующему перевозчику
   {
     findPNRs(filter, PNRs, 2);
     findPNRs(filter, PNRs, 3);

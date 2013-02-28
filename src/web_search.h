@@ -60,6 +60,10 @@ struct TPNRFilter
   std::string surname, name, pnr_addr_normal, ticket_no, document;
   int reg_no;
   std::vector<TTestPaxInfo> test_paxs;
+  //BCBP_M
+  int surname_equal_len, name_equal_len;
+  std::string airp_dep, airp_arv;
+  
   TPNRFilter() { clear(); };
 
   void clear()
@@ -75,9 +79,15 @@ struct TPNRFilter
     document.clear();
     reg_no=ASTRA::NoExists;
     test_paxs.clear();
+    //BCBP_M
+    surname_equal_len=ASTRA::NoExists;
+    name_equal_len=ASTRA::NoExists;
+    airp_dep.clear();
+    airp_arv.clear();
   };
   
   TPNRFilter& fromXML(xmlNodePtr node);
+  TPNRFilter& fromBCBP_M(const std::string bcbp);
   TPNRFilter& testPaxFromDB();
   void trace( TRACE_SIGNATURE ) const;
 };

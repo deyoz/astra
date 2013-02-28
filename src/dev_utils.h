@@ -9,4 +9,12 @@ ASTRA::TDevFmtType DecodeDevFmtType(std::string s);
 std::string EncodeDevOperType(ASTRA::TDevOperType s);
 std::string EncodeDevFmtType(ASTRA::TDevFmtType s);
 
+//bcbp_begin_idx - позиция первого байта штрих-кода
+//airline_use_begin_idx - позиция первого байта <For individual airline use> первого сегмента
+//airline_use_end_idx - позиция, следующая за последним байтом <For individual airline use> первого сегмента
+void checkBCBP_M(const std::string bcbp,
+                 const std::string::size_type bcbp_begin_idx,
+                 std::string::size_type &airline_use_begin_idx,
+                 std::string::size_type &airline_use_end_idx);
+
 #endif
