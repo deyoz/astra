@@ -46,7 +46,6 @@ struct TPaxWanted {
     string departureAirport;
     string arrivalAirport;
     string baggageWeight;
-    TDateTime departureTime;
     string PNR;
     string visaNumber;
     TDateTime visaDate;
@@ -84,7 +83,7 @@ string make_soap_content(const vector<TPaxWanted> &paxs)
             "            <sir:transactionDate>" << DateTimeToStr(iv->transactionDate, "yyyy-mm-dd") << "</sir:transactionDate>\n"
             "            <sir:transactionTime>" << DateTimeToStr(iv->transactionDate, "yyyymmddhhnnss") << "</sir:transactionTime>\n"
             "            <sir:flightNumber>" << iv->flightNumber << "</sir:flightNumber>\n"
-            "            <sir:departureDate>" << DateTimeToStr(iv->departureDate, "yyyy-mm-dd") << "</sir:departureDate>\n"
+            "            <sir:departureDate>" << (iv->departureDateDate==NoExists?"":TimeToStr(iv->departureDate, "yyyy-mm-dd")) << "</sir:departureDate>\n"
             "            <sir:rackNumber>" << iv->rackNumber << "</sir:rackNumber>\n"
             "            <sir:seatNumber>" << iv->seatNumber << "</sir:seatNumber>\n"
             "            <sir:firstName>" << iv->firstName << "</sir:firstName>\n"
@@ -97,10 +96,10 @@ string make_soap_content(const vector<TPaxWanted> &paxs)
             "            <sir:departureAirport>" << iv->departureAirport << "</sir:departureAirport>\n"
             "            <sir:arrivalAirport>" << iv->arrivalAirport << "</sir:arrivalAirport>\n"
             "            <sir:baggageWeight>" << iv->baggageWeight << "</sir:baggageWeight>\n"
-            "            <sir:departureTime>" << DateTimeToStr(iv->departureDate, "yyyymmddhhnnss") << "</sir:departureTime>\n"
+            "            <sir:departureTime>" << (iv->departureDate == NoExists ? "" : DateTimeToStr(iv->departureDate, "yyyymmddhhnnss")) << "</sir:departureTime>\n"
             "            <sir:PNR>" << iv->PNR << "</sir:PNR>\n"
             "            <sir:visaNumber>" << iv->visaNumber << "</sir:visaNumber>\n"
-            "            <sir:visaDate>" << DateTimeToStr(iv->visaDate, "yyyy-mm-dd") << "</sir:visaDate>\n"
+            "            <sir:visaDate>" << (iv->visaDate==NoExists?"":DateTimeToStr(iv->visaDate, "yyyy-mm-dd")) << "</sir:visaDate>\n"
             "            <sir:visaPlace>" << iv->visaPlace << "</sir:visaPlace>\n"
             "            <sir:visaCountryCode>" << iv->visaCountryCode << "</sir:visaCountryCode>\n"
 //            "            <sir:nationality>" << iv->nationality << "</sir:nationality>\n"
@@ -186,7 +185,10 @@ void sync_sirena_wanted( TDateTime utcdate )
     pax.transactionDate = Qry.FieldAsDateTime( idx_time );
     pax.airline = Qry.FieldAsString( idx_airline );
     pax.flightNumber = string(Qry.FieldAsString( idx_flt_no )) + Qry.FieldAsString( idx_suffix );
-    pax.departureDate = Qry.FieldAsDateTime( idx_takeoff );
+    if ( Qry.FieldIsNULL( idx_takeoff ) )
+      pax.departureDate = ASTRA::NoExists;
+    else
+      pax.departureDate = Qry.FieldAsDateTime( idx_takeoff );
     pax.rackNumber = Qry.FieldAsString( idx_term );
     pax.seatNumber = Qry.FieldAsString( idx_seat_no );
     pax.firstName = Qry.FieldAsString( idx_surname );
@@ -198,10 +200,12 @@ void sync_sirena_wanted( TDateTime utcdate )
     pax.departureAirport = Qry.FieldAsString( idx_airp_dep );
     pax.arrivalAirport = Qry.FieldAsString( idx_airp_arv );
     pax.baggageWeight = Qry.FieldAsString( idx_bag_weight );
-    pax.departureTime = Qry.FieldAsDateTime( idx_takeoff );
     pax.PNR = Qry.FieldAsString( idx_pnr );
     pax.visaNumber = Qry.FieldAsString( idx_visano );
-    pax.visaDate = Qry.FieldAsDateTime( idx_issue_date );
+    if ( Qry.FieldIsNULL( idx_issue_date ) )
+      pax.visaDate = ASTRA::NoExists;
+    else
+      pax.visaDate = Qry.FieldAsDateTime( idx_issue_date );
     pax.visaPlace = Qry.FieldAsString( idx_issue_place );
     pax.visaCountryCode = Qry.FieldAsString( idx_applic_country );
     pax.gender = Qry.FieldAsString( idx_gender );
