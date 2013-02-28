@@ -83,7 +83,7 @@ string make_soap_content(const vector<TPaxWanted> &paxs)
             "            <sir:transactionDate>" << DateTimeToStr(iv->transactionDate, "yyyy-mm-dd") << "</sir:transactionDate>\n"
             "            <sir:transactionTime>" << DateTimeToStr(iv->transactionDate, "yyyymmddhhnnss") << "</sir:transactionTime>\n"
             "            <sir:flightNumber>" << iv->flightNumber << "</sir:flightNumber>\n"
-            "            <sir:departureDate>" << (iv->departureDateDate==NoExists?"":TimeToStr(iv->departureDate, "yyyy-mm-dd")) << "</sir:departureDate>\n"
+            "            <sir:departureDate>" << (iv->departureDate==NoExists?"":DateTimeToStr(iv->departureDate, "yyyy-mm-dd")) << "</sir:departureDate>\n"
             "            <sir:rackNumber>" << iv->rackNumber << "</sir:rackNumber>\n"
             "            <sir:seatNumber>" << iv->seatNumber << "</sir:seatNumber>\n"
             "            <sir:firstName>" << iv->firstName << "</sir:firstName>\n"
