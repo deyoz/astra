@@ -6,6 +6,8 @@
 #include "passenger.h"
 #include "baggage.h"
 #include "xml_unit.h"
+#include "misc.h"
+#include "dev_utils.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -17,6 +19,198 @@ using namespace AstraLocale;
 
 namespace WebSearch
 {
+
+TPNRFilter& TPNRFilter::fromBCBP_M(const std::string bcbp)
+{
+  clear();
+  if (bcbp.empty())
+  {
+    ProgError(STDLOG, "TPNRFilter::fromBCBP_M: empty bcbp");
+    throw UserException("MSG.SCAN_CODE.NOT_SET");
+  };
+
+  try
+  {
+    string::size_type airline_use_begin_idx, airline_use_end_idx;
+    checkBCBP_M(bcbp, 0, airline_use_begin_idx, airline_use_end_idx);
+  }
+  catch(EXCEPTIONS::EConvertError &e)
+  {
+    ProgError(STDLOG, "TPNRFilter::fromBCBP_M: %s", e.what());
+    throw UserException("MSG.SCAN_CODE.UNKNOWN_FORMAT");
+  };
+    
+  try
+  {
+    string str;
+    TElemFmt fmt;
+
+    //фамилия/имя пассажира
+    surname=upperc(bcbp.substr(2,20));
+    TrimString(surname);
+    if (surname.empty())
+    {
+      throw EXCEPTIONS::EConvertError("empty <Passenger Name>");
+    };
+    string::size_type pos=surname.find('/');
+    if (pos != string::npos)
+    {
+      name=surname.substr(pos+1);
+      surname=surname.substr(0,pos);
+    };
+    TrimString(surname);
+    if (surname.empty())
+    {
+      throw EXCEPTIONS::EConvertError("invalid <Passenger Name>");
+    };
+
+    TrimString(name);
+    
+    if (surname.size()+name.size()+1 >= 20)
+    {
+      surname_equal_len=surname.size();
+      if (!name.empty())
+        name_equal_len=name.size();
+    };
+    
+    name.erase(find(name.begin(), name.end(), ' '), name.end()); //оставляем часть до пробела
+
+    str=bcbp.substr(23,7);
+    TrimString(str);
+    pnr_addr_normal=convert_pnr_addr(upperc(str) , true);
+
+    str=bcbp.substr(30,3);
+    TrimString(str);
+    if (!str.empty())
+    {
+      airp_dep = ElemToElemId( etAirp, upperc(str), fmt );
+      if (fmt==efmtUnknown)
+      {
+        throw EXCEPTIONS::EConvertError("unknown <From City Airport Code> %s", str.c_str());
+    	};
+    }
+    else
+    {
+      throw EXCEPTIONS::EConvertError("empty <From City Airport Code>");
+    };
+
+    str=bcbp.substr(33,3);
+    TrimString(str);
+    if (!str.empty())
+    {
+      airp_arv = ElemToElemId( etAirp, upperc(str), fmt );
+      if (fmt==efmtUnknown)
+      {
+        throw EXCEPTIONS::EConvertError("unknown <To City Airport Code> %s", str.c_str());
+    	};
+    }
+    else
+    {
+      throw EXCEPTIONS::EConvertError("empty <To City Airport Code>");
+    };
+
+    str=bcbp.substr(36,3);
+    TrimString(str);
+    if (!str.empty())
+    {
+      string airline = ElemToElemId( etAirline, upperc(str), fmt );
+      if (fmt==efmtUnknown)
+      {
+        throw EXCEPTIONS::EConvertError("unknown <Operating carrier Designator> %s", str.c_str());
+      };
+      airlines.insert(airline);
+    }
+    else
+    {
+      throw EXCEPTIONS::EConvertError("empty <Operating carrier Designator>");
+    };
+
+    str=bcbp.substr(39,5);
+    TrimString(str);
+    if (!str.empty())
+    {
+      char last_char=str[str.size()-1];
+      if (IsLetter(last_char))
+      {
+        //проверяем суффикс
+        suffix = ElemToElemId( etSuffix, upperc(string(1,last_char)), fmt );
+        if (fmt==efmtUnknown)
+        {
+          throw EXCEPTIONS::EConvertError("unknown <Flight Number> suffix %c", last_char);
+      	};
+      	str.erase(str.size()-1);
+      };
+    };
+
+  	if (!str.empty())
+    {
+      if ( StrToInt( str.c_str(), flt_no ) == EOF ||
+  		     flt_no > 99999 || flt_no <= 0 )
+      {
+        throw EXCEPTIONS::EConvertError("invalid <Flight Number> %s", str.c_str());
+      };
+  	}
+    else
+    {
+      throw EXCEPTIONS::EConvertError("empty <Flight Number>");
+    };
+
+    str=bcbp.substr(44,3);
+    TrimString(str);
+    if (!str.empty())
+    {
+      int julian_date;
+      if ( StrToInt( str.c_str(), julian_date ) == EOF ||
+  		     julian_date > 366 || julian_date <= 0 )
+      {
+        throw EXCEPTIONS::EConvertError("invalid <Date of Flight> %s", str.c_str());
+      };
+
+      int Year, Month, Day;
+      TDateTime utc_date=NowUTC(), scd_out_local=NoExists;
+      DecodeDate(utc_date, Year, Month, Day);
+      for(int y=Year-1; y<=Year+1; y++)
+      {
+        try
+        {
+          TDateTime d=JulianDateToDateTime(julian_date, y);
+          if (scd_out_local==NoExists ||
+              fabs(scd_out_local-utc_date)>fabs(d-utc_date))
+            scd_out_local=d;
+        }
+        catch(EXCEPTIONS::EConvertError) {};
+      };
+      if (scd_out_local==NoExists)
+      {
+        throw EXCEPTIONS::EConvertError("invalid <Date of Flight> %s", str.c_str());
+      };
+
+      MergeSortedRanges(scd_out_local_ranges, make_pair(scd_out_local, scd_out_local+1.0));
+    }
+    else
+    {
+      throw EXCEPTIONS::EConvertError("empty <Date of Flight>");
+    };
+
+    str=bcbp.substr(52,5);
+    TrimString(str);
+    if (!str.empty())
+    {
+      if ( StrToInt( str.c_str(), reg_no ) == EOF ||
+  		     reg_no > 999 || reg_no <= 0 )
+  		{
+    	  throw EXCEPTIONS::EConvertError("invalid <Check-In Sequence Number> %s", str.c_str());
+    	};
+  	};
+  }
+  catch(EXCEPTIONS::EConvertError &e)
+  {
+    ProgError(STDLOG, "TPNRFilter::fromBCBP_M: %s", e.what());
+    throw UserException("MSG.SCAN_CODE.UNKNOWN_DATA");
+  };
+
+  return *this;
+};
 
 TPNRFilter& TPNRFilter::fromXML(xmlNodePtr node)
 {
@@ -251,17 +445,27 @@ TPNRFilter& TPNRFilter::testPaxFromDB()
 
   test_paxs.clear();
 
+  TQuery Qry(&OraSession);
+  Qry.Clear();
   ostringstream sql;
   sql <<
     "SELECT id, airline, surname, name, subclass, doc_no, tkn_no, "
-    "       pnr_airline, pnr_addr, reg_no FROM test_pax "
-    "WHERE system.transliter_equal(surname,:surname)<>0 ";
+    "       pnr_airline, pnr_addr, reg_no FROM test_pax ";
+  if (surname_equal_len!=NoExists)
+  {
+    sql << "WHERE system.transliter_equal(SUBSTR(surname,1,:surname_equal_len),:surname)<>0 ";
+    Qry.CreateVariable("surname", otString, surname.substr(0, surname_equal_len));
+    Qry.CreateVariable("surname_equal_len", otInteger, surname_equal_len);
+  }
+  else
+  {
+    sql << "WHERE system.transliter_equal(surname,:surname)<>0 ";
+    Qry.CreateVariable("surname", otString, surname);
+  };
   if (!airlines.empty())
     sql << "AND (airline IN " << GetSQLEnum(airlines) << " OR airline IS NULL) ";
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+
 	Qry.SQLText=sql.str().c_str();
-  Qry.CreateVariable("surname", otString, surname);
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next())
   {
@@ -291,7 +495,15 @@ TPNRFilter& TPNRFilter::testPaxFromDB()
       //оставляем часть до пробела
       pax_name_normal.erase(find(pax_name_normal.begin(), pax_name_normal.end(), ' '), pax_name_normal.end());
       //проверим совпадение имени
-      if (!transliter_equal(pax_name_normal, name)) continue;
+      if (name_equal_len!=NoExists)
+      {
+        if (!transliter_equal(pax_name_normal.substr(0, name_equal_len),
+                                         name.substr(0, name_equal_len))) continue;
+      }
+      else
+      {
+        if (!transliter_equal(pax_name_normal, name)) continue;
+      };
     };
 
     if (!document.empty() &&
@@ -346,6 +558,11 @@ void TPNRFilter::trace( TRACE_SIGNATURE ) const
   ProgTrace(TRACE_PARAMS, "ticket_no: %s", ticket_no.c_str());
   ProgTrace(TRACE_PARAMS, "document: %s", document.c_str());
   ProgTrace(TRACE_PARAMS, "reg_no: %s", reg_no==NoExists?"":IntToString(reg_no).c_str());
+  ProgTrace(TRACE_PARAMS, " ");
+  ProgTrace(TRACE_PARAMS, "airp_dep: %s", airp_dep.c_str());
+  ProgTrace(TRACE_PARAMS, "airp_arv: %s", airp_arv.c_str());
+  ProgTrace(TRACE_PARAMS, "surname_equal_len: %s", surname_equal_len==NoExists?"":IntToString(surname_equal_len).c_str());
+  ProgTrace(TRACE_PARAMS, "name_equal_len: %s", name_equal_len==NoExists?"":IntToString(name_equal_len).c_str());
   ProgTrace(TRACE_PARAMS, "^^^^^^^^^^^^ TPNRFilter ^^^^^^^^^^^^");
 };
 
@@ -978,7 +1195,16 @@ bool TPaxInfo::filterFromDB(const TPNRFilter &filter, TQuery &Qry)
     //оставляем часть до пробела
     pax_name_normal.erase(find(pax_name_normal.begin(), pax_name_normal.end(), ' '), pax_name_normal.end());
     //проверим совпадение имени
-    if (!transliter_equal(pax_name_normal, filter.name)) return false;
+    if (filter.name_equal_len!=NoExists)
+    {
+      if (!transliter_equal(pax_name_normal.substr(0, filter.name_equal_len),
+                                filter.name.substr(0, filter.name_equal_len))) return false;
+    }
+    else
+    {
+      if (!transliter_equal(pax_name_normal, filter.name)) return false;
+    };
+    
   };
   
   TQuery Qry1(&OraSession);
@@ -1308,6 +1534,7 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, int pass)
         sql << "      points.airline IN " << GetSQLEnum(filter.airlines) << " AND ";
       sql << "      points.flt_no=:flt_no AND "
           	 "      ( :suffix IS NULL OR points.suffix=:suffix ) AND "
+          	 "      ( :airp_dep IS NULL OR points.airp=:airp_dep ) AND "
           	 "      points.scd_out >= :first_date AND points.scd_out < :last_date AND "
           	 "      points.pr_del=0 AND points.pr_reg<>0";
     };
@@ -1324,6 +1551,7 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, int pass)
         sql << "      tlg_trips.airline IN " << GetSQLEnum(filter.airlines) << " AND ";
       sql << "      tlg_trips.flt_no=:flt_no AND "
           	 "      ( :suffix IS NULL OR tlg_trips.suffix=:suffix ) AND "
+          	 "      ( :airp_dep IS NULL OR tlg_trips.airp_dep=:airp_dep ) AND "
              "      points.pr_del=0 AND points.pr_reg<>0 ";
     };
 
@@ -1331,52 +1559,57 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, int pass)
 	  PointsQry.SQLText= sql.str().c_str();
   	PointsQry.CreateVariable("flt_no", otInteger, filter.flt_no);
   	PointsQry.CreateVariable("suffix", otString, filter.suffix);
+  	PointsQry.CreateVariable("airp_dep", otString, filter.airp_dep);
   	PointsQry.DeclareVariable("first_date", otDate);
   	PointsQry.DeclareVariable("last_date", otDate);
   	
-  	PaxQry.Clear();
+  	
+    PaxQry.Clear();
+    sql.str("");
+    sql << "SELECT crs_pnr.pnr_id, "
+     	     "       crs_pnr.airp_arv, "
+      	   "       crs_pnr.class, "
+      	   "       crs_pnr.subclass, "
+      	   "       crs_pax.pax_id, "
+      	   "       crs_pax.surname, "
+      	   "       crs_pax.name ";
     if (pass==1)
     {
-    	PaxQry.SQLText=
-    	  "SELECT crs_pnr.pnr_id, "
-  	    "       crs_pnr.airp_arv, "
-  	    "       crs_pnr.class, "
-  	    "       crs_pnr.subclass, "
-  	    "       crs_pax.pax_id, "
-  	    "       crs_pax.surname, "
-  	    "       crs_pax.name "
-        "FROM tlg_binding,crs_pnr,crs_pax "
-        "WHERE tlg_binding.point_id_tlg=crs_pnr.point_id AND "
-        "      crs_pax.pnr_id=crs_pnr.pnr_id AND "
-        "      tlg_binding.point_id_spp=:point_id AND "
-        "      crs_pnr.system='CRS' AND "
-        "      system.transliter_equal(crs_pax.surname,:surname)<>0 AND "
-        "      crs_pax.pr_del=0 "
-        "ORDER BY crs_pnr.pnr_id";
+      sql << "FROM tlg_binding,crs_pnr,crs_pax "
+             "WHERE tlg_binding.point_id_tlg=crs_pnr.point_id AND "
+             "      crs_pax.pnr_id=crs_pnr.pnr_id AND "
+             "      tlg_binding.point_id_spp=:point_id AND ";
     };
     if (pass==2)
     {
-      PaxQry.SQLText=
-  	    "SELECT crs_pnr.pnr_id, "
-  	    "       crs_pnr.airp_arv, "
-  	    "       crs_pnr.class, "
-  	    "       crs_pnr.subclass, "
-  	    "       crs_pax.pax_id, "
-        "       crs_pax.surname, "
-  	    "       crs_pax.name "
-       	"FROM crs_pnr,crs_pax,pnr_market_flt "
-       	"WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
-       	"      crs_pnr.pnr_id=pnr_market_flt.pnr_id(+) AND "
-       	"      crs_pnr.point_id=:point_id AND "
-       	"      crs_pnr.system='CRS' AND "
-       	"      system.transliter_equal(crs_pax.surname,:surname)<>0 AND "
-        "      crs_pax.pr_del=0 AND "
-       	"      pnr_market_flt.pnr_id IS NULL "
-        "ORDER BY crs_pnr.pnr_id";
+      sql << "FROM crs_pnr,crs_pax,pnr_market_flt "
+           	 "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
+           	 "      crs_pnr.pnr_id=pnr_market_flt.pnr_id(+) AND "
+           	 "      crs_pnr.point_id=:point_id AND "
+             "      pnr_market_flt.pnr_id IS NULL AND ";
     };
+    
+    sql << "      crs_pnr.system='CRS' AND "
+           "      (:airp_arv IS NULL OR crs_pnr.airp_arv=:airp_arv) AND ";
+           
+    if (filter.surname_equal_len!=NoExists)
+    {
+      sql << "      system.transliter_equal(SUBSTR(crs_pax.surname,1,:surname_equal_len),:surname)<>0 AND ";
+      PaxQry.CreateVariable("surname", otString, filter.surname.substr(0, filter.surname_equal_len));
+      PaxQry.CreateVariable("surname_equal_len", otInteger, filter.surname_equal_len);
+    }
+    else
+    {
+      sql << "      system.transliter_equal(crs_pax.surname,:surname)<>0 AND ";
+      PaxQry.CreateVariable("surname", otString, filter.surname);
+    };
+           
+    sql << "      crs_pax.pr_del=0 "
+           "ORDER BY crs_pnr.pnr_id";
 
+    PaxQry.SQLText= sql.str().c_str();
     PaxQry.DeclareVariable("point_id", otInteger);
-    PaxQry.CreateVariable("surname", otString, filter.surname);
+    PaxQry.CreateVariable("airp_arv", otString, filter.airp_arv);
   	
     map< TFlightInfo, map<int, string> > flights;
     for(int range_pass=0; range_pass<2; range_pass++)
@@ -1518,6 +1751,7 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, int pass)
   	  "      points.pr_del=0 AND points.pr_reg<>0 ";
   	PointsQry.DeclareVariable("point_id_tlg", otInteger);
 
+    PaxQry.Clear();
     ostringstream sql;
 	  sql.str("");
 	  sql <<
@@ -1540,17 +1774,32 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, int pass)
     sql <<
       "      pnr_market_flt.flt_no=:flt_no AND "
  	    "      (:suffix IS NULL OR pnr_market_flt.suffix=:suffix) AND "
+ 	    "      (:airp_dep IS NULL OR tlg_trips.airp_dep=:airp_dep) AND " // tlg_trips.airp_dep - это не ошибка
  	    "      crs_pnr.system='CRS' AND "
- 	    "      system.transliter_equal(crs_pax.surname,:surname)<>0 AND "
+ 	    "      (:airp_arv IS NULL OR crs_pnr.airp_arv=:airp_arv) AND ";
+ 	    
+ 	  if (filter.surname_equal_len!=NoExists)
+    {
+      sql << "      system.transliter_equal(SUBSTR(crs_pax.surname,1,:surname_equal_len),:surname)<>0 AND ";
+      PaxQry.CreateVariable("surname", otString, filter.surname.substr(0, filter.surname_equal_len));
+      PaxQry.CreateVariable("surname_equal_len", otInteger, filter.surname_equal_len);
+    }
+    else
+    {
+      sql << "      system.transliter_equal(crs_pax.surname,:surname)<>0 AND ";
+      PaxQry.CreateVariable("surname", otString, filter.surname);
+    };
+    sql <<
       "      crs_pax.pr_del=0 "
       "ORDER BY tlg_trips.point_id, crs_pnr.pnr_id ";
-    PaxQry.Clear();
+
 	  PaxQry.SQLText= sql.str().c_str();
     PaxQry.DeclareVariable("first_day", otInteger);
     PaxQry.DeclareVariable("last_day", otInteger);
     PaxQry.CreateVariable("flt_no", otInteger, filter.flt_no);
     PaxQry.CreateVariable("suffix", otString, filter.suffix);
-    PaxQry.CreateVariable("surname", otString, filter.surname);
+    PaxQry.CreateVariable("airp_dep", otString, filter.airp_dep);
+    PaxQry.CreateVariable("airp_arv", otString, filter.airp_arv);
     PaxQry.Execute();
 
     for(int range_pass=0; range_pass<2; range_pass++)

@@ -785,6 +785,20 @@ signed short int EncodeTimeToSignedWord( TDateTime Value )
   return ( (int)Value )*1440 + Hour*60 + Min;
 };
 
+TDateTime JulianDateToDateTime( int jdate, int year)
+{
+  if (jdate<=0 || jdate>366)
+    throw EConvertError("JulianDateToDateTime: wrong julian date");
+  TDateTime result;
+  EncodeDate(year, 1, 1, result);
+  result+=jdate-1;
+  int Year, Month, Day;
+  DecodeDate(result, Year, Month, Day);
+  if (year!=Year)
+    throw EConvertError("JulianDateToDateTime: wrong year");
+  return result;
+};
+
 namespace AstraLocale {
 
 void getLexemaText( LexemaData lexemaData, string &text, string &master_lexema_id, string lang )
