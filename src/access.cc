@@ -204,7 +204,6 @@ void AccessInterface::RoleRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         NewTextChild(itemNode, "id", Qry.FieldAsInteger("ida"));
         NewTextChild(itemNode, "name", Qry.FieldAsString("name"));
     }
-    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
 class TARO {
@@ -214,11 +213,13 @@ class TARO {
         string node_name;
         map<int, set<string> > items;
         string replace_user_cond(const string sql, const string cond);
+        virtual string get_item(TQuery &Qry);
     public:
         set<string> &get(int user_id);
         void to_xml(int user_id, xmlNodePtr node);
         void get_users(set<string> &aro_params, vector<int> &users, bool &pr_find);
         TARO();
+        virtual ~TARO(){};
 };
 
 string TARO::replace_user_cond(const string sql, const string cond)
@@ -238,10 +239,29 @@ TARO::TARO():
 };
 
 class TRolesARO:public TARO {
+    private:
+        string get_item(TQuery &Qry)
+        {
+            int id = Qry.FieldAsInteger(0);
+            ostringstream result;
+            TQuery dummyQry(&OraSession);
+            result << id << ";" << get_role_name(id, dummyQry);
+            return result.str();
+
+        }
+
     public:
         TRolesARO()
         {
-            Qry.SQLText = "select role_id from user_roles where user_id = :user_id";
+            Qry.SQLText =
+                "select "
+                "   roles.role_id "
+                "from "
+                "   user_roles, "
+                "   roles "
+                "where "
+                "   user_roles.user_id = :user_id and "
+                "   user_roles.role_id = roles.role_id";
             usersSQLText =
                 "select user_id from user_roles where user_id in "
                 "   (select user_id from user_roles where role_id = :aro user_cond) "
@@ -288,12 +308,25 @@ bool real_equal(T &a, T &b)
     return a.size() == b.size() and equal(a.begin(), a.end(), b.begin());
 }
 
+string get_role_id(const string &role)
+{
+    string result;
+    size_t idx = role.find(';');
+    int i;
+    if(idx != string::npos and BASIC::StrToInt(role.substr(0, idx).c_str(), i) != EOF)
+            result = role.substr(0, idx);
+    return result;
+}
+
 void TARO::get_users(set<string> &aro_params, vector<int> &users, bool &pr_find)
 {
     if(not pr_find) return;
     if(aro_params.empty()) return;
     usersQry.Clear();
-    usersQry.CreateVariable("aro", otString, *aro_params.begin());
+
+    string role_id = get_role_id(*aro_params.begin());
+    usersQry.CreateVariable("aro", otString, (role_id.empty() ? *aro_params.begin() : role_id));
+
     usersQry.CreateVariable("count", otInteger, (int)aro_params.size());
     if(users.empty()) {
         usersQry.SQLText = replace_user_cond(usersSQLText, "").c_str();
@@ -338,6 +371,10 @@ void TARO::to_xml(int user_id, xmlNodePtr node)
     }
 }
 
+string TARO::get_item(TQuery &Qry)
+{
+    return Qry.FieldAsString(0);
+}
 set<string> &TARO::get(int user_id)
 {
     map<int, set<string> >::iterator mi = items.find(user_id);
@@ -346,7 +383,7 @@ set<string> &TARO::get(int user_id)
         Qry.Execute();
         set<string> &s = items[user_id];
         for(; not Qry.Eof; Qry.Next())
-            s.insert(Qry.FieldAsString(0));
+            s.insert(get_item(Qry));
         mi = items.find(user_id);
     }
     return mi->second;
@@ -447,21 +484,20 @@ void TSearchResultXML::build(
         for(; !Qry.Eof; Qry.Next()) {
             int new_user_id = Qry.FieldAsInteger(col_user_id);
             xmlNodePtr rowNode;
-            if(user_id < 0) {
-                ProgTrace(TRACE5, "creating new item, rowsNode: %p", rowsNode);
+            if(user_id < 0)
                 rowNode = NewTextChild(rowsNode, "item");
-            } else
+            else
                 rowNode = resNode;
             NewTextChild(rowNode, "user_id", new_user_id);
             NewTextChild(rowNode, "descr", Qry.FieldAsString(col_descr));
             NewTextChild(rowNode, "login", Qry.FieldAsString(col_login));
-            NewTextChild(rowNode, "type", Qry.FieldAsString(col_type));
-            NewTextChild(rowNode, "pr_denial", Qry.FieldAsString(col_pr_denial));
-            NewTextChild(rowNode, "time_fmt_code", Qry.FieldAsString(col_time_fmt_code));
-            NewTextChild(rowNode, "disp_airline_fmt_code", Qry.FieldAsString(col_disp_airline_fmt_code));
-            NewTextChild(rowNode, "disp_airp_fmt_code", Qry.FieldAsString(col_disp_airp_fmt_code));
-            NewTextChild(rowNode, "disp_craft_fmt_code", Qry.FieldAsString(col_disp_craft_fmt_code));
-            NewTextChild(rowNode, "disp_suffix_fmt_code", Qry.FieldAsString(col_disp_suffix_fmt_code));
+            NewTextChild(rowNode, "type", Qry.FieldAsInteger(col_type));
+            NewTextChild(rowNode, "pr_denial", Qry.FieldAsInteger(col_pr_denial));
+            NewTextChild(rowNode, "time_fmt_code", Qry.FieldAsInteger(col_time_fmt_code));
+            NewTextChild(rowNode, "disp_airline_fmt_code", Qry.FieldAsInteger(col_disp_airline_fmt_code));
+            NewTextChild(rowNode, "disp_airp_fmt_code", Qry.FieldAsInteger(col_disp_airp_fmt_code));
+            NewTextChild(rowNode, "disp_craft_fmt_code", Qry.FieldAsInteger(col_disp_craft_fmt_code));
+            NewTextChild(rowNode, "disp_suffix_fmt_code", Qry.FieldAsInteger(col_disp_suffix_fmt_code));
             user_airps.to_xml(new_user_id, rowNode);
             user_airlines.to_xml(new_user_id, rowNode);
             user_roles.to_xml(new_user_id, rowNode);
@@ -561,34 +597,36 @@ void TUserData::search(xmlNodePtr resNode)
         if(not pr_find) return;
     } else
         users.push_back(user_id);
-    ProgTrace(TRACE5, "users.size(): %d", users.size());
     TQuery Qry(&OraSession);
     string SQLText =
         "SELECT "
         "       users2.user_id, "
         "       login, "
         "       descr, "
-        "       user_types.code AS type, "
+        "       type, "
         "       pr_denial, "
         "       time_fmt.code AS time_fmt_code, "
         "       disp_airline_fmt.code AS disp_airline_fmt_code, "
         "       disp_airp_fmt.code AS disp_airp_fmt_code, "
         "       disp_craft_fmt.code AS disp_craft_fmt_code, "
         "       disp_suffix_fmt.code AS disp_suffix_fmt_code "
-        "FROM users2,user_types,user_sets, "
+        "FROM users2,user_sets, "
         "     user_set_types time_fmt, "
         "     user_set_types disp_airline_fmt, "
         "     user_set_types disp_airp_fmt, "
         "     user_set_types disp_craft_fmt, "
         "     user_set_types disp_suffix_fmt  "
-        "WHERE users2.type=user_types.code AND  "
+        "WHERE "
         "      users2.user_id=user_sets.user_id(+) AND "
         "      DECODE(user_sets.time,        00,00,01,01,02,02,01)=time_fmt.code AND  "
         "      DECODE(user_sets.disp_airline,05,05,06,06,07,07,08,08,09,09,09)=disp_airline_fmt.code AND  "
         "      DECODE(user_sets.disp_airp,   05,05,06,06,07,07,08,08,09,09,09)=disp_airp_fmt.code AND "
         "      DECODE(user_sets.disp_craft,  05,05,06,06,07,07,08,08,09,09,09)=disp_craft_fmt.code AND "
-        "      DECODE(user_sets.disp_suffix, 15,15,16,16,17,17,17)=disp_suffix_fmt.code "
-        "      and adm.check_user_view_access(users2.user_id,:SYS_user_id)<>0 ";
+        "      DECODE(user_sets.disp_suffix, 15,15,16,16,17,17,17)=disp_suffix_fmt.code and "
+        "      adm.check_user_view_access(users2.user_id,:SYS_user_id)<>0 ";
+    // связки с user_set_types необходимы для правильной работы поиска по параметрам *_fmt_code
+    // чтобы юзеры с параметрами по умолчанию (т.е. для к-рых нет записей в user_set_types)
+    // правильно доставались
     if(not users.empty()) {
         SQLText += "      and users2.user_id = :user_id ";
         Qry.DeclareVariable("user_id", otInteger);
@@ -632,7 +670,6 @@ void TUserData::search(xmlNodePtr resNode)
             Qry.CreateVariable("pr_denial", otInteger, pr_denial);
         }
     }
-    ProgTrace(TRACE5, "SQLText: %s", SQLText.c_str());
     Qry.SQLText = SQLText;
     Qry.CreateVariable("SYS_user_id", otInteger, TReqInfo::Instance()->user.user_id);
 
@@ -642,11 +679,9 @@ void TUserData::search(xmlNodePtr resNode)
         srx.build(user_roles, user_airps, user_airlines, Qry, resNode, rowsNode, user_id);
     else
         for(vector<int>::iterator iv = users.begin(); iv != users.end(); iv++) {
-            ProgTrace(TRACE5, "before srx.build user_id: %d", *iv);
             Qry.SetVariable("user_id", *iv);
             srx.build(user_roles, user_airps, user_airlines, Qry, resNode, rowsNode, user_id);
         }
-    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
 void TUserData::create_vars(TQuery &Qry, bool pr_update)
@@ -696,8 +731,6 @@ void TUserData::del()
     };
 }
 
-
-
 void TUserData::update_aro()
 {
     TQuery Qry(&OraSession);
@@ -730,7 +763,7 @@ void TUserData::update_aro()
     Qry.CreateVariable("user_id", otInteger, user_id);
     Qry.DeclareVariable("role", otInteger);
     for(set<string>::iterator iv = roles.begin(); iv != roles.end(); iv++) {
-        Qry.SetVariable("role", *iv);
+        Qry.SetVariable("role", get_role_id(*iv));
         Qry.Execute();
     }
 }
@@ -885,6 +918,14 @@ void AccessInterface::SearchUsers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 {
     TUserData user_data;
     user_data.initXML(reqNode->children);
+    if(
+            user_data.descr.empty() and
+            user_data.login.empty() and
+            user_data.roles.empty() and
+            user_data.airps.empty() and
+            user_data.airlines.empty()
+      )
+        throw UserException("MSG.ACCESS.MANDATORY_FIELDS_NOT_SET");
     user_data.search(resNode);
 }
 
