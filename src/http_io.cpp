@@ -336,8 +336,10 @@ void sirena_wanted_send(const std::string &content)
                         node = node->children;
                         node = NodeAsNodeFast("operationStatus", node);
                         string status = (node ? NodeAsString(node) : "");
-                        if(status != "OK")
+                        if(status != "OK") {
+                            ProgTrace(TRACE5, "%s", GetXMLDocText(doc->doc).c_str());
                             throw Exception("Return status not OK: '%s'", status.c_str());
+                        }
                     }
                 }
             } catch(...) {

@@ -212,8 +212,10 @@ void sync_sirena_wanted( TDateTime utcdate )
     paxs.push_back( pax );
   }
   ProgTrace( TRACE5, "pax.size()=%d", paxs.size() );
-  sirena_wanted_send(make_soap_content(paxs));
-  ProgTrace(TRACE5, "sirena_wanted_send completed");
+  if(not paxs.empty()) {
+      sirena_wanted_send(make_soap_content(paxs));
+      ProgTrace(TRACE5, "sirena_wanted_send completed");
+  }
   
   if ( prior_time != ASTRA::NoExists ) {
     AstraContext::ClearContext( "sync_sirena_wanted", 0 );
