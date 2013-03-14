@@ -49,6 +49,7 @@ void AdmInterface::LoadAdm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
   for(;!Qry.Eof;Qry.Next())
   {
     string cache = Qry.FieldAsString("cache");
+    /*
     if(TReqInfo::Instance()->desk.compatible(ACCESS_MODULE_VERSION) and
             (cache == "ROLES" or
              cache == "ROLE_RIGHTS" or
@@ -60,6 +61,7 @@ void AdmInterface::LoadAdm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
             )
       )
         continue;
+        */
     rowNode = NewTextChild( node, "CacheTable" );
     NewTextChild( rowNode, "cache", cache );
     NewTextChild( rowNode, "title", AstraLocale::getLocaleText(Qry.FieldAsString("title")) );
