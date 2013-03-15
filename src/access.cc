@@ -49,6 +49,10 @@ string get_rights_table(TRightListType rlt)
 
 void AccessInterface::SaveRoleRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    TReqInfo &reqInfo = *(TReqInfo::Instance());
+    if(find( reqInfo.user.access.rights.begin(),
+                reqInfo.user.access.rights.end(), 771 ) == reqInfo.user.access.rights.end())
+        throw AstraLocale::UserException("MSG.NO_ACCESS");
     TReqInfo &info = *(TReqInfo::Instance());
     int role_id = NodeAsInteger("role_id", reqNode);
     string table = get_rights_table(DecodeRightListType(NodeAsString("rlt", reqNode)));
@@ -144,6 +148,10 @@ void AccessInterface::CmpRole(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 
 void AccessInterface::Clone(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    TReqInfo &reqInfo = *(TReqInfo::Instance());
+    if(find( reqInfo.user.access.rights.begin(),
+                reqInfo.user.access.rights.end(), 771 ) == reqInfo.user.access.rights.end())
+        throw AstraLocale::UserException("MSG.NO_ACCESS");
     int src_role = NodeAsInteger("src_role", reqNode);
     int dst_role = NodeAsInteger("dst_role", reqNode);
     int pr_force = NodeAsInteger("pr_force", reqNode);
