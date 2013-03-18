@@ -321,6 +321,7 @@ TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tag
     tag_list.insert(make_pair(TAG::SCD,             TTagListItem(&TPrnTagStore::SCD, POINT_INFO)));
     tag_list.insert(make_pair(TAG::SEAT_NO,         TTagListItem(&TPrnTagStore::SEAT_NO, PAX_INFO)));
     tag_list.insert(make_pair(TAG::STR_SEAT_NO,     TTagListItem(&TPrnTagStore::STR_SEAT_NO, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::SUBCLS,          TTagListItem(&TPrnTagStore::SUBCLS, PAX_INFO)));
     tag_list.insert(make_pair(TAG::LIST_SEAT_NO,    TTagListItem(&TPrnTagStore::LIST_SEAT_NO, PAX_INFO)));
     tag_list.insert(make_pair(TAG::SURNAME,         TTagListItem(&TPrnTagStore::SURNAME, PAX_INFO)));
     tag_list.insert(make_pair(TAG::TEST_SERVER,     TTagListItem(&TPrnTagStore::TEST_SERVER)));
@@ -801,7 +802,8 @@ void TPrnTagStore::TPaxInfo::Init(int apax_id, TTagLang &tag_lang)
               "   ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bag_weight, "
               "   ckin.get_rkAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rk_amount, "
               "   ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rk_weight, "
-              "   ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags "
+              "   ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags, "
+              "   pax.subclass "
               "from "
               "   pax "
               "where "
@@ -832,7 +834,8 @@ void TPrnTagStore::TPaxInfo::Init(int apax_id, TTagLang &tag_lang)
               "   0 AS bag_weight, "
               "   0 AS rk_amount, "
               "   0 AS rk_weight, "
-              "   NULL AS tags "
+              "   NULL AS tags, "
+              "   null subclass "
               "FROM "
               "   test_pax "
               "WHERE "
@@ -860,6 +863,7 @@ void TPrnTagStore::TPaxInfo::Init(int apax_id, TTagLang &tag_lang)
         rk_amount = Qry.FieldAsInteger("rk_amount");
         rk_weight = Qry.FieldAsInteger("rk_weight");
         tags = Qry.FieldAsString("tags");
+        subcls = Qry.FieldAsString("subclass");
     }
 }
 
@@ -1570,6 +1574,11 @@ string TPrnTagStore::SCD(TFieldParams fp)
 string TPrnTagStore::SEAT_NO(TFieldParams fp)
 {
     return get_fmt_seat("seats", tag_lang.english_tag());
+}
+
+string TPrnTagStore::SUBCLS(TFieldParams fp)
+{
+    return tag_lang.ElemIdToTagElem(etSubcls, paxInfo.subcls, efmtCodeNative);
 }
 
 string TPrnTagStore::STR_SEAT_NO(TFieldParams fp)

@@ -61,6 +61,7 @@ namespace TAG {
     const std::string SCD = "SCD";
     const std::string SEAT_NO = "SEAT_NO";
     const std::string STR_SEAT_NO = "STR_SEAT_NO";
+    const std::string SUBCLS = "SUBCLS";
     const std::string LIST_SEAT_NO = "LIST_SEAT_NO";
     const std::string SURNAME = "SURNAME";
     const std::string TEST_SERVER = "TEST_SERVER";
@@ -296,6 +297,7 @@ class TPrnTagStore {
             int bag_amount, bag_weight;
             int rk_amount, rk_weight;
             std::string tags;
+            std::string subcls;
             bool pr_bp_print;
             TPaxInfo():
                 pax_id(ASTRA::NoExists),
@@ -396,6 +398,7 @@ class TPrnTagStore {
         std::string SCD(TFieldParams fp);
         std::string SEAT_NO(TFieldParams fp);
         std::string STR_SEAT_NO(TFieldParams fp);
+        std::string SUBCLS(TFieldParams fp);
         std::string LIST_SEAT_NO(TFieldParams fp);
         std::string SURNAME(TFieldParams fp);
         std::string TEST_SERVER(TFieldParams fp);
