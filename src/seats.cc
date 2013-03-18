@@ -19,6 +19,7 @@
 #include "term_version.h"
 #include "alarms.h"
 #include "passenger.h"
+#include "rozysk.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -3012,42 +3013,40 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   TPointIdsForCheck point_ids_spp;
   point_ids_spp.insert( make_pair(point_id, layer_type) );
   if ( seat_type != stSeat ) { // пересадка, высадка - удаление старого слоя
-    	switch( layer_type ) {
-    		case cltGoShow:
-      	case cltTranzit:
-      	case cltCheckin:
-  	    case cltTCheckin:
-    	    Qry.Clear();
-    	    Qry.SQLText =
-            "BEGIN "
-            " DELETE FROM trip_comp_layers "
-            "  WHERE point_id=:point_id AND "
-            "        layer_type=:layer_type AND "
-            "        pax_id=:pax_id; "
-            " IF :tid IS NULL THEN "
-            "   SELECT cycle_tid__seq.nextval INTO :tid FROM dual; "
-            "   UPDATE pax SET tid=:tid WHERE pax_id=:pax_id;"
-            //"   mvd.sync_pax(:pax_id,:term); "
-            " END IF;"
-            "END;";
-          Qry.CreateVariable( "point_id", otInteger, point_id );
-          Qry.CreateVariable( "pax_id", otInteger, pax_id );
-          Qry.CreateVariable( "layer_type", otString, EncodeCompLayerType( layer_type ) );
-          if ( curr_tid == NoExists )
-            Qry.CreateVariable( "tid", otInteger, FNull );
-          else
-            Qry.CreateVariable( "tid", otInteger, curr_tid );
-          //Qry.CreateVariable( "term", otString, TReqInfo::Instance()->desk.code );
-          Qry.Execute();
-          curr_tid = Qry.GetVariableAsInteger( "tid" );
-        	break;
-    		case cltProtCkin:
-    			// удаление из салона, если есть разметка
-    			DeleteTlgSeatRanges( layer_type, pax_id, curr_tid, point_ids_spp );
-          break;
-        default:
-        	ProgTrace( TRACE5, "!!! Unusible layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
-        	throw UserException( "MSG.SEATS.SET_LAYER_NOT_AVAIL" );
+  	switch( layer_type ) {
+  		case cltGoShow:
+    	case cltTranzit:
+    	case cltCheckin:
+	    case cltTCheckin:
+  	    Qry.Clear();
+  	    Qry.SQLText =
+          "BEGIN "
+          " DELETE FROM trip_comp_layers "
+          "  WHERE point_id=:point_id AND "
+          "        layer_type=:layer_type AND "
+          "        pax_id=:pax_id; "
+          " IF :tid IS NULL THEN "
+          "   SELECT cycle_tid__seq.nextval INTO :tid FROM dual; "
+          "   UPDATE pax SET tid=:tid WHERE pax_id=:pax_id;"
+          " END IF;"
+          "END;";
+        Qry.CreateVariable( "point_id", otInteger, point_id );
+        Qry.CreateVariable( "pax_id", otInteger, pax_id );
+        Qry.CreateVariable( "layer_type", otString, EncodeCompLayerType( layer_type ) );
+        if ( curr_tid == NoExists )
+          Qry.CreateVariable( "tid", otInteger, FNull );
+        else
+          Qry.CreateVariable( "tid", otInteger, curr_tid );
+        Qry.Execute();
+        curr_tid = Qry.GetVariableAsInteger( "tid" );
+      	break;
+  		case cltProtCkin:
+  			// удаление из салона, если есть разметка
+  			DeleteTlgSeatRanges( layer_type, pax_id, curr_tid, point_ids_spp );
+        break;
+      default:
+      	ProgTrace( TRACE5, "!!! Unusible layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
+      	throw UserException( "MSG.SEATS.SET_LAYER_NOT_AVAIL" );
     }
   }
   // назначение нового слоя
@@ -3064,16 +3063,13 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
           " IF :tid IS NULL THEN "
           "   SELECT cycle_tid__seq.nextval INTO :tid FROM dual; "
           "   UPDATE pax SET tid=:tid WHERE pax_id=:pax_id;"
-          //"   mvd.sync_pax(:pax_id,:term); "
           " END IF;"
           "END;";
-        //Qry.CreateVariable( "term", otString, TReqInfo::Instance()->desk.code );
         Qry.CreateVariable( "pax_id", otInteger, pax_id );
         if ( curr_tid == NoExists )
           Qry.CreateVariable( "tid", otInteger, FNull );
         else
           Qry.CreateVariable( "tid", otInteger, curr_tid );
-        //Qry.CreateVariable( "term", otString, TReqInfo::Instance()->desk.code );
         Qry.Execute();
         curr_tid = Qry.GetVariableAsInteger( "tid" );
         break;
@@ -3086,25 +3082,12 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
     }
   }
   { //mvd
-    Qry.Clear();
     switch ( layer_type ) {
       case cltGoShow:
      	case cltTranzit:
   	  case cltCheckin:
   	  case cltTCheckin:
-      	Qry.SQLText =
-          "BEGIN "
-          "mvd.sync_pax(:pax_id,:term);"
-          "END;";
-        Qry.CreateVariable( "term", otString, TReqInfo::Instance()->desk.code );
-        Qry.CreateVariable( "pax_id", otInteger, pax_id );
-        Qry.Execute();
-        break;
-      case cltProtCkin:
-/*???      	Qry.SQLText =
-          "BEGIN "
-          "mvd.sync_crs_pax(:pax_id);"
-          "END;";*/
+        rozysk::sync_pax(pax_id, TReqInfo::Instance()->desk.code);
         break;
       default:
         break;
@@ -3278,12 +3261,8 @@ void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &APass, TSeatA
       " WHERE pax_id=:pax_id ";
     QryLayer.DeclareVariable( "pax_id", otInteger );
     QryUpd.SQLText =
-      "BEGIN "
-      " UPDATE pax SET tid=cycle_tid__seq.nextval WHERE pax_id=:pax_id;"
-      " mvd.sync_pax(:pax_id,:term); "
-      "END;";
+      "UPDATE pax SET tid=cycle_tid__seq.nextval WHERE pax_id=:pax_id";
     QryUpd.DeclareVariable( "pax_id", otInteger );
-    QryUpd.DeclareVariable( "term", otString );
 
     Passengers.Clear();
 
@@ -3323,8 +3302,8 @@ void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &APass, TSeatA
         QryLayer.Execute();
   		  SaveTripSeatRanges( Salons.trip_id, pass.grp_status, seats, pass.paxId, point_dep, point_arv ); //???
   		  QryUpd.SetVariable( "pax_id", pass.paxId );
-        QryUpd.SetVariable( "term", TReqInfo::Instance()->desk.code );
         QryUpd.Execute();
+        rozysk::sync_pax(pass.paxId, TReqInfo::Instance()->desk.code);
         QryPax.Execute();
         string new_seat_no = QryPax.FieldAsString( "seat_no" );
         ProgTrace( TRACE5, "oldplace=%s, newplace=%s", prev_seat_no.c_str(), new_seat_no.c_str() );

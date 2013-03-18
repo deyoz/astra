@@ -15,6 +15,7 @@
 #include "aodb.h"
 #include "alarms.h"
 #include "passenger.h"
+#include "rozysk.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -281,26 +282,22 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     TQuery Qry(&OraSession);
     Qry.Clear();
     sql.str("");
-    sql << "BEGIN ";
     if (reqInfo->screen.name == "BRDBUS.EXE")
-      sql << "  UPDATE pax SET pr_brd=DECODE(:mark,0,1,0),tid=cycle_tid__seq.currval "
-             "  WHERE pax_id=:pax_id AND pr_brd=:mark; ";
+      sql << "UPDATE pax SET pr_brd=DECODE(:mark,0,1,0),tid=cycle_tid__seq.currval "
+             "WHERE pax_id=:pax_id AND pr_brd=:mark ";
     else
-      sql << "  UPDATE pax SET pr_exam=DECODE(:mark,0,1,0),tid=cycle_tid__seq.currval "
-             "  WHERE pax_id=:pax_id AND pr_exam=:mark; ";
-    sql << "  IF SQL%FOUND THEN "
-           "    mvd.sync_pax(:pax_id,:term); "
-           "  END IF; "
-           "END; ";
+      sql << "UPDATE pax SET pr_exam=DECODE(:mark,0,1,0),tid=cycle_tid__seq.currval "
+             "WHERE pax_id=:pax_id AND pr_exam=:mark ";
     Qry.SQLText=sql.str().c_str();
     Qry.DeclareVariable( "pax_id", otInteger );
     Qry.CreateVariable( "mark", otInteger, (int)!boarding );
-    Qry.CreateVariable( "term", otString, reqInfo->desk.code );
     for(;!PaxQry.Eof;PaxQry.Next())
     {
       int pax_id=PaxQry.FieldAsInteger("pax_id");
       Qry.SetVariable("pax_id", pax_id);
       Qry.Execute();
+      if (Qry.RowsProcessed()>0)
+        rozysk::sync_pax(pax_id, reqInfo->desk.code);
       if (reqInfo->screen.name == "BRDBUS.EXE")
       {
         bool boarded=!PaxQry.FieldIsNULL("pr_brd") && PaxQry.FieldAsInteger("pr_brd")!=0;
@@ -369,14 +366,7 @@ bool BrdInterface::PaxUpdate(int point_id, int pax_id, int &tid, bool mark, bool
   Qry.Execute();
   if (Qry.RowsProcessed()>0)
   {
-    Qry.Clear();
-    Qry.SQLText=
-      "BEGIN "
-      "  mvd.sync_pax(:pax_id, :term); "
-      "END;";
-    Qry.CreateVariable("pax_id", otInteger, pax_id);
-    Qry.CreateVariable("term", otString, reqInfo->desk.code);
-    Qry.Execute();
+    rozysk::sync_pax(pax_id, reqInfo->desk.code);
 
     Qry.Clear();
     Qry.SQLText=

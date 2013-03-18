@@ -31,6 +31,7 @@
 #include "seats.h"
 #include "term_version.h"
 #include "tlg/tlg_binding.h"
+#include "rozysk.h"
 
 #include "aodb.h"
 #include "serverlib/perfom.h"
@@ -2125,8 +2126,6 @@ void DeletePaxGrp( const TTypeBSendInfo &sendInfo, int grp_id, bool toLog,
     "          pax_grp.status=grp_status_types.code AND "
     "          pax_grp.grp_id=:grp_id); "
     "  UPDATE pax SET refuse=:refuse,pr_brd=NULL WHERE grp_id=:grp_id; "
-    "  mvd.sync_pax_grp(:grp_id,:term); "
-    "  ckin.check_grp(:grp_id); "
     "END;";
     
   if (strcmp(PaxQry.SQLText.SQLText(),pax_sql)!=0)
@@ -2141,7 +2140,6 @@ void DeletePaxGrp( const TTypeBSendInfo &sendInfo, int grp_id, bool toLog,
     DelQry.Clear();
     DelQry.SQLText=del_sql;
     DelQry.CreateVariable( "refuse", otString, refuseAgentError );
-    DelQry.CreateVariable( "term", otString, TReqInfo::Instance()->desk.code );
     DelQry.DeclareVariable("grp_id",otInteger);
   };
   
@@ -2190,6 +2188,18 @@ void DeletePaxGrp( const TTypeBSendInfo &sendInfo, int grp_id, bool toLog,
 
   DelQry.SetVariable("grp_id",grp_id);
   DelQry.Execute();
+
+  rozysk::sync_pax_grp(grp_id, TReqInfo::Instance()->desk.code);
+
+  TQuery Qry(&OraSession);
+	Qry.Clear();
+	Qry.SQLText=
+    "BEGIN "
+    "  ckin.check_grp(:grp_id); "
+    "END;";
+  Qry.CreateVariable("grp_id", otInteger, grp_id);
+  Qry.Execute();
+
 };
 
 void DeletePassengers( int point_id, const TDeletePaxFilter &filter,

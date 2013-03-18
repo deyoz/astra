@@ -1,5 +1,3 @@
-#include "basel_aero.h"
-
 #include <string>
 #include <vector>
 #include <tcl.h>
@@ -30,6 +28,7 @@ namespace rozysk
 {
 
 struct TRow {
+    //дополнительно
     TDateTime time;
     string term;
     //рейс
@@ -78,6 +77,8 @@ TRow& TRow::fltFromDB(TQuery &Qry)
   suffix=Qry.FieldAsString("suffix");
   takeoff=Qry.FieldIsNULL("takeoff")?NoExists:Qry.FieldAsDateTime("takeoff");
   airp_dep=Qry.FieldAsString("airp_dep");
+  if (takeoff!=NoExists && Qry.FieldAsInteger("is_utc")!=0)
+    takeoff=UTCToLocal(takeoff, AirpTZRegion(airp_dep));
   return *this;
 };
 
@@ -206,7 +207,9 @@ void get_flight(int point_id, TRow &r)
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText =
-    "SELECT airline, flt_no, suffix, NVL(scd_out,NVL(est_out,act_out)) AS takeoff, airp AS airp_dep"
+    "SELECT airline, flt_no, suffix, "
+    "       NVL(scd_out,NVL(est_out,act_out)) AS takeoff, 1 AS is_utc, "
+    "       airp AS airp_dep "
     "FROM points WHERE point_id=:point_id";
   Qry.CreateVariable("point_id", otInteger, point_id);
   Qry.Execute();
@@ -219,7 +222,7 @@ void get_crs_flight(int point_id, TRow &r)
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText =
-    "SELECT airline, flt_no, suffix, scd AS takeoff, airp_dep "
+    "SELECT airline, flt_no, suffix, scd AS takeoff, 0 AS is_utc, airp_dep "
     "FROM tlg_trips WHERE point_id=:point_id";
   Qry.CreateVariable("point_id", otInteger, point_id);
   Qry.Execute();
@@ -456,8 +459,10 @@ struct TPax {
 
 bool filter_passenger( const string &airp_dep, const string &airp_arv, const string &nationality )
 {
-/*1.        Всех, улетающих/прилетающих в аэропорты на территории Таджикистана вне зависимости от их подданства
-  2.        Всех подданных Таджикистана, улетающих/прилетающих в аэропорты всего мира, которые проходят через систему Astra .*/
+/*
+  1.        Всех, улетающих/прилетающих в аэропорты на территории Таджикистана вне зависимости от их подданства
+  2.        Всех подданных Таджикистана, улетающих/прилетающих в аэропорты всего мира, которые проходят через систему Astra .
+*/
   TBaseTable &basecities = base_tables.get( "cities" );
   TBaseTable &baseairps = base_tables.get( "airps" );
   if ( nationality == "TJK" ||

@@ -19,6 +19,7 @@
 #include "memory_manager.h"
 #include "comp_layers.h"
 #include "tlg_binding.h"
+#include "rozysk.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -5852,13 +5853,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                 if (!isPRL && !pr_sync_pnr)
                 {
                   //делаем синхронизацию пассажира с розыском
-                  Qry.Clear();
-                  Qry.SQLText=
-                    "BEGIN "
-                    "  mvd.sync_crs_pax(:pax_id); "
-                    "END;";
-                  Qry.CreateVariable("pax_id",otInteger,pax_id);
-                  Qry.Execute();
+                  rozysk::sync_crs_pax(pax_id, "");
                 };
                 
                 if (isPRL && iPaxItem==ne.pax.begin())
@@ -5932,13 +5927,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
             if (!isPRL && pr_sync_pnr)
             {
               //делаем синхронизацию всей группы с розыском
-              Qry.Clear();
-              Qry.SQLText=
-                "BEGIN "
-                "  mvd.sync_crs_pnr(:pnr_id); "
-                "END;";
-              Qry.CreateVariable("pnr_id",otInteger,pnr_id);
-              Qry.Execute();
+              rozysk::sync_crs_pnr(pnr_id, "");
             };
           };//for(iPnrItem=iTotals->pnr.begin()
         };
