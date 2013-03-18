@@ -61,6 +61,7 @@ astra_SOURCES = \
   passenger.cc \
   prn_tag_store.cc \
   remarks.cc \
+  rozysk.cc \
   salonform.cc \
   salonform2.cc \
   salons.cc \
@@ -73,7 +74,6 @@ astra_SOURCES = \
   spp_cek.cc \
   stages.cc \
   stat.cc \
-  sirena_wanted.cc \
   telegram.cc \
   telegram2.cc \
   timer.cpp \
@@ -160,6 +160,7 @@ noinst_HEADERS = \
   prn_tag_store.h \
   passenger.h \
   remarks.h \
+  rozysk.h \
   salonform.h \
   salonform2.h \
   salons.h \
@@ -172,7 +173,6 @@ noinst_HEADERS = \
   spp_cek.h \
   stages.h \
   stat.h \
-  sirena_wanted.h \
   timer.h \
   tripinfo.h \
   view_edi_elements.h \

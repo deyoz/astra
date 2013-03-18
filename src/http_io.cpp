@@ -279,7 +279,7 @@ void my_test()
     send_bsm(host_list, bsm_list);
 }
 
-void sirena_wanted_send(const std::string &content)
+void sirena_rozysk_send(const std::string &content)
 {
     string host = "uat2.vtsft.ru";
     u_int port = 80;
