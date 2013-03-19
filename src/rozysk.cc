@@ -362,13 +362,8 @@ void sync_crs_pax_internal(int id, const string &term, bool is_pnr_id)
   else
     Qry.CreateVariable("pax_id", otInteger, id);
   Qry.Execute();
-  if (Qry.Eof)
-  {
-    if (is_pnr_id)
-      throw Exception("group not found (pnr_id=%d)", id);
-    else
-      throw Exception("passenger not found (pax_id=%d)", id);
-  };
+  if (Qry.Eof) return;
+
   TQuery InsQry(&OraSession);
   TQuery PaxDocQry(&OraSession);
   TQuery PaxDocQry2(&OraSession);
@@ -420,7 +415,7 @@ void sync_crs_pnr(int pnr_id, const string &term)
 {
   try
   {
-    sync_pax_internal(pnr_id, term, true);
+    sync_crs_pax_internal(pnr_id, term, true);
   }
   catch(Exception &e)
   {
