@@ -527,14 +527,11 @@ void sync_sirena_rozysk( TDateTime utcdate )
   TQuery Qry(&OraSession);
   Qry.SQLText =
       "SELECT time, term, "
-      "       airline, flt_no, suffix, takeoff, airp_dep "
-      "       airp_arv, "
-      "       SUBSTR(surname,1,20) AS surname, "
-      "       SUBSTR(LTRIM(RTRIM(SUBSTR(name||' ',1,INSTR(name||' ',' ')))),1,20) AS name, "
-      "       SUBSTR(LTRIM(RTRIM(SUBSTR(name||' ',INSTR(name||' ',' ')+1))),1,20) AS patronymic, "
-      "       seat_no, bag_weight, tags, "
-      "       SUBSTR(pnr,1,12) AS pnr, "
-      "       operation, "
+      "       airline, flt_no, suffix, takeoff, airp_dep, "
+      "       airp_arv, surname, "
+      "       LTRIM(RTRIM(SUBSTR(name||' ',1,INSTR(name||' ',' ')))) AS name, "
+      "       LTRIM(RTRIM(SUBSTR(name||' ',INSTR(name||' ',' ')+1))) AS patronymic, "
+      "       seat_no, bag_weight, tags, pnr, operation, "
       "       doc_no, doc_nationality, NVL(doc_gender,'N') AS doc_gender, "
       "       visa_no, visa_issue_place, visa_issue_date, visa_applic_country "
       "FROM rozysk "
@@ -597,7 +594,7 @@ void sync_sirena_rozysk( TDateTime utcdate )
     pax.baggageReceiptsNumber = Qry.FieldAsString( idx_tags );
     pax.departureAirport = Qry.FieldAsString( idx_airp_dep );
     pax.arrivalAirport = Qry.FieldAsString( idx_airp_arv );
-    pax.baggageWeight = Qry.FieldAsString( idx_bag_weight ); //!!!vlad NULL=0??
+    pax.baggageWeight = Qry.FieldAsString( idx_bag_weight );
     pax.PNR = Qry.FieldAsString( idx_pnr );
     pax.visaNumber = Qry.FieldAsString( idx_visa_no );
     if ( Qry.FieldIsNULL( idx_visa_issue_date ) )
