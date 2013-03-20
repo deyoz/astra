@@ -60,10 +60,10 @@ void AccessInterface::SaveRoleRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     string table_name;
     switch(rlt) {
         case rltRights:
-            table_name = "Доступ к операциям для категорий (ролей)";
+            table_name = "Доступ к операциям";
             break;
         case rltAssignRights:
-            table_name = "Управление доступом к операциям для категорий (ролей)";
+            table_name = "Делегирование операций";
             break;
         default:
             throw Exception("AccessInterface::RoleRights: unexpected TRightListType: %d", rlt);
@@ -88,7 +88,7 @@ void AccessInterface::SaveRoleRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
                     "  :right_id:=adm.check_right_access(:right_id,:user_id,1); "
                     "  INSERT INTO " + table + "(role_id,right_id) VALUES(:role_id,:right_id); "
                     "END;";
-                log_msg << "Ввод строки в таблице '" << table_name << "': ROLE_ID=" << role_id << ", RIGHT_ID=" << right_id;
+                log_msg << table_name << ". Для роли " << role_id << " вкл. операция " << right_id;
                 break;
             case rsOff:
                 SQLText =
@@ -98,7 +98,7 @@ void AccessInterface::SaveRoleRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
                     "  DELETE FROM " + table + " "
                     "  WHERE role_id=:role_id AND right_id=:right_id; "
                     "END;";
-                log_msg << "Удаление строки в таблице '" << table_name << "': ROLE_ID=" << role_id << ", RIGHT_ID=" << right_id;
+                log_msg << table_name << ". Для роли " << role_id << " выкл. операция " << right_id;
                 break;
         }
         Qry.SQLText = SQLText;
@@ -226,13 +226,11 @@ void AccessInterface::RoleRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     Qry.CreateVariable("user_id", otInteger, info.user.user_id);
     Qry.Execute();
     xmlNodePtr roleRightsNode = NULL;
-    ProgTrace(TRACE5, "Qry.Eof: %d", Qry.Eof);
     for(; !Qry.Eof; Qry.Next()) {
         if(!roleRightsNode)
             roleRightsNode = NewTextChild(resNode, "role_rights");
         xmlNodePtr itemNode = NewTextChild(roleRightsNode, "item");
         NewTextChild(itemNode, "id", Qry.FieldAsInteger("ida"));
-        ProgTrace(TRACE5, "DESK LANG: %d", TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
         NewTextChild(itemNode, "name",
                 (TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU ?
                  Qry.FieldAsString("name_lat") : Qry.FieldAsString("name")));
@@ -755,7 +753,7 @@ void TUserData::del()
     try {
         Qry.Execute();
         ostringstream log_msg;
-        log_msg << "Удаление строки в таблице 'Пользователи'. USER_ID=" << user_id;
+        log_msg << "Пользователь " << user_id << " удален";
         TLogMsg message;
         message.ev_type = evtAccess;
         message.msg = log_msg.str();
@@ -794,12 +792,10 @@ void TUserData::update_aro(bool pr_insert)
             try {
                 Qry.Execute();
                 ostringstream log_msg;
-                log_msg << "Ввод строки в таблице 'Доступ к авиакомпаниям': USER_ID=" << user_id << ", AIRLINE='" << *iv << "'";
+                log_msg << "Добавлена а/к " << *iv << " для пользователя " << user_id;
                 message.msg = log_msg.str();
                 info.MsgToLog(message);
-                ProgTrace(TRACE5, "aro_airlines log: %s", message.msg.c_str());
             } catch(EOracleError &E) {
-                ProgTrace(TRACE5, "aro_airlines except: %d", E.Code);
                 if(E.Code != 1) // dup_val_on_index
                     throw;
             }
@@ -831,7 +827,7 @@ void TUserData::update_aro(bool pr_insert)
             delQry.Execute();
             delQry.SetVariable("first", 0);
             ostringstream log_msg;
-            log_msg << "Удаление строки в таблице 'Доступ к авиакомпаниям': USER_ID=" << user_id << ", AIRLINE='" << airline << "'";
+            log_msg << "Удалена а/к " << airline << " для пользователя " << user_id;
             message.msg = log_msg.str();
             info.MsgToLog(message);
         }
@@ -851,7 +847,7 @@ void TUserData::update_aro(bool pr_insert)
             try {
                 Qry.Execute();
                 ostringstream log_msg;
-                log_msg << "Ввод строки в таблице 'Доступ к аэропортам': USER_ID=" << user_id << ", AIRP='" << *iv << "'";
+                log_msg << "Добавлен а/п " << *iv << " для пользователя " << user_id;
                 message.msg = log_msg.str();
                 info.MsgToLog(message);
             } catch(EOracleError &E) {
@@ -886,7 +882,7 @@ void TUserData::update_aro(bool pr_insert)
             delQry.Execute();
             delQry.SetVariable("first", 0);
             ostringstream log_msg;
-            log_msg << "Удаление строки в таблице 'Доступ к аэропортам': USER_ID=" << user_id << ", AIRP='" << airp << "'";
+            log_msg << "Удален а/п " << airp << " для пользователя " << user_id;
             message.msg = log_msg.str();
             info.MsgToLog(message);
         }
@@ -908,7 +904,7 @@ void TUserData::update_aro(bool pr_insert)
             try {
                 Qry.Execute();
                 ostringstream log_msg;
-                log_msg << "Ввод строки в таблице 'Распределение категорий (ролей)': USER_ID=" << user_id << ", ROLE_ID=" << role_ids.back();
+                log_msg << "Добавлена роль " << role_ids.back() << " для пользователя " << user_id;
                 message.msg = log_msg.str();
                 info.MsgToLog(message);
             } catch(EOracleError &E) {
@@ -943,7 +939,7 @@ void TUserData::update_aro(bool pr_insert)
             delQry.Execute();
             delQry.SetVariable("first", 0);
             ostringstream log_msg;
-            log_msg << "Удаление строки в таблице 'Распределение категорий (ролей)': USER_ID=" << user_id << ", ROLE_ID=" << role_id;
+            log_msg << "Удалена роль " << role_id << " для пользователя " << user_id;
             message.msg = log_msg.str();
             info.MsgToLog(message);
         }
@@ -954,7 +950,6 @@ void TUserData::update_aro(bool pr_insert)
         Qry.CreateVariable("sys_user_id", otInteger, TReqInfo::Instance()->user.user_id);
         Qry.Execute();
         view_access = Qry.FieldAsInteger(0);
-        ProgTrace(TRACE5, "view_access: %d", view_access);
     } catch( EOracleError &E ) {
         if ( E.Code >= 20000 ) {
             if(pr_insert)
@@ -1148,7 +1143,6 @@ void AccessInterface::ApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
         }
         SetProp(itemNode, "delete", not im->second.view_access);
     }
-    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
 void AccessInterface::SaveUser(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
