@@ -55,15 +55,29 @@ void AccessInterface::SaveRoleRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
         throw AstraLocale::UserException("MSG.NO_ACCESS");
     TReqInfo &info = *(TReqInfo::Instance());
     int role_id = NodeAsInteger("role_id", reqNode);
-    string table = get_rights_table(DecodeRightListType(NodeAsString("rlt", reqNode)));
+    TRightListType rlt = DecodeRightListType(NodeAsString("rlt", reqNode));
+    string table = get_rights_table(rlt);
+    string table_name;
+    switch(rlt) {
+        case rltRights:
+            table_name = "Доступ к операциям для категорий (ролей)";
+            break;
+        case rltAssignRights:
+            table_name = "Управление доступом к операциям для категорий (ролей)";
+            break;
+        default:
+            throw Exception("AccessInterface::RoleRights: unexpected TRightListType: %d", rlt);
+    }
     xmlNodePtr itemNode = NodeAsNode("items", reqNode)->children;
     TQuery Qry(&OraSession);
     Qry.CreateVariable("user_id", otInteger, info.user.user_id);
     Qry.CreateVariable("role_id", otInteger, role_id);
     Qry.DeclareVariable("right_id", otInteger);
     for(; itemNode; itemNode = itemNode->next) {
+        ostringstream log_msg;
         xmlNodePtr dataNode = itemNode->children;
-        Qry.SetVariable("right_id", NodeAsIntegerFast("id", dataNode));
+        int right_id = NodeAsIntegerFast("id", dataNode);
+        Qry.SetVariable("right_id", right_id);
         TRightState state = TRightState(NodeAsIntegerFast("state", dataNode));
         string SQLText;
         switch(state) {
@@ -74,6 +88,7 @@ void AccessInterface::SaveRoleRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
                     "  :right_id:=adm.check_right_access(:right_id,:user_id,1); "
                     "  INSERT INTO " + table + "(role_id,right_id) VALUES(:role_id,:right_id); "
                     "END;";
+                log_msg << "Ввод строки в таблице '" << table_name << "': ROLE_ID=" << role_id << ", RIGHT_ID=" << right_id;
                 break;
             case rsOff:
                 SQLText =
@@ -83,6 +98,7 @@ void AccessInterface::SaveRoleRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
                     "  DELETE FROM " + table + " "
                     "  WHERE role_id=:role_id AND right_id=:right_id; "
                     "END;";
+                log_msg << "Удаление строки в таблице '" << table_name << "': ROLE_ID=" << role_id << ", RIGHT_ID=" << right_id;
                 break;
         }
         Qry.SQLText = SQLText;
@@ -96,6 +112,10 @@ void AccessInterface::SaveRoleRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
             } else
                 throw;
         }
+        TLogMsg message;
+        message.msg = log_msg.str();
+        message.ev_type = evtAccess;
+        info.MsgToLog( message );
     }
 }
 
@@ -421,6 +441,7 @@ struct TUserData {
     void update();
     void update_aro(bool pr_insert = false);
     void del();
+    void to_log(bool pr_update = false);
     void create_vars(TQuery &Qry, bool pr_update = false);
     void create_var(TQuery &Qry, string name, int val);
     TUserData():
@@ -733,6 +754,12 @@ void TUserData::del()
     Qry.CreateVariable("OLD_user_id", otInteger, user_id);
     try {
         Qry.Execute();
+        ostringstream log_msg;
+        log_msg << "Удаление строки в таблице 'Пользователи'. USER_ID=" << user_id;
+        TLogMsg message;
+        message.ev_type = evtAccess;
+        message.msg = log_msg.str();
+        TReqInfo::Instance()->MsgToLog( message );
     }
     catch(EOracleError &E)
     {
@@ -750,119 +777,126 @@ void TUserData::update_aro(bool pr_insert)
 {
     TReqInfo &info = *(TReqInfo::Instance());
     try {
+        TLogMsg message;
+        message.ev_type = evtAccess;
         TQuery Qry(&OraSession);
         Qry.SQLText =
             "begin "
-            "  begin "
-            "    INSERT INTO aro_airlines(aro_id,airline) VALUES(:user_id,:airline); "
-            "    :user_id:=adm.check_user_access(:user_id,:SYS_user_id,1); "
-            "    :airline:=adm.check_airline_access(:airline,:airline,:SYS_user_id,1); "
-            "  exception "
-            "    when dup_val_on_index then null; "
-            "  end; "
+            "  INSERT INTO aro_airlines(aro_id,airline) VALUES(:user_id,:airline); "
+            "  :user_id:=adm.check_user_access(:user_id,:SYS_user_id,1); "
+            "  :airline:=adm.check_airline_access(:airline,:airline,:SYS_user_id,1); "
             "end; ";
         Qry.CreateVariable("sys_user_id", otInteger, info.user.user_id);
         Qry.CreateVariable("user_id", otInteger, user_id);
         Qry.DeclareVariable("airline", otString);
         for(set<string>::iterator iv = airlines.begin(); iv != airlines.end(); iv++) {
             Qry.SetVariable("airline", *iv);
-            ProgTrace(TRACE5, "update_aro: airline = %s", iv->c_str());
             try {
                 Qry.Execute();
+                ostringstream log_msg;
+                log_msg << "Ввод строки в таблице 'Доступ к авиакомпаниям': USER_ID=" << user_id << ", AIRLINE='" << *iv << "'";
+                message.msg = log_msg.str();
+                info.MsgToLog(message);
+                ProgTrace(TRACE5, "aro_airlines log: %s", message.msg.c_str());
             } catch(EOracleError &E) {
-                ProgTrace(TRACE5, "update_aro err: %s, %d", E.what(), E.Code);
-                throw;
+                ProgTrace(TRACE5, "aro_airlines except: %d", E.Code);
+                if(E.Code != 1) // dup_val_on_index
+                    throw;
             }
-            ProgTrace(TRACE5, "update_aro: after insert airline");
         }
         Qry.Clear();
-        string SQLText =
-            "declare "
-            "  cursor cur is select airline from aro_airlines where ";
+        string SQLText = "select airline from aro_airlines where ";
         if(not airlines.empty())
             SQLText +=
                 " airline not in" + GetSQLEnum(airlines) + " and ";
         SQLText +=
-            "        aro_id = :user_id; "
-            "    c cur%rowtype; "
-            "begin "
-            "    open cur; "
-            "    fetch cur into c; "
-            "    if cur%found then "
-            "      :user_id:=adm.check_user_access(:user_id,:SYS_user_id,2); "
-            "      while cur%found loop "
-            "        c.airline:=adm.check_airline_access(c.airline,c.airline,:SYS_user_id,1); "
-            "        delete from aro_airlines where aro_id = :user_id and airline = c.airline; "
-            "        fetch cur into c; "
-            "      end loop; "
-            "    end if; "
-            "end; ";
+            "        aro_id = :user_id";
         Qry.SQLText = SQLText;
         Qry.CreateVariable("user_id", otInteger, user_id);
-        Qry.CreateVariable("sys_user_id", otInteger, info.user.user_id);
-        ProgTrace(TRACE5, "SQLText before delete airlines: %s", Qry.SQLText.SQLText());
         Qry.Execute();
+        TQuery delQry(&OraSession);
+        delQry.SQLText =
+            "begin "
+            "  if :first <> 0 then :user_id:=adm.check_user_access(:user_id,:SYS_user_id,2); end if; "
+            "  :airline:=adm.check_airline_access(:airline,:airline,:SYS_user_id,1); "
+            "  delete from aro_airlines where aro_id = :user_id and airline = :airline; "
+            "end; ";
+        delQry.CreateVariable("user_id", otInteger, user_id);
+        delQry.CreateVariable("sys_user_id", otInteger, info.user.user_id);
+        delQry.CreateVariable("first", otInteger, 1);
+        delQry.DeclareVariable("airline", otString);
+        for(; not Qry.Eof; Qry.Next()) {
+            string airline = Qry.FieldAsString(0);
+            delQry.SetVariable("airline", airline);
+            delQry.Execute();
+            delQry.SetVariable("first", 0);
+            ostringstream log_msg;
+            log_msg << "Удаление строки в таблице 'Доступ к авиакомпаниям': USER_ID=" << user_id << ", AIRLINE='" << airline << "'";
+            message.msg = log_msg.str();
+            info.MsgToLog(message);
+        }
 
         Qry.Clear();
         Qry.SQLText =
             "begin "
-            "  begin "
-            "    INSERT INTO aro_airps(aro_id,airp) VALUES(:user_id,:airp); "
-            "    :user_id:=adm.check_user_access(:user_id,:SYS_user_id,1); "
-            "    :airp:=adm.check_airp_access(:airp,:airp,:SYS_user_id,1); "
-            "  exception "
-            "    when dup_val_on_index then null; "
-            "  end; "
+            "  INSERT INTO aro_airps(aro_id,airp) VALUES(:user_id,:airp); "
+            "  :user_id:=adm.check_user_access(:user_id,:SYS_user_id,1); "
+            "  :airp:=adm.check_airp_access(:airp,:airp,:SYS_user_id,1); "
             "end; ";
         Qry.CreateVariable("sys_user_id", otInteger, info.user.user_id);
         Qry.CreateVariable("user_id", otInteger, user_id);
         Qry.DeclareVariable("airp", otString);
         for(set<string>::iterator iv = airps.begin(); iv != airps.end(); iv++) {
             Qry.SetVariable("airp", *iv);
-            ProgTrace(TRACE5, "update_aro: airp = %s", iv->c_str());
-            Qry.Execute();
-            ProgTrace(TRACE5, "update_aro: after insert airp");
+            try {
+                Qry.Execute();
+                ostringstream log_msg;
+                log_msg << "Ввод строки в таблице 'Доступ к аэропортам': USER_ID=" << user_id << ", AIRP='" << *iv << "'";
+                message.msg = log_msg.str();
+                info.MsgToLog(message);
+            } catch(EOracleError &E) {
+                if(E.Code != 1) // dup_val_on_index
+                    throw;
+            }
         }
         Qry.Clear();
-        SQLText =
-            "declare "
-            "  cursor cur is select airp from aro_airps where ";
+        SQLText = "select airp from aro_airps where ";
         if(not airps.empty())
             SQLText +=
                 " airp not in" + GetSQLEnum(airps) + " and ";
         SQLText +=
-            "        aro_id = :user_id; "
-            "    c cur%rowtype; "
-            "begin "
-            "    open cur; "
-            "    fetch cur into c; "
-            "    if cur%found then "
-            "      :user_id:=adm.check_user_access(:user_id,:SYS_user_id,2); "
-            "      while cur%found loop "
-            "        c.airp:=adm.check_airp_access(c.airp,c.airp,:SYS_user_id,1); "
-            "        delete from aro_airps where aro_id = :user_id and airp = c.airp; "
-            "        fetch cur into c; "
-            "      end loop; "
-            "    end if; "
-            "end; ";
-        ProgTrace(TRACE5, "SQLText: %s", SQLText.c_str());
+            "        aro_id = :user_id";
         Qry.SQLText = SQLText;
         Qry.CreateVariable("user_id", otInteger, user_id);
-        Qry.CreateVariable("sys_user_id", otInteger, info.user.user_id);
-        ProgTrace(TRACE5, "before aro_airps");
         Qry.Execute();
-        ProgTrace(TRACE5, "after aro_airps");
+        delQry.Clear();
+        delQry.SQLText =
+            "begin "
+            "  if :first <> 0 then :user_id:=adm.check_user_access(:user_id,:SYS_user_id,2); end if; "
+            "  :airp:=adm.check_airp_access(:airp,:airp,:SYS_user_id,1); "
+            "  delete from aro_airps where aro_id = :user_id and airp = :airp; "
+            "end; ";
+        delQry.CreateVariable("user_id", otInteger, user_id);
+        delQry.CreateVariable("sys_user_id", otInteger, info.user.user_id);
+        delQry.CreateVariable("first", otInteger, 1);
+        delQry.DeclareVariable("airp", otString);
+        for(; not Qry.Eof; Qry.Next()) {
+            string airp = Qry.FieldAsString(0);
+            delQry.SetVariable("airp", airp);
+            delQry.Execute();
+            delQry.SetVariable("first", 0);
+            ostringstream log_msg;
+            log_msg << "Удаление строки в таблице 'Доступ к аэропортам': USER_ID=" << user_id << ", AIRP='" << airp << "'";
+            message.msg = log_msg.str();
+            info.MsgToLog(message);
+        }
 
         Qry.Clear();
         Qry.SQLText =
             "begin "
-            "  begin "
-            "    INSERT INTO user_roles(user_id,role_id) VALUES(:user_id,:role); "
-            "    :user_id:=adm.check_user_access(:user_id,:SYS_user_id,1); "
-            "    :role:=adm.check_role_access(:role,:SYS_user_id,1); "
-            "  exception "
-            "    when dup_val_on_index then null; "
-            "  end; "
+            "  INSERT INTO user_roles(user_id,role_id) VALUES(:user_id,:role); "
+            "  :user_id:=adm.check_user_access(:user_id,:SYS_user_id,1); "
+            "  :role:=adm.check_role_access(:role,:SYS_user_id,1); "
             "end; ";
         Qry.CreateVariable("sys_user_id", otInteger, info.user.user_id);
         Qry.CreateVariable("user_id", otInteger, user_id);
@@ -871,37 +905,48 @@ void TUserData::update_aro(bool pr_insert)
         for(set<string>::iterator iv = roles.begin(); iv != roles.end(); iv++) {
             role_ids.push_back(get_role_id(*iv));
             Qry.SetVariable("role", role_ids.back());
-            ProgTrace(TRACE5, "update_aro: role = %s", iv->c_str());
-            Qry.Execute();
-            ProgTrace(TRACE5, "update_aro: after insert role");
+            try {
+                Qry.Execute();
+                ostringstream log_msg;
+                log_msg << "Ввод строки в таблице 'Распределение категорий (ролей)': USER_ID=" << user_id << ", ROLE_ID=" << role_ids.back();
+                message.msg = log_msg.str();
+                info.MsgToLog(message);
+            } catch(EOracleError &E) {
+                if(E.Code != 1) // dup_val_on_index
+                    throw;
+            }
         }
         Qry.Clear();
-        SQLText =
-            "declare "
-            "    cursor cur is select role_id from user_roles where ";
+        SQLText = "select role_id from user_roles where ";
         if(not role_ids.empty())
             SQLText +=
                 " role_id not in" + GetSQLEnum(role_ids) + " and ";
         SQLText +=
-            "        user_id = :user_id; "
-            "    c cur%rowtype; "
-            "begin "
-            "    open cur; "
-            "    fetch cur into c; "
-            "    if cur%found then "
-            "      :user_id:=adm.check_user_access(:user_id,:SYS_user_id,2); "
-            "      while cur%found loop "
-            "        c.role_id:=adm.check_role_access(c.role_id,:SYS_user_id,2); "
-            "        delete from user_roles where user_id = :user_id and role_id = c.role_id; "
-            "        fetch cur into c; "
-            "      end loop; "
-            "    end if; "
-            "end; ";
-        ProgTrace(TRACE5, "delete roles SQLText: %s", SQLText.c_str());
+            "        user_id = :user_id";
         Qry.SQLText = SQLText;
         Qry.CreateVariable("user_id", otInteger, user_id);
-        Qry.CreateVariable("sys_user_id", otInteger, info.user.user_id);
         Qry.Execute();
+        delQry.Clear();
+        delQry.SQLText =
+            "begin "
+            "  if :first <> 0 then :user_id:=adm.check_user_access(:user_id,:SYS_user_id,2); end if; "
+            "  :role_id:=adm.check_role_access(:role_id,:SYS_user_id,2); "
+            "  delete from user_roles where user_id = :user_id and role_id = :role_id; "
+            "end; ";
+        delQry.CreateVariable("user_id", otInteger, user_id);
+        delQry.CreateVariable("sys_user_id", otInteger, info.user.user_id);
+        delQry.CreateVariable("first", otInteger, 1);
+        delQry.DeclareVariable("role_id", otInteger);
+        for(; not Qry.Eof; Qry.Next()) {
+            int role_id = Qry.FieldAsInteger(0);
+            delQry.SetVariable("role_id", role_id);
+            delQry.Execute();
+            delQry.SetVariable("first", 0);
+            ostringstream log_msg;
+            log_msg << "Удаление строки в таблице 'Распределение категорий (ролей)': USER_ID=" << user_id << ", ROLE_ID=" << role_id;
+            message.msg = log_msg.str();
+            info.MsgToLog(message);
+        }
 
         Qry.Clear();
         Qry.SQLText = "select adm.check_user_view_access(:user_id, :sys_user_id) from dual";
@@ -947,7 +992,30 @@ void TUserData::update()
         else
             throw;
     };
+    to_log(true);
     update_aro();
+}
+
+void TUserData::to_log(bool pr_update)
+{
+    ostringstream log_msg;
+    log_msg
+        << (pr_update ? "Изменение" : "Ввод")
+        << " строки в таблице 'Пользователи': "
+        << "Ф.И.О.='" << descr << "', "
+        << "Логин='" << login << "', "
+        << "TYPE_CODE=" << user_type << ", "
+        << "Откл.=" << pr_denial;
+    if(time_fmt >= 0) log_msg << ", TIME_FMT=" << time_fmt;
+    if(airline_fmt >= 0) log_msg << ", DISP_AIRLINE_FMT=" << airline_fmt;
+    if(airp_fmt >= 0) log_msg << ", DISP_AIRP_FMT=" << airp_fmt;
+    if(craft_fmt >= 0) log_msg << ", DISP_CRAFT_FMT=" << craft_fmt;
+    if(suff_fmt >= 0) log_msg << ", DISP_SUFFIX_FMT=" << suff_fmt;
+    TLogMsg message;
+    message.msg = log_msg.str();
+    message.ev_type = evtAccess;
+    TReqInfo::Instance()->MsgToLog( message );
+
 }
 
 void TUserData::insert()
@@ -975,6 +1043,7 @@ void TUserData::insert()
             throw;
     };
     user_id = Qry.GetVariableAsInteger("user_id");
+    to_log();
     update_aro(true);
 }
 
