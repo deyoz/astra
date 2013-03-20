@@ -36,6 +36,8 @@ namespace STAT {
             agent_stat_t drk_weight
             );
     int agent_stat_delta(int argc,char **argv);
+
+    xmlNodePtr getVariablesNode(xmlNodePtr resNode);
 }
 
 class StatInterface : public JxtInterface

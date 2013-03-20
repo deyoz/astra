@@ -1644,17 +1644,23 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-xmlNodePtr STAT::set_variables(xmlNodePtr resNode, string lang)
+xmlNodePtr STAT::getVariablesNode(xmlNodePtr resNode)
 {
-    if(lang.empty())
-        lang = TReqInfo::Instance()->desk.lang;
-
     xmlNodePtr formDataNode = GetNode("form_data", resNode);
     if(!formDataNode)
         formDataNode = NewTextChild(resNode, "form_data");
     xmlNodePtr variablesNode = GetNode("variables", formDataNode);
     if(!variablesNode)
         variablesNode = NewTextChild(formDataNode, "variables");
+    return variablesNode;
+}
+
+xmlNodePtr STAT::set_variables(xmlNodePtr resNode, string lang)
+{
+    if(lang.empty())
+        lang = TReqInfo::Instance()->desk.lang;
+
+    xmlNodePtr variablesNode = getVariablesNode(resNode);
 
     TReqInfo *reqInfo = TReqInfo::Instance();
     TDateTime issued = NowUTC();
