@@ -253,7 +253,6 @@ class TReqInfo
 void MergeAccess(std::vector<std::string> &a, bool &ap,
                  std::vector<std::string> b, bool bp);
 
-std::string GetSQLEnum(const std::vector<std::string> &values);
 void MsgToLog(TLogMsg &msg,
               const std::string &screen,
               const std::string &user,
@@ -383,5 +382,23 @@ bool get_test_server();
 std::string& EOracleError2UserException(std::string& msg);
 
 std::string get_internal_msgid_hex();
+
+template <class T>
+std::string GetSQLEnum(const T &values)
+{
+  std::ostringstream res;
+  bool first_iteration=true;
+  for(typename T::const_iterator i=values.begin();i!=values.end();++i)
+  {
+    if (i->empty()) continue;
+    if (!first_iteration) res << ", ";
+    res << "'" << *i << "'";
+    first_iteration=false;
+  };
+  if (!first_iteration)
+    return " ("+res.str()+") ";
+  else
+    return "";
+};
 
 #endif /*_ASTRA_UTILS_H_*/
