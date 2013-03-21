@@ -102,19 +102,25 @@ class TBagToLogInfo
 {
   public:
     int id, pr_cabin, amount, weight;
+    int bag_type;
+    bool using_scales;
     void clear()
     {
       id=ASTRA::NoExists;
       pr_cabin=false;
       amount=0;
       weight=0;
+      bag_type=ASTRA::NoExists;
+      using_scales=false;
     };
     bool operator == (const TBagToLogInfo &item) const
     {
       return id == item.id &&
              pr_cabin == item.pr_cabin &&
              amount == item.amount &&
-             weight == item.weight;
+             weight == item.weight &&
+             bag_type == item.bag_type &&
+             using_scales == item.using_scales;
     };
     TBagToLogInfo()
     {
@@ -204,6 +210,9 @@ void SaveGrpToLog(int point_id,
                   const TGrpToLogInfo &grpInfoBefore,
                   const TGrpToLogInfo &grpInfoAfter,
                   TAgentStatInfo &agentStat);
+//функция не только возвращает auto_weighing для пульта,
+//но и пишет в лог, если для данного пульта изменилась настройка
+bool GetAutoWeighing(int point_id, const std::string &work_mode);
 
 
 #endif
