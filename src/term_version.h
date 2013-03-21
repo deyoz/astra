@@ -29,6 +29,7 @@
 #define DISABLE_LAYERS                "201212-0143529"
 #define BAG_TO_RAMP_VERSION           "201302-0144745"
 #define ACCESS_MODULE_VERSION         "201303-0145903"
+#define USING_SCALES_VERSION          "201303-0145937"
 
 #endif
 

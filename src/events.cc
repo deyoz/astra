@@ -287,7 +287,7 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
 
     Qry.Clear();
     Qry.SQLText=
-      "SELECT id, bag_type, pr_cabin, amount, weight, "
+      "SELECT id, bag_type, pr_cabin, amount, weight, using_scales, "
       "       ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse) AS refused "
       "FROM pax_grp,bag2 "
       "WHERE pax_grp.grp_id=bag2.grp_id AND "
@@ -305,6 +305,8 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
         bagInfo.pr_cabin=Qry.FieldAsInteger("pr_cabin")!=0;
         bagInfo.amount=Qry.FieldAsInteger("amount");
         bagInfo.weight=Qry.FieldAsInteger("weight");
+        bagInfo.bag_type=Qry.FieldIsNULL("bag_type")?ASTRA::NoExists:Qry.FieldAsInteger("bag_type");
+        bagInfo.using_scales=Qry.FieldAsInteger("using_scales")!=0;
         grpInfo.bag[bagInfo.id]=bagInfo;
 
         if (Qry.FieldAsInteger("refused")!=0) continue;
@@ -348,6 +350,8 @@ void SaveGrpToLog(int point_id,
                   TAgentStatInfo &agentStat)
 {
   bool SyncPaxs=is_sync_paxs(point_id);
+  
+  bool auto_weighing=GetAutoWeighing(point_id, "Р");
   
   agentStat.clear();
 
@@ -563,7 +567,8 @@ void SaveGrpToLog(int point_id,
       };
     };
   };
-
+  //багаж введенный вручную (using_scales=false):
+  map<bool/*pr_cabin*/, map< int/*id*/, TBagToLogInfo> > man_weighing_bag_inc, man_weighing_bag_dec;
   //агентская статистика по изменениям багажа
   {
     std::map< int/*id*/, TBagToLogInfo>::const_iterator a=grpInfoAfter.bag.begin();
@@ -608,6 +613,8 @@ void SaveGrpToLog(int point_id,
           agentStat.dbag_amount.inc+=aBag->second.amount;
           agentStat.dbag_weight.inc+=aBag->second.weight;
         };
+        if (auto_weighing && !aBag->second.using_scales)
+          man_weighing_bag_inc[aBag->second.pr_cabin].insert(*aBag);
       };
 
       if (bBag!=grpInfoBefore.bag.end())
@@ -622,8 +629,45 @@ void SaveGrpToLog(int point_id,
           agentStat.dbag_amount.dec+=bBag->second.amount;
           agentStat.dbag_weight.dec+=bBag->second.weight;
         };
+        if (auto_weighing && !bBag->second.using_scales)
+          man_weighing_bag_dec[bBag->second.pr_cabin].insert(*bBag);
       };
 
+    };
+  };
+
+  for(int pass=0; pass<2; pass++)
+  {
+    map<bool/*pr_cabin*/, map< int/*id*/, TBagToLogInfo> >::const_iterator i=
+      (pass==0)?man_weighing_bag_dec.begin():man_weighing_bag_inc.begin();
+    for(;i!=(pass==0?man_weighing_bag_dec.end():man_weighing_bag_inc.end());++i)
+    {
+      if (i->second.empty()) continue;
+
+      ostringstream msg;
+      if (pass==0)
+      {
+        if (i->first) //pr_cabin
+          msg << "Удалена р/к с весом, введенным вручную: ";
+        else
+          msg << "Удален багаж с весом, введенным вручную: ";
+      }
+      else
+      {
+        if (i->first) //pr_cabin
+          msg << "Добавлена р/к с весом, введенным вручную: ";
+        else
+          msg << "Добавлен багаж с весом, введенным вручную: ";
+      };
+      for(map< int/*id*/, TBagToLogInfo>::const_iterator j=i->second.begin();
+                                                         j!=i->second.end(); ++j)
+      {
+        if (j!=i->second.begin()) msg << ", ";
+        if (j->second.bag_type!=ASTRA::NoExists)
+          msg << setw(2) << setfill('0') << j->second.bag_type << ":";
+        msg << j->second.amount << "/" << j->second.weight;
+      };
+      reqInfo->MsgToLog(msg.str(), ASTRA::evtPax, point_id, ASTRA::NoExists, grp_id);
     };
   };
 
@@ -648,4 +692,66 @@ void SaveGrpToLog(int point_id,
 
   reqInfo->MsgToLog(msg.str(), ASTRA::evtPax, point_id, ASTRA::NoExists, grp_id);
 };
+
+//функция не только возвращает auto_weighing для пульта,
+//но и пишет в лог, если для данного пульта изменилась настройка
+bool GetAutoWeighing(int point_id, const string &work_mode)
+{
+  TReqInfo* reqInfo = TReqInfo::Instance();
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT trip_sets.auto_weighing, stations.using_scales "
+    "FROM trip_sets, stations "
+    "WHERE trip_sets.point_id=:point_id AND "
+    "      stations.desk=:desk AND stations.work_mode=:work_mode";
+  Qry.CreateVariable("point_id", otInteger, point_id);
+  Qry.CreateVariable("desk", otString, reqInfo->desk.code);
+  Qry.CreateVariable("work_mode", otString, work_mode);
+  Qry.Execute();
+  bool auto_weighing=false;
+  if (!Qry.Eof)
+    auto_weighing=Qry.FieldAsInteger("auto_weighing")!=0 &&
+                  Qry.FieldAsInteger("using_scales")!=0;
+
+  Qry.Clear();
+  Qry.CreateVariable("point_id", otInteger, point_id);
+  Qry.CreateVariable("desk", otString, reqInfo->desk.code);
+  if (auto_weighing)
+  {
+    Qry.SQLText=
+      "INSERT INTO trip_auto_weighing(point_id, desk) VALUES(:point_id, :desk)";
+    try
+    {
+      Qry.Execute();
+      if (Qry.RowsProcessed()>0)
+      {
+        ostringstream msg;
+        msg << "Установлен контроль автоматического взвешивания багажа для пульта "
+            << reqInfo->desk.code;
+        reqInfo->MsgToLog(msg.str(), ASTRA::evtFlt, point_id);
+      };
+    }
+    catch(EOracleError E)
+    {
+      if (E.Code!=1) throw;
+    };
+  }
+  else
+  {
+    Qry.SQLText=
+      "DELETE FROM trip_auto_weighing WHERE point_id=:point_id AND desk=:desk";
+    Qry.Execute();
+    if (Qry.RowsProcessed()>0)
+    {
+      ostringstream msg;
+      msg << "Отменен контроль автоматического взвешивания багажа для пульта "
+          << reqInfo->desk.code;
+      reqInfo->MsgToLog(msg.str(), ASTRA::evtFlt, point_id);
+    };
+  };
+
+  return auto_weighing;
+};
+
 
