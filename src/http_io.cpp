@@ -279,28 +279,23 @@ void my_test()
     send_bsm(host_list, bsm_list);
 }
 
-void sirena_rozysk_send(const std::string &content)
+void sirena_rozysk_send(const HTTPRequestInfo &r)
 {
-    string host = "uat2.vtsft.ru";
-    u_int port = 80;
-    string resource = "/ss-services/SirenaSearchService";
-    string action = "importASTDate";
-
     ostringstream host_port;
-    host_port << host << ":" << port;
+    host_port << r.addr << ":" << r.port;
 
     io_service io_service;
     pion::tcp::connection tcp_conn(io_service, false);
 
-    if(boost::system::error_code error_code = tcp_conn.connect(host,port))
+    if(boost::system::error_code error_code = tcp_conn.connect(r.addr, r.port))
         throw Exception("connect failed: %s", error_code.message().c_str());
 
-    request post(resource);
+    request post(r.resource);
     post.set_method("POST");
-    post.add_header("SOAPAction", action);
+    post.add_header("SOAPAction", r.action);
     post.add_header("Host", host_port.str());
     post.set_content_type("text/xml;charset=UTF-8");
-    post.set_content(content);
+    post.set_content(r.content);
 
     boost::system::error_code failed;
     post.send(tcp_conn, failed);
