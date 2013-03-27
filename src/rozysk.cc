@@ -9,7 +9,6 @@
 #include "astra_utils.h"
 #include "xml_unit.h"
 #include "base_tables.h"
-#include "astra_context.h"
 #include "http_io.h"
 #include "passenger.h"
 #include "jxtlib/xml_stuff.h"
@@ -23,6 +22,10 @@ using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC;
 using namespace ASTRA;
+
+const std::string ROZYSK_MAGISTRAL = "ROZYSK_MAGISTRAL";
+const std::string ROZYSK_MAGISTRAL_24 = "ROZYSK_MAGISTRAL_24";
+const std::string ROZYSK_SIRENA = "ROZYSK_SIRENA";
 
 namespace rozysk
 {
@@ -508,23 +511,39 @@ string make_soap_content(const vector<TPax> &paxs)
         "      </sir:importASTDateRequest>\n"
         "   </soapenv:Body>\n"
         "</soapenv:Envelope>";
+    //ProgTrace( TRACE5, "make_soap_content: return %s", result.str().c_str() );
     return ConvertCodepage(result.str(), "CP866", "UTF-8");
 }
 
-}
+} //namespace rozysk
 
 void sync_sirena_rozysk( TDateTime utcdate )
 {
   ProgTrace(TRACE5,"sync_sirena_rozysk started");
   vector<rozysk::TPax> paxs;
-  paxs.clear();
-  string prior_val;
-  TDateTime prior_time = ASTRA::NoExists;
-  if ( AstraContext::GetContext( "sync_sirena_rozysk", 0, prior_val ) != ASTRA::NoExists ) {
-    if ( StrToDateTime( prior_val.c_str(), "dd.mm.yyyy hh:nn", prior_time ) == EOF )
-      throw Exception( "get_pax_wanted: invalid context 'sync_sirena_rozysk' %s", prior_val.c_str() );
-  }
+
   TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+      "SELECT addr, port, http_resource, action, last_create "
+      "FROM http_sets "
+      "WHERE code=:code AND pr_denial=0 FOR UPDATE";
+  Qry.CreateVariable("code", otString, ROZYSK_SIRENA);
+  Qry.Execute();
+  if (Qry.Eof) return;
+  TDateTime last_time=NowUTC() - 1.0/1440.0; //отматываем минуту, так как данные последних секунд могут быть еще не закоммичены в rozysk
+  TDateTime first_time = Qry.FieldIsNULL("last_create") ? last_time - 10.0/1440.0 :
+                                                          Qry.FieldAsDateTime("last_create");
+
+  if (first_time>=last_time) return;
+  HTTPRequestInfo request;
+  request.addr=Qry.FieldAsString("addr");
+  request.port=Qry.FieldAsInteger("port");
+  request.resource=Qry.FieldAsString("http_resource");
+  request.action=Qry.FieldAsString("action");
+
+
+  Qry.Clear();
   Qry.SQLText =
       "SELECT time, term, "
       "       airline, flt_no, suffix, takeoff, airp_dep, "
@@ -535,86 +554,89 @@ void sync_sirena_rozysk( TDateTime utcdate )
       "       doc_no, doc_nationality, NVL(doc_gender,'N') AS doc_gender, "
       "       visa_no, visa_issue_place, visa_issue_date, visa_applic_country "
       "FROM rozysk "
-      "WHERE time>=:time "
+      "WHERE time>=:first_time AND time<:last_time "
       "ORDER BY time";
-  if ( prior_time == ASTRA::NoExists )
-    prior_time =  NowUTC() - 10.0/1440.0;
-  Qry.CreateVariable( "time", otDate, prior_time );
+  Qry.CreateVariable( "first_time", otDate, first_time );
+  Qry.CreateVariable( "last_time", otDate, last_time );
   Qry.Execute();
-  prior_time = ASTRA::NoExists;
-  int idx_time = Qry.FieldIndex( "time" );
-  int idx_term = Qry.FieldIndex( "term" );
+  if (!Qry.Eof)
+  {
+    int idx_time = Qry.FieldIndex( "time" );
+    int idx_term = Qry.FieldIndex( "term" );
 
-  int idx_airline = Qry.FieldIndex( "airline" );
-  int idx_flt_no = Qry.FieldIndex( "flt_no" );
-  int idx_suffix = Qry.FieldIndex( "suffix" );
-  int idx_takeoff = Qry.FieldIndex( "takeoff" );
-  int idx_airp_dep = Qry.FieldIndex( "airp_dep" );
+    int idx_airline = Qry.FieldIndex( "airline" );
+    int idx_flt_no = Qry.FieldIndex( "flt_no" );
+    int idx_suffix = Qry.FieldIndex( "suffix" );
+    int idx_takeoff = Qry.FieldIndex( "takeoff" );
+    int idx_airp_dep = Qry.FieldIndex( "airp_dep" );
 
-  int idx_airp_arv = Qry.FieldIndex( "airp_arv" );
-  int idx_surname = Qry.FieldIndex( "surname" );
-  int idx_name = Qry.FieldIndex( "name" );
-  int idx_patronymic = Qry.FieldIndex( "patronymic" );
-  int idx_seat_no = Qry.FieldIndex( "seat_no" );
-  int idx_bag_weight = Qry.FieldIndex( "bag_weight" );
-  int idx_tags = Qry.FieldIndex( "tags" );
-  int idx_pnr = Qry.FieldIndex( "pnr" );
-  int idx_operation = Qry.FieldIndex( "operation" );
+    int idx_airp_arv = Qry.FieldIndex( "airp_arv" );
+    int idx_surname = Qry.FieldIndex( "surname" );
+    int idx_name = Qry.FieldIndex( "name" );
+    int idx_patronymic = Qry.FieldIndex( "patronymic" );
+    int idx_seat_no = Qry.FieldIndex( "seat_no" );
+    int idx_bag_weight = Qry.FieldIndex( "bag_weight" );
+    int idx_tags = Qry.FieldIndex( "tags" );
+    int idx_pnr = Qry.FieldIndex( "pnr" );
+    int idx_operation = Qry.FieldIndex( "operation" );
 
-  int idx_doc_no = Qry.FieldIndex( "doc_no" );
-  int idx_doc_nationality = Qry.FieldIndex( "doc_nationality" );
-  int idx_doc_gender = Qry.FieldIndex( "doc_gender" );
-  int idx_visa_no = Qry.FieldIndex( "visa_no" );
-  int idx_visa_issue_place = Qry.FieldIndex( "visa_issue_place" );
-  int idx_visa_issue_date = Qry.FieldIndex( "visa_issue_date" );
-  int idx_visa_applic_country = Qry.FieldIndex( "visa_applic_country" );
+    int idx_doc_no = Qry.FieldIndex( "doc_no" );
+    int idx_doc_nationality = Qry.FieldIndex( "doc_nationality" );
+    int idx_doc_gender = Qry.FieldIndex( "doc_gender" );
+    int idx_visa_no = Qry.FieldIndex( "visa_no" );
+    int idx_visa_issue_place = Qry.FieldIndex( "visa_issue_place" );
+    int idx_visa_issue_date = Qry.FieldIndex( "visa_issue_date" );
+    int idx_visa_applic_country = Qry.FieldIndex( "visa_applic_country" );
 
-  for ( ;!Qry.Eof; Qry.Next() ) {
-    if ( prior_time < Qry.FieldAsDateTime( idx_time ) )
-      prior_time = Qry.FieldAsDateTime( idx_time );
-    if ( !rozysk::filter_passenger( Qry.FieldAsString( idx_airp_dep ),
-                                    Qry.FieldAsString( idx_airp_arv ),
-                                    Qry.FieldAsString( idx_doc_nationality ) ) )
-      continue;
-    rozysk::TPax pax;
-    pax.transactionDate = Qry.FieldAsDateTime( idx_time );
-    pax.airline = Qry.FieldAsString( idx_airline );
-    pax.flightNumber = string(Qry.FieldAsString( idx_flt_no )) + Qry.FieldAsString( idx_suffix );
-    if ( Qry.FieldIsNULL( idx_takeoff ) )
-      pax.departureDate = ASTRA::NoExists;
-    else
-      pax.departureDate = Qry.FieldAsDateTime( idx_takeoff );
-    pax.rackNumber = Qry.FieldAsString( idx_term );
-    pax.seatNumber = Qry.FieldAsString( idx_seat_no );
-    pax.firstName = Qry.FieldAsString( idx_surname );
-    pax.lastName = Qry.FieldAsString( idx_name );
-    pax.patronymic = Qry.FieldAsString( idx_patronymic );
-    pax.documentNumber = Qry.FieldAsString( idx_doc_no );
-    pax.operationType = Qry.FieldAsString( idx_operation );
-    pax.baggageReceiptsNumber = Qry.FieldAsString( idx_tags );
-    pax.departureAirport = Qry.FieldAsString( idx_airp_dep );
-    pax.arrivalAirport = Qry.FieldAsString( idx_airp_arv );
-    pax.baggageWeight = Qry.FieldAsString( idx_bag_weight );
-    pax.PNR = Qry.FieldAsString( idx_pnr );
-    pax.visaNumber = Qry.FieldAsString( idx_visa_no );
-    if ( Qry.FieldIsNULL( idx_visa_issue_date ) )
-      pax.visaDate = ASTRA::NoExists;
-    else
-      pax.visaDate = Qry.FieldAsDateTime( idx_visa_issue_date );
-    pax.visaPlace = Qry.FieldAsString( idx_visa_issue_place );
-    pax.visaCountryCode = Qry.FieldAsString( idx_visa_applic_country );
-    pax.gender = Qry.FieldAsString( idx_doc_gender );
-    paxs.push_back( pax );
-  }
+    for ( ;!Qry.Eof; Qry.Next() )
+    {
+      if ( !rozysk::filter_passenger( Qry.FieldAsString( idx_airp_dep ),
+                                      Qry.FieldAsString( idx_airp_arv ),
+                                      Qry.FieldAsString( idx_doc_nationality ) ) )
+        continue;
+      rozysk::TPax pax;
+      pax.transactionDate = Qry.FieldAsDateTime( idx_time );
+      pax.airline = Qry.FieldAsString( idx_airline );
+      pax.flightNumber = string(Qry.FieldAsString( idx_flt_no )) + Qry.FieldAsString( idx_suffix );
+      if ( Qry.FieldIsNULL( idx_takeoff ) )
+        pax.departureDate = ASTRA::NoExists;
+      else
+        pax.departureDate = Qry.FieldAsDateTime( idx_takeoff );
+      pax.rackNumber = Qry.FieldAsString( idx_term );
+      pax.seatNumber = Qry.FieldAsString( idx_seat_no );
+      pax.firstName = Qry.FieldAsString( idx_surname );
+      pax.lastName = Qry.FieldAsString( idx_name );
+      pax.patronymic = Qry.FieldAsString( idx_patronymic );
+      pax.documentNumber = Qry.FieldAsString( idx_doc_no );
+      pax.operationType = Qry.FieldAsString( idx_operation );
+      pax.baggageReceiptsNumber = Qry.FieldAsString( idx_tags );
+      pax.departureAirport = Qry.FieldAsString( idx_airp_dep );
+      pax.arrivalAirport = Qry.FieldAsString( idx_airp_arv );
+      pax.baggageWeight = Qry.FieldAsString( idx_bag_weight );
+      pax.PNR = Qry.FieldAsString( idx_pnr );
+      pax.visaNumber = Qry.FieldAsString( idx_visa_no );
+      if ( Qry.FieldIsNULL( idx_visa_issue_date ) )
+        pax.visaDate = ASTRA::NoExists;
+      else
+        pax.visaDate = Qry.FieldAsDateTime( idx_visa_issue_date );
+      pax.visaPlace = Qry.FieldAsString( idx_visa_issue_place );
+      pax.visaCountryCode = Qry.FieldAsString( idx_visa_applic_country );
+      pax.gender = Qry.FieldAsString( idx_doc_gender );
+      paxs.push_back( pax );
+    }
+  };
+  Qry.Clear();
+  Qry.SQLText =
+    "UPDATE http_sets SET last_create=:last_time WHERE code=:code";
+  Qry.CreateVariable("code", otString, ROZYSK_SIRENA);
+  Qry.CreateVariable("last_time", otDate, last_time);
+  Qry.Execute();
+
   ProgTrace( TRACE5, "pax.size()=%d", paxs.size() );
   if(not paxs.empty()) {
-    sirena_rozysk_send(make_soap_content(paxs));
+    request.content=make_soap_content(paxs);
+    sirena_rozysk_send(request);
     ProgTrace(TRACE5, "sirena_rozysk_send completed");
-  }
-  
-  if ( prior_time != ASTRA::NoExists ) {
-    AstraContext::ClearContext( "sync_sirena_rozysk", 0 );
-    AstraContext::SetContext( "sync_sirena_rozysk", 0, DateTimeToStr( prior_time, "dd.mm.yyyy hh:nn" ) );
   }
 }
 
@@ -731,18 +753,18 @@ void sync_mvd(void)
     "WHERE code=:code AND pr_denial=0";
   FilesQry.DeclareVariable("code",otString);
 
-  for(int i=0;i<=1;i++)
+  for(int pass=0;pass<=1;pass++)
   {
     modf(now,&now);
-    if (i==0)
+    if (pass==0)
     {
       TDateTime now_time;
       EncodeTime(Hour,Min,0,now_time);
       now+=now_time;
-      FilesQry.SetVariable("code","ЛОВД");
+      FilesQry.SetVariable("code",ROZYSK_MAGISTRAL);
     }
     else
-      FilesQry.SetVariable("code","ЛОВД-СУТКИ");
+      FilesQry.SetVariable("code",ROZYSK_MAGISTRAL_24);
 
     Qry.SetVariable("code",FilesQry.GetVariableAsString("code"));
     Qry.SetVariable("now",now);
