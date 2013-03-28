@@ -79,6 +79,7 @@ astra_SOURCES = \
   tripinfo.cc \
   view_edi_elements.cc \
   web_main.cc \
+  web_search.cc \
   xml_unit.cc \
   load_fr.cc \
   http_io.cpp \
@@ -173,6 +174,7 @@ noinst_HEADERS = \
   tripinfo.h \
   view_edi_elements.h \
   web_main.h \
+  web_search.h \
   xml_unit.h \
   load_fr.h \
   http_io.h \

@@ -1515,7 +1515,7 @@ void ParseASMContent(TTlgPartInfo body, TSSMHeadingInfo& info, TASMContent& con,
 {
     con.Clear();
     TTlgParser tlg;
-    char *line_p=body.p, *ph;
+    char *line_p=body.p;
     int line=body.line;
     TTlgElement e = ActionIdentifier;
     TASMSubMessage *ssm_msg = NULL;

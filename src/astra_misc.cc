@@ -191,6 +191,13 @@ const long int DOCO_TXT_EE_FIELDS=DOCO_TYPE_FIELD|
 
 TCheckDocInfo GetCheckDocInfo(const int point_dep, const string& airp_arv)
 {
+  set<string> apis_formats;
+  return GetCheckDocInfo(point_dep, airp_arv, apis_formats);
+};
+
+TCheckDocInfo GetCheckDocInfo(const int point_dep, const string& airp_arv, set<string> &apis_formats)
+{
+  apis_formats.clear();
   TCheckDocInfo result;
   TQuery Qry( &OraSession );
   Qry.Clear();
@@ -231,6 +238,7 @@ TCheckDocInfo GetCheckDocInfo(const int point_dep, const string& airp_arv)
         for(;!Qry.Eof;Qry.Next())
         {
           string fmt=Qry.FieldAsString("format");
+          apis_formats.insert(fmt);
           if (fmt=="CSV_CZ") result.first.required_fields|=DOC_CSV_CZ_FIELDS;
           if (fmt=="EDI_CZ") result.first.required_fields|=DOC_EDI_CZ_FIELDS;
           if (fmt=="CSV_DE")

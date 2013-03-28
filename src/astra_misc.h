@@ -203,9 +203,7 @@ class TCheckDocTknInfo
     long int readonly_fields; //битовая маска
     TCheckDocTknInfo()
     {
-      is_inter=false;
-      required_fields=0x0000;
-      readonly_fields=0x0000;
+      clear();
     };
     void ToXML(xmlNodePtr node)
     {
@@ -214,13 +212,29 @@ class TCheckDocTknInfo
       NewTextChild(node, "required_fields", required_fields, 0x0000);
       NewTextChild(node, "readonly_fields", readonly_fields, 0x0000);
     };
+    void clear()
+    {
+      is_inter=false;
+      required_fields=0x0000;
+      readonly_fields=0x0000;
+    };
 };
 
-class TCheckDocInfo: public std::pair<TCheckDocTknInfo, TCheckDocTknInfo> {};
+class TCheckDocInfo: public std::pair<TCheckDocTknInfo, TCheckDocTknInfo>
+{
+  public:
+    void clear()
+    {
+      first.clear();
+      second.clear();
+    };
+};
                     
 bool GetTripSets( const TTripSetType setType, const TTripInfo &info );
 
 TCheckDocInfo GetCheckDocInfo(const int point_dep, const std::string& airp_arv);
+TCheckDocInfo GetCheckDocInfo(const int point_dep, const std::string& airp_arv,
+                              std::set<std::string> &apis_formats);
 TCheckDocTknInfo GetCheckTknInfo(const int point_dep);
 
 class TPnrAddrItem

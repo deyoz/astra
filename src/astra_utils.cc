@@ -523,19 +523,6 @@ void MergeAccess(vector<string> &a, bool &ap,
   };
 };
 
-string GetSQLEnum(const vector<string> &values)
-{
-  string res;
-  for(vector<string>::const_iterator i=values.begin();i!=values.end();i++)
-  {
-    if (i->empty()) continue;
-    if (!res.empty()) res.append(",");
-    res.append("'"+(*i)+"'");
-  };
-  if (!res.empty()) res=" ("+res+") ";
-  return res;
-};
-
 long TReqInfo::getExecuteMSec()
 {
 	ptime t( microsec_clock::universal_time() );
@@ -796,6 +783,20 @@ signed short int EncodeTimeToSignedWord( TDateTime Value )
   int Hour, Min, Sec;
   DecodeTime( Value, Hour, Min, Sec );
   return ( (int)Value )*1440 + Hour*60 + Min;
+};
+
+TDateTime JulianDateToDateTime( int jdate, int year)
+{
+  if (jdate<=0 || jdate>366)
+    throw EConvertError("JulianDateToDateTime: wrong julian date");
+  TDateTime result;
+  EncodeDate(year, 1, 1, result);
+  result+=jdate-1;
+  int Year, Month, Day;
+  DecodeDate(result, Year, Month, Day);
+  if (year!=Year)
+    throw EConvertError("JulianDateToDateTime: wrong year");
+  return result;
 };
 
 namespace AstraLocale {
@@ -1401,10 +1402,10 @@ bool is_dst(TDateTime d, string region)
 
 char ToLatPnrAddr(char c)
 {
-  if ((unsigned char)c>=0x80)
+  if (!IsAscii7(c))
   {
     ByteReplace(&c,1,rus_pnr,lat_pnr);
-    if ((unsigned char)c>=0x80) c='?';
+    if (!IsAscii7(c)) c='?';
   };
   return c;
 };
@@ -1417,26 +1418,6 @@ string convert_pnr_addr(const string &value, bool pr_lat)
   return result;
 
 };
-
-bool is_lat_char(char c)
-{
-    return not ((unsigned char)c>=0x80);
-}
-
-bool is_lat(const std::string &value)
-{
-    bool result = true;
-    char c;
-    for(string::const_iterator i=value.begin();i!=value.end();i++)
-    {
-        c=*i;
-        if ((unsigned char)c>=0x80) {
-            result = false;
-            break;
-        }
-    }
-    return result;
-}
 
 class TTranslitLetter
 {
@@ -1471,7 +1452,7 @@ string transliter(const string &value, int fmt, bool pr_lat)
     for(string::const_iterator i=value.begin();i!=value.end();i++)
     {
       c=*i;
-      if ((unsigned char)c>=0x80)
+      if (!IsAscii7(c))
       {
         map<char, TTranslitLetter>::const_iterator letter=dicts.find(ToUpper(c));
         if (letter!=dicts.end())
@@ -1504,7 +1485,7 @@ const char *lat_char_view = "ABCEHKMOPTXacekmopxb";
 
 char ToLatCharView(char c)
 {
-  if ((unsigned char)c>=0x80)
+  if (!IsAscii7(c))
   {
     ByteReplace(&c,1,rus_char_view,lat_char_view);
   };
@@ -1563,4 +1544,5 @@ string get_internal_msgid_hex()
   StringToHex(str_msg_id,hex_msg_id);
   return hex_msg_id;
 };
+
 

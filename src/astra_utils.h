@@ -285,6 +285,7 @@ char DecodeStatus(char* s);
 #define sign( x ) ( ( x ) > 0 ? 1 : ( x ) < 0 ? -1 : 0 )
 BASIC::TDateTime DecodeTimeFromSignedWord( signed short int Value );
 signed short int EncodeTimeToSignedWord( BASIC::TDateTime Value );
+BASIC::TDateTime JulianDateToDateTime( int jdate, int year);
 
 void showBasicInfo(void);
 
@@ -367,8 +368,6 @@ std::string convert_pnr_addr(const std::string &value, bool pr_lat);
 std::string transliter(const std::string &value, int fmt, bool pr_lat);
 bool transliter_equal(const std::string &value1, const std::string &value2, int fmt);
 bool transliter_equal(const std::string &value1, const std::string &value2);
-bool is_lat(const std::string &value);
-bool is_lat_char(char c);
 std::string convert_char_view(const std::string &value, bool pr_lat);
 
 int getTCLParam(const char* name, int min, int max, int def);
@@ -399,6 +398,37 @@ std::string GetSQLEnum(const T &values)
     return " ("+res.str()+") ";
   else
     return "";
+};
+
+template <class T>
+void MergeSortedRanges(std::vector< std::pair<T,T> > &ranges, const std::pair<T,T> &range)
+{
+  if (range.first>=range.second)
+  {
+    std::ostringstream err;
+    err << "Wrong range [" << range.first << ", " << range.second << ")";
+    throw EXCEPTIONS::Exception("MergeSortedRanges: %s", err.str().c_str());
+  };
+
+  if (!ranges.empty())
+  {
+    std::pair<T,T> &last_range=ranges.back();
+    if (range.first<last_range.first)
+    {
+      std::ostringstream err;
+      err << "Not sorted range [" << range.first << ", " << range.second << ")";
+      throw EXCEPTIONS::Exception("MergeSortedRanges: %s", err.str().c_str());
+    };
+
+    if (range.first<=last_range.second)
+    {
+      if (range.second>last_range.second) last_range.second=range.second;
+    }
+    else
+      ranges.push_back( range );
+  }
+  else
+    ranges.push_back( range );
 };
 
 #endif /*_ASTRA_UTILS_H_*/

@@ -1,7 +1,6 @@
 #ifndef __WEB_MAIN_H__
 #define __WEB_MAIN_H__
 
-//#ifdef __cpluplus
 #include "jxtlib/JxtInterface.h"
 
 #define WEB_JXT_IFACE_ID "WEB"
@@ -30,6 +29,9 @@ public:
   WebRequestsIface() : JxtInterface("",WEB_JXT_IFACE_ID)
   {
      Handler *evHandle;
+     // Расширенный поиск пассажиров
+     evHandle=JxtHandler<WebRequestsIface>::CreateHandler(&WebRequestsIface::SearchPNRs);
+     AddEvent("SearchPNRs",evHandle);
      // Информация о рейсе
      evHandle=JxtHandler<WebRequestsIface>::CreateHandler(&WebRequestsIface::SearchFlt);
      AddEvent("SearchFlt",evHandle);
@@ -70,6 +72,7 @@ public:
      AddEvent("GetPaxsInfo",evHandle);
   };
 
+  void SearchPNRs(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void LoadPnr(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -92,8 +95,6 @@ public:
 
 
 } // namespace AstraWeb
-
-//#endif // __cplusplus
 
 #endif // __WEB_MAIN_H__
 

@@ -17,6 +17,7 @@
 #include "astra_locale.h"
 #include "stl_utils.h"
 #include "term_version.h"
+#include "dev_utils.h"
 #include "jxtlib/jxt_cont.h"
 
 #define NICKNAME "VLAD"
@@ -1558,43 +1559,26 @@ bool ParseScanBPData(const string& data, TScanParams& params)
 
   string str=data,c;
   string::size_type p,ph=0,str_size=str.size(),i;
-  int pax_id,len_u,len_r;
+  int pax_id;
   bool init=false;
   do
   {
     p=str.find_first_of("0123456789M",ph);
     if (p==string::npos) break;
     if (str_size<p+10) break;
-
-  /*  if (p<str_size)
+    /*
+    if (p<str_size)
       ProgTrace(TRACE5,"ParseScanBPData: p=%d str=%s", p, str.substr(p).c_str());
     else
-      ProgTrace(TRACE5,"ParseScanBPData: p=%d",p);*/
-
+      ProgTrace(TRACE5,"ParseScanBPData: p=%d",p);
+    */
     ph=p;
     try
     {
       if (str[p]=='M')
       {
         //возможно это 2D
-        if (str_size<p+60) throw EConvertError("01");
-        if (!HexToString(str.substr(p+58,2),c) || c.size()<1) throw EConvertError("02");
-        i=(int)c[0]; //item number=6
-        p+=60;
-        if (str_size<p+i) throw EConvertError("03");
-        i+=p; //это должен быть конец pax_id
-        if (str_size<p+4) throw EConvertError("04");
-        if (!HexToString(str.substr(p+2,2),c) || c.size()<1) throw EConvertError("05");
-        len_u=(int)c[0]; //item number=10
-        //ProgTrace(TRACE5,"ParseScanBPData: len_u=%d",len_u);
-        p+=4;
-        if (str_size<p+len_u+2) throw EConvertError("06");
-        if (!HexToString(str.substr(p+len_u,2),c) || c.size()<1) throw EConvertError("07");
-        len_r=(int)c[0]; //item number=17
-        //ProgTrace(TRACE5,"ParseScanBPData: len_r=%d",len_r);
-        p+=len_u+2;
-        if (str_size<p+len_r) throw EConvertError("08");
-        p+=len_r;
+        checkBCBP_M(str,p,p,i);
         if (i>p)
           ProgTrace(TRACE5,"ParseScanBPData: airline use=%s",str.substr(p,i-p).c_str());
         if (i-p!=10) throw EConvertError("09");
@@ -1623,10 +1607,12 @@ bool ParseScanBPData(const string& data, TScanParams& params)
     }
     catch(EConvertError &e)
     {
-      /*if (p<str_size)
+      /*
+      if (p<str_size)
         ProgTrace(TRACE5,"ParseScanBPData: EConvertError %s: p=%d str=%s", e.what(), p, str.substr(p).c_str());
       else
-        ProgTrace(TRACE5,"ParseScanBPData: EConvertError %s: p=%d", e.what(), p);*/
+        ProgTrace(TRACE5,"ParseScanBPData: EConvertError %s: p=%d", e.what(), p);
+      */
     };
     ph++;
   }
