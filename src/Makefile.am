@@ -61,6 +61,7 @@ astra_SOURCES = \
   passenger.cc \
   prn_tag_store.cc \
   remarks.cc \
+  rozysk.cc \
   salonform.cc \
   salonform2.cc \
   salons.cc \
@@ -158,6 +159,7 @@ noinst_HEADERS = \
   prn_tag_store.h \
   passenger.h \
   remarks.h \
+  rozysk.h \
   salonform.h \
   salonform2.h \
   salons.h \

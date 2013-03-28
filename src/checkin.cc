@@ -29,6 +29,7 @@
 #include "alarms.h"
 #include "sopp.h"
 #include "pers_weights.h"
+#include "rozysk.h"
 #include "jxtlib/jxt_cont.h"
 
 #define NICKNAME "VLAD"
@@ -4707,16 +4708,16 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       };
 
       //обновление counters
+      rozysk::sync_pax_grp(grp_id, reqInfo->desk.code);
+
       Qry.Clear();
       Qry.SQLText=
         "BEGIN "
-        "  mvd.sync_pax_grp(:grp_id,:desk); "
         "  ckin.check_grp(:grp_id); "
         "  ckin.recount(:point_id); "
         "END;";
       Qry.CreateVariable("point_id",otInteger,point_dep);
       Qry.CreateVariable("grp_id",otInteger,grp_id);
-      Qry.CreateVariable("desk",otString,reqInfo->desk.code);
       Qry.Execute();
       Qry.Close();
 

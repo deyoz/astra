@@ -22,6 +22,7 @@
 #include "stl_utils.h"
 #include "empty_proc.h"
 #include "basel_aero.h"
+#include "rozysk.h"
 #include "serverlib/posthooks.h"
 #include "serverlib/perfom.h"
 
@@ -142,6 +143,9 @@ void exec_tasks( const char *proc_name )
                           if ( name == "sync_checkin_data" ) sync_checkin_data( );
                           else
                             if ( name == "sych_basel_aero_stat" ) sych_basel_aero_stat( utcdate );
+                            else
+                              if ( name == "sync_sirena_rozysk" ) sync_sirena_rozysk( utcdate );
+
 /*	    	  			  			    else
                             if ( name == "cobra" ) cobra();*/
 
@@ -353,94 +357,6 @@ void ETCheckStatusFlt(void)
 };
 
 #define ENDL "\r\n"
-
-void create_mvd_file(TDateTime first_time, TDateTime last_time,
-                     const char* airp, const char* tz_region, const char* file_name)
-{
-  ofstream f;
-  f.open(file_name);
-  if (!f.is_open()) throw Exception("Can't open file '%s'",file_name);
-  try
-  {
-    TQuery Qry(&OraSession);
-    Qry.Clear();
-    Qry.SQLText=
-      "SELECT time, "
-      "       airline,flt_no,suffix, "
-      "       takeoff, "
-      "       SUBSTR(term,1,6) AS term, "
-      "       seat_no, "
-      "       SUBSTR(surname,1,20) AS surname, "
-      "       SUBSTR(LTRIM(RTRIM(SUBSTR(name||' ',1,INSTR(name||' ',' ')))),1,20) AS name, "
-      "       SUBSTR(LTRIM(RTRIM(SUBSTR(name||' ',INSTR(name||' ',' ')+1))),1,20) AS patronymic, "
-      "       SUBSTR(document,1,20) AS document, "
-      "       operation, "
-      "       tags, "
-      "       airp_dep, "
-      "       airp_arv, "
-      "       bag_weight, "
-      "       SUBSTR(pnr,1,12) AS pnr "
-      "FROM rozysk "
-      "WHERE time>=:first_time AND time<:last_time AND (airp_dep=:airp OR :airp IS NULL) "
-      "ORDER BY time";
-    Qry.CreateVariable("first_time",otDate,first_time);
-    Qry.CreateVariable("last_time",otDate,last_time);
-    Qry.CreateVariable("airp",otString,airp);
-    Qry.Execute();
-
-    if (tz_region!=NULL&&*tz_region!=0)
-    {
-      first_time = UTCToLocal(first_time, tz_region);
-      last_time = UTCToLocal(last_time, tz_region);
-    };
-
-    f << DateTimeToStr(first_time,"ddmmyyhhnn") << '-'
-      << DateTimeToStr(last_time-1.0/1440,"ddmmyyhhnn") << ENDL;
-    for(;!Qry.Eof;Qry.Next())
-    {
-      string tz_region = AirpTZRegion(Qry.FieldAsString("airp_dep"));
-
-      TDateTime time_local=UTCToLocal(Qry.FieldAsDateTime("time"),tz_region);
-      TDateTime takeoff_local;
-      if (!Qry.FieldIsNULL("term"))
-        takeoff_local=UTCToLocal(Qry.FieldAsDateTime("takeoff"),tz_region);
-      else
-        takeoff_local=Qry.FieldAsDateTime("takeoff");
-
-      f << DateTimeToStr(time_local,"dd.mm.yyyy") << '|'
-        << DateTimeToStr(time_local,"hh:nn") << '|'
-        << setw(3) << setfill('0') << Qry.FieldAsInteger("flt_no") << Qry.FieldAsString("suffix") << '|'
-        << DateTimeToStr(takeoff_local,"dd.mm.yyyy") << '|'
-        << Qry.FieldAsString("term") << '|'
-        << Qry.FieldAsString("seat_no") << '|'
-        << Qry.FieldAsString("surname") << '|'
-        << Qry.FieldAsString("name") << '|'
-        << Qry.FieldAsString("patronymic") << '|'
-        << Qry.FieldAsString("document") << '|'
-        << Qry.FieldAsString("operation") << '|'
-        << Qry.FieldAsString("tags") << '|'
-        << Qry.FieldAsString("airline") << '|' << '|'
-        << Qry.FieldAsString("airp_dep") << '|'
-        << Qry.FieldAsString("airp_arv") << '|'
-        << Qry.FieldAsString("bag_weight") << '|' << '|'
-        << DateTimeToStr(takeoff_local,"hh:nn") << '|'
-        << Qry.FieldAsString("pnr") << '|' << ENDL;
-    };
-    f.close();
-  }
-  catch(...)
-  {
-    try { f.close(); } catch( ... ) { };
-    try
-    {
-      //в случае ошибки запишем пустой файл
-      f.open(file_name);
-      if (f.is_open()) f.close();
-    }
-    catch( ... ) { };
-    throw;
-  };
-};
 
 const char* APIS_PARTY_INFO()
 {
@@ -1075,86 +991,6 @@ void create_apis_file(int point_id)
 
 };
 
-void sync_mvd(void)
-{
-  int Hour,Min,Sec;
-  TDateTime now=NowUTC();
-  DecodeTime(now,Hour,Min,Sec);
-  if (Min%15!=0) return;
-
-  TQuery Qry(&OraSession);
-  Qry.SQLText =
-    "UPDATE file_sets SET last_create=:now WHERE code=:code AND "
-    "                 (airp=:airp OR airp IS NULL AND :airp IS NULL)";
-  Qry.DeclareVariable("code",otString);
-  Qry.DeclareVariable("airp",otString);
-  Qry.DeclareVariable("now",otDate);
-
-  TQuery FilesQry(&OraSession);
-  FilesQry.Clear();
-  FilesQry.SQLText=
-    "SELECT name,dir,last_create,airp "
-    "FROM file_sets "
-    "WHERE code=:code AND pr_denial=0";
-  FilesQry.DeclareVariable("code",otString);
-
-  for(int i=0;i<=1;i++)
-  {
-    modf(now,&now);
-    if (i==0)
-    {
-      TDateTime now_time;
-      EncodeTime(Hour,Min,0,now_time);
-      now+=now_time;
-      FilesQry.SetVariable("code","ЛОВД");
-    }
-    else
-      FilesQry.SetVariable("code","ЛОВД-СУТКИ");
-
-    Qry.SetVariable("code",FilesQry.GetVariableAsString("code"));
-    Qry.SetVariable("now",now);
-
-    FilesQry.Execute();
-    for(;!FilesQry.Eof;FilesQry.Next())
-    {
-      if (!FilesQry.FieldIsNULL("last_create")&&
-         (now-FilesQry.FieldAsDateTime("last_create"))<1.0/1440) continue;
-
-      TDateTime local;
-      string tz_region;
-      if (!FilesQry.FieldIsNULL("airp"))
-      {
-        tz_region=AirpTZRegion(FilesQry.FieldAsString("airp"));
-        local=UTCToLocal(now,tz_region);
-      }
-      else
-      {
-        tz_region.clear();
-        local=now;
-      };
-      ostringstream file_name;
-      file_name << FilesQry.FieldAsString("dir")
-                << DateTimeToStr(local,FilesQry.FieldAsString("name"));
-
-      if (FilesQry.FieldIsNULL("last_create"))
-        create_mvd_file(now-1,now,
-                        FilesQry.FieldAsString("airp"),
-                        tz_region.c_str(),
-                        file_name.str().c_str());
-      else
-        create_mvd_file(FilesQry.FieldAsDateTime("last_create"),now,
-                        FilesQry.FieldAsString("airp"),
-                        tz_region.c_str(),
-                        file_name.str().c_str());
-
-      Qry.SetVariable("airp",FilesQry.FieldAsString("airp"));
-      Qry.Execute();
-      OraSession.Commit();
-    };
-  };
-};
-
-
 void get_full_stat(TDateTime utcdate)
 {
 	//соберем статистику по истечении двух дней от вылета,
@@ -1218,6 +1054,4 @@ void sync_sirena_codes( void )
   OraSession.Commit();
 	ProgTrace(TRACE5,"sync_sirena_codes stopped");
 };
-
-
 
