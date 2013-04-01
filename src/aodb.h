@@ -2,8 +2,6 @@
 #define _AODB_H_
 
 #include <string>
-
-
 #include <map>
 #include <tcl.h>
 #include "astra_service.h"
