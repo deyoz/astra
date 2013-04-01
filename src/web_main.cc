@@ -1285,7 +1285,7 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
   	if ( !i->pass_subclass.empty() )
   	  crs_subclass = i->pass_subclass;
   	TPerson p=DecodePerson(i->pers_type_extended.c_str());
-  	pr_CHIN=(p==ASTRA::child || p==ASTRA::baby); //среди типов может быть БГ (CBBG) который приравнивается к взрослому
+  	pr_CHIN=(pr_CHIN || p==ASTRA::child || p==ASTRA::baby); //среди типов может быть БГ (CBBG) который приравнивается к взрослому
   }
   if ( crs_class.empty() )
   	throw UserException( "MSG.CLASS.NOT_SET" );
