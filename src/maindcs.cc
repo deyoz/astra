@@ -1050,7 +1050,7 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
     for ( operNode=GetNode( "operation", devNode ); operNode!=NULL; operNode=operNode->next ) // пробег по операциям клиента
     	if ( operation == NodeAsString( "@type", operNode ) )
     		break;
-    ProgTrace( TRACE5, "operation=%s, is client=%d", operation.c_str(), (int)operNode );
+    ProgTrace( TRACE5, "operation=%s, is client=%d", operation.c_str(), (int)(operNode!=NULL) );
 
     dev_model.clear();
     sess_type.clear();
