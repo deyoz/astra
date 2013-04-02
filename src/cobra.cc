@@ -360,7 +360,7 @@ void TTCPListener<T>::Execute() {
   addr_in.sin_addr.s_addr = htonl( INADDR_ANY );
   int val = 1;
   int err = setsockopt(handle, SOL_SOCKET, SO_REUSEADDR, &val, sizeof (val));
-  ProgTrace( TRACE5, "bind ret=%d", err );
+  ProgTrace( TRACE5, "setsockopt ret=%d", err );
   err = bind( handle, (struct sockaddr *)&addr_in, sizeof(addr_in) );
   ProgTrace( TRACE5, "bind ret=%d", err );
   GetErr( GetLastError( err, -1 ), "bind" );
@@ -440,13 +440,17 @@ void TTCPListener<T>::Execute() {
             else { // есть что отправить
               buffers[ i->first ].sendbuf = realloc( buffers[ i->first ].sendbuf, buffers[ i->first ].sendbuf_len + msg_len ); // добавляем память до того, чтобы вместилось новое сообщение
               buffers[ i->first ].sendbuf_len += msg_len; //!!!зависит от сессии - для разных разный буфер;
-              void *msg_send_buf = (void*)((int)buffers[ i->first ].sendbuf + buffers[ i->first ].sendbuf_len - msg_len);
+              void *msg_send_buf = (void*)((uintptr_t)buffers[ i->first ].sendbuf + buffers[ i->first ].sendbuf_len - msg_len);
               try {
                 i->second->DoWrite( msg_id, msg_send_buf, msg_len ); // заполняем память данными нового сообщения
                 msg_len = send( i->first, buffers[ i->first ].sendbuf, buffers[ i->first ].sendbuf_len, 0 ); // отправляем сколько сможем
+                for ( int jj=0; jj<msg_len; jj++ ) {
+                  char *k = (char*)buffers[ i->first ].sendbuf;
+                  ProgTrace( TRACE5, "send byte[%d]=%d, %c", jj, (int)k[jj], k[jj] );
+                }
                 ProgTrace( TRACE5, "send handle=%d, sendbuf_len=%d, msg_len=%d", i->first, buffers[ i->first ].sendbuf_len, msg_len );
                 if ( buffers[ i->first ].sendbuf_len != msg_len )
-                  memmove( buffers[ i->first ].sendbuf, (void*)((int)buffers[ i->first ].sendbuf + msg_len), buffers[ i->first ].sendbuf_len - msg_len );
+                  memmove( buffers[ i->first ].sendbuf, (void*)((uintptr_t)buffers[ i->first ].sendbuf + msg_len), buffers[ i->first ].sendbuf_len - msg_len );
                 buffers[ i->first ].sendbuf_len -= msg_len; // уменьшаем память на порцию отправленных данных
                 buffers[ i->first ].sendbuf = realloc( buffers[ i->first ].sendbuf, buffers[ i->first ].sendbuf_len );
               }
@@ -651,19 +655,19 @@ void ServSession::parseBuffer( void **parse_buf, unsigned int &parse_len )
     if ( msg_len + HEADER_SIZE > parse_len )
       return;
     ProgTrace( TRACE5, "msg end" );
-    p = (void*)( (int)p + sizeof(int));
+    p = (void*)( (uintptr_t)p + sizeof(int));
     int msg_id = ntohl(*(int*)p);
-    p = (void*)( (int)p + sizeof(int));
+    p = (void*)( (uintptr_t)p + sizeof(int));
     int msg_flags = ntohl(*(int*)p);
-    p = (void*)( (int)p + sizeof(int));
+    p = (void*)( (uintptr_t)p + sizeof(int));
     std::string strbody( (char*)p, msg_len );
     PutMsg( msg_id, msg_flags, strbody );
-    p = (void*)( (int)p + msg_len);
-    ProgTrace( TRACE5, "parseBuffer: msg_len=%d, msg_len=%d", msg_len, (int)p - (int)(*parse_buf) );
+    p = (void*)( (uintptr_t)p + msg_len);
+    ProgTrace( TRACE5, "parseBuffer: msg_len=%d, msg_len=%d", msg_len, (uintptr_t)p - (uintptr_t)(*parse_buf) );
     parse_len = parse_len - msg_len - HEADER_SIZE;
     ProgTrace( TRACE5, "parseBuffer: After parse_len=%d", parse_len );
   }
-  if ( (int)p != (int)*parse_buf ) {
+  if ( (uintptr_t)p != (uintptr_t)*parse_buf ) {
     memmove( *parse_buf, p, parse_len );
   }
   *parse_buf = realloc( *parse_buf, parse_len );
@@ -673,7 +677,7 @@ void ServSession::Read( void *recvbuf, int recvbuf_len )
 {
   len += recvbuf_len;
   buf = realloc( buf, len );
-  memcpy( (void*)((int)buf + len - recvbuf_len ), recvbuf, recvbuf_len );
+  memcpy( (void*)((uintptr_t)buf + len - recvbuf_len ), recvbuf, recvbuf_len );
   parseBuffer( &buf, len );
 }
 
@@ -876,13 +880,13 @@ void ServSession::Write( int msg_id, void *sendbuf, int sendbuf_len )
     return;
   }
   int *p = (int*)sendbuf;
-  *p = ntohl(imsg->strbody.size());
+  *p = htonl(imsg->strbody.size());
   p++;
-  *p = ntohl(imsg->msg_id);
+  *p = htonl(imsg->msg_id);
   p++;
-  *p = ntohl(imsg->flags);
+  *p = htonl(imsg->flags);
   ProgTrace( TRACE5, "ServSession::Write msg_id=%d, flags=%d, strbody=%s", imsg->msg_id, imsg->flags, imsg->strbody.c_str() );
-  memcpy( (void*)((int)sendbuf + HEADER_SIZE), (void*)imsg->strbody.c_str(), imsg->strbody.size() );
+  memcpy( (void*)((uintptr_t)sendbuf + HEADER_SIZE), (void*)imsg->strbody.c_str(), imsg->strbody.size() );
   outmsgs.erase( imsg );
 }
 
@@ -1757,8 +1761,9 @@ void ParseFlights( const xmlNodePtr reqNode, vector<TCobraError> &errors )
                   throw EXCEPTIONS::Exception( "Invalid value '%s' of 'stage/@type' node", stage.c_str() );
           TTripStage trip_stage = own_dest->stages.GetStage( stage_id );
           TDateTime scd = NodeAsDateTime( "scd", n1, NoExists );
-          if ( scd == NoExists )
-            throw EXCEPTIONS::Exception( "Node 'stage/scd' not found" );
+          if ( scd == NoExists ) {
+            scd = trip_stage.scd;
+          }
           TDateTime est = NodeAsDateTime( "est", n1, NoExists );
           TDateTime act = NodeAsDateTime( "act", n1, NoExists );
           ProgTrace( TRACE5, "stage: type=%s, scd=%f, est=%f, act=%f", stage.c_str(), scd, est, act );
@@ -1767,6 +1772,9 @@ void ParseFlights( const xmlNodePtr reqNode, vector<TCobraError> &errors )
               trip_stage.est = scd;
             else
               trip_stage.est = est;
+          }
+          if ( est != NoExists && trip_stage.est != est ) {
+            trip_stage.est = est;
           }
           trip_stage.act = act;
           own_dest->stages.SetStage( stage_id, trip_stage );
@@ -2466,6 +2474,7 @@ string AnswerFlight( const xmlNodePtr reqNode )
             SetAirpProperty( n1, "tranzit", *ibal );
             SetAirpProperty( n1, "checkin", *ibal );
             for ( std::map<std::string,TBalance>::iterator iclass=ibal->total_classbal.begin(); iclass!=ibal->total_classbal.end(); iclass++ ) {
+              ProgTrace( TRACE5, "ibal->airp=%s, iclass->first=%s, iclass->second.pad=%d", ibal->airp.c_str(), iclass->first.c_str(), iclass->second.pad );
               classbal[ iclass->first ] += iclass->second;
               if ( iclass->second.pad > 0 )
                 pr_pads = true;
@@ -2662,7 +2671,9 @@ bool parseIncommingWB_GarantData( )
       }
       else {
         str_answer = AnswerFlight( reqDoc->children );
+        ProgTrace( TRACE5, "AnswerFlight: str_answer.size()=%d", str_answer.size() );
         str_answer = ConvertCodepage( str_answer, "CP866", WBGarantMsgCodePage );
+        ProgTrace( TRACE5, "AnswerFlight after convert: str_answer.size()=%d", str_answer.size() );
       }
       TAstraServMsg msg;
       StrToInt( fileparams[ SESS_MSG_FLAGS ].c_str(), msg.flags );
