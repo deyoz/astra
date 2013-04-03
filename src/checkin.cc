@@ -4707,8 +4707,11 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         };
       };
 
-      //恣陋◤平言 counters
-      rozysk::sync_pax_grp(grp_id, reqInfo->desk.code);
+      if (!pr_unaccomp)
+      {
+        //恣陋◤平言 counters
+        rozysk::sync_pax_grp(grp_id, reqInfo->desk.code);
+      };
 
       Qry.Clear();
       Qry.SQLText=
