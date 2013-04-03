@@ -461,8 +461,16 @@ xmlNodePtr ReplaceTextChild(xmlNodePtr parent, const char *name, const char *con
   if (node!=NULL)
   {
     xmlChar* tmp=xmlEncodeSpecialChars(node->doc,BAD_CAST content);
-    xmlNodeSetContent(node,tmp);
-    if (tmp!=NULL) xmlFree(tmp);
+    try
+    {
+      xmlNodeSetContent(node,tmp);
+      if (tmp!=NULL) xmlFree(tmp);
+    }
+    catch(...)
+    {
+      if (tmp!=NULL) xmlFree(tmp);
+      throw;
+    };
   }
   else
     node=xmlNewTextChild(parent,NULL,BAD_CAST name,BAD_CAST content);
@@ -583,8 +591,16 @@ void NodeSetContent(xmlNodePtr cur, const char* content)
     if (cur==NULL) throw EXMLError("Node not defined (NULL)");
     if (content!=NULL&&*content==0) content=NULL;
     xmlChar* tmp=xmlEncodeSpecialChars(cur->doc,BAD_CAST content);
-    xmlNodeSetContent(cur,tmp);
-    if (tmp!=NULL) xmlFree(tmp);
+    try
+    {
+      xmlNodeSetContent(cur,tmp);
+      if (tmp!=NULL) xmlFree(tmp);
+    }
+    catch(...)
+    {
+      if (tmp!=NULL) xmlFree(tmp);
+      throw;
+    };
 }
 
 void NodeSetContent(xmlNodePtr cur, const string content)
