@@ -5155,6 +5155,16 @@ void SoppInterface::ReadCrew(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
   };
 }
 
+void validateField( const string &surname, const string &fieldname )
+{
+  for ( string::const_iterator istr=surname.begin(); istr!=surname.end(); istr++ ) {
+     if ( !IsDigitIsLetter( *istr ) && *istr != ' ' )
+       throw AstraLocale::UserException( "MSG.FIELD_INCLUDE_INVALID_CHARACTER1",
+                                         LParams() << LParam( "field_name", AstraLocale::getLocaleText( fieldname ) )
+                                                   << LParam( "symbol", string(1,*istr)) );
+  }
+}
+
 void SoppInterface::WriteCrew(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   string s = "Ввод экипажа. В кабине: ";
@@ -5171,7 +5181,9 @@ void SoppInterface::WriteCrew(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 	  "END;";
 	xmlNodePtr dataNode = NodeAsNode( "data/crew", reqNode );
 	Qry.CreateVariable( "point_id", otInteger, NodeAsInteger( "point_id", dataNode ) );
-	Qry.CreateVariable( "commander", otString, NodeAsString( "commander", dataNode ) );
+  string commander = NodeAsString( "commander", dataNode );
+  validateField( commander, "КВС" );
+ 	Qry.CreateVariable( "commander", otString, commander );
 	if (GetNode( "cabin", dataNode )!=NULL && !NodeIsNULL( "cabin", dataNode )) {
 	  Qry.CreateVariable( "cabin", otInteger, NodeAsInteger( "cabin", dataNode ) );
 	  s += IntToString( NodeAsInteger( "cabin", dataNode ) );
@@ -5230,7 +5242,9 @@ void SoppInterface::WriteDoc(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
 	  "END;";
 	xmlNodePtr dataNode = NodeAsNode( "data/doc", reqNode );
 	Qry.CreateVariable( "point_id", otInteger, NodeAsInteger( "point_id", dataNode ) );
+	validateField( NodeAsString( "loader", dataNode ), "Грузчик" );
 	Qry.CreateVariable( "loader", otString, NodeAsString( "loader", dataNode ) );
+	validateField( NodeAsString( "pts_agent ", dataNode ), "Агент СОПП" );
 	Qry.CreateVariable( "pts_agent", otString, NodeAsString( "pts_agent", dataNode ) );
 	s += NodeAsString( "pts_agent", dataNode );
 	s += string(", грузчик: ") + NodeAsString( "loader", dataNode );
