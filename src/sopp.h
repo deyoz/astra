@@ -300,6 +300,10 @@ public:
      AddEvent("ReadCrew",evHandle);
      evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::WriteCrew);
      AddEvent("WriteCrew",evHandle);
+     evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::ReadDoc);
+     AddEvent("ReadDoc",evHandle);
+     evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::WriteDoc);
+     AddEvent("WriteDoc",evHandle);
      evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::GetTime);
      AddEvent("GetTime",evHandle);
   };
@@ -319,6 +323,8 @@ public:
   void GetReportForm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ReadCrew(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void WriteCrew(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void ReadDoc(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void WriteDoc(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void GetTime(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 };

@@ -892,6 +892,22 @@ struct TPMTotalsRow {
 
 typedef map<TPMTotalsKey, TPMTotalsRow, TPMTotalsCmp> TPMTotals;
 
+void trip_rpt_person(xmlNodePtr resNode, TRptParams &rpt_params)
+{
+    xmlNodePtr variablesNode = STAT::getVariablesNode(resNode);
+    TQuery Qry(&OraSession);
+    Qry.SQLText = "select * from trip_rpt_person where point_id = :point_id";
+    Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
+    Qry.Execute();
+    string loader, pts_agent;
+    if(not Qry.Eof) {
+        loader = Qry.FieldAsString("loader");
+        pts_agent = Qry.FieldAsString("pts_agent");
+    }
+    NewTextChild(variablesNode, "loader", transliter(loader, 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+    NewTextChild(variablesNode, "pts_agent", transliter(pts_agent, 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+}
+
 void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
@@ -1241,6 +1257,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     NewTextChild(variablesNode, "pr_group", rpt_params.sort == stRegNo); // Если сортировка по рег. но., то выделяем группы пассажиров в fr-отчете
     populate_doc_cap(variablesNode, rpt_params.GetLang());
     STAT::set_variables(resNode, rpt_params.GetLang());
+    trip_rpt_person(resNode, rpt_params);
 }
 
 void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -1695,6 +1712,7 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(variablesNode, "zone"); // пустой тег - нет детализации по залу
     populate_doc_cap(variablesNode, rpt_params.GetLang());
     STAT::set_variables(resNode, rpt_params.GetLang());
+    trip_rpt_person(resNode, rpt_params);
 }
 
 string get_test_str(int page_width, string lang)
@@ -1853,7 +1871,8 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       << setw(7) << (getLocaleText("Мест", rpt_params.GetLang()))
       << setw(7) << (getLocaleText("Вес", rpt_params.GetLang()))
       << setw(7) << (getLocaleText("Р/кл", rpt_params.GetLang()))
-      << setw(7) << (getLocaleText("CAP.DOC.EX_BAG", rpt_params.GetLang())) << endl
+      << setw(7) << (getLocaleText("CAP.DOC.EX_BAG", rpt_params.GetLang()))
+      << setw(24) << string(NodeAsString("pts_agent", variablesNode)).substr(0, 24) << endl
       << "%-6u %-6u %-6u %-6u %-6u %-6u %-6u %-6u" << endl
       << (getLocaleText("CAP.ISSUE_DATE", LParams() << LParam("date", NodeAsString("date_issue",variablesNode)), rpt_params.GetLang()));
 
@@ -2070,7 +2089,8 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 
     s << setw(6)  << (getLocaleText("Мест", rpt_params.GetLang()))
       << setw(7)  << (getLocaleText("Вес", rpt_params.GetLang()))
-      << setw(43) << (getLocaleText("Количество мест прописью", rpt_params.GetLang())) << endl;
+      << setw(43) << (getLocaleText("Количество мест прописью", rpt_params.GetLang()))
+      << setw(24) << string(NodeAsString("pts_agent", variablesNode)).substr(0, 24) << endl;
 
     SeparateString(NodeAsString("Tot",variablesNode),42,rows);
     row=0;

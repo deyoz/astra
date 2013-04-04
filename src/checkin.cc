@@ -4494,9 +4494,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             "  SELECT :grp_id ,num,value,value_cur,NULL,NULL,NULL "
             "  FROM value_bag WHERE grp_id=:first_grp_id; "
             "  INSERT INTO bag2(grp_id,num,id,bag_type,pr_cabin,amount,weight,value_bag_num, "
-            "    pr_liab_limit,to_ramp,bag_pool_num,hall,user_id) "
+            "    pr_liab_limit,to_ramp,using_scales,bag_pool_num,hall,user_id) "
             "  SELECT :grp_id,num,id,99,pr_cabin,amount,weight,value_bag_num, "
-            "    pr_liab_limit,0,bag_pool_num,hall,user_id "
+            "    pr_liab_limit,0,using_scales,bag_pool_num,hall,user_id "
             "  FROM bag2 WHERE grp_id=:first_grp_id; "
             "  IF SQL%FOUND THEN "
             "    INSERT INTO paid_bag(grp_id,bag_type,weight,rate_id,rate_trfer) "
@@ -4707,8 +4707,11 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         };
       };
 
-      //恣陋◤平言 counters
-      rozysk::sync_pax_grp(grp_id, reqInfo->desk.code);
+      if (!pr_unaccomp)
+      {
+        //恣陋◤平言 counters
+        rozysk::sync_pax_grp(grp_id, reqInfo->desk.code);
+      };
 
       Qry.Clear();
       Qry.SQLText=

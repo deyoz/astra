@@ -5155,8 +5155,19 @@ void SoppInterface::ReadCrew(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
   };
 }
 
+void validateField( const string &surname, const string &fieldname )
+{
+  for ( string::const_iterator istr=surname.begin(); istr!=surname.end(); istr++ ) {
+     if ( !IsDigitIsLetter( *istr ) && *istr != ' ' )
+       throw AstraLocale::UserException( "MSG.FIELD_INCLUDE_INVALID_CHARACTER1",
+                                         LParams() << LParam( "field_name", AstraLocale::getLocaleText( fieldname ) )
+                                                   << LParam( "symbol", string(1,*istr)) );
+  }
+}
+
 void SoppInterface::WriteCrew(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+  string s = "Ввод экипажа. В кабине: ";
 	TQuery Qry(&OraSession);
 	Qry.SQLText =
 	  "BEGIN "
@@ -5170,17 +5181,77 @@ void SoppInterface::WriteCrew(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 	  "END;";
 	xmlNodePtr dataNode = NodeAsNode( "data/crew", reqNode );
 	Qry.CreateVariable( "point_id", otInteger, NodeAsInteger( "point_id", dataNode ) );
-	Qry.CreateVariable( "commander", otString, NodeAsString( "commander", dataNode ) );
-	if (GetNode( "cockpit", dataNode )!=NULL && !NodeIsNULL( "cockpit", dataNode ))
-	  Qry.CreateVariable( "cockpit", otInteger, NodeAsInteger( "cockpit", dataNode ) );
-	else
-	  Qry.CreateVariable( "cockpit", otInteger, FNull );
-	if (GetNode( "cabin", dataNode )!=NULL && !NodeIsNULL( "cabin", dataNode ))
+  string commander = NodeAsString( "commander", dataNode );
+  validateField( commander, "КВС" );
+ 	Qry.CreateVariable( "commander", otString, commander );
+	if (GetNode( "cabin", dataNode )!=NULL && !NodeIsNULL( "cabin", dataNode )) {
 	  Qry.CreateVariable( "cabin", otInteger, NodeAsInteger( "cabin", dataNode ) );
-	else
+	  s += IntToString( NodeAsInteger( "cabin", dataNode ) );
+  }
+	else {
 	  Qry.CreateVariable( "cabin", otInteger, FNull );
+	  s += "0";
+  }
+  s += ", в салоне: ";
+	if (GetNode( "cockpit", dataNode )!=NULL && !NodeIsNULL( "cockpit", dataNode )) {
+	  Qry.CreateVariable( "cockpit", otInteger, NodeAsInteger( "cockpit", dataNode ) );
+	  s += IntToString( NodeAsInteger( "cockpit", dataNode ) );
+  }
+	else {
+	  Qry.CreateVariable( "cockpit", otInteger, FNull );
+	  s += "0";
+  }
+  s += string(", КВС: ") + NodeAsString( "commander", dataNode );
 	Qry.Execute();
+	TReqInfo::Instance()->MsgToLog( s, evtFlt,  NodeAsInteger( "point_id", dataNode ) );
 }
+
+void SoppInterface::ReadDoc(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+	int point_id = NodeAsInteger( "point_id", reqNode );
+	TQuery Qry(&OraSession);
+	Qry.SQLText =
+	  "SELECT loader, pts_agent "
+	  "FROM trip_rpt_person WHERE point_id=:point_id";
+	Qry.CreateVariable( "point_id", otInteger, point_id );
+	Qry.Execute();
+	xmlNodePtr dataNode = NewTextChild( NewTextChild( resNode, "data" ), "doc" );
+  NewTextChild( dataNode, "loader" );
+  NewTextChild( dataNode, "pts_agent" );
+	if ( !Qry.Eof )
+	{
+		ReplaceTextChild( dataNode, "loader", Qry.FieldAsString( "loader" ) );
+		ReplaceTextChild( dataNode, "pts_agent", Qry.FieldAsString( "pts_agent" ) );
+  };
+}
+
+void SoppInterface::WriteDoc(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  string s = "Ввод инф. для документации. Агент СОПП: ";
+	TQuery Qry(&OraSession);
+	Qry.SQLText =
+	  "BEGIN "
+	  "  UPDATE trip_rpt_person "
+	  "  SET loader=SUBSTR(:loader,1,100), "
+	  "      pts_agent=SUBSTR(:pts_agent,1,100) "
+	  "  WHERE point_id=:point_id; "
+	  "  IF SQL%NOTFOUND THEN "
+	  "    INSERT INTO trip_rpt_person(point_id, loader, pts_agent) "
+	  "    VALUES(:point_id, SUBSTR(:loader,1,100), SUBSTR(:pts_agent,1,100)); "
+	  "  END IF;"
+	  "END;";
+	xmlNodePtr dataNode = NodeAsNode( "data/doc", reqNode );
+	Qry.CreateVariable( "point_id", otInteger, NodeAsInteger( "point_id", dataNode ) );
+	validateField( NodeAsString( "loader", dataNode ), "Грузчик" );
+	Qry.CreateVariable( "loader", otString, NodeAsString( "loader", dataNode ) );
+	validateField( NodeAsString( "pts_agent ", dataNode ), "Агент СОПП" );
+	Qry.CreateVariable( "pts_agent", otString, NodeAsString( "pts_agent", dataNode ) );
+	s += NodeAsString( "pts_agent", dataNode );
+	s += string(", грузчик: ") + NodeAsString( "loader", dataNode );
+	Qry.Execute();
+	TReqInfo::Instance()->MsgToLog( s, evtFlt,  NodeAsInteger( "point_id", dataNode ) );
+}
+
 
 void SoppInterface::GetTime(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
