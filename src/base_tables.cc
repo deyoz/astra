@@ -344,7 +344,7 @@ const TBaseTableRow& TCodeBaseTable::get_row(std::string field, std::string valu
     i=code_lat.find(value);
     if (i==code_lat.end()||
         !with_deleted && i->second->deleted())
-      throw EBaseTableError("%s::get_row: table '%s': %s=%s not found",
+      throw EBaseTableError("%s::get_row: %s=%s not found",
                             get_table_name(),field.c_str(),value.c_str());
     return *(i->second);
   };
@@ -470,7 +470,7 @@ const TBaseTableRow& TICAOBaseTable::get_row(std::string field, std::string valu
     i=code_icao_lat.find(value);
     if (i==code_icao_lat.end()||
         !with_deleted && i->second->deleted())
-      throw EBaseTableError("%s::get_row: table '%s': %s=%s not found",
+      throw EBaseTableError("%s::get_row: %s=%s not found",
                             get_table_name(),field.c_str(),value.c_str());
     return *(i->second);
   };
