@@ -387,8 +387,8 @@ string GetTermInfo( TQuery &Qry, int pax_id, int reg_no, bool pr_tcheckin, const
     else    // стойка
       if ( string(Qry.FieldAsString( "airp" )) == airp_dep ) {
         term = Qry.FieldAsString( "station" );
-        if ( !term.empty() && ( work_mode == "Р" && term[0] == 'R' ||
-                                work_mode == "П" && term[0] == 'G' ) )
+        if ( !term.empty() && ( ( work_mode == "Р" && term[0] == 'R' ) ||
+                                ( work_mode == "П" && term[0] == 'G' ) ) )
           term = term.substr( 1, term.length() - 1 );
       }
       else
@@ -707,8 +707,8 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 		aodb_pax.push_back( STRAO );
 		// ручная кладь
 		if ( pr_unaccomp ||
-         !Qry.FieldIsNULL( "bag_pool_pax_id" ) && !Qry.FieldIsNULL( "bag_pool_num" ) &&
-         Qry.FieldAsInteger( "bag_pool_pax_id" ) == Qry.FieldAsInteger( "pax_id" ) ) {
+         ( !Qry.FieldIsNULL( "bag_pool_pax_id" ) && !Qry.FieldIsNULL( "bag_pool_num" ) &&
+           Qry.FieldAsInteger( "bag_pool_pax_id" ) == Qry.FieldAsInteger( "pax_id" ) ) ) {
 		  BagQry.SetVariable( "grp_id", Qry.FieldAsInteger( "grp_id" ) );
       if (pr_unaccomp)
         BagQry.SetVariable( "bag_pool_num", 1 );
@@ -1731,7 +1731,9 @@ try {
   TTripStages trip_stages( point_id );
 	// обновление времен технологического графика
   Qry.Clear();
-	Qry.SQLText = "UPDATE trip_stages SET est=NVL(:scd,est) WHERE point_id=:point_id AND stage_id=:stage_id AND act IS NULL";
+	Qry.SQLText =
+    "UPDATE trip_stages SET est=NVL(:scd,est) "
+    " WHERE point_id=:point_id AND stage_id=:stage_id AND act IS NULL";
 	Qry.CreateVariable( "point_id", otInteger, point_id );
 	Qry.CreateVariable( "stage_id", otInteger, sOpenCheckIn );
   if ( fl.checkin_beg != NoExists )
@@ -1747,7 +1749,10 @@ try {
 	}
 	err++;
 	Qry.SetVariable( "stage_id", sCloseCheckIn );
-	Qry.SetVariable( "scd", fl.checkin_end );
+	if ( fl.checkin_end  != NoExists )
+    Qry.SetVariable( "scd", fl.checkin_end );
+  else
+	  Qry.SetVariable( "scd", FNull );
 	err++;
 	Qry.Execute();
 	if ( Qry.RowsProcessed() > 0 ) {
@@ -1757,7 +1762,10 @@ try {
 	}
 	err++;
 	Qry.SetVariable( "stage_id", sOpenBoarding );
-	Qry.SetVariable( "scd", fl.boarding_beg );
+	if ( fl.boarding_beg  != NoExists )
+	  Qry.SetVariable( "scd", fl.boarding_beg );
+  else
+    Qry.SetVariable( "scd", FNull );
 	err++;
 	Qry.Execute();
 	if ( Qry.RowsProcessed() > 0 ) {
@@ -1766,15 +1774,25 @@ try {
                           " расч. время=" + DateTimeToStr( fl.boarding_beg, "hh:nn dd.mm.yy" ) + " (UTC)", evtGraph, point_id, sOpenBoarding );
 	}
 	err++;
-	Qry.SetVariable( "stage_id", sCloseBoarding );
-	Qry.SetVariable( "scd", fl.boarding_end );
-	err++;
-	Qry.Execute();
-	if ( Qry.RowsProcessed() > 0 ) {
-     if ( fl.boarding_end != NoExists && trip_stages.time( sCloseBoarding ) != fl.boarding_end )
-       reqInfo->MsgToLog( string( "Этап '" ) + TStagesRules::Instance()->stage_name( sCloseBoarding, airp, false ) + "': " +
-                          " расч. время=" + DateTimeToStr( fl.boarding_end, "hh:nn dd.mm.yy" ) + " (UTC)", evtGraph, point_id, sCloseBoarding );
-	}
+	// расчитаем время окончания посадки
+	if ( old_est != fl.est ) { // изменение расчетного времени вылета
+    fl.boarding_end = trip_stages.time_scd( sCloseBoarding );
+    if ( fl.est != NoExists && fl.scd <= fl.est ) { // задержка >= 0
+      fl.boarding_end += fl.est - fl.scd; // добавляем к плановому времени окончания посадки задержку по вылету
+    }
+  	Qry.SetVariable( "stage_id", sCloseBoarding );
+  	if ( fl.boarding_end != NoExists )
+  	  Qry.SetVariable( "scd", fl.boarding_end );
+    else
+      Qry.SetVariable( "scd", FNull );
+  	err++;
+  	Qry.Execute();
+  	if ( Qry.RowsProcessed() > 0 ) {
+       if ( fl.boarding_end != NoExists && trip_stages.time( sCloseBoarding ) != fl.boarding_end )
+         reqInfo->MsgToLog( string( "Этап '" ) + TStagesRules::Instance()->stage_name( sCloseBoarding, airp, false ) + "': " +
+                            " расч. время=" + DateTimeToStr( fl.boarding_end, "hh:nn dd.mm.yy" ) + " (UTC)", evtGraph, point_id, sCloseBoarding );
+	  }
+  }
 	err++;
 	// обновление стоек регистрации и выходов на поcадку
 	Qry.Clear();

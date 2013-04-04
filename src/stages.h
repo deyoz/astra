@@ -71,6 +71,7 @@ class TTripStages {
     static void WriteStagesUTC( int point_id, TMapTripStages &ts );
     static void ReadCkinClients( int point_id, TCkinClients &ckin_clients );
     BASIC::TDateTime time( TStage stage );
+    BASIC::TDateTime time_scd( TStage stage );
     TStage getStage( TStage_Type stage_type );
 };
 
