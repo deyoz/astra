@@ -180,7 +180,7 @@ int AstraApplication::tcl_init(Tcl_Interp *interp)
         return -1;
     }
 #endif /* 0 */
-    AstraJxtCallbacks *ajc=new AstraJxtCallbacks();
+    /*AstraJxtCallbacks *ajc=*/new AstraJxtCallbacks();
 //    AstraLocaleCallbacks *alc=new AstraLocaleCallbacks();
     return 0;
 }

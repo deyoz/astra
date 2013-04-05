@@ -884,7 +884,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
               else
                   tid=Qry.FieldAsInteger(col_tid);
 
-              if(!boarding && !mark || boarding && mark)
+              if((!boarding && !mark) || (boarding && mark))
               {
                   if (reqInfo->screen.name == "BRDBUS.EXE")
                   {
