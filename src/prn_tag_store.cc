@@ -285,7 +285,7 @@ TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tag
     tag_list.insert(make_pair(TAG::BAG_WEIGHT,      TTagListItem(&TPrnTagStore::BAG_WEIGHT, PAX_INFO)));
     tag_list.insert(make_pair(TAG::BAGGAGE,         TTagListItem(&TPrnTagStore::BAGGAGE, PAX_INFO)));
     tag_list.insert(make_pair(TAG::BRD_FROM,        TTagListItem(&TPrnTagStore::BRD_FROM, BRD_INFO)));
-    tag_list.insert(make_pair(TAG::BRD_TO,          TTagListItem(&TPrnTagStore::BRD_TO, BRD_INFO)));
+    tag_list.insert(make_pair(TAG::BRD_TO,          TTagListItem(&TPrnTagStore::BRD_TO, BRD_INFO | POINT_INFO)));
     tag_list.insert(make_pair(TAG::CHD,             TTagListItem(&TPrnTagStore::CHD, PAX_INFO)));
     tag_list.insert(make_pair(TAG::CITY_ARV_NAME,   TTagListItem(&TPrnTagStore::CITY_ARV_NAME)));
     tag_list.insert(make_pair(TAG::CITY_DEP_NAME,   TTagListItem(&TPrnTagStore::CITY_DEP_NAME)));
@@ -754,13 +754,14 @@ void TPrnTagStore::TBrdInfo::Init(int point_id)
         Qry.SQLText =
             "begin "
             "   select nvl( est, scd ) into :brd_from from trip_stages where point_id = :point_id and stage_id = :brd_open_stage_id; "
-            "   select nvl( est, scd ) into :brd_to from trip_stages where point_id = :point_id and stage_id = :brd_close_stage_id; "
+            "   select est, scd into :brd_to_est, :brd_to_scd from trip_stages where point_id = :point_id and stage_id = :brd_close_stage_id; "
             "end; ";
         Qry.CreateVariable("point_id", otInteger, point_id);
         Qry.CreateVariable("brd_open_stage_id", otInteger, sOpenBoarding);
         Qry.CreateVariable("brd_close_stage_id", otInteger, sCloseBoarding);
         Qry.DeclareVariable("brd_from", otDate);
-        Qry.DeclareVariable("brd_to", otDate);
+        Qry.DeclareVariable("brd_to_est", otDate);
+        Qry.DeclareVariable("brd_to_scd", otDate);
         try {
             Qry.Execute();
         } catch(EOracleError &E) {
@@ -770,7 +771,9 @@ void TPrnTagStore::TBrdInfo::Init(int point_id)
                 throw;
         }
         brd_from = Qry.GetVariableAsDateTime("brd_from");
-        brd_to = Qry.GetVariableAsDateTime("brd_to");
+        if(not Qry.VariableIsNULL("brd_to_est"))
+            brd_to_est = Qry.GetVariableAsDateTime("brd_to_est");
+        brd_to_scd = Qry.GetVariableAsDateTime("brd_to_scd");
     }
 }
 
@@ -1232,6 +1235,14 @@ string TPrnTagStore::BRD_FROM(TFieldParams fp)
 
 string TPrnTagStore::BRD_TO(TFieldParams fp)
 {
+    TTripInfo info;
+    info.airline = pointInfo.airline;
+    info.flt_no = pointInfo.flt_no;
+    info.airp = grpInfo.airp_dep;
+    if (GetTripSets(tsPrintSCDCloseBoarding, info))
+        brdInfo.brd_to = brdInfo.brd_to_scd;
+    else
+        brdInfo.brd_to = (brdInfo.brd_to_est == NoExists ? brdInfo.brd_to_scd : brdInfo.brd_to_est);
     return DateTimeToStr(UTCToLocal(brdInfo.brd_to, AirpTZRegion(grpInfo.airp_dep)), fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU);
 }
 
