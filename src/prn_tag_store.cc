@@ -1235,14 +1235,16 @@ string TPrnTagStore::BRD_FROM(TFieldParams fp)
 
 string TPrnTagStore::BRD_TO(TFieldParams fp)
 {
-    TTripInfo info;
-    info.airline = pointInfo.airline;
-    info.flt_no = pointInfo.flt_no;
-    info.airp = grpInfo.airp_dep;
-    if (GetTripSets(tsPrintSCDCloseBoarding, info))
-        brdInfo.brd_to = brdInfo.brd_to_scd;
-    else
-        brdInfo.brd_to = (brdInfo.brd_to_est == NoExists ? brdInfo.brd_to_scd : brdInfo.brd_to_est);
+    if(brdInfo.brd_to == NoExists) {
+        TTripInfo info;
+        info.airline = pointInfo.airline;
+        info.flt_no = pointInfo.flt_no;
+        info.airp = grpInfo.airp_dep;
+        if (GetTripSets(tsPrintSCDCloseBoarding, info))
+            brdInfo.brd_to = brdInfo.brd_to_scd;
+        else
+            brdInfo.brd_to = (brdInfo.brd_to_est == NoExists ? brdInfo.brd_to_scd : brdInfo.brd_to_est);
+    }
     return DateTimeToStr(UTCToLocal(brdInfo.brd_to, AirpTZRegion(grpInfo.airp_dep)), fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU);
 }
 
