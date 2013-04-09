@@ -376,7 +376,7 @@ void TSalons::BuildLayersInfo( xmlNodePtr salonsNode, const std::vector<TDrawPro
   xmlNodePtr propNode = NewTextChild( salonsNode, "draw_props" );
   max_priority++;
   id++;
-  ProgTrace( TRACE5, "max_priority=%d, props.size()=%d", max_priority, props.size() );
+  ProgTrace( TRACE5, "max_priority=%d, props.size()=%zu", max_priority, props.size() );
   for ( vector<TDrawPropsType>::const_iterator i=props.begin(); i!=props.end(); i++ ) {
     TDrawPropInfo p = getDrawProps( *i );
     ProgTrace( TRACE5, "priority=%d, name=%s", max_priority, p.name.c_str() );
@@ -1180,7 +1180,7 @@ void TSalons::Read( )
     	PaxQry.Next();
     }
     //привязали детей к взрослым
-    ProgTrace( TRACE5, "SetInfantsToAdults: InfItems.size()=%d, AdultItems.size()=%d", InfItems.size(), AdultItems.size() );
+    ProgTrace( TRACE5, "SetInfantsToAdults: InfItems.size()=%zu, AdultItems.size()=%zu", InfItems.size(), AdultItems.size() );
     SetInfantsToAdults<TPass,TPass>( InfItems, AdultItems );
     for ( vector<TPass>::iterator i=InfItems.begin(); i!=InfItems.end(); i++ ) {
       ProgTrace( TRACE5, "Infant pax_id=%d", i->pax_id );
@@ -1720,7 +1720,7 @@ struct TComp {
 int GetCompId( const std::string craft, const std::string bort, const std::string airline,
                vector<std::string> airps,  int f, int c, int y )
 {
-	ProgTrace( TRACE5, "craft=%s, bort=%s, airline=%s, f=%d, c=%d, y=%d, airps.size=%d",
+	ProgTrace( TRACE5, "craft=%s, bort=%s, airline=%s, f=%d, c=%d, y=%d, airps.size=%zu",
 	           craft.c_str(), bort.c_str(), airline.c_str(), f, c, y, airps.size() );
 	if ( f + c + y == 0 )
 		return -1;
@@ -1793,7 +1793,7 @@ int GetCompId( const std::string craft, const std::string bort, const std::strin
     }
   	Qry.Next();
   }
-// ProgTrace( TRACE5, "CompMap.size()=%d", CompMap.size() );
+// ProgTrace( TRACE5, "CompMap.size()=%zu", CompMap.size() );
  if ( !CompMap.size() )
  	return -1;
  else
@@ -2599,7 +2599,7 @@ void SeparateEvents( vector<TStringRef> referStrs, vector<string> &eventsStrs, u
 	for ( vector<TStringRef>::iterator i=referStrs.begin(); i!=referStrs.end(); i++ ) {
 		if ( i == referStrs.begin() && i->pr_header )
 			continue;
-		ProgTrace( TRACE5, "lineStr=%s, lineStr.size()=%d, i->value=%s, i->pr_header=%d,i->size()=%d, line_len=%d",
+		ProgTrace( TRACE5, "lineStr=%s, lineStr.size()=%zu, i->value=%s, i->pr_header=%d,i->size()=%zu, line_len=%d",
 		           lineStr.c_str(),lineStr.size(),i->value.c_str(), i->pr_header, i->value.size(),line_len);
 		if ( i->pr_header )
 		  headStr = i->value;
@@ -2851,7 +2851,7 @@ struct TRefPlaces {
 
 bool salonChangesToText( TSalons &OldSalons, TSalons &NewSalons, std::vector<std::string> &referStrs, bool pr_set_base, int line_len )
 {
-	ProgTrace( TRACE5, "OldSalons->placelists.size()=%d, NewSalons->placelists.size()=%d", OldSalons.placelists.size(), NewSalons.placelists.size() );
+	ProgTrace( TRACE5, "OldSalons->placelists.size()=%zu, NewSalons->placelists.size()=%zu", OldSalons.placelists.size(), NewSalons.placelists.size() );
 	typedef vector<string> TVecStrs;
 	map<string,TVecStrs>  mapStrs;
 	referStrs.clear();
@@ -2986,7 +2986,7 @@ bool salonChangesToText( TSalons &OldSalons, TSalons &NewSalons, std::vector<std
   } // не надо выдавать изменения если назначили базовую компоновку
   mapChanges.clear();
   // надо добавить все салоны из NewSalons, которые не нашлись в OldSalons
-  ProgTrace( TRACE5, "NewSalons->placelists.size()=%d", NewSalons.placelists.size() );
+  ProgTrace( TRACE5, "NewSalons->placelists.size()=%zu", NewSalons.placelists.size() );
   for ( vector<TPlaceList*>::iterator sn=NewSalons.placelists.begin(); sn!=NewSalons.placelists.end(); sn++ ) {
   	ProgTrace( TRACE5, "(*sn)->num=%d", (*sn)->num );
     if ( find( salonNums.begin(), salonNums.end(), (*sn)->num ) != salonNums.end() )
@@ -3217,7 +3217,7 @@ void ParseCompSections( xmlNodePtr sectionsNode, std::vector<TCompSection> &Comp
     CompSections.push_back( cs );
     sectionsNode = sectionsNode->next;
   }
-  ProgTrace( TRACE5, "CompSections.size()=%d", CompSections.size() );
+  ProgTrace( TRACE5, "CompSections.size()=%zu", CompSections.size() );
 }
 
 void getLayerPlacesCompSection( SALONS2::TSalons &NSalons, TCompSection &compSection,
@@ -3251,7 +3251,7 @@ void getLayerPlacesCompSection( SALONS2::TSalons &NSalons, TCompSection &compSec
     }
   }
   for ( map<ASTRA::TCompLayerType, TPlaces>::iterator il=uselayers_places.begin(); il!=uselayers_places.end(); il++ ) {
-    ProgTrace( TRACE5, "getPaxPlacesCompSection: layer_type=%s, count=%d", EncodeCompLayerType(il->first), il->second.size() );
+    ProgTrace( TRACE5, "getPaxPlacesCompSection: layer_type=%s, count=%zu", EncodeCompLayerType(il->first), il->second.size() );
   }
 }
 

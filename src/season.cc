@@ -1498,11 +1498,11 @@ void createSPP( TDateTime localdate, TSpp &spp, bool createViewer, string &err_c
               ds.last_day = last_day;
               ds.flight_tz_region = flight_tz_region;
 
-              ProgTrace( TRACE5, "canspp trip d=%s spp[ %s ][ %d ].trips.size()=%d",
+              ProgTrace( TRACE5, "canspp trip d=%s spp[ %s ][ %d ].trips.size()=%zu",
                          DateTimeToStr( d, "dd.mm.yy hh:nn" ).c_str(),
                          DateTimeToStr( *vd, "dd.mm.yy hh:nn" ).c_str(),
                          vmove_id,
-                         (int)spp[ *vd ][ vmove_id ].trips.size() );
+                         spp[ *vd ][ vmove_id ].trips.size() );
               if ( createViewer ) {
               	vector<trip> trips = spp[ *vd ][ vmove_id ].trips; // сохраняем уже полученные рейсы
 /*                if ( spp[ *vd ][ vmove_id ].trips.empty() ) {*/
@@ -1516,13 +1516,13 @@ void createSPP( TDateTime localdate, TSpp &spp, bool createViewer, string &err_c
                   	if ( jtr == ds.trips.end() )
                   		ds.trips.push_back( *itr );
                   }
-                  ProgTrace( TRACE5, "ds.trips.size()=%d", (int)ds.trips.size() );
+                  ProgTrace( TRACE5, "ds.trips.size()=%zu", ds.trips.size() );
                 /*}
                 else
                   ds.trips = spp[ *vd ][ vmove_id ].trips;*/
               }
               spp[ *vd ][ vmove_id ] = ds;
-/*              ProgTrace( TRACE5, "vmove_id=%d, vd=%f, spp[ *vd ][ vmove_id ].dests.size()=%d", vmove_id, *vd, spp[ *vd ][ vmove_id ].dests.size() );
+/*              ProgTrace( TRACE5, "vmove_id=%d, vd=%f, spp[ *vd ][ vmove_id ].dests.size()=%zu", vmove_id, *vd, spp[ *vd ][ vmove_id ].dests.size() );
               tst();*/
            } // end insert
            ProgTrace( TRACE5, "first_day=%s, move_id=%d",
@@ -1611,10 +1611,10 @@ void SeasonInterface::ViewSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   for ( TSpp::iterator sp=spp.begin(); sp!=spp.end(); sp++ ) {
     tmapds &mapds = sp->second;
     for ( map<int,TDestList>::iterator im=mapds.begin(); im!=mapds.end(); im++ ) {
-      ProgTrace( TRACE5, "build xml vdate=%s, move_id=%d, trips.size()=%d",
+      ProgTrace( TRACE5, "build xml vdate=%s, move_id=%d, trips.size()=%zu",
                  DateTimeToStr( sp->first, "dd.mm.yy" ).c_str(),
                  im->first,
-                 (int)im->second.trips.size() );
+                 im->second.trips.size() );
       for ( vector<trip>::iterator tr=im->second.trips.begin(); tr!=im->second.trips.end(); tr++ ) {
         ViewTrips.push_back( *tr );
       }
@@ -1716,7 +1716,7 @@ void VerifyRangeList( TRangeList &rangeList, map<int,TDestList> &mapds )
   vector<string> flg;
   // проверка маршрута
   for ( map<int,TDestList>::iterator im=mapds.begin(); im!=mapds.end(); im++ ) {
-ProgTrace( TRACE5, "(int)im->second.dests.size()=%d", (int)im->second.dests.size() );
+    ProgTrace( TRACE5, "im->second.dests.size()=%zu", im->second.dests.size() );
     if ( (int)im->second.dests.size() < 2 )
       throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.ROUTE_LEAST_TWO_POINTS" );
     im->second.dests.begin()->scd_in = NoExists;
@@ -2591,7 +2591,7 @@ bool createAirportTrip( string airp, int trip_id, TFilter filter, int offset, TD
   string crafts, craft_format;
   vector<TDest> vecportsFrom, vecportsTo;
   int i=0;
-//  ProgTrace( TRACE5, "createAirporttrip trip_id=%d, trips.size()=%d", trip_id, (int)ds.trips.size() );
+//  ProgTrace( TRACE5, "createAirporttrip trip_id=%d, trips.size()=%zu", trip_id, ds.trips.size() );
   do {
     NDest = &ds.dests[ i ];
     craft_format = ElemIdToElemCtxt( ecDisp, etCraft, NDest->craft, NDest->craft_fmt );
@@ -2709,7 +2709,7 @@ bool createAirportTrip( string airp, int trip_id, TFilter filter, int offset, TD
     PDest = NDest;
   }
   while ( NDest != &ds.dests.back() );
-  ProgTrace( TRACE5, "trips.size()=%d", (int)ds.trips.size() );
+  ProgTrace( TRACE5, "trips.size()=%zu", ds.trips.size() );
   return !ds.trips.empty();
 }
 
@@ -2928,7 +2928,7 @@ bool createAirlineTrip( int trip_id, TFilter &filter, int offset, TDestList &ds,
     tr.pr_del = pr_del;
     ds.trips.push_back( tr );
   }
-//ProgTrace( TRACE5, "ds.trips.size()=%d", (int)trips.size() );
+//ProgTrace( TRACE5, "ds.trips.size()=%zu", trips.size() );
   return !ds.trips.empty();
 }
 

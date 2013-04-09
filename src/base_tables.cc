@@ -184,7 +184,7 @@ void TBaseTable::load_table()
         throw;
       };
     };
-    //ProgTrace(TRACE5,"TABLE %s UPDATED: %d rows",get_table_name(),table.size());
+    //ProgTrace(TRACE5,"TABLE %s UPDATED: %zu rows",get_table_name(),table.size());
     pr_init=true;
     pr_actual=true;
     after_update();

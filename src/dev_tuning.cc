@@ -1711,7 +1711,7 @@ void TVersionType::delete_dst_vers()
 
 void TVersionType::delete_blanks(TVersionType &vers)
 {
-    ProgTrace(TRACE5, "forms.size(): %d", forms.size());
+    ProgTrace(TRACE5, "forms.size(): %zu", forms.size());
     string i_form = find_form(vers);
     while(not i_form.empty()) {
         ProgTrace(TRACE5, "delete form %s", i_form.c_str());
@@ -2337,7 +2337,7 @@ void TVersList::fill_dest_list(TVersList &dst_vers_list)
         TVersionType &version = i_vers->second;
         vector<shared_ptr<TPrnFormType> > form_list;
         version.get_form_list(form_list);
-        ProgTrace(TRACE5, "version: %s; form_list.count: %d", version.name.c_str(), form_list.size());
+        ProgTrace(TRACE5, "version: %s; form_list.count: %zu", version.name.c_str(), form_list.size());
         TVersionType *same_src_vers = find_same(version);
         for(vector<shared_ptr<TPrnFormType> >::iterator i_list = form_list.begin(); i_list != form_list.end(); i_list++) {
             ProgTrace(TRACE5, "    form: %s", (*i_list)->str().c_str());
@@ -2498,7 +2498,7 @@ void DevTuningInterface::Import(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     form_types->add(reqNode);
     vector<TPectabItem> pectabs;
     form_types->get_pectabs(pectabs);
-    ProgTrace(TRACE5, "pectabs.size(): %d", pectabs.size());
+    ProgTrace(TRACE5, "pectabs.size(): %zu", pectabs.size());
     map<string, set<string> > mapping;
     xmlNodePtr cfgNode = NodeAsNode("cfg", reqNode)->children;
     for(; cfgNode; cfgNode = cfgNode->next) {

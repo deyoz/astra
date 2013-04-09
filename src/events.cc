@@ -367,13 +367,13 @@ void SaveGrpToLog(int point_id,
     map< TPaxToLogInfoKey, TPaxToLogInfo>::const_iterator bPax=grpInfoBefore.pax.end();
   
     if (a==grpInfoAfter.pax.end() ||
-        a!=grpInfoAfter.pax.end() && b!=grpInfoBefore.pax.end() && b->first < a->first)
+        (a!=grpInfoAfter.pax.end() && b!=grpInfoBefore.pax.end() && b->first < a->first))
     {
       bPax=b;
       ++b;
     } else
     if (b==grpInfoBefore.pax.end() ||
-        a!=grpInfoAfter.pax.end() && b!=grpInfoBefore.pax.end() && a->first < b->first)
+        (a!=grpInfoAfter.pax.end() && b!=grpInfoBefore.pax.end() && a->first < b->first))
     {
       aPax=a;
       ++a;
@@ -579,13 +579,13 @@ void SaveGrpToLog(int point_id,
       std::map< int/*id*/, TBagToLogInfo>::const_iterator bBag=grpInfoBefore.bag.end();
 
       if (a==grpInfoAfter.bag.end() ||
-          a!=grpInfoAfter.bag.end() && b!=grpInfoBefore.bag.end() && b->first < a->first)
+          (a!=grpInfoAfter.bag.end() && b!=grpInfoBefore.bag.end() && b->first < a->first))
       {
         bBag=b;
         ++b;
       } else
       if (b==grpInfoBefore.bag.end() ||
-          a!=grpInfoAfter.bag.end() && b!=grpInfoBefore.bag.end() && a->first < b->first)
+          (a!=grpInfoAfter.bag.end() && b!=grpInfoBefore.bag.end() && a->first < b->first))
       {
         aBag=a;
         ++a;

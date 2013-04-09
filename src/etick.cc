@@ -473,7 +473,7 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         bool use_flight=(GetNode("segments",termReqNode)!=NULL &&
                          NodeAsNode("segments/segment",termReqNode)->next!=NULL);  //определим по запросу TERM_REQUEST;
         map<string, pair< vector<string>, vector< pair<string,string> > > >::iterator i;
-        if (reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION) && !defer_etstatus ||
+        if ((reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION) && !defer_etstatus) ||
         	  reqInfo->client_type == ctWeb ||
         	  reqInfo->client_type == ctKiosk)
         {
@@ -934,10 +934,10 @@ void ETStatusInterface::ETCheckStatus(int id,
             };
 
             if (status!=real_status ||
-                !Qry.FieldIsNULL("tick_point_id") &&
-                (Qry.FieldAsInteger("tick_point_id")!=point_id ||
-                 Qry.FieldAsString("tick_airp_dep")!=airp_dep ||
-                 Qry.FieldAsString("tick_airp_arv")!=airp_arv))
+                (!Qry.FieldIsNULL("tick_point_id") &&
+                 (Qry.FieldAsInteger("tick_point_id")!=point_id ||
+                  Qry.FieldAsString("tick_airp_dep")!=airp_dep ||
+                  Qry.FieldAsString("tick_airp_arv")!=airp_arv)))
             {
               if (!init_edi_addrs)
               {

@@ -169,7 +169,7 @@ void sych_basel_aero_stat( BASIC::TDateTime utcdate )
       TripSetsQry.Execute(); //лочим рейс
       get_basel_aero_flight_stat( ASTRA::NoExists, Qry.FieldAsInteger( "point_id" ), stats );
       if ( !stats.empty() ) {
-        ProgTrace( TRACE5, "point_id=%d, stats.size()=%d", Qry.FieldAsInteger( "point_id" ), stats.size() );
+        ProgTrace( TRACE5, "point_id=%d, stats.size()=%zu", Qry.FieldAsInteger( "point_id" ), stats.size() );
         write_basel_aero_stat( utcdate, stats );
       }
       OraSession.Commit();

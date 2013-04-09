@@ -763,7 +763,7 @@ void createXMLTrips( const string &dbf_type, bool pr_remove, TDateTime spp_date,
       //vector<Cargo>::iterator c=lug_out.vcargo.end();
       xmlNodePtr NodeDK = NewTextChild( NodeD, "DK" );
       NewTextChild( NodeDK, "PNR", getPNRParam( tr->airline_out, tr->airline_out_fmt, tr->flt_no_out, tr->suffix_out, tr->suffix_out_fmt, getRemoveSuffix( spp_date, tr->scd_out ) ) );
-      ProgTrace( TRACE5, "tr->places_out.size=%d, d->airp=%s", tr->places_out.size(), d->airp.c_str() );
+      ProgTrace( TRACE5, "tr->places_out.size=%zu, d->airp=%s", tr->places_out.size(), d->airp.c_str() );
       string airp_tmp = ElemIdToElemCtxt( ecDisp, etAirp, d->airp, d->airp_fmt );
       if ( airp_tmp.size() > 3 )
         NewTextChild( NodeDK, "AP", d->airp );
@@ -1210,7 +1210,7 @@ bool equalTrips( const xmlDocPtr &old_doc, const xmlDocPtr &new_doc, vector<TTri
   GetNotEqualTrips( xml_oldtrip, xml_newtrip, false, xmltrips );
   GetNotEqualTrips( xml_newtrip, xml_oldtrip, true, xmltrips );
   // xmltrips содержит только изменения
-  ProgTrace( TRACE5, "xmltrips.size()=%d", xmltrips.size() );
+  ProgTrace( TRACE5, "xmltrips.size()=%zu", xmltrips.size() );
   return xmltrips.empty();
 }
 

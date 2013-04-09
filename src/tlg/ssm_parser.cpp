@@ -1269,7 +1269,7 @@ void TASMActionInfo::parse(const char *val)
             buf.erase(0, 4);
         }
         if(secondary_ids.size() > 5)
-            throw ETlgError("too many secondary action ids: %d", secondary_ids.size());
+            throw ETlgError("too many secondary action ids: %zu", secondary_ids.size());
     }
     if(not buf.empty() and id != aiACK and id != aiNAC) {
         if(buf[0] != ' ')
@@ -1282,7 +1282,7 @@ void TASMActionInfo::parse(const char *val)
                 throw ETlgError("wrong reason format: %s", reasons.back().c_str());
         }
         if(reasons.size() > 9)
-            throw ETlgError("too many Change Reasons: %d", reasons.size());
+            throw ETlgError("too many Change Reasons: %zu", reasons.size());
     }
     if(not buf.empty())
         throw ETlgError("unexpected data in Action Info");

@@ -549,7 +549,7 @@ int get_sirena_rozysk_stat(int argc,char **argv)
           };
         };
       };
-      printf("point_ids.size()=%d\n", point_ids.size());
+      printf("point_ids.size()=%zu\n", point_ids.size());
       processed=0;
       for(set< pair<TDateTime, int> >::const_iterator i=point_ids.begin(); i!=point_ids.end(); i++, processed++)
       {

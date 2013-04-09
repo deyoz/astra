@@ -735,8 +735,8 @@ void CheckTrferPermit(const pair<CheckIn::TTransferItem, TCkinSegFlts> &in,
           throw EXCEPTIONS::Exception("CheckTrferPermit: outSeg.fltInfo.real_out==NoExists");
         double interval=round((outSeg.fltInfo.real_out-Qry.FieldAsDateTime("real_in"))*1440);
         //ProgTrace(TRACE5, "interval=%f, min_interval=%d, max_interval=%d", interval, min_interval, max_interval);
-        if (min_interval!=NoExists && interval<min_interval ||
-            max_interval!=NoExists && interval>max_interval) sets.Clear();
+        if ((min_interval!=NoExists && interval<min_interval) ||
+            (max_interval!=NoExists && interval>max_interval)) sets.Clear();
       }
       else sets.Clear();
     };
@@ -1025,7 +1025,7 @@ void CheckInInterface::GetOnwardCrsTransfer(int pnr_id, TQuery &Qry,
   TElemFmt prior_airp_arv_fmt=efmtCodeNative;
   for(vector<TypeB::TTransferItem>::const_iterator t=crs_trfer.begin();t!=crs_trfer.end();++t)
   {
-    if (prior_transfer_num+1!=t->num && *(t->airp_dep)==0 || *(t->airp_arv)==0)
+    if ((prior_transfer_num+1!=t->num && *(t->airp_dep)==0) || *(t->airp_arv)==0)
       //иными словами, не знаем порта прилета и предыдущией стыковки нет
       //либо же не знаем порта вылета
       //это ошибка в PNL/ADL - просто не отправим часть
@@ -1221,7 +1221,7 @@ void LoadUnconfirmedTransfer(const vector<CheckIn::TTransferItem> &segs, xmlNode
   vector< pair< pair< string, map<int, CheckIn::TTransferItem> >, vector<int> > >::const_iterator iCrsTrfer=crs_trfer.begin();
   for(;iCrsTrfer!=crs_trfer.end();++iCrsTrfer)
   {
-    ProgTrace(TRACE5,"tlg_airp_arv=%s map<int, CheckIn::TTransferItem>.size()=%d vector<int>.size()=%d",
+    ProgTrace(TRACE5,"tlg_airp_arv=%s map<int, CheckIn::TTransferItem>.size()=%zu vector<int>.size()=%zu",
                      iCrsTrfer->first.first.c_str(), iCrsTrfer->first.second.size(), iCrsTrfer->second.size());
   };
     
@@ -1249,7 +1249,7 @@ void LoadUnconfirmedTransfer(const vector<CheckIn::TTransferItem> &segs, xmlNode
       trferItem.subclass_fmt=s->pax.at(pax_no).subclass_fmt;
       pax_trfer[seg_no-1]=trferItem;
     };
-    ProgTrace(TRACE5,"LoadUnconfirmedTransfer: pax_trfer.size()=%d",pax_trfer.size());
+    ProgTrace(TRACE5,"LoadUnconfirmedTransfer: pax_trfer.size()=%zu",pax_trfer.size());
     //теперь pax_trfer содержит сегменты сквозной регистрации с подклассом пассажира
     //попробуем добавить сегменты из crs_transfer
     vector< pair< pair< string, map<int, CheckIn::TTransferItem> >, vector<int> > >::const_iterator iCrsTrfer=crs_trfer.begin();
@@ -1267,7 +1267,7 @@ void LoadUnconfirmedTransfer(const vector<CheckIn::TTransferItem> &segs, xmlNode
         break;
       };
     };
-    ProgTrace(TRACE5,"LoadUnconfirmedTransfer: pax_trfer.size()=%d",pax_trfer.size());
+    ProgTrace(TRACE5,"LoadUnconfirmedTransfer: pax_trfer.size()=%zu",pax_trfer.size());
     //теперь pax_trfer содержит сегменты сквозной регистрации с подклассом пассажира
     //плюс дополнительные сегменты трансфера из таблицы crs_transfer
     //все TTransferItem в pax_trfer сортированы по номеру трансфера (TTransferItem.num)
@@ -1734,8 +1734,8 @@ string CheckInInterface::GetSearchPaxSubquery(TPaxStatus pax_status,
   //2 прохода:
   for(int pass=1;pass<=2;pass++)
   {
-    if (pass==1 && pax_status!=psCheckin && pax_status!=psGoshow ||
-        pass==2 && pax_status==psCheckin) continue;
+    if ((pass==1 && pax_status!=psCheckin && pax_status!=psGoshow) ||
+        (pass==2 && pax_status==psCheckin)) continue;
     if (pass==1)
       sql << "   UNION \n";
     else
@@ -1763,8 +1763,8 @@ string CheckInInterface::GetSearchPaxSubquery(TPaxStatus pax_status,
     if (!return_pnr_ids || exclude_checked || exclude_deleted)
       sql << "         AND crs_pnr.pnr_id=crs_pax.pnr_id \n";
 
-    if (pass==1 && pax_status==psCheckin && !select_pad_with_ok ||
-        pass==2 && pax_status==psGoshow)
+    if ((pass==1 && pax_status==psCheckin && !select_pad_with_ok) ||
+        (pass==2 && pax_status==psGoshow))
       sql << "         AND (crs_pnr.status IS NULL OR crs_pnr.status NOT IN ('DG2','RG2','ID2','WL')) \n";
 
     if (pass==1 && pax_status==psGoshow)
@@ -2801,7 +2801,7 @@ bool CheckInInterface::ParseFQTRem(TypeB::TTlgParser &tlg,string &rem_text,TypeB
       for(string::const_iterator i=rem_text.begin();i!=rem_text.end();i++)
         if (!(IsUpperLetter(*i) ||
               IsDigit(*i) ||
-              *i>0 && *i<=' ' ||
+              (*i>0 && *i<=' ') ||
               *i=='/')) throw UserException("MSG.INVALID_SYMBOL",
                                             LParams()<<LParam("symbol",string(1,*i))); //WEB
 
@@ -3226,9 +3226,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 if (Qry.Eof ||
                     !(strcmp(NodeAsStringFast("ticket_rem",node2), Qry.FieldAsString("ticket_rem"))==0 &&
                       strcmp(NodeAsStringFast("ticket_no",node2), Qry.FieldAsString("ticket_no"))==0 &&
-                      (NodeIsNULLFast("coupon_no",node2) && Qry.FieldIsNULL("coupon_no") ||
-                       !NodeIsNULLFast("coupon_no",node2) && !Qry.FieldIsNULL("coupon_no") &&
-                       NodeAsIntegerFast("coupon_no",node2)==Qry.FieldAsInteger("coupon_no"))
+                      ((NodeIsNULLFast("coupon_no",node2) && Qry.FieldIsNULL("coupon_no")) ||
+                       (!NodeIsNULLFast("coupon_no",node2) && !Qry.FieldIsNULL("coupon_no") &&
+                        NodeAsIntegerFast("coupon_no",node2)==Qry.FieldAsInteger("coupon_no")))
                      ))
                 {
                   //билет отличается от ранее записанного
@@ -3655,7 +3655,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               {
                 node2=node->children;
                 int seats=NodeAsIntegerFast("seats",node2);
-                if (seats<=0&&k==0||seats>0&&k==1) continue;
+                if ((seats<=0&&k==0)||(seats>0&&k==1)) continue;
                 TInfantAdults pass;       // infant из таблицы crs_pax, pax, crs_inf
                 pass.grp_id = 1;
                 if ( !NodeIsNULLFast("pax_id",node2) )
@@ -3684,7 +3684,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 }
               }
             }
-            //ProgTrace( TRACE5, "InfItems.size()=%d, AdultItems.size()=%d", InfItems.size(), AdultItems.size() );
+            //ProgTrace( TRACE5, "InfItems.size()=%zu, AdultItems.size()=%zu", InfItems.size(), AdultItems.size() );
             SetInfantsToAdults( InfItems, AdultItems );
             SEATS2::Passengers.Clear();
             SEATS2::TSublsRems subcls_rems( fltInfo.airline );
@@ -3703,7 +3703,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 try
                 {
                   int seats=NodeAsIntegerFast("seats",node2);
-                  if (seats<=0||seats>0&&k==1) continue;
+                  if (seats<=0||(seats>0&&k==1)) continue;
 
                   const char *subclass=NodeAsStringFast("subclass",node2);
 
@@ -4021,7 +4021,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               try
               {
                 int seats=NodeAsIntegerFast("seats",node2);
-                if (seats<=0&&k==0||seats>0&&k==1) continue;
+                if ((seats<=0&&k==0)||(seats>0&&k==1)) continue;
                 const char* surname=NodeAsStringFast("surname",node2);
                 const char* name=NodeAsStringFast("name",node2);
                 const char* pers_type=NodeAsStringFast("pers_type",node2);
@@ -4113,7 +4113,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                       TSeatRange range(*iSeat,*iSeat);
                       ranges.push_back(range);
                     };
-                    ProgTrace( TRACE5, "ranges.size=%d", ranges.size() );
+                    ProgTrace( TRACE5, "ranges.size=%zu", ranges.size() );
                     //запись в базу
                     TCompLayerType layer_type;
                     switch( grp_status ) {
@@ -5713,7 +5713,7 @@ string CheckInInterface::SaveTransfer(int grp_id,
   {
     if (checkType==checkAllSeg) break;
     if (iTlgs->second==checkNone ||
-        iTlgs->second==checkFirstSeg && checkType==checkFirstSeg) continue;
+        (iTlgs->second==checkFirstSeg && checkType==checkFirstSeg)) continue;
     sendInfo.tlg_type=iTlgs->first;
     addrInfo.tlg_type=iTlgs->first;
     if (!TelegramInterface::GetTypeBAddrs(addrInfo).empty()&&
@@ -5760,7 +5760,7 @@ string CheckInInterface::SaveTransfer(int grp_id,
   for(vector<CheckIn::TTransferItem>::const_iterator t=firstTrfer;t!=trfer.end();++t,trfer_num++)
   {
     if (checkType==checkAllSeg ||
-        checkType==checkFirstSeg && t==firstTrfer)
+        (checkType==checkFirstSeg && t==firstTrfer))
     {
       {
         TAirlinesRow& row=(TAirlinesRow&)base_tables.get("airlines").get_row("code",t->operFlt.airline);
@@ -6495,7 +6495,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   if (segs.size()!=trfer_segs.size() ||
       segs.size()!=trfer.size())
     throw EXCEPTIONS::Exception("CheckInInterface::CheckTCkinRoute: different array sizes "
-                                "(segs.size()=%d, trfer_segs.size()=%d, trfer.size()=%d",
+                                "(segs.size()=%zu, trfer_segs.size()=%zu, trfer.size()=%zu",
                                 segs.size(),trfer_segs.size(),trfer.size());
 
   vector< pair<TCkinSegmentItem, TTrferSetsInfo> >::iterator s=segs.begin();
@@ -6936,8 +6936,8 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
         if (errNode==NULL || NodeIsNULL(errNode)) continue;
         string error=NodeAsString(errNode);
         if (error=="CRITICAL" ||
-            error=="NOREC" && !s->second.tckin_norec ||
-            error=="WL" && !s->second.tckin_waitlist)
+            (error=="NOREC" && !s->second.tckin_norec) ||
+            (error=="WL" && !s->second.tckin_waitlist))
         {
           total_permit=false;
           break;

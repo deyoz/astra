@@ -1944,7 +1944,7 @@ void getTCkinData( const TPnrData &first,
     traceTrfer(TRACE5, "getTCkinData: trfer_segs", trfer_segs);
     if (crs_trfer.size()!=trfer_segs.size())
       throw EXCEPTIONS::Exception("getTCkinData: different array sizes "
-                                  "(crs_trfer.size()=%d, trfer_segs.size()=%d)",
+                                  "(crs_trfer.size()=%zu, trfer_segs.size()=%zu)",
                                   crs_trfer.size(),trfer_segs.size());
 
     int seg_no=1;

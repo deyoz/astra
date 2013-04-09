@@ -139,7 +139,7 @@ int internet_main(const char *body, int blen, const char *head,
   {
     answer="<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<error/>";
     newlen=answer.size()+hlen; // размер ответа (с заголовком)
-    ProgTrace(TRACE1,"Outgoing message is %i bytes long",int(answer.size()));
+    ProgTrace(TRACE1,"Outgoing message is %zu bytes long",answer.size());
     if(newlen>len)
     {
       *res=(char *)malloc(newlen*sizeof(char));
@@ -202,8 +202,8 @@ void WebRequestsIface::SearchPNRs(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
   
   resNode=NewTextChild(resNode,"SearchPNRs");
   
-  if (reqInfo->user.access.airps_permit && reqInfo->user.access.airps.empty() ||
-      reqInfo->user.access.airlines_permit && reqInfo->user.access.airlines.empty())
+  if ((reqInfo->user.access.airps_permit && reqInfo->user.access.airps.empty()) ||
+      (reqInfo->user.access.airlines_permit && reqInfo->user.access.airlines.empty()))
   {
     ProgError(STDLOG, "WebRequestsIface::SearchPNRs: empty user's access (user.descr=%s)", reqInfo->user.descr.c_str());
     return;
@@ -230,8 +230,8 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
   resNode=NewTextChild(resNode,"SearchFlt");
 
-  if (reqInfo->user.access.airps_permit && reqInfo->user.access.airps.empty() ||
-      reqInfo->user.access.airlines_permit && reqInfo->user.access.airlines.empty())
+  if ((reqInfo->user.access.airps_permit && reqInfo->user.access.airps.empty()) ||
+      (reqInfo->user.access.airlines_permit && reqInfo->user.access.airlines.empty()))
   {
     ProgError(STDLOG, "WebRequestsIface::SearchFlt: empty user's access (user.descr=%s)", reqInfo->user.descr.c_str());
     return;
@@ -325,7 +325,7 @@ struct TWebPax {
   	return transliter_equal(surname,pax.surname) &&
            transliter_equal(name,pax.name) &&
            pers_type_extended==pax.pers_type_extended &&
-           (seats==0 && pax.seats==0 || seats!=0 && pax.seats!=0);
+           ((seats==0 && pax.seats==0) || (seats!=0 && pax.seats!=0));
   };
 };
 
@@ -1039,7 +1039,7 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
         pnr.paxs.push_back( pax );
       };
     };
-    ProgTrace( TRACE5, "pass count=%d", pnr.paxs.size() );
+    ProgTrace( TRACE5, "pass count=%zu", pnr.paxs.size() );
     if ( pnr.paxs.empty() )
   	  throw UserException( "MSG.PASSENGERS.INFO_NOT_FOUND" );
 	}
@@ -1645,7 +1645,7 @@ struct TWebPaxForCkin
   	return transliter_equal(surname,pax.surname) &&
            transliter_equal(name,pax.name) &&
            pers_type==pax.pers_type &&
-           (seats==0 && pax.seats==0 || seats!=0 && pax.seats!=0);
+           ((seats==0 && pax.seats==0) || (seats!=0 && pax.seats!=0));
   };
 };
 
@@ -2038,7 +2038,7 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
     {
       if (iPnrData!=PNRs.end() &&
           (!s->second.paxForCkin.empty() ||
-           !s->second.paxForChng.empty() && s->second.paxForChng.size()>s->second.refusalCountFromReq)) //типа есть пассажиры
+           (!s->second.paxForChng.empty() && s->second.paxForChng.size()>s->second.refusalCountFromReq))) //типа есть пассажиры
       {
         //проверяем на сегменте вылет рейса и состояние соответствующего этапа
         if ( iPnrData->flt.act_out_local != NoExists )
@@ -2051,7 +2051,7 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
             throw EXCEPTIONS::Exception("VerifyPax: iPnrData->flt.stage_statuses[stKIOSKCheckIn] not defined (seg_no=%d)", seg_no);
         
           if (!(iStatus->second == sOpenKIOSKCheckIn ||
-                iStatus->second == sNoActive && s!=segs.begin())) //для сквозных сегментов регистрация может быть еще не открыта
+                (iStatus->second == sNoActive && s!=segs.begin()))) //для сквозных сегментов регистрация может быть еще не открыта
           {
             if (iStatus->second == sNoActive)
               throw UserException( "MSG.CHECKIN.NOT_OPEN" );
@@ -2065,11 +2065,13 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
           if (iStatus==iPnrData->flt.stage_statuses.end())
             throw EXCEPTIONS::Exception("VerifyPax: iPnrData->flt.stage_statuses[stWEBCheckIn] not defined (seg_no=%d)", seg_no);
           if (!(iStatus->second == sOpenWEBCheckIn ||
-                iStatus->second == sNoActive && s!=segs.begin())) //для сквозных сегментов регистрация может быть еще не открыта
+                (iStatus->second == sNoActive && s!=segs.begin()))) //для сквозных сегментов регистрация может быть еще не открыта
+          {
             if (iStatus->second == sNoActive)
               throw UserException( "MSG.CHECKIN.NOT_OPEN" );
             else
               throw UserException( "MSG.CHECKIN.CLOSED_OR_DENIAL" );
+          };
         };
       };
       
@@ -2081,7 +2083,7 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
           if (iStatus==iPnrData->flt.stage_statuses.end())
             throw EXCEPTIONS::Exception("VerifyPax: iPnrData->flt.stage_statuses[stWEBCancel] not defined (seg_no=%d)", seg_no);
           if (!(iStatus->second == sOpenWEBCheckIn ||
-                iStatus->second == sNoActive && s!=segs.begin())) //для сквозных сегментов регистрация может быть еще не открыта
+                (iStatus->second == sNoActive && s!=segs.begin()))) //для сквозных сегментов регистрация может быть еще не открыта
             throw UserException("MSG.PASSENGER.UNREGISTRATION_DENIAL");
         };
       };

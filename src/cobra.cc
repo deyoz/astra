@@ -62,8 +62,10 @@ $80000000
 */
 
 //---------------------------------------------------------------------------
+#define __STDC_FORMAT_MACROS
 #include <stdio.h>
 #include <signal.h>
+#include <inttypes.h>
 #include <fstream>
 
 #include <cobra.h>
@@ -621,7 +623,7 @@ void ServSession::PutMsg( int msg_id, int msg_flags, const std::string &strbody 
     msg.flags = msg.flags | 0x80000000;
   }
   tst();
-  ProgTrace( TRACE5, "ServSession::PutMsg msg_id=%d, msg_len=%d, msg_flags=%d, isClientRequest=%d, pr_crypt=%d, pr_txt=%d, pr_zip=%d, pr_test=%d",
+  ProgTrace( TRACE5, "ServSession::PutMsg msg_id=%d, msg_len=%zu, msg_flags=%d, isClientRequest=%d, pr_crypt=%d, pr_txt=%d, pr_zip=%d, pr_test=%d",
              msg.msg_id, msg.strbody.size(), msg.flags, TAstraServMsg::isClientRequest(msg.flags),
              ( msg.flags & 0x01000000 ), ( msg.flags & 0x02000000 ), ( msg.flags & 0x04000000 ), pr_test );
   tst();
@@ -663,7 +665,7 @@ void ServSession::parseBuffer( void **parse_buf, unsigned int &parse_len )
     std::string strbody( (char*)p, msg_len );
     PutMsg( msg_id, msg_flags, strbody );
     p = (void*)( (uintptr_t)p + msg_len);
-    ProgTrace( TRACE5, "parseBuffer: msg_len=%d, msg_len=%d", msg_len, (uintptr_t)p - (uintptr_t)(*parse_buf) );
+    ProgTrace( TRACE5, "parseBuffer: msg_len=%d, msg_len=%" PRIdPTR, msg_len, (uintptr_t)p - (uintptr_t)(*parse_buf) );
     parse_len = parse_len - msg_len - HEADER_SIZE;
     ProgTrace( TRACE5, "parseBuffer: After parse_len=%d", parse_len );
   }
@@ -1373,7 +1375,7 @@ void ParseFlights( const xmlNodePtr reqNode, vector<TCobraError> &errors )
           throw EXCEPTIONS::Exception( "Node 'flight_id' not found" );
         flight_id = NodeAsString( n );
         std::string::size_type i = flight_id.find( "/" );
-        ProgTrace( TRACE5, "i=%d, flight_id=%s", i, flight_id.c_str() );
+        ProgTrace( TRACE5, "i=%zu, flight_id=%s", i, flight_id.c_str() );
         if ( i == string::npos )
           throw EXCEPTIONS::Exception( "Invalid value '%s' of 'flight_id' node", flight_id.c_str() );
         try {
@@ -1576,7 +1578,7 @@ void ParseFlights( const xmlNodePtr reqNode, vector<TCobraError> &errors )
                 throw EXCEPTIONS::Exception( "flight already exists" );
               points.move_id = findMove_id;
               old_dests.Load( points.move_id ); //зачитаем старый маршрут
-              ProgTrace( TRACE5, "old_dests.items.size()=%d", old_dests.items.size() );
+              ProgTrace( TRACE5, "old_dests.items.size()=%zu", old_dests.items.size() );
             }
             else {
               if ( flight_action != caInsert )
@@ -2400,7 +2402,7 @@ string AnswerFlight( const xmlNodePtr reqNode )
                              Qry.FieldAsInteger( "pr_tranzit" ),
                              trtNotCurrent,
                              trtNotCancelled );
-      ProgTrace( TRACE5, "point_id=%d, routes.size()=%d", point_id, routesA.size() );
+      ProgTrace( TRACE5, "point_id=%d, routes.size()=%zu", point_id, routesA.size() );
       if ( routesA.empty() ) {
         throw Exception( "flight not have takeoff" );
       }
@@ -2420,7 +2422,7 @@ string AnswerFlight( const xmlNodePtr reqNode )
         }
         string bort = Qry.FieldAsString( "bort" );
         if ( !( bort.size() == 5 && bort.find( "-" ) == string::npos || bort.size() == 6 && bort.find( "-" ) == 2 ) ) {
-          ProgTrace( TRACE5, "point_id=%d,bort=%s, bort.find=%d", point_id, bort.c_str(), bort.find( "-" ) );
+          ProgTrace( TRACE5, "point_id=%d, bort=%s, bort.find=%zu", point_id, bort.c_str(), bort.find( "-" ) );
           throw Exception( "Invalid bort" );
         }
         
@@ -2494,10 +2496,10 @@ string AnswerFlight( const xmlNodePtr reqNode )
             ProgTrace( TRACE5, "pax_id=%d, gender=%s", i->second.pax_id, i->second.gender.c_str() );
             passs.push_back( i->second );
           }
-          ProgTrace( TRACE5, "passs.size=%d", passs.size() );
+          ProgTrace( TRACE5, "passs.size=%zu", passs.size() );
           std::vector<SALONS2::TCompSection> compSections;
           ZonePax<TPassenger>( point_id, passs, compSections );
-          ProgTrace( TRACE5, "passs.size=%d", passs.size() );
+          ProgTrace( TRACE5, "passs.size=%zu", passs.size() );
           for ( vector<TPassenger>::iterator i=passs.begin(); i!=passs.end(); i++ ) {
             trace( i->pax_id, i->grp_id, i->parent_pax_id, i->parent_pax_id, i->pers_type, i->seats );
             ProgTrace( TRACE5, "pax_id=%d, gender=%s", i->pax_id, i->gender.c_str() );
@@ -2671,9 +2673,9 @@ bool parseIncommingWB_GarantData( )
       }
       else {
         str_answer = AnswerFlight( reqDoc->children );
-        ProgTrace( TRACE5, "AnswerFlight: str_answer.size()=%d", str_answer.size() );
+        ProgTrace( TRACE5, "AnswerFlight: str_answer.size()=%zu", str_answer.size() );
         str_answer = ConvertCodepage( str_answer, "CP866", WBGarantMsgCodePage );
-        ProgTrace( TRACE5, "AnswerFlight after convert: str_answer.size()=%d", str_answer.size() );
+        ProgTrace( TRACE5, "AnswerFlight after convert: str_answer.size()=%zu", str_answer.size() );
       }
       TAstraServMsg msg;
       StrToInt( fileparams[ SESS_MSG_FLAGS ].c_str(), msg.flags );
