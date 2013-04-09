@@ -99,6 +99,10 @@ struct TDest {
   string unitrip;
   string suffix;
   TElemFmt suffix_fmt;
+  TDateTime diff;
+  TDest() {
+    diff = 0.0;
+  }
 };
 
 struct trip {
@@ -129,17 +133,33 @@ struct trip {
 
 typedef vector<TDest> TDests;
 
+struct TRegion {
+  int tz;
+  string region;
+  void operator = (const TRegion &tz_region ) {
+    tz = tz_region.tz;
+    region = tz_region.region;
+  };
+  TRegion() {
+    tz = 0;
+  }
+  TRegion( int vtz, const string &vregion ) {
+    tz = vtz;
+    region = vregion;
+  }
+};
+
 struct TDestList {
   bool pr_del;
   TDateTime flight_time;
   TDateTime last_day;
-  int tz;
-  string region;
+  TRegion flight_tz_region;
   TDests dests;
-  TDateTime diff;
+  //!!!08.04.13TDateTime diff;
   vector<trip> trips;
   TDestList() {
-  	diff = 0;
+    flight_tz_region.tz = 0;
+  	//!!!08.04.13diff = 0;
   }
 };
 
@@ -154,12 +174,11 @@ struct TRangeList {
 
 class TFilter {
   private:
-  	map<int,TTimeDiff> offsets;
+  	map<string,TTimeDiff> offsets;
   public:
-    int dst_offset;
-    int tz;
+    int dst_offset; // сдвиг в часах
+    TRegion filter_tz_region; // регион относительно которого расчитvвается периодv расписания
     vector<TSeason> periods; //периоды летнего и зимнего расписания
-    string region; // регион относительно которого расчитvвается периодv расписания
     int season_idx; // текущее расписание
     TRange range; // диапазон дат в фильтре, когда не задан - диапазон расписания с временами
     TDateTime firstTime;
@@ -176,11 +195,11 @@ class TFilter {
     void InsertSectsPeriods( map<int,TDestList> &mapds,
                              vector<TPeriod> &speriods, vector<TPeriod> &nperiods, TPeriod p );
     bool isFilteredTime( TDateTime first_day, TDateTime scd_in, TDateTime scd_out,
-                         int dst_offset, string region );
+                         int dst_offset, const TRegion &flight_tz_region );
     bool isFilteredUTCTime( TDateTime vd, TDateTime first, TDateTime dest_time, int dst_offset );
     bool isFilteredTime( TDateTime vd, TDateTime first_day, TDateTime scd_in, TDateTime scd_out,
-                         int dst_offset, string vregion );
-    TDateTime GetTZTimeDiff( TDateTime utcnow, TDateTime first, int tz );
+                         int dst_offset, const TRegion &flight_tz_region );
+    TDateTime GetTZTimeDiff( TDateTime utcnow, TDateTime first, const TRegion &tz_region );
     TFilter();
 };
 
@@ -189,7 +208,7 @@ bool createAirportTrip( string airp, int trip_id, TFilter filter, int offset, TD
 bool createAirportTrip( int trip_id, TFilter filter, int offset, TDestList &ds, bool viewOwnPort, string &err_city );
 bool createAirlineTrip( int trip_id, TFilter &filter, int offset, TDestList &ds, string &err_city );
 bool createAirlineTrip( int trip_id, TFilter &filter, int offset, TDestList &ds, TDateTime localdate, string &err_city );
-int GetTZOffSet( TDateTime first, int tz, map<int,TTimeDiff> &v );
+int GetHoursTZOffSet( TDateTime first, const TRegion &tz_region, map<string,TTimeDiff> &v );
 void GetDests( map<int,TDestList> &mapds, const TFilter &filter, int move_id = NoExists );
 string GetCommonDays( string days1, string days2 );
 bool CommonDays( string days1, string days2 );
@@ -220,7 +239,7 @@ bool isDefaultTripType( const string &triptype )
 string GetPrintName( TDest *PDest, TDest *NDest )
 {
 	string res;
-  if ( !PDest || NDest->trip > NoExists && abs( PDest->trip - NDest->trip ) <= 1 && PDest->airline == NDest->airline ) {
+  if ( !PDest || ( NDest->trip > NoExists && abs( PDest->trip - NDest->trip ) <= 1 && PDest->airline == NDest->airline ) ) {
     res = ElemIdToElemCtxt( ecDisp, etAirline, NDest->airline, NDest->airline_fmt );
     while ( res.size() < 3 ) {
     	res += " ";
@@ -251,12 +270,13 @@ string GetPrintName( TDest *PDest, TDest *NDest )
 TFilter::TFilter()
 {
   Clear();
-  region = TReqInfo::Instance()->desk.tz_region;
+  filter_tz_region.region = TReqInfo::Instance()->desk.tz_region;
   TQuery GQry( &OraSession );
-  GQry.SQLText = "SELECT tz FROM tz_regions WHERE region=:region AND pr_del=0 ORDER BY tz DESC";
-  GQry.CreateVariable( "region", otString, region );
+  GQry.SQLText =
+    "SELECT tz FROM tz_regions WHERE region=:region AND pr_del=0 ORDER BY tz DESC";
+  GQry.CreateVariable( "region", otString, filter_tz_region.region );
   GQry.Execute();
-  tz = GQry.FieldAsInteger( "tz" );
+  filter_tz_region.tz = GQry.FieldAsInteger( "tz" );
 }
 
 void TFilter::Clear()
@@ -277,7 +297,7 @@ void TFilter::GetSeason()
   ptime utcd = second_clock::universal_time();
   int year = utcd.date().year();
   tz_database &tz_db = get_tz_database();
-  time_zone_ptr tz = tz_db.time_zone_from_region( region );
+  time_zone_ptr tz = tz_db.time_zone_from_region( filter_tz_region.region );
   local_date_time ld( utcd, tz ); /* определяем текущее время локальное */
   bool summer = true;
   /* устанавливаем первый год и признак периода */
@@ -337,8 +357,8 @@ void TFilter::GetSeason()
      name = IntToString( year - 1 ) + " " + getLocaleText("год");
     }
     ProgTrace( TRACE5, "s_time=%s, e_time=%s, summer=%d, i=%d",
-               DateTimeToStr( UTCToLocal( BoostToDateTime(s_time), region ),"dd.mm.yy hh:nn:ss" ).c_str(),
-               DateTimeToStr( UTCToLocal( BoostToDateTime(e_time), region ), "dd.mm.yy hh:nn:ss" ).c_str(), !summer, i );
+               DateTimeToStr( UTCToLocal( BoostToDateTime(s_time), filter_tz_region.region ),"dd.mm.yy hh:nn:ss" ).c_str(),
+               DateTimeToStr( UTCToLocal( BoostToDateTime(e_time), filter_tz_region.region ), "dd.mm.yy hh:nn:ss" ).c_str(), !summer, i );
     periods.push_back( TSeason( s_time, e_time, !summer, name ) );
     if ( i == SEASON_PRIOR_PERIOD ) {
       range.first = BoostToDateTime( periods[ i ].period.begin() );
@@ -548,7 +568,7 @@ ProgTrace( TRACE5, "first=%s, last=%s, modified=%d",
 
 bool TFilter::isFilteredUTCTime( TDateTime vd, TDateTime first, TDateTime dest_time, int dst_offset )
 {
-  if ( firstTime == NoExists || region.empty() )
+  if ( firstTime == NoExists || filter_tz_region.region.empty() )
     return true;
   double f1,f2,f3;
   modf( vd, &f1 );
@@ -591,7 +611,7 @@ bool TFilter::isFilteredUTCTime( TDateTime vd, TDateTime first, TDateTime dest_t
   }
 
   //учет перехода времени
-  TDateTime diff = GetTZTimeDiff( vd, first, tz );
+  TDateTime diff = GetTZTimeDiff( vd, first, filter_tz_region );
   f1 += diff;
 
   return ( f1 >= f && f1 <= l );
@@ -599,7 +619,7 @@ bool TFilter::isFilteredUTCTime( TDateTime vd, TDateTime first, TDateTime dest_t
 
 
 bool TFilter::isFilteredTime( TDateTime vd, TDateTime first_day, TDateTime scd_in, TDateTime scd_out,
-                              int dst_offset, string vregion )
+                              int dst_offset, const TRegion &flight_tz_region )
 {
 	ProgTrace( TRACE5, "filter.firsttime=%s, filter.lasttime=%s, first_day=%s, scd_in=%s, scd_out=%s",
 	           DateTimeToStr( firstTime, "dd.mm hh:nn" ).c_str(),
@@ -607,7 +627,7 @@ bool TFilter::isFilteredTime( TDateTime vd, TDateTime first_day, TDateTime scd_i
 	           DateTimeToStr( first_day, "dd.mm hh:nn" ).c_str(),
 	           DateTimeToStr( scd_in, "dd.mm hh:nn" ).c_str(),
 	           DateTimeToStr( scd_out, "dd.mm hh:nn" ).c_str());
-  if ( firstTime == NoExists || region.empty() )
+  if ( firstTime == NoExists || filter_tz_region.region.empty() )
     return true;
   /* переводим времена в фильтре во время UTC относительно города в маршруте */
   // переводим время начала расписания в UTC
@@ -619,10 +639,10 @@ bool TFilter::isFilteredTime( TDateTime vd, TDateTime first_day, TDateTime scd_i
   // переводим время фильтра в UTC
   // normilize date
   try {
-    f2 = modf( (double)ClientToUTC( f1 + firstTime, vregion ), &f3 );
+    f2 = modf( (double)ClientToUTC( f1 + firstTime, flight_tz_region.region ), &f3 );
   }
   catch( boost::local_time::ambiguous_result ) {
-  	f2 = modf( (double)ClientToUTC( f1 + 1 + firstTime, vregion ), &f3  );
+  	f2 = modf( (double)ClientToUTC( f1 + 1 + firstTime, flight_tz_region.region ), &f3  );
   	f3--;
   }
   catch( boost::local_time::time_label_invalid ) {
@@ -635,10 +655,10 @@ bool TFilter::isFilteredTime( TDateTime vd, TDateTime first_day, TDateTime scd_i
   else
     f = f3 - f1 + f2;
   try {
-    f2 = modf( (double)ClientToUTC( f1 + lastTime, vregion ), &f3 );
+    f2 = modf( (double)ClientToUTC( f1 + lastTime, flight_tz_region.region ), &f3 );
   }
   catch( boost::local_time::ambiguous_result ) {
-  	f2 = modf( (double)ClientToUTC( f1 + 1 + lastTime, vregion ), &f3 );
+  	f2 = modf( (double)ClientToUTC( f1 + 1 + lastTime, flight_tz_region.region ), &f3 );
   	f3--;
   }
   catch( boost::local_time::time_label_invalid ) {
@@ -695,7 +715,7 @@ bool TFilter::isFilteredTime( TDateTime vd, TDateTime first_day, TDateTime scd_i
 
   //учет перехода времени
   //01.04.2008 TDateTime diff = getDiff( dst_offset, isSummer( first_day ), isSummer( vd ) );
-  TDateTime diff = GetTZTimeDiff( vd, first_day, tz );
+  TDateTime diff = GetTZTimeDiff( vd, first_day, filter_tz_region );
   f1 += diff;
   f2 += diff;
 
@@ -707,17 +727,17 @@ bool TFilter::isFilteredTime( TDateTime vd, TDateTime first_day, TDateTime scd_i
 	           DateTimeToStr( f1, "dd.mm hh:nn" ).c_str(),
 	           DateTimeToStr( f2, "dd.mm hh:nn" ).c_str());*/
 
-  return ( f1 >= f && f1 <= l || f2 >= f && f2 <= l );
+  return ( ( f1 >= f && f1 <= l ) || ( f2 >= f && f2 <= l ) );
 }
 
-bool TFilter::isFilteredTime( TDateTime first_day, TDateTime scd_in, TDateTime scd_out, int dst_offset, string vregion )
+bool TFilter::isFilteredTime( TDateTime first_day, TDateTime scd_in, TDateTime scd_out, int dst_offset, const TRegion &flight_tz_region )
 {
 
 
 /*, DateTimeToStr( BoostToDateTime( periods[ season_idx ].period.begin() ) + 10, "dd.mm.yy hh:nn" ).c_str()  */
 
   return isFilteredTime( BoostToDateTime( periods[ season_idx ].period.begin() ) + 1,
-                         first_day, scd_in, scd_out, dst_offset, vregion );
+                         first_day, scd_in, scd_out, dst_offset, flight_tz_region );
 }
 
 
@@ -832,7 +852,7 @@ void TFilter::Parse( xmlNodePtr filterNode )
     node = GetNode( "days", node );
     range.days = NodeAsString( node );
     tz_database &tz_db = get_tz_database();
-    time_zone_ptr tz = tz_db.time_zone_from_region( region );
+    time_zone_ptr tz = tz_db.time_zone_from_region( filter_tz_region.region );
     if ( tz->has_dst() ) {
       TDateTime f = range.first;
       ptime p = DateTimeToBoost( f ) - tz->base_utc_offset();
@@ -913,7 +933,7 @@ void TFilter::Parse( xmlNodePtr filterNode )
 void TFilter::Build( xmlNodePtr filterNode )
 {
   tz_database &tz_db = get_tz_database();
-  time_zone_ptr tz = tz_db.time_zone_from_region( region );
+  time_zone_ptr tz = tz_db.time_zone_from_region( filter_tz_region.region );
   NewTextChild( filterNode, "season_idx", 0 );
   NewTextChild( filterNode, "season_count", SEASON_PERIOD_COUNT );
   filterNode = NewTextChild( filterNode, "seasons" );
@@ -1026,11 +1046,11 @@ void CreateSPP( BASIC::TDateTime localdate )
       for ( TDests::iterator d=im->second.dests.begin(); d!=im->second.dests.end() - 1; d++ ) {
       	TDateTime vscd_in, vscd_out;
       	if ( d->scd_in > NoExists )
-      		vscd_in = d->scd_in + im->second.diff;
+      		vscd_in = d->scd_in + d->diff;//!!!08.04.13im->second.diff;
       	else
       		vscd_in = NoExists;
       	if ( d->scd_out > NoExists )
-      		vscd_out = d->scd_out + im->second.diff;
+      		vscd_out = d->scd_out + d->diff;//!!!08.04.13im->second.diff;
       	else
       		vscd_out = NoExists;
 
@@ -1111,13 +1131,13 @@ void CreateSPP( BASIC::TDateTime localdate )
         if ( d->scd_in == NoExists )
           PQry.SetVariable( "scd_in", FNull );
         else
-          PQry.SetVariable( "scd_in", d->scd_in + im->second.diff );
+          PQry.SetVariable( "scd_in", d->scd_in + d->diff );//!!!08.04.13im->second.diff );
         if ( d->scd_out == NoExists ) {
           PQry.SetVariable( "scd_out", FNull );
           scd_out = NoExists;
         }
         else {
-          scd_out = d->scd_out + im->second.diff;
+          scd_out = d->scd_out + d->diff;//!!!08.04.13im->second.diff;
           PQry.SetVariable( "scd_out", scd_out );
         }
         if ( d->triptype.empty() )
@@ -1188,8 +1208,20 @@ void SeasonInterface::GetSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
   AstraLocale::showMessage("MSG.DATA_SAVED");
 }
 
+
+TDateTime ddiff( const string &region, TDateTime first_day, TDateTime curr_day )
+{
+  tz_database &tz_db = get_tz_database();
+  time_zone_ptr tz = tz_db.time_zone_from_region( region );
+  if ( !tz->has_dst() )
+    return 0.0;
+  local_date_time local_first_day( DateTimeToBoost( first_day ), tz ); /* определяем время начала периода локальное */
+  local_date_time local_curr_day( DateTimeToBoost( curr_day ), tz ); /* определяем текущее время локальное */
+  return getDiff( tz->dst_offset().hours(), local_first_day.is_dst(), local_curr_day.is_dst() );
+}
+
 bool insert_points( double da, int move_id, TFilter &filter, TDateTime first_day, int offset,
-                    TDateTime vd, TDestList &ds, int ptz )
+                    TDateTime vd, TDestList &ds, const TRegion &flight_tz_region )
 {
   ProgTrace( TRACE5, "first_day=%s", DateTimeToStr( first_day, "dd.mm.yy hh:nn" ).c_str() );
 
@@ -1223,8 +1255,8 @@ bool insert_points( double da, int move_id, TFilter &filter, TDateTime first_day
   Qry.Execute();
   bool candests = false;
   ds.pr_del = true;
-  ds.diff = filter.GetTZTimeDiff( da, first_day, ptz );
-  ds.tz = ptz;
+  //!!!08.04.13ds.diff = filter.GetTZTimeDiff( da, first_day, flight_tz_region );
+//!!!  ds.tz = ptz;
   double f1;
   while ( !Qry.Eof ) {
     TDest d;
@@ -1252,6 +1284,11 @@ bool insert_points( double da, int move_id, TFilter &filter, TDateTime first_day
     d.airline_fmt = (TElemFmt)Qry.FieldAsInteger( "airline_fmt" );
 
     d.region = AirpTZRegion( Qry.FieldAsString( "airp" ), false );
+    d.diff = ddiff( d.region, first_day, vd );
+    ProgTrace( TRACE5, "dest: region=%s, first_date=%s, curr_date=%s, diff=%f",
+                       d.region.c_str(), DateTimeToStr( first_day, "dd.mm.yy hh:nn" ).c_str(),
+                       DateTimeToStr( vd, "dd.mm.yy hh:nn" ).c_str(), d.diff );
+
     if ( Qry.FieldIsNULL( "flt_no" ) )
       d.trip = NoExists;
     else
@@ -1323,46 +1360,90 @@ void createTrips( TDateTime utc_spp_date, TDateTime localdate, TFilter &filter, 
   filter.lastTime = lastTime;
 }
 
-string GetRegionFromTZ( int ptz, map<int,string> &mapreg )
+void GetRegionFromTZ( TRegion &tz_region, map<int,string> &mapreg )
 {
-  string res;
-  if ( mapreg.find( ptz ) != mapreg.end() )
-    return mapreg[ ptz ];
+  if ( !tz_region.region.empty() )
+    return;
+  if ( mapreg.find( tz_region.tz ) != mapreg.end() ) {
+    tz_region.region = mapreg[ tz_region.tz ];
+    return;
+  }
   TQuery Qry( &OraSession );
   Qry.SQLText = "SELECT region FROM tz_regions WHERE tz=:ptz AND country='РФ' AND pr_del=0";
-  Qry.CreateVariable( "ptz", otInteger, ptz );
+  Qry.CreateVariable( "ptz", otInteger, tz_region.tz );
   Qry.Execute();
   if ( !Qry.Eof ) {
-    res = Qry.FieldAsString( "region" );
-    mapreg[ ptz ] = res;
+    tz_region.region = Qry.FieldAsString( "region" );
+    mapreg[ tz_region.tz ] = tz_region.region;
   }
-  return res;
 }
+
+/* ф-ция определяет сдвиг по входным параметрам:
+first - начала выполнения рейса, включая время
+tz - зона, относительно которой записан рейс
+возвращает сдвиг - кол-во часов */
+void GetTZOffSet( TDateTime first, const TRegion &tz_region, map<string,TTimeDiff> &v, TTimeDiff &timeDiffs )
+{
+  timeDiffs.clear();
+  map<string,TTimeDiff>::const_iterator mt = v.find( tz_region.region );
+  if ( mt == v.end() ) {
+    if ( tz_region.region.empty() )
+      throw Exception( "GetTZOffSet: tz_region.region.empty" );
+    TQuery Qry( &OraSession );
+    Qry.SQLText = "SELECT first,last,hours FROM seasons WHERE region=:region";
+    Qry.CreateVariable( "region", otString, tz_region.region );
+    Qry.Execute();
+    while ( !Qry.Eof ) {
+      timeDiff t;
+      t.first = Qry.FieldAsDateTime( "first" );
+      t.last = Qry.FieldAsDateTime( "last" );
+      t.hours = Qry.FieldAsInteger( "hours" );
+      timeDiffs.push_back( t );
+      Qry.Next();
+    }
+    v.insert( make_pair(tz_region.region,timeDiffs));
+  }
+  else timeDiffs = v[ tz_region.region ];
+}
+
+int GetHoursTZOffSet( TDateTime first, const TRegion &tz_region, map<string,TTimeDiff> &v )
+{
+  TTimeDiff timeDiffs;
+  GetTZOffSet( first, tz_region, v, timeDiffs );
+  for ( vector<timeDiff>::iterator i=timeDiffs.begin(); i!=timeDiffs.end(); i++ ) {
+    if ( i->first <= first && i->last >= first ) {
+      return i->hours;
+    }
+  }
+  return 0;
+}
+
 
 void createSPP( TDateTime localdate, TSpp &spp, bool createViewer, string &err_city )
 {
   //throw UserException( "Работа с экраном 'Сезонное расписание' временно остановлено. Идет обновление" );
 	map<int,string> mapreg;
-  map<int,TTimeDiff> v;
+  map<string,TTimeDiff> v;
   TFilter filter;
   filter.GetSeason();
 
   TQuery Qry(&OraSession);
   double d1, d2, f1, f2, f3, f4;
-  d1 = ClientToUTC( localdate, filter.region );
-  d2 = ClientToUTC( localdate + 1 - 1/1440, filter.region );
+  d1 = ClientToUTC( localdate, filter.filter_tz_region.region );
+  d2 = ClientToUTC( localdate + 1 - 1/1440, filter.filter_tz_region.region );
   ProgTrace( TRACE5, "spp on local date %s, utc date and time begin=%s, end=%s",
              DateTimeToStr( localdate, "dd.mm.yy" ).c_str(),
              DateTimeToStr( d1, "dd.mm.yy hh:nn" ).c_str(),
              DateTimeToStr( d2, "dd.mm.yy hh:nn" ).c_str() );
   // для начала надо получить список периодов, которые выполняются в эту дату, пока без учета времени
   Qry.SQLText =
-  " SELECT DISTINCT move_id,first_day,last_day,:vd-delta AS qdate,pr_del,d.tz tz "
+  " SELECT DISTINCT move_id,first_day,last_day,:vd-delta AS qdate,pr_del,"
+  "                 d.tz tz, d.region region "
   "  FROM "
   "  ( SELECT routes.move_id as move_id,"
   "           TO_NUMBER(delta_in) as delta,"
   "           sched_days.pr_del as pr_del,"
-  "           first_day,last_day,tz "
+  "           first_day,last_day,tz,region "
   " FROM sched_days,routes "
   " WHERE routes.move_id = sched_days.move_id AND "
   "       TRUNC(first_day) + delta_in <= :vd AND "
@@ -1372,7 +1453,7 @@ void createSPP( TDateTime localdate, TSpp &spp, bool createViewer, string &err_c
   " SELECT routes.move_id as move_id, "
   "        TO_NUMBER(delta_out) as delta,"
   "        sched_days.pr_del as pr_del,"
-  "        first_day,last_day,tz "
+  "        first_day,last_day,tz,region "
   " FROM sched_days,routes "
   "   WHERE routes.move_id = sched_days.move_id AND "
   "         TRUNC(first_day) + delta_out <= :vd AND "
@@ -1399,24 +1480,23 @@ void createSPP( TDateTime localdate, TSpp &spp, bool createViewer, string &err_c
      Qry.Execute();
      vector<TDateTime> days;
      int vmove_id = -1;
-     int ptz;
-     string pregion;
+     
+     TRegion flight_tz_region;
      TDateTime first_day, last_day;
      while ( 1 ) {
        if ( vmove_id > 0 && ( Qry.Eof || vmove_id != Qry.FieldAsInteger( "move_id" ) ) ) {
         // цикл по полученным датам
          for ( vector<TDateTime>::iterator vd=days.begin(); vd!=days.end(); vd++ ) {
 
-           int offset = GetTZOffSet( first_day, ptz, v );
+           int offset = GetHoursTZOffSet( first_day, flight_tz_region, v );
 
            ProgTrace( TRACE5, "day=%s, move_id=%d",
                       DateTimeToStr( *vd, "dd.mm.yy hh:nn" ).c_str(), vmove_id );
 
-           if ( insert_points( d, vmove_id, filter, first_day, offset, *vd, ds, ptz ) ) { // имеем права с маршрутом работать + фильтр по временам
+           if ( insert_points( d, vmove_id, filter, first_day, offset, *vd, ds, flight_tz_region ) ) { // имеем права с маршрутом работать + фильтр по временам
               ds.flight_time = first_day;
               ds.last_day = last_day;
-              ds.tz = ptz;
-              ds.region = pregion;
+              ds.flight_tz_region = flight_tz_region;
 
               ProgTrace( TRACE5, "canspp trip d=%s spp[ %s ][ %d ].trips.size()=%d",
                          DateTimeToStr( d, "dd.mm.yy hh:nn" ).c_str(),
@@ -1456,9 +1536,9 @@ void createSPP( TDateTime localdate, TSpp &spp, bool createViewer, string &err_c
        if ( Qry.Eof )
         break;
        vmove_id = Qry.FieldAsInteger( "move_id" );
-       ptz = Qry.FieldAsInteger( "tz" );
-//       pregion = Qry.FieldAsString( "region" );
-       pregion = GetRegionFromTZ( ptz, mapreg );
+       flight_tz_region.tz = Qry.FieldAsInteger( "tz" );
+       flight_tz_region.region = Qry.FieldAsString( "region" );
+       GetRegionFromTZ( flight_tz_region, mapreg );
        first_day = Qry.FieldAsDateTime( "first_day" );
        last_day = Qry.FieldAsDateTime( "last_day" );
 
@@ -1713,7 +1793,7 @@ ProgTrace( TRACE5, "airp=%s, scd_in=%f, scd_out=%f", id->airp.c_str(), id->scd_i
 }
 
 // разбор и перевод времен в UTC, в диапазонах выполнения хранятся времена вылета
-bool ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TDestList> &mapds, string &filter_region )
+bool ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TDestList> &mapds, const TRegion &filter_tz_region )
 {
   TBaseTable &baseairps = base_tables.get( "airps" );
   TReqInfo *reqInfo = TReqInfo::Instance();
@@ -1795,7 +1875,7 @@ bool ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TD
           modf( (double)dest.scd_in, &f2 );
           if ( ds.flight_time == NoExists && f2 == 0 ) {
             ds.flight_time = dest.scd_in;
-            ds.region = dest.region;
+            ds.flight_tz_region.region = dest.region;
           }
         }
         else
@@ -1844,7 +1924,7 @@ bool ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TD
         	modf( (double)dest.scd_out, &f2 );
         	if ( ds.flight_time == NoExists && f2 == 0 ) {
               ds.flight_time = dest.scd_out;
-              ds.region = dest.region;
+              ds.flight_tz_region.region = dest.region;
           }
         }
         else
@@ -1909,10 +1989,10 @@ bool ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TD
                DateTimeToStr( period.last, "dd.mm.yyyy hh:nn:ss" ).c_str(),
                period.days.c_str() );
  		try {
-      period.first = ClientToUTC( (double)period.first, filter_region );
+      period.first = ClientToUTC( (double)period.first, filter_tz_region.region );
  	  }
     catch( boost::local_time::ambiguous_result ) {
-    	period.first = ClientToUTC( (double)period.first + 1, filter_region ) - 1;
+    	period.first = ClientToUTC( (double)period.first + 1, filter_tz_region.region ) - 1;
     }
     catch( boost::local_time::time_label_invalid ) {
       throw AstraLocale::UserException( "MSG.FLIGHT_TIME_NOT_EXISTS",
@@ -2006,7 +2086,7 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
   TRangeList rangeList;
   map<int,TDestList> mapds;
   xmlNodePtr rangelistNode = GetNode( "SubrangeList", reqNode );
-  ParseRangeList( rangelistNode, rangeList, mapds, filter.region );
+  ParseRangeList( rangelistNode, rangeList, mapds, filter.filter_tz_region );
 /*  if ( !ParseRangeList( rangelistNode, rangeList, mapds, filter.region ) ) {
   	NewTextChild( dataNode, "ambiguous_time" );
   	return;
@@ -2023,7 +2103,7 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
   if ( node ) {
     trip_id = NodeAsInteger( node );
     SQry.Clear();
-    SQry.SQLText = "SELECT first_day, last_day, days, pr_del, tlg, reference "
+    SQry.SQLText = "SELECT first_day, last_day, days, pr_del, tlg, reference, trip_id, move_id "
                    " FROM sched_days "
                    " WHERE trip_id=:trip_id";
     SQry.CreateVariable( "trip_id", otInteger, trip_id );
@@ -2036,6 +2116,7 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
     	p.pr_del = SQry.FieldAsInteger( "pr_del" );
     	p.tlg = SQry.FieldAsString( "tlg" );
     	p.ref = SQry.FieldAsString( "reference" );
+    	p.move_id = SQry.FieldAsInteger( "move_id" );
     	oldperiods.push_back( p );
     	SQry.Next();
     }
@@ -2117,12 +2198,13 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
   "DECLARE i NUMBER;"
   "BEGIN "
   "SELECT COUNT(*) INTO i FROM seasons "
-  " WHERE tz=:tz AND :first=first AND :last=last; "
+  " WHERE region=:region AND :first=first AND :last=last; "
   "IF i = 0 THEN "
-  " INSERT INTO seasons(tz,first,last,hours) VALUES(:tz,:first,:last,:hours); "
+  " INSERT INTO seasons(tz,region,first,last,hours) VALUES(:tz,:region,:first,:last,:hours); "
   "END IF; "
   "END;";
-  GQry.CreateVariable( "tz", otInteger, filter.tz );
+  GQry.CreateVariable( "tz", otInteger, filter.filter_tz_region.tz );
+  GQry.CreateVariable( "region", otString, filter.filter_tz_region.region );
   GQry.DeclareVariable( "first", otDate );
   GQry.DeclareVariable( "last", otDate );
   GQry.DeclareVariable( "hours", otInteger );
@@ -2131,8 +2213,8 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
   TQuery RQry( &OraSession );
   SQry.Clear();
   SQry.SQLText =
-  "INSERT INTO sched_days(trip_id,move_id,num,first_day,last_day,days,pr_del,tlg,reference,tz) "
-  "VALUES(:trip_id,:move_id,:num,:first_day,:last_day,:days,:pr_del,:tlg,:reference,:tz) ";
+  "INSERT INTO sched_days(trip_id,move_id,num,first_day,last_day,days,pr_del,tlg,reference,tz,region) "
+  "VALUES(:trip_id,:move_id,:num,:first_day,:last_day,:days,:pr_del,:tlg,:reference,:tz,:region) ";
   SQry.DeclareVariable( "trip_id", otInteger );
   SQry.DeclareVariable( "move_id", otInteger );
   SQry.DeclareVariable( "num", otInteger );
@@ -2142,7 +2224,8 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
   SQry.DeclareVariable( "pr_del", otInteger );
   SQry.DeclareVariable( "tlg", otString );
   SQry.DeclareVariable( "reference", otString );
-  SQry.CreateVariable( "tz", otInteger, filter.tz );
+  SQry.CreateVariable( "tz", otInteger, filter.filter_tz_region.tz );
+  SQry.CreateVariable( "region", otString, filter.filter_tz_region.region );
   RQry.Clear();
   RQry.SQLText =
   "INSERT INTO routes(move_id,num,airp,airp_fmt,pr_del,scd_in,airline,airline_fmt,flt_no,craft,craft_fmt,scd_out,litera, "
@@ -2265,8 +2348,10 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
     	ProgTrace( TRACE5, "log=%s, move_id=%d", log.c_str(), ew->move_id );
     	ew->modify = fdelete;
     }
-    if ( !log.empty() )
+    if ( !log.empty() ) {
+      log += " (ид. рейса=" + IntToString( trip_id ) + ",ид. маршрута=" + IntToString( new_move_id ) + ")";
       TReqInfo::Instance()->MsgToLog( log, evtSeason, trip_id, new_move_id );
+    }
     SQry.Execute()  ;
     num++;
     TDestList ds = mapds[ ip->move_id ];
@@ -2283,11 +2368,29 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         	log += "-";
         else
         	log = "Маршрут: ";
+        bool pr_add = false;
+        if ( !id->airline.empty() ) {
+          log += id->airline;
+          pr_add = true;
+        }
+        if ( id->trip != NoExists ) {
+          log += IntToString( id->trip );
+          pr_add = true;
+        }
+        if ( !id->suffix.empty() ) {
+          log += id->suffix;
+          pr_add = true;
+        }
+        if ( !id->craft.empty() ) {
+          log += "," + id->craft;
+          pr_add = true;
+        }
+        if ( pr_add )
+          log += ",";
         RQry.SetVariable( "pr_del", id->pr_del );
         if ( id->scd_in > NoExists ) {
           RQry.SetVariable( "scd_in", modf( (double)id->scd_in, &fl ) ); // удаляем delta_in
           log += DateTimeToStr( id->scd_in, "hh:nn(UTC)" );
-
         }
         else {
           fl = 0.0;
@@ -2302,8 +2405,9 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
           RQry.SetVariable( "airline", id->airline );
           RQry.SetVariable( "airline_fmt", (int)id->airline_fmt );
         }
-        if ( id->trip > NoExists )
+        if ( id->trip != NoExists ) {
           RQry.SetVariable( "flt_no", id->trip );
+        }
         else
           RQry.SetVariable( "flt_no", FNull );
         if ( id->craft.empty() ) {
@@ -2373,7 +2477,8 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             ew->days;
       if ( ew->pr_del )
     	  log += " отм.";
-    	TReqInfo::Instance()->MsgToLog( log, evtSeason, trip_id, new_move_id );
+      log +=" (ид. рейса=" + IntToString( trip_id ) + ",ид. маршрута=" + IntToString( ew->move_id ) + ")";
+    	TReqInfo::Instance()->MsgToLog( log, evtSeason, trip_id, ew->move_id );
   }
 
   // надо перечитать информацию по экрану редактирования
@@ -2407,7 +2512,7 @@ string GetTrip( TDest *PriorDest, TDest *OwnDest )
           ElemIdToElemCtxt( ecDisp, etSuffix, suffix, suffix_fmt );
   else
     if ( flt_no == NoExists ||
-         airline == OwnDest->airline && flt_no == OwnDest->trip && suffix == OwnDest->suffix )
+         ( airline == OwnDest->airline && flt_no == OwnDest->trip && suffix == OwnDest->suffix ) )
       res = ElemIdToElemCtxt( ecDisp, etAirline, OwnDest->airline, OwnDest->airline_fmt ) +
             IntToString( OwnDest->trip ) +
             ElemIdToElemCtxt( ecDisp, etSuffix, OwnDest->suffix, OwnDest->suffix_fmt );
@@ -2528,7 +2633,7 @@ bool createAirportTrip( string airp, int trip_id, TFilter filter, int offset, TD
     	return false;
     }
     /* может получится несколько рейсов. */
-    if ( createTrip || OwnDest != NULL && NDest == &ds.dests.back() ) {
+    if ( createTrip || ( OwnDest != NULL && NDest == &ds.dests.back() ) ) {
      /* если мы здесь, то получается рейс,
        у него есть время прилета/вылета и оно может не удовлетворять условиям фильтра
        Когда это представитель одного порта => можно понять времена вылета и прилета в порт */
@@ -2554,9 +2659,9 @@ bool createAirportTrip( string airp, int trip_id, TFilter filter, int offset, TD
 
       if ( cantrip &&
       	   ( UTCFilter &&
-      	      ( filter.isFilteredUTCTime( utc_spp_date, ds.flight_time, OwnDest->scd_in, offset ) ||
-      	        filter.isFilteredUTCTime( utc_spp_date, ds.flight_time, OwnDest->scd_out, offset ) ) ||
-      	     !UTCFilter && filter.isFilteredTime( ds.flight_time, OwnDest->scd_in, OwnDest->scd_out, offset, OwnDest->region ) )
+      	      ( ( filter.isFilteredUTCTime( utc_spp_date, ds.flight_time, OwnDest->scd_in, offset ) ||
+      	          filter.isFilteredUTCTime( utc_spp_date, ds.flight_time, OwnDest->scd_out, offset ) ) ||
+      	          ( !UTCFilter && filter.isFilteredTime( ds.flight_time, OwnDest->scd_in, OwnDest->scd_out, offset, TRegion( 0, OwnDest->region ) ) ) ) )
       	 ) {
         /* рейс подходит под наши условия */
         ProgTrace( TRACE5, "createAirporttrip trip_id=%d, OwnDest->scd_in=%s, OwnDest.scd_out=%s",
@@ -2652,7 +2757,7 @@ bool createAirlineTrip( int trip_id, TFilter &filter, int offset, TDestList &ds,
     NDest = &ds.dests[ i ];
     if ( !NDest->pr_del )
       pr_del = false;
-    timeKey = timeKey || filter.isFilteredTime( ds.flight_time, NDest->scd_in, NDest->scd_out, offset, NDest->region );
+    timeKey = timeKey || filter.isFilteredTime( ds.flight_time, NDest->scd_in, NDest->scd_out, offset, TRegion( 0, NDest->region ) );
     craft_format = ElemIdToElemCtxt( ecDisp, etCraft, NDest->craft, NDest->craft_fmt );
     if ( tr.crafts.find( craft_format ) == string::npos ) {
       if ( !tr.crafts.empty() )
@@ -2779,7 +2884,7 @@ bool createAirlineTrip( int trip_id, TFilter &filter, int offset, TDestList &ds,
 //      ProgTrace( TRACE5, "tr.ports_out=%s, bold ports=%s", tr.ports_out.c_str(), tr.bold_ports.c_str() );
    // }
     if ( NDest->trip > NoExists ) {
-      if  ( !PDest || PDest->airline != NDest->airline && !NDest->airline.empty() ||
+      if  ( !PDest || ( PDest->airline != NDest->airline && !NDest->airline.empty() ) ||
             PDest->trip != NDest->trip ||
             PDest->suffix != NDest->suffix ) {
         if ( !PDest )
@@ -2847,18 +2952,18 @@ void AddRefPeriod( string &exec, TDateTime first, TDateTime last, int delta_out,
     exec += " " + TrimString( tlg );
 }
 
-bool ConvertPeriodToLocal( TDateTime &first, TDateTime &last, string &days, string region, int ptz, int &errtz )
+bool ConvertPeriodToLocal( TDateTime &first, TDateTime &last, string &days, const TRegion &tz_region, TRegion &err_tz_region )
 {
   TDateTime f;
   TDateTime l;
 
   try {
-    f = UTCToClient( first, region );
-    l = UTCToClient( last, region );
+    f = UTCToClient( first, tz_region.region );
+    l = UTCToClient( last, tz_region.region );
   }
   catch( Exception &e ) {
-  	if ( errtz == NoExists )
-  		errtz = ptz;
+  	if ( err_tz_region.tz == NoExists )
+  		err_tz_region = tz_region;
   	return false;
   }
   int m = (int)f - (int)first;
@@ -3014,59 +3119,14 @@ void GetDests( map<int,TDestList> &mapds, const TFilter &filter, int vmove_id )
   }
 }
 
-int GetTZOffSet( TDateTime first, int tz, map<int,TTimeDiff> &v )
+TDateTime TFilter::GetTZTimeDiff( TDateTime utcnow, TDateTime first, const TRegion &tz_region )
 {
-  map<int,TTimeDiff>::iterator mt = v.find( tz );
-  TTimeDiff vt;
-  if ( mt == v.end() ) {
-    TQuery Qry( &OraSession );
-    Qry.SQLText = "SELECT tz,first,last, hours FROM seasons WHERE tz=:tz";
-    Qry.CreateVariable( "tz", otInteger, tz );
-    Qry.Execute();
-    while ( !Qry.Eof ) {
-      timeDiff t;
-      t.first = Qry.FieldAsDateTime( "first" );
-      t.last = Qry.FieldAsDateTime( "last" );
-      t.hours = Qry.FieldAsInteger( "hours" );
-      vt.push_back( t );
-      Qry.Next();
-    }
-    v.insert( make_pair(tz,vt));
-  }
-  else vt = v[ tz ];
-
-  for ( vector<timeDiff>::iterator i=vt.begin(); i!=vt.end(); i++ ) {
-    if ( i->first <= first && i->last >= first ) {
-      return i->hours;
-    }
-  }
-  return 0;
-}
-
-TDateTime TFilter::GetTZTimeDiff( TDateTime utcnow, TDateTime first, int tz )
-{
-  map<int,TTimeDiff>::iterator mt = offsets.find( tz );
-  TTimeDiff vt;
-  if ( mt == offsets.end() ) {
-    TQuery Qry( &OraSession );
-    Qry.SQLText = "SELECT tz,first,last, hours FROM seasons WHERE tz=:tz";
-    Qry.CreateVariable( "tz", otInteger, tz );
-    Qry.Execute();
-    while ( !Qry.Eof ) {
-      timeDiff t;
-      t.first = Qry.FieldAsDateTime( "first" );
-      t.last = Qry.FieldAsDateTime( "last" );
-      t.hours = Qry.FieldAsInteger( "hours" );
-      vt.push_back( t );
-      Qry.Next();
-    }
-    offsets.insert( make_pair(tz,vt));
-  }
-  else vt = offsets[ tz ];
+  TTimeDiff timeDiffs;
+  GetTZOffSet( first, tz_region, offsets, timeDiffs );
 
   int periodDiff = NoExists, seasonDiff = NoExists;
 
-  for ( vector<timeDiff>::iterator i=vt.begin(); i!=vt.end(); i++ ) {
+  for ( vector<timeDiff>::iterator i=timeDiffs.begin(); i!=timeDiffs.end(); i++ ) {
 /*    ProgTrace( TRACE5, "i->first=%s, i->last=%s, i->hours=%d",
                DateTimeToStr( i->first, "dd.mm.yy hh:nn" ).c_str(),
                DateTimeToStr( i->last, "dd.mm.yy hh:nn" ).c_str(),
@@ -3151,15 +3211,15 @@ bool ComparePeriod( TViewPeriod t1, TViewPeriod t2 )
 
 void internalRead( TFilter &filter, vector<TViewPeriod> &viewp, int trip_id = NoExists )
 {
-  int errtz = NoExists;
+  TRegion err_tz_region( NoExists, "" );
   string err_city;
   TDateTime last_date_season = BoostToDateTime( filter.periods.begin()->period.begin() );
   map<int,string> mapreg;
-  map<int,TTimeDiff> v;
+  map<string,TTimeDiff> v;
   map<int,TDestList> mapds;
   TQuery SQry( &OraSession );
   string sql =
-  "SELECT trip_id,move_id,first_day,last_day,days,pr_del,tlg,tz "
+  "SELECT trip_id,move_id,first_day,last_day,days,pr_del,tlg,tz,region "
   " FROM sched_days WHERE last_day>=:begin_date_season ";
   if ( trip_id > NoExists )
   	sql += " AND trip_id=:trip_id ";
@@ -3178,6 +3238,7 @@ void internalRead( TFilter &filter, vector<TViewPeriod> &viewp, int trip_id = No
   int idx_spr_del = SQry.FieldIndex("pr_del");
   int idx_tlg = SQry.FieldIndex("tlg");
   int idx_ptz = SQry.FieldIndex("tz");
+  int idx_region = SQry.FieldIndex("region");
 
   if ( !SQry.RowCount() )
     AstraLocale::showErrorMessage( "MSG.NO_FLIGHTS_IN_SCHED" );
@@ -3220,25 +3281,27 @@ void internalRead( TFilter &filter, vector<TViewPeriod> &viewp, int trip_id = No
         TDateTime utc_first = first;
         /* получим правила перехода(вывода) времен в рейсе */
 
-        int ptz = SQry.FieldAsInteger( idx_ptz );
-        string pregion = GetRegionFromTZ( ptz, mapreg );
+        TRegion flight_tz_region;
+        flight_tz_region.tz = SQry.FieldAsInteger( idx_ptz );
+        flight_tz_region.region = SQry.FieldAsString( idx_region );
+        GetRegionFromTZ( flight_tz_region, mapreg );
         /* продолжаем фильтровать */
         time_period p( DateTimeToBoost( first ), DateTimeToBoost( last ) );
         time_period df( DateTimeToBoost( filter.range.first ), DateTimeToBoost( filter.range.last ) );
         /* фильтр по диапазонам, дням и временам вылета, если пользователь портовой */
   /* ??? надо ли переводить у фильтра дни выполнения в UTC */
         ds.flight_time = utc_first;
-        ds.region = pregion;
+        ds.flight_tz_region = flight_tz_region;
 //        ProgTrace( TRACE5, "move_id=%d, pregion=%s", move_id, pregion.c_str() );
         if ( df.intersects( p ) &&
              /* переводим диапазон выполнения в локальный формат - может быть сдвиг */
-             ConvertPeriodToLocal( first, last, days, pregion, ptz, errtz ) &&
+             ConvertPeriodToLocal( first, last, days, flight_tz_region, err_tz_region ) &&
              CommonDays( days, filter.range.days ) && /* ??? в df.intersects надо посмотреть есть ли дни выполнения */
             ( ds.dests.empty() ||
-              TReqInfo::Instance()->user.user_type == utAirport &&
-              createAirportTrip( viewperiod.trip_id, filter, GetTZOffSet( first, ptz, v ), ds, true, err_city ) /*??? isfiltered */ ||
-              TReqInfo::Instance()->user.user_type != utAirport &&
-      	      createAirlineTrip( viewperiod.trip_id, filter, GetTZOffSet( utc_first, ptz, v ), ds, err_city ) ) ) {
+              ( TReqInfo::Instance()->user.user_type == utAirport &&
+                createAirportTrip( viewperiod.trip_id, filter, GetHoursTZOffSet( first, flight_tz_region, v ), ds, true, err_city ) ) /*??? isfiltered */ ||
+              ( TReqInfo::Instance()->user.user_type != utAirport &&
+      	        createAirlineTrip( viewperiod.trip_id, filter, GetHoursTZOffSet( utc_first, flight_tz_region, v ), ds, err_city ) ) ) ) {
           rangeListEmpty = false;
           TDateTime delta_out = NoExists; // переход через сутки по вылету
           delta_out = 0.0;
@@ -3295,9 +3358,11 @@ void internalRead( TFilter &filter, vector<TViewPeriod> &viewp, int trip_id = No
     	viewp.push_back( viewperiod );
     }
   }
- if ( errtz != NoExists )
+ if ( err_tz_region.tz != NoExists ) {
+    ProgError( STDLOG, "MSG.REGION_NOT_SPECIFIED_FOR_COUNTRY_WITH_ZONE.NOT_ALL_FLIGHTS_ARE_SHOWN: region=%s, tz=%d", err_tz_region.region.c_str(), err_tz_region.tz );
     AstraLocale::showErrorMessage( "MSG.REGION_NOT_SPECIFIED_FOR_COUNTRY_WITH_ZONE.NOT_ALL_FLIGHTS_ARE_SHOWN",
-    	                             LParams() << LParam("country", ElemIdToCodeNative(etCountry,"РФ")) << LParam("zone", errtz));
+    	                             LParams() << LParam("country", ElemIdToCodeNative(etCountry,"РФ")) << LParam("zone", err_tz_region.tz)); //!!!
+ }
  if ( !err_city.empty() )
     showErrorMessage( "MSG.CITY.REGION_NOT_DEFINED.NOT_ALL_FLIGHTS_ARE_SHOWN",
                       LParams() << LParam("city", ElemIdToCodeNative(etCity,err_city)));
@@ -3425,12 +3490,12 @@ void SeasonInterface::Slots(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
 void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dataNode, string &err_city )
 {
   //throw UserException( "Работа с экраном 'Сезонное расписание' временно остановлено. Идет обновление" );
-	int errtz = NoExists;
+	TRegion err_tz_region( NoExists, "" );
   TQuery SQry( &OraSession );
   TDateTime begin_date_season = BoostToDateTime( filter.periods.begin()->period.begin() );
   // выбираем для редактирования все периоды, которые больше или равны текущей дате
   SQry.SQLText =
-  "SELECT trip_id,move_id,first_day,last_day,days,pr_del,tlg,reference,tz "
+  "SELECT trip_id,move_id,first_day,last_day,days,pr_del,tlg,reference,tz,region "
   " FROM sched_days "
   " WHERE last_day>=:begin_date_season "
   "ORDER BY trip_id,move_id,num";
@@ -3447,10 +3512,11 @@ void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dat
   int idx_reference = SQry.FieldIndex( "reference" );
 //  int idx_region = SQry.FieldIndex("region");
   int idx_tz = SQry.FieldIndex("tz");
+  int idx_region = SQry.FieldIndex("region");
 
   // может нам надо получить все сразу маршруты
   map<int,string> mapreg;
-  map<int,TTimeDiff> v;
+  map<string,TTimeDiff> v;
   map<int,TDestList> mapds;
   GetDests( mapds, filter );
   xmlNodePtr node;
@@ -3466,12 +3532,16 @@ void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dat
   while ( !SQry.Eof ) {
     TDateTime first = SQry.FieldAsDateTime( idx_first_day );
     TDateTime last = SQry.FieldAsDateTime( idx_last_day );
-    int ptz = SQry.FieldAsInteger( idx_tz );
+    TRegion flight_tz_region;
+    flight_tz_region.tz = SQry.FieldAsInteger( idx_tz );
+    flight_tz_region.region = SQry.FieldAsString( idx_region );
 //    string pregion = SQry.FieldAsString( idx_region );
-    string pregion = GetRegionFromTZ( ptz, mapreg );
-    if ( pregion.empty() )
+    GetRegionFromTZ( flight_tz_region, mapreg );
+    if ( flight_tz_region.region.empty() ) {
+      ProgError( STDLOG, "MSG.REGION_NOT_SPECIFIED_FOR_COUNTRY_WITH_ZONE: region=%s, tz=%d", flight_tz_region.region.c_str(), flight_tz_region.tz );
     	throw AstraLocale::UserException( "MSG.REGION_NOT_SPECIFIED_FOR_COUNTRY_WITH_ZONE",
-    		                                LParams() << LParam("country", ElemIdToCodeNative(etCountry,"РФ")) << LParam("zone", ptz));
+    		                                LParams() << LParam("country", ElemIdToCodeNative(etCountry,"РФ")) << LParam("zone", flight_tz_region.tz));
+    }
 /*    TDateTime hours = GetTZTimeDiff( NowUTC(), first, last, ptz, v );
     first += hours; //???
     last += hours;*/
@@ -3489,19 +3559,19 @@ void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dat
         else {*/
 //          ProgTrace( TRACE5, "create trip with trip_id=%d, move_id=%d", trip_id, move_id );
           mapds[ move_id ].flight_time = first;
-          mapds[ move_id ].tz = ptz;
-          mapds[ move_id ].region = pregion;
+          //!!!mapds[ move_id ].tz = ptz;
+          mapds[ move_id ].flight_tz_region = flight_tz_region;
           if ( TReqInfo::Instance()->user.user_type == utAirport )
-            canTrips = !createAirportTrip( vtrip_id, filter, GetTZOffSet( first, ptz, v ), mapds[ move_id ], false, err_city );
+            canTrips = !createAirportTrip( vtrip_id, filter, GetHoursTZOffSet( first, flight_tz_region, v ), mapds[ move_id ], false, err_city );
           else
-            canTrips = !createAirlineTrip( vtrip_id, filter, GetTZOffSet( first, ptz, v ), mapds[ move_id ], err_city );
+            canTrips = !createAirlineTrip( vtrip_id, filter, GetHoursTZOffSet( first, flight_tz_region, v ), mapds[ move_id ], err_city );
 /*        } */
       }
       canRange = ( !mapds[ move_id ].dests.empty() && SQry.FieldAsInteger( idx_trip_id ) == trip_id );
     }
     if ( canRange && buildRanges ) {
     	DestsExists = true;
-ProgTrace( TRACE5, "edit canrange move_id=%d", move_id );
+      ProgTrace( TRACE5, "edit canrange move_id=%d", move_id );
       string days = SQry.FieldAsString( idx_days );
 
       double utcf;
@@ -3509,12 +3579,12 @@ ProgTrace( TRACE5, "edit canrange move_id=%d", move_id );
       modf( (double)first, &utcf );
 
       double first_day;
-      modf( (double)UTCToClient( first, pregion ), &first_day );
+      modf( (double)UTCToClient( first, flight_tz_region.region ), &first_day );
       ProgTrace( TRACE5, "local first_day=%s",DateTimeToStr( first_day, "dd.mm.yyyy hh:nn:ss" ).c_str() );
 
       /* фильтр по диапазонам, дням и временам вылета, если пользователь портовой */
       /* переводим диапазон выполнения в локальный формат - может быть сдвиг */
-      if ( ConvertPeriodToLocal( first, last, days, pregion, ptz, errtz ) ) { // ptz
+      if ( ConvertPeriodToLocal( first, last, days, flight_tz_region, err_tz_region ) ) { // ptz
         xmlNodePtr range = NewTextChild( node, "range" );
         NewTextChild( range, "move_id", move_id );
         NewTextChild( range, "first", DateTimeToStr( (int)first ) );
