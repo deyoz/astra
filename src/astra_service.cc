@@ -554,10 +554,11 @@ int buildSaveFileData( xmlNodePtr resNode, const std::string &client_canon_name,
     try
     {
     	if ( !ScanQry.FieldAsInteger( "in_order" ) || // не важен порядок отправки
-    		   !(find( vecType.begin(), vecType.end(), in_order_key ) != vecType.end()) &&
-    		   ( ScanQry.FieldAsString( "status" ) != "SEND" || // или этот файл еще не отправлен и не было перед ним такого же
-      		   ScanQry.FieldAsDateTime( "time" ) + WAIT_ANSWER_SEC/(60.0*60.0*24.0) < ScanQry.FieldAsDateTime( "now" )
-      		 )
+    		   ( !(find( vecType.begin(), vecType.end(), in_order_key ) != vecType.end()) &&
+    		     ( string(ScanQry.FieldAsString( "status" )) != string("SEND") || // или этот файл еще не отправлен и не было перед ним такого же
+      		     ScanQry.FieldAsDateTime( "time" ) + WAIT_ANSWER_SEC/(60.0*60.0*24.0) < ScanQry.FieldAsDateTime( "now" )
+      		   )
+           )
     		  ) {
         getFileParams( client_canon_name, ScanQry.FieldAsString( "type" ), file_id, fileparams, true );
       	int len = ScanQry.GetSizeLongField( "data" );
@@ -1037,18 +1038,18 @@ bool CreateCommonFileData( bool pr_commit,
     while ( 1 ) {
         if ( client_canon_name.empty() && !Qry.Eof )
           client_canon_name = Qry.FieldAsString( "point_addr" );
-        if ( Qry.Eof && !client_canon_name.empty() ||
-        	   !Qry.Eof && client_canon_name != Qry.FieldAsString( "point_addr" ) ) { /* если нет такого имени */
+        if ( ( Qry.Eof && !client_canon_name.empty() ) ||
+        	   ( !Qry.Eof && client_canon_name != Qry.FieldAsString( "point_addr" ) ) ) { /* если нет такого имени */
           if ( master_params ) {
             fds.clear();
             TFileData fd;
             try {
                 if (
-                        type == FILE_SOFI_TYPE && createSofiFile( id, inparams, client_canon_name, fds ) ||
-                        type == FILE_AODB_OUT_TYPE && createAODBFiles( id, client_canon_name, fds ) ||
-                        type == FILE_SPPCEK_TYPE && createSPPCEKFile( id, client_canon_name, fds ) ||
-                        type == FILE_1CCEK_TYPE && Sync1C( client_canon_name, fds ) ||
-                        type == FILE_CHECKINDATA_TYPE && createCheckinDataFiles( id, client_canon_name, fds ) ) {
+                        ( type == FILE_SOFI_TYPE && createSofiFile( id, inparams, client_canon_name, fds ) ) ||
+                        ( type == FILE_AODB_OUT_TYPE && createAODBFiles( id, client_canon_name, fds ) ) ||
+                        ( type == FILE_SPPCEK_TYPE && createSPPCEKFile( id, client_canon_name, fds ) ) ||
+                        ( type == FILE_1CCEK_TYPE && Sync1C( client_canon_name, fds ) ) ||
+                        ( type == FILE_CHECKINDATA_TYPE && createCheckinDataFiles( id, client_canon_name, fds ) ) ) {
                     /* теперь в params еще лежит и имя файла */
                     string encoding = getFileEncoding( type, client_canon_name, true );
                     for ( vector<TFileData>::iterator i=fds.begin(); i!=fds.end(); i++ ) {
