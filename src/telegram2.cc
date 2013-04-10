@@ -445,7 +445,7 @@ string fetch_addr(string &addr, TTlgInfo *info)
         for(i = 0; i < result.size(); i++) {
             // c BETWEEN 'A' AND 'Z' OR c BETWEEN '0' AND '9'
             u_char c = result[i];
-            if((c > 0x40 and c < 0x5b) or (c > 0x2f and c < 0x3a))
+            if((IsUpperLetter(c) and IsAscii7(c)) or IsDigit(c))
                 continue;
             throw AstraLocale::UserException("MSG.TLG.INVALID_SITA_ADDR", LParams() << LParam("addr", result));
         }
@@ -861,11 +861,11 @@ namespace PRL_SPACE {
         while(true) {
             if(
                     iv == items.end() or
-                    iv != items.begin() and
+                    (iv != items.begin() and
                     not(prev_item->tag_type == iv->tag_type and
                         prev_item->color == iv->color and
                         prev_item->no + 1 == iv->no and
-                        num < 999)
+                        num < 999))
               ) {
                 ostringstream line;
                 format_tag_no(line, *prev_item, num, info);

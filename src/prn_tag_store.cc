@@ -508,7 +508,7 @@ string TPrnTagStore::get_field(std::string name, size_t len, std::string align, 
         }
         if(!len) len = result.size();
 
-        if(print_mode == 1 or print_mode == 2 and (name == TAG::PAX_ID or name == TAG::TEST_SERVER))
+        if(print_mode == 1 or (print_mode == 2 and (name == TAG::PAX_ID or name == TAG::TEST_SERVER)))
             return string(len, '8');
         if(print_mode == 2)
             return AlignString("8", len, align);
@@ -1437,7 +1437,7 @@ string TPrnTagStore::INF(TFieldParams fp)
 string cut_place(string airp, string city_name, int len)
 {
     if(not city_name.empty() and not airp.empty()) {
-        int diff = len - (airp.size() + 2);
+        ptrdiff_t diff = len - (airp.size() + 2);
         if(diff < 0) diff = string::npos;
         if(diff >= 3 or len == 0)
             return city_name.substr(0, diff) + "(" + airp + ")";
@@ -2229,8 +2229,8 @@ string TPrnTagStore::PAY_FORM(TFieldParams fp)
         {
             for(i=rcpt.pay_types.begin();i!=rcpt.pay_types.end();i++)
             {
-                if (k==0 && i->pay_type!=CASH_PAY_TYPE_ID ||
-                        k!=0 && i->pay_type==CASH_PAY_TYPE_ID) continue;
+                if ((k==0 and i->pay_type!=CASH_PAY_TYPE_ID) or
+                        (k!=0 and i->pay_type==CASH_PAY_TYPE_ID)) continue;
 
                 if (!result.str().empty())
                     result     << '+';
