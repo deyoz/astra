@@ -2658,10 +2658,10 @@ bool createAirportTrip( string airp, int trip_id, TFilter filter, int offset, TD
          cantrip = true;
 
       if ( cantrip &&
-      	   ( UTCFilter &&
-      	      ( ( filter.isFilteredUTCTime( utc_spp_date, ds.flight_time, OwnDest->scd_in, offset ) ||
-      	          filter.isFilteredUTCTime( utc_spp_date, ds.flight_time, OwnDest->scd_out, offset ) ) ||
-      	          ( !UTCFilter && filter.isFilteredTime( ds.flight_time, OwnDest->scd_in, OwnDest->scd_out, offset, TRegion( 0, OwnDest->region ) ) ) ) )
+      	   ( ( UTCFilter &&
+      	      ( filter.isFilteredUTCTime( utc_spp_date, ds.flight_time, OwnDest->scd_in, offset ) ||
+      	        filter.isFilteredUTCTime( utc_spp_date, ds.flight_time, OwnDest->scd_out, offset ) ) ) ||
+      	     ( !UTCFilter && filter.isFilteredTime( ds.flight_time, OwnDest->scd_in, OwnDest->scd_out, offset, TRegion( 0, OwnDest->region ) ) ) )
       	 ) {
         /* рейс подходит под наши условия */
         ProgTrace( TRACE5, "createAirporttrip trip_id=%d, OwnDest->scd_in=%s, OwnDest.scd_out=%s",
