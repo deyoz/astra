@@ -36,6 +36,7 @@ const string ERR_TAG_NAME = "ERROR";
 const string DEFAULT_ERR = "?";
 const string ERR_FIELD = "<" + ERR_TAG_NAME + ">" + DEFAULT_ERR + "</" + ERR_TAG_NAME + ">";
 const int MAX_DELAY_TIME = 6000; //mins, more than 99 hours 59 mins
+const string KG = "KG";
 
 bool TTlgInfo::operator == (const TMktFlight &s) const
 {
@@ -4764,6 +4765,7 @@ void TCFG::get(TTlgInfo &info)
         "FROM trip_classes,classes "
         "WHERE trip_classes.class=classes.code AND point_id=:point_id "
         "ORDER BY priority ";
+    ProgTrace(TRACE5, "point_id: %d", info.point_id);
     Qry.CreateVariable("point_id", otInteger, info.point_id);
     Qry.Execute();
     for(; !Qry.Eof; Qry.Next()) {
@@ -4772,7 +4774,7 @@ void TCFG::get(TTlgInfo &info)
         item.cfg = Qry.FieldAsInteger("cfg");
         items.push_back(item);
     }
-
+    ProgTrace(TRACE5, "items.size: %zu", items.size());
 }
 
 void TLDMCFG::get(TTlgInfo &info)
@@ -4845,7 +4847,7 @@ void TLDMDests::ToTlg(TTlgInfo &info, bool &vcompleted, vector<string> &body)
         mail_sum += iv->bag.mail;
     }
     row.str("");
-    row << "SI: EXB" << excess.excess << "KG";
+    row << "SI: EXB" << excess.excess << KG;
     body.push_back(row.str());
     row.str("");
     if(info.airp_dep != "ЧЛБ") {
@@ -5381,6 +5383,267 @@ int AHL(TTlgInfo &info)
         + "PN" + br
         + "TP" + br
         + "AG" + br;
+    tlg_draft.Save(tlg_row);
+    tlg_draft.Commit(tlg_row);
+    return tlg_row.id;
+}
+
+struct TLCICFG:TCFG {
+    void ToTlg(TTlgInfo &info, vector<string> &body)
+    {
+        if(info.vcompleted)
+            info.vcompleted = not info.bort.empty();
+        ostringstream cfg;
+        ProgTrace(TRACE5, "EQT items.size: %zu", items.size());
+        if(not items.empty()) {
+            cfg << "EQT." << (info.bort.empty() ? "??" : info.bort) << ".";
+            for(vector<TCFGItem>::iterator iv = items.begin(); iv != items.end(); iv++)
+            {
+                cfg
+                    << info.TlgElemIdToElem(etClass, iv->cls)
+                    << setw(3) << setfill('0') << iv->cfg;
+            }
+        }
+        ProgTrace(TRACE5, "EQT cfg.str(): %s", cfg.str().c_str());
+        if(not cfg.str().empty())
+            body.push_back(cfg.str());
+    }
+};
+
+struct TWA {
+    int payload, underload;
+    TWA(): payload(NoExists), underload(NoExists) {};
+    void get(TTlgInfo &info)
+    {
+        payload = getCommerceWeight(info.point_id, onlyCheckin, CWTotal);
+        TQuery Qry(&OraSession);
+        Qry.SQLText=
+            "SELECT max_commerce FROM trip_sets WHERE point_id=:point_id";
+        Qry.CreateVariable("point_id", otInteger, info.point_id);
+        Qry.Execute();
+        int max_payload = NoExists;
+        Qry.Execute();
+        if(not Qry.Eof and not Qry.FieldIsNULL("max_commerce"))
+            max_payload = Qry.FieldAsInteger("max_commerce");
+        underload = 0;
+        if(max_payload != NoExists and max_payload > payload)
+            underload = max_payload - payload;
+    }
+    void ToTlg(TTlgInfo &info, vector<string> &body)
+    {
+        ostringstream buf;
+        buf << "WA.P." << payload << "." << KG;
+        body.push_back(buf.str());
+        buf.str("");
+        buf << "WA.U." << underload << "." << KG;
+        body.push_back(buf.str());
+    }
+};
+
+struct TSR_Z:TCOMZones {
+    void ToTlg(TTlgInfo &info, vector<string> &body)
+    {
+        ostringstream result;
+        if(not items.empty()) {
+            result << "SR.Z.";
+            for(map<string, int>::iterator i = items.begin(); i != items.end(); i++)
+                result << i->first << i->second;
+            body.push_back(result.str());
+        }
+    }
+};
+
+struct TSR_C:TCOMClasses {
+    void ToTlg(TTlgInfo &info, vector<string> &body)
+    {
+        ostringstream av;
+        av << "SR.C.";
+        for(vector<TCOMClassesItem>::iterator iv = items.begin(); iv != items.end(); iv++)
+            av << iv->cls << iv->av;
+        body.push_back(av.str());
+    }
+};
+
+struct TWM {
+    void ToTlg(TTlgInfo &info, vector<string> &body);
+};
+
+void TWM::ToTlg(TTlgInfo &info, vector<string> &body)
+{
+    PersWeightRules pwr;
+    ClassesPersWeight cpw;
+    pwr.read(info.point_id);
+    ostringstream result;
+    pwr.weight("П", string(), cpw);
+    result
+        << "WM.S.P.CG." << info.TlgElemIdToElem(etClass, "П")
+        << cpw.male << "/" << cpw.female << "/" << cpw.child << "/" << cpw.infant;
+    pwr.weight("Б", string(), cpw);
+    result
+        << "." << info.TlgElemIdToElem(etClass, "Б")
+        << cpw.male << "/" << cpw.female << "/" << cpw.child << "/" << cpw.infant;
+    pwr.weight("Э", string(), cpw);
+    result
+        << "." << info.TlgElemIdToElem(etClass, "Э")
+        << cpw.male << "/" << cpw.female << "/" << cpw.child << "/" << cpw.infant
+        << "." << KG;
+    body.push_back(result.str());
+    result.str(string());
+    TFlightWeights w;
+    w.read( info.point_id, onlyCheckin );
+    result
+        << "WM.A.P."
+        <<
+        w.weight_male +
+        w.weight_female +
+        w.weight_child +
+        w.weight_infant
+        << "." << KG;
+    body.push_back(result.str());
+    result.str(string());
+    result << "WM.A.B." << w.weight_bag << "." << KG;
+    body.push_back(result.str());
+    result.str(string());
+    result << "WM.A.B.H." << w.weight_cabin_bag << "." << KG;
+    body.push_back(result.str());
+}
+
+struct TLCITotals {
+    size_t pax_size, bag_amount, bag_weight;
+    TLCITotals(): pax_size(0), bag_amount(0), bag_weight(0) {};
+};
+
+typedef map<string, TLCITotals> TPaxTotalsItem;
+
+struct TLCIPaxTotalsItem {
+    string airp;
+    TPaxTotalsItem cls_totals;
+};
+
+struct TLCIPaxTotals {
+    vector<TLCIPaxTotalsItem> items;
+    void get(TTlgInfo &info);
+    void ToTlg(TTlgInfo &info, vector<string> &body);
+};
+
+void TLCIPaxTotals::ToTlg(TTlgInfo &info, vector<string> &body)
+{
+    for(vector<TLCIPaxTotalsItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
+        ostringstream result;
+        result
+            << "-" << info.TlgElemIdToElem(etAirp, iv->airp) << ".PT."
+            <<
+            iv->cls_totals["П"].pax_size +
+            iv->cls_totals["Б"].pax_size +
+            iv->cls_totals["Э"].pax_size
+            << ".C."
+            << iv->cls_totals["П"].pax_size << "/"
+            << iv->cls_totals["Б"].pax_size << "/"
+            << iv->cls_totals["Э"].pax_size;
+        body.push_back(result.str());
+        result.str(string());
+        result
+            << "-" << info.TlgElemIdToElem(etAirp, iv->airp) << ".BT."
+            <<
+            iv->cls_totals["П"].bag_amount +
+            iv->cls_totals["Б"].bag_amount +
+            iv->cls_totals["Э"].bag_amount
+            << "/" <<
+            iv->cls_totals["П"].bag_weight +
+            iv->cls_totals["Б"].bag_weight +
+            iv->cls_totals["Э"].bag_weight
+            << ".C."
+            << iv->cls_totals["П"].bag_amount << "/"
+            << iv->cls_totals["Б"].bag_amount << "/"
+            << iv->cls_totals["Э"].bag_amount
+            << ".A."
+            << iv->cls_totals["П"].bag_weight << "/"
+            << iv->cls_totals["Б"].bag_weight << "/"
+            << iv->cls_totals["Э"].bag_weight
+            << "." << KG;
+        body.push_back(result.str());
+    }
+}
+
+void TLCIPaxTotals::get(TTlgInfo &info)
+{
+    vector<TTlgCompLayer> complayers;
+    ReadSalons( info, complayers );
+    TDestList<TPRLDest> dests;
+    dests.get(info,complayers);
+    for(vector<TPRLDest>::iterator iv = dests.items.begin(); iv != dests.items.end(); iv++) {
+        size_t idx = 0;
+        for(; idx < items.size(); idx++)
+            if(items[idx].airp == iv->airp) break;
+        if(idx == items.size()) {
+            items.push_back(TLCIPaxTotalsItem());
+            items[idx].airp = iv->airp;
+        }
+        // Вытащим багаж
+        for(vector<TPRLPax>::iterator pax_i = iv->PaxList.begin(); pax_i != iv->PaxList.end(); pax_i++) {
+            TGRPItem &grp_map = iv->grp_map->items[pax_i->grp_id][pax_i->bag_pool_num];
+            items[idx].cls_totals[iv->cls].bag_amount += grp_map.W.bagAmount;
+            items[idx].cls_totals[iv->cls].bag_weight += grp_map.W.bagWeight;
+        }
+
+        items[idx].cls_totals[iv->cls].pax_size = iv->PaxList.size();
+    }
+
+}
+
+struct TLCI {
+    TLCICFG eqt;
+    TWA wa;
+    TSR_C sr_c;
+    TSR_Z sr_z;
+    TWM wm; // weight mode
+    TLCIPaxTotals pax_totals;
+    void get(TTlgInfo &info);
+    void ToTlg(TTlgInfo &info, vector<string> &body);
+};
+
+void TLCI::get(TTlgInfo &info)
+{
+    eqt.get(info);
+    wa.get(info);
+    sr_c.get(info);
+    sr_z.get(info);
+    pax_totals.get(info);
+}
+
+void TLCI::ToTlg(TTlgInfo &info, vector<string> &body)
+{
+    body.push_back("CF"); // Check-in Finalized
+    eqt.ToTlg(info, body);
+    wa.ToTlg(info, body);
+    body.push_back("SM.S"); // Seating method 'By Seat' always
+    sr_c.ToTlg(info, body);
+    sr_z.ToTlg(info, body);
+    wm.ToTlg(info, body);
+    pax_totals.ToTlg(info, body);
+}
+
+int LCI(TTlgInfo &info)
+{
+    TTlgDraft tlg_draft(info);
+    TTlgOutPartInfo tlg_row(info);
+    ostringstream heading;
+    heading
+        << "." << info.originator.addr << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
+        << "LCI" << br
+        << info.flight_view() << "/"
+        << DateTimeToStr(info.scd_utc, "ddmmm", 1) << "." << info.airp_dep_view();
+    tlg_row.heading = heading.str() + br;
+    vector<string> body;
+    try {
+        TLCI lci;
+        lci.get(info);
+        lci.ToTlg(info, body);
+    } catch(...) {
+        ExceptionFilter(body, info);
+    }
+    for(vector<string>::iterator iv = body.begin(); iv != body.end(); iv++)
+        tlg_row.body += *iv + br;
     tlg_draft.Save(tlg_row);
     tlg_draft.Commit(tlg_row);
     return tlg_row.id;
@@ -6332,6 +6595,7 @@ int TelegramInterface::create_tlg(const TCreateTlgInfo &createInfo)
     info.elem_fmt = prLatToElemFmt(efmtCodeNative, info.pr_lat);
     info.time_create = NowUTC();
     info.vcompleted = !veditable;
+    ProgTrace(TRACE5, "info.vcompleted: %d", info.vcompleted);
     if(createInfo.point_id != -1)
     {
         Qry.Clear();
@@ -6450,12 +6714,14 @@ int TelegramInterface::create_tlg(const TCreateTlgInfo &createInfo)
     else if(vbasic_type == "COM") vid = COM(info);
     else if(vbasic_type == "SOM") vid = SOM(info);
     else if(vbasic_type == "PIM") vid = PIM(info);
+    else if(vbasic_type == "LCI") vid = LCI(info);
     else vid = Unknown(info);
 
     info.err_lst.dump();
 
     Qry.Clear();
     Qry.SQLText = "update tlg_out set completed = :vcompleted, has_errors = :vhas_errors where id = :vid";
+    ProgTrace(TRACE5, "info.vcompleted: %d", info.vcompleted);
     Qry.CreateVariable("vcompleted", otInteger, info.vcompleted);
     Qry.CreateVariable("vhas_errors", otInteger, not info.err_lst.empty());
     Qry.CreateVariable("vid", otInteger, vid);
