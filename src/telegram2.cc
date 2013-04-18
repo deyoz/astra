@@ -1146,6 +1146,8 @@ namespace PRL_SPACE {
             body.push_back("." + status + "/" + priority);
     }
 
+    enum TGender {gMale, gFemale, gChild, gInfant};
+
     struct TPRLPax {
         string target;
         int cls_grp_id;
@@ -1161,12 +1163,14 @@ namespace PRL_SPACE {
         TFirmSpaceAvail firm_space_avail;
         TRemList rems;
         TPRLOnwardList OList;
+        TGender gender;
         TPRLPax(TInfants *ainfants): rems(ainfants) {
             cls_grp_id = NoExists;
             pnr_id = NoExists;
             pax_id = NoExists;
             grp_id = NoExists;
             bag_pool_num = NoExists;
+            gender = gMale;
         }
     };
 
@@ -1338,20 +1342,23 @@ namespace PRL_SPACE {
             "    pax.pax_id, "
             "    pax.grp_id, "
             "    pax.bag_pool_num, "
-            "    NVL(pax.subclass,pax_grp.class) subclass "
+            "    NVL(pax.subclass,pax_grp.class) subclass, "
+            "    pax_doc.gender, "
+            "    pax.pers_type "
             "from "
             "    pax, "
             "    pax_grp, "
             "    cls_grp, "
             "    crs_pax, "
-            "    crs_pnr "
+            "    crs_pnr, "
+            "    pax_doc "
             "WHERE "
             "    pax_grp.point_dep = :point_id and "
             "    pax_grp.airp_arv = :airp and "
             "    pax_grp.grp_id=pax.grp_id AND "
             "    pax_grp.class_grp = cls_grp.id(+) AND "
             "    cls_grp.code = :class and ";
-        if(info.tlg_type == "PRLC")
+        if(info.tlg_type == "PRLC" or info.tlg_type == "LCI")
             SQLText += " pax.pr_brd is not null and ";
         else
             SQLText += "    pax.pr_brd = 1 and ";
@@ -1359,7 +1366,8 @@ namespace PRL_SPACE {
             "    pax.seats>0 and "
             "    pax.pax_id = crs_pax.pax_id(+) and "
             "    crs_pax.pr_del(+)=0 and "
-            "    crs_pax.pnr_id = crs_pnr.pnr_id(+) "
+            "    crs_pax.pnr_id = crs_pnr.pnr_id(+) and "
+            "    pax.pax_id = pax_doc.pax_id(+) "
             "order by "
             "    target, "
             "    cls, "
@@ -1385,6 +1393,8 @@ namespace PRL_SPACE {
             int col_grp_id = Qry.FieldIndex("grp_id");
             int col_bag_pool_num = Qry.FieldIndex("bag_pool_num");
             int col_subcls = Qry.FieldIndex("subclass");
+            int col_gender = Qry.FieldIndex("gender");
+            int col_pers_type = Qry.FieldIndex("pers_type");
             for(; !Qry.Eof; Qry.Next()) {
                 TPRLPax pax(infants);
                 pax.target = Qry.FieldAsString(col_target);
@@ -1412,6 +1422,26 @@ namespace PRL_SPACE {
                 pax.rems.get(info, pax, complayers);
                 grp_map->get(pax.grp_id, pax.bag_pool_num);
                 pax.OList.get(pax.grp_id, pax.pax_id);
+                TPerson pers_type = DecodePerson(Qry.FieldAsString(col_pers_type));
+                switch(pers_type) {
+                    case NoPerson:
+                        break;
+                    case adult:
+                        {
+                            string gender = Qry.FieldAsString(col_gender);
+                            if(gender.substr(0, 1) == "F")
+                                pax.gender = gFemale;
+                            else
+                                pax.gender = gMale;
+                        }
+                        break;
+                    case child:
+                        pax.gender = gChild;
+                        break;
+                    case baby:
+                        pax.gender = gInfant;
+                        break;
+                }
                 PaxList.push_back(pax);
             }
         }
@@ -5446,8 +5476,11 @@ struct TSR_Z:TCOMZones {
         ostringstream result;
         if(not items.empty()) {
             result << "SR.Z.";
-            for(map<string, int>::iterator i = items.begin(); i != items.end(); i++)
+            for(map<string, int>::iterator i = items.begin(); i != items.end(); i++) {
+                if(i != items.begin())
+                    result << "/";
                 result << i->first << i->second;
+            }
             body.push_back(result.str());
         }
     }
@@ -5508,12 +5541,23 @@ void TWM::ToTlg(TTlgInfo &info, vector<string> &body)
     body.push_back(result.str());
 }
 
+struct TByGender {
+    size_t m, f, c, i;
+    TByGender(): m(0), f(0), c(0), i(0) {};
+};
+
 struct TLCITotals {
     size_t pax_size, bag_amount, bag_weight;
-    TLCITotals(): pax_size(0), bag_amount(0), bag_weight(0) {};
+    TLCITotals():
+        pax_size(0),
+        bag_amount(0),
+        bag_weight(0)
+    {};
 };
 
 typedef map<string, TLCITotals> TPaxTotalsItem;
+
+typedef map<string, TByGender> TByClass;
 
 struct TLCIPaxTotalsItem {
     string airp;
@@ -5522,14 +5566,16 @@ struct TLCIPaxTotalsItem {
 
 struct TLCIPaxTotals {
     vector<TLCIPaxTotalsItem> items;
+    TByClass pax_tot_by_cls;
     void get(TTlgInfo &info);
     void ToTlg(TTlgInfo &info, vector<string> &body);
 };
 
 void TLCIPaxTotals::ToTlg(TTlgInfo &info, vector<string> &body)
 {
+    ostringstream result;
     for(vector<TLCIPaxTotalsItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
-        ostringstream result;
+        result.str(string());
         result
             << "-" << info.TlgElemIdToElem(etAirp, iv->airp) << ".PT."
             <<
@@ -5563,6 +5609,23 @@ void TLCIPaxTotals::ToTlg(TTlgInfo &info, vector<string> &body)
             << "." << KG;
         body.push_back(result.str());
     }
+    result.str(string());
+    result << "PD.C." << info.TlgElemIdToElem(etClass, "П") << "."
+        << pax_tot_by_cls["П"].m << "/"
+        << pax_tot_by_cls["П"].f << "/"
+        << pax_tot_by_cls["П"].c << "/"
+        << pax_tot_by_cls["П"].i << "."
+        << info.TlgElemIdToElem(etClass, "Б") << "."
+        << pax_tot_by_cls["Б"].m << "/"
+        << pax_tot_by_cls["Б"].f << "/"
+        << pax_tot_by_cls["Б"].c << "/"
+        << pax_tot_by_cls["Б"].i << "."
+        << info.TlgElemIdToElem(etClass, "Э") << "."
+        << pax_tot_by_cls["Э"].m << "/"
+        << pax_tot_by_cls["Э"].f << "/"
+        << pax_tot_by_cls["Э"].c << "/"
+        << pax_tot_by_cls["Э"].i;
+    body.push_back(result.str());
 }
 
 void TLCIPaxTotals::get(TTlgInfo &info)
@@ -5579,11 +5642,24 @@ void TLCIPaxTotals::get(TTlgInfo &info)
             items.push_back(TLCIPaxTotalsItem());
             items[idx].airp = iv->airp;
         }
-        // Вытащим багаж
         for(vector<TPRLPax>::iterator pax_i = iv->PaxList.begin(); pax_i != iv->PaxList.end(); pax_i++) {
             TGRPItem &grp_map = iv->grp_map->items[pax_i->grp_id][pax_i->bag_pool_num];
             items[idx].cls_totals[iv->cls].bag_amount += grp_map.W.bagAmount;
             items[idx].cls_totals[iv->cls].bag_weight += grp_map.W.bagWeight;
+            switch(pax_i->gender) {
+                case gMale:
+                    pax_tot_by_cls[iv->cls].m++;
+                    break;
+                case gFemale:
+                    pax_tot_by_cls[iv->cls].f++;
+                    break;
+                case gChild:
+                    pax_tot_by_cls[iv->cls].c++;
+                    break;
+                case gInfant:
+                    pax_tot_by_cls[iv->cls].i++;
+                    break;
+            }
         }
 
         items[idx].cls_totals[iv->cls].pax_size = iv->PaxList.size();
