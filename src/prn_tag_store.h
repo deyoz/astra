@@ -316,8 +316,13 @@ class TPrnTagStore {
         TPaxInfo paxInfo;
 
         struct TBrdInfo {
-            BASIC::TDateTime brd_from, brd_to;
-            TBrdInfo(): brd_from(ASTRA::NoExists), brd_to(ASTRA::NoExists) {};
+            BASIC::TDateTime brd_from, brd_to, brd_to_est, brd_to_scd;
+            TBrdInfo():
+                brd_from(ASTRA::NoExists),
+                brd_to(ASTRA::NoExists),
+                brd_to_est(ASTRA::NoExists),
+                brd_to_scd(ASTRA::NoExists)
+            {};
             void Init(int point_id);
         };
         TBrdInfo brdInfo;
