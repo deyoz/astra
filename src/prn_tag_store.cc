@@ -2357,7 +2357,10 @@ string TPrnTagStore::TICKETS(TFieldParams fp)
 
 string TPrnTagStore::TO(TFieldParams fp)
 {
-    return POINT_DEP(fp) + "-" + POINT_ARV(fp) + " " + AIRLINE_CODE(fp);
+    return POINT_DEP(fp) + "-" + POINT_ARV(fp) + " " + AIRLINE_CODE(fp) + " " +
+        DateTimeToStr(
+                UTCToLocal(rcpt.scd_out, AirpTZRegion(rcpt.airp_dep)),
+                "ddmmm", tag_lang.GetLang() != AstraLocale::LANG_RU);
 }
 
 string TPrnTagStore::TOTAL(TFieldParams fp)
