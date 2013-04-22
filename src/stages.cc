@@ -296,6 +296,15 @@ TDateTime TTripStages::time( TStage stage )
       return tripStage.scd;
 }
 
+BASIC::TDateTime TTripStages::time_scd( TStage stage )
+{
+  if ( tripstages.empty() )
+    throw Exception( "tripstages is empty" );
+  TTripStage tripStage = tripstages[ stage ];
+  return tripStage.scd;
+}
+
+
 void TTripStages::ReadCkinClients( int point_id, TCkinClients &ckin_clients )
 {
 	ckin_clients.clear();

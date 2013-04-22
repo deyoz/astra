@@ -171,7 +171,8 @@ enum TTripSetType { tsCraftInitVIP=1,
                     tsCharterSearch=16,
                     tsCraftNoChangeSections=17,
                     tsCheckMVTDelays=18,
-                    tsSendMVTDelays=19};
+                    tsSendMVTDelays=19,
+                    tsPrintSCDCloseBoarding=21};
                     
 const long int DOC_TYPE_FIELD=0x0001;
 const long int DOC_ISSUE_COUNTRY_FIELD=0x0002;
