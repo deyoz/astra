@@ -3429,9 +3429,13 @@ void WebRequestsIface::GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   Qry.SQLText =
     "SELECT pax_id,reg_no,work_mode,point_id,desk,client_type,time "
     " FROM aodb_pax_change "
-    "WHERE time >= :time AND time > system.UTCSYSDATE - 1"
+    "WHERE time >= :time AND time <= :uptime"
     "ORDER BY time, pax_id, work_mode ";
+  TDateTime nowUTC = NowUTC();
+  if ( nowUTC - 1 > vdate )
+    vdate = nowUTC - 1;
   Qry.CreateVariable( "time", otDate, vdate );
+  Qry.CreateVariable( "uptime", otDate, nowUTC - 1.0/1440.0 );
   Qry.Execute();
   TQuery PaxQry(&OraSession);
   PaxQry.SQLText =
@@ -3477,7 +3481,7 @@ void WebRequestsIface::GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   int prior_pax_id = -1;
   Tids tids;
   // пробег по всем пассажирам у которых время больше или равно текущему
-  for ( ;!Qry.Eof && pax_count<=100; Qry.Next() ) {
+  for ( ;!Qry.Eof && pax_count<=500; Qry.Next() ) {
     int pax_id = Qry.FieldAsInteger( "pax_id" );
     if ( pax_id == prior_pax_id ) // удаляем дублирование строки с одним и тем же pax_id для регистрации и посадки
       continue; // предыдущий пассажир он же и текущий
@@ -3580,7 +3584,7 @@ void WebRequestsIface::GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     if ( !res.empty() )
       NewTextChild( paxNode, "rems", res );
     NewTextChild( paxNode, "time", DateTimeToStr( max_time, ServerFormatDateTimeAsString ) );
-  }
+  } //end for
   if ( max_time == NoExists )
     max_time = vdate; // не выбрано ни одного пассажира - передаем время, которые пришло с терминала
   SetProp( resNode, "time", DateTimeToStr( max_time, ServerFormatDateTimeAsString ) );
