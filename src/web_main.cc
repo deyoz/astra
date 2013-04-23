@@ -1296,7 +1296,7 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
   Qry.Execute();
   TSublsRems subcls_rems( Qry.FieldAsString("airline") );
   SALONS2::TSalons Salons( point_id, SALONS2::rTripSalons );
-  Salons.ClName = crs_class;
+  Salons.FilterClass = crs_class;
   Salons.Read();
   // получим признак того, что в салоне есть свободные места с данным подклассом
   pr_find_free_subcls_place=false;

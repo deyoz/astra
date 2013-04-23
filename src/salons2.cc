@@ -257,8 +257,6 @@ void TSalons::Write()
     ProgTrace( TRACE5, "TSalons::Write ComponSalons with params comp_id=%d",
                comp_id );
   }
-  map<string,bool> ispl;
-  ImagesInterface::GetisPlaceMap( ispl );
   TQuery Qry( &OraSession );
   TQuery QryLayers( &OraSession );
   QryLayers.SQLText =
@@ -442,7 +440,7 @@ void TSalons::Write()
       else
         Qry.SetVariable( "yprior", place->yprior );
       Qry.SetVariable( "agle", place->agle );
-      if ( place->clname.empty() || !ispl[ place->elem_type ] )
+      if ( place->clname.empty() || !TCompElemTypes::Instance()->isSeat( place->elem_type ) )
         Qry.SetVariable( "class", FNull );
       else {
         Qry.SetVariable( "class", place->clname );
@@ -542,8 +540,6 @@ void TSalons::Read( bool wo_invalid_seat_no )
     ClName.clear();
   }
   Clear();
-  map<string,bool> ispl;
-  ImagesInterface::GetisPlaceMap( ispl );
   TQuery Qry( &OraSession );
   TQuery RQry( &OraSession );
   TQuery LQry( &OraSession );
@@ -612,11 +608,14 @@ void TSalons::Read( bool wo_invalid_seat_no )
     Qry.CreateVariable( "comp_id", otInteger, comp_id );
   }
   Qry.Execute();
-  if ( Qry.RowCount() == 0 )
-    if ( readStyle == SALONS2::rTripSalons )
+  if ( Qry.RowCount() == 0 ) {
+    if ( readStyle == SALONS2::rTripSalons ) {
       throw AstraLocale::UserException( "MSG.FLIGHT_WO_CRAFT_CONFIGURE" );
-    else
+    }
+    else {
       throw AstraLocale::UserException( "MSG.SALONS.NOT_FOUND" );
+    }
+  }
   tst();
   int col_num = Qry.FieldIndex( "num" );
   int col_x = Qry.FieldIndex( "x" );
@@ -702,7 +701,7 @@ void TSalons::Read( bool wo_invalid_seat_no )
     	place.x = point_p.x;
     	place.y = point_p.y;
       place.elem_type = Qry.FieldAsString( col_elem_type );
-      place.isplace = ispl[ place.elem_type ];
+      place.isplace = TCompElemTypes::Instance()->isSeat( place.elem_type );
       if ( Qry.FieldIsNULL( col_xprior ) )
         place.xprior = -1;
       else
@@ -795,8 +794,6 @@ void TSalons::Parse( xmlNodePtr salonsNode )
   	pr_lat_seat_init=true;
   }
   Clear();
-  map<string,bool> ispl;
-  ImagesInterface::GetisPlaceMap( ispl );
   node = salonsNode->children;
   xmlNodePtr salonNode = NodeAsNodeFast( "placelist", node );
   SALONS2::TRem rem;
@@ -813,7 +810,7 @@ void TSalons::Parse( xmlNodePtr salonsNode )
       place.x = NodeAsIntegerFast( "x", node );
       place.y = NodeAsIntegerFast( "y", node );
       place.elem_type = NodeAsStringFast( "elem_type", node );
-      place.isplace = ispl[ place.elem_type ];
+      place.isplace = TCompElemTypes::Instance()->isSeat( place.elem_type );
       if ( !GetNodeFast( "xprior", node ) )
         place.xprior = -1;
       else
@@ -1018,7 +1015,7 @@ bool TPlaceList::GetisPlaceXY( string placeName, SALONS2::TPoint &p )
     for ( vector<string>::iterator iy=ys.begin(); iy!=ys.end(); iy++ ) {
     	salon_seat_no = denorm_iata_row(*iy,NULL) + denorm_iata_line(*ix,false);
       if ( placeName == salon_seat_no ||
-      	   !seat_no.empty() && seat_no == salon_seat_no ) {
+      	   ( !seat_no.empty() && seat_no == salon_seat_no ) ) {
       	p.x = distance( xs.begin(), ix );
       	p.y = distance( ys.begin(), iy );
       	return place( p )->isplace;

@@ -649,22 +649,6 @@ class TClsGrp: public TTIDBaseTable {
   	}
 };
 
-class TCompElemTypesRow: public TCodeBaseTableRow {
-	public:
-	  const char *get_row_name() const { return "TCompElemTypesRow"; };
-};
-
-class TCompElemTypes: public TCodeBaseTable {
-  protected:
-		const char *get_table_name() { return "TCompElemTypes"; };
-    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
-    void Invalidate() {}; //всегда актуальна
-  public:
-  	TCompElemTypes() {
-  		Init( "comp_elem_types" );
-    }
-};
-
 class TAlarmTypesRow: public TCodeBaseTableRow {
     public:
         const char *get_row_name() const { return "TAlarmTypesRow"; };

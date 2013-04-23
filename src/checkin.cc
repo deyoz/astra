@@ -3689,7 +3689,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             SEATS2::Passengers.Clear();
             SEATS2::TSublsRems subcls_rems( fltInfo.airline );
             // начитка салона
-            Salons.ClName = cl;
+            Salons.FilterClass = cl;
             Salons.Read();
 //            node=NodeAsNode("passengers",segNode);
             //заполним массив для рассадки

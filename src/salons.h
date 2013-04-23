@@ -291,7 +291,7 @@ class TSalons {
     std::string descr;
     std::string classes;
     TModify modify;
-    std::string ClName;
+    std::string FilterClass;
     std::vector<TPlaceList*> placelists;
     //TPlacePaxs PaxsOnPlaces;
     ~TSalons( );

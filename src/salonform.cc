@@ -184,20 +184,16 @@ bool filterCompons( const string &airline, const string &airp )
  		   ((
  		     r->user.user_type == utAirline &&
  		     find( r->user.access.airlines.begin(),
- 		           r->user.access.airlines.end(), airline ) != r->user.access.airlines.end() /*&&
-  		     ( r->user.access.airps.empty() ||
-  		       find( r->user.access.airps.begin(),
-  		             r->user.access.airps.end(),
-  		             Qry.FieldAsString( "airp" ) ) != r->user.access.airps.end() )*/
+ 		           r->user.access.airlines.end(), airline ) != r->user.access.airlines.end()
   		  )
   		  ||
   		  (
   		    r->user.user_type == utAirport &&
-  		    ( airp.empty() && ( r->user.access.airlines.empty() ||
-  		       find( r->user.access.airlines.begin(),
-  		             r->user.access.airlines.end(), airline ) != r->user.access.airlines.end() ) ||
-  		       find( r->user.access.airps.begin(),
-  		             r->user.access.airps.end(), airp ) != r->user.access.airps.end() )
+  		    ( ( airp.empty() && ( r->user.access.airlines.empty() ||
+  		                          find( r->user.access.airlines.begin(),
+  		                                r->user.access.airlines.end(), airline ) != r->user.access.airlines.end() ) ) ||
+  		        find( r->user.access.airps.begin(),
+  		              r->user.access.airps.end(), airp ) != r->user.access.airps.end() )
   		   )
   		   ||
   		   (
@@ -298,9 +294,9 @@ void getFlightTuneCompRef( int point_id, bool use_filter, const string &trip_air
     }
     comp.comp_type = ctCurrent;
    	if ( !use_filter ||
-         comp.comp_type != ctBase && comp.comp_type != ctBaseBort || /* поиск компоновки только по компоновкам нужной А/К или портовым компоновкам */
-    		( comp.airline.empty() || trip_airline == comp.airline ) &&
-    		  filterCompons( comp.airline, comp.airp ) ) {
+         ( comp.comp_type != ctBase && comp.comp_type != ctBaseBort ) || /* поиск компоновки только по компоновкам нужной А/К или портовым компоновкам */
+    		 ( ( comp.airline.empty() || trip_airline == comp.airline ) &&
+    		   filterCompons( comp.airline, comp.airp ) ) ) {
       setCompName( comp );
       comps.push_back( comp );
     }
@@ -356,9 +352,9 @@ void getFlightBaseCompRef( int point_id, bool onlySetComp, bool use_filter,
 	  comp.airline = Qry.FieldAsString( "airline" );
 	  comp.airp = Qry.FieldAsString( "airp" );
    	if ( !use_filter ||
-         comp.comp_type != ctBase && comp.comp_type != ctBaseBort || /* поиск компоновки только по компоновкам нужной А/К или портовым компоновкам */
-    		( comp.airline.empty() || trip_airline == comp.airline ) &&
-    		  filterCompons( comp.airline, comp.airp ) ) {
+         ( comp.comp_type != ctBase && comp.comp_type != ctBaseBort ) || /* поиск компоновки только по компоновкам нужной А/К или портовым компоновкам */
+    		 ( ( comp.airline.empty() || trip_airline == comp.airline ) &&
+    		   filterCompons( comp.airline, comp.airp ) ) ) {
       setCompName( comp );
       comps.push_back( comp );
     }
@@ -475,9 +471,9 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   } //END PR_comps
   SALONS2::TSalons Salons( point_id, SALONS2::rTripSalons );
   if ( GetNode( "ClName", reqNode ) )
-  	Salons.ClName = NodeAsString( "ClName", reqNode );
+  	Salons.FilterClass = NodeAsString( "ClName", reqNode );
   else
-    Salons.ClName.clear();
+    Salons.FilterClass.clear();
   try {
     Salons.Read();
   }
@@ -542,7 +538,7 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Salons.verifyValidRem( "YCLS", "Э"); //???
   Salons.verifyValidRem( "LCLS", "Э"); //???
   Salons.trip_id = trip_id;
-  Salons.ClName = "";
+  Salons.FilterClass = "";
   bool pr_base_change = false;
   SALONS2::TSalons OldSalons( trip_id, SALONS2::rTripSalons );
   Qry.Clear();
@@ -695,8 +691,10 @@ void SalonFormInterface::ComponShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     Qry.Execute();
     if ( !Qry.Eof )
       ProgTrace( TRACE5, "prior_crc_comp=%d", Qry.FieldAsInteger( "crc_comp" ) );
-    if ( Qry.Eof || crc_comp != 0 && Qry.FieldAsInteger( "crc_comp" ) != 0 &&
-         crc_comp != Qry.FieldAsInteger( "crc_comp" ) )
+    if ( Qry.Eof ||
+         ( crc_comp != 0 &&
+           Qry.FieldAsInteger( "crc_comp" ) != 0 &&
+           crc_comp != Qry.FieldAsInteger( "crc_comp" ) ) )
       throw UserException( "MSG.SALONS.NOT_FOUND" );
     prior_point_id = item.point_id;
   }
@@ -793,7 +791,7 @@ void SalonFormInterface::ComponWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     }
 
     if ( ( r->user.user_type == utAirline ||
-           r->user.user_type == utSupport && Salons.airp.empty() && !r->user.access.airlines.empty() ) &&
+           ( r->user.user_type == utSupport && Salons.airp.empty() && !r->user.access.airlines.empty() ) ) &&
     	   find( r->user.access.airlines.begin(),
     	         r->user.access.airlines.end(), Salons.airline ) == r->user.access.airlines.end() ) {
  	  	if ( Salons.airline.empty() )
@@ -802,7 +800,7 @@ void SalonFormInterface::ComponWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     		throw AstraLocale::UserException( "MSG.SALONS.OPER_WRITE_DENIED_FOR_THIS_AIRLINE" );
     }
     if ( ( r->user.user_type == utAirport ||
-    	     r->user.user_type == utSupport && Salons.airline.empty() && !r->user.access.airps.empty() ) &&
+    	     ( r->user.user_type == utSupport && Salons.airline.empty() && !r->user.access.airps.empty() ) ) &&
     	   find( r->user.access.airps.begin(),
     	         r->user.access.airps.end(), Salons.airp ) == r->user.access.airps.end() ) {
  	  	if ( Salons.airp.empty() )
