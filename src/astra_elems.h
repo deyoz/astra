@@ -16,7 +16,6 @@ enum TElemType {
                  etClass,
                  etClientType,
                  etClsGrp,
-                 etCompElemType,
                  etCompLayerType,
                  etCountry,
                  etCraft,

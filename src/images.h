@@ -33,6 +33,7 @@ public:
 struct TCompElemType {
   std::string code;
   std::string name;
+  std::string name_lat;
   bool is_seat;
   bool is_default;
   BASIC::TDateTime time_create;

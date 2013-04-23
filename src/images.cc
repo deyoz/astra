@@ -27,7 +27,9 @@ void TCompElemTypes::Update()
   max_time_create = -1;
   default_elem_code.clear();
   TQuery Qry( &OraSession );
-  Qry.SQLText = "SELECT code, pr_seat, pr_del, time_create, image FROM comp_elem_types";
+  Qry.SQLText =
+    "SELECT code, name, name_lat, pr_seat, pr_del, time_create, image "
+    " FROM comp_elem_types";
   Qry.Execute();
   int len = 0;
   void *data = NULL;
@@ -36,7 +38,10 @@ void TCompElemTypes::Update()
       if ( Qry.FieldIsNULL( "pr_del" ) || Qry.FieldAsInteger( "pr_del" ) == 0 ) {
         TCompElemType comp_elem;
         comp_elem.code = Qry.FieldAsString( "code" );
-        comp_elem.name = ElemIdToNameLong( etCompElemType, comp_elem.code );
+        comp_elem.name = Qry.FieldAsString( "name" );
+        comp_elem.name_lat = Qry.FieldAsString( "name_lat" );
+        if ( comp_elem.name_lat.empty() )
+          comp_elem.name_lat = comp_elem.name;
         comp_elem.is_seat = Qry.FieldAsInteger( "pr_seat" );
         comp_elem.is_default = ( comp_elem.code == default_elem_type );
         if ( comp_elem.is_default ) {
@@ -119,6 +124,10 @@ void ImagesInterface::GetImages( xmlNodePtr reqNode, xmlNodePtr resNode )
      if ( TCompElemTypes::Instance()->getElem( *icode, elem_type ) ) {
        xmlNodePtr imageNode = NewTextChild( imagesNode, "image" );
        NewTextChild( imageNode, "code", elem_type.code );
+       if ( TReqInfo::Instance()->desk.lang == AstraLocale::LANG_RU )
+         NewTextChild( imageNode, "name", elem_type.name );
+       else
+         NewTextChild( imageNode, "name", elem_type.name_lat );
        NewTextChild( imageNode, "name", elem_type.name );
        NewTextChild( imageNode, "pr_seat", elem_type.is_seat );
        if ( sendImages ) {

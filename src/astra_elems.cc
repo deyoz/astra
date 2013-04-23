@@ -70,7 +70,6 @@ const
                          {etClass,                 "etClass",                 "classes"},
                          {etClientType,            "etClientType",            "client_types"},
                          {etClsGrp,                "etClsGrp",                "cls_grp"},
-                         {etCompElemType,          "etCompElemType",          "comp_elem_types"},
                          {etCompLayerType,         "etCompLayerType",         "comp_layer_types"},
                          {etCountry,               "etCountry",               "countries"},
                          {etCraft,                 "etCraft",                 "crafts"},
