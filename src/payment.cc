@@ -644,6 +644,7 @@ bool PaymentInterface::GetReceiptFromDB(TQuery &Qry, TBagReceipt &rcpt)
   else
     rcpt.flt_no=-1;
   rcpt.suffix=Qry.FieldAsString("suffix");
+  rcpt.scd_local_date=Qry.FieldIsNULL("scd_local_date")?NoExists:Qry.FieldAsDateTime("scd_local_date");
   rcpt.airp_dep=Qry.FieldAsString("airp_dep");
   rcpt.airp_arv=Qry.FieldAsString("airp_arv");
   if (!Qry.FieldIsNULL("ex_amount"))
@@ -728,11 +729,11 @@ int PaymentInterface::PutReceiptToDB(const TBagReceipt &rcpt, int point_id, int 
     "  SELECT cycle_id__seq.nextval,SYSTEM.UTCSYSDATE INTO :receipt_id,:issue_date FROM dual; "
     "  INSERT INTO bag_receipts "
     "        (receipt_id,point_id,grp_id,status,is_inter,desk_lang,form_type,no,pax_name,pax_doc,service_type,bag_type,bag_name, "
-    "         tickets,prev_no,airline,aircode,flt_no,suffix,airp_dep,airp_arv,ex_amount,ex_weight,value_tax, "
+    "         tickets,prev_no,airline,aircode,flt_no,suffix,scd_local_date,airp_dep,airp_arv,ex_amount,ex_weight,value_tax, "
     "         rate,rate_cur,exch_rate,exch_pay_rate,pay_rate_cur,remarks, "
     "         issue_date,issue_place,issue_user_id,issue_desk,kit_id,kit_num) "
     "  VALUES(:receipt_id,:point_id,:grp_id,:status,:is_inter,:desk_lang,:form_type,:no,:pax_name,:pax_doc,:service_type,:bag_type,:bag_name, "
-    "         :tickets,:prev_no,:airline,:aircode,:flt_no,:suffix,:airp_dep,:airp_arv,:ex_amount,:ex_weight,:value_tax, "
+    "         :tickets,:prev_no,:airline,:aircode,:flt_no,:suffix,:scd_local_date,:airp_dep,:airp_arv,:ex_amount,:ex_weight,:value_tax, "
     "         :rate,:rate_cur,:exch_rate,:exch_pay_rate,:pay_rate_cur,:remarks, "
     "         :issue_date,:issue_place,:issue_user_id,:issue_desk,:kit_id,:kit_num); "
     "END;";
@@ -762,6 +763,8 @@ int PaymentInterface::PutReceiptToDB(const TBagReceipt &rcpt, int point_id, int 
   else
     Qry.CreateVariable("flt_no",otInteger,FNull);
   Qry.CreateVariable("suffix",otString,rcpt.suffix);
+  rcpt.scd_local_date==NoExists?Qry.CreateVariable("scd_local_date",otDate,FNull):
+                                Qry.CreateVariable("scd_local_date",otDate,rcpt.scd_local_date);
   Qry.CreateVariable("airp_dep",otString,rcpt.airp_dep);
   Qry.CreateVariable("airp_arv",otString,rcpt.airp_arv);
   if (rcpt.ex_amount!=-1)
@@ -1099,7 +1102,9 @@ void PaymentInterface::GetReceiptFromXML(xmlNodePtr reqNode, TBagReceipt &rcpt)
       rcpt.airline=route.begin()->operFlt.airline;
       rcpt.flt_no=route.begin()->operFlt.flt_no;
       rcpt.suffix=route.begin()->operFlt.suffix;
+
     };
+    rcpt.scd_local_date=route.begin()->operFlt.scd_out; //TTrferRoute содержит локальные даты
     rcpt.airp_dep=route.begin()->operFlt.airp;
     if (reqInfo->desk.compatible(BAG_RCPT_KITS_VERSION))
       rcpt.airp_arv=route.begin()->airp_arv;
@@ -1114,6 +1119,7 @@ void PaymentInterface::GetReceiptFromXML(xmlNodePtr reqNode, TBagReceipt &rcpt)
     rcpt.airline=item.operFlt.airline;
     rcpt.flt_no=item.operFlt.flt_no;
     rcpt.suffix=item.operFlt.suffix;
+    rcpt.scd_local_date=item.operFlt.scd_out;
     rcpt.airp_dep=item.operFlt.airp;
     rcpt.airp_arv=item.airp_arv;
   };

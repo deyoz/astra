@@ -35,6 +35,7 @@ struct TBagReceipt
         std::string tickets,prev_no;
         std::string airline,aircode,airp_dep,airp_arv,suffix;
         int flt_no;
+        BASIC::TDateTime scd_local_date;
         int ex_amount,ex_weight;
         double value_tax,rate,exch_pay_rate;
         int exch_rate;
