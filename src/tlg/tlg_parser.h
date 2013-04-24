@@ -399,8 +399,11 @@ class TSegmentItem : public TFltInfo
 {
   public:
     long local_date;
-    long local_time;
+    char local_time_dep[5];
+    char local_time_arv[5];
     char subcl[2];
+    int date_variation;
+    char status[3];
     TSegmentItem() : TFltInfo()
     {
       Clear();
@@ -409,8 +412,11 @@ class TSegmentItem : public TFltInfo
     {
       TFltInfo::Clear();
       local_date=0;
-      local_time=0;
+      *local_time_dep=0;
+      *local_time_arv=0;
       *subcl=0;
+      date_variation=ASTRA::NoExists;
+      *status=0;
     };
 };
 

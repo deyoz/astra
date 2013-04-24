@@ -2490,10 +2490,32 @@ void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &p
 
   if (lexh[0]=='I'||lexh[0]=='O'||strcmp(lexh,"M")==0)
   {
+    char elementID=lexh[0];
+/*  это для тестирования
+    for(int pass_airp_dep=0; pass_airp_dep<=1; pass_airp_dep++)
+      for(int pass_airp_arv=0; pass_airp_arv<=1; pass_airp_arv++)
+        for(int pass_time_dep=0; pass_time_dep<=1; pass_time_dep++)
+          for(int pass_time_arv=0; pass_time_arv<=1; pass_time_arv++)
+            for(int pass_date_variation=-1; pass_date_variation<=1; pass_date_variation++)
+              for(int pass_status=0; pass_status<=1; pass_status++)
+              {
+                ostringstream s;
+                s << "." << elementID << "/UT575V23"
+                  << (pass_airp_dep==0?"":"VKO")
+                  << (pass_airp_arv==0?"":"KRR")
+                  << (pass_time_dep==0?"":"0100")
+                  << (pass_time_arv==0?"":"0200")
+                  << (pass_date_variation==0?"":(pass_date_variation==-1?"/M1":"/2"))
+                  << (pass_status==0?"":"HK");
+                strcpy(tlg.lex, s.str().c_str());
+                lexh[0]=elementID;
+                lexh[1]=0;
+                try
+                {
+*/
     TTransferItem Transfer;
     const char *errMsg;
-    bool pr_connection=strcmp(lexh,"M")!=0;
-    if (!pr_connection)
+    if (elementID=='M')
     {
       errMsg="Wrong marketing flight element";
       c=0;
@@ -2507,7 +2529,7 @@ void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &p
         Transfer.num=1;
         if (lexh[0]=='I') Transfer.num=-Transfer.num;
         c=0;
-        res=sscanf(tlg.lex,".%*c/%[A-ZА-ЯЁ0-9]%c",lexh,&c);
+        res=sscanf(tlg.lex,".%*c/%[A-ZА-ЯЁ0-9/]%c",lexh,&c);
       }
       else
       {
@@ -2518,19 +2540,19 @@ void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &p
           throw ETlgError(errMsg);
         if (lexh[0]=='I') Transfer.num=-Transfer.num;
         c=0;
-        res=sscanf(tlg.lex,".%*c%*1[0-9]/%[A-ZА-ЯЁ0-9]%c",lexh,&c);
+        res=sscanf(tlg.lex,".%*c%*1[0-9]/%[A-ZА-ЯЁ0-9/]%c",lexh,&c);
       };
     };
     if (c!=0||res!=1||strlen(lexh)<3) throw ETlgError(errMsg);
     c=0;
     if (IsDigit(lexh[2]))
     {
-      res=sscanf(lexh,"%2[A-ZА-ЯЁ0-9]%5lu%1[A-ZА-ЯЁ]%2lu%[A-ZА-ЯЁ0-9]",
+      res=sscanf(lexh,"%2[A-ZА-ЯЁ0-9]%5lu%1[A-ZА-ЯЁ]%2lu%[A-ZА-ЯЁ0-9/]",
                       Transfer.airline,&Transfer.flt_no,
                       Transfer.subcl,&Transfer.local_date,tlg.lex);
       if (res!=5)
       {
-        res=sscanf(lexh,"%2[A-ZА-ЯЁ0-9]%5lu%1[A-ZА-ЯЁ]%1[A-ZА-ЯЁ]%2lu%[A-ZА-ЯЁ0-9]",
+        res=sscanf(lexh,"%2[A-ZА-ЯЁ0-9]%5lu%1[A-ZА-ЯЁ]%1[A-ZА-ЯЁ]%2lu%[A-ZА-ЯЁ0-9/]",
                         Transfer.airline,&Transfer.flt_no,
                         Transfer.suffix,Transfer.subcl,&Transfer.local_date,tlg.lex);
         if (res!=6) throw ETlgError(errMsg);
@@ -2539,12 +2561,12 @@ void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &p
     }
     else
     {
-      res=sscanf(lexh,"%3[A-ZА-ЯЁ0-9]%5lu%1[A-ZА-ЯЁ]%2lu%[A-ZА-ЯЁ0-9]",
+      res=sscanf(lexh,"%3[A-ZА-ЯЁ0-9]%5lu%1[A-ZА-ЯЁ]%2lu%[A-ZА-ЯЁ0-9/]",
                       Transfer.airline,&Transfer.flt_no,
                       Transfer.subcl,&Transfer.local_date,tlg.lex);
       if (res!=5)
       {
-        res=sscanf(lexh,"%3[A-ZА-ЯЁ0-9]%5lu%1[A-ZА-ЯЁ]%1[A-ZА-ЯЁ]%2lu%[A-ZА-ЯЁ0-9]",
+        res=sscanf(lexh,"%3[A-ZА-ЯЁ0-9]%5lu%1[A-ZА-ЯЁ]%1[A-ZА-ЯЁ]%2lu%[A-ZА-ЯЁ0-9/]",
                         Transfer.airline,&Transfer.flt_no,
                         Transfer.suffix,Transfer.subcl,&Transfer.local_date,tlg.lex);
         if (res!=6) throw ETlgError(errMsg);
@@ -2558,29 +2580,121 @@ void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &p
     Transfer.airp_dep[0]=0;
     Transfer.airp_arv[0]=0;
     lexh[0]=0;
-    res=sscanf(tlg.lex,"%3[A-ZА-ЯЁ]%3[A-ZА-ЯЁ]%[A-ZА-ЯЁ0-9]",
+    res=sscanf(tlg.lex,"%3[A-ZА-ЯЁ]%3[A-ZА-ЯЁ]%[A-ZА-ЯЁ0-9/]",
                        Transfer.airp_dep,Transfer.airp_arv,lexh);
-    if (res<2||Transfer.airp_dep[0]==0||Transfer.airp_arv[0]==0)
+    if (res<2||strlen(Transfer.airp_dep)!=3||strlen(Transfer.airp_arv)!=3)
     {
-      if (!pr_connection) throw ETlgError(errMsg);
+      if (elementID=='M') throw ETlgError(errMsg);
       Transfer.airp_dep[0]=0;
+      Transfer.airp_arv[0]=0;
       lexh[0]=0;
-      res=sscanf(tlg.lex,"%3[A-ZА-ЯЁ]%[A-ZА-ЯЁ0-9]",
+      res=sscanf(tlg.lex,"%3[A-ZА-ЯЁ]%[A-ZА-ЯЁ0-9/]",
                          Transfer.airp_dep,lexh);
-      if (res<1||Transfer.airp_dep[0]==0) throw ETlgError(errMsg);
+      if (res<1||strlen(Transfer.airp_dep)!=3) throw ETlgError(errMsg);
     };
     if (lexh[0]!=0)
     {
-      c=0;
-      res=sscanf(lexh,"%4lu%2[A-ZА-ЯЁ]%c",&Transfer.local_time,tlg.lex,&c);
-      if (c!=0||res!=2)
+      Transfer.local_time_dep[0]=0;
+      Transfer.local_time_arv[0]=0;
+      tlg.lex[0]=0;
+      res=sscanf(lexh,"%4[0-9]%4[0-9]%[A-ZА-ЯЁ0-9/]",
+                      Transfer.local_time_dep, Transfer.local_time_arv, tlg.lex);
+      if (res<2||
+          strlen(Transfer.local_time_dep)!=4||
+          strlen(Transfer.local_time_arv)!=4)
       {
-        c=0;
-        res=sscanf(lexh,"%4lu%c",&Transfer.local_time,&c);
-        if (c!=0||res!=1) throw ETlgError(errMsg);
+        Transfer.local_time_dep[0]=0;
+        Transfer.local_time_arv[0]=0;
+        tlg.lex[0]=0;
+        res=sscanf(lexh,"%4[0-9]%[A-ZА-ЯЁ0-9/]",
+                        Transfer.local_time_dep, tlg.lex);
+        if (res<1||
+            strlen(Transfer.local_time_dep)!=4)
+        {
+          Transfer.local_time_dep[0]=0;
+          strcpy(tlg.lex, lexh);
+        };
+      }
+      else
+      {
+        //если .M или .I то ошибка, так как для них только одна дата
+        if (elementID=='M' || elementID=='I') throw ETlgError(errMsg);
+      };
+      if (tlg.lex[0]!=0)
+      {
+        int d=0;
+        if (tlg.lex[d]=='/')
+        {
+          d++;
+          int sign=1;
+          if (tlg.lex[d]=='M')
+          {
+            sign=-1;
+            d++;
+          };
+          if (IsDigit(tlg.lex[d]) &&
+              StrToInt(string(1,tlg.lex[d]).c_str(),Transfer.date_variation)!=EOF)
+          {
+            Transfer.date_variation*=sign;
+            d++;
+          }
+          else throw ETlgError(errMsg);
+        };
+        if (tlg.lex[d]!=0)
+        {
+          c=0;
+          res=sscanf(tlg.lex+d,"%2[A-ZА-ЯЁ]%c",Transfer.status,&c);
+          if (c!=0||res!=1||strlen(Transfer.status)!=2) throw ETlgError(errMsg);
+        };
       };
     };
-    if (!pr_connection)
+    if (elementID=='I')
+    {
+      if (Transfer.local_time_arv[0]==0)
+      {
+        strcpy(Transfer.local_time_arv, Transfer.local_time_dep);
+        Transfer.local_time_dep[0]=0;
+      };
+      if (Transfer.date_variation!=ASTRA::NoExists &&
+          Transfer.local_time_arv[0]==0) throw ETlgError(errMsg);
+    };
+    if (elementID=='O')
+    {
+      if (Transfer.airp_arv[0]==0)
+      {
+        strcpy(Transfer.airp_arv, Transfer.airp_dep);
+        Transfer.airp_dep[0]=0;
+      };
+      if (Transfer.date_variation!=ASTRA::NoExists &&
+          Transfer.local_time_arv[0]==0)
+      {
+        strcpy(Transfer.local_time_arv, Transfer.local_time_dep);
+        Transfer.local_time_dep[0]=0;
+      };
+      if (Transfer.date_variation!=ASTRA::NoExists &&
+          Transfer.local_time_arv[0]==0) throw ETlgError(errMsg);
+    };
+    if (elementID=='M')
+    {
+      if (Transfer.date_variation!=ASTRA::NoExists) throw ETlgError(errMsg);
+    };
+/*  это для тестирования
+                  ProgTrace(TRACE5, "%-30s: |%-3s|%-3s|%-4s|%-4s|%3s|%-2s",
+                                    s.str().c_str(),
+                                    (Transfer.airp_dep[0]==0?"":Transfer.airp_dep),
+                                    (Transfer.airp_arv[0]==0?"":Transfer.airp_arv),
+                                    (Transfer.local_time_dep[0]==0?"":Transfer.local_time_dep),
+                                    (Transfer.local_time_arv[0]==0?"":Transfer.local_time_arv),
+                                    (Transfer.date_variation==ASTRA::NoExists?"":IntToString(Transfer.date_variation).c_str()),
+                                    (Transfer.status[0]==0?"":Transfer.status));
+                }
+                catch(ETlgError)
+                {
+                  ProgTrace(TRACE5, "%-30s: ETlgError!", s.str().c_str());
+                };
+              };
+*/
+    if (elementID=='M')
     {
       GetAirline(Transfer.airline);
       GetAirp(Transfer.airp_dep);
@@ -2608,14 +2722,9 @@ void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &p
     }
     else
     {
-      if (Transfer.num>0&&Transfer.airp_arv[0]==0)
-      {
-        strcpy(Transfer.airp_arv,Transfer.airp_dep);
-        Transfer.airp_dep[0]=0;
-      };
       //анализ на повторение
-      vector<TTransferItem>::iterator i;
-      for(i=pnr.transfer.begin();i!=pnr.transfer.end();i++)
+      vector<TTransferItem>::const_iterator i;
+      for(i=pnr.transfer.begin();i!=pnr.transfer.end();++i)
         if (Transfer.num==i->num) break;
       if (i!=pnr.transfer.end())
       {
