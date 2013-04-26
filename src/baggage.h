@@ -93,7 +93,6 @@ class TTagItem
     int bag_num;
     bool printable;
     bool pr_print;
-    int seg_no;
     TTagItem()
     {
       clear();
@@ -108,7 +107,6 @@ class TTagItem
       bag_num=ASTRA::NoExists;
       printable=false;
       pr_print=false;
-      seg_no=ASTRA::NoExists;
     };
     bool operator < (const TTagItem &item) const
     {

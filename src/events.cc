@@ -256,7 +256,7 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
         paxInfo.pr_exam=paxInfo.refuse.empty() && !Qry.FieldIsNULL("pr_exam") && Qry.FieldAsInteger("pr_exam")!=0;
         LoadPaxDoc(paxInfoKey.pax_id, paxInfo.doc, PaxDocQry);
         LoadPaxDoco(paxInfoKey.pax_id, paxInfo.doco, PaxDocoQry);
-        LoadPaxRem(paxInfoKey.pax_id, paxInfo.rems, PaxRemQry);
+        LoadPaxRem(paxInfoKey.pax_id, true, paxInfo.rems, PaxRemQry);
         sort(paxInfo.rems.begin(), paxInfo.rems.end());
       }
       else
