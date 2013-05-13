@@ -242,7 +242,6 @@ const TTagItem& TTagItem::toDB(TQuery &Qry) const
   else
     Qry.SetVariable("bag_num",FNull);
   Qry.SetVariable("pr_print",(int)pr_print);
-  Qry.SetVariable("seg_no",seg_no);
   return *this;
 };
 
@@ -260,7 +259,6 @@ TTagItem& TTagItem::fromDB(TQuery &Qry)
   if (Qry.GetFieldIndex("printable")>=0)
     printable=Qry.FieldAsInteger("printable")!=0;
   pr_print=Qry.FieldAsInteger("pr_print")!=0;
-  seg_no=Qry.FieldAsInteger("seg_no");
   return *this;
 };
 
@@ -482,29 +480,31 @@ void GetNextTagNo(int grp_id, int tag_count, vector< pair<int,int> >& tag_ranges
   };
 };
 
-void SaveBag(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode)
+bool GroupBagFromXML(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode,
+                     map<int /*num*/, TValueBagItem> &vals,
+                     map<int /*num*/, TBagItem> &bags,
+                     map<int /*num*/, TTagItem> &tags)
 {
-  if (bagtagNode==NULL) return;
+  vals.clear();
+  bags.clear();
+  tags.clear();
+  if (bagtagNode==NULL) return false;
   xmlNodePtr node;
 
   xmlNodePtr valueBagNode=GetNode("value_bags",bagtagNode);
   xmlNodePtr bagNode=GetNode("bags",bagtagNode);
   xmlNodePtr tagNode=GetNode("tags",bagtagNode);
-  
-  if (valueBagNode==NULL && bagNode==NULL && tagNode==NULL) return;
+
+  if (valueBagNode==NULL && bagNode==NULL && tagNode==NULL) return false;
   if (valueBagNode==NULL) throw Exception("CheckIn::SaveBag: valueBagNode=NULL");
   if (bagNode==NULL) throw Exception("CheckIn::SaveBag: bagNode=NULL");
   if (tagNode==NULL) throw Exception("CheckIn::SaveBag: tagNode=NULL");
-  
+
   TReqInfo *reqInfo = TReqInfo::Instance();
-  
+
   bool is_payment=reqInfo->screen.name != "AIR.EXE";
 
-  map<int /*num*/, TValueBagItem> vals;
-  map<int /*num*/, TBagItem> bags;
   map<int /*num*/, int> bound_tags;
-  map<int /*num*/, TTagItem> tags;
-  map<int /*num*/, TTagItem> generated_tags;
 
   for(node=valueBagNode->children;node!=NULL;node=node->next)
   {
@@ -536,7 +536,7 @@ void SaveBag(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode)
       throw Exception("CheckIn::SaveBag: tags[%d].bag_num=%d not found", tag.num, tag.bag_num);
     tags[tag.num]=tag;
   };
-  
+
   int num=1;
   for(map<int, TValueBagItem>::const_iterator v=vals.begin();v!=vals.end();++v,num++)
   {
@@ -561,7 +561,7 @@ void SaveBag(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode)
     else
       ++unbound_tags;
   };
-  
+
   if (!is_payment)
   {
     //в кассе не можем привязывать бирки и добавлять багаж поэтому делаем это только для регистрации
@@ -583,7 +583,7 @@ void SaveBag(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode)
         };
       };
     };
-    
+
     if (unbound_tags>0)
     {
       if (unbound_tags==1)
@@ -629,6 +629,7 @@ void SaveBag(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode)
       ProgTrace(TRACE5,"bagAmount=%d tagCount=%d",bagAmount,tagCount);
       if (pr_tag_print && tagCount<bagAmount )
       {
+        map<int /*num*/, TTagItem> generated_tags;
         Qry.Clear();
         Qry.SQLText=
           "SELECT tag_type FROM trip_bt WHERE point_id=:point_id";
@@ -665,6 +666,7 @@ void SaveBag(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode)
           else ++b;
         };
         if (t!=generated_tags.end()) throw Exception("CheckIn::SaveBag: t!=generated_tags.end()");
+        tags.insert(generated_tags.begin(), generated_tags.end());
       }
       else throw UserException(1,"MSG.CHECKIN.COUNT_BIRKS_NOT_EQUAL_PLACES");
     };
@@ -672,25 +674,6 @@ void SaveBag(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode)
 
   TQuery BagQry(&OraSession);
 
-  BagQry.Clear();
-  BagQry.SQLText="DELETE FROM value_bag WHERE grp_id=:grp_id";
-  BagQry.CreateVariable("grp_id",otInteger,grp_id);
-  BagQry.Execute();
-  BagQry.SQLText=
-    "INSERT INTO value_bag(grp_id,num,value,value_cur,tax_id,tax,tax_trfer) "
-    "VALUES(:grp_id,:num,:value,:value_cur,:tax_id,:tax,:tax_trfer)";
-  BagQry.DeclareVariable("num",otInteger);
-  BagQry.DeclareVariable("value",otFloat);
-  BagQry.DeclareVariable("value_cur",otString);
-  BagQry.DeclareVariable("tax_id",otInteger);
-  BagQry.DeclareVariable("tax",otFloat);
-  BagQry.DeclareVariable("tax_trfer",otInteger);
-  for(map<int, TValueBagItem>::const_iterator v=vals.begin();v!=vals.end();++v)
-  {
-    v->second.toDB(BagQry);
-    BagQry.Execute();
-  };
-  
   if (is_payment && !reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS))
   {
     map<int /*num*/, TBagItem> old_bags;
@@ -849,6 +832,36 @@ void SaveBag(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode)
       };
     };
   };
+  return true;
+};
+
+void GroupBagToDB(int grp_id,
+                  const map<int /*num*/, TValueBagItem> &vals,
+                  const map<int /*num*/, TBagItem> &bags,
+                  const map<int /*num*/, TTagItem> &tags)
+{
+  bool is_payment=TReqInfo::Instance()->screen.name != "AIR.EXE";
+
+  TQuery BagQry(&OraSession);
+
+  BagQry.Clear();
+  BagQry.SQLText="DELETE FROM value_bag WHERE grp_id=:grp_id";
+  BagQry.CreateVariable("grp_id",otInteger,grp_id);
+  BagQry.Execute();
+  BagQry.SQLText=
+    "INSERT INTO value_bag(grp_id,num,value,value_cur,tax_id,tax,tax_trfer) "
+    "VALUES(:grp_id,:num,:value,:value_cur,:tax_id,:tax,:tax_trfer)";
+  BagQry.DeclareVariable("num",otInteger);
+  BagQry.DeclareVariable("value",otFloat);
+  BagQry.DeclareVariable("value_cur",otString);
+  BagQry.DeclareVariable("tax_id",otInteger);
+  BagQry.DeclareVariable("tax",otFloat);
+  BagQry.DeclareVariable("tax_trfer",otInteger);
+  for(map<int, TValueBagItem>::const_iterator v=vals.begin();v!=vals.end();++v)
+  {
+    v->second.toDB(BagQry);
+    BagQry.Execute();
+  };
   
   BagQry.Clear();
   BagQry.SQLText="DELETE FROM bag2 WHERE grp_id=:grp_id";
@@ -886,31 +899,20 @@ void SaveBag(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode)
   if (!is_payment)
   {
     BagQry.Clear();
-    BagQry.SQLText="SELECT seg_no FROM tckin_pax_grp WHERE grp_id=:grp_id";
-    BagQry.CreateVariable("grp_id",otInteger,grp_id);
-    BagQry.Execute();
-    int seg_no=1;
-    if (!BagQry.Eof)
-      seg_no=BagQry.FieldAsInteger("seg_no");
-
-    BagQry.Clear();
     BagQry.SQLText="DELETE FROM bag_tags WHERE grp_id=:grp_id";
     BagQry.CreateVariable("grp_id",otInteger,grp_id);
     BagQry.Execute();
     BagQry.SQLText=
-      "INSERT INTO bag_tags(grp_id,num,tag_type,no,color,seg_no,bag_num,pr_print) "
-      "VALUES (:grp_id,:num,:tag_type,:no,:color,:seg_no,:bag_num,:pr_print)";
+      "INSERT INTO bag_tags(grp_id,num,tag_type,no,color,bag_num,pr_print) "
+      "VALUES (:grp_id,:num,:tag_type,:no,:color,:bag_num,:pr_print)";
     BagQry.DeclareVariable("num",otInteger);
     BagQry.DeclareVariable("tag_type",otString);
     BagQry.DeclareVariable("no",otFloat);
     BagQry.DeclareVariable("color",otString);
-    BagQry.DeclareVariable("seg_no",otInteger);
     BagQry.DeclareVariable("bag_num",otInteger);
     BagQry.DeclareVariable("pr_print",otInteger);
-    tags.insert(generated_tags.begin(), generated_tags.end());
-    for(map<int, TTagItem>::iterator t=tags.begin();t!=tags.end();++t)
+    for(map<int, TTagItem>::const_iterator t=tags.begin();t!=tags.end();++t)
     {
-      t->second.seg_no=seg_no;
       t->second.toDB(BagQry);
       try
       {
@@ -928,6 +930,15 @@ void SaveBag(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode)
       };
     };
   }; //!pr_payment
+};
+
+void SaveBag(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode)
+{
+  map<int /*num*/, TValueBagItem> vals;
+  map<int /*num*/, TBagItem> bags;
+  map<int /*num*/, TTagItem> tags;
+  if (GroupBagFromXML(point_id, grp_id, hall, bagtagNode, vals, bags, tags))
+    GroupBagToDB(grp_id, vals, bags, tags);
 };
 
 void LoadBag(int grp_id, xmlNodePtr bagtagNode)
@@ -956,7 +967,7 @@ void LoadBag(int grp_id, xmlNodePtr bagtagNode)
 
   BagQry.Clear();
   BagQry.SQLText=
-    "SELECT num,tag_type,no_len,no,color,bag_num,printable,pr_print,seg_no "
+    "SELECT num,tag_type,no_len,no,color,bag_num,printable,pr_print "
     "FROM bag_tags,tag_types "
     "WHERE bag_tags.tag_type=tag_types.code AND grp_id=:grp_id";
   BagQry.CreateVariable("grp_id",otInteger,grp_id);

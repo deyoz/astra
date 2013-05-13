@@ -11,6 +11,7 @@
 #include "astra_misc.h"
 #include "oralib.h"
 #include "etick.h"
+#include "remarks.h"
 #include "tlg/tlg_parser.h"
 
 struct TSegInfo
@@ -175,7 +176,6 @@ public:
                             const BASIC::TDateTime scd_out_local,
                             std::vector<CheckIn::TTransferItem> &segs);
 
-  static void SavePaxRem(xmlNodePtr paxNode);
   static void SavePaxTransfer(int pax_id, int pax_no, const std::vector<CheckIn::TTransferItem> &trfer, int seg_no);
   static std::string SaveTransfer(int grp_id,
                                   const std::vector<CheckIn::TTransferItem> &trfer,
@@ -198,10 +198,13 @@ public:
   static void LoadTransfer(int grp_id, xmlNodePtr transferNode);
   static void LoadPaidBag(int grp_id, xmlNodePtr grpNode);
 
-  static int CheckCounters(int point_dep, int point_arv, char* cl, ASTRA::TPaxStatus grp_status);
+  static int CheckCounters(int point_dep,
+                           int point_arv,
+                           const std::string &cl,
+                           ASTRA::TPaxStatus grp_status);
 
-  static bool CheckFQTRem(xmlNodePtr remNode, TypeB::TFQTItem &fqt);
-  static bool ParseFQTRem(TypeB::TTlgParser &tlg,std::string &rem_text,TypeB::TFQTItem &fqt);
+  static bool CheckFQTRem(CheckIn::TPaxRemItem &rem, CheckIn::TPaxFQTItem &fqt);
+  static bool ParseFQTRem(TypeB::TTlgParser &tlg, std::string &rem_text, CheckIn::TPaxFQTItem &fqt);
 
   static void readTripCounters( int point_id, xmlNodePtr dataNode );
   static void readTripData( int point_id, xmlNodePtr dataNode );

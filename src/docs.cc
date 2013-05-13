@@ -2584,7 +2584,7 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
               cats[remFQT]=true;
               break;
             default:
-              LoadPaxRem(pax_id, rems, PaxRemQry);
+              LoadPaxRem(pax_id, false, rems, PaxRemQry);
               for(vector<CheckIn::TPaxRemItem>::const_iterator r=rems.begin();r!=rems.end();r++)
               {
                 if (!r->code.empty() &&
@@ -2604,7 +2604,7 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       
       CheckIn::TPaxRemItem rem;
       //обычные ремарки (обязательно обрабатываем первыми)
-      if (!cats[remUnknown]) LoadPaxRem(pax_id, rems, PaxRemQry);
+      if (!cats[remUnknown]) LoadPaxRem(pax_id, false, rems, PaxRemQry);
       for(vector<CheckIn::TPaxRemItem>::iterator r=rems.begin();r!=rems.end();r++)
         r->text=transliter(r->text, 1, rpt_params.GetLang() != AstraLocale::LANG_RU);
       

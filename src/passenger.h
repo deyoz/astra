@@ -178,6 +178,107 @@ class TPaxDocoItem
     long int getNotEmptyFieldsMask() const;
 };
 
+class TPaxItem
+{
+  public:
+    int id;
+    std::string surname;
+    std::string name;
+    ASTRA::TPerson pers_type;
+    std::string seat_no;
+    std::string seat_type;
+    int seats;
+    std::string refuse;
+    bool pr_brd;
+    bool pr_exam;
+    std::string wl_type;
+    int reg_no;
+    std::string subcl;
+    int bag_pool_num;
+    int tid;
+    TPaxTknItem tkn;
+    TPaxDocItem doc;
+    TPaxDocoItem doco;
+    bool PaxUpdatesPending;
+    bool TknExists;
+    bool DocExists;
+    bool DocoExists;
+    TPaxItem()
+    {
+      clear();
+    };
+    void clear()
+    {
+      id=ASTRA::NoExists;
+      surname.clear();
+      name.clear();
+      pers_type=ASTRA::NoPerson;
+      seat_no.clear();
+      seat_type.clear();
+      seats=ASTRA::NoExists;
+      refuse.clear();
+      pr_brd=false;
+      pr_exam=false;
+      wl_type.clear();
+      reg_no=ASTRA::NoExists;
+      subcl.clear();
+      bag_pool_num=ASTRA::NoExists;
+      tid=ASTRA::NoExists;
+      tkn.clear();
+      doc.clear();
+      doco.clear();
+      PaxUpdatesPending=false;
+      TknExists=false;
+      DocExists=false;
+      DocoExists=false;
+    };
+
+    const TPaxItem& toXML(xmlNodePtr node) const;
+    TPaxItem& fromXML(xmlNodePtr node);
+    const TPaxItem& toDB(TQuery &Qry) const;
+    TPaxItem& fromDB(TQuery &Qry, TQuery &PaxDocQry, TQuery &PaxDocoQry);
+};
+
+class TPaxGrpItem
+{
+  public:
+    int id;
+    int point_dep;
+    int point_arv;
+    std::string airp_dep;
+    std::string airp_arv;
+    std::string cl;
+    ASTRA::TPaxStatus status;
+    int excess;
+    int hall;
+    std::string bag_refuse;
+    int tid;
+    TPaxGrpItem()
+    {
+      clear();
+    };
+    void clear()
+    {
+      id=ASTRA::NoExists;
+      point_dep=ASTRA::NoExists;
+      point_arv=ASTRA::NoExists;
+      airp_dep.clear();
+      airp_arv.clear();
+      cl.clear();
+      status=ASTRA::psCheckin;
+      excess=ASTRA::NoExists;
+      hall=ASTRA::NoExists;
+      bag_refuse.clear();
+      tid=ASTRA::NoExists;
+    };
+
+    const TPaxGrpItem& toXML(xmlNodePtr node) const;
+    TPaxGrpItem& fromXML(xmlNodePtr node);
+    TPaxGrpItem& fromXMLadditional(xmlNodePtr node);
+    const TPaxGrpItem& toDB(TQuery &Qry) const;
+    TPaxGrpItem& fromDB(TQuery &Qry);
+};
+
 void LoadPaxDoc(TQuery& PaxDocQry, xmlNodePtr paxNode);
 void LoadPaxDoco(TQuery& PaxDocQry, xmlNodePtr paxNode);
 bool LoadPaxDoc(int pax_id, TPaxDocItem &doc, TQuery& PaxDocQry);
@@ -191,8 +292,8 @@ bool LoadPaxDoco(int pax_id, TPaxDocoItem &doc, TQuery& PaxDocQry);
 bool LoadPaxDoco(BASIC::TDateTime part_key, int pax_id, TPaxDocoItem &doc, TQuery& PaxDocQry);
 bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc, TQuery& PaxDocQry, TQuery& GetPSPT2Qry);
 bool LoadCrsPaxVisa(int pax_id, TPaxDocoItem &doc, TQuery& PaxDocQry);
-void SavePaxDoc(int pax_id, xmlNodePtr docNode, TQuery& PaxDocQry);
-void SavePaxDoco(int pax_id, xmlNodePtr docNode, TQuery& PaxDocQry);
+void SavePaxDoc(int pax_id, const TPaxDocItem &doc, TQuery& PaxDocQry);
+void SavePaxDoco(int pax_id, const TPaxDocoItem &doc, TQuery& PaxDocQry);
 
 bool LoadPaxNorms(int pax_id, std::vector< std::pair<TPaxNormItem, TNormItem> > &norms, TQuery& NormQry);
 bool LoadGrpNorms(int grp_id, std::vector< std::pair<TPaxNormItem, TNormItem> > &norms, TQuery& NormQry);

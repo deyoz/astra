@@ -178,6 +178,43 @@ string GetCrsRemarkStr(const TRemGrp &rem_grp, int pax_id, TQuery &Qry, const st
 namespace CheckIn
 {
 
+TPaxRemItem::TPaxRemItem(const std::string &rem_code,
+                         const std::string &rem_text)
+{
+  clear();
+  code=rem_code;
+  text=rem_text;
+  calcPriority();
+};
+
+const TPaxRemItem& TPaxRemItem::toXML(xmlNodePtr node) const
+{
+  if (node==NULL) return *this;
+  xmlNodePtr remNode=NewTextChild(node,"rem");
+  NewTextChild(remNode,"rem_code",code);
+  NewTextChild(remNode,"rem_text",text);
+  return *this;
+};
+
+TPaxRemItem& TPaxRemItem::fromXML(xmlNodePtr node)
+{
+  clear();
+  if (node==NULL) return *this;
+  xmlNodePtr node2=node->children;
+
+  code=NodeAsStringFast("rem_code",node2);
+  text=NodeAsStringFast("rem_text",node2);
+  calcPriority();
+  return *this;
+};
+
+const TPaxRemItem& TPaxRemItem::toDB(TQuery &Qry) const
+{
+  Qry.SetVariable("rem_code", code);
+  Qry.SetVariable("rem", text);
+  return *this;
+};
+
 TPaxRemItem& TPaxRemItem::fromDB(TQuery &Qry)
 {
   clear();
@@ -201,6 +238,15 @@ void TPaxRemItem::calcPriority()
   catch (EBaseTableError) {};
 };
 
+const TPaxFQTItem& TPaxFQTItem::toDB(TQuery &Qry) const
+{
+  Qry.SetVariable("rem_code", rem);
+  Qry.SetVariable("airline", airline);
+  Qry.SetVariable("no", no);
+  Qry.SetVariable("extra", extra);
+  return *this;
+};
+
 TPaxFQTItem& TPaxFQTItem::fromDB(TQuery &Qry)
 {
   clear();
@@ -211,7 +257,7 @@ TPaxFQTItem& TPaxFQTItem::fromDB(TQuery &Qry)
   return *this;
 };
 
-bool LoadPaxRem(int pax_id, vector<TPaxRemItem> &rems, TQuery& PaxRemQry)
+bool LoadPaxRem(int pax_id, bool withFQTcat, vector<TPaxRemItem> &rems, TQuery& PaxRemQry)
 {
   rems.clear();
   const char* sql=
@@ -228,7 +274,8 @@ bool LoadPaxRem(int pax_id, vector<TPaxRemItem> &rems, TQuery& PaxRemQry)
   {
     TPaxRemItem rem;
     rem.fromDB(PaxRemQry);
-    if (getRemCategory(rem.code, rem.text)==remUnknown)
+    TRemCategory cat=getRemCategory(rem.code, rem.text);
+    if (cat==remUnknown || (cat==remFQT && withFQTcat))
       rems.push_back(rem);
   };
   return !rems.empty();
@@ -268,6 +315,47 @@ bool LoadPaxFQT(int pax_id, vector<TPaxFQTItem> &fqts, TQuery& PaxFQTQry)
   for(;!PaxFQTQry.Eof;PaxFQTQry.Next())
     fqts.push_back(TPaxFQTItem().fromDB(PaxFQTQry));
   return !fqts.empty();
+};
+
+void SavePaxRem(int pax_id, const vector<TPaxRemItem> &rems)
+{
+  TQuery RemQry(&OraSession);
+  RemQry.Clear();
+  RemQry.SQLText="DELETE FROM pax_rem WHERE pax_id=:pax_id";
+  RemQry.CreateVariable("pax_id",otInteger,pax_id);
+  RemQry.Execute();
+
+  RemQry.SQLText=
+    "INSERT INTO pax_rem(pax_id,rem,rem_code) VALUES(:pax_id,:rem,:rem_code)";
+  RemQry.DeclareVariable("rem",otString);
+  RemQry.DeclareVariable("rem_code",otString);
+  for(vector<TPaxRemItem>::const_iterator r=rems.begin(); r!=rems.end(); ++r)
+  {
+    r->toDB(RemQry);
+    RemQry.Execute();
+  };
+};
+
+void SavePaxFQT(int pax_id, const vector<TPaxFQTItem> &fqts)
+{
+  TQuery FQTQry(&OraSession);
+  FQTQry.Clear();
+  FQTQry.SQLText="DELETE FROM pax_fqt WHERE pax_id=:pax_id";
+  FQTQry.CreateVariable("pax_id",otInteger,pax_id);
+  FQTQry.Execute();
+
+  FQTQry.SQLText=
+    "INSERT INTO pax_fqt(pax_id,rem_code,airline,no,extra) "
+    "VALUES(:pax_id,:rem_code,:airline,:no,:extra)";
+  FQTQry.DeclareVariable("rem_code",otString);
+  FQTQry.DeclareVariable("airline",otString);
+  FQTQry.DeclareVariable("no",otString);
+  FQTQry.DeclareVariable("extra",otString);
+  for(vector<TPaxFQTItem>::const_iterator r=fqts.begin(); r!=fqts.end(); ++r)
+  {
+    r->toDB(FQTQry);
+    FQTQry.Execute();
+  };
 };
 
 };
