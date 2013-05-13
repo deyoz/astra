@@ -29,7 +29,7 @@ bool is_iata_row(std::string row)
     bool result = false;
     try {
         int row_num = ToInt(row);
-        if(row_num >= FIRST_IATA_ROW and row_num <=99 or row_num >= 101 and row_num <= LAST_IATA_ROW)
+        if((row_num >= FIRST_IATA_ROW and row_num <=99) or (row_num >= 101 and row_num <= LAST_IATA_ROW))
             result = true;
     } catch(...) {
     }
@@ -45,7 +45,7 @@ string denorm_iata_line(std::string line, bool pr_lat)
 {
     if(is_iata_line(line)) {
         for(size_t i = 0; i < strlen(rus_seat); i++)
-            if(pr_lat and line[0] == rus_seat[i] or not pr_lat and line[0] == lat_seat[i]) {
+            if((pr_lat and line[0] == rus_seat[i]) or (not pr_lat and line[0] == lat_seat[i])) {
                 pr_lat ? line = lat_seat[i] : line = rus_seat[i];
                 break;
             }

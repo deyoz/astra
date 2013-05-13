@@ -2170,7 +2170,7 @@ string TBagReceipt::issue_place_idx(int idx)
             line_num++;
         }
         if(f_issue_place_idx.size() != 5)
-            throw Exception("TBagReceipt::issue_place_idx: wrong issue_place format: lines = %d", f_issue_place_idx.size());
+            throw Exception("TBagReceipt::issue_place_idx: wrong issue_place format: lines = %zu", f_issue_place_idx.size());
     }
     return f_issue_place_idx[idx];
 }

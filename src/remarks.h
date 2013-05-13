@@ -69,7 +69,7 @@ class TPaxRemItem
     {
       if (priority!=item.priority)
         return (item.priority==ASTRA::NoExists ||
-                priority!=ASTRA::NoExists && priority<item.priority);
+                (priority!=ASTRA::NoExists && priority<item.priority));
       if (code!=item.code)
         return code<item.code;
       return text<item.text;

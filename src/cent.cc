@@ -508,7 +508,7 @@ inline void setBalanceValue( Develop_dbf &dbf, int irow, const string &strnum, T
 void exportDBF( int external_point_id, const string &dbf_file )
 {
   Develop_dbf dbf;
-  ProgTrace( TRACE5, "dbf_file.size()=%d", dbf_file.size() );
+  ProgTrace( TRACE5, "dbf_file.size()=%zu", dbf_file.size() );
   getBalanceDBF( dbf, dbf_file );
 }
 
@@ -804,7 +804,7 @@ void TBalanceData::get( int point_id, int pr_tranzit,
 void importDBF( int external_point_id, string &dbf_file )
 {
   Develop_dbf dbf;
-  ProgTrace( TRACE5, "dbf_file.size()=%d", dbf_file.size() );
+  ProgTrace( TRACE5, "dbf_file.size()=%zu", dbf_file.size() );
   getBalanceDBF( dbf, dbf_file );
   vector<string> airlines;
   vector<string> airps;
@@ -933,7 +933,7 @@ void importDBF( int external_point_id, string &dbf_file )
                            Qry.FieldAsInteger( "pr_tranzit" ),
                            trtNotCurrent,
                            trtNotCancelled );
-    ProgTrace( TRACE5, "point_id=%d, routes.size()=%d", point_id, routesA.size() );
+    ProgTrace( TRACE5, "point_id=%d, routes.size()=%zu", point_id, routesA.size() );
     if ( routesA.empty() ) {
       continue;
     }
@@ -969,7 +969,7 @@ void importDBF( int external_point_id, string &dbf_file )
       }
       string bort = Qry.FieldAsString( "bort" );
       if ( !( bort.size() == 5 && bort.find( "-" ) == string::npos || bort.size() == 6 && bort.find( "-" ) == 2 ) ) {
-        ProgTrace( TRACE5, "point_id=%d,bort=%s, bort.find=%d", point_id, bort.c_str(), bort.find( "-" ) );
+        ProgTrace( TRACE5, "point_id=%d,bort=%s, bort.find=%zu", point_id, bort.c_str(), bort.find( "-" ) );
         throw Exception( "Invalid bort" );
       }
 
@@ -1132,12 +1132,12 @@ void CentInterface::synchBalance(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   int external_point_id = NoExists;
   std::string::size_type idx = command_line_params.find( " IN" );
   bool pr_import = ( idx != std::string::npos );
-  ProgTrace( TRACE5, "idx=%d, npos=%d, pr_import=%d", idx, std::string::npos, pr_import );
+  ProgTrace( TRACE5, "idx=%zu, npos=%zu, pr_import=%d", idx, std::string::npos, pr_import );
   if ( !pr_import ) {
     tst();
     idx = command_line_params.find( " OUT" );
   }
-  ProgTrace( TRACE5, "idx=%d, npos=%d, pr_import=%d", idx, std::string::npos, pr_import );
+  ProgTrace( TRACE5, "idx=%zu, npos=%zu, pr_import=%d", idx, std::string::npos, pr_import );
   if ( idx == std::string::npos ) {
     tst();
     throw AstraLocale::UserException( "param 'commandline_params' is invalid" );
@@ -1145,7 +1145,7 @@ void CentInterface::synchBalance(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   command_line_params = command_line_params.substr( idx + 1 + (pr_import?2:3) );
   command_line_params = TrimString( command_line_params );
   tst();
-  ProgTrace( TRACE5, "idx=%d, commandline_params=|%s|", idx, command_line_params.c_str() );
+  ProgTrace( TRACE5, "idx=%zu, commandline_params=|%s|", idx, command_line_params.c_str() );
   if ( !command_line_params.empty() ) {
      if ( StrToInt( command_line_params.c_str(), external_point_id ) == EOF )
        throw AstraLocale::UserException( "param 'commandline_params' is invalid" );
@@ -1224,7 +1224,7 @@ void CentInterface::getDBFBalance(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     try {
       f.seekg(0);
       st << f.rdbuf();
-      ProgTrace( TRACE5, "st.str().size()=%d", st.str().size() );
+      ProgTrace( TRACE5, "st.str().size()=%zu", st.str().size() );
       string str;
       StringToHex( st.str(), str );
       NewTextChild( resNode, "data", str );

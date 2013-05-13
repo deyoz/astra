@@ -38,7 +38,7 @@ void TLocaleMessages::Invalidate( std::string lang, bool pr_term )
 		tid = client_msgs.get_tid( lang );
 	else
 		tid = server_msgs.get_tid( lang );
-	ProgTrace( TRACE5, "before Invalidate: lang=%s, pr_term=%d, tid=%d, server_msgs.msgs.size()=%d, client_msgs.msgs.size()=%d", lang.c_str(), pr_term, tid, server_msgs.msgs.size(), client_msgs.msgs.size() );
+	ProgTrace( TRACE5, "before Invalidate: lang=%s, pr_term=%d, tid=%d, server_msgs.msgs.size()=%zu, client_msgs.msgs.size()=%zu", lang.c_str(), pr_term, tid, server_msgs.msgs.size(), client_msgs.msgs.size() );
 	TQuery Qry(&OraSession);
 	if ( tid >= 0 ) {
 	  Qry.SQLText =
@@ -83,7 +83,7 @@ void TLocaleMessages::Invalidate( std::string lang, bool pr_term )
 	  else
 	  	server_msgs.set_tid( lang, tid );
   }
-  ProgTrace( TRACE5, "after Invalidate: lang=%s, tid=%d, server_msgs.msgs.size()=%d, client_msgs.msgs.size()=%d, res=%d", lang.c_str(), tid, server_msgs.msgs.size(), client_msgs.msgs.size(), res );
+  ProgTrace( TRACE5, "after Invalidate: lang=%s, tid=%d, server_msgs.msgs.size()=%zu, client_msgs.msgs.size()=%zu, res=%d", lang.c_str(), tid, server_msgs.msgs.size(), client_msgs.msgs.size(), res );
   if ( res && pr_term ) { // создаем словарь формата клиент
 	  string s;
 	  for (map<std::string, TLocaleMessage>::iterator i=client_msgs.msgs.begin(); i!=client_msgs.msgs.end(); i++ ) {

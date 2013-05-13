@@ -1957,7 +1957,7 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
                 minus=0;
                 c=0;
                 res=sscanf(tlg.lex,"%3lu%c%c",&SeatsItem.seats,&minus,&c);
-                if (c!=0||res<1||SeatsItem.seats<0||minus!=0&&minus!='-')
+                if (c!=0||res<1||SeatsItem.seats<0||(minus!=0&&minus!='-'))
                 {
                   if (e_part==4) break;
                   throw ETlgError("Wrong number of seats");
@@ -2731,11 +2731,9 @@ void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &p
         if (strcmp(i->airline,Transfer.airline)!=0||
             i->flt_no!=Transfer.flt_no||
             strcmp(i->suffix,Transfer.suffix)!=0||
-            i->airp_dep[0]!=0&&Transfer.airp_dep[0]!=0&&
-            strcmp(i->airp_dep,Transfer.airp_dep)!=0||
+            (i->airp_dep[0]!=0&&Transfer.airp_dep[0]!=0&&strcmp(i->airp_dep,Transfer.airp_dep)!=0)||
             i->local_date!=Transfer.local_date||
-            i->airp_arv[0]!=0&&Transfer.airp_arv[0]!=0&&
-            strcmp(i->airp_arv,Transfer.airp_arv)!=0||
+            (i->airp_arv[0]!=0&&Transfer.airp_arv[0]!=0&&strcmp(i->airp_arv,Transfer.airp_arv)!=0)||
             strcmp(i->subcl,Transfer.subcl)!=0)
           throw ETlgError("Different inbound/onward connection in group found");
       }
@@ -2910,7 +2908,7 @@ void BindRemarks(TTlgParser &tlg, TNameElement &ne)
 {
   char c;
   int res,k;
-  unsigned int pos;
+  string::size_type pos;
   bool pr_parse;
   string strh;
   char *p;
@@ -2983,8 +2981,8 @@ void BindRemarks(TTlgParser &tlg, TNameElement &ne)
           {
             for(iPaxItem=ne.pax.begin();iPaxItem!=ne.pax.end();++iPaxItem)
             {
-              if (k==0&&iPaxItem->name!=*i||
-                  k!=0&&OnlyAlphaInLexeme(iPaxItem->name)!=OnlyAlphaInLexeme(*i)) continue;
+              if ((k==0&&iPaxItem->name!=*i)||
+                  (k!=0&&OnlyAlphaInLexeme(iPaxItem->name)!=OnlyAlphaInLexeme(*i))) continue;
               if (iPaxItem->rem.empty())
               {
                 iPaxItem->rem.push_back(TRemItem());
@@ -3535,9 +3533,9 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
       //3. привязываем к первому
       for(vector<TPaxItem>::iterator i=ne.pax.begin();i!=ne.pax.end();i++)
       {
-        if (k==0 && i->pers_type==adult && i->inf.empty() ||
-            k==1 && i->pers_type==adult ||
-            k==2 && i->inf.empty() ||
+        if ((k==0 && i->pers_type==adult && i->inf.empty()) ||
+            (k==1 && i->pers_type==adult) ||
+            (k==2 && i->inf.empty()) ||
             k==3)
         {
           i->inf.push_back(*iInfItem);
@@ -3750,9 +3748,9 @@ void ParseSeatRange(string str, vector<TSeatRange> &ranges, bool usePriorContext
 
       if (seatr.second.Empty()||
           strcmp(seatr.second.row,seat.row)!=0||
-          strcmp(seatr.second.line,seat.line)!=0&&
-          (!PriorNormSeatLine(seat)||
-           strcmp(seatr.second.line,seat.line)!=0))
+          (strcmp(seatr.second.line,seat.line)!=0&&
+           (!PriorNormSeatLine(seat)||
+            strcmp(seatr.second.line,seat.line)!=0)))
       {
         if (!seatr.second.Empty()) ranges.push_back(seatr);
         strcpy(seatr.first.row,i->row);
@@ -5266,8 +5264,8 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
   };
   
   bool pr_save_ne=isPRL ||
-                  !(strcmp(info.tlg_type,"PNL")==0&&pr_pnl==2|| //пришел второй нецифровой PNL
-                    strcmp(info.tlg_type,"ADL")==0&&pr_pnl!=2); //пришел ADL до обоих PNL
+                  !((strcmp(info.tlg_type,"PNL")==0&&pr_pnl==2)|| //пришел второй нецифровой PNL
+                    (strcmp(info.tlg_type,"ADL")==0&&pr_pnl!=2)); //пришел ADL до обоих PNL
 
   bool pr_recount=false;
   //записать цифровые данные

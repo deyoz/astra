@@ -1195,7 +1195,7 @@ void CryptInterface::SetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   	requests.push_back( r );
   	Qry.Next();
   }
-  ProgTrace( TRACE5, "requests count=%d", requests.size() );
+  ProgTrace( TRACE5, "requests count=%zu", requests.size() );
   Qry.Clear();
   Qry.SQLText =
     "BEGIN "
@@ -1213,7 +1213,7 @@ void CryptInterface::SetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
 	  node = GetNode( "certificate", node );
   	while ( node ) {
   		cert = NodeAsString( node );
-  		ProgTrace( TRACE5, "certificate=%s, requests count=%d", cert.c_str(), requests.size() );
+  		ProgTrace( TRACE5, "certificate=%s, requests count=%zu", cert.c_str(), requests.size() );
   		for ( vector<TRequest>::iterator i=requests.begin(); i!=requests.end(); i++ ) {
   			int err = CertAndRequestMatchBuffer( (char*)cert.data(), cert.size(), (char*)i->cert.data(), i->cert.size() );
   			if ( err ) {

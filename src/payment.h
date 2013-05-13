@@ -57,7 +57,7 @@ struct TBagReceipt
         {
             return not (
                     bag_type == 20 or
-                    bag_type == 21 && form_type != "Z61" or
+                    (bag_type == 21 && form_type != "Z61") or
                     bag_type == 4 or
                     (bag_type == 1 || bag_type == 2)
                     );

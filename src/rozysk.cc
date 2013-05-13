@@ -632,7 +632,7 @@ void sync_sirena_rozysk( TDateTime utcdate )
   Qry.CreateVariable("last_time", otDate, last_time);
   Qry.Execute();
 
-  ProgTrace( TRACE5, "pax.size()=%d", paxs.size() );
+  ProgTrace( TRACE5, "pax.size()=%zu", paxs.size() );
   if(not paxs.empty()) {
     request.content=make_soap_content(paxs);
     sirena_rozysk_send(request);

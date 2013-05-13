@@ -19,7 +19,7 @@ namespace TickReader{
         CoupCounter(){}
         int operator () (int init, const Ticket& t)
         {
-            ProgTrace(TRACE3,"%d coupon[s] in the ticket #%s/%d",
+            ProgTrace(TRACE3,"%zu coupon[s] in the ticket #%s/%d",
                       t.getCoupon().size(), t.ticknum().c_str(), t.actCode());
             return (init + ((t.actCode() == TickStatAction::oldtick)?0:t.getCoupon().size()));
         }
@@ -462,7 +462,7 @@ void TicketEdiR::operator () (ReaderData &RData, list<Ticket> &ltick,
 
     if(ltick.size() > 4 || ltick.size() == 0)
     {
-        ProgError(STDLOG, "Invalid number of conjunction tickets (%d), 4 maximum", ltick.size());
+        ProgError(STDLOG, "Invalid number of conjunction tickets (%zu), 4 maximum", ltick.size());
         throw Exception("Invalid number of conjunction tickets, 4 maximum");
     }
 

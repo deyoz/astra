@@ -28,11 +28,11 @@ typedef enum TLG_TYPE   /*поле type*/
 /*все длинные и двубайтные целые передаются в network формате*/
 typedef struct AIRSRV_MSG
 {
-    long int num;   		      /* номер телеграммы */
-    unsigned short int type;
+    int32_t num;   		      /* номер телеграммы */
+    uint16_t type;
     char Sender[6];       /* пятисимвольный адрес, завершенный нулем */
     char Receiver[6];
-    unsigned short int TTL;   /* время актуальноти телеграммы в секундах*/
+    uint16_t TTL;   /* время актуальноти телеграммы в секундах*/
     char body[MAX_TLG_SIZE];
 }AIRSRV_MSG;
 

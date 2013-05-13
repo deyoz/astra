@@ -122,7 +122,7 @@ void ZoneLoads(int point_id,
                 TZoneOccupiedSeats zs;
                 zs.name = i->name;
                 for(std::map<ASTRA::TCompLayerType, SALONS2::TPlaces>::iterator im = compSectionLayers.layersSeats.begin(); im != compSectionLayers.layersSeats.end(); im++) {
-                  ProgTrace( TRACE5, "im->first=%s, im->second=%d", EncodeCompLayerType( im->first ), im->second.size() );
+                  ProgTrace( TRACE5, "im->first=%s, im->second=%zu", EncodeCompLayerType( im->first ), im->second.size() );
                   if ( !only_checkin_layers || checkinLayersSeats.find( im->first ) != checkinLayersSeats.end() ) { // работаем только со слоями регистрации??? ДЕН!!!
                     zs.seats.insert( zs.seats.end(), im->second.begin(), im->second.end() );
                   }
@@ -1080,7 +1080,7 @@ void IntChangeSeats( int point_id, int pax_id, int &tid, string xname, string yn
   	if ( TReqInfo::Instance()->client_type != ctTerm || resNode == NULL )
   		return; // web-регистрация
   	SALONS2::getSalonChanges( Salons, seats );
-  	ProgTrace( TRACE5, "salon changes seats.size()=%d", seats.size() );
+  	ProgTrace( TRACE5, "salon changes seats.size()=%zu", seats.size() );
   	string seat_no, slayer_type;
   	if ( layer_type == cltProtCkin )
   	  getSeat_no( pax_id, true, string("_seats"), seat_no, slayer_type, tid );

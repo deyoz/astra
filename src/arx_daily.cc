@@ -202,8 +202,8 @@ bool TArxMoveFlt::GetPartKey(int move_id, TDateTime& part_key, double &date_rang
     if (first_date!=NoExists && last_date!=NoExists)
     {
 
-      if ( final_act_in!=NoExists && last_date<utcdate-ARX_MIN_DAYS() ||
-           final_act_in==NoExists && last_date<utcdate-ARX_MAX_DAYS() )
+      if ( (final_act_in!=NoExists && last_date<utcdate-ARX_MIN_DAYS()) ||
+           (final_act_in==NoExists && last_date<utcdate-ARX_MAX_DAYS()) )
       {
         //переместить в архив
         part_key=last_date;

@@ -272,7 +272,7 @@ public:
           airps.clear();
         if ( pr_empty_flt_no )
           flt_nos.clear();
-        ProgTrace( TRACE5, "point_addr=%s, airlines.size()=%d, airps.size()=%d,flt_nos.size()=%d",
+        ProgTrace( TRACE5, "point_addr=%s, airlines.size()=%zu, airps.size()=%zu,flt_nos.size()=%zu",
                    point_addr.c_str(), airlines.size(), airps.size(),  flt_nos.size() );
         if ( validateParams( point_addr, airlines, airps, flt_nos, params, cond_dates.point_id ) ) {
           ProgTrace( TRACE5, "validateparams" );
@@ -1515,7 +1515,7 @@ bool createCheckinDataFiles( int point_id, const std::string &point_addr, TFileD
                          Qry.FieldAsInteger( "pr_tranzit" ),
                          trtNotCurrent,
                          trtNotCancelled );
-  ProgTrace( TRACE5, "point_id=%d, routesA.size()=%d", point_id, routesA.size() );
+  ProgTrace( TRACE5, "point_id=%d, routesA.size()=%zu", point_id, routesA.size() );
   if ( routesA.empty() ) {
       return false;
   }
@@ -1587,7 +1587,7 @@ bool createCheckinDataFiles( int point_id, const std::string &point_addr, TFileD
     int route_num = 1;
     TTripRoute routes;
     routes.GetRouteBefore( ASTRA::NoExists, point_id, trtWithCurrent, trtWithCancelled );
-    ProgTrace( TRACE5, "routes.GetRouteBefore=%d", routes.size() );
+    ProgTrace( TRACE5, "routes.GetRouteBefore=%zu", routes.size() );
     for ( vector<TTripRouteItem>::iterator i=routes.begin(); i!=routes.end(); i++ ) {
       xmlNodePtr n1, n = NewTextChild( node, "route" );
       SetProp( n, "num", route_num );
@@ -1601,7 +1601,7 @@ bool createCheckinDataFiles( int point_id, const std::string &point_addr, TFileD
     routes.clear();
     tst();
     routes.GetRouteAfter( ASTRA::NoExists, point_id, trtNotCurrent, trtWithCancelled );
-    ProgTrace( TRACE5, "routes.GetRouteAfter=%d", routes.size() );
+    ProgTrace( TRACE5, "routes.GetRouteAfter=%zu", routes.size() );
     for ( vector<TTripRouteItem>::iterator i=routes.begin(); i!=routes.end(); i++ ) {
       xmlNodePtr n1, n = NewTextChild( node, "route" );
       SetProp( n, "num", route_num );

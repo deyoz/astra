@@ -517,7 +517,7 @@ void CreateTKCREQchange_status(edi_mes_head *pHead, edi_udata &udata,
     ChngStatData &TickD = dynamic_cast<ChngStatData &>(*data);
 
     // EQN = кол-во билетов в запросе
-    ProgTrace(TRACE2,"Tick.size()=%d", TickD.ltick().size());
+    ProgTrace(TRACE2,"Tick.size()=%zu", TickD.ltick().size());
     SetEdiFullSegment(pMes, "EQN",0,
                       HelpCpp::string_cast(TickD.ltick().size())+":TD");
     int sg1=0;
@@ -744,8 +744,8 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
           UpdQry.SetVariable("prior_status",FNull);
           UpdQry.SetVariable("prior_error",FNull);
           UpdQry.Execute();
-          bool repeated=!UpdQry.VariableIsNULL("prior_error") &&
-                        UpdQry.GetVariableAsString("prior_error")==err;
+          //bool repeated=!UpdQry.VariableIsNULL("prior_error") &&
+          //              UpdQry.GetVariableAsString("prior_error")==err;
           ChangeStatusToLog(errNode, /*repeated*/false, msgh.str(), screen, user, desk);
         };
     }
@@ -794,8 +794,8 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
                 UpdQry.SetVariable("prior_status",FNull);
                 UpdQry.SetVariable("prior_error",FNull);
                 UpdQry.Execute();
-                bool repeated=!UpdQry.VariableIsNULL("prior_error") &&
-                              UpdQry.GetVariableAsString("prior_error")==err;
+                //bool repeated=!UpdQry.VariableIsNULL("prior_error") &&
+                //              UpdQry.GetVariableAsString("prior_error")==err;
                 ChangeStatusToLog(errNode, /*repeated*/false, msgh.str(), screen, user, desk);
               };
             };
@@ -851,8 +851,8 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
                 UpdQry.SetVariable("prior_status",FNull);
                 UpdQry.SetVariable("prior_error",FNull);
                 UpdQry.Execute();
-                bool repeated=!UpdQry.VariableIsNULL("prior_error") &&
-                              UpdQry.GetVariableAsString("prior_error")==err;
+                //bool repeated=!UpdQry.VariableIsNULL("prior_error") &&
+                //              UpdQry.GetVariableAsString("prior_error")==err;
                 ChangeStatusToLog(errNode, /*repeated*/false, msgh.str(), screen, user, desk);
               };
             };
@@ -903,8 +903,8 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
               UpdQry.SetVariable("prior_status",FNull);
               UpdQry.SetVariable("prior_error",FNull);
               UpdQry.Execute();
-              bool repeated=UpdQry.VariableIsNULL("prior_status") &&
-                            status->codeInt()==CouponStatus::OriginalIssue ||
+              bool repeated=(UpdQry.VariableIsNULL("prior_status") &&
+                             status->codeInt()==CouponStatus::OriginalIssue) ||
                             UpdQry.GetVariableAsString("prior_status")==status->dispCode();
               ChangeStatusToLog(statusNode, repeated, msgh.str(), screen, user, desk);
             };

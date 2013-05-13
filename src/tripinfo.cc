@@ -471,8 +471,8 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
   vector<TTripListItem> list;
 
-  if (!(SQLfilter.access.airlines.empty() && SQLfilter.access.airlines_permit ||
-        SQLfilter.access.airps.empty() && SQLfilter.access.airps_permit))
+  if (!((SQLfilter.access.airlines.empty() && SQLfilter.access.airlines_permit) ||
+        (SQLfilter.access.airps.empty() && SQLfilter.access.airps_permit)))
   {
     TDateTime utc_date=NowUTC();
     //вычислим client_date
@@ -509,7 +509,7 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
           int point_id=Qry.FieldAsInteger("point_id");
           TTripInfo info(Qry);
           if (!(!checkFinalStages(StagesQry, point_id, SQLfilter) ||
-                !listInfo.filter.airp_dep.empty() && listInfo.filter.airp_dep!=info.airp))
+                (!listInfo.filter.airp_dep.empty() && listInfo.filter.airp_dep!=info.airp)))
           {
             //рейс подходит
             TDateTime scd_out_client;
@@ -565,8 +565,8 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       ProgTrace(TRACE5, "iShift=[%d, %d)", iShift->first, iShift->second);
       for(int i=iShift->first; i<iShift->second; i++)
       {
-        bool use_single_day= (!SQLfilter.access.airlines.empty() && SQLfilter.access.airlines_permit ||
-                              !SQLfilter.access.airps.empty() && SQLfilter.access.airps_permit && !SQLfilter.use_arrival_permit) &&
+        bool use_single_day= ((!SQLfilter.access.airlines.empty() && SQLfilter.access.airlines_permit) ||
+                              (!SQLfilter.access.airps.empty() && SQLfilter.access.airps_permit && !SQLfilter.use_arrival_permit)) &&
                              iShift->second-1-iShift->first<=5;
 
         if (use_single_day)
@@ -918,8 +918,8 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
     return true;
   };
 
-  if (reqInfo->user.access.airlines.empty() && reqInfo->user.access.airlines_permit ||
-      reqInfo->user.access.airps.empty() && reqInfo->user.access.airps_permit)
+  if ((reqInfo->user.access.airlines.empty() && reqInfo->user.access.airlines_permit) ||
+      (reqInfo->user.access.airps.empty() && reqInfo->user.access.airps_permit))
     return false;
     
   TTripInfoSQLParams filter;
@@ -1628,10 +1628,10 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
       //3. Вычисление seats, adult, child, baby
       //4. Вычисление rk_weight, bag_amount, bag_weight
       //5. Вычисление excess
-      if (pass==1 && (pr_cl_grp || pr_hall || pr_airp_arv || pr_trfer || pr_user || pr_client_type || pr_status || pr_ticket_rem || pr_rems) ||
-          pass==2 && (pr_cl_grp || pr_hall || pr_trfer || pr_user || pr_client_type || pr_status || pr_ticket_rem || pr_rems) ||
-          pass==4 && (pr_ticket_rem || pr_rems) ||
-          pass==5 && (pr_ticket_rem || pr_rems)) continue;
+      if ((pass==1 && (pr_cl_grp || pr_hall || pr_airp_arv || pr_trfer || pr_user || pr_client_type || pr_status || pr_ticket_rem || pr_rems)) ||
+          (pass==2 && (pr_cl_grp || pr_hall || pr_trfer || pr_user || pr_client_type || pr_status || pr_ticket_rem || pr_rems)) ||
+          (pass==4 && (pr_ticket_rem || pr_rems)) ||
+          (pass==5 && (pr_ticket_rem || pr_rems))) continue;
 
       ostringstream sql,group_by;
 

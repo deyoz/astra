@@ -57,7 +57,7 @@ void createFileParamsSofi( int point_id, int receipt_id, string pult, const stri
     res << pult;
 	res <<Qry.GetVariableAsInteger( "file_no" );
 	res <<setw(0)<<".txt";
-    ProgTrace(TRACE5, "params.size = %d", params.size());
+    ProgTrace(TRACE5, "params.size = %zu", params.size());
     for(map<string,string>::iterator im = params.begin(); im != params.end(); im++) {
         ProgTrace(TRACE5, "params[%s] = %s", im->first.c_str(), im->second.c_str());
     }
@@ -70,7 +70,7 @@ void createFileParamsSofi( int point_id, int receipt_id, string pult, const stri
 bool createSofiFile( int receipt_id, std::map<std::string,std::string> &inparams,
 	                   const std::string &point_addr, TFileDatas &fds )
 {
-	ProgTrace( TRACE5, "inparams.size()=%d", inparams.size() );
+	ProgTrace( TRACE5, "inparams.size()=%zu", inparams.size() );
   TQuery Qry(&OraSession);
   Qry.SQLText=
     "SELECT TO_CHAR(bag_receipts.no) no,bag_receipts.form_type,bag_receipts.aircode,bag_receipts.issue_date, "

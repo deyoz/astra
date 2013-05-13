@@ -33,7 +33,7 @@ const string ALL_CKIN_ZONES = " ";
 
 string vsHow_ru(int nmb, int range)
 {
-    static char* sotni[] = {
+    static const char* sotni[] = {
         "сто ",
         "двести ",
         "триста ",
@@ -44,7 +44,7 @@ string vsHow_ru(int nmb, int range)
         "восемьсот ",
         "девятьсот "
     };
-    static char* teen[] = {
+    static const char* teen[] = {
         "десять ",
         "одиннадцать ",
         "двенадцать ",
@@ -56,7 +56,7 @@ string vsHow_ru(int nmb, int range)
         "восемнадцать ",
         "девятнадцать "
     };
-    static char* desatki[] = {
+    static const char* desatki[] = {
         "двадцать ",
         "тридцать ",
         "сорок ",
@@ -66,7 +66,7 @@ string vsHow_ru(int nmb, int range)
         "восемьдесят ",
         "девяносто "
     };
-    static char* stuki_g[] = {
+    static const char* stuki_g[] = {
         "",
         "одно ",
         "два ",
@@ -78,7 +78,7 @@ string vsHow_ru(int nmb, int range)
         "восемь ",
         "девять "
     };
-    static char* stuki_m[] = {
+    static const char* stuki_m[] = {
         "",
         "одна ",
         "две ",
@@ -90,7 +90,7 @@ string vsHow_ru(int nmb, int range)
         "восемь ",
         "девять "
     };
-    static char* dtext[2][3] = {
+    static const char* dtext[2][3] = {
         {"", "", ""},
         {"тысяча ", "тысячи ", "тысяч "}
     };
@@ -138,7 +138,7 @@ string vsHow_ru(int nmb, int range)
 
 string vsHow_lat(int nmb, int range)
 {
-    static char* sotni[] = {
+    static const char* sotni[] = {
         "one hundred ",
         "two hundreds ",
         "three hundreds ",
@@ -149,7 +149,7 @@ string vsHow_lat(int nmb, int range)
         "eight hundreds ",
         "nine hundreds "
     };
-    static char* teen[] = {
+    static const char* teen[] = {
         "ten ",
         "eleven ",
         "twelve ",
@@ -161,7 +161,7 @@ string vsHow_lat(int nmb, int range)
         "eighteen ",
         "nineteen "
     };
-    static char* desatki[] = {
+    static const char* desatki[] = {
         "twenty ",
         "thirty ",
         "forty ",
@@ -171,7 +171,7 @@ string vsHow_lat(int nmb, int range)
         "eighty ",
         "ninety "
     };
-    static char* stuki_m[] = {
+    static const char* stuki_m[] = {
         "",
         "one ",
         "two ",
@@ -183,7 +183,7 @@ string vsHow_lat(int nmb, int range)
         "eight ",
         "nine "
     };
-    static char* dtext[2][3] = {
+    static const char* dtext[2][3] = {
         {"", "", ""},
         {"thousand ", "thousands ", "thousands "}
     };

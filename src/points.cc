@@ -929,7 +929,7 @@ void getKeyTrips( const std::vector<A> &dests, std::vector<B> &trips )
         }
       }
     }
-    ProgTrace( TRACE5, "getKeyTrips: push trip.point_id=%d, dest.size()=%d", trip.key.point_id, trip.dests.size() );
+    ProgTrace( TRACE5, "getKeyTrips: push trip.point_id=%d, dest.size()=%zu", trip.key.point_id, trip.dests.size() );
     trips.push_back( trip );
   }
 }
@@ -2099,7 +2099,7 @@ void TFlightCargos::Save( int point_id, const vector<TPointsDest> &dests )
   Qry.DeclareVariable( "airp_arv", otString );
   Qry.DeclareVariable( "cargo", otInteger );
   Qry.DeclareVariable( "mail", otInteger );
-  ProgTrace( TRACE5, "oldcargos.cargos.size()=%d", oldcargos.cargos.size() );
+  ProgTrace( TRACE5, "oldcargos.cargos.size()=%zu", oldcargos.cargos.size() );
   for ( vector<TPointsDestCargo>::iterator icargo=cargos.begin(); icargo!=cargos.end(); icargo++ ) {
     vector<TPointsDestCargo>::iterator jcargo=oldcargos.cargos.begin();
     for ( ; jcargo!=oldcargos.cargos.end(); jcargo++ ) {
@@ -2354,7 +2354,7 @@ void TPointDests::Load( int move_id )
 
 void TPointDests::sychDests( TPointDests &new_dests, bool pr_change_dests, bool pr_compare_date )
 {
-  ProgTrace( TRACE5, "TPointDests::sychDests: items.size()=%d, new_dests.items.size()=%d",
+  ProgTrace( TRACE5, "TPointDests::sychDests: items.size()=%zu, new_dests.items.size()=%zu",
              items.size(), new_dests.items.size() );
   std::vector<TPointsDest>::iterator prior_find_dest = new_dests.items.begin();
   for ( std::vector<TPointsDest>::iterator i=items.begin(); i!=items.end(); i++ ) {
@@ -2428,6 +2428,6 @@ void TPointDests::sychDests( TPointDests &new_dests, bool pr_change_dests, bool 
        }
      }
   }
-  ProgTrace( TRACE5, "items.size()=%d", items.size() );
+  ProgTrace( TRACE5, "items.size()=%zu", items.size() );
 }
 

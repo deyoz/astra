@@ -346,14 +346,14 @@ void TCacheTable::initFields()
             FField.ReferName="DESCR";
         };
         
-        if (code == "ROLES" && FField.Name == "ROLE_NAME" ||
-            FField.ReferCode == "ROLES" && FField.ReferName == "ROLE_NAME")
+        if ((code == "ROLES" && FField.Name == "ROLE_NAME") ||
+            (FField.ReferCode == "ROLES" && FField.ReferName == "ROLE_NAME"))
         {
           FField.ElemCategory=cecRoleName;
         };
         
-        if (code == "USERS" && FField.Name == "USER_NAME" ||
-            FField.ReferCode == "USERS" && FField.ReferName == "USER_NAME")
+        if ((code == "USERS" && FField.Name == "USER_NAME") ||
+            (FField.ReferCode == "USERS" && FField.ReferName == "USER_NAME"))
         {
           FField.ElemCategory=cecUserName;
         };
@@ -782,8 +782,8 @@ void TCacheTable::refresh()
     }
     else
         pr_irefresh = false;
-    if ( Params.find(TAG_REFRESH_DATA) != Params.end() &&
-    	    (!TReqInfo::Instance()->desk.compatible(LATIN_VERSION) || !pr_dconst) ||
+    if ( (Params.find(TAG_REFRESH_DATA) != Params.end() &&
+    	    (!TReqInfo::Instance()->desk.compatible(LATIN_VERSION) || !pr_dconst)) ||
     	   pr_irefresh ) {
         if ( pr_irefresh )
           clientVerData = -1;
@@ -855,7 +855,7 @@ void TCacheTable::XMLInterface(const xmlNodePtr dataNode)
 
         NewTextChild( ffieldNode, "Title", AstraLocale::getLocaleText( iv->Title ) );
         NewTextChild( ffieldNode, "Width", iv->Width );
-        char *charCase;
+        const char *charCase;
         switch(iv->CharCase) {
             case ecLowerCase:
                 charCase = "L";
@@ -1129,10 +1129,10 @@ void OnLoggingF( TCacheTable &cache, const TRow &row, TCacheUpdateStatus UpdateS
         {
           //важно что desk_grp_id не может меняться когда UpdateStatus == usModified
           //если это не так, алгоритм надо переделывать
-          if ((UpdateStatus == usInserted || UpdateStatus == usModified) &&
-              !cache.FieldValue( "desk_grp_id", row ).empty() ||
-              (UpdateStatus == usDeleted) &&
-              !cache.FieldOldValue( "desk_grp_id", row ).empty())
+          if (((UpdateStatus == usInserted || UpdateStatus == usModified) &&
+               !cache.FieldValue( "desk_grp_id", row ).empty()) ||
+              ((UpdateStatus == usDeleted) &&
+               !cache.FieldOldValue( "desk_grp_id", row ).empty()))
           {
             msg << " для группы киосков '";
 
@@ -1205,9 +1205,9 @@ void TCacheTable::OnLogging( const TRow &row, TCacheUpdateStatus UpdateStatus )
     for(vector<TCacheField2>::iterator iv = FFields.begin(); iv != FFields.end(); iv++, Idx++) {
       ProgTrace( TRACE5, "l=%d, Ident=%d, Idx=%d, iv->VarIdx[0]=%d, iv->VarIdx[1]=%d",
                  l, iv->Ident, Idx, iv->VarIdx[0], iv->VarIdx[1] );
-      if ( !l && !iv->Ident ||
-           UpdateStatus == usInserted && iv->VarIdx[ 0 ] < 0 ||
-           UpdateStatus != usInserted && iv->VarIdx[ 1 ] < 0 )
+      if ( (!l && !iv->Ident) ||
+           (UpdateStatus == usInserted && iv->VarIdx[ 0 ] < 0) ||
+           (UpdateStatus != usInserted && iv->VarIdx[ 1 ] < 0) )
         continue;
       if ( !str2.empty() )
         str2 += ", ";
@@ -1517,9 +1517,9 @@ void TCacheTable::getPerms( )
 
   Forbidden = SelectRight>=0;
   ReadOnly = SelectRight>=0 ||
-             (InsertSQL.empty() || InsertRight<0) &&
-             (UpdateSQL.empty() || UpdateRight<0) &&
-             (DeleteSQL.empty() || DeleteRight<0);
+             ((InsertSQL.empty() || InsertRight<0) &&
+              (UpdateSQL.empty() || UpdateRight<0) &&
+              (DeleteSQL.empty() || DeleteRight<0));
 }
 
 void BeforeRefresh(TCacheTable &cache, TQuery &refreshQry, const TCacheQueryType qryType)

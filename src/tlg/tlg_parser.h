@@ -190,13 +190,7 @@ class TEndingInfo
 
 typedef struct
 {
-  ASTRA::TClass cl;
-  char *rus, *lat;
-} TSubclassCode;
-
-typedef struct
-{
-  char *rus, *lat;
+  const char *rus, *lat;
 } TMonthCode;
 
 typedef struct
