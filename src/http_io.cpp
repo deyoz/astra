@@ -48,7 +48,7 @@ void my_test_old()
 
     ProgTrace(TRACE5,"connect to %s:%d", host.c_str(), port);
     boost::system::error_code error_code;
-    if(error_code = tcp_conn.connect(host,port))
+    if((error_code = tcp_conn.connect(host,port)))
         throw Exception("connect failed: %s", error_code.message().c_str());
     ProgTrace(TRACE5,"connect succeed");
 
@@ -95,7 +95,7 @@ void my_test_old()
         ProgTrace(TRACE5, "response: %s", result.c_str());
         ProgTrace(TRACE5, "send msg %d: %s", i, tm.PrintWithMessage().c_str());
 
-        if(error_code = tcp_conn.connect(host,port))
+        if((error_code = tcp_conn.connect(host,port)))
             throw Exception("connect failed: %s", error_code.message().c_str());
         ProgTrace(TRACE5,"connect succeed");
     }

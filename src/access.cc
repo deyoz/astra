@@ -378,13 +378,14 @@ void TARO::get_users(set<string> &aro_params, vector<int> &users, bool &pr_find)
         for(vector<int>::iterator iv = users.begin(); iv != users.end(); iv++) {
             usersQry.SetVariable("user_id", *iv);
             usersQry.Execute();
-            if(not usersQry.Eof)
+            if(not usersQry.Eof) {
                 if(aro_params.size() == 1) {
                     items[*iv].insert(*aro_params.begin());
                     tmp_users.push_back(*iv);
                 } else
                     if(real_equal(aro_params, get(*iv)))
                         tmp_users.push_back(*iv);
+            }
         }
         users = tmp_users;
     }
