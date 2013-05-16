@@ -4,6 +4,7 @@
 #include <string>
 #include "astra_consts.h"
 #include "oralib.h"
+#include "xml_unit.h"
 
 enum TRemCategory { remTKN, remDOC, remDOCO, remFQT, remUnknown };
 
@@ -74,6 +75,9 @@ class TPaxRemItem
         return code<item.code;
       return text<item.text;
     };
+    const TPaxRemItem& toXML(xmlNodePtr node) const;
+    TPaxRemItem& fromXML(xmlNodePtr node);
+    const TPaxRemItem& toDB(TQuery &Qry) const;
     TPaxRemItem& fromDB(TQuery &Qry);
     void calcPriority();
 };
@@ -103,12 +107,16 @@ class TPaxFQTItem
              no.empty() &&
              extra.empty();
     };
+    const TPaxFQTItem& toDB(TQuery &Qry) const;
     TPaxFQTItem& fromDB(TQuery &Qry);
 };
 
-bool LoadPaxRem(int pax_id, std::vector<TPaxRemItem> &rems, TQuery& PaxRemQry);
+bool LoadPaxRem(int pax_id, bool withFQTcat, std::vector<TPaxRemItem> &rems, TQuery& PaxRemQry);
 bool LoadCrsPaxRem(int pax_id, std::vector<TPaxRemItem> &rems, TQuery& PaxRemQry);
 bool LoadPaxFQT(int pax_id, std::vector<TPaxFQTItem> &fqts, TQuery& PaxFQTQry);
+
+void SavePaxRem(int pax_id, const std::vector<TPaxRemItem> &rems);
+void SavePaxFQT(int pax_id, const std::vector<TPaxFQTItem> &fqts);
 
 };
 

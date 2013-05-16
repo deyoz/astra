@@ -4,6 +4,7 @@
 #include "astra_utils.h"
 #include "term_version.h"
 #include "baggage.h"
+#include "jxtlib/jxt_cont.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -570,7 +571,7 @@ bool LoadCrsPaxVisa(int pax_id, TPaxDocoItem &doc, TQuery& PaxDocQry)
   return !doc.empty();
 };
 
-void SavePaxDoc(int pax_id, xmlNodePtr docNode, TQuery& PaxDocQry)
+void SavePaxDoc(int pax_id, const TPaxDocItem &doc, TQuery& PaxDocQry)
 {
   const char* sql=
         "BEGIN "
@@ -603,14 +604,13 @@ void SavePaxDoc(int pax_id, xmlNodePtr docNode, TQuery& PaxDocQry)
     PaxDocQry.DeclareVariable("only_delete",otInteger);
   };
 
-  TPaxDocItem doc;
-  doc.fromXML(docNode).toDB(PaxDocQry);
+  doc.toDB(PaxDocQry);
   PaxDocQry.SetVariable("pax_id",pax_id);
   PaxDocQry.SetVariable("only_delete",(int)doc.empty());
   PaxDocQry.Execute();
 };
 
-void SavePaxDoco(int pax_id, xmlNodePtr docNode, TQuery& PaxDocQry)
+void SavePaxDoco(int pax_id, const TPaxDocoItem &doc, TQuery& PaxDocQry)
 {
   const char* sql=
         "BEGIN "
@@ -638,8 +638,7 @@ void SavePaxDoco(int pax_id, xmlNodePtr docNode, TQuery& PaxDocQry)
     PaxDocQry.DeclareVariable("only_delete",otInteger);
   };
 
-  TPaxDocoItem doc;
-  doc.fromXML(docNode).toDB(PaxDocQry);
+  doc.toDB(PaxDocQry);
   PaxDocQry.SetVariable("pax_id",pax_id);
   PaxDocQry.SetVariable("only_delete",(int)doc.empty());
   PaxDocQry.Execute();
@@ -762,6 +761,325 @@ void SaveNorms(xmlNodePtr node, bool pr_unaccomp)
     TPaxNormItem().fromXML(normNode).toDB(NormQry);
     NormQry.Execute();
   };
+};
+
+const TPaxItem& TPaxItem::toXML(xmlNodePtr node) const
+{
+  if (node==NULL) return *this;
+
+  xmlNodePtr paxNode=node;
+  NewTextChild(paxNode, "pax_id", id);
+  NewTextChild(paxNode, "surname", surname);
+  NewTextChild(paxNode, "name", name);
+  NewTextChild(paxNode, "pers_type", EncodePerson(pers_type));
+  NewTextChild(paxNode, "seat_no", seat_no);
+  NewTextChild(paxNode, "seat_type", seat_type);
+  NewTextChild(paxNode, "seats", seats);
+  NewTextChild(paxNode, "refuse", refuse);
+  NewTextChild(paxNode, "reg_no", reg_no);
+  NewTextChild(paxNode, "subclass", subcl);
+  if (bag_pool_num!=ASTRA::NoExists)
+    NewTextChild(paxNode, "bag_pool_num", bag_pool_num);
+  else
+    NewTextChild(paxNode, "bag_pool_num");
+  NewTextChild(paxNode, "tid", tid);
+
+  if (TknExists) tkn.toXML(paxNode);
+  if (TReqInfo::Instance()->desk.compatible(DOCS_VERSION))
+  {
+    if (DocExists) doc.toXML(paxNode);
+    if (DocoExists) doco.toXML(paxNode);
+  }
+  else
+  {
+    NewTextChild(paxNode, "document", doc.no);
+  };
+  return *this;
+};
+
+TPaxItem& TPaxItem::fromXML(xmlNodePtr node)
+{
+  clear();
+  if (node==NULL) return *this;
+  xmlNodePtr node2=node->children;
+
+  TReqInfo *reqInfo=TReqInfo::Instance();
+
+  if (!NodeIsNULLFast("pax_id",node2))
+    id=NodeAsIntegerFast("pax_id",node2);
+  surname=NodeAsStringFast("surname",node2);
+  name=NodeAsStringFast("name",node2);
+  tid=NodeAsIntegerFast("tid",node2,ASTRA::NoExists);
+  PaxUpdatesPending=GetNodeFast("refuse",node2)!=NULL;
+  if (tid==ASTRA::NoExists)
+  {
+    //новая регистрация
+    seat_no=NodeAsStringFast("seat_no",node2);
+    seat_type=NodeAsStringFast("seat_type",node2);
+    seats=NodeAsIntegerFast("seats",node2);
+  };
+
+  if (tid==ASTRA::NoExists || PaxUpdatesPending)
+  {
+    pers_type=DecodePerson(NodeAsStringFast("pers_type",node2));
+    if (PaxUpdatesPending)
+      refuse=NodeAsStringFast("refuse",node2);
+
+    if (tid==ASTRA::NoExists ||
+        (PaxUpdatesPending && reqInfo->client_type==ASTRA::ctTerm))
+    {
+      tkn.fromXML(node);
+      TknExists=true;
+      if (reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS) &&
+          !NodeIsNULLFast("bag_pool_num",node2))
+        bag_pool_num=NodeAsIntegerFast("bag_pool_num",node2);
+    };
+
+    if (reqInfo->client_type==ASTRA::ctTerm)
+    {
+      //терминал
+      if (reqInfo->desk.compatible(DOCS_VERSION))
+      {
+        doc.fromXML(GetNodeFast("document",node2));
+        doco.fromXML(GetNodeFast("doco",node2));
+        DocExists=true;
+        DocoExists=true;
+      }
+      else
+      {
+        doc.no=NodeAsStringFast("document",node2);
+        DocExists=true;
+      };
+    }
+    else
+    {
+      //киоски и веб
+      xmlNodePtr docNode=GetNodeFast("document",node2);
+      if (docNode!=NULL) doc.fromXML(docNode);
+      xmlNodePtr docoNode=GetNodeFast("doco",node2);
+      if (docoNode!=NULL) doco.fromXML(docoNode);
+      DocExists=(tid==ASTRA::NoExists || docNode!=NULL);
+      DocoExists=(tid==ASTRA::NoExists || docoNode!=NULL);
+    };
+  };
+
+  subcl=NodeAsStringFast("subclass",node2,"");
+  return *this;
+};
+
+const TPaxItem& TPaxItem::toDB(TQuery &Qry) const
+{
+  id!=ASTRA::NoExists?Qry.SetVariable("pax_id", id):
+                      Qry.SetVariable("pax_id", FNull);
+  if (Qry.GetVariableIndex("surname")>=0)
+    Qry.SetVariable("surname", surname);
+  if (Qry.GetVariableIndex("name")>=0)
+    Qry.SetVariable("name", name);
+  if (Qry.GetVariableIndex("pers_type")>=0)
+    Qry.SetVariable("pers_type", EncodePerson(pers_type));
+  if (Qry.GetVariableIndex("seat_type")>=0)
+    Qry.SetVariable("seat_type", seat_type);
+  if (Qry.GetVariableIndex("seats")>=0)
+    Qry.SetVariable("seats", seats);
+  if (Qry.GetVariableIndex("refuse")>=0)
+    Qry.SetVariable("refuse", refuse);
+  if (Qry.GetVariableIndex("pr_brd")>=0)
+    pr_brd!=ASTRA::NoExists?Qry.SetVariable("pr_brd", (int)pr_brd):
+                            Qry.SetVariable("pr_brd", FNull);
+  if (Qry.GetVariableIndex("pr_exam")>=0)
+    Qry.SetVariable("pr_exam", (int)pr_exam);
+  if (Qry.GetVariableIndex("wl_type")>=0)
+    Qry.SetVariable("wl_type", wl_type);
+  if (Qry.GetVariableIndex("reg_no")>=0)
+    Qry.SetVariable("reg_no", reg_no);
+  if (Qry.GetVariableIndex("subclass")>=0)
+    Qry.SetVariable("subclass", subcl);
+  if (Qry.GetVariableIndex("bag_pool_num")>=0)
+    bag_pool_num!=ASTRA::NoExists?Qry.SetVariable("bag_pool_num", bag_pool_num):
+                                  Qry.SetVariable("bag_pool_num", FNull);
+  if (Qry.GetVariableIndex("tid")>=0)
+    Qry.SetVariable("tid", tid);
+  if (Qry.GetVariableIndex("ticket_no")>=0)
+    tkn.toDB(Qry);
+  return *this;
+};
+
+TPaxItem& TPaxItem::fromDB(TQuery &Qry, TQuery &PaxDocQry, TQuery &PaxDocoQry)
+{
+  clear();
+  id=Qry.FieldAsInteger("pax_id");
+  surname=Qry.FieldAsString("surname");
+  name=Qry.FieldAsString("name");
+  pers_type=DecodePerson(Qry.FieldAsString("pers_type"));
+  seat_no=Qry.FieldAsString("seat_no");
+  seat_type=Qry.FieldAsString("seat_type");
+  seats=Qry.FieldAsInteger("seats");
+  refuse=Qry.FieldAsString("refuse");
+  reg_no=Qry.FieldAsInteger("reg_no");
+  subcl=Qry.FieldAsString("subclass");
+  bag_pool_num=Qry.FieldIsNULL("bag_pool_num")?ASTRA::NoExists:Qry.FieldAsInteger("bag_pool_num");
+  tid=Qry.FieldAsInteger("tid");
+  tkn.fromDB(Qry);
+  TknExists=true;
+  DocExists=CheckIn::LoadPaxDoc(id, doc, PaxDocQry);
+  DocoExists=CheckIn::LoadPaxDoco(id, doco, PaxDocoQry);
+  return *this;
+};
+
+const TPaxGrpItem& TPaxGrpItem::toXML(xmlNodePtr node) const
+{
+  if (node==NULL) return *this;
+
+  xmlNodePtr grpNode=node;
+  NewTextChild(grpNode, "grp_id", id);
+  NewTextChild(grpNode, "point_dep", point_dep);
+  NewTextChild(grpNode, "airp_dep", airp_dep);
+  NewTextChild(grpNode, "point_arv", point_arv);
+  NewTextChild(grpNode, "airp_arv", airp_arv);
+  NewTextChild(grpNode, "class", cl);
+  NewTextChild(grpNode, "status", EncodePaxStatus(status));
+  NewTextChild(grpNode, "bag_refuse", bag_refuse);
+  NewTextChild(grpNode, "tid", tid);
+  return *this;
+};
+
+TPaxGrpItem& TPaxGrpItem::fromXML(xmlNodePtr node)
+{
+  clear();
+  if (node==NULL) return *this;
+  xmlNodePtr node2=node->children;
+
+  id=NodeAsIntegerFast("grp_id",node2,ASTRA::NoExists);
+  point_dep=NodeAsIntegerFast("point_dep",node2);
+  airp_dep=NodeAsStringFast("airp_dep",node2);
+  point_arv=NodeAsIntegerFast("point_arv",node2);
+  airp_arv=NodeAsStringFast("airp_arv",node2);
+  cl=NodeAsStringFast("class",node2);
+  status=DecodePaxStatus(NodeAsStringFast("status",node2,""));
+  tid=NodeAsIntegerFast("tid",node2,ASTRA::NoExists);
+  return *this;
+};
+
+TPaxGrpItem& TPaxGrpItem::fromXMLadditional(xmlNodePtr node)
+{
+  excess=ASTRA::NoExists;
+  hall=ASTRA::NoExists;
+  bag_refuse.clear();
+
+  if (node==NULL) return *this;
+  xmlNodePtr node2=node->children;
+
+  excess=NodeAsIntegerFast("excess",node2);
+  if (tid!=ASTRA::NoExists)
+  {
+    //запись изменений
+    bag_refuse=NodeAsStringFast("bag_refuse",node2);
+  };
+
+  //зал
+  TReqInfo *reqInfo=TReqInfo::Instance();
+  if (reqInfo->client_type == ASTRA::ctTerm)
+  {
+    if (reqInfo->desk.compatible(BAG_WITH_HALL_VERSION))
+    {
+      hall=NodeAsIntegerFast("hall",node2);
+    }
+    else
+    {
+      if (tid==ASTRA::NoExists)
+      {
+        //новая регистрация
+        hall=NodeAsIntegerFast("hall",node2);
+        JxtContext::getJxtContHandler()->sysContext()->write("last_hall_id", hall);
+      }
+      else
+      {
+        //запись изменений
+        TQuery Qry(&OraSession);
+        //попробуем считать зал из контекста пульта
+        hall=JxtContext::getJxtContHandler()->sysContext()->readInt("last_hall_id", ASTRA::NoExists);
+        if (hall==ASTRA::NoExists)
+        {
+          //ничего в контексте нет - берем зал из station_halls, но только если он один
+          Qry.Clear();
+          Qry.SQLText=
+            "SELECT station_halls.hall "
+            "FROM station_halls,stations "
+            "WHERE station_halls.airp=stations.airp AND "
+            "      station_halls.station=stations.name AND "
+            "      stations.desk=:desk AND stations.work_mode=:work_mode";
+          Qry.CreateVariable("desk",otString, TReqInfo::Instance()->desk.code);
+          Qry.CreateVariable("work_mode",otString,"Р");
+          Qry.Execute();
+          if (!Qry.Eof)
+          {
+            hall=Qry.FieldAsInteger("hall");
+            Qry.Next();
+            if (!Qry.Eof) hall=ASTRA::NoExists;
+          };
+        };
+        if (hall==ASTRA::NoExists)
+        {
+          //берем зал из pax_grp для этой группы
+          Qry.Clear();
+          Qry.SQLText="SELECT hall FROM pax_grp WHERE grp_id=:grp_id";
+          Qry.CreateVariable("grp_id", otInteger, id);
+          Qry.Execute();
+          if (!Qry.Eof && !Qry.FieldIsNULL("hall"))
+            hall=Qry.FieldAsInteger("hall");
+        };
+      };
+    };
+  };
+
+
+  return *this;
+};
+
+const TPaxGrpItem& TPaxGrpItem::toDB(TQuery &Qry) const
+{
+  id!=ASTRA::NoExists?Qry.SetVariable("grp_id", id):
+                      Qry.SetVariable("grp_id", FNull);
+  if (Qry.GetVariableIndex("point_dep")>=0)
+    Qry.SetVariable("point_dep", point_dep);
+  if (Qry.GetVariableIndex("point_arv")>=0)
+    Qry.SetVariable("point_arv", point_arv);
+  if (Qry.GetVariableIndex("airp_dep")>=0)
+    Qry.SetVariable("airp_dep", airp_dep);
+  if (Qry.GetVariableIndex("airp_arv")>=0)
+    Qry.SetVariable("airp_arv", airp_arv);
+  if (Qry.GetVariableIndex("class")>=0)
+    Qry.SetVariable("class", cl);
+  if (Qry.GetVariableIndex("status")>=0)
+    Qry.SetVariable("status", EncodePaxStatus(status));
+  Qry.SetVariable("excess", excess);
+  if (Qry.GetVariableIndex("hall")>=0)
+    hall!=ASTRA::NoExists?Qry.SetVariable("hall", hall):
+                          Qry.SetVariable("hall", FNull);
+  if (Qry.GetVariableIndex("bag_refuse")>=0)
+    Qry.SetVariable("bag_refuse",(int)(!bag_refuse.empty()));
+  if (Qry.GetVariableIndex("tid")>=0)
+    Qry.SetVariable("tid", tid);
+  return *this;
+};
+
+TPaxGrpItem& TPaxGrpItem::fromDB(TQuery &Qry)
+{
+  clear();
+  id=Qry.FieldAsInteger("grp_id");
+  point_dep=Qry.FieldAsInteger("point_dep");
+  point_arv=Qry.FieldAsInteger("point_arv");
+  airp_dep=Qry.FieldAsString("airp_dep");
+  airp_arv=Qry.FieldAsString("airp_arv");
+  cl=Qry.FieldAsString("class");
+  status=DecodePaxStatus(Qry.FieldAsString("status"));
+  excess=Qry.FieldAsInteger("excess");
+  if (!Qry.FieldIsNULL("hall"))
+    hall=Qry.FieldAsInteger("hall");
+  if (Qry.FieldAsInteger("bag_refuse")!=0)
+    bag_refuse=ASTRA::refuseAgentError;
+  tid=Qry.FieldAsInteger("tid");
+  return *this;
 };
 
 };
