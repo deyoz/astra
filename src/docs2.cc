@@ -80,16 +80,16 @@ void DocsInterface::RunReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 
     bool pr_et;
     if(
-            name == PM and target.empty() or
-            name == PMTrfer and target == "etm"
+            (name == PM and target.empty()) or
+            (name == PMTrfer and target == "etm")
             )
         pr_et = true;
     else
         pr_et = false;
 
     if(
-            name == PM and target == "tot" or
-            name == PMTrfer and (target == "tpm" or target == "etm")
+            (name == PM and target == "tot") or
+            (name == PMTrfer and (target == "tpm" or target == "etm"))
             )
         target.erase();
 

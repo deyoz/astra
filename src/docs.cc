@@ -1915,8 +1915,8 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
           << left <<  setw(4) << (row==0&&pers_type=="CHD"?" X ":"")
           << left <<  setw(4) << (row==0&&pers_type=="INF"?" X ":"");
         if (row!=0 ||
-            NodeAsInteger("bag_amount",rowNode)==0 &&
-            NodeAsInteger("bag_weight",rowNode)==0)
+            (NodeAsInteger("bag_amount",rowNode)==0 &&
+            NodeAsInteger("bag_weight",rowNode)==0))
           s << setw(7) << "";
         else
           s << right << setw(2) << NodeAsInteger("bag_amount",rowNode) << "/"
@@ -3141,8 +3141,8 @@ void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
                     << left <<  setw(8) << (row == 0 ? NodeAsString("seat_no", rowNode, "") : "") << col_sym;
             } else {
                 s
-                    << left <<  setw(3) << (row == 0 ? (NodeAsString("pr_exam", rowNode, "") == "" ? "-" : "+") : "")
-                    << left <<  setw(4) << (row == 0 ? (NodeAsString("pr_brd", rowNode, "") == "" ? "-" : "+") : "");
+                    << left <<  setw(3) << (row == 0 ? (strcmp(NodeAsString("pr_exam", rowNode, ""), "") == 0 ? "-" : "+") : "")
+                    << left <<  setw(4) << (row == 0 ? (strcmp(NodeAsString("pr_brd", rowNode, ""), "") == 0 ? "-" : "+") : "");
             }
             s
                 << left << setw(10) << (!fields["docs"].empty() ? *(fields["docs"].begin()) : "") << col_sym

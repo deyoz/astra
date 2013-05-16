@@ -160,8 +160,8 @@ void TDEI_7::insert(bool default_meal, string &meal)
 {
     if(
             not isLetterString(meal) or
-            not default_meal and (meal.size() > 3 or meal.size() < 2) or
-            default_meal and (meal.size() > 2 or meal.empty())
+            (not default_meal and (meal.size() > 3 or meal.size() < 2)) or
+            (default_meal and (meal.size() > 2 or meal.empty()))
       )
         throw Exception("wrong meal format '%s'", meal.c_str());
     TMealItem meal_item;
@@ -390,7 +390,7 @@ void TSSMDate::parse(const char *val)
     if(
             strlen(sday) != 2 or
             strlen(smonth) != 3 or
-            res == 3 and strlen(syear) != 2
+            (res == 3 and strlen(syear) != 2)
       )
         throw Exception("wrong format");
 
@@ -446,15 +446,15 @@ void TDEIHolder::parse(TTlgElement e, char *&ph, TTlgParser &tlg)
         if(last_id != NoExists and id <= last_id)
             throw ETlgError("DEI %d wrong order", id);
         if(
-                tlg_type == tcSSM and (
-                    e == FlightElement and (id == 6 or id == 7) or
-                    e == PeriodFrequency and id == 7 or
-                    e == Equipment and (id == 1 or id == 7)
-                    ) or
-                tlg_type == tcASM and (
-                    e == FlightElement and (id == 7 or id == 9) or
-                    e == Equipment and (id == 1 or id == 7)
-                    )
+                (tlg_type == tcSSM and (
+                    (e == FlightElement and (id == 6 or id == 7)) or
+                    (e == PeriodFrequency and id == 7) or
+                    (e == Equipment and (id == 1 or id == 7))
+                    )) or
+                (tlg_type == tcASM and (
+                    (e == FlightElement and (id == 7 or id == 9)) or
+                    (e == Equipment and (id == 1 or id == 7))
+                    ))
           )
             throw ETlgError("unapplicable DEI %d for %s", id, GetTlgElementName(e));
         switch(id) {
@@ -564,7 +564,7 @@ void TRouteStation::parse(const char *val)
     if(
             strlen(airp) != 3 or
             strlen(scd) != 4 or
-            *pax_scd != 0 and strlen(pax_scd) != 4
+            (*pax_scd != 0 and strlen(pax_scd) != 4)
       )
         throw ETlgError("wrong format");
     TlgElemToElemId(etAirp, airp, airp);
@@ -1771,7 +1771,7 @@ void TSchedules::add(const TRouting &c)
     // или общий маршрут уже не пустой, относим маршрут к общему, иначе в текущий экуипмент
     if(
             not curr_route().routing.empty() or 
-            curr_route().periods.size() > 1 and curr_route().periods[0].eqt_routing.back().routing.empty()
+            (curr_route().periods.size() > 1 and curr_route().periods[0].eqt_routing.back().routing.empty())
       )
         curr_route().routing.push_back(c);
     else
@@ -1865,7 +1865,7 @@ TTlgPartInfo ParseSSMHeading(TTlgPartInfo heading, TSSMHeadingInfo &info)
                                 strlen(day) != 2 or
                                 strlen(info.msr.month) != 3 or
                                 strlen(grp) != 7 or //!!! non standard must be 5
-                                info.msr.type != 'C' and info.msr.type != 'E' or
+                                (info.msr.type != 'C' and info.msr.type != 'E') or
                                 strlen(num) != 3
                           )
                             success = false;

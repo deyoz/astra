@@ -480,13 +480,14 @@ string PrintDataParser::parse_field1(int offset, string field)
                 Mode = 'N';
                 break;
             case 'N':
-                if(!IsDigitIsLetter(curr_char) && curr_char != '_')
+                if(!IsDigitIsLetter(curr_char) && curr_char != '_') {
                     if(curr_char == '(') {
                         FieldName = upperc(field.substr(0, i));
                         VarPos = i;
                         Mode = '1';
                     } else
                         throw Exception("wrong char in tag name at " + IntToString(offset + i + 1));
+                }
                 break;
             case '1':
                 if(IsDelim(curr_char, Mode))
@@ -592,13 +593,14 @@ string PrintDataParser::parse_field0(int offset, string field)
                 Mode = 'L';
                 break;
             case 'L':
-                if(!IsDigitIsLetter(curr_char) && curr_char != '_')
+                if(!IsDigitIsLetter(curr_char) && curr_char != '_') {
                     if(curr_char == '(') {
                         FieldName = upperc(field.substr(0, i));
                         VarPos = i;
                         Mode = '1';
                     } else
                         throw Exception("wrong char in tag name at " + IntToString(offset + i + 1));
+                }
                 break;
             case '1':
                 if(!IsDigit(curr_char)) {
@@ -1613,10 +1615,10 @@ void PrintInterface::GetPrintDataBP(const BPParams &params,
     Qry.CreateVariable("dev_model", otString, params.dev_model);
     Qry.CreateVariable("fmt_type", otString, params.fmt_type);
     Qry.Execute();
-    if(Qry.Eof||
-       Qry.FieldIsNULL("data")||
-       Qry.FieldIsNULL( "form" ) && (DecodeDevFmtType(params.fmt_type) == dftBTP ||
-                                     DecodeDevFmtType(params.fmt_type) == dftATB)
+    if(Qry.Eof or
+       Qry.FieldIsNULL("data") or
+       (Qry.FieldIsNULL( "form" ) and (DecodeDevFmtType(params.fmt_type) == dftBTP or
+                                     DecodeDevFmtType(params.fmt_type) == dftATB))
       )
         previewDeviceSets(true, "MSG.PRINT.BP_UNAVAILABLE_FOR_THIS_DEVICE");
     pectab = AdjustCR_LF::DoIt(params.fmt_type, Qry.FieldAsString("form"));
