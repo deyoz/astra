@@ -339,7 +339,7 @@ void TSeatCoordsClass::refreshCoords( TSeatAlgoTypes ASeatAlgoType, bool pr_wind
     		  } // end for xs
     	  } // end for ys
       }
-      ProgTrace( TRACE5, "coordSalon.coords.size()=%d", coordSalon.coords.size() );
+      ProgTrace( TRACE5, "coordSalon.coords.size()=%zu", coordSalon.coords.size() );
       vecSeatCoords.push_back( coordSalon );
     }
   }
@@ -1285,8 +1285,8 @@ TSeatPlace &TSeatPlaces::GetEqualSeatPlace( TPassenger &pass )
   ISeatPlace misp=seatplaces.end();
   string ispPlaceName_lat, ispPlaceName_rus;
   for (ISeatPlace isp=seatplaces.begin(); isp!=seatplaces.end(); isp++) {
-//    ProgTrace( TRACE5, "isp->oldPlaces.size()=%d, pass.countPlace=%d",
-//               (int)isp->oldPlaces.size(), pass.countPlace );
+//    ProgTrace( TRACE5, "isp->oldPlaces.size()=%zu, pass.countPlace=%d",
+//                       isp->oldPlaces.size(), pass.countPlace );
     if ( isp->InUse || (int)isp->oldPlaces.size() != pass.countPlace ) /* кол-во мест должно совпадать */
       continue;
   	ispPlaceName_lat.clear();
@@ -3405,7 +3405,7 @@ void TPassengers::Build( xmlNodePtr dataNode )
     }
     // сортировка по grp_status + класс + группа
     sort(ps.begin(),ps.end(),CompGrp);
-    ProgTrace( TRACE5, "ps.size()=%d, layer_type=%s", ps.size(), Qry.FieldAsString( "layer_type" ) );
+    ProgTrace( TRACE5, "ps.size()=%zu, layer_type=%s", ps.size(), Qry.FieldAsString( "layer_type" ) );
     if ( !ps.empty() ) {
       createDefaults=true;
     	xmlNodePtr pNode = NewTextChild( passNode, "layer_type", Qry.FieldAsString( "layer_type" ) );

@@ -123,22 +123,22 @@ void Develop_dbf::ParseHeader( std::string &indata )
 	header.clear();
 	header.str("");
 	if ( indata.size() < (unsigned int)headerLen )
-	  throw Exception( "Invalid header size()=%d", indata.size() );
+	  throw Exception( "Invalid header size()=%zu", indata.size() );
   header << indata.substr( 0, headerLen );
   setVersion( *indata.substr( 0, 1 ).c_str( ) );
-  ProgTrace( TRACE5, "indata.size=%d", indata.size() );
+  ProgTrace( TRACE5, "indata.size=%zu", indata.size() );
   indata.erase( 0, 1 );
-  ProgTrace( TRACE5, "indata.size=%d", indata.size() );
+  ProgTrace( TRACE5, "indata.size=%zu", indata.size() );
 	// следующие 3 байта содержат шестнадцатиричную дату последнего обновления в формате ГГММДД
 	int VYear, Year, Month, Day;
 	DecodeDate( NowUTC(), VYear, Month, Day );
-  ProgTrace( TRACE5, "indata.size=%d", indata.size() );
+  ProgTrace( TRACE5, "indata.size=%zu", indata.size() );
 	getbinary_fromstream( indata, Year, 1 );
-	ProgTrace( TRACE5, "indata.size=%d", indata.size() );
+	ProgTrace( TRACE5, "indata.size=%zu", indata.size() );
 	getbinary_fromstream( indata, Month, 1 );
-	ProgTrace( TRACE5, "indata.size=%d", indata.size() );
+	ProgTrace( TRACE5, "indata.size=%zu", indata.size() );
 	getbinary_fromstream( indata, Day, 1 );
-	ProgTrace( TRACE5, "indata.size=%d", indata.size() );
+	ProgTrace( TRACE5, "indata.size=%zu", indata.size() );
 	VYear -= VYear % 100;
 	Year += VYear;
 	ProgTrace( TRACE5, "VYear=%d, Year=%d, Month=%d, Day=%d", VYear, Year, Month, Day );
@@ -195,7 +195,7 @@ void Develop_dbf::BuildFields()
   c = 13;
   descrField << c;
   descriptorFieldsLen = (int)descrField.str().size();
-  ProgTrace( TRACE5, "descripterFields.size()=%d", (int)descrField.str().size() );
+  ProgTrace( TRACE5, "descripterFields.size()=%zu", descrField.str().size() );
 };
 
 void Develop_dbf::ParseFields( std::string &indata )
@@ -204,7 +204,7 @@ void Develop_dbf::ParseFields( std::string &indata )
   descrField.str("");
   fields.clear();
   if ( indata.size() < (unsigned int)descriptorFieldsLen )
-    throw Exception( "Invalid descrField size()=%d", indata.size() );
+    throw Exception( "Invalid descrField size()=%zu", indata.size() );
   if ( descriptorFieldsLen%32 - 1 != 0 )
     throw Exception( "Invalid descrField len=%d", descriptorFieldsLen );
   descrField << indata.substr( 0, descriptorFieldsLen );
@@ -228,7 +228,7 @@ void Develop_dbf::ParseFields( std::string &indata )
   }
   if ( !indata.empty() )
     indata.erase( 0, 1 ); //13
-  ProgTrace( TRACE5, "fields.size()=%d", fields.size() );
+  ProgTrace( TRACE5, "fields.size()=%zu", fields.size() );
 }
 
 void Develop_dbf::BuildData( const std::string &encoding )
@@ -242,7 +242,7 @@ void Develop_dbf::BuildData( const std::string &encoding )
 			data << '*';
 		else
 			data << ' ';
-    ProgTrace( TRACE5, "data.size()=%d, rows.size()=%d, fields.size()=%d, rowdata.size()=%d",
+    ProgTrace( TRACE5, "data.size()=%zu, rows.size()=%zu, fields.size()=%zu, rowdata.size()=%zu",
                data.str().size(), rows.size(), fields.size(), i->newdata.size() );
 	  vector<TField>::iterator f=fields.begin();
 		for ( vector<string>::iterator j=i->newdata.begin(); j!=i->newdata.end(); j++ ) {
@@ -262,7 +262,7 @@ void Develop_dbf::BuildData( const std::string &encoding )
 			recLen = (int)data.str().size();
 	}
 	data << endDBF;
-  ProgTrace( TRACE5, "endDBF.size()=%d, data.size()=%d, Data=|%s|", endDBF.size(), (int)data.str().size(), data.str().c_str() );
+  ProgTrace( TRACE5, "endDBF.size()=%zu, data.size()=%zu, Data=|%s|", endDBF.size(), data.str().size(), data.str().c_str() );
 };
 
 void Develop_dbf::ParseData( std::string &indata, const std::string &encoding )
@@ -277,7 +277,7 @@ void Develop_dbf::ParseData( std::string &indata, const std::string &encoding )
     len += i->len;
   }
   if ( indata.size() < len*rowCount )
-    throw Exception( "Invalid RowsData size()=%d", indata.size() );
+    throw Exception( "Invalid RowsData size()=%zu", indata.size() );
   data << indata;
   string del_str = "*";
   string value;
@@ -286,12 +286,12 @@ void Develop_dbf::ParseData( std::string &indata, const std::string &encoding )
   for ( int r=0; r<rCount; r++ ) {
     DBFRow row;
     if ( indata.size() < 1 )
-      throw Exception( "Invalid RowsData size()=%d", indata.size() );
+      throw Exception( "Invalid RowsData size()=%zu", indata.size() );
     row.pr_del = ( indata.substr( 0, 1 ) == del_str );
     indata.erase( 0, 1 );
     for ( std::vector<TField>::iterator i=fields.begin(); i!=fields.end(); i++ ) {
       if ( indata.size() < (unsigned int)i->len )
-        throw Exception( "Invalid RowsData size()=%d, i->len=%d, i->name=%s", indata.size(), i->len, i->name.c_str() );
+        throw Exception( "Invalid RowsData size()=%zu, i->len=%d, i->name=%s", indata.size(), i->len, i->name.c_str() );
       value = indata.substr( 0, i->len );
       value = TrimString( value );
       value = ConvertCodepage( value, encoding, "CP866" );
@@ -302,7 +302,7 @@ void Develop_dbf::ParseData( std::string &indata, const std::string &encoding )
     AddRow( row );
   }
   //!!!endDBF = indata; // для совместимости включить строку кода
-  ProgTrace( TRACE5, "endDBF=|%s|, endDBF.size=%d", endDBF.c_str(), endDBF.size() );
+  ProgTrace( TRACE5, "endDBF=|%s|, endDBF.size=%zu", endDBF.c_str(), endDBF.size() );
 }
 
 void Develop_dbf::Build( const std::string &encoding )
@@ -374,15 +374,15 @@ void Develop_dbf::GetRow( int idx, DBFRow &row )
 void Develop_dbf::AddRow( DBFRow &row )
 {
 	if ( row.newdata.size() != fields.size() ) {
-		ProgTrace( TRACE5, "row.data.size()=%d, fields.size()=%d", (int)row.newdata.size(), (int)fields.size() );
+		ProgTrace( TRACE5, "row.data.size()=%zu, fields.size()=%zu", row.newdata.size(), fields.size() );
 		throw Exception( "Invalid format data " );
 	}
 	string::size_type t;
 	vector<string>::iterator r=row.newdata.begin();
 	for ( vector<TField>::iterator f=fields.begin(); f!=fields.end() && r!=row.newdata.end(); f++, r++ ) {
 		if ( (int)r->size() > f->len ) {
-			ProgTrace( TRACE5, "data size=%d, data value=%s, field size=%d, field name=%s",
-			           (int)r->size(), r->c_str(), f->len, f->name.c_str() );
+			ProgTrace( TRACE5, "data size=%zu, data value=%s, field size=%d, field name=%s",
+			           r->size(), r->c_str(), f->len, f->name.c_str() );
 			throw Exception( "Invalid format data (data size > field size)" );
 	  }
 		switch ( f->type  ) {
@@ -446,11 +446,11 @@ void Develop_dbf::Parse( const std::string &indata, const std::string &encoding 
 {
   string vdata = indata;
   ParseHeader( vdata );
-  ProgTrace( TRACE5, "indata.size=%d", vdata.size() );
+  ProgTrace( TRACE5, "indata.size=%zu", vdata.size() );
   ParseFields( vdata );
-  ProgTrace( TRACE5, "indata.size=%d", vdata.size() );
+  ProgTrace( TRACE5, "indata.size=%zu", vdata.size() );
   ParseData( vdata, encoding );
-  ProgTrace( TRACE5, "indata.size=%d", vdata.size() );
+  ProgTrace( TRACE5, "indata.size=%zu", vdata.size() );
 }
 
 int Develop_dbf::GetFieldIndex( const string &FieldName )
@@ -511,7 +511,7 @@ void Develop_dbf::RollBackRow( int idx )
     DeleteRow( idx, false );
   else {
     if ( rows[ idx ].olddata.size() != rows[ idx ].newdata.size() )
-      throw Exception( "RollBackRow: invalid fields count, old count=%d, new count=%d", rows[ idx ].olddata.size(), rows[ idx ].newdata.size() );
+      throw Exception( "RollBackRow: invalid fields count, old count=%zu, new count=%zu", rows[ idx ].olddata.size(), rows[ idx ].newdata.size() );
     rows[ idx ].newdata = rows[ idx ].olddata;
     rows[ idx ].pr_del = false;
     rows[ idx ].modify = false;

@@ -184,7 +184,7 @@ void TBaseTable::load_table()
         throw;
       };
     };
-    //ProgTrace(TRACE5,"TABLE %s UPDATED: %d rows",get_table_name(),table.size());
+    //ProgTrace(TRACE5,"TABLE %s UPDATED: %zu rows",get_table_name(),table.size());
     pr_init=true;
     pr_actual=true;
     after_update();
@@ -273,7 +273,7 @@ const TBaseTableRow& TIdBaseTable::get_row(std::string field, int value, bool wi
     std::map<int, TBaseTableRow*>::iterator i;
     i=id.find(value);
     if (i==id.end()||
-        !with_deleted && i->second->deleted())
+        (!with_deleted && i->second->deleted()))
       throw EBaseTableError("%s::get_row: %s=%d not found",
                             get_table_name(),field.c_str(),value);
     return *(i->second);
@@ -333,7 +333,7 @@ const TBaseTableRow& TCodeBaseTable::get_row(std::string field, std::string valu
     std::map<string, TBaseTableRow*>::iterator i;
     i=code.find(value);
     if (i==code.end()||
-        !with_deleted && i->second->deleted())
+        (!with_deleted && i->second->deleted()))
       throw EBaseTableError("%s::get_row: %s=%s not found",
                             get_table_name(),field.c_str(),value.c_str());
     return *(i->second);
@@ -343,8 +343,8 @@ const TBaseTableRow& TCodeBaseTable::get_row(std::string field, std::string valu
     std::map<string, TBaseTableRow*>::iterator i;
     i=code_lat.find(value);
     if (i==code_lat.end()||
-        !with_deleted && i->second->deleted())
-      throw EBaseTableError("%s::get_row: table '%s': %s=%s not found",
+        (!with_deleted && i->second->deleted()))
+      throw EBaseTableError("%s::get_row: %s=%s not found",
                             get_table_name(),field.c_str(),value.c_str());
     return *(i->second);
   };
@@ -353,11 +353,11 @@ const TBaseTableRow& TCodeBaseTable::get_row(std::string field, std::string valu
     std::map<string, TBaseTableRow*>::iterator i;
     i=code_lat.find(value);
     if (i==code_lat.end()||
-        !with_deleted && i->second->deleted())
+        (!with_deleted && i->second->deleted()))
     {
       i=code.find(value);
       if (i==code.end()||
-          !with_deleted && i->second->deleted())
+          (!with_deleted && i->second->deleted()))
         throw EBaseTableError("%s::get_row: %s=%s not found",
                               get_table_name(),field.c_str(),value.c_str());
     };
@@ -421,7 +421,7 @@ const TBaseTableRow& TTIDBaseTable::get_row(std::string field, int value, bool w
     std::map<int, TBaseTableRow*>::iterator i;
     i=id.find(value);
     if (i==id.end()||
-        !with_deleted && i->second->deleted())
+        (!with_deleted && i->second->deleted()))
       throw EBaseTableError("%s::get_row: %s=%d not found",
                             get_table_name(),field.c_str(),value);
     return *(i->second);
@@ -459,7 +459,7 @@ const TBaseTableRow& TICAOBaseTable::get_row(std::string field, std::string valu
     std::map<string, TBaseTableRow*>::iterator i;
     i=code_icao.find(value);
     if (i==code_icao.end()||
-        !with_deleted && i->second->deleted())
+        (!with_deleted && i->second->deleted()))
       throw EBaseTableError("%s::get_row: %s=%s not found",
                             get_table_name(),field.c_str(),value.c_str());
     return *(i->second);
@@ -469,8 +469,8 @@ const TBaseTableRow& TICAOBaseTable::get_row(std::string field, std::string valu
     std::map<string, TBaseTableRow*>::iterator i;
     i=code_icao_lat.find(value);
     if (i==code_icao_lat.end()||
-        !with_deleted && i->second->deleted())
-      throw EBaseTableError("%s::get_row: table '%s': %s=%s not found",
+        (!with_deleted && i->second->deleted()))
+      throw EBaseTableError("%s::get_row: %s=%s not found",
                             get_table_name(),field.c_str(),value.c_str());
     return *(i->second);
   };
@@ -479,11 +479,11 @@ const TBaseTableRow& TICAOBaseTable::get_row(std::string field, std::string valu
     std::map<string, TBaseTableRow*>::iterator i;
     i=code_icao_lat.find(value);
     if (i==code_icao_lat.end()||
-        !with_deleted && i->second->deleted())
+        (!with_deleted && i->second->deleted()))
     {
       i=code_icao.find(value);
       if (i==code_icao.end()||
-          !with_deleted && i->second->deleted())
+          (!with_deleted && i->second->deleted()))
         throw EBaseTableError("%s::get_row: %s=%s not found",
                               get_table_name(),field.c_str(),value.c_str());
     };
@@ -525,7 +525,7 @@ const TBaseTableRow& TCountries::get_row(std::string field, std::string value, b
     std::map<string, TBaseTableRow*>::iterator i;
     i=code_iso.find(value);
     if (i==code_iso.end()||
-        !with_deleted && i->second->deleted())
+        (!with_deleted && i->second->deleted()))
       throw EBaseTableError("%s::get_row: %s=%s not found",
                             get_table_name(),field.c_str(),value.c_str());
     return *(i->second);
@@ -597,7 +597,7 @@ const TBaseTableRow& TPaxDocCountries::get_row(std::string field, std::string va
     std::map<string, TBaseTableRow*>::iterator i;
     i=country.find(value);
     if (i==country.end()||
-        !with_deleted && i->second->deleted())
+        (!with_deleted && i->second->deleted()))
       throw EBaseTableError("%s::get_row: %s=%s not found",
                             get_table_name(),field.c_str(),value.c_str());
     return *(i->second);
@@ -678,7 +678,7 @@ const TBaseTableRow& TAirlines::get_row(std::string field, std::string value, bo
     std::map<string, TBaseTableRow*>::iterator i;
     i=aircode.find(value);
     if (i==aircode.end()||
-        !with_deleted && i->second->deleted())
+        (!with_deleted && i->second->deleted()))
       throw EBaseTableError("%s::get_row: %s=%s not found",
                             get_table_name(),field.c_str(),value.c_str());
     return *(i->second);

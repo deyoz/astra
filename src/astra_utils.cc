@@ -217,7 +217,7 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   desk.tz_region = Qry.FieldAsString( "region" );
   desk.time = UTCToLocal( NowUTC(), desk.tz_region );
   if ( !screen.pr_logon ||
-       !InitData.pr_web && !InitData.checkUserLogon )
+       (!InitData.pr_web && !InitData.checkUserLogon) )
   	return;
   Qry.Clear();
   if ( InitData.pr_web ) {
@@ -264,8 +264,8 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   Qry.CreateVariable( "desk", otString, InitData.pult );
   Qry.CreateVariable( "user_id", otInteger, user.user_id );
   Qry.Execute();
-  if ( !Qry.Eof && !InitData.pr_web ||
-  	   Qry.Eof && InitData.pr_web ) //???
+  if ( (!Qry.Eof && !InitData.pr_web) ||
+  	    (Qry.Eof && InitData.pr_web) ) //???
     	throw AstraLocale::UserException( "MSG.USER.ACCESS_DENIED" );
 
   if ( InitData.pr_web )
@@ -341,8 +341,8 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   {
     if (Qry.FieldIsNULL("airline")) continue;
     bool pr_denial=Qry.FieldAsInteger("pr_denial")!=0;
-    if (!pr_denial_all && pr_denial ||
-        pr_denial_all && !pr_denial)
+    if ((!pr_denial_all && pr_denial) ||
+        (pr_denial_all && !pr_denial))
       airlines.push_back(Qry.FieldAsString("airline"));
   };
   MergeAccess(user.access.airlines,user.access.airlines_permit,airlines,pr_denial_all);
@@ -361,7 +361,7 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   {
     for(int i=0;i<5;i++)
     {
-      char* field;
+      const char* field;
       switch(i)
       {
         case 0: field="time"; break;
@@ -444,8 +444,8 @@ bool TReqInfo::CheckAirp(const string &airp)
 void MergeAccess(vector<string> &a, bool &ap,
                  vector<string> b, bool bp)
 {
-  if (a.empty() && ap ||
-      b.empty() && bp)
+  if ((a.empty() && ap) ||
+      (b.empty() && bp))
   {
     //все запрещено
     a.clear();
@@ -453,8 +453,8 @@ void MergeAccess(vector<string> &a, bool &ap,
   }
   else
   {
-    if (a.empty() && !ap ||
-        b.empty() && !bp)
+    if ((a.empty() && !ap) ||
+        (b.empty() && !bp))
     {
       //копируем доступ
       if (a.empty())
@@ -1015,8 +1015,8 @@ int getTCLParam(const char* name, int min, int max, int def)
     if ( r.empty() )
       throw EXCEPTIONS::Exception( "Can't read TCL param %s", name );
     if ( StrToInt(r.c_str(),res)==EOF ||
-         min!=NoExists && res<min ||
-         max!=NoExists && res>max)
+         (min!=NoExists && res<min) ||
+         (max!=NoExists && res>max))
       throw EXCEPTIONS::Exception( "Wrong TCL param %s=%s", name, r.c_str() );
   }
   catch(EXCEPTIONS::Exception &e)

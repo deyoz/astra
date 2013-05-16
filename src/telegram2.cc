@@ -317,7 +317,7 @@ string TlgElemIdToElem(TElemType type, int id, TElemFmt fmt, string lang)
       fmts.push_back( make_pair(efmtCodeInter, lang) );
 
   string result = ElemIdToElem(type, id, fmts);
-  if(result.empty() || fmt==efmtCodeInter &&!IsAscii7(result)) {
+  if(result.empty() || (fmt==efmtCodeInter && !IsAscii7(result))) {
       string code_name;
       switch(type)
       {
@@ -360,7 +360,7 @@ string TlgElemIdToElem(TElemType type, string id, TElemFmt fmt, string lang)
       fmts.push_back( make_pair(efmtCodeInter, lang) );
 
   string result = ElemIdToElem(type, id, fmts);
-  if(result.empty() || fmt==efmtCodeInter &&!IsAscii7(result)) {
+  if(result.empty() || (fmt==efmtCodeInter && !IsAscii7(result))) {
       string code_name;
       switch(type)
       {
@@ -2397,7 +2397,7 @@ void TPList::ToBTMTlg(TTlgInfo &info, vector<string> &body, TFItem &FItem)
     }
 
     if(lines.size() > 1)
-        throw Exception("TPList::ToBTMTlg: unexpected lines size for main_pax_id: %d", lines.size());
+        throw Exception("TPList::ToBTMTlg: unexpected lines size for main_pax_id: %zu", lines.size());
     if(lines.empty())
         return;
     main_pax->OList.ToTlg(info, body);
@@ -3666,7 +3666,7 @@ string  TTlgSeatList::get_seat_list(bool pr_lat)
     map<int, string> list;
     get_seat_list(list, pr_lat);
     if(list.size() > 1)
-        throw Exception("TTlgSeatList::get_seat_list(): wrong map size %d", list.size());
+        throw Exception("TTlgSeatList::get_seat_list(): wrong map size %zu", list.size());
     return list[0];
 }
 
@@ -6396,7 +6396,7 @@ int TelegramInterface::create_tlg(const TCreateTlgInfo &createInfo)
             extra << info.airp_arv << " ";
     }
     if (vbasic_type == "CPM" ||
-        vbasic_type == "MVT" && createInfo.type == "MVTB")
+        (vbasic_type == "MVT" && createInfo.type == "MVTB"))
     {
         TTripRoute route;
         TTripRouteItem next_airp;

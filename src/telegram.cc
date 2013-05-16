@@ -330,8 +330,8 @@ void TelegramInterface::GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
          "ORDER BY id,num \n";
 
     xmlNodePtr tlgsNode = NewTextChild( resNode, "tlgs" );
-    if (info.user.access.airps_permit && info.user.access.airps.empty() ||
-            info.user.access.airlines_permit && info.user.access.airlines.empty() ) return;
+    if ((info.user.access.airps_permit && info.user.access.airps.empty()) ||
+        (info.user.access.airlines_permit && info.user.access.airlines.empty()) ) return;
 
     ProgTrace(TRACE5, "sql: %s", sql.c_str());
     Qry.SQLText=sql;
@@ -491,8 +491,8 @@ void TelegramInterface::GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
        "ORDER BY id,num \n";
 
   xmlNodePtr tlgsNode = NewTextChild( resNode, "tlgs" );
-  if (info.user.access.airps_permit && info.user.access.airps.empty() ||
-      info.user.access.airlines_permit && info.user.access.airlines.empty() ) return;
+  if ((info.user.access.airps_permit && info.user.access.airps.empty()) ||
+      (info.user.access.airlines_permit && info.user.access.airlines.empty()) ) return;
 
   ProgTrace(TRACE5, "sql: %s", sql.c_str());
   Qry.SQLText=sql;
@@ -802,7 +802,7 @@ void TelegramInterface::SendTlg(int tlg_id)
               if (strlen(tlg.lex)!=7)
                 throw AstraLocale::UserException("MSG.TLG.INVALID_SITA_ADDR", LParams() << LParam("addr", tlg.lex));
               for(char *p=tlg.lex;*p!=0;p++)
-                if (!(IsUpperLetter(*p)&&*p>='A'&&*p<='Z'||IsDigit(*p)))
+                if (!((IsUpperLetter(*p)&&IsAscii7(*p))||IsDigit(*p)))
                     throw AstraLocale::UserException("MSG.TLG.INVALID_SITA_ADDR", LParams() << LParam("addr", tlg.lex));
               char addr[8];
               strcpy(addr,tlg.lex);
@@ -1627,9 +1627,9 @@ void CompareContent(const TTlgContent& con1, const TTlgContent& con2, vector<TTl
     {
       res=0;
       if (i1==con1.tags.end() ||
-          i2!=con2.tags.end() && i1->first>i2->first) res=-1;
+          (i2!=con2.tags.end() && i1->first>i2->first)) res=-1;
       if (i2==con2.tags.end() ||
-          i1!=con1.tags.end() && i1->first<i2->first) res=1;
+          (i1!=con1.tags.end() && i1->first<i2->first)) res=1;
 
       if (res>0) conDEL.addTag(i1->first, con1);
 
@@ -1947,7 +1947,7 @@ void TelegramInterface::SaveTlgOutPart( TTlgOutPartInfo &info )
   ProgTrace(TRACE5, "point_id: %d", info.point_id);
   ProgTrace(TRACE5, "addr: %s", info.addr.c_str());
   ProgTrace(TRACE5, "heading: %s", info.heading.c_str());
-  ProgTrace(TRACE5, "body: %s, size: %d", info.body.c_str(), info.body.size());
+  ProgTrace(TRACE5, "body: %s, size: %zu", info.body.c_str(), info.body.size());
   ProgTrace(TRACE5, "ending: %s", info.ending.c_str());
   ProgTrace(TRACE5, "extra: %s", info.extra.c_str());
   */

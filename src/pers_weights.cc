@@ -245,7 +245,7 @@ void PersWeightRules::write( int point_id )
   Qry.DeclareVariable( "female", otInteger );
   Qry.DeclareVariable( "child", otInteger );
   Qry.DeclareVariable( "infant", otInteger );
-  ProgTrace( TRACE5, "weights.size()=%d", weights.size() );
+  ProgTrace( TRACE5, "weights.size()=%zu", weights.size() );
   string msg = "Назначение весов пассажиров на рейс: ";
   bool pr_sep = false;
   for ( std::vector<ClassesPersWeight>::iterator i=weights.begin(); i!=weights.end(); i++ ) {

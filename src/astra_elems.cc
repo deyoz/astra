@@ -168,14 +168,14 @@ string ElemCtxtToElemId(TElemContext ctxt,TElemType type, string code, TElemFmt 
           type==etCraft)
       {
       	if ( hard_verify || fmt == efmtUnknown ) {
-          if (!(user_fmt==ustCodeNative     && fmt==efmtCodeNative ||
-                user_fmt==ustCodeInter      && fmt==efmtCodeInter ||
-                user_fmt==ustCodeICAONative && fmt==efmtCodeICAONative ||
-                user_fmt==ustCodeICAOInter  && fmt==efmtCodeICAOInter ||
-                user_fmt==ustCodeMixed      && (fmt==efmtCodeNative||
+          if (!((user_fmt==ustCodeNative     && fmt==efmtCodeNative) ||
+                (user_fmt==ustCodeInter      && fmt==efmtCodeInter) ||
+                (user_fmt==ustCodeICAONative && fmt==efmtCodeICAONative) ||
+                (user_fmt==ustCodeICAOInter  && fmt==efmtCodeICAOInter) ||
+                (user_fmt==ustCodeMixed      && (fmt==efmtCodeNative||
                                                 fmt==efmtCodeInter||
                                                 fmt==efmtCodeICAONative||
-                                                fmt==efmtCodeICAOInter)))
+                                                fmt==efmtCodeICAOInter))))
           {
             //проблемы
             DoElemEConvertError( ctxt, type, code );
@@ -202,9 +202,9 @@ string ElemCtxtToElemId(TElemContext ctxt,TElemType type, string code, TElemFmt 
       else
       {
       	if ( hard_verify || fmt == efmtUnknown ) {
-          if (!(user_fmt==ustEncNative && fmt==efmtCodeNative ||
-                user_fmt==ustEncLatin && fmt==efmtCodeInter ||
-                user_fmt==ustEncMixed && (fmt==efmtCodeNative||fmt==efmtCodeInter)))
+          if (!((user_fmt==ustEncNative && fmt==efmtCodeNative) ||
+                (user_fmt==ustEncLatin && fmt==efmtCodeInter) ||
+                (user_fmt==ustEncMixed && (fmt==efmtCodeNative||fmt==efmtCodeInter))))
           {
             //проблемы
             DoElemEConvertError( ctxt, type, code );
@@ -452,7 +452,7 @@ void getElem(TElemFmt fmt, const std::string &lang, TQuery& Qry, string &elem)
       if (fmt==efmtCodeNative && lang==AstraLocale::LANG_RU)
         field_idx=Qry.GetFieldIndex("code");
       if (fmt==efmtCodeInter ||
-          fmt==efmtCodeNative && lang!=AstraLocale::LANG_RU)
+          (fmt==efmtCodeNative && lang!=AstraLocale::LANG_RU))
         field_idx=Qry.GetFieldIndex("code_lat");
       break;
 
@@ -461,7 +461,7 @@ void getElem(TElemFmt fmt, const std::string &lang, TQuery& Qry, string &elem)
       if (fmt==efmtCodeICAONative && lang==AstraLocale::LANG_RU)
         field_idx=Qry.GetFieldIndex("code_icao");
       if (fmt==efmtCodeICAOInter ||
-          fmt==efmtCodeICAONative && lang!=AstraLocale::LANG_RU)
+          (fmt==efmtCodeICAONative && lang!=AstraLocale::LANG_RU))
         field_idx=Qry.GetFieldIndex("code_icao_lat");
       break;
 
@@ -516,7 +516,7 @@ void getElem(TElemFmt fmt, const std::string &lang, const TBaseTableRow& BaseTab
           return;
         };
         if (fmt==efmtCodeInter ||
-            fmt==efmtCodeNative && lang!=AstraLocale::LANG_RU)
+            (fmt==efmtCodeNative && lang!=AstraLocale::LANG_RU))
         {
           elem=row.code_lat;
           return;
@@ -536,7 +536,7 @@ void getElem(TElemFmt fmt, const std::string &lang, const TBaseTableRow& BaseTab
           return;
         };
         if (fmt==efmtCodeICAOInter ||
-            fmt==efmtCodeICAONative && lang!=AstraLocale::LANG_RU)
+            (fmt==efmtCodeICAONative && lang!=AstraLocale::LANG_RU))
         {
           elem=row.code_icao_lat;
           return;

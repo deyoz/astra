@@ -230,7 +230,7 @@ void process_tlg(void)
           if (TlgQry.Eof) //не нашли - значит вставляем новую
           {
             BASIC::TDateTime nowUTC=BASIC::NowUTC();
-            ProgTrace(TRACE5,"IN: PUT (sender=%s, tlg_num=%ld, time=%.10f)", tlg_in.Sender, tlg_in.num, nowUTC);
+            ProgTrace(TRACE5,"IN: PUT (sender=%s, tlg_num=%d, time=%.10f)", tlg_in.Sender, tlg_in.num, nowUTC);
             TQuery TlgInsQry(&OraSession);
             TlgInsQry.Clear();
             TlgInsQry.CreateVariable("sender",otString,tlg_in.Sender);
@@ -298,7 +298,7 @@ void process_tlg(void)
           {
             OraSession.Rollback();
             ProgTrace(TRACE0,"Attention! Can't find tlg in tlg_queue "
-                             "(sender: %s, tlg_num: %ld, curr_status: PUT)",
+                             "(sender: %s, tlg_num: %d, curr_status: PUT)",
                              tlg_in.Receiver, tlg_in.num);
             return;
           };
@@ -377,7 +377,7 @@ void process_tlg(void)
         OraSession.Commit();
         if (tlg_in.type==TLG_ACK)
         {
-          ProgTrace(TRACE5,"OUT: PUT->SEND (sender=%s, tlg_num=%ld, time=%.10f)", tlg_in.Receiver, tlg_in.num, NowUTC());
+          ProgTrace(TRACE5,"OUT: PUT->SEND (sender=%s, tlg_num=%d, time=%.10f)", tlg_in.Receiver, tlg_in.num, NowUTC());
           sendCmdTlgSnd(); //пинок отправщику (можно отправлять следующую телеграмму)
         };
         return;
@@ -413,16 +413,16 @@ void process_tlg(void)
           sendCmd("CMD_TYPEB_HANDLER","H");
         break;
       case TLG_F_ACK:
-        ProgTrace(TRACE5,"OUT: SEND->DONE (sender=%s, tlg_num=%ld, time=%.10f)", tlg_in.Receiver, tlg_in.num, NowUTC());
+        ProgTrace(TRACE5,"OUT: SEND->DONE (sender=%s, tlg_num=%d, time=%.10f)", tlg_in.Receiver, tlg_in.num, NowUTC());
         break;
       case TLG_F_NEG:
       case TLG_CFG_ERR:
       case TLG_CRASH:
-        ProgTrace(TRACE5,"OUT: PUT/SEND->ERR (sender=%s, tlg_num=%ld, time=%.10f)", tlg_in.Receiver, tlg_in.num, NowUTC());
+        ProgTrace(TRACE5,"OUT: PUT/SEND->ERR (sender=%s, tlg_num=%d, time=%.10f)", tlg_in.Receiver, tlg_in.num, NowUTC());
         break;
     };
   }
-  catch(Exception E)
+  catch(Exception &E)
   {
     OraSession.Rollback();
     try

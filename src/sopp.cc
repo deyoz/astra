@@ -951,7 +951,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
   // рейсы созданы, перейдем к набору информации по рейсам
   ////////////////////////// crs_displaces ///////////////////////////////
   PerfomTest( 669 );
-  ProgTrace( TRACE5, "trips count %d", trips.size() );
+  ProgTrace( TRACE5, "trips count %zu", trips.size() );
 
   for ( TSOPPTrips::iterator tr=trips.begin(); tr!=trips.end(); tr++ ) {
     if ( !tr->places_out.empty() ) {
@@ -4061,15 +4061,16 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   for( TSOPPDests::iterator i=dests.begin(); i!=dests.end(); i++ ) {
   	if ( i->pr_del == -1 ) continue;
   	TSOPPTrip t = createTrip( move_id, i, dests );
-  	ProgTrace( TRACE5, "t.pr_del=%d, t.point_id=%d, t.places_out.size()=%d,t.suffix_out=%s",
-  	           t.pr_del, t.point_id, t.places_out.size(), t.suffix_out.c_str() );
+  	ProgTrace( TRACE5, "t.pr_del=%d, t.point_id=%d, t.places_out.size()=%zu, t.suffix_out=%s",
+  	                   t.pr_del, t.point_id, t.places_out.size(), t.suffix_out.c_str() );
   	trs1.push_back(t);
   }
   // создаем всевозможные рейсы из старого маршрута исключая удаленные пункты
   for( TSOPPDests::iterator i=voldDests.begin(); i!=voldDests.end(); i++ ) {
   	if ( i->pr_del == -1 ) continue;
   	TSOPPTrip t = createTrip( move_id, i, voldDests );
-  	ProgTrace( TRACE5, "t.pr_del=%d, t.point_id=%d, t.places_out.size()=%d", t.pr_del, t.point_id, t.places_out.size() );
+  	ProgTrace( TRACE5, "t.pr_del=%d, t.point_id=%d, t.places_out.size()=%zu",
+                       t.pr_del, t.point_id, t.places_out.size() );
   	trs2.push_back(t);
   }
 
@@ -4936,8 +4937,8 @@ void SoppInterface::DeleteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   for( TSOPPDests::iterator i=dests_del.begin(); i!=dests_del.end(); i++ ) {
   	if ( i->pr_del == -1 ) continue;
   	TSOPPTrip t = createTrip( move_id, i, dests_del );
-  	ProgTrace( TRACE5, "t.pr_del=%d, t.point_id=%d, t.places_out.size()=%d,t.suffix_out=%s",
-  	           t.pr_del, t.point_id, t.places_out.size(), t.suffix_out.c_str() );
+  	ProgTrace( TRACE5, "t.pr_del=%d, t.point_id=%d, t.places_out.size()=%zu, t.suffix_out=%s",
+  	                   t.pr_del, t.point_id, t.places_out.size(), t.suffix_out.c_str() );
   	trs.push_back(t);
   };
 

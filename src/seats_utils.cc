@@ -182,13 +182,13 @@ string GetSeatRangeView(const vector<TSeatRange> &ranges, const string &format, 
   sort(not_iata_ranges.begin(),not_iata_ranges.end());
 
   string fmt=format;
-  char* add_ch = NULL;
-	if ( fmt == "_list" || fmt == "_one" || fmt == "_seats" )
-	{
-		add_ch = " ";
-		fmt.erase(0,1);
-	};
-	ostringstream res;
+  const char* add_ch = NULL;
+ 	if ( fmt == "_list" || fmt == "_one" || fmt == "_seats" )
+ 	{
+  		add_ch = " ";
+	  	fmt.erase(0,1);
+	 };
+	 ostringstream res;
   for(vector<TSeat>::const_iterator s=iata_seats.begin(); s!=iata_seats.end(); s++)
   {
     if (!res.str().empty())

@@ -1602,7 +1602,7 @@ string GetBagRcptStr(int grp_id, int pax_id)
     if (!Qry.Eof && !Qry.FieldIsNULL("main_pax_id")) main_pax_id=Qry.FieldAsInteger("main_pax_id");
   };
   if (pax_id==NoExists ||
-      main_pax_id!=NoExists && main_pax_id==pax_id)
+      (main_pax_id!=NoExists && main_pax_id==pax_id))
   {
     vector<string> rcpts;
     Qry.SQLText="SELECT no FROM bag_prepay WHERE grp_id=:grp_id";

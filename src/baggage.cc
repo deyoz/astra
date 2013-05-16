@@ -1304,7 +1304,7 @@ void GetPaxBagNorm(TQuery &Qry,
         };
       };
     };
-    if (pr_trfer!=0 && max_amount!=ASTRA::NoExists || !use_mixed_norms) break;
+    if ((pr_trfer!=0 && max_amount!=ASTRA::NoExists) || !use_mixed_norms) break;
   };
   norm=max_norm;
 };

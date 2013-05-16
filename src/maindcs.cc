@@ -469,7 +469,7 @@ void GetEventCmd( const vector<string> &event_names,
     if (first_dev_model!=Qry.FieldAsString("dev_model") ||
         first_sess_type!=Qry.FieldAsString("sess_type") ||
         first_fmt_type!=Qry.FieldAsString("fmt_type") ||
-        !(first_desk_grp_id==ASTRA::NoExists && Qry.FieldIsNULL("desk_grp_id") ||
+        !((first_desk_grp_id==ASTRA::NoExists && Qry.FieldIsNULL("desk_grp_id")) ||
           first_desk_grp_id==Qry.FieldAsInteger("desk_grp_id"))) break;
 
     string event_name=Qry.FieldAsString("event_name");
@@ -478,8 +478,8 @@ void GetEventCmd( const vector<string> &event_names,
     ProgTrace(TRACE5,"event_name=%s event_found=%d",event_name.c_str(),(int)event_found);
 
     //проверим exclude
-    if ( exclude &&  event_found ||
-        !exclude && !event_found ) continue;
+    if (( exclude &&  event_found) ||
+        (!exclude && !event_found) ) continue;
 
     CmdQry.SetVariable("event_name",event_name);
 
@@ -648,15 +648,15 @@ void GetCUSEAddrs( map<TDevOperType, pair<string, string> > &opers, map<string, 
    xmlNodePtr node = n->children;
     while ( node != NULL ) {
       string addr = (char*)node->name;
-      if ( addr == "ATB" && pass==0 ||
-           addr == "BTP" && pass==0 ||
-           addr == "BGR" && pass==0 ||
-           addr == "DCP" && pass==0 ||
-           addr == "SCN" && pass==1 ||
-           addr == "OCR" && pass==1 ||
-           addr == "SCL" && pass==1 ||
-           addr == "MSR" && pass==1 ||
-           addr == "WGE" && pass==2 ) {
+      if ( (addr == "ATB" && pass==0) ||
+           (addr == "BTP" && pass==0) ||
+           (addr == "BGR" && pass==0) ||
+           (addr == "DCP" && pass==0) ||
+           (addr == "SCN" && pass==1) ||
+           (addr == "OCR" && pass==1) ||
+           (addr == "SCL" && pass==1) ||
+           (addr == "MSR" && pass==1) ||
+           (addr == "WGE" && pass==2) ) {
         vector<string> dev_addrs;
         SeparateString((string)NodeAsString( node ), ',', dev_addrs);
 
@@ -1679,7 +1679,7 @@ void MainDCSInterface::DetermineScanParams(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     {
       string data;
       if (!HexToString(NodeAsString(node),data)) throw EConvertError("HexToString error");
-      ProgTrace(TRACE5,"DetermineScanParams: data.size()=%d", data.size());
+      ProgTrace(TRACE5,"DetermineScanParams: data.size()=%zu", data.size());
       data=ConvertCodepage(data,encoding,"CP866"); //иногда возвращает EConvertError
       ProgTrace(TRACE5,"DetermineScanParams: data=%s", data.c_str());
 

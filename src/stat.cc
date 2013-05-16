@@ -204,8 +204,8 @@ void GetFltCBoxList(bool pr_new, TScreenState scr, TDateTime first_date, TDateTi
     TPerfTimer tm;
     tm.Init();
     int count = 0;
-    if (!(reqInfo.user.access.airlines.empty() && reqInfo.user.access.airlines_permit ||
-          reqInfo.user.access.airps.empty() && reqInfo.user.access.airps_permit))
+    if (!((reqInfo.user.access.airlines.empty() && reqInfo.user.access.airlines_permit) ||
+          (reqInfo.user.access.airps.empty() && reqInfo.user.access.airps_permit)))
     {
         for(int pass=0; pass<=(pr_new?2:1); pass++)
         {
@@ -468,7 +468,7 @@ bool EqualCollections(const string &where, const T &c1, const T &c2, const strin
     //ошибок нет
     if (c1.size() != c2.size())
     {
-      ProgError(STDLOG, "%s: c1.size()=%d c2.size()=%d", where.c_str(), c1.size(), c2.size());
+      ProgError(STDLOG, "%s: c1.size()=%zu c2.size()=%zu", where.c_str(), c1.size(), c2.size());
       diff.first=c1.begin();
       diff.second=c2.begin();
       for(;diff.first!=c1.end() && diff.second!=c2.end(); diff.first++,diff.second++)
@@ -1282,8 +1282,8 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     if(find( info.user.access.rights.begin(),
                 info.user.access.rights.end(), 630 ) == info.user.access.rights.end())
         throw AstraLocale::UserException("MSG.PAX_LIST.VIEW_DENIED");
-    if (info.user.access.airlines.empty() && info.user.access.airlines_permit ||
-            info.user.access.airps.empty() && info.user.access.airps_permit)
+    if ((info.user.access.airlines.empty() && info.user.access.airlines_permit) ||
+           (info.user.access.airps.empty() && info.user.access.airps_permit))
         throw AstraLocale::UserException("MSG.PASSENGERS.NOT_FOUND");
     xmlNodePtr paramNode = reqNode->children;
 
@@ -2538,8 +2538,8 @@ void TStatParams::get(xmlNodePtr reqNode)
         //проверим среди запрещенных/разрешенных
         bool found=find( info.user.access.airlines.begin(),
                 info.user.access.airlines.end(), ak ) != info.user.access.airlines.end();
-        if ( info.user.access.airlines_permit &&  found ||
-                !info.user.access.airlines_permit && !found) airlines.push_back(ak);
+        if (( info.user.access.airlines_permit &&  found) ||
+            (!info.user.access.airlines_permit && !found)) airlines.push_back(ak);
         airlines_permit=true;
     };
 
@@ -2555,13 +2555,13 @@ void TStatParams::get(xmlNodePtr reqNode)
         //проверим среди запрещенных/разрешенных
         bool found=find( info.user.access.airps.begin(),
                 info.user.access.airps.end(), ap ) != info.user.access.airps.end();
-        if ( info.user.access.airps_permit &&  found ||
-                !info.user.access.airps_permit && !found) airps.push_back(ap);
+        if (( info.user.access.airps_permit &&  found) ||
+            (!info.user.access.airps_permit && !found)) airps.push_back(ap);
         airps_permit=true;
     };
 
-    if (airlines.empty() && airlines_permit ||
-            airps.empty() && airps_permit)
+    if ((airlines.empty() && airlines_permit) ||
+           (airps.empty() && airps_permit))
         throw AstraLocale::UserException("MSG.NO_ACCESS");
 
     airp_column_first = (info.user.user_type == utAirport);
@@ -5115,8 +5115,8 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
              reqInfo->user.access.rights.end(), 600 ) == reqInfo->user.access.rights.end())
       throw AstraLocale::UserException("MSG.INSUFFICIENT_RIGHTS.NOT_ACCESS");
       
-    if (reqInfo->user.access.airlines.empty() && reqInfo->user.access.airlines_permit ||
-        reqInfo->user.access.airps.empty() && reqInfo->user.access.airps_permit)
+    if ((reqInfo->user.access.airlines.empty() && reqInfo->user.access.airlines_permit) ||
+        (reqInfo->user.access.airps.empty() && reqInfo->user.access.airps_permit))
       throw AstraLocale::UserException("MSG.NOT_DATA");
           
     TStatParams params;
@@ -5474,8 +5474,8 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     if(find( info.user.access.rights.begin(),
                 info.user.access.rights.end(), 620 ) == info.user.access.rights.end())
         throw AstraLocale::UserException("MSG.PAX_SRC.ACCESS_DENIED");
-    if (info.user.access.airlines.empty() && info.user.access.airlines_permit ||
-            info.user.access.airps.empty() && info.user.access.airps_permit)
+    if ((info.user.access.airlines.empty() && info.user.access.airlines_permit) ||
+           (info.user.access.airps.empty() && info.user.access.airps_permit))
         throw AstraLocale::UserException("MSG.PASSENGERS.NOT_FOUND");
     TDateTime FirstDate = NodeAsDateTime("FirstDate", reqNode);
     TDateTime LastDate = NodeAsDateTime("LastDate", reqNode);

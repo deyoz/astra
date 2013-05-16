@@ -184,7 +184,7 @@ class TPlace {
     	for (std::vector<TPlaceLayer>::iterator i=layers.begin(); i!=layers.end(); i++ ) {
     		if ( i->pax_id > 0 )
     			isPax = true;
-    		if ( i->layer_type == layer && ( time_create <= 0 && i->time_create <= 0 || time_create == i->time_create ) ) {
+    		if ( i->layer_type == layer && ( (time_create <= 0 && i->time_create <= 0) || time_create == i->time_create ) ) {
     			layers.erase( i );
     			if ( isPax )
     			  break;
@@ -196,8 +196,8 @@ class TPlace {
    		std::vector<TPlaceLayer>::iterator i;
       for (i=layers.begin(); i!=layers.end(); i++) {
       	if ( priority < i->priority ||
-      		   priority == i->priority &&
-      		   time_create > i->time_create )
+      		   (priority == i->priority &&
+      		    time_create > i->time_create) )
       		break;
       }
       TPlaceLayer pl( pax_id, point_dep, point_arv, l, time_create, priority );
