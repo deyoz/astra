@@ -73,18 +73,28 @@ static void scan_tlg(void)
     }
     TlgQry.Execute();
     int trace_count=0;
+    static TMemoryManager mem(STDLOG);
+    static char *p = NULL;
+    static int p_len = 0;
     for(; not TlgQry.Eof; trace_count++, TlgQry.Next(), OraSession.Commit()) {
         bool result = false;
         int id = TlgQry.FieldAsInteger("id");
-        void *p = NULL;
         try {
             int len = TlgQry.GetSizeLongField( "data" );
-            p = (char*)malloc( len );
-            if ( !p )
-                throw Exception( string( "Can't malloc " ) + IntToString( len ) + " byte" );
+            if (len > p_len)
+            {
+                char *ph = NULL;
+                if (p==NULL) {
+                    ph=(char*)mem.malloc(len, STDLOG);
+                } else {
+                    ph=(char*)mem.realloc(p,len, STDLOG);
+                }
+                if (ph==NULL) throw EMemoryError("Out of memory");
+                p=ph;
+                p_len=len;
+            };
             TlgQry.FieldAsLong( "data", p );
             string data( (char*)p, len );
-            if(p) free(p);
 
             map<string, string> fileparams;
             paramQry.SetVariable("id", id);
@@ -148,6 +158,7 @@ static void scan_tlg(void)
                     p.point_id=ToInt(fileparams[PARAM_POINT_ID]);
                     StrToDateTime(fileparams[PARAM_TIME_CREATE].c_str(), ServerFormatDateTimeAsString, p.time_create);
                     p.heading = fileparams[PARAM_HEADING];
+                    p.originator_id = ToInt(fileparams[PARAM_ORIGINATOR]);
                     p.id=-1;
                     p.num=1;
                     p.pr_lat=1; //???
@@ -172,10 +183,8 @@ static void scan_tlg(void)
             }
             catch(...) {};
 
-            if(p) free(p);
         } catch(...) {
             OraSession.Rollback();
-            if(p) free(p);
             ProgTrace(TRACE5, "Something goes wrong");
         }
     }

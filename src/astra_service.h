@@ -34,6 +34,7 @@ const std::string FILE_HTTPGET_TYPE = "HTTPGET";
 const std::string PARAM_HEADING = "HEADING";
 const std::string PARAM_POINT_ID = "POINT_ID";
 const std::string PARAM_TIME_CREATE = "TIME_CREATE";
+const std::string PARAM_ORIGINATOR = "ORIGINATOR";
 
 struct TFileData {
 	std::string file_data;

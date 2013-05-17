@@ -1903,6 +1903,7 @@ void Send( int point_dep, int grp_id, const TTlgContent &con1, const TBSMAddrs &
           params[PARAM_HEADING] = p.heading;
           params[PARAM_TIME_CREATE] = DateTimeToStr(p.time_create, ServerFormatDateTimeAsString);
           params[PARAM_POINT_ID] = IntToString(p.point_id);
+          params[PARAM_ORIGINATOR] = IntToString(p.originator_id);
 
           putFile( OWN_POINT_ADDR(),
                   OWN_POINT_ADDR(),
@@ -1974,6 +1975,7 @@ void TelegramInterface::SaveTlgOutPart( TTlgOutPartInfo &info )
   else
     Qry.CreateVariable("time_send_scd",otDate,FNull);
   if (info.originator_id!=NoExists)
+#warning originator_id must be not null !!!
     Qry.CreateVariable("originator_id",otInteger,info.originator_id);
   else
     Qry.CreateVariable("originator_id",otInteger,FNull);
