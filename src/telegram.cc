@@ -1876,6 +1876,17 @@ void Send( int point_dep, int grp_id, const TTlgContent &con1, const TBSMAddrs &
 
     for(vector<TTlgContent>::iterator i=bsms.begin();i!=bsms.end();++i)
     {
+      if(not addrs.empty()) {
+          TOriginatorInfo originator=getOriginator(i->OutFlt.operFlt.airline,
+                                                   i->OutFlt.operFlt.airp,
+                                                   p.tlg_type, p.time_create, true);
+          p.originator_id=originator.id;
+          ostringstream heading;
+          heading << '.' << originator.addr
+                  << ' ' << DateTimeToStr(p.time_create,"ddhhnn") << ENDL;
+          p.heading=heading.str();
+      }
+
       for(map<bool,string>::const_iterator j=addrs.addrs.begin();j!=addrs.addrs.end();++j)
       {
         if (j->second.empty()) continue;
@@ -1883,14 +1894,6 @@ void Send( int point_dep, int grp_id, const TTlgContent &con1, const TBSMAddrs &
         p.num=1;
         p.pr_lat=j->first;
         p.addr=format_addr_line(j->second);
-        TOriginatorInfo originator=getOriginator(i->OutFlt.operFlt.airline,
-                                                 i->OutFlt.operFlt.airp,
-                                                 p.tlg_type, p.time_create, true);
-        p.originator_id=originator.id;
-        ostringstream heading;
-        heading << '.' << originator.addr
-                << ' ' << DateTimeToStr(p.time_create,"ddhhnn") << ENDL;
-        p.heading=heading.str();
         p.body=CreateTlgBody(*i,p.pr_lat);
         TelegramInterface::SaveTlgOutPart(p);
         Qry.SetVariable("id",p.id);
