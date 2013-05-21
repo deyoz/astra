@@ -349,6 +349,8 @@ void verifyPaxTids( int pax_id, int crs_pnr_tid, int crs_pax_tid, int pax_grp_ti
   TQuery Qry(&OraSession);
   if (!isTestPaxId(pax_id))
   {
+    if (pax_grp_tid==NoExists || pax_tid==NoExists)
+      throw UserException( "MSG.PASSENGERS.GROUP_CHANGED.REFRESH_DATA" ); //это бывает когда перед печатью произошла разрегистрация
   	Qry.SQLText =
   	  "SELECT crs_pnr.tid AS crs_pnr_tid, "
       "       crs_pax.tid AS crs_pax_tid, "
@@ -2621,12 +2623,22 @@ void BPTags::getFields( vector<string> &atags )
 void GetBPPax(xmlNodePtr paxNode, bool is_test, bool check_tids, PrintInterface::BPPax &pax)
 {
   pax.clear();
-  pax.pax_id = NodeAsInteger( "pax_id", paxNode );
-	xmlNodePtr node = NodeAsNode( "tids", paxNode );
-	int crs_pnr_tid = NodeAsInteger( "crs_pnr_tid", node );
-	int crs_pax_tid = NodeAsInteger( "crs_pax_tid", node );
-	int pax_grp_tid = NodeAsInteger( "pax_grp_tid", node );
-	int pax_tid = NodeAsInteger( "pax_tid", node );
+  if (paxNode==NULL) throw EXCEPTIONS::Exception("GetBPPax: paxNode==NULL");
+  xmlNodePtr node2=paxNode->children;
+  pax.point_dep = NodeIsNULLFast( "point_id", node2, true)?
+                    NoExists:
+                    NodeAsIntegerFast( "point_id", node2 );
+  pax.pax_id = NodeAsIntegerFast( "pax_id", node2 );
+	xmlNodePtr node = NodeAsNodeFast( "tids", node2 );
+  node2=node->children;
+	int crs_pnr_tid = NodeAsIntegerFast( "crs_pnr_tid", node2 );
+	int crs_pax_tid = NodeAsIntegerFast( "crs_pax_tid", node2 );
+  int pax_grp_tid = NodeIsNULLFast( "pax_grp_tid", node2, true )?
+                      NoExists:
+                      NodeAsIntegerFast( "pax_grp_tid", node2 );
+  int pax_tid =     NodeIsNULLFast( "pax_tid", node2, true )?
+                      NoExists:
+                      NodeAsIntegerFast( "pax_tid", node2 ) ;
 	if (check_tids) verifyPaxTids( pax.pax_id, crs_pnr_tid, crs_pax_tid, pax_grp_tid, pax_tid );
 	TQuery Qry(&OraSession);
 	if (!is_test)
@@ -2662,8 +2674,17 @@ void GetBPPax(xmlNodePtr paxNode, bool is_test, bool check_tids, PrintInterface:
      "SELECT :grp_id AS grp_id, point_id AS point_dep "
      "FROM points "
      "WHERE point_id=:point_id AND pr_del>=0";
-    Qry.CreateVariable( "grp_id", otInteger, pax_grp_tid + TEST_ID_BASE );
-    Qry.CreateVariable( "point_id", otInteger, pax_grp_tid );
+    if (pax.point_dep!=NoExists)
+    {
+      Qry.CreateVariable( "grp_id", otInteger, pax.point_dep + TEST_ID_BASE );
+      Qry.CreateVariable( "point_id", otInteger, pax.point_dep );
+    }
+    else
+    {
+      if (pax_grp_tid==NoExists) throw UserException( "MSG.FLIGHT.NOT_FOUND" );
+      Qry.CreateVariable( "grp_id", otInteger, pax_grp_tid + TEST_ID_BASE );
+      Qry.CreateVariable( "point_id", otInteger, pax_grp_tid );
+    };
     Qry.Execute();
   	if ( Qry.Eof )
   	  throw UserException( "MSG.FLIGHT.NOT_FOUND" );
