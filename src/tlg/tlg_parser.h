@@ -591,17 +591,17 @@ class TPtmTransferData : public TBagItem
     };
 };
 
-class TPtmOutFltInfo : public TTransferItem
+class TPtmOutFltInfo : public TSegmentItem
 {
   public:
     std::vector<TPtmTransferData> data;
-    TPtmOutFltInfo() : TTransferItem() {};
+    TPtmOutFltInfo() : TSegmentItem() {};
 };
 
 class TPtmContent
 {
   public:
-    TTransferItem InFlt;
+    TSegmentItem InFlt;
     std::vector<TPtmOutFltInfo> OutFlt;
     void Clear()
     {
@@ -650,19 +650,21 @@ class TBtmGrpItem : public TBagItem
   public:
     std::vector<TBSMTagItem> tags;
     std::vector<TBtmPaxItem> pax;
+    std::vector<TSegmentItem> OnwardFlt;
+    std::set<std::string> excepts;
 };
 
-class TBtmOutFltInfo : public TTransferItem
+class TBtmOutFltInfo : public TSegmentItem
 {
   public:
     std::vector<TBtmGrpItem> grp;
-    TBtmOutFltInfo() : TTransferItem() {};
+    TBtmOutFltInfo() : TSegmentItem() {};
 };
 
 class TBtmTransferInfo
 {
   public:
-    TTransferItem InFlt;
+    TSegmentItem InFlt;
     std::vector<TBtmOutFltInfo> OutFlt;
 };
 
@@ -695,7 +697,7 @@ extern const TMonthCode Months[];
 
 char* TlgElemToElemId(TElemType type, const char* elem, char* id, bool with_icao=false);
 char GetSuffix(char &suffix);
-char* GetAirline(char* airline, bool with_icao=false);
+char* GetAirline(char* airline, bool with_icao=true);
 char* GetTlgElementName(TTlgElement e);
 TTlgCategory GetTlgCategory(char *tlg_type);
 TTlgParts GetParts(char* tlg_p, TMemoryManager &mem);
@@ -708,15 +710,17 @@ void ParseSOMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TSOMContent& con)
 
 bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& con, bool forcibly);
 void SavePTMContent(int tlg_id, TDCSHeadingInfo& info, TPtmContent& con);
-void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, TBtmContent& con);
+void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, const TBtmContent& con);
 void SaveSOMContent(int tlg_id, TDCSHeadingInfo& info, TSOMContent& con);
 
 void ParseAHMFltInfo(TTlgPartInfo body, const TAHMHeadingInfo &info, TFltInfo& flt, TBindType &bind_type);
-int SaveFlt(int tlg_id, TFltInfo& flt, TBindType bind_type);
+int SaveFlt(int tlg_id, const TFltInfo& flt, TBindType bind_type);
 
 void ParseSeatRange(std::string str, std::vector<TSeatRange> &ranges, bool usePriorContext);
 
-}
+void TestBSMElemOrder(const std::string &s);
+
+} //namespace TypeB
 
 #endif
 
