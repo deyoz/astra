@@ -1876,6 +1876,17 @@ void Send( int point_dep, int grp_id, const TTlgContent &con1, const TBSMAddrs &
 
     for(vector<TTlgContent>::iterator i=bsms.begin();i!=bsms.end();++i)
     {
+      if(not addrs.empty()) {
+          TOriginatorInfo originator=getOriginator(i->OutFlt.operFlt.airline,
+                                                   i->OutFlt.operFlt.airp,
+                                                   p.tlg_type, p.time_create, true);
+          p.originator_id=originator.id;
+          ostringstream heading;
+          heading << '.' << originator.addr
+                  << ' ' << DateTimeToStr(p.time_create,"ddhhnn") << ENDL;
+          p.heading=heading.str();
+      }
+
       for(map<bool,string>::const_iterator j=addrs.addrs.begin();j!=addrs.addrs.end();++j)
       {
         if (j->second.empty()) continue;
@@ -1883,14 +1894,6 @@ void Send( int point_dep, int grp_id, const TTlgContent &con1, const TBSMAddrs &
         p.num=1;
         p.pr_lat=j->first;
         p.addr=format_addr_line(j->second);
-        TOriginatorInfo originator=getOriginator(i->OutFlt.operFlt.airline,
-                                                 i->OutFlt.operFlt.airp,
-                                                 p.tlg_type, p.time_create, true);
-        p.originator_id=originator.id;
-        ostringstream heading;
-        heading << '.' << originator.addr
-                << ' ' << DateTimeToStr(p.time_create,"ddhhnn") << ENDL;
-        p.heading=heading.str();
         p.body=CreateTlgBody(*i,p.pr_lat);
         TelegramInterface::SaveTlgOutPart(p);
         Qry.SetVariable("id",p.id);
@@ -1903,6 +1906,7 @@ void Send( int point_dep, int grp_id, const TTlgContent &con1, const TBSMAddrs &
           params[PARAM_HEADING] = p.heading;
           params[PARAM_TIME_CREATE] = DateTimeToStr(p.time_create, ServerFormatDateTimeAsString);
           params[PARAM_POINT_ID] = IntToString(p.point_id);
+          params[PARAM_ORIGINATOR] = IntToString(p.originator_id);
 
           putFile( OWN_POINT_ADDR(),
                   OWN_POINT_ADDR(),
@@ -1974,6 +1978,7 @@ void TelegramInterface::SaveTlgOutPart( TTlgOutPartInfo &info )
   else
     Qry.CreateVariable("time_send_scd",otDate,FNull);
   if (info.originator_id!=NoExists)
+#warning originator_id must be not null !!!
     Qry.CreateVariable("originator_id",otInteger,info.originator_id);
   else
     Qry.CreateVariable("originator_id",otInteger,FNull);
