@@ -4665,16 +4665,23 @@ void TLDMBag::get(TTlgInfo &info, int point_arv)
 
 struct TExcess {
     int excess;
-    void get(int point_id);
+    void get(int point_id, string airp_arv = "");
     TExcess(): excess(NoExists) {};
 };
 
-void TExcess::get(int point_id)
+void TExcess::get(int point_id, string airp_arv)
 {
     TQuery Qry(&OraSession);
-    Qry.SQLText =
+    string SQLText =
         "SELECT NVL(SUM(excess),0) excess FROM pax_grp "
-        "WHERE point_dep=:point_id AND ckin.excess_boarded(grp_id,class,bag_refuse)<>0 ";
+        "WHERE "
+        "   point_dep=:point_id AND "
+        "   ckin.excess_boarded(grp_id,class,bag_refuse)<>0 ";
+    if(not airp_arv.empty()) {
+        SQLText += " and airp_arv = :airp_arv ";
+        Qry.CreateVariable("airp_arv", otString, airp_arv);
+    }
+    Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.Execute();
     excess = Qry.FieldAsInteger("excess");
@@ -4690,6 +4697,7 @@ struct TLDMDest {
     int chd;
     int inf;
     TLDMBag bag;
+    TExcess excess;
     TLDMDest():
         point_arv(NoExists),
         f(NoExists),
@@ -4866,21 +4874,34 @@ void TLDMDests::ToTlg(TTlgInfo &info, bool &vcompleted, vector<string> &body)
         row
             << "/0"
             << "/0";
-        if(info.airp_dep == "—‹")
+        if(info.tlg_type == "LDM" and info.airp_dep == "—‹")
             row
                 << ".B/" << iv->bag.baggage
                 << ".C/" << iv->bag.cargo
                 << ".M/" << iv->bag.mail;
         body.push_back(row.str());
+        if(info.tlg_type == "LDM2") {
+            row.str("");
+            row
+                << "SI "
+                << info.TlgElemIdToElem(etAirp, iv->target) << " "
+                << "B" << iv->bag.baggage
+                << ".C" << iv->bag.cargo
+                << ".M" << iv->bag.mail
+                << ".E" << iv->excess.excess;
+            body.push_back(row.str());
+        }
         baggage_sum += iv->bag.baggage;
         cargo_sum += iv->bag.cargo;
         mail_sum += iv->bag.mail;
     }
+    if(info.tlg_type != "LDM2") {
+        row.str("");
+        row << "SI: EXB" << excess.excess << KG;
+        body.push_back(row.str());
+    }
     row.str("");
-    row << "SI: EXB" << excess.excess << KG;
-    body.push_back(row.str());
-    row.str("");
-    if(info.airp_dep != "—‹") {
+    if(info.tlg_type == "LDM" and info.airp_dep != "—‹") {
         row << "SI: B";
         if(baggage_sum > 0)
             row << baggage_sum;
@@ -4948,6 +4969,7 @@ void TLDMDests::get(TTlgInfo &info)
             item.bag.get(info, item.point_arv);
             item.f = Qry.FieldAsInteger(col_f);
             item.target = Qry.FieldAsString(col_target);
+            item.excess.get(info.point_id, item.target);
             item.c = Qry.FieldAsInteger(col_c);
             item.y = Qry.FieldAsInteger(col_y);
             item.adl = Qry.FieldAsInteger(col_adl);
