@@ -1840,7 +1840,9 @@ void SoppInterface::GetTransfer(bool pr_inbound_tckin,
       grp.airline_view=ElemIdToCodeNative(etAirline,inFlt.airline);
       grp.flt_no=inFlt.flt_no;
       grp.suffix_view=ElemIdToCodeNative(etSuffix,inFlt.suffix);
-      grp.scd_local=UTCToLocal(inFlt.scd_out, AirpTZRegion(inFlt.airp));
+      grp.scd_local=inFlt.scd_out==NoExists?
+                      NoExists:
+                      UTCToLocal(inFlt.scd_out, AirpTZRegion(inFlt.airp));
       grp.airp_dep_view=ElemIdToCodeNative(etAirp,inboundSeg.airp_dep);
       grp.airp_arv_view=ElemIdToCodeNative(etAirp,Qry.FieldAsString("airp_arv"));
     }
@@ -2008,8 +2010,9 @@ void SoppInterface::GetTransfer(bool pr_inbound_tckin,
       ostringstream trip;
       trip << iGrp->airline_view
            << setw(3) << setfill('0') << iGrp->flt_no
-           << iGrp->suffix_view << "/"
-           << DateTimeToStr(iGrp->scd_local,"dd");
+           << iGrp->suffix_view
+           << "/"
+           << (iGrp->scd_local==NoExists?"??":DateTimeToStr(iGrp->scd_local,"dd"));
 
       NewTextChild(node,"trip",trip.str());
       if (pr_tlg) NewTextChild(node,"airp",iGrp->tlg_airp_view);

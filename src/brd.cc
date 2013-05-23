@@ -840,13 +840,16 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                 if (!FltQry.Eof)
                 {
                   TTripInfo inFlt(FltQry);
-                  TDateTime scd_out_local = UTCToLocal(inFlt.scd_out,AirpTZRegion(inFlt.airp));
+                  TDateTime scd_out_local = inFlt.scd_out==NoExists?
+                                              NoExists:
+                                              UTCToLocal(inFlt.scd_out,AirpTZRegion(inFlt.airp));
 
                   ostringstream trip;
                   trip << ElemIdToCodeNative(etAirline, inFlt.airline)
                        << setw(3) << setfill('0') << inFlt.flt_no
                        << ElemIdToCodeNative(etSuffix, inFlt.suffix)
-                       << '/' << DateTimeToStr(scd_out_local,"dd");
+                       << '/'
+                       << (scd_out_local==NoExists?"??":DateTimeToStr(scd_out_local,"dd"));
 
                   NewTextChild(paxNode, "inbound_flt", trip.str());
 
