@@ -4690,6 +4690,7 @@ void TExcess::get(int point_id, string airp_arv)
 struct TLDMDest {
     int point_arv;
     string target;
+    int rk_weight;
     int f;
     int c;
     int y;
@@ -4700,6 +4701,7 @@ struct TLDMDest {
     TExcess excess;
     TLDMDest():
         point_arv(NoExists),
+        rk_weight(NoExists),
         f(NoExists),
         c(NoExists),
         y(NoExists),
@@ -4854,6 +4856,7 @@ void TLDMDests::ToTlg(TTlgInfo &info, bool &vcompleted, vector<string> &body)
         row
             << "-" << info.TlgElemIdToElem(etAirp, iv->target)
             << "." << iv->adl << "/" << iv->chd << "/" << iv->inf
+            << "." << iv->rk_weight
             << ".T"
             << iv->bag.baggage + iv->bag.cargo + iv->bag.mail;
         if (!pr_send)
@@ -4930,6 +4933,7 @@ void TLDMDests::get(TTlgInfo &info)
     Qry.SQLText =
         "SELECT points.point_id AS point_arv, "
         "       points.airp AS target, "
+        "       NVL(pax.rk_weight,0) AS rk_weight, "
         "       NVL(pax.f,0) AS f, "
         "       NVL(pax.c,0) AS c, "
         "       NVL(pax.y,0) AS y, "
@@ -4938,15 +4942,16 @@ void TLDMDests::get(TTlgInfo &info)
         "       NVL(pax.inf,0) AS inf "
         "FROM points, "
         "     (SELECT point_arv, "
-        "             SUM(DECODE(class,'',DECODE(seats,0,0,1),0)) AS f, "
-        "             SUM(DECODE(class,'',DECODE(seats,0,0,1),0)) AS c, "
-        "             SUM(DECODE(class,'',DECODE(seats,0,0,1),0)) AS y, "
-        "             SUM(DECODE(pers_type,'‚‡',1,0)) AS adl, "
-        "             SUM(DECODE(pers_type,'',1,0)) AS chd, "
-        "             SUM(DECODE(pers_type,'Œ',1,0)) AS inf "
-        "      FROM pax_grp,pax "
-        "      WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_id AND pr_brd=1 "
-        "      GROUP BY point_arv) pax "
+        "            SUM(ckin.get_rkWeight2(pax_grp.grp_id, pax.pax_id, pax.bag_pool_num, rownum)) rk_weight, "
+        "            SUM(DECODE(class,'',DECODE(seats,0,0,1),0)) AS f,  "
+        "            SUM(DECODE(class,'',DECODE(seats,0,0,1),0)) AS c,  "
+        "            SUM(DECODE(class,'',DECODE(seats,0,0,1),0)) AS y,  "
+        "            SUM(DECODE(pers_type,'‚‡',1,0)) AS adl,  "
+        "            SUM(DECODE(pers_type,'',1,0)) AS chd,  "
+        "            SUM(DECODE(pers_type,'Œ',1,0)) AS inf  "
+        "     FROM pax_grp,pax "
+        "     WHERE pax_grp.grp_id=pax.grp_id(+) AND pax_grp.point_dep=:point_id AND pax.pr_brd(+)=1 "
+        "     GROUP BY point_arv) pax "
         "WHERE points.point_id=pax.point_arv(+) AND "
         "      first_point=:first_point AND point_num>:point_num AND pr_del=0 "
         "ORDER BY points.point_num ";
@@ -4957,6 +4962,7 @@ void TLDMDests::get(TTlgInfo &info)
     if(!Qry.Eof) {
         int col_point_arv = Qry.FieldIndex("point_arv");
         int col_target = Qry.FieldIndex("target");
+        int col_rk_weight = Qry.FieldIndex("rk_weight");
         int col_f = Qry.FieldIndex("f");
         int col_c = Qry.FieldIndex("c");
         int col_y = Qry.FieldIndex("y");
@@ -4967,6 +4973,7 @@ void TLDMDests::get(TTlgInfo &info)
             TLDMDest item;
             item.point_arv = Qry.FieldAsInteger(col_point_arv);
             item.bag.get(info, item.point_arv);
+            item.rk_weight = Qry.FieldAsInteger(col_rk_weight);
             item.f = Qry.FieldAsInteger(col_f);
             item.target = Qry.FieldAsString(col_target);
             item.excess.get(info.point_id, item.target);
