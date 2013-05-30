@@ -370,6 +370,16 @@ class TBSMPax : public TBSMInfo
     std::vector<std::string> name;
 };
 
+class TBSMBagException : public TBSMInfo
+{
+  public:
+    char type[5];
+    TBSMBagException()
+    {
+      *type=0;
+    };
+};
+
 char ParseBSMElement(char *p, TTlgParser &tlg, TBSMInfo* &data, TMemoryManager &mem)
 {
   char c,id[2];
@@ -420,6 +430,7 @@ char ParseBSMElement(char *p, TTlgParser &tlg, TBSMInfo* &data, TMemoryManager &
           }
         case 'I':
         case 'F':
+        case 'O':
           {
             data = new TBSMFltInfo;
             mem.create(data, STDLOG);
@@ -544,6 +555,18 @@ char ParseBSMElement(char *p, TTlgParser &tlg, TBSMInfo* &data, TMemoryManager &
             };
             break;
           }
+        case 'E':
+          {
+            data = new TBSMBagException;
+            mem.create(data, STDLOG);
+            TBSMBagException& exc = *(TBSMBagException*)data;
+
+            c=0;
+            res=sscanf(tlg.lex,"%4[A-ZА-ЯЁ]%c",exc.type,&c);
+            if (c!=0||res!=1||strlen(exc.type)<3) throw ETlgError("Wrong format");
+            if (tlg.GetSlashedLexeme(p)!=NULL) throw ETlgError("Unknown lexeme");
+            break;
+          }
         default: data=NULL;
       };
       return (*id);
@@ -552,12 +575,14 @@ char ParseBSMElement(char *p, TTlgParser &tlg, TBSMInfo* &data, TMemoryManager &
     {
       switch (*id)
       {
-        case 'V': throw ETlgError("Version and supplementary data: %s",E.what());
-        case 'I': throw ETlgError("Inbound flight information: %s",E.what());
-        case 'F': throw ETlgError("Outbound flight information: %s",E.what());
-        case 'N': throw ETlgError("Baggage tag details: %s",E.what());
-        case 'W': throw ETlgError("Pieces and weight data: %s",E.what());
-        case 'P': throw ETlgError("Passenger name: %s",E.what());
+        case 'V': throw ETlgError("Version and Supplementary Data: %s",E.what());
+        case 'I': throw ETlgError("Inbound Flight Information: %s",E.what());
+        case 'F': throw ETlgError("Operational Outbound Flight Information: %s",E.what());
+        case 'N': throw ETlgError("Baggage Tag Details: %s",E.what());
+        case 'W': throw ETlgError("Pieces and Weight Dimensions and Type Data: %s",E.what());
+        case 'O': throw ETlgError("Onward Flight Information: %s",E.what());
+        case 'P': throw ETlgError("Passenger Name: %s",E.what());
+        case 'E': throw ETlgError("Baggage Exception Data: %s",E.what());
         default: throw;
       };
     };
@@ -621,6 +646,81 @@ TTlgPartInfo ParseBSMHeading(TTlgPartInfo heading, TBSMHeadingInfo &info, TMemor
   return next;
 };
 
+class TBSMElemOrderRules : public map<char, string>
+{
+  private:
+    set<string> combinations;
+    void travel(string &s, int last_idx)
+    {
+      if (last_idx<=0)
+      {
+        if (check(s)) combinations.insert(s);
+        return;
+      };
+      for(int i=last_idx; i>=0; i--)
+      {
+        char last_char=s[last_idx];
+        s[last_idx]=s[i];
+        s[i]=last_char;
+        travel(s, last_idx-1);
+        s[i]=s[last_idx];
+        s[last_idx]=last_char;
+      };
+    };
+  public:
+    TBSMElemOrderRules()
+    {
+      insert(make_pair('V',""));
+      insert(make_pair('I',"V"));
+      insert(make_pair('F',"IPE"));
+      insert(make_pair('N',"FNPE"));
+      insert(make_pair('W',"N"));
+      insert(make_pair('O',"NWO"));
+      insert(make_pair('P',"NWOP"));
+      insert(make_pair('E',"PE"));
+    };
+    bool check(const string &s) const
+    {
+      char prior='V';
+      string::const_iterator i=s.begin();
+      do
+      {
+        char c;
+        if (i!=s.end()) c=*i; else c='F';
+        map<char, string>::const_iterator rule=find(c);
+        if (rule!=end())
+        {
+          if (strchr(rule->second.c_str(),prior)==NULL) return false;
+          prior=c;
+        };
+        if (i==s.end()) break;
+        ++i;
+      }
+      while(true);
+      return true;
+    };
+
+    size_t calcCharCombinations(const string &s, bool print)
+    {
+      combinations.clear();
+      string ss(s);
+      travel(ss, ss.size()-1);
+      if (print)
+      {
+        for(set<string>::const_iterator i=combinations.begin(); i!=combinations.end(); ++i)
+          printf("%s\n", i->c_str());
+      };
+      return combinations.size();
+    };
+};
+
+void TestBSMElemOrder(const string &s)
+{
+  TBSMElemOrderRules rules;
+  printf("calcCharCombinations for %s\n", s.c_str());
+  rules.calcCharCombinations(s, true);
+};
+
 void ParseBTMContent(TTlgPartInfo body, TBSMHeadingInfo& info, TBtmContent& con, TMemoryManager &mem)
 {
   vector<TBtmTransferInfo>::iterator iIn;
@@ -634,6 +734,7 @@ void ParseBTMContent(TTlgPartInfo body, TBSMHeadingInfo& info, TBtmContent& con,
   int line;
   char e,prior,*line_p;
   TTlgParser tlg;
+  static TBSMElemOrderRules elemOrderRules;
 
   TBSMInfo *data=NULL;
 
@@ -655,99 +756,121 @@ void ParseBTMContent(TTlgPartInfo body, TBSMHeadingInfo& info, TBtmContent& con,
       if (data==NULL) continue;
       try
       {
-        switch (e)
+        TBSMElemOrderRules::const_iterator rule=elemOrderRules.find(e);
+        if (rule!=elemOrderRules.end())
         {
-          case 'V': throw ETlgError("Wrong element order");
-          case 'I':
-            {
-              if (strchr("VP",prior)==NULL) throw ETlgError("Wrong element order");
-              TBSMFltInfo &flt = *(dynamic_cast<TBSMFltInfo*>(data));
-              TBtmTransferInfo trfer;
-              strcpy(trfer.InFlt.airline,flt.airline);
-              trfer.InFlt.flt_no=flt.flt_no;
-              strcpy(trfer.InFlt.suffix,flt.suffix);
-              trfer.InFlt.scd=flt.scd;
-              trfer.InFlt.pr_utc=false;
-              strcpy(trfer.InFlt.airp_dep,flt.airp);
-              strcpy(trfer.InFlt.airp_arv,airp);
-              strcpy(trfer.InFlt.subcl,flt.subcl);
-              for(iIn=con.Transfer.begin();iIn!=con.Transfer.end();iIn++)
-                if (strcmp(iIn->InFlt.airline,trfer.InFlt.airline)==0&&
-                  iIn->InFlt.flt_no==trfer.InFlt.flt_no&&
-                  strcmp(iIn->InFlt.suffix,trfer.InFlt.suffix)==0&&
-                  iIn->InFlt.scd==trfer.InFlt.scd&&
-                  iIn->InFlt.pr_utc==trfer.InFlt.pr_utc&&
-                  strcmp(iIn->InFlt.airp_dep,trfer.InFlt.airp_dep)==0&&
-                  strcmp(iIn->InFlt.airp_arv,trfer.InFlt.airp_arv)==0&&
-                  strcmp(iIn->InFlt.subcl,trfer.InFlt.subcl)==0) break;
-
-              if (iIn==con.Transfer.end())
-                iIn=con.Transfer.insert(con.Transfer.end(),trfer);
-              break;
-            }
-          case 'F':
-            {
-              if (strchr("IP",prior)==NULL) throw ETlgError("Wrong element order");
-              TBSMFltInfo &flt = *(dynamic_cast<TBSMFltInfo*>(data));
-              TBtmOutFltInfo OutFlt;
-              strcpy(OutFlt.airline,flt.airline);
-              OutFlt.flt_no=flt.flt_no;
-              strcpy(OutFlt.suffix,flt.suffix);
-              OutFlt.scd=flt.scd;
-              OutFlt.pr_utc=false;
-              strcpy(OutFlt.airp_dep,airp);
-              strcpy(OutFlt.airp_arv,flt.airp);
-              strcpy(OutFlt.subcl,flt.subcl);
-              for(iOut=iIn->OutFlt.begin();iOut!=iIn->OutFlt.end();iOut++)
-                if (strcmp(iOut->airline,OutFlt.airline)==0&&
-                  iOut->flt_no==OutFlt.flt_no&&
-                  strcmp(iOut->suffix,OutFlt.suffix)==0&&
-                  iOut->scd==OutFlt.scd&&
-                  iOut->pr_utc==OutFlt.pr_utc&&
-                  strcmp(iOut->airp_dep,OutFlt.airp_dep)==0&&
-                  strcmp(iOut->airp_arv,OutFlt.airp_arv)==0&&
-                  strcmp(iOut->subcl,OutFlt.subcl)==0) break;
-
-              if (iOut==iIn->OutFlt.end())
-                iOut=iIn->OutFlt.insert(iIn->OutFlt.end(),OutFlt);
-              break;
-            }
-          case 'N':
-            {
-              if (strchr("FNP",prior)==NULL) throw ETlgError("Wrong element order");
-              TBSMTag &BSMTag = *(dynamic_cast<TBSMTag*>(data));
-              TBSMTagItem tag;
-              StrToFloat(BSMTag.first_no,tag.first_no);
-              StrToInt(BSMTag.num,tag.num);
-              if (prior!='N')
+          if (strchr(rule->second.c_str(),prior)==NULL)
+            throw ETlgError("Wrong element order");
+          switch (e)
+          {
+            case 'I':
               {
-                TBtmGrpItem grp;
-                iGrp=iOut->grp.insert(iOut->grp.end(),grp);
-              };
-              iGrp->tags.push_back(tag);
-              break;
-            }
-          case 'W':
-            {
-              if (strchr("N",prior)==NULL) throw ETlgError("Wrong element order");
-              TBSMBag &bag = *(dynamic_cast<TBSMBag*>(data));
-              strcpy(iGrp->weight_unit,bag.weight_unit);
-              iGrp->bag_amount=bag.bag_amount;
-              iGrp->bag_weight=bag.bag_weight;
-              iGrp->rk_weight=bag.rk_weight;
-              break;
-            }
-          case 'P':
-            {
-              if (strchr("NWP",prior)==NULL) throw ETlgError("Wrong element order");
-              TBSMPax &BSMPax = *(dynamic_cast<TBSMPax*>(data));
-              TBtmPaxItem pax;
-              pax.surname=BSMPax.surname;
-              pax.name=BSMPax.name;
-              iGrp->pax.push_back(pax);
-              break;
-            }
-          default: ;
+                TBSMFltInfo &flt = *(dynamic_cast<TBSMFltInfo*>(data));
+                TBtmTransferInfo trfer;
+                strcpy(trfer.InFlt.airline,flt.airline);
+                trfer.InFlt.flt_no=flt.flt_no;
+                strcpy(trfer.InFlt.suffix,flt.suffix);
+                trfer.InFlt.scd=flt.scd;
+                trfer.InFlt.pr_utc=false;
+                strcpy(trfer.InFlt.airp_dep,flt.airp);
+                strcpy(trfer.InFlt.airp_arv,airp);
+                strcpy(trfer.InFlt.subcl,flt.subcl);
+                for(iIn=con.Transfer.begin();iIn!=con.Transfer.end();iIn++)
+                  if (strcmp(iIn->InFlt.airline,trfer.InFlt.airline)==0&&
+                    iIn->InFlt.flt_no==trfer.InFlt.flt_no&&
+                    strcmp(iIn->InFlt.suffix,trfer.InFlt.suffix)==0&&
+                    iIn->InFlt.scd==trfer.InFlt.scd&&
+                    iIn->InFlt.pr_utc==trfer.InFlt.pr_utc&&
+                    strcmp(iIn->InFlt.airp_dep,trfer.InFlt.airp_dep)==0&&
+                    strcmp(iIn->InFlt.airp_arv,trfer.InFlt.airp_arv)==0&&
+                    strcmp(iIn->InFlt.subcl,trfer.InFlt.subcl)==0) break;
+
+                if (iIn==con.Transfer.end())
+                  iIn=con.Transfer.insert(con.Transfer.end(),trfer);
+                break;
+              }
+            case 'F':
+              {
+                TBSMFltInfo &flt = *(dynamic_cast<TBSMFltInfo*>(data));
+                TBtmOutFltInfo OutFlt;
+                strcpy(OutFlt.airline,flt.airline);
+                OutFlt.flt_no=flt.flt_no;
+                strcpy(OutFlt.suffix,flt.suffix);
+                OutFlt.scd=flt.scd;
+                OutFlt.pr_utc=false;
+                strcpy(OutFlt.airp_dep,airp);
+                strcpy(OutFlt.airp_arv,flt.airp);
+                strcpy(OutFlt.subcl,flt.subcl);
+                for(iOut=iIn->OutFlt.begin();iOut!=iIn->OutFlt.end();iOut++)
+                  if (strcmp(iOut->airline,OutFlt.airline)==0&&
+                    iOut->flt_no==OutFlt.flt_no&&
+                    strcmp(iOut->suffix,OutFlt.suffix)==0&&
+                    iOut->scd==OutFlt.scd&&
+                    iOut->pr_utc==OutFlt.pr_utc&&
+                    strcmp(iOut->airp_dep,OutFlt.airp_dep)==0&&
+                    strcmp(iOut->airp_arv,OutFlt.airp_arv)==0&&
+                    strcmp(iOut->subcl,OutFlt.subcl)==0) break;
+
+                if (iOut==iIn->OutFlt.end())
+                  iOut=iIn->OutFlt.insert(iIn->OutFlt.end(),OutFlt);
+                break;
+              }
+            case 'N':
+              {
+                TBSMTag &BSMTag = *(dynamic_cast<TBSMTag*>(data));
+                TBSMTagItem tag;
+                StrToFloat(BSMTag.first_no,tag.first_no);
+                StrToInt(BSMTag.num,tag.num);
+                if (prior!='N')
+                {
+                  TBtmGrpItem grp;
+                  iGrp=iOut->grp.insert(iOut->grp.end(),grp);
+                };
+                iGrp->tags.push_back(tag);
+                break;
+              }
+            case 'W':
+              {
+                TBSMBag &bag = *(dynamic_cast<TBSMBag*>(data));
+                strcpy(iGrp->weight_unit,bag.weight_unit);
+                iGrp->bag_amount=bag.bag_amount;
+                iGrp->bag_weight=bag.bag_weight;
+                iGrp->rk_weight=bag.rk_weight;
+                break;
+              }
+            case 'O':
+              {
+                TBSMFltInfo &flt = *(dynamic_cast<TBSMFltInfo*>(data));
+                TSegmentItem OnwardFlt;
+                strcpy(OnwardFlt.airline,flt.airline);
+                OnwardFlt.flt_no=flt.flt_no;
+                strcpy(OnwardFlt.suffix,flt.suffix);
+                OnwardFlt.scd=flt.scd;
+                OnwardFlt.pr_utc=false;
+                strcpy(OnwardFlt.airp_dep,"");
+                strcpy(OnwardFlt.airp_arv,flt.airp);
+                strcpy(OnwardFlt.subcl,flt.subcl);
+                iGrp->OnwardFlt.push_back(OnwardFlt);
+                break;
+              }
+            case 'P':
+              {
+                TBSMPax &BSMPax = *(dynamic_cast<TBSMPax*>(data));
+                TBtmPaxItem pax;
+                pax.surname=BSMPax.surname;
+                pax.name=BSMPax.name;
+                iGrp->pax.push_back(pax);
+                break;
+              }
+            case 'E':
+              {
+                TBSMBagException &BSMBagException = *(dynamic_cast<TBSMBagException*>(data));
+                if (*BSMBagException.type!=0)
+                  iGrp->excepts.insert(string(BSMBagException.type));
+                break;
+              }
+            default: ;
+          };
         };
         mem.destroy(data, STDLOG);
         if (data!=NULL) delete data;
@@ -761,13 +884,25 @@ void ParseBTMContent(TTlgPartInfo body, TBSMHeadingInfo& info, TBtmContent& con,
       };
     }
     while ((line_p=tlg.NextLine(line_p))!=NULL);
+
+    TBSMElemOrderRules::const_iterator rule=elemOrderRules.find(e);
+    if (rule!=elemOrderRules.end())
+    {
+      if (strchr(rule->second.c_str(),prior)==NULL)
+        throw ETlgError("Wrong final element");
+    };
   }
   catch (ETlgError E)
   {
-    if (tlg.GetToEOLLexeme(line_p)!=NULL)
-      throw ETlgError("%s\n>>>>>LINE %d: %s",E.what(),line,tlg.lex);
-    else
-      throw ETlgError("%s\n>>>>>LINE %d",E.what(),line);
+    if (line_p!=NULL)
+    {
+      if (tlg.GetToEOLLexeme(line_p)!=NULL)
+        throw ETlgError("%s\n>>>>>LINE %d: %s",E.what(),line,tlg.lex);
+      else
+        throw ETlgError("%s\n>>>>>LINE %d",E.what(),line);
+    }
+    else throw ETlgError("%s",E.what());
+
   };
   return;
 };
@@ -958,7 +1093,7 @@ void ParseAHMFltInfo(TTlgPartInfo body, const TAHMHeadingInfo &info, TFltInfo& f
             if (c!=0||res<2||flt.flt_no<0) throw ETlgError("Wrong flight");
             if (res==3&&
                 !IsUpperLetter(flt.suffix[0])) throw ETlgError("Wrong flight");
-            GetAirline(flt.airline,true);
+            GetAirline(flt.airline);
             GetSuffix(flt.suffix[0]);
             //переведем day в TDateTime
             int year,mon,currday;
@@ -1496,6 +1631,7 @@ void ParsePTMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPtmContent& con)
     strcpy(con.InFlt.airp_arv,info.flt.airp_arv);
     GetAirp(con.InFlt.airp_arv);
 
+    bool NILpossible=true;
     e=TransferPassengerData;
     do
     {
@@ -1505,11 +1641,13 @@ void ParsePTMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPtmContent& con)
       {
         case TransferPassengerData:
           {
-            if (strcmp(tlg.lex,"NIL")==0)
+            if (NILpossible && strcmp(tlg.lex,"NIL")==0)
             {
               if (tlg.GetLexeme(p)!=NULL) throw ETlgError("Unknown lexeme");
+              e=EndOfMessage;
               break;
             };
+            NILpossible=false;
             TPtmOutFltInfo flt;
             TPtmTransferData data;
             strcpy(lexh,tlg.lex);
@@ -1660,6 +1798,10 @@ void ParsePTMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPtmContent& con)
               iOut=con.OutFlt.insert(con.OutFlt.end(),flt);
             iOut->data.push_back(data);
             break;
+          }
+        case EndOfMessage:
+          {
+            throw ETlgError("Unknown lexeme");
           }
         default:;
       };
@@ -1815,10 +1957,11 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
 
     bool isPRL=strcmp(info.tlg_type,"PRL")==0;
 
+    bool NILpossible=isPRL;
     if (isPRL)
       e=Configuration;
     else
-    e=BonusPrograms;
+      e=BonusPrograms;
     do
     {
       line++;
@@ -1838,8 +1981,13 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
             do
             {
               TRouteItem RouteItem;
+              RouteItem.station[0]=0;
               res=sscanf(tlg.lex,"%3[A-ZА-ЯЁ]/%s",RouteItem.station,tlg.lex);
-              if (res!=2) throw ETlgError("Wrong format");
+              if (res!=2)
+              {
+                if (con.cfg.empty() && res==1 && strcmp(RouteItem.station,"CFG")==0) break;
+                throw ETlgError("Wrong format");
+              };
               if (con.cfg.empty())
                 strcpy(RouteItem.station,con.flt.airp_dep);
               else
@@ -2089,6 +2237,14 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
           e=TotalsByDestination;
           e_part=1;
         case TotalsByDestination:
+          if (NILpossible && strcmp(tlg.lex,"NIL")==0)
+          {
+            if (tlg.GetLexeme(p)!=NULL) throw ETlgError("Unknown lexeme");
+            e=EndOfMessage;
+            break;
+          };
+          NILpossible=false;
+
           if (tlg.lex[0]=='-')
           {
             TTotalsByDest Totals;
@@ -2244,6 +2400,10 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
             e_part=3;
             break;
           };
+        case EndOfMessage:
+          {
+            throw ETlgError("Unknown lexeme");
+          }
         default:;
       };
     }
@@ -2764,7 +2924,13 @@ void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &p
     {
       c=0;
       res=sscanf(tlg.lex,"/%3lu/%4lu%[^.]",&ne.bag.bag_amount,&ne.bag.bag_weight,tlg.lex);
-      if (c!=0||res<2||ne.bag.bag_amount<0||ne.bag.bag_weight<0) throw ETlgError("Wrong pieces/weight data element");
+      if (c!=0||res<2||ne.bag.bag_amount<0||ne.bag.bag_weight<0)
+      {
+        c=0;
+        res=sscanf(tlg.lex,"/%3lu%c",&ne.bag.bag_amount,&c);
+        if (c!=0||res!=1||ne.bag.bag_amount!=0)
+          throw ETlgError("Wrong pieces/weight data element");
+      };
       if (res==3)
       {
         c=0;
@@ -2807,7 +2973,17 @@ void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &p
     else
     {
       if (strlen(tagh.first_no)!=10||strlen(tagh.num)!=3)
-        throw ETlgError("Wrong baggage tag details element");
+      {
+        lexh[0]=0;
+        c=0;
+        res=sscanf(tlg.lex,".N/%12[0-9]/%3[A-ZА-ЯЁ]%c",lexh,tag.airp_arv_final,&c); //вообще это не совсем по стандарту
+        if (c!=0||res!=2||strlen(lexh)<9) //если сюда попали то длина lexh м.б. только 11 или 12
+          throw ETlgError("Wrong baggage tag details element");
+        int first_no_len=strlen(lexh)-3;
+        strncpy(tagh.first_no,lexh,first_no_len);
+        tagh.first_no[first_no_len]=0;
+        strcpy(tagh.num,lexh+first_no_len);
+      };
       StrToFloat(tagh.first_no,tag.numeric_no);
       StrToInt(tagh.num,tag.num);
       if (tag.num<1 || tag.num>999 || tag.numeric_no+tag.num-1>=1E10)
@@ -4538,7 +4714,7 @@ TTlgParts GetParts(char* tlg_p, TMemoryManager &mem)
   return parts;
 };
 
-int SaveFlt(int tlg_id, TFltInfo& flt, TBindType bind_type)
+int SaveFlt(int tlg_id, const TFltInfo& flt, TBindType bind_type)
 {
   int point_id;
   TQuery Qry(&OraSession);
@@ -4720,6 +4896,12 @@ bool DeletePTMBTMContent(int point_id_in, const THeadingInfo& info)
       "  DELETE FROM "
       "    (SELECT * FROM trfer_grp,trfer_tags "
       "     WHERE trfer_grp.grp_id=trfer_tags.grp_id AND trfer_grp.trfer_id=:trfer_id); "
+      "  DELETE FROM "
+      "    (SELECT * FROM trfer_grp,tlg_trfer_onwards "
+      "     WHERE trfer_grp.grp_id=tlg_trfer_onwards.grp_id AND trfer_grp.trfer_id=:trfer_id); "
+      "  DELETE FROM "
+      "    (SELECT * FROM trfer_grp,tlg_trfer_excepts "
+      "     WHERE trfer_grp.grp_id=tlg_trfer_excepts.grp_id AND trfer_grp.trfer_id=:trfer_id); "
       "  DELETE FROM trfer_grp WHERE trfer_id=:trfer_id; "
       "  DELETE FROM tlg_transfer WHERE trfer_id=:trfer_id; "
       "END;";
@@ -4735,16 +4917,8 @@ bool DeletePTMBTMContent(int point_id_in, const THeadingInfo& info)
   return false;
 };
 
-void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, TBtmContent& con)
+void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, const TBtmContent& con)
 {
-  vector<TBtmTransferInfo>::iterator iIn;
-  vector<TBtmOutFltInfo>::iterator iOut;
-  vector<TBtmGrpItem>::iterator iGrp;
-  vector<TBtmPaxItem>::iterator iPax;
-  vector<TBSMTagItem>::iterator iTag;
-  vector<string>::iterator i;
-  int point_id_in,point_id_out;
-
   TQuery TrferQry(&OraSession);
   TrferQry.SQLText=
     "INSERT INTO tlg_transfer(trfer_id,point_id_in,subcl_in,point_id_out,subcl_out,tlg_id) "
@@ -4775,19 +4949,39 @@ void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, TBtmContent& con)
     "INSERT INTO trfer_tags(grp_id,no) VALUES(pax_grp__seq.currval,:no)";
   TagQry.DeclareVariable("no",otFloat);
 
-  for(iIn=con.Transfer.begin();iIn!=con.Transfer.end();iIn++)
+  TQuery OnwardQry(&OraSession);
+  OnwardQry.SQLText=
+    "INSERT INTO tlg_trfer_onwards(grp_id, num, airline, flt_no, suffix, local_date, airp_dep, airp_arv, subclass) "
+    "VALUES(pax_grp__seq.currval, :num, :airline, :flt_no, :suffix, :local_date, :airp_dep, :airp_arv, :subclass)";
+  OnwardQry.DeclareVariable("num", otInteger);
+  OnwardQry.DeclareVariable("airline", otString);
+  OnwardQry.DeclareVariable("flt_no", otInteger);
+  OnwardQry.DeclareVariable("suffix", otString);
+  OnwardQry.DeclareVariable("local_date", otDate);
+  OnwardQry.DeclareVariable("airp_dep", otString);
+  OnwardQry.DeclareVariable("airp_arv", otString);
+  OnwardQry.DeclareVariable("subclass", otString);
+
+  TQuery ExceptQry(&OraSession);
+  ExceptQry.SQLText=
+    "INSERT INTO tlg_trfer_excepts(grp_id, type) VALUES(pax_grp__seq.currval, :type)";
+  ExceptQry.DeclareVariable("type", otString);
+
+  int point_id_in,point_id_out;
+
+  for(vector<TBtmTransferInfo>::const_iterator iIn=con.Transfer.begin();iIn!=con.Transfer.end();++iIn)
   {
-    point_id_in=SaveFlt(tlg_id,dynamic_cast<TFltInfo&>(iIn->InFlt),btLastSeg);
+    point_id_in=SaveFlt(tlg_id,iIn->InFlt,btLastSeg);
     if (!DeletePTMBTMContent(point_id_in,info)) continue;
     TrferQry.SetVariable("point_id_in",point_id_in);
     TrferQry.SetVariable("subcl_in",iIn->InFlt.subcl);
-    for(iOut=iIn->OutFlt.begin();iOut!=iIn->OutFlt.end();iOut++)
+    for(vector<TBtmOutFltInfo>::const_iterator iOut=iIn->OutFlt.begin();iOut!=iIn->OutFlt.end();++iOut)
     {
-      point_id_out=SaveFlt(tlg_id,dynamic_cast<TFltInfo&>(*iOut),btFirstSeg);
+      point_id_out=SaveFlt(tlg_id,*iOut,btFirstSeg);
       TrferQry.SetVariable("point_id_out",point_id_out);
       TrferQry.SetVariable("subcl_out",iOut->subcl);
       TrferQry.Execute();
-      for(iGrp=iOut->grp.begin();iGrp!=iOut->grp.end();iGrp++)
+      for(vector<TBtmGrpItem>::const_iterator iGrp=iOut->grp.begin();iGrp!=iOut->grp.end();++iGrp)
       {
         if (*(iGrp->weight_unit)!=0)
         {
@@ -4803,12 +4997,12 @@ void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, TBtmContent& con)
         };
         GrpQry.SetVariable("weight_unit",iGrp->weight_unit);
         GrpQry.Execute();
-        for(iPax=iGrp->pax.begin();iPax!=iGrp->pax.end();iPax++)
+        for(vector<TBtmPaxItem>::const_iterator iPax=iGrp->pax.begin();iPax!=iGrp->pax.end();++iPax)
         {
           PaxQry.SetVariable("surname",iPax->surname);
           if (!iPax->name.empty())
           {
-            for(i=iPax->name.begin();i!=iPax->name.end();i++)
+            for(vector<string>::const_iterator i=iPax->name.begin();i!=iPax->name.end();i++)
             {
               PaxQry.SetVariable("name",*i);
               PaxQry.Execute();
@@ -4820,12 +5014,32 @@ void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, TBtmContent& con)
             PaxQry.Execute();
           };
         };
-        for(iTag=iGrp->tags.begin();iTag!=iGrp->tags.end();iTag++)
+        for(vector<TBSMTagItem>::const_iterator iTag=iGrp->tags.begin();iTag!=iGrp->tags.end();++iTag)
           for(int j=0;j<iTag->num;j++)
           {
             TagQry.SetVariable("no",iTag->first_no+j);
             TagQry.Execute();
           };
+        int num=1;
+        string prior_airp_arv=iOut->airp_arv;
+        for(vector<TSegmentItem>::const_iterator iOnward=iGrp->OnwardFlt.begin();iOnward!=iGrp->OnwardFlt.end();++iOnward,num++)
+        {
+          OnwardQry.SetVariable("num", num);
+          OnwardQry.SetVariable("airline", iOnward->airline);
+          OnwardQry.SetVariable("flt_no", (int)iOnward->flt_no);
+          OnwardQry.SetVariable("suffix", iOnward->suffix);
+          OnwardQry.SetVariable("local_date", iOnward->scd);
+          OnwardQry.SetVariable("airp_dep", prior_airp_arv);
+          OnwardQry.SetVariable("airp_arv", iOnward->airp_arv);
+          OnwardQry.SetVariable("subclass", iOnward->subcl);
+          OnwardQry.Execute();
+          prior_airp_arv=iOnward->airp_arv;
+        };
+        for(set<string>::const_iterator iExcept=iGrp->excepts.begin();iExcept!=iGrp->excepts.end();++iExcept)
+        {
+          ExceptQry.SetVariable("type", *iExcept);
+          ExceptQry.Execute();
+        };
       };
     };
   };

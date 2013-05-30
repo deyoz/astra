@@ -260,7 +260,7 @@ void TDEI_airline::parse(const char *val)
     if(c != 0 or res != 1)
         throw ETlgError("wrong DEI %d format", id);
     if(not(strlen(airline) == 1 and *airline == 'X'))
-        GetAirline(airline, true);
+        GetAirline(airline);
 }
 
 void TDEI_1::dump()
