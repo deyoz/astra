@@ -5535,7 +5535,22 @@ void TWM::ToTlg(TTlgInfo &info, vector<string> &body)
     PersWeightRules pwr;
     ClassesPersWeight cpw;
     pwr.read(info.point_id);
+
     ostringstream result;
+
+    pwr.weight(string(), string(), cpw);
+    ProgTrace(TRACE5, "cpw.id %d", cpw.id);
+    ProgTrace(TRACE5, "cpw.priority %d", cpw.priority);
+    ProgTrace(TRACE5, "cpw.cl '%s'", cpw.cl.c_str());
+    ProgTrace(TRACE5, "cpw.subcl '%s'", cpw.subcl.c_str());
+    result
+        << "WM.S.P.G."
+        << cpw.male << "/" << cpw.female << "/" << cpw.child << "/" << cpw.infant
+        << "." << KG;
+
+    body.push_back(result.str());
+
+    result.str(string());
     pwr.weight("", string(), cpw);
     result
         << "WM.S.P.CG." << info.TlgElemIdToElem(etClass, "")
@@ -5549,7 +5564,9 @@ void TWM::ToTlg(TTlgInfo &info, vector<string> &body)
         << "." << info.TlgElemIdToElem(etClass, "")
         << cpw.male << "/" << cpw.female << "/" << cpw.child << "/" << cpw.infant
         << "." << KG;
+
     body.push_back(result.str());
+
     result.str(string());
     TFlightWeights w;
     w.read( info.point_id, onlyCheckin );
