@@ -41,6 +41,15 @@ enum TCacheUpdateStatus {usUnmodified, usModified, usInserted, usDeleted};
 enum TCacheQueryType {cqtSelect,cqtRefresh,cqtInsert,cqtUpdate,cqtDelete};
 enum TCacheElemCategory {cecNone, cecCode, cecNameShort, cecName, cecRoleName, cecUserName, cecUserPerms};
 
+struct TOptRefField {
+    std::string code, ref_code;
+};
+
+struct TOption {
+    std::string option, title;
+    std::vector<TOptRefField> ref_fields;
+};
+
 struct TCacheField2 {
     std::string Name;
     std::string Title;
@@ -131,6 +140,7 @@ class TCacheTable {
         int UpdateRight;
         int DeleteRight;
         bool Forbidden, ReadOnly;
+        std::vector<TOption> options;
         std::vector<TCacheField2> FFields;
         int clientVerData;
         int curVerIface;
@@ -144,6 +154,7 @@ class TCacheTable {
         void getParams(xmlNodePtr paramNode, TParams &vparams);
         bool refreshInterface();
         TUpdateDataType refreshData();
+        virtual void initOptions();
         virtual void initFields();
         void XMLInterface(const xmlNodePtr resNode);
         void XMLData(const xmlNodePtr resNode);
