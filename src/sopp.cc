@@ -32,6 +32,7 @@
 #include "term_version.h"
 #include "tlg/tlg_binding.h"
 #include "rozysk.h"
+#include "transfer.h"
 
 #include "aodb.h"
 #include "serverlib/perfom.h"
@@ -182,20 +183,6 @@ const char *arx_stagesSQL =
     "SELECT stage_id,scd,est,act,pr_auto,pr_manual FROM arx_trip_stages "
     " WHERE part_key=:part_key AND point_id=:point_id "
     " ORDER BY stage_id ";
-/*const char* stationsSQL =
-    "SELECT stations.name,stations.work_mode,trip_stations.pr_main FROM stations,trip_stations "\
-    " WHERE point_id=:point_id AND stations.desk=trip_stations.desk AND stations.work_mode=trip_stations.work_mode "\
-    " ORDER BY stations.work_mode,stations.name";
-*/
-const char* trfer_out_SQL =
-    "SELECT 1 "
-    " FROM tlg_binding,tlg_transfer "
-    "WHERE tlg_binding.point_id_spp=:point_id AND tlg_binding.point_id_tlg=tlg_transfer.point_id_in AND rownum<2";
-
-const char* trfer_in_SQL =
-    "SELECT 1 "
-    " FROM tlg_binding,tlg_transfer "
-    "WHERE tlg_binding.point_id_spp=:point_id AND tlg_binding.point_id_tlg=tlg_transfer.point_id_out AND rownum<2";
 const char* crs_displace_from_SQL =
    "SELECT class_spp,airp_arv_spp,airline,flt_no,suffix,scd, "
    "       tlg_binding.point_id_spp,class_tlg,airp_arv_tlg "
@@ -393,24 +380,37 @@ bool FilterFlightDate( TSOPPTrip &tr, TDateTime first_date, TDateTime next_date,
 	// 2 варианта работы. 1-локальное время пульта переведено в UTC, 2 режим LocalAll - тогда
   if ( first_date > NoExists ) {
     bool canuseTR = false;
-    if ( tr.act_in > NoExists )
+    if ( tr.act_in > NoExists ) {
     	canuseTR = filter_time( tr.act_in, tr, first_date, next_date, errcity );
-    else
-      if ( tr.est_in > NoExists )
+    }
+    else {
+      if ( tr.est_in > NoExists ) {
       	canuseTR = filter_time( tr.est_in, tr, first_date, next_date, errcity );
-      else
-        if ( tr.scd_in > NoExists )
+      }
+      else {
+        if ( tr.scd_in > NoExists ) {
         	canuseTR = filter_time( tr.scd_in, tr, first_date, next_date, errcity );
-    if ( !canuseTR )
-      if ( tr.act_out > NoExists )
+        }
+      }
+    }
+    if ( !canuseTR ) {
+      if ( tr.act_out > NoExists ) {
       	canuseTR = filter_time( tr.act_out, tr, first_date, next_date, errcity );
-      else
-        if ( tr.est_out > NoExists )
+      }
+      else {
+        if ( tr.est_out > NoExists ) {
         	canuseTR = filter_time( tr.est_out, tr, first_date, next_date, errcity );
-        else
-          if ( tr.scd_out > NoExists )
+        }
+        else {
+          if ( tr.scd_out > NoExists ) {
           	canuseTR = filter_time( tr.scd_out, tr, first_date, next_date, errcity );
-          else canuseTR = pr_isg;
+          }
+          else {
+            canuseTR = pr_isg;
+          }
+        }
+      }
+    }
     return canuseTR;
   }
   return true;
@@ -465,7 +465,7 @@ void build_TripStages( const vector<TSoppStage> &stages, const string &region, x
 {
   xmlNodePtr lNode = NULL;
   for ( tstages::const_iterator st=stages.begin(); st!=stages.end(); st++ ) {
-  	if ( pr_isg && st->stage_id != sRemovalGangWay ||
+  	if ( ( pr_isg && st->stage_id != sRemovalGangWay ) ||
          !CompatibleStage(  (TStage)st->stage_id ) )
   		continue;
     if ( !lNode )
@@ -620,8 +620,9 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
 	string errcity;
 	TReqInfo *reqInfo = TReqInfo::Instance();
 
-  if (reqInfo->user.access.airlines.empty() && reqInfo->user.access.airlines_permit ||
-      reqInfo->user.access.airps.empty() && reqInfo->user.access.airps_permit) return errcity;
+  if ( ( reqInfo->user.access.airlines.empty() && reqInfo->user.access.airlines_permit ) ||
+       ( reqInfo->user.access.airps.empty() && reqInfo->user.access.airps_permit ) )
+    return errcity;
 
   TQuery PointsQry( &OraSession );
   TBaseTable &airps = base_tables.get( "airps" );
@@ -689,22 +690,10 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
     ResaQry.SQLText = resaSQL;
     ResaQry.DeclareVariable( "point_id", otInteger );
   }
-  /*TQuery StationsQry( &OraSession );
-  if ( !arx ) {
-    StationsQry.SQLText = stationsSQL;
-    StationsQry.DeclareVariable( "point_id", otInteger );
-  } */
+
   TQuery Trfer_outQry( &OraSession );
   TQuery Trfer_inQry( &OraSession );
-  /*TQuery Trfer_regQry( &OraSession );*/
-  if ( !arx ) {
-  	Trfer_outQry.SQLText = trfer_out_SQL;
-  	Trfer_outQry.DeclareVariable( "point_id", otInteger );
-  	Trfer_inQry.SQLText = trfer_in_SQL;
-  	Trfer_inQry.DeclareVariable( "point_id", otInteger );
-  	/*Trfer_regQry.SQLText = trfer_reg_SQL;
-  	Trfer_regQry.DeclareVariable( "point_id", otInteger );*/
-  }
+
   TQuery CRS_DispltoQry( &OraSession );
   TQuery CRS_DisplfromQry( &OraSession );
   if ( !arx ) {
@@ -1001,9 +990,13 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
         }
         ////////////////////// trfer  ///////////////////////////////
         if ( !arx ) {
-      		Trfer_inQry.SetVariable( "point_id", tr->point_id );
-       		Trfer_inQry.Execute();
-          if ( !Trfer_inQry.Eof )
+          TTripInfo flt;
+          flt.airline= tr->airline_out;
+          flt.flt_no=  tr->flt_no_out;
+          flt.suffix= tr->suffix_out;
+          flt.scd_out= tr->scd_out;  //обязательно в UTC, м.б. NoExists
+          flt.airp= tr->airp;
+          if (TrferList::trferOutExists( tr->point_id, flt, Trfer_inQry ))
           	tr->TrferType.setFlag( trferOut );
           bool trferExists;
           get_TrferExists( tr->point_id, trferExists );
@@ -1041,10 +1034,8 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
       }
     } // end if (!place_out.empty())
    	if ( !arx && module != tISG && tr->trfer_out_point_id != -1 ) {
-   		Trfer_outQry.SetVariable( "point_id", tr->trfer_out_point_id );
-   		Trfer_outQry.Execute();
-   		if ( !Trfer_outQry.Eof )
-   			tr->TrferType.setFlag( trferIn );
+      if (TrferList::trferInExists( tr->point_id, tr->trfer_out_point_id, Trfer_outQry))
+        tr->TrferType.setFlag( trferIn );
    	}
    	if ( !arx && module == tSOPP && tr->pr_reg ) {
    		TripAlarms( tr->point_id, tr->Alarms );
@@ -1061,7 +1052,8 @@ void buildSOPP( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
   for ( TSOPPTrips::iterator tr=trips.begin(); tr!=trips.end(); tr++ ) {
     if ( !tripsNode )
       tripsNode = NewTextChild( dataNode, "trips" );
-    if ( tr->places_in.empty() && tr->places_out.empty() || tr->region.empty() ) // такой рейс не отображаем
+    if ( ( tr->places_in.empty() && tr->places_out.empty() ) ||
+         tr->region.empty() ) // такой рейс не отображаем
       continue;
     try {
       if ( tr->scd_in > NoExists )
@@ -1289,7 +1281,8 @@ void buildISG( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
   for ( TSOPPTrips::iterator tr=trips.begin(); tr!=trips.end(); tr++ ) {
     if ( !tripsNode )
       tripsNode = NewTextChild( dataNode, "trips" );
-    if ( tr->places_in.empty() && tr->places_out.empty() || tr->region.empty() ) // такой рейс не отображаем
+    if ( ( tr->places_in.empty() && tr->places_out.empty() ) ||
+         tr->region.empty() ) // такой рейс не отображаем
       continue;
     try {
     	ecity = tr->city;
@@ -1618,474 +1611,6 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     	                             LParams() << LParam("city", ElemIdToCodeNative(etCity,errcity)));
 }
 
-namespace sopp
-{
-class TTransferPaxItem
-{
-  public:
-    string surname, name;
-    int seats;
-    int bag_amount, bag_weight, rk_weight;
-    vector<TBagTagNumber> tags;
-    TTransferPaxItem()
-    {
-      seats=NoExists;
-      bag_amount=NoExists;
-      bag_weight=NoExists;
-      rk_weight=NoExists;
-    };
-};
-
-class TTransferGrpItem
-{
-  public:
-    int grp_id;
-    int inbound_point_dep; //только для GetInboundTCkin
-    string inbound_trip;   //только для GetInboundTCkin
-    string airline_view;
-    int flt_no;
-    string suffix_view;
-    TDateTime scd_local;
-    string airp_dep_view, airp_arv_view, subcl_view;
-    string tlg_airp_view;
-    int subcl_priority;
-    int seats;
-    int bag_amount, bag_weight, rk_weight;
-    string weight_unit;
-    vector<TTransferPaxItem> pax;
-    vector<TBagTagNumber> tags;
-    
-    bool operator < (const TTransferGrpItem &grp) const
-    {
-      if (scd_local!=grp.scd_local)
-        return scd_local<grp.scd_local;
-      if (airline_view!=grp.airline_view)
-        return airline_view<grp.airline_view;
-      if (flt_no!=grp.flt_no)
-        return flt_no<grp.flt_no;
-      if (suffix_view!=grp.suffix_view)
-        return suffix_view<grp.suffix_view;
-      if (airp_dep_view!=grp.airp_dep_view)
-        return airp_dep_view<grp.airp_dep_view;
-      if (inbound_point_dep!=grp.inbound_point_dep)
-        return inbound_point_dep<grp.inbound_point_dep;
-      if (airp_arv_view!=grp.airp_arv_view)
-        return airp_arv_view<grp.airp_arv_view;
-      if (subcl_priority!=grp.subcl_priority)
-        return subcl_priority<grp.subcl_priority;
-      if (subcl_view!=grp.subcl_view)
-        return subcl_view<grp.subcl_view;
-      return grp_id<grp.grp_id;
-    };
-    
-};
-
-};
-
-void SoppInterface::GetTransfer(bool pr_inbound_tckin,
-                                bool pr_out,
-                                bool pr_tlg,
-                                bool pr_bag,
-                                int point_id,
-                                xmlNodePtr resNode)
-{
-  TReqInfo *reqInfo = TReqInfo::Instance();
-
-  TQuery Qry(&OraSession);
-  TQuery PointsQry(&OraSession);
-  TQuery PaxQry(&OraSession);
-  TQuery RemQry(&OraSession);
-  TQuery TagQry(&OraSession);
-  
-  PointsQry.Clear();
-  PointsQry.SQLText =
-    "SELECT point_id,airp,airline,flt_no,suffix,craft,bort,scd_out, "
-    "       NVL(act_out,NVL(est_out,scd_out)) AS real_out "
-    "FROM points "
-    "WHERE point_id=:point_id AND pr_del>=0";
-  PointsQry.DeclareVariable( "point_id", otInteger );
-
-  if (!pr_out)
-  {
-    //point_id содержит пункт прилета а нам нужен предыдущий пункт вылета
-    TTripRouteItem priorAirp;
-    TTripRoute().GetPriorAirp(NoExists,point_id,trtNotCancelled,priorAirp);
-    if (priorAirp.point_id==NoExists) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND");
-    point_id=priorAirp.point_id;
-  };
-  PointsQry.SetVariable( "point_id", point_id );
-  PointsQry.Execute();
-  if (PointsQry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND");
-  TTripInfo info(PointsQry);
-
-  Qry.Clear();
-  if (pr_tlg)
-  {
-    if (pr_out)
-      Qry.SQLText=
-        "SELECT tlg_trips.point_id,tlg_trips.airline,tlg_trips.flt_no,tlg_trips.suffix, "
-        "       tlg_trips.scd,tlg_trips.airp_dep AS airp,tlg_trips.airp_dep,tlg_trips.airp_arv, "
-        "       tlg_transfer.trfer_id,tlg_transfer.subcl_in AS subcl, "
-        "       trfer_grp.grp_id,seats,bag_amount,bag_weight,rk_weight,weight_unit "
-        "FROM trfer_grp,tlgs_in,tlg_trips,tlg_transfer,tlg_binding "
-        "WHERE tlg_transfer.tlg_id=tlgs_in.id AND tlgs_in.num=1 AND "
-        "      tlgs_in.type=:tlg_type AND "
-        "      tlg_transfer.point_id_out=tlg_binding.point_id_tlg AND "
-        "      tlg_binding.point_id_spp=:point_id AND "
-        "      tlg_trips.point_id=tlg_transfer.point_id_in AND "
-        "      tlg_transfer.trfer_id=trfer_grp.trfer_id ";
-    else
-      Qry.SQLText=
-        "SELECT tlg_trips.point_id,tlg_trips.airline,tlg_trips.flt_no,tlg_trips.suffix, "
-        "       tlg_trips.scd,tlg_trips.airp_arv AS airp,tlg_trips.airp_dep,tlg_trips.airp_arv, "
-        "       tlg_transfer.trfer_id,tlg_transfer.subcl_out AS subcl, "
-        "       trfer_grp.grp_id,seats,bag_amount,bag_weight,rk_weight,weight_unit "
-        "FROM trfer_grp,tlgs_in,tlg_trips,tlg_transfer,tlg_binding "
-        "WHERE tlg_transfer.tlg_id=tlgs_in.id AND tlgs_in.num=1 AND "
-        "      tlgs_in.type=:tlg_type AND "
-        "      tlg_transfer.point_id_in=tlg_binding.point_id_tlg AND "
-        "      tlg_binding.point_id_spp=:point_id AND "
-        "      tlg_trips.point_id=tlg_transfer.point_id_out AND "
-        "      tlg_transfer.trfer_id=trfer_grp.trfer_id ";
-    Qry.CreateVariable("point_id",otInteger,point_id);
-    if (pr_bag)
-      Qry.CreateVariable("tlg_type",otString,"BTM");
-    else
-      Qry.CreateVariable("tlg_type",otString,"PTM");
-
-    PaxQry.SQLText="SELECT surname,name FROM trfer_pax WHERE grp_id=:grp_id ORDER BY surname,name";
-    PaxQry.DeclareVariable("grp_id",otInteger);
-
-    TagQry.SQLText=
-      "SELECT no FROM trfer_tags WHERE grp_id=:grp_id";
-    TagQry.DeclareVariable("grp_id",otInteger);
-  }
-  else
-  {
-    if (pr_inbound_tckin)
-    {
-      Qry.SQLText=
-        "SELECT tckin_pax_grp.tckin_id,tckin_pax_grp.seg_no, "
-        "       pax_grp.grp_id,pax_grp.airp_arv,pax_grp.class AS subcl "
-        "FROM pax_grp,tckin_pax_grp "
-        "WHERE pax_grp.grp_id=tckin_pax_grp.grp_id AND "
-        "      pax_grp.point_dep=:point_id AND bag_refuse=0 AND pax_grp.status<>'T' ";
-    }
-    else
-    {
-      Qry.SQLText=
-        "SELECT trfer_trips.airline,trfer_trips.flt_no,trfer_trips.suffix,trfer_trips.scd, "
-        "       trfer_trips.airp_dep,transfer.airp_arv, "
-        "       pax_grp.grp_id,pax_grp.class AS subcl "
-        "FROM pax_grp,transfer,trfer_trips "
-        "WHERE pax_grp.grp_id=transfer.grp_id AND "
-        "      transfer.point_id_trfer=trfer_trips.point_id AND "
-        "      transfer.transfer_num=1 AND "
-        "      pax_grp.point_dep=:point_id AND bag_refuse=0 AND pax_grp.status<>'T' ";
-    };
-    Qry.CreateVariable("point_id",otInteger,point_id);
-    
-    PaxQry.SQLText=
-      "SELECT pax_id,surname,name,seats,bag_pool_num, "
-      "       ckin.get_bag_pool_pax_id(pax.grp_id,pax.bag_pool_num) AS bag_pool_pax_id, "
-      "       NVL(ckin.get_bagAmount2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS bag_amount, "
-      "       NVL(ckin.get_bagWeight2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS bag_weight, "
-      "       NVL(ckin.get_rkWeight2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS rk_weight "
-      "FROM pax_grp, pax "
-      "WHERE pax_grp.grp_id=pax.grp_id(+) AND pax_grp.grp_id=:grp_id AND pax.pr_brd(+) IS NOT NULL";
-    PaxQry.DeclareVariable("grp_id",otInteger);
-
-    RemQry.SQLText=
-      "SELECT rem_code FROM pax_rem "
-      "WHERE pax_id=:pax_id AND rem_code IN ('STCR', 'EXST') "
-      "ORDER BY DECODE(rem_code,'STCR',0,'EXST',1,2) ";
-    RemQry.DeclareVariable("pax_id",otInteger);
-
-    TagQry.SQLText=
-      "SELECT bag_tags.no "
-      "FROM bag_tags,bag2 "
-      "WHERE bag_tags.grp_id=bag2.grp_id(+) AND "
-      "      bag_tags.bag_num=bag2.num(+) AND "
-      "      bag_tags.grp_id=:grp_id AND "
-      "      NVL(bag2.bag_pool_num,1)=:bag_pool_num";
-    TagQry.DeclareVariable("bag_pool_num",otInteger);
-    TagQry.DeclareVariable("grp_id",otInteger);
-  };
-
-  Qry.Execute();
-  vector<sopp::TTransferGrpItem> grps;
-  for(;!Qry.Eof;Qry.Next())
-  {
-    sopp::TTransferGrpItem grp;
-    grp.grp_id=Qry.FieldAsInteger("grp_id");
-    if (!pr_tlg && pr_inbound_tckin)
-    {
-      TCkinRouteItem inboundSeg;
-      TCkinRoute().GetPriorSeg(Qry.FieldAsInteger("tckin_id"),
-                               Qry.FieldAsInteger("seg_no"),
-                               crtIgnoreDependent, inboundSeg);
-      if (inboundSeg.grp_id==NoExists) continue;
-
-      TTripRouteItem priorAirp;
-      TTripRoute().GetPriorAirp(NoExists,inboundSeg.point_arv,trtNotCancelled,priorAirp);
-      if (priorAirp.point_id==NoExists) continue;
-
-      PointsQry.SetVariable( "point_id", priorAirp.point_id );
-      PointsQry.Execute();
-      if (PointsQry.Eof) continue;
-      TTripInfo inFlt(PointsQry);
-
-      grp.inbound_point_dep=priorAirp.point_id;
-      grp.inbound_trip=GetTripName(inFlt,ecNone);
-      grp.airline_view=ElemIdToCodeNative(etAirline,inFlt.airline);
-      grp.flt_no=inFlt.flt_no;
-      grp.suffix_view=ElemIdToCodeNative(etSuffix,inFlt.suffix);
-      grp.scd_local=inFlt.scd_out==NoExists?
-                      NoExists:
-                      UTCToLocal(inFlt.scd_out, AirpTZRegion(inFlt.airp));
-      grp.airp_dep_view=ElemIdToCodeNative(etAirp,inboundSeg.airp_dep);
-      grp.airp_arv_view=ElemIdToCodeNative(etAirp,Qry.FieldAsString("airp_arv"));
-    }
-    else
-    {
-      grp.inbound_point_dep=NoExists;
-      grp.inbound_trip="";
-      grp.airline_view=ElemIdToCodeNative(etAirline,Qry.FieldAsString("airline"));
-      grp.flt_no=Qry.FieldAsInteger("flt_no");
-      grp.suffix_view=ElemIdToCodeNative(etSuffix,Qry.FieldAsString("suffix"));
-      grp.scd_local=Qry.FieldAsDateTime("scd");
-      grp.airp_dep_view=ElemIdToCodeNative(etAirp,Qry.FieldAsString("airp_dep"));
-      grp.airp_arv_view=ElemIdToCodeNative(etAirp,Qry.FieldAsString("airp_arv"));
-    };
-
-    if (pr_tlg)
-    {
-      grp.tlg_airp_view=ElemIdToCodeNative(etAirp,Qry.FieldAsString("airp"));
-      grp.seats=!Qry.FieldIsNULL("seats")?Qry.FieldAsInteger("seats"):NoExists;
-      grp.bag_amount=!Qry.FieldIsNULL("bag_amount")?Qry.FieldAsInteger("bag_amount"):NoExists;
-      grp.bag_weight=!Qry.FieldIsNULL("bag_weight")?Qry.FieldAsInteger("bag_weight"):NoExists;
-      grp.rk_weight=!Qry.FieldIsNULL("rk_weight")?Qry.FieldAsInteger("rk_weight"):NoExists;
-      grp.weight_unit=Qry.FieldAsString("weight_unit");
-      if (pr_bag)
-      {
-        TagQry.SetVariable("grp_id",grp.grp_id);
-        TagQry.Execute();
-        for(;!TagQry.Eof;TagQry.Next())
-          grp.tags.push_back(TBagTagNumber("",TagQry.FieldAsFloat("no")));
-      };
-    }
-    else
-    {
-      grp.seats=0;
-      grp.bag_amount=0;
-      grp.bag_weight=0;
-      grp.rk_weight=0;
-      grp.weight_unit="K";
-    };
-    
-    //разберемся с классом
-    string subcl=Qry.FieldAsString("subcl");
-    if (!subcl.empty())
-    {
-      grp.subcl_view=ElemIdToCodeNative(etSubcls,subcl); //пустой для несопровождаемого багажа
-      grp.subcl_priority=0;
-      try
-      {
-        TSubclsRow &subclsRow=(TSubclsRow&)base_tables.get("subcls").get_row("code",subcl);
-        grp.subcl_priority=((TClassesRow&)base_tables.get("classes").get_row("code",subclsRow.cl)).priority;
-      }
-      catch(EBaseTableError){};
-    }
-    else
-    {
-      grp.subcl_priority=pr_tlg?0:10;
-    };
-    
-    //пассажиры
-    PaxQry.SetVariable("grp_id",grp.grp_id);
-    PaxQry.Execute();
-    if (PaxQry.Eof) continue; //пустая группа - не помещаем в grps
-    if (pr_tlg)
-    {
-      for(;!PaxQry.Eof;PaxQry.Next())
-      {
-        sopp::TTransferPaxItem pax;
-        //транслитерация не нужна так как телеграммы PTM, BTM должны приходить на латинском
-        //и регистрация (списки) должна проводиться на латинском
-        pax.surname=PaxQry.FieldAsString("surname");
-        pax.name=PaxQry.FieldAsString("name");
-        grp.pax.push_back(pax);
-      };
-    }
-    else
-    {
-      for(;!PaxQry.Eof;PaxQry.Next())
-      {
-        sopp::TTransferPaxItem pax;
-        if (subcl.empty())
-        {
-          pax.surname="UNACCOMPANIED";
-          pax.seats=0;
-        }
-        else
-        {
-          pax.surname=PaxQry.FieldAsString("surname");
-          pax.name=PaxQry.FieldAsString("name");
-          pax.seats=PaxQry.FieldAsInteger("seats");
-          if (pax.seats>1)
-          {
-            RemQry.SetVariable("pax_id",PaxQry.FieldAsInteger("pax_id"));
-            RemQry.Execute();
-            for(int i=2; i<=pax.seats; i++)
-            {
-              pax.name+="/";
-              if (!RemQry.Eof)
-                pax.name+=RemQry.FieldAsString("rem_code");
-              else
-                pax.name+="EXST";
-            };
-          };
-        };
-        //багаж пассажира
-        pax.bag_amount=PaxQry.FieldAsInteger("bag_amount");
-        pax.bag_weight=PaxQry.FieldAsInteger("bag_weight");
-        pax.rk_weight=PaxQry.FieldAsInteger("rk_weight");
-        
-        grp.seats+=pax.seats;
-        grp.bag_amount+=pax.bag_amount;
-        grp.bag_weight+=pax.bag_weight;
-        grp.rk_weight+=pax.rk_weight;
-        
-        if (pr_bag &&
-            (subcl.empty() ||
-             !PaxQry.FieldIsNULL("bag_pool_num") &&
-             !PaxQry.FieldIsNULL("pax_id") &&
-             !PaxQry.FieldIsNULL("bag_pool_pax_id") &&
-             PaxQry.FieldAsInteger("pax_id")==PaxQry.FieldAsInteger("bag_pool_pax_id")))
-        {
-          TagQry.SetVariable("grp_id",grp.grp_id);
-          if (subcl.empty())
-            TagQry.SetVariable("bag_pool_num", 1);
-          else
-            TagQry.SetVariable("bag_pool_num", PaxQry.FieldAsInteger("bag_pool_num"));
-          TagQry.Execute();
-          for(;!TagQry.Eof;TagQry.Next())
-          {
-            pax.tags.push_back(TBagTagNumber("",TagQry.FieldAsFloat("no")));
-            grp.tags.push_back(TBagTagNumber("",TagQry.FieldAsFloat("no")));
-          };
-        };
-        
-        grp.pax.push_back(pax);
-      };
-    };
-    
-    grps.push_back(grp);
-  };
-
-  sort(grps.begin(),grps.end());
-
-  //формируем XML
-
-  NewTextChild(resNode,"trip",GetTripName(info,ecNone));
-
-  xmlNodePtr trferNode=NewTextChild(resNode,"transfer");
-
-  xmlNodePtr grpsNode;
-  vector<sopp::TTransferGrpItem>::const_iterator iGrpPrior=grps.end();
-  for(vector<sopp::TTransferGrpItem>::const_iterator iGrp=grps.begin();iGrp!=grps.end();++iGrp)
-  {
-    if (iGrpPrior==grps.end() ||
-        iGrpPrior->airline_view!=iGrp->airline_view ||
-        iGrpPrior->flt_no!=iGrp->flt_no ||
-        iGrpPrior->suffix_view!=iGrp->suffix_view ||
-        iGrpPrior->scd_local!=iGrp->scd_local ||
-        iGrpPrior->airp_dep_view!=iGrp->airp_dep_view ||
-        iGrpPrior->inbound_point_dep!=iGrp->inbound_point_dep ||
-        iGrpPrior->airp_arv_view!=iGrp->airp_arv_view ||
-        iGrpPrior->subcl_view!=iGrp->subcl_view)
-    {
-      xmlNodePtr node=NewTextChild(trferNode,"trfer_flt");
-
-      ostringstream trip;
-      trip << iGrp->airline_view
-           << setw(3) << setfill('0') << iGrp->flt_no
-           << iGrp->suffix_view
-           << "/"
-           << (iGrp->scd_local==NoExists?"??":DateTimeToStr(iGrp->scd_local,"dd"));
-
-      NewTextChild(node,"trip",trip.str());
-      if (pr_tlg) NewTextChild(node,"airp",iGrp->tlg_airp_view);
-      NewTextChild(node,"airp_dep",iGrp->airp_dep_view);
-      NewTextChild(node,"airp_arv",iGrp->airp_arv_view);
-      NewTextChild(node,"subcl",iGrp->subcl_view);
-      NewTextChild(node,"point_dep",iGrp->inbound_point_dep,NoExists); //только для GetInboundTCkin
-      NewTextChild(node,"trip2",iGrp->inbound_trip,"");                //только для GetInboundTCkin
-      grpsNode=NewTextChild(node,"grps");
-    };
-
-    xmlNodePtr grpNode=NewTextChild(grpsNode,"grp");
-    if (pr_tlg || !reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS))
-    {
-      if (iGrp->bag_amount!=NoExists)
-        NewTextChild(grpNode,"bag_amount",iGrp->bag_amount);
-      else
-        NewTextChild(grpNode,"bag_amount");
-      if (iGrp->bag_weight!=NoExists)
-        NewTextChild(grpNode,"bag_weight",iGrp->bag_weight);
-      else
-        NewTextChild(grpNode,"bag_weight");
-      if (iGrp->rk_weight!=NoExists)
-        NewTextChild(grpNode,"rk_weight",iGrp->rk_weight);
-      else
-        NewTextChild(grpNode,"rk_weight");
-      NewTextChild(grpNode,"weight_unit",iGrp->weight_unit);
-      NewTextChild(grpNode,"seats",iGrp->seats);
-
-      vector<string> tagRanges;
-      GetTagRanges(iGrp->tags, tagRanges);
-      if (!tagRanges.empty())
-      {
-        xmlNodePtr node=NewTextChild(grpNode,"tag_ranges");
-        for(vector<string>::const_iterator r=tagRanges.begin(); r!=tagRanges.end(); ++r)
-          NewTextChild(node,"range",*r);
-      };
-    };
-
-    if (!iGrp->pax.empty())
-    {
-      xmlNodePtr paxsNode=NewTextChild(grpNode,"passengers");
-      for(vector<sopp::TTransferPaxItem>::const_iterator iPax=iGrp->pax.begin(); iPax!=iGrp->pax.end(); ++iPax)
-      {
-        xmlNodePtr paxNode=NewTextChild(paxsNode,"pax");
-        NewTextChild(paxNode,"surname",iPax->surname);
-        NewTextChild(paxNode,"name",iPax->name,"");
-        if (!(pr_tlg || !reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS)))
-        {
-          if (iPax->bag_amount!=NoExists)
-            NewTextChild(paxNode,"bag_amount",iPax->bag_amount,0);
-          if (iPax->bag_weight!=NoExists)
-            NewTextChild(paxNode,"bag_weight",iPax->bag_weight,0);
-          if (iPax->rk_weight!=NoExists)
-            NewTextChild(paxNode,"rk_weight",iPax->rk_weight,0);
-          NewTextChild(paxNode,"seats",iPax->seats,1);
-
-          vector<string> tagRanges;
-          GetTagRanges(iPax->tags, tagRanges);
-          if (!tagRanges.empty())
-          {
-            xmlNodePtr node=NewTextChild(paxNode,"tag_ranges");
-            for(vector<string>::const_iterator r=tagRanges.begin(); r!=tagRanges.end(); ++r)
-              NewTextChild(node,"range",*r);
-          };
-        };
-      };
-    };
-
-    iGrpPrior=iGrp;
-  };
-};
-
 void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   bool pr_inbound_tckin=(strcmp((char *)reqNode->name, "GetInboundTCkin") == 0);
@@ -2099,7 +1624,27 @@ void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
               (strcmp((char *)reqNode->name, "GetBagTransfer") == 0);
   int point_id=NodeAsInteger("point_id",reqNode);
 
-  GetTransfer(pr_inbound_tckin, pr_out, pr_tlg, pr_bag, point_id, resNode);
+  TrferList::TTrferType trferType;
+  if (pr_inbound_tckin)
+    trferType=TrferList::tckinInbound;
+  else
+  {
+    if (pr_tlg)
+    {
+      if (pr_out)
+        trferType=TrferList::trferOut;
+      else
+        trferType=TrferList::trferIn;
+    }
+    else
+      trferType=TrferList::trferCkin;
+  };
+
+  TTripInfo flt;
+  vector<TrferList::TGrpItem> grps_ckin;
+  vector<TrferList::TGrpItem> grps_tlg;
+  TrferList::TrferFromDB(trferType, point_id, pr_bag, flt, grps_ckin, grps_tlg);
+  TrferList::TrferToXML(trferType, point_id, pr_bag, flt, grps_ckin, grps_tlg, resNode);
   
   get_new_report_form("SOPPTrfer", reqNode, resNode);
   STAT::set_variables(resNode);
@@ -2425,7 +1970,11 @@ void SoppInterface::DeleteAllPassangers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   {
     //это разрегистрация пассажиров, прибывающих стыковочным рейсом
     //отправляем обновленные данные
-    GetTransfer(true, true, false, true, point_id, resNode);
+    TTripInfo flt;
+    vector<TrferList::TGrpItem> grps_ckin;
+    vector<TrferList::TGrpItem> grps_tlg;
+    TrferList::TrferFromDB(TrferList::tckinInbound, point_id, true, flt, grps_ckin, grps_tlg);
+    TrferList::TrferToXML(TrferList::tckinInbound, point_id, true, flt, grps_ckin, grps_tlg, resNode);
   };
   AstraLocale::showMessage( "MSG.UNREGISTRATION_ALL_PASSENGERS" );
 }
@@ -3211,7 +2760,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
         	throw AstraLocale::UserException( "MSG.AIRLINE.NOT_SET" );
       }
     } // end for
-    if ( !canDo )
+    if ( !canDo ) {
     	if ( reqInfo->user.access.airps_permit ) {
     	  if ( reqInfo->user.access.airps.size() == 1 )
     	    throw AstraLocale::UserException( "MSG.ROUTE.MUST_CONTAIN_AIRP",
@@ -3238,6 +2787,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     		}
             throw AstraLocale::UserException( "MSG.ROUTE.MUST_CONTAIN_ONE_OF_AIRPS_OTHER_THAN", LParams() << LParam("list", airps));
     	}
+    }
   }
   try {
     // проверка на отмену + в маршруте учавствует всего одна авиакомпания
@@ -3572,7 +3122,8 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	  old_dest.region = CityTZRegion( ((TAirpsRow&)baseairps.get_row( "code", old_dest.airp, true )).city );
   	  voldDests.push_back( old_dest );
 
-  	  change_stages_out = ( !insert_point && (id->est_out != old_dest.est_out || id->scd_out != old_dest.scd_out && old_dest.scd_out > NoExists) );
+  	  change_stages_out = ( !insert_point && ( id->est_out != old_dest.est_out ||
+                                               (id->scd_out != old_dest.scd_out && old_dest.scd_out > NoExists) ) );
 
   	  if ( !old_dest.pr_reg && id->pr_reg && id->pr_del != -1 ) {
   	    Qry.Clear();
@@ -3666,9 +3217,9 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   		    A.pr_land = false;
   		    vchangeAct.push_back( A );
   	    }
-     if ( !id->airline.empty() && !old_dest.airline.empty() && id->airline != old_dest.airline ||
-          !id->airline.empty() && !old_dest.airline.empty() && id->flt_no != old_dest.flt_no ||
-          !id->airline.empty() && !old_dest.airline.empty() && id->suffix != old_dest.suffix ) {
+     if ( (!id->airline.empty() && !old_dest.airline.empty() && id->airline != old_dest.airline) ||
+          (!id->airline.empty() && !old_dest.airline.empty() && id->flt_no != old_dest.flt_no) ||
+          (!id->airline.empty() && !old_dest.airline.empty() && id->suffix != old_dest.suffix) ) {
        reqInfo->MsgToLog( string( "Изменение атрибутов рейса с " ) + old_dest.airline + IntToString(old_dest.flt_no) + old_dest.suffix +
                           " на " + id->airline + IntToString(id->flt_no) + id->suffix + " порт " + id->airp, evtDisp, move_id, id->point_id );
      }
@@ -3817,11 +3368,14 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
  		Qry.CreateVariable( "park_out", otString, id->park_out );
   	Qry.CreateVariable( "pr_del", otInteger, id->pr_del );
   	Qry.CreateVariable( "tid", otInteger, new_tid );
-  	if ( !old_dest.remark.empty() )
-  		if ( !id->remark.empty() )
+  	if ( !old_dest.remark.empty() ) {
+  		if ( !id->remark.empty() ) {
   		  id->remark += " " + old_dest.remark;
-  		else
+      }
+  		else {
   			id->remark = old_dest.remark;
+      }
+    }
   	if ( id->remark.size() > 250 )
   		id->remark = id->remark.substr( 0, 250 );
   	Qry.CreateVariable( "remark", otString, id->remark );
@@ -3987,13 +3541,14 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   		"         point_arv=:point_id AND bag_refuse=0 AND rownum<2 ) ";
   		Qry.CreateVariable( "point_id", otInteger, id->point_id );
   		Qry.Execute();
-  		if ( Qry.FieldAsInteger( "c" ) )
+  		if ( Qry.FieldAsInteger( "c" ) ) {
   			if ( id->pr_del == -1 )
   				throw AstraLocale::UserException( "MSG.ROUTE.UNABLE_DEL_AIRP.PAX_EXISTS",
   					                                 LParams() << LParam("airp", ElemIdToCodeNative(etAirp,id->airp)));
   			else
   				throw AstraLocale::UserException( "MSG.ROUTE.UNABLE_CANCEL_AIRP.PAX_EXISTS",
   					                                 LParams() << LParam("airp", ElemIdToCodeNative(etAirp,id->airp)));
+      }
   	}
    if ( reSetCraft ) {
      ProgTrace( TRACE5, "reSetCraft: point_id=%d", id->point_id );
@@ -5318,12 +4873,7 @@ bool trip_calc_data( int point_id, BitSet<TTrip_Calc_Data> &whatcalc,
     }
   }
   if ( pr_empty || whatcalc.isFlag( tTrferExists ) ) {
-    Qry.SQLText =
-      "SELECT 1 FROM transfer, pax_grp "
-      "WHERE pax_grp.point_dep=:point_id AND transfer.grp_id=pax_grp.grp_id AND bag_refuse=0 AND rownum<2";
-    Qry.CreateVariable( "point_id", otInteger, point_id );
-    Qry.Execute();
-    new_trfer_exists = !Qry.Eof;
+    new_trfer_exists = TrferList::trferCkinExists( point_id, Qry );
   }
   bool pr_update = false;
   if ( !pr_empty ) {
