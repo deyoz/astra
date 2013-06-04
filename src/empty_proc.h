@@ -11,6 +11,8 @@ int get_events_stat2(int argc,char **argv);
 int get_sirena_rozysk_stat(int argc,char **argv);
 int create_tlg(int argc,char **argv);
 int get_basel_aero_stat(int argc,char **argv);
+int test_trfer_list(int argc,char **argv);
+int test_trfer_exists(int argc,char **argv);
 
 class TestInterface : public JxtInterface
 {

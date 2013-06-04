@@ -34,10 +34,12 @@ astra_SOURCES = \
   astra_utils.cc \
   baggage.cc \
   base_tables.cc \
+  basel_aero.cc \
   brd.cc \
   cache.cc \
   cent.cc \
   checkin.cc \
+  cobra.cc \
   comp_layers.cc \
   convert.cc \
   crypt.cc \
@@ -51,14 +53,18 @@ astra_SOURCES = \
   etick_change_status.cpp \
   etick.cc \
   events.cc \
+  http_io.cpp \
   images.cc \
+  load_fr.cc \
   locale.cc \
   maindcs.cc \
   obrnosir.cc \
+  passenger.cc \
   payment.cc \
+  pers_weights.cc \
+  points.cc \
   prepreg.cc \
   print.cc \
-  passenger.cc \
   prn_tag_store.cc \
   remarks.cc \
   rozysk.cc \
@@ -77,19 +83,14 @@ astra_SOURCES = \
   telegram.cc \
   telegram2.cc \
   timer.cpp \
+  transfer.cc \
   tripinfo.cc \
   view_edi_elements.cc \
   web_main.cc \
   web_search.cc \
   xml_unit.cc \
-  load_fr.cc \
-  http_io.cpp \
-  points.cc \
-  cobra.cc \
-  pers_weights.cc \
-  xp_testing.cc \
-  basel_aero.cc
-  
+  xp_testing.cc
+
 
 astra_LDADD = $(all_libraries) \
 	tlg/libtlg.a \
@@ -134,10 +135,12 @@ noinst_HEADERS = \
   astra_utils.h \
   baggage.h \
   base_tables.h \
+  basel_aero.h \
   brd.h \
   cache.h \
   cent.h \
   checkin.h \
+  cobra.h \
   comp_layers.h \
   convert.h \
   crypt.h \
@@ -151,14 +154,18 @@ noinst_HEADERS = \
   etick_change_status.h \
   etick.h \
   events.h \
+  http_io.h \
   images.h \
+  load_fr.h \
   maindcs.h \
   obrnosir.h \
+  passenger.h \
   payment.h \
+  pers_weights.h \
+  points.h \
   prepreg.h \
   print.h \
   prn_tag_store.h \
-  passenger.h \
   remarks.h \
   rozysk.h \
   salonform.h \
@@ -174,17 +181,13 @@ noinst_HEADERS = \
   stages.h \
   stat.h \
   timer.h \
+  transfer.h \
   tripinfo.h \
   view_edi_elements.h \
   web_main.h \
   web_search.h \
-  xml_unit.h \
-  load_fr.h \
-  http_io.h \
-  points.h \
-  cobra.h \
-  pers_weights.h \
-  basel_aero.h
+  xml_unit.h
+
 
 
 
