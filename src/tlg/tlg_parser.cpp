@@ -732,7 +732,7 @@ void ParseBTMContent(TTlgPartInfo body, TBSMHeadingInfo& info, TBtmContent& con,
   con.Clear();
 
   int line;
-  char e,prior,*line_p;
+  char prior,*line_p;
   TTlgParser tlg;
   static TBSMElemOrderRules elemOrderRules;
 
@@ -752,7 +752,7 @@ void ParseBTMContent(TTlgPartInfo body, TBSMHeadingInfo& info, TBtmContent& con,
       line++;
       if (tlg.GetLexeme(line_p)==NULL) continue;
 
-      e=ParseBSMElement(line_p,tlg,data,mem);
+      char e=ParseBSMElement(line_p,tlg,data,mem);
       if (data==NULL) continue;
       try
       {
@@ -885,7 +885,7 @@ void ParseBTMContent(TTlgPartInfo body, TBSMHeadingInfo& info, TBtmContent& con,
     }
     while ((line_p=tlg.NextLine(line_p))!=NULL);
 
-    TBSMElemOrderRules::const_iterator rule=elemOrderRules.find(e);
+    TBSMElemOrderRules::const_iterator rule=elemOrderRules.find('F');
     if (rule!=elemOrderRules.end())
     {
       if (strchr(rule->second.c_str(),prior)==NULL)
