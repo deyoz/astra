@@ -82,6 +82,29 @@ void TCacheTable::getParams(xmlNodePtr paramNode, TParams &vparams)
   }
 }
 
+void TCacheTable::getChildCacheKey()
+{
+  string cache = Params[TAG_CODE].Value;
+  string parent_cache = Params[TAG_CODE_PARENT].Value;
+
+  if(parent_cache.empty()) return;
+
+  TQuery Qry(&OraSession);
+  Qry.SQLText = "select var_name, field_child from cache_option_fields where cache = :parent_cache and cache_child = :cache";
+  Qry.CreateVariable("parent_cache", otString, parent_cache);
+  Qry.CreateVariable("cache", otString, cache);
+  Qry.Execute();
+  for(; not Qry.Eof; Qry.Next()) {
+      string var_name = upperc(Qry.FieldAsString("var_name"));
+      string field_child = upperc(Qry.FieldAsString("field_child"));
+      TParams::iterator pi = SQLParams.find(var_name);
+      if(pi == SQLParams.end())
+          throw Exception("getChildCacheKey: key value not found: parent_cache = %s, cache = %s, var_name = %s",
+                  parent_cache.c_str(), cache.c_str(), var_name.c_str());
+      ChildCacheKey[field_child] = pi->second;
+  }
+}
+
 /* конструктор класса - выбираем общие параметры + общие переменные для sql запроса
    + выборка данных из таблицы cache_tables, cache_fields */
 void TCacheTable::Init(xmlNodePtr cacheNode)
@@ -90,6 +113,7 @@ void TCacheTable::Init(xmlNodePtr cacheNode)
     throw Exception("wrong message format");
   getParams(GetNode("params", cacheNode), Params); /* общие параметры */
   getParams(GetNode("sqlparams", cacheNode), SQLParams); /* параметры запроса sql */
+  getChildCacheKey();
   if ( Params.find( TAG_CODE ) == Params.end() )
     throw Exception("wrong message format");
   string code = Params[TAG_CODE].Value;
@@ -183,34 +207,36 @@ void TCacheTable::initOptions()
     Qry->Clear();
     Qry->SQLText =
         "select "
-        "  cache_options.code cache_option, "
-        "  cache_options.title, "
-        "  cache_option_fields.code, "
-        "  cache_option_fields.ref_code "
+        "  cache_options.cache_child, "
+        "  nvl(cache_options.title, cache_tables.title) title, "
+        "  cache_option_fields.var_name, "
+        "  cache_option_fields.field "
         "from "
         "  cache_options, "
-        "  cache_option_fields "
+        "  cache_option_fields, "
+        "  cache_tables "
         "where "
         "  cache_options.cache = :code and "
         "  cache_options.cache = cache_option_fields.cache and "
-        "  cache_options.code = cache_option_fields.cache_option "
+        "  cache_options.cache_child = cache_option_fields.cache_child and "
+        "  cache_options.cache_child = cache_tables.code "
         "order by num ";
     Qry->CreateVariable("code", otString, code);
     Qry->Execute();
     string prev_option;
     for(; not Qry->Eof; Qry->Next()) {
-        string option = Qry->FieldAsString("cache_option");
+        string option = Qry->FieldAsString("cache_child");
         if(option != prev_option) {
             prev_option = option;
             TOption new_option;
-            new_option.option = option;
-            new_option.title = Qry->FieldAsString("title");
+            new_option.code = option;
+            new_option.title = AstraLocale::getLocaleText(Qry->FieldAsString("title"));
             options.push_back(new_option);
         }
-        TOptRefField ref_field;
-        ref_field.code = Qry->FieldAsString("code");
-        ref_field.ref_code = Qry->FieldAsString("ref_code");
-        options.back().ref_fields.push_back(ref_field);
+        TOptionField field;
+        field.var_name = Qry->FieldAsString("var_name");
+        field.field = Qry->FieldAsString("field");
+        options.back().field_lst.push_back(field);
     }
 }
 
@@ -832,6 +858,15 @@ void TCacheTable::refresh()
         refresh_data_type = upNone;
 }
 
+void TCacheTable::XMLChildCacheKey(xmlNodePtr dataNode)
+{
+    if(not ChildCacheKey.empty()) {
+        xmlNodePtr keyNode = NewTextChild(dataNode, "ChildCacheKey");
+        for(TParams::iterator pi = ChildCacheKey.begin(); pi != ChildCacheKey.end(); pi++)
+            SetProp(NewTextChild(keyNode, pi->first, pi->second.Value), "type", pi->second.DataType);
+    }
+}
+
 void TCacheTable::buildAnswer(xmlNodePtr resNode)
 {
     xmlNodePtr dataNode = NewTextChild(resNode, "data");
@@ -858,6 +893,7 @@ void TCacheTable::buildAnswer(xmlNodePtr resNode)
         user_depend = true;
     };
     NewTextChild( dataNode, "user_depend", (int)user_depend );
+    XMLChildCacheKey(dataNode);
 
     if(pr_irefresh)
         XMLInterface(dataNode);
@@ -886,13 +922,13 @@ void TCacheTable::XMLInterface(const xmlNodePtr dataNode)
         xmlNodePtr optionsNode = NewTextChild(ifaceNode, "options");
         for(vector<TOption>::iterator iv = options.begin(); iv != options.end(); iv++) {
             xmlNodePtr optionNode = NewTextChild(optionsNode, "option");
-            NewTextChild(optionNode, "code", iv->option);
+            NewTextChild(optionNode, "code", iv->code);
             NewTextChild(optionNode, "title", iv->title);
-            xmlNodePtr refFieldsNode = NewTextChild(optionNode, "ref_fields");
-            for(vector<TOptRefField>::iterator rf_i = iv->ref_fields.begin(); rf_i != iv->ref_fields.end(); rf_i++) {
-                xmlNodePtr refFieldNode = NewTextChild(refFieldsNode, "ref_field");
-                NewTextChild(refFieldNode, "code", rf_i->code);
-                NewTextChild(refFieldNode, "ref_code", rf_i->ref_code);
+            xmlNodePtr fieldsNode = NewTextChild(optionNode, "field_lst");
+            for(vector<TOptionField>::iterator of_i = iv->field_lst.begin(); of_i != iv->field_lst.end(); of_i++) {
+                xmlNodePtr fieldNode = NewTextChild(fieldsNode, "field");
+                NewTextChild(fieldNode, "var_name", of_i->var_name);
+                NewTextChild(fieldNode, "field", of_i->field);
             }
         }
     }
@@ -1427,11 +1463,6 @@ void TCacheTable::SetVariables(TRow &row, const std::vector<std::string> &vars)
     for(int i = 0; i < 2; i++) {
       ProgTrace(TRACE5, "TCacheTable::SetVariables: i = %d, Name = %s", i, iv->Name.c_str());
       if(iv->VarIdx[i] >= 0) { /* есть индекс переменной */
-        ProgTrace(TRACE5, "row.cols.size(): %d", row.cols.size());
-        ProgTrace(TRACE5, "row.old_cols.size(): %d", row.old_cols.size());
-        ProgTrace(TRACE5, "Idx: %d", Idx);
-        ProgTrace(TRACE5, "vars.size(): %d", vars.size());
-        ProgTrace(TRACE5, "iv->VarIdx[%d] = %d", i, iv->VarIdx[i]);
         if(i == 0)
           value = row.cols[ Idx ]; /* берем из нужного столбца данных, которые пришли */
         else
@@ -1450,6 +1481,7 @@ void TCacheTable::SetVariables(TRow &row, const std::vector<std::string> &vars)
   /* задаем переменные, которые дополнительно пришли
      после вызова на клиенте OnSetVariable */
   for( map<std::string, TParam>::iterator iv=row.params.begin(); iv!=row.params.end(); iv++ ) {
+    if(find(vars.begin(), vars.end(), iv->first) == vars.end()) continue;
     Qry->SetVariable( iv->first, iv->second.Value );
     ProgTrace( TRACE5, "SetVariable name=%s, value=%s",
               (char*)iv->first.c_str(),(char *)iv->second.Value.c_str() );
