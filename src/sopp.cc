@@ -1230,42 +1230,8 @@ void buildSOPP( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
       if ( tr->Alarms.isFlag( alarm ) ) {
       	if ( !alarmsNode )
       		alarmsNode = NewTextChild( tripNode, "alarms" );
-      	xmlNodePtr an;
-      	switch( alarm ) {
-      		case atWaitlist:
-      			an = NewTextChild( alarmsNode, "alarm", "Waitlist" );
-      			SetProp( an, "text", TripAlarmString( alarm ) );
-      			break;
-      		case atOverload:
-      			an = NewTextChild( alarmsNode, "alarm", "Overload" );
-      			SetProp( an, "text", TripAlarmString( alarm ) );
-      			break;
-      	  case atBrd:
-      			an = NewTextChild( alarmsNode, "alarm", "Brd" );
-      			SetProp( an, "text", TripAlarmString( alarm ) );
-      			break;
-      	  case atSalon:
-      			an = NewTextChild( alarmsNode, "alarm", "Salon" );
-      			SetProp( an, "text", TripAlarmString( alarm ) );
-      			break;
-      	  case atSeance:
-      			an = NewTextChild( alarmsNode, "alarm", "Seance" );
-      			SetProp( an, "text", TripAlarmString( alarm ) );
-      			break;
-      	  case atDiffComps:
-      			an = NewTextChild( alarmsNode, "alarm", "DiffComps" );
-      			SetProp( an, "text", TripAlarmString( alarm ) );
-      			break;
-      	  case atTlgOut:
-      			an = NewTextChild( alarmsNode, "alarm", "TlgOut" );
-      			SetProp( an, "text", TripAlarmString( alarm ) );
-      			break;
-      	  case atSpecService:
-      			an = NewTextChild( alarmsNode, "alarm", "SpecService" );
-      			SetProp( an, "text", TripAlarmString( alarm ) );
-      			break;
-      		default:;
-      	}
+      	xmlNodePtr an=NewTextChild( alarmsNode, "alarm", EncodeAlarmType(alarm) );
+        SetProp( an, "text", TripAlarmString( alarm ) );
       }
     }
   } // end for trip
@@ -1894,6 +1860,7 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
     check_waitlist_alarm( i->first );
     check_brd_alarm( i->first );
     check_TrferExists( i->first );
+    check_unattached_trfer_alarm( i->first );
   };
 
   if ( filter.inbound_point_dep==NoExists )

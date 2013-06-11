@@ -6,6 +6,7 @@
 #include "pers_weights.h"
 #include "astra_elems.h"
 #include "remarks.h"
+#include "transfer.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -24,7 +25,9 @@ const char *TripAlarmsTypeS[] = {
     "SEANCE",
     "DIFF_COMPS",
     "SPEC_SERVICE",
-    "TLG_OUT"
+    "TLG_OUT",
+    "UNATTACHED_TRFER",
+    "CONFLICT_TRFER"
 };
 
 TTripAlarmsType DecodeAlarmType( const string &alarm )
@@ -100,6 +103,7 @@ bool get_alarm( int point_id, TTripAlarmsType alarm_type )
         case atDiffComps:
         case atSpecService:
         case atTlgOut:
+        case atUnattachedTrfer:
             break;
         default: throw Exception("get_alarm: alarm_type=%s not processed", EncodeAlarmType(alarm_type).c_str());
     };
@@ -121,6 +125,7 @@ void set_alarm( int point_id, TTripAlarmsType alarm_type, bool alarm_value )
         case atDiffComps:
         case atSpecService:
         case atTlgOut:
+        case atUnattachedTrfer:
             break;
         default: throw Exception("set_alarm: alarm_type=%s not processed", EncodeAlarmType(alarm_type).c_str());
     };
@@ -198,14 +203,9 @@ bool check_waitlist_alarm( int point_id )
 /* есть пассажиры, которые зарегистрированы, но не посажены */
 bool check_brd_alarm( int point_id )
 {
-	TQuery Qry(&OraSession);
-	Qry.SQLText =
-	  "SELECT act FROM trip_stages WHERE point_id=:point_id AND stage_id=:CloseBoarding AND act IS NOT NULL";
-	Qry.CreateVariable( "point_id", otInteger, point_id );
-	Qry.CreateVariable( "CloseBoarding", otInteger, sCloseBoarding );
-	Qry.Execute();
 	bool brd_alarm = false;
-	if ( !Qry.Eof ) {
+	if ( CheckStageACT(point_id, sCloseBoarding) ) {
+    TQuery Qry(&OraSession);
 	  Qry.Clear();
 	  Qry.SQLText =
 	    "SELECT pax_id FROM pax, pax_grp "
@@ -263,3 +263,40 @@ bool check_spec_service_alarm(int point_id)
     return result;
 
 }
+
+bool check_unattached_trfer_alarm( int point_id )
+{
+  bool result = false;
+	if ( CheckStageACT(point_id, sCloseBoarding) )
+  {
+    InboundTrfer::TUnattachedTagMap unattached_grps;
+    InboundTrfer::GetUnattachedTags(point_id, unattached_grps);
+    result = !unattached_grps.empty();
+	};
+	set_alarm( point_id, atUnattachedTrfer, result );
+	return result;
+};
+
+bool need_check_u_trfer_alarm_for_grp( int point_id )
+{
+  return CheckStageACT(point_id, sCloseCheckIn);
+};
+
+bool check_u_trfer_alarm_for_grp( int point_id,
+                                  int grp_id,
+                                  const map<InboundTrfer::TGrpId, InboundTrfer::TGrpItem> &tags_before )
+
+{
+  bool alarm=get_alarm(point_id, atUnattachedTrfer);
+  if (tags_before.empty() && !alarm) return alarm;
+  map<InboundTrfer::TGrpId, InboundTrfer::TGrpItem> tags_after;
+  InboundTrfer::GetCheckedTags(grp_id, false, tags_after);
+  if (tags_after.empty() && alarm) return alarm;
+  if (tags_before==tags_after) return alarm;
+  return check_unattached_trfer_alarm(point_id);
+};
+
+
+
+
+

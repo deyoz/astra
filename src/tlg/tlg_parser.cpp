@@ -20,6 +20,7 @@
 #include "comp_layers.h"
 #include "tlg_binding.h"
 #include "rozysk.h"
+#include "alarms.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -4967,11 +4968,29 @@ void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, const TBtmContent& con)
     "INSERT INTO tlg_trfer_excepts(grp_id, type) VALUES(pax_grp__seq.currval, :type)";
   ExceptQry.DeclareVariable("type", otString);
 
-  int point_id_in,point_id_out;
+  TQuery AlarmQry(&OraSession);
+  AlarmQry.Clear();
+  AlarmQry.SQLText=
+    "SELECT DISTINCT tlg_binding_out.point_id_spp "
+    "FROM tlgs_in, tlg_transfer, tlg_binding tlg_binding_out "
+    "WHERE tlgs_in.id=tlg_transfer.tlg_id AND tlgs_in.type=:tlg_type AND "
+    "      tlg_transfer.point_id_in=:point_id_in AND "
+    "      tlg_transfer.point_id_out=tlg_binding_out.point_id_tlg ";
+  AlarmQry.CreateVariable("tlg_type", otString, "BTM");
+  AlarmQry.DeclareVariable("point_id_in", otInteger);
 
+  int point_id_in,point_id_out;
+  set<int> alarm_point_ids;
   for(vector<TBtmTransferInfo>::const_iterator iIn=con.Transfer.begin();iIn!=con.Transfer.end();++iIn)
   {
     point_id_in=SaveFlt(tlg_id,iIn->InFlt,btLastSeg);
+    //найдем point_id_spp рейсов, которым отправляется трансфер
+    set<int> point_ids;
+    AlarmQry.SetVariable("point_id_in", point_id_in);
+    AlarmQry.Execute();
+    for(;!AlarmQry.Eof;AlarmQry.Next())
+      point_ids.insert(AlarmQry.FieldAsInteger("point_id_spp"));
+
     if (!DeletePTMBTMContent(point_id_in,info)) continue;
     TrferQry.SetVariable("point_id_in",point_id_in);
     TrferQry.SetVariable("subcl_in",iIn->InFlt.subcl);
@@ -5042,6 +5061,20 @@ void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, const TBtmContent& con)
         };
       };
     };
+
+    //найдем point_id_spp рейсов, которым отправляется трансфер
+    AlarmQry.SetVariable("point_id_in", point_id_in);
+    AlarmQry.Execute();
+    for(;!AlarmQry.Eof;AlarmQry.Next())
+      point_ids.insert(AlarmQry.FieldAsInteger("point_id_spp"));
+
+    alarm_point_ids.insert(point_ids.begin(), point_ids.end());
+  };
+
+  for(set<int>::const_iterator id=alarm_point_ids.begin(); id!=alarm_point_ids.end(); ++id)
+  {
+    check_unattached_trfer_alarm(*id);
+    //ProgTrace(TRACE5, "SaveBTMContent: check_unattached_trfer_alarm(%d)", *id);
   };
 };
 

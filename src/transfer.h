@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <string>
+#include <sstream>
 #include "basic.h"
 #include "astra_consts.h"
 #include "astra_misc.h"
@@ -37,7 +38,7 @@ class TBagItem
 class TPaxItem
 {
   public:
-    std::string surname, name;
+    std::string surname, name, name_extra;
     int seats;
     std::string subcl;
     TPaxItem()
@@ -48,6 +49,7 @@ class TPaxItem
     {
       surname.clear();
       name.clear();
+      name_extra.clear();
       seats=ASTRA::NoExists;
       subcl.clear();
     };
@@ -62,7 +64,9 @@ class TPaxItem
       };
       if (surname!=pax.surname)
         return surname<pax.surname;
-      return name<pax.name;
+      if (name!=pax.name)
+        return name<pax.name;
+      return name_extra<pax.name_extra;
     };
     TPaxItem& fromDB(TQuery &Qry, TQuery &RemQry, bool fromTlg);
     TPaxItem& setUnaccomp();
@@ -76,6 +80,7 @@ class TGrpItem : public TBagItem
     int bag_pool_num;
     bool is_unaccomp;
     std::string airp_arv, subcl;
+    std::string last_airp_arv; //òîëüêî ðàäè InboundTrfer::FilterUnattachedTags
     std::vector<TPaxItem> paxs;
     int seats;
     TGrpItem()
@@ -91,6 +96,7 @@ class TGrpItem : public TBagItem
       is_unaccomp=false;
       airp_arv.clear();
       subcl.clear();
+      last_airp_arv.clear();
       paxs.clear();
       seats=ASTRA::NoExists;
     };
@@ -133,7 +139,7 @@ class TGrpViewItem : public TBagItem
 {
   public:
     int point_id;
-    std::string inbound_trip; //â®«ìª® ¤«ï tckinInbound
+    std::string inbound_trip; //òîëüêî äëÿ tckinInbound
     int grp_id;
     int bag_pool_num;
     TFltInfo flt_view;
@@ -194,17 +200,106 @@ bool trferCkinExists(int point_dep, TQuery& Qry);
 
 }; //namespace TrferList
 
+namespace InboundTrfer
+{
+
+class TPaxItem
+{
+  private:
+    std::string translit_surname[2];
+    std::string translit_name[2];
+  public:
+    std::string subcl;
+    std::string surname, name;
+
+    TPaxItem(const std::string &p1,
+             const std::string &p2,
+             const std::string &p3):subcl(p1),surname(p2),name(p3)
+    {
+      for(int fmt=1; fmt<=2; fmt++)
+      {
+        translit_surname[fmt-1]=transliter(surname, fmt, true);
+        translit_name[fmt-1]=transliter(name, fmt, true);
+      };
+    };
+
+    TPaxItem(const TrferList::TPaxItem &pax) : subcl(pax.subcl),surname(pax.surname),name(pax.name)
+    {
+      for(int fmt=1; fmt<=2; fmt++)
+      {
+        translit_surname[fmt-1]=transliter(surname, fmt, true);
+        translit_name[fmt-1]=transliter(name, fmt, true);
+      };
+    };
+
+    bool operator == (const TPaxItem &item) const
+    {
+      return subcl == item.subcl &&
+             surname == item.surname &&
+             name == item.name;
+    };
+
+    int equalRate(const TPaxItem &item) const;
+};
+
+class TGrpItem
+{
+  public:
+    std::string airp_arv;
+    bool is_unaccomp;
+    std::vector<TPaxItem> paxs;
+    std::list<TBagTagNumber> tags;
+
+    TGrpItem():is_unaccomp(false) {};
+
+    TGrpItem(const TrferList::TGrpItem &grp);
+
+    bool operator == (const TGrpItem &item) const
+    {
+      return airp_arv == item.airp_arv &&
+             is_unaccomp == item.is_unaccomp &&
+             tags == item.tags &&
+             (is_unaccomp || paxs == item.paxs);
+    };
+
+    int equalRate(const TGrpItem &item, int minPaxEqualRate) const;
+};
+
+class TGrpId : public std::pair<int/*grp_id*/, int/*bag_pool_num*/>
+{
+   public:
+     TGrpId(int grp_id, int bag_pool_num) : std::pair<int, int>(grp_id, bag_pool_num) {};
+     std::string getStr() const
+     {
+       std::ostringstream s;
+       s << std::right << std::setw(10) << first << ":"
+         << std::left << std::setw(3) << (second==ASTRA::NoExists?"-":IntToString(second));
+       return s.str();
+     };
+};
+
+
+typedef std::map<TGrpId, std::vector<TBagTagNumber> > TUnattachedTagMap;
+
+void GetUnattachedTags(int point_id,
+                       TUnattachedTagMap &result);
+
+void GetCheckedTags(int id,  //¬.¡. point_id ¨«¨ grp_id
+                    bool is_point_id,
+                    std::map<TGrpId, TGrpItem> &grps_out);
+
+void GetUnattachedTags(int point_id,
+                       const std::vector<TrferList::TGrpItem> &grps_ckin,
+                       const std::vector<TrferList::TGrpItem> &grps_tlg,
+                       TUnattachedTagMap &result);
+
+}; //namespace InboundTrfer
+
 namespace TrferListOld
 {
 
 void GetTransfer(bool pr_inbound_tckin, bool pr_out, bool pr_tlg, bool pr_bag, int point_id, xmlNodePtr resNode);
 
 };
-
-/*
-namespace InboundTrfer
-{
-
-}; //namespace InboundTrfer*/
 
 #endif /*_TRANSFER_H_*/

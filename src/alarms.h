@@ -3,8 +3,20 @@
 
 #include "astra_utils.h"
 #include "astra_misc.h"
+#include "transfer.h"
 
-enum TTripAlarmsType { atSalon, atWaitlist, atBrd, atOverload, atETStatus, atSeance, atDiffComps, atSpecService, atTlgOut, atLength };
+enum TTripAlarmsType { atSalon,
+                       atWaitlist,
+                       atBrd,
+                       atOverload,
+                       atETStatus,
+                       atSeance,
+                       atDiffComps,
+                       atSpecService,
+                       atTlgOut,
+                       atUnattachedTrfer,
+                       atConflictTrfer,
+                       atLength };
 extern const char *TripAlarmsTypeS[];
 
 std::string EncodeAlarmType(TTripAlarmsType alarm);
@@ -21,6 +33,11 @@ bool check_waitlist_alarm( int point_id );
 bool check_brd_alarm( int point_id );
 bool check_tlg_out_alarm(int point_id);
 bool check_spec_service_alarm(int point_id);
+bool check_unattached_trfer_alarm( int point_id );
+bool need_check_u_trfer_alarm_for_grp( int point_id );
+bool check_u_trfer_alarm_for_grp( int point_id,
+                                  int grp_id,
+                                  const std::map<InboundTrfer::TGrpId, InboundTrfer::TGrpItem> &tags_before );
 
 
 #endif

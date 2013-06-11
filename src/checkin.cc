@@ -3442,6 +3442,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       };
 
       TGrpToLogInfo grpInfoBefore;
+      bool needCheckUnattachedTrferAlarm=need_check_u_trfer_alarm_for_grp(grp.point_dep);
+      map<InboundTrfer::TGrpId, InboundTrfer::TGrpItem> grpTagsBefore;
       bool first_pax_on_flight = false;
       if (new_checkin)
       {
@@ -3991,6 +3993,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       {
         //ЗАПИСЬ ИЗМЕНЕНИЙ
         GetGrpToLogInfo(grp.id, grpInfoBefore); //для всех сегментов
+        if (needCheckUnattachedTrferAlarm)
+          InboundTrfer::GetCheckedTags(grp.id, false, grpTagsBefore); //для всех сегментов
         //BSM
         if (BSMsend)
           BSM::LoadContent(grp.id,BSMContentBefore);
@@ -4621,6 +4625,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
       };
       check_TrferExists( grp.point_dep );
+      if (needCheckUnattachedTrferAlarm)
+        check_u_trfer_alarm_for_grp( grp.point_dep, grp.id, grpTagsBefore);
 
       //BSM
       if (BSMsend) BSM::Send(grp.point_dep,grp.id,BSMContentBefore,BSMaddrs);

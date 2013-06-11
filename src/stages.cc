@@ -211,6 +211,7 @@ void TTripStages::WriteStagesUTC( int point_id, TMapTripStages &ts )
     }
 
  	  check_brd_alarm( point_id );
+    check_unattached_trfer_alarm( point_id );
 
     string tolog = string( "Этап '" ) + sr->stage_name( i->first, airp, false ) + "'";
     if ( i->second.old_act == NoExists && i->second.act > NoExists )
@@ -1024,3 +1025,13 @@ void SetTripStages_IgnoreAuto( int point_id, bool ignore_auto )
                point_id, ignore_auto );
   }
 }
+
+bool CheckStageACT( int point_id, TStage stage_id )
+{
+  TQuery Qry(&OraSession);
+  Qry.SQLText = "SELECT act FROM trip_stages WHERE point_id=:point_id AND stage_id=:stage_id AND act IS NOT NULL";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.CreateVariable( "stage_id", otInteger, stage_id );
+  Qry.Execute();
+  return !Qry.Eof;
+};
