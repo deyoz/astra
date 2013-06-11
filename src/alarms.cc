@@ -267,7 +267,7 @@ bool check_spec_service_alarm(int point_id)
 bool check_unattached_trfer_alarm( int point_id )
 {
   bool result = false;
-	if ( CheckStageACT(point_id, sCloseBoarding) )
+	if ( CheckStageACT(point_id, sCloseCheckIn) )
   {
     InboundTrfer::TUnattachedTagMap unattached_grps;
     InboundTrfer::GetUnattachedTags(point_id, unattached_grps);
