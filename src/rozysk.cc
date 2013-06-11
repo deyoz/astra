@@ -184,7 +184,10 @@ const TRow& TRow::toDB(TQuery &Qry) const
   Qry.SetVariable("tags", tags.substr(0,250));
   Qry.SetVariable("pnr", pnr);
   Qry.SetVariable("operation", operation);
-  Qry.SetVariable("doc_no", doc_no);
+  if (doc_no.size()<=15)
+    Qry.SetVariable("doc_no", doc_no);
+  else
+    Qry.SetVariable("doc_no", FNull);
   Qry.SetVariable("doc_nationality", doc_nationality);
   Qry.SetVariable("doc_gender", doc_gender);
   Qry.SetVariable("visa_no", visa_no);
