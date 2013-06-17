@@ -38,6 +38,15 @@ struct TCodeShareInfo {
     {};
 };
 
+struct TTlgOptionsSet:std::set<ASTRA::TTlgOption> {
+    bool check(ASTRA::TTlgOption val) { return std::find(begin(), end(), val) != end(); }
+};
+
+struct TypeBAddrs {
+    std::string addrs;
+    TTlgOptionsSet tlg_options;
+};
+
 struct TCreateTlgInfo {
     std::string type;
     int         point_id;
@@ -45,7 +54,7 @@ struct TCreateTlgInfo {
     std::string crs;
     std::string extra;
     bool        pr_lat;
-    std::string addrs;
+    TypeBAddrs addrs;
     TCodeShareInfo mark_info;
     bool pr_alarm;
 };
@@ -75,7 +84,7 @@ struct TTlgInfo {
     bool pr_lat_seat;
     std::string tlg_type;
     //адреса получателей
-    std::string addrs;
+    TypeBAddrs addrs;
     //адрес отправителя
     TOriginatorInfo originator;
     //время создания
@@ -253,6 +262,7 @@ struct TTypeBAddrInfo
   bool pr_lat;
   TCodeShareInfo mark_info;
   TTypeBAddrInfo() {};
+  TTypeBAddrInfo(int point_id, xmlNodePtr reqNode);
   TTypeBAddrInfo(const TTypeBSendInfo &info)
   {
     tlg_type=info.tlg_type;
@@ -290,7 +300,7 @@ struct TTlgOutPartInfo
     point_id = info.point_id;
     pr_lat = info.pr_lat;
     extra = info.extra;
-    addr = info.addrs;
+    addr = info.addrs.addrs;
     time_create = info.time_create;
     time_send_scd = ASTRA::NoExists;
     originator_id = info.originator.id;
@@ -304,6 +314,7 @@ TOriginatorInfo getOriginator(const std::string &airline,
                               const std::string &tlg_type,
                               const BASIC::TDateTime &time_create,
                               bool with_exception);
+void GetAddrsInit(int point_id, xmlNodePtr reqNode, TTypeBAddrInfo &info);
 
 namespace BSM
 {
@@ -358,7 +369,7 @@ void LoadContent(int grp_id, TTlgContent& con);
 void CompareContent(const TTlgContent& con1, const TTlgContent& con2, std::vector<TTlgContent>& bsms);
 std::string CreateTlgBody(const TTlgContent& con, bool pr_lat);
 struct TBSMAddrs {
-    std::map<bool,std::string> addrs;
+    std::map<bool,TypeBAddrs> addrs;
     std::map<std::string, std::string> HTTPGETparams;
     bool empty() const { return addrs.empty() and HTTPGETparams.empty(); }
 };
@@ -420,7 +431,7 @@ public:
   static void SendTlg( int point_id, std::vector<std::string> &tlg_types );
 
   static bool IsTypeBSend( TTypeBSendInfo &info );
-  static std::string GetTypeBAddrs( TTypeBAddrInfo &info );
+  static TypeBAddrs GetTypeBAddrs( TTypeBAddrInfo &info );
   static std::string GetTypeBAddrs( std::string tlg_type, bool pr_lat );
 
   static void SaveTlgOutPart( TTlgOutPartInfo &info );

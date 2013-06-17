@@ -906,7 +906,7 @@ int create_tlg(int argc,char **argv)
   tlgInfo.point_id=3229569;
   tlgInfo.airp_trfer="„Œ„";
   tlgInfo.pr_lat=true;
-  tlgInfo.addrs="MOWKB1H";
+  tlgInfo.addrs.addrs="MOWKB1H";
   TelegramInterface::create_tlg(tlgInfo);
 /*
   TypeB::TestBSMElemOrder("IFNNPOOEEW");

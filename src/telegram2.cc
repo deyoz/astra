@@ -4855,8 +4855,10 @@ void TLDMDests::ToTlg(TTlgInfo &info, bool &vcompleted, vector<string> &body)
         row.str("");
         row
             << "-" << info.TlgElemIdToElem(etAirp, iv->target)
-            << "." << iv->adl << "/" << iv->chd << "/" << iv->inf
-            << "." << iv->rk_weight
+            << "." << iv->adl << "/" << iv->chd << "/" << iv->inf;
+        if(info.addrs.tlg_options.check(toLDM_cabin_weight))
+            row << "." << iv->rk_weight;
+        row
             << ".T"
             << iv->bag.baggage + iv->bag.cargo + iv->bag.mail;
         if (!pr_send)
@@ -6690,6 +6692,7 @@ TOriginatorInfo getOriginator(const string &airline,
 int TelegramInterface::create_tlg(const TCreateTlgInfo &createInfo)
 {
     ProgTrace(TRACE5, "createInfo.type: %s", createInfo.type.c_str());
+    ProgTrace(TRACE5, "createInfo.addrs: %s", createInfo.addrs.addrs.c_str());
     if(createInfo.type.empty())
         throw AstraLocale::UserException("MSG.TLG.UNSPECIFY_TYPE");
     string vbasic_type;
@@ -6814,9 +6817,10 @@ int TelegramInterface::create_tlg(const TCreateTlgInfo &createInfo)
     }
     info.extra = extra.str();
 
-    info.addrs = format_addr_line(createInfo.addrs, &info);
+    info.addrs.addrs = format_addr_line(createInfo.addrs.addrs, &info);
+    info.addrs.tlg_options = createInfo.addrs.tlg_options;
 
-    if(info.addrs.empty())
+    if(info.addrs.addrs.empty())
         throw AstraLocale::UserException("MSG.TLG.DST_ADDRS_NOT_SET");
     int vid = NoExists;
 
@@ -6949,10 +6953,17 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     createInfo.crs = NodeAsStringFast( "crs", node, "");
     createInfo.extra = NodeAsStringFast( "extra", node, "");
     createInfo.pr_lat = NodeAsIntegerFast( "pr_lat", node)!=0;
-    createInfo.addrs = NodeAsStringFast( "addrs", node);
+    createInfo.addrs.addrs = NodeAsStringFast( "addrs", node);
     createInfo.mark_info.init(reqNode);
     createInfo.mark_info.dump();
     createInfo.pr_alarm = false;
+
+    TTypeBAddrInfo info(createInfo.point_id, reqNode);
+    TypeBAddrs addrs =  GetTypeBAddrs(info);
+    // !!! Если адреса с клиента совпадают с адресами рейса, то применяем настройки телеграмм
+    if(createInfo.addrs.addrs == addrs.addrs)
+        createInfo.addrs.tlg_options = addrs.tlg_options;
+
     Qry.Clear();
     Qry.SQLText="SELECT short_name FROM typeb_types WHERE code=:tlg_type";
     Qry.CreateVariable("tlg_type",otString,createInfo.type);
@@ -6993,7 +7004,7 @@ string TelegramInterface::GetTlgLogMsg(const TCreateTlgInfo &createInfo)
   if (!createInfo.extra.empty())
     msg << "доп.: " << createInfo.extra << ", ";
 
-  msg << "адреса: " << createInfo.addrs << ", "
+  msg << "адреса: " << createInfo.addrs.addrs << ", "
       << "лат.: " << (createInfo.pr_lat ? "да" : "нет");
 
   return msg.str();

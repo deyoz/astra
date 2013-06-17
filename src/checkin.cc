@@ -5323,7 +5323,7 @@ string CheckInInterface::SaveTransfer(int grp_id,
         (iTlgs->second==checkFirstSeg && checkType==checkFirstSeg)) continue;
     sendInfo.tlg_type=iTlgs->first;
     addrInfo.tlg_type=iTlgs->first;
-    if (!TelegramInterface::GetTypeBAddrs(addrInfo).empty()&&
+    if (!TelegramInterface::GetTypeBAddrs(addrInfo).addrs.empty()&&
         TelegramInterface::IsTypeBSend(sendInfo)) checkType=iTlgs->second;
   };
 
