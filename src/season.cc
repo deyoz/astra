@@ -15,7 +15,7 @@
 #include "pers_weights.h"
 #include "base_tables.h"
 #include "astra_misc.h"
-#include "tlg/tlg_binding.h"
+#include "flt_binding.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -1193,7 +1193,8 @@ void CreateSPP( BASIC::TDateTime localdate )
           flts.push_back( tripInfo );
         }
       } // end for dests
-      bind_tlg_oper(flts, true);
+      TTlgBinding(true).bind_flt_oper(flts);
+      TTrferBinding().bind_flt_oper(flts);
     }
   }
   TReqInfo::Instance()->MsgToLog( string( "Получение СПП за " ) + DateTimeToStr( localdate, "dd.mm.yy" ), evtSeason );

@@ -7,7 +7,7 @@
 #include "astra_consts.h"
 #include "astra_locale.h"
 #include "tlg/tlg.h"
-#include "tlg/tlg_binding.h"
+#include "flt_binding.h"
 #include "astra_service.h"
 #include "term_version.h"
 #include "comp_layers.h"
@@ -1721,11 +1721,19 @@ void AfterApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TCa
     };
     for(markFlt.scd_out=now-5;markFlt.scd_out<=now+CREATE_SPP_DAYS()+1;markFlt.scd_out+=1.0) flts.push_back(markFlt);
 
-    trace_for_bind(flts, "codeshare_sets: flts");
+    //отвязка/привязка рейсов
+    TTlgBinding tlgBinding(true);
+    TTrferBinding trferBinding;
 
-    unbind_tlg(flts, false);
+    tlgBinding.trace_for_bind(flts, "codeshare_sets: flts");
+
+    tlgBinding.unbind_flt(flts, false);
+    trferBinding.unbind_flt(flts, false);
     if (row.status != usDeleted)
-      bind_tlg(flts, false, true);
+    {
+      tlgBinding.bind_flt(flts, false);
+      trferBinding.bind_flt(flts, false);
+    };
   };
 };
 

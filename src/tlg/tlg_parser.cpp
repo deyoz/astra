@@ -18,7 +18,7 @@
 #include "salons.h"
 #include "memory_manager.h"
 #include "comp_layers.h"
-#include "tlg_binding.h"
+#include "flt_binding.h"
 #include "rozysk.h"
 #include "alarms.h"
 
@@ -4747,7 +4747,7 @@ int SaveFlt(int tlg_id, const TFltInfo& flt, TBindType bind_type)
     Qry.DeclareVariable("point_id",otInteger);
     Qry.Execute();
     point_id=Qry.GetVariableAsInteger("point_id");
-    bind_tlg(point_id, false);
+    TTlgBinding(false).bind_flt(point_id);
 
     /* здесь проверим непривязанные сегменты из crs_displace и привяжем */
     /* но только для PNL/ADL */

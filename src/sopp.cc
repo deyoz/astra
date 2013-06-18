@@ -30,7 +30,7 @@
 #include "salons.h"
 #include "seats.h"
 #include "term_version.h"
-#include "tlg/tlg_binding.h"
+#include "flt_binding.h"
 #include "rozysk.h"
 #include "transfer.h"
 
@@ -990,13 +990,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
         }
         ////////////////////// trfer  ///////////////////////////////
         if ( !arx ) {
-          TTripInfo flt;
-          flt.airline= tr->airline_out;
-          flt.flt_no=  tr->flt_no_out;
-          flt.suffix= tr->suffix_out;
-          flt.scd_out= tr->scd_out;  //обязательно в UTC, м.б. NoExists
-          flt.airp= tr->airp;
-          if (TrferList::trferOutExists( tr->point_id, flt, Trfer_inQry ))
+          if (TrferList::trferOutExists( tr->point_id, Trfer_inQry ))
           	tr->TrferType.setFlag( trferOut );
           bool trferExists;
           get_TrferExists( tr->point_id, trferExists );
@@ -2571,7 +2565,10 @@ void ReBindTlgs( int move_id, TSOPPDests &dests )
   for (TSOPPDests::const_iterator i=dests.begin(); i!=dests.end(); i++) {
      point_ids.push_back( i->point_id );
   }
-  unbind_tlg(point_ids);
+  TTlgBinding tlgBinding(true);
+  TTrferBinding trferBinding;
+  tlgBinding.unbind_flt(point_ids);
+  trferBinding.unbind_flt(point_ids);
 
   vector<TTripInfo> flts;
 	TSOPPDests vdests;
@@ -2594,7 +2591,8 @@ void ReBindTlgs( int move_id, TSOPPDests &dests )
     tripInfo.scd_out = i->scd_out;
     flts.push_back( tripInfo );
   }
-  bind_tlg_oper(flts, true);
+  tlgBinding.bind_flt_oper(flts);
+  trferBinding.bind_flt_oper(flts);
 }
 
 void SoppInterface::ReadDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

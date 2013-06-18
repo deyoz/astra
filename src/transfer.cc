@@ -237,25 +237,9 @@ void TrferFromDB(TTrferType type,
            "WHERE trfer_trips.point_id=transfer.point_id_trfer AND \n"
            "      transfer.grp_id=pax_grp.grp_id AND \n"
            "      pax_grp.grp_id=bag2.grp_id(+) AND \n"
-           "      trfer_trips.flt_no=:flt_no AND \n"
-           "      trfer_trips.scd=:scd AND \n"
-           "      trfer_trips.airline=:airline AND \n"
-           "      trfer_trips.airp_dep=:airp_dep AND \n"
-           "      (trfer_trips.suffix IS NULL AND :suffix IS NULL OR \n"
-           "       trfer_trips.suffix=:suffix) AND \n"
+           "      trfer_trips.point_id_spp=:point_id AND \n"
            "      transfer.transfer_num=1 AND \n";
-    Qry.CreateVariable("flt_no", otInteger, flt.flt_no);
-    if (flt.scd_out!=NoExists)
-    {
-      TDateTime scd=UTCToLocal(flt.scd_out, AirpTZRegion(flt.airp));
-      modf(scd, &scd);
-      Qry.CreateVariable("scd", otDate, scd);
-    }
-    else
-      Qry.CreateVariable("scd", otDate, FNull);
-    Qry.CreateVariable("airline", otString, flt.airline);
-    Qry.CreateVariable("airp_dep", otString, flt.airp);
-    Qry.CreateVariable("suffix", otString, flt.suffix);
+    Qry.CreateVariable("point_id", otInteger, point_id);
   };
 
   if (type==trferIn)
@@ -863,7 +847,7 @@ bool trferInExists(int point_arv, int prior_point_arv, TQuery& Qry)
   return !Qry.Eof;
 };
 
-bool trferOutExists(int point_dep, const TTripInfo &flt, TQuery& Qry)
+bool trferOutExists(int point_dep, TQuery& Qry)
 {
   const char *sql =
     "SELECT 1 "
@@ -871,12 +855,7 @@ bool trferOutExists(int point_dep, const TTripInfo &flt, TQuery& Qry)
     "WHERE trfer_trips.point_id=transfer.point_id_trfer AND "
     "      transfer.grp_id=pax_grp.grp_id AND "
     "      pax_grp.grp_id=pax.grp_id(+) AND "
-    "      trfer_trips.flt_no=:flt_no AND "
-    "      trfer_trips.scd=:scd AND "
-    "      trfer_trips.airline=:airline AND "
-    "      trfer_trips.airp_dep=:airp_dep AND "
-    "      (trfer_trips.suffix IS NULL AND :suffix IS NULL OR "
-    "       trfer_trips.suffix=:suffix) AND "
+    "      trfer_trips.point_id_spp=:point_dep AND "
     "      transfer.transfer_num=1 AND "
     "      pax_grp.bag_refuse=0 AND pax_grp.status<>'T' AND "
     "      (pax_grp.class IS NULL OR pax.pr_brd=1) AND "
@@ -892,25 +871,8 @@ bool trferOutExists(int point_dep, const TTripInfo &flt, TQuery& Qry)
     Qry.Clear();
     Qry.SQLText=sql;
     Qry.DeclareVariable("point_dep", otInteger);
-    Qry.DeclareVariable("flt_no", otInteger);
-    Qry.DeclareVariable("scd", otDate);
-    Qry.DeclareVariable("airline", otString);
-    Qry.DeclareVariable("airp_dep", otString);
-    Qry.DeclareVariable("suffix", otString);
   };
   Qry.SetVariable("point_dep", point_dep);
-  Qry.SetVariable("flt_no", flt.flt_no);
-  if (flt.scd_out!=NoExists)
-  {
-    TDateTime scd=UTCToLocal(flt.scd_out, AirpTZRegion(flt.airp));
-    modf(scd, &scd);
-    Qry.SetVariable("scd", scd);
-  }
-  else
-    Qry.SetVariable("scd", FNull);
-  Qry.SetVariable("airline", flt.airline);
-  Qry.SetVariable("airp_dep", flt.airp);
-  Qry.SetVariable("suffix", flt.suffix);
   Qry.Execute();
   return !Qry.Eof;
 };
@@ -1011,7 +973,7 @@ void FilterUnattachedTags(const map<TGrpId, TGrpItem> &grps_in,
                           const map<TGrpId, TGrpItem> &grps_out,
                           TTagMap &tags)
 {
-  TDateTime d=NowUTC();
+  //TDateTime d=NowUTC();
   //ProgTrace(TRACE5, "FilterUnattachedTags: started");
   for(TTagMap::iterator t=tags.begin(); t!=tags.end(); ++t)
   {

@@ -30,6 +30,7 @@
 #include "sopp.h"
 #include "pers_weights.h"
 #include "rozysk.h"
+#include "flt_binding.h"
 #include "jxtlib/jxt_cont.h"
 
 #define NICKNAME "VLAD"
@@ -3671,7 +3672,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         Qry.Clear();
         Qry.SQLText=
           "DECLARE "
-          "pass BINARY_INTEGER; "
+          "  pass BINARY_INTEGER; "
           "BEGIN "
           "  FOR pass IN 1..2 LOOP "
           "    BEGIN "
@@ -5059,20 +5060,34 @@ string CheckInInterface::SaveTCkinSegs(int grp_id, xmlNodePtr segsNode, const ma
 
   Qry.Clear();
   Qry.SQLText=
+    "DECLARE "
+    "  pass BINARY_INTEGER; "
     "BEGIN "
-    "  BEGIN "
-    "    SELECT point_id INTO :point_id_trfer FROM trfer_trips "
-    "    WHERE scd=:scd AND airline=:airline AND flt_no=:flt_no AND airp_dep=:airp_dep AND "
-    "          (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) FOR UPDATE; "
-    "  EXCEPTION "
-    "    WHEN NO_DATA_FOUND THEN "
-    "      SELECT cycle_id__seq.nextval INTO :point_id_trfer FROM dual; "
-    "      INSERT INTO trfer_trips(point_id,airline,flt_no,suffix,scd,airp_dep,point_id_spp) "
-    "      VALUES (:point_id_trfer,:airline,:flt_no,:suffix,:scd,:airp_dep,NULL); "
-    "  END; "
+    "  :bind_flt:=0; "
+    "  FOR pass IN 1..2 LOOP "
+    "    BEGIN "
+    "      SELECT point_id INTO :point_id_trfer FROM trfer_trips "
+    "      WHERE scd=:scd AND airline=:airline AND flt_no=:flt_no AND airp_dep=:airp_dep AND "
+    "            (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) FOR UPDATE; "
+    "      EXIT; "
+    "    EXCEPTION "
+    "      WHEN NO_DATA_FOUND THEN "
+    "        SELECT cycle_id__seq.nextval INTO :point_id_trfer FROM dual; "
+    "        BEGIN "
+    "          INSERT INTO trfer_trips(point_id,airline,flt_no,suffix,scd,airp_dep,point_id_spp) "
+    "          VALUES (:point_id_trfer,:airline,:flt_no,:suffix,:scd,:airp_dep,NULL); "
+    "          :bind_flt:=1; "
+    "          EXIT; "
+    "        EXCEPTION "
+    "          WHEN DUP_VAL_ON_INDEX THEN "
+    "            IF pass=1 THEN NULL; ELSE RAISE; END IF; "
+    "        END; "
+    "    END; "
+    "  END LOOP; "
     "  INSERT INTO tckin_segments(grp_id,seg_no,point_id_trfer,airp_arv,pr_final) "
     "  VALUES(:grp_id,:seg_no,:point_id_trfer,:airp_arv,:pr_final); "
     "END;";
+  Qry.DeclareVariable("bind_flt",otInteger);
   Qry.DeclareVariable("point_id_trfer",otInteger);
   Qry.CreateVariable("grp_id",otInteger,grp_id);
   Qry.DeclareVariable("seg_no",otInteger);
@@ -5094,6 +5109,7 @@ string CheckInInterface::SaveTCkinSegs(int grp_id, xmlNodePtr segsNode, const ma
 
     const TTripInfo &fltInfo=s->second.fltInfo;
     TDateTime local_scd=UTCToLocal(fltInfo.scd_out,AirpTZRegion(fltInfo.airp));
+    modf(local_scd,&local_scd);
 
     Qry.SetVariable("seg_no",seg_no);
     Qry.SetVariable("airline",fltInfo.airline);
@@ -5104,6 +5120,11 @@ string CheckInInterface::SaveTCkinSegs(int grp_id, xmlNodePtr segsNode, const ma
     Qry.SetVariable("airp_arv",s->second.airp_arv);
     Qry.SetVariable("pr_final",(int)(segNode->next==NULL));
     Qry.Execute();
+    if (Qry.GetVariableAsInteger("bind_flt")!=0)
+    {
+      int point_id_trfer=Qry.GetVariableAsInteger("point_id_trfer");
+      TTrferBinding().bind_flt(point_id_trfer);
+    };
 
     msg << " -> "
         << fltInfo.airline
@@ -5329,22 +5350,36 @@ string CheckInInterface::SaveTransfer(int grp_id,
 
   TrferQry.Clear();
   TrferQry.SQLText=
+    "DECLARE "
+    "  pass BINARY_INTEGER; "
     "BEGIN "
-    "  BEGIN "
-    "    SELECT point_id INTO :point_id_trfer FROM trfer_trips "
-    "    WHERE scd=:scd AND airline=:airline AND flt_no=:flt_no AND airp_dep=:airp_dep AND "
-    "          (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) FOR UPDATE; "
-    "  EXCEPTION "
-    "    WHEN NO_DATA_FOUND THEN "
-    "      SELECT cycle_id__seq.nextval INTO :point_id_trfer FROM dual; "
-    "      INSERT INTO trfer_trips(point_id,airline,flt_no,suffix,scd,airp_dep,point_id_spp) "
-    "      VALUES (:point_id_trfer,:airline,:flt_no,:suffix,:scd,:airp_dep,NULL); "
-    "  END; "
+    "  :bind_flt:=0; "
+    "  FOR pass IN 1..2 LOOP "
+    "    BEGIN "
+    "      SELECT point_id INTO :point_id_trfer FROM trfer_trips "
+    "      WHERE scd=:scd AND airline=:airline AND flt_no=:flt_no AND airp_dep=:airp_dep AND "
+    "            (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) FOR UPDATE; "
+    "      EXIT; "
+    "    EXCEPTION "
+    "      WHEN NO_DATA_FOUND THEN "
+    "        SELECT cycle_id__seq.nextval INTO :point_id_trfer FROM dual; "
+    "        BEGIN "
+    "          INSERT INTO trfer_trips(point_id,airline,flt_no,suffix,scd,airp_dep,point_id_spp) "
+    "          VALUES (:point_id_trfer,:airline,:flt_no,:suffix,:scd,:airp_dep,NULL); "
+    "          :bind_flt:=1; "
+    "          EXIT; "
+    "        EXCEPTION "
+    "          WHEN DUP_VAL_ON_INDEX THEN "
+    "            IF pass=1 THEN NULL; ELSE RAISE; END IF; "
+    "        END; "
+    "    END; "
+    "  END LOOP; "
     "  INSERT INTO transfer(grp_id,transfer_num,point_id_trfer, "
     "    airline_fmt,suffix_fmt,airp_dep_fmt,airp_arv,airp_arv_fmt,pr_final) "
     "  VALUES(:grp_id,:transfer_num,:point_id_trfer, "
     "    :airline_fmt,:suffix_fmt,:airp_dep_fmt,:airp_arv,:airp_arv_fmt,:pr_final); "
     "END;";
+  TrferQry.DeclareVariable("bind_flt",otInteger);
   TrferQry.DeclareVariable("point_id_trfer",otInteger);
   TrferQry.CreateVariable("grp_id",otInteger,grp_id);
   TrferQry.DeclareVariable("transfer_num",otInteger);
@@ -5430,6 +5465,11 @@ string CheckInInterface::SaveTransfer(int grp_id,
     TrferQry.SetVariable("airp_arv_fmt",(int)t->airp_arv_fmt);
     TrferQry.SetVariable("pr_final",(int)(t+1==trfer.end()));
     TrferQry.Execute();
+    if (TrferQry.GetVariableAsInteger("bind_flt")!=0)
+    {
+      int point_id_trfer=TrferQry.GetVariableAsInteger("point_id_trfer");
+      TTrferBinding().bind_flt(point_id_trfer);
+    };
 
     msg << " -> "
         << t->operFlt.airline

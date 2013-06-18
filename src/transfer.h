@@ -194,7 +194,7 @@ void TrferToXML(TTrferType type,
                 xmlNodePtr resNode);
 
 bool trferInExists(int point_arv, int prior_point_arv, TQuery& Qry);
-bool trferOutExists(int point_dep, const TTripInfo &flt, TQuery& Qry);
+bool trferOutExists(int point_dep, TQuery& Qry);
 bool trferCkinExists(int point_dep, TQuery& Qry);
 
 

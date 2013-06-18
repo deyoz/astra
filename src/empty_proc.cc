@@ -993,7 +993,7 @@ int test_trfer_exists(int argc,char **argv)
             title="TrferList::trferOut";
             trferType=TrferList::trferOut;
             point_id=point_id_out;
-            exists=TrferList::trferOutExists(point_id_out, flt, ExistsQry);
+            exists=TrferList::trferOutExists(point_id_out, ExistsQry);
           };
 
           TTripInfo flt_tmp;
@@ -1187,6 +1187,94 @@ int test_trfer_list(int argc,char **argv)
   };
 
   return 1;
+};
+
+int bind_trfer_trips(int argc,char **argv)
+{
+  TQuery Qry(&OraSession);
+
+  Qry.Clear();
+  Qry.SQLText="CREATE INDEX trfer_trips_tmp__IDX ON trfer_trips (scd ASC)";
+  Qry.Execute();
+
+  Qry.Clear();
+  Qry.SQLText="SELECT MIN(scd) AS min_date FROM trfer_trips";
+  Qry.Execute();
+  if (Qry.Eof || Qry.FieldIsNULL("min_date")) return 0;
+  TDateTime min_date=Qry.FieldAsDateTime("min_date");
+
+  Qry.Clear();
+  Qry.SQLText="SELECT MAX(scd) AS max_date FROM trfer_trips";
+  Qry.Execute();
+  if (Qry.Eof || Qry.FieldIsNULL("max_date")) return 0;
+  TDateTime max_date=Qry.FieldAsDateTime("max_date");
+
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT point_id FROM trfer_trips "
+    "WHERE point_id_spp IS NULL AND scd>=:low_date AND scd<:high_date";
+  Qry.DeclareVariable("low_date", otDate);
+  Qry.DeclareVariable("high_date", otDate);
+
+  TTrferBinding trferBinding(false);
+
+  for(TDateTime curr_date=min_date; curr_date<=max_date; curr_date+=1.0)
+  {
+    Qry.SetVariable("low_date",curr_date);
+    Qry.SetVariable("high_date",curr_date+1.0);
+    Qry.Execute();
+    for(;!Qry.Eof;Qry.Next())
+      trferBinding.bind_flt(Qry.FieldAsInteger("point_id"));
+    OraSession.Commit();
+  };
+
+  Qry.Clear();
+  Qry.SQLText="DROP INDEX trfer_trips_tmp__IDX";
+  Qry.Execute();
+
+  return 0;
+};
+
+int unbind_trfer_trips(int argc,char **argv)
+{
+  TQuery Qry(&OraSession);
+
+  Qry.Clear();
+  Qry.SQLText="CREATE INDEX trfer_trips_tmp__IDX ON trfer_trips (scd ASC)";
+  Qry.Execute();
+
+  Qry.Clear();
+  Qry.SQLText="SELECT MIN(scd) AS min_date FROM trfer_trips";
+  Qry.Execute();
+  if (Qry.Eof || Qry.FieldIsNULL("min_date")) return 0;
+  TDateTime min_date=Qry.FieldAsDateTime("min_date");
+
+  Qry.Clear();
+  Qry.SQLText="SELECT MAX(scd) AS max_date FROM trfer_trips";
+  Qry.Execute();
+  if (Qry.Eof || Qry.FieldIsNULL("max_date")) return 0;
+  TDateTime max_date=Qry.FieldAsDateTime("max_date");
+
+  Qry.Clear();
+  Qry.SQLText=
+    "UPDATE trfer_trips SET point_id_spp=NULL "
+    "WHERE point_id_spp IS NOT NULL AND scd>=:low_date AND scd<:high_date";
+  Qry.DeclareVariable("low_date", otDate);
+  Qry.DeclareVariable("high_date", otDate);
+
+  for(TDateTime curr_date=min_date; curr_date<=max_date; curr_date+=1.0)
+  {
+    Qry.SetVariable("low_date",curr_date);
+    Qry.SetVariable("high_date",curr_date+1.0);
+    Qry.Execute();
+    OraSession.Commit();
+  };
+
+  Qry.Clear();
+  Qry.SQLText="DROP INDEX trfer_trips_tmp__IDX";
+  Qry.Execute();
+
+  return 0;
 };
 
 int season_to_schedules(int argc,char **argv)
