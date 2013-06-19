@@ -35,7 +35,7 @@ alter table aodb_bag add pr_cabin NUMBER(1) NOT NULL;
 #include "points.h"
 #include "serverlib/helpcpp.h"
 #include "tlg/tlg.h"
-#include "tlg/tlg_binding.h"
+#include "flt_binding.h"
 #include "astra_misc.h"
 
 #define NICKNAME "DJEK"
@@ -1858,7 +1858,8 @@ try {
 	
   bindingAODBFlt( point_addr, point_id, fl.id );
   err++;
-	bind_tlg_oper(flts, true);
+  TTlgBinding(true).bind_flt_oper(flts);
+  TTrferBinding().bind_flt_oper(flts);
 	tst();
 	if ( old_act != fl.act ) {
     if ( old_act == NoExists && fl.act > NoExists ) {

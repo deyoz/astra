@@ -30,7 +30,7 @@
 #include "salons.h"
 #include "seats.h"
 #include "term_version.h"
-#include "tlg/tlg_binding.h"
+#include "flt_binding.h"
 #include "rozysk.h"
 #include "transfer.h"
 
@@ -990,13 +990,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
         }
         ////////////////////// trfer  ///////////////////////////////
         if ( !arx ) {
-          TTripInfo flt;
-          flt.airline= tr->airline_out;
-          flt.flt_no=  tr->flt_no_out;
-          flt.suffix= tr->suffix_out;
-          flt.scd_out= tr->scd_out;  //обязательно в UTC, м.б. NoExists
-          flt.airp= tr->airp;
-          if (TrferList::trferOutExists( tr->point_id, flt, Trfer_inQry ))
+          if (TrferList::trferOutExists( tr->point_id, Trfer_inQry ))
           	tr->TrferType.setFlag( trferOut );
           bool trferExists;
           get_TrferExists( tr->point_id, trferExists );
@@ -1230,42 +1224,8 @@ void buildSOPP( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
       if ( tr->Alarms.isFlag( alarm ) ) {
       	if ( !alarmsNode )
       		alarmsNode = NewTextChild( tripNode, "alarms" );
-      	xmlNodePtr an;
-      	switch( alarm ) {
-      		case atWaitlist:
-      			an = NewTextChild( alarmsNode, "alarm", "Waitlist" );
-      			SetProp( an, "text", TripAlarmString( alarm ) );
-      			break;
-      		case atOverload:
-      			an = NewTextChild( alarmsNode, "alarm", "Overload" );
-      			SetProp( an, "text", TripAlarmString( alarm ) );
-      			break;
-      	  case atBrd:
-      			an = NewTextChild( alarmsNode, "alarm", "Brd" );
-      			SetProp( an, "text", TripAlarmString( alarm ) );
-      			break;
-      	  case atSalon:
-      			an = NewTextChild( alarmsNode, "alarm", "Salon" );
-      			SetProp( an, "text", TripAlarmString( alarm ) );
-      			break;
-      	  case atSeance:
-      			an = NewTextChild( alarmsNode, "alarm", "Seance" );
-      			SetProp( an, "text", TripAlarmString( alarm ) );
-      			break;
-      	  case atDiffComps:
-      			an = NewTextChild( alarmsNode, "alarm", "DiffComps" );
-      			SetProp( an, "text", TripAlarmString( alarm ) );
-      			break;
-      	  case atTlgOut:
-      			an = NewTextChild( alarmsNode, "alarm", "TlgOut" );
-      			SetProp( an, "text", TripAlarmString( alarm ) );
-      			break;
-      	  case atSpecService:
-      			an = NewTextChild( alarmsNode, "alarm", "SpecService" );
-      			SetProp( an, "text", TripAlarmString( alarm ) );
-      			break;
-      		default:;
-      	}
+      	xmlNodePtr an=NewTextChild( alarmsNode, "alarm", EncodeAlarmType(alarm) );
+        SetProp( an, "text", TripAlarmString( alarm ) );
       }
     }
   } // end for trip
@@ -1657,7 +1617,9 @@ struct TSegBSMInfo
 };
 
 void DeletePaxGrp( const TTypeBSendInfo &sendInfo, int grp_id, bool toLog,
-                   TQuery &PaxQry, TQuery &DelQry, map<int/*point_id*/,TSegBSMInfo> &BSMsegs )
+                   TQuery &PaxQry, TQuery &DelQry,
+                   map<int/*point_id*/,TSegBSMInfo> &BSMsegs,
+                   set<int/*point_id*/> &nextTrferSegs )
 {
   int point_id=sendInfo.point_id;
 
@@ -1704,6 +1666,11 @@ void DeletePaxGrp( const TTypeBSendInfo &sendInfo, int grp_id, bool toLog,
     BSM::LoadContent(grp_id,BSMContent);
     BSMseg.BSMContentBefore[grp_id]=BSMContent;
   };
+
+  //набираем вектор nextTrferSegs
+  set<int> ids;
+  InboundTrfer::GetNextTrferCheckedFlts(grp_id, idGrp, ids);
+  nextTrferSegs.insert(ids.begin(),ids.end());
 
   bool SyncPaxs=is_sync_paxs(point_id);
 
@@ -1776,6 +1743,7 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
   sendInfo.tlg_type="BSM";
 
   map<int/*point_id*/,TSegBSMInfo> BSMsegs;
+  set<int> nextTrferSegs;
 
   TQuery DelQry(&OraSession);
   TQuery PaxQry(&OraSession);
@@ -1871,12 +1839,12 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
           tckinSendInfo.pr_tranzit=TCkinQry.FieldAsInteger("pr_tranzit")!=0;
           tckinSendInfo.tlg_type="BSM";
 
-          DeletePaxGrp( tckinSendInfo, tckin_grp_id, true, PaxQry, DelQry, BSMsegs);
+          DeletePaxGrp( tckinSendInfo, tckin_grp_id, true, PaxQry, DelQry, BSMsegs, nextTrferSegs);
         };
       };
     };
     
-    DeletePaxGrp( sendInfo, grp_id, filter.inbound_point_dep!=NoExists, PaxQry, DelQry, BSMsegs);
+    DeletePaxGrp( sendInfo, grp_id, filter.inbound_point_dep!=NoExists, PaxQry, DelQry, BSMsegs, nextTrferSegs);
   };
 
   //пересчитаем счетчики по всем рейсам, включая сквозные сегменты
@@ -1894,7 +1862,10 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
     check_waitlist_alarm( i->first );
     check_brd_alarm( i->first );
     check_TrferExists( i->first );
+    check_unattached_trfer_alarm( i->first );
   };
+
+  check_unattached_trfer_alarm(nextTrferSegs);
 
   if ( filter.inbound_point_dep==NoExists )
   {
@@ -2604,7 +2575,10 @@ void ReBindTlgs( int move_id, TSOPPDests &dests )
   for (TSOPPDests::const_iterator i=dests.begin(); i!=dests.end(); i++) {
      point_ids.push_back( i->point_id );
   }
-  unbind_tlg(point_ids);
+  TTlgBinding tlgBinding(true);
+  TTrferBinding trferBinding;
+  tlgBinding.unbind_flt(point_ids);
+  trferBinding.unbind_flt(point_ids);
 
   vector<TTripInfo> flts;
 	TSOPPDests vdests;
@@ -2627,7 +2601,8 @@ void ReBindTlgs( int move_id, TSOPPDests &dests )
     tripInfo.scd_out = i->scd_out;
     flts.push_back( tripInfo );
   }
-  bind_tlg_oper(flts, true);
+  tlgBinding.bind_flt_oper(flts);
+  trferBinding.bind_flt_oper(flts);
 }
 
 void SoppInterface::ReadDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

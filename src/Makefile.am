@@ -52,6 +52,7 @@ astra_SOURCES = \
   etick_change_status.cpp \
   etick.cc \
   events.cc \
+  flt_binding.cc \
   http_io.cpp \
   images.cc \
   load_fr.cc \
@@ -152,6 +153,7 @@ noinst_HEADERS = \
   etick_change_status.h \
   etick.h \
   events.h \
+  flt_binding.h \
   http_io.h \
   images.h \
   load_fr.h \

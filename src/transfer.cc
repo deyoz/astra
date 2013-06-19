@@ -1,6 +1,8 @@
 #include "transfer.h"
 #include "astra_utils.h"
+#include "exceptions.h"
 #include "term_version.h"
+#include "alarms.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -8,6 +10,7 @@
 using namespace std;
 using namespace BASIC;
 using namespace ASTRA;
+using namespace EXCEPTIONS;
 
 namespace TrferList
 {
@@ -100,11 +103,11 @@ TPaxItem& TPaxItem::fromDB(TQuery &Qry, TQuery &RemQry, bool fromTlg)
       RemQry.Execute();
       for(int i=2; i<=seats; i++)
       {
-        name+="/";
+        name_extra+="/";
         if (!RemQry.Eof)
-          name+=RemQry.FieldAsString("rem_code");
+          name_extra+=RemQry.FieldAsString("rem_code");
         else
-          name+="EXST";
+          name_extra+="EXST";
       };
     };
     subcl=Qry.FieldAsString("subclass");
@@ -228,30 +231,15 @@ void TrferFromDB(TTrferType type,
   if (type==trferOut)
   {
     //Информация о трансферном багаже/пассажирах, отправляющемся рейсом
-    sql << "     pax_grp.point_dep AS point_id, pax_grp.airp_arv \n"
+    sql << "     pax_grp.point_dep AS point_id, pax_grp.airp_arv, \n"
+           "     transfer.airp_arv AS last_airp_arv \n"
            "FROM trfer_trips, transfer, pax_grp, bag2 \n"
            "WHERE trfer_trips.point_id=transfer.point_id_trfer AND \n"
            "      transfer.grp_id=pax_grp.grp_id AND \n"
            "      pax_grp.grp_id=bag2.grp_id(+) AND \n"
-           "      trfer_trips.flt_no=:flt_no AND \n"
-           "      trfer_trips.scd=:scd AND \n"
-           "      trfer_trips.airline=:airline AND \n"
-           "      trfer_trips.airp_dep=:airp_dep AND \n"
-           "      (trfer_trips.suffix IS NULL AND :suffix IS NULL OR \n"
-           "       trfer_trips.suffix=:suffix) AND \n"
+           "      trfer_trips.point_id_spp=:point_id AND \n"
            "      transfer.transfer_num=1 AND \n";
-    Qry.CreateVariable("flt_no", otInteger, flt.flt_no);
-    if (flt.scd_out!=NoExists)
-    {
-      TDateTime scd=UTCToLocal(flt.scd_out, AirpTZRegion(flt.airp));
-      modf(scd, &scd);
-      Qry.CreateVariable("scd", otDate, scd);
-    }
-    else
-      Qry.CreateVariable("scd", otDate, FNull);
-    Qry.CreateVariable("airline", otString, flt.airline);
-    Qry.CreateVariable("airp_dep", otString, flt.airp);
-    Qry.CreateVariable("suffix", otString, flt.suffix);
+    Qry.CreateVariable("point_id", otInteger, point_id);
   };
 
   if (type==trferIn)
@@ -293,7 +281,7 @@ void TrferFromDB(TTrferType type,
          "GROUP BY pax_grp.point_dep, pax_grp.grp_id, bag2.bag_pool_num, pax_grp.class, \n";
   if (type==trferOut)
   {
-    sql << "         pax_grp.airp_arv \n";
+    sql << "         pax_grp.airp_arv, transfer.airp_arv \n";
   };
   if (type==trferIn || type==trferCkin)
   {
@@ -375,6 +363,8 @@ void TrferFromDB(TTrferType type,
     grp.grp_id=Qry.FieldAsInteger("grp_id");
     grp.bag_pool_num=Qry.FieldIsNULL("bag_pool_num")?NoExists:Qry.FieldAsInteger("bag_pool_num");
     grp.airp_arv=Qry.FieldAsString("airp_arv");
+    if (type==trferOut)
+      grp.last_airp_arv=Qry.FieldAsString("last_airp_arv");
     if (type==trferOut || type==trferCkin || type==tckinInbound)
       grp.subcl=Qry.FieldAsString("class");
     if (Qry.FieldIsNULL("class"))
@@ -485,6 +475,11 @@ void TrferFromDB(TTrferType type,
     "SELECT surname, name FROM trfer_pax WHERE grp_id=:grp_id";
   PaxQry.DeclareVariable("grp_id", otInteger);
 
+  TQuery ExceptQry(&OraSession);
+  ExceptQry.SQLText=
+    "SELECT type FROM tlg_trfer_excepts WHERE grp_id=:grp_id AND type IN ('UNAC') AND rownum<2";
+  ExceptQry.DeclareVariable("grp_id", otInteger);
+
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next())
   {
@@ -536,6 +531,23 @@ void TrferFromDB(TTrferType type,
     PaxQry.Execute();
     //даже если пустая группа - помещаем в paxs пустой surname
     grp.paxFromDB(PaxQry, RemQry, true);
+    if (pr_bag)
+    {
+      //определяем несопровождаемый багаж - он может быть только в BTM
+      ExceptQry.SetVariable("grp_id", grp.grp_id);
+      ExceptQry.Execute();
+      if (!ExceptQry.Eof)
+        grp.is_unaccomp=true;
+      else
+      {
+        //проверим UNACCOMPANIED
+        if (grp.subcl.empty() &&
+            grp.paxs.size()==1 &&
+            grp.paxs.begin()->surname=="UNACCOMPANIED" &&
+            grp.paxs.begin()->name.empty())
+          grp.is_unaccomp=true;
+      };
+    };
 
     grps_tlg.push_back(grp);
   };
@@ -647,8 +659,14 @@ void TrferToXML(TTrferType type,
       grps.push_back(grp);
     };
   };
-
   //ProgTrace(TRACE5, "grps.size()=%zu", grps.size());
+
+  InboundTrfer::TUnattachedTagMap unattached_grps;
+  if (type==trferOut && pr_bag)
+  {
+    GetUnattachedTags(point_id, grps_ckin, grps_tlg, unattached_grps);
+    //ProgTrace(TRACE5, "unattached_grps.size()=%zu", unattached_grps.size());
+  };
 
   sort(grps.begin(),grps.end());
 
@@ -724,13 +742,32 @@ void TrferToXML(TTrferType type,
 
       NewTextChild(grpNode,"seats",iGrp->seats);
 
+      bool unattached_alarm=false;
+      if (type==trferOut && pr_bag)
+      {
+        //передадим для группы тревогу atUnattachedTrfer, если непривязанные бирки
+        InboundTrfer::TGrpId id(iGrp->grp_id, iGrp->bag_pool_num);
+
+        InboundTrfer::TUnattachedTagMap::const_iterator g=unattached_grps.find(id);
+        if (g!=unattached_grps.end())
+        {
+          if (!g->second.empty() && g->second.size()==iGrp->tags.size())
+            //все бирки группы непривязаны
+            unattached_alarm=true;
+        };
+      };
+
       vector<string> tagRanges;
       GetTagRanges(iGrp->tags, tagRanges);
       if (!tagRanges.empty())
       {
         xmlNodePtr node=NewTextChild(grpNode,"tag_ranges");
         for(vector<string>::const_iterator r=tagRanges.begin(); r!=tagRanges.end(); ++r)
-          NewTextChild(node,"range",*r);
+        {
+          xmlNodePtr rangeNode=NewTextChild(node,"range",*r);
+          if (unattached_alarm)
+            NewTextChild(rangeNode, "alarm", EncodeAlarmType(atUnattachedTrfer));
+        };
       };
     };
 
@@ -745,7 +782,7 @@ void TrferToXML(TTrferType type,
       {
         xmlNodePtr paxNode=NewTextChild(paxsNode,"pax");
         NewTextChild(paxNode,"surname",iPax->surname);
-        NewTextChild(paxNode,"name",iPax->name,"");
+        NewTextChild(paxNode,"name",iPax->name+iPax->name_extra,"");
         if (!(type==trferIn || type==trferOut || !reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS)))
 
         {
@@ -810,7 +847,7 @@ bool trferInExists(int point_arv, int prior_point_arv, TQuery& Qry)
   return !Qry.Eof;
 };
 
-bool trferOutExists(int point_dep, const TTripInfo &flt, TQuery& Qry)
+bool trferOutExists(int point_dep, TQuery& Qry)
 {
   const char *sql =
     "SELECT 1 "
@@ -818,12 +855,7 @@ bool trferOutExists(int point_dep, const TTripInfo &flt, TQuery& Qry)
     "WHERE trfer_trips.point_id=transfer.point_id_trfer AND "
     "      transfer.grp_id=pax_grp.grp_id AND "
     "      pax_grp.grp_id=pax.grp_id(+) AND "
-    "      trfer_trips.flt_no=:flt_no AND "
-    "      trfer_trips.scd=:scd AND "
-    "      trfer_trips.airline=:airline AND "
-    "      trfer_trips.airp_dep=:airp_dep AND "
-    "      (trfer_trips.suffix IS NULL AND :suffix IS NULL OR "
-    "       trfer_trips.suffix=:suffix) AND "
+    "      trfer_trips.point_id_spp=:point_dep AND "
     "      transfer.transfer_num=1 AND "
     "      pax_grp.bag_refuse=0 AND pax_grp.status<>'T' AND "
     "      (pax_grp.class IS NULL OR pax.pr_brd=1) AND "
@@ -839,25 +871,8 @@ bool trferOutExists(int point_dep, const TTripInfo &flt, TQuery& Qry)
     Qry.Clear();
     Qry.SQLText=sql;
     Qry.DeclareVariable("point_dep", otInteger);
-    Qry.DeclareVariable("flt_no", otInteger);
-    Qry.DeclareVariable("scd", otDate);
-    Qry.DeclareVariable("airline", otString);
-    Qry.DeclareVariable("airp_dep", otString);
-    Qry.DeclareVariable("suffix", otString);
   };
   Qry.SetVariable("point_dep", point_dep);
-  Qry.SetVariable("flt_no", flt.flt_no);
-  if (flt.scd_out!=NoExists)
-  {
-    TDateTime scd=UTCToLocal(flt.scd_out, AirpTZRegion(flt.airp));
-    modf(scd, &scd);
-    Qry.SetVariable("scd", scd);
-  }
-  else
-    Qry.SetVariable("scd", FNull);
-  Qry.SetVariable("airline", flt.airline);
-  Qry.SetVariable("airp_dep", flt.airp);
-  Qry.SetVariable("suffix", flt.suffix);
   Qry.Execute();
   return !Qry.Eof;
 };
@@ -886,6 +901,343 @@ bool trferCkinExists(int point_dep, TQuery& Qry)
 };
 
 }; //namespace TrferList
+
+namespace InboundTrfer
+{
+
+int TPaxItem::equalRate(const TPaxItem &item) const
+{
+  int rate, max_rate=0;
+  for(int i=0; i<2; i++)
+  {
+    rate=0;
+    if (!surname.empty() && translit_surname[i]==item.translit_surname[i]) rate+=4;
+    if (!name.empty() && translit_name[i]==item.translit_name[i]) rate+=2;
+    if (rate>max_rate) max_rate=rate;
+  };
+  rate=max_rate;
+  if (!subcl.empty() && subcl==item.subcl) rate+=1;
+
+  //(TRACE5, "TPaxItem::equalRate: %s %s VS %s %s rate=%d",
+  //                  surname.c_str(), name.c_str(), item.surname.c_str(), item.name.c_str(), rate);
+  return rate;
+};
+
+TGrpItem::TGrpItem(const TrferList::TGrpItem &grp)
+{
+  airp_arv=grp.last_airp_arv;
+  is_unaccomp=grp.is_unaccomp;
+  if (!is_unaccomp)
+  {
+    for(vector<TrferList::TPaxItem>::const_iterator p=grp.paxs.begin(); p!=grp.paxs.end(); ++p)
+      paxs.push_back(TPaxItem(*p));
+  };
+  tags.assign(grp.tags.begin(), grp.tags.end());
+};
+
+int TGrpItem::equalRate(const TGrpItem &item, int minPaxEqualRate) const
+{
+  if (is_unaccomp!=item.is_unaccomp) return 0;
+  if (airp_arv!=item.airp_arv) return 0;
+  int rate=0;
+  if (!is_unaccomp)
+  {
+    //обычная группа пассажиров
+    std::list<TPaxItem> paxs1(paxs.begin(), paxs.end());
+    std::list<TPaxItem> paxs2(item.paxs.begin(), item.paxs.end());
+    for(int r=7; r>0 && r>=minPaxEqualRate; r--)
+    {
+      for(std::list<TPaxItem>::iterator p1=paxs1.begin(); p1!=paxs1.end();)
+      {
+        std::list<TPaxItem>::iterator p2=paxs2.begin();
+        for(; p2!=paxs2.end(); ++p2)
+          if (r==p1->equalRate(*p2)) break;
+        if (p2!=paxs2.end())
+        {
+          rate++;
+          p1=paxs1.erase(p1);
+          p2=paxs2.erase(p2);
+        }
+        else ++p1;
+      };
+    };
+  }
+  else rate=1;
+  return rate;
+};
+
+typedef map<TBagTagNumber, pair< list<TGrpId>,
+                                 list<TGrpId> > > TTagMap;
+
+void FilterUnattachedTags(const map<TGrpId, TGrpItem> &grps_in,
+                          const map<TGrpId, TGrpItem> &grps_out,
+                          TTagMap &tags)
+{
+  //TDateTime d=NowUTC();
+  //ProgTrace(TRACE5, "FilterUnattachedTags: started");
+  for(TTagMap::iterator t=tags.begin(); t!=tags.end(); ++t)
+  {
+    //ProgTrace(TRACE5, "FilterUnattachedTags: no=%s", GetTagRangesStr(vector<TBagTagNumber>(1,t->first)).c_str());
+    if (t->second.second.empty()) continue;
+    for(int minPaxEqualRate=7; minPaxEqualRate>=6; minPaxEqualRate--)   //6 - полное совпадение фамилии и имени
+    {
+      //ProgTrace(TRACE5, "FilterUnattachedTags: minPaxEqualRate=%d", minPaxEqualRate);
+      while (!t->second.second.empty())
+      {
+        pair< list<TGrpId>::iterator, list<TGrpId>::iterator > max(t->second.first.end(), t->second.second.end());
+        int maxEqualPaxCount=0;
+        for(list<TGrpId>::iterator i1=t->second.first.begin(); i1!=t->second.first.end(); ++i1)
+          for(list<TGrpId>::iterator i2=t->second.second.begin(); i2!=t->second.second.end(); ++i2)
+          {
+            map<TGrpId, TGrpItem>::const_iterator grp_in=grps_in.find(*i1);
+            if (grp_in==grps_in.end()) throw Exception("FilterUnattachedTags: grp_in=grps_in.end()");
+            map<TGrpId, TGrpItem>::const_iterator grp_out=grps_out.find(*i2);
+            if (grp_out==grps_out.end()) throw Exception("FilterUnattachedTags: grp_out=grps_out.end()");
+            int equalPaxCount=grp_in->second.equalRate(grp_out->second, minPaxEqualRate);
+            if (equalPaxCount>maxEqualPaxCount)
+            {
+              maxEqualPaxCount=equalPaxCount;
+              max=make_pair(i1, i2);
+            };
+          };
+        if (maxEqualPaxCount>0)
+        {
+          //ProgTrace(TRACE5, "FilterUnattachedTags: no=%s minPaxEqualRate=%d [%s]<->[%s]",
+          //                  GetTagRangesStr(vector<TBagTagNumber>(1,t->first)).c_str(), minPaxEqualRate,
+          //                  max.first->getStr().c_str(), max.second->getStr().c_str());
+          t->second.first.erase(max.first);
+          t->second.second.erase(max.second);
+        }
+        else break;
+      };
+    };
+  };
+
+  //ProgTrace(TRACE5, "FilterUnattachedTags: finished time=%f msecs", (NowUTC()-d)*MSecsPerDay);
+};
+
+void GetUnattachedTags(int point_id,
+                       TUnattachedTagMap &result)
+{
+  result.clear();
+  TTripInfo flt;
+  vector<TrferList::TGrpItem> grps_ckin;
+  vector<TrferList::TGrpItem> grps_tlg;
+  TrferList::TrferFromDB(TrferList::trferOut, point_id, true, flt, grps_ckin, grps_tlg);
+
+  GetUnattachedTags(point_id, grps_ckin, grps_tlg, result);
+};
+
+void GetCheckedTags(int id,  //м.б. point_id или grp_id
+                    TIdType id_type,
+                    const TTagMap &filter_tags,
+                    map<TGrpId, TGrpItem> &grps_out)
+{
+  grps_out.clear();
+
+  if (id_type!=idFlt && id_type!=idGrp)
+    throw Exception("GetCheckedTags: wrong id_type");
+
+  TQuery PaxQry(&OraSession);
+  PaxQry.Clear();
+  PaxQry.SQLText=
+    "SELECT subclass, surname, name "
+    "FROM pax "
+    "WHERE grp_id=:grp_id AND bag_pool_num=:bag_pool_num AND seats>0";
+  PaxQry.DeclareVariable("grp_id", otInteger);
+  PaxQry.DeclareVariable("bag_pool_num", otInteger);
+
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  ostringstream sql;
+  sql <<
+    "SELECT pax_grp.grp_id, pax_grp.airp_arv, pax_grp.class, "
+    "       bag2.bag_pool_num, bag_tags.no "
+    "FROM pax_grp, bag2, bag_tags "
+    "WHERE pax_grp.grp_id=bag2.grp_id AND "
+    "      bag2.grp_id=bag_tags.grp_id AND "
+    "      bag2.num=bag_tags.bag_num AND ";
+  if (id_type==idFlt)
+    sql <<
+      "      pax_grp.point_dep=:id ";
+  else
+    sql <<
+      "      pax_grp.grp_id=:id ";
+  Qry.SQLText=sql.str();
+  Qry.CreateVariable("id", otInteger, id);
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+  {
+    TGrpId id(Qry.FieldAsInteger("grp_id"),
+              Qry.FieldIsNULL("bag_pool_num")?NoExists:Qry.FieldAsInteger("bag_pool_num"));
+    if (id.second==NoExists) continue;
+    TBagTagNumber tag("", Qry.FieldAsFloat("no"));
+
+    if (!filter_tags.empty() &&
+        filter_tags.find(tag)==filter_tags.end()) continue;
+
+    map<TGrpId, TGrpItem>::iterator grp_out=grps_out.find(id);
+    if (grp_out==grps_out.end())
+    {
+      TGrpItem grp;
+      grp.airp_arv=Qry.FieldAsString("airp_arv");
+      grp.is_unaccomp=Qry.FieldIsNULL("class");
+      if (!grp.is_unaccomp)
+      {
+        PaxQry.SetVariable("grp_id", id.first);
+        PaxQry.SetVariable("bag_pool_num", id.second);
+        PaxQry.Execute();
+        for(;!PaxQry.Eof;PaxQry.Next())
+          grp.paxs.push_back(TPaxItem(PaxQry.FieldAsString("subclass"),
+                                      PaxQry.FieldAsString("surname"),
+                                      PaxQry.FieldAsString("name")));
+      };
+      grp_out=grps_out.insert(make_pair(id, grp)).first;
+    };
+    if (grp_out==grps_out.end()) throw Exception("GetCheckedTags: grp_out=grps_out.end()");
+
+    grp_out->second.tags.push_back(tag);
+  };
+};
+
+void GetCheckedTags(int id,  //м.б. point_id или grp_id
+                    TIdType id_type,
+                    map<TGrpId, TGrpItem> &grps_out)
+{
+  GetCheckedTags(id, id_type, TTagMap(), grps_out);
+};
+
+void GetUnattachedTags(int point_id,
+                       const vector<TrferList::TGrpItem> &grps_ckin,
+                       const vector<TrferList::TGrpItem> &grps_tlg,
+                       TUnattachedTagMap &result)
+{
+  result.clear();
+
+  TTagMap tags;
+  map<TGrpId, TGrpItem> grps_in;
+  for(int from_tlg=0; from_tlg<2; from_tlg++)
+  {
+    vector<TrferList::TGrpItem>::const_iterator g=from_tlg?grps_tlg.begin():grps_ckin.begin();
+    for(; g!=(from_tlg?grps_tlg.end():grps_ckin.end()); ++g)
+    {
+      if (g->tags.empty()) continue;
+      TGrpId id(g->grp_id, g->bag_pool_num);
+      map<TGrpId, TGrpItem>::const_iterator grp_in=grps_in.find(id);
+      if (grp_in==grps_in.end())
+        grp_in=grps_in.insert(make_pair(id, TGrpItem(*g))).first;
+      if (grp_in==grps_in.end()) throw Exception("GetUnattachedTags: grp_in=grps_in.end()");
+
+      for(vector<TBagTagNumber>::const_iterator t=g->tags.begin(); t!=g->tags.end(); ++t)
+      {
+        TTagMap::iterator tag=tags.find(*t);
+        if (tag==tags.end())
+          tag=tags.insert(make_pair(*t, pair< list<TGrpId>, list<TGrpId> >())).first;
+        if (tag==tags.end()) throw Exception("GetUnattachedTags: tag==tags.end()");
+        tag->second.first.push_back(id);
+      };
+    };
+  };
+
+  if (grps_in.empty() || tags.empty()) return;
+
+  map<TGrpId, TGrpItem> grps_out;
+  GetCheckedTags(point_id, idFlt, tags, grps_out);
+  for(map<TGrpId, TGrpItem>::const_iterator g=grps_out.begin(); g!=grps_out.end(); ++g)
+  {
+    for(list<TBagTagNumber>::const_iterator t=g->second.tags.begin(); t!=g->second.tags.end(); ++t)
+    {
+      TTagMap::iterator tag=tags.find(*t);
+      if (tag==tags.end()) continue;
+
+      tag->second.second.push_back(g->first);
+    };
+  };
+
+  FilterUnattachedTags(grps_in, grps_out, tags);
+
+  for(TTagMap::const_iterator t=tags.begin(); t!=tags.end(); ++t)
+  {
+    for(list<TGrpId>::const_iterator g=t->second.first.begin(); g!=t->second.first.end(); ++g)
+    {
+      TUnattachedTagMap::iterator r=result.find(*g);
+      if (r==result.end())
+        r=result.insert(make_pair(*g, vector<TBagTagNumber>())).first;
+      if (r==result.end()) throw Exception("GetUnattachedTags: r==result.end()");
+      r->second.push_back(t->first);
+    };
+  };
+/*
+  for(TUnattachedTagMap::const_iterator r=result.begin(); r!=result.end(); ++r)
+  {
+    for(vector<TBagTagNumber>::const_iterator t=r->second.begin(); t!=r->second.end(); ++t)
+      ProgTrace(TRACE5, "%s: %s",
+                        r->first.getStr().c_str(),
+                        GetTagRangesStr(vector<TBagTagNumber>(1,*t)).c_str());
+  };
+*/
+};
+
+void GetNextTrferCheckedFlts(int id,
+                             TIdType id_type,
+                             set<int> &point_ids)
+{
+  point_ids.clear();
+
+  if (id_type!=idFlt && id_type!=idGrp)
+    throw Exception("GetNextTrferCheckedFlts: wrong id_type");
+
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+
+  ostringstream sql;
+  sql << "SELECT trfer_trips.point_id_spp "
+         "FROM transfer, trfer_trips, trip_stages ";
+  if (id_type==idFlt)
+    sql << ", pax_grp ";
+
+  sql << "WHERE trfer_trips.point_id=transfer.point_id_trfer AND "
+         "      trfer_trips.point_id_spp=trip_stages.point_id AND ";
+
+  if (id_type==idFlt)
+    sql << "      transfer.grp_id=pax_grp.grp_id AND "
+           "      pax_grp.point_dep=:id AND ";
+  if (id_type==idGrp)
+    sql << "      transfer.grp_id=:id AND ";
+
+  sql << "      transfer.transfer_num=1 AND "
+         "      trip_stages.stage_id=:stage_id AND "
+         "      trip_stages.act IS NOT NULL ";
+/*
+  //это более подробный анализ, но он требует более внимательного отношения к местам вызова процедуры
+  //поэтому пока делаем проще и используем более быстрый SQL запрос
+  sql << "SELECT DISTINCT trfer_trips.point_id_spp "
+         "FROM trfer_trips, transfer, pax_grp, pax "
+         "WHERE trfer_trips.point_id=transfer.point_id_trfer AND "
+         "      transfer.grp_id=pax_grp.grp_id AND ";
+  if (id_type==idFlt)
+    sql << "      pax_grp.grp_id=pax.grp_id(+) AND "
+           "      pax_grp.point_dep=:id AND ";
+  if (id_type==idGrp)
+    sql << "      pax_grp.grp_id=pax.grp_id(+) AND "
+           "      pax_grp.grp_id=:id AND ";
+  if (id_type==idPax)
+    sql << "      pax_grp.grp_id=pax.grp_id AND "
+           "      pax.pax_id=:id AND ";
+  sql << "      transfer.transfer_num=1 AND "
+         "      pax_grp.bag_refuse=0 AND pax_grp.status<>'T' AND "
+         "      (pax_grp.class IS NULL OR pax.pr_brd=1 AND pax.bag_pool_num IS NOT NULL) ";
+*/
+  Qry.SQLText=sql.str();
+  Qry.CreateVariable("id", otInteger, id);
+  Qry.CreateVariable("stage_id", otInteger, sCloseCheckIn);
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+    point_ids.insert(Qry.FieldAsInteger("point_id_spp"));
+
+};
+
+}; //namespace InboundTrfer
 
 namespace TrferListOld
 {
