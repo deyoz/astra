@@ -1,6 +1,7 @@
 #ifndef _ALARMS_H_
 #define _ALARMS_H_
 
+#include "astra_consts.h"
 #include "astra_utils.h"
 #include "astra_misc.h"
 #include "transfer.h"
@@ -33,11 +34,14 @@ bool check_waitlist_alarm( int point_id );
 bool check_brd_alarm( int point_id );
 bool check_tlg_out_alarm(int point_id);
 bool check_spec_service_alarm(int point_id);
-bool check_unattached_trfer_alarm( int point_id );
+void check_unattached_trfer_alarm( const std::set<int> &point_ids );
+void check_unattached_trfer_alarm( int point_id );
 bool need_check_u_trfer_alarm_for_grp( int point_id );
-bool check_u_trfer_alarm_for_grp( int point_id,
+void check_u_trfer_alarm_for_grp( int point_id,
                                   int grp_id,
                                   const std::map<InboundTrfer::TGrpId, InboundTrfer::TGrpItem> &tags_before );
+void check_u_trfer_alarm_for_next_trfer( int id,  //м.б. point_id или grp_id
+                                         ASTRA::TIdType id_type );
 
 
 #endif

@@ -1,4 +1,5 @@
 #include "alarms.h"
+#include "astra_consts.h"
 #include "astra_misc.h"
 #include "exceptions.h"
 #include "oralib.h"
@@ -264,17 +265,27 @@ bool check_spec_service_alarm(int point_id)
 
 }
 
-bool check_unattached_trfer_alarm( int point_id )
+void check_unattached_trfer_alarm( const set<int> &point_ids )
 {
-  bool result = false;
-	if ( CheckStageACT(point_id, sCloseCheckIn) )
+  for(set<int>::const_iterator i=point_ids.begin(); i!=point_ids.end(); ++i)
   {
-    InboundTrfer::TUnattachedTagMap unattached_grps;
-    InboundTrfer::GetUnattachedTags(point_id, unattached_grps);
-    result = !unattached_grps.empty();
-	};
-	set_alarm( point_id, atUnattachedTrfer, result );
-	return result;
+    int point_id=*i;
+    bool result=false;
+  	if ( CheckStageACT(point_id, sCloseCheckIn) )
+    {
+      InboundTrfer::TUnattachedTagMap unattached_grps;
+      InboundTrfer::GetUnattachedTags(point_id, unattached_grps);
+      result = !unattached_grps.empty();
+  	};
+  	set_alarm( point_id, atUnattachedTrfer, result );
+  };
+};
+
+void check_unattached_trfer_alarm( int point_id )
+{
+  set<int> point_ids;
+  point_ids.insert(point_id);
+  check_unattached_trfer_alarm( point_ids );
 };
 
 bool need_check_u_trfer_alarm_for_grp( int point_id )
@@ -282,19 +293,29 @@ bool need_check_u_trfer_alarm_for_grp( int point_id )
   return CheckStageACT(point_id, sCloseCheckIn);
 };
 
-bool check_u_trfer_alarm_for_grp( int point_id,
+void check_u_trfer_alarm_for_grp( int point_id,
                                   int grp_id,
                                   const map<InboundTrfer::TGrpId, InboundTrfer::TGrpItem> &tags_before )
 
 {
   bool alarm=get_alarm(point_id, atUnattachedTrfer);
-  if (tags_before.empty() && !alarm) return alarm;
+  if (tags_before.empty() && !alarm) return;
   map<InboundTrfer::TGrpId, InboundTrfer::TGrpItem> tags_after;
-  InboundTrfer::GetCheckedTags(grp_id, false, tags_after);
-  if (tags_after.empty() && alarm) return alarm;
-  if (tags_before==tags_after) return alarm;
-  return check_unattached_trfer_alarm(point_id);
+  InboundTrfer::GetCheckedTags(grp_id, idGrp, tags_after);
+  if (tags_after.empty() && alarm) return;
+  if (tags_before==tags_after) return;
+  check_unattached_trfer_alarm(point_id);
 };
+
+void check_u_trfer_alarm_for_next_trfer( int id,  //м.б. point_id или grp_id
+                                         TIdType id_type )
+{
+  set<int> next_trfer_point_ids;
+  InboundTrfer::GetNextTrferCheckedFlts(id, id_type, next_trfer_point_ids);
+  check_unattached_trfer_alarm(next_trfer_point_ids);
+};
+
+
 
 
 

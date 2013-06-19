@@ -285,13 +285,17 @@ void GetUnattachedTags(int point_id,
                        TUnattachedTagMap &result);
 
 void GetCheckedTags(int id,  //м.б. point_id или grp_id
-                    bool is_point_id,
+                    ASTRA::TIdType id_type,
                     std::map<TGrpId, TGrpItem> &grps_out);
 
 void GetUnattachedTags(int point_id,
                        const std::vector<TrferList::TGrpItem> &grps_ckin,
                        const std::vector<TrferList::TGrpItem> &grps_tlg,
                        TUnattachedTagMap &result);
+
+void GetNextTrferCheckedFlts(int id,  //м.б. point_id или grp_id
+                             ASTRA::TIdType id_type,
+                             std::set<int> &point_ids);
 
 }; //namespace InboundTrfer
 

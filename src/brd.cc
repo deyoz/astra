@@ -16,6 +16,7 @@
 #include "alarms.h"
 #include "passenger.h"
 #include "rozysk.h"
+#include "transfer.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -327,6 +328,7 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   if (reqInfo->screen.name == "BRDBUS.EXE")
   {
     check_brd_alarm( point_id );
+    check_u_trfer_alarm_for_next_trfer(point_id, idFlt);
   };
 
   GetPax(reqNode,resNode);
@@ -402,6 +404,7 @@ bool BrdInterface::PaxUpdate(int point_id, int pax_id, int &tid, bool mark, bool
       if (reqInfo->screen.name == "BRDBUS.EXE")
       {
         check_brd_alarm( point_id );
+        check_u_trfer_alarm_for_next_trfer(grp_id, idGrp);
       };
     };
     tid=new_tid;

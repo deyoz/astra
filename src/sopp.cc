@@ -1617,7 +1617,9 @@ struct TSegBSMInfo
 };
 
 void DeletePaxGrp( const TTypeBSendInfo &sendInfo, int grp_id, bool toLog,
-                   TQuery &PaxQry, TQuery &DelQry, map<int/*point_id*/,TSegBSMInfo> &BSMsegs )
+                   TQuery &PaxQry, TQuery &DelQry,
+                   map<int/*point_id*/,TSegBSMInfo> &BSMsegs,
+                   set<int/*point_id*/> &nextTrferSegs )
 {
   int point_id=sendInfo.point_id;
 
@@ -1664,6 +1666,11 @@ void DeletePaxGrp( const TTypeBSendInfo &sendInfo, int grp_id, bool toLog,
     BSM::LoadContent(grp_id,BSMContent);
     BSMseg.BSMContentBefore[grp_id]=BSMContent;
   };
+
+  //набираем вектор nextTrferSegs
+  set<int> ids;
+  InboundTrfer::GetNextTrferCheckedFlts(grp_id, idGrp, ids);
+  nextTrferSegs.insert(ids.begin(),ids.end());
 
   bool SyncPaxs=is_sync_paxs(point_id);
 
@@ -1736,6 +1743,7 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
   sendInfo.tlg_type="BSM";
 
   map<int/*point_id*/,TSegBSMInfo> BSMsegs;
+  set<int> nextTrferSegs;
 
   TQuery DelQry(&OraSession);
   TQuery PaxQry(&OraSession);
@@ -1831,12 +1839,12 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
           tckinSendInfo.pr_tranzit=TCkinQry.FieldAsInteger("pr_tranzit")!=0;
           tckinSendInfo.tlg_type="BSM";
 
-          DeletePaxGrp( tckinSendInfo, tckin_grp_id, true, PaxQry, DelQry, BSMsegs);
+          DeletePaxGrp( tckinSendInfo, tckin_grp_id, true, PaxQry, DelQry, BSMsegs, nextTrferSegs);
         };
       };
     };
     
-    DeletePaxGrp( sendInfo, grp_id, filter.inbound_point_dep!=NoExists, PaxQry, DelQry, BSMsegs);
+    DeletePaxGrp( sendInfo, grp_id, filter.inbound_point_dep!=NoExists, PaxQry, DelQry, BSMsegs, nextTrferSegs);
   };
 
   //пересчитаем счетчики по всем рейсам, включая сквозные сегменты
@@ -1856,6 +1864,8 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
     check_TrferExists( i->first );
     check_unattached_trfer_alarm( i->first );
   };
+
+  check_unattached_trfer_alarm(nextTrferSegs);
 
   if ( filter.inbound_point_dep==NoExists )
   {

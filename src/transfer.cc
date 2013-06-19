@@ -1029,11 +1029,14 @@ void GetUnattachedTags(int point_id,
 };
 
 void GetCheckedTags(int id,  //м.б. point_id или grp_id
-                    bool is_point_id,
+                    TIdType id_type,
                     const TTagMap &filter_tags,
                     map<TGrpId, TGrpItem> &grps_out)
 {
   grps_out.clear();
+
+  if (id_type!=idFlt && id_type!=idGrp)
+    throw Exception("GetCheckedTags: wrong id_type");
 
   TQuery PaxQry(&OraSession);
   PaxQry.Clear();
@@ -1054,7 +1057,7 @@ void GetCheckedTags(int id,  //м.б. point_id или grp_id
     "WHERE pax_grp.grp_id=bag2.grp_id AND "
     "      bag2.grp_id=bag_tags.grp_id AND "
     "      bag2.num=bag_tags.bag_num AND ";
-  if (is_point_id)
+  if (id_type==idFlt)
     sql <<
       "      pax_grp.point_dep=:id ";
   else
@@ -1098,14 +1101,11 @@ void GetCheckedTags(int id,  //м.б. point_id или grp_id
 };
 
 void GetCheckedTags(int id,  //м.б. point_id или grp_id
-                    bool is_point_id,
+                    TIdType id_type,
                     map<TGrpId, TGrpItem> &grps_out)
 {
-  GetCheckedTags(id, is_point_id, TTagMap(), grps_out);
+  GetCheckedTags(id, id_type, TTagMap(), grps_out);
 };
-
-
-
 
 void GetUnattachedTags(int point_id,
                        const vector<TrferList::TGrpItem> &grps_ckin,
@@ -1142,7 +1142,7 @@ void GetUnattachedTags(int point_id,
   if (grps_in.empty() || tags.empty()) return;
 
   map<TGrpId, TGrpItem> grps_out;
-  GetCheckedTags(point_id, true, tags, grps_out);
+  GetCheckedTags(point_id, idFlt, tags, grps_out);
   for(map<TGrpId, TGrpItem>::const_iterator g=grps_out.begin(); g!=grps_out.end(); ++g)
   {
     for(list<TBagTagNumber>::const_iterator t=g->second.tags.begin(); t!=g->second.tags.end(); ++t)
@@ -1176,6 +1176,65 @@ void GetUnattachedTags(int point_id,
                         GetTagRangesStr(vector<TBagTagNumber>(1,*t)).c_str());
   };
 */
+};
+
+void GetNextTrferCheckedFlts(int id,
+                             TIdType id_type,
+                             set<int> &point_ids)
+{
+  point_ids.clear();
+
+  if (id_type!=idFlt && id_type!=idGrp)
+    throw Exception("GetNextTrferCheckedFlts: wrong id_type");
+
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+
+  ostringstream sql;
+  sql << "SELECT trfer_trips.point_id_spp "
+         "FROM transfer, trfer_trips, trip_stages ";
+  if (id_type==idFlt)
+    sql << ", pax_grp ";
+
+  sql << "WHERE trfer_trips.point_id=transfer.point_id_trfer AND "
+         "      trfer_trips.point_id_spp=trip_stages.point_id AND ";
+
+  if (id_type==idFlt)
+    sql << "      transfer.grp_id=pax_grp.grp_id AND "
+           "      pax_grp.point_dep=:id AND ";
+  if (id_type==idGrp)
+    sql << "      transfer.grp_id=:id AND ";
+
+  sql << "      transfer.transfer_num=1 AND "
+         "      trip_stages.stage_id=:stage_id AND "
+         "      trip_stages.act IS NOT NULL ";
+/*
+  //это более подробный анализ, но он требует более внимательного отношения к местам вызова процедуры
+  //поэтому пока делаем проще и используем более быстрый SQL запрос
+  sql << "SELECT DISTINCT trfer_trips.point_id_spp "
+         "FROM trfer_trips, transfer, pax_grp, pax "
+         "WHERE trfer_trips.point_id=transfer.point_id_trfer AND "
+         "      transfer.grp_id=pax_grp.grp_id AND ";
+  if (id_type==idFlt)
+    sql << "      pax_grp.grp_id=pax.grp_id(+) AND "
+           "      pax_grp.point_dep=:id AND ";
+  if (id_type==idGrp)
+    sql << "      pax_grp.grp_id=pax.grp_id(+) AND "
+           "      pax_grp.grp_id=:id AND ";
+  if (id_type==idPax)
+    sql << "      pax_grp.grp_id=pax.grp_id AND "
+           "      pax.pax_id=:id AND ";
+  sql << "      transfer.transfer_num=1 AND "
+         "      pax_grp.bag_refuse=0 AND pax_grp.status<>'T' AND "
+         "      (pax_grp.class IS NULL OR pax.pr_brd=1 AND pax.bag_pool_num IS NOT NULL) ";
+*/
+  Qry.SQLText=sql.str();
+  Qry.CreateVariable("id", otInteger, id);
+  Qry.CreateVariable("stage_id", otInteger, sCloseCheckIn);
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+    point_ids.insert(Qry.FieldAsInteger("point_id_spp"));
+
 };
 
 }; //namespace InboundTrfer

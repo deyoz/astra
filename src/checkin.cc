@@ -3142,6 +3142,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       BSM::TTlgContent BSMContentBefore;
       bool BSMsend=BSM::IsSend(sendInfo,BSMaddrs);
 
+      set<int> nextTrferSegs;
+
       TQuery CrsQry(&OraSession);
       CrsQry.Clear();
       CrsQry.SQLText=
@@ -3995,10 +3997,12 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         //ЗАПИСЬ ИЗМЕНЕНИЙ
         GetGrpToLogInfo(grp.id, grpInfoBefore); //для всех сегментов
         if (needCheckUnattachedTrferAlarm)
-          InboundTrfer::GetCheckedTags(grp.id, false, grpTagsBefore); //для всех сегментов
+          InboundTrfer::GetCheckedTags(grp.id, idGrp, grpTagsBefore); //для всех сегментов
         //BSM
         if (BSMsend)
           BSM::LoadContent(grp.id,BSMContentBefore);
+
+        InboundTrfer::GetNextTrferCheckedFlts(grp.id, idGrp, nextTrferSegs);
       
         bool save_trfer=false;
         if (reqInfo->desk.compatible(TRFER_CONFIRM_VERSION))
@@ -4628,6 +4632,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       check_TrferExists( grp.point_dep );
       if (needCheckUnattachedTrferAlarm)
         check_u_trfer_alarm_for_grp( grp.point_dep, grp.id, grpTagsBefore);
+      if (new_checkin) //для записи изменений уже заранее получили nextTrferSegs
+        InboundTrfer::GetNextTrferCheckedFlts(grp.id, idGrp, nextTrferSegs);
+      check_unattached_trfer_alarm(nextTrferSegs);
 
       //BSM
       if (BSMsend) BSM::Send(grp.point_dep,grp.id,BSMContentBefore,BSMaddrs);
