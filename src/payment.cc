@@ -56,6 +56,52 @@ void PaymentInterface::BuildTransfer(const TTrferRoute &trfer, xmlNodePtr transf
   };
 };
 
+string get_pax_name(TQuery &Qry)
+{
+    string surname = Qry.FieldAsString("surname");
+    string name = Qry.FieldAsString("name");
+    string midname;
+    string gender;
+    if(not name.empty()) {
+        size_t idx = name.find(' ');
+        if(idx != string::npos) {
+            midname = name.substr(idx + 1);
+            name = name.substr(0, idx);
+            idx = midname.find(' ');
+            if(idx != string::npos) {
+                gender = midname.substr(idx + 1);
+                if(
+                        not(
+                            gender == "ƒ-" or
+                            gender == "ƒ-†€" or
+                            gender == "MR" or
+                            gender == "MSTR" or
+                            gender == "MRS" or
+                            gender == "MS" or
+                            gender == "MISS" or
+                            gender == "MSS"
+                           )
+                  )
+                    gender.erase();
+            }
+        }
+    }
+
+    if(gender.empty()) {
+        gender = Qry.FieldAsString("gender");
+        if(gender.substr(0, 1) == "F") {
+        }
+    }
+
+    string result;
+    result += surname;
+    if(not name.empty())
+        result += "/" + name;
+    if(not midname.empty())
+        result += " " + midname.substr(0, 1);
+    return result;
+}
+
 void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   enum TSearchType {searchByPaxId,searchByGrpId,searchByRegNo,searchByReceiptNo};
@@ -166,10 +212,13 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         "       point_dep,airp_dep,airp_arv,airps.city AS city_arv, "
         "       class,bag_refuse,pax_grp.tid, "
         "       pax.reg_no, "
-        "       RTRIM(pax.surname||' '||pax.name) AS pax_name "
-        "FROM pax_grp,pax,airps "
+        "       pax.surname, "
+        "       pax.name, "
+        "       pax_doc.gender "
+        "FROM pax_grp,pax,airps, pax_doc "
         "WHERE pax_grp.grp_id=pax.grp_id AND "
         "      pax_grp.airp_arv=airps.code AND "
+        "      pax.pax_id = pax_doc.pax_id(+) and "
         "      pax.pax_id=:pax_id";
       Qry.CreateVariable("pax_id",otInteger,pax_id);
       Qry.Execute();
@@ -183,7 +232,8 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         "       point_dep,airp_dep,airp_arv,airps.city AS city_arv, "
         "       class,bag_refuse,pax_grp.tid, "
         "       NULL AS reg_no, "
-        "       NULL AS pax_name "
+        "       NULL AS surname, "
+        "       NULL AS name "
         "FROM pax_grp,airps "
         "WHERE pax_grp.airp_arv=airps.code AND grp_id=:grp_id ";
       Qry.CreateVariable("grp_id",otInteger,grp_id);
@@ -245,7 +295,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   NewTextChild(dataNode,"class",Qry.FieldAsString("class"));
   NewTextChild(dataNode,"pr_refuse",(int)(Qry.FieldAsInteger("bag_refuse")!=0));
   NewTextChild(dataNode,"reg_no",Qry.FieldAsInteger("reg_no"));
-  NewTextChild(dataNode,"pax_name",Qry.FieldAsString("pax_name"));
+  NewTextChild(dataNode,"pax_name", get_pax_name(Qry));
   TQuery PaxDocQry(&OraSession);
   if (!Qry.FieldIsNULL("pax_id"))
     NewTextChild(dataNode,"pax_doc",CheckIn::GetPaxDocStr(NoExists, Qry.FieldAsInteger("pax_id"), PaxDocQry));
@@ -386,6 +436,8 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   CheckIn::LoadBag(grp_id,dataNode);
   CheckInInterface::LoadPaidBag(grp_id,dataNode);
   LoadReceipts(grp_id,true,prnParams.pr_lat,dataNode);
+#warning do not commit
+  ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 };
 
 void PaymentInterface::LoadReceipts(int id, bool pr_grp, bool pr_lat, xmlNodePtr dataNode)
