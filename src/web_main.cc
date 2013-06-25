@@ -241,7 +241,16 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   if (scanCodeNode!=NULL)
     filter.fromBCBP_M(NodeAsString(scanCodeNode));
   else
+  {
     filter.fromXML(reqNode);
+    if (filter.document.empty() &&
+        filter.ticket_no.empty() &&
+        filter.pnr_addr_normal.empty())
+    {
+      ProgError(STDLOG, "WebRequestsIface::SearchFlt: <pnr_addr>, <ticket_no>, <document> not defined");
+      throw UserException("MSG.NOTSET.SEARCH_PARAMS");
+    };
+  };
   filter.testPaxFromDB();
   filter.trace(TRACE5);
   
