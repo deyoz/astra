@@ -23,9 +23,11 @@ using namespace EXCEPTIONS;
 using namespace BASIC;
 using namespace ASTRA;
 
-const std::string ROZYSK_MAGISTRAL = "ROZYSK_MAGISTRAL";
+const std::string ROZYSK_MAGISTRAL =    "ROZYSK_MAGISTRAL";
 const std::string ROZYSK_MAGISTRAL_24 = "ROZYSK_MAGISTRAL_24";
-const std::string ROZYSK_SIRENA = "ROZYSK_SIRENA";
+const std::string ROZYSK_SIRENA =       "ROZYSK_SIRENA";
+const std::string ROZYSK_MINTRANS =     "ROZYSK_MINTRANS";
+const std::string ROZYSK_MINTRANS_24 =  "ROZYSK_MINTRANS_24";
 
 namespace rozysk
 {
@@ -434,44 +436,30 @@ void sync_crs_pnr(int pnr_id, const string &term)
 };
 
 struct TPax {
-    TDateTime transactionDate;
-    string airline;
-    string flightNumber; // суффикс???
-    TDateTime departureDate;
-    string rackNumber;
-    string seatNumber;
-    string firstName;
-    string lastName;
-    string patronymic;
-    string documentNumber;
-    string operationType;
-    string baggageReceiptsNumber;
-    string departureAirport;
-    string arrivalAirport;
-    string baggageWeight;
-    string PNR;
-    string visaNumber;
-    TDateTime visaDate;
-    string visaPlace;
-    string visaCountryCode;
-    string nationality;
-    string gender;
+    TDateTime transactionDate;    //time
+    string airline;               //airline
+    int flightNumber;             //flt_no
+    string flightSuffix;          //suffix
+    TDateTime departureDate;      //takeoff
+    string rackNumber;            //term
+    string seatNumber;            //seat_no
+    string firstName;             //surname
+    string lastName;              //name
+    string patronymic;            //patronymic
+    string documentNumber;        //doc_no
+    string operationType;         //operation
+    string baggageReceiptsNumber; //tags
+    string departureAirport;      //airp_dep
+    string arrivalAirport;        //airp_arv
+    string baggageWeight;         //bag_weight
+    string PNR;                   //pnr
+    string visaNumber;            //visa_no
+    TDateTime visaDate;           //visa_issue_date
+    string visaPlace;             //visa_issue_place
+    string visaCountryCode;       //visa_applic_country
+    string nationality;           //doc_nationality
+    string gender;                //doc_gender
 };
-
-bool filter_passenger( const string &airp_dep, const string &airp_arv, const string &nationality )
-{
-/*
-  1.        Всех, улетающих/прилетающих в аэропорты на территории Таджикистана вне зависимости от их подданства
-  2.        Всех подданных Таджикистана, улетающих/прилетающих в аэропорты всего мира, которые проходят через систему Astra .
-*/
-  TBaseTable &basecities = base_tables.get( "cities" );
-  TBaseTable &baseairps = base_tables.get( "airps" );
-  if ( nationality == "TJK" ||
-       ((TCitiesRow&)basecities.get_row( "code", ((TAirpsRow&)baseairps.get_row( "code", airp_dep, true )).city)).country == "ТД" ||
-       ((TCitiesRow&)basecities.get_row( "code", ((TAirpsRow&)baseairps.get_row( "code", airp_arv, true )).city)).country == "ТД" )
-    return true;
-  return false;
-}
 
 string make_soap_content(const vector<TPax> &paxs)
 {
@@ -487,7 +475,7 @@ string make_soap_content(const vector<TPax> &paxs)
             "         <sir:policyParameters>\n"
             "            <sir:transactionDate>" << DateTimeToStr(iv->transactionDate, "yyyy-mm-dd") << "</sir:transactionDate>\n"
             "            <sir:transactionTime>" << DateTimeToStr(iv->transactionDate, "yyyymmddhhnnss") << "</sir:transactionTime>\n"
-            "            <sir:flightNumber>" << iv->flightNumber << "</sir:flightNumber>\n"
+            "            <sir:flightNumber>" << iv->flightNumber << iv->flightSuffix << "</sir:flightNumber>\n"
             "            <sir:departureDate>" << (iv->departureDate==NoExists?"":DateTimeToStr(iv->departureDate, "yyyy-mm-dd")) << "</sir:departureDate>\n"
             "            <sir:rackNumber>" << iv->rackNumber << "</sir:rackNumber>\n"
             "            <sir:seatNumber>" << iv->seatNumber << "</sir:seatNumber>\n"
@@ -518,49 +506,91 @@ string make_soap_content(const vector<TPax> &paxs)
     return ConvertCodepage(result.str(), "CP866", "UTF-8");
 }
 
-} //namespace rozysk
-
-void sync_sirena_rozysk( TDateTime utcdate )
+class TPaxListFilter
 {
-  ProgTrace(TRACE5,"sync_sirena_rozysk started");
-  vector<rozysk::TPax> paxs;
+  public:
+    TDateTime first_time_utc, last_time_utc;
+    string airline;
+    int flt_no;
+    string airp_dep;
+    TPaxListFilter()
+    {
+      first_time_utc=NoExists;
+      last_time_utc=NoExists;
+      flt_no=NoExists;
+    };
+    virtual bool check_pax(const TPax &pax) const { return true; };
+};
+
+class TPaxListTJKFilter : public TPaxListFilter
+{
+  public:
+    virtual bool check_pax(const TPax &pax) const
+    {
+/*
+  1.        Всех, улетающих/прилетающих в аэропорты на территории Таджикистана вне зависимости от их подданства
+  2.        Всех подданных Таджикистана, улетающих/прилетающих в аэропорты всего мира, которые проходят через систему Astra .
+*/
+      string country_dep, country_arv;
+      TBaseTable &basecities = base_tables.get( "cities" );
+      TBaseTable &baseairps = base_tables.get( "airps" );
+      try
+      {
+        country_dep=((TCitiesRow&)basecities.get_row( "code", ((TAirpsRow&)baseairps.get_row( "code", pax.departureAirport, true )).city)).country;
+      }
+      catch(EBaseTableError) {};
+      try
+      {
+        country_arv=((TCitiesRow&)basecities.get_row( "code", ((TAirpsRow&)baseairps.get_row( "code", pax.departureAirport, true )).city)).country;
+      }
+      catch(EBaseTableError) {};
+
+
+      if ( pax.nationality == "TJK" || country_dep == "ТД" || country_arv == "ТД" ) return true;
+      return false;
+    };
+};
+
+void get_pax_list(const TPaxListFilter &filter,
+                  vector<rozysk::TPax> &paxs)
+{
+  paxs.clear();
+  if (filter.first_time_utc==NoExists ||
+      filter.last_time_utc==NoExists)
+    throw Exception("rozysk::get_pax_list: first_time_utc and last_time_utc not defined");
 
   TQuery Qry(&OraSession);
   Qry.Clear();
-  Qry.SQLText=
-      "SELECT addr, port, http_resource, action, last_create "
-      "FROM http_sets "
-      "WHERE code=:code AND pr_denial=0 FOR UPDATE";
-  Qry.CreateVariable("code", otString, ROZYSK_SIRENA);
-  Qry.Execute();
-  if (Qry.Eof) return;
-  TDateTime last_time=NowUTC() - 1.0/1440.0; //отматываем минуту, так как данные последних секунд могут быть еще не закоммичены в rozysk
-  TDateTime first_time = Qry.FieldIsNULL("last_create") ? last_time - 10.0/1440.0 :
-                                                          Qry.FieldAsDateTime("last_create");
-
-  if (first_time>=last_time) return;
-  HTTPRequestInfo request;
-  request.addr=Qry.FieldAsString("addr");
-  request.port=Qry.FieldAsInteger("port");
-  request.resource=Qry.FieldAsString("http_resource");
-  request.action=Qry.FieldAsString("action");
-
-
-  Qry.Clear();
-  Qry.SQLText =
-      "SELECT time, term, "
-      "       airline, flt_no, suffix, takeoff, airp_dep, "
-      "       airp_arv, surname, "
-      "       LTRIM(RTRIM(SUBSTR(name||' ',1,INSTR(name||' ',' ')))) AS name, "
-      "       LTRIM(RTRIM(SUBSTR(name||' ',INSTR(name||' ',' ')+1))) AS patronymic, "
-      "       seat_no, bag_weight, tags, pnr, operation, "
-      "       doc_no, doc_nationality, NVL(doc_gender,'N') AS doc_gender, "
-      "       visa_no, visa_issue_place, visa_issue_date, visa_applic_country "
-      "FROM rozysk "
-      "WHERE time>=:first_time AND time<:last_time "
-      "ORDER BY time";
-  Qry.CreateVariable( "first_time", otDate, first_time );
-  Qry.CreateVariable( "last_time", otDate, last_time );
+  ostringstream sql;
+  sql << "SELECT time, term, "
+         "       airline, flt_no, suffix, takeoff, airp_dep, "
+         "       airp_arv, surname, "
+         "       LTRIM(RTRIM(SUBSTR(name||' ',1,INSTR(name||' ',' ')))) AS name, "
+         "       LTRIM(RTRIM(SUBSTR(name||' ',INSTR(name||' ',' ')+1))) AS patronymic, "
+         "       seat_no, bag_weight, tags, pnr, operation, "
+         "       doc_no, doc_nationality, NVL(doc_gender,'N') AS doc_gender, "
+         "       visa_no, visa_issue_place, visa_issue_date, visa_applic_country "
+         "FROM rozysk "
+         "WHERE time>=:first_time AND time<:last_time ";
+  if (!filter.airline.empty())
+  {
+    sql << "      AND (airline=:airline) ";
+    Qry.CreateVariable("airline", otString, filter.airline);
+  };
+  if (filter.flt_no!=NoExists)
+  {
+    sql << "      AND (flt_no=:flt_no) ";
+    Qry.CreateVariable("flt_no", otInteger, filter.flt_no);
+  };
+  if (!filter.airp_dep.empty())
+  {
+    sql << "      AND (airp_dep=:airp_dep) ";
+    Qry.CreateVariable("airp_dep", otString, filter.airp_dep);
+  };
+  sql << "ORDER BY time";
+  Qry.SQLText=sql.str();
+  Qry.CreateVariable( "first_time", otDate, filter.first_time_utc );
+  Qry.CreateVariable( "last_time", otDate, filter.last_time_utc );
   Qry.Execute();
   if (!Qry.Eof)
   {
@@ -593,14 +623,11 @@ void sync_sirena_rozysk( TDateTime utcdate )
 
     for ( ;!Qry.Eof; Qry.Next() )
     {
-      if ( !rozysk::filter_passenger( Qry.FieldAsString( idx_airp_dep ),
-                                      Qry.FieldAsString( idx_airp_arv ),
-                                      Qry.FieldAsString( idx_doc_nationality ) ) )
-        continue;
       rozysk::TPax pax;
       pax.transactionDate = Qry.FieldAsDateTime( idx_time );
       pax.airline = Qry.FieldAsString( idx_airline );
-      pax.flightNumber = string(Qry.FieldAsString( idx_flt_no )) + Qry.FieldAsString( idx_suffix );
+      pax.flightNumber = Qry.FieldAsInteger( idx_flt_no );
+      pax.flightSuffix = Qry.FieldAsString( idx_suffix );
       if ( Qry.FieldIsNULL( idx_takeoff ) )
         pax.departureDate = ASTRA::NoExists;
       else
@@ -624,10 +651,47 @@ void sync_sirena_rozysk( TDateTime utcdate )
         pax.visaDate = Qry.FieldAsDateTime( idx_visa_issue_date );
       pax.visaPlace = Qry.FieldAsString( idx_visa_issue_place );
       pax.visaCountryCode = Qry.FieldAsString( idx_visa_applic_country );
+      pax.nationality = Qry.FieldAsString( idx_doc_nationality );
       pax.gender = Qry.FieldAsString( idx_doc_gender );
-      paxs.push_back( pax );
+
+      if (filter.check_pax(pax)) paxs.push_back( pax );;
     }
   };
+};
+
+} //namespace rozysk
+
+void sync_sirena_rozysk( TDateTime utcdate )
+{
+  ProgTrace(TRACE5,"sync_sirena_rozysk started");
+
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+      "SELECT addr, port, http_resource, action, last_create "
+      "FROM http_sets "
+      "WHERE code=:code AND pr_denial=0 FOR UPDATE";
+  Qry.CreateVariable("code", otString, ROZYSK_SIRENA);
+  Qry.Execute();
+  if (Qry.Eof) return;
+  TDateTime last_time=NowUTC() - 1.0/1440.0; //отматываем минуту, так как данные последних секунд могут быть еще не закоммичены в rozysk
+  TDateTime first_time = Qry.FieldIsNULL("last_create") ? last_time - 10.0/1440.0 :
+                                                          Qry.FieldAsDateTime("last_create");
+
+  if (first_time>=last_time) return;
+  HTTPRequestInfo request;
+  request.addr=Qry.FieldAsString("addr");
+  request.port=Qry.FieldAsInteger("port");
+  request.resource=Qry.FieldAsString("http_resource");
+  request.action=Qry.FieldAsString("action");
+
+  rozysk::TPaxListTJKFilter filter;
+  filter.first_time_utc=first_time;
+  filter.last_time_utc=last_time;
+
+  vector<rozysk::TPax> paxs;
+  rozysk::get_pax_list(filter, paxs);
+
   Qry.Clear();
   Qry.SQLText =
     "UPDATE http_sets SET last_create=:last_time WHERE code=:code";
@@ -645,77 +709,95 @@ void sync_sirena_rozysk( TDateTime utcdate )
 
 #define ENDL "\r\n"
 
-void create_mvd_file(TDateTime first_time, TDateTime last_time,
-                     const char* airp, const char* tz_region, const char* file_name)
+void create_file(const string &format,
+                 const TDateTime first_time_utc, const TDateTime last_time_utc,
+                 const char* airp, const char* tz_region, const char* file_name)
 {
+  rozysk::TPaxListFilter filter;
+  filter.first_time_utc=first_time_utc;
+  filter.last_time_utc=last_time_utc;
+  filter.airp_dep=airp;
+
+  vector<rozysk::TPax> paxs;
+  rozysk::get_pax_list(filter, paxs);
+
+
   ofstream f;
   f.open(file_name);
   if (!f.is_open()) throw Exception("Can't open file '%s'",file_name);
   try
   {
-    TQuery Qry(&OraSession);
-    Qry.Clear();
-    Qry.SQLText=
-      "SELECT time, "
-      "       airline,flt_no,suffix, "
-      "       takeoff, "
-      "       SUBSTR(term,1,6) AS term, "
-      "       seat_no, "
-      "       SUBSTR(surname,1,20) AS surname, "
-      "       SUBSTR(LTRIM(RTRIM(SUBSTR(name||' ',1,INSTR(name||' ',' ')))),1,20) AS name, "
-      "       SUBSTR(LTRIM(RTRIM(SUBSTR(name||' ',INSTR(name||' ',' ')+1))),1,20) AS patronymic, "
-      "       SUBSTR(doc_no,1,20) AS doc_no, "
-      "       operation, "
-      "       tags, "
-      "       airp_dep, "
-      "       airp_arv, "
-      "       bag_weight, "
-      "       SUBSTR(pnr,1,12) AS pnr "
-      "FROM rozysk "
-      "WHERE time>=:first_time AND time<:last_time AND (airp_dep=:airp OR :airp IS NULL) "
-      "ORDER BY time";
-    Qry.CreateVariable("first_time",otDate,first_time);
-    Qry.CreateVariable("last_time",otDate,last_time);
-    Qry.CreateVariable("airp",otString,airp);
-    Qry.Execute();
-
-    if (tz_region!=NULL&&*tz_region!=0)
+    if (format==ROZYSK_MAGISTRAL ||
+        format==ROZYSK_MAGISTRAL_24)
     {
-      first_time = UTCToLocal(first_time, tz_region);
-      last_time = UTCToLocal(last_time, tz_region);
+      TDateTime first_time_title=first_time_utc;
+      TDateTime last_time_title=last_time_utc;
+      if (tz_region!=NULL&&*tz_region!=0)
+      {
+        first_time_title = UTCToLocal(first_time_utc, tz_region);
+        last_time_title = UTCToLocal(last_time_utc, tz_region);
+      };
+
+      f << DateTimeToStr(first_time_title,"ddmmyyhhnn") << '-'
+        << DateTimeToStr(last_time_title-1.0/1440,"ddmmyyhhnn") << ENDL;
     };
-
-    f << DateTimeToStr(first_time,"ddmmyyhhnn") << '-'
-      << DateTimeToStr(last_time-1.0/1440,"ddmmyyhhnn") << ENDL;
-    for(;!Qry.Eof;Qry.Next())
+    for(vector<rozysk::TPax>::const_iterator p=paxs.begin(); p!=paxs.end(); ++p)
     {
-      string tz_region = AirpTZRegion(Qry.FieldAsString("airp_dep"));
+      TDateTime time_local=UTCToLocal(p->transactionDate, AirpTZRegion(p->departureAirport));
 
-      TDateTime time_local=UTCToLocal(Qry.FieldAsDateTime("time"),tz_region);
-      TDateTime takeoff_local;
-      if (!Qry.FieldIsNULL("term"))
-        takeoff_local=UTCToLocal(Qry.FieldAsDateTime("takeoff"),tz_region);
-      else
-        takeoff_local=Qry.FieldAsDateTime("takeoff");
+      if (format==ROZYSK_MAGISTRAL ||
+          format==ROZYSK_MAGISTRAL_24)
+      {
+        f << DateTimeToStr(time_local,"dd.mm.yyyy") << '|'
+          << DateTimeToStr(time_local,"hh:nn") << '|'
+          << setw(3) << setfill('0') << p->flightNumber << p->flightSuffix << '|'
+          << DateTimeToStr(p->departureDate,"dd.mm.yyyy") << '|'
+          << p->rackNumber.substr(0,6) << '|'
+          << p->seatNumber << '|'
+          << p->firstName.substr(0,20) << '|'
+          << p->lastName.substr(0,20) << '|'
+          << p->patronymic.substr(0,20) << '|'
+          << p->documentNumber << '|'
+          << p->operationType << '|'
+          << p->baggageReceiptsNumber << '|'
+          << p->airline << '|' << '|'
+          << p->departureAirport << '|'
+          << p->arrivalAirport << '|'
+          << p->baggageWeight << '|' << '|'
+          << DateTimeToStr(p->departureDate,"hh:nn") << '|'
+          << p->PNR.substr(0,12) << '|' << ENDL;
+      };
 
-      f << DateTimeToStr(time_local,"dd.mm.yyyy") << '|'
-        << DateTimeToStr(time_local,"hh:nn") << '|'
-        << setw(3) << setfill('0') << Qry.FieldAsInteger("flt_no") << Qry.FieldAsString("suffix") << '|'
-        << DateTimeToStr(takeoff_local,"dd.mm.yyyy") << '|'
-        << Qry.FieldAsString("term") << '|'
-        << Qry.FieldAsString("seat_no") << '|'
-        << Qry.FieldAsString("surname") << '|'
-        << Qry.FieldAsString("name") << '|'
-        << Qry.FieldAsString("patronymic") << '|'
-        << Qry.FieldAsString("doc_no") << '|'
-        << Qry.FieldAsString("operation") << '|'
-        << Qry.FieldAsString("tags") << '|'
-        << Qry.FieldAsString("airline") << '|' << '|'
-        << Qry.FieldAsString("airp_dep") << '|'
-        << Qry.FieldAsString("airp_arv") << '|'
-        << Qry.FieldAsString("bag_weight") << '|' << '|'
-        << DateTimeToStr(takeoff_local,"hh:nn") << '|'
-        << Qry.FieldAsString("pnr") << '|' << ENDL;
+      if (format==ROZYSK_MINTRANS ||
+          format==ROZYSK_MINTRANS_24)
+      {
+        f << DateTimeToStr(time_local,"dd.mm.yyyy") << ';'
+          << DateTimeToStr(time_local,"hh:nn") << ';'
+          << setw(3) << setfill('0') << p->flightNumber << p->flightSuffix << ';'
+          << DateTimeToStr(p->departureDate,"dd.mm.yyyy") << ';'
+          << p->rackNumber << ';'
+          << p->seatNumber << ';'
+          << p->firstName << ';'
+          << p->lastName << ';'
+          << p->patronymic << ';'
+          << p->documentNumber << ';'
+          << p->operationType << ';'
+          << p->baggageReceiptsNumber << ';'
+          << p->airline << ';' << ';'
+          << p->departureAirport << ';'
+          << p->arrivalAirport << ';'
+          << p->baggageWeight << ';' << ';'
+          << DateTimeToStr(p->departureDate,"hh:nn") << ';'
+          << p->PNR << ';'
+          << p->nationality << ';'
+          << p->gender << ';'
+          << p->visaNumber << ';'
+          << p->visaPlace << ';'
+          << (p->visaDate==NoExists?"":DateTimeToStr(p->visaDate,"dd.mm.yyyy")) << ';'
+          << p->visaCountryCode << ';'
+          << ENDL;
+      };
+
     };
     f.close();
   }
@@ -738,7 +820,8 @@ void sync_mvd(void)
   int Hour,Min,Sec;
   TDateTime now=NowUTC();
   DecodeTime(now,Hour,Min,Sec);
-  if (Min%15!=0) return;
+  if (Min%15!=2) return;
+  Min-=2;
 
   TQuery Qry(&OraSession);
   Qry.SQLText =
@@ -756,18 +839,28 @@ void sync_mvd(void)
     "WHERE code=:code AND pr_denial=0";
   FilesQry.DeclareVariable("code",otString);
 
-  for(int pass=0;pass<=1;pass++)
+  for(int pass=0;pass<=3;pass++)
   {
-    modf(now,&now);
-    if (pass==0)
+    string format;
+    switch (pass)
     {
+      case 0: format=ROZYSK_MAGISTRAL; break;
+      case 1: format=ROZYSK_MAGISTRAL_24; break;
+      case 2: format=ROZYSK_MINTRANS; break;
+      case 3: format=ROZYSK_MINTRANS_24; break;
+    };
+
+    modf(now,&now);
+    if (format==ROZYSK_MAGISTRAL ||
+        format==ROZYSK_MINTRANS)
+    {
+      //добавляем часы и минуты
       TDateTime now_time;
       EncodeTime(Hour,Min,0,now_time);
       now+=now_time;
-      FilesQry.SetVariable("code",ROZYSK_MAGISTRAL);
-    }
-    else
-      FilesQry.SetVariable("code",ROZYSK_MAGISTRAL_24);
+    };
+
+    FilesQry.SetVariable("code",format);
 
     Qry.SetVariable("code",FilesQry.GetVariableAsString("code"));
     Qry.SetVariable("now",now);
@@ -795,15 +888,17 @@ void sync_mvd(void)
                 << DateTimeToStr(local,FilesQry.FieldAsString("name"));
 
       if (FilesQry.FieldIsNULL("last_create"))
-        create_mvd_file(now-1,now,
-                        FilesQry.FieldAsString("airp"),
-                        tz_region.c_str(),
-                        file_name.str().c_str());
+        create_file(format,
+                    now-1,now,
+                    FilesQry.FieldAsString("airp"),
+                    tz_region.c_str(),
+                    file_name.str().c_str());
       else
-        create_mvd_file(FilesQry.FieldAsDateTime("last_create"),now,
-                        FilesQry.FieldAsString("airp"),
-                        tz_region.c_str(),
-                        file_name.str().c_str());
+        create_file(format,
+                    FilesQry.FieldAsDateTime("last_create"),now,
+                    FilesQry.FieldAsString("airp"),
+                    tz_region.c_str(),
+                    file_name.str().c_str());
 
       Qry.SetVariable("airp",FilesQry.FieldAsString("airp"));
       Qry.Execute();
