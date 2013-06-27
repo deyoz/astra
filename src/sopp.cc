@@ -1861,6 +1861,7 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
     check_overload_alarm( i->first );
     check_waitlist_alarm( i->first );
     check_brd_alarm( i->first );
+    check_spec_service_alarm( i->first );
     check_TrferExists( i->first );
     check_unattached_trfer_alarm( i->first );
   };
