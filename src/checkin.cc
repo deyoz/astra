@@ -3518,7 +3518,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             SEATS2::Passengers.Clear();
             SEATS2::TSublsRems subcls_rems( fltInfo.airline );
             // начитка салона
-            SALONS2::TSalons Salons( grp.point_dep, SEATS2::rTripSalons );
+            SALONS2::TSalons Salons( grp.point_dep, SALONS2::rTripSalons );
             if ( isTranzitSalonsVersion ) {
               salonList.ReadFlight( SALONS2::TFilterRoutesSets( grp.point_dep, grp.point_arv ), grp.cl );
             }
