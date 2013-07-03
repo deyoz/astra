@@ -1287,6 +1287,8 @@ struct TWebPlaceList {
 
 void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &web_salons, bool &pr_find_free_subcls_place )
 {
+  bool isTranzitSalonsVersion = isTranzitSalons( point_id );
+  int point_arv = NoExists;
   string crs_class, crs_subclass;
   web_salons.clear();
   bool pr_CHIN = false;
@@ -1297,7 +1299,13 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
   	  crs_subclass = i->pass_subclass;
   	TPerson p=DecodePerson(i->pers_type_extended.c_str());
   	pr_CHIN=(pr_CHIN || p==ASTRA::child || p==ASTRA::baby); //среди типов может быть БГ (CBBG) который приравнивается к взрослому
+  	if ( isTranzitSalonsVersion ) {
+  	  if ( point_arv == ASTRA::NoExists ) {
+  	    point_arv = SALONS2::getCrsPaxPointArv( i->crs_pax_id, point_id );
+  	  }
+    }
   }
+  ProgTrace( TRACE5, "ReadWebSalons: point_dep=%d, point_arv=%d", point_id, point_arv );
   if ( crs_class.empty() )
   	throw UserException( "MSG.CLASS.NOT_SET" );
   TQuery Qry(&OraSession);
@@ -1306,17 +1314,45 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   TSublsRems subcls_rems( Qry.FieldAsString("airline") );
-  SALONS2::TSalons Salons( point_id, SALONS2::rTripSalons );
-  Salons.FilterClass = crs_class;
-  Salons.Read();
+  SALONS2::TSalonList salonList;
+  SALONS2::TSalons SalonsO( point_id, SALONS2::rTripSalons );
+  if ( isTranzitSalonsVersion ) {
+    salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, point_arv ), crs_class );
+  }
+  else {
+    SalonsO.FilterClass = crs_class;
+    SalonsO.Read();
+  }
   // получим признак того, что в салоне есть свободные места с данным подклассом
   pr_find_free_subcls_place=false;
   string pass_rem;
 
   subcls_rems.IsSubClsRem( crs_subclass, pass_rem );
-
-  for( vector<TPlaceList*>::iterator placeList = Salons.placelists.begin();
-       placeList != Salons.placelists.end(); placeList++ ) {
+  TSalons *Salons;
+  TSalons SalonsN;
+  if ( isTranzitSalonsVersion ) {
+    //задаем все возможные статусы для разметки группы
+    vector<ASTRA::TCompLayerType> grp_layers;
+    grp_layers.push_back( cltCheckin );
+    grp_layers.push_back( cltTCheckin );
+    grp_layers.push_back( cltTranzit );
+    grp_layers.push_back( cltProtBeforePay );
+    grp_layers.push_back( cltProtAfterPay );
+    grp_layers.push_back( cltPNLBeforePay );
+    grp_layers.push_back( cltPNLAfterPay );
+    TFilterRoutesSets filterRoutes = salonList.getFilterRoutes();
+    bool pr_departure_tariff_only = true;
+    salonList.CreateSalonsForAutoSeats( SalonsN,
+                                        filterRoutes,
+                                        pr_departure_tariff_only,
+                                        grp_layers );
+   Salons = &SalonsN;
+  }
+  else {
+    Salons = &SalonsO;
+  }
+  for( vector<TPlaceList*>::iterator placeList = Salons->placelists.begin();
+       placeList != Salons->placelists.end(); placeList++ ) {
     TWebPlaceList web_place_list;
     web_place_list.xcount=0;
     web_place_list.ycount=0;
@@ -1333,7 +1369,7 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
       	web_place_list.xcount = place->x;
       if ( place->y > web_place_list.ycount )
       	web_place_list.ycount = place->y;
-      wp.seat_no = denorm_iata_row( place->yname, NULL ) + denorm_iata_line( place->xname, Salons.getLatSeat() );
+      wp.seat_no = denorm_iata_row( place->yname, NULL ) + denorm_iata_line( place->xname, Salons->getLatSeat() );
       if ( !place->elem_type.empty() ) {
       	if ( place->elem_type != PARTITION_ELEM_TYPE )
      	    wp.elem_type = ARMCHAIR_ELEM_TYPE;
@@ -1348,31 +1384,32 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
      	wp.WebTariff.currency_id = place->WebTariff.currency_id;
      	if ( place->isplace && !place->clname.empty() && place->clname == crs_class ) {
      		bool pr_first = true;
-     		for( std::vector<TPlaceLayer>::iterator l=place->layers.begin(); l!=place->layers.end(); l++ ) { // сортировка по приоритета
-     			if ( pr_first &&
-     				   l->layer_type != cltUncomfort &&
-     				   l->layer_type != cltSmoke &&
-     				   l->layer_type != cltUnknown ) {
-     				pr_first = false;
-     				wp.pr_free = ( ( l->layer_type == cltPNLCkin ||
-                             isUserProtectLayer( l->layer_type ) ) && isOwnerFreePlace( l->pax_id, pnr ) );
+     	for( std::vector<TPlaceLayer>::iterator ilayer=place->layers.begin(); ilayer!=place->layers.end(); ilayer++ ) { // сортировка по приоритетам
+     	  ProgTrace( TRACE5, "%s, %s", EncodeCompLayerType(ilayer->layer_type), string(place->yname+place->xname).c_str() );
+   			if ( pr_first &&
+   				   ilayer->layer_type != cltUncomfort &&
+   				   ilayer->layer_type != cltSmoke &&
+   				   ilayer->layer_type != cltUnknown ) {
+   				pr_first = false;
+     				wp.pr_free = ( ( ilayer->layer_type == cltPNLCkin ||
+                             isUserProtectLayer( ilayer->layer_type ) ) && isOwnerFreePlace( ilayer->pax_id, pnr ) );
             ProgTrace( TRACE5, "l->layer_type=%s, l->pax_id=%d, isOwnerFreePlace( l->pax_id, pnr )=%d, pr_first=%d",
-                       EncodeCompLayerType(l->layer_type), l->pax_id, isOwnerFreePlace( l->pax_id, pnr ), pr_first );
-     				if ( wp.pr_free )
-     					break;
-     			}
+                       EncodeCompLayerType(ilayer->layer_type), ilayer->pax_id, isOwnerFreePlace( ilayer->pax_id, pnr ), pr_first );
+   				if ( wp.pr_free )
+   					break;
+   			}
 
-     			if ( l->layer_type == cltCheckin ||
-     				   l->layer_type == cltTCheckin ||
-     				   l->layer_type == cltGoShow ||
-     				   l->layer_type == cltTranzit ) {
-     				pr_first = false;
-            if ( isOwnerPlace( l->pax_id, pnr ) )
-     				  wp.pax_id = l->pax_id;
-     			}
-     	  }
+   			if ( ilayer->layer_type == cltCheckin ||
+   				   ilayer->layer_type == cltTCheckin ||
+   				   ilayer->layer_type == cltGoShow ||
+   				   ilayer->layer_type == cltTranzit ) {
+   				pr_first = false;
+          if ( isOwnerPlace( ilayer->pax_id, pnr ) )
+   				  wp.pax_id = ilayer->pax_id;
+   			}
+   	  }
 
-     	  wp.pr_free = ( wp.pr_free || pr_first ); // 0 - занято, 1 - свободно, 2 - частично занято
+    	  wp.pr_free = ( wp.pr_free || pr_first ); // 0 - занято, 1 - свободно, 2 - частично занято
 
         if ( wp.pr_free ) {
           //место свободно
@@ -1381,9 +1418,9 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
         	for ( vector<TRem>::iterator i=place->rems.begin(); i!=place->rems.end(); i++ ) {
         		if ( isREM_SUBCLS( i->rem ) && !i->pr_denial ) {
               seat_subcls = i->rem;
-        			break;
-        		}
-          }
+        		  	break;
+        		  }
+            }
           if ( !pass_rem.empty() ) {
             //у пассажира есть подкласс
             if ( pass_rem == seat_subcls ) {
@@ -1412,12 +1449,12 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
           else {
         	  for ( vector<TRem>::iterator i=place->rems.begin(); i!=place->rems.end(); i++ ) {
         	  	if ( i->pr_denial && i->rem == "CHIN" ) {
-        	  		wp.pr_CHIN = true;
-        	  		break;
-        	  	}
+        	  		  wp.pr_CHIN = true;
+        	  	  	break;
+        	  	  }
+              }
             }
           }
-        }
       } // end if place->isplace && !place->clname.empty() && place->clname == crs_class
       web_place_list.places.push_back( wp );
     }

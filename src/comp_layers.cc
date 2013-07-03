@@ -4,6 +4,8 @@
 #include "astra_utils.h"
 #include "oralib.h"
 #include "alarms.h"
+#include "salons.h"
+#include "basic.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -65,7 +67,7 @@ void InsertTripSeatRanges(const vector< pair<int, TSeatRange> > &ranges, //векто
     "INSERT INTO trip_comp_layers(range_id,point_id,point_dep,point_arv,layer_type, "
     "  first_xname,last_xname,first_yname,last_yname,crs_pax_id,pax_id,time_create) "
     "VALUES(:range_id,:point_id,:point_dep,:point_arv,:layer_type, "
-    "  :first_xname,:last_xname,:first_yname,:last_yname,:crs_pax_id,NULL,system.UTCSYSDATE)";
+    "  :first_xname,:last_xname,:first_yname,:last_yname,:crs_pax_id,NULL,:time_create)";
   InsQry.DeclareVariable("range_id",otInteger);
   InsQry.DeclareVariable("point_id",otInteger);
   InsQry.DeclareVariable("point_dep",otInteger);
@@ -75,6 +77,7 @@ void InsertTripSeatRanges(const vector< pair<int, TSeatRange> > &ranges, //векто
   InsQry.DeclareVariable("last_xname",otString);
   InsQry.DeclareVariable("first_yname",otString);
   InsQry.DeclareVariable("last_yname",otString);
+  InsQry.CreateVariable( "time_create", otDate, BASIC::NowUTC() );
   if (crs_pax_id!=NoExists)
     InsQry.CreateVariable("crs_pax_id",otInteger,crs_pax_id);
   else
@@ -817,19 +820,34 @@ void GetSeatRemPriority(const string &airline_mark, TSeatRemPriority &rems)
 
 void check_layer_change(const TPointIdsForCheck &point_ids_spp)
 {
+  std::vector<int> points_check_wait_alarm;
+  std::vector<int> points_tranzit_check_wait_alarm;
+  
+  //убираем повторения
   for(TPointIdsForCheck::const_iterator i=point_ids_spp.begin();i!=point_ids_spp.end();i++)
   {
-    if (i->second==cltBlockCent ||
-        i->second==cltTranzit ||
-        i->second==cltCheckin ||
-        i->second==cltTCheckin ||
-        i->second==cltGoShow ||
-        i->second==cltBlockTrzt ||
-        i->second==cltSOMTrzt ||
-        i->second==cltPRLTrzt)
-    {
-      check_waitlist_alarm(i->first);
-    };
-  };
+    if ( SALONS2::isBaseLayer( i->second, false ) ) {
+      continue;
+    }
+    if ( SALONS2::isTranzitSalons( i->first ) ) {
+      if ( find( points_tranzit_check_wait_alarm.begin(),
+                 points_tranzit_check_wait_alarm.end(),
+                 i->first ) == points_tranzit_check_wait_alarm.end() ) {
+        points_tranzit_check_wait_alarm.push_back( i->first );
+      }
+    }
+    else {
+      if ( find( points_check_wait_alarm.begin(),
+                 points_check_wait_alarm.end(),
+                 i->first ) == points_check_wait_alarm.end() ) {
+        points_check_wait_alarm.push_back( i->first );
+      }
+    }
+  }
+  for ( std::vector<int>::iterator i=points_check_wait_alarm.begin();
+        i!=points_check_wait_alarm.end(); i++ ) {
+    check_waitlist_alarm(*i);
+  }
+  SALONS2::check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm, "" );
 };
 

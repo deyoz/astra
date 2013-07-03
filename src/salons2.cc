@@ -440,7 +440,7 @@ void TSalons::Write()
       else
         Qry.SetVariable( "yprior", place->yprior );
       Qry.SetVariable( "agle", place->agle );
-      if ( place->clname.empty() || !TCompElemTypes::Instance()->isSeat( place->elem_type ) )
+      if ( place->clname.empty() || !BASIC_SALONS::TCompElemTypes::Instance()->isSeat( place->elem_type ) )
         Qry.SetVariable( "class", FNull );
       else {
         Qry.SetVariable( "class", place->clname );
@@ -515,8 +515,9 @@ void TSalons::Write()
       Qry.Execute();
     }
   }
-  if ( readStyle == SALONS2::rTripSalons )
-    check_waitlist_alarm( trip_id );
+/* не ипользуется Write в режиме   SALONS2::rTripSalon
+ if ( readStyle == SALONS2::rTripSalons )
+    check_waitlist_alarm( trip_id );*/
 }
 
   struct TPlaceLayer {
@@ -701,7 +702,7 @@ void TSalons::Read( bool wo_invalid_seat_no )
     	place.x = point_p.x;
     	place.y = point_p.y;
       place.elem_type = Qry.FieldAsString( col_elem_type );
-      place.isplace = TCompElemTypes::Instance()->isSeat( place.elem_type );
+      place.isplace = BASIC_SALONS::TCompElemTypes::Instance()->isSeat( place.elem_type );
       if ( Qry.FieldIsNULL( col_xprior ) )
         place.xprior = -1;
       else
@@ -810,7 +811,7 @@ void TSalons::Parse( xmlNodePtr salonsNode )
       place.x = NodeAsIntegerFast( "x", node );
       place.y = NodeAsIntegerFast( "y", node );
       place.elem_type = NodeAsStringFast( "elem_type", node );
-      place.isplace = TCompElemTypes::Instance()->isSeat( place.elem_type );
+      place.isplace = BASIC_SALONS::TCompElemTypes::Instance()->isSeat( place.elem_type );
       if ( !GetNodeFast( "xprior", node ) )
         place.xprior = -1;
       else
@@ -858,6 +859,7 @@ void TSalons::Parse( xmlNodePtr salonsNode )
       	  remNode = remsNode->children;
       	  rem.rem = NodeAsStringFast( "rem", remNode );
       	  rem.pr_denial = GetNodeFast( "pr_denial", remNode );
+      	  SALONS2::verifyValidRem( place.clname, rem.rem );
       	  place.rems.push_back( rem );
       	  remsNode = remsNode->next;
         }
@@ -910,30 +912,6 @@ void TSalons::verifyValidRem( std::string rem_name, std::string class_name )
   }
 }
 
-void TPlace::Assign( TPlace &pl )
-{
-  selected = pl.selected;
-  visible = pl.visible;
-  x = pl.x;
-  y = pl.y;
-  elem_type = pl.elem_type;
-  isplace = pl.isplace;
-  xprior = pl.xprior;
-  yprior = pl.yprior;
-  xnext = pl.xnext;
-  ynext = pl.ynext;
-  agle = pl.agle;
-  clname = pl.clname;
-  pr_smoke = pl.pr_smoke;
-  not_good = pl.not_good;
-  xname = pl.xname;
-  yname = pl.yname;
-  status = pl.status;
-  pr_free = pl.pr_free;
-  block = pl.block;
-  rems.clear();
-  rems = pl.rems;
-}
 
 int TPlaceList::GetXsCount()
 {

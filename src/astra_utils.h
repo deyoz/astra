@@ -55,17 +55,17 @@ class BitSet
     if ( isFlag( key ) )
       flags[ key ] = false;
   }
-  bool isFlag( T key ) {
-   typename std::map<T,bool>::iterator pos = flags.find( key );
+  bool isFlag( T key ) const {
+   typename std::map<T,bool>::const_iterator pos = flags.find( key );
    if ( pos == flags.end() )
      return false;
-   return flags[ key ];
+   return pos->second;
   }
   void clearFlags( ) {
     flags.clear();
   }
-  bool emptyFlags() {
-    for (typename std::map<T,bool>::iterator pos = flags.begin(); pos!=flags.end(); pos++) {
+  bool emptyFlags() const {
+    for (typename std::map<T,bool>::const_iterator pos = flags.begin(); pos!=flags.end(); pos++) {
       if ( pos->second )
         return false;
     }
@@ -73,6 +73,24 @@ class BitSet
   }
   void operator = (const BitSet &bs) {
     flags = bs.flags;
+  }
+  void operator += (const BitSet &bs) {
+    for (typename std::map<T,bool>::const_iterator pos = bs.flags.begin(); pos!=bs.flags.end(); pos++) {
+      if ( pos->second ) {
+        setFlag( pos->first );
+      }
+    }
+  }
+  bool operator == (const BitSet &bs) const {
+    for (typename std::map<T,bool>::const_iterator pos = bs.flags.begin(); pos!=bs.flags.end(); pos++) {
+      if ( isFlag( pos->first ) != bs.isFlag( pos->first ) )
+        return false;
+    }
+    for (typename std::map<T,bool>::const_iterator pos = flags.begin(); pos!=flags.end(); pos++) {
+      if ( isFlag( pos->first ) != bs.isFlag( pos->first ) )
+        return false;
+    }
+    return true;
   }
 };
 

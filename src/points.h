@@ -438,5 +438,37 @@ typedef std::vector<TFndFlt> TFndFlts;
 bool findFlt( const std::string &airline, const int &flt_no, const std::string &suffix,
               const BASIC::TDateTime &local_scd_out, const std::string &airp, const int &withDeleted,
               TFndFlts &flts );
-void lockPoints( int move_id );
+
+class FlightPoints:public std::vector<TTripRouteItem> {
+  private:
+  public:
+    int point_dep;
+    int point_arv;
+    void Get( int point_dep, TTripRouteType2 routeType );
+    bool inRoute( int point_id, bool with_land ) {
+      for ( FlightPoints::const_iterator ipoint=begin();
+            ipoint!=end(); ipoint++ ) {
+        if ( ipoint->point_id == point_id ) {
+          return ( ipoint->point_id != point_arv || with_land );
+        }
+      }
+      return false;
+    }
+    FlightPoints() {
+      point_dep = ASTRA::NoExists;
+      point_arv = ASTRA::NoExists;
+    }
+};
+
+class TFlights:public std::vector<FlightPoints> {
+  public:
+    void Get( const std::vector<int> &points, TTripRouteType2 routeType );
+    void Get( int point_dep, TTripRouteType2 routeType ) {
+      std::vector<int> points( 1, point_dep );
+      Get( points, routeType );
+    }
+    void Lock();
+};
+
+
 #endif /*_POINTS_H_*/

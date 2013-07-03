@@ -47,7 +47,6 @@ class TPlace {
       block = false;
       passSel = false;
     }
-    void Assign( TPlace &pl );
 };
 
 typedef std::vector<TPlace> TPlaces;

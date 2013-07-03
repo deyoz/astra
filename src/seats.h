@@ -96,6 +96,7 @@ struct TPassenger {
   std::string pers_type;
   int paxId; /* pax_id */
   int preseat_pax_id;
+  int point_arv;
   //std::string placeName;
   std::string foundSeats;
   bool isSeat;
@@ -106,7 +107,6 @@ struct TPassenger {
   std::string maxRem;
   std::string placeRem; /* 'NSSA', 'NSSW', 'NSSB' и т. д. */
   bool prSmoke;
-  std::string Elem_Type;
   std::string clname;
   //ASTRA::TCompLayerType layer; // статус пассажира предв. рассадка, бронь, ...
   ASTRA::TCompLayerType grp_status; // статус группы Т - транзит ...
@@ -115,7 +115,6 @@ struct TPassenger {
   std::string preseat_no;
   ASTRA::TCompLayerType preseat_layer;
   //std::string agent_seat;
-  std::vector<TSeat> seat_no;
   std::string ticket_no;
   std::string document;
   int bag_weight;
@@ -124,6 +123,7 @@ struct TPassenger {
   std::string trip_from;
   std::string pass_rem;
   /*выход*/
+  std::vector<TSeat> seat_no;
   SALONS2::TPlaceList *placeList; /* салон */
   SALONS2::TPoint Pos; /* указывает место */
   bool InUse;
@@ -144,6 +144,7 @@ struct TPassenger {
     InUse = false;
     isValidPlace = true;
     tid = -1;
+    point_arv = ASTRA::NoExists;
   }
   void set_seat_no();
   void add_rem( std::string code );
@@ -170,6 +171,7 @@ class TPassengers {
     TPassengers();
     ~TPassengers();
     void Clear();
+    void Add( const SALONS2::TSalonList &salonList, TPassenger &pass );
     void Add( SALONS2::TSalons &Salons, TPassenger &pass );
     void Add( TPassenger &pass );
     int getCount();
@@ -244,17 +246,25 @@ typedef std::map<ASTRA::TCompLayerType,bool> TUseLayers;
 
 /* тут описаны будут доступные ф-ции */
 /* автоматическая пересадка пассажиров при изменении компоновки */
-void AutoReSeatsPassengers( SALONS2::TSalons &Salons,
-                            TPassengers &passengers,
+void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &APass, TSeatAlgoParams ASeatAlgoParams );
+void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
+                            const SALONS2::TSalonPassengers &passengers,
                             TSeatAlgoParams ASeatAlgoParams );
-void SeatsPassengers( SALONS2::TSalons *Salons,
+void SeatsPassengers( SALONS2::TSalonList &salonList,
                       TSeatAlgoParams ASeatAlgoParams,
                       ASTRA::TClientType client_type,
+                      TPassengers &passengers,
+                      SALONS2::TAutoSeats &seats );
+void SeatsPassengers( SALONS2::TSalons *Salons,
+                      TSeatAlgoParams ASeatAlgoParams /* sdUpDown_Line - умолчание */,
+                      ASTRA::TClientType client_type,
                       TPassengers &passengers );
+void ChangeLayer( const SALONS2::TSalonList &salonList, ASTRA::TCompLayerType layer_type, int point_id, int pax_id, int &tid,
+                  std::string first_xname, std::string first_yname, TSeatsType seat_type );
 void ChangeLayer( ASTRA::TCompLayerType layer_type, int point_id, int pax_id, int &tid,
-                  std::string first_xname, std::string first_yname, TSeatsType seat_type, bool pr_lat_seat );
+                   std::string first_xname, std::string first_yname, TSeatsType seat_type, bool pr_lat_seat );
 void SaveTripSeatRanges( int point_id, ASTRA::TCompLayerType layer_type, std::vector<TSeatRange> &seats,
-	                       int pax_id, int point_dep, int point_arv );
+	                       int pax_id, int point_dep, int point_arv, BASIC::TDateTime time_create );
 bool GetPassengersForWaitList( int point_id, TPassengers &p );
 TSeatAlgoParams GetSeatAlgo(TQuery &Qry, std::string airline, int flt_no, std::string airp_dep);
 bool IsSubClsRem( const std::string &airline, const std::string &subclass, std::string &rem );

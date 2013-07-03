@@ -19,6 +19,8 @@ using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC;
 
+namespace BASIC_SALONS {
+
 const std::string default_elem_type = "К";  //!!!здесь определяем
 
 void TCompElemTypes::Update()
@@ -36,18 +38,13 @@ void TCompElemTypes::Update()
   try {
     for ( ;!Qry.Eof; Qry.Next() ) {
       if ( Qry.FieldIsNULL( "pr_del" ) || Qry.FieldAsInteger( "pr_del" ) == 0 ) {
-        TCompElemType comp_elem;
-        comp_elem.code = Qry.FieldAsString( "code" );
-        comp_elem.name = Qry.FieldAsString( "name" );
-        comp_elem.name_lat = Qry.FieldAsString( "name_lat" );
-        if ( comp_elem.name_lat.empty() )
-          comp_elem.name_lat = comp_elem.name;
-        comp_elem.is_seat = Qry.FieldAsInteger( "pr_seat" );
-        comp_elem.is_default = ( comp_elem.code == default_elem_type );
-        if ( comp_elem.is_default ) {
-          default_elem_code = comp_elem.code;
-        }
-        comp_elem.time_create = Qry.FieldAsDateTime( "time_create" );
+        string code = Qry.FieldAsString( "code" );
+        string name = Qry.FieldAsString( "name" );
+        string name_lat = Qry.FieldAsString( "name_lat" );
+        TDateTime time_create = Qry.FieldAsDateTime( "time_create" );
+        string image;
+        if ( name_lat.empty() )
+          name_lat = name;
         if ( len != Qry.GetSizeLongField( "image" ) ) {
           len = Qry.GetSizeLongField( "image" );
           if ( data == NULL )
@@ -58,10 +55,20 @@ void TCompElemTypes::Update()
         if ( data == NULL )
           throw Exception( "Ошибка программы" );
         Qry.FieldAsLong( "image", data );
-        StringToHex( string((char*)data, len), comp_elem.image );
-        if ( max_time_create < comp_elem.time_create )
-          max_time_create = comp_elem.time_create;
-        is_places.insert( make_pair( comp_elem.code, comp_elem ) );
+        StringToHex( string((char*)data, len), image );
+        bool is_default_element = code == default_elem_type;
+        if ( is_default_element )
+          default_elem_code = default_elem_type;
+        TCompElemType comp_elem( code,
+                                 name,
+                                 name_lat,
+                                 Qry.FieldAsInteger( "pr_seat" ),
+                                 is_default_element,
+                                 time_create,
+                                 image );
+        if ( max_time_create < time_create )
+          max_time_create = time_create;
+        is_places.insert( make_pair( code, comp_elem ) );
       }
     }
     if ( data != NULL )
@@ -79,6 +86,56 @@ TCompElemTypes::TCompElemTypes()
   Update();
 }
 
+///////////////////////////////LAYERS///////////////////////////////////////////
+TCompLayerTypes::TCompLayerTypes()
+{
+  Update();
+}
+
+void TCompLayerTypes::Update()
+{
+  layers.clear();
+  layers_priority_routes.clear();
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "SELECT code, name, name_lat, del_if_comp_chg, color, figure, pr_occupy, priority "
+    " FROM comp_layer_types";
+  Qry.Execute();
+  for ( ; !Qry.Eof; Qry.Next() ) {
+    string code = Qry.FieldAsString( "code" );
+    ASTRA::TCompLayerType layer_type = DecodeCompLayerType( code.c_str() );
+    BASIC_SALONS::TCompLayerType layer( code,
+                                        layer_type,
+                                        Qry.FieldAsString( "name" ),
+                                        Qry.FieldAsString( "name_lat" ),
+                                        Qry.FieldAsInteger( "del_if_comp_chg" ),
+                                        Qry.FieldAsString( "color" ),
+                                        Qry.FieldAsString( "figure" ),
+                                        Qry.FieldAsInteger( "pr_occupy" ),
+                                        Qry.FieldAsInteger( "priority" ) );
+    layers.insert( make_pair( layer_type, layer ) );
+    ProgTrace( TRACE5, "TCompLayerTypes::Update(): add %s", code.c_str() );
+  }
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT prior_layer, next_layer, prior_time_less "
+    " FROM compare_comp_layers ";
+  Qry.Execute();
+  for ( ; !Qry.Eof; Qry.Next() ) {
+    int prior_time_less;
+    if ( Qry.FieldIsNULL( "prior_time_less" ) )
+      prior_time_less = ASTRA::NoExists;
+    else
+      prior_time_less = Qry.FieldAsInteger( "prior_time_less" );
+
+    layers_priority_routes[ DecodeCompLayerType( Qry.FieldAsString( "prior_layer" ) ) ][ DecodeCompLayerType( Qry.FieldAsString( "next_layer" ) ) ] = prior_time_less;
+  }
+}
+
+} //end namespace BASIC_SALONS
+
+
+using namespace BASIC_SALONS;
 void ImagesInterface::GetImages( xmlNodePtr reqNode, xmlNodePtr resNode )
 {
   ProgTrace( TRACE5, "ImagesInterface::GetImages" );
@@ -123,15 +180,14 @@ void ImagesInterface::GetImages( xmlNodePtr reqNode, xmlNodePtr resNode )
          icode!=server_elem_types.end(); icode++ ) {
      if ( TCompElemTypes::Instance()->getElem( *icode, elem_type ) ) {
        xmlNodePtr imageNode = NewTextChild( imagesNode, "image" );
-       NewTextChild( imageNode, "code", elem_type.code );
+       NewTextChild( imageNode, "code", elem_type.getCode() );
        if ( TReqInfo::Instance()->desk.lang == AstraLocale::LANG_RU )
-         NewTextChild( imageNode, "name", elem_type.name );
+         NewTextChild( imageNode, "name", elem_type.getName() );
        else
-         NewTextChild( imageNode, "name", elem_type.name_lat );
-       NewTextChild( imageNode, "name", elem_type.name );
-       NewTextChild( imageNode, "pr_seat", elem_type.is_seat );
+         NewTextChild( imageNode, "name", elem_type.getNameLat() );
+       NewTextChild( imageNode, "pr_seat", elem_type.isSeat() );
        if ( sendImages ) {
-         NewTextChild( imageNode, "image", elem_type.image );
+         NewTextChild( imageNode, "image", elem_type.getImage() );
        }
      }
    }
@@ -187,6 +243,7 @@ void ImagesInterface::GetImages(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
 {
   GetImages( reqNode, resNode );
 };
+
 
 void GetDrawSalonProp( xmlNodePtr reqNode, xmlNodePtr resNode )
 {

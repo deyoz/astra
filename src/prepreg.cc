@@ -366,7 +366,6 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
       node = node->next;
     };
     SALONS2::AutoSetCraft( point_id );
-    SALONS2::check_diffcomp_alarm( point_id );
   };
 
   node = GetNode( "trip_sets", reqNode );
@@ -529,6 +528,12 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
         msg.id1=point_id;
         TReqInfo::Instance()->MsgToLog(msg);
         SALONS2::check_diffcomp_alarm( point_id );
+        if ( SALONS2::isTranzitSalons( point_id ) ) {
+          SALONS2::check_waitlist_alarm_on_tranzit_routes( point_id, "" );
+        }
+        else {
+          check_waitlist_alarm( point_id );
+        }
       };
     };
     if (old_pr_check_load!=new_pr_check_load ||
