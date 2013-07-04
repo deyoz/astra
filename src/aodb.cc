@@ -1689,7 +1689,7 @@ try {
 	} // end update
 	SALONS2::check_diffcomp_alarm( point_id );
 	if ( SALONS2::isTranzitSalons( point_id ) ) {
-    SALONS2::check_waitlist_alarm_on_tranzit_routes( point_id, "" );
+    SALONS2::check_waitlist_alarm_on_tranzit_routes( point_id );
   }
   else {
     check_waitlist_alarm( point_id );

@@ -2093,7 +2093,7 @@ void TPassengers::Add( const SALONS2::TSalonList &salonList, TPassenger &pass )
         tst();
         for ( std::map<TSeatLayer,TPaxLayerSeats,SeatLayerCompare>::const_iterator ilayer=ipax->second.layers.begin();
               ilayer!=ipax->second.layers.end(); ilayer++ ) {
-          if ( ilayer->second.inRoute && ilayer->second.pr_valid == vlValid ) {
+          if ( ilayer->second.pr_valid == layerValid ) {
             //т.к. есть сортировка мест, то выдаем первое
             pass.preseat_layer = ilayer->first.layer_type;
             pass.preseat_pax_id = pass.paxId;
@@ -4104,7 +4104,7 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
       }
     }
   }
-  check_waitlist_alarm_on_tranzit_routes( salonList.getDepartureId(), "" );
+  check_waitlist_alarm_on_tranzit_routes( salonList.getDepartureId() );
   ProgTrace( TRACE5, "passengers.count=%d", Passes.getCount() );
 }
 

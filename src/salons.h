@@ -215,7 +215,7 @@ struct TSeatLayer {
     pax_id = ASTRA::NoExists;
     crs_pax_id = ASTRA::NoExists;
     time_create = ASTRA::NoExists;
-    inRoute = false;
+    inRoute = true;
   };
   int getPaxId() const {
     if ( pax_id != ASTRA::NoExists )
@@ -281,9 +281,95 @@ struct classcomp {
 
 bool isPropsLayer( ASTRA::TCompLayerType layer_type );
 
+
+
+/* свойства
+ 1. определение сегмента для разметки
+ 2. определение множества пунктов вылета, которые влияют на разметку в нашем пункте
+ 3. фильтрация свойств места с помощью 1 исходя из откуда и куда свойтсво места
+*/
+
+struct PointAirpNum {
+  int num;
+  std::string airp;
+  bool in_use;
+  PointAirpNum( int vnum, const std::string &vairp, bool vin_use ) {
+    num = vnum;
+    airp = vairp;
+    in_use = vin_use;
+  }
+  PointAirpNum(){
+    in_use = false;
+  };
+};
+
+struct TFilterRoutesSets {
+  int point_dep;
+  int point_arv;
+  TFilterRoutesSets( int vpoint_dep, int vpoint_arv=ASTRA::NoExists ) {
+    point_dep = vpoint_dep;
+    point_arv = vpoint_arv;
+  }
+  bool operator != (const TFilterRoutesSets &routesSets) {
+    return ( point_dep != routesSets.point_dep ||
+             point_arv != routesSets.point_arv );
+  }
+};
+
+class FilterRoutesProperty: public std::vector<TTripRouteItem> {
+  private:
+    int point_dep;
+    int point_arv;
+    int crc_comp;
+    int comp_id;
+    bool pr_craft_lat;
+    std::map<int,PointAirpNum> pointNum;
+    int readNum( int point_id, bool in_use );
+  public:
+    //определяем множество пунктов вылета по которым надо начитать информацию
+    FilterRoutesProperty( );
+    void Read( const TFilterRoutesSets &filterRoutesSets );
+    //фильтр св-ва места исходя из его сегмента разметки
+    //проверить на пересечение сегментов
+    void operator = (const FilterRoutesProperty &filterRoutes) {
+      point_dep = filterRoutes.point_dep;
+      point_arv = filterRoutes.point_arv;
+      crc_comp = filterRoutes.crc_comp;
+      comp_id = filterRoutes.comp_id;
+      pr_craft_lat = filterRoutes.pr_craft_lat;
+      pointNum = filterRoutes.pointNum;
+      clear();
+      insert( end(), filterRoutes.begin(), filterRoutes.end() );
+    }
+    bool useRouteProperty( int vpoint_dep, int vpoint_arv = ASTRA::NoExists );
+    bool IntersecRoutes( int point_dep1, int point_arv1,
+                         int point_dep2, int point_arv2 );
+    int getDepartureId() const {
+      return point_dep;
+    }
+    int getArrivalId() const  {
+      return point_arv;
+    }
+    TFilterRoutesSets getMaxRoute() const {
+      TFilterRoutesSets route( point_dep, point_arv );
+      if ( !empty() ) {
+        route.point_dep = front().point_id;
+        route.point_arv = back().point_id;
+      }
+      return route;
+    }
+    bool isCraftLat() const {
+      return pr_craft_lat;
+    }
+    bool getCompId() const {
+      return comp_id;
+    }
+    void Build( xmlNodePtr node );
+};
+
 class TPlace {
   private:
-    std::map<int, std::set<TSeatLayer,SeatLayerCompare>,classcomp > lrss;
+    std::map<int, std::set<TSeatLayer,SeatLayerCompare>,classcomp > lrss, save_lrss;
     std::map<int, std::vector<TSeatRemark>,classcomp > remarks;
     std::map<int, TSeatTariff,classcomp> tariffs;
     std::map<int,TSeatLayer> drop_blocked_layers;
@@ -334,10 +420,11 @@ class TPlace {
       xname = pl.xname;
       yname = pl.yname;
       layers = pl.layers;
+      save_lrss = pl.save_lrss;
+      lrss = pl.lrss;
       rems = pl.rems;
       WebTariff = pl.WebTariff;
       isPax = pl.isPax;
-      lrss = pl.lrss;
       remarks = pl.remarks;
       tariffs = pl.tariffs;
       drop_blocked_layers = pl.drop_blocked_layers;
@@ -364,6 +451,9 @@ class TPlace {
     }
     void AddLayer( int key, const TSeatLayer &seatLayer ) {
       lrss[ key ].insert( seatLayer );
+    }
+    void ClearLayers() {
+      lrss.clear();
     }
     void ClearLayer( int key, const TSeatLayer &seatLayer ) {
       if ( lrss.find( key ) != lrss.end() &&
@@ -408,6 +498,23 @@ class TPlace {
       else {
         return TSeatLayer();
       }
+    }
+    void RollbackLayers( FilterRoutesProperty &filterRoutes ) {
+      lrss.clear();
+      drop_blocked_layers.clear();
+      for ( std::map<int, std::set<TSeatLayer,SeatLayerCompare>,classcomp >::iterator ilayers=save_lrss.begin();
+            ilayers!=save_lrss.end(); ilayers++ ) {
+        for ( std::set<TSeatLayer,SeatLayerCompare>::iterator ilayer=ilayers->second.begin();
+              ilayer!=ilayers->second.end(); ilayer++ ) {
+          TSeatLayer layer = *ilayer;
+          layer.inRoute = ( ilayer->point_id == filterRoutes.getDepartureId() ||
+                            filterRoutes.useRouteProperty( ilayer->point_dep, ilayer->point_arv ) );
+          lrss[ layer.point_id ].insert( layer );
+        }
+      }
+    }
+    void CommitLayers() {
+      save_lrss = lrss;
     }
     void AddRemark( int key, const TSeatRemark &seatRemark ) {
       remarks[ key ].push_back( seatRemark );
@@ -482,7 +589,7 @@ class TPlaceList {
     }
 };
 
-enum TValidLayerType { vlMultiVerify, vlInvalid, vlVerify, vlValid };
+enum TValidLayerType { layerMultiVerify, layerVerify, layerValid, layerLess, layerInvalid, layerNotRoute };
 
 struct CompareSeats {
   bool operator() ( const TPlace* seat1, const TPlace* seat2 ) const {
@@ -500,9 +607,8 @@ struct CompareSeats {
 struct TPaxLayerSeats {
   std::set<TPlace*,CompareSeats> seats; //упорядоченные места
   TValidLayerType pr_valid;
-  bool inRoute;
   TPaxLayerSeats() {
-    pr_valid = vlInvalid;
+    pr_valid = layerInvalid;
   }
 };
 
@@ -561,50 +667,34 @@ class TPassSeats: public std::vector<TPassSeat> {
 struct TSalonPax {
   private:
   public:
-  int grp_id; //+ sort
-  int pax_id; //+
-  std::string grp_status; //+
-  int point_arv;
-  unsigned int seats; //+
-  std::string cl; //+
-  int class_grp;
-  int reg_no; //+
-  ASTRA::TPerson pers_type; //+
-  std::string surname; //+
-  std::string name; //+
-  bool pr_infant; //+
-  TLayersPax layers;
-  std::map<TSeatLayer,TInvalidRange,SeatLayerCompare> invalid_ranges;
-  TSalonPax() {
-    seats = 0;
-    reg_no = ASTRA::NoExists;
-    pr_infant = false;
-    pax_id = ASTRA::NoExists;
-    grp_id = ASTRA::NoExists;
-    class_grp = ASTRA::NoExists;
-    point_arv = ASTRA::NoExists;
-  }
-  void operator = ( const TSalonPax &salonPax ) {
-    grp_id = salonPax.grp_id;
-    pax_id = salonPax.pax_id;
-    grp_status = salonPax.grp_status;
-    seats = salonPax.seats;
-    cl = salonPax.cl;
-    class_grp = salonPax.class_grp;
-    reg_no = salonPax.reg_no;
-    pers_type = salonPax.pers_type;
-    surname = salonPax.surname;
-    name = salonPax.name;
-    pr_infant = salonPax.pr_infant;
-    layers = salonPax.layers;
-    point_arv = salonPax.point_arv;
-    invalid_ranges = salonPax.invalid_ranges;
-  }
-  void get_seats( bool useValid,
-                  bool &pr_wait_list,
-                  TPassSeats &ranges ) const;
-  std::string seat_no( const std::string &format, bool pr_lat_seat, bool &pr_wait_list ) const;
-  std::string prior_seat_no( const std::string &format, bool pr_lat_seat ) const;
+    int grp_id; //+ sort
+    int pax_id; //+
+    std::string grp_status; //+
+    int point_arv;
+    unsigned int seats; //+
+    std::string cl; //+
+    int class_grp;
+    int reg_no; //+
+    ASTRA::TPerson pers_type; //+
+    std::string surname; //+
+    std::string name; //+
+    bool pr_infant; //+
+    TLayersPax layers;
+    TLayersPax save_layers;
+    std::map<TSeatLayer,TInvalidRange,SeatLayerCompare> invalid_ranges;
+    TSalonPax() {
+      seats = 0;
+      reg_no = ASTRA::NoExists;
+      pr_infant = false;
+      pax_id = ASTRA::NoExists;
+      grp_id = ASTRA::NoExists;
+      class_grp = ASTRA::NoExists;
+      point_arv = ASTRA::NoExists;
+    }
+    void get_seats( bool &pr_wait_list,
+                    TPassSeats &ranges ) const;
+    std::string seat_no( const std::string &format, bool pr_lat_seat, bool &pr_wait_list ) const;
+    std::string prior_seat_no( const std::string &format, bool pr_lat_seat ) const;
 };
                                 //pax_id,TSalonPax
 class TPaxList: public std::map<int,TSalonPax> {
@@ -619,76 +709,6 @@ class TPaxList: public std::map<int,TSalonPax> {
         return false;
       return ipax->second.pr_infant;
     }
-};
-
-/* свойства
- 1. определение сегмента для разметки
- 2. определение множества пунктов вылета, которые влияют на разметку в нашем пункте
- 3. фильтрация свойств места с помощью 1 исходя из откуда и куда свойтсво места
-*/
-
-struct PointAirpNum {
-  int num;
-  std::string airp;
-  bool in_use;
-  PointAirpNum( int vnum, const std::string &vairp, bool vin_use ) {
-    num = vnum;
-    airp = vairp;
-    in_use = vin_use;
-  }
-  PointAirpNum(){
-    in_use = false;
-  };
-};
-
-struct TFilterRoutesSets {
-  int point_dep;
-  int point_arv;
-  TFilterRoutesSets( int vpoint_dep, int vpoint_arv=ASTRA::NoExists ) {
-    point_dep = vpoint_dep;
-    point_arv = vpoint_arv;
-  }
-};
-
-class FilterRoutesProperty: public std::vector<TTripRouteItem> {
-  private:
-    int point_dep;
-    int point_arv;
-    int crc_comp;
-    int comp_id;
-    bool pr_craft_lat;
-    std::map<int,PointAirpNum> pointNum;
-    int readNum( int point_id, bool in_use );
-  public:
-    //определяем множество пунктов вылета по которым надо начитать информацию
-    FilterRoutesProperty( );
-    void Read( const TFilterRoutesSets &filterRoutesSets );
-    //фильтр св-ва места исходя из его сегмента разметки
-    //проверить на пересечение сегментов
-    bool useRouteProperty( int vpoint_dep, int vpoint_arv = ASTRA::NoExists );
-    bool IntersecRoutes( int point_dep1, int point_arv1,
-                         int point_dep2, int point_arv2 );
-    int getDepartureId() const {
-      return point_dep;
-    }
-    int getArrivalId() const  {
-      return point_arv;
-    }
-    TFilterRoutesSets getMaxRoute() const {
-      TFilterRoutesSets route( point_dep, point_arv );
-      if ( !empty() ) {
-        //route.point_dep = front().point_id;
-        route.point_arv = back().point_id;
-      }
-      return route;
-    }
-    bool isCraftLat() const {
-      return pr_craft_lat;
-    }
-    bool getCompId() const {
-      return comp_id;
-    }
-    void Build( xmlNodePtr node );
 };
 
 struct TFilterSets {
@@ -841,19 +861,14 @@ enum TWaitList { wlNotInit, wlYes, wlNo };
                                    //point_arv,class,grp_status,TSalonPax
 class TSalonPassengers: public std::map<int,std::map<std::string,std::map<std::string,std::set<TSalonPax,ComparePassenger>,CompareGrpStatus >,CompareClass >,CompareArv > {
   private:
+  public:
     int point_dep;
     bool pr_craft_lat;
     TWaitList status_wait_list;
-  public:
     bool BuildWaitList( xmlNodePtr dataNode );
     TSalonPassengers( ) {
       point_dep = ASTRA::NoExists;
       pr_craft_lat = false;
-      status_wait_list = wlNotInit;
-    };
-    TSalonPassengers( int vpoint_dep, bool vpr_craft_lat ) {
-      point_dep = vpoint_dep;
-      pr_craft_lat = vpr_craft_lat;
       status_wait_list = wlNotInit;
     };
     bool isWaitList( );
@@ -892,7 +907,9 @@ class TSalonList: public std::vector<TPlaceList*> {
                      int prior_compon_props_point_id );
     void ReadPaxs( TQuery &Qry, TPaxList &pax_list );
     void ReadCrsPaxs( TQuery &Qry, TPaxList &pax_list );
-    void validateLayersSeats(  );
+    void validateLayersSeats( );
+    void CommitLayers();
+    void RollbackLayers();
   public:
     std::map<int,TPaxList> pax_lists;
     bool isCraftLat() const {
@@ -935,15 +952,16 @@ class TSalonList: public std::vector<TPlaceList*> {
                                    TFilterRoutesSets &filterRoutes,
                                    bool pr_departure_tariff_only,
                                    const std::vector<ASTRA::TCompLayerType> &grp_layers );
-    void getPaxs( int point_dep, TSalonPassengers &passengers );
+    void JumpToLeg( const TFilterRoutesSets &routesSets );
+    void getPaxs( TSalonPassengers &passengers );
     void getPaxLayer( int point_dep, int pax_id,
                       TSeatLayer &seatLayer,
                       std::set<TPlace*,CompareSeats> &seats ) const;
     bool check_waitlist_alarm_on_tranzit_routes( const TAutoSeats &autoSeats );
 };
 
-    void check_waitlist_alarm_on_tranzit_routes( int point_dep, const std::string &filterClass );
-    void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tranzit_check_wait_alarm, const std::string &filterClass );
+    void check_waitlist_alarm_on_tranzit_routes( int point_dep/*!!!, const std::string &filterClass*/ );
+    void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tranzit_check_wait_alarm/*!!!, const std::string &filterClass*/ );
     void WritePaxSeats( int point_dep, int pax_id, const std::vector<TSeatRange> &ranges );
 
 

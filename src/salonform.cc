@@ -719,7 +719,7 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   // конец перечитки
   SALONS2::check_diffcomp_alarm( trip_id );
   if ( SALONS2::isTranzitSalons( trip_id ) ) {
-    SALONS2::check_waitlist_alarm_on_tranzit_routes( trip_id, string("") );
+    SALONS2::check_waitlist_alarm_on_tranzit_routes( trip_id );
   }
   else {
     check_waitlist_alarm( trip_id );
@@ -1132,6 +1132,7 @@ void IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string y
   	SEATS2::ChangeLayer( salonList, layer_type, point_id, pax_id, tid, xname, yname, seat_type );
   	if ( TReqInfo::Instance()->client_type != ctTerm || resNode == NULL )
   		return; // web-регистрация
+    salonList.JumpToLeg( SALONS2::TFilterRoutesSets( point_id, ASTRA::NoExists ) );
     SALONS2::TSalonList NewSalonList;
     NewSalonList.ReadFlight( salonList.getFilterRoutes(), salonList.getFilterClass() );
     SALONS2::getSalonChanges( salonList, salonList.isCraftLat(), NewSalonList, NewSalonList.isCraftLat(), seats );
@@ -1153,8 +1154,8 @@ void IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string y
     }
     SALONS2::BuildSalonChanges( dataNode, point_id, seats, true, NewSalonList.pax_lists );
     if ( pr_waitlist ) {
-      SALONS2::TSalonPassengers passengers( point_id, NewSalonList.isCraftLat() );
-      NewSalonList.getPaxs( point_id, passengers );
+      SALONS2::TSalonPassengers passengers;
+      NewSalonList.getPaxs( passengers );
       passengers.BuildWaitList( dataNode );
     	if ( !passengers.isWaitList() )
       	AstraLocale::showErrorMessage( "MSG.SEATS.SEATS_FINISHED" );
@@ -1171,12 +1172,13 @@ void IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string y
     }
   	dataNode = NewTextChild( resNode, "data" );
     SALONS2::GetTripParams( point_id, dataNode );
+    salonList.JumpToLeg( SALONS2::TFilterRoutesSets( point_id, ASTRA::NoExists ) );
     int comp_id;
     salonList.Build( true, NewTextChild( dataNode, "salons" ) );
     comp_id = salonList.getCompId();
     if ( pr_waitlist ) {
-      SALONS2::TSalonPassengers passengers( point_id, salonList.isCraftLat() );
-      salonList.getPaxs( point_id, passengers );
+      SALONS2::TSalonPassengers passengers;
+      salonList.getPaxs( passengers );
       passengers.BuildWaitList( dataNode );
     }
     if ( comp_id > 0 && GetTripSets( tsCraftNoChangeSections, fltInfo ) &&
@@ -1475,8 +1477,8 @@ void SalonFormInterface::WaitList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 	SALONS2::TSalonList salonList;
 	if ( isTranzitSalonsVersion ) {
     salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, ASTRA::NoExists ), "" );
-    SALONS2::TSalonPassengers passengers( point_id, salonList.isCraftLat() );
-    salonList.getPaxs( point_id, passengers );
+    SALONS2::TSalonPassengers passengers;
+    salonList.getPaxs( passengers );
     passengers.BuildWaitList( dataNode );
 	}
 	else {
@@ -1548,10 +1550,10 @@ void SalonFormInterface::AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   TTripInfo info( Qry );
   SEATS2::TPassengers p;
   SALONS2::TSalonList salonList;
-  SALONS2::TSalonPassengers passengers( point_id, salonList.isCraftLat() );
+  SALONS2::TSalonPassengers passengers;
   if ( isTranzitSalonsVersion ) {
     salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, ASTRA::NoExists ), "" );
-    salonList.getPaxs( point_id, passengers );
+    salonList.getPaxs( passengers );
     if ( !passengers.isWaitList() ) {
       throw UserException( "MSG.SEATS.ALL_PASSENGERS_PLANED" );
     }
@@ -1585,7 +1587,7 @@ void SalonFormInterface::AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
       salonList.Build( true, salonsNode );
       comp_id = salonList.getCompId();
       if ( pr_waitlist ) {
-        salonList.getPaxs( point_id, passengers );
+        salonList.getPaxs( passengers );
         if ( passengers.isWaitList() ) {
           AstraLocale::showErrorMessage( "MSG.SEATS.PAX_SEATS_NOT_FULL" );
         }
@@ -1631,7 +1633,7 @@ void SalonFormInterface::AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
       salonList.Build( true, salonsNode );
       comp_id = salonList.getCompId();
       if ( pr_waitlist ) {
-        salonList.getPaxs( point_id, passengers );
+        salonList.getPaxs( passengers );
         if ( passengers.isWaitList() ) {
           AstraLocale::showErrorMessage( "MSG.SEATS.PAX_SEATS_NOT_FULL" );
         }

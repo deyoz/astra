@@ -4480,7 +4480,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           //определяет по местам пассажиров нужно ли делать перерасчет тревоги ЛО и
           //если нужно делает перерасчет
           if ( pr_do_check_wait_list_alarm ) {
-            SALONS2::check_waitlist_alarm_on_tranzit_routes( grp.point_dep, grp.cl );
+            SALONS2::check_waitlist_alarm_on_tranzit_routes( grp.point_dep );
           }
         }
         else {

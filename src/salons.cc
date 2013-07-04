@@ -1829,11 +1829,11 @@ void TSalonList::ReadLayers( TQuery &Qry, FilterRoutesProperty &filterRoutes,
     else
       layer.time_create = Qry.FieldAsDateTime( col_time_create );
     if ( col_point_id < 0 || filterLayers.CanUseLayer( layer.layer_type, layer.point_dep ) ) { // слой нужно добавить
-      layer.inRoute = ( col_point_id < 0 ||
-                        layer.point_id == filterRoutes.getDepartureId() ||
-                        filterRoutes.useRouteProperty( layer.point_dep, layer.point_arv ) );
+      bool inRoute = ( col_point_id < 0 ||
+                       layer.point_id == filterRoutes.getDepartureId() ||
+                       filterRoutes.useRouteProperty( layer.point_dep, layer.point_arv ) );
       if ( prior_compon_props_point_id != ASTRA::NoExists ) { // подмена
-        if ( !layer.inRoute ) {
+        if ( !inRoute ) {
           continue;
         }
         if ( layer.point_id != ASTRA::NoExists ) {
@@ -1854,7 +1854,7 @@ void TSalonList::ReadLayers( TQuery &Qry, FilterRoutesProperty &filterRoutes,
       point_s.y = Qry.FieldAsInteger( col_y );
       TPoint seat_p( point_s.x, point_s.y );
       if ( layer.getPaxId() != NoExists &&
-           pax_list.find( layer.getPaxId() ) != pax_list.end() ) {
+           pax_list.find( layer.getPaxId() ) != pax_list.end() ) { //слой принадлежит пассажиру
         TSeatRange seatRange( TSeat(Qry.FieldAsString( idx_first_yname ),
                                     Qry.FieldAsString( idx_first_xname ) ),
                               TSeat(Qry.FieldAsString( idx_last_yname ),
@@ -1879,11 +1879,12 @@ void TSalonList::ReadLayers( TQuery &Qry, FilterRoutesProperty &filterRoutes,
              pax_list.find( layer.getPaxId() ) != pax_list.end() ) {
           tst();
           if ( pax_list[ layer.getPaxId() ].layers.find( layer ) != pax_list[ layer.getPaxId() ].layers.end() ) {
-            pax_list[ layer.getPaxId() ].layers[ layer ].pr_valid = vlInvalid;
+            pax_list[ layer.getPaxId() ].layers[ layer ].pr_valid = layerInvalid;
           }
         }
         continue;
       }
+      
       ProgTrace( TRACE5, "placelist=%p, point_s.num=%d, point_s.x=%d, point_s.y=%d %s",
                  placelist, point_s.num, point_s.x, point_s.y, layer.toString().c_str() );
       //нашли нужный салон
@@ -1903,7 +1904,7 @@ void TSalonList::ReadLayers( TQuery &Qry, FilterRoutesProperty &filterRoutes,
         */
         if ( pax_list[ id ].cl != place->clname || !place->isplace || !place->visible ) {
           if ( pax_list[ id ].layers.find( layer ) != pax_list[ id ].layers.end() ) {
-            pax_list[ layer.getPaxId() ].layers[ layer ].pr_valid = vlInvalid;
+            pax_list[ layer.getPaxId() ].layers[ layer ].pr_valid = layerInvalid;
           }
           continue;
         }
@@ -1911,17 +1912,17 @@ void TSalonList::ReadLayers( TQuery &Qry, FilterRoutesProperty &filterRoutes,
         std::set<SALONS2::TPlace*,SALONS2::CompareSeats> &layer_places = pax_list[ id ].layers[ layer ].seats;
         TValidLayerType &pr_valid = pax_list[ id ].layers[ layer ].pr_valid;
         if ( layer_places.empty() ) {
-          pr_valid = vlVerify;
+          pr_valid = layerVerify;
         }
         ProgTrace( TRACE5, "id=%d, pr_valid=%d", id, pr_valid );
         // добавили место
         layer_places.insert( place );
         // места в разных салонах
         if ( (*layer_places.begin())->num != place->num ) {
-          pr_valid = vlInvalid;
+          pr_valid = layerInvalid;
         }
         // если нашли нужное кол-во мест, то сделаем проверку на то, что все места рядом
-        if ( pr_valid == vlVerify && pax_list[ id ].seats == layer_places.size() ) {
+        if ( pr_valid == layerVerify && pax_list[ id ].seats == layer_places.size() ) {
           int first_x = NoExists;
           int first_y = NoExists;
           int last_x = NoExists;
@@ -1954,46 +1955,39 @@ void TSalonList::ReadLayers( TQuery &Qry, FilterRoutesProperty &filterRoutes,
           if ( !( ( first_x == last_x && first_y+(int)layer_places.size()-1 == last_y ) ||
                   ( first_y == last_y && first_x+(int)layer_places.size()-1 == last_x ) ) ) {
             ProgTrace( TRACE5, "SalonList::ReadLayers: invalid coord pax_id=%d", id );
-            pr_valid = vlInvalid;
+            pr_valid = layerInvalid;
           }
           else
-            pr_valid = vlMultiVerify;
+            pr_valid = layerMultiVerify;
         }
         ProgTrace( TRACE5, "id=%d", id );
         // если все проверки прошли, а нашлось еще место
-        if ( pr_valid == vlMultiVerify && pax_list[ id ].seats != layer_places.size() ) {
-          pr_valid = vlInvalid;
+        if ( pr_valid == layerMultiVerify && pax_list[ id ].seats != layer_places.size() ) {
+          pr_valid = layerInvalid;
           ProgTrace( TRACE5, "id=%d", id );
         }
       } // end if id если слой принадлежит пассажиру
       ProgTrace( TRACE5, "id=%d", id );
       place->AddLayer( layer.point_id, layer );
-      //if ( !layer.inRoute ) {
-        //сохраняем места и слои, которые нужно потом удалить, а пока они нужны для
-        // определения валидных слоев в локальном салоне (слои только данного пункта)
-      //}
       ProgTrace( TRACE5, "TSalonList::ReadLayers:AddLayer %s",
                  layer.toString().c_str() );
 
     }
   }
-  //vlVerify - означает, что не найдено нужного кол-ва мест
-  //vlMultiVerify - означает, что найдены все места и нужное кол-во
   for ( TPaxList::iterator ipax=pax_list.begin(); ipax!=pax_list.end(); ipax++ ) {
     for ( TLayersPax::iterator ilayer=ipax->second.layers.begin();
           ilayer!=ipax->second.layers.end(); ilayer++ ) {
       if ( ipax->second.seats != ilayer->second.seats.size() ) {
-        ilayer->second.pr_valid = vlInvalid;
+        ilayer->second.pr_valid = layerInvalid;
       }
       else {
-        if ( ilayer->second.pr_valid == vlVerify ||
-             ilayer->second.pr_valid == vlMultiVerify ) {
-          ilayer->second.pr_valid = vlValid;
+        if ( ilayer->second.pr_valid == layerVerify ||
+             ilayer->second.pr_valid == layerMultiVerify ) {
+          ilayer->second.pr_valid = layerValid;
         }
       }
     }
   }
-  pax_list.dumpValidLayers();
 }
 
 void TPaxList::InfantToSeatDrawProps()
@@ -2004,8 +1998,7 @@ void TPaxList::InfantToSeatDrawProps()
       continue;
     for ( std::map<TSeatLayer,TPaxLayerSeats>::iterator ilayer=ipax->second.layers.begin();
           ilayer!=ipax->second.layers.end(); ilayer++ ) {
-      if ( ilayer->second.pr_valid != vlValid ) {
-        tst();
+      if ( ilayer->second.pr_valid != layerValid ) {
         continue;
       }
       for ( std::set<TPlace*,CompareSeats>::iterator iseat=ilayer->second.seats.begin(); iseat!=ilayer->second.seats.end(); iseat++ ) {
@@ -2023,7 +2016,7 @@ void TPaxList::TranzitToSeatDrawProps( int point_dep )
       continue;
     for ( std::map<TSeatLayer,TPaxLayerSeats>::iterator ilayer=ipax->second.layers.begin();
           ilayer!=ipax->second.layers.end(); ilayer++ ) {
-      if ( ilayer->second.pr_valid != vlValid ) {
+      if ( ilayer->second.pr_valid != layerValid ) {
         continue;
       }
       if ( ilayer->first.point_id == point_dep ) {
@@ -2041,17 +2034,23 @@ void TLayersPax::dumpPaxLayers( const TSeatLayer &seatLayer, const TPaxLayerSeat
 {
   string str = "status=";
   switch ( seats.pr_valid ) {
-    case vlMultiVerify:
-      str += "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!>>>>>1vlMultiVerify";
+    case layerMultiVerify:
+      str += "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!>>>>>layerMultiVerify";
       break;
-    case vlInvalid:
-      str += "vlInvalid";
+    case layerInvalid:
+      str += "layerInvalid";
       break;
-    case vlVerify:
-      str += "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!>>>>>vlVerify";
+    case layerLess:
+      str += "layerLess";
       break;
-    case vlValid:
-      str += "vlValid";
+    case layerNotRoute:
+      str += "layerNotRoute";
+      break;
+    case layerVerify:
+      str += "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!>>>>>layerVerify";
+      break;
+    case layerValid:
+      str += "layerValid";
       break;
     default:
       str += "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!>>>>>";
@@ -2559,8 +2558,7 @@ bool getTopSeatLayerOnRoute( const std::map<int,TPaxList> &pax_lists,
       continue;
     }
     //слой инвалидный - не участвует в наложении
-    if ( ipax_curr_layer->second.pr_valid == vlInvalid ) {
-      tst();
+    if ( ipax_curr_layer->second.pr_valid != layerValid ) {
       continue;
     }
     layer = *ilayer;
@@ -2614,7 +2612,7 @@ inline bool isMaxPaxLayer( FilterRoutesProperty &filterRoutes,
   //пробег по всем более приоритетным слоям пассажира
   for ( std::map<TSeatLayer,TPaxLayerSeats,SeatLayerCompare>::iterator ipax_layer=ipax->second.layers.begin();
         ipax_layer!=ipax->second.layers.end(); ipax_layer++ ) {
-    if ( ipax_layer->second.pr_valid == vlInvalid ) {
+    if ( ipax_layer->second.pr_valid != layerValid ) {
       continue;
     }
     if ( useFilterRoute && !ipax_layer->first.inRoute ) {
@@ -2622,16 +2620,16 @@ inline bool isMaxPaxLayer( FilterRoutesProperty &filterRoutes,
       continue;
     }
     if ( pr_find ) { //если найден валидный слой, то остальные инвалидные
-      ipax_layer->second.pr_valid = vlInvalid;
+      ipax_layer->second.pr_valid = layerLess;
       continue;
     }
     else {
       if ( ipax_layer == ipax_curr_layer ) {
-        ipax_curr_layer->second.pr_valid = vlValid;
+        ipax_curr_layer->second.pr_valid = layerValid;
         break;
       }
     }
-    if ( ipax_layer->second.pr_valid != vlValid ) {
+    if ( ipax_layer->second.pr_valid != layerValid ) {
       //пробег по местам размеченных более приоритетным слоем
       for ( std::set<TPlace*,CompareSeats>::iterator nseat=ipax_layer->second.seats.begin();
             nseat!=ipax_layer->second.seats.end(); nseat++ ) {
@@ -2645,15 +2643,15 @@ inline bool isMaxPaxLayer( FilterRoutesProperty &filterRoutes,
         //если на месте самый приоритетный другой слой, то наш инвалидный
         if ( ipax_layer->first != seatLayer ) {
           ProgTrace( TRACE5, "isMaxPaxLayer: not max %s, because max %s", ipax_layer->first.toString().c_str(), seatLayer.toString().c_str() );
-          ipax_layer->second.pr_valid = vlInvalid;
+          ipax_layer->second.pr_valid = layerLess;
           break;
         }
         else {
-          ipax_layer->second.pr_valid = vlValid;
+          ipax_layer->second.pr_valid = layerValid;
         }
       }
     }
-    pr_find = ( ipax_layer->second.pr_valid != vlInvalid );
+    pr_find = ( ipax_layer->second.pr_valid == layerValid );
   }
   ProgTrace( TRACE5, "isMaxPaxLayer: return %d, %s", !pr_find, layer.toString().c_str() );
   return !pr_find;
@@ -2677,7 +2675,7 @@ inline void setInvalidLayer( std::map<int,TPaxList> &pax_lists,
     ProgError( STDLOG, "setInvalidLayer: pass layer not found %s", layer.toString().c_str() );
     return;
   }
-  ipax_curr_layer->second.pr_valid = vlInvalid;
+  ipax_curr_layer->second.pr_valid = layerLess;
   for ( std::set<TPlace*,CompareSeats>::iterator iseat=ipax_curr_layer->second.seats.begin();
         iseat!=ipax_curr_layer->second.seats.end(); iseat++ ) {
     TPlace *seat = *iseat;
@@ -2693,7 +2691,7 @@ bool isBlockedLayer( const ASTRA::TCompLayerType &layer_type )
 
 inline void dropLayer( std::map<int,TPaxList> &pax_lists,
                        const TSeatLayer &layer,
-                       TPlace* pseat)
+                       TPlace* pseat )
 {
   if ( layer.getPaxId() == ASTRA::NoExists ) {
     tst();
@@ -2844,8 +2842,69 @@ struct TClearSeatLayer {
   TSeatLayer max_layer;
 };
 
-void TSalonList::validateLayersSeats(  )
+void TSalonList::CommitLayers()
 {
+  std::map<int, std::set<TSeatLayer,SeatLayerCompare>,classcomp > layers;
+  //пробег по пассажирам
+  for ( std::map<int,TPaxList>::iterator iroute_pax_list=pax_lists.begin();
+        iroute_pax_list!=pax_lists.end(); iroute_pax_list++ ) {
+    for ( TPaxList::iterator ipax_list=iroute_pax_list->second.begin();
+          ipax_list!=iroute_pax_list->second.end(); ipax_list++ ) {
+      for ( TLayersPax::iterator ilayer=ipax_list->second.layers.begin();
+            ilayer!=ipax_list->second.layers.end(); ilayer++ ) {
+        ipax_list->second.save_layers.clear();
+        if ( ilayer->second.pr_valid != layerValid ) {  //сохраняем только валидные слои
+          for ( std::set<TPlace*,CompareSeats>::iterator iseat=ilayer->second.seats.begin();
+                iseat!=ilayer->second.seats.end(); iseat++ ) { // пробег по местам - удаляем инвалидные слои из места
+            (*iseat)->ClearLayer( ilayer->first.point_id, ilayer->first );
+          }
+          continue;
+        }
+        TSeatLayer layer = ilayer->first;
+        TPaxLayerSeats paxlayer = ilayer->second;
+        ipax_list->second.save_layers.insert( make_pair( layer, paxlayer ) );
+      }
+    }
+  }
+  for ( TSalonList::iterator isalonlist=begin();
+        isalonlist!=end(); isalonlist++ ) {
+    for ( TPlaces::iterator iseat=(*isalonlist)->places.begin();
+          iseat!=(*isalonlist)->places.end(); iseat++ ) {
+      //сохраняем только валидные слои
+      iseat->CommitLayers();
+    }
+  }
+}
+
+void TSalonList::RollbackLayers( )
+{
+  FilterRoutesProperty &filterRoutes = filterSets.filterRoutes;
+  for ( TSalonList::iterator isalonlist=begin();
+        isalonlist!=end(); isalonlist++ ) {
+    for ( TPlaces::iterator iseat=(*isalonlist)->places.begin();
+          iseat!=(*isalonlist)->places.end(); iseat++ ) {
+      iseat->RollbackLayers( filterRoutes );
+    }
+  }
+  for ( std::map<int,TPaxList>::iterator iroute_pax_list=pax_lists.begin();
+        iroute_pax_list!=pax_lists.end(); iroute_pax_list++ ) {
+    for ( TPaxList::iterator ipax_list=iroute_pax_list->second.begin();
+          ipax_list!=iroute_pax_list->second.end(); ipax_list++ ) {
+      for ( TLayersPax::iterator ilayer=ipax_list->second.save_layers.begin();
+            ilayer!=ipax_list->second.save_layers.end(); ilayer++ ) {
+        TSeatLayer layer = ilayer->first;
+        layer.inRoute = ( layer.point_id == filterRoutes.getDepartureId() ||
+                          filterRoutes.useRouteProperty( layer.point_dep, layer.point_arv ) );
+        TPaxLayerSeats paxlayer = ilayer->second;
+        ipax_list->second.layers.insert( make_pair( layer, paxlayer ) );
+      }
+    }
+  }
+}
+
+void TSalonList::validateLayersSeats( )
+{
+  RollbackLayers();
   std::map<int, std::set<TSeatLayer,SeatLayerCompare>,classcomp > layers;
   std::map<ASTRA::TCompLayerType,TMenuLayer> menuLayers;
   getMenuBaseLayers( menuLayers );
@@ -2907,35 +2966,54 @@ void TSalonList::validateLayersSeats(  )
       for ( std::map<TSeatLayer,TPaxLayerSeats,SeatLayerCompare>::iterator ilayers=ipax->second.layers.begin();
             ilayers!=ipax->second.layers.end(); ilayers++ ) {
         if ( pr_find ) {
-          ilayers->second.pr_valid = vlInvalid;
+          if ( !ilayers->first.inRoute ) {
+            ilayers->second.pr_valid = layerNotRoute;
+          }
+          else {
+            ilayers->second.pr_valid = layerLess;
+          }
         }
-        if ( ilayers->second.pr_valid == vlValid ) {
+        if ( ilayers->second.pr_valid == layerValid ) {
           pr_find = true;
           continue;
         }
         if ( !ilayers->first.inRoute ) {
-          ilayers->second.pr_valid = vlInvalid;
+          ilayers->second.pr_valid = layerNotRoute;
           continue;
         }
-        if ( ilayers->second.pr_valid == vlInvalid ) {
+        if ( ilayers->second.pr_valid != layerValid ) {
           for ( std::set<TPlace*,CompareSeats>::iterator iseat=ilayers->second.seats.begin();
                 iseat!=ilayers->second.seats.end(); iseat++ ) {
             TPlace *seat = *iseat;
             seat->ClearLayer( ilayers->first.point_id, ilayers->first );
           }
-          ilayers->second.pr_valid = vlInvalid;
         }
       }
     }
   }
 }
+
+void TSalonList::JumpToLeg( const TFilterRoutesSets &routesSets )
+{
+  //проверка, что требуемый аэропорт вылета и прилета находится внутри начитанного маршрута
+  FilterRoutesProperty filterRoutesTmp;
+  filterRoutesTmp.Read( routesSets );
+  if ( filterRoutesTmp.getMaxRoute() != filterSets.filterRoutes.getMaxRoute() ) {
+    throw EXCEPTIONS::Exception( "TSalonList::JumpToLeg: invalid routesSets(%d,%d)",
+                                 routesSets.point_dep, routesSets.point_arv );
+  }
+  filterSets.filterRoutes = filterRoutesTmp;
+  validateLayersSeats( );
+}
+
 // pont_arv, class, grp_status, pax_id
-//std::map<int,std::map<std::string,map<ASTRA::TCompLayerType,std::set<TSalonPax,ComparePassenger>,CompareGrpStatus >,CompareClass >,CompareArv > {
-void TSalonList::getPaxs( int point_dep, TSalonPassengers &passengers )
+void TSalonList::getPaxs( TSalonPassengers &passengers )
 {
   passengers.clear();
+  passengers.status_wait_list = wlNotInit;
+  passengers.point_dep = getDepartureId();
   //выбираем маршрут
-  std::map<int,TPaxList>::const_iterator ipax_list = pax_lists.find( point_dep );
+  std::map<int,TPaxList>::const_iterator ipax_list = pax_lists.find( getDepartureId() );
   if ( ipax_list == pax_lists.end() ) {
     return;
   }
@@ -2950,8 +3028,8 @@ void TSalonList::getPaxs( int point_dep, TSalonPassengers &passengers )
     }
     TSalonPax salonPax = ipax->second;
     salonPax.pax_id = ipax->first;
-    ProgTrace( TRACE5, "getPaxs add point_arv=%d, ipax->second.cl=%s, salonPax.grp_status=%s, pax_id=%d",
-               salonPax.point_arv, salonPax.cl.c_str(), salonPax.grp_status.c_str(), salonPax.pax_id );
+    ProgTrace( TRACE5, "getPaxs add point_arv=%d, ipax->second.cl=%s, salonPax.grp_status=%s, pax_id=%d, salonPax.layers.size()=%zu, ipax->second.layers.size()=%zu",
+               salonPax.point_arv, salonPax.cl.c_str(), salonPax.grp_status.c_str(), salonPax.pax_id, salonPax.layers.size(), ipax->second.layers.size() );
     passengers[ salonPax.point_arv ][ salonPax.cl ][ salonPax.grp_status ].insert( salonPax );
   }
 }
@@ -2972,7 +3050,7 @@ void TSalonList::getPaxLayer( int point_dep, int pax_id,
   }
   for ( std::map<TSeatLayer,TPaxLayerSeats,SeatLayerCompare>::const_iterator ilayers=ipax->second.layers.begin();
         ilayers!=ipax->second.layers.end(); ilayers++ ) {
-    if ( ilayers->second.pr_valid != vlValid ||
+    if ( ilayers->second.pr_valid != layerValid ||
          ilayers->first.getPaxId( ) != pax_id ) {
       continue;
     }
@@ -3152,6 +3230,8 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
                 pax_lists[ iseg->point_id ],
                 prior_compon_props_point_id );
   }
+  CommitLayers();
+  
   //имеем на выходе множество слоев с учетом фильтра
   //множество пассажиров без учета фильтра - можно удалить тех, у которых нет слоя
   /* имеем множество мест со слоями пассажиров с признаком валидости (vlInvalid,vlMultiVerify)
@@ -3164,7 +3244,7 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
   */
   if ( !only_compon_props ) {
     tst();
-    validateLayersSeats();
+    validateLayersSeats( );
     tst();
     for ( std::vector<TTripRouteItem>::const_iterator iseg=filterRoutes.begin();
           iseg!=filterRoutes.end(); iseg++ ) {
@@ -4114,31 +4194,31 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &salons,
   return res;
 }
 
-void check_waitlist_alarm_on_tranzit_routes( int point_dep, const std::string &filterClass )
+void check_waitlist_alarm_on_tranzit_routes( int point_dep/*!!!, const std::string &filterClass*/ )
 {
   std::vector<int> points_tranzit_check_wait_alarm( 1, point_dep );
-  check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm, filterClass );
+  check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm );
 }
 
-/*bool CompareInt( const int &item1, const int &item2 )
-{
-  return ( item1 < item2 );
-} */
-
-void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tranzit_check_wait_alarm, const std::string &filterClass )
+void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tranzit_check_wait_alarm/*!!!, const std::string &filterClass*/ )
 {
   TFlights flights;
   flights.Get( points_tranzit_check_wait_alarm, trtWithCancelled );
   flights.Lock();
   TSalonList salonList;
+  TSalonPassengers passengers;
+  TFilterRoutesSets filterRoutesSets( ASTRA::NoExists, ASTRA::NoExists );
   for ( TFlights::iterator iflights=flights.begin(); iflights!=flights.end(); iflights++ ) {
     for ( FlightPoints::iterator iroute=iflights->begin(); iroute!=iflights->end()-1; iroute++ ) {
       ProgTrace( TRACE5, "check_waitlist_alarm_on_tranzit_routes: point_id=%d", iroute->point_id );
-      FilterRoutesProperty filterRoutes;
-      filterRoutes.Read( TFilterRoutesSets( iroute->point_id, ASTRA::NoExists ) );
-      salonList.ReadFlight( filterRoutes.getMaxRoute(), filterClass  );
-      TSalonPassengers passengers( iroute->point_id, salonList.isCraftLat() );
-      salonList.getPaxs( iroute->point_id, passengers );
+      FilterRoutesProperty filterRoutesTmp;
+      filterRoutesTmp.Read( TFilterRoutesSets( iroute->point_id, ASTRA::NoExists ) );
+      if ( filterRoutesSets != filterRoutesTmp.getMaxRoute() ) {
+        filterRoutesSets = filterRoutesTmp.getMaxRoute();
+        salonList.ReadFlight( TFilterRoutesSets( iroute->point_id, filterRoutesSets.point_arv ), "" );
+      }
+      salonList.JumpToLeg( TFilterRoutesSets( iroute->point_id, filterRoutesSets.point_arv ) );
+      salonList.getPaxs( passengers );
       passengers.check_waitlist_alarm();
     }
   }
@@ -4167,7 +4247,7 @@ bool TSalonList::check_waitlist_alarm_on_tranzit_routes( const TAutoSeats &autoS
   	}
   	for ( TLayersPax::iterator ilayer=ipax->second.layers.begin();
           ilayer!=ipax->second.layers.end(); ilayer++ ) {
-      if ( ilayer->second.pr_valid != vlValid ) { //инвалидные слои не могут влиять???
+      if ( ilayer->second.pr_valid != layerValid ) { //инвалидные слои не могут влиять???
         ProgTrace( TRACE5, "%s", ilayer->first.toString().c_str() );
         continue;
       }
@@ -5139,7 +5219,7 @@ void setTRIP_CLASSES( int point_id )
     }
     else {
       seat.AddLayer( point_id, seatLayer );
-      seats[ seat.clname ].push_back( seat);
+      seats[ seat.clname ].push_back( seat );
     }
   }
   map<string,TTripClasses> trip_classes;
@@ -5310,7 +5390,7 @@ void CreateComps( const TCompsRoutes &routes, int comp_id )
         i!=points_check_wait_alarm.end(); i++ ) {
     check_waitlist_alarm(*i);
   }
-  SALONS2::check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm, "" );
+  check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm );
 }
 
 bool CompRouteinRoutes( const CompRoute &item1, const CompRoute &item2 )
@@ -5780,7 +5860,7 @@ TFindSetCraft SetCraft( bool pr_tranzit_routes, int point_id, TSetsCraftPoints &
 	
 	check_diffcomp_alarm( routes );
 	if ( isTranzitSalons( point_id ) ) {
-    check_waitlist_alarm_on_tranzit_routes( point_id, "" );
+    check_waitlist_alarm_on_tranzit_routes( point_id );
   }
 	ProgTrace( TRACE5, "SetCraft: return rsComp_Found" );
   return rsComp_Found;
@@ -6937,8 +7017,7 @@ bool isTranzitSalons( int point_id )
   return ( !Qry.Eof && Qry.FieldAsInteger( "pr_new" ) != 0 );
 }
 
-void TSalonPax::get_seats( bool useValid,
-                           bool &pr_wait_list,
+void TSalonPax::get_seats( bool &pr_wait_list,
                            TPassSeats &ranges ) const {
   pr_wait_list = true;
   ranges.clear();
@@ -6949,16 +7028,16 @@ void TSalonPax::get_seats( bool useValid,
   TLayersPax::const_iterator ilayer=layers.begin();
   for ( ; ilayer!=layers.end(); ilayer++ ) {
     if ( ilayer->first.layer_type == grp_layer_type ) {
-      ProgTrace( TRACE5, "pax_id=%d, %s, grp_layer_type=%s, ilayer->second.pr_valid=%d, vlValid=%d",
+      ProgTrace( TRACE5, "pax_id=%d, %s, grp_layer_type=%s, ilayer->second.pr_valid is valid %d",
                  pax_id, ilayer->first.toString().c_str(),
                  EncodeCompLayerType( grp_layer_type ),
-                 ilayer->second.pr_valid, vlValid );
+                 ilayer->second.pr_valid == layerValid );
       break;
     }
   }
   if ( ilayer != layers.end() &&
-       ( !useValid || ilayer->second.pr_valid == vlValid ) ) { //нашли слой
-    pr_wait_list =  ilayer->second.pr_valid != vlValid;
+       ilayer->second.pr_valid == layerValid ) { //нашли слой
+    pr_wait_list =  ilayer->second.pr_valid != layerValid;
     int num = 0;
     for ( std::set<TPlace*,CompareSeats>::const_iterator iseat=ilayer->second.seats.begin();
           iseat!=ilayer->second.seats.end(); iseat++ ) {
@@ -6974,7 +7053,7 @@ std::string TSalonPax::seat_no( const std::string &format, bool pr_lat_seat, boo
 {
   TPassSeats seats;
   std::vector<TSeatRange> ranges;
-  get_seats( true, pr_wait_list, seats );
+  get_seats( pr_wait_list, seats );
   for ( TPassSeats::const_iterator ipass_seat=seats.begin(); ipass_seat!=seats.end(); ipass_seat++ ) {
     ranges.push_back( TSeatRange( ipass_seat->seat, ipass_seat->seat ) );
   }
@@ -7004,9 +7083,6 @@ std::string TSalonPax::prior_seat_no( const std::string &format, bool pr_lat_sea
       }
     }
     res = GetSeatRangeView(ranges, format, pr_lat_seat);
-  }
-  if ( !res.empty() ) {
-    res = "(" + res + ")";
   }
   return res;
 }
@@ -7059,7 +7135,7 @@ bool TSalonPassengers::check_waitlist_alarm()
         for ( std::set<TSalonPax,ComparePassenger>::iterator ipass=igrp_layer->second.begin();
               ipass!=igrp_layer->second.end(); ipass++ ) {
           passes[ ipass->pax_id ] = *ipass;
-          ipass->get_seats( true, pr_wait_list, seats );
+          ipass->get_seats( pr_wait_list, seats );
           if ( pr_wait_list ) {
             status_wait_list = wlYes;
             ProgTrace( TRACE5, "pax_id=%d - waitlist", ipass->pax_id );
@@ -7086,7 +7162,7 @@ bool TSalonPassengers::check_waitlist_alarm()
       DelQry.Execute();
       bool pr_exists = ( DelQry.RowCount() );
       
-      for ( TPassSeats::iterator iseat=inew->second.begin();
+      for( TPassSeats::iterator iseat=inew->second.begin();
             iseat!=inew->second.end(); iseat++ ) {
         Qry.SetVariable( "pax_id", inew->first );
         Qry.SetVariable( "num", iseat->num );
@@ -7211,7 +7287,7 @@ bool TSalonPassengers::isWaitList( )
               igrp_layer!=iclass->second.end(); igrp_layer++ ) {
           for ( std::set<TSalonPax,ComparePassenger>::iterator ipass=igrp_layer->second.begin();
                 ipass!=igrp_layer->second.end(); ipass++ ) {
-            ipass->get_seats( true, pr_wait_list, seats );
+            ipass->get_seats( pr_wait_list, seats );
             if ( pr_wait_list ) {
               status_wait_list = wlYes;
               break;
@@ -7525,7 +7601,7 @@ void AddPass( int pax_id, const std::string &surname,  ASTRA::TCompLayerType lay
     }
   }
   if ( pax_id != ASTRA::NoExists ) {
-    paxList[ pax_id ].layers[ seatLayer ].pr_valid = SALONS2::vlMultiVerify;
+    paxList[ pax_id ].layers[ seatLayer ].pr_valid = SALONS2::layerMultiVerify;
   }
 }
 
@@ -7536,7 +7612,7 @@ void viewPass( SALONS2::TPaxList &paxList )
     str += string("Pass: pax_id=") + IntToString( ipax->first ) + " ";
     str += ipax->second.surname;
     for ( std::map<SALONS2::TSeatLayer,SALONS2::TPaxLayerSeats>::iterator ilayer=ipax->second.layers.begin(); ilayer!=ipax->second.layers.end(); ilayer++ ) {
-      if ( ilayer->second.pr_valid != SALONS2::vlValid ) {
+      if ( ilayer->second.pr_valid != SALONS2::layerValid ) {
         continue;
       }
       str += string(" valid layer=") + EncodeCompLayerType( ilayer->first.layer_type ) + "," + DateTimeToStr( ilayer->first.time_create );
