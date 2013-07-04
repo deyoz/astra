@@ -2884,6 +2884,7 @@ void TSalonList::RollbackLayers( )
     for ( TPlaces::iterator iseat=(*isalonlist)->places.begin();
           iseat!=(*isalonlist)->places.end(); iseat++ ) {
       iseat->RollbackLayers( filterRoutes );
+      iseat->drawProps.clearFlags();
     }
   }
   for ( std::map<int,TPaxList>::iterator iroute_pax_list=pax_lists.begin();
@@ -2991,6 +2992,16 @@ void TSalonList::validateLayersSeats( )
       }
     }
   }
+  
+  tst();
+  for ( std::vector<TTripRouteItem>::const_iterator iseg=filterSets.filterRoutes.begin();
+        iseg!=filterSets.filterRoutes.end(); iseg++ ) {
+    //пометим детей
+    pax_lists[ iseg->point_id ].InfantToSeatDrawProps();
+    pax_lists[ iseg->point_id ].TranzitToSeatDrawProps( filterSets.filterRoutes.getDepartureId() );
+    pax_lists[ iseg->point_id ].dumpValidLayers();
+  }
+
 }
 
 void TSalonList::JumpToLeg( const TFilterRoutesSets &routesSets )
@@ -3245,14 +3256,6 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
   if ( !only_compon_props ) {
     tst();
     validateLayersSeats( );
-    tst();
-    for ( std::vector<TTripRouteItem>::const_iterator iseg=filterRoutes.begin();
-          iseg!=filterRoutes.end(); iseg++ ) {
-      //пометим детей
-      pax_lists[ iseg->point_id ].InfantToSeatDrawProps();
-      pax_lists[ iseg->point_id ].TranzitToSeatDrawProps( filterRoutes.getDepartureId() );
-      pax_lists[ iseg->point_id ].dumpValidLayers();
-    }
   }
 }
 
