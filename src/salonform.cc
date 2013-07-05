@@ -833,6 +833,7 @@ void SalonFormInterface::ComponShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     Qry.Execute();
     TTripInfo info( Qry );
     pr_notchangecraft = GetTripSets( tsCraftNoChangeSections, info );
+    SALONS2::CreateSalonMenu( point_id, salonsNode );
   }
   if ( pr_notchangecraft && comp_id >= 0 ) {
     vector<SALONS2::TCompSection> CompSections;

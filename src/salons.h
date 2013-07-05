@@ -591,6 +591,18 @@ class TPlaceList {
 
 enum TValidLayerType { layerMultiVerify, layerVerify, layerValid, layerLess, layerInvalid, layerNotRoute };
 
+struct TWaitListReason {
+  TValidLayerType layerStatus;
+  TSeatLayer layer;
+  TWaitListReason( const TValidLayerType &vlayerStatus, const TSeatLayer &vlayer ) {
+    layerStatus = vlayerStatus;
+    layer = vlayer;
+  }
+  TWaitListReason( ) {
+    layerStatus = layerInvalid;
+  }
+};
+
 struct CompareSeats {
   bool operator() ( const TPlace* seat1, const TPlace* seat2 ) const {
     if ( seat1->y != seat2->y ) {
@@ -606,10 +618,7 @@ struct CompareSeats {
 
 struct TPaxLayerSeats {
   std::set<TPlace*,CompareSeats> seats; //упорядоченные места
-  TValidLayerType pr_valid;
-  TPaxLayerSeats() {
-    pr_valid = layerInvalid;
-  }
+  TWaitListReason waitListReason;
 };
 
 class TLayersPax: public std::map<TSeatLayer,TPaxLayerSeats,SeatLayerCompare> {
@@ -691,9 +700,9 @@ struct TSalonPax {
       class_grp = ASTRA::NoExists;
       point_arv = ASTRA::NoExists;
     }
-    void get_seats( bool &pr_wait_list,
+    void get_seats( TWaitListReason &waitListReason,
                     TPassSeats &ranges ) const;
-    std::string seat_no( const std::string &format, bool pr_lat_seat, bool &pr_wait_list ) const;
+    std::string seat_no( const std::string &format, bool pr_lat_seat, TWaitListReason &waitListReason ) const;
     std::string prior_seat_no( const std::string &format, bool pr_lat_seat ) const;
 };
                                 //pax_id,TSalonPax
@@ -1013,6 +1022,7 @@ class TSalonList: public std::vector<TPlaceList*> {
   void verifyValidRem( const std::string &className, const std::string &remCode );
   bool isBaseLayer( ASTRA::TCompLayerType layer_type, bool isComponCraft );
   int getCrsPaxPointArv( int crs_pax_id, int point_id_spp );
+  void CreateSalonMenu( int point_dep, xmlNodePtr salonsNode );
   
   bool isTranzitSalons( int point_id );
 } // END namespace SALONS2

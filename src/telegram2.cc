@@ -87,9 +87,79 @@ bool CompareCompLayers( TTlgCompLayer t1, TTlgCompLayer t2 )
 			  return false;
 };
 
+void ReadTranzitSalons( TTlgInfo &info, vector<TTlgCompLayer> &complayers, bool pr_blocked )
+{
+  complayers.clear();
+  SALONS2::TSalonList salonList;
+  salonList.ReadFlight( SALONS2::TFilterRoutesSets( info.point_id, ASTRA::NoExists ), "" );
+  std::set<ASTRA::TCompLayerType> search_layers;
+  for ( int ilayer=0; ilayer<(int)cltTypeNum; ilayer++ ) {
+    ASTRA::TCompLayerType layer_type = (ASTRA::TCompLayerType)ilayer;
+    BASIC_SALONS::TCompLayerType layer_elem;
+    if ( (pr_blocked && layer_type == cltBlockCent) ||
+         (!pr_blocked &&
+            BASIC_SALONS::TCompLayerTypes::Instance()->getElem( layer_type, layer_elem ) &&
+            layer_elem.getOccupy()) ) {
+      search_layers.insert( layer_type );
+    }
+  }
+  TTlgCompLayer comp_layer;
+  int next_point_arv = ASTRA::NoExists;
+  for ( TSalonList::iterator isalonList=salonList.begin();
+        isalonList!=salonList.end(); isalonList++ ) {
+    std::map<int, std::set<SALONS2::TSeatLayer,SALONS2::SeatLayerCompare>,classcomp > layers;
+    for ( TPlaces::iterator iseat=(*isalonList)->places.begin();
+          iseat!=(*isalonList)->places.end(); iseat++ ) {
+      iseat->GetLayers( layers, true );
+       std::map<int, std::set<SALONS2::TSeatLayer,SALONS2::SeatLayerCompare>,classcomp >::iterator ilayers = layers.find( info.point_id );
+      if ( ilayers == layers.end() ) {
+        continue;
+      }
+      for ( std::set<SALONS2::TSeatLayer,SALONS2::SeatLayerCompare>::iterator ilayer=ilayers->second.begin();
+            ilayer!=ilayers->second.end(); ilayer++ ) {
+        if ( search_layers.find( ilayer->layer_type ) != search_layers.end() ) { //надо добавить
+          comp_layer.pax_id = ilayer->getPaxId();
+          comp_layer.point_dep = ilayer->point_dep;
+          if ( comp_layer.point_dep == ASTRA::NoExists ) {
+            comp_layer.point_dep = ilayer->point_id;
+          }
+          comp_layer.point_arv = ilayer->point_arv;
+          if ( comp_layer.point_arv == ASTRA::NoExists ) { //до след. пункта
+            if ( next_point_arv == ASTRA::NoExists ) {
+              TTripRoute route;
+              TTripRouteItem next_airp;
+              route.GetNextAirp(NoExists,
+                                info.point_id,
+                                info.point_num,
+                                info.first_point,
+                                info.pr_tranzit,
+                                trtNotCancelled,
+                                next_airp);
+              if ( next_airp.point_id == NoExists )
+                throw Exception( "ReadSalons: inext_airp.point_id not found, point_dep="+IntToString( info.point_id ) );
+              next_point_arv = next_airp.point_id;
+            }
+            comp_layer.point_arv = next_point_arv;
+          }
+          comp_layer.layer_type = ilayer->layer_type;
+          comp_layer.xname = iseat->xname;
+          comp_layer.yname = iseat->yname;
+          complayers.push_back( comp_layer );
+        }
+      }
+    }
+  }
+  // сортировка по yname, xname
+  sort( complayers.begin(), complayers.end(), CompareCompLayers );
+}
+
 void ReadSalons( TTlgInfo &info, vector<TTlgCompLayer> &complayers, bool pr_blocked )
 {
     complayers.clear();
+    if ( SALONS2::isTranzitSalons( info.point_id ) ) {
+      ReadTranzitSalons( info, complayers, pr_blocked );
+      return;
+    }
     vector<ASTRA::TCompLayerType> layers;
     if(pr_blocked)
         layers.push_back(cltBlockCent);

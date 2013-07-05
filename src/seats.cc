@@ -2093,7 +2093,7 @@ void TPassengers::Add( const SALONS2::TSalonList &salonList, TPassenger &pass )
         tst();
         for ( std::map<TSeatLayer,TPaxLayerSeats,SeatLayerCompare>::const_iterator ilayer=ipax->second.layers.begin();
               ilayer!=ipax->second.layers.end(); ilayer++ ) {
-          if ( ilayer->second.pr_valid == layerValid ) {
+          if ( ilayer->second.waitListReason.layerStatus == layerValid ) {
             //т.к. есть сортировка мест, то выдаем первое
             pass.preseat_layer = ilayer->first.layer_type;
             pass.preseat_pax_id = pass.paxId;
@@ -2382,9 +2382,11 @@ void SeatsPassengers( SALONS2::TSalonList &salonList,
     }
     tst();
     passes.Clear();
-    for ( VPassengers::iterator ipass=rollbackPasses.begin(); ipass!=rollbackPasses.end(); ipass++ ) {
+    passes.copyFrom( rollbackPasses );
+    passes.sortByIndex();
+/*    for ( VPassengers::iterator ipass=rollbackPasses.begin(); ipass!=rollbackPasses.end(); ipass++ ) {
       passes.Add( *ipass );
-    }
+    }*/
     autoSeats.clear();
     std::set<TPlace*,CompareSeats> values;
     try {
@@ -2419,7 +2421,10 @@ void SeatsPassengers( SALONS2::TSalonList &salonList,
         for ( std::set<TPlace*,CompareSeats>::iterator iseat=values.begin();
               iseat!=values.end(); iseat++ ) {
           seat.ranges.push_back( TSeat( (*iseat)->yname, (*iseat)->xname ) );
+          ProgTrace( TRACE5, "autoSeats.push_back pax_id=%d, seats=%d, yname=%s, xname=%s",
+                     seat.pax_id, seat.seats, (*iseat)->yname.c_str(), (*iseat)->xname.c_str() );
         }
+        ProgTrace( TRACE5, "autoSeats.push_back pax_id=%d, seats=%d", seat.pax_id, seat.seats );
         autoSeats.push_back( seat );
       }
       return;
@@ -3994,10 +3999,10 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
         try {
           for ( std::set<TSalonPax,ComparePassenger>::iterator ipass=ipass_status->second.begin();
                 ipass!=ipass_status->second.end(); ipass++ ) {
-            bool pr_wait_list;
+            TWaitListReason waitListReason;
             TPassSeats ranges;
-            string seat_no = ipass->seat_no( "one", salonList.isCraftLat(), pr_wait_list );
-            if ( !pr_wait_list ) {
+            string seat_no = ipass->seat_no( "one", salonList.isCraftLat(), waitListReason );
+            if ( waitListReason.layerStatus == layerValid ) {
               continue;
             }
             TPassenger vpass;
