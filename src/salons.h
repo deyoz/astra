@@ -499,20 +499,7 @@ class TPlace {
         return TSeatLayer();
       }
     }
-    void RollbackLayers( FilterRoutesProperty &filterRoutes ) {
-      lrss.clear();
-      drop_blocked_layers.clear();
-      for ( std::map<int, std::set<TSeatLayer,SeatLayerCompare>,classcomp >::iterator ilayers=save_lrss.begin();
-            ilayers!=save_lrss.end(); ilayers++ ) {
-        for ( std::set<TSeatLayer,SeatLayerCompare>::iterator ilayer=ilayers->second.begin();
-              ilayer!=ilayers->second.end(); ilayer++ ) {
-          TSeatLayer layer = *ilayer;
-          layer.inRoute = ( ilayer->point_id == filterRoutes.getDepartureId() ||
-                            filterRoutes.useRouteProperty( ilayer->point_dep, ilayer->point_arv ) );
-          lrss[ layer.point_id ].insert( layer );
-        }
-      }
-    }
+    void RollbackLayers( FilterRoutesProperty &filterRoutes );
     void CommitLayers() {
       save_lrss = lrss;
     }

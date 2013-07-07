@@ -2871,20 +2871,23 @@ void TSalonList::CommitLayers()
         iroute_pax_list!=pax_lists.end(); iroute_pax_list++ ) {
     for ( TPaxList::iterator ipax_list=iroute_pax_list->second.begin();
           ipax_list!=iroute_pax_list->second.end(); ipax_list++ ) {
+      ipax_list->second.save_layers.clear();
       for ( TLayersPax::iterator ilayer=ipax_list->second.layers.begin();
             ilayer!=ipax_list->second.layers.end(); ilayer++ ) {
-        ipax_list->second.save_layers.clear();
         if ( ilayer->second.waitListReason.layerStatus != layerValid ) {  //сохраняем только валидные слои
           for ( std::set<TPlace*,CompareSeats>::iterator iseat=ilayer->second.seats.begin();
                 iseat!=ilayer->second.seats.end(); iseat++ ) { // пробег по местам - удаляем инвалидные слои из места
             (*iseat)->ClearLayer( ilayer->first.point_id, ilayer->first );
           }
+          ProgTrace( TRACE5, "TSalonList:: NOT CommitLayers: %s", ilayer->first.toString().c_str() );
           continue;
         }
         TSeatLayer layer = ilayer->first;
         TPaxLayerSeats paxlayer = ilayer->second;
         ipax_list->second.save_layers.insert( make_pair( layer, paxlayer ) );
       }
+      ProgTrace( TRACE5, "TSalonList::CommitLayers: ipax_list->second.layers.size()=%zu, ipax_list->second.save_layers.size()=%zu",
+                 ipax_list->second.layers.size(), ipax_list->second.save_layers.size() );
     }
   }
   for ( TSalonList::iterator isalonlist=begin();
@@ -2893,6 +2896,22 @@ void TSalonList::CommitLayers()
           iseat!=(*isalonlist)->places.end(); iseat++ ) {
       //сохраняем только валидные слои
       iseat->CommitLayers();
+    }
+  }
+}
+
+void TPlace::RollbackLayers( FilterRoutesProperty &filterRoutes ) {
+  lrss.clear();
+  drop_blocked_layers.clear();
+  for ( std::map<int, std::set<TSeatLayer,SeatLayerCompare>,classcomp >::iterator ilayers=save_lrss.begin();
+        ilayers!=save_lrss.end(); ilayers++ ) {
+    for ( std::set<TSeatLayer,SeatLayerCompare>::iterator ilayer=ilayers->second.begin();
+          ilayer!=ilayers->second.end(); ilayer++ ) {
+      TSeatLayer layer = *ilayer;
+      layer.inRoute = ( ilayer->point_id == filterRoutes.getDepartureId() ||
+                        filterRoutes.useRouteProperty( ilayer->point_dep, ilayer->point_arv ) );
+      ProgTrace( TRACE5, "TPlace::RollbackLayers: %s", layer.toString().c_str() );
+      lrss[ layer.point_id ].insert( layer );
     }
   }
 }
