@@ -675,6 +675,7 @@ struct TSalonPax {
     std::string surname; //+
     std::string name; //+
     bool pr_infant; //+
+    bool pr_web;
     TLayersPax layers;
     TLayersPax save_layers;
     std::map<TSeatLayer,TInvalidRange,SeatLayerCompare> invalid_ranges;
@@ -686,6 +687,7 @@ struct TSalonPax {
       grp_id = ASTRA::NoExists;
       class_grp = ASTRA::NoExists;
       point_arv = ASTRA::NoExists;
+      pr_web = false;
     }
     void get_seats( TWaitListReason &waitListReason,
                     TPassSeats &ranges ) const;
@@ -704,6 +706,12 @@ class TPaxList: public std::map<int,TSalonPax> {
       if ( ipax == end() )
         return false;
       return ipax->second.pr_infant;
+    }
+    bool isWeb( int pax_id ) const {
+      TPaxList::const_iterator ipax = find( pax_id );
+      if ( ipax == end() )
+        return false;
+      return ipax->second.pr_web;
     }
 };
 
@@ -947,7 +955,8 @@ class TSalonList: public std::vector<TPlaceList*> {
     bool CreateSalonsForAutoSeats( TSalons &Salons,
                                    TFilterRoutesSets &filterRoutes,
                                    bool pr_departure_tariff_only,
-                                   const std::vector<ASTRA::TCompLayerType> &grp_layers );
+                                   const std::vector<ASTRA::TCompLayerType> &grp_layers,
+                                   bool &drop_web_passes );
     void JumpToLeg( const TFilterRoutesSets &routesSets );
     void getPaxs( TSalonPassengers &passengers );
     void getPaxLayer( int point_dep, int pax_id,

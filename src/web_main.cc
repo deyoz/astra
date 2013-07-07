@@ -1342,10 +1342,12 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
     grp_layers.push_back( cltPNLAfterPay );
     TFilterRoutesSets filterRoutes = salonList.getFilterRoutes();
     bool pr_departure_tariff_only = true;
+    bool drop_not_web_passes = false;
     salonList.CreateSalonsForAutoSeats( SalonsN,
                                         filterRoutes,
                                         pr_departure_tariff_only,
-                                        grp_layers );
+                                        grp_layers,
+                                        drop_not_web_passes );
    Salons = &SalonsN;
   }
   else {

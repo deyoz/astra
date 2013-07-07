@@ -2168,6 +2168,7 @@ struct TPass {
   int parent_pax_id;
   int temp_parent_id;
   bool pr_inf;
+  bool pr_web;
   std::string cl;
   int class_grp;
   int seats;
@@ -2181,6 +2182,7 @@ struct TPass {
     parent_pax_id = NoExists;
     temp_parent_id = NoExists;
     pr_inf = false;
+    pr_web = false;
   }
 };
 
@@ -2199,6 +2201,7 @@ void TSalonList::ReadPaxs( TQuery &Qry, TPaxList &pax_list )
   int idx_class = Qry.FieldIndex( "class" );
   int idx_class_grp = Qry.FieldIndex( "class_grp" );
   int idx_point_arv = Qry.FieldIndex( "point_arv" );
+  int idx_pr_web = Qry.FieldIndex( "pr_web" );
   vector<TPass> InfItems, AdultItems;
   //TGrpStatusTypes &grp_status_types = (TGrpStatusTypes &)base_tables.get("GRP_STATUS_TYPES");
   for ( ; !Qry.Eof; Qry.Next() ) {
@@ -2207,12 +2210,14 @@ void TSalonList::ReadPaxs( TQuery &Qry, TPaxList &pax_list )
     pass.grp_id = Qry.FieldAsInteger( idx_grp_id );
     pass.grp_status = Qry.FieldAsString( idx_status );
     pass.point_arv = Qry.FieldAsInteger( idx_point_arv );
-    ProgTrace( TRACE5, "ReadPaxs: pax_id=%d, grp_status=%s, point_arv=%d", pass.pax_id, pass.grp_status.c_str(), pass.point_arv );
     pass.reg_no = Qry.FieldAsInteger( idx_reg_no );
     pass.name = Qry.FieldAsString( idx_name );
     pass.surname = Qry.FieldAsString( idx_surname );
     pass.parent_pax_id = Qry.FieldAsInteger( idx_parent_pax_id );
     pass.pers_type = DecodePerson( Qry.FieldAsString( idx_pers_type ) );
+    pass.pr_web = ( Qry.FieldAsInteger( idx_pr_web ) != 0 );
+    ProgTrace( TRACE5, "ReadPaxs: pax_id=%d, grp_status=%s, point_arv=%d, pass.pr_web=%d",
+               pass.pax_id, pass.grp_status.c_str(), pass.point_arv, pass.pr_web );
     if ( Qry.FieldAsInteger( idx_seats ) == 0 ) {
       InfItems.push_back( pass );
     }
@@ -2236,6 +2241,7 @@ void TSalonList::ReadPaxs( TQuery &Qry, TPaxList &pax_list )
         pax.name = pass.name;
         pax.surname = pass.surname;
         pax.pr_infant = false;
+        pax.pr_web = pass.pr_web;
         pax_list.insert( make_pair( pass.pax_id, pax ) );
       }
     }
@@ -2267,6 +2273,7 @@ void TSalonList::ReadPaxs( TQuery &Qry, TPaxList &pax_list )
       pax.name = ipax->name;
       pax.surname = ipax->surname;
       pax.pr_infant = ipax->pr_inf;
+      pax.pr_web = ipax->pr_web;
       pax_list.insert( make_pair( ipax->pax_id, pax ) );
     }
   }
@@ -2293,6 +2300,7 @@ void TSalonList::ReadCrsPaxs( TQuery &Qry, TPaxList &pax_list )
     pax.name = Qry.FieldAsString( idx_name );
     pax.surname = Qry.FieldAsString( idx_surname );
     pax.pr_infant = false;
+    pax.pr_web = false;
     pax_list.insert( make_pair( id, pax ) );
   }
 }
@@ -3214,13 +3222,15 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
     Qry.SQLText =
       " SELECT pax.grp_id, pax.pax_id, pax.pers_type, pax.seats, class, class_grp, "
       "        reg_no, pax.name, pax.surname, pax_grp.status, pax_grp.point_arv, "
-      "        crs_inf.pax_id AS parent_pax_id "
+      "        crs_inf.pax_id AS parent_pax_id, "
+      "        DECODE(client_type,:web_client,1,0) pr_web "
       "    FROM pax_grp, pax, crs_inf "
       "   WHERE pax.grp_id=pax_grp.grp_id AND "
       "         pax_grp.point_dep=:point_dep AND "
       "         pax.pax_id=crs_inf.inf_id(+) AND "
       "         pax.refuse IS NULL ";
     Qry.DeclareVariable( "point_dep", otInteger );
+    Qry.CreateVariable( "web_client", otString, EncodeClientType( ASTRA::ctWeb ) );
     for ( std::vector<TTripRouteItem>::const_iterator iseg=filterRoutes.begin();
           iseg!=filterRoutes.end(); iseg++ ) {
       Qry.SetVariable( "point_dep", iseg->point_id );
@@ -4044,20 +4054,32 @@ class TPropsPoints: public vector<TPointInRoute> {
     }
     return false;
   }
+  bool getLastPropRouteDepartute( TPointInRoute &point ) {
+    point = TPointInRoute();
+    for( vector<TPointInRoute>::const_reverse_iterator iroute=rbegin();
+         iroute!=rend(); iroute++ ) {
+      if ( iroute->inRoute ) {
+        point = *iroute;
+        return true;
+      }
+    }
+    return false;
+  }
 };
 
 bool TSalonList::CreateSalonsForAutoSeats( TSalons &salons,
                                            TFilterRoutesSets &filterRoutes,
                                            bool pr_departure_tariff_only,
-                                           const vector<ASTRA::TCompLayerType> &grp_layers )
+                                           const vector<ASTRA::TCompLayerType> &grp_layers,
+                                           bool &drop_not_web_passes )
 {
   salons.Clear();
   if ( filterRoutes.point_arv == filterRoutes.point_dep ) {
     tst();
     return false;
   }
-  ProgTrace( TRACE5, "filterRoutes.point_dep=%d, filterRoutes.point_arv=%d",
-             filterRoutes.point_dep, filterRoutes.point_arv );
+  ProgTrace( TRACE5, "filterRoutes.point_dep=%d, filterRoutes.point_arv=%d, drop_not_web_passes=%d",
+             filterRoutes.point_dep, filterRoutes.point_arv, drop_not_web_passes );
   TPropsPoints points( filterSets.filterRoutes, filterRoutes.point_dep, filterRoutes.point_arv );
   salons.Clear();
   salons.trip_id = getDepartureId();
@@ -4212,6 +4234,23 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &salons,
                        ilayer->toString().c_str() );
             continue;
           }
+          TPointInRoute point;
+          bool pr_d = points.getLastPropRouteDepartute( point );
+          ProgTrace( TRACE5, "drop_not_web_passes=%d,  ilayer->point_dep=%d, pr_d=%d, point.point_id=%d, ilayer->getPaxId()=%d",
+                     drop_not_web_passes, ilayer->point_dep, pr_d, point.point_id, ilayer->getPaxId() );
+          //!!!TPointInRoute point;
+          if ( drop_not_web_passes &&
+               points.getLastPropRouteDepartute( point ) &&
+               ilayer->point_dep == point.point_id &&
+               ilayer->getPaxId() != ASTRA::NoExists ) { //удаляем всех пассажиров, которые не web_client
+            tst();
+            std::map<int,TPaxList>::iterator ipax_list = pax_lists.find( ilayers->first );
+            if ( ipax_list != pax_lists.end() &&
+                 !ipax_list->second.isWeb( ilayer->getPaxId() ) ) {
+              ProgTrace( TRACE5, "drop not web pass %s", ilayer->toString().c_str() );
+              continue;
+            }
+          }
           tmp_layer = TSeatLayer();
           tmp_layer.layer_type = ilayer->layer_type;
           if ( uniqueLayers.find( tmp_layer ) != uniqueLayers.end() ) {
@@ -4227,22 +4266,23 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &salons,
       }
     }
   }
-  //отрезание последнего пункта
   bool res = ( filterRoutes.point_arv != filterRoutes.point_dep );
-  bool pr_find = false;
-  for( vector<TPointInRoute>::const_reverse_iterator iroute=points.rbegin();
-       iroute!=points.rend(); iroute++ ) {
-    if ( iroute->inRoute ) {
-      filterRoutes.point_arv = iroute->point_id;
-      pr_find = true;
-      break;
+  if ( !drop_not_web_passes ) {
+    drop_not_web_passes = true;
+  }
+  else {
+    //отрезание последнего пункта
+    TPointInRoute point;
+    if ( points.getLastPropRouteDepartute( point ) ) {
+      filterRoutes.point_arv = point.point_id;
     }
+    else {
+      filterRoutes.point_arv = filterRoutes.point_dep;
+    }
+    drop_not_web_passes = false;
   }
-  if ( !pr_find ) {
-    filterRoutes.point_arv = filterRoutes.point_dep;
-  }
-  ProgTrace( TRACE5, "filterRoutes.point_dep=%d, filterRoutes.point_arv=%d",
-             filterRoutes.point_dep, filterRoutes.point_arv );
+  ProgTrace( TRACE5, "filterRoutes.point_dep=%d, filterRoutes.point_arv=%d,drop_web_passes=%d",
+             filterRoutes.point_dep, filterRoutes.point_arv, drop_not_web_passes );
   return res;
 }
 
