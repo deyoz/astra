@@ -159,6 +159,8 @@ void CloseBoarding( int point_id );
 void Takeoff( int point_id );
 void SetTripStages_IgnoreAuto( int point_id, bool ignore_auto );
 
+bool CheckStageACT( int point_id, TStage stage );
+
 
 #endif /*_STAGES_H_*/
 

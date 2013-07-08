@@ -26,6 +26,8 @@
 #include <set>
 #include "season.h"
 #include "events.h"
+#include "transfer.h"
+#include "term_version.h"
 #include "serverlib/posthooks.h"
 
 
@@ -906,7 +908,373 @@ int create_tlg(int argc,char **argv)
   tlgInfo.pr_lat=true;
   tlgInfo.addrs="MOWKB1H";
   TelegramInterface::create_tlg(tlgInfo);
+/*
+  TypeB::TestBSMElemOrder("IFNNPOOEEW");
+  TypeB::TestBSMElemOrder("IFNPPOOEEW");
+  TypeB::TestBSMElemOrder("IFFNNPPOEW");
+  TypeB::TestBSMElemOrder("IFFNNPPOEV");
+*/
   return 1;
+};
+
+int test_trfer_exists(int argc,char **argv)
+{
+  TReqInfo *reqInfo = TReqInfo::Instance();
+	reqInfo->Initialize("ŒŽ‚");
+
+  TDateTime first_date, last_date;
+  StrToDateTime("26.05.2013 00:00:00","dd.mm.yyyy hh:nn:ss",first_date);
+  StrToDateTime("31.05.2013 00:00:00","dd.mm.yyyy hh:nn:ss",last_date);
+
+  TQuery FltQry(&OraSession);
+  FltQry.Clear();
+  FltQry.SQLText=
+    "SELECT point_id, airline, flt_no, suffix, scd_out, airp "
+    "FROM points WHERE move_id=:move_id AND pr_del>=0 ORDER BY point_num ";
+  FltQry.DeclareVariable("move_id", otInteger);
+
+  TQuery ExistsQry(&OraSession);
+
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT DISTINCT move_id FROM points "
+    "WHERE (scd_out>=:first_date AND scd_out<:last_date OR "
+    "       scd_in>=:first_date AND scd_in<:last_date)/* AND move_id IN (1236392, 1237032)*/";
+  Qry.CreateVariable("first_date", otDate, first_date);
+  Qry.CreateVariable("last_date", otDate, last_date);
+  Qry.Execute();
+  int compared=0;
+  int different=0;
+  int errors=0;
+  for(;!Qry.Eof;Qry.Next())
+  {
+    int move_id=Qry.FieldAsInteger("move_id");
+    FltQry.SetVariable("move_id", move_id);
+    FltQry.Execute();
+    for(;!FltQry.Eof;)
+    {
+      int point_id_out=FltQry.FieldAsInteger("point_id");
+      TTripInfo flt(FltQry);
+      FltQry.Next();
+      if (FltQry.Eof) break;
+      int point_id_in=FltQry.FieldAsInteger("point_id");
+      for(int pass=0; pass<4; pass++)
+      {
+        int point_id=NoExists;
+        TrferList::TTrferType trferType;
+        string title;
+        bool exists=false;
+        try
+        {
+          if (pass==0)
+          {
+            title="TrferList::tckinInbound";
+            trferType=TrferList::tckinInbound;
+            point_id=point_id_out;
+            continue;
+          };
+          if (pass==1)
+          {
+            title="TrferList::trferCkin";
+            trferType=TrferList::trferCkin;
+            point_id=point_id_out;
+            exists=TrferList::trferCkinExists(point_id_out, ExistsQry);
+          };
+          if (pass==2)
+          {
+            title="TrferList::trferIn";
+            trferType=TrferList::trferIn;
+            point_id=point_id_in;
+            exists=TrferList::trferInExists(point_id_in, point_id_out, ExistsQry);
+          };
+          if (pass==3)
+          {
+            title="TrferList::trferOut";
+            trferType=TrferList::trferOut;
+            point_id=point_id_out;
+            exists=TrferList::trferOutExists(point_id_out, ExistsQry);
+          };
+
+          TTripInfo flt_tmp;
+          vector<TrferList::TGrpItem> grps_ckin;
+          vector<TrferList::TGrpItem> grps_tlg;
+          TrferList::TrferFromDB(trferType, point_id, true, flt_tmp, grps_ckin, grps_tlg);
+
+          compared++;
+          if (exists!=(!grps_ckin.empty() || !grps_tlg.empty()))
+          {
+            different++;
+            printf("%s: exists=%d grps_ckin.size()=%zu grps_tlg.size()=%zu point_id=%d\n",
+                   title.c_str(), (int)exists, grps_ckin.size(), grps_tlg.size(), point_id);
+          };
+        }
+        catch(EXCEPTIONS::Exception &e)
+        {
+          errors++;
+          ProgError(STDLOG, "test_trfer_exists: %s (title=%s point_id=%d)", e.what(), title.c_str(), point_id );
+        };
+      };
+    };
+  };
+  printf("compared=%d different=%d errors=%d\n", compared, different, errors);
+
+  return 1;
+};
+
+int test_trfer_list(int argc,char **argv)
+{
+  TReqInfo *reqInfo = TReqInfo::Instance();
+	reqInfo->Initialize("ŒŽ‚");
+
+  const char* filename1="trferList1.txt";
+  const char* filename2="trferList2.txt";
+  ofstream f1;
+  ofstream f2;
+  try
+  {
+    f1.open(filename1);
+    if (!f1.is_open()) throw EXCEPTIONS::Exception("Can't open file '%s'",filename1);
+    f2.open(filename2);
+    if (!f2.is_open()) throw EXCEPTIONS::Exception("Can't open file '%s'",filename2);
+
+
+
+    TDateTime first_date, last_date;
+    StrToDateTime("23.05.2013 00:00:00","dd.mm.yyyy hh:nn:ss",first_date);
+    StrToDateTime("23.05.2013 00:30:00","dd.mm.yyyy hh:nn:ss",last_date);
+
+    TQuery FltQry(&OraSession);
+    FltQry.Clear();
+    FltQry.SQLText=
+      "SELECT point_id FROM points WHERE move_id=:move_id AND pr_del>=0 ORDER BY point_num ";
+    FltQry.DeclareVariable("move_id", otInteger);
+
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    Qry.SQLText=
+      "SELECT DISTINCT move_id FROM points "
+      "WHERE scd_out>=:first_date AND scd_out<:last_date OR "
+      "      scd_in>=:first_date AND scd_in<:last_date";
+    Qry.CreateVariable("first_date", otDate, first_date);
+    Qry.CreateVariable("last_date", otDate, last_date);
+    Qry.Execute();
+
+    int compared=0;
+    int not_empty=0;
+    int different=0;
+    int errors=0;
+    for(;!Qry.Eof;Qry.Next())
+    {
+      int move_id=Qry.FieldAsInteger("move_id");
+      FltQry.SetVariable("move_id", move_id);
+      FltQry.Execute();
+      for(;!FltQry.Eof;)
+      {
+        int point_id_out=FltQry.FieldAsInteger("point_id");
+        FltQry.Next();
+        if (FltQry.Eof) break;
+        int point_id_in=FltQry.FieldAsInteger("point_id");
+        for(int ver=0; ver<2; ver++)
+        {
+          if (ver==0)
+            reqInfo->desk.version=OLDEST_SUPPORTED_VERSION;
+          else
+            reqInfo->desk.version=VERSION_WITH_BAG_POOLS;
+          for(int pass=0; pass<4; pass++)
+          {
+            int point_id=NoExists;
+            bool pr_inbound_tckin, pr_out, pr_tlg;
+            TrferList::TTrferType trferType;
+            string title;
+            for(int pr_bag=0; pr_bag<2; pr_bag++)
+            try
+            {
+              XMLDoc doc1("UTF-8","answer");
+              xmlNodePtr resNode1=NodeAsNode("/answer",doc1.docPtr());
+              XMLDoc doc2("UTF-8","answer");
+              xmlNodePtr resNode2=NodeAsNode("/answer",doc2.docPtr());
+
+              if (pass==0)
+              {
+                title="TrferList::tckinInbound";
+                trferType=TrferList::tckinInbound;
+                point_id=point_id_out;
+                pr_inbound_tckin=true;
+                pr_out=true;
+                pr_tlg=false;
+              };
+              if (pass==1)
+              {
+                title="TrferList::trferCkin";
+                trferType=TrferList::trferCkin;
+                point_id=point_id_out;
+                pr_inbound_tckin=false;
+                pr_out=true;
+                pr_tlg=false;
+              };
+              if (pass==2)
+              {
+                title="TrferList::trferIn";
+                trferType=TrferList::trferIn;
+                point_id=point_id_in;
+                pr_inbound_tckin=false;
+                pr_out=false;
+                pr_tlg=true;
+              };
+              if (pass==3)
+              {
+                title="TrferList::trferOut";
+                trferType=TrferList::trferOut;
+                point_id=point_id_out;
+                pr_inbound_tckin=false;
+                pr_out=true;
+                pr_tlg=true;
+              };
+
+              TrferListOld::GetTransfer(pr_inbound_tckin, pr_out, pr_tlg, (bool)pr_bag, point_id, resNode1);
+              string text1=XMLTreeToText(doc1.docPtr());
+
+              TTripInfo flt;
+              vector<TrferList::TGrpItem> grps_ckin;
+              vector<TrferList::TGrpItem> grps_tlg;
+              TrferList::TrferFromDB(trferType, point_id, (bool)pr_bag, flt, grps_ckin, grps_tlg);
+              TrferList::TrferToXML(trferType, point_id, (bool)pr_bag, flt, grps_ckin, grps_tlg, resNode2);
+              string text2=XMLTreeToText(doc2.docPtr());
+
+              compared++;
+              if (!grps_ckin.empty() || !grps_tlg.empty()) not_empty++;
+
+              if (text1!=text2)
+              {
+                if (transliter(text1,1,1)!=transliter(text2,1,1))
+                {
+                  different++;
+
+                  f1 << endl << title << " pr_bag=" << pr_bag
+                     << (ver==0?" OLDEST_SUPPORTED_VERSION":" VERSION_WITH_BAG_POOLS")
+                     << endl;
+                  f2 << endl << title << " pr_bag=" << pr_bag
+                     << (ver==0?" OLDEST_SUPPORTED_VERSION":" VERSION_WITH_BAG_POOLS")
+                     << endl;
+                  f1 << text1;
+                  f2 << text2;
+                  f1 << endl;
+                  f2 << endl;
+                };
+              };
+            }
+            catch(EXCEPTIONS::Exception &e)
+            {
+              errors++;
+              ProgError(STDLOG, "test_trfer_list: %s (title=%s point_id=%d)", e.what(), title.c_str(), point_id );
+            };
+          };
+        };
+
+      };
+    };
+    f1.close();
+    f2.close();
+
+    printf("compared=%d not_empty=%d different=%d errors=%d\n", compared, not_empty, different, errors);
+  }
+  catch(...)
+  {
+    try { if (f1.is_open()) f1.close(); } catch( ... ) { };
+    try { if (f2.is_open()) f2.close(); } catch( ... ) { };
+    throw;
+  };
+
+  return 1;
+};
+
+int bind_trfer_trips(int argc,char **argv)
+{
+  TQuery Qry(&OraSession);
+
+  Qry.Clear();
+  Qry.SQLText="CREATE INDEX trfer_trips_tmp__IDX ON trfer_trips (scd ASC)";
+  Qry.Execute();
+
+  Qry.Clear();
+  Qry.SQLText="SELECT MIN(scd) AS min_date FROM trfer_trips";
+  Qry.Execute();
+  if (Qry.Eof || Qry.FieldIsNULL("min_date")) return 0;
+  TDateTime min_date=Qry.FieldAsDateTime("min_date");
+
+  Qry.Clear();
+  Qry.SQLText="SELECT MAX(scd) AS max_date FROM trfer_trips";
+  Qry.Execute();
+  if (Qry.Eof || Qry.FieldIsNULL("max_date")) return 0;
+  TDateTime max_date=Qry.FieldAsDateTime("max_date");
+
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT point_id FROM trfer_trips "
+    "WHERE point_id_spp IS NULL AND scd>=:low_date AND scd<:high_date";
+  Qry.DeclareVariable("low_date", otDate);
+  Qry.DeclareVariable("high_date", otDate);
+
+  TTrferBinding trferBinding(false);
+
+  for(TDateTime curr_date=min_date; curr_date<=max_date; curr_date+=1.0)
+  {
+    Qry.SetVariable("low_date",curr_date);
+    Qry.SetVariable("high_date",curr_date+1.0);
+    Qry.Execute();
+    for(;!Qry.Eof;Qry.Next())
+      trferBinding.bind_flt(Qry.FieldAsInteger("point_id"));
+    OraSession.Commit();
+  };
+
+  Qry.Clear();
+  Qry.SQLText="DROP INDEX trfer_trips_tmp__IDX";
+  Qry.Execute();
+
+  return 0;
+};
+
+int unbind_trfer_trips(int argc,char **argv)
+{
+  TQuery Qry(&OraSession);
+
+  Qry.Clear();
+  Qry.SQLText="CREATE INDEX trfer_trips_tmp__IDX ON trfer_trips (scd ASC)";
+  Qry.Execute();
+
+  Qry.Clear();
+  Qry.SQLText="SELECT MIN(scd) AS min_date FROM trfer_trips";
+  Qry.Execute();
+  if (Qry.Eof || Qry.FieldIsNULL("min_date")) return 0;
+  TDateTime min_date=Qry.FieldAsDateTime("min_date");
+
+  Qry.Clear();
+  Qry.SQLText="SELECT MAX(scd) AS max_date FROM trfer_trips";
+  Qry.Execute();
+  if (Qry.Eof || Qry.FieldIsNULL("max_date")) return 0;
+  TDateTime max_date=Qry.FieldAsDateTime("max_date");
+
+  Qry.Clear();
+  Qry.SQLText=
+    "UPDATE trfer_trips SET point_id_spp=NULL "
+    "WHERE point_id_spp IS NOT NULL AND scd>=:low_date AND scd<:high_date";
+  Qry.DeclareVariable("low_date", otDate);
+  Qry.DeclareVariable("high_date", otDate);
+
+  for(TDateTime curr_date=min_date; curr_date<=max_date; curr_date+=1.0)
+  {
+    Qry.SetVariable("low_date",curr_date);
+    Qry.SetVariable("high_date",curr_date+1.0);
+    Qry.Execute();
+    OraSession.Commit();
+  };
+
+  Qry.Clear();
+  Qry.SQLText="DROP INDEX trfer_trips_tmp__IDX";
+  Qry.Execute();
+
+  return 0;
 };
 
 int season_to_schedules(int argc,char **argv)

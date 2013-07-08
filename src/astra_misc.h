@@ -558,6 +558,11 @@ class TBagTagNumber
         return alpha_part<no.alpha_part;
       return numeric_part<no.numeric_part;
     };
+    bool operator == (const TBagTagNumber &no) const
+    {
+      return alpha_part == no.alpha_part &&
+             numeric_part == no.numeric_part;
+    };
 };
 
 void GetTagRanges(const std::vector<TBagTagNumber> &tags,

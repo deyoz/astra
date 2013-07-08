@@ -496,9 +496,9 @@ bool GroupBagFromXML(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode,
   xmlNodePtr tagNode=GetNode("tags",bagtagNode);
 
   if (valueBagNode==NULL && bagNode==NULL && tagNode==NULL) return false;
-  if (valueBagNode==NULL) throw Exception("CheckIn::SaveBag: valueBagNode=NULL");
-  if (bagNode==NULL) throw Exception("CheckIn::SaveBag: bagNode=NULL");
-  if (tagNode==NULL) throw Exception("CheckIn::SaveBag: tagNode=NULL");
+  if (valueBagNode==NULL) throw Exception("CheckIn::GroupBagFromXML: valueBagNode=NULL");
+  if (bagNode==NULL) throw Exception("CheckIn::GroupBagFromXML: bagNode=NULL");
+  if (tagNode==NULL) throw Exception("CheckIn::GroupBagFromXML: tagNode=NULL");
 
   TReqInfo *reqInfo = TReqInfo::Instance();
 
@@ -511,7 +511,7 @@ bool GroupBagFromXML(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode,
     TValueBagItem val;
     val.fromXML(node);
     if (vals.find(val.num)!=vals.end())
-      throw Exception("CheckIn::SaveBag: vals[%d] duplicated", val.num);
+      throw Exception("CheckIn::GroupBagFromXML: vals[%d] duplicated", val.num);
     vals[val.num]=val;
   };
 
@@ -520,9 +520,9 @@ bool GroupBagFromXML(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode,
     TBagItem bag;
     bag.fromXML(node);
     if (bags.find(bag.num)!=bags.end())
-      throw Exception("CheckIn::SaveBag: bags[%d] duplicated", bag.num);
+      throw Exception("CheckIn::GroupBagFromXML: bags[%d] duplicated", bag.num);
     if (bag.value_bag_num!=ASTRA::NoExists && vals.find(bag.value_bag_num)==vals.end())
-      throw Exception("CheckIn::SaveBag: bags[%d].value_bag_num=%d not found", bag.num, bag.value_bag_num);
+      throw Exception("CheckIn::GroupBagFromXML: bags[%d].value_bag_num=%d not found", bag.num, bag.value_bag_num);
     bags[bag.num]=bag;
   };
 
@@ -531,9 +531,9 @@ bool GroupBagFromXML(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode,
     TTagItem tag;
     tag.fromXML(node);
     if (tags.find(tag.num)!=tags.end())
-      throw Exception("CheckIn::SaveBag: tags[%d] duplicated", tag.num);
+      throw Exception("CheckIn::GroupBagFromXML: tags[%d] duplicated", tag.num);
     if (tag.bag_num!=ASTRA::NoExists && bags.find(tag.bag_num)==bags.end())
-      throw Exception("CheckIn::SaveBag: tags[%d].bag_num=%d not found", tag.num, tag.bag_num);
+      throw Exception("CheckIn::GroupBagFromXML: tags[%d].bag_num=%d not found", tag.num, tag.bag_num);
     tags[tag.num]=tag;
   };
 
@@ -541,13 +541,13 @@ bool GroupBagFromXML(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode,
   for(map<int, TValueBagItem>::const_iterator v=vals.begin();v!=vals.end();++v,num++)
   {
     if (v->second.num!=num)
-      throw Exception("CheckIn::SaveBag: vals[%d] not found", v->second.num);
+      throw Exception("CheckIn::GroupBagFromXML: vals[%d] not found", v->second.num);
   };
   num=1;
   for(map<int, TBagItem>::const_iterator b=bags.begin();b!=bags.end();++b,num++)
   {
     if (b->second.num!=num)
-      throw Exception("CheckIn::SaveBag: bags[%d] not found", b->second.num);
+      throw Exception("CheckIn::GroupBagFromXML: bags[%d] not found", b->second.num);
     bound_tags[b->second.num]=0;
   };
   num=1;
@@ -555,7 +555,7 @@ bool GroupBagFromXML(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode,
   for(map<int, TTagItem>::const_iterator t=tags.begin();t!=tags.end();++t,num++)
   {
     if (t->second.num!=num)
-      throw Exception("CheckIn::SaveBag: tags[%d] not found", t->second.num);
+      throw Exception("CheckIn::GroupBagFromXML: tags[%d] not found", t->second.num);
     if (t->second.bag_num!=ASTRA::NoExists)
       ++bound_tags[t->second.bag_num];
     else
@@ -658,14 +658,14 @@ bool GroupBagFromXML(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode,
         {
           if (!b->second.pr_cabin && bound_tags[b->second.num]<b->second.amount)
           {
-            if (t==generated_tags.end()) throw Exception("CheckIn::SaveBag: t==generated_tags.end()");
+            if (t==generated_tags.end()) throw Exception("CheckIn::GroupBagFromXML: t==generated_tags.end()");
             t->second.bag_num=b->second.num;
             ++t;
             ++bound_tags[b->second.num];
           }
           else ++b;
         };
-        if (t!=generated_tags.end()) throw Exception("CheckIn::SaveBag: t!=generated_tags.end()");
+        if (t!=generated_tags.end()) throw Exception("CheckIn::GroupBagFromXML: t!=generated_tags.end()");
         tags.insert(generated_tags.begin(), generated_tags.end());
       }
       else throw UserException(1,"MSG.CHECKIN.COUNT_BIRKS_NOT_EQUAL_PLACES");
@@ -737,11 +737,11 @@ bool GroupBagFromXML(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode,
       {
         ob->second.value_bag_num=ASTRA::NoExists;
         if (refused_bags[ob->second.num]) continue;
-        if (nb==bags.end()) throw Exception("CheckIn::SaveBag: nb==bags.end()");
+        if (nb==bags.end()) throw Exception("CheckIn::GroupBagFromXML: nb==bags.end()");
         ob->second.value_bag_num=nb->second.value_bag_num;
         ++nb;
       };
-      if (nb!=bags.end()) throw Exception("CheckIn::SaveBag: nb!=bags.end()");
+      if (nb!=bags.end()) throw Exception("CheckIn::GroupBagFromXML: nb!=bags.end()");
     };
     bags=old_bags;
   }
@@ -825,7 +825,7 @@ bool GroupBagFromXML(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode,
         else
         {
           if (hall==ASTRA::NoExists)
-            throw Exception("CheckIn::SaveBag: unknown hall");
+            throw Exception("CheckIn::GroupBagFromXML: unknown hall");
           nb->second.hall=hall;
           nb->second.user_id=reqInfo->user.user_id;
         };
