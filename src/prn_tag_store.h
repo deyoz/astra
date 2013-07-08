@@ -111,6 +111,7 @@ namespace TAG {
     const std::string BAG_NAME = "BAG_NAME";
     const std::string CHARGE = "CHARGE";
     const std::string CURRENCY = "CURRENCY";
+    const std::string EQUI_AMOUNT_PAID = "EQUI_AMOUNT_PAID";
     const std::string EX_WEIGHT = "EX_WEIGHT";
     const std::string EXCHANGE_RATE = "EXCHANGE_RATE";
     const std::string ISSUE_DATE = "ISSUE_DATE";
@@ -455,6 +456,7 @@ class TPrnTagStore {
         std::string BAG_NAME(TFieldParams fp);
         std::string CHARGE(TFieldParams fp);
         std::string CURRENCY(TFieldParams fp);
+        std::string EQUI_AMOUNT_PAID(TFieldParams fp);
         std::string EX_WEIGHT(TFieldParams fp);
         std::string EXCHANGE_RATE(TFieldParams fp);
         std::string ISSUE_DATE(TFieldParams fp);

@@ -10,6 +10,7 @@
 #include "oralib.h"
 #include "astra_service.h"
 #include "term_version.h"
+#include "misc.h"
 #include "astra_misc.h"
 #include "checkin.h"
 #include "baggage.h"
@@ -55,6 +56,171 @@ void PaymentInterface::BuildTransfer(const TTrferRoute &trfer, xmlNodePtr transf
                  base_tables.get("airps").get_row("code",t->airp_arv).AsString("city"));
   };
 };
+
+namespace RCPT_PAX_DOC {
+
+    const string PSP_RU = "ПС";
+    const string PSP_LAT = "PSP";
+
+    string transliter(TTagLang &tag_lang, const string &pax_doc)
+    {
+        string result = pax_doc;
+        if(pax_doc.find(PSP_RU) == 0) result.erase(0, PSP_RU.size());
+        if(pax_doc.find(PSP_LAT) == 0) result.erase(0, PSP_LAT.size());
+        if(result != pax_doc) result = getLocaleText(PSP_RU, tag_lang.GetLang()) + result;
+        return result;
+    }
+
+    void check(const string &form_type, const string &pax_doc)
+    {
+        if(form_type != "M61") return;
+
+        if(
+                (pax_doc.size() < 3) or
+                not (IsLetter(pax_doc[0])) or
+                not (IsLetter(pax_doc[1]))
+          )
+            throw UserException("MSG.PAX_NAME", LParams() << LParam("msg", getLocaleText("MSG.PAX_NAME.DOC_TYPE_NOT_FOUND")));
+    }
+
+    string get(int pax_id, TQuery &PaxDocQry)
+    {
+        ostringstream result;
+
+        CheckIn::TPaxDocItem doc;
+        if (LoadPaxDoc(NoExists, pax_id, doc, PaxDocQry) && !doc.no.empty())
+        {
+            if(not (doc.no.find(PSP_RU) == 0 or doc.no.find(PSP_LAT) == 0) and doc.type == "P")
+                result << getLocaleText(PSP_RU);
+            result << doc.no;
+        };
+        return result.str();
+    }
+}
+
+namespace RCPT_PAX_NAME {
+
+    bool check_gender(const string &gender)
+    {
+        return
+            gender == "Г-Н" or
+            gender == "Г-ЖА" or
+            gender == "MR" or
+            gender == "MSTR" or
+            gender == "MRS" or
+            gender == "MS" or
+            gender == "MISS" or
+            gender == "MSS";
+    }
+
+    string compile_pax_name(const vector<string> &lex)
+    {
+        string result;
+
+        for(size_t i = 0; i < lex.size(); i++) {
+            if(i == 1) result += "/";
+            if(i > 1) result += " ";
+            result += lex[i];
+        }
+
+        return result;
+    }
+
+    vector<string> split_pax_name(const string &pax_name, bool except = false)
+    {
+        string buf;
+        vector<string> result;
+        vector<char> delim;
+        for(string::const_iterator si = pax_name.begin(); si != pax_name.end(); si++)
+            if(*si != ' ' and *si != '/')
+                buf.push_back(*si);
+            else {
+                delim.push_back(*si);
+                if(except and buf.empty())
+                    throw "MSG.PAX_NAME.FORMAT_HINT";
+                if(not buf.empty()) {
+                    result.push_back(buf);
+                    buf.erase();
+                }
+            }
+        if(not buf.empty())
+            result.push_back(buf);
+        if(except) {
+            if((result.size() > 4 or result.size() < 3)) throw "MSG.PAX_NAME.FORMAT_HINT";
+            for(vector<char>::iterator iv = delim.begin(); iv != delim.end(); iv++)
+                if(
+                        (iv == delim.begin() and *iv != '/') or
+                        (iv != delim.begin() and *iv != ' ')
+                  )
+                    throw "MSG.PAX_NAME.FORMAT_HINT";
+            if(not check_gender(result.back())) throw "MSG.PAX_NAME.PAX_TYPE_NOT_SET";
+            if(result.size() == 4 and result[2].size() != 1) throw "MSG.PAX_NAME.WRONG_MID_NAME";
+        }
+        /*
+           int i = 0;
+           for(vector<string>::iterator si = result.begin(); si != result.end(); si++, i++)
+           ProgTrace(TRACE5, "result[%d] = '%s'", i, si->c_str());
+           */
+
+        return result;
+    }
+
+    string get_pax_name(TQuery &Qry)
+    {
+        string pax_name = (string)Qry.FieldAsString("surname") + " " + Qry.FieldAsString("name");
+        vector<string> lex = split_pax_name(pax_name);
+        if(lex.size() == 1)
+            lex.push_back(string()); // добавляем пустое имя
+        string db_gender = Qry.FieldAsString("gender");
+        if(not db_gender.empty()) {
+            db_gender = (db_gender.find("F") == 0 ? "Г-ЖА" : "Г-Н");
+            db_gender = getLocaleText(db_gender);
+            if(check_gender(lex.back()))
+                lex.back() = db_gender;
+            else
+                lex.push_back(db_gender);
+        }
+        return compile_pax_name(lex);
+    }
+
+    void check_pax_name(const string &form_type, const string &pax_name)
+    {
+        if(form_type != "M61") return;
+
+        try {
+            split_pax_name(pax_name, true);
+        } catch(const char *e) {
+            throw UserException("MSG.PAX_NAME", LParams() << LParam("msg", getLocaleText(e)));
+        }
+    }
+
+    string transliter_pax_name(TTagLang &tag_lang, string pax_name)
+    {
+        vector<string> lex = split_pax_name(pax_name);
+        if(lex.size() == 1) lex.push_back(string());
+        size_t num_translited = 0;
+        if(check_gender(lex.back())) {
+            lex.back() = getLocaleText(upperc(lex.back()), tag_lang.GetLang());
+            num_translited++;
+            if(lex.size() > 4)
+                lex.erase(lex.begin() + 3, lex.begin() + 3 + lex.size() - 4);
+            if(lex.size() > 3) {
+                lex[2] = transliter(lex[2], 1, tag_lang.GetLang() != AstraLocale::LANG_RU).substr(0, 1);
+                num_translited++;
+            }
+        } else if(lex.size() >= 3) {
+            lex.erase(lex.begin() + 3, lex.end());
+            lex[2] = transliter(lex[2], 1, tag_lang.GetLang() != AstraLocale::LANG_RU).substr(0, 1);
+            num_translited++;
+        }
+
+        for(size_t i = 0; i < lex.size() - num_translited; i++)
+            lex[i] = transliter(lex[i],1,tag_lang.GetLang() != AstraLocale::LANG_RU);
+
+        return compile_pax_name(lex);
+    }
+
+}
 
 void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -166,10 +332,13 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         "       point_dep,airp_dep,airp_arv,airps.city AS city_arv, "
         "       class,bag_refuse,pax_grp.tid, "
         "       pax.reg_no, "
-        "       RTRIM(pax.surname||' '||pax.name) AS pax_name "
-        "FROM pax_grp,pax,airps "
+        "       pax.surname, "
+        "       pax.name, "
+        "       pax_doc.gender "
+        "FROM pax_grp,pax,airps, pax_doc "
         "WHERE pax_grp.grp_id=pax.grp_id AND "
         "      pax_grp.airp_arv=airps.code AND "
+        "      pax.pax_id = pax_doc.pax_id(+) and "
         "      pax.pax_id=:pax_id";
       Qry.CreateVariable("pax_id",otInteger,pax_id);
       Qry.Execute();
@@ -183,7 +352,9 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         "       point_dep,airp_dep,airp_arv,airps.city AS city_arv, "
         "       class,bag_refuse,pax_grp.tid, "
         "       NULL AS reg_no, "
-        "       NULL AS pax_name "
+        "       NULL AS surname, "
+        "       NULL AS name, "
+        "       NULL AS gender "
         "FROM pax_grp,airps "
         "WHERE pax_grp.airp_arv=airps.code AND grp_id=:grp_id ";
       Qry.CreateVariable("grp_id",otInteger,grp_id);
@@ -245,10 +416,10 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   NewTextChild(dataNode,"class",Qry.FieldAsString("class"));
   NewTextChild(dataNode,"pr_refuse",(int)(Qry.FieldAsInteger("bag_refuse")!=0));
   NewTextChild(dataNode,"reg_no",Qry.FieldAsInteger("reg_no"));
-  NewTextChild(dataNode,"pax_name",Qry.FieldAsString("pax_name"));
+  NewTextChild(dataNode,"pax_name", RCPT_PAX_NAME::get_pax_name(Qry));
   TQuery PaxDocQry(&OraSession);
   if (!Qry.FieldIsNULL("pax_id"))
-    NewTextChild(dataNode,"pax_doc",CheckIn::GetPaxDocStr(NoExists, Qry.FieldAsInteger("pax_id"), PaxDocQry));
+    NewTextChild(dataNode,"pax_doc",RCPT_PAX_DOC::get(Qry.FieldAsInteger("pax_id"), PaxDocQry));
   else
     NewTextChild(dataNode,"pax_doc");
   NewTextChild(dataNode,"tid",Qry.FieldAsInteger("tid"));
@@ -386,6 +557,8 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   CheckIn::LoadBag(grp_id,dataNode);
   CheckInInterface::LoadPaidBag(grp_id,dataNode);
   LoadReceipts(grp_id,true,prnParams.pr_lat,dataNode);
+#warning do not commit
+  ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 };
 
 void PaymentInterface::LoadReceipts(int id, bool pr_grp, bool pr_lat, xmlNodePtr dataNode)
@@ -1019,6 +1192,72 @@ string GetKitPrevNoStr(const vector<TBagReceiptKitItem> &items)
   return result.str();
 };
 
+namespace RCPT_TICKETS {
+    void check(const string &form_type, const string &airline_fact, const string &airline_mark, const string &tickets)
+    {
+        if(form_type == "M61") {
+            try {
+                string buf;
+                vector<string> lex;
+                for(string::const_iterator is = tickets.begin(); is != tickets.end(); is++) {
+                    if(*is == ' ')
+                        throw "MSG.TICKETS.FORMAT_HINT";
+                    if(*is != '/')
+                        buf.push_back(*is);
+                    else {
+                        lex.push_back(buf);
+                        buf.erase();
+                    }
+                }
+                if(not buf.empty())
+                    lex.push_back(buf);
+                TAirlines &airlines = (TAirlines&)base_tables.get("airlines");
+                string aircode_mark = airlines.get_row("code",airline_mark).AsString("aircode");
+                string aircode_fact = airlines.get_row("code",airline_fact).AsString("aircode");
+                ProgTrace(TRACE5, "aircode_mark: %s", aircode_mark.c_str());
+                ProgTrace(TRACE5, "aircode_fact: %s", aircode_fact.c_str());
+                if(
+                        not lex.empty() and
+                        (lex[0].substr(0, aircode_fact.size()) != aircode_fact) and
+                        (lex[0].substr(0, aircode_mark.size()) != aircode_mark)
+                  )
+                    throw "MSG.TICKETS.AIRCODE_NOT_FOUND";
+            } catch(const char *e) {
+                throw UserException("MSG.TICKETS", LParams() << LParam("msg", getLocaleText(e)));
+            }
+        }
+    }
+
+    string get(const string &form_type, const string &tickets)
+    {
+        string result;
+        if(form_type == "M61") {
+            string buf;
+            vector<string> lex;
+            for(string::const_iterator is = tickets.begin(); is != tickets.end(); is++) {
+                if(*is == ' ') continue;
+                if(*is != '/')
+                    buf.push_back(*is);
+                else if( not buf.empty()) {
+                    lex.push_back(buf);
+                    buf.erase();
+                }
+            }
+            if(not buf.empty())
+                lex.push_back(buf);
+            for(vector<string>::iterator iv = lex.begin(); iv != lex.end(); iv++) {
+                if(iv == lex.begin())
+                    result += *iv;
+                else {
+                    result += "/" + iv->substr(iv->size() - 2);
+                }
+            }
+        } else
+            result = tickets;
+        return result;
+    }
+}
+
 //из XML в структуру
 void PaymentInterface::GetReceiptFromXML(xmlNodePtr reqNode, TBagReceipt &rcpt)
 {
@@ -1089,6 +1328,9 @@ void PaymentInterface::GetReceiptFromXML(xmlNodePtr reqNode, TBagReceipt &rcpt)
   if (Qry.Eof)
     throw AstraLocale::UserException("MSG.FLT_OR_PAX_INFO_CHANGED.REFRESH_DATA");
 
+  string airline_mark = Qry.FieldAsString("airline_mark");
+  string airline_fact;
+
   if (rcpt.kit_num==NoExists || rcpt.kit_num==0)
   {
     if (Qry.FieldAsInteger("pr_mark_norms")!=0)
@@ -1104,6 +1346,7 @@ void PaymentInterface::GetReceiptFromXML(xmlNodePtr reqNode, TBagReceipt &rcpt)
       rcpt.suffix=route.begin()->operFlt.suffix;
 
     };
+    airline_fact = route.begin()->operFlt.airline;
     rcpt.scd_local_date=route.begin()->operFlt.scd_out; //TTrferRoute содержит локальные даты
     rcpt.airp_dep=route.begin()->operFlt.airp;
     if (reqInfo->desk.compatible(BAG_RCPT_KITS_VERSION))
@@ -1122,6 +1365,7 @@ void PaymentInterface::GetReceiptFromXML(xmlNodePtr reqNode, TBagReceipt &rcpt)
     rcpt.scd_local_date=item.operFlt.scd_out;
     rcpt.airp_dep=item.operFlt.airp;
     rcpt.airp_arv=item.airp_arv;
+    airline_fact = item.operFlt.airline;
   };
   
   if (rcpt.kit_num==NoExists)
@@ -1159,13 +1403,25 @@ void PaymentInterface::GetReceiptFromXML(xmlNodePtr reqNode, TBagReceipt &rcpt)
     
     if (NodeIsNULL("no",rcptNode) )
       //превью с незаданным номером квитанции (в т.ч. первое превью)
-      rcpt.pax_name=transliter(NodeAsString("pax_name",rcptNode),1,tag_lang.GetLang() != AstraLocale::LANG_RU);
-    else
+      rcpt.pax_name=RCPT_PAX_NAME::transliter_pax_name(tag_lang, NodeAsString("pax_name",rcptNode));
+    else {
       rcpt.pax_name=NodeAsString("pax_name",rcptNode);
+      RCPT_PAX_NAME::check_pax_name(rcpt.form_type, rcpt.pax_name);
+    }
 
-    rcpt.pax_doc=NodeAsString("pax_doc",rcptNode);
+    if (NodeIsNULL("no",rcptNode) )
+        rcpt.pax_doc=RCPT_PAX_DOC::transliter(tag_lang, NodeAsString("pax_doc",rcptNode));
+    else {
+        rcpt.pax_doc=NodeAsString("pax_doc",rcptNode);
+        RCPT_PAX_DOC::check(rcpt.form_type, rcpt.pax_doc);
+    }
     rcpt.bag_name=NodeAsString("bag_name",rcptNode);
-    rcpt.tickets=NodeAsString("tickets",rcptNode);
+    if (NodeIsNULL("no",rcptNode) )
+        rcpt.tickets=RCPT_TICKETS::get(rcpt.form_type, NodeAsString("tickets",rcptNode));
+    else {
+        rcpt.tickets=NodeAsString("tickets",rcptNode);
+        RCPT_TICKETS::check(rcpt.form_type, airline_fact, airline_mark, rcpt.tickets);
+    }
     if (rcpt.kit_num!=NoExists)
       rcpt.prev_no=GetKitPrevNoStr(rcpt.kit_items).substr(0,50);
     else

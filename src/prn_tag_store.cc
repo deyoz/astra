@@ -211,44 +211,45 @@ TPrnTagStore::TPrnTagStore(const TBagReceipt &arcpt, bool apr_lat):
 {
     print_mode = 0;
     tag_lang.Init(arcpt, apr_lat);
-    tag_list.insert(make_pair(TAG::BULKY_BT,        TTagListItem(&TPrnTagStore::BULKY_BT, 0)));
-    tag_list.insert(make_pair(TAG::BULKY_BT_LETTER, TTagListItem(&TPrnTagStore::BULKY_BT_LETTER, 0)));
-    tag_list.insert(make_pair(TAG::GOLF_BT,         TTagListItem(&TPrnTagStore::GOLF_BT, 0)));
-    tag_list.insert(make_pair(TAG::OTHER_BT,        TTagListItem(&TPrnTagStore::OTHER_BT, 0)));
-    tag_list.insert(make_pair(TAG::OTHER_BT_LETTER, TTagListItem(&TPrnTagStore::OTHER_BT_LETTER, 0)));
-    tag_list.insert(make_pair(TAG::PET_BT,          TTagListItem(&TPrnTagStore::PET_BT, 0)));
-    tag_list.insert(make_pair(TAG::SKI_BT,          TTagListItem(&TPrnTagStore::SKI_BT, 0)));
-    tag_list.insert(make_pair(TAG::VALUE_BT,        TTagListItem(&TPrnTagStore::VALUE_BT, 0)));
-    tag_list.insert(make_pair(TAG::VALUE_BT_LETTER, TTagListItem(&TPrnTagStore::VALUE_BT_LETTER, 0)));
-    tag_list.insert(make_pair(TAG::AIRCODE,         TTagListItem(&TPrnTagStore::BR_AIRCODE, 0)));
-    tag_list.insert(make_pair(TAG::AIRLINE,         TTagListItem(&TPrnTagStore::BR_AIRLINE, 0)));
-    tag_list.insert(make_pair(TAG::AIRLINE_CODE,    TTagListItem(&TPrnTagStore::AIRLINE_CODE, 0)));
-    tag_list.insert(make_pair(TAG::AMOUNT_FIGURES,  TTagListItem(&TPrnTagStore::AMOUNT_FIGURES, 0)));
-    tag_list.insert(make_pair(TAG::AMOUNT_LETTERS,  TTagListItem(&TPrnTagStore::AMOUNT_LETTERS, 0)));
-    tag_list.insert(make_pair(TAG::BAG_NAME,        TTagListItem(&TPrnTagStore::BAG_NAME, 0)));
-    tag_list.insert(make_pair(TAG::CHARGE,          TTagListItem(&TPrnTagStore::CHARGE, 0)));
-    tag_list.insert(make_pair(TAG::CURRENCY,        TTagListItem(&TPrnTagStore::CURRENCY, 0)));
-    tag_list.insert(make_pair(TAG::EX_WEIGHT,       TTagListItem(&TPrnTagStore::EX_WEIGHT, 0)));
-    tag_list.insert(make_pair(TAG::EXCHANGE_RATE,   TTagListItem(&TPrnTagStore::EXCHANGE_RATE, 0)));
-    tag_list.insert(make_pair(TAG::ISSUE_DATE,      TTagListItem(&TPrnTagStore::ISSUE_DATE, 0)));
-    tag_list.insert(make_pair(TAG::ISSUE_PLACE1,    TTagListItem(&TPrnTagStore::ISSUE_PLACE1, 0)));
-    tag_list.insert(make_pair(TAG::ISSUE_PLACE2,    TTagListItem(&TPrnTagStore::ISSUE_PLACE2, 0)));
-    tag_list.insert(make_pair(TAG::ISSUE_PLACE3,    TTagListItem(&TPrnTagStore::ISSUE_PLACE3, 0)));
-    tag_list.insert(make_pair(TAG::ISSUE_PLACE4,    TTagListItem(&TPrnTagStore::ISSUE_PLACE4, 0)));
-    tag_list.insert(make_pair(TAG::ISSUE_PLACE5,    TTagListItem(&TPrnTagStore::ISSUE_PLACE5, 0)));
-    tag_list.insert(make_pair(TAG::PAX_DOC,         TTagListItem(&TPrnTagStore::PAX_DOC, 0)));
-    tag_list.insert(make_pair(TAG::PAX_NAME,        TTagListItem(&TPrnTagStore::PAX_NAME, 0)));
-    tag_list.insert(make_pair(TAG::PAY_FORM,        TTagListItem(&TPrnTagStore::PAY_FORM, 0)));
-    tag_list.insert(make_pair(TAG::POINT_ARV,       TTagListItem(&TPrnTagStore::POINT_ARV, 0)));
-    tag_list.insert(make_pair(TAG::POINT_DEP,       TTagListItem(&TPrnTagStore::POINT_DEP, 0)));
-    tag_list.insert(make_pair(TAG::PREV_NO,         TTagListItem(&TPrnTagStore::PREV_NO, 0)));
-    tag_list.insert(make_pair(TAG::RATE,            TTagListItem(&TPrnTagStore::RATE, 0)));
-    tag_list.insert(make_pair(TAG::REMARKS1,        TTagListItem(&TPrnTagStore::REMARKS1, 0)));
-    tag_list.insert(make_pair(TAG::REMARKS2,        TTagListItem(&TPrnTagStore::REMARKS2, 0)));
-    tag_list.insert(make_pair(TAG::SERVICE_TYPE,    TTagListItem(&TPrnTagStore::SERVICE_TYPE, 0)));
-    tag_list.insert(make_pair(TAG::TICKETS,         TTagListItem(&TPrnTagStore::TICKETS, 0)));
-    tag_list.insert(make_pair(TAG::TO,              TTagListItem(&TPrnTagStore::TO, 0)));
-    tag_list.insert(make_pair(TAG::TOTAL,           TTagListItem(&TPrnTagStore::TOTAL, 0)));
+    tag_list.insert(make_pair(TAG::BULKY_BT,            TTagListItem(&TPrnTagStore::BULKY_BT)));
+    tag_list.insert(make_pair(TAG::BULKY_BT_LETTER,     TTagListItem(&TPrnTagStore::BULKY_BT_LETTER)));
+    tag_list.insert(make_pair(TAG::GOLF_BT,             TTagListItem(&TPrnTagStore::GOLF_BT)));
+    tag_list.insert(make_pair(TAG::OTHER_BT,            TTagListItem(&TPrnTagStore::OTHER_BT)));
+    tag_list.insert(make_pair(TAG::OTHER_BT_LETTER,     TTagListItem(&TPrnTagStore::OTHER_BT_LETTER)));
+    tag_list.insert(make_pair(TAG::PET_BT,              TTagListItem(&TPrnTagStore::PET_BT)));
+    tag_list.insert(make_pair(TAG::SKI_BT,              TTagListItem(&TPrnTagStore::SKI_BT)));
+    tag_list.insert(make_pair(TAG::VALUE_BT,            TTagListItem(&TPrnTagStore::VALUE_BT)));
+    tag_list.insert(make_pair(TAG::VALUE_BT_LETTER,     TTagListItem(&TPrnTagStore::VALUE_BT_LETTER)));
+    tag_list.insert(make_pair(TAG::AIRCODE,             TTagListItem(&TPrnTagStore::BR_AIRCODE)));
+    tag_list.insert(make_pair(TAG::AIRLINE,             TTagListItem(&TPrnTagStore::BR_AIRLINE)));
+    tag_list.insert(make_pair(TAG::AIRLINE_CODE,        TTagListItem(&TPrnTagStore::AIRLINE_CODE)));
+    tag_list.insert(make_pair(TAG::AMOUNT_FIGURES,      TTagListItem(&TPrnTagStore::AMOUNT_FIGURES)));
+    tag_list.insert(make_pair(TAG::AMOUNT_LETTERS,      TTagListItem(&TPrnTagStore::AMOUNT_LETTERS)));
+    tag_list.insert(make_pair(TAG::BAG_NAME,            TTagListItem(&TPrnTagStore::BAG_NAME)));
+    tag_list.insert(make_pair(TAG::CHARGE,              TTagListItem(&TPrnTagStore::CHARGE)));
+    tag_list.insert(make_pair(TAG::CURRENCY,            TTagListItem(&TPrnTagStore::CURRENCY)));
+    tag_list.insert(make_pair(TAG::EQUI_AMOUNT_PAID,    TTagListItem(&TPrnTagStore::EQUI_AMOUNT_PAID)));
+    tag_list.insert(make_pair(TAG::EX_WEIGHT,           TTagListItem(&TPrnTagStore::EX_WEIGHT)));
+    tag_list.insert(make_pair(TAG::EXCHANGE_RATE,       TTagListItem(&TPrnTagStore::EXCHANGE_RATE)));
+    tag_list.insert(make_pair(TAG::ISSUE_DATE,          TTagListItem(&TPrnTagStore::ISSUE_DATE)));
+    tag_list.insert(make_pair(TAG::ISSUE_PLACE1,        TTagListItem(&TPrnTagStore::ISSUE_PLACE1)));
+    tag_list.insert(make_pair(TAG::ISSUE_PLACE2,        TTagListItem(&TPrnTagStore::ISSUE_PLACE2)));
+    tag_list.insert(make_pair(TAG::ISSUE_PLACE3,        TTagListItem(&TPrnTagStore::ISSUE_PLACE3)));
+    tag_list.insert(make_pair(TAG::ISSUE_PLACE4,        TTagListItem(&TPrnTagStore::ISSUE_PLACE4)));
+    tag_list.insert(make_pair(TAG::ISSUE_PLACE5,        TTagListItem(&TPrnTagStore::ISSUE_PLACE5)));
+    tag_list.insert(make_pair(TAG::PAX_DOC,             TTagListItem(&TPrnTagStore::PAX_DOC)));
+    tag_list.insert(make_pair(TAG::PAX_NAME,            TTagListItem(&TPrnTagStore::PAX_NAME)));
+    tag_list.insert(make_pair(TAG::PAY_FORM,            TTagListItem(&TPrnTagStore::PAY_FORM)));
+    tag_list.insert(make_pair(TAG::POINT_ARV,           TTagListItem(&TPrnTagStore::POINT_ARV)));
+    tag_list.insert(make_pair(TAG::POINT_DEP,           TTagListItem(&TPrnTagStore::POINT_DEP)));
+    tag_list.insert(make_pair(TAG::PREV_NO,             TTagListItem(&TPrnTagStore::PREV_NO)));
+    tag_list.insert(make_pair(TAG::RATE,                TTagListItem(&TPrnTagStore::RATE)));
+    tag_list.insert(make_pair(TAG::REMARKS1,            TTagListItem(&TPrnTagStore::REMARKS1)));
+    tag_list.insert(make_pair(TAG::REMARKS2,            TTagListItem(&TPrnTagStore::REMARKS2)));
+    tag_list.insert(make_pair(TAG::SERVICE_TYPE,        TTagListItem(&TPrnTagStore::SERVICE_TYPE)));
+    tag_list.insert(make_pair(TAG::TICKETS,             TTagListItem(&TPrnTagStore::TICKETS)));
+    tag_list.insert(make_pair(TAG::TO,                  TTagListItem(&TPrnTagStore::TO)));
+    tag_list.insert(make_pair(TAG::TOTAL,               TTagListItem(&TPrnTagStore::TOTAL)));
 }
 
 // Test tags
@@ -2014,13 +2015,25 @@ string RateToString(double rate, string rate_cur, bool pr_lat, int fmt_type)
 string TBagReceipt::get_fmt_rate(int fmt, bool pr_inter)
 {
     ostringstream result;
-    if(pr_exchange())
-        result
-            << RateToString(pay_rate_sum(), pay_rate_cur, pr_inter, fmt)
-            << "(" << RateToString(rate_sum(), rate_cur, pr_inter, fmt) << ")";
-    else
+    if(form_type == "M61") {
         result << RateToString(rate_sum(), rate_cur, pr_inter, fmt);
+    } else {
+        if(pr_exchange())
+            result
+                << RateToString(pay_rate_sum(), pay_rate_cur, pr_inter, fmt)
+                << "(" << RateToString(rate_sum(), rate_cur, pr_inter, fmt) << ")";
+        else
+            result << RateToString(rate_sum(), rate_cur, pr_inter, fmt);
+    }
     return result.str();
+}
+
+string TPrnTagStore::EQUI_AMOUNT_PAID(TFieldParams fp)
+{
+    string result;
+    if(rcpt.pay_rate_cur != rcpt.rate_cur)
+        result = RateToString(rcpt.pay_rate_sum(), rcpt.pay_rate_cur, tag_lang.GetLang() != AstraLocale::LANG_RU, 0);
+    return result;
 }
 
 string TPrnTagStore::AMOUNT_FIGURES(TFieldParams fp)
@@ -2031,7 +2044,7 @@ string TPrnTagStore::AMOUNT_FIGURES(TFieldParams fp)
 string TPrnTagStore::AMOUNT_LETTERS(TFieldParams fp)
 {
     int iptr, fract;
-    fract=separate_double(rcpt.pr_exchange() ? rcpt.pay_rate_sum() : rcpt.rate_sum(), 2, &iptr);
+    fract=separate_double(rcpt.pr_exchange() and rcpt.form_type != "M61" ? rcpt.pay_rate_sum() : rcpt.rate_sum(), 2, &iptr);
 
     string result = vs_number(iptr, tag_lang.GetLang() != AstraLocale::LANG_RU);
 
