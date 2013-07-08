@@ -71,8 +71,10 @@ namespace RCPT_PAX_DOC {
         return result;
     }
 
-    void check(const string &pax_doc)
+    void check(const string &form_type, const string &pax_doc)
     {
+        if(form_type != "M61") return;
+
         if(
                 (pax_doc.size() < 3) or
                 not (IsLetter(pax_doc[0])) or
@@ -181,8 +183,10 @@ namespace RCPT_PAX_NAME {
         return compile_pax_name(lex);
     }
 
-    void check_pax_name(const string &pax_name)
+    void check_pax_name(const string &form_type, const string &pax_name)
     {
+        if(form_type != "M61") return;
+
         try {
             split_pax_name(pax_name, true);
         } catch(const char *e) {
@@ -1402,14 +1406,14 @@ void PaymentInterface::GetReceiptFromXML(xmlNodePtr reqNode, TBagReceipt &rcpt)
       rcpt.pax_name=RCPT_PAX_NAME::transliter_pax_name(tag_lang, NodeAsString("pax_name",rcptNode));
     else {
       rcpt.pax_name=NodeAsString("pax_name",rcptNode);
-      RCPT_PAX_NAME::check_pax_name(rcpt.pax_name);
+      RCPT_PAX_NAME::check_pax_name(rcpt.form_type, rcpt.pax_name);
     }
 
     if (NodeIsNULL("no",rcptNode) )
         rcpt.pax_doc=RCPT_PAX_DOC::transliter(tag_lang, NodeAsString("pax_doc",rcptNode));
     else {
         rcpt.pax_doc=NodeAsString("pax_doc",rcptNode);
-        RCPT_PAX_DOC::check(rcpt.pax_doc);
+        RCPT_PAX_DOC::check(rcpt.form_type, rcpt.pax_doc);
     }
     rcpt.bag_name=NodeAsString("bag_name",rcptNode);
     if (NodeIsNULL("no",rcptNode) )
