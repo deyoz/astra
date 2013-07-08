@@ -848,6 +848,6 @@ void check_layer_change(const TPointIdsForCheck &point_ids_spp)
         i!=points_check_wait_alarm.end(); i++ ) {
     check_waitlist_alarm(*i);
   }
-  SALONS2::check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm );
+  SALONS2::check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm, false );
 };
 

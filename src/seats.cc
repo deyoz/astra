@@ -3850,7 +3850,7 @@ void ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
   	if ( !new_seat_no.empty() )
   		new_seat_no += " ";
     new_seat_no += denorm_iata_row( ns->first.row, NULL ) + denorm_iata_line( ns->first.line, salonList.isCraftLat() );
-  }*/
+  }
   switch( seat_type ) {
   	case stSeat:
   		switch( layer_type ) {
@@ -3858,10 +3858,10 @@ void ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
   	    case cltTranzit:
   	    case cltCheckin:
   	    case cltTCheckin:
-/*          reqinfo->MsgToLog( string( "Пассажир " ) + fullname +
+          reqinfo->MsgToLog( string( "Пассажир " ) + fullname +
                              " посажен на место: " +
                              new_seat_no,
-                             evtPax, point_id, idx1, idx2 );*/
+                             evtPax, point_id, idx1, idx2 );
           if ( is_sync_paxs( point_id ) )
             update_pax_change( point_id, pax_id, idx1, "Р" );
           break;
@@ -3874,10 +3874,10 @@ void ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
        	case cltTranzit:
   	    case cltCheckin:
   	    case cltTCheckin:
-/*          reqinfo->MsgToLog( string( "Пассажир " ) + fullname +
+          reqinfo->MsgToLog( string( "Пассажир " ) + fullname +
                              " пересажен. Новое место: " +
                              new_seat_no,
-                             evtPax, point_id, idx1, idx2 );*/
+                             evtPax, point_id, idx1, idx2 );
           if ( is_sync_paxs( point_id ) )
             update_pax_change( point_id, pax_id, idx1, "Р" );
           break;
@@ -3890,16 +3890,16 @@ void ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
       	case cltTranzit:
       	case cltCheckin:
   	    case cltTCheckin:
-/*          reqinfo->MsgToLog( string( "Пассажир " ) + fullname +
+          reqinfo->MsgToLog( string( "Пассажир " ) + fullname +
                              " высажен. Место: " + prior_seat,
-                             evtPax, point_id, idx1, idx2 );*/
+                             evtPax, point_id, idx1, idx2 );
           if ( is_sync_paxs( point_id ) )
             update_pax_change( point_id, pax_id, idx1, "Р" );
           break;
         default:;
   		}
   		break;
-  }
+  }         */
   check_layer_change( point_ids_spp );
 }
 
@@ -4089,6 +4089,8 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
   QryUpd.DeclareVariable( "pax_id", otInteger );
   TDateTime time_create = NowUTC();
   int s = Passes.getCount();
+  bool pr_is_sync_paxs = is_sync_paxs( salonList.getDepartureId() );
+  vector<TPassenger> paxs;
   for ( int i=0; i<s; i++ ) {
   	TPassenger &pass = Passes.Get( i );
    	ProgTrace( TRACE5, "pass.pax_id=%d, pass.isSeat=%d", pass.paxId, pass.isSeat );
@@ -4108,12 +4110,15 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
 	    SaveTripSeatRanges( salonList.getDepartureId(), pass.grp_status, seats, pass.paxId, salonList.getDepartureId(), pass.point_arv, time_create ); //???
 	    QryUpd.SetVariable( "pax_id", pass.paxId );
       QryUpd.Execute();
-      if ( is_sync_paxs( salonList.getDepartureId() ) ) {
-        update_pax_change( salonList.getDepartureId(), pass.paxId, pass.regNo, "Р" );
-      }
+      paxs.push_back( pass );
     }
   }
-  check_waitlist_alarm_on_tranzit_routes( salonList.getDepartureId() );
+  check_waitlist_alarm_on_tranzit_routes( salonList.getDepartureId(), false );
+/*  if ( pr_is_sync_paxs ) {
+    for ( vector<TPassenger>::iterator ipass=paxs.begin(); ipass!=paxs.end(); ipass++ ) {
+      update_pax_change( salonList.getDepartureId(), ipass->paxId, ipass->regNo, "Р" );
+    }
+  }*/
   ProgTrace( TRACE5, "passengers.count=%d", Passes.getCount() );
 }
 

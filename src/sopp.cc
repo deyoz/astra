@@ -1635,6 +1635,12 @@ void DeletePaxGrp( const TTypeBSendInfo &sendInfo, int grp_id, bool toLog,
     "          pax.grp_id=pax_grp.grp_id AND "
     "          pax_grp.status=grp_status_types.code AND "
     "          pax_grp.grp_id=:grp_id); "
+    "  DELETE FROM "
+    "   (SELECT * "
+    "    FROM pax_seats,pax,pax_grp "
+    "    WHERE pax_seats.pax_id=pax.pax_id AND "
+    "          pax.grp_id=pax_grp.grp_id AND "
+    "          pax_grp.grp_id=:grp_id); "
     "  UPDATE pax SET refuse=:refuse,pr_brd=NULL WHERE grp_id=:grp_id; "
     "END;";
     
@@ -1703,7 +1709,7 @@ void DeletePaxGrp( const TTypeBSendInfo &sendInfo, int grp_id, bool toLog,
 
   DelQry.SetVariable("grp_id",grp_id);
   DelQry.Execute();
-
+  
   rozysk::sync_pax_grp(grp_id, TReqInfo::Instance()->desk.code);
 
   TQuery Qry(&OraSession);
@@ -1885,7 +1891,7 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
         i!=points_check_wait_alarm.end(); i++ ) {
     check_waitlist_alarm(*i);
   }
-  SALONS2::check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm );
+  SALONS2::check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm, false );
   check_unattached_trfer_alarm(nextTrferSegs);
 
   if ( filter.inbound_point_dep==NoExists )
@@ -3755,7 +3761,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
         i!=points_check_wait_alarm.end(); i++ ) {
     check_waitlist_alarm(*i);
   }
-  SALONS2::check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm );
+  SALONS2::check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm, false );
 }
 
 void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

@@ -713,6 +713,12 @@ class TPaxList: public std::map<int,TSalonPax> {
         return false;
       return ipax->second.pr_web;
     }
+    int getRegNo( int pax_id ) const {
+      TPaxList::const_iterator ipax = find( pax_id );
+      if ( ipax == end() )
+        return ASTRA::NoExists;
+      return ipax->second.reg_no;
+    }
 };
 
 struct TFilterSets {
@@ -876,7 +882,7 @@ class TSalonPassengers: public std::map<int,std::map<std::string,std::map<std::s
       status_wait_list = wlNotInit;
     };
     bool isWaitList( );
-    bool check_waitlist_alarm();
+    bool check_waitlist_alarm( const std::map<int,TPaxList> &pax_lists, bool pr_checkin_logged );
 };
 
 struct TAutoSeat {
@@ -965,8 +971,8 @@ class TSalonList: public std::vector<TPlaceList*> {
     bool check_waitlist_alarm_on_tranzit_routes( const TAutoSeats &autoSeats );
 };
 
-    void check_waitlist_alarm_on_tranzit_routes( int point_dep/*!!!, const std::string &filterClass*/ );
-    void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tranzit_check_wait_alarm/*!!!, const std::string &filterClass*/ );
+    void check_waitlist_alarm_on_tranzit_routes( int point_dep, bool pr_external_logged );
+    void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tranzit_check_wait_alarm, bool pr_external_logged );
     void WritePaxSeats( int point_dep, int pax_id, const std::vector<TSeatRange> &ranges );
 
 

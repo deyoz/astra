@@ -2894,8 +2894,6 @@ void TSalonList::CommitLayers()
         TPaxLayerSeats paxlayer = ilayer->second;
         ipax_list->second.save_layers.insert( make_pair( layer, paxlayer ) );
       }
-      ProgTrace( TRACE5, "TSalonList::CommitLayers: ipax_list->second.layers.size()=%zu, ipax_list->second.save_layers.size()=%zu",
-                 ipax_list->second.layers.size(), ipax_list->second.save_layers.size() );
     }
   }
   for ( TSalonList::iterator isalonlist=begin();
@@ -4235,15 +4233,10 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &salons,
             continue;
           }
           TPointInRoute point;
-          bool pr_d = points.getLastPropRouteDepartute( point );
-          ProgTrace( TRACE5, "drop_not_web_passes=%d,  ilayer->point_dep=%d, pr_d=%d, point.point_id=%d, ilayer->getPaxId()=%d",
-                     drop_not_web_passes, ilayer->point_dep, pr_d, point.point_id, ilayer->getPaxId() );
-          //!!!TPointInRoute point;
           if ( drop_not_web_passes &&
                points.getLastPropRouteDepartute( point ) &&
-               ilayer->point_dep == point.point_id &&
+               ilayer->point_id == point.point_id &&
                ilayer->getPaxId() != ASTRA::NoExists ) { //удаляем всех пассажиров, которые не web_client
-            tst();
             std::map<int,TPaxList>::iterator ipax_list = pax_lists.find( ilayers->first );
             if ( ipax_list != pax_lists.end() &&
                  !ipax_list->second.isWeb( ilayer->getPaxId() ) ) {
@@ -4267,13 +4260,15 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &salons,
     }
   }
   bool res = ( filterRoutes.point_arv != filterRoutes.point_dep );
-  if ( !drop_not_web_passes ) {
+  bool pr_lastRoute = points.getLastPropRouteDepartute( point );
+  if ( !drop_not_web_passes &&
+       pr_lastRoute &&
+       point.point_id != filterRoutes.point_dep ) {
     drop_not_web_passes = true;
   }
   else {
     //отрезание последнего пункта
-    TPointInRoute point;
-    if ( points.getLastPropRouteDepartute( point ) ) {
+    if ( pr_lastRoute ) {
       filterRoutes.point_arv = point.point_id;
     }
     else {
@@ -4286,13 +4281,13 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &salons,
   return res;
 }
 
-void check_waitlist_alarm_on_tranzit_routes( int point_dep/*!!!, const std::string &filterClass*/ )
+void check_waitlist_alarm_on_tranzit_routes( int point_dep, bool pr_external_logged )
 {
   std::vector<int> points_tranzit_check_wait_alarm( 1, point_dep );
-  check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm );
+  check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm, pr_external_logged );
 }
 
-void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tranzit_check_wait_alarm/*!!!, const std::string &filterClass*/ )
+void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tranzit_check_wait_alarm, bool pr_external_logged )
 {
   TFlights flights;
   flights.Get( points_tranzit_check_wait_alarm, trtWithCancelled );
@@ -4311,7 +4306,7 @@ void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tran
       }
       salonList.JumpToLeg( TFilterRoutesSets( iroute->point_id, filterRoutesSets.point_arv ) );
       salonList.getPaxs( passengers );
-      passengers.check_waitlist_alarm();
+      passengers.check_waitlist_alarm( salonList.pax_lists, pr_external_logged );
     }
   }
 }
@@ -5480,7 +5475,7 @@ void CreateComps( const TCompsRoutes &routes, int comp_id )
         i!=points_check_wait_alarm.end(); i++ ) {
     check_waitlist_alarm(*i);
   }
-  check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm );
+  check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm, false );
 }
 
 bool CompRouteinRoutes( const CompRoute &item1, const CompRoute &item2 )
@@ -5950,7 +5945,7 @@ TFindSetCraft SetCraft( bool pr_tranzit_routes, int point_id, TSetsCraftPoints &
 	
 	check_diffcomp_alarm( routes );
 	if ( isTranzitSalons( point_id ) ) {
-    check_waitlist_alarm_on_tranzit_routes( point_id );
+    check_waitlist_alarm_on_tranzit_routes( point_id, false );
   }
 	ProgTrace( TRACE5, "SetCraft: return rsComp_Found" );
   return rsComp_Found;
@@ -7178,7 +7173,30 @@ std::string TSalonPax::prior_seat_no( const std::string &format, bool pr_lat_sea
   return res;
 }
 
-bool TSalonPassengers::check_waitlist_alarm( )
+std::string getStrReasion( const std::string &airp_dep,
+                           const std::string &airp_arv,
+                           int regNo,
+                           const std::string &strreason )
+{
+  string res;
+  res += " " + strreason;
+  bool pr_s = false;
+  if ( !airp_dep.empty() && !airp_arv.empty() ) {
+    res += " с сегмента " + airp_dep + "-" + airp_arv;
+    pr_s = true;
+  }
+  if ( regNo != ASTRA::NoExists ) {
+    if ( pr_s ) {
+      res += ",";
+    }
+    res += " рег. ном. " + IntToString( regNo );
+  }
+  res += ", высажен с места ";
+  return res;
+}
+
+
+bool TSalonPassengers::check_waitlist_alarm( const std::map<int,TPaxList> &pax_lists, bool pr_external_logged )
 {
   ProgTrace( TRACE5, "TSalonPassengers::check_waitlist_alarm: point_dep=%d, pr_craft_lat=%d",
              point_dep, pr_craft_lat );
@@ -7219,6 +7237,7 @@ bool TSalonPassengers::check_waitlist_alarm( )
     "SELECT airp FROM points WHERE point_id=:point_id";
   QryAirp.DeclareVariable( "point_id", otInteger );
 
+  bool pr_is_sync_paxs = is_sync_paxs( point_dep );
   TWaitListReason waitListReason;
   TPassSeats seats;
   map<int,TSalonPax> passes;
@@ -7302,7 +7321,7 @@ bool TSalonPassengers::check_waitlist_alarm( )
         }
       }
       rozysk::sync_pax( iold->first, TReqInfo::Instance()->desk.code );
-      if ( is_sync_paxs( point_dep ) ) {
+      if ( pr_is_sync_paxs ) {
         update_pax_change( point_dep, iold->first, passes[ iold->first ].reg_no, "Р" );
       }
     }
@@ -7326,14 +7345,19 @@ bool TSalonPassengers::check_waitlist_alarm( )
           }
           string str_reason;
           string airp_dep, airp_arv;
+          int regNo = ASTRA::NoExists;
           switch( waitListReason.layerStatus ) {
             case layerInvalid:
-              str_reason = " из-за смены компоновки высажен с места ";
+              str_reason = getStrReasion( airp_dep, airp_arv, regNo, "из-за смены компоновки" );
               break;
             case layerLess:
               airp_dep.clear();
               airp_arv.clear();
               if ( waitListReason.layer.getPaxId() != ASTRA::NoExists ) {
+                std::map<int,TPaxList>::const_iterator ipax_list = pax_lists.find( waitListReason.layer.point_id );
+                if ( ipax_list != pax_lists.end() ) {
+                  regNo = ipax_list->second.getRegNo( waitListReason.layer.getPaxId() );
+                }
                 QryAirp.SetVariable( "point_id", waitListReason.layer.point_dep );
                 QryAirp.Execute();
                 if ( !QryAirp.Eof ) {
@@ -7345,45 +7369,41 @@ bool TSalonPassengers::check_waitlist_alarm( )
                   airp_arv = QryAirp.FieldAsString( "airp" );
                 }
               }
-              ProgTrace( TRACE5, "%s, airp_dep=%s, airp_arv=%s", waitListReason.layer.toString().c_str(), airp_dep.c_str(), airp_arv.c_str() );
+              ProgTrace( TRACE5, "%s, airp_dep=%s, airp_arv=%s, regNo=%d",
+                         waitListReason.layer.toString().c_str(), airp_dep.c_str(), airp_arv.c_str(), regNo );
               switch ( waitListReason.layer.layer_type ) {
                 case cltBlockCent:
-                  str_reason = " из-за разметки блокировки цетровки высажен с места ";
+                  str_reason = getStrReasion( airp_dep, airp_arv, regNo, "из-за разметки блокировки цетровки" );
                   break;
                 case cltDisable:
-                  str_reason = " из-за разметки недоступности места высажен с места ";
+                  str_reason = getStrReasion( airp_dep, airp_arv, regNo, "из-за недоступности места" );
                   break;
                 case cltProtBeforePay:
                 case cltProtAfterPay:
                 case cltPNLBeforePay:
                 case cltPNLAfterPay:
-                  if ( !airp_dep.empty() && !airp_arv.empty() ) {
-                    str_reason = " из-за оплаты места пассажиром с сегмента " + airp_dep + "-" + airp_arv + " высажен с места ";
-                  }
-                  else {
-                    str_reason = " из-за оплаты места другим пассажиром высажен с места ";
-                  }
+                  str_reason = getStrReasion( airp_dep, airp_arv, regNo, "из-за оплаты места пассажиром" );
                   break;
                 case cltBlockTrzt:
                 case cltSOMTrzt:
                 case cltPRLTrzt:
                 case cltProtTrzt:
-                  str_reason = " из-за разметки транзитного места высажен с места ";
+                  str_reason = getStrReasion( airp_dep, airp_arv, regNo, "из-за разметки транзитного места" );
                   break;
                 case cltPNLCkin:
-                  str_reason = " из-за разметки места из PNL пассажиром с сегмента " + airp_dep + "-" + airp_arv + " высажен с места ";
+                  str_reason = getStrReasion( airp_dep, airp_arv, regNo, "из-за разметки места из PNL" );
                   break;
                 case cltProtCkin:
-                  str_reason = " из-за ручной разметки брони места пассажиром с сегмента " + airp_dep + "-" + airp_arv + " высажен с места ";
+                  str_reason = getStrReasion( airp_dep, airp_arv, regNo, "из-за ручной разметки брони места пассажиром" );
                   break;
                 case cltProtect:
-                  str_reason = " из-за разметки резервирования места высажен с места ";
+                  str_reason = getStrReasion( airp_dep, airp_arv, regNo, "из-за разметки резервирования места" );
                   break;
                 case cltCheckin:
                 case cltTCheckin:
                 case cltGoShow:
                 case cltTranzit:
-                  str_reason = " из-за занятого места пассажиром с сегмента " + airp_dep + "-" + airp_arv + " высажен с места ";
+                  str_reason = getStrReasion( airp_dep, airp_arv, regNo, "из-за занятого места пассажиром" );
                 default:;
               };
               break;
@@ -7398,7 +7418,7 @@ bool TSalonPassengers::check_waitlist_alarm( )
                                           new_seat_no.c_str(), evtPax,
                                           point_dep, passes[ iold->first ].reg_no, passes[ iold->first ].grp_id );
           rozysk::sync_pax( iold->first, TReqInfo::Instance()->desk.code );
-          if ( is_sync_paxs( point_dep ) ) {
+          if ( pr_is_sync_paxs ) {
             update_pax_change( point_dep, iold->first, passes[ iold->first ].reg_no, "Р" );
           }
         }
@@ -7418,21 +7438,22 @@ bool TSalonPassengers::check_waitlist_alarm( )
         Qry.Execute();
         ProgTrace( TRACE5, "xname=%s, yname=%s", iseat->seat.line, iseat->seat.row );
       }
-      string fullname = passes[ inew->first ].surname;
-      fullname = TrimString( fullname )  + " " + passes[ inew->first ].name;
-      TWaitListReason waitListReason;
-      string new_seat_no = passes[ inew->first ].seat_no( "list", pr_craft_lat, waitListReason );
-      TReqInfo::Instance()->MsgToLog( string( "Пассажир " ) + fullname +
-                                      " посажен на место " +
-                                      new_seat_no, evtPax, point_dep,
-                                      passes[ inew->first ].reg_no,  passes[ inew->first ].grp_id );
-      rozysk::sync_pax( inew->first, TReqInfo::Instance()->desk.code );
-      if ( is_sync_paxs( point_dep ) ) {
-        update_pax_change( point_dep, inew->first, passes[ inew->first ].reg_no, "Р" );
+      if ( !pr_external_logged ) {
+        string fullname = passes[ inew->first ].surname;
+        fullname = TrimString( fullname )  + " " + passes[ inew->first ].name;
+        TWaitListReason waitListReason;
+        string new_seat_no = passes[ inew->first ].seat_no( "list", pr_craft_lat, waitListReason );
+        TReqInfo::Instance()->MsgToLog( string( "Пассажир " ) + fullname +
+                                        " посажен на место " +
+                                        new_seat_no, evtPax, point_dep,
+                                        passes[ inew->first ].reg_no,  passes[ inew->first ].grp_id );
+        rozysk::sync_pax( inew->first, TReqInfo::Instance()->desk.code );
+        if ( pr_is_sync_paxs ) {
+          update_pax_change( point_dep, inew->first, passes[ inew->first ].reg_no, "-" );
+        }
       }
     }
   }
-  //!!!в лог причину изменения компоновки
   set_alarm( point_dep, atWaitlist, status_wait_list == wlYes );
   return status_wait_list == wlYes;
 }
