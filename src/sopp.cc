@@ -4041,6 +4041,7 @@ void SoppInterface::DropFlightFact(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 	reqInfo->MsgToLog( string( "Отмена факт. вылета рейса " ) + trip, evtDisp, move_id, point_id );
 	ChangeACT_OUT( point_id, act_out, NoExists );
 	SetTripStages_IgnoreAuto( point_id, pr_del != 0 );
+	SALONS2::check_waitlist_alarm_on_tranzit_routes( point_id, false );
 	ReadTrips( ctxt, reqNode, resNode );
 }
 

@@ -174,7 +174,7 @@ class TFilterLayers:public BitSet<ASTRA::TCompLayerType> {
 	private:
 	  int point_dep;
 	public:
-		bool CanUseLayer( ASTRA::TCompLayerType layer_type, int point_id );
+		bool CanUseLayer( ASTRA::TCompLayerType layer_type, int point_id, bool pr_takeoff );
 		void getFilterLayers( int point_id, bool only_compon_props=false );
 };
 
@@ -324,6 +324,7 @@ class FilterRoutesProperty: public std::vector<TTripRouteItem> {
     int comp_id;
     bool pr_craft_lat;
     std::map<int,PointAirpNum> pointNum;
+    std::set<int> takeoffPoints;
     int readNum( int point_id, bool in_use );
   public:
     //определяем множество пунктов вылета по которым надо начитать информацию
@@ -363,6 +364,9 @@ class FilterRoutesProperty: public std::vector<TTripRouteItem> {
     }
     bool getCompId() const {
       return comp_id;
+    }
+    bool isTakeoff( int point_id ) {
+      return ( takeoffPoints.find( point_id ) != takeoffPoints.end() );
     }
     void Build( xmlNodePtr node );
 };

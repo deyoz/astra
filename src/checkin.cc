@@ -3547,7 +3547,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                     pax_id = 0 - pax_no; // для уникальности
                   }
                   pas.paxId = pax_id;
-                  ProgTrace( TRACE5, "pax_id=%d, pax.id=%d", pax_id, pax.id );
                   switch ( grp.status )  {
                   	case psCheckin:
                   		pas.grp_status = cltCheckin;

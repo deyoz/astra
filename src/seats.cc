@@ -4089,7 +4089,7 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
   QryUpd.DeclareVariable( "pax_id", otInteger );
   TDateTime time_create = NowUTC();
   int s = Passes.getCount();
-  bool pr_is_sync_paxs = is_sync_paxs( salonList.getDepartureId() );
+//  bool pr_is_sync_paxs = is_sync_paxs( salonList.getDepartureId() );
   vector<TPassenger> paxs;
   for ( int i=0; i<s; i++ ) {
   	TPassenger &pass = Passes.Get( i );
