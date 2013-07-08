@@ -7206,12 +7206,14 @@ std::string TSalonPax::prior_seat_no( const std::string &format, bool pr_lat_sea
   return res;
 }
 
-std::string getStrReasion( const std::string &airp_dep,
-                           const std::string &airp_arv,
-                           int regNo,
-                           const std::string &strreason )
+std::string getStrWaitListReasion( const std::string &fullname,
+                                   const std::string &seat_no,
+                                   const std::string &airp_dep,
+                                   const std::string &airp_arv,
+                                   int regNo,
+                                   const std::string &strreason )
 {
-  string res;
+  string res = string("Пассажир " ) + fullname + ",место: " + seat_no + ", поставлен на ЛО ";
   res += " " + strreason;
   bool pr_s = false;
   if ( !airp_dep.empty() && !airp_arv.empty() ) {
@@ -7224,8 +7226,111 @@ std::string getStrReasion( const std::string &airp_dep,
     }
     res += " рег. ном. " + IntToString( regNo );
   }
-  res += ", высажен с места ";
   return res;
+}
+
+void CheckWaitListToLog( TQuery &QryAirp,
+                         bool pr_exists,
+                         int pax_id,
+                         int point_dep,
+                         const std::map<int,TPaxList> &pax_lists,
+                         const std::map<int,TSalonPax> &passes,
+                         bool pr_craft_lat )
+{
+  std::map<int,TSalonPax>::const_iterator ipass = passes.find( pax_id );
+  if ( ipass == passes.end() ) {
+    ProgError( STDLOG, "CheckWaitListToLog: invalid pax_id=%d", pax_id );
+    return;
+  }
+  string fullname = ipass->second.surname;
+  fullname = TrimString( fullname )  + " " + ipass->second.name;
+  TWaitListReason waitListReason;
+  string new_seat_no = ipass->second.seat_no( "list", pr_craft_lat, waitListReason );
+  if ( waitListReason.layerStatus == layerValid ) {
+    if ( pr_exists ) {
+      TReqInfo::Instance()->MsgToLog( string( "Пассажир " ) + fullname +
+                                      " пересажен. Новое место: " +
+                                      new_seat_no, evtPax, point_dep,
+                                      ipass->second.reg_no, ipass->second.grp_id );
+    }
+    else {
+      TReqInfo::Instance()->MsgToLog( string( "Пассажир " ) + fullname +
+                                      " посажен на место: " +
+                                      new_seat_no, evtPax, point_dep,
+                                      ipass->second.reg_no, ipass->second.grp_id );
+    }
+    return;
+  }
+  if ( new_seat_no.empty() ) {
+    new_seat_no = ipass->second.prior_seat_no( "list", pr_craft_lat );
+  }
+  string str_reason;
+  string airp_dep, airp_arv;
+  int regNo = ASTRA::NoExists;
+  switch( waitListReason.layerStatus ) {
+    case layerInvalid:
+      str_reason = getStrWaitListReasion( fullname, new_seat_no, airp_dep, airp_arv, regNo, "из-за смены компоновки" );
+      break;
+    case layerLess:
+      airp_dep.clear();
+      airp_arv.clear();
+      if ( waitListReason.layer.getPaxId() != ASTRA::NoExists ) {
+        std::map<int,TPaxList>::const_iterator ipax_list = pax_lists.find( waitListReason.layer.point_id );
+        if ( ipax_list != pax_lists.end() ) {
+          regNo = ipax_list->second.getRegNo( waitListReason.layer.getPaxId() );
+        }
+        QryAirp.SetVariable( "point_id", waitListReason.layer.point_dep );
+        QryAirp.Execute();
+        if ( !QryAirp.Eof ) {
+          airp_dep = QryAirp.FieldAsString( "airp" );
+        }
+        QryAirp.SetVariable( "point_id", waitListReason.layer.point_arv );
+        QryAirp.Execute();
+        if ( !QryAirp.Eof ) {
+          airp_arv = QryAirp.FieldAsString( "airp" );
+        }
+      }
+      switch ( waitListReason.layer.layer_type ) {
+        case cltBlockCent:
+          str_reason = getStrWaitListReasion( fullname, new_seat_no, airp_dep, airp_arv, regNo, "из-за разметки блокировки цетровки" );
+          break;
+        case cltDisable:
+          str_reason = getStrWaitListReasion( fullname, new_seat_no, airp_dep, airp_arv, regNo, "из-за недоступности места" );
+          break;
+        case cltProtBeforePay:
+        case cltProtAfterPay:
+        case cltPNLBeforePay:
+        case cltPNLAfterPay:
+          str_reason = getStrWaitListReasion( fullname, new_seat_no, airp_dep, airp_arv, regNo, "из-за оплаты места пассажиром" );
+          break;
+        case cltBlockTrzt:
+        case cltSOMTrzt:
+        case cltPRLTrzt:
+        case cltProtTrzt:
+          str_reason = getStrWaitListReasion( fullname, new_seat_no, airp_dep, airp_arv, regNo, "из-за разметки транзитного места" );
+          break;
+        case cltPNLCkin:
+          str_reason = getStrWaitListReasion( fullname, new_seat_no, airp_dep, airp_arv, regNo, "из-за разметки места из PNL" );
+          break;
+        case cltProtCkin:
+          str_reason = getStrWaitListReasion( fullname, new_seat_no, airp_dep, airp_arv, regNo, "из-за ручной разметки брони места пассажиром" );
+          break;
+        case cltProtect:
+          str_reason = getStrWaitListReasion( fullname, airp_dep, new_seat_no, airp_arv, regNo, "из-за разметки резервирования места" );
+          break;
+        case cltCheckin:
+        case cltTCheckin:
+        case cltGoShow:
+        case cltTranzit:
+          str_reason = getStrWaitListReasion( fullname, new_seat_no, airp_dep, airp_arv, regNo, "из-за занятого места пассажиром" );
+        default:;
+      };
+      break;
+    default:
+      break;
+  };
+  TReqInfo::Instance()->MsgToLog( str_reason, evtPax,
+                                  point_dep, ipass->second.reg_no, ipass->second.grp_id );
 }
 
 
@@ -7307,6 +7412,7 @@ bool TSalonPassengers::check_waitlist_alarm( const std::map<int,TPaxList> &pax_l
       if ( iold->second == inew->second ) {
         continue;
       }
+      //изменились места - удаляем старые, записываем новые
       DelQry.SetVariable( "pax_id", inew->first );
       DelQry.Execute();
       bool pr_exists = ( DelQry.RowCount() );
@@ -7319,144 +7425,42 @@ bool TSalonPassengers::check_waitlist_alarm( const std::map<int,TPaxList> &pax_l
         Qry.SetVariable( "yname", iseat->seat.row );
         Qry.Execute();
       }
-      string fullname = passes[ inew->first ].surname;
-      fullname = TrimString( fullname )  + " " +passes[ inew->first ].name;
-      TWaitListReason waitListReason;
-      string new_seat_no = passes[ inew->first ].seat_no( "list", pr_craft_lat, waitListReason );
-      if ( waitListReason.layerStatus != layerValid ) {
-        if ( new_seat_no.empty() ) {
-          new_seat_no = passes[ inew->first ].prior_seat_no( "list", pr_craft_lat );
-        }
-        ProgTrace( TRACE5, "fullname=%s, pax_id=%d, point_dep=%d, reg_no=%d, grp_id=%d - WL",
-                   fullname.c_str(), inew->first, point_dep, passes[ inew->first ].reg_no, passes[ inew->first ].grp_id );
-        TReqInfo::Instance()->MsgToLog( string( "Пассажир " ) + fullname +
-                                        " высажен с места " + new_seat_no, evtPax, point_dep,
-                                        passes[ inew->first ].reg_no, passes[ inew->first ].grp_id );
-      }
-      else {
-        if ( pr_exists ) {
-          ProgTrace( TRACE5, "fullname=%s, pax_id=%d, point_dep=%d, reg_no=%d, grp_id=%d - RESEAT %s",
-                     fullname.c_str(), inew->first, point_dep, passes[ inew->first ].reg_no, passes[ inew->first ].grp_id,
-                     new_seat_no.c_str() );
-          TReqInfo::Instance()->MsgToLog( string( "Пассажир " ) + fullname +
-                                          " пересажен. Новое место: " +
-                                          new_seat_no, evtPax, point_dep,
-                                          passes[ inew->first ].reg_no, passes[ inew->first ].grp_id );
-        }
-        else {
-          TReqInfo::Instance()->MsgToLog( string( "Пассажир " ) + fullname +
-                                          " посажен на место: " +
-                                          new_seat_no, evtPax, point_dep,
-                                          passes[ inew->first ].reg_no, passes[ inew->first ].grp_id );
-          ProgTrace( TRACE5, "fullname=%s, pax_id=%d, point_dep=%d, reg_no=%d, grp_id=%d - SEAT %s",
-                     fullname.c_str(), inew->first, point_dep, passes[ inew->first ].reg_no, passes[ inew->first ].grp_id,
-                     new_seat_no.c_str() );
-        }
+      if ( !pr_external_logged ) {
+        CheckWaitListToLog( QryAirp,
+                            pr_exists,
+                            inew->first,
+                            point_dep,
+                            pax_lists,
+                            passes,
+                            pr_craft_lat );
       }
       rozysk::sync_pax( iold->first, TReqInfo::Instance()->desk.code );
       if ( pr_is_sync_paxs ) {
         update_pax_change( point_dep, iold->first, passes[ iold->first ].reg_no, "Р" );
       }
     }
-    else { //пассажир не найден в новом списке - !!!разрегистрация по ошибке агента или ЛО
-/*      std::vector<TSeatRange> ranges;
-      for ( std::vector<TPassSeat>::iterator iseat=iold->second.begin();
-            iseat!=iold->second.end(); iseat++ ) {
-        ranges.push_back( TSeatRange( ipass_seat->seat, ipass_seat->seat ) );
-      }*/
-      
+    else { //пассажир не найден в новом списке - разрегистрация по ошибке агента или ЛО
       DelQry.SetVariable( "pax_id", iold->first );
       DelQry.Execute();
-      if ( DelQry.RowCount() ) {
+      bool pr_exists = ( DelQry.RowCount() );
+      if ( pr_exists ) {
         if ( passes.find( iold->first ) != passes.end() ) { //существует такой пассажир
-          string fullname = passes[ iold->first ].surname;
-          fullname = TrimString( fullname )  + " " +passes[ iold->first ].name;
-          TWaitListReason waitListReason;
-          string new_seat_no = passes[ iold->first ].seat_no( "list", pr_craft_lat, waitListReason );
-          if ( new_seat_no.empty() ) {
-            new_seat_no = passes[ iold->first ].prior_seat_no( "list", pr_craft_lat );
+          if ( !pr_external_logged ) {
+            CheckWaitListToLog( QryAirp,
+                                pr_exists,
+                                iold->first,
+                                point_dep,
+                                pax_lists,
+                                passes,
+                                pr_craft_lat );
           }
-          string str_reason;
-          string airp_dep, airp_arv;
-          int regNo = ASTRA::NoExists;
-          switch( waitListReason.layerStatus ) {
-            case layerInvalid:
-              str_reason = getStrReasion( airp_dep, airp_arv, regNo, "из-за смены компоновки" );
-              break;
-            case layerLess:
-              airp_dep.clear();
-              airp_arv.clear();
-              if ( waitListReason.layer.getPaxId() != ASTRA::NoExists ) {
-                std::map<int,TPaxList>::const_iterator ipax_list = pax_lists.find( waitListReason.layer.point_id );
-                if ( ipax_list != pax_lists.end() ) {
-                  regNo = ipax_list->second.getRegNo( waitListReason.layer.getPaxId() );
-                }
-                QryAirp.SetVariable( "point_id", waitListReason.layer.point_dep );
-                QryAirp.Execute();
-                if ( !QryAirp.Eof ) {
-                  airp_dep = QryAirp.FieldAsString( "airp" );
-                }
-                QryAirp.SetVariable( "point_id", waitListReason.layer.point_arv );
-                QryAirp.Execute();
-                if ( !QryAirp.Eof ) {
-                  airp_arv = QryAirp.FieldAsString( "airp" );
-                }
-              }
-              ProgTrace( TRACE5, "%s, airp_dep=%s, airp_arv=%s, regNo=%d",
-                         waitListReason.layer.toString().c_str(), airp_dep.c_str(), airp_arv.c_str(), regNo );
-              switch ( waitListReason.layer.layer_type ) {
-                case cltBlockCent:
-                  str_reason = getStrReasion( airp_dep, airp_arv, regNo, "из-за разметки блокировки цетровки" );
-                  break;
-                case cltDisable:
-                  str_reason = getStrReasion( airp_dep, airp_arv, regNo, "из-за недоступности места" );
-                  break;
-                case cltProtBeforePay:
-                case cltProtAfterPay:
-                case cltPNLBeforePay:
-                case cltPNLAfterPay:
-                  str_reason = getStrReasion( airp_dep, airp_arv, regNo, "из-за оплаты места пассажиром" );
-                  break;
-                case cltBlockTrzt:
-                case cltSOMTrzt:
-                case cltPRLTrzt:
-                case cltProtTrzt:
-                  str_reason = getStrReasion( airp_dep, airp_arv, regNo, "из-за разметки транзитного места" );
-                  break;
-                case cltPNLCkin:
-                  str_reason = getStrReasion( airp_dep, airp_arv, regNo, "из-за разметки места из PNL" );
-                  break;
-                case cltProtCkin:
-                  str_reason = getStrReasion( airp_dep, airp_arv, regNo, "из-за ручной разметки брони места пассажиром" );
-                  break;
-                case cltProtect:
-                  str_reason = getStrReasion( airp_dep, airp_arv, regNo, "из-за разметки резервирования места" );
-                  break;
-                case cltCheckin:
-                case cltTCheckin:
-                case cltGoShow:
-                case cltTranzit:
-                  str_reason = getStrReasion( airp_dep, airp_arv, regNo, "из-за занятого места пассажиром" );
-                default:;
-              };
-              break;
-            default:
-              break;
-          };
-
-          ProgTrace( TRACE5, "pax_id=%d, point_dep=%d - WL %s",
-                     iold->first, point_dep, new_seat_no.c_str() );
-          TReqInfo::Instance()->MsgToLog( string("Пассажир " ) + fullname +
-                                          str_reason +
-                                          new_seat_no.c_str(), evtPax,
-                                          point_dep, passes[ iold->first ].reg_no, passes[ iold->first ].grp_id );
           rozysk::sync_pax( iold->first, TReqInfo::Instance()->desk.code );
           if ( pr_is_sync_paxs ) {
             update_pax_change( point_dep, iold->first, passes[ iold->first ].reg_no, "Р" );
           }
         }
       }
-    }
+    } //end else not find
   }
   //пробег по новым пассажирам-местам
   for ( std::map<int,TPassSeats>::iterator inew=new_seats.begin(); inew!=new_seats.end(); inew++ ) {
@@ -7472,18 +7476,17 @@ bool TSalonPassengers::check_waitlist_alarm( const std::map<int,TPaxList> &pax_l
         ProgTrace( TRACE5, "xname=%s, yname=%s", iseat->seat.line, iseat->seat.row );
       }
       if ( !pr_external_logged ) {
-        string fullname = passes[ inew->first ].surname;
-        fullname = TrimString( fullname )  + " " + passes[ inew->first ].name;
-        TWaitListReason waitListReason;
-        string new_seat_no = passes[ inew->first ].seat_no( "list", pr_craft_lat, waitListReason );
-        TReqInfo::Instance()->MsgToLog( string( "Пассажир " ) + fullname +
-                                        " посажен на место " +
-                                        new_seat_no, evtPax, point_dep,
-                                        passes[ inew->first ].reg_no,  passes[ inew->first ].grp_id );
-        rozysk::sync_pax( inew->first, TReqInfo::Instance()->desk.code );
-        if ( pr_is_sync_paxs ) {
-          update_pax_change( point_dep, inew->first, passes[ inew->first ].reg_no, "-" );
-        }
+        CheckWaitListToLog( QryAirp,
+                            false,
+                            inew->first,
+                            point_dep,
+                            pax_lists,
+                            passes,
+                            pr_craft_lat );
+      }
+      rozysk::sync_pax( inew->first, TReqInfo::Instance()->desk.code );
+      if ( pr_is_sync_paxs ) {
+        update_pax_change( point_dep, inew->first, passes[ inew->first ].reg_no, "-" );
       }
     }
   }
