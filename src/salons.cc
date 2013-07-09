@@ -2408,7 +2408,6 @@ void FilterRoutesProperty::Read( const TFilterRoutesSets &filterRoutesSets )
         iroute!=end(); iroute++ ) {
     ProgTrace( TRACE5, "point_id=%d, point_num=%d", iroute->point_id, iroute->point_num );
   }
-  #warning 3. cut-off takeoff route!!!  здесь надо будет сделать отсечку
 }
 
 int FilterRoutesProperty::readNum( int point_id, bool in_use )
@@ -6939,6 +6938,41 @@ void ParseCompSections( xmlNodePtr sectionsNode, std::vector<TCompSection> &Comp
     sectionsNode = sectionsNode->next;
   }
   ProgTrace( TRACE5, "CompSections.size()=%zu", CompSections.size() );
+}
+
+void getLayerPlacesCompSection( const TSalonList &salonList,
+                                TCompSection &compSection,
+                                map<ASTRA::TCompLayerType, TPlaces> &uselayers_places,
+                                int &seats_count )
+{
+  seats_count = 0;
+  for ( map<ASTRA::TCompLayerType, TPlaces>::iterator il=uselayers_places.begin(); il!=uselayers_places.end(); il++ ) {
+    uselayers_places[ il->first ].clear();
+  }
+  int Idx = 0;
+  for ( vector<TPlaceList*>::const_iterator si=salonList.begin(); si!=salonList.end(); si++ ) {
+    for ( int y=0; y<(*si)->GetYsCount(); y++ ) {
+      if ( Idx >= compSection.firstRowIdx && Idx <= compSection.lastRowIdx ) { // внутри секции
+        for ( int x=0; x<(*si)->GetXsCount(); x++ ) {
+          TPlace *seat = (*si)->place( (*si)->GetPlaceIndex( x, y ) );
+          if ( !seat->isplace || !seat->visible ) {
+             continue;
+          }
+          seats_count++;
+          for ( map<ASTRA::TCompLayerType, TPlaces>::iterator il=uselayers_places.begin(); il!=uselayers_places.end(); il++ ) {
+            if ( seat->getCurrLayer( salonList.getDepartureId() ).layer_type == il->first ) {
+              uselayers_places[ il->first ].push_back( *seat );
+              break;
+            }
+          }
+        }
+      }
+      Idx++;
+    }
+  }
+  for ( map<ASTRA::TCompLayerType, TPlaces>::iterator il=uselayers_places.begin(); il!=uselayers_places.end(); il++ ) {
+    ProgTrace( TRACE5, "getPaxPlacesCompSection: layer_type=%s, count=%zu", EncodeCompLayerType(il->first), il->second.size() );
+  }
 }
 
 void getLayerPlacesCompSection( SALONS2::TSalons &NSalons, TCompSection &compSection,

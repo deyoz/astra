@@ -1023,6 +1023,10 @@ class TSalonList: public std::vector<TPlaceList*> {
                                   bool only_high_layer,
                                   std::map<ASTRA::TCompLayerType, TPlaces> &uselayers_places,
                                   int &seats_count );
+  void getLayerPlacesCompSection( const TSalonList &salonList,
+                                  TCompSection &compSection,
+                                  std::map<ASTRA::TCompLayerType, TPlaces> &uselayers_places,
+                                  int &seats_count );
   bool ChangeCfg( const std::vector<TPlaceList*> &list1,
                   const std::vector<TPlaceList*> &list2 );
   bool IsMiscSet( int point_id, int misc_type );

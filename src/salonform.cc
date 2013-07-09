@@ -81,6 +81,70 @@ void ZoneLoads(int point_id,
              zones, CompSectionsLayers, compSections );
 }
 
+
+void ZoneLoadsTranzitSalons(int point_id,
+                            bool only_checkin_layers,
+                            vector<TZoneOccupiedSeats> &zones,
+                            std::vector<SALONS2::TCompSectionLayers> &CompSectionsLayers,
+                            vector<SALONS2::TCompSection> &compSections )
+{
+  compSections.clear();
+  CompSectionsLayers.clear();
+  zones.clear();
+  TQuery Qry(&OraSession);
+  try {
+    Qry.SQLText =
+      "SELECT airline,flt_no,suffix,airp,scd_out FROM points WHERE point_id=:point_id";
+    Qry.CreateVariable( "point_id", otInteger, point_id );
+    Qry.Execute();
+    TTripInfo info( Qry );
+    SALONS2::TSalonList salonList;
+    salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, NoExists ), "" );
+    if ( !(salonList.getCompId() > 0 && GetTripSets( tsCraftNoChangeSections, info )) ) {
+      return;
+    }
+    ReadCompSections( salonList.getCompId(), compSections );
+    Qry.Clear();
+    Qry.SQLText =
+      "select layer_type from grp_status_types";
+    Qry.Execute();
+    std::map<ASTRA::TCompLayerType,SALONS2::TPlaces> layersSeats, checkinLayersSeats;
+    for( ; !Qry.Eof; Qry.Next() ) {
+      checkinLayersSeats[DecodeCompLayerType(Qry.FieldAsString("layer_type"))].clear();
+    }
+    for ( int ilayer=0; ilayer<(int)cltTypeNum; ilayer++ ) {
+      ASTRA::TCompLayerType layer_type = (ASTRA::TCompLayerType)ilayer;
+      BASIC_SALONS::TCompLayerType layer_elem;
+      if ( BASIC_SALONS::TCompLayerTypes::Instance()->getElem( layer_type, layer_elem ) &&
+           layer_elem.getOccupy() ) {
+        layersSeats[ layer_type ].clear();
+      }
+    }
+    for ( vector<SALONS2::TCompSection>::iterator i=compSections.begin(); i!=compSections.end(); i++ ) {
+      SALONS2::TCompSectionLayers compSectionLayers;
+      compSectionLayers.layersSeats = layersSeats;
+      getLayerPlacesCompSection( salonList, *i, compSectionLayers.layersSeats, i->seats );
+      compSectionLayers.compSection = *i;
+      TZoneOccupiedSeats zs;
+      zs.name = i->name;
+      for(std::map<ASTRA::TCompLayerType, SALONS2::TPlaces>::iterator im = compSectionLayers.layersSeats.begin(); im != compSectionLayers.layersSeats.end(); im++) {
+        ProgTrace( TRACE5, "im->first=%s, im->second=%zu", EncodeCompLayerType( im->first ), im->second.size() );
+        if ( !only_checkin_layers || checkinLayersSeats.find( im->first ) != checkinLayersSeats.end() ) { // работаем только со слоями регистрации??? ДЕН!!!
+          zs.seats.insert( zs.seats.end(), im->second.begin(), im->second.end() );
+        }
+      }
+      zones.push_back( zs );
+      CompSectionsLayers.push_back( compSectionLayers );
+    }
+  }
+  catch(exception &E) {
+      ProgTrace(TRACE5, "ZoneLoads failed, so result would be empty: %s", E.what());
+  }
+  catch(...) {
+      ProgTrace(TRACE5, "ZoneLoads failed, so result would be empty");
+  }
+}
+
 void ZoneLoads(int point_id,
                bool only_checkin_layers, bool only_high_layer, bool drop_not_used_pax_layers,
                vector<TZoneOccupiedSeats> &zones,
@@ -90,6 +154,14 @@ void ZoneLoads(int point_id,
     compSections.clear();
     CompSectionsLayers.clear();
     zones.clear();
+  if ( SALONS2::isTranzitSalons( point_id ) ) {
+    ZoneLoadsTranzitSalons( point_id,
+                            only_checkin_layers,
+                            zones,
+                            CompSectionsLayers,
+                            compSections );
+    return;
+  }
     SALONS2::TSalons SalonsTmp( point_id, SALONS2::rTripSalons );
     TQuery Qry(&OraSession);
     try {
