@@ -478,7 +478,9 @@ class TPlace {
         }
         for ( std::set<TSeatLayer,SeatLayerCompare>::const_iterator ilayer=ilayers->second.begin();
               ilayer!=ilayers->second.end(); ilayer++ ) {
-          if ( isPropsLayer( ilayer->layer_type ) ) {
+          if ( ilayer->layer_type == ASTRA::cltProtect ||
+               ilayer->layer_type == ASTRA::cltSmoke ||
+               ilayer->layer_type == ASTRA::cltUncomfort ) {
             continue;
           }
           vlayers[ ilayers->first ].insert( *ilayer );
@@ -886,7 +888,8 @@ class TSalonPassengers: public std::map<int,std::map<std::string,std::map<std::s
       status_wait_list = wlNotInit;
     };
     bool isWaitList( );
-    bool check_waitlist_alarm( const std::map<int,TPaxList> &pax_lists, bool pr_checkin_logged );
+    bool check_waitlist_alarm( const std::map<int,TPaxList> &pax_lists,
+                               const std::set<int> &paxs_external_logged );
 };
 
 struct TAutoSeat {
@@ -975,8 +978,11 @@ class TSalonList: public std::vector<TPlaceList*> {
     bool check_waitlist_alarm_on_tranzit_routes( const TAutoSeats &autoSeats );
 };
 
-    void check_waitlist_alarm_on_tranzit_routes( int point_dep, bool pr_external_logged );
-    void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tranzit_check_wait_alarm, bool pr_external_logged );
+    void check_waitlist_alarm_on_tranzit_routes( int point_dep, const std::set<int> &paxs_external_logged );
+    void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tranzit_check_wait_alarm,
+                                                 const std::set<int> &paxs_external_logged );
+    void check_waitlist_alarm_on_tranzit_routes( int point_dep );
+    void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tranzit_check_wait_alarm );
     void WritePaxSeats( int point_dep, int pax_id, const std::vector<TSeatRange> &ranges );
 
 

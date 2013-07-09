@@ -820,6 +820,13 @@ void GetSeatRemPriority(const string &airline_mark, TSeatRemPriority &rems)
 
 void check_layer_change(const TPointIdsForCheck &point_ids_spp)
 {
+  std::set<int> paxs_external_logged;
+  check_layer_change( point_ids_spp, paxs_external_logged );
+}
+
+void check_layer_change(const TPointIdsForCheck &point_ids_spp,
+                        const std::set<int> &paxs_external_logged)
+{
   std::vector<int> points_check_wait_alarm;
   std::vector<int> points_tranzit_check_wait_alarm;
   
@@ -848,6 +855,6 @@ void check_layer_change(const TPointIdsForCheck &point_ids_spp)
         i!=points_check_wait_alarm.end(); i++ ) {
     check_waitlist_alarm(*i);
   }
-  SALONS2::check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm, false );
+  SALONS2::check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm, paxs_external_logged );
 };
 

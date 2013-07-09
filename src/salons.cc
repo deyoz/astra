@@ -161,6 +161,7 @@ void getMenuLayers( bool isTripCraft,
    	     FilterLayers.isFlag( cltSOMTrzt ) ||
    	     FilterLayers.isFlag( cltPRLTrzt ) ) {
       menuLayers[ cltBlockTrzt ].name_view = AstraLocale::getLocaleText("Транзит");
+      tst();
     }
     menuLayers[ cltCheckin ].name_view = AstraLocale::getLocaleText("Регистрация");
     if ( FilterLayers.isFlag( cltProtTrzt ) ) {
@@ -2571,13 +2572,14 @@ bool getTopSeatLayerOnRoute( const std::map<int,TPaxList> &pax_lists,
   }
   for ( std::set<TSeatLayer,SeatLayerCompare>::const_iterator ilayer=isetSeatLayer->second.begin();
         ilayer!=isetSeatLayer->second.end(); ilayer++ ) {
+    ProgTrace( TRACE5, "getTopSeatLayerOnRoute: %s, %s", string( pseat->yname+pseat->xname ).c_str(), ilayer->toString().c_str() );
     if ( useFilterRoute && !ilayer->inRoute ) {
       tst();
       continue;
     }
     if ( ilayer->getPaxId() == ASTRA::NoExists ) {
       layer = *ilayer;
-      //ProgTrace( TRACE5, "getTopSeatLayerOnRoute: return %s", layer.toString().c_str() );
+      ProgTrace( TRACE5, "getTopSeatLayerOnRoute: return %s", layer.toString().c_str() );
       return true;
     }
     // слой принадлежит пассажиру
@@ -2728,7 +2730,8 @@ inline void setInvalidLayer( std::map<int,TPaxList> &pax_lists,
 
 bool isBlockedLayer( const ASTRA::TCompLayerType &layer_type )
 {
-  return ( layer_type == cltBlockCent );
+  return ( layer_type == cltBlockCent ||
+           layer_type == cltDisable );
 }
 
 inline void dropLayer( std::map<int,TPaxList> &pax_lists,
@@ -2981,6 +2984,8 @@ void TSalonList::validateLayersSeats( )
 
   TSeatLayer max_priority_layer;
   vector<TClearSeatLayer> clearSeatLayers;
+  
+  pax_lists[ getDepartureId() ].dumpValidLayers();
   
   for ( std::vector<TPlaceList*>::iterator iplacelist=begin(); iplacelist!=end(); iplacelist++ ) {
     for ( TPlaces::iterator iseat=(*iplacelist)->places.begin(); iseat!=(*iplacelist)->places.end(); iseat++ ) {
@@ -4314,13 +4319,26 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &salons,
   return res;
 }
 
-void check_waitlist_alarm_on_tranzit_routes( int point_dep, bool pr_external_logged )
+void check_waitlist_alarm_on_tranzit_routes( int point_dep )
 {
-  std::vector<int> points_tranzit_check_wait_alarm( 1, point_dep );
-  check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm, pr_external_logged );
+  std::set<int> paxs_external_logged;
+  check_waitlist_alarm_on_tranzit_routes( point_dep, paxs_external_logged );
 }
 
-void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tranzit_check_wait_alarm, bool pr_external_logged )
+void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tranzit_check_wait_alarm )
+{
+  std::set<int> paxs_external_logged;
+  check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm, paxs_external_logged );
+}
+
+void check_waitlist_alarm_on_tranzit_routes( int point_dep, const std::set<int> &paxs_external_logged )
+{
+  std::vector<int> points_tranzit_check_wait_alarm( 1, point_dep );
+  check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm, paxs_external_logged );
+}
+
+void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tranzit_check_wait_alarm,
+                                             const std::set<int> &paxs_external_logged )
 {
   TFlights flights;
   flights.Get( points_tranzit_check_wait_alarm, trtWithCancelled );
@@ -4339,7 +4357,7 @@ void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tran
       }
       salonList.JumpToLeg( TFilterRoutesSets( iroute->point_id, filterRoutesSets.point_arv ) );
       salonList.getPaxs( passengers );
-      passengers.check_waitlist_alarm( salonList.pax_lists, pr_external_logged );
+      passengers.check_waitlist_alarm( salonList.pax_lists, paxs_external_logged );
     }
   }
 }
@@ -4409,7 +4427,6 @@ bool TSalonList::check_waitlist_alarm_on_tranzit_routes( const TAutoSeats &autoS
       }
     }
   }
-  
   ProgTrace( TRACE5, "check_waitlist_alarm_on_tranzit_routes: return false" );
   return false;
 }
@@ -5508,7 +5525,7 @@ void CreateComps( const TCompsRoutes &routes, int comp_id )
         i!=points_check_wait_alarm.end(); i++ ) {
     check_waitlist_alarm(*i);
   }
-  check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm, false );
+  check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm );
 }
 
 bool CompRouteinRoutes( const CompRoute &item1, const CompRoute &item2 )
@@ -5978,7 +5995,7 @@ TFindSetCraft SetCraft( bool pr_tranzit_routes, int point_id, TSetsCraftPoints &
 	
 	check_diffcomp_alarm( routes );
 	if ( isTranzitSalons( point_id ) ) {
-    check_waitlist_alarm_on_tranzit_routes( point_id, false );
+    check_waitlist_alarm_on_tranzit_routes( point_id );
   }
 	ProgTrace( TRACE5, "SetCraft: return rsComp_Found" );
   return rsComp_Found;
@@ -7067,6 +7084,9 @@ bool compareSeatLayer( const TSeatLayer &layer1, const TSeatLayer &layer2 )
       return false;
     }
   }
+  if ( layer1.getPaxId() != layer2.getPaxId() ) {
+    return ( layer1.getPaxId() < layer2.getPaxId() );
+  }
   return false;
 };
 //новое
@@ -7213,7 +7233,12 @@ std::string getStrWaitListReasion( const std::string &fullname,
                                    int regNo,
                                    const std::string &strreason )
 {
-  string res = string("Пассажир " ) + fullname + ",место: " + seat_no + ", поставлен на ЛО ";
+  string res = string("Пассажир " ) + fullname;
+  TrimString( res );
+  if ( !seat_no.empty() ) {
+    res += ",место: " + seat_no + ",";
+  }
+  res += " поставлен на ЛО ";
   res += " " + strreason;
   bool pr_s = false;
   if ( !airp_dep.empty() && !airp_arv.empty() ) {
@@ -7334,7 +7359,8 @@ void CheckWaitListToLog( TQuery &QryAirp,
 }
 
 
-bool TSalonPassengers::check_waitlist_alarm( const std::map<int,TPaxList> &pax_lists, bool pr_external_logged )
+bool TSalonPassengers::check_waitlist_alarm( const std::map<int,TPaxList> &pax_lists,
+                                             const std::set<int> &paxs_external_logged )
 {
   ProgTrace( TRACE5, "TSalonPassengers::check_waitlist_alarm: point_dep=%d, pr_craft_lat=%d",
              point_dep, pr_craft_lat );
@@ -7425,7 +7451,7 @@ bool TSalonPassengers::check_waitlist_alarm( const std::map<int,TPaxList> &pax_l
         Qry.SetVariable( "yname", iseat->seat.row );
         Qry.Execute();
       }
-      if ( !pr_external_logged ) {
+      if ( paxs_external_logged.find( inew->first ) == paxs_external_logged.end() ) {
         CheckWaitListToLog( QryAirp,
                             pr_exists,
                             inew->first,
@@ -7445,7 +7471,7 @@ bool TSalonPassengers::check_waitlist_alarm( const std::map<int,TPaxList> &pax_l
       bool pr_exists = ( DelQry.RowCount() );
       if ( pr_exists ) {
         if ( passes.find( iold->first ) != passes.end() ) { //существует такой пассажир
-          if ( !pr_external_logged ) {
+          if ( paxs_external_logged.find( iold->first ) == paxs_external_logged.end() ) {
             CheckWaitListToLog( QryAirp,
                                 pr_exists,
                                 iold->first,
@@ -7475,7 +7501,7 @@ bool TSalonPassengers::check_waitlist_alarm( const std::map<int,TPaxList> &pax_l
         Qry.Execute();
         ProgTrace( TRACE5, "xname=%s, yname=%s", iseat->seat.line, iseat->seat.row );
       }
-      if ( !pr_external_logged ) {
+      if ( paxs_external_logged.find( inew->first ) == paxs_external_logged.end() ) {
         CheckWaitListToLog( QryAirp,
                             false,
                             inew->first,
@@ -7571,125 +7597,130 @@ bool TSalonPassengers::BuildWaitList( xmlNodePtr dataNode )
   xmlNodePtr layerNode;
   //std::map<int,std::map<std::string,map<string,std::set<TSalonPax,ComparePassenger>,CompareGrpStatus >,CompareClass >,CompareArv > {
   
+  std::map<std::string,set<TSalonPax,ComparePassenger>,CompareGrpStatus> salonGrpStatusPaxs;
+  //point_arv
   for ( TSalonPassengers::iterator iroute=begin(); iroute!=end(); iroute++ ) {
     //class
-    ProgTrace( TRACE5, "itoute=%d", iroute->first );
     for ( std::map<std::string,map<string,std::set<TSalonPax,ComparePassenger>,CompareGrpStatus >,CompareClass >::iterator iclass=iroute->second.begin();
           iclass!=iroute->second.end(); iclass++ ) {
-      ProgTrace( TRACE5, "iclass=%s", iclass->first.c_str() );
       //grp_status
       for ( map<string,std::set<TSalonPax,ComparePassenger>,CompareGrpStatus >::iterator igrp_layer=iclass->second.begin();
             igrp_layer!=iclass->second.end(); igrp_layer++ ) {
-        layerNode = NULL;
-        const TGrpStatusTypesRow &grp_status_row = (TGrpStatusTypesRow&)grp_status_types.get_row( "code", igrp_layer->first );
-        ProgTrace( TRACE5, "igrp_layer=%s, igrp_layer->second.size()=%zu", igrp_layer->first.c_str(), igrp_layer->second.size() );
-        for ( std::set<TSalonPax,ComparePassenger>::iterator ipass=igrp_layer->second.begin();
-              ipass!=igrp_layer->second.end(); ipass++ ) {
-          if ( passengersNode == NULL ) {
-            passengersNode = NewTextChild( dataNode, "passengers" );
-          }
-          if ( layerNode == NULL ) {
-            layerNode = NewTextChild( passengersNode, "layer_type", grp_status_row.layer_type );
-            SetProp( layerNode, "name", grp_status_row.AsString( "name" ) );
-          }
-          ProgTrace( TRACE5, "ipax->pax_id=%d, rownum=%d", ipass->pax_id, rownum );
-          xmlNodePtr passNode = NewTextChild( layerNode, "pass" );
-          rownum++;
-          createDefaults = true;
-          Qry.SetVariable( "pax_id", ipass->pax_id );
-          Qry.SetVariable( "rnum", rownum );
-          Qry.Execute();
-          NewTextChild( passNode, "grp_id", ipass->grp_id );
-          NewTextChild( passNode, "pax_id", ipass->pax_id );
-          if (TReqInfo::Instance()->desk.compatible(LATIN_VERSION)) {
-            NewTextChild( passNode, "clname", ipass->cl, def.clname );
-            NewTextChild( passNode, "grp_layer_type",
-                          grp_status_row.layer_type,
-                          EncodeCompLayerType( def.grp_status ) );
-            NewTextChild( passNode, "pers_type",
-                         ElemIdToCodeNative(etPersType, ipass->pers_type),
-                         ElemIdToCodeNative(etPersType, def.pers_type) );
+        //pass.grp+reg_no
+        salonGrpStatusPaxs[ igrp_layer->first ].insert( igrp_layer->second.begin(), igrp_layer->second.end() );
+      }
+    }
+  }
+  //grp_status
+  for ( map<string,std::set<TSalonPax,ComparePassenger>,CompareGrpStatus >::iterator igrp_layer=salonGrpStatusPaxs.begin();
+        igrp_layer!=salonGrpStatusPaxs.end(); igrp_layer++ ) {
+    layerNode = NULL;
+    const TGrpStatusTypesRow &grp_status_row = (TGrpStatusTypesRow&)grp_status_types.get_row( "code", igrp_layer->first );
+    ProgTrace( TRACE5, "igrp_layer=%s, igrp_layer->second.size()=%zu", igrp_layer->first.c_str(), igrp_layer->second.size() );
+    for ( std::set<TSalonPax,ComparePassenger>::iterator ipass=igrp_layer->second.begin();
+          ipass!=igrp_layer->second.end(); ipass++ ) {
+      if ( passengersNode == NULL ) {
+        passengersNode = NewTextChild( dataNode, "passengers" );
+      }
+      if ( layerNode == NULL ) {
+        layerNode = NewTextChild( passengersNode, "layer_type", grp_status_row.layer_type );
+        SetProp( layerNode, "name", grp_status_row.AsString( "name" ) );
+      }
+      ProgTrace( TRACE5, "ipax->pax_id=%d, rownum=%d", ipass->pax_id, rownum );
+      xmlNodePtr passNode = NewTextChild( layerNode, "pass" );
+      rownum++;
+      createDefaults = true;
+      Qry.SetVariable( "pax_id", ipass->pax_id );
+      Qry.SetVariable( "rnum", rownum );
+      Qry.Execute();
+      NewTextChild( passNode, "grp_id", ipass->grp_id );
+      NewTextChild( passNode, "pax_id", ipass->pax_id );
+      if (TReqInfo::Instance()->desk.compatible(LATIN_VERSION)) {
+        NewTextChild( passNode, "clname", ipass->cl, def.clname );
+        NewTextChild( passNode, "grp_layer_type",
+                      grp_status_row.layer_type,
+                      EncodeCompLayerType( def.grp_status ) );
+        NewTextChild( passNode, "pers_type",
+                      ElemIdToCodeNative(etPersType, ipass->pers_type),
+                      ElemIdToCodeNative(etPersType, def.pers_type) );
 
-          }
-          else {
-            NewTextChild( passNode, "clname", ipass->cl );
-            NewTextChild( passNode, "grp_layer_type",
-                          grp_status_row.layer_type );
-            NewTextChild( passNode, "pers_type", ipass->pers_type );
-          }
-          NewTextChild( passNode, "reg_no", ipass->reg_no );
-          string name = ipass->surname;
-          NewTextChild( passNode, "name", TrimString( name ) + string(" ") + ipass->name );
-          TWaitListReason waitListReason;
-          string seat_no = ipass->seat_no( "list", pr_craft_lat, waitListReason );
-          if ( seat_no.empty() ) {
-            if ( Qry.FieldIsNULL( "wl_type" ) ) {
-              seat_no = string("(") + ipass->prior_seat_no( "seats", pr_craft_lat ) + string(")");
-            }
-            else {
-              seat_no = AstraLocale::getLocaleText("ЛО");
-            }
-          }
-          NewTextChild( passNode, "seat_no", seat_no, def.placeName );
-          if ( waitListReason.layerStatus != layerValid && status_wait_list == wlNo ) {
-            status_wait_list = wlYes; //есть ЛО
-          }
-          NewTextChild( passNode, "wl_type", Qry.FieldAsString( "wl_type" ), def.wl_type );
-          NewTextChild( passNode, "seats", ipass->seats, def.countPlace );
-          NewTextChild( passNode, "tid", Qry.FieldAsInteger( "tid" ) );
-          NewTextChild( passNode, "isseat", (int)waitListReason.layerStatus == layerValid, (int)def.isSeat );
-          NewTextChild( passNode, "ticket_no", Qry.FieldAsString( "ticket_no" ), def.ticket_no );
-          NewTextChild( passNode, "document",
-                        CheckIn::GetPaxDocStr(NoExists, ipass->pax_id, PaxDocQry, true),
-                        def.document );
-          NewTextChild( passNode, "bag_weight", Qry.FieldAsInteger( "bag_weight" ), def.bag_weight );
-          NewTextChild( passNode, "bag_amount", Qry.FieldAsInteger( "bag_amount" ), def.bag_amount );
-          NewTextChild( passNode, "excess", Qry.FieldAsInteger( "excess" ), def.excess );
-          ostringstream trip;
-          if ( !Qry.FieldIsNULL("tckin_id") ) {
-            TCkinRouteItem priorSeg;
-            tckin_route.GetPriorSeg(Qry.FieldAsInteger("tckin_id"),
-                                    Qry.FieldAsInteger("seg_no"),
-                                    crtIgnoreDependent,
-                                    priorSeg);
-            if (priorSeg.grp_id!=NoExists)
-            {
-              TDateTime local_scd_out = UTCToClient(priorSeg.operFlt.scd_out,AirpTZRegion(priorSeg.operFlt.airp));
-
-    	        trip << ElemIdToElemCtxt( ecDisp, etAirline, priorSeg.operFlt.airline, priorSeg.operFlt.airline_fmt )
-    	             << setw(3) << setfill('0') << priorSeg.operFlt.flt_no
-    	             << ElemIdToElemCtxt( ecDisp, etSuffix, priorSeg.operFlt.suffix, priorSeg.operFlt.suffix_fmt )
-    	             << "/" << DateTimeToStr( local_scd_out, "dd" );
-            }
-          }
-          NewTextChild( passNode, "trip_from", trip.str(), def.trip_from );
-          string comp_rem, pass_rem;
-          bool pr_down = false;
-          RemsQry.SetVariable( "pax_id", ipass->pax_id );
-          RemsQry.Execute();
-          for( ; !RemsQry.Eof; RemsQry.Next() ) {
-            if ( !RemsQry.FieldIsNULL( "pr_comp" ) ) {
-              comp_rem += string(RemsQry.FieldAsString( "rem_code" )) + " ";
-            }
-            pass_rem += string( ".R/" ) + RemsQry.FieldAsString( "rem" ) + "   ";
-            if ( string(RemsQry.FieldAsString( "rem_code" )) == "STCR" ) {
-              pr_down = true;
-            }
-          }
-          string rem;
-          const TBaseTableRow &row=cls_grp.get_row( "id", ipass->class_grp );
-          if ( subcls_rems.IsSubClsRem( row.AsString( "code" ), rem ) ) {
-            comp_rem += rem;
-          }
-          ProgTrace( TRACE5, "pax_id=%d, comp_rem=%s, pass_rem=%s",
-                     ipass->pax_id, comp_rem.c_str(), pass_rem.c_str() );
-          NewTextChild( passNode, "comp_rem", TrimString( comp_rem ), def.comp_rem );
-          NewTextChild( passNode, "pr_down", (int)pr_down, (int)def.pr_down );
-          NewTextChild( passNode, "pass_rem", TrimString( pass_rem ), def.pass_rem );
-        } //end pass
-      } //end grp_status
-    } //end class
-  } //end point_arv
+      }
+      else {
+        NewTextChild( passNode, "clname", ipass->cl );
+        NewTextChild( passNode, "grp_layer_type",
+                      grp_status_row.layer_type );
+        NewTextChild( passNode, "pers_type", ipass->pers_type );
+      }
+      NewTextChild( passNode, "reg_no", ipass->reg_no );
+      string name = ipass->surname;
+      NewTextChild( passNode, "name", TrimString( name ) + string(" ") + ipass->name );
+      TWaitListReason waitListReason;
+      string seat_no = ipass->seat_no( "list", pr_craft_lat, waitListReason );
+      if ( seat_no.empty() ) {
+        if ( Qry.FieldIsNULL( "wl_type" ) ) {
+          seat_no = string("(") + ipass->prior_seat_no( "seats", pr_craft_lat ) + string(")");
+        }
+        else {
+          seat_no = AstraLocale::getLocaleText("ЛО");
+        }
+      }
+      NewTextChild( passNode, "seat_no", seat_no, def.placeName );
+      if ( waitListReason.layerStatus != layerValid && status_wait_list == wlNo ) {
+        status_wait_list = wlYes; //есть ЛО
+      }
+      NewTextChild( passNode, "wl_type", Qry.FieldAsString( "wl_type" ), def.wl_type );
+      NewTextChild( passNode, "seats", ipass->seats, def.countPlace );
+      NewTextChild( passNode, "tid", Qry.FieldAsInteger( "tid" ) );
+      NewTextChild( passNode, "isseat", (int)waitListReason.layerStatus == layerValid, (int)def.isSeat );
+      NewTextChild( passNode, "ticket_no", Qry.FieldAsString( "ticket_no" ), def.ticket_no );
+      NewTextChild( passNode, "document",
+                    CheckIn::GetPaxDocStr(NoExists, ipass->pax_id, PaxDocQry, true),
+                    def.document );
+      NewTextChild( passNode, "bag_weight", Qry.FieldAsInteger( "bag_weight" ), def.bag_weight );
+      NewTextChild( passNode, "bag_amount", Qry.FieldAsInteger( "bag_amount" ), def.bag_amount );
+      NewTextChild( passNode, "excess", Qry.FieldAsInteger( "excess" ), def.excess );
+      ostringstream trip;
+      if ( !Qry.FieldIsNULL("tckin_id") ) {
+        TCkinRouteItem priorSeg;
+        tckin_route.GetPriorSeg(Qry.FieldAsInteger("tckin_id"),
+                                Qry.FieldAsInteger("seg_no"),
+                                crtIgnoreDependent,
+                                priorSeg);
+        if (priorSeg.grp_id!=NoExists)
+        {
+          TDateTime local_scd_out = UTCToClient(priorSeg.operFlt.scd_out,AirpTZRegion(priorSeg.operFlt.airp));
+ 	        trip << ElemIdToElemCtxt( ecDisp, etAirline, priorSeg.operFlt.airline, priorSeg.operFlt.airline_fmt )
+ 	             << setw(3) << setfill('0') << priorSeg.operFlt.flt_no
+ 	             << ElemIdToElemCtxt( ecDisp, etSuffix, priorSeg.operFlt.suffix, priorSeg.operFlt.suffix_fmt )
+ 	             << "/" << DateTimeToStr( local_scd_out, "dd" );
+        }
+      }
+      NewTextChild( passNode, "trip_from", trip.str(), def.trip_from );
+      string comp_rem, pass_rem;
+      bool pr_down = false;
+      RemsQry.SetVariable( "pax_id", ipass->pax_id );
+      RemsQry.Execute();
+      for( ; !RemsQry.Eof; RemsQry.Next() ) {
+        if ( !RemsQry.FieldIsNULL( "pr_comp" ) ) {
+          comp_rem += string(RemsQry.FieldAsString( "rem_code" )) + " ";
+        }
+        pass_rem += string( ".R/" ) + RemsQry.FieldAsString( "rem" ) + "   ";
+        if ( string(RemsQry.FieldAsString( "rem_code" )) == "STCR" ) {
+          pr_down = true;
+        }
+      }
+      string rem;
+      const TBaseTableRow &row=cls_grp.get_row( "id", ipass->class_grp );
+      if ( subcls_rems.IsSubClsRem( row.AsString( "code" ), rem ) ) {
+        comp_rem += rem;
+      }
+      ProgTrace( TRACE5, "pax_id=%d, comp_rem=%s, pass_rem=%s",
+                 ipass->pax_id, comp_rem.c_str(), pass_rem.c_str() );
+      NewTextChild( passNode, "comp_rem", TrimString( comp_rem ), def.comp_rem );
+      NewTextChild( passNode, "pr_down", (int)pr_down, (int)def.pr_down );
+      NewTextChild( passNode, "pass_rem", TrimString( pass_rem ), def.pass_rem );
+    } //end pass
+  } //end grp_status
   if (createDefaults)
   {
     xmlNodePtr defNode = NewTextChild( dataNode, "defaults" );

@@ -719,7 +719,8 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   // конец перечитки
   SALONS2::check_diffcomp_alarm( trip_id );
   if ( SALONS2::isTranzitSalons( trip_id ) ) {
-    SALONS2::check_waitlist_alarm_on_tranzit_routes( trip_id, false );
+    tst();
+    SALONS2::check_waitlist_alarm_on_tranzit_routes( trip_id );
   }
   else {
     check_waitlist_alarm( trip_id );

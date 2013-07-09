@@ -153,6 +153,49 @@ void ReadTranzitSalons( TTlgInfo &info, vector<TTlgCompLayer> &complayers, bool 
   sort( complayers.begin(), complayers.end(), CompareCompLayers );
 }
 
+void getPaxsSeats( int point_dep )
+{
+  SALONS2::TSalons Salons( point_dep, SALONS2::rTripSalons );
+  Salons.Read();
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+	  "SELECT pax.pax_id,pax.reg_no,pax_grp.grp_id,"
+	   "      pax_grp.class,pax.refuse,"
+	   "       pax.pers_type, "
+	   "       NVL(pax_doc.gender,'F') as gender, "
+	   "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'list',rownum,1) AS seat_no, "
+	   "       pax.seats seats "
+	   " FROM pax_grp, pax, pax_doc, "
+	   " WHERE pax_grp.grp_id=pax.grp_id AND "
+	   "       pax_grp.point_dep=:point_id AND "
+	   "       pax.wl_type IS NULL AND "
+	   "       pax.seats > 0 AND "
+	   "       pax.pax_id=pax_doc.pax_id(+) ";
+  Qry.CreateVariable( "point_id", otInteger, point_dep );
+  Qry.Execute();
+  for ( ; Qry.Eof; Qry.Next() ) {
+    if ( Qry.FieldIsNULL( "seat_no" ) ) {
+      continue;
+    }
+    TPerson person_type = DecodePerson( Qry.FieldAsString( "pers_type" ) );
+    string gender;
+    switch( person_type ) {
+      case ASTRA::adult:
+        gender = string(Qry.FieldAsString( "gender" )).substr(0,1);
+        break;
+      case ASTRA::child:
+        gender = "C";
+        break;
+      case ASTRA::baby:
+        gender = "I";
+        break;
+      default:
+        break;
+    }
+    string seat_nos = Qry.FieldAsString( "seat_no" ); //список номеров мест
+  }
+}
+
 void ReadSalons( TTlgInfo &info, vector<TTlgCompLayer> &complayers, bool pr_blocked )
 {
     complayers.clear();

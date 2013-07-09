@@ -3829,7 +3829,7 @@ void ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
       	throw UserException( "MSG.SEATS.SET_LAYER_NOT_AVAIL" );
     }
   }
-  { //mvd
+/*  { //mvd
     switch ( layer_type ) {
       case cltGoShow:
      	case cltTranzit:
@@ -3840,11 +3840,11 @@ void ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
       default:
         break;
     }
-  }
+  }*/
 
   tid = curr_tid;
 
-/*  TReqInfo *reqinfo = TReqInfo::Instance();
+  TReqInfo *reqinfo = TReqInfo::Instance();
   string new_seat_no;
   for (vector<TSeatRange>::iterator ns=seatRanges.begin(); ns!=seatRanges.end(); ns++ ) {
   	if ( !new_seat_no.empty() )
@@ -3862,8 +3862,8 @@ void ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
                              " посажен на место: " +
                              new_seat_no,
                              evtPax, point_id, idx1, idx2 );
-          if ( is_sync_paxs( point_id ) )
-            update_pax_change( point_id, pax_id, idx1, "Р" );
+/*          if ( is_sync_paxs( point_id ) )
+            update_pax_change( point_id, pax_id, idx1, "Р" );*/
           break;
         default:;
   		}
@@ -3878,8 +3878,8 @@ void ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
                              " пересажен. Новое место: " +
                              new_seat_no,
                              evtPax, point_id, idx1, idx2 );
-          if ( is_sync_paxs( point_id ) )
-            update_pax_change( point_id, pax_id, idx1, "Р" );
+/*          if ( is_sync_paxs( point_id ) )
+            update_pax_change( point_id, pax_id, idx1, "Р" );*/
           break;
         default:;
   		}
@@ -3893,14 +3893,16 @@ void ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
           reqinfo->MsgToLog( string( "Пассажир " ) + fullname +
                              " высажен. Место: " + prior_seat,
                              evtPax, point_id, idx1, idx2 );
-          if ( is_sync_paxs( point_id ) )
-            update_pax_change( point_id, pax_id, idx1, "Р" );
+/*          if ( is_sync_paxs( point_id ) )
+            update_pax_change( point_id, pax_id, idx1, "Р" );*/
           break;
         default:;
   		}
   		break;
-  }         */
-  check_layer_change( point_ids_spp );
+  }
+  std::set<int> paxs_external_logged;
+  paxs_external_logged.insert( pax_id );
+  check_layer_change( point_ids_spp, paxs_external_logged );
 }
 
 //point_arv,class,ASTRA::TCompLayerType
@@ -3940,7 +3942,7 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
       //grp_status
       for ( std::map<std::string,std::set<TSalonPax,ComparePassenger>,CompareGrpStatus >::const_iterator ipass_status=ipass_class->second.begin();
             ipass_status!=ipass_class->second.end(); ipass_status++ ) {
-        Passengers.Clear();
+        //заполняем пассажирами с одними характеристиками
         vector<ASTRA::TCompLayerType> grp_layers;
         const TGrpStatusTypesRow &grp_status_row = (TGrpStatusTypesRow&)grp_status_types.get_row( "code", ipass_status->first );
         ASTRA::TCompLayerType grp_layer_type = DecodeCompLayerType( grp_status_row.layer_type.c_str() );
@@ -3951,6 +3953,7 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
         if ( salonList.empty() )
           throw EXCEPTIONS::Exception( "Не задан салон для автоматической рассадки" );
         bool drop_not_web_passes = false;
+        tst();
         if ( !salonList.CreateSalonsForAutoSeats( SalonsN,
                                                   filterRoutes,
                                                   true,
@@ -3961,9 +3964,13 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
         if ( SalonsN.placelists.empty() )
           throw EXCEPTIONS::Exception( "Не задан салон для автоматической рассадки" );
         //помечаем занятые места пассажирами
-        int s = Passengers.getCount();
+        int s = Passes.getCount();
+        ProgTrace( TRACE5, "Passes.getCount()=%d", Passes.getCount() );
         for ( int i=0; i<s; i++ ) {
-          TPassenger &pass = Passengers.Get( i );
+          TPassenger &pass = Passes.Get( i );
+          if ( !pass.InUse ) {
+            continue;
+          }
           SALONS2::TPoint FP( pass.Pos.x, pass.Pos.y );
           for ( int j=0; j<pass.countPlace; j++ ) {
             SALONS2::TPlace *place = pass.placeList->place( FP );
@@ -3980,8 +3987,12 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
             place->AddLayerToPlace( cltCheckin, NowUTC(), pass.paxId,
     	                              salonList.getDepartureId(), pass.point_arv,
                                     BASIC_SALONS::TCompLayerTypes::Instance()->priority( cltCheckin ) );
+            tst();
           }
+          tst();
         }
+        tst();
+        Passengers.Clear();
         FSeatAlgoParams = ASeatAlgoParams;
         CurrSalon = &SalonsN;
         SeatAlg = sSeatPassengers;
@@ -3999,6 +4010,7 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
         CanUseTube = true;
         CanUseAlone = uTrue;
         SeatPlaces.Clear();
+        Passengers.Clear();
 
         try {
           for ( std::set<TSalonPax,ComparePassenger>::iterator ipass=ipass_status->second.begin();
@@ -4007,6 +4019,7 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
             TPassSeats ranges;
             string seat_no = ipass->seat_no( "one", salonList.isCraftLat(), waitListReason );
             if ( waitListReason.layerStatus == layerValid ) {
+              tst();
               continue;
             }
             TPassenger vpass;
@@ -4025,6 +4038,7 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
             Qry.SetVariable( "pax_id", ipass->pax_id );
             Qry.Execute();
             vpass.Step = sRight;
+            tst();
             for ( ; !Qry.Eof; Qry.Next() ) {
               vpass.add_rem( Qry.FieldAsString( "rem_code" ) );
               if ( string(Qry.FieldAsString( "rem_code" )) == "STCR" ) {
@@ -4036,6 +4050,7 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
             if ( subcls_rems.IsSubClsRem( row.AsString( "code" ), rem ) ) {
               vpass.add_rem( rem );
             }
+            tst();
             Passengers.Add( salonList, vpass );
             Passes.Add( salonList, vpass );
             if ( ExistsBasePlace( SalonsN, vpass ) ) { // пассажир не посажен, но нашлось для него базовое место - пометили как занято //??? кодировка !!!
@@ -4051,14 +4066,22 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
             ProgTrace( TRACE5, "AutoReSeatsPassengers: Passengers.getCount()=%d, layer_type=%s",
                        Passengers.getCount(), grp_status_row.layer_type.c_str()  );
             SeatPlaces.grp_status = Passengers.Get( 0 ).grp_status;
+            tst();
             SeatPlaces.SeatsPassengers( true );
+            tst();
             SeatPlaces.RollBack( );
+            tst();
             int s = Passengers.getCount();
+            tst();
             for ( int i=0; i<s; i++ ) {
+              tst();
               TPassenger &pass = Passengers.Get( i );
+              tst();
               int k = Passes.getCount();
               for ( int j=0; j<k; j++	 ) {
+                tst();
                 TPassenger &opass = Passes.Get( j );
+                tst();
                 if ( opass.paxId == pass.paxId ) {
               	  opass = pass;
               	  ProgTrace( TRACE5, "pass.pax_id=%d, pass foundSeats=%s, pass.isSeat=%d, pass.InUse=%d",
@@ -4074,6 +4097,7 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
           throw;
         }
         SeatPlaces.RollBack( );
+        tst();
       } //end grp_status
     } //end class
   } //end point_arv
@@ -4090,7 +4114,6 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
   TDateTime time_create = NowUTC();
   int s = Passes.getCount();
 //  bool pr_is_sync_paxs = is_sync_paxs( salonList.getDepartureId() );
-  vector<TPassenger> paxs;
   for ( int i=0; i<s; i++ ) {
   	TPassenger &pass = Passes.Get( i );
    	ProgTrace( TRACE5, "pass.pax_id=%d, pass.isSeat=%d", pass.paxId, pass.isSeat );
@@ -4110,10 +4133,9 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
 	    SaveTripSeatRanges( salonList.getDepartureId(), pass.grp_status, seats, pass.paxId, salonList.getDepartureId(), pass.point_arv, time_create ); //???
 	    QryUpd.SetVariable( "pax_id", pass.paxId );
       QryUpd.Execute();
-      paxs.push_back( pass );
     }
   }
-  check_waitlist_alarm_on_tranzit_routes( salonList.getDepartureId(), false );
+  check_waitlist_alarm_on_tranzit_routes( salonList.getDepartureId() );
 /*  if ( pr_is_sync_paxs ) {
     for ( vector<TPassenger>::iterator ipass=paxs.begin(); ipass!=paxs.end(); ipass++ ) {
       update_pax_change( salonList.getDepartureId(), ipass->paxId, ipass->regNo, "Р" );

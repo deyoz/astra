@@ -3450,6 +3450,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       bool first_pax_on_flight = false;
       bool isTranzitSalonsVersion = SALONS2::isTranzitSalons( grp.point_dep );
       bool pr_do_check_wait_list_alarm = true;
+      std::set<int> paxs_external_logged;
 
 
       if (new_checkin)
@@ -3901,6 +3902,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                           break;
                         }
                       }
+                      paxs_external_logged.insert( pax_id );
                     }
 
                		  if ( pas.preseat_pax_id > 0 )
@@ -4450,7 +4452,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           //определяет по местам пассажиров нужно ли делать перерасчет тревоги ЛО и
           //если нужно делает перерасчет
           if ( pr_do_check_wait_list_alarm ) {
-            SALONS2::check_waitlist_alarm_on_tranzit_routes( grp.point_dep, true );
+            SALONS2::check_waitlist_alarm_on_tranzit_routes( grp.point_dep, paxs_external_logged );
           }
         }
         else {

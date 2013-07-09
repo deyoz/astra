@@ -58,6 +58,9 @@ void GetSeatRemPriority(const std::string &airline_mark, TSeatRemPriority &rems)
 
 void check_layer_change(const TPointIdsForCheck &point_ids_spp);
 
+void check_layer_change(const TPointIdsForCheck &point_ids_spp,
+                        const std::set<int> &paxs_external_logged);
+
 
 #endif
 
