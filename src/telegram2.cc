@@ -56,7 +56,6 @@ void ExceptionFilter(vector<string> &body, TypeB::TDetailCreateInfo &info)
     body.push_back(buf);
 }
 
-
 bool CompareCompLayers( TTlgCompLayer t1, TTlgCompLayer t2 )
 {
 	if ( t1.yname < t2.yname )
@@ -71,6 +70,173 @@ bool CompareCompLayers( TTlgCompLayer t1, TTlgCompLayer t2 )
 			  return false;
 };
 
+struct TCompareCompLayers {
+  bool operator() ( const TTlgCompLayer &t1, const TTlgCompLayer &t2 ) const {
+  	return CompareCompLayers( t1, t2 );
+  }
+};
+
+
+
+struct TCheckinPaxSeats {
+  std::string gender;
+  std::set<TTlgCompLayer,TCompareCompLayers> seats;
+};
+
+//!!!удалить при установке без новых салонов
+void getPaxsSeatsTranzitSalons( int point_dep, std::map<int,TCheckinPaxSeats> &checkinPaxsSeats )
+{
+  checkinPaxsSeats.clear();
+  SALONS2::TSalonList salonList;
+  salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_dep, ASTRA::NoExists ), "" );
+  std::set<ASTRA::TCompLayerType> search_layers;
+  for ( int ilayer=0; ilayer<(int)cltTypeNum; ilayer++ ) {
+    ASTRA::TCompLayerType layer_type = (ASTRA::TCompLayerType)ilayer;
+    BASIC_SALONS::TCompLayerType layer_elem;
+    if ( BASIC_SALONS::TCompLayerTypes::Instance()->getElem( layer_type, layer_elem ) &&
+         layer_elem.getOccupy() ) {
+      search_layers.insert( layer_type );
+    }
+  }
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "SELECT NVL(pax_doc.gender,'F') as gender "
+    " FROM pax_doc "
+    " WHERE pax_id=:pax_id";
+  Qry.DeclareVariable( "pax_id", otInteger );
+  TSalonPassengers passengers;
+  salonList.getPaxs( passengers );
+  //point_arv
+  for ( TSalonPassengers::iterator iroute=passengers.begin(); iroute!=passengers.end(); iroute++ ) {
+    //class
+    for ( std::map<std::string,map<string,std::set<TSalonPax,ComparePassenger>,CompareGrpStatus >,CompareClass >::iterator iclass=iroute->second.begin();
+          iclass!=iroute->second.end(); iclass++ ) {
+      //grp_status
+      for ( map<string,std::set<TSalonPax,ComparePassenger>,CompareGrpStatus >::iterator igrp_layer=iclass->second.begin();
+            igrp_layer!=iclass->second.end(); igrp_layer++ ) {
+        //pass.grp+reg_no
+        for ( std::set<TSalonPax,ComparePassenger>::iterator ipass=igrp_layer->second.begin(); ipass!=igrp_layer->second.end(); ipass++ ) {
+          if ( ipass->layers.empty() ) {
+            continue;
+          }
+          for ( TLayersPax::const_iterator ilayer=ipass->layers.begin(); ilayer!=ipass->layers.end(); ilayer++ ) {
+            if ( search_layers.find( ilayer->first.layer_type ) == search_layers.end() ||
+                 ilayer->second.waitListReason.layerStatus != layerValid ) {
+              continue;
+            }
+            TCheckinPaxSeats checkinPaxSeats;
+            switch( ipass->pers_type ) {
+              case ASTRA::adult:
+                Qry.SetVariable( "pax_id", ipass->pax_id );
+                Qry.Execute();
+                if ( Qry.Eof ) {
+                  checkinPaxSeats.gender = "F"; //???
+                }
+                else {
+                  checkinPaxSeats.gender = string(Qry.FieldAsString( "gender" )).substr(0,1);
+                }
+                break;
+              case ASTRA::child:
+                checkinPaxSeats.gender = "C";
+                break;
+              case ASTRA::baby:
+                checkinPaxSeats.gender = "I";
+                break;
+              default:
+                break;
+            }
+            TTlgCompLayer compLayer;
+            compLayer.pax_id = ilayer->first.getPaxId();
+	          compLayer.point_dep = ilayer->first.point_dep;
+	          compLayer.point_arv = ilayer->first.point_arv;
+	          compLayer.layer_type = ilayer->first.layer_type;
+	          for ( std::set<TPlace*,CompareSeats>::iterator iseat=ilayer->second.seats.begin();
+                  iseat!=ilayer->second.seats.end(); iseat++ ) {
+              compLayer.xname = (*iseat)->xname;
+	            compLayer.yname = (*iseat)->yname;
+	            checkinPaxSeats.seats.insert( compLayer );
+            }
+            checkinPaxsSeats.insert( make_pair( ipass->pax_id, checkinPaxSeats ) );
+	          break;
+          }
+        }
+      }
+    }
+  }
+}
+
+void getPaxsSeats( int point_dep, std::map<int,TCheckinPaxSeats> &checkinPaxsSeats )
+{
+  checkinPaxsSeats.clear();
+  if ( SALONS2::isTranzitSalons( point_dep ) ) {     //!!!удалить при установке без новых салонов
+    getPaxsSeatsTranzitSalons( point_dep, checkinPaxsSeats ); //!!!удалить при установке без новых салонов - getPaxsSeatsTranzitSalons
+    return;
+  }
+  set<ASTRA::TCompLayerType> occupies;
+  TQuery Qry(&OraSession);
+  Qry.SQLText = "SELECT code FROM comp_layer_types WHERE PR_OCCUPY<>0";
+  Qry.Execute();
+  for ( ;!Qry.Eof; Qry.Next() ) {
+    occupies.insert( DecodeCompLayerType( Qry.FieldAsString( "code" ) ) );
+  }
+  SALONS2::TSalons Salons( point_dep, SALONS2::rTripSalons );
+  Salons.Read();
+  Qry.Clear();
+  Qry.SQLText =
+	  "SELECT pax.pax_id,pax.reg_no,pax_grp.grp_id,"
+	   "      pax_grp.class,pax.refuse,"
+	   "       pax.pers_type, "
+	   "       NVL(pax_doc.gender,'F') as gender, "
+	   "       pax.seats seats "
+	   " FROM pax_grp, pax, pax_doc "
+	   " WHERE pax_grp.grp_id=pax.grp_id AND "
+	   "       pax_grp.point_dep=:point_id AND "
+	   "       pax.wl_type IS NULL AND "
+	   "       pax.seats > 0 AND "
+	   "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'one',rownum,1) IS NOT NULL AND "
+	   "       pax.pax_id=pax_doc.pax_id(+) ";
+  Qry.CreateVariable( "point_id", otInteger, point_dep );
+  Qry.Execute();
+  for ( ; Qry.Eof; Qry.Next() ) {
+    if ( Qry.FieldIsNULL( "seat_no" ) ) {
+      continue;
+    }
+    TCheckinPaxSeats checkinPaxSeats;
+    TPerson person_type = DecodePerson( Qry.FieldAsString( "pers_type" ) );
+    switch( person_type ) {
+      case ASTRA::adult:
+        checkinPaxSeats.gender = string(Qry.FieldAsString( "gender" )).substr(0,1);
+        break;
+      case ASTRA::child:
+        checkinPaxSeats.gender = "C";
+        break;
+      case ASTRA::baby:
+        checkinPaxSeats.gender = "I";
+        break;
+      default:
+        break;
+    }
+    checkinPaxsSeats.insert( make_pair( Qry.FieldAsInteger( "pax_id" ), checkinPaxSeats ) );
+  }
+  for ( vector<TPlaceList*>::iterator isalonList=Salons.placelists.begin(); isalonList!=Salons.placelists.end(); isalonList++) { // пробег по салонам
+    for ( IPlace iseat=(*isalonList)->places.begin(); iseat!=(*isalonList)->places.end(); iseat++ ) { // пробег по местам в салоне
+      if ( iseat->layers.empty() ||
+           occupies.find( iseat->layers.begin()->layer_type ) == occupies.end() ||
+           checkinPaxsSeats.find( iseat->layers.begin()->pax_id ) == checkinPaxsSeats.end() ) {
+        continue;
+      }
+      TTlgCompLayer compLayer;
+      compLayer.pax_id = iseat->layers.begin()->pax_id;
+	    compLayer.point_dep = iseat->layers.begin()->point_dep;
+	    compLayer.point_arv = iseat->layers.begin()->point_arv;
+	    compLayer.layer_type = iseat->layers.begin()->layer_type;
+	    compLayer.xname = iseat->xname;
+	    compLayer.yname = iseat->yname;
+      checkinPaxsSeats[ iseat->layers.begin()->pax_id ].seats.insert( compLayer );
+    }
+  }
+}
+//!!!удалить при установке без новых салонов
 void ReadTranzitSalons( int point_id,
                         int point_num,
                         int first_point,
@@ -142,49 +308,6 @@ void ReadTranzitSalons( int point_id,
   sort( complayers.begin(), complayers.end(), CompareCompLayers );
 }
 
-void getPaxsSeats( int point_dep )
-{
-  SALONS2::TSalons Salons( point_dep, SALONS2::rTripSalons );
-  Salons.Read();
-  TQuery Qry(&OraSession);
-  Qry.SQLText =
-	  "SELECT pax.pax_id,pax.reg_no,pax_grp.grp_id,"
-	   "      pax_grp.class,pax.refuse,"
-	   "       pax.pers_type, "
-	   "       NVL(pax_doc.gender,'F') as gender, "
-	   "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'list',rownum,1) AS seat_no, "
-	   "       pax.seats seats "
-	   " FROM pax_grp, pax, pax_doc, "
-	   " WHERE pax_grp.grp_id=pax.grp_id AND "
-	   "       pax_grp.point_dep=:point_id AND "
-	   "       pax.wl_type IS NULL AND "
-	   "       pax.seats > 0 AND "
-	   "       pax.pax_id=pax_doc.pax_id(+) ";
-  Qry.CreateVariable( "point_id", otInteger, point_dep );
-  Qry.Execute();
-  for ( ; Qry.Eof; Qry.Next() ) {
-    if ( Qry.FieldIsNULL( "seat_no" ) ) {
-      continue;
-    }
-    TPerson person_type = DecodePerson( Qry.FieldAsString( "pers_type" ) );
-    string gender;
-    switch( person_type ) {
-      case ASTRA::adult:
-        gender = string(Qry.FieldAsString( "gender" )).substr(0,1);
-        break;
-      case ASTRA::child:
-        gender = "C";
-        break;
-      case ASTRA::baby:
-        gender = "I";
-        break;
-      default:
-        break;
-    }
-    string seat_nos = Qry.FieldAsString( "seat_no" ); //список номеров мест
-  }
-}
-
 void ReadSalons(const TypeB::TDetailCreateInfo &info,
                 vector<TTlgCompLayer> &complayers,
                 bool pr_blocked)
@@ -207,8 +330,8 @@ void ReadSalons(int point_id,
                 bool pr_blocked)
 {
     complayers.clear();
-    if ( SALONS2::isTranzitSalons( point_id ) ) {
-      ReadTranzitSalons( point_id,
+    if ( SALONS2::isTranzitSalons( point_id ) ) { //!!!удалить при установке без новых салонов
+      ReadTranzitSalons( point_id, //!!!удалить при установке без новых салонов - ReadTranzitSalons
                          point_num,
                          first_point,
                          pr_tranzit,
