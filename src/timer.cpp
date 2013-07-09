@@ -294,9 +294,9 @@ void ETCheckStatusFlt(void)
           try
           {
             ProgTrace(TRACE5,"ETCheckStatusFlt.SendTlg: point_id=%d",point_id);
-            vector<string>  tlg_types;
-            tlg_types.push_back("ETL");
-            TelegramInterface::SendTlg(point_id,tlg_types);
+            vector<TypeB::TCreateInfo> createInfo; //!!!vlad проверить
+            TypeB::TETLCreator(point_id).getInfo(createInfo);
+            TelegramInterface::SendTlg(createInfo);
             UpdQry.SetVariable("point_id",point_id);
             UpdQry.SetVariable("pr_etstatus",1);
             UpdQry.Execute();

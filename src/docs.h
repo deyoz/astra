@@ -5,7 +5,6 @@
 #include "jxtlib/JxtInterface.h"
 #include "astra_consts.h"
 #include "basic.h"
-#include "telegram.h"
 #include "remarks.h"
 #include "print.h"
 
@@ -27,7 +26,7 @@ struct TRptParams {
         bool pr_et;
         bool pr_trfer;
         bool pr_brd;
-        TCodeShareInfo mkt_flt;
+        TSimpleMktFlight mkt_flt;
         std::string client_type;
         std::map< TRemCategory, std::vector<std::string> > rems;
         int text;

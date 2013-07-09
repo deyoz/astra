@@ -887,11 +887,9 @@ void CloseCheckIn( int point_id )
 {
   try
   {
-    vector<string> tlg_types;
-    tlg_types.push_back("COM");
-    tlg_types.push_back("COM2");
-    tlg_types.push_back("PRLC");
-    TelegramInterface::SendTlg(point_id,tlg_types);
+    vector<TypeB::TCreateInfo> createInfo; //!!!vlad проверить
+    TypeB::TCloseCheckInCreator(point_id).getInfo(createInfo);
+    TelegramInterface::SendTlg(createInfo);
   }
   catch(std::exception &E)
   {
@@ -903,10 +901,9 @@ void CloseBoarding( int point_id )
 {
   try
   {
-    vector<string> tlg_types;
-    tlg_types.push_back("COM");
-    tlg_types.push_back("COM2");
-    TelegramInterface::SendTlg(point_id,tlg_types);
+    vector<TypeB::TCreateInfo> createInfo; //!!!vlad проверить
+    TypeB::TCloseBoardingCreator(point_id).getInfo(createInfo);
+    TelegramInterface::SendTlg(createInfo);
   }
   catch(std::exception &E)
   {
@@ -942,23 +939,9 @@ void Takeoff( int point_id )
   time_start=time(NULL);
   try
   {
-    vector<string>  tlg_types;
-    tlg_types.push_back("PTM");
-    tlg_types.push_back("PTMN");
-    tlg_types.push_back("BTM");
-    tlg_types.push_back("TPM");
-    tlg_types.push_back("PSM");
-    tlg_types.push_back("PFS");
-    tlg_types.push_back("PFSN");
-    tlg_types.push_back("FTL");
-    tlg_types.push_back("PRL");
-    tlg_types.push_back("PIM");
-    tlg_types.push_back("SOM");
-//    tlg_types.push_back("ETL"); формируем по прилету в конечные пункт если не было интерактива с СЭБ
-    tlg_types.push_back("ETLD");
-    tlg_types.push_back("LDM");
-    tlg_types.push_back("CPM");
-    TelegramInterface::SendTlg(point_id,tlg_types);
+    vector<TypeB::TCreateInfo> createInfo; //!!!vlad проверить
+    TypeB::TTakeoffCreator(point_id).getInfo(createInfo);
+    TelegramInterface::SendTlg(createInfo);
   }
   catch(std::exception &E)
   {

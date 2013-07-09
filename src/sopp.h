@@ -258,8 +258,8 @@ class TDeletePaxFilter
   TDeletePaxFilter():inbound_point_dep(ASTRA::NoExists) {};
 };
 
-void DeletePassengers( int point_id, const TDeletePaxFilter &filter, std::map<int,TTripInfo> &segs );
-void DeletePassengersAnswer( std::map<int,TTripInfo> &segs, xmlNodePtr resNode );
+void DeletePassengers( int point_id, const TDeletePaxFilter &filter, std::map<int,TAdvTripInfo> &segs );
+void DeletePassengersAnswer( std::map<int,TAdvTripInfo> &segs, xmlNodePtr resNode );
 
 class SoppInterface : public JxtInterface
 {

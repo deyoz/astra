@@ -826,7 +826,7 @@ bool TCkinRoute::GetPriorSeg(int grp_id,
   return true;
 };
 
-void TMktFlight::dump()
+void TMktFlight::dump() const
 {
     ProgTrace(TRACE5, "---TMktFlight::dump()---");
     ProgTrace(TRACE5, "airline: %s", airline.c_str());
@@ -839,30 +839,6 @@ void TMktFlight::dump()
     ProgTrace(TRACE5, "airp_arv: %s", airp_arv.c_str());
     ProgTrace(TRACE5, "---END OF TMktFlight::dump()---");
 
-}
-
-void TMktFlight::clear()
-{
-  airline.clear();
-  flt_no = NoExists;
-  suffix.clear();
-  subcls.clear();
-  scd_day_local = NoExists;
-  scd_date_local = NoExists;
-  airp_dep.clear();
-  airp_arv.clear();
-};
-
-bool TMktFlight::IsNULL()
-{
-    return
-        airline.empty() or
-        flt_no == NoExists or
-        subcls.empty() or
-        scd_day_local == NoExists or
-        scd_date_local == NoExists or
-        airp_dep.empty() or
-        airp_arv.empty();
 }
 
 void TMktFlight::get(TQuery &Qry, int id)

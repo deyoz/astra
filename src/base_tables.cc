@@ -623,6 +623,7 @@ void TTypeBTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **r
   *row = new TTypeBTypesRow;
   mem.create(*row, STDLOG);
   ((TTypeBTypesRow*)*row)->basic_type=Qry.FieldAsString("basic_type");
+  ((TTypeBTypesRow*)*row)->pr_dep=Qry.FieldIsNULL("pr_dep")?ASTRA::NoExists:Qry.FieldAsInteger("pr_dep");
   ((TTypeBTypesRow*)*row)->editable=Qry.FieldAsInteger("editable")!=0;
   ((TTypeBTypesRow*)*row)->short_name=Qry.FieldAsString("short_name");
   ((TTypeBTypesRow*)*row)->short_name_lat=Qry.FieldAsString("short_name_lat");

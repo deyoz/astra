@@ -472,7 +472,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
   		    		NewTextChild( dataNode, "question", getLocaleText("QST.TRANZIT_RECHECKIN_CAUTION.CANCEL") );
   		    		return;
   		      }
-  		      map<int,TTripInfo> segs; // набор рейсов
+  		      map<int,TAdvTripInfo> segs; // набор рейсов
             TDeletePaxFilter filter;
             filter.status=EncodePaxStatus( psTransit );
   		      DeletePassengers( point_id, filter, segs );
