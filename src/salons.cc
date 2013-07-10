@@ -751,8 +751,8 @@ void TPlace::Build( xmlNodePtr node, int point_dep, bool pr_lat_seat, bool pr_up
    GetLayers( layers, true );
    set<TSeatLayer,SeatLayerCompare> uniqueLayers;
    propsNode = NULL;
-   //!!!надо сделать сортировку по пунктам и вначале выводить слои самые близкие к пункту вылета
-   //если не совпадает point_id c point_dep, то рисовать уголок - означает, что самый приоритетный слой не принадлежит пункту!!!
+   //надо сделать сортировку по пунктам и вначале выводить слои самые близкие к пункту вылета
+   //если не совпадает point_id c point_dep, то рисовать уголок - означает, что самый приоритетный слой не принадлежит пункту
    if ( !layers.empty() ) {
      for( std::map<int, std::set<TSeatLayer,SeatLayerCompare>,classcomp >::iterator ilayers=layers.begin(); ilayers!=layers.end(); ilayers++ ) {
        for ( std::set<TSeatLayer>::iterator ilayer=ilayers->second.begin(); ilayer!=ilayers->second.end(); ilayer++ ) {
@@ -1660,7 +1660,6 @@ void TSalonList::Clear()
 
 void TSalonList::ReadSeats( TQuery &Qry, const string &FilterClass )
 {
-  tst();
   Clear();
   pax_lists.clear();
   string ClassName = ""; /* перечисление всех классов, которые есть в салоне */
@@ -1677,7 +1676,6 @@ void TSalonList::ReadSeats( TQuery &Qry, const string &FilterClass )
   int col_xname = Qry.FieldIndex( "xname" );
   int col_yname = Qry.FieldIndex( "yname" );
   int col_class = Qry.FieldIndex( "class" );
-  tst();
   for ( ;!Qry.Eof; Qry.Next() ) {
     if ( num != Qry.FieldAsInteger( col_num ) ) { //новый салон
       if ( placeList && !FilterClass.empty() && FilterClass.find( ClassName ) == string::npos ) {
@@ -1804,7 +1802,6 @@ void TSalonList::ReadLayers( TQuery &Qry, FilterRoutesProperty &filterRoutes,
                              TFilterLayers &filterLayers, TPaxList &pax_list,
                              int prior_compon_props_point_id )
 {
-  ProgTrace( TRACE5, "prior_compon_props_point_id=%d", prior_compon_props_point_id );
   int col_point_id = Qry.GetFieldIndex( "point_id" );
   int col_num = Qry.FieldIndex( "num" );
   int col_x = Qry.FieldIndex( "x" );
@@ -1989,11 +1986,9 @@ void TSalonList::ReadLayers( TQuery &Qry, FilterRoutesProperty &filterRoutes,
           else
             waitListReason.layerStatus = layerMultiVerify;
         }
-        ProgTrace( TRACE5, "id=%d", id );
         // если все проверки прошли, а нашлось еще место
         if ( waitListReason.layerStatus == layerMultiVerify && pax_list[ id ].seats != layer_places.size() ) {
           waitListReason.layerStatus = layerInvalid;
-          ProgTrace( TRACE5, "id=%d", id );
         }
       } // end if id если слой принадлежит пассажиру
       ProgTrace( TRACE5, "id=%d", id );
@@ -2344,7 +2339,12 @@ void FilterRoutesProperty::Read( const TFilterRoutesSets &filterRoutesSets )
   //3. здесь надо будет сделать отсечку
   TQuery Qry( &OraSession );
   Qry.SQLText =
-    "SELECT act_out, pr_lat_seat, NVL(comp_id,-1) comp_id, crc_comp, airp "
+    "SELECT act_out, "
+    "       pr_lat_seat, "
+    "       NVL(comp_id,-1) comp_id, "
+    "       crc_comp, "
+    "       airp, "
+    "       ckin.get_pr_tranzit pr_tranzit "
     " FROM trip_sets, points "
     "WHERE points.point_id = :point_id AND "
     "      points.point_id = trip_sets.point_id";
@@ -2367,7 +2367,8 @@ void FilterRoutesProperty::Read( const TFilterRoutesSets &filterRoutesSets )
       Qry.SetVariable( "point_id", iroute->point_id );
       Qry.Execute();
       if ( Qry.Eof ||
-           crc_comp != Qry.FieldAsInteger( "crc_comp" ) )
+           crc_comp != Qry.FieldAsInteger( "crc_comp" ) ||
+           ( iroute->point_id != point_dep && Qry.FieldAsInteger( "pr_tranzit" ) == 0 ) )
         break;
       insert( begin(), *iroute );
       pointNum[ iroute->point_id ] = PointAirpNum( iroute->point_num, iroute->airp, true );
@@ -2388,7 +2389,8 @@ void FilterRoutesProperty::Read( const TFilterRoutesSets &filterRoutesSets )
         Qry.SetVariable( "point_id", iroute->point_id );
         Qry.Execute();
         if ( Qry.Eof ||
-             crc_comp != Qry.FieldAsInteger( "crc_comp" ) )
+             crc_comp != Qry.FieldAsInteger( "crc_comp" )  ||
+             Qry.FieldAsInteger( "pr_tranzit" ) == 0 )
           break;
         push_back( *iroute );
         if ( !Qry.FieldIsNULL( "act_out" ) ) {
@@ -2447,12 +2449,6 @@ bool FilterRoutesProperty::useRouteProperty( int vpoint_dep, int vpoint_arv )
                ( num_dep >= pointNum[ point_dep ].num && num_dep < pointNum[ point_arv ].num ) ||
                ( num_dep < pointNum[ point_arv ].num && num_arv >= pointNum[ point_arv ].num ) ) );
 
-/*!!!  bool ret = ( pointNum.find( vpoint_dep ) != pointNum.end() &&
-             ( ( num_dep < pointNum[ point_dep ].num && num_arv > pointNum[ point_dep ].num ) ||
-               ( num_dep >= pointNum[ point_dep ].num && num_dep < pointNum[ point_arv ].num ) ||
-               ( num_dep < pointNum[ point_arv ].num && num_arv >= pointNum[ point_arv ].num ) ) );
-*/
-  // + внутри нашего фильтра  point_dep, point_arv
   ProgTrace( TRACE5, "FilterRoutesProperty::useRouteProperty: vpoint_dep=%d, vpoint_arv=%d, num_dep=%d, num_arv=%d, range_dep=%d, range_arv=%d, ret=%d",
              vpoint_dep, vpoint_arv, num_dep, num_arv, pointNum[ point_dep ].num, pointNum[ point_arv ].num, ret );
   return ret;
@@ -2861,7 +2857,6 @@ void getTopSeatLayer( FilterRoutesProperty &filterRoutes,
     
     //после пересечений проверим полученный слой на максимальный
     if ( getTopSeatLayerOnRoute( pax_lists, pseat, iroute->point_id, curr_layer, true ) ) { //в пункте вылета есть слои
-      tst();
       if ( isMaxPaxLayer( filterRoutes,
                           pax_lists,
                           menuLayers,
@@ -2869,13 +2864,11 @@ void getTopSeatLayer( FilterRoutesProperty &filterRoutes,
                           useFilterRoute ) ) {
         ProgTrace( TRACE5, "isMaxPaxLayer: return curr_layer %s", curr_layer.toString().c_str() );
         if ( curr_layer.inRoute ) { //в нашем маршруте
-          tst();
           curr_layer.point_dep_num = pdPrior;
           max_priority_layer.point_dep_num = pdNext;
           if ( max_priority_layer.layer_type == cltUnknown ||
                compareSeatLayer( curr_layer, max_priority_layer ) ) {
             max_priority_layer = curr_layer;
-            tst();
             //ProgTrace( TRACE5, "getTopSeatLayer: max_layer %s", max_priority_layer.toString().c_str() );
           }
           curr_layer.point_dep_num = pdCurrent;
@@ -3020,7 +3013,7 @@ void TSalonList::validateLayersSeats( )
            continue;
         }
         if ( *ilayer != iseatLayer->max_layer ) {
-          if ( ilayer->getPaxId() != ASTRA::NoExists ) { //!!!возможно надо удалять слои принадлежащие пассажиру???
+          if ( ilayer->getPaxId() != ASTRA::NoExists ) { //возможно надо удалять слои принадлежащие пассажиру???
             tst();
             setInvalidLayer( pax_lists, *ilayer, TWaitListReason( layerLess, iseatLayer->max_layer ) );
           }
@@ -3193,8 +3186,6 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
     }
   }
 
-  tst();
-  
   Qry.Clear();
   //начитываем компоновку только по нашему пункту посадки
   Qry.SQLText =
@@ -3207,9 +3198,7 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
   Qry.Execute();
   if ( Qry.Eof )
     throw UserException( "MSG.FLIGHT_WO_CRAFT_CONFIGURE" );
-  tst();
   ReadSeats( Qry, filterSets.filterClass );
-  tst();
   //начитываем ремарки по маршруту
   Qry.Clear();
   Qry.SQLText =
@@ -3224,9 +3213,7 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
     }
     Qry.SetVariable( "point_id", iseg->point_id );
     Qry.Execute();
-    tst();
     ReadRemarks( Qry, filterRoutes, prior_compon_props_point_id );
-    tst();
   }
   //начитываем тарифы мест по маршруту
   Qry.Clear();
@@ -3270,10 +3257,8 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
           iseg!=filterRoutes.end(); iseg++ ) {
       Qry.SetVariable( "point_dep", iseg->point_id );
       Qry.Execute();
-      tst();
       ReadPaxs( Qry,  pax_lists[ iseg->point_id ] );
-      tst();
-      ProgTrace( TRACE5, "TSalonList::ReadFlight: pax_lists[ %d ].size()=%zu", iseg->point_id, pax_lists[ iseg->point_id ].size() );
+//      ProgTrace( TRACE5, "TSalonList::ReadFlight: pax_lists[ %d ].size()=%zu", iseg->point_id, pax_lists[ iseg->point_id ].size() );
     }
     // начитываем список забронированных пассажиров по рейсу  pax_list
     Qry.Clear();
@@ -3291,9 +3276,10 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
       Qry.SetVariable( "point_dep", iseg->point_id );
       Qry.Execute();
       ReadCrsPaxs( Qry, pax_lists[ iseg->point_id ] );
-      ProgTrace( TRACE5, "TSalonList::ReadFlight: crs_pax_lists[ %d ].size()=%zu", iseg->point_id, pax_lists[ iseg->point_id ].size() );
+//      ProgTrace( TRACE5, "TSalonList::ReadFlight: crs_pax_lists[ %d ].size()=%zu", iseg->point_id, pax_lists[ iseg->point_id ].size() );
     }
   }
+  ProgTrace( TRACE5, "prior_compon_props_point_id=%d", prior_compon_props_point_id );
   //начитываем базовые слои по маршруту
   Qry.Clear();
   Qry.SQLText =
@@ -3355,7 +3341,7 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
 
 void TSalonList::Build( bool with_pax,
                         xmlNodePtr salonsNode )
-{         //!!!compon
+{         //compon
   BitSet<TDrawPropsType> props;
 	SetProp( salonsNode, "pr_lat_seat", isCraftLat() );
 	filterSets.filterRoutes.Build( NewTextChild( salonsNode, "filterRoutes" ) );
@@ -5062,26 +5048,15 @@ void TPlaceList::Add( TPlace &pl )
   if ( !pl.yname.empty() )
     ys[ pl.y ] = pl.yname;
   if ( (int)xs.size()*(int)ys.size() > (int)places.size() ) {
-    //places.resize( (int)xs.size()*(int)ys.size() );
-    //нужен сдвиг!!!
-//    ProgTrace( TRACE5, "TPlaceList::prior_max_x=%d, prior_max_y=%d, new_size=%d, old_size=%d",
-//               prior_max_x, prior_max_y, (int)xs.size()*(int)ys.size(), (int)places.size() );
     for ( int iy=0; iy<prior_max_y-1; iy++ ) {
-//        ProgTrace( TRACE5, "TPlaceList::insert iy=%d", iy );
-//        ProgTrace( TRACE5, "places.size()=%zu", places.size() );
         IPlace ip = places.begin() + GetPlaceIndex( prior_max_x - 1, iy );
         TPlace p;
-/*        ProgTrace( TRACE5, "TPlaceList:: ip(%d,%d) visible=%d, name=%s, idx=%d, count=%d",
-                   ip->x, ip->y, ip->visible, string(ip->xname+ip->yname).c_str(),
-                   GetPlaceIndex( prior_max_x - 1, prior_max_y - 1 ),
-                   (int)xs.size() - prior_max_x );*/
         if ( (int)xs.size() > prior_max_x ) {
           places.insert( ip + 1, (int)xs.size() - prior_max_x, p );
         }
     }
   }
   if ( (int)xs.size()*(int)ys.size() > (int)places.size() ) {
-  //  ProgTrace( TRACE5, "%d!=%d", (int)xs.size()*(int)ys.size(), (int)places.size() );
     places.resize( (int)xs.size()*(int)ys.size() );
   }
 
@@ -5091,7 +5066,6 @@ void TPlaceList::Add( TPlace &pl )
     place( p )->xnext = pl.x;
     place( p )->ynext = pl.y;
   }
-  //ProgTrace( TRACE5, "TPlaceList::Add: pl(%d,%d) visible=%d, idx=%d", pl.x, pl.y, pl.visible, idx );
   places[ idx ] = pl;
 }
 
@@ -6124,7 +6098,7 @@ void InitVIP( int point_id )
 bool EqualSalon( TPlaceList* oldsalon, TPlaceList* newsalon,
                  TCompareCompsFlags compareFlags )
 {
-	//!!!возможно более тонко оценивать салон: удаление мест из ряда/линии - это места становятся невидимые, но при этом теряется само название ряда/линии
+	//возможно более тонко оценивать салон: удаление мест из ряда/линии - это места становятся невидимые, но при этом теряется само название ряда/линии
 	bool res = ( oldsalon->places.size() == newsalon->places.size() &&
   			       oldsalon->GetXsCount() == newsalon->GetXsCount() &&
   			       oldsalon->GetYsCount() == newsalon->GetYsCount() );
@@ -6330,7 +6304,7 @@ void BuildSalonChanges( xmlNodePtr dataNode, const vector<TSalonSeat> &seats )
 			SetProp( salonNode, "num", p->first );
 			num = p->first;
 		}
-		p->second.Build( NewTextChild( salonNode, "place" ), true, true ); //!!props - могли измениться!!! - хорошо бы передать на клиент
+		p->second.Build( NewTextChild( salonNode, "place" ), true, true ); //!!props - могли измениться - хорошо бы передать на клиент
 		props += p->second.drawProps;
 	}
 }

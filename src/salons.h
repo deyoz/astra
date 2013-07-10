@@ -433,7 +433,6 @@ class TPlace {
       tariffs = pl.tariffs;
       drop_blocked_layers = pl.drop_blocked_layers;
     }
-    #warning 4. lrss, remarks, tariffs in Assign, isLayer, clearLayer, AddTariff ..
     bool isLayer( ASTRA::TCompLayerType layer, int pax_id = -1 ) {
     	for (std::vector<TPlaceLayer>::iterator i=layers.begin(); i!=layers.end(); i++ ) {
     		if ( i->layer_type == layer && ( pax_id == -1 || i->pax_id == pax_id ) )
