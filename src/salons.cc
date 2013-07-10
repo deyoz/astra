@@ -2344,7 +2344,8 @@ void FilterRoutesProperty::Read( const TFilterRoutesSets &filterRoutesSets )
     "       NVL(comp_id,-1) comp_id, "
     "       crc_comp, "
     "       airp, "
-    "       pr_tranzit "
+    "       pr_tranzit, "
+    "       pr_tranz_reg "
     " FROM trip_sets, points "
     "WHERE points.point_id = :point_id AND "
     "      points.point_id = trip_sets.point_id";
@@ -2355,6 +2356,8 @@ void FilterRoutesProperty::Read( const TFilterRoutesSets &filterRoutesSets )
   crc_comp = Qry.FieldAsInteger( "crc_comp" );
   pr_craft_lat = Qry.FieldAsInteger( "pr_lat_seat" );
   comp_id = Qry.FieldAsInteger( "comp_id" );
+  bool pr_tranzit = ( Qry.FieldAsInteger( "pr_tranzit" ) != 0 &&
+                      Qry.FieldAsInteger( "pr_tranz_reg" ) == 0 );
   TTripRoute routes;
   if ( routes.GetRouteBefore( ASTRA::NoExists,
                               point_dep,
@@ -2364,19 +2367,21 @@ void FilterRoutesProperty::Read( const TFilterRoutesSets &filterRoutesSets )
     pointNum[ routes.rbegin()->point_id ] = PointAirpNum( routes.rbegin()->point_num, routes.rbegin()->airp, true );
     for ( std::vector<TTripRouteItem>::reverse_iterator iroute=routes.rbegin() + 1;
           iroute!=routes.rend(); iroute++ ) {
+      ProgTrace( TRACE5, "point_id=%d, pr_tranzit=%d", iroute->point_id,  pr_tranzit );
       Qry.SetVariable( "point_id", iroute->point_id );
       Qry.Execute();
       if ( Qry.Eof ||
-           crc_comp != Qry.FieldAsInteger( "crc_comp" ) )
+           crc_comp != Qry.FieldAsInteger( "crc_comp" ) ||
+           !pr_tranzit )
         break;
+      ProgTrace( TRACE5, "point_id=%d, pr_tranzit=%d", iroute->point_id,  Qry.FieldAsInteger( "pr_tranzit" ) );
       insert( begin(), *iroute );
       pointNum[ iroute->point_id ] = PointAirpNum( iroute->point_num, iroute->airp, true );
       if ( !Qry.FieldIsNULL( "act_out" ) ) {
         takeoffPoints.insert( iroute->point_id );
       }
-      if ( Qry.FieldAsInteger( "pr_tranzit" ) == 0 ) {
-        break;
-      }
+      pr_tranzit = ( Qry.FieldAsInteger( "pr_tranzit" ) != 0 &&
+                     Qry.FieldAsInteger( "pr_tranz_reg" ) == 0 );
     }
   }
   routes.clear();
@@ -2392,8 +2397,10 @@ void FilterRoutesProperty::Read( const TFilterRoutesSets &filterRoutesSets )
         Qry.Execute();
         if ( Qry.Eof ||
              crc_comp != Qry.FieldAsInteger( "crc_comp" )  ||
-             Qry.FieldAsInteger( "pr_tranzit" ) == 0 )
+             Qry.FieldAsInteger( "pr_tranzit" ) == 0 ||
+             Qry.FieldAsInteger( "pr_tranz_reg" ) != 0 )
           break;
+        ProgTrace( TRACE5, "point_id=%d, pr_tranzit=%d", iroute->point_id,  Qry.FieldAsInteger( "pr_tranzit" ) );
         push_back( *iroute );
         if ( !Qry.FieldIsNULL( "act_out" ) ) {
           takeoffPoints.insert( iroute->point_id );
