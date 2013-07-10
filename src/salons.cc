@@ -2344,7 +2344,7 @@ void FilterRoutesProperty::Read( const TFilterRoutesSets &filterRoutesSets )
     "       NVL(comp_id,-1) comp_id, "
     "       crc_comp, "
     "       airp, "
-    "       ckin.get_pr_tranzit pr_tranzit "
+    "       pr_tranzit "
     " FROM trip_sets, points "
     "WHERE points.point_id = :point_id AND "
     "      points.point_id = trip_sets.point_id";
@@ -2367,13 +2367,15 @@ void FilterRoutesProperty::Read( const TFilterRoutesSets &filterRoutesSets )
       Qry.SetVariable( "point_id", iroute->point_id );
       Qry.Execute();
       if ( Qry.Eof ||
-           crc_comp != Qry.FieldAsInteger( "crc_comp" ) ||
-           ( iroute->point_id != point_dep && Qry.FieldAsInteger( "pr_tranzit" ) == 0 ) )
+           crc_comp != Qry.FieldAsInteger( "crc_comp" ) )
         break;
       insert( begin(), *iroute );
       pointNum[ iroute->point_id ] = PointAirpNum( iroute->point_num, iroute->airp, true );
       if ( !Qry.FieldIsNULL( "act_out" ) ) {
         takeoffPoints.insert( iroute->point_id );
+      }
+      if ( Qry.FieldAsInteger( "pr_tranzit" ) == 0 ) {
+        break;
       }
     }
   }
@@ -3155,7 +3157,8 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
   Clear();
   filterSets.filterClass = filterClass;
   FilterRoutesProperty &filterRoutes = filterSets.filterRoutes;
-  filterSets.filterRoutes.Read( filterRoutesSets );
+  filterRoutes.Read( filterRoutesSets );
+  ProgTrace( TRACE5, "filterRoutes.getCompId=%d", filterRoutes.getCompId() );
   TQuery Qry( &OraSession );
   pax_lists.clear();
   // достаем транзитный маршрут

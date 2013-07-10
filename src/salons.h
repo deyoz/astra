@@ -362,7 +362,7 @@ class FilterRoutesProperty: public std::vector<TTripRouteItem> {
     bool isCraftLat() const {
       return pr_craft_lat;
     }
-    bool getCompId() const {
+    int getCompId() const {
       return comp_id;
     }
     bool isTakeoff( int point_id ) {
