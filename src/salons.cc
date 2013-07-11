@@ -4341,14 +4341,36 @@ void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tran
   TSalonList salonList;
   TSalonPassengers passengers;
   TFilterRoutesSets filterRoutesSets( ASTRA::NoExists, ASTRA::NoExists );
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "SELECT point_id FROM trip_comp_elems WHERE point_id=:point_id AND rownum<2";
+  Qry.DeclareVariable( "point_id", otInteger );
+  bool pr_exists_salons = false;
   for ( TFlights::iterator iflights=flights.begin(); iflights!=flights.end(); iflights++ ) {
     for ( FlightPoints::iterator iroute=iflights->begin(); iroute!=iflights->end()-1; iroute++ ) {
       ProgTrace( TRACE5, "check_waitlist_alarm_on_tranzit_routes: point_id=%d", iroute->point_id );
       FilterRoutesProperty filterRoutesTmp;
       filterRoutesTmp.Read( TFilterRoutesSets( iroute->point_id, ASTRA::NoExists ) );
       if ( filterRoutesSets != filterRoutesTmp.getMaxRoute() ) {
+        ProgTrace( TRACE5, "check_waitlist_alarm_on_tranzit_routes: point_id=%d, filterRoutesSets.point_dep=%d,%d, filterRoutesTmp.getMaxRoute()=%d,%d",
+                   iroute->point_id, filterRoutesSets.point_dep, filterRoutesSets.point_arv,
+                   filterRoutesTmp.getMaxRoute().point_dep, filterRoutesTmp.getMaxRoute().point_arv );
         filterRoutesSets = filterRoutesTmp.getMaxRoute();
+        if ( iroute->point_id == filterRoutesSets.point_arv ) {
+          pr_exists_salons = false;
+          continue;
+        }
+        Qry.SetVariable( "point_id", iroute->point_id );
+        Qry.Execute();
+        if ( Qry.Eof ) {
+          pr_exists_salons = false;
+          continue;
+        }
         salonList.ReadFlight( TFilterRoutesSets( iroute->point_id, filterRoutesSets.point_arv ), "" );
+        pr_exists_salons = true;
+      }
+      if ( !pr_exists_salons ) {
+        continue;
       }
       salonList.JumpToLeg( TFilterRoutesSets( iroute->point_id, filterRoutesSets.point_arv ) );
       salonList.getPaxs( passengers );
@@ -5222,7 +5244,7 @@ int GetCompId( const std::string craft, const std::string bort, const std::strin
     		idx = 1; // когда совпадает борт
       }
     	else {
-    		if ( airline_OR_airp ) {
+    		if ( airline_OR_airp && !pr_ignore_fcy ) {
     			idx = 2; // когда совпадает авиакомпания или аэропорт
         }
     		else {
@@ -5964,6 +5986,12 @@ TFindSetCraft SetCraft( bool pr_tranzit_routes, int point_id, TSetsCraftPoints &
     }
     if ( points.comp_id >= 0 )
     	break;
+  }
+  if ( points.comp_id < 0 ) {
+    if ( !bort.empty() && !craft.empty() ) {
+      points.comp_id = GetCompId( craft, bort, airline, airps,
+                                  0, 0, 1, true );
+    }
   }
   if ( points.comp_id < 0 ) {
     ProgTrace( TRACE5, "SetCraft: return rsComp_NoFound" );
