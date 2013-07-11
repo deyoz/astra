@@ -3448,8 +3448,16 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       bool needCheckUnattachedTrferAlarm=need_check_u_trfer_alarm_for_grp(grp.point_dep);
       map<InboundTrfer::TGrpId, InboundTrfer::TGrpItem> grpTagsBefore;
       bool first_pax_on_flight = false;
+      bool isTranzitSalonsVersion = SALONS2::isTranzitSalons( grp.point_dep );
+      bool pr_do_check_wait_list_alarm = true;
+      std::set<int> paxs_external_logged;
+
+
       if (new_checkin)
       {
+        SALONS2::TSalonList salonList;
+        SALONS2::TAutoSeats autoSeats;
+
         //новая регистрация
         string wl_type=NodeAsString("wl_type",segNode);
         int first_reg_no=NoExists;
@@ -3487,7 +3495,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 else
                   pass.pax_id = 0 - pax_no; // для уникальности
                 pass.reg_no = pax_no;
-                //ProgTrace( TRACE5, "pax_id=%d", pass.pax_id );
                 pass.surname = pax.surname;
                 if (pax.seats<=0)
                 {
@@ -3512,10 +3519,14 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             SEATS2::Passengers.Clear();
             SEATS2::TSublsRems subcls_rems( fltInfo.airline );
             // начитка салона
-            SEATS2::TSalons Salons( grp.point_dep, SEATS2::rTripSalons );
-            Salons.ClName = grp.cl;
-            Salons.Read();
-
+            SALONS2::TSalons Salons( grp.point_dep, SALONS2::rTripSalons );
+            if ( isTranzitSalonsVersion ) {
+              salonList.ReadFlight( SALONS2::TFilterRoutesSets( grp.point_dep, grp.point_arv ), grp.cl );
+            }
+            else {
+              Salons.FilterClass = grp.cl;
+              Salons.Read();
+            }
             //заполним массив для рассадки
             for(int k=0;k<=1;k++)
             {
@@ -3526,18 +3537,17 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 try
                 {
                   if (pax.seats<=0||(pax.seats>0&&k==1)) continue;
-
                   SEATS2::TPassenger pas;
 
                   pas.clname=grp.cl;
                   int pax_id;
                   if ( pax.id!=NoExists ) {
                     pax_id = pax.id; //NULL - не из бронирования - norec
-                    pas.paxId = pax_id;
                   }
-                  else
+                  else {
                     pax_id = 0 - pax_no; // для уникальности
-                  //ProgTrace( TRACE5, "pax_id=%d", pax_id );
+                  }
+                  pas.paxId = pax_id;
                   switch ( grp.status )  {
                   	case psCheckin:
                   		pas.grp_status = cltCheckin;
@@ -3583,7 +3593,12 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   if ( flagINFT ) {
                     pas.add_rem("INFT");
                   }
-                  SEATS2::Passengers.Add(Salons,pas);
+                  if ( isTranzitSalonsVersion ) {
+                    SEATS2::Passengers.Add(salonList,pas);
+                  }
+                  else {
+                    SEATS2::Passengers.Add(Salons,pas);
+                  }
                 }
                 catch(CheckIn::UserException)
                 {
@@ -3601,10 +3616,19 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             //определим алгоритм рассадки
             SEATS2::TSeatAlgoParams algo=SEATS2::GetSeatAlgo(Qry,fltInfo.airline,fltInfo.flt_no,fltInfo.airp);
             //рассадка
-            SEATS2::SeatsPassengers( &Salons, algo, reqInfo->client_type, SEATS2::Passengers );
+            if ( isTranzitSalonsVersion ) { //!!!djek
+              SEATS2::SeatsPassengers( salonList, algo, reqInfo->client_type, SEATS2::Passengers, autoSeats );
+              pr_do_check_wait_list_alarm = salonList.check_waitlist_alarm_on_tranzit_routes( autoSeats );
+              //!!! иногда True - возможна рассадка на забронированные места, когда
+              // есть право на регистрацию, статус рейса окончание, есть право сажать на чужие заброн. места
+              pr_lat_seat=salonList.isCraftLat();
+            }
+            else {
             //!!! иногда True - возможна рассадка на забронированные места, когда
             // есть право на регистрацию, статус рейса окончание, есть право сажать на чужие заброн. места
-            pr_lat_seat=Salons.getLatSeat();
+              SEATS2::SeatsPassengers( &Salons, algo, reqInfo->client_type, SEATS2::Passengers );
+              pr_lat_seat=Salons.getLatSeat();
+            }
           }; //if (wl_type.empty())
 
           //запишем коммерческий рейс
@@ -3867,6 +3891,20 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   if (pax.seats>0 && i<SEATS2::Passengers.getCount())
                   {
                     SEATS2::TPassenger pas = SEATS2::Passengers.Get(i);
+                    ProgTrace( TRACE5, "pas.pax_id=%d, pax.id=%d, pax_id=%d", pas.paxId, pax.id, pax_id );
+                    if ( isTranzitSalonsVersion ) {
+                      for ( SALONS2::TAutoSeats::iterator iseat=autoSeats.begin();
+                            iseat!=autoSeats.end(); iseat++ ) {
+                        ProgTrace( TRACE5, "pas.paxId=%d, iseat->pax_id=%d, pax_id=%d",
+                                   pas.paxId, iseat->pax_id, pax_id );
+                        if ( pas.paxId == iseat->pax_id ) {
+                          iseat->pax_id = pax_id;
+                          break;
+                        }
+                      }
+                      paxs_external_logged.insert( pax_id );
+                    }
+
                		  if ( pas.preseat_pax_id > 0 )
                		    exists_preseats = true;
                 		if ( !pas.isValidPlace )
@@ -3916,7 +3954,11 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                     		layer_type = cltTranzit;
                     		break;
                     }
-                    SEATS2::SaveTripSeatRanges( grp.point_dep, layer_type, ranges, pax_id, grp.point_dep, grp.point_arv );
+                    SEATS2::SaveTripSeatRanges( grp.point_dep, layer_type, ranges, pax_id, grp.point_dep, grp.point_arv, NowUTC() ); //!!!vlad
+                    if ( isTranzitSalonsVersion &&
+                         !pr_do_check_wait_list_alarm ) {
+                      autoSeats.WritePaxSeats( grp.point_dep, pax_id );
+                    }
                     i++;
                   };
                   if ( invalid_seat_no )
@@ -3927,7 +3969,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   	else
                   	  if ( change_agent_seat_no || change_preseat_no )
                     		  AstraLocale::showErrorMessage("MSG.SEATS.PART_REQUIRED_PLACES_NOT_AVAIL");
-                };
+                }; //wl_type.empty()
 
                 //запись pax_doc
                 if (reqInfo->client_type!=ctTerm || reqInfo->desk.compatible(DOCS_VERSION))
@@ -3969,8 +4011,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   throw;
               };
 
-            };
-          };
+            }; // end for paxs
+          }; //end for k
         }
         else
         {
@@ -3991,7 +4033,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         };
         msg.msg=SaveTCkinSegs(grp.id,reqNode,segs,seg_no);
         if (!msg.msg.empty()) reqInfo->MsgToLog(msg);
-      }
+      } //new_checkin
       else
       {
         //ЗАПИСЬ ИЗМЕНЕНИЙ
@@ -4403,6 +4445,22 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         ETStatusInterface::ETCheckStatus(grp.id,csaGrp,NoExists,false,ETInfo,true);
       };
 
+      if (!pr_unaccomp)
+      {
+        if ( isTranzitSalonsVersion ) {
+          //!!!только для регистрации пассажиров
+          //определяет по местам пассажиров нужно ли делать перерасчет тревоги ЛО и
+          //если нужно делает перерасчет
+          if ( pr_do_check_wait_list_alarm ) {
+            SALONS2::check_waitlist_alarm_on_tranzit_routes( grp.point_dep, paxs_external_logged );
+          }
+        }
+        else {
+          check_waitlist_alarm( grp.point_dep );
+        }
+      };
+
+
       if (ETInfo.empty())
       {
         if (agent_stat_point_id==NoExists) agent_stat_point_id=grp.point_dep;
@@ -4433,9 +4491,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         };
       };
 
+
       if (!pr_unaccomp)
       {
-        //обновление counters
         rozysk::sync_pax_grp(grp.id, reqInfo->desk.code);
       };
 
@@ -4621,7 +4679,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           Qry.Execute();
         };
         //вычисляем и записываем признак waitlist_alarm и brd_alarm и spec_service_alarm
-        check_waitlist_alarm( grp.point_dep );
         check_brd_alarm( grp.point_dep );
         check_spec_service_alarm( grp.point_dep );
         if ( first_pax_on_flight ) {
