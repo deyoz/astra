@@ -1313,7 +1313,9 @@ namespace PRL_SPACE {
 
     void TPRLDest::GetPaxList(TypeB::TDetailCreateInfo &info, vector<TTlgCompLayer> &complayers)
     {
-        const TypeB::TMarkInfoOptions &markOptions=*(info.optionsAs<TypeB::TMarkInfoOptions>());
+        const TypeB::TMarkInfoOptions *markOptions=NULL;
+        if(info.optionsIs<TypeB::TMarkInfoOptions>())
+            markOptions=info.optionsAs<TypeB::TMarkInfoOptions>();
 
         TQuery Qry(&OraSession);
         string SQLText =
@@ -1394,14 +1396,14 @@ namespace PRL_SPACE {
                 pax.crs = Qry.FieldAsString(col_crs);
                 pax.firm_space_avail.status = Qry.FieldAsString(col_status);
                 pax.firm_space_avail.priority = Qry.FieldAsString(col_priority);
-                if(not markOptions.crs.empty() and markOptions.crs != pax.crs)
+                if(markOptions and not markOptions->crs.empty() and markOptions->crs != pax.crs)
                     continue;
                 pax.pax_id = Qry.FieldAsInteger(col_pax_id);
                 pax.grp_id = Qry.FieldAsInteger(col_grp_id);
                 if(not Qry.FieldIsNULL(col_bag_pool_num))
                     pax.bag_pool_num = Qry.FieldAsInteger(col_bag_pool_num);
                 pax.M.get(info, pax.pax_id);
-                if(not markOptions.mark_info.empty() and not(pax.M.m_flight == markOptions.mark_info))
+                if(markOptions and not markOptions->mark_info.empty() and not(pax.M.m_flight == markOptions->mark_info))
                     continue;
                 pax.pnrs.get(pax.pnr_id);
                 if(!Qry.FieldIsNULL(col_subcls))
@@ -5408,12 +5410,13 @@ int AHL(TypeB::TDetailCreateInfo &info)
 struct TLCICFG:TCFG {
     void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
     {
-        if(info.vcompleted)
-            info.vcompleted = not info.bort.empty();
         ostringstream cfg;
-        ProgTrace(TRACE5, "EQT items.size: %zu", items.size());
         if(not items.empty()) {
-            cfg << "EQT." << (info.bort.empty() ? "??" : info.bort) << ".";
+            info.vcompleted = info.vcompleted and not info.bort.empty() and not info.craft.empty();
+            cfg
+                << "EQT."
+                << (info.bort.empty() ? "??" : info.bort) << "."
+                << (info.craft.empty() ? "??" : info.TlgElemIdToElem(etCraft, info.craft)) << ".";
             for(vector<TCFGItem>::iterator iv = items.begin(); iv != items.end(); iv++)
             {
                 cfg
@@ -5421,7 +5424,6 @@ struct TLCICFG:TCFG {
                     << setw(3) << setfill('0') << iv->cfg;
             }
         }
-        ProgTrace(TRACE5, "EQT cfg.str(): %s", cfg.str().c_str());
         if(not cfg.str().empty())
             body.push_back(cfg.str());
     }
@@ -5654,6 +5656,37 @@ void TLCIPaxTotals::get(TypeB::TDetailCreateInfo &info)
 
 }
 
+struct TSeatPlan {
+    map<int,TCheckinPaxSeats> checkinPaxsSeats;
+    void get(TypeB::TDetailCreateInfo &info);
+    void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
+};
+
+void TSeatPlan::get(TypeB::TDetailCreateInfo &info)
+{
+    getPaxsSeats(info.point_id, checkinPaxsSeats);
+}
+
+void TSeatPlan::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
+{
+    string buf = "SP";
+    for(map<int,TCheckinPaxSeats>::iterator im = checkinPaxsSeats.begin(); im != checkinPaxsSeats.end(); im++) {
+        for(set<TTlgCompLayer,TCompareCompLayers>::iterator is = im->second.seats.begin(); is != im->second.seats.end(); is++) {
+            string seat =
+                "." + denorm_iata_row(is->yname, NULL) +
+                denorm_iata_line(is->xname, info.is_lat() or info.pr_lat_seat) +
+                "/" + im->second.gender;
+            if(buf.size() + seat.size() > 64) {
+                body.push_back(buf);
+                buf = "SP";
+            }
+            buf += seat;
+        }
+    }
+    if(buf != "SP")
+        body.push_back(buf);
+}
+
 struct TLCI {
     TLCICFG eqt;
     TWA wa;
@@ -5661,17 +5694,20 @@ struct TLCI {
     TSR_Z sr_z;
     TWM wm; // weight mode
     TLCIPaxTotals pax_totals;
+    TSeatPlan sp;
     void get(TypeB::TDetailCreateInfo &info);
     void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
 };
 
 void TLCI::get(TypeB::TDetailCreateInfo &info)
 {
-    eqt.get(info);
+    info.vcompleted = true;
+//    if(options.equipment) eqt.get(info);
     wa.get(info);
     sr_c.get(info);
     sr_z.get(info);
     pax_totals.get(info);
+    sp.get(info);
 }
 
 void TLCI::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
@@ -5684,6 +5720,7 @@ void TLCI::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
     sr_z.ToTlg(info, body);
     wm.ToTlg(info, body);
     pax_totals.ToTlg(info, body);
+    sp.ToTlg(info, body);
 }
 
 int LCI(TypeB::TDetailCreateInfo &info)
@@ -6630,6 +6667,7 @@ int TelegramInterface::create_tlg(const TypeB::TCreateInfo &createInfo,
             "   points.est_out, "
             "   points.act_out, "
             "   points.bort, "
+            "   points.craft, "
             "   points.airp, "
             "   points.point_num, "
             "   points.first_point, "
@@ -6652,6 +6690,7 @@ int TelegramInterface::create_tlg(const TypeB::TCreateInfo &createInfo,
           info.flt_no = Qry.FieldAsInteger("flt_no");
         info.suffix = Qry.FieldAsString("suffix");
         info.bort = Qry.FieldAsString("bort");
+        info.craft = Qry.FieldAsString("craft");
         info.airp_dep = Qry.FieldAsString("airp");
         info.point_num = Qry.FieldAsInteger("point_num");
         info.first_point = Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point");

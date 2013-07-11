@@ -52,6 +52,8 @@ const
                          {"TRIP_TYPES",          etTripType},
                          {"TYPEB_TYPES",         etTypeBType},
                          {"TYPEB_TYPES_MARK",    etTypeBType},
+                         {"TYPEB_TYPES_LDM",     etTypeBType},
+                         {"TYPEB_TYPES_LCI",     etTypeBType},
                          {"USER_TYPES",          etUserType},
                          {"VALIDATOR_TYPES",     etValidatorType}
                         };

@@ -8,12 +8,23 @@
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/test.h"
+#include <cxxabi.h>
 
 using namespace std;
 using namespace ASTRA;
 using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace AstraLocale;
+
+std::string typeid_name( const std::type_info& tinfo )
+{
+    enum { MAX_LEN = 4096 } ;
+    char buffer[ MAX_LEN ] ;
+    std::size_t size = MAX_LEN ;
+    int status ;
+    __cxxabiv1::__cxa_demangle( tinfo.name(), buffer, &size, &status ) ;
+    return status==0 ? buffer : "__cxa_demangle error" ;
+}
 
 namespace TypeB
 {

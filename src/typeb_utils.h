@@ -8,6 +8,9 @@
 #include "astra_misc.h"
 #include "exceptions.h"
 #include "xml_unit.h"
+#include <typeinfo>
+
+std::string typeid_name( const std::type_info& tinfo );
 
 class localizedstream : public std::ostringstream
 {
@@ -586,16 +589,15 @@ class TLCIOptions : public TCreateOptions
     {
       action_code="F";
       equipment=true;
-      payload=true;
-      underload=true;
+      weight_avail="PU";
       seating=true;
       weight_mode=true;
-      seat_restrict="B";
+      seat_restrict="CZ";
     };
   public:
     std::string action_code;
-    bool equipment, payload, underload, seating, weight_mode;
-    std::string seat_restrict;
+    bool equipment, seating, weight_mode;
+    std::string weight_avail, seat_restrict;
     TLCIOptions() {init();};
     virtual ~TLCIOptions() {};
     virtual void clear()
@@ -610,8 +612,7 @@ class TLCIOptions : public TCreateOptions
       xmlNodePtr node2=node->children;
       action_code=NodeAsStringFast("action_code", node2, action_code.c_str());
       equipment=NodeAsIntegerFast("equipment", node2, (int)equipment) != 0;
-      payload=NodeAsIntegerFast("payload", node2, (int)payload) != 0;
-      underload=NodeAsIntegerFast("underload", node2, (int)underload) != 0;
+      weight_avail=NodeAsStringFast("weight_avail", node2, weight_avail.c_str());
       seating=NodeAsIntegerFast("seating", node2, (int)seating) != 0;
       weight_mode=NodeAsIntegerFast("weight_mode", node2, (int)weight_mode) != 0;
       seat_restrict=NodeAsStringFast("seat_restrict", node2, seat_restrict.c_str());
@@ -635,14 +636,9 @@ class TLCIOptions : public TCreateOptions
           equipment=OptionsQry.FieldAsInteger("value")!=0;
           continue;
         };
-        if (cat=="PAYLOAD")
+        if (cat=="WEIGHT_AVAIL")
         {
-          payload=OptionsQry.FieldAsInteger("value")!=0;
-          continue;
-        };
-        if (cat=="UNDERLOAD")
-        {
-          underload=OptionsQry.FieldAsInteger("value")!=0;
+          seat_restrict=OptionsQry.FieldAsString("value");
           continue;
         };
         if (cat=="SEATING")
@@ -673,13 +669,8 @@ class TLCIOptions : public TCreateOptions
         << (equipment ? s.getLocaleText("да"):
                         s.getLocaleText("нет"))
         << ", "
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.PAYLOAD") << ": "
-        << (payload ? s.getLocaleText("да"):
-                      s.getLocaleText("нет"))
-        << ", "
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.UNDERLOAD") << ": "
-        << (underload ? s.getLocaleText("да"):
-                        s.getLocaleText("нет"))
+        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.WEIGHT_AVAIL") << ": "
+        << weight_avail
         << ", "
         << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.SEATING") << ": "
         << (seating ? s.getLocaleText("да"):
@@ -703,13 +694,8 @@ class TLCIOptions : public TCreateOptions
         << (equipment ? s.getLocaleText("да"):
                         s.getLocaleText("нет"))
         << " "
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.PAYLOAD") << ": "
-        << (payload ? s.getLocaleText("да"):
-                      s.getLocaleText("нет"))
-        << " "
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.UNDERLOAD") << ": "
-        << (underload ? s.getLocaleText("да"):
-                        s.getLocaleText("нет"))
+        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.WEIGHT_AVAIL") << ": "
+        << weight_avail
         << " "
         << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.SEATING") << ": "
         << (seating ? s.getLocaleText("да"):
@@ -736,8 +722,7 @@ class TLCIOptions : public TCreateOptions
         if (!TCreateOptions::similar(opt)) return false;
         return action_code==opt.action_code &&
                equipment==opt.equipment &&
-               payload==opt.payload &&
-               underload==opt.underload &&
+               weight_avail==opt.weight_avail &&
                seating==opt.seating &&
                weight_mode==opt.weight_mode &&
                seat_restrict==opt.seat_restrict;
@@ -755,8 +740,7 @@ class TLCIOptions : public TCreateOptions
         if (!TCreateOptions::equal(opt)) return false;
         return action_code==opt.action_code &&
                equipment==opt.equipment &&
-               payload==opt.payload &&
-               underload==opt.underload &&
+               weight_avail==opt.weight_avail &&
                seating==opt.seating &&
                weight_mode==opt.weight_mode &&
                seat_restrict==opt.seat_restrict;
@@ -774,8 +758,7 @@ class TLCIOptions : public TCreateOptions
         const TLCIOptions &opt = dynamic_cast<const TLCIOptions&>(item);
         action_code=opt.action_code;
         equipment=opt.equipment;
-        payload=opt.payload;
-        underload=opt.underload;
+        weight_avail=opt.weight_avail;
         seating=opt.seating;
         weight_mode=opt.weight_mode;
         seat_restrict=opt.seat_restrict;
@@ -853,9 +836,10 @@ class TOptionsInfo
     {
       T* result = dynamic_cast<T*>(options.get());
       if (result==NULL)
-        throw EXCEPTIONS::Exception("TypeB::%s.optionsAs: invalid cast to TypeB::%s",
+        throw EXCEPTIONS::Exception("TypeB::%s.optionsAs: invalid cast from TypeB::%s to %s",
                                     typeName().c_str(),
-                                    options.get()->typeName().c_str());
+                                    options.get()->typeName().c_str(),
+                                    typeid_name(typeid(T)).c_str());
       return result;
     };
 
@@ -1012,6 +996,7 @@ class TDetailCreateInfo : public TOptionsInfo
     BASIC::TDateTime act_local;
     int scd_local_day;
     std::string bort;
+    std::string craft;
     // кодировка салона
     bool pr_lat_seat;
     //вспомогательные чтобы вытаскивать маршрут
@@ -1213,7 +1198,19 @@ class TCloseCheckInCreator : public TCreator
     {
       *this << "COM"
             << "COM2"
-            << "PRLC";
+            << "PRLC"
+            << "LCI";
+    };
+
+    virtual bool validInfo(const TCreateInfo &info) const {
+        if (!TCreator::validInfo(info)) return false;
+
+        if (info.optionsIs<TLCIOptions>())
+        {
+          if (info.optionsAs<TLCIOptions>()->action_code!="C") return false;
+        };    
+
+        return true;
     };
 };
 
@@ -1246,7 +1243,18 @@ class TTakeoffCreator : public TCreator
         //    << "ETL" формируем по прилету в конечные пункт если не было интерактива с СЭБ
             << "ETLD"
             << "LDM"
-            << "CPM";
+            << "CPM"
+            << "LCI";
+    };
+    virtual bool validInfo(const TCreateInfo &info) const {
+        if (!TCreator::validInfo(info)) return false;
+
+        if (info.optionsIs<TLCIOptions>())
+        {
+          if (info.optionsAs<TLCIOptions>()->action_code!="F") return false;
+        };    
+
+        return true;
     };
 };
 
