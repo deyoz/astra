@@ -444,6 +444,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
         old_pr_tranz_reg!=new_pr_tranz_reg ||
         old_pr_block_trzt!=new_pr_block_trzt)
     {
+      bool pr_isTranzitSalons = SALONS2::isTranzitSalons( point_id );
       if (Qry.FieldAsInteger("tranzitable")!=0) //является ли пункт промежуточным в маршруте
       {
         //рейс tranzitable
@@ -528,13 +529,13 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
         msg.id1=point_id;
         TReqInfo::Instance()->MsgToLog(msg);
         SALONS2::check_diffcomp_alarm( point_id );
-        if ( SALONS2::isTranzitSalons( point_id ) ) {
-          SALONS2::check_waitlist_alarm_on_tranzit_routes( point_id );
-        }
-        else {
+        if ( !pr_isTranzitSalons ) {
           check_waitlist_alarm( point_id );
         }
       };
+      if ( pr_isTranzitSalons ) {
+        SALONS2::check_waitlist_alarm_on_tranzit_routes( point_id );
+      }
     };
     if (old_pr_check_load!=new_pr_check_load ||
         old_pr_overload_reg!=new_pr_overload_reg ||

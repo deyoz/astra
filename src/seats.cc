@@ -20,6 +20,7 @@
 #include "alarms.h"
 #include "passenger.h"
 #include "rozysk.h"
+#include "points.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -3522,12 +3523,16 @@ void ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
 	ProgTrace( TRACE5, "layer=%s, point_id=%d, pax_id=%d, first_xname=%s, first_yname=%s",
 	           EncodeCompLayerType( layer_type ), point_id, pax_id, first_xname.c_str(), first_yname.c_str() );
   TQuery Qry( &OraSession );
+  TFlights flights;
+  flights.Get( point_id, trtWithCancelled );
+  flights.Lock();
+
   /* лочим рейс */
-  Qry.SQLText = "UPDATE points SET point_id=point_id WHERE point_id=:point_id";
+/*  Qry.SQLText = "UPDATE points SET point_id=point_id WHERE point_id=:point_id";
   Qry.DeclareVariable( "point_id", otInteger );
   Qry.SetVariable( "point_id", point_id );
   Qry.Execute();
-	Qry.Clear();
+	Qry.Clear();  */
   /* считываем инфу по пассажиру */
   switch ( layer_type ) {
   	case cltGoShow:
