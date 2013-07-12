@@ -3746,8 +3746,8 @@ void ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
             airp_arv = Qry.FieldAsString( "airp" );
           }
           throw UserException( "MSG.SEATS.SEAT_NO.OCCUPIED_OTHER_LEG_PASSENGER",
-                               LParams()<<LParam("airp_dep", airp_dep )
-                                        <<LParam("airp_arv", airp_arv ) );
+                               LParams()<<LParam("airp_dep", ElemIdToCodeNative(etAirp,airp_dep) )
+                                        <<LParam("airp_arv", ElemIdToCodeNative(etAirp,airp_arv) ) );
         }
       }
 
