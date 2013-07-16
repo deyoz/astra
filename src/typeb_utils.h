@@ -638,7 +638,7 @@ class TLCIOptions : public TCreateOptions
         };
         if (cat=="WEIGHT_AVAIL")
         {
-          seat_restrict=OptionsQry.FieldAsString("value");
+          weight_avail=OptionsQry.FieldAsString("value");
           continue;
         };
         if (cat=="SEATING")

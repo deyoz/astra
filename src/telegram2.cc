@@ -1517,7 +1517,7 @@ namespace PRL_SPACE {
 
     void TCOMZones::get(TypeB::TDetailCreateInfo &info)
     {
-        ZoneLoads(info.point_id, items);
+        ZoneLoads(info.point_id, items, true);
     }
 
     void TCOMZones::ToTlg(ostringstream &body)
@@ -5450,16 +5450,24 @@ struct TWA {
     }
     void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
     {
+        const TypeB::TLCIOptions &options = *info.optionsAs<TypeB::TLCIOptions>();
         ostringstream buf;
         buf << "WA.P." << payload << "." << KG;
-        body.push_back(buf.str());
+        if(options.weight_avail.find('P') != string::npos) body.push_back(buf.str());
         buf.str("");
         buf << "WA.U." << underload << "." << KG;
-        body.push_back(buf.str());
+        if(options.weight_avail.find('U') != string::npos) body.push_back(buf.str());
     }
 };
 
-struct TSR_Z:TCOMZones {
+struct TSR_Z {
+    map<string, int> items;
+
+    void get(TypeB::TDetailCreateInfo &info)
+    {
+        ZoneLoads(info.point_id, items, false);
+    }
+
     void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
     {
         ostringstream result;
@@ -5511,22 +5519,7 @@ void TWM::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
         << "." << KG;
     body.push_back(result.str());
     result.str(string());
-    TFlightWeights w;
-    w.read( info.point_id, onlyCheckin );
-    result
-        << "WM.A.P."
-        <<
-        w.weight_male +
-        w.weight_female +
-        w.weight_child +
-        w.weight_infant
-        << "." << KG;
-    body.push_back(result.str());
-    result.str(string());
-    result << "WM.A.B." << w.weight_bag << "." << KG;
-    body.push_back(result.str());
-    result.str(string());
-    result << "WM.A.B.H." << w.weight_cabin_bag << "." << KG;
+    result << "WM.A.B." << KG;
     body.push_back(result.str());
 }
 
@@ -5701,9 +5694,10 @@ struct TLCI {
 
 void TLCI::get(TypeB::TDetailCreateInfo &info)
 {
+    const TypeB::TLCIOptions &options = *info.optionsAs<TypeB::TLCIOptions>();
     info.vcompleted = true;
-//    if(options.equipment) eqt.get(info);
-    wa.get(info);
+    if(options.equipment) eqt.get(info);
+    if(options.weight_avail != "N") wa.get(info);
     sr_c.get(info);
     sr_z.get(info);
     pax_totals.get(info);
@@ -5712,13 +5706,14 @@ void TLCI::get(TypeB::TDetailCreateInfo &info)
 
 void TLCI::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 {
-    body.push_back("CF"); // Check-in Finalized
+    const TypeB::TLCIOptions &options = *info.optionsAs<TypeB::TLCIOptions>();
+    body.push_back("C" + options.action_code);
     eqt.ToTlg(info, body);
     wa.ToTlg(info, body);
-    body.push_back("SM.S"); // Seating method 'By Seat' always
-    sr_c.ToTlg(info, body);
-    sr_z.ToTlg(info, body);
-    wm.ToTlg(info, body);
+    if(options.seating) body.push_back("SM.S"); // Seating method 'By Seat' always
+    if(options.seat_restrict.find('C') != string::npos) sr_c.ToTlg(info, body);
+    if(options.seat_restrict.find('Z') != string::npos) sr_z.ToTlg(info, body);
+    if(options.weight_mode) wm.ToTlg(info, body);
     pax_totals.ToTlg(info, body);
     sp.ToTlg(info, body);
 }

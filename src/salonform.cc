@@ -62,14 +62,16 @@ void ReadCompSections( int comp_id, vector<SALONS2::TCompSection> &CompSections 
   }
 }
 
-void ZoneLoads(int point_id, map<string, int> &zones)
+void ZoneLoads(int point_id, map<string, int> &zones, bool occupied)
 {
-  std::vector<SALONS2::TCompSectionLayers> CompSectionsLayers;
-  vector<TZoneOccupiedSeats> zoneSeats;
-  ZoneLoads(point_id, false, false, false, zoneSeats,CompSectionsLayers);
-  for ( vector<TZoneOccupiedSeats>::iterator i=zoneSeats.begin(); i!=zoneSeats.end(); i++ ) {
-    zones[ i->name ] = i->seats.size();
-  }
+    std::vector<SALONS2::TCompSectionLayers> CompSectionsLayers;
+    vector<TZoneOccupiedSeats> zoneSeats;
+    ZoneLoads(point_id, false, false, false, zoneSeats,CompSectionsLayers);
+    for ( vector<TZoneOccupiedSeats>::iterator i=zoneSeats.begin(); i!=zoneSeats.end(); i++ ) {
+        zones[ i->name ] = (occupied ? i->seats.size() : i->total_seats - i->seats.size());
+        if(zones[i->name] < 0)
+            throw EXCEPTIONS::Exception("ZoneLoads: negative seats");
+    }
 }
 
 void ZoneLoads(int point_id,
@@ -127,6 +129,7 @@ void ZoneLoadsTranzitSalons(int point_id,
       compSectionLayers.compSection = *i;
       TZoneOccupiedSeats zs;
       zs.name = i->name;
+      zs.total_seats = i->seats;
       for(std::map<ASTRA::TCompLayerType, SALONS2::TPlaces>::iterator im = compSectionLayers.layersSeats.begin(); im != compSectionLayers.layersSeats.end(); im++) {
         ProgTrace( TRACE5, "im->first=%s, im->second=%zu", EncodeCompLayerType( im->first ), im->second.size() );
         if ( !only_checkin_layers || checkinLayersSeats.find( im->first ) != checkinLayersSeats.end() ) { // работаем только со слоями регистрации??? ДЕН!!!
@@ -194,6 +197,7 @@ void ZoneLoads(int point_id,
                 compSectionLayers.compSection = *i;
                 TZoneOccupiedSeats zs;
                 zs.name = i->name;
+                zs.total_seats = i->seats;
                 for(std::map<ASTRA::TCompLayerType, SALONS2::TPlaces>::iterator im = compSectionLayers.layersSeats.begin(); im != compSectionLayers.layersSeats.end(); im++) {
                   ProgTrace( TRACE5, "im->first=%s, im->second=%zu", EncodeCompLayerType( im->first ), im->second.size() );
                   if ( !only_checkin_layers || checkinLayersSeats.find( im->first ) != checkinLayersSeats.end() ) { // работаем только со слоями регистрации??? ДЕН!!!
