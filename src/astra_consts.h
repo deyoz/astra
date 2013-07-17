@@ -8,12 +8,6 @@
 namespace ASTRA
 {
 
-enum TTlgOption {
-    toLDM_cabin_weight,
-    toNum
-};
-extern const char* TlgOptionS[toNum];
-
 enum TClientType { ctTerm, ctWeb, ctKiosk, ctTypeNum };
 extern const char* ClientTypeS[ctTypeNum];
 

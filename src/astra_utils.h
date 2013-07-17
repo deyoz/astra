@@ -283,8 +283,6 @@ void MsgToLog(std::string msg,
 
 ASTRA::TRptType DecodeRptType(const std::string s);
 const std::string EncodeRptType(ASTRA::TRptType s);
-ASTRA::TTlgOption DecodeTlgOption(const char* s);
-const char* EncodeTlgOption(ASTRA::TTlgOption s);
 ASTRA::TClientType DecodeClientType(const char* s);
 const char* EncodeClientType(ASTRA::TClientType s);
 ASTRA::TClass DecodeClass(const char* s);

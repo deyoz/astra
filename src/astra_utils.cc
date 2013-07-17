@@ -625,23 +625,6 @@ const string EncodeRptType(TRptType s)
   return RptTypeS[s];
 };
 
-TTlgOption DecodeTlgOption(const char* s)
-{
-  unsigned int i;
-  for(i=0;i<sizeof(TlgOptionS)/sizeof(TlgOptionS[0]);i+=1) if (strcmp(s,TlgOptionS[i])==0) break;
-  if (i<sizeof(TlgOptionS)/sizeof(TlgOptionS[0]))
-    return (TTlgOption)i;
-  else
-    throw Exception("DecodeTlgOption: unknown tlg option '%s'", s);
-};
-
-const char* EncodeTlgOption(TTlgOption s)
-{
-  if ((size_t)s < 0 or (size_t)s>sizeof(TlgOptionS)/sizeof(TlgOptionS[0]))
-      throw Exception("EncodeTlgOption: unknown tlg option %d", s);
-  return TlgOptionS[s];
-};
-
 TClientType DecodeClientType(const char* s)
 {
   unsigned int i;

@@ -3,10 +3,6 @@
 namespace ASTRA
 {
 
-const char *TlgOptionS[] = {
-    "LDM_cabin_weight"
-};
-
 const char * ClientTypeS[] =
     {"TERM", "WEB", "KIOSK"};
 
