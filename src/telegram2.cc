@@ -4661,16 +4661,23 @@ void TLDMBag::get(TypeB::TDetailCreateInfo &info, int point_arv)
 
 struct TExcess {
     int excess;
-    void get(int point_id);
+    void get(int point_id, string airp_arv = "");
     TExcess(): excess(NoExists) {};
 };
 
-void TExcess::get(int point_id)
+void TExcess::get(int point_id, string airp_arv)
 {
     TQuery Qry(&OraSession);
-    Qry.SQLText =
+    string SQLText =
         "SELECT NVL(SUM(excess),0) excess FROM pax_grp "
-        "WHERE point_dep=:point_id AND ckin.excess_boarded(grp_id,class,bag_refuse)<>0 ";
+        "WHERE "
+        "   point_dep=:point_id AND "
+        "   ckin.excess_boarded(grp_id,class,bag_refuse)<>0 ";
+    if(not airp_arv.empty()) {
+        SQLText += " and airp_arv = :airp_arv ";
+        Qry.CreateVariable("airp_arv", otString, airp_arv);
+    }
+    Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.Execute();
     excess = Qry.FieldAsInteger("excess");
@@ -4679,6 +4686,7 @@ void TExcess::get(int point_id)
 struct TLDMDest {
     int point_arv;
     string target;
+    int rk_weight;
     int f;
     int c;
     int y;
@@ -4686,8 +4694,10 @@ struct TLDMDest {
     int chd;
     int inf;
     TLDMBag bag;
+    TExcess excess;
     TLDMDest():
         point_arv(NoExists),
+        rk_weight(NoExists),
         f(NoExists),
         c(NoExists),
         y(NoExists),
@@ -4827,18 +4837,22 @@ void TLDMDests::ToTlg(TypeB::TDetailCreateInfo &info, bool &vcompleted, vector<s
     //проверим LDM автоматически отправляется или нет?
     TypeB::TSendInfo sendInfo(info);
     bool pr_send=sendInfo.isSend();
+    const TypeB::TLDMOptions &options = *info.optionsAs<TypeB::TLDMOptions>();
 
     for(vector<TLDMDest>::iterator iv = items.begin(); iv != items.end(); iv++) {
         row.str("");
         row
             << "-" << info.TlgElemIdToElem(etAirp, iv->target)
-            << "." << iv->adl << "/" << iv->chd << "/" << iv->inf
+            << "." << iv->adl << "/" << iv->chd << "/" << iv->inf;
+        if(options.cabin_baggage)
+            row << "." << iv->rk_weight;
+        row
             << ".T"
             << iv->bag.baggage + iv->bag.cargo + iv->bag.mail;
         if (!pr_send)
         {
-          row << ".?/?";   //распределение по багажникам
-          vcompleted = false;
+            row << ".?/?";   //распределение по багажникам
+            vcompleted = false;
         };
 
         row << ".PAX";
@@ -4853,21 +4867,34 @@ void TLDMDests::ToTlg(TypeB::TDetailCreateInfo &info, bool &vcompleted, vector<s
         row
             << "/0"
             << "/0";
-        if(info.airp_dep == "ЧЛБ")
+        if(options.version == "CEK" and info.airp_dep == "ЧЛБ")
             row
                 << ".B/" << iv->bag.baggage
                 << ".C/" << iv->bag.cargo
                 << ".M/" << iv->bag.mail;
         body.push_back(row.str());
+        if(options.version == "28ed") {
+            row.str("");
+            row
+                << "SI "
+                << info.TlgElemIdToElem(etAirp, iv->target) << " "
+                << "B" << iv->bag.baggage
+                << ".C" << iv->bag.cargo
+                << ".M" << iv->bag.mail
+                << ".E" << iv->excess.excess;
+            body.push_back(row.str());
+        }
         baggage_sum += iv->bag.baggage;
         cargo_sum += iv->bag.cargo;
         mail_sum += iv->bag.mail;
     }
+    if(options.version != "28ed") {
+        row.str("");
+        row << "SI: EXB" << excess.excess << KG;
+        body.push_back(row.str());
+    }
     row.str("");
-    row << "SI: EXB" << excess.excess << KG;
-    body.push_back(row.str());
-    row.str("");
-    if(info.airp_dep != "ЧЛБ") {
+    if(options.version == "CEK" and info.airp_dep != "ЧЛБ") {
         row << "SI: B";
         if(baggage_sum > 0)
             row << baggage_sum;
@@ -4885,7 +4912,7 @@ void TLDMDests::ToTlg(TypeB::TDetailCreateInfo &info, bool &vcompleted, vector<s
             row << "NIL";
     }
     body.push_back(row.str());
-//    body.push_back("SI: TRANSFER BAG CPT 0 NS 0");
+    //    body.push_back("SI: TRANSFER BAG CPT 0 NS 0");
 }
 
 void TLDMDests::get(TypeB::TDetailCreateInfo &info)
@@ -4896,6 +4923,7 @@ void TLDMDests::get(TypeB::TDetailCreateInfo &info)
     Qry.SQLText =
         "SELECT points.point_id AS point_arv, "
         "       points.airp AS target, "
+        "       NVL(pax.rk_weight,0) AS rk_weight, "
         "       NVL(pax.f,0) AS f, "
         "       NVL(pax.c,0) AS c, "
         "       NVL(pax.y,0) AS y, "
@@ -4904,6 +4932,7 @@ void TLDMDests::get(TypeB::TDetailCreateInfo &info)
         "       NVL(pax.inf,0) AS inf "
         "FROM points, "
         "     (SELECT point_arv, "
+        "             SUM(ckin.get_rkWeight2(pax_grp.grp_id, pax.pax_id, pax.bag_pool_num, rownum)) rk_weight, "
         "             SUM(DECODE(class,'П',DECODE(seats,0,0,1),0)) AS f, "
         "             SUM(DECODE(class,'Б',DECODE(seats,0,0,1),0)) AS c, "
         "             SUM(DECODE(class,'Э',DECODE(seats,0,0,1),0)) AS y, "
@@ -4923,6 +4952,7 @@ void TLDMDests::get(TypeB::TDetailCreateInfo &info)
     if(!Qry.Eof) {
         int col_point_arv = Qry.FieldIndex("point_arv");
         int col_target = Qry.FieldIndex("target");
+        int col_rk_weight = Qry.FieldIndex("rk_weight");
         int col_f = Qry.FieldIndex("f");
         int col_c = Qry.FieldIndex("c");
         int col_y = Qry.FieldIndex("y");
@@ -4933,8 +4963,10 @@ void TLDMDests::get(TypeB::TDetailCreateInfo &info)
             TLDMDest item;
             item.point_arv = Qry.FieldAsInteger(col_point_arv);
             item.bag.get(info, item.point_arv);
+            item.rk_weight = Qry.FieldAsInteger(col_rk_weight);
             item.f = Qry.FieldAsInteger(col_f);
             item.target = Qry.FieldAsString(col_target);
+            item.excess.get(info.point_id, item.target);
             item.c = Qry.FieldAsInteger(col_c);
             item.y = Qry.FieldAsInteger(col_y);
             item.adl = Qry.FieldAsInteger(col_adl);
@@ -5556,58 +5588,65 @@ struct TLCIPaxTotals {
 void TLCIPaxTotals::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 {
     ostringstream result;
+    const TypeB::TLCIOptions &options = *info.optionsAs<TypeB::TLCIOptions>();
     for(vector<TLCIPaxTotalsItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
+        if(options.PT) {
+            result.str(string());
+            result
+                << "-" << info.TlgElemIdToElem(etAirp, iv->airp) << ".PT."
+                <<
+                iv->cls_totals["П"].pax_size +
+                iv->cls_totals["Б"].pax_size +
+                iv->cls_totals["Э"].pax_size
+                << ".C."
+                << iv->cls_totals["П"].pax_size << "/"
+                << iv->cls_totals["Б"].pax_size << "/"
+                << iv->cls_totals["Э"].pax_size;
+            body.push_back(result.str());
+        }
+        if(options.BT) {
+            result.str(string());
+            result
+                << "-" << info.TlgElemIdToElem(etAirp, iv->airp) << ".BT."
+                <<
+                iv->cls_totals["П"].bag_amount +
+                iv->cls_totals["Б"].bag_amount +
+                iv->cls_totals["Э"].bag_amount
+                << "/" <<
+                iv->cls_totals["П"].bag_weight +
+                iv->cls_totals["Б"].bag_weight +
+                iv->cls_totals["Э"].bag_weight
+                << ".C."
+                << iv->cls_totals["П"].bag_amount << "/"
+                << iv->cls_totals["Б"].bag_amount << "/"
+                << iv->cls_totals["Э"].bag_amount
+                << ".A."
+                << iv->cls_totals["П"].bag_weight << "/"
+                << iv->cls_totals["Б"].bag_weight << "/"
+                << iv->cls_totals["Э"].bag_weight
+                << "." << KG;
+            body.push_back(result.str());
+        }
+    }
+    if(options.PD) {
         result.str(string());
-        result
-            << "-" << info.TlgElemIdToElem(etAirp, iv->airp) << ".PT."
-            <<
-            iv->cls_totals["П"].pax_size +
-            iv->cls_totals["Б"].pax_size +
-            iv->cls_totals["Э"].pax_size
-            << ".C."
-            << iv->cls_totals["П"].pax_size << "/"
-            << iv->cls_totals["Б"].pax_size << "/"
-            << iv->cls_totals["Э"].pax_size;
-        body.push_back(result.str());
-        result.str(string());
-        result
-            << "-" << info.TlgElemIdToElem(etAirp, iv->airp) << ".BT."
-            <<
-            iv->cls_totals["П"].bag_amount +
-            iv->cls_totals["Б"].bag_amount +
-            iv->cls_totals["Э"].bag_amount
-            << "/" <<
-            iv->cls_totals["П"].bag_weight +
-            iv->cls_totals["Б"].bag_weight +
-            iv->cls_totals["Э"].bag_weight
-            << ".C."
-            << iv->cls_totals["П"].bag_amount << "/"
-            << iv->cls_totals["Б"].bag_amount << "/"
-            << iv->cls_totals["Э"].bag_amount
-            << ".A."
-            << iv->cls_totals["П"].bag_weight << "/"
-            << iv->cls_totals["Б"].bag_weight << "/"
-            << iv->cls_totals["Э"].bag_weight
-            << "." << KG;
+        result << "PD.C." << info.TlgElemIdToElem(etClass, "П") << "."
+            << pax_tot_by_cls["П"].m << "/"
+            << pax_tot_by_cls["П"].f << "/"
+            << pax_tot_by_cls["П"].c << "/"
+            << pax_tot_by_cls["П"].i << "."
+            << info.TlgElemIdToElem(etClass, "Б") << "."
+            << pax_tot_by_cls["Б"].m << "/"
+            << pax_tot_by_cls["Б"].f << "/"
+            << pax_tot_by_cls["Б"].c << "/"
+            << pax_tot_by_cls["Б"].i << "."
+            << info.TlgElemIdToElem(etClass, "Э") << "."
+            << pax_tot_by_cls["Э"].m << "/"
+            << pax_tot_by_cls["Э"].f << "/"
+            << pax_tot_by_cls["Э"].c << "/"
+            << pax_tot_by_cls["Э"].i;
         body.push_back(result.str());
     }
-    result.str(string());
-    result << "PD.C." << info.TlgElemIdToElem(etClass, "П") << "."
-        << pax_tot_by_cls["П"].m << "/"
-        << pax_tot_by_cls["П"].f << "/"
-        << pax_tot_by_cls["П"].c << "/"
-        << pax_tot_by_cls["П"].i << "."
-        << info.TlgElemIdToElem(etClass, "Б") << "."
-        << pax_tot_by_cls["Б"].m << "/"
-        << pax_tot_by_cls["Б"].f << "/"
-        << pax_tot_by_cls["Б"].c << "/"
-        << pax_tot_by_cls["Б"].i << "."
-        << info.TlgElemIdToElem(etClass, "Э") << "."
-        << pax_tot_by_cls["Э"].m << "/"
-        << pax_tot_by_cls["Э"].f << "/"
-        << pax_tot_by_cls["Э"].c << "/"
-        << pax_tot_by_cls["Э"].i;
-    body.push_back(result.str());
 }
 
 void TLCIPaxTotals::get(TypeB::TDetailCreateInfo &info)
@@ -5662,22 +5701,25 @@ void TSeatPlan::get(TypeB::TDetailCreateInfo &info)
 
 void TSeatPlan::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 {
-    string buf = "SP";
-    for(map<int,TCheckinPaxSeats>::iterator im = checkinPaxsSeats.begin(); im != checkinPaxsSeats.end(); im++) {
-        for(set<TTlgCompLayer,TCompareCompLayers>::iterator is = im->second.seats.begin(); is != im->second.seats.end(); is++) {
-            string seat =
-                "." + denorm_iata_row(is->yname, NULL) +
-                denorm_iata_line(is->xname, info.is_lat() or info.pr_lat_seat) +
-                "/" + im->second.gender;
-            if(buf.size() + seat.size() > 64) {
-                body.push_back(buf);
-                buf = "SP";
+    const TypeB::TLCIOptions &options = *info.optionsAs<TypeB::TLCIOptions>();
+    if(options.SP) {
+        string buf = "SP";
+        for(map<int,TCheckinPaxSeats>::iterator im = checkinPaxsSeats.begin(); im != checkinPaxsSeats.end(); im++) {
+            for(set<TTlgCompLayer,TCompareCompLayers>::iterator is = im->second.seats.begin(); is != im->second.seats.end(); is++) {
+                string seat =
+                    "." + denorm_iata_row(is->yname, NULL) +
+                    denorm_iata_line(is->xname, info.is_lat() or info.pr_lat_seat) +
+                    "/" + im->second.gender;
+                if(buf.size() + seat.size() > 64) {
+                    body.push_back(buf);
+                    buf = "SP";
+                }
+                buf += seat;
             }
-            buf += seat;
         }
+        if(buf != "SP")
+            body.push_back(buf);
     }
-    if(buf != "SP")
-        body.push_back(buf);
 }
 
 struct TLCI {
