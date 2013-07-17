@@ -31,7 +31,6 @@ public:
 #define TAG_REFRESH_DATA        "DATA_VER"
 #define TAG_REFRESH_INTERFACE   "INTERFACE_VER"
 #define TAG_CODE                "CODE"
-#define TAG_CODE_PARENT         "CODE_PARENT"
 
 enum TCacheFieldCharCase {ecNormal, ecUpperCase, ecLowerCase};
 enum TAlignment {taLeftJustify, taRightJustify, taCenter};
@@ -42,13 +41,15 @@ enum TCacheUpdateStatus {usUnmodified, usModified, usInserted, usDeleted};
 enum TCacheQueryType {cqtSelect,cqtRefresh,cqtInsert,cqtUpdate,cqtDelete};
 enum TCacheElemCategory {cecNone, cecCode, cecNameShort, cecName, cecRoleName, cecUserName, cecUserPerms};
 
-struct TOptionField {
-    std::string var_name, field;
+struct TCacheChildField {
+    std::string field_parent, field_child;
+    std::string select_var, insert_var, update_var, delete_var;
+    bool auto_insert, check_equal, read_only;
 };
 
-struct TOption {
+struct TCacheChildTable {
     std::string code, title;
-    std::vector<TOptionField> field_lst;
+    std::vector<TCacheChildField> fields;
 };
 
 struct TCacheField2 {
@@ -125,7 +126,7 @@ enum TUpdateDataType {upNone, upExists, upClearAll};
 class TCacheTable {
     protected:
         TQuery *Qry;
-        TParams Params, SQLParams, ChildCacheKey;
+        TParams Params, SQLParams;
         std::string Title;
         std::string SelectSQL;
         std::string RefreshSQL;
@@ -141,7 +142,7 @@ class TCacheTable {
         int UpdateRight;
         int DeleteRight;
         bool Forbidden, ReadOnly;
-        std::vector<TOption> options;
+        std::vector<TCacheChildTable> FChildTables;
         std::vector<TCacheField2> FFields;
         int clientVerData;
         int curVerIface;
@@ -153,14 +154,12 @@ class TCacheTable {
         bool pr_irefresh, pr_dconst;
         TUpdateDataType refresh_data_type;
         void getParams(xmlNodePtr paramNode, TParams &vparams);
-        void getChildCacheKey();
         bool refreshInterface();
         TUpdateDataType refreshData();
-        virtual void initOptions();
+        virtual void initChildTables();
         virtual void initFields();
         void XMLInterface(const xmlNodePtr resNode);
         void XMLData(const xmlNodePtr resNode);
-        void XMLChildCacheKey(xmlNodePtr dataNode);
         void DeclareSysVariables(std::vector<std::string> &vars, TQuery *Qry);
         void DeclareVariables(std::vector<std::string> &vars);
         void SetVariables(TRow &row, const std::vector<std::string> &vars);
