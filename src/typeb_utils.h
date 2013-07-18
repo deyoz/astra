@@ -142,7 +142,7 @@ class TUnknownFmtOptions : public TCreateOptions
     virtual localizedstream& extraStr(localizedstream &s) const
     {
       TCreateOptions::extraStr(s);
-      s << extra << " ";
+      s << extra << endl;
       return s;
     };
     virtual std::string typeName() const
@@ -228,7 +228,7 @@ class TAirpTrferOptions : public TCreateOptions
       TCreateOptions::extraStr(s);
       s << s.getLocaleText("а/п") << ": "
         << s.ElemIdToCodeNative(etAirp, airp_trfer)
-        << " ";
+        << endl;
       return s;
     };
     virtual std::string typeName() const
@@ -316,7 +316,7 @@ class TCrsOptions : public TCreateOptions
       if (!crs.empty())
         s << s.getLocaleText("центр") << ": "
           << crs
-          << " ";
+          << endl;
       return s;
     };
     virtual std::string typeName() const
@@ -420,12 +420,12 @@ class TMarkInfoOptions : public TCrsOptions
           << s.ElemIdToCodeNative(etAirline, mark_info.airline)
           << std::setw(3) << std::setfill('0') << mark_info.flt_no
           << s.ElemIdToCodeNative(etSuffix, mark_info.suffix)
-          << " ";
+          << endl;
       if (pr_mark_header!=ASTRA::NoExists)
         s << s.getLocaleText("комм.заголовок") << ": "
           << (pr_mark_header!=0 ? s.getLocaleText("да"):
                                  s.getLocaleText("нет"))
-          << " ";
+          << endl;
       return s;
     };
     virtual std::string typeName() const
@@ -488,8 +488,8 @@ class TLDMOptions : public TCreateOptions
   private:
     void init()
     {
+      version = "CEK";
       cabin_baggage=false;
-      version = "LDM";
     };
   public:
     std::string version;
@@ -506,8 +506,8 @@ class TLDMOptions : public TCreateOptions
       TCreateOptions::fromXML(node);
       if (node==NULL) return;
       xmlNodePtr node2=node->children;
-      cabin_baggage=NodeAsIntegerFast("cabin_baggage", node2, (int)cabin_baggage) != 0;
       version=NodeAsStringFast("version", node2, version.c_str());
+      cabin_baggage=NodeAsIntegerFast("cabin_baggage", node2, (int)cabin_baggage) != 0;
     };
     virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
     {
@@ -518,14 +518,14 @@ class TLDMOptions : public TCreateOptions
       for(;!OptionsQry.Eof;OptionsQry.Next())
       {
         std::string cat=OptionsQry.FieldAsString("category");
-        if (cat=="CABIN_BAGGAGE")
-        {
-          cabin_baggage=OptionsQry.FieldAsInteger("value")!=0;
-          continue;
-        };
         if (cat=="VERSION")
         {
           version=OptionsQry.FieldAsString("value");
+          continue;
+        };
+        if (cat=="CABIN_BAGGAGE")
+        {
+          cabin_baggage=OptionsQry.FieldAsInteger("value")!=0;
           continue;
         };
       };
@@ -534,24 +534,25 @@ class TLDMOptions : public TCreateOptions
     {
       TCreateOptions::logStr(s);
       s << ", "
+        << s.getLocaleText("CAP.TYPEB_OPTIONS.LDM.VERSION") << ": "
+        << version
+
+        << ", "
         << s.getLocaleText("CAP.TYPEB_OPTIONS.LDM.CABIN_BAGGAGE") << ": "
         << (cabin_baggage ? s.getLocaleText("да"):
-                            s.getLocaleText("нет"))
-        << ", "
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.LDM.VERSION") << ": "
-        << version;
+                            s.getLocaleText("нет"));
       return s;
     };
     virtual localizedstream& extraStr(localizedstream &s) const
     {
       TCreateOptions::extraStr(s);
-      s << s.getLocaleText("CAP.TYPEB_OPTIONS.LDM.CABIN_BAGGAGE") << ": "
+      s << s.getLocaleText("CAP.TYPEB_OPTIONS.LDM.VERSION") << ": "
+        << version
+        << endl
+        << s.getLocaleText("CAP.TYPEB_OPTIONS.LDM.CABIN_BAGGAGE") << ": "
         << (cabin_baggage ? s.getLocaleText("да"):
                             s.getLocaleText("нет"))
-        << " "
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.LDM.VERSION") << ": "
-        << version
-        << " ";
+        << endl;
       return s;
     };
     virtual std::string typeName() const
@@ -610,16 +611,16 @@ class TLCIOptions : public TCreateOptions
       seating=true;
       weight_mode=true;
       seat_restrict="CZ";
-      PT = true;
-      BT = true;
-      PD = true;
-      SP = true;
+      pas_totals = true;
+      bag_totals = true;
+      pas_distrib = true;
+      seat_plan = true;
     };
   public:
     std::string action_code;
     bool equipment, seating, weight_mode;
-    bool PT, BT, PD, SP;
     std::string weight_avail, seat_restrict;
+    bool pas_totals, bag_totals, pas_distrib, seat_plan;
     TLCIOptions() {init();};
     virtual ~TLCIOptions() {};
     virtual void clear()
@@ -634,14 +635,14 @@ class TLCIOptions : public TCreateOptions
       xmlNodePtr node2=node->children;
       action_code=NodeAsStringFast("action_code", node2, action_code.c_str());
       equipment=NodeAsIntegerFast("equipment", node2, (int)equipment) != 0;
-      PT=NodeAsIntegerFast("PT", node2, (int)PT) != 0;
-      BT=NodeAsIntegerFast("BT", node2, (int)BT) != 0;
-      PD=NodeAsIntegerFast("PD", node2, (int)PD) != 0;
-      SP=NodeAsIntegerFast("SP", node2, (int)SP) != 0;
       weight_avail=NodeAsStringFast("weight_avail", node2, weight_avail.c_str());
       seating=NodeAsIntegerFast("seating", node2, (int)seating) != 0;
       weight_mode=NodeAsIntegerFast("weight_mode", node2, (int)weight_mode) != 0;
       seat_restrict=NodeAsStringFast("seat_restrict", node2, seat_restrict.c_str());
+      pas_totals=NodeAsIntegerFast("pas_totals", node2, (int)pas_totals) != 0;
+      bag_totals=NodeAsIntegerFast("bag_totals", node2, (int)bag_totals) != 0;
+      pas_distrib=NodeAsIntegerFast("pas_distrib", node2, (int)pas_distrib) != 0;
+      seat_plan=NodeAsIntegerFast("seat_plan", node2, (int)seat_plan) != 0;
     };
     virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
     {
@@ -655,26 +656,6 @@ class TLCIOptions : public TCreateOptions
         if (cat=="ACTION_CODE")
         {
           action_code=OptionsQry.FieldAsString("value");
-          continue;
-        };
-        if (cat=="PT")
-        {
-          PT=OptionsQry.FieldAsInteger("value")!=0;
-          continue;
-        };
-        if (cat=="BT")
-        {
-          BT=OptionsQry.FieldAsInteger("value")!=0;
-          continue;
-        };
-        if (cat=="PD")
-        {
-          PD=OptionsQry.FieldAsInteger("value")!=0;
-          continue;
-        };
-        if (cat=="SP")
-        {
-          SP=OptionsQry.FieldAsInteger("value")!=0;
           continue;
         };
         if (cat=="EQUIPMENT")
@@ -702,6 +683,26 @@ class TLCIOptions : public TCreateOptions
           seat_restrict=OptionsQry.FieldAsString("value");
           continue;
         };
+        if (cat=="PAS_TOTALS")
+        {
+          pas_totals=OptionsQry.FieldAsInteger("value")!=0;
+          continue;
+        };
+        if (cat=="BAG_TOTALS")
+        {
+          bag_totals=OptionsQry.FieldAsInteger("value")!=0;
+          continue;
+        };
+        if (cat=="PAS_DISTRIB")
+        {
+          pas_distrib=OptionsQry.FieldAsInteger("value")!=0;
+          continue;
+        };
+        if (cat=="SEAT_PLAN")
+        {
+          seat_plan=OptionsQry.FieldAsInteger("value")!=0;
+          continue;
+        };
       };
     };
     virtual localizedstream& logStr(localizedstream &s) const
@@ -711,22 +712,6 @@ class TLCIOptions : public TCreateOptions
         << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.ACTION_CODE") << ": "
         << action_code
         << ", "
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.PT") << ": "
-        << (PT ? s.getLocaleText("да"):
-                        s.getLocaleText("нет"))
-        << ", "
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.BT") << ": "
-        << (BT ? s.getLocaleText("да"):
-                        s.getLocaleText("нет"))
-        << ", "
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.PD") << ": "
-        << (PD ? s.getLocaleText("да"):
-                        s.getLocaleText("нет"))
-        << ", "
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.SP") << ": "
-        << (SP ? s.getLocaleText("да"):
-                        s.getLocaleText("нет"))
-        << ", "
         << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.EQUIPMENT") << ": "
         << (equipment ? s.getLocaleText("да"):
                         s.getLocaleText("нет"))
@@ -743,7 +728,23 @@ class TLCIOptions : public TCreateOptions
                           s.getLocaleText("нет"))
         << ", "
         << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.SEAT_RESTRICT") << ": "
-        << seat_restrict;
+        << seat_restrict
+        << ", "
+        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.PAS_TOTALS") << ": "
+        << (pas_totals ? s.getLocaleText("да"):
+                         s.getLocaleText("нет"))
+        << ", "
+        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.BAG_TOTALS") << ": "
+        << (bag_totals ? s.getLocaleText("да"):
+                         s.getLocaleText("нет"))
+        << ", "
+        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.PAS_DISTRIB") << ": "
+        << (pas_distrib ? s.getLocaleText("да"):
+                          s.getLocaleText("нет"))
+        << ", "
+        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.SEAT_PLAN") << ": "
+        << (seat_plan ? s.getLocaleText("да"):
+                        s.getLocaleText("нет"));
       return s;
     };
     virtual localizedstream& extraStr(localizedstream &s) const
@@ -751,41 +752,41 @@ class TLCIOptions : public TCreateOptions
       TCreateOptions::extraStr(s);
       s << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.ACTION_CODE") << ": "
         << action_code
-        << " "
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.PT") << ": "
-        << (PT ? s.getLocaleText("да"):
-                        s.getLocaleText("нет"))
-        << " "
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.BT") << ": "
-        << (BT ? s.getLocaleText("да"):
-                        s.getLocaleText("нет"))
-        << " "
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.PD") << ": "
-        << (PD ? s.getLocaleText("да"):
-                        s.getLocaleText("нет"))
-        << " "
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.SP") << ": "
-        << (SP ? s.getLocaleText("да"):
-                        s.getLocaleText("нет"))
-        << " "
+        << endl
         << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.EQUIPMENT") << ": "
         << (equipment ? s.getLocaleText("да"):
                         s.getLocaleText("нет"))
-        << " "
+        << endl
         << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.WEIGHT_AVAIL") << ": "
         << weight_avail
-        << " "
+        << endl
         << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.SEATING") << ": "
         << (seating ? s.getLocaleText("да"):
                       s.getLocaleText("нет"))
-        << " "
+        << endl
         << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.WEIGHT_MODE") << ": "
         << (weight_mode ? s.getLocaleText("да"):
                           s.getLocaleText("нет"))
-        << " "
+        << endl
         << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.SEAT_RESTRICT") << ": "
         << seat_restrict
-        << " ";
+        << endl
+        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.PAS_TOTALS") << ": "
+        << (pas_totals ? s.getLocaleText("да"):
+                         s.getLocaleText("нет"))
+        << endl
+        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.BAG_TOTALS") << ": "
+        << (bag_totals ? s.getLocaleText("да"):
+                         s.getLocaleText("нет"))
+        << endl
+        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.PAS_DISTRIB") << ": "
+        << (pas_distrib ? s.getLocaleText("да"):
+                          s.getLocaleText("нет"))
+        << endl
+        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.SEAT_PLAN") << ": "
+        << (seat_plan ? s.getLocaleText("да"):
+                        s.getLocaleText("нет"))
+        << endl;
       return s;
     };
     virtual std::string typeName() const
@@ -794,20 +795,20 @@ class TLCIOptions : public TCreateOptions
     };
     virtual bool similar(const TCreateOptions &item) const
     {
+      if (!TCreateOptions::similar(item)) return false;
       try
       {
         const TLCIOptions &opt = dynamic_cast<const TLCIOptions&>(item);
-        if (!TCreateOptions::similar(opt)) return false;
         return action_code==opt.action_code &&
-               PT==opt.PT &&
-               BT==opt.BT &&
-               PD==opt.PD &&
-               SP==opt.SP &&
                equipment==opt.equipment &&
                weight_avail==opt.weight_avail &&
                seating==opt.seating &&
                weight_mode==opt.weight_mode &&
-               seat_restrict==opt.seat_restrict;
+               seat_restrict==opt.seat_restrict &&
+               pas_totals==opt.pas_totals &&
+               bag_totals==opt.bag_totals &&
+               pas_distrib==opt.pas_distrib &&
+               seat_plan==opt.seat_plan;
       }
       catch(std::bad_cast)
       {
@@ -816,20 +817,20 @@ class TLCIOptions : public TCreateOptions
     };
     virtual bool equal(const TCreateOptions &item) const
     {
+      if (!TCreateOptions::equal(item)) return false;
       try
       {
         const TLCIOptions &opt = dynamic_cast<const TLCIOptions&>(item);
-        if (!TCreateOptions::equal(opt)) return false;
         return action_code==opt.action_code &&
-               PT==opt.PT &&
-               BT==opt.BT &&
-               PD==opt.PD &&
-               SP==opt.SP &&
                equipment==opt.equipment &&
                weight_avail==opt.weight_avail &&
                seating==opt.seating &&
                weight_mode==opt.weight_mode &&
-               seat_restrict==opt.seat_restrict;
+               seat_restrict==opt.seat_restrict &&
+               pas_totals==opt.pas_totals &&
+               bag_totals==opt.bag_totals &&
+               pas_distrib==opt.pas_distrib &&
+               seat_plan==opt.seat_plan;
       }
       catch(std::bad_cast)
       {
@@ -843,15 +844,15 @@ class TLCIOptions : public TCreateOptions
       {
         const TLCIOptions &opt = dynamic_cast<const TLCIOptions&>(item);
         action_code=opt.action_code;
-        PT=opt.PT;
-        BT=opt.BT;
-        PD=opt.PD;
-        SP=opt.SP;
         equipment=opt.equipment;
         weight_avail=opt.weight_avail;
         seating=opt.seating;
         weight_mode=opt.weight_mode;
         seat_restrict=opt.seat_restrict;
+        pas_totals=opt.pas_totals;
+        bag_totals=opt.bag_totals;
+        pas_distrib=opt.pas_distrib;
+        seat_plan=opt.seat_plan;
       }
       catch(std::bad_cast) {};
     };

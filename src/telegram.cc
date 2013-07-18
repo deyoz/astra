@@ -14,6 +14,7 @@
 #include "astra_service.h"
 #include "http_io.h"
 #include "typeb_utils.h"
+#include "term_version.h"
 #include "serverlib/logger.h"
 #include "serverlib/posthooks.h"
 
@@ -600,6 +601,8 @@ void TelegramInterface::GetTlgOut(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     };
   };
 
+  ostringstream endl_stream;
+  endl_stream << endl;
   for(;!Qry.Eof;Qry.Next())
   {
     node = NewTextChild( tlgsNode, "tlg" );
@@ -625,7 +628,11 @@ void TelegramInterface::GetTlgOut(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     NewTextChild( node, "addr", Qry.FieldAsString("addr") );
     NewTextChild( node, "heading", Qry.FieldAsString("heading") );
     NewTextChild( node, "ending", Qry.FieldAsString("ending") );
-    NewTextChild( node, "extra", Qry.FieldAsString("extra"), "" );
+    if(TReqInfo::Instance()->desk.compatible(CACHE_CHILD_VERSION))
+      NewTextChild( node, "extra", Qry.FieldAsString("extra"), "" );
+    else
+      NewTextChild( node, "extra", CharReplace(Qry.FieldAsString("extra"),endl_stream.str().c_str()," "), "" );
+
     NewTextChild( node, "pr_lat", (int)(Qry.FieldAsInteger("pr_lat")!=0) );
     NewTextChild( node, "completed", completed, true );
 

@@ -5590,7 +5590,7 @@ void TLCIPaxTotals::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
     ostringstream result;
     const TypeB::TLCIOptions &options = *info.optionsAs<TypeB::TLCIOptions>();
     for(vector<TLCIPaxTotalsItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
-        if(options.PT) {
+        if(options.pas_totals) {
             result.str(string());
             result
                 << "-" << info.TlgElemIdToElem(etAirp, iv->airp) << ".PT."
@@ -5604,7 +5604,7 @@ void TLCIPaxTotals::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
                 << iv->cls_totals["ù"].pax_size;
             body.push_back(result.str());
         }
-        if(options.BT) {
+        if(options.bag_totals) {
             result.str(string());
             result
                 << "-" << info.TlgElemIdToElem(etAirp, iv->airp) << ".BT."
@@ -5628,7 +5628,7 @@ void TLCIPaxTotals::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
             body.push_back(result.str());
         }
     }
-    if(options.PD) {
+    if(options.pas_distrib) {
         result.str(string());
         result << "PD.C." << info.TlgElemIdToElem(etClass, "è") << "."
             << pax_tot_by_cls["è"].m << "/"
@@ -5702,7 +5702,7 @@ void TSeatPlan::get(TypeB::TDetailCreateInfo &info)
 void TSeatPlan::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 {
     const TypeB::TLCIOptions &options = *info.optionsAs<TypeB::TLCIOptions>();
-    if(options.SP) {
+    if(options.seat_plan) {
         string buf = "SP";
         for(map<int,TCheckinPaxSeats>::iterator im = checkinPaxsSeats.begin(); im != checkinPaxsSeats.end(); im++) {
             for(set<TTlgCompLayer,TCompareCompLayers>::iterator is = im->second.seats.begin(); is != im->second.seats.end(); is++) {
