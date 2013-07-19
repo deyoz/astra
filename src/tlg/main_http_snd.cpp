@@ -9,6 +9,7 @@
 #include "xml_unit.h"
 #include "serverlib/posthooks.h"
 #include "telegram.h"
+#include "typeb_utils.h"
 
 #define NICKNAME "DEN"
 #include "serverlib/test.h"
@@ -162,7 +163,7 @@ static void scan_tlg(void)
                     p.id=-1;
                     p.num=1;
                     p.pr_lat=1; //???
-                    p.addr=format_addr_line(im->second);
+                    p.addr=TypeB::format_addr_line(im->second);
                     p.body=data;
                     TelegramInterface::SaveTlgOutPart(p);
                     completeQry.SetVariable("id",p.id);

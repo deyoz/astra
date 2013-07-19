@@ -901,13 +901,13 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, ofstream &f)
 
 int create_tlg(int argc,char **argv)
 {
-  TCreateTlgInfo tlgInfo;
+/*  TCreateTlgInfo tlgInfo;
   tlgInfo.type="PTMN";
   tlgInfo.point_id=3229569;
   tlgInfo.airp_trfer="„Œ„";
   tlgInfo.pr_lat=true;
-  tlgInfo.addrs="MOWKB1H";
-  TelegramInterface::create_tlg(tlgInfo);
+  tlgInfo.addrs.addrs="MOWKB1H";
+  TelegramInterface::create_tlg(tlgInfo);*/
 /*
   TypeB::TestBSMElemOrder("IFNNPOOEEW");
   TypeB::TestBSMElemOrder("IFNPPOOEEW");

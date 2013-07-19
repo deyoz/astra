@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 #include <set>
+#include <map>
 
 #include "jxtlib/JxtInterface.h"
 #include "tlg/tlg_parser.h"
@@ -11,6 +12,8 @@
 #include "baggage.h"
 #include "passenger.h"
 #include "remarks.h"
+#include "typeb_utils.h"
+#include "base_tables.h"
 
 const size_t PART_SIZE = 3500;
 
@@ -21,121 +24,6 @@ struct TTlgCompLayer {
 	ASTRA::TCompLayerType layer_type;
 	std::string xname;
 	std::string yname;
-};
-
-struct TCodeShareInfo {
-    std::string airline;
-    int flt_no;
-    std::string suffix;
-    bool pr_mark_header;
-    void init(xmlNodePtr node);
-    void dump() const;
-    bool IsNULL() const;
-    bool operator == (const TMktFlight &s) const;
-    TCodeShareInfo():
-        flt_no(ASTRA::NoExists),
-        pr_mark_header(false)
-    {};
-};
-
-struct TCreateTlgInfo {
-    std::string type;
-    int         point_id;
-    std::string airp_trfer;
-    std::string crs;
-    std::string extra;
-    bool        pr_lat;
-    std::string addrs;
-    TCodeShareInfo mark_info;
-    bool pr_alarm;
-};
-
-struct TTlgDraftPart {
-    std::string addr, heading, ending, body;
-};
-
-struct TErrLst:std::map<int, std::string> {
-    void dump();
-    void fix(std::vector<TTlgDraftPart> &parts);
-    void fetch_err(std::set<int> &txt_errs, std::string body);
-};
-
-struct TOriginatorInfo
-{
-  int id;
-  std::string addr;
-  TOriginatorInfo():id(ASTRA::NoExists) {};
-};
-
-struct TTlgInfo {
-    // Информация о коммерческом рейсе
-    /*const TCodeShareInfo &mark_info;*/
-    TCodeShareInfo mark_info;
-    // кодировка салона
-    bool pr_lat_seat;
-    std::string tlg_type;
-    //адреса получателей
-    std::string addrs;
-    //адрес отправителя
-    TOriginatorInfo originator;
-    //время создания
-    BASIC::TDateTime time_create;
-    //рейс
-    int point_id;
-    std::string airline;
-    int flt_no;
-    std::string suffix;
-    std::string airp_dep;
-    std::string airp_arv;
-    BASIC::TDateTime scd_utc;
-    BASIC::TDateTime est_utc;
-    BASIC::TDateTime scd_local;
-    BASIC::TDateTime act_local;
-    int scd_local_day;
-    std::string bort;
-    //вспомогательные чтобы вытаскивать маршрут
-    int first_point;
-    int point_num;
-    bool pr_tranzit;
-    //центр бронирования
-    std::string crs;
-    //дополнительная инфа
-    std::string extra;
-    //разные настройки
-    bool pr_lat;
-    bool vcompleted;
-    TElemFmt elem_fmt;
-    std::string lang;
-    // список ошибок телеграммы
-    TErrLst err_lst;
-    std::string add_err(std::string err, std::string val);
-    std::string add_err(std::string err, const char *format, ...);
-
-    std::string TlgElemIdToElem(TElemType type, int id, TElemFmt fmt = efmtUnknown);
-    std::string TlgElemIdToElem(TElemType type, std::string id, TElemFmt fmt = efmtUnknown);
-    bool operator == (const TMktFlight &s) const;
-
-    std::string airline_view(bool always_operating = true);
-    int flt_no_view(bool always_operating = true);
-    std::string suffix_view(bool always_operating = true);
-    std::string airp_dep_view();
-    std::string airp_arv_view();
-    std::string flight_view(bool always_operating = true);
-
-    TTlgInfo(){
-        time_create = ASTRA::NoExists;
-        point_id = -1;
-        flt_no = -1;
-        scd_utc = 0;
-        est_utc = 0;
-        scd_local = 0;
-        act_local = 0;
-        scd_local_day = 0;
-        first_point = ASTRA::NoExists;
-        point_num = -1;
-        pr_lat = false;
-        vcompleted = false;
-    }
 };
 
 struct TTlgStatPoint
@@ -172,9 +60,9 @@ class TTlgStat
     doneTypeBOut()*/
 };
 
-bool getPaxRem(TTlgInfo &info, const CheckIn::TPaxTknItem &tkn, CheckIn::TPaxRemItem &rem);
-bool getPaxRem(TTlgInfo &info, const CheckIn::TPaxDocItem &doc, CheckIn::TPaxRemItem &rem);
-bool getPaxRem(TTlgInfo &info, const CheckIn::TPaxDocoItem &doco, CheckIn::TPaxRemItem &rem);
+bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxTknItem &tkn, CheckIn::TPaxRemItem &rem);
+bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxDocItem &doc, CheckIn::TPaxRemItem &rem);
+bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxDocoItem &doco, CheckIn::TPaxRemItem &rem);
 
 // stuff used to form seat ranges in tlgs
 struct TTlgPlace {
@@ -208,7 +96,7 @@ struct TSeatRectList: std::vector<TSeatRect> {
 struct TTlgSeatList {
     private:
         t_tlg_comp comp;
-        void apply_comp(TTlgInfo &info, bool pr_blocked);
+        void apply_comp(TypeB::TDetailCreateInfo &info, bool pr_blocked);
         void dump_comp() const;
         void dump_list(std::map<int, std::string> &list);
         void dump_list(std::map<int, TSeatRectList> &list);
@@ -216,7 +104,7 @@ struct TTlgSeatList {
         int get_list_size(std::map<int, std::string> &list);
     public:
         std::vector<std::string> items;
-        void get(TTlgInfo &info);
+        void get(TypeB::TDetailCreateInfo &info);
         void add_seat(int point_id, std::string xname, std::string yname); // used in SOM
         void add_seat(std::string xname, std::string yname) { // used in PRL
             add_seat(0, xname, yname);
@@ -230,80 +118,43 @@ struct TTlgSeatList {
 
 // End of previous stuff
 
-struct TTypeBSendInfo
-{
-  std::string tlg_type,airline,airp_dep,airp_arv;
-  int flt_no,point_id,first_point,point_num;
-  bool pr_tranzit;
-  TTypeBSendInfo() {};
-  TTypeBSendInfo(const TTripInfo &info)
-  {
-    airline=info.airline;
-    flt_no=info.flt_no;
-    airp_dep=info.airp;
-  };
-};
-
-struct TTypeBAddrInfo
-{
-  std::string tlg_type,airline,airp_dep,airp_arv;
-  int flt_no,point_id,first_point,point_num;
-  bool pr_tranzit;
-  std::string airp_trfer,crs;
-  bool pr_lat;
-  TCodeShareInfo mark_info;
-  TTypeBAddrInfo() {};
-  TTypeBAddrInfo(const TTypeBSendInfo &info)
-  {
-    tlg_type=info.tlg_type;
-    airline=info.airline;
-    airp_dep=info.airp_dep;
-    airp_arv=info.airp_arv;
-    flt_no=info.flt_no;
-    point_id=info.point_id;
-    first_point=info.first_point;
-    point_num=info.point_num;
-    pr_tranzit=info.pr_tranzit;
-  };
-};
-
 struct TTlgOutPartInfo
 {
   int id,num,point_id;
-  std::string tlg_type,addr,heading,body,ending,extra;
+  std::string tlg_type,addr,heading,body,ending;
   bool pr_lat;
   BASIC::TDateTime time_create,time_send_scd;
   int originator_id;
+  std::map<std::string/*lang*/, std::string> extra;
   TTlgOutPartInfo ()
   {
-    id=-1;
+    id=ASTRA::NoExists;
     num=1;
+    point_id=ASTRA::NoExists;
+    pr_lat=false;
     time_create=ASTRA::NoExists;
     time_send_scd=ASTRA::NoExists;
     originator_id=ASTRA::NoExists;
   };
-  TTlgOutPartInfo (const TTlgInfo &info)
+  TTlgOutPartInfo (const TypeB::TDetailCreateInfo &info)
   {
-    id=-1;
+    id=ASTRA::NoExists;
     num = 1;
-    tlg_type = info.tlg_type;
+    tlg_type = info.get_tlg_type();
     point_id = info.point_id;
-    pr_lat = info.pr_lat;
-    extra = info.extra;
+    pr_lat = info.get_options().is_lat;
+    for(int i=0; i<=1; i++)
+    {
+      std::string lang=(i==0?AstraLocale::LANG_RU:AstraLocale::LANG_EN);
+      localizedstream s(lang);
+      extra[lang]=info.get_options().extraStr(s).str();
+    };
     addr = info.addrs;
     time_create = info.time_create;
     time_send_scd = ASTRA::NoExists;
     originator_id = info.originator.id;
   };
 };
-
-std::string TlgElemIdToElem(TElemType type, int id, TElemFmt fmt, std::string lang);
-std::string TlgElemIdToElem(TElemType type, std::string id, TElemFmt fmt, std::string lang);
-TOriginatorInfo getOriginator(const std::string &airline,
-                              const std::string &airp_dep,
-                              const std::string &tlg_type,
-                              const BASIC::TDateTime &time_create,
-                              bool with_exception);
 
 namespace BSM
 {
@@ -358,14 +209,14 @@ void LoadContent(int grp_id, TTlgContent& con);
 void CompareContent(const TTlgContent& con1, const TTlgContent& con2, std::vector<TTlgContent>& bsms);
 std::string CreateTlgBody(const TTlgContent& con, bool pr_lat);
 struct TBSMAddrs {
-    std::map<bool,std::string> addrs;
+    std::vector<TypeB::TCreateInfo> createInfo;
     std::map<std::string, std::string> HTTPGETparams;
-    bool empty() const { return addrs.empty() and HTTPGETparams.empty(); }
+    bool empty() const { return createInfo.empty() and HTTPGETparams.empty(); }
 };
-bool IsSend( TTypeBSendInfo info, TBSMAddrs &addrs );
+bool IsSend( const TAdvTripInfo &fltInfo, TBSMAddrs &addrs );
 void Send( int point_dep, int grp_id, const TTlgContent &con1, const TBSMAddrs &addrs );
 
-};
+}; //namespace BSM
 
 class TelegramInterface : public JxtInterface
 {
@@ -409,27 +260,26 @@ public:
   void TestSeatRanges(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 
-  static int create_tlg(
-          const             TCreateTlgInfo &createInfo
-          );
-
-  static std::string GetTlgLogMsg(const TCreateTlgInfo &createInfo);
+  static int create_tlg(const TypeB::TCreateInfo &createInfo,
+                        TTypeBTypesRow &tlgTypeInfo);
 
   static void readTripData( int point_id, xmlNodePtr dataNode );
   static void SendTlg( int tlg_id );
-  static void SendTlg( int point_id, std::vector<std::string> &tlg_types );
-
-  static bool IsTypeBSend( TTypeBSendInfo &info );
-  static std::string GetTypeBAddrs( TTypeBAddrInfo &info );
-  static std::string GetTypeBAddrs( std::string tlg_type, bool pr_lat );
+  static void SendTlg(const std::vector<TypeB::TCreateInfo> &info);
 
   static void SaveTlgOutPart( TTlgOutPartInfo &info );
 };
 
-std::string fetch_addr(std::string &addr, TTlgInfo *info = NULL);
-std::string format_addr_line(std::string vaddrs, TTlgInfo *info = NULL);
+void ReadSalons( const TypeB::TDetailCreateInfo &info,
+                 std::vector<TTlgCompLayer> &complayers,
+                 bool pr_blocked = false );
 
-void ReadSalons( TTlgInfo &info, std::vector<TTlgCompLayer> &complayers, bool pr_blocked = false );
+void ReadSalons( int point_id,
+                 int point_num,
+                 int first_point,
+                 bool pr_tranzit,
+                 std::vector<TTlgCompLayer> &complayers,
+                 bool pr_blocked = false );
 
 void send_tlg_help(const char *name);
 int send_tlg(int argc,char **argv);

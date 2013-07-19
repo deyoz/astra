@@ -52,6 +52,8 @@ const
                          {"TRIP_TYPES",          etTripType},
                          {"TYPEB_TYPES",         etTypeBType},
                          {"TYPEB_TYPES_MARK",    etTypeBType},
+                         {"TYPEB_TYPES_LDM",     etTypeBType},
+                         {"TYPEB_TYPES_LCI",     etTypeBType},
                          {"USER_TYPES",          etUserType},
                          {"VALIDATOR_TYPES",     etValidatorType}
                         };
@@ -140,6 +142,8 @@ void TCacheTable::Init(xmlNodePtr cacheNode)
   else
     DeleteRight=-1;
   getPerms( );
+  if(TReqInfo::Instance()->desk.compatible(CACHE_CHILD_VERSION))
+      initChildTables();
   initFields(); /* инициализация FFields */
 }
 
@@ -174,6 +178,59 @@ bool lf( const TCacheField2 &item1, const TCacheField2 &item2 )
 	return item1.num<item2.num;
 }
 
+
+void TCacheTable::initChildTables()
+{
+    string code = Params[TAG_CODE].Value;
+    Qry->Clear();
+    Qry->SQLText =
+        "SELECT "
+        "  cache_child_tables.cache_child, "
+        "  NVL(cache_child_tables.title, cache_tables.title) AS title, "
+        "  cache_child_fields.field_parent, "
+        "  cache_child_fields.field_child, "
+        "  cache_child_fields.select_var, "
+        "  cache_child_fields.modify_var AS insert_var, "
+        "  cache_child_fields.modify_var AS update_var, "
+        "  cache_child_fields.modify_var AS delete_var, "
+        "  cache_child_fields.auto_insert, "
+        "  cache_child_fields.check_equal, "
+        "  cache_child_fields.read_only "
+        "FROM "
+        "  cache_child_tables, "
+        "  cache_child_fields, "
+        "  cache_tables "
+        "WHERE "
+        "  cache_child_tables.cache_parent = :code AND "
+        "  cache_child_tables.cache_parent = cache_child_fields.cache_parent AND "
+        "  cache_child_tables.cache_child = cache_child_fields.cache_child AND "
+        "  cache_child_tables.cache_child = cache_tables.code "
+        "ORDER BY num ";
+    Qry->CreateVariable("code", otString, code);
+    Qry->Execute();
+    string prev_child;
+    for(; not Qry->Eof; Qry->Next()) {
+        string child = Qry->FieldAsString("cache_child");
+        if(child != prev_child) {
+            prev_child = child;
+            TCacheChildTable new_child;
+            new_child.code = child;
+            new_child.title = Qry->FieldAsString("title");
+            FChildTables.push_back(new_child);
+        }
+        TCacheChildField field;
+        field.field_parent = Qry->FieldAsString("field_parent");
+        field.field_child = Qry->FieldAsString("field_child");
+        field.select_var = Qry->FieldAsString("select_var");
+        field.insert_var = Qry->FieldAsString("insert_var");
+        field.update_var = Qry->FieldAsString("update_var");
+        field.delete_var = Qry->FieldAsString("delete_var");
+        field.auto_insert = Qry->FieldAsInteger("auto_insert")!=0;
+        field.check_equal = Qry->FieldAsInteger("check_equal")!=0;
+        field.read_only = Qry->FieldAsInteger("read_only")!=0;
+        FChildTables.back().fields.push_back(field);
+    }
+}
 
 void TCacheTable::initFields()
 {
@@ -843,6 +900,28 @@ void TCacheTable::XMLInterface(const xmlNodePtr dataNode)
     NewTextChild(ifaceNode, "CanUpdate", !(UpdateSQL.empty()||UpdateRight<0) );
     NewTextChild(ifaceNode, "CanDelete", !(DeleteSQL.empty()||DeleteRight<0) );
 
+    if(not FChildTables.empty()) {
+        xmlNodePtr tablesNode = NewTextChild(ifaceNode, "child_tables");
+        for(vector<TCacheChildTable>::const_iterator t = FChildTables.begin(); t != FChildTables.end(); ++t) {
+            xmlNodePtr tableNode = NewTextChild(tablesNode, "child_table");
+            NewTextChild(tableNode, "code", t->code);
+            NewTextChild(tableNode, "title", AstraLocale::getLocaleText(t->title));
+            xmlNodePtr fieldsNode = NewTextChild(tableNode, "fields");
+            for(vector<TCacheChildField>::const_iterator f = t->fields.begin(); f != t->fields.end(); ++f) {
+                xmlNodePtr fieldNode = NewTextChild(fieldsNode, "field");
+                NewTextChild(fieldNode, "field_parent", f->field_parent);
+                NewTextChild(fieldNode, "field_child", f->field_child);
+                NewTextChild(fieldNode, "select_var", f->select_var);
+                NewTextChild(fieldNode, "insert_var", f->insert_var);
+                NewTextChild(fieldNode, "update_var", f->update_var);
+                NewTextChild(fieldNode, "delete_var", f->delete_var);
+                NewTextChild(fieldNode, "auto_insert", (int)f->auto_insert);
+                NewTextChild(fieldNode, "check_equal", (int)f->check_equal);
+                NewTextChild(fieldNode, "read_only", (int)f->read_only);
+            }
+        }
+    }
+
     xmlNodePtr ffieldsNode = NewTextChild(ifaceNode, "fields");
     SetProp( ffieldsNode, "tid", curVerIface );
     int i = 0;
@@ -1203,8 +1282,8 @@ void TCacheTable::OnLogging( const TRow &row, TCacheUpdateStatus UpdateStatus )
     int Idx=0;
     str2 = "";
     for(vector<TCacheField2>::iterator iv = FFields.begin(); iv != FFields.end(); iv++, Idx++) {
-      ProgTrace( TRACE5, "l=%d, Ident=%d, Idx=%d, iv->VarIdx[0]=%d, iv->VarIdx[1]=%d",
-                 l, iv->Ident, Idx, iv->VarIdx[0], iv->VarIdx[1] );
+      ProgTrace( TRACE5, "l=%d, Name=%s, Ident=%d, Idx=%d, iv->VarIdx[0]=%d, iv->VarIdx[1]=%d",
+                 l, iv->Name.c_str(), iv->Ident, Idx, iv->VarIdx[0], iv->VarIdx[1] );
       if ( (!l && !iv->Ident) ||
            (UpdateStatus == usInserted && iv->VarIdx[ 0 ] < 0) ||
            (UpdateStatus != usInserted && iv->VarIdx[ 1 ] < 0) )
@@ -1366,6 +1445,7 @@ void TCacheTable::SetVariables(TRow &row, const std::vector<std::string> &vars)
   int Idx=0;
   for(vector<TCacheField2>::iterator iv = FFields.begin(); iv != FFields.end(); iv++, Idx++) {
     for(int i = 0; i < 2; i++) {
+      //ProgTrace(TRACE5, "TCacheTable::SetVariables: i = %d, Name = %s", i, iv->Name.c_str());
       if(iv->VarIdx[i] >= 0) { /* есть индекс переменной */
         if(i == 0)
           value = row.cols[ Idx ]; /* берем из нужного столбца данных, которые пришли */
@@ -1440,7 +1520,7 @@ void TCacheTable::DeclareVariables(std::vector<string> &vars)
     if ( Qry->Variables->FindVariable( r->c_str() ) == -1 ) {
       map<std::string, TParam>::iterator ip = SQLParams.find( *r );
       if ( ip != SQLParams.end() ) {
-        ProgTrace( TRACE5, "DEclare Variable from SQLParams r->c_str()=%s", r->c_str() );
+        ProgTrace( TRACE5, "Declare variable from SQLParams r->c_str()=%s", r->c_str() );
         switch( ip->second.DataType ) {
           case ctInteger:
             Qry->DeclareVariable( *r, otInteger );

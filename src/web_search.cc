@@ -1284,7 +1284,7 @@ void TPNRSegInfo::getMarkFlt(const TFlightInfo &flt, bool is_test, TTripInfo &ma
     //коммерческий рейс PNR
     TMktFlight mktFlt;
     mktFlt.getByPnrId(pnr_id);
-    if (mktFlt.IsNULL())
+    if (mktFlt.empty())
       throw EXCEPTIONS::Exception("TPNRSegInfo::getMarkFlt: empty mktFlt (pnr_id=%d)",pnr_id);
 
     mark.airline=mktFlt.airline;

@@ -10,6 +10,7 @@
 #include "astra_context.h"
 #include "stages.h"
 #include "telegram.h"
+#include "typeb_utils.h"
 #include "misc.h"
 #include "astra_misc.h"
 #include "base_tables.h"
@@ -1428,7 +1429,7 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry,  xmlNodePtr resNode)
                                     pnr_status=="ID2"||
                                     pnr_status=="WL"),0);
       mktFlt.getByPnrId(pnr_id);
-      if (!mktFlt.IsNULL())
+      if (!mktFlt.empty())
       {
         TTripInfo pnrMarkFlt;
         pnrMarkFlt.airline=mktFlt.airline;
@@ -3129,18 +3130,14 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
     try
     {
-      TTypeBSendInfo sendInfo(fltInfo);
-      sendInfo.point_id=s->second.point_dep;
-      sendInfo.point_num=s->second.point_num;
-      sendInfo.first_point=s->second.first_point;
-      sendInfo.pr_tranzit=s->second.pr_tranzit;
-      sendInfo.tlg_type="BSM";
-
       //BSM
       BSM::TBSMAddrs BSMaddrs;
-      map<string, string> HTTPGETparams;
       BSM::TTlgContent BSMContentBefore;
-      bool BSMsend=BSM::IsSend(sendInfo,BSMaddrs);
+      bool BSMsend=BSM::IsSend(TAdvTripInfo(fltInfo,
+                                            s->second.point_dep,
+                                            s->second.point_num,
+                                            s->second.first_point,
+                                            s->second.pr_tranzit), BSMaddrs);
 
       set<int> nextTrferSegs;
 
@@ -5374,17 +5371,7 @@ string CheckInInterface::SaveTransfer(int grp_id,
   string airline_in=TrferQry.FieldAsString("airline");
   int flt_no_in=TrferQry.FieldAsInteger("flt_no");
 
-  TTripInfo fltInfo(TrferQry);
-
-  TTypeBSendInfo sendInfo(fltInfo);
-  sendInfo.point_id=TrferQry.FieldAsInteger("point_id");
-  sendInfo.first_point=TrferQry.FieldIsNULL("first_point")?NoExists:TrferQry.FieldAsInteger("first_point");
-  sendInfo.point_num=TrferQry.FieldAsInteger("point_num");
-  sendInfo.pr_tranzit=TrferQry.FieldAsInteger("pr_tranzit")!=0;
-
-  TTypeBAddrInfo addrInfo(sendInfo);
-  addrInfo.airp_trfer=TrferQry.FieldAsString("airp_arv");
-  addrInfo.pr_lat=true;
+  TAdvTripInfo fltInfo(TrferQry);
 
   //проверка формирования трансфера в латинских телеграммах
   enum TCheckType {checkNone,checkFirstSeg,checkAllSeg};
@@ -5406,10 +5393,16 @@ string CheckInInterface::SaveTransfer(int grp_id,
     if (checkType==checkAllSeg) break;
     if (iTlgs->second==checkNone ||
         (iTlgs->second==checkFirstSeg && checkType==checkFirstSeg)) continue;
-    sendInfo.tlg_type=iTlgs->first;
-    addrInfo.tlg_type=iTlgs->first;
-    if (!TelegramInterface::GetTypeBAddrs(addrInfo).empty()&&
-        TelegramInterface::IsTypeBSend(sendInfo)) checkType=iTlgs->second;
+
+    if (!TypeB::TSendInfo(iTlgs->first, fltInfo).isSend()) continue; //!!!vlad проверить
+
+    TypeB::TCreator creator(fltInfo);
+    creator << iTlgs->first;
+    vector<TypeB::TCreateInfo> createInfo;
+    creator.getInfo(createInfo);
+    if (createInfo.empty()) continue;
+
+    checkType=iTlgs->second;
   };
 
   TrferQry.Clear();

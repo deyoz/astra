@@ -85,6 +85,7 @@ astra_SOURCES = \
   timer.cpp \
   transfer.cc \
   tripinfo.cc \
+  typeb_utils.cc \
   view_edi_elements.cc \
   web_main.cc \
   web_search.cc \
@@ -183,6 +184,7 @@ noinst_HEADERS = \
   timer.h \
   transfer.h \
   tripinfo.h \
+  typeb_utils.h \
   view_edi_elements.h \
   web_main.h \
   web_search.h \
