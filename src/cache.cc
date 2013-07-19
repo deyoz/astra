@@ -1520,7 +1520,7 @@ void TCacheTable::DeclareVariables(std::vector<string> &vars)
     if ( Qry->Variables->FindVariable( r->c_str() ) == -1 ) {
       map<std::string, TParam>::iterator ip = SQLParams.find( *r );
       if ( ip != SQLParams.end() ) {
-        ProgTrace( TRACE5, "DEclare Variable from SQLParams r->c_str()=%s", r->c_str() );
+        ProgTrace( TRACE5, "Declare variable from SQLParams r->c_str()=%s", r->c_str() );
         switch( ip->second.DataType ) {
           case ctInteger:
             Qry->DeclareVariable( *r, otInteger );
