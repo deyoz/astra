@@ -757,6 +757,8 @@ void TCreator::getInfo(vector<TCreateInfo> &info)
   for(set<string>::const_iterator t=tlg_types.begin(); t!=tlg_types.end(); ++t)
   {
     TSendInfo si(*t, flt);
+    if (!si.isSend()) continue;
+
     vector<TCreateInfo> ci;
 
     if (TAddrInfo(si).optionsIs<TMarkInfoOptions>())
