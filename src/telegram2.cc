@@ -5196,9 +5196,9 @@ void TMVTBBody::ToTlg(bool &vcompleted, vector<string> &body)
             fmt = "hhnn";
         buf
             << "AA"
-            << DateTimeToStr(act - 5./1440, fmt)
+            << DateTimeToStr(act, fmt)
             << "/"
-            << DateTimeToStr(act, fmt);
+            << DateTimeToStr(act + 5./1440, fmt);
     } else {
         vcompleted = false;
         buf << "AA\?\?\?\?/\?\?\?\?";

@@ -186,7 +186,7 @@ static void scan_tlg(void)
 
         } catch(...) {
             OraSession.Rollback();
-            ProgTrace(TRACE5, "Something goes wrong");
+            ProgError(STDLOG, "Something goes wrong");
         }
     }
     time_t time_end=time(NULL);
