@@ -7506,7 +7506,7 @@ bool TSalonPassengers::check_waitlist_alarm( const std::map<int,TPaxList> &pax_l
                             passes,
                             pr_craft_lat );
       }
-      rozysk::sync_pax( iold->first, TReqInfo::Instance()->desk.code );
+      rozysk::sync_pax( iold->first, TReqInfo::Instance()->desk.code, TReqInfo::Instance()->user.descr );
       if ( pr_is_sync_paxs ) {
         update_pax_change( point_dep, iold->first, passes[ iold->first ].reg_no, "ê" );
       }
@@ -7526,7 +7526,7 @@ bool TSalonPassengers::check_waitlist_alarm( const std::map<int,TPaxList> &pax_l
                                 passes,
                                 pr_craft_lat );
           }
-          rozysk::sync_pax( iold->first, TReqInfo::Instance()->desk.code );
+          rozysk::sync_pax( iold->first, TReqInfo::Instance()->desk.code, TReqInfo::Instance()->user.descr  );
           if ( pr_is_sync_paxs ) {
             update_pax_change( point_dep, iold->first, passes[ iold->first ].reg_no, "ê" );
           }
@@ -7556,7 +7556,7 @@ bool TSalonPassengers::check_waitlist_alarm( const std::map<int,TPaxList> &pax_l
                             passes,
                             pr_craft_lat );
       }
-      rozysk::sync_pax( inew->first, TReqInfo::Instance()->desk.code );
+      rozysk::sync_pax( inew->first, TReqInfo::Instance()->desk.code, TReqInfo::Instance()->user.descr  );
       if ( pr_is_sync_paxs ) {
         update_pax_change( point_dep, inew->first, passes[ inew->first ].reg_no, "-" );
       }

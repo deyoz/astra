@@ -285,7 +285,8 @@ enum TTripSetType { tsCraftInitVIP=1,
                     tsCraftNoChangeSections=17,
                     tsCheckMVTDelays=18,
                     tsSendMVTDelays=19,
-                    tsPrintSCDCloseBoarding=21};
+                    tsPrintSCDCloseBoarding=21,
+                    tsMintransFile=22 };
                     
 const long int DOC_TYPE_FIELD=0x0001;
 const long int DOC_ISSUE_COUNTRY_FIELD=0x0002;
@@ -750,6 +751,9 @@ void SetInfantsToAdults( std::vector<T1> &InfItems, std::vector<T2> AdultItems )
 
 bool is_sync_paxs( int point_id );
 void update_pax_change( int point_id, int pax_id, int reg_no, const std::string &work_mode );
+
+std::string TruncNameTitles(const std::string &str);
+std::string SeparateNames(std::string &names);
 
 #endif /*_ASTRA_MISC_H_*/
 

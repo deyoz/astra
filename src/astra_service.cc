@@ -61,7 +61,7 @@ bool deleteFile( int id )
 int putFile( const string &receiver,
              const string &sender,
              const string &type,
-             map<string,string> &params,
+             const map<string,string> &params,
              const string &file_data )
 {
 	int file_id = ASTRA::NoExists;
@@ -99,7 +99,7 @@ int putFile( const string &receiver,
                 "VALUES(tlgs_id.currval,:name,:value)";
         Qry.DeclareVariable("name",otString);
         Qry.DeclareVariable("value",otString);
-        for(map<string,string>::iterator i=params.begin();i!=params.end();i++)
+        for(map<string,string>::const_iterator i=params.begin();i!=params.end();++i)
         {
         	if ( i->first.empty() )
         		continue;

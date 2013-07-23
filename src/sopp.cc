@@ -1711,7 +1711,7 @@ void DeletePaxGrp( const TAdvTripInfo &fltInfo, int grp_id, bool toLog,
   DelQry.SetVariable("grp_id",grp_id);
   DelQry.Execute();
   
-  rozysk::sync_pax_grp(grp_id, TReqInfo::Instance()->desk.code);
+  rozysk::sync_pax_grp(grp_id, TReqInfo::Instance()->desk.code, TReqInfo::Instance()->user.descr);
 
   TQuery Qry(&OraSession);
 	Qry.Clear();

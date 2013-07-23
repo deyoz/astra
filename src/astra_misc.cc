@@ -1825,7 +1825,41 @@ void update_pax_change( int point_id, int pax_id, int reg_no, const string &work
   Qry.Execute();
 }
 
+string TruncNameTitles(const string &str)
+{
+  const char* titles[]={"ƒ-", "ƒ-†€", "MR", "MSTR", "MRS", "MS", "MISS", "MSS"};
+  string value(str);
+  RTrimString(value);
+  for(int i=sizeof(titles)/sizeof(titles[0])-1;i>=0;i--)
+  {
+    string::size_type pos=value.rfind(titles[i]);
+    if (pos!=string::npos)
+    {
+      if (value.substr(pos)==titles[i])
+      {
+        value.erase(pos);
+        RTrimString(value);
+        break;
+      };
+    };
+  };
+  return value;
+};
 
+string SeparateNames(string &names)
+{
+  string result;
+  TrimString(names);
+  string::size_type pos=names.find(' ');
+  if ( pos != string::npos)
+  {
+    result=names.substr(pos);
+    names=names.substr(0,pos);
+  };
+  TrimString(names);
+  TrimString(result);
+  return result;
+};
 
 
 
