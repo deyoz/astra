@@ -1247,7 +1247,7 @@ void create_mintrans_file(int point_id)
           OWN_POINT_ADDR(),
           FILE_MINTRANS_TYPE,
           fileparams,
-          ConvertCodepage(f.str(), "CP866", encoding));
+          (encoding=="CP866"?f.str():ConvertCodepage(f.str(), "CP866", encoding)));
 };
 
 void save_mintrans_files()
