@@ -745,11 +745,10 @@ void TelegramInterface::SaveTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
 
 void putUTG(TQuery &Qry, const string &data)
 {
-    ProgTrace(TRACE5, "putUTG beginning");
     string airp = Qry.FieldAsString("airp");
     string airline = Qry.FieldAsString("airline");
     int flt_no = Qry.FieldAsInteger("flt_no");
-    string type = Qry.FieldAsString("type");
+    string type = Qry.FieldAsString("basic_type");
     map<string, string> file_params;
     getFileParams(
             airp,
@@ -759,9 +758,9 @@ void putUTG(TQuery &Qry, const string &data)
             FILE_UTG_TYPE,
             1,
             file_params);
-    for(map<string, string>::iterator im = file_params.begin(); im != file_params.end(); im++)
-        ProgTrace(TRACE5, "file_params[%s] = '%s'", im->first.c_str(), im->second.c_str());
     if(not file_params.empty() and (file_params[PARAM_TLG_TYPE].find(type) != string::npos)) {
+        string encoding=getFileEncoding(FILE_UTG_TYPE, OWN_POINT_ADDR(), true);
+        if (encoding.empty()) encoding="CP866";
         string suffix = Qry.FieldAsString("suffix");
         TDateTime scd_out = Qry.FieldAsDateTime("scd_out");
         int id = Qry.FieldAsInteger("id");
@@ -782,7 +781,7 @@ void putUTG(TQuery &Qry, const string &data)
                 OWN_POINT_ADDR(),
                 FILE_UTG_TYPE,
                 file_params,
-                data);
+                (encoding == "CP866" ? data : ConvertCodepage(data, "CP866", encoding)));
     }
 }
 
