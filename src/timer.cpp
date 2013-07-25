@@ -147,7 +147,8 @@ void exec_tasks( const char *proc_name )
       if ( name == "sync_sirena_rozysk" ) sync_sirena_rozysk( utcdate );
       else
       if ( name == "mintrans" ) save_mintrans_files();
-
+                            else
+                              if ( name == "utg" ) utg();
 /*	    	  			  			    else
                             if ( name == "cobra" ) cobra();*/
 
@@ -211,6 +212,106 @@ void createSPP( TDateTime utcdate )
 	reqInfo->user.sets.time = ustTimeUTC;
 	CreateSPP( utcdate );
 	ProgTrace( TRACE5, "СПП получен за %s", DateTimeToStr( utcdate, "dd.mm.yy" ).c_str() );
+}
+
+#include <boost/filesystem.hpp>
+
+void utg(void)
+{
+    time_t time_start=time(NULL);
+    static TQuery paramQry(&OraSession);
+    if(paramQry.SQLText.IsEmpty()) {
+        paramQry.SQLText = "select name, value from file_params where id = :id";
+        paramQry.DeclareVariable("id", otInteger);
+    }
+    static TQuery completeQry(&OraSession);
+    if(completeQry.SQLText.IsEmpty()) {
+        completeQry.SQLText="UPDATE tlg_out SET completed=1 WHERE id=:id";
+        completeQry.DeclareVariable("id",otInteger);
+    }
+    static TQuery TlgQry(&OraSession);
+    if (TlgQry.SQLText.IsEmpty()) {
+        TlgQry.Clear();
+        TlgQry.SQLText =
+            "select file_queue.id, files.data from file_queue, files where "
+            "   file_queue.type = :type and "
+            "   file_queue.sender = :sender and "
+            "   file_queue.receiver = :receiver and "
+            "   file_queue.status = :status and "
+            "   file_queue.id = files.id "
+            "order by file_queue.id ";
+        TlgQry.CreateVariable("type", otString, FILE_UTG_TYPE);
+        TlgQry.CreateVariable("sender", otString, OWN_POINT_ADDR());
+        TlgQry.CreateVariable("receiver", otString, OWN_POINT_ADDR());
+        TlgQry.CreateVariable("status", otString, "PUT");
+    }
+    TlgQry.Execute();
+    int trace_count=0;
+    static TMemoryManager mem(STDLOG);
+    static char *p = NULL;
+    static int p_len = 0;
+    for(; not TlgQry.Eof; trace_count++, TlgQry.Next(), OraSession.Commit()) {
+        int id = TlgQry.FieldAsInteger("id");
+        try {
+            int len = TlgQry.GetSizeLongField( "data" );
+            if (len > p_len)
+            {
+                char *ph = NULL;
+                if (p==NULL) {
+                    ph=(char*)mem.malloc(len, STDLOG);
+                } else {
+                    ph=(char*)mem.realloc(p,len, STDLOG);
+                }
+                if (ph==NULL) throw EMemoryError("Out of memory");
+                p=ph;
+                p_len=len;
+            };
+            TlgQry.FieldAsLong( "data", p );
+            string data( (char*)p, len );
+
+            map<string, string> fileparams;
+            paramQry.SetVariable("id", id);
+            paramQry.Execute();
+            string work_dir, file_name;
+            for(; not paramQry.Eof; paramQry.Next()) {
+                if(paramQry.FieldAsString("name") == PARAM_WORK_DIR)
+                    work_dir = paramQry.FieldAsString("value");
+                if(paramQry.FieldAsString("name") == PARAM_FILE_NAME)
+                    file_name = paramQry.FieldAsString("value");
+            }
+            if(work_dir.empty())
+                throw Exception("work_dir not specified");
+            if(file_name.empty())
+                throw Exception("file_name not specified");
+            boost::filesystem::path apath(work_dir);
+            if(not boost::filesystem::exists(apath))
+                throw Exception("utg: directory '%s' not exists", work_dir.c_str());
+            ofstream f;
+            file_name = work_dir + "/" + file_name;
+            apath = file_name;
+            if(boost::filesystem::exists(apath))
+                throw Exception("utg: file '%s' already exists");
+            f.open(file_name.c_str());
+            if(!f.is_open()) throw Exception("Can't open file '%s'", file_name.c_str());
+            f << data;
+            f.close();
+            deleteFile(id);
+        } catch(Exception &E) {
+            OraSession.Rollback();
+            try
+            {
+                EOracleError *orae=dynamic_cast<EOracleError*>(&E);
+                if (orae!=NULL&&
+                        (orae->Code==4061||orae->Code==4068)) continue;
+                ProgError(STDLOG,"Exception: %s (file id=%d)",E.what(),id);
+            }
+            catch(...) {};
+
+        } catch(...) {
+            OraSession.Rollback();
+            ProgError(STDLOG, "Something goes wrong");
+        }
+    }
 }
 
 void ETCheckStatusFlt(void)
