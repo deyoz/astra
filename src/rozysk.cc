@@ -68,6 +68,7 @@ struct TRow {
     int reg_no;
     int pax_id;
     //документ
+    string doc_type;
     string doc_no;
     string doc_nationality;
     string doc_gender;
@@ -150,6 +151,7 @@ TRow& TRow::paxFromDB(TQuery &Qry)
 
 TRow& TRow::setDoc(const CheckIn::TPaxDocItem &doc)
 {
+  doc_type=doc.type;
   doc_no=doc.no;
   doc_nationality=doc.nationality;
   doc_gender=doc.gender;
@@ -213,6 +215,7 @@ const TRow& TRow::toDB(TRowType type, TQuery &Qry, bool check_sql) const
     "          operation=:operation, "
     "          route_type=:route_type, "
     "          reg_no=:reg_no, "
+    "          doc_type=:doc_type, "
     "          doc_no=:doc_no, "
     "          doc_nationality=:doc_nationality, "
     "          doc_gender=:doc_gender, "
@@ -232,7 +235,7 @@ const TRow& TRow::toDB(TRowType type, TQuery &Qry, bool check_sql) const
     "         airline, flt_no, suffix, takeoff, airp_dep, "
     "         airp_arv, surname, name, seat_no, bag_amount, bag_weight, rk_weight, "
     "         tags, pnr, operation, route_type, reg_no, pax_id, "
-    "         doc_no, doc_nationality, doc_gender, doc_birth_date, "
+    "         doc_type, doc_no, doc_nationality, doc_gender, doc_birth_date, "
     "         visa_no, visa_issue_place, visa_issue_date, visa_applic_country, visa_birth_place, "
     "         ticket_no) "
     "      VALUES "
@@ -240,7 +243,7 @@ const TRow& TRow::toDB(TRowType type, TQuery &Qry, bool check_sql) const
     "         :airline, :flt_no, :suffix, :takeoff, :airp_dep, "
     "         :airp_arv, :surname, :name, :seat_no, :bag_amount, :bag_weight, :rk_weight, "
     "         :tags, :pnr, :operation, :route_type, :reg_no, :pax_id, "
-    "         :doc_no, :doc_nationality, :doc_gender, :doc_birth_date, "
+    "         :doc_type, :doc_no, :doc_nationality, :doc_gender, :doc_birth_date, "
     "         :visa_no, :visa_issue_place, :visa_issue_date, :visa_applic_country, :visa_birth_place, "
     "         :ticket_no); "
     "      EXIT; "
@@ -281,6 +284,7 @@ const TRow& TRow::toDB(TRowType type, TQuery &Qry, bool check_sql) const
       Qry.DeclareVariable("reg_no", otInteger);
       Qry.DeclareVariable("pax_id", otInteger);
       //документ
+      Qry.DeclareVariable("doc_type", otString);
       Qry.DeclareVariable("doc_no", otString);
       Qry.DeclareVariable("doc_nationality", otString);
       Qry.DeclareVariable("doc_gender", otString);
@@ -356,6 +360,7 @@ const TRow& TRow::toDB(TRowType type, TQuery &Qry, bool check_sql) const
                    Qry.SetVariable("pax_id", FNull);
   if (type==rowMagistral) Qry.SetVariable("pax_id", FNull);
   //документ
+  Qry.SetVariable("doc_type", doc_type);
   if (doc_no.size()<=15)
     Qry.SetVariable("doc_no", doc_no);
   else
@@ -919,6 +924,7 @@ namespace mintrans
     string patronymic;         //отчество
     TDateTime birthDate;       //дата рождения
     string birthPlace;         //место рождения
+    string docType;            //тип документа
     string docNumber;          //номер документа
     string departPlace;        //лат. код а/п вылета
     string arrivePlace;        //лат. код а/п прилета
@@ -961,7 +967,7 @@ void get_pax_list(int point_id,
          "       r.airp_arv, r.surname, r.name, "
          "       r.seat_no, r.bag_amount, r.bag_weight, r.rk_weight, r.tags, r.pnr, r.operation, "
          "       r.route_type, r.reg_no, "
-         "       r.doc_no, r.doc_nationality, NVL(r.doc_gender,'N') AS doc_gender, r.doc_birth_date, "
+         "       r.doc_type, r.doc_no, r.doc_nationality, r.doc_gender, r.doc_birth_date, "
          "       r.visa_birth_place, r.ticket_no "
          "FROM pax_grp, pax, rozysk r "
          "WHERE pax_grp.grp_id=pax.grp_id AND pax.pax_id=r.pax_id AND "
@@ -995,6 +1001,7 @@ void get_pax_list(int point_id,
     int idx_route_type = Qry.FieldIndex( "route_type" );
     int idx_reg_no = Qry.FieldIndex( "reg_no" );
 
+    int idx_doc_type = Qry.FieldIndex( "doc_type" );
     int idx_doc_no = Qry.FieldIndex( "doc_no" );
     int idx_doc_nationality = Qry.FieldIndex( "doc_nationality" );
     int idx_doc_gender = Qry.FieldIndex( "doc_gender" );
@@ -1020,6 +1027,14 @@ void get_pax_list(int point_id,
       else
         pax.birthDate = Qry.FieldAsDateTime( idx_doc_birth_date );
       pax.birthPlace = Qry.FieldAsString( idx_visa_birth_place );
+      if (!Qry.FieldIsNULL( idx_doc_type ))
+      try
+      {
+        TPaxDocTypesRow &doc_type_row = (TPaxDocTypesRow&)base_tables.get("pax_doc_types").get_row("code",Qry.FieldAsString( idx_doc_type ));
+        pax.docType = doc_type_row.code_mintrans;
+      }
+      catch(EBaseTableError) {};
+
       pax.docNumber = Qry.FieldAsString( idx_doc_no );
       pax.departPlace = ElemIdToElem(etAirp, Qry.FieldAsString( idx_airp_dep ), fmts);
       if (pax.departPlace.empty()) pax.departPlace = Qry.FieldAsString( idx_airp_dep );
@@ -1033,7 +1048,14 @@ void get_pax_list(int point_id,
         pax.departDateTime = ASTRA::NoExists;
       else
         pax.departDateTime = Qry.FieldAsDateTime( idx_takeoff );
-      pax.gender = Qry.FieldAsString( idx_doc_gender );
+      pax.gender = ElemIdToElem(etGenderType, Qry.FieldAsString( idx_doc_gender ), fmts);
+      if (pax.gender.empty()) pax.gender = Qry.FieldAsString( idx_doc_gender );
+      if (!pax.gender.empty())
+      {
+        pax.gender = pax.gender.substr(0,1);
+        if (pax.gender!="M" &&
+            pax.gender!="F") pax.gender.clear();
+      };
       pax.nationalities = Qry.FieldAsString( idx_doc_nationality );
       //Данные о регистрируемой операции
       pax.operationType = Qry.FieldAsString( idx_operation );
@@ -1164,6 +1186,7 @@ void create_mintrans_file(int point_id)
      << "patronymic" << ";"
      << "birthDate" << ";"
      << "birthPlace" << ";"
+     << "docType" << ";"
      << "docNumber" << ";"
      << "departPlace" << ";"
      << "arrivePlace" << ";"
@@ -1194,6 +1217,7 @@ void create_mintrans_file(int point_id)
       << p->patronymic << ";"
       << (p->birthDate==NoExists?"":DateTimeToStr(p->birthDate, "dd.mm.yyyy")) << ";"
       << p->birthPlace << ";"
+      << p->docType << ";"
       << p->docNumber << ";"
       << p->departPlace << ";"
       << p->arrivePlace << ";"

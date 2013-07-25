@@ -3161,6 +3161,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       bool pr_tranz_reg=!Qry.FieldIsNULL("pr_tranz_reg")&&Qry.FieldAsInteger("pr_tranz_reg")!=0;
       int pr_etstatus=Qry.FieldAsInteger("pr_etstatus");
       bool pr_etl_only=GetTripSets(tsETLOnly,fltInfo);
+      bool pr_mintrans_file=GetTripSets(tsMintransFile,fltInfo);
 
       bool addVIP=false;
       if (first_segment)
@@ -3202,6 +3203,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           const CheckIn::TPaxItem &pax=p->pax;
           try
           {
+            if (pax.name.empty() && pr_mintrans_file)
+              throw UserException("MSG.CHECKIN.PASSENGERS_NAMES_NOT_SET");
+
             if (pax.tkn.no.size()>15)
             {
               string ticket_no=pax.tkn.no;
