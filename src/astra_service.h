@@ -47,7 +47,6 @@ typedef std::vector<TFileData> TFileDatas;
 
 
 std::string getFileEncoding( const std::string &file_type, const std::string &point_addr, bool pr_send=true );
-void getFileParams( int id, std::map<std::string,std::string> &fileparams );
 void getFileParams( const std::string client_canon_name, const std::string &type,
 	                  int id, std::map<std::string,std::string> &fileparams, bool send );
 void getFileParams(
@@ -62,7 +61,7 @@ bool deleteFile( int id );
 int putFile(const std::string &receiver,
             const std::string &sender,
             const std::string &type,
-            std::map<std::string,std::string> &params,
+            const std::map<std::string,std::string> &params,
             const std::string &file_data);
 bool errorFile( int id, std::string err, std::string msg );
 bool sendFile( int id );

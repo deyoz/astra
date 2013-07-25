@@ -383,15 +383,7 @@ void ParseInquiryStr(string query, TInquiryGroup &grp)
           for(vector<TInquiryFamily>::iterator i=grp.fams.begin();i!=grp.fams.end();i++)
           {
           //разделим surname на surname и name
-            TrimString(i->surname);
-            string::size_type pos=i->surname.find(' ');
-            if ( pos != string::npos)
-            {
-              i->name=i->surname.substr(pos);
-              i->surname=i->surname.substr(0,pos);
-            };
-            TrimString(i->surname);
-            TrimString(i->name);
+            i->name=SeparateNames(i->surname);
             ProgTrace(TRACE5,"surname=%s name=%s adult=%d child=%d baby=%d seats=%d",
                              i->surname.c_str(),i->name.c_str(),i->n[adult],i->n[child],i->n[baby],i->seats);
           };
@@ -3169,6 +3161,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       bool pr_tranz_reg=!Qry.FieldIsNULL("pr_tranz_reg")&&Qry.FieldAsInteger("pr_tranz_reg")!=0;
       int pr_etstatus=Qry.FieldAsInteger("pr_etstatus");
       bool pr_etl_only=GetTripSets(tsETLOnly,fltInfo);
+      bool pr_mintrans_file=GetTripSets(tsMintransFile,fltInfo);
 
       bool addVIP=false;
       if (first_segment)
@@ -3210,6 +3203,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           const CheckIn::TPaxItem &pax=p->pax;
           try
           {
+            if (pax.name.empty() && pr_mintrans_file)
+              throw UserException("MSG.CHECKIN.PASSENGERS_NAMES_NOT_SET");
+
             if (pax.tkn.no.size()>15)
             {
               string ticket_no=pax.tkn.no;
@@ -4491,7 +4487,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
       if (!pr_unaccomp)
       {
-        rozysk::sync_pax_grp(grp.id, reqInfo->desk.code);
+        rozysk::sync_pax_grp(grp.id, reqInfo->desk.code, reqInfo->user.descr);
       };
 
       Qry.Clear();

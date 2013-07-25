@@ -350,7 +350,13 @@ class TPaxDocCountries: public TTIDBaseTable {
 
 class TPaxDocTypesRow: public TCodeBaseTableRow {
   public:
+    std::string code_mintrans;
     const char *get_row_name() const { return "TPaxDocTypesRow"; };
+    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU) const
+    {
+      if (lowerc(field)=="code_mintrans") return code_mintrans;
+      return TCodeBaseTableRow::AsString(field,lang);
+    };
 };
 
 class TPaxDocTypes: public TCodeBaseTable {

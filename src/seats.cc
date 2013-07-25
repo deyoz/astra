@@ -3254,7 +3254,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
      	case cltTranzit:
   	  case cltCheckin:
   	  case cltTCheckin:
-        rozysk::sync_pax(pax_id, TReqInfo::Instance()->desk.code);
+        rozysk::sync_pax(pax_id, TReqInfo::Instance()->desk.code, TReqInfo::Instance()->user.descr);
         break;
       default:
         break;
@@ -3471,7 +3471,7 @@ void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &APass, TSeatA
   		  SaveTripSeatRanges( Salons.trip_id, pass.grp_status, seats, pass.paxId, point_dep, point_arv, time_create ); //???
   		  QryUpd.SetVariable( "pax_id", pass.paxId );
         QryUpd.Execute();
-        rozysk::sync_pax(pass.paxId, TReqInfo::Instance()->desk.code);
+        rozysk::sync_pax(pass.paxId, TReqInfo::Instance()->desk.code, TReqInfo::Instance()->user.descr);
         QryPax.Execute();
         string new_seat_no = QryPax.FieldAsString( "seat_no" );
         ProgTrace( TRACE5, "oldplace=%s, newplace=%s", prev_seat_no.c_str(), new_seat_no.c_str() );
@@ -3840,7 +3840,7 @@ void ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
      	case cltTranzit:
   	  case cltCheckin:
   	  case cltTCheckin:
-        rozysk::sync_pax(pax_id, TReqInfo::Instance()->desk.code);
+        rozysk::sync_pax(pax_id, TReqInfo::Instance()->desk.code, TReqInfo::Instance()->user.descr );
         break;
       default:
         break;

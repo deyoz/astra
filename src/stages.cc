@@ -14,6 +14,7 @@
 #include "term_version.h"
 #include "comp_layers.h"
 #include "alarms.h"
+#include "rozysk.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -895,6 +896,15 @@ void CloseCheckIn( int point_id )
   {
     ProgError(STDLOG,"CloseCheckIn.SendTlg (point_id=%d): %s",point_id,E.what());
   };
+  try
+  {
+    create_mintrans_file(point_id);
+  }
+  catch(std::exception &E)
+  {
+    ProgError(STDLOG,"CloseCheckIn.create_mintrans_file (point_id=%d): %s",point_id,E.what());
+  };
+
 };
 
 void CloseBoarding( int point_id )
@@ -991,6 +1001,14 @@ void Takeoff( int point_id )
     ProgTrace(TRACE5,"Attention! sync_aodb execute time: %ld secs, point_id=%d",
                      time_end-time_start,point_id);
 
+  try
+  {
+    create_mintrans_file(point_id);
+  }
+  catch(std::exception &E)
+  {
+    ProgError(STDLOG,"Takeoff.create_mintrans_file (point_id=%d): %s",point_id,E.what());
+  };
 }
 
 
