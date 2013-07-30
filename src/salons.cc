@@ -4358,12 +4358,14 @@ void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tran
         filterRoutes = filterRoutesTmp;
         if ( iroute->point_id == filterRoutes.getArrivalId() ) { //нет вылета
           pr_exists_salons = false;
+          tst();
           continue;
         }
         Qry.SetVariable( "point_id", iroute->point_id );
         Qry.Execute();
         if ( Qry.Eof ) { //нет салона
           pr_exists_salons = false;
+          tst();
           continue;
         }
         salonList.ReadFlight( TFilterRoutesSets( iroute->point_id, filterRoutes.getArrivalId() ), "" );
