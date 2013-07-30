@@ -4340,39 +4340,41 @@ void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tran
   flights.Lock();
   TSalonList salonList;
   TSalonPassengers passengers;
-  TFilterRoutesSets filterRoutesSets( ASTRA::NoExists, ASTRA::NoExists );
+  FilterRoutesProperty filterRoutes;
   TQuery Qry(&OraSession);
   Qry.SQLText =
     "SELECT point_id FROM trip_comp_elems WHERE point_id=:point_id AND rownum<2";
   Qry.DeclareVariable( "point_id", otInteger );
   bool pr_exists_salons = false;
-  for ( TFlights::iterator iflights=flights.begin(); iflights!=flights.end(); iflights++ ) {
-    for ( FlightPoints::iterator iroute=iflights->begin(); iroute!=iflights->end()-1; iroute++ ) {
+  for ( TFlights::iterator iflights=flights.begin(); iflights!=flights.end(); iflights++ ) { //пробег по рейсам
+    for ( FlightPoints::iterator iroute=iflights->begin(); iroute!=iflights->end()-1; iroute++ ) { //пробег по пунктам
       ProgTrace( TRACE5, "check_waitlist_alarm_on_tranzit_routes: point_id=%d", iroute->point_id );
       FilterRoutesProperty filterRoutesTmp;
-      filterRoutesTmp.Read( TFilterRoutesSets( iroute->point_id, ASTRA::NoExists ) );
-      if ( filterRoutesSets != filterRoutesTmp.getMaxRoute() ) {
+      filterRoutesTmp.Read( TFilterRoutesSets( iroute->point_id, ASTRA::NoExists ) ); //чтение маршрута рейса
+      if ( filterRoutes.getMaxRoute() != filterRoutesTmp.getMaxRoute() ) { //макс. плечо не равно предыдущему
         ProgTrace( TRACE5, "check_waitlist_alarm_on_tranzit_routes: point_id=%d, filterRoutesSets.point_dep=%d,%d, filterRoutesTmp.getMaxRoute()=%d,%d",
-                   iroute->point_id, filterRoutesSets.point_dep, filterRoutesSets.point_arv,
+                   iroute->point_id, filterRoutes.getMaxRoute().point_dep, filterRoutes.getMaxRoute().point_arv,
                    filterRoutesTmp.getMaxRoute().point_dep, filterRoutesTmp.getMaxRoute().point_arv );
-        filterRoutesSets = filterRoutesTmp.getMaxRoute();
-        if ( iroute->point_id == filterRoutesSets.point_arv ) {
+        filterRoutes = filterRoutesTmp;
+        if ( iroute->point_id == filterRoutes.getArrivalId() ) { //нет вылета
           pr_exists_salons = false;
+          tst();
           continue;
         }
         Qry.SetVariable( "point_id", iroute->point_id );
         Qry.Execute();
-        if ( Qry.Eof ) {
+        if ( Qry.Eof ) { //нет салона
           pr_exists_salons = false;
+          tst();
           continue;
         }
-        salonList.ReadFlight( TFilterRoutesSets( iroute->point_id, filterRoutesSets.point_arv ), "" );
+        salonList.ReadFlight( TFilterRoutesSets( iroute->point_id, filterRoutes.getArrivalId() ), "" );
         pr_exists_salons = true;
       }
       if ( !pr_exists_salons ) {
         continue;
       }
-      salonList.JumpToLeg( TFilterRoutesSets( iroute->point_id, filterRoutesSets.point_arv ) );
+      salonList.JumpToLeg( TFilterRoutesSets( iroute->point_id, filterRoutes.getArrivalId() ) );
       salonList.getPaxs( passengers );
       passengers.check_waitlist_alarm( salonList.pax_lists, paxs_external_logged );
     }

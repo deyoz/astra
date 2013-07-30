@@ -678,7 +678,11 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     }
   }
   ProgTrace( TRACE5, "cBase=%d, cChange=%d, cSet=%d", cBase, cChange, cSet );
-  Qry.SQLText = "SELECT airline,flt_no,suffix,airp,scd_out FROM points WHERE point_id=:point_id FOR UPDATE";
+  TFlights flights;
+  flights.Get( trip_id, trtWithCancelled );
+  flights.Lock();
+  Qry.SQLText =
+    "SELECT airline,flt_no,suffix,airp,scd_out FROM points WHERE point_id=:point_id";
   Qry.CreateVariable( "point_id", otInteger, trip_id );
   Qry.Execute();
   TTripInfo info( Qry );
@@ -802,7 +806,7 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     check_waitlist_alarm( trip_id );
   }
   xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
-  #warning 8. new parse + salonChangesToText
+//  #warning 8. new parse + salonChangesToText
   if ( isTranzitSalonsVersion ) {
     salonList.Build( true, salonsNode );
     comp_id = salonList.getCompId();
@@ -898,7 +902,7 @@ void SalonFormInterface::ComponShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
   else
     SALONS2::GetCompParams( comp_id, dataNode );
   salonList.Build( true, salonsNode );
-  #warning 7. зачем еще раз делать BuildLayersInfo???
+//  #warning 7. зачем еще раз делать BuildLayersInfo???
   bool pr_notchangecraft = true;
   BitSet<SALONS2::TDrawPropsType> props;
   pNode = GetNode( "point_id", reqNode );
@@ -1121,8 +1125,11 @@ void IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string y
                       bool pr_waitlist, bool pr_question_reseat,
                       xmlNodePtr resNode )
 {
+	TFlights flights;
+  flights.Get( point_id, trtWithCancelled );
+  flights.Lock();
   int point_arv = NoExists;
-  #warning 5 IntChangeSeats: lock tranzit routes
+//  #warning 5 IntChangeSeats: lock tranzit routes
   TQuery Qry( &OraSession );
   Qry.SQLText =
     "SELECT airline, flt_no, suffix, airp, scd_out "
@@ -1275,6 +1282,9 @@ void IntChangeSeats( int point_id, int pax_id, int &tid, string xname, string yn
                      bool pr_waitlist, bool pr_question_reseat,
                      xmlNodePtr resNode )
 {
+	TFlights flights;
+  flights.Get( point_id, trtWithCancelled );
+  flights.Lock();
   TQuery Qry( &OraSession );
   Qry.SQLText =
     "SELECT airline, flt_no, suffix, airp, scd_out, pr_lat_seat "
