@@ -774,7 +774,7 @@ void putUTG(TQuery &Qry, const string &data)
             << setw(3) << setfill('0') << msecs
             << "." << setw(9) << setfill('0') << id
             << "." << type
-            << "." << airline << setw(3) << setfill('0') << flt_no << suffix
+            << "." << BSM::TlgElemIdToElem(etAirline, airline, true) << setw(3) << setfill('0') << flt_no << suffix
             << "." << DateTimeToStr(scd_out, "dd.mm");
         file_params[PARAM_FILE_NAME] = file_name.str();
         putFile( OWN_POINT_ADDR(),
