@@ -1483,19 +1483,14 @@ string CreateTlgBody(const TTlgContent& con, bool pr_lat)
 
 bool IsSend( const TAdvTripInfo &fltInfo, TBSMAddrs &addrs )
 {
-    TypeB::TSendInfo sendInfo("BSM", fltInfo);
-    if (!sendInfo.isSend()) return false;
-
     TypeB::TCreator creator(fltInfo);
     creator << "BSM";
     creator.getInfo(addrs.createInfo);
 
-    //!!!vlad тестировать!
-
     getFileParams(
-            sendInfo.airp_dep,
-            sendInfo.airline,
-            IntToString(sendInfo.flt_no),
+            fltInfo.airp,
+            fltInfo.airline,
+            IntToString(fltInfo.flt_no),
             OWN_POINT_ADDR(),
             FILE_HTTPGET_TYPE,
             1,

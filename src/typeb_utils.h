@@ -1080,7 +1080,7 @@ class TDetailCreateInfo : public TOptionsInfo
     int flt_no;
     std::string suffix;
     std::string airp_dep;
-    std::string airp_arv2;      //!!!vlad
+    std::string airp_arv;
     BASIC::TDateTime scd_utc;
     BASIC::TDateTime est_utc;
     BASIC::TDateTime scd_local;
@@ -1113,7 +1113,7 @@ class TDetailCreateInfo : public TOptionsInfo
     std::string suffix_view();
     std::string airp_dep_view();
     std::string airp_trfer_view();
-    std::string airp_arv_view2();  //!!!vlad
+    std::string airp_arv_view();
     std::string flight_view();
     std::string scd_local_view();
 
@@ -1181,7 +1181,7 @@ class TSendInfo
       airline=info.airline;
       flt_no=info.flt_no;
       airp_dep=info.airp_dep;
-      airp_arv=info.airp_arv2;
+      airp_arv=info.airp_arv;
       point_id=info.point_id;
       first_point=info.first_point;
       point_num=info.point_num;

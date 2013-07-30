@@ -5320,7 +5320,7 @@ int CPM(TypeB::TDetailCreateInfo &info)
         << info.flight_view() << "/"
         << DateTimeToStr(info.scd_utc, "dd", 1)
         << "." << (info.bort.empty() ? "??" : info.bort)
-        << "." << info.airp_arv_view2();
+        << "." << info.airp_arv_view();
     vector<string> body;
     body.push_back(buf.str());
     body.push_back("SI");
@@ -5352,7 +5352,7 @@ int MVT(TypeB::TDetailCreateInfo &info)
     if(info.get_tlg_type() == "MVTA")
       buf << "." << info.airp_dep_view();
     if(info.get_tlg_type() == "MVTB")
-      buf << "." << info.airp_arv_view2();
+      buf << "." << info.airp_arv_view();
     if(info.get_tlg_type() == "MVTC")
       buf << "." << info.airp_dep_view();
     vector<string> body;
@@ -6779,7 +6779,7 @@ int TelegramInterface::create_tlg(const TypeB::TCreateInfo &createInfo,
         route.GetNextAirp(NoExists, info.point_id, trtNotCancelled, next_airp);
         if (!next_airp.airp.empty())
         {
-            info.airp_arv2 = next_airp.airp;
+            info.airp_arv = next_airp.airp;
         }
         else throw AstraLocale::UserException("MSG.AIRP.DST_NOT_FOUND");
     };

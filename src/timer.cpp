@@ -147,10 +147,10 @@ void exec_tasks( const char *proc_name )
       if ( name == "sync_sirena_rozysk" ) sync_sirena_rozysk( utcdate );
       else
       if ( name == "mintrans" ) save_mintrans_files();
-                            else
-                              if ( name == "utg" ) utg();
-/*	    	  			  			    else
-                            if ( name == "cobra" ) cobra();*/
+      else
+      if ( name == "utg" ) utg();
+/*	  else
+      if ( name == "cobra" ) cobra();*/
 
       TDateTime next_exec;
       if ( Qry.FieldIsNULL( "next_exec" ) )
@@ -218,7 +218,6 @@ void createSPP( TDateTime utcdate )
 
 void utg(void)
 {
-    time_t time_start=time(NULL);
     static TQuery paramQry(&OraSession);
     if(paramQry.SQLText.IsEmpty()) {
         paramQry.SQLText = "select name, value from file_params where id = :id";
@@ -397,7 +396,7 @@ void ETCheckStatusFlt(void)
           try
           {
             ProgTrace(TRACE5,"ETCheckStatusFlt.SendTlg: point_id=%d",point_id);
-            vector<TypeB::TCreateInfo> createInfo; //!!!vlad проверить
+            vector<TypeB::TCreateInfo> createInfo;
             TypeB::TETLCreator(point_id).getInfo(createInfo);
             TelegramInterface::SendTlg(createInfo);
             UpdQry.SetVariable("point_id",point_id);
