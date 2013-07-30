@@ -3729,7 +3729,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   // отправка телеграмм задержек
   for ( vector<int>::iterator pdel=points_MVTdelays.begin(); pdel!=points_MVTdelays.end(); pdel++ ) {
       try {
-          vector<TypeB::TCreateInfo> createInfo; //!!!vlad проверить
+          vector<TypeB::TCreateInfo> createInfo;
           TypeB::TMVTCCreator(*pdel).getInfo(createInfo);
           TelegramInterface::SendTlg(createInfo);
       }
@@ -4639,7 +4639,7 @@ void ChangeACT_OUT( int point_id, TDateTime old_act, TDateTime act )
     //изменение фактического времени вылета
     try
     {
-      vector<TypeB::TCreateInfo> createInfo; //!!!vlad проверить
+      vector<TypeB::TCreateInfo> createInfo;
       TypeB::TMVTACreator(point_id).getInfo(createInfo);
       TelegramInterface::SendTlg(createInfo);
     }
@@ -4679,7 +4679,7 @@ void ChangeACT_IN( int point_id, TDateTime old_act, TDateTime act )
       route.GetPriorAirp(NoExists, point_id, trtNotCancelled, prior_airp);
       if (prior_airp.point_id!=NoExists)
   	  {
-        vector<TypeB::TCreateInfo> createInfo; //!!!vlad проверить
+        vector<TypeB::TCreateInfo> createInfo;
         TypeB::TMVTBCreator(prior_airp.point_id).getInfo(createInfo);
         TelegramInterface::SendTlg(createInfo);
       };

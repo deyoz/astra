@@ -5390,13 +5390,14 @@ string CheckInInterface::SaveTransfer(int grp_id,
     if (iTlgs->second==checkNone ||
         (iTlgs->second==checkFirstSeg && checkType==checkFirstSeg)) continue;
 
-    if (!TypeB::TSendInfo(iTlgs->first, fltInfo).isSend()) continue; //!!!vlad проверить
-
     TypeB::TCreator creator(fltInfo);
     creator << iTlgs->first;
     vector<TypeB::TCreateInfo> createInfo;
     creator.getInfo(createInfo);
-    if (createInfo.empty()) continue;
+    vector<TypeB::TCreateInfo>::const_iterator i=createInfo.begin();
+    for(; i!=createInfo.end(); ++i)
+      if (i->get_options().is_lat) break;
+    if (i==createInfo.end()) continue;
 
     checkType=iTlgs->second;
   };

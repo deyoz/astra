@@ -267,10 +267,10 @@ string TDetailCreateInfo::airp_trfer_view()
   return TlgElemIdToElem(etAirp, trferOptions->airp_trfer);
 };
 
-string TDetailCreateInfo::airp_arv_view2()
+string TDetailCreateInfo::airp_arv_view()
 {
-  if (airp_arv2.empty()) return "???";
-  return TlgElemIdToElem(etAirp, airp_arv2);
+  if (airp_arv.empty()) return "???";
+  return TlgElemIdToElem(etAirp, airp_arv);
 };
 
 string TDetailCreateInfo::flight_view()

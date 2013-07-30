@@ -888,7 +888,7 @@ void CloseCheckIn( int point_id )
 {
   try
   {
-    vector<TypeB::TCreateInfo> createInfo; //!!!vlad проверить
+    vector<TypeB::TCreateInfo> createInfo;
     TypeB::TCloseCheckInCreator(point_id).getInfo(createInfo);
     TelegramInterface::SendTlg(createInfo);
   }
@@ -911,7 +911,7 @@ void CloseBoarding( int point_id )
 {
   try
   {
-    vector<TypeB::TCreateInfo> createInfo; //!!!vlad проверить
+    vector<TypeB::TCreateInfo> createInfo;
     TypeB::TCloseBoardingCreator(point_id).getInfo(createInfo);
     TelegramInterface::SendTlg(createInfo);
   }
@@ -949,7 +949,7 @@ void Takeoff( int point_id )
   time_start=time(NULL);
   try
   {
-    vector<TypeB::TCreateInfo> createInfo; //!!!vlad проверить
+    vector<TypeB::TCreateInfo> createInfo;
     TypeB::TTakeoffCreator(point_id).getInfo(createInfo);
     TelegramInterface::SendTlg(createInfo);
   }
