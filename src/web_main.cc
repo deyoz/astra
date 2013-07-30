@@ -2326,6 +2326,7 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
           };
         };
 
+        bool isTranzitSalonsVersion = SALONS2::isTranzitSalons( iPnrData->flt.point_dep );
         //пассажиры для изменения
         for(list<TWebPaxForChng>::const_iterator iPaxForChng=currPnr.paxForChng.begin();iPaxForChng!=currPnr.paxForChng.end();iPaxForChng++)
         {
@@ -2349,15 +2350,27 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
             	if ( curr_xname.empty() && curr_yname.empty() )
             		throw UserException( "MSG.SEATS.SEAT_NO.NOT_FOUND" );
             	if ( prior_xname + prior_yname != curr_xname + curr_yname ) {
-                IntChangeSeats( iPnrData->flt.point_dep,
-                                iPaxForChng->crs_pax_id,
-                                pax_tid,
-                                curr_xname, curr_yname,
-      	                        SEATS2::stReseat,
-      	                        cltUnknown,
-                                false, false,
-                                NULL );
-            	}
+                if ( isTranzitSalonsVersion ) {
+                  IntChangeSeatsN( iPnrData->flt.point_dep,
+                                    iPaxForChng->crs_pax_id,
+                                    pax_tid,
+                                    curr_xname, curr_yname,
+                                    SEATS2::stReseat,
+      	                            cltUnknown,
+                                    false, false,
+                                    NULL );
+                }
+                else {
+                  IntChangeSeats( iPnrData->flt.point_dep,
+                                  iPaxForChng->crs_pax_id,
+                                  pax_tid,
+                                  curr_xname, curr_yname,
+      	                          SEATS2::stReseat,
+      	                          cltUnknown,
+                                  false, false,
+                                  NULL );
+            	  }
+              }
             };
             
             bool DocUpdatesPending=false;
