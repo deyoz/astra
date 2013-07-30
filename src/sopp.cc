@@ -1764,7 +1764,7 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
   TCkinQry.DeclareVariable("seg_no",otInteger);
 
   ostringstream sql;
-  sql << "SELECT pax_grp.grp_id, \n"
+  sql << "SELECT pax_grp.grp_id, pax_grp.class, \n"
          "       tckin_pax_grp.tckin_id, tckin_pax_grp.seg_no \n"
          "FROM pax_grp, tckin_pax_grp \n"
          "WHERE pax_grp.point_dep=:point_id \n";
@@ -1788,6 +1788,7 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
   segs[point_id]=fltInfo;
   for(;!Qry.Eof;Qry.Next())
   {
+    if (Qry.FieldIsNULL("class")) continue;  //несопровождаемый багаж не разрегистрируем!
     int tckin_id=Qry.FieldIsNULL("tckin_id")?NoExists:Qry.FieldAsInteger("tckin_id");
     int tckin_seg_no=Qry.FieldIsNULL("seg_no")?NoExists:Qry.FieldAsInteger("seg_no");
   
