@@ -4021,7 +4021,7 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
           for ( std::set<TSalonPax,ComparePassenger>::iterator ipass=ipass_status->second.begin();
                 ipass!=ipass_status->second.end(); ipass++ ) {
             TWaitListReason waitListReason;
-            TPassSeats ranges;
+            //!!!TPassSeats ranges;
             string seat_no = ipass->seat_no( "one", salonList.isCraftLat(), waitListReason );
             if ( waitListReason.layerStatus == layerValid ) {
               tst();
