@@ -621,6 +621,15 @@ class TLayersPax: public std::map<TSeatLayer,TPaxLayerSeats,SeatLayerCompare> {
                                const TPlace *seat = NULL );
 };
 
+struct CompareSeat  {
+  bool operator() ( const TSeat &seat1, const TSeat &seat2 ) const {
+    if ( seat1 != seat2 ) {
+      return ( seat1 < seat2 );
+    }
+    return false;
+  }
+};
+
 struct CompareSeatRange  {
   bool operator() ( const TSeatRange &seat1, const TSeatRange &seat2 ) const {
     if ( seat1 != seat2 ) {
@@ -633,31 +642,16 @@ struct CompareSeatRange  {
 class TInvalidRange: public std::set<TSeatRange,CompareSeatRange> {
 };
 
-struct TPassSeat {
-  int num;
-  TSeat seat;
-  TPassSeat() {
-    num = ASTRA::NoExists;
-  }
-  TPassSeat( int vnum,
-             const std::string &xname,
-             const std::string &yname ) {
-    num = vnum;
-    seat = TSeat( yname, xname );
-  }
-};
-
-class TPassSeats: public std::vector<TPassSeat> {
+class TPassSeats: public std::set<TSeat,CompareSeat> {
   public:
     bool operator == (const TPassSeats &seats) const {
       if ( size() != seats.size() ) {
         return false;
       }
-      for ( std::vector<TPassSeat>::const_iterator iseat1=begin(),
+      for ( std::set<TSeat>::const_iterator iseat1=begin(),
             iseat2=seats.begin();
             iseat1!=end(), iseat2!=seats.end(); iseat1++, iseat2++ ) {
-        if (  iseat1->num != iseat2->num ||
-              iseat1->seat != iseat2->seat ) {
+        if (  *iseat1 != *iseat2 ) {
           return false;
         }
       }
