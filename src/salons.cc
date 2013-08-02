@@ -6449,86 +6449,6 @@ void SeparateEvents( vector<TStringRef> referStrs, vector<string> &eventsStrs, u
       eventsStrs.insert( eventsStrs.end(), strs_header.begin(), strs_header.end() );
     }
 	}
-
-		
-/*
-	string headStr, lineStr, prior_lineStr;
-	bool pr_prior_header = false;
-  bool onlyheader;
-	if ( referStrs.begin()->pr_header )
-		headStr = referStrs.begin()->value;
-	lineStr = headStr;
-	onlyheader = true;
-	for ( vector<TStringRef>::iterator i=referStrs.begin(); i!=referStrs.end(); i++ ) {
-		if ( i == referStrs.begin() && i->pr_header )
-			continue;
-		ProgTrace( TRACE5, "lineStr=%s, lineStr.size()=%zu, i->value=%s, i->pr_header=%d,i->size()=%zu, line_len=%d",
-		           lineStr.c_str(),lineStr.size(),i->value.c_str(), i->pr_header, i->value.size(),line_len);
-		if ( i->pr_header )
-		  headStr = i->value;
-		if ( lineStr.size() + i->value.size() >= line_len ) {
-			if ( pr_prior_header ) {
-				lineStr = prior_lineStr;
-      }
-			tst(); */
-/*			if ( lineStr.size() <= line_len ) {
-				ProgTrace( TRACE5, "eventsStrs.push_back(%s)",lineStr.c_str() );
-	      eventsStrs.push_back( lineStr );
-	      lineStr.clear();
-	    }
-	    else*/
-/*	    	while ( !lineStr.empty() ) {
-	    		if ( lineStr.size() > line_len ) {
-	    		  ProgTrace( TRACE5, "eventsStrs.push_back(%s)",lineStr.substr(0,line_len).c_str() );
-	    		  eventsStrs.push_back( lineStr.substr(0,line_len) );
-	    		  lineStr = lineStr.substr(line_len);
-	    		  ProgTrace( TRACE5, "lineStr=%s)",lineStr.c_str() );
-	    		}
-	    		else {
-            if ( !onlyheader ) {
-              ProgTrace( TRACE5, "eventsStrs.push_back(%s)", lineStr.c_str() );
-	    		    eventsStrs.push_back( lineStr );
-	    		    tst();
-            }
-            lineStr.clear();
-	    		}
-	    	}
-	   prior_lineStr = lineStr;
-	   if ( !i->pr_header ) {
-	   	 lineStr = headStr;
-	   	 onlyheader = true;
-     }
-		}
-		else
-		  prior_lineStr = lineStr;
-		if ( !lineStr.empty() ) {
-	    lineStr += " ";
-    }
-    lineStr += i->value;
-    if ( !i->pr_header ) {
-      onlyheader = false;
-    }
-    pr_prior_header = i->pr_header;
-    
-	}
-	    	while ( !lineStr.empty() ) {
-	    		if ( lineStr.size() > line_len ) {
-	    		  ProgTrace( TRACE5, "eventsStrs.push_back(%s)",lineStr.substr(0,line_len).c_str() );
-	    		  eventsStrs.push_back( lineStr.substr(0,line_len) );
-	    		  lineStr = lineStr.substr(line_len);
-	    		  ProgTrace( TRACE5, "lineStr=%s)",lineStr.c_str() );
-	    		}
-	    		else {
-            if ( !onlyheader ) {
-              ProgTrace( TRACE5, "eventsStrs.push_back(%s)", lineStr.c_str() );
-	    		    eventsStrs.push_back( lineStr );
-	    		    tst();
-            }
-            lineStr.clear();
-	    		}
-	    	}   */
-/*	ProgTrace( TRACE5, "eventsStrs.push_back(%s)",lineStr.c_str() );
-	eventsStrs.push_back( lineStr );*/
 }
 
 
@@ -7305,13 +7225,8 @@ void TSalonPax::get_seats( TWaitListReason &waitListReason,
   if ( ilayer != layers.end() ) {
     waitListReason = ilayer->second.waitListReason;
     if ( ilayer->second.waitListReason.layerStatus == layerValid ) { //нашли слой
-      //int num = 0;
       for ( std::set<TPlace*,CompareSeats>::const_iterator iseat=ilayer->second.seats.begin();
             iseat!=ilayer->second.seats.end(); iseat++ ) {
-        /*ranges.push_back( TPassSeat( num, (*iseat)->xname, (*iseat)->yname ) );
-        ProgTrace( TRACE5, "get_seats: num=%d, xname=%s, yname=%s",
-                   num, (*iseat)->xname.c_str(), (*iseat)->yname.c_str() );
-        num++;*/
         ranges.insert( TSeat( (*iseat)->yname, (*iseat)->xname ) );
       }
     }
@@ -7502,16 +7417,12 @@ bool TSalonPassengers::check_waitlist_alarm( const std::map<int,TPaxList> &pax_l
   Qry.CreateVariable( "point_id", otInteger, point_dep );
   Qry.Execute();
   int idx_pax_id = Qry.FieldIndex( "pax_id" );
-  //int idx_num = Qry.FieldIndex( "num" );
   int idx_xname = Qry.FieldIndex( "xname" );
   int idx_yname = Qry.FieldIndex( "yname" );
   std::map<int,TPassSeats> old_seats, new_seats;
   for ( ; !Qry.Eof; Qry.Next() ) {
     old_seats[ Qry.FieldAsInteger( idx_pax_id ) ].insert( TSeat( Qry.FieldAsString( idx_yname ),
                                                                  Qry.FieldAsString( idx_xname ) ) );
-/*    old_seats[ Qry.FieldAsInteger( idx_pax_id ) ].push_back( TPassSeat( Qry.FieldAsInteger( idx_num ),
-                                                                        Qry.FieldAsString( idx_xname ),
-                                                                        Qry.FieldAsString( idx_yname ) ) );*/
   }
   TQuery DelQry( &OraSession );
   DelQry.SQLText =
@@ -7524,7 +7435,6 @@ bool TSalonPassengers::check_waitlist_alarm( const std::map<int,TPaxList> &pax_l
     "VALUES(:point_id,:pax_id,:xname,:yname)";
   Qry.CreateVariable( "point_id", otInteger, point_dep );
   Qry.DeclareVariable( "pax_id", otInteger );
-//  Qry.DeclareVariable( "num", otInteger );
   Qry.DeclareVariable( "xname", otString );
   Qry.DeclareVariable( "yname", otString );
   
@@ -7558,10 +7468,6 @@ bool TSalonPassengers::check_waitlist_alarm( const std::map<int,TPaxList> &pax_l
             new_seats[ ipass->pax_id ].insert( *ipass_seat );
             ProgTrace( TRACE5, "pax_id=%d, xname=%s, yname=%s",
                        ipass->pax_id, ipass_seat->line, ipass_seat->row );
-
-/*            new_seats[ ipass->pax_id ].push_back( *ipass_seat );
-            ProgTrace( TRACE5, "pax_id=%d, num=%d, xname=%s, yname=%s",
-                       ipass->pax_id, ipass_seat->num, ipass_seat->seat.line, ipass_seat->seat.row );*/
           }
         }
       }
@@ -7582,7 +7488,6 @@ bool TSalonPassengers::check_waitlist_alarm( const std::map<int,TPaxList> &pax_l
       for( TPassSeats::iterator iseat=inew->second.begin();
             iseat!=inew->second.end(); iseat++ ) {
         Qry.SetVariable( "pax_id", inew->first );
-        //Qry.SetVariable( "num", iseat->num );
         Qry.SetVariable( "xname", iseat->line );
         Qry.SetVariable( "yname", iseat->row );
         Qry.Execute();
@@ -7631,7 +7536,6 @@ bool TSalonPassengers::check_waitlist_alarm( const std::map<int,TPaxList> &pax_l
       for ( TPassSeats::iterator iseat=inew->second.begin();
             iseat!=inew->second.end(); iseat++ ) {
         Qry.SetVariable( "pax_id", inew->first );
-        //Qry.SetVariable( "num", iseat->num );
         Qry.SetVariable( "xname", iseat->line );
         Qry.SetVariable( "yname", iseat->row );
         Qry.Execute();
@@ -7908,17 +7812,13 @@ void TAutoSeats::WritePaxSeats( int point_dep, int pax_id )
     "VALUES(:point_id,:pax_id,:xname,:yname)";
   Qry.CreateVariable( "point_id", otInteger, point_dep );
   Qry.CreateVariable( "pax_id", otInteger, ipax->pax_id );
-  //Qry.DeclareVariable( "num", otInteger );
   Qry.DeclareVariable( "xname", otString );
   Qry.DeclareVariable( "yname", otString );
-  //int num=0;
   for ( std::vector<TSeat>::iterator irange=ipax->ranges.begin();
         irange!=ipax->ranges.end(); irange++ ) {
-//    Qry.SetVariable( "num", num );
     Qry.SetVariable( "xname", irange->line );
     Qry.SetVariable( "yname", irange->row );
     Qry.Execute();
-//    num++;
   }
 }
 
