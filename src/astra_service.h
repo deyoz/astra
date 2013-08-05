@@ -7,6 +7,7 @@
 #include "jxtlib/JxtInterface.h"
 
 
+const std::string PARAM_TLG_TYPE = "TLG_TYPE";
 const std::string PARAM_WORK_DIR = "WORKDIR";
 const std::string PARAM_MAIL_INTERVAL = "MAIL_INTERVAL";
 const std::string PARAM_LOAD_DIR = "LOADDIR";
@@ -30,6 +31,7 @@ const std::string PARAM_FILE_REC_NO = "rec_no";
 
 const std::string FILE_CHECKINDATA_TYPE = "CHCKD";
 const std::string FILE_HTTPGET_TYPE = "HTTPGET";
+const std::string FILE_UTG_TYPE = "UTG";
 
 const std::string PARAM_HEADING = "HEADING";
 const std::string PARAM_POINT_ID = "POINT_ID";

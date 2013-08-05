@@ -745,6 +745,48 @@ void TelegramInterface::SaveTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   AstraLocale::showMessage("MSG.TLG.SAVED");
 };
 
+void putUTG(TQuery &Qry, const string &data)
+{
+    string airp = Qry.FieldAsString("airp");
+    string airline = Qry.FieldAsString("airline");
+    int flt_no = Qry.FieldAsInteger("flt_no");
+    string type = Qry.FieldAsString("basic_type");
+    map<string, string> file_params;
+    getFileParams(
+            airp,
+            airline,
+            IntToString(flt_no),
+            OWN_POINT_ADDR(),
+            FILE_UTG_TYPE,
+            1,
+            file_params);
+    if(not file_params.empty() and (file_params[PARAM_TLG_TYPE].find(type) != string::npos)) {
+        string encoding=getFileEncoding(FILE_UTG_TYPE, OWN_POINT_ADDR(), true);
+        if (encoding.empty()) encoding="CP866";
+        string suffix = Qry.FieldAsString("suffix");
+        TDateTime scd_out = Qry.FieldAsDateTime("scd_out");
+        int id = Qry.FieldAsInteger("id");
+
+        TDateTime now_utc = NowUTC();
+        double days;
+        int msecs = (int)(modf(now_utc, &days) * MSecsPerDay) % 1000;
+        ostringstream file_name;
+        file_name
+            << DateTimeToStr(now_utc, "yyyy_mm_dd_hh_nn_ss_")
+            << setw(3) << setfill('0') << msecs
+            << "." << setw(9) << setfill('0') << id
+            << "." << type
+            << "." << BSM::TlgElemIdToElem(etAirline, airline, true) << setw(3) << setfill('0') << flt_no << suffix
+            << "." << DateTimeToStr(scd_out, "dd.mm");
+        file_params[PARAM_FILE_NAME] = file_name.str();
+        putFile( OWN_POINT_ADDR(),
+                OWN_POINT_ADDR(),
+                FILE_UTG_TYPE,
+                file_params,
+                (encoding == "CP866" ? data : ConvertCodepage(data, "CP866", encoding)));
+    }
+}
+
 void TelegramInterface::SendTlg(int tlg_id)
 {
   try
@@ -909,6 +951,7 @@ void TelegramInterface::SendTlg(int tlg_id)
           map<string,string> params;
           putFile(i->first,OWN_POINT_ADDR(),TlgQry.FieldAsString("type"),params,data);
         };
+        putUTG(TlgQry, addrs + tlg_text);
       };
     };
 

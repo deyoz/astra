@@ -5133,19 +5133,20 @@ void TMVTBBody::ToTlg(bool &vcompleted, vector<string> &body)
 {
     ostringstream buf;
     if(act != NoExists) {
+        TDateTime on_block = act + 5./1440;
         int year, month, day1, day2;
         string fmt;
         DecodeDate(act, year, month, day1);
-        DecodeDate(act - 5./1440, year, month, day2);
+        DecodeDate(on_block, year, month, day2);
         if(day1 != day2)
             fmt = "ddhhnn";
         else
             fmt = "hhnn";
         buf
             << "AA"
-            << DateTimeToStr(act - 5./1440, fmt)
+            << DateTimeToStr(act, fmt)
             << "/"
-            << DateTimeToStr(act, fmt);
+            << DateTimeToStr(on_block, fmt);
     } else {
         vcompleted = false;
         buf << "AA\?\?\?\?/\?\?\?\?";
@@ -5157,17 +5158,18 @@ void TMVTABody::ToTlg(TTlgInfo &info, vector<string> &body)
 {
     ostringstream buf;
     if(act != NoExists) {
+        TDateTime off_block = act - 5./1440;
         int year, month, day1, day2;
         string fmt;
         DecodeDate(act, year, month, day1);
-        DecodeDate(act - 5./1440, year, month, day2);
+        DecodeDate(off_block, year, month, day2);
         if(day1 != day2)
             fmt = "ddhhnn";
         else
             fmt = "hhnn";
         buf
             << "AD"
-            << DateTimeToStr(act - 5./1440, fmt)
+            << DateTimeToStr(off_block, fmt)
             << "/"
             << DateTimeToStr(act, fmt);
     } else {
