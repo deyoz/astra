@@ -1,4 +1,4 @@
-#include <stdlib.h>
+  #include <stdlib.h>
 #include "points.h"
 #include "pers_weights.h"
 #include "stages.h"
@@ -1379,9 +1379,10 @@ void PointsKeyTrip<T>::DoEvents( int move_id )
       route.GetPriorAirp(NoExists, this->key.point_id, trtNotCancelled, prior_airp);
       if (prior_airp.point_id!=NoExists)
   	  {
-        vector<string> tlg_types;
-        tlg_types.push_back("MVTB");
-        TelegramInterface::SendTlg(prior_airp.point_id,tlg_types);
+        //проверить автоформирование MVTB!
+        vector<TypeB::TCreateInfo> createInfo;
+        TypeB::TMVTBCreator(prior_airp.point_id).getInfo(createInfo);
+        TelegramInterface::SendTlg(createInfo);
         TReqInfo::Instance()->MsgToLog( "Была вызвана процедура формирования телеграммы MVTB", evtDisp, move_id, this->key.point_id );
       };
     }
@@ -1406,9 +1407,10 @@ void PointsKeyTrip<T>::DoEvents( int move_id )
        this->events.isFlag( teChangeACTOUT ) ) {
     //изменение фактического времени вылета
     try {
-      vector<string> tlg_types;
-      tlg_types.push_back("MVTA");
-      TelegramInterface::SendTlg(this->key.point_id,tlg_types);
+      //проверить автоформирование MVTA!
+      vector<TypeB::TCreateInfo> createInfo;
+      TypeB::TMVTACreator(this->key.point_id).getInfo(createInfo);
+      TelegramInterface::SendTlg(createInfo);
       TReqInfo::Instance()->MsgToLog( "Была вызвана процедура формирования телеграммы MVTA", evtDisp, move_id, this->key.point_id );
     }
     catch(std::exception &E) {

@@ -13,49 +13,88 @@
 #include "stages.h"
 #include "xml_unit.h"
 
-struct TMktFlight {
+class TSimpleMktFlight
+{
   private:
-    void get(TQuery &Qry, int id);
+    void init()
+    {
+      airline.clear();
+      flt_no=ASTRA::NoExists;
+      suffix.clear();
+    };
   public:
     std::string airline;
     int flt_no;
     std::string suffix;
+    TSimpleMktFlight() {init();};
+    void clear()
+    {
+      init();
+    };
+    bool empty() const
+    {
+      return airline.empty() &&
+             flt_no==ASTRA::NoExists &&
+             suffix.empty();
+    };
+};
+
+class TMktFlight : public TSimpleMktFlight
+{
+  private:
+    void get(TQuery &Qry, int id);
+    void init()
+    {
+      subcls.clear();
+      scd_day_local = ASTRA::NoExists;
+      scd_date_local = ASTRA::NoExists;
+      airp_dep.clear();
+      airp_arv.clear();
+    };
+  public:
     std::string subcls;
     int scd_day_local;
     BASIC::TDateTime scd_date_local;
     std::string airp_dep;
     std::string airp_arv;
 
+    TMktFlight()
+    {
+      init();
+    };
+    void clear()
+    {
+      TSimpleMktFlight::clear();
+      init();
+    };
+
+    bool empty() const
+    {
+      return TSimpleMktFlight::empty() &&
+             subcls.empty() &&
+             scd_day_local == ASTRA::NoExists &&
+             scd_date_local == ASTRA::NoExists &&
+             airp_dep.empty() &&
+             airp_arv.empty();
+    };
+
+    bool operator == (const TSimpleMktFlight &s) const
+    {
+      return airline == s.airline &&
+             flt_no == s.flt_no &&
+             suffix == s.suffix;
+    }
+
     void getByPaxId(int pax_id);
     void getByCrsPaxId(int pax_id);
     void getByPnrId(int pnr_id);
-    bool IsNULL();
-    void clear();
-    void dump();
-    TMktFlight():
-        flt_no(ASTRA::NoExists),
-        scd_day_local(ASTRA::NoExists),
-        scd_date_local(ASTRA::NoExists)
-    {
-    };
+    void dump() const;
 };
 
 class TTripInfo
 {
-  public:
-    std::string airline,suffix,airp;
-    int flt_no, pr_del;
-    TElemFmt airline_fmt, suffix_fmt, airp_fmt;
-    BASIC::TDateTime scd_out,real_out;
-    TTripInfo()
-    {
-      Clear();
-    };
-    TTripInfo( TQuery &Qry )
-    {
-      Init(Qry);
-    };
-    void Clear()
+  private:
+    void init()
     {
       airline.clear();
       flt_no=0;
@@ -68,7 +107,7 @@ class TTripInfo
       suffix_fmt = efmtUnknown;
       airp_fmt = efmtUnknown;
     };
-    void Init( TQuery &Qry )
+    void init( TQuery &Qry )
     {
       airline=Qry.FieldAsString("airline");
       flt_no=Qry.FieldAsInteger("flt_no");
@@ -93,12 +132,86 @@ class TTripInfo
       if (Qry.GetFieldIndex("airp_fmt")>=0)
           airp_fmt = (TElemFmt)Qry.FieldAsInteger("airp_fmt");
     };
+  public:
+    std::string airline,suffix,airp;
+    int flt_no, pr_del;
+    TElemFmt airline_fmt, suffix_fmt, airp_fmt;
+    BASIC::TDateTime scd_out,real_out;
+    TTripInfo()
+    {
+      init();
+    };
+    TTripInfo( TQuery &Qry )
+    {
+      init(Qry);
+    };
+    virtual ~TTripInfo() {};
+    virtual void Clear()
+    {
+      init();
+    };
+    virtual void Init( TQuery &Qry )
+    {
+      init(Qry);
+    };
 
     void get_client_dates(BASIC::TDateTime &scd_out_client, BASIC::TDateTime &real_out_client, bool trunc_time=true) const;
 };
 
 std::string GetTripDate( const TTripInfo &info, const std::string &separator, const bool advanced_trip_list  );
 std::string GetTripName( const TTripInfo &info, TElemContext ctxt, bool showAirp=false, bool prList=false );
+
+class TAdvTripInfo : public TTripInfo
+{
+  private:
+    void init()
+    {
+      point_id=ASTRA::NoExists;
+      point_num=ASTRA::NoExists;
+      first_point=ASTRA::NoExists;
+      pr_tranzit=false;
+    };
+    void init( TQuery &Qry )
+    {
+      point_id = Qry.FieldAsInteger("point_id");
+      point_num = Qry.FieldAsInteger("point_num");
+      first_point = Qry.FieldIsNULL("first_point")?ASTRA::NoExists:Qry.FieldAsInteger("first_point");
+      pr_tranzit = Qry.FieldAsInteger("pr_tranzit")!=0;
+    };
+  public:
+    int point_id, point_num, first_point;
+    bool pr_tranzit;
+    TAdvTripInfo()
+    {
+      init();
+    };
+    TAdvTripInfo( TQuery &Qry ) : TTripInfo(Qry)
+    {
+      init(Qry);
+    };
+    TAdvTripInfo( const TTripInfo &info,
+                  int p_point_id,
+                  int p_point_num,
+                  int p_first_point,
+                  bool p_pr_tranzit) : TTripInfo(info)
+    {
+      point_id=p_point_id;
+      point_num=p_point_num;
+      first_point=p_first_point;
+      pr_tranzit=p_pr_tranzit;
+    };
+    virtual ~TAdvTripInfo() {};
+    virtual void Clear()
+    {
+      TTripInfo::Clear();
+      init();
+    };
+    virtual void Init( TQuery &Qry )
+    {
+      TTripInfo::Init(Qry);
+      init(Qry);
+    };
+};
 
 class TLastTrferInfo
 {
@@ -172,7 +285,8 @@ enum TTripSetType { tsCraftInitVIP=1,
                     tsCraftNoChangeSections=17,
                     tsCheckMVTDelays=18,
                     tsSendMVTDelays=19,
-                    tsPrintSCDCloseBoarding=21};
+                    tsPrintSCDCloseBoarding=21,
+                    tsMintransFile=22 };
                     
 const long int DOC_TYPE_FIELD=0x0001;
 const long int DOC_ISSUE_COUNTRY_FIELD=0x0002;
@@ -637,6 +751,9 @@ void SetInfantsToAdults( std::vector<T1> &InfItems, std::vector<T2> AdultItems )
 
 bool is_sync_paxs( int point_id );
 void update_pax_change( int point_id, int pax_id, int reg_no, const std::string &work_mode );
+
+std::string TruncNameTitles(const std::string &str);
+std::string SeparateNames(std::string &names);
 
 #endif /*_ASTRA_MISC_H_*/
 

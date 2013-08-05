@@ -28,6 +28,7 @@
 #include "events.h"
 #include "transfer.h"
 #include "term_version.h"
+#include "typeb_utils.h"
 #include "serverlib/posthooks.h"
 
 
@@ -901,13 +902,15 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, ofstream &f)
 
 int create_tlg(int argc,char **argv)
 {
+/* !!!vlad
   TCreateTlgInfo tlgInfo;
   tlgInfo.type="PTMN";
   tlgInfo.point_id=3229569;
   tlgInfo.airp_trfer="„Œ„";
   tlgInfo.pr_lat=true;
-  tlgInfo.addrs="MOWKB1H";
+  tlgInfo.addrs.addrs="MOWKB1H";
   TelegramInterface::create_tlg(tlgInfo);
+*/
 /*
   TypeB::TestBSMElemOrder("IFNNPOOEEW");
   TypeB::TestBSMElemOrder("IFNPPOOEEW");
@@ -1293,5 +1296,273 @@ int season_to_schedules(int argc,char **argv)
   }
   return 0;
 }
+/*
+CREATE TABLE drop_test_typeb_utils1
+(
+  point_id NUMBER(9) NOT NULL,
+  tlg_id NUMBER(9) NOT NULL,
+  type VARCHAR2(6) NOT NULL,
+  addr VARCHAR2(1000) NULL,
+  addr_normal VARCHAR2(1000) NULL,
+  pr_lat NUMBER(1) NOT NULL,
+  extra VARCHAR2(50) NULL
+);
+
+CREATE TABLE drop_test_typeb_utils2
+(
+  point_id NUMBER(9) NOT NULL,
+  type VARCHAR2(6) NOT NULL,
+  addr VARCHAR2(1000) NULL,
+  addr_normal VARCHAR2(1000) NULL,
+  pr_lat NUMBER(1) NOT NULL,
+  extra VARCHAR2(250) NULL
+);
+
+CREATE UNIQUE INDEX drop_test_typeb_utils1__IDX ON drop_test_typeb_utils1(tlg_id);
+
+select count(*) from
+(
+SELECT point_id, type, addr_normal, pr_lat FROM drop_test_typeb_utils1 WHERE type IN
+('PTM','PTMN','BTM', 'TPM', 'PSM' , 'PFS', 'PFSN' , 'FTL' , 'PRL', 'PIM', 'SOM', 'ETLD', 'LDM', 'CPM', 'MVTA')
+MINUS
+SELECT point_id, type, addr_normal, pr_lat FROM drop_test_typeb_utils2
+ORDER BY type
+);
+
+select count(*) from
+(
+SELECT point_id, type, addr_normal, pr_lat FROM drop_test_typeb_utils2
+MINUS
+SELECT point_id, type, addr_normal, pr_lat FROM drop_test_typeb_utils1 WHERE type IN
+('PTM','PTMN','BTM', 'TPM', 'PSM' , 'PFS', 'PFSN' , 'FTL' , 'PRL', 'PIM', 'SOM', 'ETLD', 'LDM', 'CPM', 'MVTA')
+ORDER BY type
+);
+
+*/
+int test_typeb_utils(int argc,char **argv)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText="DELETE FROM drop_test_typeb_utils1";
+  Qry.Execute();
+
+  Qry.Clear();
+  Qry.SQLText="DELETE FROM drop_test_typeb_utils2";
+  Qry.Execute();
+
+  OraSession.Commit();
+
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT airline,flt_no,suffix,airp,scd_out,act_out, "
+    "       point_id,point_num,first_point,pr_tranzit "
+    "FROM points "
+//    "WHERE point_id=3977047";
+    "WHERE scd_out BETWEEN TRUNC(SYSDATE-1) AND TRUNC(SYSDATE) AND act_out IS NOT NULL AND pr_del=0";
+
+  TQuery TlgQry(&OraSession);
+  TlgQry.Clear();
+  TlgQry.SQLText=
+    "INSERT INTO drop_test_typeb_utils1(point_id, tlg_id, type, addr, pr_lat, extra) "
+    "SELECT tlg_out.point_id, tlg_out.id AS tlg_id, tlg_out.type, tlg_out.addr, tlg_out.pr_lat, tlg_out.extra "
+    "FROM tlg_out "
+    "WHERE tlg_out.point_id=:point_id AND tlg_out.num=1 ";
+    //"   AND tlg_out.time_create BETWEEN :act_out-1/1440 AND :act_out+1/1440";
+  TlgQry.DeclareVariable("point_id", otInteger);
+  //TlgQry.DeclareVariable("act_out", otDate);
+
+  TQuery Tlg2Qry(&OraSession);
+  Tlg2Qry.Clear();
+  Tlg2Qry.SQLText=
+    "INSERT INTO drop_test_typeb_utils2(point_id, type, addr, addr_normal, pr_lat, extra) "
+    "VALUES(:point_id, :type, :addr, :addr, :pr_lat, :extra) ";
+  Tlg2Qry.DeclareVariable("point_id", otInteger);
+  Tlg2Qry.DeclareVariable("type", otString);
+  Tlg2Qry.DeclareVariable("addr", otString);
+  Tlg2Qry.DeclareVariable("pr_lat", otInteger);
+  Tlg2Qry.DeclareVariable("extra", otString);
 
 
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+  {
+    try
+    {
+      TAdvTripInfo fltInfo(Qry);
+      TlgQry.SetVariable("point_id", fltInfo.point_id);
+      //TlgQry.SetVariable("act_out", Qry.FieldAsDateTime("act_out"));
+      TlgQry.Execute();
+
+      Tlg2Qry.SetVariable("point_id", fltInfo.point_id);
+      TypeB::TTakeoffCreator creator(fltInfo.point_id);
+      creator << "MVTA";
+      vector<TypeB::TCreateInfo> createInfo;
+      creator.getInfo(createInfo);
+      for(vector<TypeB::TCreateInfo>::const_iterator i=createInfo.begin(); i!=createInfo.end(); ++i)
+      {
+  /*      ProgTrace(TRACE5, "point_id=%d tlg_type=%s addr=%s",
+                          i->point_id, i->get_tlg_type().c_str(), i->get_addrs().c_str());*/
+
+          //if (!TypeB::TSendInfo(i->get_tlg_type(), fltInfo).isSend()) continue;
+
+          Tlg2Qry.SetVariable("type", i->get_tlg_type());
+          Tlg2Qry.SetVariable("addr", i->get_addrs());
+          Tlg2Qry.SetVariable("pr_lat", (int)i->get_options().is_lat);
+          localizedstream extra(AstraLocale::LANG_RU);
+          Tlg2Qry.SetVariable("extra", i->get_options().extraStr(extra).str());
+          Tlg2Qry.Execute();
+      };
+    }
+    catch(...)
+    {
+      OraSession.Rollback();
+      ProgTrace(TRACE5, "ERROR! point_id=%d", Qry.FieldAsInteger("point_id"));
+    };
+    OraSession.Commit();
+  };
+
+  Qry.Clear();
+  Qry.SQLText="SELECT tlg_id, addr FROM drop_test_typeb_utils1";
+  Qry.Execute();
+
+  TlgQry.Clear();
+  TlgQry.SQLText="UPDATE drop_test_typeb_utils1 SET addr_normal=:addr_normal WHERE tlg_id=:tlg_id";
+  TlgQry.DeclareVariable("addr_normal", otString);
+  TlgQry.DeclareVariable("tlg_id", otInteger);
+  TypeB::TCreateInfo ci;
+  for(;!Qry.Eof;Qry.Next())
+  {
+    ci.set_addrs(Qry.FieldAsString("addr"));
+    TlgQry.SetVariable("tlg_id", Qry.FieldAsInteger("tlg_id"));
+    TlgQry.SetVariable("addr_normal", ci.get_addrs());
+    TlgQry.Execute();
+  };
+
+  OraSession.Commit();
+
+  return 0;
+};
+
+int test_typeb_utils2(int argc,char **argv)
+{
+  ofstream f1, f2;
+  try
+  {
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    Qry.SQLText=
+      "SELECT airline,flt_no,suffix,airp,scd_out,act_out, "
+      "       point_id,point_num,first_point,pr_tranzit "
+      "FROM points "
+  //    "WHERE point_id=2227535";
+      "WHERE scd_out BETWEEN SYSTEM.UTCSYSDATE-1/24 AND SYSTEM.UTCSYSDATE AND act_out IS NOT NULL AND pr_del=0";
+
+    TQuery TlgQry(&OraSession);
+    TlgQry.Clear();
+    TlgQry.SQLText=
+      "SELECT id, addr, heading, body, ending "
+      "FROM tlg_out "
+      "WHERE point_id=:point_id "
+      "ORDER BY type, addr, id, num";
+    TlgQry.DeclareVariable("point_id", otInteger);
+
+    string file_name;
+    file_name="telegram1.txt";
+    f1.open(file_name.c_str());
+    if (!f1.is_open()) throw EXCEPTIONS::Exception("Can't open file '%s'",file_name.c_str());
+    file_name="telegram2.txt";
+    f2.open(file_name.c_str());
+    if (!f2.is_open()) throw EXCEPTIONS::Exception("Can't open file '%s'",file_name.c_str());
+
+    Qry.Execute();
+    for(;!Qry.Eof;Qry.Next())
+    {
+      TAdvTripInfo fltInfo(Qry);
+
+
+      set<int> tlg_ids;
+
+      for(int pass=0; pass<=1; pass++)
+      {
+        TlgQry.SetVariable("point_id", fltInfo.point_id);
+        TlgQry.Execute();
+        if (!TlgQry.Eof)
+        {
+          string addr,heading,body,ending;
+          for(;!TlgQry.Eof;)
+          {
+            int tlg_id=TlgQry.FieldAsInteger("id");
+            addr=TlgQry.FieldAsString("addr");
+            heading=TlgQry.FieldAsString("heading");
+            body+=TlgQry.FieldAsString("body");
+            ending=TlgQry.FieldAsString("ending");
+            TlgQry.Next();
+            if (TlgQry.Eof || tlg_id!=TlgQry.FieldAsInteger("id"))
+            {
+              if (tlg_ids.find(tlg_id)==tlg_ids.end())
+              {
+                ofstream &f=(pass==0?f1:f2);
+                f << ConvertCodepage(addr, "CP866", "CP1251")
+                  << ConvertCodepage(heading, "CP866", "CP1251")
+                  << ConvertCodepage(body, "CP866", "CP1251")
+                  << ConvertCodepage(ending, "CP866", "CP1251")
+                  << "====================================================" << TypeB::endl;
+                tlg_ids.insert(tlg_id);
+              };
+              body.clear();
+            };
+          };
+
+        };
+
+
+        if (pass==0)
+        {
+          vector<TypeB::TCreateInfo> createInfo;
+          TypeB::TTakeoffCreator(fltInfo.point_id).getInfo(createInfo);
+          TelegramInterface::SendTlg(createInfo);
+
+          TypeB::TMVTACreator(fltInfo.point_id).getInfo(createInfo);
+          TelegramInterface::SendTlg(createInfo);
+
+          TypeB::TCloseCheckInCreator(fltInfo.point_id).getInfo(createInfo);
+          TelegramInterface::SendTlg(createInfo);
+
+          TypeB::TCloseBoardingCreator(fltInfo.point_id).getInfo(createInfo);
+          TelegramInterface::SendTlg(createInfo);
+        };
+      };
+
+
+      OraSession.Rollback();
+    };
+    OraSession.Rollback();
+    if (f1.is_open()) f1.close();
+    if (f2.is_open()) f2.close();
+  }
+  catch(EXCEPTIONS::Exception &e)
+  {
+    try
+    {
+      OraSession.Rollback();
+      if (f1.is_open()) f1.close();
+      if (f2.is_open()) f2.close();
+      ProgError(STDLOG, "test_typeb_utils2: %s", e.what() );
+    }
+    catch(...) {};
+    throw;
+  }
+  catch(...)
+  {
+    try
+    {
+      OraSession.Rollback();
+      if (f1.is_open()) f1.close();
+      if (f2.is_open()) f2.close();
+    }
+    catch(...) {};
+    throw;
+  };
+
+  return 0;
+};

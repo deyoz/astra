@@ -164,6 +164,8 @@ const long int DOC_CSV_CZ_FIELDS=DOC_SURNAME_FIELD|
                                  
 const long int DOC_EDI_CZ_FIELDS=DOC_CSV_CZ_FIELDS;
 
+const long int DOC_EDI_CN_FIELDS=DOC_EDI_CZ_FIELDS;
+
 const long int DOC_CSV_DE_FIELDS=DOC_SURNAME_FIELD|
                                  DOC_FIRST_NAME_FIELD|
                                  DOC_GENDER_FIELD|
@@ -189,6 +191,12 @@ const long int DOC_TXT_EE_FIELDS=DOC_SURNAME_FIELD|
 const long int DOCO_TXT_EE_FIELDS=DOCO_TYPE_FIELD|
                                   DOCO_NO_FIELD;
 
+const long int DOC_MINTRANS_FIELDS=DOC_TYPE_FIELD|
+                                   DOC_NO_FIELD|
+                                   DOC_BIRTH_DATE_FIELD;
+
+const long int TKN_MINTRANS_FIELDS=TKN_TICKET_NO_FIELD;
+
 TCheckDocInfo GetCheckDocInfo(const int point_dep, const string& airp_arv)
 {
   set<string> apis_formats;
@@ -202,7 +210,8 @@ TCheckDocInfo GetCheckDocInfo(const int point_dep, const string& airp_arv, set<s
   TQuery Qry( &OraSession );
   Qry.Clear();
   Qry.SQLText=
-    "SELECT points.airline, points.airp, trip_sets.pr_reg_with_doc "
+    "SELECT points.airline, points.flt_no, points.suffix, points.airp, points.scd_out, "
+    "       trip_sets.pr_reg_with_doc "
     "FROM points,trip_sets "
     "WHERE points.point_id=trip_sets.point_id(+) AND points.point_id=:point_id";
   Qry.CreateVariable("point_id",otInteger,point_dep);
@@ -212,6 +221,9 @@ TCheckDocInfo GetCheckDocInfo(const int point_dep, const string& airp_arv, set<s
   {
     if (!Qry.FieldIsNULL("pr_reg_with_doc") &&
         Qry.FieldAsInteger("pr_reg_with_doc")!=0) result.first.required_fields|=DOC_NO_FIELD;
+
+    TTripInfo fltInfo(Qry);
+    if (GetTripSets(tsMintransFile, fltInfo)) result.first.required_fields|=DOC_MINTRANS_FIELDS;
     
     try
     {
@@ -241,6 +253,7 @@ TCheckDocInfo GetCheckDocInfo(const int point_dep, const string& airp_arv, set<s
           apis_formats.insert(fmt);
           if (fmt=="CSV_CZ") result.first.required_fields|=DOC_CSV_CZ_FIELDS;
           if (fmt=="EDI_CZ") result.first.required_fields|=DOC_EDI_CZ_FIELDS;
+          if (fmt=="EDI_CN") result.first.required_fields|=DOC_EDI_CN_FIELDS;
           if (fmt=="CSV_DE")
           {
             result.first.required_fields|=DOC_CSV_DE_FIELDS;
@@ -266,7 +279,10 @@ TCheckDocTknInfo GetCheckTknInfo(const int point_dep)
   TQuery Qry( &OraSession );
   Qry.Clear();
   Qry.SQLText=
-    "SELECT pr_reg_with_tkn FROM trip_sets WHERE point_id=:point_id";
+    "SELECT points.airline, points.flt_no, points.suffix, points.airp, points.scd_out, "
+    "       trip_sets.pr_reg_with_tkn "
+    "FROM points,trip_sets "
+    "WHERE points.point_id=trip_sets.point_id(+) AND points.point_id=:point_id";
   Qry.CreateVariable("point_id",otInteger,point_dep);
   Qry.Execute();
 
@@ -274,6 +290,9 @@ TCheckDocTknInfo GetCheckTknInfo(const int point_dep)
   {
     if (!Qry.FieldIsNULL("pr_reg_with_tkn") &&
         Qry.FieldAsInteger("pr_reg_with_tkn")!=0) result.required_fields|=TKN_TICKET_NO_FIELD;
+
+    TTripInfo fltInfo(Qry);
+    if (GetTripSets(tsMintransFile, fltInfo)) result.required_fields|=TKN_MINTRANS_FIELDS;
   };
   return result;
 };
@@ -826,7 +845,7 @@ bool TCkinRoute::GetPriorSeg(int grp_id,
   return true;
 };
 
-void TMktFlight::dump()
+void TMktFlight::dump() const
 {
     ProgTrace(TRACE5, "---TMktFlight::dump()---");
     ProgTrace(TRACE5, "airline: %s", airline.c_str());
@@ -839,30 +858,6 @@ void TMktFlight::dump()
     ProgTrace(TRACE5, "airp_arv: %s", airp_arv.c_str());
     ProgTrace(TRACE5, "---END OF TMktFlight::dump()---");
 
-}
-
-void TMktFlight::clear()
-{
-  airline.clear();
-  flt_no = NoExists;
-  suffix.clear();
-  subcls.clear();
-  scd_day_local = NoExists;
-  scd_date_local = NoExists;
-  airp_dep.clear();
-  airp_arv.clear();
-};
-
-bool TMktFlight::IsNULL()
-{
-    return
-        airline.empty() or
-        flt_no == NoExists or
-        subcls.empty() or
-        scd_day_local == NoExists or
-        scd_date_local == NoExists or
-        airp_dep.empty() or
-        airp_arv.empty();
 }
 
 void TMktFlight::get(TQuery &Qry, int id)
@@ -1849,7 +1844,41 @@ void update_pax_change( int point_id, int pax_id, int reg_no, const string &work
   Qry.Execute();
 }
 
+string TruncNameTitles(const string &str)
+{
+  const char* titles[]={"ƒ-", "ƒ-†€", "MR", "MSTR", "MRS", "MS", "MISS", "MSS"};
+  string value(str);
+  RTrimString(value);
+  for(int i=sizeof(titles)/sizeof(titles[0])-1;i>=0;i--)
+  {
+    string::size_type pos=value.rfind(titles[i]);
+    if (pos!=string::npos)
+    {
+      if (value.substr(pos)==titles[i])
+      {
+        value.erase(pos);
+        RTrimString(value);
+        break;
+      };
+    };
+  };
+  return value;
+};
 
+string SeparateNames(string &names)
+{
+  string result;
+  TrimString(names);
+  string::size_type pos=names.find(' ');
+  if ( pos != string::npos)
+  {
+    result=names.substr(pos);
+    names=names.substr(0,pos);
+  };
+  TrimString(names);
+  TrimString(result);
+  return result;
+};
 
 
 

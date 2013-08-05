@@ -13,6 +13,8 @@
 #include "astra_misc.h"
 #include "astra_service.h"
 #include "http_io.h"
+#include "typeb_utils.h"
+#include "term_version.h"
 #include "serverlib/logger.h"
 #include "serverlib/posthooks.h"
 
@@ -545,14 +547,19 @@ void TelegramInterface::GetTlgOut(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
   int point_id;
   TQuery Qry(&OraSession);
   string tz_region;
-  string sql="SELECT point_id,id,num,addr,heading,body,ending,extra, "
-             "       pr_lat,completed,has_errors,time_create,time_send_scd,time_send_act, "
-             "       type AS tlg_type "
-             "FROM tlg_out ";
+  ostringstream sql;
+  sql << "SELECT point_id,id,num,addr,heading,body,ending, "
+         "       pr_lat,completed,has_errors,time_create,time_send_scd,time_send_act, "
+         "       type AS tlg_type, "
+         "       typeb_out_extra.text AS extra "
+         "FROM tlg_out, typeb_out_extra "
+         "WHERE tlg_out.id=typeb_out_extra.tlg_id(+) AND "
+         "      typeb_out_extra.lang(+)=:lang ";
+  Qry.CreateVariable("lang", otString, TReqInfo::Instance()->desk.lang);
   if (node==NULL)
   {
     int tlg_id = NodeAsInteger( "tlg_id", reqNode );
-    sql+="WHERE id=:tlg_id ";
+    sql << " AND id=:tlg_id ";
     Qry.CreateVariable("tlg_id",otInteger,tlg_id);
   }
   else
@@ -560,18 +567,18 @@ void TelegramInterface::GetTlgOut(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     point_id = NodeAsInteger( node );
     if (point_id!=-1)
     {
-      sql+="WHERE point_id=:point_id ";
+      sql << " AND point_id=:point_id ";
       Qry.CreateVariable("point_id",otInteger,point_id);
     }
     else
     {
-      sql+="WHERE point_id IS NULL AND time_create>=TRUNC(system.UTCSYSDATE)-2 ";
+      sql << " AND point_id IS NULL AND time_create>=TRUNC(system.UTCSYSDATE)-2 ";
     };
 
   };
-  sql+="ORDER BY id,num";
+  sql << "ORDER BY id,num";
 
-  Qry.SQLText=sql;
+  Qry.SQLText=sql.str();
   Qry.Execute();
   xmlNodePtr tlgsNode = NewTextChild( resNode, "tlgs" );
 
@@ -594,6 +601,8 @@ void TelegramInterface::GetTlgOut(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     };
   };
 
+  ostringstream endl_stream;
+  endl_stream << endl;
   for(;!Qry.Eof;Qry.Next())
   {
     node = NewTextChild( tlgsNode, "tlg" );
@@ -619,7 +628,11 @@ void TelegramInterface::GetTlgOut(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     NewTextChild( node, "addr", Qry.FieldAsString("addr") );
     NewTextChild( node, "heading", Qry.FieldAsString("heading") );
     NewTextChild( node, "ending", Qry.FieldAsString("ending") );
-    NewTextChild( node, "extra", Qry.FieldAsString("extra"), "" );
+    if(TReqInfo::Instance()->desk.compatible(CACHE_CHILD_VERSION))
+      NewTextChild( node, "extra", Qry.FieldAsString("extra"), "" );
+    else
+      NewTextChild( node, "extra", CharReplace(Qry.FieldAsString("extra"),endl_stream.str().c_str()," "), "" );
+
     NewTextChild( node, "pr_lat", (int)(Qry.FieldAsInteger("pr_lat")!=0) );
     NewTextChild( node, "completed", completed, true );
 
@@ -648,43 +661,28 @@ void TelegramInterface::GetTlgOut(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 
 void TelegramInterface::GetAddrs(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  int point_id = NodeAsInteger( "point_id", reqNode );
-  xmlNodePtr node=reqNode->children;
+  TypeB::TAddrInfo info;
+  info.fromXML(reqNode);
   string addrs;
 
-  if (point_id!=-1)
+  if (info.sendInfo.point_id!=NoExists)
   {
     TQuery Qry(&OraSession);
     Qry.Clear();
     Qry.SQLText=
       "SELECT airline,flt_no,airp,point_num,first_point,pr_tranzit "
       "FROM points WHERE point_id=:point_id AND pr_del>=0";
-    Qry.CreateVariable("point_id",otInteger,point_id);
+    Qry.CreateVariable("point_id",otInteger,info.sendInfo.point_id);
     Qry.Execute();
     if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
 
-    TTypeBAddrInfo info;
-
-    info.airline=Qry.FieldAsString("airline");
-    info.flt_no=Qry.FieldAsInteger("flt_no");
-    info.airp_dep=Qry.FieldAsString("airp");
-    info.point_id=point_id;
-    info.point_num=Qry.FieldAsInteger("point_num");
-    info.first_point=Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point");
-    info.pr_tranzit=Qry.FieldAsInteger("pr_tranzit")!=0;
-
-    //с клиента
-    info.tlg_type=NodeAsStringFast( "tlg_type", node);
-    info.airp_trfer=NodeAsStringFast( "airp_arv", node, "");
-    info.crs=NodeAsStringFast( "crs", node, "");
-    info.pr_lat=NodeAsIntegerFast( "pr_lat", node)!=0;
-    info.mark_info.init(reqNode);
-
-    addrs=TelegramInterface::GetTypeBAddrs(info);
-  }
-  else
-  {
-    addrs=TelegramInterface::GetTypeBAddrs(NodeAsStringFast( "tlg_type", node),NodeAsIntegerFast( "pr_lat", node)!=0);
+    info.sendInfo.airline=Qry.FieldAsString("airline");
+    info.sendInfo.flt_no=Qry.FieldAsInteger("flt_no");
+    info.sendInfo.airp_dep=Qry.FieldAsString("airp");
+    info.sendInfo.point_num=Qry.FieldAsInteger("point_num");
+    info.sendInfo.first_point=Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point");
+    info.sendInfo.pr_tranzit=Qry.FieldAsInteger("pr_tranzit")!=0;
+    addrs=info.getAddrs();
   };
 
   NewTextChild(resNode,"addrs",addrs);
@@ -915,7 +913,7 @@ void TelegramInterface::SendTlg(int tlg_id)
           addrs+=j->sita_addr;
         };
       
-        addrs=format_addr_line(addrs);
+        addrs=TypeB::format_addr_line(addrs);
       	if (i->first.size()<=5)
       	{
           if (OWN_CANON_NAME()==i->first)
@@ -1005,6 +1003,8 @@ void TelegramInterface::DeleteTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     Qry.Execute();
     if (Qry.RowsProcessed()>0)
     {
+        Qry.SQLText="DELETE FROM typeb_out_extra WHERE tlg_id=:id";
+        Qry.Execute();
         ostringstream msg;
         msg << "Телеграмма " << tlg_short_name << " (ид=" << tlg_id << ") удалена";
         TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,tlg_id);
@@ -1014,461 +1014,70 @@ void TelegramInterface::DeleteTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     GetTlgOut(ctxt,reqNode,resNode);
 };
 
-bool TelegramInterface::IsTypeBSend( TTypeBSendInfo &info )
+void TelegramInterface::SendTlg(const vector<TypeB::TCreateInfo> &info)
 {
-  ostringstream sql;
-  TQuery SendQry(&OraSession);
-  SendQry.Clear();
-
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText="SELECT basic_type,pr_dep FROM typeb_types WHERE code=:tlg_type";
-  Qry.CreateVariable("tlg_type",otString,info.tlg_type);
-  Qry.Execute();
-  if (Qry.Eof) return false;
-
-  bool pr_dep=false,pr_arv=false;
-  if (Qry.FieldIsNULL("pr_dep"))
+  for(vector<TypeB::TCreateInfo>::const_iterator i=info.begin(); i!=info.end(); ++i)
   {
-    //не привязывается к прилету и вылету
-    pr_dep=true;
-    pr_arv=true;
-    sql << "SELECT pr_denial, "
-           "       DECODE(airline,NULL,0,8)+ "
-           "       DECODE(flt_no,NULL,0,1)+ "
-           "       DECODE(airp_dep,NULL,0,4)+ "
-           "       DECODE(airp_arv,NULL,0,2) AS priority ";
-  }
-  else
-  {
-    if (Qry.FieldAsInteger("pr_dep")!=0)
+    try
     {
-      pr_dep=true;
-      sql << "SELECT pr_denial, "
-             "       DECODE(airline,NULL,0,8)+ "
-             "       DECODE(flt_no,NULL,0,1)+ "
-             "       DECODE(airp_dep,NULL,0,4)+ "
-             "       DECODE(airp_arv,NULL,0,2) AS priority ";
-    }
-    else
-    {
-      pr_arv=true;
-      sql << "SELECT pr_denial, "
-             "       DECODE(airline,NULL,0,8)+ "
-             "       DECODE(flt_no,NULL,0,1)+ "
-             "       DECODE(airp_dep,NULL,0,2)+ "
-             "       DECODE(airp_arv,NULL,0,4) AS priority ";
-    };
-  };
-
-  sql << "FROM typeb_send "
-         "WHERE tlg_type=:tlg_type AND "
-         "      (airline IS NULL OR airline=:airline) AND "
-         "      (flt_no IS NULL OR flt_no=:flt_no) ";
-  SendQry.CreateVariable("tlg_type",otString,info.tlg_type);
-  SendQry.CreateVariable("airline",otString,info.airline);
-  SendQry.CreateVariable("flt_no",otInteger,info.flt_no);
-
-  if (pr_dep)
-  {
-    //привязывается к вылету
-    sql << " AND "
-           "(airp_dep=:airp_dep OR airp_dep IS NULL) AND "
-           "(airp_arv IN "
-           "  (SELECT airp FROM points "
-           "   WHERE first_point=:first_point AND point_num>:point_num AND pr_del=0) OR airp_arv IS NULL)";
-    SendQry.CreateVariable("airp_dep",otString,info.airp_dep);
-  };
-  if (pr_arv)
-  {
-    //привязывается к прилету
-    sql << " AND "
-           "(airp_arv=:airp_arv OR airp_arv IS NULL) AND "
-           "(airp_dep IN "
-           "  (SELECT airp FROM points "
-           "   WHERE :first_point IN (point_id,first_point) AND point_num<=:point_num AND pr_del=0) OR airp_dep IS NULL)";
-    if (info.airp_arv.empty())
-    {
-      TTripRoute route;
-      route.GetRouteAfter(NoExists,
-                          info.point_id,
-                          info.point_num,
-                          info.first_point,
-                          info.pr_tranzit,
-                          trtNotCurrent,trtNotCancelled);
-      if (!route.empty())
-        info.airp_arv=route.begin()->airp;
-    };
-    SendQry.CreateVariable("airp_arv",otString,info.airp_arv);
-  };
-
-  if (!info.pr_tranzit)
-    SendQry.CreateVariable("first_point",otInteger,info.point_id);
-  else
-    SendQry.CreateVariable("first_point",otInteger,info.first_point);
-  SendQry.CreateVariable("point_num",otInteger,info.point_num);
-
-  sql << "ORDER BY priority DESC";
-
-  SendQry.SQLText=sql.str().c_str();
-  SendQry.Execute();
-  if (SendQry.Eof||SendQry.FieldAsInteger("pr_denial")!=0) return false;
-  return true;
-};
-
-string TelegramInterface::GetTypeBAddrs( TTypeBAddrInfo &info )
-{
-  ostringstream sql;
-  TQuery AddrQry(&OraSession);
-  AddrQry.Clear();
-  sql << "SELECT addr FROM typeb_addrs "
-         "WHERE pr_mark_flt=:pr_mark_flt AND tlg_type=:tlg_type AND "
-         "      (airline=:airline OR airline IS NULL) AND "
-         "      (flt_no=:flt_no OR flt_no IS NULL) AND "
-         "      pr_lat=:pr_lat ";
-  AddrQry.CreateVariable("tlg_type",otString,info.tlg_type);
-  if (info.mark_info.IsNULL())
-  {
-    AddrQry.CreateVariable("pr_mark_flt",otString,(int)false);
-    AddrQry.CreateVariable("airline",otString,info.airline);
-    AddrQry.CreateVariable("flt_no",otInteger,info.flt_no);
-  }
-  else
-  {
-    sql << " AND pr_mark_header=:pr_mark_header ";
-    AddrQry.CreateVariable("pr_mark_flt",otString,(int)true);
-    AddrQry.CreateVariable("pr_mark_header",otString,(int)info.mark_info.pr_mark_header);
-    AddrQry.CreateVariable("airline",otString,info.mark_info.airline);
-    AddrQry.CreateVariable("flt_no",otInteger,info.mark_info.flt_no);
-  }
-  AddrQry.CreateVariable("pr_lat",otInteger,(int)info.pr_lat);
-
-//  ProgTrace(TRACE5,"GetTypeBAddrs: tlg_type=%s flt_no=%d first_point=%d point_num=%d airp_dep=%s airp_arv=%s",
-//                   info.tlg_type.c_str(),info.flt_no,info.first_point,info.point_num,info.airp_dep.c_str(),info.airp_arv.c_str());
-
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText="SELECT basic_type,pr_dep FROM typeb_types WHERE code=:tlg_type";
-  Qry.CreateVariable("tlg_type",otString,info.tlg_type);
-  Qry.Execute();
-  if (Qry.Eof) return "";
-
-  string basic_type=Qry.FieldAsString("basic_type");
-
-  bool pr_dep=false,pr_arv=false;
-  if (Qry.FieldIsNULL("pr_dep"))
-  {
-    //не привязывается к прилету и вылету
-    pr_dep=true;
-    pr_arv=true;
-  }
-  else
-  {
-    if (Qry.FieldAsInteger("pr_dep")!=0)
-      pr_dep=true;
-    else
-      pr_arv=true;
-  };
-
-  if (pr_dep)
-  {
-    //привязывается к вылету
-    sql << " AND "
-           "(airp_dep=:airp_dep OR airp_dep IS NULL) AND "
-           "(airp_arv IN "
-           "  (SELECT airp FROM points "
-           "   WHERE first_point=:first_point AND point_num>:point_num AND pr_del=0) OR airp_arv IS NULL)";
-    AddrQry.CreateVariable("airp_dep",otString,info.airp_dep);
-  };
-  if (pr_arv)
-  {
-    //привязывается к прилету
-    sql << " AND "
-           "(airp_arv=:airp_arv OR airp_arv IS NULL) AND "
-           "(airp_dep IN "
-           "  (SELECT airp FROM points "
-           "   WHERE :first_point IN (point_id,first_point) AND point_num<=:point_num AND pr_del=0) OR airp_dep IS NULL)";
-    if (info.airp_arv.empty())
-    {
-      TTripRoute route;
-      route.GetRouteAfter(NoExists,
-                          info.point_id,
-                          info.point_num,
-                          info.first_point,
-                          info.pr_tranzit,
-                          trtNotCurrent,trtNotCancelled);
-      if (!route.empty())
-        info.airp_arv=route.begin()->airp;
-    };
-    AddrQry.CreateVariable("airp_arv",otString,info.airp_arv);
-  };
-  if (!info.pr_tranzit)
-    AddrQry.CreateVariable("first_point",otInteger,info.point_id);
-  else
-    AddrQry.CreateVariable("first_point",otInteger,info.first_point);
-  AddrQry.CreateVariable("point_num",otInteger,info.point_num);
-
-  if ((basic_type=="PTM" || basic_type=="BTM") && !info.airp_trfer.empty())
-  {
-    sql << " AND (airp_arv=:airp_trfer OR airp_arv IS NULL)";
-    AddrQry.CreateVariable("airp_trfer",otString,info.airp_trfer);
-  };
-  if (basic_type=="PFS" ||
-      basic_type=="PRL" ||
-      basic_type=="ETL" ||
-      basic_type=="FTL")
-  {
-    sql << " AND (crs=:crs OR crs IS NULL AND :crs IS NULL)";
-    AddrQry.CreateVariable("crs",otString,info.crs);
-  };
-
-  AddrQry.SQLText=sql.str().c_str();
-  AddrQry.Execute();
-
-  vector<string> addrs;
-  string addrs2;
-  string addr;
-  for(;!AddrQry.Eof;AddrQry.Next())
-  {
-    addrs2=AddrQry.FieldAsString("addr");
-    addr = fetch_addr(addrs2);
-    while(!addr.empty())
-    {
-      addrs.push_back(addr);
-      addr = fetch_addr(addrs2);
-    };
-  };
-  sort(addrs.begin(),addrs.end());
-
-  addrs2.clear();
-  addr.clear();
-  for(vector<string>::iterator i=addrs.begin();i!=addrs.end();i++)
-  {
-    if (*i==addr) continue;
-    addr=*i;
-    addrs2+=addr+" ";
-  };
-  return addrs2;
-};
-
-string TelegramInterface::GetTypeBAddrs( std::string tlg_type, bool pr_lat )
-{
-  TQuery AddrQry(&OraSession);
-  AddrQry.SQLText=
-    "SELECT addr FROM typeb_addrs "
-    "WHERE tlg_type=:tlg_type AND pr_lat=:pr_lat";
-  AddrQry.CreateVariable("tlg_type",otString,tlg_type);
-  AddrQry.CreateVariable("pr_lat",otInteger,(int)pr_lat);
-  AddrQry.Execute();
-
-  string addrs;
-  for(;!AddrQry.Eof;AddrQry.Next())
-  {
-    addrs=addrs+AddrQry.FieldAsString("addr")+" ";
-  };
-  return addrs;
-};
-
-void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
-{
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT airline,flt_no,suffix,airp,scd_out,act_out, "
-    "       point_num,first_point,pr_tranzit "
-    "FROM points WHERE point_id=:point_id AND pr_del>=0";
-  Qry.CreateVariable("point_id",otInteger,point_id);
-  Qry.Execute();
-  if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
-
-  TTripInfo fltInfo(Qry);
-
-  TTypeBSendInfo sendInfo(fltInfo);
-  sendInfo.point_id=point_id;
-  sendInfo.first_point=Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point");
-  sendInfo.point_num=Qry.FieldAsInteger("point_num");
-  sendInfo.pr_tranzit=Qry.FieldAsInteger("pr_tranzit")!=0;
-
-  TTypeBAddrInfo addrInfo(sendInfo);
-
-  //получим все аэропорты по маршруту
-  vector<string> airp_arv;
-  TTripRoute route;
-  route.GetRouteAfter(NoExists,
-                      point_id,
-                      Qry.FieldAsInteger("point_num"),
-                      Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point"),
-                      Qry.FieldAsInteger("pr_tranzit")!=0,
-                      trtNotCurrent,trtNotCancelled);
-  if (!route.empty())
-  {
-    addrInfo.airp_arv=route.begin()->airp;
-    sendInfo.airp_arv=route.begin()->airp;
-  };
-  for(TTripRoute::iterator r=route.begin();r!=route.end();r++)
-    if (find(airp_arv.begin(),airp_arv.end(),r->airp)==airp_arv.end())
-      airp_arv.push_back(r->airp);
-
-  //получим все системы бронирования из кот. была посылка
-  vector<string> crs;
-  GetCrsList(point_id, crs);
-
-  //получим список коммерческих рейсов если таковые имеются
-  vector<TTripInfo> markFltInfo;
-  GetMktFlights(fltInfo,markFltInfo);
-
-  Qry.Clear();
-  Qry.SQLText="SELECT basic_type,short_name FROM typeb_types WHERE code=:tlg_type";
-  Qry.DeclareVariable("tlg_type",otString);
-
-  time_t time_start,time_end;
-
-  vector<string>::iterator t;
-  for(t=tlg_types.begin();t!=tlg_types.end();t++)
-  {
-    Qry.SetVariable("tlg_type",*t); //выбор информации по типу телеграммы
-    Qry.Execute();
-    if (Qry.Eof)
-    {
-      ProgError(STDLOG,"SendTlg: Unknown telegram type %s",t->c_str());
-      continue;
-    };
-    string basic_type=Qry.FieldAsString("basic_type");
-    string short_name=Qry.FieldAsString("short_name");
-
-    sendInfo.tlg_type=*t;
-    if (!IsTypeBSend(sendInfo)) continue;
-
-    //формируем телеграмму
-    vector<string> airp_arvh;
-    if (basic_type=="PTM" ||
-        basic_type=="BTM")
-      airp_arvh=airp_arv;
-    else
-      airp_arvh.push_back("");
-
-    vector<string> crsh;
-    crsh.push_back("");
-    if (basic_type=="PFS" ||
-        basic_type=="PRL" ||
-        basic_type=="ETL" ||
-        basic_type=="FTL" )
-      crsh.insert(crsh.end(),crs.begin(),crs.end());
-
-    vector<TCodeShareInfo> codeshare;
-    TCodeShareInfo codeshareInfo;
-    codeshare.push_back(codeshareInfo); //добавляем пустую это не ошибка!
-    for(vector<TTripInfo>::iterator f=markFltInfo.begin();f!=markFltInfo.end();f++)
-    {
-      codeshareInfo.airline=f->airline;
-      codeshareInfo.flt_no=f->flt_no;
-      codeshareInfo.suffix=f->suffix;
-      codeshare.push_back(codeshareInfo);
-    };
-
-    addrInfo.tlg_type=*t;
-
-    for(int pr_lat=0;pr_lat<=1;pr_lat++)
-    {
-      addrInfo.pr_lat=pr_lat!=0;
-
-      for(vector<string>::iterator i=airp_arvh.begin();i!=airp_arvh.end();i++)
-      {
-        addrInfo.airp_trfer=*i;
-
-        for(vector<string>::iterator j=crsh.begin();j!=crsh.end();j++)
+        int tlg_id=NoExists;
+        TTypeBTypesRow tlgTypeInfo;
+        localizedstream msg(LANG_RU);;
+        try
         {
-          addrInfo.crs=*j;
+            time_t time_start=time(NULL);
+            tlg_id = create_tlg( *i, tlgTypeInfo );
 
-          //цикл по фактическому и коммерческим рейсам
-          vector<TCodeShareInfo>::iterator k=codeshare.begin();
-          for(;k!=codeshare.end();k++)
-          {
-            addrInfo.mark_info=*k;
-            for(int pr_mark_header=0;
-                pr_mark_header<=(addrInfo.mark_info.IsNULL()?0:1);
-                pr_mark_header++)
+            time_t time_end=time(NULL);
+            if (time_end-time_start>1)
+                ProgTrace(TRACE5,"Attention! c++ create_tlg execute time: %ld secs, type=%s, point_id=%d",
+                        time_end-time_start,
+                        i->get_tlg_type().c_str(),
+                        i->point_id);
+
+            msg << "Телеграмма " << tlgTypeInfo.short_name
+                << " (ид=" << tlg_id << ") сформирована: ";
+        }
+        catch(AstraLocale::UserException &E)
+        {
+            msg << "Ошибка формирования телеграммы "
+                << (tlgTypeInfo.short_name.empty()?i->get_tlg_type():tlgTypeInfo.short_name)
+                << ": " << getLocaleText(E.getLexemaData()) << ", ";
+        }
+
+        TReqInfo::Instance()->MsgToLog(i->get_options().logStr(msg).str(),evtTlg,i->point_id,tlg_id);
+
+        if (tlg_id!=NoExists)
+        {
+            time_t time_start=time(NULL);
+            try
             {
-              addrInfo.mark_info.pr_mark_header=pr_mark_header!=0;
-
-              TCreateTlgInfo createInfo;
-              createInfo.type=addrInfo.tlg_type;
-              createInfo.point_id=point_id;
-              createInfo.airp_trfer=addrInfo.airp_trfer;
-              createInfo.crs=addrInfo.crs;
-              createInfo.extra="";
-              createInfo.pr_lat=addrInfo.pr_lat;
-              createInfo.mark_info=addrInfo.mark_info;
-              createInfo.pr_alarm = true;
-
-              createInfo.addrs=GetTypeBAddrs(addrInfo);
-              if (createInfo.addrs.empty()) continue;
-
-              try
-              {
-                  int tlg_id=0;
-                  ostringstream msg;
-                  try
-                  {
-                      time_start=time(NULL);
-                      tlg_id = create_tlg( createInfo );
-
-                      time_end=time(NULL);
-                      if (time_end-time_start>1)
-                          ProgTrace(TRACE5,"Attention! c++ create_tlg execute time: %ld secs, type=%s, point_id=%d",
-                                  time_end-time_start,
-                                  createInfo.type.c_str(),
-                                  point_id);
-
-                      msg << "Телеграмма " << short_name
-                          << " (ид=" << tlg_id << ") сформирована: ";
-                  }
-                  catch(AstraLocale::UserException &E)
-                  {
-                      msg << "Ошибка формирования телеграммы " << short_name
-                          << ": " << getLocaleText(E.getLexemaData()) << ", ";
-                  }
-                  msg << GetTlgLogMsg(createInfo);
-
-                  TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,tlg_id);
-
-                  if (tlg_id!=0)
-                  {
-                      time_start=time(NULL);
-                      try
-                      {
-                          SendTlg(tlg_id);
-                      }
-                      catch(AstraLocale::UserException &E)
-                      {
-                          msg.str("");
-                          msg << "Ошибка отправки телеграммы " << short_name
-                              << " (ид=" << tlg_id << ")"
-                              << ": " << getLocaleText(E.getLexemaData());
-                          TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,tlg_id);
-                      };
-                      time_end=time(NULL);
-                      if (time_end-time_start>1)
-                          ProgTrace(TRACE5,"Attention! SendTlg execute time: %ld secs, tlg_id=%d",
-                                  time_end-time_start,tlg_id);
-                  };
-              }
-              catch( Exception &E )
-              {
-                ProgError(STDLOG,"SendTlg (point_id=%d, type=%s): %s",point_id,t->c_str(),E.what());
-              }
-              catch(...)
-              {
-                ProgError(STDLOG,"SendTlg (point_id=%d, type=%s): unknown error",point_id,t->c_str());
-              };
-            };  //for pr_mark_header
-          };  //for k
-        };  //for j
-      };  //for i
-    };  //for pr_lat
-
+                SendTlg(tlg_id);
+            }
+            catch(AstraLocale::UserException &E)
+            {
+                msg.str("");
+                msg << "Ошибка отправки телеграммы "
+                    << (tlgTypeInfo.short_name.empty()?i->get_tlg_type():tlgTypeInfo.short_name)
+                    << " (ид=" << tlg_id << ")"
+                    << ": " << getLocaleText(E.getLexemaData());
+                TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,i->point_id,tlg_id);
+            };
+            time_t time_end=time(NULL);
+            if (time_end-time_start>1)
+                ProgTrace(TRACE5,"Attention! SendTlg execute time: %ld secs, tlg_id=%d",
+                        time_end-time_start,tlg_id);
+        };
+    }
+    catch( Exception &E )
+    {
+      ProgError(STDLOG,"SendTlg (point_id=%d, type=%s): %s",i->point_id,i->get_tlg_type().c_str(),E.what());
+    }
+    catch(...)
+    {
+      ProgError(STDLOG,"SendTlg (point_id=%d, type=%s): unknown error",i->point_id,i->get_tlg_type().c_str());
+    };
   };
-
 };
 
 namespace BSM
@@ -1549,11 +1158,10 @@ void LoadContent(int grp_id, TTlgContent& con)
   if (Qry.Eof) return;
   con.pr_lat_seat=Qry.FieldAsInteger("pr_lat_seat")!=0;
 
-  TTlgInfo info;
-  info.point_id=Qry.FieldAsInteger("point_id");
-  info.point_num=Qry.FieldAsInteger("point_num");
-  info.first_point=Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point");
-  info.pr_tranzit=Qry.FieldAsInteger("pr_tranzit")!=0;
+  int point_id=Qry.FieldAsInteger("point_id");
+  int point_num=Qry.FieldAsInteger("point_num");
+  int first_point=Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point");
+  bool pr_tranzit=Qry.FieldAsInteger("pr_tranzit")!=0;
 
   bool pr_unaccomp=Qry.FieldIsNULL("class");
   
@@ -1566,7 +1174,7 @@ void LoadContent(int grp_id, TTlgContent& con)
   if (!pr_unaccomp)
   {
     vector<TTlgCompLayer> complayers;
-    ReadSalons( info, complayers );
+    ReadSalons( point_id, point_num, first_point, pr_tranzit, complayers );
   
     Qry.Clear();
     Qry.SQLText=
@@ -1730,7 +1338,7 @@ std::string TlgElemIdToElem(TElemType type, int id, bool pr_lat)
 {
     TElemFmt fmt=prLatToElemFmt(efmtCodeNative, pr_lat);
     try {
-        return ::TlgElemIdToElem(type, id, fmt, AstraLocale::LANG_RU);
+        return TypeB::TlgElemIdToElem(type, id, fmt, AstraLocale::LANG_RU);
     } catch(UserException &E) {
         ProgTrace(TRACE5, "BSM::TlgElemIdToElem: elem_type: %s, fmt: %s, what: %s", EncodeElemType(type), EncodeElemFmt(fmt), E.what());
         return "";
@@ -1747,7 +1355,7 @@ std::string TlgElemIdToElem(TElemType type, std::string id, bool pr_lat)
 {
     TElemFmt fmt=prLatToElemFmt(efmtCodeNative, pr_lat);
     try {
-        return ::TlgElemIdToElem(type, id, fmt, AstraLocale::LANG_RU);
+        return TypeB::TlgElemIdToElem(type, id, fmt, AstraLocale::LANG_RU);
     } catch(UserException &E) {
         ProgTrace(TRACE5, "BSM::TlgElemIdToElem: elem_type: %s, fmt: %s, what: %s", EncodeElemType(type), EncodeElemFmt(fmt), E.what());
         return "";
@@ -1873,26 +1481,16 @@ string CreateTlgBody(const TTlgContent& con, bool pr_lat)
   return body.str();
 };
 
-bool IsSend( TTypeBSendInfo info, TBSMAddrs &addrs )
+bool IsSend( const TAdvTripInfo &fltInfo, TBSMAddrs &addrs )
 {
-    info.tlg_type="BSM";
-    if (!TelegramInterface::IsTypeBSend(info)) return false;
-
-    TTypeBAddrInfo addrInfo(info);
-
-    addrInfo.airp_trfer="";
-    addrInfo.crs="";
-    for(int pr_lat=0; pr_lat<=1; pr_lat++)
-    {
-        addrInfo.pr_lat=(bool)pr_lat;
-        string a=TelegramInterface::GetTypeBAddrs(addrInfo);
-        if (!a.empty()) addrs.addrs[addrInfo.pr_lat]=a;
-    };
+    TypeB::TCreator creator(fltInfo);
+    creator << "BSM";
+    creator.getInfo(addrs.createInfo);
 
     getFileParams(
-            addrInfo.airp_dep,
-            addrInfo.airline,
-            IntToString(addrInfo.flt_no),
+            fltInfo.airp,
+            fltInfo.airline,
+            IntToString(fltInfo.flt_no),
             OWN_POINT_ADDR(),
             FILE_HTTPGET_TYPE,
             1,
@@ -1920,9 +1518,9 @@ void Send( int point_dep, int grp_id, const TTlgContent &con1, const TBSMAddrs &
     for(vector<TTlgContent>::iterator i=bsms.begin();i!=bsms.end();++i)
     {
       if(not addrs.empty()) {
-          TOriginatorInfo originator=getOriginator(i->OutFlt.operFlt.airline,
-                                                   i->OutFlt.operFlt.airp,
-                                                   p.tlg_type, p.time_create, true);
+          TypeB::TOriginatorInfo originator=TypeB::getOriginator(i->OutFlt.operFlt.airline,
+                                                                 i->OutFlt.operFlt.airp,
+                                                                 p.tlg_type, p.time_create, true);
           p.originator_id=originator.id;
           ostringstream heading;
           heading << '.' << originator.addr
@@ -1930,13 +1528,12 @@ void Send( int point_dep, int grp_id, const TTlgContent &con1, const TBSMAddrs &
           p.heading=heading.str();
       }
 
-      for(map<bool,string>::const_iterator j=addrs.addrs.begin();j!=addrs.addrs.end();++j)
+      for(vector<TypeB::TCreateInfo>::const_iterator j=addrs.createInfo.begin();j!=addrs.createInfo.end();++j)
       {
-        if (j->second.empty()) continue;
-        p.id=-1;
+        p.id=NoExists;
         p.num=1;
-        p.pr_lat=j->first;
-        p.addr=format_addr_line(j->second);
+        p.pr_lat=j->get_options().is_lat;
+        p.addr=TypeB::format_addr_line(j->get_addrs());
         p.body=CreateTlgBody(*i,p.pr_lat);
         TelegramInterface::SaveTlgOutPart(p);
         Qry.SetVariable("id",p.id);
@@ -1970,7 +1567,7 @@ void TelegramInterface::SaveTlgOutPart( TTlgOutPartInfo &info )
 {
   TQuery Qry(&OraSession);
 
-  if (info.id<0)
+  if (info.id==NoExists)
   {
     Qry.Clear();
     Qry.SQLText=
@@ -1982,9 +1579,9 @@ void TelegramInterface::SaveTlgOutPart( TTlgOutPartInfo &info )
 
   Qry.Clear();
   Qry.SQLText=
-    "INSERT INTO tlg_out(id,num,type,point_id,addr,heading,body,ending,extra,pr_lat, "
+    "INSERT INTO tlg_out(id,num,type,point_id,addr,heading,body,ending,pr_lat, "
     "                    completed,has_errors,time_create,time_send_scd,time_send_act,originator_id) "
-    "VALUES(:id,:num,:type,:point_id,:addr,:heading,:body,:ending,:extra,:pr_lat, "
+    "VALUES(:id,:num,:type,:point_id,:addr,:heading,:body,:ending,:pr_lat, "
     "       0,0,NVL(:time_create,system.UTCSYSDATE),:time_send_scd,NULL,:originator_id)";
 
   /*
@@ -1996,13 +1593,13 @@ void TelegramInterface::SaveTlgOutPart( TTlgOutPartInfo &info )
   ProgTrace(TRACE5, "heading: %s", info.heading.c_str());
   ProgTrace(TRACE5, "body: %s, size: %zu", info.body.c_str(), info.body.size());
   ProgTrace(TRACE5, "ending: %s", info.ending.c_str());
-  ProgTrace(TRACE5, "extra: %s", info.extra.c_str());
+  //ProgTrace(TRACE5, "extra: %s", info.extra.c_str());
   */
 
   Qry.CreateVariable("id",otInteger,info.id);
   Qry.CreateVariable("num",otInteger,info.num);
   Qry.CreateVariable("type",otString,info.tlg_type);
-  if (info.point_id!=-1)
+  if (info.point_id!=NoExists)
     Qry.CreateVariable("point_id",otInteger,info.point_id);
   else
     Qry.CreateVariable("point_id",otInteger,FNull);
@@ -2010,7 +1607,6 @@ void TelegramInterface::SaveTlgOutPart( TTlgOutPartInfo &info )
   Qry.CreateVariable("heading",otString,info.heading);
   Qry.CreateVariable("body",otString,info.body);
   Qry.CreateVariable("ending",otString,info.ending);
-  Qry.CreateVariable("extra",otString,info.extra);
   Qry.CreateVariable("pr_lat",otInteger,(int)info.pr_lat);
   if (info.time_create!=NoExists)
     Qry.CreateVariable("time_create",otDate,info.time_create);
@@ -2026,6 +1622,24 @@ void TelegramInterface::SaveTlgOutPart( TTlgOutPartInfo &info )
   else
     Qry.CreateVariable("originator_id",otInteger,FNull);
   Qry.Execute();
+
+  if (info.num==1)
+  {
+    Qry.Clear();
+    Qry.SQLText=
+      "INSERT INTO typeb_out_extra(tlg_id, lang, text) "
+      "VALUES(:tlg_id, :lang, :text)";
+    Qry.CreateVariable("tlg_id", otInteger, info.id);
+    Qry.DeclareVariable("lang", otString);
+    Qry.DeclareVariable("text", otString);
+    for(map<string,string>::const_iterator e=info.extra.begin(); e!=info.extra.end(); ++e)
+    {
+      if (e->second.empty()) continue;
+      Qry.SetVariable("lang", e->first);
+      Qry.SetVariable("text", e->second.substr(0,250));
+      Qry.Execute();
+    };
+  };
 
   info.num++;
 };

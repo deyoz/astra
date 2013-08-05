@@ -10,6 +10,7 @@
 #include "astra_context.h"
 #include "stages.h"
 #include "telegram.h"
+#include "typeb_utils.h"
 #include "misc.h"
 #include "astra_misc.h"
 #include "base_tables.h"
@@ -382,15 +383,7 @@ void ParseInquiryStr(string query, TInquiryGroup &grp)
           for(vector<TInquiryFamily>::iterator i=grp.fams.begin();i!=grp.fams.end();i++)
           {
           //разделим surname на surname и name
-            TrimString(i->surname);
-            string::size_type pos=i->surname.find(' ');
-            if ( pos != string::npos)
-            {
-              i->name=i->surname.substr(pos);
-              i->surname=i->surname.substr(0,pos);
-            };
-            TrimString(i->surname);
-            TrimString(i->name);
+            i->name=SeparateNames(i->surname);
             ProgTrace(TRACE5,"surname=%s name=%s adult=%d child=%d baby=%d seats=%d",
                              i->surname.c_str(),i->name.c_str(),i->n[adult],i->n[child],i->n[baby],i->seats);
           };
@@ -1428,7 +1421,7 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry,  xmlNodePtr resNode)
                                     pnr_status=="ID2"||
                                     pnr_status=="WL"),0);
       mktFlt.getByPnrId(pnr_id);
-      if (!mktFlt.IsNULL())
+      if (!mktFlt.empty())
       {
         TTripInfo pnrMarkFlt;
         pnrMarkFlt.airline=mktFlt.airline;
@@ -3129,18 +3122,14 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
     try
     {
-      TTypeBSendInfo sendInfo(fltInfo);
-      sendInfo.point_id=s->second.point_dep;
-      sendInfo.point_num=s->second.point_num;
-      sendInfo.first_point=s->second.first_point;
-      sendInfo.pr_tranzit=s->second.pr_tranzit;
-      sendInfo.tlg_type="BSM";
-
       //BSM
       BSM::TBSMAddrs BSMaddrs;
-      map<string, string> HTTPGETparams;
       BSM::TTlgContent BSMContentBefore;
-      bool BSMsend=BSM::IsSend(sendInfo,BSMaddrs);
+      bool BSMsend=BSM::IsSend(TAdvTripInfo(fltInfo,
+                                            s->second.point_dep,
+                                            s->second.point_num,
+                                            s->second.first_point,
+                                            s->second.pr_tranzit), BSMaddrs);
 
       set<int> nextTrferSegs;
 
@@ -3172,6 +3161,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       bool pr_tranz_reg=!Qry.FieldIsNULL("pr_tranz_reg")&&Qry.FieldAsInteger("pr_tranz_reg")!=0;
       int pr_etstatus=Qry.FieldAsInteger("pr_etstatus");
       bool pr_etl_only=GetTripSets(tsETLOnly,fltInfo);
+      bool pr_mintrans_file=GetTripSets(tsMintransFile,fltInfo);
 
       bool addVIP=false;
       if (first_segment)
@@ -3213,6 +3203,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           const CheckIn::TPaxItem &pax=p->pax;
           try
           {
+            if (pax.name.empty() && pr_mintrans_file)
+              throw UserException("MSG.CHECKIN.PASSENGERS_NAMES_NOT_SET");
+
             if (pax.tkn.no.size()>15)
             {
               string ticket_no=pax.tkn.no;
@@ -4435,8 +4428,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
       if (!pr_unaccomp)
       {
-        //обновление counters
-        rozysk::sync_pax_grp(grp.id, reqInfo->desk.code);
+        rozysk::sync_pax_grp(grp.id, reqInfo->desk.code, reqInfo->user.descr);
       };
 
       Qry.Clear();
@@ -5317,17 +5309,7 @@ string CheckInInterface::SaveTransfer(int grp_id,
   string airline_in=TrferQry.FieldAsString("airline");
   int flt_no_in=TrferQry.FieldAsInteger("flt_no");
 
-  TTripInfo fltInfo(TrferQry);
-
-  TTypeBSendInfo sendInfo(fltInfo);
-  sendInfo.point_id=TrferQry.FieldAsInteger("point_id");
-  sendInfo.first_point=TrferQry.FieldIsNULL("first_point")?NoExists:TrferQry.FieldAsInteger("first_point");
-  sendInfo.point_num=TrferQry.FieldAsInteger("point_num");
-  sendInfo.pr_tranzit=TrferQry.FieldAsInteger("pr_tranzit")!=0;
-
-  TTypeBAddrInfo addrInfo(sendInfo);
-  addrInfo.airp_trfer=TrferQry.FieldAsString("airp_arv");
-  addrInfo.pr_lat=true;
+  TAdvTripInfo fltInfo(TrferQry);
 
   //проверка формирования трансфера в латинских телеграммах
   enum TCheckType {checkNone,checkFirstSeg,checkAllSeg};
@@ -5349,10 +5331,17 @@ string CheckInInterface::SaveTransfer(int grp_id,
     if (checkType==checkAllSeg) break;
     if (iTlgs->second==checkNone ||
         (iTlgs->second==checkFirstSeg && checkType==checkFirstSeg)) continue;
-    sendInfo.tlg_type=iTlgs->first;
-    addrInfo.tlg_type=iTlgs->first;
-    if (!TelegramInterface::GetTypeBAddrs(addrInfo).empty()&&
-        TelegramInterface::IsTypeBSend(sendInfo)) checkType=iTlgs->second;
+
+    TypeB::TCreator creator(fltInfo);
+    creator << iTlgs->first;
+    vector<TypeB::TCreateInfo> createInfo;
+    creator.getInfo(createInfo);
+    vector<TypeB::TCreateInfo>::const_iterator i=createInfo.begin();
+    for(; i!=createInfo.end(); ++i)
+      if (i->get_options().is_lat) break;
+    if (i==createInfo.end()) continue;
+
+    checkType=iTlgs->second;
   };
 
   TrferQry.Clear();

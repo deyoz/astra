@@ -64,6 +64,7 @@ class TFltBinding
     void unbind_flt(const std::vector<int> &spp_point_ids);
     void trace_for_bind(const std::vector<TTripInfo> &flts, const std::string &where);
     void trace_for_bind(const std::vector<int> &point_ids, const std::string &where);
+    virtual ~TFltBinding() {};
 };
 
 class TTlgBinding : public TFltBinding

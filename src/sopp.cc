@@ -18,6 +18,7 @@
 #include "tripinfo.h"
 #include "season.h" //???
 #include "telegram.h"
+#include "typeb_utils.h"
 #include "boost/date_time/local_time/local_time.hpp"
 #include <boost/thread/thread.hpp>
 //#include <boost/threadpool.hpp>
@@ -1616,12 +1617,12 @@ struct TSegBSMInfo
   map<int/*grp_id*/,BSM::TTlgContent> BSMContentBefore;
 };
 
-void DeletePaxGrp( const TTypeBSendInfo &sendInfo, int grp_id, bool toLog,
+void DeletePaxGrp( const TAdvTripInfo &fltInfo, int grp_id, bool toLog,
                    TQuery &PaxQry, TQuery &DelQry,
                    map<int/*point_id*/,TSegBSMInfo> &BSMsegs,
                    set<int/*point_id*/> &nextTrferSegs )
 {
-  int point_id=sendInfo.point_id;
+  int point_id=fltInfo.point_id;
 
   const char* pax_sql=
     "SELECT pax_id,surname,name,pers_type,reg_no,pr_brd FROM pax WHERE grp_id=:grp_id";
@@ -1654,12 +1655,12 @@ void DeletePaxGrp( const TTypeBSendInfo &sendInfo, int grp_id, bool toLog,
   };
   
   //набираем вектор BSMsegs
-  if (BSMsegs.find(sendInfo.point_id)==BSMsegs.end())
+  if (BSMsegs.find(fltInfo.point_id)==BSMsegs.end())
   {
-    BSM::IsSend(sendInfo,BSMsegs[sendInfo.point_id].BSMaddrs);
+    BSM::IsSend(fltInfo,BSMsegs[fltInfo.point_id].BSMaddrs);
   };
   
-  TSegBSMInfo &BSMseg=BSMsegs[sendInfo.point_id];
+  TSegBSMInfo &BSMseg=BSMsegs[fltInfo.point_id];
   if (!BSMseg.BSMaddrs.empty())
   {
     BSM::TTlgContent BSMContent;
@@ -1704,7 +1705,7 @@ void DeletePaxGrp( const TTypeBSendInfo &sendInfo, int grp_id, bool toLog,
   DelQry.SetVariable("grp_id",grp_id);
   DelQry.Execute();
 
-  rozysk::sync_pax_grp(grp_id, TReqInfo::Instance()->desk.code);
+  rozysk::sync_pax_grp(grp_id, TReqInfo::Instance()->desk.code, TReqInfo::Instance()->user.descr);
 
   TQuery Qry(&OraSession);
 	Qry.Clear();
@@ -1718,7 +1719,7 @@ void DeletePaxGrp( const TTypeBSendInfo &sendInfo, int grp_id, bool toLog,
 };
 
 void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
-                       map<int,TTripInfo> &segs )
+                       map<int,TAdvTripInfo> &segs )
 {
   segs.clear();
   TReqInfo *reqInfo = TReqInfo::Instance();
@@ -1727,20 +1728,13 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
 	Qry.Clear();
 	Qry.SQLText=
 	  "SELECT airline,flt_no,suffix,airp,scd_out, "
-	  "       point_num,first_point,pr_tranzit "
+	  "       point_id,point_num,first_point,pr_tranzit "
     "FROM points "
     "WHERE point_id=:point_id AND pr_reg<>0 AND pr_del=0 FOR UPDATE";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
   if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
-  TTripInfo fltInfo(Qry);
-
-  TTypeBSendInfo sendInfo(fltInfo);
-  sendInfo.point_id=point_id;
-  sendInfo.point_num=Qry.FieldAsInteger("point_num");
-  sendInfo.first_point=Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point");
-  sendInfo.pr_tranzit=Qry.FieldAsInteger("pr_tranzit")!=0;
-  sendInfo.tlg_type="BSM";
+  TAdvTripInfo fltInfo(Qry);
 
   map<int/*point_id*/,TSegBSMInfo> BSMsegs;
   set<int> nextTrferSegs;
@@ -1764,7 +1758,7 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
   TCkinQry.DeclareVariable("seg_no",otInteger);
 
   ostringstream sql;
-  sql << "SELECT pax_grp.grp_id, \n"
+  sql << "SELECT pax_grp.grp_id, pax_grp.class, \n"
          "       tckin_pax_grp.tckin_id, tckin_pax_grp.seg_no \n"
          "FROM pax_grp, tckin_pax_grp \n"
          "WHERE pax_grp.point_dep=:point_id \n";
@@ -1788,6 +1782,7 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
   segs[point_id]=fltInfo;
   for(;!Qry.Eof;Qry.Next())
   {
+    if (Qry.FieldIsNULL("class")) continue;  //несопровождаемый багаж не разрегистрируем!
     int tckin_id=Qry.FieldIsNULL("tckin_id")?NoExists:Qry.FieldAsInteger("tckin_id");
     int tckin_seg_no=Qry.FieldIsNULL("seg_no")?NoExists:Qry.FieldAsInteger("seg_no");
   
@@ -1826,25 +1821,17 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
           int tckin_point_id=TCkinQry.FieldAsInteger("point_id");
           int tckin_grp_id=TCkinQry.FieldAsInteger("grp_id");
 
-          if (segs.find(tckin_point_id)==segs.end())
-          {
-            fltInfo.Init(TCkinQry);
-            segs[tckin_point_id]=fltInfo;
-          };
+          map<int,TAdvTripInfo>::const_iterator f=segs.find(tckin_point_id);
+          if (f==segs.end())
+            f=segs.insert(make_pair(tckin_point_id, TAdvTripInfo(TCkinQry))).first;
+          if (f==segs.end()) throw Exception("DeletePassengers: f==segs.end()");
 
-          TTypeBSendInfo tckinSendInfo(fltInfo);
-          tckinSendInfo.point_id=tckin_point_id;
-          tckinSendInfo.point_num=TCkinQry.FieldAsInteger("point_num");
-          tckinSendInfo.first_point=TCkinQry.FieldIsNULL("first_point")?NoExists:TCkinQry.FieldAsInteger("first_point");
-          tckinSendInfo.pr_tranzit=TCkinQry.FieldAsInteger("pr_tranzit")!=0;
-          tckinSendInfo.tlg_type="BSM";
-
-          DeletePaxGrp( tckinSendInfo, tckin_grp_id, true, PaxQry, DelQry, BSMsegs, nextTrferSegs);
+          DeletePaxGrp( f->second, tckin_grp_id, true, PaxQry, DelQry, BSMsegs, nextTrferSegs);
         };
       };
     };
     
-    DeletePaxGrp( sendInfo, grp_id, filter.inbound_point_dep!=NoExists, PaxQry, DelQry, BSMsegs, nextTrferSegs);
+    DeletePaxGrp( fltInfo, grp_id, filter.inbound_point_dep!=NoExists, PaxQry, DelQry, BSMsegs, nextTrferSegs);
   };
 
   //пересчитаем счетчики по всем рейсам, включая сквозные сегменты
@@ -1854,7 +1841,7 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
 	 "  ckin.recount(:point_id); "
    "END;";
   Qry.DeclareVariable("point_id",otInteger);
-  for(map<int,TTripInfo>::iterator i=segs.begin();i!=segs.end();++i)
+  for(map<int,TAdvTripInfo>::const_iterator i=segs.begin();i!=segs.end();++i)
   {
     Qry.SetVariable("point_id",i->first);
     Qry.Execute();
@@ -1889,7 +1876,7 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
   };
 }
 
-void DeletePassengersAnswer( map<int,TTripInfo> &segs, xmlNodePtr resNode )
+void DeletePassengersAnswer( map<int,TAdvTripInfo> &segs, xmlNodePtr resNode )
 {
 	TQuery Qry(&OraSession);
 	Qry.Clear();
@@ -1898,7 +1885,7 @@ void DeletePassengersAnswer( map<int,TTripInfo> &segs, xmlNodePtr resNode )
   Qry.DeclareVariable("point_id",otInteger);
 
 	xmlNodePtr segsNode=NewTextChild(resNode,"segments");
-	for(map<int,TTripInfo>::iterator i=segs.begin();i!=segs.end();i++)
+	for(map<int,TAdvTripInfo>::const_iterator i=segs.begin();i!=segs.end();++i)
   {
     bool pr_etl_only=GetTripSets(tsETLOnly,i->second);
     Qry.SetVariable("point_id",i->first);
@@ -1921,7 +1908,7 @@ void SoppInterface::DeleteAllPassangers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   TDeletePaxFilter filter;
   if (GetNode( "inbound_point_dep", reqNode )!=NULL)
     filter.inbound_point_dep = NodeAsInteger( "inbound_point_dep", reqNode );
-  map<int,TTripInfo> segs;
+  map<int,TAdvTripInfo> segs;
 	DeletePassengers( point_id, filter, segs );
   DeletePassengersAnswer( segs, resNode );
   if (filter.inbound_point_dep==NoExists)
@@ -3673,11 +3660,11 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   //новая отвязка телеграмм
   ReBindTlgs( move_id, voldDests );
   // отправка телеграмм задержек
-  vector<string> tlg_types;
-  tlg_types.push_back("MVTC");
   for ( vector<int>::iterator pdel=points_MVTdelays.begin(); pdel!=points_MVTdelays.end(); pdel++ ) {
       try {
-          TelegramInterface::SendTlg(*pdel,tlg_types);
+          vector<TypeB::TCreateInfo> createInfo;
+          TypeB::TMVTCCreator(*pdel).getInfo(createInfo);
+          TelegramInterface::SendTlg(createInfo);
       }
       catch(std::exception &E) {
           ProgError(STDLOG,"internal_WriteDests.SendTlg (point_id=%d): %s",*pdel,E.what());
@@ -4573,9 +4560,9 @@ void ChangeACT_OUT( int point_id, TDateTime old_act, TDateTime act )
     //изменение фактического времени вылета
     try
     {
-      vector<string> tlg_types;
-      tlg_types.push_back("MVTA");
-      TelegramInterface::SendTlg(point_id,tlg_types);
+      vector<TypeB::TCreateInfo> createInfo;
+      TypeB::TMVTACreator(point_id).getInfo(createInfo);
+      TelegramInterface::SendTlg(createInfo);
     }
     catch(std::exception &E)
     {
@@ -4613,9 +4600,9 @@ void ChangeACT_IN( int point_id, TDateTime old_act, TDateTime act )
       route.GetPriorAirp(NoExists, point_id, trtNotCancelled, prior_airp);
       if (prior_airp.point_id!=NoExists)
   	  {
-        vector<string> tlg_types;
-        tlg_types.push_back("MVTB");
-        TelegramInterface::SendTlg(prior_airp.point_id,tlg_types);
+        vector<TypeB::TCreateInfo> createInfo;
+        TypeB::TMVTBCreator(prior_airp.point_id).getInfo(createInfo);
+        TelegramInterface::SendTlg(createInfo);
       };
     }
     catch(std::exception &E)

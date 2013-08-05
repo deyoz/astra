@@ -14,6 +14,7 @@
 #include "term_version.h"
 #include "comp_layers.h"
 #include "alarms.h"
+#include "rozysk.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -887,26 +888,32 @@ void CloseCheckIn( int point_id )
 {
   try
   {
-    vector<string> tlg_types;
-    tlg_types.push_back("COM");
-    tlg_types.push_back("COM2");
-    tlg_types.push_back("PRLC");
-    TelegramInterface::SendTlg(point_id,tlg_types);
+    vector<TypeB::TCreateInfo> createInfo;
+    TypeB::TCloseCheckInCreator(point_id).getInfo(createInfo);
+    TelegramInterface::SendTlg(createInfo);
   }
   catch(std::exception &E)
   {
     ProgError(STDLOG,"CloseCheckIn.SendTlg (point_id=%d): %s",point_id,E.what());
   };
+  try
+  {
+    create_mintrans_file(point_id);
+  }
+  catch(std::exception &E)
+  {
+    ProgError(STDLOG,"CloseCheckIn.create_mintrans_file (point_id=%d): %s",point_id,E.what());
+  };
+
 };
 
 void CloseBoarding( int point_id )
 {
   try
   {
-    vector<string> tlg_types;
-    tlg_types.push_back("COM");
-    tlg_types.push_back("COM2");
-    TelegramInterface::SendTlg(point_id,tlg_types);
+    vector<TypeB::TCreateInfo> createInfo;
+    TypeB::TCloseBoardingCreator(point_id).getInfo(createInfo);
+    TelegramInterface::SendTlg(createInfo);
   }
   catch(std::exception &E)
   {
@@ -942,23 +949,9 @@ void Takeoff( int point_id )
   time_start=time(NULL);
   try
   {
-    vector<string>  tlg_types;
-    tlg_types.push_back("PTM");
-    tlg_types.push_back("PTMN");
-    tlg_types.push_back("BTM");
-    tlg_types.push_back("TPM");
-    tlg_types.push_back("PSM");
-    tlg_types.push_back("PFS");
-    tlg_types.push_back("PFSN");
-    tlg_types.push_back("FTL");
-    tlg_types.push_back("PRL");
-    tlg_types.push_back("PIM");
-    tlg_types.push_back("SOM");
-//    tlg_types.push_back("ETL"); формируем по прилету в конечные пункт если не было интерактива с СЭБ
-    tlg_types.push_back("ETLD");
-    tlg_types.push_back("LDM");
-    tlg_types.push_back("CPM");
-    TelegramInterface::SendTlg(point_id,tlg_types);
+    vector<TypeB::TCreateInfo> createInfo;
+    TypeB::TTakeoffCreator(point_id).getInfo(createInfo);
+    TelegramInterface::SendTlg(createInfo);
   }
   catch(std::exception &E)
   {
@@ -1008,6 +1001,14 @@ void Takeoff( int point_id )
     ProgTrace(TRACE5,"Attention! sync_aodb execute time: %ld secs, point_id=%d",
                      time_end-time_start,point_id);
 
+  try
+  {
+    create_mintrans_file(point_id);
+  }
+  catch(std::exception &E)
+  {
+    ProgError(STDLOG,"Takeoff.create_mintrans_file (point_id=%d): %s",point_id,E.what());
+  };
 }
 
 

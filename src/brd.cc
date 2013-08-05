@@ -298,7 +298,7 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
       Qry.SetVariable("pax_id", pax_id);
       Qry.Execute();
       if (Qry.RowsProcessed()>0)
-        rozysk::sync_pax(pax_id, reqInfo->desk.code);
+        rozysk::sync_pax(pax_id, reqInfo->desk.code, reqInfo->user.descr);
       if (reqInfo->screen.name == "BRDBUS.EXE")
       {
         bool boarded=!PaxQry.FieldIsNULL("pr_brd") && PaxQry.FieldAsInteger("pr_brd")!=0;
@@ -368,7 +368,7 @@ bool BrdInterface::PaxUpdate(int point_id, int pax_id, int &tid, bool mark, bool
   Qry.Execute();
   if (Qry.RowsProcessed()>0)
   {
-    rozysk::sync_pax(pax_id, reqInfo->desk.code);
+    rozysk::sync_pax(pax_id, reqInfo->desk.code, reqInfo->user.descr);
 
     Qry.Clear();
     Qry.SQLText=

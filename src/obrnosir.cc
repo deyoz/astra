@@ -57,7 +57,8 @@ const
     {"-test_trfer_list",        test_trfer_list,        NULL,                       NULL},
     {"-test_trfer_exists",      test_trfer_exists,      NULL,                       NULL},
     {"-bind_trfer_trips",       bind_trfer_trips,       NULL,                       NULL},
-    {"-unbind_trfer_trips",     unbind_trfer_trips,     NULL,                       NULL}
+    {"-unbind_trfer_trips",     unbind_trfer_trips,     NULL,                       NULL},
+    {"-test_typeb_utils",       test_typeb_utils2,       NULL,                       NULL}
   };
 
 int nosir_test(int argc,char **argv)

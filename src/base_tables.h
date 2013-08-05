@@ -350,7 +350,13 @@ class TPaxDocCountries: public TTIDBaseTable {
 
 class TPaxDocTypesRow: public TCodeBaseTableRow {
   public:
+    std::string code_mintrans;
     const char *get_row_name() const { return "TPaxDocTypesRow"; };
+    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU) const
+    {
+      if (lowerc(field)=="code_mintrans") return code_mintrans;
+      return TCodeBaseTableRow::AsString(field,lang);
+    };
 };
 
 class TPaxDocTypes: public TCodeBaseTable {
@@ -367,6 +373,7 @@ class TPaxDocTypes: public TCodeBaseTable {
 class TTypeBTypesRow: public TCodeBaseTableRow {
   public:
     std::string basic_type;
+    int pr_dep;
     bool editable;
     std::string short_name,short_name_lat;
     const char *get_row_name() const { return "TTypeBTypesRow"; };
@@ -375,6 +382,11 @@ class TTypeBTypesRow: public TCodeBaseTableRow {
       if (lowerc(field)=="short_name") return lang!=AstraLocale::LANG_RU?short_name_lat:short_name;
       if (lowerc(field)=="basic_type") return basic_type;
       return TCodeBaseTableRow::AsString(field,lang);
+    };
+    int AsInteger(std::string field) const
+    {
+      if (lowerc(field)=="pr_dep") return pr_dep;
+      return TCodeBaseTableRow::AsInteger(field);
     };
     virtual bool AsBoolean(std::string field) const
     {

@@ -1,7 +1,6 @@
 #include <set>
 #include "docs.h"
 #include "stat.h"
-#include "telegram.h"
 #include "oralib.h"
 #include "xml_unit.h"
 #include "exceptions.h"
@@ -1056,10 +1055,10 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     bool rem_grp_loaded = false;
     for(; !Qry.Eof; Qry.Next()) {
         int pax_id = Qry.FieldAsInteger("pax_id");
-        if(not rpt_params.mkt_flt.IsNULL()) {
+        if(not rpt_params.mkt_flt.empty()) {
             TMktFlight mkt_flt;
             mkt_flt.getByPaxId(pax_id);
-            if(mkt_flt.IsNULL() or not(rpt_params.mkt_flt == mkt_flt))
+            if(mkt_flt.empty() or not(mkt_flt == rpt_params.mkt_flt))
                 continue;
         }
 
@@ -1207,7 +1206,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     string airp = Qry.FieldAsString("airp");
     string airline, suffix;
     int flt_no = NoExists;
-    if(rpt_params.mkt_flt.IsNULL()) {
+    if(rpt_params.mkt_flt.empty()) {
         airline = Qry.FieldAsString("airline");
         flt_no = Qry.FieldAsInteger("flt_no");
         suffix = Qry.FieldAsString("suffix");
@@ -1366,10 +1365,10 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     Qry.Execute();
     set<int> grps;
     for(; !Qry.Eof; Qry.Next()) {
-        if(not rpt_params.mkt_flt.IsNULL()) {
+        if(not rpt_params.mkt_flt.empty()) {
             TMktFlight mkt_flt;
             mkt_flt.getByPaxId(Qry.FieldAsInteger("pax_id"));
-            if(mkt_flt.IsNULL() or not(rpt_params.mkt_flt == mkt_flt))
+            if(mkt_flt.empty() or not(mkt_flt == rpt_params.mkt_flt))
                 continue;
         }
 
@@ -1659,7 +1658,7 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 
     string airline, suffix;
     int flt_no = NoExists;
-    if(rpt_params.mkt_flt.IsNULL()) {
+    if(rpt_params.mkt_flt.empty()) {
         airline = Qry.FieldAsString("airline");
         flt_no = Qry.FieldAsInteger("flt_no");
         suffix = Qry.FieldAsString("suffix");

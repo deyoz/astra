@@ -6207,7 +6207,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                 if (!isPRL && !pr_sync_pnr)
                 {
                   //делаем синхронизацию пассажира с розыском
-                  rozysk::sync_crs_pax(pax_id, "");
+                  rozysk::sync_crs_pax(pax_id, "", "");
                 };
                 
                 if (isPRL && iPaxItem==ne.pax.begin())
@@ -6281,7 +6281,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
             if (!isPRL && pr_sync_pnr)
             {
               //делаем синхронизацию всей группы с розыском
-              rozysk::sync_crs_pnr(pnr_id, "");
+              rozysk::sync_crs_pnr(pnr_id, "", "");
             };
           };//for(iPnrItem=iTotals->pnr.begin()
         };

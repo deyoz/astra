@@ -122,33 +122,35 @@ void exec_tasks( const char *proc_name )
 	    name = Qry.FieldAsString( "name" );
 	    if ( name == "astra_timer" ) astra_timer( utcdate );
 	    else
-	      if ( name == "createSPP" ) createSPP( utcdate );
-	    	else
-	    	  if ( name == "ETCheckStatusFlt" ) ETCheckStatusFlt();
-	    	  else
-	    	    if ( name == "sync_mvd" ) sync_mvd();
-	    	   	else
-	    	   		if ( name == "arx_daily" ) Result = arx_daily( utcdate );
-	    	  		else
-	    	  			if ( name == "sync_aodb" ) sync_aodb( );
-	    	  			else
-	    	  			  if ( name == "sync_sirena_codes" ) sync_sirena_codes( );
-	    	  			  else
-	    	  			  	if ( name == "sync_sppcek" ) sync_sppcek( );
-	    	  			  	else
-	    	  			  		if ( name == "get_full_stat" ) get_full_stat( utcdate );
-	    	  			  		else
-	    	  			  			if ( name == "sync_1ccek" ) sync_1ccek();
-	    	  			  			else
-                          if ( name == "sync_checkin_data" ) sync_checkin_data( );
-                          else
-                            if ( name == "sych_basel_aero_stat" ) sych_basel_aero_stat( utcdate );
-                            else
-                              if ( name == "sync_sirena_rozysk" ) sync_sirena_rozysk( utcdate );
-                            else
-                              if ( name == "utg" ) utg();
-/*	    	  			  			    else
-                            if ( name == "cobra" ) cobra();*/
+	    if ( name == "createSPP" ) createSPP( utcdate );
+	    else
+	    if ( name == "ETCheckStatusFlt" ) ETCheckStatusFlt();
+	    else
+	    if ( name == "sync_mvd" ) sync_mvd();
+	    else
+	    if ( name == "arx_daily" ) Result = arx_daily( utcdate );
+	    else
+	    if ( name == "sync_aodb" ) sync_aodb( );
+	    else
+	    if ( name == "sync_sirena_codes" ) sync_sirena_codes( );
+	    else
+	    if ( name == "sync_sppcek" ) sync_sppcek( );
+	    else
+	    if ( name == "get_full_stat" ) get_full_stat( utcdate );
+	    else
+	    if ( name == "sync_1ccek" ) sync_1ccek();
+	    else
+      if ( name == "sync_checkin_data" ) sync_checkin_data( );
+      else
+      if ( name == "sych_basel_aero_stat" ) sych_basel_aero_stat( utcdate );
+      else
+      if ( name == "sync_sirena_rozysk" ) sync_sirena_rozysk( utcdate );
+      else
+      if ( name == "mintrans" ) save_mintrans_files();
+      else
+      if ( name == "utg" ) utg();
+/*	  else
+      if ( name == "cobra" ) cobra();*/
 
       TDateTime next_exec;
       if ( Qry.FieldIsNULL( "next_exec" ) )
@@ -216,7 +218,6 @@ void createSPP( TDateTime utcdate )
 
 void utg(void)
 {
-    time_t time_start=time(NULL);
     static TQuery paramQry(&OraSession);
     if(paramQry.SQLText.IsEmpty()) {
         paramQry.SQLText = "select name, value from file_params where id = :id";
@@ -395,9 +396,9 @@ void ETCheckStatusFlt(void)
           try
           {
             ProgTrace(TRACE5,"ETCheckStatusFlt.SendTlg: point_id=%d",point_id);
-            vector<string>  tlg_types;
-            tlg_types.push_back("ETL");
-            TelegramInterface::SendTlg(point_id,tlg_types);
+            vector<TypeB::TCreateInfo> createInfo;
+            TypeB::TETLCreator(point_id).getInfo(createInfo);
+            TelegramInterface::SendTlg(createInfo);
             UpdQry.SetVariable("point_id",point_id);
             UpdQry.SetVariable("pr_etstatus",1);
             UpdQry.Execute();
@@ -469,27 +470,6 @@ const char* APIS_PARTY_INFO()
 
 #define MAX_PAX_PER_EDI_PART 15
 #define MAX_LEN_OF_EDI_PART 3000
-
-string TruncNameTitles(const char *str)
-{
-  const char* titles[]={"MR", "MRS", "MS"};
-  string value(str);
-  RTrimString(value);
-  for(int i=sizeof(titles)/sizeof(titles[0])-1;i>=0;i--)
-  {
-    string::size_type pos=value.rfind(titles[i]);
-    if (pos!=string::npos)
-    {
-      if (value.substr(pos)==titles[i])
-      {
-        value.erase(pos);
-        RTrimString(value);
-        break;
-      };
-    };
-  };
-  return value;
-};
 
 void create_apis_nosir_help(const char *name)
 {

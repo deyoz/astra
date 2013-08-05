@@ -51,12 +51,14 @@ public:
 
 struct TZoneOccupiedSeats {
   std::string name;
+  int total_seats;
   SALONS2::TPlaces seats;
+  TZoneOccupiedSeats(): total_seats(0) {};
 };
 
 bool filterCompons( const std::string &airline, const std::string &airp );
 void SalonFormShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-void ZoneLoads(int point_id, std::map<std::string, int> &zones);
+void ZoneLoads(int point_id, std::map<std::string, int> &zones, bool occupied);
 void ZoneLoads(int point_id,
                bool only_checkin_layers, bool only_high_layer, bool drop_not_used_pax_layers,
                std::vector<TZoneOccupiedSeats> &zones,
