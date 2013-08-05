@@ -785,6 +785,8 @@ class TPaxListTJKFilter : public TPaxListFilter
   1.        Всех, улетающих/прилетающих в аэропорты на территории Таджикистана вне зависимости от их подданства
   2.        Всех подданных Таджикистана, улетающих/прилетающих в аэропорты всего мира, которые проходят через систему Astra .
 */
+      if (pax.departureAirport == "ДШБ" || pax.arrivalAirport == "ДШБ") return true;
+/*
       string country_dep, country_arv;
       TBaseTable &basecities = base_tables.get( "cities" );
       TBaseTable &baseairps = base_tables.get( "airps" );
@@ -801,6 +803,7 @@ class TPaxListTJKFilter : public TPaxListFilter
 
 
       if ( pax.nationality == "TJK" || country_dep == "ТД" || country_arv == "ТД" ) return true;
+*/
       return false;
     };
 };
