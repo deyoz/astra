@@ -83,6 +83,11 @@ struct TCheckinPaxSeats {
   std::set<TTlgCompLayer,TCompareCompLayers> seats;
 };
 
+string getDefaultSex()
+{
+    return "M";
+}
+
 //!!!удалить при установке без новых салонов
 void getPaxsSeatsTranzitSalons( int point_dep, std::map<int,TCheckinPaxSeats> &checkinPaxsSeats )
 {
@@ -100,10 +105,11 @@ void getPaxsSeatsTranzitSalons( int point_dep, std::map<int,TCheckinPaxSeats> &c
   }
   TQuery Qry(&OraSession);
   Qry.SQLText =
-    "SELECT NVL(pax_doc.gender,'F') as gender "
+    "SELECT NVL(pax_doc.gender,:sex) as gender "
     " FROM pax_doc "
     " WHERE pax_id=:pax_id";
   Qry.DeclareVariable( "pax_id", otInteger );
+  Qry.CreateVariable( "sex", otString, getDefaultSex() );
   TSalonPassengers passengers;
   salonList.getPaxs( passengers );
   //point_arv
@@ -130,10 +136,10 @@ void getPaxsSeatsTranzitSalons( int point_dep, std::map<int,TCheckinPaxSeats> &c
                 Qry.SetVariable( "pax_id", ipass->pax_id );
                 Qry.Execute();
                 if ( Qry.Eof ) {
-                  checkinPaxSeats.gender = "F"; //???
+                  checkinPaxSeats.gender = getDefaultSex();
                 }
                 else {
-                  checkinPaxSeats.gender = string(Qry.FieldAsString( "gender" )).substr(0,1);
+                  checkinPaxSeats.gender = (string(Qry.FieldAsString( "gender" )).substr(0,1) == "F" ? "F" : "M");
                 }
                 break;
               case ASTRA::child:
@@ -186,7 +192,7 @@ void getPaxsSeats( int point_dep, std::map<int,TCheckinPaxSeats> &checkinPaxsSea
 	  "SELECT pax.pax_id,pax.reg_no,pax_grp.grp_id,"
 	   "      pax_grp.class,pax.refuse,"
 	   "       pax.pers_type, "
-	   "       NVL(pax_doc.gender,'F') as gender, "
+	   "       NVL(pax_doc.gender,:sex) as gender, "
 	   "       pax.seats seats "
 	   " FROM pax_grp, pax, pax_doc "
 	   " WHERE pax_grp.grp_id=pax.grp_id AND "
@@ -196,6 +202,7 @@ void getPaxsSeats( int point_dep, std::map<int,TCheckinPaxSeats> &checkinPaxsSea
 	   "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'one',rownum,1) IS NOT NULL AND "
 	   "       pax.pax_id=pax_doc.pax_id(+) ";
   Qry.CreateVariable( "point_id", otInteger, point_dep );
+  Qry.CreateVariable( "sex", otString, getDefaultSex() );
   Qry.Execute();
   for ( ; Qry.Eof; Qry.Next() ) {
     if ( Qry.FieldIsNULL( "seat_no" ) ) {
@@ -205,7 +212,7 @@ void getPaxsSeats( int point_dep, std::map<int,TCheckinPaxSeats> &checkinPaxsSea
     TPerson person_type = DecodePerson( Qry.FieldAsString( "pers_type" ) );
     switch( person_type ) {
       case ASTRA::adult:
-        checkinPaxSeats.gender = string(Qry.FieldAsString( "gender" )).substr(0,1);
+        checkinPaxSeats.gender = (string(Qry.FieldAsString( "gender" )).substr(0,1) == "F" ? "F" : "M");
         break;
       case ASTRA::child:
         checkinPaxSeats.gender = "C";
@@ -5578,6 +5585,8 @@ typedef map<string, TByGender> TByClass;
 struct TLCIPaxTotalsItem {
     string airp;
     TPaxTotalsItem cls_totals;
+    int rk_weight;
+    TLCIPaxTotalsItem(): rk_weight(0) {}
 };
 
 struct TLCIPaxTotals {
@@ -5628,6 +5637,12 @@ void TLCIPaxTotals::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
                 << iv->cls_totals["Э"].bag_weight
                 << "." << KG;
             body.push_back(result.str());
+            result.str(string());
+            result
+                << "-" << info.TlgElemIdToElem(etAirp, iv->airp) << ".H."
+                << iv->rk_weight
+                << "." << KG;
+            body.push_back(result.str());
         }
     }
     if(options.pas_distrib) {
@@ -5669,6 +5684,7 @@ void TLCIPaxTotals::get(TypeB::TDetailCreateInfo &info)
             TGRPItem &grp_map = iv->grp_map->items[pax_i->grp_id][pax_i->bag_pool_num];
             items[idx].cls_totals[iv->cls].bag_amount += grp_map.W.bagAmount;
             items[idx].cls_totals[iv->cls].bag_weight += grp_map.W.bagWeight;
+            items[idx].rk_weight += grp_map.W.rkWeight;
             switch(pax_i->gender) {
                 case gMale:
                     pax_tot_by_cls[iv->cls].m++;
