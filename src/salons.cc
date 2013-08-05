@@ -1678,7 +1678,7 @@ void TSalonList::ReadSeats( TQuery &Qry, const string &FilterClass )
   int col_class = Qry.FieldIndex( "class" );
   for ( ;!Qry.Eof; Qry.Next() ) {
     if ( num != Qry.FieldAsInteger( col_num ) ) { //новый салон
-      if ( placeList && !FilterClass.empty() && FilterClass.find( ClassName ) == string::npos ) {
+      if ( placeList && !FilterClass.empty() && ClassName.find( FilterClass ) == string::npos ) {
         //есть салон и задан фильт по классам и это не наш класс
         placeList->clearSeats();
       }
@@ -1715,7 +1715,7 @@ void TSalonList::ReadSeats( TQuery &Qry, const string &FilterClass )
       place.xname = Qry.FieldAsString( col_xname );
       place.yname = Qry.FieldAsString( col_yname );
       if ( ClassName.find( Qry.FieldAsString( col_class ) ) == string::npos )
-        ClassName += Qry.FieldAsString(col_class );
+        ClassName += Qry.FieldAsString( col_class );
     }
     else { // это место проинициализировано - это новый слой
       throw EXCEPTIONS::Exception( "Read trip_comp_elems: doublicate coord: x=%d, y=%d", point_p.x, point_p.y );
@@ -1723,7 +1723,7 @@ void TSalonList::ReadSeats( TQuery &Qry, const string &FilterClass )
     place.visible = true;
     placeList->Add( place );
   }	/* end for */
-  if ( placeList && !FilterClass.empty() && FilterClass.find( ClassName ) == string::npos ) {
+  if ( placeList && !FilterClass.empty() && ClassName.find( FilterClass ) == string::npos ) {
   	ProgTrace( TRACE5, "Read trip_comp_elems: delete empty placeList->num=%d", placeList->num );
     pop_back( );
     delete placeList; // нам этот класс/салон не нужен
