@@ -4812,6 +4812,31 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   LoadPax(grp_id,resNode,false);
 };
 
+void AddPaxCategory(const CheckIn::TPaxItem &pax, set<string> &cats)
+{
+  if (pax.pers_type==child && pax.seats==0) cats.insert("CHC");
+  if (pax.pers_type==baby && pax.seats==0) cats.insert("INA");
+};
+
+void ShowPaxCatWarning(const string &airline, const set<string> &cats, TQuery &Qry)
+{
+  if (cats.empty()) return;
+  Qry.Clear();
+  Qry.SQLText="SELECT airline FROM bag_norms WHERE airline=:airline AND pax_cat=:pax_cat AND rownum<2";
+  Qry.CreateVariable("airline", otString, airline);
+  Qry.DeclareVariable("pax_cat", otString);
+  set<string>::const_iterator i=cats.begin();
+  for(; i!=cats.end(); ++i)
+  {
+    Qry.SetVariable("pax_cat", *i);
+    Qry.Execute();
+    if (!Qry.Eof) break;
+  };
+  if (i==cats.end()) return;
+  if (*i=="CHC") showErrorMessage("MSG.NEED_SELECT_BAG_NORMS_MANUALLY.CHC");
+  if (*i=="INA") showErrorMessage("MSG.NEED_SELECT_BAG_NORMS_MANUALLY.INA");
+};
+
 void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
@@ -4828,6 +4853,8 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
     grp_ids.push_back(r->grp_id);
 
   bool trfer_confirm=true;
+  string pax_cat_airline;
+  set<string> pax_cats;
   vector<CheckIn::TTransferItem> segs;
   xmlNodePtr segsNode=NewTextChild(resNode,"segments");
   for(vector<int>::const_iterator grp_id=grp_ids.begin();grp_id!=grp_ids.end();grp_id++)
@@ -4966,7 +4993,11 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
           LoadPaxTransfer(pax.id,paxNode);
         LoadPaxRem(paxNode);
         if (grp_id==grp_ids.begin())
+        {
           CheckIn::LoadNorms(paxNode,pr_unaccomp,NormQry);
+          pax_cat_airline=seg.operFlt.airline;
+          AddPaxCategory(pax, pax_cats);
+        };
       };
     }
     else
@@ -5007,6 +5038,8 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
   {
     //собираем информацию о неподтвержденном трансфере
     LoadUnconfirmedTransfer(segs, resNode);
+    if (!reqInfo->desk.compatible(INA_BUGFIX_VERSION))
+      ShowPaxCatWarning(pax_cat_airline, pax_cats, Qry);
   };
 };
 
