@@ -30,7 +30,7 @@ class ETlgError:public EXCEPTIONS::Exception
     ETlgError(std::string msg):EXCEPTIONS::Exception(msg) {};
 };
 
-enum TTlgCategory{tcUnknown,tcDCS,tcBSM,tcAHM,tcSSM,tcASM};
+enum TTlgCategory{tcUnknown,tcDCS,tcBSM,tcAHM,tcSSM,tcASM,tcLCI};
 
 enum TTlgElement
               {//общие
@@ -76,6 +76,9 @@ enum TTlgElement
                Reject,
                RejectBody,
                RepeatOfRejected,
+               //LCI
+               ActionCode,
+               LCIData,
                //общие
                EndOfMessage};
 
@@ -696,6 +699,7 @@ extern char lexh[];
 extern const TMonthCode Months[];
 
 char* TlgElemToElemId(TElemType type, const char* elem, char* id, bool with_icao=false);
+ASTRA::TClass GetClass(const char* subcl);
 char GetSuffix(char &suffix);
 char* GetAirline(char* airline, bool with_icao=true);
 char* GetTlgElementName(TTlgElement e);
@@ -719,6 +723,16 @@ int SaveFlt(int tlg_id, const TFltInfo& flt, TBindType bind_type);
 void ParseSeatRange(std::string str, std::vector<TSeatRange> &ranges, bool usePriorContext);
 
 void TestBSMElemOrder(const std::string &s);
+
+struct TFlightIdentifier {
+    std::string airline;
+    int flt_no;
+    char suffix;
+    BASIC::TDateTime date;
+    void parse(const char *val);
+    void dump();
+    TFlightIdentifier(): flt_no(ASTRA::NoExists), suffix(0), date(ASTRA::NoExists) {};
+};
 
 } //namespace TypeB
 

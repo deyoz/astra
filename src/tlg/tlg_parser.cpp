@@ -5,6 +5,7 @@
 #include <time.h>
 #include <list>
 #include "tlg_parser.h"
+#include "lci_parser.h"
 #include "ssm_parser.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
@@ -89,6 +90,9 @@ const char* TTlgElementS[] =
                "Reject",
                "RejectBody",
                "RepeatOfRejected",
+               //LCI
+               "ActionCode",
+               "LCIData",
                //общие
                "EndOfMessage"};
 
@@ -238,7 +242,7 @@ char* GetAirp(char* airp, bool with_icao=false)
   return TlgElemToElemId(etAirp,airp,airp,with_icao);
 };
 
-TClass GetClass(char* subcl)
+TClass GetClass(const char* subcl)
 {
   char subclh[2];
   TlgElemToElemId(etSubcls,subcl,subclh);
@@ -292,6 +296,7 @@ TTlgCategory GetTlgCategory(char *tlg_type)
       strcmp(tlg_type,"LDM")==0) cat=tcAHM;
   if (strcmp(tlg_type,"SSM")==0) cat=tcSSM;
   if (strcmp(tlg_type,"ASM")==0) cat=tcASM;
+  if (strcmp(tlg_type,"LCI")==0) cat=tcLCI;
   return cat;
 };
 
@@ -1184,6 +1189,7 @@ void ParseAHMFltInfo(TTlgPartInfo body, const TAHMHeadingInfo &info, TFltInfo& f
 //возвращает TTlgPartInfo следующей части (body)
 TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo* &info, TMemoryManager &mem)
 {
+    ProgTrace(TRACE5, "ParseHeading: heading.p = '%s'", heading.p);
   int line,res;
   char c,*p,*line_p,*ph;
   TTlgParser tlg;
@@ -1326,6 +1332,11 @@ TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo* &info, TMemoryMana
               info = new TSSMHeadingInfo(infoh);
               mem.create(info, STDLOG);
               next=ParseSSMHeading(heading,*(TSSMHeadingInfo*)info);
+              break;
+            case tcLCI:
+              info = new TLCIHeadingInfo(infoh);
+              mem.create(info, STDLOG);
+              next=ParseLCIHeading(heading,*(TLCIHeadingInfo*)info);
               break;
             default:
               info = new THeadingInfo(infoh);

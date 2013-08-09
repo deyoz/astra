@@ -10,6 +10,7 @@
 #include "oralib.h"
 #include "tlg.h"
 #include "tlg_parser.h"
+#include "lci_parser.h"
 //#include "ssm_parser.h"
 #include "memory_manager.h"
 #include "serverlib/ourtime.h"
@@ -553,6 +554,7 @@ bool parse_tlg(void)
     for(;!TlgIdQry.Eof&&count<PARSER_PROC_COUNT();TlgIdQry.Next(),OraSession.Rollback())
     {
       tlg_id=TlgIdQry.FieldAsInteger("id");
+      ProgTrace(TRACE5, "tlg_id: %d", tlg_id);
       time_receive=TlgIdQry.FieldAsDateTime("time_receive");
 
       TlgInUpdQry.SetVariable("id",tlg_id);
@@ -732,6 +734,27 @@ bool parse_tlg(void)
             TBindType bind_type;
             ParseAHMFltInfo(part,info,flt,bind_type);
             SaveFlt(tlg_id,flt,bind_type);
+            TlgInUpdQry.Execute();
+            OraSession.Commit();
+            count++;
+            break;
+          }
+          case tcLCI:
+          {
+            part.p=buf;
+            part.line=1;
+            TLCIHeadingInfo &info = *(dynamic_cast<TLCIHeadingInfo*>(HeadingInfo));
+            TLCIContent con;
+            {
+                string buf = part.p;
+                ostringstream out_buf;
+                for(string::iterator si = buf.begin(); si != buf.end(); si++) {
+                    out_buf << *si << " " << hex << (int)*si << endl;
+                }
+                ProgTrace(TRACE5, "out_buf: %s", out_buf.str().c_str());
+            }
+            ParseLCIContent(part,info,con,mem);
+            SaveLCIContent(tlg_id,info,con);
             TlgInUpdQry.Execute();
             OraSession.Commit();
             count++;

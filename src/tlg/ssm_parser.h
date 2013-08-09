@@ -330,16 +330,6 @@ struct TASMActionInfo {
     TASMActionInfo(): id(aiUnknown) {};
 };
 
-struct TFlightIdentifier {
-    std::string airline;
-    int flt_no;
-    char suffix;
-    BASIC::TDateTime date;
-    void parse(const char *val);
-    void dump();
-    TFlightIdentifier(): flt_no(ASTRA::NoExists), suffix(0), date(ASTRA::NoExists) {};
-};
-
 struct TASMFlightInfo {
     TFlightIdentifier flt;
     std::vector<std::string> legs;
