@@ -33,11 +33,6 @@ const std::string FILE_CHECKINDATA_TYPE = "CHCKD";
 const std::string FILE_HTTPGET_TYPE = "HTTPGET";
 const std::string FILE_UTG_TYPE = "UTG";
 
-const std::string PARAM_HEADING = "HEADING";
-const std::string PARAM_POINT_ID = "POINT_ID";
-const std::string PARAM_TIME_CREATE = "TIME_CREATE";
-const std::string PARAM_ORIGINATOR = "ORIGINATOR";
-
 struct TFileData {
 	std::string file_data;
 	std::map<std::string,std::string> params;
@@ -47,8 +42,9 @@ typedef std::vector<TFileData> TFileDatas;
 
 
 std::string getFileEncoding( const std::string &file_type, const std::string &point_addr, bool pr_send=true );
+void getFileParams( int id, std::map<std::string, std::string> &fileparams);
 void getFileParams( const std::string client_canon_name, const std::string &type,
-	                  int id, std::map<std::string,std::string> &fileparams, bool send );
+	                  int id, std::map<std::string, std::string> &fileparams, bool send );
 void getFileParams(
         const std::string &airp,
         const std::string &airline,
