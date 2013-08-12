@@ -1140,7 +1140,7 @@ void sync_sirena_rozysk( TDateTime utcdate )
   if(not paxs.empty()) {
     request.content=make_soap_content(paxs);
     sirena_rozysk_send(request);
-    ProgTrace(TRACE5, "sirena_rozysk_send completed");
+    ProgTrace(TRACE5, "sync_sirena_rozysk completed");
   }
 }
 

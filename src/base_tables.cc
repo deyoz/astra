@@ -114,6 +114,8 @@ TBaseTable &TBaseTables::get(string name)
         	  base_tables[name] = new TFormTypes();
         else if(name == "CKIN_REM_TYPES")
         	  base_tables[name] = new TCkinRemTypes();
+        else if(name == "RCPT_DOC_TYPES")
+        	  base_tables[name] = new TRcptDocTypes();
         else
             throw Exception("TBaseTables::get_base_table: " + name + " not found");
         mem.create(base_tables[name], STDLOG);
@@ -734,6 +736,14 @@ void TPayTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **rep
 {
 	*row = new TPayTypesRow;
   mem.create(*row, STDLOG);
+	TTIDBaseTable::create_row(Qry,row,replaced_row);
+}
+
+void TRcptDocTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+{
+	*row = new TRcptDocTypesRow;
+  mem.create(*row, STDLOG);
+  ((TRcptDocTypesRow*)*row)->code_pax_doc=Qry.FieldAsString("code_pax_doc");
 	TTIDBaseTable::create_row(Qry,row,replaced_row);
 }
 
