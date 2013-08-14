@@ -4775,10 +4775,21 @@ struct TLDMCFG:TCFG {
             if(iv->cls == "Э") pr_y = true;
         }
         if (info.bort.empty() ||
-            cfg.str().empty() ||
-            crew.cockpit==NoExists ||
-            crew.cabin==NoExists)
-         vcompleted = false;
+                cfg.str().empty() ||
+                (crew.cockpit==NoExists and
+                 crew.cabin==NoExists))
+            vcompleted = false;
+
+        // если оба NoExists, то вопросики, иначе заменяем нулями NoExist'ы
+        int cockpit = NoExists;
+        int cabin = NoExists;
+        if(not
+                (crew.cockpit==NoExists and
+                 crew.cabin==NoExists))
+        {
+            cockpit = (crew.cockpit == NoExists ? 0 : crew.cockpit);
+            cabin = (crew.cabin == NoExists ? 0 : crew.cabin);
+        }
 
         ostringstream buf;
         buf
@@ -4786,8 +4797,8 @@ struct TLDMCFG:TCFG {
             << DateTimeToStr(info.scd_utc, "dd", 1)
             << "." << (info.bort.empty() ? "??" : info.bort)
             << "." << (cfg.str().empty() ? "?" : cfg.str())
-            << "." << (crew.cockpit==NoExists ? "?" : IntToString(crew.cockpit))
-            << "/" << (crew.cabin==NoExists ? "?" : IntToString(crew.cabin));
+            << "." << (cockpit==NoExists ? "?" : IntToString(cockpit))
+            << "/" << (cabin==NoExists ? "?" : IntToString(cabin));
         body.push_back(buf.str());
     }
     void get(TypeB::TDetailCreateInfo &info);
