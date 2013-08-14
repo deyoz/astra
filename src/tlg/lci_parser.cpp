@@ -1,5 +1,6 @@
 #include "lci_parser.h"
 #include "misc.h"
+#include <sstream>
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "DEN"
@@ -13,6 +14,74 @@ using namespace ASTRA;
 
 namespace TypeB
 {
+
+const char *TWMDesignatorS[] =
+{
+    "S",
+    "A",
+    ""
+};
+
+TWMDesignator DecodeWMDesignator(const string &s)
+{
+    unsigned int i;
+    for(i=0;i<sizeof(TWMDesignatorS)/sizeof(TWMDesignatorS[0]);i+=1) if (s == TWMDesignatorS[i]) break;
+    if (i<sizeof(TWMDesignatorS)/sizeof(TWMDesignatorS[0]))
+        return (TWMDesignator)i;
+    else
+        return wmdUnknown;
+};
+
+const char* EncodeWMDesignator(TWMDesignator p)
+{
+    return TWMDesignatorS[p];
+};
+
+const char *TWMTypeS[] =
+{
+    "P",
+    "H",
+    "B",
+    ""
+};
+
+TWMType DecodeWMType(const string &s)
+{
+    unsigned int i;
+    for(i=0;i<sizeof(TWMTypeS)/sizeof(TWMTypeS[0]);i+=1) if (s == TWMTypeS[i]) break;
+    if (i<sizeof(TWMTypeS)/sizeof(TWMTypeS[0]))
+        return (TWMType)i;
+    else
+        return wmtUnknown;
+};
+
+const char* EncodeWMType(TWMType p)
+{
+    return TWMTypeS[p];
+};
+
+const char *TWMSubTypeS[] =
+{
+    "G",
+    "C",
+    "CG",
+    ""
+};
+
+TWMSubType DecodeWMSubType(const string &s)
+{
+    unsigned int i;
+    for(i=0;i<sizeof(TWMSubTypeS)/sizeof(TWMSubTypeS[0]);i+=1) if (s == TWMSubTypeS[i]) break;
+    if (i<sizeof(TWMSubTypeS)/sizeof(TWMSubTypeS[0]))
+        return (TWMSubType)i;
+    else
+        return wmsUnknown;
+};
+
+const char* EncodeWMSubType(TWMSubType p)
+{
+    return TWMSubTypeS[p];
+};
 
 const char *TMeasurS[] =
 {
@@ -34,6 +103,31 @@ TMeasur DecodeMeasur(const char* s)
 const char* EncodeMeasur(TMeasur p)
 {
     return TMeasurS[p];
+};
+
+const char TSeatingMethodS[] =
+{
+    'F',
+    'C',
+    'Z',
+    'R',
+    'S',
+    0
+};
+
+TSeatingMethod DecodeSeatingMethod(const char s)
+{
+    unsigned int i;
+    for(i=0;i<sizeof(TSeatingMethodS)/sizeof(TSeatingMethodS[0]);i+=1) if (s == TSeatingMethodS[i]) break;
+    if (i<sizeof(TSeatingMethodS)/sizeof(TSeatingMethodS[0]))
+        return (TSeatingMethod)i;
+    else
+        return smUnknown;
+};
+
+const char EncodeSeatingMethod(TSeatingMethod p)
+{
+    return TSeatingMethodS[p];
 };
 
 const char TOriginatorS[] =
@@ -91,6 +185,9 @@ void TLCIContent::dump()
     action_code.dump();
     eqt.dump();
     wa.dump();
+    sm.dump();
+    sr.dump();
+    wm.dump();
     ProgTrace(TRACE5, "-----------------------");
 }
 
@@ -198,8 +295,9 @@ void TCFG::dump()
     ProgTrace(TRACE5, "----------------");
 }
 
-void TCFG::parse(const string &val)
+void TCFG::parse(const string &val, const TElemType el)
 {
+    if(not empty()) throw ETlgError("cfg already exists");
     string str_cls;
     string str_count;
     TElemFmt fmt;
@@ -207,27 +305,25 @@ void TCFG::parse(const string &val)
     for(string::const_iterator is = val.begin(); is != val.end(); is++) {
         if(IsUpperLetter(*is))
         {
-            ProgTrace(TRACE5, "IsUpperLetter *is: %c", *is);
             if(not str_count.empty()) {
                 if(str_cls.empty())
                     throw ETlgError("wrong CFG %s", val.c_str());
-                string subcls = ElemToElemId(etSubcls, str_cls, fmt, lang);
+                string subcls = ElemToElemId(el, str_cls, fmt, lang);
                 if(subcls.empty())
-                    throw ETlgError("unknown subclass %s", str_cls.c_str());
+                    throw ETlgError("unknown %s %s", EncodeElemType(el), str_cls.c_str());
                 insert(make_pair(subcls, ToInt(str_count)));
                 str_count.erase();
             }
             str_cls = *is;
         } else {
-            ProgTrace(TRACE5, "ELSE IsUpperLetter *is: %c", *is);
             str_count.append(1, *is);
         }
     }
     if(str_cls.empty() or str_count.empty())
         throw ETlgError("wrong CFG %s", val.c_str());
-    string subcls = ElemToElemId(etSubcls, str_cls, fmt, lang);
+    string subcls = ElemToElemId(el, str_cls, fmt, lang);
     if(subcls.empty())
-        throw ETlgError("unknown subclass %s", str_cls.c_str());
+        throw ETlgError("unknown %s %s", EncodeElemType(el), str_cls.c_str());
     insert(make_pair(subcls, ToInt(str_count)));
 }
 
@@ -242,16 +338,17 @@ void TEQT::dump()
 
 void TEQT::parse(const char *val)
 {
+    if(not cfg.empty()) throw ETlgError("multiple EQT found");
     string acraft;
     vector<string> items = split(val, '.');
     if(items.size() == 4) {
         bort = items[1];
         acraft = items[2];
-        cfg.parse(items[3]);
+        cfg.parse(items[3], etSubcls);
         if(bort.empty()) throw ETlgError("bort is empty");
     } else if(items.size() == 3) {
         acraft = items[1];
-        cfg.parse(items[2]);
+        cfg.parse(items[2], etSubcls);
     } else
         throw ETlgError("EQT: wrong format '%s'", val);
     if(acraft.empty()) throw ETlgError("craft is empty");
@@ -277,11 +374,9 @@ void TWA::dump()
 
 void TWA::parse(const char *val)
 {
-    ProgTrace(TRACE5, "TWA val: %s", val);
     vector<string> items = split(val, '.');
     if(items.size() != 4)
         throw ETlgError("wrong WA %s", val);
-    ProgTrace(TRACE5, "Indicator: %s", items[1].c_str());
     if(items[1] == "P") {
         if(payload.amount != NoExists)
             throw ETlgError("multiple WA.P found");
@@ -298,6 +393,361 @@ void TWA::parse(const char *val)
             throw ETlgError("unknown unit of measurment %s", val);
     } else
         throw ETlgError("WA: wrong indication payload/underload %s", items[1].c_str());
+}
+
+void TSM::dump()
+{
+    ProgTrace(TRACE5, "---TSM::dump---");
+    ProgTrace(TRACE5, "sm.value %c", EncodeSeatingMethod(value));
+    ProgTrace(TRACE5, "---------------");
+}
+
+void TSM::parse(const char *val)
+{
+    if(value != smUnknown) throw ETlgError("multiple SM found");
+    vector<string> items = split(val, '.');
+    if(items.size() != 2) throw ETlgError("wrong SM %s", val);
+    if(items[1].size() != 1) throw ETlgError("wrong SM %s", val);
+    value = DecodeSeatingMethod(items[1][0]);
+    if(value == smUnknown) throw ETlgError("wrong SM %s", val);
+}
+
+void TSRZones::dump()
+{
+    ProgTrace(TRACE5, "---TSRZones::dump---");
+    for(map<string, int>::iterator im = begin(); im != end(); im++)
+        ProgTrace(TRACE5, "z[%s] = %d", im->first.c_str(), im->second);
+    ProgTrace(TRACE5, "--------------------");
+}
+
+void TSRZones::parse(const string &val)
+{
+    if(not empty())
+        throw ETlgError("SR zones already exists");
+    vector<string> items = split(val, '/');
+    for(vector<string>::iterator iv = items.begin(); iv != items.end(); iv++) {
+        if(iv->size() < 3) throw ETlgError("SR wrong zone format %s", iv->c_str());
+        insert(make_pair(iv->substr(0, 2), ToInt(iv->substr(2))));
+    }
+}
+
+void TSR::dump()
+{
+    ProgTrace(TRACE5, "---TSR::dump---");
+    c.dump();
+    z.dump();
+    r.dump();
+    s.dump();
+    j.dump();
+    ProgTrace(TRACE5, "---------------");
+}
+
+void TSRItems::dump()
+{
+    ProgTrace(TRACE5, "---TSRItems::dump---");
+    size_t count = 0;
+    for(vector<string>::iterator iv = begin(); iv != end(); iv++)
+        ProgTrace(TRACE5, "row %zu: %s", count++, iv->c_str());
+    ProgTrace(TRACE5, "-------------------");
+}
+
+void TSRItems::parse(const string &val)
+{
+    if(not empty())
+        throw ETlgError("SR items already exists %s", val.c_str());
+    vector<string> result = split(val, '/');
+    for(vector<string>::iterator iv = result.begin(); iv != result.end(); iv++)
+        push_back(*iv);
+}
+
+void TSRJump::dump()
+{
+    ProgTrace(TRACE5, "---TSRJump::dump---");
+    ProgTrace(TRACE5, "amount: %d", amount);
+    size_t count = 0;
+    for(vector<string>::iterator iv = seats.begin(); iv != seats.end(); iv++)
+        ProgTrace(TRACE5, "seat[%zu] = '%s'", count++, iv->c_str());
+    zones.dump();
+    ProgTrace(TRACE5, "-------------------");
+}
+
+void TSRJump::parse(const char *val)
+{
+    if(amount != NoExists)
+        throw ETlgError("SR.J already exists");
+    vector<string> items = split(val, '/');
+    if(items.size() > 2)
+        throw ETlgError("SR.J: too manu '/' %s", val);
+    vector<string> buf = split(items[0], '.');
+    if(buf.size() != 3)
+        throw ETlgError("Wrong SR.J %s", val);
+    amount = ToInt(buf[2]);
+    if(items.size() > 1) {
+        buf = split(items[1], '.');
+        if(buf.size() < 2)
+            throw ETlgError("Wrong SR.J %s", val);
+        if(buf[0].size() != 1)
+            throw ETlgError("SR.J: wrong specifier %s in %s", buf[0].c_str(), val);
+        switch(buf[0][0]) {
+            case 'S':
+                {
+                    int seat_count = 0;
+                    for(vector<string>::iterator iv = buf.begin() + 1; iv != buf.end(); iv++, seat_count++)
+                        seats.push_back(*iv);
+                    if(seat_count != amount)
+                        throw ETlgError("SR.J: seat count <> total amount");
+                }
+                break;
+            case 'Z':
+                {
+                    string str_zones;
+                    for(vector<string>::iterator iv = buf.begin() + 1; iv != buf.end(); iv++) {
+                        if(not str_zones.empty())
+                            str_zones.append(1, '/');
+                        str_zones += *iv;
+                    }
+                    zones.parse(str_zones);
+                    int zone_seat_count = 0;
+                    for(TSRZones::iterator iz = zones.begin(); iz != zones.end(); iz++)
+                        zone_seat_count += iz->second;
+                    if(zone_seat_count != amount)
+                        throw ETlgError("SR.J: zone seat count <> total amount");
+                }
+                break;
+            default:
+                throw ETlgError("SR.J: unknown specifier %c in %s", buf[0][0], val);
+        }
+    }
+}
+
+void TSR::parse(const char *val)
+{
+    vector<string> items = split(val, '.');
+    if(items.size() < 3) throw ETlgError("wrong item count within SR %s", val);
+    if(items[1].size() != 1)
+        throw ETlgError("SR wrong type %s", items[1].c_str());
+    switch(items[1][0]) {
+        case 'C':
+            c.parse(items[2], etClass);
+            break;
+        case 'Z':
+            z.parse(items[2]);
+            break;
+        case 'R':
+            r.parse(items[2]);
+            break;
+        case 'S':
+            s.parse(items[2]);
+            break;
+        case 'J':
+            j.parse(val);
+            break;
+        default:
+            throw ETlgError("SR unknown type %c", items[1][0]);
+    }
+}
+
+bool TWM::find_item(TWMDesignator desig, TWMType type)
+{
+    bool result = false;
+    TWMMap::iterator i_type_map = find(desig);
+    if(i_type_map != end()) {
+        TWMTypeMap::iterator i_sub_type_map = i_type_map->second.find(type);
+        if(i_sub_type_map != i_type_map->second.end())
+            result = true;
+    }
+    return result;
+}
+
+void TClsGenderWeight::dump()
+{
+    ProgTrace(TRACE5, "---TClsGenderWeight::dump---");
+    TSubTypeHolder::dump();
+    for(map<string, TGenderWeight>::iterator im = begin(); im != end(); im++) {
+        ProgTrace(TRACE5, "subcls: %s", im->first.c_str());
+        im->second.dump();
+    }
+    ProgTrace(TRACE5, "----------------------------");
+}
+
+void TClsGenderWeight::parse(const std::vector<std::string> &val)
+{
+    TElemFmt fmt;
+    string lang;
+    for(vector<string>::const_iterator iv = val.begin(); iv != val.end(); iv++) {
+        if(iv->size() < 2)
+            throw ETlgError("wrong cls gender item %s", iv->c_str());
+        string asubcls = iv->substr(0, 1);
+        string subcls = ElemToElemId(etSubcls, asubcls, fmt, lang);
+        if(subcls.empty())
+            throw ETlgError("unknown subcls %s", iv->c_str());
+        vector<string> genders(1, iv->substr(1));
+        TGenderWeight g;
+        g.parse(genders);
+        insert(make_pair(subcls, g));
+    }
+}
+
+void TClsWeight::dump()
+{
+    ProgTrace(TRACE5, "---TClsWeight::dump---");
+    TSubTypeHolder::dump();
+    ProgTrace(TRACE5, "f: %d, c: %d, y: %d", f, c, y);
+    ProgTrace(TRACE5, "----------------------");
+}
+
+void TClsWeight::parse(const std::vector<std::string> &val)
+{
+    if(val.size() != 1) {
+        ostringstream buf;
+        copy(val.begin(), val.end(), ostream_iterator<string>(buf, "."));
+        throw ETlgError("WM wrong cls weight %s", buf.str().c_str());
+    }
+    vector<string> items = split(val[0], '/');
+    if(items.size() != 3)
+        throw ETlgError("WM wrong cls weight amount %s", val[0].c_str());
+    f = ToInt(items[0]);
+    c = ToInt(items[1]);
+    y = ToInt(items[2]);
+
+}
+
+void TClsBagWeight::dump()
+{
+    ProgTrace(TRACE5, "---TClsBagWeight::dump---");
+    TSubTypeHolder::dump();
+    for(map<string, int>::iterator im = begin(); im != end(); im++)
+        ProgTrace(TRACE5, "%s[%d]", im->first.c_str(), im->second);
+    ProgTrace(TRACE5, "-------------------------");
+}
+
+void TClsBagWeight::parse(const std::vector<std::string> &val)
+{
+    TElemFmt fmt;
+    string lang;
+    for(vector<string>::const_iterator iv = val.begin(); iv != val.end(); iv++) {
+        if(iv->size() < 2)
+            throw ETlgError("wrong cls item %s", iv->c_str());
+        string asubcls = iv->substr(0, 1);
+        string subcls = ElemToElemId(etSubcls, asubcls, fmt, lang);
+        if(subcls.empty())
+            throw ETlgError("unknown subcls %s", iv->c_str());
+        insert(make_pair(subcls, ToInt(iv->substr(1))));
+    }
+}
+
+void TGenderWeight::dump()
+{
+    ProgTrace(TRACE5, "---TGenderWeight::dump---");
+    TSubTypeHolder::dump();
+    ProgTrace(TRACE5, "m: %d, f: %d, c: %d, i: %d", m, f, c, i);
+    ProgTrace(TRACE5, "-------------------------");
+}
+
+void TGenderWeight::parse(const std::vector<std::string> &val)
+{
+    if(val.size() != 1) {
+        ostringstream buf;
+        copy(val.begin(), val.end(), ostream_iterator<string>(buf, "."));
+        throw ETlgError("WM wrong gender weight %s", buf.str().c_str());
+    }
+    vector<string> items = split(val[0], '/');
+    if(items.size() != 4)
+        throw ETlgError("WM wrong gender weight items count %s", val[0].c_str());
+    m = ToInt(items[0]);
+    f = ToInt(items[1]);
+    c = ToInt(items[2]);
+    i = ToInt(items[3]);
+}
+
+void TSimpleWeight::dump()
+{
+    ProgTrace(TRACE5, "---TSimpleWeight::dump---");
+    TSubTypeHolder::dump();
+    ProgTrace(TRACE5, "weight: %d", weight);
+    ProgTrace(TRACE5, "-------------------------");
+}
+
+void TSimpleWeight::parse(const std::vector<std::string> &val)
+{
+    if(val.size() != 1) {
+        ostringstream buf;
+        copy(val.begin(), val.end(), ostream_iterator<string>(buf, "."));
+        throw ETlgError("WM wrong weight %s", buf.str().c_str());
+    }
+    weight = ToInt(val[0]);
+}
+
+void TSubTypeHolder::dump()
+{
+    ProgTrace(TRACE5, "sub_type: %s", EncodeWMSubType(sub_type));
+    ProgTrace(TRACE5, "measur: %s", EncodeMeasur(measur));
+};
+
+void TWM::dump()
+{
+    ProgTrace(TRACE5, "---TWM::dump---");
+    for(TWMMap::iterator i_desig = begin(); i_desig != end(); i_desig++) {
+        for(TWMTypeMap::iterator i_type = i_desig->second.begin(); i_type != i_desig->second.end(); i_type++) {
+            ProgTrace(TRACE5, "TWM[%s][%s]", EncodeWMDesignator(i_desig->first), EncodeWMType(i_type->first));
+            i_type->second->dump();
+        }
+    }
+    ProgTrace(TRACE5, "---------------");
+}
+
+void TWM::parse(const char *val)
+{
+    vector<string> items = split(val, '.');
+    if(items.size() < 4)
+        throw ETlgError("WM wrong fomrat %s", val);
+    TWMDesignator desig = DecodeWMDesignator(items[1]);
+    if(desig == wmdUnknown) throw ETlgError("unknown WM designator %s", items[1].c_str());
+    TWMType type = DecodeWMType(items[2]);
+    if(type == wmtUnknown) throw ETlgError("unknown WM type %s", items[2].c_str());
+
+    if(find_item(wmdStandard, type) or find_item(wmdActual, type))
+        throw ETlgError("duplicate WM rows found %s", val);
+
+
+    tr1::shared_ptr<TSubTypeHolder> sth;
+    TMeasur measur = DecodeMeasur(items.back().c_str());
+    if(measur == mUnknown)
+        throw ETlgError("unknown WM measur unit %s", items.back().c_str());
+    items.erase(items.begin(), items.begin() + 3); // drop keyword WM + designator + type
+    items.pop_back(); // remove measur info
+    if(not items.empty()) {
+        // В оставшихся элементах содержится инфа по sub_type
+        TWMSubType sub_type = DecodeWMSubType(items[0]);
+        if(sub_type == wmsUnknown) {
+            sth = tr1::shared_ptr<TSubTypeHolder>(new TSimpleWeight);
+        } else {
+            items.erase(items.begin(), items.begin() + 1); // избавляемся от идентификатора sub_type
+            if(not items.empty())
+                switch(sub_type) {
+                    case wmsGender:
+                        sth = tr1::shared_ptr<TSubTypeHolder>(new TGenderWeight);
+                        break;
+                    case wmsClass:
+                        if(desig == wmdStandard and type == wmtBag)
+                            sth = tr1::shared_ptr<TSubTypeHolder>(new TClsBagWeight);
+                        else
+                            sth = tr1::shared_ptr<TSubTypeHolder>(new TClsWeight);
+                        break;
+                    case wmsClsGender:
+                        sth = tr1::shared_ptr<TSubTypeHolder>(new TClsGenderWeight);
+                        break;
+                    case wmsUnknown:
+                        break;
+                };
+        }
+        sth->parse(items);
+        sth->sub_type = sub_type;
+    }
+    if(sth == NULL)
+        sth = tr1::shared_ptr<TSubTypeHolder>(new TSimpleWeight);
+    sth->measur = measur;
+    (*this)[desig][type] = sth;
 }
 
 void ParseLCIContent(TTlgPartInfo body, TLCIHeadingInfo& info, TLCIContent& con, TMemoryManager &mem)
@@ -347,9 +797,9 @@ void ParseLCIContent(TTlgPartInfo body, TLCIHeadingInfo& info, TLCIContent& con,
     catch (ETlgError E)
     {
         if (tlg.GetToEOLLexeme(line_p)!=NULL)
-            throw ETlgError("SSM: %s\n>>>>>LINE %d: %s",E.what(),line,tlg.lex);
+            throw ETlgError("LCI: %s\n>>>>>LINE %d: %s",E.what(),line,tlg.lex);
         else
-            throw ETlgError("SSM: %s\n>>>>>LINE %d",E.what(),line);
+            throw ETlgError("LCI: %s\n>>>>>LINE %d",E.what(),line);
     };
 }
 
