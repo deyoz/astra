@@ -1189,7 +1189,6 @@ void ParseAHMFltInfo(TTlgPartInfo body, const TAHMHeadingInfo &info, TFltInfo& f
 //возвращает TTlgPartInfo следующей части (body)
 TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo* &info, TMemoryManager &mem)
 {
-    ProgTrace(TRACE5, "ParseHeading: heading.p = '%s'", heading.p);
   int line,res;
   char c,*p,*line_p,*ph;
   TTlgParser tlg;

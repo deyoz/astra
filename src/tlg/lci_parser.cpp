@@ -15,6 +15,87 @@ using namespace ASTRA;
 namespace TypeB
 {
 
+string getElemId(const string &val, TElemType el)
+{
+    TElemFmt fmt;
+    string lang;
+    string subcls = ElemToElemId(el, val, fmt, lang);
+    if(subcls.empty())
+        throw ETlgError("unknown subcls %s", val.c_str());
+    return subcls;
+}
+
+const char *TDestInfoTypeS[] =
+{
+    "A",
+    "C",
+    "G",
+    "J",
+    ""
+};
+
+TDestInfoType DecodeDestInfoType(const string &s)
+{
+    unsigned int i;
+    for(i=0;i<sizeof(TDestInfoTypeS)/sizeof(TDestInfoTypeS[0]);i+=1) if (s == TDestInfoTypeS[i]) break;
+    if (i<sizeof(TDestInfoTypeS)/sizeof(TDestInfoTypeS[0]))
+        return (TDestInfoType)i;
+    else
+        return dtUnknown;
+};
+
+const char* EncodeDestInfoType(TDestInfoType p)
+{
+    return TDestInfoTypeS[p];
+};
+
+const char *TDestInfoKeyS[] =
+{
+    "PT",
+    "BT",
+    "H",
+    ""
+};
+
+TDestInfoKey DecodeDestInfoKey(const string &s)
+{
+    unsigned int i;
+    for(i=0;i<sizeof(TDestInfoKeyS)/sizeof(TDestInfoKeyS[0]);i+=1) if (s == TDestInfoKeyS[i]) break;
+    if (i<sizeof(TDestInfoKeyS)/sizeof(TDestInfoKeyS[0]))
+        return (TDestInfoKey)i;
+    else
+        return dkUnknown;
+};
+
+const char* EncodeDestInfoKey(TDestInfoKey p)
+{
+    return TDestInfoKeyS[p];
+};
+
+const char *TGenderS[] =
+{
+    "M",
+    "F",
+    "C",
+    "I",
+    ""
+};
+
+TGender DecodeGender(const string &s)
+{
+    unsigned int i;
+    for(i=0;i<sizeof(TGenderS)/sizeof(TGenderS[0]);i+=1) if (s == TGenderS[i]) break;
+    if (i<sizeof(TGenderS)/sizeof(TGenderS[0]))
+        return (TGender)i;
+    else
+        return gUnknown;
+};
+
+const char* EncodeGender(TGender p)
+{
+    return TGenderS[p];
+};
+
 const char *TWMDesignatorS[] =
 {
     "S",
@@ -58,6 +139,30 @@ TWMType DecodeWMType(const string &s)
 const char* EncodeWMType(TWMType p)
 {
     return TWMTypeS[p];
+};
+
+const char *TPDTypeS[] =
+{
+    "C",
+    "Z",
+    "R",
+    "J",
+    ""
+};
+
+TPDType DecodePDType(const string &s)
+{
+    unsigned int i;
+    for(i=0;i<sizeof(TPDTypeS)/sizeof(TPDTypeS[0]);i+=1) if (s == TPDTypeS[i]) break;
+    if (i<sizeof(TPDTypeS)/sizeof(TPDTypeS[0]))
+        return (TPDType)i;
+    else
+        return pdtUnknown;
+};
+
+const char* EncodePDType(TPDType p)
+{
+    return TPDTypeS[p];
 };
 
 const char *TWMSubTypeS[] =
@@ -188,6 +293,9 @@ void TLCIContent::dump()
     sm.dump();
     sr.dump();
     wm.dump();
+    pd.dump();
+    sp.dump();
+    dst.dump();
     ProgTrace(TRACE5, "-----------------------");
 }
 
@@ -239,7 +347,6 @@ void TLCIFltInfo::parse(const char *val)
 
 TTlgPartInfo ParseLCIHeading(TTlgPartInfo heading, TLCIHeadingInfo &info)
 {
-    ProgTrace(TRACE5, "ParseLCIHeading: heading.p = '%s'", heading.p);
     TTlgPartInfo next;
     char *p, *line_p;
     TTlgParser tlg;
@@ -269,10 +376,6 @@ TTlgPartInfo ParseLCIHeading(TTlgPartInfo heading, TLCIHeadingInfo &info)
     return next;
 };
 
-void TDest::parse(const char*val)
-{
-}
-
 vector<string> split(string val, char c)
 {
     vector<string> result;
@@ -300,18 +403,13 @@ void TCFG::parse(const string &val, const TElemType el)
     if(not empty()) throw ETlgError("cfg already exists");
     string str_cls;
     string str_count;
-    TElemFmt fmt;
-    string lang;
     for(string::const_iterator is = val.begin(); is != val.end(); is++) {
         if(IsUpperLetter(*is))
         {
             if(not str_count.empty()) {
                 if(str_cls.empty())
                     throw ETlgError("wrong CFG %s", val.c_str());
-                string subcls = ElemToElemId(el, str_cls, fmt, lang);
-                if(subcls.empty())
-                    throw ETlgError("unknown %s %s", EncodeElemType(el), str_cls.c_str());
-                insert(make_pair(subcls, ToInt(str_count)));
+                insert(make_pair(getElemId(str_cls, el), ToInt(str_count)));
                 str_count.erase();
             }
             str_cls = *is;
@@ -321,10 +419,7 @@ void TCFG::parse(const string &val, const TElemType el)
     }
     if(str_cls.empty() or str_count.empty())
         throw ETlgError("wrong CFG %s", val.c_str());
-    string subcls = ElemToElemId(el, str_cls, fmt, lang);
-    if(subcls.empty())
-        throw ETlgError("unknown %s %s", EncodeElemType(el), str_cls.c_str());
-    insert(make_pair(subcls, ToInt(str_count)));
+    insert(make_pair(getElemId(str_cls, el), ToInt(str_count)));
 }
 
 void TEQT::dump()
@@ -563,7 +658,7 @@ void TClsGenderWeight::dump()
 {
     ProgTrace(TRACE5, "---TClsGenderWeight::dump---");
     TSubTypeHolder::dump();
-    for(map<string, TGenderWeight>::iterator im = begin(); im != end(); im++) {
+    for(map<string, TGenderCount>::iterator im = begin(); im != end(); im++) {
         ProgTrace(TRACE5, "subcls: %s", im->first.c_str());
         im->second.dump();
     }
@@ -572,19 +667,13 @@ void TClsGenderWeight::dump()
 
 void TClsGenderWeight::parse(const std::vector<std::string> &val)
 {
-    TElemFmt fmt;
-    string lang;
     for(vector<string>::const_iterator iv = val.begin(); iv != val.end(); iv++) {
         if(iv->size() < 2)
             throw ETlgError("wrong cls gender item %s", iv->c_str());
-        string asubcls = iv->substr(0, 1);
-        string subcls = ElemToElemId(etSubcls, asubcls, fmt, lang);
-        if(subcls.empty())
-            throw ETlgError("unknown subcls %s", iv->c_str());
         vector<string> genders(1, iv->substr(1));
-        TGenderWeight g;
+        TGenderCount g;
         g.parse(genders);
-        insert(make_pair(subcls, g));
+        insert(make_pair(getElemId(iv->substr(0, 1), etSubcls), g));
     }
 }
 
@@ -623,28 +712,22 @@ void TClsBagWeight::dump()
 
 void TClsBagWeight::parse(const std::vector<std::string> &val)
 {
-    TElemFmt fmt;
-    string lang;
     for(vector<string>::const_iterator iv = val.begin(); iv != val.end(); iv++) {
         if(iv->size() < 2)
             throw ETlgError("wrong cls item %s", iv->c_str());
-        string asubcls = iv->substr(0, 1);
-        string subcls = ElemToElemId(etSubcls, asubcls, fmt, lang);
-        if(subcls.empty())
-            throw ETlgError("unknown subcls %s", iv->c_str());
-        insert(make_pair(subcls, ToInt(iv->substr(1))));
+        insert(make_pair(getElemId(iv->substr(0, 1), etSubcls), ToInt(iv->substr(1))));
     }
 }
 
-void TGenderWeight::dump()
+void TGenderCount::dump()
 {
-    ProgTrace(TRACE5, "---TGenderWeight::dump---");
+    ProgTrace(TRACE5, "---TGenderCount::dump---");
     TSubTypeHolder::dump();
     ProgTrace(TRACE5, "m: %d, f: %d, c: %d, i: %d", m, f, c, i);
     ProgTrace(TRACE5, "-------------------------");
 }
 
-void TGenderWeight::parse(const std::vector<std::string> &val)
+void TGenderCount::parse(const std::vector<std::string> &val)
 {
     if(val.size() != 1) {
         ostringstream buf;
@@ -726,7 +809,7 @@ void TWM::parse(const char *val)
             if(not items.empty())
                 switch(sub_type) {
                     case wmsGender:
-                        sth = tr1::shared_ptr<TSubTypeHolder>(new TGenderWeight);
+                        sth = tr1::shared_ptr<TSubTypeHolder>(new TGenderCount);
                         break;
                     case wmsClass:
                         if(desig == wmdStandard and type == wmtBag)
@@ -749,6 +832,289 @@ void TWM::parse(const char *val)
     sth->measur = measur;
     (*this)[desig][type] = sth;
 }
+
+void TPDItem::dump()
+{
+    ProgTrace(TRACE5, "---TPDItem::dump---");
+    if(actual.amount != NoExists)
+        ProgTrace(TRACE5, "actual: %d, %s", actual.amount, EncodeMeasur(actual.measur));
+    else
+        standard.dump();
+    ProgTrace(TRACE5, "-------------------");
+}
+
+string TPDParser::getKey(const string &val, TPDType type)
+{
+    string result;
+    switch(type) {
+        case pdtClass:
+            result = getElemId(val, etSubcls);
+            break;
+        default:
+            result = val;
+            break;
+    }
+    return result;
+}
+
+void TPDParser::dump()
+{
+    ProgTrace(TRACE5, "---TPDParser::dump---");
+    ProgTrace(TRACE5, "type: %s", EncodePDType(type));
+    for(map<string, TPDItem>::iterator im = begin(); im != end(); im++) {
+        ProgTrace(TRACE5, "map[%s]", im->first.c_str());
+        im->second.dump();
+    }
+    ProgTrace(TRACE5, "---------------------");
+}
+
+void TPDParser::parse(TPDType atype, const vector<string> &val)
+{
+    type = atype;
+    TMeasur measur = DecodeMeasur(val.back().c_str());
+    if(measur == mUnknown) {
+        // using standard weights
+        vector<string>::const_iterator iv = val.begin() + 2; // skip PD.C
+        while(iv != val.end()) {
+            string key = getKey(*iv, type);
+            iv++;
+            if(iv == val.end())
+                throw ETlgError("unexpected end of line");
+            TPDItem item;
+            item.standard.parse(vector<string>(1, *iv));
+            insert(make_pair(key, item));
+            iv++;
+        }
+    } else {
+        // using actual weights
+        for(vector<string>::const_iterator iv = val.begin() + 2; iv != val.end() - 1; iv++) // skip PD.C, KG
+        {
+            vector <string> items = split(*iv, '/');
+            if(items.size() != 2)
+                throw ETlgError("wrong PD actual weight format %s", iv->c_str());
+            TPDItem item;
+            item.actual.amount = ToInt(items[1]);
+            item.actual.measur = measur;
+            insert(make_pair(getKey(items[0], type), item));
+        }
+    }
+}
+
+void TPD::dump()
+{
+    ProgTrace(TRACE5, "---TPD::dump---");
+    for(map<TPDType, TPDParser>::iterator im = begin(); im != end(); im++) {
+        ProgTrace(TRACE5, "PD[%s]", EncodePDType(im->first));
+        im->second.dump();
+    }
+    ProgTrace(TRACE5, "---------------");
+}
+
+void TPD::parse(const char *val)
+{
+    vector<string> items = split(val, '.');
+    if(items.size() < 3) throw ETlgError("wrong item count within PD %s", val);
+    TPDType type = DecodePDType(items[1]);
+    if(type == pdtUnknown)
+        throw ETlgError("PD wrong type %s", items[1].c_str());
+    (*this)[type].parse(type, items);
+}
+
+void TSP::dump()
+{
+    ProgTrace(TRACE5, "---TSP::dump---");
+    for(map<string, TSPItem>::iterator im = begin(); im != end(); im++) {
+        ostringstream buf;
+        buf << "SP[" << im->first << "] = ";
+        if(im->second.actual != NoExists)
+            buf << im->second.actual;
+        else
+            buf << EncodeGender(im->second.gender);
+        ProgTrace(TRACE5, "%s", buf.str().c_str());
+    }
+    ProgTrace(TRACE5, "---------------");
+}
+
+void TSP::parse(const char *val)
+{
+    if(not empty())
+        throw ETlgError("duplicate SP found");
+    vector<string> items = split(val, '.');
+    if(items.size() < 3) // SP.<seat>.KG
+        throw ETlgError("SP wrong format");
+    for(vector<string>::iterator iv = items.begin() + 1; iv != items.end(); iv++) {
+        vector<string> sp_item = split(*iv, '/');
+        if(sp_item.size() != 2)
+            throw ETlgError("SP wrong seat format %s", iv->c_str());
+        TSPItem sp_i;
+        string seat = sp_item[0];
+        if(find(seat) != end())
+            throw ETlgError("SP seat already exists %s", seat.c_str());
+        sp_i.gender = DecodeGender(sp_item[1]);
+        if(sp_i.gender == gUnknown)
+            sp_i.actual = ToInt(sp_item[1]);
+        insert(make_pair(seat, sp_i));
+    }
+}
+
+bool TDest::find_item(const string &airp, TDestInfoKey key)
+{
+    bool result = false;
+    map<std::string, TDestInfoMap>::iterator i_type_map = find(airp);
+    if(i_type_map != end()) {
+        TDestInfoMap::iterator i_sub_type_map = i_type_map->second.find(key);
+        if(i_sub_type_map != i_type_map->second.end())
+            result = true;
+    }
+    return result;
+}
+
+void TClsTotal::dump(const string &caption)
+{
+    ProgTrace(TRACE5, "---TClsTotal::dump %s ---", caption.c_str());
+    ProgTrace(TRACE5, "f: %d, c: %d, y: %d", f, c, y);
+    ProgTrace(TRACE5, "---------------------");
+}
+
+void TClsTotal::parse(const string &val)
+{
+    vector<string> items = split(val, '/');
+    if(items.size() != 3)
+        throw ETlgError("wrong class count %uz", items.size());
+    f = ToInt(items[0]);
+    c = ToInt(items[1]);
+    y = ToInt(items[2]);
+}
+
+void TGenderTotal::dump()
+{
+    ProgTrace(TRACE5, "---TGenderTotal::dump---");
+    ProgTrace(TRACE5, "m: %d, f: %d, c: %d, i: %d", m, f, c, i);
+    ProgTrace(TRACE5, "---------------------");
+}
+
+void TGenderTotal::parse(const string &val)
+{
+    vector<string> items = split(val, '/');
+    if(items.size() != 4)
+        throw ETlgError("wrong gender count %uz", items.size());
+    m = ToInt(items[0]);
+    f = ToInt(items[1]);
+    c = ToInt(items[2]);
+    i = ToInt(items[3]);
+}
+
+void TDestInfo::dump()
+{
+    ProgTrace(TRACE5, "---TDestInfo::dump---");
+    ProgTrace(TRACE5, "total: %d", total);
+    ProgTrace(TRACE5, "weight: %d", weight);
+    ProgTrace(TRACE5, "j: %d", j);
+    ProgTrace(TRACE5, "measur: %s", EncodeMeasur(measur));
+    cls_total.dump("cls");
+    actual_total.dump("actual");
+    gender_total.dump();
+    ProgTrace(TRACE5, "---------------------");
+}
+
+void TDest::dump()
+{
+    ProgTrace(TRACE5, "---TDest::dump---");
+    for(map<string, TDestInfoMap>::iterator i_dest = begin(); i_dest != end(); i_dest++) {
+        for(TDestInfoMap::iterator i_key = i_dest->second.begin(); i_key != i_dest->second.end(); i_key++) {
+            ProgTrace(TRACE5, "TDest[%s][%s]", i_dest->first.c_str(), EncodeDestInfoKey(i_key->first));
+            i_key->second.dump();
+        }
+    }
+    ProgTrace(TRACE5, "-----------------");
+}
+
+void TDest::parse(const char *val)
+{
+    vector<string> items = split(val, '.');
+    if(items.size() < 3)
+        throw ETlgError("Wrong TDest format");
+    string airp = getElemId(items[0].substr(1), etAirp);
+    if(airp.empty())
+        throw ETlgError("TDest: airp not found %s", items[0].substr(1).c_str());
+    TDestInfoKey key = DecodeDestInfoKey(items[1]);
+    if(key == dkUnknown)
+        throw ETlgError("Unknown TDest key %s", items[1].c_str());
+    string id = "Dest[" + airp + "][" + EncodeDestInfoKey(key) + "]";
+    if(find_item(airp, key))
+        throw ETlgError("%s already exists", id.c_str());
+
+    enum TState {
+        sStart,
+        sType,
+        sParseType,
+        sParseJ,
+        sEnd
+    };
+
+    TDestInfo dest_info;
+    TState s = sStart;
+    TDestInfoType type = dtUnknown;
+    for(vector<string>::iterator iv = items.begin() + 2; iv != items.end(); iv++) {
+        switch(s) {
+            case sStart:
+                {
+                    type = DecodeDestInfoType(*iv);
+                    if(type == dtUnknown) {
+                        vector<string> parts = split(*iv, '/');
+                        if(parts.size() == 1) {
+                            // указан просто тотал
+                            dest_info.total = ToInt(parts[0]);
+                        } else if(parts.size() == 2) {
+                            // указан тотал/вес
+                            dest_info.total = ToInt(parts[0]);
+                            dest_info.weight = ToInt(parts[1]);
+                        } else
+                            throw ETlgError("%s: wrong format %s", id.c_str(), iv->c_str());
+                        s = sType;
+                    } else
+                        s = sParseType;
+                    break;
+                }
+            case sType:
+                {
+                    dest_info.measur = DecodeMeasur(iv->c_str());
+                    if(dest_info.measur == mUnknown) {
+                        type = DecodeDestInfoType(*iv);
+                        s = sParseType;
+                    } else
+                        s = sEnd;
+                    break;
+                }
+                break;
+            case sParseType:
+                switch(type) {
+                    case dtA:
+                        dest_info.actual_total.parse(*iv);
+                    case dtC:
+                        dest_info.cls_total.parse(*iv);
+                        break;
+                    case dtG:
+                        dest_info.gender_total.parse(*iv);
+                        break;
+                    case dtJ:
+                        s = sParseJ;
+                        break;
+                    case dtUnknown:
+                        throw ETlgError("unknown type");
+                }
+                s = sType;
+                break;
+            case sParseJ:
+                dest_info.j = ToInt(*iv);
+                s = sType;
+                break;
+            case sEnd:
+                throw ETlgError("Wrong format");
+        }
+    }
+    (*this)[airp][key] = dest_info;
+};
 
 void ParseLCIContent(TTlgPartInfo body, TLCIHeadingInfo& info, TLCIContent& con, TMemoryManager &mem)
 {
@@ -886,7 +1252,7 @@ int lci(int argc, char **argv)
         info.flt_info.dump();
 
         ParseLCIContent(parts.body, info, con, mem);
-        con.dump();
+//        con.dump();
 
         mem.destroy(HeadingInfo, STDLOG);
         if (HeadingInfo!=NULL) delete HeadingInfo;

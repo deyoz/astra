@@ -148,7 +148,7 @@ struct TSubTypeHolder {
 
     // depending on sub_type value, data stores in different structs
 
-//    TGenderWeight g;        // wmsGender                        WM.S.P.G.76/76/35/0.KG
+//    TGenderCount g;        // wmsGender                        WM.S.P.G.76/76/35/0.KG
 //    TClsWeight c;           // wmsClass for all except mwtBag   WM.S.P.C.85/76/70.KG or WM.S.H.C.15/10/10.KG
 //    TClsGenderWeight cg;    // mwsClsGender                     WM.S.P.CG.è100/50/25/20.Å80/75/50/25.ù75/70/45/20.KG
 //    TClsBagWeight cb;       // wmsClass for wmtBag              WM.S.B.C.F45.C40.M35.LB
@@ -168,11 +168,11 @@ struct TSubTypeHolder {
     {}
 };
 
-struct TGenderWeight:public TSubTypeHolder {
+struct TGenderCount:public TSubTypeHolder {
     int m, f, c, i;
     void parse(const std::vector<std::string> &val);
     void dump();
-    TGenderWeight():
+    TGenderCount():
         m(ASTRA::NoExists),
         f(ASTRA::NoExists),
         c(ASTRA::NoExists),
@@ -191,7 +191,7 @@ struct TClsWeight:public TSubTypeHolder {
     {}
 };
 
-struct TClsGenderWeight:public std::map<std::string, TGenderWeight>, public TSubTypeHolder {
+struct TClsGenderWeight:public std::map<std::string, TGenderCount>, public TSubTypeHolder {
     void parse(const std::vector<std::string> &val);
     void dump();
 };
@@ -219,19 +219,111 @@ struct TWM:public TWMMap {
         void dump();
 };
 
-struct TPD {
-    void parse(const char *val) {};
+enum TPDType {
+    pdtClass,
+    pdtZone,
+    pdtRow,
+    pdtJump,
+    pdtUnknown
 };
 
-struct TSP {
-    void parse(const char *val) {};
+struct TPDItem {
+    TWeight actual; // actual weight
+    TGenderCount standard; // standard weights
+    void dump();
 };
 
-struct TDestInfo {
+struct TPDParser:public std::map<std::string, TPDItem> {
+    TPDType type;
+    TPDParser(): type(pdtUnknown) {};
+    void parse(TPDType atype, const std::vector<std::string> &val);
+    void dump();
+    std::string getKey(const std::string &val, TPDType type);
 };
 
-struct TDest:public std::map<std::string, TDestInfo> {
+struct TPD:public std::map<TPDType, TPDParser> {
     void parse(const char *val);
+    void dump();
+};
+
+enum TGender {
+    gM,
+    gF,
+    gC,
+    gI,
+    gUnknown
+};
+
+struct TSPItem {
+    int actual;
+    TGender gender;
+    TSPItem(): actual(ASTRA::NoExists) {};
+};
+
+struct TSP:public std::map<std::string, TSPItem> {
+    void parse(const char *val);
+    void dump();
+};
+
+enum TDestInfoKey {
+    dkPT,
+    dkBT,
+    dkH,
+    dkUnknown
+};
+
+enum TDestInfoType {
+    dtA,
+    dtC,
+    dtG,
+    dtJ,
+    dtUnknown
+};
+
+struct TClsTotal {
+    int f, c, y;
+    TClsTotal():
+        f(ASTRA::NoExists),
+        c(ASTRA::NoExists),
+        y(ASTRA::NoExists)
+    {}
+    void parse(const std::string &val);
+    void dump(const std::string &caption);
+};
+
+struct TGenderTotal {
+    int m, f, c, i;
+    TGenderTotal():
+        m(ASTRA::NoExists),
+        f(ASTRA::NoExists),
+        c(ASTRA::NoExists),
+        i(ASTRA::NoExists)
+    {}
+    void parse(const std::string &val);
+    void dump();
+};
+
+struct TDestInfo
+{
+    int total, weight, j;
+    TMeasur measur;
+    TClsTotal cls_total, actual_total;
+    TGenderTotal gender_total;
+    void dump();
+    TDestInfo():
+        total(ASTRA::NoExists),
+        weight(ASTRA::NoExists),
+        j(ASTRA::NoExists),
+        measur(mUnknown)
+    {};
+};
+
+typedef std::map<TDestInfoKey, TDestInfo> TDestInfoMap;
+
+struct TDest:public std::map<std::string, TDestInfoMap> {
+    bool find_item(const std::string &airp, TDestInfoKey key);
+    void parse(const char *val);
+    void dump();
 };
 
 class TLCIContent
