@@ -6947,6 +6947,9 @@ void ParseCompSections( xmlNodePtr sectionsNode, std::vector<TCompSection> &Comp
   while ( sectionsNode && string((char*)sectionsNode->name) == "section" ) {
     TCompSection cs;
     cs.name = NodeAsString( sectionsNode );
+    if ( !IsAscii7( cs.name ) ) {
+      throw UserException( "MSG.INVALID_COMPSECTIONS_NAME" );
+    }
     cs.firstRowIdx = NodeAsInteger( "@FirstRowIdx", sectionsNode );
     cs.lastRowIdx = NodeAsInteger( "@LastRowIdx", sectionsNode );
     CompSections.push_back( cs );
