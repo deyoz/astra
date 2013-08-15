@@ -696,8 +696,8 @@ struct TPax {
     TDateTime departureDate;      //takeoff
     string rackNumber;            //term
     string seatNumber;            //seat_no
-    string firstName;             //surname
-    string lastName;              //name
+    string firstName;             //name
+    string lastName;              //surname
     string patronymic;            //patronymic
     string documentNumber;        //doc_no
     string operationType;         //operation
@@ -891,8 +891,8 @@ void get_pax_list(const TPaxListFilter &filter,
         pax.departureDate = Qry.FieldAsDateTime( idx_takeoff );
       pax.rackNumber = Qry.FieldAsString( idx_term );
       pax.seatNumber = Qry.FieldAsString( idx_seat_no );
-      pax.firstName = Qry.FieldAsString( idx_surname );
-      pax.lastName = Qry.FieldAsString( idx_name );
+      pax.firstName = Qry.FieldAsString( idx_name );
+      pax.lastName = Qry.FieldAsString( idx_surname );
       pax.patronymic = Qry.FieldAsString( idx_patronymic );
       pax.documentNumber = Qry.FieldAsString( idx_doc_no );
       pax.operationType = Qry.FieldAsString( idx_operation );
@@ -1432,8 +1432,8 @@ void create_file(const string &format,
           << DateTimeToStr(p->departureDate,"dd.mm.yyyy") << '|'
           << p->rackNumber.substr(0,6) << '|'
           << p->seatNumber << '|'
-          << p->firstName.substr(0,20) << '|'
           << p->lastName.substr(0,20) << '|'
+          << p->firstName.substr(0,20) << '|'
           << p->patronymic.substr(0,20) << '|'
           << p->documentNumber << '|'
           << p->operationType << '|'
