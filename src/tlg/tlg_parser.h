@@ -216,6 +216,26 @@ typedef struct
   std::vector<TSeatsItem> seats;
 } TRouteItem;
 
+class TDocExtraItem
+{
+  public:
+    char type_rcpt[4],no[16];
+    TDocExtraItem()
+    {
+      Clear();
+    };
+    void Clear()
+    {
+      *type_rcpt=0;
+      *no=0;
+    };
+    bool Empty() const
+    {
+      return  *type_rcpt==0 &&
+              *no==0;
+    };
+};
+
 class TDocItem
 {
   public:
@@ -381,6 +401,7 @@ class TPaxItem
     std::vector<TRemItem> rem;
     std::vector<TInfItem> inf;
     std::vector<TDocItem> doc;
+    std::map<std::string/*no*/, TDocExtraItem> doc_extra;
     std::vector<TDocoItem> doco;
     std::vector<TTKNItem> tkn;
     std::vector<TFQTItem> fqt;

@@ -3240,6 +3240,7 @@ void BindRemarks(TTlgParser &tlg, TNameElement &ne)
 
 bool ParseDOCSRem(TTlgParser &tlg, BASIC::TDateTime scd_local, std::string &rem_text, TDocItem &doc);
 bool ParseDOCORem(TTlgParser &tlg, BASIC::TDateTime scd_local, std::string &rem_text, TDocoItem &doc);
+bool ParseOTHSRem(TTlgParser &tlg, string &rem_text, TDocExtraItem &doc);
 
 void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
                   TTlgParser &tlg, const TDCSHeadingInfo &info, TPnrItem &pnr, TNameElement &ne)
@@ -3379,6 +3380,17 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
               TFQTItem fqt;
               if (ParseFQTRem(tlg,iRemItem->text,fqt))
                 iPaxItem->fqt.push_back(fqt);
+              continue;
+            };
+
+            if (strcmp(iRemItem->code,"OTHS")==0)
+            {
+              TDocExtraItem doc;
+              if (ParseOTHSRem(tlg,iRemItem->text,doc))
+              {
+                if (*(doc.no)!=0)
+                  iPaxItem->doc_extra.insert(make_pair(doc.no, doc));
+              };
               continue;
             };
           };
@@ -3614,6 +3626,22 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
               if (ParseFQTRem(tlg,iRemItem->text,fqt))
               {
                 ne.pax.begin()->fqt.push_back(fqt);
+                ne.pax.begin()->rem.push_back(*iRemItem);
+                iRemItem->text.clear();
+              };
+            };
+            continue;
+          };
+
+          if (strcmp(iRemItem->code,"OTHS")==0)
+          {
+            if (ne.pax.size()==1)
+            {
+              TDocExtraItem doc;
+              if (ParseOTHSRem(tlg,iRemItem->text,doc))
+              {
+                if (*(doc.no)!=0)
+                  ne.pax.begin()->doc_extra.insert(make_pair(doc.no, doc));
                 ne.pax.begin()->rem.push_back(*iRemItem);
                 iRemItem->text.clear();
               };
@@ -4249,6 +4277,83 @@ bool ParseDOCORem(TTlgParser &tlg, TDateTime scd_local, string &rem_text, TDocoI
     return true;
   };
   
+  return false;
+};
+
+bool ParseOTHSRem(TTlgParser &tlg, string &rem_text, TDocExtraItem &doc)
+{
+  char c;
+  int res,k;
+
+  char *p=(char*)rem_text.c_str();
+
+  doc.Clear();
+
+  if (rem_text.empty()) return false;
+  p=tlg.GetWord(p);
+  c=0;
+  char rem_code[6],rem_status[3];
+  res=sscanf(tlg.lex,"%5[A-ZА-ЯЁ0-9]%c",rem_code,&c);
+  if (c!=0||res!=1) return false;
+
+  if (strcmp(rem_code,"OTHS")==0)
+  {
+    for(k=0;k<=3;k++)
+    try
+    {
+      try
+      {
+        if (k==0)
+          p=tlg.GetLexeme(p);
+        else
+          p=tlg.GetSlashedLexeme(p);
+        if (p==NULL) break;
+        if (*tlg.lex==0) continue;
+        c=0;
+        switch(k)
+        {
+          case 0:
+            res=sscanf(tlg.lex,"%2[A-Z]%1[1]%c",rem_status,lexh,&c);
+            if (c!=0||res!=2) return false;
+            break;
+          case 1:
+            res=sscanf(tlg.lex,"%5[A-ZА-ЯЁ0-9]%c",lexh,&c);
+            if (c!=0||res!=1||strcmp(lexh,"DOCS")!=0) return false;
+            break;
+          case 2:
+            res=sscanf(tlg.lex,"%15[A-ZА-ЯЁ0-9 ]%c",doc.no,&c);
+            if (c!=0||res!=1) throw ETlgError("Wrong format");
+            break;
+          case 3:
+            res=sscanf(tlg.lex,"%3[A-ZА-ЯЁ]%c",doc.type_rcpt,&c);
+            if (c!=0||res!=1) throw ETlgError("Wrong format");
+            TlgElemToElemId(etRcptDocType,doc.type_rcpt,doc.type_rcpt);
+            break;
+        }
+      }
+      catch(exception &E)
+      {
+        switch(k)
+        {
+          case 0:
+          case 1:
+            return false;
+          case 2:
+            *doc.no=0;
+            throw ETlgError("travel document number: %s",E.what());
+          case 3:
+            *doc.type_rcpt=0;
+            throw ETlgError("document type: %s",E.what());
+        };
+      };
+    }
+    catch(ETlgError &E)
+    {
+      ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",rem_code,E.what(),rem_text.c_str());
+    };
+    return true;
+  };
+
   return false;
 };
 
@@ -5182,7 +5287,7 @@ void SavePNLADLRemarks(int pax_id, vector<TRemItem> &rem)
   };
 };
 
-void SaveDOCSRem(int pax_id, const vector<TDocItem> &doc)
+void SaveDOCSRem(int pax_id, const vector<TDocItem> &doc, const map<string, TDocExtraItem> &doc_extra)
 {
   if (doc.empty()) return;
   TQuery Qry(&OraSession);
@@ -5190,10 +5295,12 @@ void SaveDOCSRem(int pax_id, const vector<TDocItem> &doc)
   Qry.SQLText=
     "INSERT INTO crs_pax_doc "
     "  (pax_id,rem_code,rem_status,type,issue_country,no,nationality, "
-    "   birth_date,gender,expiry_date,surname,first_name,second_name,pr_multi) "
+    "   birth_date,gender,expiry_date,surname,first_name,second_name,pr_multi, "
+    "   type_rcpt) "
     "VALUES "
     "  (:pax_id,:rem_code,:rem_status,:type,:issue_country,:no,:nationality, "
-    "   :birth_date,:gender,:expiry_date,:surname,:first_name,:second_name,:pr_multi) ";
+    "   :birth_date,:gender,:expiry_date,:surname,:first_name,:second_name,:pr_multi, "
+    "   :type_rcpt) ";
   Qry.CreateVariable("pax_id",otInteger,pax_id);
   Qry.DeclareVariable("rem_code",otString);
   Qry.DeclareVariable("rem_status",otString);
@@ -5208,6 +5315,7 @@ void SaveDOCSRem(int pax_id, const vector<TDocItem> &doc)
   Qry.DeclareVariable("first_name",otString);
   Qry.DeclareVariable("second_name",otString);
   Qry.DeclareVariable("pr_multi",otInteger);
+  Qry.DeclareVariable("type_rcpt",otString);
   for(vector<TDocItem>::const_iterator i=doc.begin();i!=doc.end();i++)
   {
     if (i->Empty()) continue;
@@ -5230,6 +5338,12 @@ void SaveDOCSRem(int pax_id, const vector<TDocItem> &doc)
     Qry.SetVariable("first_name",i->first_name.substr(0,64));
     Qry.SetVariable("second_name",i->second_name.substr(0,64));
     Qry.SetVariable("pr_multi",(int)i->pr_multi);
+    Qry.SetVariable("type_rcpt", FNull);
+    if (*(i->no)!=0)
+    {
+      map<string, TDocExtraItem>::const_iterator j=doc_extra.find(i->no);
+      if (j!=doc_extra.end()) Qry.SetVariable("type_rcpt", j->second.type_rcpt);
+    };
     Qry.Execute();
   };
 };
@@ -6182,14 +6296,14 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                     CrsInfInsQry.SetVariable("inf_id",inf_id);
                     CrsInfInsQry.Execute();
                     SavePNLADLRemarks(inf_id,iInfItem->rem);
-                    SaveDOCSRem(inf_id,iInfItem->doc);
+                    SaveDOCSRem(inf_id,iInfItem->doc,iPaxItem->doc_extra);
                     SaveDOCORem(inf_id,iInfItem->doco);
                     SaveTKNRem(inf_id,iInfItem->tkn);
                   };
 
                   //ремарки пассажира
                   SavePNLADLRemarks(pax_id,iPaxItem->rem);
-                  SaveDOCSRem(pax_id,iPaxItem->doc);
+                  SaveDOCSRem(pax_id,iPaxItem->doc,iPaxItem->doc_extra);
                   SaveDOCORem(pax_id,iPaxItem->doco);
                   SaveTKNRem(pax_id,iPaxItem->tkn);
                   SaveFQTRem(pax_id,iPaxItem->fqt);
@@ -6229,8 +6343,8 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
             }; //for(iNameElement=pnr.ne.begin()
 
             //запишем стыковки
-            if (/*ne.indicator==ADD && */!pnr.transfer.empty() /*||
-                ne.indicator==CHG*/)
+            //if (/*ne.indicator==ADD && */!pnr.transfer.empty() /*||
+            //    ne.indicator==CHG*/)
             {
               //удаляем нафиг все стыковки
               Qry.Clear();
@@ -6264,8 +6378,8 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
               Qry.Execute();
             };
             //запишем коммерческий рейс
-            if (/*ne.indicator==ADD && */!pnr.market_flt.Empty() /*||
-                ne.indicator==CHG*/)
+            //if (/*ne.indicator==ADD && */!pnr.market_flt.Empty() /*||
+            //    ne.indicator==CHG*/)
             {
               //удаляем нафиг предыдущий
               Qry.Clear();
@@ -6277,15 +6391,18 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
               Qry.CreateVariable("pnr_id",otInteger,pnr_id);
               Qry.Execute();
 
-              PnrMarketFltQry.SetVariable("pnr_id",pnr_id);
-              PnrMarketFltQry.SetVariable("airline",pnr.market_flt.airline);
-              PnrMarketFltQry.SetVariable("flt_no",(int)pnr.market_flt.flt_no);
-              PnrMarketFltQry.SetVariable("suffix",pnr.market_flt.suffix);
-              PnrMarketFltQry.SetVariable("local_date",(int)pnr.market_flt.local_date);
-              PnrMarketFltQry.SetVariable("airp_dep",pnr.market_flt.airp_dep);
-              PnrMarketFltQry.SetVariable("airp_arv",pnr.market_flt.airp_arv);
-              PnrMarketFltQry.SetVariable("subclass",pnr.market_flt.subcl);
-              PnrMarketFltQry.Execute();
+              if (!pnr.market_flt.Empty())
+              {
+                PnrMarketFltQry.SetVariable("pnr_id",pnr_id);
+                PnrMarketFltQry.SetVariable("airline",pnr.market_flt.airline);
+                PnrMarketFltQry.SetVariable("flt_no",(int)pnr.market_flt.flt_no);
+                PnrMarketFltQry.SetVariable("suffix",pnr.market_flt.suffix);
+                PnrMarketFltQry.SetVariable("local_date",(int)pnr.market_flt.local_date);
+                PnrMarketFltQry.SetVariable("airp_dep",pnr.market_flt.airp_dep);
+                PnrMarketFltQry.SetVariable("airp_arv",pnr.market_flt.airp_arv);
+                PnrMarketFltQry.SetVariable("subclass",pnr.market_flt.subcl);
+                PnrMarketFltQry.Execute();
+              };
             };
 
             if (!isPRL && pr_sync_pnr)
