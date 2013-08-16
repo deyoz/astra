@@ -267,6 +267,7 @@ const TPaxDocItem& TPaxDocItem::toDB(TQuery &Qry) const
   Qry.SetVariable("first_name", first_name);
   Qry.SetVariable("second_name", second_name);
   Qry.SetVariable("pr_multi", (int)pr_multi);
+  Qry.SetVariable("type_rcpt", type_rcpt);
   return *this;
 };
 
@@ -290,6 +291,7 @@ TPaxDocItem& TPaxDocItem::fromDB(TQuery &Qry)
   first_name=Qry.FieldAsString("first_name");
   second_name=Qry.FieldAsString("second_name");
   pr_multi=Qry.FieldAsInteger("pr_multi")!=0;
+  type_rcpt=Qry.FieldAsString("type_rcpt");
   return *this;
 };
 
@@ -579,10 +581,10 @@ void SavePaxDoc(int pax_id, const TPaxDocItem &doc, TQuery& PaxDocQry)
         "  IF :only_delete=0 THEN "
         "    INSERT INTO pax_doc "
         "      (pax_id,type,issue_country,no,nationality,birth_date,gender,expiry_date, "
-        "       surname,first_name,second_name,pr_multi) "
+        "       surname,first_name,second_name,pr_multi,type_rcpt) "
         "    VALUES "
         "      (:pax_id,:type,:issue_country,:no,:nationality,:birth_date,:gender,:expiry_date, "
-        "       :surname,:first_name,:second_name,:pr_multi); "
+        "       :surname,:first_name,:second_name,:pr_multi,:type_rcpt); "
         "  END IF; "
         "END;";
   if (strcmp(PaxDocQry.SQLText.SQLText(),sql)!=0)
@@ -601,6 +603,7 @@ void SavePaxDoc(int pax_id, const TPaxDocItem &doc, TQuery& PaxDocQry)
     PaxDocQry.DeclareVariable("first_name",otString);
     PaxDocQry.DeclareVariable("second_name",otString);
     PaxDocQry.DeclareVariable("pr_multi",otInteger);
+    PaxDocQry.DeclareVariable("type_rcpt",otString);
     PaxDocQry.DeclareVariable("only_delete",otInteger);
   };
 
