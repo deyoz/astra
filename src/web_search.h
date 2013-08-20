@@ -50,46 +50,54 @@ struct TTestPaxInfo
   };
 };
 
-struct TPNRFilter
+class TPNRFilter
 {
-  std::set<std::string> airlines;
-  int flt_no;
-  std::string suffix;
-  std::vector< std::pair<BASIC::TDateTime, BASIC::TDateTime> > scd_out_local_ranges;
-  std::vector< std::pair<BASIC::TDateTime, BASIC::TDateTime> > scd_out_utc_ranges;
-  std::string surname, name, pnr_addr_normal, ticket_no, document;
-  int reg_no;
-  std::vector<TTestPaxInfo> test_paxs;
-  //BCBP_M
-  int surname_equal_len, name_equal_len;
-  std::string airp_dep, airp_arv;
-  
-  TPNRFilter() { clear(); };
-
-  void clear()
-  {
-    airlines.clear();
-    flt_no=ASTRA::NoExists;
-    suffix.clear();
-    scd_out_local_ranges.clear();
-    surname.clear();
-    name.clear();
-    pnr_addr_normal.clear();
-    ticket_no.clear();
-    document.clear();
-    reg_no=ASTRA::NoExists;
-    test_paxs.clear();
+  private:
+    bool vtracing, vtracing_init;
+    bool tracing();
+  public:
+    std::set<std::string> airlines;
+    int flt_no;
+    std::string suffix;
+    std::vector< std::pair<BASIC::TDateTime, BASIC::TDateTime> > scd_out_local_ranges;
+    std::vector< std::pair<BASIC::TDateTime, BASIC::TDateTime> > scd_out_utc_ranges;
+    std::string surname, name, pnr_addr_normal, ticket_no, document;
+    int reg_no;
+    std::vector<TTestPaxInfo> test_paxs;
     //BCBP_M
-    surname_equal_len=ASTRA::NoExists;
-    name_equal_len=ASTRA::NoExists;
-    airp_dep.clear();
-    airp_arv.clear();
-  };
-  
-  TPNRFilter& fromXML(xmlNodePtr node);
-  TPNRFilter& fromBCBP_M(const std::string bcbp);
-  TPNRFilter& testPaxFromDB();
-  void trace( TRACE_SIGNATURE ) const;
+    int surname_equal_len, name_equal_len;
+    std::string airp_dep, airp_arv;
+
+    TPNRFilter() { clear(); };
+
+    void clear()
+    {
+      airlines.clear();
+      flt_no=ASTRA::NoExists;
+      suffix.clear();
+      scd_out_local_ranges.clear();
+      surname.clear();
+      name.clear();
+      pnr_addr_normal.clear();
+      ticket_no.clear();
+      document.clear();
+      reg_no=ASTRA::NoExists;
+      test_paxs.clear();
+      //BCBP_M
+      surname_equal_len=ASTRA::NoExists;
+      name_equal_len=ASTRA::NoExists;
+      airp_dep.clear();
+      airp_arv.clear();
+
+      vtracing=true;
+      vtracing_init=false;
+    };
+
+    TPNRFilter& fromXML(xmlNodePtr node);
+    TPNRFilter& fromBCBP_M(const std::string bcbp);
+    TPNRFilter& testPaxFromDB();
+    void trace( TRACE_SIGNATURE ) const;
+    void traceToMonitor( TRACE_SIGNATURE, const char *format,  ...);
 };
 
 struct TDestInfo
