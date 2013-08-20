@@ -4706,22 +4706,22 @@ void SoppInterface::WriteCrew(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   string commander = NodeAsString( "commander", dataNode );
   validateField( commander, "КВС" );
  	Qry.CreateVariable( "commander", otString, commander );
-	if (GetNode( "cabin", dataNode )!=NULL && !NodeIsNULL( "cabin", dataNode )) {
-	  Qry.CreateVariable( "cabin", otInteger, NodeAsInteger( "cabin", dataNode ) );
-	  s += IntToString( NodeAsInteger( "cabin", dataNode ) );
-  }
-	else {
-	  Qry.CreateVariable( "cabin", otInteger, FNull );
-	  s += "0";
-  }
-  s += ", в салоне: ";
 	if (GetNode( "cockpit", dataNode )!=NULL && !NodeIsNULL( "cockpit", dataNode )) {
 	  Qry.CreateVariable( "cockpit", otInteger, NodeAsInteger( "cockpit", dataNode ) );
 	  s += IntToString( NodeAsInteger( "cockpit", dataNode ) );
   }
 	else {
 	  Qry.CreateVariable( "cockpit", otInteger, FNull );
-	  s += "0";
+	  s += "не задано";
+  }
+  s += ", в салоне: ";
+	if (GetNode( "cabin", dataNode )!=NULL && !NodeIsNULL( "cabin", dataNode )) {
+	  Qry.CreateVariable( "cabin", otInteger, NodeAsInteger( "cabin", dataNode ) );
+	  s += IntToString( NodeAsInteger( "cabin", dataNode ) );
+  }
+	else {
+	  Qry.CreateVariable( "cabin", otInteger, FNull );
+	  s += "не задано";
   }
   s += string(", КВС: ") + NodeAsString( "commander", dataNode );
 	Qry.Execute();

@@ -445,35 +445,43 @@ void getFileParams(
     }
 }
 
+void getFileParams( int id, map<string, string> &fileparams)
+{
+  fileparams.clear();
+  TQuery ParamQry( &OraSession );
+  ParamQry.SQLText = "SELECT name,value FROM file_params WHERE id=:id";
+  ParamQry.CreateVariable( "id", otInteger, id );
+  ParamQry.Execute();
+  for(;!ParamQry.Eof;ParamQry.Next())
+    fileparams[ string( ParamQry.FieldAsString( "name" ) ) ] = ParamQry.FieldAsString( "value" );
+};
+
 void getFileParams( const std::string client_canon_name, const std::string &type,
-	                  int id, map<string,string> &fileparams, bool send )
+	                  int id, map<string, string> &fileparams, bool send )
 {
     fileparams.clear();
-    TQuery ParamQry( &OraSession );
-    ParamQry.SQLText = "SELECT name,value FROM file_params WHERE id=:id";
-    ParamQry.CreateVariable( "id", otInteger, id );
-    ParamQry.Execute();
-    //  ProgTrace( TRACE5, "id=%d", id );
+    map<string, string> fp;
+    getFileParams(id, fp);
+    //ProgTrace( TRACE5, "id=%d", id );
     string airline, airp, flt_no;
-    while ( !ParamQry.Eof ) {
-        if ( ParamQry.FieldAsString( "name" ) == NS_PARAM_AIRP )
-            airp = ParamQry.FieldAsString( "value" );
+    for(map<string, string>::const_iterator p=fp.begin(); p!=fp.end(); ++p)
+        if ( p->first == NS_PARAM_AIRP )
+            airp = p->second;
         else
-            if ( ParamQry.FieldAsString( "name" ) == NS_PARAM_AIRLINE )
-                airline = ParamQry.FieldAsString( "value" );
+            if ( p->first == NS_PARAM_AIRLINE )
+                airline = p->second;
             else
-                if ( ParamQry.FieldAsString( "name" ) == NS_PARAM_FLT_NO )
-                    flt_no = ParamQry.FieldAsString( "value" );
+                if ( p->first == NS_PARAM_FLT_NO )
+                    flt_no = p->second;
                 else
-                    if ( ParamQry.FieldAsString( "name" ) != NS_PARAM_EVENT_TYPE &&
-                            ParamQry.FieldAsString( "name" ) != NS_PARAM_EVENT_ID1 &&
-                            ParamQry.FieldAsString( "name" ) != NS_PARAM_EVENT_ID2 &&
-                            ParamQry.FieldAsString( "name" ) != NS_PARAM_EVENT_ID3 ) {
-                        fileparams[ string( ParamQry.FieldAsString( "name" ) ) ] = ParamQry.FieldAsString( "value" );
-                        //		      ProgTrace( TRACE5, "name=%s, value=%s", ParamQry.FieldAsString( "name" ), ParamQry.FieldAsString( "value" ) );
+                    if ( p->first != NS_PARAM_EVENT_TYPE &&
+                         p->first != NS_PARAM_EVENT_ID1 &&
+                         p->first != NS_PARAM_EVENT_ID2 &&
+                         p->first != NS_PARAM_EVENT_ID3 ) {
+                      fileparams.insert(*p);
+                      //ProgTrace( TRACE5, "name=%s, value=%s", p->first.c_str(), p->second.c_str() );
                     }
-        ParamQry.Next();
-    }
+
     getFileParams(
             airp,
             airline,
@@ -488,6 +496,7 @@ void getFileParams( const std::string client_canon_name, const std::string &type
     else
         fileparams[ PARAM_TYPE ] = type;
     fileparams[ PARAM_FILE_ID ] = IntToString( id );
+    TQuery ParamQry( &OraSession );
     ParamQry.Clear();
     ParamQry.SQLText = "SELECT NVL(in_order,0) as in_order FROM file_types WHERE code=:type";
     ParamQry.CreateVariable( "type", otString, type );

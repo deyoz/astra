@@ -2770,7 +2770,9 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             SQLText += " family ";
             break;
         case stSeatNo:
-            SQLText += " seat_no, family ";
+            if(rpt_params.rpt_type != rtBDOCS)
+                SQLText += " seat_no,";
+            SQLText += " family ";
             break;
     }
     Qry.SQLText = SQLText;

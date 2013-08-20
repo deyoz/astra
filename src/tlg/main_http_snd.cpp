@@ -46,17 +46,12 @@ bool validate_param_name(const string &val, TParamName pn)
 static void scan_tlg(void)
 {
     time_t time_start=time(NULL);
-    static TQuery paramQry(&OraSession);
-    if(paramQry.SQLText.IsEmpty()) {
-        paramQry.SQLText = "select name, value from file_params where id = :id";
-        paramQry.DeclareVariable("id", otInteger);
-    }
-    static TQuery completeQry(&OraSession);
+    TQuery completeQry(&OraSession);
     if(completeQry.SQLText.IsEmpty()) {
         completeQry.SQLText="UPDATE tlg_out SET completed=1 WHERE id=:id";
         completeQry.DeclareVariable("id",otInteger);
     }
-    static TQuery TlgQry(&OraSession);
+    TQuery TlgQry(&OraSession);
     if (TlgQry.SQLText.IsEmpty()) {
         TlgQry.Clear();
         TlgQry.SQLText =
@@ -98,11 +93,10 @@ static void scan_tlg(void)
             string data( (char*)p, len );
 
             map<string, string> fileparams;
-            paramQry.SetVariable("id", id);
-            paramQry.Execute();
-            for(; not paramQry.Eof; paramQry.Next())
-                fileparams[paramQry.FieldAsString("name")] = paramQry.FieldAsString("value");
-            int point_id = ToInt(fileparams[PARAM_POINT_ID]);
+            getFileParams(id, fileparams);
+            string tlg_type = fileparams[FILE_PARAM_TLG_TYPE];
+            string tlg_short_name = ((TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",tlg_type))).short_name;
+            int point_id = ToInt(fileparams[FILE_PARAM_POINT_ID]);
             for(map<string, string>::iterator im = fileparams.begin(); im != fileparams.end(); im++) {
                 if(validate_param_name(im->first, pnHTTP)) { // handle HTTP
                     string str_result;
@@ -111,7 +105,7 @@ static void scan_tlg(void)
                     try {
                         str_result = send_bsm(im->second, data);
                         msg
-                            << "HTTPGET: Телеграмма BSM "
+                            << "HTTPGET: Телеграмма " << tlg_short_name << " "
                             << "(ид=" << id << ", " << im->first << "=" << im->second << ") "
                             << "отправлена.";
                         if(str_result.empty()) {
@@ -121,13 +115,13 @@ static void scan_tlg(void)
                     } catch(Exception &E) {
                         err = true;
                         msg
-                            << "HTTPGET: Ошибка отправки телеграммы BSM. "
+                            << "HTTPGET: Ошибка отправки телеграммы " << tlg_short_name << ". "
                             << "(ид=" << id << ", " << im->first << "=" << im->second << "): "
                                 << E.what();
                     } catch(...) {
                         err = true;
                         msg
-                            << "HTTPGET: Ошибка отправки телеграммы BSM. "
+                            << "HTTPGET: Ошибка отправки телеграммы " << tlg_short_name << ". "
                             << "(ид=" << id << ", " << im->first << "=" << im->second << "): ";
                     }
                     if(err) {
@@ -155,16 +149,11 @@ static void scan_tlg(void)
                     break;
                 } else if(validate_param_name(im->first, pnSITA)) { // handle SITA
                     TTlgOutPartInfo p;
-                    p.tlg_type="BSM";
-                    p.point_id=ToInt(fileparams[PARAM_POINT_ID]);
-                    StrToDateTime(fileparams[PARAM_TIME_CREATE].c_str(), ServerFormatDateTimeAsString, p.time_create);
-                    p.heading = fileparams[PARAM_HEADING];
-                    p.originator_id = ToInt(fileparams[PARAM_ORIGINATOR]);
-                    p.id=-1;
+                    p.id=NoExists;
                     p.num=1;
-                    p.pr_lat=1; //???
                     p.addr=TypeB::format_addr_line(im->second);
                     p.body=data;
+                    p.addFromFileParams(fileparams);
                     TelegramInterface::SaveTlgOutPart(p);
                     completeQry.SetVariable("id",p.id);
                     completeQry.Execute();

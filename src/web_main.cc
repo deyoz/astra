@@ -571,22 +571,22 @@ void CheckDoc(const CheckIn::TPaxDocItem &doc,
   modf(nowLocal, &nowLocal);
   
   if (doc.birth_date!=NoExists && doc.birth_date>nowLocal)
-    throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "document/birth_date" ));
+    throw UserException("MSG.CHECK_DOC.INVALID_BIRTH_DATE", LParams()<<LParam("fieldname", "document/birth_date" ));
     
   if (doc.expiry_date!=NoExists && doc.expiry_date<nowLocal)
-    throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "document/expiry_date" ));
+    throw UserException("MSG.CHECK_DOC.INVALID_EXPIRY_DATE", LParams()<<LParam("fieldname", "document/expiry_date" ));
   
   if (!CheckDocNumber(doc.no, checkDocInfo, errorIdx))
-    throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "document/no" ));
+    throw UserException("MSG.CHECK_DOC.INVALID_NO", LParams()<<LParam("fieldname", "document/no" ));
 
   if (!CheckDocSurname(doc.surname, checkDocInfo, errorIdx))
-    throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "document/surname" ));
+    throw UserException("MSG.CHECK_DOC.INVALID_SURNAME", LParams()<<LParam("fieldname", "document/surname" ));
     
   if (!CheckDocSurname(doc.first_name, checkDocInfo, errorIdx))
-    throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "document/first_name" ));
+    throw UserException("MSG.CHECK_DOC.INVALID_FIRST_NAME", LParams()<<LParam("fieldname", "document/first_name" ));
     
   if (!CheckDocSurname(doc.second_name, checkDocInfo, errorIdx))
-    throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "document/second_name" ));
+    throw UserException("MSG.CHECK_DOC.INVALID_SECOND_NAME", LParams()<<LParam("fieldname", "document/second_name" ));
 };
 
 CheckIn::TPaxDocItem NormalizeDoc(const CheckIn::TPaxDocItem &doc)
@@ -598,24 +598,24 @@ CheckIn::TPaxDocItem NormalizeDoc(const CheckIn::TPaxDocItem &doc)
   {
     result.type=ElemToElemId(etPaxDocType, upperc(doc.type), fmt);
     if (fmt==efmtUnknown || result.type=="V")
-      throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "document/type" ));
+      throw UserException("MSG.CHECK_DOC.INVALID_TYPE", LParams()<<LParam("fieldname", "document/type" ));
   };
   if (!doc.issue_country.empty())
   {
     result.issue_country=ElemToPaxDocCountryId(upperc(doc.issue_country), fmt);
     if (fmt==efmtUnknown)
-      throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "document/issue_country" ));
+      throw UserException("MSG.CHECK_DOC.INVALID_ISSUE_COUNTRY", LParams()<<LParam("fieldname", "document/issue_country" ));
   };
   
   result.no=upperc(doc.no);
   if (result.no.size()>15)
-    throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "document/no" ));
+    throw UserException("MSG.CHECK_DOC.INVALID_NO", LParams()<<LParam("fieldname", "document/no" ));
   
   if (!doc.nationality.empty())
   {
     result.nationality=ElemToPaxDocCountryId(upperc(doc.nationality), fmt);
     if (fmt==efmtUnknown)
-      throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "document/nationality" ));
+      throw UserException("MSG.CHECK_DOC.INVALID_NATIONALITY", LParams()<<LParam("fieldname", "document/nationality" ));
   };
   
   if (doc.birth_date!=NoExists)
@@ -625,7 +625,7 @@ CheckIn::TPaxDocItem NormalizeDoc(const CheckIn::TPaxDocItem &doc)
   {
     result.gender=ElemToElemId(etGenderType, upperc(doc.gender), fmt);
     if (fmt==efmtUnknown)
-      throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "document/gender" ));
+      throw UserException("MSG.CHECK_DOC.INVALID_GENDER", LParams()<<LParam("fieldname", "document/gender" ));
   };
   
   if (doc.expiry_date!=NoExists)
@@ -633,15 +633,15 @@ CheckIn::TPaxDocItem NormalizeDoc(const CheckIn::TPaxDocItem &doc)
     
   result.surname=upperc(doc.surname);
   if (result.surname.size()>64)
-    throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "document/surname" ));
+    throw UserException("MSG.CHECK_DOC.INVALID_SURNAME", LParams()<<LParam("fieldname", "document/surname" ));
   
   result.first_name=upperc(doc.first_name);
   if (result.first_name.size()>64)
-    throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "document/first_name" ));
+    throw UserException("MSG.CHECK_DOC.INVALID_FIRST_NAME", LParams()<<LParam("fieldname", "document/first_name" ));
   
   result.second_name=upperc(doc.second_name);
   if (result.second_name.size()>64)
-    throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "document/second_name" ));
+    throw UserException("MSG.CHECK_DOC.INVALID_SECOND_NAME", LParams()<<LParam("fieldname", "document/second_name" ));
 
   return result;
 };
@@ -655,19 +655,19 @@ void CheckDoco(const CheckIn::TPaxDocoItem &doc,
   modf(nowLocal, &nowLocal);
   
   if (doc.issue_date!=NoExists && doc.issue_date>nowLocal)
-    throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "doco/issue_date" ));
+    throw UserException("MSG.CHECK_DOCO.INVALID_ISSUE_DATE", LParams()<<LParam("fieldname", "doco/issue_date" ));
 
   if (doc.expiry_date!=NoExists && doc.expiry_date<nowLocal)
-    throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "doco/expiry_date" ));
+    throw UserException("MSG.CHECK_DOCO.INVALID_EXPIRY_DATE", LParams()<<LParam("fieldname", "doco/expiry_date" ));
     
   if (!CheckDocPlace(doc.birth_place, checkDocInfo, errorIdx))
-    throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "doco/birth_place" ));
+    throw UserException("MSG.CHECK_DOCO.INVALID_BIRTH_PLACE", LParams()<<LParam("fieldname", "doco/birth_place" ));
 
   if (!CheckDocNumber(doc.no, checkDocInfo, errorIdx))
-    throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "doco/no" ));
+    throw UserException("MSG.CHECK_DOCO.INVALID_NO", LParams()<<LParam("fieldname", "doco/no" ));
     
   if (!CheckDocPlace(doc.issue_place, checkDocInfo, errorIdx))
-    throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "doco/issue_place" ));
+    throw UserException("MSG.CHECK_DOCO.INVALID_ISSUE_PLACE", LParams()<<LParam("fieldname", "doco/issue_place" ));
 };
 
 CheckIn::TPaxDocoItem NormalizeDoco(const CheckIn::TPaxDocoItem &doc)
@@ -677,22 +677,22 @@ CheckIn::TPaxDocoItem NormalizeDoco(const CheckIn::TPaxDocoItem &doc)
   
   result.birth_place=upperc(doc.birth_place);
   if (result.birth_place.size()>35)
-    throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "doco/birth_place" ));
+    throw UserException("MSG.CHECK_DOCO.INVALID_BIRTH_PLACE", LParams()<<LParam("fieldname", "doco/birth_place" ));
   
   if (!doc.type.empty())
   {
     result.type=ElemToElemId(etPaxDocType, upperc(doc.type), fmt);
     if (fmt==efmtUnknown || result.type!="V")
-      throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "doco/type" ));
+      throw UserException("MSG.CHECK_DOCO.INVALID_TYPE", LParams()<<LParam("fieldname", "doco/type" ));
   };
   
   result.no=upperc(doc.no);
   if (result.no.size()>15)
-    throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "doco/no" ));
+    throw UserException("MSG.CHECK_DOCO.INVALID_NO", LParams()<<LParam("fieldname", "doco/no" ));
   
   result.issue_place=upperc(doc.issue_place);
   if (result.issue_place.size()>35)
-    throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "doco/issue_place" ));
+    throw UserException("MSG.CHECK_DOCO.INVALID_ISSUE_PLACE", LParams()<<LParam("fieldname", "doco/issue_place" ));
   
   if (doc.issue_date!=NoExists)
     modf(doc.issue_date, &result.issue_date);
@@ -704,7 +704,7 @@ CheckIn::TPaxDocoItem NormalizeDoco(const CheckIn::TPaxDocoItem &doc)
   {
     result.applic_country=ElemToPaxDocCountryId(upperc(doc.applic_country), fmt);
     if (fmt==efmtUnknown)
-      throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", "doco/applic_country" ));
+      throw UserException("MSG.CHECK_DOCO.INVALID_APPLIC_COUNTRY", LParams()<<LParam("fieldname", "doco/applic_country" ));
   };
   return result;
 };

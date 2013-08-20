@@ -118,6 +118,15 @@ struct TTlgSeatList {
 
 // End of previous stuff
 
+const std::string FILE_PARAM_POINT_ID = "POINT_ID";
+const std::string FILE_PARAM_TLG_TYPE = "TLG_TYPE";
+const std::string FILE_PARAM_HEADING = "HEADING";
+const std::string FILE_PARAM_ENDING = "ENDING";
+const std::string FILE_PARAM_PR_LAT = "PR_LAT";
+const std::string FILE_PARAM_TIME_CREATE = "TIME_CREATE";
+const std::string FILE_PARAM_ORIGINATOR_ID = "ORIGINATOR_ID";
+const std::string FILE_PARAM_EXTRA = "EXTRA_";
+
 struct TTlgOutPartInfo
 {
   int id,num,point_id;
@@ -153,6 +162,69 @@ struct TTlgOutPartInfo
     time_create = info.time_create;
     time_send_scd = ASTRA::NoExists;
     originator_id = info.originator.id;
+  };
+  void addToFileParams(std::map<std::string, std::string> &params) const
+  {
+    params[FILE_PARAM_POINT_ID] = point_id==ASTRA::NoExists?"":IntToString(point_id);
+    params[FILE_PARAM_TLG_TYPE] = tlg_type;
+    params[FILE_PARAM_HEADING] = heading;
+    params[FILE_PARAM_ENDING] = ending;
+    params[FILE_PARAM_PR_LAT] = IntToString((int)pr_lat);
+    params[FILE_PARAM_TIME_CREATE] = time_create==ASTRA::NoExists?"":BASIC::DateTimeToStr(time_create, BASIC::ServerFormatDateTimeAsString);
+    params[FILE_PARAM_ORIGINATOR_ID] = originator_id==ASTRA::NoExists?"":IntToString(originator_id);
+    for(std::map<std::string/*lang*/, std::string>::const_iterator i=extra.begin(); i!=extra.end(); ++i)
+      params[FILE_PARAM_EXTRA+i->first] = i->second;
+  };
+  void addFromFileParams(const std::map<std::string, std::string> &params)
+  {
+    point_id=ASTRA::NoExists;
+    tlg_type.clear();
+    heading.clear();
+    ending.clear();
+    pr_lat=false;
+    time_create=ASTRA::NoExists;
+    originator_id=ASTRA::NoExists;
+    extra.clear();
+
+    std::map<std::string, std::string>::const_iterator p;
+    p=params.find(FILE_PARAM_POINT_ID);
+    if (p!=params.end())
+      point_id = p->second.empty()?ASTRA::NoExists:ToInt(p->second);
+
+    p=params.find(FILE_PARAM_TLG_TYPE);
+    if (p!=params.end())
+      tlg_type = p->second;
+
+    p=params.find(FILE_PARAM_HEADING);
+    if (p!=params.end())
+      heading = p->second;
+
+    p=params.find(FILE_PARAM_ENDING);
+    if (p!=params.end())
+      ending = p->second;
+
+    p=params.find(FILE_PARAM_PR_LAT);
+    if (p!=params.end())
+      pr_lat = ToInt(p->second)!=0;
+
+    p=params.find(FILE_PARAM_TIME_CREATE);
+    if (p!=params.end())
+      p->second.empty()?time_create=ASTRA::NoExists:
+                        BASIC::StrToDateTime(p->second.c_str(), BASIC::ServerFormatDateTimeAsString, time_create);
+
+    p=params.find(FILE_PARAM_ORIGINATOR_ID);
+    if (p!=params.end())
+      originator_id = p->second.empty()?ASTRA::NoExists:ToInt(p->second);
+
+    for(int i=0; i<=1; i++)
+    {
+      std::string lang=(i==0?AstraLocale::LANG_RU:AstraLocale::LANG_EN);
+      p=params.find(FILE_PARAM_EXTRA+lang);
+      if (p!=params.end())
+        extra[lang] = p->second;
+      else
+        extra[lang] = "";
+    };
   };
 };
 
