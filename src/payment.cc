@@ -105,7 +105,14 @@ namespace RCPT_PAX_DOC {
 
         CheckIn::TPaxDocItem doc;
         if (LoadPaxDoc(NoExists, pax_id, doc, PaxDocQry) && !doc.no.empty())
-            result << doc.type_rcpt << doc.no;
+        {
+            if (!doc.type_rcpt.empty())
+              result << doc.type_rcpt;
+            else if (doc.type=="P")
+              result << (TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU ? "èëè" : "èë");
+            result << doc.no;
+
+        };
         return transliter(TReqInfo::Instance()->desk.lang, result.str());
     }
 }
@@ -569,8 +576,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   CheckIn::LoadBag(grp_id,dataNode);
   CheckInInterface::LoadPaidBag(grp_id,dataNode);
   LoadReceipts(grp_id,true,prnParams.pr_lat,dataNode);
-#warning do not commit
-  ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
+  //ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 };
 
 void PaymentInterface::LoadReceipts(int id, bool pr_grp, bool pr_lat, xmlNodePtr dataNode)
