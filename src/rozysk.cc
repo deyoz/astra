@@ -31,7 +31,7 @@ const std::string ROZYSK_SIRENA =       "ROZYSK_SIRENA";
 const std::string ROZYSK_MINTRANS =     "ROZYSK_MINTRANS";
 const std::string ROZYSK_MINTRANS_24 =  "ROZYSK_MINTRANS_24";
 const std::string FILE_MINTRANS_TYPE =  "MINTRANS";
-const std::string MINTRANS_ID        =  "0000";
+const std::string MINTRANS_ID        =  "13001";
 
 namespace rozysk
 {
