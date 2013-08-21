@@ -68,6 +68,7 @@ class TPaxDocItem
     std::string first_name;
     std::string second_name;
     bool pr_multi;
+    std::string type_rcpt;
     TPaxDocItem()
     {
       clear();
@@ -85,6 +86,7 @@ class TPaxDocItem
       first_name.clear();
       second_name.clear();
       pr_multi=false;
+      type_rcpt.clear();
     };
     bool empty() const
     {
@@ -98,7 +100,8 @@ class TPaxDocItem
              surname.empty() &&
              first_name.empty() &&
              second_name.empty() &&
-             pr_multi==false;
+             pr_multi==false &&
+             type_rcpt.empty();
     };
     bool operator == (const TPaxDocItem &item) const
     {
@@ -112,7 +115,8 @@ class TPaxDocItem
              surname == item.surname &&
              first_name == item.first_name &&
              second_name == item.second_name &&
-             pr_multi == item.pr_multi;
+             pr_multi == item.pr_multi &&
+             type_rcpt == item.type_rcpt;
     };
     const TPaxDocItem& toXML(xmlNodePtr node) const;
     TPaxDocItem& fromXML(xmlNodePtr node);

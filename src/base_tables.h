@@ -611,6 +611,27 @@ class TPayTypes: public TTIDBaseTable {
   	}
 };
 
+class TRcptDocTypesRow: public TTIDBaseTableRow {
+  public:
+    std::string code_pax_doc;
+    const char *get_row_name() const { return "TRcptDocTypesRow"; };
+    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU) const
+    {
+      if (lowerc(field)=="code_pax_doc") return code_pax_doc;
+      return TTIDBaseTableRow::AsString(field,lang);
+    };
+};
+
+class TRcptDocTypes: public TTIDBaseTable {
+  protected:
+    const char *get_table_name() { return "TRcptDocTypes"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+  public:
+  	TRcptDocTypes( ) {
+  		Init( "rcpt_doc_types" );
+  	}
+};
+
 class TTripTypesRow: public TTIDBaseTableRow {
   public:
     int pr_reg;

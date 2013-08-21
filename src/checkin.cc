@@ -1338,7 +1338,7 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry,  xmlNodePtr resNode)
   TQuery PaxDocQry(&OraSession);
   PaxDocQry.SQLText =
     "SELECT type, issue_country, no, nationality, birth_date, gender, expiry_date, "
-    "       surname, first_name, second_name, pr_multi "
+    "       surname, first_name, second_name, pr_multi, type_rcpt "
     "FROM crs_pax_doc "
     "WHERE pax_id=:pax_id AND no IS NOT NULL "
     "ORDER BY DECODE(type,'P',0,NULL,2,1),DECODE(rem_code,'DOCS',0,1),no ";
@@ -3137,10 +3137,11 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       CrsQry.Clear();
       CrsQry.SQLText=
         "BEGIN "
-        "  ckin.save_pax_docs(:pax_id, :document); "
+        "  ckin.save_pax_docs(:pax_id, :document, :full_insert); "
         "END;";
       CrsQry.DeclareVariable("pax_id",otInteger);
       CrsQry.DeclareVariable("document",otString);
+      CrsQry.DeclareVariable("full_insert",otInteger);
       
       TQuery PaxDocQry(&OraSession);
       TQuery PaxDocoQry(&OraSession);
@@ -3927,11 +3928,19 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 {
                   if (pax.DocExists) CheckIn::SavePaxDoc(pax_id,pax.doc,PaxDocQry);
                   if (pax.DocoExists) CheckIn::SavePaxDoco(pax_id,pax.doco,PaxDocoQry);
+                  if (pax.DocExists)
+                  {
+                    CrsQry.SetVariable("pax_id",pax_id);
+                    CrsQry.SetVariable("document",pax.doc.no);
+                    CrsQry.SetVariable("full_insert",(int)false);
+                    CrsQry.Execute();
+                  };
                 }
                 else
                 {
                   CrsQry.SetVariable("pax_id",pax_id);
                   CrsQry.SetVariable("document",pax.doc.no);
+                  CrsQry.SetVariable("full_insert",(int)true);
                   CrsQry.Execute();
                 };
 
@@ -4122,11 +4131,19 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 {
                   if (pax.DocExists) CheckIn::SavePaxDoc(pax.id,pax.doc,PaxDocQry);
                   if (pax.DocoExists) CheckIn::SavePaxDoco(pax.id,pax.doco,PaxDocoQry);
+                  if (pax.DocExists)
+                  {
+                    CrsQry.SetVariable("pax_id",pax.id);
+                    CrsQry.SetVariable("document",pax.doc.no);
+                    CrsQry.SetVariable("full_insert",(int)false);
+                    CrsQry.Execute();
+                  };
                 }
                 else
                 {
                   CrsQry.SetVariable("pax_id",pax.id);
                   CrsQry.SetVariable("document",pax.doc.no);
+                  CrsQry.SetVariable("full_insert",(int)true);
                   CrsQry.Execute();
                 };
 

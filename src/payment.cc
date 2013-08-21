@@ -59,27 +59,43 @@ void PaymentInterface::BuildTransfer(const TTrferRoute &trfer, xmlNodePtr transf
 
 namespace RCPT_PAX_DOC {
 
-    const string PSP_RU = "èë";
-    const string PSP_LAT = "PSP";
+    void find_doc_type(const string &pax_doc, string &from_code, string &to_code, const string &lang)
+    {
+        try {
+            from_code = pax_doc.substr(0, 3);
+            TRcptDocTypesRow &row=(TRcptDocTypesRow&)(base_tables.get("rcpt_doc_types").get_row("code/code_lat",from_code));
+            to_code = (lang != AstraLocale::LANG_RU ? row.code_lat : row.code);
+        } catch(EBaseTableError &E) {
+            try {
+                from_code = pax_doc.substr(0, 2);
+                TRcptDocTypesRow &row=(TRcptDocTypesRow&)(base_tables.get("rcpt_doc_types").get_row("code/code_lat",from_code));
+                to_code = (lang != AstraLocale::LANG_RU ? row.code_lat : row.code);
+            } catch(EBaseTableError &E) {
+                from_code.erase();
+            }
+        }
+    }
 
-    string transliter(TTagLang &tag_lang, const string &pax_doc)
+    bool find_doc_type(const string &pax_doc) {
+        string from_code, to_code, lang;
+        find_doc_type(pax_doc, from_code, to_code, lang);
+        return not from_code.empty();
+    }
+
+    string transliter(const string &lang, const string &pax_doc)
     {
         string result = pax_doc;
-        if(pax_doc.find(PSP_RU) == 0) result.erase(0, PSP_RU.size());
-        if(pax_doc.find(PSP_LAT) == 0) result.erase(0, PSP_LAT.size());
-        if(result != pax_doc) result = getLocaleText(PSP_RU, tag_lang.GetLang()) + result;
+        string from_code, to_code;
+        find_doc_type(result, from_code, to_code, lang);
+        if(not from_code.empty() and from_code != to_code)
+            result.replace(0, from_code.size(), to_code);
         return result;
     }
 
     void check(const string &form_type, const string &pax_doc)
     {
         if(form_type != "M61") return;
-
-        if(
-                (pax_doc.size() < 3) or
-                not (IsLetter(pax_doc[0])) or
-                not (IsLetter(pax_doc[1]))
-          )
+        if(not find_doc_type(pax_doc))
             throw UserException("MSG.PAX_NAME", LParams() << LParam("msg", getLocaleText("MSG.PAX_NAME.DOC_TYPE_NOT_FOUND")));
     }
 
@@ -90,11 +106,14 @@ namespace RCPT_PAX_DOC {
         CheckIn::TPaxDocItem doc;
         if (LoadPaxDoc(NoExists, pax_id, doc, PaxDocQry) && !doc.no.empty())
         {
-            if(not (doc.no.find(PSP_RU) == 0 or doc.no.find(PSP_LAT) == 0) and doc.type == "P")
-                result << getLocaleText(PSP_RU);
+            if (!doc.type_rcpt.empty())
+              result << doc.type_rcpt;
+            else if (doc.type=="P")
+              result << (TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU ? "èëè" : "èë");
             result << doc.no;
+
         };
-        return result.str();
+        return transliter(TReqInfo::Instance()->desk.lang, result.str());
     }
 }
 
@@ -557,8 +576,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   CheckIn::LoadBag(grp_id,dataNode);
   CheckInInterface::LoadPaidBag(grp_id,dataNode);
   LoadReceipts(grp_id,true,prnParams.pr_lat,dataNode);
-#warning do not commit
-  ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
+  //ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 };
 
 void PaymentInterface::LoadReceipts(int id, bool pr_grp, bool pr_lat, xmlNodePtr dataNode)
@@ -1410,7 +1428,7 @@ void PaymentInterface::GetReceiptFromXML(xmlNodePtr reqNode, TBagReceipt &rcpt)
     }
 
     if (NodeIsNULL("no",rcptNode) )
-        rcpt.pax_doc=RCPT_PAX_DOC::transliter(tag_lang, NodeAsString("pax_doc",rcptNode));
+        rcpt.pax_doc=RCPT_PAX_DOC::transliter(tag_lang.GetLang(), NodeAsString("pax_doc",rcptNode));
     else {
         rcpt.pax_doc=NodeAsString("pax_doc",rcptNode);
         RCPT_PAX_DOC::check(rcpt.form_type, rcpt.pax_doc);

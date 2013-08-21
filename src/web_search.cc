@@ -11,6 +11,7 @@
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
+#include "serverlib/lwriter.h"
 
 using namespace std;
 using namespace ASTRA;
@@ -20,12 +21,37 @@ using namespace AstraLocale;
 namespace WebSearch
 {
 
+bool TPNRFilter::tracing()
+{
+  if (vtracing_init) return vtracing;
+  vtracing_init=true;
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText="SELECT tracing_search FROM web_clients WHERE desk=:desk";
+  Qry.CreateVariable("desk", otString, TReqInfo::Instance()->desk.code);
+  Qry.Execute();
+  if (!Qry.Eof && !Qry.FieldIsNULL("tracing_search"))
+    vtracing=Qry.FieldAsInteger("tracing_search")!=0;
+  return vtracing;
+};
+
+void TPNRFilter::traceToMonitor( TRACE_SIGNATURE, const char *format,  ...)
+{
+  va_list ap;
+  va_start(ap,format);
+  if (tracing())
+    ProgError_lwap(ERROR_PARAMS, format, ap);
+   else
+    ProgTrace_lwap(TRACE_PARAMS, format, ap);
+  va_end(ap);
+};
+
 TPNRFilter& TPNRFilter::fromBCBP_M(const std::string bcbp)
 {
   clear();
   if (bcbp.empty())
   {
-    ProgError(STDLOG, "TPNRFilter::fromBCBP_M: empty bcbp");
+    traceToMonitor(TRACE5, "TPNRFilter::fromBCBP_M: empty bcbp");
     throw UserException("MSG.SCAN_CODE.NOT_SET");
   };
 
@@ -36,7 +62,7 @@ TPNRFilter& TPNRFilter::fromBCBP_M(const std::string bcbp)
   }
   catch(EXCEPTIONS::EConvertError &e)
   {
-    ProgError(STDLOG, "TPNRFilter::fromBCBP_M: %s", e.what());
+    traceToMonitor(TRACE5, "TPNRFilter::fromBCBP_M: %s", e.what());
     throw UserException("MSG.SCAN_CODE.UNKNOWN_FORMAT");
   };
     
@@ -205,7 +231,7 @@ TPNRFilter& TPNRFilter::fromBCBP_M(const std::string bcbp)
   }
   catch(EXCEPTIONS::EConvertError &e)
   {
-    ProgError(STDLOG, "TPNRFilter::fromBCBP_M: %s", e.what());
+    traceToMonitor(TRACE5, "TPNRFilter::fromBCBP_M: %s", e.what());
     throw UserException("MSG.SCAN_CODE.UNKNOWN_DATA");
   };
 
@@ -243,7 +269,7 @@ TPNRFilter& TPNRFilter::fromXML(xmlNodePtr node)
         airline = ElemToElemId( etAirline, upperc(str), fmt );
         if (fmt==efmtUnknown)
         {
-          ProgError(STDLOG, "TPNRFilter::fromXML: unknown <airline> %s", str.c_str());
+          traceToMonitor(TRACE5, "TPNRFilter::fromXML: unknown <airline> %s", str.c_str());
         	throw UserException( "MSG.AIRLINE.INVALID",
         		                   LParams()<<LParam("airline", str ) );
         };
@@ -252,7 +278,7 @@ TPNRFilter& TPNRFilter::fromXML(xmlNodePtr node)
       else
       {
         if (pass==0)
-          ProgError(STDLOG, "TPNRFilter::fromXML: empty <airline>");
+          traceToMonitor(TRACE5, "TPNRFilter::fromXML: empty <airline>");
       };
       if (pass==1) break;
     };
@@ -265,14 +291,14 @@ TPNRFilter& TPNRFilter::fromXML(xmlNodePtr node)
     if ( StrToInt( str.c_str(), flt_no ) == EOF ||
 		     flt_no > 99999 || flt_no <= 0 )
     {
-      ProgError(STDLOG, "TPNRFilter::fromXML: invalid <flt_no> %s", str.c_str());
+      traceToMonitor(TRACE5, "TPNRFilter::fromXML: invalid <flt_no> %s", str.c_str());
       throw UserException( "MSG.FLT_NO.INVALID",
 		                       LParams()<<LParam("flt_no", str) );
     };
 	}
   else
   {
-    ProgError(STDLOG, "TPNRFilter::fromXML: <flt_no> not defined");
+    traceToMonitor(TRACE5, "TPNRFilter::fromXML: <flt_no> not defined");
     throw UserException( "MSG.CHECK_FLIGHT.NOT_SET_FLT_NO" );
   };
   
@@ -283,7 +309,7 @@ TPNRFilter& TPNRFilter::fromXML(xmlNodePtr node)
     suffix = ElemToElemId( etSuffix, upperc(str), fmt );
     if (fmt==efmtUnknown)
     {
-      ProgError(STDLOG, "TPNRFilter::fromXML: unknown <suffix> %s", str.c_str());
+      traceToMonitor(TRACE5, "TPNRFilter::fromXML: unknown <suffix> %s", str.c_str());
   		throw UserException( "MSG.SUFFIX.INVALID",
   			                   LParams()<<LParam("suffix", str) );
   	};
@@ -300,7 +326,7 @@ TPNRFilter& TPNRFilter::fromXML(xmlNodePtr node)
       {
         if ( StrToDateTime( str.c_str(), "dd.mm.yyyy hh:nn:ss", scd_out_range.first ) == EOF )
         {
-          ProgError(STDLOG, "TPNRFilter::fromXML: invalid <scd_out_min> %s", str.c_str());
+          traceToMonitor(TRACE5, "TPNRFilter::fromXML: invalid <scd_out_min> %s", str.c_str());
   			  throw UserException( "MSG.FLIGHT_DATE.INVALID",
   				                     LParams()<<LParam("scd_out", str) );
   			};
@@ -311,19 +337,19 @@ TPNRFilter& TPNRFilter::fromXML(xmlNodePtr node)
       {
         if ( StrToDateTime( str.c_str(), "dd.mm.yyyy hh:nn:ss", scd_out_range.second ) == EOF )
         {
-          ProgError(STDLOG, "TPNRFilter::fromXML: invalid <scd_out_max> %s", str.c_str());
+          traceToMonitor(TRACE5, "TPNRFilter::fromXML: invalid <scd_out_max> %s", str.c_str());
   			  throw UserException( "MSG.FLIGHT_DATE.INVALID",
   				                     LParams()<<LParam("scd_out", str) );
   			};
   	  };
       if (scd_out_range.first==NoExists && scd_out_range.second!=NoExists)
       {
-        ProgError(STDLOG, "TPNRFilter::fromXML: <scd_out_min> not defined");
+        traceToMonitor(TRACE5, "TPNRFilter::fromXML: <scd_out_min> not defined");
         throw UserException("MSG.INVALID_RANGE");
       };
       if (scd_out_range.first!=NoExists && scd_out_range.second==NoExists)
       {
-        ProgError(STDLOG, "TPNRFilter::fromXML: <scd_out_max> not defined");
+        traceToMonitor(TRACE5, "TPNRFilter::fromXML: <scd_out_max> not defined");
         throw UserException("MSG.INVALID_RANGE");
       };
     };
@@ -335,7 +361,7 @@ TPNRFilter& TPNRFilter::fromXML(xmlNodePtr node)
       {
         if ( StrToDateTime( str.c_str(), "dd.mm.yyyy hh:nn:ss", scd_out_range.first ) == EOF )
         {
-          ProgError(STDLOG, "TPNRFilter::fromXML: invalid <scd_out> %s", str.c_str());
+          traceToMonitor(TRACE5, "TPNRFilter::fromXML: invalid <scd_out> %s", str.c_str());
     		  throw UserException( "MSG.FLIGHT_DATE.INVALID",
     			                     LParams()<<LParam("scd_out", str) );
     		};
@@ -351,7 +377,7 @@ TPNRFilter& TPNRFilter::fromXML(xmlNodePtr node)
       {
         if ( StrToInt( str.c_str(), scd_out_shift ) == EOF )
         {
-          ProgError(STDLOG, "TPNRFilter::fromXML: invalid <scd_out_shift> %s", str.c_str());
+          traceToMonitor(TRACE5, "TPNRFilter::fromXML: invalid <scd_out_shift> %s", str.c_str());
           throw UserException("MSG.INVALID_RANGE");
         };
       	scd_out_range.first=NowUTC();
@@ -362,7 +388,7 @@ TPNRFilter& TPNRFilter::fromXML(xmlNodePtr node)
     {
       if (scd_out_range.first>=scd_out_range.second)
       {
-        ProgError(STDLOG, "TPNRFilter::fromXML: invalid search period");
+        traceToMonitor(TRACE5, "TPNRFilter::fromXML: invalid search period");
         throw UserException("MSG.INVALID_RANGE");
       };
       if (pass==0 || pass==1)
@@ -378,7 +404,7 @@ TPNRFilter& TPNRFilter::fromXML(xmlNodePtr node)
     local_days+=(r->second-r->first);
   if (local_days>5.0)
   {
-    ProgError(STDLOG, "TPNRFilter::fromXML: search period too large");
+    traceToMonitor(TRACE5, "TPNRFilter::fromXML: search period too large");
     throw UserException("MSG.SEARCH_PERIOD_MAX_N_DAYS", LParams()<<LParam("days", 5));
   };
   double utc_days=0;
@@ -387,13 +413,13 @@ TPNRFilter& TPNRFilter::fromXML(xmlNodePtr node)
     utc_days+=(r->second-r->first);
   if (utc_days>5.0)
   {
-    ProgError(STDLOG, "TPNRFilter::fromXML: search period too large");
+    traceToMonitor(TRACE5, "TPNRFilter::fromXML: search period too large");
     throw UserException("MSG.SEARCH_PERIOD_MAX_N_DAYS", LParams()<<LParam("days", 5));
   };
   
   if (local_days<=0 && utc_days<=0)
   {
-    ProgError(STDLOG, "TPNRFilter::fromXML: empty search period");
+    traceToMonitor(TRACE5, "TPNRFilter::fromXML: empty search period");
     throw UserException("MSG.NOT_SET_RANGE");
   };
 
@@ -401,7 +427,7 @@ TPNRFilter& TPNRFilter::fromXML(xmlNodePtr node)
   TrimString(surname);
   if (surname.empty())
   {
-    ProgError(STDLOG, "TPNRFilter::fromXML: <surname> not defined");
+    traceToMonitor(TRACE5, "TPNRFilter::fromXML: <surname> not defined");
     throw UserException("MSG.PASSENGER.NOT_SET.SURNAME");
   };
   surname=upperc(surname);
@@ -430,7 +456,7 @@ TPNRFilter& TPNRFilter::fromXML(xmlNodePtr node)
     if ( StrToInt( str.c_str(), reg_no ) == EOF ||
 		     reg_no > 999 || reg_no <= 0 )
 		{
-  	  ProgError(STDLOG, "TPNRFilter::fromXML: invalid <reg_no> %s", str.c_str());
+  	  traceToMonitor(TRACE5, "TPNRFilter::fromXML: invalid <reg_no> %s", str.c_str());
       throw UserException("MSG.INVALID_REG_NO");
   	};
   };

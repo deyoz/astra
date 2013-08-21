@@ -91,6 +91,7 @@ const
                          {etPaxDocType,            "etPaxDocType",            "pax_doc_types"},
                          {etPayType,               "etPayType",               "pay_types"},
                          {etPersType,              "etPersType",              "pers_types"},
+                         {etRcptDocType,           "etRcptDocType",           "rcpt_doc_types"},
                          {etRefusalType,           "etRefusalType",           "refusal_types"},
                          {etRemGrp,                "etRemGrp",                ""},
                          {etRight,                 "etRight",                 "rights"},

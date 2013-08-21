@@ -31,7 +31,7 @@ const std::string ROZYSK_SIRENA =       "ROZYSK_SIRENA";
 const std::string ROZYSK_MINTRANS =     "ROZYSK_MINTRANS";
 const std::string ROZYSK_MINTRANS_24 =  "ROZYSK_MINTRANS_24";
 const std::string FILE_MINTRANS_TYPE =  "MINTRANS";
-const std::string MINTRANS_ID        =  "0000";
+const std::string MINTRANS_ID        =  "13001";
 
 namespace rozysk
 {
@@ -1140,7 +1140,7 @@ void sync_sirena_rozysk( TDateTime utcdate )
   if(not paxs.empty()) {
     request.content=make_soap_content(paxs);
     sirena_rozysk_send(request);
-    ProgTrace(TRACE5, "sirena_rozysk_send completed");
+    ProgTrace(TRACE5, "sync_sirena_rozysk completed");
   }
 }
 

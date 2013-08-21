@@ -37,6 +37,7 @@ enum TElemType {
                  etPaxDocType,
                  etPayType,
                  etPersType,
+                 etRcptDocType,
                  etRefusalType,
                  etRemGrp,
                  etRight,
