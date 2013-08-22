@@ -803,7 +803,7 @@ void TelegramInterface::SendTlg(int tlg_id)
       "WHERE tlg_out.type=typeb_types.code AND "
       "      tlg_out.point_id=points.point_id(+) AND "
       "      tlg_out.originator_id=typeb_originators.id AND "
-      "      tlg_out.id=:id FOR UPDATE";
+      "      tlg_out.id=:id FOR UPDATE"; //!!!vlad Lock() tranzit flight
     TlgQry.CreateVariable( "id", otInteger, tlg_id);
     TlgQry.Execute();
     if (TlgQry.Eof) throw AstraLocale::UserException("MSG.TLG.NOT_FOUND.REFRESH_DATA");

@@ -2985,11 +2985,15 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
 	           EncodeCompLayerType( layer_type ), point_id, pax_id, first_xname.c_str(), first_yname.c_str() );
   TQuery Qry( &OraSession );
   /* лочим рейс */
-  Qry.SQLText = "UPDATE points SET point_id=point_id WHERE point_id=:point_id";
+  TFlights flights;
+  flights.Get( point_id, ftTranzit );
+  flights.Lock();
+
+/*  Qry.SQLText = "UPDATE points SET point_id=point_id WHERE point_id=:point_id";
   Qry.DeclareVariable( "point_id", otInteger );
   Qry.SetVariable( "point_id", point_id );
   Qry.Execute();
-	Qry.Clear();
+	Qry.Clear();  */
   /* считываем инфу по пассажиру */
   switch ( layer_type ) {
   	case cltGoShow:
@@ -3524,15 +3528,9 @@ void ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
 	           EncodeCompLayerType( layer_type ), point_id, pax_id, first_xname.c_str(), first_yname.c_str() );
   TQuery Qry( &OraSession );
   TFlights flights;
-  flights.Get( point_id, trtWithCancelled );
+  flights.Get( point_id, ftTranzit );
   flights.Lock();
 
-  /* лочим рейс */
-/*  Qry.SQLText = "UPDATE points SET point_id=point_id WHERE point_id=:point_id";
-  Qry.DeclareVariable( "point_id", otInteger );
-  Qry.SetVariable( "point_id", point_id );
-  Qry.Execute();
-	Qry.Clear();  */
   /* считываем инфу по пассажиру */
   switch ( layer_type ) {
   	case cltGoShow:

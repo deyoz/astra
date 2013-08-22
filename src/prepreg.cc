@@ -15,6 +15,7 @@
 #include "stat.h"
 #include "salons.h"
 #include "sopp.h"
+#include "points.h"
 #include "term_version.h"
 
 #define NICKNAME "DJEK"
@@ -371,12 +372,16 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
   node = GetNode( "trip_sets", reqNode );
   if ( node != NULL )
   {
-    //лочим рейс
+    //лочим рейс - весь маршрут, т.к. pr_tranzit может поменяться
+    TFlights flights;
+		flights.Get( point_id, ftAll );
+		flights.Lock();
+
     Qry.Clear();
     Qry.SQLText =
       "SELECT point_num,pr_tranzit,first_point, "
       "       ckin.tranzitable(point_id) AS tranzitable "
-      "FROM points WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0 FOR UPDATE ";
+      "FROM points WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";// FOR UPDATE ";
     Qry.CreateVariable("point_id",otInteger,point_id);
     Qry.Execute();
     if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");

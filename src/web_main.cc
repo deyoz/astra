@@ -3255,13 +3255,17 @@ void WebRequestsIface::AddProtPaidLayer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   for(;node!=NULL;node=node->next)
     point_ids.push_back(NodeAsInteger("point_id", node));
   sort(point_ids.begin(),point_ids.end());
-  
+  //lock flights
+  TFlights flights;
+  flights.Get( point_ids, ftTranzit );
+  flights.Lock();
+
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
     "SELECT point_id, pr_del, pr_reg "
     "FROM points "
-    "WHERE point_id=:point_id FOR UPDATE";
+    "WHERE point_id=:point_id";// FOR UPDATE";
   Qry.DeclareVariable("point_id", otInteger);
   for(vector<int>::const_iterator i=point_ids.begin(); i!=point_ids.end(); i++)
   {

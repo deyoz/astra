@@ -29,6 +29,7 @@
 #include "remarks.h"
 #include "alarms.h"
 #include "sopp.h"
+#include "points.h"
 #include "pers_weights.h"
 #include "rozysk.h"
 #include "flt_binding.h"
@@ -2675,7 +2676,7 @@ bool GetUsePS()
 {
 	return false; //!!!
 }
-
+//!!!vlad Lock() может отказаться от параметра bool lock и вынести во вне flights.Lock(); с указанием списка point_id, тогда не требуется сортировка-deadlock
 bool CheckInInterface::CheckCkinFlight(const int point_dep,
                                        const string& airp_dep,
                                        const int point_arv,
@@ -2692,6 +2693,12 @@ bool CheckInInterface::CheckCkinFlight(const int point_dep,
   segInfo.pr_tranzit=false;
   segInfo.fltInfo.Clear();
 
+  if (lock) {
+    TFlights flights;
+	  flights.Get( point_dep, ftTranzit );
+	  flights.Lock();
+  }
+	
   TQuery Qry(&OraSession);
   Qry.Clear();
   ostringstream sql;
@@ -2701,8 +2708,8 @@ bool CheckInInterface::CheckCkinFlight(const int point_dep,
          "       pr_del "
          "FROM points "
          "WHERE point_id=:point_id AND airp=:airp AND pr_del>=0 AND pr_reg<>0";
-  if (lock)
-    sql << " FOR UPDATE";
+/*  if (lock)
+    sql << " FOR UPDATE";*/
 
   Qry.SQLText=sql.str().c_str();
   Qry.CreateVariable("point_id",otInteger,point_dep);

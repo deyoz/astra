@@ -1670,14 +1670,20 @@ void TPoints::Save( bool isShowMsg )
     move_id = Qry.GetVariableAsInteger( "move_id" );
   }
   else {
+    for( vector<TPointsDest>::iterator id=dests.items.begin(); id!=dests.items.end(); id++ ) {
+      if ( id->status != tdInsert ) {
+        TFlights flights;
+		    flights.Get( id->point_id, ftAll );
+		    flights.Lock();
+        break;
+      }
+    }
+    Qry.Clear();
     Qry.SQLText =
-      "BEGIN "\
-      " UPDATE points SET move_id=move_id WHERE move_id=:move_id; "\
-      " UPDATE move_ref SET reference=:reference WHERE move_id=:move_id; "\
-      "END;";
-     Qry.CreateVariable( "move_id", otInteger, move_id );
-     Qry.CreateVariable( "reference", otString, ref );
-     Qry.Execute();
+      " UPDATE move_ref SET reference=:reference WHERE move_id=:move_id ";
+    Qry.CreateVariable( "move_id", otInteger, move_id );
+    Qry.CreateVariable( "reference", otString, ref );
+    Qry.Execute();
   }
   //проверка на то, что пункт можно отменить или удалить
   map<int,TPointsDest> olddests;
@@ -2437,21 +2443,21 @@ void TPointDests::sychDests( TPointDests &new_dests, bool pr_change_dests, bool 
 }
 
 
-void FlightPoints::Get( int point_dep, TTripRouteType2 routeType )
+void FlightPoints::Get( int point_dep )
 {
   clear();
   TTripRoute routes;
   if ( routes.GetRouteBefore( ASTRA::NoExists,
                               point_dep,
                               trtWithCurrent,
-                              routeType ) ) {
+                              trtWithCancelled ) ) {
     insert( begin(), routes.begin(), routes.end() );
   }
   routes.clear();
   if ( routes.GetRouteAfter( ASTRA::NoExists,
                              point_dep,
                              trtNotCurrent,
-                             routeType ) ) {
+                             trtWithCancelled ) ) {
      insert( end(), routes.begin(), routes.end() );
   }
   if ( !empty() ) {
@@ -2461,14 +2467,32 @@ void FlightPoints::Get( int point_dep, TTripRouteType2 routeType )
 };
 
 
-void TFlights::Get( const std::vector<int> &points, TTripRouteType2 routeType )
+void TFlights::Get( const std::vector<int> &points, TFlightType flightType )
 {
-  std::vector<int> pnts = points;
+  std::vector<int> pnts;
+  if ( flightType == ftAll ) {
+    TQuery Qry( &OraSession );
+    Qry.SQLText =
+    "SELECT p2.point_id FROM points p1, points p2 "
+    " WHERE p1.point_id=:point_id AND p2.move_id=p1.move_id";
+    Qry.DeclareVariable( "point_id", otInteger );
+    for ( std::vector<int>::const_iterator ipoint=points.begin();
+          ipoint!=points.end(); ipoint++ ) {
+      Qry.SetVariable( "point_id", *ipoint );
+      Qry.Execute();
+      for ( ; !Qry.Eof; Qry.Next() ) {
+        pnts.push_back( Qry.FieldAsInteger( "point_id" ) );
+      }
+    }
+  }
+  else {
+    pnts = points;
+  }
   sort(pnts.begin(),pnts.end());
   for ( std::vector<int>::iterator ipoint=pnts.begin();
         ipoint!=pnts.end(); ipoint++ ) {
     FlightPoints fp;
-    fp.Get( *ipoint, routeType );
+    fp.Get( *ipoint );
     if ( !empty() &&
          rbegin()->point_dep == fp.point_dep ) {
       continue;

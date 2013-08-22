@@ -1217,8 +1217,10 @@ void TSalons::Write( const TComponSets &compSets )
   QryLayers.DeclareVariable( "first_yname", otString );
   QryLayers.DeclareVariable( "last_yname", otString );
   if ( readStyle == rTripSalons ) {
+    TFlights flights;
+		flights.Get( trip_id, ftTranzit );
+		flights.Lock();
     Qry.SQLText = "BEGIN "\
-                  " UPDATE points SET point_id=point_id WHERE point_id=:point_id; "
                   " UPDATE trip_sets SET pr_lat_seat=:pr_lat_seat WHERE point_id=:point_id; "
                   " DELETE trip_comp_rem WHERE point_id=:point_id; "
                   " DELETE trip_comp_baselayers WHERE point_id=:point_id; "
@@ -1766,13 +1768,15 @@ void TSalonList::ReadRemarks( TQuery &Qry, FilterRoutesProperty &filterRoutes,
     point_s.x = Qry.FieldAsInteger( col_x );
     point_s.y = Qry.FieldAsInteger( col_y );
     if ( !findSeat( salons, &placelist, point_s ) ) {
-      ProgError( STDLOG, "TSalonList::ReadRemarks: placelist not found num=%d", point_s.num );
+      if ( filterSets.filterClass.empty() ) {
+        ProgError( STDLOG, "TSalonList::ReadRemarks: placelist not found num=%d", point_s.num );
+      }
       continue;
     }
     //нашли нужный салон
     TPoint seat_p( point_s.x, point_s.y );
     if ( !placelist->ValidPlace( seat_p ) ) {
-      ProgError( STDLOG, "TSalonList::ReadRemarks: seat not found num=%d, x=%d, y=%d", point_s.num, point_s.x, point_s.y );
+      //ProgError( STDLOG, "TSalonList::ReadRemarks: seat not found num=%d, x=%d, y=%d", point_s.num, point_s.x, point_s.y );
       continue;
     }
     TSeatRemark remark;
@@ -2139,13 +2143,15 @@ void TSalonList::ReadTariff( TQuery &Qry, FilterRoutesProperty &filterRoutes,
     point_s.x = Qry.FieldAsInteger( col_x );
     point_s.y = Qry.FieldAsInteger( col_y );
     if ( !findSeat( salons, &placelist, point_s ) ) {
-      ProgError( STDLOG, "TSalonList::ReadTariff: placelist not found num=%d", point_s.num );
+      if ( filterSets.filterClass.empty() ) {
+        ProgError( STDLOG, "TSalonList::ReadTariff: placelist not found num=%d", point_s.num );
+      }
       continue;
     }
     //нашли нужный салон
     TPoint seat_p( point_s.x, point_s.y );
     if ( !placelist->ValidPlace( seat_p ) ) {
-      ProgError( STDLOG, "TSalonList::ReadTariff: seat not found num=%d, x=%d, y=%d", point_s.num, point_s.x, point_s.y );
+      //ProgError( STDLOG, "TSalonList::ReadTariff: seat not found num=%d, x=%d, y=%d", point_s.num, point_s.x, point_s.y );
       continue;
     }
     if ( col_point_id >= 0 && !filterRoutes.useRouteProperty( Qry.FieldAsInteger( col_point_id ) ) ) {
@@ -2796,18 +2802,24 @@ void getTopSeatLayer( FilterRoutesProperty &filterRoutes,
   TSeatLayer curr_layer, prior_layer;
   std::map<ASTRA::TCompLayerType,TMenuLayer>::const_iterator imenu;
   std::map<int, std::set<TSeatLayer,SeatLayerCompare>,classcomp >::const_iterator isetSeatLayer;
-  //пробег по пунктам вылета, начиная с последнего
+/*  //пробег по пунктам вылета, начиная с последнего
   for ( std::vector<TTripRouteItem>::const_reverse_iterator iroute=filterRoutes.rbegin();
-        iroute!=filterRoutes.rend(); ++iroute ) {
-    if ( !getTopSeatLayerOnRoute( pax_lists, pseat, iroute->point_id, curr_layer, useFilterRoute ) ) { //в пункте вылета нет слоев
+        iroute!=filterRoutes.rend(); ++iroute ) {*/
+  //пробег по пунктам вылета, начиная с первого
+  for ( std::vector<TTripRouteItem>::const_iterator iprior_route=filterRoutes.begin();
+        iprior_route!=filterRoutes.end(); ++iprior_route ) {
+    if ( !getTopSeatLayerOnRoute( pax_lists, pseat, iprior_route->point_id, prior_layer, useFilterRoute ) ) { //в пункте вылета нет слоев
       continue;
     }
 /*    ProgTrace( TRACE5, "getTopSeatLayer: iroute point_id=%d, airp=%s, seat=%s, getTopSeatLayerOnRoute return %s",
                iroute->point_id, iroute->airp.c_str(), string(pseat->yname+pseat->xname).c_str(), curr_layer.toString().c_str() );*/
-    //пробег по пред. пунктам
+/*    //пробег по пред. пунктам
     for ( std::vector<TTripRouteItem>::const_reverse_iterator iprior_route=iroute+1;
-          iprior_route!=filterRoutes.rend(); ++iprior_route ) {
-      if ( !getTopSeatLayerOnRoute( pax_lists, pseat, iprior_route->point_id, prior_layer, useFilterRoute ) ) {
+          iprior_route!=filterRoutes.rend(); ++iprior_route ) {*/
+    //пробег по след. пунктам
+    for ( std::vector<TTripRouteItem>::const_iterator iroute=iprior_route+1;
+          iroute!=filterRoutes.end(); ++iroute ) {
+      if ( !getTopSeatLayerOnRoute( pax_lists, pseat, iroute->point_id, curr_layer, useFilterRoute ) ) {
         continue;
       }
 /*      ProgTrace( TRACE5, "getTopSeatLayer: iprior_route point_id=%d, airp=%s, seat=%s, getTopSeatLayerOnRoute return %s",
@@ -2852,7 +2864,8 @@ void getTopSeatLayer( FilterRoutesProperty &filterRoutes,
         tst();
       }
     }
-    if ( getTopSeatLayerOnRoute( pax_lists, pseat, iroute->point_id, curr_layer, useFilterRoute ) ) {
+    /*if ( getTopSeatLayerOnRoute( pax_lists, pseat, route->point_id, curr_layer, useFilterRoute ) ) {*/
+    if ( getTopSeatLayerOnRoute( pax_lists, pseat, iprior_route->point_id, curr_layer, useFilterRoute ) ) {
       if ( !curr_layer.inRoute ) {
         dropLayer( pax_lists, curr_layer, pseat, TWaitListReason( layerNotRoute, curr_layer ) );
         getTopSeatLayer( filterRoutes,
@@ -2865,7 +2878,8 @@ void getTopSeatLayer( FilterRoutesProperty &filterRoutes,
     }
     
     //после пересечений проверим полученный слой на максимальный
-    if ( getTopSeatLayerOnRoute( pax_lists, pseat, iroute->point_id, curr_layer, true ) ) { //в пункте вылета есть слои
+    /*if ( getTopSeatLayerOnRoute( pax_lists, pseat, route->point_id, curr_layer, true ) ) { //в пункте вылета есть слои*/
+    if ( getTopSeatLayerOnRoute( pax_lists, pseat, iprior_route->point_id, curr_layer, true ) ) { //в пункте вылета есть слои
       if ( isMaxPaxLayer( filterRoutes,
                           pax_lists,
                           menuLayers,
@@ -3580,6 +3594,9 @@ void TSalonList::getEditableFlightLayers( BitSet<ASTRA::TCompLayerType> &editabe
 void TSalonList::WriteFlight( int vpoint_id )
 {
   ProgTrace( TRACE5, "TSalonList::WriteFlight: point_id=%d", vpoint_id );
+  TFlights flights;
+	flights.Get( vpoint_id, ftTranzit );
+	flights.Lock();
   TQuery Qry( &OraSession );
   TQuery QryLayers( &OraSession );
   QryLayers.SQLText =
@@ -3606,7 +3623,6 @@ void TSalonList::WriteFlight( int vpoint_id )
   QryLayers.DeclareVariable( "time_create", otDate );
   Qry.SQLText =
     "BEGIN "
-    " UPDATE points SET point_id=point_id WHERE point_id=:point_id; "
     " UPDATE trip_sets SET pr_lat_seat=:pr_lat_seat WHERE point_id=:point_id; "
     " DELETE trip_comp_rem WHERE point_id=:point_id; "
     " DELETE trip_comp_baselayers WHERE point_id=:point_id; "
@@ -4336,7 +4352,7 @@ void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tran
                                              const std::set<int> &paxs_external_logged )
 {
   TFlights flights;
-  flights.Get( points_tranzit_check_wait_alarm, trtWithCancelled );
+  flights.Get( points_tranzit_check_wait_alarm, ftAll ); //!!!выбираем весь маршрут, а не только транзитные пункты
   flights.Lock();
   TSalonList salonList;
   TSalonPassengers passengers;
@@ -5908,12 +5924,16 @@ std::string getDiffCompsAlarmRoutes( int point_id )
 
 TFindSetCraft SetCraft( bool pr_tranzit_routes, int point_id, TSetsCraftPoints &points )
 {
+  TFlights flights;
+	flights.Get( point_id, ftTranzit );
+  flights.Lock();
+
   points.Clear();
 	TQuery Qry(&OraSession);
 	Qry.SQLText =
 	  "SELECT bort,airline,airp,craft, NVL(comp_id,-1) comp_id "
     " FROM points, trip_sets "
-    " WHERE points.point_id=:point_id AND points.point_id=trip_sets.point_id(+) FOR UPDATE";
+    " WHERE points.point_id=:point_id AND points.point_id=trip_sets.point_id(+)";// FOR UPDATE";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   string bort = Qry.FieldAsString( "bort" );

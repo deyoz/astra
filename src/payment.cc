@@ -15,6 +15,7 @@
 #include "checkin.h"
 #include "baggage.h"
 #include "passenger.h"
+#include "points.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -641,13 +642,16 @@ void PaymentInterface::LoadReceipts(int id, bool pr_grp, bool pr_lat, xmlNodePtr
 
 int PaymentInterface::LockAndUpdTid(int point_dep, int grp_id, int tid)
 {
+  TFlights flights;
+  flights.Get( point_dep, ftTranzit );
+  flights.Lock();
   TQuery Qry(&OraSession);
   //лочим рейс
   Qry.Clear();
   Qry.SQLText=
     "SELECT point_id,cycle_tid__seq.nextval AS tid "
     "FROM points "
-    "WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0 FOR UPDATE";
+    "WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";// FOR UPDATE";
   Qry.CreateVariable("point_id",otInteger,point_dep);
   Qry.Execute();
   if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");

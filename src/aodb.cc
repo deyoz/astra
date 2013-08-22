@@ -1628,7 +1628,7 @@ try {
 		dest.Load( point_id, FUseData );
 		
 		TFlights  flights;
-		flights.Get( point_id, trtWithCancelled );
+		flights.Get( point_id, ftAll );
 		flights.Lock();
     Qry.Clear();
     Qry.SQLText =
