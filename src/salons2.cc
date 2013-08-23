@@ -12,6 +12,7 @@
 #include "images.h"
 #include "convert.h"
 #include "alarms.h"
+#include "points.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -280,8 +281,10 @@ void TSalons::Write()
   QryLayers.DeclareVariable( "last_yname", otString );
 
   if ( readStyle == SALONS2::rTripSalons ) {
+    TFlights flights;
+		flights.Get( trip_id, ftTranzit );
+		flights.Lock();
     Qry.SQLText = "BEGIN "\
-                  " UPDATE points SET point_id=point_id WHERE point_id=:point_id; "
                   " UPDATE trip_sets SET pr_lat_seat=:pr_lat_seat WHERE point_id=:point_id; "
                   " DELETE trip_comp_rem WHERE point_id=:point_id; "
                   " DELETE trip_comp_baselayers WHERE point_id=:point_id; "

@@ -146,7 +146,7 @@ void TPersWeights::getRules( const BASIC::TDateTime &scd_utc, const std::string 
       cl += p->weight.subcl;
     if ( priority_class.find( cl ) == priority_class.end() ||
          priority_class[ cl ].priority < priority ||
-         priority_class[ cl ].priority == priority && priority_class[ cl ].id < p->id ) {
+         (priority_class[ cl ].priority == priority && priority_class[ cl ].id < p->id) ) {
       priority_class[ cl ] = p->weight;
       priority_class[ cl ].priority = priority;
     }
@@ -222,14 +222,12 @@ bool PersWeightRules::intequal( PersWeightRules *p )
 void PersWeightRules::write( int point_id )
 {
   ProgTrace( TRACE5, "PersWeightRules::write point_id=%d", point_id );
-  TQuery Qry(&OraSession);
-  Qry.SQLText =
-    "SELECT point_id FROM points WHERE point_id=:point_id FOR UPDATE";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
-  if ( Qry.Eof )
+  TFlights fligths;
+  fligths.Get( point_id, ftTranzit );
+  if ( fligths.empty() )
     throw Exception( "Flight not found" );
-  Qry.Clear();
+  fligths.Lock();
+  TQuery Qry(&OraSession);
   Qry.SQLText =
     "DELETE trip_pers_weights WHERE point_id=:point_id";
   Qry.CreateVariable( "point_id", otInteger, point_id );
@@ -304,7 +302,7 @@ bool PersWeightRules::weight( std::string cl, std::string subcl, ClassesPersWeig
     priority += ( !cl.empty() && i->cl == cl )*equal_cl;
     priority += ( !subcl.empty() && i->subcl == subcl )*equal_subcl;
     if ( max_priority < priority ||
-         max_priority == priority && max_id < i->id ) {
+         (max_priority == priority && max_id < i->id) ) {
       max_id = i->id;
       max_priority = priority;
       curr = i;

@@ -1827,9 +1827,9 @@ void update_pax_change( int point_id, int pax_id, int reg_no, const string &work
   Qry.SQLText =
      "BEGIN "
      " UPDATE aodb_pax_change "
-     "  SET point_id=:point_id, desk=:desk, client_type=:client_type, time=:time "
+     "  SET point_id=:point_id, desk=:desk, client_type=NVL(:client_type,client_type), time=:time "
      " WHERE pax_id=:pax_id AND reg_no=:reg_no AND work_mode=:work_mode; "
-     " IF SQL%NOTFOUND THEN "
+     " IF SQL%NOTFOUND AND :client_type IS NOT NULL THEN "
      "  INSERT INTO aodb_pax_change(pax_id,reg_no,work_mode,point_id,desk,client_type,time) "
      "   VALUES(:pax_id,:reg_no,:work_mode,:point_id,:desk,:client_type,:time); "
      " END IF; "

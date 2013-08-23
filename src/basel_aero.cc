@@ -13,6 +13,7 @@
 #include "cache.h"
 #include "passenger.h"
 #include "events.h"
+#include "points.h"
 #include "stl_utils.h"
 #include "jxtlib/xml_stuff.h"
 #include "serverlib/logger.h"
@@ -114,10 +115,7 @@ void sych_basel_aero_stat( BASIC::TDateTime utcdate )
   Qry.DeclareVariable( "airp", otString );
   TQuery TripSetsQry(&OraSession);
   TripSetsQry.SQLText =
-    "BEGIN "
-    "  UPDATE points SET point_id=point_id WHERE point_id=:point_id; "
-    "  UPDATE trip_sets SET pr_basel_stat=1 WHERE point_id=:point_id; "
-    "END; ";
+    "UPDATE trip_sets SET pr_basel_stat=1 WHERE point_id=:point_id";
   TripSetsQry.DeclareVariable( "point_id", otInteger );
   TQuery ReWriteQry(&OraSession);
   ReWriteQry.SQLText =
@@ -165,6 +163,11 @@ void sych_basel_aero_stat( BASIC::TDateTime utcdate )
         continue;
       }
       stats.clear();
+      
+		  TFlights  flights;
+		  flights.Get( Qry.FieldAsInteger( "point_id" ), ftTranzit );
+		  flights.Lock(); //лочим весь транзитный рейс
+		  
       TripSetsQry.SetVariable( "point_id", Qry.FieldAsInteger( "point_id" ) );
       TripSetsQry.Execute(); //лочим рейс
       get_basel_aero_flight_stat( ASTRA::NoExists, Qry.FieldAsInteger( "point_id" ), stats );

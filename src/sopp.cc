@@ -1730,13 +1730,17 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
   segs.clear();
   TReqInfo *reqInfo = TReqInfo::Instance();
 
+  TFlights flights;
+  flights.Get( point_id, ftTranzit );
+  flights.Lock();
+
   TQuery Qry(&OraSession);
 	Qry.Clear();
 	Qry.SQLText=
 	  "SELECT airline,flt_no,suffix,airp,scd_out, "
 	  "       point_id,point_num,first_point,pr_tranzit "
     "FROM points "
-    "WHERE point_id=:point_id AND pr_reg<>0 AND pr_del=0 FOR UPDATE";
+    "WHERE point_id=:point_id AND pr_reg<>0 AND pr_del=0";// FOR UPDATE";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
   if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
@@ -1759,7 +1763,7 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
     "WHERE tckin_pax_grp.grp_id=pax_grp.grp_id AND "
     "      pax_grp.point_dep=points.point_id AND "
     "      tckin_id=:tckin_id AND seg_no>:seg_no "
-    "ORDER BY seg_no FOR UPDATE";  //?может лучше лочить отдельно?
+    "ORDER BY seg_no FOR UPDATE";  //?может лучше лочить отдельно? !!!vlad Lock()
   TCkinQry.DeclareVariable("tckin_id",otInteger);
   TCkinQry.DeclareVariable("seg_no",otInteger);
 
@@ -2879,7 +2883,11 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     throw AstraLocale::UserException( "MSG.FLIGHT.DUPLICATE.ALREADY_EXISTS" );
   // задание параметров pr_tranzit, pr_reg, first_point
   TSOPPDests::iterator pid=dests.end();
+  int lock_point_id = NoExists;
   for( TSOPPDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
+    if ( lock_point_id == NoExists && id->point_id != NoExists ) {
+      lock_point_id = id->point_id;
+    }
   	if ( id->pr_del == -1 ) continue;
   	if( pid == dests.end() || id + 1 == dests.end() )
   		id->pr_tranzit = 0;
@@ -2924,16 +2932,8 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     move_id = Qry.GetVariableAsInteger( "move_id" );
   }
   else {
-    Qry.SQLText =
-     "SELECT point_id FROM points WHERE move_id=:move_id ";
-    Qry.CreateVariable( "move_id", otInteger, move_id );
-    Qry.Execute();
-    vector<int> points;
-    for ( ; !Qry.Eof; Qry.Next() ) {
-      points.push_back( Qry.FieldAsInteger( "point_id" ) );
-    }
     TFlights flights;
-    flights.Get( points, trtWithCancelled );
+    flights.Get( lock_point_id, ftAll );
     flights.Lock();
     Qry.Clear();
     Qry.SQLText =
@@ -4003,11 +4003,15 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 void SoppInterface::DropFlightFact(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   int point_id = NodeAsInteger( "point_id", reqNode );
+  TFlights flights;
+  flights.Get( point_id, ftAll );  //весь маршрут
+  flights.Lock();
+
   TQuery Qry(&OraSession);
 	Qry.SQLText=
 	  "SELECT move_id,airline||flt_no||suffix as trip,act_out,point_num,pr_del "
     "FROM points "
-    "WHERE point_id=:point_id AND pr_del!=-1 AND act_out IS NOT NULL FOR UPDATE";
+    "WHERE point_id=:point_id AND pr_del!=-1 AND act_out IS NOT NULL";// FOR UPDATE";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
   if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
@@ -4535,14 +4539,20 @@ void SoppInterface::DeleteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 	internal_ReadDests( move_id, dests_del, reference, NoExists );
   vector<TSOPPTrip> trs;
   // создаем все возможные рейсы из нового маршрута исключая удаленные пункты
+  int lock_point_id = NoExists;
   for( TSOPPDests::iterator i=dests_del.begin(); i!=dests_del.end(); i++ ) {
   	if ( i->pr_del == -1 ) continue;
+  	if ( lock_point_id == NoExists && i->point_id != NoExists ) {
+      lock_point_id = i->point_id;
+  	}
   	TSOPPTrip t = createTrip( move_id, i, dests_del );
   	ProgTrace( TRACE5, "t.pr_del=%d, t.point_id=%d, t.places_out.size()=%zu, t.suffix_out=%s",
   	                   t.pr_del, t.point_id, t.places_out.size(), t.suffix_out.c_str() );
   	trs.push_back(t);
   };
-
+  TFlights flights;
+  flights.Get( lock_point_id, ftAll );
+  flights.Lock();
 	TQuery Qry(&OraSession);
   // проверка на предмет того, что во всех пп стоит статус неактивен иначе ругаемся
 	Qry.Clear();

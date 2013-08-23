@@ -679,7 +679,7 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   }
   ProgTrace( TRACE5, "cBase=%d, cChange=%d, cSet=%d", cBase, cChange, cSet );
   TFlights flights;
-  flights.Get( trip_id, trtWithCancelled );
+  flights.Get( trip_id, ftTranzit );
   flights.Lock();
   Qry.SQLText =
     "SELECT airline,flt_no,suffix,airp,scd_out FROM points WHERE point_id=:point_id";
@@ -1126,10 +1126,9 @@ void IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string y
                       xmlNodePtr resNode )
 {
 	TFlights flights;
-  flights.Get( point_id, trtWithCancelled );
+  flights.Get( point_id, ftTranzit );
   flights.Lock();
   int point_arv = NoExists;
-//  #warning 5 IntChangeSeats: lock tranzit routes
   TQuery Qry( &OraSession );
   Qry.SQLText =
     "SELECT airline, flt_no, suffix, airp, scd_out "
@@ -1283,7 +1282,7 @@ void IntChangeSeats( int point_id, int pax_id, int &tid, string xname, string yn
                      xmlNodePtr resNode )
 {
 	TFlights flights;
-  flights.Get( point_id, trtWithCancelled );
+  flights.Get( point_id, ftTranzit );
   flights.Lock();
   TQuery Qry( &OraSession );
   Qry.SQLText =
@@ -1627,7 +1626,7 @@ void SalonFormInterface::AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 	ProgTrace( TRACE5, "AutoSeats: point_id=%d, isTranzitSalonsVersion=%d", point_id, isTranzitSalonsVersion );
 	bool pr_waitlist = GetNode( "waitlist", reqNode );
 	TFlights flights;
-  flights.Get( point_id, trtWithCancelled );
+  flights.Get( point_id, ftTranzit );
   flights.Lock();
 	TQuery Qry( &OraSession );
   Qry.SQLText =
