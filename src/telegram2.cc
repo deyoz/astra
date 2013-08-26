@@ -4905,8 +4905,19 @@ void TLDMDests::ToTlg(TypeB::TDetailCreateInfo &info, bool &vcompleted, vector<s
         baggage_sum += iv->bag.baggage;
         cargo_sum += iv->bag.cargo;
         mail_sum += iv->bag.mail;
+        if(options.version == "AFL") {
+            body.push_back("SI");
+            ostringstream buf;
+            buf
+                << info.TlgElemIdToElem(etAirp, iv->target)
+                << " C " << iv->bag.cargo
+                << " M " << iv->bag.mail
+                << " B " << iv->bag.baggage
+                << " E " << iv->excess.excess;
+            body.push_back(buf.str());
+        }
     }
-    if(options.version != "28ed") {
+    if(options.version == "CEK") {
         row.str("");
         row << "SI: EXB" << excess.excess << KG;
         body.push_back(row.str());
