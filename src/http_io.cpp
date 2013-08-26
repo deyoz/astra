@@ -5,6 +5,7 @@
 #include <pion/http/request_writer.hpp>
 #include <pion/http/response_reader.hpp>
 #include <pion/tcp/connection.hpp>
+#include <pion/algorithm.hpp>
 
 #define NICKNAME "DENIS"
 #include "serverlib/test.h"
@@ -57,15 +58,15 @@ void my_test_old()
 
     if(false) {
         // POST
-        post.set_method("POST");
+        post.set_method(types::REQUEST_METHOD_POST);
         post.add_header("SOAPAction", action);
-        post.add_header("Host", host_port.str());
+        post.add_header(types::HEADER_HOST, host_port.str());
         post.set_content_type("text/xml; charset=utf-8");
         post.set_content(content);
     } else {
         // GET
-        post.set_method("GET");
-        post.add_header("Host", host_port.str());
+        post.set_method(types::REQUEST_METHOD_GET);
+        post.add_header(types::HEADER_HOST, host_port.str());
     }
 
     pion::http::response rc(post);
@@ -135,8 +136,8 @@ IOHandler::IOHandler(
     host_port << host << ":" << port;
 
     post = request_ptr(new request(resource));
-    post->set_method("GET");
-    post->add_header("Host", host_port.str());
+    post->set_method(types::REQUEST_METHOD_GET);
+    post->add_header(types::HEADER_HOST, host_port.str());
 
     writer = request_writer::create(tcp_conn, post);
     writer->send(boost::bind(&IOHandler::handleWrite, this, _1, _2));
@@ -165,32 +166,12 @@ void IOHandler::handleRead(response_ptr& response, pion::tcp::connection_ptr& tc
                 response->get_status_message().c_str());
 }
 
-void web_replace(string &val, string olds, string news)
-{
-    size_t idx = val.find(olds);
-    while(idx != string::npos) {
-        val.replace(idx, olds.size(), news);
-        idx = val.find(olds);
-    }
-}
-
-string web_replace(string val)
-{
-    web_replace(val, " ", "%20");
-    web_replace(val, "&", "%26");
-    web_replace(val, "=", "%3D");
-    web_replace(val, "\xd\xa", "%0D%0A");
-    return val;
-}
-
 typedef vector< vector<string> > TBSMList;
 
 void send_bsm(const vector<string> host_list, const TBSMList &bsm_list)
 {
     TPerfTimer tm;
     tm.Init();
-
-    static const string br = "%0D%0A";
 
     vector<string> result;
     u_int port = 80;
@@ -201,7 +182,7 @@ void send_bsm(const vector<string> host_list, const TBSMList &bsm_list)
     for(TBSMList::const_iterator iv = bsm_list.begin(); iv != bsm_list.end(); iv++) {
         string bsm;
         for(vector<string>::const_iterator i_bsm = iv->begin(); i_bsm != iv->end(); i_bsm++)
-            bsm += web_replace(*i_bsm) + br;
+            bsm += pion::algorithm::url_encode(*i_bsm + types::STRING_CRLF);
         ioh_list.push_back(IOHPtr(new IOHandler(io_service, host_list[0], port, "/OutBsmService.asmx/BsmProccess?message=" + bsm)));
     }
 
@@ -219,19 +200,28 @@ void send_bsm(const vector<string> host_list, const TBSMList &bsm_list)
     ProgTrace(TRACE5, "send msg: %s", tm.PrintWithMessage().c_str());
 }
 
-string send_bsm(const string host, const string &bsm)
+string send_format_ayt(const string &uri, const string &bsm)
 {
+    string proto;
+    string host;
+    uint16_t port;
+    string path;
+    string query;
+    if(not parser::parse_uri(uri, proto, host, port, path, query))
+        throw Exception("parse_uri failed for '%s'", uri.c_str());
+    if(not query.empty())
+        throw Exception("unexpected query %s", query.c_str());
+    query = "message=";
+    string resource = path + "?" + query + pion::algorithm::url_encode(bsm);
+
     TPerfTimer tm;
     tm.Init();
-
-    u_int port = 80;
 
     io_service io_service;
     typedef boost::shared_ptr<IOHandler> IOHPtr;
     vector<IOHPtr> ioh_list;
 
-//!!!    ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, "/OutBsmService.asmx/BsmProccess?message=" + web_replace(bsm))));
-    ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, "/OutBsmService.asmx/BsmProccess?message=" + web_replace(bsm))));
+    ioh_list.push_back(IOHPtr(new IOHandler(io_service, host, port, resource)));
 
     io_service.run();
 
@@ -291,9 +281,9 @@ void sirena_rozysk_send(const HTTPRequestInfo &r)
         throw Exception("connect failed: %s", error_code.message().c_str());
 
     request post(r.resource);
-    post.set_method("POST");
+    post.set_method(types::REQUEST_METHOD_POST);
     post.add_header("SOAPAction", r.action);
-    post.add_header("Host", host_port.str());
+    post.add_header(types::HEADER_HOST, host_port.str());
     post.set_content_type("text/xml;charset=UTF-8");
     post.set_content(r.content);
 

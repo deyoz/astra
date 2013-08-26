@@ -118,6 +118,7 @@ struct TTlgSeatList {
 
 // End of previous stuff
 
+const std::string FILE_PARAM_FORMAT = "FORMAT";
 const std::string FILE_PARAM_POINT_ID = "POINT_ID";
 const std::string FILE_PARAM_TLG_TYPE = "TLG_TYPE";
 const std::string FILE_PARAM_HEADING = "HEADING";
@@ -282,8 +283,8 @@ void CompareContent(const TTlgContent& con1, const TTlgContent& con2, std::vecto
 std::string CreateTlgBody(const TTlgContent& con, bool pr_lat);
 struct TBSMAddrs {
     std::vector<TypeB::TCreateInfo> createInfo;
-    std::map<std::string, std::string> HTTPGETparams;
-    bool empty() const { return createInfo.empty() and HTTPGETparams.empty(); }
+    std::map<std::string, std::string> HTTP_TYPEBparams;
+    bool empty() const { return createInfo.empty() and HTTP_TYPEBparams.empty(); }
 };
 bool IsSend( const TAdvTripInfo &fltInfo, TBSMAddrs &addrs );
 void Send( int point_dep, int grp_id, const TTlgContent &con1, const TBSMAddrs &addrs );

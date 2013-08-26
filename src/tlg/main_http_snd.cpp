@@ -43,6 +43,74 @@ bool validate_param_name(const string &val, TParamName pn)
     return result;
 }
 
+void send_error(
+        ostringstream &msg,
+        const string &tlg_short_name,
+        int id,
+        const string &param_name,
+        const string &param_value,
+        const string &err_msg = "")
+{
+    msg
+        << FILE_HTTP_TYPEB_TYPE << ": Ошибка отправки телеграммы " << tlg_short_name << ". "
+        << "(ид=" << id << ", " << param_name << "=" << param_value << "): "
+            << err_msg;
+}
+
+void parse_format_ayt(const string &answer, ostringstream &msg)
+{
+    bool result = false;
+    xmlDocPtr xml_res = NULL;
+    try {
+        xml_res = TextToXMLTree( answer );
+        if(xml_res == NULL)
+            throw Exception("TextToXMLTree failed");
+        xmlNodePtr resNode = xmlDocGetRootElement(xml_res);
+        result = (string)NodeAsStringFast("boolean", resNode) == "true";
+        xmlFreeDoc(xml_res);
+    } catch(Exception &E) {
+        if(xml_res)
+            xmlFreeDoc(xml_res);
+        msg << " Ошибка разбора XML-ответа. '" << answer << "': " << E.what();
+        throw;
+    } catch(...) {
+        if(xml_res)
+            xmlFreeDoc(xml_res);
+        msg << " Ошибка разбора XML-ответа. '" << answer << "'";
+        throw;
+    }
+    if(not result) msg << " Получен ответ false.";
+}
+
+enum TTypeBFormat {
+    tbfAYT,
+    tbfUnknown
+};
+
+const char *TTypeBFormatS[] =
+{
+    "AYT",
+    ""
+};
+
+TTypeBFormat DecodeTypeBFormat(const string &s)
+{
+    unsigned int i;
+    for(i=0;i<sizeof(TTypeBFormatS)/sizeof(TTypeBFormatS[0]);i+=1) if (s == TTypeBFormatS[i]) break;
+    if (i<sizeof(TTypeBFormatS)/sizeof(TTypeBFormatS[0]))
+        return (TTypeBFormat)i;
+    else
+        return tbfUnknown;
+};
+
+const char* EncodeTypeBFormat(TTypeBFormat p)
+{
+    return TTypeBFormatS[p];
+};
+
+typedef string  (*TTypeBFormatSend)(const string &uri, const string &data);
+typedef void  (*TTypeBFormatParse)(const string &answer, ostringstream &msg);
+
 static void scan_tlg(void)
 {
     time_t time_start=time(NULL);
@@ -62,7 +130,7 @@ static void scan_tlg(void)
             "   file_queue.status = :status and "
             "   file_queue.id = files.id "
             "order by file_queue.id ";
-        TlgQry.CreateVariable("type", otString, FILE_HTTPGET_TYPE);
+        TlgQry.CreateVariable("type", otString, FILE_HTTP_TYPEB_TYPE);
         TlgQry.CreateVariable("sender", otString, OWN_POINT_ADDR());
         TlgQry.CreateVariable("receiver", otString, OWN_POINT_ADDR());
         TlgQry.CreateVariable("status", otString, "PUT");
@@ -73,7 +141,6 @@ static void scan_tlg(void)
     static char *p = NULL;
     static int p_len = 0;
     for(; not TlgQry.Eof; trace_count++, TlgQry.Next(), OraSession.Commit()) {
-        bool result = false;
         int id = TlgQry.FieldAsInteger("id");
         try {
             int len = TlgQry.GetSizeLongField( "data" );
@@ -97,15 +164,30 @@ static void scan_tlg(void)
             string tlg_type = fileparams[FILE_PARAM_TLG_TYPE];
             string tlg_short_name = ((TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",tlg_type))).short_name;
             int point_id = ToInt(fileparams[FILE_PARAM_POINT_ID]);
+            TTypeBFormat format = DecodeTypeBFormat(fileparams[FILE_PARAM_FORMAT]);
+            TTypeBFormatSend sender = NULL;
+            TTypeBFormatParse parser = NULL;
+            if(format == tbfUnknown)
+                throw Exception("param %s not found for %s", FILE_PARAM_FORMAT.c_str(), fileparams[FILE_PARAM_FORMAT].c_str());
+            switch(format) {
+                case tbfAYT:
+                    sender = send_format_ayt;
+                    parser = parse_format_ayt;
+                    break;
+                default:
+                    throw Exception("format %s not supported yet", EncodeTypeBFormat(format));
+            }
             for(map<string, string>::iterator im = fileparams.begin(); im != fileparams.end(); im++) {
                 if(validate_param_name(im->first, pnHTTP)) { // handle HTTP
                     string str_result;
                     ostringstream msg;
                     bool err = false;
                     try {
-                        str_result = send_bsm(im->second, data);
+                        if(not sender)
+                            throw Exception("sender not defined");
+                        str_result = (*sender)(im->second, data);
                         msg
-                            << "HTTPGET: Телеграмма " << tlg_short_name << " "
+                            << FILE_HTTP_TYPEB_TYPE << ": Телеграмма " << tlg_short_name << " "
                             << "(ид=" << id << ", " << im->first << "=" << im->second << ") "
                             << "отправлена.";
                         if(str_result.empty()) {
@@ -114,36 +196,23 @@ static void scan_tlg(void)
                         }
                     } catch(Exception &E) {
                         err = true;
-                        msg
-                            << "HTTPGET: Ошибка отправки телеграммы " << tlg_short_name << ". "
-                            << "(ид=" << id << ", " << im->first << "=" << im->second << "): "
-                                << E.what();
+                        send_error(msg, tlg_short_name, id, im->first, im->second, E.what());
                     } catch(...) {
                         err = true;
-                        msg
-                            << "HTTPGET: Ошибка отправки телеграммы " << tlg_short_name << ". "
-                            << "(ид=" << id << ", " << im->first << "=" << im->second << "): ";
+                        if(not parser)
+                            throw Exception("parser not defined");
+                        send_error(msg, tlg_short_name, id, im->first, im->second);
                     }
                     if(err) {
                         TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,id);
                         continue;
                     }
-                    xmlDocPtr xml_res = NULL;
                     try {
-                        xml_res = TextToXMLTree( str_result );
-                        if(xml_res == NULL)
-                            throw Exception("TextToXMLTree failed");
-                        xmlNodePtr resNode = xmlDocGetRootElement(xml_res);
-                        result = (string)NodeAsStringFast("boolean", resNode) == "true";
-                        xmlFreeDoc(xml_res);
+                        (*parser)(str_result, msg);
                     } catch(...) {
-                        if(xml_res)
-                            xmlFreeDoc(xml_res);
-                        msg << " Ошибка разбора XML-ответа.";
                         TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,id);
                         continue;
                     }
-                    if(not result) msg << " Получен ответ false.";
                     TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,id);
                     deleteFile(id);
                     break;
@@ -180,15 +249,15 @@ static void scan_tlg(void)
     }
     time_t time_end=time(NULL);
     if (time_end-time_start>5)
-        ProgTrace(TRACE5,"Attention! HTTPGET scan_tlg execute time: %ld secs, count=%d",
-                time_end-time_start,trace_count);
+        ProgTrace(TRACE5,"Attention! %s scan_tlg execute time: %ld secs, count=%d",
+                FILE_HTTP_TYPEB_TYPE.c_str(), time_end-time_start,trace_count);
 }
 
-static const int WAIT_HTTPGET_INTERVAL()       //миллисекунды
+static const int WAIT_HTTP_TYPEB_INTERVAL()       //миллисекунды
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
-    VAR=getTCLParam("TLG_SND_WAIT_HTTPGET_INTERVAL",1,NoExists,60000);
+    VAR=getTCLParam("TLG_SND_WAIT_HTTP_TYPEB_INTERVAL",1,NoExists,60000);
   return VAR;
 };
 
@@ -210,7 +279,7 @@ int main_http_snd_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
 
             scan_tlg();
 
-            waitCmd("CMD_TLG_HTTP_SND",WAIT_HTTPGET_INTERVAL(),buf,sizeof(buf));
+            waitCmd("CMD_TLG_HTTP_SND",WAIT_HTTP_TYPEB_INTERVAL(),buf,sizeof(buf));
         }; // end of loop
     }
     catch(EOracleError &E)
