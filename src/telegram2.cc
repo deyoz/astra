@@ -1544,7 +1544,7 @@ namespace PRL_SPACE {
             "WHERE "
             "   pax_grp.point_dep = :point_id AND "
             "   pax_grp.grp_id = pax.grp_id AND "
-            "   salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'one',rownum,1) IS NOT NULL AND "
+//??? djek            "   salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'one',rownum,1) IS NOT NULL AND "
             "   pax.refuse IS NULL "
             "GROUP BY "
             "   pax_grp.point_arv "
