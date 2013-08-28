@@ -161,9 +161,11 @@ void IOHandler::handleRead(response_ptr& response, pion::tcp::connection_ptr& tc
     answer = content_ptr ? content_ptr : "";
 
     if(response->get_status_code() != 200 /*and response->getStatusCode() != 500*/) // as the peer is a complete moron
-        throw Exception("Failed request: %d %s",
+        throw Exception("Failed request: %d %s; answer: %s",
                 response->get_status_code(),
-                response->get_status_message().c_str());
+                response->get_status_message().c_str(),
+                answer.c_str()
+                );
 }
 
 typedef vector< vector<string> > TBSMList;
