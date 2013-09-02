@@ -7497,6 +7497,7 @@ bool TSalonPassengers::check_waitlist_alarm( const std::map<int,TPaxList> &pax_l
     }
   }
   //пробег по старым пассажирам-местам
+  std::map<int,bool> change_pax_seats;
   for ( std::map<int,TPassSeats>::iterator iold=old_seats.begin(); iold!=old_seats.end(); iold++ ) {
     std::map<int,TPassSeats>::iterator inew = new_seats.find( iold->first );
     if ( inew != new_seats.end() ) { //пассажир найден
@@ -7506,28 +7507,7 @@ bool TSalonPassengers::check_waitlist_alarm( const std::map<int,TPaxList> &pax_l
       //изменились места - удаляем старые, записываем новые
       DelQry.SetVariable( "pax_id", inew->first );
       DelQry.Execute();
-      bool pr_exists = ( DelQry.RowCount() );
-      
-      for( TPassSeats::iterator iseat=inew->second.begin();
-            iseat!=inew->second.end(); iseat++ ) {
-        Qry.SetVariable( "pax_id", inew->first );
-        Qry.SetVariable( "xname", iseat->line );
-        Qry.SetVariable( "yname", iseat->row );
-        Qry.Execute();
-      }
-      if ( paxs_external_logged.find( inew->first ) == paxs_external_logged.end() ) {
-        CheckWaitListToLog( QryAirp,
-                            pr_exists,
-                            inew->first,
-                            point_dep,
-                            pax_lists,
-                            passes,
-                            pr_craft_lat );
-      }
-      rozysk::sync_pax( iold->first, TReqInfo::Instance()->desk.code, TReqInfo::Instance()->user.descr );
-      if ( pr_is_sync_paxs ) {
-        update_pax_change( point_dep, iold->first, passes[ iold->first ].reg_no, "Р" );
-      }
+      change_pax_seats.insert( make_pair( inew->first, DelQry.RowCount() ) );
     }
     else { //пассажир не найден в новом списке - разрегистрация по ошибке агента или ЛО
       DelQry.SetVariable( "pax_id", iold->first );
@@ -7555,18 +7535,19 @@ bool TSalonPassengers::check_waitlist_alarm( const std::map<int,TPaxList> &pax_l
   //пробег по новым пассажирам-местам
   for ( std::map<int,TPassSeats>::iterator inew=new_seats.begin(); inew!=new_seats.end(); inew++ ) {
     std::map<int,TPassSeats>::iterator iold = old_seats.find( inew->first );
-    if ( iold == old_seats.end() ) { //пассажир не найден
+    if ( iold == old_seats.end() ||
+         change_pax_seats.find( inew->first ) != change_pax_seats.end() ) { //пассажир не найден или у пассажира изменилось место
       for ( TPassSeats::iterator iseat=inew->second.begin();
             iseat!=inew->second.end(); iseat++ ) {
         Qry.SetVariable( "pax_id", inew->first );
         Qry.SetVariable( "xname", iseat->line );
         Qry.SetVariable( "yname", iseat->row );
         Qry.Execute();
-        ProgTrace( TRACE5, "xname=%s, yname=%s", iseat->line, iseat->row );
+        ProgTrace( TRACE5, "new seats: pax_id=%d, seat=%s", inew->first, string(string(iseat->row)+iseat->line).c_str() );
       }
       if ( paxs_external_logged.find( inew->first ) == paxs_external_logged.end() ) {
         CheckWaitListToLog( QryAirp,
-                            false,
+                            change_pax_seats.find( inew->first ) != change_pax_seats.end(),
                             inew->first,
                             point_dep,
                             pax_lists,
@@ -7575,7 +7556,7 @@ bool TSalonPassengers::check_waitlist_alarm( const std::map<int,TPaxList> &pax_l
       }
       rozysk::sync_pax( inew->first, TReqInfo::Instance()->desk.code, TReqInfo::Instance()->user.descr  );
       if ( pr_is_sync_paxs ) {
-        update_pax_change( point_dep, inew->first, passes[ inew->first ].reg_no, "-" );
+        update_pax_change( point_dep, inew->first, passes[ inew->first ].reg_no, "Р" );
       }
     }
   }
