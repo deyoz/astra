@@ -1340,7 +1340,7 @@ string TPrnTagStore::EXCESS(TFieldParams fp)
 string TPrnTagStore::FLT_NO(TFieldParams fp)
 {
     ostringstream result;
-    result << setw(3) << setfill('0') << pointInfo.flt_no << pointInfo.suffix;
+    result << setw(3) << setfill('0') << pointInfo.flt_no << tag_lang.ElemIdToTagElem(etSuffix, pointInfo.suffix, efmtCodeNative);
     return result.str();
 }
 
@@ -1720,7 +1720,7 @@ string TPrnTagStore::FLT_NO1(TFieldParams fp) {
     string suffix;
     if(not flt_no.empty()) {
         if(not IsDigit(flt_no[flt_no.size() - 1])) {
-            suffix = tag_lang.ElemIdToTagElem(etSuffix, flt_no[flt_no.size() - 1], efmtCodeNative);
+            suffix = tag_lang.ElemIdToTagElem(etSuffix, flt_no.substr(flt_no.size() - 1), efmtCodeNative);
             flt_no.erase(flt_no.size() - 1, 1);
         }
     };
