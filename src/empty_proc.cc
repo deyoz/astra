@@ -25,6 +25,7 @@
 #include "serverlib/ourtime.h"
 #include <set>
 #include "season.h"
+#include "sopp.h"
 #include "events.h"
 #include "transfer.h"
 #include "term_version.h"
@@ -1566,3 +1567,220 @@ int test_typeb_utils2(int argc,char **argv)
 
   return 0;
 };
+
+int test_sopp_sql(int argc,char **argv)
+{
+  boost::posix_time::ptime mcsTime;
+  long int delta, delta_sql;
+  long int exec_old=0, exec_new=0, exec_old_sql=0, exec_new_sql=0;
+  InitLogTime(NULL);
+  ofstream f1, f2;
+  string file_name;
+  file_name="sopp_test_old.txt";
+  f1.open(file_name.c_str());
+  if (!f1.is_open()) throw EXCEPTIONS::Exception("Can't open file '%s'",file_name.c_str());
+  file_name="sopp_test_new.txt";
+  f2.open(file_name.c_str());
+  if (!f2.is_open()) throw EXCEPTIONS::Exception("Can't open file '%s'",file_name.c_str());
+  //§ ¯à®á ¤«ï ­®¢®£® ¨ áâ à®£® ®¡à ¡®âç¨ª , ¤ «¥¥ áà ¢­¥­¨ï à¥§ã«ìâ â®¢
+  int step=0, stepcount=0;
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  for ( TDateTime day=NowUTC()-380.0; day<=NowUTC()-378.0; day++ ) {
+  for ( int iuser_type=0; iuser_type<3; iuser_type++ ) {
+    for ( int itime_type=0; itime_type<3; itime_type++ ) {
+      for ( int icond=0; icond<=11; icond++ ) {
+        reqInfo->Initialize("ŒŽ‚");
+        switch( itime_type ) {
+          case 0:
+            reqInfo->user.sets.time = ustTimeLocalDesk;
+            break;
+          case 1:
+            reqInfo->user.sets.time = ustTimeLocalAirp;
+            break;
+          case 2:
+            reqInfo->user.sets.time = ustTimeUTC;
+            break;
+        }
+        switch( iuser_type ) {
+          case 0:
+            reqInfo->user.user_type = utSupport;
+            break;
+          case 1:
+            reqInfo->user.user_type = utAirline;
+            break;
+          case 2:
+            reqInfo->user.user_type = utAirport;
+            break;
+        }
+        switch( icond ) {
+          case 0:
+            break;
+          case 1:
+            reqInfo->user.access.airps.push_back( "„Œ„" );
+            reqInfo->user.access.airps_permit = true;
+            break;
+          case 2:
+            reqInfo->user.access.airps.push_back( "„Œ„" );
+            reqInfo->user.access.airps_permit = false;
+            break;
+          case 3:
+            reqInfo->user.access.airlines.push_back( "ž’" );
+            reqInfo->user.access.airlines_permit = true;
+            break;
+          case 4:
+            reqInfo->user.access.airlines.push_back( "ž’" );
+            reqInfo->user.access.airlines_permit = false;
+            break;
+          case 5:
+            reqInfo->user.access.airps.push_back( "„Œ„" );
+            reqInfo->user.access.airps_permit = true;
+            reqInfo->user.access.airlines.push_back( "ž’" );
+            reqInfo->user.access.airlines_permit = true;
+            break;
+          case 6:
+            reqInfo->user.access.airps.push_back( "„Œ„" );
+            reqInfo->user.access.airps_permit = false;
+            reqInfo->user.access.airlines.push_back( "ž’" );
+            reqInfo->user.access.airlines_permit = true;
+            break;
+          case 7:
+            reqInfo->user.access.airps.push_back( "„Œ„" );
+            reqInfo->user.access.airps_permit = true;
+            reqInfo->user.access.airlines.push_back( "ž’" );
+            reqInfo->user.access.airlines_permit = false;
+            break;
+          case 8:
+            reqInfo->user.access.airps.push_back( "„Œ„" );
+            reqInfo->user.access.airps_permit = false;
+            reqInfo->user.access.airlines.push_back( "ž’" );
+            reqInfo->user.access.airlines_permit = false;
+            break;
+          case 9:
+            reqInfo->user.access.airps.push_back( "‚Š" );
+            reqInfo->user.access.airps.push_back( "‘Ž—" );
+            reqInfo->user.access.airps.push_back( "BBU" );
+            reqInfo->user.access.airps_permit = true;
+            break;
+          case 10:
+            reqInfo->user.access.airlines.push_back( "ž’" );
+            reqInfo->user.access.airlines.push_back( "Ž" );
+            reqInfo->user.access.airlines.push_back( "" );
+            reqInfo->user.access.airlines_permit = true;
+            break;
+          case 11:
+            reqInfo->user.access.airps.push_back( "‚Š" );
+            reqInfo->user.access.airps.push_back( "‘Ž—" );
+            reqInfo->user.access.airps.push_back( "BBU" );
+            reqInfo->user.access.airps_permit = true;
+            reqInfo->user.access.airlines.push_back( "ž’" );
+            reqInfo->user.access.airlines.push_back( "Ž" );
+            reqInfo->user.access.airlines.push_back( "" );
+            reqInfo->user.access.airlines_permit = true;
+            break;
+        }
+          ProgTrace( TRACE5, "user_type=%d, time_type=%d, icond=%d, day=%s, step=%d",
+                     iuser_type, itime_type, icond, DateTimeToStr( day, ServerFormatDateTimeAsString ).c_str(), step );
+          string strNew, strOld;
+          xmlDocPtr ReqDocNew = NULL,
+                    ReqDocOld = NULL,
+                    ResDocNew = NULL,
+                    ResDocOld = NULL;
+          stepcount++;
+          try {
+            ReqDocNew = CreateXMLDoc( "UTF-8", "requestNew" );
+            ReqDocOld = CreateXMLDoc( "UTF-8", "requestOld" );
+            xmlNodePtr reqNodeNew = NewTextChild( ReqDocNew->children, "query" );
+            xmlNodePtr reqNodeOld = NewTextChild( ReqDocOld->children, "query" );
+            NewTextChild( reqNodeNew, "flight_date", DateTimeToStr( day, ServerFormatDateTimeAsString ) );
+            NewTextChild( reqNodeNew, "pr_verify_new_select", 1 );
+            NewTextChild( reqNodeOld, "flight_date", DateTimeToStr( day, ServerFormatDateTimeAsString ) );
+            ResDocNew = CreateXMLDoc( "UTF-8", "result" );
+            ResDocOld = CreateXMLDoc( "UTF-8", "result" );
+            xmlNodePtr resNodeNew = NewTextChild( ResDocNew->children, "term" );
+            resNodeNew = NewTextChild( resNodeNew, "answer" );
+            xmlNodePtr resNodeOld = NewTextChild( ResDocOld->children, "term" );
+            resNodeOld = NewTextChild( resNodeOld, "answer" );
+
+            if ( step == 0 ) {
+              step = 1;
+              mcsTime = boost::posix_time::microsec_clock::universal_time();
+              IntReadTrips( NULL, reqNodeOld, resNodeOld, delta_sql );
+              delta = (boost::posix_time::microsec_clock::universal_time() - mcsTime).total_microseconds();
+              strOld = XMLTreeToText( ResDocOld );
+              exec_old += delta;
+              exec_old_sql += delta_sql;
+              mcsTime = boost::posix_time::microsec_clock::universal_time();
+              IntReadTrips( NULL, reqNodeNew, resNodeNew, delta_sql );
+              delta = (boost::posix_time::microsec_clock::universal_time() - mcsTime).total_microseconds();
+              strNew = XMLTreeToText( ResDocNew );
+              exec_new += delta;
+              exec_new_sql += delta_sql;
+            }
+            else {
+              step = 0;
+              mcsTime = boost::posix_time::microsec_clock::universal_time();
+              IntReadTrips( NULL, reqNodeNew, resNodeNew, delta_sql );
+              delta = (boost::posix_time::microsec_clock::universal_time() - mcsTime).total_microseconds();
+              strNew = XMLTreeToText( ResDocNew );
+              exec_new += delta;
+              exec_new_sql += delta_sql;
+              mcsTime = boost::posix_time::microsec_clock::universal_time();
+              IntReadTrips( NULL, reqNodeOld, resNodeOld, delta_sql );
+              delta = (boost::posix_time::microsec_clock::universal_time() - mcsTime).total_microseconds();
+              strOld = XMLTreeToText( ResDocOld );
+              exec_old += delta;
+              exec_old_sql += delta_sql;
+            }
+            if ( strNew != strOld ) {
+              ProgTrace( TRACE5, "DIFF!!!" );
+              f1 << "==========================user_type="<<iuser_type<<",time_type="<<itime_type<<",icond="<<icond<<" "<<DateTimeToStr( day, ServerFormatDateTimeAsString ) << "=============================="<<endl;
+              f1 << strOld;
+              f2 << "==========================user_type="<<iuser_type<<",time_type="<<itime_type<<",icond="<<icond<<" "<<DateTimeToStr( day, ServerFormatDateTimeAsString ) << "=============================="<<endl;
+              f2 << strNew;
+            }
+          }
+          catch(EXCEPTIONS::Exception &e) {
+            f1 << "==========================user_type="<<iuser_type<<",time_type="<<itime_type<<",icond="<<icond<<" "<<DateTimeToStr( day, ServerFormatDateTimeAsString ) << "=============================="<<endl;
+            f1 << "==========================EXCEPTIONS::Exception &e="<<e.what()<<endl;
+            if ( !strOld.empty() ) {
+              f1 << strOld;
+            }
+            f2 << "==========================user_type="<<iuser_type<<",time_type="<<itime_type<<",icond="<<icond<<" "<<DateTimeToStr( day, ServerFormatDateTimeAsString ) << "=============================="<<endl;
+            f2 << "==========================EXCEPTIONS::Exception &e="<<e.what()<<endl;
+            if ( !strNew.empty() ) {
+              f2 << strNew;
+            }
+          }
+          catch( ... ) {
+            f1 << "==========================user_type="<<iuser_type<<",time_type="<<itime_type<<",icond="<<icond<<" "<<DateTimeToStr( day, ServerFormatDateTimeAsString ) << "=============================="<<endl;
+            f1 << "==========================Unknown Error=============================="<<endl;
+            f2 << "==========================user_type="<<iuser_type<<",time_type="<<itime_type<<",icond="<<icond<<" "<<DateTimeToStr( day, ServerFormatDateTimeAsString ) << "=============================="<<endl;
+            f2 << "==========================Unknown Error=============================="<<endl;
+            xmlFreeDoc( ReqDocNew );
+            xmlFreeDoc( ReqDocOld );
+            xmlFreeDoc( ResDocNew );
+            xmlFreeDoc( ResDocOld );
+          }
+          xmlFreeDoc( ReqDocNew );
+          xmlFreeDoc( ReqDocOld );
+          xmlFreeDoc( ResDocNew );
+          xmlFreeDoc( ResDocOld );
+          if ( exec_new_sql > exec_old_sql ) {
+            f1<<"user_type="<<iuser_type<<",time_type="<<itime_type<<",icond="<<icond<<",day="<<DateTimeToStr( day, ServerFormatDateTimeAsString )<<",step="<<step<<", exec_new="<<exec_new<<" ms    exec_new_sql="<<exec_new_sql<<endl;
+            f1<<"user_type="<<iuser_type<<",time_type="<<itime_type<<",icond="<<icond<<",day="<<DateTimeToStr( day, ServerFormatDateTimeAsString )<<",step="<<step<<", exec_old="<<exec_old<<" ms    exec_old_sql="<<exec_old_sql<<endl;
+            f2<<"user_type="<<iuser_type<<",time_type="<<itime_type<<",icond="<<icond<<",day="<<DateTimeToStr( day, ServerFormatDateTimeAsString )<<",step="<<step<<", exec_new="<<exec_new<<" ms    exec_new_sql="<<exec_new_sql<<endl;
+            f2<<"user_type="<<iuser_type<<",time_type="<<itime_type<<",icond="<<icond<<",day="<<DateTimeToStr( day, ServerFormatDateTimeAsString )<<",step="<<step<<", exec_old="<<exec_old<<" ms    exec_old_sql="<<exec_old_sql<<endl;
+          }
+        }
+      }
+    }
+  }
+  f1<<"exec_new="<<exec_new<<" ms    exec_new_sql="<<exec_new_sql<<" ms"<<endl;
+  f1<<"exec_old="<<exec_old<<" ms    exec_old_sql="<<exec_old_sql<<" ms"<<endl;
+  f2<<"exec_new="<<exec_new<<" ms    exec_new_sql="<<exec_new_sql<<" ms"<<endl;
+  f2<<"exec_old="<<exec_old<<" ms    exec_old_sql="<<exec_old_sql<<" ms"<<endl;
+  if (f1.is_open()) f1.close();
+  if (f2.is_open()) f2.close();
+  return 0;
+}
+
