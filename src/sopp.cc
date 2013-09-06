@@ -2341,9 +2341,9 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
   segs.clear();
   TReqInfo *reqInfo = TReqInfo::Instance();
 
-  TFlights flights;
-  flights.Get( point_id, ftTranzit );
-  flights.Lock();
+  TFlights flightsForLock;
+  flightsForLock.Get( point_id, ftTranzit );
+  flightsForLock.Lock();
 
   TQuery Qry(&OraSession);
 	Qry.Clear();
@@ -2351,7 +2351,7 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
 	  "SELECT airline,flt_no,suffix,airp,scd_out, "
 	  "       point_id,point_num,first_point,pr_tranzit "
     "FROM points "
-    "WHERE point_id=:point_id AND pr_reg<>0 AND pr_del=0";// FOR UPDATE";
+    "WHERE point_id=:point_id AND pr_reg<>0 AND pr_del=0";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
   if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
@@ -2374,7 +2374,7 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
     "WHERE tckin_pax_grp.grp_id=pax_grp.grp_id AND "
     "      pax_grp.point_dep=points.point_id AND "
     "      tckin_id=:tckin_id AND seg_no>:seg_no "
-    "ORDER BY seg_no FOR UPDATE";  //?может лучше лочить отдельно? !!!vlad Lock()
+    "ORDER BY seg_no";
   TCkinQry.DeclareVariable("tckin_id",otInteger);
   TCkinQry.DeclareVariable("seg_no",otInteger);
 
@@ -2400,7 +2400,7 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
   Qry.Execute();
   if (Qry.Eof) return;
   
-  segs[point_id]=fltInfo;
+  segs.insert(make_pair(point_id, fltInfo));
   for(;!Qry.Eof;Qry.Next())
   {
     if (Qry.FieldIsNULL("class")) continue;  //несопровождаемый багаж не разрегистрируем!
@@ -2431,6 +2431,9 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
       if (SeparateTCkin(grp_id,cssAllPrevCurr,cssNone,NoExists)!=NoExists)
       {
         //разрегистрируем все сквозные сегменты после нашего
+        vector<int> point_ids;
+        list< pair<int, int> > grp_ids;
+
         TCkinQry.SetVariable("tckin_id",tckin_id);
         TCkinQry.SetVariable("seg_no",tckin_seg_no);
         TCkinQry.Execute();
@@ -2442,12 +2445,23 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
           int tckin_point_id=TCkinQry.FieldAsInteger("point_id");
           int tckin_grp_id=TCkinQry.FieldAsInteger("grp_id");
 
-          map<int,TAdvTripInfo>::const_iterator f=segs.find(tckin_point_id);
-          if (f==segs.end())
-            f=segs.insert(make_pair(tckin_point_id, TAdvTripInfo(TCkinQry))).first;
+          if (segs.find(tckin_point_id)==segs.end())
+            segs.insert(make_pair(tckin_point_id, TAdvTripInfo(TCkinQry))).first;
+
+          point_ids.push_back(tckin_point_id);
+          grp_ids.push_back(make_pair(tckin_point_id, tckin_grp_id));
+        };
+
+        TFlights flightsForLock;
+        flightsForLock.Get( point_ids, ftTranzit );
+      	flightsForLock.Lock();
+
+        for(list< pair<int/*point_id*/, int/*grp_id*/> >::const_iterator g=grp_ids.begin(); g!=grp_ids.end(); ++g)
+        {
+          map<int,TAdvTripInfo>::const_iterator f=segs.find(g->first);
           if (f==segs.end()) throw Exception("DeletePassengers: f==segs.end()");
 
-          DeletePaxGrp( f->second, tckin_grp_id, true, PaxQry, DelQry, BSMsegs, nextTrferSegs);
+          DeletePaxGrp( f->second, g->second, true, PaxQry, DelQry, BSMsegs, nextTrferSegs);
         };
       };
     };
@@ -4623,7 +4637,7 @@ void SoppInterface::DropFlightFact(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 	Qry.SQLText=
 	  "SELECT move_id,airline||flt_no||suffix as trip,act_out,point_num,pr_del "
     "FROM points "
-    "WHERE point_id=:point_id AND pr_del!=-1 AND act_out IS NOT NULL";// FOR UPDATE";
+    "WHERE point_id=:point_id AND pr_del!=-1 AND act_out IS NOT NULL";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
   if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
