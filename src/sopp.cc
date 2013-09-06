@@ -50,7 +50,7 @@ using namespace boost::local_time;
 
 enum TModule { tSOPP, tISG, tSPPCEK };
 
-const char* points_SOPP_SQL_N =
+/*const char* points_SOPP_SQL_N =
       "SELECT points.move_id,points.point_id,point_num,airp,airp_fmt,first_point,airline,airline_fmt,flt_no,"
       "       suffix,suffix_fmt,craft,craft_fmt,bort, "
       "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
@@ -65,6 +65,34 @@ const char* points_SOPP_SQL_N =
       " SELECT  move_id FROM points "
       "  WHERE points.pr_del!=-1 AND "
       "        time_in IN (:where_spp_date_sql,TO_DATE('01.01.0001','DD.MM.YYYY')) AND "
+      "        ( airline IS NULL :or_where_airline_sql )"
+      "        :where_airp_sql "
+      " ) p "
+      "WHERE points.move_id = p.move_id AND "
+      "      points.pr_del!=-1 "
+      "ORDER BY points.move_id,point_num,point_id"; */
+const char* points_SOPP_SQL_N =
+      "SELECT points.move_id,points.point_id,point_num,airp,airp_fmt,first_point,airline,airline_fmt,flt_no,"
+      "       suffix,suffix_fmt,craft,craft_fmt,bort, "
+      "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
+      "       pr_tranzit,pr_reg,points.pr_del pr_del,points.tid tid "
+      " FROM points, "
+      "( "
+      " SELECT move_id FROM points "
+      "  WHERE points.pr_del!=-1 AND "
+      "        time_out in (:where_spp_date_sql) "
+      "        :where_airp_sql :where_airline_sql "
+      " UNION "
+      " SELECT  move_id FROM points "
+      "  WHERE points.pr_del!=-1 AND "
+      "        time_in IN (:where_spp_date_sql) AND "
+      "        ( airline IS NULL :or_where_airline_sql )"
+      "        :where_airp_sql "
+      " UNION "
+      " SELECT move_id FROM points "
+      "  WHERE points.pr_del!=-1 AND "
+      "        time_in=TO_DATE('01.01.0001','DD.MM.YYYY') AND "
+      "        time_out=TO_DATE('01.01.0001','DD.MM.YYYY') AND "
       "        ( airline IS NULL :or_where_airline_sql )"
       "        :where_airp_sql "
       " ) p "
