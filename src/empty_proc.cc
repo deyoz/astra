@@ -1571,7 +1571,7 @@ int test_typeb_utils2(int argc,char **argv)
 int test_sopp_sql(int argc,char **argv)
 {
   boost::posix_time::ptime mcsTime;
-  long int delta, delta_sql;
+  long int delta_exec_old=0, delta_exec_new=0, delta_sql_old=0, delta_sql_new=0;
   long int exec_old=0, exec_new=0, exec_old_sql=0, exec_new_sql=0;
   InitLogTime(NULL);
   ofstream f1, f2;
@@ -1582,10 +1582,11 @@ int test_sopp_sql(int argc,char **argv)
   file_name="sopp_test_new.txt";
   f2.open(file_name.c_str());
   if (!f2.is_open()) throw EXCEPTIONS::Exception("Can't open file '%s'",file_name.c_str());
+  int file_count=0, file_size=0;
   //запрос для нового и старого обработчика, далее сравнения результатов
   int step=0, stepcount=0;
   TReqInfo *reqInfo = TReqInfo::Instance();
-  for ( TDateTime day=NowUTC()-380.0; day<=NowUTC()-378.0; day++ ) {
+  for ( TDateTime day=NowUTC()-3.0; day<=NowUTC()+3.0; day++ ) {
   for ( int iuser_type=0; iuser_type<3; iuser_type++ ) {
     for ( int itime_type=0; itime_type<3; itime_type++ ) {
       for ( int icond=0; icond<=11; icond++ ) {
@@ -1614,6 +1615,8 @@ int test_sopp_sql(int argc,char **argv)
         }
         switch( icond ) {
           case 0:
+            reqInfo->user.access.airps_permit = true;
+            reqInfo->user.access.airlines_permit = true;
             break;
           case 1:
             reqInfo->user.access.airps.push_back( "ДМД" );
@@ -1704,32 +1707,32 @@ int test_sopp_sql(int argc,char **argv)
             if ( step == 0 ) {
               step = 1;
               mcsTime = boost::posix_time::microsec_clock::universal_time();
-              IntReadTrips( NULL, reqNodeOld, resNodeOld, delta_sql );
-              delta = (boost::posix_time::microsec_clock::universal_time() - mcsTime).total_microseconds();
+              IntReadTrips( NULL, reqNodeOld, resNodeOld, delta_sql_old );
+              delta_exec_old = (boost::posix_time::microsec_clock::universal_time() - mcsTime).total_microseconds();
               strOld = XMLTreeToText( ResDocOld );
-              exec_old += delta;
-              exec_old_sql += delta_sql;
+              exec_old += delta_exec_old;
+              exec_old_sql += delta_sql_old;
               mcsTime = boost::posix_time::microsec_clock::universal_time();
-              IntReadTrips( NULL, reqNodeNew, resNodeNew, delta_sql );
-              delta = (boost::posix_time::microsec_clock::universal_time() - mcsTime).total_microseconds();
+              IntReadTrips( NULL, reqNodeNew, resNodeNew, delta_sql_new );
+              delta_exec_new = (boost::posix_time::microsec_clock::universal_time() - mcsTime).total_microseconds();
               strNew = XMLTreeToText( ResDocNew );
-              exec_new += delta;
-              exec_new_sql += delta_sql;
+              exec_new += delta_exec_new;
+              exec_new_sql += delta_sql_new;
             }
             else {
               step = 0;
               mcsTime = boost::posix_time::microsec_clock::universal_time();
-              IntReadTrips( NULL, reqNodeNew, resNodeNew, delta_sql );
-              delta = (boost::posix_time::microsec_clock::universal_time() - mcsTime).total_microseconds();
+              IntReadTrips( NULL, reqNodeNew, resNodeNew, delta_sql_new );
+              delta_exec_new = (boost::posix_time::microsec_clock::universal_time() - mcsTime).total_microseconds();
               strNew = XMLTreeToText( ResDocNew );
-              exec_new += delta;
-              exec_new_sql += delta_sql;
+              exec_new += delta_exec_new;
+              exec_new_sql += delta_sql_new;
               mcsTime = boost::posix_time::microsec_clock::universal_time();
-              IntReadTrips( NULL, reqNodeOld, resNodeOld, delta_sql );
-              delta = (boost::posix_time::microsec_clock::universal_time() - mcsTime).total_microseconds();
+              IntReadTrips( NULL, reqNodeOld, resNodeOld, delta_sql_old );
+              delta_exec_old = (boost::posix_time::microsec_clock::universal_time() - mcsTime).total_microseconds();
               strOld = XMLTreeToText( ResDocOld );
-              exec_old += delta;
-              exec_old_sql += delta_sql;
+              exec_old += delta_exec_old;
+              exec_old_sql += delta_sql_old;
             }
             if ( strNew != strOld ) {
               ProgTrace( TRACE5, "DIFF!!!" );
@@ -1737,6 +1740,8 @@ int test_sopp_sql(int argc,char **argv)
               f1 << strOld;
               f2 << "==========================user_type="<<iuser_type<<",time_type="<<itime_type<<",icond="<<icond<<" "<<DateTimeToStr( day, ServerFormatDateTimeAsString ) << "=============================="<<endl;
               f2 << strNew;
+              file_size += strOld.size();
+              file_size += strNew.size();
             }
           }
           catch(EXCEPTIONS::Exception &e) {
@@ -1765,20 +1770,33 @@ int test_sopp_sql(int argc,char **argv)
           xmlFreeDoc( ReqDocOld );
           xmlFreeDoc( ResDocNew );
           xmlFreeDoc( ResDocOld );
-          if ( exec_new_sql > exec_old_sql ) {
-            f1<<"user_type="<<iuser_type<<",time_type="<<itime_type<<",icond="<<icond<<",day="<<DateTimeToStr( day, ServerFormatDateTimeAsString )<<",step="<<step<<", exec_new="<<exec_new<<" ms    exec_new_sql="<<exec_new_sql<<endl;
-            f1<<"user_type="<<iuser_type<<",time_type="<<itime_type<<",icond="<<icond<<",day="<<DateTimeToStr( day, ServerFormatDateTimeAsString )<<",step="<<step<<", exec_old="<<exec_old<<" ms    exec_old_sql="<<exec_old_sql<<endl;
-            f2<<"user_type="<<iuser_type<<",time_type="<<itime_type<<",icond="<<icond<<",day="<<DateTimeToStr( day, ServerFormatDateTimeAsString )<<",step="<<step<<", exec_new="<<exec_new<<" ms    exec_new_sql="<<exec_new_sql<<endl;
-            f2<<"user_type="<<iuser_type<<",time_type="<<itime_type<<",icond="<<icond<<",day="<<DateTimeToStr( day, ServerFormatDateTimeAsString )<<",step="<<step<<", exec_old="<<exec_old<<" ms    exec_old_sql="<<exec_old_sql<<endl;
+          if ( delta_sql_new > delta_sql_old ) {
+            f1<<"user_type="<<iuser_type<<",time_type="<<itime_type<<",icond="<<icond<<",day="<<DateTimeToStr( day, ServerFormatDateTimeAsString )<<",step="<<step<<
+                ", diff_exec_sql="<<((delta_sql_new-delta_sql_old)/1000)<<" ms, diff_exec="<<((delta_exec_new-delta_exec_old)/1000)<<" ms, delta_exec_new="<<delta_sql_new<<endl;
+            f2<<"user_type="<<iuser_type<<",time_type="<<itime_type<<",icond="<<icond<<",day="<<DateTimeToStr( day, ServerFormatDateTimeAsString )<<",step="<<step<<
+                ", diff_exec_sql="<<((delta_sql_new-delta_sql_old)/1000)<<" ms, diff_exec="<<((delta_exec_new-delta_exec_old)/1000)<<" ms, delta_exec_new="<<delta_sql_new<<endl;
+            file_size += 100;
           }
+        }
+        if ( file_size > 10000 ) {
+          file_size=0;
+          if (f1.is_open()) f1.close();
+          if (f2.is_open()) f2.close();
+          file_count++;
+          file_name=string("sopp_test_old.txt") + IntToString( file_count );
+          f1.open(file_name.c_str());
+          if (!f1.is_open()) throw EXCEPTIONS::Exception("Can't open file '%s'",file_name.c_str());
+          file_name=string("sopp_test_new.txt") + IntToString( file_count );;
+          f2.open(file_name.c_str());
+          if (!f2.is_open()) throw EXCEPTIONS::Exception("Can't open file '%s'",file_name.c_str());
         }
       }
     }
   }
-  f1<<"exec_new="<<exec_new<<" ms    exec_new_sql="<<exec_new_sql<<" ms"<<endl;
-  f1<<"exec_old="<<exec_old<<" ms    exec_old_sql="<<exec_old_sql<<" ms"<<endl;
-  f2<<"exec_new="<<exec_new<<" ms    exec_new_sql="<<exec_new_sql<<" ms"<<endl;
-  f2<<"exec_old="<<exec_old<<" ms    exec_old_sql="<<exec_old_sql<<" ms"<<endl;
+  f1<<"exec_new="<<(exec_new/1000)<<" ms    exec_new_sql="<<(exec_new_sql/1000)<<" ms"<<endl;
+  f1<<"exec_old="<<(exec_old/1000)<<" ms    exec_old_sql="<<(exec_old_sql/1000)<<" ms"<<endl;
+  f2<<"exec_new="<<(exec_new/1000)<<" ms    exec_new_sql="<<(exec_new_sql/1000)<<" ms"<<endl;
+  f2<<"exec_old="<<(exec_old/1000)<<" ms    exec_old_sql="<<(exec_old_sql/1000)<<" ms"<<endl;
   if (f1.is_open()) f1.close();
   if (f2.is_open()) f2.close();
   return 0;

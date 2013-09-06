@@ -57,6 +57,58 @@ enum TModule { tSOPP, tISG, tSPPCEK };
       "       pr_tranzit,pr_reg,points.pr_del pr_del,points.tid tid "
       " FROM points, "
       "( "
+      " SELECT DISTINCT move_id FROM points "
+      "  WHERE points.pr_del!=-1 AND "
+      "        (:where_spp_date_time_out_sql OR "
+      "         :where_spp_date_time_in_sql) "
+      "        :where_airline_sql "
+      "        :where_airp_sql ) p "
+      "WHERE points.move_id = p.move_id AND "
+      "      points.pr_del!=-1 "
+      "ORDER BY points.move_id,point_num";*/
+
+/*
+  A/k   Time_in    A/p  Time_out
+  A/k   Time_in    A/p  NULL
+  A/k   NULL       A/p  Time_out
+  A/k   '01.01.01' A/p  '01.01.01'
+  NULL  Time_in    A/p  NULL
+  NULL  '01.01.01  A/p  '01.01.01
+*/
+const char* points_SOPP_SQL_N =
+      "SELECT points.move_id,points.point_id,point_num,airp,airp_fmt,first_point,airline,airline_fmt,flt_no,"
+      "       suffix,suffix_fmt,craft,craft_fmt,bort, "
+      "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
+      "       pr_tranzit,pr_reg,points.pr_del pr_del,points.tid tid "
+      " FROM points, "
+      "( "
+      " SELECT DISTINCT move_id FROM points "
+      "  WHERE points.pr_del!=-1 AND "
+      "        (:where_spp_date_time_out_sql OR "
+      "         :where_spp_date_time_in_sql OR "
+      "         time_out=TO_DATE('01.01.0001','DD.MM.YYYY') ) "
+      "        :or_where_airline_sql "
+      "        :where_airp_sql "
+/*
+//      "        :where_airp_sql :where_airline_sql "
+      " UNION "
+      " SELECT  move_id FROM points "
+      "  WHERE points.pr_del!=-1 AND "
+      "        :where_spp_date_time_in_sql "
+//      "        :where_airp_sql :where_airline_sql "
+      "       AND ( airline IS NULL :or_where_airline_sql )"
+      "        :where_airp_sql "*/
+      " ) p "
+      "WHERE points.move_id = p.move_id AND "
+      "      points.pr_del!=-1 "
+      "ORDER BY points.move_id,point_num";
+/*const char* points_SOPP_SQL_N =
+      "SELECT points.move_id,points.point_id,point_num,airp,airp_fmt,first_point,airline,airline_fmt,flt_no,"
+      "       suffix,suffix_fmt,craft,craft_fmt,bort, "
+      "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
+      "       pr_tranzit,pr_reg,points.pr_del pr_del,points.tid tid "
+      " FROM points, "
+      "( "
       " SELECT move_id FROM points "
       "  WHERE points.pr_del!=-1 AND "
       "        time_out in (:where_spp_date_sql,TO_DATE('01.01.0001','DD.MM.YYYY')) "
@@ -70,35 +122,37 @@ enum TModule { tSOPP, tISG, tSPPCEK };
       " ) p "
       "WHERE points.move_id = p.move_id AND "
       "      points.pr_del!=-1 "
-      "ORDER BY points.move_id,point_num,point_id"; */
-const char* points_SOPP_SQL_N =
+      "ORDER BY points.move_id,point_num,point_id";   */
+
+/*const char* points_SOPP_SQL_N =
       "SELECT points.move_id,points.point_id,point_num,airp,airp_fmt,first_point,airline,airline_fmt,flt_no,"
       "       suffix,suffix_fmt,craft,craft_fmt,bort, "
       "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
       "       pr_tranzit,pr_reg,points.pr_del pr_del,points.tid tid "
-      " FROM points, "
+      " FROM points WHERE move_id IN "
       "( "
       " SELECT move_id FROM points "
       "  WHERE points.pr_del!=-1 AND "
       "        time_out in (:where_spp_date_sql) "
       "        :where_airp_sql :where_airline_sql "
-      " UNION "
+      " UNION ALL "
       " SELECT  move_id FROM points "
       "  WHERE points.pr_del!=-1 AND "
       "        time_in IN (:where_spp_date_sql) AND "
       "        ( airline IS NULL :or_where_airline_sql )"
       "        :where_airp_sql "
-      " UNION "
+      " UNION ALL "
       " SELECT move_id FROM points "
       "  WHERE points.pr_del!=-1 AND "
       "        time_in=TO_DATE('01.01.0001','DD.MM.YYYY') AND "
       "        time_out=TO_DATE('01.01.0001','DD.MM.YYYY') AND "
       "        ( airline IS NULL :or_where_airline_sql )"
       "        :where_airp_sql "
-      " ) p "
-      "WHERE points.move_id = p.move_id AND "
-      "      points.pr_del!=-1 "
-      "ORDER BY points.move_id,point_num,point_id";
+      " )  "  */
+      /*"WHERE points.move_id = p.move_id AND "*/
+/*      "   AND   points.pr_del!=-1 "
+      "ORDER BY points.move_id,point_num";*/
+      //"ORDER BY points.move_id,point_num,point_id";
 
 const char* points_SOPP_SQL =
     "SELECT points.move_id,points.point_id,point_num,airp,airp_fmt,first_point,airline,airline_fmt,flt_no,"
@@ -651,7 +705,9 @@ void addCondition_N( TQuery &PointsQry,
   string var_name;
   PointsQry.Clear();
 	TReqInfo *reqInfo = TReqInfo::Instance();
-  string where_airp_sql, where_airline_sql, where_spp_date_sql, text_sql = sql;
+  string where_airp_sql, where_airline_sql,
+         where_spp_date_time_out_sql,
+         where_spp_date_time_in_sql, text_sql = sql;
   if ( !reqInfo->user.access.airps.empty() ) {
     if ( pr_arx )
    	  where_airp_sql = " AND arx_points.airp";
@@ -660,8 +716,19 @@ void addCondition_N( TQuery &PointsQry,
     if ( !reqInfo->user.access.airps_permit ) {
       where_airp_sql += " NOT";
     }
-    where_airp_sql += " IN (";
-    int num = 0;
+    //where_airp_sql += " IN (";
+    where_airp_sql += " IN ";
+    where_airp_sql += GetSQLEnum( reqInfo->user.access.airps );
+/*    if ( !reqInfo->user.access.airlines.empty()  ) {
+      where_airp_sql += " OR ckin.next_airp(first_point,point_num) ";
+      if ( !reqInfo->user.access.airps_permit ) {
+        where_airp_sql += " NOT";
+      }
+      where_airp_sql += " IN ";
+      where_airp_sql += GetSQLEnum( reqInfo->user.access.airps );
+    }
+    where_airp_sql += ") ";*/
+/*    int num = 0;
     for ( vector<string>::const_iterator iairp=reqInfo->user.access.airps.begin();
           iairp!=reqInfo->user.access.airps.end(); iairp++, num++ ) {
       if ( iairp!=reqInfo->user.access.airps.begin() ) {
@@ -673,7 +740,7 @@ void addCondition_N( TQuery &PointsQry,
       ProgTrace( TRACE5, "var_name=%s, value=%s",
                  var_name.c_str(), iairp->c_str() );
     }
-    where_airp_sql += ") ";
+    where_airp_sql += ") ";*/
   }
   if ( !reqInfo->user.access.airlines.empty() ) {
   	if ( pr_arx )
@@ -683,8 +750,10 @@ void addCondition_N( TQuery &PointsQry,
     if ( !reqInfo->user.access.airlines_permit ) {
       where_airline_sql += " NOT";
     }
-    where_airline_sql += " IN (";
-    int num=0;
+   // where_airline_sql += " IN (";
+    where_airline_sql += " IN ";
+    where_airline_sql += GetSQLEnum( reqInfo->user.access.airlines );
+/*    int num=0;
     for ( vector<string>::const_iterator iairline=reqInfo->user.access.airlines.begin();
           iairline!=reqInfo->user.access.airlines.end(); iairline++, num++ ) {
       if ( iairline!=reqInfo->user.access.airlines.begin() ) {
@@ -696,7 +765,7 @@ void addCondition_N( TQuery &PointsQry,
       ProgTrace( TRACE5, "var_name=%s, value=%s",
                  var_name.c_str(), iairline->c_str() );
     }
-     where_airline_sql += ")";
+     where_airline_sql += ")";*/
   }
   
   if ( first_date == NoExists ) {
@@ -716,7 +785,7 @@ void addCondition_N( TQuery &PointsQry,
   modf( first_date, &first_day );
   modf( next_date, &last_day );
   int num=0;
-  for ( TDateTime day=first_day; day<=last_day; day++, num++ ) {
+/*  for ( TDateTime day=first_day; day<=last_day; day++, num++ ) {
     if ( !where_spp_date_sql.empty() ) {
       where_spp_date_sql += ",";
     }
@@ -725,7 +794,12 @@ void addCondition_N( TQuery &PointsQry,
     PointsQry.CreateVariable( var_name, otDate, day );
     ProgTrace( TRACE5, "var_name=%s, value=%s",
                var_name.c_str(), DateTimeToStr( day ).c_str() );
-  }
+  }*/
+  where_spp_date_time_out_sql = " time_out>=:first_day AND time_out<=:last_day ";
+                                
+  where_spp_date_time_in_sql = " time_in>=:first_day AND time_in<=:last_day ";
+  PointsQry.CreateVariable( "first_day", otDate, first_day );
+  PointsQry.CreateVariable( "last_day", otDate, last_day );
 
   string::size_type idx;
   while ( (idx = text_sql.find( ":where_airp_sql" )) != string::npos ) {
@@ -741,12 +815,16 @@ void addCondition_N( TQuery &PointsQry,
   while ( (idx = text_sql.find( ":or_where_airline_sql" )) != string::npos ) {
     text_sql.erase( idx, strlen( ":or_where_airline_sql" ) );
     if ( !where_airline_sql.empty() ) {
-      text_sql.insert( idx, string( " OR " ) + where_airline_sql );
+      text_sql.insert( idx, string( " AND ( airline IS NULL OR " ) + where_airline_sql + ")" );
     }
   };
-  while ( (idx = text_sql.find( ":where_spp_date_sql" )) != string::npos ) {
-    text_sql.erase( idx, strlen( ":where_spp_date_sql" ) );
-    text_sql.insert( idx, where_spp_date_sql );
+  while ( (idx = text_sql.find( ":where_spp_date_time_out_sql" )) != string::npos ) {
+    text_sql.erase( idx, strlen( ":where_spp_date_time_out_sql" ) );
+    text_sql.insert( idx, where_spp_date_time_out_sql );
+  };
+  while ( (idx = text_sql.find( ":where_spp_date_time_in_sql" )) != string::npos ) {
+    text_sql.erase( idx, strlen( ":where_spp_date_time_in_sql" ) );
+    text_sql.insert( idx, where_spp_date_time_in_sql );
   };
   PointsQry.SQLText = text_sql;
   ProgTrace( TRACE5, "addCondition_N: SQL=\n%s", text_sql.c_str());
@@ -943,6 +1021,7 @@ string internal_ReadData_N( TSOPPTrips &trips, TDateTime first_date, TDateTime n
 	if ( arx )
 		col_part_key = PointsQry.FieldIndex( "part_key" );
   vector<TSOPPTrip> vtrips;
+  int fetch_count = 0;
   while ( !PointsQry.Eof ) {
     if ( move_id != PointsQry.FieldAsInteger( col_move_id ) ) {
       if ( move_id > NoExists && dests.size() > 1 ) {
@@ -1066,8 +1145,10 @@ string internal_ReadData_N( TSOPPTrips &trips, TDateTime first_date, TDateTime n
       }
     }
     dests.push_back( d );
+    fetch_count++;
     PointsQry.Next();
   } // end while !PointsQry.Eof
+  ProgTrace( TRACE5, "fetch_count=%d", fetch_count );
   if ( move_id > NoExists ) {
         //create trips
     string airline;
@@ -1376,6 +1457,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
 	if ( arx )
 		col_part_key = PointsQry.FieldIndex( "part_key" );
   vector<TSOPPTrip> vtrips;
+  int fetch_count=0;
   while ( !PointsQry.Eof ) {
     if ( move_id != PointsQry.FieldAsInteger( col_move_id ) ) {
       if ( move_id > NoExists && dests.size() > 1 ) {
@@ -1500,7 +1582,9 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
     }
     dests.push_back( d );
     PointsQry.Next();
+    fetch_count++;
   } // end while !PointsQry.Eof
+  ProgTrace( TRACE5, "fetch_count=%d", fetch_count );
   if ( move_id > NoExists ) {
         //create trips
     string airline;
