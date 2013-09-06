@@ -702,7 +702,7 @@ class TBtmContent
     };
 };
 
-#define MAX_LEXEME_SIZE 70
+#define MAX_LEXEME_SIZE 100
 
 class TTlgParser
 {
