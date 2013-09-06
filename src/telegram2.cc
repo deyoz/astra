@@ -4885,23 +4885,12 @@ void TLDMDests::ToTlg(TypeB::TDetailCreateInfo &info, bool &vcompleted, vector<s
         row
             << "/0"
             << "/0";
-        if(options.version == "CEK" and info.airp_dep == "—‹")
+        if((options.version == "CEK" and info.airp_dep == "—‹") or options.version == "28ed")
             row
                 << ".B/" << iv->bag.baggage
                 << ".C/" << iv->bag.cargo
                 << ".M/" << iv->bag.mail;
         body.push_back(row.str());
-        if(options.version == "28ed") {
-            row.str("");
-            row
-                << "SI "
-                << info.TlgElemIdToElem(etAirp, iv->target) << " "
-                << "B" << iv->bag.baggage
-                << ".C" << iv->bag.cargo
-                << ".M" << iv->bag.mail
-                << ".E" << iv->excess.excess;
-            body.push_back(row.str());
-        }
         baggage_sum += iv->bag.baggage;
         cargo_sum += iv->bag.cargo;
         mail_sum += iv->bag.mail;
@@ -4922,8 +4911,8 @@ void TLDMDests::ToTlg(TypeB::TDetailCreateInfo &info, bool &vcompleted, vector<s
         row << "SI: EXB" << excess.excess << KG;
         body.push_back(row.str());
     }
-    row.str("");
     if(options.version == "CEK" and info.airp_dep != "—‹") {
+        row.str("");
         row << "SI: B";
         if(baggage_sum > 0)
             row << baggage_sum;
@@ -4939,8 +4928,8 @@ void TLDMDests::ToTlg(TypeB::TDetailCreateInfo &info, bool &vcompleted, vector<s
             row << mail_sum;
         else
             row << "NIL";
+        body.push_back(row.str());
     }
-    body.push_back(row.str());
     //    body.push_back("SI: TRANSFER BAG CPT 0 NS 0");
 }
 
