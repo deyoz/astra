@@ -89,15 +89,6 @@ const char* points_SOPP_SQL_N =
       "         time_out=TO_DATE('01.01.0001','DD.MM.YYYY') ) "
       "        :or_where_airline_sql "
       "        :where_airp_sql "
-/*
-//      "        :where_airp_sql :where_airline_sql "
-      " UNION "
-      " SELECT  move_id FROM points "
-      "  WHERE points.pr_del!=-1 AND "
-      "        :where_spp_date_time_in_sql "
-//      "        :where_airp_sql :where_airline_sql "
-      "       AND ( airline IS NULL :or_where_airline_sql )"
-      "        :where_airp_sql "*/
       " ) p "
       "WHERE points.move_id = p.move_id AND "
       "      points.pr_del!=-1 "
@@ -122,8 +113,36 @@ const char* points_SOPP_SQL_N =
       " ) p "
       "WHERE points.move_id = p.move_id AND "
       "      points.pr_del!=-1 "
+      "ORDER BY points.move_id,point_num,point_id";
+const char* points_SOPP_SQL_N =
+      "SELECT points.move_id,points.point_id,point_num,airp,airp_fmt,first_point,airline,airline_fmt,flt_no,"
+      "       suffix,suffix_fmt,craft,craft_fmt,bort, "
+      "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
+      "       pr_tranzit,pr_reg,points.pr_del pr_del,points.tid tid "
+      " FROM points, "
+      "( "
+      " SELECT move_id FROM points "
+      "  WHERE points.pr_del!=-1 AND "
+      "        time_out in (:where_spp_date_sql) "
+      "        :where_airp_sql :where_airline_sql "
+      " UNION "
+      " SELECT  move_id FROM points "
+      "  WHERE points.pr_del!=-1 AND "
+      "        time_in IN (:where_spp_date_sql) AND "
+      "        ( airline IS NULL :or_where_airline_sql )"
+      "        :where_airp_sql "
+      " UNION "
+      " SELECT move_id FROM points "
+      "  WHERE points.pr_del!=-1 AND "
+      "        time_in=TO_DATE('01.01.0001','DD.MM.YYYY') AND "
+      "        time_out=TO_DATE('01.01.0001','DD.MM.YYYY') AND "
+      "        ( airline IS NULL :or_where_airline_sql )"
+      "        :where_airp_sql "
+      " ) p "
+      "WHERE points.move_id = p.move_id AND "
+      "      points.pr_del!=-1 "
+      "ORDER BY points.move_id,point_num,point_id";
       "ORDER BY points.move_id,point_num,point_id";   */
-
 /*const char* points_SOPP_SQL_N =
       "SELECT points.move_id,points.point_id,point_num,airp,airp_fmt,first_point,airline,airline_fmt,flt_no,"
       "       suffix,suffix_fmt,craft,craft_fmt,bort, "
@@ -784,7 +803,7 @@ void addCondition_N( TQuery &PointsQry,
   TDateTime first_day, last_day;
   modf( first_date, &first_day );
   modf( next_date, &last_day );
-  int num=0;
+//  int num=0;
 /*  for ( TDateTime day=first_day; day<=last_day; day++, num++ ) {
     if ( !where_spp_date_sql.empty() ) {
       where_spp_date_sql += ",";
@@ -2201,7 +2220,7 @@ void IntReadTrips( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode,
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   TModule module;
   
-  bool pr_verify_new_select = GetNode( "pr_verify_new_select", reqNode );
+  bool pr_verify_new_select = true;//new select GetNode( "pr_verify_new_select", reqNode );
   ProgTrace( TRACE5, "pr_verify_new_select=%d", pr_verify_new_select );
   
   if ( GetNode( "disp_isg", reqNode ) )
