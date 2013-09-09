@@ -204,10 +204,7 @@ void getPaxsSeats( int point_dep, std::map<int,TCheckinPaxSeats> &checkinPaxsSea
   Qry.CreateVariable( "point_id", otInteger, point_dep );
   Qry.CreateVariable( "sex", otString, getDefaultSex() );
   Qry.Execute();
-  for ( ; Qry.Eof; Qry.Next() ) {
-    if ( Qry.FieldIsNULL( "seat_no" ) ) {
-      continue;
-    }
+  for ( ; not Qry.Eof; Qry.Next() ) {
     TCheckinPaxSeats checkinPaxSeats;
     TPerson person_type = DecodePerson( Qry.FieldAsString( "pers_type" ) );
     switch( person_type ) {
@@ -1716,7 +1713,7 @@ namespace PRL_SPACE {
             "WHERE "
             "   pax_grp.point_dep = :point_id AND "
             "   pax_grp.grp_id = pax.grp_id AND "
-//??? djek            "   salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'one',rownum,1) IS NOT NULL AND "
+            "   (pax.seats=0 OR salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'one',rownum,1) IS NOT NULL) AND "
             "   pax.refuse IS NULL "
             "GROUP BY "
             "   pax_grp.point_arv "

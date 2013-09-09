@@ -1443,6 +1443,25 @@ class TCloseCheckInCreator : public TCreator
     };
 };
 
+class TOpenCheckInCreator : public TCreator
+{
+  public:
+    TOpenCheckInCreator(int point_id) : TCreator(point_id)
+    {
+      *this << "LCI";
+    };
+    virtual bool validInfo(const TCreateInfo &info) const {
+        if (!TCreator::validInfo(info)) return false;
+
+        if (info.optionsIs<TLCIOptions>())
+        {
+          if (info.optionsAs<TLCIOptions>()->action_code!="O") return false;
+        };    
+
+        return true;
+    };
+};
+
 class TCloseBoardingCreator : public TCreator
 {
   public:
@@ -1450,10 +1469,16 @@ class TCloseBoardingCreator : public TCreator
     {
       *this << "COM"
             << "COM2"
+            << "LCI"
             << "PRLN";
     };
     virtual bool validInfo(const TCreateInfo &info) const {
         if (!TCreator::validInfo(info)) return false;
+
+        if (info.optionsIs<TLCIOptions>())
+        {
+          if (info.optionsAs<TLCIOptions>()->action_code!="U") return false;
+        };    
 
         if (info.optionsIs<TPRLOptions>())
         {
