@@ -438,10 +438,11 @@ tr1::shared_ptr<TCreateOptions> make_options(const string &tlg_type)
            basic_type=="BTM")
     return tr1::shared_ptr<TCreateOptions>(new TAirpTrferOptions);
   else if (basic_type=="PFS" ||
-           basic_type=="PRL" ||
            basic_type=="ETL" ||
            basic_type=="FTL")
     return tr1::shared_ptr<TCreateOptions>(new TMarkInfoOptions);
+  else if (basic_type=="PRL")
+    return tr1::shared_ptr<TCreateOptions>(new TPRLOptions);
   else if (basic_type=="LDM")
     return tr1::shared_ptr<TCreateOptions>(new TLDMOptions);
   else if (basic_type=="LCI")
@@ -816,9 +817,9 @@ void TCreator::getInfo(vector<TCreateInfo> &info)
             //здесь сформирован createInfo полностью
             if (i->get_options().similar(createInfo.get_options()))
             {
+                localizedstream lstream(AstraLocale::LANG_RU);
               if (validInfo(createInfo))
               {
-
                 vector<TCreateInfo>::iterator i2=info.begin();
                 for(; i2!=info.end(); ++i2)
                   if (i2->canMerge(createInfo)) break;

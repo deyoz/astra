@@ -600,6 +600,138 @@ class TLDMOptions : public TCreateOptions
     };
 };
 
+class TPRLOptions : public TMarkInfoOptions
+{
+    private:
+        void init()
+        {
+            create_point = "CLOSE_CKIN";
+            pax_state = "CKIN";
+        }
+    public:
+        std::string create_point;
+        std::string pax_state;
+        TPRLOptions() { init(); }
+        virtual ~TPRLOptions() {};
+        virtual void clear()
+        {
+            TMarkInfoOptions::clear();
+            init();
+        };
+        virtual void fromXML(xmlNodePtr node)
+        {
+            TMarkInfoOptions::fromXML(node);
+            if(node == NULL) return;
+            xmlNodePtr node2=node->children;
+            create_point = NodeAsStringFast("create_point", node2, create_point.c_str());
+            pax_state = NodeAsStringFast("pax_state", node2, pax_state.c_str());
+        }
+        virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
+        {
+            TMarkInfoOptions::fromDB(Qry, OptionsQry);
+
+            std::string basic_type;
+            std::string tlg_type = Qry.FieldAsString("tlg_type");
+            try
+            {
+                const TTypeBTypesRow& row = (TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",tlg_type));
+                basic_type=row.basic_type;
+            }
+            catch(EBaseTableError)
+            {
+                throw EXCEPTIONS::Exception("TPRLOptions::fromDB: unknown telegram type %s", tlg_type.c_str());
+            };
+
+
+            OptionsQry.SetVariable("id", Qry.FieldAsInteger("id"));
+            OptionsQry.SetVariable("tlg_type", basic_type);
+            OptionsQry.Execute();
+            for(;!OptionsQry.Eof;OptionsQry.Next())
+            {
+                std::string cat=OptionsQry.FieldAsString("category");
+                if (cat=="CREATE_POINT")
+                {
+                    create_point = OptionsQry.FieldAsString("value");
+                    continue;
+                };
+                if (cat=="PAX_STATE")
+                {
+                    pax_state = OptionsQry.FieldAsString("value");
+                    continue;
+                };
+            }
+        }
+        virtual localizedstream& logStr(localizedstream &s) const
+        {
+            TMarkInfoOptions::logStr(s);
+            s
+                << ", "
+                << s.getLocaleText("CAP.TYPEB_OPTIONS.PRL.CREATE_POINT") << ": "
+                << create_point
+                << ", "
+                << s.getLocaleText("CAP.TYPEB_OPTIONS.PRL.PAX_STATE") << ": "
+                << pax_state;
+            return s;
+        }
+        virtual localizedstream& extraStr(localizedstream &s) const
+        {
+            TMarkInfoOptions::extraStr(s);
+            s
+                << s.getLocaleText("CAP.TYPEB_OPTIONS.PRL.CREATE_POINT") << ": "
+                << create_point
+                << endl
+                << s.getLocaleText("CAP.TYPEB_OPTIONS.PRL.PAX_STATE") << ": "
+                << pax_state
+                << endl;
+            return s;
+        };
+        virtual std::string typeName() const
+        {
+            return "TPRLOptions";
+        };
+        virtual bool similar(const TCreateOptions &item) const
+        {
+            if (!TMarkInfoOptions::similar(item)) return false;
+            try
+            {
+                const TPRLOptions &opt = dynamic_cast<const TPRLOptions&>(item);
+                return
+                    create_point == opt.create_point and
+                    pax_state == opt.pax_state;
+            }
+            catch(std::bad_cast)
+            {
+                return false;
+            };
+        }
+        virtual bool equal(const TCreateOptions &item) const
+        {
+            if (!TMarkInfoOptions::equal(item)) return false;
+            try
+            {
+                const TPRLOptions &opt = dynamic_cast<const TPRLOptions&>(item);
+                return
+                    create_point == opt.create_point and
+                    pax_state == opt.pax_state;
+            }
+            catch(std::bad_cast)
+            {
+                return false;
+            };
+        };
+        virtual void copy(const TCreateOptions &item)
+        {
+            TMarkInfoOptions::copy(item);
+            try
+            {
+                const TPRLOptions &opt = dynamic_cast<const TPRLOptions&>(item);
+                create_point = opt.create_point;
+                pax_state = opt.pax_state;
+            }
+            catch(std::bad_cast) {};
+        };
+};
+
 class TLCIOptions : public TCreateOptions
 {
   private:
@@ -1290,6 +1422,7 @@ class TCloseCheckInCreator : public TCreator
       *this << "COM"
             << "COM2"
             << "PRLC"
+            << "PRLN"
             << "LCI";
     };
 
@@ -1299,6 +1432,11 @@ class TCloseCheckInCreator : public TCreator
         if (info.optionsIs<TLCIOptions>())
         {
           if (info.optionsAs<TLCIOptions>()->action_code!="C") return false;
+        };    
+
+        if (info.optionsIs<TPRLOptions>())
+        {
+          if (info.optionsAs<TPRLOptions>()->create_point!="CLOSE_CKIN") return false;
         };    
 
         return true;
@@ -1311,7 +1449,18 @@ class TCloseBoardingCreator : public TCreator
     TCloseBoardingCreator(int point_id) : TCreator(point_id)
     {
       *this << "COM"
-            << "COM2";
+            << "COM2"
+            << "PRLN";
+    };
+    virtual bool validInfo(const TCreateInfo &info) const {
+        if (!TCreator::validInfo(info)) return false;
+
+        if (info.optionsIs<TPRLOptions>())
+        {
+          if (info.optionsAs<TPRLOptions>()->create_point!="CLOSE_BRD") return false;
+        };    
+
+        return true;
     };
 };
 
@@ -1329,6 +1478,7 @@ class TTakeoffCreator : public TCreator
             << "PFSN"
             << "FTL"
             << "PRL"
+            << "PRLN"
             << "PIM"
             << "SOM"
         //    << "ETL" формируем по прилету в конечные пункт если не было интерактива с СЭБ
@@ -1343,6 +1493,11 @@ class TTakeoffCreator : public TCreator
         if (info.optionsIs<TLCIOptions>())
         {
           if (info.optionsAs<TLCIOptions>()->action_code!="F") return false;
+        };    
+
+        if (info.optionsIs<TPRLOptions>())
+        {
+          if (info.optionsAs<TPRLOptions>()->create_point!="TAKEOFF") return false;
         };    
 
         return true;
