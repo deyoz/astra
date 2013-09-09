@@ -49,6 +49,7 @@ enum TElemType {
                  etTagColor,
                  etTripLiter,
                  etTripType,
+                 etTypeBOptionValues,
                  etTypeBSender,
                  etTypeBType,
                  etUserSetType,

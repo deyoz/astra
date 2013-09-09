@@ -100,6 +100,8 @@ TBaseTable &TBaseTables::get(string name)
         	  base_tables[name] = new TUserSetTypes();
         else if(name == "TRIP_SUFFIXES")
         	  base_tables[name] = new TTripSuffixes();
+        else if(name == "TYPEB_OPTION_VALUES")
+        	  base_tables[name] = new TTypeBOptionValues();
         else if(name == "TYPEB_TYPES")
         	  base_tables[name] = new TTypeBTypes();
         else if(name == "BAG_NORM_TYPES")
@@ -620,6 +622,15 @@ void TPaxDocTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **
   ((TPaxDocTypesRow*)*row)->code_mintrans=Qry.FieldAsString("code_mintrans");
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
+
+void TTypeBOptionValues::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+{
+  *row = new TTypeBOptionValuesRow;
+  mem.create(*row, STDLOG);
+  ((TTypeBOptionValuesRow*)*row)->short_name=Qry.FieldAsString("short_name");
+  ((TTypeBOptionValuesRow*)*row)->short_name_lat=Qry.FieldAsString("short_name_lat");
+  TCodeBaseTable::create_row(Qry,row,replaced_row);
+}
 
 void TTypeBTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
