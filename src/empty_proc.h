@@ -9,6 +9,7 @@ int main_empty_proc_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
 int get_events_stat(int argc,char **argv);
 int get_events_stat2(int argc,char **argv);
 int get_sirena_rozysk_stat(int argc,char **argv);
+int season_to_schedules(int argc,char **argv);
 int create_tlg(int argc,char **argv);
 int get_basel_aero_stat(int argc,char **argv);
 int test_trfer_list(int argc,char **argv);
@@ -17,6 +18,7 @@ int bind_trfer_trips(int argc,char **argv);
 int unbind_trfer_trips(int argc,char **argv);
 int test_typeb_utils(int argc,char **argv);
 int test_typeb_utils2(int argc,char **argv);
+int test_sopp_sql(int argc,char **argv);
 
 class TestInterface : public JxtInterface
 {

@@ -332,6 +332,7 @@ void ChangeACT_OUT( int point_id, BASIC::TDateTime old_act, BASIC::TDateTime act
 void check_TrferExists( int point_id );
 void get_DesksGates( int point_id, tstations &stations );
 void check_DesksGates( int point_id );
+void IntReadTrips( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode, long int &exec_time );
 
 #endif /*_SOPP_H_*/
 
