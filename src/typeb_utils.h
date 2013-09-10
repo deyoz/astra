@@ -25,6 +25,13 @@ class localizedstream : public std::ostringstream
       getElemFmts(efmtCodeNative, plang, fmts);
       return ::ElemIdToElem(type, elem, fmts);
     };
+    std::string ElemIdToNameShort(TElemType type, const std::string &elem)
+    {
+      std::vector< std::pair<TElemFmt,std::string> > fmts;
+      getElemFmts(efmtNameShort, plang, fmts);
+      return ::ElemIdToElem(type, elem, fmts);
+    };
+                              
     std::string getLocaleText(const std::string &vlexema)
     {
       return AstraLocale::getLocaleText(vlexema, plang);
@@ -535,8 +542,7 @@ class TLDMOptions : public TCreateOptions
       TCreateOptions::logStr(s);
       s << ", "
         << s.getLocaleText("CAP.TYPEB_OPTIONS.LDM.VERSION") << ": "
-        << version
-
+        << s.ElemIdToNameShort(etTypeBOptionValues, "LDM+VERSION+"+version)
         << ", "
         << s.getLocaleText("CAP.TYPEB_OPTIONS.LDM.CABIN_BAGGAGE") << ": "
         << (cabin_baggage ? s.getLocaleText("да"):
@@ -547,7 +553,7 @@ class TLDMOptions : public TCreateOptions
     {
       TCreateOptions::extraStr(s);
       s << s.getLocaleText("CAP.TYPEB_OPTIONS.LDM.VERSION") << ": "
-        << version
+        << s.ElemIdToNameShort(etTypeBOptionValues, "LDM+VERSION+"+version)
         << endl
         << s.getLocaleText("CAP.TYPEB_OPTIONS.LDM.CABIN_BAGGAGE") << ": "
         << (cabin_baggage ? s.getLocaleText("да"):
@@ -667,10 +673,10 @@ class TPRLOptions : public TMarkInfoOptions
             s
                 << ", "
                 << s.getLocaleText("CAP.TYPEB_OPTIONS.PRL.CREATE_POINT") << ": "
-                << create_point
+                << s.ElemIdToNameShort(etTypeBOptionValues, "PRL+CREATE_POINT+"+create_point)
                 << ", "
                 << s.getLocaleText("CAP.TYPEB_OPTIONS.PRL.PAX_STATE") << ": "
-                << pax_state;
+                << s.ElemIdToNameShort(etTypeBOptionValues, "PRL+PAX_STATE+"+pax_state);
             return s;
         }
         virtual localizedstream& extraStr(localizedstream &s) const
@@ -678,10 +684,10 @@ class TPRLOptions : public TMarkInfoOptions
             TMarkInfoOptions::extraStr(s);
             s
                 << s.getLocaleText("CAP.TYPEB_OPTIONS.PRL.CREATE_POINT") << ": "
-                << create_point
+                << s.ElemIdToNameShort(etTypeBOptionValues, "PRL+CREATE_POINT+"+create_point)
                 << endl
                 << s.getLocaleText("CAP.TYPEB_OPTIONS.PRL.PAX_STATE") << ": "
-                << pax_state
+                << s.ElemIdToNameShort(etTypeBOptionValues, "PRL+PAX_STATE+"+pax_state)
                 << endl;
             return s;
         };
@@ -842,14 +848,14 @@ class TLCIOptions : public TCreateOptions
       TCreateOptions::logStr(s);
       s << ", "
         << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.ACTION_CODE") << ": "
-        << action_code
+        << s.ElemIdToNameShort(etTypeBOptionValues, "LCI+ACTION_CODE+"+action_code)
         << ", "
         << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.EQUIPMENT") << ": "
         << (equipment ? s.getLocaleText("да"):
                         s.getLocaleText("нет"))
         << ", "
         << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.WEIGHT_AVAIL") << ": "
-        << weight_avail
+        << s.ElemIdToNameShort(etTypeBOptionValues, "LCI+WEIGHT_AVAIL+"+weight_avail)
         << ", "
         << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.SEATING") << ": "
         << (seating ? s.getLocaleText("да"):
@@ -860,7 +866,7 @@ class TLCIOptions : public TCreateOptions
                           s.getLocaleText("нет"))
         << ", "
         << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.SEAT_RESTRICT") << ": "
-        << seat_restrict
+        << s.ElemIdToNameShort(etTypeBOptionValues, "LCI+SEAT_RESTRICT+"+seat_restrict)
         << ", "
         << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.PAS_TOTALS") << ": "
         << (pas_totals ? s.getLocaleText("да"):
@@ -883,14 +889,14 @@ class TLCIOptions : public TCreateOptions
     {
       TCreateOptions::extraStr(s);
       s << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.ACTION_CODE") << ": "
-        << action_code
+        << s.ElemIdToNameShort(etTypeBOptionValues, "LCI+ACTION_CODE+"+action_code)
         << endl
         << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.EQUIPMENT") << ": "
         << (equipment ? s.getLocaleText("да"):
                         s.getLocaleText("нет"))
         << endl
         << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.WEIGHT_AVAIL") << ": "
-        << weight_avail
+        << s.ElemIdToNameShort(etTypeBOptionValues, "LCI+WEIGHT_AVAIL+"+weight_avail)
         << endl
         << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.SEATING") << ": "
         << (seating ? s.getLocaleText("да"):
@@ -901,7 +907,7 @@ class TLCIOptions : public TCreateOptions
                           s.getLocaleText("нет"))
         << endl
         << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.SEAT_RESTRICT") << ": "
-        << seat_restrict
+        << s.ElemIdToNameShort(etTypeBOptionValues, "LCI+SEAT_RESTRICT+"+seat_restrict)
         << endl
         << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.PAS_TOTALS") << ": "
         << (pas_totals ? s.getLocaleText("да"):

@@ -1320,6 +1320,9 @@ namespace PRL_SPACE {
         const TypeB::TMarkInfoOptions *markOptions=NULL;
         if(info.optionsIs<TypeB::TMarkInfoOptions>())
             markOptions=info.optionsAs<TypeB::TMarkInfoOptions>();
+        const TypeB::TPRLOptions *PRLOptions=NULL;
+        if(info.optionsIs<TypeB::TPRLOptions>())
+            PRLOptions=info.optionsAs<TypeB::TPRLOptions>();
 
         TQuery Qry(&OraSession);
         string SQLText =
@@ -1351,7 +1354,7 @@ namespace PRL_SPACE {
             "    pax_grp.grp_id=pax.grp_id AND "
             "    pax_grp.class_grp = cls_grp.id(+) AND "
             "    cls_grp.code = :class and ";
-        if(info.get_tlg_type() == "PRLC" or info.get_tlg_type() == "LCI")
+        if(PRLOptions and PRLOptions->pax_state == "CKIN" or info.get_tlg_type() == "LCI")
             SQLText += " pax.pr_brd is not null and ";
         else
             SQLText += "    pax.pr_brd = 1 and ";
