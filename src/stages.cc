@@ -882,6 +882,21 @@ void OpenCheckIn( int point_id )
 	tst();
 	SetCraft( point_id, sOpenCheckIn );
   SALONS2::setManualCompChg( point_id );
+  time_t time_start=time(NULL);
+  try
+  {
+    vector<TypeB::TCreateInfo> createInfo;
+    TypeB::TOpenCheckInCreator(point_id).getInfo(createInfo);
+    TelegramInterface::SendTlg(createInfo);
+  }
+  catch(std::exception &E)
+  {
+    ProgError(STDLOG,"OpenCheckIn.SendTlg (point_id=%d): %s",point_id,E.what());
+  };
+  time_t time_end=time(NULL);
+  if (time_end-time_start>1)
+    ProgTrace(TRACE5,"Attention! TelegramInterface::SendTlg execute time: %ld secs, point_id=%d",
+                     time_end-time_start,point_id);
 }
 
 void CloseCheckIn( int point_id )

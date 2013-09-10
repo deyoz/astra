@@ -1305,13 +1305,43 @@ class TCloseCheckInCreator : public TCreator
     };
 };
 
+class TOpenCheckInCreator : public TCreator
+{
+  public:
+    TOpenCheckInCreator(int point_id) : TCreator(point_id)
+    {
+      *this << "LCI";
+    };
+    virtual bool validInfo(const TCreateInfo &info) const {
+        if (!TCreator::validInfo(info)) return false;
+
+        if (info.optionsIs<TLCIOptions>())
+        {
+          if (info.optionsAs<TLCIOptions>()->action_code!="O") return false;
+        };    
+
+        return true;
+    };
+};
+
 class TCloseBoardingCreator : public TCreator
 {
   public:
     TCloseBoardingCreator(int point_id) : TCreator(point_id)
     {
       *this << "COM"
-            << "COM2";
+            << "COM2"
+            << "LCI";
+    };
+    virtual bool validInfo(const TCreateInfo &info) const {
+        if (!TCreator::validInfo(info)) return false;
+
+        if (info.optionsIs<TLCIOptions>())
+        {
+          if (info.optionsAs<TLCIOptions>()->action_code!="U") return false;
+        };    
+
+        return true;
     };
 };
 
