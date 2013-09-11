@@ -161,7 +161,6 @@ public:
                               const std::string& airp_dep,
                               const int point_arv,
                               const std::string& airp_arv,
-                              bool lock,
                               TSegInfo& segInfo);
   static void GetTCkinFlights(const std::map<int, CheckIn::TTransferItem> &trfer,
                               std::map<int, std::pair<CheckIn::TTransferItem, TCkinSegFlts> > &segs);

@@ -2443,27 +2443,58 @@ void TPointDests::sychDests( TPointDests &new_dests, bool pr_change_dests, bool 
 }
 
 
-void FlightPoints::Get( int point_dep )
+void FlightPoints::Get( int vpoint_dep )
 {
   clear();
+	TQuery Qry(&OraSession);
+	Qry.SQLText =
+	  "SELECT point_num,first_point,pr_tranzit,airp,pr_del "
+    " FROM points "
+    " WHERE point_id=:point_id AND pr_del!=-1";
+  Qry.CreateVariable( "point_id", otInteger, vpoint_dep );
+  Qry.Execute();
+  if ( Qry.Eof )
+    return;
+  TTripRouteItem routeItem;
+  routeItem.point_id = vpoint_dep;
+  routeItem.point_num = Qry.FieldAsInteger( "point_num" );
+  routeItem.airp = Qry.FieldAsString( "airp" );
+  routeItem.pr_cancel = Qry.FieldAsInteger( "pr_del" );
+  push_back( routeItem );
+  
+  int first_point = Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point");
+  bool pr_tranzit = Qry.FieldAsInteger( "pr_tranzit" ) != 0;
   TTripRoute routes;
-  if ( routes.GetRouteBefore( ASTRA::NoExists,
-                              point_dep,
-                              trtWithCurrent,
-                              trtWithCancelled ) ) {
-    insert( begin(), routes.begin(), routes.end() );
+  if ( pr_tranzit ) {
+    routes.GetRouteBefore( ASTRA::NoExists,
+                           routeItem.point_id,
+                           routeItem.point_num,
+                           first_point,
+                           pr_tranzit,
+                           trtNotCurrent,
+                           trtWithCancelled );
+    if ( !routes.empty() ) {
+      tst();
+      insert( end(), routes.begin(), routes.end() );
+    }
   }
   routes.clear();
-  if ( routes.GetRouteAfter( ASTRA::NoExists,
-                             point_dep,
-                             trtNotCurrent,
-                             trtWithCancelled ) ) {
-     insert( end(), routes.begin(), routes.end() );
+  routes.GetRouteAfter( ASTRA::NoExists,
+                        routeItem.point_id,
+                        routeItem.point_num,
+                        first_point,
+                        pr_tranzit,
+                        trtNotCurrent,
+                        trtWithCancelled );
+  if ( !routes.empty() ) {
+    insert( end(), routes.begin(), routes.end() );
   }
   if ( !empty() ) {
     point_dep = begin()->point_id;
     point_arv = rbegin()->point_id;
   }
+  ProgTrace( TRACE5, "FlightPoints::Get(%d): point_dep=%d, point_arv=%d",
+             vpoint_dep, point_dep, point_arv );
 };
 
 
@@ -2474,11 +2505,14 @@ void TFlights::Get( const std::vector<int> &points, TFlightType flightType )
     TQuery Qry( &OraSession );
     Qry.SQLText =
     "SELECT p2.point_id FROM points p1, points p2 "
-    " WHERE p1.point_id=:point_id AND p2.move_id=p1.move_id";
+    " WHERE p1.point_id=:point_id AND "
+    "       p2.move_id=p1.move_id AND "
+    "       p2.pr_del !=-1";
     Qry.DeclareVariable( "point_id", otInteger );
     for ( std::vector<int>::const_iterator ipoint=points.begin();
           ipoint!=points.end(); ipoint++ ) {
       Qry.SetVariable( "point_id", *ipoint );
+      ProgTrace( TRACE5, "TFlights::Get: SELECT point_id=%d", *ipoint );
       Qry.Execute();
       for ( ; !Qry.Eof; Qry.Next() ) {
         pnts.push_back( Qry.FieldAsInteger( "point_id" ) );
@@ -2489,20 +2523,35 @@ void TFlights::Get( const std::vector<int> &points, TFlightType flightType )
     pnts = points;
   }
   sort(pnts.begin(),pnts.end());
-  for ( std::vector<int>::iterator ipoint=pnts.begin();
+  for ( std::vector<int>::iterator ipoint=pnts.begin(); //пробег по point_id
         ipoint!=pnts.end(); ipoint++ ) {
     FlightPoints fp;
-    fp.Get( *ipoint );
-    if ( !empty() &&
-         rbegin()->point_dep == fp.point_dep ) {
+    fp.Get( *ipoint ); //получаем рейс по point_id
+    if ( fp.empty() ) { //пусто
       continue;
     }
-    push_back( fp );
+    for( TFlights::iterator iflight=begin();
+         iflight!=end(); iflight++ ) {
+      if ( fp.point_dep == iflight->point_dep &&
+           fp.point_arv == iflight->point_arv ) { //уже есть такой рейс
+        fp.clear();
+        break;
+      }
+    }
+    if ( fp.empty() ) {
+      continue;
+    }
+    push_back( fp ); //добавляем рейс
+    for ( FlightPoints::iterator ipoint=fp.begin();
+          ipoint!=fp.end(); ipoint++ ) {
+      ProgTrace( TRACE5, "TFlights::Get: PUT point_id=%d", ipoint->point_id );
+    }
   }
 }
 
 void TFlights::Lock()
 {
+  set<int,std::less<int> > points;
   TQuery Qry( &OraSession );
   Qry.SQLText =
     "SELECT point_id FROM points WHERE point_id=:point_id FOR UPDATE";
@@ -2511,10 +2560,16 @@ void TFlights::Lock()
        iflight!=end(); iflight++ ) {
     for ( FlightPoints::iterator ipoint=iflight->begin();
           ipoint!=iflight->end(); ipoint++ ) {
-      Qry.SetVariable( "point_id", ipoint->point_id );
-      Qry.Execute();
-      ProgTrace( TRACE5, "TLockedFlights::Lock(%d)", ipoint->point_id );
+      if ( points.find( ipoint->point_id ) != points.end() ) {
+        continue;
+      }
+      points.insert( ipoint->point_id );
     }
+  }
+  for ( set<int>::iterator ipoint=points.begin(); ipoint!=points.end(); ipoint++ ) {
+    Qry.SetVariable( "point_id", *ipoint );
+    Qry.Execute();
+    ProgTrace( TRACE5, "TLockedFlights::Lock(%d)", *ipoint );
   }
 }
 

@@ -2676,12 +2676,11 @@ bool GetUsePS()
 {
 	return false; //!!!
 }
-//!!!vlad Lock() может отказаться от параметра bool lock и вынести во вне flights.Lock(); с указанием списка point_id, тогда не требуется сортировка-deadlock
+
 bool CheckInInterface::CheckCkinFlight(const int point_dep,
                                        const string& airp_dep,
                                        const int point_arv,
                                        const string& airp_arv,
-                                       bool lock,
                                        TSegInfo& segInfo)
 {
   segInfo.point_dep=point_dep;
@@ -2692,12 +2691,6 @@ bool CheckInInterface::CheckCkinFlight(const int point_dep,
   segInfo.first_point=ASTRA::NoExists;
   segInfo.pr_tranzit=false;
   segInfo.fltInfo.Clear();
-
-  if (lock) {
-    TFlights flights;
-	  flights.Get( point_dep, ftTranzit );
-	  flights.Lock();
-  }
 	
   TQuery Qry(&OraSession);
   Qry.Clear();
@@ -2708,8 +2701,6 @@ bool CheckInInterface::CheckCkinFlight(const int point_dep,
          "       pr_del "
          "FROM points "
          "WHERE point_id=:point_id AND airp=:airp AND pr_del>=0 AND pr_reg<>0";
-/*  if (lock)
-    sql << " FOR UPDATE";*/
 
   Qry.SQLText=sql.str().c_str();
   Qry.CreateVariable("point_id",otInteger,point_dep);
@@ -3015,7 +3006,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     else defer_etstatus=true;
   };
 
-  Qry.Clear();
+  vector<int> point_ids;
   for(;segNode!=NULL;segNode=segNode->next)
   {
     TSegInfo segInfo;
@@ -3026,15 +3017,20 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     if (segs.find(segInfo.point_dep)!=segs.end())
       throw UserException("MSG.CHECKIN.DUPLICATED_FLIGHT_IN_ROUTE"); //WEB
     segs[segInfo.point_dep]=segInfo;
+    point_ids.push_back(segInfo.point_dep);
   };
 
+  TFlights flightsForLock;
+  flightsForLock.Get( point_ids, ftTranzit );
   //лочить рейсы надо по возрастанию poind_dep иначе может быть deadlock
-  for(map<int,TSegInfo>::iterator s=segs.begin();s!=segs.end();s++)
+	flightsForLock.Lock();
+
+  for(map<int,TSegInfo>::iterator s=segs.begin();s!=segs.end();++s)
   {
     if (!CheckCkinFlight(s->second.point_dep,
                          s->second.airp_dep,
                          s->second.point_arv,
-                         s->second.airp_arv, true, s->second))
+                         s->second.airp_arv, s->second))
     {
     	if (s->second.fltInfo.pr_del==0)
     	{
@@ -6132,7 +6128,6 @@ void CheckInInterface::GetTCkinFlights(const map<int, CheckIn::TTransferItem> &t
                                             PointsQry.FieldAsString("airp"),
                                             ASTRA::NoExists,
                                             t->second.airp_arv,
-                                            false,
                                             segSPPInfo);
 
           if (segSPPInfo.fltInfo.pr_del==ASTRA::NoExists) continue; //не нашли по point_dep
@@ -6160,7 +6155,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
                        NodeAsString("airp_dep",reqNode),
                        NodeAsInteger("point_arv",reqNode),
                        NodeAsString("airp_arv",reqNode),
-                       false, firstSeg))
+                       firstSeg))
   {
     if (firstSeg.fltInfo.pr_del==0)
       throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");

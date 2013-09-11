@@ -2380,7 +2380,8 @@ void FilterRoutesProperty::Read( const TFilterRoutesSets &filterRoutesSets )
            crc_comp != Qry.FieldAsInteger( "crc_comp" ) ||
            !pr_tranzit )
         break;
-      ProgTrace( TRACE5, "point_id=%d, pr_tranzit=%d", iroute->point_id,  Qry.FieldAsInteger( "pr_tranzit" ) );
+      ProgTrace( TRACE5, "point_id=%d, pr_tranzit=%d, act_out=%d",
+                 iroute->point_id,  Qry.FieldAsInteger( "pr_tranzit" ), !Qry.FieldIsNULL( "act_out" ) );
       insert( begin(), *iroute );
       pointNum[ iroute->point_id ] = PointAirpNum( iroute->point_num, iroute->airp, true );
       if ( !Qry.FieldIsNULL( "act_out" ) ) {
@@ -2406,7 +2407,8 @@ void FilterRoutesProperty::Read( const TFilterRoutesSets &filterRoutesSets )
              Qry.FieldAsInteger( "pr_tranzit" ) == 0 ||
              Qry.FieldAsInteger( "pr_tranz_reg" ) != 0 )
           break;
-        ProgTrace( TRACE5, "point_id=%d, pr_tranzit=%d", iroute->point_id,  Qry.FieldAsInteger( "pr_tranzit" ) );
+        ProgTrace( TRACE5, "point_id=%d, pr_tranzit=%d, act_out=%d",
+                   iroute->point_id,  Qry.FieldAsInteger( "pr_tranzit" ), !Qry.FieldIsNULL( "act_out" ) );
         push_back( *iroute );
         if ( !Qry.FieldIsNULL( "act_out" ) ) {
           takeoffPoints.insert( iroute->point_id );
@@ -2944,7 +2946,8 @@ void TSalonList::CommitLayers()
   }
 }
 
-void TPlace::RollbackLayers( FilterRoutesProperty &filterRoutes ) {
+void TPlace::RollbackLayers( FilterRoutesProperty &filterRoutes,
+                             TFilterLayers &filterLayers ) {
   lrss.clear();
   drop_blocked_layers.clear();
   for ( std::map<int, std::set<TSeatLayer,SeatLayerCompare>,classcomp >::iterator ilayers=save_lrss.begin();
@@ -2952,10 +2955,14 @@ void TPlace::RollbackLayers( FilterRoutesProperty &filterRoutes ) {
     for ( std::set<TSeatLayer,SeatLayerCompare>::iterator ilayer=ilayers->second.begin();
           ilayer!=ilayers->second.end(); ilayer++ ) {
       TSeatLayer layer = *ilayer;
-      layer.inRoute = ( ilayer->point_id == filterRoutes.getDepartureId() ||
-                        filterRoutes.useRouteProperty( ilayer->point_dep, ilayer->point_arv ) );
-      ProgTrace( TRACE5, "TPlace::RollbackLayers: %s", layer.toString().c_str() );
-      lrss[ layer.point_id ].insert( layer );
+      if ( layer.point_dep != ASTRA::NoExists &&
+           filterLayers.CanUseLayer( layer.layer_type, layer.point_dep, filterRoutes.isTakeoff( layer.point_id ) ) ) { // слой нужно добавить
+        layer.inRoute = ( ilayer->point_id == filterRoutes.getDepartureId() ||
+                          filterRoutes.useRouteProperty( ilayer->point_dep, ilayer->point_arv ) );
+        ProgTrace( TRACE5, "TPlace::RollbackLayers: %s, takeoff(%d)=%d",
+                   layer.toString().c_str(), layer.point_id, filterRoutes.isTakeoff( layer.point_id ) );
+        lrss[ layer.point_id ].insert( layer );
+      }
     }
   }
 }
@@ -2967,7 +2974,7 @@ void TSalonList::RollbackLayers( )
         isalonlist!=end(); isalonlist++ ) {
     for ( TPlaces::iterator iseat=(*isalonlist)->places.begin();
           iseat!=(*isalonlist)->places.end(); iseat++ ) {
-      iseat->RollbackLayers( filterRoutes );
+      iseat->RollbackLayers( filterRoutes, filterSets.filtersLayers[ filterRoutes.getDepartureId() ] );
       iseat->drawProps.clearFlags();
     }
   }
@@ -2979,12 +2986,15 @@ void TSalonList::RollbackLayers( )
       for ( TLayersPax::iterator ilayer=ipax_list->second.save_layers.begin();
             ilayer!=ipax_list->second.save_layers.end(); ilayer++ ) {
         TSeatLayer layer = ilayer->first;
-        layer.inRoute = ( layer.point_id == filterRoutes.getDepartureId() ||
-                          filterRoutes.useRouteProperty( layer.point_dep, layer.point_arv ) );
-        ProgTrace( TRACE5, "TSalonList::RollbackLayers: %s", layer.toString().c_str() );
-        TPaxLayerSeats paxlayer = ilayer->second;
-        paxlayer.waitListReason = TWaitListReason( layerValid, TSeatLayer() );
-        ipax_list->second.layers.insert( make_pair( layer, paxlayer ) );
+        if ( layer.point_dep != ASTRA::NoExists &&
+             filterSets.filtersLayers[ filterRoutes.getDepartureId() ].CanUseLayer( layer.layer_type, layer.point_dep, filterRoutes.isTakeoff( layer.point_id ) ) ) { // слой нужно добавить
+          layer.inRoute = ( layer.point_id == filterRoutes.getDepartureId() ||
+                            filterRoutes.useRouteProperty( layer.point_dep, layer.point_arv ) );
+          ProgTrace( TRACE5, "TSalonList::RollbackLayers: %s", layer.toString().c_str() );
+          TPaxLayerSeats paxlayer = ilayer->second;
+          paxlayer.waitListReason = TWaitListReason( layerValid, TSeatLayer() );
+          ipax_list->second.layers.insert( make_pair( layer, paxlayer ) );
+        }
       }
     }
   }
@@ -4446,8 +4456,11 @@ bool TSalonList::check_waitlist_alarm_on_tranzit_routes( const TAutoSeats &autoS
             ilayers!=layers.end(); ilayers++ ) {
         for ( std::set<TSeatLayer,SeatLayerCompare>::iterator ilayer=ilayers->second.begin();
               ilayer!=ilayers->second.end(); ilayer++ ) {
-          if ( menuLayers[ ilayer->layer_type ].notfree &&
-               ilayer->getPaxId() != ipass->pax_id ) {
+          if ( (ilayer->getPaxId() != ASTRA::NoExists && /* слой принадлежит другому пассажиру */
+                ilayer->getPaxId() != ipass->pax_id) ||
+                (ilayer->getPaxId() == ASTRA::NoExists &&
+                 menuLayers[ ilayer->layer_type ].notfree) /*слой не принадлежит пассажиру и недоступен */
+             ) {
             ProgTrace( TRACE5, "check_waitlist_alarm_on_tranzit_routes: not free %s, return true",
                        ilayer->toString().c_str() );
             return true;
