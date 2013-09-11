@@ -341,6 +341,7 @@ class FilterRoutesProperty: public std::vector<TTripRouteItem> {
       pointNum = filterRoutes.pointNum;
       clear();
       insert( end(), filterRoutes.begin(), filterRoutes.end() );
+      takeoffPoints = filterRoutes.takeoffPoints;
     }
     bool useRouteProperty( int vpoint_dep, int vpoint_arv = ASTRA::NoExists );
     bool IntersecRoutes( int point_dep1, int point_arv1,
@@ -504,7 +505,8 @@ class TPlace {
         return TSeatLayer();
       }
     }
-    void RollbackLayers( FilterRoutesProperty &filterRoutes );
+    void RollbackLayers( FilterRoutesProperty &filterRoutes,
+                         TFilterLayers &filterLayers );
     void CommitLayers() {
       save_lrss = lrss;
     }

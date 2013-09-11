@@ -446,7 +446,7 @@ class FlightPoints:public std::vector<TTripRouteItem> {
   public:
     int point_dep;
     int point_arv;
-    void Get( int point_dep );
+    void Get( int vpoint_dep );
     bool inRoute( int point_id, bool with_land ) {
       for ( FlightPoints::const_iterator ipoint=begin();
             ipoint!=end(); ipoint++ ) {
