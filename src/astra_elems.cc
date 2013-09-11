@@ -103,7 +103,7 @@ const
                          {etTagColor,              "etTagColor",              "tag_colors"},
                          {etTripLiter,             "etTripLiter",             ""},
                          {etTripType,              "etTripType",              "trip_types"},
-                         {etTypeBOptionValues,     "etTypeBOptionValues",     "typeb_option_values"},
+                         {etTypeBOptionValue,      "etTypeBOptionValue",      "typeb_option_values"},
                          {etTypeBSender,           "etTypeBSender",           ""},
                          {etTypeBType,             "etTypeBType",             "typeb_types"},
                          {etUserSetType,           "etUserSetType",           "user_set_types"},
