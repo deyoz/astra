@@ -1427,8 +1427,7 @@ class TCloseCheckInCreator : public TCreator
     {
       *this << "COM"
             << "COM2"
-            << "PRLC"
-            << "PRLN"
+            << "PRL"
             << "LCI";
     };
 
@@ -1476,7 +1475,7 @@ class TCloseBoardingCreator : public TCreator
       *this << "COM"
             << "COM2"
             << "LCI"
-            << "PRLN";
+            << "PRL";
     };
     virtual bool validInfo(const TCreateInfo &info) const {
         if (!TCreator::validInfo(info)) return false;
@@ -1509,7 +1508,6 @@ class TTakeoffCreator : public TCreator
             << "PFSN"
             << "FTL"
             << "PRL"
-            << "PRLN"
             << "PIM"
             << "SOM"
         //    << "ETL" формируем по прилету в конечные пункт если не было интерактива с СЭБ
