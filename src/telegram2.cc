@@ -680,14 +680,20 @@ namespace PRL_SPACE {
 
     struct TInfants {
         vector<TInfantsItem> items;
-        void get(int point_id);
+        void get(TypeB::TDetailCreateInfo &info);
     };
 
-    void TInfants::get(int point_id) {
+    void TInfants::get(TypeB::TDetailCreateInfo &info)
+    {
         items.clear();
-        if(point_id == NoExists) return;
+        if(info.point_id == NoExists) return;
+
+        const TypeB::TPRLOptions *PRLOptions=NULL;
+        if(info.optionsIs<TypeB::TPRLOptions>())
+            PRLOptions=info.optionsAs<TypeB::TPRLOptions>();
+
         TQuery Qry(&OraSession);
-        Qry.SQLText =
+        string SQLText =
             "SELECT pax.grp_id, "
             "       pax.pax_id, "
             "       pax.reg_no, "
@@ -701,9 +707,15 @@ namespace PRL_SPACE {
             "WHERE "
             "     pax_grp.grp_id=pax.grp_id AND "
             "     pax_grp.point_dep=:point_id AND "
-            "     pax.seats=0 AND pax.pr_brd=1 AND "
+            "     pax.seats=0 AND ";
+        if((PRLOptions and PRLOptions->pax_state == "CKIN") or info.get_tlg_type() == "LCI")
+            SQLText += " pax.pr_brd is not null and ";
+        else
+            SQLText += "    pax.pr_brd = 1 and ";
+        SQLText +=
             "     pax.pax_id=crs_inf.inf_id(+) ";
-        Qry.CreateVariable("point_id", otInteger, point_id);
+        Qry.SQLText = SQLText;
+        Qry.CreateVariable("point_id", otInteger, info.point_id);
         Qry.Execute();
         if(!Qry.Eof) {
             int col_pax_id = Qry.FieldIndex("pax_id");
@@ -733,7 +745,7 @@ namespace PRL_SPACE {
         }
         if(!items.empty()) {
             Qry.Clear();
-            Qry.SQLText =
+            string SQLText =
                 "SELECT pax.grp_id, "
                 "       pax.pax_id, "
                 "       pax.reg_no, "
@@ -742,8 +754,13 @@ namespace PRL_SPACE {
                 "WHERE "
                 "     pax_grp.grp_id=pax.grp_id AND "
                 "     pax_grp.point_dep=:point_id AND "
-                "     pax.pers_type='‚‡' AND pax.pr_brd=1 ";
-            Qry.CreateVariable("point_id", otInteger, point_id);
+                "     pax.pers_type='‚‡' AND ";
+            if((PRLOptions and PRLOptions->pax_state == "CKIN") or info.get_tlg_type() == "LCI")
+                SQLText += " pax.pr_brd is not null ";
+            else
+                SQLText += "    pax.pr_brd = 1 ";
+            Qry.SQLText = SQLText;
+            Qry.CreateVariable("point_id", otInteger, info.point_id);
             Qry.Execute();
             vector<TAdultsItem> adults;
             if(!Qry.Eof) {
@@ -761,7 +778,8 @@ namespace PRL_SPACE {
                 }
             }
             SetInfantsToAdults( items, adults );
-/*            for(int k = 1; k <= 3; k++) {
+            /*
+            for(int k = 1; k <= 3; k++) {
                 for(vector<TInfantsItem>::iterator infRow = items.begin(); infRow != items.end(); infRow++) {
                     if(k == 1 and infRow->pax_id != NoExists or
                             k > 1 and infRow->pax_id == NoExists) {
@@ -780,7 +798,8 @@ namespace PRL_SPACE {
                         }
                     }
                 }
-            }*/
+            }
+            */
         }
     }
 
@@ -1354,7 +1373,7 @@ namespace PRL_SPACE {
             "    pax_grp.grp_id=pax.grp_id AND "
             "    pax_grp.class_grp = cls_grp.id(+) AND "
             "    cls_grp.code = :class and ";
-        if(PRLOptions and PRLOptions->pax_state == "CKIN" or info.get_tlg_type() == "LCI")
+        if((PRLOptions and PRLOptions->pax_state == "CKIN") or info.get_tlg_type() == "LCI")
             SQLText += " pax.pr_brd is not null and ";
         else
             SQLText += "    pax.pr_brd = 1 and ";
@@ -3216,7 +3235,7 @@ struct TTPM {
 
 void TTPM::get(TypeB::TDetailCreateInfo &info)
 {
-    infants.get(info.point_id);
+    infants.get(info);
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "select "
@@ -5910,7 +5929,7 @@ int ETL(TypeB::TDetailCreateInfo &info)
 template <class T>
 void TDestList<T>::get(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &complayers)
 {
-    infants.get(info.point_id);
+    infants.get(info);
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "select point_num, airp, class from "
