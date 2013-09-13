@@ -7144,7 +7144,13 @@ bool compareSeatLayer( const TSeatLayer &layer1, const TSeatLayer &layer2 )
 {
   BASIC_SALONS::TCompLayerTypes *compTypes = BASIC_SALONS::TCompLayerTypes::Instance();
   if ( layer1.point_dep_num != layer2.point_dep_num ) {
-    bool ret = compTypes->priority_on_routes( layer1.layer_type, layer2.layer_type, SIGND( layer1.time_create - layer2.time_create ) );
+    bool ret;
+    if ( layer1.point_dep_num == pdPrior ) {
+      ret = compTypes->priority_on_routes( layer1.layer_type, layer2.layer_type, SIGND( layer1.time_create - layer2.time_create ) );
+    }
+    else {
+      ret = !compTypes->priority_on_routes( layer2.layer_type, layer1.layer_type, SIGND( layer2.time_create - layer1.time_create ) );
+    }
     ProgTrace( TRACE5, "compareSeatLayer: layer1.point_dep_num=%d, layer1.point_dep_num=%d, ret=%d",
                layer1.point_dep_num, layer2.point_dep_num, ret );
     ProgTrace( TRACE5, "compareSeatLayer: return layer1(point_id=%d, point_dep=%d, point_arv=%d, layer_type=%s, pax_id=%d, crs_pax_id=%d, time_create=%s",
