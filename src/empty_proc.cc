@@ -1444,6 +1444,20 @@ int test_typeb_utils(int argc,char **argv)
   return 0;
 };
 
+void filter(vector<TypeB::TCreateInfo> &createInfo, string tlg_type)
+{
+    vector<TypeB::TCreateInfo>::iterator iv = createInfo.begin();
+    while(true) {
+        for(; iv != createInfo.end(); iv++)
+            if(iv->get_tlg_type() != tlg_type)
+                break;
+        if(iv != createInfo.end())
+            createInfo.erase(iv);
+        else
+            break;
+    }
+}
+
 int test_typeb_utils2(int argc,char **argv)
 {
   ofstream f1, f2;
@@ -1463,7 +1477,7 @@ int test_typeb_utils2(int argc,char **argv)
     TlgQry.SQLText=
       "SELECT id, addr, heading, body, ending "
       "FROM tlg_out "
-      "WHERE point_id=:point_id "
+      "WHERE point_id=:point_id and type in ('PRL', 'PRLC') "
       "ORDER BY type, addr, id, num";
     TlgQry.DeclareVariable("point_id", otInteger);
 
@@ -1521,15 +1535,19 @@ int test_typeb_utils2(int argc,char **argv)
         {
           vector<TypeB::TCreateInfo> createInfo;
           TypeB::TTakeoffCreator(fltInfo.point_id).getInfo(createInfo);
+          filter(createInfo, "PRL");
           TelegramInterface::SendTlg(createInfo);
 
           TypeB::TMVTACreator(fltInfo.point_id).getInfo(createInfo);
+          filter(createInfo, "PRL");
           TelegramInterface::SendTlg(createInfo);
 
           TypeB::TCloseCheckInCreator(fltInfo.point_id).getInfo(createInfo);
+          filter(createInfo, "PRL");
           TelegramInterface::SendTlg(createInfo);
 
           TypeB::TCloseBoardingCreator(fltInfo.point_id).getInfo(createInfo);
+          filter(createInfo, "PRL");
           TelegramInterface::SendTlg(createInfo);
         };
       };

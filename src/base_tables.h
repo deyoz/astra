@@ -370,6 +370,31 @@ class TPaxDocTypes: public TCodeBaseTable {
     }
 };
 
+class TTypeBOptionValuesRow: public TCodeBaseTableRow {
+  public:
+    std::string short_name,short_name_lat;
+    const char *get_row_name() const { return "TTypeBOptionValuesRow"; };
+    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU) const
+    {
+      if (lowerc(field)=="short_name") return lang!=AstraLocale::LANG_RU?short_name_lat:short_name;
+      return TCodeBaseTableRow::AsString(field,lang);
+    };
+};
+
+class TTypeBOptionValues: public TCodeBaseTable {
+  protected:
+    const char *get_table_name() { return "TTypeBOptionValues"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+    void Invalidate() {}; //всегда актуальна
+  public:
+    TTypeBOptionValues() {
+      Init();
+  		select_sql = "SELECT tlg_type||'+'||category||'+'||value AS code, "
+                   "       short_name, short_name_lat, name, name_lat "
+                   "FROM typeb_option_values";
+ 	  }
+};
+
 class TTypeBTypesRow: public TCodeBaseTableRow {
   public:
     std::string basic_type;
