@@ -105,6 +105,7 @@ bool get_alarm( int point_id, TTripAlarmsType alarm_type )
         case atSpecService:
         case atTlgOut:
         case atUnattachedTrfer:
+        case atConflictTrfer:
             break;
         default: throw Exception("get_alarm: alarm_type=%s not processed", EncodeAlarmType(alarm_type).c_str());
     };
@@ -127,6 +128,7 @@ void set_alarm( int point_id, TTripAlarmsType alarm_type, bool alarm_value )
         case atSpecService:
         case atTlgOut:
         case atUnattachedTrfer:
+        case atConflictTrfer:
             break;
         default: throw Exception("set_alarm: alarm_type=%s not processed", EncodeAlarmType(alarm_type).c_str());
     };
@@ -262,7 +264,6 @@ bool check_spec_service_alarm(int point_id)
     bool result = not Qry.Eof;
     set_alarm(point_id, atSpecService, result);
     return result;
-
 }
 
 void check_unattached_trfer_alarm( const set<int> &point_ids )
@@ -314,6 +315,22 @@ void check_u_trfer_alarm_for_next_trfer( int id,  //м.б. point_id или grp_id
   InboundTrfer::GetNextTrferCheckedFlts(id, id_type, next_trfer_point_ids);
   check_unattached_trfer_alarm(next_trfer_point_ids);
 };
+
+bool check_conflict_trfer_alarm(int point_id)
+{
+  bool conflict_trfer_alarm = false;
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT grp_id "
+    "FROM pax_grp "
+    "WHERE point_dep = :point_id AND trfer_conflict<>0 AND rownum<2 ";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  conflict_trfer_alarm = !Qry.Eof;
+  set_alarm( point_id, atConflictTrfer, conflict_trfer_alarm );
+	return conflict_trfer_alarm;
+}
 
 
 

@@ -575,7 +575,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   };
 
   CheckIn::LoadBag(grp_id,dataNode);
-  CheckInInterface::LoadPaidBag(grp_id,dataNode);
+  CheckIn::LoadPaidBag(grp_id,dataNode);
   LoadReceipts(grp_id,true,prnParams.pr_lat,dataNode);
   //ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 };
@@ -678,7 +678,7 @@ void PaymentInterface::SaveBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     NewTextChild(resNode,"tid",tid);
 
     CheckIn::SaveBag(point_dep,grp_id,ASTRA::NoExists,reqNode);
-    CheckInInterface::SavePaidBag(grp_id,reqNode);
+    CheckIn::SavePaidBag(grp_id,reqNode);
 
     TReqInfo::Instance()->MsgToLog(
             "Данные по багажным тарифам и ценному багажу сохранены.",

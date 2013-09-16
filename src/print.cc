@@ -1172,7 +1172,8 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
         "  bag2.amount AS bag_amount, "
         "  bag2.weight AS bag_weight, "
         "  bag2.pr_liab_limit, "
-        "  ckin.get_bag_pool_pax_id(bag_tags.grp_id,NVL(bag2.bag_pool_num,1)) AS pax_id "
+        "  ckin.get_bag_pool_pax_id(bag_tags.grp_id,NVL(bag2.bag_pool_num,1)) AS pax_id, "
+        "  tag_types.printable "
         "FROM "
         "  pax_grp, "
         "  bag_tags, "
@@ -1192,15 +1193,16 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
         SQLText +=
         "  bag_tags.tag_type = :tag_type AND "
         "  bag_tags.no = :no AND "
-        "  NVL(bag_tags.color, ' ') = NVL(:color, ' ') AND ";
+        "  NVL(bag_tags.color, ' ') = NVL(:color, ' ') AND "
+        "  (tag_types.printable <> 0 OR tag_types.printable IS NULL) ";
         Qry.CreateVariable("tag_type", otString, tag_key.type);
         Qry.CreateVariable("color", otString, tag_key.color);
         Qry.CreateVariable("no", otFloat, tag_key.no);
     } else
         SQLText +=
-        "  bag_tags.pr_print = 0 AND ";
+        "  bag_tags.pr_print = 0 AND "
+        "  tag_types.printable <> 0 ";
     SQLText +=
-        "  tag_types.printable <> 0 "
         "ORDER BY "
         "   bag_tags.tag_type, "
         "   bag_tags.num";
@@ -1209,6 +1211,8 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
     Qry.Execute();
     //ProgTrace(TRACE5, "SQLText: %s", Qry.SQLText.SQLText());
     if (Qry.Eof) return;
+    if(tag_key.no >= 0.0 && Qry.FieldIsNULL("printable")) //перепечатка специальной бирки
+      throw AstraLocale::UserException("MSG.PRINTING_BAGTAG_PROHIBITED");
 
     bool pr_unaccomp = Qry.FieldIsNULL("class");
 
