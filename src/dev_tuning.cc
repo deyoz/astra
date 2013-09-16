@@ -1252,7 +1252,10 @@ void TTagTypes::ToBase()
         Qry.SetVariable("airline", iv->airline);
         Qry.SetVariable("name", iv->name);
         Qry.SetVariable("no_len", iv->no_len);
-        Qry.SetVariable("printable", iv->printable);
+        if (iv->printable!=NoExists)
+          Qry.SetVariable("printable", iv->printable);
+        else
+          Qry.SetVariable("printable", FNull);
         Qry.SetVariable("airp", iv->airp);
         Qry.Execute();
     }
@@ -1270,7 +1273,7 @@ void TTagTypes::add(xmlNodePtr reqNode)
         item.name = NodeAsStringFast("name", fastNode);
         item.airp = NodeAsStringFast("airp", fastNode);
         item.no_len = NodeAsIntegerFast("no_len", fastNode);
-        item.printable = NodeAsIntegerFast("printable", fastNode);
+        item.printable = NodeIsNULLFast("printable", fastNode)?NoExists:NodeAsIntegerFast("printable", fastNode);
         items.push_back(item);
     }
     bt_models.add(reqNode);
@@ -1287,7 +1290,10 @@ void TTagTypes::ToXML(xmlNodePtr resNode)
             NewTextChild(itemNode, "name", it->name);
             NewTextChild(itemNode, "airp", it->airp);
             NewTextChild(itemNode, "no_len", it->no_len);
-            NewTextChild(itemNode, "printable", it->printable);
+            if (it->printable!=NoExists)
+              NewTextChild(itemNode, "printable", it->printable);
+            else
+              NewTextChild(itemNode, "printable");
         }
     }
     bt_models.ToXML(resNode);
@@ -1317,7 +1323,7 @@ void TTagTypes::add(string type)
     item.airline = Qry.FieldAsString("airline");
     item.name = Qry.FieldAsString("name");
     item.no_len = Qry.FieldAsInteger("no_len");
-    item.printable = Qry.FieldAsInteger("printable");
+    item.printable = Qry.FieldIsNULL("printable")?NoExists:Qry.FieldAsInteger("printable");
     item.airp = Qry.FieldAsString("airp");
     items.push_back(item);
     bt_models.add(type);

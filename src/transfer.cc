@@ -1,5 +1,7 @@
 #include "transfer.h"
+#include "astra_misc.h"
 #include "astra_utils.h"
+#include "astra_locale.h"
 #include "exceptions.h"
 #include "term_version.h"
 #include "alarms.h"
@@ -169,6 +171,41 @@ TGrpItem& TGrpItem::paxFromDB(TQuery &PaxQry, TQuery &RemQry, bool fromTlg)
   return *this;
 };
 
+TGrpItem& TGrpItem::trferFromDB(TQuery &TrferQry, bool fromTlg)
+{
+  trfer.clear();
+
+  const char* trfer_sql_tlg=
+    "SELECT num, airline, flt_no, suffix, local_date AS scd_out, "
+    "       airp_dep AS airp, airp_arv "
+    "FROM tlg_trfer_onwards "
+    "WHERE grp_id=:grp_id AND num>0 ";
+  const char* trfer_sql_ckin=
+      "SELECT transfer_num-1 AS num, airline, flt_no, suffix, scd AS scd_out, "
+      "       airp_dep AS airp, airp_arv "
+      "FROM transfer,trfer_trips "
+      "WHERE transfer.point_id_trfer=trfer_trips.point_id AND "
+      "      grp_id=:grp_id AND transfer_num>1";
+
+  if (strcmp(TrferQry.SQLText.SQLText(),fromTlg?trfer_sql_tlg:trfer_sql_ckin)!=0)
+  {
+    TrferQry.Clear();
+    TrferQry.SQLText=fromTlg?trfer_sql_tlg:trfer_sql_ckin;
+    TrferQry.DeclareVariable("grp_id", otInteger);
+  };
+  TrferQry.SetVariable("grp_id", grp_id);
+  TrferQry.Execute();
+  for(;!TrferQry.Eof;TrferQry.Next())
+  {
+    CheckIn::TTransferItem t;
+    t.operFlt.Init(TrferQry);
+    t.airp_arv=TrferQry.FieldAsString("airp_arv");
+    //t.subclass=TrferQry.FieldAsString("subclass"); это не загружаем, так как не участвует в сравнении
+    trfer.insert(make_pair(TrferQry.FieldAsInteger("num"), t));
+  };
+  return *this;
+};
+
 TGrpItem& TGrpItem::setPaxUnaccomp()
 {
   paxs.clear();
@@ -197,6 +234,7 @@ void TrferFromDB(TTrferType type,
   TQuery PaxQry(&OraSession);
   TQuery RemQry(&OraSession);
   TQuery TagQry(&OraSession);
+  TQuery TrferQry(&OraSession);
 
   TQuery FltQry(&OraSession);
   FltQry.Clear();
@@ -228,7 +266,7 @@ void TrferFromDB(TTrferType type,
          "       SUM(DECODE(bag2.pr_cabin,NULL,0,0,bag2.weight,0)) AS bag_weight, \n"
          "       SUM(DECODE(bag2.pr_cabin,NULL,0,0,0,bag2.weight)) AS rk_weight, \n";
 
-  if (type==trferOut)
+  if (type==trferOut || type==trferOutForCkin)
   {
     //Информация о трансферном багаже/пассажирах, отправляющемся рейсом
     sql << "     pax_grp.point_dep AS point_id, pax_grp.airp_arv, \n"
@@ -279,7 +317,7 @@ void TrferFromDB(TTrferType type,
 
   sql << "      pax_grp.bag_refuse=0 AND pax_grp.status<>'T' \n"
          "GROUP BY pax_grp.point_dep, pax_grp.grp_id, bag2.bag_pool_num, pax_grp.class, \n";
-  if (type==trferOut)
+  if (type==trferOut || type==trferOutForCkin)
   {
     sql << "         pax_grp.airp_arv, transfer.airp_arv \n";
   };
@@ -298,7 +336,7 @@ void TrferFromDB(TTrferType type,
   PaxQry.Clear();
   sql.str("");
   sql << "SELECT pax.pax_id, pax.surname, pax.name, pax.seats, \n";
-  if (type==trferOut || type==tckinInbound)
+  if (type==trferOut || type==trferOutForCkin || type==tckinInbound)
   {
     sql << "       pax.subclass \n"
            "FROM pax \n"
@@ -313,7 +351,7 @@ void TrferFromDB(TTrferType type,
 
   sql << "      pax.grp_id=:grp_id AND \n"
          "      (pax.bag_pool_num=:bag_pool_num OR pax.bag_pool_num IS NULL AND :bag_pool_num IS NULL) AND \n";
-  if (type==trferIn || type==trferOut)
+  if (type==trferIn || type==trferOut || type==trferOutForCkin)
     sql << "      pax.pr_brd=1 \n";
   if (type==trferCkin || type==tckinInbound)
     sql << "      pax.pr_brd IS NOT NULL \n";
@@ -327,7 +365,7 @@ void TrferFromDB(TTrferType type,
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next())
   {
-    if (type==trferOut || type==trferIn)
+    if (type==trferOut || type==trferOutForCkin || type==trferIn)
     {
       map<int, TFltInfo>::const_iterator id;
       int point_dep=Qry.FieldAsInteger("point_dep");
@@ -363,14 +401,16 @@ void TrferFromDB(TTrferType type,
     grp.grp_id=Qry.FieldAsInteger("grp_id");
     grp.bag_pool_num=Qry.FieldIsNULL("bag_pool_num")?NoExists:Qry.FieldAsInteger("bag_pool_num");
     grp.airp_arv=Qry.FieldAsString("airp_arv");
-    if (type==trferOut)
+    if (type==trferOut || type==trferOutForCkin)
       grp.last_airp_arv=Qry.FieldAsString("last_airp_arv");
-    if (type==trferOut || type==trferCkin || type==tckinInbound)
+    if (type==trferOut || type==trferOutForCkin || type==trferCkin || type==tckinInbound)
       grp.subcl=Qry.FieldAsString("class");
     if (Qry.FieldIsNULL("class"))
     {
       grp.fromDB(Qry, TagQry, false, pr_bag);
       grp.setPaxUnaccomp();
+      if (type==trferOutForCkin)
+        grp.trferFromDB(TrferQry, false);
       grps_ckin.push_back(grp);
     }
     else
@@ -398,6 +438,8 @@ void TrferFromDB(TTrferType type,
         PaxQry.Execute();
         if (PaxQry.Eof) continue; //пустая группа - не помещаем в grps
         grp.paxFromDB(PaxQry, RemQry, false);
+        if (type==trferOutForCkin)
+          grp.trferFromDB(TrferQry, false);
         grps_ckin.push_back(grp);
       };
     };
@@ -405,7 +447,7 @@ void TrferFromDB(TTrferType type,
 
   //ProgTrace(TRACE5, "grps_ckin.size()=%zu", grps_ckin.size());
 
-  if (!(type==trferOut || type==trferIn)) return;
+  if (!(type==trferOut || type==trferOutForCkin || type==trferIn)) return;
 
   FltQry.Clear();
   FltQry.SQLText=
@@ -423,23 +465,26 @@ void TrferFromDB(TTrferType type,
   FltQry.DeclareVariable("suffix", otString);
 
   Qry.Clear();
-  if (type==trferOut)
+  if (type==trferOut || type==trferOutForCkin)
   {
     //Информация о трансферном багаже/пассажирах, отправляющемся рейсом
     Qry.SQLText=
       "SELECT tlg_trips_in.airline, tlg_trips_in.flt_no, tlg_trips_in.suffix, \n"
       "       tlg_trips_in.airp_dep AS airp, tlg_trips_in.scd AS scd_out, \n"
       "       tlg_trips_in.point_id AS point_id_tlg_in, tlg_trips_in.airp_arv, \n"
+      "       tlg_trips_out.airp_arv AS last_airp_arv, \n"
       "       tlg_transfer.subcl_in AS subcl, \n"
       "       trfer_grp.grp_id, trfer_grp.seats, \n"
       "       trfer_grp.bag_amount, trfer_grp.bag_weight, trfer_grp.rk_weight, trfer_grp.weight_unit \n"
-      "FROM tlg_binding tlg_binding_out, tlg_transfer, tlgs_in, trfer_grp, tlg_trips tlg_trips_in \n"
+      "FROM tlg_binding tlg_binding_out, tlg_transfer, tlgs_in, trfer_grp, \n"
+      "     tlg_trips tlg_trips_in, tlg_trips tlg_trips_out \n"
       "WHERE tlg_binding_out.point_id_tlg=tlg_transfer.point_id_out AND \n"
       "      tlg_binding_out.point_id_spp=:point_id AND \n"
       "      tlg_transfer.tlg_id=tlgs_in.id AND tlgs_in.num=1 AND \n"
       "      tlgs_in.type=:tlg_type AND \n"
       "      tlg_transfer.trfer_id=trfer_grp.trfer_id AND \n"
-      "      tlg_transfer.point_id_in=tlg_trips_in.point_id \n";
+      "      tlg_transfer.point_id_in=tlg_trips_in.point_id AND \n"
+      "      tlg_transfer.point_id_out=tlg_trips_out.point_id \n";
     Qry.CreateVariable("point_id", otInteger, point_id);
     //ProgTrace(TRACE5, "point_id=%d\nQry.SQLText=\n%s", point_id, Qry.SQLText.SQLText());
   };
@@ -517,12 +562,14 @@ void TrferFromDB(TTrferType type,
     if (id==flts_from_tlg.end()) continue;
 
     TGrpItem grp;
-    if (type==trferOut)
+    if (type==trferOut || type==trferOutForCkin)
       grp.point_id=Qry.FieldAsInteger("point_id_tlg_in");
     if (type==trferIn)
       grp.point_id=Qry.FieldAsInteger("point_id_tlg_out");
     grp.grp_id=Qry.FieldAsInteger("grp_id");
     grp.airp_arv=Qry.FieldAsString("airp_arv");
+    if (type==trferOut || type==trferOutForCkin)
+      grp.last_airp_arv=Qry.FieldAsString("last_airp_arv");
     grp.subcl=Qry.FieldAsString("subcl");
     grp.fromDB(Qry, TagQry, true, pr_bag);
     grp.seats=Qry.FieldIsNULL("seats")?NoExists:Qry.FieldAsInteger("seats");
@@ -548,7 +595,8 @@ void TrferFromDB(TTrferType type,
           grp.is_unaccomp=true;
       };
     };
-
+    if (type==trferOutForCkin)
+      grp.trferFromDB(TrferQry, true);
     grps_tlg.push_back(grp);
   };
   //ProgTrace(TRACE5, "grps_tlg.size()=%zu", grps_tlg.size());
@@ -571,7 +619,7 @@ void TrferToXML(TTrferType type,
     FltQry.Clear();
     if (!from_tlg)
     {
-      if (type==trferOut || type==tckinInbound)
+      if (type==trferOut || type==trferOutForCkin || type==tckinInbound)
       {
         FltQry.SQLText=
           "SELECT airline, flt_no, suffix, scd_out, airp "
@@ -601,8 +649,8 @@ void TrferToXML(TTrferType type,
     {
       TGrpViewItem grp;
       if (g->point_id==NoExists) continue;
-      if ((type==trferIn || type==trferOut) && pr_bag && g->tags.empty()) continue; //BTM не содержат пассажиров без бирок
-      if ((type==trferIn || type==trferOut) && !pr_bag && g->is_unaccomp) continue; //PTM не содержат несопровождаемый багаж
+      if ((type==trferIn || type==trferOut || type==trferOutForCkin) && pr_bag && g->tags.empty()) continue; //BTM не содержат пассажиров без бирок
+      if ((type==trferIn || type==trferOut || type==trferOutForCkin) && !pr_bag && g->is_unaccomp) continue; //PTM не содержат несопровождаемый багаж
 
       map<int, TFltInfo>::const_iterator i=point_ids.find(g->point_id);
       if (i==point_ids.end())
@@ -610,7 +658,7 @@ void TrferToXML(TTrferType type,
         FltQry.SetVariable("point_id", g->point_id);
         FltQry.Execute();
         if (FltQry.Eof) continue;
-        bool calc_local_time=!from_tlg && (type==trferOut || type==tckinInbound);
+        bool calc_local_time=!from_tlg && (type==trferOut || type==trferOutForCkin || type==tckinInbound);
         i=point_ids.insert(make_pair(g->point_id, TFltInfo(FltQry, calc_local_time))).first;
       };
       if (i==point_ids.end()) continue;
@@ -627,10 +675,10 @@ void TrferToXML(TTrferType type,
       grp.airp_arv_view=ElemIdToCodeNative(etAirp,g->airp_arv);
       if (type==trferIn)
         grp.tlg_airp_view=grp.airp_arv_view;
-      if (type==trferOut)
+      if (type==trferOut || type==trferOutForCkin)
         grp.tlg_airp_view=grp.flt_view.airp;
 
-      if (type!=trferOut && !g->subcl.empty())
+      if (type!=trferOut && type!=trferOutForCkin && !g->subcl.empty())
       {
         grp.subcl_view=ElemIdToCodeNative(etSubcls,g->subcl); //пустой для несопровождаемого багажа
         grp.subcl_priority=0;
@@ -662,7 +710,7 @@ void TrferToXML(TTrferType type,
   //ProgTrace(TRACE5, "grps.size()=%zu", grps.size());
 
   InboundTrfer::TUnattachedTagMap unattached_grps;
-  if (type==trferOut && pr_bag)
+  if ((type==trferOut || type==trferOutForCkin) && pr_bag)
   {
     GetUnattachedTags(point_id, grps_ckin, grps_tlg, unattached_grps);
     //ProgTrace(TRACE5, "unattached_grps.size()=%zu", unattached_grps.size());
@@ -700,7 +748,7 @@ void TrferToXML(TTrferType type,
            << (iGrp->flt_view.scd_out==NoExists?"??":DateTimeToStr(iGrp->flt_view.scd_out,"dd"));
 
       NewTextChild(node,"trip",trip.str());
-      if (type==trferIn || type==trferOut)
+      if (type==trferIn || type==trferOut || type==trferOutForCkin)
         NewTextChild(node,"airp",iGrp->tlg_airp_view);
       NewTextChild(node,"airp_dep",iGrp->flt_view.airp);
       NewTextChild(node,"airp_arv",iGrp->airp_arv_view);
@@ -716,7 +764,8 @@ void TrferToXML(TTrferType type,
     }
     else
     {
-      if (type==trferIn || type==trferOut || !reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS) ||
+      if (type==trferIn || type==trferOut || type==trferOutForCkin ||
+          !reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS) ||
           iGrpPrior==grps.end() || iGrpPrior->grp_id!=iGrp->grp_id)
       {
         grpNode=NewTextChild(grpsNode,"grp");
@@ -724,7 +773,8 @@ void TrferToXML(TTrferType type,
       };
     };
 
-    if (type==trferIn || type==trferOut || !reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS))
+    if (type==trferIn || type==trferOut || type==trferOutForCkin ||
+        !reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS))
     {
       if (iGrp->bag_amount!=NoExists)
         NewTextChild(grpNode,"bag_amount",iGrp->bag_amount);
@@ -743,7 +793,7 @@ void TrferToXML(TTrferType type,
       NewTextChild(grpNode,"seats",iGrp->seats);
 
       bool unattached_alarm=false;
-      if (type==trferOut && pr_bag)
+      if ((type==trferOut || type==trferOutForCkin) && pr_bag)
       {
         //передадим для группы тревогу atUnattachedTrfer, если непривязанные бирки
         InboundTrfer::TGrpId id(iGrp->grp_id, iGrp->bag_pool_num);
@@ -783,7 +833,8 @@ void TrferToXML(TTrferType type,
         xmlNodePtr paxNode=NewTextChild(paxsNode,"pax");
         NewTextChild(paxNode,"surname",iPax->surname);
         NewTextChild(paxNode,"name",iPax->name+iPax->name_extra,"");
-        if (!(type==trferIn || type==trferOut || !reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS)))
+        if (!(type==trferIn || type==trferOut || type==trferOutForCkin ||
+              !reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS)))
 
         {
           if (iPax==iGrp->paxs.begin())
@@ -933,6 +984,7 @@ TGrpItem::TGrpItem(const TrferList::TGrpItem &grp)
       paxs.push_back(TPaxItem(*p));
   };
   tags.assign(grp.tags.begin(), grp.tags.end());
+  trfer=grp.trfer;
 };
 
 int TGrpItem::equalRate(const TGrpItem &item, int minPaxEqualRate) const
@@ -943,13 +995,13 @@ int TGrpItem::equalRate(const TGrpItem &item, int minPaxEqualRate) const
   if (!is_unaccomp)
   {
     //обычная группа пассажиров
-    std::list<TPaxItem> paxs1(paxs.begin(), paxs.end());
-    std::list<TPaxItem> paxs2(item.paxs.begin(), item.paxs.end());
+    list<TPaxItem> paxs1(paxs.begin(), paxs.end());
+    list<TPaxItem> paxs2(item.paxs.begin(), item.paxs.end());
     for(int r=7; r>0 && r>=minPaxEqualRate; r--)
     {
-      for(std::list<TPaxItem>::iterator p1=paxs1.begin(); p1!=paxs1.end();)
+      for(list<TPaxItem>::iterator p1=paxs1.begin(); p1!=paxs1.end();)
       {
-        std::list<TPaxItem>::iterator p2=paxs2.begin();
+        list<TPaxItem>::iterator p2=paxs2.begin();
         for(; p2!=paxs2.end(); ++p2)
           if (r==p1->equalRate(*p2)) break;
         if (p2!=paxs2.end())
@@ -966,52 +1018,162 @@ int TGrpItem::equalRate(const TGrpItem &item, int minPaxEqualRate) const
   return rate;
 };
 
+bool TGrpItem::equalTrfer(const TGrpItem &item) const
+{
+  map<int, CheckIn::TTransferItem>::const_iterator s1=trfer.begin();
+  map<int, CheckIn::TTransferItem>::const_iterator s2=item.trfer.begin();
+  for(;s1!=trfer.end()&&s2!=item.trfer.end();++s1,++s2)
+    if (s1->first!=s2->first ||
+        !s1->second.equalSeg(s2->second)) break;
+  return (s1==trfer.end() && s2==item.trfer.end());
+};
+
+bool TGrpItem::similarTrfer(const TGrpItem &item) const
+{
+  map<int, CheckIn::TTransferItem>::const_iterator s1=trfer.begin();
+  map<int, CheckIn::TTransferItem>::const_iterator s2=item.trfer.begin();
+  for(;s1!=trfer.end()&&s2!=item.trfer.end();++s1,++s2)
+    if (s1->first!=s2->first ||
+        !s1->second.equalSeg(s2->second)) break;
+  return (s1==trfer.end() || s2==item.trfer.end());
+};
+
+void TGrpItem::print() const
+{
+  ProgTrace(TRACE5, "airp_arv=%s is_unaccomp=%s", airp_arv.c_str(), is_unaccomp?"true":"false");
+  ProgTrace(TRACE5, "paxs:");
+  for(vector<TPaxItem>::const_iterator p=paxs.begin(); p!=paxs.end(); ++p)
+    ProgTrace(TRACE5, "  surname=%s name=%s subcl=%s", p->surname.c_str(), p->name.c_str(), p->subcl.c_str());
+  ProgTrace(TRACE5, "tags:");
+  for(list<TBagTagNumber>::const_iterator t=tags.begin(); t!=tags.end(); ++t)
+    ProgTrace(TRACE5, "  %15.0f", t->numeric_part);
+  ProgTrace(TRACE5, "trfer:");
+  for(map<int, CheckIn::TTransferItem>::const_iterator t=trfer.begin(); t!=trfer.end(); ++t)
+    ProgTrace(TRACE5, "  %d: %s%d%s/%s %s-%s", t->first,
+                      t->second.operFlt.airline.c_str(), t->second.operFlt.flt_no, t->second.operFlt.suffix.c_str(),
+                      DateTimeToStr(t->second.operFlt.scd_out, "ddmmm").c_str(), t->second.operFlt.airp.c_str(), t->second.airp_arv.c_str());
+};
+
 typedef map<TBagTagNumber, pair< list<TGrpId>,
                                  list<TGrpId> > > TTagMap;
+
+void TraceTagMap(const TTagMap &tags)
+{
+  ProgTrace(TRACE5, "========== tags: ==========");
+  for(TTagMap::const_iterator t=tags.begin(); t!=tags.end(); ++t)
+  {
+    if (t!=tags.begin())
+      ProgTrace(TRACE5, "------------------------------");
+    ProgTrace(TRACE5, "%15.0f:", t->first.numeric_part);
+    ostringstream s;
+    s.str("");
+    s << "grps_in: ";
+    for(list<TGrpId>::const_iterator g=t->second.first.begin(); g!=t->second.first.end(); ++g)
+      s << "(" << g->first << ", " << (g->second==NoExists?"NoExists":IntToString(g->second)) << "); ";
+    ProgTrace(TRACE5, "%s", s.str().c_str());
+    s.str("");
+    s << "grps_out: ";
+    for(list<TGrpId>::const_iterator g=t->second.second.begin(); g!=t->second.second.end(); ++g)
+      s << "(" << g->first << ", " << (g->second==NoExists?"NoExists":IntToString(g->second)) << "); ";
+    ProgTrace(TRACE5, "%s", s.str().c_str());
+  };
+};
 
 void FilterUnattachedTags(const map<TGrpId, TGrpItem> &grps_in,
                           const map<TGrpId, TGrpItem> &grps_out,
                           TTagMap &tags)
 {
-  //TDateTime d=NowUTC();
-  //ProgTrace(TRACE5, "FilterUnattachedTags: started");
-  for(TTagMap::iterator t=tags.begin(); t!=tags.end(); ++t)
+  /*
+  ProgTrace(TRACE5, "========== grps_in: ==========");
+  for(map<TGrpId, TGrpItem>::const_iterator g=grps_in.begin(); g!=grps_in.end(); ++g)
   {
-    //ProgTrace(TRACE5, "FilterUnattachedTags: no=%s", GetTagRangesStr(vector<TBagTagNumber>(1,t->first)).c_str());
-    if (t->second.second.empty()) continue;
-    for(int minPaxEqualRate=7; minPaxEqualRate>=6; minPaxEqualRate--)   //6 - полное совпадение фамилии и имени
+    if (g!=grps_in.begin())
+      ProgTrace(TRACE5, "------------------------------");
+    ProgTrace(TRACE5, "grp_in(%d, %s):",
+                      g->first.first,
+                      g->first.second==NoExists?"NoExists":IntToString(g->first.second).c_str());
+    g->second.print();
+  };
+
+  ProgTrace(TRACE5, "========== grps_out: ==========");
+  for(map<TGrpId, TGrpItem>::const_iterator g=grps_out.begin(); g!=grps_out.end(); ++g)
+  {
+    if (g!=grps_out.begin())
+      ProgTrace(TRACE5, "------------------------------");
+    ProgTrace(TRACE5, "grp_out(%d, %s):",
+                      g->first.first,
+                      g->first.second==NoExists?"NoExists":IntToString(g->first.second).c_str());
+    g->second.print();
+  };
+
+  TraceTagMap(tags);
+  */
+
+  for(int pass=0; pass<2; pass++)
+  {
+    //TDateTime d=NowUTC();
+    //ProgTrace(TRACE5, "FilterUnattachedTags: started");
+    for(TTagMap::iterator t=tags.begin(); t!=tags.end(); ++t)
     {
-      //ProgTrace(TRACE5, "FilterUnattachedTags: minPaxEqualRate=%d", minPaxEqualRate);
-      while (!t->second.second.empty())
+      //ProgTrace(TRACE5, "FilterUnattachedTags: no=%s", GetTagRangesStr(vector<TBagTagNumber>(1,t->first)).c_str());
+      if (t->second.second.empty()) continue;
+      for(int minPaxEqualRate=7; minPaxEqualRate>=6; minPaxEqualRate--)   //6 - полное совпадение фамилии и имени
       {
-        pair< list<TGrpId>::iterator, list<TGrpId>::iterator > max(t->second.first.end(), t->second.second.end());
-        int maxEqualPaxCount=0;
-        for(list<TGrpId>::iterator i1=t->second.first.begin(); i1!=t->second.first.end(); ++i1)
-          for(list<TGrpId>::iterator i2=t->second.second.begin(); i2!=t->second.second.end(); ++i2)
+        //ProgTrace(TRACE5, "FilterUnattachedTags: minPaxEqualRate=%d", minPaxEqualRate);
+        while (!t->second.second.empty())
+        {
+          pair< list<TGrpId>::iterator, list<TGrpId>::iterator > max(t->second.first.end(), t->second.second.end());
+          int maxEqualPaxCount=0;
+          for(list<TGrpId>::iterator i1=t->second.first.begin(); i1!=t->second.first.end(); ++i1)
           {
-            map<TGrpId, TGrpItem>::const_iterator grp_in=grps_in.find(*i1);
-            if (grp_in==grps_in.end()) throw Exception("FilterUnattachedTags: grp_in=grps_in.end()");
-            map<TGrpId, TGrpItem>::const_iterator grp_out=grps_out.find(*i2);
-            if (grp_out==grps_out.end()) throw Exception("FilterUnattachedTags: grp_out=grps_out.end()");
-            int equalPaxCount=grp_in->second.equalRate(grp_out->second, minPaxEqualRate);
-            if (equalPaxCount>maxEqualPaxCount)
+            if (pass==1 && i1->second==NoExists) continue; //группа из BTM
+            for(list<TGrpId>::iterator i2=t->second.second.begin(); i2!=t->second.second.end(); ++i2)
             {
-              maxEqualPaxCount=equalPaxCount;
-              max=make_pair(i1, i2);
+              map<TGrpId, TGrpItem>::const_iterator grp_in=grps_in.find(*i1);
+              if (grp_in==grps_in.end()) throw Exception("FilterUnattachedTags: grp_in=grps_in.end()");
+              TGrpItem joint_grp_in(grp_in->second);
+              if (pass==1)
+              {
+                //собираем объединенный joint_grp_in.paxs
+                for(map<TGrpId, TGrpItem>::const_iterator i3=grps_in.begin(); i3!=grps_in.end(); ++i3)
+                {
+                  if (i3==grp_in) continue;
+                  if (i3->first.first==grp_in->first.first) //совпадают grp_id
+                  {
+                    if (i3->first.second==NoExists)
+                      throw Exception("FilterUnattachedTags: i3->first.second=NoExists");
+                    if (i3->second.airp_arv!=joint_grp_in.airp_arv ||
+                        i3->second.is_unaccomp!=joint_grp_in.is_unaccomp)
+                      throw Exception("FilterUnattachedTags: different airp_arv or is_unaccomp");
+                    joint_grp_in.paxs.insert(joint_grp_in.paxs.end(),i3->second.paxs.begin(),i3->second.paxs.end());
+                  };
+                };
+              };
+              map<TGrpId, TGrpItem>::const_iterator grp_out=grps_out.find(*i2);
+              if (grp_out==grps_out.end()) throw Exception("FilterUnattachedTags: grp_out=grps_out.end()");
+              int equalPaxCount=joint_grp_in.equalRate(grp_out->second, minPaxEqualRate);
+              if (equalPaxCount>maxEqualPaxCount)
+              {
+                maxEqualPaxCount=equalPaxCount;
+                max=make_pair(i1, i2);
+              };
             };
           };
-        if (maxEqualPaxCount>0)
-        {
-          //ProgTrace(TRACE5, "FilterUnattachedTags: no=%s minPaxEqualRate=%d [%s]<->[%s]",
-          //                  GetTagRangesStr(vector<TBagTagNumber>(1,t->first)).c_str(), minPaxEqualRate,
-          //                  max.first->getStr().c_str(), max.second->getStr().c_str());
-          t->second.first.erase(max.first);
-          t->second.second.erase(max.second);
-        }
-        else break;
+          if (maxEqualPaxCount>0)
+          {
+            //ProgTrace(TRACE5, "FilterUnattachedTags: no=%s minPaxEqualRate=%d [%s]<->[%s]",
+            //                  GetTagRangesStr(vector<TBagTagNumber>(1,t->first)).c_str(), minPaxEqualRate,
+            //                  max.first->getStr().c_str(), max.second->getStr().c_str());
+            t->second.first.erase(max.first);
+            t->second.second.erase(max.second);
+          }
+          else break;
+        };
       };
     };
   };
+
+  //TraceTagMap(tags);
 
   //ProgTrace(TRACE5, "FilterUnattachedTags: finished time=%f msecs", (NowUTC()-d)*MSecsPerDay);
 };
@@ -1107,42 +1269,40 @@ void GetCheckedTags(int id,  //м.б. point_id или grp_id
   GetCheckedTags(id, id_type, TTagMap(), grps_out);
 };
 
-void GetUnattachedTags(int point_id,
-                       const vector<TrferList::TGrpItem> &grps_ckin,
-                       const vector<TrferList::TGrpItem> &grps_tlg,
-                       TUnattachedTagMap &result)
+void PrepareTagMapIn(const vector<TrferList::TGrpItem> &grps_ckin,
+                     const vector<TrferList::TGrpItem> &grps_tlg,
+                     map<TGrpId, TGrpItem> &grps_in,
+                     TTagMap &tags)
 {
-  result.clear();
-
-  TTagMap tags;
-  map<TGrpId, TGrpItem> grps_in;
-  for(int from_tlg=0; from_tlg<2; from_tlg++)
+  grps_in.clear();
+  tags.clear();
+  for(int fromTlg=0; fromTlg<2; fromTlg++)
   {
-    vector<TrferList::TGrpItem>::const_iterator g=from_tlg?grps_tlg.begin():grps_ckin.begin();
-    for(; g!=(from_tlg?grps_tlg.end():grps_ckin.end()); ++g)
+    vector<TrferList::TGrpItem>::const_iterator g=fromTlg?grps_tlg.begin():grps_ckin.begin();
+    for(; g!=(fromTlg?grps_tlg.end():grps_ckin.end()); ++g)
     {
       if (g->tags.empty()) continue;
       TGrpId id(g->grp_id, g->bag_pool_num);
       map<TGrpId, TGrpItem>::const_iterator grp_in=grps_in.find(id);
       if (grp_in==grps_in.end())
         grp_in=grps_in.insert(make_pair(id, TGrpItem(*g))).first;
-      if (grp_in==grps_in.end()) throw Exception("GetUnattachedTags: grp_in=grps_in.end()");
+      if (grp_in==grps_in.end()) throw Exception("PrepareTagMapIn: grp_in=grps_in.end()");
 
       for(vector<TBagTagNumber>::const_iterator t=g->tags.begin(); t!=g->tags.end(); ++t)
       {
         TTagMap::iterator tag=tags.find(*t);
         if (tag==tags.end())
           tag=tags.insert(make_pair(*t, pair< list<TGrpId>, list<TGrpId> >())).first;
-        if (tag==tags.end()) throw Exception("GetUnattachedTags: tag==tags.end()");
+        if (tag==tags.end()) throw Exception("PrepareTagMapIn: tag==tags.end()");
         tag->second.first.push_back(id);
       };
     };
   };
+};
 
-  if (grps_in.empty() || tags.empty()) return;
-
-  map<TGrpId, TGrpItem> grps_out;
-  GetCheckedTags(point_id, idFlt, tags, grps_out);
+void AddTagMapOut(const map<TGrpId, TGrpItem> &grps_out,
+                  TTagMap &tags)
+{
   for(map<TGrpId, TGrpItem>::const_iterator g=grps_out.begin(); g!=grps_out.end(); ++g)
   {
     for(list<TBagTagNumber>::const_iterator t=g->second.tags.begin(); t!=g->second.tags.end(); ++t)
@@ -1153,6 +1313,298 @@ void GetUnattachedTags(int point_id,
       tag->second.second.push_back(g->first);
     };
   };
+};
+
+void LoadPaxLists(int point_id,
+                  const TGrpItem &grp_out,
+                  const set<int> &pax_out_ids,
+                  list<TPaxItem> &paxs_ckin,
+                  list<TPaxItem> &paxs_crs)
+{
+  paxs_ckin.clear();
+  paxs_crs.clear();
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT pax_id, surname, name "
+    "FROM pax_grp, pax "
+    "WHERE pax_grp.grp_id=pax.grp_id AND "
+    "      pax_grp.point_dep=:point_id AND airp_arv=:airp_arv ";
+  Qry.CreateVariable("point_id", otInteger, point_id);
+  Qry.CreateVariable("airp_arv", otString, grp_out.airp_arv);
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+  {
+    if (pax_out_ids.find(Qry.FieldAsInteger("pax_id"))!=pax_out_ids.end()) continue;
+    paxs_ckin.push_back(TPaxItem("",Qry.FieldAsString("surname"),Qry.FieldAsString("name")));
+  };
+
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT crs_pax.pax_id, crs_pax.surname, crs_pax.name "
+    "FROM tlg_binding, crs_pnr, crs_pax, pax "
+    "WHERE tlg_binding.point_id_tlg=crs_pnr.point_id AND "
+    "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
+    "      crs_pax.pax_id=pax.pax_id(+) AND pax.pax_id IS NULL AND "
+    "      tlg_binding.point_id_spp=:point_id AND "
+    "      crs_pnr.system='CRS' AND "
+    "      crs_pax.pr_del=0 ";
+  Qry.CreateVariable("point_id", otInteger, point_id);
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+  {
+    if (pax_out_ids.find(Qry.FieldAsInteger("pax_id"))!=pax_out_ids.end()) continue;
+    paxs_crs.push_back(TPaxItem("",Qry.FieldAsString("surname"),Qry.FieldAsString("name")));
+  };
+};
+
+string GetConflictStr(const set<TConflictReason> &conflicts)
+{
+  ostringstream s;
+  for(set<TConflictReason>::const_iterator c=conflicts.begin(); c!=conflicts.end(); ++c)
+  {
+    switch(*c)
+    {
+      case conflictInPaxDuplicate:
+        s << "InPaxDuplicate; ";
+        break;
+      case conflictOutPaxDuplicate:
+        s << "OutPaxDuplicate; ";
+        break;
+      case conflictInRouteIncomplete:
+        s << "InRouteIncomplete; ";
+        break;
+      case conflictInRouteDiffer:
+        s << "InRouteDiffer; ";
+        break;
+      case conflictOutRouteDiffer:
+        s << "OutRouteDiffer; ";
+        break;
+      case conflictInOutRouteDiffer:
+        s << "InOutRouteDiffer; ";
+        break;
+      case conflictWeightNotDefined:
+        s << "WeightNotDefined; ";
+        break;
+    };
+  };
+  return s.str();
+};
+
+void GetNewGrpTags(int point_id,
+                   const TGrpItem &grp_out,
+                   const set<int> &pax_out_ids,
+                   TNewGrpTagMap &tag_map,
+                   TNewGrpPaxMap &pax_map,
+                   set<TConflictReason> &conflicts)
+{
+  tag_map.clear();
+  pax_map.clear();
+  conflicts.clear();
+
+  if (grp_out.is_unaccomp) return; //для несопровождаемого багажа пока процедура не приспособлена
+
+  TTripInfo flt;
+  vector<TrferList::TGrpItem> grps_ckin;
+  vector<TrferList::TGrpItem> grps_tlg;
+  TrferList::TrferFromDB(TrferList::trferOutForCkin, point_id, true, flt, grps_ckin, grps_tlg);
+
+  if (grps_ckin.empty() && grps_tlg.empty()) return;
+
+  TQuery Qry(&OraSession);
+  list<TPaxItem> paxs_ckin, paxs_crs;
+  bool paxListsInit=false;
+  TGrpItem first_grp_in;
+  for(int fromTlg=0; fromTlg<2; fromTlg++)
+  {
+    vector<TrferList::TGrpItem>::iterator g=fromTlg?grps_tlg.begin():grps_ckin.begin();
+    for(; g!=(fromTlg?grps_tlg.end():grps_ckin.end()); ++g)
+    {
+      if (g->tags.empty()) continue;
+
+      TGrpId grp_in_id(g->grp_id, g->bag_pool_num);
+      TGrpItem grp_in(*g);
+      if (grp_in.is_unaccomp!=grp_out.is_unaccomp) continue;
+      if (grp_in.airp_arv!=grp_out.airp_arv) continue;
+      for(vector<TPaxItem>::const_iterator paxIn=grp_in.paxs.begin(); paxIn!=grp_in.paxs.end(); ++paxIn)
+      {
+        for(vector<TPaxItem>::const_iterator paxOut=grp_out.paxs.begin(); paxOut!=grp_out.paxs.end(); ++paxOut)
+        {
+          if (paxIn->equalRate(*paxOut)>=6) //6 - полное совпадение фамилии и имени
+          {
+            if (tag_map.empty())
+            {
+              first_grp_in=grp_in;
+              int num=1;
+              for(map<int, CheckIn::TTransferItem>::const_iterator t=grp_in.trfer.begin(); t!=grp_in.trfer.end(); ++t, num++)
+                if (t->first!=num)
+                {
+                  conflicts.insert(conflictInRouteIncomplete);
+                  break;
+                };
+            };
+            TNewGrpTagMap::iterator iTagMap=tag_map.find(grp_in_id);
+            if (iTagMap==tag_map.end())
+            {
+              //добавим в tag_map TGrpItem
+              iTagMap=tag_map.insert( make_pair(grp_in_id, make_pair(*g, set<TConflictReason>()) ) ).first;
+              if (iTagMap==tag_map.end())
+                throw Exception("GetNewGrpTags: iTagMap==tag_map.end()");
+              if (!grp_in.similarTrfer(grp_out) ||
+                  grp_in.trfer.size()>grp_out.trfer.size())
+              {
+                //несовпадение дальнейших трансферных маршрутов
+                iTagMap->second.second.insert(conflictOutRouteDiffer);
+                conflicts.insert(conflictInOutRouteDiffer);
+              };
+              int bag_weight=CalcWeightInKilos(g->bag_weight, g->weight_unit);
+              if (bag_weight==NoExists || bag_weight<=0)
+              {
+                //не задан вес багажа или нет бирок
+                iTagMap->second.second.insert(conflictWeightNotDefined);
+                conflicts.insert(conflictWeightNotDefined);
+              };
+              if (!grp_in.equalTrfer(first_grp_in))
+              {
+                //несовпадение дальнейших трансферных маршрутов 2-х НДТБ
+                conflicts.insert(conflictInRouteDiffer);
+              };
+              if (!paxListsInit)
+              {
+                LoadPaxLists(point_id, grp_out, pax_out_ids, paxs_ckin, paxs_crs);
+                paxListsInit=true;
+              };
+              for(vector<TPaxItem>::const_iterator p1=grp_in.paxs.begin(); p1!=grp_in.paxs.end(); ++p1)
+              {
+                list<TPaxItem>::const_iterator p2;
+                p2=paxs_ckin.begin();
+                for(; p2!=paxs_ckin.end(); ++p2)
+                  if (p1->equalRate(*p2)>=6) //6 - полное совпадение фамилии и имени
+                  {
+                    //есть пассажиры с такой фамилией и именем среди уже зарегистрированных
+                    iTagMap->second.second.insert(conflictOutPaxDuplicate);
+                    conflicts.insert(conflictOutPaxDuplicate);
+                    break;
+                  };
+                if (p2!=paxs_ckin.end()) break;
+
+                p2=paxs_crs.begin();
+                for(; p2!=paxs_crs.end(); ++p2)
+                {
+                  if (p1->equalRate(*p2)>=6) //6 - полное совпадение фамилии и имени
+                  {
+                    //есть пассажиры с такой фамилией и именем среди уже зарегистрированных
+                    iTagMap->second.second.insert(conflictOutPaxDuplicate);
+                    conflicts.insert(conflictOutPaxDuplicate);
+                    break;
+                  };
+                };
+                if (p2!=paxs_crs.end()) break;
+              };
+            };
+
+            //добавим в pax_map
+            pair<string, string> pax_out_id(paxOut->surname, paxOut->name);
+            TNewGrpPaxMap::iterator iPaxMap=pax_map.find(pax_out_id);
+            if (iPaxMap==pax_map.end())
+              iPaxMap=pax_map.insert( make_pair(pax_out_id, set<TGrpId>()) ).first;
+            if (iPaxMap==pax_map.end())
+              throw Exception("GetNewGrpTags: iPaxMap==pax_map.end()");
+            iPaxMap->second.insert(grp_in_id);
+            if (iPaxMap->second.size()>1)
+            {
+              //дублирование пассажиров в списке входящего трансфера
+              conflicts.insert(conflictInPaxDuplicate);
+            };
+          };
+        };
+      };
+    };
+  };
+
+  if (!conflicts.empty())
+  {
+    ProgTrace(TRACE5, "GetNewGrpTags returned conflicts: %s", GetConflictStr(conflicts).c_str());
+    ProgTrace(TRACE5, "point_id: %d", point_id);
+    ProgTrace(TRACE5, "========== grp_out: ==========");
+    grp_out.print();
+
+    ProgTrace(TRACE5, "========== tag_map: ==========");
+    for(TNewGrpTagMap::const_iterator i=tag_map.begin(); i!=tag_map.end(); ++i)
+    {
+      if (i!=tag_map.begin())
+        ProgTrace(TRACE5, "------------------------------");
+      ProgTrace(TRACE5, "grp_in(%d, %s):",
+                        i->second.first.grp_id,
+                        i->second.first.bag_pool_num==NoExists?"NoExists":IntToString(i->second.first.bag_pool_num).c_str());
+      TGrpItem(i->second.first).print();
+      ProgTrace(TRACE5, "conflicts: %s", GetConflictStr(i->second.second).c_str());
+    };
+    ProgTrace(TRACE5, "========== pax_map: ==========");
+    for(TNewGrpPaxMap::const_iterator i=pax_map.begin(); i!=pax_map.end(); ++i)
+    {
+      ostringstream s;
+      for(set<TGrpId>::const_iterator g=i->second.begin(); g!=i->second.end(); ++g)
+        s << "(" << g->first << ", " << (g->second==NoExists?"NoExists":IntToString(g->second)) << "); ";
+      ProgTrace(TRACE5, "  %s/%s: %s", i->first.first.c_str(), i->first.second.c_str(), s.str().c_str());
+    };
+  };
+};
+
+void ConflictReasonsToLog(const set<TConflictReason> &conflicts,
+                          TLogMsg &msg)
+{
+  for(set<TConflictReason>::const_iterator c=conflicts.begin(); c!=conflicts.end(); ++c)
+  {
+    ostringstream s;
+    s << "Не привязан входящий трансферный багаж. Причина: ";
+    switch(*c)
+    {
+      case conflictInPaxDuplicate:
+        s << AstraLocale::getLocaleText("MSG.TRFER_CONFLICT_REASON.IN_PAX_DUPLICATE", AstraLocale::LANG_RU);
+        break;
+      case conflictOutPaxDuplicate:
+        s << AstraLocale::getLocaleText("MSG.TRFER_CONFLICT_REASON.OUT_PAX_DUPLICATE", AstraLocale::LANG_RU);
+        break;
+      case conflictInRouteIncomplete:
+        s << AstraLocale::getLocaleText("MSG.TRFER_CONFLICT_REASON.IN_ROUTE_INCOMPLETE", AstraLocale::LANG_RU);
+        break;
+      case conflictInRouteDiffer:
+        s << AstraLocale::getLocaleText("MSG.TRFER_CONFLICT_REASON.IN_ROUTE_DIFFER", AstraLocale::LANG_RU);
+        break;
+      case conflictOutRouteDiffer:
+        s << AstraLocale::getLocaleText("MSG.TRFER_CONFLICT_REASON.OUT_ROUTE_DIFFER", AstraLocale::LANG_RU);
+        break;
+      case conflictInOutRouteDiffer:
+        s << AstraLocale::getLocaleText("MSG.TRFER_CONFLICT_REASON.IN_OUT_ROUTE_DIFFER", AstraLocale::LANG_RU);
+        break;
+      case conflictWeightNotDefined:
+        s << AstraLocale::getLocaleText("MSG.TRFER_CONFLICT_REASON.WEIGHT_NOT_DEFINED", AstraLocale::LANG_RU);
+        break;
+    };
+    msg.msg=s.str();
+    TReqInfo::Instance()->MsgToLog(msg);
+  };
+};
+
+void GetUnattachedTags(int point_id,
+                       const vector<TrferList::TGrpItem> &grps_ckin,
+                       const vector<TrferList::TGrpItem> &grps_tlg,
+                       TUnattachedTagMap &result)
+{
+  result.clear();
+
+  TTagMap tags;
+  map<TGrpId, TGrpItem> grps_in;
+
+  PrepareTagMapIn(grps_ckin, grps_tlg, grps_in, tags);
+
+  if (grps_in.empty() || tags.empty()) return;
+
+  map<TGrpId, TGrpItem> grps_out;
+  GetCheckedTags(point_id, idFlt, tags, grps_out);
+
+  AddTagMapOut(grps_out, tags);
 
   FilterUnattachedTags(grps_in, grps_out, tags);
 

@@ -1400,18 +1400,28 @@ class TPaxLoadOrder
         };
         if (*f=="hall")
         {
-          if (!item1.hall_name_view.empty() &&
-              !item2.hall_name_view.empty())
+          if (item1.hall_id>=1000000000 || item2.hall_id>=1000000000)
           {
-            if (item1.hall_airp_view!=item2.hall_airp_view)
-              return item1.hall_airp_view<item2.hall_airp_view;
-            if (item1.hall_name_view!=item2.hall_name_view)
-              return item1.hall_name_view<item2.hall_name_view;
+            if (item1.hall_id==NoExists) return false;
+            if (item2.hall_id==NoExists) return true;
+            if (item1.hall_id!=item2.hall_id)
+              return item1.hall_id<item2.hall_id;
           }
           else
           {
-            if (item1.hall_name_view!=item2.hall_name_view)
-              return !item1.hall_name_view.empty();
+            if (!item1.hall_name_view.empty() &&
+                !item2.hall_name_view.empty())
+            {
+              if (item1.hall_airp_view!=item2.hall_airp_view)
+                return item1.hall_airp_view<item2.hall_airp_view;
+              if (item1.hall_name_view!=item2.hall_name_view)
+                return item1.hall_name_view<item2.hall_name_view;
+            }
+            else
+            {
+              if (item1.hall_name_view!=item2.hall_name_view)
+                return !item1.hall_name_view.empty();
+            };
           };
           continue;
         };
@@ -1429,8 +1439,18 @@ class TPaxLoadOrder
         };
         if (*f=="user")
         {
-          if (item1.user_view!=item2.user_view)
-            return item1.user_view<item2.user_view;
+          if (item1.user_id>=1000000000 || item2.user_id>=1000000000)
+          {
+            if (item1.user_id==NoExists) return false;
+            if (item2.user_id==NoExists) return true;
+            if (item1.user_id!=item2.user_id)
+              return item1.user_id<item2.user_id;
+          }
+          else
+          {
+            if (item1.user_view!=item2.user_view)
+              return item1.user_view<item2.user_view;
+          };
           continue;
         };
         if (*f=="client_type")
@@ -1737,20 +1757,25 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
         //запрос по багажу
         if (pr_class)       group_by << ", pax_grp.class";
         if (pr_cl_grp)      group_by << ", pax_grp.class_grp";
-        if (pr_hall)        group_by << ", bag2.hall";
         if (pr_airp_arv)    group_by << ", pax_grp.point_arv";
         if (pr_trfer)       group_by << ", last_trfer.airline"
                                      << ", last_trfer.flt_no"
                                      << ", last_trfer.suffix"
                                      << ", last_trfer.airp_arv";
-        if (pr_user)        group_by << ", bag2.user_id";
         if (pr_client_type) group_by << ", pax_grp.client_type";
         if (pr_status)      group_by << ", pax_grp.status";
+
+        ostringstream select;
+        select << group_by.str();
+        if (pr_hall)      { select   << ", NVL(bag2.hall, DECODE(bag2.is_trfer, 0, bag2.hall, 1000000000)) AS hall";
+                            group_by << ", NVL(bag2.hall, DECODE(bag2.is_trfer, 0, bag2.hall, 1000000000))"; };
+        if (pr_user)      { select   << ", NVL(bag2.user_id, DECODE(bag2.is_trfer, 0, bag2.user_id, 1000000000)) AS user_id";
+                            group_by << ", NVL(bag2.user_id, DECODE(bag2.is_trfer, 0, bag2.user_id, 1000000000))"; };
 
         sql << "SELECT SUM(DECODE(bag2.pr_cabin,0,bag2.amount,0)) AS bag_amount, " << endl
             << "       SUM(DECODE(bag2.pr_cabin,0,bag2.weight,0)) AS bag_weight, " << endl
             << "       SUM(DECODE(bag2.pr_cabin,0,0,bag2.weight)) AS rk_weight, " << endl
-            << "       " << group_by.str().erase(0,1) << endl
+            << "       " << select.str().erase(0,1) << endl
             << "FROM pax_grp,bag2 " << endl;
 
         if (pr_trfer) sql << "    ," << endl
@@ -1776,10 +1801,10 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
 
         ostringstream select;
         select << group_by.str();
-        if (pr_hall)      { select   << ", NVL(bag2.hall,pax_grp.hall) AS hall";
-                            group_by << ", NVL(bag2.hall,pax_grp.hall)"; };
-        if (pr_user)      { select   << ", NVL(bag2.user_id,pax_grp.user_id) AS user_id";
-                            group_by << ", NVL(bag2.user_id,pax_grp.user_id)"; };
+        if (pr_hall)      { select   << ", DECODE(bag2.grp_id, NULL, pax_grp.hall, NVL(bag2.hall, DECODE(bag2.is_trfer, 0, pax_grp.hall, 1000000000))) AS hall";
+                            group_by << ", DECODE(bag2.grp_id, NULL, pax_grp.hall, NVL(bag2.hall, DECODE(bag2.is_trfer, 0, pax_grp.hall, 1000000000)))"; };
+        if (pr_user)      { select   << ", DECODE(bag2.grp_id, NULL, pax_grp.user_id, NVL(bag2.user_id, DECODE(bag2.is_trfer, 0, pax_grp.user_id, 1000000000))) AS user_id";
+                            group_by << ", DECODE(bag2.grp_id, NULL, pax_grp.user_id, NVL(bag2.user_id, DECODE(bag2.is_trfer, 0, pax_grp.user_id, 1000000000)))"; };
 
         sql << "SELECT SUM(excess) AS excess, " << endl
             << "       " << select.str().erase(0,1) << endl
@@ -1789,7 +1814,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
                           << last_trfer_sql << endl;
 
         if (pr_hall || pr_user)
-          sql << "    ,(SELECT bag2.grp_id,bag2.hall,bag2.user_id " << endl
+          sql << "    ,(SELECT bag2.grp_id,bag2.hall,bag2.user_id,bag2.is_trfer " << endl
               << "     FROM bag2, " << endl
               << "          (SELECT bag2.grp_id,MAX(bag2.num) AS num " << endl
               << "           FROM pax_grp,bag2 " << endl
@@ -1925,16 +1950,24 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
         }
         else
         {
-          HallsQry.SetVariable("id",i->hall_id);
-          HallsQry.Execute();
-          if (!HallsQry.Eof)
+          if (i->hall_id!=1000000000)
           {
-            if (HallsQry.FieldAsString("airp")!=fltInfo.airp)
-              i->hall_airp_view=ElemIdToCodeNative(etAirp, HallsQry.FieldAsString("airp"));
-            else
-              i->hall_airp_view="";
+            HallsQry.SetVariable("id",i->hall_id);
+            HallsQry.Execute();
+            if (!HallsQry.Eof)
+            {
+              if (HallsQry.FieldAsString("airp")!=fltInfo.airp)
+                i->hall_airp_view=ElemIdToCodeNative(etAirp, HallsQry.FieldAsString("airp"));
+              else
+                i->hall_airp_view="";
 
-            i->hall_name_view=ElemIdToNameLong(etHall, i->hall_id);
+              i->hall_name_view=ElemIdToNameLong(etHall, i->hall_id);
+            };
+          }
+          else
+          {
+            i->hall_airp_view="";
+            i->hall_name_view=getLocaleText("Трансфер");
           };
           halls[i->hall_id]=make_pair(i->hall_airp_view,i->hall_name_view);
         };
@@ -1974,12 +2007,17 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
         }
         else
         {
-          UsersQry.SetVariable("user_id",i->user_id);
-          UsersQry.Execute();
-          if (!UsersQry.Eof)
+          if (i->user_id!=1000000000)
           {
-            i->user_view=UsersQry.FieldAsString("descr");
-          };
+            UsersQry.SetVariable("user_id",i->user_id);
+            UsersQry.Execute();
+            if (!UsersQry.Eof)
+            {
+              i->user_view=UsersQry.FieldAsString("descr");
+            };
+          }
+          else i->user_view=getLocaleText("Трансфер");
+
           users[i->user_id]=i->user_view;
         };
       };
