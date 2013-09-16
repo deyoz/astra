@@ -48,7 +48,7 @@ void ReadCompSections( int comp_id, vector<SALONS2::TCompSection> &CompSections 
   TQuery Qry( &OraSession );
   Qry.SQLText =
     "SELECT name, first_rownum, last_rownum FROM comp_sections WHERE comp_id=:comp_id "
-    "ORDER By first_rownum";
+    "ORDER BY first_rownum";
   Qry.CreateVariable( "comp_id", otInteger, comp_id );
   Qry.Execute();
   while ( !Qry.Eof ) {
