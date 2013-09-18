@@ -7,7 +7,6 @@
 #include "stages.h"
 #include "salons.h"
 #include "salonform.h"
-#include "seats.h"
 #include "images.h"
 #include "xml_unit.h"
 #include "astra_utils.h"
@@ -287,56 +286,10 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       PNRs.pnrs.begin()->second.toXML(segNode, true);
   };
 };
-
 /*
 1. Если кто-то уже начал работать с pnr (агент,разборщик PNL)
 2. Если пассажир зарегистрировался, а разборщик PNL ставит признак удаления
 */
-
-struct TWebPax {
-  int pax_no; //виртуальный ид. для связи одного и того же пассажира разных сегментов
-	int crs_pax_id;
-	int crs_pax_id_parent;
-	string surname;
-	string name;
-	string pers_type_extended; //может содержать БГ (CBBG)
-	TCompLayerType crs_seat_layer;
-	string crs_seat_no;
-  string seat_no;
-  string pass_class;
-  string pass_subclass;
-	int seats;
-	int pax_id;
-	int crs_pnr_tid;
-	int crs_pax_tid;
-	int pax_grp_tid;
-	int pax_tid;
-	string checkin_status;
-  set<string> agent_checkin_reasons;
-  CheckIn::TPaxTknItem tkn;
-  CheckIn::TPaxDocItem doc;
-  CheckIn::TPaxDocoItem doco;
-	vector<TypeB::TFQTItem> fqt_rems;
-	TWebPax() {
-	  pax_no = NoExists;
-		crs_pax_id = NoExists;
-		crs_pax_id_parent = NoExists;
-		seats = 0;
-		pax_id = NoExists;
-		crs_pnr_tid = NoExists;
-		crs_pax_tid	= NoExists;
-		pax_grp_tid = NoExists;
-		pax_tid = NoExists;
-	};
-	
-	bool operator == (const TWebPax &pax) const
-	{
-  	return transliter_equal(surname,pax.surname) &&
-           transliter_equal(name,pax.name) &&
-           pers_type_extended==pax.pers_type_extended &&
-           ((seats==0 && pax.seats==0) || (seats!=0 && pax.seats!=0));
-  };
-};
 
 struct TWebPnr {
   TCheckDocInfo checkDocInfo;
@@ -1347,6 +1300,7 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
                                         filterRoutes,
                                         pr_departure_tariff_only,
                                         grp_layers,
+                                        pnr,
                                         drop_not_web_passes );
    Salons = &SalonsN;
   }
@@ -1394,7 +1348,7 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
    				   ilayer->layer_type != cltUnknown ) {
    				pr_first = false;
      				wp.pr_free = ( ( ilayer->layer_type == cltPNLCkin ||
-                             isUserProtectLayer( ilayer->layer_type ) ) && isOwnerFreePlace( ilayer->pax_id, pnr ) );
+                             SALONS2::isUserProtectLayer( ilayer->layer_type ) ) && isOwnerFreePlace( ilayer->pax_id, pnr ) );
             ProgTrace( TRACE5, "l->layer_type=%s, l->pax_id=%d, isOwnerFreePlace( l->pax_id, pnr )=%d, pr_first=%d",
                        EncodeCompLayerType(ilayer->layer_type), ilayer->pax_id, isOwnerFreePlace( ilayer->pax_id, pnr ), pr_first );
    				if ( wp.pr_free )

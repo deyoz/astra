@@ -18,6 +18,7 @@
 #include "tripinfo.h"
 #include "aodb.h"
 #include "salons.h"
+#include "seats.h"
 #include "tlg/tlg_parser.h"
 #include "docs.h"
 #include "stat.h"
