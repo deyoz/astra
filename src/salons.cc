@@ -4184,8 +4184,8 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &salons,
     tst();
     return false;
   }
-  ProgTrace( TRACE5, "filterRoutes.point_dep=%d, filterRoutes.point_arv=%d, drop_not_web_passes=%d",
-             filterRoutes.point_dep, filterRoutes.point_arv, drop_not_web_passes );
+  ProgTrace( TRACE5, "filterRoutes.point_dep=%d, filterRoutes.point_arv=%d, drop_not_web_passes=%d,pr_web_terminal=%d",
+             filterRoutes.point_dep, filterRoutes.point_arv, drop_not_web_passes, pr_web_terminal );
   TPropsPoints points( filterSets.filterRoutes, filterRoutes.point_dep, filterRoutes.point_arv );
   salons.Clear();
   salons.trip_id = getDepartureId();
@@ -4331,9 +4331,12 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &salons,
               }
             }
           }
-     			if ( pr_web_terminal ) {
-     				if ( ( tmp_layer.layer_type == cltPNLCkin ||
-                   isUserProtectLayer( tmp_layer.layer_type ) ) && AstraWeb::isOwnerFreePlace( tmp_layer.pax_id, pnr ) ) {
+     			if ( pr_web_terminal && !pnr.empty() ) { //требуем заполнение списка пассажиров
+     			  ProgTrace( TRACE5, "CreateSalonsForAutoSeats: %s %s, pnr.empty=%d, isOwnerFreePlace=%d",
+                       ilayer->toString().c_str(), tmp_layer.toString().c_str(), pnr.empty(),
+                       AstraWeb::isOwnerFreePlace( tmp_layer.getPaxId(), pnr ) );
+     				if ( !(( tmp_layer.layer_type == cltPNLCkin ||
+                   isUserProtectLayer( tmp_layer.layer_type ) ) && AstraWeb::isOwnerFreePlace( tmp_layer.getPaxId(), pnr )) ) {
                 iseat->AddLayerToPlace( cltDisable, tmp_layer.time_create, tmp_layer.getPaxId(),
             	                          tmp_layer.point_dep, NoExists,
                                         BASIC_SALONS::TCompLayerTypes::Instance()->priority( cltDisable ) );

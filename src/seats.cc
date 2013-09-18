@@ -21,6 +21,7 @@
 #include "passenger.h"
 #include "rozysk.h"
 #include "points.h"
+#include "web_main.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -2341,6 +2342,7 @@ void SeatsPassengers( SALONS2::TSalonList &salonList,
 	ProgTrace( TRACE5, "salonList NEWSEATS, ASeatAlgoParams=%d", (int)ASeatAlgoParams.SeatAlgoType );
   if ( !passes.getCount() )
     return;
+  vector<AstraWeb::TWebPax> pnr;
   /* надо подготовить переменную CurrSalon на основе salonList */
   TFilterRoutesSets filterRoutes = salonList.getFilterRoutes();
   bool pr_grp_pay = false;
@@ -2354,6 +2356,12 @@ void SeatsPassengers( SALONS2::TSalonList &salonList,
         pr_grp_pay = true;
       }
   	}
+  	if ( client_type != ctTerm ) {
+      AstraWeb::TWebPax webPax;
+      webPax.crs_pax_id = pass.paxId;
+      ProgTrace( TRACE5, "webPax.crs_pax_id=%d", webPax.crs_pax_id );
+      pnr.push_back( webPax );
+  	}
   }
   VPassengers rollbackPasses;
   passes.copyTo( rollbackPasses );
@@ -2366,6 +2374,7 @@ void SeatsPassengers( SALONS2::TSalonList &salonList,
                                               filterRoutes,
                                               pr_grp_pay,
                                               grp_layers,
+                                              pnr,
                                               drop_not_web_passes ) ) {
     tst();
     CurrSalon = &SalonsN;
