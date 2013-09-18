@@ -319,6 +319,7 @@ bool isBaseLayer( ASTRA::TCompLayerType layer_type, bool isComponCraft )
 
 bool point_dep_AND_layer_type_FOR_TRZT_SOM_PRL( int point_id, int &point_dep, ASTRA::TCompLayerType &layer_type )
 {
+  point_dep = ASTRA::NoExists;
 	TQuery Qry( &OraSession );
   Qry.SQLText=
   "SELECT point_num, "
@@ -354,12 +355,15 @@ bool point_dep_AND_layer_type_FOR_TRZT_SOM_PRL( int point_id, int &point_dep, AS
   	return false;
   point_dep = Qry.FieldAsInteger( "point_dep" );
   layer_type = DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) );
+  ProgTrace( TRACE5, "point_dep_AND_layer_type_FOR_TRZT_SOM_PRL return true, point_dep=%d, layer_type=%s",
+             point_dep, EncodeCompLayerType( layer_type ) );
   return true;
 }
 
 
 void TFilterLayers::getFilterLayers( int point_id, bool only_compon_props )
 {
+  point_dep = ASTRA::NoExists;
   std::map<ASTRA::TCompLayerType,TMenuLayer> menuLayers;
   if ( only_compon_props ) {
     getMenuBaseLayers( menuLayers );
@@ -426,12 +430,15 @@ void TFilterLayers::getFilterLayers( int point_id, bool only_compon_props )
 	for ( int l=0; l!=cltTypeNum; l++ ) {
     ASTRA::TCompLayerType layer_type = (ASTRA::TCompLayerType)l;
     if ( isFlag( layer_type ) ) {
-	    ProgTrace( TRACE5, "TFilterLayers::getFilterLayers(%d,%s)", point_id, EncodeCompLayerType( layer_type ) );
+	    ProgTrace( TRACE5, "TFilterLayers::getFilterLayers(%d,%s), point_dep=%d", point_id, EncodeCompLayerType( layer_type ), point_dep );
     }
   }
 }
 
-bool TFilterLayers::CanUseLayer( ASTRA::TCompLayerType layer_type, int point_id, bool pr_takeoff )
+bool TFilterLayers::CanUseLayer( ASTRA::TCompLayerType layer_type,
+                                 int layer_point_dep,
+                                 int point_salon_departure,
+                                 bool pr_takeoff )
 {
   if ( pr_takeoff &&
        ( layer_type == cltProtBeforePay ||
@@ -449,9 +456,9 @@ bool TFilterLayers::CanUseLayer( ASTRA::TCompLayerType layer_type, int point_id,
   }
 	switch( layer_type ) {
 		case cltSOMTrzt:
-			return ( isFlag( layer_type ) && point_dep == point_id );
+			return ( isFlag( layer_type ) && point_dep == layer_point_dep && layer_point_dep != point_salon_departure );
 		case cltPRLTrzt:
-			return ( isFlag( layer_type ) && point_dep == point_id );
+			return ( isFlag( layer_type ) && point_dep == layer_point_dep && layer_point_dep != point_salon_departure );
 		default:
 			return isFlag( layer_type );
 	}
@@ -1858,7 +1865,10 @@ void TSalonList::ReadLayers( TQuery &Qry, FilterRoutesProperty &filterRoutes,
     else
       layer.time_create = Qry.FieldAsDateTime( col_time_create );
     if ( col_point_id < 0 ||
-         filterLayers.CanUseLayer( layer.layer_type, layer.point_dep, filterRoutes.isTakeoff( layer.point_id ) ) ) { // слой нужно добавить
+         filterLayers.CanUseLayer( layer.layer_type,
+                                   layer.point_dep,
+                                   filterRoutes.getDepartureId(),
+                                   filterRoutes.isTakeoff( layer.point_id ) ) ) { // слой нужно добавить
       bool inRoute = ( col_point_id < 0 ||
                        layer.point_id == filterRoutes.getDepartureId() ||
                        filterRoutes.useRouteProperty( layer.point_dep, layer.point_arv ) );
@@ -2947,7 +2957,7 @@ void TSalonList::CommitLayers()
 }
 
 void TPlace::RollbackLayers( FilterRoutesProperty &filterRoutes,
-                             TFilterLayers &filterLayers ) {
+                             std::map<int,TFilterLayers> &filtersLayers ) {
   lrss.clear();
   drop_blocked_layers.clear();
   for ( std::map<int, std::set<TSeatLayer,SeatLayerCompare>,classcomp >::iterator ilayers=save_lrss.begin();
@@ -2956,7 +2966,10 @@ void TPlace::RollbackLayers( FilterRoutesProperty &filterRoutes,
           ilayer!=ilayers->second.end(); ilayer++ ) {
       TSeatLayer layer = *ilayer;
       if ( layer.point_dep != ASTRA::NoExists &&
-           filterLayers.CanUseLayer( layer.layer_type, layer.point_dep, filterRoutes.isTakeoff( layer.point_id ) ) ) { // слой нужно добавить
+           filtersLayers[ layer.point_id ].CanUseLayer( layer.layer_type,
+                                                        layer.point_dep,
+                                                        filterRoutes.getDepartureId(),
+                                                        filterRoutes.isTakeoff( layer.point_id ) ) ) { // слой нужно добавить
         layer.inRoute = ( ilayer->point_id == filterRoutes.getDepartureId() ||
                           filterRoutes.useRouteProperty( ilayer->point_dep, ilayer->point_arv ) );
         ProgTrace( TRACE5, "TPlace::RollbackLayers: %s, takeoff(%d)=%d",
@@ -2974,7 +2987,7 @@ void TSalonList::RollbackLayers( )
         isalonlist!=end(); isalonlist++ ) {
     for ( TPlaces::iterator iseat=(*isalonlist)->places.begin();
           iseat!=(*isalonlist)->places.end(); iseat++ ) {
-      iseat->RollbackLayers( filterRoutes, filterSets.filtersLayers[ filterRoutes.getDepartureId() ] );
+      iseat->RollbackLayers( filterRoutes, filterSets.filtersLayers );
       iseat->drawProps.clearFlags();
     }
   }
@@ -2987,7 +3000,10 @@ void TSalonList::RollbackLayers( )
             ilayer!=ipax_list->second.save_layers.end(); ilayer++ ) {
         TSeatLayer layer = ilayer->first;
         if ( layer.point_dep != ASTRA::NoExists &&
-             filterSets.filtersLayers[ filterRoutes.getDepartureId() ].CanUseLayer( layer.layer_type, layer.point_dep, filterRoutes.isTakeoff( layer.point_id ) ) ) { // слой нужно добавить
+             filterSets.filtersLayers[ layer.point_id ].CanUseLayer( layer.layer_type,
+                                                                     layer.point_dep,
+                                                                     filterRoutes.getDepartureId(),
+                                                                     filterRoutes.isTakeoff( layer.point_id ) ) ) { // слой нужно добавить
           layer.inRoute = ( layer.point_id == filterRoutes.getDepartureId() ||
                             filterRoutes.useRouteProperty( layer.point_dep, layer.point_arv ) );
           ProgTrace( TRACE5, "TSalonList::RollbackLayers: %s", layer.toString().c_str() );
@@ -3200,7 +3216,8 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
   std::map<int,TFilterLayers> &filtersLayers = filterSets.filtersLayers;
   filtersLayers.clear();
   //начитка фильтов слоев по маршруту
-  int Min_SOM_PRL_Departure_id = ASTRA::NoExists;
+  int Max_SOM_PRL_Departure_id = ASTRA::NoExists;
+  int Max_SOM_PRL_Num = ASTRA::NoExists;
   for ( std::vector<TTripRouteItem>::const_iterator iseg=filterRoutes.begin();
         iseg!=filterRoutes.end(); iseg++ ) {
     if ( only_compon_props && iseg->point_id != filterRoutesSets.point_dep ) {
@@ -3208,17 +3225,30 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
     }
     filtersLayers[ iseg->point_id ].getFilterLayers( iseg->point_id, only_compon_props );
     if ( filtersLayers[ iseg->point_id ].isFlag( cltSOMTrzt ) ||
-         filtersLayers[ iseg->point_id ].isFlag( cltPRLTrzt ) ) {
-      Min_SOM_PRL_Departure_id = iseg->point_id;
+         filtersLayers[ iseg->point_id ].isFlag( cltPRLTrzt ) ) { //есть разметка от телеграммы SOM
+      for ( std::vector<TTripRouteItem>::const_iterator  iprior_seg=filterRoutes.begin(); //найдем откуда пришла телеграмма
+            iprior_seg!=iseg; iprior_seg++ ) {
+        ProgTrace( TRACE5, "iprior_seg->point_id=%d", iprior_seg->point_id );
+        if ( iprior_seg->point_id == filtersLayers[ iseg->point_id ].getSOM_PRL_Dep( ) ) { //нашли пункт из которого пришла телеграмма
+          if ( Max_SOM_PRL_Num < iprior_seg->point_num ) {
+            Max_SOM_PRL_Num = iprior_seg->point_num;
+            Max_SOM_PRL_Departure_id = iprior_seg->point_id;
+            ProgTrace( TRACE5, "Max_SOM_PRL_Num=%d, Max_SOM_PRL_Departure_id=%d",
+                       Max_SOM_PRL_Num, Max_SOM_PRL_Departure_id );
+          }
+          break;
+        }
+      }
     }
   }
-  for ( std::vector<TTripRouteItem>::const_iterator iseg=filterRoutes.begin();
+/*  for ( std::vector<TTripRouteItem>::const_iterator iseg=filterRoutes.begin();
         iseg!=filterRoutes.end(); iseg++ ) {
-    if ( Min_SOM_PRL_Departure_id != iseg->point_id ) {
+    if ( Max_SOM_PRL_Departure_id != filtersLayers[ iseg->point_id ].getSOM_PRL_Dep() ) {
        filtersLayers[ iseg->point_id ].clearFlag( cltSOMTrzt );
        filtersLayers[ iseg->point_id ].clearFlag( cltPRLTrzt );
+       ProgTrace( TRACE5, "clearFlag(cltSOMTrzt,clrPRlTrzt,point_id=%d)", iseg->point_id );
     }
-  }
+  }*/
 
   Qry.Clear();
   //начитываем компоновку только по нашему пункту посадки
@@ -3261,10 +3291,10 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
     if ( only_compon_props && iseg->point_id != filterRoutesSets.point_dep ) {
       continue;
     }
-    if ( filtersLayers[ iseg->point_id ].CanUseLayer( cltProtBeforePay, -1, filterRoutes.isTakeoff( iseg->point_id ) ) ||
-         filtersLayers[ iseg->point_id ].CanUseLayer( cltProtAfterPay, -1, filterRoutes.isTakeoff( iseg->point_id ) ) ||
-         filtersLayers[ iseg->point_id ].CanUseLayer( cltPNLBeforePay, -1, filterRoutes.isTakeoff( iseg->point_id ) ) ||
-         filtersLayers[ iseg->point_id ].CanUseLayer( cltPNLAfterPay, -1, filterRoutes.isTakeoff( iseg->point_id ) ) ) {
+    if ( filtersLayers[ iseg->point_id ].CanUseLayer( cltProtBeforePay, -1, -1, filterRoutes.isTakeoff( iseg->point_id ) ) ||
+         filtersLayers[ iseg->point_id ].CanUseLayer( cltProtAfterPay, -1, -1, filterRoutes.isTakeoff( iseg->point_id ) ) ||
+         filtersLayers[ iseg->point_id ].CanUseLayer( cltPNLBeforePay, -1, -1, filterRoutes.isTakeoff( iseg->point_id ) ) ||
+         filtersLayers[ iseg->point_id ].CanUseLayer( cltPNLAfterPay, -1, -1, filterRoutes.isTakeoff( iseg->point_id ) ) ) {
       Qry.SetVariable( "point_id", iseg->point_id );
       Qry.Execute();
       tst();
@@ -4130,6 +4160,25 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &salons,
                                            const vector<ASTRA::TCompLayerType> &grp_layers,
                                            bool &drop_not_web_passes )
 {
+  std::vector<AstraWeb::TWebPax> pnr;
+  return CreateSalonsForAutoSeats( salons,
+                                   filterRoutes,
+                                   pr_departure_tariff_only,
+                                   grp_layers,
+                                   pnr,
+                                   drop_not_web_passes );
+}
+
+
+bool TSalonList::CreateSalonsForAutoSeats( TSalons &salons,
+                                           TFilterRoutesSets &filterRoutes,
+                                           bool pr_departure_tariff_only,
+                                           const vector<ASTRA::TCompLayerType> &grp_layers,
+                                           const std::vector<AstraWeb::TWebPax> &pnr,
+                                           bool &drop_not_web_passes )
+{
+  bool pr_web_terminal = TReqInfo::Instance()->client_type != ASTRA::ctTerm;
+
   salons.Clear();
   if ( filterRoutes.point_arv == filterRoutes.point_dep ) {
     tst();
@@ -4280,6 +4329,17 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &salons,
                 pr_blocked_layer = true;
                 break;
               }
+            }
+          }
+     			if ( pr_web_terminal ) {
+     				if ( ( tmp_layer.layer_type == cltPNLCkin ||
+                   isUserProtectLayer( tmp_layer.layer_type ) ) && AstraWeb::isOwnerFreePlace( tmp_layer.pax_id, pnr ) ) {
+                iseat->AddLayerToPlace( cltDisable, tmp_layer.time_create, tmp_layer.getPaxId(),
+            	                          tmp_layer.point_dep, NoExists,
+                                        BASIC_SALONS::TCompLayerTypes::Instance()->priority( cltDisable ) );
+                ProgTrace( TRACE5, "CreateSalonsForAutoSeats: %s add cltDisable because %s", string(iseat->yname+iseat->xname).c_str(),
+                           ilayer->toString().c_str() );
+                pr_blocked_layer = true;
             }
           }
           if ( pr_blocked_layer ) {
@@ -4593,10 +4653,10 @@ void TSalons::Read( bool drop_not_used_pax_layers )
     LQry.CreateVariable( "point_id", otInteger, trip_id );
 
     
-    if ( FilterLayers.CanUseLayer( cltProtBeforePay, -1, false ) ||
-         FilterLayers.CanUseLayer( cltProtAfterPay, -1, false ) ||
-         FilterLayers.CanUseLayer( cltPNLBeforePay, -1, false ) ||
-         FilterLayers.CanUseLayer( cltPNLAfterPay, -1, false ) ) {
+    if ( FilterLayers.CanUseLayer( cltProtBeforePay, -1, -1, false ) ||
+         FilterLayers.CanUseLayer( cltProtAfterPay, -1, -1, false ) ||
+         FilterLayers.CanUseLayer( cltPNLBeforePay, -1, -1, false ) ||
+         FilterLayers.CanUseLayer( cltPNLAfterPay, -1, -1, false ) ) {
       QryWebTariff.SQLText =
         "SELECT num,x,y,color,rate,rate_cur FROM trip_comp_rates "
         " WHERE point_id=:point_id "
@@ -4641,10 +4701,10 @@ void TSalons::Read( bool drop_not_used_pax_layers )
   int webtariff_col_rate_cur;
 
   if ( readStyle != rTripSalons ||
-       FilterLayers.CanUseLayer( cltProtBeforePay, -1, false ) ||
-       FilterLayers.CanUseLayer( cltProtAfterPay, -1, false ) ||
-       FilterLayers.CanUseLayer( cltPNLBeforePay, -1, false ) ||
-       FilterLayers.CanUseLayer( cltPNLAfterPay, -1, false ) ) {
+       FilterLayers.CanUseLayer( cltProtBeforePay, -1, -1, false ) ||
+       FilterLayers.CanUseLayer( cltProtAfterPay, -1, -1, false ) ||
+       FilterLayers.CanUseLayer( cltPNLBeforePay, -1, -1, false ) ||
+       FilterLayers.CanUseLayer( cltPNLAfterPay, -1, -1, false ) ) {
     QryWebTariff.Execute();
     webtariff_col_num = QryWebTariff.FieldIndex( "num" );
     webtariff_col_x = QryWebTariff.FieldIndex( "x" );
@@ -4773,10 +4833,10 @@ void TSalons::Read( bool drop_not_used_pax_layers )
         LQry.Next();
       }
       if ( readStyle != rTripSalons ||
-           FilterLayers.CanUseLayer( cltProtBeforePay, -1, false ) ||
-           FilterLayers.CanUseLayer( cltProtAfterPay, -1, false ) ||
-           FilterLayers.CanUseLayer( cltPNLBeforePay, -1, false ) ||
-           FilterLayers.CanUseLayer( cltPNLAfterPay, -1, false ) ) {
+           FilterLayers.CanUseLayer( cltProtBeforePay, -1, -1, false ) ||
+           FilterLayers.CanUseLayer( cltProtAfterPay, -1, -1, false ) ||
+           FilterLayers.CanUseLayer( cltPNLBeforePay, -1, -1, false ) ||
+           FilterLayers.CanUseLayer( cltPNLAfterPay, -1, -1, false ) ) {
         if ( !QryWebTariff.Eof &&
         	    QryWebTariff.FieldAsInteger( webtariff_col_num ) == num &&
               QryWebTariff.FieldAsInteger( webtariff_col_x ) == place.x &&
@@ -4807,7 +4867,7 @@ void TSalons::Read( bool drop_not_used_pax_layers )
    		else
    		  PlaceLayer.point_arv = Qry.FieldAsInteger( "point_arv" );
    		PlaceLayer.time_create = Qry.FieldAsDateTime( "time_create" );
-      if ( FilterLayers.CanUseLayer( PlaceLayer.layer_type, Qry.FieldAsInteger( "point_dep" ), false ) ) { // этот слой используем
+      if ( FilterLayers.CanUseLayer( PlaceLayer.layer_type, Qry.FieldAsInteger( "point_dep" ), -1, false ) ) { // этот слой используем
 //      	ProgTrace( TRACE5, "seat_no=%s, pax_id=%d", string(string(Qry.FieldAsString("yname"))+Qry.FieldAsString("xname")).c_str(), pax_id );
       	if ( PlaceLayer.layer_type != cltUnknown ) { // слои сортированы по приоритету, первый - самый приоритетный слой в векторе
           place.AddLayerToPlace( PlaceLayer.layer_type, PlaceLayer.time_create, pax_id,
@@ -7844,6 +7904,16 @@ void TAutoSeats::WritePaxSeats( int point_dep, int pax_id )
     Qry.Execute();
   }
 }
+
+bool isUserProtectLayer( ASTRA::TCompLayerType layer_type )
+{
+  return ( layer_type == ASTRA::cltProtCkin ||
+           layer_type == ASTRA::cltProtBeforePay ||
+           layer_type == ASTRA::cltPNLBeforePay ||
+           layer_type == ASTRA::cltProtAfterPay ||
+           layer_type == ASTRA::cltPNLAfterPay );
+};
+
 
 } // end namespace SALONS2
 

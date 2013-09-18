@@ -11,6 +11,7 @@
 #include "astra_consts.h"
 #include "basic.h"
 #include "images.h"
+#include "web_main.h"
 #include "base_tables.h"
 #include "seats_utils.h"
 
@@ -174,8 +175,14 @@ class TFilterLayers:public BitSet<ASTRA::TCompLayerType> {
 	private:
 	  int point_dep;
 	public:
-		bool CanUseLayer( ASTRA::TCompLayerType layer_type, int point_id, bool pr_takeoff );
-		void getFilterLayers( int point_id, bool only_compon_props=false );
+		bool CanUseLayer( ASTRA::TCompLayerType layer_type,
+		                  int layer_point_dep, // пункт вылета слоя
+                      int point_salon_departure, // пункт отображения компоновки
+                      bool pr_takeoff /*признак факта вылета*/ );
+		void getFilterLayers( int vpoint_id, bool only_compon_props=false );
+    int getSOM_PRL_Dep( ) {
+      return point_dep;
+    };
 };
 
 enum TPointDepNum { pdPrior, pdNext, pdCurrent };
@@ -506,7 +513,7 @@ class TPlace {
       }
     }
     void RollbackLayers( FilterRoutesProperty &filterRoutes,
-                         TFilterLayers &filterLayers );
+                         std::map<int,TFilterLayers> &filtersLayers );
     void CommitLayers() {
       save_lrss = lrss;
     }
@@ -960,10 +967,16 @@ class TSalonList: public std::vector<TPlaceList*> {
     void Parse( int vpoint_id, xmlNodePtr salonsNode );
     void WriteFlight( int vpoint_id );
     void WriteCompon( int &vcomp_id, const TComponSets &componSets );
+    bool CreateSalonsForAutoSeats( TSalons &salons,
+                                   TFilterRoutesSets &filterRoutes,
+                                   bool pr_departure_tariff_only,
+                                   const std::vector<ASTRA::TCompLayerType> &grp_layers,
+                                   bool &drop_not_web_passes );
     bool CreateSalonsForAutoSeats( TSalons &Salons,
                                    TFilterRoutesSets &filterRoutes,
                                    bool pr_departure_tariff_only,
                                    const std::vector<ASTRA::TCompLayerType> &grp_layers,
+                                   const std::vector<AstraWeb::TWebPax> &pnr,
                                    bool &drop_web_passes );
     void JumpToLeg( const TFilterRoutesSets &routesSets );
     void getPaxs( TSalonPassengers &passengers );
@@ -1036,6 +1049,9 @@ class TSalonList: public std::vector<TPlaceList*> {
   void CreateSalonMenu( int point_dep, xmlNodePtr salonsNode );
   
   bool isTranzitSalons( int point_id );
+  
+  bool isUserProtectLayer( ASTRA::TCompLayerType layer_type );
+
 } // END namespace SALONS2
 
 

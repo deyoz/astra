@@ -8,7 +8,7 @@
 #include "basic.h"
 #include "exceptions.h"
 #include "oralib.h"
-#include "seats.h"
+#include "seats_utils.h"
 #include "memory_manager.h"
 #include "flt_binding.h"
 

@@ -1595,15 +1595,6 @@ bool TSeatPlaces::SeatsGrp( )
  return false;
 }
 
-bool isUserProtectLayer( TCompLayerType layer_type )
-{
-  return ( layer_type == cltProtCkin ||
-           layer_type == cltProtBeforePay ||
-           layer_type == cltPNLBeforePay ||
-           layer_type == cltProtAfterPay ||
-           layer_type == cltPNLAfterPay );
-}
-
 /* рассадка пассажиров по местам не учитывая группу */
 bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
 {
@@ -1633,7 +1624,7 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
       		pr_seat = true;
         if ( ipass->InUse )
           continue;
-        if ( isUserProtectLayer( PlaceLayer ) && !CanUseLayer( PlaceLayer, UseLayers ) &&
+        if ( SALONS2::isUserProtectLayer( PlaceLayer ) && !CanUseLayer( PlaceLayer, UseLayers ) &&
              ( ipass->preseat_layer != PlaceLayer ) )
           continue;
 
@@ -1696,7 +1687,7 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
                  ( PlaceLayer == cltPNLAfterPay && CanUseLayer( cltPNLAfterPay, UseLayers ) ) ||
                  ( PlaceLayer == cltProtBeforePay && CanUseLayer( cltProtBeforePay, UseLayers ) ) ||
                  ( PlaceLayer == cltPNLBeforePay && CanUseLayer( cltPNLBeforePay, UseLayers ) ) ||
-                 !isUserProtectLayer( PlaceLayer ) ) &&
+                 !SALONS2::isUserProtectLayer( PlaceLayer ) ) &&
                  SeatsGrp( ) ) ) { // тогда можно находить место по всему салону
           if ( seatplaces.begin()->Step == sLeft || seatplaces.begin()->Step == sUp )
             throw EXCEPTIONS::Exception( "Недопустимое значение направления рассадки" );
@@ -1874,7 +1865,7 @@ bool TPassenger::is_valid_seats( const std::vector<SALONS2::TPlace> &places )
   }
   for( std::vector<SALONS2::TPlace>::const_iterator ipl=places.begin(); ipl!=places.end(); ipl++ ) {
     if ( !ipl->layers.empty() &&
-         isUserProtectLayer( ipl->layers.begin()->layer_type ) &&
+         SALONS2::isUserProtectLayer( ipl->layers.begin()->layer_type ) &&
          ipl->layers.begin()->pax_id != paxId )
       return false;
   }
@@ -2355,7 +2346,7 @@ void SeatsPassengers( SALONS2::TSalonList &salonList,
   bool pr_grp_pay = false;
   for ( int i=0; i<passes.getCount(); i++ ) {
   	TPassenger &pass = passes.Get( i );
-  	if ( isUserProtectLayer( pass.preseat_layer ) ) {
+  	if ( SALONS2::isUserProtectLayer( pass.preseat_layer ) ) {
       if ( pass.preseat_layer == cltProtBeforePay ||
            pass.preseat_layer == cltPNLBeforePay ||
            pass.preseat_layer == cltProtAfterPay ||
@@ -2492,7 +2483,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
   bool Status_seat_no_BR=false, pr_all_pass_SUBCLS=true, pr_SUBCLS=false;
   for ( int i=0; i<passengers.getCount(); i++ ) {
   	TPassenger &pass = passengers.Get( i );
-  	if ( isUserProtectLayer( pass.preseat_layer ) ) {
+  	if ( SALONS2::isUserProtectLayer( pass.preseat_layer ) ) {
       preseat_layers[ pass.preseat_layer ] = true;
       ProgTrace( TRACE5, "preseat_layers: pass.preseat_layer=%s", EncodeCompLayerType( pass.preseat_layer ) );
       if ( pass.preseat_layer == cltProtBeforePay ||
