@@ -1254,6 +1254,7 @@ class TDetailCreateInfo : public TOptionsInfo
     std::string airp_arv_view();
     std::string flight_view();
     std::string scd_local_view();
+    std::string airline_mark() const;
 
     TDetailCreateInfo()
     {

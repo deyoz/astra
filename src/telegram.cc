@@ -794,7 +794,7 @@ void TelegramInterface::SendTlg(int tlg_id)
     TlgQry.SQLText=
       "SELECT tlg_out.id, tlg_out.num, tlg_out.type, points.point_id, "
       "       tlg_out.addr AS addrs, tlg_out.heading, tlg_out.body, tlg_out.ending, "
-      "       tlg_out.completed, tlg_out.has_errors, tlg_out.time_create, "
+      "       tlg_out.completed, tlg_out.has_errors, tlg_out.time_create, tlg_out.airline_mark, "
       "       typeb_types.basic_type, typeb_types.short_name, "
       "       points.airline, points.flt_no, points.suffix, points.airp, points.scd_out, "
       "       typeb_originators.addr AS originator_addr, "
@@ -936,6 +936,7 @@ void TelegramInterface::SendTlg(int tlg_id)
                                      TlgQry.FieldAsString("basic_type"),
                                      addrs.size()+tlg_text.size(),
                                      fltInfo,
+                                     TlgQry.FieldAsString("airline_mark"),
                                      TlgQry.FieldAsString("originator_descr"));
             };
             registerHookAfter(sendCmdTlgSnd);
@@ -1577,9 +1578,9 @@ void TelegramInterface::SaveTlgOutPart( TTlgOutPartInfo &info )
   Qry.Clear();
   Qry.SQLText=
     "INSERT INTO tlg_out(id,num,type,point_id,addr,heading,body,ending,pr_lat, "
-    "                    completed,has_errors,time_create,time_send_scd,time_send_act,originator_id) "
+    "                    completed,has_errors,time_create,time_send_scd,time_send_act,originator_id,airline_mark) "
     "VALUES(:id,:num,:type,:point_id,:addr,:heading,:body,:ending,:pr_lat, "
-    "       0,0,NVL(:time_create,system.UTCSYSDATE),:time_send_scd,NULL,:originator_id)";
+    "       0,0,NVL(:time_create,system.UTCSYSDATE),:time_send_scd,NULL,:originator_id,:airline_mark)";
 
   /*
   ProgTrace(TRACE5, "-------SaveTlgOutPart--------");
@@ -1618,6 +1619,7 @@ void TelegramInterface::SaveTlgOutPart( TTlgOutPartInfo &info )
     Qry.CreateVariable("originator_id",otInteger,info.originator_id);
   else
     Qry.CreateVariable("originator_id",otInteger,FNull);
+  Qry.CreateVariable("airline_mark",otString,info.airline_mark);
   Qry.Execute();
 
   if (info.num==1)
@@ -1717,6 +1719,7 @@ void TTlgStat::putTypeBOut(const int queue_tlg_id,
                            const std::string &tlg_type,
                            const int tlg_len,
                            const TTripInfo &fltInfo,
+                           const std::string &airline_mark,
                            const std::string &extra)
 {
   TQuery Qry(&OraSession);
@@ -1726,12 +1729,12 @@ void TTlgStat::putTypeBOut(const int queue_tlg_id,
     "  sender_sita_addr, sender_canon_name, sender_descr, sender_country, "
     "  receiver_sita_addr, receiver_canon_name, receiver_descr, receiver_country, "
     "  time_create, time_send, time_receive, tlg_type, tlg_len, "
-    "  airline, flt_no, suffix, scd_local_date, airp_dep, extra) "
+    "  airline, flt_no, suffix, scd_local_date, airp_dep, airline_mark, extra) "
     "VALUES(:queue_tlg_id, :tlg_id, :tlg_num, "
     "  :sender_sita_addr, :sender_canon_name, :sender_descr, :sender_country, "
     "  :receiver_sita_addr, :receiver_canon_name, :receiver_descr, :receiver_country, "
     "  :time_create, NULL, NULL, :tlg_type, :tlg_len, "
-    "  :airline, :flt_no, :suffix, :scd_local_date, :airp_dep, :extra) ";
+    "  :airline, :flt_no, :suffix, :scd_local_date, :airp_dep, :airline_mark, :extra) ";
   Qry.CreateVariable("queue_tlg_id", otInteger, queue_tlg_id);
   Qry.CreateVariable("tlg_id", otInteger, tlg_id);
   Qry.CreateVariable("tlg_num", otInteger, tlg_num);
@@ -1764,6 +1767,7 @@ void TTlgStat::putTypeBOut(const int queue_tlg_id,
     Qry.CreateVariable("scd_local_date", otDate, FNull);
     Qry.CreateVariable("airp_dep", otString, FNull);
   };
+  Qry.CreateVariable("airline_mark", otString, airline_mark);
   Qry.CreateVariable("extra", otString, extra);
   Qry.Execute();
 };

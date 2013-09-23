@@ -6806,12 +6806,14 @@ int TelegramInterface::create_tlg(const TypeB::TCreateInfo &createInfo,
     
     //вычисление отправителя
     string orig_airline=info.airline;
+    /* возможно понадобится в будущем
     if (info.optionsIs<TypeB::TMarkInfoOptions>())
     {
       const TypeB::TMarkInfoOptions &options=*(info.optionsAs<TypeB::TMarkInfoOptions>());
       if (!options.mark_info.airline.empty())
         orig_airline=options.mark_info.airline;
     };
+    */
     info.originator = TypeB::getOriginator( orig_airline,
                                             info.airp_dep,
                                             info.get_tlg_type(),

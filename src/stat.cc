@@ -4175,6 +4175,7 @@ struct TTlgOutStatKey {
     string airp_dep_view;
     TDateTime scd_local_date;
     string tlg_type;
+    string airline_mark_view;
     string extra;
     TTlgOutStatKey():time_send(NoExists),
                      flt_no(NoExists),
@@ -4223,6 +4224,8 @@ struct TTlgOutStatCmp {
         return key1.scd_local_date < key2.scd_local_date;
       if (key1.tlg_type!=key2.tlg_type)
         return key1.tlg_type < key2.tlg_type;
+      if(key1.airline_mark_view != key2.airline_mark_view)
+          return key1.airline_mark_view < key2.airline_mark_view;
       return key1.extra < key2.extra;
     }
 };
@@ -4248,6 +4251,7 @@ void RunTlgOutStat(const TStatParams &params,
             "  tlg_stat.airp_dep, \n"
             "  tlg_stat.scd_local_date, \n"
             "  tlg_stat.tlg_type, \n"
+            "  tlg_stat.airline_mark, \n"
             "  tlg_stat.extra, \n"
             "  tlg_stat.tlg_len \n"
             "FROM \n";
@@ -4308,6 +4312,7 @@ void RunTlgOutStat(const TStatParams &params,
             int col_airp_dep = Qry.FieldIndex("airp_dep");
             int col_scd_local_date = Qry.FieldIndex("scd_local_date");
             int col_tlg_type = Qry.FieldIndex("tlg_type");
+            int col_airline_mark = Qry.FieldIndex("airline_mark");
             int col_extra = Qry.FieldIndex("extra");
             int col_tlg_len = Qry.FieldIndex("tlg_len");
             for(; not Qry.Eof; Qry.Next()) {
@@ -4334,6 +4339,7 @@ void RunTlgOutStat(const TStatParams &params,
                     params.statType == statTlgOutFull)
                 {
                   key.airline_view = ElemIdToCodeNative(etAirline, airline);
+                  key.airline_mark_view = ElemIdToCodeNative(etAirline, Qry.FieldAsString(col_airline_mark));
                   key.airp_dep_view = ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp_dep));
 
                   if (params.statType == statTlgOutFull)
@@ -4411,6 +4417,7 @@ void createXMLTlgOutStat(const TStatParams &params,
               params.statType == statTlgOutFull)
           {
             NewTextChild(rowNode, "col", im->first.airline_view);
+            NewTextChild(rowNode, "col", im->first.airline_mark_view);
             NewTextChild(rowNode, "col", im->first.airp_dep_view);
           };
           if (params.statType == statTlgOutFull)
@@ -4482,6 +4489,10 @@ void createXMLTlgOutStat(const TStatParams &params,
         params.statType == statTlgOutFull)
     {
       colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
+      SetProp(colNode, "width", 50);
+      SetProp(colNode, "align", taLeftJustify);
+      SetProp(colNode, "sort", sortString);
+      colNode = NewTextChild(headerNode, "col", getLocaleText("А/к комм."));
       SetProp(colNode, "width", 50);
       SetProp(colNode, "align", taLeftJustify);
       SetProp(colNode, "sort", sortString);
