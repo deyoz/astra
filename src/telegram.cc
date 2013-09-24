@@ -743,27 +743,20 @@ void TelegramInterface::SaveTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   AstraLocale::showMessage("MSG.TLG.SAVED");
 };
 
-void putUTG(TQuery &Qry, const string &data)
+void putUTG(int id, const string &basic_type, const TTripInfo &flt, const string &data)
 {
-    string airp = Qry.FieldAsString("airp");
-    string airline = Qry.FieldAsString("airline");
-    int flt_no = Qry.FieldAsInteger("flt_no");
-    string type = Qry.FieldAsString("basic_type");
     map<string, string> file_params;
     getFileParams(
-            airp,
-            airline,
-            IntToString(flt_no),
+            flt.airp,
+            flt.airline,
+            IntToString(flt.flt_no),
             OWN_POINT_ADDR(),
             FILE_UTG_TYPE,
             1,
             file_params);
-    if(not file_params.empty() and (file_params[PARAM_TLG_TYPE].find(type) != string::npos)) {
+    if(not file_params.empty() and (file_params[PARAM_TLG_TYPE].find(basic_type) != string::npos)) {
         string encoding=getFileEncoding(FILE_UTG_TYPE, OWN_POINT_ADDR(), true);
         if (encoding.empty()) encoding="CP866";
-        string suffix = Qry.FieldAsString("suffix");
-        TDateTime scd_out = Qry.FieldAsDateTime("scd_out");
-        int id = Qry.FieldAsInteger("id");
 
         TDateTime now_utc = NowUTC();
         double days;
@@ -773,9 +766,10 @@ void putUTG(TQuery &Qry, const string &data)
             << DateTimeToStr(now_utc, "yyyy_mm_dd_hh_nn_ss_")
             << setw(3) << setfill('0') << msecs
             << "." << setw(9) << setfill('0') << id
-            << "." << type
-            << "." << BSM::TlgElemIdToElem(etAirline, airline, true) << setw(3) << setfill('0') << flt_no << suffix
-            << "." << DateTimeToStr(scd_out, "dd.mm");
+            << "." << basic_type
+            << "." << BSM::TlgElemIdToElem(etAirline, flt.airline, true)
+                   << setw(3) << setfill('0') << flt.flt_no << flt.suffix
+            << "." << DateTimeToStr(flt.scd_out, "dd.mm");
         file_params[PARAM_FILE_NAME] = file_name.str();
         putFile( OWN_POINT_ADDR(),
                 OWN_POINT_ADDR(),
@@ -792,18 +786,10 @@ void TelegramInterface::SendTlg(int tlg_id)
     TQuery TlgQry(&OraSession);
     TlgQry.Clear();
     TlgQry.SQLText=
-      "SELECT tlg_out.id, tlg_out.num, tlg_out.type, points.point_id, "
-      "       tlg_out.addr AS addrs, tlg_out.heading, tlg_out.body, tlg_out.ending, "
-      "       tlg_out.completed, tlg_out.has_errors, tlg_out.time_create, "
-      "       typeb_types.basic_type, typeb_types.short_name, "
-      "       points.airline, points.flt_no, points.suffix, points.airp, points.scd_out, "
-      "       typeb_originators.addr AS originator_addr, "
-      "       typeb_originators.descr AS originator_descr "
-      "FROM tlg_out, typeb_types, points, typeb_originators "
-      "WHERE tlg_out.type=typeb_types.code AND "
-      "      tlg_out.point_id=points.point_id(+) AND "
-      "      tlg_out.originator_id=typeb_originators.id AND "
-      "      tlg_out.id=:id FOR UPDATE"; //!!!vlad Lock() tranzit flight
+      "SELECT id, num, type, point_id, addr AS addrs, heading, body, ending, "
+      "       completed, has_errors, time_create, originator_id, airline_mark "
+      "FROM tlg_out "
+      "WHERE id=:id FOR UPDATE";
     TlgQry.CreateVariable( "id", otInteger, tlg_id);
     TlgQry.Execute();
     if (TlgQry.Eof) throw AstraLocale::UserException("MSG.TLG.NOT_FOUND.REFRESH_DATA");
@@ -811,11 +797,46 @@ void TelegramInterface::SendTlg(int tlg_id)
       throw AstraLocale::UserException("MSG.TLG.MANUAL_EDIT");
     if (TlgQry.FieldAsInteger("has_errors")==1)
       throw AstraLocale::UserException("MSG.TLG.HAS_ERRORS.UNABLE_SEND");
-
-    string tlg_short_name=TlgQry.FieldAsString("short_name");
     int point_id=TlgQry.FieldIsNULL("point_id")?NoExists:TlgQry.FieldAsInteger("point_id");
 
     TQuery Qry(&OraSession);
+    Qry.Clear();
+    Qry.SQLText="SELECT addr, descr FROM typeb_originators WHERE id=:originator_id";
+    Qry.CreateVariable( "originator_id", otInteger, TlgQry.FieldAsInteger("originator_id") );
+    Qry.Execute();
+    if (Qry.Eof) throw AstraLocale::UserException("MSG.TLG.NOT_FOUND.REFRESH_DATA");
+    string originator_addr=Qry.FieldAsString("addr");
+    string originator_descr=Qry.FieldAsString("descr");
+
+    TTlgStatPoint sender(originator_addr,
+                         OWN_CANON_NAME(),
+                         OWN_CANON_NAME(),
+                         "");
+
+    string tlg_basic_type;
+    string tlg_short_name;
+    try
+    {
+      const TTypeBTypesRow& row = (TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",TlgQry.FieldAsString("type")));
+      tlg_basic_type=row.basic_type;
+      tlg_short_name=row.short_name;
+    }
+    catch(EBaseTableError)
+    {
+      throw AstraLocale::UserException("MSG.TLG.NOT_FOUND.REFRESH_DATA");
+    };
+
+    TTripInfo fltInfo;
+    if (point_id!=NoExists)
+    {
+      Qry.Clear();
+      Qry.SQLText="SELECT airline, flt_no, suffix, airp, scd_out FROM points WHERE point_id=:point_id";
+      Qry.CreateVariable("point_id", otInteger, point_id);
+      Qry.Execute();
+      if (Qry.Eof) throw AstraLocale::UserException("MSG.TLG.NOT_FOUND.REFRESH_DATA");
+      fltInfo.Init(Qry);
+    };
+
     Qry.Clear();
     Qry.SQLText="SELECT canon_name, country FROM addrs WHERE addr=:addr";
     Qry.DeclareVariable("addr",otString);
@@ -896,14 +917,6 @@ void TelegramInterface::SendTlg(int tlg_id)
                               TlgQry.FieldAsString("body")+
                               TlgQry.FieldAsString("ending");
 
-      TTripInfo fltInfo;
-      if (point_id!=NoExists) fltInfo.Init(TlgQry);
-
-      TTlgStatPoint sender(TlgQry.FieldAsString("originator_addr"),
-                           OWN_CANON_NAME(),
-                           OWN_CANON_NAME(),
-                           "");
-
       for(map<string, vector<TTlgStatPoint> >::const_iterator i=recvs.begin();i!=recvs.end();++i)
       {
         string addrs;
@@ -933,10 +946,11 @@ void TelegramInterface::SendTlg(int tlg_id)
                                      sender,
                                      *j,
                                      TlgQry.FieldAsDateTime("time_create"),
-                                     TlgQry.FieldAsString("basic_type"),
+                                     tlg_basic_type,
                                      addrs.size()+tlg_text.size(),
                                      fltInfo,
-                                     TlgQry.FieldAsString("originator_descr"));
+                                     TlgQry.FieldAsString("airline_mark"),
+                                     originator_descr);
             };
             registerHookAfter(sendCmdTlgSnd);
           };
@@ -949,7 +963,7 @@ void TelegramInterface::SendTlg(int tlg_id)
           map<string,string> params;
           putFile(i->first,OWN_POINT_ADDR(),TlgQry.FieldAsString("type"),params,data);
         };
-        putUTG(TlgQry, addrs + tlg_text);
+        putUTG(tlg_id, tlg_basic_type, fltInfo, addrs + tlg_text);
       };
     };
 
@@ -1577,9 +1591,9 @@ void TelegramInterface::SaveTlgOutPart( TTlgOutPartInfo &info )
   Qry.Clear();
   Qry.SQLText=
     "INSERT INTO tlg_out(id,num,type,point_id,addr,heading,body,ending,pr_lat, "
-    "                    completed,has_errors,time_create,time_send_scd,time_send_act,originator_id) "
+    "                    completed,has_errors,time_create,time_send_scd,time_send_act,originator_id,airline_mark) "
     "VALUES(:id,:num,:type,:point_id,:addr,:heading,:body,:ending,:pr_lat, "
-    "       0,0,NVL(:time_create,system.UTCSYSDATE),:time_send_scd,NULL,:originator_id)";
+    "       0,0,NVL(:time_create,system.UTCSYSDATE),:time_send_scd,NULL,:originator_id,:airline_mark)";
 
   /*
   ProgTrace(TRACE5, "-------SaveTlgOutPart--------");
@@ -1614,10 +1628,10 @@ void TelegramInterface::SaveTlgOutPart( TTlgOutPartInfo &info )
   else
     Qry.CreateVariable("time_send_scd",otDate,FNull);
   if (info.originator_id!=NoExists)
-#warning originator_id must be not null !!!
     Qry.CreateVariable("originator_id",otInteger,info.originator_id);
   else
-    Qry.CreateVariable("originator_id",otInteger,FNull);
+    throw Exception("SaveTlgOutPart: info.originator_id=NoExists");
+  Qry.CreateVariable("airline_mark",otString,info.airline_mark);
   Qry.Execute();
 
   if (info.num==1)
@@ -1717,6 +1731,7 @@ void TTlgStat::putTypeBOut(const int queue_tlg_id,
                            const std::string &tlg_type,
                            const int tlg_len,
                            const TTripInfo &fltInfo,
+                           const std::string &airline_mark,
                            const std::string &extra)
 {
   TQuery Qry(&OraSession);
@@ -1726,12 +1741,12 @@ void TTlgStat::putTypeBOut(const int queue_tlg_id,
     "  sender_sita_addr, sender_canon_name, sender_descr, sender_country, "
     "  receiver_sita_addr, receiver_canon_name, receiver_descr, receiver_country, "
     "  time_create, time_send, time_receive, tlg_type, tlg_len, "
-    "  airline, flt_no, suffix, scd_local_date, airp_dep, extra) "
+    "  airline, flt_no, suffix, scd_local_date, airp_dep, airline_mark, extra) "
     "VALUES(:queue_tlg_id, :tlg_id, :tlg_num, "
     "  :sender_sita_addr, :sender_canon_name, :sender_descr, :sender_country, "
     "  :receiver_sita_addr, :receiver_canon_name, :receiver_descr, :receiver_country, "
     "  :time_create, NULL, NULL, :tlg_type, :tlg_len, "
-    "  :airline, :flt_no, :suffix, :scd_local_date, :airp_dep, :extra) ";
+    "  :airline, :flt_no, :suffix, :scd_local_date, :airp_dep, :airline_mark, :extra) ";
   Qry.CreateVariable("queue_tlg_id", otInteger, queue_tlg_id);
   Qry.CreateVariable("tlg_id", otInteger, tlg_id);
   Qry.CreateVariable("tlg_num", otInteger, tlg_num);
@@ -1764,6 +1779,7 @@ void TTlgStat::putTypeBOut(const int queue_tlg_id,
     Qry.CreateVariable("scd_local_date", otDate, FNull);
     Qry.CreateVariable("airp_dep", otString, FNull);
   };
+  Qry.CreateVariable("airline_mark", otString, airline_mark);
   Qry.CreateVariable("extra", otString, extra);
   Qry.Execute();
 };
