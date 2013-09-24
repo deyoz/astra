@@ -389,6 +389,7 @@ template <typename T> class PointsKeyTrip : public KeyTrip<T> {
 class TPoints {
 private:
   int getPoint_id();
+  void WriteDest( TPointsDest &dest );  //работает без использования Lock()
 public:
   BitSet<TPointsEvents> events;
   TPointsEvents status;
@@ -400,7 +401,6 @@ public:
     move_id = ASTRA::NoExists;
   }
   void Verify( bool ignoreException, AstraLocale::LexemaData &lexemaData );
-  void WriteDest( TPointsDest &dest );
   void Save( bool isShowMsg );
   void SaveCargos();
   static bool isDouble( int move_id, std::string airline, int flt_no,
@@ -438,5 +438,39 @@ typedef std::vector<TFndFlt> TFndFlts;
 bool findFlt( const std::string &airline, const int &flt_no, const std::string &suffix,
               const BASIC::TDateTime &local_scd_out, const std::string &airp, const int &withDeleted,
               TFndFlts &flts );
-void lockPoints( int move_id );
+
+enum TFlightType { ftTranzit, ftAll };
+
+class FlightPoints:public std::vector<TTripRouteItem> {
+  private:
+  public:
+    int point_dep;
+    int point_arv;
+    void Get( int vpoint_dep );
+    bool inRoute( int point_id, bool with_land ) {
+      for ( FlightPoints::const_iterator ipoint=begin();
+            ipoint!=end(); ipoint++ ) {
+        if ( ipoint->point_id == point_id ) {
+          return ( ipoint->point_id != point_arv || with_land );
+        }
+      }
+      return false;
+    }
+    FlightPoints() {
+      point_dep = ASTRA::NoExists;
+      point_arv = ASTRA::NoExists;
+    }
+};
+
+class TFlights:public std::vector<FlightPoints> {
+  public:
+    void Get( const std::vector<int> &points, TFlightType flightType );
+    void Get( int point_dep, TFlightType flightType ) {
+      std::vector<int> points( 1, point_dep );
+      Get( points, flightType );
+    }
+    void Lock();
+};
+
+
 #endif /*_POINTS_H_*/

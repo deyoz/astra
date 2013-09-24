@@ -15,6 +15,7 @@
 #include "comp_layers.h"
 #include "alarms.h"
 #include "rozysk.h"
+#include "points.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -137,11 +138,15 @@ void TTripStages::ParseStages( xmlNodePtr node, TMapTripStages &ts )
 
 void TTripStages::WriteStagesUTC( int point_id, TMapTripStages &ts )
 {
+  TFlights flights;
+  flights.Get( point_id, ftTranzit );
+  flights.Lock();
+
 	TReqInfo *reqInfo = TReqInfo::Instance();
 	std::string airp;
   TQuery Qry( &OraSession );
   Qry.SQLText =
-   "SELECT act_out,airp,pr_del FROM points WHERE points.point_id=:point_id FOR UPDATE";
+   "SELECT act_out,airp,pr_del FROM points WHERE points.point_id=:point_id";// FOR UPDATE";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   int pr_del = Qry.FieldAsInteger( "pr_del" );
@@ -242,10 +247,14 @@ void TTripStages::WriteStagesUTC( int point_id, TMapTripStages &ts )
 
 void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
 {
+  TFlights flights;
+  flights.Get( point_id, ftTranzit );
+  flights.Lock();
+
 	TReqInfo *reqInfo = TReqInfo::Instance();
   TQuery Qry( &OraSession );
   Qry.SQLText =
-   "SELECT airp FROM points WHERE points.point_id=:point_id FOR UPDATE";
+   "SELECT airp FROM points WHERE points.point_id=:point_id";// FOR UPDATE";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   string region, airp;
@@ -559,12 +568,16 @@ string TStagesRules::stage_name( TStage stage, std::string airp, bool pr_locale 
 {
 	string res, res1;
 	for ( vector<TStage_name>::iterator n=Graph_Stages.begin(); n!=Graph_Stages.end(); n++ ) {
-		if ( n->stage == stage )
-  		if ( n->airp.empty() )
+		if ( n->stage == stage ) {
+  		if ( n->airp.empty() ) {
 	  		res1 = getLocaleName( n->name, n->name_lat, pr_locale );
-			else
-			  if ( n->airp == airp )
+      }
+			else {
+			  if ( n->airp == airp ) {
 			  	res = getLocaleName( n->name, n->name_lat, pr_locale );
+        }
+      }
+    }
 	}
 	if ( res.empty() )
 		return res1;
@@ -863,8 +876,8 @@ void SetCraft( int point_id, TStage stage )
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   string craft = Qry.FieldAsString( "craft" );
-  if ( stage == sPrepCheckIn && (!Qry.FieldIsNULL( "bort" ) || string( "СОЧ" ) != Qry.FieldAsString( "airp" )) ||
-  	   stage == sOpenCheckIn && string( "СОЧ" ) == Qry.FieldAsString( "airp" ) ) {
+  if ( (stage == sPrepCheckIn && (!Qry.FieldIsNULL( "bort" ) || string( "СОЧ" ) != Qry.FieldAsString( "airp" ))) ||
+  	   (stage == sOpenCheckIn && string( "СОЧ" ) == Qry.FieldAsString( "airp" )) ) {
     SALONS2::TFindSetCraft res = SALONS2::AutoSetCraft( point_id );
     if ( res != SALONS2::rsComp_Found && res != SALONS2::rsComp_NoChanges ) {
   	  TReqInfo::Instance()->MsgToLog( string( "Подходящая для рейса компоновка " ) + craft + " не найдена", evtFlt, point_id );

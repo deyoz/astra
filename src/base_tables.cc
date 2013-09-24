@@ -70,8 +70,6 @@ TBaseTable &TBaseTables::get(string name)
             base_tables[name] = new TCrafts();
         else if(name == "TRIP_TYPES")
         	  base_tables[name] = new TTripTypes();
-        else if(name == "COMP_ELEM_TYPES")
-        	  base_tables[name] = new TCompElemTypes();
         else if(name == "GRP_STATUS_TYPES")
         	  base_tables[name] = new TGrpStatusTypes();
         else if(name == "CLIENT_TYPES")
@@ -766,12 +764,6 @@ void TClsGrp::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **repla
   ((TClsGrpRow*)*row)->cl=Qry.FieldAsString("class");
   ((TClsGrpRow*)*row)->priority=Qry.FieldAsInteger("priority");
   TTIDBaseTable::create_row(Qry,row,replaced_row);
-};
-
-void TCompElemTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row) {
-	*row = new TCompElemTypesRow;
-  mem.create(*row, STDLOG);
-  TCodeBaseTable::create_row(Qry, row, replaced_row);
 };
 
 void TAlarmTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row) {

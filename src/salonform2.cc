@@ -92,7 +92,7 @@ void SalonsInterface::BaseComponFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
     }
 
     if ( ( r->user.user_type == utAirline ||
-           r->user.user_type == utSupport && Salons.airp.empty() && !r->user.access.airlines.empty() ) &&
+           (r->user.user_type == utSupport && Salons.airp.empty() && !r->user.access.airlines.empty()) ) &&
     	   find( r->user.access.airlines.begin(),
     	         r->user.access.airlines.end(), Salons.airline ) == r->user.access.airlines.end() ) {
  	  	if ( Salons.airline.empty() )
@@ -101,7 +101,7 @@ void SalonsInterface::BaseComponFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
     		throw AstraLocale::UserException( "MSG.SALONS.OPER_WRITE_DENIED_FOR_THIS_AIRLINE" );
     }
     if ( ( r->user.user_type == utAirport ||
-    	     r->user.user_type == utSupport && Salons.airline.empty() && !r->user.access.airps.empty() ) &&
+    	     (r->user.user_type == utSupport && Salons.airline.empty() && !r->user.access.airps.empty()) ) &&
     	   find( r->user.access.airps.begin(),
     	         r->user.access.airps.end(), Salons.airp ) == r->user.access.airps.end() ) {
  	  	if ( Salons.airp.empty() )
@@ -172,8 +172,8 @@ void SalonsInterface::BaseComponsRead(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 {
   TReqInfo *r = TReqInfo::Instance();
   ProgTrace( TRACE5, "SalonsInterface::BaseComponsRead" );
-  if ( r->user.user_type == utAirline && r->user.access.airlines.empty() ||
-  	   r->user.user_type == utAirport && r->user.access.airps.empty() )
+  if ( (r->user.user_type == utAirline && r->user.access.airlines.empty()) ||
+  	   (r->user.user_type == utAirport && r->user.access.airps.empty()) )
   	throw AstraLocale::UserException( "MSG.SALONS.ACCESS_DENIED" );
   TQuery Qry( &OraSession );
   if ( r->user.user_type == utAirport )
@@ -189,16 +189,16 @@ void SalonsInterface::BaseComponsRead(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
   	if ( filterCompons( Qry.FieldAsString( "airline" ), Qry.FieldAsString( "airp" ) ) ) {
       xmlNodePtr rnode = NewTextChild( node, "compon" );
       NewTextChild( rnode, "comp_id", Qry.FieldAsInteger( "comp_id" ) );
-      if ( r->user.user_type == utAirline &&
-           r->user.access.airlines.size() > 1 ||
-           r->user.user_type != utAirline &&
-           ( r->user.access.airlines.empty() || r->user.access.airlines.size() > 1 ) ||
-           r->user.user_type == utSupport && r->user.access.airlines.size() >= 1 && r->user.access.airps.size() >= 1 )
+      if ( (r->user.user_type == utAirline &&
+            r->user.access.airlines.size() > 1) ||
+           (r->user.user_type != utAirline &&
+            ( r->user.access.airlines.empty() || r->user.access.airlines.size() > 1 )) ||
+           (r->user.user_type == utSupport && r->user.access.airlines.size() >= 1 && r->user.access.airps.size() >= 1) )
         NewTextChild( rnode, "airline", ElemIdToCodeNative( etAirline, Qry.FieldAsString( "airline" ) ) );
-      if ( r->user.user_type == utAirport && r->user.access.airps.size() > 1 ||
-           r->user.user_type == utSupport &&
-           ( r->user.access.airps.empty() || r->user.access.airps.size() > 1 ||
-             r->user.access.airlines.size() >= 1 && r->user.access.airps.size() >= 1 ) )
+      if ( (r->user.user_type == utAirport && r->user.access.airps.size() > 1) ||
+           (r->user.user_type == utSupport &&
+            ( r->user.access.airps.empty() || r->user.access.airps.size() > 1 ||
+              (r->user.access.airlines.size() >= 1 && r->user.access.airps.size() >= 1) ) ) )
     	  NewTextChild( rnode, "airp", ElemIdToCodeNative( etAirp, Qry.FieldAsString( "airp" ) ) );
       NewTextChild( rnode, "craft", ElemIdToCodeNative( etCraft, Qry.FieldAsString( "craft" ) ) );
       NewTextChild( rnode, "bort", Qry.FieldAsString( "bort" ) );

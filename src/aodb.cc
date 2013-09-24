@@ -203,6 +203,7 @@ void bindingAODBFlt( const std::string &point_addr, int point_id, float aodb_poi
 	    "BEGIN "
 	    " DELETE aodb_bag WHERE point_addr=:point_addr AND "
       "   pax_id IN ( SELECT pax_id FROM aodb_pax WHERE point_id=:point_id AND point_addr=:point_addr ); "
+      " DELETE aodb_unaccomp WHERE point_addr=:point_addr AND point_id=:point_id; "
 	    " DELETE aodb_pax WHERE point_addr=:point_addr AND point_id=:point_id; "
 	    " DELETE aodb_points WHERE point_addr=:point_addr AND point_id=:point_id; "
 	    "END;";
@@ -1626,7 +1627,9 @@ try {
 		FUseData.clearFlags();
 		dest.Load( point_id, FUseData );
 		
-		lockPoints( move_id );
+		TFlights  flights;
+		flights.Get( point_id, ftAll );
+		flights.Lock();
     Qry.Clear();
     Qry.SQLText =
      "UPDATE points "
@@ -1668,7 +1671,6 @@ try {
  	  if ( change_comp ) {
  	  	SALONS2::AutoSetCraft( point_id );
     }
-    SALONS2::check_diffcomp_alarm( point_id );
     bool old_ignore_auto = ( old_act != NoExists || dest.pr_del != 0 );
     bool new_ignore_auto = ( fl.act != NoExists || dest.pr_del != 0 );
     if ( old_ignore_auto != new_ignore_auto ) {
@@ -1685,6 +1687,13 @@ try {
     err++;
   	check_overload_alarm( point_id );
 	} // end update
+	SALONS2::check_diffcomp_alarm( point_id );
+	if ( SALONS2::isTranzitSalons( point_id ) ) {
+    SALONS2::check_waitlist_alarm_on_tranzit_routes( point_id );
+  }
+  else {
+    check_waitlist_alarm( point_id );
+  }
   tst();
   if ( old_est != fl.est ) {
     if ( fl.est != NoExists ) {

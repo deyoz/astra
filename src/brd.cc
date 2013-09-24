@@ -17,6 +17,7 @@
 #include "passenger.h"
 #include "rozysk.h"
 #include "transfer.h"
+#include "points.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -245,10 +246,13 @@ void BrdInterface::readTripCounters( const int point_id,
 
 int get_new_tid(int point_id)
 {
+  TFlights flights;
+  flights.Get( point_id, ftTranzit );
+  flights.Lock(); //лочим весь транзитный рейс
   TQuery Qry(&OraSession);
   Qry.SQLText=
     "SELECT cycle_tid__seq.nextval AS tid FROM points "
-    "WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0 FOR UPDATE";
+    "WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";// FOR UPDATE";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   if(Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
