@@ -4488,10 +4488,11 @@ void createXMLTlgOutStat(const TStatParams &params,
     if (params.statType == statTlgOutDetail ||
         params.statType == statTlgOutFull)
     {
-      colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
+      colNode = NewTextChild(headerNode, "col", getLocaleText("А/к факт."));
       SetProp(colNode, "width", 50);
       SetProp(colNode, "align", taLeftJustify);
       SetProp(colNode, "sort", sortString);
+      NewTextChild(rowNode, "col");
       colNode = NewTextChild(headerNode, "col", getLocaleText("А/к комм."));
       SetProp(colNode, "width", 50);
       SetProp(colNode, "align", taLeftJustify);
