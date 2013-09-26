@@ -292,6 +292,8 @@ std::string GetPaxDocStr(BASIC::TDateTime part_key,
                          TQuery& PaxDocQry,
                          bool with_issue_country=false,
                          const std::string &lang="");
+std::string NormalizeDocNoForAPIS(const std::string& str);
+
 bool LoadPaxDoco(int pax_id, TPaxDocoItem &doc, TQuery& PaxDocQry);
 bool LoadPaxDoco(BASIC::TDateTime part_key, int pax_id, TPaxDocoItem &doc, TQuery& PaxDocQry);
 bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc, TQuery& PaxDocQry, TQuery& GetPSPT2Qry);

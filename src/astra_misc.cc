@@ -166,6 +166,8 @@ const long int DOC_EDI_CZ_FIELDS=DOC_CSV_CZ_FIELDS;
 
 const long int DOC_EDI_CN_FIELDS=DOC_EDI_CZ_FIELDS;
 
+const long int DOC_EDI_IN_FIELDS=DOC_EDI_CN_FIELDS;
+
 const long int DOC_CSV_DE_FIELDS=DOC_SURNAME_FIELD|
                                  DOC_FIRST_NAME_FIELD|
                                  DOC_GENDER_FIELD|
@@ -254,6 +256,7 @@ TCheckDocInfo GetCheckDocInfo(const int point_dep, const string& airp_arv, set<s
           if (fmt=="CSV_CZ") result.first.required_fields|=DOC_CSV_CZ_FIELDS;
           if (fmt=="EDI_CZ") result.first.required_fields|=DOC_EDI_CZ_FIELDS;
           if (fmt=="EDI_CN") result.first.required_fields|=DOC_EDI_CN_FIELDS;
+          if (fmt=="EDI_IN") result.first.required_fields|=DOC_EDI_IN_FIELDS;
           if (fmt=="CSV_DE")
           {
             result.first.required_fields|=DOC_CSV_DE_FIELDS;
