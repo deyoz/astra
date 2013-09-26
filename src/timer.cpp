@@ -586,8 +586,9 @@ void create_apis_file(int point_id)
       RouteQry.Execute();
       if (RouteQry.Eof) continue;
 
+      string country_arv=RouteQry.FieldAsString("country");
       //получим информацию по настройке APIS
-      ApisSetsQry.SetVariable("country_arv",RouteQry.FieldAsString("country"));
+      ApisSetsQry.SetVariable("country_arv",country_arv);
       ApisSetsQry.Execute();
       if (!ApisSetsQry.Eof)
       {
@@ -634,9 +635,9 @@ void create_apis_file(int point_id)
 
         	Paxlst::PaxlstInfo paxlstInfo;
 
-          if (fmt=="EDI_CZ" || fmt=="EDI_CN")
+          if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN")
           {
-            if (fmt=="EDI_CN") paxlstInfo.settings().setRespAgnCode("ZZZ");
+            if (fmt=="EDI_CN" || fmt=="EDI_IN") paxlstInfo.settings().setRespAgnCode("ZZZ");
             //информация о том, кто формирует сообщение
             vector<string> strs;
             SeparateString(string(APIS_PARTY_INFO()), ':', strs);
@@ -688,7 +689,7 @@ void create_apis_file(int point_id)
       	    if (PaxQry.FieldIsNULL("doc_pax_id"))
       	  	{
       	  	  //документ пассажира не найден
-              if (fmt=="EDI_CZ" || fmt=="EDI_CN")
+              if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN")
               {
         	      paxInfo.setName(PaxQry.FieldAsString("name"));
         	      paxInfo.setSurname(PaxQry.FieldAsString("surname"));
@@ -746,7 +747,7 @@ void create_apis_file(int point_id)
                 doc_first_name=TruncNameTitles(doc_first_name.c_str());
                 doc_second_name=TruncNameTitles(doc_second_name.c_str());
               };
-              if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="CSV_DE" || fmt=="TXT_EE")
+              if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="CSV_DE" || fmt=="TXT_EE")
               {
                 if (!doc_second_name.empty())
                 {
@@ -761,7 +762,7 @@ void create_apis_file(int point_id)
       	    	  TGenderTypesRow &gender_row = (TGenderTypesRow&)base_tables.get("gender_types").get_row("code",PaxQry.FieldAsString("gender"));
       	    	  if (gender_row.code_lat.empty()) throw Exception("gender.code_lat empty (code=%s)",PaxQry.FieldAsString("gender"));
       	    	  gender=gender_row.code_lat;
-      	    	  if (fmt=="EDI_CZ" || fmt=="EDI_CN")
+      	    	  if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN")
                 {
                   gender = gender.substr(0,1);
                   if (gender!="M" &&
@@ -789,7 +790,7 @@ void create_apis_file(int point_id)
       	    	  TPaxDocTypesRow &doc_type_row = (TPaxDocTypesRow&)base_tables.get("pax_doc_types").get_row("code",PaxQry.FieldAsString("doc_type"));
       	    	  if (doc_type_row.code_lat.empty()) throw Exception("doc_type.code_lat empty (code=%s)",PaxQry.FieldAsString("doc_type"));
       	    	  doc_type=doc_type_row.code_lat;
-      	    	  if (fmt=="EDI_CZ" || fmt=="EDI_CN")
+      	    	  if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN")
                 {
                   if (doc_type!="P") doc_type.clear();
                 };
@@ -830,7 +831,11 @@ void create_apis_file(int point_id)
       	    	    expiry_date=DateTimeToStr(PaxQry.FieldAsDateTime("expiry_date"),"ddmmmyy",true);
       	    	};
 
-              if (fmt=="EDI_CZ" || fmt=="EDI_CN")
+              string doc_no=PaxQry.FieldAsString("doc_no");
+              if (fmt=="EDI_IN")
+                doc_no=CheckIn::NormalizeDocNoForAPIS(doc_no);
+
+              if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN")
               {
                 paxInfo.setName(doc_first_name);
         	      paxInfo.setSurname(doc_surname);
@@ -849,7 +854,7 @@ void create_apis_file(int point_id)
                   paxInfo.setReservNum(convert_pnr_addr(pnrs.begin()->addr, 1));
 
                 paxInfo.setDocType(doc_type);
-                paxInfo.setDocNumber(PaxQry.FieldAsString("doc_no"));
+                paxInfo.setDocNumber(doc_no);
                 if (!PaxQry.FieldIsNULL("expiry_date"))
                   paxInfo.setDocExpirateDate(PaxQry.FieldAsDateTime("expiry_date"));
                 paxInfo.setDocCountry(issue_country);
@@ -864,7 +869,7 @@ void create_apis_file(int point_id)
         	  		     << gender << ";"
         	  		     << nationality << ";"
         	  		     << doc_type << ";"
-        	  		     << PaxQry.FieldAsString("doc_no") << ";"
+        	  		     << doc_no << ";"
         	  		     << expiry_date << ";"
         	  		     << issue_country << ";";
         	  	};
@@ -879,7 +884,7 @@ void create_apis_file(int point_id)
       	  		       << airp_dep.code_lat << ";"
       	  		       << airp_final_lat << ";"
       	  		       << doc_type << ";"
-      	  		       << convert_char_view(PaxQry.FieldAsString("doc_no"),true) << ";"
+      	  		       << convert_char_view(doc_no,true) << ";"
       	  		       << issue_country;
         	    };
         	    if (fmt=="TXT_EE")
@@ -890,7 +895,7 @@ void create_apis_file(int point_id)
       	  		       << "4# " << birth_date << ENDL
       	  		       << "5# " << nationality << ENDL
       	  		       << "6# " << doc_type << ENDL
-      	  		       << "7# " << convert_char_view(PaxQry.FieldAsString("doc_no"),true) << ENDL
+      	  		       << "7# " << convert_char_view(doc_no,true) << ENDL
       	  		       << "8# " << issue_country << ENDL
       	  		       << "9# " << gender << ENDL;
         	    };
@@ -937,13 +942,13 @@ void create_apis_file(int point_id)
             if (fmt=="CSV_CZ" || fmt=="CSV_DE")
               body << ENDL;
       	    
-            if (fmt=="EDI_CZ" || fmt=="EDI_CN")
+            if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN")
       	      paxlstInfo.addPassenger( paxInfo );
       	  }; //цикл по пассажирам
 
           vector< pair<string, string> > files;
 
-          if (fmt=="EDI_CZ" || fmt=="EDI_CN")
+          if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN")
           {
             if (!paxlstInfo.passengersList().empty())
             {
@@ -952,7 +957,7 @@ void create_apis_file(int point_id)
               {
                 parts.push_back(paxlstInfo.toEdiString());
               };
-              if (fmt=="EDI_CN")
+              if (fmt=="EDI_CN" || fmt=="EDI_IN")
               {
                 for(unsigned maxPaxPerString=MAX_PAX_PER_EDI_PART;maxPaxPerString>0;maxPaxPerString--)
                 {
