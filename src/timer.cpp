@@ -11,6 +11,7 @@
 #include "tlg/tlg.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
+#include "misc.h"
 #include "astra_misc.h"
 #include "astra_context.h"
 #include "base_tables.h"
@@ -149,6 +150,8 @@ void exec_tasks( const char *proc_name )
       if ( name == "mintrans" ) save_mintrans_files();
       else
       if ( name == "utg" ) utg();
+      else
+      if ( name == "den" ) utg_prl_tst();
 /*	  else
       if ( name == "cobra" ) cobra();*/
 
@@ -215,6 +218,105 @@ void createSPP( TDateTime utcdate )
 }
 
 #include <boost/filesystem.hpp>
+
+void utg_prl_tst(void)
+{
+    static bool processed = false;
+    static bool passed = false;
+    if(processed) {
+        if(not passed) {
+            passed = true;
+            ProgTrace(TRACE5, "utg_prl_tst passed");
+        }
+        return;
+    }
+    processed = true;
+
+    static TQuery pointsQry(&OraSession);
+    if (pointsQry.SQLText.IsEmpty()) {
+        pointsQry.Clear();
+        pointsQry.SQLText =
+            "SELECT ckin_open.point_id "
+            "FROM trip_stages ckin_open, "
+            "     trip_stages ckin_close "
+            "WHERE ckin_open.point_id=ckin_close.point_id AND "
+//            "      ckin_open.point_id = 2758830 and " //!!! test
+            "      ckin_open.stage_id=20 AND "
+            "      ckin_close.stage_id=30 AND "
+            "      NVL(ckin_open.act, NVL(ckin_open.est, ckin_open.scd))<:time AND "
+            "      NVL(ckin_close.act, NVL(ckin_close.est, ckin_close.scd))>=:time ";
+        pointsQry.DeclareVariable("time", otDate);
+    }
+
+    static TQuery TlgQry(&OraSession);
+    if(TlgQry.SQLText.IsEmpty()) {
+        TlgQry.Clear();
+        TlgQry.SQLText=
+            "SELECT id, num, type, point_id, addr AS addrs, heading, body, ending, "
+            "       completed, has_errors, time_create, originator_id, airline_mark "
+            "FROM tlg_out "
+            "WHERE id=:id FOR UPDATE";
+        TlgQry.DeclareVariable( "id", otInteger);
+    }
+
+    static TQuery updQry(&OraSession);
+    if(updQry.SQLText.IsEmpty()) {
+        updQry.Clear();
+        updQry.SQLText=
+            "UPDATE tlg_out SET time_send_act=system.UTCSYSDATE WHERE id=:id";
+        updQry.DeclareVariable( "id", otInteger);
+    }
+
+    static TQuery Qry(&OraSession);
+    if(Qry.SQLText.IsEmpty()) {
+        Qry.Clear();
+        Qry.SQLText="SELECT airline, flt_no, suffix, airp, scd_out FROM points WHERE point_id=:point_id";
+        Qry.DeclareVariable("point_id", otInteger);
+    }
+
+    TDateTime time;
+    StrToDateTime("01.08.2012 00:00:00", time);
+    pointsQry.SetVariable("time", time);
+    pointsQry.Execute();
+    TPerfTimer tm_many("many tlgs");
+    tm_many.Init();
+    int count = 0;
+    for(; not pointsQry.Eof; pointsQry.Next(), count++) {
+        //        if(count == 10) break;
+        TPerfTimer tm("one tlg");
+        tm.Init();
+        TypeB::TCreateInfo info("PRL");
+        info.point_id = pointsQry.FieldAsInteger("point_id");
+        TTypeBTypesRow tlgTypeInfo;
+        try {
+
+            int tlg_id = TelegramInterface::create_tlg(info, tlgTypeInfo);
+            TlgQry.SetVariable("id", tlg_id);
+            TlgQry.Execute();
+
+            string tlg_text=(string)TlgQry.FieldAsString("heading")+
+            TlgQry.FieldAsString("body")+
+            TlgQry.FieldAsString("ending");
+
+            TTripInfo fltInfo;
+            Qry.SetVariable("point_id", info.point_id);
+            Qry.Execute();
+            fltInfo.Init(Qry);
+            putUTG(tlg_id, "PRL", fltInfo, tlg_text);
+            updQry.SetVariable("id", tlg_id);
+            updQry.Execute();
+            ProgTrace(TRACE5, "utg_prl_tst %s", tm.PrintWithMessage().c_str());
+            ProgTrace(TRACE5, "utg_prl_tst: sending %d", tlg_id);
+
+        }
+        catch( std::exception &E )
+        {
+            ProgTrace(TRACE5, "utg_prl_tst: failed for point_id %d: %s", info.point_id, E.what());
+        }
+        ProgTrace(TRACE5, "utg_prl_tst: count %d", count);
+    }
+    ProgTrace(TRACE5, "utg_prl_tst count: %d, %s", count, tm_many.PrintWithMessage().c_str());
+}
 
 void utg(void)
 {

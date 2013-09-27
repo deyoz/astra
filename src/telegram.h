@@ -369,6 +369,7 @@ int send_tlg(int argc,char **argv);
 bool check_delay_code(int delay_code);
 bool check_delay_code(const std::string &delay_code);
 bool check_delay_value(BASIC::TDateTime delay_time);
+void putUTG(int id, const std::string &basic_type, const TTripInfo &flt, const std::string &data);
 
 #endif /*_TELEGRAM_H_*/
 

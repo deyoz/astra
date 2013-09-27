@@ -9,6 +9,7 @@
 
 int main_timer_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
 void ETCheckStatusFlt(void);
+void utg_prl_tst(void);
 void utg(void);
 void sync_mvd(void);
 void create_apis_file(int point_id);
