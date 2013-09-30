@@ -615,10 +615,6 @@ void create_apis_file(int point_id)
         if (RouteQry.FieldIsNULL("scd_in")) throw Exception("scd_in empty (airp_arv=%s)",airp_arv.code.c_str());
         TDateTime act_in_local = UTCToLocal(RouteQry.FieldAsDateTime("scd_in"),tz_region);
 
-        ostringstream flight;
-
-        flight << airline.code_lat << setw(4) << setfill('0') << flt_no;
-        
         for(;!ApisSetsQry.Eof;ApisSetsQry.Next())
         {
           string fmt=ApisSetsQry.FieldAsString("format");
@@ -656,6 +652,9 @@ void create_apis_file(int point_id)
             i=strs.begin();
             if (i!=strs.end()) paxlstInfo.setRecipientName(*i++);
             if (i!=strs.end()) paxlstInfo.setRecipientCarrierCode(*i++);
+
+            ostringstream flight;
+            flight << airline.code_lat << flt_no << suffix;
 
             string iataCode = Paxlst::createIataCode(flight.str(),act_in_local);
             paxlstInfo.setIataCode( iataCode );
@@ -974,7 +973,9 @@ void create_apis_file(int point_id)
               {
                 ostringstream file_name;
                 file_name << ApisSetsQry.FieldAsString("dir")
-                          << Paxlst::createEdiPaxlstFileName(flight.str(),
+                          << Paxlst::createEdiPaxlstFileName(airline.code_lat,
+                                                             flt_no,
+                                                             suffix,
                                                              airp_dep.code_lat,
                                                              airp_arv.code_lat,
                                                              scd_out_local,
@@ -988,11 +989,16 @@ void create_apis_file(int point_id)
           {
       	    ostringstream file_name;
       	    if (fmt=="CSV_CZ" || fmt=="CSV_DE")
+            {
+              ostringstream f;
+              f << airline.code_lat << flt_no << suffix;
             	file_name << ApisSetsQry.FieldAsString("dir")
-            	          << flight.str()
+                        << airline.code_lat
+                        << (f.str().size()<6?string(6-f.str().size(),'0'):"") << flt_no << suffix  //по стандарту поле не должно превышать 6 символов
             	          << airp_dep.code_lat
             	          << airp_arv.code_lat
             	          << DateTimeToStr(scd_out_local,"yyyymmdd") << ".CSV";
+            };
             	          
             if (fmt=="TXT_EE")
               file_name << ApisSetsQry.FieldAsString("dir")
@@ -1003,7 +1009,7 @@ void create_apis_file(int point_id)
             ostringstream header;
             if (fmt=="CSV_CZ")
             	header << "csv;ROSSIYA;"
-            	    	 << airline.code_lat << setw(3) << setfill('0') << flt_no << ";"
+            	    	 << airline.code_lat << setw(3) << setfill('0') << flt_no << suffix << ";"
           	      	 << airp_dep.code_lat << ";" << DateTimeToStr(act_out_local,"yyyy-mm-dd'T'hh:nn:00.0") << ";"
           	      	 << airp_arv.code_lat << ";" << DateTimeToStr(act_in_local,"yyyy-mm-dd'T'hh:nn:00.0") << ";"
           	      	 << count << ";" << ENDL;

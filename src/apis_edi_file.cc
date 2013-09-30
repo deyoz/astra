@@ -54,15 +54,23 @@ std::string createIataCode( const std::string& flight,
     return iata.str();
 }
 
-std::string createEdiPaxlstFileName( const std::string& flight, 
+std::string createEdiPaxlstFileName( const std::string& carrierCode,
+                                     const int& flightNumber,
+                                     const std::string& flightSuffix,
                                      const std::string& origin,
                                      const std::string& destination,
                                      const BASIC::TDateTime& departureDate,
                                      const std::string& ext,
                                      unsigned partNum )
 {
+    ostringstream f;
+    f << carrierCode << flightNumber << flightSuffix;
+
     std::ostringstream fname;
-    fname << flight << origin << destination;
+    fname << carrierCode
+          << (f.str().size()<6?string(6-f.str().size(),'0'):"") << flightNumber
+          << flightSuffix
+          << origin << destination;
     fname << BASIC::DateTimeToStr( departureDate, "yyyymmdd" );
     fname << "." << ext;
     if( partNum )
@@ -372,7 +380,6 @@ void PaxlstInfo::checkInvariant() const
 
 
 //-----------------------------------------------------------------------------
-
 
 #ifdef XP_TESTING
 
@@ -764,10 +771,10 @@ START_TEST( test4 )
     BASIC::TDateTime depDate;
     BASIC::StrToDateTime( "2007.09.07", "yyyy.mm.dd", depDate );
 
-    std::string fname = Paxlst::createEdiPaxlstFileName( "OK0421", "CAI", "PRG", depDate, "TXT" );
+    std::string fname = Paxlst::createEdiPaxlstFileName( "OK", 421, "", "CAI", "PRG", depDate, "TXT" );
     fail_if( fname != "OK0421CAIPRG20070907.TXT" );
         
-    fname = Paxlst::createEdiPaxlstFileName( "OK0421", "CAI", "PRG", depDate, "TXT", 2 );
+    fname = Paxlst::createEdiPaxlstFileName( "OK", 421, "", "CAI", "PRG", depDate, "TXT", 2 );
     fail_if( fname != "OK0421CAIPRG20070907.TXT.PART2" );
 }
 END_TEST;
