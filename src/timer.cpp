@@ -275,12 +275,13 @@ void utg_prl_tst(void)
     }
 
     TDateTime time;
-    StrToDateTime("01.08.2012 00:00:00", time);
+    StrToDateTime("01.08.2013 00:00:00", time);
     pointsQry.SetVariable("time", time);
     pointsQry.Execute();
     TPerfTimer tm_many("many tlgs");
     tm_many.Init();
     int count = 0;
+    TStats stats;
     for(; not pointsQry.Eof; pointsQry.Next(), count++) {
         //        if(count == 10) break;
         TPerfTimer tm("one tlg");
@@ -290,7 +291,9 @@ void utg_prl_tst(void)
         TTypeBTypesRow tlgTypeInfo;
         try {
 
-            int tlg_id = TelegramInterface::create_tlg(info, tlgTypeInfo);
+            int tlg_id = TelegramInterface::create_tlg(info, tlgTypeInfo, stats);
+            OraSession.Rollback(); //!!!
+            /*
             TlgQry.SetVariable("id", tlg_id);
             TlgQry.Execute();
 
@@ -305,17 +308,21 @@ void utg_prl_tst(void)
             putUTG(tlg_id, "PRL", fltInfo, tlg_text);
             updQry.SetVariable("id", tlg_id);
             updQry.Execute();
+            */
             ProgTrace(TRACE5, "utg_prl_tst %s", tm.PrintWithMessage().c_str());
             ProgTrace(TRACE5, "utg_prl_tst: sending %d", tlg_id);
 
         }
         catch( std::exception &E )
         {
+            OraSession.Rollback();
             ProgTrace(TRACE5, "utg_prl_tst: failed for point_id %d: %s", info.point_id, E.what());
         }
         ProgTrace(TRACE5, "utg_prl_tst: count %d", count);
     }
+    OraSession.Rollback(); //!!!
     ProgTrace(TRACE5, "utg_prl_tst count: %d, %s", count, tm_many.PrintWithMessage().c_str());
+    stats.dump();
 }
 
 void utg(void)

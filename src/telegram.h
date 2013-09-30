@@ -300,6 +300,24 @@ void Send( int point_dep, int grp_id, const TTlgContent &con1, const TBSMAddrs &
 
 }; //namespace BSM
 
+struct TStats {
+    long read_salons;
+    long get;
+    long to_tlg;
+    long dest_list;
+    long infants;
+    long pax_list;
+    TStats():
+        read_salons(0),
+        get(0),
+        to_tlg(0),
+        dest_list(0),
+        infants(0),
+        pax_list(0)
+    {}
+    void dump();
+};
+
 class TelegramInterface : public JxtInterface
 {
 public:
@@ -343,7 +361,7 @@ public:
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 
   static int create_tlg(const TypeB::TCreateInfo &createInfo,
-                        TTypeBTypesRow &tlgTypeInfo);
+                        TTypeBTypesRow &tlgTypeInfo, TStats &stats);
 
   static void readTripData( int point_id, xmlNodePtr dataNode );
   static void SendTlg( int tlg_id );

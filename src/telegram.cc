@@ -1040,7 +1040,8 @@ void TelegramInterface::SendTlg(const vector<TypeB::TCreateInfo> &info)
         try
         {
             time_t time_start=time(NULL);
-            tlg_id = create_tlg( *i, tlgTypeInfo );
+            TStats stats;
+            tlg_id = create_tlg( *i, tlgTypeInfo, stats);
 
             time_t time_end=time(NULL);
             if (time_end-time_start>1)

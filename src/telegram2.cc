@@ -4582,7 +4582,7 @@ struct TDestList {
     TGRPMap grp_map; // PRL, ETL
     TInfants infants; // PRL
     vector<T> items;
-    void get(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &complayers);
+    void get(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &complayers, TStats &stats);
     void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
 };
 
@@ -5701,7 +5701,8 @@ void TLCIPaxTotals::get(TypeB::TDetailCreateInfo &info)
     vector<TTlgCompLayer> complayers;
     ReadSalons( info, complayers );
     TDestList<TPRLDest> dests;
-    dests.get(info,complayers);
+    TStats stats;
+    dests.get(info,complayers,stats);
     for(vector<TPRLDest>::iterator iv = dests.items.begin(); iv != dests.items.end(); iv++) {
         size_t idx = 0;
         for(; idx < items.size(); idx++)
@@ -5914,7 +5915,8 @@ int ETL(TypeB::TDetailCreateInfo &info)
 
         vector<TTlgCompLayer> complayers;
         TDestList<TETLDest> dests;
-        dests.get(info,complayers);
+        TStats stats;
+        dests.get(info,complayers,stats);
         dests.ToTlg(info, body);
     } catch(...) {
         ExceptionFilter(body, info);
@@ -5927,9 +5929,12 @@ int ETL(TypeB::TDetailCreateInfo &info)
 }
 
 template <class T>
-void TDestList<T>::get(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &complayers)
+void TDestList<T>::get(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &complayers, TStats &stats)
 {
+    TPerfTimer tm;
+    tm.Init();
     infants.get(info);
+    stats.infants += tm.Print();
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "select point_num, airp, class from "
@@ -5950,15 +5955,17 @@ void TDestList<T>::get(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &com
     Qry.CreateVariable("vpoint_id", otInteger, info.point_id);
     Qry.CreateVariable("vfirst_point", otInteger, info.pr_tranzit ? info.first_point : info.point_id);
     Qry.CreateVariable("vpoint_num", otInteger, info.point_num);
-    for(int i = 0; i < Qry.Variables->GetVariablesCount(); i++)
-        ProgTrace(TRACE5, "%s -> %s", Qry.VariableName(i), Qry.GetVariableAsString(Qry.VariableName(i)));
+    tm.Init();
     Qry.Execute();
+    stats.dest_list += tm.Print();
     for(; !Qry.Eof; Qry.Next()) {
         T dest(&grp_map, &infants);
         dest.point_num = Qry.FieldAsInteger("point_num");
         dest.airp = Qry.FieldAsString("airp");
         dest.cls = Qry.FieldAsString("class");
+        tm.Init();
         dest.GetPaxList(info,complayers);
+        stats.pax_list += tm.Print();
         items.push_back(dest);
     }
 }
@@ -6664,7 +6671,7 @@ int PFS(TypeB::TDetailCreateInfo &info)
     return tlg_row.id;
 }
 
-int PRL(TypeB::TDetailCreateInfo &info)
+int PRL(TypeB::TDetailCreateInfo &info, TStats &stats)
 {
     TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row(info);
@@ -6681,10 +6688,23 @@ int PRL(TypeB::TDetailCreateInfo &info)
     vector<string> body;
     try {
         vector<TTlgCompLayer> complayers;
+
+        TPerfTimer tm("prl ReadSalons");
+        tm.Init();
         ReadSalons( info, complayers );
+        stats.read_salons += tm.Print();
+
         TDestList<TPRLDest> dests;
-        dests.get(info,complayers);
+
+        TPerfTimer tm_get("prl tm_get");
+        tm_get.Init();
+        dests.get(info,complayers,stats);
+        stats.get += tm_get.Print();
+
+        TPerfTimer tm_to_tlg("prl tm_to_tlg");
+        tm_to_tlg.Init();
         dests.ToTlg(info, body);
+        stats.to_tlg += tm_to_tlg.Print();
     } catch(...) {
         ExceptionFilter(body, info);
     }
@@ -6707,8 +6727,21 @@ int Unknown(TypeB::TDetailCreateInfo &info)
     return tlg_row.id;
 }
 
+void TStats::dump()
+{
+    ostringstream buf;
+    buf
+        << "read_salons: " << read_salons << "; "
+        << "get: " << get << "; "
+        << "to_tlg: " << to_tlg << "; "
+        << "dest_list: " << dest_list << "; "
+        << "infants: " << infants << "; "
+        << "pax_list: " << pax_list << "; ";
+    ProgTrace(TRACE5, "utg_prl_tst: %s", buf.str().c_str());
+}
+
 int TelegramInterface::create_tlg(const TypeB::TCreateInfo &createInfo,
-                                  TTypeBTypesRow &tlgTypeInfo)
+                                  TTypeBTypesRow &tlgTypeInfo, TStats &stats)
 {
     ProgTrace(TRACE5, "createInfo.tlg_type: %s", createInfo.get_tlg_type().c_str());
     if(createInfo.get_tlg_type().empty())
@@ -6839,13 +6872,15 @@ int TelegramInterface::create_tlg(const TypeB::TCreateInfo &createInfo,
 
     int vid = NoExists;
 
+    TPerfTimer tm("tlg handler");
+    tm.Init();
     if(tlgTypeInfo.basic_type == "PTM") vid = PTM(info);
     else if(tlgTypeInfo.basic_type == "LDM") vid = LDM(info);
     else if(tlgTypeInfo.basic_type == "MVT") vid = MVT(info);
     else if(tlgTypeInfo.basic_type == "AHL") vid = AHL(info);
     else if(tlgTypeInfo.basic_type == "CPM") vid = CPM(info);
     else if(tlgTypeInfo.basic_type == "BTM") vid = BTM(info);
-    else if(tlgTypeInfo.basic_type == "PRL") vid = PRL(info);
+    else if(tlgTypeInfo.basic_type == "PRL") vid = PRL(info, stats);
     else if(tlgTypeInfo.basic_type == "TPM") vid = TPM(info);
     else if(tlgTypeInfo.basic_type == "PSM") vid = PSM(info);
     else if(tlgTypeInfo.basic_type == "PIL") vid = PIL(info);
@@ -6857,6 +6892,7 @@ int TelegramInterface::create_tlg(const TypeB::TCreateInfo &createInfo,
     else if(tlgTypeInfo.basic_type == "PIM") vid = PIM(info);
     else if(tlgTypeInfo.basic_type == "LCI") vid = LCI(info);
     else vid = Unknown(info);
+    ProgTrace(TRACE5, "utg_prl_tst: %s", tm.PrintWithMessage().c_str());
 
     info.err_lst.dump();
 
@@ -6883,7 +6919,8 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     int tlg_id = NoExists;
     TTypeBTypesRow tlgTypeInfo;
     try {
-        tlg_id = create_tlg(createInfo, tlgTypeInfo);
+        TStats stats;
+        tlg_id = create_tlg(createInfo, tlgTypeInfo, stats);
     } catch(AstraLocale::UserException &E) {
         throw AstraLocale::UserException( "MSG.TLG.CREATE_ERROR", LParams() << LParam("what", getLocaleText(E.getLexemaData())));
     }
