@@ -2378,7 +2378,8 @@ void FilterRoutesProperty::Read( const TFilterRoutesSets &filterRoutesSets )
   if ( routes.GetRouteBefore( ASTRA::NoExists,
                               point_dep,
                               trtWithCurrent,
-                              trtNotCancelled ) ) {
+                              trtNotCancelled ) &&
+       !routes.empty() ) {
     insert( begin(), *routes.rbegin() );
     pointNum[ routes.rbegin()->point_id ] = PointAirpNum( routes.rbegin()->point_num, routes.rbegin()->airp, true );
     for ( std::vector<TTripRouteItem>::reverse_iterator iroute=routes.rbegin() + 1;
@@ -2400,6 +2401,9 @@ void FilterRoutesProperty::Read( const TFilterRoutesSets &filterRoutesSets )
       pr_tranzit = ( Qry.FieldAsInteger( "pr_tranzit" ) != 0 &&
                      Qry.FieldAsInteger( "pr_tranz_reg" ) == 0 );
     }
+  }
+  if ( empty() ) {
+    throw UserException( "MSG.FLIGHT.CANCELED.REFRESH_DATA" );
   }
   routes.clear();
   if ( routes.GetRouteAfter( ASTRA::NoExists,
