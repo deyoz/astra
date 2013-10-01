@@ -12,7 +12,7 @@
 #include "base_tables.h"
 #include "http_io.h"
 #include "passenger.h"
-#include "astra_service.h"
+#include "file_queue.h"
 #include "jxtlib/xml_stuff.h"
 #include "serverlib/logger.h"
 
@@ -1165,17 +1165,17 @@ void create_mintrans_file(int point_id)
   if (!GetTripSets(tsMintransFile, fltInfo)) return;
 
   map<string, string> fileparams;
-  getFileParams( Qry.FieldAsString("airp"),
-                 Qry.FieldAsString("airline"),
-                 Qry.FieldAsString("flt_no"),
-                 OWN_POINT_ADDR(),
-                 FILE_MINTRANS_TYPE,
-                 true,
-                 fileparams );
+  TFileQueue::add_sets_params( Qry.FieldAsString("airp"),
+                               Qry.FieldAsString("airline"),
+                               Qry.FieldAsString("flt_no"),
+                               OWN_POINT_ADDR(),
+                               FILE_MINTRANS_TYPE,
+                               true,
+                               fileparams );
 
   if (fileparams[PARAM_WORK_DIR].empty()) return;
 
-  string encoding=getFileEncoding(FILE_MINTRANS_TYPE, OWN_POINT_ADDR(), true);
+  string encoding=TFileQueue::getEncoding(FILE_MINTRANS_TYPE, OWN_POINT_ADDR(), true);
   if (encoding.empty()) encoding="UTF-8";
 
   vector<mintrans::TPax> paxs;
@@ -1246,11 +1246,11 @@ void create_mintrans_file(int point_id)
       << endl;
   };
 
-  putFile(OWN_POINT_ADDR(),
-          OWN_POINT_ADDR(),
-          FILE_MINTRANS_TYPE,
-          fileparams,
-          (encoding=="CP866"?f.str():ConvertCodepage(f.str(), "CP866", encoding)));
+  TFileQueue::putFile(OWN_POINT_ADDR(),
+                      OWN_POINT_ADDR(),
+                      FILE_MINTRANS_TYPE,
+                      fileparams,
+                     (encoding=="CP866"?f.str():ConvertCodepage(f.str(), "CP866", encoding)));
 };
 
 void save_mintrans_files()
@@ -1259,6 +1259,87 @@ void save_mintrans_files()
 
   TDateTime last_time=NowUTC() - 1.0/1440.0; //отматываем минуту, так как данные последних секунд могут быть еще не закоммичены в rozysk
 
+  TFileQueue file_queue;
+  file_queue.get( TFilterQueue( OWN_POINT_ADDR(),
+                                FILE_MINTRANS_TYPE,
+                                last_time ) );
+  TDateTime prior_time=NoExists;
+  int msec=0;
+  try {
+    for ( TFileQueue::iterator item=file_queue.begin(); item!=file_queue.end(); item++,OraSession.Commit() ) {
+      try {
+        if ( item->params.find( PARAM_WORK_DIR ) == item->params.end() ||
+             item->params[ PARAM_WORK_DIR ].empty() ) {
+          TFileQueue::deleteFile(item->id);
+          continue;
+        }
+    
+        if (prior_time==NoExists || item->time!=prior_time)
+          msec=0;
+        else
+          msec++;
+        prior_time=item->time;
+
+        ostringstream file_name;
+        file_name << item->params[ PARAM_WORK_DIR ]
+                  << MINTRANS_ID
+                  << DateTimeToStr(item->time, "_yyyy_mm_dd_hh_nn_ss_")
+                  << setw(3) << setfill('0') << msec
+                  << ".csv";
+        ofstream f;
+        f.open(file_name.str().c_str());
+        if (!f.is_open()) throw Exception("Can't open file '%s'",file_name.str().c_str());
+        try
+        {
+          f << item->data;
+          f.close();
+          TFileQueue::deleteFile(item->id);
+        }
+        catch(...)
+        {
+          try { f.close(); } catch( ... ) { };
+          try
+          {
+            //в случае ошибки запишем пустой файл
+            f.open(file_name.str().c_str());
+            if (f.is_open()) f.close();
+          }
+          catch( ... ) { };
+          throw;
+        };
+      }
+      catch(Exception &E)
+      {
+          OraSession.Rollback();
+          try
+          {
+              EOracleError *orae=dynamic_cast<EOracleError*>(&E);
+              if (orae!=NULL&&
+                      (orae->Code==4061||orae->Code==4068)) continue;
+              ProgError(STDLOG,"Exception: %s (file id=%d)",E.what(),item->id);
+          }
+          catch(...) {};
+
+      }
+      catch(std::exception &E)
+      {
+          OraSession.Rollback();
+          ProgError(STDLOG,"std::exception: %s (file id=%d)",E.what(),item->id);
+      }
+      catch(...)
+      {
+          OraSession.Rollback();
+          ProgError(STDLOG,"Something goes wrong");
+      };
+    }; //end for
+  }
+  catch(...)
+  {
+    throw;
+  };
+  ProgTrace(TRACE5,"save_mintrans_files finished");
+  
+/*  !!!vlad
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText =
@@ -1381,7 +1462,7 @@ void save_mintrans_files()
     mem.free(p, STDLOG);
     throw;
   };
-  ProgTrace(TRACE5,"save_mintrans_files finished");
+  ProgTrace(TRACE5,"save_mintrans_files finished");  */
 };
 
 void create_file(const string &format,

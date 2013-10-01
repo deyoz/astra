@@ -6,20 +6,8 @@
 #include <map>
 #include "jxtlib/JxtInterface.h"
 
-
-const std::string PARAM_TLG_TYPE = "TLG_TYPE";
-const std::string PARAM_WORK_DIR = "WORKDIR";
-const std::string PARAM_MAIL_INTERVAL = "MAIL_INTERVAL";
-const std::string PARAM_LOAD_DIR = "LOADDIR";
-const std::string PARAM_CANON_NAME = "CANON_NAME";
-const std::string PARAM_FILE_NAME = "FileName";
-const std::string PARAM_IN_ORDER = "IN_ORDER";
 const std::string PARAM_TYPE = "type";
-const std::string PARAM_FILE_TYPE = "FILE_TYPE";
 const std::string VALUE_TYPE_FILE = "FILE";
-const std::string VALUE_TYPE_SQL = "SQL";
-const std::string VALUE_END_SQL( ";\n" );
-const std::string VALUE_TYPE_BSM = "BSM";
 const std::string NS_PARAM_AIRP = "AIRP";
 const std::string NS_PARAM_AIRLINE = "AIRLINE";
 const std::string NS_PARAM_FLT_NO = "FLT_NO";
@@ -27,11 +15,6 @@ const std::string NS_PARAM_EVENT_TYPE = "EVENT_TYPE";
 const std::string NS_PARAM_EVENT_ID1 = "EVENT_ID1";
 const std::string NS_PARAM_EVENT_ID2 = "EVENT_ID2";
 const std::string NS_PARAM_EVENT_ID3 = "EVENT_ID3";
-const std::string PARAM_FILE_REC_NO = "rec_no";
-
-const std::string FILE_CHECKINDATA_TYPE = "CHCKD";
-const std::string FILE_HTTP_TYPEB_TYPE = "HTTP_TYPEB";
-const std::string FILE_UTG_TYPE = "UTG";
 
 struct TFileData {
 	std::string file_data;
@@ -41,27 +24,8 @@ struct TFileData {
 typedef std::vector<TFileData> TFileDatas;
 
 
-std::string getFileEncoding( const std::string &file_type, const std::string &point_addr, bool pr_send=true );
-void getFileParams( int id, std::map<std::string, std::string> &fileparams);
 void getFileParams( const std::string client_canon_name, const std::string &type,
 	                  int id, std::map<std::string, std::string> &fileparams, bool send );
-void getFileParams(
-        const std::string &airp,
-        const std::string &airline,
-        const std::string &flt_no,
-        const std::string &client_canon_name,
-        const std::string &type,
-        bool send,
-        std::map<std::string,std::string> &fileparams);
-bool deleteFile( int id );
-int putFile(const std::string &receiver,
-            const std::string &sender,
-            const std::string &type,
-            const std::map<std::string,std::string> &params,
-            const std::string &file_data);
-bool errorFile( int id, std::string err, std::string msg );
-bool sendFile( int id );
-bool doneFile( int id );
 
 void createSofiFileDATA( int receipt_id );
 void createAODBFileDATA( int point_id );

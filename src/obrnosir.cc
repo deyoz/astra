@@ -17,6 +17,7 @@
 #include "stat.h"
 #include "timer.h"
 #include "salons.h"
+#include "file_queue.h"
 #include "empty_proc.h"
 #include "serverlib/query_runner.h"
 #include "edilib/edi_loading.h"
@@ -63,7 +64,8 @@ const
     {"-bind_trfer_trips",       bind_trfer_trips,       NULL,                       NULL},
     {"-unbind_trfer_trips",     unbind_trfer_trips,     NULL,                       NULL},
     {"-test_typeb_utils",       test_typeb_utils2,      NULL,                       NULL},
-    {"-test_sopp_sql",          test_sopp_sql,          NULL,                       NULL}
+    {"-test_sopp_sql",          test_sopp_sql,          NULL,                       NULL},
+    {"-test_file_queue",        test_file_queue,        NULL,                       NULL}
   };
 
 int nosir_test(int argc,char **argv)

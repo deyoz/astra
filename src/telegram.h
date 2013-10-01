@@ -16,6 +16,7 @@
 #include "base_tables.h"
 
 const size_t PART_SIZE = 3500;
+const std::string FILE_UTG_TYPE = "UTG";
 
 struct TTlgCompLayer {
 	int pax_id;
