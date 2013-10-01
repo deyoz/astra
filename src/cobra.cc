@@ -82,7 +82,7 @@ $80000000
 #include "cent.h"
 #include "salons.h"
 #include "salonform.h"
-#include "astra_service.h"
+#include "file_queue.h"
 #include "stl_utils.h"
 #include "tlg/tlg.h"
 #include "xml_unit.h"
@@ -628,7 +628,7 @@ void ServSession::PutMsg( int msg_id, int msg_flags, const std::string &strbody 
              ( msg.flags & 0x01000000 ), ( msg.flags & 0x02000000 ), ( msg.flags & 0x04000000 ), pr_test );
   tst();
   if ( pr_test ||
-       use_heartBeat && TAstraServMsg::isClientRequest(msg.flags) && isHeartBeatMsg( msg ) ) {
+       (use_heartBeat && TAstraServMsg::isClientRequest(msg.flags) && isHeartBeatMsg( msg )) ) {
     tst();
     msg.setClientAnswer();
     if ( pr_test || outmsgs.empty() )
@@ -1083,12 +1083,12 @@ void CobraSession::getOutCommingMsgs()
       if ( StrToInt( fileparams[ SESS_MSG_FLAGS ].c_str(), msg_param ) == EOF ) {
         ProgError( STDLOG, "CobraSession::getOutCommingMsgs: param %s not found, file_id=%d",
                    SESS_MSG_FLAGS.c_str(), file_id );
-        deleteFile( file_id );
+        TFileQueue::deleteFile( file_id );
       }
       else {
         if ( TAstraServMsg::isClientRequest( msg_param ) ) {
           SendRequest( strbody, false, false );
-          sendFile( file_id );
+          TFileQueue::sendFile( file_id );
         }
         else {
           if ( StrToInt( fileparams[ SESS_MSG_ID ].c_str(), msg_param ) == EOF )
@@ -1096,7 +1096,7 @@ void CobraSession::getOutCommingMsgs()
                        SESS_MSG_ID.c_str(), file_id );
           else
             SendAnswer( msg_param, strbody, false, false );
-          deleteFile( file_id );
+          TFileQueue::deleteFile( file_id );
         }
       }
     }
@@ -1191,7 +1191,7 @@ void CobraSession::ProcessMsg( const TAstraServMsg &msg )
           map<string,string> params;
           params[ SESS_MSG_ID ] = IntToString( msg.msg_id );
           params[ SESS_MSG_FLAGS ] = IntToString( msg.flags );
-          int fid = putFile( desk, OWN_POINT_ADDR(), msg_in_type, params, msg.strbody );
+          int fid = TFileQueue::putFile( desk, OWN_POINT_ADDR(), msg_in_type, params, msg.strbody );
           ProgTrace( TRACE5, "CobraSession::ProcessMsg putfile file_id=%d", fid );
           isHook = true;
         }
@@ -1223,7 +1223,7 @@ void CobraSession::ProcessMsg( const TAstraServMsg &msg )
                 msg_tolog += NodeAsString( pNode );
               ProgError( STDLOG, "%s", msg_tolog.c_str() );
             }
-            deleteFile( file_id ); //???
+            TFileQueue::deleteFile( file_id ); //???
           }
         }
       }
@@ -1613,8 +1613,8 @@ void ParseFlights( const xmlNodePtr reqNode, vector<TCobraError> &errors )
           for ( vector<TPointsDest>::iterator j=new_dests.items.begin(); j!=new_dests.items.end(); j++ ) {
             ProgTrace( TRACE5, "i->point_id=%d, i->key=%s, i->point_num=%d, j->point_id=%d, j->key=%s",
                        i->point_id, i->key.c_str(), i->point_num, j->point_id, j->key.c_str() );
-            if ( i->point_id != NoExists && i->point_id == j->point_id ||
-                 i->point_id == NoExists && i->key == j->key ) {
+            if ( (i->point_id != NoExists && i->point_id == j->point_id) ||
+                 (i->point_id == NoExists && i->key == j->key) ) {
               //i->point_num = point_num;
               i->key = j->key;
               i->scd_in = j->scd_in;
@@ -2050,14 +2050,14 @@ bool parseIncommingCobraData( )
       StrToInt( fileparams[ SESS_MSG_FLAGS ].c_str(), msg.flags );
       msg.setClientAnswer();
       fileparams[ SESS_MSG_FLAGS ] = IntToString( msg.flags );
-      int fid= putFile( Qry.FieldAsString("receiver"),
-                        OWN_POINT_ADDR(),
-                        CANON_NAME_COBRA_OUTCOMMING,
-                        fileparams,
-                        str_answer );
+      int fid= TFileQueue::putFile( Qry.FieldAsString("receiver"),
+                                    OWN_POINT_ADDR(),
+                                    CANON_NAME_COBRA_OUTCOMMING,
+                                    fileparams,
+                                    str_answer );
       ProgTrace( TRACE5, "parseIncommingCobraData: answer in putFile, file_id=%d, msg_id=%s", fid, fileparams[ SESS_MSG_ID ].c_str() );
       ToEvents( COBRA_CLIENT_TYPE, file_id, fid );
-      deleteFile( file_id );
+      TFileQueue::deleteFile( file_id );
     }
     catch(...) {
       xmlFreeDoc( reqDoc );
@@ -2421,7 +2421,7 @@ string AnswerFlight( const xmlNodePtr reqNode )
           throw Exception( "CompSectionsLayers is empty" );
         }
         string bort = Qry.FieldAsString( "bort" );
-        if ( !( bort.size() == 5 && bort.find( "-" ) == string::npos || bort.size() == 6 && bort.find( "-" ) == 2 ) ) {
+        if ( !( (bort.size() == 5 && bort.find( "-" ) == string::npos) || (bort.size() == 6 && bort.find( "-" ) == 2) ) ) {
           ProgTrace( TRACE5, "point_id=%d, bort=%s, bort.find=%zu", point_id, bort.c_str(), bort.find( "-" ) );
           throw Exception( "Invalid bort" );
         }
@@ -2681,14 +2681,14 @@ bool parseIncommingWB_GarantData( )
       StrToInt( fileparams[ SESS_MSG_FLAGS ].c_str(), msg.flags );
       msg.setClientAnswer();
       fileparams[ SESS_MSG_FLAGS ] = IntToString( msg.flags );
-      int fid= putFile( Qry.FieldAsString("receiver"),
-                        OWN_POINT_ADDR(),
-                        CANON_NAME_WB_GARANT_OUTCOMMING,
-                        fileparams,
-                        str_answer );
+      int fid= TFileQueue::putFile( Qry.FieldAsString("receiver"),
+                                    OWN_POINT_ADDR(),
+                                    CANON_NAME_WB_GARANT_OUTCOMMING,
+                                    fileparams,
+                                    str_answer );
       ProgTrace( TRACE5, "parseIncommingWB_GarantData: answer in putFile, file_id=%d, msg_id=%s", fid, fileparams[ SESS_MSG_ID ].c_str() );
       ToEvents( WB_GARANT_CLIENT_TYPE, file_id, fid );
-      deleteFile( file_id );
+      TFileQueue::deleteFile( file_id );
     }
     catch(...) {
       xmlFreeDoc( reqDoc );

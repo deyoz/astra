@@ -286,19 +286,21 @@ struct TEqtRouting { // contains both Equipment & Routing info
 
 struct TPeriods {
     std::vector<TPeriodFrequency> period_frequency;
-    std::vector<TEqtRouting> eqt_routing;
+    std::vector<TEqtRouting> eqt_routing; //логика!!! для нескольких периодов только один маршрут. Если их тоже несколько то как сопоставить
+    //TEqtRouting = TEquipment(описание) + routing(маршрут)
+    //routing = TEquipment(описание) + routing(маршрут) - после описания части маршрута может встречаться опять TEquipment для описания след. части
 };
 
 struct TRoute {
     std::vector<TPeriods> periods;
-    std::vector<TRouting> routing;
+    std::vector<TRouting> routing; //!!! удалить ..или когда перечислены диапазоны и внутри их нет маршрута???   TEqtRouting
     std::vector<TSegment> segments;
-    bool route_exists();
+    bool route_exists();  //???
 };
 
 struct TSchedule {
     std::vector<TFlightInformation> flights;
-    std::vector<TRoute> routes;
+    std::vector<TRoute> routes; //??? как разбирается на TRoute
 };
 
 struct TSchedules:std::vector<TSchedule> {
