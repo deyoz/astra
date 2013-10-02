@@ -99,6 +99,7 @@ void ZonePax( int point_id, std::vector<T1> &PaxItems, std::vector<SALONS2::TCom
   }
   //привязали детей к взрослым
   SetInfantsToAdults<T1,T1>( InfItems, AdultItems );
+  bool pr_tranzit_salons = ( SALONS2::isTranzitSalons( point_id ) );
   for ( typename std::vector<T1>::iterator i=InfItems.begin(); i!=InfItems.end(); i++ ) {
     trace( i->pax_id, i->grp_id, i->parent_pax_id, i->temp_parent_id, i->pers_type, i->seats );
   }
@@ -115,7 +116,7 @@ void ZonePax( int point_id, std::vector<T1> &PaxItems, std::vector<SALONS2::TCom
     }
     for ( std::vector<TZoneOccupiedSeats>::iterator z=zones.begin(); z!=zones.end(); z++ ) {
       for ( SALONS2::TPlaces::iterator p=z->seats.begin(); p!=z->seats.end(); p++ ) {
-        if ( SALONS2::isTranzitSalons( point_id ) ) {
+        if ( pr_tranzit_salons ) {
           if ( p->getCurrLayer( point_id ).getPaxId() == pax_id ) {
             i->zone = z->name;
             break;
