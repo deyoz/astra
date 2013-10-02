@@ -115,11 +115,19 @@ void ZonePax( int point_id, std::vector<T1> &PaxItems, std::vector<SALONS2::TCom
     }
     for ( std::vector<TZoneOccupiedSeats>::iterator z=zones.begin(); z!=zones.end(); z++ ) {
       for ( SALONS2::TPlaces::iterator p=z->seats.begin(); p!=z->seats.end(); p++ ) {
-        if ( p->layers.empty() )
-          throw EXCEPTIONS::Exception( "ZonePax: p->layers.empty()" );
-        if ( p->layers.begin()->pax_id == pax_id ) {
-          i->zone = z->name;
-          break;
+        if ( SALONS2::isTranzitSalons( point_id ) ) {
+          if ( p->getCurrLayer( point_id ).getPaxId() == pax_id ) {
+            i->zone = z->name;
+            break;
+          }
+        }
+        else {
+          if ( p->layers.empty() )
+            throw EXCEPTIONS::Exception( "ZonePax: p->layers.empty()" );
+          if ( p->layers.begin()->pax_id == pax_id ) {
+            i->zone = z->name;
+            break;
+          }
         }
       }
       if ( !i->zone.empty() )
