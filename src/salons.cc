@@ -333,7 +333,7 @@ bool point_dep_AND_layer_type_FOR_TRZT_SOM_PRL( int point_id, int &point_dep, AS
   int point_num = Qry.FieldAsInteger( "point_num" );
   int first_point = Qry.FieldAsInteger( "first_point" );
   Qry.Clear();
-  Qry.SQLText =
+  string sql =
     "SELECT points.point_id AS point_dep, "
     "       DECODE(tlgs_in.type,'PRL',:prl_layer,:som_layer) AS layer_type "
     "FROM tlg_binding,tlg_source,tlgs_in, "
@@ -343,9 +343,12 @@ bool point_dep_AND_layer_type_FOR_TRZT_SOM_PRL( int point_id, int &point_dep, AS
     "     ) points "
     "WHERE tlg_binding.point_id_spp=points.point_id AND "
     "      tlg_source.point_id_tlg=tlg_binding.point_id_tlg AND "
-    "      tlgs_in.id=tlg_source.tlg_id AND tlgs_in.num=1 AND tlgs_in.type IN ('PRL','SOM') AND "
-    "      NOT EXISTS(SELECT pax_grp.point_dep FROM pax_grp WHERE pax_grp.point_dep=points.point_id) "
-    "ORDER BY point_num DESC,DECODE(tlgs_in.type,'PRL',0,1)";
+    "      tlgs_in.id=tlg_source.tlg_id AND tlgs_in.num=1 AND tlgs_in.type IN ('PRL','SOM') ";
+  if ( SALONS2::isTranzitSalons( point_id ) ) {
+    sql += " AND NOT EXISTS(SELECT pax_grp.point_dep FROM pax_grp WHERE pax_grp.point_dep=points.point_id) ";
+  }
+  sql +=  "ORDER BY point_num DESC,DECODE(tlgs_in.type,'PRL',0,1)";
+  Qry.SQLText = sql;
   Qry.CreateVariable( "first_point", otInteger, first_point );
   Qry.CreateVariable( "point_num", otInteger, point_num );
   Qry.CreateVariable( "som_layer", otString, EncodeCompLayerType( cltSOMTrzt ) );
