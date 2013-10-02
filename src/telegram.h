@@ -53,6 +53,7 @@ class TTlgStat
                      const std::string &tlg_type,
                      const int tlg_len,
                      const TTripInfo &fltInfo,
+                     const std::string &airline_mark,
                      const std::string &extra);
 
   /*  putTypeBOut()
@@ -125,6 +126,7 @@ const std::string FILE_PARAM_ENDING = "ENDING";
 const std::string FILE_PARAM_PR_LAT = "PR_LAT";
 const std::string FILE_PARAM_TIME_CREATE = "TIME_CREATE";
 const std::string FILE_PARAM_ORIGINATOR_ID = "ORIGINATOR_ID";
+const std::string FILE_PARAM_AIRLINE_MARK = "AIRLINE_MARK";
 const std::string FILE_PARAM_EXTRA = "EXTRA_";
 
 struct TTlgOutPartInfo
@@ -134,6 +136,7 @@ struct TTlgOutPartInfo
   bool pr_lat;
   BASIC::TDateTime time_create,time_send_scd;
   int originator_id;
+  std::string airline_mark;
   std::map<std::string/*lang*/, std::string> extra;
   TTlgOutPartInfo ()
   {
@@ -162,6 +165,7 @@ struct TTlgOutPartInfo
     time_create = info.time_create;
     time_send_scd = ASTRA::NoExists;
     originator_id = info.originator.id;
+    airline_mark = info.airline_mark();
   };
   void addToFileParams(std::map<std::string, std::string> &params) const
   {
@@ -172,6 +176,7 @@ struct TTlgOutPartInfo
     params[FILE_PARAM_PR_LAT] = IntToString((int)pr_lat);
     params[FILE_PARAM_TIME_CREATE] = time_create==ASTRA::NoExists?"":BASIC::DateTimeToStr(time_create, BASIC::ServerFormatDateTimeAsString);
     params[FILE_PARAM_ORIGINATOR_ID] = originator_id==ASTRA::NoExists?"":IntToString(originator_id);
+    params[FILE_PARAM_AIRLINE_MARK] = airline_mark;
     for(std::map<std::string/*lang*/, std::string>::const_iterator i=extra.begin(); i!=extra.end(); ++i)
       params[FILE_PARAM_EXTRA+i->first] = i->second;
   };
@@ -215,6 +220,10 @@ struct TTlgOutPartInfo
     p=params.find(FILE_PARAM_ORIGINATOR_ID);
     if (p!=params.end())
       originator_id = p->second.empty()?ASTRA::NoExists:ToInt(p->second);
+
+    p=params.find(FILE_PARAM_AIRLINE_MARK);
+    if (p!=params.end())
+      airline_mark = p->second;
 
     for(int i=0; i<=1; i++)
     {

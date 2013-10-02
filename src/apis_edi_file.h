@@ -461,7 +461,9 @@ protected:
 
 //-------------------------------------------------------------------------------------------------
 
-std::string createEdiPaxlstFileName( const std::string& flight, 
+std::string createEdiPaxlstFileName( const std::string& carrierCode,
+                                     const int& flightNumber,
+                                     const std::string& flightSuffix,
                                      const std::string& origin,
                                      const std::string& destination,
                                      const BASIC::TDateTime& departureDate,

@@ -288,6 +288,15 @@ string TDetailCreateInfo::scd_local_view()
   return DateTimeToStr(scd_local, "ddmmm", 1);
 };
 
+string TDetailCreateInfo::airline_mark() const
+{
+    const TMarkInfoOptions *markOptions = dynamic_cast<const TMarkInfoOptions*>(&get_options());
+    if (markOptions==NULL || markOptions->mark_info.empty() || !markOptions->pr_mark_header)
+        return "";
+    else
+        return markOptions->mark_info.airline;
+}
+
 string fetch_addr(string &addr, TDetailCreateInfo *info)
 {
     string result;

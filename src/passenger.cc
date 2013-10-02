@@ -4,6 +4,7 @@
 #include "astra_utils.h"
 #include "term_version.h"
 #include "baggage.h"
+#include "misc.h"
 #include "jxtlib/jxt_cont.h"
 
 #define NICKNAME "VLAD"
@@ -475,6 +476,26 @@ std::string GetPaxDocStr(TDateTime part_key,
     };
   };
   return result.str();
+};
+
+string NormalizeDocNoForAPIS(const string& str)
+{
+  string result;
+  string max_num, curr_num;
+  for(string::const_iterator i=str.begin(); i!=str.end(); ++i)
+    if (IsDigitIsLetter(*i)) result+=*i;
+  for(string::const_iterator i=result.begin(); i!=result.end(); ++i)
+  {
+    if (IsDigit(*i)) curr_num+=*i;
+    if (IsLetter(*i) && !curr_num.empty())
+    {
+      if (curr_num.size()>max_num.size()) max_num=curr_num;
+      curr_num.clear();
+    };
+  };
+  if (curr_num.size()>max_num.size()) max_num=curr_num;
+
+  return (max_num.size()<6)?result:max_num;
 };
 
 bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc, TQuery& PaxDocQry, TQuery& GetPSPT2Qry)

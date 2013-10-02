@@ -448,18 +448,6 @@ class TPlace {
     	};
     	return false;
     }
-    void clearLayer( ASTRA::TCompLayerType layer, BASIC::TDateTime time_create ) {
-    	isPax = false;
-    	for (std::vector<TPlaceLayer>::iterator i=layers.begin(); i!=layers.end(); i++ ) {
-    		if ( i->pax_id > 0 )
-    			isPax = true;
-    		if ( i->layer_type == layer && ( (time_create <= 0 && i->time_create <= 0) || time_create == i->time_create ) ) {
-    			layers.erase( i );
-    			if ( isPax )
-    			  break;
-    		}
-      }
-    }
     void AddLayer( int key, const TSeatLayer &seatLayer ) {
       lrss[ key ].insert( seatLayer );
     }
