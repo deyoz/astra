@@ -467,7 +467,8 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
         	DelQry.SQLText =
   		      "SELECT grp_id  FROM pax_grp,points "
   		      " WHERE points.point_id=:point_id AND "
-  		      "       point_dep=:point_id AND bag_refuse=0 AND status=:status AND rownum<2 ";
+  		      "       point_dep=:point_id AND pax_grp.status NOT IN ('E') AND "
+            "       bag_refuse=0 AND status=:status AND rownum<2 ";
   		    DelQry.CreateVariable( "point_id", otInteger, point_id );
   		    DelQry.CreateVariable( "status", otString, EncodePaxStatus( psTransit ) );
   		    DelQry.Execute();
@@ -558,7 +559,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
         Qry.SQLText=
           "SELECT grp_id  FROM pax_grp,points "
   		    " WHERE points.point_id=:point_id AND "
-  		    "       point_dep=:point_id AND bag_refuse=0 AND rownum<2 ";
+  		    "       point_dep=:point_id AND pax_grp.status NOT IN ('E') AND bag_refuse=0 AND rownum<2 ";
   		  Qry.CreateVariable("point_id",otInteger,point_id);
         Qry.Execute();
   		  if (!Qry.Eof)

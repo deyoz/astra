@@ -809,6 +809,7 @@ class TPaxListTJKFilter : public TPaxListFilter
 };
 
 void get_pax_list(const TPaxListFilter &filter,
+                  bool with_crew,
                   vector<rozysk::TPax> &paxs)
 {
   paxs.clear();
@@ -829,6 +830,8 @@ void get_pax_list(const TPaxListFilter &filter,
          "       visa_no, visa_issue_place, visa_issue_date, visa_applic_country "
          "FROM rozysk "
          "WHERE time>=:first_time AND time<:last_time AND pax_id IS NULL ";
+  if (!with_crew)
+    sql << "      AND reg_no>0 ";
   if (!filter.airline.empty())
   {
     sql << "      AND (airline=:airline) ";
@@ -933,6 +936,7 @@ namespace mintrans
     string arrivePlace;        //лат. код а/п прилета
     int rtType;                //вид маршрута
     TDateTime departDateTime;  //время вылета UTC
+    string typePDP;            //тип ПДП (член экипажа, пассажир)
     string gender;             //пол
     string nationalities;      //национальность
     //Данные о регистрируемой операции
@@ -1051,6 +1055,7 @@ void get_pax_list(int point_id,
         pax.departDateTime = ASTRA::NoExists;
       else
         pax.departDateTime = Qry.FieldAsDateTime( idx_takeoff );
+      pax.typePDP = (Qry.FieldIsNULL( idx_reg_no ) || Qry.FieldAsInteger( idx_reg_no )>0)?"пассажир":"член экипажа";
       pax.gender = ElemIdToElem(etGenderType, Qry.FieldAsString( idx_doc_gender ), fmts);
       if (pax.gender.empty()) pax.gender = Qry.FieldAsString( idx_doc_gender );
       if (!pax.gender.empty())
@@ -1085,7 +1090,7 @@ void get_pax_list(int point_id,
       else
         pax.baggageWeight = Qry.FieldAsInteger( idx_bag_weight );
       pax.gateReg = Qry.FieldAsString( idx_term );
-      if ( Qry.FieldIsNULL( idx_reg_no ) )
+      if ( Qry.FieldIsNULL( idx_reg_no ) || Qry.FieldAsInteger( idx_reg_no )<0 )
         pax.regControlNum = ASTRA::NoExists;
       else
         pax.regControlNum = Qry.FieldAsInteger( idx_reg_no );
@@ -1127,7 +1132,7 @@ void sync_sirena_rozysk( TDateTime utcdate )
   filter.last_time_utc=last_time;
 
   vector<rozysk::TPax> paxs;
-  rozysk::get_pax_list(filter, paxs);
+  rozysk::get_pax_list(filter, false, paxs);
 
   Qry.Clear();
   Qry.SQLText =
@@ -1195,6 +1200,7 @@ void create_mintrans_file(int point_id)
      << "arrivePlace" << ";"
      << "rtType" << ";"
      << "departDateTime" << ";"
+     << "typePDP" << ";"
      << "gender" << ";"
      << "nationalities" << ";"
      << "operationType" << ";"
@@ -1226,6 +1232,7 @@ void create_mintrans_file(int point_id)
       << p->arrivePlace << ";"
       << (p->rtType==NoExists?"":IntToString(p->rtType)) << ";"
       << (p->departDateTime==NoExists?"":DateTimeToStr(p->departDateTime, "dd.mm.yyyy hh:nn:ss")) << ";"
+      << p->typePDP << ";"
       << p->gender << ";"
       << p->nationalities << ";"
       << (departure && p->operationType=="06"?"14":p->operationType) << ";"
@@ -1478,7 +1485,7 @@ void create_file(const string &format,
   filter.airp_dep=airp;
 
   vector<rozysk::TPax> paxs;
-  rozysk::get_pax_list(filter, paxs);
+  rozysk::get_pax_list(filter, false, paxs);
 
 
   ofstream f;

@@ -723,14 +723,15 @@ void create_apis_file(int point_id)
       "       pax_doc.nationality, pax_doc.birth_date, pax_doc.gender, pax_doc.expiry_date, pax_doc.pr_multi, "
       "       pax_doco.birth_place, pax_doco.type AS doco_type, pax_doco.no AS doco_no, "
       "       pax_doco.issue_place, pax_doco.issue_date, pax_doco.applic_country, pax_doco.pr_inf, "
-      "       tckin_segments.airp_arv AS airp_final "
+      "       tckin_segments.airp_arv AS airp_final, pax_grp.status "
       "FROM pax_grp,pax,pax_doc,pax_doco,tckin_segments "
       "WHERE pax_grp.grp_id=pax.grp_id AND "
       "      pax.pax_id=pax_doc.pax_id(+) AND "
       "      pax.pax_id=pax_doco.pax_id(+) AND "
       "      pax_grp.grp_id=tckin_segments.grp_id(+) AND tckin_segments.pr_final(+)<>0 AND "
       "      pax_grp.point_dep=:point_dep AND pax_grp.point_arv=:point_arv AND "
-      "      pr_brd=1";
+      "      (pax_grp.status NOT IN ('E') AND pr_brd=1 OR "
+      "       pax_grp.status IN ('E') AND pr_brd IS NOT NULL) ";
     PaxQry.CreateVariable("point_dep",otInteger,point_id);
     PaxQry.DeclareVariable("point_arv",otInteger);
     
@@ -784,40 +785,46 @@ void create_apis_file(int point_id)
    	    	  airline_country = airlineCountryRow.code_iso;
           };
 
-        	Paxlst::PaxlstInfo paxlstInfo;
+          Paxlst::PaxlstInfo FPM(Paxlst::PaxlstInfo::FlightPassengerManifest);
+        	Paxlst::PaxlstInfo FCM(Paxlst::PaxlstInfo::FlightCrewManifest);
 
           if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN")
           {
-            if (fmt=="EDI_CN" || fmt=="EDI_IN") paxlstInfo.settings().setRespAgnCode("ZZZ");
-            //информация о том, кто формирует сообщение
-            vector<string> strs;
-            SeparateString(string(APIS_PARTY_INFO()), ':', strs);
-            vector<string>::const_iterator i;
-            i=strs.begin();
-            if (i!=strs.end()) paxlstInfo.setPartyName(*i++);
-            if (i!=strs.end()) paxlstInfo.setPhone(*i++);
-            if (i!=strs.end()) paxlstInfo.setFax(*i++);
+            for(int pass=0; pass<2; pass++)
+            {
+              Paxlst::PaxlstInfo& paxlstInfo=(pass==0?FPM:FCM);
 
-            SeparateString(string(ApisSetsQry.FieldAsString("edi_own_addr")), ':', strs);
-            i=strs.begin();
-            if (i!=strs.end()) paxlstInfo.setSenderName(*i++);
-            if (i!=strs.end()) paxlstInfo.setSenderCarrierCode(*i++);
+              if (fmt=="EDI_CN" || fmt=="EDI_IN") paxlstInfo.settings().setRespAgnCode("ZZZ");
+              //информация о том, кто формирует сообщение
+              vector<string> strs;
+              SeparateString(string(APIS_PARTY_INFO()), ':', strs);
+              vector<string>::const_iterator i;
+              i=strs.begin();
+              if (i!=strs.end()) paxlstInfo.setPartyName(*i++);
+              if (i!=strs.end()) paxlstInfo.setPhone(*i++);
+              if (i!=strs.end()) paxlstInfo.setFax(*i++);
 
-            SeparateString(string(ApisSetsQry.FieldAsString("edi_addr")), ':', strs);
-            i=strs.begin();
-            if (i!=strs.end()) paxlstInfo.setRecipientName(*i++);
-            if (i!=strs.end()) paxlstInfo.setRecipientCarrierCode(*i++);
+              SeparateString(string(ApisSetsQry.FieldAsString("edi_own_addr")), ':', strs);
+              i=strs.begin();
+              if (i!=strs.end()) paxlstInfo.setSenderName(*i++);
+              if (i!=strs.end()) paxlstInfo.setSenderCarrierCode(*i++);
 
-            ostringstream flight;
-            flight << airline.code_lat << flt_no << suffix;
+              SeparateString(string(ApisSetsQry.FieldAsString("edi_addr")), ':', strs);
+              i=strs.begin();
+              if (i!=strs.end()) paxlstInfo.setRecipientName(*i++);
+              if (i!=strs.end()) paxlstInfo.setRecipientCarrierCode(*i++);
 
-            string iataCode = Paxlst::createIataCode(flight.str(),act_in_local);
-            paxlstInfo.setIataCode( iataCode );
-            paxlstInfo.setFlight(flight.str());
-            paxlstInfo.setDepPort(airp_dep.code_lat);
-            paxlstInfo.setDepDateTime(act_out_local);
-            paxlstInfo.setArrPort(airp_arv.code_lat);
-            paxlstInfo.setArrDateTime(act_in_local);
+              ostringstream flight;
+              flight << airline.code_lat << flt_no << suffix;
+
+              string iataCode = Paxlst::createIataCode(flight.str(),act_in_local);
+              paxlstInfo.setIataCode( iataCode );
+              paxlstInfo.setFlight(flight.str());
+              paxlstInfo.setDepPort(airp_dep.code_lat);
+              paxlstInfo.setDepDateTime(act_out_local);
+              paxlstInfo.setArrPort(airp_arv.code_lat);
+              paxlstInfo.setArrDateTime(act_in_local);
+            };
           };
 
         	int count=0;
@@ -826,6 +833,9 @@ void create_apis_file(int point_id)
       	  PaxQry.Execute();
       	  for(;!PaxQry.Eof;PaxQry.Next(),count++)
       	  {
+            TPaxStatus status=DecodePaxStatus(PaxQry.FieldAsString("status"));
+            if (status==psCrew && !(fmt=="EDI_CN" || fmt=="EDI_IN")) continue;
+
       	    Paxlst::PassengerInfo paxInfo;
       	    string airp_final_lat;
       	    if (fmt=="CSV_DE")
@@ -916,14 +926,14 @@ void create_apis_file(int point_id)
       	    	  TGenderTypesRow &gender_row = (TGenderTypesRow&)base_tables.get("gender_types").get_row("code",PaxQry.FieldAsString("gender"));
       	    	  if (gender_row.code_lat.empty()) throw Exception("gender.code_lat empty (code=%s)",PaxQry.FieldAsString("gender"));
       	    	  gender=gender_row.code_lat;
-      	    	  if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN")
+      	    	  if (fmt=="EDI_CZ")
                 {
                   gender = gender.substr(0,1);
                   if (gender!="M" &&
                       gender!="F")
         	          gender = "M";
                 };
-      	    	  if (fmt=="CSV_DE")
+      	    	  if (fmt=="CSV_DE" || fmt=="EDI_CN" || fmt=="EDI_IN")
       	    	  {
       	    	    gender = gender.substr(0,1);
                   if (gender!="M" &&
@@ -1001,11 +1011,15 @@ void create_apis_file(int point_id)
         	      paxInfo.setDepPort(airp_dep.code_lat);
                 paxInfo.setArrPort(airp_arv.code_lat);
                 paxInfo.setNationality(nationality);
-                //PNR
-                vector<TPnrAddrItem> pnrs;
-                GetPaxPnrAddr(pax_id,pnrs);
-                if (!pnrs.empty())
-                  paxInfo.setReservNum(convert_pnr_addr(pnrs.begin()->addr, 1));
+
+                if (status!=psCrew)
+                {
+                  //PNR
+                  vector<TPnrAddrItem> pnrs;
+                  GetPaxPnrAddr(pax_id,pnrs);
+                  if (!pnrs.empty())
+                    paxInfo.setReservNum(convert_pnr_addr(pnrs.begin()->addr, 1));
+                };
 
                 paxInfo.setDocType(doc_type);
                 paxInfo.setDocNumber(doc_no);
@@ -1097,46 +1111,59 @@ void create_apis_file(int point_id)
               body << ENDL;
       	    
             if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN")
-      	      paxlstInfo.addPassenger( paxInfo );
+            {
+              if (status!=psCrew)
+      	        FPM.addPassenger( paxInfo );
+              else
+                FCM.addPassenger( paxInfo );
+            };
       	  }; //цикл по пассажирам
 
           vector< pair<string, string> > files;
 
           if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN")
           {
-            if (!paxlstInfo.passengersList().empty())
+            for(int pass=0; pass<2; pass++)
             {
-              vector<string> parts;
-              if (fmt=="EDI_CZ")
-              {
-                parts.push_back(paxlstInfo.toEdiString());
-              };
-              if (fmt=="EDI_CN" || fmt=="EDI_IN")
-              {
-                for(unsigned maxPaxPerString=MAX_PAX_PER_EDI_PART;maxPaxPerString>0;maxPaxPerString--)
-                {
-                  parts=paxlstInfo.toEdiStrings(maxPaxPerString);
-                  vector<string>::const_iterator p=parts.begin();
-                  for(; p!=parts.end(); ++p)
-                    if (p->size()>MAX_LEN_OF_EDI_PART) break;
-                  if (p==parts.end()) break;
-                };
-              };
+              Paxlst::PaxlstInfo& paxlstInfo=(pass==0?FPM:FCM);
 
-              int part_num=parts.size()>1?1:0;
-              for(vector<string>::const_iterator p=parts.begin(); p!=parts.end(); ++p, part_num++)
+              if (!paxlstInfo.passengersList().empty())
               {
-                ostringstream file_name;
-                file_name << ApisSetsQry.FieldAsString("dir")
-                          << Paxlst::createEdiPaxlstFileName(airline.code_lat,
-                                                             flt_no,
-                                                             suffix,
-                                                             airp_dep.code_lat,
-                                                             airp_arv.code_lat,
-                                                             scd_out_local,
-                                                             "TXT",
-                                                             part_num);
-                files.push_back( make_pair(file_name.str(), *p) );
+                vector<string> parts;
+                string file_extension;
+                if (fmt=="EDI_CZ")
+                {
+                  file_extension="TXT";
+                  parts.push_back(paxlstInfo.toEdiString());
+                };
+                if (fmt=="EDI_CN" || fmt=="EDI_IN")
+                {
+                  file_extension=(pass==0?"FPM":"FCM");
+                  for(unsigned maxPaxPerString=MAX_PAX_PER_EDI_PART;maxPaxPerString>0;maxPaxPerString--)
+                  {
+                    parts=paxlstInfo.toEdiStrings(maxPaxPerString);
+                    vector<string>::const_iterator p=parts.begin();
+                    for(; p!=parts.end(); ++p)
+                      if (p->size()>MAX_LEN_OF_EDI_PART) break;
+                    if (p==parts.end()) break;
+                  };
+                };
+
+                int part_num=parts.size()>1?1:0;
+                for(vector<string>::const_iterator p=parts.begin(); p!=parts.end(); ++p, part_num++)
+                {
+                  ostringstream file_name;
+                  file_name << ApisSetsQry.FieldAsString("dir")
+                            << Paxlst::createEdiPaxlstFileName(airline.code_lat,
+                                                               flt_no,
+                                                               suffix,
+                                                               airp_dep.code_lat,
+                                                               airp_arv.code_lat,
+                                                               scd_out_local,
+                                                               file_extension,
+                                                               part_num);
+                  files.push_back( make_pair(file_name.str(), *p) );
+                };
               };
             };
       	  }

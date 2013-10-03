@@ -27,8 +27,8 @@ extern const char* TPersonS[4];
 typedef enum {DoubleTr,DoubleOk,ChangeCl,WL,GoShow,NoQueue} TQueue;
 extern const int TQueueS[6];
 
-typedef enum { psCheckin, psTCheckin, psTransit, psGoshow } TPaxStatus;
-extern const char* TPaxStatusS[4];
+typedef enum { psCheckin, psTCheckin, psTransit, psGoshow, psCrew } TPaxStatus;
+extern const char* TPaxStatusS[5];
 
 const std::string refuseAgentError="€";
 

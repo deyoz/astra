@@ -536,7 +536,7 @@ void TGroupBagItem::setPoolNum(int bag_pool_num)
     i->second.bag_pool_num=bag_pool_num;
 };
 
-bool TGroupBagItem::fromXML(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode)
+bool TGroupBagItem::fromXML(xmlNodePtr bagtagNode, bool &pr_tag_print)
 {
   vals.clear();
   bags.clear();
@@ -552,11 +552,6 @@ bool TGroupBagItem::fromXML(int point_id, int grp_id, int hall, xmlNodePtr bagta
   if (valueBagNode==NULL) throw Exception("TGroupBagItem::fromXML: valueBagNode=NULL");
   if (bagNode==NULL) throw Exception("TGroupBagItem::fromXML: bagNode=NULL");
   if (tagNode==NULL) throw Exception("TGroupBagItem::fromXML: tagNode=NULL");
-
-  TReqInfo *reqInfo = TReqInfo::Instance();
-  bool is_payment=reqInfo->client_type == ASTRA::ctTerm && reqInfo->screen.name != "AIR.EXE";
-
-  map<int /*num*/, int> bound_tags;
 
   for(node=valueBagNode->children;node!=NULL;node=node->next)
   {
@@ -600,20 +595,35 @@ bool TGroupBagItem::fromXML(int point_id, int grp_id, int hall, xmlNodePtr bagta
   {
     if (b->second.num!=num)
       throw Exception("TGroupBagItem::fromXML: bags[%d] not found", b->second.num);
-    bound_tags[b->second.num]=0;
   };
   num=1;
-  int unbound_tags=0;
   for(map<int, TTagItem>::const_iterator t=tags.begin();t!=tags.end();++t,num++)
   {
     if (t->second.num!=num)
       throw Exception("TGroupBagItem::fromXML: tags[%d] not found", t->second.num);
+  };
+
+  pr_tag_print=NodeAsInteger("@pr_print",tagNode)!=0;
+  return true;
+}
+
+void TGroupBagItem::fromXMLadditional(int point_id, int grp_id, int hall, bool pr_tag_print)
+{
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  bool is_payment=reqInfo->client_type == ASTRA::ctTerm && reqInfo->screen.name != "AIR.EXE";
+
+  map<int /*num*/, int> bound_tags;
+  for(map<int, TBagItem>::const_iterator b=bags.begin();b!=bags.end();++b)
+    bound_tags[b->second.num]=0;
+
+  int unbound_tags=0;
+  for(map<int, TTagItem>::const_iterator t=tags.begin();t!=tags.end();++t)
     if (t->second.bag_num!=ASTRA::NoExists)
       ++bound_tags[t->second.bag_num];
     else
       ++unbound_tags;
-  };
 
+  int num;
   if (!is_payment)
   {
     //в кассе не можем привязывать бирки и добавлять багаж поэтому делаем это только для регистрации
@@ -674,7 +684,6 @@ bool TGroupBagItem::fromXML(int point_id, int grp_id, int hall, xmlNodePtr bagta
 
     //подсчитаем кол-во багажа и баг. бирок
     int tagCount=tags.size();
-    bool pr_tag_print=NodeAsInteger("@pr_print",tagNode)!=0;
     TQuery Qry(&OraSession);
     if (bagAmount!=tagCount)
     {
@@ -887,7 +896,6 @@ bool TGroupBagItem::fromXML(int point_id, int grp_id, int hall, xmlNodePtr bagta
       };
     };
   };
-  return true;
 };
 
 void TGroupBagItem::toDB(int grp_id) const
@@ -976,8 +984,12 @@ void TGroupBagItem::toDB(int grp_id) const
 void SaveBag(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode)
 {
   TGroupBagItem grp;
-  if (grp.fromXML(point_id, grp_id, hall, bagtagNode))
+  bool pr_tag_print;
+  if (grp.fromXML(bagtagNode, pr_tag_print))
+  {
+    grp.fromXMLadditional(point_id, grp_id, hall, pr_tag_print);
     grp.toDB(grp_id);
+  };
 };
 
 void TGroupBagItem::toLists(list<TValueBagItem> &vals_list,

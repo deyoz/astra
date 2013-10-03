@@ -108,7 +108,7 @@ void ZoneLoadsTranzitSalons(int point_id,
     ReadCompSections( salonList.getCompId(), compSections );
     Qry.Clear();
     Qry.SQLText =
-      "select layer_type from grp_status_types";
+      "select layer_type from grp_status_types WHERE layer_type IS NOT NULL";
     Qry.Execute();
     std::map<ASTRA::TCompLayerType,SALONS2::TPlaces> layersSeats, checkinLayersSeats;
     for( ; !Qry.Eof; Qry.Next() ) {
@@ -179,7 +179,7 @@ void ZoneLoads(int point_id,
             tst();
             ReadCompSections( SalonsTmp.comp_id, compSections );
             TQuery Qry(&OraSession);
-            Qry.SQLText = "select layer_type from grp_status_types";
+            Qry.SQLText = "select layer_type from grp_status_types WHERE layer_type IS NOT NULL";
             Qry.Execute();
             std::map<ASTRA::TCompLayerType,SALONS2::TPlaces> layersSeats, checkinLayersSeats;
             for(; not Qry.Eof; Qry.Next())
@@ -1117,6 +1117,8 @@ void getSeat_no( int pax_id, bool pr_pnl, const string &format, string &seat_no,
 		else
 			slayer_type = SQry.GetVariableAsString( "layer_type" );
 	}
+  if ( slayer_type.empty() )
+  	throw EXCEPTIONS::Exception( "getSeat_no: slayer_type.empty()" );
 };
 
 void IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string yname,
@@ -1145,18 +1147,20 @@ void IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string y
   }
   Qry.Clear();
   Qry.SQLText =
-   "SELECT layer_type, pax_grp.point_arv FROM grp_status_types, pax, pax_grp "
+   "SELECT layer_type, pax_grp.point_arv, pax_grp.status FROM grp_status_types, pax, pax_grp "
    " WHERE pax_id=:pax_id AND pax.grp_id=pax_grp.grp_id AND pax_grp.status=grp_status_types.code ";
   Qry.CreateVariable( "pax_id", otInteger, pax_id );
   Qry.Execute();
   if ( !Qry.Eof ) {
+    if (DecodePaxStatus(Qry.FieldAsString("status"))==psCrew)
+      throw UserException("MSG.CREW.IMPOSSIBLE_CHANGE_SEAT");
   	layer_type = DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) );
   	point_arv  = Qry.FieldAsInteger( "point_arv" );
+
   }
   else {
     point_arv = SALONS2::getCrsPaxPointArv( pax_id, point_id );
   }
-
 
   ProgTrace( TRACE5, "IntChangeSeats: point_id=%d, point_arv=%d, pax_id=%d, tid=%d, layer=%s",
             point_id, point_arv, pax_id, tid, EncodeCompLayerType( layer_type ) );
@@ -1301,11 +1305,13 @@ void IntChangeSeats( int point_id, int pax_id, int &tid, string xname, string yn
   }
   Qry.Clear();
   Qry.SQLText =
-   "SELECT layer_type FROM grp_status_types, pax, pax_grp "
+   "SELECT layer_type, pax_grp.status FROM grp_status_types, pax, pax_grp "
    " WHERE pax_id=:pax_id AND pax.grp_id=pax_grp.grp_id AND pax_grp.status=grp_status_types.code ";
   Qry.CreateVariable( "pax_id", otInteger, pax_id );
   Qry.Execute();
   if ( !Qry.Eof ) {
+    if (DecodePaxStatus(Qry.FieldAsString("status"))==psCrew)
+      throw UserException("MSG.CREW.IMPOSSIBLE_CHANGE_SEAT");
   	layer_type = DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) );
   }
 
@@ -1573,9 +1579,9 @@ void SalonFormInterface::WaitList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     SEATS2::GetPassengersForWaitList( point_id, p );
     p.Build( dataNode );
   }
-  if ( pr_filter ) {  //!!!лишнее
+  if ( pr_filter ) {
     Qry.SQLText =
-      "SELECT code, layer_type FROM grp_status_types";
+      "SELECT code, layer_type FROM grp_status_types WHERE layer_type IS NOT NULL";
     Qry.Execute();
     dataNode = NewTextChild( dataNode, "filter" );
     while ( !Qry.Eof ) {

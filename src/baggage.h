@@ -149,7 +149,8 @@ class TGroupBagItem
              bags.empty() &&
              tags.empty();
     };
-    bool fromXML(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode);
+    bool fromXML(xmlNodePtr bagtagNode, bool &pr_tag_print);
+    void fromXMLadditional(int point_id, int grp_id, int hall, bool pr_tag_print);
     void toDB(int grp_id) const;
     void fromDB(int grp_id, int bag_pool_num, bool without_refused);
     void toXML(xmlNodePtr bagtagNode) const;

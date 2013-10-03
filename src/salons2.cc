@@ -597,6 +597,7 @@ void TSalons::Read( bool wo_invalid_seat_no )
         "      t1.y=r.y AND "
         "      pax_grp.point_dep=:point_id AND "
         "      pax.grp_id=pax_grp.grp_id AND "
+        "      pax_grp.status NOT IN ('E') AND "
         "      salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'one',rownum) IS NULL ";
     sql_text += " ORDER BY num, x desc, y desc ";
     Qry.SQLText = sql_text;

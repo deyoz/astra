@@ -2339,7 +2339,9 @@ void DeletePaxGrp( const TAdvTripInfo &fltInfo, int grp_id, bool toLog,
   int point_id=fltInfo.point_id;
 
   const char* pax_sql=
-    "SELECT pax_id,surname,name,pers_type,reg_no,pr_brd FROM pax WHERE grp_id=:grp_id";
+    "SELECT pax_id,surname,name,pers_type,reg_no,pr_brd,status "
+    "FROM pax_grp, pax "
+    "WHERE pax_grp.grp_id=pax.grp_id AND pax_grp.grp_id=:grp_id";
   const char* del_sql=
     "BEGIN "
     "  DELETE FROM "
@@ -2399,12 +2401,13 @@ void DeletePaxGrp( const TAdvTripInfo &fltInfo, int grp_id, bool toLog,
   PaxQry.Execute();
   for(;!PaxQry.Eof;PaxQry.Next())
   {
-    const char* surname=PaxQry.FieldAsString("surname");
-    const char* name=PaxQry.FieldAsString("name");
-    const char* pers_type=PaxQry.FieldAsString("pers_type");
+    const string surname=PaxQry.FieldAsString("surname");
+    const string name=PaxQry.FieldAsString("name");
+    const string pers_type=PaxQry.FieldAsString("pers_type");
     int pax_id=PaxQry.FieldAsInteger("pax_id");
     int reg_no=PaxQry.FieldAsInteger("reg_no");
     bool boarded=!PaxQry.FieldIsNULL("pr_brd") && PaxQry.FieldAsInteger("pr_brd")!=0;
+    TPaxStatus status=DecodePaxStatus(PaxQry.FieldAsString("status"));
 
     if (SyncPaxs)
     {
@@ -2414,12 +2417,15 @@ void DeletePaxGrp( const TAdvTripInfo &fltInfo, int grp_id, bool toLog,
     };
 
     if (toLog)
-      TReqInfo::Instance()->MsgToLog((string)"Пассажир "+surname+(*name!=0?" ":"")+name+" ("+pers_type+") разрегистрирован. "+
-                                     "Причина отказа в регистрации: "+refuseAgentError+". ",
-                                     ASTRA::evtPax,
-                                     point_id,
-                                     reg_no,
-                                     grp_id);
+    {
+      std::ostringstream msg;
+      msg << (status!=psCrew?"Пассажир ":"Член экипажа ")
+          << surname
+          << (name.empty()?"":" ") << name
+          << " (" << pers_type << ") разрегистрирован. "
+          << "Причина отказа в регистрации: " << refuseAgentError << ". ";
+      TReqInfo::Instance()->MsgToLog(msg.str(), ASTRA::evtPax, point_id, reg_no, grp_id);
+    };
   };
 
   DelQry.SetVariable("grp_id",grp_id);
@@ -2617,9 +2623,14 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
   if ( filter.inbound_point_dep==NoExists )
   {
     if ( filter.status.empty() )
-      reqInfo->MsgToLog( "Все пассажиры разрегистрированы", evtPax, point_id );
+      reqInfo->MsgToLog( "Все пассажиры и члены экипажа разрегистрированы", evtPax, point_id );
     else
-    	reqInfo->MsgToLog( string("Все пассажиры со статусом ") + filter.status + " разрегистрированы", evtPax, point_id );
+    {
+      if (filter.status==EncodePaxStatus(psCrew))
+        reqInfo->MsgToLog( "Все члены экипажа разрегистрированы", evtPax, point_id );
+      else
+    	  reqInfo->MsgToLog( string("Все пассажиры со статусом ") + filter.status + " разрегистрированы", evtPax, point_id );
+    };
   };
 
   //BSM
@@ -2840,7 +2851,7 @@ void GetBirks( int point_id, xmlNodePtr dataNode )
 	Qry.SQLText =
 	  "SELECT COUNT(*) AS nobrd "
 	  "FROM pax_grp, pax "
-	  "WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_id AND pr_brd=0";
+	  "WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_id AND pax_grp.status NOT IN ('E') AND pr_brd=0";
 	Qry.CreateVariable( "point_id", otInteger, point_id );
 	Qry.Execute();
 	NewTextChild( node, "nobrd", Qry.FieldAsInteger( "nobrd" ) );
@@ -2850,191 +2861,6 @@ void GetBirks( int point_id, xmlNodePtr dataNode )
 	Qry.Execute();
 	NewTextChild( node, "birks", Qry.FieldAsString( "birks" ) );
 }
-
-
-/*void GetLuggage( int point_id, Luggage &lug, bool pr_brd )
-{
-	TQuery Qry(&OraSession);
-
-	ostringstream sql;
-
-	sql <<
-  	 "SELECT a.point_arv,DECODE(a.class,' ',NULL,a.class) AS class, "
-  	 "       a.seatsadult,a.seatschild,a.seatsbaby, "
-  	 "       a.adult,a.child,a.baby, "
-  	 "       b.bag_weight,b.rk_weight, "
-  	 "       e.excess "
-  	 "FROM "
-
-  	 //подзапрос по кол-ву пассажиров:
-     "	 (SELECT pax_grp.point_arv, NVL(class,' ') AS class, "
-     "           SUM(DECODE(pers_type,'ВЗ',seats,0)) AS seatsadult, "
-     "           SUM(DECODE(pers_type,'РБ',seats,0)) AS seatschild, "
-     "           SUM(DECODE(pers_type,'РМ',seats,0)) AS seatsbaby, "
-     "           SUM(DECODE(pers_type,'ВЗ',1,0)) AS adult, "
-     "           SUM(DECODE(pers_type,'РБ',1,0)) AS child, "
-     "           SUM(DECODE(pers_type,'РМ',1,0)) AS baby "
-     "   FROM pax_grp,pax "
-     "   WHERE pax_grp.grp_id=pax.grp_id(+) AND "
-     "         point_dep=:point_id AND "
-     "         (pax.grp_id IS NULL AND pax_grp.class IS NULL OR "
-     "          pax.grp_id IS NOT NULL) AND ";
-  if (pr_brd)
-    sql << "   pr_brd(+)=1 ";
-  else
-    sql << "   pr_brd(+) IS NOT NULL ";
-  sql <<
-     "   GROUP BY pax_grp.point_arv, NVL(class,' ')) a, "
-
-     //подзапрос по весу багажа:
-     "   (SELECT pax_grp.point_arv, NVL(class,' ') AS class, "
-     "           SUM(DECODE(pr_cabin,0,weight,0)) AS bag_weight, "
-     "           SUM(DECODE(pr_cabin,1,weight,0)) AS rk_weight "
-     "    FROM pax_grp,bag2 "
-     "    WHERE pax_grp.grp_id=bag2.grp_id AND "
-     "          pax_grp.point_dep=:point_id AND ";
-  if (pr_brd)
-    sql << "    ckin.bag_pool_boarded(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)<>0 ";
-  else
-    sql << "    ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 ";
-  sql <<
-     "    GROUP BY pax_grp.point_arv, NVL(class,' ')) b, "
-
-     //подзапрос по оплачиваемому весу:
-     "   (SELECT pax_grp.point_arv, NVL(class,' ') AS class, "
-     "	         SUM(excess) AS excess "
-     "	  FROM pax_grp "
-     "    WHERE point_dep=:point_id AND ";
-  if (pr_brd)
-    sql << "    ckin.excess_boarded(grp_id,class,bag_refuse)<>0 ";
-  else
-    sql << "    bag_refuse=0 ";
-  sql <<
-     "    GROUP BY pax_grp.point_arv, NVL(class,' ')) e "
-     "WHERE a.point_arv=b.point_arv(+) AND "
-     "      a.class=b.class(+) AND "
-     "      a.point_arv=e.point_arv(+) AND "
-     "      a.class=e.class(+) ";
-  Qry.SQLText = sql.str().c_str();
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
-  for(;!Qry.Eof;Qry.Next())
-  {
-    PaxLoad paxload;
-    paxload.point_arv = Qry.FieldAsInteger( "point_arv" );
-    paxload.cl = Qry.FieldAsString( "class" );
-    paxload.seatsadult = Qry.FieldAsInteger( "seatsadult" );
-    paxload.seatschild = Qry.FieldAsInteger( "seatschild" );
-    paxload.seatsbaby = Qry.FieldAsInteger( "seatsbaby" );
-    paxload.adult = Qry.FieldAsInteger( "adult" );
-    paxload.child = Qry.FieldAsInteger( "child" );
-    paxload.baby = Qry.FieldAsInteger( "baby" );
-    paxload.bag_weight = Qry.FieldAsInteger( "bag_weight" );
-    paxload.rk_weight = Qry.FieldAsInteger( "rk_weight" );
-    paxload.excess = Qry.FieldAsInteger( "excess" );
-    lug.vpaxload.push_back( paxload );
-  };
-
-  Qry.Clear();
-  Qry.SQLText =
-   "SELECT airp,scd_out,act_out,points.pr_del pr_del,max_commerce,pr_tranzit,first_point,point_num "
-   " FROM points,trip_sets "
-    "WHERE points.point_id=:point_id AND trip_sets.point_id(+)=points.point_id ";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
-  lug.max_commerce = Qry.FieldAsInteger( "max_commerce" );
-  lug.pr_edit = !Qry.FieldIsNULL( "act_out" ) || Qry.FieldAsInteger( "pr_del" ) != 0;
-  lug.scd_out = Qry.FieldAsDateTime( "scd_out" );
-  lug.region = AirpTZRegion( Qry.FieldAsString( "airp" ) );
-  int pr_tranzit = Qry.FieldAsInteger( "pr_tranzit" );
-  int first_point = Qry.FieldAsInteger( "first_point" );
-  int point_num = Qry.FieldAsInteger( "point_num" );
-	if ( !pr_tranzit )
-    first_point = point_id;
-	Qry.Clear();
-	Qry.SQLText =
-	 "SELECT cargo,mail,a.airp airp_arv,a.airp_fmt airp_arv_fmt, a.point_id point_arv, a.point_num "
-	 " FROM trip_load, "
-	 "( SELECT point_id, point_num, airp, airp_fmt FROM points "
-	 "   WHERE first_point=:first_point AND point_num>:point_num AND pr_del=0 ) a, "
-	 "( SELECT MIN(point_num) as point_num FROM points "
-	 "   WHERE first_point=:first_point AND point_num>:point_num AND pr_del=0 "
-	 "  GROUP BY airp ) b "
-	 "WHERE a.point_num=b.point_num AND trip_load.point_dep(+)=:point_id AND "
-	 "      trip_load.point_arv(+)=a.point_id "
-	 "ORDER BY a.point_num ";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.CreateVariable( "first_point", otInteger, first_point );
-  Qry.CreateVariable( "point_num", otInteger, point_num );
-  Qry.Execute();
-  while ( !Qry.Eof ) {
-  	Cargo cargo;
-  	cargo.cargo = Qry.FieldAsInteger( "cargo" );
-  	cargo.mail = Qry.FieldAsInteger( "mail" );
-  	cargo.point_arv = Qry.FieldAsInteger( "point_arv" );
-  	cargo.airp_arv =  Qry.FieldAsString( "airp_arv" );
-  	cargo.airp_arv_fmt = (TElemFmt)Qry.FieldAsInteger( "airp_arv_fmt" );
-  	lug.vcargo.push_back( cargo );
-  	Qry.Next();
-  }
-}
-
-void GetLuggage( int point_id, xmlNodePtr dataNode )
-{
-
-
-
-	Luggage lug;
-//	GetLuggage( point_id, lug );
-	xmlNodePtr node = NewTextChild( dataNode, "luggage" );
-  NewTextChild( node, "max_commerce", lug.max_commerce );
-  NewTextChild( node, "pr_edit", lug.pr_edit );
-
-  // определяем лето ли сейчас
-  int summer = is_dst( NowUTC(), lug.region );
-  TQuery Qry(&OraSession);
-  Qry.SQLText =
-   "SELECT "\
-   " code, DECODE(:summer,1,weight_sum,weight_win) as weight "\
-   " FROM pers_types";
-  Qry.CreateVariable( "summer", otInteger, summer );
-	Qry.Execute();
-	xmlNodePtr wm = NewTextChild( node, "weightman" );
-	while ( !Qry.Eof ) {
-		xmlNodePtr weightNode = NewTextChild( wm, "weight" );
-		NewTextChild( weightNode, "code", Qry.FieldAsString( "code" ) );
-		NewTextChild( weightNode, "weight", Qry.FieldAsInteger( "weight" ) );
-		Qry.Next();
-	}
-  int adult = 0;
-	int child = 0;
-	int baby = 0;
-	int rk_weight = 0;
-	int bag_weight = 0;
-	for ( vector<PaxLoad>::iterator p=lug.vpaxload.begin(); p!=lug.vpaxload.end(); p++ ) {
-	 	adult += p->adult;
-	 	child += p->child;
-	 	baby += p->baby;
-	 	rk_weight += p->rk_weight;
-	 	bag_weight += p->bag_weight;
-	}
-
-	NewTextChild( node, "bag_weight", bag_weight );
-	NewTextChild( node, "rk_weight", rk_weight );
-	NewTextChild( node, "adult", adult );
-	NewTextChild( node, "child", child );
-	NewTextChild( node, "baby", baby );
-
-  xmlNodePtr loadNode = NewTextChild( node, "trip_load" );
-  for ( vector<Cargo>::iterator c=lug.vcargo.begin(); c!=lug.vcargo.end(); c++ ) {
-  	xmlNodePtr fn = NewTextChild( loadNode, "load" );
-  	NewTextChild( fn, "cargo", c->cargo );
-  	NewTextChild( fn, "mail", c->mail );
-  	NewTextChild( fn, "airp_arv", ElemIdToElemCtxt( ecDisp, etAirp, c->airp_arv, c->airp_arv_fmt ) );
-  	NewTextChild( fn, "point_arv", c->point_arv );
-  }
-} */
-
 
 void GetLuggage( int point_id, xmlNodePtr dataNode )
 {
@@ -4308,11 +4134,11 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   		"SELECT COUNT(*) c FROM "
   		"( SELECT 1 FROM pax_grp,points "
   		"   WHERE points.point_id=:point_id AND "
-  		"         point_dep=:point_id AND bag_refuse=0 AND rownum<2 "
+  		"         point_dep=:point_id AND pax_grp.status NOT IN ('E') AND bag_refuse=0 AND rownum<2 "
   		"  UNION "
   		" SELECT 2 FROM pax_grp,points "
   		"   WHERE points.point_id=:point_id AND "
-  		"         point_arv=:point_id AND bag_refuse=0 AND rownum<2 ) ";
+  		"         point_arv=:point_id AND pax_grp.status NOT IN ('E') AND bag_refuse=0 AND rownum<2 ) ";
   		Qry.CreateVariable( "point_id", otInteger, id->point_id );
   		Qry.Execute();
   		if ( Qry.FieldAsInteger( "c" ) ) {
@@ -5301,7 +5127,7 @@ void SoppInterface::DeleteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   // проверка на предмет того, что во всех пп стоит статус неактивен иначе ругаемся
 	Qry.Clear();
 	Qry.SQLText = "SELECT COUNT(*) c, point_dep FROM pax_grp WHERE point_dep IN "
-	              "( SELECT point_id FROM points WHERE move_id=:move_id ) "
+	              "( SELECT point_id FROM points WHERE move_id=:move_id ) AND pax_grp.status NOT IN ('E') "
 	              "GROUP BY point_dep ";
 	Qry.CreateVariable( "move_id", otInteger, move_id );
 	Qry.Execute();

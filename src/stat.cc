@@ -1276,6 +1276,221 @@ struct THallItem {
     string name;
 };
 
+void UnaccompListToXML(TQuery &Qry, xmlNodePtr resNode, bool isPaxSearch, int pass, int &count)
+{
+  if(Qry.Eof) return;
+
+  xmlNodePtr paxListNode = GetNode("paxList", resNode);
+  if (paxListNode==NULL)
+    paxListNode = NewTextChild(resNode, "paxList");
+
+  xmlNodePtr rowsNode = GetNode("rows", paxListNode);
+  if (rowsNode==NULL)
+    rowsNode = NewTextChild(paxListNode, "rows");
+
+  int col_point_id = Qry.FieldIndex("point_id");
+  int col_scd_out = Qry.FieldIndex("scd_out");
+  int col_bag_amount = Qry.FieldIndex("bag_amount");
+  int col_bag_weight = Qry.FieldIndex("bag_weight");
+  int col_rk_weight = Qry.FieldIndex("rk_weight");
+  int col_excess = Qry.FieldIndex("excess");
+  int col_grp_id = Qry.FieldIndex("grp_id");
+  int col_airp_arv = Qry.FieldIndex("airp_arv");
+  int col_tags = Qry.FieldIndex("tags");
+  int col_hall = Qry.FieldIndex("hall");
+  int col_part_key=Qry.FieldIndex("part_key");
+
+  map<int, TTripItem> TripItems;
+
+  TPerfTimer tm;
+  tm.Init();
+  for(;!Qry.Eof;Qry.Next())
+  {
+      xmlNodePtr paxNode=NewTextChild(rowsNode,"pax");
+
+      int point_id = Qry.FieldAsInteger(col_point_id);
+      TDateTime part_key=NoExists;
+      if(!Qry.FieldIsNULL(col_part_key)) part_key=Qry.FieldAsDateTime(col_part_key);
+
+      if(part_key!=NoExists)
+          NewTextChild(paxNode, "part_key",
+                  DateTimeToStr(part_key, ServerFormatDateTimeAsString));
+      NewTextChild(paxNode, "point_id", point_id);
+      NewTextChild(paxNode, "airline");
+      NewTextChild(paxNode, "flt_no", 0);
+      NewTextChild(paxNode, "suffix");
+      map<int, TTripItem>::iterator i=TripItems.find(point_id);
+      if(i == TripItems.end())
+      {
+          TTripInfo trip_info(Qry);
+          TTripItem trip_item;
+          trip_item.trip = GetTripName(trip_info, ecCkin);
+          trip_item.scd_out =
+              DateTimeToStr(
+                      UTCToClient( Qry.FieldAsDateTime(col_scd_out), TReqInfo::Instance()->desk.tz_region),
+                      ServerFormatDateTimeAsString
+                      );
+          i=TripItems.insert(make_pair(point_id, trip_item)).first;
+      };
+      if(i == TripItems.end())
+        throw Exception("UnaccompListToXML: i == TripItems.end()");
+
+      NewTextChild(paxNode, "trip", i->second.trip);
+      NewTextChild(paxNode, "scd_out", i->second.scd_out);
+      NewTextChild(paxNode, "reg_no", 0);
+      NewTextChild(paxNode, "full_name", getLocaleText("Багаж без сопровождения"));
+      NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger(col_bag_amount));
+      NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger(col_bag_weight));
+      NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger(col_rk_weight));
+      NewTextChild(paxNode, "excess", Qry.FieldAsInteger(col_excess));
+      NewTextChild(paxNode, "grp_id", Qry.FieldAsInteger(col_grp_id));
+      NewTextChild(paxNode, "airp_arv", ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp_arv)));
+      NewTextChild(paxNode, "tags", Qry.FieldAsString(col_tags));
+      NewTextChild(paxNode, "status");
+      NewTextChild(paxNode, "class");
+      NewTextChild(paxNode, "seat_no");
+      NewTextChild(paxNode, "document");
+      NewTextChild(paxNode, "ticket_no");
+      if(Qry.FieldIsNULL("hall"))
+          NewTextChild(paxNode, "hall");
+      else
+          NewTextChild(paxNode, "hall", ElemIdToNameLong(etHall, Qry.FieldAsInteger(col_hall)));
+
+      if (isPaxSearch)
+      {
+        count++;
+        if(count >= MAX_STAT_ROWS) {
+            AstraLocale::showErrorMessage("MSG.TOO_MANY_FLIGHTS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_SEARCH",
+                    LParams() << LParam("num", MAX_STAT_ROWS));
+            break;
+        }
+      };
+  }
+  ProgTrace(TRACE5, "XML%d: %s", pass, tm.PrintWithMessage().c_str());
+};
+
+void PaxListToXML(TQuery &Qry, TQuery &PaxDocQry, xmlNodePtr resNode, bool isPaxSearch, int pass, int &count)
+{
+  if(Qry.Eof) return;
+
+  xmlNodePtr paxListNode = GetNode("paxList", resNode);
+  if (paxListNode==NULL)
+    paxListNode = NewTextChild(resNode, "paxList");
+
+  xmlNodePtr rowsNode = GetNode("rows", paxListNode);
+  if (rowsNode==NULL)
+    rowsNode = NewTextChild(paxListNode, "rows");
+
+  int col_point_id = Qry.FieldIndex("point_id");
+  int col_airline = Qry.FieldIndex("airline");
+  int col_flt_no = Qry.FieldIndex("flt_no");
+  int col_suffix = Qry.FieldIndex("suffix");
+  int col_scd_out = Qry.FieldIndex("scd_out");
+  int col_reg_no = Qry.FieldIndex("reg_no");
+  int col_full_name = Qry.FieldIndex("full_name");
+  int col_bag_amount = Qry.FieldIndex("bag_amount");
+  int col_bag_weight = Qry.FieldIndex("bag_weight");
+  int col_rk_weight = Qry.FieldIndex("rk_weight");
+  int col_excess = Qry.FieldIndex("excess");
+  int col_grp_id = Qry.FieldIndex("grp_id");
+  int col_airp_arv = Qry.FieldIndex("airp_arv");
+  int col_tags = Qry.FieldIndex("tags");
+  int col_pr_brd = Qry.FieldIndex("pr_brd");
+  int col_refuse = Qry.FieldIndex("refuse");
+  int col_class_grp = Qry.FieldIndex("class_grp");
+  int col_seat_no = Qry.FieldIndex("seat_no");
+  int col_ticket_no = Qry.FieldIndex("ticket_no");
+  int col_hall = Qry.FieldIndex("hall");
+  int col_part_key=Qry.FieldIndex("part_key");
+  int col_pax_id=Qry.FieldIndex("pax_id");
+  int col_status=Qry.FieldIndex("status");
+
+  map<int, TTripItem> TripItems;
+
+  TPerfTimer tm;
+  tm.Init();
+  for( ; !Qry.Eof; Qry.Next()) {
+      xmlNodePtr paxNode = NewTextChild(rowsNode, "pax");
+
+      int point_id = Qry.FieldAsInteger(col_point_id);
+      TDateTime part_key=NoExists;
+      if(!Qry.FieldIsNULL(col_part_key)) part_key=Qry.FieldAsDateTime(col_part_key);
+
+      if(part_key!=NoExists)
+          NewTextChild(paxNode, "part_key",
+                  DateTimeToStr(part_key, ServerFormatDateTimeAsString));
+      NewTextChild(paxNode, "point_id", point_id);
+      NewTextChild(paxNode, "airline", Qry.FieldAsString(col_airline));
+      NewTextChild(paxNode, "flt_no", Qry.FieldAsInteger(col_flt_no));
+      NewTextChild(paxNode, "suffix", Qry.FieldAsString(col_suffix));
+      map<int, TTripItem>::iterator i=TripItems.find(point_id);
+      if(i == TripItems.end())
+      {
+          TTripInfo trip_info(Qry);
+          TTripItem trip_item;
+          trip_item.trip = GetTripName(trip_info, ecCkin);
+          trip_item.scd_out =
+              DateTimeToStr(
+                      UTCToClient( Qry.FieldAsDateTime(col_scd_out), TReqInfo::Instance()->desk.tz_region),
+                      ServerFormatDateTimeAsString
+                      );
+          i=TripItems.insert(make_pair(point_id, trip_item)).first;
+      };
+      if(i == TripItems.end())
+        throw Exception("PaxListToXML: i == TripItems.end()");
+
+      NewTextChild(paxNode, "trip", i->second.trip);
+      NewTextChild(paxNode, "scd_out", i->second.scd_out);
+      NewTextChild(paxNode, "reg_no", Qry.FieldAsInteger(col_reg_no));
+      NewTextChild(paxNode, "full_name", Qry.FieldAsString(col_full_name));
+      NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger(col_bag_amount));
+      NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger(col_bag_weight));
+      NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger(col_rk_weight));
+      NewTextChild(paxNode, "excess", Qry.FieldAsInteger(col_excess));
+      NewTextChild(paxNode, "grp_id", Qry.FieldAsInteger(col_grp_id));
+      NewTextChild(paxNode, "airp_arv", ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp_arv)));
+      NewTextChild(paxNode, "tags", Qry.FieldAsString(col_tags));
+      string status;
+      if (DecodePaxStatus(Qry.FieldAsString(col_status))!=psCrew)
+      {
+        if(Qry.FieldIsNULL(col_refuse))
+            status = getLocaleText(Qry.FieldAsInteger(col_pr_brd) == 0 ? "Зарег." : "Посаж.");
+      }
+      else
+      {
+        status = getLocaleText("Экипаж");
+        if(!Qry.FieldIsNULL(col_refuse)) status += ". ";
+      };
+
+      if(!Qry.FieldIsNULL(col_refuse))
+          status+= getLocaleText("MSG.CANCEL_REG.REFUSAL",
+                   LParams() << LParam("refusal", ElemIdToCodeNative(etRefusalType, Qry.FieldAsString(col_refuse))));
+      NewTextChild(paxNode, "status", status);
+      NewTextChild(paxNode, "class", ElemIdToCodeNative(etClsGrp, Qry.FieldAsInteger(col_class_grp)));
+      NewTextChild(paxNode, "seat_no", Qry.FieldAsString(col_seat_no));
+      NewTextChild(paxNode, "document", CheckIn::GetPaxDocStr(part_key,
+                                                              Qry.FieldAsInteger(col_pax_id),
+                                                              PaxDocQry,
+                                                              true));
+      NewTextChild(paxNode, "ticket_no", Qry.FieldAsString(col_ticket_no));
+      if(Qry.FieldIsNULL(col_hall))
+          NewTextChild(paxNode, "hall");
+      else
+          NewTextChild(paxNode, "hall", ElemIdToNameLong(etHall, Qry.FieldAsInteger(col_hall)));
+
+      if (isPaxSearch)
+      {
+        count++;
+        if(count >= MAX_STAT_ROWS) {
+            AstraLocale::showErrorMessage("MSG.TOO_MANY_FLIGHTS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_SEARCH",
+                    LParams() << LParam("num", MAX_STAT_ROWS));
+            break;
+        }
+      };
+  }
+  ProgTrace(TRACE5, "XML%d: %s", pass, tm.PrintWithMessage().c_str());
+};
+
 void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo &info = *(TReqInfo::Instance());
@@ -1328,7 +1543,8 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   salons.get_seat_no(pax.pax_id, pax.seats, pax_grp.status, pax_grp.point_dep, 'seats', rownum) seat_no, "
                 "   pax_grp.hall, "
                 "   pax.ticket_no, "
-                "   pax.pax_id "
+                "   pax.pax_id, "
+                "   pax_grp.status "
                 "FROM  pax_grp,pax, points "
                 "WHERE "
                 "   points.point_id = :point_id and points.pr_del>=0 and "
@@ -1376,7 +1592,8 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') seat_no, "
                 "   arx_pax_grp.hall, "
                 "   arx_pax.ticket_no, "
-                "   arx_pax.pax_id "
+                "   arx_pax.pax_id, "
+                "   arx_pax_grp.status "
                 "FROM  arx_pax_grp,arx_pax, arx_points "
                 "WHERE "
                 "   arx_points.point_id = :point_id and arx_points.pr_del>=0 and "
@@ -1410,91 +1627,11 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         tm.Init();
         Qry.Execute();
         ProgTrace(TRACE5, "Qry.Execute: %s", tm.PrintWithMessage().c_str());
-        xmlNodePtr paxListNode = NULL;
-        xmlNodePtr rowsNode = NULL;
-        if(!Qry.Eof) {
-            paxListNode = NewTextChild(resNode, "paxList");
-            rowsNode = NewTextChild(paxListNode, "rows");
 
-            tm.Init();
+        int count=0;
+        PaxListToXML(Qry, PaxDocQry, resNode, false, 0, count);
 
-            int col_point_id = Qry.FieldIndex("point_id");
-            int col_airline = Qry.FieldIndex("airline");
-            int col_flt_no = Qry.FieldIndex("flt_no");
-            int col_suffix = Qry.FieldIndex("suffix");
-            int col_scd_out = Qry.FieldIndex("scd_out");
-            int col_reg_no = Qry.FieldIndex("reg_no");
-            int col_full_name = Qry.FieldIndex("full_name");
-            int col_bag_amount = Qry.FieldIndex("bag_amount");
-            int col_bag_weight = Qry.FieldIndex("bag_weight");
-            int col_rk_weight = Qry.FieldIndex("rk_weight");
-            int col_excess = Qry.FieldIndex("excess");
-            int col_grp_id = Qry.FieldIndex("grp_id");
-            int col_airp_arv = Qry.FieldIndex("airp_arv");
-            int col_tags = Qry.FieldIndex("tags");
-            int col_refuse = Qry.FieldIndex("refuse");
-            int col_pr_brd = Qry.FieldIndex("pr_brd");
-            int col_class_grp = Qry.FieldIndex("class_grp");
-            int col_seat_no = Qry.FieldIndex("seat_no");
-            int col_ticket_no = Qry.FieldIndex("ticket_no");
-            int col_hall = Qry.FieldIndex("hall");
-            int col_pax_id=Qry.FieldIndex("pax_id");
-            
-
-            string trip, scd_out;
-            while(!Qry.Eof) {
-                xmlNodePtr paxNode = NewTextChild(rowsNode, "pax");
-
-                if(part_key!=NoExists)
-                    NewTextChild(paxNode, "part_key",
-                            DateTimeToStr(part_key, ServerFormatDateTimeAsString));
-                NewTextChild(paxNode, "point_id", Qry.FieldAsInteger(col_point_id));
-                NewTextChild(paxNode, "airline", Qry.FieldAsString(col_airline));
-                NewTextChild(paxNode, "flt_no", Qry.FieldAsInteger(col_flt_no));
-                NewTextChild(paxNode, "suffix", Qry.FieldAsString(col_suffix));
-                if(trip.empty()) {
-                    TTripInfo trip_info(Qry);
-                    trip = GetTripName(trip_info, ecCkin);
-                    scd_out =
-                        DateTimeToStr(
-                                UTCToClient( Qry.FieldAsDateTime(col_scd_out), info.desk.tz_region),
-                                ServerFormatDateTimeAsString
-                                );
-                }
-                NewTextChild(paxNode, "trip", trip);
-                NewTextChild( paxNode, "scd_out", scd_out);
-                NewTextChild(paxNode, "reg_no", Qry.FieldAsInteger(col_reg_no));
-                NewTextChild(paxNode, "full_name", Qry.FieldAsString(col_full_name));
-                NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger(col_bag_amount));
-                NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger(col_bag_weight));
-                NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger(col_rk_weight));
-                NewTextChild(paxNode, "excess", Qry.FieldAsInteger(col_excess));
-                NewTextChild(paxNode, "grp_id", Qry.FieldAsInteger(col_grp_id));
-                NewTextChild(paxNode, "airp_arv", ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp_arv)));
-                NewTextChild(paxNode, "tags", Qry.FieldAsString(col_tags));
-                string status;
-                if(Qry.FieldIsNULL(col_refuse))
-                    status = getLocaleText(Qry.FieldAsInteger(col_pr_brd) == 0 ? "Зарег." : "Посаж.");
-                else
-                    status = getLocaleText("MSG.CANCEL_REG.REFUSAL",
-                            LParams() << LParam("refusal", ElemIdToCodeNative(etRefusalType, Qry.FieldAsString(col_refuse))));
-                NewTextChild(paxNode, "status", status);
-                NewTextChild(paxNode, "class", ElemIdToCodeNative(etClsGrp, Qry.FieldAsInteger(col_class_grp)));
-                NewTextChild(paxNode, "seat_no", Qry.FieldAsString(col_seat_no));
-                NewTextChild(paxNode, "document", CheckIn::GetPaxDocStr(part_key,
-                                                                        Qry.FieldAsInteger(col_pax_id),
-                                                                        PaxDocQry,
-                                                                        true));
-                NewTextChild(paxNode, "ticket_no", Qry.FieldAsString(col_ticket_no));
-                if(Qry.FieldIsNULL(col_hall))
-                    NewTextChild(paxNode, "hall");
-                else
-                    NewTextChild(paxNode, "hall", ElemIdToNameLong(etHall, Qry.FieldAsInteger(col_hall)));
-
-                Qry.Next();
-            }
-            ProgTrace(TRACE5, "XML: %s", tm.PrintWithMessage().c_str());
-        }
+        ProgTrace(TRACE5, "XML: %s", tm.PrintWithMessage().c_str());
 
         //несопровождаемый багаж
         if(part_key == NoExists)  {
@@ -1524,6 +1661,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "WHERE "
                 "   pax_grp.point_dep=:point_id AND "
                 "   pax_grp.class IS NULL and "
+                "   pax_grp.status NOT IN ('E') AND "
                 "   pax_grp.point_dep = points.point_id and points.pr_del>=0 ";
             if (!info.user.access.airps.empty()) {
                 if (info.user.access.airps_permit)
@@ -1562,6 +1700,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "  arx_pax_grp.point_arv,arx_pax_grp.user_id "
                 "FROM arx_pax_grp, arx_points "
                 "WHERE point_dep=:point_id AND class IS NULL and "
+                "   arx_pax_grp.status NOT IN ('E') AND "
                 "   arx_pax_grp.part_key = arx_points.part_key and "
                 "   arx_pax_grp.point_dep = arx_points.point_id and arx_points.pr_del>=0 and "
                 "   arx_pax_grp.part_key = :part_key ";
@@ -1582,53 +1721,10 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
         Qry.Execute();
 
-        string trip, scd_out;
-        for(;!Qry.Eof;Qry.Next())
-        {
-            if(!paxListNode) {
-                paxListNode = NewTextChild(resNode, "paxList");
-                rowsNode = NewTextChild(paxListNode, "rows");
-            }
-            xmlNodePtr paxNode=NewTextChild(rowsNode,"pax");
-            
-            if(part_key!=NoExists)
-                NewTextChild(paxNode, "part_key",
-                        DateTimeToStr(part_key, ServerFormatDateTimeAsString));
-            NewTextChild(paxNode, "point_id", point_id);
-            NewTextChild(paxNode, "airline");
-            NewTextChild(paxNode, "flt_no", 0);
-            NewTextChild(paxNode, "suffix");
-            if(trip.empty()) {
-                TTripInfo trip_info(Qry);
-                trip = GetTripName(trip_info, ecCkin);
-                scd_out =
-                    DateTimeToStr(
-                            UTCToClient( Qry.FieldAsDateTime("scd_out"), info.desk.tz_region),
-                            ServerFormatDateTimeAsString
-                            );
-            }
-            NewTextChild(paxNode, "trip", trip);
-            NewTextChild( paxNode, "scd_out", scd_out);
-            NewTextChild(paxNode, "reg_no", 0);
-            NewTextChild(paxNode, "full_name", getLocaleText("Багаж без сопровождения"));
-            NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
-            NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger("bag_weight"));
-            NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
-            NewTextChild(paxNode, "excess", Qry.FieldAsInteger("excess"));
-            NewTextChild(paxNode, "grp_id", Qry.FieldAsInteger("grp_id"));
-            NewTextChild(paxNode, "airp_arv", ElemIdToCodeNative(etAirp, Qry.FieldAsString("airp_arv")));
-            NewTextChild(paxNode, "tags", Qry.FieldAsString("tags"));
-            NewTextChild(paxNode, "status");
-            NewTextChild(paxNode, "class");
-            NewTextChild(paxNode, "seat_no");
-            NewTextChild(paxNode, "document");
-            NewTextChild(paxNode, "ticket_no");
-            if(Qry.FieldIsNULL("hall"))
-                NewTextChild(paxNode, "hall");
-            else
-                NewTextChild(paxNode, "hall", ElemIdToNameLong(etHall, Qry.FieldAsInteger("hall")));
-        };
-        if(paxListNode) { // для совместимости со старой версией терминала
+        UnaccompListToXML(Qry, resNode, false, 0, count);
+
+        xmlNodePtr paxListNode = GetNode("paxList", resNode);
+        if(paxListNode!=NULL) { // для совместимости со старой версией терминала
             xmlNodePtr headerNode = NewTextChild(paxListNode, "header");
             NewTextChild(headerNode, "col", "Рейс");
         } else
@@ -5533,8 +5629,6 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         Qry.CreateVariable("tag_no", otInteger, ToInt(tag_no));
     }
     int count = 0;
-    xmlNodePtr paxListNode = NULL;
-    xmlNodePtr rowsNode = NULL;
     for(int pass = 0; (pass <= 2) && (count < MAX_STAT_ROWS); pass++) {
         ostringstream sql;
         sql << "SELECT \n";
@@ -5576,7 +5670,8 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                " pax_grp.class_grp, \n"
                " pax_grp.hall, \n"
                " pax.ticket_no, \n"
-               " pax.pax_id \n";
+               " pax.pax_id, \n"
+               " pax_grp.status \n";
         if (pass==0)
           sql << "FROM pax_grp, pax, points \n";
         else
@@ -5666,108 +5761,17 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             else
                 throw;
         }
-        if(!Qry.Eof) {
-            if(!paxListNode)
-                paxListNode = NewTextChild(resNode, "paxList");
-            if(!rowsNode)
-                rowsNode = NewTextChild(paxListNode, "rows");
-
-            int col_point_id = Qry.FieldIndex("point_id");
-            int col_airline = Qry.FieldIndex("airline");
-            int col_flt_no = Qry.FieldIndex("flt_no");
-            int col_suffix = Qry.FieldIndex("suffix");
-            int col_scd_out = Qry.FieldIndex("scd_out");
-            int col_reg_no = Qry.FieldIndex("reg_no");
-            int col_full_name = Qry.FieldIndex("full_name");
-            int col_bag_amount = Qry.FieldIndex("bag_amount");
-            int col_bag_weight = Qry.FieldIndex("bag_weight");
-            int col_rk_weight = Qry.FieldIndex("rk_weight");
-            int col_excess = Qry.FieldIndex("excess");
-            int col_grp_id = Qry.FieldIndex("grp_id");
-            int col_airp_arv = Qry.FieldIndex("airp_arv");
-            int col_tags = Qry.FieldIndex("tags");
-            int col_pr_brd = Qry.FieldIndex("pr_brd");
-            int col_refuse = Qry.FieldIndex("refuse");
-            int col_class_grp = Qry.FieldIndex("class_grp");
-            int col_seat_no = Qry.FieldIndex("seat_no");
-            int col_ticket_no = Qry.FieldIndex("ticket_no");
-            int col_hall = Qry.FieldIndex("hall");
-            int col_part_key=Qry.FieldIndex("part_key");
-            int col_pax_id=Qry.FieldIndex("pax_id");
-
-            map<int, TTripItem> TripItems;
-
-            tm.Init();
-            for( ; !Qry.Eof; Qry.Next()) {
-                xmlNodePtr paxNode = NewTextChild(rowsNode, "pax");
-
-                int point_id = Qry.FieldAsInteger(col_point_id);
-                TDateTime part_key=NoExists;
-                if(!Qry.FieldIsNULL(col_part_key)) part_key=Qry.FieldAsDateTime(col_part_key);
-
-                if(part_key!=NoExists)
-                    NewTextChild(paxNode, "part_key",
-                            DateTimeToStr(part_key, ServerFormatDateTimeAsString));
-                NewTextChild(paxNode, "point_id", point_id);
-                NewTextChild(paxNode, "airline", Qry.FieldAsString(col_airline));
-                NewTextChild(paxNode, "flt_no", Qry.FieldAsInteger(col_flt_no));
-                NewTextChild(paxNode, "suffix", Qry.FieldAsString(col_suffix));
-                if(TripItems.find(point_id) == TripItems.end()) {
-                    TTripInfo trip_info(Qry);
-                    TTripItem trip_item;
-                    trip_item.trip = GetTripName(trip_info, ecCkin);
-                    trip_item.scd_out =
-                        DateTimeToStr(
-                                UTCToClient( Qry.FieldAsDateTime(col_scd_out), info.desk.tz_region),
-                                ServerFormatDateTimeAsString
-                                );
-                    TripItems[point_id] = trip_item;
-                }
-                NewTextChild(paxNode, "trip", TripItems[point_id].trip);
-                NewTextChild( paxNode, "scd_out", TripItems[point_id].scd_out);
-                NewTextChild(paxNode, "reg_no", Qry.FieldAsInteger(col_reg_no));
-                NewTextChild(paxNode, "full_name", Qry.FieldAsString(col_full_name));
-                NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger(col_bag_amount));
-                NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger(col_bag_weight));
-                NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger(col_rk_weight));
-                NewTextChild(paxNode, "excess", Qry.FieldAsInteger(col_excess));
-                NewTextChild(paxNode, "grp_id", Qry.FieldAsInteger(col_grp_id));
-                NewTextChild(paxNode, "airp_arv", ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp_arv)));
-                NewTextChild(paxNode, "tags", Qry.FieldAsString(col_tags));
-                string status;
-                if(Qry.FieldIsNULL(col_refuse))
-                    status = getLocaleText(Qry.FieldAsInteger(col_pr_brd) == 0 ? "Зарег." : "Посаж.");
-                else
-                    status = getLocaleText("MSG.CANCEL_REG.REFUSAL",
-                            LParams() << LParam("refusal", ElemIdToCodeNative(etRefusalType, Qry.FieldAsString(col_refuse))));
-                NewTextChild(paxNode, "status", status);
-                NewTextChild(paxNode, "class", ElemIdToCodeNative(etClsGrp, Qry.FieldAsInteger(col_class_grp)));
-                NewTextChild(paxNode, "seat_no", Qry.FieldAsString(col_seat_no));
-                NewTextChild(paxNode, "document", CheckIn::GetPaxDocStr(part_key,
-                                                                        Qry.FieldAsInteger(col_pax_id),
-                                                                        PaxDocQry,
-                                                                        true));
-                NewTextChild(paxNode, "ticket_no", Qry.FieldAsString(col_ticket_no));
-                if(Qry.FieldIsNULL(col_hall))
-                    NewTextChild(paxNode, "hall");
-                else
-                    NewTextChild(paxNode, "hall", ElemIdToNameLong(etHall, Qry.FieldAsInteger(col_hall)));
-
-                count++;
-                if(count >= MAX_STAT_ROWS) {
-                    AstraLocale::showErrorMessage("MSG.TOO_MANY_FLIGHTS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_SEARCH",
-                            LParams() << LParam("num", MAX_STAT_ROWS));
-                    break;
-                }
-            }
-            ProgTrace(TRACE5, "XML%d: %s", pass, tm.PrintWithMessage().c_str());
-        }
+        PaxListToXML(Qry, PaxDocQry, resNode, true, pass, count);
     }
     if(count == 0)
         throw AstraLocale::UserException("MSG.PASSENGERS.NOT_FOUND");
 
-    xmlNodePtr headerNode = NewTextChild(paxListNode, "header"); // для совместимости со старым терминалом
-    NewTextChild(headerNode, "col", "Рейс");
+    xmlNodePtr paxListNode = GetNode("paxList", resNode);
+    if(paxListNode!=NULL)
+    {
+      xmlNodePtr headerNode = NewTextChild(paxListNode, "header"); // для совместимости со старым терминалом
+      NewTextChild(headerNode, "col", "Рейс");
+    };
 
     STAT::set_variables(resNode);
     get_compatible_report_form("ArxPaxList", reqNode, resNode);
