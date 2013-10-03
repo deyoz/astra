@@ -818,7 +818,8 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
         "       pax.pax_id, "
         "       pax_grp.client_type, "
         "       pax.refuse, "
-        "       pax.ticket_rem, pax.ticket_no, pax.coupon_no, pax.ticket_confirm "
+        "       pax.ticket_rem, pax.ticket_no, pax.coupon_no, pax.ticket_confirm, "
+        "       pax.reg_no "
         "FROM crs_pnr,crs_pax,pax,pax_grp,crs_inf "
         "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
         "      crs_pax.pax_id=pax.pax_id(+) AND "
@@ -845,6 +846,8 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
           pax.crs_pax_id = Qry.FieldAsInteger( "crs_pax_id" );
         	if ( !Qry.FieldIsNULL( "crs_pax_id_parent" ) )
         		pax.crs_pax_id_parent = Qry.FieldAsInteger( "crs_pax_id_parent" );
+          if ( !Qry.FieldIsNULL( "reg_no" ) )
+        		pax.reg_no = Qry.FieldAsInteger( "reg_no" );
         	pax.surname = Qry.FieldAsString( "surname" );
         	pax.name = Qry.FieldAsString( "name" );
         	pax.pers_type_extended = Qry.FieldAsString( "pers_type" );
@@ -1090,6 +1093,8 @@ void IntLoadPnr( const vector<TIdsPnrData> &ids, vector< TWebPnr > &pnrs, xmlNod
       	NewTextChild( paxNode, "crs_pax_id", iPax->crs_pax_id );
       	if ( iPax->crs_pax_id_parent != NoExists )
       		NewTextChild( paxNode, "crs_pax_id_parent", iPax->crs_pax_id_parent );
+        if ( iPax->reg_no != NoExists )
+      		NewTextChild( paxNode, "reg_no", iPax->reg_no );
       	NewTextChild( paxNode, "surname", iPax->surname );
       	NewTextChild( paxNode, "name", iPax->name );
       	if ( iPax->doc.birth_date != NoExists )
