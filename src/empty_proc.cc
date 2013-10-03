@@ -1487,11 +1487,11 @@ int test_typeb_utils(int argc,char **argv)
   tlg_types.insert("PSM");
   tlg_types.insert("PIL");
   tlg_types.insert("SOM");*/
-  TQuery Qry(&OraSession);
+/*  TQuery Qry(&OraSession);
   Qry.SQLText =
     "INSERT INTO tranzit_algo_seats(id,airline,flt_no,airp,pr_new) "
     "SELECT 1,NULL,NULL,NULL,1 FROM dual";
-  Qry.Execute();
+  Qry.Execute();*/
   ofstream f1, f2;
   try
   {
