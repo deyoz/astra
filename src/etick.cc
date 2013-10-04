@@ -17,6 +17,7 @@
 #include "checkin.h"
 #include "web_main.h"
 #include "term_version.h"
+#include "misc.h"
 #include "jxtlib/jxtlib.h"
 #include "jxtlib/xml_stuff.h"
 #include "serverlib/query_runner.h"
@@ -44,6 +45,11 @@ using namespace EXCEPTIONS;
 void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   string tick_no=NodeAsString("TickNoEdit",reqNode);
+  TrimString(tick_no);
+  for(string::const_iterator c=tick_no.begin(); c!=tick_no.end(); ++c)
+    if (!IsDigitIsLetter(*c))
+      throw AstraLocale::UserException("MSG.ETICK.TICKET_NO_INVALID_CHARS");
+
   int point_id=NodeAsInteger("point_id",reqNode);
   TQuery Qry(&OraSession);
   Qry.SQLText=
