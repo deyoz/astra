@@ -69,10 +69,12 @@ struct TRow {
     int pax_id;
     //документ
     string doc_type;
+    string doc_issue_country;
     string doc_no;
     string doc_nationality;
     string doc_gender;
     TDateTime doc_birth_date;
+    string doc_type_rcpt;
     //виза
     string visa_no;
     string visa_issue_place;
@@ -152,10 +154,12 @@ TRow& TRow::paxFromDB(TQuery &Qry)
 TRow& TRow::setDoc(const CheckIn::TPaxDocItem &doc)
 {
   doc_type=doc.type;
+  doc_issue_country=doc.issue_country;
   doc_no=doc.no;
   doc_nationality=doc.nationality;
   doc_gender=doc.gender;
   doc_birth_date=doc.birth_date;
+  doc_type_rcpt=doc.type_rcpt;
   return *this;
 };
 
@@ -216,10 +220,12 @@ const TRow& TRow::toDB(TRowType type, TQuery &Qry, bool check_sql) const
     "          route_type=:route_type, "
     "          reg_no=:reg_no, "
     "          doc_type=:doc_type, "
+    "          doc_issue_country=:doc_issue_country, "
     "          doc_no=:doc_no, "
     "          doc_nationality=:doc_nationality, "
     "          doc_gender=:doc_gender, "
     "          doc_birth_date=:doc_birth_date, "
+    "          doc_type_rcpt=:doc_type_rcpt, "
     "          visa_no=:visa_no, "
     "          visa_issue_place=:visa_issue_place, "
     "          visa_issue_date=:visa_issue_date, "
@@ -235,7 +241,7 @@ const TRow& TRow::toDB(TRowType type, TQuery &Qry, bool check_sql) const
     "         airline, flt_no, suffix, takeoff, airp_dep, "
     "         airp_arv, surname, name, seat_no, bag_amount, bag_weight, rk_weight, "
     "         tags, pnr, operation, route_type, reg_no, pax_id, "
-    "         doc_type, doc_no, doc_nationality, doc_gender, doc_birth_date, "
+    "         doc_type, doc_issue_country, doc_no, doc_nationality, doc_gender, doc_birth_date, doc_type_rcpt, "
     "         visa_no, visa_issue_place, visa_issue_date, visa_applic_country, visa_birth_place, "
     "         ticket_no) "
     "      VALUES "
@@ -243,7 +249,7 @@ const TRow& TRow::toDB(TRowType type, TQuery &Qry, bool check_sql) const
     "         :airline, :flt_no, :suffix, :takeoff, :airp_dep, "
     "         :airp_arv, :surname, :name, :seat_no, :bag_amount, :bag_weight, :rk_weight, "
     "         :tags, :pnr, :operation, :route_type, :reg_no, :pax_id, "
-    "         :doc_type, :doc_no, :doc_nationality, :doc_gender, :doc_birth_date, "
+    "         :doc_type, :doc_issue_country, :doc_no, :doc_nationality, :doc_gender, :doc_birth_date, :doc_type_rcpt, "
     "         :visa_no, :visa_issue_place, :visa_issue_date, :visa_applic_country, :visa_birth_place, "
     "         :ticket_no); "
     "      EXIT; "
@@ -285,10 +291,12 @@ const TRow& TRow::toDB(TRowType type, TQuery &Qry, bool check_sql) const
       Qry.DeclareVariable("pax_id", otInteger);
       //документ
       Qry.DeclareVariable("doc_type", otString);
+      Qry.DeclareVariable("doc_issue_country", otString);
       Qry.DeclareVariable("doc_no", otString);
       Qry.DeclareVariable("doc_nationality", otString);
       Qry.DeclareVariable("doc_gender", otString);
       Qry.DeclareVariable("doc_birth_date", otDate);
+      Qry.DeclareVariable("doc_type_rcpt", otString);
       //виза
       Qry.DeclareVariable("visa_no", otString);
       Qry.DeclareVariable("visa_issue_place", otString);
@@ -361,6 +369,7 @@ const TRow& TRow::toDB(TRowType type, TQuery &Qry, bool check_sql) const
   if (type==rowMagistral) Qry.SetVariable("pax_id", FNull);
   //документ
   Qry.SetVariable("doc_type", doc_type);
+  Qry.SetVariable("doc_issue_country", doc_issue_country);
   if (doc_no.size()<=15)
     Qry.SetVariable("doc_no", doc_no);
   else
@@ -369,6 +378,7 @@ const TRow& TRow::toDB(TRowType type, TQuery &Qry, bool check_sql) const
   Qry.SetVariable("doc_gender", doc_gender);
   doc_birth_date!=NoExists?Qry.SetVariable("doc_birth_date", doc_birth_date):
                            Qry.SetVariable("doc_birth_date", FNull);
+  Qry.SetVariable("doc_type_rcpt", doc_type_rcpt);
   //виза
   Qry.SetVariable("visa_no", visa_no);
   Qry.SetVariable("visa_issue_place", visa_issue_place);
@@ -974,7 +984,8 @@ void get_pax_list(int point_id,
          "       r.airp_arv, r.surname, r.name, "
          "       r.seat_no, r.bag_amount, r.bag_weight, r.rk_weight, r.tags, r.pnr, r.operation, "
          "       r.route_type, r.reg_no, "
-         "       r.doc_type, r.doc_no, r.doc_nationality, r.doc_gender, r.doc_birth_date, "
+         "       r.doc_type, r.doc_issue_country, r.doc_no, r.doc_nationality, r.doc_gender, "
+         "       r.doc_birth_date, r.doc_type_rcpt, "
          "       r.visa_birth_place, r.ticket_no "
          "FROM pax_grp, pax, rozysk r "
          "WHERE pax_grp.grp_id=pax.grp_id AND pax.pax_id=r.pax_id AND "
@@ -1009,10 +1020,12 @@ void get_pax_list(int point_id,
     int idx_reg_no = Qry.FieldIndex( "reg_no" );
 
     int idx_doc_type = Qry.FieldIndex( "doc_type" );
+    int idx_doc_issue_country = Qry.FieldIndex( "doc_issue_country" );
     int idx_doc_no = Qry.FieldIndex( "doc_no" );
     int idx_doc_nationality = Qry.FieldIndex( "doc_nationality" );
     int idx_doc_gender = Qry.FieldIndex( "doc_gender" );
     int idx_doc_birth_date = Qry.FieldIndex( "doc_birth_date" );
+    int idx_doc_type_rcpt = Qry.FieldIndex( "doc_type_rcpt" );
 
     int idx_visa_birth_place = Qry.FieldIndex( "visa_birth_place" );
 
@@ -1034,13 +1047,35 @@ void get_pax_list(int point_id,
       else
         pax.birthDate = Qry.FieldAsDateTime( idx_doc_birth_date );
       pax.birthPlace = Qry.FieldAsString( idx_visa_birth_place );
-      if (!Qry.FieldIsNULL( idx_doc_type ))
-      try
+      if (!Qry.FieldIsNULL( idx_doc_type_rcpt ))
       {
-        TPaxDocTypesRow &doc_type_row = (TPaxDocTypesRow&)base_tables.get("pax_doc_types").get_row("code",Qry.FieldAsString( idx_doc_type ));
-        pax.docType = doc_type_row.code_mintrans;
+        try
+        {
+          TRcptDocTypesRow &doc_type_rcpt_row = (TRcptDocTypesRow&)base_tables.get("rcpt_doc_types").get_row("code",Qry.FieldAsString( idx_doc_type_rcpt ));
+          pax.docType = doc_type_rcpt_row.code_mintrans;
+          if (strcmp(Qry.FieldAsString( idx_doc_issue_country ),"RUS")!=0)
+          {
+            if (pax.docType=="00") pax.docType="99";
+            if (pax.docType=="02")
+            {
+              if (Qry.FieldIsNULL( idx_doc_issue_country ))
+                pax.docType="99";
+              else
+                pax.docType="03";
+            };
+          };
+        }
+        catch(EBaseTableError) {};
       }
-      catch(EBaseTableError) {};
+      else if (!Qry.FieldIsNULL( idx_doc_type ))
+      {
+        try
+        {
+          TPaxDocTypesRow &doc_type_row = (TPaxDocTypesRow&)base_tables.get("pax_doc_types").get_row("code",Qry.FieldAsString( idx_doc_type ));
+          pax.docType = doc_type_row.code_mintrans;
+        }
+        catch(EBaseTableError) {};
+      };
 
       pax.docNumber = Qry.FieldAsString( idx_doc_no );
       pax.departPlace = ElemIdToElem(etAirp, Qry.FieldAsString( idx_airp_dep ), fmts);
@@ -1641,4 +1676,3 @@ void sync_mvd(void)
     };
   };
 };
-
