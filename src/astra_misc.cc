@@ -152,6 +152,7 @@ bool GetTripSets( const TTripSetType setType, const TTripInfo &info )
   return Qry.FieldAsInteger("pr_misc")!=0;
 };
 
+//==============================================================================
 const long int DOC_CSV_CZ_FIELDS=DOC_SURNAME_FIELD|
                                  DOC_FIRST_NAME_FIELD|
                                  DOC_BIRTH_DATE_FIELD|
@@ -161,13 +162,33 @@ const long int DOC_CSV_CZ_FIELDS=DOC_SURNAME_FIELD|
                                  DOC_NO_FIELD/*|
                                  DOC_EXPIRY_DATE_FIELD|
                                  DOC_ISSUE_COUNTRY_FIELD*/;
-                                 
+
 const long int DOC_EDI_CZ_FIELDS=DOC_CSV_CZ_FIELDS;
 
-const long int DOC_EDI_CN_FIELDS=DOC_EDI_CZ_FIELDS;
-
-const long int DOC_EDI_IN_FIELDS=DOC_EDI_CN_FIELDS;
-
+//==============================================================================
+const long int DOC_EDI_CN_FIELDS=DOC_SURNAME_FIELD|
+                                 DOC_FIRST_NAME_FIELD|
+                                 DOC_GENDER_FIELD|
+                                 DOC_BIRTH_DATE_FIELD|
+                                 DOC_NATIONALITY_FIELD|
+                                 DOC_TYPE_FIELD|
+                                 DOC_NO_FIELD;
+/*
+const long int DOCO_EDI_CN_FIELDS=DOCO_TYPE_FIELD|
+                                  DOCO_NO_FIELD;
+*/
+//==============================================================================
+const long int DOC_EDI_IN_FIELDS=DOC_SURNAME_FIELD|
+                                 DOC_FIRST_NAME_FIELD|
+                                 DOC_GENDER_FIELD|
+                                 DOC_BIRTH_DATE_FIELD|
+                                 DOC_TYPE_FIELD|
+                                 DOC_NO_FIELD;
+/*
+const long int DOCO_EDI_IN_FIELDS=DOCO_TYPE_FIELD|
+                                  DOCO_NO_FIELD;
+*/
+//==============================================================================
 const long int DOC_CSV_DE_FIELDS=DOC_SURNAME_FIELD|
                                  DOC_FIRST_NAME_FIELD|
                                  DOC_GENDER_FIELD|
@@ -181,6 +202,7 @@ const long int DOCO_CSV_DE_FIELDS=DOCO_TYPE_FIELD|
                                   DOCO_NO_FIELD|
                                   DOCO_APPLIC_COUNTRY_FIELD;
                                   
+//==============================================================================
 const long int DOC_TXT_EE_FIELDS=DOC_SURNAME_FIELD|
                                  DOC_FIRST_NAME_FIELD|
                                  DOC_BIRTH_DATE_FIELD|
@@ -193,11 +215,14 @@ const long int DOC_TXT_EE_FIELDS=DOC_SURNAME_FIELD|
 const long int DOCO_TXT_EE_FIELDS=DOCO_TYPE_FIELD|
                                   DOCO_NO_FIELD;
 
+//==============================================================================
 const long int DOC_MINTRANS_FIELDS=DOC_TYPE_FIELD|
                                    DOC_NO_FIELD|
                                    DOC_BIRTH_DATE_FIELD;
 
 const long int TKN_MINTRANS_FIELDS=TKN_TICKET_NO_FIELD;
+
+//==============================================================================
 
 TCheckDocInfo GetCheckDocInfo(const int point_dep, const string& airp_arv)
 {
@@ -253,10 +278,26 @@ TCheckDocInfo GetCheckDocInfo(const int point_dep, const string& airp_arv, set<s
         {
           string fmt=Qry.FieldAsString("format");
           apis_formats.insert(fmt);
-          if (fmt=="CSV_CZ") result.first.required_fields|=DOC_CSV_CZ_FIELDS;
-          if (fmt=="EDI_CZ") result.first.required_fields|=DOC_EDI_CZ_FIELDS;
-          if (fmt=="EDI_CN") result.first.required_fields|=DOC_EDI_CN_FIELDS;
-          if (fmt=="EDI_IN") result.first.required_fields|=DOC_EDI_IN_FIELDS;
+          if (fmt=="CSV_CZ")
+          {
+            result.first.required_fields|=DOC_CSV_CZ_FIELDS;
+            //result.second.required_fields|=DOCO_CSV_CZ_FIELDS; пока не определено
+          };
+          if (fmt=="EDI_CZ")
+          {
+            result.first.required_fields|=DOC_EDI_CZ_FIELDS;
+            //result.second.required_fields|=DOCO_EDI_CZ_FIELDS; пока не определено
+          };
+          if (fmt=="EDI_CN")
+          {
+            result.first.required_fields|=DOC_EDI_CN_FIELDS;
+            //result.second.required_fields|=DOCO_EDI_CN_FIELDS; пока не определено
+          };
+          if (fmt=="EDI_IN")
+          {
+            result.first.required_fields|=DOC_EDI_IN_FIELDS;
+            //result.second.required_fields|=DOCO_EDI_IN_FIELDS; пока не определено
+          };
           if (fmt=="CSV_DE")
           {
             result.first.required_fields|=DOC_CSV_DE_FIELDS;

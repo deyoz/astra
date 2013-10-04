@@ -112,6 +112,10 @@ class TTripInfoSQLParams: public TTripListSQLFilter
     virtual void set(void);
 };
 
+const std::string CREW_CLASS_ID=" ";
+const std::string CREW_CLASS_VIEW=" ";
+const int CREW_CLS_GRP_ID=1000000000;
+const std::string CREW_CLS_GRP_VIEW=" ";
 void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode );
 void viewCRSList( int point_id, xmlNodePtr dataNode );
 

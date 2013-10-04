@@ -21,7 +21,9 @@ const std::string qryBalancePassWOCheckinTranzit =
     " WHERE pax_grp.grp_id=pax.grp_id AND "
     "       pax.pax_id=pax_doc.pax_id(+) AND "
     "       pax.pax_id=crs_inf.inf_id(+) AND "
-    "       point_arv=:point_arv AND pr_brd IS NOT NULL";
+    "       point_arv=:point_arv AND "
+    "       pax_grp.status NOT IN ('E') AND "
+    "       pr_brd IS NOT NULL";
 
     /*"SELECT point_dep, "
     "       DECODE(point_dep,:point_dep,0,1) as  pr_tranzit, class, "
@@ -36,7 +38,9 @@ const std::string qryBalancePassWOCheckinTranzit =
     " FROM pax_grp, pax, pax_doc "
     " WHERE pax_grp.grp_id=pax.grp_id AND "
     "       pax.pax_id=pax_doc.pax_id(+) AND "
-    "       point_arv=:point_arv AND pr_brd IS NOT NULL "
+    "       point_arv=:point_arv AND "
+    "       pax_grp.status NOT IN ('E') AND "
+    "       pr_brd IS NOT NULL "
     "GROUP BY point_dep, DECODE(point_dep,:point_dep,0,1), class"; */
 const std::string qryBalancePassWithCheckinTranzit =
     "SELECT point_dep, "
@@ -48,7 +52,9 @@ const std::string qryBalancePassWithCheckinTranzit =
     "       pax.pax_id=pax_doc.pax_id(+) AND "
     "       pax.pax_id=crs_inf.inf_id(+) AND "
     "       point_dep=:point_dep AND "
-    "       point_arv=:point_arv AND pr_brd IS NOT NULL ";
+    "       point_arv=:point_arv AND "
+    "       pax_grp.status NOT IN ('E') AND "
+    "       pr_brd IS NOT NULL ";
 /*    "SELECT point_dep, "
     "       DECODE(status,:status_tranzit,1,0) as  pr_tranzit, class, "
     "       NVL(SUM(DECODE(pax.pers_type,:adl,DECODE(pax_doc.gender,:male,1,NULL,1,0),0)),0) AS male, "
@@ -63,7 +69,9 @@ const std::string qryBalancePassWithCheckinTranzit =
     " WHERE pax_grp.grp_id=pax.grp_id AND "
     "       pax.pax_id=pax_doc.pax_id(+) AND "
     "       point_dep=:point_dep AND "
-    "       point_arv=:point_arv AND pr_brd IS NOT NULL "
+    "       point_arv=:point_arv AND "
+    "       pax_grp.status NOT IN ('E') AND "
+    "       pr_brd IS NOT NULL "
     "GROUP BY point_dep, DECODE(status,:status_tranzit,1,0), class"; */
 const std::string qryBalanceBagWOCheckinTranzit =
     "SELECT point_dep, "
@@ -75,6 +83,7 @@ const std::string qryBalanceBagWOCheckinTranzit =
     "FROM pax_grp, bag2 "
     " WHERE pax_grp.grp_id = bag2.grp_id AND "
     "       point_arv=:point_arv AND "
+    "       pax_grp.status NOT IN ('E') AND "
     "       ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 "
     " GROUP BY point_dep, DECODE(point_dep,:point_dep,0,1), class";
 const std::string qryBalanceBagWithCheckinTranzit =
@@ -88,6 +97,7 @@ const std::string qryBalanceBagWithCheckinTranzit =
     " WHERE pax_grp.grp_id = bag2.grp_id AND "
     "       point_dep=:point_dep AND "
     "       point_arv=:point_arv AND "
+    "       pax_grp.status NOT IN ('E') AND "
     "       ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 "
     " GROUP BY point_dep, DECODE(status,:status_tranzit,1,0), class";
 const std::string qryBalanceExcessBagWOCheckinTranzit =
@@ -95,7 +105,9 @@ const std::string qryBalanceExcessBagWOCheckinTranzit =
     "       DECODE(point_dep,:point_dep,0,1) as  pr_tranzit, class, "
     "       SUM(NVL(pax_grp.excess,0)) paybag_weight "
     "FROM pax_grp "
-    " WHERE point_arv=:point_arv AND pax_grp.bag_refuse = 0 "
+    " WHERE point_arv=:point_arv AND "
+    "       pax_grp.status NOT IN ('E') AND "
+    "       pax_grp.bag_refuse = 0 "
     " GROUP BY point_dep, DECODE(point_dep,:point_dep,0,1), class";
 const std::string qryBalanceExcessBagWithCheckinTranzit =
     "SELECT point_dep, "
@@ -103,7 +115,9 @@ const std::string qryBalanceExcessBagWithCheckinTranzit =
     "       SUM(NVL(pax_grp.excess,0)) paybag_weight "
     "FROM pax_grp "
     " WHERE point_dep=:point_dep AND "
-    "       point_arv=:point_arv AND pax_grp.bag_refuse = 0 "
+    "       point_arv=:point_arv AND "
+    "       pax_grp.status NOT IN ('E') AND "
+    "       pax_grp.bag_refuse = 0 "
     " GROUP BY point_dep, DECODE(status,:status_tranzit,1,0), class";
 /*const std::string qryBalancePad =
     "SELECT point_dep, "
@@ -111,7 +125,9 @@ const std::string qryBalanceExcessBagWithCheckinTranzit =
     "       SUM(pax.seats) as count "
     " FROM pax_grp, pax, crs_pax, crs_pnr "
     " WHERE pax_grp.grp_id=pax.grp_id AND "
-    "       point_arv=:point_arv AND pr_brd IS NOT NULL AND "
+    "       point_arv=:point_arv AND "
+    "       pax_grp.status NOT IN ('E') AND "
+    "       pr_brd IS NOT NULL AND "
     "       pax.pax_id=crs_pax.pax_id AND "
     "       crs_pax.pnr_id=crs_pnr.pnr_id AND "
     "       crs_pax.pr_del=0 AND "
@@ -123,7 +139,9 @@ const std::string qryBalancePad =
     "       pax.seats "
     " FROM pax_grp, pax, crs_pax, crs_pnr "
     " WHERE pax_grp.grp_id=pax.grp_id AND "
-    "       point_arv=:point_arv AND pr_brd IS NOT NULL AND "
+    "       point_arv=:point_arv AND "
+    "       pax_grp.status NOT IN ('E') AND "
+    "       pr_brd IS NOT NULL AND "
     "       pax.pax_id=crs_pax.pax_id AND "
     "       crs_pax.pnr_id=crs_pnr.pnr_id AND "
     "       crs_pax.pr_del=0 AND "

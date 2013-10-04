@@ -441,16 +441,29 @@ public:
 
 class PaxlstInfo: public GeneralInfo, public PartyInfo, public FlightInfo
 {
+public:
+    enum PaxlstType
+    {
+        FlightPassengerManifest,
+        FlightCrewManifest
+    };
+private:
+    PaxlstType m_type;
     PassengersList_t m_passList;
     PaxlstSettings m_settings;
     
 public:    
+    PaxlstInfo(const PaxlstType &paxlstType)
+      : m_type( paxlstType )
+    {}
+
     const PassengersList_t& passengersList() const { return m_passList; }
     void setPassengersList( const PassengersList_t& passList ) { m_passList = passList; }
     void addPassenger( const PassengerInfo& passInfo );
     
     PaxlstSettings& settings() { return m_settings; }
     const PaxlstSettings& settings() const { return m_settings; }
+    PaxlstType type() const { return m_type; }
 
     std::string toEdiString() const;
     std::vector< std::string > toEdiStrings( unsigned maxPaxPerString ) const;

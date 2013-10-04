@@ -130,7 +130,7 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
                                    getSeqFlag( partNum, partsCnt ) ) ) ;
     
     // BGM
-    viewBgmElement( pMes, BgmElem( "745" ) );
+    viewBgmElement( pMes, BgmElem( paxlst.type()==PaxlstInfo::FlightPassengerManifest?"745":"250" ) );
 
     if( !paxlst.partyName().empty() )
     {
@@ -193,7 +193,8 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
         SetEdiPointToSegGrW( pMes, SegGrElement( 4, segmGroupNum ) );
         
         // NAD
-        viewNadElement( pMes, NadElem( "FL", it->surname(), it->name(), it->street(), it->city() ) );
+        viewNadElement( pMes, NadElem( paxlst.type()==PaxlstInfo::FlightPassengerManifest?"FL":"FM",
+                                       it->surname(), it->name(), it->street(), it->city() ) );
         // ATT
         viewAttElement( pMes, AttElem( "2", it->sex() ) );
         // DTM
@@ -252,7 +253,10 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
     }
 
     // CNT
-    viewCntElement( pMes, CntElem( CntElem::PassengersTotal, totalCnt ) );
+    viewCntElement( pMes, CntElem( paxlst.type()==PaxlstInfo::FlightPassengerManifest?
+                                     CntElem::PassengersTotal:
+                                     CntElem::CrewTotal,
+                                   totalCnt ) );
     
     // UNE
     viewUneElement( pMes, UneElem( UnhNumber ) );

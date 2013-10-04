@@ -986,6 +986,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "   pax_grp.class_grp is not null AND \n"
         "   pax_grp.class_grp = cls_grp.id and \n"
         "   pax_grp.hall = halls2.id(+) and \n"
+        "   pax_grp.status NOT IN ('E') and \n"
         "   pr_brd IS NOT NULL and \n"
         "   decode(:pr_brd_pax, 0, nvl2(pax.pr_brd, 0, -1), pax.pr_brd)  = :pr_brd_pax and \n";
     Qry.CreateVariable("pr_brd_pax", otInteger, rpt_params.pr_brd);
@@ -1332,7 +1333,8 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "    points.pr_del>=0 AND "
         "    pax_grp.point_dep = :point_id and "
         "    pax_grp.point_arv = points.point_id and "
-        "    pax_grp.grp_id = bag2.grp_id and ";
+        "    pax_grp.grp_id = bag2.grp_id and "
+        "    pax_grp.status NOT IN ('E') and ";
         
     if (rpt_params.pr_brd)
       SQLText +=
@@ -1608,6 +1610,7 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "  pax_grp.point_dep = :point_id and "
         "  pax_grp.grp_id = bag2.grp_id and "
         "  pax_grp.grp_id = transfer.grp_id and "
+        "  pax_grp.status NOT IN ('E') and "
         "  ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 and "
         "  bag2.pr_cabin = 0 and "
         "  transfer.pr_final <> 0 ";
@@ -2130,6 +2133,7 @@ void REFUSE(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "FROM   pax_grp,pax,refusal_types "
         "WHERE  pax_grp.grp_id=pax.grp_id AND "
         "       pax.refuse = refusal_types.code AND "
+        "       pax_grp.status NOT IN ('E') AND "
         "       pax.refuse IS NOT NULL and "
         "       point_dep = :point_id "
         "order by ";
@@ -2267,7 +2271,8 @@ void NOTPRES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "FROM   pax_grp,pax "
         "WHERE  pax_grp.grp_id=pax.grp_id AND "
         "       pax.pr_brd=0 and "
-        "       point_dep = :point_id "
+        "       point_dep = :point_id and "
+        "       pax_grp.status NOT IN ('E') "
         "order by ";
     switch(rpt_params.sort) {
         case stRegNo:
@@ -2499,7 +2504,8 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "FROM   pax_grp,pax "
         "WHERE  pax_grp.grp_id=pax.grp_id AND "
         "       pr_brd IS NOT NULL and "
-        "       point_dep = :point_id "
+        "       point_dep = :point_id and "
+        "       pax_grp.status NOT IN ('E') "
         "order by ";
     switch(rpt_params.sort) {
         case stRegNo:

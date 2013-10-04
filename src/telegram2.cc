@@ -197,6 +197,7 @@ void getPaxsSeats( int point_dep, std::map<int,TCheckinPaxSeats> &checkinPaxsSea
 	   " FROM pax_grp, pax, pax_doc "
 	   " WHERE pax_grp.grp_id=pax.grp_id AND "
 	   "       pax_grp.point_dep=:point_id AND "
+     "       pax_grp.status NOT IN ('E') AND "
 	   "       pax.wl_type IS NULL AND "
 	   "       pax.seats > 0 AND "
 	   "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'one',rownum,1) IS NOT NULL AND "
@@ -707,6 +708,7 @@ namespace PRL_SPACE {
             "WHERE "
             "     pax_grp.grp_id=pax.grp_id AND "
             "     pax_grp.point_dep=:point_id AND "
+            "     pax_grp.status NOT IN ('E') AND "
             "     pax.seats=0 AND ";
         if((PRLOptions and PRLOptions->pax_state == "CKIN") or info.get_tlg_type() == "LCI")
             SQLText += " pax.pr_brd is not null and ";
@@ -754,6 +756,7 @@ namespace PRL_SPACE {
                 "WHERE "
                 "     pax_grp.grp_id=pax.grp_id AND "
                 "     pax_grp.point_dep=:point_id AND "
+                "     pax_grp.status NOT IN ('E') AND "
                 "     pax.pers_type='‚‡' AND ";
             if((PRLOptions and PRLOptions->pax_state == "CKIN") or info.get_tlg_type() == "LCI")
                 SQLText += " pax.pr_brd is not null ";
@@ -1369,6 +1372,7 @@ namespace PRL_SPACE {
             "    pax_doc "
             "WHERE "
             "    pax_grp.point_dep = :point_id and "
+            "    pax_grp.status NOT IN ('E') AND "
             "    pax_grp.airp_arv = :airp and "
             "    pax_grp.grp_id=pax.grp_id AND "
             "    pax_grp.class_grp = cls_grp.id(+) AND "
@@ -1734,6 +1738,7 @@ namespace PRL_SPACE {
             "   pax, pax_grp "
             "WHERE "
             "   pax_grp.point_dep = :point_id AND "
+            "   pax_grp.status NOT IN ('E') AND "
             "   pax_grp.grp_id = pax.grp_id AND "
             "   (pax.seats=0 OR salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'one',rownum,1) IS NOT NULL) AND "
             "   pax.refuse IS NULL "
@@ -1756,6 +1761,7 @@ namespace PRL_SPACE {
             "   pax_grp, bag2 "
             "WHERE "
             "   pax_grp.point_dep = :point_id AND "
+            "   pax_grp.status NOT IN ('E') AND "
             "   pax_grp.grp_id = bag2.grp_id AND "
             "   ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse) = 0 "
             "GROUP BY "
@@ -1881,6 +1887,7 @@ namespace PRL_SPACE {
             "   trip_classes.point_id = :point_id and "
             "   trip_classes.point_id = pax_grp.point_dep(+) and "
             "   trip_classes.class = pax_grp.class(+) and "
+            "   pax_grp.status(+) NOT IN ('E') AND "
             "   pax_grp.grp_id = pax.grp_id(+) "
             "GROUP BY "
             "   trip_classes.class, "
@@ -2592,7 +2599,7 @@ void TBTMGrpList::get(TypeB::TDetailCreateInfo &info, TFItem &FItem)
         "       transfer_subcls,  \n"
         "       subcls  \n"
         "    where  \n"
-        "      pax_grp.point_dep = :point_id and  \n"
+        "      pax_grp.point_dep = :point_id and \n"
         "      pax_grp.airp_arv = :airp_arv and  \n"
         "      pax_grp.grp_id = pax.grp_id and  \n"
         "      pax.pax_id = transfer_subcls.pax_id and  \n"
@@ -2605,7 +2612,7 @@ void TBTMGrpList::get(TypeB::TDetailCreateInfo &info, TFItem &FItem)
         "   transfer.grp_id = pax_grp.grp_id and  \n"
         "   transfer.transfer_num = 1 and  \n"
         "   transfer.airp_arv = :trfer_airp and  \n"
-        "   pax_grp.status <> 'T' and  \n"
+        "   pax_grp.status NOT IN ('T', 'E') and \n"
         "   pax_grp.point_dep = :point_id and  \n"
         "   pax_grp.airp_arv = :airp_arv and \n"
         "   pax_grp.grp_id = a.grp_id(+) and \n"
@@ -2738,6 +2745,7 @@ void TFList<T>::get(TypeB::TDetailCreateInfo &info)
         "        subcls \n"
         "     where \n"
         "       pax_grp.point_dep = :point_id and \n"
+        "       pax_grp.status NOT IN ('E') and \n"
         "       pax_grp.airp_arv = :airp and \n"
         "       pax_grp.grp_id = pax.grp_id and \n"
         "       pax.pax_id = transfer_subcls.pax_id and \n"
@@ -2751,6 +2759,7 @@ void TFList<T>::get(TypeB::TDetailCreateInfo &info)
         "       pax_grp \n"
         "     where \n"
         "       pax_grp.point_dep = :point_id and \n"
+        "       pax_grp.status NOT IN ('E') and \n"
         "       pax_grp.airp_arv = :airp and \n"
         "       pax_grp.class is null \n"
         "    ) a \n"
@@ -3063,6 +3072,7 @@ void TPSM::get(TypeB::TDetailCreateInfo &info)
         "   pax_grp "
         "where "
         "   pax_grp.point_dep = :point_dep and "
+        "   pax_grp.status NOT IN ('E') and "
         "   pax.pr_brd = 1 and "
         "   pax_grp.grp_id = pax.grp_id "
         "order by "
@@ -3132,6 +3142,7 @@ void TPIL::get(TypeB::TDetailCreateInfo &info)
         "   pax_grp "
         "where "
         "   pax_grp.point_dep = :point_dep and "
+        "   pax_grp.status NOT IN ('E') and "
         "   pax.pr_brd = 1 and "
         "   pax_grp.grp_id = pax.grp_id "
         "order by "
@@ -3248,6 +3259,7 @@ void TTPM::get(TypeB::TDetailCreateInfo &info)
         "   pax_grp "
         "where "
         "   pax_grp.point_dep = :point_id and "
+        "   pax_grp.status NOT IN ('E') and "
         "   pax_grp.grp_id = pax.grp_id and "
         "   pax.refuse is null and "
         "   pax.pr_brd = 1 and "
@@ -4341,6 +4353,7 @@ void TPIMBody::get(TypeB::TDetailCreateInfo &info)
         "WHERE "
         "    pax_grp.grp_id=pax.grp_id AND "
         "    pax_grp.point_dep=:point_id AND "
+        "    pax_grp.status NOT IN ('E') AND "
         "    pr_brd = 1"
         "ORDER BY "
         "    pax_grp.airp_arv, "
@@ -4406,6 +4419,7 @@ void TFTLBody::get(TypeB::TDetailCreateInfo &info)
         "    crs_pax.pnr_id=crs_pnr.pnr_id(+) AND "
         "    pax_grp.class=classes.code AND "
         "    pax_grp.point_dep=:point_id AND "
+        "    pax_grp.status NOT IN ('E') AND "
         "    pr_brd IS NOT NULL "
         "ORDER BY "
         "    pax_grp.airp_arv, "
@@ -4505,6 +4519,7 @@ void TETLDest::GetPaxList(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &
         "    crs_pnr "
         "WHERE "
         "    pax_grp.point_dep = :point_id and "
+        "    pax_grp.status NOT IN ('E') AND "
         "    pax_grp.airp_arv = :airp and "
         "    pax_grp.grp_id=pax.grp_id AND "
         "    pax_grp.class_grp = cls_grp.id(+) AND "
@@ -4668,6 +4683,7 @@ void TLDMBag::get(TypeB::TDetailCreateInfo &info, int point_arv)
         "WHERE pax_grp.grp_id=bag2.grp_id AND "
         "      pax_grp.point_dep=:point_id AND "
         "      pax_grp.point_arv=:point_arv AND "
+        "      pax_grp.status NOT IN ('E') AND "
         "      bag2.pr_cabin=0 AND "
         "      ckin.bag_pool_boarded(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)<>0";
     Qry.CreateVariable("point_arv", otInteger, point_arv);
@@ -4698,6 +4714,7 @@ void TExcess::get(int point_id, string airp_arv)
         "SELECT NVL(SUM(excess),0) excess FROM pax_grp "
         "WHERE "
         "   point_dep=:point_id AND "
+        "   pax_grp.status NOT IN ('E') AND "
         "   ckin.excess_boarded(grp_id,class,bag_refuse)<>0 ";
     if(not airp_arv.empty()) {
         SQLText += " and airp_arv = :airp_arv ";
@@ -4988,7 +5005,10 @@ void TLDMDests::get(TypeB::TDetailCreateInfo &info)
         "             SUM(DECODE(pers_type,'',1,0)) AS chd, "
         "             SUM(DECODE(pers_type,'Œ',1,0)) AS inf "
         "      FROM pax_grp,pax "
-        "      WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_id AND pr_brd=1 "
+        "      WHERE pax_grp.grp_id=pax.grp_id AND "
+        "            point_dep=:point_id AND "
+        "            pax_grp.status NOT IN ('E') AND "
+        "            pr_brd=1 "
         "      GROUP BY point_arv) pax "
         "WHERE points.point_id=pax.point_arv(+) AND "
         "      first_point=:first_point AND point_num>:point_num AND pr_del=0 "
@@ -5318,7 +5338,10 @@ void TMVTABody::get(TypeB::TDetailCreateInfo &info)
         "             SUM(pax.seats) AS seats, "
         "             SUM(DECODE(pax.seats,0,1,0)) AS inf "
         "      FROM pax_grp,pax "
-        "      WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_id AND pr_brd=1 "
+        "      WHERE pax_grp.grp_id=pax.grp_id AND "
+        "            point_dep=:point_id AND "
+        "            pax_grp.status NOT IN ('E') AND "
+        "            pr_brd=1 "
         "      GROUP BY pax_grp.point_arv) pax "
         "WHERE points.point_id=pax.point_arv(+) AND "
         "      first_point=:first_point AND point_num>:point_num AND pr_del=0 "
@@ -5952,7 +5975,9 @@ void TDestList<T>::get(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &com
         "  SELECT DISTINCT cls_grp.code AS class "
         "  FROM pax_grp,cls_grp "
         "  WHERE pax_grp.class_grp=cls_grp.id AND "
-        "        pax_grp.point_dep = :vpoint_id AND pax_grp.bag_refuse=0 "
+        "        pax_grp.point_dep = :vpoint_id AND "
+        "        pax_grp.status NOT IN ('E') AND "
+        "        pax_grp.bag_refuse=0 "
         "  UNION "
         "  SELECT class FROM trip_classes WHERE point_id = :vpoint_id "
         ") b  "
@@ -6515,7 +6540,7 @@ void TPFSInfo::get(int point_id)
         "    pax,  "
         "    crs_pax  "
         "where  "
-        "    pax_grp.status <> :psTransit and  "
+        "    pax_grp.status NOT IN (:psTransit, :psCrew) and  "
         "    pax_grp.point_dep = :point_id and  "
         "    pax_grp.grp_id = pax.grp_id and  "
         "    pax.refuse is null and "
@@ -6524,6 +6549,7 @@ void TPFSInfo::get(int point_id)
         "    crs_pax.pr_del(+) = 0  ";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.CreateVariable("psTransit", otString, EncodePaxStatus(psTransit));
+    Qry.CreateVariable("psCrew", otString, EncodePaxStatus(psCrew));
     Qry.Execute();
     if(!Qry.Eof) {
         int col_pax_id = Qry.FieldIndex("pax_id");

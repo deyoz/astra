@@ -979,7 +979,20 @@ TPaxGrpItem& TPaxGrpItem::fromXML(xmlNodePtr node)
   point_arv=NodeAsIntegerFast("point_arv",node2);
   airp_arv=NodeAsStringFast("airp_arv",node2);
   cl=NodeAsStringFast("class",node2);
-  status=DecodePaxStatus(NodeAsStringFast("status",node2,""));
+  if (NodeIsNULLFast("status",node2,true))
+  {
+    if (id!=ASTRA::NoExists)
+    {
+      TQuery Qry(&OraSession);
+      Qry.Clear();
+      Qry.SQLText="SELECT status FROM pax_grp WHERE grp_id=:grp_id";
+      Qry.CreateVariable("grp_id", otInteger, id);
+      Qry.Execute();
+      if (!Qry.Eof && !Qry.FieldIsNULL("status"))
+        status=DecodePaxStatus(Qry.FieldAsString("status"));
+    };
+  }
+  else status=DecodePaxStatus(NodeAsStringFast("status",node2));
   tid=NodeAsIntegerFast("tid",node2,ASTRA::NoExists);
   return *this;
 };

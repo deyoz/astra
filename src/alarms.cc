@@ -186,6 +186,7 @@ bool calc_waitlist_alarm( int point_id )
     "FROM pax_grp, pax "
     "WHERE pax_grp.grp_id=pax.grp_id AND "
     "      pax_grp.point_dep=:point_id AND "
+    "      pax_grp.status NOT IN ('E') AND "
     "      pax.pr_brd IS NOT NULL AND pax.seats > 0 AND "
     "      salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'list',rownum) IS NULL AND "
     "      rownum<2";
@@ -214,6 +215,7 @@ bool check_brd_alarm( int point_id )
 	    "SELECT pax_id FROM pax, pax_grp "
 	    " WHERE pax_grp.point_dep=:point_id AND "
 	    "       pax_grp.grp_id=pax.grp_id AND "
+      "       pax_grp.status NOT IN ('E') AND "
 	    "       pax.wl_type IS NULL AND "
 	    "       pax.pr_brd = 0 AND "
 	    "       rownum < 2 ";
@@ -254,6 +256,7 @@ bool check_spec_service_alarm(int point_id)
         "  pax_rem "
         "where "
         "  pax_grp.point_dep = :point_id and "
+        "  pax_grp.status NOT IN ('E') and "
         "  pax_grp.grp_id = pax.grp_id and "
         "  pax.refuse is null and "  
         "  pax.pax_id = pax_rem.pax_id ";
@@ -324,7 +327,9 @@ bool check_conflict_trfer_alarm(int point_id)
   Qry.SQLText =
     "SELECT grp_id "
     "FROM pax_grp "
-    "WHERE point_dep = :point_id AND trfer_conflict<>0 AND rownum<2 ";
+    "WHERE point_dep = :point_id AND "
+    "      status NOT IN ('E') AND "
+    "      trfer_conflict<>0 AND rownum<2 ";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   conflict_trfer_alarm = !Qry.Eof;

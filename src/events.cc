@@ -179,8 +179,10 @@ std::string TPaxToLogInfo::getPaxNameStr() const
   if (pers_type.empty())
     msg << "Багаж без сопровождения";
   else
-    msg << "Пассажир " << surname << (name.empty()?"":" ") << name
-                       << " (" << pers_type << ")";
+    msg << (status!=EncodePaxStatus(psCrew)?"Пассажир ":"Член экипажа ")
+        << surname
+        << (name.empty()?"":" ") << name
+        << " (" << pers_type << ")";
   return msg.str();
 };
 
@@ -391,12 +393,14 @@ void SaveGrpToLog(int point_id,
     bool changed=false;
     if (aPax!=grpInfoAfter.pax.end())
     {
+      bool is_crew=aPax->second.status==EncodePaxStatus(psCrew);
+      bool is_unaccomp=aPax->second.cl.empty() && !is_crew;
       if (aPax->second.refuse.empty())
       {
         //пассажир не разрегистрирован
         if (bPax!=grpInfoBefore.pax.end() && bPax->second.refuse.empty())
         {
-          if (!aPax->second.cl.empty() &&
+          if (!is_unaccomp &&
               !(aPax->second.surname==bPax->second.surname &&
                 aPax->second.name==bPax->second.name &&
                 aPax->second.pers_type==bPax->second.pers_type &&
@@ -410,7 +414,8 @@ void SaveGrpToLog(int point_id,
             //пассажир изменен
             ostringstream msg;
             msg << aPax->second.getPaxNameStr() << ". "
-                << "Изменены данные пассажира.";
+                << "Изменены данные "
+                << (!is_crew?"пассажира.":"члена экипажа.");
             reqInfo->MsgToLog(msg.str(), ASTRA::evtPax, point_id, aPax->first.reg_no, grp_id);
             changed=true;
           };
@@ -431,14 +436,15 @@ void SaveGrpToLog(int point_id,
           //пассажир добавлен
           ostringstream msg;
           msg << aPax->second.getPaxNameStr() << " зарегистрирован";
-          if (!aPax->second.cl.empty())
+          if (!is_unaccomp)
           {
             if (aPax->second.pr_exam) msg << ", прошел досмотр";
             if (aPax->second.pr_brd) msg << ", прошел посадку";
-            msg << ". П/н: " << aPax->second.airp_arv
-                << ", класс: " << aPax->second.cl
-                << ", статус: " << aPax->second.status
-                << ", место: " << (aPax->second.seat_no.empty()?"нет":aPax->second.seat_no);
+            msg << ". П/н: " << aPax->second.airp_arv;
+            if (!is_crew)
+              msg << ", класс: " << aPax->second.cl
+                  << ", статус: " << aPax->second.status
+                  << ", место: " << (aPax->second.seat_no.empty()?"нет":aPax->second.seat_no);
           }
           else
           {
@@ -456,7 +462,7 @@ void SaveGrpToLog(int point_id,
       else
       {
         //пассажир разрегистрирован
-        if (!aPax->second.cl.empty())
+        if (!is_unaccomp)
         {
           if (bPax==grpInfoBefore.pax.end() || bPax->second.refuse.empty())
           {

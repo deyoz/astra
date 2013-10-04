@@ -18,7 +18,7 @@ const char* TPersonS[] = {"Çá","êÅ","êå",""};
 
 const int TQueueS[] = {1,2,4,6,8,0};
 
-const char* TPaxStatusS[] = {"K","C","T","P"};
+const char* TPaxStatusS[] = {"K","C","T","P","E"};
 
 const char* CompLayerTypeS[] = {"BLOCK_CENT","TRANZIT","CHECKIN","TCHECKIN","GOSHOW","BLOCK_TRZT","SOM_TRZT","PRL_TRZT",
                                 "PROT_BPAY", "PROT_APAY", "PNL_BPAY", "PNL_APAY",

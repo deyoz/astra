@@ -1553,13 +1553,13 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     "         NVL(SUM(DECODE(pers_type,:baby,1,0)),0) AS baby "
     "  FROM pax_grp,pax "
     "  WHERE pax_grp.grp_id=pax.grp_id AND "
-    "        point_dep=:point_id AND pr_brd IS NOT NULL) a, "
+    "        point_dep=:point_id AND status NOT IN ('E') AND pr_brd IS NOT NULL) a, "
     " (SELECT NVL(SUM(DECODE(pr_cabin,0,amount,0)),0) AS bag_amount, "
     "         NVL(SUM(DECODE(pr_cabin,0,weight,0)),0) AS bag_weight, "
     "         NVL(SUM(DECODE(pr_cabin,0,0,weight)),0) AS rk_weight "
     "  FROM pax_grp,bag2 "
     "  WHERE pax_grp.grp_id=bag2.grp_id AND "
-    "        point_dep=:point_id AND "
+    "        point_dep=:point_id AND status NOT IN ('E') AND "
     "        ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0) b, "
     " (SELECT NVL(SUM(crs_ok),0) AS crs_ok, "
     "         NVL(SUM(crs_tranzit),0) AS crs_tranzit "
@@ -1567,7 +1567,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     "  WHERE point_dep=:point_id) c, "
     " (SELECT NVL(SUM(excess),0) AS excess "
     "  FROM pax_grp "
-    "  WHERE point_dep=:point_id AND bag_refuse=0) e, "
+    "  WHERE point_dep=:point_id AND status NOT IN ('E') AND bag_refuse=0) e, "
     " (SELECT NVL(SUM(cfg),0) AS cfg "
     "  FROM trip_classes "
     "  WHERE point_id=:point_id) f";
@@ -1630,16 +1630,20 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
 
   list<TPaxLoadItem> paxLoad;
 
+  string crew_filter;
+  if (!(pr_class || pr_cl_grp || pr_status)) crew_filter="pax_grp.status NOT IN ('E') AND ";
+
   if (!pr_section)
   {
-    const char* last_trfer_sql=
-      "     (SELECT trfer_trips.airline,trfer_trips.flt_no,trfer_trips.suffix,transfer.airp_arv, \n"
-      "             transfer.grp_id \n"
-      "      FROM pax_grp,transfer,trfer_trips \n"
-      "      WHERE pax_grp.grp_id=transfer.grp_id AND \n"
-      "            transfer.point_id_trfer=trfer_trips.point_id AND \n"
-      "            transfer.pr_final<>0 AND \n"
-      "            pax_grp.point_dep=:point_id) last_trfer";
+    ostringstream last_trfer_sql;
+    last_trfer_sql << "     (SELECT trfer_trips.airline,trfer_trips.flt_no,trfer_trips.suffix,transfer.airp_arv, " << endl
+                   << "             transfer.grp_id " << endl
+                   << "      FROM pax_grp,transfer,trfer_trips " << endl
+                   << "      WHERE pax_grp.grp_id=transfer.grp_id AND " << endl
+                   << "            transfer.point_id_trfer=trfer_trips.point_id AND " << endl
+                   << "            transfer.pr_final<>0 AND " << endl
+                   << "            " << crew_filter << endl
+                   << "            pax_grp.point_dep=:point_id) last_trfer" << endl;
   
     for(int pass=1;pass<=5;pass++)
     {
@@ -1653,56 +1657,70 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
           (pass==4 && (pr_ticket_rem || pr_rems)) ||
           (pass==5 && (pr_ticket_rem || pr_rems))) continue;
 
-      ostringstream sql,group_by;
+      ostringstream sql, group_by, select;
 
       if (pass==1)
       {
         //запрос по компоновке
-        if (pr_class)       group_by << ", trip_classes.class";
+        for(int i=0; i<2; i++)
+        {
+          ostringstream &s=(i==0)?select:group_by;
+          if (pr_class)       s << ", trip_classes.class";
+        };
 
         sql << "SELECT SUM(trip_classes.cfg) AS cfg, " << endl
-            << "       " << group_by.str().erase(0,1) << endl
+            << "       " << select.str().erase(0,1) << endl
             << "FROM trip_classes " << endl
             << "WHERE point_id=:point_id " << endl;
       };
       if (pass==2)
       {
         //запрос по брони
-        if (pr_class)       group_by << ", counters2.class";
-        if (pr_airp_arv)    group_by << ", counters2.point_arv";
+        for(int i=0; i<2; i++)
+        {
+          ostringstream &s=(i==0)?select:group_by;
+          if (pr_class)       s << ", counters2.class";
+          if (pr_airp_arv)    s << ", counters2.point_arv";
+        };
 
         sql << "SELECT SUM(counters2.crs_ok) AS crs_ok, " << endl
             << "       SUM(counters2.crs_tranzit) AS crs_tranzit, " << endl
-            << "       " << group_by.str().erase(0,1) << endl
+            << "       " << select.str().erase(0,1) << endl
             << "FROM counters2 " << endl
             << "WHERE point_dep=:point_id " << endl;
       };
       if (pass==3)
       {
         //запрос по пассажирам
-        if (pr_class)       group_by << ", pax_grp.class";
-        if (pr_cl_grp)      group_by << ", pax_grp.class_grp";
-        if (pr_hall)        group_by << ", pax_grp.hall";
-        if (pr_airp_arv)    group_by << ", pax_grp.point_arv";
-        if (pr_trfer)       group_by << ", last_trfer.airline"
-                                     << ", last_trfer.flt_no"
-                                     << ", last_trfer.suffix"
-                                     << ", last_trfer.airp_arv";
-        if (pr_user)        group_by << ", pax_grp.user_id";
-        if (pr_client_type) group_by << ", pax_grp.client_type";
-        if (pr_status)      group_by << ", pax_grp.status";
-        if (pr_ticket_rem)  group_by << ", pax.ticket_rem";
-        if (pr_rems)        group_by << ", pax_rem.rem_code";
+        for(int i=0; i<2; i++)
+        {
+          ostringstream &s=(i==0)?select:group_by;
+          if (pr_class)       s << ", DECODE(pax_grp.status,'E',' ',pax_grp.class)"
+                                << (i==0?" AS class":"");
+          if (pr_cl_grp)      s << ", DECODE(pax_grp.status,'E',1000000000,pax_grp.class_grp)"
+                                << (i==0?" AS class_grp":"");
+          if (pr_hall)        s << ", pax_grp.hall";
+          if (pr_airp_arv)    s << ", pax_grp.point_arv";
+          if (pr_trfer)       s << ", last_trfer.airline"
+                                << ", last_trfer.flt_no"
+                                << ", last_trfer.suffix"
+                                << ", last_trfer.airp_arv";
+          if (pr_user)        s << ", pax_grp.user_id";
+          if (pr_client_type) s << ", pax_grp.client_type";
+          if (pr_status)      s << ", pax_grp.status";
+          if (pr_ticket_rem)  s << ", pax.ticket_rem";
+          if (pr_rems)        s << ", pax_rem.rem_code";
+        };
 
         sql << "SELECT SUM(pax.seats) AS seats, " << endl
             << "       SUM(DECODE(pax.pers_type,:adult,1,0)) AS adult, " << endl
             << "       SUM(DECODE(pax.pers_type,:child,1,0)) AS child, " << endl
             << "       SUM(DECODE(pax.pers_type,:baby,1,0)) AS baby, " << endl
-            << "       " << group_by.str().erase(0,1) << endl
+            << "       " << select.str().erase(0,1) << endl
             << "FROM pax_grp,pax " << endl;
 
         if (pr_trfer) sql << "    ," << endl
-                          << last_trfer_sql << endl;
+                          << last_trfer_sql.str() << endl;
         if (pr_rems)
         {
           sql << ",( " << endl;
@@ -1715,7 +1733,9 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
                 sql << "  SELECT pax.pax_id,pax.ticket_rem AS rem_code" << endl
                     << "  FROM pax_grp,pax " << endl
                     << "  WHERE pax_grp.grp_id=pax.grp_id AND " << endl
-                    << "        pax_grp.point_dep=:point_id AND pax.pr_brd IS NOT NULL AND " << endl
+                    << "        pax_grp.point_dep=:point_id AND " << endl
+                    << "        " << crew_filter << endl
+                    << "        pax.pr_brd IS NOT NULL AND " << endl
                     << "        pax.ticket_rem IN " << GetSQLEnum(iRem->second) << endl;
                 break;
               case remDOC:
@@ -1723,7 +1743,9 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
                     << "  FROM pax_grp,pax,pax_doc " << endl
                     << "  WHERE pax_grp.grp_id=pax.grp_id AND " << endl
                     << "        pax.pax_id=pax_doc.pax_id AND " << endl
-                    << "        pax_grp.point_dep=:point_id AND pax.pr_brd IS NOT NULL AND " << endl
+                    << "        pax_grp.point_dep=:point_id AND " << endl
+                    << "        " << crew_filter << endl
+                    << "        pax.pr_brd IS NOT NULL AND " << endl
                     << "        'DOCS' IN " << GetSQLEnum(iRem->second) << endl;
                 break;
               case remDOCO:
@@ -1731,7 +1753,9 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
                     << "  FROM pax_grp,pax,pax_doco " << endl
                     << "  WHERE pax_grp.grp_id=pax.grp_id AND " << endl
                     << "        pax.pax_id=pax_doco.pax_id AND " << endl
-                    << "        pax_grp.point_dep=:point_id AND pax.pr_brd IS NOT NULL AND " << endl
+                    << "        pax_grp.point_dep=:point_id AND " << endl
+                    << "        " << crew_filter << endl
+                    << "        pax.pr_brd IS NOT NULL AND " << endl
                     << "        'DOCO' IN " << GetSQLEnum(iRem->second) << endl;
                 break;
               default:
@@ -1739,7 +1763,9 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
                     << "  FROM pax_grp,pax,pax_rem " << endl
                     << "  WHERE pax_grp.grp_id=pax.grp_id AND " << endl
                     << "        pax.pax_id=pax_rem.pax_id AND " << endl
-                    << "        pax_grp.point_dep=:point_id AND pax.pr_brd IS NOT NULL AND " << endl
+                    << "        pax_grp.point_dep=:point_id AND " << endl
+                    << "        " << crew_filter << endl
+                    << "        pax.pr_brd IS NOT NULL AND " << endl
                     << "        pax_rem.rem_code IN " << GetSQLEnum(iRem->second) << endl;
                 break;
             };
@@ -1748,29 +1774,34 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
         };
 
         sql << "WHERE pax_grp.grp_id=pax.grp_id AND " << endl
-            << "      pax_grp.point_dep=:point_id AND pax.pr_brd IS NOT NULL " << endl;
+            << "      pax_grp.point_dep=:point_id AND " << endl
+            << "      " << crew_filter << endl
+            << "      pax.pr_brd IS NOT NULL " << endl;
         if (pr_trfer) sql << "      AND pax_grp.grp_id=last_trfer.grp_id(+) " << endl;
         if (pr_rems)  sql << "      AND pax.pax_id=pax_rem.pax_id " << endl;
       };
       if (pass==4)
       {
         //запрос по багажу
-        if (pr_class)       group_by << ", pax_grp.class";
-        if (pr_cl_grp)      group_by << ", pax_grp.class_grp";
-        if (pr_airp_arv)    group_by << ", pax_grp.point_arv";
-        if (pr_trfer)       group_by << ", last_trfer.airline"
-                                     << ", last_trfer.flt_no"
-                                     << ", last_trfer.suffix"
-                                     << ", last_trfer.airp_arv";
-        if (pr_client_type) group_by << ", pax_grp.client_type";
-        if (pr_status)      group_by << ", pax_grp.status";
-
-        ostringstream select;
-        select << group_by.str();
-        if (pr_hall)      { select   << ", NVL(bag2.hall, DECODE(bag2.is_trfer, 0, bag2.hall, 1000000000)) AS hall";
-                            group_by << ", NVL(bag2.hall, DECODE(bag2.is_trfer, 0, bag2.hall, 1000000000))"; };
-        if (pr_user)      { select   << ", NVL(bag2.user_id, DECODE(bag2.is_trfer, 0, bag2.user_id, 1000000000)) AS user_id";
-                            group_by << ", NVL(bag2.user_id, DECODE(bag2.is_trfer, 0, bag2.user_id, 1000000000))"; };
+        for(int i=0; i<2; i++)
+        {
+          ostringstream &s=(i==0)?select:group_by;
+          if (pr_class)       s << ", DECODE(pax_grp.status,'E',' ',pax_grp.class)"
+                                << (i==0?" AS class":"");
+          if (pr_cl_grp)      s << ", DECODE(pax_grp.status,'E',1000000000,pax_grp.class_grp)"
+                                << (i==0?" AS class_grp":"");
+          if (pr_hall)        s << ", NVL(bag2.hall, DECODE(bag2.is_trfer, 0, bag2.hall, 1000000000))"
+                                << (i==0?" AS hall":"");
+          if (pr_airp_arv)    s << ", pax_grp.point_arv";
+          if (pr_trfer)       s << ", last_trfer.airline"
+                                << ", last_trfer.flt_no"
+                                << ", last_trfer.suffix"
+                                << ", last_trfer.airp_arv";
+          if (pr_user)        s << ", NVL(bag2.user_id, DECODE(bag2.is_trfer, 0, bag2.user_id, 1000000000))"
+                                << (i==0?" AS user_id":"");
+          if (pr_client_type) s << ", pax_grp.client_type";
+          if (pr_status)      s << ", pax_grp.status";
+        };
 
         sql << "SELECT SUM(DECODE(bag2.pr_cabin,0,bag2.amount,0)) AS bag_amount, " << endl
             << "       SUM(DECODE(bag2.pr_cabin,0,bag2.weight,0)) AS bag_weight, " << endl
@@ -1779,39 +1810,43 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
             << "FROM pax_grp,bag2 " << endl;
 
         if (pr_trfer) sql << "    ," << endl
-                          << last_trfer_sql << endl;
+                          << last_trfer_sql.str() << endl;
 
         sql << "WHERE pax_grp.grp_id=bag2.grp_id AND " << endl
             << "      pax_grp.point_dep=:point_id AND " << endl
+            << "      " << crew_filter << endl
             << "      ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 " << endl;
         if (pr_trfer) sql << "      AND pax_grp.grp_id=last_trfer.grp_id(+) " << endl;
       };
       if (pass==5)
       {
         //запрос по платному багажу
-        if (pr_class)       group_by << ", pax_grp.class";
-        if (pr_cl_grp)      group_by << ", pax_grp.class_grp";
-        if (pr_airp_arv)    group_by << ", pax_grp.point_arv";
-        if (pr_trfer)       group_by << ", last_trfer.airline"
-                                     << ", last_trfer.flt_no"
-                                     << ", last_trfer.suffix"
-                                     << ", last_trfer.airp_arv";
-        if (pr_client_type) group_by << ", pax_grp.client_type";
-        if (pr_status)      group_by << ", pax_grp.status";
-
-        ostringstream select;
-        select << group_by.str();
-        if (pr_hall)      { select   << ", DECODE(bag2.grp_id, NULL, pax_grp.hall, NVL(bag2.hall, DECODE(bag2.is_trfer, 0, pax_grp.hall, 1000000000))) AS hall";
-                            group_by << ", DECODE(bag2.grp_id, NULL, pax_grp.hall, NVL(bag2.hall, DECODE(bag2.is_trfer, 0, pax_grp.hall, 1000000000)))"; };
-        if (pr_user)      { select   << ", DECODE(bag2.grp_id, NULL, pax_grp.user_id, NVL(bag2.user_id, DECODE(bag2.is_trfer, 0, pax_grp.user_id, 1000000000))) AS user_id";
-                            group_by << ", DECODE(bag2.grp_id, NULL, pax_grp.user_id, NVL(bag2.user_id, DECODE(bag2.is_trfer, 0, pax_grp.user_id, 1000000000)))"; };
+        for(int i=0; i<2; i++)
+        {
+          ostringstream &s=(i==0)?select:group_by;
+          if (pr_class)       s << ", DECODE(pax_grp.status,'E',' ',pax_grp.class)"
+                                << (i==0?" AS class":"");
+          if (pr_cl_grp)      s << ", DECODE(pax_grp.status,'E',1000000000,pax_grp.class_grp)"
+                                << (i==0?" AS class_grp":"");
+          if (pr_hall)        s << ", DECODE(bag2.grp_id, NULL, pax_grp.hall, NVL(bag2.hall, DECODE(bag2.is_trfer, 0, pax_grp.hall, 1000000000)))"
+                                << (i==0?" AS hall":"");
+          if (pr_airp_arv)    s << ", pax_grp.point_arv";
+          if (pr_trfer)       s << ", last_trfer.airline"
+                                << ", last_trfer.flt_no"
+                                << ", last_trfer.suffix"
+                                << ", last_trfer.airp_arv";
+          if (pr_user)        s << ", DECODE(bag2.grp_id, NULL, pax_grp.user_id, NVL(bag2.user_id, DECODE(bag2.is_trfer, 0, pax_grp.user_id, 1000000000)))"
+                                << (i==0?" AS user_id":"");
+          if (pr_client_type) s << ", pax_grp.client_type";
+          if (pr_status)      s << ", pax_grp.status";
+        };
 
         sql << "SELECT SUM(excess) AS excess, " << endl
             << "       " << select.str().erase(0,1) << endl
             << "FROM pax_grp " << endl;
 
         if (pr_trfer) sql << "    ," << endl
-                          << last_trfer_sql << endl;
+                          << last_trfer_sql.str() << endl;
 
         if (pr_hall || pr_user)
           sql << "    ,(SELECT bag2.grp_id,bag2.hall,bag2.user_id,bag2.is_trfer " << endl
@@ -1822,7 +1857,9 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
               << "           GROUP BY bag2.grp_id) last_bag " << endl
               << "     WHERE bag2.grp_id=last_bag.grp_id AND bag2.num=last_bag.num) bag2 " << endl;
 
-        sql << "WHERE pax_grp.point_dep=:point_id AND pax_grp.bag_refuse=0 " << endl;
+        sql << "WHERE pax_grp.point_dep=:point_id AND " << endl
+            << "      " << crew_filter << endl
+            << "      pax_grp.bag_refuse=0 " << endl;
         if (pr_trfer)
           sql << "      AND pax_grp.grp_id=last_trfer.grp_id(+) " << endl;
         if (pr_hall || pr_user)
@@ -1924,22 +1961,42 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     {
       if (!i->class_id.empty())
       {
-        i->class_view=ElemIdToCodeNative(etClass,i->class_id);
-        try
+        if (i->class_id!=CREW_CLASS_ID)
         {
-          i->class_priority=getBaseTable(etClass).get_row("code",i->class_id,true).AsInteger("priority");
+          i->class_view=ElemIdToCodeNative(etClass,i->class_id);
+          try
+          {
+            i->class_priority=getBaseTable(etClass).get_row("code",i->class_id,true).AsInteger("priority");
+          }
+          catch(EBaseTableError) { throw; };
         }
-        catch(EBaseTableError) { throw; };
-      };
+        else
+        {
+          i->class_view=CREW_CLASS_VIEW;
+          i->class_priority=200;
+        };
+      }
+      else i->class_priority=100;
+
       if (i->cls_grp_id!=NoExists)
       {
-        i->cls_grp_view=ElemIdToCodeNative(etClsGrp,i->cls_grp_id);
-        try
+        if (i->cls_grp_id!=CREW_CLS_GRP_ID)
         {
-          i->cls_grp_priority=getBaseTable(etClsGrp).get_row("id",i->cls_grp_id,true).AsInteger("priority");
+          i->cls_grp_view=ElemIdToCodeNative(etClsGrp,i->cls_grp_id);
+          try
+          {
+            i->cls_grp_priority=getBaseTable(etClsGrp).get_row("id",i->cls_grp_id,true).AsInteger("priority");
+          }
+          catch(EBaseTableError) { throw; };
         }
-        catch(EBaseTableError) { throw; };
-      };
+        else
+        {
+          i->cls_grp_view=CREW_CLS_GRP_VIEW;
+          i->cls_grp_priority=200;
+        };
+      }
+      else i->cls_grp_priority=100;
+
       if (i->hall_id!=NoExists)
       {
         map<int, pair<string,string> >::const_iterator h=halls.find(i->hall_id);
@@ -2045,16 +2102,19 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   {
     //pr_section=true
     Qry.Clear();
-    Qry.SQLText=
-      "SELECT pax.pax_id, pax.grp_id, pax.surname, pax.pers_type, pax.seats, pax.reg_no, "
-      "       crs_inf.pax_id AS parent_pax_id, "
-      "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_amount, "
-      "       ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_weight, "
-      "       ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS rk_weight "
-      "FROM pax_grp, pax, crs_inf "
-      "WHERE pax_grp.grp_id=pax.grp_id AND "
-      "      pax_grp.point_dep=:point_id AND pax.pr_brd IS NOT NULL AND "
-      "      pax.pax_id=crs_inf.inf_id(+)";
+    ostringstream sql;
+    sql << "SELECT pax.pax_id, pax.grp_id, pax.surname, pax.pers_type, pax.seats, pax.reg_no, " << endl
+        << "       crs_inf.pax_id AS parent_pax_id, " << endl
+        << "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_amount, " << endl
+        << "       ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_weight, " << endl
+        << "       ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS rk_weight " << endl
+        << "FROM pax_grp, pax, crs_inf " << endl
+        << "WHERE pax_grp.grp_id=pax.grp_id AND " << endl
+        << "      pax_grp.point_dep=:point_id AND " << endl
+        << "      " << crew_filter << endl
+        << "      pax.pr_brd IS NOT NULL AND " << endl
+        << "      pax.pax_id=crs_inf.inf_id(+)" << endl;
+    Qry.SQLText=sql.str().c_str();
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.Execute();
     vector<TZonePaxItem> zonePaxs;
@@ -2137,6 +2197,8 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
       NewTextChild(rowNode,"class",i->class_view);
       if (i->class_id.empty())
         ReplaceTextChild(rowNode,"title",AstraLocale::getLocaleText("Несопр"));
+      if (i->class_id==CREW_CLASS_ID)
+        ReplaceTextChild(rowNode,"title",AstraLocale::getLocaleText("Экипаж"));
     };
     if (pr_cl_grp)
     {
@@ -2144,6 +2206,8 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
       {
         node=NewTextChild(rowNode,"cl_grp",i->cls_grp_view);
         SetProp(node,"id",i->cls_grp_id);
+        if (i->cls_grp_id==CREW_CLS_GRP_ID)
+          ReplaceTextChild(rowNode,"title",AstraLocale::getLocaleText("Экипаж"));
       }
       else
       {
@@ -2191,7 +2255,10 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     if (pr_status)
     {
       node=NewTextChild(rowNode,"status",i->grp_status_view);
-      SetProp(node,"id",(int)DecodePaxStatus(i->grp_status_id.c_str()));
+      TPaxStatus status_id=DecodePaxStatus(i->grp_status_id.c_str());
+      SetProp(node,"id",(int)status_id);
+      if (status_id==psCrew)
+        ReplaceTextChild(rowNode,"title",AstraLocale::getLocaleText("Экипаж"));
     };
     if (pr_ticket_rem)
     {
