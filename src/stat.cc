@@ -938,8 +938,8 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
             NewTextChild(rowNode, "screen", Qry.FieldAsString(col_screen), "");
 
             count++;
-            if(count > MAX_STAT_ROWS) {
-                AstraLocale::showErrorMessage("MSG.TOO_MANY_FLIGHTS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_SEARCH",
+            if(count >= MAX_STAT_ROWS) {
+                AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_SEARCH",
                         LParams() << LParam("num", MAX_STAT_ROWS));
                 break;
             }
@@ -1258,8 +1258,8 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                 NewTextChild(rowNode, "screen", Qry.FieldAsString(col_screen), "");
 
                 count++;
-                if(count > MAX_STAT_ROWS) {
-                    AstraLocale::showErrorMessage("MSG.TOO_MANY_FLIGHTS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_SEARCH",
+                if(count >= MAX_STAT_ROWS) {
+                    AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_SEARCH",
                             LParams() << LParam("num", MAX_STAT_ROWS));
                     break;
                 }
@@ -1360,7 +1360,7 @@ void UnaccompListToXML(TQuery &Qry, xmlNodePtr resNode, bool isPaxSearch, int pa
       {
         count++;
         if(count >= MAX_STAT_ROWS) {
-            AstraLocale::showErrorMessage("MSG.TOO_MANY_FLIGHTS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_SEARCH",
+            AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_SEARCH",
                     LParams() << LParam("num", MAX_STAT_ROWS));
             break;
         }
@@ -1482,7 +1482,7 @@ void PaxListToXML(TQuery &Qry, TQuery &PaxDocQry, xmlNodePtr resNode, bool isPax
       {
         count++;
         if(count >= MAX_STAT_ROWS) {
-            AstraLocale::showErrorMessage("MSG.TOO_MANY_FLIGHTS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_SEARCH",
+            AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_SEARCH",
                     LParams() << LParam("num", MAX_STAT_ROWS));
             break;
         }
