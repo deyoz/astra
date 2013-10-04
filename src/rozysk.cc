@@ -1310,8 +1310,9 @@ void save_mintrans_files()
   try {
     for ( TFileQueue::iterator item=file_queue.begin(); item!=file_queue.end(); item++,OraSession.Commit() ) {
       try {
-        if ( item->params.find( PARAM_WORK_DIR ) == item->params.end() ||
-             item->params[ PARAM_WORK_DIR ].empty() ) {
+        map<string,string>::const_iterator work_dir_param=item->params.find( PARAM_WORK_DIR );
+        if ( work_dir_param == item->params.end() || work_dir_param->second.empty() )
+        {
           TFileQueue::deleteFile(item->id);
           continue;
         }
@@ -1323,7 +1324,7 @@ void save_mintrans_files()
         prior_time=item->time;
 
         ostringstream file_name;
-        file_name << item->params[ PARAM_WORK_DIR ]
+        file_name << work_dir_param->second
                   << MINTRANS_ID
                   << DateTimeToStr(item->time, "_yyyy_mm_dd_hh_nn_ss_")
                   << setw(3) << setfill('0') << msec
@@ -1380,131 +1381,6 @@ void save_mintrans_files()
     throw;
   };
   ProgTrace(TRACE5,"save_mintrans_files finished");
-  
-/*  !!!vlad
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT file_queue.id, file_queue.time, files.data, file_params.value "
-    "FROM file_queue, files, file_params "
-    "WHERE file_queue.id = files.id AND "
-    "      file_queue.id = file_params.id(+) AND "
-    "      file_queue.type = :type AND "
-    "      file_queue.sender = :sender AND "
-    "      file_queue.receiver = :receiver AND "
-    "      file_queue.status = :status AND "
-    "      file_params.name(+) = :param_name AND "
-    "      file_queue.time < :last_time "
-    "ORDER BY file_queue.time, file_queue.id ";
-  Qry.CreateVariable("type", otString, FILE_MINTRANS_TYPE);
-  Qry.CreateVariable("sender", otString, OWN_POINT_ADDR());
-  Qry.CreateVariable("receiver", otString, OWN_POINT_ADDR());
-  Qry.CreateVariable("status", otString, "PUT");
-  Qry.CreateVariable("param_name", otString, PARAM_WORK_DIR);
-  Qry.CreateVariable("last_time", otDate, last_time);
-  Qry.Execute();
-
-  TMemoryManager mem(STDLOG);
-  char *p = NULL;
-  int p_len = 0;
-  TDateTime prior_time=NoExists;
-  int msec=0;
-  try
-  {
-    for(;!Qry.Eof; Qry.Next(), OraSession.Commit())
-    {
-      int id = Qry.FieldAsInteger("id");
-      TDateTime time = Qry.FieldAsDateTime("time");
-      try
-      {
-        string workdir=Qry.FieldAsString("value");
-        if (workdir.empty())
-        {
-          deleteFile(id);
-          continue;
-        };
-        int len = Qry.GetSizeLongField( "data" );
-        if (len > p_len)
-        {
-            char *ph = NULL;
-            if (p==NULL) {
-                ph=(char*)mem.malloc(len+1, STDLOG);
-            } else {
-                ph=(char*)mem.realloc(p, len+1, STDLOG);
-            }
-            if (ph==NULL) throw EMemoryError("Out of memory");
-            p=ph;
-            p_len=len;
-        };
-        Qry.FieldAsLong( "data", p );
-        p[len]=0;
-
-        if (prior_time==NoExists || time!=prior_time)
-          msec=0;
-        else
-          msec++;
-        prior_time=time;
-
-        ostringstream file_name;
-        file_name << workdir
-                  << MINTRANS_ID
-                  << DateTimeToStr(time, "_yyyy_mm_dd_hh_nn_ss_")
-                  << setw(3) << setfill('0') << msec
-                  << ".csv";
-        ofstream f;
-        f.open(file_name.str().c_str());
-        if (!f.is_open()) throw Exception("Can't open file '%s'",file_name.str().c_str());
-        try
-        {
-          f << p;
-          f.close();
-          deleteFile(id);
-        }
-        catch(...)
-        {
-          try { f.close(); } catch( ... ) { };
-          try
-          {
-            //в случае ошибки запишем пустой файл
-            f.open(file_name.str().c_str());
-            if (f.is_open()) f.close();
-          }
-          catch( ... ) { };
-          throw;
-        };
-      }
-      catch(Exception &E)
-      {
-          OraSession.Rollback();
-          try
-          {
-              EOracleError *orae=dynamic_cast<EOracleError*>(&E);
-              if (orae!=NULL&&
-                      (orae->Code==4061||orae->Code==4068)) continue;
-              ProgError(STDLOG,"Exception: %s (file id=%d)",E.what(),id);
-          }
-          catch(...) {};
-
-      }
-      catch(std::exception &E)
-      {
-          OraSession.Rollback();
-          ProgError(STDLOG,"std::exception: %s (file id=%d)",E.what(),id);
-      }
-      catch(...)
-      {
-          OraSession.Rollback();
-          ProgError(STDLOG,"Something goes wrong");
-      };
-    };
-    mem.free(p, STDLOG);
-  }
-  catch(...)
-  {
-    mem.free(p, STDLOG);
-    throw;
-  };
-  ProgTrace(TRACE5,"save_mintrans_files finished");  */
 };
 
 void create_file(const string &format,
