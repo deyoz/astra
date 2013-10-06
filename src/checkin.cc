@@ -1381,6 +1381,11 @@ void CreateCrewResponse(int point_dep, const TInquiryGroupSummary &sum, xmlNodeP
   xmlNodePtr paxNode=NewTextChild(node,"passengers");
   for(list<CheckIn::TPaxItem>::const_iterator p=paxs.begin(); p!=paxs.end(); ++p)
   {
+    if (p->pers_type!=adult || p->seats!=1)
+      throw UserException("MSG.CREW.MEMBER_IS_ADULT_WITH_ONE_SEAT");
+    if (p->surname.empty())
+      throw UserException("MSG.CHECKIN.SURNAME_LESS_PASSENGERS_FOR_GRP");
+
     node=NewTextChild(paxNode,"pax");
     NewTextChild(node,"pax_id",-1); //crew compatible
     NewTextChild(node,"surname",p->surname);
@@ -5164,6 +5169,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         if ( first_pax_on_flight ) {
           SALONS2::setManualCompChg( grp.point_dep );
         }
+      };
+      if (!pr_unaccomp && grp.status==psCrew)
+      {
+        check_crew_alarms( grp.point_dep );
       };
 
       check_TrferExists( grp.point_dep );
