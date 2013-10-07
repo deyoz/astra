@@ -755,6 +755,7 @@ void TRcptDocTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow *
 	*row = new TRcptDocTypesRow;
   mem.create(*row, STDLOG);
   ((TRcptDocTypesRow*)*row)->code_pax_doc=Qry.FieldAsString("code_pax_doc");
+  ((TRcptDocTypesRow*)*row)->code_mintrans=Qry.FieldAsString("code_mintrans");
 	TTIDBaseTable::create_row(Qry,row,replaced_row);
 }
 

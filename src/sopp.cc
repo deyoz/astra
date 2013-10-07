@@ -5375,7 +5375,8 @@ void SoppInterface::WriteCrew(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 	  "  END IF;"
 	  "END;";
 	xmlNodePtr dataNode = NodeAsNode( "data/crew", reqNode );
-	Qry.CreateVariable( "point_id", otInteger, NodeAsInteger( "point_id", dataNode ) );
+  int point_id=NodeAsInteger( "point_id", dataNode );
+	Qry.CreateVariable( "point_id", otInteger, point_id );
   string commander = NodeAsString( "commander", dataNode );
   validateField( commander, "Š‚‘" );
  	Qry.CreateVariable( "commander", otString, commander );
@@ -5398,7 +5399,8 @@ void SoppInterface::WriteCrew(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   }
   s += string(", Š‚‘: ") + NodeAsString( "commander", dataNode );
 	Qry.Execute();
-	TReqInfo::Instance()->MsgToLog( s, evtFlt,  NodeAsInteger( "point_id", dataNode ) );
+	TReqInfo::Instance()->MsgToLog( s, evtFlt, point_id );
+  check_crew_alarms( point_id );
 }
 
 void SoppInterface::ReadDoc(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

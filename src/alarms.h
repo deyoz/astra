@@ -17,6 +17,9 @@ enum TTripAlarmsType { atSalon,
                        atTlgOut,
                        atUnattachedTrfer,
                        atConflictTrfer,
+                       atCrewCheckin,
+                       atCrewNumber,
+                       atCrewDiff,
                        atLength };
 extern const char *TripAlarmsTypeS[];
 
@@ -43,7 +46,7 @@ void check_u_trfer_alarm_for_grp( int point_id,
 void check_u_trfer_alarm_for_next_trfer( int id,  //м.б. point_id или grp_id
                                          ASTRA::TIdType id_type );
 bool check_conflict_trfer_alarm(int point_id);
-
+void check_crew_alarms(int point_id);
 
 #endif
 

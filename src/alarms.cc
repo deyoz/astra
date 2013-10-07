@@ -8,6 +8,7 @@
 #include "astra_elems.h"
 #include "remarks.h"
 #include "transfer.h"
+#include "typeb_utils.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -28,7 +29,10 @@ const char *TripAlarmsTypeS[] = {
     "SPEC_SERVICE",
     "TLG_OUT",
     "UNATTACHED_TRFER",
-    "CONFLICT_TRFER"
+    "CONFLICT_TRFER",
+    "CREW_CHECKIN",
+    "CREW_NUMBER",
+    "CREW_DIFF"
 };
 
 TTripAlarmsType DecodeAlarmType( const string &alarm )
@@ -106,6 +110,9 @@ bool get_alarm( int point_id, TTripAlarmsType alarm_type )
         case atTlgOut:
         case atUnattachedTrfer:
         case atConflictTrfer:
+        case atCrewCheckin:
+        case atCrewNumber:
+        case atCrewDiff:
             break;
         default: throw Exception("get_alarm: alarm_type=%s not processed", EncodeAlarmType(alarm_type).c_str());
     };
@@ -129,6 +136,9 @@ void set_alarm( int point_id, TTripAlarmsType alarm_type, bool alarm_value )
         case atTlgOut:
         case atUnattachedTrfer:
         case atConflictTrfer:
+        case atCrewCheckin:
+        case atCrewNumber:
+        case atCrewDiff:
             break;
         default: throw Exception("set_alarm: alarm_type=%s not processed", EncodeAlarmType(alarm_type).c_str());
     };
@@ -337,7 +347,116 @@ bool check_conflict_trfer_alarm(int point_id)
 	return conflict_trfer_alarm;
 }
 
+void check_crew_alarms(int point_id)
+{
+  bool crew_checkin = false;
+  bool crew_number = false;
+  bool crew_diff = false;
+	if ( CheckStageACT(point_id, sCloseCheckIn) ) {
+    int sopp_num=NoExists;
+    int checkin_num=NoExists;
+    TQuery Qry(&OraSession);
+	  Qry.Clear();
+	  Qry.SQLText =
+      "SELECT NVL(cockpit,0)+NVL(cabin,0) AS num "
+      "FROM trip_crew "
+      "WHERE point_id=:point_id AND (cockpit IS NOT NULL OR cabin IS NOT NULL)";
+    Qry.CreateVariable( "point_id", otInteger, point_id );
+  	Qry.Execute();
+    if (!Qry.Eof) sopp_num=Qry.FieldAsInteger("num");
 
+    Qry.SQLText=
+      "SELECT COUNT(*) AS num "
+      "FROM pax_grp, pax "
+      "WHERE pax_grp.grp_id=pax.grp_id AND "
+      "      pax_grp.point_dep=:point_id AND "
+      "      pax_grp.status IN ('E') AND "
+      "      pax.refuse IS NULL";
+    Qry.Execute();
+    if (!Qry.Eof && Qry.FieldAsInteger("num")!=0) checkin_num=Qry.FieldAsInteger("num");
+
+    crew_diff=sopp_num!=NoExists && checkin_num!=NoExists && sopp_num!=checkin_num;
+
+    if (checkin_num==NoExists || checkin_num<=0 ||
+        sopp_num==NoExists || sopp_num<=0)
+    {
+      Qry.SQLText=
+        "SELECT airline, flt_no, suffix, airp, scd_out, "
+        "       point_id, point_num, first_point, pr_tranzit "
+        "FROM points "
+        "WHERE point_id=:point_id ";
+      Qry.Execute();
+      if (!Qry.Eof)
+      {
+        TAdvTripInfo fltInfo(Qry);
+
+        if (checkin_num==NoExists || checkin_num<=0)
+        {
+          do
+          {
+            //экипаж не зарегистрирован
+            //надо проверить mintrans, форматы APIS
+            if (GetTripSets(tsMintransFile, fltInfo))
+            {
+              crew_checkin=true;
+              break;
+            };
+            TBaseTable &baseairps = base_tables.get( "airps" );
+	          TBaseTable &basecities = base_tables.get( "cities" );
+
+            string country_dep = ((TCitiesRow&)basecities.get_row( "code", ((TAirpsRow&)baseairps.get_row( "code", fltInfo.airp )).city)).country;
+
+            TTripRoute route;
+            route.GetRouteAfter(NoExists,
+                                fltInfo.point_id,
+                                fltInfo.point_num,
+                                fltInfo.first_point,
+                                fltInfo.pr_tranzit,
+                                trtNotCurrent, trtNotCancelled);
+            Qry.Clear();
+            Qry.SQLText=
+              "SELECT format FROM apis_sets "
+              "WHERE airline=:airline AND "
+              "      country_dep=:country_dep AND country_arv=:country_arv AND "
+              "      format IN ('EDI_CN', 'EDI_IN') AND pr_denial=0 AND rownum<2";
+            Qry.CreateVariable("airline", otString, fltInfo.airline);
+            Qry.CreateVariable("country_dep", otString, country_dep);
+            Qry.DeclareVariable("country_arv", otString);
+
+            TTripRoute::const_iterator r=route.begin();
+            for(; r!=route.end(); ++r)
+            {
+              string country_arv = ((TCitiesRow&)basecities.get_row( "code", ((TAirpsRow&)baseairps.get_row( "code", r->airp )).city)).country;
+              Qry.SetVariable("country_arv", country_arv);
+              Qry.Execute();
+              if (!Qry.Eof) break;
+            };
+            if (r!=route.end())
+            {
+              crew_checkin=true;
+              break;
+            };
+          }
+          while(false);
+        };
+
+        if (sopp_num==NoExists || sopp_num<=0)
+        {
+          //кол-во экипажа неизвестно
+          //надо проверить формирование LDM
+          TypeB::TCreator creator(fltInfo);
+          creator << "LDM";
+          vector<TypeB::TCreateInfo> createInfo;
+          creator.getInfo(createInfo);
+          if (!createInfo.empty()) crew_number=true;
+        };
+      };
+    };
+	}
+  set_alarm( point_id, atCrewCheckin, crew_checkin );
+  set_alarm( point_id, atCrewNumber, crew_number );
+	set_alarm( point_id, atCrewDiff, crew_diff );
+}
 
 
 

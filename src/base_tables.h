@@ -639,10 +639,12 @@ class TPayTypes: public TTIDBaseTable {
 class TRcptDocTypesRow: public TTIDBaseTableRow {
   public:
     std::string code_pax_doc;
+    std::string code_mintrans;
     const char *get_row_name() const { return "TRcptDocTypesRow"; };
     std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU) const
     {
       if (lowerc(field)=="code_pax_doc") return code_pax_doc;
+      if (lowerc(field)=="code_mintrans") return code_mintrans;
       return TTIDBaseTableRow::AsString(field,lang);
     };
 };
