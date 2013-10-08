@@ -2048,7 +2048,11 @@ void TPassengers::Add( SALONS2::TSalons &Salons, TPassenger &pass )
           plList!=Salons.placelists.end(); plList++ ) {
       placeList = *plList;
       for ( IPlace i=placeList->places.begin(); i!=placeList->places.end(); i++ ) {
-        if ( !i->visible || !i->isplace || !i->isPax || i->layers.begin()->pax_id != pass.paxId )
+        if ( !i->visible ||
+             !i->isplace ||
+             !i->isPax ||
+             (!i->layers.empty() && i->layers.begin()->pax_id <= 0) ||
+             i->layers.begin()->pax_id != pass.paxId )
           continue;
         TPoint p( i->x, i->y );
         pass.preseat_no = denorm_iata_row( i->yname, NULL ) + denorm_iata_line( i->xname, Salons.getLatSeat() );
