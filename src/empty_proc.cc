@@ -26,6 +26,7 @@
 #include <set>
 #include "season.h"
 #include "sopp.h"
+#include "file_queue.h"
 #include "events.h"
 #include "transfer.h"
 #include "term_version.h"
@@ -1855,3 +1856,539 @@ int test_sopp_sql(int argc,char **argv)
   return 0;
 }
 
+
+int test_file_queue(int argc,char **argv)
+{
+   int res = 0;
+   TQuery Qry(&OraSession);
+   Qry.SQLText =
+     "DELETE file_queue";
+   Qry.Execute();
+   std::map<std::string,std::string> params;
+   params[ "PARAM_FILE_TYPE" ] = "AODB";
+   params[ "PARAM_CANON_NAME" ] = "RASTRV";
+   params[ "PARAM_IN_ORDER" ] = "TRUE";
+   string sender = string("BETADC");
+   string type = string("AODBO");
+   std::string receiver = string("RASTRV");
+   int id1 = TFileQueue::putFile( receiver,
+                                  sender,
+                                  type,
+                                  params,
+                                  string("TEST1") );
+   int id2 = TFileQueue::putFile( receiver,
+                                  sender,
+                                  type,
+                                  params,
+                                  string("TEST2") );
+   int id3 = TFileQueue::putFile( receiver,
+                                  sender,
+                                  type,
+                                  params,
+                                  string("TEST3") );
+   TFileQueue file_queue;
+   file_queue.get( TFilterQueue(receiver, 5) );
+   tst();
+   res++;
+   if ( file_queue.empty() ||
+        file_queue.begin()->id != id1||
+        file_queue.getstatus(id1) != string( "PUT" ) ||
+        !file_queue.in_order( id1 ) ||
+        !TFileQueue::in_order( type ) ||
+        file_queue.size() != 1 ||
+        file_queue.isLastFile() ) {
+     ProgError( STDLOG, "error%d: %d, file_queue.isLastFile=%d", res, file_queue.empty(), file_queue.isLastFile() );
+     if ( !file_queue.empty() ) {
+       ProgError( STDLOG, "error%d: file_queue.begin()->id=%d, id1=%d, status=%s, in_order(%d)=%d, in_order(%s)=%d, size()=%zu, isLastFile=%d",
+                  res,
+                  file_queue.begin()->id,
+                  id1,
+                  file_queue.getstatus(id1).c_str(),
+                  id1,
+                  file_queue.in_order( id1 ),
+                  type.c_str(),
+                  TFileQueue::in_order( type ),
+                  file_queue.size(),
+                  file_queue.isLastFile() );
+     }
+   }
+   tst();
+   res++;
+   TFileQueue::sendFile( id1 );
+   file_queue.get( TFilterQueue(receiver, 5) );
+   if ( !file_queue.empty() ) {
+     ProgError( STDLOG, "error%d: file_queue.begin()->id=%d, id1=%d, status=%s, in_order(%d)=%d, in_order(%s)=%d, size()=%zu, isLastFile=%d",
+                res,
+                file_queue.begin()->id,
+                id1,
+                file_queue.getstatus(id1).c_str(),
+                id1,
+                file_queue.in_order( id1 ),
+                type.c_str(),
+                TFileQueue::in_order( type ),
+                file_queue.size(),
+                file_queue.isLastFile() );
+   }
+   res++;
+   tst();
+   sleep( 2 );
+   file_queue.get( TFilterQueue(receiver, 1) );
+   if ( file_queue.empty() ||
+        file_queue.begin()->id != id1||
+        file_queue.getstatus(id1) != string( "SEND" ) ||
+        !file_queue.in_order( id1 ) ||
+        !TFileQueue::in_order( type ) ||
+        file_queue.size() != 1 ||
+        file_queue.isLastFile() ) {
+     ProgError( STDLOG, "error%d: %d, file_queue.isLastFile=%d", res, file_queue.empty(), file_queue.isLastFile() );
+     if ( !file_queue.empty() ) {
+       ProgError( STDLOG, "error%d: file_queue.begin()->id=%d, id1=%d, status=%s, in_order(%d)=%d, in_order(%s)=%d, size()=%zu, isLastFile=%d",
+                  res,
+                  file_queue.begin()->id,
+                  id1,
+                  file_queue.getstatus(id1).c_str(),
+                  id1,
+                  file_queue.in_order( id1 ),
+                  type.c_str(),
+                  TFileQueue::in_order( type ),
+                  file_queue.size(),
+                  file_queue.isLastFile() );
+     }
+   }
+   res++;
+   tst();
+   TFileQueue::sendFile( id2 );
+   file_queue.get( TFilterQueue(receiver, 1) );
+   if ( file_queue.empty() ||
+        file_queue.begin()->id != id1||
+        file_queue.getstatus(id1) != string( "SEND" ) ||
+        !file_queue.in_order( id1 ) ||
+        !TFileQueue::in_order( type ) ||
+        file_queue.size() != 1 ||
+        !file_queue.isLastFile() ) {
+     ProgError( STDLOG, "error%d: %d, file_queue.isLastFile=%d", res, file_queue.empty(), file_queue.isLastFile() );
+     if ( !file_queue.empty() ) {
+       ProgError( STDLOG, "error%d: file_queue.begin()->id=%d, id1=%d, status=%s, in_order(%d)=%d, in_order(%s)=%d, size()=%zu, isLastFile=%d",
+                  res,
+                  file_queue.begin()->id,
+                  id1,
+                  file_queue.getstatus(id1).c_str(),
+                  id1,
+                  file_queue.in_order( id1 ),
+                  type.c_str(),
+                  TFileQueue::in_order( type ),
+                  file_queue.size(),
+                  file_queue.isLastFile() );
+     }
+   }
+   res++;
+   tst();
+   sleep(2);
+   file_queue.get( TFilterQueue(receiver, 1) );
+   if ( file_queue.empty() ||
+        file_queue.begin()->id != id1||
+        file_queue.getstatus(id1) != string( "SEND" ) ||
+        !file_queue.in_order( id1 ) ||
+        !TFileQueue::in_order( type ) ||
+        file_queue.size() != 1 ||
+        file_queue.isLastFile() ) {
+     ProgError( STDLOG, "error%d: %d, file_queue.pr_next_file=%d", res, file_queue.empty(), file_queue.isLastFile() );
+     if ( !file_queue.empty() ) {
+       ProgError( STDLOG, "error%d: file_queue.begin()->id=%d, id1=%d, status=%s, in_order(%d)=%d, in_order(%s)=%d, size()=%zu, pr_next_file=%d",
+                  res,
+                  file_queue.begin()->id,
+                  id1,
+                  file_queue.getstatus(id1).c_str(),
+                  id1,
+                  file_queue.in_order( id1 ),
+                  type.c_str(),
+                  TFileQueue::in_order( type ),
+                  file_queue.size(),
+                  file_queue.isLastFile() );
+     }
+   }
+   res++;
+   tst();
+   file_queue.doneFile( id1 );
+   file_queue.get( TFilterQueue(receiver, 1) );
+   if ( file_queue.empty() ||
+        file_queue.begin()->id != id2 ||
+        file_queue.getstatus(id2) != string( "SEND" ) ||
+        !file_queue.in_order( id2 ) ||
+        !TFileQueue::in_order( type ) ||
+        file_queue.size() != 1 ||
+        file_queue.isLastFile() ) {
+     ProgError( STDLOG, "error%d: %d, file_queue.pr_next_file=%d", res, file_queue.empty(), file_queue.isLastFile() );
+     if ( !file_queue.empty() ) {
+       ProgError( STDLOG, "error%d: file_queue.begin()->id=%d, id2=%d, status=%s, in_order(%d)=%d, in_order(%s)=%d, size()=%zu, pr_next_file=%d",
+                  res,
+                  file_queue.begin()->id,
+                  id2,
+                  file_queue.getstatus(id2).c_str(),
+                  id2,
+                  file_queue.in_order( id2 ),
+                  type.c_str(),
+                  TFileQueue::in_order( type ),
+                  file_queue.size(),
+                  file_queue.isLastFile() );
+     }
+   }
+   res++;
+   tst();
+   file_queue.doneFile( id2 );
+   file_queue.get( TFilterQueue(receiver, 1) );
+   if ( file_queue.empty() ||
+        file_queue.begin()->id != id3 ||
+        file_queue.getstatus(id3) != string( "PUT" ) ||
+        !file_queue.in_order( id3 ) ||
+        !TFileQueue::in_order( type ) ||
+        file_queue.size() != 1 ||
+        !file_queue.isLastFile() ) {
+     ProgError( STDLOG, "error%d: %d, file_queue.pr_next_file=%d", res, file_queue.empty(), file_queue.isLastFile() );
+     if ( !file_queue.empty() ) {
+       ProgError( STDLOG, "error%d: file_queue.begin()->id=%d, id3=%d, status=%s, in_order(%d)=%d, in_order(%s)=%d, size()=%zu, pr_next_file=%d",
+                  res,
+                  file_queue.begin()->id,
+                  id3,
+                  file_queue.getstatus(id3).c_str(),
+                  id3,
+                  file_queue.in_order( id3 ),
+                  type.c_str(),
+                  TFileQueue::in_order( type ),
+                  file_queue.size(),
+                  file_queue.isLastFile() );
+     }
+   }
+   ///
+   file_queue.doneFile( id3 );
+   ////////////////////////////////////
+   type = "SOFI"; //не важна сортировка
+   id1 = TFileQueue::putFile( receiver,
+                              sender,
+                              type,
+                              params,
+                              string("TEST1") );
+   id2 = TFileQueue::putFile( receiver,
+                              sender,
+                              type,
+                              params,
+                              string("TEST2") );
+   id3 = TFileQueue::putFile( receiver,
+                              sender,
+                              type,
+                              params,
+                              string("TEST3") );
+   res++;
+   file_queue.get( TFilterQueue(receiver, 5) );
+   tst();
+   if ( file_queue.empty() ||
+        file_queue.begin()->id != id1||
+        file_queue.getstatus(id1) != string( "PUT" ) ||
+        file_queue.in_order( id1 ) ||
+        TFileQueue::in_order( type ) ||
+        file_queue.size() != 1 ||
+        file_queue.isLastFile() ) {
+     ProgError( STDLOG, "error%d: %d, file_queue.isLastFile=%d", res, file_queue.empty(), file_queue.isLastFile() );
+     if ( !file_queue.empty() ) {
+       ProgError( STDLOG, "error%d: file_queue.begin()->id=%d, id1=%d, status=%s, in_order(%d)=%d, in_order(%s)=%d, size()=%zu, isLastFile=%d",
+                  res,
+                  file_queue.begin()->id,
+                  id1,
+                  file_queue.getstatus(id1).c_str(),
+                  id1,
+                  file_queue.in_order( id1 ),
+                  type.c_str(),
+                  TFileQueue::in_order( type ),
+                  file_queue.size(),
+                  file_queue.isLastFile() );
+     }
+   }
+   res++;
+   TFileQueue::sendFile( id1 );
+   tst();
+   file_queue.get( TFilterQueue(receiver, 5) );
+   if ( file_queue.empty() ||
+        file_queue.begin()->id != id2||
+        file_queue.getstatus(id1) != string( "SEND" ) ||
+        file_queue.getstatus(id2) != string( "PUT" ) ||
+        file_queue.in_order( id2 ) ||
+        TFileQueue::in_order( type ) ||
+        file_queue.size() != 1 ||
+        file_queue.isLastFile() ) {
+     ProgError( STDLOG, "error%d: %d, file_queue.isLastFile=%d", res, file_queue.empty(), file_queue.isLastFile() );
+     if ( !file_queue.empty() ) {
+       ProgError( STDLOG, "error%d: file_queue.begin()->id=%d, id2=%d, status=%s, in_order(%d)=%d, in_order(%s)=%d, size()=%zu, isLastFile=%d",
+                  res,
+                  file_queue.begin()->id,
+                  id2,
+                  file_queue.getstatus(id2).c_str(),
+                  id2,
+                  file_queue.in_order( id2 ),
+                  type.c_str(),
+                  TFileQueue::in_order( type ),
+                  file_queue.size(),
+                  file_queue.isLastFile() );
+     }
+   }
+   res++;
+   tst();
+   sleep(2);
+   file_queue.get( TFilterQueue(receiver, 1) );
+   if ( file_queue.empty() ||
+        file_queue.begin()->id != id1||
+        file_queue.getstatus(id1) != string( "SEND" ) ||
+        file_queue.getstatus(id2) != string( "PUT" ) ||
+        file_queue.in_order( id1 ) ||
+        file_queue.in_order( id2 ) ||
+        TFileQueue::in_order( type ) ||
+        file_queue.size() != 1 ||
+        file_queue.isLastFile() ) {
+     ProgError( STDLOG, "error%d: %d, file_queue.isLastFile=%d", res, file_queue.empty(), file_queue.isLastFile() );
+     if ( !file_queue.empty() ) {
+       ProgError( STDLOG, "error%d: file_queue.begin()->id=%d, id1=%d, status=%s, in_order(%d)=%d, in_order(%s)=%d, size()=%zu, isLastFile=%d",
+                  res,
+                  file_queue.begin()->id,
+                  id1,
+                  file_queue.getstatus(id1).c_str(),
+                  id1,
+                  file_queue.in_order( id1 ),
+                  type.c_str(),
+                  TFileQueue::in_order( type ),
+                  file_queue.size(),
+                  file_queue.isLastFile() );
+     }
+   }
+   tst();
+   file_queue.doneFile( id1 );
+   tst();
+   sleep(2);
+   res++;
+   file_queue.get( TFilterQueue(receiver, 1) );
+   if ( file_queue.empty() ||
+        file_queue.begin()->id != id2||
+        file_queue.getstatus(id2) != string( "PUT" ) ||
+        file_queue.in_order( id2 ) ||
+        TFileQueue::in_order( type ) ||
+        file_queue.size() != 1 ||
+        file_queue.isLastFile() ) {
+     ProgError( STDLOG, "error%d: %d, file_queue.isLastFile=%d", res, file_queue.empty(), file_queue.isLastFile() );
+     if ( !file_queue.empty() ) {
+       ProgError( STDLOG, "error%d: file_queue.begin()->id=%d, i2=%d, status=%s, in_order(%d)=%d, in_order(%s)=%d, size()=%zu, isLastFile=%d",
+                  res,
+                  file_queue.begin()->id,
+                  id2,
+                  file_queue.getstatus(id2).c_str(),
+                  id2,
+                  file_queue.in_order( id2 ),
+                  type.c_str(),
+                  TFileQueue::in_order( type ),
+                  file_queue.size(),
+                  file_queue.isLastFile() );
+     }
+   }
+   res++;
+   tst();
+   file_queue.doneFile( id2 );
+   file_queue.get( TFilterQueue(receiver, 1) );
+     if ( file_queue.empty() ||
+        file_queue.begin()->id != id3||
+        file_queue.getstatus(id3) != string( "PUT" ) ||
+        file_queue.in_order( id3 ) ||
+        TFileQueue::in_order( type ) ||
+        file_queue.size() != 1 ||
+        !file_queue.isLastFile() ) {
+     ProgError( STDLOG, "error%d: %d, file_queue.isLastFile=%d", res, file_queue.empty(), file_queue.isLastFile() );
+     if ( !file_queue.empty() ) {
+       ProgError( STDLOG, "error%d: file_queue.begin()->id=%d, id1=%d, status=%s, in_order(%d)=%d, in_order(%s)=%d, size()=%zu, isLastFile=%d",
+                  res,
+                  file_queue.begin()->id,
+                  id3,
+                  file_queue.getstatus(id3).c_str(),
+                  id3,
+                  file_queue.in_order( id3 ),
+                  type.c_str(),
+                  TFileQueue::in_order( type ),
+                  file_queue.size(),
+                  file_queue.isLastFile() );
+     }
+   }
+   tst();
+   res++;
+   file_queue.doneFile( id3 );
+   file_queue.get( TFilterQueue(receiver, 1) );
+     if ( !file_queue.empty() ||
+          !file_queue.isLastFile() ) {
+     ProgError( STDLOG, "error%d: %d, file_queue.isLastFile=%d", res, file_queue.empty(), file_queue.isLastFile() );
+   }
+   tst();
+   type = "MINTRANS"; //не важна сортировка
+   params[ "WORKDIR" ] = "c:\\work";
+   BASIC::TDateTime UTCSysdate = NowUTC() + 5.0/1440.0;
+   id1 = TFileQueue::putFile( receiver,
+                              sender,
+                              type,
+                              params,
+                              string("TEST1") );
+   id2 = TFileQueue::putFile( receiver,
+                              sender,
+                              type,
+                              params,
+                              string("TEST2") );
+   id3 = TFileQueue::putFile( receiver,
+                              sender,
+                              type,
+                              params,
+                              string("TEST3") );
+   file_queue.get( TFilterQueue(receiver, type, UTCSysdate) );
+   string param_value;
+   res++;
+   if ( file_queue.empty() ||
+        file_queue.begin()->id != id1||
+        file_queue.getstatus(id2) != string( "PUT" ) ||
+        file_queue.in_order( id1 ) ||
+        file_queue.in_order( id2 ) ||
+        TFileQueue::in_order( type ) ||
+        file_queue.size() != 3 ||
+        !TFileQueue::getparam_value( id1, "WORKDIR", param_value ) ||
+        param_value != "c:\\work" ) {
+     ProgError( STDLOG, "error%d: %d", res, file_queue.empty() );
+     if ( !file_queue.empty() ) {
+       ProgError( STDLOG, "error%d: file_queue.begin()->id=%d, id1=%d, status=%s, in_order(%d)=%d, in_order(%s)=%d, size()=%zu,param_value=%s",
+                  res,
+                  file_queue.begin()->id,
+                  id1,
+                  file_queue.getstatus(id1).c_str(),
+                  id1,
+                  file_queue.in_order( id1 ),
+                  type.c_str(),
+                  TFileQueue::in_order( type ),
+                  file_queue.size(),
+                  param_value.c_str() );
+     }
+   }
+   res++;
+   tst();
+   file_queue.get( TFilterQueue(receiver, type) );
+   if ( file_queue.empty() ||
+        file_queue.begin()->id != id1||
+        file_queue.getstatus(id2) != string( "PUT" ) ||
+        file_queue.in_order( id1 ) ||
+        file_queue.in_order( id2 ) ||
+        TFileQueue::in_order( type ) ||
+        file_queue.size() != 3 ||
+        !file_queue.getparam_value( id1, "WORKDIR", param_value ) ||
+        param_value != "c:\\work" ) {
+     ProgError( STDLOG, "error%d: %d", res, file_queue.empty() );
+     if ( !file_queue.empty() ) {
+       ProgError( STDLOG, "error%d: file_queue.begin()->id=%d, id1=%d, status=%s, in_order(%d)=%d, in_order(%s)=%d, size()=%zu,param_value=%s",
+                  res,
+                  file_queue.begin()->id,
+                  id1,
+                  file_queue.getstatus(id1).c_str(),
+                  id1,
+                  file_queue.in_order( id1 ),
+                  type.c_str(),
+                  TFileQueue::in_order( type ),
+                  file_queue.size(),
+                  param_value.c_str() );
+     }
+   }
+   TFileQueue::getEncoding( std::string( "UTG" ),
+                            std::string("BETADC"),
+                            true );
+   res++;
+   TFilterQueue filter2( receiver,1 );
+   filter2.receiver = receiver;
+   filter2.type = type;
+   filter2.last_time = ASTRA::NoExists;
+   filter2.first_id = ASTRA::NoExists;
+   filter2.pr_first_order = true;
+   filter2.timeout_sec = 5;
+   
+   file_queue.get( TFilterQueue(filter2) );
+   if ( file_queue.empty() ||
+        file_queue.begin()->id != id1||
+        file_queue.getstatus(id2) != string( "PUT" ) ||
+        file_queue.in_order( id1 ) ||
+        file_queue.in_order( id2 ) ||
+        TFileQueue::in_order( type ) ||
+        file_queue.size() != 1 ||
+        !file_queue.getparam_value( id1, "WORKDIR", param_value ) ||
+        param_value != "c:\\work" ||
+        file_queue.isLastFile() ) {
+     ProgError( STDLOG, "error%d: %d, %d", res, file_queue.empty(), file_queue.isLastFile() );
+     if ( !file_queue.empty() ) {
+       ProgError( STDLOG, "error%d: file_queue.begin()->id=%d, id1=%d, status=%s, in_order(%d)=%d, in_order(%s)=%d, size()=%zu,param_value=%s, isLastFile=%d",
+                  res,
+                  file_queue.begin()->id,
+                  id1,
+                  file_queue.getstatus(id1).c_str(),
+                  id1,
+                  file_queue.in_order( id1 ),
+                  type.c_str(),
+                  TFileQueue::in_order( type ),
+                  file_queue.size(),
+                  param_value.c_str(),
+                  file_queue.isLastFile() );
+     }
+   }
+   res++;
+   file_queue.sendFile( id1 );
+   file_queue.get( TFilterQueue(filter2) );
+   if ( file_queue.empty() ||
+        file_queue.begin()->id != id2||
+        file_queue.getstatus(id2) != string( "PUT" ) ||
+        file_queue.in_order( id1 ) ||
+        file_queue.in_order( id2 ) ||
+        TFileQueue::in_order( type ) ||
+        file_queue.size() != 1 ||
+        !file_queue.getparam_value( id1, "WORKDIR", param_value ) ||
+        param_value != "c:\\work" ||
+        file_queue.isLastFile() ) {
+     ProgError( STDLOG, "error%d: %d, %d", res, file_queue.empty(), file_queue.isLastFile() );
+     if ( !file_queue.empty() ) {
+       ProgError( STDLOG, "error%d: file_queue.begin()->id=%d, id1=%d, status=%s, in_order(%d)=%d, in_order(%s)=%d, size()=%zu,param_value=%s, isLastFile=%d",
+                  res,
+                  file_queue.begin()->id,
+                  id2,
+                  file_queue.getstatus(id1).c_str(),
+                  id2,
+                  file_queue.in_order( id2 ),
+                  type.c_str(),
+                  TFileQueue::in_order( type ),
+                  file_queue.size(),
+                  param_value.c_str(),
+                  file_queue.isLastFile() );
+     }
+   }
+   res++;
+   file_queue.sendFile( id2 );
+   file_queue.get( TFilterQueue(filter2) );
+   if ( file_queue.empty() ||
+        file_queue.begin()->id != id3||
+        file_queue.getstatus(id2) != string( "SEND" ) ||
+        file_queue.in_order( id1 ) ||
+        file_queue.in_order( id3 ) ||
+        TFileQueue::in_order( type ) ||
+        file_queue.size() != 1 ||
+        !file_queue.getparam_value( id1, "WORKDIR", param_value ) ||
+        param_value != "c:\\work" ||
+        !file_queue.isLastFile() ) {
+     ProgError( STDLOG, "error%d: %d, %d", res, file_queue.empty(), file_queue.isLastFile() );
+     if ( !file_queue.empty() ) {
+       ProgError( STDLOG, "error%d: file_queue.begin()->id=%d, id1=%d, status=%s, in_order(%d)=%d, in_order(%s)=%d, size()=%zu,param_value=%s, isLastFile=%d",
+                  res,
+                  file_queue.begin()->id,
+                  id3,
+                  file_queue.getstatus(id1).c_str(),
+                  id3,
+                  file_queue.in_order( id3 ),
+                  type.c_str(),
+                  TFileQueue::in_order( type ),
+                  file_queue.size(),
+                  param_value.c_str(),
+                  file_queue.isLastFile() );
+     }
+   }
+   return res;
+}

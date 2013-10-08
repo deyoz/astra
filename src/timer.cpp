@@ -15,6 +15,7 @@
 #include "astra_context.h"
 #include "base_tables.h"
 #include "astra_service.h"
+#include "file_queue.h"
 #include "apis_edi_file.h"
 #include "telegram.h"
 #include "arx_daily.h"
@@ -218,7 +219,52 @@ void createSPP( TDateTime utcdate )
 
 void utg(void)
 {
-    static TQuery paramQry(&OraSession);
+  TFileQueue file_queue;
+  file_queue.get( TFilterQueue( OWN_POINT_ADDR(), FILE_UTG_TYPE ) );
+  for ( TFileQueue::iterator item=file_queue.begin();
+        item!=file_queue.end();
+        item++, OraSession.Commit() ) {
+     try {
+       if ( item->params.find( PARAM_WORK_DIR ) == item->params.end() ||
+            item->params[ PARAM_WORK_DIR ].empty() ) {
+         throw Exception("work_dir not specified");
+       }
+       if ( item->params.find( PARAM_FILE_NAME ) == item->params.end() ||
+            item->params[ PARAM_FILE_NAME ].empty() ) {
+         throw Exception("file_name not specified");
+       }
+       boost::filesystem::path apath(item->params[ PARAM_WORK_DIR ]);
+       if(not boost::filesystem::exists(apath))
+          throw Exception("utg: directory '%s' not exists", item->params[ PARAM_WORK_DIR ].c_str());
+       ofstream f;
+       string file_name = item->params[ PARAM_WORK_DIR ] + "/" +item->params[ PARAM_FILE_NAME ];
+       apath = file_name;
+       if(boost::filesystem::exists(apath))
+         throw Exception("utg: file '%s' already exists");
+       f.open(file_name.c_str());
+       if(!f.is_open()) throw Exception("Can't open file '%s'", file_name.c_str());
+       f << item->data;
+       f.close();
+       TFileQueue::deleteFile(item->id);
+     }
+     catch(Exception &E) {
+        OraSession.Rollback();
+        try
+        {
+           EOracleError *orae=dynamic_cast<EOracleError*>(&E);
+           if (orae!=NULL&&
+              (orae->Code==4061||orae->Code==4068)) continue;
+              ProgError(STDLOG,"Exception: %s (file id=%d)",E.what(),item->id);
+        }
+        catch(...) {};
+
+    }
+    catch(...) {
+       OraSession.Rollback();
+       ProgError(STDLOG, "Something goes wrong");
+    }
+  }
+/*  den!!!  static TQuery paramQry(&OraSession);
     if(paramQry.SQLText.IsEmpty()) {
         paramQry.SQLText = "select name, value from file_params where id = :id";
         paramQry.DeclareVariable("id", otInteger);
@@ -310,7 +356,7 @@ void utg(void)
             OraSession.Rollback();
             ProgError(STDLOG, "Something goes wrong");
         }
-    }
+    }*/
 }
 
 void ETCheckStatusFlt(void)

@@ -12,7 +12,7 @@
 #include "base_tables.h"
 #include "http_io.h"
 #include "passenger.h"
-#include "astra_service.h"
+#include "file_queue.h"
 #include "jxtlib/xml_stuff.h"
 #include "serverlib/logger.h"
 
@@ -1205,17 +1205,17 @@ void create_mintrans_file(int point_id)
   if (!GetTripSets(tsMintransFile, fltInfo)) return;
 
   map<string, string> fileparams;
-  getFileParams( Qry.FieldAsString("airp"),
-                 Qry.FieldAsString("airline"),
-                 Qry.FieldAsString("flt_no"),
-                 OWN_POINT_ADDR(),
-                 FILE_MINTRANS_TYPE,
-                 true,
-                 fileparams );
+  TFileQueue::add_sets_params( Qry.FieldAsString("airp"),
+                               Qry.FieldAsString("airline"),
+                               Qry.FieldAsString("flt_no"),
+                               OWN_POINT_ADDR(),
+                               FILE_MINTRANS_TYPE,
+                               true,
+                               fileparams );
 
   if (fileparams[PARAM_WORK_DIR].empty()) return;
 
-  string encoding=getFileEncoding(FILE_MINTRANS_TYPE, OWN_POINT_ADDR(), true);
+  string encoding=TFileQueue::getEncoding(FILE_MINTRANS_TYPE, OWN_POINT_ADDR(), true);
   if (encoding.empty()) encoding="UTF-8";
 
   vector<mintrans::TPax> paxs;
@@ -1288,11 +1288,11 @@ void create_mintrans_file(int point_id)
       << endl;
   };
 
-  putFile(OWN_POINT_ADDR(),
-          OWN_POINT_ADDR(),
-          FILE_MINTRANS_TYPE,
-          fileparams,
-          (encoding=="CP866"?f.str():ConvertCodepage(f.str(), "CP866", encoding)));
+  TFileQueue::putFile(OWN_POINT_ADDR(),
+                      OWN_POINT_ADDR(),
+                      FILE_MINTRANS_TYPE,
+                      fileparams,
+                     (encoding=="CP866"?f.str():ConvertCodepage(f.str(), "CP866", encoding)));
 };
 
 void save_mintrans_files()
@@ -1301,73 +1301,32 @@ void save_mintrans_files()
 
   TDateTime last_time=NowUTC() - 1.0/1440.0; //отматываем минуту, так как данные последних секунд могут быть еще не закоммичены в rozysk
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT file_queue.id, file_queue.time, files.data, file_params.value "
-    "FROM file_queue, files, file_params "
-    "WHERE file_queue.id = files.id AND "
-    "      file_queue.id = file_params.id(+) AND "
-    "      file_queue.type = :type AND "
-    "      file_queue.sender = :sender AND "
-    "      file_queue.receiver = :receiver AND "
-    "      file_queue.status = :status AND "
-    "      file_params.name(+) = :param_name AND "
-    "      file_queue.time < :last_time "
-    "ORDER BY file_queue.time, file_queue.id ";
-  Qry.CreateVariable("type", otString, FILE_MINTRANS_TYPE);
-  Qry.CreateVariable("sender", otString, OWN_POINT_ADDR());
-  Qry.CreateVariable("receiver", otString, OWN_POINT_ADDR());
-  Qry.CreateVariable("status", otString, "PUT");
-  Qry.CreateVariable("param_name", otString, PARAM_WORK_DIR);
-  Qry.CreateVariable("last_time", otDate, last_time);
-  Qry.Execute();
-
-  TMemoryManager mem(STDLOG);
-  char *p = NULL;
-  int p_len = 0;
+  TFileQueue file_queue;
+  file_queue.get( TFilterQueue( OWN_POINT_ADDR(),
+                                FILE_MINTRANS_TYPE,
+                                last_time ) );
   TDateTime prior_time=NoExists;
   int msec=0;
-  try
-  {
-    for(;!Qry.Eof; Qry.Next(), OraSession.Commit())
-    {
-      int id = Qry.FieldAsInteger("id");
-      TDateTime time = Qry.FieldAsDateTime("time");
-      try
-      {
-        string workdir=Qry.FieldAsString("value");
-        if (workdir.empty())
+  try {
+    for ( TFileQueue::iterator item=file_queue.begin(); item!=file_queue.end(); item++,OraSession.Commit() ) {
+      try {
+        map<string,string>::const_iterator work_dir_param=item->params.find( PARAM_WORK_DIR );
+        if ( work_dir_param == item->params.end() || work_dir_param->second.empty() )
         {
-          deleteFile(id);
+          TFileQueue::deleteFile(item->id);
           continue;
-        };
-        int len = Qry.GetSizeLongField( "data" );
-        if (len > p_len)
-        {
-            char *ph = NULL;
-            if (p==NULL) {
-                ph=(char*)mem.malloc(len+1, STDLOG);
-            } else {
-                ph=(char*)mem.realloc(p, len+1, STDLOG);
-            }
-            if (ph==NULL) throw EMemoryError("Out of memory");
-            p=ph;
-            p_len=len;
-        };
-        Qry.FieldAsLong( "data", p );
-        p[len]=0;
-
-        if (prior_time==NoExists || time!=prior_time)
+        }
+    
+        if (prior_time==NoExists || item->time!=prior_time)
           msec=0;
         else
           msec++;
-        prior_time=time;
+        prior_time=item->time;
 
         ostringstream file_name;
-        file_name << workdir
+        file_name << work_dir_param->second
                   << MINTRANS_ID
-                  << DateTimeToStr(time, "_yyyy_mm_dd_hh_nn_ss_")
+                  << DateTimeToStr(item->time, "_yyyy_mm_dd_hh_nn_ss_")
                   << setw(3) << setfill('0') << msec
                   << ".csv";
         ofstream f;
@@ -1375,9 +1334,9 @@ void save_mintrans_files()
         if (!f.is_open()) throw Exception("Can't open file '%s'",file_name.str().c_str());
         try
         {
-          f << p;
+          f << item->data;
           f.close();
-          deleteFile(id);
+          TFileQueue::deleteFile(item->id);
         }
         catch(...)
         {
@@ -1400,7 +1359,7 @@ void save_mintrans_files()
               EOracleError *orae=dynamic_cast<EOracleError*>(&E);
               if (orae!=NULL&&
                       (orae->Code==4061||orae->Code==4068)) continue;
-              ProgError(STDLOG,"Exception: %s (file id=%d)",E.what(),id);
+              ProgError(STDLOG,"Exception: %s (file id=%d)",E.what(),item->id);
           }
           catch(...) {};
 
@@ -1408,19 +1367,17 @@ void save_mintrans_files()
       catch(std::exception &E)
       {
           OraSession.Rollback();
-          ProgError(STDLOG,"std::exception: %s (file id=%d)",E.what(),id);
+          ProgError(STDLOG,"std::exception: %s (file id=%d)",E.what(),item->id);
       }
       catch(...)
       {
           OraSession.Rollback();
           ProgError(STDLOG,"Something goes wrong");
       };
-    };
-    mem.free(p, STDLOG);
+    }; //end for
   }
   catch(...)
   {
-    mem.free(p, STDLOG);
     throw;
   };
   ProgTrace(TRACE5,"save_mintrans_files finished");
