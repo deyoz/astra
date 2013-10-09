@@ -2540,12 +2540,12 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       if (reqInfo->desk.compatible(LATIN_VERSION))
       {
         NewTextChild(paxNode,"pers_type",ElemIdToCodeNative(etPersType, Qry.FieldAsString(col_pers_type)), def_pers_type);
-        NewTextChild(paxNode,"document", CheckIn::GetPaxDocStr(NoExists, pax_id, PaxDocQry, true), "");
+        NewTextChild(paxNode,"document", CheckIn::GetPaxDocStr(NoExists, pax_id, true), "");
       }
       else
       {
         NewTextChild(paxNode,"pers_type",ElemIdToCodeNative(etPersType, Qry.FieldAsString(col_pers_type)));
-        NewTextChild(paxNode,"document", CheckIn::GetPaxDocStr(NoExists, pax_id, PaxDocQry, true));
+        NewTextChild(paxNode,"document", CheckIn::GetPaxDocStr(NoExists, pax_id, true));
       };
 
       NewTextChild(paxNode,"ticket_rem",Qry.FieldAsString(col_ticket_rem),"");
@@ -5455,9 +5455,6 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
         "ORDER BY ABS(pax.reg_no)";
       PaxQry.CreateVariable("grp_id",otInteger,grp.id);
       
-      TQuery PaxDocQry(&OraSession);
-      TQuery PaxDocoQry(&OraSession);
-      
       PaxQry.Execute();
 
       if (grp_id==grp_ids.begin())
@@ -5471,7 +5468,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
       for(;!PaxQry.Eof;PaxQry.Next())
       {
         CheckIn::TPaxItem pax;
-        pax.fromDB(PaxQry, PaxDocQry, PaxDocoQry);
+        pax.fromDB(PaxQry);
 
         CheckIn::TPaxTransferItem paxTrfer;
         paxTrfer.pax_id=pax.id;

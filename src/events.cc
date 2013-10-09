@@ -203,8 +203,6 @@ std::string TPaxToLogInfo::getNormStr() const
 void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
 {
   grpInfo.clear();
-  TQuery PaxDocQry(&OraSession);
-  TQuery PaxDocoQry(&OraSession);
   TQuery PaxRemQry(&OraSession);
   TQuery NormQry(&OraSession);
   TQuery Qry(&OraSession);
@@ -256,8 +254,8 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
         paxInfo.tkn.fromDB(Qry);
         paxInfo.pr_brd=paxInfo.refuse.empty() && !Qry.FieldIsNULL("pr_brd") && Qry.FieldAsInteger("pr_brd")!=0;
         paxInfo.pr_exam=paxInfo.refuse.empty() && !Qry.FieldIsNULL("pr_exam") && Qry.FieldAsInteger("pr_exam")!=0;
-        LoadPaxDoc(paxInfoKey.pax_id, paxInfo.doc, PaxDocQry);
-        LoadPaxDoco(paxInfoKey.pax_id, paxInfo.doco, PaxDocoQry);
+        LoadPaxDoc(paxInfoKey.pax_id, paxInfo.doc);
+        LoadPaxDoco(paxInfoKey.pax_id, paxInfo.doco);
         LoadPaxRem(paxInfoKey.pax_id, true, paxInfo.rems, PaxRemQry);
         sort(paxInfo.rems.begin(), paxInfo.rems.end());
       }

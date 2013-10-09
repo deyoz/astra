@@ -528,9 +528,6 @@ void sync_pax_internal(int id,
       throw Exception("passenger not found (pax_id=%d)", id);
   };
   TQuery InsQry(&OraSession);
-  TQuery PaxDocQry(&OraSession);
-  TQuery PaxDocoQry(&OraSession);
-  TQuery PaxTknQry(&OraSession);
   TRow row;
   //дополнительно
   row.time=NowUTC();
@@ -553,15 +550,15 @@ void sync_pax_internal(int id,
       row.paxFromDB(Qry);
       //документ
       CheckIn::TPaxDocItem doc;
-      LoadPaxDoc(pax_id, doc, PaxDocQry);
+      LoadPaxDoc(pax_id, doc);
       row.setDoc(doc);
       //виза
       CheckIn::TPaxDocoItem doco;
-      LoadPaxDoco(pax_id, doco, PaxDocoQry);
+      LoadPaxDoco(pax_id, doco);
       row.setVisa(doco);
       //билет
       CheckIn::TPaxTknItem tkn;
-      LoadPaxTkn(pax_id, tkn, PaxTknQry);
+      LoadPaxTkn(pax_id, tkn);
       row.setTkn(tkn);
 
       for(int pass=0; pass<2; pass++)

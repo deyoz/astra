@@ -13,6 +13,7 @@
 #include "remarks.h"
 #include "pers_weights.h"
 #include "misc.h"
+#include "qrys.h"
 #include "typeb_utils.h"
 #include "serverlib/logger.h"
 
@@ -605,10 +606,9 @@ namespace PRL_SPACE {
     void TPNRList::get(int pnr_id)
     {
         if(pnr_id == NoExists) return;
-        TQuery Qry(&OraSession);
-        Qry.SQLText =
-            "SELECT airline,addr FROM pnr_addrs WHERE pnr_id=:pnr_id ORDER BY addr,airline";
-        Qry.CreateVariable("pnr_id", otInteger, pnr_id);
+        QParams QryParams;
+        QryParams << QParam("pnr_id", otInteger, pnr_id);
+        TQuery &Qry = TQrys::Instance()->get("SELECT airline,addr FROM pnr_addrs WHERE pnr_id=:pnr_id ORDER BY addr,airline", QryParams);
         Qry.Execute();
         for(; !Qry.Eof; Qry.Next()) {
             TPNRItem pnr;
@@ -1175,6 +1175,7 @@ namespace PRL_SPACE {
         TRemList rems;
         TPRLOnwardList OList;
         TGender gender;
+        TPerson pers_type;
         TPRLPax(TInfants *ainfants): rems(ainfants) {
             cls_grp_id = NoExists;
             pnr_id = NoExists;
@@ -1261,11 +1262,7 @@ namespace PRL_SPACE {
                 items.push_back(rem);
             }
         }
-        TQuery Qry(&OraSession);
-        Qry.CreateVariable("pax_id", otInteger, pax.pax_id);
-        Qry.SQLText = "select * from pax where pax.pax_id = :pax_id and pax.pers_type in ('РБ', 'РМ') and pax.seats>0 ";
-        Qry.Execute();
-        if(!Qry.Eof)
+        if(pax.pers_type == child or pax.pers_type == baby)
             items.push_back("1CHD");
         TTlgSeatList seats;
         seats.add_seats(pax.pax_id, complayers);
@@ -1273,38 +1270,40 @@ namespace PRL_SPACE {
         if(!seat_list.empty())
             items.push_back("SEAT " + seat_list);
         internal_get(info, pax.pax_id, pax.subcls);
-        Qry.Clear();
-        Qry.SQLText =
-            "select "
-            "    rem_code, rem "
-            "from "
-            "    pax_rem "
-            "where "
-            "    pax_rem.pax_id = :pax_id and "
-            "    pax_rem.rem_code not in ('OTHS', 'CHD', 'CHLD', 'INF', 'INFT') ";
-        Qry.CreateVariable("pax_id", otInteger, pax.pax_id);
+
+        QParams QryParams;
+        QryParams << QParam("pax_id", otInteger, pax.pax_id);
+        TQuery &Qry = TQrys::Instance()->get(
+                "select "
+                "    rem_code, rem "
+                "from "
+                "    pax_rem "
+                "where "
+                "    pax_rem.pax_id = :pax_id and "
+                "    pax_rem.rem_code not in ('OTHS', 'CHD', 'CHLD', 'INF', 'INFT') ",
+                QryParams);
         Qry.Execute();
         for(; !Qry.Eof; Qry.Next())
         {
-          TRemCategory cat=getRemCategory(Qry.FieldAsString("rem_code"),
-                                          Qry.FieldAsString("rem"));
-          if (isDisabledRemCategory(cat)) continue;
-          if (cat==remFQT) continue;
-          items.push_back(transliter(Qry.FieldAsString("rem"), 1, info.is_lat()));
+            TRemCategory cat=getRemCategory(Qry.FieldAsString("rem_code"),
+                    Qry.FieldAsString("rem"));
+            if (isDisabledRemCategory(cat)) continue;
+            if (cat==remFQT) continue;
+            items.push_back(transliter(Qry.FieldAsString("rem"), 1, info.is_lat()));
         };
-        
+
         CheckIn::TPaxRemItem rem;
         //билет
         CheckIn::TPaxTknItem tkn;
-        LoadPaxTkn(pax.pax_id, tkn, Qry);
+        LoadPaxTkn(pax.pax_id, tkn);
         if (getPaxRem(info, tkn, rem)) items.push_back(rem.text);
         //документ
         CheckIn::TPaxDocItem doc;
-        LoadPaxDoc(pax.pax_id, doc, Qry);
+        LoadPaxDoc(pax.pax_id, doc);
         if (getPaxRem(info, doc, rem)) items.push_back(rem.text);
         //виза
         CheckIn::TPaxDocoItem doco;
-        LoadPaxDoco(pax.pax_id, doco, Qry);
+        LoadPaxDoco(pax.pax_id, doco);
         if (getPaxRem(info, doco, rem)) items.push_back(rem.text);
     }
 
@@ -1438,11 +1437,11 @@ namespace PRL_SPACE {
                 pax.pnrs.get(pax.pnr_id);
                 if(!Qry.FieldIsNULL(col_subcls))
                     pax.subcls = Qry.FieldAsString(col_subcls);
-                pax.rems.get(info, pax, complayers);
                 grp_map->get(pax.grp_id, pax.bag_pool_num);
                 pax.OList.get(pax.grp_id, pax.pax_id);
-                TPerson pers_type = DecodePerson(Qry.FieldAsString(col_pers_type));
-                switch(pers_type) {
+                pax.pers_type = DecodePerson(Qry.FieldAsString(col_pers_type));
+                pax.rems.get(info, pax, complayers); // Обязательно после инициализации pers_type выше
+                switch(pax.pers_type) {
                     case NoPerson:
                         break;
                     case adult:
@@ -4064,12 +4063,11 @@ void TRemList::get(TypeB::TDetailCreateInfo &info, TETLPax &pax)
     CheckIn::TPaxRemItem rem;
     //билет
     CheckIn::TPaxTknItem tkn;
-    TQuery Qry(&OraSession);
-    LoadPaxTkn(pax.pax_id, tkn, Qry);
+    LoadPaxTkn(pax.pax_id, tkn);
     if (tkn.rem == "TKNE" and getPaxRem(info, tkn, rem)) items.push_back(rem.text);
     for(vector<TInfantsItem>::iterator infRow = infants->items.begin(); infRow != infants->items.end(); infRow++) {
         if(infRow->grp_id == pax.grp_id and infRow->parent_pax_id == pax.pax_id) {
-            LoadPaxTkn(infRow->pax_id, tkn, Qry);
+            LoadPaxTkn(infRow->pax_id, tkn);
             if (tkn.rem == "TKNE" and getPaxRem(info, tkn, rem)) items.push_back(rem.text);
         }
     }
@@ -4173,8 +4171,9 @@ bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxDocoItem &doco
 
 void TRemList::internal_get(TypeB::TDetailCreateInfo &info, int pax_id, string subcls)
 {
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
+    QParams QryParams;
+    QryParams << QParam("pax_id", otInteger, pax_id);
+    TQuery &Qry = TQrys::Instance()->get(
         "select "
         "   pax_fqt.rem_code, "
         "   pax_fqt.airline, "
@@ -4190,8 +4189,8 @@ void TRemList::internal_get(TypeB::TDetailCreateInfo &info, int pax_id, string s
         "   pax_fqt.pax_id = crs_pax.pax_id(+) and "
         "   crs_pax.pr_del(+)=0 and "
         "   crs_pax.pnr_id = crs_pnr.pnr_id(+) and "
-        "   pax_fqt.rem_code in('FQTV', 'FQTU', 'FQTR') ";
-    Qry.CreateVariable("pax_id", otInteger, pax_id);
+        "   pax_fqt.rem_code in('FQTV', 'FQTU', 'FQTR') ",
+            QryParams);
     Qry.Execute();
     if(!Qry.Eof) {
         int col_rem_code = Qry.FieldIndex("rem_code");
@@ -4256,11 +4255,10 @@ struct TPIMDest {
 
 void TPIMDest::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 {
-    TQuery Qry(&OraSession);
     CheckIn::TPaxDocItem doc;
     vector<string> pax_body;
     for(vector<TPIMPax>::iterator iv = PaxList.begin(); iv != PaxList.end(); iv++) {
-        LoadPaxDoc(iv->pax_id, doc, Qry);
+        LoadPaxDoc(iv->pax_id, doc);
         string vsurname, vname;
         if(doc.surname.empty()) {
             vname = transliter(iv->name, 1, info.is_lat());

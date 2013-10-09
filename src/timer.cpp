@@ -276,7 +276,7 @@ void utg_prl_tst(void)
     }
 
     TDateTime time;
-    StrToDateTime("01.08.2013 00:00:00", time);
+    StrToDateTime("01.08.2012 00:00:00", time);
     pointsQry.SetVariable("time", time);
     pointsQry.Execute();
     TPerfTimer tm_many("many tlgs");

@@ -82,6 +82,7 @@ astra_SOURCES = \
   spp_cek.cc \
   stages.cc \
   stat.cc \
+  qrys.cc \
   telegram.cc \
   telegram2.cc \
   timer.cpp \
@@ -185,6 +186,7 @@ noinst_HEADERS = \
   spp_cek.h \
   stages.h \
   stat.h \
+  qrys.h \
   timer.h \
   transfer.h \
   tripinfo.h \

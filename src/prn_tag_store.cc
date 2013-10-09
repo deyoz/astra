@@ -853,8 +853,7 @@ void TPrnTagStore::TPaxInfo::Init(int apax_id, TTagLang &tag_lang)
             throw Exception("TPrnTagStore::TPaxInfo::Init no data found for pax_id = %d", pax_id);
         surname = Qry.FieldAsString("surname");
         name = Qry.FieldAsString("name");
-        TQuery PaxDocQry(&OraSession);
-        document = CheckIn::GetPaxDocStr(NoExists, pax_id, PaxDocQry, false, tag_lang.GetLang());
+        document = CheckIn::GetPaxDocStr(NoExists, pax_id, false, tag_lang.GetLang());
         ticket_rem = Qry.FieldAsString("ticket_rem");
         ticket_no = Qry.FieldAsString("ticket_no");
         coupon_no = Qry.FieldAsInteger("coupon_no");

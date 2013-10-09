@@ -5,6 +5,7 @@
 #include "term_version.h"
 #include "baggage.h"
 #include "misc.h"
+#include "qrys.h"
 #include "jxtlib/jxt_cont.h"
 
 #define NICKNAME "VLAD"
@@ -86,44 +87,35 @@ long int TPaxTknItem::getNotEmptyFieldsMask() const
   return result;
 };
 
-bool LoadPaxTkn(int pax_id, TPaxTknItem &tkn, TQuery& PaxTknQry)
+bool LoadPaxTkn(int pax_id, TPaxTknItem &tkn)
 {
-  return LoadPaxTkn(ASTRA::NoExists, pax_id, tkn, PaxTknQry);
+  return LoadPaxTkn(ASTRA::NoExists, pax_id, tkn);
 };
 
-bool LoadPaxTkn(TDateTime part_key, int pax_id, TPaxTknItem &tkn, TQuery& PaxTknQry)
+bool LoadPaxTkn(TDateTime part_key, int pax_id, TPaxTknItem &tkn)
 {
-  tkn.clear();
-  const char* sql=
-    "SELECT ticket_no, coupon_no, ticket_rem, ticket_confirm, pers_type, seats "
-    "FROM pax WHERE pax_id=:pax_id";
-  const char* sql_arx=
-    "SELECT ticket_no, coupon_no, ticket_rem, ticket_confirm, pers_type, seats "
-    "FROM arx_pax WHERE part_key=:part_key AND pax_id=:pax_id";
-  if (part_key!=ASTRA::NoExists)
-  {
-    if (strcmp(PaxTknQry.SQLText.SQLText(),sql_arx)!=0)
+    tkn.clear();
+
+    const char* sql=
+        "SELECT ticket_no, coupon_no, ticket_rem, ticket_confirm, pers_type, seats "
+        "FROM pax WHERE pax_id=:pax_id";
+    const char* sql_arx=
+        "SELECT ticket_no, coupon_no, ticket_rem, ticket_confirm, pers_type, seats "
+        "FROM arx_pax WHERE part_key=:part_key AND pax_id=:pax_id";
+    const char *result_sql = NULL;
+    QParams QryParams;
+    if (part_key!=ASTRA::NoExists)
     {
-      PaxTknQry.Clear();
-      PaxTknQry.SQLText=sql_arx;
-      PaxTknQry.DeclareVariable("part_key", otDate);
-      PaxTknQry.DeclareVariable("pax_id", otInteger);
-    };
-    PaxTknQry.SetVariable("part_key", part_key);
-  }
-  else
-  {
-    if (strcmp(PaxTknQry.SQLText.SQLText(),sql)!=0)
-    {
-      PaxTknQry.Clear();
-      PaxTknQry.SQLText=sql;
-      PaxTknQry.DeclareVariable("pax_id",otInteger);
-    };
-  };
-  PaxTknQry.SetVariable("pax_id",pax_id);
-  PaxTknQry.Execute();
-  if (!PaxTknQry.Eof) tkn.fromDB(PaxTknQry);
-  return !tkn.empty();
+        result_sql = sql_arx;
+        QryParams << QParam("part_key", otDate, part_key);
+    }
+    else
+        result_sql = sql;
+    QryParams << QParam("pax_id", otInteger, pax_id);
+    TQuery &PaxTknQry = TQrys::Instance()->get( result_sql, QryParams);
+    PaxTknQry.Execute();
+    if (!PaxTknQry.Eof) tkn.fromDB(PaxTknQry);
+    return !tkn.empty();
 };
 
 bool LoadCrsPaxTkn(int pax_id, TPaxTknItem &tkn, TQuery& PaxTknQry, TQuery& GetTKNO2Qry)
@@ -415,39 +407,29 @@ void LoadPaxDoco(TQuery& PaxDocQry, xmlNodePtr paxNode)
   TPaxDocoItem().fromDB(PaxDocQry).toXML(paxNode);
 };
 
-bool LoadPaxDoc(int pax_id, TPaxDocItem &doc, TQuery& PaxDocQry)
+bool LoadPaxDoc(int pax_id, TPaxDocItem &doc)
 {
-  return LoadPaxDoc(ASTRA::NoExists, pax_id, doc, PaxDocQry);
+  return LoadPaxDoc(ASTRA::NoExists, pax_id, doc);
 };
 
-bool LoadPaxDoc(TDateTime part_key, int pax_id, TPaxDocItem &doc, TQuery& PaxDocQry)
+bool LoadPaxDoc(TDateTime part_key, int pax_id, TPaxDocItem &doc)
 {
   doc.clear();
   const char* sql=
     "SELECT * FROM pax_doc WHERE pax_id=:pax_id";
   const char* sql_arx=
     "SELECT * FROM arx_pax_doc WHERE part_key=:part_key AND pax_id=:pax_id";
+  const char *sql_result = NULL;
+  QParams QryParams;
   if (part_key!=ASTRA::NoExists)
   {
-    if (strcmp(PaxDocQry.SQLText.SQLText(),sql_arx)!=0)
-    {
-      PaxDocQry.Clear();
-      PaxDocQry.SQLText=sql_arx;
-      PaxDocQry.DeclareVariable("part_key", otDate);
-      PaxDocQry.DeclareVariable("pax_id", otInteger);
-    };
-    PaxDocQry.SetVariable("part_key", part_key);
+      QryParams << QParam("part_key", otDate, part_key);
+      sql_result = sql_arx;
   }
   else
-  {
-    if (strcmp(PaxDocQry.SQLText.SQLText(),sql)!=0)
-    {
-      PaxDocQry.Clear();
-      PaxDocQry.SQLText=sql;
-      PaxDocQry.DeclareVariable("pax_id", otInteger);
-    };
-  };
-  PaxDocQry.SetVariable("pax_id",pax_id);
+      sql_result = sql;
+  QryParams << QParam("pax_id", otInteger, pax_id);
+  TQuery &PaxDocQry = TQrys::Instance()->get(sql_result, QryParams);
   PaxDocQry.Execute();
   if (!PaxDocQry.Eof) doc.fromDB(PaxDocQry);
   return !doc.empty();
@@ -455,14 +437,13 @@ bool LoadPaxDoc(TDateTime part_key, int pax_id, TPaxDocItem &doc, TQuery& PaxDoc
 
 std::string GetPaxDocStr(TDateTime part_key,
                          int pax_id,
-                         TQuery& PaxDocQry,
                          bool with_issue_country,
                          const string &lang)
 {
   ostringstream result;
   
   TPaxDocItem doc;
-  if (LoadPaxDoc(part_key, pax_id, doc, PaxDocQry) && !doc.no.empty())
+  if (LoadPaxDoc(part_key, pax_id, doc) && !doc.no.empty())
   {
     result << doc.no;
     if (with_issue_country && !doc.issue_country.empty())
@@ -536,39 +517,29 @@ bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc, TQuery& PaxDocQry, TQuery& GetP
   return !doc.empty();
 };
 
-bool LoadPaxDoco(int pax_id, TPaxDocoItem &doc, TQuery& PaxDocQry)
+bool LoadPaxDoco(int pax_id, TPaxDocoItem &doc)
 {
-  return LoadPaxDoco(ASTRA::NoExists, pax_id, doc, PaxDocQry);
+  return LoadPaxDoco(ASTRA::NoExists, pax_id, doc);
 };
 
-bool LoadPaxDoco(TDateTime part_key, int pax_id, TPaxDocoItem &doc, TQuery& PaxDocQry)
+bool LoadPaxDoco(TDateTime part_key, int pax_id, TPaxDocoItem &doc)
 {
   doc.clear();
   const char* sql=
     "SELECT * FROM pax_doco WHERE pax_id=:pax_id";
   const char* sql_arx=
     "SELECT * FROM arx_pax_doco WHERE part_key=:part_key AND pax_id=:pax_id";
+  const char *sql_result = NULL;
+  QParams QryParams;
   if (part_key!=ASTRA::NoExists)
   {
-    if (strcmp(PaxDocQry.SQLText.SQLText(),sql_arx)!=0)
-    {
-      PaxDocQry.Clear();
-      PaxDocQry.SQLText=sql_arx;
-      PaxDocQry.DeclareVariable("part_key", otDate);
-      PaxDocQry.DeclareVariable("pax_id", otInteger);
-    };
-    PaxDocQry.SetVariable("part_key", part_key);
+      QryParams << QParam("part_key", otDate, part_key);
+      sql_result = sql_arx;
   }
   else
-  {
-    if (strcmp(PaxDocQry.SQLText.SQLText(),sql)!=0)
-    {
-      PaxDocQry.Clear();
-      PaxDocQry.SQLText=sql;
-      PaxDocQry.DeclareVariable("pax_id", otInteger);
-    };
-  };
-  PaxDocQry.SetVariable("pax_id",pax_id);
+      sql_result = sql;
+  QryParams << QParam("pax_id", otInteger, pax_id);
+  TQuery &PaxDocQry = TQrys::Instance()->get(sql_result, QryParams);
   PaxDocQry.Execute();
   if (!PaxDocQry.Eof) doc.fromDB(PaxDocQry);
   return !doc.empty();
@@ -928,7 +899,7 @@ const TPaxItem& TPaxItem::toDB(TQuery &Qry) const
   return *this;
 };
 
-TPaxItem& TPaxItem::fromDB(TQuery &Qry, TQuery &PaxDocQry, TQuery &PaxDocoQry)
+TPaxItem& TPaxItem::fromDB(TQuery &Qry)
 {
   clear();
   id=Qry.FieldAsInteger("pax_id");
@@ -945,8 +916,8 @@ TPaxItem& TPaxItem::fromDB(TQuery &Qry, TQuery &PaxDocQry, TQuery &PaxDocoQry)
   tid=Qry.FieldAsInteger("tid");
   tkn.fromDB(Qry);
   TknExists=true;
-  DocExists=CheckIn::LoadPaxDoc(id, doc, PaxDocQry);
-  DocoExists=CheckIn::LoadPaxDoco(id, doco, PaxDocoQry);
+  DocExists=CheckIn::LoadPaxDoc(id, doc);
+  DocoExists=CheckIn::LoadPaxDoco(id, doco);
   return *this;
 };
 

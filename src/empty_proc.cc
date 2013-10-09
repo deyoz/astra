@@ -381,8 +381,6 @@ int get_sirena_rozysk_stat(int argc,char **argv)
 {
   string country="’„";
 
-  TQuery PaxDocQry(&OraSession);
-  TQuery PaxDocoQry(&OraSession);
   TQuery Qry(&OraSession);
   
   const char* filename="TJ.txt";
@@ -663,10 +661,10 @@ int get_sirena_rozysk_stat(int argc,char **argv)
                 int pax_id=PaxQry.FieldAsInteger("pax_id");
 
                 CheckIn::TPaxDocItem doc;
-                LoadPaxDoc(r1->part_key, pax_id, doc, PaxDocQry);
+                LoadPaxDoc(r1->part_key, pax_id, doc);
 
                 CheckIn::TPaxDocoItem doco;
-                LoadPaxDoco(r1->part_key, pax_id, doco, PaxDocoQry);
+                LoadPaxDoco(r1->part_key, pax_id, doco);
 
                 if (doc.surname.empty())
                   f << PaxQry.FieldAsString("full_name") << ";";
@@ -1482,6 +1480,7 @@ void filter(vector<TypeB::TCreateInfo> &createInfo, string tlg_type)
 int test_typeb_utils(int argc,char **argv)
 {
   set<string> tlg_types;
+  tlg_types.insert("PRL");
 /*  tlg_types.insert("LCI");
   tlg_types.insert("PRL");
   tlg_types.insert("PRLC");
@@ -1501,7 +1500,7 @@ int test_typeb_utils(int argc,char **argv)
       "SELECT airline,flt_no,suffix,airp,scd_out,act_out, "
       "       point_id,point_num,first_point,pr_tranzit "
       "FROM points "
-      //"WHERE point_id=4331275";
+//      "WHERE point_id=2253498";
       "WHERE scd_out BETWEEN SYSTEM.UTCSYSDATE-1/24 AND SYSTEM.UTCSYSDATE AND act_out IS NOT NULL AND pr_del=0";
       
     TQuery TlgQry(&OraSession);
