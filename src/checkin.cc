@@ -3538,6 +3538,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       
       TQuery PaxDocQry(&OraSession);
       TQuery PaxDocoQry(&OraSession);
+      TQuery PaxDocaQry(&OraSession);
 
       Qry.Clear();
       Qry.SQLText=
@@ -4413,6 +4414,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   CrsQry.SetVariable("full_insert",(int)true);
                   CrsQry.Execute();
                 };
+
+                list<CheckIn::TPaxDocaItem> doca;
+                if (LoadCrsPaxDoca(pax_id, doca, PaxDocaQry))
+                  SavePaxDoca(pax_id, doca, PaxDocaQry);
 
                 if (save_trfer)
                 {

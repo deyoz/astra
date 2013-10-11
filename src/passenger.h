@@ -182,6 +182,56 @@ class TPaxDocoItem
     long int getNotEmptyFieldsMask() const;
 };
 
+class TPaxDocaItem
+{
+  public:
+    std::string type;
+    std::string country;
+    std::string address;
+    std::string city;
+    std::string region;
+    std::string postal_code;
+    bool pr_inf;
+    TPaxDocaItem()
+    {
+      clear();
+    };
+    void clear()
+    {
+      type.clear();
+      country.clear();
+      address.clear();
+      city.clear();
+      region.clear();
+      postal_code.clear();
+      pr_inf=false;
+    };
+    bool empty() const
+    {
+      return type.empty() &&
+             country.empty() &&
+             address.empty() &&
+             city.empty() &&
+             region.empty() &&
+             postal_code.empty() &&
+             pr_inf==false;
+    };
+    bool operator == (const TPaxDocaItem &item) const
+    {
+      return type == item.type &&
+             country == item.country &&
+             address == item.address &&
+             city == item.city &&
+             region == item.region &&
+             postal_code == item.postal_code &&
+             pr_inf == item.pr_inf;
+    };
+//    const TPaxDocaItem& toXML(xmlNodePtr node) const;
+//    TPaxDocaItem& fromXML(xmlNodePtr node);
+    const TPaxDocaItem& toDB(TQuery &Qry) const;
+    TPaxDocaItem& fromDB(TQuery &Qry);
+};
+
 class TPaxItem
 {
   public:
@@ -297,8 +347,10 @@ bool LoadPaxDoco(int pax_id, TPaxDocoItem &doc);
 bool LoadPaxDoco(BASIC::TDateTime part_key, int pax_id, TPaxDocoItem &doc);
 bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc, TQuery& PaxDocQry, TQuery& GetPSPT2Qry);
 bool LoadCrsPaxVisa(int pax_id, TPaxDocoItem &doc, TQuery& PaxDocQry);
+bool LoadCrsPaxDoca(int pax_id, std::list<TPaxDocaItem> &doca, TQuery& PaxDocaQry);
 void SavePaxDoc(int pax_id, const TPaxDocItem &doc, TQuery& PaxDocQry);
 void SavePaxDoco(int pax_id, const TPaxDocoItem &doc, TQuery& PaxDocQry);
+void SavePaxDoca(int pax_id, const std::list<TPaxDocaItem> &doca, TQuery& PaxDocaQry);
 
 bool LoadPaxNorms(int pax_id, std::vector< std::pair<TPaxNormItem, TNormItem> > &norms, TQuery& NormQry);
 bool LoadGrpNorms(int grp_id, std::vector< std::pair<TPaxNormItem, TNormItem> > &norms, TQuery& NormQry);

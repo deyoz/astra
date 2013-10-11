@@ -3240,6 +3240,7 @@ void BindRemarks(TTlgParser &tlg, TNameElement &ne)
 
 bool ParseDOCSRem(TTlgParser &tlg, BASIC::TDateTime scd_local, std::string &rem_text, TDocItem &doc);
 bool ParseDOCORem(TTlgParser &tlg, BASIC::TDateTime scd_local, std::string &rem_text, TDocoItem &doc);
+bool ParseDOCARem(TTlgParser &tlg, string &rem_text, TDocaItem &doca);
 bool ParseOTHSRem(TTlgParser &tlg, string &rem_text, TDocExtraItem &doc);
 
 void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
@@ -3345,6 +3346,27 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
                 }
                 else
                   iPaxItem->doco.push_back(doc);
+              };
+              continue;
+            };
+
+            if (strcmp(iRemItem->code,"DOCA")==0)
+            {
+              TDocaItem doca;
+              if (ParseDOCARem(tlg,iRemItem->text,doca))
+              {
+                //¯à®¢¥à¨¬  ¤à¥á Œ
+                if (doca.pr_inf)
+                {
+                  if (iPaxItem->inf.size()==1)
+                  {
+                    iPaxItem->inf.begin()->doca.push_back(doca);
+                    iPaxItem->inf.begin()->rem.push_back(*iRemItem);
+                    iRemItem->text.clear();
+                  };
+                }
+                else
+                  iPaxItem->doca.push_back(doca);
               };
               continue;
             };
@@ -4170,193 +4192,6 @@ bool ParseINFRem(TTlgParser &tlg,string &rem_text,vector<TInfItem> &inf)
   return false;
 };
 
-bool ParseDOCORem(TTlgParser &tlg, TDateTime scd_local, string &rem_text, TDocoItem &doc)
-{
-  char c;
-  int res,k;
-
-  char *p=(char*)rem_text.c_str();
-
-  doc.Clear();
-
-  if (rem_text.empty()) return false;
-  p=tlg.GetWord(p);
-  c=0;
-  res=sscanf(tlg.lex,"%5[A-Z€-Ÿð0-9]%c",doc.rem_code,&c);
-  if (c!=0||res!=1) return false;
-
-  TDateTime now=(scd_local!=0 && scd_local!=NoExists)?scd_local:NowUTC();
-
-  if (strcmp(doc.rem_code,"DOCO")==0)
-  {
-    for(k=0;k<=7;k++)
-    try
-    {
-      try
-      {
-        p=tlg.GetSlashedLexeme(p);
-        if (p==NULL && k>=10) break;
-        if (p==NULL) throw ETlgError("Lexeme not found");
-        if (*tlg.lex==0) continue;
-        c=0;
-        switch(k)
-        {
-          case 0:
-            res=sscanf(tlg.lex,"%2[A-Z]%1[1]%c",doc.rem_status,lexh,&c);
-            if (c!=0||res!=2) throw ETlgError("Wrong format");
-            break;
-          case 1:
-          case 4:
-            res=sscanf(tlg.lex,"%[A-Z€-Ÿð0-9 -]%c",lexh,&c);
-            if (c!=0||res!=1) throw ETlgError("Wrong format");
-            if (k==1)  doc.birth_place=lexh;
-            if (k==4)  doc.issue_place=lexh;
-            break;
-          case 2:
-            res=sscanf(tlg.lex,"%2[A-Z]%c",doc.type,&c);
-            if (c!=0||res!=1) throw ETlgError("Wrong format");
-            TlgElemToElemId(etPaxDocType,doc.type,doc.type);
-            break;
-          case 3:
-            res=sscanf(tlg.lex,"%15[A-Z€-Ÿð0-9 ]%c",doc.no,&c);
-            if (c!=0||res!=1) throw ETlgError("Wrong format");
-            break;
-          case 5:
-            if (StrToDateTime(tlg.lex,"ddmmmyy",now,doc.issue_date,true)==EOF &&
-                StrToDateTime(tlg.lex,"ddmmmyy",now,doc.issue_date,false)==EOF)
-              throw ETlgError("Wrong format");
-            if (doc.issue_date!=NoExists && doc.issue_date>now) throw ETlgError("Strange data");
-            break;
-          case 6:
-            res=sscanf(tlg.lex,"%3[A-Z€-Ÿð]%c",lexh,&c);
-            if (c!=0||res!=1) throw ETlgError("Wrong format");
-            GetPaxDocCountry(lexh,doc.applic_country);
-            break;
-          case 7:
-            res=sscanf(tlg.lex,"%1[I]%c",lexh,&c);
-            if (c!=0||res!=1||strcmp(lexh,"I")!=0) throw ETlgError("Wrong format");
-            doc.pr_inf=true;
-            break;
-        }
-      }
-      catch(exception &E)
-      {
-        switch(k)
-        {
-          case 0:
-            *doc.rem_status=0;
-            throw ETlgError("action/status code: %s",E.what());
-          case 1:
-            doc.birth_place.clear();
-            throw ETlgError("place of birth: %s",E.what());
-          case 2:
-            *doc.type=0;
-            throw ETlgError("travel document type: %s",E.what());
-          case 3:
-            *doc.no=0;
-            throw ETlgError("visa document number: %s",E.what());
-          case 4:
-            doc.issue_place.clear();
-            throw ETlgError("visa document place of issue: %s",E.what());
-          case 5:
-            doc.issue_date=NoExists;
-            throw ETlgError("visa document issue date: %s",E.what());
-          case 6:
-            *doc.applic_country=0;
-            throw ETlgError("country/state for which visa is applicable: %s",E.what());
-          case 7:
-            doc.pr_inf=false;
-            throw ETlgError("infant indicator: %s",E.what());
-        };
-      };
-    }
-    catch(ETlgError &E)
-    {
-      ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",doc.rem_code,E.what(),rem_text.c_str());
-    };
-    return true;
-  };
-  
-  return false;
-};
-
-bool ParseOTHSRem(TTlgParser &tlg, string &rem_text, TDocExtraItem &doc)
-{
-  char c;
-  int res,k;
-
-  char *p=(char*)rem_text.c_str();
-
-  doc.Clear();
-
-  if (rem_text.empty()) return false;
-  p=tlg.GetWord(p);
-  c=0;
-  char rem_code[6],rem_status[3];
-  res=sscanf(tlg.lex,"%5[A-Z€-Ÿð0-9]%c",rem_code,&c);
-  if (c!=0||res!=1) return false;
-
-  if (strcmp(rem_code,"OTHS")==0)
-  {
-    for(k=0;k<=3;k++)
-    try
-    {
-      try
-      {
-        if (k==0)
-          p=tlg.GetLexeme(p);
-        else
-          p=tlg.GetSlashedLexeme(p);
-        if (p==NULL) break;
-        if (*tlg.lex==0) continue;
-        c=0;
-        switch(k)
-        {
-          case 0:
-            res=sscanf(tlg.lex,"%2[A-Z]%1[1]%c",rem_status,lexh,&c);
-            if (c!=0||res!=2) return false;
-            break;
-          case 1:
-            res=sscanf(tlg.lex,"%5[A-Z€-Ÿð0-9]%c",lexh,&c);
-            if (c!=0||res!=1||strcmp(lexh,"DOCS")!=0) return false;
-            break;
-          case 2:
-            res=sscanf(tlg.lex,"%15[A-Z€-Ÿð0-9 ]%c",doc.no,&c);
-            if (c!=0||res!=1) throw ETlgError("Wrong format");
-            break;
-          case 3:
-            res=sscanf(tlg.lex,"%3[A-Z€-Ÿð]%c",doc.type_rcpt,&c);
-            if (c!=0||res!=1) throw ETlgError("Wrong format");
-            TlgElemToElemId(etRcptDocType,doc.type_rcpt,doc.type_rcpt);
-            break;
-        }
-      }
-      catch(exception &E)
-      {
-        switch(k)
-        {
-          case 0:
-          case 1:
-            return false;
-          case 2:
-            *doc.no=0;
-            throw ETlgError("travel document number: %s",E.what());
-          case 3:
-            *doc.type_rcpt=0;
-            throw ETlgError("document type: %s",E.what());
-        };
-      };
-    }
-    catch(ETlgError &E)
-    {
-      ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",rem_code,E.what(),rem_text.c_str());
-    };
-    return true;
-  };
-
-  return false;
-};
-
 bool ParseDOCSRem(TTlgParser &tlg, TDateTime scd_local, string &rem_text, TDocItem &doc)
 {
   char c;
@@ -4582,6 +4417,314 @@ bool ParseDOCSRem(TTlgParser &tlg, TDateTime scd_local, string &rem_text, TDocIt
     catch(ETlgError &E)
     {
       ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",doc.rem_code,E.what(),rem_text.c_str());
+    };
+    return true;
+  };
+
+  return false;
+};
+
+bool ParseDOCORem(TTlgParser &tlg, TDateTime scd_local, string &rem_text, TDocoItem &doc)
+{
+  char c;
+  int res,k;
+
+  char *p=(char*)rem_text.c_str();
+
+  doc.Clear();
+
+  if (rem_text.empty()) return false;
+  p=tlg.GetWord(p);
+  c=0;
+  res=sscanf(tlg.lex,"%5[A-Z€-Ÿð0-9]%c",doc.rem_code,&c);
+  if (c!=0||res!=1) return false;
+
+  TDateTime now=(scd_local!=0 && scd_local!=NoExists)?scd_local:NowUTC();
+
+  if (strcmp(doc.rem_code,"DOCO")==0)
+  {
+    for(k=0;k<=7;k++)
+    try
+    {
+      try
+      {
+        p=tlg.GetSlashedLexeme(p);
+        if (p==NULL && k>=7) break;
+        if (p==NULL) throw ETlgError("Lexeme not found");
+        if (*tlg.lex==0) continue;
+        c=0;
+        switch(k)
+        {
+          case 0:
+            res=sscanf(tlg.lex,"%2[A-Z]%1[1]%c",doc.rem_status,lexh,&c);
+            if (c!=0||res!=2) throw ETlgError("Wrong format");
+            break;
+          case 1:
+          case 4:
+            res=sscanf(tlg.lex,"%[A-Z€-Ÿð0-9 -]%c",lexh,&c);
+            if (c!=0||res!=1) throw ETlgError("Wrong format");
+            if (k==1)  doc.birth_place=lexh;
+            if (k==4)  doc.issue_place=lexh;
+            break;
+          case 2:
+            res=sscanf(tlg.lex,"%2[A-Z]%c",doc.type,&c);
+            if (c!=0||res!=1) throw ETlgError("Wrong format");
+            TlgElemToElemId(etPaxDocType,doc.type,doc.type);
+            break;
+          case 3:
+            res=sscanf(tlg.lex,"%25[A-Z€-Ÿð0-9 ]%c",doc.no,&c);
+            if (c!=0||res!=1) throw ETlgError("Wrong format");
+            break;
+          case 5:
+            if (StrToDateTime(tlg.lex,"ddmmmyy",now,doc.issue_date,true)==EOF &&
+                StrToDateTime(tlg.lex,"ddmmmyy",now,doc.issue_date,false)==EOF)
+              throw ETlgError("Wrong format");
+            if (doc.issue_date!=NoExists && doc.issue_date>now) throw ETlgError("Strange data");
+            break;
+          case 6:
+            res=sscanf(tlg.lex,"%3[A-Z€-Ÿð]%c",lexh,&c);
+            if (c!=0||res!=1) throw ETlgError("Wrong format");
+            GetPaxDocCountry(lexh,doc.applic_country);
+            break;
+          case 7:
+            res=sscanf(tlg.lex,"%1[I]%c",lexh,&c);
+            if (c!=0||res!=1||strcmp(lexh,"I")!=0) throw ETlgError("Wrong format");
+            doc.pr_inf=true;
+            break;
+        }
+      }
+      catch(exception &E)
+      {
+        switch(k)
+        {
+          case 0:
+            *doc.rem_status=0;
+            throw ETlgError("action/status code: %s",E.what());
+          case 1:
+            doc.birth_place.clear();
+            throw ETlgError("place of birth: %s",E.what());
+          case 2:
+            *doc.type=0;
+            throw ETlgError("travel document type: %s",E.what());
+          case 3:
+            *doc.no=0;
+            throw ETlgError("visa document number: %s",E.what());
+          case 4:
+            doc.issue_place.clear();
+            throw ETlgError("visa document place of issue: %s",E.what());
+          case 5:
+            doc.issue_date=NoExists;
+            throw ETlgError("visa document issue date: %s",E.what());
+          case 6:
+            *doc.applic_country=0;
+            throw ETlgError("country/state for which visa is applicable: %s",E.what());
+          case 7:
+            doc.pr_inf=false;
+            throw ETlgError("infant indicator: %s",E.what());
+        };
+      };
+    }
+    catch(ETlgError &E)
+    {
+      ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",doc.rem_code,E.what(),rem_text.c_str());
+    };
+    return true;
+  };
+  
+  return false;
+};
+
+bool ParseDOCARem(TTlgParser &tlg, string &rem_text, TDocaItem &doca)
+{
+  char c;
+  int res,k;
+
+  char *p=(char*)rem_text.c_str();
+
+  doca.Clear();
+
+  if (rem_text.empty()) return false;
+  p=tlg.GetWord(p);
+  c=0;
+  res=sscanf(tlg.lex,"%5[A-Z€-Ÿð0-9]%c",doca.rem_code,&c);
+  if (c!=0||res!=1) return false;
+
+  if (strcmp(doca.rem_code,"DOCA")==0)
+  {
+    for(k=0;k<=7;k++)
+    try
+    {
+      try
+      {
+        p=tlg.GetSlashedLexeme(p);
+        if (p==NULL && k>=7) break;
+        if (p==NULL) throw ETlgError("Lexeme not found");
+        if (*tlg.lex==0) continue;
+        c=0;
+        switch(k)
+        {
+          case 0:
+            res=sscanf(tlg.lex,"%2[A-Z]%1[1-3]%c",doca.rem_status,lexh,&c);
+            if (c!=0||res!=2) throw ETlgError("Wrong format");
+            break;
+          case 1:
+            res=sscanf(tlg.lex,"%1[RD]%c",doca.type,&c);
+            if (c!=0||res!=1||
+                (strcmp(doca.type,"R")!=0&&strcmp(doca.type,"D")!=0)) throw ETlgError("Wrong format");
+            break;
+          case 2:
+            res=sscanf(tlg.lex,"%3[A-Z€-Ÿð]%c",lexh,&c);
+            if (c!=0||res!=1) throw ETlgError("Wrong format");
+            GetPaxDocCountry(lexh,doca.country);
+            break;
+          case 3:
+          case 6:
+            res=sscanf(tlg.lex,"%[A-Z€-Ÿð0-9 -]%c",lexh,&c);
+            if (c!=0||res!=1) throw ETlgError("Wrong format");
+            if (k==3)
+            {
+              doca.address=lexh;
+              if (doca.address.size()>35) throw ETlgError("Wrong format");
+            };
+            if (k==6)
+            {
+              doca.postal_code=lexh;
+              if (doca.postal_code.size()>17) throw ETlgError("Wrong format");
+            };
+            break;
+          case 4:
+          case 5:
+            res=sscanf(tlg.lex,"%[A-Z€-Ÿð -]%c",lexh,&c);
+            if (c!=0||res!=1) throw ETlgError("Wrong format");
+            if (k==4)
+            {
+              doca.city=lexh;
+              if (doca.city.size()>35) throw ETlgError("Wrong format");
+            };
+            if (k==5)
+            {
+              doca.region=lexh;
+              if (doca.region.size()>35) throw ETlgError("Wrong format");
+            };
+            break;
+          case 7:
+            res=sscanf(tlg.lex,"%1[I]%c",lexh,&c);
+            if (c!=0||res!=1||strcmp(lexh,"I")!=0) throw ETlgError("Wrong format");
+            doca.pr_inf=true;
+            break;
+        }
+      }
+      catch(exception &E)
+      {
+        switch(k)
+        {
+          case 0:
+            *doca.rem_status=0;
+            throw ETlgError("action/status code: %s",E.what());
+          case 1:
+            *doca.type=0;
+            throw ETlgError("type of address: %s",E.what());
+          case 2:
+            *doca.country=0;
+            throw ETlgError("country: %s",E.what());
+          case 3:
+            doca.address.clear();
+            throw ETlgError("address details: %s",E.what());
+          case 4:
+            doca.city.clear();
+            throw ETlgError("city: %s",E.what());
+          case 5:
+            doca.region.clear();
+            throw ETlgError("state/province/county: %s",E.what());
+          case 6:
+            doca.postal_code.clear();
+            throw ETlgError("zip/postal code: %s",E.what());
+          case 7:
+            doca.pr_inf=false;
+            throw ETlgError("infant indicator: %s",E.what());
+        };
+      };
+    }
+    catch(ETlgError &E)
+    {
+      ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",doca.rem_code,E.what(),rem_text.c_str());
+    };
+    return true;
+  };
+
+  return false;
+};
+
+bool ParseOTHSRem(TTlgParser &tlg, string &rem_text, TDocExtraItem &doc)
+{
+  char c;
+  int res,k;
+
+  char *p=(char*)rem_text.c_str();
+
+  doc.Clear();
+
+  if (rem_text.empty()) return false;
+  p=tlg.GetWord(p);
+  c=0;
+  char rem_code[6],rem_status[3];
+  res=sscanf(tlg.lex,"%5[A-Z€-Ÿð0-9]%c",rem_code,&c);
+  if (c!=0||res!=1) return false;
+
+  if (strcmp(rem_code,"OTHS")==0)
+  {
+    for(k=0;k<=3;k++)
+    try
+    {
+      try
+      {
+        if (k==0)
+          p=tlg.GetLexeme(p);
+        else
+          p=tlg.GetSlashedLexeme(p);
+        if (p==NULL) break;
+        if (*tlg.lex==0) continue;
+        c=0;
+        switch(k)
+        {
+          case 0:
+            res=sscanf(tlg.lex,"%2[A-Z]%1[1]%c",rem_status,lexh,&c);
+            if (c!=0||res!=2) return false;
+            break;
+          case 1:
+            res=sscanf(tlg.lex,"%5[A-Z€-Ÿð0-9]%c",lexh,&c);
+            if (c!=0||res!=1||strcmp(lexh,"DOCS")!=0) return false;
+            break;
+          case 2:
+            res=sscanf(tlg.lex,"%15[A-Z€-Ÿð0-9 ]%c",doc.no,&c);
+            if (c!=0||res!=1) throw ETlgError("Wrong format");
+            break;
+          case 3:
+            res=sscanf(tlg.lex,"%3[A-Z€-Ÿð]%c",doc.type_rcpt,&c);
+            if (c!=0||res!=1) throw ETlgError("Wrong format");
+            TlgElemToElemId(etRcptDocType,doc.type_rcpt,doc.type_rcpt);
+            break;
+        }
+      }
+      catch(exception &E)
+      {
+        switch(k)
+        {
+          case 0:
+          case 1:
+            return false;
+          case 2:
+            *doc.no=0;
+            throw ETlgError("travel document number: %s",E.what());
+          case 3:
+            *doc.type_rcpt=0;
+            throw ETlgError("document type: %s",E.what());
+        };
+      };
+    }
+    catch(ETlgError &E)
+    {
+      ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",rem_code,E.what(),rem_text.c_str());
     };
     return true;
   };
@@ -5384,6 +5527,44 @@ void SaveDOCORem(int pax_id, const vector<TDocoItem> &doc)
     else
       Qry.SetVariable("issue_date",FNull);
     Qry.SetVariable("applic_country",i->applic_country);
+    Qry.SetVariable("pr_inf",(int)i->pr_inf);
+    Qry.Execute();
+  };
+};
+
+void SaveDOCARem(int pax_id, const vector<TDocaItem> &doca)
+{
+  if (doca.empty()) return;
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "INSERT INTO crs_pax_doca "
+    "  (pax_id,rem_code,rem_status,type,country,address,city,region,postal_code, "
+    "   pr_inf) "
+    "VALUES "
+    "  (:pax_id,:rem_code,:rem_status,:type,:country,:address,:city,:region,:postal_code, "
+    "   :pr_inf) ";
+  Qry.CreateVariable("pax_id",otInteger,pax_id);
+  Qry.DeclareVariable("rem_code",otString);
+  Qry.DeclareVariable("rem_status",otString);
+  Qry.DeclareVariable("type",otString);
+  Qry.DeclareVariable("country",otString);
+  Qry.DeclareVariable("address",otString);
+  Qry.DeclareVariable("city",otString);
+  Qry.DeclareVariable("region",otString);
+  Qry.DeclareVariable("postal_code",otString);
+  Qry.DeclareVariable("pr_inf",otInteger);
+  for(vector<TDocaItem>::const_iterator i=doca.begin();i!=doca.end();i++)
+  {
+    if (i->Empty()) continue;
+    Qry.SetVariable("rem_code",i->rem_code);
+    Qry.SetVariable("rem_status",i->rem_status);
+    Qry.SetVariable("type",i->type);
+    Qry.SetVariable("country",i->country);
+    Qry.SetVariable("address",i->address.substr(0,35));
+    Qry.SetVariable("city",i->city.substr(0,35));
+    Qry.SetVariable("region",i->region.substr(0,35));
+    Qry.SetVariable("postal_code",i->postal_code.substr(0,17));
     Qry.SetVariable("pr_inf",(int)i->pr_inf);
     Qry.Execute();
   };
@@ -6249,6 +6430,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                     "    DELETE FROM crs_pax_rem WHERE pax_id=curRow.inf_id; "
                     "    DELETE FROM crs_pax_doc WHERE pax_id=curRow.inf_id; "
                     "    DELETE FROM crs_pax_doco WHERE pax_id=curRow.inf_id; "
+                    "    DELETE FROM crs_pax_doca WHERE pax_id=curRow.inf_id; "
                     "    DELETE FROM crs_pax_tkn WHERE pax_id=curRow.inf_id; "
                     "    DELETE FROM crs_pax_fqt WHERE pax_id=curRow.inf_id; "
                     "    DELETE FROM crs_pax_refuse WHERE pax_id=curRow.inf_id; "
@@ -6257,6 +6439,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                     "  DELETE FROM crs_pax_rem WHERE pax_id=:pax_id; "
                     "  DELETE FROM crs_pax_doc WHERE pax_id=:pax_id; "
                     "  DELETE FROM crs_pax_doco WHERE pax_id=:pax_id; "
+                    "  DELETE FROM crs_pax_doca WHERE pax_id=:pax_id; "
                     "  DELETE FROM crs_pax_tkn WHERE pax_id=:pax_id; "
                     "  DELETE FROM crs_pax_fqt WHERE pax_id=:pax_id; "
                     "END;";
@@ -6298,6 +6481,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                     SavePNLADLRemarks(inf_id,iInfItem->rem);
                     SaveDOCSRem(inf_id,iInfItem->doc,iPaxItem->doc_extra);
                     SaveDOCORem(inf_id,iInfItem->doco);
+                    SaveDOCARem(inf_id,iInfItem->doca);
                     SaveTKNRem(inf_id,iInfItem->tkn);
                   };
 
@@ -6305,6 +6489,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                   SavePNLADLRemarks(pax_id,iPaxItem->rem);
                   SaveDOCSRem(pax_id,iPaxItem->doc,iPaxItem->doc_extra);
                   SaveDOCORem(pax_id,iPaxItem->doco);
+                  SaveDOCARem(pax_id,iPaxItem->doca);
                   SaveTKNRem(pax_id,iPaxItem->tkn);
                   SaveFQTRem(pax_id,iPaxItem->fqt);
                   //à §¬¥âª  á«®¥¢

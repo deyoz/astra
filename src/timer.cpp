@@ -967,16 +967,8 @@ void create_apis_file(int point_id)
       	    	    if (doc_type!="P") doc_type.clear(); else doc_type="2";
       	    	  };
       	    	};
-      	    	string nationality;
-      	    	if (!PaxQry.FieldIsNULL("nationality"))
-      	    	{
-      	    	  nationality=GetPaxDocCountryCode(PaxQry.FieldAsString("nationality"));
-      	    	};
-      	    	string issue_country;
-      	    	if (!PaxQry.FieldIsNULL("issue_country"))
-      	    	{
-      	    	  issue_country=GetPaxDocCountryCode(PaxQry.FieldAsString("issue_country"));
-      	    	};
+      	    	string nationality=PaxQry.FieldAsString("nationality");
+      	    	string issue_country=PaxQry.FieldAsString("issue_country");
       	    	string birth_date;
       	    	if (!PaxQry.FieldIsNULL("birth_date"))
       	    	{
@@ -1078,12 +1070,8 @@ void create_apis_file(int point_id)
       	    	  if (doco_type_row.code_lat.empty()) throw Exception("doco_type.code_lat empty (code=%s)",PaxQry.FieldAsString("doco_type"));
       	    	  doco_type=doco_type_row.code_lat;
       	    	};
-      	    	string applic_country;
-      	    	if (!PaxQry.FieldIsNULL("applic_country"))
-      	    	{
-      	    	  applic_country=GetPaxDocCountryCode(PaxQry.FieldAsString("applic_country"));
-      	    	};
-      	    
+      	    	string applic_country=PaxQry.FieldAsString("applic_country");
+
       	      if (fmt=="CSV_DE")
         	    {
         	      body << ";"

@@ -1823,28 +1823,6 @@ bool BagPaymentCompleted(int grp_id, int *value_bag_count)
   return true;
 };
 
-string GetPaxDocCountryCode(const string &doc_code)
-{
-  //на входе либо countries.code либо pax_doc_countries.code
-  string pax_doc_country;
-  if (!doc_code.empty())
-  {
-    try
-    {
-      pax_doc_country=getBaseTable(etPaxDocCountry).get_row("code",doc_code).AsString("code");
-    }
-    catch (EBaseTableError)
-    {
-      try
-      {
-        pax_doc_country=getBaseTable(etPaxDocCountry).get_row("country",doc_code).AsString("code");
-      }
-      catch (EBaseTableError) {};
-    };
-  };
-  return pax_doc_country;
-};
-
 bool isTestPaxId(int id)
 {
   return id!=NoExists && id>=TEST_ID_BASE && id<=TEST_ID_BASE+999999999;

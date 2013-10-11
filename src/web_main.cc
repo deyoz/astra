@@ -640,7 +640,7 @@ CheckIn::TPaxDocoItem NormalizeDoco(const CheckIn::TPaxDocoItem &doc)
   };
   
   result.no=upperc(doc.no);
-  if (result.no.size()>15)
+  if (result.no.size()>25)
     throw UserException("MSG.CHECK_DOCO.INVALID_NO", LParams()<<LParam("fieldname", "doco/no" ));
   
   result.issue_place=upperc(doc.issue_place);
