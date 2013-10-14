@@ -5189,6 +5189,21 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
       //BSM
       if (BSMsend) BSM::Send(grp.point_dep,grp.id,BSMContentBefore,BSMaddrs);
+
+      if (grp.status!=psCrew)
+      {
+        Qry.Clear();
+        Qry.SQLText=
+          "BEGIN "
+          "  UPDATE utg_prl SET last_flt_change_tid=cycle_tid__seq.currval WHERE point_id=:point_id; "
+          "  IF SQL%NOTFOUND THEN "
+          "    INSERT INTO utg_prl(point_id, last_tlg_create_tid, last_flt_change_tid) "
+          "    VALUES (:point_id, NULL, cycle_tid__seq.currval); "
+          "  END IF; "
+          "END;";
+        Qry.CreateVariable("point_id", otInteger, grp.point_dep);
+        Qry.Execute();
+      };
     }
     catch(UserException &e)
     {
