@@ -112,7 +112,7 @@ bool LoadPaxTkn(TDateTime part_key, int pax_id, TPaxTknItem &tkn)
     else
         result_sql = sql;
     QryParams << QParam("pax_id", otInteger, pax_id);
-    TQuery &PaxTknQry = TQrys::Instance()->get( result_sql, QryParams);
+    TQuery &PaxTknQry = TQrys::Instance()->get(result_sql, QryParams);
     PaxTknQry.Execute();
     if (!PaxTknQry.Eof) tkn.fromDB(PaxTknQry);
     return !tkn.empty();

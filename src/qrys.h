@@ -13,12 +13,59 @@
 struct QParam {
     std::string name;
     otFieldType ft;
-    boost::any value;
-    QParam(const std::string &aname, otFieldType aft, const boost::any &avalue):
+
+    bool empty;
+
+    int int_value;
+    double double_value;
+    std::string string_value;
+    char char_value;
+    BASIC::TDateTime time_value;
+    void *void_value;
+    size_t void_size;
+
+    QParam(const std::string &aname, otFieldType aft, void *value, size_t size)
+    {
+        empty = false;
+        name = aname;
+        ft = aft;
+        void_value = value;
+        void_size = size;
+    }
+    QParam(const std::string &aname, otFieldType aft, int value)
+    {
+        empty = false;
+        name = aname;
+        ft = aft;
+        int_value = value;
+    }
+    QParam(const std::string &aname, otFieldType aft, double value)
+    {
+        empty = false;
+        name = aname;
+        ft = aft;
+        double_value = value;
+    }
+    QParam(const std::string &aname, otFieldType aft, const std::string &value)
+    {
+        empty = false;
+        name = aname;
+        ft = aft;
+        string_value = value;
+    }
+    QParam(const std::string &aname, otFieldType aft, char value)
+    {
+        empty = false;
+        name = aname;
+        ft = aft;
+        char_value = value;
+    }
+    QParam(const std::string &aname, otFieldType aft):
         name(aname),
-        ft(aft),
-        value(avalue)
-    {};
+        ft(aft)
+    {
+        empty = true;
+    };
 };
 
 class QParams: public std::list<QParam> {
@@ -31,36 +78,29 @@ class QParams: public std::list<QParam> {
 
 struct TQry {
     TQuery Qry;
-    BASIC::TDateTime last;
-    TQry(): Qry(&OraSession), last(ASTRA::NoExists) {};
+    u_int64_t count;
+    TQry(): Qry(&OraSession), count(0) {};
 };
 
 typedef std::tr1::shared_ptr<TQry> TQry_ptr;
 
-struct time_queue_cmp {
-    bool operator() (const TQry_ptr &l, const TQry_ptr &r) const
-    {
-        if(l->last == r->last) {
-            return strcmp(l->Qry.SQLText.SQLText(), r->Qry.SQLText.SQLText()) < 0;
-        } else
-            return l->last < r->last;
-    }
-};
-
-
-struct TQrys: public std::map<const std::string, TQry_ptr> {
+struct TQrys: public std::map<const std::string, std::list<TQry_ptr>::iterator> {
     private:
-        std::set<TQry_ptr, time_queue_cmp> time_queue;
-        void update_time_queue(TQry_ptr qry);
+        std::list<TQry_ptr> queue;
     public:
+        long time;
         TQuery &get(const std::string &SQLText, const QParams &p);
-        void dump();
-        void dump_time_queue();
+        void dump_queue();
+        TQrys(): time(0) {};
         static TQrys *Instance()
         {
             static TQrys *instance_ = 0;
-            if ( !instance_ )
+            if ( !instance_ ) {
                 instance_ = new TQrys();
+#ifdef SQL_COUNTERS
+                queryCount = 0;
+#endif
+            }
             return instance_;
         }
 };

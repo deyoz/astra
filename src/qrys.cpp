@@ -1,5 +1,6 @@
 #include "qrys.h"
 #include "exceptions.h"
+#include "misc.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/test.h"
@@ -10,85 +11,73 @@ using namespace BASIC;
 
 const size_t MAX_QRYS = 1000;
 
-void TQrys::dump_time_queue()
+void TQrys::dump_queue()
 {
-    ProgTrace(TRACE5, "---TQrys::dump_time_queue---");
-    for(set<TQry_ptr, time_queue_cmp>::iterator is = time_queue.begin(); is != time_queue.end(); is++) {
-        ProgTrace(TRACE5, "last: %s", DateTimeToStr((*is)->last, ServerFormatDateTimeAsString).c_str());
+    ProgTrace(TRACE5, "---TQrys::dump_queue---");
+    for(list<TQry_ptr>::iterator is = queue.begin(); is != queue.end(); is++) {
+        ProgTrace(TRACE5, "count: %llu", (*is)->count);
         ProgTrace(TRACE5, "qry: %s", (*is)->Qry.SQLText.SQLText());
+#ifdef SQL_COUNTERS
+        ProgTrace(TRACE5, "parse count: %d", sqlCounters[(*is)->Qry.SQLText.SQLText()]);
+#endif
     }
-}
-
-void TQrys::dump()
-{
-    ProgTrace(TRACE5, "---TQrys::dump---");
-    ProgTrace(TRACE5, "TQrys.size(): %zu", size());
-    int idx0 = 0;
-    for(TQrys::iterator im = begin(); im != end(); im++, idx0++) {
-        ProgTrace(TRACE5, "%d: last: %s", idx0, DateTimeToStr(im->second->last, ServerFormatDateTimeAsString).c_str());
-        TQrys::iterator im1 = im;
-        im1++;
-        int idx1 = idx0 + 1;
-        for(; im1 != end(); im1++, idx1++) {
-            if(im->second->last == im1->second->last)
-                ProgTrace(TRACE5, "same times encountered: %d, %d", idx0, idx1);
-        }
-    }
-}
-
-void TQrys::update_time_queue(TQry_ptr qry)
-{
-    size_t ret = time_queue.erase(qry);
-    if(ret > 1)
-        throw Exception("time_queue.erase = %zu", ret);
-    qry->last = NowUTC();
-    if(not time_queue.insert(qry).second)
-        throw Exception("TQrys::update_time_queue: time_queue insert failed; element already existed");
+#ifdef SQL_COUNTERS
+    ProgTrace(TRACE5, "queryCount: %d", queryCount);
+#endif
 }
 
 TQuery &TQrys::get(const std::string &SQLText, const QParams &p)
 {
+    TPerfTimer tm;
+    tm.Init();
     TQrys::iterator im = find(SQLText);
+    list<TQry_ptr>::iterator i_qry;
     if(im == end()) {
         if(size() < MAX_QRYS) {
-            pair<TQrys::iterator, bool> ret = insert(make_pair(SQLText, TQry_ptr(new TQry())));
+            i_qry = queue.insert(queue.end(), TQry_ptr(new TQry()));
+            pair<TQrys::iterator, bool> ret = insert(make_pair( SQLText, i_qry));
             if(ret.second == false)
                 throw Exception("TQrys::get: insert failed; element already existed");
-            im = ret.first;
         } else {
-            im = find((*time_queue.begin())->Qry.SQLText.SQLText());
-            if(im == end())
-                throw Exception("TQrys::get: qry from time_queue not found");
-            time_queue.erase(time_queue.begin());
-            im->second->Qry.Clear();
+            i_qry = queue.begin();
+            queue.splice(queue.end(), queue, i_qry);
+            (*i_qry)->Qry.Clear();
+            (*i_qry)->count = 0;
         }
-        im->second->Qry.SQLText = SQLText;
+        (*i_qry)->Qry.SQLText = SQLText;
         for(QParams::const_iterator iv = p.begin(); iv != p.end(); iv++)
-            im->second->Qry.DeclareVariable(iv->name, iv->ft);
+            (*i_qry)->Qry.DeclareVariable(iv->name, iv->ft);
+    } else {
+        i_qry = im->second;
+        queue.splice(queue.end(), queue, i_qry);
     }
+
+    (*i_qry)->count++;
+
     for(QParams::const_iterator iv = p.begin(); iv != p.end(); iv++) {
+        if(iv->empty) continue;
         switch(iv->ft) {
             case otInteger:
-                im->second->Qry.SetVariable(iv->name, boost::any_cast<int>(iv->value));
+                (*i_qry)->Qry.SetVariable(iv->name, iv->int_value);
                 break;
             case otFloat:
-                im->second->Qry.SetVariable(iv->name, boost::any_cast<double>(iv->value));
+                (*i_qry)->Qry.SetVariable(iv->name, iv->double_value);
                 break;
             case otString:
-                im->second->Qry.SetVariable(iv->name, boost::any_cast<string>(iv->value));
+                (*i_qry)->Qry.SetVariable(iv->name, iv->string_value);
                 break;
             case otChar:
-                im->second->Qry.SetVariable(iv->name, boost::any_cast<char>(iv->value));
+                (*i_qry)->Qry.SetVariable(iv->name, iv->char_value);
                 break;
             case otDate:
-                im->second->Qry.SetVariable(iv->name, boost::any_cast<BASIC::TDateTime>(iv->value));
+                (*i_qry)->Qry.SetVariable(iv->name, iv->time_value);
                 break;
             case otLong:
             case otLongRaw:
-                im->second->Qry.SetVariable(iv->name, boost::any_cast<void *>(iv->value));
+                (*i_qry)->Qry.SetLongVariable(iv->name, iv->void_value, iv->void_size);
                 break;
         }
     }
-    update_time_queue(im->second);
-    return im->second->Qry;
+    time += tm.Print();
+    return (*i_qry)->Qry;
 }

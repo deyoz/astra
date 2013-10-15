@@ -27,6 +27,7 @@
 #include "rozysk.h"
 #include "serverlib/posthooks.h"
 #include "serverlib/perfom.h"
+#include "qrys.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -237,6 +238,19 @@ void utg_prl_tst(void)
     if (pointsQry.SQLText.IsEmpty()) {
         pointsQry.Clear();
         pointsQry.SQLText =
+            /*
+            SELECT point_id
+            FROM trip_final_stages, points
+            WHERE trip_final_stages.point_id=points.point_id AND
+                  trip_final_stages.stage_id=:stage_id AND
+                  trip_final_stages.stage_type=:stage_type AND
+                  points.time_out>=:low_time AND points.time_out<=:high_time AND act_out IS NULL
+                  AND airline=:airline
+                  AND airp=:airp
+                  
+low_time=NowUTC()-1 high_time=low_time+3
+*/
+
             "SELECT ckin_open.point_id "
             "FROM trip_stages ckin_open, "
             "     trip_stages ckin_close "
@@ -323,6 +337,14 @@ void utg_prl_tst(void)
     }
     OraSession.Rollback(); //!!!
     ProgTrace(TRACE5, "utg_prl_tst count: %d, %s", count, tm_many.PrintWithMessage().c_str());
+    ProgTrace(TRACE5, "utg_prl_tst Qrys.size: %zu", TQrys::Instance()->size());
+    ProgTrace(TRACE5, "utg_prl_tst time: %lu", TQrys::Instance()->time);
+    TQrys::Instance()->dump_queue();
+#ifdef SQL_COUNTERS
+    for(map<string, int>::iterator im = sqlCounters.begin(); im != sqlCounters.end(); im++) {
+        ProgTrace(TRACE5, "sqlCounters[%s] = %d", im->first.c_str(), im->second);
+    }
+#endif
     stats.dump();
 }
 
