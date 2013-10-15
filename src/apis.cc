@@ -102,6 +102,14 @@ string NormalizeDocNo(const string& str)
   return (max_num.size()<6)?result:max_num;
 };
 
+string HyphenToSpace(const string& str)
+{
+  string result;
+  for(string::const_iterator i=str.begin(); i!=str.end(); ++i)
+    result+=(*i=='-')?' ':*i;
+  return result;
+};
+
 void create_apis_nosir_help(const char *name)
 {
   printf("  %-15.15s ", name);
@@ -278,8 +286,16 @@ void create_apis_file(int point_id)
               if (!offices.empty())
               {
                 paxlstInfo.setPartyName(offices.begin()->contact_name);
-                paxlstInfo.setPhone(offices.begin()->phone);
-                paxlstInfo.setFax(offices.begin()->fax);
+                if (fmt=="EDI_CN")
+                {
+                  paxlstInfo.setPhone(HyphenToSpace(offices.begin()->phone));
+                  paxlstInfo.setFax(HyphenToSpace(offices.begin()->fax));
+                }
+                else
+                {
+                  paxlstInfo.setPhone(offices.begin()->phone);
+                  paxlstInfo.setFax(offices.begin()->fax);
+                };
               };
 
               vector<string> strs;
