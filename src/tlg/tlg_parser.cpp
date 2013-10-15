@@ -4556,7 +4556,10 @@ bool ParseDOCARem(TTlgParser &tlg, string &rem_text, TDocaItem &doca)
     {
       try
       {
-        p=tlg.GetSlashedLexeme(p);
+        if (k==0)
+          p=tlg.GetLexeme(p);       //это не соответствует стандарту, но Сирена так формирует :(
+        else
+          p=tlg.GetSlashedLexeme(p);
         if (p==NULL && k>=7) break;
         if (p==NULL) throw ETlgError("Lexeme not found");
         if (*tlg.lex==0) continue;

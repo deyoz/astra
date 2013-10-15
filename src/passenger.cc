@@ -4,7 +4,6 @@
 #include "astra_utils.h"
 #include "term_version.h"
 #include "baggage.h"
-#include "misc.h"
 #include "qrys.h"
 #include "jxtlib/jxt_cont.h"
 
@@ -484,26 +483,6 @@ std::string GetPaxDocStr(TDateTime part_key,
   return result.str();
 };
 
-string NormalizeDocNoForAPIS(const string& str)
-{
-  string result;
-  string max_num, curr_num;
-  for(string::const_iterator i=str.begin(); i!=str.end(); ++i)
-    if (IsDigitIsLetter(*i)) result+=*i;
-  for(string::const_iterator i=result.begin(); i!=result.end(); ++i)
-  {
-    if (IsDigit(*i)) curr_num+=*i;
-    if (IsLetter(*i) && !curr_num.empty())
-    {
-      if (curr_num.size()>max_num.size()) max_num=curr_num;
-      curr_num.clear();
-    };
-  };
-  if (curr_num.size()>max_num.size()) max_num=curr_num;
-
-  return (max_num.size()<6)?result:max_num;
-};
-
 bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc, TQuery& PaxDocQry, TQuery& GetPSPT2Qry)
 {
   doc.clear();
@@ -588,6 +567,39 @@ bool LoadCrsPaxVisa(int pax_id, TPaxDocoItem &doc, TQuery& PaxDocQry)
   PaxDocQry.Execute();
   if (!PaxDocQry.Eof) doc.fromDB(PaxDocQry);
   return !doc.empty();
+};
+
+bool LoadPaxDoca(int pax_id, TDocaType type, TPaxDocaItem &doca)
+{
+  return LoadPaxDoca(ASTRA::NoExists, pax_id, type, doca);
+};
+
+bool LoadPaxDoca(TDateTime part_key, int pax_id, TDocaType type, TPaxDocaItem &doca)
+{
+  doca.clear();
+  const char* sql=
+    "SELECT * FROM pax_doca WHERE pax_id=:pax_id AND type=:type";
+  const char* sql_arx=
+    "SELECT * FROM arx_pax_doca WHERE part_key=:part_key AND pax_id=:pax_id AND type=:type";
+  const char *sql_result = NULL;
+  QParams QryParams;
+  if (part_key!=ASTRA::NoExists)
+  {
+      QryParams << QParam("part_key", otDate, part_key);
+      sql_result = sql_arx;
+  }
+  else
+      sql_result = sql;
+  QryParams << QParam("pax_id", otInteger, pax_id);
+  switch(type)
+  {
+    case docaDestination: QryParams << QParam("type", otString, "D"); break;
+    case docaResidence:   QryParams << QParam("type", otString, "R"); break;
+  };
+  TQuery &PaxDocQry = TQrys::Instance()->get(sql_result, QryParams);
+  PaxDocQry.Execute();
+  if (!PaxDocQry.Eof) doca.fromDB(PaxDocQry);
+  return !doca.empty();
 };
 
 bool LoadCrsPaxDoca(int pax_id, list<TPaxDocaItem> &doca, TQuery& PaxDocaQry)

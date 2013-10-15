@@ -341,13 +341,21 @@ std::string GetPaxDocStr(BASIC::TDateTime part_key,
                          int pax_id,
                          bool with_issue_country=false,
                          const std::string &lang="");
-std::string NormalizeDocNoForAPIS(const std::string& str);
 
 bool LoadPaxDoco(int pax_id, TPaxDocoItem &doc);
 bool LoadPaxDoco(BASIC::TDateTime part_key, int pax_id, TPaxDocoItem &doc);
+enum TDocaType
+{
+  docaDestination,
+  docaResidence
+};
+bool LoadPaxDoca(int pax_id, TDocaType type, TPaxDocaItem &doca);
+bool LoadPaxDoca(BASIC::TDateTime part_key, int pax_id, TDocaType type, TPaxDocaItem &doca);
+
 bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc, TQuery& PaxDocQry, TQuery& GetPSPT2Qry);
 bool LoadCrsPaxVisa(int pax_id, TPaxDocoItem &doc, TQuery& PaxDocQry);
 bool LoadCrsPaxDoca(int pax_id, std::list<TPaxDocaItem> &doca, TQuery& PaxDocaQry);
+
 void SavePaxDoc(int pax_id, const TPaxDocItem &doc, TQuery& PaxDocQry);
 void SavePaxDoco(int pax_id, const TPaxDocoItem &doc, TQuery& PaxDocQry);
 void SavePaxDoca(int pax_id, const std::list<TPaxDocaItem> &doca, TQuery& PaxDocaQry);

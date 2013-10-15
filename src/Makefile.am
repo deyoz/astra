@@ -19,6 +19,7 @@ astra_SOURCES = \
   access.cc \
   alarms.cc \
   aodb.cc \
+  apis.cc \
   apis_edi_file.cc \
   arx_daily.cc \
   astra_callbacks.cc \
@@ -121,6 +122,7 @@ noinst_HEADERS = \
   access.h \
   alarms.h \
   aodb.h \
+  apis.h \
   apis_edi_file.h \
   arx_daily.h \
   astra_callbacks.h \
