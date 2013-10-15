@@ -100,7 +100,7 @@ std::string TSeatLayer::toString() const
   return res;
 }
 
-void getMenuBaseLayers( std::map<ASTRA::TCompLayerType,TMenuLayer> &menuLayers )
+void getMenuBaseLayers( std::map<ASTRA::TCompLayerType,TMenuLayer> &menuLayers, bool isTripCraft )
 {
   menuLayers.clear();
   for ( int ilayer=0; ilayer<ASTRA::cltTypeNum; ilayer++ ) {
@@ -112,7 +112,7 @@ void getMenuBaseLayers( std::map<ASTRA::TCompLayerType,TMenuLayer> &menuLayers )
  	menuLayers[ cltSmoke ].editable = true;
   menuLayers[ cltSmoke ].name_view = BASIC_SALONS::TCompLayerTypes::Instance()->getName( cltSmoke, TReqInfo::Instance()->desk.lang );
  	menuLayers[ cltDisable ].editable = true;
- 	menuLayers[ cltDisable ].notfree = true;
+ 	menuLayers[ cltDisable ].notfree = isTripCraft;
   menuLayers[ cltDisable ].name_view = BASIC_SALONS::TCompLayerTypes::Instance()->getName( cltDisable, TReqInfo::Instance()->desk.lang );
   menuLayers[ cltProtect ].editable = true;
   menuLayers[ cltProtect ].name_view = BASIC_SALONS::TCompLayerTypes::Instance()->getName( cltProtect, TReqInfo::Instance()->desk.lang );
