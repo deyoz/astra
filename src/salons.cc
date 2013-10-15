@@ -134,7 +134,7 @@ void getMenuLayers( bool isTripCraft,
     menuLayers[ (ASTRA::TCompLayerType)ilayer ].editable = false;
     menuLayers[ (ASTRA::TCompLayerType)ilayer ].notfree = false;
   }
-  getMenuBaseLayers( menuLayers );
+  getMenuBaseLayers( menuLayers, isTripCraft );
 
   if ( isTripCraft ) {
     menuLayers[ cltBlockCent ].editable = true;
@@ -370,7 +370,7 @@ void TFilterLayers::getFilterLayers( int point_id, bool only_compon_props )
   point_dep = ASTRA::NoExists;
   std::map<ASTRA::TCompLayerType,TMenuLayer> menuLayers;
   if ( only_compon_props ) {
-    getMenuBaseLayers( menuLayers );
+    getMenuBaseLayers( menuLayers, true );
   }
 	clearFlags();
 	for ( int l=0; l!=cltTypeNum; l++ ) {
@@ -3029,7 +3029,7 @@ void TSalonList::validateLayersSeats( )
   RollbackLayers();
   std::map<int, std::set<TSeatLayer,SeatLayerCompare>,classcomp > layers;
   std::map<ASTRA::TCompLayerType,TMenuLayer> menuLayers;
-  getMenuBaseLayers( menuLayers );
+  getMenuBaseLayers( menuLayers, true );
 
   TSeatLayer max_priority_layer;
   vector<TClearSeatLayer> clearSeatLayers;
@@ -3990,7 +3990,7 @@ void TSalonList::WriteCompon( int &vcomp_id, const TComponSets &componSets )
   Qry.DeclareVariable( "yname", otString );
 
   std::map<ASTRA::TCompLayerType,TMenuLayer> menuLayers;
-  getMenuBaseLayers( menuLayers );
+  getMenuBaseLayers( menuLayers, true );
   map<TClass,int> countersClass;
   TClass cl;
   std::map<int, std::vector<TSeatRemark>,classcomp > remarks;
