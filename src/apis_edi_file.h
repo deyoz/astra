@@ -100,6 +100,8 @@ public:
     
 class FlightInfo
 {
+    std::string m_carrier;
+
     // Carrier Code/Flight Number. For example: OK051
     /* maxlen = 17 */
     /* required = C */
@@ -128,6 +130,14 @@ public:
         : m_depDateTime( ASTRA::NoExists ), m_arrDateTime( ASTRA::NoExists )
     {}
     
+    // carrier
+    const std::string& carrier() const {
+        return m_carrier;
+    }
+    void setCarrier( const std::string& f ) {
+        m_carrier = upperc( f.substr( 0, 17 ) );
+    }
+
     // flight
     const std::string& flight() const { 
         return m_flight; 
@@ -257,9 +267,17 @@ class PassengerInfo
     /* required = C */
     std::string m_street;
 
+    std::string m_countrySubEntityCode;
+    std::string m_postalCode;
+    std::string m_destCountry;
+    std::string m_residCountry;
+    std::string m_birthCountry;
+
     // Passenger's date of birth
     /* required = C */
     BASIC::TDateTime m_birthDate;
+
+    std::string m_CBPPort;
 
     // Passenger's departure airport. Three-character IATA code
     /* maxlen = 25 */
@@ -348,12 +366,59 @@ public:
         m_street = upperc( s.substr( 0, 35 ) );
     }
 
+    // passenger's country sub-entity name code
+    const std::string& countrySubEntityCode() const {
+        return m_countrySubEntityCode;
+    }
+    void setCountrySubEntityCode( const std::string& s ) {
+        m_countrySubEntityCode = upperc( s.substr( 0, 9 ) );
+    }
+
+    // passenger's postal identification code
+    const std::string& postalCode() const {
+        return m_postalCode;
+    }
+    void setPostalCode( const std::string& s ) {
+        m_postalCode = upperc( s.substr( 0, 17 ) );
+    }
+
+    // passenger's country name code
+    // Destination
+    const std::string& destCountry() const {
+        return m_destCountry;
+    }
+    void setDestCountry( const std::string& s ) {
+        m_destCountry = upperc( s.substr( 0, 3 ) );
+    }
+    // Residence
+    const std::string& residCountry() const {
+        return m_residCountry;
+    }
+    void setResidCountry( const std::string& s ) {
+        m_residCountry = upperc( s.substr( 0, 3 ) );
+    }
+    // Birth
+    const std::string& birthCountry() const {
+        return m_birthCountry;
+    }
+    void setBirthCountry( const std::string& s ) {
+        m_birthCountry = upperc( s.substr( 0, 3 ) );
+    }
+
     // passenger's birth date
     const BASIC::TDateTime& birthDate() const {
         return m_birthDate;
     }
     void setBirthDate( const BASIC::TDateTime& bd ) {
         m_birthDate = bd;
+    }
+
+    // passenger's Customs and Border Protection (CBP) airport
+    const std::string& CBPPort() const {
+        return m_CBPPort;
+    }
+    void setCBPPort( const std::string& cbpp ) {
+        m_CBPPort = upperc( cbpp.substr( 0, 25 ) );
     }
 
     // passenger's departure airport
@@ -427,14 +492,19 @@ typedef std::list< PassengerInfo > PassengersList_t;
 class PaxlstSettings
 {
     std::string m_respAgnCode;
+    bool m_viewUNGandUNE;
     
 public:
     PaxlstSettings()
-        : m_respAgnCode( "111" )
+        : m_respAgnCode( "111" ),
+          m_viewUNGandUNE(false)
     {}
     
     const std::string& respAgnCode() const { return m_respAgnCode; }
     void setRespAgnCode( const std::string& respAgnCode ) { m_respAgnCode = respAgnCode; }
+
+    const bool viewUNGandUNE() const { return m_viewUNGandUNE; }
+    void setViewUNGandUNE( const bool& viewUNGandUNE ) { m_viewUNGandUNE = viewUNGandUNE; }
 };
 
 //-------------------------------------------------------------------------------------------------

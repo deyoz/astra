@@ -189,6 +189,17 @@ const long int DOCO_EDI_IN_FIELDS=DOCO_TYPE_FIELD|
                                   DOCO_NO_FIELD;
 */
 //==============================================================================
+const long int DOC_EDI_US_FIELDS=DOC_SURNAME_FIELD|
+                                 DOC_FIRST_NAME_FIELD|
+                                 DOC_GENDER_FIELD|
+                                 DOC_BIRTH_DATE_FIELD|
+                                 DOC_TYPE_FIELD|
+                                 DOC_NO_FIELD;
+/*
+const long int DOCO_EDI_US_FIELDS=DOCO_TYPE_FIELD|
+                                  DOCO_NO_FIELD;
+*/
+//==============================================================================
 const long int DOC_CSV_DE_FIELDS=DOC_SURNAME_FIELD|
                                  DOC_FIRST_NAME_FIELD|
                                  DOC_GENDER_FIELD|
@@ -297,6 +308,11 @@ TCheckDocInfo GetCheckDocInfo(const int point_dep, const string& airp_arv, set<s
           {
             result.first.required_fields|=DOC_EDI_IN_FIELDS;
             //result.second.required_fields|=DOCO_EDI_IN_FIELDS; пока не определено
+          };
+          if (fmt=="EDI_US")
+          {
+            result.first.required_fields|=DOC_EDI_US_FIELDS;
+            //result.second.required_fields|=DOCO_EDI_US_FIELDS; пока не определено
           };
           if (fmt=="CSV_DE")
           {
@@ -1817,28 +1833,6 @@ bool BagPaymentCompleted(int grp_id, int *value_bag_count)
   };
   
   return true;
-};
-
-string GetPaxDocCountryCode(const string &doc_code)
-{
-  //на входе либо countries.code либо pax_doc_countries.code
-  string pax_doc_country;
-  if (!doc_code.empty())
-  {
-    try
-    {
-      pax_doc_country=getBaseTable(etPaxDocCountry).get_row("code",doc_code).AsString("code");
-    }
-    catch (EBaseTableError)
-    {
-      try
-      {
-        pax_doc_country=getBaseTable(etPaxDocCountry).get_row("country",doc_code).AsString("code");
-      }
-      catch (EBaseTableError) {};
-    };
-  };
-  return pax_doc_country;
 };
 
 bool isTestPaxId(int id)

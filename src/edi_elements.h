@@ -130,18 +130,29 @@ struct NadElem
     std::string m_partyName2;
     std::string m_street;
     std::string m_city;
+    std::string m_countrySubEntityCode;
+    std::string m_postalCode;
+    std::string m_country;
     
     NadElem( const std::string& funcCode,
              const std::string& partyName,
-             const std::string& partyName2 = "",
-             const std::string& street = "",
-             const std::string& city = "" )
+             const std::string& partyName2="",
+             const std::string& street="",
+             const std::string& city="",
+             const std::string& countrySubEntityCode="",
+             const std::string& postalCode="",
+             const std::string& country=""
+           )
         : m_funcCode( funcCode ),
           m_partyName( partyName ),
           m_partyName2( partyName2 ),
           m_street( street ),
-          m_city( city )
+          m_city( city ),
+          m_countrySubEntityCode( countrySubEntityCode ),
+          m_postalCode( postalCode ),
+          m_country( country )
     {}
+
 };
 
 //-----------------------------------------------------------------------------
@@ -169,11 +180,14 @@ struct TdtElem
 {
     std::string m_stageQuailifier;
     std::string m_journeyId;
+    std::string m_carrierId;
     
     TdtElem( const std::string& stageQualifier,
-             const std::string& journeyId )
+             const std::string& journeyId,
+             const std::string& carrierId )
         : m_stageQuailifier( stageQualifier ),
-          m_journeyId( journeyId )
+          m_journeyId( journeyId ),
+          m_carrierId( carrierId )
     {}
 };
 
@@ -186,10 +200,12 @@ struct LocElem
     {
         Departure = 125,
         Arrival = 87,
+        CustomsAndBorderProtection = 22,
         StartJourney = 178,
         FinishJourney = 179,
-        DocCountry = 91,
-        CountryOfBirth = 180
+        CountryOfResidence = 174,
+        CountryOfBirth = 180,
+        DocCountry = 91
     };
 
     LocQualifier m_locQualifier;

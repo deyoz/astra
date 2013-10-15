@@ -9,7 +9,7 @@
 #include "xml_unit.h"
 #include "telegram.h"
 #include "astra_service.h"
-#include "timer.h"
+#include "apis.h"
 #include "salons.h"
 #include "term_version.h"
 #include "comp_layers.h"

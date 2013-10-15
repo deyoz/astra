@@ -107,19 +107,21 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
     // UNB
     viewUnbElement( pMes, UnbElem( paxlst.senderCarrierCode(), 
                                    paxlst.recipientCarrierCode() ) );
-    
-    // UNG
-    viewUngElement( pMes, UngElem( "PAXLST",
-                                   paxlst.senderName(),
-                                   paxlst.senderCarrierCode(),
-                                   paxlst.recipientName(),
-                                   paxlst.recipientCarrierCode(),
-                                   nowUtc,
-                                   UnhNumber,
-                                   CntrlAgn,
-                                   VerNum,
-                                   RelNum ) );
-    
+    if (paxlst.settings().viewUNGandUNE())
+    {
+      // UNG
+      viewUngElement( pMes, UngElem( "PAXLST",
+                                     paxlst.senderName(),
+                                     paxlst.senderCarrierCode(),
+                                     paxlst.recipientName(),
+                                     paxlst.recipientCarrierCode(),
+                                     nowUtc,
+                                     UnhNumber,
+                                     CntrlAgn,
+                                     VerNum,
+                                     RelNum ) );
+    }
+
     // UNH
     viewUnhElement( pMes, UnhElem( "PAXLST",
                                    VerNum,
@@ -158,7 +160,7 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
     SetEdiPointToSegGrW( pMes, SegGrElement( 2, 0 ) );
     
     // TDT
-    viewTdtElement( pMes, TdtElem( "20", paxlst.flight() ) );
+    viewTdtElement( pMes, TdtElem( "20", paxlst.flight(), paxlst.carrier() ) );
     
     SetEdiSegGr( pMes, SegGrElement( 3, 0 ) );
     PushEdiPointW( pMes );
@@ -194,13 +196,25 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
         
         // NAD
         viewNadElement( pMes, NadElem( paxlst.type()==PaxlstInfo::FlightPassengerManifest?"FL":"FM",
-                                       it->surname(), it->name(), it->street(), it->city() ) );
+                                       it->surname(),
+                                       it->name(),
+                                       it->street(),
+                                       it->city(),
+                                       it->countrySubEntityCode(),
+                                       it->postalCode(),
+                                       it->destCountry() ) );
         // ATT
-        viewAttElement( pMes, AttElem( "2", it->sex() ) );
+        if (!it->sex().empty())
+          viewAttElement( pMes, AttElem( "2", it->sex() ) );
         // DTM
         viewDtmElement( pMes, DtmElem( DtmElem::DateOfBirth, it->birthDate() ) );
         
         int locNum = 0;
+        if( !it->CBPPort().empty() )
+        {
+            // LOC
+            viewLocElement( pMes, LocElem( LocElem::CustomsAndBorderProtection, it->CBPPort() ), locNum++ );
+        }
         if( !it->depPort().empty() )
         {
             // LOC
@@ -210,6 +224,11 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
         {
             // LOC
             viewLocElement( pMes, LocElem( LocElem::FinishJourney, it->arrPort() ), locNum++ );
+        }
+        if( !it->residCountry().empty() )
+        {
+            // LOC
+            viewLocElement( pMes, LocElem( LocElem::CountryOfResidence, it->residCountry() ), locNum++ );
         }
         
         if( !it->nationality().empty() )
@@ -257,9 +276,11 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
                                      CntElem::PassengersTotal:
                                      CntElem::CrewTotal,
                                    totalCnt ) );
-    
-    // UNE
-    viewUneElement( pMes, UneElem( UnhNumber ) );
+    if (paxlst.settings().viewUNGandUNE())
+    {
+      // UNE
+      viewUneElement( pMes, UneElem( UnhNumber ) );
+    }
 }
 
 static std::string ediMessageToStr( _EDI_REAL_MES_STRUCT_ *pMes )
