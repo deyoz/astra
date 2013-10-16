@@ -306,9 +306,7 @@ void create_apis_file(int point_id)
               if (i!=strs.end()) paxlstInfo.setSenderName(*i++);
               if (i!=strs.end()) paxlstInfo.setSenderCarrierCode(*i++);
 
-              if (fmt=="EDI_US" &&
-                  (country_arv.code_lat=="US" ||
-                   country_arv.code_lat=="GU"))
+              if (fmt=="EDI_US")
               {
                 paxlstInfo.setRecipientName("USCSAPIS");
                 paxlstInfo.setRecipientCarrierCode("ZZ");
@@ -742,7 +740,7 @@ void create_apis_file(int point_id)
               {
                 paxInfo.setStreet(docaD.address);
                 paxInfo.setCity(docaD.city);
-                if (docaD.region.size()!=2)
+                if (country_arv.code_lat!="US" || docaD.region.size()==2) //код штата для US
                   paxInfo.setCountrySubEntityCode(docaD.region);
                 paxInfo.setPostalCode(docaD.postal_code);
                 paxInfo.setDestCountry(docaD.country);
