@@ -20,7 +20,6 @@ struct QParam {
     double double_value;
     std::string string_value;
     char char_value;
-    BASIC::TDateTime time_value;
     void *void_value;
     size_t void_size;
 

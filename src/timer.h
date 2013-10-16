@@ -9,7 +9,7 @@
 
 int main_timer_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
 void ETCheckStatusFlt(void);
-void utg_prl_tst(void);
+void utg_prl(void);
 void utg(void);
 void sync_mvd(void);
 void createSPP( BASIC::TDateTime utcdate );

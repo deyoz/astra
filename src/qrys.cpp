@@ -70,7 +70,7 @@ TQuery &TQrys::get(const std::string &SQLText, const QParams &p)
                 (*i_qry)->Qry.SetVariable(iv->name, iv->char_value);
                 break;
             case otDate:
-                (*i_qry)->Qry.SetVariable(iv->name, iv->time_value);
+                (*i_qry)->Qry.SetVariable(iv->name, iv->double_value);
                 break;
             case otLong:
             case otLongRaw:

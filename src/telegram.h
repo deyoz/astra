@@ -130,6 +130,7 @@ const std::string FILE_PARAM_TIME_CREATE = "TIME_CREATE";
 const std::string FILE_PARAM_ORIGINATOR_ID = "ORIGINATOR_ID";
 const std::string FILE_PARAM_AIRLINE_MARK = "AIRLINE_MARK";
 const std::string FILE_PARAM_EXTRA = "EXTRA_";
+const std::string PARAM_TLG_TYPE = "TLG_TYPE";
 
 struct TTlgOutPartInfo
 {
@@ -301,24 +302,6 @@ void Send( int point_dep, int grp_id, const TTlgContent &con1, const TBSMAddrs &
 
 }; //namespace BSM
 
-struct TStats {
-    long read_salons;
-    long get;
-    long to_tlg;
-    long dest_list;
-    long infants;
-    long pax_list;
-    TStats():
-        read_salons(0),
-        get(0),
-        to_tlg(0),
-        dest_list(0),
-        infants(0),
-        pax_list(0)
-    {}
-    void dump();
-};
-
 class TelegramInterface : public JxtInterface
 {
 public:
@@ -362,7 +345,7 @@ public:
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 
   static int create_tlg(const TypeB::TCreateInfo &createInfo,
-                        TTypeBTypesRow &tlgTypeInfo, TStats &stats);
+                        TTypeBTypesRow &tlgTypeInfo);
 
   static void readTripData( int point_id, xmlNodePtr dataNode );
   static void SendTlg( int tlg_id );
@@ -389,6 +372,7 @@ bool check_delay_code(int delay_code);
 bool check_delay_code(const std::string &delay_code);
 bool check_delay_value(BASIC::TDateTime delay_time);
 void putUTG(int id, const std::string &basic_type, const TTripInfo &flt, const std::string &data);
+void putUTG(int id, const std::string &basic_type, const TTripInfo &flt, const std::string &data, std::map<std::string, std::string> &file_params);
 
 #endif /*_TELEGRAM_H_*/
 

@@ -34,8 +34,6 @@ using namespace EXCEPTIONS;
 using namespace AstraLocale;
 using namespace boost::local_time;
 
-const std::string PARAM_TLG_TYPE = "TLG_TYPE";
-
 void TelegramInterface::readTripData( int point_id, xmlNodePtr dataNode )
 {
   xmlNodePtr tripdataNode = NewTextChild( dataNode, "tripdata" );
@@ -746,16 +744,9 @@ void TelegramInterface::SaveTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   AstraLocale::showMessage("MSG.TLG.SAVED");
 };
 
-void putUTG(int id, const string &basic_type, const TTripInfo &flt, const string &data)
+
+void putUTG(int id, const string &basic_type, const TTripInfo &flt, const string &data, map<string, string> &file_params)
 {
-    map<string, string> file_params;
-    TFileQueue::add_sets_params( flt.airp,
-                                 flt.airline,
-                                 IntToString(flt.flt_no),
-                                 OWN_POINT_ADDR(),
-                                 FILE_UTG_TYPE,
-                                 1,
-                                 file_params );
     if(not file_params.empty() and (file_params[PARAM_TLG_TYPE].find(basic_type) != string::npos)) {
         string encoding=TFileQueue::getEncoding(FILE_UTG_TYPE, OWN_POINT_ADDR(), true);
         if (encoding.empty()) encoding="CP866";
@@ -779,6 +770,19 @@ void putUTG(int id, const string &basic_type, const TTripInfo &flt, const string
                              file_params,
                              (encoding == "CP866" ? data : ConvertCodepage(data, "CP866", encoding)));
     }
+}
+
+void putUTG(int id, const string &basic_type, const TTripInfo &flt, const string &data)
+{
+    map<string, string> file_params;
+    TFileQueue::add_sets_params( flt.airp,
+                                 flt.airline,
+                                 IntToString(flt.flt_no),
+                                 OWN_POINT_ADDR(),
+                                 FILE_UTG_TYPE,
+                                 1,
+                                 file_params );
+    putUTG(id, basic_type, flt, data, file_params);
 }
 
 void TelegramInterface::SendTlg(int tlg_id)
@@ -1047,8 +1051,7 @@ void TelegramInterface::SendTlg(const vector<TypeB::TCreateInfo> &info)
         try
         {
             time_t time_start=time(NULL);
-            TStats stats;
-            tlg_id = create_tlg( *i, tlgTypeInfo, stats);
+            tlg_id = create_tlg( *i, tlgTypeInfo);
 
             time_t time_end=time(NULL);
             if (time_end-time_start>1)

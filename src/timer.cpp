@@ -27,6 +27,7 @@
 #include "serverlib/posthooks.h"
 #include "serverlib/perfom.h"
 #include "qrys.h"
+#include "points.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -152,7 +153,7 @@ void exec_tasks( const char *proc_name )
       else
       if ( name == "utg" ) utg();
       else
-      if ( name == "den" ) utg_prl_tst();
+      if ( name == "den" ) utg_prl();
 /*	  else
       if ( name == "cobra" ) cobra();*/
 
@@ -220,7 +221,7 @@ void createSPP( TDateTime utcdate )
 
 #include <boost/filesystem.hpp>
 
-void utg_prl_tst(void)
+void utg_prl(void)
 {
     static bool processed = false;
     static bool passed = false;
@@ -233,118 +234,98 @@ void utg_prl_tst(void)
     }
     processed = true;
 
-    static TQuery pointsQry(&OraSession);
-    if (pointsQry.SQLText.IsEmpty()) {
-        pointsQry.Clear();
-        pointsQry.SQLText =
-            /*
-            SELECT point_id
-            FROM trip_final_stages, points
-            WHERE trip_final_stages.point_id=points.point_id AND
-                  trip_final_stages.stage_id=:stage_id AND
-                  trip_final_stages.stage_type=:stage_type AND
-                  points.time_out>=:low_time AND points.time_out<=:high_time AND act_out IS NULL
-                  AND airline=:airline
-                  AND airp=:airp
-                  
-low_time=NowUTC()-1 high_time=low_time+3
-*/
+    TDateTime low_time = NowUTC() - 1;
+    TDateTime high_time = low_time + 3;
 
-            "SELECT ckin_open.point_id "
-            "FROM trip_stages ckin_open, "
-            "     trip_stages ckin_close "
-            "WHERE ckin_open.point_id=ckin_close.point_id AND "
-//            "      ckin_open.point_id = 2758830 and " //!!! test
-            "      ckin_open.stage_id=20 AND "
-            "      ckin_close.stage_id=30 AND "
-            "      NVL(ckin_open.act, NVL(ckin_open.est, ckin_open.scd))<:time AND "
-            "      NVL(ckin_close.act, NVL(ckin_close.est, ckin_close.scd))>=:time ";
-        pointsQry.DeclareVariable("time", otDate);
-    }
+    QParams QryParams;
+    QryParams
+        << QParam("low_time", otDate, low_time)
+        << QParam("high_time", otDate, high_time)
+        << QParam("stage_id", otInteger, sOpenCheckIn)
+        << QParam("stage_type", otInteger, stCheckIn);
+    TQuery &pointsQry = TQrys::Instance()->get(
+            "SELECT point_id, airp, airline, flt_no, suffix, scd_out "
+            "FROM trip_final_stages, points "
+            "WHERE trip_final_stages.point_id=points.point_id AND "
+            "      trip_final_stages.stage_id=:stage_id AND "
+            "      trip_final_stages.stage_type=:stage_type AND "
+            "      points.time_out>=:low_time AND points.time_out<=:high_time AND act_out IS NULL ",
+            QryParams
+            );
 
-    static TQuery TlgQry(&OraSession);
-    if(TlgQry.SQLText.IsEmpty()) {
-        TlgQry.Clear();
-        TlgQry.SQLText=
-            "SELECT id, num, type, point_id, addr AS addrs, heading, body, ending, "
-            "       completed, has_errors, time_create, originator_id, airline_mark "
+    QryParams.clear();
+    QryParams << QParam("id", otInteger);
+    TQuery &TlgQry = TQrys::Instance()->get(
+            "SELECT heading, body, ending "
             "FROM tlg_out "
-            "WHERE id=:id FOR UPDATE";
-        TlgQry.DeclareVariable( "id", otInteger);
-    }
+            "WHERE id=:id",
+            QryParams
+            );
 
-    static TQuery updQry(&OraSession);
-    if(updQry.SQLText.IsEmpty()) {
-        updQry.Clear();
-        updQry.SQLText=
-            "UPDATE tlg_out SET time_send_act=system.UTCSYSDATE WHERE id=:id";
-        updQry.DeclareVariable( "id", otInteger);
-    }
+    QryParams.clear();
+    QryParams << QParam("point_id", otInteger) << QParam("last_flt_change_tid", otInteger);
+    TQuery &updQry = TQrys::Instance()->get(
+            "UPDATE utg_prl set last_tlg_create_tid = :last_flt_change_tid where point_id = :point_id",
+            QryParams
+            );
 
-    static TQuery Qry(&OraSession);
-    if(Qry.SQLText.IsEmpty()) {
-        Qry.Clear();
-        Qry.SQLText="SELECT airline, flt_no, suffix, airp, scd_out FROM points WHERE point_id=:point_id";
-        Qry.DeclareVariable("point_id", otInteger);
-    }
+    QryParams.clear();
+    QryParams << QParam("point_id", otInteger);
+    TQuery &utgQry = TQrys::Instance()->get(
+            "select last_flt_change_tid from utg_prl where point_id = :point_id and "
+            "(last_tlg_create_tid is null or last_tlg_create_tid <> last_flt_change_tid)",
+            QryParams
+            );
 
-    TDateTime time;
-    StrToDateTime("01.08.2012 00:00:00", time);
-    pointsQry.SetVariable("time", time);
     pointsQry.Execute();
-    TPerfTimer tm_many("many tlgs");
-    tm_many.Init();
-    int count = 0;
-    TStats stats;
-    for(; not pointsQry.Eof; pointsQry.Next(), count++) {
-        //        if(count == 10) break;
-        TPerfTimer tm("one tlg");
-        tm.Init();
-        TypeB::TCreateInfo info("PRL");
-        info.point_id = pointsQry.FieldAsInteger("point_id");
-        TTypeBTypesRow tlgTypeInfo;
+    TTripInfo flt;
+    for(; not pointsQry.Eof; pointsQry.Next(), OraSession.Commit()) {
+        int point_id = pointsQry.FieldAsInteger("point_id");
         try {
-
-            int tlg_id = TelegramInterface::create_tlg(info, tlgTypeInfo, stats);
-            OraSession.Rollback(); //!!!
-            /*
-            TlgQry.SetVariable("id", tlg_id);
-            TlgQry.Execute();
-
-            string tlg_text=(string)TlgQry.FieldAsString("heading")+
-            TlgQry.FieldAsString("body")+
-            TlgQry.FieldAsString("ending");
-
-            TTripInfo fltInfo;
-            Qry.SetVariable("point_id", info.point_id);
-            Qry.Execute();
-            fltInfo.Init(Qry);
-            putUTG(tlg_id, "PRL", fltInfo, tlg_text);
-            updQry.SetVariable("id", tlg_id);
-            updQry.Execute();
-            */
-            ProgTrace(TRACE5, "utg_prl_tst %s", tm.PrintWithMessage().c_str());
-            ProgTrace(TRACE5, "utg_prl_tst: sending %d", tlg_id);
-
-        }
-        catch( std::exception &E )
-        {
+            flt.Init(pointsQry);
+            map<string, string> file_params;
+            TFileQueue::add_sets_params( flt.airp,
+                    flt.airline,
+                    IntToString(flt.flt_no),
+                    OWN_POINT_ADDR(),
+                    FILE_UTG_TYPE,
+                    1,
+                    file_params );
+            if(not file_params.empty() and (file_params[PARAM_TLG_TYPE].find("PRL") != string::npos)) {
+                TFlights().Get(point_id, ftTranzit);
+                utgQry.SetVariable("point_id", point_id);
+                utgQry.Execute();
+                if(utgQry.Eof) continue;
+                int last_flt_change_tid = utgQry.FieldAsInteger("last_flt_change_tid");
+                TypeB::TCreateInfo info("PRL");
+                info.point_id = point_id;
+                TTypeBTypesRow tlgTypeInfo;
+                int tlg_id = TelegramInterface::create_tlg(info, tlgTypeInfo);
+                TlgQry.SetVariable("id", tlg_id);
+                TlgQry.Execute();
+                string tlg_text=(string)
+                    TlgQry.FieldAsString("heading")+
+                    TlgQry.FieldAsString("body")+
+                    TlgQry.FieldAsString("ending");
+                OraSession.Rollback();
+                putUTG(tlg_id, "PRL", flt, tlg_text, file_params);
+                updQry.SetVariable("point_id", point_id);
+                updQry.SetVariable("last_flt_change_tid", last_flt_change_tid);
+                updQry.Execute();
+            }
+        } catch(Exception &E) {
             OraSession.Rollback();
-            ProgTrace(TRACE5, "utg_prl_tst: failed for point_id %d: %s", info.point_id, E.what());
+            ProgError(STDLOG,"utg_prl: Exception: %s (point_id=%d)",E.what(), point_id);
+        } catch(...) {
+            OraSession.Rollback();
+            ProgError(STDLOG,"utg_prl: unknown error (point_id=%d)", point_id);
         }
-        ProgTrace(TRACE5, "utg_prl_tst: count %d", count);
     }
-    OraSession.Rollback(); //!!!
-    ProgTrace(TRACE5, "utg_prl_tst count: %d, %s", count, tm_many.PrintWithMessage().c_str());
-    ProgTrace(TRACE5, "utg_prl_tst Qrys.size: %zu", TQrys::Instance()->size());
-    ProgTrace(TRACE5, "utg_prl_tst time: %lu", TQrys::Instance()->time);
-    TQrys::Instance()->dump_queue();
 #ifdef SQL_COUNTERS
     for(map<string, int>::iterator im = sqlCounters.begin(); im != sqlCounters.end(); im++) {
         ProgTrace(TRACE5, "sqlCounters[%s] = %d", im->first.c_str(), im->second);
     }
 #endif
-    stats.dump();
 }
 
 void utg(void)
@@ -381,10 +362,10 @@ void utg(void)
         OraSession.Rollback();
         try
         {
-           EOracleError *orae=dynamic_cast<EOracleError*>(&E);
-           if (orae!=NULL&&
-              (orae->Code==4061||orae->Code==4068)) continue;
-              ProgError(STDLOG,"Exception: %s (file id=%d)",E.what(),item->id);
+            EOracleError *orae=dynamic_cast<EOracleError*>(&E);
+            if (orae!=NULL&&
+                    (orae->Code==4061||orae->Code==4068)) continue;
+            ProgError(STDLOG,"Exception: %s (file id=%d)",E.what(),item->id);
         }
         catch(...) {};
 
