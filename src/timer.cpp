@@ -153,7 +153,7 @@ void exec_tasks( const char *proc_name )
       else
       if ( name == "utg" ) utg();
       else
-      if ( name == "den" ) utg_prl();
+      if ( name == "utg_prl" ) utg_prl();
 /*	  else
       if ( name == "cobra" ) cobra();*/
 
@@ -223,17 +223,6 @@ void createSPP( TDateTime utcdate )
 
 void utg_prl(void)
 {
-    static bool processed = false;
-    static bool passed = false;
-    if(processed) {
-        if(not passed) {
-            passed = true;
-            ProgTrace(TRACE5, "utg_prl_tst passed");
-        }
-        return;
-    }
-    processed = true;
-
     TDateTime low_time = NowUTC() - 1;
     TDateTime high_time = low_time + 3;
 
@@ -244,7 +233,7 @@ void utg_prl(void)
         << QParam("stage_id", otInteger, sOpenCheckIn)
         << QParam("stage_type", otInteger, stCheckIn);
     TQuery &pointsQry = TQrys::Instance()->get(
-            "SELECT point_id, airp, airline, flt_no, suffix, scd_out "
+            "SELECT points.point_id, airp, airline, flt_no, suffix, scd_out "
             "FROM trip_final_stages, points "
             "WHERE trip_final_stages.point_id=points.point_id AND "
             "      trip_final_stages.stage_id=:stage_id AND "
@@ -279,8 +268,12 @@ void utg_prl(void)
 
     pointsQry.Execute();
     TTripInfo flt;
+    int c1 = 0;
+    int c2 = 0;
+    int c3 = 0;
     for(; not pointsQry.Eof; pointsQry.Next(), OraSession.Commit()) {
         int point_id = pointsQry.FieldAsInteger("point_id");
+        c1++;
         try {
             flt.Init(pointsQry);
             map<string, string> file_params;
@@ -292,10 +285,12 @@ void utg_prl(void)
                     1,
                     file_params );
             if(not file_params.empty() and (file_params[PARAM_TLG_TYPE].find("PRL") != string::npos)) {
+                c2++;
                 TFlights().Get(point_id, ftTranzit);
                 utgQry.SetVariable("point_id", point_id);
                 utgQry.Execute();
                 if(utgQry.Eof) continue;
+                c3++;
                 int last_flt_change_tid = utgQry.FieldAsInteger("last_flt_change_tid");
                 TypeB::TCreateInfo info("PRL");
                 info.point_id = point_id;
@@ -321,6 +316,7 @@ void utg_prl(void)
             ProgError(STDLOG,"utg_prl: unknown error (point_id=%d)", point_id);
         }
     }
+    ProgTrace(TRACE5, "utg_prl: selected: %d; suitable: %d; created: %d", c1, c2, c3);
 #ifdef SQL_COUNTERS
     for(map<string, int>::iterator im = sqlCounters.begin(); im != sqlCounters.end(); im++) {
         ProgTrace(TRACE5, "sqlCounters[%s] = %d", im->first.c_str(), im->second);
