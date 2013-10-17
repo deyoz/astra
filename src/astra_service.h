@@ -35,6 +35,7 @@ void sync_sppcek( void );
 void sync_1ccek( void );
 void sync_checkin_data( void );
 void sync_checkin_data( int point_id );
+void utg_prl(void);
 
 
 class AstraServiceInterface : public JxtInterface

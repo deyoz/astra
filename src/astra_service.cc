@@ -8,11 +8,14 @@
 #include "astra_consts.h"
 #include "astra_utils.h"
 #include "basic.h"
+#include "telegram.h"
+#include "qrys.h"
 #include "stl_utils.h"
 #include "file_queue.h"
 #include "develop_dbf.h"
 #include "sofi.h"
 #include "aodb.h"
+#include "points.h"
 #include "cent.h"
 #include "spp_cek.h"
 #include "timer.h"
@@ -48,6 +51,7 @@ const std::string FILE_CHECKINDATA_TYPE = "CHCKD";
 void CommitWork( int file_id );
 
 bool createCheckinDataFiles( int point_id, const std::string &point_addr, TFileDatas &fds );
+bool createUTGDataFiles( int point_id, const std::string &point_addr, TFileDatas &fds );
 bool CreateCommonFileData( bool pr_commit, const std::string &point_addr,
                            int id, const std::string type,
                            const std::string &airp, const std::string &airline,
@@ -848,7 +852,8 @@ bool CreateCommonFileData( bool pr_commit,
                         ( type == FILE_AODB_OUT_TYPE && createAODBFiles( id, client_canon_name, fds ) ) ||
                         ( type == FILE_SPPCEK_TYPE && createSPPCEKFile( id, client_canon_name, fds ) ) ||
                         ( type == FILE_1CCEK_TYPE && Sync1C( client_canon_name, fds ) ) ||
-                        ( type == FILE_CHECKINDATA_TYPE && createCheckinDataFiles( id, client_canon_name, fds ) ) ) {
+                        ( type == FILE_CHECKINDATA_TYPE && createCheckinDataFiles( id, client_canon_name, fds ) ) ||
+                        (  type == FILE_UTG_TYPE && createUTGDataFiles( id, client_canon_name, fds ) ) ) {
                     /* теперь в params еще лежит и имя файла */
                     string encoding = TFileQueue::getEncoding( type, client_canon_name, true );
                     for ( vector<TFileData>::iterator i=fds.begin(); i!=fds.end(); i++ ) {
@@ -1495,6 +1500,142 @@ bool createCheckinDataFiles( int point_id, const std::string &point_addr, TFileD
   return !fds.empty();
 }
 
+class TUTG_PointAddr: public TPointAddr {
+  TQuery *StagesQry;
+public:
+  TUTG_PointAddr( ):TPointAddr( string(FILE_AODB_OUT_TYPE), true ) {
+    StagesQry = new TQuery(&OraSession);
+  	StagesQry->SQLText =
+      "SELECT stage_id FROM trip_final_stages WHERE point_id=:point_id AND stage_type=:ckin_stage_type";
+    StagesQry->CreateVariable( "ckin_stage_type", otInteger, stCheckIn );
+    StagesQry->DeclareVariable( "point_id", otInteger );
+  }
+  ~TUTG_PointAddr( ) {
+    delete StagesQry;
+  }
+  virtual bool validateParams( const string &point_addr, const vector<string> &ailines,
+                               const vector<string> &airps, const vector<int> &flt_nos,
+                               const map<string,string> &params, int point_id ) {
+    return true;//!!!( airps.size() == 1 ); // выбираем рейсы. Это необходимое условие
+  }
+  virtual bool validatePoints( int point_id ) {
+    StagesQry->SetVariable( "point_id", point_id );
+    StagesQry->Execute();
+    return ( !StagesQry->Eof &&
+              StagesQry->FieldAsInteger( "stage_id" ) == sOpenCheckIn );
+  }
+};
+
+void utg_prl(void)
+{
+  TDateTime low_time = NowUTC() - 1;
+  TDateTime high_time = low_time + 3;
+
+  TSQLCondDates cond_dates;
+  cond_dates.sql = " time_out>=:day1 AND time_out<=:day2 AND pr_del=0 AND act_out IS NULL ";
+  TUTG_PointAddr point_addr;
+  cond_dates.dates.insert( make_pair( "day1", low_time ) );
+  cond_dates.dates.insert( make_pair( "day2", high_time ) );
+  point_addr.createPointSQL( cond_dates );
+}
+
+bool createUTGDataFiles( int point_id, const std::string &point_addr, TFileDatas &fds )    //point_addr=BETADC
+{
+    fds.clear();
+  TQuery pointsQry( &OraSession );
+  pointsQry.SQLText =
+    "SELECT point_num,first_point,pr_tranzit,airline, flt_no, suffix,suffix_fmt,airp,scd_out,est_out,act_out,pr_del FROM points "
+    " WHERE point_id=:point_id";
+  pointsQry.CreateVariable( "point_id", otInteger, point_id );
+  pointsQry.Execute();
+    QParams QryParams;
+    QryParams.clear();
+    QryParams << QParam("id", otInteger);
+    TQuery &TlgQry = TQrys::Instance()->get(
+            "SELECT heading, body, ending "
+            "FROM tlg_out "
+            "WHERE id=:id",
+            QryParams
+            );
+
+    QryParams.clear();
+    QryParams << QParam("point_id", otInteger) << QParam("last_flt_change_tid", otInteger);
+    TQuery &updQry = TQrys::Instance()->get(
+            "UPDATE utg_prl set last_tlg_create_tid = :last_flt_change_tid where point_id = :point_id",
+            QryParams
+            );
+
+    QryParams.clear();
+    QryParams << QParam("point_id", otInteger);
+    TQuery &utgQry = TQrys::Instance()->get(
+            "select last_flt_change_tid from utg_prl where point_id = :point_id and "
+            "(last_tlg_create_tid is null or last_tlg_create_tid <> last_flt_change_tid)",
+            QryParams
+            );
+    TTripInfo flt;
+    int c1 = 0;
+    int c2 = 0;
+    int c3 = 0;
+        c1++;
+            flt.Init(pointsQry);
+            TFileData file;
+            TFileQueue::add_sets_params( flt.airp,
+                    flt.airline,
+                    IntToString(flt.flt_no),
+                    OWN_POINT_ADDR(),
+                    FILE_UTG_TYPE,
+                    1,
+                    file.params );
+            if(not file.params.empty() and (file.params[PARAM_TLG_TYPE].find("PRL") != string::npos)) {
+                c2++;
+                TFlights Flights;
+                Flights.Get(point_id, ftTranzit);
+                Flights.Lock();
+                utgQry.SetVariable("point_id", point_id);
+                utgQry.Execute();
+                if(utgQry.Eof) return false;
+                c3++;
+                int last_flt_change_tid = utgQry.FieldAsInteger("last_flt_change_tid");
+                TypeB::TCreateInfo info("PRL");
+                info.point_id = point_id;
+                TTypeBTypesRow tlgTypeInfo;
+                int tlg_id = TelegramInterface::create_tlg(info, tlgTypeInfo);
+                TlgQry.SetVariable("id", tlg_id);
+                TlgQry.Execute();
+                file.file_data=(string)
+                    TlgQry.FieldAsString("heading")+
+                    TlgQry.FieldAsString("body")+
+                    TlgQry.FieldAsString("ending");
+                OraSession.Rollback();
+
+                TDateTime now_utc = NowUTC();
+                double days;
+                int msecs = (int)(modf(now_utc, &days) * MSecsPerDay) % 1000;
+                ostringstream file_name;
+         file_name
+            << DateTimeToStr(now_utc, "yyyy_mm_dd_hh_nn_ss_")
+            << setw(3) << setfill('0') << msecs
+            << "." << setw(9) << setfill('0') << tlg_id
+            << ".PRL"
+            << "." << BSM::TlgElemIdToElem(etAirline, flt.airline, true)
+                   << setw(3) << setfill('0') << flt.flt_no << flt.suffix
+            << "." << DateTimeToStr(flt.scd_out, "dd.mm");
+        file.params[PARAM_FILE_NAME] = file_name.str();
+
+             //   putUTG(tlg_id, "PRL", flt, tlg_text, file_params);
+                updQry.SetVariable("point_id", point_id);
+                updQry.SetVariable("last_flt_change_tid", last_flt_change_tid);
+                updQry.Execute();
+              fds.push_back( file );
+            }
+    ProgTrace(TRACE5, "utg_prl: selected: %d; suitable: %d; created: %d", c1, c2, c3);
+#ifdef SQL_COUNTERS
+    for(map<string, int>::iterator im = sqlCounters.begin(); im != sqlCounters.end(); im++) {
+        ProgTrace(TRACE5, "sqlCounters[%s] = %d", im->first.c_str(), im->second);
+    }
+#endif
+  return !fds.empty();
+}
 
 void AstraServiceInterface::getFileParams( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
 {
