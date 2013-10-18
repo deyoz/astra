@@ -1457,7 +1457,10 @@ void PaidBagToDB(int grp_id,
   BagQry.DeclareVariable("rate_id",otInteger);
   BagQry.DeclareVariable("rate_trfer",otInteger);
   for(list<TPaidBagItem>::const_iterator i=paid.begin(); i!=paid.end(); ++i)
+  {
     i->toDB(BagQry);
+    BagQry.Execute();
+  };  
 };
 
 void SavePaidBag(int grp_id, xmlNodePtr paidbagNode)
