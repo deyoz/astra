@@ -137,6 +137,7 @@ struct TDEI_6:TDEI {
 struct TMealItem {
     std::string cls;
     std::string meal;
+    TElemFmt fmt;
 };
 
 struct TDEI_7:TDEI {
@@ -231,8 +232,13 @@ struct TRouteStation {
     }
 };
 
+struct TLegAirp {
+    TElemFmt fmt;
+    std::string airp;
+};
+
 struct TRouting {
-    std::vector<std::string> leg_airps;
+    std::vector<TLegAirp> leg_airps;
     TRouteStation station_dep;
     TRouteStation station_arv;
     TDEIHolder dei_holder;
@@ -260,6 +266,7 @@ struct TOther {
 
 struct TSegment {
     std::string airp_dep, airp_arv;
+    TElemFmt airp_dep_fmt, airp_arv_fmt;
     TDEI_8 dei8; // Traffic Restriction Note
     TOther other;
     std::string raw_data;
@@ -334,7 +341,7 @@ struct TASMActionInfo {
 
 struct TASMFlightInfo {
     TFlightIdentifier flt;
-    std::vector<std::string> legs;
+    std::vector<TLegAirp> legs;
     TFlightIdentifier new_flt;
     TDEIHolder dei_holder;
     void dump();

@@ -175,9 +175,9 @@ void TDEI_7::insert(bool default_meal, string &meal)
         meal_item.meal = meal;
     } else {
         meal_item.cls.assign(1, meal[0]);
-        TElemFmt fmt;
-        string lang;
-        meal_item.cls = ElemToElemId(etSubcls, meal_item.cls, fmt, lang);
+        meal_item.cls = ElemToElemId(etSubcls, meal_item.cls, meal_item.fmt);
+        if(meal_item.fmt == efmtUnknown)
+            throw EConvertError("");
         meal_item.meal = meal.substr(1);
     }
     meal_service.push_back(meal_item);
@@ -495,19 +495,24 @@ void TDEIHolder::parse(TTlgElement e, char *&ph, TTlgParser &tlg)
 void TRouting::parse_leg_airps(string buf)
 {
     try {
-        TElemFmt fmt;
-        string lang;
+        TLegAirp leg_airp;
         for(size_t idx = 0; idx != string::npos; idx = buf.find('/')) {
             if(not idx) continue;
-            string airp = buf.substr(0, idx);
-            if(airp.size() != 3)
+            leg_airp.airp = buf.substr(0, idx);
+            if(leg_airp.airp.size() != 3)
                 throw Exception("wrong airp");
-            leg_airps.push_back(ElemToElemId(etAirp, airp, fmt, lang));
+            leg_airp.airp = ElemToElemId(etAirp, leg_airp.airp, leg_airp.fmt);
+            if(leg_airp.fmt == efmtUnknown)
+                throw EConvertError("");
+            leg_airps.push_back(leg_airp);
             buf.erase(0, idx + 1);
         }
         if(buf.size() != 3)
             throw Exception("wrong airp");
-        leg_airps.push_back(ElemToElemId(etAirp, buf, fmt, lang));
+        leg_airp.airp = ElemToElemId(etAirp, buf, leg_airp.fmt);
+        if(leg_airp.fmt == efmtUnknown)
+            throw EConvertError("");
+        leg_airps.push_back(leg_airp);
         if(leg_airps.size() > 12 or
                 leg_airps.size() < 2)
             throw Exception("wrong airp");
@@ -591,10 +596,12 @@ void TSegment::parse(const char *val)
     airp_arv = buf.substr(3, 3);
     if(buf[6] != ' ') throw ETlgError("wrong format");
     buf.erase(0, 7);
-    TElemFmt fmt;
-    string lang;
-    airp_dep = ElemToElemId(etAirp, airp_dep, fmt, lang);
-    airp_arv = ElemToElemId(etAirp, airp_arv, fmt, lang);
+    airp_dep = ElemToElemId(etAirp, airp_dep, airp_dep_fmt);
+    if(airp_dep_fmt == efmtUnknown)
+        throw EConvertError("");
+    airp_arv = ElemToElemId(etAirp, airp_arv, airp_arv_fmt);
+    if(airp_arv_fmt == efmtUnknown)
+        throw EConvertError("");
     try {
         dei8.parse(buf.c_str());
     } catch(...) {
@@ -689,8 +696,10 @@ void TEqtRouting::dump()
             ProgTrace(TRACE5, "    leg #%d", idx);
             if(not iv->leg_airps.empty()) {
                 ProgTrace(TRACE5, "----leg_airps list");
-                for(vector<string>::iterator iv1 = iv->leg_airps.begin(); iv1 != iv->leg_airps.end(); iv1++)
-                    ProgTrace(TRACE5, "%s", iv1->c_str());
+                for(vector<TLegAirp>::iterator iv1 = iv->leg_airps.begin(); iv1 != iv->leg_airps.end(); iv1++) {
+                    ProgTrace(TRACE5, "airp: %s", iv1->airp.c_str());
+                    ProgTrace(TRACE5, "fmt: %d", iv1->fmt);
+                }
             }
             ProgTrace(TRACE5, "    routing.station_dep:");
             iv->station_dep.dump();
@@ -1437,8 +1446,10 @@ void TASMFlightInfo::dump()
     flt.dump();
     if(not legs.empty()) {
         ProgTrace(TRACE5, "----legs----");
-        for(vector<string>::iterator iv = legs.begin(); iv != legs.end(); iv++)
-            ProgTrace(TRACE5, "%s", iv->c_str());
+        for(vector<TLegAirp>::iterator iv = legs.begin(); iv != legs.end(); iv++) {
+            ProgTrace(TRACE5, "%s", iv->airp.c_str());
+            ProgTrace(TRACE5, "%s", iv->fmt);
+        }
         ProgTrace(TRACE5, "----end of legs----");
     }
     if(not new_flt.airline.empty()) {
