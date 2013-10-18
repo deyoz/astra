@@ -1434,6 +1434,7 @@ try {
 	}
 	err++;
 	bool overload_alarm = false;
+	bool pr_check_USA_apis = false; //если это новый рейс, то задан маршрут, и по нему определяем призак, если обновление, то это ВНК и смотрим только изменение времен вылета
 	// запись в БД
 	TQuery QrySet(&OraSession);
 	QrySet.SQLText =
@@ -1587,6 +1588,9 @@ try {
       Qry.SetVariable( "point_id", POINT_IDQry.FieldAsInteger( "point_id" ) );
       Qry.SetVariable( "point_num", num );
       Qry.SetVariable( "airp", it->airp );
+      if ( CheckApis_USA( it->airp ) ) {
+        pr_check_USA_apis = true;
+      }
       Qry.SetVariable( "pr_tranzit", 0 );
       Qry.SetVariable( "first_point", point_id );
       Qry.SetVariable( "pr_reg", 0 );
@@ -1697,6 +1701,7 @@ try {
   }
   tst();
   if ( old_est != fl.est ) {
+    pr_check_USA_apis = true; //т.к. я не знаю маршрута
     if ( fl.est != NoExists ) {
       ProgTrace( TRACE5, "events: %s, %d, %d",
                  string(string("Проставление расч. время вылета а/п ") + airp + " " + DateTimeToStr( fl.est, "dd hh:nn" )).c_str(), move_id, point_id );
@@ -1712,6 +1717,7 @@ try {
   tst();
   err++;
   if ( old_act != fl.act ) {
+    pr_check_USA_apis = true; //т.к. я не знаю маршрута
     if ( fl.act != NoExists )
       reqInfo->MsgToLog( string("Проставление факт. времени вылета а/п ")  + airp + " " + DateTimeToStr( fl.act, "hh:nn dd.mm.yy" ) + string(" (UTC)"), evtDisp, move_id, point_id );
     else
@@ -1864,7 +1870,10 @@ try {
 		if ( !brd.empty() )
 		  reqInfo->MsgToLog( string( "Назначение выходов на посадку" ) + brd, evtDisp, move_id, point_id );
 	}
-	if ( pr_change_reg || pr_change_brd ) check_DesksGates( point_id );
+	if ( pr_change_reg ||
+       pr_change_brd ) {
+    check_DesksGates( point_id );
+  }
 	
   bindingAODBFlt( point_addr, point_id, fl.id );
   err++;
@@ -1888,6 +1897,14 @@ try {
       };
     }
  	  ChangeACT_OUT( point_id, old_act, fl.act );
+  }
+  if ( pr_check_USA_apis ) {
+    try {
+      check_trip_tasks( move_id );
+    }
+    catch(std::exception &E) {
+      ProgError(STDLOG,"aodb write check_trip_tasks (move_id=%d): %s",move_id,E.what());
+    };
   }
 }
 catch(EOracleError &E)

@@ -1554,6 +1554,7 @@ bool existsTranzitPassengers( int point_id ) // определение того, можно ли сдела
 
 void TPoints::Save( bool isShowMsg )
 {
+ //  #warning points.cc. usa apis
   events.clearFlags();
   if ( move_id == NoExists )
     events.setFlag( peInsert );
