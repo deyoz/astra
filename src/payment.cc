@@ -173,6 +173,7 @@ namespace RCPT_PAX_NAME {
                         (iv != delim.begin() and *iv != ' ')
                   )
                     throw "MSG.PAX_NAME.FORMAT_HINT";
+            if (result.empty()) throw Exception("split_pax_name: lex.empty()");
             if(not check_gender(result.back())) throw "MSG.PAX_NAME.PAX_TYPE_NOT_SET";
             if(result.size() == 4 and result[2].size() != 1) throw "MSG.PAX_NAME.WRONG_MID_NAME";
         }
@@ -195,6 +196,7 @@ namespace RCPT_PAX_NAME {
         if(not db_gender.empty()) {
             db_gender = (db_gender.find("F") == 0 ? "É-ÜÄ" : "É-ç");
             db_gender = getLocaleText(db_gender);
+            if (lex.empty()) throw Exception("get_pax_name: lex.empty()");
             if(check_gender(lex.back()))
                 lex.back() = db_gender;
             else
@@ -216,9 +218,12 @@ namespace RCPT_PAX_NAME {
 
     string transliter_pax_name(TTagLang &tag_lang, string pax_name)
     {
+        if(pax_name.empty()) return pax_name;
+
         vector<string> lex = split_pax_name(pax_name);
         if(lex.size() == 1) lex.push_back(string());
         size_t num_translited = 0;
+        if (lex.empty()) throw Exception("transliter_pax_name: lex.empty()");
         if(check_gender(lex.back())) {
             lex.back() = getLocaleText(upperc(lex.back()), tag_lang.GetLang());
             num_translited++;
