@@ -3287,10 +3287,10 @@ void check_trip_tasks( const TSOPPDests &dests )
   vector<int> is_apis_airp;
   for ( TSOPPDests::const_reverse_iterator idest=dests.rbegin();
         idest!=dests.rend(); idest++ ) {
-    if ( idest->pr_reg == 0 ||
+    /*if ( idest->pr_reg == 0 ||
          idest->pr_del != 0 ) {
       continue;
-    }
+    } */
     Qry.SetVariable( "point_id", idest->point_id );
     Qry.Execute();
     if ( Qry.Eof ||
@@ -3298,6 +3298,7 @@ void check_trip_tasks( const TSOPPDests &dests )
       tst();
       continue;
     }
+    ProgTrace( TRACE5, "CheckApis_USA(%s)=%d", Qry.FieldAsString( "airp" ), CheckApis_USA( Qry.FieldAsString( "airp" ) ) );
     if ( CheckApis_USA( Qry.FieldAsString( "airp" ) ) ) {
       ProgTrace( TRACE5, "CheckApis_USA(%s) return true", Qry.FieldAsString( "airp" ) );
       routes.clear();
@@ -4739,7 +4740,12 @@ void SoppInterface::DropFlightFact(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 	reqInfo->MsgToLog( string( "Отмена факт. вылета рейса " ) + trip, evtDisp, move_id, point_id );
 	ChangeACT_OUT( point_id, act_out, NoExists );
 	SetTripStages_IgnoreAuto( point_id, pr_del != 0 );
-  check_trip_tasks( move_id );
+  try {
+    check_trip_tasks( move_id );
+  }
+  catch(std::exception &E) {
+    ProgError(STDLOG,"DropFlightFact.check_trip_tasks (move_id=%d): %s",move_id,E.what());
+  };
 	SALONS2::check_waitlist_alarm_on_tranzit_routes( point_id );
 	ReadTrips( ctxt, reqNode, resNode );
 }
@@ -5333,6 +5339,12 @@ void SoppInterface::DeleteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 	Qry.SQLText = "UPDATE points SET pr_del=-1 WHERE move_id=:move_id";
 	Qry.CreateVariable( "move_id", otInteger, move_id );
 	Qry.Execute();
+  try {
+    check_trip_tasks( dests_del );
+  }
+  catch(std::exception &E) {
+    ProgError(STDLOG,"DeleteISGTrips.check_trip_tasks (move_id=%d): %s",move_id,E.what());
+  };
   TReqInfo::Instance()->MsgToLog( "Рейс " + name + " маршрут(" + dests + ") удален", evtDisp, move_id );
   ReBindTlgs( move_id, dests_del );
 }

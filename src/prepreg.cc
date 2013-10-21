@@ -683,9 +683,14 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     Qry.Clear();
     Qry.SQLText =
       "SELECT move_id FROM points WHERE point_id=:point_id";
-    Qry.CreateVariable( "pointid", otInteger, point_id );
+    Qry.CreateVariable( "point_id", otInteger, point_id );
     Qry.Execute();
+   try {
     check_trip_tasks( Qry.FieldAsInteger( "move_id" ) );
+    }
+    catch(std::exception &E) {
+      ProgError(STDLOG,"CrsDataApplyUpdates.check_trip_tasks (move_id=%d): %s",Qry.FieldAsInteger( "move_id" ),E.what());
+    };
   }
 
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );

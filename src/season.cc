@@ -1202,7 +1202,12 @@ void CreateSPP( BASIC::TDateTime localdate )
       TTlgBinding(true).bind_flt_oper(flts);
       TTrferBinding().bind_flt_oper(flts);
       if ( pr_check_usa_apis ) {
-        check_trip_tasks( move_id );
+        try {
+          check_trip_tasks( move_id );
+        }
+        catch(std::exception &E) {
+          ProgError(STDLOG,"CreateSPP.check_trip_tasks (move_id=%d): %s",move_id,E.what());
+        };
       }
     }
   }
