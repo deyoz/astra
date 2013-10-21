@@ -16,6 +16,7 @@
 #include "alarms.h"
 #include "rozysk.h"
 #include "points.h"
+#include "trip_tasks.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -994,7 +995,7 @@ void Takeoff( int point_id )
   time_start=time(NULL);
   try
   {
-    create_apis_file(point_id);
+    create_apis_file(point_id, ON_TAKEOFF);
   }
   catch(std::exception &E)
   {

@@ -271,7 +271,6 @@ class PassengerInfo
     std::string m_postalCode;
     std::string m_destCountry;
     std::string m_residCountry;
-    std::string m_birthCountry;
 
     // Passenger's date of birth
     /* required = C */
@@ -320,6 +319,10 @@ class PassengerInfo
     /* maxlen = 25 */
     /* required = C */
     std::string m_docCountry;
+
+    std::string m_birthCountry;
+    std::string m_birthCity;
+    std::string m_birthRegion;
 
 public:
     PassengerInfo()
@@ -396,13 +399,6 @@ public:
     }
     void setResidCountry( const std::string& s ) {
         m_residCountry = upperc( s.substr( 0, 3 ) );
-    }
-    // Birth
-    const std::string& birthCountry() const {
-        return m_birthCountry;
-    }
-    void setBirthCountry( const std::string& s ) {
-        m_birthCountry = upperc( s.substr( 0, 3 ) );
     }
 
     // passenger's birth date
@@ -483,6 +479,28 @@ public:
     }
     void setDocCountry( const std::string& dc ) {
         m_docCountry = upperc( dc.substr( 0, 25 ) );
+    }
+
+    // Birth
+    const std::string& birthCountry() const {
+        return m_birthCountry;
+    }
+    void setBirthCountry( const std::string& s ) {
+        m_birthCountry = upperc( s.substr( 0, 3 ) );
+    }
+
+    const std::string& birthCity() const {
+        return m_birthCity;
+    }
+    void setBirthCity( const std::string& s ) {
+        m_birthCity = upperc( s.substr( 0, 70 ) );
+    }
+
+    const std::string& birthRegion() const {
+        return m_birthRegion;
+    }
+    void setBirthRegion( const std::string& s ) {
+        m_birthRegion = upperc( s.substr( 0, 70 ) );
     }
 };
 typedef std::list< PassengerInfo > PassengersList_t;

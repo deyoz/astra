@@ -347,7 +347,8 @@ bool LoadPaxDoco(BASIC::TDateTime part_key, int pax_id, TPaxDocoItem &doc);
 enum TDocaType
 {
   docaDestination,
-  docaResidence
+  docaResidence,
+  docaBirth
 };
 bool LoadPaxDoca(int pax_id, TDocaType type, TPaxDocaItem &doca);
 bool LoadPaxDoca(BASIC::TDateTime part_key, int pax_id, TDocaType type, TPaxDocaItem &doca);

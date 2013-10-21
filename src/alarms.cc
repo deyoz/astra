@@ -9,6 +9,7 @@
 #include "remarks.h"
 #include "transfer.h"
 #include "typeb_utils.h"
+#include "trip_tasks.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -347,12 +348,72 @@ bool check_conflict_trfer_alarm(int point_id)
 	return conflict_trfer_alarm;
 }
 
+bool need_crew_checkin(const TAdvTripInfo &fltInfo)
+{
+  TBaseTable &baseairps = base_tables.get( "airps" );
+  TBaseTable &basecities = base_tables.get( "cities" );
+
+  string country_dep = ((TCitiesRow&)basecities.get_row( "code", ((TAirpsRow&)baseairps.get_row( "code", fltInfo.airp )).city)).country;
+
+  TTripRoute route;
+  route.GetRouteAfter(NoExists,
+                      fltInfo.point_id,
+                      fltInfo.point_num,
+                      fltInfo.first_point,
+                      fltInfo.pr_tranzit,
+                      trtNotCurrent, trtNotCancelled);
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT format FROM apis_sets "
+    "WHERE airline=:airline AND "
+    "      country_dep=:country_dep AND country_arv=:country_arv AND "
+    "      format IN ('EDI_CN', 'EDI_IN', 'EDI_US') AND pr_denial=0 AND rownum<2";
+  Qry.CreateVariable("airline", otString, fltInfo.airline);
+  Qry.CreateVariable("country_dep", otString, country_dep);
+  Qry.DeclareVariable("country_arv", otString);
+
+  TTripRoute::const_iterator r=route.begin();
+  for(; r!=route.end(); ++r)
+  {
+    string country_arv = ((TCitiesRow&)basecities.get_row( "code", ((TAirpsRow&)baseairps.get_row( "code", r->airp )).city)).country;
+    Qry.SetVariable("country_arv", country_arv);
+    Qry.Execute();
+    if (!Qry.Eof) break;
+  };
+  return (r!=route.end());
+};
+
+void check_crew_alarms(int point_id, const string& task_name)
+{
+  check_crew_alarms(point_id);
+};
+
 void check_crew_alarms(int point_id)
 {
   bool crew_checkin = false;
   bool crew_number = false;
   bool crew_diff = false;
-	if ( CheckStageACT(point_id, sCloseCheckIn) ) {
+
+  TQuery Qry(&OraSession);
+  bool do_check=CheckStageACT(point_id, sCloseCheckIn);
+  if (!do_check)
+  {
+    Qry.Clear();
+    Qry.SQLText=
+      "SELECT point_id FROM trip_tasks "
+      "WHERE point_id=:point_id AND name=:name AND "
+      "      (next_exec IS NOT NULL AND next_exec<=:now_utc OR "
+      "       next_exec IS NULL AND last_exec IS NOT NULL) ";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.CreateVariable("name", otString, BEFORE_TAKEOFF_70_US_CUSTOMS_ARRIVAL);
+    Qry.CreateVariable("now_utc", otDate, BASIC::NowUTC());
+    Qry.Execute();
+    if (!Qry.Eof) do_check=true;
+  };
+
+	if ( do_check )
+  {
     int sopp_num=NoExists;
     int checkin_num=NoExists;
     TQuery Qry(&OraSession);
@@ -401,37 +462,8 @@ void check_crew_alarms(int point_id)
               crew_checkin=true;
               break;
             };
-            TBaseTable &baseairps = base_tables.get( "airps" );
-	          TBaseTable &basecities = base_tables.get( "cities" );
 
-            string country_dep = ((TCitiesRow&)basecities.get_row( "code", ((TAirpsRow&)baseairps.get_row( "code", fltInfo.airp )).city)).country;
-
-            TTripRoute route;
-            route.GetRouteAfter(NoExists,
-                                fltInfo.point_id,
-                                fltInfo.point_num,
-                                fltInfo.first_point,
-                                fltInfo.pr_tranzit,
-                                trtNotCurrent, trtNotCancelled);
-            Qry.Clear();
-            Qry.SQLText=
-              "SELECT format FROM apis_sets "
-              "WHERE airline=:airline AND "
-              "      country_dep=:country_dep AND country_arv=:country_arv AND "
-              "      format IN ('EDI_CN', 'EDI_IN') AND pr_denial=0 AND rownum<2";
-            Qry.CreateVariable("airline", otString, fltInfo.airline);
-            Qry.CreateVariable("country_dep", otString, country_dep);
-            Qry.DeclareVariable("country_arv", otString);
-
-            TTripRoute::const_iterator r=route.begin();
-            for(; r!=route.end(); ++r)
-            {
-              string country_arv = ((TCitiesRow&)basecities.get_row( "code", ((TAirpsRow&)baseairps.get_row( "code", r->airp )).city)).country;
-              Qry.SetVariable("country_arv", country_arv);
-              Qry.Execute();
-              if (!Qry.Eof) break;
-            };
-            if (r!=route.end())
+            if (need_crew_checkin(fltInfo))
             {
               crew_checkin=true;
               break;
@@ -452,7 +484,7 @@ void check_crew_alarms(int point_id)
         };
       };
     };
-	}
+	};
   set_alarm( point_id, atCrewCheckin, crew_checkin );
   set_alarm( point_id, atCrewNumber, crew_number );
 	set_alarm( point_id, atCrewDiff, crew_diff );

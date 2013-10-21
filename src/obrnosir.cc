@@ -64,6 +64,7 @@ const
     {"-bind_trfer_trips",       bind_trfer_trips,       NULL,                       NULL},
     {"-unbind_trfer_trips",     unbind_trfer_trips,     NULL,                       NULL},
     {"-test_typeb_utils",       test_typeb_utils,       NULL,                       NULL},
+    {"-compare_apis",           compare_apis,           NULL,                       NULL},
     {"-test_sopp_sql",          test_sopp_sql,          NULL,                       NULL},
     {"-test_file_queue",        test_file_queue,        NULL,                       NULL}
   };

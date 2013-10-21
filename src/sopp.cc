@@ -1,7 +1,6 @@
 #include <stdlib.h>
 #include "sopp.h"
 #include "stages.h"
-#include "apis.h"
 #include "points.h"
 #include "pers_weights.h"
 #include "astra_utils.h"
@@ -33,6 +32,8 @@
 #include "flt_binding.h"
 #include "rozysk.h"
 #include "transfer.h"
+#include "apis.h"
+#include "trip_tasks.h"
 
 #include "aodb.h"
 #include "serverlib/perfom.h"
@@ -3261,7 +3262,7 @@ bool CheckApis_USA( const std::string &airp )
   TBaseTable &baseairps = base_tables.get( "airps" );
   TBaseTable &basecities = base_tables.get( "cities" );
   string country = ((TCitiesRow&)basecities.get_row( "code", ((TAirpsRow&)baseairps.get_row( "code", airp )).city)).country;
-  return ( countriesUS.find( country ) != countriesUS.end() );
+  return ( APIS::customsUS().find( country ) != APIS::customsUS().end() );
 }
 
 void check_trip_tasks( int move_id )
@@ -3356,13 +3357,13 @@ void check_trip_tasks( const TSOPPDests &dests )
         idest!=dests.end(); idest++ ) {
     Qry.SetVariable( "is_apis", find( is_apis_airp.begin(), is_apis_airp.end(),idest->point_id ) != is_apis_airp.end() );
     Qry.SetVariable( "point_id", idest->point_id );
-    Qry.SetVariable( "name", BEFORE_TAKEOFF_30_US_ARRIVAL );
+    Qry.SetVariable( "name", BEFORE_TAKEOFF_30_US_CUSTOMS_ARRIVAL );
     Qry.SetVariable( "before_minutes", 30 );
     Qry.Execute();
-    Qry.SetVariable( "name", BEFORE_TAKEOFF_60_US_ARRIVAL );
+    Qry.SetVariable( "name", BEFORE_TAKEOFF_60_US_CUSTOMS_ARRIVAL );
     Qry.SetVariable( "before_minutes", 60 );
     Qry.Execute();
-    Qry.SetVariable( "name", BEFORE_TAKEOFF_70_US_ARRIVAL );
+    Qry.SetVariable( "name", BEFORE_TAKEOFF_70_US_CUSTOMS_ARRIVAL );
     Qry.SetVariable( "before_minutes", 70 );
     Qry.Execute();
   }

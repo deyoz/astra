@@ -3,26 +3,23 @@
 
 #include <set>
 #include <string>
+#include "oralib.h"
 
-const std::string BEFORE_TAKEOFF_30_US_ARRIVAL = "BEFORE_TAKEOFF_30_US_ARRIVAL";
-const std::string BEFORE_TAKEOFF_60_US_ARRIVAL = "BEFORE_TAKEOFF_60_US_ARRIVAL";
-const std::string BEFORE_TAKEOFF_70_US_ARRIVAL = "BEFORE_TAKEOFF_70_US_ARRIVAL";
-const std::string TAKEOFF = "TAKEOFF";
-
-class TCountriesUS : public std::set<std::string>
+namespace APIS
 {
-  public:
-    TCountriesUS()
-    {
-      insert("Éì");
-      insert("åè");
-      insert("ûë");
-    };
+
+const std::set<std::string> &customsUS();
+
+void GetCustomsDependCountries(const std::string &regul,
+                               std::set<std::string> &depend,
+                               TQuery &Qry);
+std::string GetCustomsRegulCountry(const std::string &depend,
+                                   TQuery &Qry);
+
+
 };
 
-static TCountriesUS countriesUS;
-
-void create_apis_file(int point_id);
+void create_apis_file(int point_id, const std::string& task_name);
 void create_apis_nosir_help(const char *name);
 int create_apis_nosir(int argc,char **argv);
 

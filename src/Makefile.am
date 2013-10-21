@@ -88,6 +88,7 @@ astra_SOURCES = \
   telegram2.cc \
   timer.cpp \
   transfer.cc \
+  trip_tasks.cc \
   tripinfo.cc \
   typeb_utils.cc \
   view_edi_elements.cc \
@@ -191,6 +192,7 @@ noinst_HEADERS = \
   qrys.h \
   timer.h \
   transfer.h \
+  trip_tasks.h \
   tripinfo.h \
   typeb_utils.h \
   view_edi_elements.h \

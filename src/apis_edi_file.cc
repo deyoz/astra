@@ -230,6 +230,14 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
             // LOC
             viewLocElement( pMes, LocElem( LocElem::CountryOfResidence, it->residCountry() ), locNum++ );
         }
+        if( !it->birthCountry().empty() )
+        {
+            // LOC
+            viewLocElement( pMes, LocElem( LocElem::CountryOfBirth,
+                                           it->birthCountry(),
+                                           it->birthCity(),
+                                           it->birthRegion()), locNum++ );
+        }
         
         if( !it->nationality().empty() )
         {
