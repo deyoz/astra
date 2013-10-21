@@ -745,46 +745,6 @@ void TelegramInterface::SaveTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
 };
 
 
-void putUTG(int id, const string &basic_type, const TTripInfo &flt, const string &data, map<string, string> &file_params)
-{
-    if(not file_params.empty() and (file_params[PARAM_TLG_TYPE].find(basic_type) != string::npos)) {
-        string encoding=TFileQueue::getEncoding(FILE_UTG_TYPE, OWN_POINT_ADDR(), true);
-        if (encoding.empty()) encoding="CP866";
-
-        TDateTime now_utc = NowUTC();
-        double days;
-        int msecs = (int)(modf(now_utc, &days) * MSecsPerDay) % 1000;
-        ostringstream file_name;
-        file_name
-            << DateTimeToStr(now_utc, "yyyy_mm_dd_hh_nn_ss_")
-            << setw(3) << setfill('0') << msecs
-            << "." << setw(9) << setfill('0') << id
-            << "." << basic_type
-            << "." << BSM::TlgElemIdToElem(etAirline, flt.airline, true)
-                   << setw(3) << setfill('0') << flt.flt_no << flt.suffix
-            << "." << DateTimeToStr(flt.scd_out, "dd.mm");
-        file_params[PARAM_FILE_NAME] = file_name.str();
-        TFileQueue::putFile( OWN_POINT_ADDR(),
-                             OWN_POINT_ADDR(),
-                             FILE_UTG_TYPE,
-                             file_params,
-                             (encoding == "CP866" ? data : ConvertCodepage(data, "CP866", encoding)));
-    }
-}
-
-void putUTG(int id, const string &basic_type, const TTripInfo &flt, const string &data)
-{
-    map<string, string> file_params;
-    TFileQueue::add_sets_params( flt.airp,
-                                 flt.airline,
-                                 IntToString(flt.flt_no),
-                                 OWN_POINT_ADDR(),
-                                 FILE_UTG_TYPE,
-                                 1,
-                                 file_params );
-    putUTG(id, basic_type, flt, data, file_params);
-}
-
 void TelegramInterface::SendTlg(int tlg_id)
 {
   try

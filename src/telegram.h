@@ -16,7 +16,6 @@
 #include "base_tables.h"
 
 const size_t PART_SIZE = 3500;
-const std::string FILE_UTG_TYPE = "UTG";
 
 struct TTlgCompLayer {
 	int pax_id;
@@ -131,6 +130,7 @@ const std::string FILE_PARAM_ORIGINATOR_ID = "ORIGINATOR_ID";
 const std::string FILE_PARAM_AIRLINE_MARK = "AIRLINE_MARK";
 const std::string FILE_PARAM_EXTRA = "EXTRA_";
 const std::string PARAM_TLG_TYPE = "TLG_TYPE";
+const std::string PARAM_FILE_NAME_ENC = "FILE_NAME_ENC";
 
 struct TTlgOutPartInfo
 {
@@ -371,8 +371,6 @@ int send_tlg(int argc,char **argv);
 bool check_delay_code(int delay_code);
 bool check_delay_code(const std::string &delay_code);
 bool check_delay_value(BASIC::TDateTime delay_time);
-void putUTG(int id, const std::string &basic_type, const TTripInfo &flt, const std::string &data);
-void putUTG(int id, const std::string &basic_type, const TTripInfo &flt, const std::string &data, std::map<std::string, std::string> &file_params);
 
 #endif /*_TELEGRAM_H_*/
 
