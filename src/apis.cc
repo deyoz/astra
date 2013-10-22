@@ -206,10 +206,6 @@ void create_apis_file(int point_id)
     PaxQry.CreateVariable("point_dep",otInteger,point_id);
     PaxQry.DeclareVariable("point_arv",otInteger);
 
-    TQuery PaxDocQry(&OraSession);
-    TQuery PaxDocoQry(&OraSession);
-    TQuery PaxDocaQry(&OraSession);
-
     map<string /*country_arv*/, string /*first airp_arv*/> CBPAirps;
 
     for(TTripRoute::const_iterator r=route.begin(); r!=route.end(); r++)
@@ -375,14 +371,14 @@ void create_apis_file(int point_id)
             CheckIn::TPaxDocoItem doco;
             CheckIn::TPaxDocaItem docaD;
             CheckIn::TPaxDocaItem docaR;
-            bool doc_exists=LoadPaxDoc(pax_id, doc, PaxDocQry);
-            bool doco_exists=LoadPaxDoco(pax_id, doco, PaxDocoQry);
+            bool doc_exists=LoadPaxDoc(pax_id, doc);
+            bool doco_exists=LoadPaxDoco(pax_id, doco);
             bool docaD_exists=false;
             bool docaR_exists=false;
             if (fmt=="EDI_US")
             {
-              docaD_exists=LoadPaxDoca(pax_id, CheckIn::docaDestination, docaD, PaxDocaQry);
-              docaR_exists=LoadPaxDoca(pax_id, CheckIn::docaResidence, docaR, PaxDocaQry);
+              docaD_exists=LoadPaxDoca(pax_id, CheckIn::docaDestination, docaD);
+              docaR_exists=LoadPaxDoca(pax_id, CheckIn::docaResidence, docaR);
             };
 
       	    if (!doc_exists)

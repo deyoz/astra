@@ -11,6 +11,7 @@
 #include "aodb.h"
 #include "web_main.h"
 #include "basel_aero.h"
+#include "qrys.h"
 #define NICKNAME "DEN"
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/test.h"
@@ -956,26 +957,29 @@ void TMktFlight::get(TQuery &Qry, int id)
 
 void TMktFlight::getByPaxId(int pax_id)
 {
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "select "
-        "    mark_trips.airline mark_airline, "
-        "    mark_trips.flt_no mark_flt_no, "
-        "    mark_trips.suffix mark_suffix, "
-        "    NVL(pax.subclass,pax_grp.class) mark_subcls, "
-        "    mark_trips.scd mark_scd, "
-        "    mark_trips.airp_dep mark_airp_dep, "
-        "    pax_grp.airp_arv mark_airp_arv "
-        "from "
-        "   pax, "
-        "   pax_grp, "
-        "   mark_trips "
-        "where "
-        "    pax.pax_id = :id and "
-        "    pax.grp_id = pax_grp.grp_id and "
-        "    pax_grp.point_id_mark = mark_trips.point_id ";
+    QParams QryParams;
+    QryParams << QParam("id", otInteger, pax_id);
+    TQuery &Qry = TQrys::Instance()->get(
+            "select "
+            "    mark_trips.airline mark_airline, "
+            "    mark_trips.flt_no mark_flt_no, "
+            "    mark_trips.suffix mark_suffix, "
+            "    NVL(pax.subclass,pax_grp.class) mark_subcls, "
+            "    mark_trips.scd mark_scd, "
+            "    mark_trips.airp_dep mark_airp_dep, "
+            "    pax_grp.airp_arv mark_airp_arv "
+            "from "
+            "   pax, "
+            "   pax_grp, "
+            "   mark_trips "
+            "where "
+            "    pax.pax_id = :id and "
+            "    pax.grp_id = pax_grp.grp_id and "
+            "    pax_grp.point_id_mark = mark_trips.point_id ",
+            QryParams
+            );
+
     clear();
-    Qry.CreateVariable("id",otInteger,pax_id);
     Qry.Execute();
     if(!Qry.Eof)
     {

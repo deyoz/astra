@@ -2523,8 +2523,6 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     Qry.CreateVariable("pr_lat", otInteger, rpt_params.IsInter());
     Qry.Execute();
 
-    TQuery PaxDocQry(&OraSession);
-    TQuery PaxDocoQry(&OraSession);
     TQuery PaxFQTQry(&OraSession);
     TQuery PaxRemQry(&OraSession);
 
@@ -2564,14 +2562,14 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             case remDOC:
               if (find(iRem->second.begin(),iRem->second.end(),"DOCS")!=iRem->second.end())
               {
-                if (LoadPaxDoc(pax_id, doc, PaxDocQry)) pr_find=true;
+                if (LoadPaxDoc(pax_id, doc)) pr_find=true;
                 cats[remDOC]=true;
               };
               break;
             case remDOCO:
               if (find(iRem->second.begin(),iRem->second.end(),"DOCO")!=iRem->second.end())
               {
-                if (LoadPaxDoco(pax_id, doco, PaxDocoQry)) pr_find=true;
+                if (LoadPaxDoco(pax_id, doco)) pr_find=true;
                 cats[remDOCO]=true;
               };
               break;
@@ -2617,10 +2615,10 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       if (!cats[remTKN]) tkn.fromDB(Qry);
       if (getPaxRem(rpt_params, tkn, rem)) rems.push_back(rem);
       //документ
-      if (!cats[remDOC]) LoadPaxDoc(pax_id, doc, PaxDocQry);
+      if (!cats[remDOC]) LoadPaxDoc(pax_id, doc);
       if (getPaxRem(rpt_params, doc, rem)) rems.push_back(rem);
       //виза
-      if (!cats[remDOCO]) LoadPaxDoco(pax_id, doco, PaxDocoQry);
+      if (!cats[remDOCO]) LoadPaxDoco(pax_id, doco);
       if (getPaxRem(rpt_params, doco, rem)) rems.push_back(rem);
       //бонус-программа
       if (!cats[remFQT]) LoadPaxFQT(pax_id, fqts, PaxFQTQry);
@@ -2977,7 +2975,6 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         get_compatible_report_form(pr_web ? "web" : "exam", reqNode, resNode);
 
     TQuery Qry(&OraSession);
-    TQuery PaxDocQry(&OraSession);
     BrdInterface::GetPaxQuery(Qry, rpt_params.point_id, NoExists, rpt_params.GetLang(), rpt_params.rpt_type, rpt_params.client_type, rpt_params.sort);
     ProgTrace(TRACE5, "Qry: %s", Qry.SQLText.SQLText());
     Qry.Execute();
@@ -3000,7 +2997,7 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(paxNode, "pr_exam", Qry.FieldAsInteger("pr_exam"), 0);
         NewTextChild(paxNode, "pr_brd", Qry.FieldAsInteger("pr_brd"), 0);
         NewTextChild(paxNode, "seat_no", Qry.FieldAsString("seat_no"));
-        NewTextChild(paxNode, "document", CheckIn::GetPaxDocStr(NoExists, pax_id, PaxDocQry, false, rpt_params.GetLang()));
+        NewTextChild(paxNode, "document", CheckIn::GetPaxDocStr(NoExists, pax_id, false, rpt_params.GetLang()));
         NewTextChild(paxNode, "ticket_no", Qry.FieldAsString("ticket_no"));
         NewTextChild(paxNode, "coupon_no", Qry.FieldAsInteger("coupon_no"));
         NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));

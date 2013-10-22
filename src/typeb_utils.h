@@ -1099,6 +1099,7 @@ class TCreateInfo : public TOptionsInfo
     std::set<std::string> addrs;
 
     TCreateInfo() {init();};
+    TCreateInfo(const std::string &tlg_type):TOptionsInfo(tlg_type) {init();};
     virtual ~TCreateInfo() {};
 
     virtual void clear()

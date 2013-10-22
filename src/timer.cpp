@@ -11,6 +11,7 @@
 #include "tlg/tlg.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
+#include "misc.h"
 #include "astra_misc.h"
 #include "astra_context.h"
 #include "base_tables.h"
@@ -25,6 +26,8 @@
 #include "rozysk.h"
 #include "serverlib/posthooks.h"
 #include "serverlib/perfom.h"
+#include "qrys.h"
+#include "points.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -149,6 +152,8 @@ void exec_tasks( const char *proc_name )
       if ( name == "mintrans" ) save_mintrans_files();
       else
       if ( name == "utg" ) utg();
+      else
+      if ( name == "utg_prl" ) utg_prl();
 /*	  else
       if ( name == "cobra" ) cobra();*/
 
@@ -250,10 +255,10 @@ void utg(void)
         OraSession.Rollback();
         try
         {
-           EOracleError *orae=dynamic_cast<EOracleError*>(&E);
-           if (orae!=NULL&&
-              (orae->Code==4061||orae->Code==4068)) continue;
-              ProgError(STDLOG,"Exception: %s (file id=%d)",E.what(),item->id);
+            EOracleError *orae=dynamic_cast<EOracleError*>(&E);
+            if (orae!=NULL&&
+                    (orae->Code==4061||orae->Code==4068)) continue;
+            ProgError(STDLOG,"Exception: %s (file id=%d)",E.what(),item->id);
         }
         catch(...) {};
 

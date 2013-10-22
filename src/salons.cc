@@ -7710,7 +7710,6 @@ bool TSalonPassengers::BuildWaitList( xmlNodePtr dataNode )
   TClsGrp &cls_grp = (TClsGrp &)base_tables.get("CLS_GRP");    //cls_grp.code subclass,
   SEATS2::TDefaults def;
 
-  TQuery PaxDocQry( &OraSession );
   TQuery RemsQry( &OraSession );
   RemsQry.SQLText =
     "SELECT rem, rem_code, comp_rem_types.pr_comp "
@@ -7817,7 +7816,7 @@ bool TSalonPassengers::BuildWaitList( xmlNodePtr dataNode )
       NewTextChild( passNode, "isseat", (int)waitListReason.layerStatus == layerValid, (int)def.isSeat );
       NewTextChild( passNode, "ticket_no", Qry.FieldAsString( "ticket_no" ), def.ticket_no );
       NewTextChild( passNode, "document",
-                    CheckIn::GetPaxDocStr(NoExists, ipass->pax_id, PaxDocQry, true),
+                    CheckIn::GetPaxDocStr(NoExists, ipass->pax_id, true),
                     def.document );
       NewTextChild( passNode, "bag_weight", Qry.FieldAsInteger( "bag_weight" ), def.bag_weight );
       NewTextChild( passNode, "bag_amount", Qry.FieldAsInteger( "bag_amount" ), def.bag_amount );

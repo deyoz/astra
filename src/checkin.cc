@@ -2540,12 +2540,12 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       if (reqInfo->desk.compatible(LATIN_VERSION))
       {
         NewTextChild(paxNode,"pers_type",ElemIdToCodeNative(etPersType, Qry.FieldAsString(col_pers_type)), def_pers_type);
-        NewTextChild(paxNode,"document", CheckIn::GetPaxDocStr(NoExists, pax_id, PaxDocQry, true), "");
+        NewTextChild(paxNode,"document", CheckIn::GetPaxDocStr(NoExists, pax_id, true), "");
       }
       else
       {
         NewTextChild(paxNode,"pers_type",ElemIdToCodeNative(etPersType, Qry.FieldAsString(col_pers_type)));
-        NewTextChild(paxNode,"document", CheckIn::GetPaxDocStr(NoExists, pax_id, PaxDocQry, true));
+        NewTextChild(paxNode,"document", CheckIn::GetPaxDocStr(NoExists, pax_id, true));
       };
 
       NewTextChild(paxNode,"ticket_rem",Qry.FieldAsString(col_ticket_rem),"");
@@ -5189,6 +5189,21 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
       //BSM
       if (BSMsend) BSM::Send(grp.point_dep,grp.id,BSMContentBefore,BSMaddrs);
+
+      if (grp.status!=psCrew)
+      {
+        Qry.Clear();
+        Qry.SQLText=
+          "BEGIN "
+          "  UPDATE utg_prl SET last_flt_change_tid=cycle_tid__seq.currval WHERE point_id=:point_id; "
+          "  IF SQL%NOTFOUND THEN "
+          "    INSERT INTO utg_prl(point_id, last_tlg_create_tid, last_flt_change_tid) "
+          "    VALUES (:point_id, NULL, cycle_tid__seq.currval); "
+          "  END IF; "
+          "END;";
+        Qry.CreateVariable("point_id", otInteger, grp.point_dep);
+        Qry.Execute();
+      };
     }
     catch(UserException &e)
     {
@@ -5460,9 +5475,6 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
         "ORDER BY ABS(pax.reg_no)";
       PaxQry.CreateVariable("grp_id",otInteger,grp.id);
       
-      TQuery PaxDocQry(&OraSession);
-      TQuery PaxDocoQry(&OraSession);
-      
       PaxQry.Execute();
 
       if (grp_id==grp_ids.begin())
@@ -5476,7 +5488,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
       for(;!PaxQry.Eof;PaxQry.Next())
       {
         CheckIn::TPaxItem pax;
-        pax.fromDB(PaxQry, PaxDocQry, PaxDocoQry);
+        pax.fromDB(PaxQry);
 
         CheckIn::TPaxTransferItem paxTrfer;
         paxTrfer.pax_id=pax.id;

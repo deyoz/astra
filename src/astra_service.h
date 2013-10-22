@@ -5,6 +5,7 @@
 #include <string>
 #include <map>
 #include "jxtlib/JxtInterface.h"
+#include "astra_misc.h"
 
 const std::string PARAM_TYPE = "type";
 const std::string VALUE_TYPE_FILE = "FILE";
@@ -15,6 +16,7 @@ const std::string NS_PARAM_EVENT_TYPE = "EVENT_TYPE";
 const std::string NS_PARAM_EVENT_ID1 = "EVENT_ID1";
 const std::string NS_PARAM_EVENT_ID2 = "EVENT_ID2";
 const std::string NS_PARAM_EVENT_ID3 = "EVENT_ID3";
+const std::string FILE_UTG_TYPE = "UTG";
 
 struct TFileData {
 	std::string file_data;
@@ -35,6 +37,8 @@ void sync_sppcek( void );
 void sync_1ccek( void );
 void sync_checkin_data( void );
 void sync_checkin_data( int point_id );
+void utg_prl(void);
+void putUTG(int id, const std::string &basic_type, const TTripInfo &flt, const std::string &data);
 
 
 class AstraServiceInterface : public JxtInterface

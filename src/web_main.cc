@@ -753,8 +753,6 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
 
     if (!isTestPaxId(pnr_id))
     {
-    	TQuery PaxDocQry(&OraSession);
-    	TQuery PaxDocoQry(&OraSession);
     	TQuery CrsPaxDocQry(&OraSession);
     	TQuery GetPSPT2Qry(&OraSession);
     	TQuery CrsPaxDocoQry(&OraSession);
@@ -884,8 +882,8 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
         	  };
         		pax.pax_id = Qry.FieldAsInteger( "pax_id" );
         		pax.tkn.fromDB(Qry);
-        		LoadPaxDoc(pax.pax_id, pax.doc, PaxDocQry);
-        		LoadPaxDoco(pax.pax_id, pax.doco, PaxDocoQry);
+        		LoadPaxDoc(pax.pax_id, pax.doc);
+        		LoadPaxDoco(pax.pax_id, pax.doco);
          		FQTQry.SQLText=PaxFQTQrySQL;
          		FQTQry.SetVariable( "pax_id", pax.pax_id );
          	}
@@ -2337,7 +2335,7 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
             {
               CheckDoc(iPaxForChng->doc, checkDocInfo.first, now_local);
               CheckIn::TPaxDocItem prior_doc;
-              LoadPaxDoc(iPaxForChng->crs_pax_id, prior_doc, PaxDocQry);
+              LoadPaxDoc(iPaxForChng->crs_pax_id, prior_doc);
               DocUpdatesPending=!(prior_doc==iPaxForChng->doc);
             };
             
@@ -2346,7 +2344,7 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, XMLDoc &emulDocHeader
             {
               CheckDoco(iPaxForChng->doco, checkDocInfo.second, now_local);
               CheckIn::TPaxDocoItem prior_doco;
-              LoadPaxDoco(iPaxForChng->crs_pax_id, prior_doco, PaxDocoQry);
+              LoadPaxDoco(iPaxForChng->crs_pax_id, prior_doco);
               DocoUpdatesPending=!(prior_doco==iPaxForChng->doco);
             };
 

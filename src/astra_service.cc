@@ -8,11 +8,14 @@
 #include "astra_consts.h"
 #include "astra_utils.h"
 #include "basic.h"
+#include "telegram.h"
+#include "qrys.h"
 #include "stl_utils.h"
 #include "file_queue.h"
 #include "develop_dbf.h"
 #include "sofi.h"
 #include "aodb.h"
+#include "points.h"
 #include "cent.h"
 #include "spp_cek.h"
 #include "timer.h"
@@ -47,11 +50,21 @@ const std::string FILE_CHECKINDATA_TYPE = "CHCKD";
 
 void CommitWork( int file_id );
 
+struct TStats {
+    int selected;
+    int created;
+    TStats():
+        selected(0),
+        created(0)
+    {}
+};
+
 bool createCheckinDataFiles( int point_id, const std::string &point_addr, TFileDatas &fds );
+bool createUTGDataFiles( int point_id, const std::string &point_addr, TFileDatas &fds, TStats *stats );
 bool CreateCommonFileData( bool pr_commit, const std::string &point_addr,
                            int id, const std::string type,
                            const std::string &airp, const std::string &airline,
-	                         const std::string &flt_no );
+	                         const std::string &flt_no, TStats *stats = NULL);
 
 int putMail( const string &receiver,
              const string &sender,
@@ -115,6 +128,7 @@ class TPointAddr {
   string type;
   bool pr_send;
 public:
+  TStats stats;
   TPointAddr( const string &vtype, bool vpr_send ) {
     type = vtype;
     pr_send = vpr_send;
@@ -219,7 +233,8 @@ public:
                                   type,
                                   PointsQry.FieldAsString( "airp" ),
   	                              PointsQry.FieldAsString( "airline" ),
-                                  PointsQry.FieldAsString( "flt_no" ) );
+                                  PointsQry.FieldAsString( "flt_no" ),
+                                  &stats);
 /*              ProgTrace( TRACE5, "point_addr=%s, airp=%s, airline=%s, flt_no=%d",
                          point_addr.c_str(), PointsQry.FieldAsString( "airp" ), PointsQry.FieldAsString( "airline" ),
                          PointsQry.FieldAsInteger( "flt_no" ) );*/
@@ -792,7 +807,7 @@ bool CreateCommonFileData( bool pr_commit,
                            const std::string &point_addr,
                            int id, const std::string type,
                            const std::string &airp, const std::string &airline,
-	                         const std::string &flt_no )
+	                         const std::string &flt_no, TStats *stats )
 {
 	bool res = false;
     TQuery Qry( &OraSession );
@@ -848,7 +863,8 @@ bool CreateCommonFileData( bool pr_commit,
                         ( type == FILE_AODB_OUT_TYPE && createAODBFiles( id, client_canon_name, fds ) ) ||
                         ( type == FILE_SPPCEK_TYPE && createSPPCEKFile( id, client_canon_name, fds ) ) ||
                         ( type == FILE_1CCEK_TYPE && Sync1C( client_canon_name, fds ) ) ||
-                        ( type == FILE_CHECKINDATA_TYPE && createCheckinDataFiles( id, client_canon_name, fds ) ) ) {
+                        ( type == FILE_CHECKINDATA_TYPE && createCheckinDataFiles( id, client_canon_name, fds ) ) ||
+                        (  type == FILE_UTG_TYPE && createUTGDataFiles( id, client_canon_name, fds, stats ) ) ) {
                     /* теперь в params еще лежит и имя файла */
                     string encoding = TFileQueue::getEncoding( type, client_canon_name, true );
                     for ( vector<TFileData>::iterator i=fds.begin(); i!=fds.end(); i++ ) {
@@ -1495,6 +1511,146 @@ bool createCheckinDataFiles( int point_id, const std::string &point_addr, TFileD
   return !fds.empty();
 }
 
+class TUTG_PointAddr: public TPointAddr {
+  TQuery *StagesQry;
+public:
+  TUTG_PointAddr( ):TPointAddr( string(FILE_UTG_TYPE), true ) {
+    StagesQry = new TQuery(&OraSession);
+  	StagesQry->SQLText =
+      "SELECT stage_id FROM trip_final_stages WHERE point_id=:point_id AND stage_type=:ckin_stage_type";
+    StagesQry->CreateVariable( "ckin_stage_type", otInteger, stCheckIn );
+    StagesQry->DeclareVariable( "point_id", otInteger );
+  }
+  ~TUTG_PointAddr( ) {
+    delete StagesQry;
+  }
+  virtual bool validateParams( const string &point_addr, const vector<string> &ailines,
+                               const vector<string> &airps, const vector<int> &flt_nos,
+                               const map<string,string> &params, int point_id ) {
+      map<string, string>::const_iterator idx = params.find(PARAM_TLG_TYPE);
+      return idx != params.end() and idx->second.find("PRL");
+  }
+  virtual bool validatePoints( int point_id ) {
+    StagesQry->SetVariable( "point_id", point_id );
+    StagesQry->Execute();
+    return ( !StagesQry->Eof &&
+              StagesQry->FieldAsInteger( "stage_id" ) == sOpenCheckIn );
+  }
+};
+
+void utg_prl(void)
+{
+  TDateTime low_time = NowUTC() - 1;
+  TDateTime high_time = low_time + 3;
+
+  TSQLCondDates cond_dates;
+  cond_dates.sql = " time_out>=:day1 AND time_out<=:day2 AND pr_del=0 AND act_out IS NULL ";
+  TUTG_PointAddr point_addr;
+  cond_dates.dates.insert( make_pair( "day1", low_time ) );
+  cond_dates.dates.insert( make_pair( "day2", high_time ) );
+  point_addr.createPointSQL( cond_dates );
+  ProgTrace(TRACE5, "utg_prl: selected: %d; created: %d", point_addr.stats.selected, point_addr.stats.created);
+}
+
+string UTG_file_name(int id, const string &basic_type, const TTripInfo &flt, string &file_name_enc)
+{
+    TDateTime now_utc = NowUTC();
+    double days;
+    int msecs = (int)(modf(now_utc, &days) * MSecsPerDay) % 1000;
+    ostringstream file_name;
+    file_name
+        << DateTimeToStr(now_utc, "yyyy_mm_dd_hh_nn_ss_")
+        << setw(3) << setfill('0') << msecs
+        << "." << setw(9) << setfill('0') << id
+        << "." << basic_type
+        << "." << flt.airline
+        << setw(3) << setfill('0') << flt.flt_no << flt.suffix
+        << "." << DateTimeToStr(flt.scd_out, "dd.mm");
+    if(file_name_enc.empty()) file_name_enc = "CP866";
+    return (file_name_enc == "CP866" ? file_name.str() : ConvertCodepage(file_name.str(), "CP866", file_name_enc));
+}
+
+bool createUTGDataFiles( int point_id, const std::string &point_addr, TFileDatas &fds, TStats *stats )    //point_addr=BETADC
+{
+    fds.clear();
+    QParams QryParams;
+    QryParams << QParam("point_id", otInteger, point_id);
+    TQuery &fltQry = TQrys::Instance()->get(
+            "SELECT point_num,first_point,pr_tranzit,airline, flt_no, suffix,suffix_fmt,airp,scd_out,est_out,act_out,pr_del FROM points "
+            " WHERE point_id=:point_id",
+            QryParams
+            );
+    fltQry.Execute();
+
+    QryParams.clear();
+    QryParams << QParam("id", otInteger);
+    TQuery &TlgQry = TQrys::Instance()->get(
+            "SELECT heading, body, ending "
+            "FROM tlg_out "
+            "WHERE id=:id",
+            QryParams
+            );
+
+    QryParams.clear();
+    QryParams << QParam("point_id", otInteger) << QParam("last_flt_change_tid", otInteger);
+    TQuery &updQry = TQrys::Instance()->get(
+            "UPDATE utg_prl set last_tlg_create_tid = :last_flt_change_tid where point_id = :point_id",
+            QryParams
+            );
+
+    QryParams.clear();
+    QryParams << QParam("point_id", otInteger);
+    TQuery &utgQry = TQrys::Instance()->get(
+            "select last_flt_change_tid from utg_prl where point_id = :point_id and "
+            "(last_tlg_create_tid is null or last_tlg_create_tid <> last_flt_change_tid)",
+            QryParams
+            );
+
+    TTripInfo flt;
+    flt.Init(fltQry);
+    TFileData file;
+    TFileQueue::add_sets_params( flt.airp,
+            flt.airline,
+            IntToString(flt.flt_no),
+            OWN_POINT_ADDR(),
+            FILE_UTG_TYPE,
+            1,
+            file.params );
+    TFlights Flights;
+    Flights.Get(point_id, ftTranzit);
+    Flights.Lock();
+    utgQry.SetVariable("point_id", point_id);
+    utgQry.Execute();
+    if(stats) stats->selected++;
+    if(utgQry.Eof) return false;
+    int last_flt_change_tid = utgQry.FieldAsInteger("last_flt_change_tid");
+    TypeB::TCreateInfo info("PRL");
+    info.point_id = point_id;
+    TTypeBTypesRow tlgTypeInfo;
+    int tlg_id = TelegramInterface::create_tlg(info, tlgTypeInfo);
+    TlgQry.SetVariable("id", tlg_id);
+    TlgQry.Execute();
+    file.file_data=(string)
+        TlgQry.FieldAsString("heading")+
+        TlgQry.FieldAsString("body")+
+        TlgQry.FieldAsString("ending");
+    OraSession.Rollback();
+
+    file.params[NS_PARAM_EVENT_TYPE] = EncodeEventType( ASTRA::evtFlt );
+    file.params[NS_PARAM_EVENT_ID1] = IntToString( point_id );
+
+    updQry.SetVariable("point_id", point_id);
+    updQry.SetVariable("last_flt_change_tid", last_flt_change_tid);
+    updQry.Execute();
+    fds.push_back( file );
+#ifdef SQL_COUNTERS
+    for(map<string, int>::iterator im = sqlCounters.begin(); im != sqlCounters.end(); im++) {
+        ProgTrace(TRACE5, "sqlCounters[%s] = %d", im->first.c_str(), im->second);
+    }
+#endif
+    if(stats) stats->created++;
+    return !fds.empty();
+}
 
 void AstraServiceInterface::getFileParams( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
 {
@@ -1762,4 +1918,27 @@ void get_string_into_snapshot_points( int point_id, const std::string &file_type
 		record += Qry.FieldAsString( "record" );
 		Qry.Next();
 	}
+}
+
+void putUTG(int id, const string &basic_type, const TTripInfo &flt, const string &data)
+{
+    map<string, string> file_params;
+    TFileQueue::add_sets_params( flt.airp,
+            flt.airline,
+            IntToString(flt.flt_no),
+            OWN_POINT_ADDR(),
+            FILE_UTG_TYPE,
+            1,
+            file_params );
+
+    if(not file_params.empty() and (file_params[PARAM_TLG_TYPE].find(basic_type) != string::npos)) {
+        string encoding=TFileQueue::getEncoding(FILE_UTG_TYPE, OWN_POINT_ADDR(), true);
+        if (encoding.empty()) encoding="CP866";
+        file_params[PARAM_FILE_NAME] = UTG_file_name(id, basic_type, flt, file_params[PARAM_FILE_NAME_ENC]);
+        TFileQueue::putFile( OWN_POINT_ADDR(),
+                OWN_POINT_ADDR(),
+                FILE_UTG_TYPE,
+                file_params,
+                (encoding == "CP866" ? data : ConvertCodepage(data, "CP866", encoding)));
+    }
 }
