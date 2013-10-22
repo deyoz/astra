@@ -3288,10 +3288,6 @@ void check_trip_tasks( const TSOPPDests &dests )
   vector<int> is_apis_airp;
   for ( TSOPPDests::const_reverse_iterator idest=dests.rbegin();
         idest!=dests.rend(); idest++ ) {
-    /*if ( idest->pr_reg == 0 ||
-         idest->pr_del != 0 ) {
-      continue;
-    } */
     Qry.SetVariable( "point_id", idest->point_id );
     Qry.Execute();
     if ( Qry.Eof ||
@@ -3310,6 +3306,12 @@ void check_trip_tasks( const TSOPPDests &dests )
                              Qry.FieldAsInteger( "pr_tranzit" ),
                              trtNotCurrent,
                              trtNotCancelled ); // получили все предыдущие пункты транзитного рейса
+      TTripRouteItem item;
+      item.point_id = idest->point_id;
+      item.point_num = Qry.FieldAsInteger( "point_num" );
+      item.airp = Qry.FieldAsString( "airp" );
+      item.pr_cancel = 0;
+      routes.push_back( item );
       for ( TTripRoute::reverse_iterator item=routes.rbegin();
             item!=routes.rend(); item++ ) {
         ProgTrace( TRACE5, "item->point_id=%d", item->point_id );
@@ -4280,18 +4282,19 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   					                                 LParams() << LParam("airp", ElemIdToCodeNative(etAirp,id->airp)));
       }
   	}
-    if ( reSetCraft ) {
+    if ( reSetCraft && id->pr_del == 0 ) {
       ProgTrace( TRACE5, "reSetCraft: point_id=%d", id->point_id );
       setcraft_points.push_back( id->point_id );
     }
-    if ( reSetWeights ) {
+    if ( reSetWeights && id->pr_del == 0 ) {
       ProgTrace( TRACE5, "reSetWeights: point_id=%d", id->point_id );
       PersWeightRules newweights;
       persWeights.getRules( id->point_id, newweights );
       PersWeightRules oldweights;
       oldweights.read( id->point_id );
-      if ( !oldweights.equal( &newweights ) )
+      if ( !oldweights.equal( &newweights ) ) {
         newweights.write( id->point_id );
+      }
     }
     point_num++;
   } // end for
@@ -4327,7 +4330,6 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     AstraLocale::showErrorMessage( "MSG.DATA_SAVED.CRAFT_CHANGED.NEED_SET_COMPON" );
   else
     AstraLocale::showMessage( "MSG.DATA_SAVED" );
-    
   //новая отвязка телеграмм
   ReBindTlgs( move_id, voldDests );
   //тревога различие компоновок
