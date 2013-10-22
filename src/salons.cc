@@ -2371,8 +2371,9 @@ void FilterRoutesProperty::Read( const TFilterRoutesSets &filterRoutesSets )
     "      points.point_id = trip_sets.point_id";
   Qry.CreateVariable( "point_id", otInteger, point_dep );
   Qry.Execute();
-  if ( Qry.Eof )
+  if ( Qry.Eof ) {
     throw UserException( "MSG.FLIGHT.NOT_FOUND.REFRESH_DATA" );
+  }
   crc_comp = Qry.FieldAsInteger( "crc_comp" );
   pr_craft_lat = Qry.FieldAsInteger( "pr_lat_seat" );
   comp_id = Qry.FieldAsInteger( "comp_id" );
@@ -4448,7 +4449,14 @@ void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tran
     for ( FlightPoints::iterator iroute=iflights->begin(); iroute!=iflights->end()-1; iroute++ ) { //пробег по пунктам
       ProgTrace( TRACE5, "check_waitlist_alarm_on_tranzit_routes: point_id=%d", iroute->point_id );
       FilterRoutesProperty filterRoutesTmp;
-      filterRoutesTmp.Read( TFilterRoutesSets( iroute->point_id, ASTRA::NoExists ) ); //чтение маршрута рейса
+      try {
+        filterRoutesTmp.Read( TFilterRoutesSets( iroute->point_id, ASTRA::NoExists ) ); //чтение маршрута рейса
+      }
+      catch( UserException &e ) {
+        if ( e.getLexemaData().lexema_id != "MSG.FLIGHT.NOT_FOUND.REFRESH_DATA" &&
+             e.getLexemaData().lexema_id != "MSG.FLIGHT.CANCELED.REFRESH_DATA" )
+          throw;
+      }
       if ( filterRoutes.getMaxRoute() != filterRoutesTmp.getMaxRoute() ) { //макс. плечо не равно предыдущему
         ProgTrace( TRACE5, "check_waitlist_alarm_on_tranzit_routes: point_id=%d, filterRoutesSets.point_dep=%d,%d, filterRoutesTmp.getMaxRoute()=%d,%d",
                    iroute->point_id, filterRoutes.getMaxRoute().point_dep, filterRoutes.getMaxRoute().point_arv,
