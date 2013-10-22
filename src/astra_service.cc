@@ -1310,15 +1310,13 @@ bool createCheckinDataFiles( int point_id, const std::string &point_addr, TFileD
   string airline = Qry.FieldAsString( "airline" );
   string airline_lat = ElemIdToElem( etAirline, airline, efmtCodeInter, AstraLocale::LANG_EN );
   if ( airline_lat.empty()) {
-    ProgError( STDLOG, "createCheckinDataFiles: airline_lat empty (code=%s)",airline.c_str() );
-    return false;
+    airline_lat = airline;
   }
   int flt_no = Qry.FieldAsInteger( "flt_no" );
   string suffix = ElemIdToElemCtxt( ecDisp, etSuffix, Qry.FieldAsString( "suffix" ), (TElemFmt)Qry.FieldAsInteger( "suffix_fmt" ) );
   string suffix_lat = ElemIdToElem( etSuffix, suffix, efmtCodeInter, AstraLocale::LANG_EN );
   if ( !suffix.empty() && suffix_lat.empty() ) {
-    ProgError( STDLOG, "createCheckinDataFiles: sufix_lat empty (code=%s)", suffix.c_str() );
-    return false;
+    suffix_lat = suffix;
   }
 
   string airp = Qry.FieldAsString( "airp" );
