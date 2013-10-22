@@ -410,7 +410,7 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 
       map<string, pair< vector<string>, vector< pair<string,string> > > > errors; //flight,вектор global_error, вектор пар pax+ticket/coupon_error
       map<int, map<int, AstraLocale::LexemaData> > segs;
-      
+
       xmlNodePtr ticketNode=NodeAsNode("tickets",ediResNode)->children;
       for(;ticketNode!=NULL;ticketNode=ticketNode->next)
       {
@@ -424,7 +424,7 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         int pax_id=ASTRA::NoExists;
         if (GetNode("pax_id",ticketNode)!=NULL)
           pax_id=NodeAsInteger("pax_id",ticketNode);
-        
+
         bool tick_event=false;
         for(xmlNodePtr node=ticketNode->children;node!=NULL;node=node->next)
         {
@@ -462,12 +462,12 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
           ostringstream ticknum;
           ticknum << NodeAsString("ticket_no",ticketNode) << "/"
                   << NodeAsInteger("coupon_no",ticketNode);
-                  
+
           LexemaData lexemeData;
           lexemeData.lexema_id="MSG.ETICK.CHANGE_STATUS_UNKNOWN_RESULT";
           lexemeData.lparams << LParam("ticknum",ticknum.str());
           string err_locale=getLocaleText(lexemeData);
-                  
+
           pair< vector<string>, vector< pair<string,string> > > &err=errors[flight];
           err.second.push_back(make_pair(pax,err_locale));
           segs[point_id][pax_id]=lexemeData;
@@ -645,7 +645,7 @@ bool ETStatusInterface::TFltParams::get(int point_id)
   if (Qry.Eof) return false;
   TDateTime real_in=ASTRA::NoExists;
   if (!Qry.FieldIsNULL("real_in")) real_in=Qry.FieldAsDateTime("real_in");
-  
+
   in_final_status=fltInfo.real_out!=NoExists && real_in!=NoExists && real_in<NowUTC();
   return true;
 };
@@ -728,7 +728,7 @@ void ETStatusInterface::ETCheckStatus(int point_id,
           Qry.SetVariable("ticket_no", ticket_no);
           Qry.SetVariable("coupon_no", coupon_no);
           Qry.Execute();
-          
+
           CouponStatus real_status;
           if (Qry.Eof || !Qry.FieldIsNULL("refuse"))
             //разрегистрирован
@@ -783,22 +783,22 @@ void ETStatusInterface::ETCheckStatus(int point_id,
 
           list<Coupon> lcpn;
           lcpn.push_back(cpn);
-          xmlNodePtr node=mtick.addTicket(key, Ticket(ticket_no, lcpn));
+          xmlNodePtr node3=mtick.addTicket(key, Ticket(ticket_no, lcpn));
 
-          NewTextChild(node,"ticket_no",ticket_no);
-          NewTextChild(node,"coupon_no",coupon_no);
-          NewTextChild(node,"point_id",point_id);
-          NewTextChild(node,"airp_dep",airp_dep);
-          NewTextChild(node,"airp_arv",airp_arv);
-          NewTextChild(node,"flight",GetTripName(fltParams.fltInfo,ecNone,true,false));
+          NewTextChild(node3,"ticket_no",ticket_no);
+          NewTextChild(node3,"coupon_no",coupon_no);
+          NewTextChild(node3,"point_id",point_id);
+          NewTextChild(node3,"airp_dep",airp_dep);
+          NewTextChild(node3,"airp_arv",airp_arv);
+          NewTextChild(node3,"flight",GetTripName(fltParams.fltInfo,ecNone,true,false));
           if (GetNodeFast("grp_id",node2)!=NULL)
           {
-            NewTextChild(node,"grp_id",NodeAsIntegerFast("grp_id",node2));
-            NewTextChild(node,"pax_id",NodeAsIntegerFast("pax_id",node2));
+            NewTextChild(node3,"grp_id",NodeAsIntegerFast("grp_id",node2));
+            NewTextChild(node3,"pax_id",NodeAsIntegerFast("pax_id",node2));
             if (GetNodeFast("reg_no",node2)!=NULL)
-              NewTextChild(node,"reg_no",NodeAsIntegerFast("reg_no",node2));
-            NewTextChild(node,"pax_full_name",NodeAsStringFast("pax_full_name",node2));
-            NewTextChild(node,"pers_type",NodeAsStringFast("pers_type",node2));
+              NewTextChild(node3,"reg_no",NodeAsIntegerFast("reg_no",node2));
+            NewTextChild(node3,"pax_full_name",NodeAsStringFast("pax_full_name",node2));
+            NewTextChild(node3,"pers_type",NodeAsStringFast("pers_type",node2));
           };
 
           ProgTrace(TRACE5,"ETCheckStatus %s/%d->%s",
@@ -850,7 +850,7 @@ void ETStatusInterface::ETCheckStatus(int id,
       break;
     default: ;
   };
-  
+
   TFltParams fltParams;
   if (point_id!=NoExists && fltParams.get(point_id))
   {
