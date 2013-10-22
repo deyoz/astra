@@ -960,28 +960,37 @@ void create_apis_file(int point_id, const string& task_name)
             };
       	  };
 
-          for(vector< pair<string, string> >::const_iterator iFile=files.begin();iFile!=files.end();++iFile)
+          if (!files.empty())
           {
-          	ofstream f;
-            f.open(iFile->first.c_str());
-            if (!f.is_open()) throw Exception("Can't open file '%s'",iFile->first.c_str());
-            try
+            for(vector< pair<string, string> >::const_iterator iFile=files.begin();iFile!=files.end();++iFile)
             {
-            	f << iFile->second;
-            	f.close();
-            }
-            catch(...)
-            {
-              try { f.close(); } catch( ... ) { };
+            	ofstream f;
+              f.open(iFile->first.c_str());
+              if (!f.is_open()) throw Exception("Can't open file '%s'",iFile->first.c_str());
               try
               {
-                //в случае ошибки запишем пустой файл
-                f.open(iFile->first.c_str());
-                if (f.is_open()) f.close();
+              	f << iFile->second;
+              	f.close();
               }
-              catch( ... ) { };
-              throw;
+              catch(...)
+              {
+                try { f.close(); } catch( ... ) { };
+                try
+                {
+                  //в случае ошибки запишем пустой файл
+                  f.open(iFile->first.c_str());
+                  if (f.is_open()) f.close();
+                }
+                catch( ... ) { };
+                throw;
+              };
             };
+
+            ostringstream msg;
+            msg << "Сформирован APIS формата " << fmt
+                << ": " << country_dep << "(" << airp_dep.code << ")"
+                << "->" << country_arv.code << "(" << airp_arv.code << ")";
+            TReqInfo::Instance()->MsgToLog(msg.str(),evtFlt,point_id);
           };
         };
       };

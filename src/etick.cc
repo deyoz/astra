@@ -707,10 +707,10 @@ void ETStatusInterface::ETCheckStatus(int point_id,
         bool init_edi_addrs=false;
 
         xmlNodePtr ticketNode=NodeAsNode("/context/tickets",ediResDocPtr);
-        for(xmlNodePtr node=ticketNode->children;node!=NULL;node=node->next)
+        for(ticketNode=ticketNode->children;ticketNode!=NULL;ticketNode=ticketNode->next)
         {
           //цикл по билетам
-          xmlNodePtr node2=node->children;
+          xmlNodePtr node2=ticketNode->children;
           if (GetNodeFast("coupon_status",node2)==NULL) continue;
           if (NodeAsIntegerFast("prior_point_id",node2,
                                 NodeAsIntegerFast("point_id",node2))!=point_id) continue;
@@ -783,22 +783,22 @@ void ETStatusInterface::ETCheckStatus(int point_id,
 
           list<Coupon> lcpn;
           lcpn.push_back(cpn);
-          xmlNodePtr node3=mtick.addTicket(key, Ticket(ticket_no, lcpn));
+          xmlNodePtr node=mtick.addTicket(key, Ticket(ticket_no, lcpn));
 
-          NewTextChild(node3,"ticket_no",ticket_no);
-          NewTextChild(node3,"coupon_no",coupon_no);
-          NewTextChild(node3,"point_id",point_id);
-          NewTextChild(node3,"airp_dep",airp_dep);
-          NewTextChild(node3,"airp_arv",airp_arv);
-          NewTextChild(node3,"flight",GetTripName(fltParams.fltInfo,ecNone,true,false));
+          NewTextChild(node,"ticket_no",ticket_no);
+          NewTextChild(node,"coupon_no",coupon_no);
+          NewTextChild(node,"point_id",point_id);
+          NewTextChild(node,"airp_dep",airp_dep);
+          NewTextChild(node,"airp_arv",airp_arv);
+          NewTextChild(node,"flight",GetTripName(fltParams.fltInfo,ecNone,true,false));
           if (GetNodeFast("grp_id",node2)!=NULL)
           {
-            NewTextChild(node3,"grp_id",NodeAsIntegerFast("grp_id",node2));
-            NewTextChild(node3,"pax_id",NodeAsIntegerFast("pax_id",node2));
+            NewTextChild(node,"grp_id",NodeAsIntegerFast("grp_id",node2));
+            NewTextChild(node,"pax_id",NodeAsIntegerFast("pax_id",node2));
             if (GetNodeFast("reg_no",node2)!=NULL)
-              NewTextChild(node3,"reg_no",NodeAsIntegerFast("reg_no",node2));
-            NewTextChild(node3,"pax_full_name",NodeAsStringFast("pax_full_name",node2));
-            NewTextChild(node3,"pers_type",NodeAsStringFast("pers_type",node2));
+              NewTextChild(node,"reg_no",NodeAsIntegerFast("reg_no",node2));
+            NewTextChild(node,"pax_full_name",NodeAsStringFast("pax_full_name",node2));
+            NewTextChild(node,"pers_type",NodeAsStringFast("pers_type",node2));
           };
 
           ProgTrace(TRACE5,"ETCheckStatus %s/%d->%s",
