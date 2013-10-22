@@ -1506,9 +1506,9 @@ bool IsSend( const TAdvTripInfo &fltInfo, TBSMAddrs &addrs )
             fltInfo.airline,
             IntToString(fltInfo.flt_no),
             OWN_POINT_ADDR(),
-            FILE_HTTPGET_TYPE,
+            FILE_HTTP_TYPEB_TYPE,
             1,
-            addrs.HTTPGETparams);
+            addrs.HTTP_TYPEBparams);
 
     return !addrs.empty();
 };
@@ -1554,19 +1554,19 @@ void Send( int point_dep, int grp_id, const TTlgContent &con1, const TBSMAddrs &
         Qry.Execute();
         TelegramInterface::SendTlg(p.id);
       };
-      if(not addrs.HTTPGETparams.empty()) {
-          map<string, string> params = addrs.HTTPGETparams;
+      if(not addrs.HTTP_TYPEBparams.empty()) {
+          map<string, string> params = addrs.HTTP_TYPEBparams;
 
           p.addToFileParams(params);
 
           putFile(OWN_POINT_ADDR(),
                   OWN_POINT_ADDR(),
-                  FILE_HTTPGET_TYPE,
+                  FILE_HTTP_TYPEB_TYPE,
                   params,
                   CreateTlgBody(*i, true));
       }
     };
-    if(not addrs.HTTPGETparams.empty())
+    if(not addrs.HTTP_TYPEBparams.empty())
         registerHookAfter(sendCmdTlgHttpSnd);
 
     check_tlg_out_alarm(point_dep);

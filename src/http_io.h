@@ -4,7 +4,7 @@
 #include<string>
 #include<vector>
 
-std::string send_bsm(const std::string host, const std::string &bsm);
+std::string send_format_ayt(const std::string &uri, const std::string &bsm);
 
 struct HTTPRequestInfo
 {
