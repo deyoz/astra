@@ -332,6 +332,9 @@ void ChangeACT_OUT( int point_id, BASIC::TDateTime old_act, BASIC::TDateTime act
 void check_TrferExists( int point_id );
 void get_DesksGates( int point_id, tstations &stations );
 void check_DesksGates( int point_id );
+void check_trip_tasks( const TSOPPDests &dests );
+void check_trip_tasks( int move_id );
+bool CheckApis_USA( const std::string &airp );
 void IntReadTrips( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode, long int &exec_time );
 
 #endif /*_SOPP_H_*/

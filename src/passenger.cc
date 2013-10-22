@@ -595,6 +595,7 @@ bool LoadPaxDoca(TDateTime part_key, int pax_id, TDocaType type, TPaxDocaItem &d
   {
     case docaDestination: QryParams << QParam("type", otString, "D"); break;
     case docaResidence:   QryParams << QParam("type", otString, "R"); break;    
+    case docaBirth:       QryParams << QParam("type", otString, "B"); break;
   };
   TQuery &PaxDocQry = TQrys::Instance()->get(sql_result, QryParams);
   PaxDocQry.Execute();

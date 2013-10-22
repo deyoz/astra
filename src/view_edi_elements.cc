@@ -165,6 +165,17 @@ void viewLocElement( _EDI_REAL_MES_STRUCT_* pMes, const LocElem& elem, int num )
 {
     std::ostringstream loc;
     loc << boost::lexical_cast< std::string >( elem.m_locQualifier ) << "+" << elem.m_locName;
+    if (!elem.m_relatedLocName1.empty()||
+        !elem.m_relatedLocName2.empty())
+    {
+      loc << "+";
+      if (!elem.m_relatedLocName1.empty())
+        loc << ":::" << elem.m_relatedLocName1;
+      loc << "+";
+      if (!elem.m_relatedLocName2.empty())
+        loc << ":::" << elem.m_relatedLocName2;
+    };
+
     SetEdiFullSegment( pMes, SegmElement( "LOC", num ), loc.str() );
 }
 

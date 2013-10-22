@@ -8,6 +8,7 @@
 #include "misc.h"
 #include "passenger.h"
 #include "tlg/tlg.h"
+#include "trip_tasks.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -19,6 +20,63 @@ using namespace ASTRA;
 using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace std;
+
+namespace APIS
+{
+
+const set<string> &customsUS()
+{
+  static bool init=false;
+  static set<string> depend;
+  if (!init)
+  {
+    TQuery Qry(&OraSession);
+    GetCustomsDependCountries("ЮС", depend, Qry);
+    init=true;
+  };
+  return depend;
+};
+
+void GetCustomsDependCountries(const string &regul,
+                               set<string> &depend,
+                               TQuery &Qry)
+{
+  depend.clear();
+  depend.insert(regul);
+  const char *sql =
+    "SELECT country_depend FROM apis_customs WHERE country_regul=:country_regul";
+  if (strcmp(Qry.SQLText.SQLText(),sql)!=0)
+  {
+    Qry.Clear();
+    Qry.SQLText=sql;
+    Qry.DeclareVariable("country_regul",otString);
+  };
+  Qry.SetVariable("country_regul", regul);
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+    depend.insert(Qry.FieldAsString("country_depend"));
+};
+
+string GetCustomsRegulCountry(const string &depend,
+                              TQuery &Qry)
+{
+  const char *sql =
+    "SELECT country_regul FROM apis_customs WHERE country_depend=:country_depend";
+  if (strcmp(Qry.SQLText.SQLText(),sql)!=0)
+  {
+    Qry.Clear();
+    Qry.SQLText=sql;
+    Qry.DeclareVariable("country_depend",otString);
+  };
+  Qry.SetVariable("country_depend", depend);
+  Qry.Execute();
+  if (!Qry.Eof)
+    return Qry.FieldAsString("country_regul");
+  else
+    return depend;
+};
+
+};
 
 const char* APIS_PARTY_INFO()
 {
@@ -145,13 +203,13 @@ int create_apis_nosir(int argc,char **argv)
   };
 
   if (init_edifact()<0) throw Exception("'init_edifact' error");
-  create_apis_file(point_id);
+  create_apis_file(point_id, "");
 
   puts("create_apis successfully completed");
   return 0;
 };
 
-void create_apis_file(int point_id)
+void create_apis_file(int point_id, const string& task_name)
 {
   try
   {
@@ -206,7 +264,9 @@ void create_apis_file(int point_id)
     PaxQry.CreateVariable("point_dep",otInteger,point_id);
     PaxQry.DeclareVariable("point_arv",otInteger);
 
-    map<string /*country_arv*/, string /*first airp_arv*/> CBPAirps;
+    TQuery CustomsQry(&OraSession);
+
+    map<string /*country_regul*/, string /*first airp_arv*/> CBPAirps;
 
     for(TTripRoute::const_iterator r=route.begin(); r!=route.end(); r++)
     {
@@ -217,10 +277,17 @@ void create_apis_file(int point_id)
 
       TCountriesRow &country_arv = (TCountriesRow&)base_tables.get("countries").get_row("code",RouteQry.FieldAsString("country"));
 
-      map<string, string>::iterator iCBPAirp=CBPAirps.find(country_arv.code);
+      string country_regul=APIS::GetCustomsRegulCountry(country_arv.code, CustomsQry);
+      map<string, string>::iterator iCBPAirp=CBPAirps.find(country_regul);
       if (iCBPAirp==CBPAirps.end())
-        iCBPAirp=CBPAirps.insert(make_pair(country_arv.code, RouteQry.FieldAsString("airp"))).first;
+        iCBPAirp=CBPAirps.insert(make_pair(country_regul, RouteQry.FieldAsString("airp"))).first;
       if (iCBPAirp==CBPAirps.end()) throw Exception("iCBPAirp==CBPAirps.end()");
+
+      if (!(task_name.empty() ||
+            (country_regul==US_CUSTOMS_CODE &&
+             (task_name==BEFORE_TAKEOFF_30_US_CUSTOMS_ARRIVAL ||
+              task_name==BEFORE_TAKEOFF_60_US_CUSTOMS_ARRIVAL)) ||
+            (country_regul!=US_CUSTOMS_CODE && task_name==ON_TAKEOFF))) continue;
       //получим информацию по настройке APIS
       ApisSetsQry.SetVariable("country_arv",country_arv.code);
       ApisSetsQry.Execute();
@@ -275,10 +342,10 @@ void create_apis_file(int point_id)
             {
               Paxlst::PaxlstInfo& paxlstInfo=(pass==0?FPM:FCM);
 
-              if (fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US")
+              if (fmt=="EDI_CN")
                 paxlstInfo.settings().setRespAgnCode("ZZZ");
 
-              paxlstInfo.settings().setViewUNGandUNE(!(fmt=="EDI_IN" || fmt=="EDI_US"));
+              paxlstInfo.settings().setViewUNGandUNE(true/*!(fmt=="EDI_IN" || fmt=="EDI_US")*/);
 
               //информация о преставительства a/к
               list<TAirlineOfficeInfo> offices;
@@ -306,25 +373,10 @@ void create_apis_file(int point_id)
               if (i!=strs.end()) paxlstInfo.setSenderName(*i++);
               if (i!=strs.end()) paxlstInfo.setSenderCarrierCode(*i++);
 
-              if (fmt=="EDI_US")
-              {
-                paxlstInfo.setRecipientName("USCSAPIS");
-                paxlstInfo.setRecipientCarrierCode("ZZ");
-              }
-              else if
-                 (fmt=="EDI_IN" &&
-                  (country_arv.code_lat=="IN"))
-              {
-                paxlstInfo.setRecipientName("NZCS");
-                paxlstInfo.setRecipientCarrierCode("");
-              }
-              else
-              {
-                SeparateString(string(ApisSetsQry.FieldAsString("edi_addr")), ':', strs);
-                i=strs.begin();
-                if (i!=strs.end()) paxlstInfo.setRecipientName(*i++);
-                if (i!=strs.end()) paxlstInfo.setRecipientCarrierCode(*i++);
-              };
+              SeparateString(string(ApisSetsQry.FieldAsString("edi_addr")), ':', strs);
+              i=strs.begin();
+              if (i!=strs.end()) paxlstInfo.setRecipientName(*i++);
+              if (i!=strs.end()) paxlstInfo.setRecipientCarrierCode(*i++);
 
               ostringstream flight;
               flight << airline.code_lat << flt_no << suffix;
@@ -369,16 +421,17 @@ void create_apis_file(int point_id)
 
             CheckIn::TPaxDocItem doc;
             CheckIn::TPaxDocoItem doco;
-            CheckIn::TPaxDocaItem docaD;
-            CheckIn::TPaxDocaItem docaR;
+            CheckIn::TPaxDocaItem docaD, docaR, docaB;
             bool doc_exists=LoadPaxDoc(pax_id, doc);
             bool doco_exists=LoadPaxDoco(pax_id, doco);
             bool docaD_exists=false;
             bool docaR_exists=false;
+            bool docaB_exists=false;
             if (fmt=="EDI_US")
             {
               docaD_exists=LoadPaxDoca(pax_id, CheckIn::docaDestination, docaD);
               docaR_exists=LoadPaxDoca(pax_id, CheckIn::docaResidence, docaR);
+              docaB_exists=LoadPaxDoca(pax_id, CheckIn::docaBirth, docaB);
             };
 
       	    if (!doc_exists)
@@ -641,18 +694,22 @@ void create_apis_file(int point_id)
                 };
 
 
-                if (fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US")
+                if (/*fmt=="EDI_CN" ||*/ fmt=="EDI_IN" || fmt=="EDI_US") //!!! позже вернуть EDI_CN 17.10.13
                 {
                   if (!doc_type.empty() && !doc_no.empty())
                   {
+                    //обязательно наличие типа и номера документа
                     paxInfo.setDocType(doc_type);
                     paxInfo.setDocNumber(doc_no);
                   }
                 }
                 else
                 {
-                  paxInfo.setDocType(doc_type);
-                  paxInfo.setDocNumber(doc_no);
+                  if (!doc_no.empty())
+                  {
+                    paxInfo.setDocType(doc_type);
+                    paxInfo.setDocNumber(doc_no);
+                  };
                 };
                 if (doc.expiry_date!=NoExists)
                   paxInfo.setDocExpirateDate(doc.expiry_date);
@@ -760,6 +817,16 @@ void create_apis_file(int point_id)
               };
             };
 
+            if (docaB_exists && (fmt=="EDI_US"))
+            {
+              if (status==psCrew)
+              {
+                paxInfo.setBirthCity(docaB.city);
+                paxInfo.setBirthRegion(docaB.region);
+                paxInfo.setBirthCountry(docaB.country);
+              };
+            };
+
             if (fmt=="CSV_CZ" || fmt=="CSV_DE")
               body << ENDL;
 
@@ -779,6 +846,11 @@ void create_apis_file(int point_id)
             for(int pass=0; pass<2; pass++)
             {
               Paxlst::PaxlstInfo& paxlstInfo=(pass==0?FPM:FCM);
+
+              if (!(task_name.empty() ||
+                    country_regul!=US_CUSTOMS_CODE ||
+                    (task_name==BEFORE_TAKEOFF_30_US_CUSTOMS_ARRIVAL && pass==0) ||
+                    (task_name==BEFORE_TAKEOFF_60_US_CUSTOMS_ARRIVAL && pass!=0))) continue;
 
               if (!paxlstInfo.passengersList().empty())
               {
@@ -822,89 +894,103 @@ void create_apis_file(int point_id)
       	  }
       	  else
           {
-      	    ostringstream file_name;
-      	    if (fmt=="CSV_CZ" || fmt=="CSV_DE")
+            if (task_name.empty() ||
+                country_regul!=US_CUSTOMS_CODE ||
+                task_name==BEFORE_TAKEOFF_30_US_CUSTOMS_ARRIVAL)
             {
-              ostringstream f;
-              f << airline.code_lat << flt_no << suffix;
-            	file_name << ApisSetsQry.FieldAsString("dir")
-                        << airline.code_lat
-                        << (f.str().size()<6?string(6-f.str().size(),'0'):"") << flt_no << suffix  //по стандарту поле не должно превышать 6 символов
-            	          << airp_dep.code_lat
-            	          << airp_arv.code_lat
-            	          << DateTimeToStr(scd_out_local,"yyyymmdd") << ".CSV";
+        	    ostringstream file_name;
+        	    if (fmt=="CSV_CZ" || fmt=="CSV_DE")
+              {
+                ostringstream f;
+                f << airline.code_lat << flt_no << suffix;
+              	file_name << ApisSetsQry.FieldAsString("dir")
+                          << airline.code_lat
+                          << (f.str().size()<6?string(6-f.str().size(),'0'):"") << flt_no << suffix  //по стандарту поле не должно превышать 6 символов
+              	          << airp_dep.code_lat
+              	          << airp_arv.code_lat
+              	          << DateTimeToStr(scd_out_local,"yyyymmdd") << ".CSV";
+              };
+
+              if (fmt=="TXT_EE")
+                file_name << ApisSetsQry.FieldAsString("dir")
+                          << "LL-" << airline.code_lat << setw(3) << setfill('0') << flt_no << suffix
+                          << "-" << DateTimeToStr(act_in_local,"ddmmyyyy-hhnn") << "-S.TXT";
+
+              //доклеиваем заголовочную часть
+              ostringstream header;
+              if (fmt=="CSV_CZ")
+              	header << "csv;ROSSIYA;"
+              	    	 << airline.code_lat << setw(3) << setfill('0') << flt_no << suffix << ";"
+            	      	 << airp_dep.code_lat << ";" << DateTimeToStr(act_out_local,"yyyy-mm-dd'T'hh:nn:00.0") << ";"
+            	      	 << airp_arv.code_lat << ";" << DateTimeToStr(act_in_local,"yyyy-mm-dd'T'hh:nn:00.0") << ";"
+            	      	 << count << ";" << ENDL;
+            	if (fmt=="CSV_DE")
+                header << airline.code_lat << ";"
+                    	 << airline.code_lat << setw(3) << setfill('0') << flt_no << ";"
+                    	 << airp_dep.code_lat << ";" << DateTimeToStr(act_out_local,"yymmddhhnn") << ";"
+                    	 << airp_arv.code_lat << ";" << DateTimeToStr(act_in_local,"yymmddhhnn") << ";"
+                    	 << count << ENDL;
+              if (fmt=="TXT_EE")
+              {
+                string airline_name=airline.short_name_lat;
+                if (airline_name.empty())
+                  airline_name=airline.name_lat;
+                if (airline_name.empty())
+                  airline_name=airline.code_lat;
+
+                header << "1$ " << airline_name << ENDL
+                    	 << "2$ " << ENDL
+                    	 << "3$ " << airline_country << ENDL
+                    	 << "4$ " << ENDL
+                    	 << "5$ " << ENDL
+                    	 << "6$ " << ENDL
+                    	 << "7$ " << ENDL
+                    	 << "8$ " << ENDL
+                    	 << "9$ " << DateTimeToStr(act_in_local,"dd.mm.yy hh:nn") << ENDL
+                    	 << "10$ " << (airp_arv.code=="TLL"?"Tallinna Lennujaama piiripunkt":
+                         	          airp_arv.code=="TAY"?"Tartu piiripunkt":
+                             	      airp_arv.code=="URE"?"Kuressaare-2 piiripunkt":
+                                 	  airp_arv.code=="KDL"?"Kardla Lennujaama piiripunkt":"") << ENDL
+                    	 << "11$ " << ENDL
+                    	 << "1$ " << airline.code_lat << setw(3) << setfill('0') << flt_no << suffix << ENDL
+                    	 << "2$ " << ENDL
+                    	 << "3$ " << count << ENDL;
+              };
+              files.push_back( make_pair(file_name.str(), string(header.str()).append(body.str())) );
             };
-
-            if (fmt=="TXT_EE")
-              file_name << ApisSetsQry.FieldAsString("dir")
-                        << "LL-" << airline.code_lat << setw(3) << setfill('0') << flt_no << suffix
-                        << "-" << DateTimeToStr(act_in_local,"ddmmyyyy-hhnn") << "-S.TXT";
-
-            //доклеиваем заголовочную часть
-            ostringstream header;
-            if (fmt=="CSV_CZ")
-            	header << "csv;ROSSIYA;"
-            	    	 << airline.code_lat << setw(3) << setfill('0') << flt_no << suffix << ";"
-          	      	 << airp_dep.code_lat << ";" << DateTimeToStr(act_out_local,"yyyy-mm-dd'T'hh:nn:00.0") << ";"
-          	      	 << airp_arv.code_lat << ";" << DateTimeToStr(act_in_local,"yyyy-mm-dd'T'hh:nn:00.0") << ";"
-          	      	 << count << ";" << ENDL;
-          	if (fmt=="CSV_DE")
-              header << airline.code_lat << ";"
-                  	 << airline.code_lat << setw(3) << setfill('0') << flt_no << ";"
-                  	 << airp_dep.code_lat << ";" << DateTimeToStr(act_out_local,"yymmddhhnn") << ";"
-                  	 << airp_arv.code_lat << ";" << DateTimeToStr(act_in_local,"yymmddhhnn") << ";"
-                  	 << count << ENDL;
-            if (fmt=="TXT_EE")
-            {
-              string airline_name=airline.short_name_lat;
-              if (airline_name.empty())
-                airline_name=airline.name_lat;
-              if (airline_name.empty())
-                airline_name=airline.code_lat;
-
-              header << "1$ " << airline_name << ENDL
-                  	 << "2$ " << ENDL
-                  	 << "3$ " << airline_country << ENDL
-                  	 << "4$ " << ENDL
-                  	 << "5$ " << ENDL
-                  	 << "6$ " << ENDL
-                  	 << "7$ " << ENDL
-                  	 << "8$ " << ENDL
-                  	 << "9$ " << DateTimeToStr(act_in_local,"dd.mm.yy hh:nn") << ENDL
-                  	 << "10$ " << (airp_arv.code=="TLL"?"Tallinna Lennujaama piiripunkt":
-                       	          airp_arv.code=="TAY"?"Tartu piiripunkt":
-                           	      airp_arv.code=="URE"?"Kuressaare-2 piiripunkt":
-                               	  airp_arv.code=="KDL"?"Kardla Lennujaama piiripunkt":"") << ENDL
-                  	 << "11$ " << ENDL
-                  	 << "1$ " << airline.code_lat << setw(3) << setfill('0') << flt_no << suffix << ENDL
-                  	 << "2$ " << ENDL
-                  	 << "3$ " << count << ENDL;
-            };
-            files.push_back( make_pair(file_name.str(), string(header.str()).append(body.str())) );
       	  };
 
-          for(vector< pair<string, string> >::const_iterator iFile=files.begin();iFile!=files.end();++iFile)
+          if (!files.empty())
           {
-          	ofstream f;
-            f.open(iFile->first.c_str());
-            if (!f.is_open()) throw Exception("Can't open file '%s'",iFile->first.c_str());
-            try
+            for(vector< pair<string, string> >::const_iterator iFile=files.begin();iFile!=files.end();++iFile)
             {
-            	f << iFile->second;
-            	f.close();
-            }
-            catch(...)
-            {
-              try { f.close(); } catch( ... ) { };
+            	ofstream f;
+              f.open(iFile->first.c_str());
+              if (!f.is_open()) throw Exception("Can't open file '%s'",iFile->first.c_str());
               try
               {
-                //в случае ошибки запишем пустой файл
-                f.open(iFile->first.c_str());
-                if (f.is_open()) f.close();
+              	f << iFile->second;
+              	f.close();
               }
-              catch( ... ) { };
-              throw;
+              catch(...)
+              {
+                try { f.close(); } catch( ... ) { };
+                try
+                {
+                  //в случае ошибки запишем пустой файл
+                  f.open(iFile->first.c_str());
+                  if (f.is_open()) f.close();
+                }
+                catch( ... ) { };
+                throw;
+              };
             };
+
+            ostringstream msg;
+            msg << "Сформирован APIS формата " << fmt
+                << ": " << country_dep << "(" << airp_dep.code << ")"
+                << "->" << country_arv.code << "(" << airp_arv.code << ")";
+            TReqInfo::Instance()->MsgToLog(msg.str(),evtFlt,point_id);
           };
         };
       };

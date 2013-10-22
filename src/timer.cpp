@@ -28,6 +28,7 @@
 #include "serverlib/perfom.h"
 #include "qrys.h"
 #include "points.h"
+#include "trip_tasks.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -154,6 +155,8 @@ void exec_tasks( const char *proc_name )
       if ( name == "utg" ) utg();
       else
       if ( name == "utg_prl" ) utg_prl();
+      else
+      if ( name == "check_trip_tasks" ) check_trip_tasks();
 /*	  else
       if ( name == "cobra" ) cobra();*/
 

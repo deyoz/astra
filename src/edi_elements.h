@@ -210,11 +210,18 @@ struct LocElem
 
     LocQualifier m_locQualifier;
     std::string m_locName;
+    std::string m_relatedLocName1;
+    std::string m_relatedLocName2;
     
     LocElem( LocQualifier locQualifier,
-             const std::string& locName )
+             const std::string& locName,
+             const std::string& relatedLocName1 = "",
+             const std::string& relatedLocName2 = ""
+           )
         : m_locQualifier( locQualifier ),
-          m_locName( locName )
+          m_locName( locName ),
+          m_relatedLocName1( relatedLocName1 ),
+          m_relatedLocName2( relatedLocName2 )
     {}
 };
 

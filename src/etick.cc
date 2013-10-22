@@ -410,7 +410,7 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 
       map<string, pair< vector<string>, vector< pair<string,string> > > > errors; //flight,вектор global_error, вектор пар pax+ticket/coupon_error
       map<int, map<int, AstraLocale::LexemaData> > segs;
-      
+
       xmlNodePtr ticketNode=NodeAsNode("tickets",ediResNode)->children;
       for(;ticketNode!=NULL;ticketNode=ticketNode->next)
       {
@@ -424,7 +424,7 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         int pax_id=ASTRA::NoExists;
         if (GetNode("pax_id",ticketNode)!=NULL)
           pax_id=NodeAsInteger("pax_id",ticketNode);
-        
+
         bool tick_event=false;
         for(xmlNodePtr node=ticketNode->children;node!=NULL;node=node->next)
         {
@@ -462,12 +462,12 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
           ostringstream ticknum;
           ticknum << NodeAsString("ticket_no",ticketNode) << "/"
                   << NodeAsInteger("coupon_no",ticketNode);
-                  
+
           LexemaData lexemeData;
           lexemeData.lexema_id="MSG.ETICK.CHANGE_STATUS_UNKNOWN_RESULT";
           lexemeData.lparams << LParam("ticknum",ticknum.str());
           string err_locale=getLocaleText(lexemeData);
-                  
+
           pair< vector<string>, vector< pair<string,string> > > &err=errors[flight];
           err.second.push_back(make_pair(pax,err_locale));
           segs[point_id][pax_id]=lexemeData;
@@ -645,7 +645,7 @@ bool ETStatusInterface::TFltParams::get(int point_id)
   if (Qry.Eof) return false;
   TDateTime real_in=ASTRA::NoExists;
   if (!Qry.FieldIsNULL("real_in")) real_in=Qry.FieldAsDateTime("real_in");
-  
+
   in_final_status=fltInfo.real_out!=NoExists && real_in!=NoExists && real_in<NowUTC();
   return true;
 };
@@ -707,10 +707,10 @@ void ETStatusInterface::ETCheckStatus(int point_id,
         bool init_edi_addrs=false;
 
         xmlNodePtr ticketNode=NodeAsNode("/context/tickets",ediResDocPtr);
-        for(xmlNodePtr node=ticketNode->children;node!=NULL;node=node->next)
+        for(ticketNode=ticketNode->children;ticketNode!=NULL;ticketNode=ticketNode->next)
         {
           //цикл по билетам
-          xmlNodePtr node2=node->children;
+          xmlNodePtr node2=ticketNode->children;
           if (GetNodeFast("coupon_status",node2)==NULL) continue;
           if (NodeAsIntegerFast("prior_point_id",node2,
                                 NodeAsIntegerFast("point_id",node2))!=point_id) continue;
@@ -728,7 +728,7 @@ void ETStatusInterface::ETCheckStatus(int point_id,
           Qry.SetVariable("ticket_no", ticket_no);
           Qry.SetVariable("coupon_no", coupon_no);
           Qry.Execute();
-          
+
           CouponStatus real_status;
           if (Qry.Eof || !Qry.FieldIsNULL("refuse"))
             //разрегистрирован
@@ -850,7 +850,7 @@ void ETStatusInterface::ETCheckStatus(int id,
       break;
     default: ;
   };
-  
+
   TFltParams fltParams;
   if (point_id!=NoExists && fltParams.get(point_id))
   {
