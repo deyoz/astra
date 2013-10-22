@@ -30,6 +30,8 @@
 #include "transfer.h"
 #include "term_version.h"
 #include "typeb_utils.h"
+#include "misc.h"
+#include "apis.h"
 #include "serverlib/posthooks.h"
 
 
@@ -1564,6 +1566,196 @@ int test_typeb_utils2(int argc,char **argv)
     catch(...) {};
     throw;
   };
+
+  return 0;
+};
+
+#include <sys/types.h>
+#include <dirent.h>
+
+class TAPISFlight
+{
+  public:
+    string airline;
+    int flt_no;
+    string suffix;
+    string airp_dep;
+    TDateTime scd_out_local;
+
+    TAPISFlight()
+    {
+      flt_no=ASTRA::NoExists;
+      scd_out_local=ASTRA::NoExists;
+    };
+    bool operator < (const TAPISFlight &item) const
+    {
+      if (airline!=item.airline)
+        return airline<item.airline;
+      if (flt_no!=item.flt_no)
+        return flt_no<item.flt_no;
+      if (suffix!=item.suffix)
+        return suffix<item.suffix;
+      if (airp_dep!=item.airp_dep)
+        return airp_dep<item.airp_dep;
+      return scd_out_local<item.scd_out_local;
+    };
+};
+
+int compare_apis(int argc,char **argv)
+{
+  if (argc<2 || strcmp(argv[1],"")==0)
+  {
+    printf("dir not specified\n");
+    return 0;
+  };
+  DIR *dirp=opendir(argv[1]);
+  if (dirp==NULL)
+  {
+    printf("dir not opened\n");
+    return 0;
+  };
+
+  if (init_edifact()<0)
+  {
+    printf("'init_edifact' error");
+    return 0;
+  };
+
+  set<TAPISFlight> flts;
+
+  try
+  {
+
+    struct dirent *dp;
+    while ((dp = readdir (dirp)) != NULL)
+    {
+
+      if (strlen(dp->d_name)<3) continue;
+
+      int res;
+      char c;
+      char airline[4];
+      long unsigned int flt_no;
+      char suffix[2];
+      suffix[0]=0;
+      char airp_dep[4];
+      char airp_arv[4];
+      char scd_out_local[9];
+      if (IsDigit(dp->d_name[2]))
+      {
+        res=sscanf(dp->d_name,
+                   "%2[A-Z€-Ÿð0-9]%5lu%3[A-Z€-Ÿð]%3[A-Z€-Ÿð]%8[0-9]%c",
+                   airline, &flt_no, airp_dep, airp_arv, scd_out_local, &c);
+        if (res!=6 || IsDigitIsLetter(c))
+        {
+          res=sscanf(dp->d_name,
+                     "%2[A-Z€-Ÿð0-9]%5lu%1[A-Z€-Ÿð]%3[A-Z€-Ÿð]%3[A-Z€-Ÿð]%8[0-9]%c",
+                     airline, &flt_no, suffix, airp_dep, airp_arv, scd_out_local, &c);
+          if (res!=7 || IsDigitIsLetter(c)) continue;
+        };
+      }
+      else
+      {
+        res=sscanf(dp->d_name,
+                   "%3[A-Z€-Ÿð0-9]%5lu%3[A-Z€-Ÿð]%3[A-Z€-Ÿð]%8[0-9]%c",
+                   airline, &flt_no, airp_dep, airp_arv, scd_out_local, &c);
+        if (res!=6 || IsDigitIsLetter(c))
+        {
+          res=sscanf(dp->d_name,
+                     "%3[A-Z€-Ÿð0-9]%5lu%1[A-Z€-Ÿð]%3[A-Z€-Ÿð]%3[A-Z€-Ÿð]%8[0-9]%c",
+                     airline, &flt_no, suffix, airp_dep, airp_arv, scd_out_local, &c);
+          if (res!=7 || IsDigitIsLetter(c)) continue;
+        };
+      };
+
+      TElemFmt fmt=efmtUnknown;
+      TAPISFlight flt;
+      flt.airline=ElemToElemId(etAirline, airline, fmt);
+      if (fmt==efmtUnknown) continue;
+      flt.flt_no=flt_no;
+      if (suffix[0]!=0)
+      {
+        flt.suffix=ElemToElemId(etSuffix, suffix, fmt);
+        if (fmt==efmtUnknown) continue;
+      };
+      flt.airp_dep=ElemToElemId(etAirp, airp_dep, fmt);
+      if (fmt==efmtUnknown) continue;
+      if (BASIC::StrToDateTime(scd_out_local, "yyyymmdd", flt.scd_out_local )==EOF) continue;
+
+      if (flt.scd_out_local<NowUTC()-7) continue;
+
+      flts.insert(flt);
+    };
+    closedir (dirp);
+  }
+  catch(...)
+  {
+    closedir (dirp);
+  };
+
+  TQuery PointsQry(&OraSession);
+  PointsQry.Clear();
+  PointsQry.SQLText =
+      "SELECT point_id,scd_out AS scd,airp "
+      "FROM points "
+      "WHERE airline=:airline AND flt_no=:flt_no AND airp=:airp_dep AND "
+      "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND "
+      "      scd_out >= TO_DATE(:scd)-1 AND scd_out < TO_DATE(:scd)+2 AND "
+      "      pr_del>=0 AND pr_reg<>0";
+  PointsQry.DeclareVariable("airline",otString);
+  PointsQry.DeclareVariable("flt_no",otInteger);
+  PointsQry.DeclareVariable("airp_dep",otString);
+  PointsQry.DeclareVariable("suffix",otString);
+  PointsQry.DeclareVariable("scd",otDate);
+
+  set<int> point_ids;
+  for(set<TAPISFlight>::const_iterator i=flts.begin(); i!=flts.end(); ++i)
+  {
+    ostringstream s;
+    s << i->airline << "|"
+      << i->flt_no << "|"
+      << i->suffix << "|"
+      << i->airp_dep << "|"
+      << DateTimeToStr(i->scd_out_local, "dd.mm.yyyy") << "|";
+
+    //printf("%s", s.str().c_str());
+
+    PointsQry.SetVariable("airline", i->airline);
+    PointsQry.SetVariable("flt_no", i->flt_no);
+    PointsQry.SetVariable("suffix", i->suffix);
+    PointsQry.SetVariable("airp_dep", i->airp_dep);
+    PointsQry.SetVariable("scd", i->scd_out_local);
+    PointsQry.Execute();
+    for(;!PointsQry.Eof;PointsQry.Next())
+    {
+      //printf("+");
+      //æ¨ª« ¯® à¥©á ¬ ¢ ‘
+      TDateTime scd=PointsQry.FieldAsDateTime("scd");
+      string tz_region=AirpTZRegion(PointsQry.FieldAsString("airp"),false);
+      if (tz_region.empty()) continue;
+      scd=UTCToLocal(scd,tz_region);
+      modf(scd,&scd);
+      if (scd!=i->scd_out_local) continue;
+      //printf("-");
+
+      point_ids.insert(PointsQry.FieldAsInteger("point_id"));
+    };
+    //printf("\n");
+  };
+
+  for(set<int>::const_iterator i=point_ids.begin(); i!=point_ids.end(); ++i)
+  {
+    OraSession.Rollback();
+    try
+    {
+      create_apis_file(*i, "");
+      //printf("%d\n", *i);
+    }
+    catch(EXCEPTIONS::Exception &E) {ProgError(STDLOG, "exception: %s", E.what());}
+    catch(...) {ProgError(STDLOG, "unknown error");};
+  };
+
+  OraSession.Rollback();
 
   return 0;
 };

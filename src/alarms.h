@@ -42,6 +42,7 @@ void check_u_trfer_alarm_for_grp( int point_id,
                                   const std::map<InboundTrfer::TGrpId, InboundTrfer::TGrpItem> &tags_before );
 void check_u_trfer_alarm_for_next_trfer( int id,  //м.б. point_id или grp_id
                                          ASTRA::TIdType id_type );
+void check_crew_alarms(int point_id, const std::string& task_name);
 
 
 #endif

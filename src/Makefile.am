@@ -19,6 +19,7 @@ astra_SOURCES = \
   access.cc \
   alarms.cc \
   aodb.cc \
+  apis.cc \
   apis_edi_file.cc \
   arx_daily.cc \
   astra_callbacks.cc \
@@ -84,6 +85,7 @@ astra_SOURCES = \
   telegram2.cc \
   timer.cpp \
   transfer.cc \
+  trip_tasks.cc \
   tripinfo.cc \
   typeb_utils.cc \
   view_edi_elements.cc \
@@ -118,6 +120,7 @@ noinst_HEADERS = \
   access.h \
   alarms.h \
   aodb.h \
+  apis.h \
   apis_edi_file.h \
   arx_daily.h \
   astra_callbacks.h \
@@ -183,6 +186,7 @@ noinst_HEADERS = \
   stat.h \
   timer.h \
   transfer.h \
+  trip_tasks.h \
   tripinfo.h \
   typeb_utils.h \
   view_edi_elements.h \

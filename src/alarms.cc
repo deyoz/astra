@@ -8,6 +8,7 @@
 #include "astra_elems.h"
 #include "remarks.h"
 #include "transfer.h"
+#include "trip_tasks.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -314,6 +315,12 @@ void check_u_trfer_alarm_for_next_trfer( int id,  //м.б. point_id или grp_id
   InboundTrfer::GetNextTrferCheckedFlts(id, id_type, next_trfer_point_ids);
   check_unattached_trfer_alarm(next_trfer_point_ids);
 };
+
+void check_crew_alarms(int point_id, const string& task_name)
+{
+  
+};
+
 
 
 

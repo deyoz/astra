@@ -121,8 +121,23 @@ void viewBgmElement( _EDI_REAL_MES_STRUCT_* pMes, const BgmElem& elem )
 void viewNadElement( _EDI_REAL_MES_STRUCT_* pMes, const NadElem& elem, int num )
 {
     std::ostringstream nad;
-    nad << elem.m_funcCode << "+++" << elem.m_partyName << ":" << elem.m_partyName2 << "+";
-    nad << elem.m_street << "+" << elem.m_city;
+    nad << elem.m_funcCode << "+++" << elem.m_partyName;
+    if (elem.m_funcCode!="MS")
+    {
+      nad << ":" << elem.m_partyName2;
+      if (!elem.m_street.empty() ||
+          !elem.m_city.empty() ||
+          !elem.m_countrySubEntityCode.empty() ||
+          !elem.m_postalCode.empty() ||
+          !elem.m_country.empty())
+      {
+        nad << "+" << elem.m_street
+            << "+" << elem.m_city
+            << "+" << elem.m_countrySubEntityCode
+            << "+" << elem.m_postalCode
+            << "+" << elem.m_country;
+      };
+    };
     SetEdiFullSegment( pMes, SegmElement( "NAD", num ), nad.str() );
 }
 
@@ -141,7 +156,8 @@ void viewComElement( _EDI_REAL_MES_STRUCT_* pMes, const ComElem& elem, int num )
 void viewTdtElement( _EDI_REAL_MES_STRUCT_* pMes, const TdtElem& elem, int num )
 {
     std::ostringstream tdt;
-    tdt << elem.m_stageQuailifier << "+" << elem.m_journeyId;
+    tdt << elem.m_stageQuailifier << "+" << elem.m_journeyId
+        << "+++" << elem.m_carrierId;
     SetEdiFullSegment( pMes, SegmElement( "TDT", num ), tdt.str() );
 }
 
@@ -149,6 +165,17 @@ void viewLocElement( _EDI_REAL_MES_STRUCT_* pMes, const LocElem& elem, int num )
 {
     std::ostringstream loc;
     loc << boost::lexical_cast< std::string >( elem.m_locQualifier ) << "+" << elem.m_locName;
+    if (!elem.m_relatedLocName1.empty()||
+        !elem.m_relatedLocName2.empty())
+    {
+      loc << "+";
+      if (!elem.m_relatedLocName1.empty())
+        loc << ":::" << elem.m_relatedLocName1;
+      loc << "+";
+      if (!elem.m_relatedLocName2.empty())
+        loc << ":::" << elem.m_relatedLocName2;
+    };
+
     SetEdiFullSegment( pMes, SegmElement( "LOC", num ), loc.str() );
 }
 

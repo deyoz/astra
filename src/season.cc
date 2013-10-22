@@ -16,6 +16,8 @@
 #include "base_tables.h"
 #include "astra_misc.h"
 #include "flt_binding.h"
+#include "apis.h"
+#include "sopp.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -1078,10 +1080,14 @@ void CreateSPP( BASIC::TDateTime localdate )
       string airline, suffix, airp;
       TDateTime scd_out;
       vector<TTripInfo> flts;
+      bool pr_check_usa_apis = false;
       for ( TDests::iterator d=im->second.dests.begin(); d!=im->second.dests.end(); d++ ) {
         PQry.SetVariable( "point_num", d->num );
         airp = ElemToElemId( etAirp, d->airp, fmt );
         PQry.SetVariable( "airp", airp );
+        if ( CheckApis_USA( airp ) ) {
+          pr_check_usa_apis = true;
+        }
         PQry.SetVariable( "airp_fmt", (int)d->airp_fmt );
 
         pr_tranzit=( d != im->second.dests.begin() ) &&
@@ -1195,6 +1201,14 @@ void CreateSPP( BASIC::TDateTime localdate )
       } // end for dests
       TTlgBinding(true).bind_flt_oper(flts);
       TTrferBinding().bind_flt_oper(flts);
+      if ( pr_check_usa_apis ) {
+        try {
+          check_trip_tasks( move_id );
+        }
+        catch(std::exception &E) {
+          ProgError(STDLOG,"CreateSPP.check_trip_tasks (move_id=%d): %s",move_id,E.what());
+        };
+      }
     }
   }
   TReqInfo::Instance()->MsgToLog( string( "Получение СПП за " ) + DateTimeToStr( localdate, "dd.mm.yy" ), evtSeason );

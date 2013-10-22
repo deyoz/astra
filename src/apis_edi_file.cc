@@ -95,7 +95,7 @@ static UnhElem::SeqFlag getSeqFlag( unsigned partNum, unsigned partsCnt )
     return seqFlag;
 }
 
-static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes, 
+static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
                                   const PaxlstInfo& paxlst,
                                   const BASIC::TDateTime& nowUtc,
                                   unsigned partNum,
@@ -105,21 +105,23 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
     ResetEdiPointW( pMes );
 
     // UNB
-    viewUnbElement( pMes, UnbElem( paxlst.senderCarrierCode(), 
+    viewUnbElement( pMes, UnbElem( paxlst.senderCarrierCode(),
                                    paxlst.recipientCarrierCode() ) );
-    
-    // UNG
-    viewUngElement( pMes, UngElem( "PAXLST",
-                                   paxlst.senderName(),
-                                   paxlst.senderCarrierCode(),
-                                   paxlst.recipientName(),
-                                   paxlst.recipientCarrierCode(),
-                                   nowUtc,
-                                   UnhNumber,
-                                   CntrlAgn,
-                                   VerNum,
-                                   RelNum ) );
-    
+    if (paxlst.settings().viewUNGandUNE())
+    {
+      // UNG
+      viewUngElement( pMes, UngElem( "PAXLST",
+                                     paxlst.senderName(),
+                                     paxlst.senderCarrierCode(),
+                                     paxlst.recipientName(),
+                                     paxlst.recipientCarrierCode(),
+                                     nowUtc,
+                                     UnhNumber,
+                                     CntrlAgn,
+                                     VerNum,
+                                     RelNum ) );
+    }
+
     // UNH
     viewUnhElement( pMes, UnhElem( "PAXLST",
                                    VerNum,
@@ -128,9 +130,9 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
                                    "IATA",
                                    partNum,
                                    getSeqFlag( partNum, partsCnt ) ) ) ;
-    
+
     // BGM
-    viewBgmElement( pMes, BgmElem( "745" ) );
+    viewBgmElement( pMes, BgmElem( paxlst.type()==PaxlstInfo::FlightPassengerManifest?"745":"250" ) );
 
     if( !paxlst.partyName().empty() )
     {
@@ -145,8 +147,8 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
         if( !paxlst.phone().empty() || !paxlst.fax().empty() || !paxlst.email().empty() )
         {
             // COM
-            viewComElement( pMes, ComElem( paxlst.phone(), 
-                                           paxlst.fax(), 
+            viewComElement( pMes, ComElem( paxlst.phone(),
+                                           paxlst.fax(),
                                            paxlst.email() ) );
         }
 
@@ -156,13 +158,13 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
     SetEdiSegGr( pMes, SegGrElement( 2, 0 ) );
     PushEdiPointW( pMes );
     SetEdiPointToSegGrW( pMes, SegGrElement( 2, 0 ) );
-    
+
     // TDT
-    viewTdtElement( pMes, TdtElem( "20", paxlst.flight() ) );
-    
+    viewTdtElement( pMes, TdtElem( "20", paxlst.flight(), paxlst.carrier() ) );
+
     SetEdiSegGr( pMes, SegGrElement( 3, 0 ) );
     PushEdiPointW( pMes );
-    SetEdiPointToSegGrW( pMes, SegGrElement( 3, 0 ) );    
+    SetEdiPointToSegGrW( pMes, SegGrElement( 3, 0 ) );
     // LOC departure
     viewLocElement( pMes, LocElem( LocElem::Departure, paxlst.depPort() ) );
     // DTM departure
@@ -174,11 +176,11 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
     PushEdiPointW( pMes );
     SetEdiPointToSegGrW( pMes, SegGrElement( 3, 1 ) );
     // LOC arrival
-    viewLocElement( pMes, LocElem( LocElem::Arrival, paxlst.arrPort() ) );    
+    viewLocElement( pMes, LocElem( LocElem::Arrival, paxlst.arrPort() ) );
     // DTM arrival
     viewDtmElement( pMes, DtmElem( DtmElem::Arrival, paxlst.arrDateTime(), "201" ) );
     PopEdiPointW( pMes );
-    
+
     PopEdiPointW( pMes );
 
 
@@ -191,15 +193,28 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
 
         PushEdiPointW( pMes );
         SetEdiPointToSegGrW( pMes, SegGrElement( 4, segmGroupNum ) );
-        
+
         // NAD
-        viewNadElement( pMes, NadElem( "FL", it->surname(), it->name(), it->street(), it->city() ) );
+        viewNadElement( pMes, NadElem( paxlst.type()==PaxlstInfo::FlightPassengerManifest?"FL":"FM",
+                                       it->surname(),
+                                       it->name(),
+                                       it->street(),
+                                       it->city(),
+                                       it->countrySubEntityCode(),
+                                       it->postalCode(),
+                                       it->destCountry() ) );
         // ATT
-        viewAttElement( pMes, AttElem( "2", it->sex() ) );
+        if (!it->sex().empty())
+          viewAttElement( pMes, AttElem( "2", it->sex() ) );
         // DTM
         viewDtmElement( pMes, DtmElem( DtmElem::DateOfBirth, it->birthDate() ) );
-        
+
         int locNum = 0;
+        if( !it->CBPPort().empty() )
+        {
+            // LOC
+            viewLocElement( pMes, LocElem( LocElem::CustomsAndBorderProtection, it->CBPPort() ), locNum++ );
+        }
         if( !it->depPort().empty() )
         {
             // LOC
@@ -210,7 +225,20 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
             // LOC
             viewLocElement( pMes, LocElem( LocElem::FinishJourney, it->arrPort() ), locNum++ );
         }
-        
+        if( !it->residCountry().empty() )
+        {
+            // LOC
+            viewLocElement( pMes, LocElem( LocElem::CountryOfResidence, it->residCountry() ), locNum++ );
+        }
+        if( !it->birthCountry().empty() )
+        {
+            // LOC
+            viewLocElement( pMes, LocElem( LocElem::CountryOfBirth,
+                                           it->birthCountry(),
+                                           it->birthCity(),
+                                           it->birthRegion()), locNum++ );
+        }
+
         if( !it->nationality().empty() )
         {
             // NAT
@@ -228,10 +256,10 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
             SetEdiSegGr( pMes, SegGrElement( 5, 0 ) );
             PushEdiPointW( pMes );
             SetEdiPointToSegGrW( pMes, SegGrElement( 5, 0 ) );
-            
+
             // DOC
             viewDocElement( pMes, DocElem( it->docType(), it->docNumber(), paxlst.settings().respAgnCode() ) );
-            
+
             if( it->docExpirateDate() != ASTRA::NoExists )
             {
                 // DTM
@@ -247,15 +275,20 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
 
             PopEdiPointW( pMes );
         }
-        
+
         PopEdiPointW( pMes );
     }
 
     // CNT
-    viewCntElement( pMes, CntElem( CntElem::PassengersTotal, totalCnt ) );
-    
-    // UNE
-    viewUneElement( pMes, UneElem( UnhNumber ) );
+    viewCntElement( pMes, CntElem( paxlst.type()==PaxlstInfo::FlightPassengerManifest?
+                                     CntElem::PassengersTotal:
+                                     CntElem::CrewTotal,
+                                   totalCnt ) );
+    if (paxlst.settings().viewUNGandUNE())
+    {
+      // UNE
+      viewUneElement( pMes, UneElem( UnhNumber ) );
+    }
 }
 
 static std::string ediMessageToStr( _EDI_REAL_MES_STRUCT_ *pMes )
@@ -310,7 +343,7 @@ static std::string createEdiPaxlstString( const PaxlstInfo& paxlst,
 }
 
 static void splitPaxlst( std::list< PaxlstInfo >& splitted,
-                         const PaxlstInfo& paxlst,    
+                         const PaxlstInfo& paxlst,
                          unsigned partSize )
 {
     PassengersList_t passList = paxlst.passengersList(), iterList;
@@ -331,7 +364,7 @@ static void splitPaxlst( std::list< PaxlstInfo >& splitted,
 //-----------------------------------------------------------------------------
 
 void PaxlstInfo::addPassenger( const PassengerInfo& pass )
-{ 
+{
     if( pass.surname().empty() )
         throw EXCEPTIONS::Exception( "Empty passenger's surname!" );
     m_passList.push_back( pass );
@@ -353,14 +386,14 @@ std::vector< std::string > PaxlstInfo::toEdiStrings( unsigned maxPaxPerString ) 
         return std::vector< std::string >();
     std::vector< std::string > res;
     std::string ediRef = createEdiInterchangeReference();
-    unsigned partNum = 0, 
+    unsigned partNum = 0,
             partsCnt = splitted.size();
     BOOST_FOREACH( const PaxlstInfo& paxlst, splitted )
     {
-        res.push_back( createEdiPaxlstString( paxlst, 
-                                              ediRef, 
-                                              ++partNum, 
-                                              partsCnt, 
+        res.push_back( createEdiPaxlstString( paxlst,
+                                              ediRef,
+                                              ++partNum,
+                                              partsCnt,
                                               passengersList().size() ) );
     }
 
@@ -387,7 +420,7 @@ void PaxlstInfo::checkInvariant() const
 
 using namespace xp_testing;
 
-namespace 
+namespace
 {
     void init()
     {
@@ -398,38 +431,40 @@ namespace
     void tear_down()
     {
     }
-    
+
     Paxlst::PaxlstInfo makePaxlst1()
     {
-        Paxlst::PaxlstInfo paxlstInfo;
-    
+        Paxlst::PaxlstInfo paxlstInfo(Paxlst::PaxlstInfo::FlightPassengerManifest);
+        paxlstInfo.settings().setViewUNGandUNE(true);
+
         paxlstInfo.setPartyName( "CDGkoAF" );
-    
+
         paxlstInfo.setSenderName( "1h" );
         paxlstInfo.setRecipientName( "CzApIs" );
-    
+
         Paxlst::PassengerInfo pass1;
         pass1.setSurname( "StRaNsKy" );
-    
+
         paxlstInfo.addPassenger( pass1 );
-    
+
         return paxlstInfo;
     }
-    
+
     Paxlst::PaxlstInfo makePaxlst3()
     {
-        Paxlst::PaxlstInfo paxlstInfo;
-    
+        Paxlst::PaxlstInfo paxlstInfo(Paxlst::PaxlstInfo::FlightPassengerManifest);
+        paxlstInfo.settings().setViewUNGandUNE(true);
+
         paxlstInfo.setPartyName( "cdgKoaf" );
         paxlstInfo.setPhone( "0148642106" );
         paxlstInfo.setFax( "0148643999" );
-    
+
         paxlstInfo.setSenderName( "1h" );
         paxlstInfo.setSenderCarrierCode( "zZ" );
         paxlstInfo.setRecipientName( "CzApIs" );
         paxlstInfo.setRecipientCarrierCode( "fR" );
         paxlstInfo.setIataCode( "OK688/071008/1310" );
-    
+
         paxlstInfo.setFlight( "OK688" );
         paxlstInfo.setDepPort( "PrG" );
         BASIC::TDateTime depDate, arrDate;
@@ -438,7 +473,7 @@ namespace
         paxlstInfo.setArrPort( "BCN" );
         BASIC::StrToDateTime( "08.10.07 13:10:00", arrDate ); //"0710081310"
         paxlstInfo.setArrDateTime( arrDate );
-    
+
         Paxlst::PassengerInfo pass1;
         pass1.setSurname( "STRANSKY" );
         pass1.setName( "JAROSLAV VICtOROVICH" );
@@ -451,8 +486,8 @@ namespace
         pass1.setNationality( "CZe" );
         pass1.setReservNum( "Z9WkH" );
         pass1.setDocType( "i" );
-        pass1.setDocNumber( "102865098" );    
-    
+        pass1.setDocNumber( "102865098" );
+
         Paxlst::PassengerInfo pass2;
         pass2.setSurname( "kovacs" );
         pass2.setName( "PETR" );
@@ -468,8 +503,8 @@ namespace
         pass2.setDocNumber( "35485167" );
         BASIC::TDateTime expd1;
         BASIC::StrToDateTime( "11.09.08 00:00:00", expd1 );
-        pass2.setDocExpirateDate( expd1 );    
-    
+        pass2.setDocExpirateDate( expd1 );
+
         Paxlst::PassengerInfo pass3;
         pass3.setSurname( "LESKA" );
         pass3.setName( "PAVEL" );
@@ -484,41 +519,42 @@ namespace
         pass3.setDocType( "P" );
         pass3.setDocNumber( "34356146" );
         pass3.setDocCountry( "RUS" );
-    
+
         paxlstInfo.addPassenger( pass1 );
         paxlstInfo.addPassenger( pass2 );
         paxlstInfo.addPassenger( pass3 );
-        
+
         return paxlstInfo;
     }
-    
+
     Paxlst::PaxlstInfo makePaxlst3_long()
     {
-        Paxlst::PaxlstInfo paxlstInfo;
-    
+        Paxlst::PaxlstInfo paxlstInfo(Paxlst::PaxlstInfo::FlightPassengerManifest);
+        paxlstInfo.settings().setViewUNGandUNE(true);
+
         paxlstInfo.setPartyName( "CDGKOAFXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         paxlstInfo.setPhone( "0148642106XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         paxlstInfo.setFax( "0148643999XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
-    
+
         paxlstInfo.setSenderName( "1HXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         paxlstInfo.setSenderCarrierCode( "ZZXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         paxlstInfo.setRecipientName( "CzApIsXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         paxlstInfo.setRecipientCarrierCode( "FRXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         paxlstInfo.setIataCode( "OK688/071008/1310XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
-    
+
         paxlstInfo.setFlight( "OK688XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
-    
+
         paxlstInfo.setDepPort( "PRGXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         BASIC::TDateTime depDate;
         BASIC::StrToDateTime( "08.10.07 10:45:00", depDate ); //"0710081045"
         paxlstInfo.setDepDateTime( depDate );
-    
+
         paxlstInfo.setArrPort( "BCNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         BASIC::TDateTime arrDate;
         BASIC::StrToDateTime( "08.10.07 13:10:00", arrDate ); //"0710081310"
         paxlstInfo.setArrDateTime( arrDate );
-    
-    
+
+
         Paxlst::PassengerInfo pass1;
         pass1.setSurname( "STRANSKYXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         pass1.setName( "JAROSLAV VICTOROVICHXXXXXXXXXXXXXXXXXXXXXXXXXX" );
@@ -532,8 +568,8 @@ namespace
         pass1.setDocNumber( "Z9WKHXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         pass1.setDocType( "IXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         pass1.setDocNumber( "102865098XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
-    
-    
+
+
         Paxlst::PassengerInfo pass2;
         pass2.setSurname( "KOVACSXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         pass2.setName( "PETRXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
@@ -550,8 +586,8 @@ namespace
         BASIC::TDateTime expd2;
         BASIC::StrToDateTime( "11.09.08 00:00:00", expd2 );
         pass2.setDocExpirateDate( expd2 );
-    
-    
+
+
         Paxlst::PassengerInfo pass3;
         pass3.setSurname( "LESKAXXXXXXXXXXXXXXXXXXXXXdXXXXXXXXXXXXXXXXX" );
         pass3.setName( "PAVELXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
@@ -568,18 +604,18 @@ namespace
         pass3.setNationality( "RUSXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         pass3.setCity( "MOSCOWXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         pass3.setStreet( "ARBATXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
-    
+
         paxlstInfo.addPassenger( pass1 );
         paxlstInfo.addPassenger( pass2 );
         paxlstInfo.addPassenger( pass3 );
-    
-        return paxlstInfo;        
+
+        return paxlstInfo;
     }
-    
+
     Paxlst::PaxlstInfo makePaxlst5()
     {
         Paxlst::PaxlstInfo paxlstInfo( makePaxlst3() );
-        
+
         Paxlst::PassengerInfo pass4;
         pass4.setSurname( "PUTIN" );
         pass4.setName( "VOVA" );
@@ -594,7 +630,7 @@ namespace
         pass4.setDocType( "P" );
         pass4.setDocNumber( "000001" );
         pass4.setDocCountry( "RUS" );
-        
+
         Paxlst::PassengerInfo pass5;
         pass5.setSurname( "PUTINA" );
         pass5.setName( "LUDA" );
@@ -609,10 +645,10 @@ namespace
         pass5.setDocType( "P" );
         pass5.setDocNumber( "000002" );
         pass5.setDocCountry( "RUS" );
-        
+
         paxlstInfo.addPassenger( pass4 );
         paxlstInfo.addPassenger( pass5 );
-        
+
         return paxlstInfo;
     }
 }
@@ -628,7 +664,7 @@ START_TEST( test1 )
     fail_if( text.empty() );
 
     // Ожидаемый текст
-    TestStrings ts; 
+    TestStrings ts;
     ts <<
       "UNH+1+PAXLST:D:02B:UN:IATA+OK688/071008/1310+01:F'\n"
       "BGM+745'\n"
@@ -666,13 +702,13 @@ START_TEST( test1 )
       "DOC+P:110:111+34356146'\n"
       "LOC+91+RUS'\n"
       "CNT+42:3'\n"
-      "UNT+39+1'\n"
+      "UNT+37+1'\n"
       "UNE+1+1'\n";
 
     // Сгенерированный текст
     LogTrace(TRACE5) << "\nText:\n" << text;
 
-    std::string chk( ts.check( text ) );
+    std::string chk( ts.show_mismatch( text ) );
     fail_unless( chk.empty(), "PAXLST mismatched %s", chk.c_str() );
 }
 END_TEST;
@@ -696,10 +732,9 @@ START_TEST( test2 )
       "LOC+87'\n"
       "DTM+232::201'\n"
       "NAD+FL+++STRANSKY'\n"
-      "ATT+2'\n"
       "DTM+329'\n"
       "CNT+42:1'\n"
-      "UNT+15+1'\n"
+      "UNT+12+1'\n"
       "UNE+1+1'\n";
 
     // Сгенерированный текст
@@ -716,10 +751,10 @@ START_TEST( test3 )
 
     std::string text = paxlstInfo.toEdiString();
     fail_if( text.empty() );
-    
+
     // Ожидаемый текст
     TestStrings ts;
-    ts <<    
+    ts <<
       "UNH+1+PAXLST:D:02B:UN:IATA+OK688/071008/1310XXXXXXXXXXXXXXXXXX+01:F'\n"
       "BGM+745'\n"
       "NAD+MS+++CDGKOAFXXXXXXXXXXXXXXXXXXXXXXXXXXXX'\n"
@@ -755,7 +790,7 @@ START_TEST( test3 )
       "RFF+AVF:Z57L3XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'\n"
       "DOC+PXX:110:111+34356146XXXXXXXXXXXXXXXXXXXXXXXXXXX'\n"
       "CNT+42:3'\n"
-      "UNT+37+1'\n"
+      "UNT+35+1'\n"
       "UNE+1+1'\n";
 
     // Сгенерированный текст
@@ -773,7 +808,7 @@ START_TEST( test4 )
 
     std::string fname = Paxlst::createEdiPaxlstFileName( "OK", 421, "", "CAI", "PRG", depDate, "TXT" );
     fail_if( fname != "OK0421CAIPRG20070907.TXT" );
-        
+
     fname = Paxlst::createEdiPaxlstFileName( "OK", 421, "", "CAI", "PRG", depDate, "TXT", 2 );
     fail_if( fname != "OK0421CAIPRG20070907.TXT.PART2" );
 }
@@ -792,15 +827,15 @@ END_TEST;
 START_TEST( test6 )
 {
     Paxlst::PaxlstInfo paxlstInfo = makePaxlst3();
-    
+
     std::vector< std::string > tlgs = paxlstInfo.toEdiStrings( 3 );
     fail_unless( tlgs.size() == 1 );
-    
+
     // Сгенерированный текст
     LogTrace(TRACE5) << "\nText:\n" << tlgs.front();
 
     // Ожидаемый текст
-    TestStrings ts; 
+    TestStrings ts;
     ts <<
       "UNH+1+PAXLST:D:02B:UN:IATA+OK688/071008/1310+01:F'\n"
       "BGM+745'\n"
@@ -838,9 +873,9 @@ START_TEST( test6 )
       "DOC+P:110:111+34356146'\n"
       "LOC+91+RUS'\n"
       "CNT+42:3'\n"
-      "UNT+39+1'\n"
+      "UNT+37+1'\n"
       "UNE+1+1'\n";
-    
+
     std::string chk( ts.check( tlgs.front() ) );
     fail_unless( chk.empty(), "PAXLST mismatched %s", chk.c_str() );
 }
@@ -849,48 +884,48 @@ END_TEST;
 START_TEST( test7 )
 {
     Paxlst::PaxlstInfo paxlstInfo = makePaxlst5();
-    
+
     std::vector< std::string > tlgs = paxlstInfo.toEdiStrings( 2 );
     fail_unless( tlgs.size() == 3 );
-    
+
     {
         TestStrings ts;
         ts <<
-          "UNH+1+PAXLST:D:02B:UN:IATA+OK688/071008/1310+01:C'\n"
-          "BGM+745'\n"
-          "NAD+MS+++CDGKOAF'\n"
-          "COM+0148642106:TE+0148643999:FX'\n"
-          "TDT+20+OK688'\n"
-          "LOC+125+PRG'\n"
-          "DTM+189:0710081045:201'\n"
-          "LOC+87+BCN'\n"
-          "DTM+232:0710081310:201'\n"
-          "NAD+FL+++STRANSKY:JAROSLAV VICTOROVICH'\n"
-          "ATT+2++M'\n"
-          "DTM+329:670610'\n"
-          "LOC+178+ZDN'\n"
-          "LOC+179+BCN'\n"
-          "NAT+2+CZE'\n"
-          "RFF+AVF:Z9WKH'\n"
-          "DOC+I:110:111+102865098'\n"
-          "NAD+FL+++KOVACS:PETR'\n"
-          "ATT+2++M'\n"
-          "DTM+329:691209'\n"
-          "LOC+178+ZDN'\n"
-          "LOC+179+BCN'\n"
-          "NAT+2+CZE'\n"
-          "RFF+AVF:Z9WJK'\n"
-          "DOC+P:110:111+35485167'\n"
-          "DTM+36:080911'\n"
-          "CNT+42:5'\n"
-          "UNT+30+1'\n"
-          "UNE+1+1'\n";
-        
+          "UNH+1+PAXLST:D:02B:UN:IATA+OK688/071008/1310+01:C'\n";
+          ts << "BGM+745'\n";
+          ts << "NAD+MS+++CDGKOAF'\n";
+          ts << "COM+0148642106:TE+0148643999:FX'\n";
+          ts << "TDT+20+OK688'\n";
+          ts << "LOC+125+PRG'\n";
+          ts << "DTM+189:0710081045:201'\n";
+          ts << "LOC+87+BCN'\n";
+          ts << "DTM+232:0710081310:201'\n";
+          ts << "NAD+FL+++STRANSKY:JAROSLAV VICTOROVICH'\n";
+          ts << "ATT+2++M'\n";
+          ts << "DTM+329:670610'\n";
+          ts << "LOC+178+ZDN'\n";
+          ts << "LOC+179+BCN'\n";
+          ts << "NAT+2+CZE'\n";
+          ts << "RFF+AVF:Z9WKH'\n";
+          ts << "DOC+I:110:111+102865098'\n";
+          ts << "NAD+FL+++KOVACS:PETR'\n";
+          ts << "ATT+2++M'\n";
+          ts << "DTM+329:691209'\n";
+          ts << "LOC+178+ZDN'\n";
+          ts << "LOC+179+BCN'\n";
+          ts << "NAT+2+CZE'\n";
+          ts << "RFF+AVF:Z9WJK'\n";
+          ts << "DOC+P:110:111+35485167'\n";
+          ts << "DTM+36:080911'\n";
+          ts << "CNT+42:5'\n";
+          ts << "UNT+28+1'\n";
+          ts << "UNE+1+1'\n";;
+
         LogTrace(TRACE5) << "tlgs.part1:\n" << tlgs[ 0 ];
         std::string chk( ts.check( tlgs[ 0 ] ) );
         fail_unless( chk.empty(), "PAXLST part1 mismatched %s", chk.c_str() );
     }
-    
+
     {
         TestStrings ts;
         ts <<
@@ -922,14 +957,14 @@ START_TEST( test7 )
           "DOC+P:110:111+000001'\n"
           "LOC+91+RUS'\n"
           "CNT+42:5'\n"
-          "UNT+31+1'\n"
+          "UNT+29+1'\n"
           "UNE+1+1'\n";
-              
+
         LogTrace(TRACE5) << "tlg.part2:\n" << tlgs[ 1 ];
         std::string chk( ts.check( tlgs[ 1 ] ) );
         fail_unless( chk.empty(), "PAXLST part2 mismatched %s", chk.c_str() );
     }
-    
+
     {
         TestStrings ts;
         ts <<
@@ -952,9 +987,9 @@ START_TEST( test7 )
           "DOC+P:110:111+000002'\n"
           "LOC+91+RUS'\n"
           "CNT+42:5'\n"
-          "UNT+22+1'\n"
+          "UNT+20+1'\n"
           "UNE+1+1'\n";
-              
+
         LogTrace(TRACE5) << "tlg.part3:\n" << tlgs[ 2 ];
         std::string chk( ts.check( tlgs[ 2 ] ) );
         fail_unless( chk.empty(), "PAXLST part3 mismatched %s", chk.c_str() );
@@ -965,15 +1000,15 @@ END_TEST;
 START_TEST( test8 )
 {
     Paxlst::PaxlstInfo paxlstInfo = makePaxlst3();
-    
+
     std::vector< std::string > tlgs = paxlstInfo.toEdiStrings( 50 );
     fail_unless( tlgs.size() == 1 );
- 
+
     // Сгенерированный текст
     LogTrace(TRACE5) << "\nText:\n" << tlgs.front();
 
     // Ожидаемый текст
-    TestStrings ts; 
+    TestStrings ts;
     ts <<
       "UNH+1+PAXLST:D:02B:UN:IATA+OK688/071008/1310+01:F'\n"
       "BGM+745'\n"
@@ -1011,9 +1046,9 @@ START_TEST( test8 )
       "DOC+P:110:111+34356146'\n"
       "LOC+91+RUS'\n"
       "CNT+42:3'\n"
-      "UNT+39+1'\n"
+      "UNT+37+1'\n"
       "UNE+1+1'\n";
-    
+
     std::string chk( ts.check( tlgs.front() ) );
     fail_unless( chk.empty(), "PAXLST mismatched %s", chk.c_str() );
 }

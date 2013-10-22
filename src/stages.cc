@@ -9,13 +9,14 @@
 #include "xml_unit.h"
 #include "telegram.h"
 #include "astra_service.h"
-#include "timer.h"
+#include "apis.h"
 #include "salons.h"
 #include "term_version.h"
 #include "comp_layers.h"
 #include "alarms.h"
 #include "rozysk.h"
 #include "points.h"
+#include "trip_tasks.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -993,7 +994,7 @@ void Takeoff( int point_id )
   time_start=time(NULL);
   try
   {
-    create_apis_file(point_id);
+    create_apis_file(point_id, ON_TAKEOFF);
   }
   catch(std::exception &E)
   {

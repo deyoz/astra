@@ -280,7 +280,7 @@ class TDocItem
 class TDocoItem
 {
   public:
-    char rem_code[6],rem_status[3],type[3],no[16],applic_country[4];
+    char rem_code[6],rem_status[3],type[3],no[26],applic_country[4];
     BASIC::TDateTime issue_date;
     std::string birth_place, issue_place;
     bool pr_inf;
@@ -308,6 +308,40 @@ class TDocoItem
               issue_date==ASTRA::NoExists &&
               birth_place.empty() &&
               issue_place.empty() &&
+              pr_inf==false;
+    };
+};
+
+class TDocaItem
+{
+  public:
+    char rem_code[6],rem_status[3],type[2],country[4];
+    std::string address, city, region, postal_code;
+    bool pr_inf;
+    TDocaItem()
+    {
+      Clear();
+    };
+    void Clear()
+    {
+      *rem_code=0;
+      *rem_status=0;
+      *type=0;
+      *country=0;
+      address.clear();
+      city.clear();
+      region.clear();
+      postal_code.clear();
+      pr_inf=false;
+    };
+    bool Empty() const
+    {
+      return  *type==0 &&
+              *country==0 &&
+              address.empty() &&
+              city.empty() &&
+              region.empty() &&
+              postal_code.empty() &&
               pr_inf==false;
     };
 };
@@ -371,6 +405,7 @@ class TInfItem
     std::vector<TRemItem> rem;
     std::vector<TDocItem> doc;
     std::vector<TDocoItem> doco;
+    std::vector<TDocaItem> doca;
     std::vector<TTKNItem> tkn;
     TInfItem()
     {
@@ -400,6 +435,7 @@ class TPaxItem
     std::vector<TDocItem> doc;
     std::map<std::string/*no*/, TDocExtraItem> doc_extra;
     std::vector<TDocoItem> doco;
+    std::vector<TDocaItem> doca;
     std::vector<TTKNItem> tkn;
     std::vector<TFQTItem> fqt;
     TPaxItem()
@@ -699,7 +735,7 @@ class TBtmContent
     };
 };
 
-#define MAX_LEXEME_SIZE 70
+#define MAX_LEXEME_SIZE 100
 
 class TTlgParser
 {

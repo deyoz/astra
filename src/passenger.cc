@@ -4,7 +4,6 @@
 #include "astra_utils.h"
 #include "term_version.h"
 #include "baggage.h"
-#include "misc.h"
 #include "jxtlib/jxt_cont.h"
 
 #define NICKNAME "VLAD"
@@ -276,9 +275,9 @@ TPaxDocItem& TPaxDocItem::fromDB(TQuery &Qry)
 {
   clear();
   type=Qry.FieldAsString("type");
-  issue_country=GetPaxDocCountryCode(Qry.FieldAsString("issue_country"));
+  issue_country=Qry.FieldAsString("issue_country");
   no=Qry.FieldAsString("no");
-  nationality=GetPaxDocCountryCode(Qry.FieldAsString("nationality"));
+  nationality=Qry.FieldAsString("nationality");
   if (!Qry.FieldIsNULL("birth_date"))
     birth_date=Qry.FieldAsDateTime("birth_date");
   else
@@ -384,7 +383,7 @@ TPaxDocoItem& TPaxDocoItem::fromDB(TQuery &Qry)
     expiry_date=Qry.FieldAsDateTime("expiry_date");
   else
     expiry_date=ASTRA::NoExists;
-  applic_country=GetPaxDocCountryCode(Qry.FieldAsString("applic_country"));
+  applic_country=Qry.FieldAsString("applic_country");
   pr_inf=Qry.FieldAsInteger("pr_inf")!=0;
   return *this;
 };
@@ -401,6 +400,31 @@ long int TPaxDocoItem::getNotEmptyFieldsMask() const
   if (expiry_date!=ASTRA::NoExists) result|=DOCO_EXPIRY_DATE_FIELD;
   if (!applic_country.empty()) result|=DOCO_APPLIC_COUNTRY_FIELD;
   return result;
+};
+
+const TPaxDocaItem& TPaxDocaItem::toDB(TQuery &Qry) const
+{
+  Qry.SetVariable("type", type);
+  Qry.SetVariable("country", country);
+  Qry.SetVariable("address", address);
+  Qry.SetVariable("city", city);
+  Qry.SetVariable("region", region);
+  Qry.SetVariable("postal_code", postal_code);
+  Qry.SetVariable("pr_inf", (int)pr_inf);
+  return *this;
+};
+
+TPaxDocaItem& TPaxDocaItem::fromDB(TQuery &Qry)
+{
+  clear();
+  type=Qry.FieldAsString("type");
+  country=Qry.FieldAsString("country");
+  address=Qry.FieldAsString("address");
+  city=Qry.FieldAsString("city");
+  region=Qry.FieldAsString("region");
+  postal_code=Qry.FieldAsString("postal_code");
+  pr_inf=Qry.FieldAsInteger("pr_inf")!=0;
+  return *this;
 };
 
 void LoadPaxDoc(TQuery& PaxDocQry, xmlNodePtr paxNode)
@@ -476,26 +500,6 @@ std::string GetPaxDocStr(TDateTime part_key,
     };
   };
   return result.str();
-};
-
-string NormalizeDocNoForAPIS(const string& str)
-{
-  string result;
-  string max_num, curr_num;
-  for(string::const_iterator i=str.begin(); i!=str.end(); ++i)
-    if (IsDigitIsLetter(*i)) result+=*i;
-  for(string::const_iterator i=result.begin(); i!=result.end(); ++i)
-  {
-    if (IsDigit(*i)) curr_num+=*i;
-    if (IsLetter(*i) && !curr_num.empty())
-    {
-      if (curr_num.size()>max_num.size()) max_num=curr_num;
-      curr_num.clear();
-    };
-  };
-  if (curr_num.size()>max_num.size()) max_num=curr_num;
-
-  return (max_num.size()<6)?result:max_num;
 };
 
 bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc, TQuery& PaxDocQry, TQuery& GetPSPT2Qry)
@@ -594,6 +598,80 @@ bool LoadCrsPaxVisa(int pax_id, TPaxDocoItem &doc, TQuery& PaxDocQry)
   return !doc.empty();
 };
 
+bool LoadPaxDoca(int pax_id, TDocaType type, TPaxDocaItem &doca, TQuery& PaxDocQry)
+{
+  return LoadPaxDoca(ASTRA::NoExists, pax_id, type, doca, PaxDocQry);
+};
+
+bool LoadPaxDoca(TDateTime part_key, int pax_id, TDocaType type, TPaxDocaItem &doca, TQuery& PaxDocQry)
+{
+  doca.clear();
+  const char* sql=
+    "SELECT * FROM pax_doca WHERE pax_id=:pax_id AND type=:type";
+  const char* sql_arx=
+    "SELECT * FROM arx_pax_doca WHERE part_key=:part_key AND pax_id=:pax_id AND type=:type";
+  if (part_key!=ASTRA::NoExists)
+  {
+    if (strcmp(PaxDocQry.SQLText.SQLText(),sql_arx)!=0)
+    {
+      PaxDocQry.Clear();
+      PaxDocQry.SQLText=sql_arx;
+      PaxDocQry.DeclareVariable("part_key", otDate);
+      PaxDocQry.DeclareVariable("pax_id", otInteger);
+      PaxDocQry.DeclareVariable("type", otString);
+    };
+    PaxDocQry.SetVariable("part_key", part_key);
+  }
+  else
+  {
+    if (strcmp(PaxDocQry.SQLText.SQLText(),sql)!=0)
+    {
+      PaxDocQry.Clear();
+      PaxDocQry.SQLText=sql;
+      PaxDocQry.DeclareVariable("pax_id", otInteger);
+      PaxDocQry.DeclareVariable("type", otString);
+    };
+  };
+  PaxDocQry.SetVariable("pax_id",pax_id);
+  switch(type)
+  {
+    case docaDestination: PaxDocQry.SetVariable("type", "D"); break;
+    case docaResidence:   PaxDocQry.SetVariable("type", "R"); break;
+    case docaBirth:       PaxDocQry.SetVariable("type", "B"); break;
+  };
+  PaxDocQry.Execute();
+  if (!PaxDocQry.Eof) doca.fromDB(PaxDocQry);
+  return !doca.empty();
+};
+
+bool LoadCrsPaxDoca(int pax_id, list<TPaxDocaItem> &doca, TQuery& PaxDocaQry)
+{
+  doca.clear();
+  const char* sql=
+    "SELECT type, country, address, city, region, postal_code, pr_inf "
+    "FROM crs_pax_doca "
+    "WHERE pax_id=:pax_id AND rem_code='DOCA' AND type IS NOT NULL "
+    "ORDER BY type, address ";
+  if (strcmp(PaxDocaQry.SQLText.SQLText(),sql)!=0)
+  {
+    PaxDocaQry.Clear();
+    PaxDocaQry.SQLText=sql;
+    PaxDocaQry.DeclareVariable("pax_id",otInteger);
+  };
+  PaxDocaQry.SetVariable("pax_id",pax_id);
+  PaxDocaQry.Execute();
+  string prior_type;
+  for(;!PaxDocaQry.Eof;PaxDocaQry.Next())
+  {
+    if (prior_type!=PaxDocaQry.FieldAsString("type"))
+    {
+      doca.push_back(TPaxDocaItem().fromDB(PaxDocaQry));
+      prior_type=PaxDocaQry.FieldAsString("type");
+    };
+  };
+  return !doca.empty();
+};
+
 void SavePaxDoc(int pax_id, const TPaxDocItem &doc, TQuery& PaxDocQry)
 {
   const char* sql=
@@ -666,6 +744,57 @@ void SavePaxDoco(int pax_id, const TPaxDocoItem &doc, TQuery& PaxDocQry)
   PaxDocQry.SetVariable("pax_id",pax_id);
   PaxDocQry.SetVariable("only_delete",(int)doc.empty());
   PaxDocQry.Execute();
+};
+
+void SavePaxDoca(int pax_id, const list<TPaxDocaItem> &doca, TQuery& PaxDocaQry)
+{
+  const char* sql=
+        "BEGIN "
+        "  IF :first_iteration<>0 THEN "
+        "    DELETE FROM pax_doca WHERE pax_id=:pax_id; "
+        "    :first_iteration:=0; "
+        "  END IF; "
+        "  IF :only_delete=0 THEN "
+        "    INSERT INTO pax_doca "
+        "      (pax_id,type,country,address,city,region,postal_code,pr_inf) "
+        "    VALUES "
+        "      (:pax_id,:type,:country,:address,:city,:region,:postal_code,:pr_inf); "
+        "  END IF; "
+        "END;";
+  if (strcmp(PaxDocaQry.SQLText.SQLText(),sql)!=0)
+  {
+    PaxDocaQry.Clear();
+    PaxDocaQry.SQLText=sql;
+    PaxDocaQry.DeclareVariable("pax_id",otInteger);
+    PaxDocaQry.DeclareVariable("type",otString);
+    PaxDocaQry.DeclareVariable("country",otString);
+    PaxDocaQry.DeclareVariable("address",otString);
+    PaxDocaQry.DeclareVariable("city",otString);
+    PaxDocaQry.DeclareVariable("region",otString);
+    PaxDocaQry.DeclareVariable("postal_code",otString);
+    PaxDocaQry.DeclareVariable("pr_inf",otInteger);
+    PaxDocaQry.DeclareVariable("only_delete",otInteger);
+    PaxDocaQry.DeclareVariable("first_iteration",otInteger);
+  };
+
+  PaxDocaQry.SetVariable("pax_id",pax_id);
+  PaxDocaQry.SetVariable("first_iteration",(int)true);
+  if (!doca.empty())
+  {
+    for(list<TPaxDocaItem>::const_iterator d=doca.begin(); d!=doca.end(); ++d)
+    {
+      d->toDB(PaxDocaQry);
+      PaxDocaQry.SetVariable("only_delete",(int)d->empty());
+      PaxDocaQry.Execute();
+    };
+  }
+  else
+  {
+    TPaxDocaItem().toDB(PaxDocaQry);
+    PaxDocaQry.SetVariable("only_delete",(int)true);
+    PaxDocaQry.Execute();
+  };
+
 };
 
 bool LoadPaxNorms(int pax_id, vector< pair<TPaxNormItem, TNormItem> > &norms, TQuery& NormQry)

@@ -368,6 +368,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     };
     SALONS2::AutoSetCraft( point_id );
   };
+  bool pr_check_trip_tasks = false;
 
   node = GetNode( "trip_sets", reqNode );
   if ( node != NULL )
@@ -511,6 +512,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
           Qry.CreateVariable("first_point",otInteger,first_point);
           Qry.CreateVariable("point_num",otInteger,point_num);
           Qry.Execute();
+          pr_check_trip_tasks = true;
         };
         Qry.Clear();
         Qry.SQLText="UPDATE trip_sets SET pr_tranz_reg=:pr_tranz_reg,pr_block_trzt=:pr_block_trzt WHERE point_id=:point_id";
@@ -676,6 +678,19 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     "END; ";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
+  if ( pr_check_trip_tasks ) {
+    Qry.Clear();
+    Qry.SQLText =
+      "SELECT move_id FROM points WHERE point_id=:point_id";
+    Qry.CreateVariable( "point_id", otInteger, point_id );
+    Qry.Execute();
+   try {
+    check_trip_tasks( Qry.FieldAsInteger( "move_id" ) );
+    }
+    catch(std::exception &E) {
+      ProgError(STDLOG,"CrsDataApplyUpdates.check_trip_tasks (move_id=%d): %s",Qry.FieldAsInteger( "move_id" ),E.what());
+    };
+  }
 
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   if ( GetNode( "tripcounters", reqNode ) ) {
