@@ -1634,6 +1634,7 @@ bool createUTGDataFiles( int point_id, const std::string &point_addr, TFileDatas
         TlgQry.FieldAsString("ending");
     OraSession.Rollback();
 
+    file.params[PARAM_FILE_NAME] = UTG_file_name(tlg_id, "PRL", flt, file.params[PARAM_FILE_NAME_ENC]);
     file.params[NS_PARAM_EVENT_TYPE] = EncodeEventType( ASTRA::evtFlt );
     file.params[NS_PARAM_EVENT_ID1] = IntToString( point_id );
 
