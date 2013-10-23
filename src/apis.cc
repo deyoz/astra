@@ -110,7 +110,7 @@ void GetAirlineOfficeInfo(const string &airline,
     "SELECT airp, contact_name, phone, fax "
     "FROM airline_offices "
     "WHERE airline=:airline AND country=:country AND "
-    "      (airp IS NULL OR airp=:airp) "
+    "      (airp IS NULL OR airp=:airp) AND to_apis<>0 "
     "ORDER BY airp NULLS LAST";
   Qry.CreateVariable("airline", otString, airline);
   Qry.CreateVariable("country", otString, country);
@@ -269,7 +269,7 @@ void create_apis_file(int point_id, const string& task_name)
     TQuery PaxDocaQry(&OraSession);
     TQuery CustomsQry(&OraSession);
 
-    map<string /*country_regul*/, string /*first airp_arv*/> CBPAirps;
+    map<string /*country_regul_arv*/, string /*first airp_arv*/> CBPAirps;
 
     for(TTripRoute::const_iterator r=route.begin(); r!=route.end(); r++)
     {
@@ -280,17 +280,19 @@ void create_apis_file(int point_id, const string& task_name)
 
       TCountriesRow &country_arv = (TCountriesRow&)base_tables.get("countries").get_row("code",RouteQry.FieldAsString("country"));
 
-      string country_regul=APIS::GetCustomsRegulCountry(country_arv.code, CustomsQry);
-      map<string, string>::iterator iCBPAirp=CBPAirps.find(country_regul);
+      string country_regul_dep=APIS::GetCustomsRegulCountry(country_dep, CustomsQry);
+      string country_regul_arv=APIS::GetCustomsRegulCountry(country_arv.code, CustomsQry);
+      bool use_us_customs_tasks=country_regul_dep==US_CUSTOMS_CODE || country_regul_arv==US_CUSTOMS_CODE;
+      map<string, string>::iterator iCBPAirp=CBPAirps.find(country_regul_arv);
       if (iCBPAirp==CBPAirps.end())
-        iCBPAirp=CBPAirps.insert(make_pair(country_regul, RouteQry.FieldAsString("airp"))).first;
+        iCBPAirp=CBPAirps.insert(make_pair(country_regul_arv, RouteQry.FieldAsString("airp"))).first;
       if (iCBPAirp==CBPAirps.end()) throw Exception("iCBPAirp==CBPAirps.end()");
 
       if (!(task_name.empty() ||
-            (country_regul==US_CUSTOMS_CODE &&
+            (use_us_customs_tasks &&
              (task_name==BEFORE_TAKEOFF_30_US_CUSTOMS_ARRIVAL ||
               task_name==BEFORE_TAKEOFF_60_US_CUSTOMS_ARRIVAL)) ||
-            (country_regul!=US_CUSTOMS_CODE && task_name==ON_TAKEOFF))) continue;
+            (!use_us_customs_tasks && task_name==ON_TAKEOFF))) continue;
       //получим информацию по настройке APIS
       ApisSetsQry.SetVariable("country_arv",country_arv.code);
       ApisSetsQry.Execute();
@@ -851,7 +853,7 @@ void create_apis_file(int point_id, const string& task_name)
               Paxlst::PaxlstInfo& paxlstInfo=(pass==0?FPM:FCM);
 
               if (!(task_name.empty() ||
-                    country_regul!=US_CUSTOMS_CODE ||
+                    !use_us_customs_tasks ||
                     (task_name==BEFORE_TAKEOFF_30_US_CUSTOMS_ARRIVAL && pass==0) ||
                     (task_name==BEFORE_TAKEOFF_60_US_CUSTOMS_ARRIVAL && pass!=0))) continue;
 
@@ -898,7 +900,7 @@ void create_apis_file(int point_id, const string& task_name)
       	  else
           {
             if (task_name.empty() ||
-                country_regul!=US_CUSTOMS_CODE ||
+                !use_us_customs_tasks ||
                 task_name==BEFORE_TAKEOFF_30_US_CUSTOMS_ARRIVAL)
             {
         	    ostringstream file_name;
