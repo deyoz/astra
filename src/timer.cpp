@@ -150,6 +150,8 @@ void exec_tasks( const char *proc_name )
       else
       if ( name == "sync_sirena_rozysk" ) sync_sirena_rozysk( utcdate );
       else
+      if ( name == "send_sirena_rozysk" ) sirena_rozysk_send();
+      else
       if ( name == "mintrans" ) save_mintrans_files();
       else
       if ( name == "utg" ) utg();

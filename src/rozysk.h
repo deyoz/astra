@@ -13,6 +13,7 @@ void sync_crs_pnr(int pnr_id, const std::string &term, const std::string &user_d
 }
 
 void sync_sirena_rozysk( BASIC::TDateTime utcdate );
+void sirena_rozysk_send();
 void create_mintrans_file(int point_id);
 void save_mintrans_files();
 

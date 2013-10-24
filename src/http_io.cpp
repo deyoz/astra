@@ -273,16 +273,24 @@ void my_test()
 
 void sirena_rozysk_send(const HTTPRequestInfo &r)
 {
+    string proto;
+    string host;
+    uint16_t port;
+    string path;
+    string query;
+    if(not parser::parse_uri(r.resource, proto, host, port, path, query))
+        throw Exception("parse_uri failed for '%s'", r.resource.c_str());
+
     ostringstream host_port;
-    host_port << r.addr << ":" << r.port;
+    host_port << host << ":" << port;
 
     io_service io_service;
     pion::tcp::connection tcp_conn(io_service, false);
 
-    if(boost::system::error_code error_code = tcp_conn.connect(r.addr, r.port))
+    if(boost::system::error_code error_code = tcp_conn.connect(host, port))
         throw Exception("connect failed: %s", error_code.message().c_str());
 
-    request post(r.resource);
+    request post(path);
     post.set_method(types::REQUEST_METHOD_POST);
     post.add_header("SOAPAction", r.action);
     post.add_header(types::HEADER_HOST, host_port.str());
@@ -327,8 +335,10 @@ void sirena_rozysk_send(const HTTPRequestInfo &r)
                             ProgTrace(TRACE5, "%s", GetXMLDocText(doc->doc).c_str());
                             throw Exception("Return status not OK: '%s'", status.c_str());
                         }
-                    }
-                }
+                    } else
+                        throw Exception("sirena_rozysk_send: importASTDateResult tag not found");
+                } else
+                    throw Exception("sirena_rozysk_send: Body tag not found");
             } catch(...) {
                 xmlFreeDoc(doc);
                 throw;

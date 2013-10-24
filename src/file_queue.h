@@ -9,6 +9,7 @@
 #include "astra_consts.h"
 
 const std::string PARAM_WORK_DIR = "WORKDIR";
+const std::string PARAM_HTTP_ADDR = "HTTP_ADDR";
 const std::string PARAM_CANON_NAME = "CANON_NAME";
 const std::string PARAM_FILE_NAME = "FileName";
 
