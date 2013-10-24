@@ -34,6 +34,7 @@
 #include "pers_weights.h"
 #include "rozysk.h"
 #include "flt_binding.h"
+#include "apis.h"
 #include "jxtlib/jxt_cont.h"
 
 #define NICKNAME "VLAD"
@@ -3579,7 +3580,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       //проверим номера документов и билетов, ремарки
       if (!pr_unaccomp)
       {
-        TCheckDocInfo checkDocInfo=GetCheckDocInfo(grp.point_dep, grp.airp_arv);
+        set<string> apis_formats;
+        TCheckDocInfo checkDocInfo=GetCheckDocInfo(grp.point_dep, grp.airp_arv, apis_formats);
         TCheckDocTknInfo checkTknInfo=GetCheckTknInfo(grp.point_dep);
         if (reqInfo->client_type==ctTerm && !reqInfo->desk.compatible(DOCS_VERSION))
         {
@@ -3619,6 +3621,24 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               if (document.size()>25) document.erase(25).append("...");
               throw UserException("MSG.CHECKIN.DOCUMENT_LARGE_MAX_LEN", LParams()<<LParam("document",document));
             };
+
+            if (reqInfo->desk.compatible(DOCS_VERSION))
+            {
+              for(set<string> ::const_iterator f=apis_formats.begin(); f!=apis_formats.end(); ++f )
+              {
+                if (!APIS::isValidDocType(*f, grp.status, pax.doc.type))
+                  throw UserException("MSG.PASSENGER.INVALID_DOC_TYPE_FOR_APIS",
+                                      LParams() << LParam("surname", pax.surname+(pax.name.empty()?"":" ")+pax.name)
+                                                << LParam("code", ElemIdToCodeNative(etPaxDocType, pax.doc.type)));
+
+                if (!APIS::isValidGender(*f, pax.doc.gender))
+                  throw UserException("MSG.PASSENGER.INVALID_GENDER_FOR_APIS",
+                                      LParams() << LParam("surname", pax.surname+(pax.name.empty()?"":" ")+pax.name)
+                                                << LParam("code", ElemIdToCodeNative(etGenderType, pax.doc.gender)));
+              };
+
+            };
+
             if (reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION) &&
                 defer_etstatus && !pr_etl_only && pr_etstatus>=0 && //раздельное изменение статуса и есть связь с СЭБ
                 pax.tkn.rem=="TKNE" && !pax.tkn.confirm)
