@@ -25,13 +25,14 @@ using namespace EXCEPTIONS;
 using namespace BASIC;
 using namespace ASTRA;
 
-const std::string ROZYSK_MAGISTRAL =    "ROZYSK_MAGISTRAL";
-const std::string ROZYSK_MAGISTRAL_24 = "ROZYSK_MAGISTRAL_24";
-const std::string ROZYSK_SIRENA =       "ROZYSK_SIRENA";
-const std::string ROZYSK_MINTRANS =     "ROZYSK_MINTRANS";
-const std::string ROZYSK_MINTRANS_24 =  "ROZYSK_MINTRANS_24";
-const std::string FILE_MINTRANS_TYPE =  "MINTRANS";
-const std::string MINTRANS_ID        =  "13001";
+const std::string ROZYSK_MAGISTRAL      = "ROZYSK_MAGISTRAL";
+const std::string ROZYSK_MAGISTRAL_24   = "ROZYSK_MAGISTRAL_24";
+const std::string ROZYSK_SIRENA         = "ROZYSK_SIR";
+const std::string PARAM_ACTION_CODE     = "ACTION_CODE";
+const std::string ROZYSK_MINTRANS       = "ROZYSK_MINTRANS";
+const std::string ROZYSK_MINTRANS_24    = "ROZYSK_MINTRANS_24";
+const std::string FILE_MINTRANS_TYPE    = "MINTRANS";
+const std::string MINTRANS_ID           = "13001";
 
 namespace rozysk
 {
@@ -1135,50 +1136,80 @@ void get_pax_list(int point_id,
 } //namespace mintrans
 
 
+void sirena_rozysk_send()
+{
+    ProgTrace(TRACE5,"sirena_rozysk_send started");
+    TFileQueue file_queue;
+    file_queue.get( TFilterQueue( OWN_POINT_ADDR(), ROZYSK_SIRENA ) );
+    for ( TFileQueue::iterator item=file_queue.begin(); item!=file_queue.end(); item++) {
+        if ( item->params.find( PARAM_HTTP_ADDR ) == item->params.end() ||
+                item->params[ PARAM_HTTP_ADDR ].empty() )
+            throw Exception("http_addr not specified");
+        if ( item->params.find( PARAM_ACTION_CODE ) == item->params.end() ||
+                item->params[ PARAM_ACTION_CODE ].empty() )
+            throw Exception("action_code not specified");
+        HTTPRequestInfo request;
+        request.resource = item->params[PARAM_HTTP_ADDR];
+        request.action = item->params[PARAM_ACTION_CODE];
+        request.content = item->data;
+        sirena_rozysk_send(request);
+        TFileQueue::deleteFile(item->id);
+        ProgTrace(TRACE5, "sirena_rozysk_send: id = %d completed", item->id);
+    }
+}
+
 void sync_sirena_rozysk( TDateTime utcdate )
 {
-  ProgTrace(TRACE5,"sync_sirena_rozysk started");
+    ProgTrace(TRACE5,"sync_sirena_rozysk started");
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-      "SELECT addr, port, http_resource, action, last_create "
-      "FROM http_sets "
-      "WHERE code=:code AND pr_denial=0 FOR UPDATE";
-  Qry.CreateVariable("code", otString, ROZYSK_SIRENA);
-  Qry.Execute();
-  if (Qry.Eof) return;
-  TDateTime last_time=NowUTC() - 1.0/1440.0; //отматываем минуту, так как данные последних секунд могут быть еще не закоммичены в rozysk
-  TDateTime first_time = Qry.FieldIsNULL("last_create") ? last_time - 10.0/1440.0 :
-                                                          Qry.FieldAsDateTime("last_create");
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    Qry.SQLText=
+        "SELECT last_create FROM http_sets WHERE code=:code AND pr_denial=0 FOR UPDATE";
+    Qry.CreateVariable("code", otString, ROZYSK_SIRENA);
+    Qry.Execute();
+    if (Qry.Eof) return;
+    TDateTime last_time=NowUTC() - 1.0/1440.0; //отматываем минуту, так как данные последних секунд могут быть еще не закоммичены в rozysk
+    TDateTime first_time = Qry.FieldIsNULL("last_create") ? last_time - 10.0/1440.0 :
+        Qry.FieldAsDateTime("last_create");
 
-  if (first_time>=last_time) return;
-  HTTPRequestInfo request;
-  request.addr=Qry.FieldAsString("addr");
-  request.port=Qry.FieldAsInteger("port");
-  request.resource=Qry.FieldAsString("http_resource");
-  request.action=Qry.FieldAsString("action");
+    if (first_time>=last_time) return;
 
-  rozysk::TPaxListTJKFilter filter;
-  filter.first_time_utc=first_time;
-  filter.last_time_utc=last_time;
+    rozysk::TPaxListTJKFilter filter;
+    filter.first_time_utc=first_time;
+    filter.last_time_utc=last_time;
 
-  vector<rozysk::TPax> paxs;
-  rozysk::get_pax_list(filter, false, paxs);
+    vector<rozysk::TPax> paxs;
+    rozysk::get_pax_list(filter, false, paxs);
 
-  Qry.Clear();
-  Qry.SQLText =
-    "UPDATE http_sets SET last_create=:last_time WHERE code=:code";
-  Qry.CreateVariable("code", otString, ROZYSK_SIRENA);
-  Qry.CreateVariable("last_time", otDate, last_time);
-  Qry.Execute();
+    Qry.Clear();
+    Qry.SQLText =
+        "UPDATE http_sets SET last_create=:last_time WHERE code=:code";
+    Qry.CreateVariable("code", otString, ROZYSK_SIRENA);
+    Qry.CreateVariable("last_time", otDate, last_time);
+    Qry.Execute();
 
-  ProgTrace( TRACE5, "pax.size()=%zu", paxs.size() );
-  if(not paxs.empty()) {
-    request.content=make_soap_content(paxs);
-    sirena_rozysk_send(request);
-    ProgTrace(TRACE5, "sync_sirena_rozysk completed");
-  }
+    ProgTrace( TRACE5, "pax.size()=%zu", paxs.size() );
+    if(not paxs.empty()) {
+
+        TTripInfo flt;
+        map<string, string> file_params;
+        TFileQueue::add_sets_params( flt.airp,
+                flt.airline,
+                IntToString(flt.flt_no),
+                OWN_POINT_ADDR(),
+                ROZYSK_SIRENA,
+                1,
+                file_params );
+        if(not file_params.empty()) {
+            TFileQueue::putFile( OWN_POINT_ADDR(),
+                    OWN_POINT_ADDR(),
+                    ROZYSK_SIRENA,
+                    file_params,
+                    make_soap_content(paxs));
+            ProgTrace(TRACE5, "sync_sirena_rozysk completed");
+        }
+    }
 }
 
 void create_mintrans_file(int point_id)
