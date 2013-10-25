@@ -15,8 +15,8 @@ const
     string task_name;
     void (*p)(int point_id, const string& task_name);
   } trip_tasks []={
-    {BEFORE_TAKEOFF_30_US_CUSTOMS_ARRIVAL, create_apis_file},
-    {BEFORE_TAKEOFF_60_US_CUSTOMS_ARRIVAL, create_apis_file},
+    {BEFORE_TAKEOFF_30_US_CUSTOMS_ARRIVAL, create_apis_task},
+    {BEFORE_TAKEOFF_60_US_CUSTOMS_ARRIVAL, create_apis_task},
     {BEFORE_TAKEOFF_70_US_CUSTOMS_ARRIVAL, check_crew_alarms}
   };
 
