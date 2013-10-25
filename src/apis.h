@@ -22,7 +22,8 @@ bool isValidDocType(const std::string &fmt, const ASTRA::TPaxStatus &status, con
 
 };
 
-void create_apis_file(int point_id, const std::string& task_name);
+void create_apis_task(int point_id, const std::string& task_name);
+bool create_apis_file(int point_id, const std::string& task_name);
 void create_apis_nosir_help(const char *name);
 int create_apis_nosir(int argc,char **argv);
 

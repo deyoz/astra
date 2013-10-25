@@ -306,6 +306,8 @@ public:
      AddEvent("WriteDoc",evHandle);
      evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::GetTime);
      AddEvent("GetTime",evHandle);
+     evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::CreateAPIS);
+     AddEvent("CreateAPIS",evHandle);
   };
   void ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -325,6 +327,7 @@ public:
   void ReadDoc(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void WriteDoc(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void GetTime(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void CreateAPIS(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 };
 

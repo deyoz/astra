@@ -3622,7 +3622,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               throw UserException("MSG.CHECKIN.DOCUMENT_LARGE_MAX_LEN", LParams()<<LParam("document",document));
             };
 
-            if (reqInfo->desk.compatible(DOCS_VERSION))
+            if (reqInfo->client_type!=ctTerm || reqInfo->desk.compatible(DOCS_VERSION))
             {
               for(set<string> ::const_iterator f=apis_formats.begin(); f!=apis_formats.end(); ++f )
               {

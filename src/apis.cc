@@ -324,8 +324,9 @@ int create_apis_nosir(int argc,char **argv)
   return 0;
 };
 
-void create_apis_file(int point_id, const string& task_name)
+bool create_apis_file(int point_id, const string& task_name)
 {
+  bool result=false;
   try
   {
   	TQuery Qry(&OraSession);
@@ -338,7 +339,7 @@ void create_apis_file(int point_id, const string& task_name)
       "      point_id=:point_id AND points.pr_del=0 AND points.pr_reg<>0 ";
     Qry.CreateVariable("point_id",otInteger,point_id);
     Qry.Execute();
-    if (Qry.Eof) return;
+    if (Qry.Eof) return result;
 
     TAirlinesRow &airline = (TAirlinesRow&)base_tables.get("airlines").get_row("code",Qry.FieldAsString("airline"));
     string country_dep = Qry.FieldAsString("country");
@@ -1012,6 +1013,8 @@ void create_apis_file(int point_id, const string& task_name)
                 << ": " << country_dep << "(" << airp_dep.code << ")"
                 << "->" << country_arv.code << "(" << airp_arv.code << ")";
             TReqInfo::Instance()->MsgToLog(msg.str(),evtFlt,point_id);
+
+            result=true;
           };
         };
       };
@@ -1022,6 +1025,11 @@ void create_apis_file(int point_id, const string& task_name)
   {
     throw Exception("create_apis_file: %s",E.what());
   };
+  return result;
+};
 
+void create_apis_task(int point_id, const std::string& task_name)
+{
+  create_apis_file(point_id, task_name);
 };
 
