@@ -76,6 +76,121 @@ string GetCustomsRegulCountry(const string &depend,
     return depend;
 };
 
+bool isValidGender(const string &fmt, const string &gender)
+{
+  if (gender.empty()) return true;
+  if (fmt=="EDI_US" &&
+      gender.substr(0,1)!="M" &&
+      gender.substr(0,1)!="F") return false;
+
+  return true;
+};
+
+bool isValidDocType(const string &fmt, const TPaxStatus &status, const string &doc_type)
+{
+  if (doc_type.empty()) return true;
+  if (fmt=="EDI_CZ")
+  {
+    if (!(doc_type=="P" ||
+          doc_type=="A" ||
+          doc_type=="C" ||
+          (status!=psCrew &&
+           (doc_type=="B" ||
+            doc_type=="T" ||
+            doc_type=="N" ||
+            doc_type=="M")) ||
+          (status==psCrew &&
+           (doc_type=="L")))) return false;
+  };
+  if (fmt=="EDI_CN")
+  {
+    /*
+    1. Official travel documents:
+      P for Passport
+      PT for P.R. China Travel Permit
+      PL for P.R. China Exit and Entry Permit
+      W for Travel Permit To and From HK and Macao
+      A for Travel Permit To and From HK and Macao for Public Affairs
+      Q for Travel Permit To HK and Macao
+      C for Travel Permit of HK and Macao Residents To and From Mainland
+      D for Travel Permit of Mainland Residents To and From Taiwan
+      T for Travel Permit of Taiwan Residents To and From Mainland
+      S for Seafarer's Passport
+      F for approved non-standard identity documents used for travel
+    2. Other documents:
+      V for Visa
+      AC for Crew Member Certificate
+
+    Visa and Crew Member Certificate are optional
+    */
+    if (!(doc_type=="P" ||
+          doc_type=="PT" ||
+          doc_type=="PL" ||
+          doc_type=="W" ||
+          doc_type=="A" ||
+          doc_type=="Q" ||
+          doc_type=="C" ||
+          doc_type=="D" ||
+          doc_type=="T" ||
+          doc_type=="S" ||
+          doc_type=="F" ||
+          (status==psCrew &&
+           (doc_type=="AC")))) return false;
+  };
+  if (fmt=="EDI_IN")
+  {
+    /*
+    ICAO 9303 Document Types
+      P Passport
+      V Visa
+      A Identity Card (exact use defined by the Issuing State)
+      C Identity Card (exact use defined by the Issuing State)
+      I Identity Card (exact use defined by the Issuing State)
+      AC Crew Member Certificate
+      IP Passport Card
+    Other Document Types
+      F Approved non-standard identity documents used for travel
+      (exact use defined by the Issuing State).
+    */
+    if (!(doc_type=="P" ||
+          doc_type=="A" ||
+          doc_type=="C" ||
+          doc_type=="I" ||
+          doc_type=="IP" ||
+          doc_type=="F" ||
+          (status==psCrew &&
+           (doc_type=="AC")))) return false;
+  };
+  if (fmt=="EDI_US")
+  {
+    /*
+    P - Passport
+    C - Permanent resident card
+    A - Resident alien card
+    M - US military ID.
+    T - Re-entry permit or refugee permit
+    IN - NEXUS card
+    IS - SENTRI card
+    F - Facilitation card
+    V - U.S. Non-Immigrant Visa (Secondary Document Only)
+    L - Pilots license (crew members only)
+    */
+    if (!(doc_type=="P" ||
+          doc_type=="C" ||
+          doc_type=="A" ||
+          (status!=psCrew &&
+           (doc_type=="M" ||
+            doc_type=="T" ||
+            doc_type=="IN" ||
+            doc_type=="IS" ||
+            doc_type=="F")) ||
+          (status==psCrew &&
+           (doc_type=="L")))) return false;
+  };
+
+  return true;
+};
+
 };
 
 const char* APIS_PARTY_INFO()
@@ -209,8 +324,9 @@ int create_apis_nosir(int argc,char **argv)
   return 0;
 };
 
-void create_apis_file(int point_id, const string& task_name)
+bool create_apis_file(int point_id, const string& task_name)
 {
+  bool result=false;
   try
   {
   	TQuery Qry(&OraSession);
@@ -223,7 +339,7 @@ void create_apis_file(int point_id, const string& task_name)
       "      point_id=:point_id AND points.pr_del=0 AND points.pr_reg<>0 ";
     Qry.CreateVariable("point_id",otInteger,point_id);
     Qry.Execute();
-    if (Qry.Eof) return;
+    if (Qry.Eof) return result;
 
     TAirlinesRow &airline = (TAirlinesRow&)base_tables.get("airlines").get_row("code",Qry.FieldAsString("airline"));
     string country_dep = Qry.FieldAsString("country");
@@ -543,104 +659,8 @@ void create_apis_file(int point_id, const string& task_name)
       	    	  if (doc_type_row.code_lat.empty()) throw Exception("doc_type.code_lat empty (code=%s)",doc.type.c_str());
       	    	  doc_type=doc_type_row.code_lat;
 
-                if (fmt=="EDI_CZ")
-                {
-                  if (!(doc_type=="P" ||
-                        doc_type=="A" ||
-                        doc_type=="C" ||
-                        (status!=psCrew &&
-                         (doc_type=="B" ||
-                          doc_type=="T" ||
-                          doc_type=="N" ||
-                          doc_type=="M")) ||
-                        (status==psCrew &&
-                         (doc_type=="L")))) doc_type.clear();
-                };
-                if (fmt=="EDI_CN")
-                {
-                  /*
-                  1. Official travel documents:
-                    P for Passport
-                    PT for P.R. China Travel Permit
-                    PL for P.R. China Exit and Entry Permit
-                    W for Travel Permit To and From HK and Macao
-                    A for Travel Permit To and From HK and Macao for Public Affairs
-                    Q for Travel Permit To HK and Macao
-                    C for Travel Permit of HK and Macao Residents To and From Mainland
-                    D for Travel Permit of Mainland Residents To and From Taiwan
-                    T for Travel Permit of Taiwan Residents To and From Mainland
-                    S for Seafarer's Passport
-                    F for approved non-standard identity documents used for travel
-                  2. Other documents:
-                    V for Visa
-                    AC for Crew Member Certificate
+                if (!APIS::isValidDocType(fmt, status, doc_type)) doc_type.clear();
 
-                  Visa and Crew Member Certificate are optional
-                  */
-                  if (!(doc_type=="P" ||
-                        doc_type=="PT" ||
-                        doc_type=="PL" ||
-                        doc_type=="W" ||
-                        doc_type=="A" ||
-                        doc_type=="Q" ||
-                        doc_type=="C" ||
-                        doc_type=="D" ||
-                        doc_type=="T" ||
-                        doc_type=="S" ||
-                        doc_type=="F" ||
-                        (status==psCrew &&
-                         (doc_type=="AC")))) doc_type.clear();
-                };
-                if (fmt=="EDI_IN")
-                {
-                  /*
-                  ICAO 9303 Document Types
-                    P Passport
-                    V Visa
-                    A Identity Card (exact use defined by the Issuing State)
-                    C Identity Card (exact use defined by the Issuing State)
-                    I Identity Card (exact use defined by the Issuing State)
-                    AC Crew Member Certificate
-                    IP Passport Card
-                  Other Document Types
-                    F Approved non-standard identity documents used for travel
-                    (exact use defined by the Issuing State).
-                  */
-                  if (!(doc_type=="P" ||
-                        doc_type=="A" ||
-                        doc_type=="C" ||
-                        doc_type=="I" ||
-                        doc_type=="IP" ||
-                        doc_type=="F" ||
-                        (status==psCrew &&
-                         (doc_type=="AC")))) doc_type.clear();
-                };
-                if (fmt=="EDI_US")
-                {
-                  /*
-                  P - Passport
-                  C - Permanent resident card
-                  A - Resident alien card
-                  M - US military ID.
-                  T - Re-entry permit or refugee permit
-                  IN - NEXUS card
-                  IS - SENTRI card
-                  F - Facilitation card
-                  V - U.S. Non-Immigrant Visa (Secondary Document Only)
-                  L - Pilots license (crew members only)
-                  */
-                  if (!(doc_type=="P" ||
-                        doc_type=="C" ||
-                        doc_type=="A" ||
-                        (status!=psCrew &&
-                         (doc_type=="M" ||
-                          doc_type=="T" ||
-                          doc_type=="IN" ||
-                          doc_type=="IS" ||
-                          doc_type=="F")) ||
-                        (status==psCrew &&
-                         (doc_type=="L")))) doc_type.clear();
-                };
       	    	  if (fmt=="CSV_DE")
       	    	  {
       	    	    if (doc_type!="P" && doc_type!="I") doc_type="P";
@@ -996,6 +1016,8 @@ void create_apis_file(int point_id, const string& task_name)
                 << ": " << country_dep << "(" << airp_dep.code << ")"
                 << "->" << country_arv.code << "(" << airp_arv.code << ")";
             TReqInfo::Instance()->MsgToLog(msg.str(),evtFlt,point_id);
+
+            result=true;
           };
         };
       };
@@ -1006,6 +1028,11 @@ void create_apis_file(int point_id, const string& task_name)
   {
     throw Exception("create_apis_file: %s",E.what());
   };
+  return result;
+};
 
+void create_apis_task(int point_id, const std::string& task_name)
+{
+  create_apis_file(point_id, task_name);
 };
 

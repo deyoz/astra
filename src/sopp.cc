@@ -5923,4 +5923,16 @@ void check_TrferExists( int point_id )
   trip_calc_data( point_id, calcType, trfer_exists, ckin_desks, gates );
 }
 
+void SoppInterface::CreateAPIS(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  int point_id=NodeAsInteger( "point_id", reqNode );
+  if (!CheckStageACT(point_id, sCloseCheckIn))
+    throw UserException("MSG.APIS_CREATION_ONLY_AFTER_CHECKIN_CLOSING");
+  if (create_apis_file(point_id, ""))
+    AstraLocale::showMessage("MSG.APIS_CREATED");
+  else
+    AstraLocale::showErrorMessage("MSG.APIS_NOT_CREATED_FOR_FLIGHT");
+}
+
+
 

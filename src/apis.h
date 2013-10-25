@@ -4,6 +4,7 @@
 #include <set>
 #include <string>
 #include "oralib.h"
+#include "astra_consts.h"
 
 namespace APIS
 {
@@ -16,10 +17,13 @@ void GetCustomsDependCountries(const std::string &regul,
 std::string GetCustomsRegulCountry(const std::string &depend,
                                    TQuery &Qry);
 
+bool isValidGender(const std::string &fmt, const std::string &gender);
+bool isValidDocType(const std::string &fmt, const ASTRA::TPaxStatus &status, const std::string &doc_type);
 
 };
 
-void create_apis_file(int point_id, const std::string& task_name);
+void create_apis_task(int point_id, const std::string& task_name);
+bool create_apis_file(int point_id, const std::string& task_name);
 void create_apis_nosir_help(const char *name);
 int create_apis_nosir(int argc,char **argv);
 
