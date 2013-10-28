@@ -12,6 +12,7 @@
 #include "oralib.h"
 #include "etick.h"
 #include "remarks.h"
+#include "transfer.h"
 #include "tlg/tlg_parser.h"
 
 struct TSegInfo
@@ -45,53 +46,6 @@ class TTrferSetsInfo
       tckin_waitlist=false;
       tckin_norec=false;
     };
-};
-
-namespace CheckIn
-{
-
-class TPaxTransferItem
-{
-  public:
-    int pax_id;
-    std::string subclass;
-    TElemFmt subclass_fmt;
-    TPaxTransferItem()
-    {
-      pax_id=ASTRA::NoExists;
-      subclass_fmt=efmtUnknown;
-    };
-};
-
-class TTransferItem
-{
-  public:
-    std::string flight_view;
-    TTripInfo operFlt;
-    int local_date;
-    int grp_id;
-    std::string airp_arv;
-    TElemFmt airp_arv_fmt;
-    std::string subclass;
-    TElemFmt subclass_fmt;
-    std::vector<TPaxTransferItem> pax;
-    TTransferItem()
-    {
-      local_date=ASTRA::NoExists;
-      grp_id=ASTRA::NoExists;
-      airp_arv_fmt=efmtUnknown;
-      subclass_fmt=efmtUnknown;
-    };
-    bool Valid() const
-    {
-      return !operFlt.airline.empty() &&
-             operFlt.flt_no!=0 &&
-             !operFlt.airp.empty() &&
-             operFlt.scd_out!=ASTRA::NoExists &&
-             !airp_arv.empty();
-    };
-};
-
 };
 
 void traceTrfer( TRACE_SIGNATURE,
@@ -185,7 +139,6 @@ public:
   static bool SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode);
   static bool SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                       int &first_grp_id, TChangeStatusList &ETInfo, int &tckin_id);
-  static void SavePaidBag(int grp_id, xmlNodePtr paidbagNode);
 
   static void SaveTagPacks(xmlNodePtr node);
 
@@ -195,7 +148,6 @@ public:
   static void LoadTransfer(int grp_id, std::vector<CheckIn::TTransferItem> &trfer);
   static void BuildTransfer(const TTrferRoute &trfer, xmlNodePtr transferNode);
   static void LoadTransfer(int grp_id, xmlNodePtr transferNode);
-  static void LoadPaidBag(int grp_id, xmlNodePtr grpNode);
 
   static int CheckCounters(int point_dep,
                            int point_arv,

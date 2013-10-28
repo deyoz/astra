@@ -1921,5 +1921,18 @@ string SeparateNames(string &names)
   return result;
 };
 
+const double PoundRatio = 0.454; //1 фунт = 0.454 грамма
 
+int CalcWeightInKilos(int weight, std::string weight_unit)
+{
+  double result=ASTRA::NoExists;
+  if ((weight_unit=="K" || weight_unit=="L") && weight!=ASTRA::NoExists)
+  {
+    if (weight_unit=="L")
+      modf(weight*PoundRatio, &result);
+    else
+      result=weight;
+  };
+  return result;
+};
 

@@ -2606,6 +2606,7 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
     check_spec_service_alarm( i->first );
     check_TrferExists( i->first );
     check_unattached_trfer_alarm( i->first );
+    check_conflict_trfer_alarm( i->first );
   };
 
   for ( std::vector<int>::iterator i=points_check_wait_alarm.begin();

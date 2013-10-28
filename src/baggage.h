@@ -1,9 +1,13 @@
 #ifndef _BAGGAGE_H_
 #define _BAGGAGE_H_
 
+#include <set>
+#include <list>
+
 #include "astra_consts.h"
 #include "oralib.h"
 #include "xml_unit.h"
+#include "transfer.h"
 
 namespace CheckIn
 {
@@ -30,10 +34,6 @@ class TValueBagItem
       tax=ASTRA::NoExists;
       tax_trfer=false;
     };
-    bool operator < (const TValueBagItem &item) const
-    {
-      return num < item.num;
-    };
     const TValueBagItem& toXML(xmlNodePtr node) const;
     TValueBagItem& fromXML(xmlNodePtr node);
     const TValueBagItem& toDB(TQuery &Qry) const;
@@ -52,6 +52,7 @@ class TBagItem
     int value_bag_num,bag_pool_num; //для new_bag
     bool pr_liab_limit, to_ramp;  //для new_bag
     bool using_scales;
+    bool is_trfer;
     TBagItem()
     {
       clear();
@@ -71,10 +72,7 @@ class TBagItem
       pr_liab_limit=false;
       to_ramp=false;
       using_scales=false;
-    };
-    bool operator < (const TBagItem &item) const
-    {
-      return num < item.num;
+      is_trfer=false;
     };
     const TBagItem& toXML(xmlNodePtr node) const;
     TBagItem& fromXML(xmlNodePtr node);
@@ -108,14 +106,56 @@ class TTagItem
       printable=false;
       pr_print=false;
     };
-    bool operator < (const TTagItem &item) const
-    {
-      return num < item.num;
-    };
     const TTagItem& toXML(xmlNodePtr node) const;
     TTagItem& fromXML(xmlNodePtr node);
     const TTagItem& toDB(TQuery &Qry) const;
     TTagItem& fromDB(TQuery &Qry);
+};
+
+class TGroupBagItem
+{
+  private:
+    void toLists(std::list<TValueBagItem> &vals_list,
+                 std::list<TBagItem> &bags_list,
+                 std::list<TTagItem> &tags_list) const;
+    void fromLists(const std::list<TValueBagItem> &vals_list,
+                   const std::list<TBagItem> &bags_list,
+                   const std::list<TTagItem> &tags_list);
+    static void normalizeLists(int vals_first_num,
+                               int bags_first_num,
+                               int tags_first_num,
+                               std::list<TValueBagItem> &vals_list,
+                               std::list<TBagItem> &bags_list,
+                               std::list<TTagItem> &tags_list);
+    void filterPools(const std::set<int/*bag_pool_num*/> &pool_nums,
+                     bool pool_nums_for_keep);
+  public:
+    std::map<int /*num*/, TValueBagItem> vals;
+    std::map<int /*num*/, TBagItem> bags;
+    std::map<int /*num*/, TTagItem> tags;
+    TGroupBagItem()
+    {
+      clear();
+    };
+    void clear()
+    {
+      vals.clear();
+      bags.clear();
+      tags.clear();
+    };
+    bool empty() const
+    {
+      return vals.empty() &&
+             bags.empty() &&
+             tags.empty();
+    };
+    bool fromXML(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode);
+    void toDB(int grp_id) const;
+    void fromDB(int grp_id, int bag_pool_num, bool without_refused);
+    void toXML(xmlNodePtr bagtagNode) const;
+    void add(const TGroupBagItem &item);
+    void setInboundTrfer(const TrferList::TGrpItem &grp);
+    void setPoolNum(int bag_pool_num);
 };
 
 void SaveBag(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode);
@@ -185,6 +225,41 @@ class TPaxNormItem
   const TPaxNormItem& toDB(TQuery &Qry) const;
   TPaxNormItem& fromDB(TQuery &Qry);
 };
+
+class TPaidBagItem
+{
+  public:
+    int bag_type;
+    int weight;
+    int rate_id;
+    double rate;
+    std::string rate_cur;
+    bool rate_trfer;
+  TPaidBagItem()
+  {
+    clear();
+  };
+  void clear()
+  {
+    bag_type=ASTRA::NoExists;
+    weight=ASTRA::NoExists;
+    rate_id=ASTRA::NoExists;
+    rate=ASTRA::NoExists;
+    rate_cur.clear();
+    rate_trfer=false;
+  };
+  const TPaidBagItem& toXML(xmlNodePtr node) const;
+  TPaidBagItem& fromXML(xmlNodePtr node);
+  const TPaidBagItem& toDB(TQuery &Qry) const;
+  TPaidBagItem& fromDB(TQuery &Qry);
+};
+
+bool PaidBagFromXML(xmlNodePtr paidbagNode,
+                    std::list<TPaidBagItem> &paid);
+void PaidBagToDB(int grp_id,
+                 const std::list<TPaidBagItem> &paid);
+void SavePaidBag(int grp_id, xmlNodePtr paidbagNode);
+void LoadPaidBag(int grp_id, xmlNodePtr paidbagNode);
 
 }; //namespace CheckIn
 

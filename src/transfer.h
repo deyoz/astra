@@ -8,10 +8,66 @@
 #include "astra_consts.h"
 #include "astra_misc.h"
 
+namespace CheckIn
+{
+
+class TPaxTransferItem
+{
+  public:
+    int pax_id;
+    std::string subclass;
+    TElemFmt subclass_fmt;
+    TPaxTransferItem()
+    {
+      pax_id=ASTRA::NoExists;
+      subclass_fmt=efmtUnknown;
+    };
+};
+
+class TTransferItem
+{
+  public:
+    std::string flight_view;
+    TTripInfo operFlt;
+    int local_date;
+    int grp_id;
+    std::string airp_arv;
+    TElemFmt airp_arv_fmt;
+    std::string subclass;
+    TElemFmt subclass_fmt;
+    std::vector<TPaxTransferItem> pax;
+    TTransferItem()
+    {
+      local_date=ASTRA::NoExists;
+      grp_id=ASTRA::NoExists;
+      airp_arv_fmt=efmtUnknown;
+      subclass_fmt=efmtUnknown;
+    };
+    bool Valid() const
+    {
+      return !operFlt.airline.empty() &&
+             operFlt.flt_no!=0 &&
+             !operFlt.airp.empty() &&
+             operFlt.scd_out!=ASTRA::NoExists &&
+             !airp_arv.empty();
+    };
+    bool equalSeg(const TTransferItem &item) const
+    {
+      return operFlt.airline==item.operFlt.airline &&
+             operFlt.flt_no==item.operFlt.flt_no &&
+             operFlt.suffix==item.operFlt.suffix &&
+             operFlt.scd_out==item.operFlt.scd_out &&
+             operFlt.airp==item.operFlt.airp &&
+             airp_arv==item.airp_arv;
+    };
+};
+
+};
+
 namespace TrferList
 {
 
-enum TTrferType { trferIn, trferOut, trferCkin, tckinInbound };
+enum TTrferType { trferIn, trferOut, trferOutForCkin, trferCkin, tckinInbound };
 
 class TBagItem
 {
@@ -19,6 +75,7 @@ class TBagItem
     int bag_amount, bag_weight, rk_weight;
     std::string weight_unit;
     std::vector<TBagTagNumber> tags;
+    std::map<int, CheckIn::TTransferItem> trfer;
     TBagItem()
     {
       clear();
@@ -30,6 +87,7 @@ class TBagItem
       rk_weight=ASTRA::NoExists;
       weight_unit.clear();
       tags.clear();
+      trfer.clear();
     };
     TBagItem& fromDB(TQuery &Qry, TQuery &TagQry, bool fromTlg, bool loadTags);
     TBagItem& setZero();
@@ -101,6 +159,7 @@ class TGrpItem : public TBagItem
       seats=ASTRA::NoExists;
     };
     TGrpItem& paxFromDB(TQuery &PaxQry, TQuery &RemQry, bool fromTlg);
+    TGrpItem& trferFromDB(TQuery &TrferQry, bool fromTlg);
     TGrpItem& setPaxUnaccomp();
 };
 
@@ -249,6 +308,7 @@ class TGrpItem
     bool is_unaccomp;
     std::vector<TPaxItem> paxs;
     std::list<TBagTagNumber> tags;
+    std::map<int, CheckIn::TTransferItem> trfer;
 
     TGrpItem():is_unaccomp(false) {};
 
@@ -256,13 +316,19 @@ class TGrpItem
 
     bool operator == (const TGrpItem &item) const
     {
+      //ф-ция используется только в check_u_trfer_alarm_for_grp при сравнении слепка бирок до и после
       return airp_arv == item.airp_arv &&
              is_unaccomp == item.is_unaccomp &&
              tags == item.tags &&
+//             trfer == item.trfer &&     при сравнении слепков дальнейший трансферный маршрут бирок не учитываем,
+//                                        но вообще, формально, должны сравнивать объекты полностью, возможно в будущем
              (is_unaccomp || paxs == item.paxs);
     };
 
     int equalRate(const TGrpItem &item, int minPaxEqualRate) const;
+    bool equalTrfer(const TGrpItem &item) const;
+    bool similarTrfer(const TGrpItem &item) const;
+    void print() const;
 };
 
 class TGrpId : public std::pair<int/*grp_id*/, int/*bag_pool_num*/>
@@ -278,8 +344,18 @@ class TGrpId : public std::pair<int/*grp_id*/, int/*bag_pool_num*/>
      };
 };
 
+enum TConflictReason { conflictInPaxDuplicate,
+                       conflictOutPaxDuplicate,
+                       conflictInRouteIncomplete,
+                       conflictInRouteDiffer,
+                       conflictOutRouteDiffer,
+                       conflictInOutRouteDiffer,
+                       conflictWeightNotDefined };
 
 typedef std::map<TGrpId, std::vector<TBagTagNumber> > TUnattachedTagMap;
+
+typedef std::map<TGrpId, std::pair<TrferList::TGrpItem, std::set<TConflictReason> > > TNewGrpTagMap;
+typedef std::map<std::pair<std::string, std::string>, std::set<TGrpId> > TNewGrpPaxMap;
 
 void GetUnattachedTags(int point_id,
                        TUnattachedTagMap &result);
@@ -296,6 +372,16 @@ void GetUnattachedTags(int point_id,
 void GetNextTrferCheckedFlts(int id,  //м.б. point_id или grp_id
                              ASTRA::TIdType id_type,
                              std::set<int> &point_ids);
+
+void GetNewGrpTags(int point_id,
+                   const TGrpItem &grp_out,
+                   const std::set<int> &pax_out_ids,
+                   TNewGrpTagMap &tag_map,
+                   TNewGrpPaxMap &pax_map,
+                   std::set<TConflictReason> &conflicts);
+
+void ConflictReasonsToLog(const std::set<TConflictReason> &conflicts,
+                          TLogMsg &msg);
 
 }; //namespace InboundTrfer
 

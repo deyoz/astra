@@ -753,6 +753,8 @@ void update_pax_change( int point_id, int pax_id, int reg_no, const std::string 
 std::string TruncNameTitles(const std::string &str);
 std::string SeparateNames(std::string &names);
 
+int CalcWeightInKilos(int weight, std::string weight_unit);
+
 #endif /*_ASTRA_MISC_H_*/
 
 
