@@ -543,6 +543,8 @@ struct TBagTagRow {
     int class_priority;
     string class_code;
     string class_name;
+    int to_ramp;
+    string to_ramp_str;
     int bag_type;
     int bag_name_priority;
     string bag_name;
@@ -550,7 +552,6 @@ struct TBagTagRow {
     int amount;
     int weight;
     int pr_liab_limit;
-    int to_ramp;
     string tag_type;
     string color;
     double no;
@@ -581,13 +582,16 @@ bool lessBagTagRow(const TBagTagRow &p1, const TBagTagRow &p2)
         if(p1.pr_trfer == p2.pr_trfer) {
             if(p1.last_target == p2.last_target) {
                 if(p1.class_priority == p2.class_priority) {
-                    if(p1.bag_name_priority == p2.bag_name_priority) {
-                        if(p1.tag_type == p2.tag_type) {
-                            result = p1.color < p2.color;
+                    if(p1.to_ramp == p2.to_ramp) {
+                        if(p1.bag_name_priority == p2.bag_name_priority) {
+                            if(p1.tag_type == p2.tag_type) {
+                                result = p1.color < p2.color;
+                            } else
+                                result = p1.tag_type > p2.tag_type;
                         } else
-                            result = p1.tag_type > p2.tag_type;
+                            result = p1.bag_name_priority < p2.bag_name_priority;
                     } else
-                        result = p1.bag_name_priority < p2.bag_name_priority;
+                        result = p1.to_ramp < p2.to_ramp;
                 } else
                     result = p1.class_priority < p2.class_priority;
             } else
@@ -612,23 +616,23 @@ class t_rpt_bm_bag_name {
         vector<TBagNameRow> bag_names;
     public:
         void init(string airp);
-        string get(string class_code, int bag_type, bool to_ramp, TRptParams &rpt_params);
+        void get(string class_code, TBagTagRow &bag_tag_row, TRptParams &rpt_params);
 };
 
-string t_rpt_bm_bag_name::get(string class_code, int bag_type, bool to_ramp, TRptParams &rpt_params)
+const int TO_RAMP_PRIORITY = 1000;
+
+void t_rpt_bm_bag_name::get(string class_code, TBagTagRow &bag_tag_row, TRptParams &rpt_params)
 {
-    string result;
+    string &result = bag_tag_row.bag_name;
     for(vector<TBagNameRow>::iterator iv = bag_names.begin(); iv != bag_names.end(); iv++)
-        if(iv->class_code == class_code && iv->bag_type == bag_type) {
+        if(iv->class_code == class_code && iv->bag_type == bag_tag_row.bag_type) {
             result = rpt_params.IsInter() ? iv->name_lat : iv->name;
             if(result.empty())
                 result = iv->name;
             break;
         }
-    if(result.empty() and to_ramp)
-        result = getLocaleText("У трапа", rpt_params.GetLang());
-
-    return result;
+    if(not result.empty())
+        bag_tag_row.bag_name_priority = bag_tag_row.bag_type;
 }
 
 void t_rpt_bm_bag_name::init(string airp)
@@ -672,6 +676,7 @@ void dump_tag_row(TBagTagRow &tag, bool hdr = true)
             << setw(10) << "grp_id"
             << setw(9)  << "airp_arv"
             << setw(11) << "class_name"
+            << setw(12) << "to_ramp_str"
             << setw(9)  << "bag_type"
             << setw(18) << "bag_name_priority"
             << setw(23) << "bag_name"
@@ -693,6 +698,7 @@ void dump_tag_row(TBagTagRow &tag, bool hdr = true)
         << setw(10) << tag.grp_id
         << setw(9)  << tag.airp_arv
         << setw(11) << tag.class_name
+        << setw(12)  << tag.to_ramp_str
         << setw(9)  << tag.bag_type
         << setw(18) << tag.bag_name_priority
         << setw(23) << tag.bag_name
@@ -1385,21 +1391,17 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         bag_tag_row.airp_arv = Qry.FieldAsString("airp_arv");
         bag_tag_row.bag_type = Qry.FieldAsInteger("bag_type");
         bag_tag_row.to_ramp = Qry.FieldAsInteger("to_ramp");
+        if(bag_tag_row.to_ramp)
+            bag_tag_row.to_ramp_str = getLocaleText("У ТРАПА", rpt_params.GetLang());
 
+        string class_code = Qry.FieldAsString("class");
+        bag_names.get(class_code, bag_tag_row, rpt_params);
         if(Qry.FieldIsNULL("class"))
             bag_tag_row.class_priority = 100;
         else {
-            string class_code = Qry.FieldAsString("class");
-            bag_tag_row.bag_name = bag_names.get(class_code, bag_tag_row.bag_type, bag_tag_row.to_ramp, rpt_params);
             bag_tag_row.class_priority = ((TClassesRow&)base_tables.get("classes").get_row( "code", class_code)).priority;
             bag_tag_row.class_code = rpt_params.ElemIdToReportElem(etClass, class_code, efmtCodeNative);
             bag_tag_row.class_name = rpt_params.ElemIdToReportElem(etClass, class_code, efmtNameLong);
-        }
-        if(!bag_tag_row.bag_name.empty()) {
-            if(bag_tag_row.bag_name == getLocaleText("У трапа", rpt_params.GetLang()))
-                bag_tag_row.bag_name_priority = INT_MAX;
-            else
-                bag_tag_row.bag_name_priority = bag_tag_row.bag_type;
         }
         bag_tag_row.bag_num = cur_bag_num;
         bag_tag_row.amount = Qry.FieldAsInteger("amount");
@@ -1489,6 +1491,7 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
                     bag_tag_row.last_target == iv->last_target &&
                     bag_tag_row.airp_arv == iv->airp_arv &&
                     bag_tag_row.class_code == iv->class_code &&
+                    bag_tag_row.to_ramp == iv->to_ramp &&
                     bag_tag_row.bag_name == iv->bag_name &&
                     bag_tag_row.tag_type == iv->tag_type &&
                     bag_tag_row.color == iv->color
@@ -1502,6 +1505,7 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             bag_tag_row.last_target = iv->last_target;
             bag_tag_row.airp_arv = iv->airp_arv;
             bag_tag_row.class_code = iv->class_code;
+            bag_tag_row.to_ramp = iv->to_ramp;
             bag_tag_row.bag_name = iv->bag_name;
             bag_tag_row.tag_type = iv->tag_type;
             bag_tag_row.color = iv->color;
@@ -1575,6 +1579,7 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "airp_arv_name", rpt_params.ElemIdToReportElem(etAirp, airp_arv, efmtNameLong));
         NewTextChild(rowNode, "pr_trfer", iv->pr_trfer);
         NewTextChild(rowNode, "last_target", iv->last_target);
+        NewTextChild(rowNode, "to_ramp", iv->to_ramp_str);
         NewTextChild(rowNode, "bag_name", iv->bag_name);
         NewTextChild(rowNode, "birk_range", iv->tag_range);
         NewTextChild(rowNode, "color", iv->color);
@@ -2016,8 +2021,13 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       };
 
       //разбиваем диапазоны бирок, цвет
-      string bag_name=NodeAsString("bag_name",rowNode);
-      SeparateString(NodeAsString("birk_range",rowNode),bag_name.empty()?26:24,rows);
+      int offset = 2;
+      if(not NodeIsNULL("bag_name", rowNode))
+          offset += 2;
+      if(not NodeIsNULL("to_ramp", rowNode))
+          offset += 2;
+
+      SeparateString(NodeAsString("birk_range",rowNode),28 - offset,rows);
       fields["birk_range"]=rows;
       SeparateString(NodeAsString("color",rowNode),9,rows);
       fields["color"]=rows;
@@ -2027,8 +2037,8 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       do
       {
         if (row!=0) s << endl;
-        s << setw(bag_name.empty()?2:4) << "" //отступ
-          << left << setw(bag_name.empty()?26:24) << (!fields["birk_range"].empty()?*(fields["birk_range"].begin()):"") << " "
+        s << setw(offset) << "" //отступ
+          << left << setw(28 - offset) << (!fields["birk_range"].empty()?*(fields["birk_range"].begin()):"") << " "
           << left << setw(9) << (!fields["color"].empty()?*(fields["color"].begin()):"") << " "
           << right << setw(4) << (row==0?NodeAsString("num",rowNode):"") << " ";
 
