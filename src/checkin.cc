@@ -2246,8 +2246,10 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 int CheckInInterface::CheckCounters(int point_dep,
                                     int point_arv,
                                     const string &cl,
-                                    TPaxStatus grp_status)
+                                    TPaxStatus grp_status,
+                                    bool free_seating)
 {
+    if (free_seating) return ASTRA::NoExists;
     //проверка наличия свободных мест
     TQuery Qry(&OraSession);
     Qry.Clear();
@@ -3543,7 +3545,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
       Qry.Clear();
       Qry.SQLText=
-        "SELECT pr_tranz_reg,pr_etstatus,pr_airp_seance "
+        "SELECT pr_tranz_reg,pr_etstatus,pr_airp_seance,pr_free_seating "
         "FROM trip_sets WHERE point_id=:point_id ";
       Qry.CreateVariable("point_id",otInteger,grp.point_dep);
       Qry.Execute();
@@ -3556,6 +3558,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
       bool pr_tranz_reg=!Qry.FieldIsNULL("pr_tranz_reg")&&Qry.FieldAsInteger("pr_tranz_reg")!=0;
       int pr_etstatus=Qry.FieldAsInteger("pr_etstatus");
+      bool free_seating=Qry.FieldAsInteger("pr_free_seating")!=0;
       bool pr_etl_only=GetTripSets(tsETLOnly,fltInfo);
       bool pr_mintrans_file=GetTripSets(tsMintransFile,fltInfo);
 
@@ -3894,15 +3897,15 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         bool pr_lat_seat=false;
         if (!pr_unaccomp)
         {
-          if (wl_type.empty() && grp.status!=psCrew)
+          if (wl_type.empty() && grp.status!=psCrew && !free_seating)
           {
             //группа регистрируется не на лист ожидания
             //подсчет общего кол-ва мест, требуемых группе
             int seats_sum=0;
             for(TPaxList::iterator p=paxs.begin(); p!=paxs.end(); ++p) seats_sum+=p->pax.seats;
             //проверка наличия свободных мест
-            int free=CheckCounters(grp.point_dep,grp.point_arv,grp.cl,grp.status);
-            if (free<seats_sum)
+            int free=CheckCounters(grp.point_dep,grp.point_arv,grp.cl,grp.status,free_seating);
+            if (free!=NoExists && free<seats_sum)
               throw UserException("MSG.CHECKIN.AVAILABLE_SEATS",
                                   LParams()<<LParam("count",free)); //WEB
 
@@ -4326,7 +4329,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 int pax_id=Qry.GetVariableAsInteger("pax_id"); //специально вводим дополнительную переменную чтобы не запортить pax.id
                 ReplaceTextChild(p->node,"generated_pax_id",pax_id);
 
-                if (wl_type.empty() && grp.status!=psCrew)
+                if (wl_type.empty() && grp.status!=psCrew && !free_seating)
                 {
                   //запись номеров мест
                   if (pax.seats>0 && i<SEATS2::Passengers.getCount())
@@ -7076,10 +7079,16 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
           else
             if (cl.size()==1)
             {
+              Qry.Clear();
+              Qry.SQLText="SELECT pr_free_seating FROM points WHERE point_id=:point_id";
+              Qry.CreateVariable("point_id", otInteger, currSeg.point_dep);
+              Qry.Execute();
+              bool free_seating=!Qry.Eof && Qry.FieldAsInteger("pr_free_seating")!=0;
+
               //считаем кол-во свободных мест
               //(после поиска пассажиров, так как необходимо определить базовый класс)
-              int free=CheckCounters(currSeg.point_dep,currSeg.point_arv,(char*)cl.c_str(),psTCheckin);
-              if (free<seatsSum)
+              int free=CheckCounters(currSeg.point_dep,currSeg.point_arv,(char*)cl.c_str(),psTCheckin,free_seating);
+              if (free!=NoExists && free<seatsSum)
               {
                 xmlNodePtr wlNode;
                 if (free<=0)

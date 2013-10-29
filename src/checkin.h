@@ -152,7 +152,8 @@ public:
   static int CheckCounters(int point_dep,
                            int point_arv,
                            const std::string &cl,
-                           ASTRA::TPaxStatus grp_status);
+                           ASTRA::TPaxStatus grp_status,
+                           bool free_seating);
 
   static bool CheckFQTRem(CheckIn::TPaxRemItem &rem, CheckIn::TPaxFQTItem &fqt);
   static bool ParseFQTRem(TypeB::TTlgParser &tlg, std::string &rem_text, CheckIn::TPaxFQTItem &fqt);
