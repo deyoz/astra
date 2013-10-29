@@ -3473,7 +3473,7 @@ void WebRequestsIface::GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   Qry.SQLText =
     "SELECT pax_id,reg_no,work_mode,point_id,desk,client_type,time "
     " FROM aodb_pax_change "
-    "WHERE time >= :time AND time <= :uptime"
+    "WHERE time >= :time AND time <= :uptime "
     "ORDER BY time, pax_id, work_mode ";
   TDateTime nowUTC = NowUTC();
   if ( nowUTC - 1 > vdate )
