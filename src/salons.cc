@@ -79,6 +79,7 @@ typedef vector<CompRoute> TCompsRoutes;
 
 static std::map<std::string,std::string> SUBCLS_REMS;
 void verifyValidRem( const std::string &className, const std::string &remCode );
+void check_diffcomp_alarm( TCompsRoutes &routes );
 
 std::string TSeatLayer::toString() const
 {
@@ -3207,6 +3208,9 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
                              const std::string &filterClass,
                              int prior_compon_props_point_id )
 {
+  if ( SALONS2::isFreeSeating( filterRoutesSets.point_dep ) ) {
+    throw EXCEPTIONS::Exception( "MSG.SALONS.FREE_SEATING" );
+  }
   bool only_compon_props = ( prior_compon_props_point_id != ASTRA::NoExists );
   ProgTrace( TRACE5, "TSalonList::ReadFlight(): filterClass=%s, prior_compon_props_point_id=%d",
              filterClass.c_str(), prior_compon_props_point_id );
@@ -3269,8 +3273,10 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
     "ORDER BY num, x desc, y desc";
   Qry.CreateVariable( "point_id", otInteger, filterRoutes.getDepartureId() );
   Qry.Execute();
-  if ( Qry.Eof )
+  if ( Qry.Eof ) {
+    ProgTrace( TRACE5, "point_id=%d", filterRoutes.getDepartureId() );
     throw UserException( "MSG.FLIGHT_WO_CRAFT_CONFIGURE" );
+  }
   ReadSeats( Qry, filterSets.filterClass );
   //начитываем ремарки по маршруту
   Qry.Clear();
@@ -4437,6 +4443,7 @@ void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tran
   TFlights flights;
   flights.Get( points_tranzit_check_wait_alarm, ftAll ); //!!!выбираем весь маршрут, а не только транзитные пункты
   flights.Lock();
+
   TSalonList salonList;
   TSalonPassengers passengers;
   FilterRoutesProperty filterRoutes;
@@ -4467,6 +4474,12 @@ void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tran
           tst();
           continue;
         }
+        if ( isFreeSeating( iroute->point_id ) ) {
+          set_alarm( iroute->point_id, atWaitlist, false );
+          pr_exists_salons = false;
+          tst();
+          continue;
+        }
         Qry.SetVariable( "point_id", iroute->point_id );
         Qry.Execute();
         if ( Qry.Eof ) { //нет салона
@@ -4485,6 +4498,7 @@ void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tran
       passengers.check_waitlist_alarm( salonList.pax_lists, paxs_external_logged );
     }
   }
+  tst();
 }
 
 bool TSalonList::check_waitlist_alarm_on_tranzit_routes( const TAutoSeats &autoSeats )
@@ -4579,6 +4593,9 @@ void TSalons::Read( bool drop_not_used_pax_layers )
 
 
   if ( readStyle == rTripSalons ) {
+    if ( SALONS2::isFreeSeating( trip_id ) ) {
+      throw EXCEPTIONS::Exception( "MSG.SALONS.FREE_SEATING" );
+    }
     Qry.SQLText =
      "SELECT pr_lat_seat, NVL(comp_id,-1) comp_id FROM trip_sets WHERE point_id=:point_id";
     Qry.CreateVariable( "point_id", otInteger, trip_id );
@@ -5639,6 +5656,8 @@ void CreateComps( const TCompsRoutes &routes, int comp_id )
       }
     }
   }
+  TCompsRoutes r(routes);
+  check_diffcomp_alarm( r );
   for ( std::vector<int>::iterator i=points_check_wait_alarm.begin();
         i!=points_check_wait_alarm.end(); i++ ) {
     check_waitlist_alarm(*i);
@@ -6121,10 +6140,10 @@ TFindSetCraft SetCraft( bool pr_tranzit_routes, int point_id, TSetsCraftPoints &
   }
 	CreateComps( routes, points.comp_id );
 	
-	check_diffcomp_alarm( routes );
+/* ???	check_diffcomp_alarm( routes );
 	if ( isTranzitSalons( point_id ) ) {
     check_waitlist_alarm_on_tranzit_routes( point_id );
-  }
+  }*/
 	ProgTrace( TRACE5, "SetCraft: return rsComp_Found" );
   return rsComp_Found;
 }
@@ -6163,7 +6182,7 @@ TFindSetCraft AutoSetCraft( bool pr_tranzit_routes, int point_id, TSetsCraftPoin
 	ProgTrace( TRACE5, "AutoSetCraft, pr_tranzit_routes=%d, point_id=%d", pr_tranzit_routes, point_id );
 	try {
 	  points.Clear();
-    if ( isAutoCompChg( point_id ) ) {
+    if ( isAutoCompChg( point_id ) && !isFreeSeating( point_id ) ) {
     	ProgTrace( TRACE5, "Auto set comp, point_id=%d", point_id );
       return SetCraft( pr_tranzit_routes, point_id, points );
     }
@@ -7307,6 +7326,34 @@ int getCrsPaxPointArv( int crs_pax_id, int point_id_spp )
     }
   }
   return ASTRA::NoExists; //???
+}
+
+void DeleteSalons( int point_id )
+{
+  TFlights flights;
+	flights.Get( point_id, ftTranzit );
+	flights.Lock();
+	TQuery Qry( &OraSession );
+  Qry.SQLText =
+    "BEGIN "
+    " DELETE trip_comp_rem WHERE point_id=:point_id; "
+    " DELETE trip_comp_baselayers WHERE point_id=:point_id; "
+    " DELETE trip_comp_rates WHERE point_id=:point_id; "
+    " DELETE trip_comp_elems WHERE point_id=:point_id; "
+    "END;";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+}
+
+bool isFreeSeating( int point_id )
+{
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
+    "SELECT pr_free_seating FROM trip_sets "
+    " WHERE point_id=:point_id";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  return ( !Qry.Eof && Qry.FieldAsInteger( "pr_free_seating" ) != 0 );
 }
 
 bool isTranzitSalons( int point_id )

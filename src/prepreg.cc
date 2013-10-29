@@ -392,7 +392,8 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     SetsQry.SQLText =
       "SELECT pr_tranz_reg,pr_block_trzt,pr_check_load,pr_overload_reg,pr_exam, "
       "       pr_check_pay,pr_exam_check_pay, "
-      "       pr_reg_with_tkn,pr_reg_with_doc,auto_weighing,pr_airp_seance "
+      "       pr_reg_with_tkn,pr_reg_with_doc,auto_weighing,pr_airp_seance, "
+      "       pr_free_seating "
       "FROM trip_sets WHERE point_id=:point_id";
     SetsQry.CreateVariable("point_id",otInteger,point_id);
     SetsQry.Execute();
@@ -408,7 +409,8 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
          new_pr_exam_check_pay, old_pr_exam_check_pay,
          new_pr_reg_with_tkn,   old_pr_reg_with_tkn,
          new_pr_reg_with_doc,   old_pr_reg_with_doc,
-         new_auto_weighing,     old_auto_weighing;
+         new_auto_weighing,     old_auto_weighing,
+         new_pr_free_seating,   old_pr_free_seating;
     int  new_pr_airp_seance,    old_pr_airp_seance;
 
     old_pr_tranzit=Qry.FieldAsInteger("pr_tranzit")!=0;
@@ -422,6 +424,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     old_pr_reg_with_tkn=SetsQry.FieldAsInteger("pr_reg_with_tkn")!=0;
     old_pr_reg_with_doc=SetsQry.FieldAsInteger("pr_reg_with_doc")!=0;
     old_auto_weighing=SetsQry.FieldAsInteger("auto_weighing")!=0;
+    old_pr_free_seating=SetsQry.FieldAsInteger("pr_free_seating")!=0;
     if (!SetsQry.FieldIsNULL("pr_airp_seance"))
       old_pr_airp_seance=(int)(SetsQry.FieldAsInteger("pr_airp_seance")!=0);
     else
@@ -441,16 +444,25 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
       new_auto_weighing=NodeAsInteger("auto_weighing",node)!=0;
     else
       new_auto_weighing=old_auto_weighing;
+    new_pr_free_seating=NodeAsInteger("pr_free_seating",node)!=0;
     if (!NodeIsNULL("pr_airp_seance",node))
       new_pr_airp_seance=(int)(NodeAsInteger("pr_airp_seance",node)!=0);
     else
       new_pr_airp_seance=-1;
+      
+    vector<int> check_waitlist_alarms, check_diffcomp_alarms;
+    bool pr_isTranzitSalons;
+    if (old_pr_tranzit!=new_pr_tranzit ||
+        old_pr_tranz_reg!=new_pr_tranz_reg ||
+        old_pr_block_trzt!=new_pr_block_trzt ||
+        old_pr_free_seating!=new_pr_free_seating) {
+      pr_isTranzitSalons = SALONS2::isTranzitSalons( point_id );
+    }
 
     if (old_pr_tranzit!=new_pr_tranzit ||
         old_pr_tranz_reg!=new_pr_tranz_reg ||
         old_pr_block_trzt!=new_pr_block_trzt)
     {
-      bool pr_isTranzitSalons = SALONS2::isTranzitSalons( point_id );
       if (Qry.FieldAsInteger("tranzitable")!=0) //является ли пункт промежуточным в маршруте
       {
         //рейс tranzitable
@@ -516,33 +528,40 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
           pr_check_trip_tasks = true;
         };
         Qry.Clear();
-        Qry.SQLText="UPDATE trip_sets SET pr_tranz_reg=:pr_tranz_reg,pr_block_trzt=:pr_block_trzt WHERE point_id=:point_id";
+        Qry.SQLText=
+          "UPDATE trip_sets SET pr_tranz_reg=:pr_tranz_reg,pr_block_trzt=:pr_block_trzt"
+          " WHERE point_id=:point_id";
         Qry.CreateVariable("pr_tranz_reg",otInteger,(int)pr_tranz_reg);
         Qry.CreateVariable("pr_block_trzt",otInteger,(int)pr_block_trzt);
         Qry.CreateVariable("point_id",otInteger,point_id);
         Qry.Execute();
 
-        TLogMsg msg;
-        msg.msg = "Установлен режим";
-        if ( !pr_tranz_reg ) msg.msg += " без";
-        msg.msg += " перерегистрации транзита,";
-        if ( !pr_block_trzt ) msg.msg += " без";
-        msg.msg += " ручной разметки транзита";
-        msg.msg += " для";
-        if ( !new_pr_tranzit )
-          msg.msg += " нетранзитного рейса";
-        else
-          msg.msg += " транзитного рейса";
-        msg.ev_type=evtFlt;
-        msg.id1=point_id;
-        TReqInfo::Instance()->MsgToLog(msg);
-        SALONS2::check_diffcomp_alarm( point_id );
+        if (old_pr_tranzit!=new_pr_tranzit ||
+            old_pr_tranz_reg!=new_pr_tranz_reg ||
+            old_pr_block_trzt!=new_pr_block_trzt) {
+          TLogMsg msg;
+          msg.msg = "Установлен режим";
+          if ( !pr_tranz_reg ) msg.msg += " без";
+          msg.msg += " перерегистрации транзита,";
+          if ( !pr_block_trzt ) msg.msg += " без";
+          msg.msg += " ручной разметки транзита";
+          msg.msg += " для";
+          if ( !new_pr_tranzit )
+            msg.msg += " нетранзитного рейса";
+          else
+            msg.msg += " транзитного рейса";
+          msg.ev_type=evtFlt;
+          msg.id1=point_id;
+          TReqInfo::Instance()->MsgToLog(msg);
+        }
+        
+        check_diffcomp_alarms.push_back( point_id );
         if ( !pr_isTranzitSalons ) {
-          check_waitlist_alarm( point_id );
+          check_waitlist_alarms.push_back( point_id );
         }
       };
       if ( pr_isTranzitSalons ) {
-        SALONS2::check_waitlist_alarm_on_tranzit_routes( point_id );
+        check_waitlist_alarms.push_back( point_id );
       }
     };
     if (old_pr_check_load!=new_pr_check_load ||
@@ -553,6 +572,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
         old_pr_reg_with_tkn!=new_pr_reg_with_tkn ||
         old_pr_reg_with_doc!=new_pr_reg_with_doc ||
         old_auto_weighing!=new_auto_weighing ||
+        old_pr_free_seating!=new_pr_free_seating ||
         old_pr_airp_seance!=new_pr_airp_seance)
     {
       if (old_pr_airp_seance!=new_pr_airp_seance)
@@ -579,6 +599,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
         "    pr_reg_with_tkn=:pr_reg_with_tkn, "
         "    pr_reg_with_doc=:pr_reg_with_doc, "
         "    auto_weighing=:auto_weighing, "
+        "    pr_free_seating=:pr_free_seating, "
         "    pr_airp_seance=:pr_airp_seance "
         "WHERE point_id=:point_id";
       Qry.CreateVariable("pr_check_load",otInteger,(int)new_pr_check_load);
@@ -589,6 +610,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
       Qry.CreateVariable("pr_reg_with_tkn",otInteger,(int)new_pr_reg_with_tkn);
       Qry.CreateVariable("pr_reg_with_doc",otInteger,(int)new_pr_reg_with_doc);
       Qry.CreateVariable("auto_weighing",otInteger,(int)new_auto_weighing);
+      Qry.CreateVariable("pr_free_seating",otInteger,(int)new_pr_free_seating);
       if (new_pr_airp_seance!=-1)
         Qry.CreateVariable("pr_airp_seance",otInteger,new_pr_airp_seance);
       else
@@ -655,6 +677,20 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
         msg.msg += " контроль автоматического взвешивания багажа для стоек с весами";
         TReqInfo::Instance()->MsgToLog(msg);
       };
+      if (old_pr_free_seating!=new_pr_free_seating) {
+
+        TLogMsg msg;
+        if (new_pr_free_seating) msg.msg = "Установлен "; else msg.msg = "Отменен ";
+        msg.msg += " режим регистрации без рассадки в салоне ВС";
+        msg.ev_type=evtFlt;
+        msg.id1=point_id;
+        TReqInfo::Instance()->MsgToLog(msg);
+        if ( new_pr_free_seating ) {
+          SALONS2::DeleteSalons( point_id );
+        }
+        check_diffcomp_alarms.push_back( point_id );
+        check_waitlist_alarms.push_back( point_id );
+      }
       if (old_pr_airp_seance!=new_pr_airp_seance)
       {
         msg.msg = "Установлен режим регистрации";
@@ -670,7 +706,23 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
         TReqInfo::Instance()->MsgToLog(msg);
       };
     };
+    for ( vector<int>::iterator ipoint_id=check_diffcomp_alarms.begin();
+          ipoint_id!=check_diffcomp_alarms.end(); ipoint_id++ ) {
+      SALONS2::check_diffcomp_alarm( *ipoint_id );
+    }
+    if ( !check_waitlist_alarms.empty() ) {
+      if ( pr_isTranzitSalons ) {
+        SALONS2::check_waitlist_alarm_on_tranzit_routes( check_waitlist_alarms );
+      }
+      else {
+        for ( vector<int>::iterator ipoint_id=check_waitlist_alarms.begin();
+              ipoint_id!=check_waitlist_alarms.end(); ipoint_id++ ) {
+          check_waitlist_alarm( *ipoint_id );
+        }
+      }
+    }
   };
+  
 
   Qry.Clear();
   Qry.SQLText =

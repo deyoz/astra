@@ -2930,7 +2930,7 @@ void SaveTripSeatRanges( int point_id, TCompLayerType layer_type, vector<TSeatRa
   };
 }
 
-bool getNextSeat( int point_id, TSeatRange &r, int pr_down )
+/*bool getNextSeat( int point_id, TSeatRange &r, int pr_down )
 {
 	TQuery Qry( &OraSession );
   Qry.SQLText =
@@ -2956,7 +2956,7 @@ bool getNextSeat( int point_id, TSeatRange &r, int pr_down )
    	return true;
   }
   return false; //!!! салона может и не быть, а разметить надо
-}
+} */
 
 bool getCurrSeat( TSalons &ASalons, TSeatRange &r, TSalonPoint &p )
 {

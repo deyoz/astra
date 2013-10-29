@@ -555,6 +555,9 @@ void TSalons::Read( bool wo_invalid_seat_no )
     Qry.Execute();
     if ( Qry.Eof ) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
     pr_lat_seat = Qry.FieldAsInteger( "pr_lat_seat" );
+    if ( SALONS2::isFreeSeating( trip_id ) ) {
+      throw EXCEPTIONS::Exception( "MSG.SALONS.FREE_SEATING" );
+    }
   }
   else {
     Qry.SQLText =
