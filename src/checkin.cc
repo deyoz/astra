@@ -3892,12 +3892,16 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         SALONS2::TAutoSeats autoSeats;
 
         //новая регистрация
-        string wl_type=NodeAsString("wl_type",segNode);
+        string wl_type;
+        if (free_seating)
+          wl_type="F";
+        else
+          wl_type=NodeAsString("wl_type",segNode);
         int first_reg_no=NoExists;
         bool pr_lat_seat=false;
         if (!pr_unaccomp)
         {
-          if (wl_type.empty() && grp.status!=psCrew && !free_seating)
+          if (wl_type.empty() && grp.status!=psCrew)
           {
             //группа регистрируется не на лист ожидания
             //подсчет общего кол-ва мест, требуемых группе
@@ -4329,7 +4333,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 int pax_id=Qry.GetVariableAsInteger("pax_id"); //специально вводим дополнительную переменную чтобы не запортить pax.id
                 ReplaceTextChild(p->node,"generated_pax_id",pax_id);
 
-                if (wl_type.empty() && grp.status!=psCrew && !free_seating)
+                if (wl_type.empty() && grp.status!=psCrew)
                 {
                   //запись номеров мест
                   if (pax.seats>0 && i<SEATS2::Passengers.getCount())
@@ -7080,7 +7084,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
             if (cl.size()==1)
             {
               Qry.Clear();
-              Qry.SQLText="SELECT pr_free_seating FROM points WHERE point_id=:point_id";
+              Qry.SQLText="SELECT pr_free_seating FROM trip_sets WHERE point_id=:point_id";
               Qry.CreateVariable("point_id", otInteger, currSeg.point_dep);
               Qry.Execute();
               bool free_seating=!Qry.Eof && Qry.FieldAsInteger("pr_free_seating")!=0;
