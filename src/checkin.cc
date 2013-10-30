@@ -2351,12 +2351,16 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText =
-    "SELECT airline,flt_no,suffix,airp,scd_out,airline_fmt,suffix_fmt,airp_fmt "
-    "FROM points WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";
+    "SELECT airline,flt_no,suffix,airp,scd_out,airline_fmt,suffix_fmt,airp_fmt, "
+    "       pr_free_seating "
+    "FROM points, trip_sets "
+    "WHERE points.point_id=trip_sets.point_id AND "
+    "      points.point_id=:point_id AND pr_del=0 AND pr_reg<>0";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
   if (Qry.Eof) throw UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
   TTripInfo operFlt(Qry);
+  bool free_seating=Qry.FieldAsInteger("pr_free_seating")!=0;
 
   NewTextChild(resNode,"flight",GetTripName(operFlt,ecCkin,true,false));
 
@@ -2516,23 +2520,26 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
       NewTextChild(paxNode,"subclass",ElemIdToCodeNative(etSubcls, Qry.FieldAsString(col_subclass)));
 
-      if (Qry.FieldIsNULL(col_wl_type))
+      if (!free_seating)
       {
-        //не на листе ожидания, но возможно потерял место при смене компоновки
-        if (!cl.empty() && Qry.FieldIsNULL(col_seat_no) && Qry.FieldAsInteger(col_seats)>0)
+        if (Qry.FieldIsNULL(col_wl_type))
         {
-          ostringstream seat_no_str;
-          seat_no_str << "("
-                      << priorSeats.getSeats(pax_id,"seats")
-                      << ")";
-          NewTextChild(paxNode,"seat_no_str",seat_no_str.str());
+          //не на листе ожидания, но возможно потерял место при смене компоновки
+          if (!cl.empty() && Qry.FieldIsNULL(col_seat_no) && Qry.FieldAsInteger(col_seats)>0)
+          {
+            ostringstream seat_no_str;
+            seat_no_str << "("
+                        << priorSeats.getSeats(pax_id,"seats")
+                        << ")";
+            NewTextChild(paxNode,"seat_no_str",seat_no_str.str());
+            NewTextChild(paxNode,"seat_no_alarm",(int)true);
+          };
+        }
+        else
+        {
+          NewTextChild(paxNode,"seat_no_str","ЛО");
           NewTextChild(paxNode,"seat_no_alarm",(int)true);
         };
-      }
-      else
-      {
-        NewTextChild(paxNode,"seat_no_str","ЛО");
-        NewTextChild(paxNode,"seat_no_alarm",(int)true);
       };
       string seat_no = Qry.FieldAsString(col_seat_no);
       if ( !TReqInfo::Instance()->desk.compatible(SORT_SEAT_NO_VERSION) )

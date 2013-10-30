@@ -721,6 +721,12 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     xmlNodePtr listNode = NewTextChild(dataNode, "passengers");
     if (!Qry.Eof)
     {
+      TCkinQry.Clear();
+      TCkinQry.SQLText="SELECT pr_free_seating FROM trip_sets WHERE point_id=:point_id";
+      TCkinQry.CreateVariable("point_id",otInteger,point_id);
+      TCkinQry.Execute();
+      bool free_seating=!TCkinQry.Eof && TCkinQry.FieldAsInteger("pr_free_seating")!=0;
+
       string def_pers_type=ElemIdToCodeNative(etPersType, EncodePerson(ASTRA::adult));
       string def_class=ElemIdToCodeNative(etClass, EncodeClass(ASTRA::Y));
 
@@ -796,23 +802,26 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           NewTextChild(paxNode, "airp_arv", ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp_arv)));
           NewTextChild(paxNode, "seat_no", Qry.FieldAsString(col_seat_no));
           NewTextChild(paxNode, "seats", Qry.FieldAsInteger(col_seats), 1);
-          if (Qry.FieldIsNULL(col_wl_type))
+          if (!free_seating)
           {
-            //не на листе ожидания, но возможно потерял место при смене компоновки
-            if (Qry.FieldIsNULL(col_seat_no) && Qry.FieldAsInteger(col_seats)>0)
+            if (Qry.FieldIsNULL(col_wl_type))
             {
-              ostringstream seat_no_str;
-              seat_no_str << "("
-                          << priorSeats.getSeats(pax_id,"seats")
-                          << ")";
-              NewTextChild(paxNode,"seat_no_str",seat_no_str.str());
+              //не на листе ожидания, но возможно потерял место при смене компоновки
+              if (Qry.FieldIsNULL(col_seat_no) && Qry.FieldAsInteger(col_seats)>0)
+              {
+                ostringstream seat_no_str;
+                seat_no_str << "("
+                            << priorSeats.getSeats(pax_id,"seats")
+                            << ")";
+                NewTextChild(paxNode,"seat_no_str",seat_no_str.str());
+                NewTextChild(paxNode,"seat_no_alarm",(int)true);
+              };
+            }
+            else
+            {
+              NewTextChild(paxNode,"seat_no_str",AstraLocale::getLocaleText("ЛО"));
               NewTextChild(paxNode,"seat_no_alarm",(int)true);
             };
-          }
-          else
-          {
-            NewTextChild(paxNode,"seat_no_str",AstraLocale::getLocaleText("ЛО"));
-            NewTextChild(paxNode,"seat_no_alarm",(int)true);
           };
           NewTextChild(paxNode, "ticket_no", Qry.FieldAsString(col_ticket_no), "");
           NewTextChild(paxNode, "coupon_no", Qry.FieldAsInteger(col_coupon_no), 0);
@@ -929,6 +938,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                   bool pr_exam=false;
                   bool pr_check_pay=false;
                   int pr_etstatus=0;
+                  bool free_seating=false;
                   TQuery SetsQry(&OraSession);
                   if (reqInfo->screen.name == "BRDBUS.EXE")
                   {
@@ -946,7 +956,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 
                   SetsQry.Clear();
                   SetsQry.SQLText=
-                      "SELECT pr_exam,pr_check_pay,pr_exam_check_pay,pr_etstatus "
+                      "SELECT pr_exam,pr_check_pay,pr_exam_check_pay,pr_etstatus,pr_free_seating "
                       "FROM trip_sets WHERE point_id=:point_id";
                   SetsQry.CreateVariable("point_id",otInteger,point_id);
                   SetsQry.Execute();
@@ -959,6 +969,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                   else
                     pr_check_pay=SetsQry.FieldAsInteger("pr_exam_check_pay")!=0;
                   pr_etstatus=SetsQry.FieldAsInteger("pr_etstatus");
+                  free_seating=SetsQry.FieldAsInteger("pr_free_seating")!=0;
 
                   if (boarding && !Qry.FieldIsNULL(col_wl_type))
                   {
@@ -1006,6 +1017,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                                       boarding &&
                                       GetNode("confirmations/seat_no",reqNode)==NULL)
                                   {
+                                    if (free_seating) break;
                                     string curr_seat_no;
                                     if (ChckSt(pax_id, curr_seat_no)) break;
                                     
