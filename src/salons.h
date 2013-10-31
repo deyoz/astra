@@ -949,6 +949,7 @@ class TSalonList: public std::vector<TPlaceList*> {
     void ReadCompon( int vcomp_id );
     void ReadFlight( const TFilterRoutesSets &filterRoutesSets,
                      const std::string &filterClass,
+                     bool for_calc_waitlist = false,  //!!!
                      int prior_compon_props_point_id = ASTRA::NoExists );
     void Build( bool with_pax,
                 xmlNodePtr salonsNode );

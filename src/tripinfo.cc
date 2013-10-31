@@ -2279,6 +2279,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
 
 void viewCRSList( int point_id, xmlNodePtr dataNode )
 {
+  bool pr_free_seating = SALONS2::isFreeSeating( point_id );
 	TGrpStatusTypes &grp_status_types = (TGrpStatusTypes &)base_tables.get("GRP_STATUS_TYPES");
   TQuery Qry( &OraSession );
   TPaxSeats priorSeats( point_id );
@@ -2589,7 +2590,9 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
    		NewTextChild( node, "layer_type", layer_type );
     } // не задано место
     else
-    	if ( mode == 0 && Qry.FieldAsInteger( col_seats ) ) {
+    	if ( mode == 0 &&
+           Qry.FieldAsInteger( col_seats ) &&
+           !pr_free_seating ) {
     		string old_seat_no;
     		if ( Qry.FieldIsNULL( col_wl_type ) ) {
     		  old_seat_no = priorSeats.getSeats( pax_id, "seats" );

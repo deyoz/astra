@@ -3206,9 +3206,10 @@ void TSalonList::getPaxLayer( int point_dep, int pax_id,
   filterRoutes - список пунктов у которых возможно есть места, кот. будуь влиять на нашу разметку */
 void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
                              const std::string &filterClass,
+                             bool for_calc_waitlist,
                              int prior_compon_props_point_id )
 {
-  if ( SALONS2::isFreeSeating( filterRoutesSets.point_dep ) ) {
+  if ( !for_calc_waitlist && SALONS2::isFreeSeating( filterRoutesSets.point_dep ) ) {
     throw EXCEPTIONS::Exception( "MSG.SALONS.FREE_SEATING" );
   }
   bool only_compon_props = ( prior_compon_props_point_id != ASTRA::NoExists );
@@ -3273,7 +3274,8 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
     "ORDER BY num, x desc, y desc";
   Qry.CreateVariable( "point_id", otInteger, filterRoutes.getDepartureId() );
   Qry.Execute();
-  if ( Qry.Eof ) {
+  bool empty_salons = Qry.Eof;
+  if ( empty_salons && !for_calc_waitlist ) {
     ProgTrace( TRACE5, "point_id=%d", filterRoutes.getDepartureId() );
     throw UserException( "MSG.FLIGHT_WO_CRAFT_CONFIGURE" );
   }
@@ -4474,7 +4476,7 @@ void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tran
           tst();
           continue;
         }
-        if ( isFreeSeating( iroute->point_id ) ) {
+        /*!!!if ( isFreeSeating( iroute->point_id ) ) {
           set_alarm( iroute->point_id, atWaitlist, false );
           pr_exists_salons = false;
           tst();
@@ -4486,8 +4488,8 @@ void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tran
           pr_exists_salons = false;
           tst();
           continue;
-        }
-        salonList.ReadFlight( TFilterRoutesSets( iroute->point_id, filterRoutes.getArrivalId() ), "" );
+        }*/
+        salonList.ReadFlight( TFilterRoutesSets( iroute->point_id, filterRoutes.getArrivalId() ), "", true );//!!!
         pr_exists_salons = true;
       }
       if ( !pr_exists_salons ) {
@@ -5304,7 +5306,7 @@ bool InternalExistsRegPassenger( int trip_id, bool SeatNoIsNull )
                "       pax.pr_brd IS NOT NULL AND "
                "       seats > 0 AND rownum <= 1 ";
  if ( SeatNoIsNull ) {
-  sql += " AND salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'one',rownum) IS NULL";
+  sql += " AND salons.is_waitlist(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,rownum)<>0 ";
  }
  Qry.SQLText = sql;
  Qry.CreateVariable( "point_id", otInteger, trip_id );
@@ -7336,6 +7338,7 @@ void DeleteSalons( int point_id )
 	TQuery Qry( &OraSession );
   Qry.SQLText =
     "BEGIN "
+    " UPDATE trip_sets SET comp_id=NULL WHERE point_id=:point_id; "
     " DELETE trip_comp_rem WHERE point_id=:point_id; "
     " DELETE trip_comp_baselayers WHERE point_id=:point_id; "
     " DELETE trip_comp_rates WHERE point_id=:point_id; "
@@ -7343,6 +7346,7 @@ void DeleteSalons( int point_id )
     "END;";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
+  setTRIP_CLASSES( point_id );
 }
 
 bool isFreeSeating( int point_id )
@@ -7712,7 +7716,7 @@ bool TSalonPassengers::check_waitlist_alarm( const std::map<int,TPaxList> &pax_l
       }
     }
   }
-  set_alarm( point_dep, atWaitlist, status_wait_list == wlYes );
+  set_alarm( point_dep, atWaitlist, status_wait_list == wlYes && !isFreeSeating( point_dep ) ); //!!!isFreeSeating( iroute->point_id )
   return status_wait_list == wlYes;
 }
 

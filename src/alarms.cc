@@ -204,8 +204,8 @@ bool calc_waitlist_alarm( int point_id )
     "WHERE pax_grp.grp_id=pax.grp_id AND "
     "      pax_grp.point_dep=:point_id AND "
     "      pax_grp.status NOT IN ('E') AND "
-    "      pax.pr_brd IS NOT NULL AND pax.seats > 0 AND "
-    "      salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'list',rownum) IS NULL AND "
+    "      pax.pr_brd IS NOT NULL AND "
+    "      salons.is_waitlist(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,rownum)<>0 AND "
     "      rownum<2";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();

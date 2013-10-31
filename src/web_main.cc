@@ -1496,6 +1496,9 @@ void WebRequestsIface::ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   ProgTrace(TRACE1,"WebRequestsIface::ViewCraft");
   int point_id = NodeAsInteger( "point_id", reqNode );
   int pnr_id = NodeAsInteger( "pnr_id", reqNode );
+  if ( SALONS2::isFreeSeating( point_id ) ) { //???
+    throw UserException( "MSG.SALONS.FREE_SEATING" );
+  }
   TWebPnr pnr;
   WebSearch::TFlightInfo flt;
   flt.fromDB(point_id, false, true);

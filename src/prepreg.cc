@@ -681,7 +681,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
 
         TLogMsg msg;
         if (new_pr_free_seating) msg.msg = "Установлен "; else msg.msg = "Отменен ";
-        msg.msg += " режим регистрации без рассадки в салоне ВС";
+        msg.msg += "режим свободной рассадки";
         msg.ev_type=evtFlt;
         msg.id1=point_id;
         TReqInfo::Instance()->MsgToLog(msg);
