@@ -677,7 +677,7 @@ class TBSMElemOrderRules : public map<char, string>
     TBSMElemOrderRules()
     {
       insert(make_pair('V',""));
-      insert(make_pair('I',"V"));
+      insert(make_pair('I',"VPE"));
       insert(make_pair('F',"IPE"));
       insert(make_pair('N',"FNPE"));
       insert(make_pair('W',"N"));
