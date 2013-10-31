@@ -1123,8 +1123,8 @@ void getSeat_no( int pax_id, bool pr_pnl, const string &format, string &seat_no,
 		else
 			slayer_type = SQry.GetVariableAsString( "layer_type" );
 	}
-  if ( slayer_type.empty() )
-  	throw EXCEPTIONS::Exception( "getSeat_no: slayer_type.empty()" );
+/*!!!djek  if ( slayer_type.empty() )
+  	throw EXCEPTIONS::Exception( "getSeat_no: slayer_type.empty()" );*/
 };
 
 void IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string yname,
