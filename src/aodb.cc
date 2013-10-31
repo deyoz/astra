@@ -506,7 +506,7 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 	if ( pr_unaccomp )
 	  Qry.SQLText =
 	   "SELECT grp_id pax_id, grp_id, 0 reg_no FROM pax_grp "
-	   " WHERE point_dep=:point_id AND class IS NULL "
+	   " WHERE point_dep=:point_id AND status NOT IN ('E') AND class IS NULL "
 	   " ORDER BY grp_id";
   else
   {
@@ -532,6 +532,7 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 	   " FROM pax_grp, pax, pax_doc "
 	   " WHERE pax_grp.grp_id=pax.grp_id AND "
 	   "       pax_grp.point_dep=:point_id AND "
+     "       pax_grp.status NOT IN ('E') AND "
 	   "       pax.wl_type IS NULL AND "
 	   "       pax.pax_id=pax_doc.pax_id(+) "
 	   " ORDER BY pax_grp.grp_id,seats ";

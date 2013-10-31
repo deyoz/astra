@@ -219,6 +219,7 @@ void TTripStages::WriteStagesUTC( int point_id, TMapTripStages &ts )
 
  	  check_brd_alarm( point_id );
     check_unattached_trfer_alarm( point_id );
+    check_crew_alarms( point_id );
 
     string tolog = string( "Этап '" ) + sr->stage_name( i->first, airp, false ) + "'";
     if ( i->second.old_act == NoExists && i->second.act > NoExists )

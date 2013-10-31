@@ -1681,11 +1681,13 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 
 
     Qry.Clear();
-    Qry.SQLText="SELECT point_dep, class FROM pax_grp WHERE grp_id=:grp_id";
+    Qry.SQLText="SELECT point_dep, class, status FROM pax_grp WHERE grp_id=:grp_id";
     Qry.CreateVariable("grp_id",otInteger,first_seg_grp_id);
     Qry.Execute();
     if(Qry.Eof)
         throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
+    if (DecodePaxStatus(Qry.FieldAsString("status"))==psCrew)
+        throw AstraLocale::UserException("MSG.BOARDINGPASS_NOT_AVAILABLE_FOR_CREW");
     if(Qry.FieldIsNULL("class"))
         throw AstraLocale::UserException("MSG.BOARDINGPASS_NOT_AVAILABLE_FOR_UNACC_BAGGAGE");
     int point_id = Qry.FieldAsInteger("point_dep");

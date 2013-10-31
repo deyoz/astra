@@ -345,7 +345,8 @@ bool point_dep_AND_layer_type_FOR_TRZT_SOM_PRL( int point_id, int &point_dep, AS
     "      tlg_source.point_id_tlg=tlg_binding.point_id_tlg AND "
     "      tlgs_in.id=tlg_source.tlg_id AND tlgs_in.num=1 AND tlgs_in.type IN ('PRL','SOM') ";
   if ( SALONS2::isTranzitSalons( point_id ) ) {
-    sql += " AND NOT EXISTS(SELECT pax_grp.point_dep FROM pax_grp WHERE pax_grp.point_dep=points.point_id) ";
+    sql += " AND NOT EXISTS(SELECT pax_grp.point_dep FROM pax_grp "
+           "                WHERE pax_grp.point_dep=points.point_id AND pax_grp.status NOT IN ('E')) ";
   }
   sql +=  "ORDER BY point_num DESC,DECODE(tlgs_in.type,'PRL',0,1)";
   Qry.SQLText = sql;
@@ -3318,6 +3319,7 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
       "   WHERE pax.grp_id=pax_grp.grp_id AND "
       "         pax_grp.point_dep=:point_dep AND "
       "         pax.pax_id=crs_inf.inf_id(+) AND "
+      "         pax_grp.status NOT IN ('E') AND "
       "         pax.refuse IS NULL ";
     Qry.DeclareVariable( "point_dep", otInteger );
     Qry.CreateVariable( "web_client", otString, EncodeClientType( ASTRA::ctWeb ) );
@@ -4600,6 +4602,7 @@ void TSalons::Read( bool drop_not_used_pax_layers )
       "   WHERE pax.grp_id=pax_grp.grp_id AND "
       "         pax_grp.point_dep=:point_dep AND "
       "         pax.pax_id=crs_inf.inf_id(+) AND "
+      "         pax_grp.status NOT IN ('E') AND "
       "         pax.refuse IS NULL "
       " UNION "
       " SELECT NULL, pax_id, crs_pax.pers_type, crs_pax.seats, crs_pnr.class, "
@@ -5273,10 +5276,11 @@ void GetCompParams( int comp_id, xmlNodePtr dataNode )
 bool InternalExistsRegPassenger( int trip_id, bool SeatNoIsNull )
 {
   TQuery Qry( &OraSession );
-  string sql = "SELECT pax.pax_id FROM pax_grp, pax "\
-               " WHERE pax_grp.grp_id=pax.grp_id AND "\
-               "       point_dep=:point_id AND "\
-               "       pax.pr_brd IS NOT NULL AND "\
+  string sql = "SELECT pax.pax_id FROM pax_grp, pax "
+               " WHERE pax_grp.grp_id=pax.grp_id AND "
+               "       point_dep=:point_id AND "
+               "       pax_grp.status NOT IN ('E') AND "
+               "       pax.pr_brd IS NOT NULL AND "
                "       seats > 0 AND rownum <= 1 ";
  if ( SeatNoIsNull ) {
   sql += " AND salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'one',rownum) IS NULL";
@@ -7326,6 +7330,8 @@ void TSalonPax::get_seats( TWaitListReason &waitListReason,
   ranges.clear();
   TGrpStatusTypes &grp_status_types = (TGrpStatusTypes &)base_tables.get("GRP_STATUS_TYPES");
   ProgTrace( TRACE5, "grp_status=%s, pax_id=%d", grp_status.c_str(), pax_id );
+  if ( DecodePaxStatus(grp_status.c_str()) == psCrew )
+    throw EXCEPTIONS::Exception("TSalonPax::get_seats: DecodePaxStatus(grp_status) == psCrew");
   const TGrpStatusTypesRow &grp_status_row = (TGrpStatusTypesRow&)grp_status_types.get_row( "code", grp_status );
   ASTRA::TCompLayerType grp_layer_type = DecodeCompLayerType( grp_status_row.layer_type.c_str() );
   TLayersPax::const_iterator ilayer=layers.begin();
@@ -7364,6 +7370,8 @@ std::string TSalonPax::prior_seat_no( const std::string &format, bool pr_lat_sea
 {
   TGrpStatusTypes &grp_status_types = (TGrpStatusTypes &)base_tables.get("GRP_STATUS_TYPES");
   ProgTrace( TRACE5, "grp_status=%s, pax_id=%d", grp_status.c_str(), pax_id );
+  if ( DecodePaxStatus(grp_status.c_str()) == psCrew )
+    throw EXCEPTIONS::Exception("TSalonPax::prior_seat_no: DecodePaxStatus(grp_status) == psCrew");
   const TGrpStatusTypesRow &grp_status_row = (TGrpStatusTypesRow&)grp_status_types.get_row( "code", grp_status );
   ASTRA::TCompLayerType grp_layer_type = DecodeCompLayerType( grp_status_row.layer_type.c_str() );
   string res;
@@ -7754,6 +7762,8 @@ bool TSalonPassengers::BuildWaitList( xmlNodePtr dataNode )
     layerNode = NULL;
     const TGrpStatusTypesRow &grp_status_row = (TGrpStatusTypesRow&)grp_status_types.get_row( "code", igrp_layer->first );
     ProgTrace( TRACE5, "igrp_layer=%s, igrp_layer->second.size()=%zu", igrp_layer->first.c_str(), igrp_layer->second.size() );
+    if ( DecodePaxStatus(igrp_layer->first.c_str()) == psCrew )
+      throw EXCEPTIONS::Exception("TSalonPassengers::BuildWaitList: DecodePaxStatus(igrp_layer->first) == psCrew");
     for ( std::set<TSalonPax,ComparePassenger>::iterator ipass=igrp_layer->second.begin();
           ipass!=igrp_layer->second.end(); ipass++ ) {
       if ( passengersNode == NULL ) {

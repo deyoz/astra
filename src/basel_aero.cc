@@ -526,7 +526,8 @@ void get_basel_aero_flight_stat(BASIC::TDateTime part_key, int point_id, std::ve
       "WHERE pax_grp.part_key=pax.part_key(+) AND "
       "      pax_grp.grp_id=pax.grp_id(+) AND "
       "      pax_grp.part_key=:part_key AND "
-      "      pax_grp.point_dep=:point_id "
+      "      pax_grp.point_dep=:point_id AND "
+      "      pax_grp.status NOT IN ('E') "
       "ORDER BY pax.reg_no NULLS LAST";
       Qry.CreateVariable("part_key", otDate, part_key);
   }
@@ -541,7 +542,8 @@ void get_basel_aero_flight_stat(BASIC::TDateTime part_key, int point_id, std::ve
       "ckin.get_main_pax_id2(pax_grp.grp_id) AS main_pax_id "
       "FROM pax_grp, pax "
       "WHERE pax_grp.grp_id=pax.grp_id(+) AND "
-      "      pax_grp.point_dep=:point_id "
+      "      pax_grp.point_dep=:point_id AND "
+      "      pax_grp.status NOT IN ('E') "
       "ORDER BY pax.reg_no NULLS LAST";
   };
   Qry.SQLText=sql.str().c_str();

@@ -2663,7 +2663,8 @@ void GetBPPax(xmlNodePtr paxNode, bool is_test, bool check_tids, PrintInterface:
   	 "SELECT pax_grp.grp_id, pax_grp.point_dep, "
      "       pax.reg_no, pax.surname||' '||pax.name full_name "
   	 "FROM pax_grp, pax "
-  	 "WHERE pax_id=:pax_id AND pax.grp_id=pax_grp.grp_id";
+  	 "WHERE pax_id=:pax_id AND pax.grp_id=pax_grp.grp_id AND "
+     "      pax_grp.status NOT IN ('E')";
   	Qry.CreateVariable( "pax_id", otInteger, pax.pax_id );
   	Qry.Execute();
   	if ( Qry.Eof )

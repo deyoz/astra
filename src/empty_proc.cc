@@ -481,6 +481,7 @@ int get_sirena_rozysk_stat(int argc,char **argv)
           "      pax_grp.point_id_mark=mark_trips.point_id(+) AND "
           "      pax_grp.point_dep=:point_dep AND "
           "      pax_grp.point_arv=:point_arv AND "
+          "      pax_grp.status NOT IN ('E') AND "
           "      pax.pr_brd IS NOT NULL ";
       }
       PaxQry.DeclareVariable("point_dep", otInteger);
@@ -1342,7 +1343,7 @@ ORDER BY type
 );
 
 */
-int test_typeb_utils(int argc,char **argv)
+int test_typeb_utils2(int argc,char **argv)
 {
   TQuery Qry(&OraSession);
   Qry.Clear();
@@ -1446,6 +1447,25 @@ int test_typeb_utils(int argc,char **argv)
   return 0;
 };
 
+void filter(vector<TypeB::TCreateInfo> &createInfo, set<string> tlg_types)
+{
+  if ( tlg_types.empty() ) {
+    return;
+  }
+    vector<TypeB::TCreateInfo>::iterator iv = createInfo.begin();
+    while(true) {
+        for(; iv != createInfo.end(); iv++)
+            if( tlg_types.find(iv->get_tlg_type()) == tlg_types.end())
+                break;
+        if(iv != createInfo.end())
+            createInfo.erase(iv);
+        else
+            break;
+    }
+};
+
+
+/*
 void filter(vector<TypeB::TCreateInfo> &createInfo, string tlg_type)
 {
     vector<TypeB::TCreateInfo>::iterator iv = createInfo.begin();
@@ -1459,28 +1479,43 @@ void filter(vector<TypeB::TCreateInfo> &createInfo, string tlg_type)
             break;
     }
 }
-
-int test_typeb_utils2(int argc,char **argv)
+*/
+int test_typeb_utils(int argc,char **argv)
 {
+  set<string> tlg_types;
+/*  tlg_types.insert("LCI");
+  tlg_types.insert("PRL");
+  tlg_types.insert("PRLC");
+  tlg_types.insert("PSM");
+  tlg_types.insert("PIL");
+  tlg_types.insert("SOM");*/
+  TQuery Qry(&OraSession);
+/*  Qry.SQLText =
+    "INSERT INTO tranzit_algo_seats(id,airline,flt_no,airp,pr_new) "
+    "SELECT 1,NULL,NULL,NULL,1 FROM dual";
+  Qry.Execute();*/
   ofstream f1, f2;
   try
   {
-    TQuery Qry(&OraSession);
     Qry.Clear();
     Qry.SQLText=
       "SELECT airline,flt_no,suffix,airp,scd_out,act_out, "
       "       point_id,point_num,first_point,pr_tranzit "
       "FROM points "
-  //    "WHERE point_id=2227535";
+      //"WHERE point_id=4331275";
       "WHERE scd_out BETWEEN SYSTEM.UTCSYSDATE-1/24 AND SYSTEM.UTCSYSDATE AND act_out IS NOT NULL AND pr_del=0";
-
+      
     TQuery TlgQry(&OraSession);
     TlgQry.Clear();
-    TlgQry.SQLText=
+    string sql =
       "SELECT id, addr, heading, body, ending "
       "FROM tlg_out "
-      "WHERE point_id=:point_id and type in ('PRL', 'PRLC') "
-      "ORDER BY type, addr, id, num";
+      "WHERE point_id=:point_id ";
+    if ( !tlg_types.empty() ) {
+      sql += " and type in " + GetSQLEnum(tlg_types);
+    }
+    sql += " ORDER BY type, addr, id, num";
+    TlgQry.SQLText=sql;
     TlgQry.DeclareVariable("point_id", otInteger);
 
     string file_name;
@@ -1537,19 +1572,19 @@ int test_typeb_utils2(int argc,char **argv)
         {
           vector<TypeB::TCreateInfo> createInfo;
           TypeB::TTakeoffCreator(fltInfo.point_id).getInfo(createInfo);
-          filter(createInfo, "PRL");
+          filter(createInfo, tlg_types);
           TelegramInterface::SendTlg(createInfo);
 
           TypeB::TMVTACreator(fltInfo.point_id).getInfo(createInfo);
-          filter(createInfo, "PRL");
+          filter(createInfo, tlg_types);
           TelegramInterface::SendTlg(createInfo);
 
           TypeB::TCloseCheckInCreator(fltInfo.point_id).getInfo(createInfo);
-          filter(createInfo, "PRL");
+          filter(createInfo, tlg_types);
           TelegramInterface::SendTlg(createInfo);
 
           TypeB::TCloseBoardingCreator(fltInfo.point_id).getInfo(createInfo);
-          filter(createInfo, "PRL");
+          filter(createInfo, tlg_types);
           TelegramInterface::SendTlg(createInfo);
         };
       };

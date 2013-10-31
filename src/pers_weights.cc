@@ -360,6 +360,7 @@ void TFlightWeights::read( int point_id, TTypeFlightWeight weight_type )
     str += " AND pr_brd IS NOT NULL ";
   str +=
     " AND point_dep=:point_dep "
+    " AND pax_grp.status NOT IN ('E') "
     " GROUP BY class, subclass";
   ProgTrace( TRACE5, "str=%s", str.c_str() );
   Qry.SQLText = str.c_str();
@@ -397,7 +398,7 @@ void TFlightWeights::read( int point_id, TTypeFlightWeight weight_type )
   Qry.SQLText =
     "SELECT NVL(SUM(ckin.get_bagWeight2(grp_id,NULL,NULL,rownum)),0) unnacomp_bag "
     " FROM pax_grp "
-	  " WHERE point_dep=:point_dep AND class IS NULL";
+	  " WHERE point_dep=:point_dep AND class IS NULL AND pax_grp.status NOT IN ('E')";
   Qry.CreateVariable( "point_dep", otInteger, point_id );
   Qry.Execute();
   if ( !Qry.Eof )

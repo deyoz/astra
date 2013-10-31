@@ -162,7 +162,7 @@ const long int DOC_CSV_CZ_FIELDS=DOC_SURNAME_FIELD|
                                  DOC_NO_FIELD/*|
                                  DOC_EXPIRY_DATE_FIELD|
                                  DOC_ISSUE_COUNTRY_FIELD*/;
-                                 
+
 const long int DOC_EDI_CZ_FIELDS=DOC_CSV_CZ_FIELDS;
 
 //==============================================================================

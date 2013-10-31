@@ -1712,11 +1712,11 @@ void TPoints::Save( bool isShowMsg )
   		  "SELECT COUNT(*) c FROM "
   		  "( SELECT 1 FROM pax_grp,points "
   		  "   WHERE points.point_id=:point_id AND "
-  		  "         point_dep=:point_id AND bag_refuse=0 AND rownum<2 "
+  		  "         point_dep=:point_id AND pax_grp.status NOT IN ('E') AND bag_refuse=0 AND rownum<2 "
   		  "  UNION "
   		  " SELECT 2 FROM pax_grp,points "
   		  "   WHERE points.point_id=:point_id AND "
-  		  "         point_arv=:point_id AND bag_refuse=0 AND rownum<2 ) ";
+  		  "         point_arv=:point_id AND pax_grp.status NOT IN ('E') AND bag_refuse=0 AND rownum<2 ) ";
   		Qry.CreateVariable( "point_id", otInteger, id->point_id );
   		Qry.Execute();
   		if ( Qry.FieldAsInteger( "c" ) ) {

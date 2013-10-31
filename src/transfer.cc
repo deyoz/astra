@@ -315,7 +315,7 @@ void TrferFromDB(TTrferType type,
     Qry.CreateVariable("point_id", otInteger, point_id);
   };
 
-  sql << "      pax_grp.bag_refuse=0 AND pax_grp.status<>'T' \n"
+  sql << "      pax_grp.bag_refuse=0 AND pax_grp.status NOT IN ('T', 'E') \n"
          "GROUP BY pax_grp.point_dep, pax_grp.grp_id, bag2.bag_pool_num, pax_grp.class, \n";
   if (type==trferOut || type==trferOutForCkin)
   {
@@ -457,7 +457,9 @@ void TrferFromDB(TTrferType type,
     "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND "
     "      scd_out >= TO_DATE(:scd)-1 AND scd_out < TO_DATE(:scd)+2 AND "
     "      pr_del>=0 AND "
-    "      EXISTS(SELECT pax_grp.point_dep FROM pax_grp WHERE pax_grp.point_dep=points.point_id)";
+    "      EXISTS(SELECT pax_grp.point_dep "
+    "             FROM pax_grp "
+    "             WHERE pax_grp.point_dep=points.point_id AND pax_grp.status NOT IN ('E'))";
   FltQry.DeclareVariable("flt_no", otInteger);
   FltQry.DeclareVariable("scd", otDate);
   FltQry.DeclareVariable("airline", otString);
@@ -876,7 +878,7 @@ bool trferInExists(int point_arv, int prior_point_arv, TQuery& Qry)
     "      pax_grp.grp_id=pax.grp_id(+) AND "
     "      pax_grp.point_arv=:point_arv AND "
     "      transfer.transfer_num=1 AND "
-    "      pax_grp.bag_refuse=0 AND pax_grp.status<>'T' AND "
+    "      pax_grp.bag_refuse=0 AND pax_grp.status NOT IN ('T', 'E') AND "
     "      (pax_grp.class IS NULL OR pax.pr_brd=1) AND "
     "      rownum<2 "
     "UNION "
@@ -908,7 +910,7 @@ bool trferOutExists(int point_dep, TQuery& Qry)
     "      pax_grp.grp_id=pax.grp_id(+) AND "
     "      trfer_trips.point_id_spp=:point_dep AND "
     "      transfer.transfer_num=1 AND "
-    "      pax_grp.bag_refuse=0 AND pax_grp.status<>'T' AND "
+    "      pax_grp.bag_refuse=0 AND pax_grp.status NOT IN ('T', 'E') AND "
     "      (pax_grp.class IS NULL OR pax.pr_brd=1) AND "
     "      rownum<2 "
     "UNION "
@@ -937,7 +939,7 @@ bool trferCkinExists(int point_dep, TQuery& Qry)
     "      pax_grp.grp_id=pax.grp_id(+) AND "
     "      pax_grp.point_dep=:point_dep AND "
     "      transfer.transfer_num=1 AND "
-    "      pax_grp.bag_refuse=0 AND pax_grp.status<>'T' AND "
+    "      pax_grp.bag_refuse=0 AND pax_grp.status NOT IN ('T', 'E') AND "
     "      (pax_grp.class IS NULL OR pax.pr_brd IS NOT NULL) AND "
     "      rownum<2";
   if (strcmp(Qry.SQLText.SQLText(),sql)!=0)
@@ -1218,7 +1220,8 @@ void GetCheckedTags(int id,  //м.б. point_id или grp_id
     "FROM pax_grp, bag2, bag_tags "
     "WHERE pax_grp.grp_id=bag2.grp_id AND "
     "      bag2.grp_id=bag_tags.grp_id AND "
-    "      bag2.num=bag_tags.bag_num AND ";
+    "      bag2.num=bag_tags.bag_num AND "
+    "      pax_grp.status NOT IN ('E') AND ";
   if (id_type==idFlt)
     sql <<
       "      pax_grp.point_dep=:id ";
@@ -1329,7 +1332,8 @@ void LoadPaxLists(int point_id,
     "SELECT pax_id, surname, name "
     "FROM pax_grp, pax "
     "WHERE pax_grp.grp_id=pax.grp_id AND "
-    "      pax_grp.point_dep=:point_id AND airp_arv=:airp_arv ";
+    "      pax_grp.point_dep=:point_id AND airp_arv=:airp_arv AND "
+    "      pax_grp.status NOT IN ('E') ";
   Qry.CreateVariable("point_id", otInteger, point_id);
   Qry.CreateVariable("airp_arv", otString, grp_out.airp_arv);
   Qry.Execute();
@@ -1677,7 +1681,7 @@ void GetNextTrferCheckedFlts(int id,
     sql << "      pax_grp.grp_id=pax.grp_id AND "
            "      pax.pax_id=:id AND ";
   sql << "      transfer.transfer_num=1 AND "
-         "      pax_grp.bag_refuse=0 AND pax_grp.status<>'T' AND "
+         "      pax_grp.bag_refuse=0 AND pax_grp.status NOT IN ('T', 'E') AND "
          "      (pax_grp.class IS NULL OR pax.pr_brd=1 AND pax.bag_pool_num IS NOT NULL) ";
 */
   Qry.SQLText=sql.str();
@@ -1845,7 +1849,7 @@ void GetTransfer(bool pr_inbound_tckin,
         "       pax_grp.grp_id,pax_grp.airp_arv,pax_grp.class AS subcl "
         "FROM pax_grp,tckin_pax_grp "
         "WHERE pax_grp.grp_id=tckin_pax_grp.grp_id AND "
-        "      pax_grp.point_dep=:point_id AND bag_refuse=0 AND pax_grp.status<>'T' ";
+        "      pax_grp.point_dep=:point_id AND bag_refuse=0 AND pax_grp.status NOT IN ('T', 'E') ";
     }
     else
     {
@@ -1858,7 +1862,7 @@ void GetTransfer(bool pr_inbound_tckin,
         "WHERE pax_grp.grp_id=transfer.grp_id AND "
         "      transfer.point_id_trfer=trfer_trips.point_id AND "
         "      transfer.transfer_num=1 AND "
-        "      pax_grp.point_dep=:point_id AND bag_refuse=0 AND pax_grp.status<>'T' ";
+        "      pax_grp.point_dep=:point_id AND bag_refuse=0 AND pax_grp.status NOT IN ('T', 'E') ";
     };
     Qry.CreateVariable("point_id",otInteger,point_id);
 

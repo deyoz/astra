@@ -2751,6 +2751,7 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p )
     " FROM pax_rem, pax_grp, pax, comp_rem_types "
     "WHERE pax_grp.grp_id=pax.grp_id AND "
     "      pax_grp.point_dep=:point_id AND "
+    "      pax_grp.status NOT IN ('E') AND "
     "      pax.pr_brd IS NOT NULL AND "
     "      pax.seats > 0 AND "
     "      pax_rem.pax_id=pax.pax_id AND "
@@ -2793,6 +2794,7 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p )
     "FROM pax_grp, pax, cls_grp, tckin_pax_grp "
     "WHERE pax_grp.grp_id=pax.grp_id AND "
     "      pax_grp.point_dep=:point_id AND "
+    "      pax_grp.status NOT IN ('E') AND "
     "      pax_grp.class_grp = cls_grp.id AND "
     "      pax_grp.grp_id=tckin_pax_grp.grp_id(+) AND "
     "      pax.pr_brd IS NOT NULL AND "
@@ -3355,7 +3357,8 @@ void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &APass, TSeatA
 
   //!!! не задано pass.placeName, pass.PrevPlaceName, pass.OldPlaceName, pass.placeList,pass.InUse ,x,y???
 	TQuery Qry( &OraSession );
-	Qry.SQLText = "SELECT layer_type FROM grp_status_types ORDER BY priority ";
+	Qry.SQLText =
+    "SELECT layer_type FROM grp_status_types WHERE layer_type IS NOT NULL ORDER BY priority ";
 	Qry.Execute();
 
   int s;
@@ -3952,6 +3955,8 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
         //заполняем пассажирами с одними характеристиками
         vector<ASTRA::TCompLayerType> grp_layers;
         const TGrpStatusTypesRow &grp_status_row = (TGrpStatusTypesRow&)grp_status_types.get_row( "code", ipass_status->first );
+        if ( DecodePaxStatus(ipass_status->first.c_str()) == psCrew )
+          throw EXCEPTIONS::Exception("AutoReSeatsPassengers: DecodePaxStatus(ipass_status->first) == psCrew");
         ASTRA::TCompLayerType grp_layer_type = DecodeCompLayerType( grp_status_row.layer_type.c_str() );
         grp_layers.push_back( grp_layer_type );
         SALONS2::TFilterRoutesSets filterRoutes = salonList.getFilterRoutes();
@@ -4216,7 +4221,7 @@ void TPassengers::Build( xmlNodePtr dataNode )
   xmlNodePtr passNode = NewTextChild( dataNode, "passengers" );
   TQuery Qry( &OraSession );
   Qry.SQLText =
-    "SELECT code,layer_type,name FROM grp_status_types ORDER BY priority";
+    "SELECT code,layer_type,name FROM grp_status_types WHERE layer_type IS NOT NULL ORDER BY priority";
   Qry.Execute();
 
   TDefaults def;
