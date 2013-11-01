@@ -4449,10 +4449,10 @@ void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tran
   TSalonList salonList;
   TSalonPassengers passengers;
   FilterRoutesProperty filterRoutes;
-  TQuery Qry(&OraSession);
+/*  TQuery Qry(&OraSession);
   Qry.SQLText =
     "SELECT point_id FROM trip_comp_elems WHERE point_id=:point_id AND rownum<2";
-  Qry.DeclareVariable( "point_id", otInteger );
+  Qry.DeclareVariable( "point_id", otInteger );*/
   bool pr_exists_salons = false;
   for ( TFlights::iterator iflights=flights.begin(); iflights!=flights.end(); iflights++ ) { //пробег по рейсам
     for ( FlightPoints::iterator iroute=iflights->begin(); iroute!=iflights->end()-1; iroute++ ) { //пробег по пунктам
@@ -7347,6 +7347,16 @@ void DeleteSalons( int point_id )
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   setTRIP_CLASSES( point_id );
+}
+
+bool isEmptySalons( int point_id )
+{
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "SELECT point_id FROM trip_comp_elems WHERE point_id=:point_id AND rownum<2";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  return Qry.Eof;
 }
 
 bool isFreeSeating( int point_id )

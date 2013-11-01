@@ -1039,6 +1039,7 @@ class TSalonList: public std::vector<TPlaceList*> {
   
   bool isTranzitSalons( int point_id );
   bool isFreeSeating( int point_id );
+  bool isEmptySalons( int point_id );
   void DeleteSalons( int point_id );
   
   bool isUserProtectLayer( ASTRA::TCompLayerType layer_type );
