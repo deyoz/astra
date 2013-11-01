@@ -6269,11 +6269,15 @@ void CheckInInterface::readTripData( int point_id, xmlNodePtr dataNode )
   Qry.Clear();
   Qry.SQLText =
     "SELECT airline,flt_no,suffix,airp,scd_out, "
-    "       point_num, first_point, pr_tranzit "
-    "FROM points WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";
+    "       point_num, first_point, pr_tranzit, "
+    "       pr_free_seating "
+    "FROM points, trip_sets "
+    "WHERE points.point_id=trip_sets.point_id AND "
+    "      points.point_id=:point_id AND pr_del=0 AND pr_reg<>0";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
   if (Qry.Eof) throw UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
+  bool free_seating=Qry.FieldAsInteger("pr_free_seating")!=0;
 
   TTripInfo operFlt(Qry);
   TTripRoute route;
@@ -6328,13 +6332,24 @@ void CheckInInterface::readTripData( int point_id, xmlNodePtr dataNode )
   };
 
   Qry.Clear();
-  Qry.SQLText =
-    "SELECT class AS class_code, "
-    "       cfg "
-    "FROM trip_classes,classes "
-    "WHERE classes.code=trip_classes.class AND point_id= :point_id "
-    "ORDER BY priority";
-  Qry.CreateVariable("point_id",otInteger,point_id);
+  if (!free_seating)
+  {
+    Qry.SQLText =
+      "SELECT class AS class_code, "
+      "       cfg "
+      "FROM trip_classes,classes "
+      "WHERE classes.code=trip_classes.class AND point_id= :point_id "
+      "ORDER BY priority";
+    Qry.CreateVariable("point_id",otInteger,point_id);
+  }
+  else
+  {
+    Qry.SQLText =
+      "SELECT code AS class_code, "
+      "       0 AS cfg "
+      "FROM classes "
+      "ORDER BY priority";
+  };
   Qry.Execute();
   node = NewTextChild( tripdataNode, "classes" );
   for(;!Qry.Eof;Qry.Next())
