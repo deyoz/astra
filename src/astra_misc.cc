@@ -1940,3 +1940,51 @@ int CalcWeightInKilos(int weight, std::string weight_unit)
   return result;
 };
 
+string TCFG::GetCfgStr(const string &lang, const string &separator)
+{
+    vector< pair<TElemFmt,string> > fmts_code;
+    if (lang.empty())
+        getElemFmts(efmtCodeNative, TReqInfo::Instance()->desk.lang, fmts_code);
+    else
+        getElemFmts(efmtCodeNative, lang, fmts_code);
+    ostringstream result;
+    for(vector<TCFGItem>::iterator iv = begin(); iv != end(); iv++) {
+        if (!result.str().empty()) result << separator;
+        result
+            << ElemIdToElem(etClass, iv->cls, fmts_code, true)
+            << iv->cfg;
+    }
+    return result.str();
+}
+
+void TCFG::get(int point_id, TDateTime part_key)
+{
+    clear();
+    QParams QryParams;
+    QryParams << QParam("point_id", otInteger, point_id);
+    string SQLText;
+    if(part_key == NoExists)
+        SQLText = 
+            "SELECT class,cfg,block,prot "
+            "FROM trip_classes,classes "
+            "WHERE trip_classes.class=classes.code AND point_id=:point_id AND cfg>0 "
+            "ORDER BY priority ";
+    else {
+        SQLText = 
+            "SELECT class, cfg FROM arx_trip_classes,classes "
+            "WHERE arx_trip_classes.class=classes.code(+) AND "
+            "      part_key=:part_key AND point_id=:point_id "
+            "ORDER BY priority";
+        QryParams << QParam("part_key", otDate, part_key);
+    }
+    TQuery &Qry = TQrys::Instance()->get(SQLText, QryParams);
+    Qry.Execute();
+    for(; !Qry.Eof; Qry.Next()) {
+        TCFGItem item;
+        item.cls = Qry.FieldAsString("class");
+        item.cfg = Qry.FieldAsInteger("cfg");
+        item.block = Qry.FieldAsInteger("block");
+        item.port = Qry.FieldAsInteger("port");
+        push_back(item);
+    }
+}

@@ -755,6 +755,25 @@ std::string SeparateNames(std::string &names);
 
 int CalcWeightInKilos(int weight, std::string weight_unit);
 
+struct TCFGItem {
+    std::string cls;
+    int cfg, block, port;
+    TCFGItem():
+        cfg(ASTRA::NoExists),
+        block(ASTRA::NoExists),
+        port(ASTRA::NoExists)
+    {};
+};
+
+struct TCFG:public std::vector<TCFGItem> {
+    void get(int point_id, BASIC::TDateTime part_key = ASTRA::NoExists);
+    std::string GetCfgStr(const std::string &lang, const std::string &separator);
+
+    TCFG(int point_id, BASIC::TDateTime part_key = ASTRA::NoExists) { get(point_id, part_key); };
+    TCFG() {};
+};
+
+
 #endif /*_ASTRA_MISC_H_*/
 
 

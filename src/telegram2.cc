@@ -2931,17 +2931,6 @@ struct TClsCmp {
     }
 };
 
-struct TCFGItem {
-    string cls;
-    int cfg;
-    TCFGItem(): cfg(NoExists) {};
-};
-
-struct TCFG {
-    vector<TCFGItem> items;
-    void get(TypeB::TDetailCreateInfo &info);
-};
-
 struct TPSMPax {
     int pax_id;
     int point_id;
@@ -2993,7 +2982,7 @@ void TSSRCodes::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
         ostringstream buf;
         buf << setw(4) << left << i_items->first;
         TPSMSSRItem &SSRItem = i_items->second;
-        for(vector<TCFGItem>::iterator i_cfg = cfg.items.begin(); i_cfg != cfg.items.end(); i_cfg++) {
+        for(vector<TCFGItem>::iterator i_cfg = cfg.begin(); i_cfg != cfg.end(); i_cfg++) {
             TCounter &counter = SSRItem[i_cfg->cls];
             buf << " " << setw(3) << setfill('0') << right << counter.val << info.TlgElemIdToElem(etClass, i_cfg->cls);
         }
@@ -3011,7 +3000,7 @@ void TPSM::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
         vector<string> pax_list_body;
         int target_pax = 0;
         int target_ssr = 0;
-        for(vector<TCFGItem>::iterator i_cfg = cfg.items.begin(); i_cfg != cfg.items.end(); i_cfg++) {
+        for(vector<TCFGItem>::iterator i_cfg = cfg.begin(); i_cfg != cfg.end(); i_cfg++) {
             TPSMPaxLst &pax_list = PSMCls[i_cfg->cls];
             int ssr = 0;
             vector<string> cls_body;
@@ -3061,7 +3050,7 @@ void TPSM::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 
 void TPSM::get(TypeB::TDetailCreateInfo &info)
 {
-    cfg.get(info);
+    cfg.get(info.point_id);
     vector<TTlgCompLayer> complayers;
     ReadSalons( info, complayers );
     TQuery Qry(&OraSession);
@@ -3131,7 +3120,7 @@ struct TPIL {
 
 void TPIL::get(TypeB::TDetailCreateInfo &info)
 {
-    cfg.get(info);
+    cfg.get(info.point_id);
     vector<TTlgCompLayer> complayers;
     ReadSalons( info, complayers );
     TQuery Qry(&OraSession);
@@ -3178,7 +3167,7 @@ void TPIL::get(TypeB::TDetailCreateInfo &info)
 
 void TPIL::ToTlg(TypeB::TDetailCreateInfo &info, string &body)
 {
-    for(vector<TCFGItem>::iterator iv = cfg.items.begin(); iv != cfg.items.end(); iv++) {
+    for(vector<TCFGItem>::iterator iv = cfg.begin(); iv != cfg.end(); iv++) {
         body += info.TlgElemIdToElem(etClass, iv->cls) + "CLASS" + TypeB::endl;
         const TPILPaxLst &pax_lst = items[iv->cls];
         if(pax_lst.empty())
@@ -4758,9 +4747,9 @@ struct TETLCFG:TCFG {
     void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
     {
         ostringstream cfg;
-        if(not items.empty()) {
+        if(not empty()) {
             cfg << "CFG/";
-            for(vector<TCFGItem>::iterator iv = items.begin(); iv != items.end(); iv++)
+            for(vector<TCFGItem>::iterator iv = begin(); iv != end(); iv++)
             {
                 cfg
                     << setw(3) << setfill('0') << iv->cfg
@@ -4812,7 +4801,7 @@ struct TLDMCFG:TCFG {
     void ToTlg(TypeB::TDetailCreateInfo &info, bool &vcompleted, vector<string> &body)
     {
         ostringstream cfg;
-        for(vector<TCFGItem>::iterator iv = items.begin(); iv != items.end(); iv++)
+        for(vector<TCFGItem>::iterator iv = begin(); iv != end(); iv++)
         {
             if(not cfg.str().empty())
                 cfg << "/";
@@ -4851,29 +4840,9 @@ struct TLDMCFG:TCFG {
     void get(TypeB::TDetailCreateInfo &info);
 };
 
-void TCFG::get(TypeB::TDetailCreateInfo &info)
-{
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "SELECT class,cfg "
-        "FROM trip_classes,classes "
-        "WHERE trip_classes.class=classes.code AND point_id=:point_id "
-        "ORDER BY priority ";
-    ProgTrace(TRACE5, "point_id: %d", info.point_id);
-    Qry.CreateVariable("point_id", otInteger, info.point_id);
-    Qry.Execute();
-    for(; !Qry.Eof; Qry.Next()) {
-        TCFGItem item;
-        item.cls = Qry.FieldAsString("class");
-        item.cfg = Qry.FieldAsInteger("cfg");
-        items.push_back(item);
-    }
-    ProgTrace(TRACE5, "items.size: %zu", items.size());
-}
-
 void TLDMCFG::get(TypeB::TDetailCreateInfo &info)
 {
-    TCFG::get(info);
+    TCFG::get(info.point_id);
     crew.get(info);
 };
 
@@ -5509,13 +5478,13 @@ struct TLCICFG:TCFG {
     void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
     {
         ostringstream cfg;
-        if(not items.empty()) {
+        if(not empty()) {
             info.vcompleted = info.vcompleted and not info.bort.empty() and not info.craft.empty();
             cfg
                 << "EQT."
                 << (info.bort.empty() ? "??" : info.bort) << "."
                 << (info.craft.empty() ? "??" : info.TlgElemIdToElem(etCraft, info.craft)) << ".";
-            for(vector<TCFGItem>::iterator iv = items.begin(); iv != items.end(); iv++)
+            for(vector<TCFGItem>::iterator iv = begin(); iv != end(); iv++)
             {
                 cfg
                     << info.TlgElemIdToElem(etClass, iv->cls)
@@ -5725,8 +5694,9 @@ void TLCIPaxTotals::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 
 void TLCIPaxTotals::get(TypeB::TDetailCreateInfo &info)
 {
+    // complayers нужен внутри PRL для вытаскивания номера места для ремарки SEAT
+    // в данном случае, нужны только totals, поэтому передаем пустой вектор
     vector<TTlgCompLayer> complayers;
-    ReadSalons( info, complayers );
     TDestList<TPRLDest> dests;
     dests.get(info,complayers);
     for(vector<TPRLDest>::iterator iv = dests.items.begin(); iv != dests.items.end(); iv++) {
@@ -5771,30 +5741,28 @@ struct TSeatPlan {
 
 void TSeatPlan::get(TypeB::TDetailCreateInfo &info)
 {
-    getPaxsSeats(info.point_id, checkinPaxsSeats);
+    const TypeB::TLCIOptions &options = *info.optionsAs<TypeB::TLCIOptions>();
+    if(options.seat_plan) getPaxsSeats(info.point_id, checkinPaxsSeats);
 }
 
 void TSeatPlan::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 {
-    const TypeB::TLCIOptions &options = *info.optionsAs<TypeB::TLCIOptions>();
-    if(options.seat_plan) {
-        string buf = "SP";
-        for(map<int,TCheckinPaxSeats>::iterator im = checkinPaxsSeats.begin(); im != checkinPaxsSeats.end(); im++) {
-            for(set<TTlgCompLayer,TCompareCompLayers>::iterator is = im->second.seats.begin(); is != im->second.seats.end(); is++) {
-                string seat =
-                    "." + denorm_iata_row(is->yname, NULL) +
-                    denorm_iata_line(is->xname, info.is_lat() or info.pr_lat_seat) +
-                    "/" + im->second.gender;
-                if(buf.size() + seat.size() > 64) {
-                    body.push_back(buf);
-                    buf = "SP";
-                }
-                buf += seat;
+    string buf = "SP";
+    for(map<int,TCheckinPaxSeats>::iterator im = checkinPaxsSeats.begin(); im != checkinPaxsSeats.end(); im++) {
+        for(set<TTlgCompLayer,TCompareCompLayers>::iterator is = im->second.seats.begin(); is != im->second.seats.end(); is++) {
+            string seat =
+                "." + denorm_iata_row(is->yname, NULL) +
+                denorm_iata_line(is->xname, info.is_lat() or info.pr_lat_seat) +
+                "/" + im->second.gender;
+            if(buf.size() + seat.size() > 64) {
+                body.push_back(buf);
+                buf = "SP";
             }
+            buf += seat;
         }
-        if(buf != "SP")
-            body.push_back(buf);
     }
+    if(buf != "SP")
+        body.push_back(buf);
 }
 
 struct TLCI {
@@ -5813,7 +5781,7 @@ void TLCI::get(TypeB::TDetailCreateInfo &info)
 {
     const TypeB::TLCIOptions &options = *info.optionsAs<TypeB::TLCIOptions>();
     info.vcompleted = true;
-    if(options.equipment) eqt.get(info);
+    if(options.equipment) eqt.get(info.point_id);
     if(options.weight_avail != "N") wa.get(info);
     sr_c.get(info);
     sr_z.get(info);
@@ -5933,7 +5901,7 @@ int ETL(TypeB::TDetailCreateInfo &info)
     vector<string> body;
     try {
         TETLCFG cfg;
-        cfg.get(info);
+        cfg.get(info.point_id);
         cfg.ToTlg(info, body);
         if(info.act_local != NoExists) {
             body.push_back("ATD/" + DateTimeToStr(info.act_local, "ddhhnn"));
@@ -6718,19 +6686,10 @@ int PRL(TypeB::TDetailCreateInfo &info)
     vector<string> body;
     try {
         vector<TTlgCompLayer> complayers;
-
-        TPerfTimer tm("prl ReadSalons");
-        tm.Init();
-        ReadSalons( info, complayers );
-
+        if(not isEmptySalons(info.point_id))
+            ReadSalons( info, complayers );
         TDestList<TPRLDest> dests;
-
-        TPerfTimer tm_get("prl tm_get");
-        tm_get.Init();
         dests.get(info,complayers);
-
-        TPerfTimer tm_to_tlg("prl tm_to_tlg");
-        tm_to_tlg.Init();
         dests.ToTlg(info, body);
     } catch(...) {
         ExceptionFilter(body, info);
