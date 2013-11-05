@@ -3,6 +3,7 @@
 #define _TIMER_H_
 
 #include "basic.h"
+#include "astra_service.h"
 #include <tcl.h>
 //#include <string>
 #include <libxml/parser.h>

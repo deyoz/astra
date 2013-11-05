@@ -100,12 +100,12 @@ namespace RCPT_PAX_DOC {
             throw UserException("MSG.PAX_NAME", LParams() << LParam("msg", getLocaleText("MSG.PAX_NAME.DOC_TYPE_NOT_FOUND")));
     }
 
-    string get(int pax_id, TQuery &PaxDocQry)
+    string get(int pax_id)
     {
         ostringstream result;
 
         CheckIn::TPaxDocItem doc;
-        if (LoadPaxDoc(NoExists, pax_id, doc, PaxDocQry) && !doc.no.empty())
+        if (LoadPaxDoc(NoExists, pax_id, doc) && !doc.no.empty())
         {
             if (!doc.type_rcpt.empty())
               result << doc.type_rcpt;
@@ -442,9 +442,8 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   NewTextChild(dataNode,"pr_refuse",(int)(Qry.FieldAsInteger("bag_refuse")!=0));
   NewTextChild(dataNode,"reg_no",Qry.FieldAsInteger("reg_no"));
   NewTextChild(dataNode,"pax_name", RCPT_PAX_NAME::get_pax_name(Qry));
-  TQuery PaxDocQry(&OraSession);
   if (!Qry.FieldIsNULL("pax_id"))
-    NewTextChild(dataNode,"pax_doc",RCPT_PAX_DOC::get(Qry.FieldAsInteger("pax_id"), PaxDocQry));
+    NewTextChild(dataNode,"pax_doc",RCPT_PAX_DOC::get(Qry.FieldAsInteger("pax_id")));
   else
     NewTextChild(dataNode,"pax_doc");
   NewTextChild(dataNode,"tid",Qry.FieldAsInteger("tid"));

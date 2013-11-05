@@ -13,8 +13,8 @@
 #include "stl_utils.h"
 #include "base_tables.h"
 #include "astra_utils.h"
-#include "astra_service.h"
-
+//#include "astra_service.h"
+#include "file_queue.h"
 #define NICKNAME "DJEK"
 #define NICKTRACE DJEK_TRACE
 #include "serverlib/slogger.h"

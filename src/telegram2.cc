@@ -13,6 +13,7 @@
 #include "remarks.h"
 #include "pers_weights.h"
 #include "misc.h"
+#include "qrys.h"
 #include "typeb_utils.h"
 #include "serverlib/logger.h"
 
@@ -605,10 +606,9 @@ namespace PRL_SPACE {
     void TPNRList::get(int pnr_id)
     {
         if(pnr_id == NoExists) return;
-        TQuery Qry(&OraSession);
-        Qry.SQLText =
-            "SELECT airline,addr FROM pnr_addrs WHERE pnr_id=:pnr_id ORDER BY addr,airline";
-        Qry.CreateVariable("pnr_id", otInteger, pnr_id);
+        QParams QryParams;
+        QryParams << QParam("pnr_id", otInteger, pnr_id);
+        TQuery &Qry = TQrys::Instance()->get("SELECT airline,addr FROM pnr_addrs WHERE pnr_id=:pnr_id ORDER BY addr,airline", QryParams);
         Qry.Execute();
         for(; !Qry.Eof; Qry.Next()) {
             TPNRItem pnr;
@@ -893,7 +893,6 @@ namespace PRL_SPACE {
 
     void TTagList::get(int grp_id, int bag_pool_num)
     {
-        TQuery Qry(&OraSession);
         string SQLText =
             "select "
             "    bag_tags.tag_type,  "
@@ -921,10 +920,11 @@ namespace PRL_SPACE {
             "    bag_tags.tag_type = tag_types.code and "
             "    bag_tags.grp_id = transfer.grp_id(+) and transfer.pr_final(+)<>0 and "
             "    bag_tags.grp_id = pax_grp.grp_id ";
-
-        Qry.SQLText = SQLText;
-        Qry.CreateVariable("grp_id", otInteger, grp_id);
-        Qry.CreateVariable("bag_pool_num", otInteger, bag_pool_num);
+        QParams QryParams;
+        QryParams
+            << QParam("grp_id", otInteger, grp_id)
+            << QParam("bag_pool_num", otInteger, bag_pool_num);
+        TQuery &Qry = TQrys::Instance()->get(SQLText, QryParams);
         Qry.Execute();
         if(!Qry.Eof) {
             int col_tag_type = Qry.FieldIndex("tag_type");
@@ -1037,7 +1037,6 @@ namespace PRL_SPACE {
 
     void TOnwardList::get(int grp_id, int pax_id)
     {
-        TQuery Qry(&OraSession);
         string SQLText =
             "SELECT \n"
             "    trfer_trips.airline, \n"
@@ -1079,11 +1078,12 @@ namespace PRL_SPACE {
             "    transfer.point_id_trfer=trfer_trips.point_id \n"
             "ORDER BY \n"
             "    transfer.transfer_num \n";
-        Qry.SQLText = SQLText;
+        QParams QryParams;
         if(pax_id == NoExists)
-            Qry.CreateVariable("grp_id", otInteger, grp_id);
+            QryParams << QParam("grp_id", otInteger, grp_id);
         else
-            Qry.CreateVariable("pax_id", otInteger, pax_id);
+            QryParams << QParam("pax_id", otInteger, pax_id);
+        TQuery &Qry = TQrys::Instance()->get(SQLText, QryParams);
         Qry.Execute();
         if(!Qry.Eof) {
             int col_airline = Qry.FieldIndex("airline");
@@ -1175,6 +1175,7 @@ namespace PRL_SPACE {
         TRemList rems;
         TPRLOnwardList OList;
         TGender gender;
+        TPerson pers_type;
         TPRLPax(TInfants *ainfants): rems(ainfants) {
             cls_grp_id = NoExists;
             pnr_id = NoExists;
@@ -1220,11 +1221,13 @@ namespace PRL_SPACE {
         if(find(grp_id, bag_pool_num)) return; // olready got
         TGRPItem item;
         item.W.get(grp_id, bag_pool_num);
-        TQuery Qry(&OraSession);
-        Qry.SQLText =
-            "select count(*) from pax where grp_id = :grp_id and bag_pool_num = :bag_pool_num and refuse is null";
-        Qry.CreateVariable("grp_id", otInteger, grp_id);
-        Qry.CreateVariable("bag_pool_num", otInteger, bag_pool_num);
+        QParams QryParams;
+        QryParams
+            << QParam("grp_id", otInteger, grp_id)
+            << QParam("bag_pool_num", otInteger, bag_pool_num);
+        TQuery &Qry = TQrys::Instance()->get(
+                "select count(*) from pax where grp_id = :grp_id and bag_pool_num = :bag_pool_num and refuse is null",
+                QryParams);
         Qry.Execute();
         item.pax_count = Qry.FieldAsInteger(0);
         item.tags.get(grp_id, bag_pool_num);
@@ -1261,11 +1264,7 @@ namespace PRL_SPACE {
                 items.push_back(rem);
             }
         }
-        TQuery Qry(&OraSession);
-        Qry.CreateVariable("pax_id", otInteger, pax.pax_id);
-        Qry.SQLText = "select * from pax where pax.pax_id = :pax_id and pax.pers_type in ('РБ', 'РМ') and pax.seats>0 ";
-        Qry.Execute();
-        if(!Qry.Eof)
+        if(pax.pers_type == child or pax.pers_type == baby)
             items.push_back("1CHD");
         TTlgSeatList seats;
         seats.add_seats(pax.pax_id, complayers);
@@ -1273,38 +1272,40 @@ namespace PRL_SPACE {
         if(!seat_list.empty())
             items.push_back("SEAT " + seat_list);
         internal_get(info, pax.pax_id, pax.subcls);
-        Qry.Clear();
-        Qry.SQLText =
-            "select "
-            "    rem_code, rem "
-            "from "
-            "    pax_rem "
-            "where "
-            "    pax_rem.pax_id = :pax_id and "
-            "    pax_rem.rem_code not in ('OTHS', 'CHD', 'CHLD', 'INF', 'INFT') ";
-        Qry.CreateVariable("pax_id", otInteger, pax.pax_id);
+
+        QParams QryParams;
+        QryParams << QParam("pax_id", otInteger, pax.pax_id);
+        TQuery &Qry = TQrys::Instance()->get(
+                "select "
+                "    rem_code, rem "
+                "from "
+                "    pax_rem "
+                "where "
+                "    pax_rem.pax_id = :pax_id and "
+                "    pax_rem.rem_code not in ('OTHS', 'CHD', 'CHLD', 'INF', 'INFT') ",
+                QryParams);
         Qry.Execute();
         for(; !Qry.Eof; Qry.Next())
         {
-          TRemCategory cat=getRemCategory(Qry.FieldAsString("rem_code"),
-                                          Qry.FieldAsString("rem"));
-          if (isDisabledRemCategory(cat)) continue;
-          if (cat==remFQT) continue;
-          items.push_back(transliter(Qry.FieldAsString("rem"), 1, info.is_lat()));
+            TRemCategory cat=getRemCategory(Qry.FieldAsString("rem_code"),
+                    Qry.FieldAsString("rem"));
+            if (isDisabledRemCategory(cat)) continue;
+            if (cat==remFQT) continue;
+            items.push_back(transliter(Qry.FieldAsString("rem"), 1, info.is_lat()));
         };
-        
+
         CheckIn::TPaxRemItem rem;
         //билет
         CheckIn::TPaxTknItem tkn;
-        LoadPaxTkn(pax.pax_id, tkn, Qry);
+        LoadPaxTkn(pax.pax_id, tkn);
         if (getPaxRem(info, tkn, rem)) items.push_back(rem.text);
         //документ
         CheckIn::TPaxDocItem doc;
-        LoadPaxDoc(pax.pax_id, doc, Qry);
+        LoadPaxDoc(pax.pax_id, doc);
         if (getPaxRem(info, doc, rem)) items.push_back(rem.text);
         //виза
         CheckIn::TPaxDocoItem doco;
-        LoadPaxDoco(pax.pax_id, doco, Qry);
+        LoadPaxDoco(pax.pax_id, doco);
         if (getPaxRem(info, doco, rem)) items.push_back(rem.text);
     }
 
@@ -1346,7 +1347,7 @@ namespace PRL_SPACE {
         if(info.optionsIs<TypeB::TPRLOptions>())
             PRLOptions=info.optionsAs<TypeB::TPRLOptions>();
 
-        TQuery Qry(&OraSession);
+
         string SQLText =
             "select "
             "    pax_grp.airp_arv target, "
@@ -1393,11 +1394,13 @@ namespace PRL_SPACE {
             "    surname, "
             "    name nulls first, "
             "    pax.pax_id ";
-        Qry.SQLText = SQLText;
-        Qry.CreateVariable("point_id", otInteger, info.point_id);
-        Qry.CreateVariable("airp", otString, airp);
-        Qry.CreateVariable("class", otString, cls);
-        Qry.CreateVariable("pr_lat", otInteger, info.is_lat());
+        QParams QryParams;
+        QryParams
+            << QParam("point_id", otInteger, info.point_id)
+            << QParam("airp", otString, airp)
+            << QParam("class", otString, cls)
+            << QParam("pr_lat", otInteger, info.is_lat());
+        TQuery &Qry = TQrys::Instance()->get(SQLText, QryParams);
         Qry.Execute();
         if(!Qry.Eof) {
             int col_target = Qry.FieldIndex("target");
@@ -1438,11 +1441,11 @@ namespace PRL_SPACE {
                 pax.pnrs.get(pax.pnr_id);
                 if(!Qry.FieldIsNULL(col_subcls))
                     pax.subcls = Qry.FieldAsString(col_subcls);
-                pax.rems.get(info, pax, complayers);
                 grp_map->get(pax.grp_id, pax.bag_pool_num);
                 pax.OList.get(pax.grp_id, pax.pax_id);
-                TPerson pers_type = DecodePerson(Qry.FieldAsString(col_pers_type));
-                switch(pers_type) {
+                pax.pers_type = DecodePerson(Qry.FieldAsString(col_pers_type));
+                pax.rems.get(info, pax, complayers); // Обязательно после инициализации pers_type выше
+                switch(pax.pers_type) {
                     case NoPerson:
                         break;
                     case adult:
@@ -1968,21 +1971,23 @@ void TWItem::ToTlg(vector<string> &body)
 void TWItem::get(int grp_id, int bag_pool_num)
 {
     if(bag_pool_num == NoExists) return;
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "declare "
-        "   bag_pool_pax_id pax.pax_id%type; "
-        "begin "
-        "   bag_pool_pax_id := ckin.get_bag_pool_pax_id(:grp_id, :bag_pool_num); "
-        "   :bagAmount := ckin.get_bagAmount2(:grp_id, bag_pool_pax_id, :bag_pool_num); "
-        "   :bagWeight := ckin.get_bagWeight2(:grp_id, bag_pool_pax_id, :bag_pool_num); "
-        "   :rkWeight := ckin.get_rkWeight2(:grp_id, bag_pool_pax_id, :bag_pool_num); "
-        "end;";
-    Qry.CreateVariable("grp_id", otInteger, grp_id);
-    Qry.CreateVariable("bag_pool_num", otInteger, bag_pool_num);
-    Qry.DeclareVariable("bagAmount", otInteger);
-    Qry.DeclareVariable("bagWeight", otInteger);
-    Qry.DeclareVariable("rkWeight", otInteger);
+    QParams QryParams;
+    QryParams
+        << QParam("grp_id", otInteger, grp_id)
+        << QParam("bag_pool_num", otInteger, bag_pool_num)
+        << QParam("bagAmount", otInteger)
+        << QParam("bagWeight", otInteger)
+        << QParam("rkWeight", otInteger);
+    TQuery &Qry = TQrys::Instance()->get(
+            "declare "
+            "   bag_pool_pax_id pax.pax_id%type; "
+            "begin "
+            "   bag_pool_pax_id := ckin.get_bag_pool_pax_id(:grp_id, :bag_pool_num); "
+            "   :bagAmount := ckin.get_bagAmount2(:grp_id, bag_pool_pax_id, :bag_pool_num); "
+            "   :bagWeight := ckin.get_bagWeight2(:grp_id, bag_pool_pax_id, :bag_pool_num); "
+            "   :rkWeight := ckin.get_rkWeight2(:grp_id, bag_pool_pax_id, :bag_pool_num); "
+            "end;",
+            QryParams);
     Qry.Execute();
     bagAmount = Qry.GetVariableAsInteger("bagAmount");
     bagWeight = Qry.GetVariableAsInteger("bagWeight");
@@ -4064,12 +4069,11 @@ void TRemList::get(TypeB::TDetailCreateInfo &info, TETLPax &pax)
     CheckIn::TPaxRemItem rem;
     //билет
     CheckIn::TPaxTknItem tkn;
-    TQuery Qry(&OraSession);
-    LoadPaxTkn(pax.pax_id, tkn, Qry);
+    LoadPaxTkn(pax.pax_id, tkn);
     if (tkn.rem == "TKNE" and getPaxRem(info, tkn, rem)) items.push_back(rem.text);
     for(vector<TInfantsItem>::iterator infRow = infants->items.begin(); infRow != infants->items.end(); infRow++) {
         if(infRow->grp_id == pax.grp_id and infRow->parent_pax_id == pax.pax_id) {
-            LoadPaxTkn(infRow->pax_id, tkn, Qry);
+            LoadPaxTkn(infRow->pax_id, tkn);
             if (tkn.rem == "TKNE" and getPaxRem(info, tkn, rem)) items.push_back(rem.text);
         }
     }
@@ -4173,8 +4177,9 @@ bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxDocoItem &doco
 
 void TRemList::internal_get(TypeB::TDetailCreateInfo &info, int pax_id, string subcls)
 {
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
+    QParams QryParams;
+    QryParams << QParam("pax_id", otInteger, pax_id);
+    TQuery &Qry = TQrys::Instance()->get(
         "select "
         "   pax_fqt.rem_code, "
         "   pax_fqt.airline, "
@@ -4190,8 +4195,8 @@ void TRemList::internal_get(TypeB::TDetailCreateInfo &info, int pax_id, string s
         "   pax_fqt.pax_id = crs_pax.pax_id(+) and "
         "   crs_pax.pr_del(+)=0 and "
         "   crs_pax.pnr_id = crs_pnr.pnr_id(+) and "
-        "   pax_fqt.rem_code in('FQTV', 'FQTU', 'FQTR') ";
-    Qry.CreateVariable("pax_id", otInteger, pax_id);
+        "   pax_fqt.rem_code in('FQTV', 'FQTU', 'FQTR') ",
+            QryParams);
     Qry.Execute();
     if(!Qry.Eof) {
         int col_rem_code = Qry.FieldIndex("rem_code");
@@ -4256,11 +4261,10 @@ struct TPIMDest {
 
 void TPIMDest::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 {
-    TQuery Qry(&OraSession);
     CheckIn::TPaxDocItem doc;
     vector<string> pax_body;
     for(vector<TPIMPax>::iterator iv = PaxList.begin(); iv != PaxList.end(); iv++) {
-        LoadPaxDoc(iv->pax_id, doc, Qry);
+        LoadPaxDoc(iv->pax_id, doc);
         string vsurname, vname;
         if(doc.surname.empty()) {
             vname = transliter(iv->name, 1, info.is_lat());
@@ -5963,37 +5967,41 @@ int ETL(TypeB::TDetailCreateInfo &info)
 template <class T>
 void TDestList<T>::get(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &complayers)
 {
+    TPerfTimer tm;
+    tm.Init();
     infants.get(info);
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "select point_num, airp, class from "
-        "( "
-        "  SELECT airp, point_num, point_id FROM points "
-        "  WHERE first_point = :vfirst_point AND point_num > :vpoint_num AND pr_del=0 "
-        ") a, "
-        "( "
-        "  SELECT DISTINCT cls_grp.code AS class "
-        "  FROM pax_grp,cls_grp "
-        "  WHERE pax_grp.class_grp=cls_grp.id AND "
-        "        pax_grp.point_dep = :vpoint_id AND "
-        "        pax_grp.status NOT IN ('E') AND "
-        "        pax_grp.bag_refuse=0 "
-        "  UNION "
-        "  SELECT class FROM trip_classes WHERE point_id = :vpoint_id "
-        ") b  "
-        "ORDER by "
-        "  point_num, airp, class ";
-    Qry.CreateVariable("vpoint_id", otInteger, info.point_id);
-    Qry.CreateVariable("vfirst_point", otInteger, info.pr_tranzit ? info.first_point : info.point_id);
-    Qry.CreateVariable("vpoint_num", otInteger, info.point_num);
-    for(int i = 0; i < Qry.Variables->GetVariablesCount(); i++)
-        ProgTrace(TRACE5, "%s -> %s", Qry.VariableName(i), Qry.GetVariableAsString(Qry.VariableName(i)));
+    QParams QryParams;
+    QryParams
+        << QParam("vpoint_id", otInteger, info.point_id)
+        << QParam("vfirst_point", otInteger, info.pr_tranzit ? info.first_point : info.point_id)
+        << QParam("vpoint_num", otInteger, info.point_num);
+    TQuery &Qry = TQrys::Instance()->get(
+            "select point_num, airp, class from "
+            "( "
+            "  SELECT airp, point_num, point_id FROM points "
+            "  WHERE first_point = :vfirst_point AND point_num > :vpoint_num AND pr_del=0 "
+            ") a, "
+            "( "
+            "  SELECT DISTINCT cls_grp.code AS class "
+            "  FROM pax_grp,cls_grp "
+            "  WHERE pax_grp.class_grp=cls_grp.id AND "
+            "        pax_grp.point_dep = :vpoint_id AND "
+            "        pax_grp.status NOT IN ('E') AND "
+            "        pax_grp.bag_refuse=0 "
+            "  UNION "
+            "  SELECT class FROM trip_classes WHERE point_id = :vpoint_id "
+            ") b  "
+            "ORDER by "
+            "  point_num, airp, class ",
+            QryParams);
+    tm.Init();
     Qry.Execute();
     for(; !Qry.Eof; Qry.Next()) {
         T dest(&grp_map, &infants);
         dest.point_num = Qry.FieldAsInteger("point_num");
         dest.airp = Qry.FieldAsString("airp");
         dest.cls = Qry.FieldAsString("class");
+        tm.Init();
         dest.GetPaxList(info,complayers);
         items.push_back(dest);
     }
@@ -6703,6 +6711,9 @@ int PFS(TypeB::TDetailCreateInfo &info)
 
 int PRL(TypeB::TDetailCreateInfo &info)
 {
+#ifdef SQL_COUNTERS
+    ProgTrace(TRACE5, "_prl_ PRL begin: queryCount: %d", queryCount);
+#endif
     TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row(info);
     ostringstream heading;
@@ -6718,9 +6729,19 @@ int PRL(TypeB::TDetailCreateInfo &info)
     vector<string> body;
     try {
         vector<TTlgCompLayer> complayers;
+
+        TPerfTimer tm("prl ReadSalons");
+        tm.Init();
         ReadSalons( info, complayers );
+
         TDestList<TPRLDest> dests;
+
+        TPerfTimer tm_get("prl tm_get");
+        tm_get.Init();
         dests.get(info,complayers);
+
+        TPerfTimer tm_to_tlg("prl tm_to_tlg");
+        tm_to_tlg.Init();
         dests.ToTlg(info, body);
     } catch(...) {
         ExceptionFilter(body, info);
@@ -6730,6 +6751,9 @@ int PRL(TypeB::TDetailCreateInfo &info)
     tlg_row.ending = "ENDPRL" + TypeB::endl;
     tlg_draft.Save(tlg_row);
     tlg_draft.Commit(tlg_row);
+#ifdef SQL_COUNTERS
+    ProgTrace(TRACE5, "_prl_ PRL end: queryCount: %d", queryCount);
+#endif
     return tlg_row.id;
 }
 
@@ -6779,29 +6803,31 @@ int TelegramInterface::create_tlg(const TypeB::TCreateInfo &createInfo,
 
     if(info.point_id != NoExists)
     {
-        Qry.Clear();
-        Qry.SQLText =
-            "SELECT "
-            "   points.airline, "
-            "   points.flt_no, "
-            "   points.suffix, "
-            "   points.scd_out, "
-            "   points.est_out, "
-            "   points.act_out, "
-            "   points.bort, "
-            "   points.craft, "
-            "   points.airp, "
-            "   points.point_num, "
-            "   points.first_point, "
-            "   points.pr_tranzit, "
-            "   nvl(trip_sets.pr_lat_seat, 1) pr_lat_seat "
-            "from "
-            "   points, "
-            "   trip_sets "
-            "where "
-            "   points.point_id = :vpoint_id AND points.pr_del>=0 and "
-            "   points.point_id = trip_sets.point_id(+) ";
-        Qry.CreateVariable("vpoint_id", otInteger, info.point_id);
+
+        QParams QryParams;
+        QryParams << QParam("vpoint_id", otInteger, info.point_id);
+        TQuery &Qry = TQrys::Instance()->get(
+                "SELECT "
+                "   points.airline, "
+                "   points.flt_no, "
+                "   points.suffix, "
+                "   points.scd_out, "
+                "   points.est_out, "
+                "   points.act_out, "
+                "   points.bort, "
+                "   points.craft, "
+                "   points.airp, "
+                "   points.point_num, "
+                "   points.first_point, "
+                "   points.pr_tranzit, "
+                "   nvl(trip_sets.pr_lat_seat, 1) pr_lat_seat "
+                "from "
+                "   points, "
+                "   trip_sets "
+                "where "
+                "   points.point_id = :vpoint_id AND points.pr_del>=0 and "
+                "   points.point_id = trip_sets.point_id(+) ",
+            QryParams);
         Qry.Execute();
         if(Qry.Eof)
             throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND");
@@ -6809,7 +6835,7 @@ int TelegramInterface::create_tlg(const TypeB::TCreateInfo &createInfo,
             throw AstraLocale::UserException("MSG.FLIGHT_DATE.NOT_SET");
         info.airline = Qry.FieldAsString("airline");
         if (!Qry.FieldIsNULL("flt_no"))
-          info.flt_no = Qry.FieldAsInteger("flt_no");
+            info.flt_no = Qry.FieldAsInteger("flt_no");
         info.suffix = Qry.FieldAsString("suffix");
         info.bort = Qry.FieldAsString("bort");
         info.craft = Qry.FieldAsString("craft");
@@ -6822,11 +6848,11 @@ int TelegramInterface::create_tlg(const TypeB::TCreateInfo &createInfo,
         string tz_region=AirpTZRegion(info.airp_dep);
         if (!Qry.FieldIsNULL("scd_out"))
         {
-          info.scd_utc = Qry.FieldAsDateTime("scd_out");
-          info.scd_local = UTCToLocal( info.scd_utc, tz_region );
-          int Year, Month, Day;
-          DecodeDate(info.scd_local, Year, Month, Day);
-          info.scd_local_day = Day;
+            info.scd_utc = Qry.FieldAsDateTime("scd_out");
+            info.scd_local = UTCToLocal( info.scd_utc, tz_region );
+            int Year, Month, Day;
+            DecodeDate(info.scd_local, Year, Month, Day);
+            info.scd_local_day = Day;
         };
 
         if(!Qry.FieldIsNULL("est_out"))
@@ -6876,6 +6902,8 @@ int TelegramInterface::create_tlg(const TypeB::TCreateInfo &createInfo,
 
     int vid = NoExists;
 
+    TPerfTimer tm("tlg handler");
+    tm.Init();
     if(tlgTypeInfo.basic_type == "PTM") vid = PTM(info);
     else if(tlgTypeInfo.basic_type == "LDM") vid = LDM(info);
     else if(tlgTypeInfo.basic_type == "MVT") vid = MVT(info);
@@ -6894,6 +6922,7 @@ int TelegramInterface::create_tlg(const TypeB::TCreateInfo &createInfo,
     else if(tlgTypeInfo.basic_type == "PIM") vid = PIM(info);
     else if(tlgTypeInfo.basic_type == "LCI") vid = LCI(info);
     else vid = Unknown(info);
+    ProgTrace(TRACE5, "utg_prl_tst: %s", tm.PrintWithMessage().c_str());
 
     info.err_lst.dump();
 

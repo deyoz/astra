@@ -1,7 +1,6 @@
 #ifndef _PASSENGER_H_
 #define _PASSENGER_H_
 
-#include <list>
 #include "astra_consts.h"
 #include "oralib.h"
 #include "xml_unit.h"
@@ -51,8 +50,8 @@ class TPaxTknItem
     long int getNotEmptyFieldsMask() const;
 };
 
-bool LoadPaxTkn(int pax_id, TPaxTknItem &tkn, TQuery& PaxTknQry);
-bool LoadPaxTkn(BASIC::TDateTime part_key, int pax_id, TPaxTknItem &tkn, TQuery& PaxTknQry);
+bool LoadPaxTkn(int pax_id, TPaxTknItem &tkn);
+bool LoadPaxTkn(BASIC::TDateTime part_key, int pax_id, TPaxTknItem &tkn);
 bool LoadCrsPaxTkn(int pax_id, TPaxTknItem &tkn, TQuery& PaxTknQry, TQuery& GetTKNO2Qry);
 
 class TPaxDocItem
@@ -291,7 +290,7 @@ class TPaxItem
     const TPaxItem& toXML(xmlNodePtr node) const;
     TPaxItem& fromXML(xmlNodePtr node);
     const TPaxItem& toDB(TQuery &Qry) const;
-    TPaxItem& fromDB(TQuery &Qry, TQuery &PaxDocQry, TQuery &PaxDocoQry);
+    TPaxItem& fromDB(TQuery &Qry);
 };
 
 class TPaxGrpItem
@@ -336,24 +335,23 @@ class TPaxGrpItem
 
 void LoadPaxDoc(TQuery& PaxDocQry, xmlNodePtr paxNode);
 void LoadPaxDoco(TQuery& PaxDocQry, xmlNodePtr paxNode);
-bool LoadPaxDoc(int pax_id, TPaxDocItem &doc, TQuery& PaxDocQry);
-bool LoadPaxDoc(BASIC::TDateTime part_key, int pax_id, TPaxDocItem &doc, TQuery& PaxDocQry);
+bool LoadPaxDoc(int pax_id, TPaxDocItem &doc);
+bool LoadPaxDoc(BASIC::TDateTime part_key, int pax_id, TPaxDocItem &doc);
 std::string GetPaxDocStr(BASIC::TDateTime part_key,
                          int pax_id,
-                         TQuery& PaxDocQry,
                          bool with_issue_country=false,
                          const std::string &lang="");
 
-bool LoadPaxDoco(int pax_id, TPaxDocoItem &doc, TQuery& PaxDocQry);
-bool LoadPaxDoco(BASIC::TDateTime part_key, int pax_id, TPaxDocoItem &doc, TQuery& PaxDocQry);
+bool LoadPaxDoco(int pax_id, TPaxDocoItem &doc);
+bool LoadPaxDoco(BASIC::TDateTime part_key, int pax_id, TPaxDocoItem &doc);
 enum TDocaType
 {
   docaDestination,
   docaResidence,
   docaBirth
 };
-bool LoadPaxDoca(int pax_id, TDocaType type, TPaxDocaItem &doca, TQuery& PaxDocQry);
-bool LoadPaxDoca(BASIC::TDateTime part_key, int pax_id, TDocaType type, TPaxDocaItem &doca, TQuery& PaxDocQry);
+bool LoadPaxDoca(int pax_id, TDocaType type, TPaxDocaItem &doca);
+bool LoadPaxDoca(BASIC::TDateTime part_key, int pax_id, TDocaType type, TPaxDocaItem &doca);
 
 bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc, TQuery& PaxDocQry, TQuery& GetPSPT2Qry);
 bool LoadCrsPaxVisa(int pax_id, TPaxDocoItem &doc, TQuery& PaxDocQry);

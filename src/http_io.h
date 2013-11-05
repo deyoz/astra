@@ -8,8 +8,6 @@ std::string send_format_ayt(const std::string &uri, const std::string &bsm);
 
 struct HTTPRequestInfo
 {
-  std::string addr;
-  int port;
   std::string resource;
   std::string action;
   std::string content;

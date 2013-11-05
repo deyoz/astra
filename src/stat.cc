@@ -1369,7 +1369,7 @@ void UnaccompListToXML(TQuery &Qry, xmlNodePtr resNode, bool isPaxSearch, int pa
   ProgTrace(TRACE5, "XML%d: %s", pass, tm.PrintWithMessage().c_str());
 };
 
-void PaxListToXML(TQuery &Qry, TQuery &PaxDocQry, xmlNodePtr resNode, bool isPaxSearch, int pass, int &count)
+void PaxListToXML(TQuery &Qry, xmlNodePtr resNode, bool isPaxSearch, int pass, int &count)
 {
   if(Qry.Eof) return;
 
@@ -1470,7 +1470,6 @@ void PaxListToXML(TQuery &Qry, TQuery &PaxDocQry, xmlNodePtr resNode, bool isPax
       NewTextChild(paxNode, "seat_no", Qry.FieldAsString(col_seat_no));
       NewTextChild(paxNode, "document", CheckIn::GetPaxDocStr(part_key,
                                                               Qry.FieldAsInteger(col_pax_id),
-                                                              PaxDocQry,
                                                               true));
       NewTextChild(paxNode, "ticket_no", Qry.FieldAsString(col_ticket_no));
       if(Qry.FieldIsNULL(col_hall))
@@ -1512,7 +1511,6 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     get_compatible_report_form("ArxPaxList", reqNode, resNode);
     {
         TQuery Qry(&OraSession);
-        TQuery PaxDocQry(&OraSession);
         string SQLText;
         if(part_key == NoExists)  {
             SQLText =
@@ -1629,7 +1627,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         ProgTrace(TRACE5, "Qry.Execute: %s", tm.PrintWithMessage().c_str());
 
         int count=0;
-        PaxListToXML(Qry, PaxDocQry, resNode, false, 0, count);
+        PaxListToXML(Qry, resNode, false, 0, count);
 
         ProgTrace(TRACE5, "XML: %s", tm.PrintWithMessage().c_str());
 
@@ -5593,7 +5591,6 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     LastDate = ClientToUTC(LastDate, info.desk.tz_region);
     TPerfTimer tm;
     TQuery Qry(&OraSession);
-    TQuery PaxDocQry(&OraSession);
     Qry.CreateVariable("FirstDate", otDate, FirstDate);
     Qry.CreateVariable("LastDate", otDate, LastDate);
     Qry.CreateVariable("pr_lat", otInteger, info.desk.lang != AstraLocale::LANG_RU);
@@ -5761,7 +5758,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             else
                 throw;
         }
-        PaxListToXML(Qry, PaxDocQry, resNode, true, pass, count);
+        PaxListToXML(Qry, resNode, true, pass, count);
     }
     if(count == 0)
         throw AstraLocale::UserException("MSG.PASSENGERS.NOT_FOUND");

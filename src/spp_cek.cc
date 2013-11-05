@@ -14,6 +14,7 @@
 #include "base_tables.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
+#include "file_queue.h"
 #include "develop_dbf.h"
 #include "misc.h"
 #include "sopp.h"
@@ -34,6 +35,9 @@ using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC;
 using namespace ASTRA;
+
+const std::string VALUE_TYPE_SQL = "SQL";
+const std::string VALUE_END_SQL( ";\n" );
 
 enum TSQLTYPE { sql_date, sql_NUMERIC, sql_char };
 
@@ -505,7 +509,7 @@ bool createSPPCEK( TDateTime sppdate, const string &file_type, const string &poi
     sqlNode = NewTextChild( queryNode, "sql", sql_str );
 
 	  if ( doc ) {
-	  	string encoding = getFileEncoding( FILE_SPPCEK_TYPE, point_addr );
+	  	string encoding = TFileQueue::getEncoding( FILE_SPPCEK_TYPE, point_addr );
   		fd.params[ PARAM_TYPE ] = VALUE_TYPE_SQL; // SQL
     	string s = XMLTreeToText( doc );
     	s.replace( s.find( "encoding=\"UTF-8\""), string( "encoding=\"UTF-8\"" ).size(), string("encoding=\"") + encoding + "\"" );
@@ -904,14 +908,14 @@ void createDBF( xmlDocPtr &sqldoc, xmlNodePtr xml_oldtrip, xmlNodePtr xml_newtri
     nodeN = GetNode( (char*)dbf_type.c_str(), xml_newtrip );
   else
   	nodeN = 0;
-  bool pr_insert = ( !nodeP && nodeN ||
-                     nodeP && nodeN &&
-                     string(NodeAsString( "PNR", nodeP )) + NodeAsString( "DN", nodeP ) !=
-                     string(NodeAsString( "PNR", nodeN )) + NodeAsString( "DN", nodeN ) );
-  bool pr_delete = ( nodeP && !nodeN ||
-                     nodeP && nodeN &&
-                     string(NodeAsString( "PNR", nodeP )) + NodeAsString( "DN", nodeP ) !=
-                     string(NodeAsString( "PNR", nodeN )) + NodeAsString( "DN", nodeN ) );
+  bool pr_insert = ( (!nodeP && nodeN) ||
+                     (nodeP && nodeN &&
+                      string(NodeAsString( "PNR", nodeP )) + NodeAsString( "DN", nodeP ) !=
+                      string(NodeAsString( "PNR", nodeN )) + NodeAsString( "DN", nodeN )) );
+  bool pr_delete = ( (nodeP && !nodeN) ||
+                     (nodeP && nodeN &&
+                      string(NodeAsString( "PNR", nodeP )) + NodeAsString( "DN", nodeP ) !=
+                      string(NodeAsString( "PNR", nodeN )) + NodeAsString( "DN", nodeN )) );
   bool pr_update = false;
   if ( nodeP && nodeN && !pr_delete ) {
    string old_val = GetXMLRowValue( nodeP );
@@ -998,14 +1002,14 @@ void createDBF( xmlDocPtr &sqldoc, xmlNodePtr xml_oldtrip, xmlNodePtr xml_newtri
   nodePK = nodesPK.begin();
   nodeNK = nodesNK.begin();
   while ( nodePK != nodesPK.end() || nodeNK != nodesNK.end() ) {
-    pr_insert = ( nodePK == nodesPK.end() && nodeNK !=nodesNK.end() ||
-                  nodePK != nodesPK.end() && nodeNK != nodesNK.end() &&
-                  string(NodeAsString( "PNR", *nodePK )) + NodeAsString( "DPP", *nodePK ) !=
-                  string(NodeAsString( "PNR", *nodeNK )) + NodeAsString( "DPP", *nodeNK ) );
-    pr_delete = ( nodePK != nodesPK.end() && nodeNK == nodesNK.end() ||
-                  nodePK != nodesPK.end() && nodeNK != nodesNK.end() &&
-                  string(NodeAsString( "PNR", *nodePK )) + NodeAsString( "DPP", *nodePK ) !=
-                  string(NodeAsString( "PNR", *nodeNK )) + NodeAsString( "DPP", *nodeNK ) );
+    pr_insert = ( (nodePK == nodesPK.end() && nodeNK !=nodesNK.end()) ||
+                  (nodePK != nodesPK.end() && nodeNK != nodesNK.end() &&
+                   string(NodeAsString( "PNR", *nodePK )) + NodeAsString( "DPP", *nodePK ) !=
+                   string(NodeAsString( "PNR", *nodeNK )) + NodeAsString( "DPP", *nodeNK )) );
+    pr_delete = ( (nodePK != nodesPK.end() && nodeNK == nodesNK.end()) ||
+                  (nodePK != nodesPK.end() && nodeNK != nodesNK.end() &&
+                   string(NodeAsString( "PNR", *nodePK )) + NodeAsString( "DPP", *nodePK ) !=
+                   string(NodeAsString( "PNR", *nodeNK )) + NodeAsString( "DPP", *nodeNK )) );
     pr_update = false;
     if ( nodePK != nodesPK.end() && nodeNK != nodesNK.end() && !pr_delete ) {
       string old_val = GetXMLRowValue( *nodePK );
@@ -1096,8 +1100,8 @@ void createDBF( xmlDocPtr &sqldoc, xmlNodePtr xml_oldtrip, xmlNodePtr xml_newtri
 bool validateFlight( bool pr_in, TDateTime spp_date, const TSOPPTrips::iterator &tr )
 {
  	try {
- 	if ( pr_in && getPNRParam( tr->airline_in, tr->airline_in_fmt, tr->flt_no_in, tr->suffix_in, tr->suffix_in_fmt, getRemoveSuffix( spp_date, tr->scd_in ) ).size() > 7 ||
-  	  !pr_in && getPNRParam( tr->airline_out, tr->airline_out_fmt, tr->flt_no_out, tr->suffix_out, tr->suffix_out_fmt, getRemoveSuffix( spp_date, tr->scd_out ) ).size() > 7 )
+ 	if ( (pr_in && getPNRParam( tr->airline_in, tr->airline_in_fmt, tr->flt_no_in, tr->suffix_in, tr->suffix_in_fmt, getRemoveSuffix( spp_date, tr->scd_in ) ).size() > 7) ||
+  	   (!pr_in && getPNRParam( tr->airline_out, tr->airline_out_fmt, tr->flt_no_out, tr->suffix_out, tr->suffix_out_fmt, getRemoveSuffix( spp_date, tr->scd_out ) ).size() > 7) )
       return false;
   }
   catch(...) {
@@ -1165,12 +1169,12 @@ void GetNotEqualTrips( const xmlNodePtr &xml_oldtrip, const xmlNodePtr &xml_newt
     if ( trip.xml_oldtrip != NULL ) {
       vector<TTripDay>::iterator i=xmltrips.end();
       for ( i=xmltrips.begin(); i!=xmltrips.end(); i++ ) {
-        if ( !pr_revert &&
-             i->xml_oldtrip == trip.xml_oldtrip &&
-             i->xml_newtrip == trip.xml_newtrip ||
-             pr_revert &&
-             i->xml_oldtrip == trip.xml_newtrip &&
-             i->xml_newtrip == trip.xml_oldtrip )
+        if ( (!pr_revert &&
+              i->xml_oldtrip == trip.xml_oldtrip &&
+              i->xml_newtrip == trip.xml_newtrip) ||
+             (pr_revert &&
+              i->xml_oldtrip == trip.xml_newtrip &&
+              i->xml_newtrip == trip.xml_oldtrip) )
          break;
       }
       if ( i == xmltrips.end() ) {
@@ -1335,7 +1339,7 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
 
   string sres;
   if ( sqldoc ) { // CP-866
-  	string encoding = getFileEncoding( FILE_SPPCEK_TYPE, point_addr );
+  	string encoding = TFileQueue::getEncoding( FILE_SPPCEK_TYPE, point_addr );
   	if ( encoding.empty() )
   		encoding = "CP866";
   	fd.params[ PARAM_TYPE ] = VALUE_TYPE_SQL; // SQL
@@ -1508,7 +1512,7 @@ bool Sync1C( const string &point_addr, TFileDatas &fds )
 	      xmlNodePtr queryNode = NewTextChild( doc->children, "query" );
         NewTextChild( queryNode, "sql", i->create_sql );
         NewTextChild( queryNode, "ignoreErrorCode", 5004 );
-  	    string encoding = getFileEncoding( FILE_1CCEK_TYPE, point_addr );
+  	    string encoding = TFileQueue::getEncoding( FILE_1CCEK_TYPE, point_addr );
  		    fd.params[ PARAM_TYPE ] = VALUE_TYPE_SQL; // SQL
    	    string s = XMLTreeToText( doc );
    	    s.replace( s.find( "encoding=\"UTF-8\""), string( "encoding=\"UTF-8\"" ).size(), string("encoding=\"") + encoding + "\"" );
@@ -1564,7 +1568,7 @@ bool Sync1C( const string &point_addr, TFileDatas &fds )
         	break;
       	Qry.Next();
       }
-  	  string encoding = getFileEncoding( FILE_1CCEK_TYPE, point_addr );
+  	  string encoding = TFileQueue::getEncoding( FILE_1CCEK_TYPE, point_addr );
  		  fd.params[ PARAM_TYPE ] = VALUE_TYPE_SQL; // SQL
    	  string s = XMLTreeToText( doc );
    	  s.replace( s.find( "encoding=\"UTF-8\""), string( "encoding=\"UTF-8\"" ).size(), string("encoding=\"") + encoding + "\"" );

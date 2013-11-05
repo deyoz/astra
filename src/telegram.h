@@ -129,6 +129,8 @@ const std::string FILE_PARAM_TIME_CREATE = "TIME_CREATE";
 const std::string FILE_PARAM_ORIGINATOR_ID = "ORIGINATOR_ID";
 const std::string FILE_PARAM_AIRLINE_MARK = "AIRLINE_MARK";
 const std::string FILE_PARAM_EXTRA = "EXTRA_";
+const std::string PARAM_TLG_TYPE = "TLG_TYPE";
+const std::string PARAM_FILE_NAME_ENC = "FILE_NAME_ENC";
 
 struct TTlgOutPartInfo
 {

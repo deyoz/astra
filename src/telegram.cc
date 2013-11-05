@@ -12,6 +12,7 @@
 #include "base_tables.h"
 #include "astra_misc.h"
 #include "astra_service.h"
+#include "file_queue.h"
 #include "http_io.h"
 #include "typeb_utils.h"
 #include "term_version.h"
@@ -743,41 +744,6 @@ void TelegramInterface::SaveTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   AstraLocale::showMessage("MSG.TLG.SAVED");
 };
 
-void putUTG(int id, const string &basic_type, const TTripInfo &flt, const string &data)
-{
-    map<string, string> file_params;
-    getFileParams(
-            flt.airp,
-            flt.airline,
-            IntToString(flt.flt_no),
-            OWN_POINT_ADDR(),
-            FILE_UTG_TYPE,
-            1,
-            file_params);
-    if(not file_params.empty() and (file_params[PARAM_TLG_TYPE].find(basic_type) != string::npos)) {
-        string encoding=getFileEncoding(FILE_UTG_TYPE, OWN_POINT_ADDR(), true);
-        if (encoding.empty()) encoding="CP866";
-
-        TDateTime now_utc = NowUTC();
-        double days;
-        int msecs = (int)(modf(now_utc, &days) * MSecsPerDay) % 1000;
-        ostringstream file_name;
-        file_name
-            << DateTimeToStr(now_utc, "yyyy_mm_dd_hh_nn_ss_")
-            << setw(3) << setfill('0') << msecs
-            << "." << setw(9) << setfill('0') << id
-            << "." << basic_type
-            << "." << BSM::TlgElemIdToElem(etAirline, flt.airline, true)
-                   << setw(3) << setfill('0') << flt.flt_no << flt.suffix
-            << "." << DateTimeToStr(flt.scd_out, "dd.mm");
-        file_params[PARAM_FILE_NAME] = file_name.str();
-        putFile( OWN_POINT_ADDR(),
-                OWN_POINT_ADDR(),
-                FILE_UTG_TYPE,
-                file_params,
-                (encoding == "CP866" ? data : ConvertCodepage(data, "CP866", encoding)));
-    }
-}
 
 void TelegramInterface::SendTlg(int tlg_id)
 {
@@ -961,7 +927,12 @@ void TelegramInterface::SendTlg(int tlg_id)
           //string data=addrs+tlg_text; без заголовка
           string data=TlgQry.FieldAsString("body");
           map<string,string> params;
-          putFile(i->first,OWN_POINT_ADDR(),TlgQry.FieldAsString("type"),params,data);
+          params[PARAM_CANON_NAME] = i->first;
+          params[ NS_PARAM_EVENT_TYPE ] = EncodeEventType( ASTRA::evtTlg );
+          params[ NS_PARAM_EVENT_ID1 ] = IntToString( point_id );
+          params[ NS_PARAM_EVENT_ID2 ] = IntToString( tlg_id );
+
+          TFileQueue::putFile(i->first,OWN_POINT_ADDR(),TlgQry.FieldAsString("type"),params,data);
         };
         putUTG(tlg_id, tlg_basic_type, fltInfo, addrs + tlg_text);
       };
@@ -973,7 +944,7 @@ void TelegramInterface::SendTlg(int tlg_id)
     TlgQry.CreateVariable( "id", otInteger, tlg_id);
     TlgQry.Execute();
     ostringstream msg;
-    msg << "Телеграмма " << tlg_short_name << " (ид=" << tlg_id << ") отправлена";
+    msg << "Телеграмма " << tlg_short_name << " (ид=" << tlg_id << ") создана";
     TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,tlg_id);
   }
   catch(EOracleError &E)
@@ -1040,7 +1011,7 @@ void TelegramInterface::SendTlg(const vector<TypeB::TCreateInfo> &info)
         try
         {
             time_t time_start=time(NULL);
-            tlg_id = create_tlg( *i, tlgTypeInfo );
+            tlg_id = create_tlg( *i, tlgTypeInfo);
 
             time_t time_end=time(NULL);
             if (time_end-time_start>1)
@@ -1501,14 +1472,14 @@ bool IsSend( const TAdvTripInfo &fltInfo, TBSMAddrs &addrs )
     creator << "BSM";
     creator.getInfo(addrs.createInfo);
 
-    getFileParams(
-            fltInfo.airp,
-            fltInfo.airline,
-            IntToString(fltInfo.flt_no),
-            OWN_POINT_ADDR(),
-            FILE_HTTP_TYPEB_TYPE,
-            1,
-            addrs.HTTP_TYPEBparams);
+    TFileQueue::add_sets_params(
+                                 fltInfo.airp,
+                                 fltInfo.airline,
+                                 IntToString(fltInfo.flt_no),
+                                 OWN_POINT_ADDR(),
+                                 FILE_HTTP_TYPEB_TYPE,
+                                 1,
+                                 addrs.HTTP_TYPEBparams );
 
     return !addrs.empty();
 };
@@ -1559,11 +1530,11 @@ void Send( int point_dep, int grp_id, const TTlgContent &con1, const TBSMAddrs &
 
           p.addToFileParams(params);
 
-          putFile(OWN_POINT_ADDR(),
-                  OWN_POINT_ADDR(),
-                  FILE_HTTP_TYPEB_TYPE,
-                  params,
-                  CreateTlgBody(*i, true));
+          TFileQueue::putFile(OWN_POINT_ADDR(),
+                              OWN_POINT_ADDR(),
+                              FILE_HTTP_TYPEB_TYPE,
+                              params,
+                              CreateTlgBody(*i, true));
       }
     };
     if(not addrs.HTTP_TYPEBparams.empty())

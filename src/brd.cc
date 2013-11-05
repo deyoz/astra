@@ -717,7 +717,6 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       throw AstraLocale::UserException("MSG.PASSENGER.NOT_CHECKIN");
 
     TQuery TCkinQry(&OraSession);
-    TQuery PaxDocQry(&OraSession);
 
     xmlNodePtr listNode = NewTextChild(dataNode, "passengers");
     if (!Qry.Eof)
@@ -817,7 +816,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           };
           NewTextChild(paxNode, "ticket_no", Qry.FieldAsString(col_ticket_no), "");
           NewTextChild(paxNode, "coupon_no", Qry.FieldAsInteger(col_coupon_no), 0);
-          NewTextChild(paxNode, "document", CheckIn::GetPaxDocStr(NoExists, pax_id, PaxDocQry, false), "");
+          NewTextChild(paxNode, "document", CheckIn::GetPaxDocStr(NoExists, pax_id, false), "");
           NewTextChild(paxNode, "tid", Qry.FieldAsInteger(col_tid));
           NewTextChild(paxNode, "excess", Qry.FieldAsInteger(col_excess), 0);
           int value_bag_count;

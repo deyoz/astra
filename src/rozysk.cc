@@ -12,7 +12,7 @@
 #include "base_tables.h"
 #include "http_io.h"
 #include "passenger.h"
-#include "astra_service.h"
+#include "file_queue.h"
 #include "jxtlib/xml_stuff.h"
 #include "serverlib/logger.h"
 
@@ -25,13 +25,14 @@ using namespace EXCEPTIONS;
 using namespace BASIC;
 using namespace ASTRA;
 
-const std::string ROZYSK_MAGISTRAL =    "ROZYSK_MAGISTRAL";
-const std::string ROZYSK_MAGISTRAL_24 = "ROZYSK_MAGISTRAL_24";
-const std::string ROZYSK_SIRENA =       "ROZYSK_SIRENA";
-const std::string ROZYSK_MINTRANS =     "ROZYSK_MINTRANS";
-const std::string ROZYSK_MINTRANS_24 =  "ROZYSK_MINTRANS_24";
-const std::string FILE_MINTRANS_TYPE =  "MINTRANS";
-const std::string MINTRANS_ID        =  "13001";
+const std::string ROZYSK_MAGISTRAL      = "ROZYSK_MAGISTRAL";
+const std::string ROZYSK_MAGISTRAL_24   = "ROZYSK_MAGISTRAL_24";
+const std::string ROZYSK_SIRENA         = "ROZYSK_SIR";
+const std::string PARAM_ACTION_CODE     = "ACTION_CODE";
+const std::string ROZYSK_MINTRANS       = "ROZYSK_MINTRANS";
+const std::string ROZYSK_MINTRANS_24    = "ROZYSK_MINTRANS_24";
+const std::string FILE_MINTRANS_TYPE    = "MINTRANS";
+const std::string MINTRANS_ID           = "13001";
 
 namespace rozysk
 {
@@ -528,9 +529,6 @@ void sync_pax_internal(int id,
       throw Exception("passenger not found (pax_id=%d)", id);
   };
   TQuery InsQry(&OraSession);
-  TQuery PaxDocQry(&OraSession);
-  TQuery PaxDocoQry(&OraSession);
-  TQuery PaxTknQry(&OraSession);
   TRow row;
   //дополнительно
   row.time=NowUTC();
@@ -553,15 +551,15 @@ void sync_pax_internal(int id,
       row.paxFromDB(Qry);
       //документ
       CheckIn::TPaxDocItem doc;
-      LoadPaxDoc(pax_id, doc, PaxDocQry);
+      LoadPaxDoc(pax_id, doc);
       row.setDoc(doc);
       //виза
       CheckIn::TPaxDocoItem doco;
-      LoadPaxDoco(pax_id, doco, PaxDocoQry);
+      LoadPaxDoco(pax_id, doco);
       row.setVisa(doco);
       //билет
       CheckIn::TPaxTknItem tkn;
-      LoadPaxTkn(pax_id, tkn, PaxTknQry);
+      LoadPaxTkn(pax_id, tkn);
       row.setTkn(tkn);
 
       for(int pass=0; pass<2; pass++)
@@ -1138,50 +1136,80 @@ void get_pax_list(int point_id,
 } //namespace mintrans
 
 
+void sirena_rozysk_send()
+{
+    ProgTrace(TRACE5,"sirena_rozysk_send started");
+    TFileQueue file_queue;
+    file_queue.get( TFilterQueue( OWN_POINT_ADDR(), ROZYSK_SIRENA ) );
+    for ( TFileQueue::iterator item=file_queue.begin(); item!=file_queue.end(); item++) {
+        if ( item->params.find( PARAM_HTTP_ADDR ) == item->params.end() ||
+                item->params[ PARAM_HTTP_ADDR ].empty() )
+            throw Exception("http_addr not specified");
+        if ( item->params.find( PARAM_ACTION_CODE ) == item->params.end() ||
+                item->params[ PARAM_ACTION_CODE ].empty() )
+            throw Exception("action_code not specified");
+        HTTPRequestInfo request;
+        request.resource = item->params[PARAM_HTTP_ADDR];
+        request.action = item->params[PARAM_ACTION_CODE];
+        request.content = item->data;
+        sirena_rozysk_send(request);
+        TFileQueue::deleteFile(item->id);
+        ProgTrace(TRACE5, "sirena_rozysk_send: id = %d completed", item->id);
+    }
+}
+
 void sync_sirena_rozysk( TDateTime utcdate )
 {
-  ProgTrace(TRACE5,"sync_sirena_rozysk started");
+    ProgTrace(TRACE5,"sync_sirena_rozysk started");
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-      "SELECT addr, port, http_resource, action, last_create "
-      "FROM http_sets "
-      "WHERE code=:code AND pr_denial=0 FOR UPDATE";
-  Qry.CreateVariable("code", otString, ROZYSK_SIRENA);
-  Qry.Execute();
-  if (Qry.Eof) return;
-  TDateTime last_time=NowUTC() - 1.0/1440.0; //отматываем минуту, так как данные последних секунд могут быть еще не закоммичены в rozysk
-  TDateTime first_time = Qry.FieldIsNULL("last_create") ? last_time - 10.0/1440.0 :
-                                                          Qry.FieldAsDateTime("last_create");
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    Qry.SQLText=
+        "SELECT last_create FROM http_sets WHERE code=:code AND pr_denial=0 FOR UPDATE";
+    Qry.CreateVariable("code", otString, ROZYSK_SIRENA);
+    Qry.Execute();
+    if (Qry.Eof) return;
+    TDateTime last_time=NowUTC() - 1.0/1440.0; //отматываем минуту, так как данные последних секунд могут быть еще не закоммичены в rozysk
+    TDateTime first_time = Qry.FieldIsNULL("last_create") ? last_time - 10.0/1440.0 :
+        Qry.FieldAsDateTime("last_create");
 
-  if (first_time>=last_time) return;
-  HTTPRequestInfo request;
-  request.addr=Qry.FieldAsString("addr");
-  request.port=Qry.FieldAsInteger("port");
-  request.resource=Qry.FieldAsString("http_resource");
-  request.action=Qry.FieldAsString("action");
+    if (first_time>=last_time) return;
 
-  rozysk::TPaxListTJKFilter filter;
-  filter.first_time_utc=first_time;
-  filter.last_time_utc=last_time;
+    rozysk::TPaxListTJKFilter filter;
+    filter.first_time_utc=first_time;
+    filter.last_time_utc=last_time;
 
-  vector<rozysk::TPax> paxs;
-  rozysk::get_pax_list(filter, false, paxs);
+    vector<rozysk::TPax> paxs;
+    rozysk::get_pax_list(filter, false, paxs);
 
-  Qry.Clear();
-  Qry.SQLText =
-    "UPDATE http_sets SET last_create=:last_time WHERE code=:code";
-  Qry.CreateVariable("code", otString, ROZYSK_SIRENA);
-  Qry.CreateVariable("last_time", otDate, last_time);
-  Qry.Execute();
+    Qry.Clear();
+    Qry.SQLText =
+        "UPDATE http_sets SET last_create=:last_time WHERE code=:code";
+    Qry.CreateVariable("code", otString, ROZYSK_SIRENA);
+    Qry.CreateVariable("last_time", otDate, last_time);
+    Qry.Execute();
 
-  ProgTrace( TRACE5, "pax.size()=%zu", paxs.size() );
-  if(not paxs.empty()) {
-    request.content=make_soap_content(paxs);
-    sirena_rozysk_send(request);
-    ProgTrace(TRACE5, "sync_sirena_rozysk completed");
-  }
+    ProgTrace( TRACE5, "pax.size()=%zu", paxs.size() );
+    if(not paxs.empty()) {
+
+        TTripInfo flt;
+        map<string, string> file_params;
+        TFileQueue::add_sets_params( flt.airp,
+                flt.airline,
+                IntToString(flt.flt_no),
+                OWN_POINT_ADDR(),
+                ROZYSK_SIRENA,
+                1,
+                file_params );
+        if(not file_params.empty()) {
+            TFileQueue::putFile( OWN_POINT_ADDR(),
+                    OWN_POINT_ADDR(),
+                    ROZYSK_SIRENA,
+                    file_params,
+                    make_soap_content(paxs));
+            ProgTrace(TRACE5, "sync_sirena_rozysk completed");
+        }
+    }
 }
 
 void create_mintrans_file(int point_id)
@@ -1205,17 +1233,17 @@ void create_mintrans_file(int point_id)
   if (!GetTripSets(tsMintransFile, fltInfo)) return;
 
   map<string, string> fileparams;
-  getFileParams( Qry.FieldAsString("airp"),
-                 Qry.FieldAsString("airline"),
-                 Qry.FieldAsString("flt_no"),
-                 OWN_POINT_ADDR(),
-                 FILE_MINTRANS_TYPE,
-                 true,
-                 fileparams );
+  TFileQueue::add_sets_params( Qry.FieldAsString("airp"),
+                               Qry.FieldAsString("airline"),
+                               Qry.FieldAsString("flt_no"),
+                               OWN_POINT_ADDR(),
+                               FILE_MINTRANS_TYPE,
+                               true,
+                               fileparams );
 
   if (fileparams[PARAM_WORK_DIR].empty()) return;
 
-  string encoding=getFileEncoding(FILE_MINTRANS_TYPE, OWN_POINT_ADDR(), true);
+  string encoding=TFileQueue::getEncoding(FILE_MINTRANS_TYPE, OWN_POINT_ADDR(), true);
   if (encoding.empty()) encoding="UTF-8";
 
   vector<mintrans::TPax> paxs;
@@ -1288,11 +1316,11 @@ void create_mintrans_file(int point_id)
       << endl;
   };
 
-  putFile(OWN_POINT_ADDR(),
-          OWN_POINT_ADDR(),
-          FILE_MINTRANS_TYPE,
-          fileparams,
-          (encoding=="CP866"?f.str():ConvertCodepage(f.str(), "CP866", encoding)));
+  TFileQueue::putFile(OWN_POINT_ADDR(),
+                      OWN_POINT_ADDR(),
+                      FILE_MINTRANS_TYPE,
+                      fileparams,
+                     (encoding=="CP866"?f.str():ConvertCodepage(f.str(), "CP866", encoding)));
 };
 
 void save_mintrans_files()
@@ -1301,73 +1329,32 @@ void save_mintrans_files()
 
   TDateTime last_time=NowUTC() - 1.0/1440.0; //отматываем минуту, так как данные последних секунд могут быть еще не закоммичены в rozysk
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT file_queue.id, file_queue.time, files.data, file_params.value "
-    "FROM file_queue, files, file_params "
-    "WHERE file_queue.id = files.id AND "
-    "      file_queue.id = file_params.id(+) AND "
-    "      file_queue.type = :type AND "
-    "      file_queue.sender = :sender AND "
-    "      file_queue.receiver = :receiver AND "
-    "      file_queue.status = :status AND "
-    "      file_params.name(+) = :param_name AND "
-    "      file_queue.time < :last_time "
-    "ORDER BY file_queue.time, file_queue.id ";
-  Qry.CreateVariable("type", otString, FILE_MINTRANS_TYPE);
-  Qry.CreateVariable("sender", otString, OWN_POINT_ADDR());
-  Qry.CreateVariable("receiver", otString, OWN_POINT_ADDR());
-  Qry.CreateVariable("status", otString, "PUT");
-  Qry.CreateVariable("param_name", otString, PARAM_WORK_DIR);
-  Qry.CreateVariable("last_time", otDate, last_time);
-  Qry.Execute();
-
-  TMemoryManager mem(STDLOG);
-  char *p = NULL;
-  int p_len = 0;
+  TFileQueue file_queue;
+  file_queue.get( TFilterQueue( OWN_POINT_ADDR(),
+                                FILE_MINTRANS_TYPE,
+                                last_time ) );
   TDateTime prior_time=NoExists;
   int msec=0;
-  try
-  {
-    for(;!Qry.Eof; Qry.Next(), OraSession.Commit())
-    {
-      int id = Qry.FieldAsInteger("id");
-      TDateTime time = Qry.FieldAsDateTime("time");
-      try
-      {
-        string workdir=Qry.FieldAsString("value");
-        if (workdir.empty())
+  try {
+    for ( TFileQueue::iterator item=file_queue.begin(); item!=file_queue.end(); item++,OraSession.Commit() ) {
+      try {
+        map<string,string>::const_iterator work_dir_param=item->params.find( PARAM_WORK_DIR );
+        if ( work_dir_param == item->params.end() || work_dir_param->second.empty() )
         {
-          deleteFile(id);
+          TFileQueue::deleteFile(item->id);
           continue;
-        };
-        int len = Qry.GetSizeLongField( "data" );
-        if (len > p_len)
-        {
-            char *ph = NULL;
-            if (p==NULL) {
-                ph=(char*)mem.malloc(len+1, STDLOG);
-            } else {
-                ph=(char*)mem.realloc(p, len+1, STDLOG);
-            }
-            if (ph==NULL) throw EMemoryError("Out of memory");
-            p=ph;
-            p_len=len;
-        };
-        Qry.FieldAsLong( "data", p );
-        p[len]=0;
-
-        if (prior_time==NoExists || time!=prior_time)
+        }
+    
+        if (prior_time==NoExists || item->time!=prior_time)
           msec=0;
         else
           msec++;
-        prior_time=time;
+        prior_time=item->time;
 
         ostringstream file_name;
-        file_name << workdir
+        file_name << work_dir_param->second
                   << MINTRANS_ID
-                  << DateTimeToStr(time, "_yyyy_mm_dd_hh_nn_ss_")
+                  << DateTimeToStr(item->time, "_yyyy_mm_dd_hh_nn_ss_")
                   << setw(3) << setfill('0') << msec
                   << ".csv";
         ofstream f;
@@ -1375,9 +1362,9 @@ void save_mintrans_files()
         if (!f.is_open()) throw Exception("Can't open file '%s'",file_name.str().c_str());
         try
         {
-          f << p;
+          f << item->data;
           f.close();
-          deleteFile(id);
+          TFileQueue::deleteFile(item->id);
         }
         catch(...)
         {
@@ -1400,7 +1387,7 @@ void save_mintrans_files()
               EOracleError *orae=dynamic_cast<EOracleError*>(&E);
               if (orae!=NULL&&
                       (orae->Code==4061||orae->Code==4068)) continue;
-              ProgError(STDLOG,"Exception: %s (file id=%d)",E.what(),id);
+              ProgError(STDLOG,"Exception: %s (file id=%d)",E.what(),item->id);
           }
           catch(...) {};
 
@@ -1408,19 +1395,17 @@ void save_mintrans_files()
       catch(std::exception &E)
       {
           OraSession.Rollback();
-          ProgError(STDLOG,"std::exception: %s (file id=%d)",E.what(),id);
+          ProgError(STDLOG,"std::exception: %s (file id=%d)",E.what(),item->id);
       }
       catch(...)
       {
           OraSession.Rollback();
           ProgError(STDLOG,"Something goes wrong");
       };
-    };
-    mem.free(p, STDLOG);
+    }; //end for
   }
   catch(...)
   {
-    mem.free(p, STDLOG);
     throw;
   };
   ProgTrace(TRACE5,"save_mintrans_files finished");

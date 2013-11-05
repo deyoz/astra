@@ -763,8 +763,8 @@ void TSSMSubMessage::dump()
 
 int ssm(int argc,char **argv)
 {
-    if(argc != 1) {
-        cout << "Usage: ssm" << endl;
+    if(argc > 2) {
+        cout << "Usage: ssm [tlg_id]" << endl;
         return 1;
     }
 
@@ -776,8 +776,10 @@ int ssm(int argc,char **argv)
         TQuery Qry(&OraSession);
         Qry.SQLText = "select id, data from ssm_in where type = :type and nvl2(:id, id, 0) = nvl(:id, 0)";
         Qry.CreateVariable("type", otString, "SSM");
-        //Qry.CreateVariable("id", otInteger, 200000);
-        Qry.CreateVariable("id", otInteger, FNull);
+        if(argc > 1)
+            Qry.CreateVariable("id", otInteger, ToInt(argv[1]));
+        else
+            Qry.CreateVariable("id", otInteger, FNull);
         Qry.Execute();
         char buf[5000];
 
@@ -808,7 +810,7 @@ int ssm(int argc,char **argv)
 
 
             ParseSSMContent(parts.body, info, con, mem);
-            // con.dump();
+            con.dump();
             /*
             // Несколько периодов
             for(std::vector<TSSMSubMessage>::iterator iv = con.msgs.begin(); iv != con.msgs.end(); iv++)

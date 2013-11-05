@@ -2742,7 +2742,6 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p )
 	bool res = false;
 	TQuery Qry( &OraSession );
   TQuery RemsQry( &OraSession );
-  TQuery PaxDocQry( &OraSession );
   TPaxSeats priorSeats( point_id );
 
   p.Clear();
@@ -2819,7 +2818,7 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p )
     string fname = Qry.FieldAsString( "surname" );
     pass.fullName = TrimString( fname ) + " " + Qry.FieldAsString( "name" );
     pass.ticket_no = Qry.FieldAsString( "ticket_no" );
-    pass.document = CheckIn::GetPaxDocStr(NoExists, Qry.FieldAsInteger( "pax_id" ), PaxDocQry, true);
+    pass.document = CheckIn::GetPaxDocStr(NoExists, Qry.FieldAsInteger( "pax_id" ), true);
     pass.bag_weight = Qry.FieldAsInteger( "bag_weight" );
     pass.bag_amount = Qry.FieldAsInteger( "bag_amount" );
     pass.excess = Qry.FieldAsInteger( "excess" );

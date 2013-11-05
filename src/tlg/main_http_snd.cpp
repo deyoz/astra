@@ -2,7 +2,8 @@
 #include "serverlib/ourtime.h"
 #include "exceptions.h"
 #include "oralib.h"
-#include "astra_service.h"
+//#include "astra_service.h"
+#include "file_queue.h"
 #include "astra_utils.h"
 #include "http_io.h"
 #include "misc.h"
@@ -113,144 +114,114 @@ typedef void  (*TTypeBFormatParse)(const string &answer, ostringstream &msg);
 
 static void scan_tlg(void)
 {
-    time_t time_start=time(NULL);
-    TQuery completeQry(&OraSession);
-    if(completeQry.SQLText.IsEmpty()) {
-        completeQry.SQLText="UPDATE tlg_out SET completed=1 WHERE id=:id";
-        completeQry.DeclareVariable("id",otInteger);
+  time_t time_start=time(NULL);
+  TQuery completeQry(&OraSession);
+  if(completeQry.SQLText.IsEmpty()) {
+      completeQry.SQLText="UPDATE tlg_out SET completed=1 WHERE id=:id";
+      completeQry.DeclareVariable("id",otInteger);
+  }
+  TFileQueue file_queue;
+  file_queue.get( TFilterQueue( OWN_POINT_ADDR(), FILE_HTTP_TYPEB_TYPE ) );
+  int trace_count=0;
+  for ( TFileQueue::iterator item=file_queue.begin();
+        item!=file_queue.end(); item++, trace_count++ , OraSession.Commit() ) {
+    try {
+      string tlg_type = item->params[FILE_PARAM_TLG_TYPE];
+      string tlg_short_name = ((TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",tlg_type))).short_name;
+      int point_id = ToInt(item->params[FILE_PARAM_POINT_ID]);
+      TTypeBFormat format = DecodeTypeBFormat(item->params[FILE_PARAM_FORMAT]);
+      TTypeBFormatSend sender = NULL;
+      TTypeBFormatParse parser = NULL;
+      if(format == tbfUnknown)
+        throw Exception("param %s not found for %s", FILE_PARAM_FORMAT.c_str(), item->params[FILE_PARAM_FORMAT].c_str());
+      switch(format) {
+        case tbfAYT:
+              sender = send_format_ayt;
+              parser = parse_format_ayt;
+              break;
+        default:
+              throw Exception("format %s not supported yet", EncodeTypeBFormat(format));
+      }
+      for(map<string, string>::iterator im = item->params.begin(); im != item->params.end(); im++) {
+        if(validate_param_name(im->first, pnHTTP)) { // handle HTTP
+          string str_result;
+          ostringstream msg;
+          bool err = false;
+          try {
+            if(not sender)
+              throw Exception("sender not defined");
+            str_result = (*sender)(im->second, item->data);
+            msg
+              << FILE_HTTP_TYPEB_TYPE << ": Телеграмма " << tlg_short_name << " "
+              << "(ид=" << item->id << ", " << im->first << "=" << im->second << ") "
+              << "отправлена.";
+            if(str_result.empty()) {
+              err = true;
+              msg << " Нет ответа от сервера.";
+            }
+          }
+          catch(Exception &E) {
+            err = true;
+            send_error(msg, tlg_short_name, item->id, im->first, im->second, E.what());
+          }
+          catch(...) {
+            err = true;
+            if(not parser)
+              throw Exception("parser not defined");
+            send_error(msg, tlg_short_name, item->id, im->first, im->second);
+          }
+          if(err) {
+            TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,item->id);
+            continue;
+          }
+          try {
+           (*parser)(str_result, msg);
+          }
+          catch(...) {
+            TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,item->id);
+            continue;
+          }
+          TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,item->id);
+          TFileQueue::deleteFile(item->id);
+          break;
+        } else
+            if(validate_param_name(im->first, pnSITA)) { // handle SITA
+              TTlgOutPartInfo p;
+              p.id=NoExists;
+              p.num=1;
+              p.addr=TypeB::format_addr_line(im->second);
+              p.body=item->data;
+              p.addFromFileParams(item->params);
+              TelegramInterface::SaveTlgOutPart(p);
+              completeQry.SetVariable("id",p.id);
+              completeQry.Execute();
+              TelegramInterface::SendTlg(p.id);
+              TFileQueue::deleteFile(item->id);
+              break;
+            }
+      } // end for map fileparams
     }
-    TQuery TlgQry(&OraSession);
-    if (TlgQry.SQLText.IsEmpty()) {
-        TlgQry.Clear();
-        TlgQry.SQLText =
-            "select file_queue.id, files.data from file_queue, files where "
-            "   file_queue.type = :type and "
-            "   file_queue.sender = :sender and "
-            "   file_queue.receiver = :receiver and "
-            "   file_queue.status = :status and "
-            "   file_queue.id = files.id "
-            "order by file_queue.id ";
-        TlgQry.CreateVariable("type", otString, FILE_HTTP_TYPEB_TYPE);
-        TlgQry.CreateVariable("sender", otString, OWN_POINT_ADDR());
-        TlgQry.CreateVariable("receiver", otString, OWN_POINT_ADDR());
-        TlgQry.CreateVariable("status", otString, "PUT");
-    }
-    TlgQry.Execute();
-    int trace_count=0;
-    static TMemoryManager mem(STDLOG);
-    static char *p = NULL;
-    static int p_len = 0;
-    for(; not TlgQry.Eof; trace_count++, TlgQry.Next(), OraSession.Commit()) {
-        int id = TlgQry.FieldAsInteger("id");
-        try {
-            int len = TlgQry.GetSizeLongField( "data" );
-            if (len > p_len)
-            {
-                char *ph = NULL;
-                if (p==NULL) {
-                    ph=(char*)mem.malloc(len, STDLOG);
-                } else {
-                    ph=(char*)mem.realloc(p,len, STDLOG);
-                }
-                if (ph==NULL) throw EMemoryError("Out of memory");
-                p=ph;
-                p_len=len;
-            };
-            TlgQry.FieldAsLong( "data", p );
-            string data( (char*)p, len );
-
-            map<string, string> fileparams;
-            getFileParams(id, fileparams);
-            string tlg_type = fileparams[FILE_PARAM_TLG_TYPE];
-            string tlg_short_name = ((TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",tlg_type))).short_name;
-            int point_id = ToInt(fileparams[FILE_PARAM_POINT_ID]);
-            TTypeBFormat format = DecodeTypeBFormat(fileparams[FILE_PARAM_FORMAT]);
-            TTypeBFormatSend sender = NULL;
-            TTypeBFormatParse parser = NULL;
-            if(format == tbfUnknown)
-                throw Exception("param %s not found for %s", FILE_PARAM_FORMAT.c_str(), fileparams[FILE_PARAM_FORMAT].c_str());
-            switch(format) {
-                case tbfAYT:
-                    sender = send_format_ayt;
-                    parser = parse_format_ayt;
-                    break;
-                default:
-                    throw Exception("format %s not supported yet", EncodeTypeBFormat(format));
-            }
-            for(map<string, string>::iterator im = fileparams.begin(); im != fileparams.end(); im++) {
-                if(validate_param_name(im->first, pnHTTP)) { // handle HTTP
-                    string str_result;
-                    ostringstream msg;
-                    bool err = false;
-                    try {
-                        if(not sender)
-                            throw Exception("sender not defined");
-                        str_result = (*sender)(im->second, data);
-                        msg
-                            << FILE_HTTP_TYPEB_TYPE << ": Телеграмма " << tlg_short_name << " "
-                            << "(ид=" << id << ", " << im->first << "=" << im->second << ") "
-                            << "отправлена.";
-                        if(str_result.empty()) {
-                            err = true;
-                            msg << " Нет ответа от сервера.";
-                        }
-                    } catch(Exception &E) {
-                        err = true;
-                        send_error(msg, tlg_short_name, id, im->first, im->second, E.what());
-                    } catch(...) {
-                        err = true;
-                        if(not parser)
-                            throw Exception("parser not defined");
-                        send_error(msg, tlg_short_name, id, im->first, im->second);
-                    }
-                    if(err) {
-                        TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,id);
-                        continue;
-                    }
-                    try {
-                        (*parser)(str_result, msg);
-                    } catch(...) {
-                        TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,id);
-                        continue;
-                    }
-                    TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,id);
-                    deleteFile(id);
-                    break;
-                } else if(validate_param_name(im->first, pnSITA)) { // handle SITA
-                    TTlgOutPartInfo p;
-                    p.id=NoExists;
-                    p.num=1;
-                    p.addr=TypeB::format_addr_line(im->second);
-                    p.body=data;
-                    p.addFromFileParams(fileparams);
-                    TelegramInterface::SaveTlgOutPart(p);
-                    completeQry.SetVariable("id",p.id);
-                    completeQry.Execute();
-                    TelegramInterface::SendTlg(p.id);
-                    deleteFile(id);
-                    break;
-                }
-            }
-        } catch(Exception &E) {
-            OraSession.Rollback();
-            try
-            {
-                EOracleError *orae=dynamic_cast<EOracleError*>(&E);
-                if (orae!=NULL&&
-                        (orae->Code==4061||orae->Code==4068)) continue;
-                ProgError(STDLOG,"Exception: %s (file id=%d)",E.what(),id);
-            }
-            catch(...) {};
-
-        } catch(...) {
-            OraSession.Rollback();
-            ProgError(STDLOG, "Something goes wrong");
+    catch(Exception &E) {
+        OraSession.Rollback();
+        try
+        {
+           EOracleError *orae=dynamic_cast<EOracleError*>(&E);
+           if (orae!=NULL&&
+                   (orae->Code==4061||orae->Code==4068)) continue;
+           ProgError(STDLOG,"Exception: %s (file id=%d)",E.what(),item->id);
         }
+        catch(...) {};
+
     }
-    time_t time_end=time(NULL);
-    if (time_end-time_start>5)
-        ProgTrace(TRACE5,"Attention! %s scan_tlg execute time: %ld secs, count=%d",
-                FILE_HTTP_TYPEB_TYPE.c_str(), time_end-time_start,trace_count);
+    catch(...) {
+        OraSession.Rollback();
+        ProgError(STDLOG, "Something goes wrong");
+    }
+  }
+  time_t time_end=time(NULL);
+  if (time_end-time_start>5)
+      ProgTrace(TRACE5,"Attention! %s scan_tlg execute time: %ld secs, count=%d",
+              FILE_HTTP_TYPEB_TYPE.c_str(), time_end-time_start,trace_count);
 }
 
 static const int WAIT_HTTP_TYPEB_INTERVAL()       //миллисекунды

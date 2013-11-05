@@ -54,6 +54,7 @@ astra_SOURCES = \
   etick.cc \
   events.cc \
   flt_binding.cc \
+  file_queue.cc \
   http_io.cpp \
   images.cc \
   load_fr.cc \
@@ -81,6 +82,7 @@ astra_SOURCES = \
   spp_cek.cc \
   stages.cc \
   stat.cc \
+  qrys.cc \
   telegram.cc \
   telegram2.cc \
   timer.cpp \
@@ -158,6 +160,7 @@ noinst_HEADERS = \
   etick.h \
   events.h \
   flt_binding.h \
+  file_queue.h \
   http_io.h \
   images.h \
   load_fr.h \
@@ -184,6 +187,7 @@ noinst_HEADERS = \
   spp_cek.h \
   stages.h \
   stat.h \
+  qrys.h \
   timer.h \
   transfer.h \
   trip_tasks.h \

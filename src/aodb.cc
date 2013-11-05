@@ -25,7 +25,7 @@ alter table aodb_bag add pr_cabin NUMBER(1) NOT NULL;
 #include "base_tables.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
-#include "astra_service.h"
+#include "file_queue.h"
 #include "misc.h"
 #include "astra_misc.h"
 #include "stages.h"
@@ -2198,62 +2198,16 @@ void Set_AODB_overload_alarm( int point_id, bool overload_alarm )
 
 void parseIncommingAODBData()
 {
-  TQuery Qry( &OraSession );
-  Qry.SQLText =
-    "SELECT file_queue.id, data FROM file_queue, files "
-    " WHERE file_queue.sender=:sender AND "
-    "       file_queue.receiver=:receiver AND "
-    "       file_queue.type=:type AND "
-    "       file_queue.id=files.id "
-    " ORDER BY file_queue.time";
-  Qry.CreateVariable( "sender", otString, OWN_POINT_ADDR() );
-  Qry.CreateVariable( "receiver", otString, OWN_POINT_ADDR() );
-  Qry.CreateVariable( "type", otString, FILE_AODB_IN_TYPE );
-  Qry.Execute();
-  TQuery QryParams( &OraSession );
-  QryParams.SQLText = "SELECT name, value FROM file_params WHERE id=:file_id";
-  QryParams.DeclareVariable( "file_id", otInteger );
-	Qry.Execute();
-  string airline;
-  map<string,string> fileparams;
-  int len;
-  void *p = NULL;
-  try {
-    while ( !Qry.Eof ) {
-     	len = Qry.GetSizeLongField( "data" );
-      if ( p )
-      	p = (char*)realloc( p, len );
-      else
-        p = (char*)malloc( len );
-      if ( !p )
-      	throw Exception( string( "Can't malloc " ) + IntToString( len ) + " byte" );
-      Qry.FieldAsLong( "data", p );
-      QryParams.SetVariable( "file_id", Qry.FieldAsInteger( "id" ) );
-      QryParams.Execute();
-      while ( !QryParams.Eof ) {
-        fileparams[ QryParams.FieldAsString( "name" ) ] = QryParams.FieldAsString( "value" );
-        QryParams.Next();
-      }
-
-      string convert_aodb = getFileEncoding( FILE_AODB_IN_TYPE, fileparams[ PARAM_CANON_NAME ], false );
-/*      ProgTrace( TRACE5, "convert_aodb=%s, fileparams[ PARAM_CANON_NAME ]=%s, fileparams[ NS_PARAM_AIRLINE ]=%s",
-                 convert_aodb.c_str(), fileparams[ PARAM_CANON_NAME ].c_str(), fileparams[ NS_PARAM_AIRLINE ].c_str( ) );*/
-      string str_file( (char*)p, len );
-      TReqInfo::Instance()->desk.code = fileparams[ PARAM_CANON_NAME ];
-      ParseAndSaveSPP( fileparams[ PARAM_FILE_NAME ], fileparams[ PARAM_CANON_NAME ] ,
-                       fileparams[ NS_PARAM_AIRLINE ], fileparams[ NS_PARAM_AIRP ],
-	                     str_file, convert_aodb );
-      ProgTrace( TRACE5, "deleteFile id=%d", Qry.FieldAsInteger( "id" ) );
-      deleteFile( Qry.FieldAsInteger( "id" ) );
-      OraSession.Commit();
-  	  Qry.Next();
-    }
+  TFileQueue file_queue;
+  file_queue.get( TFilterQueue( OWN_POINT_ADDR(), FILE_AODB_IN_TYPE ) );
+  for ( TFileQueue::iterator item=file_queue.begin(); item!=file_queue.end(); item++, OraSession.Commit() ) {
+    string convert_aodb = TFileQueue::getEncoding( FILE_AODB_IN_TYPE, item->params[ PARAM_CANON_NAME ], false );
+    TReqInfo::Instance()->desk.code = item->params[ PARAM_CANON_NAME ];
+      ParseAndSaveSPP( item->params[ PARAM_FILE_NAME ], item->params[ PARAM_CANON_NAME ] ,
+                       item->params[ NS_PARAM_AIRLINE ], item->params[ NS_PARAM_AIRP ],
+	                     item->data, convert_aodb );
+      TFileQueue::deleteFile( item->id );
   }
-  catch(...) {
-   if ( p ) free( p );
-   throw;
-  }
-  if ( p ) free( p );
 }
 
 int main_aodb_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
