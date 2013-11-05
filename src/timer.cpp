@@ -159,6 +159,8 @@ void exec_tasks( const char *proc_name )
       if ( name == "utg_prl" ) utg_prl();
       else
       if ( name == "check_trip_tasks" ) check_trip_tasks();
+      else
+      if ( name == "sync_fibs" ) sync_fibs_data();
 /*	  else
       if ( name == "cobra" ) cobra();*/
 

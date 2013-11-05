@@ -45,6 +45,7 @@ const std::string PARAM_MAIL_INTERVAL = "MAIL_INTERVAL";
 const std::string PARAM_FILE_TYPE = "FILE_TYPE";
 const std::string PARAM_FILE_REC_NO = "rec_no";
 const std::string FILE_CHECKINDATA_TYPE = "CHCKD";
+const std::string FILE_FIBS_TYPE = "FIBS";
 
 #define ENDL "\r\n"
 
@@ -61,6 +62,7 @@ struct TStats {
 
 bool createCheckinDataFiles( int point_id, const std::string &point_addr, TFileDatas &fds );
 bool createUTGDataFiles( int point_id, const std::string &point_addr, TFileDatas &fds, TStats *stats );
+bool createFibsDataFiles( int point_id, const std::string &point_addr, TFileDatas &fds);
 bool CreateCommonFileData( bool pr_commit, const std::string &point_addr,
                            int id, const std::string type,
                            const std::string &airp, const std::string &airline,
@@ -800,7 +802,8 @@ void AstraServiceInterface::errorFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqN
 
 bool isXMLFormat( const std::string type )
 {
-  return ( type == FILE_CHECKINDATA_TYPE );
+  return ( type == FILE_CHECKINDATA_TYPE ||
+           type == FILE_FIBS_TYPE );
 }
 
 bool CreateCommonFileData( bool pr_commit,
@@ -864,7 +867,8 @@ bool CreateCommonFileData( bool pr_commit,
                         ( type == FILE_SPPCEK_TYPE && createSPPCEKFile( id, client_canon_name, fds ) ) ||
                         ( type == FILE_1CCEK_TYPE && Sync1C( client_canon_name, fds ) ) ||
                         ( type == FILE_CHECKINDATA_TYPE && createCheckinDataFiles( id, client_canon_name, fds ) ) ||
-                        (  type == FILE_UTG_TYPE && createUTGDataFiles( id, client_canon_name, fds, stats ) ) ) {
+                        ( type == FILE_UTG_TYPE && createUTGDataFiles( id, client_canon_name, fds, stats ) ) ||
+                        ( type == FILE_FIBS_TYPE && createFibsDataFiles( id, client_canon_name, fds ) ) ) {
                     /* теперь в params еще лежит и имя файла */
                     string encoding = TFileQueue::getEncoding( type, client_canon_name, true );
                     for ( vector<TFileData>::iterator i=fds.begin(); i!=fds.end(); i++ ) {
@@ -1289,7 +1293,6 @@ void sync_checkin_data( )
   sync_checkin_data( ASTRA::NoExists );
 }
 
-
 bool createCheckinDataFiles( int point_id, const std::string &point_addr, TFileDatas &fds )
 {
   fds.clear();
@@ -1673,6 +1676,169 @@ void AstraServiceInterface::getFileParams( XMLRequestCtxt *ctxt, xmlNodePtr reqN
 		NewTextChild( n, "point_addr", Qry.FieldAsString( "receiver" ) );
 		Qry.Next();
 	}
+}
+
+class TFibsPointAddr: public TPointAddr {
+public:
+  TFibsPointAddr( ):TPointAddr( string(FILE_FIBS_TYPE), true ) {
+  }
+  ~TFibsPointAddr( ) {
+  }
+  virtual bool validateParams( const string &point_addr, const vector<string> &ailines,
+                               const vector<string> &airps, const vector<int> &flt_nos,
+                               const map<string,string> &params, int point_id ) {
+
+    if ( airps.size() != 1 ) // выбираем рейсы. Это необходимое условие
+      return false;
+    if ( params.find( PARAM_MAIL_INTERVAL ) != params.end() && point_id == ASTRA::NoExists ) { // проверка на то, что пора создавать файл
+      int interval;
+      if ( StrToInt( params.find( PARAM_MAIL_INTERVAL )->second.c_str(), interval ) == EOF ) {
+        interval = 5;
+        ProgError( STDLOG, "TFibsPointAddr: mail interval not set, default = 5 min" );
+      }
+      ProgTrace( TRACE5, "TFibsPointAddr->validateParams: interval=%d", interval );
+      TQuery QryFileSets( &OraSession );
+      QryFileSets.SQLText =
+        "UPDATE file_sets SET last_create=system.UTCSYSDATE"
+        " WHERE code=:code AND pr_denial=0 AND airp=:airp AND NVL(last_create+:interval/(24*60),system.UTCSYSDATE)<=system.UTCSYSDATE";
+      QryFileSets.CreateVariable( "code", otString, FILE_FIBS_TYPE );
+      QryFileSets.CreateVariable( "airp", otString, *airps.begin() );
+      QryFileSets.CreateVariable( "interval", otInteger, interval );
+      QryFileSets.Execute();
+      ProgTrace( TRACE5, "TFibsPointAddr->validateParams return %d", QryFileSets.RowsProcessed() );
+      return QryFileSets.RowsProcessed();
+    }
+    return true;
+  }
+  virtual bool validatePoints( int point_id ) {
+    return true;
+  }
+};
+
+void sync_fibs_data( )
+{
+  ProgTrace( TRACE5, "sync_fibs_data" );
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
+    "SELECT TRUNC(system.UTCSYSDATE) currdate FROM dual";
+  Qry.Execute();
+  TDateTime currdate = Qry.FieldAsDateTime( "currdate" );
+
+  TFibsPointAddr point_addr;
+  TSQLCondDates cond_dates;
+  cond_dates.sql = " time_out in (:day1,:day2) AND pr_del=0 ";
+  cond_dates.sql += " AND act_out IS NULL ";
+  cond_dates.dates.insert( make_pair( "day1", currdate ) );
+  cond_dates.dates.insert( make_pair( "day2", currdate + 1 ) );
+  point_addr.createPointSQL( cond_dates );
+};
+
+inline void CreateXMLStage( const TCkinClients &CkinClients, TStage stage_id, const TTripStage &stage,
+                            xmlNodePtr node, const string &region )
+{
+  TStagesRules *sr = TStagesRules::Instance();
+  if ( sr->isClientStage( (int)stage_id ) && !sr->canClientStage( CkinClients, (int)stage_id ) )
+    return;
+  xmlNodePtr node1 = NewTextChild( node, "stage" );
+  SetProp( node1, "stage_id", stage_id );
+  NewTextChild( node1, "scd", DateTimeToStr( UTCToClient( stage.scd, region ), "dd.mm.yyyy hh:nn" ) );
+  if ( stage.est != ASTRA::NoExists )
+    NewTextChild( node1, "est", DateTimeToStr( UTCToClient( stage.est, region ), "dd.mm.yyyy hh:nn" ) );
+  if ( stage.act != ASTRA::NoExists )
+    NewTextChild( node1, "act", DateTimeToStr( UTCToClient( stage.act, region ), "dd.mm.yyyy hh:nn" ) );
+}
+
+bool createFibsDataFiles( int point_id, const std::string &point_addr, TFileDatas &fds )    //point_addr=BETADC
+{
+  fds.clear();
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
+    "SELECT airline,flt_no,suffix,airp,scd_out,est_out FROM points "
+    " WHERE point_id=:point_id AND pr_del=0";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  if ( Qry.Eof ) {
+    return false;
+  }
+  string airp = Qry.FieldAsString( "airp" );
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  reqInfo->user.sets.time = ustTimeLocalAirp;
+	reqInfo->Initialize(airp);
+  reqInfo->user.user_type = utAirport;
+  reqInfo->user.access.airps.push_back( airp );
+  reqInfo->user.access.airps_permit = true;
+  string airline = Qry.FieldAsString( "airline" );
+  string airline_lat = ElemIdToElem( etAirline, airline, efmtCodeInter, AstraLocale::LANG_EN );
+  if ( airline_lat.empty() ) {
+    airline_lat = airline;
+  }
+  int flt_no = Qry.FieldAsInteger( "flt_no" );
+  string suffix = Qry.FieldAsString( "suffix" );
+  string suffix_lat = ElemIdToElem( etSuffix, suffix, efmtCodeInter, AstraLocale::LANG_EN );
+  if ( suffix_lat.empty() ) {
+    suffix_lat = suffix;
+  }
+  TDateTime scd_out = Qry.FieldAsDateTime( "scd_out" );
+  string region = AirpTZRegion( airp );
+  string prior_record, record;
+  get_string_into_snapshot_points( point_id, FILE_FIBS_TYPE, point_addr, prior_record );
+  xmlDocPtr doc = CreateXMLDoc( "UTF-8", "flight" );
+  tst();
+  try {
+    xmlNodePtr node = doc->children;
+	  TFlightStations stations;
+	  stations.Load( point_id );
+	  TFlightStages stages;
+	  stages.Load( point_id );
+	  TCkinClients CkinClients;
+	  TTripStages::ReadCkinClients( point_id, CkinClients );
+	  xmlNodePtr flightNode = NewTextChild( node, "trip" );
+	  SetProp( flightNode, "flightNumber", airline+IntToString(flt_no)+suffix );
+    SetProp( flightNode, "scd_date", DateTimeToStr( UTCToClient( scd_out, region ), "dd.mm.yyyy hh:nn" ) );
+    if ( !Qry.FieldIsNULL( "est_out" ) ) {
+      SetProp( flightNode, "est_date", DateTimeToStr( UTCToClient( Qry.FieldAsDateTime( "est_out" ), region ), "dd.mm.yyyy hh:nn" ) );
+    }
+    SetProp( flightNode, "departureAirport", Qry.FieldAsString( "airp" ) );
+    node = NewTextChild( flightNode, "stages" );
+    CreateXMLStage( CkinClients, sPrepCheckIn, stages.GetStage( sPrepCheckIn ), node, region );
+    CreateXMLStage( CkinClients, sOpenCheckIn, stages.GetStage( sOpenCheckIn ), node, region );
+    CreateXMLStage( CkinClients, sCloseCheckIn, stages.GetStage( sCloseCheckIn ), node, region );
+    CreateXMLStage( CkinClients, sOpenBoarding, stages.GetStage( sOpenBoarding ), node, region );
+    CreateXMLStage( CkinClients, sCloseBoarding, stages.GetStage( sCloseBoarding ), node, region );
+    CreateXMLStage( CkinClients, sOpenWEBCheckIn, stages.GetStage( sOpenWEBCheckIn ), node, region );
+    CreateXMLStage( CkinClients, sCloseWEBCheckIn, stages.GetStage( sCloseWEBCheckIn ), node, region );
+    CreateXMLStage( CkinClients, sOpenKIOSKCheckIn, stages.GetStage( sOpenKIOSKCheckIn ), node, region );
+    CreateXMLStage( CkinClients, sCloseKIOSKCheckIn, stages.GetStage( sCloseKIOSKCheckIn ), node, region );
+    tstations sts;
+    stations.Get( sts );
+    xmlNodePtr node1 = NULL;
+    for ( tstations::iterator i=sts.begin(); i!=sts.end(); i++ ) {
+      if ( node1 == NULL )
+        node1 = NewTextChild( flightNode, "stations" );
+      SetProp( NewTextChild( node1, "station", i->name ), "work_mode", i->work_mode );
+    }
+    //данные регистрации
+    record = XMLTreeToText( doc ).c_str();
+//    ProgTrace( TRACE5, "sync_checkin_data: point_id=%d, prior_record=%s", point_id, prior_record.c_str() );
+//    ProgTrace( TRACE5, "sync_checkin_data: point_id=%d, record=%s", point_id, record.c_str() );
+    if ( record != prior_record ) {
+      put_string_into_snapshot_points( point_id, FILE_FIBS_TYPE, point_addr, !prior_record.empty(), record );
+      TFileData fd;
+      fd.file_data = record;
+  	  fd.params[ PARAM_FILE_NAME ] = airline_lat + IntToString( flt_no ) + suffix_lat + DateTimeToStr( UTCToClient( scd_out, region ), "yymmddhhnn" ) + ".xml";
+  	  fd.params[ NS_PARAM_EVENT_TYPE ] = EncodeEventType( ASTRA::evtFlt );
+      fd.params[ NS_PARAM_EVENT_ID1 ] = IntToString( point_id );
+      fd.params[ PARAM_TYPE ] = VALUE_TYPE_FILE; // FILE
+      fds.push_back( fd );
+    }
+    xmlFreeDoc( doc );
+  }
+  catch(...) {
+    xmlFreeDoc( doc );
+    throw;
+  }
+  ProgTrace( TRACE5, "createFibsDataFiles return %d", !fds.empty() );
+  return !fds.empty();
 }
 
 void AstraServiceInterface::viewFileIds( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
