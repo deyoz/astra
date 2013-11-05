@@ -133,14 +133,6 @@ struct TSOPPStation {
 };
 typedef std::vector<TSOPPStation> tstations;
 
-struct TSoppClass {
-	std::string cl;
-	int cfg;
-	TSoppClass() {
-		cfg=0;
-  }
-};
-
 enum TTrferType { trferIn, trferOut, trferCkin };
 typedef std::vector<TSOPPDest> TSOPPDests;
 struct TSOPPTrip {
@@ -201,7 +193,7 @@ struct TSOPPTrip {
 
   int pr_del;
 
-  std::vector<TSoppClass> classes;
+  std::vector<TCFGItem> cfg;
   int reg;
   int resa;
   std::vector<TSoppStage> stages;

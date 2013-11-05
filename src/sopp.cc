@@ -278,17 +278,6 @@ const char * arx_points_ISG_SQL =
     "      arx_move_ref.move_id = p.move_id AND \n"
     "      arx_points.pr_del!=-1 \n"
     "ORDER BY arx_points.move_id,point_num,point_id";
-const char* classesSQL =
-    "SELECT class,cfg "\
-    " FROM trip_classes,classes "\
-    "WHERE trip_classes.point_id=:point_id AND trip_classes.class=classes.code "\
-    "ORDER BY priority";
-
-const char* arx_classesSQL =
-    "SELECT class,cfg "\
-    " FROM arx_trip_classes,classes "\
-    "WHERE part_key=:part_key AND arx_trip_classes.point_id=:point_id AND arx_trip_classes.class=classes.code "\
-    "ORDER BY priority";
 const char* regSQL =
     "SELECT SUM(tranzit)+SUM(ok)+SUM(goshow) AS reg FROM counters2 "
     "WHERE point_dep=:point_id";
@@ -934,14 +923,7 @@ string internal_ReadData_N( TSOPPTrips &trips, TDateTime first_date, TDateTime n
     }
   }
 
-  TQuery ClassesQry( &OraSession );
-  if ( arx ) {
-  	ClassesQry.SQLText = arx_classesSQL;
-  	ClassesQry.DeclareVariable( "part_key" ,otDate );
-  }
-  else
-    ClassesQry.SQLText = classesSQL;
-  ClassesQry.DeclareVariable( "point_id", otInteger );
+  TCFG cfg;
   TQuery RegQry( &OraSession );
   if ( arx ) {
   	RegQry.SQLText = arx_regSQL;
@@ -1036,8 +1018,6 @@ string internal_ReadData_N( TSOPPTrips &trips, TDateTime first_date, TDateTime n
 	int col_pr_reg = PointsQry.FieldIndex( "pr_reg" );
 	int col_pr_del = PointsQry.FieldIndex( "pr_del" );
 	int col_tid = PointsQry.FieldIndex( "tid" );
-	int col_class = -1;
-	int col_cfg = -1;
 	int col_part_key = -1;
 	if ( arx )
 		col_part_key = PointsQry.FieldIndex( "part_key" );
@@ -1212,26 +1192,8 @@ string internal_ReadData_N( TSOPPTrips &trips, TDateTime first_date, TDateTime n
     if ( !tr->places_out.empty() ) {
       // добор информации
       if ( module != tISG ) {
-        ClassesQry.SetVariable( "point_id", tr->point_id );
-        if ( arx )
-        	ClassesQry.SetVariable( "part_key", tr->part_key );
-        ClassesQry.Execute();
-        while ( !ClassesQry.Eof ) {
-        	if ( col_class == -1 ) {
-        		col_class = ClassesQry.FieldIndex( "class" );
-        		col_cfg = ClassesQry.FieldIndex( "cfg" );
-        	}
-        	TSoppClass soppclass;
-        	soppclass.cl = ClassesQry.FieldAsString( col_class );
-        	soppclass.cfg = ClassesQry.FieldAsInteger( col_cfg );
-        	tr->classes.push_back( soppclass );
-          /*07.07.2010 if ( !tr->classes.empty() && point_id == NoExists )
-            tr->classes += " ";
-          tr->classes += ClassesQry.FieldAsString( col_class );
-          if ( point_id == NoExists )
-           tr->classes += string(ClassesQry.FieldAsString( col_cfg ));*/
-          ClassesQry.Next();
-        }
+        cfg.get( tr->point_id, arx?tr->part_key:ASTRA::NoExists );
+        tr->cfg.insert( tr->cfg.begin(), cfg.begin(), cfg.end() );
       } // module != tISG
       if ( module == tSPPCEK )
       	continue;
@@ -1366,14 +1328,6 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
       throw Exception( "internal_ReadData: invalid params" );
     }
   }
-  TQuery ClassesQry( &OraSession );
-  if ( arx ) {
-  	ClassesQry.SQLText = arx_classesSQL;
-  	ClassesQry.DeclareVariable( "part_key" ,otDate );
-  }
-  else
-    ClassesQry.SQLText = classesSQL;
-  ClassesQry.DeclareVariable( "point_id", otInteger );
   TQuery RegQry( &OraSession );
   if ( arx ) {
   	RegQry.SQLText = arx_regSQL;
@@ -1472,8 +1426,6 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
 	int col_pr_reg = PointsQry.FieldIndex( "pr_reg" );
 	int col_pr_del = PointsQry.FieldIndex( "pr_del" );
 	int col_tid = PointsQry.FieldIndex( "tid" );
-	int col_class = -1;
-	int col_cfg = -1;
 	int col_part_key = -1;
 	if ( arx )
 		col_part_key = PointsQry.FieldIndex( "part_key" );
@@ -1644,30 +1596,14 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
   PerfomTest( 669 );
   ProgTrace( TRACE5, "trips count %zu", trips.size() );
 
+  TCFG cfg;
+
   for ( TSOPPTrips::iterator tr=trips.begin(); tr!=trips.end(); tr++ ) {
     if ( !tr->places_out.empty() ) {
       // добор информации
       if ( module != tISG ) {
-        ClassesQry.SetVariable( "point_id", tr->point_id );
-        if ( arx )
-        	ClassesQry.SetVariable( "part_key", tr->part_key );
-        ClassesQry.Execute();
-        while ( !ClassesQry.Eof ) {
-        	if ( col_class == -1 ) {
-        		col_class = ClassesQry.FieldIndex( "class" );
-        		col_cfg = ClassesQry.FieldIndex( "cfg" );
-        	}
-        	TSoppClass soppclass;
-        	soppclass.cl = ClassesQry.FieldAsString( col_class );
-        	soppclass.cfg = ClassesQry.FieldAsInteger( col_cfg );
-        	tr->classes.push_back( soppclass );
-          /*07.07.2010 if ( !tr->classes.empty() && point_id == NoExists )
-            tr->classes += " ";
-          tr->classes += ClassesQry.FieldAsString( col_class );
-          if ( point_id == NoExists )
-           tr->classes += string(ClassesQry.FieldAsString( col_cfg ));*/
-          ClassesQry.Next();
-        }
+        cfg.get( tr->point_id, arx?tr->part_key:ASTRA::NoExists );
+        tr->cfg.insert( tr->cfg.begin(), cfg.begin(), cfg.end() );
       } // module != tISG
       if ( module == tSPPCEK )
       	continue;
@@ -1879,16 +1815,16 @@ void buildSOPP( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
         lNode = NewTextChild( tripNode, "places_out" );
       NewTextChild( lNode, "airp", ElemIdToElemCtxt( ecDisp, etAirp, sairp->airp, sairp->airp_fmt ) );
     }
-    if ( !tr->classes.empty() ) {
+    if ( !tr->cfg.empty() ) {
     	lNode = NewTextChild( tripNode, "classes" );
     	string str;
-  	  for ( vector<TSoppClass>::iterator icl=tr->classes.begin(); icl!=tr->classes.end(); icl++ ) {
+  	  for ( vector<TCFGItem>::iterator icfg=tr->cfg.begin(); icfg!=tr->cfg.end(); icfg++ ) {
   	  	if ( TReqInfo::Instance()->desk.compatible( LATIN_VERSION ) )
-  	  	  SetProp( NewTextChild( lNode, "class", ElemIdToCodeNative( etClass, icl->cl ) ), "cfg", icl->cfg );
+  	  	  SetProp( NewTextChild( lNode, "class", ElemIdToCodeNative( etClass, icfg->cls ) ), "cfg", icfg->cfg );
   	  	else {
           if ( !str.empty() )
             str += " ";
-  		    str += ElemIdToCodeNative( etClass, icl->cl ) + IntToString( icl->cfg );
+  		    str += ElemIdToCodeNative( etClass, icfg->cls ) + IntToString( icfg->cfg );
         }
   	  }
   	  if ( !TReqInfo::Instance()->desk.compatible( LATIN_VERSION ) )
