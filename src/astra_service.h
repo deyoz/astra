@@ -39,7 +39,7 @@ void sync_checkin_data( void );
 void sync_checkin_data( int point_id );
 void utg_prl(void);
 void putUTG(int id, const std::string &basic_type, const TTripInfo &flt, const std::string &data);
-void sync_fibs_data( );
+void sync_fids_data( );
 
 
 class AstraServiceInterface : public JxtInterface

@@ -45,7 +45,7 @@ const std::string PARAM_MAIL_INTERVAL = "MAIL_INTERVAL";
 const std::string PARAM_FILE_TYPE = "FILE_TYPE";
 const std::string PARAM_FILE_REC_NO = "rec_no";
 const std::string FILE_CHECKINDATA_TYPE = "CHCKD";
-const std::string FILE_FIBS_TYPE = "FIBS";
+const std::string FILE_FIDS_TYPE = "FIDS";
 
 #define ENDL "\r\n"
 
@@ -62,7 +62,7 @@ struct TStats {
 
 bool createCheckinDataFiles( int point_id, const std::string &point_addr, TFileDatas &fds );
 bool createUTGDataFiles( int point_id, const std::string &point_addr, TFileDatas &fds, TStats *stats );
-bool createFibsDataFiles( int point_id, const std::string &point_addr, TFileDatas &fds);
+bool createFidsDataFiles( int point_id, const std::string &point_addr, TFileDatas &fds);
 bool CreateCommonFileData( bool pr_commit, const std::string &point_addr,
                            int id, const std::string type,
                            const std::string &airp, const std::string &airline,
@@ -803,7 +803,7 @@ void AstraServiceInterface::errorFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqN
 bool isXMLFormat( const std::string type )
 {
   return ( type == FILE_CHECKINDATA_TYPE ||
-           type == FILE_FIBS_TYPE );
+           type == FILE_FIDS_TYPE );
 }
 
 bool CreateCommonFileData( bool pr_commit,
@@ -868,7 +868,7 @@ bool CreateCommonFileData( bool pr_commit,
                         ( type == FILE_1CCEK_TYPE && Sync1C( client_canon_name, fds ) ) ||
                         ( type == FILE_CHECKINDATA_TYPE && createCheckinDataFiles( id, client_canon_name, fds ) ) ||
                         ( type == FILE_UTG_TYPE && createUTGDataFiles( id, client_canon_name, fds, stats ) ) ||
-                        ( type == FILE_FIBS_TYPE && createFibsDataFiles( id, client_canon_name, fds ) ) ) {
+                        ( type == FILE_FIDS_TYPE && createFidsDataFiles( id, client_canon_name, fds ) ) ) {
                     /* теперь в params еще лежит и имя файла */
                     string encoding = TFileQueue::getEncoding( type, client_canon_name, true );
                     for ( vector<TFileData>::iterator i=fds.begin(); i!=fds.end(); i++ ) {
@@ -1678,11 +1678,11 @@ void AstraServiceInterface::getFileParams( XMLRequestCtxt *ctxt, xmlNodePtr reqN
 	}
 }
 
-class TFibsPointAddr: public TPointAddr {
+class TFidsPointAddr: public TPointAddr {
 public:
-  TFibsPointAddr( ):TPointAddr( string(FILE_FIBS_TYPE), true ) {
+  TFidsPointAddr( ):TPointAddr( string(FILE_FIDS_TYPE), true ) {
   }
-  ~TFibsPointAddr( ) {
+  ~TFidsPointAddr( ) {
   }
   virtual bool validateParams( const string &point_addr, const vector<string> &ailines,
                                const vector<string> &airps, const vector<int> &flt_nos,
@@ -1694,18 +1694,18 @@ public:
       int interval;
       if ( StrToInt( params.find( PARAM_MAIL_INTERVAL )->second.c_str(), interval ) == EOF ) {
         interval = 5;
-        ProgError( STDLOG, "TFibsPointAddr: mail interval not set, default = 5 min" );
+        ProgError( STDLOG, "TFidsPointAddr: mail interval not set, default = 5 min" );
       }
-      ProgTrace( TRACE5, "TFibsPointAddr->validateParams: interval=%d", interval );
+      ProgTrace( TRACE5, "TFidsPointAddr->validateParams: interval=%d", interval );
       TQuery QryFileSets( &OraSession );
       QryFileSets.SQLText =
         "UPDATE file_sets SET last_create=system.UTCSYSDATE"
         " WHERE code=:code AND pr_denial=0 AND airp=:airp AND NVL(last_create+:interval/(24*60),system.UTCSYSDATE)<=system.UTCSYSDATE";
-      QryFileSets.CreateVariable( "code", otString, FILE_FIBS_TYPE );
+      QryFileSets.CreateVariable( "code", otString, FILE_FIDS_TYPE );
       QryFileSets.CreateVariable( "airp", otString, *airps.begin() );
       QryFileSets.CreateVariable( "interval", otInteger, interval );
       QryFileSets.Execute();
-      ProgTrace( TRACE5, "TFibsPointAddr->validateParams return %d", QryFileSets.RowsProcessed() );
+      ProgTrace( TRACE5, "TFidsPointAddr->validateParams return %d", QryFileSets.RowsProcessed() );
       return QryFileSets.RowsProcessed();
     }
     return true;
@@ -1715,16 +1715,16 @@ public:
   }
 };
 
-void sync_fibs_data( )
+void sync_fids_data( )
 {
-  ProgTrace( TRACE5, "sync_fibs_data" );
+  ProgTrace( TRACE5, "sync_fids_data" );
   TQuery Qry( &OraSession );
   Qry.SQLText =
     "SELECT TRUNC(system.UTCSYSDATE) currdate FROM dual";
   Qry.Execute();
   TDateTime currdate = Qry.FieldAsDateTime( "currdate" );
 
-  TFibsPointAddr point_addr;
+  TFidsPointAddr point_addr;
   TSQLCondDates cond_dates;
   cond_dates.sql = " time_out in (:day1,:day2) AND pr_del=0 ";
   cond_dates.sql += " AND act_out IS NULL ";
@@ -1748,7 +1748,7 @@ inline void CreateXMLStage( const TCkinClients &CkinClients, TStage stage_id, co
     NewTextChild( node1, "act", DateTimeToStr( UTCToClient( stage.act, region ), "dd.mm.yyyy hh:nn" ) );
 }
 
-bool createFibsDataFiles( int point_id, const std::string &point_addr, TFileDatas &fds )    //point_addr=BETADC
+bool createFidsDataFiles( int point_id, const std::string &point_addr, TFileDatas &fds )    //point_addr=BETADC
 {
   fds.clear();
   TQuery Qry( &OraSession );
@@ -1781,7 +1781,7 @@ bool createFibsDataFiles( int point_id, const std::string &point_addr, TFileData
   TDateTime scd_out = Qry.FieldAsDateTime( "scd_out" );
   string region = AirpTZRegion( airp );
   string prior_record, record;
-  get_string_into_snapshot_points( point_id, FILE_FIBS_TYPE, point_addr, prior_record );
+  get_string_into_snapshot_points( point_id, FILE_FIDS_TYPE, point_addr, prior_record );
   xmlDocPtr doc = CreateXMLDoc( "UTF-8", "flight" );
   tst();
   try {
@@ -1822,7 +1822,7 @@ bool createFibsDataFiles( int point_id, const std::string &point_addr, TFileData
 //    ProgTrace( TRACE5, "sync_checkin_data: point_id=%d, prior_record=%s", point_id, prior_record.c_str() );
 //    ProgTrace( TRACE5, "sync_checkin_data: point_id=%d, record=%s", point_id, record.c_str() );
     if ( record != prior_record ) {
-      put_string_into_snapshot_points( point_id, FILE_FIBS_TYPE, point_addr, !prior_record.empty(), record );
+      put_string_into_snapshot_points( point_id, FILE_FIDS_TYPE, point_addr, !prior_record.empty(), record );
       TFileData fd;
       fd.file_data = record;
   	  fd.params[ PARAM_FILE_NAME ] = airline_lat + IntToString( flt_no ) + suffix_lat + DateTimeToStr( UTCToClient( scd_out, region ), "yymmddhhnn" ) + ".xml";
@@ -1837,7 +1837,7 @@ bool createFibsDataFiles( int point_id, const std::string &point_addr, TFileData
     xmlFreeDoc( doc );
     throw;
   }
-  ProgTrace( TRACE5, "createFibsDataFiles return %d", !fds.empty() );
+  ProgTrace( TRACE5, "createFidsDataFiles return %d", !fds.empty() );
   return !fds.empty();
 }
 

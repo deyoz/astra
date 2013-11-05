@@ -160,7 +160,7 @@ void exec_tasks( const char *proc_name )
       else
       if ( name == "check_trip_tasks" ) check_trip_tasks();
       else
-      if ( name == "sync_fibs" ) sync_fibs_data();
+      if ( name == "sync_fids" ) sync_fids_data();
 /*	  else
       if ( name == "cobra" ) cobra();*/
 
