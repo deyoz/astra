@@ -2374,7 +2374,7 @@ string AnswerFlight( const xmlNodePtr reqNode )
       "SELECT commander,cockpit,cabin FROM trip_crew WHERE point_id=:point_id";
     CrewsQry.DeclareVariable( "point_id", otInteger );
     TQuery CfgQry( &OraSession );
-    CfgQry.SQLText =
+    CfgQry.SQLText =               //!!!djek переделать на TCFG
        "SELECT class,cfg "
        " FROM trip_classes,classes "
        "WHERE trip_classes.point_id=:point_id AND trip_classes.class=classes.code "
@@ -2446,7 +2446,7 @@ string AnswerFlight( const xmlNodePtr reqNode )
           CfgQry.SetVariable( "point_id", point_id );
           CfgQry.Execute();
           xmlNodePtr n = NewTextChild( flightNode, "comp" );
-          while ( !CfgQry.Eof ) {
+          while ( !CfgQry.Eof ) { //!!!djek переделать на TCFG
              SetProp( NewTextChild( n, "class", CfgQry.FieldAsInteger( "cfg" ) ), "id", CfgQry.FieldAsString( "class" ) );
              CfgQry.Next();
           }

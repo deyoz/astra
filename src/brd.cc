@@ -18,6 +18,7 @@
 #include "rozysk.h"
 #include "transfer.h"
 #include "points.h"
+#include "salons.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -62,16 +63,6 @@ void BrdInterface::readTripCounters( const int point_id,
     bool used_for_norec_rpt = (rpt_type == rtNOREC or rpt_type == rtNORECTXT);
     bool used_for_gosho_rpt = (rpt_type == rtGOSHO or rpt_type == rtGOSHOTXT);
     TReqInfo *reqInfo = TReqInfo::Instance();
-    TQuery ClassesQry(&OraSession);
-    ClassesQry.Clear();
-    ClassesQry.SQLText=
-        "SELECT trip_classes.class "
-        "FROM trip_classes,classes "
-        "WHERE trip_classes.class=classes.code AND "
-        "      point_id=:point_id "
-        "ORDER BY classes.priority";
-    ClassesQry.CreateVariable( "point_id", otInteger, point_id );
-    ClassesQry.Execute();
 
     TQuery Qry(&OraSession);
     string sql=
@@ -118,17 +109,25 @@ void BrdInterface::readTripCounters( const int point_id,
 
     ostringstream reg_str,brd_str, fr_reg_str, fr_brd_str, fr_not_brd_str;
     int reg=0,brd=0;
-    for(;!ClassesQry.Eof;ClassesQry.Next())
+    TCFG cfg(point_id);
+    bool cfg_exists=!cfg.empty();
+    bool free_seating=false;
+    if (!cfg_exists)
+      free_seating=SALONS2::isFreeSeating(point_id);
+    if (!cfg_exists && free_seating) cfg.get(NoExists);
+    for(TCFG::const_iterator c=cfg.begin(); c!=cfg.end(); ++c)
     {
-        const char* cl=ClassesQry.FieldAsString("class");
-        Qry.SetVariable("class",cl);
+        Qry.SetVariable("class",c->cls);
         Qry.Execute();
         if(Qry.Eof) continue;
-        string class_client_view=ElemIdToCodeNative(etClass,cl);
-        string class_report_view=rpt_params.ElemIdToReportElem(etClass,cl,efmtCodeNative);
 
         int vreg = Qry.FieldAsInteger("reg");
         int vbrd = Qry.FieldAsInteger("brd");
+        if (!cfg_exists && free_seating && vreg==0 && vbrd==0) continue;
+
+        string class_client_view=ElemIdToCodeNative(etClass,c->cls);
+        string class_report_view=rpt_params.ElemIdToReportElem(etClass,c->cls,efmtCodeNative);
+
         reg_str << class_client_view << vreg << " ";
         brd_str << class_client_view << vbrd << " ";
         reg+=vreg;
@@ -721,11 +720,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     xmlNodePtr listNode = NewTextChild(dataNode, "passengers");
     if (!Qry.Eof)
     {
-      TCkinQry.Clear();
-      TCkinQry.SQLText="SELECT pr_free_seating FROM trip_sets WHERE point_id=:point_id";
-      TCkinQry.CreateVariable("point_id",otInteger,point_id);
-      TCkinQry.Execute();
-      bool free_seating=!TCkinQry.Eof && TCkinQry.FieldAsInteger("pr_free_seating")!=0;
+      bool free_seating=SALONS2::isFreeSeating(point_id);
 
       string def_pers_type=ElemIdToCodeNative(etPersType, EncodePerson(ASTRA::adult));
       string def_class=ElemIdToCodeNative(etClass, EncodeClass(ASTRA::Y));
@@ -971,7 +966,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                   pr_etstatus=SetsQry.FieldAsInteger("pr_etstatus");
                   free_seating=SetsQry.FieldAsInteger("pr_free_seating")!=0;
 
-                  if (boarding && !Qry.FieldIsNULL(col_wl_type))
+                  if (boarding && !free_seating && !Qry.FieldIsNULL(col_wl_type))
                   {
                       AstraLocale::showErrorMessage("MSG.PASSENGER.NOT_CONFIRM_FROM_WAIT_LIST");
                   }

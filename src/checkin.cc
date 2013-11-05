@@ -2247,9 +2247,10 @@ int CheckInInterface::CheckCounters(int point_dep,
                                     int point_arv,
                                     const string &cl,
                                     TPaxStatus grp_status,
+                                    const TCFG &cfg,
                                     bool free_seating)
 {
-    if (free_seating) return ASTRA::NoExists;
+    if (cfg.empty() && free_seating) return ASTRA::NoExists;
     //проверка наличия свободных мест
     TQuery Qry(&OraSession);
     Qry.Clear();
@@ -2351,16 +2352,14 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText =
-    "SELECT airline,flt_no,suffix,airp,scd_out,airline_fmt,suffix_fmt,airp_fmt, "
-    "       pr_free_seating "
-    "FROM points, trip_sets "
-    "WHERE points.point_id=trip_sets.point_id AND "
-    "      points.point_id=:point_id AND pr_del=0 AND pr_reg<>0";
+    "SELECT airline,flt_no,suffix,airp,scd_out,airline_fmt,suffix_fmt,airp_fmt "
+    "FROM points "
+    "WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
   if (Qry.Eof) throw UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
   TTripInfo operFlt(Qry);
-  bool free_seating=Qry.FieldAsInteger("pr_free_seating")!=0;
+  bool free_seating=SALONS2::isFreeSeating(point_id);
 
   NewTextChild(resNode,"flight",GetTripName(operFlt,ecCkin,true,false));
 
@@ -3899,26 +3898,29 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         SALONS2::TAutoSeats autoSeats;
 
         //новая регистрация
-        string wl_type;
-        if (free_seating)
-          wl_type="F";
-        else
-          wl_type=NodeAsString("wl_type",segNode);
+        string wl_type=NodeAsString("wl_type",segNode);
         int first_reg_no=NoExists;
         bool pr_lat_seat=false;
         if (!pr_unaccomp)
         {
+          //проверка счетчиков
           if (wl_type.empty() && grp.status!=psCrew)
           {
-            //группа регистрируется не на лист ожидания
             //подсчет общего кол-ва мест, требуемых группе
             int seats_sum=0;
             for(TPaxList::iterator p=paxs.begin(); p!=paxs.end(); ++p) seats_sum+=p->pax.seats;
             //проверка наличия свободных мест
-            int free=CheckCounters(grp.point_dep,grp.point_arv,grp.cl,grp.status,free_seating);
+            int free=CheckCounters(grp.point_dep,grp.point_arv,grp.cl,grp.status,TCFG(grp.point_dep),free_seating);
             if (free!=NoExists && free<seats_sum)
               throw UserException("MSG.CHECKIN.AVAILABLE_SEATS",
                                   LParams()<<LParam("count",free)); //WEB
+
+            if (free_seating) wl_type="F";
+          };
+
+          if (wl_type.empty() && grp.status!=psCrew)
+          {
+            //группа регистрируется не на лист ожидания
 
             //разметка детей по взрослым
             vector<TInfantAdults> InfItems, AdultItems;
@@ -6248,9 +6250,9 @@ void CheckInInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
     NewTextChild( itemNode, "noshow", Qry.FieldAsInteger( "noshow" ) );
     NewTextChild( itemNode, "trnoshow", Qry.FieldAsInteger( "trnoshow" ) );
     NewTextChild( itemNode, "show", Qry.FieldAsInteger( "show" ) );
-    NewTextChild( itemNode, "free_ok", Qry.FieldAsInteger( "free_ok" ) );
-    NewTextChild( itemNode, "free_goshow", Qry.FieldAsInteger( "free_goshow" ) );
-    NewTextChild( itemNode, "nooccupy", Qry.FieldAsInteger( "nooccupy" ) );
+    NewTextChild( itemNode, "free_ok", Qry.FieldAsInteger( "free_ok" ) );         //не используется
+    NewTextChild( itemNode, "free_goshow", Qry.FieldAsInteger( "free_goshow" ) ); //не используется
+    NewTextChild( itemNode, "nooccupy", Qry.FieldAsInteger( "nooccupy" ) );       //не используется
   };
   
   int load_residue=getCommerceWeight( point_id, onlyCheckin, CWResidual );
@@ -6269,15 +6271,12 @@ void CheckInInterface::readTripData( int point_id, xmlNodePtr dataNode )
   Qry.Clear();
   Qry.SQLText =
     "SELECT airline,flt_no,suffix,airp,scd_out, "
-    "       point_num, first_point, pr_tranzit, "
-    "       pr_free_seating "
-    "FROM points, trip_sets "
-    "WHERE points.point_id=trip_sets.point_id AND "
-    "      points.point_id=:point_id AND pr_del=0 AND pr_reg<>0";
+    "       point_num, first_point, pr_tranzit "
+    "FROM points "
+    "WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
   if (Qry.Eof) throw UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
-  bool free_seating=Qry.FieldAsInteger("pr_free_seating")!=0;
 
   TTripInfo operFlt(Qry);
   TTripRoute route;
@@ -6331,37 +6330,22 @@ void CheckInInterface::readTripData( int point_id, xmlNodePtr dataNode )
     catch(EBaseTableError) {};
   };
 
-  Qry.Clear();
-  if (!free_seating)
-  {
-    Qry.SQLText =
-      "SELECT class AS class_code, "
-      "       cfg "
-      "FROM trip_classes,classes "
-      "WHERE classes.code=trip_classes.class AND point_id= :point_id "
-      "ORDER BY priority";
-    Qry.CreateVariable("point_id",otInteger,point_id);
-  }
-  else
-  {
-    Qry.SQLText =
-      "SELECT code AS class_code, "
-      "       0 AS cfg "
-      "FROM classes "
-      "ORDER BY priority";
-  };
-  Qry.Execute();
+  TCFG cfg(point_id);
+  bool cfg_exists=!cfg.empty();
+  bool free_seating=false;
+  if (!cfg_exists)
+    free_seating=SALONS2::isFreeSeating(point_id);
+  if (!cfg_exists && free_seating) cfg.get(NoExists);
   node = NewTextChild( tripdataNode, "classes" );
-  for(;!Qry.Eof;Qry.Next())
+  for(TCFG::const_iterator c=cfg.begin(); c!=cfg.end(); ++c)
   {
     itemNode = NewTextChild( node, "class" );
-    const char* cl=Qry.FieldAsString( "class_code" );
-    NewTextChild( itemNode, "code", cl );
+    NewTextChild( itemNode, "code", c->cls );
     if (TReqInfo::Instance()->desk.compatible(LATIN_VERSION))
-      NewTextChild( itemNode, "class_view", ElemIdToNameLong(etClass, cl) );
+      NewTextChild( itemNode, "class_view", ElemIdToNameLong(etClass, c->cls) );
     else
-      NewTextChild( itemNode, "name", ElemIdToNameLong(etClass, cl) );
-    NewTextChild( itemNode, "cfg", Qry.FieldAsInteger( "cfg" ) );
+      NewTextChild( itemNode, "name", ElemIdToNameLong(etClass, c->cls) );
+    NewTextChild( itemNode, "cfg", c->cfg );
   };
 
   //выходы на посадку, назначенные на рейс
@@ -6831,18 +6815,18 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
           catch(EBaseTableError) {};
         };
 
-        //начитаем компоновку
-        string cfg=GetCfgStr(NoExists, currSeg.point_dep);
+        //начитаем классы
+        TCFG cfg(currSeg.point_dep);
         if (cfg.empty())
         {
-          //компоновка не назначена
+          //кол-во по классам неизвестно
           xmlNodePtr wlNode=NewTextChild(segNode,"classes",AstraLocale::getLocaleText("Нет"));
           SetProp(wlNode,"error","WL");
           SetProp(wlNode,"wl_type","C");
         }
         else
         {
-          NewTextChild(segNode,"classes",cfg);
+          NewTextChild(segNode,"classes",cfg.str());
         };
 
 
@@ -7105,15 +7089,11 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
           else
             if (cl.size()==1)
             {
-              Qry.Clear();
-              Qry.SQLText="SELECT pr_free_seating FROM trip_sets WHERE point_id=:point_id";
-              Qry.CreateVariable("point_id", otInteger, currSeg.point_dep);
-              Qry.Execute();
-              bool free_seating=!Qry.Eof && Qry.FieldAsInteger("pr_free_seating")!=0;
+              bool free_seating=SALONS2::isFreeSeating(currSeg.point_dep);
 
               //считаем кол-во свободных мест
               //(после поиска пассажиров, так как необходимо определить базовый класс)
-              int free=CheckCounters(currSeg.point_dep,currSeg.point_arv,(char*)cl.c_str(),psTCheckin,free_seating);
+              int free=CheckCounters(currSeg.point_dep,currSeg.point_arv,(char*)cl.c_str(),psTCheckin,cfg,free_seating);
               if (free!=NoExists && free<seatsSum)
               {
                 xmlNodePtr wlNode;

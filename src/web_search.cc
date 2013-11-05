@@ -2002,11 +2002,7 @@ void getTCkinData( const TPnrData &first,
         if (currSeg.point_arv==ASTRA::NoExists)
           throw "Destination not found";
 
-        Qry.Clear();
-        Qry.SQLText="SELECT COUNT(*) AS num FROM trip_classes WHERE point_id=:point_id";
-        Qry.CreateVariable("point_id",otInteger,currSeg.point_dep);
-        Qry.Execute();
-        if (Qry.Eof || Qry.FieldAsInteger("num")==0)
+        if (TCFG(currSeg.point_dep).empty())
           throw "Configuration of the flight not assigned";
           
         TPnrData pnrData;

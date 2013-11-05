@@ -973,7 +973,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   NewTextChild( node, "craft", ElemIdToElemCtxt(ecCkin,etCraft, Qry.FieldAsString( "craft" ), (TElemFmt)Qry.FieldAsInteger( "craft_fmt" )) );
   NewTextChild( node, "bort", Qry.FieldAsString( "bort" ) );
   NewTextChild( node, "park", Qry.FieldAsString( "park_out" ) );
-  NewTextChild( node, "classes", GetCfgStr(NoExists, point_id) );
+  NewTextChild( node, "classes", TCFG(point_id).str() );
   string route=GetRouteAfterStr(NoExists, point_id, trtWithCurrent, trtNotCancelled);
   NewTextChild( node, "route", route );
   NewTextChild( node, "places", route );

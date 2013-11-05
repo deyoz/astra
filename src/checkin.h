@@ -153,6 +153,7 @@ public:
                            int point_arv,
                            const std::string &cl,
                            ASTRA::TPaxStatus grp_status,
+                           const TCFG &cfg,
                            bool free_seating);
 
   static bool CheckFQTRem(CheckIn::TPaxRemItem &rem, CheckIn::TPaxFQTItem &fqt);

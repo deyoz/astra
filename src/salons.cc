@@ -5641,7 +5641,7 @@ void CreateComps( const TCompsRoutes &routes, int comp_id )
       QryTripSets.SetVariable( "crc_comp", crc_comp );
       QryTripSets.Execute();
       TReqInfo::Instance()->MsgToLog( string( "Назначена базовая компоновка (ид=" ) + IntToString( comp_id ) +
-      	                              "). Классы: " + GetCfgStr(NoExists, i->point_id, AstraLocale::LANG_RU), evtFlt, i->point_id );
+      	                              "). Классы: " + TCFG(i->point_id).str(AstraLocale::LANG_RU), evtFlt, i->point_id );
       if ( SALONS2::isTranzitSalons( i->point_id ) ) {
         if ( find( points_tranzit_check_wait_alarm.begin(),
                    points_tranzit_check_wait_alarm.end(),
