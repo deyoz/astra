@@ -2409,6 +2409,7 @@ void FilterRoutesProperty::Read( const TFilterRoutesSets &filterRoutesSets )
     }
   }
   if ( empty() ) {
+    ProgTrace( TRACE5, "FilterRoutesProperty::Read, point_id=%d", point_dep );
     throw UserException( "MSG.FLIGHT.CANCELED.REFRESH_DATA" );
   }
   routes.clear();
@@ -4462,9 +4463,11 @@ void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tran
         filterRoutesTmp.Read( TFilterRoutesSets( iroute->point_id, ASTRA::NoExists ) ); //чтение маршрута рейса
       }
       catch( UserException &e ) {
+        tst();
         if ( e.getLexemaData().lexema_id != "MSG.FLIGHT.NOT_FOUND.REFRESH_DATA" &&
              e.getLexemaData().lexema_id != "MSG.FLIGHT.CANCELED.REFRESH_DATA" )
           throw;
+        continue;
       }
       if ( filterRoutes.getMaxRoute() != filterRoutesTmp.getMaxRoute() ) { //макс. плечо не равно предыдущему
         ProgTrace( TRACE5, "check_waitlist_alarm_on_tranzit_routes: point_id=%d, filterRoutesSets.point_dep=%d,%d, filterRoutesTmp.getMaxRoute()=%d,%d",
