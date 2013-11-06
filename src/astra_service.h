@@ -39,6 +39,7 @@ void sync_checkin_data( void );
 void sync_checkin_data( int point_id );
 void utg_prl(void);
 void putUTG(int id, const std::string &basic_type, const TTripInfo &flt, const std::string &data);
+void sync_fids_data( );
 
 
 class AstraServiceInterface : public JxtInterface
@@ -96,6 +97,8 @@ public:
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 
+void CreateXMLStage( const TCkinClients &CkinClients, TStage stage_id, const TTripStage &stage,
+                     xmlNodePtr node, const std::string &region );
 
 void put_string_into_snapshot_points( int point_id, std::string file_type,
 	                                    std::string point_addr, bool pr_old_record, std::string record );
