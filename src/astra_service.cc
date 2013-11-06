@@ -36,7 +36,7 @@ using namespace EXCEPTIONS;
 using namespace AstraLocale;
 using namespace BASIC;
 
-const double WAIT_ANSWER_SEC = 30.0;   // ждем ответа 30 секунд
+const int WAIT_ANSWER_SEC = 30;   // ждем ответа 30 секунд
 const std::string PARAM_LOAD_DIR = "LOADDIR";
 const std::string PARAM_IN_ORDER = "IN_ORDER";
 const string PARAM_FILE_ID = "file_id";
