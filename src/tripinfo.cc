@@ -2562,7 +2562,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     	pax_row++;
     else
     	crs_row++;
-    NewTextChild( node, "isseat", (!SQry.VariableIsNULL( "seat_no" ) || !Qry.FieldAsInteger( col_seats ) ) );
+    NewTextChild( node, "isseat", ( pr_free_seating || !SQry.VariableIsNULL( "seat_no" ) || !Qry.FieldAsInteger( col_seats ) ) );
     if ( !SQry.VariableIsNULL( "seat_no" ) ) {
     	string seat_no = SQry.GetVariableAsString( "seat_no" );
     	string layer_type;
