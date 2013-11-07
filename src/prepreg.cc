@@ -32,25 +32,34 @@ void PrepRegInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
   ProgTrace(TRACE5, "PrepRegInterface::readTripCounters" );
   TQuery Qry( &OraSession );
 
+  bool cfg_exists=!TCFG(point_id).empty();
+  bool free_seating=false;
+  if (!cfg_exists)
+    free_seating=SALONS2::isFreeSeating(point_id);
+
   Qry.SQLText =
      "SELECT -100 AS num, "
      "        'Всего' AS firstcol, "
      "        SUM(cfg) AS cfg, "
-     "        SUM(resa) AS resa, "
-     "        SUM(tranzit) AS tranzit, "
+     "        SUM(crs_ok) AS resa, "
+     "        SUM(crs_tranzit) AS tranzit, "
      "        SUM(block) AS block, "
      "        SUM(avail) AS avail, "
      "        SUM(prot) AS prot "
-     "FROM trip_classes, "
-     "     (SELECT point_dep AS point_id,class, "
-     "             SUM(crs_ok) AS resa, "
-     "             SUM(crs_tranzit) AS tranzit, "
-     "             MAX(avail) AS avail "
-     "      FROM counters2 "
-     "      WHERE counters2.point_dep=:point_id "
-     "      GROUP BY point_dep,class) c "
-     "WHERE c.point_id=trip_classes.point_id AND "
-     "      c.class=trip_classes.class "
+     "FROM "
+     " (SELECT MAX(cfg) AS cfg, "
+     "         SUM(crs_ok) AS crs_ok, "
+     "         SUM(crs_tranzit) AS crs_tranzit, "
+     "         MAX(block) AS block, "
+     "         DECODE(:cfg_exists, 0, TO_NUMBER(NULL), GREATEST(MAX(avail),0)) AS avail, "
+     "         MAX(prot) AS prot "
+     "  FROM counters2 c,trip_classes,classes "
+     "  WHERE c.point_dep=trip_classes.point_id(+) AND "
+     "        c.class=trip_classes.class(+) AND "
+     "        (trip_classes.point_id IS NOT NULL OR :cfg_exists=0 AND :free_seating<>0) AND "
+     "        c.class=classes.code AND "
+     "        c.point_dep=:point_id  "
+     "  GROUP BY classes.priority,c.class) "
      "UNION "
      "SELECT classes.priority-10, "
      "       c.class, "
@@ -58,11 +67,12 @@ void PrepRegInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
      "       SUM(crs_ok), "
      "       SUM(crs_tranzit), "
      "       MAX(block), "
-     "       MAX(avail), "
+     "       DECODE(:cfg_exists, 0, TO_NUMBER(NULL), GREATEST(MAX(avail),0)), "
      "       MAX(prot) "
      "FROM counters2 c,trip_classes,classes "
-     "WHERE c.point_dep=trip_classes.point_id AND "
-     "      c.class=trip_classes.class AND "
+     "WHERE c.point_dep=trip_classes.point_id(+) AND "
+     "      c.class=trip_classes.class(+) AND "
+     "      (trip_classes.point_id IS NOT NULL OR :cfg_exists=0 AND :free_seating<>0) AND "
      "      c.class=classes.code AND "
      "      c.point_dep=:point_id  "
      "GROUP BY classes.priority,c.class "
@@ -73,16 +83,19 @@ void PrepRegInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
      "       SUM(crs_ok), "
      "       SUM(crs_tranzit), "
      "       SUM(block), "
-     "       SUM(avail), "
+     "       DECODE(:cfg_exists, 0, TO_NUMBER(NULL), GREATEST(SUM(avail),0)), "
      "       SUM(prot)  "
      "FROM counters2 c,trip_classes,points "
-     "WHERE c.point_dep=trip_classes.point_id AND "
-     "      c.class=trip_classes.class AND "
+     "WHERE c.point_dep=trip_classes.point_id(+) AND "
+     "      c.class=trip_classes.class(+) AND "
+     "      (trip_classes.point_id IS NOT NULL OR :cfg_exists=0 AND :free_seating<>0) AND "
      "      c.point_arv=points.point_id AND "
      "      c.point_dep=:point_id AND points.pr_del>=0 "
      "GROUP BY points.point_num,points.airp "
      "ORDER BY 1";
   Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.CreateVariable( "cfg_exists", otInteger, (int)cfg_exists );
+  Qry.CreateVariable( "free_seating", otInteger, (int)free_seating );
   Qry.Execute();
 
   xmlNodePtr node = NewTextChild( dataNode, "tripcounters" );
@@ -95,15 +108,32 @@ void PrepRegInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
         NewTextChild( itemNode, "firstcol", ElemIdToCodeNative(etClass,Qry.FieldAsString( "firstcol" )) );
       else // аэропорты
       	NewTextChild( itemNode, "firstcol", ElemIdToCodeNative(etAirp,Qry.FieldAsString( "firstcol" )) );
-    NewTextChild( itemNode, "cfg", Qry.FieldAsInteger( "cfg" ) );
-    NewTextChild( itemNode, "resa", Qry.FieldAsInteger( "resa" ) );
-    NewTextChild( itemNode, "tranzit", Qry.FieldAsInteger( "tranzit" ) );
-    NewTextChild( itemNode, "block", Qry.FieldAsInteger( "block" ) );
-    NewTextChild( itemNode, "avail", Qry.FieldAsInteger( "avail" ) );
-    NewTextChild( itemNode, "prot", Qry.FieldAsInteger( "prot" ) );
+    if (!Qry.FieldIsNULL( "cfg" ))
+      NewTextChild( itemNode, "cfg", Qry.FieldAsInteger( "cfg" ) );
+    else
+      NewTextChild( itemNode, "cfg" );
+    if (!Qry.FieldIsNULL( "resa" ))
+      NewTextChild( itemNode, "resa", Qry.FieldAsInteger( "resa" ) );
+    else
+      NewTextChild( itemNode, "resa" );
+    if (!Qry.FieldIsNULL( "tranzit" ))
+      NewTextChild( itemNode, "tranzit", Qry.FieldAsInteger( "tranzit" ) );
+    else
+      NewTextChild( itemNode, "tranzit" );
+    if (!Qry.FieldIsNULL( "block" ))
+      NewTextChild( itemNode, "block", Qry.FieldAsInteger( "block" ) );
+    else
+      NewTextChild( itemNode, "block" );
+    if (!Qry.FieldIsNULL( "avail" ))
+      NewTextChild( itemNode, "avail", Qry.FieldAsInteger( "avail" ) );
+    else
+      NewTextChild( itemNode, "avail" );
+    if (!Qry.FieldIsNULL( "prot" ))
+      NewTextChild( itemNode, "prot", Qry.FieldAsInteger( "prot" ) );
+    else
+      NewTextChild( itemNode, "prot" );
     Qry.Next();
   }
-  tst();
 }
 
 void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
@@ -115,52 +145,41 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
 
   Qry.Clear();
   Qry.SQLText =
-    "SELECT airline, flt_no, airp, "
-    "       point_num,DECODE(pr_tranzit,0,point_id,first_point) AS first_point "
+    "SELECT airline, flt_no, suffix, airp, scd_out, "
+    "       point_id, point_num, first_point, pr_tranzit "
     "FROM points WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
-  string airline = Qry.FieldAsString( "airline" );
-  int flt_no = Qry.FieldAsInteger( "flt_no" );
-  string airp = Qry.FieldAsString( "airp" );
-  int point_num = Qry.FieldAsInteger( "point_num" );
-  int first_point = Qry.FieldAsInteger( "first_point" );
+  if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
 
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT airp FROM points "
-    "WHERE first_point=:first_point AND point_num>:point_num AND pr_del=0 "
-    "ORDER BY point_num ";
-  Qry.CreateVariable( "first_point", otInteger, first_point );
-  Qry.CreateVariable( "point_num", otInteger, point_num );
-  Qry.Execute();
+  TAdvTripInfo fltInfo(Qry);
+
   xmlNodePtr node;
   node = NewTextChild( tripdataNode, "airps" );
-  while ( !Qry.Eof ) {
-    NewTextChild( node, "airp", Qry.FieldAsString( "airp" ) );
-    Qry.Next();
-  }
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT class FROM trip_classes,classes "\
-    " WHERE trip_classes.class=classes.code AND point_id=:point_id "\
-    "ORDER BY classes.priority ";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
+  TTripRoute route;
+  route.GetRouteAfter( NoExists,
+                       fltInfo.point_id,
+                       fltInfo.point_num,
+                       fltInfo.first_point,
+                       fltInfo.pr_tranzit,
+                       trtNotCurrent,
+                       trtNotCancelled );
+  for(TTripRoute::const_iterator r=route.begin(); r!=route.end(); ++r)
+    NewTextChild( node, "airp", r->airp );
+
   node = NewTextChild( tripdataNode, "classes" );
-  while ( !Qry.Eof ) {
-    NewTextChild( node, "class", Qry.FieldAsString( "class" ) );
-    Qry.Next();
-  }
+  TCFG cfg(point_id);
+  for(TCFG::const_iterator c=cfg.begin(); c!=cfg.end(); ++c)
+    NewTextChild( node, "class", c->cls );
 
   Qry.Clear();
   Qry.SQLText =
-    "BEGIN "\
-    " SELECT MAX(ckin.get_crs_priority(code,:airline,:flt_no,:airp)) INTO :priority FROM typeb_senders; "\
+    "BEGIN "
+    " SELECT MAX(ckin.get_crs_priority(code,:airline,:flt_no,:airp)) INTO :priority FROM typeb_senders; "
     "END;";
-  Qry.CreateVariable( "airline", otString, airline );
-  Qry.CreateVariable( "flt_no", otInteger, flt_no );
-  Qry.CreateVariable( "airp", otString, airp );
+  Qry.CreateVariable( "airline", otString, fltInfo.airline );
+  Qry.CreateVariable( "flt_no", otInteger, fltInfo.flt_no );
+  Qry.CreateVariable( "airp", otString, fltInfo.airp );
   Qry.DeclareVariable( "priority", otInteger );
   Qry.Execute();
   bool empty_priority = Qry.VariableIsNULL( "priority" );
@@ -168,7 +187,7 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
   if ( !empty_priority )
     priority = Qry.GetVariableAsInteger( "priority" );
   ProgTrace( TRACE5, "airline=%s, flt_no=%d, airp=%s, empty_priority=%d, priority=%d",
-             airline.c_str(), flt_no, airp.c_str(), empty_priority, priority );
+             fltInfo.airline.c_str(), fltInfo.flt_no, fltInfo.airp.c_str(), empty_priority, priority );
   Qry.Clear();
   Qry.SQLText =
     "SELECT typeb_senders.code, "
@@ -202,9 +221,9 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
     Qry.CreateVariable( "priority", otInteger, FNull );
   else
     Qry.CreateVariable( "priority", otInteger, priority );
-  Qry.CreateVariable( "airline", otString, airline );
-  Qry.CreateVariable( "flt_no", otInteger, flt_no );
-  Qry.CreateVariable( "airp", otString, airp );
+  Qry.CreateVariable( "airline", otString, fltInfo.airline );
+  Qry.CreateVariable( "flt_no", otInteger, fltInfo.flt_no );
+  Qry.CreateVariable( "airp", otString, fltInfo.airp );
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   node = NewTextChild( tripdataNode, "crs" );
@@ -239,9 +258,10 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
     "GROUP BY sender,p.point_num,airp_arv,class "
     "ORDER BY sender,p.point_num,airp_arv ";
   Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.CreateVariable( "first_point", otInteger, first_point );
-  Qry.CreateVariable( "point_num", otInteger, point_num );
-  Qry.CreateVariable( "airp_dep", otString, airp );
+  Qry.CreateVariable( "first_point", otInteger, fltInfo.pr_tranzit?fltInfo.first_point:fltInfo.point_id );
+  Qry.CreateVariable( "point_num", otInteger, fltInfo.point_num );
+  Qry.CreateVariable( "airp_dep", otString, fltInfo.airp );
+
   Qry.Execute();
   node = NewTextChild( tripdataNode, "crsdata" );
   while ( !Qry.Eof ) {
@@ -294,9 +314,9 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
       "FROM trip_data WHERE point_id=:point_id "
       "ORDER BY airp_arv,class,priority DESC ";
     Qry.CreateVariable( "priority", otInteger, priority );
-    Qry.CreateVariable( "airline", otString, airline );
-    Qry.CreateVariable( "flt_no", otInteger, flt_no );
-    Qry.CreateVariable( "airp", otString, airp );
+    Qry.CreateVariable( "airline", otString, fltInfo.airline );
+    Qry.CreateVariable( "flt_no", otInteger, fltInfo.flt_no );
+    Qry.CreateVariable( "airp", otString, fltInfo.airp );
     Qry.CreateVariable( "point_id", otInteger, point_id );
   }
   Qry.Execute();
@@ -392,8 +412,8 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     SetsQry.SQLText =
       "SELECT pr_tranz_reg,pr_block_trzt,pr_check_load,pr_overload_reg,pr_exam, "
       "       pr_check_pay,pr_exam_check_pay, "
-      "       pr_reg_with_tkn,pr_reg_with_doc,auto_weighing,pr_airp_seance, "
-      "       pr_free_seating "
+      "       pr_reg_with_tkn,pr_reg_with_doc,auto_weighing,pr_free_seating, "
+      "       pr_airp_seance "
       "FROM trip_sets WHERE point_id=:point_id";
     SetsQry.CreateVariable("point_id",otInteger,point_id);
     SetsQry.Execute();
@@ -444,7 +464,10 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
       new_auto_weighing=NodeAsInteger("auto_weighing",node)!=0;
     else
       new_auto_weighing=old_auto_weighing;
-    new_pr_free_seating=NodeAsInteger("pr_free_seating",node)!=0;
+    if (TReqInfo::Instance()->desk.compatible(FREE_SEATING_VERSION))
+      new_pr_free_seating=NodeAsInteger("pr_free_seating",node)!=0;
+    else
+      new_pr_free_seating=old_pr_free_seating;
     if (!NodeIsNULL("pr_airp_seance",node))
       new_pr_airp_seance=(int)(NodeAsInteger("pr_airp_seance",node)!=0);
     else
