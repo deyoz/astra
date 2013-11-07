@@ -26,6 +26,7 @@
 #include "sopp.h"
 #include "points.h"
 #include "stages.h"
+#include "astra_service.h"
 #include "astra_callbacks.h"
 #include "tlg/tlg.h"
 #include "serverlib/perfom.h"
@@ -3268,21 +3269,6 @@ void WebRequestsIface::ClientError(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 };
 
 ////////////////////////////////////MERIDIAN SYSTEM/////////////////////////////
-inline void CreateXMLStage( const TCkinClients &CkinClients, TStage stage_id, const TTripStage &stage,
-                            xmlNodePtr node, const string &region )
-{
-  TStagesRules *sr = TStagesRules::Instance();
-  if ( sr->isClientStage( (int)stage_id ) && !sr->canClientStage( CkinClients, (int)stage_id ) )
-    return;
-  xmlNodePtr node1 = NewTextChild( node, "stage" );
-  SetProp( node1, "stage_id", stage_id );
-  NewTextChild( node1, "scd", DateTimeToStr( UTCToClient( stage.scd, region ), "dd.mm.yyyy hh:nn" ) );
-  if ( stage.est != ASTRA::NoExists )
-    NewTextChild( node1, "est", DateTimeToStr( UTCToClient( stage.est, region ), "dd.mm.yyyy hh:nn" ) );
-  if ( stage.act != ASTRA::NoExists )
-    NewTextChild( node1, "act", DateTimeToStr( UTCToClient( stage.act, region ), "dd.mm.yyyy hh:nn" ) );
-}
-
 void WebRequestsIface::GetFlightInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   string airline;
