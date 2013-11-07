@@ -2196,7 +2196,8 @@ void SetLayers( vector<TCompLayerType> &Layers,
         Layers.push_back( cltUncomfort );
       };
       if ( Step != 1 ) {
-        if ( client_type == ASTRA::ctTerm )
+        if ( client_type == ASTRA::ctTerm &&
+             client_type == ASTRA::ctPNL )
           Layers.push_back( cltProtect );
         Layers.push_back( cltPNLCkin );
       	for( TUseLayers::const_iterator l=preseat_layers.begin(); l!=preseat_layers.end(); l++ ) {
@@ -2207,7 +2208,8 @@ void SetLayers( vector<TCompLayerType> &Layers,
       break;
     case cltProtect:
       if ( Step != 0 ) {
-        if ( client_type == ASTRA::ctTerm )
+        if ( client_type == ASTRA::ctTerm &&
+             client_type == ASTRA::ctPNL )
           Layers.push_back( cltProtect );
         Layers.push_back( cltUnknown );
       };
@@ -2226,7 +2228,8 @@ void SetLayers( vector<TCompLayerType> &Layers,
         Layers.push_back( cltUncomfort );
       };
       if ( Step != 1 ) {
-        if ( client_type == ASTRA::ctTerm )
+        if ( client_type == ASTRA::ctTerm &&
+             client_type == ASTRA::ctPNL )
           Layers.push_back( cltProtect );
         Layers.push_back( cltPNLCkin );
       	for( TUseLayers::const_iterator l=preseat_layers.begin(); l!=preseat_layers.end(); l++ ) {
@@ -2242,7 +2245,8 @@ void SetLayers( vector<TCompLayerType> &Layers,
         Layers.push_back( cltUncomfort );
       };
       if ( Step != 1 ) {
-        if ( client_type == ASTRA::ctTerm )
+        if ( client_type == ASTRA::ctTerm &&
+             client_type == ASTRA::ctPNL )
           Layers.push_back( cltProtect );
        	for( TUseLayers::const_iterator l=preseat_layers.begin(); l!=preseat_layers.end(); l++ ) {
           if ( l->second )
@@ -2264,7 +2268,8 @@ void SetLayers( vector<TCompLayerType> &Layers,
         Layers.push_back( cltUncomfort );
       }
       if ( Step != 1 ) {
-        if ( client_type == ASTRA::ctTerm )
+        if ( client_type == ASTRA::ctTerm &&
+             client_type == ASTRA::ctPNL )
       	  Layers.push_back( cltProtect );
       	Layers.push_back( cltPNLCkin );
       }
@@ -2360,7 +2365,8 @@ void SeatsPassengers( SALONS2::TSalonList &salonList,
         pr_grp_pay = true;
       }
   	}
-  	if ( client_type != ctTerm ) {
+  	if ( client_type != ASTRA::ctTerm &&
+         client_type != ASTRA::ctPNL ) {
       AstraWeb::TWebPax webPax;
       webPax.crs_pax_id = pass.paxId;
       ProgTrace( TRACE5, "webPax.crs_pax_id=%d", webPax.crs_pax_id );
@@ -2798,7 +2804,7 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p )
     "      pax_grp.grp_id=tckin_pax_grp.grp_id(+) AND "
     "      pax.pr_brd IS NOT NULL AND "
     "      pax.seats > 0 "
-    " ORDER BY pax.pax_id";
+    " ORDER BY pax.pax_id DESC";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
 
