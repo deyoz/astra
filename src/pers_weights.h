@@ -119,7 +119,7 @@ class TFlightWeights
     TFlightWeights(){
       Clear();
     };
-    void read( int point_id, TTypeFlightWeight weight_type );
+    void read( int point_id, TTypeFlightWeight weight_type, bool include_wait_list );
 };
 
 int getCommerceWeight( int point_id, TTypeFlightWeight weight_type, TTypeCalcCommerceWeight calc_type );

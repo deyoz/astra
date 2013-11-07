@@ -1312,14 +1312,12 @@ namespace PRL_SPACE {
     }
 
     struct TPRLDest {
-        int point_num;
         string airp;
         string cls;
         vector<TPRLPax> PaxList;
         TGRPMap *grp_map;
         TInfants *infants;
         TPRLDest(TGRPMap *agrp_map, TInfants *ainfants) {
-            point_num = NoExists;
             grp_map = agrp_map;
             infants = ainfants;
         }
@@ -1537,7 +1535,7 @@ namespace PRL_SPACE {
     void TTotalPaxWeight::get(TypeB::TDetailCreateInfo &info)
     {
         TFlightWeights w;
-        w.read( info.point_id, onlyCheckin );
+        w.read( info.point_id, onlyCheckin, false );
         weight = w.weight_male +
                  w.weight_female +
                  w.weight_child +
@@ -1763,8 +1761,10 @@ namespace PRL_SPACE {
             "   SUM(DECODE(pax_grp.class||bag2.pr_cabin, 'Э0', weight, 0)) y_bag_weight, "
             "   SUM(DECODE(pax_grp.class||bag2.pr_cabin, 'Э1', weight, 0)) y_rk_weight "
             "FROM "
-            "   pax_grp, bag2 "
+            "   pax_grp, bag2, pax "
             "WHERE "
+            "   pax_grp.grp_id = pax.grp_id(+) and "
+            "   salons.is_waitlist(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,rownum)=0 AND "
             "   pax_grp.point_dep = :point_id AND "
             "   pax_grp.status NOT IN ('E') AND "
             "   pax_grp.grp_id = bag2.grp_id AND "
@@ -3964,12 +3964,12 @@ int SOM(TypeB::TDetailCreateInfo &info)
     tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + TypeB::endl;
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + TypeB::endl;
     size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
-    if(isFreeSeating(info.point_id))
-        throw UserException("MSG.SALONS.FREE_SEATING");
-    if(isEmptySalons(info.point_id))
-        throw UserException("MSG.FLIGHT_WO_CRAFT_CONFIGURE");
     TTlgSeatList SOMList;
     try {
+        if(isFreeSeating(info.point_id))
+            throw UserException("MSG.SALONS.FREE_SEATING");
+        if(isEmptySalons(info.point_id))
+            throw UserException("MSG.FLIGHT_WO_CRAFT_CONFIGURE");
         SOMList.get(info);
     } catch(...) {
         ExceptionFilter(SOMList.items, info);
@@ -4476,14 +4476,12 @@ void TFTLBody::get(TypeB::TDetailCreateInfo &info)
 };
 
 struct TETLDest {
-    int point_num;
     string airp;
     string cls;
     vector<TETLPax> PaxList;
     TGRPMap *grp_map;
     TInfants *infants;
     TETLDest(TGRPMap *agrp_map, TInfants *ainfants) {
-        point_num = NoExists;
         grp_map = agrp_map;
         infants = ainfants;
     }
@@ -5938,45 +5936,18 @@ int ETL(TypeB::TDetailCreateInfo &info)
 template <class T>
 void TDestList<T>::get(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &complayers)
 {
-    TPerfTimer tm;
-    tm.Init();
-    infants.get(info);
-    QParams QryParams;
-    QryParams
-        << QParam("vpoint_id", otInteger, info.point_id)
-        << QParam("vfirst_point", otInteger, info.pr_tranzit ? info.first_point : info.point_id)
-        << QParam("vpoint_num", otInteger, info.point_num);
-    TQuery &Qry = TQrys::Instance()->get(
-            "select point_num, airp, class from "
-            "( "
-            "  SELECT airp, point_num, point_id FROM points "
-            "  WHERE first_point = :vfirst_point AND point_num > :vpoint_num AND pr_del=0 "
-            ") a, "
-            "( "
-            "  SELECT DISTINCT cls_grp.code AS class "
-            "  FROM pax_grp,cls_grp "
-            "  WHERE pax_grp.class_grp=cls_grp.id AND "
-            "        pax_grp.point_dep = :vpoint_id AND "
-            "        pax_grp.status NOT IN ('E') AND "
-            "        pax_grp.bag_refuse=0 "
-            "  UNION "
-//            "  SELECT DISTINCT class FROM pax_grp WHERE ....
-            "  SELECT class FROM trip_classes WHERE point_id = :vpoint_id " // !!! удалить
-            ") b  "
-            "ORDER by "
-            "  point_num, airp, class ",
-            QryParams);
-    tm.Init();
-    Qry.Execute();
-    for(; !Qry.Eof; Qry.Next()) {
-        T dest(&grp_map, &infants);
-        dest.point_num = Qry.FieldAsInteger("point_num");
-        dest.airp = Qry.FieldAsString("airp");
-        dest.cls = Qry.FieldAsString("class");
-        tm.Init();
-        dest.GetPaxList(info,complayers);
-        items.push_back(dest);
-    }
+    TTripRoute route;
+    route.GetRouteAfter(NoExists, info.point_id, trtNotCurrent, trtNotCancelled);
+    TCFG cfg(info.point_id);
+    if(cfg.empty()) cfg.get(NoExists);
+    for(TTripRoute::iterator i_route = route.begin(); i_route != route.end(); i_route++)
+        for(TCFG::iterator i_cfg = cfg.begin(); i_cfg != cfg.end(); i_cfg++) {
+            T dest(&grp_map, &infants);
+            dest.airp = i_route->airp;
+            dest.cls = i_cfg->cls;
+            dest.GetPaxList(info,complayers);
+            items.push_back(dest);
+        }
 }
 
 struct TNumByDestItem {

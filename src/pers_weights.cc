@@ -317,7 +317,7 @@ bool PersWeightRules::weight( std::string cl, std::string subcl, ClassesPersWeig
   return false;
 }
 
-void TFlightWeights::read( int point_id, TTypeFlightWeight weight_type )
+void TFlightWeights::read( int point_id, TTypeFlightWeight weight_type, bool include_wait_list )
 {
   Clear();
   PersWeightRules r;
@@ -358,6 +358,8 @@ void TFlightWeights::read( int point_id, TTypeFlightWeight weight_type )
     str += " AND pr_brd=1 ";
   else
     str += " AND pr_brd IS NOT NULL ";
+  if(not include_wait_list)
+      str += " and salons.is_waitlist(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,rownum)=0 ";
   str +=
     " AND point_dep=:point_dep "
     " AND pax_grp.status NOT IN ('E') "
@@ -411,7 +413,7 @@ int getCommerceWeight( int point_id, TTypeFlightWeight weight_type, TTypeCalcCom
   ClassesPersWeight weight;
   r.read( point_id );
 	TFlightWeights w;
-	w.read( point_id, weight_type );
+	w.read( point_id, weight_type, true );
 	TPointsDest dest;
 	BitSet<TUseDestData> UseData;
 	UseData.setFlag( udCargo );

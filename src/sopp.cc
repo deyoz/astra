@@ -2813,7 +2813,7 @@ void GetLuggage( int point_id, xmlNodePtr dataNode )
   ClassesPersWeight weight;
   r.read( point_id );
 	TFlightWeights w;
-	w.read( point_id, withBrd );
+	w.read( point_id, withBrd, true );
 	TPointsDest dest;
 	BitSet<TUseDestData> UseData;
 	UseData.setFlag( udCargo );
