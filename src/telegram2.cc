@@ -4669,6 +4669,49 @@ struct TLDMBag {
     {};
 };
 
+struct TToRampBag {
+    int amount, weight;
+    TToRampBag():
+        amount(0),
+        weight(0)
+    {}
+    void get(int point_id);
+    bool empty();
+};
+
+bool TToRampBag::empty()
+{
+    return not amount and not weight;
+}
+
+void TToRampBag::get(int point_id)
+{
+    amount = 0;
+    weight = 0;
+    QParams QryParams;
+    QryParams << QParam("point_id", otInteger, point_id);
+    TQuery &Qry = TQrys::Instance()->get(
+            "select "
+            "   sum(amount) amount, "
+            "   sum(weight) weight "
+            "from "
+            "   pax_grp, "
+            "   bag2 "
+            "where "
+            "   pax_grp.grp_id = bag2.grp_id and "
+            "   pax_grp.point_dep = :point_id and "
+            "   pax_grp.status NOT IN ('E') AND "
+            "   bag2.pr_cabin=0 AND "
+            "   ckin.bag_pool_boarded(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)<>0 and "
+            "   bag2.to_ramp <> 0 ",
+            QryParams
+            );
+    Qry.Execute();
+    if(not Qry.Eof) {
+        amount = Qry.FieldAsInteger("amount");
+        weight = Qry.FieldAsInteger("weight");
+    }
+}
 
 void TLDMBag::get(TypeB::TDetailCreateInfo &info, int point_arv)
 {
@@ -4852,6 +4895,7 @@ void TLDMCFG::get(TypeB::TDetailCreateInfo &info)
 struct TLDMDests {
     TLDMCFG cfg;
     TExcess excess;
+    TToRampBag to_ramp;
     vector<TLDMDest> items;
     void get(TypeB::TDetailCreateInfo &info);
     void ToTlg(TypeB::TDetailCreateInfo &info, bool &vcompleted, vector<string> &body);
@@ -4940,6 +4984,12 @@ void TLDMDests::ToTlg(TypeB::TDetailCreateInfo &info, bool &vcompleted, vector<s
             row << mail_sum;
         else
             row << "NIL";
+        row << ".DAA";
+        if(to_ramp.empty())
+            row << "NIL";
+        else
+            row << to_ramp.amount << "/" << to_ramp.weight << KG;
+
         body.push_back(row.str());
     }
     //    body.push_back("SI: TRANSFER BAG CPT 0 NS 0");
@@ -4949,6 +4999,7 @@ void TLDMDests::get(TypeB::TDetailCreateInfo &info)
 {
     cfg.get(info);
     excess.get(info.point_id);
+    to_ramp.get(info.point_id);
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "SELECT points.point_id AS point_arv, "
