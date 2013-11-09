@@ -1450,8 +1450,17 @@ class TPaxLoadOrder
           }
           else
           {
-            if (item1.user_view!=item2.user_view)
-              return item1.user_view<item2.user_view;
+            if (!item1.user_view.empty() &&
+                !item2.user_view.empty())
+            {
+              if (item1.user_view!=item2.user_view)
+                return item1.user_view<item2.user_view;
+            }
+            else
+            {
+              if (item1.user_view!=item2.user_view)
+                return !item1.user_view.empty();
+            };
           };
           continue;
         };
@@ -1898,7 +1907,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
           item.trfer_suffix_id=Qry.FieldAsString("suffix");
           item.trfer_airp_arv_id=Qry.FieldAsString("airp_arv");
         };
-        if (pr_user) item.user_id=Qry.FieldAsInteger("user_id");
+        if (pr_user && !Qry.FieldIsNULL("user_id")) item.user_id=Qry.FieldAsInteger("user_id");
         if (pr_client_type) item.client_type_id=Qry.FieldAsString("client_type");
         if (pr_status) item.grp_status_id=Qry.FieldAsString("status");
         if (pr_ticket_rem) item.ticket_rem=Qry.FieldAsString("ticket_rem");
@@ -2246,8 +2255,16 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     };
     if (pr_user)
     {
-      node=NewTextChild(rowNode,"user",i->user_view);
-      SetProp(node,"id",i->user_id);
+      if (i->user_id!=NoExists)
+      {
+        node=NewTextChild(rowNode,"user",i->user_view);
+        SetProp(node,"id",i->user_id);
+      }
+      else
+      {
+        node=NewTextChild(rowNode,"user");
+        SetProp(node,"id",-1);
+      };
     };
     if (pr_client_type)
     {

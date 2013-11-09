@@ -2602,7 +2602,10 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       else
         NewTextChild(paxNode,"hall_id",-1);
       NewTextChild(paxNode,"point_arv",Qry.FieldAsInteger(col_point_arv));
-      NewTextChild(paxNode,"user_id",Qry.FieldAsInteger(col_user_id));
+      if (!Qry.FieldIsNULL(col_user_id))
+        NewTextChild(paxNode,"user_id",Qry.FieldAsInteger(col_user_id));
+      else
+        NewTextChild(paxNode,"user_id",-1);
       if (reqInfo->desk.compatible(LATIN_VERSION))
       {
         NewTextChild(paxNode,"client_type_id",
@@ -2735,7 +2738,11 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       else
         NewTextChild(paxNode,"hall_id",-1);
       NewTextChild(paxNode,"point_arv",Qry.FieldAsInteger("point_arv"));
-      NewTextChild(paxNode,"user_id",Qry.FieldAsInteger("user_id"));
+      if (!Qry.FieldIsNULL("user_id"))
+        NewTextChild(paxNode,"user_id",Qry.FieldAsInteger("user_id"));
+      else
+        NewTextChild(paxNode,"user_id",-1);
+
       if (reqInfo->desk.compatible(LATIN_VERSION))
       {
         NewTextChild(paxNode,"client_type_id",

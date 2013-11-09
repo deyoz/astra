@@ -549,7 +549,7 @@ void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
         sql << "    pax_grp.grp_id=tckin_pax_grp.grp_id(+) AND ";
 
     if (used_for_web_rpt)
-        sql << "  pax_grp.user_id=users2.user_id AND "; //!!!user_id
+        sql << "  pax_grp.user_id=users2.user_id(+) AND "; //pax_grp.user_id=NULL для client_type=ctPNL
 
     sql << "    point_dep= :point_id AND pax_grp.status NOT IN ('E') AND pr_brd IS NOT NULL ";
 
