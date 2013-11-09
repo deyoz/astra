@@ -470,6 +470,7 @@ void BrdInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
 
 void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
                                             const int reg_no,
+                                            const int pax_id,
                                             const string &lang,
                                             const TRptType rpt_type,
                                             const string &client_type,
@@ -548,7 +549,7 @@ void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
         sql << "    pax_grp.grp_id=tckin_pax_grp.grp_id(+) AND ";
 
     if (used_for_web_rpt)
-        sql << "  pax_grp.user_id=users2.user_id AND ";
+        sql << "  pax_grp.user_id=users2.user_id AND "; //!!!user_id
 
     sql << "    point_dep= :point_id AND pax_grp.status NOT IN ('E') AND pr_brd IS NOT NULL ";
 
@@ -567,15 +568,20 @@ void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
         sql << " AND reg_no=:reg_no ";
         Qry.CreateVariable("reg_no",otInteger,reg_no);
     };
+    if (pax_id!=NoExists)
+    {
+        sql << " AND pax.pax_id=:pax_id ";
+        Qry.CreateVariable("pax_id",otInteger,pax_id);
+    };
     switch(sort) {
         case stRegNo:
-            sql << " ORDER BY reg_no ";
+            sql << " ORDER BY pax.reg_no, pax.seats DESC ";
             break;
         case stSurname:
-            sql << " ORDER BY pax.surname, pax.name, reg_no ";
+            sql << " ORDER BY pax.surname, pax.name, pax.reg_no, pax.seats DESC ";
             break;
         case stSeatNo:
-            sql << " ORDER BY seat_no, reg_no ";
+            sql << " ORDER BY seat_no, pax.reg_no, pax.seats DESC ";
             break;
     }
 
@@ -631,20 +637,21 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     TQuery Qry(&OraSession);
     if(strcmp((char *)reqNode->name, "PaxByPaxId") == 0)
     {
+      int pax_id=NodeAsInteger("pax_id",reqNode);
       //получим point_id и reg_no
       Qry.Clear();
       Qry.SQLText=
         "SELECT point_dep,reg_no "
         "FROM pax_grp,pax "
         "WHERE pax_grp.grp_id=pax.grp_id AND pax_id=:pax_id AND pr_brd IS NOT NULL";
-      Qry.CreateVariable("pax_id",otInteger,NodeAsInteger("pax_id",reqNode));
+      Qry.CreateVariable("pax_id",otInteger,pax_id);
       Qry.Execute();
       if (Qry.Eof)
         throw AstraLocale::UserException("MSG.WRONG_DATA_RECEIVED");
       reg_no=Qry.FieldAsInteger("reg_no");
       if (point_id==Qry.FieldAsInteger("point_dep"))
       {
-        GetPaxQuery(Qry, point_id, reg_no, reqInfo->desk.lang, rtUnknown, "");
+        GetPaxQuery(Qry, point_id, NoExists, pax_id, reqInfo->desk.lang, rtUnknown, "");
       }
       else
       {
@@ -675,19 +682,19 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
             throw AstraLocale::UserException(100, "MSG.PASSENGER.OTHER_FLIGHT");
         };
 
-        GetPaxQuery(Qry, point_id, NoExists, reqInfo->desk.lang, rtUnknown, "");
+        GetPaxQuery(Qry, point_id, NoExists, NoExists, reqInfo->desk.lang, rtUnknown, "");
       };
     }
     else if(strcmp((char *)reqNode->name, "PaxByRegNo") == 0)
     {
       reg_no=NodeAsInteger("reg_no",reqNode);
 
-      GetPaxQuery(Qry, point_id, reg_no, reqInfo->desk.lang, rtUnknown, "");
+      GetPaxQuery(Qry, point_id, reg_no, NoExists, reqInfo->desk.lang, rtUnknown, "");
     }
     else
     {
       //общий список
-      GetPaxQuery(Qry, point_id, NoExists, reqInfo->desk.lang, rtUnknown, "");
+      GetPaxQuery(Qry, point_id, NoExists, NoExists, reqInfo->desk.lang, rtUnknown, "");
     };
     
     int hall=NoExists;
@@ -783,6 +790,8 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       for(;!Qry.Eof;Qry.Next())
       {
           int pax_id=Qry.FieldAsInteger(col_pax_id);
+          string surname=Qry.FieldAsString(col_surname);
+          string name=Qry.FieldAsString(col_name);
 
           xmlNodePtr paxNode = NewTextChild(listNode, "pax");
           NewTextChild(paxNode, "pax_id", pax_id);
@@ -896,7 +905,8 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
               {
                   tid=NodeAsInteger("tid",reqNode);
                   if (tid!=Qry.FieldAsInteger(col_tid))
-                      throw AstraLocale::UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA", AstraLocale::LParams() << AstraLocale::LParam("surname", Qry.FieldAsString(col_surname)));
+                      throw AstraLocale::UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA",
+                                                       AstraLocale::LParams() << AstraLocale::LParam("surname", surname+(name.empty()?"":" ")+name));
               }
               else
                   tid=Qry.FieldAsInteger(col_tid);
@@ -1098,7 +1108,8 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 
                       }
                       else
-                          throw AstraLocale::UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA", LParams() << LParam("surname", Qry.FieldAsString(col_surname)));
+                          throw AstraLocale::UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA",
+                                                           LParams() << LParam("surname", surname+(name.empty()?"":" ")+name));
                     }
                     catch(int) {};
                   };

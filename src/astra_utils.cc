@@ -156,9 +156,12 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
     Qry.Execute();
     if ( !Qry.Eof && Qry.FieldAsInteger( "pr_crypt" ) != 0 ) {
       XMLRequestCtxt *xmlRC = getXmlCtxt();
-      xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
-      AstraLocale::showProgError( "MSG.MESSAGEPRO.CRYPT_MODE_ERR.REPEAT" );
-      resNode = ReplaceTextChild( resNode, "clear_certificates" );
+      if (xmlRC->resDoc!=NULL)
+      {
+        xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
+        AstraLocale::showProgError( "MSG.MESSAGEPRO.CRYPT_MODE_ERR.REPEAT" );
+        resNode = ReplaceTextChild( resNode, "clear_certificates" );
+      };
       throw UserException2();
     }
   }
@@ -852,10 +855,13 @@ void showError(const LexemaData &lexemaData, int code)
   string text, master_lexema_id;
   getLexemaText( lexemaData, text, master_lexema_id );
   XMLRequestCtxt *xmlRC = getXmlCtxt();
-  xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
-  resNode = ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "user_error", text );
-  SetProp(resNode, "lexema_id", master_lexema_id);
-  SetProp(resNode, "code", code);
+  if (xmlRC->resDoc!=NULL)
+  {
+    xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
+    resNode = ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "user_error", text );
+    SetProp(resNode, "lexema_id", master_lexema_id);
+    SetProp(resNode, "code", code);
+  };
 };
 
 void showError(const std::string &lexema_id, int code)
@@ -878,10 +884,13 @@ void showErrorMessage(const LexemaData &lexemaData, int code)
   string text, master_lexema_id;
   getLexemaText( lexemaData, text, master_lexema_id );
   XMLRequestCtxt *xmlRC = getXmlCtxt();
-  xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
-  resNode =  ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "user_error_message", text );
-  SetProp(resNode, "lexema_id", master_lexema_id);
-  SetProp(resNode, "code", code);
+  if (xmlRC->resDoc!=NULL)
+  {
+    xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
+    resNode =  ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "user_error_message", text );
+    SetProp(resNode, "lexema_id", master_lexema_id);
+    SetProp(resNode, "code", code);
+  };
 }
 
 void showErrorMessage(const std::string &lexema_id, int code)
@@ -904,10 +913,13 @@ void showMessage(const LexemaData &lexemaData, int code)
   string text, master_lexema_id;
   getLexemaText( lexemaData, text, master_lexema_id );
   XMLRequestCtxt *xmlRC = getXmlCtxt();
-  xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
-  resNode = ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "message", text );
-  SetProp(resNode, "lexema_id", master_lexema_id);
-  SetProp(resNode, "code", code);
+  if (xmlRC->resDoc!=NULL)
+  {
+    xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
+    resNode = ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "message", text );
+    SetProp(resNode, "lexema_id", master_lexema_id);
+    SetProp(resNode, "code", code);
+  };
 }
 
 void showMessage(const std::string &lexema_id, int code)
@@ -930,10 +942,13 @@ void showProgError(const LexemaData &lexemaData, int code)
   string text, master_lexema_id;
   getLexemaText( lexemaData, text, master_lexema_id );
   XMLRequestCtxt *xmlRC = getXmlCtxt();
-  xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
-  resNode = ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "error", text );
-  SetProp(resNode, "lexema_id", master_lexema_id);
-  SetProp(resNode, "code", code);
+  if (xmlRC->resDoc!=NULL)
+  {
+    xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
+    resNode = ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "error", text );
+    SetProp(resNode, "lexema_id", master_lexema_id);
+    SetProp(resNode, "code", code);
+  };
 };
 
 void showProgError(const std::string &lexema_id, int code)
@@ -1112,6 +1127,7 @@ void showBasicInfo(void)
 {
   XMLRequestCtxt *xmlRC = getXmlCtxt();
   TReqInfo *reqInfo = TReqInfo::Instance();
+  if (xmlRC->resDoc==NULL) return;
   xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
   xmlNodePtr node = GetNode("basic_info", resNode);
   if (node!=NULL)

@@ -263,10 +263,6 @@ class TPaxItem
       rk_weight=0;
       bag_pool_num=ASTRA::NoExists;
     };
-    bool operator < (const TPaxItem &item) const
-    {
-      return reg_no < item.reg_no;
-    };
 };
 
 class TTlgContent

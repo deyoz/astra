@@ -46,12 +46,6 @@ using namespace ASTRA;
 using namespace BASIC;
 using namespace AstraLocale;
 
-class OverloadException: public AstraLocale::UserException
-{
-  public:
-    OverloadException(const std::string &msg):UserException(msg) {};
-};
-
 void CheckInInterface::LoadTagPacks(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   //load tag packs
@@ -2325,7 +2319,7 @@ bool CheckFltOverload(int point_id, const TTripInfo &fltInfo, bool overload_alar
     return true;
   }
   else
-    throw OverloadException("MSG.FLIGHT.MAX_COMMERCE");
+    throw CheckIn::OverloadException("MSG.FLIGHT.MAX_COMMERCE");
   return false;
 };
 
@@ -2427,7 +2421,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "  AND pax_grp.status NOT IN ('E') "
     "  AND ckin.need_for_payment(pax_grp.grp_id, pax_grp.class, pax_grp.bag_refuse, pax_grp.excess)<>0 ";
   sql <<
-    "ORDER BY reg_no"; //в будущем убрать ORDER BY
+    "ORDER BY pax.reg_no, pax.seats DESC"; //в будущем убрать ORDER BY
 
   ProgTrace(TRACE5, "%s", sql.str().c_str());
 
@@ -3296,6 +3290,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
   xmlNodePtr segNode=NodeAsNode("segments/segment",reqNode);
   bool only_one=segNode->next==NULL;
+  if (reqInfo->client_type == ctPNL && !only_one)
+    //для ctPNL никакой сквозной регистрации!
+    throw EXCEPTIONS::Exception("SavePax: through check-in not supported for ctPNL");
 
   bool defer_etstatus=false;
 
@@ -3375,7 +3372,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
   //reqInfo->user.check_access(amPartialWrite);
   //определим, открыт ли рейс для регистрации
-
   int agent_stat_point_id=NoExists;
   TDateTime agent_stat_ondate=NowUTC();
 
@@ -3433,6 +3429,16 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     if (s==segs.end())
       throw EXCEPTIONS::Exception("CheckInInterface::SavePax: point_id not found in map segs");
 
+    if (reqInfo->client_type == ctPNL)
+    {
+      TTripStages tripStages( grp.point_dep );
+      TStage ckin_stage =  tripStages.getStage( stCheckIn );
+      if (ckin_stage!=sNoActive &&
+        	ckin_stage!=sPrepCheckIn &&
+        	ckin_stage!=sOpenCheckIn)
+        throw UserException("MSG.REGISTRATION_CLOSED");
+    };
+
     segList.back().flt=s->second.fltInfo;
   };
 
@@ -3486,7 +3492,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
   CheckIn::TGroupBagItem inbound_group_bag;
   vector<CheckIn::TTransferItem> inbound_trfer_route;
 
-  if (!segList.empty() && new_checkin && reqInfo->client_type != ctTerm &&
+  if (!segList.empty() && new_checkin &&
+      reqInfo->client_type != ctTerm &&
       segList.begin()->grp.status!=psCrew)
   {
     GetInboundTransfer(segList,
@@ -4136,19 +4143,93 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             };
           };
           
-          //получим рег. номера и признак совместной регистрации и посадки
-          Qry.Clear();
-          if (grp.status!=psCrew)
-            Qry.SQLText=
-              "SELECT NVL(MAX(reg_no)+1,1) AS reg_no FROM pax_grp,pax "
-              "WHERE pax_grp.grp_id=pax.grp_id AND reg_no>0 AND point_dep=:point_dep ";
+          if (reqInfo->client_type!=ctPNL)
+          {
+            //получим первый рег. номер
+            Qry.Clear();
+            if (grp.status!=psCrew)
+              Qry.SQLText=
+                "SELECT NVL(MAX(reg_no)+1,1) AS reg_no FROM pax_grp,pax "
+                "WHERE pax_grp.grp_id=pax.grp_id AND reg_no>0 AND point_dep=:point_dep ";
+            else
+              Qry.SQLText=
+                "SELECT NVL(MIN(reg_no)-1,-1) AS reg_no FROM pax_grp,pax "
+                "WHERE pax_grp.grp_id=pax.grp_id AND reg_no<0 AND point_dep=:point_dep ";
+            Qry.CreateVariable("point_dep",otInteger,grp.point_dep);
+            Qry.Execute();
+            first_reg_no = Qry.FieldAsInteger("reg_no");
+            first_pax_on_flight = first_reg_no==1;
+            //заполним pax.reg_no регистрационными номерами по порядку
+            int reg_no=first_reg_no;
+            for(int k=0;k<=1;k++)
+            {
+              for(TPaxList::iterator p=paxs.begin(); p!=paxs.end(); ++p)
+              {
+                CheckIn::TPaxItem &pax=p->pax;
+                if ((pax.seats<=0&&k==0)||(pax.seats>0&&k==1)) continue;
+                pax.reg_no=reg_no;
+                if (grp.status!=psCrew)
+                  reg_no++;
+                else
+                  reg_no--;
+              }
+            };
+          }
           else
-            Qry.SQLText=
-              "SELECT NVL(MIN(reg_no)-1,-1) AS reg_no FROM pax_grp,pax "
-              "WHERE pax_grp.grp_id=pax.grp_id AND reg_no<0 AND point_dep=:point_dep ";
-          Qry.CreateVariable("point_dep",otInteger,grp.point_dep);
-          Qry.Execute();
-          first_reg_no = Qry.FieldAsInteger("reg_no");
+          {
+            if (grp.status!=psCrew)
+            {
+              Qry.Clear();
+              Qry.SQLText=
+                "SELECT reg_no FROM pax_grp,pax "
+                "WHERE pax_grp.grp_id=pax.grp_id AND reg_no>0 AND point_dep=:point_dep ";
+              Qry.CreateVariable("point_dep",otInteger,grp.point_dep);
+              Qry.Execute();
+              set<int> checked_reg_no;
+              for(;!Qry.Eof;Qry.Next())
+                checked_reg_no.insert(Qry.FieldAsInteger("reg_no"));
+              first_pax_on_flight = checked_reg_no.empty();
+              //проверим уникальность
+              set<int> reg_no_with_seats;
+              set<int> reg_no_without_seats;
+              for(TPaxList::iterator p=paxs.begin(); p!=paxs.end(); ++p)
+              {
+                CheckIn::TPaxItem &pax=p->pax;
+                if (pax.reg_no==NoExists) throw EXCEPTIONS::Exception("SavePax: empty seat_no");
+                if ((pax.seats>0 && !reg_no_with_seats.insert(pax.reg_no).second) ||
+                    (pax.seats<=0 && !reg_no_without_seats.insert(pax.reg_no).second))
+                {
+                  ostringstream reg_no_str;
+                  reg_no_str << setw(3) << setfill('0') << pax.reg_no;
+                  throw UserException("MSG.CHECKIN.DUPLICATE_REG_NO", LParams() << LParam("reg_no", reg_no_str.str()));
+                };
+              };
+              if (!checked_reg_no.empty() && !reg_no_with_seats.empty())
+              {
+                set<int>::const_iterator i=find_first_of(checked_reg_no.begin(), checked_reg_no.end(),
+                                                         reg_no_with_seats.begin(), reg_no_with_seats.end());
+                if (i!=checked_reg_no.end())
+                {
+                  ostringstream reg_no_str;
+                  reg_no_str << setw(3) << setfill('0') << *i;
+                  throw UserException("MSG.CHECKIN.DUPLICATE_REG_NO", LParams() << LParam("reg_no", reg_no_str.str()));
+                };
+              };
+              if (!checked_reg_no.empty() && !reg_no_without_seats.empty())
+              {
+                set<int>::const_iterator i=find_first_of(checked_reg_no.begin(), checked_reg_no.end(),
+                                                         reg_no_without_seats.begin(), reg_no_without_seats.end());
+                if (i!=checked_reg_no.end())
+                {
+                  ostringstream reg_no_str;
+                  reg_no_str << setw(3) << setfill('0') << *i;
+                  throw UserException("MSG.CHECKIN.DUPLICATE_REG_NO", LParams() << LParam("reg_no", reg_no_str.str()));
+                };
+              };
+            }
+            else
+              throw UserException("MSG.CREW.CANT_CONSIST_OF_BOOKED_PASSENGERS");
+          };
         }; //if (!pr_unaccomp)
 
         Qry.Clear();
@@ -4203,9 +4284,13 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
         if (GetNode("generated_grp_id",segNode)!=NULL)
           Qry.SetVariable("grp_id",NodeAsInteger("generated_grp_id",segNode));
-        Qry.CreateVariable("trfer_confirm",otInteger,(int)(reqInfo->client_type==ctTerm || !inbound_group_bag.empty()));
+        bool trfer_confirm=(reqInfo->client_type==ctTerm || !inbound_group_bag.empty());
+        Qry.CreateVariable("trfer_confirm",otInteger,(int)trfer_confirm);
         Qry.CreateVariable("trfer_conflict",otInteger,(int)(!inbound_trfer_conflicts.empty()));
-        Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
+        if (reqInfo->client_type!=ctPNL)
+          Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
+        else
+          Qry.CreateVariable("user_id",otInteger,FNull);
        	Qry.CreateVariable("client_type",otString,EncodeClientType(reqInfo->client_type));
         if (first_segment)
           Qry.CreateVariable("tckin_id",otInteger,FNull);
@@ -4215,7 +4300,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           Qry.CreateVariable("seg_no",otInteger,FNull);
         else
           Qry.CreateVariable("seg_no",otInteger,seg_no);
-        if (!pr_unaccomp)
+        if (first_reg_no!=NoExists)
           Qry.CreateVariable("first_reg_no",otInteger,first_reg_no);
         else
           Qry.CreateVariable("first_reg_no",otInteger,FNull);
@@ -4240,8 +4325,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
         if (!pr_unaccomp)
         {
-          int reg_no=first_reg_no;
-          first_pax_on_flight = ( reg_no == 1 );
           bool pr_brd_with_reg=false,pr_exam_with_brd=false;
           if (first_segment && reqInfo->client_type == ctTerm && grp.status!=psCrew)
           {
@@ -4318,7 +4401,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 };
                 pax.pr_brd=pr_brd_with_reg;
                 pax.pr_exam=pr_brd_with_reg && pr_exam_with_brd;
-                pax.reg_no=reg_no;
                 pax.toDB(Qry);
                 if (pax.id==NoExists)
                 {
@@ -4468,10 +4550,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 };
                 //запись норм
                 if (first_segment) CheckIn::SaveNorms(p->node,pr_unaccomp);
-                if (grp.status!=psCrew)
-                  reg_no++;
-                else
-                  reg_no--;
               }
               catch(CheckIn::UserException)
               {
@@ -4512,6 +4590,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       } //new_checkin
       else
       {
+        if (reqInfo->client_type == ctPNL)
+          throw EXCEPTIONS::Exception("SavePax: changes not supported for ctPNL");
+
         //ЗАПИСЬ ИЗМЕНЕНИЙ
         GetGrpToLogInfo(grp.id, grpInfoBefore); //для всех сегментов
         if (needCheckUnattachedTrferAlarm)
@@ -4536,7 +4617,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           else
           {
             //для веб и киоска просто получаем tckin_id
-            tckin_id=SeparateTCkin(grp.id,cssNone,cssNone,NoExists);
+            tckin_id=SeparateTCkin(grp.id,cssNone,cssNone,NoExists); //ctPNL???
           };
         };
         
@@ -4670,7 +4751,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   CrsQry.Execute();
                 };
 
-                if (reqInfo->client_type!=ctTerm && pax.refuse==refuseAgentError)
+                if (reqInfo->client_type!=ctTerm && pax.refuse==refuseAgentError) //ctPNL???
                 {
                   //веб и киоск регистрация
                   Qry.Clear();
@@ -4967,7 +5048,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
       //вот здесь ETCheckStatus::CheckGrpStatus
       //обязательно до ckin.check_grp
-      if (ediResNode==NULL && !defer_etstatus)
+      if (ediResNode==NULL && !defer_etstatus && reqInfo->client_type!=ctPNL)
       {
         ETStatusInterface::ETCheckStatus(grp.id,csaGrp,NoExists,false,ETInfo,true);
       };
@@ -5054,9 +5135,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               Set_AODB_overload_alarm( grp.point_dep, true );
             };
           }
-          catch(OverloadException &E)
+          catch(CheckIn::OverloadException &E)
           {
-            if (!new_checkin && reqInfo->client_type!=ctTerm)
+            if (!new_checkin && reqInfo->client_type!=ctTerm && reqInfo->client_type!=ctPNL)
               //делаем специальную защиту в SavePax:
               //при записи изменений веб и киосков не откатываемся при перегрузке
               Set_AODB_overload_alarm( grp.point_dep, true );
@@ -5073,22 +5154,27 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 "END;";
               Qry.Execute();
 
-              if (reqInfo->client_type==ctTerm)
+              if (reqInfo->client_type!=ctPNL)
               {
-                if (!only_one)
-                  showError( GetLexemeDataWithFlight(E.getLexemaData( ), fltInfo) );
+                if (reqInfo->client_type==ctTerm)
+                {
+                  if (!only_one)
+                    showError( GetLexemeDataWithFlight(E.getLexemaData( ), fltInfo) );
+                  else
+                    showError( E.getLexemaData( ) );
+                }
                 else
-                  showError( E.getLexemaData( ) );
-              }
-              else
-              {
-                //веб, киоски
-                CheckIn::UserException ce(E.getLexemaData(), grp.point_dep);
-                CheckIn::showError(ce.segs);
+                {
+                  //веб, киоски
+                  CheckIn::UserException ce(E.getLexemaData(), grp.point_dep);
+                  CheckIn::showError(ce.segs);
+                };
               };
 
               set_alarm( grp.point_dep, atOverload, true ); // установили признак перегрузки несмотря на то что реальной перегрузки нет
               Set_AODB_overload_alarm( grp.point_dep, true );
+
+              if (reqInfo->client_type==ctPNL) throw;
               return false;
             };
           };
@@ -5105,7 +5191,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         PaxQry.SQLText=
           "SELECT subclass,class FROM pax_grp,pax "
           "WHERE pax_grp.grp_id=pax.grp_id AND pax.grp_id=:grp_id "
-          "ORDER BY reg_no";
+          "ORDER BY pax.reg_no, pax.seats DESC";
         PaxQry.CreateVariable("grp_id",otInteger,grp.id);
         PaxQry.Execute();
         if (!PaxQry.Eof)
@@ -5243,6 +5329,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     }
     catch(UserException &e)
     {
+      if (reqInfo->client_type==ctPNL) throw;
       if (reqInfo->client_type==ctTerm)
       {
         if (!only_one)
@@ -5288,7 +5375,7 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       int reg_no=NodeAsInteger("reg_no",reqNode);
       Qry.Clear();
       Qry.SQLText=
-        "SELECT pax_grp.grp_id FROM pax_grp,pax "
+        "SELECT pax_grp.grp_id, pax.seats FROM pax_grp,pax "
         "WHERE pax_grp.grp_id=pax.grp_id AND "
         "      point_dep=:point_id AND reg_no=:reg_no ";
       Qry.CreateVariable("point_id",otInteger,point_id);
@@ -5296,8 +5383,21 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       Qry.Execute();
       if (Qry.Eof) throw UserException(1,"MSG.CHECKIN.REG_NO_NOT_FOUND");
       grp_id=Qry.FieldAsInteger("grp_id");
-      Qry.Next();
-      if (!Qry.Eof) throw EXCEPTIONS::Exception("Duplicate reg_no (point_id=%d reg_no=%d)",point_id,reg_no);
+      bool exists_with_seat=false;
+      bool exists_without_seat=false;
+      for(;!Qry.Eof;Qry.Next())
+      {
+        if (grp_id!=Qry.FieldAsInteger("grp_id"))
+          throw EXCEPTIONS::Exception("Duplicate reg_no (point_id=%d reg_no=%d)",point_id,reg_no);
+        int seats=Qry.FieldAsInteger("seats");
+        if ((seats>0 && exists_with_seat) ||
+            (seats<=0 && exists_without_seat))
+          throw EXCEPTIONS::Exception("Duplicate reg_no (point_id=%d reg_no=%d)",point_id,reg_no);
+        if (seats>0)
+          exists_with_seat=true;
+        else
+          exists_without_seat=true;
+      };
     }
     else
     {
@@ -5508,7 +5608,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
         "FROM pax,crs_pax "
         "WHERE pax.pax_id=crs_pax.pax_id(+) AND crs_pax.pr_del(+)=0 AND "
         "      pax.grp_id=:grp_id "
-        "ORDER BY ABS(pax.reg_no)";
+        "ORDER BY ABS(pax.reg_no), pax.seats DESC";
       PaxQry.CreateVariable("grp_id",otInteger,grp.id);
       
       PaxQry.Execute();
@@ -7216,6 +7316,7 @@ void showError(const std::map<int, std::map<int, AstraLocale::LexemaData> > &seg
 {
   if (segs.empty()) throw EXCEPTIONS::Exception("CheckIn::showError: empty segs!");
   XMLRequestCtxt *xmlRC = getXmlCtxt();
+  if (xmlRC->resDoc==NULL) return;
   xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
   xmlNodePtr cmdNode = GetNode( "command", resNode );
   if (cmdNode==NULL) cmdNode=NewTextChild( resNode, "command" );

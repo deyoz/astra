@@ -929,6 +929,8 @@ TPaxItem& TPaxItem::fromXML(xmlNodePtr node)
     seat_no=NodeAsStringFast("seat_no",node2);
     seat_type=NodeAsStringFast("seat_type",node2);
     seats=NodeAsIntegerFast("seats",node2);
+    if (reqInfo->client_type==ASTRA::ctPNL)
+      reg_no=NodeAsIntegerFast("reg_no",node2);
   };
 
   if (tid==ASTRA::NoExists || PaxUpdatesPending)

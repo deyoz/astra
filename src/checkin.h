@@ -186,6 +186,13 @@ public:
 namespace CheckIn
 {
 
+class OverloadException: public AstraLocale::UserException
+{
+  public:
+    OverloadException(const std::string &msg):AstraLocale::UserException(msg) {};
+    virtual ~OverloadException() throw(){};
+};
+
 class UserException:public AstraLocale::UserException
 {
 	public:

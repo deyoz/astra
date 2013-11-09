@@ -22,6 +22,7 @@
 #include "flt_binding.h"
 #include "rozysk.h"
 #include "alarms.h"
+#include "trip_tasks.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -4584,7 +4585,7 @@ bool ParseCHKDRem(TTlgParser &tlg, string &rem_text, TCHKDItem &chkd)
           case 1:
             res=sscanf(tlg.lex,"%ld%c",&chkd.reg_no,&c);
             if (c!=0||res!=1||
-                chkd.reg_no<1||chkd.reg_no>9999) throw ETlgError("Wrong format");
+                chkd.reg_no<0||chkd.reg_no>9999) throw ETlgError("Wrong format");
             break;
           case 2:
             res=sscanf(tlg.lex,"%1[I]%c",lexh,&c);
@@ -5689,9 +5690,10 @@ void SaveTKNRem(int pax_id, vector<TTKNItem> &tkn)
   };
 };
 
-void SaveCHKDRem(int pax_id, const vector<TCHKDItem> &chkd)
+bool SaveCHKDRem(int pax_id, const vector<TCHKDItem> &chkd)
 {
-  if (chkd.empty()) return;
+  bool result=false;
+  if (chkd.empty()) return result;
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
@@ -5710,7 +5712,16 @@ void SaveCHKDRem(int pax_id, const vector<TCHKDItem> &chkd)
     Qry.SetVariable("reg_no",(int)i->reg_no);
     Qry.SetVariable("pr_inf",(int)i->pr_inf);
     Qry.Execute();
+    result=true;
   };
+  if (result)
+  {
+    Qry.Clear();
+    Qry.SQLText="UPDATE crs_pax SET sync_chkd=1 WHERE pax_id=:pax_id";
+    Qry.CreateVariable("pax_id",otInteger,pax_id);
+    Qry.Execute();
+  };
+  return result;
 };
 
 void SaveFQTRem(int pax_id, vector<TFQTItem> &fqt)
@@ -6232,8 +6243,8 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
           "BEGIN "
           "  IF :pax_id IS NULL THEN "
           "    SELECT pax_id.nextval INTO :pax_id FROM dual; "
-          "    INSERT INTO crs_pax(pax_id,pnr_id,surname,name,pers_type,seat_xname,seat_yname,seat_rem,seat_type,seats,bag_pool,pr_del,last_op,tid) "
-          "    VALUES(:pax_id,:pnr_id,:surname,:name,:pers_type,:seat_xname,:seat_yname,:seat_rem,:seat_type,:seats,:bag_pool,:pr_del,:last_op,cycle_tid__seq.currval); "
+          "    INSERT INTO crs_pax(pax_id,pnr_id,surname,name,pers_type,seat_xname,seat_yname,seat_rem,seat_type,seats,bag_pool,sync_chkd,pr_del,last_op,tid) "
+          "    VALUES(:pax_id,:pnr_id,:surname,:name,:pers_type,:seat_xname,:seat_yname,:seat_rem,:seat_type,:seats,:bag_pool,0,:pr_del,:last_op,cycle_tid__seq.currval); "
           "  ELSE "
           "    UPDATE crs_pax "
           "    SET pers_type= :pers_type, seat_xname= :seat_xname, seat_yname= :seat_yname, seat_rem= :seat_rem, "
@@ -6308,6 +6319,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
         bool pr_sync_pnr;
         bool UsePriorContext=false;
         TPointIdsForCheck point_ids_spp;
+        bool chkd_exists=false;
         for(iTotals=con.resa.begin();iTotals!=con.resa.end();iTotals++)
         {
           CrsPnrQry.SetVariable("airp_arv",iTotals->dest);
@@ -6600,7 +6612,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                     SaveDOCORem(inf_id,iInfItem->doco);
                     SaveDOCARem(inf_id,iInfItem->doca);
                     SaveTKNRem(inf_id,iInfItem->tkn);
-                    SaveCHKDRem(inf_id,iInfItem->chkd);
+                    if (SaveCHKDRem(inf_id,iInfItem->chkd)) chkd_exists=true;
                   };
 
                   //ремарки пассажира
@@ -6610,7 +6622,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                   SaveDOCARem(pax_id,iPaxItem->doca);
                   SaveTKNRem(pax_id,iPaxItem->tkn);
                   SaveFQTRem(pax_id,iPaxItem->fqt);
-                  SaveCHKDRem(pax_id,iPaxItem->chkd);
+                  if (SaveCHKDRem(pax_id,iPaxItem->chkd)) chkd_exists=true;
                   //разметка слоев
                   InsertTlgSeatRanges(point_id,iTotals->dest,isPRL?cltPRLTrzt:cltPNLCkin,iPaxItem->seatRanges,
                                       pax_id,tlg_id,NoExists,UsePriorContext,tid,point_ids_spp);
@@ -6717,6 +6729,16 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
           };//for(iPnrItem=iTotals->pnr.begin()
         };
         check_layer_change(point_ids_spp);
+        if (!isPRL && chkd_exists)
+        {
+          Qry.Clear();
+          Qry.SQLText =
+            "SELECT point_id_spp FROM tlg_binding WHERE point_id_tlg=:point_id";
+          Qry.CreateVariable("point_id", otInteger, point_id);
+          Qry.Execute();
+          for(;!Qry.Eof;Qry.Next())
+            add_trip_task(Qry.FieldAsInteger("point_id_spp"), SYNC_NEW_CHKD);
+        };
       };
 
       if (!isPRL)
