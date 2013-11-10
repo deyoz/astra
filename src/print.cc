@@ -1727,7 +1727,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                 " FROM pax "
                 "WHERE grp_id = :grp_id AND "
                 "      refuse IS NULL "
-                "ORDER BY reg_no";
+                "ORDER BY pax.reg_no, pax.seats DESC";
         else
             Qry.SQLText =
                 "SELECT pax.pax_id, pax.grp_id, pax.reg_no "
@@ -1737,7 +1737,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                 "       pax.pax_id = bp_print.pax_id(+) AND "
                 "       bp_print.pr_print(+) <> 0 AND "
                 "       bp_print.pax_id IS NULL "
-                "ORDER BY pax.reg_no";
+                "ORDER BY pax.reg_no, pax.seats DESC";
         Qry.DeclareVariable( "grp_id", otInteger );
         for( vector<int>::iterator igrp=grps.begin(); igrp!=grps.end(); igrp++ ) {
             Qry.SetVariable( "grp_id", *igrp );

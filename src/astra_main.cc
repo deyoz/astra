@@ -4,7 +4,7 @@
 #include "astra_main.h"
 #include "tlg/tlg.h"
 #include "timer.h"
-//#include "cobra.h"
+#include "cobra.h"
 #include "aodb.h"
 #include "empty_proc.h"
 #include "crypt.h"
@@ -84,7 +84,10 @@ class AstraApplication : public ApplicationCallbacks
               ->add("edi_handler", main_edi_handler_tcl)
               ->add("timer",main_timer_tcl)
               ->add("aodb_handler",main_aodb_handler_tcl)
-              //->add("tcpserv",main_tcpserv_tcl)
+              ->add("cobraserv",main_tcp_cobra_tcl)
+              ->add("cobra_handler",main_cobra_handler_tcl)
+              ->add("wb_garantserv",main_tcp_wb_garant_tcl)
+              ->add("wb_garant_handler",main_wb_garant_handler_tcl)
               ->add("empty_proc",main_empty_proc_tcl)
               ->setApplicationCallbacks(this);
     }
@@ -109,7 +112,7 @@ class AstraApplication : public ApplicationCallbacks
     virtual void connect_db()
     {
     	ApplicationCallbacks::connect_db();
-    	OraSession.Initialize(OciCpp::mainSession().getLd());
+    	OraSession.Initialize(OciCpp::mainSession().getLd() );
     }
 /*    virtual void disconnect_db()
     {

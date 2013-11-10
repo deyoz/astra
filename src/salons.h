@@ -949,6 +949,7 @@ class TSalonList: public std::vector<TPlaceList*> {
     void ReadCompon( int vcomp_id );
     void ReadFlight( const TFilterRoutesSets &filterRoutesSets,
                      const std::string &filterClass,
+                     bool for_calc_waitlist = false,  //!!!
                      int prior_compon_props_point_id = ASTRA::NoExists );
     void Build( bool with_pax,
                 xmlNodePtr salonsNode );
@@ -1037,6 +1038,9 @@ class TSalonList: public std::vector<TPlaceList*> {
   void CreateSalonMenu( int point_dep, xmlNodePtr salonsNode );
   
   bool isTranzitSalons( int point_id );
+  bool isFreeSeating( int point_id );
+  bool isEmptySalons( int point_id );
+  void DeleteSalons( int point_id );
   
   bool isUserProtectLayer( ASTRA::TCompLayerType layer_type );
 

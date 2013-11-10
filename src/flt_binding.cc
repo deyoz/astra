@@ -3,6 +3,7 @@
 #include "salons.h"
 #include "comp_layers.h"
 #include "alarms.h"
+#include "trip_tasks.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -68,6 +69,8 @@ void TTlgBinding::after_bind_or_unbind_flt(int point_id_tlg, int point_id_spp, b
       SyncTripCompLayers(point_id_tlg, point_id_spp, (TCompLayerType)layer, point_ids_spp);
       check_layer_change(point_ids_spp);
     };
+  if (!unbind)
+    add_trip_task(point_id_spp, SYNC_ALL_CHKD);
 };
 
 void TTlgBinding::unbind_flt_virt(int point_id, int point_id_spp, bool try_bind_again)

@@ -39,6 +39,7 @@ public:
 
   static void GetPaxQuery(TQuery &Qry, const int point_id,
                                        const int reg_no,
+                                       const int pax_id,
                                        const std::string &lang,
                                        const ASTRA::TRptType rpt_type,
                                        const std::string &client_type,

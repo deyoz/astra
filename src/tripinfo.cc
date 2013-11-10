@@ -973,7 +973,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   NewTextChild( node, "craft", ElemIdToElemCtxt(ecCkin,etCraft, Qry.FieldAsString( "craft" ), (TElemFmt)Qry.FieldAsInteger( "craft_fmt" )) );
   NewTextChild( node, "bort", Qry.FieldAsString( "bort" ) );
   NewTextChild( node, "park", Qry.FieldAsString( "park_out" ) );
-  NewTextChild( node, "classes", GetCfgStr(NoExists, point_id) );
+  NewTextChild( node, "classes", TCFG(point_id).str() );
   string route=GetRouteAfterStr(NoExists, point_id, trtWithCurrent, trtNotCancelled);
   NewTextChild( node, "route", route );
   NewTextChild( node, "places", route );
@@ -1081,7 +1081,8 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
       "SELECT NVL(pr_tranz_reg,0) AS pr_tranz_reg, "
       "       NVL(pr_block_trzt,0) AS pr_block_trzt, "
       "       pr_check_load,pr_overload_reg,pr_exam,pr_check_pay,pr_exam_check_pay, "
-      "       pr_reg_with_tkn,pr_reg_with_doc,auto_weighing,pr_etstatus,pr_airp_seance "
+      "       pr_reg_with_tkn,pr_reg_with_doc,auto_weighing,pr_etstatus, "
+      "       pr_free_seating, pr_airp_seance "
       "FROM trip_sets WHERE point_id=:point_id ";
     Qryh.CreateVariable( "point_id", otInteger, point_id );
     Qryh.Execute();
@@ -1109,6 +1110,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
       NewTextChild( node, "pr_reg_with_tkn", (int)(Qryh.FieldAsInteger("pr_reg_with_tkn")!=0) );
       NewTextChild( node, "pr_reg_with_doc", (int)(Qryh.FieldAsInteger("pr_reg_with_doc")!=0) );
       NewTextChild( node, "auto_weighing", (int)(Qryh.FieldAsInteger("auto_weighing")!=0) );
+      NewTextChild( node, "pr_free_seating", (int)(Qryh.FieldAsInteger("pr_free_seating")!=0) );
       if (!Qryh.FieldIsNULL("pr_airp_seance"))
         NewTextChild( node, "pr_airp_seance", (int)(Qryh.FieldAsInteger("pr_airp_seance")!=0) );
       else
@@ -1448,8 +1450,17 @@ class TPaxLoadOrder
           }
           else
           {
-            if (item1.user_view!=item2.user_view)
-              return item1.user_view<item2.user_view;
+            if (!item1.user_view.empty() &&
+                !item2.user_view.empty())
+            {
+              if (item1.user_view!=item2.user_view)
+                return item1.user_view<item2.user_view;
+            }
+            else
+            {
+              if (item1.user_view!=item2.user_view)
+                return !item1.user_view.empty();
+            };
           };
           continue;
         };
@@ -1896,7 +1907,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
           item.trfer_suffix_id=Qry.FieldAsString("suffix");
           item.trfer_airp_arv_id=Qry.FieldAsString("airp_arv");
         };
-        if (pr_user) item.user_id=Qry.FieldAsInteger("user_id");
+        if (pr_user && !Qry.FieldIsNULL("user_id")) item.user_id=Qry.FieldAsInteger("user_id");
         if (pr_client_type) item.client_type_id=Qry.FieldAsString("client_type");
         if (pr_status) item.grp_status_id=Qry.FieldAsString("status");
         if (pr_ticket_rem) item.ticket_rem=Qry.FieldAsString("ticket_rem");
@@ -2244,8 +2255,16 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     };
     if (pr_user)
     {
-      node=NewTextChild(rowNode,"user",i->user_view);
-      SetProp(node,"id",i->user_id);
+      if (i->user_id!=NoExists)
+      {
+        node=NewTextChild(rowNode,"user",i->user_view);
+        SetProp(node,"id",i->user_id);
+      }
+      else
+      {
+        node=NewTextChild(rowNode,"user");
+        SetProp(node,"id",-1);
+      };
     };
     if (pr_client_type)
     {
@@ -2277,6 +2296,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
 
 void viewCRSList( int point_id, xmlNodePtr dataNode )
 {
+  bool pr_free_seating = SALONS2::isFreeSeating( point_id );
 	TGrpStatusTypes &grp_status_types = (TGrpStatusTypes &)base_tables.get("GRP_STATUS_TYPES");
   TQuery Qry( &OraSession );
   TPaxSeats priorSeats( point_id );
@@ -2559,7 +2579,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     	pax_row++;
     else
     	crs_row++;
-    NewTextChild( node, "isseat", (!SQry.VariableIsNULL( "seat_no" ) || !Qry.FieldAsInteger( col_seats ) ) );
+    NewTextChild( node, "isseat", ( pr_free_seating || !SQry.VariableIsNULL( "seat_no" ) || !Qry.FieldAsInteger( col_seats ) ) );
     if ( !SQry.VariableIsNULL( "seat_no" ) ) {
     	string seat_no = SQry.GetVariableAsString( "seat_no" );
     	string layer_type;
@@ -2587,7 +2607,9 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
    		NewTextChild( node, "layer_type", layer_type );
     } // не задано место
     else
-    	if ( mode == 0 && Qry.FieldAsInteger( col_seats ) ) {
+    	if ( mode == 0 &&
+           Qry.FieldAsInteger( col_seats ) &&
+           !pr_free_seating ) {
     		string old_seat_no;
     		if ( Qry.FieldIsNULL( col_wl_type ) ) {
     		  old_seat_no = priorSeats.getSeats( pax_id, "seats" );

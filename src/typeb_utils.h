@@ -1485,12 +1485,12 @@ class TCloseBoardingCreator : public TCreator
         if (info.optionsIs<TLCIOptions>())
         {
           if (info.optionsAs<TLCIOptions>()->action_code!="U") return false;
-        };
+        };    
 
         if (info.optionsIs<TPRLOptions>())
         {
           if (info.optionsAs<TPRLOptions>()->create_point!="CLOSE_BRD") return false;
-        };
+        };    
 
         return true;
     };

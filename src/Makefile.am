@@ -40,6 +40,7 @@ astra_SOURCES = \
   cache.cc \
   cent.cc \
   checkin.cc \
+  cobra.cc \
   comp_layers.cc \
   convert.cc \
   crypt.cc \
@@ -146,6 +147,7 @@ noinst_HEADERS = \
   cache.h \
   cent.h \
   checkin.h \
+  cobra.h \
   comp_layers.h \
   convert.h \
   crypt.h \
