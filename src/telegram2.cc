@@ -1761,10 +1761,8 @@ namespace PRL_SPACE {
             "   SUM(DECODE(pax_grp.class||bag2.pr_cabin, '0', weight, 0)) y_bag_weight, "
             "   SUM(DECODE(pax_grp.class||bag2.pr_cabin, '1', weight, 0)) y_rk_weight "
             "FROM "
-            "   pax_grp, bag2, pax "
+            "   pax_grp, bag2 "
             "WHERE "
-            "   pax_grp.grp_id = pax.grp_id(+) and "
-            "   salons.is_waitlist(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,rownum)=0 AND "
             "   pax_grp.point_dep = :point_id AND "
             "   pax_grp.status NOT IN ('E') AND "
             "   pax_grp.grp_id = bag2.grp_id AND "
@@ -1898,7 +1896,7 @@ namespace PRL_SPACE {
             Qry.SetVariable("class", iv->cls);
             Qry.Execute();
             TCOMClassesItem item;
-            item.cls = iv->cls;
+            item.cls = info.TlgElemIdToElem(etSubcls, iv->cls);
             item.cfg = iv->cfg;
             item.av = (Qry.Eof ? iv->cfg : iv->cfg - Qry.FieldAsInteger("seats"));
             items.push_back(item);
@@ -5947,6 +5945,7 @@ int ETL(TypeB::TDetailCreateInfo &info)
 template <class T>
 void TDestList<T>::get(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &complayers)
 {
+    infants.get(info);
     TTripRoute route;
     route.GetRouteAfter(NoExists, info.point_id, trtNotCurrent, trtNotCancelled);
     TCFG cfg(info.point_id);
