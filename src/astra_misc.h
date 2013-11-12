@@ -654,11 +654,6 @@ std::string GetRouteAfterStr(BASIC::TDateTime part_key,  //NoExists если в опера
                              const std::string &lang="",
                              bool show_city_name=false,
                              const std::string &separator="-");
-                             
-std::string GetCfgStr(BASIC::TDateTime part_key,  //NoExists если в оперативной базе, иначе в архивной
-                      int point_id,
-                      const std::string &lang="",
-                      const std::string &separator=" ");
                          
 class TBagTagNumber
 {
@@ -754,6 +749,25 @@ std::string TruncNameTitles(const std::string &str);
 std::string SeparateNames(std::string &names);
 
 int CalcWeightInKilos(int weight, std::string weight_unit);
+
+struct TCFGItem {
+    std::string cls;
+    int cfg, block, prot;
+    TCFGItem():
+        cfg(ASTRA::NoExists),
+        block(ASTRA::NoExists),
+        prot(ASTRA::NoExists)
+    {};
+};
+
+struct TCFG:public std::vector<TCFGItem> {
+    void get(int point_id, BASIC::TDateTime part_key = ASTRA::NoExists); //NoExists если в оперативной базе, иначе в архивной
+    std::string str(const std::string &lang="", const std::string &separator=" ");
+
+    TCFG(int point_id, BASIC::TDateTime part_key = ASTRA::NoExists) { get(point_id, part_key); };
+    TCFG() {};
+};
+
 
 #endif /*_ASTRA_MISC_H_*/
 

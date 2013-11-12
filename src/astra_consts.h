@@ -8,7 +8,7 @@
 namespace ASTRA
 {
 
-enum TClientType { ctTerm, ctWeb, ctKiosk, ctTypeNum };
+enum TClientType { ctTerm, ctWeb, ctKiosk, ctPNL, ctTypeNum };
 extern const char* ClientTypeS[ctTypeNum];
 
 enum TOperMode { omCUSE, omCUTE, omMUSE, omRESA, omSTAND, omTypeNum };

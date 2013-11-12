@@ -152,7 +152,9 @@ public:
   static int CheckCounters(int point_dep,
                            int point_arv,
                            const std::string &cl,
-                           ASTRA::TPaxStatus grp_status);
+                           ASTRA::TPaxStatus grp_status,
+                           const TCFG &cfg,
+                           bool free_seating);
 
   static bool CheckFQTRem(CheckIn::TPaxRemItem &rem, CheckIn::TPaxFQTItem &fqt);
   static bool ParseFQTRem(TypeB::TTlgParser &tlg, std::string &rem_text, CheckIn::TPaxFQTItem &fqt);
@@ -183,6 +185,13 @@ public:
 
 namespace CheckIn
 {
+
+class OverloadException: public AstraLocale::UserException
+{
+  public:
+    OverloadException(const std::string &msg):AstraLocale::UserException(msg) {};
+    virtual ~OverloadException() throw(){};
+};
 
 class UserException:public AstraLocale::UserException
 {

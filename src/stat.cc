@@ -1351,7 +1351,7 @@ void UnaccompListToXML(TQuery &Qry, xmlNodePtr resNode, bool isPaxSearch, int pa
       NewTextChild(paxNode, "seat_no");
       NewTextChild(paxNode, "document");
       NewTextChild(paxNode, "ticket_no");
-      if(Qry.FieldIsNULL("hall"))
+      if(Qry.FieldIsNULL(col_hall))
           NewTextChild(paxNode, "hall");
       else
           NewTextChild(paxNode, "hall", ElemIdToNameLong(etHall, Qry.FieldAsInteger(col_hall)));
@@ -1653,8 +1653,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   ckin.get_excess(pax_grp.grp_id,NULL) AS excess, "
                 "   ckin.get_birks2(pax_grp.grp_id,NULL,NULL,:pr_lat) AS tags, "
                 "   pax_grp.grp_id, "
-                "   pax_grp.hall, "
-                "   pax_grp.point_arv,pax_grp.user_id "
+                "   pax_grp.hall "
                 "FROM pax_grp, points "
                 "WHERE "
                 "   pax_grp.point_dep=:point_id AND "
@@ -1694,8 +1693,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "  arch.get_excess(arx_pax_grp.part_key,arx_pax_grp.grp_id,NULL) AS excess, "
                 "  arch.get_birks2(arx_pax_grp.part_key,arx_pax_grp.grp_id,NULL,NULL,:pr_lat) AS tags, "
                 "  arx_pax_grp.grp_id, "
-                "  arx_pax_grp.hall, "
-                "  arx_pax_grp.point_arv,arx_pax_grp.user_id "
+                "  arx_pax_grp.hall "
                 "FROM arx_pax_grp, arx_points "
                 "WHERE point_dep=:point_id AND class IS NULL and "
                 "   arx_pax_grp.status NOT IN ('E') AND "

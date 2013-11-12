@@ -105,6 +105,7 @@ struct TTlgSeatList {
         int get_list_size(std::map<int, std::string> &list);
     public:
         std::vector<std::string> items;
+        bool empty() { return comp.empty(); };
         void get(TypeB::TDetailCreateInfo &info);
         void add_seat(int point_id, std::string xname, std::string yname); // used in SOM
         void add_seat(std::string xname, std::string yname) { // used in PRL
@@ -261,10 +262,6 @@ class TPaxItem
       bag_weight=0;
       rk_weight=0;
       bag_pool_num=ASTRA::NoExists;
-    };
-    bool operator < (const TPaxItem &item) const
-    {
-      return reg_no < item.reg_no;
     };
 };
 

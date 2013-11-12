@@ -594,7 +594,7 @@ bool LoadPaxDoca(TDateTime part_key, int pax_id, TDocaType type, TPaxDocaItem &d
   switch(type)
   {
     case docaDestination: QryParams << QParam("type", otString, "D"); break;
-    case docaResidence:   QryParams << QParam("type", otString, "R"); break;    
+    case docaResidence:   QryParams << QParam("type", otString, "R"); break;
     case docaBirth:       QryParams << QParam("type", otString, "B"); break;
   };
   TQuery &PaxDocQry = TQrys::Instance()->get(sql_result, QryParams);
@@ -929,6 +929,8 @@ TPaxItem& TPaxItem::fromXML(xmlNodePtr node)
     seat_no=NodeAsStringFast("seat_no",node2);
     seat_type=NodeAsStringFast("seat_type",node2);
     seats=NodeAsIntegerFast("seats",node2);
+    if (reqInfo->client_type==ASTRA::ctPNL)
+      reg_no=NodeAsIntegerFast("reg_no",node2);
   };
 
   if (tid==ASTRA::NoExists || PaxUpdatesPending)

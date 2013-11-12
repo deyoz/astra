@@ -10,6 +10,7 @@
 #include "transfer.h"
 #include "typeb_utils.h"
 #include "trip_tasks.h"
+#include "salons.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -60,7 +61,7 @@ void TripAlarms( int point_id, BitSet<TTripAlarmsType> &Alarms )
     Alarms.clearFlags();
     TQuery Qry(&OraSession);
     Qry.SQLText =
-        "SELECT pr_etstatus,pr_salon,act,pr_airp_seance "
+        "SELECT pr_etstatus,pr_salon,pr_free_seating,act,pr_airp_seance "
         " FROM trip_sets, trip_stages, "
         " ( SELECT COUNT(*) pr_salon FROM trip_comp_elems WHERE point_id=:point_id AND rownum<2 ) a "
         " WHERE trip_sets.point_id=:point_id AND "
@@ -70,7 +71,9 @@ void TripAlarms( int point_id, BitSet<TTripAlarmsType> &Alarms )
     Qry.CreateVariable( "OpenCheckIn", otInteger, sOpenCheckIn );
     Qry.Execute();
     if (Qry.Eof) throw Exception("Flight not found in trip_sets (point_id=%d)",point_id);
-    if ( !Qry.FieldAsInteger( "pr_salon" ) && !Qry.FieldIsNULL( "act" ) ) {
+    if ( !Qry.FieldAsInteger( "pr_salon" ) &&
+         !Qry.FieldIsNULL( "act" ) &&
+         !Qry.FieldAsInteger( "pr_free_seating" ) ) {
         Alarms.setFlag( atSalon );
     }
     if ( Qry.FieldAsInteger( "pr_etstatus" ) < 0 ) {
@@ -191,6 +194,9 @@ bool check_overload_alarm( int point_id )
 
 bool calc_waitlist_alarm( int point_id )
 {
+  if ( SALONS2::isFreeSeating( point_id ) ) {
+    return false;
+  }
   TQuery Qry(&OraSession);
   Qry.SQLText =
     "SELECT pax.pax_id "
@@ -198,8 +204,8 @@ bool calc_waitlist_alarm( int point_id )
     "WHERE pax_grp.grp_id=pax.grp_id AND "
     "      pax_grp.point_dep=:point_id AND "
     "      pax_grp.status NOT IN ('E') AND "
-    "      pax.pr_brd IS NOT NULL AND pax.seats > 0 AND "
-    "      salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'list',rownum) IS NULL AND "
+    "      pax.pr_brd IS NOT NULL AND "
+    "      salons.is_waitlist(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,rownum)<>0 AND "
     "      rownum<2";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();

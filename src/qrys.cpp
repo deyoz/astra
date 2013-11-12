@@ -15,7 +15,7 @@ void TQrys::dump_queue()
 {
     ProgTrace(TRACE5, "---TQrys::dump_queue---");
     for(list<TQry_ptr>::iterator is = queue.begin(); is != queue.end(); is++) {
-        ProgTrace(TRACE5, "count: %llu", (*is)->count);
+        ProgTrace(TRACE5, "count: %zu", (*is)->count);
         ProgTrace(TRACE5, "qry: %s", (*is)->Qry.SQLText.SQLText());
 #ifdef SQL_COUNTERS
         ProgTrace(TRACE5, "parse count: %d", sqlCounters[(*is)->Qry.SQLText.SQLText()]);

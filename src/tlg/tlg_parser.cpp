@@ -21,6 +21,7 @@
 #include "flt_binding.h"
 #include "rozysk.h"
 #include "alarms.h"
+#include "trip_tasks.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -1843,7 +1844,8 @@ bool isBlockSeatsRem(const string &rem_code)
 
 bool isNotAdditionalSeatRem(const string &rem_code)
 {
-  return rem_code=="DOCA" ||
+  return rem_code=="CHKD" ||
+         rem_code=="DOCA" ||
          rem_code=="DOCO" ||
          rem_code=="DOCS" ||
          rem_code=="PSPT" ||
@@ -3231,7 +3233,59 @@ void BindRemarks(TTlgParser &tlg, TNameElement &ne)
 bool ParseDOCSRem(TTlgParser &tlg, BASIC::TDateTime scd_local, std::string &rem_text, TDocItem &doc);
 bool ParseDOCORem(TTlgParser &tlg, BASIC::TDateTime scd_local, std::string &rem_text, TDocoItem &doc);
 bool ParseDOCARem(TTlgParser &tlg, string &rem_text, TDocaItem &doca);
+bool ParseCHKDRem(TTlgParser &tlg, string &rem_text, TCHKDItem &chkd);
 bool ParseOTHSRem(TTlgParser &tlg, string &rem_text, TDocExtraItem &doc);
+void BindDetailRem(TRemItem &remItem, bool isGrpRem, TPaxItem &paxItem,
+                   const TDetailRemAncestor &item)
+{
+  if (item.pr_inf)
+  {
+    if (paxItem.inf.size()==1)
+    {
+      for(int pass=0; pass<5 ;pass++)
+      try
+      {
+        switch(pass)
+        {
+          case 0: paxItem.inf.begin()->doc.push_back(dynamic_cast<const TDocItem&>(item)); break;
+          case 1: paxItem.inf.begin()->doco.push_back(dynamic_cast<const TDocoItem&>(item)); break;
+          case 2: paxItem.inf.begin()->doca.push_back(dynamic_cast<const TDocaItem&>(item)); break;
+          case 3: paxItem.inf.begin()->tkn.push_back(dynamic_cast<const TTKNItem&>(item)); break;
+          case 4: paxItem.inf.begin()->chkd.push_back(dynamic_cast<const TCHKDItem&>(item)); break;
+          default: return;
+        };
+        break;
+      }
+      catch(std::bad_cast) {};
+      paxItem.inf.begin()->rem.push_back(remItem);
+      remItem.text.clear();
+    };
+  }
+  else
+  {
+    for(int pass=0; pass<5 ;pass++)
+    try
+    {
+      switch(pass)
+      {
+        case 0: paxItem.doc.push_back(dynamic_cast<const TDocItem&>(item)); break;
+        case 1: paxItem.doco.push_back(dynamic_cast<const TDocoItem&>(item)); break;
+        case 2: paxItem.doca.push_back(dynamic_cast<const TDocaItem&>(item)); break;
+        case 3: paxItem.tkn.push_back(dynamic_cast<const TTKNItem&>(item)); break;
+        case 4: paxItem.chkd.push_back(dynamic_cast<const TCHKDItem&>(item)); break;
+        default: return;
+      };
+      break;
+    }
+    catch(std::bad_cast) {};
+    if (isGrpRem)
+    {
+      paxItem.rem.push_back(remItem);
+      remItem.text.clear();
+    };
+  };
+
+};
 
 void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
                   TTlgParser &tlg, const TDCSHeadingInfo &info, TPnrItem &pnr, TNameElement &ne)
@@ -3295,26 +3349,7 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
               TDocItem doc;
               if (ParseDOCSRem(tlg,info.flt.scd,iRemItem->text,doc))
               {
-                //проверим документ РМ
-                try
-                {
-                  TGenderTypesRow &row=(TGenderTypesRow&)(getBaseTable(etGenderType).get_row("code/code_lat",doc.gender));
-                  if (row.pr_inf)
-                  {
-                    if (iPaxItem->inf.size()==1)
-                    {
-                      iPaxItem->inf.begin()->doc.push_back(doc);
-                      iPaxItem->inf.begin()->rem.push_back(*iRemItem);
-                      iRemItem->text.clear();
-                    };
-                  }
-                  else
-                    iPaxItem->doc.push_back(doc);
-                }
-                catch(EBaseTableError)
-                {
-                  iPaxItem->doc.push_back(doc);
-                };
+                BindDetailRem(*iRemItem, false, *iPaxItem, doc);
               };
               continue;
             };
@@ -3324,18 +3359,7 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
               TDocoItem doc;
               if (ParseDOCORem(tlg,info.flt.scd,iRemItem->text,doc))
               {
-                //проверим документ РМ
-                if (doc.pr_inf)
-                {
-                  if (iPaxItem->inf.size()==1)
-                  {
-                    iPaxItem->inf.begin()->doco.push_back(doc);
-                    iPaxItem->inf.begin()->rem.push_back(*iRemItem);
-                    iRemItem->text.clear();
-                  };
-                }
-                else
-                  iPaxItem->doco.push_back(doc);
+                BindDetailRem(*iRemItem, false, *iPaxItem, doc);
               };
               continue;
             };
@@ -3345,18 +3369,7 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
               TDocaItem doca;
               if (ParseDOCARem(tlg,iRemItem->text,doca))
               {
-                //проверим адрес РМ
-                if (doca.pr_inf)
-                {
-                  if (iPaxItem->inf.size()==1)
-                  {
-                    iPaxItem->inf.begin()->doca.push_back(doca);
-                    iPaxItem->inf.begin()->rem.push_back(*iRemItem);
-                    iRemItem->text.clear();
-                  };
-                }
-                else
-                  iPaxItem->doca.push_back(doca);
+                BindDetailRem(*iRemItem, false, *iPaxItem, doca);
               };
               continue;
             };
@@ -3367,19 +3380,17 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
               TTKNItem tkn;
               if (ParseTKNRem(tlg,iRemItem->text,tkn))
               {
-                //проверим билет РМ
-                if (tkn.pr_inf)
-                {
-                  if (iPaxItem->inf.size()==1)
-                  {
-                    //только если у пассажира один infant - знаем что билет относится к нему
-                    iPaxItem->inf.begin()->tkn.push_back(tkn);
-                    iPaxItem->inf.begin()->rem.push_back(*iRemItem);
-                    iRemItem->text.clear();
-                  };
-                }
-                else
-                  iPaxItem->tkn.push_back(tkn);
+                BindDetailRem(*iRemItem, false, *iPaxItem, tkn);
+              };
+              continue;
+            };
+
+            if (strcmp(iRemItem->code,"CHKD")==0)
+            {
+              TCHKDItem chkd;
+              if (ParseCHKDRem(tlg,iRemItem->text,chkd))
+              {
+                BindDetailRem(*iRemItem, false, *iPaxItem, chkd);
               };
               continue;
             };
@@ -3561,36 +3572,33 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
               TDocItem doc;
               if (ParseDOCSRem(tlg,info.flt.scd,iRemItem->text,doc))
               {
-                //проверим документ РМ
-                try
-                {
-                  TGenderTypesRow &row=(TGenderTypesRow&)(getBaseTable(etGenderType).get_row("code/code_lat",doc.gender));
-                  if (row.pr_inf)
-                  {
-                    if (ne.pax.begin()->inf.size()==1)
-                    {
-                      ne.pax.begin()->inf.begin()->doc.push_back(doc);
-                      ne.pax.begin()->inf.begin()->rem.push_back(*iRemItem);
-                      iRemItem->text.clear();
-                    };
-                  }
-                  else
-                  {
-                    ne.pax.begin()->doc.push_back(doc);
-                    ne.pax.begin()->rem.push_back(*iRemItem);
-                    iRemItem->text.clear();
-                  };
-                }
-                catch(EBaseTableError)
-                {
-                  if (*doc.gender==0)
-                  {
-                    //неизвестный тип пассажира
-                    ne.pax.begin()->doc.push_back(doc);
-                    ne.pax.begin()->rem.push_back(*iRemItem);
-                    iRemItem->text.clear();
-                  }
-                };
+                BindDetailRem(*iRemItem, true, *(ne.pax.begin()), doc);
+              };
+            };
+            continue;
+          };
+
+          if (strcmp(iRemItem->code,"DOCO")==0)
+          {
+            if (ne.pax.size()==1)
+            {
+              TDocoItem doc;
+              if (ParseDOCORem(tlg,info.flt.scd,iRemItem->text,doc))
+              {
+                BindDetailRem(*iRemItem, true, *(ne.pax.begin()), doc);
+              };
+            };
+            continue;
+          };
+
+          if (strcmp(iRemItem->code,"DOCA")==0)
+          {
+            if (ne.pax.size()==1)
+            {
+              TDocaItem doca;
+              if (ParseDOCARem(tlg,iRemItem->text,doca))
+              {
+                BindDetailRem(*iRemItem, true, *(ne.pax.begin()), doca);
               };
             };
             continue;
@@ -3604,24 +3612,20 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
               TTKNItem tkn;
               if (ParseTKNRem(tlg,iRemItem->text,tkn))
               {
-                //проверим билет РМ
-                if (tkn.pr_inf)
-                {
-                  if (ne.pax.begin()->inf.size()==1)
-                  {
-                    //только если у пассажира один infant - знаем что билет относится к нему
-                    ne.pax.begin()->inf.begin()->tkn.push_back(tkn);
-                    ne.pax.begin()->inf.begin()->rem.push_back(*iRemItem);
-                    iRemItem->text.clear();
-                  };
-                }
-                else
-                {
-                  ne.pax.begin()->tkn.push_back(tkn);
-                  ne.pax.begin()->rem.push_back(*iRemItem);
-                  iRemItem->text.clear();
-                };
+                BindDetailRem(*iRemItem, true, *(ne.pax.begin()), tkn);
+              };
+            };
+            continue;
+          };
 
+          if (strcmp(iRemItem->code,"CHKD")==0)
+          {
+            if (ne.pax.size()==1)
+            {
+              TCHKDItem chkd;
+              if (ParseCHKDRem(tlg,iRemItem->text,chkd))
+              {
+                BindDetailRem(*iRemItem, true, *(ne.pax.begin()), chkd);
               };
             };
             continue;
@@ -4245,6 +4249,11 @@ bool ParseDOCSRem(TTlgParser &tlg, TDateTime scd_local, string &rem_text, TDocIt
             res=sscanf(tlg.lex,"%2[A-Z]%c",doc.gender,&c);
             if (c!=0||res!=1) throw ETlgError("Wrong format");
             TlgElemToElemId(etGenderType,doc.gender,doc.gender);
+            try
+            {
+              doc.pr_inf=((TGenderTypesRow&)(getBaseTable(etGenderType).get_row("code/code_lat",doc.gender))).pr_inf;
+            }
+            catch(EBaseTableError) {};
             break;
           case 7:
             if (StrToDateTime(tlg.lex,"ddmmmyy",doc.expiry_date,true)==EOF &&
@@ -4527,6 +4536,77 @@ bool ParseDOCORem(TTlgParser &tlg, TDateTime scd_local, string &rem_text, TDocoI
     return true;
   };
   
+  return false;
+};
+
+bool ParseCHKDRem(TTlgParser &tlg, string &rem_text, TCHKDItem &chkd)
+{
+  char c;
+  int res,k;
+
+  char *p=(char*)rem_text.c_str();
+
+  chkd.Clear();
+
+  if (rem_text.empty()) return false;
+  p=tlg.GetWord(p);
+  c=0;
+  res=sscanf(tlg.lex,"%5[A-ZА-ЯЁ0-9]%c",chkd.rem_code,&c);
+  if (c!=0||res!=1) return false;
+
+  if (strcmp(chkd.rem_code,"CHKD")==0)
+  {
+    for(k=0;k<=2;k++)
+    try
+    {
+      try
+      {
+        p=tlg.GetLexeme(p);
+        if (p==NULL && k>=2) break;
+        if (p==NULL) throw ETlgError("Lexeme not found");
+        if (*tlg.lex==0) continue;
+        c=0;
+        switch(k)
+        {
+          case 0:
+            res=sscanf(tlg.lex,"%2[A-Z]%1[1-3]%c",chkd.rem_status,lexh,&c);
+            if (c!=0||res!=2) throw ETlgError("Wrong format");
+            break;
+          case 1:
+            res=sscanf(tlg.lex,"%ld%c",&chkd.reg_no,&c);
+            if (c!=0||res!=1||
+                chkd.reg_no<0||chkd.reg_no>9999) throw ETlgError("Wrong format");
+            break;
+          case 2:
+            res=sscanf(tlg.lex,"%1[I]%c",lexh,&c);
+            if (c!=0||res!=1||strcmp(lexh,"I")!=0) throw ETlgError("Wrong format");
+            chkd.pr_inf=true;
+            break;
+        }
+      }
+      catch(exception &E)
+      {
+        switch(k)
+        {
+          case 0:
+            *chkd.rem_status=0;
+            throw ETlgError("action/status code: %s",E.what());
+          case 1:
+            chkd.reg_no=NoExists;
+            throw ETlgError("sequence number: %s",E.what());
+          case 2:
+            chkd.pr_inf=false;
+            throw ETlgError("infant indicator: %s",E.what());
+        };
+      };
+    }
+    catch(ETlgError &E)
+    {
+      ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",chkd.rem_code,E.what(),rem_text.c_str());
+    };
+    return true;
+  };
+
   return false;
 };
 
@@ -5600,6 +5680,40 @@ void SaveTKNRem(int pax_id, vector<TTKNItem> &tkn)
   };
 };
 
+bool SaveCHKDRem(int pax_id, const vector<TCHKDItem> &chkd)
+{
+  bool result=false;
+  if (chkd.empty()) return result;
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "INSERT INTO crs_pax_chkd "
+    "  (pax_id,rem_status,reg_no,pr_inf) "
+    "VALUES "
+    "  (:pax_id,:rem_status,:reg_no,:pr_inf) ";
+  Qry.CreateVariable("pax_id",otInteger,pax_id);
+  Qry.DeclareVariable("rem_status",otString);
+  Qry.DeclareVariable("reg_no",otInteger);
+  Qry.DeclareVariable("pr_inf",otInteger);
+  for(vector<TCHKDItem>::const_iterator i=chkd.begin();i!=chkd.end();++i)
+  {
+    if (i->Empty()) continue;
+    Qry.SetVariable("rem_status",i->rem_status);
+    Qry.SetVariable("reg_no",(int)i->reg_no);
+    Qry.SetVariable("pr_inf",(int)i->pr_inf);
+    Qry.Execute();
+    result=true;
+  };
+  if (result)
+  {
+    Qry.Clear();
+    Qry.SQLText="UPDATE crs_pax SET sync_chkd=1 WHERE pax_id=:pax_id";
+    Qry.CreateVariable("pax_id",otInteger,pax_id);
+    Qry.Execute();
+  };
+  return result;
+};
+
 void SaveFQTRem(int pax_id, vector<TFQTItem> &fqt)
 {
   if (fqt.empty()) return;
@@ -6119,8 +6233,8 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
           "BEGIN "
           "  IF :pax_id IS NULL THEN "
           "    SELECT pax_id.nextval INTO :pax_id FROM dual; "
-          "    INSERT INTO crs_pax(pax_id,pnr_id,surname,name,pers_type,seat_xname,seat_yname,seat_rem,seat_type,seats,bag_pool,pr_del,last_op,tid) "
-          "    VALUES(:pax_id,:pnr_id,:surname,:name,:pers_type,:seat_xname,:seat_yname,:seat_rem,:seat_type,:seats,:bag_pool,:pr_del,:last_op,cycle_tid__seq.currval); "
+          "    INSERT INTO crs_pax(pax_id,pnr_id,surname,name,pers_type,seat_xname,seat_yname,seat_rem,seat_type,seats,bag_pool,sync_chkd,pr_del,last_op,tid) "
+          "    VALUES(:pax_id,:pnr_id,:surname,:name,:pers_type,:seat_xname,:seat_yname,:seat_rem,:seat_type,:seats,:bag_pool,0,:pr_del,:last_op,cycle_tid__seq.currval); "
           "  ELSE "
           "    UPDATE crs_pax "
           "    SET pers_type= :pers_type, seat_xname= :seat_xname, seat_yname= :seat_yname, seat_rem= :seat_rem, "
@@ -6195,6 +6309,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
         bool pr_sync_pnr;
         bool UsePriorContext=false;
         TPointIdsForCheck point_ids_spp;
+        bool chkd_exists=false;
         for(iTotals=con.resa.begin();iTotals!=con.resa.end();iTotals++)
         {
           CrsPnrQry.SetVariable("airp_arv",iTotals->dest);
@@ -6435,6 +6550,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                     "    DELETE FROM crs_pax_doca WHERE pax_id=curRow.inf_id; "
                     "    DELETE FROM crs_pax_tkn WHERE pax_id=curRow.inf_id; "
                     "    DELETE FROM crs_pax_fqt WHERE pax_id=curRow.inf_id; "
+                    "    DELETE FROM crs_pax_chkd WHERE pax_id=curRow.inf_id; "
                     "    DELETE FROM crs_pax_refuse WHERE pax_id=curRow.inf_id; "
                     "    DELETE FROM crs_pax WHERE pax_id=curRow.inf_id; "
                     "  END LOOP; "
@@ -6444,6 +6560,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                     "  DELETE FROM crs_pax_doca WHERE pax_id=:pax_id; "
                     "  DELETE FROM crs_pax_tkn WHERE pax_id=:pax_id; "
                     "  DELETE FROM crs_pax_fqt WHERE pax_id=:pax_id; "
+                    "  DELETE FROM crs_pax_chkd WHERE pax_id=:pax_id; "
                     "END;";
                   Qry.CreateVariable("pax_id",otInteger,pax_id);
                   Qry.Execute();
@@ -6485,6 +6602,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                     SaveDOCORem(inf_id,iInfItem->doco);
                     SaveDOCARem(inf_id,iInfItem->doca);
                     SaveTKNRem(inf_id,iInfItem->tkn);
+                    if (SaveCHKDRem(inf_id,iInfItem->chkd)) chkd_exists=true;
                   };
 
                   //ремарки пассажира
@@ -6494,6 +6612,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                   SaveDOCARem(pax_id,iPaxItem->doca);
                   SaveTKNRem(pax_id,iPaxItem->tkn);
                   SaveFQTRem(pax_id,iPaxItem->fqt);
+                  if (SaveCHKDRem(pax_id,iPaxItem->chkd)) chkd_exists=true;
                   //разметка слоев
                   InsertTlgSeatRanges(point_id,iTotals->dest,isPRL?cltPRLTrzt:cltPNLCkin,iPaxItem->seatRanges,
                                       pax_id,tlg_id,NoExists,UsePriorContext,tid,point_ids_spp);
@@ -6600,6 +6719,16 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
           };//for(iPnrItem=iTotals->pnr.begin()
         };
         check_layer_change(point_ids_spp);
+        if (!isPRL && chkd_exists)
+        {
+          Qry.Clear();
+          Qry.SQLText =
+            "SELECT point_id_spp FROM tlg_binding WHERE point_id_tlg=:point_id";
+          Qry.CreateVariable("point_id", otInteger, point_id);
+          Qry.Execute();
+          for(;!Qry.Eof;Qry.Next())
+            add_trip_task(Qry.FieldAsInteger("point_id_spp"), SYNC_NEW_CHKD);
+        };
       };
 
       if (!isPRL)

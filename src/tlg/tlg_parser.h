@@ -233,10 +233,33 @@ class TDocExtraItem
     };
 };
 
-class TDocItem
+class TDetailRemAncestor
 {
   public:
-    char rem_code[6],rem_status[3],type[3],issue_country[4],no[16];
+    char rem_code[6],rem_status[3];
+    bool pr_inf;
+    TDetailRemAncestor()
+    {
+      Clear();
+    };
+    virtual ~TDetailRemAncestor() {};
+  protected:
+    void Clear()
+    {
+      *rem_code=0;
+      *rem_status=0;
+      pr_inf=false;
+    };
+    bool Empty() const
+    {
+      return pr_inf==false;
+    };
+};
+
+class TDocItem : public TDetailRemAncestor
+{
+  public:
+    char type[3],issue_country[4],no[16];
     char nationality[4],gender[3];
     BASIC::TDateTime birth_date,expiry_date;
     std::string surname,first_name,second_name;
@@ -247,8 +270,7 @@ class TDocItem
     };
     void Clear()
     {
-      *rem_code=0;
-      *rem_status=0;
+      TDetailRemAncestor::Clear();
       *type=0;
       *issue_country=0;
       *no=0;
@@ -263,106 +285,98 @@ class TDocItem
     };
     bool Empty() const
     {
-      return  *type==0 &&
-              *issue_country==0 &&
-              *no==0 &&
-              *nationality==0 &&
-              *gender==0 &&
-              birth_date==ASTRA::NoExists &&
-              expiry_date==ASTRA::NoExists &&
-              surname.empty() &&
-              first_name.empty() &&
-              second_name.empty() &&
-              pr_multi==false;
+      return TDetailRemAncestor::Empty() &&
+             *type==0 &&
+             *issue_country==0 &&
+             *no==0 &&
+             *nationality==0 &&
+             *gender==0 &&
+             birth_date==ASTRA::NoExists &&
+             expiry_date==ASTRA::NoExists &&
+             surname.empty() &&
+             first_name.empty() &&
+             second_name.empty() &&
+             pr_multi==false;
     };
 };
 
-class TDocoItem
+class TDocoItem : public TDetailRemAncestor
 {
   public:
-    char rem_code[6],rem_status[3],type[3],no[26],applic_country[4];
+    char type[3],no[26],applic_country[4];
     BASIC::TDateTime issue_date;
     std::string birth_place, issue_place;
-    bool pr_inf;
     TDocoItem()
     {
       Clear();
     };
     void Clear()
     {
-      *rem_code=0;
-      *rem_status=0;
+      TDetailRemAncestor::Clear();
       *type=0;
       *no=0;
       *applic_country=0;
       issue_date=ASTRA::NoExists;
       birth_place.clear();
       issue_place.clear();
-      pr_inf=false;
     };
     bool Empty() const
     {
-      return  *type==0 &&
-              *no==0 &&
-              *applic_country==0 &&
-              issue_date==ASTRA::NoExists &&
-              birth_place.empty() &&
-              issue_place.empty() &&
-              pr_inf==false;
+      return TDetailRemAncestor::Empty() &&
+             *type==0 &&
+             *no==0 &&
+             *applic_country==0 &&
+             issue_date==ASTRA::NoExists &&
+             birth_place.empty() &&
+             issue_place.empty();
     };
 };
 
-class TDocaItem
+class TDocaItem : public TDetailRemAncestor
 {
   public:
-    char rem_code[6],rem_status[3],type[2],country[4];
+    char type[2],country[4];
     std::string address, city, region, postal_code;
-    bool pr_inf;
     TDocaItem()
     {
       Clear();
     };
     void Clear()
     {
-      *rem_code=0;
-      *rem_status=0;
+      TDetailRemAncestor::Clear();
       *type=0;
       *country=0;
       address.clear();
       city.clear();
       region.clear();
       postal_code.clear();
-      pr_inf=false;
     };
     bool Empty() const
     {
-      return  *type==0 &&
-              *country==0 &&
-              address.empty() &&
-              city.empty() &&
-              region.empty() &&
-              postal_code.empty() &&
-              pr_inf==false;
+      return TDetailRemAncestor::Empty() &&
+             *type==0 &&
+             *country==0 &&
+             address.empty() &&
+             city.empty() &&
+             region.empty() &&
+             postal_code.empty();
     };
 };
 
-class TTKNItem
+class TTKNItem : public TDetailRemAncestor
 {
   public:
-    char rem_code[6],rem_status[3],ticket_no[16];
+    char ticket_no[16];
     int coupon_no;
-    bool pr_inf;
     TTKNItem()
     {
       Clear();
     };
     void Clear()
     {
-      *rem_code=0;
-      *rem_status=0;
+      TDetailRemAncestor::Clear();
       *ticket_no=0;
       coupon_no=0;
-      pr_inf=false;
     };
 };
 
@@ -381,6 +395,26 @@ class TFQTItem
       *airline=0;
       *no=0;
       extra.clear();
+    };
+};
+
+class TCHKDItem : public TDetailRemAncestor
+{
+  public:
+    long int reg_no;
+    TCHKDItem()
+    {
+      Clear();
+    };
+    void Clear()
+    {
+      TDetailRemAncestor::Clear();
+      reg_no=ASTRA::NoExists;
+    };
+    bool Empty() const
+    {
+      return TDetailRemAncestor::Empty() &&
+             reg_no==ASTRA::NoExists;
     };
 };
 
@@ -407,6 +441,7 @@ class TInfItem
     std::vector<TDocoItem> doco;
     std::vector<TDocaItem> doca;
     std::vector<TTKNItem> tkn;
+    std::vector<TCHKDItem> chkd;
     TInfItem()
     {
       Clear();
@@ -438,6 +473,7 @@ class TPaxItem
     std::vector<TDocaItem> doca;
     std::vector<TTKNItem> tkn;
     std::vector<TFQTItem> fqt;
+    std::vector<TCHKDItem> chkd;
     TPaxItem()
     {
       pers_type=ASTRA::adult;

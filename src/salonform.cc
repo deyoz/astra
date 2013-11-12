@@ -605,6 +605,10 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   	filterClass = NodeAsString( "ClName", reqNode );
   }
 
+  if ( SALONS2::isFreeSeating( point_id ) ) {
+    throw UserException( "MSG.SALONS.FREE_SEATING" );
+  }
+
   if ( isTranzitSalonsVersion ) {
     SALONS2::TSalonList salonList;
     try {
@@ -659,6 +663,9 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 {
   TQuery Qry( &OraSession );
   int trip_id = NodeAsInteger( "trip_id", reqNode );
+  if ( SALONS2::isFreeSeating( trip_id ) ) {
+    throw UserException( "MSG.SALONS.FREE_SEATING" );
+  }
   int comp_id = NodeAsInteger( "comp_id", reqNode );
   bool isTranzitSalonsVersion = SALONS2::isTranzitSalons( trip_id );
   ProgTrace(TRACE5, "SalonFormInterface::Write point_id=%d, isTranzitSalonsVersion=%d", trip_id, isTranzitSalonsVersion );
@@ -740,11 +747,9 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     SALONS2::TComponSets compSets;
     Salons.Write( compSets );
   }
-
   bool pr_initcomp = NodeAsInteger( "initcomp", reqNode );
   /* инициализация VIP */
   SALONS2::InitVIP( trip_id );
-
   string msg;
   string comp_lang;
   if (TReqInfo::Instance()->desk.compatible(LATIN_VERSION)) {
@@ -779,7 +784,6 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 	Qry.CreateVariable( "point_id", otInteger, trip_id );
 	Qry.CreateVariable( "crc_comp", otInteger, SALONS2::CRC32_Comp( trip_id ) );
   Qry.Execute();
-
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   SALONS2::GetTripParams( trip_id, dataNode );
   vector<string> referStrs;
@@ -799,7 +803,6 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   // конец перечитки
   SALONS2::check_diffcomp_alarm( trip_id );
   if ( SALONS2::isTranzitSalons( trip_id ) ) {
-    tst();
     SALONS2::check_waitlist_alarm_on_tranzit_routes( trip_id );
   }
   else {
@@ -890,6 +893,9 @@ void SalonFormInterface::ComponShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
   }
   SALONS2::TSalonList salonList;  //всегда новый алгоритм
   if ( readStyle == SALONS2::rTripSalons ) {
+    if ( SALONS2::isFreeSeating( point_id ) ) {
+      throw UserException( "MSG.SALONS.FREE_SEATING" );
+    }
     salonList.ReadFlight( SALONS2::TFilterRoutesSets( id ), "", point_id );
   }
   else {
@@ -1139,6 +1145,10 @@ void IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string y
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   if ( Qry.Eof ) throw UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
+  if ( SALONS2::isFreeSeating( point_id ) ) {
+    throw UserException( "MSG.SALONS.FREE_SEATING" );
+  }
+
   TTripInfo fltInfo( Qry );
 
   if ( seat_type != SEATS2::stDropseat ) {
@@ -1285,6 +1295,9 @@ void IntChangeSeats( int point_id, int pax_id, int &tid, string xname, string yn
                      bool pr_waitlist, bool pr_question_reseat,
                      xmlNodePtr resNode )
 {
+  if ( SALONS2::isFreeSeating( point_id ) ) {
+    throw UserException( "MSG.SALONS.FREE_SEATING" );
+  }
 	TFlights flights;
   flights.Get( point_id, ftTranzit );
   flights.Lock();
@@ -1480,6 +1493,9 @@ void SalonFormInterface::DeleteProtCkinSeat(XMLRequestCtxt *ctxt, xmlNodePtr req
  	ProgTrace( TRACE5, "SalonsInterface::DeleteProtCkinSeat, point_id=%d, pax_id=%d, tid=%d, pr_update_salons=%d, isTranzitSalonsVersion=%d",
 	           point_id, pax_id, tid, pr_update_salons, isTranzitSalonsVersion );
 
+  if ( SALONS2::isFreeSeating( point_id ) ) {
+    throw UserException( "MSG.SALONS.FREE_SEATING" );
+  }
   SALONS2::TSalons Salons( point_id, SALONS2::rTripSalons );  //!!! плохо, т.к. обращения к БД
   SALONS2::TSalonList salonList;
   if ( isTranzitSalonsVersion ) {
@@ -1561,6 +1577,9 @@ void SalonFormInterface::DeleteProtCkinSeat(XMLRequestCtxt *ctxt, xmlNodePtr req
 void SalonFormInterface::WaitList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
 	int point_id = NodeAsInteger( "trip_id", reqNode );
+  if ( SALONS2::isFreeSeating( point_id ) ) {
+    throw UserException( "MSG.SALONS.FREE_SEATING" );
+  }
 	bool pr_filter = GetNode( "filter", reqNode );
 	bool pr_salons = GetNode( "salons", reqNode );
 	bool isTranzitSalonsVersion = SALONS2::isTranzitSalons( point_id );
@@ -1628,6 +1647,9 @@ void SalonFormInterface::WaitList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 void SalonFormInterface::AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
 	int point_id = NodeAsInteger( "trip_id", reqNode );
+  if ( SALONS2::isFreeSeating( point_id ) ) {
+    throw UserException( "MSG.SALONS.FREE_SEATING" );
+  }
   bool isTranzitSalonsVersion = SALONS2::isTranzitSalons( point_id );
 	ProgTrace( TRACE5, "AutoSeats: point_id=%d, isTranzitSalonsVersion=%d", point_id, isTranzitSalonsVersion );
 	bool pr_waitlist = GetNode( "waitlist", reqNode );

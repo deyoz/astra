@@ -18,6 +18,7 @@
 #include "rozysk.h"
 #include "transfer.h"
 #include "points.h"
+#include "salons.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -62,16 +63,6 @@ void BrdInterface::readTripCounters( const int point_id,
     bool used_for_norec_rpt = (rpt_type == rtNOREC or rpt_type == rtNORECTXT);
     bool used_for_gosho_rpt = (rpt_type == rtGOSHO or rpt_type == rtGOSHOTXT);
     TReqInfo *reqInfo = TReqInfo::Instance();
-    TQuery ClassesQry(&OraSession);
-    ClassesQry.Clear();
-    ClassesQry.SQLText=
-        "SELECT trip_classes.class "
-        "FROM trip_classes,classes "
-        "WHERE trip_classes.class=classes.code AND "
-        "      point_id=:point_id "
-        "ORDER BY classes.priority";
-    ClassesQry.CreateVariable( "point_id", otInteger, point_id );
-    ClassesQry.Execute();
 
     TQuery Qry(&OraSession);
     string sql=
@@ -118,17 +109,25 @@ void BrdInterface::readTripCounters( const int point_id,
 
     ostringstream reg_str,brd_str, fr_reg_str, fr_brd_str, fr_not_brd_str;
     int reg=0,brd=0;
-    for(;!ClassesQry.Eof;ClassesQry.Next())
+    TCFG cfg(point_id);
+    bool cfg_exists=!cfg.empty();
+    bool free_seating=false;
+    if (!cfg_exists)
+      free_seating=SALONS2::isFreeSeating(point_id);
+    if (!cfg_exists && free_seating) cfg.get(NoExists);
+    for(TCFG::const_iterator c=cfg.begin(); c!=cfg.end(); ++c)
     {
-        const char* cl=ClassesQry.FieldAsString("class");
-        Qry.SetVariable("class",cl);
+        Qry.SetVariable("class",c->cls);
         Qry.Execute();
         if(Qry.Eof) continue;
-        string class_client_view=ElemIdToCodeNative(etClass,cl);
-        string class_report_view=rpt_params.ElemIdToReportElem(etClass,cl,efmtCodeNative);
 
         int vreg = Qry.FieldAsInteger("reg");
         int vbrd = Qry.FieldAsInteger("brd");
+        if (!cfg_exists && free_seating && vreg==0 && vbrd==0) continue;
+
+        string class_client_view=ElemIdToCodeNative(etClass,c->cls);
+        string class_report_view=rpt_params.ElemIdToReportElem(etClass,c->cls,efmtCodeNative);
+
         reg_str << class_client_view << vreg << " ";
         brd_str << class_client_view << vbrd << " ";
         reg+=vreg;
@@ -471,6 +470,7 @@ void BrdInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
 
 void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
                                             const int reg_no,
+                                            const int pax_id,
                                             const string &lang,
                                             const TRptType rpt_type,
                                             const string &client_type,
@@ -549,7 +549,7 @@ void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
         sql << "    pax_grp.grp_id=tckin_pax_grp.grp_id(+) AND ";
 
     if (used_for_web_rpt)
-        sql << "  pax_grp.user_id=users2.user_id AND ";
+        sql << "  pax_grp.user_id=users2.user_id(+) AND "; //pax_grp.user_id=NULL для client_type=ctPNL
 
     sql << "    point_dep= :point_id AND pax_grp.status NOT IN ('E') AND pr_brd IS NOT NULL ";
 
@@ -568,15 +568,20 @@ void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
         sql << " AND reg_no=:reg_no ";
         Qry.CreateVariable("reg_no",otInteger,reg_no);
     };
+    if (pax_id!=NoExists)
+    {
+        sql << " AND pax.pax_id=:pax_id ";
+        Qry.CreateVariable("pax_id",otInteger,pax_id);
+    };
     switch(sort) {
         case stRegNo:
-            sql << " ORDER BY reg_no ";
+            sql << " ORDER BY pax.reg_no, pax.seats DESC ";
             break;
         case stSurname:
-            sql << " ORDER BY pax.surname, pax.name, reg_no ";
+            sql << " ORDER BY pax.surname, pax.name, pax.reg_no, pax.seats DESC ";
             break;
         case stSeatNo:
-            sql << " ORDER BY seat_no, reg_no ";
+            sql << " ORDER BY seat_no, pax.reg_no, pax.seats DESC ";
             break;
     }
 
@@ -632,20 +637,21 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     TQuery Qry(&OraSession);
     if(strcmp((char *)reqNode->name, "PaxByPaxId") == 0)
     {
+      int pax_id=NodeAsInteger("pax_id",reqNode);
       //получим point_id и reg_no
       Qry.Clear();
       Qry.SQLText=
         "SELECT point_dep,reg_no "
         "FROM pax_grp,pax "
         "WHERE pax_grp.grp_id=pax.grp_id AND pax_id=:pax_id AND pr_brd IS NOT NULL";
-      Qry.CreateVariable("pax_id",otInteger,NodeAsInteger("pax_id",reqNode));
+      Qry.CreateVariable("pax_id",otInteger,pax_id);
       Qry.Execute();
       if (Qry.Eof)
         throw AstraLocale::UserException("MSG.WRONG_DATA_RECEIVED");
       reg_no=Qry.FieldAsInteger("reg_no");
       if (point_id==Qry.FieldAsInteger("point_dep"))
       {
-        GetPaxQuery(Qry, point_id, reg_no, reqInfo->desk.lang, rtUnknown, "");
+        GetPaxQuery(Qry, point_id, NoExists, pax_id, reqInfo->desk.lang, rtUnknown, "");
       }
       else
       {
@@ -676,19 +682,19 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
             throw AstraLocale::UserException(100, "MSG.PASSENGER.OTHER_FLIGHT");
         };
 
-        GetPaxQuery(Qry, point_id, NoExists, reqInfo->desk.lang, rtUnknown, "");
+        GetPaxQuery(Qry, point_id, NoExists, NoExists, reqInfo->desk.lang, rtUnknown, "");
       };
     }
     else if(strcmp((char *)reqNode->name, "PaxByRegNo") == 0)
     {
       reg_no=NodeAsInteger("reg_no",reqNode);
 
-      GetPaxQuery(Qry, point_id, reg_no, reqInfo->desk.lang, rtUnknown, "");
+      GetPaxQuery(Qry, point_id, reg_no, NoExists, reqInfo->desk.lang, rtUnknown, "");
     }
     else
     {
       //общий список
-      GetPaxQuery(Qry, point_id, NoExists, reqInfo->desk.lang, rtUnknown, "");
+      GetPaxQuery(Qry, point_id, NoExists, NoExists, reqInfo->desk.lang, rtUnknown, "");
     };
     
     int hall=NoExists;
@@ -721,6 +727,8 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     xmlNodePtr listNode = NewTextChild(dataNode, "passengers");
     if (!Qry.Eof)
     {
+      bool free_seating=SALONS2::isFreeSeating(point_id);
+
       string def_pers_type=ElemIdToCodeNative(etPersType, EncodePerson(ASTRA::adult));
       string def_class=ElemIdToCodeNative(etClass, EncodeClass(ASTRA::Y));
 
@@ -782,6 +790,8 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       for(;!Qry.Eof;Qry.Next())
       {
           int pax_id=Qry.FieldAsInteger(col_pax_id);
+          string surname=Qry.FieldAsString(col_surname);
+          string name=Qry.FieldAsString(col_name);
 
           xmlNodePtr paxNode = NewTextChild(listNode, "pax");
           NewTextChild(paxNode, "pax_id", pax_id);
@@ -796,23 +806,26 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           NewTextChild(paxNode, "airp_arv", ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp_arv)));
           NewTextChild(paxNode, "seat_no", Qry.FieldAsString(col_seat_no));
           NewTextChild(paxNode, "seats", Qry.FieldAsInteger(col_seats), 1);
-          if (Qry.FieldIsNULL(col_wl_type))
+          if (!free_seating)
           {
-            //не на листе ожидания, но возможно потерял место при смене компоновки
-            if (Qry.FieldIsNULL(col_seat_no) && Qry.FieldAsInteger(col_seats)>0)
+            if (Qry.FieldIsNULL(col_wl_type))
             {
-              ostringstream seat_no_str;
-              seat_no_str << "("
-                          << priorSeats.getSeats(pax_id,"seats")
-                          << ")";
-              NewTextChild(paxNode,"seat_no_str",seat_no_str.str());
+              //не на листе ожидания, но возможно потерял место при смене компоновки
+              if (Qry.FieldIsNULL(col_seat_no) && Qry.FieldAsInteger(col_seats)>0)
+              {
+                ostringstream seat_no_str;
+                seat_no_str << "("
+                            << priorSeats.getSeats(pax_id,"seats")
+                            << ")";
+                NewTextChild(paxNode,"seat_no_str",seat_no_str.str());
+                NewTextChild(paxNode,"seat_no_alarm",(int)true);
+              };
+            }
+            else
+            {
+              NewTextChild(paxNode,"seat_no_str",AstraLocale::getLocaleText("ЛО"));
               NewTextChild(paxNode,"seat_no_alarm",(int)true);
             };
-          }
-          else
-          {
-            NewTextChild(paxNode,"seat_no_str",AstraLocale::getLocaleText("ЛО"));
-            NewTextChild(paxNode,"seat_no_alarm",(int)true);
           };
           NewTextChild(paxNode, "ticket_no", Qry.FieldAsString(col_ticket_no), "");
           NewTextChild(paxNode, "coupon_no", Qry.FieldAsInteger(col_coupon_no), 0);
@@ -892,7 +905,8 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
               {
                   tid=NodeAsInteger("tid",reqNode);
                   if (tid!=Qry.FieldAsInteger(col_tid))
-                      throw AstraLocale::UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA", AstraLocale::LParams() << AstraLocale::LParam("surname", Qry.FieldAsString(col_surname)));
+                      throw AstraLocale::UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA",
+                                                       AstraLocale::LParams() << AstraLocale::LParam("surname", surname+(name.empty()?"":" ")+name));
               }
               else
                   tid=Qry.FieldAsInteger(col_tid);
@@ -929,6 +943,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                   bool pr_exam=false;
                   bool pr_check_pay=false;
                   int pr_etstatus=0;
+                  bool free_seating=false;
                   TQuery SetsQry(&OraSession);
                   if (reqInfo->screen.name == "BRDBUS.EXE")
                   {
@@ -946,7 +961,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 
                   SetsQry.Clear();
                   SetsQry.SQLText=
-                      "SELECT pr_exam,pr_check_pay,pr_exam_check_pay,pr_etstatus "
+                      "SELECT pr_exam,pr_check_pay,pr_exam_check_pay,pr_etstatus,pr_free_seating "
                       "FROM trip_sets WHERE point_id=:point_id";
                   SetsQry.CreateVariable("point_id",otInteger,point_id);
                   SetsQry.Execute();
@@ -959,8 +974,9 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                   else
                     pr_check_pay=SetsQry.FieldAsInteger("pr_exam_check_pay")!=0;
                   pr_etstatus=SetsQry.FieldAsInteger("pr_etstatus");
+                  free_seating=SetsQry.FieldAsInteger("pr_free_seating")!=0;
 
-                  if (boarding && !Qry.FieldIsNULL(col_wl_type))
+                  if (boarding && !free_seating && !Qry.FieldIsNULL(col_wl_type))
                   {
                       AstraLocale::showErrorMessage("MSG.PASSENGER.NOT_CONFIRM_FROM_WAIT_LIST");
                   }
@@ -1006,6 +1022,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                                       boarding &&
                                       GetNode("confirmations/seat_no",reqNode)==NULL)
                                   {
+                                    if (free_seating) break;
                                     string curr_seat_no;
                                     if (ChckSt(pax_id, curr_seat_no)) break;
                                     
@@ -1091,7 +1108,8 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 
                       }
                       else
-                          throw AstraLocale::UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA", LParams() << LParam("surname", Qry.FieldAsString(col_surname)));
+                          throw AstraLocale::UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA",
+                                                           LParams() << LParam("surname", surname+(name.empty()?"":" ")+name));
                     }
                     catch(int) {};
                   };

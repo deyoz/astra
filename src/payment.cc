@@ -308,19 +308,36 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   };
   if (search_type==searchByRegNo)
   {
+    int reg_no=NodeAsInteger("reg_no",reqNode);
     Qry.Clear();
     Qry.SQLText=
-      "SELECT pax.grp_id,pax.pax_id "
+      "SELECT pax.grp_id,pax.pax_id, pax.seats "
       "FROM pax_grp,pax "
       "WHERE pax_grp.grp_id=pax.grp_id AND "
-      "      pax_grp.point_dep=:point_id AND reg_no=:reg_no ";
+      "      pax_grp.point_dep=:point_id AND reg_no=:reg_no "
+      "ORDER BY pax.seats DESC";
     Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.CreateVariable("reg_no",otInteger,NodeAsInteger("reg_no",reqNode));
+    Qry.CreateVariable("reg_no",otInteger,reg_no);
     Qry.Execute();
     if (Qry.Eof)
       throw AstraLocale::UserException("MSG.PASSENGER.NOT_CHECKIN");
     grp_id=Qry.FieldAsInteger("grp_id");
     pax_id=Qry.FieldAsInteger("pax_id");
+    bool exists_with_seat=false;
+    bool exists_without_seat=false;
+    for(;!Qry.Eof;Qry.Next())
+    {
+      if (grp_id!=Qry.FieldAsInteger("grp_id"))
+        throw EXCEPTIONS::Exception("Duplicate reg_no (point_id=%d reg_no=%d)",point_id,reg_no);
+      int seats=Qry.FieldAsInteger("seats");
+      if ((seats>0 && exists_with_seat) ||
+          (seats<=0 && exists_without_seat))
+        throw EXCEPTIONS::Exception("Duplicate reg_no (point_id=%d reg_no=%d)",point_id,reg_no);
+      if (seats>0)
+        exists_with_seat=true;
+      else
+        exists_without_seat=true;
+    };
   };
   if (search_type==searchByGrpId)
   {

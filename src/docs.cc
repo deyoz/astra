@@ -1030,17 +1030,21 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "    cls_grp.class, \n";
     switch(rpt_params.sort) {
         case stRegNo:
-            SQLText += "    REG_NO ASC \n";
+            SQLText +=
+                "    pax.reg_no ASC, \n"
+                "    pax.seats DESC \n";
             break;
         case stSurname:
             SQLText +=
                 "    full_name ASC, \n"
-                "    REG_NO ASC \n";
+                "    pax.reg_no ASC, \n"
+                "    pax.seats DESC \n";
             break;
         case stSeatNo:
             SQLText +=
                 "    seat_no ASC, \n"
-                "    REG_NO ASC \n";
+                "    pax.reg_no ASC, \n"
+                "    pax.seats DESC \n";
             break;
     }
     ProgTrace(TRACE5, "SQLText: %s", SQLText.c_str());
@@ -2150,10 +2154,10 @@ void REFUSE(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     switch(rpt_params.sort) {
         case stSeatNo:
         case stRegNo:
-            SQLText += " reg_no ";
+            SQLText += " pax.reg_no, pax.seats DESC ";
             break;
         case stSurname:
-            SQLText += " family, reg_no ";
+            SQLText += " family, pax.reg_no, pax.seats DESC ";
             break;
     }
     Qry.SQLText = SQLText;
@@ -2286,13 +2290,13 @@ void NOTPRES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "order by ";
     switch(rpt_params.sort) {
         case stRegNo:
-            SQLText += " reg_no ";
+            SQLText += " pax.reg_no, pax.seats DESC ";
             break;
         case stSurname:
-            SQLText += " family, reg_no ";
+            SQLText += " family, pax.reg_no, pax.seats DESC ";
             break;
         case stSeatNo:
-            SQLText += " seat_no, reg_no ";
+            SQLText += " seat_no, pax.reg_no, pax.seats DESC ";
             break;
     }
     Qry.SQLText = SQLText;
@@ -2519,13 +2523,13 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "order by ";
     switch(rpt_params.sort) {
         case stRegNo:
-            SQLText += " reg_no ";
+            SQLText += " pax.reg_no, pax.seats DESC ";
             break;
         case stSurname:
-            SQLText += " family, reg_no ";
+            SQLText += " family, pax.reg_no, pax.seats DESC ";
             break;
         case stSeatNo:
-            SQLText += " seat_no, reg_no ";
+            SQLText += " seat_no, pax.reg_no, pax.seats DESC ";
             break;
     }
     Qry.SQLText = SQLText;
@@ -2985,7 +2989,7 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         get_compatible_report_form(pr_web ? "web" : "exam", reqNode, resNode);
 
     TQuery Qry(&OraSession);
-    BrdInterface::GetPaxQuery(Qry, rpt_params.point_id, NoExists, rpt_params.GetLang(), rpt_params.rpt_type, rpt_params.client_type, rpt_params.sort);
+    BrdInterface::GetPaxQuery(Qry, rpt_params.point_id, NoExists, NoExists, rpt_params.GetLang(), rpt_params.rpt_type, rpt_params.client_type, rpt_params.sort);
     ProgTrace(TRACE5, "Qry: %s", Qry.SQLText.SQLText());
     Qry.Execute();
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");

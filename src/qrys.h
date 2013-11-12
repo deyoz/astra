@@ -77,7 +77,7 @@ class QParams: public std::list<QParam> {
 
 struct TQry {
     TQuery Qry;
-    u_int64_t count;
+    size_t count;
     TQry(): Qry(&OraSession), count(0) {};
 };
 

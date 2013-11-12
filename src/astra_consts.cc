@@ -4,7 +4,7 @@ namespace ASTRA
 {
 
 const char * ClientTypeS[] =
-    {"TERM", "WEB", "KIOSK"};
+    {"TERM", "WEB", "KIOSK", "PNL"};
 
 const char * OperModeS[] =
     {"CUSE", "CUTE", "MUSE", "RESA", "STAND"};
