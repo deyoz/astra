@@ -306,8 +306,8 @@ bool GetClientCertificate( TQuery *Qry, int grp_id, bool pr_grp, const std::stri
   Qry->Execute();
   bool pr_exists=false;
   while ( !Qry->Eof ) {
-  	if ( !Qry->FieldIsNULL( "desk" ) && pr_grp || // если пультовой сертификат, а у нас описан групповой
-  		   Qry->FieldIsNULL( "desk" ) && !pr_grp ) { // если групповой сертификат, а у нас описан пультовой
+  	if ( (!Qry->FieldIsNULL( "desk" ) && pr_grp) || // если пультовой сертификат, а у нас описан групповой
+  		   (Qry->FieldIsNULL( "desk" ) && !pr_grp) ) { // если групповой сертификат, а у нас описан пультовой
   		Qry->Next();
   	  continue;
   	}
@@ -477,7 +477,7 @@ void IntGetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr res
     Qry.CreateVariable( "pkcs_id", otInteger, Crypt.pkcs_id );
     Qry.Execute();
     if ( Qry.Eof ||
-         GetNode( "getkeys", reqNode ) == NULL && Qry.FieldAsInteger( "send_count" ) != 0 )
+         (GetNode( "getkeys", reqNode ) == NULL && Qry.FieldAsInteger( "send_count" ) != 0) )
       return;
 
     node = NewTextChild( node, "pkcs", Crypt.pkcs_id );
@@ -610,8 +610,8 @@ void ValidateCertificateRequest( const string &desk, bool pr_grp )
   Qry.Execute();
 
   while ( !Qry.Eof ) {
-  	if ( Qry.FieldIsNULL( "desk" ) && pr_grp ||
-  		  !Qry.FieldIsNULL( "desk" ) && !pr_grp )
+  	if ( (Qry.FieldIsNULL( "desk" ) && pr_grp) ||
+  		   (!Qry.FieldIsNULL( "desk" ) && !pr_grp) )
   	  throw AstraLocale::UserException( "MSG.MESSAGEPRO.CERT_QRY_CREATED_EARLIER.NOT_PROCESSED_YET" );
   	Qry.Next();
   }
@@ -634,8 +634,8 @@ void ValidatePKCSData( const string &desk, bool pr_grp )
   Qry.CreateVariable( "desk", otString, desk );
   Qry.Execute();
   while ( !Qry.Eof ) {
-  	if ( Qry.FieldIsNULL( "desk" ) && pr_grp ||
-  		  !Qry.FieldIsNULL( "desk" ) && !pr_grp )
+  	if ( (Qry.FieldIsNULL( "desk" ) && pr_grp) ||
+  		   (!Qry.FieldIsNULL( "desk" ) && !pr_grp) )
   	  throw AstraLocale::UserException( "MSG.MESSAGEPRO.CERT_CREATED_EARLIER.NOT_PROCESSED_YET" );
   	Qry.Next();
   }
