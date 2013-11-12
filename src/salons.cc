@@ -349,7 +349,7 @@ bool point_dep_AND_layer_type_FOR_TRZT_SOM_PRL( int point_id, int &point_dep, AS
     sql += " AND NOT EXISTS(SELECT pax_grp.point_dep FROM pax_grp "
            "                WHERE pax_grp.point_dep=points.point_id AND pax_grp.status NOT IN ('E')) ";
   }
-  sql +=  "ORDER BY point_num DESC,DECODE(tlgs_in.type,'PRL',0,1)";
+  sql +=  "ORDER BY point_num DESC,DECODE(tlgs_in.type,'PRL',1,0)";
   Qry.SQLText = sql;
   Qry.CreateVariable( "first_point", otInteger, first_point );
   Qry.CreateVariable( "point_num", otInteger, point_num );
