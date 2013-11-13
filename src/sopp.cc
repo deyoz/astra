@@ -3283,11 +3283,11 @@ void check_trip_tasks( const TSOPPDests &dests )
     " IF :is_apis=0 THEN "
     "   DELETE trip_tasks WHERE point_id=:point_id AND name=:name;"
     " ELSE "
-    "   UPDATE trip_tasks SET next_exec=( SELECT NVL(act_out,NVL(est_out,scd_out))-:before_minutes/(24*60) FROM points WHERE point_id=:point_id)"
+    "   UPDATE trip_tasks SET next_exec=( SELECT NVL(est_out,scd_out)-:before_minutes/(24*60) FROM points WHERE point_id=:point_id)"
     "    WHERE point_id=:point_id AND name=:name; "
     "    IF SQL%ROWCOUNT=0 THEN "
     "      INSERT INTO trip_tasks(point_id,name,last_exec,next_exec) "
-    "       SELECT point_id,:name,NULL, NVL(act_out,NVL(est_out,scd_out))-:before_minutes/(24*60) "
+    "       SELECT point_id,:name,NULL, NVL(est_out,scd_out)-:before_minutes/(24*60) "
     "        FROM points WHERE point_id=:point_id; "
     "    END IF;"
     " END IF; "
@@ -3299,6 +3299,9 @@ void check_trip_tasks( const TSOPPDests &dests )
   
   for ( TSOPPDests::const_iterator idest=dests.begin();
         idest!=dests.end(); idest++ ) {
+    if ( idest->act_out != ASTRA::NoExists ) {
+      continue;
+    }
     Qry.SetVariable( "is_apis", find( is_apis_airp.begin(), is_apis_airp.end(),idest->point_id ) != is_apis_airp.end() );
     Qry.SetVariable( "point_id", idest->point_id );
     Qry.SetVariable( "name", BEFORE_TAKEOFF_30_US_CUSTOMS_ARRIVAL );
