@@ -3230,7 +3230,7 @@ void createXMLDetailStat(const TStatParams &params, bool pr_pact,
         SetProp(colNode, "width", 230);
         SetProp(colNode, "align", taLeftJustify);
         SetProp(colNode, "sort", sortString);
-        NewTextChild(rowNode, "col", "Итого:");
+        NewTextChild(rowNode, "col", getLocaleText("Итого:"));
     }
 
     colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во пасс."));
