@@ -717,26 +717,25 @@ void SetInfantsToAdults( std::vector<T1> &InfItems, std::vector<T2> AdultItems )
 {
   sort( InfItems.begin(), InfItems.end(), ComparePass<T1> );
   sort( AdultItems.begin(), AdultItems.end(), ComparePass<T2> );
-  for ( int k = 1; k <= 3; k++ ) {
+  for ( int k = 1; k <= 4; k++ ) {
     for(typename std::vector<T1>::iterator infRow = InfItems.begin(); infRow != InfItems.end(); infRow++) {
-      if ( k == 1 )
-        infRow->temp_parent_id = infRow->parent_pax_id;
-      if ( (k == 1 and infRow->temp_parent_id != ASTRA::NoExists) or
-           (k > 1 and infRow->temp_parent_id == ASTRA::NoExists) ) {
-         infRow->temp_parent_id = ASTRA::NoExists;
-        for(typename std::vector<T2>::iterator adultRow = AdultItems.begin(); adultRow != AdultItems.end(); adultRow++) {
-          if(
-             (infRow->grp_id == adultRow->grp_id) and
-             ((k == 1 and infRow->parent_pax_id == adultRow->pax_id) or
-              (k == 2 and infRow->surname == adultRow->surname) or
-              k == 3)
-            ) {
-                infRow->temp_parent_id = adultRow->pax_id;
-                infRow->parent_pax_id = adultRow->pax_id;
-                AdultItems.erase(adultRow);
-                break;
-              }
-         }
+      if ( k != 1 && infRow->temp_parent_id != ASTRA::NoExists ) {
+        continue;
+      }
+      infRow->temp_parent_id = ASTRA::NoExists;
+      for(typename std::vector<T2>::iterator adultRow = AdultItems.begin(); adultRow != AdultItems.end(); adultRow++) {
+        if(
+           (infRow->grp_id == adultRow->grp_id) and
+           ((k == 1 and infRow->reg_no == adultRow->reg_no) or
+            (k == 2 and infRow->parent_pax_id == adultRow->pax_id) or
+            (k == 3 and infRow->surname == adultRow->surname) or
+            (k == 4))
+          ) {
+              infRow->temp_parent_id = adultRow->pax_id;
+              infRow->parent_pax_id = adultRow->pax_id;
+              AdultItems.erase(adultRow);
+              break;
+            }
       }
     }
   }

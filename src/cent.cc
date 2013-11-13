@@ -968,7 +968,8 @@ void importDBF( int external_point_id, string &dbf_file )
         throw Exception( "CompSectionsLayers is empty" );
       }
       string bort = Qry.FieldAsString( "bort" );
-      if ( !( bort.size() == 5 && bort.find( "-" ) == string::npos || bort.size() == 6 && bort.find( "-" ) == 2 ) ) {
+      if ( !( (bort.size() == 5 && bort.find( "-" ) == string::npos) ||
+              (bort.size() == 6 && bort.find( "-" ) == 2) ) ) {
         ProgTrace( TRACE5, "point_id=%d,bort=%s, bort.find=%zu", point_id, bort.c_str(), bort.find( "-" ) );
         throw Exception( "Invalid bort" );
       }
