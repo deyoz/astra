@@ -1801,7 +1801,8 @@ enum TStatType {
     statAgentTotal,
     statTlgOutFull,
     statTlgOutShort,
-    statTlgOutDetail
+    statTlgOutDetail,
+    statPactShort
 };
 
 enum TSeanceType { seanceAirline, seanceAirport, seanceAll };
@@ -2590,6 +2591,11 @@ void TStatParams::get(xmlNodePtr reqNode)
             statType=statTlgOutDetail;
         else
             throw Exception("Unknown stat mode " + name);
+    } else if(type == "Договор") {
+        if(name == "Общая")
+            statType=statPactShort;
+        else
+            throw Exception("Unknown stat mode " + name);
     } else
         throw Exception("Unknown stat type " + type);
 
@@ -3137,25 +3143,31 @@ void createXMLDetailStat(const TStatParams &params, bool pr_pact,
       {
           if(rows >= MAX_STAT_ROWS) {
               AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH",
-                                            LParams() << LParam("num", MAX_STAT_ROWS));
+                      LParams() << LParam("num", MAX_STAT_ROWS));
               if (WITHOUT_TOTAL_WHEN_PROBLEM) showTotal=false; //не будем показывать итоговую строку дабы не ввести в заблуждение
               break;
           }
 
           rowNode = NewTextChild(rowsNode, "row");
-          NewTextChild(rowNode, "col", si->first.col1);
+          if(params.statType != statPactShort)
+              NewTextChild(rowNode, "col", si->first.col1);
           if (params.statType==statDetail)
               NewTextChild(rowNode, "col", si->first.col2);
 
           if (USE_SEANCES())
               NewTextChild(rowNode, "col", getLocaleText(si->first.seance));
-          NewTextChild(rowNode, "col", (int)(pr_pact?si->second.flts.size():si->second.flt_amount));
-          NewTextChild(rowNode, "col", si->second.pax_amount);
-          NewTextChild(rowNode, "col", si->second.web);
-          NewTextChild(rowNode, "col", si->second.kiosk);
-          if(pr_pact)
+          if(params.statType != statPactShort)
+              NewTextChild(rowNode, "col", (int)(pr_pact?si->second.flts.size():si->second.flt_amount));
+          if(params.statType == statPactShort)
               NewTextChild(rowNode, "col", si->first.pact_descr);
-              
+          NewTextChild(rowNode, "col", si->second.pax_amount);
+          if(params.statType != statPactShort) {
+              NewTextChild(rowNode, "col", si->second.web);
+              NewTextChild(rowNode, "col", si->second.kiosk);
+          }
+          if(pr_pact and params.statType != statPactShort)
+              NewTextChild(rowNode, "col", si->first.pact_descr);
+
           total += si->second;
       };
     }
@@ -3164,34 +3176,36 @@ void createXMLDetailStat(const TStatParams &params, bool pr_pact,
     rowNode = NewTextChild(rowsNode, "row");
 
     xmlNodePtr colNode;
-    if(params.airp_column_first) {
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/п"));
-        SetProp(colNode, "width", 50);
-        SetProp(colNode, "align", taLeftJustify);
-        SetProp(colNode, "sort", sortString);
-        NewTextChild(rowNode, "col", getLocaleText("Итого:"));
-        if (params.statType==statDetail)
-        {
-            colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
-            SetProp(colNode, "width", 50);
-            SetProp(colNode, "align", taLeftJustify);
-            SetProp(colNode, "sort", sortString);
-            NewTextChild(rowNode, "col");
-        };
-    } else {
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
-        SetProp(colNode, "width", 50);
-        SetProp(colNode, "align", taLeftJustify);
-        SetProp(colNode, "sort", sortString);
-        NewTextChild(rowNode, "col", getLocaleText("Итого:"));
-        if (params.statType==statDetail)
-        {
+    if(params.statType != statPactShort) {
+        if(params.airp_column_first) {
             colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/п"));
             SetProp(colNode, "width", 50);
             SetProp(colNode, "align", taLeftJustify);
             SetProp(colNode, "sort", sortString);
-            NewTextChild(rowNode, "col");
-        };
+            NewTextChild(rowNode, "col", getLocaleText("Итого:"));
+            if (params.statType==statDetail)
+            {
+                colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
+                SetProp(colNode, "width", 50);
+                SetProp(colNode, "align", taLeftJustify);
+                SetProp(colNode, "sort", sortString);
+                NewTextChild(rowNode, "col");
+            };
+        } else {
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
+            SetProp(colNode, "width", 50);
+            SetProp(colNode, "align", taLeftJustify);
+            SetProp(colNode, "sort", sortString);
+            NewTextChild(rowNode, "col", getLocaleText("Итого:"));
+            if (params.statType==statDetail)
+            {
+                colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/п"));
+                SetProp(colNode, "width", 50);
+                SetProp(colNode, "align", taLeftJustify);
+                SetProp(colNode, "sort", sortString);
+                NewTextChild(rowNode, "col");
+            };
+        }
     }
     if (USE_SEANCES())
     {
@@ -3202,11 +3216,22 @@ void createXMLDetailStat(const TStatParams &params, bool pr_pact,
         NewTextChild(rowNode, "col");
     };
 
-    colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во рейсов"));
-    SetProp(colNode, "width", 85);
-    SetProp(colNode, "align", taRightJustify);
-    SetProp(colNode, "sort", sortInteger);
-    NewTextChild(rowNode, "col", (int)(pr_pact?total.flts.size():total.flt_amount));
+    if(params.statType != statPactShort) {
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во рейсов"));
+        SetProp(colNode, "width", 85);
+        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "sort", sortInteger);
+        NewTextChild(rowNode, "col", (int)(pr_pact?total.flts.size():total.flt_amount));
+    }
+
+    if(params.statType == statPactShort)
+    {
+        colNode = NewTextChild(headerNode, "col", getLocaleText("№ договора"));
+        SetProp(colNode, "width", 230);
+        SetProp(colNode, "align", taLeftJustify);
+        SetProp(colNode, "sort", sortString);
+        NewTextChild(rowNode, "col", "Итого:");
+    }
 
     colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во пасс."));
     SetProp(colNode, "width", 85);
@@ -3214,19 +3239,21 @@ void createXMLDetailStat(const TStatParams &params, bool pr_pact,
     SetProp(colNode, "sort", sortInteger);
     NewTextChild(rowNode, "col", total.pax_amount);
 
-    colNode = NewTextChild(headerNode, "col", getLocaleText("Web"));
-    SetProp(colNode, "width", 85);
-    SetProp(colNode, "align", taRightJustify);
-    SetProp(colNode, "sort", sortInteger);
-    NewTextChild(rowNode, "col", total.web);
+    if(params.statType != statPactShort) {
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Web"));
+        SetProp(colNode, "width", 85);
+        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "sort", sortInteger);
+        NewTextChild(rowNode, "col", total.web);
 
-    colNode = NewTextChild(headerNode, "col", getLocaleText("Киоски"));
-    SetProp(colNode, "width", 85);
-    SetProp(colNode, "align", taRightJustify);
-    SetProp(colNode, "sort", sortInteger);
-    NewTextChild(rowNode, "col", total.kiosk);
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Киоски"));
+        SetProp(colNode, "width", 85);
+        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "sort", sortInteger);
+        NewTextChild(rowNode, "col", total.kiosk);
+    }
 
-    if(pr_pact)
+    if(pr_pact and params.statType != statPactShort)
     {
         colNode = NewTextChild(headerNode, "col", getLocaleText("№ договора"));
         SetProp(colNode, "width", 230);
@@ -3243,6 +3270,20 @@ void createXMLDetailStat(const TStatParams &params, bool pr_pact,
 
     xmlNodePtr variablesNode = STAT::set_variables(resNode);
     NewTextChild(variablesNode, "pr_pact", pr_pact);
+    if(params.statType == statPactShort) {
+        NewTextChild(variablesNode, "stat_type", params.statType);
+        NewTextChild(variablesNode, "stat_mode", getLocaleText("Договоры на использование DCS АСТРА"));
+        string stat_type_caption;
+        switch(params.statType) {
+            case statPactShort:
+                stat_type_caption = getLocaleText("Общая");
+                break;
+            default:
+                throw Exception("createXMLDetailStat: unexpected statType %d", params.statType);
+                break;
+        }
+        NewTextChild(variablesNode, "stat_type_caption", stat_type_caption);
+    }
 };
 
 void createXMLFullStat(const TStatParams &params,
@@ -3673,22 +3714,27 @@ void RunPactDetailStat(bool pr_new, const TStatParams &params,
                 TDetailStatKey key;
                 if(iv != result_pacts.end())
                     key.pact_descr = iv->descr;
-                if(params.airp_column_first) {
-                    key.col1 = ElemIdToCodeNative(etAirp, airp);
-                    if (params.statType==statDetail)
-                    {
-                        key.col2 = ElemIdToCodeNative(etAirline, airline);
-                        prn_airline.check(key.col2);
-                    };
-                } else {
-                    key.col1 = ElemIdToCodeNative(etAirline, airline);
-                    if (params.statType==statDetail)
-                    {
-                        key.col2 = ElemIdToCodeNative(etAirp, airp);
-                    };
-                    prn_airline.check(key.col1);
+                if(
+                        params.statType == statDetail or
+                        params.statType == statShort
+                  ) {
+                    if(params.airp_column_first) {
+                        key.col1 = ElemIdToCodeNative(etAirp, airp);
+                        if (params.statType==statDetail)
+                        {
+                            key.col2 = ElemIdToCodeNative(etAirline, airline);
+                            prn_airline.check(key.col2);
+                        };
+                    } else {
+                        key.col1 = ElemIdToCodeNative(etAirline, airline);
+                        if (params.statType==statDetail)
+                        {
+                            key.col2 = ElemIdToCodeNative(etAirp, airp);
+                        };
+                        prn_airline.check(key.col1);
+                    }
                 }
-                
+
                 AddStatRow(key, row, DetailStat);
               }
               else
@@ -5268,18 +5314,24 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
       case statTlgOutFull:
       case statTlgOutShort:
       case statTlgOutDetail:
+      case statPactShort:
         get_compatible_report_form("stat", reqNode, resNode);
         break;
+      default:
+        throw Exception("unexpected stat type %d", params.statType);
     };
         
 
     try
     {
-        if (params.statType==statShort || params.statType==statDetail)
+        if (params.statType==statShort || params.statType==statDetail || params.statType == statPactShort)
         {
           bool pr_pacts =
             find( reqInfo->user.access.rights.begin(), reqInfo->user.access.rights.end(), 605 ) != reqInfo->user.access.rights.end() and
             params.seance == seanceAll and not USE_SEANCES();
+
+          if(not pr_pacts and params.statType == statPactShort)
+              throw Exception("statPactShort cannot run under seanses mode");
         
           TDetailStat DetailStat;
           TDetailStatRow DetailStatTotal;
