@@ -3043,7 +3043,7 @@ void TPSM::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 void TPSM::get(TypeB::TDetailCreateInfo &info)
 {
     cfg.get(info.point_id);
-    if(cfg.empty()) throw UserException("MSG.CFG.EMPTY");
+    if(cfg.empty()) cfg.get(NoExists);
     vector<TTlgCompLayer> complayers;
     if(not isFreeSeating(info.point_id) and not isEmptySalons(info.point_id))
         ReadSalons( info, complayers );
@@ -3115,7 +3115,7 @@ struct TPIL {
 void TPIL::get(TypeB::TDetailCreateInfo &info)
 {
     cfg.get(info.point_id);
-    if(cfg.empty()) throw UserException("MSG.CFG.EMPTY");
+    if(cfg.empty()) cfg.get(NoExists);
     vector<TTlgCompLayer> complayers;
     if(isFreeSeating(info.point_id))
         throw UserException("MSG.SALONS.FREE_SEATING");
