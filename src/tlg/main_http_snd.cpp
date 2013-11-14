@@ -115,11 +115,6 @@ typedef void  (*TTypeBFormatParse)(const string &answer, ostringstream &msg);
 static void scan_tlg(void)
 {
   time_t time_start=time(NULL);
-  TQuery completeQry(&OraSession);
-  if(completeQry.SQLText.IsEmpty()) {
-      completeQry.SQLText="UPDATE tlg_out SET completed=1 WHERE id=:id";
-      completeQry.DeclareVariable("id",otInteger);
-  }
   TFileQueue file_queue;
   file_queue.get( TFilterQueue( OWN_POINT_ADDR(), FILE_HTTP_TYPEB_TYPE ) );
   int trace_count=0;
@@ -192,9 +187,7 @@ static void scan_tlg(void)
               p.addr=TypeB::format_addr_line(im->second);
               p.body=item->data;
               p.addFromFileParams(item->params);
-              TelegramInterface::SaveTlgOutPart(p);
-              completeQry.SetVariable("id",p.id);
-              completeQry.Execute();
+              TelegramInterface::SaveTlgOutPart(p, true, false);
               TelegramInterface::SendTlg(p.id);
               TFileQueue::deleteFile(item->id);
               break;

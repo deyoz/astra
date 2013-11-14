@@ -123,12 +123,14 @@ struct TTlgSeatList {
 const std::string FILE_PARAM_FORMAT = "FORMAT";
 const std::string FILE_PARAM_POINT_ID = "POINT_ID";
 const std::string FILE_PARAM_TLG_TYPE = "TLG_TYPE";
+const std::string FILE_PARAM_ORIGIN = "ORIGIN";
 const std::string FILE_PARAM_HEADING = "HEADING";
 const std::string FILE_PARAM_ENDING = "ENDING";
 const std::string FILE_PARAM_PR_LAT = "PR_LAT";
 const std::string FILE_PARAM_TIME_CREATE = "TIME_CREATE";
 const std::string FILE_PARAM_ORIGINATOR_ID = "ORIGINATOR_ID";
 const std::string FILE_PARAM_AIRLINE_MARK = "AIRLINE_MARK";
+const std::string FILE_PARAM_MANUAL_CREATION = "MANUAL_CREATION";
 const std::string FILE_PARAM_EXTRA = "EXTRA_";
 const std::string PARAM_TLG_TYPE = "TLG_TYPE";
 const std::string PARAM_FILE_NAME_ENC = "FILE_NAME_ENC";
@@ -136,109 +138,50 @@ const std::string PARAM_FILE_NAME_ENC = "FILE_NAME_ENC";
 struct TTlgOutPartInfo
 {
   int id,num,point_id;
-  std::string tlg_type,addr,heading,body,ending;
+  std::string tlg_type,addr,origin,heading,body,ending;
   bool pr_lat;
   BASIC::TDateTime time_create,time_send_scd;
   int originator_id;
   std::string airline_mark;
+  bool manual_creation;
   std::map<std::string/*lang*/, std::string> extra;
   TTlgOutPartInfo ()
+  {
+    clear();
+  };
+  void clear()
   {
     id=ASTRA::NoExists;
     num=1;
     point_id=ASTRA::NoExists;
+    tlg_type.clear();
+    addr.clear();
+    origin.clear();
+    heading.clear();
+    body.clear();
+    ending.clear();
     pr_lat=false;
     time_create=ASTRA::NoExists;
     time_send_scd=ASTRA::NoExists;
     originator_id=ASTRA::NoExists;
-  };
-  TTlgOutPartInfo (const TypeB::TDetailCreateInfo &info)
-  {
-    id=ASTRA::NoExists;
-    num = 1;
-    tlg_type = info.get_tlg_type();
-    point_id = info.point_id;
-    pr_lat = info.get_options().is_lat;
-    for(int i=0; i<=1; i++)
-    {
-      std::string lang=(i==0?AstraLocale::LANG_RU:AstraLocale::LANG_EN);
-      localizedstream s(lang);
-      extra[lang]=info.get_options().extraStr(s).str();
-    };
-    addr = info.addrs;
-    time_create = info.time_create;
-    time_send_scd = ASTRA::NoExists;
-    originator_id = info.originator.id;
-    airline_mark = info.airline_mark();
-  };
-  void addToFileParams(std::map<std::string, std::string> &params) const
-  {
-    params[FILE_PARAM_POINT_ID] = point_id==ASTRA::NoExists?"":IntToString(point_id);
-    params[FILE_PARAM_TLG_TYPE] = tlg_type;
-    params[FILE_PARAM_HEADING] = heading;
-    params[FILE_PARAM_ENDING] = ending;
-    params[FILE_PARAM_PR_LAT] = IntToString((int)pr_lat);
-    params[FILE_PARAM_TIME_CREATE] = time_create==ASTRA::NoExists?"":BASIC::DateTimeToStr(time_create, BASIC::ServerFormatDateTimeAsString);
-    params[FILE_PARAM_ORIGINATOR_ID] = originator_id==ASTRA::NoExists?"":IntToString(originator_id);
-    params[FILE_PARAM_AIRLINE_MARK] = airline_mark;
-    for(std::map<std::string/*lang*/, std::string>::const_iterator i=extra.begin(); i!=extra.end(); ++i)
-      params[FILE_PARAM_EXTRA+i->first] = i->second;
-  };
-  void addFromFileParams(const std::map<std::string, std::string> &params)
-  {
-    point_id=ASTRA::NoExists;
-    tlg_type.clear();
-    heading.clear();
-    ending.clear();
-    pr_lat=false;
-    time_create=ASTRA::NoExists;
-    originator_id=ASTRA::NoExists;
+    airline_mark.clear();
     extra.clear();
-
-    std::map<std::string, std::string>::const_iterator p;
-    p=params.find(FILE_PARAM_POINT_ID);
-    if (p!=params.end())
-      point_id = p->second.empty()?ASTRA::NoExists:ToInt(p->second);
-
-    p=params.find(FILE_PARAM_TLG_TYPE);
-    if (p!=params.end())
-      tlg_type = p->second;
-
-    p=params.find(FILE_PARAM_HEADING);
-    if (p!=params.end())
-      heading = p->second;
-
-    p=params.find(FILE_PARAM_ENDING);
-    if (p!=params.end())
-      ending = p->second;
-
-    p=params.find(FILE_PARAM_PR_LAT);
-    if (p!=params.end())
-      pr_lat = ToInt(p->second)!=0;
-
-    p=params.find(FILE_PARAM_TIME_CREATE);
-    if (p!=params.end())
-      p->second.empty()?time_create=ASTRA::NoExists:
-                        BASIC::StrToDateTime(p->second.c_str(), BASIC::ServerFormatDateTimeAsString, time_create);
-
-    p=params.find(FILE_PARAM_ORIGINATOR_ID);
-    if (p!=params.end())
-      originator_id = p->second.empty()?ASTRA::NoExists:ToInt(p->second);
-
-    p=params.find(FILE_PARAM_AIRLINE_MARK);
-    if (p!=params.end())
-      airline_mark = p->second;
-
-    for(int i=0; i<=1; i++)
-    {
-      std::string lang=(i==0?AstraLocale::LANG_RU:AstraLocale::LANG_EN);
-      p=params.find(FILE_PARAM_EXTRA+lang);
-      if (p!=params.end())
-        extra[lang] = p->second;
-      else
-        extra[lang] = "";
-    };
+    manual_creation=false;
   };
+
+  size_t textSize() const
+  {
+    return addr.size()+
+           origin.size()+
+           heading.size()+
+           body.size()+
+           ending.size();
+  };
+
+  TTlgOutPartInfo (const TypeB::TDetailCreateInfo &info);
+  void addToFileParams(std::map<std::string, std::string> &params) const;
+  void addFromFileParams(const std::map<std::string, std::string> &params);
+  TTlgOutPartInfo& fromDB(TQuery &Qry);
 };
 
 namespace BSM
@@ -342,13 +285,14 @@ public:
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 
   static int create_tlg(const TypeB::TCreateInfo &createInfo,
-                        TTypeBTypesRow &tlgTypeInfo);
+                        TTypeBTypesRow &tlgTypeInfo,
+                        bool manual_creation);
 
   static void readTripData( int point_id, xmlNodePtr dataNode );
   static void SendTlg( int tlg_id );
   static void SendTlg(const std::vector<TypeB::TCreateInfo> &info);
 
-  static void SaveTlgOutPart( TTlgOutPartInfo &info );
+  static void SaveTlgOutPart( TTlgOutPartInfo &info, bool completed, bool has_errors );
 };
 
 void ReadSalons( const TypeB::TDetailCreateInfo &info,

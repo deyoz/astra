@@ -23,9 +23,10 @@
 #include "maindcs.h"
 #include "base_tables.h"
 #include "astra_misc.h"
+#include "telegram.h"
+#include "tlg/tlg.h"
 #include "jxtlib/jxt_cont.h"
 #include "serverlib/str_utils.h"
-#include "tlg/tlg.h"
 #include "serverlib/posthooks.h"
 
 #define NICKNAME "DJEK"
@@ -1586,7 +1587,7 @@ bool createUTGDataFiles( int point_id, const std::string &point_addr, TFileDatas
     QryParams.clear();
     QryParams << QParam("id", otInteger);
     TQuery &TlgQry = TQrys::Instance()->get(
-            "SELECT heading, body, ending "
+            "SELECT * "
             "FROM tlg_out "
             "WHERE id=:id",
             QryParams
@@ -1628,15 +1629,15 @@ bool createUTGDataFiles( int point_id, const std::string &point_addr, TFileDatas
     TypeB::TCreateInfo info("PRL");
     info.point_id = point_id;
     TTypeBTypesRow tlgTypeInfo;
-    int tlg_id = TelegramInterface::create_tlg(info, tlgTypeInfo);
+    int tlg_id = TelegramInterface::create_tlg(info, tlgTypeInfo, true);
     TlgQry.SetVariable("id", tlg_id);
     TlgQry.Execute();
-    file.file_data=(string)
-        TlgQry.FieldAsString("heading")+
-        TlgQry.FieldAsString("body")+
-        TlgQry.FieldAsString("ending");
+    if (TlgQry.Eof) throw Exception("createUTGDataFiles: TlgQry.Eof");
+    TTlgOutPartInfo tlg;
+    tlg.fromDB(TlgQry);
     OraSession.Rollback();
 
+    file.file_data=tlg.heading + tlg.body + tlg.ending;
     file.params[PARAM_FILE_NAME] = UTG_file_name(tlg_id, "PRL", flt, file.params[PARAM_FILE_NAME_ENC]);
     file.params[NS_PARAM_EVENT_TYPE] = EncodeEventType( ASTRA::evtFlt );
     file.params[NS_PARAM_EVENT_ID1] = IntToString( point_id );

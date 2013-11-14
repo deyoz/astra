@@ -1482,8 +1482,8 @@ void filter(vector<TypeB::TCreateInfo> &createInfo, string tlg_type)
 int test_typeb_utils(int argc,char **argv)
 {
   set<string> tlg_types;
-  tlg_types.insert("PRL");
-/*  tlg_types.insert("LCI");
+/*  tlg_types.insert("PRL");
+  tlg_types.insert("LCI");
   tlg_types.insert("PRL");
   tlg_types.insert("PRLC");
   tlg_types.insert("PSM");
@@ -1508,9 +1508,9 @@ int test_typeb_utils(int argc,char **argv)
     TQuery TlgQry(&OraSession);
     TlgQry.Clear();
     string sql =
-      "SELECT id, addr, heading, body, ending "
+      "SELECT id, addr, origin, heading, body, ending "
       "FROM tlg_out "
-      "WHERE point_id=:point_id ";
+      "WHERE point_id=:point_id"; //AND time_create=time_send_act";
     if ( !tlg_types.empty() ) {
       sql += " and type in " + GetSQLEnum(tlg_types);
     }
@@ -1540,11 +1540,12 @@ int test_typeb_utils(int argc,char **argv)
         TlgQry.Execute();
         if (!TlgQry.Eof)
         {
-          string addr,heading,body,ending;
+          string addr,origin,heading,body,ending;
           for(;!TlgQry.Eof;)
           {
             int tlg_id=TlgQry.FieldAsInteger("id");
             addr=TlgQry.FieldAsString("addr");
+            origin=TlgQry.FieldAsString("origin");
             heading=TlgQry.FieldAsString("heading");
             body+=TlgQry.FieldAsString("body");
             ending=TlgQry.FieldAsString("ending");
@@ -1555,6 +1556,7 @@ int test_typeb_utils(int argc,char **argv)
               {
                 ofstream &f=(pass==0?f1:f2);
                 f << ConvertCodepage(addr, "CP866", "CP1251")
+                  << ConvertCodepage(origin, "CP866", "CP1251")
                   << ConvertCodepage(heading, "CP866", "CP1251")
                   << ConvertCodepage(body, "CP866", "CP1251")
                   << ConvertCodepage(ending, "CP866", "CP1251")
