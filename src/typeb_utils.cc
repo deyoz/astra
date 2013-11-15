@@ -46,6 +46,7 @@ void TErrLst::fix(vector<TDraftPart> &parts)
     set<int> txt_errs; // ошибки, содержащиеся в тексте телеграммы
     for(vector<TDraftPart>::iterator iv = parts.begin(); iv != parts.end(); iv++){
         fetch_err(txt_errs, iv->addr);
+        fetch_err(txt_errs, iv->origin);
         fetch_err(txt_errs, iv->heading);
         fetch_err(txt_errs, iv->body);
         fetch_err(txt_errs, iv->ending);
@@ -384,6 +385,29 @@ string format_addr_line(string vaddrs, TDetailCreateInfo *info)
     return result;
 }
 
+TOriginatorInfo& TOriginatorInfo::fromDB(TQuery &Qry)
+{
+  clear();
+  if (!Qry.FieldIsNULL("id"))
+    id=Qry.FieldAsInteger("id");
+  else
+    id=ASTRA::NoExists;
+  addr=Qry.FieldAsString("addr");
+  double_sign=Qry.FieldAsString("double_sign");
+  if (Qry.GetFieldIndex("descr")>=0)
+    descr=Qry.FieldAsString("descr");
+  return *this;
+};
+
+string TOriginatorInfo::originSection(TDateTime time_create, const string &endline) const
+{
+  ostringstream result;
+  result << "." << addr
+         << " " << double_sign << (double_sign.empty()?"":"/")
+         << DateTimeToStr(time_create,"ddhhnn") << endline;
+  return result.str();
+};
+
 TOriginatorInfo getOriginator(const string &airline,
                               const string &airp_dep,
                               const string &tlg_type,
@@ -393,7 +417,7 @@ TOriginatorInfo getOriginator(const string &airline,
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText =
-    "SELECT id, addr, "
+    "SELECT id, addr, double_sign, "
     "       DECODE(airline,NULL,0,8) + "
     "       DECODE(airp_dep,NULL,0,4) + "
     "       DECODE(tlg_type,NULL,0,2) AS priority "
@@ -410,11 +434,7 @@ TOriginatorInfo getOriginator(const string &airline,
   Qry.CreateVariable("time_create", otDate, time_create);
   Qry.Execute();
   TOriginatorInfo originator;
-  if (!Qry.Eof)
-  {
-    originator.id=Qry.FieldAsInteger("id");
-    originator.addr=Qry.FieldAsString("addr");
-  };
+  if (!Qry.Eof) originator.fromDB(Qry);
 
   if (with_exception)
   {
@@ -425,6 +445,14 @@ TOriginatorInfo getOriginator(const string &airline,
     for(string::const_iterator c=originator.addr.begin(); c!=originator.addr.end(); c++)
       if (!(IsAscii7(*c) && (IsDigit(*c) || IsUpperLetter(*c))))
         throw AstraLocale::UserException("MSG.TLG.SRC_ADDR_WRONG_SET");
+    if (!originator.double_sign.empty())
+    {
+      if(originator.double_sign.size() != 2)
+        throw AstraLocale::UserException("MSG.TLG.DOUBLE_SIGNATURE_WRONG_SET");
+      for(string::const_iterator c=originator.double_sign.begin(); c!=originator.double_sign.end(); c++)
+        if (!(IsAscii7(*c) && (IsDigit(*c) || IsUpperLetter(*c))))
+          throw AstraLocale::UserException("MSG.TLG.DOUBLE_SIGNATURE_WRONG_SET");
+    };
   };
   return originator;
 };

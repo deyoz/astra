@@ -1191,11 +1191,22 @@ struct TOriginatorInfo
 {
   int id;
   std::string addr;
-  TOriginatorInfo():id(ASTRA::NoExists) {};
+  std::string double_sign;
+  std::string descr;
+  TOriginatorInfo() { clear(); };
+  void clear()
+  {
+    id=ASTRA::NoExists;
+    addr.clear();
+    double_sign.clear();
+    descr.clear();
+  };
+  TOriginatorInfo& fromDB(TQuery &Qry);
+  std::string originSection(BASIC::TDateTime time_create, const std::string &endline) const;
 };
 
 struct TDraftPart {
-    std::string addr, heading, ending, body;
+    std::string addr, origin, heading, ending, body;
 };
 
 struct TErrLst:std::map<int, std::string> {
@@ -1235,6 +1246,7 @@ class TDetailCreateInfo : public TOptionsInfo
     bool pr_tranzit;
     //разные настройки
     bool vcompleted;
+    bool manual_creation;
     TElemFmt elem_fmt;
     std::string lang;
     // список ошибок телеграммы
@@ -1272,6 +1284,7 @@ class TDetailCreateInfo : public TOptionsInfo
         point_num = ASTRA::NoExists;
         pr_tranzit = false;
         vcompleted = false;
+        manual_creation = false;
         elem_fmt = efmtUnknown;
     };
     virtual ~TDetailCreateInfo() {};
