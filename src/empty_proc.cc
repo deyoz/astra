@@ -1503,14 +1503,15 @@ int test_typeb_utils(int argc,char **argv)
       "       point_id,point_num,first_point,pr_tranzit "
       "FROM points "
 //      "WHERE point_id=2253498";
-      "WHERE scd_out BETWEEN SYSTEM.UTCSYSDATE-1/24 AND SYSTEM.UTCSYSDATE AND act_out IS NOT NULL AND pr_del=0";
+      "WHERE scd_out BETWEEN SYSTEM.UTCSYSDATE-4/24 AND SYSTEM.UTCSYSDATE AND act_out IS NOT NULL AND pr_del=0";
       
     TQuery TlgQry(&OraSession);
     TlgQry.Clear();
     string sql =
-      "SELECT id, addr, origin, heading, body, ending "
+      "SELECT * "
       "FROM tlg_out "
-      "WHERE point_id=:point_id"; //AND time_create=time_send_act";
+      "WHERE point_id=:point_id ";
+
     if ( !tlg_types.empty() ) {
       sql += " and type in " + GetSQLEnum(tlg_types);
     }
@@ -1540,28 +1541,38 @@ int test_typeb_utils(int argc,char **argv)
         TlgQry.Execute();
         if (!TlgQry.Eof)
         {
-          string addr,origin,heading,body,ending;
+          string body;
+          bool completed, has_errors;
+          TDateTime time_send_act;
           for(;!TlgQry.Eof;)
           {
-            int tlg_id=TlgQry.FieldAsInteger("id");
-            addr=TlgQry.FieldAsString("addr");
-            origin=TlgQry.FieldAsString("origin");
-            heading=TlgQry.FieldAsString("heading");
-            body+=TlgQry.FieldAsString("body");
-            ending=TlgQry.FieldAsString("ending");
+            TTlgOutPartInfo tlg;
+            tlg.fromDB(TlgQry);
+            completed=TlgQry.FieldAsInteger("completed")!=0;
+            has_errors=TlgQry.FieldAsInteger("has_errors")!=0;
+            time_send_act=TlgQry.FieldIsNULL("time_send_act")?NoExists:TlgQry.FieldAsDateTime("time_send_act");
+            body+=tlg.body;
             TlgQry.Next();
-            if (TlgQry.Eof || tlg_id!=TlgQry.FieldAsInteger("id"))
+            if (TlgQry.Eof || tlg.id!=TlgQry.FieldAsInteger("id"))
             {
-              if (tlg_ids.find(tlg_id)==tlg_ids.end())
+              if (tlg_ids.find(tlg.id)==tlg_ids.end())
               {
-                ofstream &f=(pass==0?f1:f2);
-                f << ConvertCodepage(addr, "CP866", "CP1251")
-                  << ConvertCodepage(origin, "CP866", "CP1251")
-                  << ConvertCodepage(heading, "CP866", "CP1251")
-                  << ConvertCodepage(body, "CP866", "CP1251")
-                  << ConvertCodepage(ending, "CP866", "CP1251")
-                  << "====================================================" << TypeB::endl;
-                tlg_ids.insert(tlg_id);
+                if (tlg.tlg_type!="BSM" /*&&
+                    ((pass==0 && (time_send_act==tlg.time_create ||
+                                  (time_send_act==NoExists && (!completed || has_errors)))) ||
+                     pass!=0
+                    )*/
+                   )
+                {
+                  ofstream &f=(pass==0?f1:f2);
+                  f << ConvertCodepage(tlg.addr, "CP866", "CP1251")
+                    << ConvertCodepage(tlg.origin, "CP866", "CP1251")
+                    << ConvertCodepage(tlg.heading, "CP866", "CP1251")
+                    << ConvertCodepage(body, "CP866", "CP1251")
+                    << ConvertCodepage(tlg.ending, "CP866", "CP1251")
+                    << "====================================================" << TypeB::endl;
+                };
+                tlg_ids.insert(tlg.id);
               };
               body.clear();
             };
