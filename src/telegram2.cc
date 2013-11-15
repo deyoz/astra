@@ -3202,7 +3202,7 @@ int PIL(TypeB::TDetailCreateInfo &info)
     ostringstream heading;
     heading << "PIL" << TypeB::endl
             << info.flight_view() << "/"
-            << info.scd_local_view() << " " << info.airp_dep_view() << TypeB::endl;
+            << info.scd_local_view() << " " << info.airp_dep_view() << " ";
     tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + TypeB::endl;
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + TypeB::endl;
     size_t part_len = tlg_row.textSize();
