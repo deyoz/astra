@@ -1468,8 +1468,10 @@ std::string TlgElemIdToElem(TElemType type, std::string id, bool pr_lat)
     }
 };
 
-string CreateTlgBody(const TTlgContent& con, bool pr_lat)
+void CreateTlgBody(const TTlgContent& con, TTlgOutPartInfo &partInfo)
 {
+  bool pr_lat=partInfo.pr_lat;
+
   map<int/*reg_no*/, pair<TPaxItem, vector<CheckIn::TTagItem> > > tmpPax;
   for(map<double, CheckIn::TTagItem>::const_iterator iTag=con.tags.begin();iTag!=con.tags.end();++iTag)
   {
@@ -1487,11 +1489,13 @@ string CreateTlgBody(const TTlgContent& con, bool pr_lat)
   if (tmpPax.empty()) throw Exception("BSM::CreateTlgBody: tmpPax empty");
   
 
+  ostringstream heading;
+  heading << "BSM" << ENDL;
+  partInfo.heading = heading.str();
+
   ostringstream body;
 
   body.setf(ios::fixed);
-
-  body << "BSM" << ENDL;
 
   switch(con.indicator)
   {
@@ -1575,10 +1579,11 @@ string CreateTlgBody(const TTlgContent& con, bool pr_lat)
     if (!p->second.first.pnr_addr.empty())
       body << ".L/" << convert_pnr_addr(p->second.first.pnr_addr,pr_lat) << ENDL;
   };
+  partInfo.body = body.str();
 
-  body << "ENDBSM" << ENDL;
-
-  return body.str();
+  ostringstream ending;
+  ending << "ENDBSM" << ENDL;
+  partInfo.ending = ending.str();
 };
 
 bool IsSend( const TAdvTripInfo &fltInfo, TBSMAddrs &addrs )
@@ -1624,22 +1629,23 @@ void Send( int point_dep, int grp_id, const TTlgContent &con1, const TBSMAddrs &
       {
         p.id=NoExists;
         p.num=1;
-        p.pr_lat=j->get_options().is_lat;
+        p.pr_lat=j->get_options().is_lat; //обязательно устанавливаем до CreateTlgBody
         p.addr=TypeB::format_addr_line(j->get_addrs());
-        p.body=CreateTlgBody(*i,p.pr_lat);
+        CreateTlgBody(*i,p);
         TelegramInterface::SaveTlgOutPart(p, true, false);
         TelegramInterface::SendTlg(p.id);
       };
       if(not addrs.HTTP_TYPEBparams.empty()) {
           map<string, string> params = addrs.HTTP_TYPEBparams;
-
+          p.pr_lat=true; //обязательно устанавливаем до CreateTlgBody
+          CreateTlgBody(*i,p);
           p.addToFileParams(params);
 
           TFileQueue::putFile(OWN_POINT_ADDR(),
                               OWN_POINT_ADDR(),
                               FILE_HTTP_TYPEB_TYPE,
                               params,
-                              CreateTlgBody(*i, true));
+                              p.body);
       }
     };
     if(not addrs.HTTP_TYPEBparams.empty())

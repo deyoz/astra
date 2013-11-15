@@ -445,7 +445,11 @@ TOriginatorInfo getOriginator(const string &airline,
     for(string::const_iterator c=originator.addr.begin(); c!=originator.addr.end(); c++)
       if (!(IsAscii7(*c) && (IsDigit(*c) || IsUpperLetter(*c))))
         throw AstraLocale::UserException("MSG.TLG.SRC_ADDR_WRONG_SET");
-    //!!!vlad
+    if(originator.double_sign.size() != 2)
+      throw AstraLocale::UserException("MSG.TLG.DOUBLE_SIGNATURE_WRONG_SET");
+    for(string::const_iterator c=originator.double_sign.begin(); c!=originator.double_sign.end(); c++)
+      if (!(IsAscii7(*c) && (IsDigit(*c) || IsUpperLetter(*c))))
+        throw AstraLocale::UserException("MSG.TLG.DOUBLE_SIGNATURE_WRONG_SET");
   };
   return originator;
 };

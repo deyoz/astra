@@ -251,7 +251,7 @@ void utg(void)
        string file_name = item->params[ PARAM_WORK_DIR ] + "/" +item->params[ PARAM_FILE_NAME ];
        apath = file_name;
        if(boost::filesystem::exists(apath))
-         throw Exception("utg: file '%s' already exists");
+         throw Exception("utg: file '%s' already exists", file_name.c_str());
        f.open(file_name.c_str());
        if(!f.is_open()) throw Exception("Can't open file '%s'", file_name.c_str());
        f << item->data;

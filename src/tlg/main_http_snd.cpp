@@ -121,9 +121,11 @@ static void scan_tlg(void)
   for ( TFileQueue::iterator item=file_queue.begin();
         item!=file_queue.end(); item++, trace_count++ , OraSession.Commit() ) {
     try {
-      string tlg_type = item->params[FILE_PARAM_TLG_TYPE];
-      string tlg_short_name = ((TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",tlg_type))).short_name;
-      int point_id = ToInt(item->params[FILE_PARAM_POINT_ID]);
+      TTlgOutPartInfo p;
+      p.addFromFileParams(item->params); //вначале читаем параметры, так как в этой процедуре TTlgOutPartInfo чистится
+      p.body=item->data;
+
+      string tlg_short_name = ((TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",p.tlg_type))).short_name;
       TTypeBFormat format = DecodeTypeBFormat(item->params[FILE_PARAM_FORMAT]);
       TTypeBFormatSend sender = NULL;
       TTypeBFormatParse parser = NULL;
@@ -145,7 +147,8 @@ static void scan_tlg(void)
           try {
             if(not sender)
               throw Exception("sender not defined");
-            str_result = (*sender)(im->second, item->data);
+
+            str_result = (*sender)(im->second, p.heading+p.body+p.ending);
             msg
               << FILE_HTTP_TYPEB_TYPE << ": Телеграмма " << tlg_short_name << " "
               << "(ид=" << item->id << ", " << im->first << "=" << im->second << ") "
@@ -166,27 +169,24 @@ static void scan_tlg(void)
             send_error(msg, tlg_short_name, item->id, im->first, im->second);
           }
           if(err) {
-            TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,item->id);
+            TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,p.point_id,item->id);
             continue;
           }
           try {
            (*parser)(str_result, msg);
           }
           catch(...) {
-            TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,item->id);
+            TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,p.point_id,item->id);
             continue;
           }
-          TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,item->id);
+          TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,p.point_id,item->id);
           TFileQueue::deleteFile(item->id);
           break;
         } else
             if(validate_param_name(im->first, pnSITA)) { // handle SITA
-              TTlgOutPartInfo p;
               p.id=NoExists;
               p.num=1;
               p.addr=TypeB::format_addr_line(im->second);
-              p.body=item->data;
-              p.addFromFileParams(item->params);
               TelegramInterface::SaveTlgOutPart(p, true, false);
               TelegramInterface::SendTlg(p.id);
               TFileQueue::deleteFile(item->id);
