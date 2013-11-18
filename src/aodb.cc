@@ -1881,21 +1881,6 @@ try {
   TTrferBinding().bind_flt_oper(flts);
 	tst();
 	if ( old_act != fl.act ) {
-    if ( old_act == NoExists && fl.act > NoExists ) {
-      try {
-       	exec_stage( point_id, sTakeoff );
-      }
-      catch(EOracleError &E) {
-        ProgError( STDLOG, "EOracleError %d: %s", E.Code, E.what());
-        ProgError( STDLOG, "SQL: %s", E.SQLText());
-      }
-      catch( std::exception &E ) {
-        ProgError( STDLOG, "AODB exec_stage: Takeoff. std::exception: %s", E.what() );
-      }
-      catch( ... ) {
-        ProgError( STDLOG, "AODB exec_stage: Unknown error" );
-      };
-    }
  	  ChangeACT_OUT( point_id, old_act, fl.act );
   }
   if ( pr_check_USA_apis ) {
