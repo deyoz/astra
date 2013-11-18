@@ -1554,18 +1554,25 @@ void utg_prl(void)
   ProgTrace(TRACE5, "utg_prl: selected: %d; created: %d", point_addr.stats.selected, point_addr.stats.created);
 }
 
-string UTG_file_name(int id, const string &basic_type, const TTripInfo &flt, string &file_name_enc)
+string UTG_file_name(int id, int part, const string &basic_type, const TTripInfo &flt, string &file_name_enc)
 {
     TDateTime now_utc = NowUTC();
     double days;
     int msecs = (int)(modf(now_utc, &days) * MSecsPerDay) % 1000;
+
+    vector<pair<TElemFmt, string> > fmts;
+    fmts.push_back( make_pair(efmtCodeInter, LANG_RU) );
+    fmts.push_back( make_pair(efmtCodeICAOInter, LANG_RU) );
+    fmts.push_back( make_pair(efmtCodeNative, LANG_RU) );
+    fmts.push_back( make_pair(efmtCodeICAONative, LANG_RU) );
+    string airline_view = ElemIdToElem(etAirline, flt.airline, fmts);
     ostringstream file_name;
     file_name
         << DateTimeToStr(now_utc, "yyyy_mm_dd_hh_nn_ss_")
         << setw(3) << setfill('0') << msecs
-        << "." << setw(9) << setfill('0') << id
+        << "." << setw(9) << setfill('0') << id << setw(5) << part
         << "." << basic_type
-        << "." << flt.airline
+        << "." << airline_view
         << setw(3) << setfill('0') << flt.flt_no << flt.suffix
         << "." << DateTimeToStr(flt.scd_out, "dd.mm");
     if(file_name_enc.empty()) file_name_enc = "CP866";
@@ -1638,9 +1645,8 @@ bool createUTGDataFiles( int point_id, const std::string &point_addr, TFileDatas
       TTlgOutPartInfo tlg;
       tlg.fromDB(TlgQry);
       file.file_data=tlg.heading + tlg.body + tlg.ending;
-      file.params[PARAM_FILE_NAME] = UTG_file_name(tlg_id, "PRL", flt, file.params[PARAM_FILE_NAME_ENC]);
+      file.params[PARAM_FILE_NAME] = UTG_file_name(tlg_id, tlg.num, "PRL", flt, file.params[PARAM_FILE_NAME_ENC]);
       fds.push_back( file );
-      break; //!!!vlad чтоб не выдавало file already exists до того как докрутим части телеграммы
     };
     OraSession.Rollback();
 
@@ -2088,7 +2094,7 @@ void get_string_into_snapshot_points( int point_id, const std::string &file_type
 	}
 }
 
-void putUTG(int id, const string &basic_type, const TTripInfo &flt, const string &data)
+void putUTG(int id, int part, const string &basic_type, const TTripInfo &flt, const string &data)
 {
     map<string, string> file_params;
     TFileQueue::add_sets_params( flt.airp,
@@ -2102,7 +2108,7 @@ void putUTG(int id, const string &basic_type, const TTripInfo &flt, const string
     if(not file_params.empty() and (file_params[PARAM_TLG_TYPE].find(basic_type) != string::npos)) {
         string encoding=TFileQueue::getEncoding(FILE_UTG_TYPE, OWN_POINT_ADDR(), true);
         if (encoding.empty()) encoding="CP866";
-        file_params[PARAM_FILE_NAME] = UTG_file_name(id, basic_type, flt, file_params[PARAM_FILE_NAME_ENC]);
+        file_params[PARAM_FILE_NAME] = UTG_file_name(id, part, basic_type, flt, file_params[PARAM_FILE_NAME_ENC]);
         TFileQueue::putFile( OWN_POINT_ADDR(),
                 OWN_POINT_ADDR(),
                 FILE_UTG_TYPE,
