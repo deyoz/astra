@@ -701,7 +701,10 @@ bool create_apis_file(int point_id, const string& task_name)
         	        paxInfo.setBirthDate(doc.birth_date);
 
                 if (fmt=="EDI_US")
-                  paxInfo.setCBPPort(airp_cbp.code_lat);
+                {
+                  if (country_regul_dep!=US_CUSTOMS_CODE)
+                    paxInfo.setCBPPort(airp_cbp.code_lat);
+                };
         	      paxInfo.setDepPort(airp_dep.code_lat);
                 paxInfo.setArrPort(airp_arv.code_lat);
                 paxInfo.setNationality(nationality);
