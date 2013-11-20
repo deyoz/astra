@@ -426,7 +426,8 @@ TOriginatorInfo getOriginator(const string &airline,
     "      (last_date IS NULL OR last_date>:time_create) AND "
     "      (airline IS NULL OR airline=:airline) AND "
     "      (airp_dep IS NULL OR airp_dep=:airp_dep) AND "
-    "      (tlg_type IS NULL OR tlg_type=:tlg_type) "
+    "      (tlg_type IS NULL OR tlg_type=:tlg_type) AND "
+    "      pr_del=0 "
     "ORDER BY priority DESC";
   Qry.CreateVariable("airline", otString, airline);
   Qry.CreateVariable("airp_dep", otString, airp_dep);
