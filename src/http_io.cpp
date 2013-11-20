@@ -14,6 +14,7 @@
 #include "oralib.h"
 #include "astra_utils.h"
 #include "astra_service.h"
+#include "telegram.h"
 #include "tlg/tlg.h"
 #include "serverlib/posthooks.h"
 #include "xml_unit.h"
@@ -247,13 +248,15 @@ void my_test()
 
 
     TQuery Qry(&OraSession);
-    Qry.SQLText = "select body from tlg_out where type = 'BSM' and point_id = :point_id";
+    Qry.SQLText = "select * from tlg_out where type = 'BSM' and point_id = :point_id";
     Qry.CreateVariable("point_id", otInteger, 2042638);
     Qry.Execute();
     static const string br = "\xd\xa";
     for(; not Qry.Eof; Qry.Next()) {
+        TTlgOutPartInfo tlg;
+        tlg.fromDB(Qry);
         vector<string> bsm;
-        string body = Qry.FieldAsString("body");
+        string body = tlg.heading + tlg.body + tlg.ending;
         size_t idx = body.find(br);
         while(idx != string::npos) {
             bsm.push_back(body.substr(0, idx));

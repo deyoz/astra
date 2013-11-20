@@ -463,15 +463,17 @@ void TTlgDraft::Commit(TTlgOutPartInfo &tlg_row)
     for(vector<TypeB::TDraftPart>::iterator iv = parts.begin(); iv != parts.end(); iv++){
         if(tlg_info.is_lat() and no_errors) {
             check(iv->addr);
+            check(iv->origin);
             check(iv->heading);
             check(iv->body);
             check(iv->ending);
         }
         tlg_row.addr = iv->addr;
+        tlg_row.origin = iv->origin;
         tlg_row.heading = iv->heading;
         tlg_row.body = iv->body;
         tlg_row.ending = iv->ending;
-        TelegramInterface::SaveTlgOutPart(tlg_row);
+        TelegramInterface::SaveTlgOutPart(tlg_row, false, false);
     }
 }
 
@@ -479,6 +481,7 @@ void TTlgDraft::Save(TTlgOutPartInfo &info)
 {
     TypeB::TDraftPart part;
     part.addr = info.addr;
+    part.origin = info.origin;
     part.heading = info.heading;
     part.body = info.body;
     part.ending = info.ending;
@@ -498,8 +501,7 @@ void simple_split(ostringstream &heading, size_t part_len, TTlgDraft &tlg_draft,
                 tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + TypeB::endl;
                 tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + TypeB::endl;
                 tlg_row.body = *iv + TypeB::endl;
-                part_len = tlg_row.addr.size() + tlg_row.heading.size() +
-                    tlg_row.body.size() + tlg_row.ending.size();
+                part_len = tlg_row.textSize();
             } else
                 tlg_row.body += *iv + TypeB::endl;
         }
@@ -1910,10 +1912,9 @@ int COM(TypeB::TDetailCreateInfo &info)
 {
     TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row(info);
+    tlg_row.origin = info.originator.originSection(tlg_row.time_create, TypeB::endl);
     ostringstream heading;
-    heading
-        << "." << info.originator.addr << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << TypeB::endl
-        << "COM" << TypeB::endl;
+    heading << "COM" << TypeB::endl;
     tlg_row.heading = heading.str();
     tlg_row.ending = "ENDCOM" + TypeB::endl;
     try {
@@ -3197,12 +3198,11 @@ int PIL(TypeB::TDetailCreateInfo &info)
 {
     TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row(info);
+    tlg_row.origin = info.originator.originSection(tlg_row.time_create, TypeB::endl);
     ostringstream heading;
-    heading
-        << "." << info.originator.addr << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << TypeB::endl
-        << "PIL" << TypeB::endl
-        << info.flight_view() << "/"
-        << info.scd_local_view() << " " << info.airp_dep_view() << TypeB::endl;
+    heading << "PIL" << TypeB::endl
+            << info.flight_view() << "/"
+            << info.scd_local_view() << " " << info.airp_dep_view() << TypeB::endl;
     tlg_row.heading = heading.str();
     tlg_row.ending = "ENDPIL" + TypeB::endl;
 
@@ -3295,15 +3295,14 @@ int TPM(TypeB::TDetailCreateInfo &info)
 {
     TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row(info);
+    tlg_row.origin = info.originator.originSection(tlg_row.time_create, TypeB::endl);
     ostringstream heading;
-    heading
-        << "." << info.originator.addr << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << TypeB::endl
-        << "TPM" << TypeB::endl
-        << info.flight_view() << "/"
-        << info.scd_local_view() << " " << info.airp_dep_view() << " ";
+    heading << "TPM" << TypeB::endl
+            << info.flight_view() << "/"
+            << info.scd_local_view() << " " << info.airp_dep_view() << " ";
     tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + TypeB::endl;
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + TypeB::endl;
-    size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
+    size_t part_len = tlg_row.textSize();
     vector<string> body;
     try {
         TTPM tpm;
@@ -3323,15 +3322,14 @@ int PSM(TypeB::TDetailCreateInfo &info)
 {
     TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row(info);
+    tlg_row.origin = info.originator.originSection(tlg_row.time_create, TypeB::endl);
     ostringstream heading;
-    heading
-        << "." << info.originator.addr << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << TypeB::endl
-        << "PSM" << TypeB::endl
-        << info.flight_view() << "/"
-        << info.scd_local_view() << " " << info.airp_dep_view() << " ";
+    heading << "PSM" << TypeB::endl
+            << info.flight_view() << "/"
+            << info.scd_local_view() << " " << info.airp_dep_view() << " ";
     tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + TypeB::endl;
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + TypeB::endl;
-    size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
+    size_t part_len = tlg_row.textSize();
     vector<string> body;
     try {
         TPSM psm;
@@ -3351,18 +3349,16 @@ int BTM(TypeB::TDetailCreateInfo &info)
 {
     TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row(info);
+    tlg_row.origin = info.originator.originSection(tlg_row.time_create, TypeB::endl);
     ostringstream heading1, heading2;
-    heading1
-        << "." << info.originator.addr << " " << DateTimeToStr(tlg_row.time_create,"ddhhnn") << TypeB::endl
-        << "BTM" << TypeB::endl
-        << ".V/1T" << info.airp_trfer_view();
-    heading2
-        << ".I/"
-        << info.flight_view() << "/"
-        << info.scd_local_view() << "/" << info.airp_dep_view() << TypeB::endl;
+    heading1 << "BTM" << TypeB::endl
+             << ".V/1T" << info.airp_trfer_view();
+    heading2 << ".I/"
+             << info.flight_view() << "/"
+             << info.scd_local_view() << "/" << info.airp_dep_view() << TypeB::endl;
     tlg_row.heading = heading1.str() + "/PART" + IntToString(tlg_row.num) + TypeB::endl + heading2.str();
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + TypeB::endl;
-    size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
+    size_t part_len = tlg_row.textSize();
 
     vector<string> body;
     try {
@@ -3399,8 +3395,7 @@ int BTM(TypeB::TDetailCreateInfo &info)
                 tlg_row.body = *iv + TypeB::endl;
             else
                 tlg_row.body = part_begin + TypeB::endl + *iv + TypeB::endl;
-            part_len = tlg_row.addr.size() + tlg_row.heading.size() +
-                tlg_row.body.size() + tlg_row.ending.size();
+            part_len = tlg_row.textSize();
         } else
             tlg_row.body += *iv + TypeB::endl;
     }
@@ -3417,15 +3412,14 @@ int PTM(TypeB::TDetailCreateInfo &info)
 {
     TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row(info);
+    tlg_row.origin = info.originator.originSection(tlg_row.time_create, TypeB::endl);
     ostringstream heading;
-    heading
-        << "." << info.originator.addr << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << TypeB::endl
-        << "PTM" << TypeB::endl
-        << info.flight_view() << "/"
-        << info.scd_local_view() << " " << info.airp_dep_view() << info.airp_trfer_view() << " ";
+    heading << "PTM" << TypeB::endl
+            << info.flight_view() << "/"
+            << info.scd_local_view() << " " << info.airp_dep_view() << info.airp_trfer_view() << " ";
     tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + TypeB::endl;
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + TypeB::endl;
-    size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
+    size_t part_len = tlg_row.textSize();
     vector<string> body;
     try {
         TFList<TPTMFItem> FList;
@@ -3953,15 +3947,14 @@ int SOM(TypeB::TDetailCreateInfo &info)
     TTlgDraft tlg_draft(info);
     ProgTrace(TRACE5, "SOM started");
     TTlgOutPartInfo tlg_row(info);
+    tlg_row.origin = info.originator.originSection(tlg_row.time_create, TypeB::endl);
     ostringstream heading;
-    heading
-        << "." << info.originator.addr << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << TypeB::endl
-        << "SOM" << TypeB::endl
-        << info.flight_view() << "/"
-        << info.scd_local_view() << " " << info.airp_dep_view() << " ";
+    heading << "SOM" << TypeB::endl
+            << info.flight_view() << "/"
+            << info.scd_local_view() << " " << info.airp_dep_view() << " ";
     tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + TypeB::endl;
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + TypeB::endl;
-    size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
+    size_t part_len = tlg_row.textSize();
     TTlgSeatList SOMList;
     try {
         if(isFreeSeating(info.point_id))
@@ -3979,8 +3972,7 @@ int SOM(TypeB::TDetailCreateInfo &info)
             tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + TypeB::endl;
             tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + TypeB::endl;
             tlg_row.body = *iv + TypeB::endl;
-            part_len = tlg_row.addr.size() + tlg_row.heading.size() +
-                tlg_row.body.size() + tlg_row.ending.size();
+            part_len = tlg_row.textSize();
         } else
             tlg_row.body += *iv + TypeB::endl;
     }
@@ -4619,8 +4611,7 @@ void split_n_save(ostringstream &heading, size_t part_len, TTlgDraft &tlg_draft,
                 tlg_row.body = *iv + TypeB::endl;
             else
                 tlg_row.body = part_begin + TypeB::endl + *iv + TypeB::endl;
-            part_len = tlg_row.addr.size() + tlg_row.heading.size() +
-                tlg_row.body.size() + tlg_row.ending.size();
+            part_len = tlg_row.textSize();
         } else
             tlg_row.body += *iv + TypeB::endl;
     }
@@ -4667,6 +4658,49 @@ struct TLDMBag {
     {};
 };
 
+struct TToRampBag {
+    int amount, weight;
+    TToRampBag():
+        amount(0),
+        weight(0)
+    {}
+    void get(int point_id);
+    bool empty();
+};
+
+bool TToRampBag::empty()
+{
+    return not amount and not weight;
+}
+
+void TToRampBag::get(int point_id)
+{
+    amount = 0;
+    weight = 0;
+    QParams QryParams;
+    QryParams << QParam("point_id", otInteger, point_id);
+    TQuery &Qry = TQrys::Instance()->get(
+            "select "
+            "   sum(amount) amount, "
+            "   sum(weight) weight "
+            "from "
+            "   pax_grp, "
+            "   bag2 "
+            "where "
+            "   pax_grp.grp_id = bag2.grp_id and "
+            "   pax_grp.point_dep = :point_id and "
+            "   pax_grp.status NOT IN ('E') AND "
+            "   bag2.pr_cabin=0 AND "
+            "   ckin.bag_pool_boarded(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)<>0 and "
+            "   bag2.to_ramp <> 0 ",
+            QryParams
+            );
+    Qry.Execute();
+    if(not Qry.Eof) {
+        amount = Qry.FieldAsInteger("amount");
+        weight = Qry.FieldAsInteger("weight");
+    }
+}
 
 void TLDMBag::get(TypeB::TDetailCreateInfo &info, int point_arv)
 {
@@ -4850,6 +4884,7 @@ void TLDMCFG::get(TypeB::TDetailCreateInfo &info)
 struct TLDMDests {
     TLDMCFG cfg;
     TExcess excess;
+    TToRampBag to_ramp;
     vector<TLDMDest> items;
     void get(TypeB::TDetailCreateInfo &info);
     void ToTlg(TypeB::TDetailCreateInfo &info, bool &vcompleted, vector<string> &body);
@@ -4949,6 +4984,13 @@ void TLDMDests::ToTlg(TypeB::TDetailCreateInfo &info, bool &vcompleted, vector<s
             row << mail_sum;
         else
             row << "NIL";
+        row << ".DAA";
+        if(to_ramp.empty())
+            row << "NIL";
+        else
+            row << to_ramp.amount << "/" << to_ramp.weight << KG;
+
+        body.push_back(row.str());
     }
     body.push_back(row.str());
     //    body.push_back("SI: TRANSFER BAG CPT 0 NS 0");
@@ -4958,6 +5000,7 @@ void TLDMDests::get(TypeB::TDetailCreateInfo &info)
 {
     cfg.get(info);
     excess.get(info.point_id);
+    to_ramp.get(info.point_id);
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "SELECT points.point_id AS point_arv, "
@@ -5351,11 +5394,10 @@ int CPM(TypeB::TDetailCreateInfo &info)
 {
     TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row(info);
+    tlg_row.origin = info.originator.originSection(tlg_row.time_create, TypeB::endl);
     info.vcompleted = false;
     ostringstream buf;
-    buf
-        << "." << info.originator.addr << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << TypeB::endl
-        << "CPM" << TypeB::endl;
+    buf << "CPM" << TypeB::endl;
     tlg_row.heading = buf.str();
     tlg_row.ending = "PART " + IntToString(tlg_row.num) + " END" + TypeB::endl;
     if(info.bort.empty())
@@ -5380,11 +5422,10 @@ int MVT(TypeB::TDetailCreateInfo &info)
 {
     TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row(info);
+    tlg_row.origin = info.originator.originSection(tlg_row.time_create, TypeB::endl);
     info.vcompleted = true;
     ostringstream buf;
-    buf
-        << "." << info.originator.addr << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << TypeB::endl
-        << "MVT" << TypeB::endl;
+    buf << "MVT" << TypeB::endl;
     tlg_row.heading = buf.str();
     tlg_row.ending = "PART " + IntToString(tlg_row.num) + " END" + TypeB::endl;
     if(info.bort.empty())
@@ -5433,11 +5474,10 @@ int LDM(TypeB::TDetailCreateInfo &info)
 {
     TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row(info);
+    tlg_row.origin = info.originator.originSection(tlg_row.time_create, TypeB::endl);
     info.vcompleted = true;
     ostringstream buf;
-    buf
-        << "." << info.originator.addr << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << TypeB::endl
-        << "LDM" << TypeB::endl;
+    buf << "LDM" << TypeB::endl;
     tlg_row.heading = buf.str();
     tlg_row.ending = "PART " + IntToString(tlg_row.num) + " END" + TypeB::endl;
     vector<string> body;
@@ -5459,11 +5499,8 @@ int AHL(TypeB::TDetailCreateInfo &info)
 {
     TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row(info);
+    tlg_row.origin = info.originator.originSection(tlg_row.time_create, TypeB::endl);
     info.vcompleted = false;
-    ostringstream heading;
-    heading
-        << "." << info.originator.addr << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << TypeB::endl;
-    tlg_row.heading = heading.str();
     tlg_row.body =
         "AHL" + TypeB::endl
         + "NM" + TypeB::endl
@@ -5828,13 +5865,12 @@ int LCI(TypeB::TDetailCreateInfo &info)
 {
     TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row(info);
+    tlg_row.origin = info.originator.originSection(tlg_row.time_create, TypeB::endl);
     ostringstream heading;
-    heading
-        << "." << info.originator.addr << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << TypeB::endl
-        << "LCI" << TypeB::endl
-        << info.flight_view() << "/"
-        << DateTimeToStr(info.scd_utc, "ddmmm", 1) << "." << info.airp_dep_view();
-    tlg_row.heading = heading.str() + TypeB::endl;
+    heading << "LCI" << TypeB::endl
+            << info.flight_view() << "/"
+            << DateTimeToStr(info.scd_utc, "ddmmm", 1) << "." << info.airp_dep_view() << TypeB::endl;
+    tlg_row.heading = heading.str();
     vector<string> body;
     try {
         TLCI lci;
@@ -5854,15 +5890,14 @@ int PIM(TypeB::TDetailCreateInfo &info)
 {
     TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row(info);
+    tlg_row.origin = info.originator.originSection(tlg_row.time_create, TypeB::endl);
     ostringstream heading;
-    heading
-        << "." << info.originator.addr << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << TypeB::endl
-        << "PIM" << TypeB::endl
-        << info.flight_view() << "/"
-        << info.scd_local_view() << " " << info.airp_dep_view() << " ";
+    heading << "PIM" << TypeB::endl
+            << info.flight_view() << "/"
+            << info.scd_local_view() << " " << info.airp_dep_view() << " ";
     tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + TypeB::endl;
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + TypeB::endl;
-    size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
+    size_t part_len = tlg_row.textSize();
     vector<string> body;
     try {
         TPIMBody PIM;
@@ -5882,15 +5917,14 @@ int FTL(TypeB::TDetailCreateInfo &info)
 {
     TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row(info);
+    tlg_row.origin = info.originator.originSection(tlg_row.time_create, TypeB::endl);
     ostringstream heading;
-    heading
-        << "." << info.originator.addr << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << TypeB::endl
-        << "FTL" << TypeB::endl
-        << info.flight_view() << "/"
-        << info.scd_local_view() << " " << info.airp_dep_view() << " ";
+    heading << "FTL" << TypeB::endl
+            << info.flight_view() << "/"
+            << info.scd_local_view() << " " << info.airp_dep_view() << " ";
     tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + TypeB::endl;
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + TypeB::endl;
-    size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
+    size_t part_len = tlg_row.textSize();
     vector<string> body;
     try {
         TFTLBody FTL;
@@ -5910,15 +5944,14 @@ int ETL(TypeB::TDetailCreateInfo &info)
 {
     TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row(info);
+    tlg_row.origin = info.originator.originSection(tlg_row.time_create, TypeB::endl);
     ostringstream heading;
-    heading
-        << "." << info.originator.addr << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << TypeB::endl
-        << "ETL" << TypeB::endl
-        << info.flight_view() << "/"
-        << info.scd_local_view() << " " << info.airp_dep_view() << " ";
+    heading << "ETL" << TypeB::endl
+            << info.flight_view() << "/"
+            << info.scd_local_view() << " " << info.airp_dep_view() << " ";
     tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + TypeB::endl;
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + TypeB::endl;
-    size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
+    size_t part_len = tlg_row.textSize();
     vector<string> body;
     try {
         TETLCFG cfg;
@@ -6637,15 +6670,14 @@ int PFS(TypeB::TDetailCreateInfo &info)
 {
     TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row(info);
+    tlg_row.origin = info.originator.originSection(tlg_row.time_create, TypeB::endl);
     ostringstream heading;
-    heading
-        << "." << info.originator.addr << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << TypeB::endl
-        << "PFS" << TypeB::endl
-        << info.flight_view() << "/"
-        << info.scd_local_view() << " " << info.airp_dep_view() << " ";
+    heading << "PFS" << TypeB::endl
+            << info.flight_view() << "/"
+            << info.scd_local_view() << " " << info.airp_dep_view() << " ";
     tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + TypeB::endl;
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + TypeB::endl;
-    size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
+    size_t part_len = tlg_row.textSize();
     vector<string> body;
     try {
         TPFSBody pfs;
@@ -6669,15 +6701,14 @@ int PRL(TypeB::TDetailCreateInfo &info)
 #endif
     TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row(info);
+    tlg_row.origin = info.originator.originSection(tlg_row.time_create, TypeB::endl);
     ostringstream heading;
-    heading
-        << "." << info.originator.addr << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << TypeB::endl
-        << "PRL" << TypeB::endl
-        << info.flight_view() << "/"
-        << info.scd_local_view() << " " << info.airp_dep_view() << " ";
+    heading << "PRL" << TypeB::endl
+            << info.flight_view() << "/"
+            << info.scd_local_view() << " " << info.airp_dep_view() << " ";
     tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + TypeB::endl;
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + TypeB::endl;
-    size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
+    size_t part_len = tlg_row.textSize();
 
     vector<string> body;
     try {
@@ -6705,15 +6736,16 @@ int Unknown(TypeB::TDetailCreateInfo &info)
 {
     TTlgDraft tlg_draft(info);
     TTlgOutPartInfo tlg_row(info);
+    tlg_row.origin = info.originator.originSection(tlg_row.time_create, TypeB::endl);
     info.vcompleted = false;
-    tlg_row.heading = '.' + info.originator.addr + ' ' + DateTimeToStr(tlg_row.time_create,"ddhhnn") + TypeB::endl;
     tlg_draft.Save(tlg_row);
     tlg_draft.Commit(tlg_row);
     return tlg_row.id;
 }
 
 int TelegramInterface::create_tlg(const TypeB::TCreateInfo &createInfo,
-                                  TTypeBTypesRow &tlgTypeInfo)
+                                  TTypeBTypesRow &tlgTypeInfo,
+                                  bool manual_creation)
 {
     ProgTrace(TRACE5, "createInfo.tlg_type: %s", createInfo.get_tlg_type().c_str());
     if(createInfo.get_tlg_type().empty())
@@ -6736,7 +6768,7 @@ int TelegramInterface::create_tlg(const TypeB::TCreateInfo &createInfo,
     info.elem_fmt = prLatToElemFmt(efmtCodeNative, info.get_options().is_lat);
     info.time_create = NowUTC();
     info.vcompleted = !tlgTypeInfo.editable;
-    ProgTrace(TRACE5, "info.vcompleted: %d", info.vcompleted);
+    info.manual_creation = manual_creation;
 
     if (info.optionsIs<TypeB::TAirpTrferOptions>())
     {
@@ -6872,7 +6904,6 @@ int TelegramInterface::create_tlg(const TypeB::TCreateInfo &createInfo,
 
     Qry.Clear();
     Qry.SQLText = "update tlg_out set completed = :vcompleted, has_errors = :vhas_errors where id = :vid";
-    ProgTrace(TRACE5, "info.vcompleted: %d", info.vcompleted);
     Qry.CreateVariable("vcompleted", otInteger, info.vcompleted);
     Qry.CreateVariable("vhas_errors", otInteger, not info.err_lst.empty());
     Qry.CreateVariable("vid", otInteger, vid);
@@ -6893,7 +6924,7 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     int tlg_id = NoExists;
     TTypeBTypesRow tlgTypeInfo;
     try {
-        tlg_id = create_tlg(createInfo, tlgTypeInfo);
+        tlg_id = create_tlg(createInfo, tlgTypeInfo, true);
     } catch(AstraLocale::UserException &E) {
         throw AstraLocale::UserException( "MSG.TLG.CREATE_ERROR", LParams() << LParam("what", getLocaleText(E.getLexemaData())));
     }
