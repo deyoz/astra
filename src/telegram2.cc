@@ -3110,7 +3110,7 @@ struct TPIL {
     TCFG cfg;
     TPILCls items;
     void get(TypeB::TDetailCreateInfo &info);
-    void ToTlg(TypeB::TDetailCreateInfo &info, string &body);
+    void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
 };
 
 void TPIL::get(TypeB::TDetailCreateInfo &info)
@@ -3165,13 +3165,13 @@ void TPIL::get(TypeB::TDetailCreateInfo &info)
     }
 }
 
-void TPIL::ToTlg(TypeB::TDetailCreateInfo &info, string &body)
+void TPIL::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 {
     for(vector<TCFGItem>::iterator iv = cfg.begin(); iv != cfg.end(); iv++) {
-        body += info.TlgElemIdToElem(etClass, iv->cls) + "CLASS" + TypeB::endl;
+        body.push_back(info.TlgElemIdToElem(etClass, iv->cls) + "CLASS");
         const TPILPaxLst &pax_lst = items[iv->cls];
         if(pax_lst.empty())
-            body += "NIL" + TypeB::endl;
+            body.push_back("NIL");
         else
             for(TPILPaxLst::const_iterator i_lst = pax_lst.begin(); i_lst != pax_lst.end(); i_lst++) {
                 vector<string> seat_list = i_lst->seat_no.get_seat_vector(info.is_lat());
@@ -3188,7 +3188,7 @@ void TPIL::ToTlg(TypeB::TDetailCreateInfo &info, string &body)
                     buf << setw(3) << setfill('0') << *i_seats;
                     if(i_seats == seat_list.begin())
                         buf << " " << pax_str.str();
-                    body += buf.str() + TypeB::endl;
+                    body.push_back(buf.str());
                 }
             }
     }
@@ -3202,18 +3202,20 @@ int PIL(TypeB::TDetailCreateInfo &info)
     ostringstream heading;
     heading << "PIL" << TypeB::endl
             << info.flight_view() << "/"
-            << info.scd_local_view() << " " << info.airp_dep_view() << TypeB::endl;
-    tlg_row.heading = heading.str();
-    tlg_row.ending = "ENDPIL" + TypeB::endl;
-
-    TPIL pil;
+            << info.scd_local_view() << " " << info.airp_dep_view() << " ";
+    tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + TypeB::endl;
+    tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + TypeB::endl;
+    size_t part_len = tlg_row.textSize();
+    vector<string> body;
     try {
+        TPIL pil;
         pil.get(info);
-        pil.ToTlg(info, tlg_row.body);
+        pil.ToTlg(info, body);
     } catch(...) {
         ExceptionFilter(tlg_row.body, info);
     }
-
+    simple_split(heading, part_len, tlg_draft, tlg_row, body);
+    tlg_row.ending = "ENDPIL" + TypeB::endl;
     tlg_draft.Save(tlg_row);
     tlg_draft.Commit(tlg_row);
     return tlg_row.id;
