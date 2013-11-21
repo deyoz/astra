@@ -4969,8 +4969,8 @@ void TLDMDests::ToTlg(TypeB::TDetailCreateInfo &info, bool &vcompleted, vector<s
         row << "SI: EXB" << excess.excess << KG;
         body.push_back(row.str());
     }
-    row.str("");
     if(options.version == "CEK" and info.airp_dep != "—‹") {
+        row.str("");
         row << "SI: B";
         if(baggage_sum > 0)
             row << baggage_sum;
@@ -4991,9 +4991,8 @@ void TLDMDests::ToTlg(TypeB::TDetailCreateInfo &info, bool &vcompleted, vector<s
             row << "NIL";
         else
             row << to_ramp.amount << "/" << to_ramp.weight << KG;
-
+        body.push_back(row.str());
     }
-    body.push_back(row.str());
     //    body.push_back("SI: TRANSFER BAG CPT 0 NS 0");
 }
 
