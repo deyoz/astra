@@ -1759,21 +1759,6 @@ int compare_apis(int argc,char **argv)
     closedir (dirp);
   };
 
-  TQuery PointsQry(&OraSession);
-  PointsQry.Clear();
-  PointsQry.SQLText =
-      "SELECT point_id,scd_out AS scd,airp "
-      "FROM points "
-      "WHERE airline=:airline AND flt_no=:flt_no AND airp=:airp_dep AND "
-      "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND "
-      "      scd_out >= TO_DATE(:scd)-1 AND scd_out < TO_DATE(:scd)+2 AND "
-      "      pr_del>=0 AND pr_reg<>0";
-  PointsQry.DeclareVariable("airline",otString);
-  PointsQry.DeclareVariable("flt_no",otInteger);
-  PointsQry.DeclareVariable("airp_dep",otString);
-  PointsQry.DeclareVariable("suffix",otString);
-  PointsQry.DeclareVariable("scd",otDate);
-
   set<int> point_ids;
   for(set<TAPISFlight>::const_iterator i=flts.begin(); i!=flts.end(); ++i)
   {
@@ -1785,28 +1770,22 @@ int compare_apis(int argc,char **argv)
       << DateTimeToStr(i->scd_out_local, "dd.mm.yyyy") << "|";
 
     //printf("%s", s.str().c_str());
+    TSearchFltInfo filter;
+    filter.airline=i->airline;
+    filter.flt_no=i->flt_no;
+    filter.suffix=i->suffix;
+    filter.airp_dep=i->airp_dep;
+    filter.scd_out=i->scd_out_local;
+    filter.scd_out_in_utc=false;
+    filter.only_with_reg=true;
 
-    PointsQry.SetVariable("airline", i->airline);
-    PointsQry.SetVariable("flt_no", i->flt_no);
-    PointsQry.SetVariable("suffix", i->suffix);
-    PointsQry.SetVariable("airp_dep", i->airp_dep);
-    PointsQry.SetVariable("scd", i->scd_out_local);
-    PointsQry.Execute();
-    for(;!PointsQry.Eof;PointsQry.Next())
+    list<TAdvTripInfo> flts;
+    SearchFlt(filter, flts);
+
+    for(list<TAdvTripInfo>::const_iterator f=flts.begin(); f!=flts.end(); ++f)
     {
-      //printf("+");
-      //цикл по рейсам в СПП
-      TDateTime scd=PointsQry.FieldAsDateTime("scd");
-      string tz_region=AirpTZRegion(PointsQry.FieldAsString("airp"),false);
-      if (tz_region.empty()) continue;
-      scd=UTCToLocal(scd,tz_region);
-      modf(scd,&scd);
-      if (scd!=i->scd_out_local) continue;
-      //printf("-");
-
-      point_ids.insert(PointsQry.FieldAsInteger("point_id"));
+      point_ids.insert(f->point_id);
     };
-    //printf("\n");
   };
 
   for(set<int>::const_iterator i=point_ids.begin(); i!=point_ids.end(); ++i)

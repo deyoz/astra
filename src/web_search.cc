@@ -464,6 +464,44 @@ TPNRFilter& TPNRFilter::fromXML(xmlNodePtr node)
   return *this;
 };
 
+string TPNRFilter::getSurnameSQLFilter(const string &field_name, TQuery &Qry) const
+{
+  ostringstream sql;
+  if (surname_equal_len!=NoExists)
+  {
+    sql << " system.transliter_equal(SUBSTR(" << field_name << ",1,:surname_equal_len),:surname)<>0 ";
+    Qry.CreateVariable("surname", otString, surname.substr(0, surname_equal_len));
+    Qry.CreateVariable("surname_equal_len", otInteger, surname_equal_len);
+  }
+  else
+  {
+    sql << " system.transliter_equal(" << field_name << ",:surname)<>0 ";
+    Qry.CreateVariable("surname", otString, surname);
+  };
+  return sql.str();
+};
+
+bool TPNRFilter::isNameEqual(const string &pax_name) const
+{
+  if (!name.empty())
+  {
+    string pax_name_normal=pax_name;
+    //оставляем часть до пробела
+    pax_name_normal.erase(find(pax_name_normal.begin(), pax_name_normal.end(), ' '), pax_name_normal.end());
+    //проверим совпадение имени
+    if (name_equal_len!=NoExists)
+    {
+      if (!transliter_equal(pax_name_normal.substr(0, name_equal_len),
+                                       name.substr(0, name_equal_len))) return false;
+    }
+    else
+    {
+      if (!transliter_equal(pax_name_normal, name)) return false;
+    };
+  };
+  return true;
+};
+
 TPNRFilter& TPNRFilter::testPaxFromDB()
 {
   if (surname.empty())
@@ -474,22 +512,12 @@ TPNRFilter& TPNRFilter::testPaxFromDB()
   TQuery Qry(&OraSession);
   Qry.Clear();
   ostringstream sql;
-  sql <<
-    "SELECT id, airline, surname, name, subclass, doc_no, tkn_no, "
-    "       pnr_airline, pnr_addr, reg_no FROM test_pax ";
-  if (surname_equal_len!=NoExists)
-  {
-    sql << "WHERE system.transliter_equal(SUBSTR(surname,1,:surname_equal_len),:surname)<>0 ";
-    Qry.CreateVariable("surname", otString, surname.substr(0, surname_equal_len));
-    Qry.CreateVariable("surname_equal_len", otInteger, surname_equal_len);
-  }
-  else
-  {
-    sql << "WHERE system.transliter_equal(surname,:surname)<>0 ";
-    Qry.CreateVariable("surname", otString, surname);
-  };
+  sql << "SELECT id, airline, surname, name, subclass, doc_no, tkn_no, "
+         "       pnr_airline, pnr_addr, reg_no FROM test_pax "
+      << "WHERE " << getSurnameSQLFilter("test_pax.surname", Qry);
+
   if (!airlines.empty())
-    sql << "AND (airline IN " << GetSQLEnum(airlines) << " OR airline IS NULL) ";
+    sql << " AND (airline IN " << GetSQLEnum(airlines) << " OR airline IS NULL) ";
 
 	Qry.SQLText=sql.str().c_str();
   Qry.Execute();
@@ -514,23 +542,7 @@ TPNRFilter& TPNRFilter::testPaxFromDB()
     pax.reg_no=Qry.FieldAsInteger("reg_no");
 
     if (!isTestPaxId(pax.pax_id)) continue;
-
-    if (!name.empty())
-    {
-      string pax_name_normal=pax.name;
-      //оставляем часть до пробела
-      pax_name_normal.erase(find(pax_name_normal.begin(), pax_name_normal.end(), ' '), pax_name_normal.end());
-      //проверим совпадение имени
-      if (name_equal_len!=NoExists)
-      {
-        if (!transliter_equal(pax_name_normal.substr(0, name_equal_len),
-                                         name.substr(0, name_equal_len))) continue;
-      }
-      else
-      {
-        if (!transliter_equal(pax_name_normal, name)) continue;
-      };
-    };
+    if (!isNameEqual(pax.name)) continue;
 
     if (!document.empty() &&
         document!=pax.document) continue;
@@ -1215,24 +1227,8 @@ bool TPaxInfo::filterFromDB(const TPNRFilter &filter, TQuery &Qry)
   pax_id=Qry.FieldAsInteger("pax_id");
   surname=Qry.FieldAsString("surname");
   name=Qry.FieldAsString("name");
-  if (!filter.name.empty())
-  {
-    string pax_name_normal=name;
-    //оставляем часть до пробела
-    pax_name_normal.erase(find(pax_name_normal.begin(), pax_name_normal.end(), ' '), pax_name_normal.end());
-    //проверим совпадение имени
-    if (filter.name_equal_len!=NoExists)
-    {
-      if (!transliter_equal(pax_name_normal.substr(0, filter.name_equal_len),
-                                filter.name.substr(0, filter.name_equal_len))) return false;
-    }
-    else
-    {
-      if (!transliter_equal(pax_name_normal, filter.name)) return false;
-    };
-    
-  };
-  
+  if (!filter.isNameEqual(name)) return false;
+
   TQuery Qry1(&OraSession);
   TQuery Qry2(&OraSession);
   CheckIn::TPaxTknItem tkn;
@@ -1616,21 +1612,9 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, int pass)
     };
     
     sql << "      crs_pnr.system='CRS' AND "
-           "      (:airp_arv IS NULL OR crs_pnr.airp_arv=:airp_arv) AND ";
-           
-    if (filter.surname_equal_len!=NoExists)
-    {
-      sql << "      system.transliter_equal(SUBSTR(crs_pax.surname,1,:surname_equal_len),:surname)<>0 AND ";
-      PaxQry.CreateVariable("surname", otString, filter.surname.substr(0, filter.surname_equal_len));
-      PaxQry.CreateVariable("surname_equal_len", otInteger, filter.surname_equal_len);
-    }
-    else
-    {
-      sql << "      system.transliter_equal(crs_pax.surname,:surname)<>0 AND ";
-      PaxQry.CreateVariable("surname", otString, filter.surname);
-    };
-           
-    sql << "      crs_pax.pr_del=0 "
+           "      (:airp_arv IS NULL OR crs_pnr.airp_arv=:airp_arv) AND "
+        << filter.getSurnameSQLFilter("crs_pax.surname", PaxQry) << " AND "
+        << "      crs_pax.pr_del=0 "
            "ORDER BY crs_pnr.pnr_id";
 
     PaxQry.SQLText= sql.str().c_str();
@@ -1797,27 +1781,14 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, int pass)
  	    "      pnr_market_flt.local_date>=:first_day AND pnr_market_flt.local_date<=:last_day AND ";
     if (!filter.airlines.empty())
       sql << "      pnr_market_flt.airline IN " << GetSQLEnum(filter.airlines) << " AND ";
-    sql <<
-      "      pnr_market_flt.flt_no=:flt_no AND "
- 	    "      (:suffix IS NULL OR pnr_market_flt.suffix=:suffix) AND "
- 	    "      (:airp_dep IS NULL OR tlg_trips.airp_dep=:airp_dep) AND " // tlg_trips.airp_dep - это не ошибка
- 	    "      crs_pnr.system='CRS' AND "
- 	    "      (:airp_arv IS NULL OR crs_pnr.airp_arv=:airp_arv) AND ";
- 	    
- 	  if (filter.surname_equal_len!=NoExists)
-    {
-      sql << "      system.transliter_equal(SUBSTR(crs_pax.surname,1,:surname_equal_len),:surname)<>0 AND ";
-      PaxQry.CreateVariable("surname", otString, filter.surname.substr(0, filter.surname_equal_len));
-      PaxQry.CreateVariable("surname_equal_len", otInteger, filter.surname_equal_len);
-    }
-    else
-    {
-      sql << "      system.transliter_equal(crs_pax.surname,:surname)<>0 AND ";
-      PaxQry.CreateVariable("surname", otString, filter.surname);
-    };
-    sql <<
-      "      crs_pax.pr_del=0 "
-      "ORDER BY tlg_trips.point_id, crs_pnr.pnr_id ";
+    sql << "      pnr_market_flt.flt_no=:flt_no AND "
+     	     "      (:suffix IS NULL OR pnr_market_flt.suffix=:suffix) AND "
+     	     "      (:airp_dep IS NULL OR tlg_trips.airp_dep=:airp_dep) AND " // tlg_trips.airp_dep - это не ошибка
+     	     "      crs_pnr.system='CRS' AND "
+     	     "      (:airp_arv IS NULL OR crs_pnr.airp_arv=:airp_arv) AND "
+        << filter.getSurnameSQLFilter("crs_pax.surname", PaxQry) << " AND "
+        << "      crs_pax.pr_del=0 "
+           "ORDER BY tlg_trips.point_id, crs_pnr.pnr_id ";
 
 	  PaxQry.SQLText= sql.str().c_str();
     PaxQry.DeclareVariable("first_day", otInteger);

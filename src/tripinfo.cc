@@ -27,6 +27,7 @@
 #include "remarks.h"
 #include "alarms.h"
 #include "pers_weights.h"
+#include "web_search.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -2625,6 +2626,112 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
 
 };
 
+bool SearchPaxByScanData(xmlNodePtr reqNode,
+                         int &point_id,
+                         int &reg_no,
+                         int &pax_id)
+{
+  bool result=false;
+
+  point_id=NoExists;
+  reg_no=NoExists;
+  pax_id=NoExists;
+
+  string bcbp;
+  if (TReqInfo::Instance()->desk.compatible(SCAN_DOC_VERSION) &&
+      NodeAsInteger("scan_data/@hex", reqNode)!=0)
+  {
+    if (!HexToString(NodeAsString("scan_data", reqNode), bcbp))
+      throw AstraLocale::UserException("MSG.WRONG_DATA_RECEIVED");
+  }
+  else
+    bcbp=NodeAsString("scan_data", reqNode);
+  WebSearch::TPNRFilter filter;
+  filter.fromBCBP_M(bcbp);
+  try
+  {
+    if (filter.airlines.size()!=1)
+      throw EXCEPTIONS::EConvertError("airlines.size()!=1");
+    if (filter.scd_out_local_ranges.size()!=1)
+      throw EXCEPTIONS::EConvertError("scd_out_local_ranges.size()!=1");
+    TSearchFltInfo searchInfo;
+    searchInfo.airline=*(filter.airlines.begin());
+    searchInfo.flt_no=filter.flt_no;
+    searchInfo.suffix=filter.suffix;
+    searchInfo.airp_dep=filter.airp_dep;
+    searchInfo.scd_out=filter.scd_out_local_ranges.begin()->first;
+    searchInfo.scd_out_in_utc=false;
+    searchInfo.only_with_reg=false;
+    if (filter.reg_no==NoExists)
+      throw EXCEPTIONS::EConvertError("filter.reg_no==NoExists");
+
+    list<TAdvTripInfo> flts;
+    SearchFlt(searchInfo, flts);
+
+    if (flts.empty()) return result;
+
+    TQuery Qry( &OraSession );
+    Qry.Clear();
+
+    ostringstream sql;
+    sql << "SELECT pax.grp_id, pax.pax_id, pax.name, pax.seats "
+           "FROM pax_grp, pax "
+           "WHERE pax_grp.grp_id=pax.grp_id AND "
+           "      pax_grp.point_dep=:point_id AND "
+           "      pax_grp.airp_arv=:airp_arv AND "
+           "      pr_brd IS NOT NULL AND "
+           "      reg_no=:reg_no AND "
+        << filter.getSurnameSQLFilter("pax.surname", Qry);
+    Qry.DeclareVariable("point_id", otInteger);
+    Qry.CreateVariable("airp_arv", otString, filter.airp_arv);
+    Qry.CreateVariable("reg_no", otInteger, filter.reg_no);
+    Qry.SQLText=sql.str().c_str();
+
+    for(list<TAdvTripInfo>::const_iterator f=flts.begin(); f!=flts.end(); ++f)
+    {
+      int pax_id_with_seats=NoExists;
+      int pax_id_without_seats=NoExists;
+      int grp_id=NoExists;
+      Qry.SetVariable("point_id", f->point_id);
+      Qry.Execute();
+      for(;!Qry.Eof;Qry.Next())
+      {
+        if (!filter.isNameEqual(Qry.FieldAsString("name"))) continue;
+        int &pax_id_ref=(Qry.FieldAsInteger("seats")>0?pax_id_with_seats:pax_id_without_seats);
+        if (pax_id_ref!=NoExists)
+          throw EXCEPTIONS::Exception("Duplicate reg_no (point_id=%d, reg_no=%d)", f->point_id, filter.reg_no);
+        if (grp_id!=NoExists && grp_id!=Qry.FieldAsInteger("grp_id"))
+          throw EXCEPTIONS::Exception("Duplicate reg_no (point_id=%d, reg_no=%d)", f->point_id, filter.reg_no);
+        grp_id=Qry.FieldAsInteger("grp_id");
+        pax_id_ref=Qry.FieldAsInteger("pax_id");
+      };
+
+      int new_pax_id=pax_id_with_seats!=NoExists?pax_id_with_seats:pax_id_without_seats;
+      if (new_pax_id!=NoExists)
+      {
+        if (pax_id!=NoExists)
+          throw EXCEPTIONS::Exception("More than one passenger found (pax_id1=%d, pax_id2=%d)", pax_id, new_pax_id);
+        point_id=f->point_id;
+        reg_no=filter.reg_no;
+        pax_id=new_pax_id;
+        result=true;
+      };
+    };
+  }
+  catch(EXCEPTIONS::EConvertError &e)
+  {
+    filter.trace(TRACE5);
+    ProgTrace(TRACE5, ">>>> EConvertError: %s", e.what());
+    throw AstraLocale::UserException("MSG.WRONG_DATA_RECEIVED");
+  }
+  catch(EXCEPTIONS::Exception &e)
+  {
+    filter.trace(TRACE5);
+    ProgTrace(TRACE5, ">>>> Exception: %s", e.what());
+    throw;
+  };
+  return result;
+};
 
 
 

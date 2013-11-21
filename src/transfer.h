@@ -165,8 +165,8 @@ class TGrpItem : public TBagItem
 
 class TFltInfo : public TTripInfo
 {
-  public:
-    TFltInfo( TQuery &Qry, bool calc_local_time ) : TTripInfo(Qry)
+  private:
+    void trunc_scd_out( bool calc_local_time )
     {
       if (scd_out!=ASTRA::NoExists)
       {
@@ -174,6 +174,15 @@ class TFltInfo : public TTripInfo
           scd_out=UTCToLocal(scd_out,AirpTZRegion(airp));
         modf(scd_out,&scd_out);
       };
+    };
+  public:
+    TFltInfo( const TAdvTripInfo &flt, bool calc_local_time  ) : TTripInfo(flt)
+    {
+      trunc_scd_out(calc_local_time);
+    };
+    TFltInfo( TQuery &Qry, bool calc_local_time ) : TTripInfo(Qry)
+    {
+      trunc_scd_out(calc_local_time);
     };
     TFltInfo() : TTripInfo() {};
     bool operator < (const TFltInfo &flt) const

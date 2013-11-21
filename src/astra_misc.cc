@@ -1961,3 +1961,66 @@ void TCFG::get(int point_id, TDateTime part_key)
         push_back(item);
     }
 }
+
+
+void SearchFlt(const TSearchFltInfo &filter, list<TAdvTripInfo> &flts)
+{
+  flts.clear();
+
+  QParams QryParams;
+  QryParams << QParam("airline", otString, filter.airline)
+            << (filter.flt_no!=NoExists?QParam("flt_no", otInteger, (int)filter.flt_no):
+                                        QParam("flt_no", otInteger, FNull))
+            << QParam("suffix", otString, filter.suffix)
+            << QParam("airp_dep", otString, filter.airp_dep)
+            << (filter.scd_out!=NoExists?QParam("scd", otDate, filter.scd_out):
+                                         QParam("scd", otDate, FNull))
+            << QParam("only_with_reg", otInteger, (int)filter.only_with_reg);
+
+  ostringstream sql;
+  sql <<
+    "SELECT point_id, point_num, first_point, pr_tranzit, \n"
+    "       airline, flt_no, suffix, airp, scd_out, pr_del \n"
+    "FROM points \n";
+  if (!filter.scd_out_in_utc)
+  {
+    //перевод UTCToLocal(points.scd)
+    sql <<
+      "WHERE airline=:airline AND flt_no=:flt_no AND airp=:airp_dep AND \n"
+      "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND \n"
+      "      scd_out >= TO_DATE(:scd)-1 AND scd_out < TO_DATE(:scd)+2 AND \n"
+      "      pr_del>=0 AND (:only_with_reg=0 OR pr_reg<>0) \n";
+  }
+  else
+  {
+    sql <<
+      "WHERE airline=:airline AND flt_no=:flt_no AND \n"
+      "      (:airp_dep IS NULL OR airp=:airp_dep) AND \n"
+      "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND \n"
+      "      scd_out >= TO_DATE(:scd) AND scd_out < TO_DATE(:scd)+1 AND \n"
+      "      pr_del>=0 AND (:only_with_reg=0 OR pr_reg<>0) \n";
+  };
+
+  sql << " " << filter.additional_where;
+
+  TQuery &PointsQry = TQrys::Instance()->get(sql.str(), QryParams);
+  PointsQry.Execute();
+  for(;!PointsQry.Eof;PointsQry.Next())
+  {
+    TAdvTripInfo flt(PointsQry);
+    if (!filter.scd_out_in_utc)
+    {
+      TDateTime scd=flt.scd_out;
+      string tz_region=AirpTZRegion(flt.airp,false);
+      if (tz_region.empty()) continue;
+      scd=UTCToLocal(scd,tz_region);
+      modf(scd,&scd);
+      if (scd!=filter.scd_out) continue;
+    };
+    flts.push_back(flt);
+  };
+
+};
+
+
+

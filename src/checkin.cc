@@ -5370,45 +5370,26 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   xmlNodePtr node;
-  int grp_id;
+  int grp_id=NoExists;
+  int point_id=NodeAsInteger("point_id",reqNode);
   TQuery Qry(&OraSession);
   node = GetNode("grp_id",reqNode);
   if (node==NULL||NodeIsNULL(node))
   {
-    int point_id=NodeAsInteger("point_id",reqNode);
-    node = GetNode("pax_id",reqNode);
+    node = GetNode("reg_no",reqNode);
     if (node==NULL||NodeIsNULL(node))
     {
-      int reg_no=NodeAsInteger("reg_no",reqNode);
-      Qry.Clear();
-      Qry.SQLText=
-        "SELECT pax_grp.grp_id, pax.seats FROM pax_grp,pax "
-        "WHERE pax_grp.grp_id=pax.grp_id AND "
-        "      point_dep=:point_id AND reg_no=:reg_no ";
-      Qry.CreateVariable("point_id",otInteger,point_id);
-      Qry.CreateVariable("reg_no",otInteger,reg_no);
-      Qry.Execute();
-      if (Qry.Eof) throw UserException(1,"MSG.CHECKIN.REG_NO_NOT_FOUND");
-      grp_id=Qry.FieldAsInteger("grp_id");
-      bool exists_with_seat=false;
-      bool exists_without_seat=false;
-      for(;!Qry.Eof;Qry.Next())
+      int pax_id=NoExists;
+      node = GetNode("pax_id",reqNode);
+      if (node==NULL||NodeIsNULL(node))
       {
-        if (grp_id!=Qry.FieldAsInteger("grp_id"))
-          throw EXCEPTIONS::Exception("Duplicate reg_no (point_id=%d reg_no=%d)",point_id,reg_no);
-        int seats=Qry.FieldAsInteger("seats");
-        if ((seats>0 && exists_with_seat) ||
-            (seats<=0 && exists_without_seat))
-          throw EXCEPTIONS::Exception("Duplicate reg_no (point_id=%d reg_no=%d)",point_id,reg_no);
-        if (seats>0)
-          exists_with_seat=true;
-        else
-          exists_without_seat=true;
-      };
-    }
-    else
-    {
-      int pax_id=NodeAsInteger(node);
+         int pax_point_id, reg_no;
+         SearchPaxByScanData(reqNode, pax_point_id, reg_no, pax_id);
+         if (pax_point_id==NoExists || reg_no==NoExists || pax_id==NoExists)
+           throw AstraLocale::UserException("MSG.WRONG_DATA_RECEIVED");
+      }
+      else pax_id=NodeAsInteger(node);
+
       Qry.Clear();
       Qry.SQLText=
         "SELECT pax_grp.grp_id,point_dep,class FROM pax_grp,pax "
@@ -5462,6 +5443,35 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
           readTripSets( point_id, dataNode );
           TripsInterface::PectabsResponse(point_id, reqNode, dataNode);
         };
+      };
+    }
+    else
+    {
+      int reg_no=NodeAsInteger(node);
+      Qry.Clear();
+      Qry.SQLText=
+        "SELECT pax_grp.grp_id, pax.seats FROM pax_grp,pax "
+        "WHERE pax_grp.grp_id=pax.grp_id AND "
+        "      point_dep=:point_id AND reg_no=:reg_no ";
+      Qry.CreateVariable("point_id",otInteger,point_id);
+      Qry.CreateVariable("reg_no",otInteger,reg_no);
+      Qry.Execute();
+      if (Qry.Eof) throw UserException(1,"MSG.CHECKIN.REG_NO_NOT_FOUND");
+      grp_id=Qry.FieldAsInteger("grp_id");
+      bool exists_with_seat=false;
+      bool exists_without_seat=false;
+      for(;!Qry.Eof;Qry.Next())
+      {
+        if (grp_id!=Qry.FieldAsInteger("grp_id"))
+          throw EXCEPTIONS::Exception("Duplicate reg_no (point_id=%d reg_no=%d)",point_id,reg_no);
+        int seats=Qry.FieldAsInteger("seats");
+        if ((seats>0 && exists_with_seat) ||
+            (seats<=0 && exists_without_seat))
+          throw EXCEPTIONS::Exception("Duplicate reg_no (point_id=%d reg_no=%d)",point_id,reg_no);
+        if (seats>0)
+          exists_with_seat=true;
+        else
+          exists_without_seat=true;
       };
     };
   }
@@ -6612,21 +6622,6 @@ void CheckInInterface::GetTCkinFlights(const map<int, CheckIn::TTransferItem> &t
   segs.clear();
   if (trfer.empty()) return;
 
-  TQuery PointsQry(&OraSession);
-  PointsQry.Clear();
-  PointsQry.SQLText =
-      "SELECT point_id,scd_out AS scd,airp "
-      "FROM points "
-      "WHERE airline=:airline AND flt_no=:flt_no AND airp=:airp_dep AND "
-      "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND "
-      "      scd_out >= TO_DATE(:scd)-1 AND scd_out < TO_DATE(:scd)+2 AND "
-      "      pr_del>=0 AND pr_reg<>0";
-  PointsQry.DeclareVariable("airline",otString);
-  PointsQry.DeclareVariable("flt_no",otInteger);
-  PointsQry.DeclareVariable("airp_dep",otString);
-  PointsQry.DeclareVariable("suffix",otString);
-  PointsQry.DeclareVariable("scd",otDate);
-
   bool is_edi=false;
   for(map<int, CheckIn::TTransferItem>::const_iterator t=trfer.begin();t!=trfer.end();t++)
   {
@@ -6657,29 +6652,24 @@ void CheckInInterface::GetTCkinFlights(const map<int, CheckIn::TTransferItem> &t
 
       if (!is_edi)
       {
+        TSearchFltInfo filter;
+        filter.airline=t->second.operFlt.airline;
+        filter.flt_no=t->second.operFlt.flt_no;
+        filter.suffix=t->second.operFlt.suffix;
+        filter.airp_dep=t->second.operFlt.airp;
+        filter.scd_out=t->second.operFlt.scd_out;
+        filter.scd_out_in_utc=false;
+        filter.only_with_reg=true;
+
         //ищем рейс в СПП
-        PointsQry.SetVariable("airline",t->second.operFlt.airline);
-        PointsQry.SetVariable("flt_no",(const int)(t->second.operFlt.flt_no));
-        PointsQry.SetVariable("airp_dep",t->second.operFlt.airp);
-        PointsQry.SetVariable("suffix",t->second.operFlt.suffix);
-        PointsQry.SetVariable("scd",t->second.operFlt.scd_out);
-        PointsQry.Execute();
-        TDateTime scd;
-        string tz_region;
+        list<TAdvTripInfo> flts;
+        SearchFlt(filter, flts);
 
-        for(;!PointsQry.Eof;PointsQry.Next())
+        for(list<TAdvTripInfo>::const_iterator f=flts.begin(); f!=flts.end(); ++f)
         {
-          //цикл по рейсам в СПП
-          scd=PointsQry.FieldAsDateTime("scd");
-          tz_region=AirpTZRegion(PointsQry.FieldAsString("airp"),false);
-          if (tz_region.empty()) continue;
-          scd=UTCToLocal(scd,tz_region);
-          modf(scd,&scd);
-          if (scd!=t->second.operFlt.scd_out) continue;
-
           TSegInfo segSPPInfo;
-          CheckInInterface::CheckCkinFlight(PointsQry.FieldAsInteger("point_id"),
-                                            PointsQry.FieldAsString("airp"),
+          CheckInInterface::CheckCkinFlight(f->point_id,
+                                            f->airp,
                                             ASTRA::NoExists,
                                             t->second.airp_arv,
                                             segSPPInfo);
