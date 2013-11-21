@@ -119,6 +119,11 @@ const std::string CREW_CLS_GRP_VIEW=" ";
 void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode );
 void viewCRSList( int point_id, xmlNodePtr dataNode );
 
+bool SearchPaxByScanData(xmlNodePtr reqNode,
+                         int &point_id,
+                         int &reg_no,
+                         int &pax_id);
+
 class TripsInterface : public JxtInterface
 {
 private:

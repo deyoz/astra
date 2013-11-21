@@ -603,12 +603,10 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
 
-    if(strcmp((char *)reqNode->name, "PaxByScanData") == 0)
-      throw AstraLocale::UserException("MSG.DEVICE.INVALID_SCAN_FORMAT");
-
-
     int point_id=NodeAsInteger("point_id",reqNode);
+    int found_point_id=NoExists;
     int reg_no=NoExists;
+    int found_pax_id=NoExists;
 
     get_new_report_form("ExamBrdbus", reqNode, resNode);
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
@@ -635,27 +633,39 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     FltQry.DeclareVariable("point_id",otInteger);
 
     TQuery Qry(&OraSession);
-    if(strcmp((char *)reqNode->name, "PaxByPaxId") == 0)
+    if(strcmp((char *)reqNode->name, "PaxByScanData") == 0 ||
+       strcmp((char *)reqNode->name, "PaxByPaxId") == 0)
     {
-      int pax_id=NodeAsInteger("pax_id",reqNode);
-      //получим point_id и reg_no
-      Qry.Clear();
-      Qry.SQLText=
-        "SELECT point_dep,reg_no "
-        "FROM pax_grp,pax "
-        "WHERE pax_grp.grp_id=pax.grp_id AND pax_id=:pax_id AND pr_brd IS NOT NULL";
-      Qry.CreateVariable("pax_id",otInteger,pax_id);
-      Qry.Execute();
-      if (Qry.Eof)
-        throw AstraLocale::UserException("MSG.WRONG_DATA_RECEIVED");
-      reg_no=Qry.FieldAsInteger("reg_no");
-      if (point_id==Qry.FieldAsInteger("point_dep"))
+      if(strcmp((char *)reqNode->name, "PaxByPaxId") == 0)
       {
-        GetPaxQuery(Qry, point_id, NoExists, pax_id, reqInfo->desk.lang, rtUnknown, "");
+        found_pax_id=NodeAsInteger("pax_id",reqNode);
+        //получим point_id и reg_no
+        Qry.Clear();
+        Qry.SQLText=
+          "SELECT point_dep,reg_no "
+          "FROM pax_grp,pax "
+          "WHERE pax_grp.grp_id=pax.grp_id AND pax_id=:pax_id AND pr_brd IS NOT NULL";
+        Qry.CreateVariable("pax_id",otInteger,found_pax_id);
+        Qry.Execute();
+        if (Qry.Eof)
+          throw AstraLocale::UserException("MSG.WRONG_DATA_RECEIVED");
+        found_point_id=Qry.FieldAsInteger("point_dep");
+        reg_no=Qry.FieldAsInteger("reg_no");
       }
       else
       {
-        point_id=Qry.FieldAsInteger("point_dep");
+        SearchPaxByScanData(reqNode, found_point_id, reg_no, found_pax_id);
+        if (found_point_id==NoExists || reg_no==NoExists || found_pax_id==NoExists)
+          throw AstraLocale::UserException("MSG.WRONG_DATA_RECEIVED");
+      };
+
+      if (point_id==found_point_id)
+      {
+        GetPaxQuery(Qry, point_id, reg_no, NoExists, reqInfo->desk.lang, rtUnknown, "");
+      }
+      else
+      {
+        point_id=found_point_id;
 
         if (reqInfo->screen.name != "BRDBUS.EXE" &&
             TripsInterface::readTripHeader( point_id, dataNode ))
@@ -892,7 +902,8 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
             };
           };
 
-          if (reg_no==Qry.FieldAsInteger(col_reg_no))
+          if ((found_pax_id!=NoExists && found_pax_id==pax_id) ||
+              (found_pax_id==NoExists && reg_no==Qry.FieldAsInteger(col_reg_no)))
           {
               int mark;
               if (reqInfo->screen.name == "BRDBUS.EXE")

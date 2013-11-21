@@ -249,7 +249,11 @@ namespace RCPT_PAX_NAME {
 
 void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  enum TSearchType {searchByPaxId,searchByGrpId,searchByRegNo,searchByReceiptNo};
+  enum TSearchType {searchByPaxId,
+                    searchByGrpId,
+                    searchByRegNo,
+                    searchByReceiptNo,
+                    searchByScanData};
 
   TSearchType search_type;
   if( strcmp((char *)reqNode->name, "PaxByPaxId") == 0) search_type=searchByPaxId;
@@ -260,8 +264,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       else
         if( strcmp((char *)reqNode->name, "PaxByReceiptNo") == 0) search_type=searchByReceiptNo;
         else
-          if( strcmp((char *)reqNode->name, "PaxByScanData") == 0)
-            throw AstraLocale::UserException("MSG.DEVICE.INVALID_SCAN_FORMAT");
+          if( strcmp((char *)reqNode->name, "PaxByScanData") == 0) search_type=searchByScanData;
           else return;
 
   int point_id=NodeAsInteger("point_id",reqNode);
@@ -274,8 +277,8 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
   TQuery Qry(&OraSession);
 
-  int pax_id=-1;
-  int grp_id=-1;
+  int pax_id=NoExists;
+  int grp_id=NoExists;
   bool pr_unaccomp=false;
   bool pr_annul_rcpt=false;
   //сначала попробуем получить pax_id
@@ -361,10 +364,17 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   {
     pax_id=NodeAsInteger("pax_id",reqNode);
   };
+  if (search_type==searchByScanData)
+  {
+    int pax_point_id, reg_no;
+    SearchPaxByScanData(reqNode, pax_point_id, reg_no, pax_id);
+    if (pax_point_id==NoExists || reg_no==NoExists || pax_id==NoExists)
+      throw AstraLocale::UserException("MSG.WRONG_DATA_RECEIVED");
+  };
 
   int point_dep;
 
-  if (!(search_type==searchByReceiptNo && grp_id==-1))
+  if (!(search_type==searchByReceiptNo && grp_id==NoExists))
   {
     Qry.Clear();
     if (!pr_unaccomp)
@@ -447,7 +457,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     };
   };
 
-  if (search_type==searchByReceiptNo && grp_id==-1) return;
+  if (search_type==searchByReceiptNo && grp_id==NoExists) return;
 
   grp_id=Qry.FieldAsInteger("grp_id");
   NewTextChild(dataNode,"grp_id",grp_id);

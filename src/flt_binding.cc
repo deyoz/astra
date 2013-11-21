@@ -157,63 +157,34 @@ void TFltBinding::bind_flt(TFltInfo &flt, TBindType bind_type, vector<int> &spp_
 {
   spp_point_ids.clear();
   if (!flt.pr_utc && *flt.airp_dep==0) return;
-  TQuery PointsQry(&OraSession);
-  PointsQry.CreateVariable("airline",otString,flt.airline);
-  PointsQry.CreateVariable("flt_no",otInteger,(int)flt.flt_no);
-  PointsQry.CreateVariable("suffix",otString,flt.suffix);
-  PointsQry.CreateVariable("airp_dep",otString,flt.airp_dep);
-  PointsQry.CreateVariable("scd",otDate,flt.scd);
 
-  if (!flt.pr_utc)
+  TSearchFltInfo filter;
+  filter.airline=flt.airline;
+  filter.flt_no=flt.flt_no;
+  filter.suffix=flt.suffix;
+  filter.airp_dep=flt.airp_dep;
+  filter.scd_out=flt.scd;
+  filter.scd_out_in_utc=flt.pr_utc;
+
+  list<TAdvTripInfo> flts;
+  SearchFlt(filter, flts);
+
+  for(list<TAdvTripInfo>::const_iterator f=flts.begin(); f!=flts.end(); ++f)
   {
-    //перевод UTCToLocal(points.scd)
-    PointsQry.SQLText=
-      "SELECT point_id,point_num,first_point,pr_tranzit, "
-      "       scd_out AS scd,airp "
-      "FROM points "
-      "WHERE airline=:airline AND flt_no=:flt_no AND airp=:airp_dep AND "
-      "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND "
-      "      scd_out >= TO_DATE(:scd)-1 AND scd_out < TO_DATE(:scd)+2 AND "
-      "      pr_del>=0 ";
-  }
-  else
-  {
-    PointsQry.SQLText=
-      "SELECT point_id,point_num,first_point,pr_tranzit "
-      "FROM points "
-      "WHERE airline=:airline AND flt_no=:flt_no AND "
-      "      (:airp_dep IS NULL OR airp=:airp_dep) AND "
-      "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND "
-      "      scd_out >= TO_DATE(:scd) AND scd_out < TO_DATE(:scd)+1 AND pr_del>=0 ";
-  };
-  PointsQry.Execute();
-  TDateTime scd;
-  string tz_region;
-  for(;!PointsQry.Eof;PointsQry.Next())
-  {
-    if (!flt.pr_utc)
-    {
-      scd=PointsQry.FieldAsDateTime("scd");
-      tz_region=AirpTZRegion(PointsQry.FieldAsString("airp"),false);
-      if (tz_region.empty()) continue;
-      scd=UTCToLocal(scd,tz_region);
-      modf(scd,&scd);
-      if (scd!=flt.scd) continue;
-    };
     switch (bind_type)
     {
       case btFirstSeg:
-        spp_point_ids.push_back(PointsQry.FieldAsInteger("point_id"));
+        spp_point_ids.push_back(f->point_id);
         break;
       case btLastSeg:
       case btAllSeg:
         {
           TTripRoute route;
           route.GetRouteAfter(NoExists,
-                              PointsQry.FieldAsInteger("point_id"),
-                              PointsQry.FieldAsInteger("point_num"),
-                              PointsQry.FieldIsNULL("first_point")?NoExists:PointsQry.FieldAsInteger("first_point"),
-                              PointsQry.FieldAsInteger("pr_tranzit")!=0,
+                              f->point_id,
+                              f->point_num,
+                              f->first_point,
+                              f->pr_tranzit,
                               trtWithCurrent,trtWithCancelled);
           TTripRoute::const_iterator last_point=route.end();
           for(TTripRoute::const_iterator r=route.begin();r!=route.end();r++)
@@ -240,7 +211,7 @@ void TFltBinding::bind_flt(TFltInfo &flt, TBindType bind_type, vector<int> &spp_
             //если ничего не нашли
             if (bind_type==btAllSeg)
             {
-              spp_point_ids.push_back(PointsQry.FieldAsInteger("point_id"));
+              spp_point_ids.push_back(f->point_id);
             };
           }
           else
