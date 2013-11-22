@@ -52,8 +52,11 @@ void TFilterLayers::getFilterLayers( int point_id )
 			if ( Qry.FieldAsInteger( "pr_block_trzt" ) )
 				setFlag( cltBlockTrzt );
 			else {
-				 TCompLayerType layer_tlg;
-				if ( SALONS2::point_dep_AND_layer_type_FOR_TRZT_SOM_PRL( point_id, point_dep, layer_tlg ) ) {
+				TCompLayerType layer_tlg;
+        std::vector<TTripRouteItem> routes;        
+        SALONS2::TFilterLayer_SOM_PRL FilterLayer_SOM_PRL;
+        FilterLayer_SOM_PRL.ReadOnTranzitRoutes( point_id, false, routes );
+        if ( FilterLayer_SOM_PRL.Get( point_dep, layer_tlg ) ) {
 					setFlag( layer_tlg );
 				}
 			}

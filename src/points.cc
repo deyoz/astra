@@ -1477,6 +1477,7 @@ void PointsKeyTrip<T>::DoEvents( int move_id )
   tst();
   if ( this->events.isFlag( teNeedBindTlgs ) ) {
     vector<TTripInfo> flts;
+
     TTripInfo tripInfo;
     tripInfo.airline = this->key.airline;
     tripInfo.flt_no = this->key.flt_no;
@@ -2476,7 +2477,7 @@ void FlightPoints::Get( int vpoint_dep )
                            trtWithCancelled );
     if ( !routes.empty() ) {
       tst();
-      insert( end(), routes.begin(), routes.end() );
+      insert( begin(), routes.begin(), routes.end() );
     }
   }
   routes.clear();

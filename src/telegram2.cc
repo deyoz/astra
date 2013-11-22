@@ -113,14 +113,20 @@ void getPaxsSeatsTranzitSalons( int point_dep, std::map<int,TCheckinPaxSeats> &c
   Qry.DeclareVariable( "pax_id", otInteger );
   Qry.CreateVariable( "sex", otString, getDefaultSex() );
   TSalonPassengers passengers;
-  salonList.getPaxs( passengers );
+  SALONS2::TGetPassFlags flags;
+  flags.setFlag( SALONS2::gpWaitList ); //!!!
+  salonList.getPassengers( passengers, flags );
+  SALONS2::TSalonPassengers::iterator pass_dep = passengers.find( point_dep );
+  if ( pass_dep == passengers.end() ) {
+    return;
+  }
   //point_arv
-  for ( TSalonPassengers::iterator iroute=passengers.begin(); iroute!=passengers.end(); iroute++ ) {
+  for ( SALONS2::TIntArvSalonPassengers::iterator iroute=pass_dep->second.begin(); iroute!=pass_dep->second.end(); iroute++ ) {
     //class
-    for ( std::map<std::string,map<string,std::set<TSalonPax,ComparePassenger>,CompareGrpStatus >,CompareClass >::iterator iclass=iroute->second.begin();
+    for ( TIntClassSalonPassengers::iterator iclass=iroute->second.begin();
           iclass!=iroute->second.end(); iclass++ ) {
       //grp_status
-      for ( map<string,std::set<TSalonPax,ComparePassenger>,CompareGrpStatus >::iterator igrp_layer=iclass->second.begin();
+      for ( TIntStatusSalonPassengers::iterator igrp_layer=iclass->second.begin();
             igrp_layer!=iclass->second.end(); igrp_layer++ ) {
         //pass.grp+reg_no
         for ( std::set<TSalonPax,ComparePassenger>::iterator ipass=igrp_layer->second.begin(); ipass!=igrp_layer->second.end(); ipass++ ) {
@@ -273,7 +279,7 @@ void ReadTranzitSalons( int point_id,
     std::map<int, std::set<SALONS2::TSeatLayer,SALONS2::SeatLayerCompare>,classcomp > layers;
     for ( TPlaces::iterator iseat=(*isalonList)->places.begin();
           iseat!=(*isalonList)->places.end(); iseat++ ) {
-      iseat->GetLayers( layers, true );
+      iseat->GetLayers( layers, glAll );
        std::map<int, std::set<SALONS2::TSeatLayer,SALONS2::SeatLayerCompare>,classcomp >::iterator ilayers = layers.find( point_id );
       if ( ilayers == layers.end() ) {
         continue;

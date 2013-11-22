@@ -248,7 +248,7 @@ typedef std::map<ASTRA::TCompLayerType,bool> TUseLayers;
 /* автоматическая пересадка пассажиров при изменении компоновки */
 void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &APass, TSeatAlgoParams ASeatAlgoParams );
 void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
-                            const SALONS2::TSalonPassengers &passengers,
+                            const SALONS2::TIntArvSalonPassengers &passengers,
                             TSeatAlgoParams ASeatAlgoParams );
 void SeatsPassengers( SALONS2::TSalonList &salonList,
                       TSeatAlgoParams ASeatAlgoParams,

@@ -1252,11 +1252,14 @@ void IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string y
     }
     SALONS2::BuildSalonChanges( dataNode, point_id, seats, true, NewSalonList.pax_lists );
     if ( pr_waitlist ) {
+      SALONS2::TGetPassFlags flags;
+      flags.setFlag( SALONS2::gpWaitList );
       SALONS2::TSalonPassengers passengers;
-      NewSalonList.getPaxs( passengers );
-      passengers.BuildWaitList( dataNode );
-    	if ( !passengers.isWaitList() )
+      NewSalonList.getPassengers( passengers, flags );
+      passengers.BuildWaitList( point_id, dataNode );
+    	if ( !passengers.isWaitList( point_id ) ) {
       	AstraLocale::showErrorMessage( "MSG.SEATS.SEATS_FINISHED" );
+      }
     }
   }
   catch( UserException ue ) {
@@ -1276,8 +1279,10 @@ void IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string y
     comp_id = salonList.getCompId();
     if ( pr_waitlist ) {
       SALONS2::TSalonPassengers passengers;
-      salonList.getPaxs( passengers );
-      passengers.BuildWaitList( dataNode );
+      SALONS2::TGetPassFlags flags;
+      flags.setFlag( SALONS2::gpWaitList );
+      salonList.getPassengers( passengers, flags );
+      passengers.BuildWaitList( point_id, dataNode );
     }
     if ( comp_id > 0 && GetTripSets( tsCraftNoChangeSections, fltInfo ) &&
          TReqInfo::Instance()->client_type == ctTerm ) { //строго завязать базовые компоновки с назначенными на рейс
@@ -1590,8 +1595,10 @@ void SalonFormInterface::WaitList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 	if ( isTranzitSalonsVersion ) {
     salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, ASTRA::NoExists ), "" );
     SALONS2::TSalonPassengers passengers;
-    salonList.getPaxs( passengers );
-    passengers.BuildWaitList( dataNode );
+    SALONS2::TGetPassFlags flags;
+    flags.setFlag( SALONS2::gpWaitList );
+    salonList.getPassengers( passengers, flags );
+    passengers.BuildWaitList( point_id, dataNode );
 	}
 	else {
     SEATS2::TPassengers p;
@@ -1668,8 +1675,10 @@ void SalonFormInterface::AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   SALONS2::TSalonPassengers passengers;
   if ( isTranzitSalonsVersion ) {
     salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, ASTRA::NoExists ), "" );
-    salonList.getPaxs( passengers );
-    if ( !passengers.isWaitList() ) {
+    SALONS2::TGetPassFlags flags;
+    flags.setFlag( SALONS2::gpWaitList );
+    salonList.getPassengers( passengers, flags );
+    if ( !passengers.isWaitList( point_id ) ) {
       throw UserException( "MSG.SEATS.ALL_PASSENGERS_PLANED" );
     }
   }
@@ -1687,7 +1696,10 @@ void SalonFormInterface::AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   bool pr_notchangecraft = GetTripSets( tsCraftNoChangeSections, info );
   try {
     if ( isTranzitSalonsVersion ) {
-      SEATS2::AutoReSeatsPassengers( salonList, passengers, SEATS2::GetSeatAlgo( Qry, info.airline, info.flt_no, info.airp ) );
+      SALONS2::TSalonPassengers::const_iterator ipasses = passengers.find( point_id );
+      if ( ipasses != passengers.end() ) {
+        SEATS2::AutoReSeatsPassengers( salonList, ipasses->second, SEATS2::GetSeatAlgo( Qry, info.airline, info.flt_no, info.airp ) );
+      }
     }
     else {
       SEATS2::AutoReSeatsPassengers( Salons, p, SEATS2::GetSeatAlgo( Qry, info.airline, info.flt_no, info.airp ) );
@@ -1702,14 +1714,16 @@ void SalonFormInterface::AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
       salonList.Build( true, salonsNode );
       comp_id = salonList.getCompId();
       if ( pr_waitlist ) {
-        salonList.getPaxs( passengers );
-        if ( passengers.isWaitList() ) {
+        SALONS2::TGetPassFlags flags;
+        flags.setFlag( SALONS2::gpWaitList );
+        salonList.getPassengers( passengers, flags );
+        if ( passengers.isWaitList( point_id ) ) {
           AstraLocale::showErrorMessage( "MSG.SEATS.PAX_SEATS_NOT_FULL" );
         }
         else {
           AstraLocale::showErrorMessage( "MSG.SEATS.SEATS_FINISHED" );
         }
-        passengers.BuildWaitList( dataNode );
+        passengers.BuildWaitList( point_id, dataNode );
       }
     }
     else {
@@ -1748,14 +1762,16 @@ void SalonFormInterface::AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
       salonList.Build( true, salonsNode );
       comp_id = salonList.getCompId();
       if ( pr_waitlist ) {
-        salonList.getPaxs( passengers );
-        if ( passengers.isWaitList() ) {
+        SALONS2::TGetPassFlags flags;
+        flags.setFlag( SALONS2::gpWaitList );
+        salonList.getPassengers( passengers, flags );
+        if ( passengers.isWaitList( point_id ) ) {
           AstraLocale::showErrorMessage( "MSG.SEATS.PAX_SEATS_NOT_FULL" );
         }
         else {
           AstraLocale::showErrorMessage( "MSG.SEATS.SEATS_FINISHED" );
         }
-        passengers.BuildWaitList( dataNode );
+        passengers.BuildWaitList( point_id, dataNode );
       }
     }
     else {
@@ -1778,6 +1794,119 @@ void SalonFormInterface::AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   	showErrorMessageAndRollback( ue.getLexemaData( ) );
   }
 }
+
+void SalonFormInterface::Tranzit(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  SALONS2::TSalonList salonList;
+  SALONS2::TSalonPassengers passengers;
+  SALONS2::TGetPassFlags flags;
+  string flight = NodeAsString( "flight", reqNode );
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
+    "SELECT point_id FROM points WHERE airline||flt_no||airp||'/'||to_char(scd_out,'DD') = :flight AND to_char(time_out,'MM.YYYY')=to_char(sysdate,'MM.YYYY')";
+  Qry.CreateVariable( "flight", otString, flight );
+  Qry.Execute();
+  if ( Qry.Eof ) {
+    throw UserException( "flight not found" );
+  }
+	int point_dep = Qry.FieldAsInteger( "point_id" );
+	ProgTrace( TRACE5, "point_dep=%d", point_dep );
+	if ( NodeAsInteger( "waitlist_key", reqNode ) == 1 ) {
+    flags.setFlag( SALONS2::gpWaitList );
+  }
+	if ( NodeAsInteger( "tranzit_key", reqNode ) == 1 ) {
+    flags.setFlag( SALONS2::gpTranzits );
+  }
+	if ( NodeAsInteger( "infants_key", reqNode ) == 1 ) {
+    flags.setFlag( SALONS2::gpInfants );
+  }
+
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT airp FROM points WHERE point_id=:point_id";
+  Qry.DeclareVariable( "point_id", otInteger );
+  SALONS2::TPassSeats seats;
+  SALONS2::TWaitListReason waitListReason;
+	salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_dep, ASTRA::NoExists ), "" );
+	salonList.getPassengers( passengers, flags );
+	xmlNodePtr passNode = NewTextChild( resNode, "passses" );
+	SALONS2::TSalonPassengers::iterator idep_pass = passengers.find( point_dep );
+	if ( idep_pass != passengers.end() ) {
+	  for ( SALONS2::TIntArvSalonPassengers::iterator ipass_arv=idep_pass->second.begin();
+          ipass_arv!=idep_pass->second.end(); ipass_arv++ ) {
+      xmlNodePtr pointNode = NewTextChild( passNode, "point" );
+      SetProp( pointNode, "point_id", ipass_arv->first );
+        for ( SALONS2::TIntClassSalonPassengers::iterator ipass_class=ipass_arv->second.begin();
+              ipass_class!=ipass_arv->second.end(); ipass_class++ ) {
+          for ( SALONS2::TIntStatusSalonPassengers::iterator ipass_status=ipass_class->second.begin();
+                ipass_status!=ipass_class->second.end(); ipass_status++ ) {
+            for ( std::set<SALONS2::TSalonPax,SALONS2::ComparePassenger>::iterator i=ipass_status->second.begin();
+                  i!=ipass_status->second.end(); i++ ) {
+              xmlNodePtr node = NewTextChild( pointNode, "pass" );
+              NewTextChild( node, "pax_id", i->pax_id );
+              NewTextChild( node, "point_dep", i->point_dep );
+              Qry.SetVariable( "point_id", i->point_dep );
+              Qry.Execute();
+              NewTextChild( node, "airp_dep", Qry.FieldAsString( "airp" ) );
+              NewTextChild( node, "point_arv", i->point_arv );
+              Qry.SetVariable( "point_id", i->point_arv );
+              Qry.Execute();
+              NewTextChild( node, "airp_arv", Qry.FieldAsString( "airp" ) );
+              NewTextChild( node, "class", i->cl );
+              NewTextChild( node, "pers_type", EncodePerson( i->pers_type ) );
+              NewTextChild( node, "seats", (int)i->seats );
+              NewTextChild( node, "reg_no", i->reg_no );
+              NewTextChild( node, "pr_infant", i->pr_infant );
+              NewTextChild( node, "pr_web", i->pr_web );
+              NewTextChild( node, "grp_status", i->grp_status );
+              NewTextChild( node, "name", i->name + " " + i->surname );
+              i->get_seats( waitListReason, seats );
+              NewTextChild( node, "pr_waitlist", waitListReason.layerStatus != SALONS2::layerValid );
+              NewTextChild( node, "seat_no", i->seat_no( "list", false, waitListReason ) );
+            }
+          }
+        }
+      }
+	  for ( SALONS2::TIntArvSalonPassengers::iterator ipass_arv=idep_pass->second.infants.begin();
+          ipass_arv!=idep_pass->second.infants.end(); ipass_arv++ ) {
+      xmlNodePtr pointNode = NewTextChild( passNode, "point" );
+      SetProp( pointNode, "point_id", ipass_arv->first );
+        for ( SALONS2::TIntClassSalonPassengers::iterator ipass_class=ipass_arv->second.begin();
+              ipass_class!=ipass_arv->second.end(); ipass_class++ ) {
+          for ( SALONS2::TIntStatusSalonPassengers::iterator ipass_status=ipass_class->second.begin();
+                ipass_status!=ipass_class->second.end(); ipass_status++ ) {
+            for ( std::set<SALONS2::TSalonPax,SALONS2::ComparePassenger>::iterator i=ipass_status->second.begin();
+                  i!=ipass_status->second.end(); i++ ) {
+              xmlNodePtr node = NewTextChild( pointNode, "pass" );
+              NewTextChild( node, "pax_id", i->pax_id );
+              NewTextChild( node, "point_dep", i->point_dep );
+              Qry.SetVariable( "point_id", i->point_dep );
+              Qry.Execute();
+              NewTextChild( node, "airp_dep", Qry.FieldAsString( "airp" ) );
+              NewTextChild( node, "point_arv", i->point_arv );
+              Qry.SetVariable( "point_id", i->point_arv );
+              Qry.Execute();
+              NewTextChild( node, "airp_arv", Qry.FieldAsString( "airp" ) );
+              NewTextChild( node, "class", i->cl );
+              NewTextChild( node, "pers_type", EncodePerson( i->pers_type ) );
+              NewTextChild( node, "seats", (int)i->seats );
+              NewTextChild( node, "reg_no", i->reg_no );
+              NewTextChild( node, "pr_infant", i->pr_infant );
+              NewTextChild( node, "pr_web", i->pr_web );
+              NewTextChild( node, "grp_status", i->grp_status );
+              NewTextChild( node, "name", i->name + " " + i->surname );
+              i->get_seats( waitListReason, seats );
+              NewTextChild( node, "pr_waitlist", 0 );
+              NewTextChild( node, "seat_no", "" );
+            }
+          }
+        }
+      }
+
+
+    }
+}
+
 
 void trace( int pax_id, int grp_id, int parent_pax_id, int crs_pax_id, const std::string &pers_type, int seats )
 {
