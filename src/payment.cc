@@ -122,15 +122,7 @@ namespace RCPT_PAX_NAME {
 
     bool check_gender(const string &gender)
     {
-        return
-            gender == "É-ç" or
-            gender == "É-ÜÄ" or
-            gender == "MR" or
-            gender == "MSTR" or
-            gender == "MRS" or
-            gender == "MS" or
-            gender == "MISS" or
-            gender == "MSS";
+        return pax_name_titles().find(gender)!=pax_name_titles().end();
     }
 
     string compile_pax_name(const vector<string> &lex)

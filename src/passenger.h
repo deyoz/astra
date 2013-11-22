@@ -291,6 +291,7 @@ class TPaxItem
     TPaxItem& fromXML(xmlNodePtr node);
     const TPaxItem& toDB(TQuery &Qry) const;
     TPaxItem& fromDB(TQuery &Qry);
+    int is_female() const;
 };
 
 class TPaxGrpItem

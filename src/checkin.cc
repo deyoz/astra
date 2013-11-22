@@ -4360,10 +4360,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             "  IF :pax_id IS NULL THEN "
             "    SELECT pax_id.nextval INTO :pax_id FROM dual; "
             "  END IF; "
-            "  INSERT INTO pax(pax_id,grp_id,surname,name,pers_type,seat_type,seats,pr_brd, "
+            "  INSERT INTO pax(pax_id,grp_id,surname,name,pers_type,is_female,seat_type,seats,pr_brd, "
             "                  wl_type,refuse,reg_no,ticket_no,coupon_no,ticket_rem,ticket_confirm, "
             "                  pr_exam,subclass,bag_pool_num,tid) "
-            "  VALUES(:pax_id,pax_grp__seq.currval,:surname,:name,:pers_type,:seat_type,:seats,:pr_brd, "
+            "  VALUES(:pax_id,pax_grp__seq.currval,:surname,:name,:pers_type,:is_female,:seat_type,:seats,:pr_brd, "
             "         :wl_type,NULL,:reg_no,:ticket_no,:coupon_no,:ticket_rem,:ticket_confirm, "
             "         :pr_exam,:subclass,:bag_pool_num,cycle_tid__seq.currval); "
             "END;";
@@ -4371,6 +4371,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           Qry.DeclareVariable("surname",otString);
           Qry.DeclareVariable("name",otString);
           Qry.DeclareVariable("pers_type",otString);
+          Qry.DeclareVariable("is_female",otInteger);
           Qry.DeclareVariable("seat_type",otString);
           Qry.DeclareVariable("seats",otInteger);
           Qry.DeclareVariable("pr_brd",otInteger);
@@ -4409,6 +4410,11 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 pax.pr_brd=pr_brd_with_reg;
                 pax.pr_exam=pr_brd_with_reg && pr_exam_with_brd;
                 pax.toDB(Qry);
+                int is_female=pax.is_female();
+                if (is_female!=NoExists)
+                  Qry.SetVariable("is_female", is_female);
+                else
+                  Qry.SetVariable("is_female", FNull);
                 if (pax.id==NoExists)
                 {
                   xmlNodePtr node2=p->node->children;
@@ -4698,11 +4704,14 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             PaxQry.DeclareVariable("subclass",otString);
             PaxQry.DeclareVariable("bag_pool_num",otInteger);
           };
-          sql << "    refuse=:refuse, "
+          sql << "    is_female=DECODE(:doc_exists,0,is_female,:is_female), "
+                 "    refuse=:refuse, "
                  "    pr_brd=DECODE(:refuse,NULL,pr_brd,NULL), "
                  "    pr_exam=DECODE(:refuse,NULL,pr_exam,0), "
                  "    tid=cycle_tid__seq.currval "
                  "WHERE pax_id=:pax_id AND tid=:tid";
+          PaxQry.DeclareVariable("doc_exists",otInteger);
+          PaxQry.DeclareVariable("is_female",otInteger);
           PaxQry.DeclareVariable("pax_id",otInteger);
           PaxQry.DeclareVariable("tid",otInteger);
           PaxQry.DeclareVariable("refuse",otString);
@@ -4733,6 +4742,12 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   LayerQry.Execute();
                 };
                 pax.toDB(PaxQry);
+                PaxQry.SetVariable("doc_exists", (int)pax.DocExists);
+                int is_female=pax.is_female();
+                if (pax.DocExists && is_female!=NoExists)
+                  PaxQry.SetVariable("is_female", is_female);
+                else
+                  PaxQry.SetVariable("is_female", FNull);
                 PaxQry.Execute();
                 if (PaxQry.RowsProcessed()<=0)
                   throw UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA",

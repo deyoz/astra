@@ -1849,25 +1849,61 @@ void update_pax_change( int point_id, int pax_id, int reg_no, const string &work
   Qry.Execute();
 }
 
-string TruncNameTitles(const string &str)
+const map<string, TPaxNameTitle>& pax_name_titles()
 {
-  const char* titles[]={"ƒ-", "ƒ-†€", "MR", "MSTR", "MRS", "MS", "MISS", "MSS"};
-  string value(str);
-  RTrimString(value);
-  for(int i=sizeof(titles)/sizeof(titles[0])-1;i>=0;i--)
+  static map<string, TPaxNameTitle> titles;
+  if (titles.empty())
   {
-    string::size_type pos=value.rfind(titles[i]);
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    Qry.SQLText = "SELECT title, is_female FROM pax_name_titles";
+    Qry.Execute();
+    for(;!Qry.Eof;Qry.Next())
+    {
+      TPaxNameTitle info;
+      info.title=Qry.FieldAsString("title");
+      info.is_female=Qry.FieldAsInteger("is_female")!=0;
+      titles.insert( make_pair(info.title, info) );
+    };
+    ProgTrace(TRACE5, "titles loaded");
+  };
+  return titles;
+};
+
+bool GetPaxNameTitle(string &name, bool truncate, TPaxNameTitle &info)
+{
+  const map<string, TPaxNameTitle> &titles=pax_name_titles();
+
+  info.clear();
+  string name_tmp(name);
+  RTrimString(name_tmp);
+  for(map<string, TPaxNameTitle>::const_iterator i=titles.begin(); i!=titles.end(); ++i)
+  {
+    string::size_type pos=name_tmp.rfind(i->second.title);
     if (pos!=string::npos)
     {
-      if (value.substr(pos)==titles[i])
+      if (name_tmp.substr(pos)==i->second.title)
       {
-        value.erase(pos);
-        RTrimString(value);
+        info=i->second;
+        if (truncate)
+        {
+          name_tmp.erase(pos);
+          RTrimString(name_tmp);
+          name=name_tmp;
+        };
         break;
       };
     };
   };
-  return value;
+  return !info.empty();
+};
+
+string TruncNameTitles(const string &name)
+{
+  string name_tmp(name);
+  TPaxNameTitle info;
+  GetPaxNameTitle(name_tmp, true, info);
+  return name_tmp;
 };
 
 string SeparateNames(string &names)
