@@ -513,8 +513,7 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 	  Qry.SQLText =
 	   "SELECT pax.pax_id,pax.reg_no,pax.surname||RTRIM(' '||pax.name) name,pax_grp.grp_id,"
 	   "       pax_grp.airp_arv,pax_grp.class,pax.refuse,"
-	   "       pax.pers_type, "
-	   "       NVL(pax_doc.gender,'F') as gender, "
+	   "       pax.pers_type, NVL(pax.is_female, 1) AS is_female, "
 	   "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'one',rownum) AS seat_no, "
 	   "       pax.seats seats, "
 	   "       ckin.get_excess(pax_grp.grp_id,pax.pax_id) excess,"
@@ -583,10 +582,10 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 		  record<<setw(3)<<Qry.FieldAsInteger( "reg_no");
 	  	record<<setw(30)<<string(Qry.FieldAsString( "name" )).substr(0,30);
       if ( DecodePerson( Qry.FieldAsString( "pers_type" ) ) == ASTRA::adult ) {
-        record<<setw(1)<<string(Qry.FieldAsString( "gender" )).substr(0,1);
+        record<<setw(1)<<(Qry.FieldAsInteger( "is_female" )==0?"M":"F");
       }
       else {
-        record<<setw(1)<<string(" ").substr(0,1);
+        record<<setw(1)<<" ";
       }
 		  TAirpsRow *row=(TAirpsRow*)&base_tables.get("airps").get_row("code",Qry.FieldAsString("airp_arv"));
 		  if ( format == afNewUrengoy )

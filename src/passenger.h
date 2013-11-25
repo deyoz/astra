@@ -294,6 +294,8 @@ class TPaxItem
     int is_female() const;
 };
 
+int is_female(const std::string &pax_doc_gender, const std::string &pax_name);
+
 class TPaxGrpItem
 {
   public:

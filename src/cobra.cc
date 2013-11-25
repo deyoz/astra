@@ -2493,7 +2493,7 @@ string AnswerFlight( const xmlNodePtr reqNode )
           vector<TPassenger> passs;
           for ( map<int,TPassenger>::iterator i=balanceData.passengers.begin(); i!=balanceData.passengers.end(); i++ ) {
             trace( i->second.pax_id, i->second.grp_id, i->second.parent_pax_id, i->second.parent_pax_id, i->second.pers_type, i->second.seats );
-            ProgTrace( TRACE5, "pax_id=%d, gender=%s", i->second.pax_id, i->second.gender.c_str() );
+            ProgTrace( TRACE5, "pax_id=%d, is_female=%d", i->second.pax_id, (int)i->second.is_female );
             passs.push_back( i->second );
           }
           ProgTrace( TRACE5, "passs.size=%zu", passs.size() );
@@ -2502,7 +2502,7 @@ string AnswerFlight( const xmlNodePtr reqNode )
           ProgTrace( TRACE5, "passs.size=%zu", passs.size() );
           for ( vector<TPassenger>::iterator i=passs.begin(); i!=passs.end(); i++ ) {
             trace( i->pax_id, i->grp_id, i->parent_pax_id, i->parent_pax_id, i->pers_type, i->seats );
-            ProgTrace( TRACE5, "pax_id=%d, gender=%s", i->pax_id, i->gender.c_str() );
+            ProgTrace( TRACE5, "pax_id=%d, is_female=%d", i->pax_id, (int)i->is_female );
             balanceData.passengers[ i->pax_id ].zone = i->zone;
           }
           for ( vector<SALONS2::TCompSection>::iterator i=compSections.begin(); i!=compSections.end(); i++ ) {
@@ -2526,12 +2526,12 @@ string AnswerFlight( const xmlNodePtr reqNode )
               ProgTrace( TRACE5, "pax_id=%d, seats=%d, zone=%s", p->second.pax_id, p->second.seats, p->second.zone.c_str() );
               if ( p->second.zone != i->name )
                 continue;
-              int count = (( p->second.pers_type == "‚‡" )&&(( p->second.gender.empty() || (p->second.gender.substr( 0, 1 ) == "M") )));
+              int count = ( p->second.pers_type == "‚‡" )&&( !p->second.is_female );
               male_count += count;
               male += count*p->second.seats;
               male_pad += count*p->second.seats*p->second.pr_pad;
               male_pad_count += count*p->second.pr_pad;
-              count = ( p->second.pers_type == "‚‡" )&&( !p->second.gender.empty() && (p->second.gender.substr( 0, 1 ) == "F") );
+              count = ( p->second.pers_type == "‚‡" )&&( p->second.is_female );
               female_count += count;
               female += count*p->second.seats;
               female_pad += count*p->second.seats*p->second.pr_pad;

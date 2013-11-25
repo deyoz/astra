@@ -1042,17 +1042,22 @@ TPaxItem& TPaxItem::fromDB(TQuery &Qry)
 
 int TPaxItem::is_female() const
 {
+  if (!DocExists) return ASTRA::NoExists;
+  return CheckIn::is_female(doc.gender, name);
+};
+
+int is_female(const string &pax_doc_gender, const string &pax_name)
+{
   int result=ASTRA::NoExists;
-  if (!DocExists) return result;
-  if (!doc.gender.empty())
+  if (!pax_doc_gender.empty())
   {
-    if (doc.gender.substr(0,1)=="M") result=0;
-    if (doc.gender.substr(0,1)=="F") result=1;
+    if (pax_doc_gender.substr(0,1)=="M") result=0;
+    if (pax_doc_gender.substr(0,1)=="F") result=1;
   };
   if (result==ASTRA::NoExists)
   {
     TPaxNameTitle info;
-    string name_tmp(name);
+    string name_tmp(pax_name);
     GetPaxNameTitle(name_tmp, false, info);
     if (!info.empty()) result=(int)info.is_female;
   };
