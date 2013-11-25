@@ -986,7 +986,8 @@ void get_pax_list(int point_id,
          "       r.visa_birth_place, r.ticket_no "
          "FROM pax_grp, pax, rozysk r "
          "WHERE pax_grp.grp_id=pax.grp_id AND pax.pax_id=r.pax_id AND "
-         "      pax_grp.point_dep=:point_id "
+         "      pax_grp.point_dep=:point_id AND "
+         "      (r.name IS NULL OR r.name<>'CBBG') "
          "ORDER BY time";
   Qry.SQLText=sql.str();
   Qry.CreateVariable( "point_id", otInteger, point_id );
