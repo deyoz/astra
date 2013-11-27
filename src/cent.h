@@ -15,11 +15,10 @@
 const std::string qryBalancePassWOCheckinTranzit =
     "SELECT point_dep, "
     "       DECODE(point_dep,:point_dep,0,1) as  pr_tranzit, class, "
-    "       pax.grp_id, pax.pax_id, pax.pers_type, pax_doc.gender, pax.surname, "
-    "       crs_inf.pax_id AS parent_pax_id, seats, reg_no  "
-    " FROM pax_grp, pax, pax_doc, crs_inf "
+    "       pax.grp_id, pax.pax_id, pax.pers_type, NVL(pax.is_female,0) AS is_female, "
+    "       pax.surname, crs_inf.pax_id AS parent_pax_id, seats, reg_no  "
+    " FROM pax_grp, pax, crs_inf "
     " WHERE pax_grp.grp_id=pax.grp_id AND "
-    "       pax.pax_id=pax_doc.pax_id(+) AND "
     "       pax.pax_id=crs_inf.inf_id(+) AND "
     "       point_arv=:point_arv AND "
     "       pax_grp.status NOT IN ('E') AND "
@@ -45,11 +44,10 @@ const std::string qryBalancePassWOCheckinTranzit =
 const std::string qryBalancePassWithCheckinTranzit =
     "SELECT point_dep, "
     "       DECODE(status,:status_tranzit,1,0) as  pr_tranzit, class, "
-    "       pax.grp_id, pax.pax_id, pax.pers_type, pax_doc.gender, pax.surname, "
-    "       crs_inf.pax_id AS parent_pax_id, seats, reg_no  "
-    " FROM pax_grp, pax, pax_doc, crs_inf "
+    "       pax.grp_id, pax.pax_id, pax.pers_type, NVL(pax.is_female,0) AS is_female, "
+    "       pax.surname, crs_inf.pax_id AS parent_pax_id, seats, reg_no  "
+    " FROM pax_grp, pax, crs_inf "
     " WHERE pax_grp.grp_id=pax.grp_id AND "
-    "       pax.pax_id=pax_doc.pax_id(+) AND "
     "       pax.pax_id=crs_inf.inf_id(+) AND "
     "       point_dep=:point_dep AND "
     "       point_arv=:point_arv AND "
@@ -167,7 +165,7 @@ struct TPassenger {
   int point_arv;
   int seats;
   std::string pers_type;
-  std::string gender;
+  bool is_female;
   std::string surname;
   bool pr_pad;
   bool pr_wl;

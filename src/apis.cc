@@ -76,19 +76,18 @@ string GetCustomsRegulCountry(const string &depend,
     return depend;
 };
 
-bool isValidGender(const string &fmt, const string &gender)
+bool isValidGender(const string &fmt, const string &pax_doc_gender, const string &pax_name)
 {
-  if (gender.empty()) return true;
-  if (fmt=="EDI_US" &&
-      gender.substr(0,1)!="M" &&
-      gender.substr(0,1)!="F") return false;
-
+  if (fmt=="EDI_US")
+  {
+    int is_female=CheckIn::is_female(pax_doc_gender, pax_name);
+    if (is_female==NoExists) return false;
+  };
   return true;
 };
 
 bool isValidDocType(const string &fmt, const TPaxStatus &status, const string &doc_type)
 {
-  if (doc_type.empty()) return true;
   if (fmt=="EDI_CZ")
   {
     if (!(doc_type=="P" ||
@@ -376,7 +375,8 @@ bool create_apis_file(int point_id, const string& task_name)
       "FROM pax_grp,pax,tckin_segments "
       "WHERE pax_grp.grp_id=pax.grp_id AND "
       "      pax_grp.grp_id=tckin_segments.grp_id(+) AND tckin_segments.pr_final(+)<>0 AND "
-      "      pax_grp.point_dep=:point_dep AND pax_grp.point_arv=:point_arv AND pr_brd IS NOT NULL ";
+      "      pax_grp.point_dep=:point_dep AND pax_grp.point_arv=:point_arv AND pr_brd IS NOT NULL AND "
+      "      (pax.name IS NULL OR pax.name<>'CBBG')";
     PaxQry.CreateVariable("point_dep",otInteger,point_id);
     PaxQry.DeclareVariable("point_arv",otInteger);
 
@@ -621,34 +621,19 @@ bool create_apis_file(int point_id, const string& task_name)
                 };
               };
 
-      	      string gender;
-      	      if (!doc.gender.empty())
-      	      {
-      	    	  TGenderTypesRow &gender_row = (TGenderTypesRow&)base_tables.get("gender_types").get_row("code",doc.gender);
-      	    	  if (gender_row.code_lat.empty()) throw Exception("gender.code_lat empty (code=%s)",doc.gender.c_str());
-      	    	  gender=gender_row.code_lat;
-      	    	  if (fmt=="EDI_CZ" || fmt=="EDI_US")
-                {
-                  gender = gender.substr(0,1);
-                  if (gender!="M" &&
-                      gender!="F")
-        	          gender.clear();
-                };
-      	    	  if (fmt=="CSV_DE" || fmt=="EDI_CN" || fmt=="EDI_IN")
-      	    	  {
-      	    	    gender = gender.substr(0,1);
-                  if (gender!="M" &&
-                      gender!="F")
-        	          gender = "U";
-        	      };
-        	      if (fmt=="TXT_EE")
-      	    	  {
-      	    	    gender = gender.substr(0,1);
-                  if (gender!="M" &&
-                      gender!="F")
-        	          gender = "N";
-        	      };
-      	    	};
+              int is_female=CheckIn::is_female(doc.gender, PaxQry.FieldAsString("name"));
+              string gender;
+              if (is_female!=NoExists)
+              {
+                gender=(is_female==0?"M":"F");
+              }
+              else
+              {
+                if (fmt=="CSV_CZ" || fmt=="EDI_CZ" || fmt=="EDI_US") gender.clear();
+                if (fmt=="CSV_DE" || fmt=="EDI_CN" || fmt=="EDI_IN") gender = "U";
+                if (fmt=="TXT_EE") gender = "N";
+              };
+
       	    	string doc_type;
       	    	if (!doc.type.empty())
       	    	{

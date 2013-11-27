@@ -334,15 +334,14 @@ void TFlightWeights::read( int point_id, TTypeFlightWeight weight_type, bool inc
   if ( pr_female ) // надо учитывать отдельно веса мужчин и женщин
     str =
       "SELECT class, subclass, "
-      "       NVL(SUM(DECODE(pax.pers_type,:adl,DECODE(pax_doc.gender,:male,1,NULL,1,0),0)),0) AS male, "
-      "       NVL(SUM(DECODE(pax.pers_type,:adl,DECODE(pax_doc.gender,:female,1,0),0)),0) AS female, "
+      "       NVL(SUM(DECODE(pax.pers_type,:adl,DECODE(pax.is_female,0,1,NULL,1,0),0)),0) AS male, "
+      "       NVL(SUM(DECODE(pax.pers_type,:adl,DECODE(pax.is_female,0,0,NULL,0,1),0)),0) AS female, "
       "       NVL(SUM(DECODE(pax.pers_type,:chd,1,0)),0) AS child, "
       "       NVL(SUM(DECODE(pax.pers_type,:inf,1,0)),0) AS infant, "
       "       NVL(SUM(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum)),0) rkweight,"
       "       NVL(SUM(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum)),0) bagweight"
-      " FROM pax_grp, pax, pax_doc"
-      " WHERE pax_grp.grp_id=pax.grp_id AND "
-      "       pax.pax_id=pax_doc.pax_id(+)";
+      " FROM pax_grp, pax "
+      " WHERE pax_grp.grp_id=pax.grp_id";
   else
     str =
       "SELECT class, subclass, "

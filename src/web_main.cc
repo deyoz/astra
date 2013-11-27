@@ -3652,8 +3652,8 @@ void WebRequestsIface::GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 	   "       pax_grp.airp_arv,pax_grp.airp_dep,"
      "       pax_grp.class,pax.refuse,"
 	   "       pax.pers_type, "
+     "       NVL(pax.is_female,1) as is_female, "
 	   "       pax.subclass, "
-	   "       NVL(pax_doc.gender,'F') as gender, "
 	   "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'tlg',rownum) AS seat_no, "
 	   "       pax.seats seats, "
 	   "       ckin.get_excess(pax_grp.grp_id,pax.pax_id) excess,"
@@ -3747,7 +3747,7 @@ void WebRequestsIface::GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     NewTextChild( paxNode, "subclass", PaxQry.FieldAsString( "subclass" ) );
     NewTextChild( paxNode, "pers_type", PaxQry.FieldAsString( "pers_type" ) );
     if ( DecodePerson( PaxQry.FieldAsString( "pers_type" ) ) == ASTRA::adult ) {
-      NewTextChild( paxNode, "gender", PaxQry.FieldAsString( "gender" ) );
+      NewTextChild( paxNode, "gender", (PaxQry.FieldAsInteger("is_female")==0?"M":"F") );
     }
     NewTextChild( paxNode, "airp_dep", PaxQry.FieldAsString("airp_dep") );
     NewTextChild( paxNode, "airp_arv", PaxQry.FieldAsString("airp_arv") );

@@ -719,7 +719,7 @@ struct TPax {
     string visaPlace;             //visa_issue_place
     string visaCountryCode;       //visa_applic_country
     string nationality;           //doc_nationality
-    string gender;                //doc_gender
+    string gender;                //doc_gender+name
 };
 
 string make_soap_content(const vector<TPax> &paxs)
@@ -830,11 +830,9 @@ void get_pax_list(const TPaxListFilter &filter,
   ostringstream sql;
   sql << "SELECT time, term, "
          "       airline, flt_no, suffix, takeoff, airp_dep, "
-         "       airp_arv, surname, "
-         "       LTRIM(RTRIM(SUBSTR(name||' ',1,INSTR(name||' ',' ')))) AS name, "
-         "       LTRIM(RTRIM(SUBSTR(name||' ',INSTR(name||' ',' ')+1))) AS patronymic, "
+         "       airp_arv, surname, name, "
          "       seat_no, bag_weight+rk_weight AS bag_weight, tags, pnr, operation, "
-         "       doc_no, doc_nationality, NVL(doc_gender,'N') AS doc_gender, "
+         "       doc_no, doc_nationality, doc_gender, "
          "       visa_no, visa_issue_place, visa_issue_date, visa_applic_country "
          "FROM rozysk "
          "WHERE time>=:first_time AND time<:last_time AND pax_id IS NULL ";
@@ -874,7 +872,6 @@ void get_pax_list(const TPaxListFilter &filter,
     int idx_airp_arv = Qry.FieldIndex( "airp_arv" );
     int idx_surname = Qry.FieldIndex( "surname" );
     int idx_name = Qry.FieldIndex( "name" );
-    int idx_patronymic = Qry.FieldIndex( "patronymic" );
     int idx_seat_no = Qry.FieldIndex( "seat_no" );
     int idx_bag_weight = Qry.FieldIndex( "bag_weight" );
     int idx_tags = Qry.FieldIndex( "tags" );
@@ -902,9 +899,9 @@ void get_pax_list(const TPaxListFilter &filter,
         pax.departureDate = Qry.FieldAsDateTime( idx_takeoff );
       pax.rackNumber = Qry.FieldAsString( idx_term );
       pax.seatNumber = Qry.FieldAsString( idx_seat_no );
-      pax.firstName = Qry.FieldAsString( idx_name );
       pax.lastName = Qry.FieldAsString( idx_surname );
-      pax.patronymic = Qry.FieldAsString( idx_patronymic );
+      pax.firstName = Qry.FieldAsString( idx_name );
+      pax.patronymic = SeparateNames(pax.firstName);
       pax.documentNumber = Qry.FieldAsString( idx_doc_no );
       pax.operationType = Qry.FieldAsString( idx_operation );
       pax.baggageReceiptsNumber = Qry.FieldAsString( idx_tags );
@@ -920,7 +917,9 @@ void get_pax_list(const TPaxListFilter &filter,
       pax.visaPlace = Qry.FieldAsString( idx_visa_issue_place );
       pax.visaCountryCode = Qry.FieldAsString( idx_visa_applic_country );
       pax.nationality = Qry.FieldAsString( idx_doc_nationality );
-      pax.gender = Qry.FieldAsString( idx_doc_gender );
+      int is_female=CheckIn::is_female(Qry.FieldAsString( idx_doc_gender ),
+                                       Qry.FieldAsString( idx_name ));
+      pax.gender = (is_female==ASTRA::NoExists?"N":(is_female==0?"M":"F"));
 
       if (filter.check_pax(pax)) paxs.push_back( pax );;
     }
@@ -987,7 +986,8 @@ void get_pax_list(int point_id,
          "       r.visa_birth_place, r.ticket_no "
          "FROM pax_grp, pax, rozysk r "
          "WHERE pax_grp.grp_id=pax.grp_id AND pax.pax_id=r.pax_id AND "
-         "      pax_grp.point_dep=:point_id "
+         "      pax_grp.point_dep=:point_id AND "
+         "      (r.name IS NULL OR r.name<>'CBBG') "
          "ORDER BY time";
   Qry.SQLText=sql.str();
   Qry.CreateVariable( "point_id", otInteger, point_id );
@@ -1089,14 +1089,9 @@ void get_pax_list(int point_id,
       else
         pax.departDateTime = Qry.FieldAsDateTime( idx_takeoff );
       pax.typePDP = (Qry.FieldIsNULL( idx_reg_no ) || Qry.FieldAsInteger( idx_reg_no )>0)?"пассажир":"член экипажа";
-      pax.gender = ElemIdToElem(etGenderType, Qry.FieldAsString( idx_doc_gender ), fmts);
-      if (pax.gender.empty()) pax.gender = Qry.FieldAsString( idx_doc_gender );
-      if (!pax.gender.empty())
-      {
-        pax.gender = pax.gender.substr(0,1);
-        if (pax.gender!="M" &&
-            pax.gender!="F") pax.gender.clear();
-      };
+      int is_female=CheckIn::is_female(Qry.FieldAsString( idx_doc_gender ),
+                                       Qry.FieldAsString( idx_name ));
+      pax.gender = (is_female==ASTRA::NoExists?"":(is_female==0?"M":"F"));
       pax.nationalities = Qry.FieldAsString( idx_doc_nationality );
       //Данные о регистрируемой операции
       pax.operationType = Qry.FieldAsString( idx_operation );

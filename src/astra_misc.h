@@ -744,7 +744,20 @@ void SetInfantsToAdults( std::vector<T1> &InfItems, std::vector<T2> AdultItems )
 bool is_sync_paxs( int point_id );
 void update_pax_change( int point_id, int pax_id, int reg_no, const std::string &work_mode );
 
-std::string TruncNameTitles(const std::string &str);
+class TPaxNameTitle
+{
+  public:
+    std::string title;
+    bool is_female;
+    TPaxNameTitle() { clear(); };
+    void clear() { title.clear(); is_female=false; };
+    bool empty() const { return title.empty(); };
+};
+
+const std::map<std::string, TPaxNameTitle>& pax_name_titles();
+bool GetPaxNameTitle(std::string &name, bool truncate, TPaxNameTitle &info);
+std::string TruncNameTitles(const std::string &name);
+
 std::string SeparateNames(std::string &names);
 
 int CalcWeightInKilos(int weight, std::string weight_unit);

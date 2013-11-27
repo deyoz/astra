@@ -961,6 +961,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "   DECODE(pax_grp.status, 'T', pax_grp.status, 'N') status, \n"
         "   surname||' '||pax.name AS full_name, \n"
         "   pax.pers_type, \n"
+        "   pax.is_female, \n"
         "   salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'_seats',rownum,:pr_lat) AS seat_no, \n"
         "   pax.seats, \n";
     if(rpt_params.pr_et) { //ЭБ
@@ -1135,8 +1136,11 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "excess", Qry.FieldAsInteger("excess"));
         {
             TPerson pers_type = DecodePerson(Qry.FieldAsString("pers_type"));
+            string gender = "M";
             switch(pers_type) {
                 case adult:
+                    if(not Qry.FieldIsNULL("is_female") and Qry.FieldAsInteger("is_female") != 0)
+                        gender = "F";
                     NewTextChild(rowNode, "pers_type", "ADL");
                     break;
                 case child:
@@ -1148,6 +1152,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
                 default:
                     throw Exception("DecodePerson failed");
             }
+            NewTextChild(rowNode, "gender", gender);
         }
         NewTextChild(rowNode, "tags", Qry.FieldAsString("tags"));
         NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
@@ -1831,7 +1836,8 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
   if (rpt_params.rpt_type==rtPTMTXT)
     s << left
       << setw(4)  << (getLocaleText("CAP.DOC.REG", rpt_params.GetLang()))
-      << setw(rpt_params.IsInter()?22:23) << (getLocaleText("Фамилия", rpt_params.GetLang()))
+      << setw(rpt_params.IsInter()?18:19) << (getLocaleText("Фамилия", rpt_params.GetLang()))
+      << setw(4)  << (getLocaleText("Пол", rpt_params.GetLang()))
       << setw(rpt_params.IsInter()?4:3)   << (getLocaleText("Кл", rpt_params.GetLang()))
       << setw(5)  << (getLocaleText("CAP.DOC.SEAT_NO", rpt_params.GetLang()))
       << setw(4)  << (getLocaleText("РБ", rpt_params.GetLang()))
@@ -1855,8 +1861,8 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
   if (rpt_params.rpt_type==rtPTMTXT)
   {
     s.str("");
-    s << (getLocaleText("Всего в классе", rpt_params.GetLang())) << endl
-      << "%-30s%4u %3u %3u %2u/%-4u%4u";
+    s << setw(21) << (getLocaleText("Всего в классе", rpt_params.GetLang())) << "M/F" << endl
+      << "%-17s%7s      %4u %3u %3u %2u/%-4u%4u";
     NewTextChild(variablesNode, "total_in_class_fmt", s.str());
 
     s.str("");
@@ -1876,7 +1882,7 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         << (getLocaleText("Подпись", rpt_params.GetLang())) << endl;
 
     s << setw(7) << (getLocaleText("Кресел", rpt_params.GetLang()))
-      << setw(7) << (getLocaleText("ВЗ/Ж", rpt_params.GetLang()))
+      << setw(8) << (getLocaleText("ВЗ/Ж", rpt_params.GetLang()))
       << setw(7) << (getLocaleText("РБ", rpt_params.GetLang()))
       << setw(7) << (getLocaleText("РМ", rpt_params.GetLang()))
       << setw(7) << (getLocaleText("Мест", rpt_params.GetLang()))
@@ -1884,7 +1890,7 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       << setw(7) << (getLocaleText("Р/кл", rpt_params.GetLang()))
       << setw(7) << (getLocaleText("CAP.DOC.EX_BAG", rpt_params.GetLang()))
       << setw(24) << string(NodeAsString("pts_agent", variablesNode)).substr(0, 24) << endl
-      << "%-6u %-6u %-6u %-6u %-6u %-6u %-6u %-6u" << endl
+      << "%-6u %-7s %-6u %-6u %-6u %-6u %-6u %-6u" << endl
       << (getLocaleText("CAP.ISSUE_DATE", LParams() << LParam("date", NodeAsString("date_issue",variablesNode)), rpt_params.GetLang()));
 
     NewTextChild(variablesNode, "page_footer_top", s.str() );
@@ -1895,6 +1901,7 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     map< string, vector<string> > fields;
     int row;
     xmlNodePtr rowNode=dataSetNode->children;
+    int fem = 0; int male = 0;
     for(;rowNode!=NULL;rowNode=rowNode->next)
     {
       str=NodeAsString("airp_arv_name",rowNode);
@@ -1906,12 +1913,16 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       };
 
       //рабиваем фамилию, бирки, ремарки
-      SeparateString(NodeAsString("full_name",rowNode),22,rows);
+      SeparateString(NodeAsString("full_name",rowNode),18,rows);
       fields["full_name"]=rows;
       SeparateString(NodeAsString("tags",rowNode),15,rows);
       fields["tags"]=rows;
       SeparateString(NodeAsString("remarks",rowNode),9,rows);
       fields["remarks"]=rows;
+
+      string gender = NodeAsString("gender",rowNode);
+      if(gender == "M") male++;
+      if(gender == "F") fem++;
 
       row=0;
       string pers_type=NodeAsString("pers_type",rowNode);
@@ -1920,7 +1931,8 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       {
         if (row!=0) s << endl;
         s << right << setw(3) << (row==0?NodeAsString("reg_no",rowNode):"") << " "
-          << left << setw(22) << (!fields["full_name"].empty()?*(fields["full_name"].begin()):"") << " "
+          << left << setw(18) << (!fields["full_name"].empty()?*(fields["full_name"].begin()):"") << " "
+          << left <<  setw(4) << (row==0?gender:"")
           << left <<  setw(3) << (row==0?NodeAsString("class",rowNode):"")
           << right << setw(4) << (row==0?NodeAsString("seat_no",rowNode):"") << " "
           << left <<  setw(4) << (row==0&&pers_type=="CHD"?" X ":"")
@@ -1965,7 +1977,7 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       };
 
       s << setw(7) << (getLocaleText("Кресел", rpt_params.GetLang()))
-        << setw(7) << (getLocaleText("ВЗ/Ж", rpt_params.GetLang()))
+        << setw(8) << (getLocaleText("ВЗ/Ж", rpt_params.GetLang()))
         << setw(7) << (getLocaleText("РБ", rpt_params.GetLang()))
         << setw(7) << (getLocaleText("РМ", rpt_params.GetLang()))
         << setw(7) << (getLocaleText("Мест", rpt_params.GetLang()))
@@ -1989,10 +2001,12 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     rowNode=dataSetNode->children;
     for(;rowNode!=NULL;rowNode=rowNode->next)
     {
+      ostringstream adl_fem;
+      adl_fem << NodeAsInteger("adl", rowNode) << '/' << fem;
       s.str("");
       s << setw(rpt_params.pr_trfer?24:20) << NodeAsString("class_name",rowNode)
         << setw(7) << NodeAsInteger("seats",rowNode)
-        << setw(7) << NodeAsInteger("adl",rowNode)
+        << setw(8) << adl_fem.str()
         << setw(7) << NodeAsInteger("chd",rowNode)
         << setw(7) << NodeAsInteger("inf",rowNode)
         << setw(7) << NodeAsInteger("bag_amount",rowNode)
