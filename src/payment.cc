@@ -120,9 +120,9 @@ namespace RCPT_PAX_DOC {
 
 namespace RCPT_PAX_NAME {
 
-    bool check_gender(const string &gender)
+    bool check_title(const string &title)
     {
-        return pax_name_titles().find(gender)!=pax_name_titles().end();
+        return pax_name_titles().find(title)!=pax_name_titles().end();
     }
 
     string compile_pax_name(const vector<string> &lex)
@@ -166,7 +166,7 @@ namespace RCPT_PAX_NAME {
                   )
                     throw "MSG.PAX_NAME.FORMAT_HINT";
             if (result.empty()) throw Exception("split_pax_name: lex.empty()");
-            if(not check_gender(result.back())) throw "MSG.PAX_NAME.PAX_TYPE_NOT_SET";
+            if(not check_title(result.back())) throw "MSG.PAX_NAME.PAX_TYPE_NOT_SET";
             if(result.size() == 4 and result[2].size() != 1) throw "MSG.PAX_NAME.WRONG_MID_NAME";
         }
         /*
@@ -184,15 +184,15 @@ namespace RCPT_PAX_NAME {
         vector<string> lex = split_pax_name(pax_name);
         if(lex.size() == 1)
             lex.push_back(string()); // добавляем пустое имя
-        string db_gender = Qry.FieldAsString("gender");
-        if(not db_gender.empty()) {
-            db_gender = (db_gender.find("F") == 0 ? "Г-ЖА" : "Г-Н");
-            db_gender = getLocaleText(db_gender);
+        int is_female=CheckIn::is_female( Qry.FieldAsString("gender"), "");
+        if(is_female != NoExists) {
+            string db_title = (is_female != 0 ? "Г-ЖА" : "Г-Н");
+            db_title = getLocaleText(db_title);
             if (lex.empty()) throw Exception("get_pax_name: lex.empty()");
-            if(check_gender(lex.back()))
-                lex.back() = db_gender;
+            if(check_title(lex.back()))
+                lex.back() = db_title;
             else
-                lex.push_back(db_gender);
+                lex.push_back(db_title);
         }
         return compile_pax_name(lex);
     }
@@ -216,7 +216,7 @@ namespace RCPT_PAX_NAME {
         if(lex.size() == 1) lex.push_back(string());
         size_t num_translited = 0;
         if (lex.empty()) throw Exception("transliter_pax_name: lex.empty()");
-        if(check_gender(lex.back())) {
+        if(check_title(lex.back())) {
             lex.back() = getLocaleText(upperc(lex.back()), tag_lang.GetLang());
             num_translited++;
             if(lex.size() > 4)
