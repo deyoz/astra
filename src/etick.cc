@@ -231,27 +231,42 @@ void ChangeAreaStatus(TETCheckStatusArea area, XMLRequestCtxt *ctxt, xmlNodePtr 
   TChangeStatusList mtick;
   for(;segNode!=NULL;segNode=segNode->next)
   {
-    int id;
+    set<int> ids;
     switch (area)
     {
       case csaFlt:
-        id=NodeAsInteger("point_id",segNode);
+        ids.insert(NodeAsInteger("point_id",segNode));
         break;
       case csaGrp:
-        id=NodeAsInteger("grp_id",segNode);
+        ids.insert(NodeAsInteger("grp_id",segNode));
         break;
       case csaPax:
-        id=NodeAsInteger("pax_id",segNode);
+        {
+          xmlNodePtr node=GetNode("passengers/pax_id", segNode);
+          if (node!=NULL)
+          {
+            for(; node!=NULL; node=node->next)
+              ids.insert(NodeAsInteger(node));
+          }
+          else ids.insert(NodeAsInteger("pax_id",segNode));
+        }
         break;
-      default: return;
+      default: throw EXCEPTIONS::Exception("ChangeAreaStatus: wrong area");
     }
 
+    if (ids.empty()) throw EXCEPTIONS::Exception("ChangeAreaStatus: ids.empty()");
+
+    xmlNodePtr node=GetNode("check_point_id",segNode);
+    int check_point_id=(node==NULL?NoExists:NodeAsInteger(node));
+
+    for(set<int>::const_iterator i=ids.begin(); i!=ids.end(); ++i)
     try
     {
-      xmlNodePtr node=GetNode("check_point_id",segNode);
-      int check_point_id=NoExists;
-      if (node!=NULL) check_point_id=NodeAsInteger(node);
-      ETStatusInterface::ETCheckStatus(id,area,check_point_id,false,mtick);
+      ETStatusInterface::ETCheckStatus(*i,
+                                       area,
+                                       (i==ids.begin()?check_point_id:NoExists),
+                                       false,
+                                       mtick);
     }
     catch(AstraLocale::UserException &e)
     {
@@ -284,7 +299,7 @@ void ChangeAreaStatus(TETCheckStatusArea area, XMLRequestCtxt *ctxt, xmlNodePtr 
             break;
           default: throw;
         };
-        Qry.CreateVariable("id",otInteger,id);
+        Qry.CreateVariable("id",otInteger,*i);
         Qry.Execute();
         if (!Qry.Eof)
         {
