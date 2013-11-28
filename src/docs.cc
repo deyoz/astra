@@ -1136,11 +1136,13 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "excess", Qry.FieldAsInteger("excess"));
         {
             TPerson pers_type = DecodePerson(Qry.FieldAsString("pers_type"));
-            string gender = "M";
+            string gender;
             switch(pers_type) {
                 case adult:
                     if(not Qry.FieldIsNULL("is_female") and Qry.FieldAsInteger("is_female") != 0)
                         gender = "F";
+                    else
+                        gender = "M";
                     NewTextChild(rowNode, "pers_type", "ADL");
                     break;
                 case child:
