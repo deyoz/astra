@@ -8,8 +8,6 @@
 
 class BrdInterface : public JxtInterface
 {
-private:
-    static bool PaxUpdate(int point_id, int pax_id, int &tid, bool mark, bool pr_exam_with_brd);
 public:
   BrdInterface() : JxtInterface("123","brd")
   {
