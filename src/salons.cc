@@ -867,7 +867,7 @@ void TPlace::Build( xmlNodePtr node, int point_dep, bool pr_lat_seat, bool pr_up
                NewTextChild( passNode, "seats", (int)ipax->second.seats );
                NewTextChild( passNode, "cl", ipax->second.cl );
                NewTextChild( passNode, "surname", ipax->second.surname );
-               NewTextChild( passNode, "pr_infant", ipax->second.pr_infant );
+               NewTextChild( passNode, "pr_infant", ipax->second.pr_infant != ASTRA::NoExists );
              }
            }
            if ( ilayer->crs_pax_id != ASTRA::NoExists ) {
@@ -880,7 +880,7 @@ void TPlace::Build( xmlNodePtr node, int point_dep, bool pr_lat_seat, bool pr_up
                NewTextChild( passNode, "seats", (int)ipax->second.seats );
                NewTextChild( passNode, "cl", ipax->second.cl );
                NewTextChild( passNode, "surname", ipax->second.surname );
-               NewTextChild( passNode, "pr_infant", ipax->second.pr_infant );
+               NewTextChild( passNode, "pr_infant", ipax->second.pr_infant != ASTRA::NoExists );
              }
            }
            if ( ilayer->time_create != ASTRA::NoExists ) {
@@ -2190,6 +2190,7 @@ void TSalonList::ReadPaxs( TQuery &Qry, TPaxList &pax_list )
   int idx_pers_type = Qry.FieldIndex( "pers_type" );
   int idx_name = Qry.FieldIndex( "name" );
   int idx_surname = Qry.FieldIndex( "surname" );
+  int idx_is_female = Qry.FieldIndex( "is_female" );
   int idx_class = Qry.FieldIndex( "class" );
   int idx_class_grp = Qry.FieldIndex( "class_grp" );
   int idx_point_dep = Qry.FieldIndex( "point_dep" );
@@ -2207,6 +2208,7 @@ void TSalonList::ReadPaxs( TQuery &Qry, TPaxList &pax_list )
     pass.reg_no = Qry.FieldAsInteger( idx_reg_no );
     pass.name = Qry.FieldAsString( idx_name );
     pass.surname = Qry.FieldAsString( idx_surname );
+    pass.is_female = Qry.FieldIsNULL( idx_is_female )?ASTRA::NoExists:Qry.FieldAsInteger( idx_is_female );
     pass.parent_pax_id = Qry.FieldAsInteger( idx_parent_pax_id );
     pass.pers_type = DecodePerson( Qry.FieldAsString( idx_pers_type ) );
     pass.pr_web = ( Qry.FieldAsInteger( idx_pr_web ) != 0 );
@@ -2225,7 +2227,7 @@ void TSalonList::ReadPaxs( TQuery &Qry, TPaxList &pax_list )
       else {  //children with seats
         TSalonPax pax;
         pax = pass;
-        pax.pr_infant = false;
+        pax.pr_infant = ASTRA::NoExists;
         pax_list.insert( make_pair( pass.pax_id, pax ) );
       }
     }
@@ -2276,7 +2278,7 @@ void TSalonList::ReadCrsPaxs( TQuery &Qry, TPaxList &pax_list )
     pax.cl = Qry.FieldAsString( idx_class );
     pax.name = Qry.FieldAsString( idx_name );
     pax.surname = Qry.FieldAsString( idx_surname );
-    pax.pr_infant = false;
+    pax.pr_infant = ASTRA::NoExists;
     pax.pr_web = false;
     pax_list.insert( make_pair( id, pax ) );
   }
@@ -3245,54 +3247,73 @@ void TSalonList::getPaxLayer( int point_dep, int pax_id,
   }
 }
 
+void TSectionInfo::AddPax( const TSalonPax &pax )
+{
+   paxs.insert( make_pair( pax.pax_id, pax ) );
+}
+
+bool TSectionInfo::inSectionPaxId( int pax_id )
+{
+  return paxs.find( pax_id ) != paxs.end();
+}
+
+void TSectionInfo::AddCurrentLayerSeat( const TSeatLayer &layer, TPlace* seat ) {
+  for (std::vector<std::pair<TSeatLayer,TPassSeats> >::iterator ilayer=currentLayerSeats[ layer.layer_type ].begin();
+       ilayer!=currentLayerSeats[ layer.layer_type ].end(); ilayer++ ) {
+    if ( ilayer->first == layer ) {
+      ilayer->second.insert(  TSeat( seat->yname, seat->xname ) );
+      return;
+    }
+  }
+  TPassSeats p;
+  p.insert( TSeat( seat->yname, seat->xname ) );
+  currentLayerSeats[ layer.layer_type ].push_back( make_pair( layer, p ) );
+}
+
+void TSectionInfo::GetCurrentLayerSeat( const ASTRA::TCompLayerType &layer_type,
+                                        std::vector<std::pair<TSeatLayer,TPassSeats> > &layersSeats )
+{
+  layersSeats.clear();
+  if ( currentLayerSeats.find( layer_type ) != currentLayerSeats.end() ) {
+    layersSeats = currentLayerSeats[ layer_type ];
+  } 
+}                                        
+
+
 /*  надо заполнить:
     std::map<ASTRA::TCompLayerType,std::vector<TPlace*> > totalLayerSeats; //слой + места
     std::map<ASTRA::TCompLayerType,std::vector<TPlace*> > currentLayerSeats; //самы приоритетный слой + места
     std::set<TSalonPoint> salonPoints; места принадлежащие секции
+    TLayersSeats layersPaxs; //seatLayer->pax_id список пассажиров с местами       
     std::map<int,TSeatPax> paxs; //pax_id места принадлежащие пассажиру и слой
-*/    
-void TSalonList::getSeatsCompSections( std::vector<TCompSection> &compSections, const TGetPassFlags &flags )
+*/
+
+void TSalonList::getSectionInfo( TSectionInfo &sectionInfo, const TGetPassFlags &flags )
 {
-  //формируем список всех пассажиров
-  std::vector<TSalonPax> paxsTmp;
-  if ( !flags.emptyFlags() ) {
-    TSalonPassengers passengers;
-    getPassengers( passengers, flags );
-    for ( TSalonPassengers::iterator ipass_dep=passengers.begin();
-          ipass_dep!=passengers.end(); ipass_dep++ ) {
-      for ( TIntArvSalonPassengers::iterator ipass_arv=ipass_dep->second.begin();
-            ipass_arv!=ipass_dep->second.end(); ipass_arv++ ) {
-        for ( TIntClassSalonPassengers::iterator ipass_class=ipass_arv->second.begin();
-              ipass_class!=ipass_arv->second.end(); ipass_class++ ) {
-          for ( TIntStatusSalonPassengers::iterator ipass_status=ipass_class->second.begin();
-                ipass_status!=ipass_class->second.end(); ipass_status++ ) {
-            for ( std::set<TSalonPax,ComparePassenger>::iterator ipass=ipass_status->second.begin();
-                  ipass!=ipass_status->second.end(); ipass++ ) {
-              paxsTmp.push_back( *ipass );
-            }
-          }
-        }
-      }
-    }
-  }
+  std::vector<TSectionInfo> salonsInfo;
+  salonsInfo.push_back( sectionInfo );
+  getSectionInfo( salonsInfo, flags );
+  sectionInfo = *salonsInfo.begin();
+}
+    
+void TSalonList::getSectionInfo( std::vector<TSectionInfo> &salonsInfo, const TGetPassFlags &flags )
+{
   std::map<int, std::set<TSeatLayer,SeatLayerCompare>,classcomp > vlayers;
-  std::map<int, std::set<TSeatLayer,SeatLayerCompare>,classcomp >::iterator ilayer;
+  std::map<int, std::set<TSeatLayer,SeatLayerCompare>,classcomp >::const_iterator ilayer;
   SALONS2::TSeatLayer layer;
-  TPassSeats seats;
-  TWaitListReason waitListReason;
   std::map<int, std::set<TSeatLayer,SeatLayerCompare>,classcomp > layers;
-  for ( vector<SALONS2::TCompSection>::iterator icompSection=compSections.begin(); icompSection!=compSections.end(); icompSection++ ) {
+  for ( vector<SALONS2::TSectionInfo>::iterator icompSection=salonsInfo.begin(); icompSection!=salonsInfo.end(); icompSection++ ) {
     icompSection->clearProps();
     int Idx = 0;
     for ( vector<TPlaceList*>::const_iterator si=begin(); si!=end(); si++ ) {
       for ( int y=0; y<(*si)->GetYsCount(); y++ ) {
-        if ( Idx >= icompSection->firstRowIdx && Idx <= icompSection->lastRowIdx ) { // внутри секции
+        if ( icompSection->inSection( Idx ) ) { // внутри секции или нет границ секции
           for ( int x=0; x<(*si)->GetXsCount(); x++ ) {
             TPlace *seat = (*si)->place( (*si)->GetPlaceIndex( x, y ) );
             if ( !seat->isplace || !seat->visible ) {
                continue;
             }
-            icompSection->AddSalonPoints( TSalonPoint( seat->x, seat->y, (*si)->num ) );
+            icompSection->AddSalonPoints( TSalonPoint( seat->x, seat->y, (*si)->num ), TSeat( seat->yname, seat->xname ) );
             seat->GetLayers( layers, glAll );
             ilayer = vlayers.find( getDepartureId() );
             if ( ilayer != vlayers.end() ) {
@@ -3301,10 +3322,7 @@ void TSalonList::getSeatsCompSections( std::vector<TCompSection> &compSections, 
                 icompSection->AddTotalLayerSeat( ilr->layer_type, seat );
               }
               if ( !ilayer->second.empty() ) {
-                icompSection->AddCurrentLayerSeat( ilayer->second.begin()->layer_type, seat );
-                if ( ilayer->second.begin()->getPaxId() != ASTRA::NoExists ) {
-                  icompSection->AddSalonPax( ilayer->second.begin()->getPaxId(), seat );
-                }
+                icompSection->AddCurrentLayerSeat( *ilayer->second.begin(), seat );
               }
             }
           }
@@ -3312,22 +3330,79 @@ void TSalonList::getSeatsCompSections( std::vector<TCompSection> &compSections, 
         Idx++;
       }
     }
-  } 
+  }
+  TPassSeats seats;
+  TWaitListReason waitListReason;
+  //формируем список всех пассажиров
+  if ( !flags.emptyFlags() ) {
+    TSalonPassengers passengers;
+    getPassengers( passengers, flags );
+    for ( TSalonPassengers::iterator ipass_dep=passengers.begin();
+          ipass_dep!=passengers.end(); ipass_dep++ ) {
+      if ( ipass_dep->first != getDepartureId() ) {
+        continue;
+      }
+      for ( TIntArvSalonPassengers::iterator ipass_arv=ipass_dep->second.begin();
+            ipass_arv!=ipass_dep->second.end(); ipass_arv++ ) {
+        for ( TIntClassSalonPassengers::iterator ipass_class=ipass_arv->second.begin();
+              ipass_class!=ipass_arv->second.end(); ipass_class++ ) {
+          for ( TIntStatusSalonPassengers::iterator ipass_status=ipass_class->second.begin();
+                ipass_status!=ipass_class->second.end(); ipass_status++ ) {
+            for ( std::set<TSalonPax,ComparePassenger>::iterator ipass=ipass_status->second.begin();
+                  ipass!=ipass_status->second.end(); ipass++ ) {
+              ipass->get_seats( waitListReason, seats );
+              ProgTrace( TRACE5, "pax_id=%d, seats.size()=%zu", ipass->pax_id, seats.size() );
+              if ( waitListReason.layerStatus == layerValid ) {
+                for ( TPassSeats::const_iterator iseat=seats.begin();
+                      iseat!=seats.end(); iseat++ ) {
+                  for ( vector<SALONS2::TSectionInfo>::iterator icompSection=salonsInfo.begin(); icompSection!=salonsInfo.end(); icompSection++ ) {
+                    if ( icompSection->inSection( *iseat ) ) {
+                      ProgTrace( TRACE5, "pax_id=%d, seat_no=%s, layer=%s", 
+                                 ipass->pax_id, string(string(iseat->row)+iseat->line).c_str(), waitListReason.layer.toString().c_str() );                    
+                      icompSection->AddPax( *ipass );
+                      icompSection->AddLayerSeats( waitListReason.layer, *iseat );
+                      break;
+                    }
+                  }  
+                }
+              }
+            }
+          }
+        }
+        if ( flags.isFlag( gpInfants ) ) { //infants
+          tst();
+          for ( TIntArvSalonPassengers::iterator ipass_arv=ipass_dep->second.infants.begin();
+                ipass_arv!=ipass_dep->second.infants.end(); ipass_arv++ ) {
+            for ( TIntClassSalonPassengers::iterator ipass_class=ipass_arv->second.begin();
+                  ipass_class!=ipass_arv->second.end(); ipass_class++ ) {
+              for ( TIntStatusSalonPassengers::iterator ipass_status=ipass_class->second.begin();
+                    ipass_status!=ipass_class->second.end(); ipass_status++ ) {
+                for ( std::set<TSalonPax,ComparePassenger>::iterator ipass=ipass_status->second.begin();
+                      ipass!=ipass_status->second.end(); ipass++ ) {
+                  for ( vector<SALONS2::TSectionInfo>::iterator icompSection=salonsInfo.begin(); icompSection!=salonsInfo.end(); icompSection++ ) {
+                    if ( icompSection->inSectionPaxId( ipass->pax_id ) ) {
+                      icompSection->AddPax( *ipass );
+                      break;                    
+                    }
+                  }
+                }
+              }
+            }
+          }          
+        } 
+      }
+    }
+  } //end pass
+  TLayersSeats value;
+  salonsInfo.begin()->GetLayerSeats( value );
+  ProgTrace( TRACE5, "value.size()=%zu", value.size() );
 }
 
-/*void TSalonList::getPassCompSection( std::vector<TCompSection> &compSections, const TSalonTranzitPassengers &passengers )
-{
-  for ( TSalonTranzitPassengers::const_iterator ipax=passengers.begin();
-        ipax!=passengers.end(); ipax++ ) {
-
-  }
-  //AddSalonPax
-} */
-
-
 /*
-  filterRoutes - список пунктов у которых возможно есть места, кот. будуь влиять на нашу разметку */
+  filterRoutes - список пунктов у которых возможно есть места, кот. будуь влиять на нашу разметку 
+*/
 void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
+                             TSalonReadVersion version,
                              const std::string &filterClass,
                              bool for_calc_waitlist,
                              int prior_compon_props_point_id )
@@ -3339,6 +3414,7 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
   ProgTrace( TRACE5, "TSalonList::ReadFlight(): filterClass=%s, prior_compon_props_point_id=%d",
              filterClass.c_str(), prior_compon_props_point_id );
   Clear();
+  filterSets.version = version;
   filterSets.filterClass = filterClass;
   FilterRoutesProperty &filterRoutes = filterSets.filterRoutes;
   filterRoutes.Read( filterRoutesSets );
@@ -3450,7 +3526,7 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
     Qry.Clear();
     Qry.SQLText =
       " SELECT pax.grp_id, pax.pax_id, pax.pers_type, pax.seats, class, class_grp, "
-      "        reg_no, pax.name, pax.surname, pax_grp.status, "
+      "        reg_no, pax.name, pax.surname, pax.is_female, pax_grp.status, "
       "        pax_grp.point_dep, pax_grp.point_arv, "
       "        crs_inf.pax_id AS parent_pax_id, "
       "        DECODE(client_type,:web_client,1,0) pr_web "
@@ -4602,7 +4678,7 @@ void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tran
           tst();
           continue;
         }
-        salonList.ReadFlight( TFilterRoutesSets( iroute->point_id, filterRoutes.getArrivalId() ), "", true );//!!!
+        salonList.ReadFlight( TFilterRoutesSets( iroute->point_id, filterRoutes.getArrivalId() ), rfTranzitVersion, "", true );
         salonList.check_waitlist_alarm_on_tranzit_routes( paxs_external_logged );
       }
     }
@@ -4747,6 +4823,7 @@ void TSalonList::check_waitlist_alarm_on_tranzit_routes( const std::set<int> &pa
   TSalonPassengers passengers;
   TGetPassFlags flgGetPass;
   flgGetPass.setFlag( gpWaitList );
+  flgGetPass.setFlag( gpPassenger );
   getPassengers( passengers, flgGetPass );
   TQuery Qry( &OraSession );
   Qry.SQLText =
@@ -4890,7 +4967,7 @@ void TSalonList::check_waitlist_alarm_on_tranzit_routes( const std::set<int> &pa
     set_alarm( ipoint->point_id, atWaitlist,
                idep_pass != passengers.end() &&
                idep_pass->second.isWaitList() &&
-               !isFreeSeating( ipoint->point_id ) ); //!!!isFreeSeating( iroute->point_id )
+               !isFreeSeating( ipoint->point_id ) ); 
   }
 }
 
@@ -5012,7 +5089,7 @@ void TSalons::Read( bool drop_not_used_pax_layers )
   	PaxQry.Clear();
   	PaxQry.SQLText =
       " SELECT pax.grp_id, pax.pax_id, pax.pers_type, pax.seats, class, "
-      "        reg_no, pax.surname, crs_inf.pax_id AS parent_pax_id, 1 priority "
+      "        reg_no, pax.surname, pax.is_female, crs_inf.pax_id AS parent_pax_id, 1 priority "
       "    FROM pax_grp, pax, crs_inf "
       "   WHERE pax.grp_id=pax_grp.grp_id AND "
       "         pax_grp.point_dep=:point_dep AND "
@@ -5021,7 +5098,7 @@ void TSalons::Read( bool drop_not_used_pax_layers )
       "         pax.refuse IS NULL "
       " UNION "
       " SELECT NULL, pax_id, crs_pax.pers_type, crs_pax.seats, crs_pnr.class, "
-      "        NULL, crs_pax.surname, NULL, 2 priority "
+      "        NULL, crs_pax.surname, NULL, NULL, 2 priority "
       "    FROM crs_pax, crs_pnr, tlg_binding "
       "   WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
       "         crs_pnr.point_id=tlg_binding.point_id_tlg AND "
@@ -5164,6 +5241,7 @@ void TSalons::Read( bool drop_not_used_pax_layers )
     int idx_seats = PaxQry.FieldIndex( "seats" );
     int idx_pers_type = PaxQry.FieldIndex( "pers_type" );
     int idx_surname = PaxQry.FieldIndex( "surname" );
+    int idx_is_female = PaxQry.FieldIndex( "is_female" );
     int idx_class = PaxQry.FieldIndex( "class" );
     int idx_priority = PaxQry.FieldIndex( "priority" );
     while ( !PaxQry.Eof ) {
@@ -5173,6 +5251,7 @@ void TSalons::Read( bool drop_not_used_pax_layers )
         pass.pax_id = PaxQry.FieldAsInteger( idx_pax_id );
         pass.reg_no = PaxQry.FieldAsInteger( idx_reg_no );
         pass.surname = PaxQry.FieldAsString( idx_surname );
+        pass.is_female = PaxQry.FieldIsNULL( idx_is_female )?ASTRA::NoExists:PaxQry.FieldAsInteger( idx_is_female );
         pass.parent_pax_id = PaxQry.FieldAsInteger( idx_parent_pax_id );
         if ( PaxQry.FieldAsInteger( idx_seats ) == 0 ) {
           InfItems.push_back( pass );
@@ -6764,7 +6843,7 @@ void getSalonChanges( const TSalonList &salonList,
              salonList.empty() );
   seats.clear();
   TSalonList NewSalonList;
-  NewSalonList.ReadFlight( salonList.getFilterRoutes(), salonList.getFilterClass() );
+  NewSalonList.ReadFlight( salonList.getFilterRoutes(), rfTranzitVersion, salonList.getFilterClass() );
 	if ( !getSalonChanges( salonList, salonList.isCraftLat(), NewSalonList, NewSalonList.isCraftLat(), seats ) )
 		throw UserException( "MSG.SALONS.COMPON_CHANGED.REFRESH_DATA" );
 }
@@ -7478,8 +7557,8 @@ void ParseCompSections( xmlNodePtr sectionsNode, std::vector<TCompSection> &Comp
     if ( !IsAscii7( cs.name ) ) {
       throw UserException( "MSG.INVALID_COMPSECTIONS_NAME" );
     }
-    cs.firstRowIdx = NodeAsInteger( "@FirstRowIdx", sectionsNode );
-    cs.lastRowIdx = NodeAsInteger( "@LastRowIdx", sectionsNode );
+    cs.setSectionRows( NodeAsInteger( "@FirstRowIdx", sectionsNode ),
+                       NodeAsInteger( "@LastRowIdx", sectionsNode ) );
     CompSections.push_back( cs );
     sectionsNode = sectionsNode->next;
   }
@@ -7498,7 +7577,7 @@ void getLayerPlacesCompSection( const TSalonList &salonList,
   int Idx = 0;
   for ( vector<TPlaceList*>::const_iterator si=salonList.begin(); si!=salonList.end(); si++ ) {
     for ( int y=0; y<(*si)->GetYsCount(); y++ ) {
-      if ( Idx >= compSection.firstRowIdx && Idx <= compSection.lastRowIdx ) { // внутри секции
+      if ( compSection.inSection( Idx ) ) { // внутри секции   !!!убрать
         for ( int x=0; x<(*si)->GetXsCount(); x++ ) {
           TPlace *seat = (*si)->place( (*si)->GetPlaceIndex( x, y ) );
           if ( !seat->isplace || !seat->visible ) {
@@ -7533,7 +7612,7 @@ void getLayerPlacesCompSection( SALONS2::TSalons &NSalons, TCompSection &compSec
   int Idx = 0;
   for ( vector<TPlaceList*>::iterator si=NSalons.placelists.begin(); si!=NSalons.placelists.end(); si++ ) {
     for ( int y=0; y<(*si)->GetYsCount(); y++ ) {
-      if ( Idx >= compSection.firstRowIdx && Idx <= compSection.lastRowIdx ) { // внутри секции
+      if ( compSection.inSection( Idx ) ) { // внутри секции !!!убрать
         for ( int x=0; x<(*si)->GetXsCount(); x++ ) {
          TPlace *p = (*si)->place( (*si)->GetPlaceIndex( x, y ) );
          if ( !p->isplace || !p->visible )
@@ -7781,10 +7860,10 @@ bool isTranzitSalons( int point_id )
   return ( !Qry.Eof && Qry.FieldAsInteger( "pr_new" ) != 0 );
 }
 
-void TSalonPax::get_seats( TWaitListReason &waitListReason,
-                           TPassSeats &ranges ) const {
+void TSalonPax::int_get_seats( TWaitListReason &waitListReason,
+                               vector<TPlace*> &seats ) const {
   waitListReason = TWaitListReason();
-  ranges.clear();
+  seats.clear();
   TGrpStatusTypes &grp_status_types = (TGrpStatusTypes &)base_tables.get("GRP_STATUS_TYPES");
   ProgTrace( TRACE5, "grp_status=%s, pax_id=%d", grp_status.c_str(), pax_id );
   if ( DecodePaxStatus(grp_status.c_str()) == psCrew )
@@ -7804,11 +7883,24 @@ void TSalonPax::get_seats( TWaitListReason &waitListReason,
   if ( ilayer != layers.end() ) {
     waitListReason = ilayer->second.waitListReason;
     if ( ilayer->second.waitListReason.layerStatus == layerValid ) { //нашли слой
+      waitListReason.layer = ilayer->first; //возвращаем валидный слой
       for ( std::set<TPlace*,CompareSeats>::const_iterator iseat=ilayer->second.seats.begin();
             iseat!=ilayer->second.seats.end(); iseat++ ) {
-        ranges.insert( TSeat( (*iseat)->yname, (*iseat)->xname ) );
+        seats.push_back( *iseat );
       }
     }
+  }
+}
+
+
+void TSalonPax::get_seats( TWaitListReason &waitListReason,
+                           TPassSeats &ranges ) const {
+  ranges.clear();                         
+  vector<TPlace*> seats;                         
+  int_get_seats( waitListReason, seats );
+  for ( std::vector<TPlace*>::const_iterator iseat=seats.begin();
+        iseat!=seats.end(); iseat++ ) {
+    ranges.insert( TSeat( (*iseat)->yname, (*iseat)->xname ) );
   }
 }
 
@@ -8140,7 +8232,7 @@ void AddPass( int pax_id, const std::string &surname,  ASTRA::TCompLayerType lay
     paxList[ pax_id ].reg_no = 1;
     paxList[ pax_id ].pers_type = ASTRA::adult;
     paxList[ pax_id ].surname = surname;
-    paxList[ pax_id ].pr_infant = false;
+    paxList[ pax_id ].pr_infant = ASTRA::NoExists;
   }
   //слой
   seatLayer.point_id = 1;

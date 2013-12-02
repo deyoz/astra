@@ -295,17 +295,6 @@ public:
   static void SaveTlgOutPart( TTlgOutPartInfo &info, bool completed, bool has_errors );
 };
 
-void ReadSalons( const TypeB::TDetailCreateInfo &info,
-                 std::vector<TTlgCompLayer> &complayers,
-                 bool pr_blocked = false );
-
-void ReadSalons( int point_id,
-                 int point_num,
-                 int first_point,
-                 bool pr_tranzit,
-                 std::vector<TTlgCompLayer> &complayers,
-                 bool pr_blocked = false );
-
 void send_tlg_help(const char *name);
 int send_tlg(int argc,char **argv);
 

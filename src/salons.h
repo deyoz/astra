@@ -67,7 +67,7 @@ struct TSalonPoint {
 		y = ay;
 		num = anum;
 	};
-	bool operator = ( const TSalonPoint &value ) const {
+	bool operator == ( const TSalonPoint &value ) const {
     return ( x == value.x &&
              y == value.y &&
              num == value.num );
@@ -327,58 +327,101 @@ class TPassSeats: public std::set<TSeat,CompareSeat> {
 };
 
 
-struct TSeatPax {
-  TPassSeats seats;
-  TSeatLayer layer;
+class TSalonPointNames {
+  public:
+    TSalonPoint point;
+    TSeat seat;
+    TSalonPointNames( const TSalonPoint &asalonPoint, const TSeat &aseat ) {
+      point = asalonPoint;
+      seat = aseat;
+    }
 };
 
-struct TCompSection {
+class TLayersSeats:public std::map<TSeatLayer,TPassSeats,SeatLayerCompare > {};
+
+class TSectionInfo {
   private:
-    std::map<ASTRA::TCompLayerType,std::vector<TPlace*> > totalLayerSeats; //слой
-    std::map<ASTRA::TCompLayerType,std::vector<TPlace*> > currentLayerSeats;
-    std::set<TSalonPoint> salonPoints;
-    std::map<int,std::vector<TPlace*> > seatsPaxs; //pax_id
-  public:
-    std::string name;
     int firstRowIdx;
-    int lastRowIdx;
-    int seats;
-    TCompSection() {
-      firstRowIdx = ASTRA::NoExists;
-      lastRowIdx = ASTRA::NoExists;
-      seats = -1;
-    };
-    void operator = (const TCompSection &compSection) {
-      name = compSection.name;
-      firstRowIdx = compSection.firstRowIdx;
-      lastRowIdx = compSection.lastRowIdx;
-      salonPoints = compSection.salonPoints;
-      totalLayerSeats = compSection.totalLayerSeats;
-      currentLayerSeats = compSection.currentLayerSeats;
-      seatsPaxs = compSection.seatsPaxs;
-      seats = compSection.seats;
+    int lastRowIdx;  
+    std::map<ASTRA::TCompLayerType,std::vector<TPlace*> > totalLayerSeats; //слой
+    std::map<ASTRA::TCompLayerType,std::vector<std::pair<TSeatLayer,TPassSeats> > > currentLayerSeats;
+    std::vector<TSalonPointNames> salonPoints;
+    TLayersSeats layersPaxs; //seatLayer->pax_id список пассажиров с местами          
+    std::map<int,TSalonPax> paxs;
+  public:
+    TSectionInfo() {
+      clearProps();
     }
     void clearProps() {
+      firstRowIdx = ASTRA::NoExists;
+      lastRowIdx = ASTRA::NoExists;    
       salonPoints.clear();
       totalLayerSeats.clear();
       currentLayerSeats.clear();
-      seatsPaxs.clear();
+      layersPaxs.clear();
+      paxs.clear();
     }
-    void AddSalonPoints( const TSalonPoint &salonPoint ) {
-      salonPoints.insert( salonPoint );
+    void operator = (const TSectionInfo &sectionInfo) {
+      firstRowIdx = sectionInfo.firstRowIdx;
+      lastRowIdx = sectionInfo.lastRowIdx;    
+      salonPoints = sectionInfo.salonPoints;
+      totalLayerSeats = sectionInfo.totalLayerSeats;
+      currentLayerSeats = sectionInfo.currentLayerSeats;
+      layersPaxs = sectionInfo.layersPaxs;
+      paxs = sectionInfo.paxs;
+    }
+    bool inSection( const TSalonPoint &salonPoint ) const {
+      for ( std::vector<TSalonPointNames>::const_iterator iseat=salonPoints.begin();
+            iseat!=salonPoints.end(); iseat++ ) {
+        if ( iseat->point == salonPoint ) {
+          return true;
+        }
+      }
+      return false;
+    }
+    bool inSection( const TSeat &aseat ) const {
+      for ( std::vector<TSalonPointNames>::const_iterator iseat=salonPoints.begin();
+            iseat!=salonPoints.end(); iseat++ ) {
+        if ( iseat->seat == aseat ) {
+          return true;
+        }
+      }    
+      return false;
+    }                                
+    bool inSection( int row ) const {
+      return ( (row >= firstRowIdx || firstRowIdx == ASTRA::NoExists) && 
+               (row <= lastRowIdx || lastRowIdx == ASTRA::NoExists) ); // внутри секции или нет границ секции    
+    }
+    bool inSectionPaxId( int pax_id );
+    int getFirstRow() const {
+      return firstRowIdx; 
+    }
+    int getLastRow() const {
+      return lastRowIdx;
+    }
+    void setSectionRows( int ffirstRow, int flastRow ) {
+      firstRowIdx = ffirstRow;
+      lastRowIdx = flastRow;
+    }        
+    void AddSalonPoints( const TSalonPoint &asalonPoint, const TSeat &aseat ) {
+      salonPoints.push_back( TSalonPointNames( asalonPoint, aseat ) );
     }
     void AddTotalLayerSeat( const ASTRA::TCompLayerType &layer_type, TPlace* seat ) {
       totalLayerSeats[ layer_type ].push_back( seat );
     }
-    void AddCurrentLayerSeat( const ASTRA::TCompLayerType &layer_type, TPlace* seat ) {
-      currentLayerSeats[ layer_type ].push_back( seat );
+    void AddCurrentLayerSeat( const TSeatLayer &layer, TPlace* seat );
+    void AddLayerSeats( const TSeatLayer &seatLayer, const TSeat &seats ) {
+      layersPaxs[ seatLayer ].insert( seats );
     }
-    void AddSalonPax( int pax_id, TPlace* seats ) {
-      seatsPaxs[ pax_id ].push_back( seats );
+    void AddPax( const TSalonPax &pax );
+    void GetLayerSeats( TLayersSeats &value ) {
+      value = layersPaxs;
     }
-    int size() {
-      return (int)salonPoints.size();
+    void GetPaxs( std::map<int,TSalonPax> &value ) {
+      value = paxs;
     }
+    void GetCurrentLayerSeat( const ASTRA::TCompLayerType &layer_type,
+                              std::vector<std::pair<TSeatLayer,TPassSeats> > &layersSeats );
     int seatsTotalLayerSeats( const ASTRA::TCompLayerType &layer_type ) {
       if ( totalLayerSeats.find( layer_type ) != totalLayerSeats.end() ) {
         return (int)totalLayerSeats[ layer_type ].size();
@@ -391,8 +434,19 @@ struct TCompSection {
       }
       return 0;
     }
-    bool isSection( const TSalonPoint &salonPoint ) {
-      return salonPoints.find( salonPoint ) != salonPoints.end();
+};
+
+class TCompSection: public TSectionInfo {
+  public:
+    std::string name;
+    int seats;
+    TCompSection():TSectionInfo() {
+      seats = -1;
+    };
+    void operator = (const TCompSection &compSection) {
+      TSectionInfo::operator = ( compSection );
+      name = compSection.name;
+      seats = compSection.seats;
     }
 };
 
@@ -809,6 +863,7 @@ struct TPass {
   int reg_no;
   std::string name;
   std::string surname;
+  int is_female;
   int parent_pax_id;
   int temp_parent_id;
   bool pr_inf;
@@ -821,6 +876,7 @@ struct TPass {
     pax_id = ASTRA::NoExists;
     grp_id = ASTRA::NoExists;
     reg_no = ASTRA::NoExists;
+    is_female = ASTRA::NoExists;
     point_dep = ASTRA::NoExists;
     point_arv = ASTRA::NoExists;
     class_grp = ASTRA::NoExists;
@@ -833,6 +889,8 @@ struct TPass {
 
 struct TSalonPax {
   private:
+    void int_get_seats( TWaitListReason &waitListReason,
+                        std::vector<TPlace*> &seats ) const; 
   public:
     int grp_id; //+ sort
     int pax_id; //+
@@ -846,7 +904,9 @@ struct TSalonPax {
     ASTRA::TPerson pers_type; //+
     std::string surname; //+
     std::string name; //+
-    bool pr_infant; //+
+    int is_female;
+    int pr_infant; //+
+    int parent_pax_id;
     bool pr_web;
     TLayersPax layers;
     TLayersPax save_layers;
@@ -854,11 +914,13 @@ struct TSalonPax {
     TSalonPax() {
       seats = 0;
       reg_no = ASTRA::NoExists;
-      pr_infant = false;
+      is_female = ASTRA::NoExists;
+      pr_infant = ASTRA::NoExists;
       pax_id = ASTRA::NoExists;
       grp_id = ASTRA::NoExists;
       class_grp = ASTRA::NoExists;
       point_arv = ASTRA::NoExists;
+      parent_pax_id = ASTRA::NoExists;
       pr_web = false;
     }
     void operator = ( const TPass &pass ) {
@@ -873,7 +935,10 @@ struct TSalonPax {
       class_grp = pass.class_grp;
       name = pass.name;
       surname = pass.surname;
-      pr_infant = pass.pr_inf;
+      is_female = pass.is_female;
+      if ( pass.pr_inf ) {
+        pr_infant = pass.parent_pax_id;
+      }
       pr_web = pass.pr_web;
     }
     void get_seats( TWaitListReason &waitListReason,
@@ -893,7 +958,7 @@ class TPaxList: public std::map<int,TSalonPax> {
       TPaxList::const_iterator ipax = find( pax_id );
       if ( ipax == end() )
         return false;
-      return ipax->second.pr_infant;
+      return ipax->second.pr_infant != ASTRA::NoExists;
     }
     bool isWeb( int pax_id ) const {
       TPaxList::const_iterator ipax = find( pax_id );
@@ -909,7 +974,10 @@ class TPaxList: public std::map<int,TSalonPax> {
     }
 };
 
+enum TSalonReadVersion { rfNoTranzitVersion, rfTranzitVersion };
+
 struct TFilterSets {
+  TSalonReadVersion version;
   std::string filterClass;
   FilterRoutesProperty filterRoutes;
   std::map<int,TFilterLayers> filtersLayers;
@@ -1058,15 +1126,7 @@ struct CompareArv {
 enum TWaitList { wlNotInit, wlYes, wlNo };
 enum TGetPass { gpPassenger, gpWaitList, gpTranzits, gpInfants };
 
-class TGetPassFlags: public BitSet<TGetPass>
-{
-  public:
-    TGetPassFlags() {
-      setFlag( gpPassenger );
-    }
-};
-//typedef BitSet<TGetPass> ;
-
+class TGetPassFlags: public BitSet<TGetPass> {};
                                         //grp_status,TSalonPax
 class TIntStatusSalonPassengers: public std::map<std::string,std::set<TSalonPax,ComparePassenger>,CompareGrpStatus >{};
                                   //class,grp_status,TSalonPax
@@ -1151,7 +1211,6 @@ class TSalonList: public std::vector<TPlaceList*> {
     void validateLayersSeats( );
     void CommitLayers();
     void RollbackLayers();
-    void getSeatsCompSections( std::vector<TCompSection> &CompSections, const TGetPassFlags &flags );
   public:
     std::map<int,TPaxList> pax_lists;
     bool isCraftLat() const {
@@ -1183,6 +1242,7 @@ class TSalonList: public std::vector<TPlaceList*> {
     }
     void ReadCompon( int vcomp_id );
     void ReadFlight( const TFilterRoutesSets &filterRoutesSets,
+                     TSalonReadVersion version,
                      const std::string &filterClass,
                      bool for_calc_waitlist = false,  //!!!
                      int prior_compon_props_point_id = ASTRA::NoExists );
@@ -1211,6 +1271,8 @@ class TSalonList: public std::vector<TPlaceList*> {
     bool check_waitlist_alarm_on_tranzit_routes( const TAutoSeats &autoSeats );
     void check_waitlist_alarm_on_tranzit_routes( const std::set<int> &paxs_external_logged );
 
+    void getSectionInfo( std::vector<TSectionInfo> &CompSections, const TGetPassFlags &flags );
+    void getSectionInfo( TSectionInfo &sectionInfo, const TGetPassFlags &flags );
 };
 
     void check_waitlist_alarm_on_tranzit_routes( int point_dep, const std::set<int> &paxs_external_logged );
