@@ -1521,7 +1521,7 @@ namespace PRL_SPACE {
         if(info.optionsIs<TypeB::TMarkInfoOptions>())
             markOptions=info.optionsAs<TypeB::TMarkInfoOptions>();
         const TypeB::TPRLOptions *PRLOptions=NULL;
-        if(info.optionsIs<TypeB::TPRLOptions>())
+        if(info.optionsIs<TypeB::TPRLOptions>())                                                                                                
             PRLOptions=info.optionsAs<TypeB::TPRLOptions>();
 
 
@@ -1539,15 +1539,14 @@ namespace PRL_SPACE {
             "    pax.grp_id, "
             "    pax.bag_pool_num, "
             "    NVL(pax.subclass,pax_grp.class) subclass, "
-            "    pax_doc.gender, "
+            "    pax.is_female, "
             "    pax.pers_type "
             "from "
             "    pax, "
             "    pax_grp, "
             "    cls_grp, "
             "    crs_pax, "
-            "    crs_pnr, "
-            "    pax_doc "
+            "    crs_pnr "
             "WHERE "
             "    pax_grp.point_dep = :point_id and "
             "    pax_grp.status NOT IN ('E') AND "
@@ -1563,8 +1562,7 @@ namespace PRL_SPACE {
             "    pax.seats>0 and "
             "    pax.pax_id = crs_pax.pax_id(+) and "
             "    crs_pax.pr_del(+)=0 and "
-            "    crs_pax.pnr_id = crs_pnr.pnr_id(+) and "
-            "    pax.pax_id = pax_doc.pax_id(+) "
+            "    crs_pax.pnr_id = crs_pnr.pnr_id(+) "
             "order by "
             "    target, "
             "    cls, "
@@ -1592,7 +1590,7 @@ namespace PRL_SPACE {
             int col_grp_id = Qry.FieldIndex("grp_id");
             int col_bag_pool_num = Qry.FieldIndex("bag_pool_num");
             int col_subcls = Qry.FieldIndex("subclass");
-            int col_gender = Qry.FieldIndex("gender");
+            int col_is_female = Qry.FieldIndex("is_female");
             int col_pers_type = Qry.FieldIndex("pers_type");
             for(; !Qry.Eof; Qry.Next()) {
                 TPRLPax pax(infants);
@@ -1627,11 +1625,7 @@ namespace PRL_SPACE {
                         break;
                     case adult:
                         {
-                            string gender = Qry.FieldAsString(col_gender);
-                            if(gender.substr(0, 1) == "F")
-                                pax.gender = gFemale;
-                            else
-                                pax.gender = gMale;
+                            pax.gender = (Qry.FieldIsNULL(col_is_female) ? gMale : (Qry.FieldAsInteger(col_is_female) != 0 ? gMale : gFemale));
                         }
                         break;
                     case child:
