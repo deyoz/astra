@@ -26,6 +26,13 @@ struct TTlgCompLayer {
 	std::string yname;
 };
 
+
+void getSalonLayers( int point_id,
+                     int point_num,
+                     int first_point,
+                     bool pr_tranzit,
+                     std::vector<TTlgCompLayer> &complayers,
+                     bool pr_blocked );
 struct TTlgStatPoint
 {
   std::string sita_addr;
@@ -301,6 +308,7 @@ int send_tlg(int argc,char **argv);
 bool check_delay_code(int delay_code);
 bool check_delay_code(const std::string &delay_code);
 bool check_delay_value(BASIC::TDateTime delay_time);
+
 
 #endif /*_TELEGRAM_H_*/
 

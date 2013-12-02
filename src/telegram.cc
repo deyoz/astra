@@ -1274,7 +1274,7 @@ void LoadContent(int grp_id, TTlgContent& con)
   if (!pr_unaccomp)
   {
     vector<TTlgCompLayer> complayers;
-    ReadSalons( point_id, point_num, first_point, pr_tranzit, complayers );
+    getSalonLayers( point_id, point_num, first_point, pr_tranzit, complayers, false );
   
     Qry.Clear();
     Qry.SQLText=
