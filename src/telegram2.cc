@@ -246,7 +246,7 @@ void getSalonPaxsSeats( int point_dep, std::map<int,TCheckinPaxSeats> &checkinPa
 	      compLayer.point_arv = ilayer->first.point_arv;
 	      compLayer.layer_type = ilayer->first.layer_type;
 	      compLayer.xname = iseat->line;
-	      compLayer.yname = iseat->row;              
+	      compLayer.yname = iseat->row;
         checkinPaxsSeats[ ilayer->first.getPaxId() ].gender = gender;        
         checkinPaxsSeats[ ilayer->first.getPaxId() ].seats.insert( compLayer );                  
       }       
@@ -1624,9 +1624,7 @@ namespace PRL_SPACE {
                     case NoPerson:
                         break;
                     case adult:
-                        {
-                            pax.gender = (Qry.FieldIsNULL(col_is_female) ? gMale : (Qry.FieldAsInteger(col_is_female) != 0 ? gMale : gFemale));
-                        }
+                        pax.gender = (Qry.FieldIsNULL(col_is_female) ? gMale : (Qry.FieldAsInteger(col_is_female) != 0 ? gMale : gFemale));
                         break;
                     case child:
                         pax.gender = gChild;

@@ -3298,7 +3298,7 @@ void TSalonList::getSectionInfo( TSectionInfo &sectionInfo, const TGetPassFlags 
     
 void TSalonList::getSectionInfo( std::vector<TSectionInfo> &salonsInfo, const TGetPassFlags &flags )
 {
-  std::map<int, std::set<TSeatLayer,SeatLayerCompare>,classcomp > vlayers;
+  //std::map<int, std::set<TSeatLayer,SeatLayerCompare>,classcomp > vlayers;
   std::map<int, std::set<TSeatLayer,SeatLayerCompare>,classcomp >::const_iterator ilayer;
   SALONS2::TSeatLayer layer;
   std::map<int, std::set<TSeatLayer,SeatLayerCompare>,classcomp > layers;
@@ -3315,8 +3315,8 @@ void TSalonList::getSectionInfo( std::vector<TSectionInfo> &salonsInfo, const TG
             }
             icompSection->AddSalonPoints( TSalonPoint( seat->x, seat->y, (*si)->num ), TSeat( seat->yname, seat->xname ) );
             seat->GetLayers( layers, glAll );
-            ilayer = vlayers.find( getDepartureId() );
-            if ( ilayer != vlayers.end() ) {
+            ilayer = layers.find( getDepartureId() );
+            if ( ilayer != layers.end() ) {
               for ( std::set<TSeatLayer,SeatLayerCompare>::iterator ilr=ilayer->second.begin();
                     ilr != ilayer->second.end(); ilr++ ) {
                 icompSection->AddTotalLayerSeat( ilr->layer_type, seat );
@@ -3393,9 +3393,6 @@ void TSalonList::getSectionInfo( std::vector<TSectionInfo> &salonsInfo, const TG
       }
     }
   } //end pass
-  TLayersSeats value;
-  salonsInfo.begin()->GetLayerSeats( value );
-  ProgTrace( TRACE5, "value.size()=%zu", value.size() );
 }
 
 /*
@@ -3411,8 +3408,8 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
     throw EXCEPTIONS::Exception( "MSG.SALONS.FREE_SEATING" );
   }
   bool only_compon_props = ( prior_compon_props_point_id != ASTRA::NoExists );
-  ProgTrace( TRACE5, "TSalonList::ReadFlight(): filterClass=%s, prior_compon_props_point_id=%d",
-             filterClass.c_str(), prior_compon_props_point_id );
+  ProgTrace( TRACE5, "TSalonList::ReadFlight(): version=%d, filterClass=%s, prior_compon_props_point_id=%d",
+             version==SALONS2::rfTranzitVersion, filterClass.c_str(), prior_compon_props_point_id );
   Clear();
   filterSets.version = version;
   filterSets.filterClass = filterClass;
@@ -3435,7 +3432,7 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
   routes.insert( routes.end(), filterRoutes.begin(), filterRoutes.end() );
   for ( std::vector<TTripRouteItem>::const_iterator iseg=filterRoutes.begin();
         iseg!=filterRoutes.end(); iseg++ ) {
-    if ( only_compon_props && iseg->point_id != filterRoutesSets.point_dep ) {
+    if ( (only_compon_props || filterSets.version==rfNoTranzitVersion) && iseg->point_id != filterRoutesSets.point_dep ) {
       continue;
     }
     filtersLayers[ iseg->point_id ].getFilterLayersOnTranzitRoutes( iseg->point_id, 
@@ -3459,15 +3456,6 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
       }
     }
   }
-/*  for ( std::vector<TTripRouteItem>::const_iterator iseg=filterRoutes.begin();
-        iseg!=filterRoutes.end(); iseg++ ) {
-    if ( Max_SOM_PRL_Departure_id != filtersLayers[ iseg->point_id ].getSOM_PRL_Dep() ) {
-       filtersLayers[ iseg->point_id ].clearFlag( cltSOMTrzt );
-       filtersLayers[ iseg->point_id ].clearFlag( cltPRLTrzt );
-       ProgTrace( TRACE5, "clearFlag(cltSOMTrzt,clrPRlTrzt,point_id=%d)", iseg->point_id );
-    }
-  }*/
-
   Qry.Clear();
   //начитываем компоновку только по нашему пункту посадки
   Qry.SQLText =
@@ -3493,7 +3481,7 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
   Qry.DeclareVariable( "point_id", otInteger );
   for ( std::vector<TTripRouteItem>::const_iterator iseg=filterRoutes.begin();
         iseg!=filterRoutes.end(); iseg++ ) {
-    if ( only_compon_props && iseg->point_id != filterRoutesSets.point_dep ) {
+    if ( (only_compon_props || filterSets.version==rfNoTranzitVersion) && iseg->point_id != filterRoutesSets.point_dep ) {
       continue;
     }
     Qry.SetVariable( "point_id", iseg->point_id );
@@ -3509,7 +3497,7 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
   Qry.DeclareVariable( "point_id", otInteger );
   for ( std::vector<TTripRouteItem>::const_iterator iseg=filterRoutes.begin();
         iseg!=filterRoutes.end(); iseg++ ) {
-    if ( only_compon_props && iseg->point_id != filterRoutesSets.point_dep ) {
+    if ( (only_compon_props || filterSets.version==rfNoTranzitVersion) && iseg->point_id != filterRoutesSets.point_dep ) {
       continue;
     }
     if ( filtersLayers[ iseg->point_id ].CanUseLayer( cltProtBeforePay, -1, -1, filterRoutes.isTakeoff( iseg->point_id ) ) ||
@@ -3540,6 +3528,9 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
     Qry.CreateVariable( "web_client", otString, EncodeClientType( ASTRA::ctWeb ) );
     for ( std::vector<TTripRouteItem>::const_iterator iseg=filterRoutes.begin();
           iseg!=filterRoutes.end(); iseg++ ) {
+      if ( filterSets.version==rfNoTranzitVersion && iseg->point_id != filterRoutesSets.point_dep ) {
+        continue;
+      }          
       Qry.SetVariable( "point_dep", iseg->point_id );
       Qry.Execute();
       ReadPaxs( Qry,  pax_lists[ iseg->point_id ] );
@@ -3558,6 +3549,9 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
     Qry.DeclareVariable( "point_dep", otInteger );
     for ( std::vector<TTripRouteItem>::const_iterator iseg=filterRoutes.begin();
           iseg!=filterRoutes.end(); iseg++ ) {
+      if ( filterSets.version==rfNoTranzitVersion && iseg->point_id != filterRoutesSets.point_dep ) {
+        continue;
+      }          
       Qry.SetVariable( "point_dep", iseg->point_id );
       Qry.Execute();
       ReadCrsPaxs( Qry, pax_lists[ iseg->point_id ] );
@@ -3577,7 +3571,7 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
   //!!!важна сортировка для addLayer по маршруту point_id
   for ( std::vector<TTripRouteItem>::const_iterator iseg=filterRoutes.begin();
         iseg!=filterRoutes.end(); iseg++ ) {
-    if ( only_compon_props && iseg->point_id != filterRoutesSets.point_dep ) {
+    if ( (only_compon_props || filterSets.version==rfNoTranzitVersion) && iseg->point_id != filterRoutesSets.point_dep ) {
       continue;
     }
     Qry.SetVariable( "point_id", iseg->point_id );
@@ -3598,7 +3592,7 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
   Qry.DeclareVariable( "point_id", otInteger );
   for ( std::vector<TTripRouteItem>::const_iterator iseg=filterRoutes.begin();
         iseg!=filterRoutes.end(); iseg++ ) {
-    if ( only_compon_props && iseg->point_id != filterRoutesSets.point_dep ) {
+    if ( (only_compon_props || filterSets.version==rfNoTranzitVersion) && iseg->point_id != filterRoutesSets.point_dep ) {
       continue;
     }
     Qry.SetVariable( "point_id", iseg->point_id );
