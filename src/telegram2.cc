@@ -1624,7 +1624,7 @@ namespace PRL_SPACE {
                     case NoPerson:
                         break;
                     case adult:
-                        pax.gender = (Qry.FieldIsNULL(col_is_female) ? gMale : (Qry.FieldAsInteger(col_is_female) != 0 ? gMale : gFemale));
+                        pax.gender = (Qry.FieldIsNULL(col_is_female) ? gMale : (Qry.FieldAsInteger(col_is_female) != 0 ? gFemale : gMale));
                         break;
                     case child:
                         pax.gender = gChild;
