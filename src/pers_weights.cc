@@ -369,10 +369,6 @@ void TFlightWeights::read( int point_id, TTypeFlightWeight weight_type, bool inc
   Qry.CreateVariable( "adl", otString, string(EncodePerson( ASTRA::adult )) );
   Qry.CreateVariable( "chd", otString, string(EncodePerson( ASTRA::child )) );
   Qry.CreateVariable( "inf", otString, string(EncodePerson( ASTRA::baby )) );
-  if ( pr_female ) {
-    Qry.CreateVariable( "male", otString, "M" );
-    Qry.CreateVariable( "female", otString, "F" );
-  }
   Qry.Execute();
   int m,f,c,i;
   while ( !Qry.Eof ) {
