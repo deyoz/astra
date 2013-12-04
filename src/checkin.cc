@@ -3984,7 +3984,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             // начитка салона
             SALONS2::TSalons Salons( grp.point_dep, SALONS2::rTripSalons );
             if ( isTranzitSalonsVersion ) {
-              salonList.ReadFlight( SALONS2::TFilterRoutesSets( grp.point_dep, grp.point_arv ), grp.cl );
+              salonList.ReadFlight( SALONS2::TFilterRoutesSets( grp.point_dep, grp.point_arv ), SALONS2::rfTranzitVersion, grp.cl );
             }
             else {
               Salons.FilterClass = grp.cl;

@@ -37,6 +37,8 @@ public:
      AddEvent("WaitList",evHandle);
      evHandle=JxtHandler<SalonFormInterface>::CreateHandler(&SalonFormInterface::AutoSeats);
      AddEvent("AutoSeats",evHandle);
+     evHandle=JxtHandler<SalonFormInterface>::CreateHandler(&SalonFormInterface::Tranzit);
+     AddEvent("Tranzit",evHandle);
   };
   void Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ComponShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -47,6 +49,7 @@ public:
   void DeleteProtCkinSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void WaitList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void Tranzit(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 
 struct TZoneOccupiedSeats {

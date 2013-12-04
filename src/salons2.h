@@ -120,7 +120,7 @@ class TSalons {
     void Write( );
     void Parse( xmlNodePtr salonsNode );
     void verifyValidRem( std::string rem_name, std::string class_name );
-};
+}; 
 
 namespace SALONS
 {
