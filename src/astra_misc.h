@@ -767,6 +767,26 @@ struct TCFG:public std::vector<TCFGItem> {
     TCFG() {};
 };
 
+class TSearchFltInfo
+{
+  public:
+    std::string airline,suffix,airp_dep;
+    int flt_no;
+    BASIC::TDateTime scd_out;
+    bool scd_out_in_utc;
+    bool only_with_reg;
+    std::string additional_where;
+    TSearchFltInfo()
+    {
+      flt_no=ASTRA::NoExists;
+      scd_out=ASTRA::NoExists;;
+      scd_out_in_utc=false;
+      only_with_reg=false;
+    };
+};
+
+void SearchFlt(const TSearchFltInfo &filter, std::list<TAdvTripInfo> &flts);
+
 
 #endif /*_ASTRA_MISC_H_*/
 

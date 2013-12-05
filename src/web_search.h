@@ -98,6 +98,8 @@ class TPNRFilter
     TPNRFilter& testPaxFromDB();
     void trace( TRACE_SIGNATURE ) const;
     void traceToMonitor( TRACE_SIGNATURE, const char *format,  ...);
+    std::string getSurnameSQLFilter(const std::string &field_name, TQuery &Qry) const;
+    bool isNameEqual(const std::string &pax_name) const;
 };
 
 struct TDestInfo

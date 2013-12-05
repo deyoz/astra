@@ -449,23 +449,6 @@ void TrferFromDB(TTrferType type,
 
   if (!(type==trferOut || type==trferOutForCkin || type==trferIn)) return;
 
-  FltQry.Clear();
-  FltQry.SQLText=
-    "SELECT airline, flt_no, suffix, scd_out, airp, pr_del "
-    "FROM points "
-    "WHERE airline=:airline AND flt_no=:flt_no AND airp=:airp_dep AND "
-    "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND "
-    "      scd_out >= TO_DATE(:scd)-1 AND scd_out < TO_DATE(:scd)+2 AND "
-    "      pr_del>=0 AND "
-    "      EXISTS(SELECT pax_grp.point_dep "
-    "             FROM pax_grp "
-    "             WHERE pax_grp.point_dep=points.point_id AND pax_grp.status NOT IN ('E'))";
-  FltQry.DeclareVariable("flt_no", otInteger);
-  FltQry.DeclareVariable("scd", otDate);
-  FltQry.DeclareVariable("airline", otString);
-  FltQry.DeclareVariable("airp_dep", otString);
-  FltQry.DeclareVariable("suffix", otString);
-
   Qry.Clear();
   if (type==trferOut || type==trferOutForCkin)
   {
@@ -543,18 +526,30 @@ void TrferFromDB(TTrferType type,
     if (id==flts_from_tlg.end())
     {
       //нету информации про flt1 - требуется проверка обслуживания в Астре
-      FltQry.SetVariable("flt_no", flt1.flt_no);
-      FltQry.SetVariable("scd", flt1.scd_out);
-      FltQry.SetVariable("airline", flt1.airline);
-      FltQry.SetVariable("airp_dep", flt1.airp);
-      FltQry.SetVariable("suffix", flt1.suffix);
-      FltQry.Execute();
-      for(;!FltQry.Eof;FltQry.Next())
+      TSearchFltInfo filter;
+      filter.airline=flt1.airline;
+      filter.flt_no=flt1.flt_no;
+      filter.suffix=flt1.suffix;
+      filter.airp_dep=flt1.airp;
+      filter.scd_out=flt1.scd_out;
+      filter.scd_out_in_utc=false;
+      filter.only_with_reg=false;
+      filter.additional_where=
+        " AND EXISTS(SELECT pax_grp.point_dep "
+        "            FROM pax_grp "
+        "            WHERE pax_grp.point_dep=points.point_id AND pax_grp.status NOT IN ('E'))";
+
+      //ищем рейс в СПП
+      list<TAdvTripInfo> flts;
+      SearchFlt(filter, flts);
+      list<TAdvTripInfo>::const_iterator f=flts.begin();
+      for(; f!=flts.end(); ++f)
       {
-        TFltInfo flt2(FltQry, true);
+        TFltInfo flt2(*f, true);
         if (!(flt1<flt2) && !(flt2<flt1)) break;
       };
-      if(FltQry.Eof)
+
+      if (f==flts.end())
         //не нашли рейс - значит не обслуживается в Астре
         id=flts_from_tlg.insert(flt1).first;
       else
