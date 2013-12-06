@@ -1230,9 +1230,8 @@ bool TPaxInfo::filterFromDB(const TPNRFilter &filter, TQuery &Qry)
   if (!filter.isNameEqual(name)) return false;
 
   TQuery Qry1(&OraSession);
-  TQuery Qry2(&OraSession);
   CheckIn::TPaxTknItem tkn;
-  LoadCrsPaxTkn(pax_id, tkn, Qry1, Qry2);
+  LoadCrsPaxTkn(pax_id, tkn);
   ticket_no=tkn.no;
   if (!filter.ticket_no.empty())
   {
@@ -1245,7 +1244,7 @@ bool TPaxInfo::filterFromDB(const TPNRFilter &filter, TQuery &Qry)
   };
         	
   CheckIn::TPaxDocItem doc;
-  LoadCrsPaxDoc(pax_id, doc, Qry1, Qry2);
+  LoadCrsPaxDoc(pax_id, doc);
   document=doc.no;
   if (!filter.document.empty())
   {

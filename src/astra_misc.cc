@@ -203,6 +203,24 @@ const long int DOC_EDI_US_FIELDS=DOC_TYPE_FIELD|
 const long int DOCO_EDI_US_FIELDS=DOCO_TYPE_FIELD|
                                   DOCO_NO_FIELD;
 */
+
+const long int DOCA_B_CREW_EDI_US_FIELDS=DOCA_TYPE_FIELD|
+                                         DOCA_COUNTRY_FIELD;
+
+const long int DOCA_R_PASS_EDI_US_FIELDS=DOCA_TYPE_FIELD|
+                                         DOCA_COUNTRY_FIELD;
+
+const long int DOCA_R_CREW_EDI_US_FIELDS=DOCA_TYPE_FIELD|
+                                         DOCA_ADDRESS_FIELD|
+                                         DOCA_CITY_FIELD|
+                                         DOCA_COUNTRY_FIELD;
+
+const long int DOCA_D_PASS_EDI_US_FIELDS=DOCA_TYPE_FIELD|
+                                         DOCA_ADDRESS_FIELD|
+                                         DOCA_CITY_FIELD|
+                                         DOCA_REGION_FIELD|
+                                         DOCA_POSTAL_CODE_FIELD|
+                                         DOCA_COUNTRY_FIELD;
 //==============================================================================
 const long int DOC_CSV_DE_FIELDS=DOC_SURNAME_FIELD|
                                  DOC_FIRST_NAME_FIELD|
@@ -239,16 +257,16 @@ const long int TKN_MINTRANS_FIELDS=TKN_TICKET_NO_FIELD;
 
 //==============================================================================
 
-TCheckDocInfo GetCheckDocInfo(const int point_dep, const string& airp_arv)
+TCompleteCheckDocInfo GetCheckDocInfo(const int point_dep, const string& airp_arv)
 {
   set<string> apis_formats;
   return GetCheckDocInfo(point_dep, airp_arv, apis_formats);
 };
 
-TCheckDocInfo GetCheckDocInfo(const int point_dep, const string& airp_arv, set<string> &apis_formats)
+TCompleteCheckDocInfo GetCheckDocInfo(const int point_dep, const string& airp_arv, set<string> &apis_formats)
 {
   apis_formats.clear();
-  TCheckDocInfo result;
+  TCompleteCheckDocInfo result;
   TQuery Qry( &OraSession );
   Qry.Clear();
   Qry.SQLText=
@@ -262,10 +280,18 @@ TCheckDocInfo GetCheckDocInfo(const int point_dep, const string& airp_arv, set<s
   if (!Qry.Eof)
   {
     if (!Qry.FieldIsNULL("pr_reg_with_doc") &&
-        Qry.FieldAsInteger("pr_reg_with_doc")!=0) result.first.required_fields|=DOC_NO_FIELD;
+        Qry.FieldAsInteger("pr_reg_with_doc")!=0)
+    {
+      result.pass.doc.required_fields|=DOC_NO_FIELD;
+      result.crew.doc.required_fields|=DOC_NO_FIELD;
+    };
 
     TTripInfo fltInfo(Qry);
-    if (GetTripSets(tsMintransFile, fltInfo)) result.first.required_fields|=DOC_MINTRANS_FIELDS;
+    if (GetTripSets(tsMintransFile, fltInfo))
+    {
+      result.pass.doc.required_fields|=DOC_MINTRANS_FIELDS;
+      result.crew.doc.required_fields|=DOC_MINTRANS_FIELDS;
+    };
     
     try
     {
@@ -287,46 +313,57 @@ TCheckDocInfo GetCheckDocInfo(const int point_dep, const string& airp_arv, set<s
       Qry.Execute();
       if (!Qry.Eof)
       {
-        result.first.is_inter=country_dep!=country_arv;
-        result.second.is_inter=country_dep!=country_arv;
+        bool is_inter=!(country_dep=="РФ" && country_arv=="РФ");
+        result.pass.doc.is_inter=is_inter;
+        result.pass.doco.is_inter=is_inter;
+        result.pass.docaB.is_inter=is_inter;
+        result.pass.docaR.is_inter=is_inter;
+        result.pass.docaD.is_inter=is_inter;
+        result.crew.doc.is_inter=is_inter;
+        result.crew.doco.is_inter=is_inter;
+        result.crew.docaB.is_inter=is_inter;
+        result.crew.docaR.is_inter=is_inter;
+        result.crew.docaD.is_inter=is_inter;
         for(;!Qry.Eof;Qry.Next())
         {
           string fmt=Qry.FieldAsString("format");
           apis_formats.insert(fmt);
           if (fmt=="CSV_CZ")
           {
-            result.first.required_fields|=DOC_CSV_CZ_FIELDS;
-            //result.second.required_fields|=DOCO_CSV_CZ_FIELDS; пока не определено
+            result.pass.doc.required_fields|=DOC_CSV_CZ_FIELDS;
           };
           if (fmt=="EDI_CZ")
           {
-            result.first.required_fields|=DOC_EDI_CZ_FIELDS;
-            //result.second.required_fields|=DOCO_EDI_CZ_FIELDS; пока не определено
+            result.pass.doc.required_fields|=DOC_EDI_CZ_FIELDS;
           };
           if (fmt=="EDI_CN")
           {
-            result.first.required_fields|=DOC_EDI_CN_FIELDS;
-            //result.second.required_fields|=DOCO_EDI_CN_FIELDS; пока не определено
+            result.pass.doc.required_fields|=DOC_EDI_CN_FIELDS;
+            result.crew.doc.required_fields|=DOC_EDI_CN_FIELDS;
           };
           if (fmt=="EDI_IN")
           {
-            result.first.required_fields|=DOC_EDI_IN_FIELDS;
-            //result.second.required_fields|=DOCO_EDI_IN_FIELDS; пока не определено
+            result.pass.doc.required_fields|=DOC_EDI_IN_FIELDS;
+            result.crew.doc.required_fields|=DOC_EDI_IN_FIELDS;
           };
           if (fmt=="EDI_US")
           {
-            result.first.required_fields|=DOC_EDI_US_FIELDS;
-            //result.second.required_fields|=DOCO_EDI_US_FIELDS; пока не определено
+            result.pass.doc.required_fields|=DOC_EDI_US_FIELDS;
+            result.crew.doc.required_fields|=DOC_EDI_US_FIELDS;
+            result.crew.docaB.required_fields|=DOCA_B_CREW_EDI_US_FIELDS;
+            result.pass.docaR.required_fields|=DOCA_R_PASS_EDI_US_FIELDS;
+            result.crew.docaR.required_fields|=DOCA_R_CREW_EDI_US_FIELDS;
+            result.pass.docaD.required_fields|=DOCA_D_PASS_EDI_US_FIELDS;
           };
           if (fmt=="CSV_DE")
           {
-            result.first.required_fields|=DOC_CSV_DE_FIELDS;
-            result.second.required_fields|=DOCO_CSV_DE_FIELDS;
+            result.pass.doc.required_fields|=DOC_CSV_DE_FIELDS;
+            result.pass.doco.required_fields|=DOCO_CSV_DE_FIELDS;
           };
           if (fmt=="TXT_EE")
           {
-            result.first.required_fields|=DOC_TXT_EE_FIELDS;
-            result.second.required_fields|=DOCO_TXT_EE_FIELDS;
+            result.pass.doc.required_fields|=DOC_TXT_EE_FIELDS;
+            result.pass.doco.required_fields|=DOCO_TXT_EE_FIELDS;
           };
         };
       };
@@ -337,9 +374,9 @@ TCheckDocInfo GetCheckDocInfo(const int point_dep, const string& airp_arv, set<s
   return result;
 };
 
-TCheckDocTknInfo GetCheckTknInfo(const int point_dep)
+TCompleteCheckTknInfo GetCheckTknInfo(const int point_dep)
 {
-  TCheckDocTknInfo result;
+  TCompleteCheckTknInfo result;
   TQuery Qry( &OraSession );
   Qry.Clear();
   Qry.SQLText=
@@ -353,10 +390,10 @@ TCheckDocTknInfo GetCheckTknInfo(const int point_dep)
   if (!Qry.Eof)
   {
     if (!Qry.FieldIsNULL("pr_reg_with_tkn") &&
-        Qry.FieldAsInteger("pr_reg_with_tkn")!=0) result.required_fields|=TKN_TICKET_NO_FIELD;
+        Qry.FieldAsInteger("pr_reg_with_tkn")!=0) result.pass.tkn.required_fields|=TKN_TICKET_NO_FIELD;
 
     TTripInfo fltInfo(Qry);
-    if (GetTripSets(tsMintransFile, fltInfo)) result.required_fields|=TKN_MINTRANS_FIELDS;
+    if (GetTripSets(tsMintransFile, fltInfo)) result.pass.tkn.required_fields|=TKN_MINTRANS_FIELDS;
   };
   return result;
 };

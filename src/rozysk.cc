@@ -625,11 +625,6 @@ void sync_crs_pax_internal(int id,
   if (Qry.Eof) return;
 
   TQuery InsQry(&OraSession);
-  TQuery PaxDocQry(&OraSession);
-  TQuery PaxDocQry2(&OraSession);
-  TQuery PaxDocoQry(&OraSession);
-  TQuery PaxTknQry(&OraSession);
-  TQuery PaxTknQry2(&OraSession);
   TRow row;
   //дополнительно
   row.time=NowUTC();
@@ -648,15 +643,15 @@ void sync_crs_pax_internal(int id,
     row.paxFromDB(Qry);
     //документ
     CheckIn::TPaxDocItem doc;
-    LoadCrsPaxDoc(pax_id, doc, PaxDocQry, PaxDocQry2);
+    LoadCrsPaxDoc(pax_id, doc);
     row.setDoc(doc);
     //виза
     CheckIn::TPaxDocoItem doco;
-    LoadCrsPaxVisa(pax_id, doco, PaxDocoQry);
+    LoadCrsPaxVisa(pax_id, doco);
     row.setVisa(doco);
     //билет
     CheckIn::TPaxTknItem tkn;
-    LoadCrsPaxTkn(pax_id, tkn, PaxTknQry, PaxTknQry2);
+    LoadCrsPaxTkn(pax_id, tkn);
     row.setTkn(tkn);
 
     row.toDB(rowMagistral, InsQry, check_sql);

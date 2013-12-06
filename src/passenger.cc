@@ -117,7 +117,7 @@ bool LoadPaxTkn(TDateTime part_key, int pax_id, TPaxTknItem &tkn)
     return !tkn.empty();
 };
 
-bool LoadCrsPaxTkn(int pax_id, TPaxTknItem &tkn, TQuery& PaxTknQry, TQuery& GetTKNO2Qry)
+bool LoadCrsPaxTkn(int pax_id, TPaxTknItem &tkn)
 {
   tkn.clear();
   const char* sql1=
@@ -128,24 +128,14 @@ bool LoadCrsPaxTkn(int pax_id, TPaxTknItem &tkn, TQuery& PaxTknQry, TQuery& GetT
   const char* sql2=
     "SELECT report.get_TKNO2(:pax_id, '/') AS no FROM dual";
 
-  if (strcmp(PaxTknQry.SQLText.SQLText(),sql1)!=0)
-  {
-    PaxTknQry.Clear();
-    PaxTknQry.SQLText=sql1;
-    PaxTknQry.DeclareVariable("pax_id",otInteger);
-  };
-  PaxTknQry.SetVariable("pax_id", pax_id);
+  QParams QryParams;
+  QryParams << QParam("pax_id", otInteger, pax_id);
+  TQuery &PaxTknQry = TQrys::Instance()->get(sql1, QryParams);
   PaxTknQry.Execute();
   if (!PaxTknQry.Eof) tkn.fromDB(PaxTknQry);
   else
   {
-    if (strcmp(GetTKNO2Qry.SQLText.SQLText(),sql2)!=0)
-    {
-      GetTKNO2Qry.Clear();
-      GetTKNO2Qry.SQLText=sql2;
-      GetTKNO2Qry.DeclareVariable("pax_id",otInteger);
-    };
-    GetTKNO2Qry.SetVariable("pax_id", pax_id);
+    TQuery &GetTKNO2Qry = TQrys::Instance()->get(sql2, QryParams);
     GetTKNO2Qry.Execute();
     if (!GetTKNO2Qry.Eof && !GetTKNO2Qry.FieldIsNULL("no"))
     {
@@ -394,6 +384,36 @@ long int TPaxDocoItem::getNotEmptyFieldsMask() const
   return result;
 };
 
+const TPaxDocaItem& TPaxDocaItem::toXML(xmlNodePtr node) const
+{
+  if (node==NULL) return *this;
+  xmlNodePtr docaNode=NewTextChild(node,"doca");
+  NewTextChild(docaNode, "type", type);
+  NewTextChild(docaNode, "country", PaxDocCountryToTerm(country), "");
+  NewTextChild(docaNode, "address", address, "");
+  NewTextChild(docaNode, "city", city, "");
+  NewTextChild(docaNode, "region", region, "");
+  NewTextChild(docaNode, "postal_code", postal_code, "");
+  NewTextChild(docaNode, "pr_inf", (int)pr_inf, (int)false);
+  return *this;
+};
+
+TPaxDocaItem& TPaxDocaItem::fromXML(xmlNodePtr node)
+{
+  clear();
+  if (node==NULL) return *this;
+  xmlNodePtr node2=node->children;
+  if (node2==NULL) return *this;
+  type=NodeAsStringFast("type",node2);
+  country=PaxDocCountryFromTerm(NodeAsStringFast("country",node2,""));
+  address=NodeAsStringFast("address",node2,"");
+  city=NodeAsStringFast("city",node2,"");
+  region=NodeAsStringFast("region",node2,"");
+  postal_code=NodeAsStringFast("postal_code",node2,"");
+  pr_inf=NodeAsIntegerFast("pr_inf",node2,0)!=0;
+  return *this;
+};
+
 const TPaxDocaItem& TPaxDocaItem::toDB(TQuery &Qry) const
 {
   Qry.SetVariable("type", type);
@@ -419,16 +439,17 @@ TPaxDocaItem& TPaxDocaItem::fromDB(TQuery &Qry)
   return *this;
 };
 
-void LoadPaxDoc(TQuery& PaxDocQry, xmlNodePtr paxNode)
+long int TPaxDocaItem::getNotEmptyFieldsMask() const
 {
-  if (PaxDocQry.Eof || paxNode==NULL) return;
-  TPaxDocItem().fromDB(PaxDocQry).toXML(paxNode);
-};
+  long int result=0x0000;
 
-void LoadPaxDoco(TQuery& PaxDocQry, xmlNodePtr paxNode)
-{
-  if (PaxDocQry.Eof || paxNode==NULL) return;
-  TPaxDocoItem().fromDB(PaxDocQry).toXML(paxNode);
+  if (!type.empty()) result|=DOCA_TYPE_FIELD;
+  if (!country.empty()) result|=DOCA_COUNTRY_FIELD;
+  if (!address.empty()) result|=DOCA_ADDRESS_FIELD;
+  if (!city.empty()) result|=DOCA_CITY_FIELD;
+  if (!region.empty()) result|=DOCA_REGION_FIELD;
+  if (!postal_code.empty()) result|=DOCA_POSTAL_CODE_FIELD;
+  return result;
 };
 
 bool LoadPaxDoc(int pax_id, TPaxDocItem &doc)
@@ -483,7 +504,7 @@ std::string GetPaxDocStr(TDateTime part_key,
   return result.str();
 };
 
-bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc, TQuery& PaxDocQry, TQuery& GetPSPT2Qry)
+bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc)
 {
   doc.clear();
   const char* sql1=
@@ -493,25 +514,14 @@ bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc, TQuery& PaxDocQry, TQuery& GetP
     "ORDER BY DECODE(type,'P',0,NULL,2,1),DECODE(rem_code,'DOCS',0,1),no ";
   const char* sql2=
     "SELECT report.get_PSPT2(:pax_id) AS no FROM dual";
-  
-  if (strcmp(PaxDocQry.SQLText.SQLText(),sql1)!=0)
-  {
-    PaxDocQry.Clear();
-    PaxDocQry.SQLText=sql1;
-    PaxDocQry.DeclareVariable("pax_id",otInteger);
-  };
-  PaxDocQry.SetVariable("pax_id", pax_id);
+  QParams QryParams;
+  QryParams << QParam("pax_id", otInteger, pax_id);
+  TQuery &PaxDocQry = TQrys::Instance()->get(sql1, QryParams);
   PaxDocQry.Execute();
   if (!PaxDocQry.Eof) doc.fromDB(PaxDocQry);
   else
   {
-    if (strcmp(GetPSPT2Qry.SQLText.SQLText(),sql2)!=0)
-    {
-      GetPSPT2Qry.Clear();
-      GetPSPT2Qry.SQLText=sql2;
-      GetPSPT2Qry.DeclareVariable("pax_id",otInteger);
-    };
-    GetPSPT2Qry.SetVariable("pax_id", pax_id);
+    TQuery &GetPSPT2Qry = TQrys::Instance()->get(sql2, QryParams);
     GetPSPT2Qry.Execute();
     if (!GetPSPT2Qry.Eof && !GetPSPT2Qry.FieldIsNULL("no"))
     {
@@ -549,7 +559,7 @@ bool LoadPaxDoco(TDateTime part_key, int pax_id, TPaxDocoItem &doc)
   return !doc.empty();
 };
 
-bool LoadCrsPaxVisa(int pax_id, TPaxDocoItem &doc, TQuery& PaxDocQry)
+bool LoadCrsPaxVisa(int pax_id, TPaxDocoItem &doc)
 {
   doc.clear();
   const char* sql=
@@ -557,21 +567,35 @@ bool LoadCrsPaxVisa(int pax_id, TPaxDocoItem &doc, TQuery& PaxDocQry)
     "FROM crs_pax_doco "
     "WHERE pax_id=:pax_id AND rem_code='DOCO' AND type='V' "
     "ORDER BY no ";
-  if (strcmp(PaxDocQry.SQLText.SQLText(),sql)!=0)
-  {
-    PaxDocQry.Clear();
-    PaxDocQry.SQLText=sql;
-    PaxDocQry.DeclareVariable("pax_id",otInteger);
-  };
-  PaxDocQry.SetVariable("pax_id",pax_id);
+  QParams QryParams;
+  QryParams << QParam("pax_id", otInteger, pax_id);
+  TQuery &PaxDocQry = TQrys::Instance()->get(sql, QryParams);
   PaxDocQry.Execute();
   if (!PaxDocQry.Eof) doc.fromDB(PaxDocQry);
   return !doc.empty();
 };
 
+bool LoadPaxDoca(int pax_id, list<TPaxDocaItem> &doca)
+{
+  return LoadPaxDoca(ASTRA::NoExists, pax_id, doca);
+};
+
 bool LoadPaxDoca(int pax_id, TDocaType type, TPaxDocaItem &doca)
 {
   return LoadPaxDoca(ASTRA::NoExists, pax_id, type, doca);
+};
+
+bool LoadPaxDoca(TDateTime part_key, int pax_id, list<TPaxDocaItem> &doca)
+{
+  doca.clear();
+  TPaxDocaItem docaItem;
+  if (CheckIn::LoadPaxDoca(part_key, pax_id, docaDestination, docaItem))
+    doca.push_back(docaItem);
+  if (CheckIn::LoadPaxDoca(part_key, pax_id, docaResidence, docaItem))
+    doca.push_back(docaItem);
+  if (CheckIn::LoadPaxDoca(part_key, pax_id, docaBirth, docaItem))
+    doca.push_back(docaItem);
+  return !doca.empty();
 };
 
 bool LoadPaxDoca(TDateTime part_key, int pax_id, TDocaType type, TPaxDocaItem &doca)
@@ -603,7 +627,7 @@ bool LoadPaxDoca(TDateTime part_key, int pax_id, TDocaType type, TPaxDocaItem &d
   return !doca.empty();
 };
 
-bool LoadCrsPaxDoca(int pax_id, list<TPaxDocaItem> &doca, TQuery& PaxDocaQry)
+bool LoadCrsPaxDoca(int pax_id, list<TPaxDocaItem> &doca)
 {
   doca.clear();
   const char* sql=
@@ -611,13 +635,9 @@ bool LoadCrsPaxDoca(int pax_id, list<TPaxDocaItem> &doca, TQuery& PaxDocaQry)
     "FROM crs_pax_doca "
     "WHERE pax_id=:pax_id AND rem_code='DOCA' AND type IS NOT NULL "
     "ORDER BY type, address ";
-  if (strcmp(PaxDocaQry.SQLText.SQLText(),sql)!=0)
-  {
-    PaxDocaQry.Clear();
-    PaxDocaQry.SQLText=sql;
-    PaxDocaQry.DeclareVariable("pax_id",otInteger);
-  };
-  PaxDocaQry.SetVariable("pax_id",pax_id);
+  QParams QryParams;
+  QryParams << QParam("pax_id", otInteger, pax_id);
+  TQuery &PaxDocaQry = TQrys::Instance()->get(sql, QryParams);
   PaxDocaQry.Execute();
   string prior_type;
   for(;!PaxDocaQry.Eof;PaxDocaQry.Next())
@@ -879,6 +899,8 @@ const TPaxItem& TPaxItem::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return *this;
 
+  TReqInfo *reqInfo=TReqInfo::Instance();
+
   xmlNodePtr paxNode=node;
   NewTextChild(paxNode, "pax_id", id);
   NewTextChild(paxNode, "surname", surname);
@@ -897,7 +919,7 @@ const TPaxItem& TPaxItem::toXML(xmlNodePtr node) const
   NewTextChild(paxNode, "tid", tid);
 
   if (TknExists) tkn.toXML(paxNode);
-  if (TReqInfo::Instance()->desk.compatible(DOCS_VERSION))
+  if (reqInfo->desk.compatible(DOCS_VERSION))
   {
     if (DocExists) doc.toXML(paxNode);
     if (DocoExists) doco.toXML(paxNode);
@@ -905,6 +927,15 @@ const TPaxItem& TPaxItem::toXML(xmlNodePtr node) const
   else
   {
     NewTextChild(paxNode, "document", doc.no);
+  };
+  if (reqInfo->desk.compatible(DOCA_VERSION))
+  {
+    if (DocaExists)
+    {
+      xmlNodePtr docaNode=NewTextChild(paxNode, "addresses");
+      for(list<TPaxDocaItem>::const_iterator d=doca.begin(); d!=doca.end(); ++d)
+        d->toXML(docaNode);
+    };
   };
   return *this;
 };
@@ -963,6 +994,21 @@ TPaxItem& TPaxItem::fromXML(xmlNodePtr node)
       {
         doc.no=NodeAsStringFast("document",node2);
         DocExists=true;
+      };
+      if (reqInfo->desk.compatible(DOCA_VERSION))
+      {
+        xmlNodePtr docaNode=GetNodeFast("addresses",node2);
+        if (docaNode!=NULL)
+        {
+          for(docaNode=docaNode->children; docaNode!=NULL; docaNode=docaNode->next)
+          {
+            TPaxDocaItem docaItem;
+            docaItem.fromXML(docaNode);
+            if (docaItem.empty()) continue;
+            doca.push_back(docaItem);
+          };
+        };
+        DocaExists=true;
       };
     }
     else
@@ -1037,6 +1083,7 @@ TPaxItem& TPaxItem::fromDB(TQuery &Qry)
   TknExists=true;
   DocExists=CheckIn::LoadPaxDoc(id, doc);
   DocoExists=CheckIn::LoadPaxDoco(id, doco);
+  DocaExists=CheckIn::LoadPaxDoca(id, doca);
   return *this;
 };
 
