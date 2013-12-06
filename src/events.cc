@@ -256,6 +256,7 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
         paxInfo.pr_exam=paxInfo.refuse.empty() && !Qry.FieldIsNULL("pr_exam") && Qry.FieldAsInteger("pr_exam")!=0;
         LoadPaxDoc(paxInfoKey.pax_id, paxInfo.doc);
         LoadPaxDoco(paxInfoKey.pax_id, paxInfo.doco);
+        LoadPaxDoca(paxInfoKey.pax_id, paxInfo.doca);
         LoadPaxRem(paxInfoKey.pax_id, true, paxInfo.rems, PaxRemQry);
         sort(paxInfo.rems.begin(), paxInfo.rems.end());
       }
@@ -407,6 +408,7 @@ void SaveGrpToLog(int point_id,
                 aPax->second.tkn==bPax->second.tkn &&
                 aPax->second.doc==bPax->second.doc &&
                 aPax->second.doco==bPax->second.doco &&
+                aPax->second.doca==bPax->second.doca &&
                 aPax->second.rems==bPax->second.rems))
           {
             //пассажир изменен

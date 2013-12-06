@@ -60,6 +60,7 @@ class TPaxToLogInfo
     CheckIn::TPaxTknItem tkn;
     CheckIn::TPaxDocItem doc;
     CheckIn::TPaxDocoItem doco;
+    std::list<CheckIn::TPaxDocaItem> doca;
     int bag_amount, bag_weight, rk_amount, rk_weight;
     std::string tags;
     std::map< int/*bag_type*/, CheckIn::TNormItem> norms;
@@ -85,6 +86,7 @@ class TPaxToLogInfo
       tkn.clear();
       doc.clear();
       doco.clear();
+      doca.clear();
       bag_amount=0;
       bag_weight=0;
       rk_amount=0;
