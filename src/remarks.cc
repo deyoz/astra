@@ -2,6 +2,7 @@
 #include <map>
 #include "oralib.h"
 #include "base_tables.h"
+#include "qrys.h"
 #include "serverlib/str_utils.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
@@ -28,6 +29,7 @@ TRemCategory getRemCategory( const string &rem_code, const string &rem_text )
       if (category=="TKN")  rem_cats[Qry.FieldAsString("rem_code")]=remTKN; else
       if (category=="DOC")  rem_cats[Qry.FieldAsString("rem_code")]=remDOC; else
       if (category=="DOCO") rem_cats[Qry.FieldAsString("rem_code")]=remDOCO; else
+      if (category=="DOCA") rem_cats[Qry.FieldAsString("rem_code")]=remDOCA; else
       if (category=="FQT")  rem_cats[Qry.FieldAsString("rem_code")]=remFQT;
     };
     init=true;
@@ -50,7 +52,7 @@ TRemCategory getRemCategory( const string &rem_code, const string &rem_text )
 
 bool isDisabledRemCategory( TRemCategory cat )
 {
-  return cat==remTKN || cat==remDOC || cat==remDOCO;
+  return cat==remTKN || cat==remDOC || cat==remDOCO || cat==remDOCA;
 };
 
 bool isDisabledRem( const string &rem_code, const string &rem_text )
@@ -139,7 +141,7 @@ string GetRemarkStr(const TRemGrp &rem_grp, const vector<CheckIn::TPaxRemItem> &
   return result;
 };
 
-string GetRemarkStr(const TRemGrp &rem_grp, int pax_id, TQuery &Qry, const string &term)
+string GetRemarkStr(const TRemGrp &rem_grp, int pax_id, const string &term)
 {
     const char *sql =
         "SELECT TRIM(ticket_rem) AS rem_code, NULL AS rem FROM pax "
@@ -149,16 +151,15 @@ string GetRemarkStr(const TRemGrp &rem_grp, int pax_id, TQuery &Qry, const strin
         "UNION "
         "SELECT 'DOCO', NULL FROM pax_doco WHERE pax_id=:pax_id "
         "UNION "
+        "SELECT 'DOCA', NULL FROM pax_doca WHERE pax_id=:pax_id "
+        "UNION "
         "SELECT TRIM(rem_code), NULL FROM pax_rem "
         "WHERE pax_id=:pax_id AND "
-        "      rem_code NOT IN (SELECT rem_code FROM rem_cats WHERE category IN ('DOC','DOCO','TKN'))";
-    if (strcmp(Qry.SQLText.SQLText(),sql)!=0)
-    {
-        Qry.Clear();
-        Qry.SQLText=sql;
-        Qry.DeclareVariable("pax_id",otInteger);
-    };
-    Qry.SetVariable("pax_id", pax_id);
+        "      rem_code NOT IN (SELECT rem_code FROM rem_cats WHERE category IN ('DOC','DOCO','DOCA','TKN'))";
+
+    QParams QryParams;
+    QryParams << QParam("pax_id", otInteger, pax_id);
+    TQuery &Qry = TQrys::Instance()->get(sql, QryParams);
     Qry.Execute();
     vector<CheckIn::TPaxRemItem> rems;
     for(;!Qry.Eof;Qry.Next())
@@ -167,10 +168,10 @@ string GetRemarkStr(const TRemGrp &rem_grp, int pax_id, TQuery &Qry, const strin
     return GetRemarkStr(rem_grp, rems, term);
 };
 
-string GetCrsRemarkStr(const TRemGrp &rem_grp, int pax_id, TQuery &Qry, const string &term)
+string GetCrsRemarkStr(const TRemGrp &rem_grp, int pax_id, const string &term)
 {
   vector<CheckIn::TPaxRemItem> rems;
-  LoadCrsPaxRem(pax_id, rems, Qry);
+  LoadCrsPaxRem(pax_id, rems);
   sort(rems.begin(),rems.end());
   return GetRemarkStr(rem_grp, rems, term);
 };
@@ -257,18 +258,15 @@ TPaxFQTItem& TPaxFQTItem::fromDB(TQuery &Qry)
   return *this;
 };
 
-bool LoadPaxRem(int pax_id, bool withFQTcat, vector<TPaxRemItem> &rems, TQuery& PaxRemQry)
+bool LoadPaxRem(int pax_id, bool withFQTcat, vector<TPaxRemItem> &rems)
 {
   rems.clear();
   const char* sql=
     "SELECT * FROM pax_rem WHERE pax_id=:pax_id";
-  if (strcmp(PaxRemQry.SQLText.SQLText(),sql)!=0)
-  {
-    PaxRemQry.Clear();
-    PaxRemQry.SQLText=sql;
-    PaxRemQry.DeclareVariable("pax_id",otInteger);
-  };
-  PaxRemQry.SetVariable("pax_id",pax_id);
+
+  QParams QryParams;
+  QryParams << QParam("pax_id", otInteger, pax_id);
+  TQuery &PaxRemQry = TQrys::Instance()->get(sql, QryParams);
   PaxRemQry.Execute();
   for(;!PaxRemQry.Eof;PaxRemQry.Next())
   {
@@ -281,36 +279,30 @@ bool LoadPaxRem(int pax_id, bool withFQTcat, vector<TPaxRemItem> &rems, TQuery& 
   return !rems.empty();
 };
 
-bool LoadCrsPaxRem(int pax_id, vector<TPaxRemItem> &rems, TQuery& PaxRemQry)
+bool LoadCrsPaxRem(int pax_id, vector<TPaxRemItem> &rems)
 {
   rems.clear();
   const char* sql=
     "SELECT * FROM crs_pax_rem WHERE pax_id=:pax_id";
-  if (strcmp(PaxRemQry.SQLText.SQLText(),sql)!=0)
-  {
-    PaxRemQry.Clear();
-    PaxRemQry.SQLText=sql;
-    PaxRemQry.DeclareVariable("pax_id",otInteger);
-  };
-  PaxRemQry.SetVariable("pax_id",pax_id);
+
+  QParams QryParams;
+  QryParams << QParam("pax_id", otInteger, pax_id);
+  TQuery &PaxRemQry = TQrys::Instance()->get(sql, QryParams);
   PaxRemQry.Execute();
   for(;!PaxRemQry.Eof;PaxRemQry.Next())
     rems.push_back(TPaxRemItem().fromDB(PaxRemQry));
   return !rems.empty();
 };
 
-bool LoadPaxFQT(int pax_id, vector<TPaxFQTItem> &fqts, TQuery& PaxFQTQry)
+bool LoadPaxFQT(int pax_id, vector<TPaxFQTItem> &fqts)
 {
   fqts.clear();
   const char* sql=
     "SELECT * FROM pax_fqt WHERE pax_id=:pax_id";
-  if (strcmp(PaxFQTQry.SQLText.SQLText(),sql)!=0)
-  {
-    PaxFQTQry.Clear();
-    PaxFQTQry.SQLText=sql;
-    PaxFQTQry.DeclareVariable("pax_id",otInteger);
-  };
-  PaxFQTQry.SetVariable("pax_id",pax_id);
+
+  QParams QryParams;
+  QryParams << QParam("pax_id", otInteger, pax_id);
+  TQuery &PaxFQTQry = TQrys::Instance()->get(sql, QryParams);
   PaxFQTQry.Execute();
   for(;!PaxFQTQry.Eof;PaxFQTQry.Next())
     fqts.push_back(TPaxFQTItem().fromDB(PaxFQTQry));

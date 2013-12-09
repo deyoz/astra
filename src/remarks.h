@@ -6,7 +6,7 @@
 #include "oralib.h"
 #include "xml_unit.h"
 
-enum TRemCategory { remTKN, remDOC, remDOCO, remFQT, remUnknown };
+enum TRemCategory { remTKN, remDOC, remDOCO, remDOCA, remFQT, remUnknown };
 
 TRemCategory getRemCategory( const std::string &rem_code, const std::string &rem_text );
 bool isDisabledRemCategory( TRemCategory cat );
@@ -111,9 +111,9 @@ class TPaxFQTItem
     TPaxFQTItem& fromDB(TQuery &Qry);
 };
 
-bool LoadPaxRem(int pax_id, bool withFQTcat, std::vector<TPaxRemItem> &rems, TQuery& PaxRemQry);
-bool LoadCrsPaxRem(int pax_id, std::vector<TPaxRemItem> &rems, TQuery& PaxRemQry);
-bool LoadPaxFQT(int pax_id, std::vector<TPaxFQTItem> &fqts, TQuery& PaxFQTQry);
+bool LoadPaxRem(int pax_id, bool withFQTcat, std::vector<TPaxRemItem> &rems);
+bool LoadCrsPaxRem(int pax_id, std::vector<TPaxRemItem> &rems);
+bool LoadPaxFQT(int pax_id, std::vector<TPaxFQTItem> &fqts);
 
 void SavePaxRem(int pax_id, const std::vector<TPaxRemItem> &rems);
 void SavePaxFQT(int pax_id, const std::vector<TPaxFQTItem> &fqts);
@@ -121,8 +121,8 @@ void SavePaxFQT(int pax_id, const std::vector<TPaxFQTItem> &fqts);
 };
 
 std::string GetRemarkStr(const TRemGrp &rem_grp, const std::vector<CheckIn::TPaxRemItem> &rems, const std::string &term = " ");
-std::string GetRemarkStr(const TRemGrp &rem_grp, int pax_id, TQuery &Qry, const std::string &term = " ");
-std::string GetCrsRemarkStr(const TRemGrp &rem_grp, int pax_id, TQuery &Qry, const std::string &term = " ");
+std::string GetRemarkStr(const TRemGrp &rem_grp, int pax_id, const std::string &term = " ");
+std::string GetCrsRemarkStr(const TRemGrp &rem_grp, int pax_id, const std::string &term = " ");
 
 #endif
 

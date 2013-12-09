@@ -776,7 +776,7 @@ void SavePaxDoca(int pax_id, const list<TPaxDocaItem> &doca, TQuery& PaxDocaQry)
 
 };
 
-bool LoadPaxNorms(int pax_id, vector< pair<TPaxNormItem, TNormItem> > &norms, TQuery& NormQry)
+bool LoadPaxNorms(int pax_id, vector< pair<TPaxNormItem, TNormItem> > &norms)
 {
   norms.clear();
   const char* sql=
@@ -784,13 +784,10 @@ bool LoadPaxNorms(int pax_id, vector< pair<TPaxNormItem, TNormItem> > &norms, TQ
     "       bag_norms.norm_type, bag_norms.amount, bag_norms.weight, bag_norms.per_unit "
     "FROM pax_norms,bag_norms "
     "WHERE pax_norms.norm_id=bag_norms.id(+) AND pax_norms.pax_id=:pax_id ";
-  if (strcmp(NormQry.SQLText.SQLText(),sql)!=0)
-  {
-    NormQry.Clear();
-    NormQry.SQLText=sql;
-    NormQry.DeclareVariable("pax_id",otInteger);
-  };
-  NormQry.SetVariable("pax_id",pax_id);
+
+  QParams QryParams;
+  QryParams << QParam("pax_id", otInteger, pax_id);
+  TQuery &NormQry = TQrys::Instance()->get(sql, QryParams);
   NormQry.Execute();
   for(;!NormQry.Eof;NormQry.Next())
     norms.push_back( make_pair(TPaxNormItem().fromDB(NormQry),
@@ -798,7 +795,7 @@ bool LoadPaxNorms(int pax_id, vector< pair<TPaxNormItem, TNormItem> > &norms, TQ
   return !norms.empty();
 };
 
-bool LoadGrpNorms(int grp_id, vector< pair<TPaxNormItem, TNormItem> > &norms, TQuery& NormQry)
+bool LoadGrpNorms(int grp_id, vector< pair<TPaxNormItem, TNormItem> > &norms)
 {
   norms.clear();
   const char* sql=
@@ -806,13 +803,10 @@ bool LoadGrpNorms(int grp_id, vector< pair<TPaxNormItem, TNormItem> > &norms, TQ
     "       bag_norms.norm_type, bag_norms.amount, bag_norms.weight, bag_norms.per_unit "
     "FROM grp_norms,bag_norms "
     "WHERE grp_norms.norm_id=bag_norms.id(+) AND grp_norms.grp_id=:grp_id ";
-  if (strcmp(NormQry.SQLText.SQLText(),sql)!=0)
-  {
-    NormQry.Clear();
-    NormQry.SQLText=sql;
-    NormQry.DeclareVariable("grp_id",otInteger);
-  };
-  NormQry.SetVariable("grp_id",grp_id);
+
+  QParams QryParams;
+  QryParams << QParam("grp_id", otInteger, grp_id);
+  TQuery &NormQry = TQrys::Instance()->get(sql, QryParams);
   NormQry.Execute();
   for(;!NormQry.Eof;NormQry.Next())
     norms.push_back( make_pair(TPaxNormItem().fromDB(NormQry),
@@ -820,7 +814,7 @@ bool LoadGrpNorms(int grp_id, vector< pair<TPaxNormItem, TNormItem> > &norms, TQ
   return !norms.empty();
 };
 
-void LoadNorms(xmlNodePtr node, bool pr_unaccomp, TQuery& NormQry)
+void LoadNorms(xmlNodePtr node, bool pr_unaccomp)
 {
   if (node==NULL) return;
   xmlNodePtr node2=node->children;
@@ -829,12 +823,12 @@ void LoadNorms(xmlNodePtr node, bool pr_unaccomp, TQuery& NormQry)
   if (!pr_unaccomp)
   {
     int pax_id=NodeAsIntegerFast("pax_id",node2);
-    LoadPaxNorms(pax_id, norms, NormQry);
+    LoadPaxNorms(pax_id, norms);
   }
   else
   {
     int grp_id=NodeAsIntegerFast("grp_id",node2);
-    LoadGrpNorms(grp_id, norms, NormQry);
+    LoadGrpNorms(grp_id, norms);
   };
   
   xmlNodePtr normsNode=NewTextChild(node,"norms");

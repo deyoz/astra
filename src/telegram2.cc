@@ -1486,6 +1486,14 @@ namespace PRL_SPACE {
         CheckIn::TPaxDocoItem doco;
         LoadPaxDoco(pax.pax_id, doco);
         if (getPaxRem(info, doco, rem)) items.push_back(rem.text);
+        //адреса
+        list<CheckIn::TPaxDocaItem> doca;
+        LoadPaxDoca(pax.pax_id, doca);
+        for(list<CheckIn::TPaxDocaItem>::const_iterator d=doca.begin(); d!=doca.end(); ++d)
+        {
+          if (d->type!="D" && d->type!="R") continue;
+          if (getPaxRem(info, *d, rem)) items.push_back(rem.text);
+        };
     }
 
     struct TPRLDest {
@@ -4317,6 +4325,32 @@ bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxDocoItem &doco
        << "/" << (doco.issue_date!=ASTRA::NoExists?DateTimeToStr(doco.issue_date, "ddmmmyy", info.is_lat()):"")
        << "/" << (doco.applic_country.empty()?"":info.TlgElemIdToElem(etPaxDocCountry, doco.applic_country))
        << "/" << (doco.pr_inf?"I":"");
+  rem.text=text.str();
+  for(int i=rem.text.size()-1;i>=0;i--)
+    if (rem.text[i]!='/')
+    {
+      rem.text.erase(i+1);
+      break;
+    };
+  rem.calcPriority();
+  return true;
+};
+
+bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxDocaItem &doca, CheckIn::TPaxRemItem &rem)
+{
+  if (doca.empty()) return false;
+  rem.clear();
+  rem.code="DOCA";
+  ostringstream text;
+  text << rem.code
+       << " " << "HK1"
+       << "/" << doca.type
+       << "/" << (doca.country.empty()?"":info.TlgElemIdToElem(etPaxDocCountry, doca.country))
+       << "/" << transliter(doca.address, 1, info.is_lat())
+       << "/" << transliter(doca.city, 1, info.is_lat())
+       << "/" << transliter(doca.region, 1, info.is_lat())
+       << "/" << transliter(doca.postal_code, 1, info.is_lat())
+       << "/" << (doca.pr_inf?"I":"");
   rem.text=text.str();
   for(int i=rem.text.size()-1;i>=0;i--)
     if (rem.text[i]!='/')
