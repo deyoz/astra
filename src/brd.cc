@@ -19,6 +19,7 @@
 #include "transfer.h"
 #include "points.h"
 #include "salons.h"
+#include "term_version.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -245,19 +246,18 @@ void BrdInterface::readTripCounters( const int point_id,
     }
 };
 
-int get_new_tid(int point_id)
+void get_new_tid(int locked_point_id, TQuery &Qry)
 {
-  TFlights flights;
-  flights.Get( point_id, ftTranzit );
-  flights.Lock(); //лочим весь транзитный рейс
-  TQuery Qry(&OraSession);
+  if (locked_point_id!=NoExists)
+  {
+    TFlights flights;
+    flights.Get( locked_point_id, ftTranzit );
+    flights.Lock(); //лочим весь транзитный рейс
+  };
+  Qry.Clear();
   Qry.SQLText=
-    "SELECT cycle_tid__seq.nextval AS tid FROM points "
-    "WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";// FOR UPDATE";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
+    "SELECT cycle_tid__seq.nextval FROM dual";
   Qry.Execute();
-  if(Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
-  return Qry.FieldAsInteger("tid");
 }
 
 void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -267,10 +267,11 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   int point_id=NodeAsInteger("point_id",reqNode);
   bool boarding = NodeAsInteger("boarding", reqNode)!=0;
 
-  get_new_tid(point_id);
+  TQuery PaxQry(&OraSession);
+
+  get_new_tid(point_id, PaxQry);
   
   ostringstream sql;
-  TQuery PaxQry(&OraSession);
   PaxQry.Clear();
   sql.str("");
   sql << "SELECT pax_id,reg_no,pr_brd FROM pax_grp,pax "
@@ -348,11 +349,9 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   showMessage(lexeme_id);
 };
 
-bool BrdInterface::PaxUpdate(int point_id, int pax_id, int &tid, bool mark, bool pr_exam_with_brd)
+bool PaxUpdate(int point_id, int pax_id, int tid, bool mark, bool pr_exam_with_brd)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
-  //лочим рейс
-  int new_tid = get_new_tid(point_id);
 
   TQuery Qry(&OraSession);
   if (reqInfo->screen.name == "BRDBUS.EXE")
@@ -373,87 +372,73 @@ bool BrdInterface::PaxUpdate(int point_id, int pax_id, int &tid, bool mark, bool
   Qry.CreateVariable("tid", otInteger, tid);
   Qry.CreateVariable("mark", otInteger, (int)mark);
   Qry.Execute();
-  if (Qry.RowsProcessed()>0)
+  if (Qry.RowsProcessed()<=0) return false;
+
+  rozysk::sync_pax(pax_id, reqInfo->desk.code, reqInfo->user.descr);
+
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT surname, name, reg_no, grp_id, cycle_tid__seq.currval AS tid "
+    "FROM pax "
+    "WHERE pax_id=:pax_id";
+  Qry.CreateVariable("pax_id", otInteger, pax_id);
+  Qry.Execute();
+  if (!Qry.Eof)
   {
-    rozysk::sync_pax(pax_id, reqInfo->desk.code, reqInfo->user.descr);
+    int grp_id=Qry.FieldAsInteger("grp_id");
 
-    Qry.Clear();
-    Qry.SQLText=
-      "SELECT surname,name,reg_no,grp_id FROM pax WHERE pax_id=:pax_id";
-    Qry.CreateVariable("pax_id", otInteger, pax_id);
-    Qry.Execute();
-    if (!Qry.Eof)
+    string msg = (string)
+                "Пассажир " + Qry.FieldAsString("surname") + " " +
+                Qry.FieldAsString("name");
+    if (reqInfo->screen.name == "BRDBUS.EXE")
     {
-      int grp_id=Qry.FieldAsInteger("grp_id");
+      if (pr_exam_with_brd)
+        msg+=     (mark ? " прошел досмотр," : " возвращен на досмотр,");
+      msg+=     (mark ? " прошел посадку" : " высажен");
+      if (is_sync_paxs(point_id))
+        update_pax_change( point_id, pax_id, Qry.FieldAsInteger("reg_no"), "П");
+    }
+    else
+      msg+=     (mark ? " прошел досмотр" : " возвращен на досмотр");
 
-      string msg = (string)
-                  "Пассажир " + Qry.FieldAsString("surname") + " " +
-                  Qry.FieldAsString("name");
-      if (reqInfo->screen.name == "BRDBUS.EXE")
-      {
-        if (pr_exam_with_brd)
-          msg+=     (mark ? " прошел досмотр," : " возвращен на досмотр,");
-        msg+=     (mark ? " прошел посадку" : " высажен");
-        if (is_sync_paxs(point_id))
-          update_pax_change( point_id, pax_id, Qry.FieldAsInteger("reg_no"), "П");
-      }
-      else
-        msg+=     (mark ? " прошел досмотр" : " возвращен на досмотр");
+    TReqInfo::Instance()->MsgToLog(msg, evtPax,
+                                   point_id,
+                                   Qry.FieldAsInteger("reg_no"),
+                                   grp_id);
 
-      TReqInfo::Instance()->MsgToLog(msg, evtPax,
-                                     point_id,
-                                     Qry.FieldAsInteger("reg_no"),
-                                     grp_id);
+    //отвяжем сквозняков от предыдущих сегментов
+    SeparateTCkin(grp_id,cssAllPrevCurr,cssCurr,Qry.FieldAsInteger("tid"));
 
-      //отвяжем сквозняков от предыдущих сегментов
-      SeparateTCkin(grp_id,cssAllPrevCurr,cssCurr,new_tid);
-
-      if (reqInfo->screen.name == "BRDBUS.EXE")
-      {
-        check_brd_alarm( point_id );
-        check_u_trfer_alarm_for_next_trfer(grp_id, idGrp);
-      };
+    if (reqInfo->screen.name == "BRDBUS.EXE")
+    {
+      check_brd_alarm( point_id );
+      check_u_trfer_alarm_for_next_trfer(grp_id, idGrp);
     };
-    tid=new_tid;
-    return true;
-  }
-  else return false;
+  };
+  return true;
 }
 
-bool ChckSt(int pax_id, string& curr_seat_no)
+bool CheckSeat(int pax_id, string& curr_seat_no)
 {
+    curr_seat_no.clear();
     TQuery Qry(&OraSession);
     Qry.SQLText =
-      "SELECT curr_seat_no,curr_seat_no_lat,bp_seat_no,bp_seat_no_lat, "
-      "       TRANSLATE(UPPER(curr_seat_no),'АВСЕНКМОРТХ','ABCEHKMOPTX') AS curr_seat_no2, "
-      "       TRANSLATE(UPPER(bp_seat_no),'АВСЕНКМОРТХ','ABCEHKMOPTX') AS bp_seat_no2 "
-      "FROM "
-      " (SELECT salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'list',1,0) AS curr_seat_no, "
-      "         salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'list',1,1) AS curr_seat_no_lat, "
-      "         bp_print.seat_no AS bp_seat_no, "
-      "         bp_print.seat_no_lat AS bp_seat_no_lat "
-      "  FROM bp_print,pax, "
-      "       (SELECT MAX(time_print) AS time_print FROM bp_print WHERE pax_id=:pax_id AND pr_print<>0) a "
-      "  WHERE bp_print.time_print=a.time_print AND bp_print.pax_id=:pax_id AND "
-      "        pax.pax_id=:pax_id)";
+      "SELECT salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'list',1,0) AS curr_seat_no, "
+      "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'list',1,1) AS curr_seat_no_lat, "
+      "       bp_print.seat_no_lat AS bp_seat_no_lat "
+      "FROM bp_print,pax, "
+      "     (SELECT MAX(time_print) AS time_print FROM bp_print WHERE pax_id=:pax_id AND pr_print<>0) a "
+      "WHERE bp_print.time_print=a.time_print AND bp_print.pax_id=:pax_id AND "
+      "      pax.pax_id=:pax_id";
     Qry.CreateVariable("pax_id", otInteger, pax_id);
     Qry.Execute();
     if (!Qry.Eof)
     {
       curr_seat_no=Qry.FieldAsString("curr_seat_no");
       
-      if (Qry.FieldIsNULL("bp_seat_no_lat"))  //!!! позже убрать так как bp_seat_no_lat будет нормально заполняться (начало)
-      {
-        if (!Qry.FieldIsNULL("bp_seat_no") &&
-            strcmp(Qry.FieldAsString("curr_seat_no2"), Qry.FieldAsString("bp_seat_no2"))!=0)
-          return false;
-      }                                       //!!! позже убрать так как bp_seat_no_lat будет нормально заполняться (конец)
-      else
-      {
-        if (!Qry.FieldIsNULL("bp_seat_no_lat") &&
-            strcmp(Qry.FieldAsString("curr_seat_no_lat"), Qry.FieldAsString("bp_seat_no_lat"))!=0)
-          return false;
-      };
+      if (!Qry.FieldIsNULL("bp_seat_no_lat") &&
+          strcmp(Qry.FieldAsString("curr_seat_no_lat"), Qry.FieldAsString("bp_seat_no_lat"))!=0)
+        return false;
     };
     return true;
 }
@@ -601,7 +586,22 @@ void put_exambrd_vars(xmlNodePtr variablesNode)
 
 void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    enum TSearchType {searchByPaxId,
+                      searchByRegNo,
+                      searchByScanData,
+                      searchWholeFlight};
+
+    TSearchType search_type=searchWholeFlight;
+    if( strcmp((char *)reqNode->name, "PaxByPaxId") == 0) search_type=searchByPaxId;
+    else
+      if( strcmp((char *)reqNode->name, "PaxByRegNo") == 0) search_type=searchByRegNo;
+      else
+        if( strcmp((char *)reqNode->name, "PaxByScanData") == 0) search_type=searchByScanData;
+
     TReqInfo *reqInfo = TReqInfo::Instance();
+
+    enum TScreenType {sSecurity, sBoarding};
+    TScreenType screen=(reqInfo->screen.name == "BRDBUS.EXE"?sBoarding:sSecurity);
 
     int point_id=NodeAsInteger("point_id",reqNode);
     int found_point_id=NoExists;
@@ -632,11 +632,13 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       "FROM points WHERE point_id=:point_id AND pr_del>=0";
     FltQry.DeclareVariable("point_id",otInteger);
 
+    bool showWholeFlight=false;
+
     TQuery Qry(&OraSession);
-    if(strcmp((char *)reqNode->name, "PaxByScanData") == 0 ||
-       strcmp((char *)reqNode->name, "PaxByPaxId") == 0)
+    if(search_type==searchByScanData ||
+       search_type==searchByPaxId)
     {
-      if(strcmp((char *)reqNode->name, "PaxByPaxId") == 0)
+      if(search_type==searchByPaxId)
       {
         found_pax_id=NodeAsInteger("pax_id",reqNode);
         //получим point_id и reg_no
@@ -659,15 +661,11 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           throw AstraLocale::UserException("MSG.WRONG_DATA_RECEIVED");
       };
 
-      if (point_id==found_point_id)
-      {
-        GetPaxQuery(Qry, point_id, reg_no, NoExists, reqInfo->desk.lang, rtUnknown, "");
-      }
-      else
+      if (point_id!=found_point_id)
       {
         point_id=found_point_id;
 
-        if (reqInfo->screen.name != "BRDBUS.EXE" &&
+        if (screen==sSecurity &&
             TripsInterface::readTripHeader( point_id, dataNode ))
         {
           TRptParams rpt_params(reqInfo->desk.lang);
@@ -692,51 +690,373 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
             throw AstraLocale::UserException(100, "MSG.PASSENGER.OTHER_FLIGHT");
         };
 
-        GetPaxQuery(Qry, point_id, NoExists, NoExists, reqInfo->desk.lang, rtUnknown, "");
+        showWholeFlight=true;
       };
-    }
-    else if(strcmp((char *)reqNode->name, "PaxByRegNo") == 0)
+    };
+
+    if(search_type==searchByRegNo)
     {
       reg_no=NodeAsInteger("reg_no",reqNode);
+    };
 
-      GetPaxQuery(Qry, point_id, reg_no, NoExists, reqInfo->desk.lang, rtUnknown, "");
-    }
-    else
+    if(search_type==searchWholeFlight)
     {
       //общий список
-      GetPaxQuery(Qry, point_id, NoExists, NoExists, reqInfo->desk.lang, rtUnknown, "");
+      showWholeFlight=true;
     };
-    
-    int hall=NoExists;
-    if (GetNode("hall",reqNode)!=NULL && !NodeIsNULL("hall",reqNode))
+
+    if(search_type==searchByPaxId ||
+       search_type==searchByRegNo ||
+       search_type==searchByScanData)
     {
-      //проверка принадлежности зала а/п вылета рейса
-      hall=NodeAsInteger("hall",reqNode);
-      TQuery HallQry(&OraSession);
-      HallQry.Clear();
-      HallQry.SQLText=
-        "SELECT halls2.airp AS hall_airp, points.airp AS flt_airp "
-        "FROM halls2,points "
-        "WHERE points.point_id=:point_id AND pr_del=0 AND pr_reg<>0 AND "
-        "      halls2.id(+)=:hall AND "
-        "      points.airp=halls2.airp(+)";
-      HallQry.CreateVariable("point_id",otInteger,point_id);
-      HallQry.CreateVariable("hall",otInteger,hall);
-      HallQry.Execute();
-      if (HallQry.Eof ||
-          strcmp(HallQry.FieldAsString("hall_airp"),
-                 HallQry.FieldAsString("flt_airp"))!=0) hall=NoExists;
+      bool set_mark = NodeAsInteger("boarding", reqNode)!=0;
+      int tid=(GetNode("tid",reqNode)==NULL?NoExists:NodeAsInteger("tid",reqNode));
+
+      TFlights flights;
+      flights.Get( point_id, ftTranzit );
+      flights.Lock(); //лочим весь транзитный рейс
+
+      Qry.Clear();
+      Qry.SQLText=
+        "SELECT pax_grp.grp_id, pax_grp.status, pax.pax_id, pax.surname, pax.name, pax.seats, "
+        "       pax.pr_brd, pax.pr_exam, pax.wl_type, pax.tid "
+        "FROM pax_grp, pax "
+        "WHERE pax_grp.grp_id=pax.grp_id AND "
+        "      point_dep= :point_id AND pax_grp.status NOT IN ('E') AND pr_brd IS NOT NULL AND "
+        "      reg_no=:reg_no";
+      Qry.CreateVariable("point_id", otInteger, point_id);
+      Qry.CreateVariable("reg_no", otInteger, reg_no);
+      Qry.Execute();
+      if (Qry.Eof)
+        throw AstraLocale::UserException("MSG.PASSENGER.NOT_CHECKIN");
+      int grp_id=Qry.FieldAsInteger("grp_id");
+      TPaxStatus grp_status=DecodePaxStatus(Qry.FieldAsString("status"));
+
+      class TPaxItem
+      {
+        public:
+          int pax_id;
+          string surname, name;
+          string wl_type;
+          bool pr_brd, pr_exam, already_marked;
+          int tid;
+          bool updated;
+          TPaxItem() {clear();};
+          void clear()
+          {
+            pax_id=NoExists;
+            surname.clear();
+            name.clear();
+            wl_type.clear();
+            pr_brd=false;
+            pr_exam=false;
+            already_marked=false;
+            tid=NoExists;
+            updated=false;
+          };
+          bool exists() const
+          {
+            return pax_id!=NoExists;
+          };
+      };
+
+      TPaxItem paxWithSeat, paxWithoutSeat;
+      string surname;
+      string name;
+      for(;!Qry.Eof;Qry.Next())
+      {
+        if (grp_id!=Qry.FieldAsInteger("grp_id"))
+          throw EXCEPTIONS::Exception("Duplicate reg_no (point_id=%d reg_no=%d)",point_id,reg_no);
+        int seats=Qry.FieldAsInteger("seats");
+        TPaxItem &pax=seats>0?paxWithSeat:paxWithoutSeat;
+        if (pax.exists())
+          throw EXCEPTIONS::Exception("Duplicate reg_no (point_id=%d reg_no=%d)",point_id,reg_no);
+        pax.pax_id=Qry.FieldAsInteger("pax_id");
+        pax.surname=Qry.FieldAsString("surname");
+        pax.name=Qry.FieldAsString("name");
+        pax.wl_type=Qry.FieldAsString("wl_type");
+        pax.pr_brd=Qry.FieldAsInteger("pr_brd")!=0;
+        pax.pr_exam=Qry.FieldAsInteger("pr_exam")!=0;
+        pax.already_marked=(screen==sBoarding?pax.pr_brd:pax.pr_exam);
+        pax.tid=Qry.FieldAsInteger("tid");
+      };
+
+      if (!paxWithSeat.exists() && !paxWithoutSeat.exists())
+        throw EXCEPTIONS::Exception("!paxWithSeat.exists() && !paxWithoutSeat.exists()"); //не обязательно, на всякий случай
+
+      try  //catch(int)
+      {
+        //============================ проверка совпадения tid ============================
+        if (tid!=NoExists)
+        {
+          //проверим чтобы хотя бы один из двух tid совпадал
+          if ((!paxWithSeat.exists() || tid!=paxWithSeat.tid) &&
+              (!paxWithoutSeat.exists() || tid!=paxWithoutSeat.tid))
+          {
+            TPaxItem &pax=paxWithSeat.exists()?paxWithSeat:paxWithoutSeat;
+            throw AstraLocale::UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA",
+                                             AstraLocale::LParams() << AstraLocale::LParam("surname", pax.surname+(pax.name.empty()?"":" ")+pax.name));
+          };
+        };
+
+        //============================ проверка признака досмотра/посадки ============================
+        if ((!paxWithSeat.exists() || set_mark==paxWithSeat.already_marked) &&
+            (!paxWithoutSeat.exists() || set_mark==paxWithoutSeat.already_marked))
+        {
+          if (screen==sBoarding)
+          {
+              if (set_mark)
+                  AstraLocale::showErrorMessage("MSG.PASSENGER.BOARDED_ALREADY",120);
+              else
+                  AstraLocale::showErrorMessage("MSG.PASSENGER.NOT_BOARDING",120);
+          }
+          else
+          {
+              if (set_mark)
+                  AstraLocale::showErrorMessage("MSG.PASSENGER.EXAMED_ALREADY",120);
+              else
+                  AstraLocale::showErrorMessage("MSG.PASSENGER.NOT_EXAM",120);
+          };
+          throw 1;
+        };
+
+        //============================ зал посадки ============================
+        int hall=NoExists;
+        if (GetNode("hall",reqNode)!=NULL && !NodeIsNULL("hall",reqNode))
+        {
+          //проверка принадлежности зала а/п вылета рейса
+          hall=NodeAsInteger("hall",reqNode);
+          TQuery HallQry(&OraSession);
+          HallQry.Clear();
+          HallQry.SQLText=
+            "SELECT halls2.airp AS hall_airp, points.airp AS flt_airp "
+            "FROM halls2,points "
+            "WHERE points.point_id=:point_id AND pr_del=0 AND pr_reg<>0 AND "
+            "      halls2.id(+)=:hall AND "
+            "      points.airp=halls2.airp(+)";
+          HallQry.CreateVariable("point_id",otInteger,point_id);
+          HallQry.CreateVariable("hall",otInteger,hall);
+          HallQry.Execute();
+          if (HallQry.Eof ||
+              strcmp(HallQry.FieldAsString("hall_airp"),
+                     HallQry.FieldAsString("flt_airp"))!=0) hall=NoExists;
+        };
+
+        if (hall==NoExists)
+        {
+            if(screen==sBoarding)
+                AstraLocale::showErrorMessage("MSG.NOT_SET_BOARDING_HALL");
+            else
+                AstraLocale::showErrorMessage("MSG.NOT_SET_EXAM_HALL");
+            throw 1;
+        };
+
+        //============================ настройки рейса ============================
+        bool pr_exam_with_brd=false;
+        bool pr_exam=false;
+        bool pr_check_pay=false;
+        int pr_etstatus=0;
+        bool free_seating=false;
+        if (screen==sBoarding)
+        {
+            Qry.Clear();
+            Qry.SQLText=
+                "SELECT pr_misc FROM trip_hall "
+                "WHERE point_id=:point_id AND type=:type AND (hall=:hall OR hall IS NULL) "
+                "ORDER BY DECODE(hall,NULL,1,0)";
+            Qry.CreateVariable("point_id",otInteger,point_id);
+            Qry.CreateVariable("hall",otInteger,hall);
+            Qry.CreateVariable("type",otInteger,2);
+            Qry.Execute();
+            if (!Qry.Eof) pr_exam_with_brd=Qry.FieldAsInteger("pr_misc")!=0;
+        };
+
+        Qry.Clear();
+        Qry.SQLText=
+            "SELECT pr_exam,pr_check_pay,pr_exam_check_pay,pr_etstatus,pr_free_seating "
+            "FROM trip_sets WHERE point_id=:point_id";
+        Qry.CreateVariable("point_id",otInteger,point_id);
+        Qry.Execute();
+        if (Qry.Eof)
+          throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
+
+        pr_exam=Qry.FieldAsInteger("pr_exam")!=0;
+        if (screen==sBoarding)
+          pr_check_pay=Qry.FieldAsInteger("pr_check_pay")!=0;
+        else
+          pr_check_pay=Qry.FieldAsInteger("pr_exam_check_pay")!=0;
+        pr_etstatus=Qry.FieldAsInteger("pr_etstatus");
+        free_seating=Qry.FieldAsInteger("pr_free_seating")!=0;
+
+        //============================ проверка листа ожидания ============================
+        if (set_mark && !free_seating &&
+            ((paxWithSeat.exists() && !paxWithSeat.wl_type.empty()) ||
+             (paxWithoutSeat.exists() && !paxWithoutSeat.wl_type.empty())))   //!!!vlad младенцы без мест и ЛО?
+        {
+            AstraLocale::showErrorMessage("MSG.PASSENGER.NOT_CONFIRM_FROM_WAIT_LIST");
+            throw 1;
+        };
+
+        //============================ проверка прохождения досмотра ============================
+        if (screen==sBoarding && set_mark && !pr_exam_with_brd && pr_exam &&
+            ((paxWithSeat.exists() && !paxWithSeat.pr_exam) ||
+             (paxWithoutSeat.exists() && !paxWithoutSeat.pr_exam)))
+        {
+            AstraLocale::showErrorMessage("MSG.PASSENGER.NOT_EXAM");
+            throw 1;
+        };
+
+        //============================ проверка оплаты багажа ============================
+        if (set_mark && pr_check_pay && !BagPaymentCompleted(grp_id))
+        {
+            AstraLocale::showErrorMessage("MSG.PASSENGER.NOT_BAG_PAID");
+            throw 1;
+        };
+
+        //============================ вопрос в терминал ============================
+        bool reset=false;
+        for(int pass=1;pass<=3;pass++)
+        {
+          switch(pass)
+          {
+            case 1: if (screen==sBoarding && set_mark &&
+                        GetNode("confirmations/ssr",reqNode)==NULL)
+                    {
+                      TQuery RemQry(&OraSession);
+                      TRemGrp rem_grp;
+                      rem_grp.Load(retBRD_WARN, point_id);
+                      if ((!paxWithSeat.exists() || GetRemarkStr(rem_grp, paxWithSeat.pax_id, RemQry).empty()) &&
+                          (!paxWithoutSeat.exists() || GetRemarkStr(rem_grp, paxWithoutSeat.pax_id, RemQry).empty())) break;
+
+                      xmlNodePtr confirmNode=NewTextChild(dataNode,"confirmation");
+                      NewTextChild(confirmNode,"reset",(int)reset);
+                      NewTextChild(confirmNode,"type","ssr");
+                      ostringstream msg;
+                      msg << getLocaleText("MSG.PASSENGER.NEEDS_SPECIAL_SERVICE") << endl
+                          << getLocaleText("QST.CONTINUE_BRD");
+                      NewTextChild(confirmNode,"message",msg.str());
+                      throw 1;
+                    };
+                    break;
+            case 2: if (screen==sBoarding && set_mark &&
+                        GetNode("confirmations/seat_no",reqNode)==NULL)
+                    {
+                      if (free_seating) break;
+                      string curr_seat_no;
+                      if (paxWithSeat.exists() && CheckSeat(paxWithSeat.pax_id, curr_seat_no)) break;
+                      if (paxWithoutSeat.exists() && CheckSeat(paxWithoutSeat.pax_id, curr_seat_no)) break;
+
+                      xmlNodePtr confirmNode=NewTextChild(dataNode,"confirmation");
+                      NewTextChild(confirmNode,"reset",(int)reset);
+                      NewTextChild(confirmNode,"type","seat_no");
+                      ostringstream msg;
+                      if (curr_seat_no.empty())
+                          msg << AstraLocale::getLocaleText("MSG.PASSENGER.SALON_SEAT_NO_NOT_DEFINED") << endl;
+                      else
+                          msg << AstraLocale::getLocaleText("MSG.PASSENGER.SALON_SEAT_NO_CHANGED_TO", AstraLocale::LParams() << LParam("seat_no", curr_seat_no)) << endl;
+
+                      msg << getLocaleText("MSG.PASSENGER.INVALID_BP_SEAT_NO") << endl
+                          << getLocaleText("QST.CONTINUE_BRD");
+                      NewTextChild(confirmNode,"message",msg.str());
+                      throw 1;
+                    };
+                    break;
+            case 3: if (screen==sSecurity && !set_mark &&
+                        GetNode("confirmations/pr_brd",reqNode)==NULL &&
+                        ((paxWithSeat.exists() && paxWithSeat.pr_brd) ||
+                         (paxWithoutSeat.exists() && paxWithoutSeat.pr_brd)))
+                    {
+                      xmlNodePtr confirmNode=NewTextChild(dataNode,"confirmation");
+                      NewTextChild(confirmNode,"reset",(int)reset);
+                      NewTextChild(confirmNode,"type","pr_brd");
+                      ostringstream msg;
+                      msg << getLocaleText("MSG.PASSENGER.BOARDED_ALREADY") << endl
+                          << getLocaleText("QST.PASSENGER.RETURN_FOR_EXAM");
+                      NewTextChild(confirmNode,"message",msg.str());
+                      throw 1;
+                    };
+                    break;
+          };
+        }; //for(int pass=1;pass<=3;pass++)
+
+        //============================ собственно посадка пассажира(ов) ============================
+        get_new_tid(NoExists, Qry);  //не лочим рейс, так как лочим ранее
+        for(int pass=0;pass<2;pass++)
+        {
+          TPaxItem &pax=(pass==0?paxWithSeat:paxWithoutSeat);
+          if (!pax.exists()) continue;
+          if (set_mark==pax.already_marked) continue;
+
+          if (!PaxUpdate(point_id,pax.pax_id,pax.tid,set_mark,pr_exam_with_brd))
+            throw AstraLocale::UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA",
+                                             LParams() << LParam("surname", pax.surname+(pax.name.empty()?"":" ")+pax.name));
+          pax.updated=true;
+        };
+
+        if (reqInfo->desk.compatible(MULTI_BOARDING_VERSION))
+        {
+          xmlNodePtr node=NewTextChild(dataNode,"updated");
+          if (paxWithSeat.exists() && paxWithSeat.updated)
+            NewTextChild(node, "pax_id", paxWithSeat.pax_id);
+          if (paxWithoutSeat.exists() && paxWithoutSeat.updated)
+            NewTextChild(node, "pax_id", paxWithoutSeat.pax_id);
+        }
+        else
+        {
+          if (paxWithSeat.exists() && paxWithSeat.updated)
+            NewTextChild(dataNode, "updated", paxWithSeat.pax_id);
+          else
+            if (paxWithoutSeat.exists() && paxWithoutSeat.updated)
+              NewTextChild(dataNode, "updated", paxWithoutSeat.pax_id);
+        };
+
+        //pr_etl_only
+        FltQry.SetVariable("point_id",point_id);
+        FltQry.Execute();
+        if (!FltQry.Eof)
+        {
+          TTripInfo info(FltQry);
+          xmlNodePtr node=NewTextChild(dataNode,"trip_sets");
+          NewTextChild( node, "pr_etl_only", (int)GetTripSets(tsETLOnly,info) );
+          NewTextChild( node, "pr_etstatus", pr_etstatus );
+        }
+        else
+          throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
+
+        if (screen==sBoarding)
+        {
+            if (set_mark)
+            {
+              if (grp_status==psTCheckin)
+                AstraLocale::showErrorMessage("MSG.ATTENTION_TCKIN_GET_COUPON");
+              else
+                AstraLocale::showMessage("MSG.PASSENGER.BOARDING");
+            }
+            else
+                AstraLocale::showMessage("MSG.PASSENGER.DEBARKED");
+        }
+        else
+        {
+            if (set_mark)
+                AstraLocale::showMessage("MSG.PASSENGER.EXAM");
+            else
+                AstraLocale::showMessage("MSG.PASSENGER.RETURNED_EXAM");
+        };
+      }
+      catch(int) {};
     };
 
-    Qry.Execute();
-    if (reg_no!=NoExists && Qry.Eof)
-      throw AstraLocale::UserException("MSG.PASSENGER.NOT_CHECKIN");
-
-    TQuery TCkinQry(&OraSession);
+    //выводим список или измененных пассажиров в терминал
 
     xmlNodePtr listNode = NewTextChild(dataNode, "passengers");
+
+    Qry.Clear();
+    GetPaxQuery(Qry, point_id, showWholeFlight?NoExists:reg_no, NoExists, reqInfo->desk.lang, rtUnknown, "");
+    Qry.Execute();
     if (!Qry.Eof)
     {
+      TQuery TCkinQry(&OraSession);
+
       bool free_seating=SALONS2::isFreeSeating(point_id);
 
       string def_pers_type=ElemIdToCodeNative(etPersType, EncodePerson(ASTRA::adult));
@@ -774,7 +1094,6 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       int col_name=Qry.FieldIndex("name");
       int col_pers_type=Qry.FieldIndex("pers_type");
       int col_class=Qry.FieldIndex("class");
-      int col_status=Qry.FieldIndex("status");
       int col_airp_arv=Qry.FieldIndex("airp_arv");
       int col_seat_no=Qry.FieldIndex("seat_no");
       int col_seats=Qry.FieldIndex("seats");
@@ -900,231 +1219,6 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                 };
               };
             };
-          };
-
-          if ((found_pax_id!=NoExists && found_pax_id==pax_id) ||
-              (found_pax_id==NoExists && reg_no==Qry.FieldAsInteger(col_reg_no)))
-          {
-              int mark;
-              if (reqInfo->screen.name == "BRDBUS.EXE")
-                  mark=Qry.FieldAsInteger(col_pr_brd);
-              else
-                  mark=Qry.FieldAsInteger(col_pr_exam);
-              bool boarding = NodeAsInteger("boarding", reqNode)!=0;
-              int tid;
-              if (GetNode("tid",reqNode)!=NULL)
-              {
-                  tid=NodeAsInteger("tid",reqNode);
-                  if (tid!=Qry.FieldAsInteger(col_tid))
-                      throw AstraLocale::UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA",
-                                                       AstraLocale::LParams() << AstraLocale::LParam("surname", surname+(name.empty()?"":" ")+name));
-              }
-              else
-                  tid=Qry.FieldAsInteger(col_tid);
-
-              if((!boarding && !mark) || (boarding && mark))
-              {
-                  if (reqInfo->screen.name == "BRDBUS.EXE")
-                  {
-                      if (mark)
-                          AstraLocale::showErrorMessage("MSG.PASSENGER.BOARDED_ALREADY",120);
-                      else
-                          AstraLocale::showErrorMessage("MSG.PASSENGER.NOT_BOARDING",120);
-                  }
-                  else
-                  {
-                      if (mark)
-                          AstraLocale::showErrorMessage("MSG.PASSENGER.EXAMED_ALREADY",120);
-                      else
-                          AstraLocale::showErrorMessage("MSG.PASSENGER.NOT_EXAM",120);
-                  };
-              }
-              else
-              {
-                  if (hall==NoExists)
-                  {
-                      if(reqInfo->screen.name == "BRDBUS.EXE")
-                          AstraLocale::showErrorMessage("MSG.NOT_SET_BOARDING_HALL");
-                      else
-                          AstraLocale::showErrorMessage("MSG.NOT_SET_EXAM_HALL");
-                      continue;
-                  };
-
-                  bool pr_exam_with_brd=false;
-                  bool pr_exam=false;
-                  bool pr_check_pay=false;
-                  int pr_etstatus=0;
-                  bool free_seating=false;
-                  TQuery SetsQry(&OraSession);
-                  if (reqInfo->screen.name == "BRDBUS.EXE")
-                  {
-                      SetsQry.Clear();
-                      SetsQry.SQLText=
-                          "SELECT pr_misc FROM trip_hall "
-                          "WHERE point_id=:point_id AND type=:type AND (hall=:hall OR hall IS NULL) "
-                          "ORDER BY DECODE(hall,NULL,1,0)";
-                      SetsQry.CreateVariable("point_id",otInteger,point_id);
-                      SetsQry.CreateVariable("hall",otInteger,hall);
-                      SetsQry.CreateVariable("type",otInteger,2);
-                      SetsQry.Execute();
-                      if (!SetsQry.Eof) pr_exam_with_brd=SetsQry.FieldAsInteger("pr_misc")!=0;
-                  };
-
-                  SetsQry.Clear();
-                  SetsQry.SQLText=
-                      "SELECT pr_exam,pr_check_pay,pr_exam_check_pay,pr_etstatus,pr_free_seating "
-                      "FROM trip_sets WHERE point_id=:point_id";
-                  SetsQry.CreateVariable("point_id",otInteger,point_id);
-                  SetsQry.Execute();
-                  if (SetsQry.Eof)
-                    throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
-
-                  pr_exam=SetsQry.FieldAsInteger("pr_exam")!=0;
-                  if (reqInfo->screen.name == "BRDBUS.EXE")
-                    pr_check_pay=SetsQry.FieldAsInteger("pr_check_pay")!=0;
-                  else
-                    pr_check_pay=SetsQry.FieldAsInteger("pr_exam_check_pay")!=0;
-                  pr_etstatus=SetsQry.FieldAsInteger("pr_etstatus");
-                  free_seating=SetsQry.FieldAsInteger("pr_free_seating")!=0;
-
-                  if (boarding && !free_seating && !Qry.FieldIsNULL(col_wl_type))
-                  {
-                      AstraLocale::showErrorMessage("MSG.PASSENGER.NOT_CONFIRM_FROM_WAIT_LIST");
-                  }
-                  else if (reqInfo->screen.name == "BRDBUS.EXE" &&
-                           boarding && Qry.FieldAsInteger(col_pr_exam)==0 &&
-                           !pr_exam_with_brd && pr_exam)
-                  {
-                      AstraLocale::showErrorMessage("MSG.PASSENGER.NOT_EXAM");
-                  }
-                  else if (boarding && !pr_payment && pr_check_pay)
-                  {
-                      AstraLocale::showErrorMessage("MSG.PASSENGER.NOT_BAG_PAID");
-                  }
-                  else
-                  {
-                    try
-                    {
-                      bool reset=false;
-                      for(int pass=1;pass<=3;pass++)
-                      {
-                        switch(pass)
-                        {
-                          case 1: if (reqInfo->screen.name == "BRDBUS.EXE" &&
-                                      boarding &&
-                                      GetNode("confirmations/ssr",reqNode)==NULL)
-                                  {
-                                    TQuery RemQry(&OraSession);
-                                    TRemGrp rem_grp;
-                                    rem_grp.Load(retBRD_WARN, point_id);
-                                    if (GetRemarkStr(rem_grp, pax_id, RemQry).empty()) break;
-
-                                    xmlNodePtr confirmNode=NewTextChild(dataNode,"confirmation");
-                                    NewTextChild(confirmNode,"reset",(int)reset);
-                                    NewTextChild(confirmNode,"type","ssr");
-                                    ostringstream msg;
-                                    msg << getLocaleText("MSG.PASSENGER.NEEDS_SPECIAL_SERVICE") << endl
-                                        << getLocaleText("QST.CONTINUE_BRD");
-                                    NewTextChild(confirmNode,"message",msg.str());
-                                    throw 1;
-                                  };
-                                  break;
-                          case 2: if (reqInfo->screen.name == "BRDBUS.EXE" &&
-                                      boarding &&
-                                      GetNode("confirmations/seat_no",reqNode)==NULL)
-                                  {
-                                    if (free_seating) break;
-                                    string curr_seat_no;
-                                    if (ChckSt(pax_id, curr_seat_no)) break;
-                                    
-                                    xmlNodePtr confirmNode=NewTextChild(dataNode,"confirmation");
-                                    NewTextChild(confirmNode,"reset",(int)reset);
-                                    NewTextChild(confirmNode,"type","seat_no");
-                                    ostringstream msg;
-                                    if (curr_seat_no.empty())
-                                        msg << AstraLocale::getLocaleText("MSG.PASSENGER.SALON_SEAT_NO_NOT_DEFINED") << endl;
-                                    else
-                                        msg << AstraLocale::getLocaleText("MSG.PASSENGER.SALON_SEAT_NO_CHANGED_TO", AstraLocale::LParams() << LParam("seat_no", curr_seat_no)) << endl;
-
-                                    msg << getLocaleText("MSG.PASSENGER.INVALID_BP_SEAT_NO") << endl
-                                        << getLocaleText("QST.CONTINUE_BRD");
-                                    NewTextChild(confirmNode,"message",msg.str());
-                                    throw 1;
-                                  };
-                                  break;
-                          case 3: if (reqInfo->screen.name != "BRDBUS.EXE" &&
-                                      !boarding &&
-                                      GetNode("confirmations/pr_brd",reqNode)==NULL &&
-                                      Qry.FieldAsInteger(col_pr_brd)!=0)
-                                  {
-                                    xmlNodePtr confirmNode=NewTextChild(dataNode,"confirmation");
-                                    NewTextChild(confirmNode,"reset",(int)reset);
-                                    NewTextChild(confirmNode,"type","pr_brd");
-                                    ostringstream msg;
-                                    msg << getLocaleText("MSG.PASSENGER.BOARDED_ALREADY") << endl
-                                        << getLocaleText("QST.PASSENGER.RETURN_FOR_EXAM");
-                                    NewTextChild(confirmNode,"message",msg.str());
-                                    throw 1;
-                                  };
-                                  break;
-                        };
-                      };
-
-                      // update
-                      if (PaxUpdate(point_id,pax_id,tid,!mark,pr_exam_with_brd))
-                      {
-                          mark = !mark;
-                          if (reqInfo->screen.name == "BRDBUS.EXE")
-                          {
-                              ReplaceTextChild(paxNode, "pr_brd", mark);
-                              if (pr_exam_with_brd)
-                                  ReplaceTextChild(paxNode, "pr_exam", mark);
-                          }
-                          else
-                              ReplaceTextChild(paxNode, "pr_exam", mark);
-                          ReplaceTextChild(paxNode, "tid", tid);
-                          ReplaceTextChild(dataNode,"updated",pax_id);
-                          //pr_etl_only
-                          FltQry.SetVariable("point_id",point_id);
-                          FltQry.Execute();
-                          if (!FltQry.Eof)
-                          {
-                            TTripInfo info(FltQry);
-                            xmlNodePtr node=NewTextChild(dataNode,"trip_sets");
-                            NewTextChild( node, "pr_etl_only", (int)GetTripSets(tsETLOnly,info) );
-                            NewTextChild( node, "pr_etstatus", pr_etstatus );
-                          }
-                          else
-                            throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
-
-                          if (reqInfo->screen.name == "BRDBUS.EXE")
-                          {
-                              if (mark)
-                              {
-                                if (DecodePaxStatus(Qry.FieldAsString(col_status))==psTCheckin)
-                                  AstraLocale::showErrorMessage("MSG.ATTENTION_TCKIN_GET_COUPON");
-                                else
-                                  AstraLocale::showMessage("MSG.PASSENGER.BOARDING");
-                              }
-                              else
-                                  AstraLocale::showMessage("MSG.PASSENGER.DEBARKED");
-                          }
-                          else
-                          {
-                              if (mark)
-                                  AstraLocale::showMessage("MSG.PASSENGER.EXAM");
-                              else
-                                  AstraLocale::showMessage("MSG.PASSENGER.RETURNED_EXAM");
-                          };
-
-                      }
-                      else
-                          throw AstraLocale::UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA",
-                                                           LParams() << LParam("surname", surname+(name.empty()?"":" ")+name));
-                    }
-                    catch(int) {};
-                  };
-              };
           };
       };//for(;!Qry.Eof;Qry.Next())
     };
