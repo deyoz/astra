@@ -33,7 +33,7 @@ struct TCkinSegFlts
 class TTrferSetsInfo
 {
   public:
-    bool trfer_permit;
+    bool trfer_permit, trfer_outboard;
     bool tckin_permit, tckin_waitlist, tckin_norec;
     TTrferSetsInfo()
     {
@@ -42,6 +42,7 @@ class TTrferSetsInfo
     void Clear()
     {
       trfer_permit=false;
+      trfer_outboard=false;
       tckin_permit=false;
       tckin_waitlist=false;
       tckin_norec=false;

@@ -609,8 +609,8 @@ void CheckTrferPermit(const pair<CheckIn::TTransferItem, TCkinSegFlts> &in,
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
-    "SELECT trfer_sets.trfer_permit, trfer_sets.tckin_permit, "
-    "       trfer_sets.tckin_waitlist, trfer_sets.tckin_norec, "
+    "SELECT trfer_sets.trfer_permit, trfer_sets.trfer_outboard, "
+    "       trfer_sets.tckin_permit, trfer_sets.tckin_waitlist, trfer_sets.tckin_norec, "
     "       trfer_sets.min_interval, trfer_sets.max_interval "
     "FROM trfer_sets,trfer_set_airps,trfer_set_flts flts_in,trfer_set_flts flts_out "
     "WHERE trfer_sets.id=trfer_set_airps.id AND "
@@ -637,17 +637,24 @@ void CheckTrferPermit(const pair<CheckIn::TTransferItem, TCkinSegFlts> &in,
     Qry.CreateVariable("airline_out",otString,out.first.operFlt.airline);
     Qry.Execute();
     if (Qry.Eof)
+    {
       sets.trfer_permit=outboard_trfer;
+      sets.trfer_outboard=outboard_trfer;
+    };
   }
   else
   {
-    sets.trfer_permit=Qry.FieldAsInteger("trfer_permit")!=0;
-    sets.tckin_permit=Qry.FieldAsInteger("tckin_permit")!=0;
-    if (sets.tckin_permit)
+    TTrferSetsInfo qrySets;
+    qrySets.trfer_permit=Qry.FieldAsInteger("trfer_permit")!=0;
+    qrySets.trfer_outboard=Qry.FieldAsInteger("trfer_outboard")!=0;
+    qrySets.tckin_permit=Qry.FieldAsInteger("tckin_permit")!=0;
+    if (qrySets.tckin_permit)
     {
-      sets.tckin_waitlist=Qry.FieldAsInteger("tckin_waitlist")!=0;
-      sets.tckin_norec=Qry.FieldAsInteger("tckin_norec")!=0;
+      qrySets.tckin_waitlist=Qry.FieldAsInteger("tckin_waitlist")!=0;
+      qrySets.tckin_norec=Qry.FieldAsInteger("tckin_norec")!=0;
     };
+
+    sets.trfer_outboard=qrySets.trfer_outboard; //в любом случае заполняем для следующей итерации
   
     int min_interval=Qry.FieldIsNULL("min_interval")?NoExists:Qry.FieldAsInteger("min_interval");
     int max_interval=Qry.FieldIsNULL("max_interval")?NoExists:Qry.FieldAsInteger("max_interval");
@@ -655,9 +662,10 @@ void CheckTrferPermit(const pair<CheckIn::TTransferItem, TCkinSegFlts> &in,
     if (in.second.is_edi || out.second.is_edi ||
         in.second.flts.size()!=1 || out.second.flts.size()!=1)
     {
-      sets.Clear();
       if (min_interval==NoExists && max_interval==NoExists)
-        sets.trfer_permit=Qry.FieldAsInteger("trfer_permit")!=0;
+      {
+        sets.trfer_permit=qrySets.trfer_permit;
+      };
       return;
     };
 
@@ -667,13 +675,14 @@ void CheckTrferPermit(const pair<CheckIn::TTransferItem, TCkinSegFlts> &in,
         inSeg.point_arv==ASTRA::NoExists || outSeg.point_arv==ASTRA::NoExists ||
         inSeg.airp_arv!=outSeg.airp_dep)
     {
-      sets.Clear();
       if (min_interval==NoExists && max_interval==NoExists)
-        sets.trfer_permit=Qry.FieldAsInteger("trfer_permit")!=0;
+      {
+        sets.trfer_permit=qrySets.trfer_permit;
+      };
       return;
     };
 
-    if ((sets.trfer_permit || sets.tckin_permit) &&
+    if ((qrySets.trfer_permit || qrySets.tckin_permit) &&
         (min_interval!=NoExists || max_interval!=NoExists))
     {
       //надо проверить время прилета inSeg
@@ -689,10 +698,12 @@ void CheckTrferPermit(const pair<CheckIn::TTransferItem, TCkinSegFlts> &in,
         double interval=round((outSeg.fltInfo.real_out-Qry.FieldAsDateTime("real_in"))*1440);
         //ProgTrace(TRACE5, "interval=%f, min_interval=%d, max_interval=%d", interval, min_interval, max_interval);
         if ((min_interval!=NoExists && interval<min_interval) ||
-            (max_interval!=NoExists && interval>max_interval)) sets.Clear();
+            (max_interval!=NoExists && interval>max_interval)) return;
       }
-      else sets.Clear();
+      else return;
     };
+
+    sets=qrySets;
   };
 };
 
@@ -759,10 +770,11 @@ void traceTrfer( TRACE_SIGNATURE,
           << setw(9) << right << "point_arv" << " "
           << setw(3) << left  << "dep" << " "
           << setw(3) << left  << "arv" << "|"
-          << setw(9) << left  << "trfer_per" << " "
-          << setw(9) << left  << "tckin_per" << " "
-          << setw(9) << left  << "tckin_wai" << " "
-          << setw(9) << left  << "tckin_nor";
+          << setw(10) << left  << "trfer_perm" << " "
+          << setw(10) << left  << "trfer_outb" << " "
+          << setw(10) << left  << "tckin_perm" << " "
+          << setw(10) << left  << "tckin_wait" << " "
+          << setw(10) << left  << "tckin_nore";
       ProgTrace(TRACE_PARAMS, "%s", str.str().c_str());
 
       str.str("");
@@ -786,10 +798,11 @@ void traceTrfer( TRACE_SIGNATURE,
             << setw(9) << right << (f->point_arv != NoExists ? IntToString(f->point_arv) : "NoExists") << " "
             << setw(3) << left  << f->airp_dep << " "
             << setw(3) << left  << f->airp_arv << "|"
-            << setw(9) << left  << (iSeg->second.second.trfer_permit   ? "true" : "false") << " "
-            << setw(9) << left  << (iSeg->second.second.tckin_permit   ? "true" : "false") << " "
-            << setw(9) << left  << (iSeg->second.second.tckin_waitlist ? "true" : "false") << " "
-            << setw(9) << left  << (iSeg->second.second.tckin_norec    ? "true" : "false");
+            << setw(10) << left  << (iSeg->second.second.trfer_permit   ? "true" : "false") << " "
+            << setw(10) << left  << (iSeg->second.second.trfer_outboard ? "true" : "false") << " "
+            << setw(10) << left  << (iSeg->second.second.tckin_permit   ? "true" : "false") << " "
+            << setw(10) << left  << (iSeg->second.second.tckin_waitlist ? "true" : "false") << " "
+            << setw(10) << left  << (iSeg->second.second.tckin_norec    ? "true" : "false");
         ProgTrace(TRACE_PARAMS, "%s", str.str().c_str());
 
         str.str("");
@@ -799,10 +812,11 @@ void traceTrfer( TRACE_SIGNATURE,
     {
       str << setw(2) << right << iSeg->first << ": "
           << setw(52) << left << "not found!" << "|"
-          << setw(9) << left  << (iSeg->second.second.trfer_permit   ? "true" : "false") << " "
-          << setw(9) << left  << (iSeg->second.second.tckin_permit   ? "true" : "false") << " "
-          << setw(9) << left  << (iSeg->second.second.tckin_waitlist ? "true" : "false") << " "
-          << setw(9) << left  << (iSeg->second.second.tckin_norec    ? "true" : "false");
+          << setw(10) << left  << (iSeg->second.second.trfer_permit   ? "true" : "false") << " "
+          << setw(10) << left  << (iSeg->second.second.trfer_outboard ? "true" : "false") << " "
+          << setw(10) << left  << (iSeg->second.second.tckin_permit   ? "true" : "false") << " "
+          << setw(10) << left  << (iSeg->second.second.tckin_waitlist ? "true" : "false") << " "
+          << setw(10) << left  << (iSeg->second.second.tckin_norec    ? "true" : "false");
 
       ProgTrace(TRACE_PARAMS, "%s", str.str().c_str());
 
@@ -902,7 +916,7 @@ void CheckInInterface::GetTrferSets(const TTripInfo &operFlt,
     
     //traceTrfer( TRACE5, "GetTrferSets: trfer_segs_tmp", trfer_segs_tmp );
     
-    bool outboard_trfer=GetTripSets( tsOutboardTrfer, operFlt );
+    bool outboard_trfer=false;
     
     pair<int, pair<CheckIn::TTransferItem, TCkinSegFlts> > prior_trfer_seg;
     for(map<int, pair<CheckIn::TTransferItem, TCkinSegFlts> >::const_iterator s=trfer_segs_tmp.begin();
@@ -913,6 +927,7 @@ void CheckInInterface::GetTrferSets(const TTripInfo &operFlt,
         TTrferSetsInfo sets;
         if (prior_trfer_seg.first+1==s->first)
           CheckTrferPermit(prior_trfer_seg.second, s->second, outboard_trfer, sets);
+        outboard_trfer=sets.trfer_outboard;
         trfer_segs[s->first]=make_pair(s->second.second, sets);
       };
       prior_trfer_seg=*s;
