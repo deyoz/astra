@@ -2446,7 +2446,6 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     TQuery PaxDocQry(&OraSession);
     TRemGrp rem_grp;
     rem_grp.Load(retCKIN_VIEW, operFlt.airline);
-    TQuery RemQry(&OraSession);
     for(;!Qry.Eof;Qry.Next())
     {
       int grp_id = Qry.FieldAsInteger(col_grp_id);
@@ -2531,7 +2530,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       NewTextChild(paxNode,"rk_weight",Qry.FieldAsInteger(col_rk_weight),0);
       NewTextChild(paxNode,"excess",Qry.FieldAsInteger(col_excess),0);
       NewTextChild(paxNode,"tags",Qry.FieldAsString(col_tags),"");
-      NewTextChild(paxNode,"rems",GetRemarkStr(rem_grp, pax_id, RemQry),"");
+      NewTextChild(paxNode,"rems",GetRemarkStr(rem_grp, pax_id),"");
 
 
       //коммерческий рейс
@@ -5520,7 +5519,6 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
 
   xmlNodePtr node;
   TQuery Qry(&OraSession);
-  TQuery NormQry(&OraSession);
   vector<int> grp_ids;
   grp_ids.push_back(grp_id);
 
@@ -5676,7 +5674,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
         LoadPaxRem(paxNode);
         if (grp_id==grp_ids.begin())
         {
-          CheckIn::LoadNorms(paxNode,pr_unaccomp,NormQry);
+          CheckIn::LoadNorms(paxNode,pr_unaccomp);
           pax_cat_airline=seg.operFlt.airline;
           AddPaxCategory(pax, pax_cats);
         };
@@ -5690,7 +5688,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
         TTrferRoute trfer;
         trfer.GetRoute(grp.id, trtNotFirstSeg);
         BuildTransfer(trfer,resNode);
-        CheckIn::LoadNorms(segNode,pr_unaccomp,NormQry);
+        CheckIn::LoadNorms(segNode,pr_unaccomp);
       };
     };
     if (grp_id==grp_ids.begin())
@@ -5731,9 +5729,8 @@ void CheckInInterface::LoadPaxRem(xmlNodePtr paxNode)
   xmlNodePtr node2=paxNode->children;
   int pax_id=NodeAsIntegerFast("pax_id",node2);
 
-  TQuery RemQry(&OraSession);
   vector<CheckIn::TPaxRemItem> rems;
-  CheckIn::LoadPaxRem(pax_id, true, rems, RemQry);
+  CheckIn::LoadPaxRem(pax_id, true, rems);
 
   xmlNodePtr remsNode=NewTextChild(paxNode,"rems");
   for(vector<CheckIn::TPaxRemItem>::const_iterator r=rems.begin(); r!=rems.end(); ++r)

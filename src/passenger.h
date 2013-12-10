@@ -371,9 +371,9 @@ void SavePaxDoc(int pax_id, const TPaxDocItem &doc, TQuery& PaxDocQry);
 void SavePaxDoco(int pax_id, const TPaxDocoItem &doc, TQuery& PaxDocQry);
 void SavePaxDoca(int pax_id, const std::list<TPaxDocaItem> &doca, TQuery& PaxDocaQry);
 
-bool LoadPaxNorms(int pax_id, std::vector< std::pair<TPaxNormItem, TNormItem> > &norms, TQuery& NormQry);
-bool LoadGrpNorms(int grp_id, std::vector< std::pair<TPaxNormItem, TNormItem> > &norms, TQuery& NormQry);
-void LoadNorms(xmlNodePtr node, bool pr_unaccomp, TQuery& NormQry);
+bool LoadPaxNorms(int pax_id, std::vector< std::pair<TPaxNormItem, TNormItem> > &norms);
+bool LoadGrpNorms(int grp_id, std::vector< std::pair<TPaxNormItem, TNormItem> > &norms);
+void LoadNorms(xmlNodePtr node, bool pr_unaccomp);
 void SaveNorms(xmlNodePtr node, bool pr_unaccomp);
 
 };

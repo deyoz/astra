@@ -1770,6 +1770,16 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
                     << "        pax.pr_brd IS NOT NULL AND " << endl
                     << "        'DOCO' IN " << GetSQLEnum(iRem->second) << endl;
                 break;
+              case remDOCA:
+                sql << "  SELECT DISTINCT pax.pax_id,'DOCA' AS rem_code " << endl
+                    << "  FROM pax_grp,pax,pax_doca " << endl
+                    << "  WHERE pax_grp.grp_id=pax.grp_id AND " << endl
+                    << "        pax.pax_id=pax_doca.pax_id AND " << endl
+                    << "        pax_grp.point_dep=:point_id AND " << endl
+                    << "        " << crew_filter << endl
+                    << "        pax.pr_brd IS NOT NULL AND " << endl
+                    << "        'DOCA' IN " << GetSQLEnum(iRem->second) << endl;
+                break;
               default:
                 sql << "  SELECT DISTINCT pax.pax_id,pax_rem.rem_code " << endl
                     << "  FROM pax_grp,pax,pax_rem " << endl
@@ -2388,9 +2398,6 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   QrySeat.CreateVariable( "point_id", otInteger, point_id );
   QrySeat.DeclareVariable( "pax_id", otInteger );
 
-  //ремарки пассажиров
-  TQuery RQry( &OraSession );
-
   //рейс пассажиров
   TQuery TlgTripsQry( &OraSession );
   TlgTripsQry.SQLText=
@@ -2525,7 +2532,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
 
     int pax_id=Qry.FieldAsInteger( col_pax_id );
     vector<CheckIn::TPaxRemItem> rems;
-    LoadCrsPaxRem(pax_id, rems, RQry);
+    LoadCrsPaxRem(pax_id, rems);
     ostringstream rem_detail;
     sort(rems.begin(),rems.end()); //сортировка по priority
     xmlNodePtr stcrNode = NULL;

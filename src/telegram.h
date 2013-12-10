@@ -71,6 +71,7 @@ class TTlgStat
 bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxTknItem &tkn, CheckIn::TPaxRemItem &rem);
 bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxDocItem &doc, CheckIn::TPaxRemItem &rem);
 bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxDocoItem &doco, CheckIn::TPaxRemItem &rem);
+bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxDocaItem &doca, CheckIn::TPaxRemItem &rem);
 
 // stuff used to form seat ranges in tlgs
 struct TTlgPlace {
