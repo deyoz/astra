@@ -3716,15 +3716,15 @@ void ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
       	}
       }
     	// проверка на то, что мы имеем право назначить слой на эти места по пассажиру
-      TSeatLayer tmp_layer = seat->getDropBlokedLayer( point_id );
+      TSeatLayer tmp_layer = seat->getDropBlockedLayer( point_id );
       if ( tmp_layer.layer_type != cltUnknown ) {
-        ProgTrace( TRACE5, "getDropBlokedLayer: %s add %s",
+        ProgTrace( TRACE5, "getDropBlockedLayer: %s add %s",
                    string(seat->yname+seat->xname).c_str(), tmp_layer.toString().c_str() );
         throw UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL" );
       }
 
       std::map<int, std::set<TSeatLayer,SeatLayerCompare>,classcomp > layers;
-      seat->GetLayers( layers, true );
+      seat->GetLayers( layers, glAll );
       for ( std::map<int, std::set<TSeatLayer,SeatLayerCompare>,classcomp >::iterator ilayers=layers.begin();
             ilayers!=layers.end(); ilayers++ ) {
         if ( ilayers->second.empty() ) {
@@ -3923,7 +3923,7 @@ void ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
 std::map<int,map<string,map<ASTRA::TCompLayerType,vector<TPassenger> > > > passes;
 
 void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
-                            const SALONS2::TSalonPassengers &passengers,
+                            const SALONS2::TIntArvSalonPassengers &passengers,
                             TSeatAlgoParams ASeatAlgoParams )
 {
   ProgTrace( TRACE5, "AutoReSeatsPassengers: point_id=%d", salonList.getDepartureId() );
@@ -3948,13 +3948,13 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
   TGrpStatusTypes &grp_status_types = (TGrpStatusTypes &)base_tables.get("GRP_STATUS_TYPES");
   TClsGrp &cls_grp = (TClsGrp &)base_tables.get("CLS_GRP");    //cls_grp.code subclass,
   //arv - вначале идут пассажиры с самым длинным маршрутом
-  for ( TSalonPassengers::const_iterator ipass_arv=passengers.begin();
+  for ( TIntArvSalonPassengers::const_iterator ipass_arv=passengers.begin();
         ipass_arv!=passengers.end(); ipass_arv++ ) {
     //class
-    for ( std::map<std::string,std::map<std::string,std::set<TSalonPax,ComparePassenger>,CompareGrpStatus >,CompareClass >::const_iterator ipass_class=ipass_arv->second.begin();
+    for ( TIntClassSalonPassengers::const_iterator ipass_class=ipass_arv->second.begin();
           ipass_class!=ipass_arv->second.end(); ipass_class++ ) {
       //grp_status
-      for ( std::map<std::string,std::set<TSalonPax,ComparePassenger>,CompareGrpStatus >::const_iterator ipass_status=ipass_class->second.begin();
+      for ( TIntStatusSalonPassengers::const_iterator ipass_status=ipass_class->second.begin();
             ipass_status!=ipass_class->second.end(); ipass_status++ ) {
         //заполняем пассажирами с одними характеристиками
         vector<ASTRA::TCompLayerType> grp_layers;
@@ -4066,7 +4066,7 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
             if ( subcls_rems.IsSubClsRem( row.AsString( "code" ), rem ) ) {
               vpass.add_rem( rem );
             }
-            tst();
+            ProgTrace( TRACE5, "pass add pax_id=%d", vpass.paxId );
             Passengers.Add( salonList, vpass );
             Passes.Add( salonList, vpass );
             if ( ExistsBasePlace( SalonsN, vpass ) ) { // пассажир не посажен, но нашлось для него базовое место - пометили как занято //??? кодировка !!!

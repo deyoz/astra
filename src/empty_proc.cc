@@ -1479,16 +1479,36 @@ void filter(vector<TypeB::TCreateInfo> &createInfo, string tlg_type)
     }
 }
 */
+/*
+CREATE OR REPLACE
+FUNCTION pax_is_female(vpax_id pax.pax_id%TYPE) RETURN NUMBER
+IS
+result NUMBER(1);
+BEGIN
+  SELECT DECODE(gender,'F',1,'FI',1,'M',0,'MI',0,NULL)
+  INTO result
+  FROM pax_doc
+  WHERE pax_id=vpax_id;
+  RETURN result;
+EXCEPTION
+  WHEN NO_DATA_FOUND THEN RETURN NULL;
+END pax_is_female;
+/
+show error
+
+DROP FUNCTION pax_is_female;
+*/
 int test_typeb_utils(int argc,char **argv)
 {
   set<string> tlg_types;
-/*  tlg_types.insert("PRL");
+//  tlg_types.insert("PRL");
   tlg_types.insert("LCI");
-  tlg_types.insert("PRL");
-  tlg_types.insert("PRLC");
-  tlg_types.insert("PSM");
-  tlg_types.insert("PIL");
-  tlg_types.insert("SOM");*/
+  tlg_types.insert("COM");
+//  tlg_types.insert("PRL");
+//  tlg_types.insert("PRLC");
+//  tlg_types.insert("PSM");
+//  tlg_types.insert("PIL");
+//  tlg_types.insert("SOM");
   TQuery Qry(&OraSession);
 /*  Qry.SQLText =
     "INSERT INTO tranzit_algo_seats(id,airline,flt_no,airp,pr_new) "
@@ -1503,21 +1523,27 @@ int test_typeb_utils(int argc,char **argv)
       "       point_id,point_num,first_point,pr_tranzit "
       "FROM points "
 //      "WHERE point_id=2253498";
-      "WHERE scd_out BETWEEN SYSTEM.UTCSYSDATE-4/24 AND SYSTEM.UTCSYSDATE AND act_out IS NOT NULL AND pr_del=0";
+      "WHERE scd_out BETWEEN SYSTEM.UTCSYSDATE-24/24 AND SYSTEM.UTCSYSDATE AND act_out IS NOT NULL AND pr_del=0";
       
     TQuery TlgQry(&OraSession);
     TlgQry.Clear();
     string sql =
       "SELECT * "
-      "FROM tlg_out "
-      "WHERE point_id=:point_id ";
+      "FROM tlg_out, typeb_out_extra "
+      "WHERE point_id=:point_id AND manual_creation=0 AND "
+      "      tlg_out.id=typeb_out_extra.tlg_id(+) AND typeb_out_extra.lang(+)='EN' ";
 
     if ( !tlg_types.empty() ) {
       sql += " and type in " + GetSQLEnum(tlg_types);
     }
-    sql += " ORDER BY type, addr, id, num";
+    sql += " ORDER BY type, typeb_out_extra.text, addr, id, num";
     TlgQry.SQLText=sql;
     TlgQry.DeclareVariable("point_id", otInteger);
+
+    TQuery OrigQry(&OraSession);
+    OrigQry.Clear();
+    OrigQry.SQLText="SELECT * FROM typeb_originators WHERE id=:id";
+    OrigQry.DeclareVariable("id", otInteger);
 
     string file_name;
     file_name="telegram1.txt";
@@ -1530,6 +1556,7 @@ int test_typeb_utils(int argc,char **argv)
     Qry.Execute();
     for(;!Qry.Eof;Qry.Next())
     {
+      TDateTime time_create=NowUTC();
       TAdvTripInfo fltInfo(Qry);
 
 
@@ -1542,27 +1569,25 @@ int test_typeb_utils(int argc,char **argv)
         if (!TlgQry.Eof)
         {
           string body;
-          bool completed, has_errors;
-          TDateTime time_send_act;
           for(;!TlgQry.Eof;)
           {
             TTlgOutPartInfo tlg;
             tlg.fromDB(TlgQry);
-            completed=TlgQry.FieldAsInteger("completed")!=0;
-            has_errors=TlgQry.FieldAsInteger("has_errors")!=0;
-            time_send_act=TlgQry.FieldIsNULL("time_send_act")?NoExists:TlgQry.FieldAsDateTime("time_send_act");
+            //originator
+            TypeB::TOriginatorInfo origInfo;
+            OrigQry.SetVariable("id", tlg.originator_id);
+            OrigQry.Execute();
+            if (!OrigQry.Eof)
+              origInfo.fromDB(OrigQry);
+            tlg.origin=origInfo.originSection(time_create, TypeB::endl);
+
             body+=tlg.body;
             TlgQry.Next();
             if (TlgQry.Eof || tlg.id!=TlgQry.FieldAsInteger("id"))
             {
               if (tlg_ids.find(tlg.id)==tlg_ids.end())
               {
-                if (tlg.tlg_type!="BSM" /*&&
-                    ((pass==0 && (time_send_act==tlg.time_create ||
-                                  (time_send_act==NoExists && (!completed || has_errors)))) ||
-                     pass!=0
-                    )*/
-                   )
+                if (tlg.tlg_type!="BSM")
                 {
                   ofstream &f=(pass==0?f1:f2);
                   f << ConvertCodepage(tlg.addr, "CP866", "CP1251")

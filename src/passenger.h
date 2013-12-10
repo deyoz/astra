@@ -291,7 +291,10 @@ class TPaxItem
     TPaxItem& fromXML(xmlNodePtr node);
     const TPaxItem& toDB(TQuery &Qry) const;
     TPaxItem& fromDB(TQuery &Qry);
+    int is_female() const;
 };
+
+int is_female(const std::string &pax_doc_gender, const std::string &pax_name);
 
 class TPaxGrpItem
 {

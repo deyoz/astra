@@ -3632,36 +3632,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             if (pax.name.empty() && pr_mintrans_file)
               throw UserException("MSG.CHECKIN.PASSENGERS_NAMES_NOT_SET");
 
-            if (pax.tkn.no.size()>15)
-            {
-              string ticket_no=pax.tkn.no;
-              if (ticket_no.size()>20) ticket_no.erase(20).append("...");
-              throw UserException("MSG.CHECKIN.TICKET_LARGE_MAX_LEN", LParams()<<LParam("ticket_no",ticket_no));
-            };
-            if (pax.doc.no.size()>15)
-            {
-              string document=pax.doc.no;
-              if (document.size()>25) document.erase(25).append("...");
-              throw UserException("MSG.CHECKIN.DOCUMENT_LARGE_MAX_LEN", LParams()<<LParam("document",document));
-            };
-
-            if (reqInfo->client_type!=ctTerm || reqInfo->desk.compatible(DOCS_VERSION))
-            {
-              for(set<string> ::const_iterator f=apis_formats.begin(); f!=apis_formats.end(); ++f )
-              {
-                if (!APIS::isValidDocType(*f, grp.status, pax.doc.type))
-                  throw UserException("MSG.PASSENGER.INVALID_DOC_TYPE_FOR_APIS",
-                                      LParams() << LParam("surname", pax.surname+(pax.name.empty()?"":" ")+pax.name)
-                                                << LParam("code", ElemIdToCodeNative(etPaxDocType, pax.doc.type)));
-
-                if (!APIS::isValidGender(*f, pax.doc.gender))
-                  throw UserException("MSG.PASSENGER.INVALID_GENDER_FOR_APIS",
-                                      LParams() << LParam("surname", pax.surname+(pax.name.empty()?"":" ")+pax.name)
-                                                << LParam("code", ElemIdToCodeNative(etGenderType, pax.doc.gender)));
-              };
-
-            };
-
             if (reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION) &&
                 defer_etstatus && !pr_etl_only && pr_etstatus>=0 && //раздельное изменение статуса и есть связь с СЭБ
                 pax.tkn.rem=="TKNE" && !pax.tkn.confirm)
@@ -3690,42 +3660,75 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 !CheckRefusability(grp.point_dep, pax.id))
               throw UserException("MSG.PASSENGER.UNREGISTRATION_DENIAL");
 
-            //у младенцев не анализируем билет и документ:
-            if (pax.pers_type!=NoPerson && pax.pers_type!=baby)
+            //билет
+            if (pax.TknExists)
             {
-              string refuse;
-              if (!new_checkin)
+              if (pax.tkn.no.size()>15)
               {
-                if (pax.PaxUpdatesPending) refuse=pax.refuse;
-                else
-                {
-                  Qry.SetVariable("pax_id",pax.id);
-                  Qry.Execute();
-                  if (!Qry.Eof) refuse=Qry.FieldAsString("refuse");
-                }
+                string ticket_no=pax.tkn.no;
+                if (ticket_no.size()>20) ticket_no.erase(20).append("...");
+                throw UserException("MSG.CHECKIN.TICKET_LARGE_MAX_LEN", LParams()<<LParam("ticket_no",ticket_no));
               };
-              if (refuse.empty())
+              if (pax.refuse.empty())
               {
-                //билет
-                if (pax.TknExists && checkTknInfo.required_fields!=0x0000)
+                if (checkTknInfo.required_fields!=0x0000)
                 {
                   if ((pax.tkn.getNotEmptyFieldsMask()&checkTknInfo.required_fields)!=checkTknInfo.required_fields)
                     throw UserException("MSG.CHECKIN.PASSENGERS_TICKETS_NOT_SET"); //WEB
                 };
-                //документ
-                if (pax.DocExists && checkDocInfo.first.required_fields!=0x0000 && pax.name!="CBBG")
-                {
-                   if ((pax.doc.getNotEmptyFieldsMask()&checkDocInfo.first.required_fields)!=checkDocInfo.first.required_fields)
-                   {
+              };
+            };
 
-                     if (checkDocInfo.first.required_fields==DOC_NO_FIELD)
-                       throw UserException("MSG.CHECKIN.PASSENGERS_DOCUMENTS_NOT_SET"); //WEB
-                     else
-                       throw UserException("MSG.CHECKIN.PASSENGERS_COMPLETE_DOC_INFO_NOT_SET"); //WEB
+            //документ
+            if (pax.DocExists)
+            {
+              if (pax.doc.no.size()>15)
+              {
+                string document=pax.doc.no;
+                if (document.size()>25) document.erase(25).append("...");
+                throw UserException("MSG.CHECKIN.DOCUMENT_LARGE_MAX_LEN", LParams()<<LParam("document",document));
+              };
+              if (pax.refuse.empty() && pax.name!="CBBG")
+              {
+                if (checkDocInfo.first.required_fields!=0x0000)
+                {
+                  if ((pax.doc.getNotEmptyFieldsMask()&checkDocInfo.first.required_fields)!=checkDocInfo.first.required_fields)
+                  {
+                    if (checkDocInfo.first.required_fields==DOC_NO_FIELD)
+                      throw UserException("MSG.CHECKIN.PASSENGERS_DOCUMENTS_NOT_SET"); //WEB
+                    else
+                      throw UserException("MSG.CHECKIN.PASSENGERS_COMPLETE_DOC_INFO_NOT_SET"); //WEB
                    };
                 };
-                //виза
-                if (pax.DocoExists && checkDocInfo.second.required_fields!=0x0000 && pax.name!="CBBG")
+                if (reqInfo->client_type!=ctTerm || reqInfo->desk.compatible(DOCS_VERSION))
+                {
+                  for(set<string> ::const_iterator f=apis_formats.begin(); f!=apis_formats.end(); ++f)
+                  {
+                    if (!APIS::isValidDocType(*f, grp.status, pax.doc.type))
+                    {
+                      if (!pax.doc.type.empty())
+                        throw UserException("MSG.PASSENGER.INVALID_DOC_TYPE_FOR_APIS",
+                                            LParams() << LParam("surname", pax.surname+(pax.name.empty()?"":" ")+pax.name)
+                                                      << LParam("code", ElemIdToCodeNative(etPaxDocType, pax.doc.type)));
+                    };
+                    if (!APIS::isValidGender(*f, pax.doc.gender, pax.name))
+                    {
+                      if (!pax.doc.gender.empty())
+                        throw UserException("MSG.PASSENGER.INVALID_GENDER_FOR_APIS",
+                                            LParams() << LParam("surname", pax.surname+(pax.name.empty()?"":" ")+pax.name)
+                                                      << LParam("code", ElemIdToCodeNative(etGenderType, pax.doc.gender)));
+                    };
+                  };
+                };
+              };
+            };
+
+            //виза
+            if (pax.DocoExists)
+            {
+              if (pax.refuse.empty() && pax.name!="CBBG")
+              {
+                if (checkDocInfo.second.required_fields!=0x0000)
                 {
                    //пришла непустая информация о визе
                    if (pax.doco.getNotEmptyFieldsMask()!=0x0000 &&
@@ -3981,7 +3984,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             // начитка салона
             SALONS2::TSalons Salons( grp.point_dep, SALONS2::rTripSalons );
             if ( isTranzitSalonsVersion ) {
-              salonList.ReadFlight( SALONS2::TFilterRoutesSets( grp.point_dep, grp.point_arv ), grp.cl );
+              salonList.ReadFlight( SALONS2::TFilterRoutesSets( grp.point_dep, grp.point_arv ), SALONS2::rfTranzitVersion, grp.cl );
             }
             else {
               Salons.FilterClass = grp.cl;
@@ -4360,10 +4363,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             "  IF :pax_id IS NULL THEN "
             "    SELECT pax_id.nextval INTO :pax_id FROM dual; "
             "  END IF; "
-            "  INSERT INTO pax(pax_id,grp_id,surname,name,pers_type,seat_type,seats,pr_brd, "
+            "  INSERT INTO pax(pax_id,grp_id,surname,name,pers_type,is_female,seat_type,seats,pr_brd, "
             "                  wl_type,refuse,reg_no,ticket_no,coupon_no,ticket_rem,ticket_confirm, "
             "                  pr_exam,subclass,bag_pool_num,tid) "
-            "  VALUES(:pax_id,pax_grp__seq.currval,:surname,:name,:pers_type,:seat_type,:seats,:pr_brd, "
+            "  VALUES(:pax_id,pax_grp__seq.currval,:surname,:name,:pers_type,:is_female,:seat_type,:seats,:pr_brd, "
             "         :wl_type,NULL,:reg_no,:ticket_no,:coupon_no,:ticket_rem,:ticket_confirm, "
             "         :pr_exam,:subclass,:bag_pool_num,cycle_tid__seq.currval); "
             "END;";
@@ -4371,6 +4374,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           Qry.DeclareVariable("surname",otString);
           Qry.DeclareVariable("name",otString);
           Qry.DeclareVariable("pers_type",otString);
+          Qry.DeclareVariable("is_female",otInteger);
           Qry.DeclareVariable("seat_type",otString);
           Qry.DeclareVariable("seats",otInteger);
           Qry.DeclareVariable("pr_brd",otInteger);
@@ -4409,6 +4413,11 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 pax.pr_brd=pr_brd_with_reg;
                 pax.pr_exam=pr_brd_with_reg && pr_exam_with_brd;
                 pax.toDB(Qry);
+                int is_female=pax.is_female();
+                if (is_female!=NoExists)
+                  Qry.SetVariable("is_female", is_female);
+                else
+                  Qry.SetVariable("is_female", FNull);
                 if (pax.id==NoExists)
                 {
                   xmlNodePtr node2=p->node->children;
@@ -4698,11 +4707,14 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             PaxQry.DeclareVariable("subclass",otString);
             PaxQry.DeclareVariable("bag_pool_num",otInteger);
           };
-          sql << "    refuse=:refuse, "
+          sql << "    is_female=DECODE(:doc_exists,0,is_female,:is_female), "
+                 "    refuse=:refuse, "
                  "    pr_brd=DECODE(:refuse,NULL,pr_brd,NULL), "
                  "    pr_exam=DECODE(:refuse,NULL,pr_exam,0), "
                  "    tid=cycle_tid__seq.currval "
                  "WHERE pax_id=:pax_id AND tid=:tid";
+          PaxQry.DeclareVariable("doc_exists",otInteger);
+          PaxQry.DeclareVariable("is_female",otInteger);
           PaxQry.DeclareVariable("pax_id",otInteger);
           PaxQry.DeclareVariable("tid",otInteger);
           PaxQry.DeclareVariable("refuse",otString);
@@ -4733,6 +4745,12 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   LayerQry.Execute();
                 };
                 pax.toDB(PaxQry);
+                PaxQry.SetVariable("doc_exists", (int)pax.DocExists);
+                int is_female=pax.is_female();
+                if (pax.DocExists && is_female!=NoExists)
+                  PaxQry.SetVariable("is_female", is_female);
+                else
+                  PaxQry.SetVariable("is_female", FNull);
                 PaxQry.Execute();
                 if (PaxQry.RowsProcessed()<=0)
                   throw UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA",
@@ -6404,7 +6422,7 @@ void CheckInInterface::readTripData( int point_id, xmlNodePtr dataNode )
                       Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point"),
                       Qry.FieldAsInteger("pr_tranzit")!=0,
                       trtNotCurrent,trtNotCancelled);
-                      
+
   TCheckDocTknInfo checkTknInfo=GetCheckTknInfo(point_id);
 
   node = NewTextChild( tripdataNode, "airps" );

@@ -562,7 +562,7 @@ void TBalanceData::getPassBalance( bool pr_tranzit_pass, int point_id, const TTr
         int idx_seats = PassQry->FieldIndex( "seats" );
         int idx_pers_type = PassQry->FieldIndex( "pers_type" );
         int idx_surname = PassQry->FieldIndex( "surname" );
-        int idx_gender = PassQry->FieldIndex( "gender" );
+        int idx_is_female = PassQry->FieldIndex( "is_female" );
         int idx_class = PassQry->FieldIndex( "class" );
         int idx_pr_tranzit = PassQry->FieldIndex( "pr_tranzit" );
         for ( ;!PassQry->Eof; PassQry->Next() ) {
@@ -597,15 +597,15 @@ void TBalanceData::getPassBalance( bool pr_tranzit_pass, int point_id, const TTr
           p.surname = PassQry->FieldAsString( idx_surname );
           seats = PassQry->FieldAsInteger( idx_seats );
           p.seats = seats;
-          p.gender = PassQry->FieldAsString( idx_gender );
+          p.is_female = PassQry->FieldAsInteger( idx_is_female )!=0;
           passengers[ p.pax_id ] = p;
           strclass = PassQry->FieldAsString( idx_class );
-          male = ( p.pers_type == "Çá" )&&(( p.gender.empty() || (p.gender.substr( 0, 1 ) == "M")  ));
-          female = ( p.pers_type == "Çá" )&&( !p.gender.empty() && (p.gender.substr( 0, 1 ) == "F") );
+          male = ( p.pers_type == "Çá" )&&( !p.is_female );
+          female = ( p.pers_type == "Çá" )&&( p.is_female );
           chd = ( p.pers_type == "êÅ" );
           inf = ( p.pers_type == "êå" );
-          ProgTrace( TRACE5, "pax_id=%d, gender=%s, male=%d, female=%d, chd=%d, inf=%d",
-                     p.pax_id, p.gender.c_str(), male, female, chd, inf );
+          ProgTrace( TRACE5, "pax_id=%d, is_female=%d, male=%d, female=%d, chd=%d, inf=%d",
+                     p.pax_id, (int)p.is_female, male, female, chd, inf );
           bal.male += male;
           bal.male_seats += seats*male;
           dest_bal.total_classbal[ strclass ].male +=male;

@@ -2476,7 +2476,7 @@ void FlightPoints::Get( int vpoint_dep )
                            trtWithCancelled );
     if ( !routes.empty() ) {
       tst();
-      insert( end(), routes.begin(), routes.end() );
+      insert( begin(), routes.begin(), routes.end() );
     }
   }
   routes.clear();
