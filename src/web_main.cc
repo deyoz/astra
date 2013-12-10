@@ -294,7 +294,7 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
 struct TWebPnr {
   TCheckDocInfo checkDocInfo;
-  TCheckDocTknInfo checkTknInfo;
+  TCheckTknInfo checkTknInfo;
   set<string> apis_formats;
   vector<TWebPax> paxs;
   
@@ -379,21 +379,37 @@ bool is_valid_pax_status(int pax_id, TQuery& PaxQry)
 bool is_valid_doc_info(const TCheckDocInfo &checkDocInfo,
                        const CheckIn::TPaxDocItem &doc)
 {
-  if ((checkDocInfo.first.required_fields&doc.getNotEmptyFieldsMask())!=checkDocInfo.first.required_fields) return false;
+  if ((checkDocInfo.doc.required_fields&doc.getNotEmptyFieldsMask())!=checkDocInfo.doc.required_fields) return false;
   return true;
 };
 
 bool is_valid_doco_info(const TCheckDocInfo &checkDocInfo,
                         const CheckIn::TPaxDocoItem &doco)
 {
-  if ((checkDocInfo.second.required_fields&doco.getNotEmptyFieldsMask())!=checkDocInfo.second.required_fields) return false;
+  if ((checkDocInfo.doco.required_fields&doco.getNotEmptyFieldsMask())!=checkDocInfo.doco.required_fields) return false;
   return true;
 };
 
-bool is_valid_tkn_info(const TCheckDocTknInfo &checkTknInfo,
+bool is_valid_doca_info(const TCheckDocInfo &checkDocInfo,
+                        const list<CheckIn::TPaxDocaItem> &doca)
+{
+  CheckIn::TPaxDocaItem docaB, docaR, docaD;
+  for(list<CheckIn::TPaxDocaItem>::const_iterator d=doca.begin(); d!=doca.end(); ++d)
+  {
+    if (d->type=="B") docaB=*d;
+    if (d->type=="R") docaR=*d;
+    if (d->type=="D") docaD=*d;
+  };
+  if ((checkDocInfo.docaB.required_fields&docaB.getNotEmptyFieldsMask())!=checkDocInfo.docaB.required_fields) return false;
+  if ((checkDocInfo.docaR.required_fields&docaR.getNotEmptyFieldsMask())!=checkDocInfo.docaR.required_fields) return false;
+  if ((checkDocInfo.docaD.required_fields&docaD.getNotEmptyFieldsMask())!=checkDocInfo.docaD.required_fields) return false;
+  return true;
+};
+
+bool is_valid_tkn_info(const TCheckTknInfo &checkTknInfo,
                        const CheckIn::TPaxTknItem &tkn)
 {
-  if ((checkTknInfo.required_fields&tkn.getNotEmptyFieldsMask())!=checkTknInfo.required_fields) return false;
+  if ((checkTknInfo.tkn.required_fields&tkn.getNotEmptyFieldsMask())!=checkTknInfo.tkn. required_fields) return false;
   return true;
 };
 
@@ -402,43 +418,43 @@ void checkDocInfoToXML(const TCheckDocInfo &checkDocInfo,
 {
   if (node==NULL) return;
   xmlNodePtr fieldsNode=NewTextChild(node, "doc_required_fields");
-  SetProp(fieldsNode, "is_inter", checkDocInfo.first.is_inter);
-  if ((checkDocInfo.first.required_fields&DOC_TYPE_FIELD) != 0x0000)
+  SetProp(fieldsNode, "is_inter", checkDocInfo.doc.is_inter);
+  if ((checkDocInfo.doc.required_fields&DOC_TYPE_FIELD) != 0x0000)
     NewTextChild(fieldsNode, "field", "type");
-  if ((checkDocInfo.first.required_fields&DOC_ISSUE_COUNTRY_FIELD) != 0x0000)
+  if ((checkDocInfo.doc.required_fields&DOC_ISSUE_COUNTRY_FIELD) != 0x0000)
     NewTextChild(fieldsNode, "field", "issue_country");
-  if ((checkDocInfo.first.required_fields&DOC_NO_FIELD) != 0x0000)
+  if ((checkDocInfo.doc.required_fields&DOC_NO_FIELD) != 0x0000)
     NewTextChild(fieldsNode, "field", "no");
-  if ((checkDocInfo.first.required_fields&DOC_NATIONALITY_FIELD) != 0x0000)
+  if ((checkDocInfo.doc.required_fields&DOC_NATIONALITY_FIELD) != 0x0000)
     NewTextChild(fieldsNode, "field", "nationality");
-  if ((checkDocInfo.first.required_fields&DOC_BIRTH_DATE_FIELD) != 0x0000)
+  if ((checkDocInfo.doc.required_fields&DOC_BIRTH_DATE_FIELD) != 0x0000)
     NewTextChild(fieldsNode, "field", "birth_date");
-  if ((checkDocInfo.first.required_fields&DOC_GENDER_FIELD) != 0x0000)
+  if ((checkDocInfo.doc.required_fields&DOC_GENDER_FIELD) != 0x0000)
     NewTextChild(fieldsNode, "field", "gender");
-  if ((checkDocInfo.first.required_fields&DOC_EXPIRY_DATE_FIELD) != 0x0000)
+  if ((checkDocInfo.doc.required_fields&DOC_EXPIRY_DATE_FIELD) != 0x0000)
     NewTextChild(fieldsNode, "field", "expiry_date");
-  if ((checkDocInfo.first.required_fields&DOC_SURNAME_FIELD) != 0x0000)
+  if ((checkDocInfo.doc.required_fields&DOC_SURNAME_FIELD) != 0x0000)
     NewTextChild(fieldsNode, "field", "surname");
-  if ((checkDocInfo.first.required_fields&DOC_FIRST_NAME_FIELD) != 0x0000)
+  if ((checkDocInfo.doc.required_fields&DOC_FIRST_NAME_FIELD) != 0x0000)
     NewTextChild(fieldsNode, "field", "first_name");
-  if ((checkDocInfo.first.required_fields&DOC_SECOND_NAME_FIELD) != 0x0000)
+  if ((checkDocInfo.doc.required_fields&DOC_SECOND_NAME_FIELD) != 0x0000)
     NewTextChild(fieldsNode, "field", "second_name");
     
   fieldsNode=NewTextChild(node, "doco_required_fields");
-  SetProp(fieldsNode, "is_inter", checkDocInfo.second.is_inter);
-  if ((checkDocInfo.second.required_fields&DOCO_BIRTH_PLACE_FIELD) != 0x0000)
+  SetProp(fieldsNode, "is_inter", checkDocInfo.doco.is_inter);
+  if ((checkDocInfo.doco.required_fields&DOCO_BIRTH_PLACE_FIELD) != 0x0000)
     NewTextChild(fieldsNode, "field", "birth_place");
-  if ((checkDocInfo.second.required_fields&DOCO_TYPE_FIELD) != 0x0000)
+  if ((checkDocInfo.doco.required_fields&DOCO_TYPE_FIELD) != 0x0000)
     NewTextChild(fieldsNode, "field", "type");
-  if ((checkDocInfo.second.required_fields&DOCO_NO_FIELD) != 0x0000)
+  if ((checkDocInfo.doco.required_fields&DOCO_NO_FIELD) != 0x0000)
     NewTextChild(fieldsNode, "field", "no");
-  if ((checkDocInfo.second.required_fields&DOCO_ISSUE_PLACE_FIELD) != 0x0000)
+  if ((checkDocInfo.doco.required_fields&DOCO_ISSUE_PLACE_FIELD) != 0x0000)
     NewTextChild(fieldsNode, "field", "issue_place");
-  if ((checkDocInfo.second.required_fields&DOCO_ISSUE_DATE_FIELD) != 0x0000)
+  if ((checkDocInfo.doco.required_fields&DOCO_ISSUE_DATE_FIELD) != 0x0000)
     NewTextChild(fieldsNode, "field", "issue_date");
-  if ((checkDocInfo.second.required_fields&DOCO_EXPIRY_DATE_FIELD) != 0x0000)
+  if ((checkDocInfo.doco.required_fields&DOCO_EXPIRY_DATE_FIELD) != 0x0000)
     NewTextChild(fieldsNode, "field", "expiry_date");
-  if ((checkDocInfo.second.required_fields&DOCO_APPLIC_COUNTRY_FIELD) != 0x0000)
+  if ((checkDocInfo.doco.required_fields&DOCO_APPLIC_COUNTRY_FIELD) != 0x0000)
     NewTextChild(fieldsNode, "field", "applic_country");
 };
 
@@ -754,9 +770,6 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
 
     if (!isTestPaxId(pnr_id))
     {
-    	TQuery CrsPaxDocQry(&OraSession);
-    	TQuery GetPSPT2Qry(&OraSession);
-    	TQuery CrsPaxDocoQry(&OraSession);
       TQuery PaxStatusQry(&OraSession);
 
       TQuery CrsTKNQry(&OraSession);
@@ -833,8 +846,8 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
       SeatQry.SetVariable("crs_seat_no", FNull);
       if (!Qry.Eof)
       {
-        pnr.checkDocInfo=GetCheckDocInfo(point_id, Qry.FieldAsString("airp_arv"), pnr.apis_formats);
-        pnr.checkTknInfo=GetCheckTknInfo(point_id);
+        pnr.checkDocInfo=GetCheckDocInfo(point_id, Qry.FieldAsString("airp_arv"), pnr.apis_formats).pass;
+        pnr.checkTknInfo=GetCheckTknInfo(point_id).pass;
         //ProgTrace(TRACE5, "getPnr: point_id=%d airp_arv=%s", point_id, Qry.FieldAsString("airp_arv"));
         //ProgTrace(TRACE5, "getPnr: checkDocInfo.first.required_fields=%ld", pnr.checkDocInfo.first.required_fields);
         //ProgTrace(TRACE5, "getPnr: checkDocInfo.second.required_fields=%ld", pnr.checkDocInfo.second.required_fields);
@@ -903,10 +916,11 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
          		CrsTKNQry.Execute();
          		if (!CrsTKNQry.Eof) pax.tkn.fromDB(CrsTKNQry);
          		//ProgTrace(TRACE5, "getPnr: pax.crs_pax_id=%d pax.tkn.getNotEmptyFieldsMask=%ld", pax.crs_pax_id, pax.tkn.getNotEmptyFieldsMask());
-        		LoadCrsPaxDoc(pax.crs_pax_id, pax.doc, CrsPaxDocQry, GetPSPT2Qry);
+        		LoadCrsPaxDoc(pax.crs_pax_id, pax.doc);
             //ProgTrace(TRACE5, "getPnr: pax.crs_pax_id=%d pax.doc.getNotEmptyFieldsMask=%ld", pax.crs_pax_id, pax.doc.getNotEmptyFieldsMask());
-        	  LoadCrsPaxVisa(pax.crs_pax_id, pax.doco, CrsPaxDocoQry);
+        	  LoadCrsPaxVisa(pax.crs_pax_id, pax.doco);
         		//ProgTrace(TRACE5, "getPnr: pax.crs_pax_id=%d pax.doco.getNotEmptyFieldsMask=%ld", pax.crs_pax_id, pax.doco.getNotEmptyFieldsMask());
+            LoadCrsPaxDoca(pax.crs_pax_id, pax.doca);
 
          		if (!is_valid_pnr_status(Qry.FieldAsString("pnr_status")))
          		  pax.agent_checkin_reasons.insert("pnr_status");
@@ -916,6 +930,8 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
          		  pax.agent_checkin_reasons.insert("incomplete_doc");
          		if (!is_valid_doco_info(pnr.checkDocInfo, pax.doco))
          		  pax.agent_checkin_reasons.insert("incomplete_doco");
+            if (!is_valid_doca_info(pnr.checkDocInfo, pax.doca))
+         		  pax.agent_checkin_reasons.insert("incomplete_doca");
          		if (!is_valid_tkn_info(pnr.checkTknInfo, pax.tkn))
          		  pax.agent_checkin_reasons.insert("incomplete_tkn");
 
@@ -1801,7 +1817,7 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
       if (iPnrData==PNRs.end()) //лишние сегменты в запросе на регистрацию
         throw EXCEPTIONS::Exception("CreateEmulDocs: iPnrData==PNRs.end() (seg_no=%d)", seg_no);
 
-      TCheckDocInfo checkDocInfo=GetCheckDocInfo(iPnrData->flt.point_dep, iPnrData->dest.airp_arv);
+      TCheckDocInfo checkDocInfo=GetCheckDocInfo(iPnrData->flt.point_dep, iPnrData->dest.airp_arv).pass;
 
       const TWebPnrForSave &currPnr=s->second;
       //пассажиры для регистрации
@@ -1905,11 +1921,11 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
             };
 
             if (iPaxFromReq->doc_present)
-              CheckDoc(iPaxForCkin->doc, checkDocInfo.first, now_local);
+              CheckDoc(iPaxForCkin->doc, checkDocInfo.doc, now_local);
             iPaxForCkin->doc.toXML(paxNode);
 
             if (iPaxFromReq->doco_present)
-              CheckDoco(iPaxForCkin->doco, checkDocInfo.second, now_local);
+              CheckDoco(iPaxForCkin->doco, checkDocInfo.doco, now_local);
             iPaxForCkin->doco.toXML(paxNode);
 
             NewTextChild(paxNode,"subclass",iPaxForCkin->subclass);
@@ -1987,7 +2003,7 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
           bool DocUpdatesPending=false;
           if (iPaxFromReq->doc_present) //тег <document> пришел
           {
-            CheckDoc(iPaxForChng->doc, checkDocInfo.first, now_local);
+            CheckDoc(iPaxForChng->doc, checkDocInfo.doc, now_local);
             CheckIn::TPaxDocItem prior_doc;
             LoadPaxDoc(iPaxForChng->crs_pax_id, prior_doc);
             DocUpdatesPending=!(prior_doc==iPaxForChng->doc);
@@ -1996,7 +2012,7 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
           bool DocoUpdatesPending=false;
           if (iPaxFromReq->doco_present) //тег <doco> пришел
           {
-            CheckDoco(iPaxForChng->doco, checkDocInfo.second, now_local);
+            CheckDoco(iPaxForChng->doco, checkDocInfo.doco, now_local);
             CheckIn::TPaxDocoItem prior_doco;
             LoadPaxDoco(iPaxForChng->crs_pax_id, prior_doco);
             DocoUpdatesPending=!(prior_doco==iPaxForChng->doco);
@@ -2112,10 +2128,6 @@ bool CreateEmulCkinDocForCHKD(int crs_pax_id,
 
   TWebPnrForSave pnr;
 
-  TQuery PaxDocQry(&OraSession);
-  TQuery PaxDocoQry(&OraSession);
-  TQuery GetPSPT2Qry(&OraSession);
-
   TQuery RemQry(&OraSession);
   RemQry.Clear();
   RemQry.SQLText="SELECT rem FROM crs_pax_rem WHERE pax_id=:pax_id AND rem_code='FQTV'";
@@ -2186,8 +2198,8 @@ bool CreateEmulCkinDocForCHKD(int crs_pax_id,
     paxForCkin.seats = Qry.FieldAsInteger("seats");
     paxForCkin.eticket = Qry.FieldAsString("eticket");
     paxForCkin.ticket = Qry.FieldAsString("ticket");
-    LoadCrsPaxDoc(paxForCkin.crs_pax_id, paxForCkin.doc, PaxDocQry, GetPSPT2Qry);
-    LoadCrsPaxVisa(paxForCkin.crs_pax_id, paxForCkin.doco, PaxDocoQry);
+    LoadCrsPaxDoc(paxForCkin.crs_pax_id, paxForCkin.doc);
+    LoadCrsPaxVisa(paxForCkin.crs_pax_id, paxForCkin.doco);
     paxForCkin.subclass = Qry.FieldAsString("subclass");
     paxForCkin.reg_no = Qry.FieldIsNULL("reg_no")?NoExists:Qry.FieldAsInteger("reg_no");
 
@@ -2324,9 +2336,6 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, const XMLDoc &emulDoc
       "WHERE id=:crs_pax_id";
   
   TQuery Qry(&OraSession);
-  TQuery PaxDocQry(&OraSession);
-  TQuery PaxDocoQry(&OraSession);
-  TQuery GetPSPT2Qry(&OraSession);
   TQuery PaxStatusQry(&OraSession);
   
   seg_no=1;
@@ -2461,13 +2470,13 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, const XMLDoc &emulDoc
                   //проверка всех реквизитов документа
                   pax.doc=NormalizeDoc(iPax->doc);
                 else
-                  LoadCrsPaxDoc(pax.crs_pax_id, pax.doc, PaxDocQry, GetPSPT2Qry);
+                  LoadCrsPaxDoc(pax.crs_pax_id, pax.doc);
                   
                 if (iPax->doco_present)
                   //проверка всех реквизитов визы
                   pax.doco=NormalizeDoco(iPax->doco);
                 else
-                  LoadCrsPaxVisa(pax.crs_pax_id, pax.doco, PaxDocoQry);
+                  LoadCrsPaxVisa(pax.crs_pax_id, pax.doco);
               };
     
               pax.subclass = Qry.FieldAsString("subclass");

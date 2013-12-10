@@ -288,6 +288,8 @@ enum TTripSetType { tsCraftInitVIP=1,
                     tsPrintSCDCloseBoarding=21,
                     tsMintransFile=22 };
                     
+const long int NO_FIELDS=0x0000;
+
 const long int DOC_TYPE_FIELD=0x0001;
 const long int DOC_ISSUE_COUNTRY_FIELD=0x0002;
 const long int DOC_NO_FIELD=0x0004;
@@ -307,6 +309,13 @@ const long int DOCO_ISSUE_DATE_FIELD=0x0010;
 const long int DOCO_APPLIC_COUNTRY_FIELD=0x0020;
 const long int DOCO_EXPIRY_DATE_FIELD=0x0040;
 
+const long int DOCA_TYPE_FIELD=0x0001;
+const long int DOCA_COUNTRY_FIELD=0x0002;
+const long int DOCA_ADDRESS_FIELD=0x0004;
+const long int DOCA_CITY_FIELD=0x0008;
+const long int DOCA_REGION_FIELD=0x0010;
+const long int DOCA_POSTAL_CODE_FIELD=0x0020;
+
 const long int TKN_TICKET_NO_FIELD=0x0001;
                                   
                     
@@ -320,37 +329,87 @@ class TCheckDocTknInfo
     {
       clear();
     };
-    void ToXML(xmlNodePtr node)
+    void toXML(xmlNodePtr node)
     {
       if (node==NULL) return;
       NewTextChild(node, "is_inter", (int)is_inter, (int)false);
-      NewTextChild(node, "required_fields", required_fields, 0x0000);
-      NewTextChild(node, "readonly_fields", readonly_fields, 0x0000);
+      NewTextChild(node, "required_fields", required_fields, (int)NO_FIELDS);
+      NewTextChild(node, "readonly_fields", readonly_fields, (int)NO_FIELDS);
     };
     void clear()
     {
       is_inter=false;
-      required_fields=0x0000;
-      readonly_fields=0x0000;
+      required_fields=NO_FIELDS;
+      readonly_fields=NO_FIELDS;
     };
 };
 
-class TCheckDocInfo: public std::pair<TCheckDocTknInfo, TCheckDocTknInfo>
+class TCheckTknInfo
 {
   public:
+    TCheckDocTknInfo tkn;
     void clear()
     {
-      first.clear();
-      second.clear();
+      tkn.clear();
+    };
+    void toXML(xmlNodePtr node)
+    {
+      tkn.toXML(NewTextChild(node, "tkn"));
     };
 };
-                    
+
+class TCheckDocInfo
+{
+  public:
+    TCheckDocTknInfo doc, doco, docaB, docaR, docaD;
+    void clear()
+    {
+      doc.clear();
+      doco.clear();
+      docaB.clear();
+      docaR.clear();
+      docaD.clear();
+    };
+    void toXML(xmlNodePtr node)
+    {
+      doc.toXML(NewTextChild(node, "doc"));
+      doco.toXML(NewTextChild(node, "doco"));
+      docaB.toXML(NewTextChild(node, "doca_b"));
+      docaR.toXML(NewTextChild(node, "doca_r"));
+      docaD.toXML(NewTextChild(node, "doca_d"));
+    };
+};
+
+class TCompleteCheckTknInfo
+{
+  public:
+    TCheckTknInfo pass;
+    TCheckTknInfo crew;
+    void clear()
+    {
+      pass.clear();
+      crew.clear();
+    };
+};
+
+class TCompleteCheckDocInfo
+{
+  public:
+    TCheckDocInfo pass;
+    TCheckDocInfo crew;
+    void clear()
+    {
+      pass.clear();
+      crew.clear();
+    };
+};
+
 bool GetTripSets( const TTripSetType setType, const TTripInfo &info );
 
-TCheckDocInfo GetCheckDocInfo(const int point_dep, const std::string& airp_arv);
-TCheckDocInfo GetCheckDocInfo(const int point_dep, const std::string& airp_arv,
-                              std::set<std::string> &apis_formats);
-TCheckDocTknInfo GetCheckTknInfo(const int point_dep);
+TCompleteCheckDocInfo GetCheckDocInfo(const int point_dep, const std::string& airp_arv);
+TCompleteCheckDocInfo GetCheckDocInfo(const int point_dep, const std::string& airp_arv,
+                                      std::set<std::string> &apis_formats);
+TCompleteCheckTknInfo GetCheckTknInfo(const int point_dep);
 
 class TPnrAddrItem
 {

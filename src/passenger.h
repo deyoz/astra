@@ -52,7 +52,7 @@ class TPaxTknItem
 
 bool LoadPaxTkn(int pax_id, TPaxTknItem &tkn);
 bool LoadPaxTkn(BASIC::TDateTime part_key, int pax_id, TPaxTknItem &tkn);
-bool LoadCrsPaxTkn(int pax_id, TPaxTknItem &tkn, TQuery& PaxTknQry, TQuery& GetTKNO2Qry);
+bool LoadCrsPaxTkn(int pax_id, TPaxTknItem &tkn);
 
 class TPaxDocItem
 {
@@ -226,10 +226,12 @@ class TPaxDocaItem
              postal_code == item.postal_code &&
              pr_inf == item.pr_inf;
     };
-//    const TPaxDocaItem& toXML(xmlNodePtr node) const;
-//    TPaxDocaItem& fromXML(xmlNodePtr node);
+    const TPaxDocaItem& toXML(xmlNodePtr node) const;
+    TPaxDocaItem& fromXML(xmlNodePtr node);
     const TPaxDocaItem& toDB(TQuery &Qry) const;
     TPaxDocaItem& fromDB(TQuery &Qry);
+
+    long int getNotEmptyFieldsMask() const;
 };
 
 class TPaxItem
@@ -253,10 +255,12 @@ class TPaxItem
     TPaxTknItem tkn;
     TPaxDocItem doc;
     TPaxDocoItem doco;
+    std::list<TPaxDocaItem> doca;
     bool PaxUpdatesPending;
     bool TknExists;
     bool DocExists;
     bool DocoExists;
+    bool DocaExists;
     TPaxItem()
     {
       clear();
@@ -281,10 +285,12 @@ class TPaxItem
       tkn.clear();
       doc.clear();
       doco.clear();
+      doca.clear();
       PaxUpdatesPending=false;
       TknExists=false;
       DocExists=false;
       DocoExists=false;
+      DocaExists=false;
     };
 
     const TPaxItem& toXML(xmlNodePtr node) const;
@@ -336,8 +342,6 @@ class TPaxGrpItem
     TPaxGrpItem& fromDB(TQuery &Qry);
 };
 
-void LoadPaxDoc(TQuery& PaxDocQry, xmlNodePtr paxNode);
-void LoadPaxDoco(TQuery& PaxDocQry, xmlNodePtr paxNode);
 bool LoadPaxDoc(int pax_id, TPaxDocItem &doc);
 bool LoadPaxDoc(BASIC::TDateTime part_key, int pax_id, TPaxDocItem &doc);
 std::string GetPaxDocStr(BASIC::TDateTime part_key,
@@ -353,20 +357,23 @@ enum TDocaType
   docaResidence,
   docaBirth
 };
+
+bool LoadPaxDoca(int pax_id, std::list<TPaxDocaItem> &doca);
 bool LoadPaxDoca(int pax_id, TDocaType type, TPaxDocaItem &doca);
+bool LoadPaxDoca(BASIC::TDateTime part_key, int pax_id, std::list<TPaxDocaItem> &doca);
 bool LoadPaxDoca(BASIC::TDateTime part_key, int pax_id, TDocaType type, TPaxDocaItem &doca);
 
-bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc, TQuery& PaxDocQry, TQuery& GetPSPT2Qry);
-bool LoadCrsPaxVisa(int pax_id, TPaxDocoItem &doc, TQuery& PaxDocQry);
-bool LoadCrsPaxDoca(int pax_id, std::list<TPaxDocaItem> &doca, TQuery& PaxDocaQry);
+bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc);
+bool LoadCrsPaxVisa(int pax_id, TPaxDocoItem &doc);
+bool LoadCrsPaxDoca(int pax_id, std::list<TPaxDocaItem> &doca);
 
 void SavePaxDoc(int pax_id, const TPaxDocItem &doc, TQuery& PaxDocQry);
 void SavePaxDoco(int pax_id, const TPaxDocoItem &doc, TQuery& PaxDocQry);
 void SavePaxDoca(int pax_id, const std::list<TPaxDocaItem> &doca, TQuery& PaxDocaQry);
 
-bool LoadPaxNorms(int pax_id, std::vector< std::pair<TPaxNormItem, TNormItem> > &norms, TQuery& NormQry);
-bool LoadGrpNorms(int grp_id, std::vector< std::pair<TPaxNormItem, TNormItem> > &norms, TQuery& NormQry);
-void LoadNorms(xmlNodePtr node, bool pr_unaccomp, TQuery& NormQry);
+bool LoadPaxNorms(int pax_id, std::vector< std::pair<TPaxNormItem, TNormItem> > &norms);
+bool LoadGrpNorms(int grp_id, std::vector< std::pair<TPaxNormItem, TNormItem> > &norms);
+void LoadNorms(xmlNodePtr node, bool pr_unaccomp);
 void SaveNorms(xmlNodePtr node, bool pr_unaccomp);
 
 };

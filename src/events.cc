@@ -203,8 +203,6 @@ std::string TPaxToLogInfo::getNormStr() const
 void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
 {
   grpInfo.clear();
-  TQuery PaxRemQry(&OraSession);
-  TQuery NormQry(&OraSession);
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
@@ -256,7 +254,8 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
         paxInfo.pr_exam=paxInfo.refuse.empty() && !Qry.FieldIsNULL("pr_exam") && Qry.FieldAsInteger("pr_exam")!=0;
         LoadPaxDoc(paxInfoKey.pax_id, paxInfo.doc);
         LoadPaxDoco(paxInfoKey.pax_id, paxInfo.doco);
-        LoadPaxRem(paxInfoKey.pax_id, true, paxInfo.rems, PaxRemQry);
+        LoadPaxDoca(paxInfoKey.pax_id, paxInfo.doca);
+        LoadPaxRem(paxInfoKey.pax_id, true, paxInfo.rems);
         sort(paxInfo.rems.begin(), paxInfo.rems.end());
       }
       else
@@ -272,9 +271,9 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
 
       std::vector< std::pair<CheckIn::TPaxNormItem, CheckIn::TNormItem> > norms;
       if (paxInfoKey.pax_id!=NoExists)
-        CheckIn::LoadPaxNorms(paxInfoKey.pax_id, norms, NormQry);
+        CheckIn::LoadPaxNorms(paxInfoKey.pax_id, norms);
       else
-        CheckIn::LoadGrpNorms(grp_id, norms, NormQry);
+        CheckIn::LoadGrpNorms(grp_id, norms);
       paxInfo.norms.clear();
       std::vector< std::pair<CheckIn::TPaxNormItem, CheckIn::TNormItem> >::const_iterator i=norms.begin();
       for(; i!=norms.end(); ++i)
@@ -407,6 +406,7 @@ void SaveGrpToLog(int point_id,
                 aPax->second.tkn==bPax->second.tkn &&
                 aPax->second.doc==bPax->second.doc &&
                 aPax->second.doco==bPax->second.doco &&
+                aPax->second.doca==bPax->second.doca &&
                 aPax->second.rems==bPax->second.rems))
           {
             //пассажир изменен

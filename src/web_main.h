@@ -126,6 +126,7 @@ struct TWebPax {
   CheckIn::TPaxTknItem tkn;
   CheckIn::TPaxDocItem doc;
   CheckIn::TPaxDocoItem doco;
+  std::list<CheckIn::TPaxDocaItem> doca;
 	std::vector<TypeB::TFQTItem> fqt_rems;
 	TWebPax() {
 	  pax_no = ASTRA::NoExists;
