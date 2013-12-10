@@ -276,7 +276,6 @@ class TLastTCkinSegInfo : public TLastTrferInfo
 
 //настройки рейса
 enum TTripSetType { tsCraftInitVIP=1,
-                    tsOutboardTrfer=10,
                     tsETLOnly=11,
                     tsIgnoreTrferSet=12,
                     tsMixedNorms=13,
