@@ -4,6 +4,7 @@
 #include "exceptions.h"
 #include "astra_locale.h"
 #include "misc.h"
+#include "qrys.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -29,10 +30,259 @@ std::string typeid_name( const std::type_info& tinfo )
 namespace TypeB
 {
 
+struct TParseInfo {
+    int err_no;
+    int pos;
+    int del_len;
+    string err_data;
+    TParseInfo() { init(); };
+    void init()
+    {
+        err_no = 0;
+        pos = 0;
+        del_len = 0;
+        err_data.erase();
+    }
+};
+
+void TErrLst::unpack(string &val, bool visible)
+{
+    if(not visible) return;
+
+    size_t tmp_pos = pos;
+    pos += val.size();
+    size_t offset = 0;
+    for(TErrLst::iterator im = begin(); im != end(); im++) {
+        if(im->second.err_pos < tmp_pos) continue;
+        size_t real_pos = im->second.err_pos - tmp_pos + offset;
+        if(real_pos < val.size()) {
+            string err_data = val.substr(real_pos, im->second.err_len);
+            ostringstream err_tag;
+            err_tag << "<" << ERR_TAG_NAME << im->first << ">" << err_data << "</" << ERR_TAG_NAME << ">";
+            val.replace(real_pos, im->second.err_len, err_tag.str());
+            offset += err_tag.str().size() - im->second.err_len;
+        }
+    }
+}
+
+void TErrLst::unpack(TypeB::TDraftPart &draft, bool heading_visible, bool ending_visible)
+{
+    unpack(draft.addr, heading_visible);
+    ProgTrace(TRACE5, "draft.addr after unpack: %s", draft.addr.c_str());
+    unpack(draft.origin, heading_visible);
+    ProgTrace(TRACE5, "draft.origin after unpack: %s", draft.origin.c_str());
+    unpack(draft.heading, heading_visible);
+    ProgTrace(TRACE5, "draft.heading after unpack: %s", draft.heading.c_str());
+    unpack(draft.body);
+    ProgTrace(TRACE5, "draft.body after unpack: %s", draft.body.c_str());
+    unpack(draft.ending, ending_visible);
+    ProgTrace(TRACE5, "draft.ending after unpack: %s", draft.ending.c_str());
+}
+
+void TErrLst::pack(string &body, bool visible)
+{
+    vector<TParseInfo> parse_info_lst;
+    TParseInfo parse_info;
+
+    enum {
+        mStart,
+        mBeginTag,
+        mErrNo,
+        mErrData,
+        mEndTag,
+        mEndTag2
+    } mode = mStart;
+
+    ProgTrace(TRACE5, "packing %s", body.c_str());
+
+    string err_no;
+    string err_tag;
+    for(string::iterator iv = body.begin(); iv != body.end(); iv++) {
+        switch(mode) {
+            case mStart:
+                if(*iv == '<')
+                    mode = mBeginTag;
+                else
+                    parse_info.pos++;
+                break;
+            case mBeginTag:
+                if(IsDigit(*iv)) {
+                    err_no.append(1, *iv);
+                    mode = mErrNo;
+                } else
+                    err_tag.append(1, *iv);
+                break;
+            case mErrNo:
+                if(*iv == '>') {
+                    if(err_tag != ERR_TAG_NAME)
+                        throw Exception("TErrLst::pack wrong err_tag_name: %s", err_tag.c_str());
+                    parse_info.del_len += ERR_TAG_NAME.size() + err_no.size() + 2;
+                    parse_info.err_no = ToInt(err_no);
+                    err_no.erase();
+                    err_tag.erase();
+                    mode = mErrData;
+                } else if(IsDigit(*iv))
+                    err_no.append(1, *iv);
+                else
+                    throw Exception("TErrLst::pack wrong err_no");
+                break;
+            case mErrData:
+                if(*iv == '<') {
+                    parse_info.del_len += parse_info.err_data.size();
+                    mode = mEndTag;
+                } else
+                    parse_info.err_data.append(1, *iv);
+                break;
+            case mEndTag:
+                if(*iv == '/')
+                    mode = mEndTag2;
+                else
+                    throw Exception("TErrLst::pack wrong close tag");
+                break;
+            case mEndTag2:
+                if(*iv == '>') {
+                    parse_info.del_len += err_tag.size() + 3;
+                    parse_info_lst.push_back(parse_info);
+                    parse_info.pos += parse_info.err_data.size();
+                    parse_info.err_no = 0;
+                    parse_info.del_len = 0;
+                    parse_info.err_data.erase();
+                    err_tag.erase();
+                    mode = mStart;
+                } else {
+                    err_tag.append(1, *iv);
+                }
+                break;
+        }
+    }
+
+    for(vector<TParseInfo>::iterator iv = parse_info_lst.begin(); iv != parse_info_lst.end(); iv++)
+    {
+        map<int, TTypeBOutErrMsg>::iterator im = find(iv->err_no);
+        if(im != end()) {
+            if(visible) {
+                im->second.err_pos = pos + iv->pos;
+                im->second.err_len = iv->err_data.size();
+            } //else
+                //erase(iv->err_no);
+        }
+        body.replace(iv->pos, iv->del_len, iv->err_data);
+        /*
+        ProgTrace(TRACE5, "err_no: %d", iv->err_no);
+        ProgTrace(TRACE5, "pos: %d", iv->pos);
+        ProgTrace(TRACE5, "del_len: %d", iv->del_len);
+        ProgTrace(TRACE5, "err_data: %s", iv->err_data.c_str());
+        */
+    }
+    if(visible) pos += body.size();
+    ProgTrace(TRACE5, "after pack: %s", body.c_str());
+}
+
+void TErrLst::toDB(int tlg_id)
+{
+    QParams QryParams;
+    QryParams
+        << QParam("tlg_id", otInteger, tlg_id)
+        << QParam("error_no", otInteger)
+        << QParam("error_pos", otInteger)
+        << QParam("error_len", otInteger)
+        << QParam("lang", otString)
+        << QParam("text", otString);
+    TQuery &Qry = TQrys::Instance()->get(
+            "insert into typeb_out_errors( "
+            "   tlg_id, "
+            "   error_no, "
+            "   error_pos, "
+            "   error_len, "
+            "   lang, "
+            "   text "
+            ") values ( "
+            "   :tlg_id, "
+            "   :error_no, "
+            "   :error_pos, "
+            "   :error_len, "
+            "   :lang, "
+            "   :text "
+            ") ",
+            QryParams);
+    for(TErrLst::iterator im = begin(); im != end(); im++) {
+        Qry.SetVariable("error_no", im->first);
+        Qry.SetVariable("error_pos", im->second.err_pos);
+        Qry.SetVariable("error_len", im->second.err_len);
+        Qry.SetVariable("lang", LANG_EN);
+        Qry.SetVariable("text", im->second.msg[LANG_EN]);
+        Qry.Execute();
+        Qry.SetVariable("lang", LANG_RU);
+        Qry.SetVariable("text", im->second.msg[LANG_RU]);
+        Qry.Execute();
+    }
+}
+
+void TErrLst::fromDB(int tlg_id)
+{
+    pos = 0;
+    clear();
+    QParams QryParams;
+    QryParams << QParam("tlg_id", otInteger, tlg_id);
+    TQuery &Qry = TQrys::Instance()->get(
+            "select "
+            "   error_no, "
+            "   error_pos, "
+            "   error_len, "
+            "   lang, "
+            "   text "
+            "from "
+            "   typeb_out_errors "
+            "where "
+            "   tlg_id = :tlg_id ",
+            QryParams
+            );
+    Qry.Execute();
+    if(not Qry.Eof) {
+        int col_error_no = Qry.GetFieldIndex("error_no");
+        int col_error_pos = Qry.GetFieldIndex("error_pos");
+        int col_error_len = Qry.GetFieldIndex("error_len");
+        int col_lang = Qry.GetFieldIndex("lang");
+        int col_text = Qry.GetFieldIndex("text");
+        for(; not Qry.Eof; Qry.Next()) {
+            TTypeBOutErrMsg &err_msg = (*this)[Qry.FieldAsInteger(col_error_no)];
+            err_msg.err_pos = Qry.FieldAsInteger(col_error_pos);
+            err_msg.err_len = Qry.FieldAsInteger(col_error_len);
+            err_msg.msg[Qry.FieldAsString(col_lang)] = Qry.FieldAsString(col_text);
+        }
+    }
+
+}
+
+void TErrLst::toXML(xmlNodePtr node, const string &lang)
+{
+    xmlNodePtr errLst = NULL;
+    for(TErrLst::iterator im = begin(); im != end(); im++) {
+        if(not errLst)
+            errLst = NewTextChild(node, "err_lst");
+        xmlNodePtr itemNode = NewTextChild(errLst, "item");
+        NewTextChild(itemNode, "no", im->first);
+        NewTextChild(itemNode, "pos", im->second.err_pos);
+        NewTextChild(itemNode, "len", im->second.err_len);
+        NewTextChild(itemNode, "text", im->second.msg[lang]);
+    }
+}
+
+void TErrLst::pack(TypeB::TDraftPart &part, bool heading_visible, bool ending_visible)
+{
+    pack(part.addr, heading_visible);
+    pack(part.origin, heading_visible);
+    pack(part.heading, heading_visible);
+    pack(part.body);
+    pack(part.ending, ending_visible);
+}
+
 void TErrLst::fetch_err(set<int> &txt_errs, string body)
 {
+    ProgTrace(TRACE5, "fetch_err: %s", body.c_str());
     size_t idx = body.find("<" + ERR_TAG_NAME);
     while(idx != string::npos) {
+        ProgTrace(TRACE5, "ERR_TAG_NAME found");
         size_t end_idx = body.find('>', idx);
         size_t start_i = idx + ERR_TAG_NAME.size() + 1;
         txt_errs.insert(ToInt(body.substr(start_i, end_idx - start_i)));
@@ -51,21 +301,25 @@ void TErrLst::fix(vector<TDraftPart> &parts)
         fetch_err(txt_errs, iv->body);
         fetch_err(txt_errs, iv->ending);
     }
-    vector<int> unused_errors; // ошибки, отсутствующие в тексте телеграммы
-    for(map<int, string>::iterator im = begin(); im != end(); im++)
-        if(txt_errs.find(im->first) == txt_errs.end())
-            unused_errors.push_back(im->first);
-    for(vector<int>::iterator iv = unused_errors.begin(); iv != unused_errors.end(); iv++) {
-        ProgTrace(TRACE5, "delete unused error %d", *iv);
-        erase(*iv);
+    tst();
+    while(true) {
+        TErrLst::iterator im = begin();
+        for(; im != end(); im++)
+            if(txt_errs.find(im->first) == txt_errs.end())
+                break;
+        if(im != end())
+            erase(im);
+        else
+            break;
     }
+    tst();
 }
 
 void TErrLst::dump()
 {
     ProgTrace(TRACE5, "-----------TLG ERR_LST-----------");
-    for(map<int, string>::iterator im = begin(); im != end(); im++)
-        ProgTrace(TRACE5, "ERR_NO: %d, %s", im->first, im->second.c_str());
+    for(map<int, TTypeBOutErrMsg>::iterator im = begin(); im != end(); im++)
+        ProgTrace(TRACE5, "ERR_NO: %d, %s", im->first, im->second.msg[LANG_EN].c_str());
     ProgTrace(TRACE5, "--------END OF TLG ERR_LST-------");
 }
 
@@ -77,6 +331,16 @@ bool TDetailCreateInfo::operator == (const TMktFlight &s) const
         suffix == s.suffix and
         airp_dep == s.airp_dep and
         scd_local_day == s.scd_day_local;
+}
+
+string TDetailCreateInfo::add_err(string err, const LexemaData &ld)
+{
+    size_t idx = err_lst.size() + 1;
+    err_lst[idx].msg[LANG_EN] = getLocaleText(ld, LANG_EN);
+    err_lst[idx].msg[LANG_RU] = getLocaleText(ld, LANG_RU);
+    ostringstream buf;
+    buf << "<ERROR" << idx << ">" << err << "</ERROR" << err_lst.size() << ">";
+    return buf.str();
 }
 
 string TDetailCreateInfo::add_err(string err, std::string val)
@@ -92,9 +356,11 @@ string TDetailCreateInfo::add_err(string err, const char *format, ...)
     vsnprintf(Message, sizeof(Message), format, ap);
     Message[sizeof(Message)-1]=0;
     va_end(ap);
-    err_lst[err_lst.size() + 1] = Message;
+    size_t idx = err_lst.size() + 1;
+    err_lst[idx].msg[LANG_EN] = Message;
+    err_lst[idx].msg[LANG_RU] = Message;
     ostringstream buf;
-    buf << "<ERROR" << err_lst.size() << ">" << err << "</ERROR" << err_lst.size() << ">";
+    buf << "<ERROR" << idx << ">" << err << "</ERROR" << err_lst.size() << ">";
     return buf.str();
 }
 
@@ -195,7 +461,7 @@ string TDetailCreateInfo::TlgElemIdToElem(TElemType type, int id, TElemFmt fmt)
     try {
         return TypeB::TlgElemIdToElem(type, id, fmt, lang);
     } catch(UserException &E) {
-        return add_err(DEFAULT_ERR, getLocaleText(E.getLexemaData()));
+        return add_err(DEFAULT_ERR, E.getLexemaData());
     } catch(exception &E) {
         return add_err(DEFAULT_ERR, "TTlgInfo::TlgElemIdToElem: tlg_type: %s, elem_type: %s, fmt: %s, what: %s", get_tlg_type().c_str(), EncodeElemType(type), EncodeElemFmt(fmt), E.what());
     } catch(...) {
@@ -210,7 +476,7 @@ string TDetailCreateInfo::TlgElemIdToElem(TElemType type, string id, TElemFmt fm
     try {
         return TypeB::TlgElemIdToElem(type, id, fmt, lang);
     } catch(UserException &E) {
-        return add_err(id, getLocaleText(E.getLexemaData()));
+        return add_err(id, E.getLexemaData());
     } catch(exception &E) {
         return add_err(id, "TTlgInfo::TlgElemIdToElem: tlg_type: %s, elem_type: %s, fmt: %s, what: %s", get_tlg_type().c_str(), EncodeElemType(type), EncodeElemFmt(fmt), E.what());
     } catch(...) {
@@ -325,7 +591,7 @@ string fetch_addr(string &addr, TDetailCreateInfo *info)
         if(not info)
             throw;
         else
-            result = info->add_err(result, getLocaleText(E.getLexemaData()));
+            result = info->add_err(result, E.getLexemaData());
     } catch(exception &E) {
         if(not info)
             throw;
@@ -369,7 +635,7 @@ string format_addr_line(string vaddrs, TDetailCreateInfo *info)
         if(not info)
             throw;
         else
-            result = info->add_err(DEFAULT_ERR, getLocaleText(E.getLexemaData()));
+            result = info->add_err(DEFAULT_ERR, E.getLexemaData());
     } catch(exception &E) {
         if(not info)
             throw;
