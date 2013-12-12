@@ -9,7 +9,7 @@ using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC;
 
-const size_t MAX_QRYS = 20;
+const size_t MAX_QRYS = 1000;
 
 void TQrys::dump_queue()
 {
