@@ -1451,8 +1451,8 @@ void filter(vector<TypeB::TCreateInfo> &createInfo, set<string> tlg_types)
   if ( tlg_types.empty() ) {
     return;
   }
-    vector<TypeB::TCreateInfo>::iterator iv = createInfo.begin();
     while(true) {
+        vector<TypeB::TCreateInfo>::iterator iv = createInfo.begin();
         for(; iv != createInfo.end(); iv++)
             if( tlg_types.find(iv->get_tlg_type()) == tlg_types.end())
                 break;
@@ -1467,8 +1467,8 @@ void filter(vector<TypeB::TCreateInfo> &createInfo, set<string> tlg_types)
 /*
 void filter(vector<TypeB::TCreateInfo> &createInfo, string tlg_type)
 {
-    vector<TypeB::TCreateInfo>::iterator iv = createInfo.begin();
     while(true) {
+        vector<TypeB::TCreateInfo>::iterator iv = createInfo.begin();
         for(; iv != createInfo.end(); iv++)
             if(iv->get_tlg_type() != tlg_type)
                 break;
