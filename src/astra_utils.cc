@@ -824,10 +824,10 @@ void getLexemaText( LexemaData lexemaData, string &text, string &master_lexema_i
   }
 }
 
-std::string getLocaleText(const LexemaData &lexemaData)
+std::string getLocaleText(const LexemaData &lexemaData, const std::string &lang)
 {
     string text, master_lexema_id;
-    getLexemaText( lexemaData, text, master_lexema_id );
+    getLexemaText( lexemaData, text, master_lexema_id, lang );
     return text;
 }
 

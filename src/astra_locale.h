@@ -101,6 +101,9 @@ class LParams: public std::map<std::string, boost::any>
 struct LexemaData {
 	std::string lexema_id;
 	LParams lparams;
+    LexemaData(const std::string &alexema_id, const LParams &alparams): lexema_id(alexema_id), lparams(alparams) {};
+    LexemaData(const std::string &alexema_id): lexema_id(alexema_id) {};
+    LexemaData() {};
 };
 
 void buildMsg( const std::string &lang, LexemaData &lexemaData, std::string &text, std::string &master_lexema_id );

@@ -655,6 +655,30 @@ void TelegramInterface::GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   };
 };
 
+struct TTlgOutPart {
+    string tlg_type;
+    int id;
+    int num;
+    TypeB::TDraftPart draft;
+    bool completed;
+    bool has_errors;
+    string extra;
+    bool pr_lat;
+    TDateTime time_create;
+    TDateTime time_send_scd;
+    TDateTime time_send_act;
+    TTlgOutPart():
+        id(NoExists),
+        num(NoExists),
+        completed(false),
+        has_errors(false),
+        pr_lat(false),
+        time_create(NoExists),
+        time_send_scd(NoExists),
+        time_send_act(NoExists)
+    {}
+};
+
 void TelegramInterface::GetTlgOut(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   xmlNodePtr node = GetNode( "point_id", reqNode );
@@ -715,64 +739,109 @@ void TelegramInterface::GetTlgOut(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     };
   };
 
-  ostringstream endl_stream;
-  endl_stream << endl;
+  vector<TTlgOutPart> tlgs;
   for(;!Qry.Eof;Qry.Next())
   {
+      TTlgOutPart tlg;
+      tlg.tlg_type = Qry.FieldAsString("tlg_type");
+      tlg.id = Qry.FieldAsInteger("id");
+      tlg.num = Qry.FieldAsInteger("num");
+
+      tlg.draft.addr = Qry.FieldAsString("addr");
+      tlg.draft.origin = Qry.FieldAsString("origin");
+      tlg.draft.heading = Qry.FieldAsString("heading");
+      tlg.draft.body = Qry.FieldAsString("body");
+      tlg.draft.ending = Qry.FieldAsString("ending");
+
+      tlg.completed = Qry.FieldAsInteger("completed") != 0;
+      tlg.has_errors = Qry.FieldAsInteger("has_errors") != 0;
+      tlg.extra = Qry.FieldAsString("extra");
+      tlg.pr_lat = Qry.FieldAsInteger("pr_lat") != 0;
+      tlg.time_create = Qry.FieldAsDateTime("time_create");
+      if(not Qry.FieldIsNULL("time_send_scd"))
+          tlg.time_send_scd = Qry.FieldAsDateTime("time_send_scd");
+      if(not Qry.FieldIsNULL("time_send_act"))
+          tlg.time_send_act = Qry.FieldAsDateTime("time_send_act");
+      tlgs.push_back(tlg);
+  }
+
+  ostringstream endl_stream;
+  endl_stream << endl;
+  TypeB::TErrLst err_lst;
+  int old_tlg_id = NoExists;
+
+  for(vector<TTlgOutPart>::iterator iv = tlgs.begin(); iv != tlgs.end(); iv++)
+  {
     node = NewTextChild( tlgsNode, "tlg" );
-    string tlg_type = Qry.FieldAsString("tlg_type");
+    string tlg_type = iv->tlg_type;
 
     TTypeBTypesRow& row = (TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",tlg_type));
     string basic_type = row.basic_type;
 
-    NewTextChild( node, "id", Qry.FieldAsInteger("id") );
-    NewTextChild( node, "num", Qry.FieldAsInteger("num") );
+    int tlg_id = iv->id;
+    int num = iv->num;
+
+    if(old_tlg_id != tlg_id) {
+        old_tlg_id = tlg_id;
+        err_lst.fromDB(tlg_id);
+    }
+
+    bool heading_visible = iv == tlgs.begin();
+    bool ending_visible = iv + 1 == tlgs.end();
+
+    if(TReqInfo::Instance()->desk.compatible(TLG_ERR_BROWSE_VERSION)) {
+        if(num == 1)
+            err_lst.toXML(node, TReqInfo::Instance()->desk.lang);
+    } else
+        err_lst.unpack(iv->draft, heading_visible, ending_visible);
+
+    NewTextChild( node, "id", tlg_id );
+    NewTextChild( node, "num", iv->num);
     NewTextChild( node, "tlg_type", tlg_type, basic_type );
     NewTextChild( node, "tlg_short_name", ElemIdToNameShort(etTypeBType, tlg_type), basic_type );
     NewTextChild( node, "basic_type", basic_type );
     bool editable = row.editable;
-    bool completed = Qry.FieldAsInteger("completed") != 0;
-    bool has_errors = Qry.FieldAsInteger("has_errors") != 0;
+    bool completed = iv->completed;
+    bool has_errors = iv->has_errors;
     if(editable)
         editable = not has_errors;
     if(completed)
         completed = not has_errors;
     NewTextChild( node, "editable", editable, false );
 
-    NewTextChild( node, "addr", Qry.FieldAsString("addr") );
-    string origin = Qry.FieldAsString("origin");
-    string heading = Qry.FieldAsString("heading");
-    NewTextChild( node, "heading", origin+heading );
-    NewTextChild( node, "ending", Qry.FieldAsString("ending") );
+    NewTextChild( node, "addr", iv->draft.addr );
+    NewTextChild( node, "heading", iv->draft.origin + iv->draft.heading );
+    NewTextChild( node, "ending", iv->draft.ending );
     if(TReqInfo::Instance()->desk.compatible(CACHE_CHILD_VERSION))
-      NewTextChild( node, "extra", Qry.FieldAsString("extra"), "" );
+      NewTextChild( node, "extra", iv->extra, "" );
     else
-      NewTextChild( node, "extra", CharReplace(Qry.FieldAsString("extra"),endl_stream.str().c_str()," "), "" );
+      NewTextChild( node, "extra", CharReplace(iv->extra,endl_stream.str().c_str()," "), "" );
 
-    NewTextChild( node, "pr_lat", (int)(Qry.FieldAsInteger("pr_lat")!=0) );
+    NewTextChild( node, "pr_lat", iv->pr_lat);
     NewTextChild( node, "completed", completed, true );
 
-    TDateTime time_create = UTCToClient( Qry.FieldAsDateTime("time_create"), tz_region );
+    TDateTime time_create = UTCToClient( iv->time_create, tz_region );
     NewTextChild( node, "time_create", DateTimeToStr( time_create ) );
 
-    if (!Qry.FieldIsNULL("time_send_scd"))
+    if (iv->time_send_scd != NoExists)
     {
-      TDateTime time_send_scd = UTCToClient( Qry.FieldAsDateTime("time_send_scd"), tz_region );
+      TDateTime time_send_scd = UTCToClient( iv->time_send_scd, tz_region );
       NewTextChild( node, "time_send_scd", DateTimeToStr( time_send_scd ) );
     }
     else
       NewTextChild( node, "time_send_scd" );
 
-    if (!Qry.FieldIsNULL("time_send_act"))
+    if (iv->time_send_act != NoExists)
     {
-      TDateTime time_send_act = UTCToClient( Qry.FieldAsDateTime("time_send_act"), tz_region );
+      TDateTime time_send_act = UTCToClient( iv->time_send_act, tz_region );
       NewTextChild( node, "time_send_act", DateTimeToStr( time_send_act ) );
     }
     else
       NewTextChild( node, "time_send_act" );
 
-    NewTextChild( node, "body", Qry.FieldAsString("body") );
+    NewTextChild( node, "body", iv->draft.body );
   };
+  ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str()); // !!!
 };
 
 void TelegramInterface::GetAddrs(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -1103,7 +1172,11 @@ void TelegramInterface::DeleteTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     Qry.Execute();
     if (Qry.RowsProcessed()>0)
     {
-        Qry.SQLText="DELETE FROM typeb_out_extra WHERE tlg_id=:id";
+        Qry.SQLText=
+            "begin "
+            "   DELETE FROM typeb_out_extra WHERE tlg_id=:id; "
+            "   delete from typeb_out_errors where tlg_id = :id; "
+            "end;";
         Qry.Execute();
         ostringstream msg;
         msg << "Телеграмма " << tlg_short_name << " (ид=" << tlg_id << ") удалена";
@@ -1722,7 +1795,10 @@ void TelegramInterface::SaveTlgOutPart( TTlgOutPartInfo &info, bool completed, b
     throw Exception("SaveTlgOutPart: info.originator_id=NoExists");
   Qry.CreateVariable("airline_mark",otString,info.airline_mark);
   Qry.CreateVariable("manual_creation",otInteger,(int)info.manual_creation);
+  ProgTrace(TRACE5, "body: %s", info.body.c_str());
+  ProgTrace(TRACE5, "body.size(): %zu", info.body.size());
   Qry.Execute();
+  ProgTrace(TRACE5, "Qry.Execute() throw");
 
   if (info.num==1)
   {

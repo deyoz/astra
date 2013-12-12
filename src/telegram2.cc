@@ -41,7 +41,7 @@ void ExceptionFilter(string &body, TypeB::TDetailCreateInfo &info)
     try {
         throw;
     } catch(UserException &E) {
-        body = info.add_err(TypeB::DEFAULT_ERR, getLocaleText(E.getLexemaData()));
+        body = info.add_err(TypeB::DEFAULT_ERR, E.getLexemaData());
     } catch(exception &E) {
         body = info.add_err(TypeB::DEFAULT_ERR, E.what());
     } catch(...) {
@@ -643,6 +643,9 @@ void TTlgDraft::Commit(TTlgOutPartInfo &tlg_row)
             check(iv->body);
             check(iv->ending);
         }
+        bool heading_visible = iv == parts.begin();
+        bool ending_visible = iv + 1 == parts.end();
+        tlg_info.err_lst.pack(*iv, heading_visible, ending_visible);
         tlg_row.addr = iv->addr;
         tlg_row.origin = iv->origin;
         tlg_row.heading = iv->heading;
@@ -1447,7 +1450,8 @@ namespace PRL_SPACE {
             items.push_back("1CHD");
         TTlgSeatList seats;
         seats.add_seats(pax.pax_id, complayers);
-        string seat_list = seats.get_seat_list(info.is_lat() or info.pr_lat_seat);
+//!!!        string seat_list = seats.get_seat_list(info.is_lat() or info.pr_lat_seat);
+        string seat_list = seats.get_seat_list(false);
         if(!seat_list.empty())
             items.push_back("SEAT " + seat_list);
         internal_get(info, pax.pax_id, pax.subcls);
@@ -1484,16 +1488,20 @@ namespace PRL_SPACE {
         if (getPaxRem(info, doc, rem)) items.push_back(rem.text);
         //¢¨§ 
         CheckIn::TPaxDocoItem doco;
+        ProgTrace(TRACE5, "before LoadPaxDoco");
         LoadPaxDoco(pax.pax_id, doco);
+        ProgTrace(TRACE5, "after LoadPaxDoco");
         if (getPaxRem(info, doco, rem)) items.push_back(rem.text);
         // ¤à¥á 
         list<CheckIn::TPaxDocaItem> doca;
         LoadPaxDoca(pax.pax_id, doca);
+        ProgTrace(TRACE5, "after LoadPaxDoca");
         for(list<CheckIn::TPaxDocaItem>::const_iterator d=doca.begin(); d!=doca.end(); ++d)
         {
           if (d->type!="D" && d->type!="R") continue;
           if (getPaxRem(info, *d, rem)) items.push_back(rem.text);
         };
+        ProgTrace(TRACE5, "after getPaxRem");
     }
 
     struct TPRLDest {
@@ -5337,7 +5345,7 @@ string TTripDelays::delay_code(TypeB::TDetailCreateInfo &info, int delay_code)
     if(check_delay_code(delay_code)) {
         result << setw(2) << setfill('0') << delay_code;
     } else
-        result << info.add_err(IntToString(delay_code), getLocaleText("MSG.MVTDELAY.INVALID_CODE"));
+        result << info.add_err(IntToString(delay_code), LexemaData("MSG.MVTDELAY.INVALID_CODE"));
     return result.str();
 }
 
@@ -6904,8 +6912,10 @@ int PRL(TypeB::TDetailCreateInfo &info)
     TTlgOutPartInfo tlg_row(info);
     tlg_row.origin = info.originator.originSection(tlg_row.time_create, TypeB::endl);
     ostringstream heading;
+    ProgTrace(TRACE5, "info.flight_view: %s", info.flight_view().c_str());
     heading << "PRL" << TypeB::endl
-            << info.flight_view() << "/"
+//            << info.flight_view() << "/"
+            << "ž’002" << "/"
             << info.scd_local_view() << " " << info.airp_dep_view() << " ";
     tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + TypeB::endl;
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + TypeB::endl;
@@ -6924,7 +6934,7 @@ int PRL(TypeB::TDetailCreateInfo &info)
     }
 
     split_n_save(heading, part_len, tlg_draft, tlg_row, body);
-    tlg_row.ending = "ENDPRL" + TypeB::endl;
+    tlg_row.ending = "…NDPR‹" + TypeB::endl; // !!!
     tlg_draft.Save(tlg_row);
     tlg_draft.Commit(tlg_row);
 #ifdef SQL_COUNTERS
@@ -7010,7 +7020,8 @@ int TelegramInterface::create_tlg(const TypeB::TCreateInfo &createInfo,
             throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND");
         if (Qry.FieldIsNULL("scd_out"))
             throw AstraLocale::UserException("MSG.FLIGHT_DATE.NOT_SET");
-        info.airline = Qry.FieldAsString("airline");
+//!!!        info.airline = Qry.FieldAsString("airline");
+        info.airline = "ž‹";
         if (!Qry.FieldIsNULL("flt_no"))
             info.flt_no = Qry.FieldAsInteger("flt_no");
         info.suffix = Qry.FieldAsString("suffix");
@@ -7102,6 +7113,9 @@ int TelegramInterface::create_tlg(const TypeB::TCreateInfo &createInfo,
     ProgTrace(TRACE5, "utg_prl_tst: %s", tm.PrintWithMessage().c_str());
 
     info.err_lst.dump();
+    tst();
+    info.err_lst.toDB(vid);
+    tst();
 
     Qry.Clear();
     Qry.SQLText = "update tlg_out set completed = :vcompleted, has_errors = :vhas_errors where id = :vid";
