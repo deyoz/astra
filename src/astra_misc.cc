@@ -999,7 +999,7 @@ void TMktFlight::getByPaxId(int pax_id)
 {
     QParams QryParams;
     QryParams << QParam("id", otInteger, pax_id);
-    TQuery &Qry = TQrys::Instance()->get(
+    TCachedQuery Qry(
             "select "
             "    mark_trips.airline mark_airline, "
             "    mark_trips.flt_no mark_flt_no, "
@@ -1020,20 +1020,20 @@ void TMktFlight::getByPaxId(int pax_id)
             );
 
     clear();
-    Qry.Execute();
-    if(!Qry.Eof)
+    Qry.get().Execute();
+    if(!Qry.get().Eof)
     {
-        airline = Qry.FieldAsString("mark_airline");
-        flt_no = Qry.FieldAsInteger("mark_flt_no");
-        suffix = Qry.FieldAsString("mark_suffix");
-        subcls = Qry.FieldAsString("mark_subcls");
-        TDateTime tmp_scd = Qry.FieldAsDateTime("mark_scd");
+        airline = Qry.get().FieldAsString("mark_airline");
+        flt_no = Qry.get().FieldAsInteger("mark_flt_no");
+        suffix = Qry.get().FieldAsString("mark_suffix");
+        subcls = Qry.get().FieldAsString("mark_subcls");
+        TDateTime tmp_scd = Qry.get().FieldAsDateTime("mark_scd");
         int Year, Month, Day;
         DecodeDate(tmp_scd, Year, Month, Day);
         scd_day_local = Day;
         EncodeDate(Year, Month, Day, scd_date_local);
-        airp_dep = Qry.FieldAsString("mark_airp_dep");
-        airp_arv = Qry.FieldAsString("mark_airp_arv");
+        airp_dep = Qry.get().FieldAsString("mark_airp_dep");
+        airp_arv = Qry.get().FieldAsString("mark_airp_arv");
     }
 }
 
@@ -2023,14 +2023,14 @@ void TCFG::get(int point_id, TDateTime part_key)
           QryParams << QParam("part_key", otDate, part_key);
       };
     };
-    TQuery &Qry = TQrys::Instance()->get(SQLText, QryParams);
-    Qry.Execute();
-    for(; !Qry.Eof; Qry.Next()) {
+    TCachedQuery Qry(SQLText, QryParams);
+    Qry.get().Execute();
+    for(; !Qry.get().Eof; Qry.get().Next()) {
         TCFGItem item;
-        item.cls = Qry.FieldAsString("class");
-        item.cfg = Qry.FieldAsInteger("cfg");
-        item.block = Qry.FieldAsInteger("block");
-        item.prot = Qry.FieldAsInteger("prot");
+        item.cls = Qry.get().FieldAsString("class");
+        item.cfg = Qry.get().FieldAsInteger("cfg");
+        item.block = Qry.get().FieldAsInteger("block");
+        item.prot = Qry.get().FieldAsInteger("prot");
         push_back(item);
     }
 }
@@ -2076,11 +2076,11 @@ void SearchFlt(const TSearchFltInfo &filter, list<TAdvTripInfo> &flts)
 
   sql << " " << filter.additional_where;
 
-  TQuery &PointsQry = TQrys::Instance()->get(sql.str(), QryParams);
-  PointsQry.Execute();
-  for(;!PointsQry.Eof;PointsQry.Next())
+  TCachedQuery PointsQry(sql.str(), QryParams);
+  PointsQry.get().Execute();
+  for(;!PointsQry.get().Eof;PointsQry.get().Next())
   {
-    TAdvTripInfo flt(PointsQry);
+    TAdvTripInfo flt(PointsQry.get());
     if (!filter.scd_out_in_utc)
     {
       TDateTime scd=flt.scd_out;

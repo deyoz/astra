@@ -111,9 +111,9 @@ bool LoadPaxTkn(TDateTime part_key, int pax_id, TPaxTknItem &tkn)
     else
         result_sql = sql;
     QryParams << QParam("pax_id", otInteger, pax_id);
-    TQuery &PaxTknQry = TQrys::Instance()->get(result_sql, QryParams);
-    PaxTknQry.Execute();
-    if (!PaxTknQry.Eof) tkn.fromDB(PaxTknQry);
+    TCachedQuery PaxTknQry(result_sql, QryParams);
+    PaxTknQry.get().Execute();
+    if (!PaxTknQry.get().Eof) tkn.fromDB(PaxTknQry.get());
     return !tkn.empty();
 };
 
@@ -130,16 +130,16 @@ bool LoadCrsPaxTkn(int pax_id, TPaxTknItem &tkn)
 
   QParams QryParams;
   QryParams << QParam("pax_id", otInteger, pax_id);
-  TQuery &PaxTknQry = TQrys::Instance()->get(sql1, QryParams);
-  PaxTknQry.Execute();
-  if (!PaxTknQry.Eof) tkn.fromDB(PaxTknQry);
+  TCachedQuery PaxTknQry(sql1, QryParams);
+  PaxTknQry.get().Execute();
+  if (!PaxTknQry.get().Eof) tkn.fromDB(PaxTknQry.get());
   else
   {
-    TQuery &GetTKNO2Qry = TQrys::Instance()->get(sql2, QryParams);
-    GetTKNO2Qry.Execute();
-    if (!GetTKNO2Qry.Eof && !GetTKNO2Qry.FieldIsNULL("no"))
+    TCachedQuery GetTKNO2Qry(sql2, QryParams);
+    GetTKNO2Qry.get().Execute();
+    if (!GetTKNO2Qry.get().Eof && !GetTKNO2Qry.get().FieldIsNULL("no"))
     {
-      tkn.no=GetTKNO2Qry.FieldAsString("no");
+      tkn.no=GetTKNO2Qry.get().FieldAsString("no");
       if (!tkn.no.empty())
       {
         string::size_type pos=tkn.no.find_last_of('/');
@@ -474,9 +474,9 @@ bool LoadPaxDoc(TDateTime part_key, int pax_id, TPaxDocItem &doc)
   else
       sql_result = sql;
   QryParams << QParam("pax_id", otInteger, pax_id);
-  TQuery &PaxDocQry = TQrys::Instance()->get(sql_result, QryParams);
-  PaxDocQry.Execute();
-  if (!PaxDocQry.Eof) doc.fromDB(PaxDocQry);
+  TCachedQuery PaxDocQry(sql_result, QryParams);
+  PaxDocQry.get().Execute();
+  if (!PaxDocQry.get().Eof) doc.fromDB(PaxDocQry.get());
   return !doc.empty();
 };
 
@@ -516,16 +516,16 @@ bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc)
     "SELECT report.get_PSPT2(:pax_id) AS no FROM dual";
   QParams QryParams;
   QryParams << QParam("pax_id", otInteger, pax_id);
-  TQuery &PaxDocQry = TQrys::Instance()->get(sql1, QryParams);
-  PaxDocQry.Execute();
-  if (!PaxDocQry.Eof) doc.fromDB(PaxDocQry);
+  TCachedQuery PaxDocQry(sql1, QryParams);
+  PaxDocQry.get().Execute();
+  if (!PaxDocQry.get().Eof) doc.fromDB(PaxDocQry.get());
   else
   {
-    TQuery &GetPSPT2Qry = TQrys::Instance()->get(sql2, QryParams);
-    GetPSPT2Qry.Execute();
-    if (!GetPSPT2Qry.Eof && !GetPSPT2Qry.FieldIsNULL("no"))
+    TCachedQuery GetPSPT2Qry(sql2, QryParams);
+    GetPSPT2Qry.get().Execute();
+    if (!GetPSPT2Qry.get().Eof && !GetPSPT2Qry.get().FieldIsNULL("no"))
     {
-      doc.no=GetPSPT2Qry.FieldAsString("no");
+      doc.no=GetPSPT2Qry.get().FieldAsString("no");
     };
   };
   return !doc.empty();
@@ -553,9 +553,9 @@ bool LoadPaxDoco(TDateTime part_key, int pax_id, TPaxDocoItem &doc)
   else
       sql_result = sql;
   QryParams << QParam("pax_id", otInteger, pax_id);
-  TQuery &PaxDocQry = TQrys::Instance()->get(sql_result, QryParams);
-  PaxDocQry.Execute();
-  if (!PaxDocQry.Eof) doc.fromDB(PaxDocQry);
+  TCachedQuery PaxDocQry(sql_result, QryParams);
+  PaxDocQry.get().Execute();
+  if (!PaxDocQry.get().Eof) doc.fromDB(PaxDocQry.get());
   return !doc.empty();
 };
 
@@ -569,9 +569,9 @@ bool LoadCrsPaxVisa(int pax_id, TPaxDocoItem &doc)
     "ORDER BY no ";
   QParams QryParams;
   QryParams << QParam("pax_id", otInteger, pax_id);
-  TQuery &PaxDocQry = TQrys::Instance()->get(sql, QryParams);
-  PaxDocQry.Execute();
-  if (!PaxDocQry.Eof) doc.fromDB(PaxDocQry);
+  TCachedQuery PaxDocQry(sql, QryParams);
+  PaxDocQry.get().Execute();
+  if (!PaxDocQry.get().Eof) doc.fromDB(PaxDocQry.get());
   return !doc.empty();
 };
 
@@ -621,9 +621,9 @@ bool LoadPaxDoca(TDateTime part_key, int pax_id, TDocaType type, TPaxDocaItem &d
     case docaResidence:   QryParams << QParam("type", otString, "R"); break;
     case docaBirth:       QryParams << QParam("type", otString, "B"); break;
   };
-  TQuery &PaxDocQry = TQrys::Instance()->get(sql_result, QryParams);
-  PaxDocQry.Execute();
-  if (!PaxDocQry.Eof) doca.fromDB(PaxDocQry);
+  TCachedQuery PaxDocQry(sql_result, QryParams);
+  PaxDocQry.get().Execute();
+  if (!PaxDocQry.get().Eof) doca.fromDB(PaxDocQry.get());
   return !doca.empty();
 };
 
@@ -637,15 +637,15 @@ bool LoadCrsPaxDoca(int pax_id, list<TPaxDocaItem> &doca)
     "ORDER BY type, address ";
   QParams QryParams;
   QryParams << QParam("pax_id", otInteger, pax_id);
-  TQuery &PaxDocaQry = TQrys::Instance()->get(sql, QryParams);
-  PaxDocaQry.Execute();
+  TCachedQuery PaxDocaQry(sql, QryParams);
+  PaxDocaQry.get().Execute();
   string prior_type;
-  for(;!PaxDocaQry.Eof;PaxDocaQry.Next())
+  for(;!PaxDocaQry.get().Eof;PaxDocaQry.get().Next())
   {
-    if (prior_type!=PaxDocaQry.FieldAsString("type"))
+    if (prior_type!=PaxDocaQry.get().FieldAsString("type"))
     {
-      doca.push_back(TPaxDocaItem().fromDB(PaxDocaQry));
-      prior_type=PaxDocaQry.FieldAsString("type");
+      doca.push_back(TPaxDocaItem().fromDB(PaxDocaQry.get()));
+      prior_type=PaxDocaQry.get().FieldAsString("type");
     };
   };
   return !doca.empty();
@@ -787,11 +787,11 @@ bool LoadPaxNorms(int pax_id, vector< pair<TPaxNormItem, TNormItem> > &norms)
 
   QParams QryParams;
   QryParams << QParam("pax_id", otInteger, pax_id);
-  TQuery &NormQry = TQrys::Instance()->get(sql, QryParams);
-  NormQry.Execute();
-  for(;!NormQry.Eof;NormQry.Next())
-    norms.push_back( make_pair(TPaxNormItem().fromDB(NormQry),
-                               TNormItem().fromDB(NormQry)) );
+  TCachedQuery NormQry(sql, QryParams);
+  NormQry.get().Execute();
+  for(;!NormQry.get().Eof;NormQry.get().Next())
+    norms.push_back( make_pair(TPaxNormItem().fromDB(NormQry.get()),
+                               TNormItem().fromDB(NormQry.get())) );
   return !norms.empty();
 };
 
@@ -806,11 +806,11 @@ bool LoadGrpNorms(int grp_id, vector< pair<TPaxNormItem, TNormItem> > &norms)
 
   QParams QryParams;
   QryParams << QParam("grp_id", otInteger, grp_id);
-  TQuery &NormQry = TQrys::Instance()->get(sql, QryParams);
-  NormQry.Execute();
-  for(;!NormQry.Eof;NormQry.Next())
-    norms.push_back( make_pair(TPaxNormItem().fromDB(NormQry),
-                               TNormItem().fromDB(NormQry)) );
+  TCachedQuery NormQry(sql, QryParams);
+  NormQry.get().Execute();
+  for(;!NormQry.get().Eof;NormQry.get().Next())
+    norms.push_back( make_pair(TPaxNormItem().fromDB(NormQry.get()),
+                               TNormItem().fromDB(NormQry.get())) );
   return !norms.empty();
 };
 

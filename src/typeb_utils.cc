@@ -188,7 +188,7 @@ void TErrLst::toDB(int tlg_id)
         << QParam("error_len", otInteger)
         << QParam("lang", otString)
         << QParam("text", otString);
-    TQuery &Qry = TQrys::Instance()->get(
+    TCachedQuery Qry(
             "insert into typeb_out_errors( "
             "   tlg_id, "
             "   error_no, "
@@ -206,15 +206,15 @@ void TErrLst::toDB(int tlg_id)
             ") ",
             QryParams);
     for(TErrLst::iterator im = begin(); im != end(); im++) {
-        Qry.SetVariable("error_no", im->first);
-        Qry.SetVariable("error_pos", im->second.err_pos);
-        Qry.SetVariable("error_len", im->second.err_len);
-        Qry.SetVariable("lang", LANG_EN);
-        Qry.SetVariable("text", im->second.msg[LANG_EN]);
-        Qry.Execute();
-        Qry.SetVariable("lang", LANG_RU);
-        Qry.SetVariable("text", im->second.msg[LANG_RU]);
-        Qry.Execute();
+        Qry.get().SetVariable("error_no", im->first);
+        Qry.get().SetVariable("error_pos", im->second.err_pos);
+        Qry.get().SetVariable("error_len", im->second.err_len);
+        Qry.get().SetVariable("lang", LANG_EN);
+        Qry.get().SetVariable("text", im->second.msg[LANG_EN]);
+        Qry.get().Execute();
+        Qry.get().SetVariable("lang", LANG_RU);
+        Qry.get().SetVariable("text", im->second.msg[LANG_RU]);
+        Qry.get().Execute();
     }
 }
 
@@ -224,7 +224,7 @@ void TErrLst::fromDB(int tlg_id)
     clear();
     QParams QryParams;
     QryParams << QParam("tlg_id", otInteger, tlg_id);
-    TQuery &Qry = TQrys::Instance()->get(
+    TCachedQuery Qry(
             "select "
             "   error_no, "
             "   error_pos, "
@@ -237,18 +237,18 @@ void TErrLst::fromDB(int tlg_id)
             "   tlg_id = :tlg_id ",
             QryParams
             );
-    Qry.Execute();
-    if(not Qry.Eof) {
-        int col_error_no = Qry.GetFieldIndex("error_no");
-        int col_error_pos = Qry.GetFieldIndex("error_pos");
-        int col_error_len = Qry.GetFieldIndex("error_len");
-        int col_lang = Qry.GetFieldIndex("lang");
-        int col_text = Qry.GetFieldIndex("text");
-        for(; not Qry.Eof; Qry.Next()) {
-            TTypeBOutErrMsg &err_msg = (*this)[Qry.FieldAsInteger(col_error_no)];
-            err_msg.err_pos = Qry.FieldAsInteger(col_error_pos);
-            err_msg.err_len = Qry.FieldAsInteger(col_error_len);
-            err_msg.msg[Qry.FieldAsString(col_lang)] = Qry.FieldAsString(col_text);
+    Qry.get().Execute();
+    if(not Qry.get().Eof) {
+        int col_error_no = Qry.get().GetFieldIndex("error_no");
+        int col_error_pos = Qry.get().GetFieldIndex("error_pos");
+        int col_error_len = Qry.get().GetFieldIndex("error_len");
+        int col_lang = Qry.get().GetFieldIndex("lang");
+        int col_text = Qry.get().GetFieldIndex("text");
+        for(; not Qry.get().Eof; Qry.get().Next()) {
+            TTypeBOutErrMsg &err_msg = (*this)[Qry.get().FieldAsInteger(col_error_no)];
+            err_msg.err_pos = Qry.get().FieldAsInteger(col_error_pos);
+            err_msg.err_len = Qry.get().FieldAsInteger(col_error_len);
+            err_msg.msg[Qry.get().FieldAsString(col_lang)] = Qry.get().FieldAsString(col_text);
         }
     }
 
