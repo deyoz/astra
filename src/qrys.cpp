@@ -9,7 +9,7 @@ using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC;
 
-const size_t MAX_QRYS = 1;
+const size_t MAX_QRYS = 1000;
 
 struct TQrys: public std::multimap<const std::string, std::list<TQry_ptr>::iterator> {
     private:
