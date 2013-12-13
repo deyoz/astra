@@ -1084,7 +1084,18 @@ TPaxItem& TPaxItem::fromDB(TQuery &Qry)
 int TPaxItem::is_female() const
 {
   if (!DocExists) return ASTRA::NoExists;
-  return CheckIn::is_female(doc.gender, name);
+
+  if (TReqInfo::Instance()->client_type!=ASTRA::ctTerm ||
+      TReqInfo::Instance()->desk.compatible(DOCS_VERSION))
+  {
+    return CheckIn::is_female(doc.gender, name);
+  }
+  else
+  {
+    TPaxDocItem crs_doc;
+    if (id!=ASTRA::NoExists) LoadCrsPaxDoc(id, crs_doc);
+    return CheckIn::is_female(crs_doc.gender, name);
+  };
 };
 
 int is_female(const string &pax_doc_gender, const string &pax_name)
