@@ -1449,8 +1449,7 @@ namespace PRL_SPACE {
             items.push_back("1CHD");
         TTlgSeatList seats;
         seats.add_seats(pax.pax_id, complayers);
-//!!!        string seat_list = seats.get_seat_list(info.is_lat() or info.pr_lat_seat);
-        string seat_list = seats.get_seat_list(false);
+        string seat_list = seats.get_seat_list(info.is_lat() or info.pr_lat_seat);
         if(!seat_list.empty())
             items.push_back("SEAT " + seat_list);
         internal_get(info, pax.pax_id, pax.subcls);
@@ -6905,8 +6904,7 @@ int PRL(TypeB::TDetailCreateInfo &info)
     tlg_row.origin = info.originator.originSection(tlg_row.time_create, TypeB::endl);
     ostringstream heading;
     heading << "PRL" << TypeB::endl
-//            << info.flight_view() << "/"
-            << "ž’002" << "/"
+            << info.flight_view() << "/"
             << info.scd_local_view() << " " << info.airp_dep_view() << " ";
     tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + TypeB::endl;
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + TypeB::endl;
@@ -6925,7 +6923,7 @@ int PRL(TypeB::TDetailCreateInfo &info)
     }
 
     split_n_save(heading, part_len, tlg_draft, tlg_row, body);
-    tlg_row.ending = "…NDPR‹" + TypeB::endl; // !!!
+    tlg_row.ending = "ENDPRL" + TypeB::endl;
     tlg_draft.Save(tlg_row);
     tlg_draft.Commit(tlg_row);
 #ifdef SQL_COUNTERS
@@ -7011,8 +7009,7 @@ int TelegramInterface::create_tlg(const TypeB::TCreateInfo &createInfo,
             throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND");
         if (Qry.get().FieldIsNULL("scd_out"))
             throw AstraLocale::UserException("MSG.FLIGHT_DATE.NOT_SET");
-//!!!        info.airline = Qry.get().FieldAsString("airline");
-        info.airline = "ž‹";
+        info.airline = Qry.get().FieldAsString("airline");
         if (!Qry.get().FieldIsNULL("flt_no"))
             info.flt_no = Qry.get().FieldAsInteger("flt_no");
         info.suffix = Qry.get().FieldAsString("suffix");
