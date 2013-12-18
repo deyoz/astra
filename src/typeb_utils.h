@@ -1220,22 +1220,30 @@ struct TTypeBOutErrMsg {
 };
 
 struct TErrLst:std::map<int, TTypeBOutErrMsg> {
-    size_t pos;
-    void dump();
-    void toDB(int tlg_id);
-    void fix(std::vector<TDraftPart> &parts);
-    void fetch_err(std::set<int> &txt_errs, std::string body);
+    private:
+        int err_no;
+    public:
+        size_t pos;
+        void dump();
+        void toDB(int tlg_id);
+        void fix(std::vector<TDraftPart> &parts);
+        void fetch_err(std::set<int> &txt_errs, std::string body);
 
-    void pack(TypeB::TDraftPart &part, bool heading_visible, bool ending_visible);
-    void pack(std::string &val, bool visible = true);
+        void pack(TypeB::TDraftPart &part, bool heading_visible, bool ending_visible);
+        void pack(std::string &val, bool visible = true);
 
-    void unpack(TypeB::TDraftPart &draft, bool heading_visible, bool ending_visible);
-    void unpack(std::string &val, bool visible = true);
+        void unpack(TypeB::TDraftPart &draft, bool heading_visible, bool ending_visible);
+        void unpack(std::string &val, bool visible = true);
 
-    void fromDB(int tlg_id);
-    void toXML(xmlNodePtr node, const std::string &lang);
-    TErrLst(): pos(0) {};
-    TErrLst(int tlg_id): pos(0) { fromDB(tlg_id); };
+        void fromDB(int tlg_id);
+        void toXML(xmlNodePtr node, const std::string &lang);
+
+        std::string add_err(std::string err, const AstraLocale::LexemaData &ld);
+        std::string add_err(std::string err, std::string val);
+        std::string add_err(std::string err, const char *format, ...);
+
+        TErrLst(): err_no(0), pos(0) {};
+        TErrLst(int tlg_id): err_no(0), pos(0) { fromDB(tlg_id); };
 };
 
 class TDetailCreateInfo : public TOptionsInfo
@@ -1274,9 +1282,6 @@ class TDetailCreateInfo : public TOptionsInfo
     std::string lang;
     // список ошибок телеграммы
     TErrLst err_lst;
-    std::string add_err(std::string err, const AstraLocale::LexemaData &ld);
-    std::string add_err(std::string err, std::string val);
-    std::string add_err(std::string err, const char *format, ...);
 
     std::string TlgElemIdToElem(TElemType type, int id, TElemFmt fmt = efmtUnknown);
     std::string TlgElemIdToElem(TElemType type, std::string id, TElemFmt fmt = efmtUnknown);

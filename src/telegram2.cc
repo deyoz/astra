@@ -41,11 +41,11 @@ void ExceptionFilter(string &body, TypeB::TDetailCreateInfo &info)
     try {
         throw;
     } catch(UserException &E) {
-        body = info.add_err(TypeB::DEFAULT_ERR, E.getLexemaData());
+        body = info.err_lst.add_err(TypeB::DEFAULT_ERR, E.getLexemaData());
     } catch(exception &E) {
-        body = info.add_err(TypeB::DEFAULT_ERR, E.what());
+        body = info.err_lst.add_err(TypeB::DEFAULT_ERR, E.what());
     } catch(...) {
-        body = info.add_err(TypeB::DEFAULT_ERR, "unknown error");
+        body = info.err_lst.add_err(TypeB::DEFAULT_ERR, "unknown error");
     }
 }
 
@@ -617,12 +617,12 @@ void TTlgDraft::check(string &value)
             // lat
             if(opened) {
                 opened = false;
-                result += tlg_info.add_err(err, "non lat chars encountered");
+                result += tlg_info.err_lst.add_err(err, "non lat chars encountered");
             }
             result += *i;
         }
     }
-    if(opened) result += tlg_info.add_err(err, "non lat chars encountered");
+    if(opened) result += tlg_info.err_lst.add_err(err, "non lat chars encountered");
     value = result;
 }
 
@@ -5327,7 +5327,7 @@ string TTripDelays::delay_value(TypeB::TDetailCreateInfo &info, TDateTime prev, 
         BASIC::DecodeTime( remain, hours, mins, secs );
         result << setfill('0') << setw(2) << f * 24 + hours << setw(2) << mins;
     } else
-        result << info.add_err(TypeB::DEFAULT_ERR, "Delay out of range %d mins", MAX_DELAY_TIME);
+        result << info.err_lst.add_err(TypeB::DEFAULT_ERR, "Delay out of range %d mins", MAX_DELAY_TIME);
     return result.str();
 }
 
@@ -5337,7 +5337,7 @@ string TTripDelays::delay_code(TypeB::TDetailCreateInfo &info, int delay_code)
     if(check_delay_code(delay_code)) {
         result << setw(2) << setfill('0') << delay_code;
     } else
-        result << info.add_err(IntToString(delay_code), LexemaData("MSG.MVTDELAY.INVALID_CODE"));
+        result << info.err_lst.add_err(IntToString(delay_code), LexemaData("MSG.MVTDELAY.INVALID_CODE"));
     return result.str();
 }
 
@@ -5422,9 +5422,9 @@ void TMVTCBody::get(TypeB::TDetailCreateInfo &info)
 void TMVTCBody::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 {
     if(delays.empty())
-        body.push_back(info.add_err(TypeB::DEFAULT_ERR, "delays not found"));
+        body.push_back(info.err_lst.add_err(TypeB::DEFAULT_ERR, "delays not found"));
     else if(info.est_utc == NoExists)
-        body.push_back(info.add_err(TypeB::DEFAULT_ERR, "est_utc not defined"));
+        body.push_back(info.err_lst.add_err(TypeB::DEFAULT_ERR, "est_utc not defined"));
     else {
         ostringstream buf;
         buf << "ED" << DateTimeToStr(info.est_utc, "ddhhnn");

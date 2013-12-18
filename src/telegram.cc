@@ -781,13 +781,14 @@ void TelegramInterface::GetTlgOut(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     int tlg_id = iv->id;
     int num = iv->num;
 
+    bool heading_visible = false;
     if(old_tlg_id != tlg_id) {
+        heading_visible = true;
         old_tlg_id = tlg_id;
         err_lst.fromDB(tlg_id);
     }
 
-    bool heading_visible = iv == tlgs.begin();
-    bool ending_visible = iv + 1 == tlgs.end();
+    bool ending_visible = (iv + 1 == tlgs.end() or (iv + 1)->id != tlg_id);
 
     if(TReqInfo::Instance()->desk.compatible(TLG_ERR_BROWSE_VERSION)) {
         if(num == 1)
@@ -841,7 +842,6 @@ void TelegramInterface::GetTlgOut(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 
     NewTextChild( node, "body", iv->draft.body );
   };
-  ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str()); // !!!
 };
 
 void TelegramInterface::GetAddrs(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -920,7 +920,6 @@ void TelegramInterface::SaveTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   // Если в конце телеграммы нет перевода строки, добавим его
   if(tlg_body.size() > 2 and tlg_body.substr(tlg_body.size() - 2) != "\xd\xa")
       tlg_body += "\xd\xa";
-  ProgTrace(TRACE5, "tlg_body: %s", tlg_body.c_str());
   Qry.CreateVariable( "body", otString, tlg_body );
   Qry.Execute();
 
@@ -1795,8 +1794,6 @@ void TelegramInterface::SaveTlgOutPart( TTlgOutPartInfo &info, bool completed, b
     throw Exception("SaveTlgOutPart: info.originator_id=NoExists");
   Qry.CreateVariable("airline_mark",otString,info.airline_mark);
   Qry.CreateVariable("manual_creation",otInteger,(int)info.manual_creation);
-  ProgTrace(TRACE5, "body: %s", info.body.c_str());
-  ProgTrace(TRACE5, "body.size(): %zu", info.body.size());
   Qry.Execute();
   ProgTrace(TRACE5, "Qry.Execute() throw");
 

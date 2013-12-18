@@ -49,9 +49,9 @@ void TErrLst::unpack(string &val, bool visible)
 {
     if(not visible) return;
 
-    size_t tmp_pos = pos;
+    int tmp_pos = pos;
     pos += val.size();
-    size_t offset = 0;
+    int offset = 0;
     for(TErrLst::iterator im = begin(); im != end(); im++) {
         if(im->second.err_pos < tmp_pos) continue;
         size_t real_pos = im->second.err_pos - tmp_pos + offset;
@@ -68,15 +68,10 @@ void TErrLst::unpack(string &val, bool visible)
 void TErrLst::unpack(TypeB::TDraftPart &draft, bool heading_visible, bool ending_visible)
 {
     unpack(draft.addr, heading_visible);
-    ProgTrace(TRACE5, "draft.addr after unpack: %s", draft.addr.c_str());
     unpack(draft.origin, heading_visible);
-    ProgTrace(TRACE5, "draft.origin after unpack: %s", draft.origin.c_str());
     unpack(draft.heading, heading_visible);
-    ProgTrace(TRACE5, "draft.heading after unpack: %s", draft.heading.c_str());
     unpack(draft.body);
-    ProgTrace(TRACE5, "draft.body after unpack: %s", draft.body.c_str());
     unpack(draft.ending, ending_visible);
-    ProgTrace(TRACE5, "draft.ending after unpack: %s", draft.ending.c_str());
 }
 
 void TErrLst::pack(string &body, bool visible)
@@ -92,8 +87,6 @@ void TErrLst::pack(string &body, bool visible)
         mEndTag,
         mEndTag2
     } mode = mStart;
-
-    ProgTrace(TRACE5, "packing %s", body.c_str());
 
     string err_no;
     string err_tag;
@@ -163,19 +156,12 @@ void TErrLst::pack(string &body, bool visible)
             if(visible) {
                 im->second.err_pos = pos + iv->pos;
                 im->second.err_len = iv->err_data.size();
-            } //else
-                //erase(iv->err_no);
+            } else
+                erase(iv->err_no);
         }
         body.replace(iv->pos, iv->del_len, iv->err_data);
-        /*
-        ProgTrace(TRACE5, "err_no: %d", iv->err_no);
-        ProgTrace(TRACE5, "pos: %d", iv->pos);
-        ProgTrace(TRACE5, "del_len: %d", iv->del_len);
-        ProgTrace(TRACE5, "err_data: %s", iv->err_data.c_str());
-        */
     }
     if(visible) pos += body.size();
-    ProgTrace(TRACE5, "after pack: %s", body.c_str());
 }
 
 void TErrLst::toDB(int tlg_id)
@@ -279,10 +265,8 @@ void TErrLst::pack(TypeB::TDraftPart &part, bool heading_visible, bool ending_vi
 
 void TErrLst::fetch_err(set<int> &txt_errs, string body)
 {
-    ProgTrace(TRACE5, "fetch_err: %s", body.c_str());
     size_t idx = body.find("<" + ERR_TAG_NAME);
     while(idx != string::npos) {
-        ProgTrace(TRACE5, "ERR_TAG_NAME found");
         size_t end_idx = body.find('>', idx);
         size_t start_i = idx + ERR_TAG_NAME.size() + 1;
         txt_errs.insert(ToInt(body.substr(start_i, end_idx - start_i)));
@@ -333,22 +317,22 @@ bool TDetailCreateInfo::operator == (const TMktFlight &s) const
         scd_local_day == s.scd_day_local;
 }
 
-string TDetailCreateInfo::add_err(string err, const LexemaData &ld)
+string TErrLst::add_err(string err, const LexemaData &ld)
 {
-    size_t idx = err_lst.size() + 1;
-    err_lst[idx].msg[LANG_EN] = getLocaleText(ld, LANG_EN);
-    err_lst[idx].msg[LANG_RU] = getLocaleText(ld, LANG_RU);
+    err_no++;
+    (*this)[err_no].msg[LANG_EN] = getLocaleText(ld, LANG_EN);
+    (*this)[err_no].msg[LANG_RU] = getLocaleText(ld, LANG_RU);
     ostringstream buf;
-    buf << "<ERROR" << idx << ">" << err << "</ERROR" << err_lst.size() << ">";
+    buf << "<ERROR" << err_no << ">" << err << "</ERROR" << err_no << ">";
     return buf.str();
 }
 
-string TDetailCreateInfo::add_err(string err, std::string val)
+string TErrLst::add_err(string err, std::string val)
 {
-    return add_err(err, val.c_str());
+    return add_err(err, LexemaData(val));
 }
 
-string TDetailCreateInfo::add_err(string err, const char *format, ...)
+string TErrLst::add_err(string err, const char *format, ...)
 {
     char Message[500];
     va_list ap;
@@ -356,12 +340,7 @@ string TDetailCreateInfo::add_err(string err, const char *format, ...)
     vsnprintf(Message, sizeof(Message), format, ap);
     Message[sizeof(Message)-1]=0;
     va_end(ap);
-    size_t idx = err_lst.size() + 1;
-    err_lst[idx].msg[LANG_EN] = Message;
-    err_lst[idx].msg[LANG_RU] = Message;
-    ostringstream buf;
-    buf << "<ERROR" << idx << ">" << err << "</ERROR" << err_lst.size() << ">";
-    return buf.str();
+    return add_err(err, LexemaData(Message));
 }
 
 string TlgElemIdToElem(TElemType type, int id, TElemFmt fmt, string lang)
@@ -461,11 +440,11 @@ string TDetailCreateInfo::TlgElemIdToElem(TElemType type, int id, TElemFmt fmt)
     try {
         return TypeB::TlgElemIdToElem(type, id, fmt, lang);
     } catch(UserException &E) {
-        return add_err(DEFAULT_ERR, E.getLexemaData());
+        return err_lst.add_err(DEFAULT_ERR, E.getLexemaData());
     } catch(exception &E) {
-        return add_err(DEFAULT_ERR, "TTlgInfo::TlgElemIdToElem: tlg_type: %s, elem_type: %s, fmt: %s, what: %s", get_tlg_type().c_str(), EncodeElemType(type), EncodeElemFmt(fmt), E.what());
+        return err_lst.add_err(DEFAULT_ERR, "TTlgInfo::TlgElemIdToElem: tlg_type: %s, elem_type: %s, fmt: %s, what: %s", get_tlg_type().c_str(), EncodeElemType(type), EncodeElemFmt(fmt), E.what());
     } catch(...) {
-        return add_err(DEFAULT_ERR, "TTlgInfo::TlgElemIdToElem: unknown except caught. tlg_type: %s, elem_type: %s, fmt: %s", get_tlg_type().c_str(), EncodeElemType(type), EncodeElemFmt(fmt));
+        return err_lst.add_err(DEFAULT_ERR, "TTlgInfo::TlgElemIdToElem: unknown except caught. tlg_type: %s, elem_type: %s, fmt: %s", get_tlg_type().c_str(), EncodeElemType(type), EncodeElemFmt(fmt));
     }
 }
 
@@ -476,11 +455,11 @@ string TDetailCreateInfo::TlgElemIdToElem(TElemType type, string id, TElemFmt fm
     try {
         return TypeB::TlgElemIdToElem(type, id, fmt, lang);
     } catch(UserException &E) {
-        return add_err(id, E.getLexemaData());
+        return err_lst.add_err(id, E.getLexemaData());
     } catch(exception &E) {
-        return add_err(id, "TTlgInfo::TlgElemIdToElem: tlg_type: %s, elem_type: %s, fmt: %s, what: %s", get_tlg_type().c_str(), EncodeElemType(type), EncodeElemFmt(fmt), E.what());
+        return err_lst.add_err(id, "TTlgInfo::TlgElemIdToElem: tlg_type: %s, elem_type: %s, fmt: %s, what: %s", get_tlg_type().c_str(), EncodeElemType(type), EncodeElemFmt(fmt), E.what());
     } catch(...) {
-        return add_err(id, "TTlgInfo::TlgElemIdToElem: unknown except caught. tlg_type: %s, elem_type: %s, fmt: %s", get_tlg_type().c_str(), EncodeElemType(type), EncodeElemFmt(fmt));
+        return err_lst.add_err(id, "TTlgInfo::TlgElemIdToElem: unknown except caught. tlg_type: %s, elem_type: %s, fmt: %s", get_tlg_type().c_str(), EncodeElemType(type), EncodeElemFmt(fmt));
     }
 }
 
@@ -591,17 +570,17 @@ string fetch_addr(string &addr, TDetailCreateInfo *info)
         if(not info)
             throw;
         else
-            result = info->add_err(result, E.getLexemaData());
+            result = info->err_lst.add_err(result, E.getLexemaData());
     } catch(exception &E) {
         if(not info)
             throw;
         else
-            result = info->add_err(result, "fetch_addr failed: %s", E.what());
+            result = info->err_lst.add_err(result, "fetch_addr failed: %s", E.what());
     } catch(...) {
         if(not info)
             throw;
         else
-            result = info->add_err(result, "fetch_addr failed. unknown exception");
+            result = info->err_lst.add_err(result, "fetch_addr failed. unknown exception");
     }
     return result;
 }
@@ -635,17 +614,17 @@ string format_addr_line(string vaddrs, TDetailCreateInfo *info)
         if(not info)
             throw;
         else
-            result = info->add_err(DEFAULT_ERR, E.getLexemaData());
+            result = info->err_lst.add_err(DEFAULT_ERR, E.getLexemaData());
     } catch(exception &E) {
         if(not info)
             throw;
         else
-            result = info->add_err(DEFAULT_ERR, "format_addr_line failed: %s", E.what());
+            result = info->err_lst.add_err(DEFAULT_ERR, "format_addr_line failed: %s", E.what());
     } catch(...) {
         if(not info)
             throw;
         else
-            result = info->add_err(DEFAULT_ERR, "format_addr_line failed. unknown exception");
+            result = info->err_lst.add_err(DEFAULT_ERR, "format_addr_line failed. unknown exception");
     }
     result += endl;
     return result;
