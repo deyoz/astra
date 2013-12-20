@@ -52,15 +52,15 @@ void TErrLst::unpack(string &val, bool visible)
     int tmp_pos = pos;
     pos += val.size();
     int offset = 0;
-    for(TErrLst::iterator im = begin(); im != end(); im++) {
-        if(im->second.err_pos < tmp_pos) continue;
-        size_t real_pos = im->second.err_pos - tmp_pos + offset;
+    for(t_sorted_err_lst::iterator im = sorted_err_lst.begin(); im != sorted_err_lst.end(); im++) {
+        if(im->second->err_pos < tmp_pos) continue;
+        size_t real_pos = im->second->err_pos - tmp_pos + offset;
         if(real_pos < val.size()) {
-            string err_data = val.substr(real_pos, im->second.err_len);
+            string err_data = val.substr(real_pos, im->second->err_len);
             ostringstream err_tag;
             err_tag << "<" << ERR_TAG_NAME << im->first << ">" << err_data << "</" << ERR_TAG_NAME << ">";
-            val.replace(real_pos, im->second.err_len, err_tag.str());
-            offset += err_tag.str().size() - im->second.err_len;
+            val.replace(real_pos, im->second->err_len, err_tag.str());
+            offset += err_tag.str().size() - im->second->err_len;
         }
     }
 }
@@ -207,6 +207,8 @@ void TErrLst::toDB(int tlg_id)
 void TErrLst::fromDB(int tlg_id)
 {
     pos = 0;
+    endl_offset = 0;
+    sorted_err_lst.clear();
     clear();
     QParams QryParams;
     QryParams << QParam("tlg_id", otInteger, tlg_id);
@@ -231,27 +233,62 @@ void TErrLst::fromDB(int tlg_id)
         int col_lang = Qry.get().GetFieldIndex("lang");
         int col_text = Qry.get().GetFieldIndex("text");
         for(; not Qry.get().Eof; Qry.get().Next()) {
-            TTypeBOutErrMsg &err_msg = (*this)[Qry.get().FieldAsInteger(col_error_no)];
+            int err_no = Qry.get().FieldAsInteger(col_error_no);
+            TTypeBOutErrMsg &err_msg = (*this)[err_no];
             err_msg.err_pos = Qry.get().FieldAsInteger(col_error_pos);
             err_msg.err_len = Qry.get().FieldAsInteger(col_error_len);
             err_msg.msg[Qry.get().FieldAsString(col_lang)] = Qry.get().FieldAsString(col_text);
+            sorted_err_lst.insert(make_pair(err_no, &err_msg));
         }
     }
 
 }
 
-void TErrLst::toXML(xmlNodePtr node, const string &lang)
+int TErrLst::fix_endl(const string &val, size_t curr_pos)
 {
-    xmlNodePtr errLst = NULL;
-    for(TErrLst::iterator im = begin(); im != end(); im++) {
-        if(not errLst)
-            errLst = NewTextChild(node, "err_lst");
+    // если в строке встречается сочетание \xd\xa, то это будем считать как один символ.
+    // все другие варианты считаются как они есть.
+    int result = 0;
+    static const string search = "\xd\xa";
+    size_t idx = 0;
+    while(true) {
+        idx = val.find(search, idx);
+        if((curr_pos != string::npos and idx + search.size() > curr_pos) or idx == string::npos)
+            break;
+        idx += search.size();
+        result++;
+    }
+    return result;
+}
+
+void TErrLst::toXML(xmlNodePtr node, const string &val, const string &lang, bool visible)
+{
+    if(not visible) return;
+    xmlNodePtr errLst = node->children;
+    errLst = GetNodeFast("err_lst", errLst);
+    if(not errLst)
+        errLst = NewTextChild(node, "err_lst");
+
+    for(t_sorted_err_lst::iterator im = sorted_err_lst.begin(); im != sorted_err_lst.end(); im++) {
+        if(im->second->err_pos < pos or im->second->err_pos >= pos + (int)val.size()) continue;
         xmlNodePtr itemNode = NewTextChild(errLst, "item");
         NewTextChild(itemNode, "no", im->first);
-        NewTextChild(itemNode, "pos", im->second.err_pos);
-        NewTextChild(itemNode, "len", im->second.err_len);
-        NewTextChild(itemNode, "text", im->second.msg[lang]);
+        int fix_endl_val = fix_endl(val, im->second->err_pos - pos);
+        NewTextChild(itemNode, "pos", im->second->err_pos - endl_offset - fix_endl_val);
+        NewTextChild(itemNode, "len", im->second->err_len);
+        NewTextChild(itemNode, "text", im->second->msg[lang]);
     }
+    endl_offset += fix_endl(val);
+    pos += val.size();
+}
+
+void TErrLst::toXML(xmlNodePtr node, const TypeB::TDraftPart &part, bool heading_visible, bool ending_visible, const std::string &lang)
+{
+    toXML(node, part.addr, lang, heading_visible);
+    toXML(node, part.origin, lang, heading_visible);
+    toXML(node, part.heading, lang, heading_visible);
+    toXML(node, part.body, lang);
+    toXML(node, part.ending, lang, ending_visible);
 }
 
 void TErrLst::pack(TypeB::TDraftPart &part, bool heading_visible, bool ending_visible)

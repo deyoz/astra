@@ -770,6 +770,8 @@ void TelegramInterface::GetTlgOut(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
   TypeB::TErrLst err_lst;
   int old_tlg_id = NoExists;
 
+  xmlNodePtr parentErrLstNode = NULL;
+
   for(vector<TTlgOutPart>::iterator iv = tlgs.begin(); iv != tlgs.end(); iv++)
   {
     node = NewTextChild( tlgsNode, "tlg" );
@@ -792,7 +794,8 @@ void TelegramInterface::GetTlgOut(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 
     if(TReqInfo::Instance()->desk.compatible(TLG_ERR_BROWSE_VERSION)) {
         if(num == 1)
-            err_lst.toXML(node, TReqInfo::Instance()->desk.lang);
+            parentErrLstNode = node;
+        err_lst.toXML(parentErrLstNode, iv->draft, heading_visible, ending_visible, TReqInfo::Instance()->desk.lang);
     } else
         err_lst.unpack(iv->draft, heading_visible, ending_visible);
 

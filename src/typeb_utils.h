@@ -1219,11 +1219,23 @@ struct TTypeBOutErrMsg {
     {}
 };
 
+struct err_lst_cmp {
+    bool operator()(const std::pair<int, TTypeBOutErrMsg *> &lhs, const std::pair<int, TTypeBOutErrMsg *> &rhs) const
+    {
+        return lhs.second->err_pos < rhs.second->err_pos;
+    }
+};
+
+typedef std::set<std::pair<int, TTypeBOutErrMsg *>, err_lst_cmp> t_sorted_err_lst;
+
 struct TErrLst:std::map<int, TTypeBOutErrMsg> {
     private:
+        t_sorted_err_lst sorted_err_lst;
         int err_no;
+        int endl_offset;
+        int fix_endl(const std::string &val, size_t pos = std::string::npos);
     public:
-        size_t pos;
+        int pos;
         void dump();
         void toDB(int tlg_id);
         void fix(std::vector<TDraftPart> &parts);
@@ -1236,14 +1248,15 @@ struct TErrLst:std::map<int, TTypeBOutErrMsg> {
         void unpack(std::string &val, bool visible = true);
 
         void fromDB(int tlg_id);
-        void toXML(xmlNodePtr node, const std::string &lang);
+        void toXML(xmlNodePtr node, const TypeB::TDraftPart &part, bool heading_visible, bool ending_visible, const std::string &lang);
+        void toXML(xmlNodePtr node, const std::string &val, const std::string &lang, bool visible = true);
 
         std::string add_err(std::string err, const AstraLocale::LexemaData &ld);
         std::string add_err(std::string err, std::string val);
         std::string add_err(std::string err, const char *format, ...);
 
-        TErrLst(): err_no(0), pos(0) {};
-        TErrLst(int tlg_id): err_no(0), pos(0) { fromDB(tlg_id); };
+        TErrLst(): err_no(0), endl_offset(0), pos(0) {};
+        TErrLst(int tlg_id): err_no(0), endl_offset(0), pos(0) { fromDB(tlg_id); };
 };
 
 class TDetailCreateInfo : public TOptionsInfo
