@@ -227,9 +227,10 @@ bool scan_tlg(bool sendOutAStepByStep)
         tlg_out.Receiver[5]=0;
         strncpy(tlg_out.Sender,OWN_CANON_NAME(),5);
         strncpy(tlg_out.Receiver,TlgQry.FieldAsString("receiver"),5);
-        len=TlgQry.GetSizeLongField("tlg_text");
-        if (len>(int)sizeof(tlg_out.body)) throw Exception("Telegram too long");
-        TlgQry.FieldAsLong("tlg_text",tlg_out.body);
+        string text=getTlgText(tlg_id, TlgQry);
+        if (text.size()>sizeof(tlg_out.body)) throw Exception("Telegram too long");
+        memcpy(tlg_out.body, text.c_str(), text.size());
+
         //проверим TTL
         ttl=0;
         if (!TlgQry.FieldIsNULL("ttl"))

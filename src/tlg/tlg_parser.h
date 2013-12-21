@@ -811,11 +811,13 @@ void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, const TBtmContent& con);
 void SaveSOMContent(int tlg_id, TDCSHeadingInfo& info, TSOMContent& con);
 
 void ParseAHMFltInfo(TTlgPartInfo body, const TAHMHeadingInfo &info, TFltInfo& flt, TBindType &bind_type);
-int SaveFlt(int tlg_id, const TFltInfo& flt, TBindType bind_type);
+int SaveFlt2(int tlg_id, const TFltInfo& flt, TBindType bind_type);
 
 void ParseSeatRange(std::string str, std::vector<TSeatRange> &ranges, bool usePriorContext);
 
 void TestBSMElemOrder(const std::string &s);
+
+void NormalizeFltInfo(TFltInfo &flt);
 
 struct TFlightIdentifier {
     std::string airline;

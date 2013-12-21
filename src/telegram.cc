@@ -452,81 +452,58 @@ void TelegramInterface::GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     ProgTrace(TRACE5, "sql: %s", sql.c_str());
     Qry.SQLText=sql;
     Qry.Execute();
-    xmlNodePtr node;
-    int len,bufLen=0;
-    char *ph,*buf=NULL;
-    try
+
+    int rowcount = 0;
+    for(int pass=1; pass<=2; pass++)
     {
-        int rowcount = 0;
-        for(int pass=1; pass<=2; pass++)
+      if (pass==2)
+      {
+        if (search_params.err_cls == 1 && search_params.tlg_id!=NoExists)
         {
-          if (pass==2)
+          Qry.Clear();
+          Qry.SQLText=
+            "SELECT id, 1 AS num, NULL AS type, NULL AS addr, NULL AS heading, \n"
+            "       tlg_text, NULL AS ending, time AS time_receive \n"
+            "FROM tlgs \n"
+            "WHERE id=:tlg_id AND error IS NOT NULL AND type IN ('INA','INB') \n";
+          Qry.CreateVariable("tlg_id", otInteger, search_params.tlg_id);
+          Qry.Execute();
+        }
+        else break;
+      };
+    
+      if(!Qry.Eof) {
+          int col_type = Qry.FieldIndex("type");
+          int col_id = Qry.FieldIndex("id");
+          int col_num = Qry.FieldIndex("num");
+          int col_addr = Qry.FieldIndex("addr");
+          int col_heading = Qry.FieldIndex("heading");
+          int col_ending = Qry.FieldIndex("ending");
+          int col_time_receive = Qry.FieldIndex("time_receive");
+
+          for(;!Qry.Eof;Qry.Next())
           {
-            if (search_params.err_cls == 1 && search_params.tlg_id!=NoExists)
-            {
-              Qry.Clear();
-              Qry.SQLText=
-                "SELECT id, 1 AS num, NULL AS type, NULL AS addr, NULL AS heading, \n"
-                "       tlg_text AS body, NULL AS ending, time AS time_receive \n"
-                "FROM tlgs \n"
-                "WHERE id=:tlg_id AND error IS NOT NULL AND type IN ('INA','INB') \n";
-              Qry.CreateVariable("tlg_id", otInteger, search_params.tlg_id);
-              Qry.Execute();
-            }
-            else break;
+              xmlNodePtr node = NewTextChild( tlgsNode, "tlg" );
+              int tlg_id=Qry.FieldAsInteger(col_id);
+              int tlg_num=Qry.FieldAsInteger(col_num);
+              NewTextChild( node, "id", tlg_id );
+              NewTextChild( node, "num", tlg_num );
+              NewTextChild( node, "type", Qry.FieldAsString(col_type));
+              NewTextChild( node, "addr", GetValidXMLString(Qry.FieldAsString(col_addr)) );
+              NewTextChild( node, "heading", GetValidXMLString(Qry.FieldAsString(col_heading)) );
+              NewTextChild( node, "ending", GetValidXMLString(Qry.FieldAsString(col_ending)) );
+              TDateTime time_receive = UTCToClient( Qry.FieldAsDateTime(col_time_receive), tz_region );
+              NewTextChild( node, "time_receive", DateTimeToStr( time_receive ) );
+              string body=(pass==1?getTypeBBody(tlg_id, tlg_num, Qry):getTlgText(tlg_id, Qry));
+              NewTextChild( node, "body", GetValidXMLString(body) );
+              rowcount++;
           };
-        
-          if(!Qry.Eof) {
-              int col_type = Qry.FieldIndex("type");
-              int col_id = Qry.FieldIndex("id");
-              int col_num = Qry.FieldIndex("num");
-              int col_addr = Qry.FieldIndex("addr");
-              int col_heading = Qry.FieldIndex("heading");
-              int col_ending = Qry.FieldIndex("ending");
-              int col_time_receive = Qry.FieldIndex("time_receive");
-              int col_body = Qry.FieldIndex("body");
-
-              for(;!Qry.Eof;Qry.Next())
-              {
-                  node = NewTextChild( tlgsNode, "tlg" );
-                  NewTextChild( node, "id", Qry.FieldAsInteger(col_id) );
-                  NewTextChild( node, "num", Qry.FieldAsInteger(col_num) );
-                  NewTextChild( node, "type", Qry.FieldAsString(col_type));
-                  NewTextChild( node, "addr", GetValidXMLString(Qry.FieldAsString(col_addr)) );
-                  NewTextChild( node, "heading", GetValidXMLString(Qry.FieldAsString(col_heading)) );
-                  NewTextChild( node, "ending", GetValidXMLString(Qry.FieldAsString(col_ending)) );
-                  TDateTime time_receive = UTCToClient( Qry.FieldAsDateTime(col_time_receive), tz_region );
-                  NewTextChild( node, "time_receive", DateTimeToStr( time_receive ) );
-
-                  len=Qry.GetSizeLongField(col_body)+1;
-                  if (len>bufLen)
-                  {
-                      if (buf==NULL)
-                          ph=(char*)malloc(len);
-                      else
-                          ph=(char*)realloc(buf,len);
-                      if (ph==NULL) throw EMemoryError("Out of memory");
-                      buf=ph;
-                      bufLen=len;
-                  };
-                  Qry.FieldAsLong("body",buf);
-                  buf[len-1]=0;
-
-                  string body(buf,len-1);
-                  NewTextChild( node, "body", GetValidXMLString(body) );
-                  rowcount++;
-              };
-              if(rowcount >= 4000)
-                  throw AstraLocale::UserException("MSG.TOO_MANY_DATA.ADJUST_SEARCH_PARAMS");
-          }
-        };
-        if (buf!=NULL) free(buf);
-    }
-    catch(...)
-    {
-        if (buf!=NULL) free(buf);
-        throw;
+          if(rowcount >= 4000)
+              throw AstraLocale::UserException("MSG.TOO_MANY_DATA.ADJUST_SEARCH_PARAMS");
+      }
     };
+
+
 }
 
 void TelegramInterface::GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -613,45 +590,21 @@ void TelegramInterface::GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   ProgTrace(TRACE5, "sql: %s", sql.c_str());
   Qry.SQLText=sql;
   Qry.Execute();
-  xmlNodePtr node;
-  int len,bufLen=0;
-  char *ph,*buf=NULL;
-  try
+  for(;!Qry.Eof;Qry.Next())
   {
-    for(;!Qry.Eof;Qry.Next())
-    {
-      node = NewTextChild( tlgsNode, "tlg" );
-      NewTextChild( node, "id", Qry.FieldAsInteger("id") );
-      NewTextChild( node, "num", Qry.FieldAsInteger("num") );
-      NewTextChild( node, "type", Qry.FieldAsString("type") );
-      NewTextChild( node, "addr", GetValidXMLString(Qry.FieldAsString("addr")) );
-      NewTextChild( node, "heading", GetValidXMLString(Qry.FieldAsString("heading")) );
-      NewTextChild( node, "ending", GetValidXMLString(Qry.FieldAsString("ending")) );
-      TDateTime time_receive = UTCToClient( Qry.FieldAsDateTime("time_receive"), tz_region );
-      NewTextChild( node, "time_receive", DateTimeToStr( time_receive ) );
+    xmlNodePtr node= NewTextChild( tlgsNode, "tlg" );
+    int tlg_id=Qry.FieldAsInteger("id");
+    int tlg_num=Qry.FieldAsInteger("num");
+    NewTextChild( node, "id", tlg_id );
+    NewTextChild( node, "num", tlg_num );
+    NewTextChild( node, "type", Qry.FieldAsString("type") );
+    NewTextChild( node, "addr", GetValidXMLString(Qry.FieldAsString("addr")) );
+    NewTextChild( node, "heading", GetValidXMLString(Qry.FieldAsString("heading")) );
+    NewTextChild( node, "ending", GetValidXMLString(Qry.FieldAsString("ending")) );
+    TDateTime time_receive = UTCToClient( Qry.FieldAsDateTime("time_receive"), tz_region );
+    NewTextChild( node, "time_receive", DateTimeToStr( time_receive ) );
+    NewTextChild( node, "body", GetValidXMLString(getTypeBBody(tlg_id, tlg_num, Qry)) );
 
-      len=Qry.GetSizeLongField("body")+1;
-      if (len>bufLen)
-      {
-        if (buf==NULL)
-          ph=(char*)malloc(len);
-        else
-          ph=(char*)realloc(buf,len);
-        if (ph==NULL) throw EMemoryError("Out of memory");
-        buf=ph;
-        bufLen=len;
-      };
-      Qry.FieldAsLong("body",buf);
-      buf[len-1]=0;
-      string body(buf,len-1);
-      NewTextChild( node, "body", GetValidXMLString(body) );
-    };
-    if (buf!=NULL) free(buf);
-  }
-  catch(...)
-  {
-    if (buf!=NULL) free(buf);
-    throw;
   };
 };
 
@@ -1090,7 +1043,7 @@ void TelegramInterface::SendTlg(int tlg_id)
           }
           else
           {
-            int queue_tlg_id=sendTlg(i->first.c_str(),OWN_CANON_NAME(),qpOutB,0,tlg_text);
+            int queue_tlg_id=sendTlg(i->first.c_str(),OWN_CANON_NAME(),qpOutB,0,tlg_text,tlg_id,tlg.num);
             for(vector<TTlgStatPoint>::const_iterator j=i->second.begin(); j!=i->second.end(); ++j)
             {
               TTlgStat().putTypeBOut(queue_tlg_id,
@@ -1889,8 +1842,8 @@ int send_tlg(int argc,char **argv)
 }
 
 void TTlgStat::putTypeBOut(const int queue_tlg_id,
-                           const int tlg_id,
-                           const int tlg_num,
+                           const int typeb_tlg_id,
+                           const int typeb_tlg_num,
                            const TTlgStatPoint &sender,
                            const TTlgStatPoint &receiver,
                            const BASIC::TDateTime time_create,
@@ -1903,19 +1856,19 @@ void TTlgStat::putTypeBOut(const int queue_tlg_id,
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
-    "INSERT INTO tlg_stat(queue_tlg_id, tlg_id, tlg_num, "
+    "INSERT INTO tlg_stat(queue_tlg_id, typeb_tlg_id, typeb_tlg_num, "
     "  sender_sita_addr, sender_canon_name, sender_descr, sender_country, "
     "  receiver_sita_addr, receiver_canon_name, receiver_descr, receiver_country, "
     "  time_create, time_send, time_receive, tlg_type, tlg_len, "
     "  airline, flt_no, suffix, scd_local_date, airp_dep, airline_mark, extra) "
-    "VALUES(:queue_tlg_id, :tlg_id, :tlg_num, "
+    "VALUES(:queue_tlg_id, :typeb_tlg_id, :typeb_tlg_num, "
     "  :sender_sita_addr, :sender_canon_name, :sender_descr, :sender_country, "
     "  :receiver_sita_addr, :receiver_canon_name, :receiver_descr, :receiver_country, "
     "  :time_create, NULL, NULL, :tlg_type, :tlg_len, "
     "  :airline, :flt_no, :suffix, :scd_local_date, :airp_dep, :airline_mark, :extra) ";
   Qry.CreateVariable("queue_tlg_id", otInteger, queue_tlg_id);
-  Qry.CreateVariable("tlg_id", otInteger, tlg_id);
-  Qry.CreateVariable("tlg_num", otInteger, tlg_num);
+  Qry.CreateVariable("typeb_tlg_id", otInteger, typeb_tlg_id);
+  Qry.CreateVariable("typeb_tlg_num", otInteger, typeb_tlg_num);
   Qry.CreateVariable("sender_sita_addr", otString, sender.sita_addr);
   Qry.CreateVariable("sender_canon_name", otString, sender.canon_name);
   Qry.CreateVariable("sender_descr", otString, sender.descr);

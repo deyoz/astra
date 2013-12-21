@@ -52,8 +52,8 @@ class TTlgStat
 {
   public:
     void putTypeBOut(const int queue_tlg_id,
-                     const int tlg_id,
-                     const int tlg_num,
+                     const int typeb_tlg_id,
+                     const int typeb_tlg_num,
                      const TTlgStatPoint &sender,
                      const TTlgStatPoint &receiver,
                      const BASIC::TDateTime time_create,

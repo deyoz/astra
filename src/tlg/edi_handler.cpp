@@ -145,12 +145,10 @@ bool handle_tlg(void)
               procTlg(tlg_id);
               OraSession.Commit();
               
-              int len = TlgQry.GetSizeLongField("tlg_text");
-              boost::shared_ptr< char > tlg (new (char [len+1]));
-              TlgQry.FieldAsLong("tlg_text", tlg.get());
-              tlg.get()[len]=0;
-              ProgTrace(TRACE5,"TLG_IN: <%s>", tlg.get());
-              proc_edifact(tlg.get());
+              std::string text=getTlgText(tlg_id, TlgQry);
+
+              ProgTrace(TRACE5,"TLG_IN: <%s>", text.c_str());
+              proc_edifact(text);
               deleteTlg(tlg_id);
               callPostHooksBefore();
               OraSession.Commit();

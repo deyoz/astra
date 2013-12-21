@@ -784,13 +784,13 @@ void ParseBTMContent(TTlgPartInfo body, TBSMHeadingInfo& info, TBtmContent& con,
                 strcpy(trfer.InFlt.subcl,flt.subcl);
                 for(iIn=con.Transfer.begin();iIn!=con.Transfer.end();iIn++)
                   if (strcmp(iIn->InFlt.airline,trfer.InFlt.airline)==0&&
-                    iIn->InFlt.flt_no==trfer.InFlt.flt_no&&
-                    strcmp(iIn->InFlt.suffix,trfer.InFlt.suffix)==0&&
-                    iIn->InFlt.scd==trfer.InFlt.scd&&
-                    iIn->InFlt.pr_utc==trfer.InFlt.pr_utc&&
-                    strcmp(iIn->InFlt.airp_dep,trfer.InFlt.airp_dep)==0&&
-                    strcmp(iIn->InFlt.airp_arv,trfer.InFlt.airp_arv)==0&&
-                    strcmp(iIn->InFlt.subcl,trfer.InFlt.subcl)==0) break;
+                      iIn->InFlt.flt_no==trfer.InFlt.flt_no&&
+                      strcmp(iIn->InFlt.suffix,trfer.InFlt.suffix)==0&&
+                      iIn->InFlt.scd==trfer.InFlt.scd&&
+                      iIn->InFlt.pr_utc==trfer.InFlt.pr_utc&&
+                      strcmp(iIn->InFlt.airp_dep,trfer.InFlt.airp_dep)==0&&
+                      strcmp(iIn->InFlt.airp_arv,trfer.InFlt.airp_arv)==0&&
+                      strcmp(iIn->InFlt.subcl,trfer.InFlt.subcl)==0) break;
 
                 if (iIn==con.Transfer.end())
                   iIn=con.Transfer.insert(con.Transfer.end(),trfer);
@@ -1494,6 +1494,13 @@ void ParseEnding(TTlgPartInfo ending, THeadingInfo *headingInfo, TEndingInfo* &i
   return;
 };
 
+void NormalizeFltInfo(TFltInfo &flt)
+{
+  if (flt.airline[0]!=0) GetAirline(flt.airline);
+  if (flt.airp_dep[0]!=0) GetAirp(flt.airp_dep);
+  if (flt.airp_arv[0]!=0) GetAirp(flt.airp_arv);
+};
+
 void ParseSOMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TSOMContent& con)
 {
   con.Clear();
@@ -1508,14 +1515,8 @@ void ParseSOMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TSOMContent& con)
   e=FlightElement;
   try
   {
-    strcpy(con.flt.airline,info.flt.airline);
-    GetAirline(con.flt.airline);
-    con.flt.flt_no=info.flt.flt_no;
-    strcpy(con.flt.suffix,info.flt.suffix);
-    con.flt.scd=info.flt.scd;
-    con.flt.pr_utc=info.flt.pr_utc;
-    strcpy(con.flt.airp_dep,info.flt.airp_dep);
-    GetAirp(con.flt.airp_dep);
+    con.flt=info.flt;
+    NormalizeFltInfo(con.flt);
 
     vector<TSeatsByDest>::iterator iSeats;
     char cat[5];
@@ -1632,16 +1633,8 @@ void ParsePTMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPtmContent& con)
   e=FlightElement;
   try
   {
-    strcpy(con.InFlt.airline,info.flt.airline);
-    GetAirline(con.InFlt.airline);
-    con.InFlt.flt_no=info.flt.flt_no;
-    strcpy(con.InFlt.suffix,info.flt.suffix);
-    con.InFlt.scd=info.flt.scd;
-    con.InFlt.pr_utc=info.flt.pr_utc;
-    strcpy(con.InFlt.airp_dep,info.flt.airp_dep);
-    GetAirp(con.InFlt.airp_dep);
-    strcpy(con.InFlt.airp_arv,info.flt.airp_arv);
-    GetAirp(con.InFlt.airp_arv);
+    (TFltInfo)(con.InFlt)=info.flt;
+    NormalizeFltInfo(con.InFlt);
 
     bool NILpossible=true;
     e=TransferPassengerData;
@@ -1959,14 +1952,8 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
   e=FlightElement;
   try
   {
-    strcpy(con.flt.airline,info.flt.airline);
-    GetAirline(con.flt.airline);
-    con.flt.flt_no=info.flt.flt_no;
-    strcpy(con.flt.suffix,info.flt.suffix);
-    con.flt.scd=info.flt.scd;
-    con.flt.pr_utc=info.flt.pr_utc;
-    strcpy(con.flt.airp_dep,info.flt.airp_dep);
-    GetAirp(con.flt.airp_dep);
+    con.flt=info.flt;
+    NormalizeFltInfo(con.flt);
 
     bool isPRL=strcmp(info.tlg_type,"PRL")==0;
 
@@ -5065,7 +5052,7 @@ TTlgParts GetParts(char* tlg_p, TMemoryManager &mem)
   return parts;
 };
 
-int SaveFlt(int tlg_id, const TFltInfo& flt, TBindType bind_type)
+int SaveFlt2(int tlg_id, const TFltInfo& flt, TBindType bind_type) //!!!vlad
 {
   int point_id;
   TQuery Qry(&OraSession);
@@ -5333,7 +5320,7 @@ void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, const TBtmContent& con)
   set<int> alarm_point_ids;
   for(vector<TBtmTransferInfo>::const_iterator iIn=con.Transfer.begin();iIn!=con.Transfer.end();++iIn)
   {
-    point_id_in=SaveFlt(tlg_id,iIn->InFlt,btLastSeg);
+    point_id_in=SaveFlt2(tlg_id,iIn->InFlt,btLastSeg);
     //найдем point_id_spp рейсов, которым отправляется трансфер
     set<int> point_ids;
     AlarmQry.SetVariable("point_id_in", point_id_in);
@@ -5346,7 +5333,7 @@ void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, const TBtmContent& con)
     TrferQry.SetVariable("subcl_in",iIn->InFlt.subcl);
     for(vector<TBtmOutFltInfo>::const_iterator iOut=iIn->OutFlt.begin();iOut!=iIn->OutFlt.end();++iOut)
     {
-      point_id_out=SaveFlt(tlg_id,*iOut,btFirstSeg);
+      point_id_out=SaveFlt2(tlg_id,*iOut,btFirstSeg);
       TrferQry.SetVariable("point_id_out",point_id_out);
       TrferQry.SetVariable("subcl_out",iOut->subcl);
       TrferQry.Execute();
@@ -5435,7 +5422,7 @@ void SavePTMContent(int tlg_id, TDCSHeadingInfo& info, TPtmContent& con)
   vector<string>::iterator i;
   int point_id_in,point_id_out;
 
-  point_id_in=SaveFlt(tlg_id,dynamic_cast<TFltInfo&>(con.InFlt),btLastSeg);
+  point_id_in=SaveFlt2(tlg_id,dynamic_cast<TFltInfo&>(con.InFlt),btLastSeg);
   if (!DeletePTMBTMContent(point_id_in,info)) return;
 
   TQuery TrferQry(&OraSession);
@@ -5465,7 +5452,7 @@ void SavePTMContent(int tlg_id, TDCSHeadingInfo& info, TPtmContent& con)
 
   for(iOut=con.OutFlt.begin();iOut!=con.OutFlt.end();iOut++)
   {
-    point_id_out=SaveFlt(tlg_id,dynamic_cast<TFltInfo&>(*iOut),btFirstSeg);
+    point_id_out=SaveFlt2(tlg_id,dynamic_cast<TFltInfo&>(*iOut),btFirstSeg);
     TrferQry.SetVariable("point_id_out",point_id_out);
     TrferQry.SetVariable("subcl_out",iOut->subcl);
     TrferQry.Execute();
@@ -5793,7 +5780,7 @@ void SaveDCSBaggage(int pax_id, const TNameElement &ne)
 void SaveSOMContent(int tlg_id, TDCSHeadingInfo& info, TSOMContent& con)
 {
   //vector<TSeatsByDest>::iterator iSeats;
-  int point_id=SaveFlt(tlg_id,con.flt,btFirstSeg);
+  int point_id=SaveFlt2(tlg_id,con.flt,btFirstSeg);
   if (!DeleteSOMContent(point_id,info)) return;
 
   bool usePriorContext=false;
@@ -5826,7 +5813,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
 
   if (info.time_create==0) throw ETlgError("Creation time not defined");
 
-  int point_id=SaveFlt(tlg_id,con.flt,btFirstSeg);
+  int point_id=SaveFlt2(tlg_id,con.flt,btFirstSeg);
 
   //идентифицируем систему бронирования
   bool isPRL=strcmp(info.tlg_type,"PRL")==0;

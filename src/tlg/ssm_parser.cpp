@@ -1448,7 +1448,7 @@ void TASMFlightInfo::dump()
         ProgTrace(TRACE5, "----legs----");
         for(vector<TLegAirp>::iterator iv = legs.begin(); iv != legs.end(); iv++) {
             ProgTrace(TRACE5, "%s", iv->airp.c_str());
-            ProgTrace(TRACE5, "%s", iv->fmt);
+            ProgTrace(TRACE5, "%d", iv->fmt);
         }
         ProgTrace(TRACE5, "----end of legs----");
     }

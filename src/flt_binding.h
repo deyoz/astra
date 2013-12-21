@@ -18,6 +18,10 @@ class TFltInfo
     {
       Clear();
     };
+    TFltInfo(const TFltInfo &flt)
+    {
+      *this=flt;
+    };
     void Clear()
     {
       *airline=0;
@@ -31,6 +35,26 @@ class TFltInfo
     bool Empty()
     {
       return *airline==0;
+    };
+    void operator = (const TFltInfo &flt)
+    {
+      strcpy(airline, flt.airline);
+      flt_no=flt.flt_no;
+      strcpy(suffix, flt.suffix);
+      scd=flt.scd;
+      pr_utc=flt.pr_utc;
+      strcpy(airp_dep, flt.airp_dep);
+      strcpy(airp_arv, flt.airp_arv);
+    };
+    bool operator == (const TFltInfo &flt) const
+    {
+      return strcmp(airline, flt.airline)==0 &&
+             flt_no==flt.flt_no &&
+             strcmp(suffix, flt.suffix)==0 &&
+             scd==flt.scd &&
+             pr_utc==flt.pr_utc &&
+             strcmp(airp_dep, flt.airp_dep)==0 &&
+             strcmp(airp_arv, flt.airp_arv)==0;
     };
 };
 
