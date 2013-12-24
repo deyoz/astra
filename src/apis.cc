@@ -720,7 +720,7 @@ bool create_apis_file(int point_id, const string& task_name)
               };
 
 
-              if (fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_UK")
+              if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_UK")
               {
                 if (!doc_type.empty() && !doc_no.empty())
                 {
