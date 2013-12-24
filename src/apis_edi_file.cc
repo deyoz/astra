@@ -38,19 +38,18 @@ using namespace ASTRA::edifact;
 
 static const char* UnhNumber = "1";
 static const char* VerNum = "D";
-static const char* RelNum = "02B";
 static const char* CntrlAgn = "UN";
 static const char* Chset = "UNOA";
-static const char* Apis = "APIS";
 static const int   SyntaxVer = 4;
 
 
 std::string createIataCode( const std::string& flight,
-                            const BASIC::TDateTime& destDateTime )
+                            const BASIC::TDateTime& destDateTime,
+                            const std::string& destDateTimeFmt )
 {
     std::ostringstream iata;
     iata << flight;
-    iata << BASIC::DateTimeToStr( destDateTime, "/yymmdd/hhnn" );
+    iata << BASIC::DateTimeToStr( destDateTime, destDateTimeFmt );
     return iata.str();
 }
 
@@ -119,20 +118,21 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
                                      UnhNumber,
                                      CntrlAgn,
                                      VerNum,
-                                     RelNum ) );
+                                     paxlst.settings().mesRelNum() ) );
     }
 
     // UNH
     viewUnhElement( pMes, UnhElem( "PAXLST",
                                    VerNum,
-                                   RelNum,
+                                   paxlst.settings().mesRelNum(),
                                    CntrlAgn,
                                    "IATA",
                                    partNum,
                                    getSeqFlag( partNum, partsCnt ) ) ) ;
 
     // BGM
-    viewBgmElement( pMes, BgmElem( paxlst.type()==PaxlstInfo::FlightPassengerManifest?"745":"250" ) );
+    viewBgmElement( pMes, BgmElem( paxlst.type()==PaxlstInfo::FlightPassengerManifest?"745":"250",
+                                   paxlst.docId() ) );
 
     if( !paxlst.partyName().empty() )
     {
@@ -197,7 +197,8 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
         // NAD
         viewNadElement( pMes, NadElem( paxlst.type()==PaxlstInfo::FlightPassengerManifest?"FL":"FM",
                                        it->surname(),
-                                       it->name(),
+                                       it->first_name(),
+                                       it->second_name(),
                                        it->street(),
                                        it->city(),
                                        it->countrySubEntityCode(),
@@ -324,10 +325,10 @@ static std::string createEdiPaxlstString( const PaxlstInfo& paxlst,
     strcpy( edih.other_ref, "" );
     strcpy( edih.assoc_code, "" );
     strcpy( edih.our_ref, ediRef.c_str() );
-    strcpy( edih.FseId, Apis );
+    strcpy( edih.FseId, paxlst.settings().appRef().c_str() );
     strcpy( edih.unh_number, UnhNumber );
     strcpy( edih.ver_num, VerNum );
-    strcpy( edih.rel_num, RelNum );
+    strcpy( edih.rel_num, paxlst.settings().mesRelNum().c_str() );
     strcpy( edih.cntrl_agn, CntrlAgn );
 
     _EDI_REAL_MES_STRUCT_* pMes = GetEdiMesStructW();
@@ -434,7 +435,7 @@ namespace
 
     Paxlst::PaxlstInfo makePaxlst1()
     {
-        Paxlst::PaxlstInfo paxlstInfo(Paxlst::PaxlstInfo::FlightPassengerManifest);
+        Paxlst::PaxlstInfo paxlstInfo(Paxlst::PaxlstInfo::FlightPassengerManifest, "");
         paxlstInfo.settings().setViewUNGandUNE(true);
 
         paxlstInfo.setPartyName( "CDGkoAF" );
@@ -452,7 +453,7 @@ namespace
 
     Paxlst::PaxlstInfo makePaxlst3()
     {
-        Paxlst::PaxlstInfo paxlstInfo(Paxlst::PaxlstInfo::FlightPassengerManifest);
+        Paxlst::PaxlstInfo paxlstInfo(Paxlst::PaxlstInfo::FlightPassengerManifest, "");
         paxlstInfo.settings().setViewUNGandUNE(true);
 
         paxlstInfo.setPartyName( "cdgKoaf" );
@@ -476,7 +477,7 @@ namespace
 
         Paxlst::PassengerInfo pass1;
         pass1.setSurname( "STRANSKY" );
-        pass1.setName( "JAROSLAV VICtOROVICH" );
+        pass1.setFirstName( "JAROSLAV VICtOROVICH" );
         pass1.setSex( "M" );
         BASIC::TDateTime bd1;
         BASIC::StrToDateTime( "10.06.67 00:00:00", bd1 ); //"670610"
@@ -490,7 +491,7 @@ namespace
 
         Paxlst::PassengerInfo pass2;
         pass2.setSurname( "kovacs" );
-        pass2.setName( "PETR" );
+        pass2.setFirstName( "PETR" );
         pass2.setSex( "M" );
         BASIC::TDateTime bd2;
         BASIC::StrToDateTime( "09.12.69 00:00:00", bd2 ); //"691209"
@@ -507,7 +508,7 @@ namespace
 
         Paxlst::PassengerInfo pass3;
         pass3.setSurname( "LESKA" );
-        pass3.setName( "PAVEL" );
+        pass3.setFirstName( "PAVEL" );
         pass3.setSex( "M" );
         BASIC::TDateTime bd3;
         BASIC::StrToDateTime( "02.05.76 00:00:00", bd3 ); //"760502"
@@ -529,7 +530,7 @@ namespace
 
     Paxlst::PaxlstInfo makePaxlst3_long()
     {
-        Paxlst::PaxlstInfo paxlstInfo(Paxlst::PaxlstInfo::FlightPassengerManifest);
+        Paxlst::PaxlstInfo paxlstInfo(Paxlst::PaxlstInfo::FlightPassengerManifest, "");
         paxlstInfo.settings().setViewUNGandUNE(true);
 
         paxlstInfo.setPartyName( "CDGKOAFXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
@@ -557,7 +558,7 @@ namespace
 
         Paxlst::PassengerInfo pass1;
         pass1.setSurname( "STRANSKYXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
-        pass1.setName( "JAROSLAV VICTOROVICHXXXXXXXXXXXXXXXXXXXXXXXXXX" );
+        pass1.setFirstName( "JAROSLAV VICTOROVICHXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         pass1.setSex( "M" );
         BASIC::TDateTime bd1;
         BASIC::StrToDateTime( "10.06.67 00:00:00", bd1 ); //"670610"
@@ -572,7 +573,7 @@ namespace
 
         Paxlst::PassengerInfo pass2;
         pass2.setSurname( "KOVACSXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
-        pass2.setName( "PETRXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
+        pass2.setFirstName( "PETRXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         pass2.setSex( "MXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         BASIC::TDateTime bd2;
         BASIC::StrToDateTime( "09.12.69 00:00:00", bd2 ); //"691209"
@@ -590,7 +591,7 @@ namespace
 
         Paxlst::PassengerInfo pass3;
         pass3.setSurname( "LESKAXXXXXXXXXXXXXXXXXXXXXdXXXXXXXXXXXXXXXXX" );
-        pass3.setName( "PAVELXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
+        pass3.setFirstName( "PAVELXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         pass3.setSex( "MXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         BASIC::TDateTime bd3;
         BASIC::StrToDateTime( "02.05.76 00:00:00", bd2 ); //"760502"
@@ -618,7 +619,7 @@ namespace
 
         Paxlst::PassengerInfo pass4;
         pass4.setSurname( "PUTIN" );
-        pass4.setName( "VOVA" );
+        pass4.setFirstName( "VOVA" );
         pass4.setSex( "M" );
         BASIC::TDateTime bd4;
         BASIC::StrToDateTime( "02.05.52 00:00:00", bd4 );
@@ -633,7 +634,7 @@ namespace
 
         Paxlst::PassengerInfo pass5;
         pass5.setSurname( "PUTINA" );
-        pass5.setName( "LUDA" );
+        pass5.setFirstName( "LUDA" );
         pass5.setSex( "F" );
         BASIC::TDateTime bd5;
         BASIC::StrToDateTime( "10.05.55 00:00:00", bd5 );

@@ -934,7 +934,14 @@ void CloseCheckIn( int point_id )
   {
     ProgError(STDLOG,"CloseCheckIn.create_mintrans_file (point_id=%d): %s",point_id,E.what());
   };
-
+  try
+  {
+    create_apis_file(point_id, ON_CLOSE_CHECKIN);
+  }
+  catch(std::exception &E)
+  {
+    ProgError(STDLOG,"CloseCheckIn.create_apis_file (point_id=%d): %s",point_id,E.what());
+  };
 };
 
 void CloseBoarding( int point_id )
