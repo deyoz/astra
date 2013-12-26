@@ -204,91 +204,146 @@ void TErrLst::toDB(int tlg_id)
     }
 }
 
-void TErrLst::fromDB(int tlg_id)
+void TErrLst::fromDB(int tlg_id, int num)
 {
+    if(tlg_id == this->tlg_id and common_lst)
+        return;
     pos = 0;
     endl_offset = 0;
     sorted_err_lst.clear();
     clear();
     QParams QryParams;
-    QryParams << QParam("tlg_id", otInteger, tlg_id);
-    TCachedQuery Qry(
+    QryParams
+        << QParam("tlg_id", otInteger, tlg_id)
+        << QParam("num", otInteger, num);
+    string SQLText =
             "select "
+            "   part_no, "
             "   error_no, "
             "   error_pos, "
             "   error_len, "
             "   lang, "
             "   text "
-            "from "
-            "   typeb_out_errors "
-            "where "
-            "   tlg_id = :tlg_id ",
-            QryParams
-            );
+            "from ";
+    switch(tio) {
+        case tioOut:
+            SQLText += "typeb_out_errors";
+            break;
+        case tioIn:
+            SQLText += "typeb_in_errors";
+            break;
+        default:
+            throw Exception("TErrLst::fromDB: wrong tio: %d", tio);
+    }
+    SQLText +=
+            " where "
+            "   tlg_id = :tlg_id and "
+            "   (part_no is null or part_no = :num) ";
+    TCachedQuery Qry(SQLText, QryParams);
     Qry.get().Execute();
     if(not Qry.get().Eof) {
+        int col_part_no = Qry.get().GetFieldIndex("part_no");
         int col_error_no = Qry.get().GetFieldIndex("error_no");
         int col_error_pos = Qry.get().GetFieldIndex("error_pos");
         int col_error_len = Qry.get().GetFieldIndex("error_len");
         int col_lang = Qry.get().GetFieldIndex("lang");
         int col_text = Qry.get().GetFieldIndex("text");
+        // Определяем, общий список ошибок, или для каждой части отдельный
+        if(tlg_id != this->tlg_id) // Текущая часть телеграммы - первая.
+            common_lst = Qry.get().FieldIsNULL(col_part_no);
         for(; not Qry.get().Eof; Qry.get().Next()) {
             int err_no = Qry.get().FieldAsInteger(col_error_no);
+            bool part_no_is_null = Qry.get().FieldIsNULL(col_part_no);
+            if(
+                    (common_lst and not part_no_is_null) or
+                    (not common_lst and part_no_is_null)
+                    )
+                throw Exception("TErrLst::fromDB: null and not null part_no's cant be together");
             TTypeBOutErrMsg &err_msg = (*this)[err_no];
             err_msg.err_pos = Qry.get().FieldAsInteger(col_error_pos);
             err_msg.err_len = Qry.get().FieldAsInteger(col_error_len);
             err_msg.msg[Qry.get().FieldAsString(col_lang)] = Qry.get().FieldAsString(col_text);
             sorted_err_lst.insert(make_pair(err_no, &err_msg));
         }
+    } else {
+        // Если для первой части не найден список ошибок, то в последующих частях
+        // могут содержаться только привязанные к ним ошибки (общего списка быть не может)
+        if(tlg_id != this->tlg_id)
+            common_lst = false;
     }
-
+    this->tlg_id = tlg_id;
 }
 
 int TErrLst::fix_endl(const string &val, size_t curr_pos)
 {
-    // если в строке встречается сочетание \xd\xa, то это будем считать как один символ.
-    // все другие варианты считаются как они есть.
     int result = 0;
-    static const string search = "\xd\xa";
+    string::const_iterator is = val.begin();
     size_t idx = 0;
-    while(true) {
-        idx = val.find(search, idx);
-        if((curr_pos != string::npos and idx + search.size() > curr_pos) or idx == string::npos)
-            break;
-        idx += search.size();
-        result++;
+    while(is != val.end()) {
+        if(idx == curr_pos) break;
+        if(!ValidXMLChar(*is)) {
+            // непечатаемые символы в выходных телеграммах заменяются на строку вида
+            // $NN, где NN шестнадцатеричный код символа. Т.е. вместо одного символа становится 3.
+            result -= 2;
+        } else if(is + 1 != val.end() and *is == 0xd and *(is + 1) == 0xa) {
+            // если в строке встречается сочетание \xd\xa, то это будем считать как один символ.
+            // т.е. вместо 2-х символов один
+            // все другие варианты считаются как они есть.
+            result++;
+            is++; idx++;
+        }
+        is++; idx++;
     }
     return result;
 }
 
-void TErrLst::toXML(xmlNodePtr node, const string &val, const string &lang, bool visible)
+int TErrLst::fix_err_len(const string &val, size_t curr_pos, int err_len)
 {
-    if(not visible) return;
-    xmlNodePtr errLst = node->children;
-    errLst = GetNodeFast("err_lst", errLst);
-    if(not errLst)
-        errLst = NewTextChild(node, "err_lst");
+    int result = err_len;
+    string buf = val.substr(curr_pos, err_len);
+    string::const_iterator is = buf.begin();
+    while(is != buf.end()) {
+        if(!ValidXMLChar(*is))
+            result += 2;
+        else if(is + 1 != val.end() and *is == 0xd and *(is + 1) == 0xa) {
+            result++;
+            is++;
+        }
+        is++;
+    }
+    return result;
+}
 
+void TErrLst::toXML(const string &val, const string &lang, bool visible)
+{
+    // для склеенной телеграммы в списке ошибок PART_NO должен быть NULL
+    if(not visible or empty()) return;
     for(t_sorted_err_lst::iterator im = sorted_err_lst.begin(); im != sorted_err_lst.end(); im++) {
         if(im->second->err_pos < pos or im->second->err_pos >= pos + (int)val.size()) continue;
         xmlNodePtr itemNode = NewTextChild(errLst, "item");
         NewTextChild(itemNode, "no", im->first);
         int fix_endl_val = fix_endl(val, im->second->err_pos - pos);
         NewTextChild(itemNode, "pos", im->second->err_pos - endl_offset - fix_endl_val);
-        NewTextChild(itemNode, "len", im->second->err_len);
+        NewTextChild(itemNode, "len", fix_err_len(val, im->second->err_pos - pos, im->second->err_len));
         NewTextChild(itemNode, "text", im->second->msg[lang]);
     }
     endl_offset += fix_endl(val);
     pos += val.size();
 }
 
-void TErrLst::toXML(xmlNodePtr node, const TypeB::TDraftPart &part, bool heading_visible, bool ending_visible, const std::string &lang)
+void TErrLst::toXML(xmlNodePtr node, const TypeB::TDraftPart &part, bool is_first_part, bool is_last_part, const std::string &lang)
 {
-    toXML(node, part.addr, lang, heading_visible);
-    toXML(node, part.origin, lang, heading_visible);
-    toXML(node, part.heading, lang, heading_visible);
-    toXML(node, part.body, lang);
-    toXML(node, part.ending, lang, ending_visible);
+    if((common_lst and is_first_part) or not common_lst)
+        errLst = NewTextChild(node, "err_lst");
+
+    bool heading_visible = not common_lst or is_first_part;
+    bool ending_visible = not common_lst or is_last_part;
+
+    toXML(part.addr, lang, heading_visible);
+    toXML(part.origin, lang, heading_visible);
+    toXML(part.heading, lang, heading_visible);
+    toXML(part.body, lang);
+    toXML(part.ending, lang, ending_visible);
 }
 
 void TErrLst::pack(TypeB::TDraftPart &part, bool heading_visible, bool ending_visible)

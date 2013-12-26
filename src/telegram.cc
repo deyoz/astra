@@ -506,6 +506,19 @@ void TelegramInterface::GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 
 }
 
+struct TTlgInPart {
+    int id;
+    int num;
+    string type;
+    TypeB::TDraftPart draft;
+    TDateTime time_receive;
+    TTlgInPart():
+        id(NoExists),
+        num(NoExists),
+        time_receive(NoExists)
+    {}
+};
+
 void TelegramInterface::GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   TReqInfo &info = *(TReqInfo::Instance());
@@ -590,21 +603,48 @@ void TelegramInterface::GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   ProgTrace(TRACE5, "sql: %s", sql.c_str());
   Qry.SQLText=sql;
   Qry.Execute();
-  for(;!Qry.Eof;Qry.Next())
-  {
-    xmlNodePtr node= NewTextChild( tlgsNode, "tlg" );
-    int tlg_id=Qry.FieldAsInteger("id");
-    int tlg_num=Qry.FieldAsInteger("num");
-    NewTextChild( node, "id", tlg_id );
-    NewTextChild( node, "num", tlg_num );
-    NewTextChild( node, "type", Qry.FieldAsString("type") );
-    NewTextChild( node, "addr", GetValidXMLString(Qry.FieldAsString("addr")) );
-    NewTextChild( node, "heading", GetValidXMLString(Qry.FieldAsString("heading")) );
-    NewTextChild( node, "ending", GetValidXMLString(Qry.FieldAsString("ending")) );
-    TDateTime time_receive = UTCToClient( Qry.FieldAsDateTime("time_receive"), tz_region );
-    NewTextChild( node, "time_receive", DateTimeToStr( time_receive ) );
-    NewTextChild( node, "body", GetValidXMLString(getTypeBBody(tlg_id, tlg_num, Qry)) );
 
+  vector<TTlgInPart> tlgs;
+  for(;!Qry.Eof;Qry.Next()) {
+      TTlgInPart tlg;
+      tlg.id = Qry.FieldAsInteger("id");
+      tlg.num = Qry.FieldAsInteger("num");
+      tlg.type = Qry.FieldAsString("type");
+      tlg.draft.addr = Qry.FieldAsString("addr");
+      tlg.draft.heading = Qry.FieldAsString("heading");
+      tlg.draft.ending = Qry.FieldAsString("ending");
+      tlg.time_receive = UTCToClient( Qry.FieldAsDateTime("time_receive"), tz_region );
+      tlg.draft.body = getTypeBBody(tlg.id, tlg.num, Qry);
+      tlgs.push_back(tlg);
+  };
+
+  TypeB::TErrLst err_lst(TypeB::tioIn);
+  xmlNodePtr node;
+  for(vector<TTlgInPart>::iterator iv = tlgs.begin(); iv != tlgs.end(); iv++)
+  {
+      node = NewTextChild( tlgsNode, "tlg" );
+
+      if(TReqInfo::Instance()->desk.compatible(TLG_ERR_BROWSE_VERSION)) {
+              try {
+                  err_lst.fromDB(iv->id, iv->num);
+                  bool is_first_part = iv == tlgs.begin() or (iv - 1)->id != iv->id;
+                  bool is_last_part = (iv + 1 == tlgs.end() or (iv + 1)->id != iv->id);
+                  err_lst.toXML(node, iv->draft, is_first_part, is_last_part, TReqInfo::Instance()->desk.lang);
+              } catch(Exception &E) {
+                  ProgError(STDLOG, "ErrLst: tlg_id = %d, num = %d; %s", iv->id, iv->num, E.what());
+              } catch(...) {
+                  ProgError(STDLOG, "ErrLst: tlg_id = %d, num = %d; unknown exception", iv->id, iv->num);
+              }
+      }
+
+      NewTextChild( node, "id", iv->id);
+      NewTextChild( node, "num", iv->num);
+      NewTextChild( node, "type", iv->type);
+      NewTextChild( node, "addr", GetValidXMLString(iv->draft.addr));
+      NewTextChild( node, "heading", GetValidXMLString(iv->draft.heading));
+      NewTextChild( node, "ending", GetValidXMLString(iv->draft.ending));
+      NewTextChild( node, "time_receive", DateTimeToStr( iv->time_receive ) );
+      NewTextChild( node, "body", GetValidXMLString(iv->draft.body));
   };
 };
 
@@ -720,42 +760,28 @@ void TelegramInterface::GetTlgOut(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 
   ostringstream endl_stream;
   endl_stream << endl;
-  TypeB::TErrLst err_lst;
-  int old_tlg_id = NoExists;
-
-  xmlNodePtr parentErrLstNode = NULL;
+  TypeB::TErrLst err_lst(TypeB::tioOut);
 
   for(vector<TTlgOutPart>::iterator iv = tlgs.begin(); iv != tlgs.end(); iv++)
   {
     node = NewTextChild( tlgsNode, "tlg" );
-    string tlg_type = iv->tlg_type;
 
-    TTypeBTypesRow& row = (TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",tlg_type));
+    TTypeBTypesRow& row = (TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",iv->tlg_type));
     string basic_type = row.basic_type;
 
-    int tlg_id = iv->id;
-    int num = iv->num;
+    bool is_first_part = iv == tlgs.begin() or (iv - 1)->id != iv->id;
+    bool is_last_part = (iv + 1 == tlgs.end() or (iv + 1)->id != iv->id);
 
-    bool heading_visible = false;
-    if(old_tlg_id != tlg_id) {
-        heading_visible = true;
-        old_tlg_id = tlg_id;
-        err_lst.fromDB(tlg_id);
-    }
-
-    bool ending_visible = (iv + 1 == tlgs.end() or (iv + 1)->id != tlg_id);
-
+    err_lst.fromDB(iv->id, iv->num);
     if(TReqInfo::Instance()->desk.compatible(TLG_ERR_BROWSE_VERSION)) {
-        if(num == 1)
-            parentErrLstNode = node;
-        err_lst.toXML(parentErrLstNode, iv->draft, heading_visible, ending_visible, TReqInfo::Instance()->desk.lang);
+        err_lst.toXML(node, iv->draft, is_first_part, is_last_part, TReqInfo::Instance()->desk.lang);
     } else
-        err_lst.unpack(iv->draft, heading_visible, ending_visible);
+        err_lst.unpack(iv->draft, is_first_part, is_last_part);
 
-    NewTextChild( node, "id", tlg_id );
+    NewTextChild( node, "id", iv->id );
     NewTextChild( node, "num", iv->num);
-    NewTextChild( node, "tlg_type", tlg_type, basic_type );
-    NewTextChild( node, "tlg_short_name", ElemIdToNameShort(etTypeBType, tlg_type), basic_type );
+    NewTextChild( node, "tlg_type", iv->tlg_type, basic_type );
+    NewTextChild( node, "tlg_short_name", ElemIdToNameShort(etTypeBType, iv->tlg_type), basic_type );
     NewTextChild( node, "basic_type", basic_type );
     bool editable = row.editable;
     bool completed = iv->completed;
