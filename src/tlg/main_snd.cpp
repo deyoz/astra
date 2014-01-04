@@ -230,6 +230,7 @@ bool scan_tlg(bool sendOutAStepByStep)
         string text=getTlgText(tlg_id, TlgQry);
         if (text.size()>sizeof(tlg_out.body)) throw Exception("Telegram too long");
         memcpy(tlg_out.body, text.c_str(), text.size());
+        len=text.size();
 
         //проверим TTL
         ttl=0;
