@@ -198,8 +198,8 @@ void GetFltCBoxList(bool pr_new, TScreenState scr, TDateTime first_date, TDateTi
 {
     TReqInfo &reqInfo = *(TReqInfo::Instance());
     TQuery Qry(&OraSession);
-    Qry.CreateVariable("FirstDate", otDate, first_date, reqInfo.desk.tz_region);
-    Qry.CreateVariable("LastDate", otDate, last_date, reqInfo.desk.tz_region);
+    Qry.CreateVariable("FirstDate", otDate, first_date);
+    Qry.CreateVariable("LastDate", otDate, last_date);
     string trip_name;
     TPerfTimer tm;
     tm.Init();
@@ -1129,8 +1129,8 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         Qry.CreateVariable("evtCodif", otString, NodeAsString("evtCodif", reqNode));
         Qry.CreateVariable("evtPeriod", otString, NodeAsString("evtPeriod", reqNode));
 
-        Qry.CreateVariable("FirstDate", otDate, NodeAsDateTime("FirstDate", reqNode), reqInfo->desk.tz_region);
-        Qry.CreateVariable("LastDate", otDate, NodeAsDateTime("LastDate", reqNode), reqInfo->desk.tz_region);
+        Qry.CreateVariable("FirstDate", otDate, NodeAsDateTime("FirstDate", reqNode));
+        Qry.CreateVariable("LastDate", otDate, NodeAsDateTime("LastDate", reqNode));
         Qry.CreateVariable("agent", otString, agent);
         Qry.CreateVariable("station", otString, station);
         Qry.CreateVariable("module", otString, module);
@@ -5637,8 +5637,6 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     TDateTime LastDate = NodeAsDateTime("LastDate", reqNode);
     if(IncMonth(FirstDate, 3) < LastDate)
         throw AstraLocale::UserException("MSG.SEARCH_PERIOD_SHOULD_NOT_EXCEED_THREE_MONTHS");
-    FirstDate = FirstDate, info.desk.tz_region;
-    LastDate = LastDate, info.desk.tz_region;
     TPerfTimer tm;
     TQuery Qry(&OraSession);
     Qry.CreateVariable("FirstDate", otDate, FirstDate);
