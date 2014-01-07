@@ -346,6 +346,18 @@ string GetValidXMLString(const std::string& str)
   return result.str();
 };
 
+struct TTlgInPart {
+    int id;
+    int num;
+    string type;
+    TypeB::TDraftPart draft;
+    TDateTime time_receive;
+    TTlgInPart():
+        id(NoExists),
+        num(NoExists),
+        time_receive(NoExists)
+    {}
+};
 
 void TelegramInterface::GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -453,7 +465,8 @@ void TelegramInterface::GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     Qry.SQLText=sql;
     Qry.Execute();
 
-    int rowcount = 0;
+    vector<TTlgInPart> tlgs;
+
     for(int pass=1; pass<=2; pass++)
     {
       if (pass==2)
@@ -481,43 +494,53 @@ void TelegramInterface::GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
           int col_ending = Qry.FieldIndex("ending");
           int col_time_receive = Qry.FieldIndex("time_receive");
 
-          for(;!Qry.Eof;Qry.Next())
-          {
-              xmlNodePtr node = NewTextChild( tlgsNode, "tlg" );
-              int tlg_id=Qry.FieldAsInteger(col_id);
-              int tlg_num=Qry.FieldAsInteger(col_num);
-              NewTextChild( node, "id", tlg_id );
-              NewTextChild( node, "num", tlg_num );
-              NewTextChild( node, "type", Qry.FieldAsString(col_type));
-              NewTextChild( node, "addr", GetValidXMLString(Qry.FieldAsString(col_addr)) );
-              NewTextChild( node, "heading", GetValidXMLString(Qry.FieldAsString(col_heading)) );
-              NewTextChild( node, "ending", GetValidXMLString(Qry.FieldAsString(col_ending)) );
-              TDateTime time_receive = UTCToClient( Qry.FieldAsDateTime(col_time_receive), tz_region );
-              NewTextChild( node, "time_receive", DateTimeToStr( time_receive ) );
-              string body=(pass==1?getTypeBBody(tlg_id, tlg_num, Qry):getTlgText(tlg_id, Qry));
-              NewTextChild( node, "body", GetValidXMLString(body) );
-              rowcount++;
+          for(;!Qry.Eof;Qry.Next()) {
+              TTlgInPart tlg;
+              tlg.id = Qry.FieldAsInteger(col_id);
+              tlg.num = Qry.FieldAsInteger(col_num);
+              tlg.type = Qry.FieldAsString(col_type);
+              tlg.draft.addr = Qry.FieldAsString(col_addr);
+              tlg.draft.heading = Qry.FieldAsString(col_heading);
+              tlg.draft.ending = Qry.FieldAsString(col_ending);
+              tlg.time_receive = UTCToClient( Qry.FieldAsDateTime(col_time_receive), tz_region );
+              tlg.draft.body = getTypeBBody(tlg.id, tlg.num, Qry);
+              tlgs.push_back(tlg);
           };
-          if(rowcount >= 4000)
+          if(tlgs.size() >= 4000)
               throw AstraLocale::UserException("MSG.TOO_MANY_DATA.ADJUST_SEARCH_PARAMS");
       }
     };
 
+  TypeB::TErrLst err_lst(TypeB::tioIn);
+  xmlNodePtr node;
+  for(vector<TTlgInPart>::iterator iv = tlgs.begin(); iv != tlgs.end(); iv++)
+  {
+      node = NewTextChild( tlgsNode, "tlg" );
+
+      if(TReqInfo::Instance()->desk.compatible(TLG_ERR_BROWSE_VERSION)) {
+              try {
+                  err_lst.fromDB(iv->id, iv->num);
+                  bool is_first_part = iv == tlgs.begin() or (iv - 1)->id != iv->id;
+                  bool is_last_part = (iv + 1 == tlgs.end() or (iv + 1)->id != iv->id);
+                  err_lst.toXML(node, iv->draft, is_first_part, is_last_part, TReqInfo::Instance()->desk.lang);
+              } catch(Exception &E) {
+                  ProgError(STDLOG, "ErrLst: tlg_id = %d, num = %d; %s", iv->id, iv->num, E.what());
+              } catch(...) {
+                  ProgError(STDLOG, "ErrLst: tlg_id = %d, num = %d; unknown exception", iv->id, iv->num);
+              }
+      }
+
+      NewTextChild( node, "id", iv->id);
+      NewTextChild( node, "num", iv->num);
+      NewTextChild( node, "type", iv->type);
+      NewTextChild( node, "addr", GetValidXMLString(iv->draft.addr));
+      NewTextChild( node, "heading", GetValidXMLString(iv->draft.heading));
+      NewTextChild( node, "ending", GetValidXMLString(iv->draft.ending));
+      NewTextChild( node, "time_receive", DateTimeToStr( iv->time_receive ) );
+      NewTextChild( node, "body", GetValidXMLString(iv->draft.body));
+  };
 
 }
-
-struct TTlgInPart {
-    int id;
-    int num;
-    string type;
-    TypeB::TDraftPart draft;
-    TDateTime time_receive;
-    TTlgInPart():
-        id(NoExists),
-        num(NoExists),
-        time_receive(NoExists)
-    {}
-};
 
 void TelegramInterface::GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
