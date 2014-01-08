@@ -616,7 +616,7 @@ void TelegramInterface::GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
          "       time_receive>=TRUNC(system.UTCSYSDATE)-2 \n"
          ") ids \n";
   };
-  sql+="WHERE tlgs_in.id=ids.id \n"
+  sql+="WHERE tlgs_in.id=ids.id and curr_tlg(tlgs_in.id) <> 0 \n"
        "ORDER BY id,num \n";
 
   xmlNodePtr tlgsNode = NewTextChild( resNode, "tlgs" );
@@ -878,6 +878,16 @@ void TelegramInterface::GetAddrs(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   NewTextChild(resNode,"addrs",addrs);
   return;
 };
+
+void TelegramInterface::SaveInTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  string text = NodeAsString("tlg_text",reqNode);
+  int tlg_id = NodeAsInteger("tlg_id", reqNode);
+  int num = NodeAsInteger("num", reqNode);
+  if(num != 0)
+      throw Exception("Can't save separate part");
+  loadTlg(text, tlg_id);
+}
 
 void TelegramInterface::LoadTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {

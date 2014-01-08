@@ -167,6 +167,17 @@ int main_typeb_parser_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
   return 0;
 };
 
+void SaveTypebInHistory(int prev_tlg_id, int tlg_id)
+{
+    const char* sql = "insert into typeb_in_history(prev_tlg_id, tlg_id) values(:prev_tlg_id, :tlg_id)";
+    QParams QryParams;
+    QryParams
+        << QParam("prev_tlg_id", otInteger, prev_tlg_id)
+        << QParam("tlg_id", otInteger, tlg_id);
+    TCachedQuery Qry(sql, QryParams);
+    Qry.get().Execute();
+}
+
 bool handle_tlg(void)
 {
   bool queue_not_empty=false;
@@ -181,7 +192,7 @@ bool handle_tlg(void)
     //внимание порядок объединения таблиц важен!
     TlgQry.Clear();
     TlgQry.SQLText=
-      "SELECT tlg_queue.id,tlgs.tlg_text,tlg_queue.time,ttl, "
+      "SELECT tlg_queue.id,tlgs.tlg_text,tlgs.typeb_tlg_id,tlg_queue.time,ttl, "
       "       tlg_queue.tlg_num,tlg_queue.sender, "
       "       NVL(tlg_queue.proc_attempt,0) AS proc_attempt "
       "FROM tlgs,tlg_queue "
@@ -215,15 +226,17 @@ bool handle_tlg(void)
 
   const char* ins_sql=
     "BEGIN "
+    "  :ret_id := nvl(:id, tlg_in_out__seq.nextval); "
     "  INSERT INTO tlgs_in(id,num,type,addr,heading,ending, "
     "                     merge_key,time_create,time_receive,time_parse,time_receive_not_parse) "
-    "  VALUES(NVL(:id,tlg_in_out__seq.nextval), "
+    "  VALUES(:ret_id, "
     "         :part_no,:tlg_type,:addr,:heading,:ending, "
     "         :merge_key,:time_create,system.UTCSYSDATE,NULL,system.UTCSYSDATE); "
-    "  UPDATE tlgs SET typeb_tlg_id=NVL(:id, tlg_in_out__seq.currval), typeb_tlg_num=:part_no WHERE id=:tlgs_id; "
+    "  UPDATE tlgs SET typeb_tlg_id=:ret_id, typeb_tlg_num=:part_no WHERE id=:tlgs_id; "
     "END;";
   QParams QryParams;
   QryParams << QParam("id",otInteger)
+            << QParam("ret_id",otInteger)
             << QParam("part_no",otInteger)
             << QParam("tlg_type",otString)
             << QParam("addr",otString)
@@ -253,6 +266,8 @@ bool handle_tlg(void)
     {
       //проверим TTL
       tlg_id=TlgQry.FieldAsInteger("id");
+      ProgTrace(TRACE5, "tlg history: tlg_id: %d", tlg_id);
+
       if (!TlgQry.FieldIsNULL("ttl")&&
            (NowUTC()-TlgQry.FieldAsDateTime("time"))*BASIC::SecsPerDay>=TlgQry.FieldAsInteger("ttl"))
       {
@@ -420,6 +435,8 @@ bool handle_tlg(void)
                   InsQry.get().SetVariable("id",FNull);
                   InsQry.get().SetVariable("merge_key",FNull);
                   InsQry.get().Execute();
+                  if(not TlgQry.FieldIsNULL("typeb_tlg_id"))
+                      SaveTypebInHistory(TlgQry.FieldAsInteger("typeb_tlg_id"), InsQry.get().GetVariableAsInteger("ret_id"));
                   pr_typeb_cmd=true;
                   insert_typeb=true;
                 }
