@@ -266,7 +266,6 @@ bool handle_tlg(void)
     {
       //проверим TTL
       tlg_id=TlgQry.FieldAsInteger("id");
-      ProgTrace(TRACE5, "tlg history: tlg_id: %d", tlg_id);
 
       if (!TlgQry.FieldIsNULL("ttl")&&
            (NowUTC()-TlgQry.FieldAsDateTime("time"))*BASIC::SecsPerDay>=TlgQry.FieldAsInteger("ttl"))
