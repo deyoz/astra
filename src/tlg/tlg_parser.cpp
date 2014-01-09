@@ -1397,7 +1397,6 @@ TTlgPartInfo ParseHeading(TTlgPartInfo heading,
               mem.create(info, STDLOG);
               next=ParseAHMHeading(heading,*(TAHMHeadingInfo*)info);
               break;
-#ifdef ZZZ
             case tcSSM:
               info = new TSSMHeadingInfo(infoh);
               mem.create(info, STDLOG);
@@ -1411,9 +1410,8 @@ TTlgPartInfo ParseHeading(TTlgPartInfo heading,
             case tcLCI:
               info = new TLCIHeadingInfo(infoh);
               mem.create(info, STDLOG);
-              next=ParseLCIHeading(heading,*(TLCIHeadingInfo*)info);
+              next=ParseLCIHeading(heading,*(TLCIHeadingInfo*)info,flts);
               break;
-#endif
             default:
               info = new THeadingInfo(infoh);
               mem.create(info, STDLOG);

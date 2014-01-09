@@ -326,14 +326,14 @@ void loadTlg(const std::string &text, int prev_tlg_id)
         int tlg_id=Qry.GetVariableAsInteger("tlg_num");
 
         Qry.SQLText=
-          "INSERT INTO tlgs(id,sender,tlg_num,receiver,type,time,error,typeb_tlg_id,typeb_tlg_num,prev_typeb_tlg_num) "
-          "VALUES(:tlg_num,:sender,:tlg_num,:receiver,:type,:time,NULL,NULL,NULL,:prev_typeb_tlg_num)";
+          "INSERT INTO tlgs(id,sender,tlg_num,receiver,type,time,error,typeb_tlg_id,typeb_tlg_num,prev_typeb_tlg_id) "
+          "VALUES(:tlg_num,:sender,:tlg_num,:receiver,:type,:time,NULL,NULL,NULL,:prev_typeb_tlg_id)";
         Qry.DeleteVariable("ttl");
         Qry.DeleteVariable("time_msec");
         if(prev_tlg_id == ASTRA::NoExists)
-            Qry.CreateVariable("prev_typeb_tlg_num", otInteger, FNull);
+            Qry.CreateVariable("prev_typeb_tlg_id", otInteger, FNull);
         else
-            Qry.CreateVariable("prev_typeb_tlg_num", otInteger, prev_tlg_id);
+            Qry.CreateVariable("prev_typeb_tlg_id", otInteger, prev_tlg_id);
         Qry.Execute();
 
         putTlgText(tlg_id, text);

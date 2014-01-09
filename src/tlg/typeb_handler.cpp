@@ -302,9 +302,9 @@ bool handle_tlg(void)
     "      END IF;"
     "    END LOOP; "
     "  END IF; "
-    "  INSERT INTO tlgs_in(id,num,type,addr,heading,ending, "
+    "  INSERT INTO tlgs_in(id,num,type,addr,heading,ending,is_final_part, "
     "    merge_key,time_create,time_receive,time_parse,time_receive_not_parse) "
-    "  VALUES(:id,:part_no,:tlg_type,:addr,:heading,:ending, "
+    "  VALUES(:id,:part_no,:tlg_type,:addr,:heading,:ending,:is_final_part, "
     "    :merge_key,:time_create,vnow,vtime_parse,vtime_receive_not_parse); "
     "  UPDATE tlgs SET typeb_tlg_id=:id, typeb_tlg_num=:part_no WHERE id=:tlgs_id; "
     "END;";
@@ -315,6 +315,7 @@ bool handle_tlg(void)
             << QParam("addr",otString)
             << QParam("heading",otString)
             << QParam("ending",otString)
+            << QParam("is_final_part",otInteger)
             << QParam("merge_key",otString)
             << QParam("time_create",otDate)
             << QParam("tlgs_id",otInteger);
@@ -456,6 +457,12 @@ bool handle_tlg(void)
         InsQry.get().SetVariable("addr", parts.addr);
         InsQry.get().SetVariable("heading", parts.heading);
         InsQry.get().SetVariable("ending", parts.ending);
+
+        if (EndingInfo!=NULL)
+          InsQry.get().SetVariable("is_final_part", (int)EndingInfo->pr_final_part);
+        else
+          InsQry.get().SetVariable("is_final_part", (int)false);  
+
         InsQry.get().SetVariable("tlgs_id", tlg_id);
 
         if (deleteTlg(tlg_id))
@@ -796,7 +803,6 @@ bool parse_tlg(void)
             count++;
             break;
           }
-#ifdef ZZZ
           case tcLCI:
           {
             TLCIHeadingInfo &info = *(dynamic_cast<TLCIHeadingInfo*>(HeadingInfo));
@@ -816,7 +822,6 @@ bool parse_tlg(void)
             count++;
             break;
           }
-#endif
           /*
           case tcSSM:
           {

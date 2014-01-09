@@ -3,7 +3,6 @@
 
 #include "tlg_parser.h"
 
-#ifdef ZZZ
 
 namespace TypeB
 {
@@ -394,6 +393,5 @@ TTlgPartInfo ParseSSMHeading(TTlgPartInfo heading, TSSMHeadingInfo &info);
 
 }
 
-#endif
 
 #endif

@@ -1,7 +1,6 @@
 #include "ssm_parser.h"
 #include "misc.h"
 
-#ifdef ZZZ
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "DEN"
@@ -805,9 +804,15 @@ int ssm(int argc,char **argv)
             TSSMContent con;
 
             strcpy(buf, (addr + Qry.FieldAsString("data")).c_str());
-            TTlgParts parts = GetParts(buf, mem);
+            TFlightsForBind bind_flts;
+            TTlgPartsText parts;
+            GetParts(buf,parts,bind_flts,mem);
 
-            ParseHeading(parts.heading,HeadingInfo,mem);  //может вернуть NULL
+            TTlgPartInfo part;
+            part.p=parts.heading.c_str();
+            part.EOL_count=CalcEOLCount(parts.addr.c_str());
+            part.offset=parts.addr.size();
+            ParseHeading(part,HeadingInfo,bind_flts,mem);  //может вернуть NULL
             if(HeadingInfo == NULL)
                 throw Exception("HeadingInfo is null, id: %d", id);
             if(HeadingInfo->tlg_cat == tcUnknown) {
@@ -820,7 +825,10 @@ int ssm(int argc,char **argv)
             }
 
 
-            ParseSSMContent(parts.body, info, con, mem);
+            part.p=parts.body.c_str();
+            part.EOL_count+=CalcEOLCount(parts.heading.c_str());
+            part.offset+=parts.heading.size();
+            ParseSSMContent(part, info, con, mem);
             con.dump();
             /*
             // Несколько периодов
@@ -878,7 +886,7 @@ void TEquipment::parse(TTlgElement e, const char *val)
     raw_data = val;
     TTlgParser tlg;
     strcpy(lexh, val);
-    char *ph = tlg.GetLexeme(lexh);
+    const char *ph = tlg.GetLexeme(lexh);
     if(
             strlen(tlg.lex) != 1 and
             not IsUpperLetter(tlg.lex[0])
@@ -921,7 +929,7 @@ void TRouting::parse(TTlgElement e, TActionIdentifier aid, const char *val)
 {
     TTlgParser tlg;
     strcpy(lexh, val);
-    char *ph = tlg.GetLexeme(lexh);
+    const char *ph = tlg.GetLexeme(lexh);
     switch(aid) {
         case aiADM:
         case aiCON:
@@ -959,8 +967,7 @@ void ParseSSMContent(TTlgPartInfo body, TSSMHeadingInfo& info, TSSMContent& con,
 {
     con.Clear();
     TTlgParser tlg;
-    char *line_p=body.p, *ph;
-    int line=body.line;
+    const char *line_p=body.p, *ph;
     TTlgElement e = ActionIdentifier;
     TSSMSubMessage *ssm_msg = NULL;
     try
@@ -1204,15 +1211,11 @@ void ParseSSMContent(TTlgPartInfo body, TSSMHeadingInfo& info, TSSMContent& con,
                 default:;
             }
             line_p=tlg.NextLine(line_p);
-            line++;
         } while (line_p and *line_p != 0);
     }
     catch (ETlgError E)
     {
-        if (tlg.GetToEOLLexeme(line_p)!=NULL)
-            throw ETlgError("SSM: %s\n>>>>>LINE %d: %s",E.what(),line,tlg.lex);
-        else
-            throw ETlgError("SSM: %s\n>>>>>LINE %d",E.what(),line);
+        throwTlgError(E.what(), body, line_p);
     };
     return;
 }
@@ -1466,7 +1469,7 @@ void TASMFlightInfo::parse(TTlgElement e, TActionIdentifier aid, const char *val
 {
     TTlgParser tlg;
     strcpy(lexh, val);
-    char *p;
+    const char *p;
     p = tlg.GetLexeme(lexh);
     flt.parse(tlg.lex);
     switch(aid) {
@@ -1530,8 +1533,7 @@ void ParseASMContent(TTlgPartInfo body, TSSMHeadingInfo& info, TASMContent& con,
 {
     con.Clear();
     TTlgParser tlg;
-    char *line_p=body.p;
-    int line=body.line;
+    const char *line_p=body.p;
     TTlgElement e = ActionIdentifier;
     TASMSubMessage *ssm_msg = NULL;
     try
@@ -1712,15 +1714,11 @@ void ParseASMContent(TTlgPartInfo body, TSSMHeadingInfo& info, TASMContent& con,
                 default:;
             }
             line_p=tlg.NextLine(line_p);
-            line++;
         } while (line_p and *line_p != 0);
     }
     catch (ETlgError E)
     {
-        if (tlg.GetToEOLLexeme(line_p)!=NULL)
-            throw ETlgError("ASM: %s\n>>>>>LINE %d: %s",E.what(),line,tlg.lex);
-        else
-            throw ETlgError("ASM: %s\n>>>>>LINE %d",E.what(),line);
+        throwTlgError(E.what(), body, line_p);
     };
     con.dump();
     return;
@@ -1833,20 +1831,19 @@ TPeriods &TSchedules::curr_periods()
 
 TTlgPartInfo ParseSSMHeading(TTlgPartInfo heading, TSSMHeadingInfo &info)
 {
-    int line,res;
-    char c, *p,*ph,*line_p;
+    int res;
+    char c;
+    const char *p,*ph,*line_p;
     TTlgParser tlg;
     TTlgElement e;
     TTlgPartInfo next;
 
+    line_p=heading.p;
     try
     {
-        line_p=heading.p;
-        line=heading.line-1;
         e=TimeModeElement;
         do
         {
-            line++;
             if ((p=tlg.GetToEOLLexeme(line_p))==NULL) continue;
             switch (e)
             {
@@ -1893,13 +1890,9 @@ TTlgPartInfo ParseSSMHeading(TTlgPartInfo heading, TSSMHeadingInfo &info)
                         info.msr.creator = tlg.lex;
 
                         if(success) {
-                            next.p=tlg.NextLine(line_p);
-                            next.line=line+1;
-                        } else {
-                            next.p=line_p;
-                            next.line=line;
+                            line_p = tlg.NextLine(line_p);
                         }
-                        return next;
+                        return nextPart(heading, line_p);
                     }
                 default:;
             };
@@ -1908,12 +1901,9 @@ TTlgPartInfo ParseSSMHeading(TTlgPartInfo heading, TSSMHeadingInfo &info)
     }
     catch(ETlgError E)
     {
-        //вывести ошибку+номер строки
-        throw ETlgError("SSM, Line %d: %s",line,E.what());
+        throwTlgError(E.what(), heading, line_p);
     };
-    next.p=line_p;
-    next.line=line;
-    return next;
+    return nextPart(heading, line_p);
 };
 
 void TSSMHeadingInfo::dump()
@@ -1941,4 +1931,3 @@ void TSSMHeadingInfo::dump()
 
 }
 
-#endif

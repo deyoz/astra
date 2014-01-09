@@ -2,7 +2,6 @@
 #include "misc.h"
 #include <sstream>
 
-#ifdef ZZZ
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "DEN"
@@ -329,7 +328,7 @@ void TLCIFltInfo::dump()
   ProgTrace(TRACE5, "---------------------------");
 }
 
-void TLCIFltInfo::parse(const char *val)
+void TLCIFltInfo::parse(const char *val, TFlightsForBind &flts)
 {
     string buf = val;
     size_t idx = buf.find('.');
@@ -344,38 +343,32 @@ void TLCIFltInfo::parse(const char *val)
     airp = ElemToElemId(etAirp, aairp, fmt, lang);
     if(airp.empty())
         throw ETlgError("airp '%s' not found", aairp.c_str());
-
+    // привязка к рейсы
+//    flts.push_back(make_pair(info.flt, btFirstSeg));
 }
 
-TTlgPartInfo ParseLCIHeading(TTlgPartInfo heading, TLCIHeadingInfo &info)
+TTlgPartInfo ParseLCIHeading(TTlgPartInfo heading, TLCIHeadingInfo &info, TFlightsForBind &flts)
 {
     TTlgPartInfo next;
-    char *p, *line_p;
+    const char *p, *line_p;
     TTlgParser tlg;
-    int line;
+    line_p=heading.p;
     try
     {
-        line_p=heading.p;
-        line=heading.line-1;
         do
         {
-            line++;
             if ((p=tlg.GetToEOLLexeme(line_p))==NULL) continue;
-            info.flt_info.parse(tlg.lex);
-            next.p=tlg.NextLine(line_p);
-            next.line=line+1;
-            return next;
+            info.flt_info.parse(tlg.lex,flts);
+            line_p=tlg.NextLine(line_p);
+            return nextPart(heading, line_p);
         }
         while ((line_p=tlg.NextLine(line_p))!=NULL);
     }
     catch(ETlgError E)
     {
-        //вывести ошибку+номер строки
-        throw ETlgError("LCI, Line %d: %s",line,E.what());
+        throwTlgError(E.what(), heading, line_p);
     };
-    next.p=line_p;
-    next.line=line;
-    return next;
+    return nextPart(heading, line_p);
 };
 
 vector<string> split(string val, char c)
@@ -1122,8 +1115,7 @@ void ParseLCIContent(TTlgPartInfo body, TLCIHeadingInfo& info, TLCIContent& con,
 {
     con.Clear();
     TTlgParser tlg;
-    char *line_p=body.p;
-    int line=body.line;
+    const char *line_p=body.p;
     TTlgElement e = ActionCode;
     try
     {
@@ -1159,15 +1151,11 @@ void ParseLCIContent(TTlgPartInfo body, TLCIHeadingInfo& info, TLCIContent& con,
                 default:;
             }
             line_p=tlg.NextLine(line_p);
-            line++;
         } while (line_p and *line_p != 0);
     }
     catch (ETlgError E)
     {
-        if (tlg.GetToEOLLexeme(line_p)!=NULL)
-            throw ETlgError("LCI: %s\n>>>>>LINE %d: %s",E.what(),line,tlg.lex);
-        else
-            throw ETlgError("LCI: %s\n>>>>>LINE %d",E.what(),line);
+        throwTlgError(E.what(), body, line_p);
     };
 }
 
@@ -1243,17 +1231,26 @@ int lci(int argc, char **argv)
     THeadingInfo *HeadingInfo=NULL;
     TLCIContent con;
 
+    TFlightsForBind bind_flts;
+    TTlgPartsText parts;
     try {
-        TTlgParts parts = GetParts(buffer,mem);
+        GetParts(buffer,parts,bind_flts,mem);
 
-        ParseHeading(parts.heading,HeadingInfo,mem);  //может вернуть NULL
+        TTlgPartInfo part;
+        part.p=parts.heading.c_str();
+        part.EOL_count=CalcEOLCount(parts.addr.c_str());
+        part.offset=parts.addr.size();
+        ParseHeading(part,HeadingInfo,bind_flts,mem);  //может вернуть NULL
         if(HeadingInfo == NULL)
             throw Exception("HeadingInfo is null");
 
         TLCIHeadingInfo &info = *(dynamic_cast<TLCIHeadingInfo*>(HeadingInfo));
         info.flt_info.dump();
 
-        ParseLCIContent(parts.body, info, con, mem);
+        part.p=parts.body.c_str();
+        part.EOL_count+=CalcEOLCount(parts.heading.c_str());
+        part.offset+=parts.heading.size();
+        ParseLCIContent(part, info, con, mem);
 //        con.dump();
 
         mem.destroy(HeadingInfo, STDLOG);
@@ -1273,4 +1270,3 @@ int lci(int argc, char **argv)
 
 }
 
-#endif

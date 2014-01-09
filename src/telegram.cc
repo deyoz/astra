@@ -352,10 +352,12 @@ struct TTlgInPart {
     string type;
     TypeB::TDraftPart draft;
     TDateTime time_receive;
+    bool is_final_part;
     TTlgInPart():
         id(NoExists),
         num(NoExists),
-        time_receive(NoExists)
+        time_receive(NoExists),
+        is_final_part(false)
     {}
 };
 
@@ -371,7 +373,7 @@ void TelegramInterface::GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
         search_params.flt_no != NoExists;
     TQuery Qry(&OraSession);
     string tz_region =  info.desk.tz_region;
-    string sql="SELECT tlgs_in.id,num,type,addr,heading,body,ending,time_receive \n"
+    string sql="SELECT tlgs_in.id,num,type,addr,heading,body,ending,time_receive,is_final_part \n"
         "FROM tlgs_in, \n";
     sql+="( \n";
     if(search_params.err_cls == 1) {
@@ -503,6 +505,7 @@ void TelegramInterface::GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
               tlg.draft.heading = Qry.FieldAsString(col_heading);
               tlg.draft.ending = Qry.FieldAsString(col_ending);
               tlg.time_receive = UTCToClient( Qry.FieldAsDateTime(col_time_receive), tz_region );
+              tlg.is_final_part = Qry.FieldAsInteger("is_final_part")!=0;
               tlg.draft.body = getTypeBBody(tlg.id, tlg.num, Qry);
               tlgs.push_back(tlg);
           };
@@ -537,6 +540,7 @@ void TelegramInterface::GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
       NewTextChild( node, "heading", GetValidXMLString(iv->draft.heading));
       NewTextChild( node, "ending", GetValidXMLString(iv->draft.ending));
       NewTextChild( node, "time_receive", DateTimeToStr( iv->time_receive ) );
+      NewTextChild( node, "is_final_part", (int)iv->is_final_part);
       NewTextChild( node, "body", GetValidXMLString(iv->draft.body));
   };
 
@@ -549,7 +553,7 @@ void TelegramInterface::GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
   TQuery Qry(&OraSession);
   string tz_region =  info.desk.tz_region;
-  string sql="SELECT tlgs_in.id,num,type,addr,heading,body,ending,time_receive \n"
+  string sql="SELECT tlgs_in.id,num,type,addr,heading,body,ending,time_receive,is_final_part \n"
              "FROM tlgs_in, \n";
   if (point_id!=-1)
   {
@@ -637,6 +641,7 @@ void TelegramInterface::GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       tlg.draft.heading = Qry.FieldAsString("heading");
       tlg.draft.ending = Qry.FieldAsString("ending");
       tlg.time_receive = UTCToClient( Qry.FieldAsDateTime("time_receive"), tz_region );
+      tlg.is_final_part = Qry.FieldAsInteger("is_final_part")!=0;
       tlg.draft.body = getTypeBBody(tlg.id, tlg.num, Qry);
       tlgs.push_back(tlg);
   };
@@ -667,6 +672,7 @@ void TelegramInterface::GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       NewTextChild( node, "heading", GetValidXMLString(iv->draft.heading));
       NewTextChild( node, "ending", GetValidXMLString(iv->draft.ending));
       NewTextChild( node, "time_receive", DateTimeToStr( iv->time_receive ) );
+      NewTextChild( node, "is_final_part", (int)iv->is_final_part);
       NewTextChild( node, "body", GetValidXMLString(iv->draft.body));
   };
 };

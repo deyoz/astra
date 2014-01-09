@@ -4,7 +4,6 @@
 #include "tlg_parser.h"
 #include <tr1/memory>
 
-#ifdef ZZZ
 
 namespace TypeB
 {
@@ -12,7 +11,7 @@ namespace TypeB
 struct TLCIFltInfo {
     TFlightIdentifier flt;
     std::string airp;
-    void parse(const char *val);
+    void parse(const char *val, TFlightsForBind &flts);
     void dump();
 };
 
@@ -23,7 +22,7 @@ class TLCIHeadingInfo : public THeadingInfo
         TLCIHeadingInfo(THeadingInfo &info) : THeadingInfo(info) {};
 };
 
-TTlgPartInfo ParseLCIHeading(TTlgPartInfo heading, TLCIHeadingInfo &info);
+TTlgPartInfo ParseLCIHeading(TTlgPartInfo heading, TLCIHeadingInfo &info, TFlightsForBind &flts);
 
 enum TOriginator {
     oLoadcontrol,
@@ -351,6 +350,5 @@ int lci(int argc,char **argv);
 
 }
 
-#endif
 
 #endif

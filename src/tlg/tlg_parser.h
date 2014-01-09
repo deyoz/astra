@@ -871,6 +871,9 @@ struct TFlightIdentifier {
     TFlightIdentifier(): flt_no(ASTRA::NoExists), suffix(0), date(ASTRA::NoExists) {};
 };
 
+TTlgPartInfo nextPart(const TTlgPartInfo &curr, const char* line_p);
+void throwTlgError(const char* msg, const TTlgPartInfo &curr, const char* line_p);
+
 } //namespace TypeB
 
 #endif
