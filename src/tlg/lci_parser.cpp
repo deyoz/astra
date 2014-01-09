@@ -2,6 +2,8 @@
 #include "misc.h"
 #include <sstream>
 
+#ifdef ZZZ
+
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "DEN"
 #include "serverlib/test.h"
@@ -1270,3 +1272,5 @@ int lci(int argc, char **argv)
 }
 
 }
+
+#endif

@@ -2,7 +2,6 @@
 #define _TLG_H_
 
 #include "oralib.h"
-#include "astra_consts.h"
 #include "serverlib/query_runner.h"
 
 /* константы задающие максимальные значения для телеграмм */
@@ -81,6 +80,13 @@ std::string getTlgText(int tlg_id,
 
 bool deleteTlg(int tlg_id);
 bool errorTlg(int tlg_id, const std::string &type, const std::string &msg="");
+void parseTypeB(int tlg_id);
+void errorTypeB(int tlg_id,
+                int part_no,
+                int &error_no,
+                int error_pos,
+                int error_len,
+                const std::string &text);
 int sendTlg(const char* receiver,
             const char* sender,
             TTlgQueuePriority queuePriority,
@@ -88,9 +94,8 @@ int sendTlg(const char* receiver,
             const std::string &text,
             int typeb_tlg_id,
             int typeb_tlg_num);
-void loadTlg(const std::string &text, int tlg_id = ASTRA::NoExists);
+void loadTlg(const std::string &text, int prev_tlg_id);
 bool procTlg(int tlg_id);
-//void sendErrorTlg(const char *format, ...);
 
 #define MAX_CMD_LEN 50000
 void sendCmd(const char* receiver, const char* cmd);

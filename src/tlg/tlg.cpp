@@ -89,8 +89,11 @@ void putTypeBBody(int tlg_id, int tlg_num, const string &tlg_body)
     "VALUES(NVL(:id,tlg_in_out__seq.currval), :num, :page_no, :text)";
 
   QParams QryParams;
-  QryParams << QParam("id", otInteger);
-  QryParams << QParam("num", otInteger);
+  if (tlg_id!=ASTRA::NoExists)
+    QryParams << QParam("id", otInteger, tlg_id);
+  else
+    QryParams << QParam("id", otInteger, FNull);
+  QryParams << QParam("num", otInteger, tlg_num);
   QryParams << QParam("page_no", otInteger);
   QryParams << QParam("text", otString);
   TCachedQuery TextQry(sql, QryParams);
@@ -101,11 +104,6 @@ void putTypeBBody(int tlg_id, int tlg_num, const string &tlg_body)
   {
     ie=ib+4000;
     if (ie>tlg_body.end()) ie=tlg_body.end();
-    if (tlg_id!=ASTRA::NoExists)
-      TextQry.get().SetVariable("id", tlg_id);
-    else
-      TextQry.get().SetVariable("id", FNull);
-    TextQry.get().SetVariable("num", tlg_num);
     TextQry.get().SetVariable("page_no", page_no);
     TextQry.get().SetVariable("text", std::string(ib,ie));
     TextQry.get().Execute();
@@ -159,7 +157,10 @@ void putTlgText(int tlg_id, const string &tlg_text)
     "VALUES(NVL(:id, tlgs_id.currval), :page_no, :text)";
 
   QParams QryParams;
-  QryParams << QParam("id", otInteger);
+  if (tlg_id!=ASTRA::NoExists)
+    QryParams << QParam("id", otInteger, tlg_id);
+  else
+    QryParams << QParam("id", otInteger, FNull);
   QryParams << QParam("page_no", otInteger);
   QryParams << QParam("text", otString);
   TCachedQuery TextQry(sql, QryParams);
@@ -170,10 +171,6 @@ void putTlgText(int tlg_id, const string &tlg_text)
   {
     ie=ib+4000;
     if (ie>tlg_text.end()) ie=tlg_text.end();
-    if (tlg_id!=ASTRA::NoExists)
-      TextQry.get().SetVariable("id", tlg_id);
-    else
-      TextQry.get().SetVariable("id", FNull);
     TextQry.get().SetVariable("page_no", page_no);
     TextQry.get().SetVariable("text", std::string(ib,ie));
     TextQry.get().Execute();
@@ -329,14 +326,14 @@ void loadTlg(const std::string &text, int prev_tlg_id)
         int tlg_id=Qry.GetVariableAsInteger("tlg_num");
 
         Qry.SQLText=
-          "INSERT INTO tlgs(id,sender,tlg_num,receiver,type,time,error,typeb_tlg_id,typeb_tlg_num) "
-          "VALUES(:tlg_num,:sender,:tlg_num,:receiver,:type,:time,NULL,:typeb_tlg_id,NULL)";
+          "INSERT INTO tlgs(id,sender,tlg_num,receiver,type,time,error,typeb_tlg_id,typeb_tlg_num,prev_typeb_tlg_num) "
+          "VALUES(:tlg_num,:sender,:tlg_num,:receiver,:type,:time,NULL,NULL,NULL,:prev_typeb_tlg_num)";
         Qry.DeleteVariable("ttl");
         Qry.DeleteVariable("time_msec");
         if(prev_tlg_id == ASTRA::NoExists)
-            Qry.CreateVariable("typeb_tlg_id", otInteger, FNull);
+            Qry.CreateVariable("prev_typeb_tlg_num", otInteger, FNull);
         else
-            Qry.CreateVariable("typeb_tlg_id", otInteger, prev_tlg_id);
+            Qry.CreateVariable("prev_typeb_tlg_num", otInteger, prev_tlg_id);
         Qry.Execute();
 
         putTlgText(tlg_id, text);
@@ -358,36 +355,6 @@ void loadTlg(const std::string &text, int prev_tlg_id)
         throw;
     };
 };
-/*
-void sendErrorTlg(const char *format, ...)
-{
-  try
-  {
-    const char *sender=OWN_CANON_NAME();
-    const char *receiver=ERR_CANON_NAME();
-
-    if (*receiver==0) return;
-    char Message[500];
-    if (format==NULL) return;
-    va_list ap;
-    va_start(ap, format);
-    sprintf(Message,"Sender: %s\n",sender);
-    int len=strlen(Message);
-    vsnprintf(Message+len, sizeof(Message)-len, format, ap);
-    Message[sizeof(Message)-1]=0;
-    va_end(ap);
-
-    sendTlg(receiver,sender,false,0,Message);
-  }
-  catch( std::exception &e)
-  {
-      ProgError(STDLOG, e.what());
-  }
-  catch(...)
-  {
-      ProgError(STDLOG, "sendErrorTlg: Unknown error");
-  };
-};*/
 
 bool deleteTlg(int tlg_id)
 {
@@ -448,6 +415,78 @@ bool errorTlg(int tlg_id, const string &type, const string &msg)
   catch(...)
   {
       ProgError(STDLOG, "errorTlg: Unknown error");
+      throw;
+  };
+};
+
+void parseTypeB(int tlg_id)
+{
+  try
+  {
+    const char* sql=
+      "UPDATE tlgs_in SET time_parse=system.UTCSYSDATE, time_receive_not_parse=NULL "
+      "WHERE id=:id AND time_parse IS NULL";
+
+    QParams QryParams;
+    QryParams << QParam("id", otInteger, tlg_id);
+
+    TCachedQuery Qry(sql, QryParams);
+    Qry.get().Execute();
+  }
+  catch( std::exception &e)
+  {
+      ProgError(STDLOG, e.what());
+      throw;
+  }
+  catch(...)
+  {
+      ProgError(STDLOG, "parseTypeB: Unknown error");
+      throw;
+  };
+};
+
+void errorTypeB(int tlg_id,
+                int part_no,
+                int &error_no,
+                int error_pos,
+                int error_len,
+                const string &text)
+{
+  try
+  {
+    const char* sql=
+      "INSERT INTO typeb_in_errors(tlg_id, part_no, error_no, lang, error_pos, error_len, text) "
+      "VALUES(:tlg_id, :part_no, :error_no, :lang, :error_pos, :error_len, :text)";
+
+    QParams QryParams;
+    QryParams << QParam("tlg_id", otInteger, tlg_id);
+    if (part_no!=ASTRA::NoExists)
+      QryParams << QParam("part_no", otInteger, part_no);
+    else
+      QryParams << QParam("part_no", otInteger, FNull);
+    if (error_no==ASTRA::NoExists) error_no=1;
+    QryParams << QParam("error_no", otInteger, error_no);
+    QryParams << QParam("error_pos", otInteger, error_pos==ASTRA::NoExists?0:error_pos);
+    QryParams << QParam("error_len", otInteger, error_len==ASTRA::NoExists?0:error_len);
+    QryParams << QParam("lang", otString);
+    QryParams << QParam("text", otString, text);
+
+    TCachedQuery ErrQry(sql, QryParams);
+
+    for(int pass=0; pass<2; pass++)
+    {
+      ErrQry.get().SetVariable("lang", pass==0?AstraLocale::LANG_RU:AstraLocale::LANG_EN);
+      ErrQry.get().Execute();
+    };
+  }
+  catch( std::exception &e)
+  {
+      ProgError(STDLOG, e.what());
+      throw;
+  }
+  catch(...)
+  {
+      ProgError(STDLOG, "errorTypeB: Unknown error");
       throw;
   };
 };

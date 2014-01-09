@@ -1,6 +1,8 @@
 #include "ssm_parser.h"
 #include "misc.h"
 
+#ifdef ZZZ
+
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "DEN"
 #include "serverlib/test.h"
@@ -336,7 +338,7 @@ void TSSMFltInfo::parse(const char *val)
     GetSuffix(suffix[0]);
 }
 
-void TPeriodOfOper::parse(char *&ph, TTlgParser &tlg)
+void TPeriodOfOper::parse(const char *&ph, TTlgParser &tlg)
 {
     // Parse Existing period of Operation
     parse(true, tlg.lex);
@@ -429,7 +431,7 @@ void TDEIHolder::dump()
     if(not dei9.empty()) dei9.dump();
 }
 
-void TDEIHolder::parse(TTlgElement e, char *&ph, TTlgParser &tlg)
+void TDEIHolder::parse(TTlgElement e, const char *&ph, TTlgParser &tlg)
 {
     int last_id = NoExists;
     while(true) {
@@ -1938,3 +1940,5 @@ void TSSMHeadingInfo::dump()
 }
 
 }
+
+#endif

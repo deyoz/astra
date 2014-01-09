@@ -4,6 +4,8 @@
 #include "tlg_parser.h"
 #include <tr1/memory>
 
+#ifdef ZZZ
+
 namespace TypeB
 {
 
@@ -349,5 +351,6 @@ int lci(int argc,char **argv);
 
 }
 
+#endif
 
 #endif

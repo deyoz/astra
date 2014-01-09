@@ -3,6 +3,8 @@
 
 #include "tlg_parser.h"
 
+#ifdef ZZZ
+
 namespace TypeB
 {
 enum TTimeMode{tmLT, tmUTC, tmUnknown};
@@ -81,7 +83,7 @@ struct TPeriodOfOper {
         TSSMDate from, to;
         char oper_days[8]; // Day(s) of operation
         TFrequencyRate rate;
-        void parse(char *&ph, TTlgParser &tlg);
+        void parse(const char *&ph, TTlgParser &tlg);
         TPeriodOfOper():
             rate(frW)
     {
@@ -161,7 +163,7 @@ struct TDEIHolder {
     TDEI_6 dei6;                // Onward Flight
     TDEI_7 dei7;                // Meal Service Note
     TDEI_airline dei9;          // Code Sharing - Shared Airline Designation or
-    void parse(TTlgElement e, char *&ph, TTlgParser &tlg);
+    void parse(TTlgElement e, const char *&ph, TTlgParser &tlg);
     void dump();
     bool empty()
     {
@@ -392,5 +394,6 @@ TTlgPartInfo ParseSSMHeading(TTlgPartInfo heading, TSSMHeadingInfo &info);
 
 }
 
+#endif
 
 #endif

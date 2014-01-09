@@ -53,8 +53,10 @@ const
     {"-create_tlg",             create_tlg,             NULL,                       NULL},
     {"-dst_seasons",            seasons_dst_format,     NULL,                       NULL},
     {"-agent_stat_delta",       STAT::agent_stat_delta, NULL,                       NULL},
+#ifdef ZZZ
     {"-lci",                    TypeB::lci,             NULL,                       NULL},
     {"-ssm",                    TypeB::ssm,             NULL,                       NULL},
+#endif
     {"-get_sirena_rozysk_stat", get_sirena_rozysk_stat, NULL,                       NULL},
     {"-get_events_stat",        get_events_stat2,       NULL,                       NULL},
     {"-get_basel_aero_stat",    get_basel_aero_stat,    NULL,                       NULL},

@@ -616,7 +616,7 @@ void TelegramInterface::GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
          "       time_receive>=TRUNC(system.UTCSYSDATE)-2 \n"
          ") ids \n";
   };
-  sql+="WHERE tlgs_in.id=ids.id and curr_tlg(tlgs_in.id) <> 0 \n"
+  sql+="WHERE tlgs_in.id=ids.id \n"
        "ORDER BY id,num \n";
 
   xmlNodePtr tlgsNode = NewTextChild( resNode, "tlgs" );
@@ -884,8 +884,7 @@ void TelegramInterface::SaveInTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
   string text = NodeAsString("tlg_text",reqNode);
   int tlg_id = NodeAsInteger("tlg_id", reqNode);
   int num = NodeAsInteger("num", reqNode);
-  if(num != 0)
-      throw Exception("Can't save separate part");
+  if(num != 0) throw AstraLocale::UserException("MSG.TLG.CANT_SAVE_SEPARATE_PART");
   loadTlg(text, tlg_id);
 }
 
@@ -893,7 +892,7 @@ void TelegramInterface::LoadTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
 {
   string text = NodeAsString("tlg_text",reqNode);
   if (text.empty()) throw AstraLocale::UserException("MSG.TLG.EMPTY");
-  loadTlg(text);
+  loadTlg(text, NoExists);
   registerHookAfter(sendCmdTypeBHandler);
   AstraLocale::showMessage("MSG.TLG.LOADED");
 };
@@ -1011,7 +1010,7 @@ void TelegramInterface::SendTlg(int tlg_id)
     string old_addrs;
     map<string, vector<TTlgStatPoint> > recvs;
     TypeB::TTlgParser parser;
-    char *addrs,*line_p;
+    const char *addrs,*line_p;
 
     for(;!TlgQry.Eof;TlgQry.Next())
     {
@@ -1019,7 +1018,7 @@ void TelegramInterface::SendTlg(int tlg_id)
       if (tlg.addr!=old_addrs)
       {
         recvs.clear();
-        line_p=(char*)tlg.addr.c_str(); //приведение плохое, но что делать....
+        line_p=tlg.addr.c_str();
         try
         {
           do
@@ -1097,7 +1096,7 @@ void TelegramInterface::SendTlg(int tlg_id)
           if (OWN_CANON_NAME()==i->first)
           {
             /* сразу помещаем во входную очередь */
-            loadTlg(tlg_text);
+            loadTlg(tlg_text, NoExists);
             registerHookAfter(sendCmdTypeBHandler);
           }
           else
