@@ -115,7 +115,11 @@ void viewUneElement( _EDI_REAL_MES_STRUCT_* pMes, const UneElem& elem )
 
 void viewBgmElement( _EDI_REAL_MES_STRUCT_* pMes, const BgmElem& elem )
 {
-    SetEdiFullSegment( pMes, SegmElement( "BGM" ), elem.m_docCode );
+    std::ostringstream bgm;
+    bgm << elem.m_docCode;
+    if (!elem.m_docId.empty())
+      bgm << "+" << elem.m_docId;
+    SetEdiFullSegment( pMes, SegmElement( "BGM" ), bgm.str() );
 }
 
 void viewNadElement( _EDI_REAL_MES_STRUCT_* pMes, const NadElem& elem, int num )
@@ -125,6 +129,8 @@ void viewNadElement( _EDI_REAL_MES_STRUCT_* pMes, const NadElem& elem, int num )
     if (elem.m_funcCode!="MS")
     {
       nad << ":" << elem.m_partyName2;
+      if (!elem.m_partyName3.empty())
+        nad << ":" << elem.m_partyName3;
       if (!elem.m_street.empty() ||
           !elem.m_city.empty() ||
           !elem.m_countrySubEntityCode.empty() ||
