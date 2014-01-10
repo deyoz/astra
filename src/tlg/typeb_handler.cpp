@@ -222,19 +222,6 @@ void bindTypeB(int typeb_tlg_id, const TFlightsForBind &flts, bool has_errors)
   };
 };
 
-void SaveTypebInHistory(int prev_tlg_id, int tlg_id)
-{
-    if (prev_tlg_id==NoExists || tlg_id==NoExists) return;
-
-    const char* sql = "insert into typeb_in_history(prev_tlg_id, tlg_id) values(:prev_tlg_id, :tlg_id)";
-    QParams QryParams;
-    QryParams
-        << QParam("prev_tlg_id", otInteger, prev_tlg_id)
-        << QParam("tlg_id", otInteger, tlg_id);
-    TCachedQuery Qry(sql, QryParams);
-    Qry.get().Execute();
-}
-
 bool handle_tlg(void)
 {
   bool queue_not_empty=false;
@@ -357,7 +344,6 @@ bool handle_tlg(void)
         OraSession.Commit();
       
         string tlgs_text=getTlgText(tlg_id, TlgQry);
-        int prev_typeb_tlg_id=TlgQry.FieldIsNULL("prev_typeb_tlg_id")?NoExists:TlgQry.FieldAsInteger("prev_typeb_tlg_id");
         int typeb_tlg_id=NoExists;
         int typeb_tlg_num=1;
         ostringstream merge_key;
@@ -521,7 +507,6 @@ bool handle_tlg(void)
             if (typeb_tlg_id==NoExists) throw Exception("handle_tlg: strange situation");
             typeb_tlg_num=InsQry.get().GetVariableAsInteger("part_no");
             putTypeBBody(typeb_tlg_id, typeb_tlg_num, parts.body);
-            SaveTypebInHistory(prev_typeb_tlg_id, typeb_tlg_id);
 
             if (!errors.empty())
             {
