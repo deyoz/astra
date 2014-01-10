@@ -1449,8 +1449,7 @@ namespace PRL_SPACE {
             items.push_back("1CHD");
         TTlgSeatList seats;
         seats.add_seats(pax.pax_id, complayers);
-//!!!        string seat_list = seats.get_seat_list(info.is_lat() or info.pr_lat_seat);
-        string seat_list = seats.get_seat_list(false);
+        string seat_list = seats.get_seat_list(info.is_lat() or info.pr_lat_seat);
         if(!seat_list.empty())
             items.push_back("SEAT " + seat_list);
         internal_get(info, pax.pax_id, pax.subcls);
