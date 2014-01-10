@@ -4552,8 +4552,8 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &salons,
      			  //!logProgTrace( TRACE5, "CreateSalonsForAutoSeats: %s %s, pnr.empty=%d, isOwnerFreePlace=%d",
             //!log           ilayer->toString().c_str(), tmp_layer.toString().c_str(), pnr.empty(),
             //!log           AstraWeb::isOwnerFreePlace( tmp_layer.getPaxId(), pnr ) );
-     				if ( !(( tmp_layer.layer_type == cltPNLCkin ||
-                   isUserProtectLayer( tmp_layer.layer_type ) ) && AstraWeb::isOwnerFreePlace( tmp_layer.getPaxId(), pnr )) ) {
+     				if ( ( tmp_layer.layer_type == cltPNLCkin ||
+                   isUserProtectLayer( tmp_layer.layer_type ) ) && !AstraWeb::isOwnerFreePlace( tmp_layer.getPaxId(), pnr ) ) {
                 iseat->AddLayerToPlace( cltDisable, tmp_layer.time_create, tmp_layer.getPaxId(),
             	                          tmp_layer.point_dep, NoExists,
                                         BASIC_SALONS::TCompLayerTypes::Instance()->priority( cltDisable ) );
