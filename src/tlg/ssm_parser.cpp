@@ -806,7 +806,7 @@ int ssm(int argc,char **argv)
             strcpy(buf, (addr + Qry.FieldAsString("data")).c_str());
             TFlightsForBind bind_flts;
             TTlgPartsText parts;
-            GetParts(buf,parts,bind_flts,mem);
+            GetParts(buf,parts,HeadingInfo,bind_flts,mem); //Ден, а очистка HeadingInfo???
 
             TTlgPartInfo part;
             part.p=parts.heading.c_str();

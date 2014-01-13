@@ -94,7 +94,7 @@ int sendTlg(const char* receiver,
             const std::string &text,
             int typeb_tlg_id,
             int typeb_tlg_num);
-void loadTlg(const std::string &text, int prev_tlg_id);
+void loadTlg(const std::string &text, int prev_typeb_tlg_id);
 bool procTlg(int tlg_id);
 
 #define MAX_CMD_LEN 50000

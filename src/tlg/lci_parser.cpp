@@ -1234,7 +1234,7 @@ int lci(int argc, char **argv)
     TFlightsForBind bind_flts;
     TTlgPartsText parts;
     try {
-        GetParts(buffer,parts,bind_flts,mem);
+        GetParts(buffer,parts,HeadingInfo,bind_flts,mem);
 
         TTlgPartInfo part;
         part.p=parts.heading.c_str();

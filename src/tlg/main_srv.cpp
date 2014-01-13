@@ -213,7 +213,7 @@ void process_tlg(void)
         {
           TQuery TlgQry(&OraSession);
           TlgQry.SQLText=
-            "SELECT id, tlg_text FROM tlgs WHERE sender= :sender AND tlg_num= :tlg_num";
+            "SELECT id, tlg_text FROM tlgs WHERE tlg_num= :tlg_num AND sender= :sender ";
           TlgQry.CreateVariable("sender",otString,tlg_in.Sender);
           TlgQry.CreateVariable("tlg_num",otInteger,(int)tlg_in.num);
           TlgQry.Execute();
@@ -336,7 +336,7 @@ void process_tlg(void)
           TlgUpdQry.Execute();
           TlgUpdQry.SQLText=
             "UPDATE tlgs SET error= :error "
-            "WHERE sender= :sender AND tlg_num= :tlg_num AND "
+            "WHERE tlg_num= :tlg_num AND sender= :sender AND "
             "      type IN ('OUTA','OUTB')";
           TlgUpdQry.CreateVariable("error",otString,"GATE");
           TlgUpdQry.Execute();
@@ -426,7 +426,6 @@ void process_tlg(void)
     try
     {
       ProgError(STDLOG,"Exception: %s",E.what());
-      //sendErrorTlg("Exception: %s",E.what());
       OraSession.Commit();
     }
     catch(...) {};

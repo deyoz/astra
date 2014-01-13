@@ -302,7 +302,7 @@ int sendTlg(const char* receiver,
     };
 }
 
-void loadTlg(const std::string &text, int prev_tlg_id)
+void loadTlg(const std::string &text, int prev_typeb_tlg_id)
 {
     try
     {
@@ -326,14 +326,10 @@ void loadTlg(const std::string &text, int prev_tlg_id)
         int tlg_id=Qry.GetVariableAsInteger("tlg_num");
 
         Qry.SQLText=
-          "INSERT INTO tlgs(id,sender,tlg_num,receiver,type,time,error,typeb_tlg_id,typeb_tlg_num,prev_typeb_tlg_id) "
-          "VALUES(:tlg_num,:sender,:tlg_num,:receiver,:type,:time,NULL,NULL,NULL,:prev_typeb_tlg_id)";
+          "INSERT INTO tlgs(id,sender,tlg_num,receiver,type,time,error,typeb_tlg_id,typeb_tlg_num) "
+          "VALUES(:tlg_num,:sender,:tlg_num,:receiver,:type,:time,NULL,NULL,NULL)";
         Qry.DeleteVariable("ttl");
         Qry.DeleteVariable("time_msec");
-        if(prev_tlg_id == ASTRA::NoExists)
-            Qry.CreateVariable("prev_typeb_tlg_id", otInteger, FNull);
-        else
-            Qry.CreateVariable("prev_typeb_tlg_id", otInteger, prev_tlg_id);
         Qry.Execute();
 
         putTlgText(tlg_id, text);
@@ -342,6 +338,18 @@ void loadTlg(const std::string &text, int prev_tlg_id)
                          Qry.GetVariableAsString("sender"),
                          tlg_id,
                          nowUTC);
+
+        if (prev_typeb_tlg_id != ASTRA::NoExists)
+        {
+          Qry.Clear();
+          Qry.SQLText=
+            "INSERT INTO typeb_in_history(prev_tlg_id, tlg_id, id) "
+            "VALUES(:prev_tlg_id, NULL, :id)";
+          Qry.CreateVariable("prev_tlg_id", otInteger, prev_typeb_tlg_id);
+          Qry.CreateVariable("id", otInteger, tlg_id);
+          Qry.Execute();
+        };
+
         Qry.Close();
     }
     catch( std::exception &e)

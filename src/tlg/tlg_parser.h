@@ -839,7 +839,7 @@ char GetSuffix(char &suffix);
 char* GetAirline(char* airline, bool with_icao=true);
 const char* GetTlgElementName(TTlgElement e);
 TTlgCategory GetTlgCategory(char *tlg_type);
-void GetParts(const char* tlg_p, TTlgPartsText &text, TFlightsForBind &flts, TMemoryManager &mem);
+void GetParts(const char* tlg_p, TTlgPartsText &text, THeadingInfo* &info, TFlightsForBind &flts, TMemoryManager &mem);
 TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo* &info, TFlightsForBind &flts, TMemoryManager &mem);
 void ParseEnding(TTlgPartInfo ending, THeadingInfo *headingInfo, TEndingInfo* &info, TMemoryManager &mem);
 void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLContent& con);

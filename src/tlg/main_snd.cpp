@@ -304,7 +304,6 @@ bool scan_tlg(bool sendOutAStepByStep)
               (orae->Code==4061||orae->Code==4068)) continue;
           ProgError(STDLOG,"Exception: %s (tlgs.id=%d)",E.what(),tlg_id);
           errorTlg(tlg_id,"SEND",E.what());
-          //sendErrorTlg("Exception: %s (tlgs.id=%d)",E.what(),tlg_id);
         }
         catch(...) {};
       };

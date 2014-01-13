@@ -170,17 +170,19 @@ int main_typeb_parser_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
 void progError(int tlg_id,
                int part_no,
                int &error_no,
-               const std::exception &E)
+               const std::exception &E,
+               const string &tlg_type,
+               const TFlightsForBind &flts)
 {
   const ETlgError *tlge=dynamic_cast<const ETlgError*>(&E);
   bool only_trace=(tlge!=NULL && strcmp(E.what(),"Time limit reached")==0);
 
   if (part_no!=NoExists)
-    only_trace?ProgTrace(TRACE0, "Telegram (id=%d, part_no=%d): %s", tlg_id, part_no, E.what()):
-               ProgError(STDLOG, "Telegram (id=%d, part_no=%d): %s", tlg_id, part_no, E.what());
+    only_trace?ProgTrace(TRACE0, "Telegram (id=%d, part_no=%d, type=%s): %s", tlg_id, part_no, tlg_type.c_str(), E.what()):
+               ProgError(STDLOG, "Telegram (id=%d, part_no=%d, type=%s): %s", tlg_id, part_no, tlg_type.c_str(), E.what());
   else
-    only_trace?ProgTrace(TRACE0, "Telegram (id=%d): %s", tlg_id, E.what()):
-               ProgError(STDLOG, "Telegram (id=%d): %s", tlg_id, E.what());
+    only_trace?ProgTrace(TRACE0, "Telegram (id=%d, type=%s): %s", tlg_id, tlg_type.c_str(), E.what()):
+               ProgError(STDLOG, "Telegram (id=%d, type=%s): %s", tlg_id, tlg_type.c_str(), E.what());
 
   const EOracleError *orae=dynamic_cast<const EOracleError*>(&E);
   if (orae!=NULL)
@@ -200,12 +202,27 @@ void progError(int tlg_id,
         only_trace?ProgTrace(TRACE0, "Line: %s", tlge->error_text().c_str()):
                    ProgError(STDLOG, "Line: %s", tlge->error_text().c_str());
     };
-    errorTypeB(tlg_id, part_no, error_no, tlge->error_pos(), tlge->error_len(), E.what());
-  }
-  else
-  {
-    errorTypeB(tlg_id, part_no, error_no, NoExists, NoExists, E.what());
   };
+
+  for(TFlightsForBind::const_iterator f=flts.begin(); f!=flts.end(); ++f)
+  {
+    ostringstream flight;
+    flight << f->first.airline
+           << setw(3) << setfill('0') << f->first.flt_no << f->first.suffix
+           << "/" << DateTimeToStr(f->first.scd, "ddmmm")
+           << " " << f->first.airp_dep << f->first.airp_arv;
+    if (f==flts.begin())
+      only_trace?ProgTrace(TRACE0, "Flights: %s", flight.str().c_str()):
+                 ProgError(STDLOG, "Flights: %s", flight.str().c_str());
+    else
+      only_trace?ProgTrace(TRACE0, "         %s", flight.str().c_str()):
+                 ProgError(STDLOG, "         %s", flight.str().c_str());
+  };
+
+  if (tlge!=NULL)
+    errorTypeB(tlg_id, part_no, error_no, tlge->error_pos(), tlge->error_len(), E.what());
+  else
+    errorTypeB(tlg_id, part_no, error_no, NoExists, NoExists, E.what());
 };
 
 void bindTypeB(int typeb_tlg_id, const TFlightsForBind &flts, bool has_errors)
@@ -236,7 +253,7 @@ bool handle_tlg(void)
     //внимание порядок объединения таблиц важен!
     TlgQry.Clear();
     TlgQry.SQLText=
-      "SELECT tlg_queue.id,tlgs.tlg_text,tlgs.prev_typeb_tlg_id,tlg_queue.time,ttl, "
+      "SELECT tlg_queue.id,tlgs.tlg_text,tlg_queue.time,ttl, "
       "       tlg_queue.tlg_num,tlg_queue.sender, "
       "       NVL(tlg_queue.proc_attempt,0) AS proc_attempt "
       "FROM tlgs,tlg_queue "
@@ -293,6 +310,7 @@ bool handle_tlg(void)
     "    merge_key,time_create,time_receive,time_parse,time_receive_not_parse) "
     "  VALUES(:id,:part_no,:tlg_type,:addr,:heading,:ending,:is_final_part, "
     "    :merge_key,:time_create,vnow,vtime_parse,vtime_receive_not_parse); "
+    "  UPDATE typeb_in_history SET tlg_id=:id WHERE id=:tlgs_id; "
     "  UPDATE tlgs SET typeb_tlg_id=:id, typeb_tlg_num=:part_no WHERE id=:tlgs_id; "
     "END;";
   QParams QryParams;
@@ -326,6 +344,21 @@ bool handle_tlg(void)
       //проверим TTL
       int tlg_id=TlgQry.FieldAsInteger("id");
       int error_no=NoExists;
+
+      TFlightsForBind bind_flts;
+      if (HeadingInfo!=NULL)
+      {
+        mem.destroy(HeadingInfo, STDLOG);
+        delete HeadingInfo;
+        HeadingInfo = NULL;
+      };
+      if (EndingInfo!=NULL)
+      {
+        mem.destroy(EndingInfo, STDLOG);
+        delete EndingInfo;
+        EndingInfo = NULL;
+      };
+
       if (!TlgQry.FieldIsNULL("ttl")&&
            (NowUTC()-TlgQry.FieldAsDateTime("time"))*BASIC::SecsPerDay>=TlgQry.FieldAsInteger("ttl"))
       {
@@ -348,11 +381,11 @@ bool handle_tlg(void)
         int typeb_tlg_num=1;
         ostringstream merge_key;
 
-        TFlightsForBind bind_flts;
         list<ETlgError> errors;
+
         try
         {
-          GetParts(tlgs_text.c_str(), parts, bind_flts, mem);
+          GetParts(tlgs_text.c_str(), parts, HeadingInfo, bind_flts, mem);
           if (parts.addr.size()>255) throw ETlgError("Address too long");
           if (parts.heading.size()>100) throw ETlgError("Header too long");
           if (parts.ending.size()>20) throw ETlgError("End of message too long");
@@ -511,7 +544,7 @@ bool handle_tlg(void)
             if (!errors.empty())
             {
               for(list<ETlgError>::const_iterator e=errors.begin(); e!=errors.end(); ++e)
-                progError(typeb_tlg_id, typeb_tlg_num, error_no, *e);
+                progError(typeb_tlg_id, typeb_tlg_num, error_no, *e, "", bind_flts);  //хорошо бы доделать, чтобы передавался tlg_type
               errorTlg(tlg_id,"PARS");
               parseTypeB(typeb_tlg_id);
               bindTypeB(typeb_tlg_id, bind_flts, true);
@@ -527,7 +560,7 @@ bool handle_tlg(void)
           EOracleError *orae=dynamic_cast<EOracleError*>(&E);
       	  if (orae!=NULL&&
       	      (orae->Code==4061||orae->Code==4068)) continue;
-          progError(tlg_id, NoExists, error_no, E);
+          progError(tlg_id, NoExists, error_no, E, "", bind_flts);  //хорошо бы доделать, чтобы передавался tlg_type
           errorTlg(tlg_id,"PARS",E.what());
         }
         catch(...) {};
@@ -597,7 +630,7 @@ bool parse_tlg(void)
   {
     TlgInQry.Clear();
     TlgInQry.SQLText=
-      "SELECT id,num,addr,heading,body,ending "
+      "SELECT id,num,type,addr,heading,body,ending "
       "FROM tlgs_in "
       "WHERE id=:id "
       "ORDER BY num DESC FOR UPDATE";
@@ -629,6 +662,7 @@ bool parse_tlg(void)
       TlgInQry.Execute();
       if (TlgInQry.Eof) continue;
       int tlg_num=TlgInQry.FieldAsInteger("num");
+      string tlg_type=TlgInQry.FieldAsString("type");
       TTlgPartsText parts;
       parts.addr=TlgInQry.FieldAsString("addr");
       parts.heading=TlgInQry.FieldAsString("heading");
@@ -656,7 +690,7 @@ bool parse_tlg(void)
         EOracleError *orae=dynamic_cast<EOracleError*>(&E);
       	if (orae!=NULL&&
       	    (orae->Code==4061||orae->Code==4068)) continue;
-        progError(tlg_id, tlg_num, error_no, E);
+        progError(tlg_id, tlg_num, error_no, E, tlg_type, bind_flts);
         parseTypeB(tlg_id);
         bindTypeB(tlg_id, bind_flts, true);
         OraSession.Commit();
@@ -849,7 +883,7 @@ bool parse_tlg(void)
         	EOracleError *orae=dynamic_cast<EOracleError*>(&E);
         	if (orae!=NULL&&
         	    (orae->Code==4061||orae->Code==4068)) continue;
-          progError(tlg_id, NoExists, error_no, E);
+          progError(tlg_id, NoExists, error_no, E, tlg_type, bind_flts);
           parseTypeB(tlg_id);
           bindTypeB(tlg_id, bind_flts, true);
           OraSession.Commit();

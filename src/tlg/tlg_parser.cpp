@@ -5029,23 +5029,29 @@ bool ParseFQTRem(TTlgParser &tlg,string &rem_text,TFQTItem &fqt)
   return false;
 };
 
-void GetParts(const char* tlg_p, TTlgPartsText &text, TFlightsForBind &flts, TMemoryManager &mem)
+void GetParts(const char* tlg_p, TTlgPartsText &text, THeadingInfo* &info, TFlightsForBind &flts, TMemoryManager &mem)
 {
   text.clear();
+  if (info!=NULL)
+  {
+    mem.destroy(info, STDLOG);
+    delete info;
+    info = NULL;
+  };
   flts.clear();
 
   const char *p,*line_p;
   TTlgParser tlg;
-  THeadingInfo *HeadingInfo=NULL;
   TTlgParts parts;
   TTlgElement e;
 
   parts.addr.p=tlg_p;
   parts.addr.EOL_count=0;
   parts.addr.offset=0;
+
+  line_p=parts.addr.p;
   try
   {
-    line_p=parts.addr.p;
     e=Address;
     do
     {
@@ -5060,12 +5066,12 @@ void GetParts(const char* tlg_p, TTlgPartsText &text, TFlightsForBind &flts, TMe
           }
           else break;
         case CommunicationsReference:
-          parts.body=ParseHeading(parts.heading,HeadingInfo,flts,mem);  //может вернуть NULL
+          parts.body=ParseHeading(parts.heading,info,flts,mem);  //может вернуть NULL
           line_p=parts.body.p;
           e=EndOfMessage;
           if ((p=tlg.GetLexeme(line_p))==NULL) break;
         case EndOfMessage:
-          switch (HeadingInfo->tlg_cat)
+          switch (info->tlg_cat)
           {
             case tcDCS:
             case tcBSM:
@@ -5089,34 +5095,32 @@ void GetParts(const char* tlg_p, TTlgPartsText &text, TFlightsForBind &flts, TMe
       };
     }
     while ((line_p=tlg.NextLine(line_p))!=NULL);
-
-    if (parts.addr.p==NULL) throw ETlgError("Address not found");
-    if (parts.heading.p==NULL) throw ETlgError("Heading not found");
-    if (parts.body.p==NULL) throw ETlgError("Body not found");
-    if (parts.ending.p==NULL&&
-        (HeadingInfo->tlg_cat==tcDCS||
-         HeadingInfo->tlg_cat==tcBSM)) throw ETlgError("End of message not found");
-
-    text.addr.assign(parts.addr.p, parts.heading.p-parts.addr.p);
-    text.heading.assign(parts.heading.p, parts.body.p-parts.heading.p);
-    if (parts.ending.p!=NULL)
-    {
-      text.body.assign(parts.body.p, parts.ending.p-parts.body.p);
-      text.ending.assign(parts.ending.p);
-    }
-    else
-    {
-      text.body.assign(parts.body.p);
-    };
-
-    mem.destroy(HeadingInfo, STDLOG);
-    if (HeadingInfo!=NULL) delete HeadingInfo;
   }
-  catch(...)
+  catch(ETlgError E)
   {
-    mem.destroy(HeadingInfo, STDLOG);
-    if (HeadingInfo!=NULL) delete HeadingInfo;
-    throw;
+    if (E.error_line()==NoExists)
+      throwTlgError(E.what(), parts.addr, line_p);
+    else
+      throw;
+  };
+
+  if (parts.addr.p==NULL) throw ETlgError("Address not found");
+  if (parts.heading.p==NULL) throw ETlgError("Heading not found");
+  if (parts.body.p==NULL) throw ETlgError("Body not found");
+  if (parts.ending.p==NULL&&
+      (info->tlg_cat==tcDCS||
+       info->tlg_cat==tcBSM)) throw ETlgError("End of message not found");
+
+  text.addr.assign(parts.addr.p, parts.heading.p-parts.addr.p);
+  text.heading.assign(parts.heading.p, parts.body.p-parts.heading.p);
+  if (parts.ending.p!=NULL)
+  {
+    text.body.assign(parts.body.p, parts.ending.p-parts.body.p);
+    text.ending.assign(parts.ending.p);
+  }
+  else
+  {
+    text.body.assign(parts.body.p);
   };
 };
 
@@ -5192,6 +5196,7 @@ int SaveFlt(int tlg_id, const TFltInfo& flt, TBindType bind_type, bool has_error
   {
     if (E.Code!=1) throw;
   };
+  check_tlg_in_alarm(point_id, NoExists);
   return point_id;
 };
 
