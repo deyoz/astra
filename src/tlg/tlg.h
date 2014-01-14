@@ -1,6 +1,7 @@
 #ifndef _TLG_H_
 #define _TLG_H_
 
+#include "oralib.h"
 #include "serverlib/query_runner.h"
 
 /* константы задающие максимальные значения для телеграмм */
@@ -69,16 +70,32 @@ const int HANDLER_PROC_ATTEMPTS();
 
 enum TTlgQueuePriority { qpOutA=1, qpOutAStepByStep=3, qpOutB=2 };
 
+void putTypeBBody(int tlg_id, int tlg_num, const std::string &tlg_body);
+std::string getTypeBBody(int tlg_id, int tlg_num,
+                         TQuery &Qry); //!!! потом Qry убрать
+
+void putTlgText(int tlg_id, const std::string &tlg_text);
+std::string getTlgText(int tlg_id,
+                       TQuery &Qry); //!!! потом Qry убрать
+
 bool deleteTlg(int tlg_id);
-bool errorTlg(int tlg_id, std::string type, std::string msg="");
+bool errorTlg(int tlg_id, const std::string &type, const std::string &msg="");
+void parseTypeB(int tlg_id);
+void errorTypeB(int tlg_id,
+                int part_no,
+                int &error_no,
+                int error_pos,
+                int error_len,
+                const std::string &text);
 int sendTlg(const char* receiver,
             const char* sender,
             TTlgQueuePriority queuePriority,
             int ttl,
-            const std::string &text);
-void loadTlg(const std::string &text);
+            const std::string &text,
+            int typeb_tlg_id,
+            int typeb_tlg_num);
+void loadTlg(const std::string &text, int prev_typeb_tlg_id);
 bool procTlg(int tlg_id);
-//void sendErrorTlg(const char *format, ...);
 
 #define MAX_CMD_LEN 50000
 void sendCmd(const char* receiver, const char* cmd);

@@ -2886,7 +2886,7 @@ bool CheckInInterface::ParseFQTRem(TypeB::TTlgParser &tlg, string &rem_text, Che
   char c;
   int res,k;
 
-  char *p=(char*)rem_text.c_str();
+  const char *p=rem_text.c_str();
 
   TypeB::TFQTItem fqth;
 

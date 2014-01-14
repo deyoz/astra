@@ -17,20 +17,45 @@ namespace TypeB
 
 class ETlgError:public EXCEPTIONS::Exception
 {
+  private:
+    int pos, len, line;
+    std::string text;
   public:
-    ETlgError(const char *format, ...):EXCEPTIONS::Exception("")
+    ETlgError(const char *format, ...):EXCEPTIONS::Exception(""),
+                                       pos(ASTRA::NoExists),
+                                       len(ASTRA::NoExists),
+                                       line(ASTRA::NoExists)
     {
       va_list ap;
       va_start(ap, format);
       vsnprintf(Message, sizeof(Message), format, ap);
       Message[sizeof(Message)-1]=0;
       va_end(ap);
-    };
+    }
 
-    ETlgError(std::string msg):EXCEPTIONS::Exception(msg) {};
+    ETlgError(const std::string &msg) :EXCEPTIONS::Exception(msg),
+                                       pos(ASTRA::NoExists),
+                                       len(ASTRA::NoExists),
+                                       line(ASTRA::NoExists)
+    {}
+
+    ETlgError(int p, int l, const std::string &t, int ln,
+              const std::string &msg) :EXCEPTIONS::Exception(msg),
+                                       pos(p),
+                                       len(l),
+                                       line(ln),
+                                       text(t)
+    {}
+
+    ~ETlgError() throw(){}
+
+    int error_pos() const { return pos; }
+    int error_len() const { return len; }
+    int error_line() const { return line; }
+    std::string error_text() const { return text; }
 };
 
-enum TTlgCategory{tcUnknown,tcDCS,tcBSM,tcAHM,tcSSM,tcASM};
+enum TTlgCategory{tcUnknown,tcDCS,tcBSM,tcAHM,tcSSM,tcASM,tcLCI};
 
 enum TTlgElement
               {//общие
@@ -76,6 +101,9 @@ enum TTlgElement
                Reject,
                RejectBody,
                RepeatOfRejected,
+               //LCI
+               ActionCode,
+               LCIData,
                //общие
                EndOfMessage};
 
@@ -88,12 +116,13 @@ enum TElemPresence{epMandatory,epOptional,epNone};
 class TTlgPartInfo
 {
   public:
-    char *p;
-    int line;
+    const char *p;
+    int EOL_count, offset;
     TTlgPartInfo()
     {
       p=NULL;
-      line=0;
+      EOL_count=0;
+      offset=0;
     };
 };
 
@@ -101,6 +130,20 @@ struct TTlgParts
 {
   TTlgPartInfo addr,heading,body,ending;
 };
+
+struct TTlgPartsText
+{
+  std::string addr,heading,body,ending;
+  void clear()
+  {
+    addr.clear();
+    heading.clear();
+    body.clear();
+    ending.clear();
+  };
+};
+
+typedef std::list< std::pair<TFltInfo, TBindType> > TFlightsForBind;
 
 class THeadingInfo
 {
@@ -138,6 +181,7 @@ class TDCSHeadingInfo : public THeadingInfo
     TFltInfo flt;
     long part_no;
     long association_number;
+
     TDCSHeadingInfo() : THeadingInfo()
     {
       part_no=0;
@@ -777,28 +821,30 @@ class TTlgParser
 {
   public:
     char lex[MAX_LEXEME_SIZE+1];
-    char* NextLine(char* p);
-    char* GetLexeme(char* p);
-    char* GetSlashedLexeme(char* p);
-    char* GetToEOLLexeme(char* p);
-    char* GetWord(char* p);
-    char* GetNameElement(char* p, bool trimRight);
+    const char* NextLine(const char* p);
+    const char* GetLexeme(const char* p);
+    const char* GetSlashedLexeme(const char* p);
+    const char* GetToEOLLexeme(const char* p);
+    const char* GetWord(const char* p);
+    const char* GetNameElement(const char* p, bool trimRight);
 };
 
 extern char lexh[];
 extern const TMonthCode Months[];
 
+int CalcEOLCount(const char* p);
 char* TlgElemToElemId(TElemType type, const char* elem, char* id, bool with_icao=false);
+ASTRA::TClass GetClass(const char* subcl);
 char GetSuffix(char &suffix);
 char* GetAirline(char* airline, bool with_icao=true);
-char* GetTlgElementName(TTlgElement e);
+const char* GetTlgElementName(TTlgElement e);
 TTlgCategory GetTlgCategory(char *tlg_type);
-TTlgParts GetParts(char* tlg_p, TMemoryManager &mem);
-TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo* &info, TMemoryManager &mem);
+void GetParts(const char* tlg_p, TTlgPartsText &text, THeadingInfo* &info, TFlightsForBind &flts, TMemoryManager &mem);
+TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo* &info, TFlightsForBind &flts, TMemoryManager &mem);
 void ParseEnding(TTlgPartInfo ending, THeadingInfo *headingInfo, TEndingInfo* &info, TMemoryManager &mem);
 void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLContent& con);
 void ParsePTMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPtmContent& con);
-void ParseBTMContent(TTlgPartInfo body, TBSMHeadingInfo& info, TBtmContent& con, TMemoryManager &mem);
+void ParseBTMContent(TTlgPartInfo body, const TBSMHeadingInfo& info, TBtmContent& con, TMemoryManager &mem);
 void ParseSOMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TSOMContent& con);
 
 bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& con, bool forcibly);
@@ -807,11 +853,26 @@ void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, const TBtmContent& con);
 void SaveSOMContent(int tlg_id, TDCSHeadingInfo& info, TSOMContent& con);
 
 void ParseAHMFltInfo(TTlgPartInfo body, const TAHMHeadingInfo &info, TFltInfo& flt, TBindType &bind_type);
-int SaveFlt(int tlg_id, const TFltInfo& flt, TBindType bind_type);
+int SaveFlt(int tlg_id, const TFltInfo& flt, TBindType bind_type, bool has_errors=false);
 
 void ParseSeatRange(std::string str, std::vector<TSeatRange> &ranges, bool usePriorContext);
 
 void TestBSMElemOrder(const std::string &s);
+
+void NormalizeFltInfo(TFltInfo &flt);
+
+struct TFlightIdentifier {
+    std::string airline;
+    int flt_no;
+    char suffix;
+    BASIC::TDateTime date;
+    void parse(const char *val);
+    void dump();
+    TFlightIdentifier(): flt_no(ASTRA::NoExists), suffix(0), date(ASTRA::NoExists) {};
+};
+
+TTlgPartInfo nextPart(const TTlgPartInfo &curr, const char* line_p);
+void throwTlgError(const char* msg, const TTlgPartInfo &curr, const char* line_p);
 
 } //namespace TypeB
 

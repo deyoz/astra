@@ -115,9 +115,8 @@ void process_tlg(void)
   memset(&to_addr,0,sizeof(to_addr));
   memset(&from_addr,0,sizeof(from_addr));
   AIRSRV_MSG tlg_in,tlg_out;
-  int len,tlg_len,tlg_len2,from_addr_len,tlg_header_len=sizeof(tlg_in)-sizeof(tlg_in.body);
+  int len,tlg_len,from_addr_len,tlg_header_len=sizeof(tlg_in)-sizeof(tlg_in.body);
   from_addr_len=sizeof(from_addr);
-  char buf[sizeof(tlg_in.body)];
   char *tlg_body;
 
   H2H_MSG h2hinf;
@@ -214,19 +213,19 @@ void process_tlg(void)
         {
           TQuery TlgQry(&OraSession);
           TlgQry.SQLText=
-            "SELECT id,tlg_text FROM tlgs WHERE sender= :sender AND tlg_num= :tlg_num";
+            "SELECT id, tlg_text FROM tlgs WHERE tlg_num= :tlg_num AND sender= :sender ";
           TlgQry.CreateVariable("sender",otString,tlg_in.Sender);
           TlgQry.CreateVariable("tlg_num",otInteger,(int)tlg_in.num);
           TlgQry.Execute();
           for(;!TlgQry.Eof;TlgQry.Next())
           {
-            tlg_len2=TlgQry.GetSizeLongField("tlg_text");
-            if (tlg_len2==tlg_len)
+            string text=getTlgText(TlgQry.FieldAsInteger("id"), TlgQry);
+            if ((int)text.size()==tlg_len)
             {
-              TlgQry.FieldAsLong("tlg_text",buf);
-              if (memcmp(tlg_body,buf,tlg_len2)==0) break;
+              if (memcmp(tlg_body,text.c_str(),tlg_len)==0) break;
             };
           };
+
           if (TlgQry.Eof) //не нашли - значит вставляем новую
           {
             BASIC::TDateTime nowUTC=BASIC::NowUTC();
@@ -244,11 +243,11 @@ void process_tlg(void)
             TlgInsQry.CreateVariable("time",otDate,nowUTC);
             // tlgs
             TlgInsQry.SQLText=
-              "INSERT INTO tlgs(id,sender,tlg_num,receiver,type,error,time,tlg_text) "
-              "VALUES(tlgs_id.nextval,:sender,:tlg_num,:receiver,:type,NULL,:time,:tlg_text)";
-            TlgInsQry.DeclareVariable("tlg_text",otLong);
-            TlgInsQry.SetLongVariable("tlg_text",tlg_body,tlg_len);
+              "INSERT INTO tlgs(id,sender,tlg_num,receiver,type,error,time,typeb_tlg_id,typeb_tlg_num) "
+              "VALUES(tlgs_id.nextval,:sender,:tlg_num,:receiver,:type,NULL,:time,NULL,NULL)";
             TlgInsQry.Execute();
+            putTlgText(NoExists, string(tlg_body,tlg_len));
+
             // tlg_queue
             TlgInsQry.SQLText=
               "INSERT INTO tlg_queue(id,sender,tlg_num,receiver,type,priority,status,time,ttl,time_msec,last_send) "
@@ -258,7 +257,6 @@ void process_tlg(void)
             else
               TlgInsQry.CreateVariable("ttl",otInteger,FNull);
             TlgInsQry.CreateVariable("time_msec",otFloat,nowUTC);
-            TlgInsQry.DeleteVariable("tlg_text");
             TlgInsQry.Execute();
             if (is_h2h)
             {
@@ -338,7 +336,7 @@ void process_tlg(void)
           TlgUpdQry.Execute();
           TlgUpdQry.SQLText=
             "UPDATE tlgs SET error= :error "
-            "WHERE sender= :sender AND tlg_num= :tlg_num AND "
+            "WHERE tlg_num= :tlg_num AND sender= :sender AND "
             "      type IN ('OUTA','OUTB')";
           TlgUpdQry.CreateVariable("error",otString,"GATE");
           TlgUpdQry.Execute();
@@ -428,7 +426,6 @@ void process_tlg(void)
     try
     {
       ProgError(STDLOG,"Exception: %s",E.what());
-      //sendErrorTlg("Exception: %s",E.what());
       OraSession.Commit();
     }
     catch(...) {};

@@ -1185,6 +1185,14 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
             rem = TripAlarmString( alarm ) + SALONS2::getDiffCompsAlarmRoutes( point_id );
           }
           break;
+        case atTlgIn:
+          if (reqInfo->screen.name == "TLG.EXE")
+          	rem = TripAlarmString( alarm );
+          break;
+        case atTlgOut:
+          if (reqInfo->screen.name == "TLG.EXE")
+          	rem = TripAlarmString( alarm );
+          break;
       	default:
           break;
       }

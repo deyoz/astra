@@ -345,6 +345,7 @@ void TFilterLayer_SOM_PRL::IntRead( int point_id, bool pr_tranzit_salons, const 
     "     ) points "
     "WHERE tlg_binding.point_id_spp=points.point_id AND "
     "      tlg_source.point_id_tlg=tlg_binding.point_id_tlg AND "
+    "      NVL(tlg_source.has_errors,0)=0 AND "
     "      tlgs_in.id=tlg_source.tlg_id AND tlgs_in.num=1 AND tlgs_in.type IN ('PRL','SOM') "
     "ORDER BY point_num DESC,DECODE(tlgs_in.type,'PRL',1,0)";
   Qry.CreateVariable( "first_point", otInteger, first_point );

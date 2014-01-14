@@ -159,11 +159,11 @@ string GetRemarkStr(const TRemGrp &rem_grp, int pax_id, const string &term)
 
     QParams QryParams;
     QryParams << QParam("pax_id", otInteger, pax_id);
-    TQuery &Qry = TQrys::Instance()->get(sql, QryParams);
-    Qry.Execute();
+    TCachedQuery Qry(sql, QryParams);
+    Qry.get().Execute();
     vector<CheckIn::TPaxRemItem> rems;
-    for(;!Qry.Eof;Qry.Next())
-      rems.push_back(CheckIn::TPaxRemItem().fromDB(Qry));
+    for(;!Qry.get().Eof;Qry.get().Next())
+      rems.push_back(CheckIn::TPaxRemItem().fromDB(Qry.get()));
     sort(rems.begin(), rems.end());
     return GetRemarkStr(rem_grp, rems, term);
 };
@@ -266,12 +266,12 @@ bool LoadPaxRem(int pax_id, bool withFQTcat, vector<TPaxRemItem> &rems)
 
   QParams QryParams;
   QryParams << QParam("pax_id", otInteger, pax_id);
-  TQuery &PaxRemQry = TQrys::Instance()->get(sql, QryParams);
-  PaxRemQry.Execute();
-  for(;!PaxRemQry.Eof;PaxRemQry.Next())
+  TCachedQuery PaxRemQry(sql, QryParams);
+  PaxRemQry.get().Execute();
+  for(;!PaxRemQry.get().Eof;PaxRemQry.get().Next())
   {
     TPaxRemItem rem;
-    rem.fromDB(PaxRemQry);
+    rem.fromDB(PaxRemQry.get());
     TRemCategory cat=getRemCategory(rem.code, rem.text);
     if (cat==remUnknown || (cat==remFQT && withFQTcat))
       rems.push_back(rem);
@@ -287,10 +287,10 @@ bool LoadCrsPaxRem(int pax_id, vector<TPaxRemItem> &rems)
 
   QParams QryParams;
   QryParams << QParam("pax_id", otInteger, pax_id);
-  TQuery &PaxRemQry = TQrys::Instance()->get(sql, QryParams);
-  PaxRemQry.Execute();
-  for(;!PaxRemQry.Eof;PaxRemQry.Next())
-    rems.push_back(TPaxRemItem().fromDB(PaxRemQry));
+  TCachedQuery PaxRemQry(sql, QryParams);
+  PaxRemQry.get().Execute();
+  for(;!PaxRemQry.get().Eof;PaxRemQry.get().Next())
+    rems.push_back(TPaxRemItem().fromDB(PaxRemQry.get()));
   return !rems.empty();
 };
 
@@ -302,10 +302,10 @@ bool LoadPaxFQT(int pax_id, vector<TPaxFQTItem> &fqts)
 
   QParams QryParams;
   QryParams << QParam("pax_id", otInteger, pax_id);
-  TQuery &PaxFQTQry = TQrys::Instance()->get(sql, QryParams);
-  PaxFQTQry.Execute();
-  for(;!PaxFQTQry.Eof;PaxFQTQry.Next())
-    fqts.push_back(TPaxFQTItem().fromDB(PaxFQTQry));
+  TCachedQuery PaxFQTQry(sql, QryParams);
+  PaxFQTQry.get().Execute();
+  for(;!PaxFQTQry.get().Eof;PaxFQTQry.get().Next())
+    fqts.push_back(TPaxFQTItem().fromDB(PaxFQTQry.get()));
   return !fqts.empty();
 };
 
