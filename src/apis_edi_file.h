@@ -247,8 +247,9 @@ class PassengerInfo
     // all passenger's personal data, or omit some of them
     /* maxlen = 35 */
     /* required = C */
-    std::string m_name;
     std::string m_surname;
+    std::string m_first_name;
+    std::string m_second_name;
 
     // Passenger's Gender. One character. Validity includes:
     // M = Male
@@ -329,20 +330,28 @@ public:
         : m_birthDate( ASTRA::NoExists ), m_docExpirateDate( ASTRA::NoExists )
     {}
 
-    // passenger's name
-    const std::string& name() const {
-        return m_name;
-    }
-    void setName( const std::string& n ) {
-        m_name = upperc( n.substr( 0, 35 ) );
-    }
-
     // passenger's surname
     const std::string& surname() const {
         return m_surname;
     }
     void setSurname( const std::string& s ) {
         m_surname = upperc( s.substr( 0, 35 ) );
+    }
+
+    // passenger's first name
+    const std::string& first_name() const {
+        return m_first_name;
+    }
+    void setFirstName( const std::string& n ) {
+        m_first_name = upperc( n.substr( 0, 35 ) );
+    }
+
+    // passenger's second name
+    const std::string& second_name() const {
+        return m_second_name;
+    }
+    void setSecondName( const std::string& n ) {
+        m_second_name = upperc( n.substr( 0, 35 ) );
     }
 
     // passenger's sex
@@ -509,15 +518,25 @@ typedef std::list< PassengerInfo > PassengersList_t;
 
 class PaxlstSettings
 {
+    std::string m_appRef;
+    std::string m_mesRelNum;
     std::string m_respAgnCode;
     bool m_viewUNGandUNE;
     
 public:
     PaxlstSettings()
-        : m_respAgnCode( "111" ),
+        : m_appRef( "APIS" ),
+          m_mesRelNum( "02B" ),
+          m_respAgnCode( "111" ),
           m_viewUNGandUNE(false)
     {}
     
+    const std::string& appRef() const { return m_appRef; }
+    void setAppRef( const std::string& appRef ) { m_appRef = appRef; }
+
+    const std::string& mesRelNum() const { return m_mesRelNum; }
+    void setMesRelNum( const std::string& mesRelNum ) { m_mesRelNum = mesRelNum; }
+
     const std::string& respAgnCode() const { return m_respAgnCode; }
     void setRespAgnCode( const std::string& respAgnCode ) { m_respAgnCode = respAgnCode; }
 
@@ -537,12 +556,15 @@ public:
     };
 private:
     PaxlstType m_type;
+    std::string m_docId;
     PassengersList_t m_passList;
     PaxlstSettings m_settings;
     
 public:    
-    PaxlstInfo(const PaxlstType &paxlstType)
-      : m_type( paxlstType )
+    PaxlstInfo(const PaxlstType &paxlstType,
+               const std::string &docId)
+      : m_type( paxlstType ),
+        m_docId( docId )
     {}
 
     const PassengersList_t& passengersList() const { return m_passList; }
@@ -552,6 +574,7 @@ public:
     PaxlstSettings& settings() { return m_settings; }
     const PaxlstSettings& settings() const { return m_settings; }
     PaxlstType type() const { return m_type; }
+    std::string docId() const { return m_docId; }
 
     std::string toEdiString() const;
     std::vector< std::string > toEdiStrings( unsigned maxPaxPerString ) const;
@@ -572,7 +595,8 @@ std::string createEdiPaxlstFileName( const std::string& carrierCode,
                                      unsigned partNum = 0 );
 
 std::string createIataCode( const std::string& flight,
-                            const BASIC::TDateTime& destDateTime );
+                            const BASIC::TDateTime& destDateTime,
+                            const std::string& destDateTimeFmt = "/yymmdd/hhnn" );
 
 }//namespace Paxlst
 

@@ -114,9 +114,12 @@ struct UnhElem
 struct BgmElem
 {
     std::string m_docCode;
+    std::string m_docId;
     
-    BgmElem( const std::string& docCode )
-        : m_docCode( docCode )
+    BgmElem( const std::string& docCode,
+             const std::string& docId )
+        : m_docCode( docCode ),
+          m_docId( docId )
     {}
 };
 
@@ -128,6 +131,7 @@ struct NadElem
     std::string m_funcCode;
     std::string m_partyName;
     std::string m_partyName2;
+    std::string m_partyName3;
     std::string m_street;
     std::string m_city;
     std::string m_countrySubEntityCode;
@@ -135,17 +139,26 @@ struct NadElem
     std::string m_country;
     
     NadElem( const std::string& funcCode,
+             const std::string& partyName
+           )
+        : m_funcCode( funcCode ),
+          m_partyName( partyName )
+    {}
+
+    NadElem( const std::string& funcCode,
              const std::string& partyName,
-             const std::string& partyName2="",
-             const std::string& street="",
-             const std::string& city="",
-             const std::string& countrySubEntityCode="",
-             const std::string& postalCode="",
-             const std::string& country=""
+             const std::string& partyName2,
+             const std::string& partyName3,
+             const std::string& street,
+             const std::string& city,
+             const std::string& countrySubEntityCode,
+             const std::string& postalCode,
+             const std::string& country
            )
         : m_funcCode( funcCode ),
           m_partyName( partyName ),
           m_partyName2( partyName2 ),
+          m_partyName3( partyName3 ),
           m_street( street ),
           m_city( city ),
           m_countrySubEntityCode( countrySubEntityCode ),
