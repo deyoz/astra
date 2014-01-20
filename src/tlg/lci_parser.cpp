@@ -26,6 +26,30 @@ string getElemId(const string &val, TElemType el)
     return subcls;
 }
 
+const char *TReqTypeS[] =
+{
+    "SP",
+    "BT",
+    "SR",
+    "WM",
+    ""
+};
+
+TReqType DecodeReqType(const string &s)
+{
+    unsigned int i;
+    for(i=0;i<sizeof(TReqTypeS)/sizeof(TReqTypeS[0]);i+=1) if (s == TReqTypeS[i]) break;
+    if (i<sizeof(TReqTypeS)/sizeof(TReqTypeS[0]))
+        return (TReqType)i;
+    else
+        return rtUnknown;
+};
+
+const char* EncodeReqType(TReqType p)
+{
+    return TReqTypeS[p];
+};
+
 const char *TDestInfoTypeS[] =
 {
     "A",
@@ -289,6 +313,7 @@ void TLCIContent::dump()
 {
     ProgTrace(TRACE5, "---TLCIContent::dump---");
     action_code.dump();
+    req.dump();
     eqt.dump();
     wa.dump();
     sm.dump();
@@ -310,14 +335,14 @@ void TActionCode::dump()
 
 void TActionCode::parse(const char *val)
 {
-    if(strlen(val) != 2)
-        throw ETlgError("wrong action code '%s'", val);
     orig = DecodeOriginator(val[0]);
     action = DecodeAction(val[1]);
     if(orig == oUnknown)
         throw ETlgError("wrong orig %c", val[0]);
     if(action == aUnknown)
         throw ETlgError("wrong action %c", val[1]);
+    if(action != aRequest and strlen(val) != 2)
+        throw ETlgError("wrong action code '%s'", val);
 }
 
 void TLCIFltInfo::dump()
@@ -326,6 +351,20 @@ void TLCIFltInfo::dump()
   flt.dump();
   ProgTrace(TRACE5, "airp: %s", airp.c_str());
   ProgTrace(TRACE5, "---------------------------");
+}
+
+TFltInfo TLCIFltInfo::toFltInfo()
+{
+    TFltInfo result;
+    strcpy(result.airline, flt.airline.c_str());
+    result.flt_no=flt.flt_no;
+    result.suffix[0] = flt.suffix;
+    result.suffix[1] = 0;
+    result.scd=flt.date;
+    result.pr_utc=true;
+    strcpy(result.airp_dep, airp.c_str());
+    *result.airp_arv = 0;
+    return result;
 }
 
 void TLCIFltInfo::parse(const char *val, TFlightsForBind &flts)
@@ -344,7 +383,7 @@ void TLCIFltInfo::parse(const char *val, TFlightsForBind &flts)
     if(airp.empty())
         throw ETlgError("airp '%s' not found", aairp.c_str());
     // привязка к рейсы
-//    flts.push_back(make_pair(info.flt, btFirstSeg));
+    flts.push_back(make_pair(toFltInfo(), btFirstSeg));
 }
 
 TTlgPartInfo ParseLCIHeading(TTlgPartInfo heading, TLCIHeadingInfo &info, TFlightsForBind &flts)
@@ -547,7 +586,8 @@ void TSRItems::parse(const string &val)
         throw ETlgError("SR items already exists %s", val.c_str());
     vector<string> result = split(val, '/');
     for(vector<string>::iterator iv = result.begin(); iv != result.end(); iv++)
-        push_back(*iv);
+        if(not iv->empty())
+            push_back(*iv);
 }
 
 void TSRJump::dump()
@@ -1111,6 +1151,63 @@ void TDest::parse(const char *val)
     (*this)[airp][key] = dest_info;
 };
 
+void TRequest::parse(const char *val)
+{
+    if(strlen(val) < strlen("LR XX"))
+        throw ETlgError("Wrong request code");
+
+    string buf = string(val).substr(3, 2);
+    TLCIReqInfo req_info;
+    req_info.req_type = DecodeReqType(buf);
+    if(req_info.req_type == rtUnknown)
+        throw ETlgError("Unknown request type '%s'", buf.c_str());
+    switch(req_info.req_type) {
+        case rtSR:
+            buf = string(val).substr(3);
+            req_info.sr.parse(buf.c_str());
+            break;
+        case rtWM:
+            req_info.wm_type = DecodeWMType(string(val).substr(6));
+            break;
+        default:
+            break;
+    }
+    TRequest::iterator i = find(req_info.req_type);
+    if(i != end()) {
+        if(req_info.req_type == rtSR) { // SR.S может встречаться несколько раз, тогда объединяем список мест
+            if(req_info.sr.s.empty())
+                throw ETlgError("Wrong appending SR.S format");
+            if(i->second.sr.s.empty())
+                throw ETlgError("Wrong existing SR.S format");
+            i->second.sr.s.insert(
+                    i->second.sr.s.end(),
+                    req_info.sr.s.begin(),
+                    req_info.sr.s.end());
+        } else
+            throw ETlgError("Duplicate request type '%s'", buf.c_str());
+    } else
+        insert(pair<TReqType, TLCIReqInfo>(req_info.req_type, req_info));
+}
+
+void TRequest::dump()
+{
+    ProgTrace(TRACE5, "---TRequest::dump---");
+    for(TRequest::iterator i = begin(); i != end(); i++) {
+        ProgTrace(TRACE5, "req_type: %s", EncodeReqType(i->first));
+        switch(i->first) {
+            case rtSR:
+                i->second.sr.dump();
+                break;
+            case rtWM:
+                ProgTrace(TRACE5, "WM type '%s'", EncodeWMType(i->second.wm_type));
+                break;
+            default:
+                break;
+        }
+    }
+    ProgTrace(TRACE5, "--------------------");
+}
+
 void ParseLCIContent(TTlgPartInfo body, TLCIHeadingInfo& info, TLCIContent& con, TMemoryManager &mem)
 {
     con.Clear();
@@ -1126,7 +1223,10 @@ void ParseLCIContent(TTlgPartInfo body, TLCIHeadingInfo& info, TLCIContent& con,
             switch(e) {
                 case ActionCode:
                     con.action_code.parse(tlg.lex);
-                    e = LCIData;
+                    if(con.action_code.action == aRequest)
+                        con.req.parse(tlg.lex);
+                    else
+                        e = LCIData;
                     break;
                 case LCIData:
                     if(tlg.lex[0] == '-')
@@ -1161,6 +1261,22 @@ void ParseLCIContent(TTlgPartInfo body, TLCIHeadingInfo& info, TLCIContent& con,
 
 void SaveLCIContent(int tlg_id, TLCIHeadingInfo& info, TLCIContent& con)
 {
+    int point_id=SaveFlt(tlg_id,info.flt_info.toFltInfo(),btFirstSeg);
+    if(con.action_code.action == aRequest) {
+        for(TRequest::iterator i = con.req.begin(); i != con.req.end(); i++) {
+            switch(i->first) {
+                case rtSR:
+                    for(TSRItems::iterator sr_i = i->second.sr.s.begin(); sr_i != i->second.sr.s.end(); sr_i++) {
+                        ProgTrace(TRACE5, "seat: %s", sr_i->c_str());
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+    } else {
+        //
+    }
 }
 
 int lci(int argc, char **argv)
