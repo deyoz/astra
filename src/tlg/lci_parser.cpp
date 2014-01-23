@@ -1,5 +1,6 @@
 #include "lci_parser.h"
 #include "misc.h"
+#include "salons.h"
 #include <sstream>
 
 
@@ -1261,23 +1262,31 @@ void ParseLCIContent(TTlgPartInfo body, TLCIHeadingInfo& info, TLCIContent& con,
 
 void SaveLCIContent(int tlg_id, TLCIHeadingInfo& info, TLCIContent& con)
 {
-    int point_id=SaveFlt(tlg_id,info.flt_info.toFltInfo(),btFirstSeg);
+    int point_id_tlg=SaveFlt(tlg_id,info.flt_info.toFltInfo(),btFirstSeg);
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+      "SELECT point_id_spp FROM tlg_binding WHERE point_id_tlg=:point_id";
+    Qry.CreateVariable("point_id", otInteger, point_id_tlg);
+    Qry.Execute();
+    if ( Qry.Eof ) {
+      throw Exception( "Flight not found, point_id_tlg=%d", point_id_tlg );
+    }
+    int point_id_spp = Qry.FieldAsInteger( "point_id_spp" );
+
+    vector<TSeatRange> ranges_tmp, seatRanges;
     if(con.action_code.action == aRequest) {
         for(TRequest::iterator i = con.req.begin(); i != con.req.end(); i++) {
             switch(i->first) {
                 case rtSR:
+                    if ( !seatRanges.empty() ) {
+                      throw Exception( "SaveLCIContent second rtSR" );
+                    }
                     for(TSRItems::iterator sr_i = i->second.sr.s.begin(); sr_i != i->second.sr.s.end(); sr_i++) {
                         ProgTrace(TRACE5, "seat: %s", sr_i->c_str());
-                        vector<TSeatRange> ranges;
-                        ParseSeatRange(*sr_i, ranges, false);
-                        for(vector<TSeatRange>::iterator iv = ranges.begin(); iv != ranges.end(); iv++) {
-                            ProgTrace(TRACE5, "first line '%s'", iv->first.line);
-                            ProgTrace(TRACE5, "first row '%s'", iv->first.row);
-                            ProgTrace(TRACE5, "second line '%s'", iv->second.line);
-                            ProgTrace(TRACE5, "second row '%s'", iv->second.row);
-                            ProgTrace(TRACE5, "");
-                        }
+                        ParseSeatRange(*sr_i, ranges_tmp, false);
+                        seatRanges.insert( seatRanges.end(), ranges_tmp.begin(), ranges_tmp.end() );
                     }
+                    SALONS2::resetLayers( point_id_spp, cltProtect, seatRanges );
                     break;
                 default:
                     break;

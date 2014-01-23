@@ -8296,6 +8296,82 @@ bool isUserProtectLayer( ASTRA::TCompLayerType layer_type )
            layer_type == ASTRA::cltPNLAfterPay );
 };
 
+void resetLayers( int point_id, ASTRA::TCompLayerType layer_type, const std::vector<TSeatRange> &seatRanges )
+{
+  TDateTime time_create = NowUTC();
+  TFlights flights;
+  flights.Get( point_id, ftTranzit );
+  flights.Lock();
+  SALONS2::TSalonList priorsalonList, salonList;
+  vector<string> referStrs;
+  // надо перечитать заново
+  /*всегда работаем с новой компоновкой, т.к. см. !salonChangesToText*/
+  priorsalonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id ), SALONS2::rfTranzitVersion, "" );
+  salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id ), SALONS2::rfTranzitVersion, "" );
+  std::map<int, std::set<TSeatLayer,SeatLayerCompare>,classcomp > layers;
+
+  for ( std::vector<TPlaceList*>::iterator isalonList=salonList.begin();
+        isalonList!=salonList.end(); isalonList++ ) {
+    for ( TPlaces::iterator iseat=(*isalonList)->places.begin(); iseat!=(*isalonList)->places.end(); iseat++ ) {
+      vector<TSeatRange>::const_iterator iseatRange=seatRanges.begin();
+      for ( ; iseatRange!=seatRanges.end(); iseatRange++ ) {
+        if ( iseatRange->first != iseatRange->second ) {
+          ProgTrace( TRACE5, "setLayers: layer_type=%s ranges=%s-%s!!!", EncodeCompLayerType( layer_type ),
+                     string( string(iseatRange->first.row) + iseatRange->first.line).c_str(),
+                     string( string(iseatRange->second.row) + iseatRange->second.line).c_str() );
+        }
+        TSeat seat( iseat->yname, iseat->xname );
+        if ( seat == iseatRange->first ) {
+          break;
+        }
+      }
+      iseat->GetLayers( layers, glBase );
+      std::map<int, std::set<TSeatLayer,SeatLayerCompare>,classcomp >::iterator ilayers=layers.find( point_id );
+      bool pr_find = false;
+      if ( ilayers != layers.end() ) {
+        for ( std::set<TSeatLayer,SeatLayerCompare>::iterator ilayer=ilayers->second.begin();
+              ilayer!=ilayers->second.end(); ilayer++ ) {
+          if ( ilayer->layer_type == layer_type ) {
+            pr_find = true;
+            if ( iseatRange == seatRanges.end() ) {
+              iseat->ClearLayer( ilayer->point_id, *ilayer );
+            }
+            break;
+         }
+        }
+      }
+      if ( !pr_find && iseatRange != seatRanges.end() ) {
+        TSeatLayer seatLayer;
+        seatLayer.point_id = point_id;
+        seatLayer.point_dep = point_id;
+        seatLayer.layer_type = layer_type;
+        seatLayer.time_create = time_create;
+        iseat->AddLayer( point_id, seatLayer );
+      }
+    }
+  }
+  salonList.WriteFlight( point_id );
+  SALONS2::setTRIP_CLASSES( point_id );
+
+  BitSet<ASTRA::TCompLayerType> editabeLayers;
+  salonList.getEditableFlightLayers( editabeLayers );
+  salonChangesToText( point_id, priorsalonList, priorsalonList.isCraftLat(),
+                      salonList, salonList.isCraftLat(),
+                      editabeLayers,
+                      referStrs, false, 100 );
+  referStrs.insert( referStrs.begin(), "Изменена компоновка рейса." );
+  for ( vector<string>::iterator i=referStrs.begin(); i!=referStrs.end(); i++ ) {
+  	TReqInfo::Instance()->MsgToLog( *i, evtFlt, point_id );
+  }
+  // конец перечитки
+  SALONS2::check_diffcomp_alarm( point_id );
+  if ( SALONS2::isTranzitSalons( point_id ) ) {
+    SALONS2::check_waitlist_alarm_on_tranzit_routes( point_id );
+  }
+  else {
+    check_waitlist_alarm( point_id );
+  }
+}
 
 } // end namespace SALONS2
 
