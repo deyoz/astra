@@ -1268,6 +1268,15 @@ void SaveLCIContent(int tlg_id, TLCIHeadingInfo& info, TLCIContent& con)
                 case rtSR:
                     for(TSRItems::iterator sr_i = i->second.sr.s.begin(); sr_i != i->second.sr.s.end(); sr_i++) {
                         ProgTrace(TRACE5, "seat: %s", sr_i->c_str());
+                        vector<TSeatRange> ranges;
+                        ParseSeatRange(*sr_i, ranges, false);
+                        for(vector<TSeatRange>::iterator iv = ranges.begin(); iv != ranges.end(); iv++) {
+                            ProgTrace(TRACE5, "first line '%s'", iv->first.line);
+                            ProgTrace(TRACE5, "first row '%s'", iv->first.row);
+                            ProgTrace(TRACE5, "second line '%s'", iv->second.line);
+                            ProgTrace(TRACE5, "second row '%s'", iv->second.row);
+                            ProgTrace(TRACE5, "");
+                        }
                     }
                     break;
                 default:
