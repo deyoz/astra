@@ -8361,8 +8361,7 @@ void resetLayers( int point_id, ASTRA::TCompLayerType layer_type,
                            salonList, salonList.isCraftLat(),
                            editabeLayers,
                            referStrs, false, 100 ) ) {
-    referStrs.insert( referStrs.begin(), "Изменена компоновка рейса." );
-    referStrs.insert( referStrs.begin(), reason );
+    referStrs.insert( referStrs.begin(), "Изменена компоновка рейса, " + reason );
     for ( vector<string>::iterator i=referStrs.begin(); i!=referStrs.end(); i++ ) {
     	TReqInfo::Instance()->MsgToLog( *i, evtFlt, point_id );
     }

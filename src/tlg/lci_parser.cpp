@@ -1286,7 +1286,7 @@ void SaveLCIContent(int tlg_id, TLCIHeadingInfo& info, TLCIContent& con)
                         ParseSeatRange(*sr_i, ranges_tmp, false);
                         seatRanges.insert( seatRanges.end(), ranges_tmp.begin(), ranges_tmp.end() );
                     }
-                    SALONS2::resetLayers( point_id_spp, cltProtect, seatRanges, string("Разметка мест по телеграмме LCI: ") );
+                    SALONS2::resetLayers( point_id_spp, cltProtect, seatRanges, string("разметка мест по телеграмме LCI: ") );
                     break;
                 default:
                     break;
