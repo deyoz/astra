@@ -8296,7 +8296,9 @@ bool isUserProtectLayer( ASTRA::TCompLayerType layer_type )
            layer_type == ASTRA::cltPNLAfterPay );
 };
 
-void resetLayers( int point_id, ASTRA::TCompLayerType layer_type, const std::vector<TSeatRange> &seatRanges )
+void resetLayers( int point_id, ASTRA::TCompLayerType layer_type,
+                  const std::vector<TSeatRange> &seatRanges,
+                  const std::string &reason )
 {
   TDateTime time_create = NowUTC();
   TFlights flights;
@@ -8355,21 +8357,23 @@ void resetLayers( int point_id, ASTRA::TCompLayerType layer_type, const std::vec
 
   BitSet<ASTRA::TCompLayerType> editabeLayers;
   salonList.getEditableFlightLayers( editabeLayers );
-  salonChangesToText( point_id, priorsalonList, priorsalonList.isCraftLat(),
-                      salonList, salonList.isCraftLat(),
-                      editabeLayers,
-                      referStrs, false, 100 );
-  referStrs.insert( referStrs.begin(), "Изменена компоновка рейса." );
-  for ( vector<string>::iterator i=referStrs.begin(); i!=referStrs.end(); i++ ) {
-  	TReqInfo::Instance()->MsgToLog( *i, evtFlt, point_id );
-  }
-  // конец перечитки
-  SALONS2::check_diffcomp_alarm( point_id );
-  if ( SALONS2::isTranzitSalons( point_id ) ) {
-    SALONS2::check_waitlist_alarm_on_tranzit_routes( point_id );
-  }
-  else {
-    check_waitlist_alarm( point_id );
+  if ( salonChangesToText( point_id, priorsalonList, priorsalonList.isCraftLat(),
+                           salonList, salonList.isCraftLat(),
+                           editabeLayers,
+                           referStrs, false, 100 ) ) {
+    referStrs.insert( referStrs.begin(), "Изменена компоновка рейса." );
+    referStrs.insert( referStrs.begin(), reason );
+    for ( vector<string>::iterator i=referStrs.begin(); i!=referStrs.end(); i++ ) {
+    	TReqInfo::Instance()->MsgToLog( *i, evtFlt, point_id );
+    }
+    // конец перечитки
+    SALONS2::check_diffcomp_alarm( point_id );
+    if ( SALONS2::isTranzitSalons( point_id ) ) {
+      SALONS2::check_waitlist_alarm_on_tranzit_routes( point_id );
+    }
+    else {
+      check_waitlist_alarm( point_id );
+    }
   }
 }
 
