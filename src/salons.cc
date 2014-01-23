@@ -3351,6 +3351,19 @@ void TSectionInfo::GetCurrentLayerSeat( const ASTRA::TCompLayerType &layer_type,
   } 
 }                                        
 
+void TSectionInfo::GetTotalLayerSeat( const ASTRA::TCompLayerType &layer_type,
+                                      TPassSeats &layerSeats )
+{
+  layerSeats.clear();
+  std::map<ASTRA::TCompLayerType,std::vector<TPlace*> >::iterator itotal=totalLayerSeats.find( layer_type );
+  if ( itotal != totalLayerSeats.end() ) {
+    for ( std::vector<TPlace*>::const_iterator iseat=itotal->second.begin();
+          iseat!=itotal->second.end(); iseat++ ) {
+      layerSeats.insert( TSeat( (*iseat)->yname, (*iseat)->xname ) );
+    }
+  }
+}
+
 
 /*  надо заполнить:
     std::map<ASTRA::TCompLayerType,std::vector<TPlace*> > totalLayerSeats; //слой + места

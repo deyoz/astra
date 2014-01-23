@@ -7140,3 +7140,16 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     NewTextChild( resNode, "tlg_id", tlg_id);
 };
 
+void ccccccccccccccccccccc( int point_dep,  const ASTRA::TCompLayerType &layer_type )
+{
+  //try verify its new code!!!
+  SALONS2::TSalonList salonList;
+  salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_dep, ASTRA::NoExists ), SALONS2::rfTranzitVersion, "" );
+  SALONS2::TSectionInfo sectionInfo;
+  SALONS2::TGetPassFlags flags;
+  flags.clearFlags();
+  salonList.getSectionInfo( sectionInfo, flags );                  \
+  TPassSeats layerSeats;
+  sectionInfo.GetTotalLayerSeat( layer_type, layerSeats );
+};
+
