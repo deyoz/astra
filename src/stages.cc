@@ -328,7 +328,6 @@ void TTripStages::ReadCkinClients( int point_id, TCkinClients &ckin_clients )
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   while ( !Qry.Eof ) {
-  	ProgTrace( TRACE5, "client_type=%s", Qry.FieldAsString( "client_type" ) );
   	ckin_clients.push_back( Qry.FieldAsString( "client_type" ) );
   	Qry.Next();
   }

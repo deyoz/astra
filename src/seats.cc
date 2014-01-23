@@ -2379,13 +2379,13 @@ void SeatsPassengers( SALONS2::TSalonList &salonList,
   vector<ASTRA::TCompLayerType> grp_layers;
   grp_layers.push_back( passes.Get( 0 ).grp_status );
   TSalons SalonsN;
-  bool drop_not_web_passes = false;
+  TDropLayersFlags dropLayersFlags;
   while ( salonList.CreateSalonsForAutoSeats( SalonsN,
                                               filterRoutes,
                                               pr_grp_pay,
                                               grp_layers,
                                               pnr,
-                                              drop_not_web_passes ) ) {
+                                              dropLayersFlags ) ) {
     tst();
     CurrSalon = &SalonsN;
     countP++;
@@ -3968,13 +3968,13 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
         SALONS2::TSalons SalonsN;
         if ( salonList.empty() )
           throw EXCEPTIONS::Exception( "Не задан салон для автоматической рассадки" );
-        bool drop_not_web_passes = false;
+        TDropLayersFlags dropLayersFlags;
         tst();
         if ( !salonList.CreateSalonsForAutoSeats( SalonsN,
                                                   filterRoutes,
                                                   true,
                                                   grp_layers,
-                                                  drop_not_web_passes ) ) {
+                                                  dropLayersFlags ) ) {
           throw EXCEPTIONS::Exception( "Не задан салон для автоматической рассадки" );
         }
         if ( SalonsN.placelists.empty() )
