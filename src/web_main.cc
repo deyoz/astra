@@ -1315,13 +1315,13 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
     grp_layers.push_back( cltPNLAfterPay );
     TFilterRoutesSets filterRoutes = salonList.getFilterRoutes();
     bool pr_departure_tariff_only = true;
-    bool drop_not_web_passes = false;
+    TDropLayersFlags dropLayersFlags;
     salonList.CreateSalonsForAutoSeats( SalonsN,
                                         filterRoutes,
                                         pr_departure_tariff_only,
                                         grp_layers,
                                         pnr,
-                                        drop_not_web_passes );
+                                        dropLayersFlags );
    Salons = &SalonsN;
   }
   else {
