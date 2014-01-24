@@ -654,21 +654,25 @@ void TSRJump::parse(const char *val)
 void TSR::parse(const char *val)
 {
     vector<string> items = split(val, '.');
-    if(items.size() < 3) throw ETlgError("wrong item count within SR %s", val);
+    string data;
+    if(items.size() > 3)
+        throw ETlgError("wrong item count within SR %s", val);
+    if(items.size() == 3)
+        data = items[2];
     if(items[1].size() != 1)
         throw ETlgError("SR wrong type %s", items[1].c_str());
     switch(items[1][0]) {
         case 'C':
-            c.parse(items[2], etClass);
+            c.parse(data, etClass);
             break;
         case 'Z':
-            z.parse(items[2]);
+            z.parse(data);
             break;
         case 'R':
-            r.parse(items[2]);
+            r.parse(data);
             break;
         case 'S':
-            s.parse(items[2]);
+            s.parse(data);
             break;
         case 'J':
             j.parse(val);
@@ -973,8 +977,10 @@ void TSP::dump()
 
 void TSP::parse(const char *val)
 {
+    /*!!!
     if(not empty())
         throw ETlgError("duplicate SP found");
+        */
     vector<string> items = split(val, '.');
     if(items.size() < 3) // SP.<seat>.KG
         throw ETlgError("SP wrong format");

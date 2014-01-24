@@ -5776,6 +5776,43 @@ struct TWA {
     }
 };
 
+struct TSR_S {
+    TPassSeats layerSeats;
+    void get(TypeB::TDetailCreateInfo &info)
+    {
+        const TypeB::TLCIOptions &options = *info.optionsAs<TypeB::TLCIOptions>();
+        if(options.seat_restrict.find('S') != string::npos) {
+            SALONS2::TSalonList salonList;
+            salonList.ReadFlight( SALONS2::TFilterRoutesSets( info.point_id, ASTRA::NoExists ), SALONS2::rfTranzitVersion, "" );
+            SALONS2::TSectionInfo sectionInfo;
+            SALONS2::TGetPassFlags flags;
+            flags.clearFlags();
+            salonList.getSectionInfo( sectionInfo, flags );
+            sectionInfo.GetTotalLayerSeat( cltProtect, layerSeats );
+        }
+    }
+
+    void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
+    {
+        static const string PREFIX = "SR.S";
+        string buf = PREFIX;
+        for(TPassSeats::iterator i_seat = layerSeats.begin(); i_seat != layerSeats.end(); i_seat++) {
+            if(buf == PREFIX)
+                buf += ".";
+            string seat =
+                denorm_iata_row(i_seat->row, NULL) + // denorm - чтобы избавиться от нулей: 002 -> 2
+                i_seat->line + "/";
+            if(buf.size() + seat.size() > LINE_SIZE) {
+                body.push_back(buf);
+                buf = PREFIX;
+            }
+            buf += seat;
+        }
+        if(buf != PREFIX)
+            body.push_back(buf);
+    }
+};
+
 struct TSR_Z {
     map<string, int> items;
 
@@ -6009,7 +6046,7 @@ void TSeatPlan::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
                 "." + denorm_iata_row(is->yname, NULL) +
                 denorm_iata_line(is->xname, info.is_lat() or info.pr_lat_seat) +
                 "/" + im->second.gender;
-            if(buf.size() + seat.size() > 64) {
+            if(buf.size() + seat.size() > LINE_SIZE) {
                 body.push_back(buf);
                 buf = "SP";
             }
@@ -6025,6 +6062,7 @@ struct TLCI {
     TWA wa;
     TSR_C sr_c;
     TSR_Z sr_z;
+    TSR_S sr_s;
     TWM wm; // weight mode
     TLCIPaxTotals pax_totals;
     TSeatPlan sp;
@@ -6043,6 +6081,7 @@ void TLCI::get(TypeB::TDetailCreateInfo &info)
     if(options.weight_avail != "N") wa.get(info);
     sr_c.get(info);
     sr_z.get(info);
+    sr_s.get(info);
     pax_totals.get(info);
     sp.get(info);
 }
@@ -6056,6 +6095,7 @@ void TLCI::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
     if(options.seating) body.push_back("SM.S"); // Seating method 'By Seat' always
     if(options.seat_restrict.find('C') != string::npos) sr_c.ToTlg(info, body);
     if(options.seat_restrict.find('Z') != string::npos) sr_z.ToTlg(info, body);
+    if(options.seat_restrict.find('S') != string::npos) sr_s.ToTlg(info, body);
     if(options.weight_mode) wm.ToTlg(info, body);
     pax_totals.ToTlg(info, body);
     sp.ToTlg(info, body);
@@ -7148,7 +7188,7 @@ void ccccccccccccccccccccc( int point_dep,  const ASTRA::TCompLayerType &layer_t
   SALONS2::TSectionInfo sectionInfo;
   SALONS2::TGetPassFlags flags;
   flags.clearFlags();
-  salonList.getSectionInfo( sectionInfo, flags );                  \
+  salonList.getSectionInfo( sectionInfo, flags );
   TPassSeats layerSeats;
   sectionInfo.GetTotalLayerSeat( layer_type, layerSeats );
 };
