@@ -419,25 +419,29 @@ std::string GetPnrAddr(int pnr_id, std::vector<TPnrAddrItem> &pnrs)
 string GetPnrAddr(int pnr_id, vector<TPnrAddrItem> &pnrs, string &airline)
 {
   pnrs.clear();
-  TQuery Qry(&OraSession);
   if (airline.empty())
   {
-    Qry.Clear();
-    Qry.SQLText=
+    QParams QryParams;
+    QryParams << QParam("pnr_id", otInteger, pnr_id);
+
+    TCachedQuery CachedQry(
       "SELECT airline "
       "FROM crs_pnr,tlg_trips "
-      "WHERE crs_pnr.point_id=tlg_trips.point_id AND pnr_id=:pnr_id"; //pnr_market_flt
-    Qry.CreateVariable("pnr_id",otInteger,pnr_id);
-    Qry.Execute();
-    if (!Qry.Eof) airline=Qry.FieldAsString("airline");
+      "WHERE crs_pnr.point_id=tlg_trips.point_id AND pnr_id=:pnr_id", //pnr_market_flt
+      QryParams);
+    CachedQry.get().Execute();
+    if (!CachedQry.get().Eof) airline=CachedQry.get().FieldAsString("airline");
   };
 
-  Qry.Clear();
-  Qry.SQLText=
+  QParams QryParams;
+  QryParams << QParam("pnr_id", otInteger, pnr_id)
+            << QParam("airline", otString, airline);
+
+  TCachedQuery CachedQry(
     "SELECT airline,addr FROM pnr_addrs "
-    "WHERE pnr_id=:pnr_id ORDER BY DECODE(airline,:airline,0,1),airline";
-  Qry.CreateVariable("pnr_id",otInteger,pnr_id);
-  Qry.CreateVariable("airline",otString,airline);
+    "WHERE pnr_id=:pnr_id ORDER BY DECODE(airline,:airline,0,1),airline",
+    QryParams);
+  TQuery &Qry=CachedQry.get();
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next())
   {
@@ -446,8 +450,8 @@ string GetPnrAddr(int pnr_id, vector<TPnrAddrItem> &pnrs, string &airline)
     strcpy(pnr.addr,Qry.FieldAsString("addr"));
     pnrs.push_back(pnr);
   };
-  if (!pnrs.empty() && pnrs[0].airline==airline)
-    return pnrs[0].addr;
+  if (!pnrs.empty() && pnrs.begin()->airline==airline)
+    return pnrs.begin()->addr;
   else
     return "";
 };
@@ -461,11 +465,13 @@ string GetPaxPnrAddr(int pax_id, vector<TPnrAddrItem> &pnrs)
 string GetPaxPnrAddr(int pax_id, vector<TPnrAddrItem> &pnrs, string &airline)
 {
   pnrs.clear();
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT pnr_id FROM crs_pax WHERE pax_id=:pax_id AND pr_del=0";
-  Qry.CreateVariable("pax_id",otInteger,pax_id);
+  QParams QryParams;
+  QryParams << QParam("pax_id", otInteger, pax_id);
+
+  TCachedQuery CachedQry(
+    "SELECT pnr_id FROM crs_pax WHERE pax_id=:pax_id AND pr_del=0",
+    QryParams);
+  TQuery &Qry=CachedQry.get();
   Qry.Execute();
   if (!Qry.Eof)
     return GetPnrAddr(Qry.FieldAsInteger("pnr_id"),pnrs,airline);
