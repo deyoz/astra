@@ -2808,12 +2808,12 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     if(rpt_params.rpt_type != rtBDOCS) {
         SQLText +=
             "      , tlg_binding.point_id_spp AS point_id, "
-            "      ckin.get_pnr_addr(crs_pnr.pnr_id) AS pnr_ref, "
             "      crs_pax.pers_type, "
             "      crs_pnr.class, "
             "      salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'_seats',rownum) AS seat_no, "
             "      crs_pnr.airp_arv AS target, "
             "      crs_pnr.airp_arv_final AS last_target, "
+            "      crs_pnr.pnr_id, "
             "      report.get_TKNO(crs_pax.pax_id) ticket_no, "
             "      report.get_PSPT(crs_pax.pax_id, 1, :lang) AS document ";
         Qry.CreateVariable("lang", otString, rpt_params.GetLang());
@@ -2859,6 +2859,7 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     TRemGrp rem_grp;
     if(rpt_params.rpt_type != rtBDOCS)
       rem_grp.Load(retPNL_SEL, rpt_params.point_id);
+    vector<TPnrAddrItem> pnrs;
     for(; !Qry.Eof; Qry.Next()) {
         int pax_id=Qry.FieldAsInteger("pax_id");
         if(rpt_params.rpt_type == rtBDOCS) {
@@ -2901,7 +2902,11 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
             NewTextChild(rowNode, "family", transliter(Qry.FieldAsString("family"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
             NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("point_id"));
-            NewTextChild(rowNode, "pnr_ref", Qry.FieldAsString("pnr_ref"));
+            GetPnrAddr(Qry.FieldAsInteger("pnr_id"), pnrs);
+            string pnr_addr;
+            if (!pnrs.empty())
+              pnr_addr.append(pnrs.begin()->addr).append("/").append(pnrs.begin()->airline);
+            NewTextChild(rowNode, "pnr_ref", pnr_addr);
             NewTextChild(rowNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, Qry.FieldAsString("pers_type"), efmtCodeNative));
             NewTextChild(rowNode, "class", rpt_params.ElemIdToReportElem(etClass, Qry.FieldAsString("class"), efmtCodeNative));
             NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));

@@ -474,6 +474,12 @@ bool create_apis_file(int point_id, const string& task_name)
 
           if (task_name==ON_CLOSE_CHECKIN && fmt!="EDI_UK") continue;
 
+          string airline_name=airline.short_name_lat;
+          if (airline_name.empty())
+            airline_name=airline.name_lat;
+          if (airline_name.empty())
+            airline_name=airline.code_lat;
+
           string airline_country;
           if (fmt=="TXT_EE")
           {
@@ -947,7 +953,8 @@ bool create_apis_file(int point_id, const string& task_name)
               //доклеиваем заголовочную часть
               ostringstream header;
               if (fmt=="CSV_CZ")
-              	header << "csv;ROSSIYA;"
+              	header << "csv;"
+                       << airline_name << ";"
               	    	 << airline.code_lat << setw(3) << setfill('0') << flt_no << suffix << ";"
             	      	 << airp_dep.code_lat << ";" << DateTimeToStr(scd_out_local,"yyyy-mm-dd'T'hh:nn:00.0") << ";"
             	      	 << airp_arv.code_lat << ";" << DateTimeToStr(scd_in_local,"yyyy-mm-dd'T'hh:nn:00.0") << ";"
@@ -960,12 +967,6 @@ bool create_apis_file(int point_id, const string& task_name)
                     	 << count << ENDL;
               if (fmt=="TXT_EE")
               {
-                string airline_name=airline.short_name_lat;
-                if (airline_name.empty())
-                  airline_name=airline.name_lat;
-                if (airline_name.empty())
-                  airline_name=airline.code_lat;
-
                 header << "1$ " << airline_name << ENDL
                     	 << "2$ " << ENDL
                     	 << "3$ " << airline_country << ENDL
