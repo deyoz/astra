@@ -982,8 +982,6 @@ void TSP::parse(const char *val)
         throw ETlgError("duplicate SP found");
         */
     vector<string> items = split(val, '.');
-    if(items.size() < 3) // SP.<seat>.KG
-        throw ETlgError("SP wrong format");
     for(vector<string>::iterator iv = items.begin() + 1; iv != items.end(); iv++) {
         vector<string> sp_item = split(*iv, '/');
         if(sp_item.size() != 2)
