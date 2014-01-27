@@ -2905,7 +2905,7 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             GetPnrAddr(Qry.FieldAsInteger("pnr_id"), pnrs);
             string pnr_addr;
             if (!pnrs.empty())
-              pnr_addr.append(pnrs.begin()->addr).append("/").append(pnrs.begin()->airline);
+              pnr_addr.append(pnrs.begin()->addr)/*.append("/").append(pnrs.begin()->airline)*/; //пока не надо выводить компанию, может быть потом...
             NewTextChild(rowNode, "pnr_ref", pnr_addr);
             NewTextChild(rowNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, Qry.FieldAsString("pers_type"), efmtCodeNative));
             NewTextChild(rowNode, "class", rpt_params.ElemIdToReportElem(etClass, Qry.FieldAsString("class"), efmtCodeNative));
