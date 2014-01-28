@@ -554,7 +554,7 @@ class FilterRoutesProperty: public std::vector<TTripRouteItem> {
     }
     bool useRouteProperty( int vpoint_dep, int vpoint_arv = ASTRA::NoExists );
     bool IntersecRoutes( int point_dep1, int point_arv1,
-                         int point_dep2, int point_arv2 );
+                         int point_dep2, int point_arv2, bool pr_routes );
     int getDepartureId() const {
       return point_dep;
     }
@@ -665,26 +665,7 @@ class TPlace {
       return ( layer_type == ASTRA::cltSOMTrzt ||
                layer_type == ASTRA::cltPRLTrzt );
     }
-    void AddLayer( int key, const TSeatLayer &seatLayer ) { //сортировка по маршруту point_id
-      if ( isCleanDoubleLayerType( seatLayer.layer_type ) ) {
-        for ( std::map<int, std::set<TSeatLayer,SeatLayerCompare>,classcomp >::iterator ilayers=lrss.begin();
-              ilayers!=lrss.end(); ilayers++ ) {
-          if ( key == ilayers->first ) {
-            break; //ничего не нашли
-          }
-          for ( std::set<TSeatLayer,SeatLayerCompare>::iterator ilayer= ilayers->second.begin();
-                 ilayer!=ilayers->second.end();  ilayer++ ){
-            if ( ilayer->layer_type == seatLayer.layer_type &&
-                 ilayer->point_dep == seatLayer.point_dep &&
-                 ilayer->point_arv == seatLayer.point_arv ) {
-              //требуется не добалять поздний слой
-              return;  
-            }
-          }
-        }
-      }
-      lrss[ key ].insert( seatLayer );
-    }
+    void AddLayer( int key, const TSeatLayer &seatLayer );
     void ClearLayers() {
       lrss.clear();
     }
@@ -850,7 +831,6 @@ class TLayersPax: public std::map<TSeatLayer,TPaxLayerSeats,SeatLayerCompare> {
   public:
     static void dumpPaxLayers( const TSeatLayer &seatLayer,
                                const TPaxLayerSeats &seats,
-                               const std::string &where,
                                const TPlace *seat = NULL );
 };
 
@@ -1190,6 +1170,10 @@ class TAutoSeats: public std::vector<TAutoSeat>
     void WritePaxSeats( int point_dep, int pax_id );
 };
 
+enum TDropLayers { clDropNotWeb,
+                   clDropBlockCentLayers };
+typedef BitSet<TDropLayers> TDropLayersFlags;
+
 class TSalonList: public std::vector<TPlaceList*> {
   private:
     TFilterSets filterSets;
@@ -1255,13 +1239,13 @@ class TSalonList: public std::vector<TPlaceList*> {
                                    TFilterRoutesSets &filterRoutes,
                                    bool pr_departure_tariff_only,
                                    const std::vector<ASTRA::TCompLayerType> &grp_layers,
-                                   bool &drop_not_web_passes );
+                                   TDropLayersFlags &dropLayersFlags );
     bool CreateSalonsForAutoSeats( TSalons &Salons,
                                    TFilterRoutesSets &filterRoutes,
                                    bool pr_departure_tariff_only,
                                    const std::vector<ASTRA::TCompLayerType> &grp_layers,
                                    const std::vector<AstraWeb::TWebPax> &pnr,
-                                   bool &drop_web_passes );
+                                   TDropLayersFlags &dropLayersFlags );
     void JumpToLeg( const FilterRoutesProperty &filterRoutesNew );
     void JumpToLeg( const TFilterRoutesSets &routesSets );
     void getPassengers( TSalonPassengers &passengers, const TGetPassFlags &flags );
