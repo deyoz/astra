@@ -1,6 +1,8 @@
 #include "qrys.h"
 #include "exceptions.h"
 #include "misc.h"
+#include "astra_consts.h"
+#include "astra_utils.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/test.h"
@@ -9,7 +11,13 @@ using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC;
 
-const size_t MAX_QRYS = 1000;
+const size_t MAX_QRYS()
+{
+  static int VAR=ASTRA::NoExists;
+  if (VAR==ASTRA::NoExists)
+    VAR=getTCLParam("QUERY_CACHE_SIZE",1,1000,20);
+  return VAR;
+};
 
 struct TQrys: public std::multimap<const std::string, std::list<TQry_ptr>::iterator> {
     private:
@@ -46,16 +54,120 @@ TCachedQuery::TCachedQuery(const string &SQLText, const QParams &p) {
     Qry = TQrys::Instance()->get(SQLText, p);
 }
 
+#ifdef XP_TESTING
+
+int test_qrys(int argc,char **argv)
+{
+  TQrys::Instance()->dump_queue();
+  {
+    TCachedQuery Qry("1", QParams());
+    {
+      TQrys::Instance()->dump_queue();
+      TCachedQuery Qry("1", QParams());
+      {
+        TQrys::Instance()->dump_queue();
+        TCachedQuery Qry("1", QParams());
+        TQrys::Instance()->dump_queue();
+      }
+      {
+        TQrys::Instance()->dump_queue();
+        TCachedQuery Qry("1", QParams());
+        TQrys::Instance()->dump_queue();
+      }
+      TQrys::Instance()->dump_queue();
+    }
+    TQrys::Instance()->dump_queue();
+  }
+  TQrys::Instance()->dump_queue();
+  {
+    TCachedQuery Qry("2", QParams());
+    {
+      TQrys::Instance()->dump_queue();
+      TCachedQuery Qry("2", QParams());
+      {
+        TQrys::Instance()->dump_queue();
+        TCachedQuery Qry("2", QParams());
+        TQrys::Instance()->dump_queue();
+      }
+      {
+        TQrys::Instance()->dump_queue();
+        TCachedQuery Qry("2", QParams());
+        TQrys::Instance()->dump_queue();
+      }
+      TQrys::Instance()->dump_queue();
+    }
+    TQrys::Instance()->dump_queue();
+  }
+  TQrys::Instance()->dump_queue();
+  for(int i=0; i<10; i++)
+  {
+    TCachedQuery Qry("0", QParams());
+    TCachedQuery Qry2("1", QParams());
+  };
+  TQrys::Instance()->dump_queue();
+  ProgTrace(TRACE5, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1");
+  {
+  TCachedQuery Qry0("0", QParams());
+  TQrys::Instance()->dump_queue();
+  }{
+  TCachedQuery Qry1("1", QParams());
+  TQrys::Instance()->dump_queue();
+  }{
+  TCachedQuery Qry2("2", QParams());
+  TQrys::Instance()->dump_queue();
+  }{
+  TCachedQuery Qry3("3", QParams());
+  TQrys::Instance()->dump_queue();
+  }{
+  TCachedQuery Qry4("4", QParams());
+  TQrys::Instance()->dump_queue();
+  }{
+  TCachedQuery Qry5("5", QParams());
+  TQrys::Instance()->dump_queue();
+  }{
+  TCachedQuery Qry6("6", QParams());
+  TQrys::Instance()->dump_queue();
+  }{
+  TCachedQuery Qry7("7", QParams());
+  TQrys::Instance()->dump_queue();
+  }{
+  TCachedQuery Qry8("8", QParams());
+  TQrys::Instance()->dump_queue();
+  }{
+  TCachedQuery Qry9("9", QParams());
+  TQrys::Instance()->dump_queue();
+  }
+  TQrys::Instance()->dump_queue();
+  return 0;
+}
+
+#endif /*XP_TESTING*/
+
+#include <boost/crc.hpp>
+
 void TQrys::dump_queue()
 {
-    ProgTrace(TRACE5, "---TQrys::dump_queue---");
-    for(list<TQry_ptr>::iterator is = queue.begin(); is != queue.end(); is++) {
-        ProgTrace(TRACE5, "count: %zu", (*is)->count);
-        ProgTrace(TRACE5, "qry: %s", (*is)->Qry.SQLText.SQLText());
+    boost::crc_basic<32> crc32( 0x04C11DB7, 0xFFFFFFFF, 0xFFFFFFFF, true, true );
+
+    ProgTrace(TRACE5, "---TQrys---");
+    ProgTrace(TRACE5, "%-10s %10s ", "sql_crc", "addr");
+    for(TQrys::iterator it = begin(); it != end(); ++it)
+    {
+      crc32.reset();
+      crc32.process_bytes( it->first.c_str(), it->first.size() );
+      ProgTrace(TRACE5, "%-10u %10p", crc32.checksum(), &(*it->second));
+    };
+    ProgTrace(TRACE5, "---TQrys::queue---");
+    ProgTrace(TRACE5, "%10s %-10s %-6s %s", "addr", "sql_crc", "in_use", "count");
+    for(list<TQry_ptr>::iterator is = queue.begin(); is != queue.end(); ++is) {
+        crc32.reset();
+        crc32.process_bytes( (*is)->Qry.SQLText.SQLText(), strlen((*is)->Qry.SQLText.SQLText()) );
+        ProgTrace(TRACE5, "%10p %-10u %-6s %zu", &(*is), crc32.checksum(), (*is)->in_use?"true":"false",  (*is)->count);
 #ifdef SQL_COUNTERS
         ProgTrace(TRACE5, "parse count: %d", sqlCounters[(*is)->Qry.SQLText.SQLText()]);
 #endif
     }
+    ProgTrace(TRACE5, "=================================================");
 #ifdef SQL_COUNTERS
     ProgTrace(TRACE5, "queryCount: %d", queryCount);
 #endif
@@ -78,8 +190,9 @@ TQry_ptr TQrys::get(const std::string &SQLText, const QParams &p)
     list<TQry_ptr>::iterator i_qry;
     if(it != itup) { // Нашли неиспользуемый запрос
         i_qry = it->second;
+        queue.splice(queue.end(), queue, i_qry);
     } else {
-        if(size() < MAX_QRYS) { // Вставляем новый запрос
+        if(size() < MAX_QRYS()) { // Вставляем новый запрос
             i_qry = queue.insert(queue.end(), TQry_ptr(new TQry()));
             insert(pair<string, list<TQry_ptr>::iterator>( SQLText, i_qry));
         } else { // Меняем старый
