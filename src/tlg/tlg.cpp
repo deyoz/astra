@@ -5,6 +5,7 @@
 #include "oralib.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
+#include "qrys.h"
 #include "serverlib/tcl_utils.h"
 #include "serverlib/logger.h"
 
@@ -81,11 +82,147 @@ void sendCmdTypeBHandler()
   sendCmd("CMD_TYPEB_HANDLER","H");
 }
 
+void putTypeBBody(int tlg_id, int tlg_num, const string &tlg_body)
+{
+  const char* sql=
+    "INSERT INTO typeb_in_body(id, num, page_no, text) "
+    "VALUES(NVL(:id,tlg_in_out__seq.currval), :num, :page_no, :text)";
+
+  QParams QryParams;
+  if (tlg_id!=ASTRA::NoExists)
+    QryParams << QParam("id", otInteger, tlg_id);
+  else
+    QryParams << QParam("id", otInteger, FNull);
+  QryParams << QParam("num", otInteger, tlg_num);
+  QryParams << QParam("page_no", otInteger);
+  QryParams << QParam("text", otString);
+  TCachedQuery TextQry(sql, QryParams);
+
+  std::string::const_iterator ib,ie;
+  ib=tlg_body.begin();
+  for(int page_no=1;ib<tlg_body.end();page_no++)
+  {
+    ie=ib+4000;
+    if (ie>tlg_body.end()) ie=tlg_body.end();
+    TextQry.get().SetVariable("page_no", page_no);
+    TextQry.get().SetVariable("text", std::string(ib,ie));
+    TextQry.get().Execute();
+    ib=ie;
+  };
+};
+
+string getTypeBBody(int tlg_id, int tlg_num,
+                    TQuery &Qry)  //передаем tlgs_in.body, потом убрать столбец и код!!!
+{
+  string result;
+
+  const char* sql=
+    "SELECT text FROM typeb_in_body WHERE id=:id AND num=:num ORDER BY page_no";
+  QParams QryParams;
+  QryParams << QParam("id", otInteger, tlg_id);
+  QryParams << QParam("num", otInteger, tlg_num);
+  TCachedQuery TextQry(sql, QryParams);
+  TextQry.get().Execute();
+  for(;!TextQry.get().Eof;TextQry.get().Next())
+    result+=TextQry.get().FieldAsString("text");
+  if (result.empty() && !Qry.Eof) //потом убрать код!!!
+  {
+    static int bufLen=0;
+    static char *buf=NULL;
+
+    int len=Qry.GetSizeLongField("body")+1;
+    if (len>bufLen)
+    {
+      char *ph;
+      if (buf==NULL)
+        ph=(char*)malloc(len);
+      else
+        ph=(char*)realloc(buf,len);
+      if (ph==NULL) throw EMemoryError("Out of memory");
+      buf=ph;
+      bufLen=len;
+    };
+    Qry.FieldAsLong("body",buf);
+    buf[len-1]=0;
+
+    result.assign(buf,len-1);
+  };
+  return result;
+};
+
+void putTlgText(int tlg_id, const string &tlg_text)
+{
+  const char* sql=
+    "INSERT INTO tlgs_text(id, page_no, text) "
+    "VALUES(NVL(:id, tlgs_id.currval), :page_no, :text)";
+
+  QParams QryParams;
+  if (tlg_id!=ASTRA::NoExists)
+    QryParams << QParam("id", otInteger, tlg_id);
+  else
+    QryParams << QParam("id", otInteger, FNull);
+  QryParams << QParam("page_no", otInteger);
+  QryParams << QParam("text", otString);
+  TCachedQuery TextQry(sql, QryParams);
+
+  std::string::const_iterator ib,ie;
+  ib=tlg_text.begin();
+  for(int page_no=1;ib<tlg_text.end();page_no++)
+  {
+    ie=ib+4000;
+    if (ie>tlg_text.end()) ie=tlg_text.end();
+    TextQry.get().SetVariable("page_no", page_no);
+    TextQry.get().SetVariable("text", std::string(ib,ie));
+    TextQry.get().Execute();
+    ib=ie;
+  };
+};
+
+string getTlgText(int tlg_id,
+                  TQuery &Qry)  //передаем tlgs.tlg_text, потом убрать столбец и код!!!
+{
+  string result;
+
+  const char* sql=
+    "SELECT text FROM tlgs_text WHERE id=:id ORDER BY page_no";
+  QParams QryParams;
+  QryParams << QParam("id", otInteger, tlg_id);
+  TCachedQuery TextQry(sql, QryParams);
+  TextQry.get().Execute();
+  for(;!TextQry.get().Eof;TextQry.get().Next())
+    result+=TextQry.get().FieldAsString("text");
+  if (result.empty() && !Qry.Eof) //потом убрать код!!!
+  {
+    static int bufLen=0;
+    static char *buf=NULL;
+
+    int len=Qry.GetSizeLongField("tlg_text")+1;
+    if (len>bufLen)
+    {
+      char *ph;
+      if (buf==NULL)
+        ph=(char*)malloc(len);
+      else
+        ph=(char*)realloc(buf,len);
+      if (ph==NULL) throw EMemoryError("Out of memory");
+      buf=ph;
+      bufLen=len;
+    };
+    Qry.FieldAsLong("tlg_text",buf);
+    buf[len-1]=0;
+
+    result.assign(buf,len-1);
+  };
+  return result;
+};
+
 int sendTlg(const char* receiver,
             const char* sender,
             TTlgQueuePriority queuePriority,
             int ttl,
-            const std::string &text)
+            const std::string &text,
+            int typeb_tlg_id,
+            int typeb_tlg_num)
 {
     try
     {
@@ -122,22 +259,36 @@ int sendTlg(const char* receiver,
         Qry.CreateVariable("time_msec",otFloat,nowUTC);
         Qry.CreateVariable("tlg_num",otInteger,FNull);
         Qry.Execute();
+
+        int tlg_id=Qry.GetVariableAsInteger("tlg_num");
+
         Qry.SQLText=
-          "INSERT INTO tlgs(id,sender,tlg_num,receiver,type,time,tlg_text,error) "
-          "VALUES(:tlg_num,:sender,:tlg_num,:receiver,:type,:time,:text,NULL)";
-        Qry.DeclareVariable("text",otLong);
-        Qry.SetLongVariable("text",(void *)text.c_str(),text.size());
+          "INSERT INTO tlgs(id,sender,tlg_num,receiver,type,time,error,typeb_tlg_id,typeb_tlg_num) "
+          "VALUES(:tlg_num,:sender,:tlg_num,:receiver,:type,:time,NULL,:typeb_tlg_id,:typeb_tlg_num)";
+        if (typeb_tlg_id!=ASTRA::NoExists && typeb_tlg_num!=ASTRA::NoExists)
+        {
+          Qry.CreateVariable("typeb_tlg_id", otInteger, typeb_tlg_id);
+          Qry.CreateVariable("typeb_tlg_num", otInteger, typeb_tlg_num);
+        }
+        else
+        {
+          Qry.CreateVariable("typeb_tlg_id", otInteger, FNull);
+          Qry.CreateVariable("typeb_tlg_num", otInteger, FNull);
+        };
         Qry.DeleteVariable("ttl");
         Qry.DeleteVariable("time_msec");
         Qry.DeleteVariable("priority");
         Qry.Execute();
-        ProgTrace(TRACE5,"OUT: PUT (sender=%s, tlg_num=%ld, time=%.10f, priority=%d)",
+
+        putTlgText(tlg_id, text);
+
+        ProgTrace(TRACE5,"OUT: PUT (sender=%s, tlg_num=%d, time=%.10f, priority=%d)",
                          Qry.GetVariableAsString("sender"),
-                         (long int)Qry.GetVariableAsInteger("tlg_num"),
+                         tlg_id,
                          nowUTC,
                          (int)queuePriority);
         Qry.Close();
-        return Qry.GetVariableAsInteger("tlg_num");
+        return tlg_id;
     }
     catch( std::exception &e)
     {
@@ -151,7 +302,7 @@ int sendTlg(const char* receiver,
     };
 }
 
-void loadTlg(const std::string &text)
+void loadTlg(const std::string &text, int prev_typeb_tlg_id)
 {
     try
     {
@@ -171,18 +322,34 @@ void loadTlg(const std::string &text)
         Qry.CreateVariable("time_msec",otFloat,nowUTC);
         Qry.CreateVariable("tlg_num",otInteger,FNull);
         Qry.Execute();
+
+        int tlg_id=Qry.GetVariableAsInteger("tlg_num");
+
         Qry.SQLText=
-          "INSERT INTO tlgs(id,sender,tlg_num,receiver,type,time,tlg_text,error) "
-          "VALUES(:tlg_num,:sender,:tlg_num,:receiver,:type,:time,:text,NULL)";
-        Qry.DeclareVariable("text",otLong);
-        Qry.SetLongVariable("text",(void *)text.c_str(),text.size());
+          "INSERT INTO tlgs(id,sender,tlg_num,receiver,type,time,error,typeb_tlg_id,typeb_tlg_num) "
+          "VALUES(:tlg_num,:sender,:tlg_num,:receiver,:type,:time,NULL,NULL,NULL)";
         Qry.DeleteVariable("ttl");
         Qry.DeleteVariable("time_msec");
         Qry.Execute();
-        ProgTrace(TRACE5,"IN: PUT (sender=%s, tlg_num=%ld, time=%.10f)",
+
+        putTlgText(tlg_id, text);
+
+        ProgTrace(TRACE5,"IN: PUT (sender=%s, tlg_num=%d, time=%.10f)",
                          Qry.GetVariableAsString("sender"),
-                         (long int)Qry.GetVariableAsInteger("tlg_num"),
+                         tlg_id,
                          nowUTC);
+
+        if (prev_typeb_tlg_id != ASTRA::NoExists)
+        {
+          Qry.Clear();
+          Qry.SQLText=
+            "INSERT INTO typeb_in_history(prev_tlg_id, tlg_id, id) "
+            "VALUES(:prev_tlg_id, NULL, :id)";
+          Qry.CreateVariable("prev_tlg_id", otInteger, prev_typeb_tlg_id);
+          Qry.CreateVariable("id", otInteger, tlg_id);
+          Qry.Execute();
+        };
+
         Qry.Close();
     }
     catch( std::exception &e)
@@ -196,36 +363,6 @@ void loadTlg(const std::string &text)
         throw;
     };
 };
-/*
-void sendErrorTlg(const char *format, ...)
-{
-  try
-  {
-    const char *sender=OWN_CANON_NAME();
-    const char *receiver=ERR_CANON_NAME();
-
-    if (*receiver==0) return;
-    char Message[500];
-    if (format==NULL) return;
-    va_list ap;
-    va_start(ap, format);
-    sprintf(Message,"Sender: %s\n",sender);
-    int len=strlen(Message);
-    vsnprintf(Message+len, sizeof(Message)-len, format, ap);
-    Message[sizeof(Message)-1]=0;
-    va_end(ap);
-
-    sendTlg(receiver,sender,false,0,Message);
-  }
-  catch( std::exception &e)
-  {
-      ProgError(STDLOG, e.what());
-  }
-  catch(...)
-  {
-      ProgError(STDLOG, "sendErrorTlg: Unknown error");
-  };
-};*/
 
 bool deleteTlg(int tlg_id)
 {
@@ -251,35 +388,32 @@ bool deleteTlg(int tlg_id)
   };
 };
 
-bool errorTlg(int tlg_id, string type, string msg)
+bool errorTlg(int tlg_id, const string &type, const string &msg)
 {
   try
   {
-    if (deleteTlg(tlg_id))
+    deleteTlg(tlg_id);
+    TQuery TlgQry(&OraSession);
+    if (!msg.empty())
     {
-      TQuery TlgQry(&OraSession);
-      if (!msg.empty())
-      {
-        TlgQry.Clear();
-        TlgQry.SQLText=
-          "BEGIN "
-          "  UPDATE tlg_error SET msg= :msg WHERE id= :id; "
-          "  IF SQL%NOTFOUND THEN "
-          "    INSERT INTO tlg_error(id,msg) VALUES(:id,:msg); "
-          "  END IF; "
-          "END;";
-        TlgQry.CreateVariable("msg",otString,msg.substr(0,1000));
-        TlgQry.CreateVariable("id",otInteger,tlg_id);
-        TlgQry.Execute();
-      };
       TlgQry.Clear();
-      TlgQry.SQLText="UPDATE tlgs SET error= :error WHERE id= :id";
-      TlgQry.CreateVariable("error",otString,type.substr(0,4));
+      TlgQry.SQLText=
+        "BEGIN "
+        "  UPDATE tlg_error SET msg= :msg WHERE id= :id; "
+        "  IF SQL%NOTFOUND THEN "
+        "    INSERT INTO tlg_error(id,msg) VALUES(:id,:msg); "
+        "  END IF; "
+        "END;";
+      TlgQry.CreateVariable("msg",otString,msg.substr(0,1000));
       TlgQry.CreateVariable("id",otInteger,tlg_id);
       TlgQry.Execute();
-      return TlgQry.RowsProcessed()>0;
-    }
-    else return false;
+    };
+    TlgQry.Clear();
+    TlgQry.SQLText="UPDATE tlgs SET error= :error WHERE id= :id";
+    TlgQry.CreateVariable("error",otString,type.substr(0,4));
+    TlgQry.CreateVariable("id",otInteger,tlg_id);
+    TlgQry.Execute();
+    return TlgQry.RowsProcessed()>0;
   }
   catch( std::exception &e)
   {
@@ -289,6 +423,78 @@ bool errorTlg(int tlg_id, string type, string msg)
   catch(...)
   {
       ProgError(STDLOG, "errorTlg: Unknown error");
+      throw;
+  };
+};
+
+void parseTypeB(int tlg_id)
+{
+  try
+  {
+    const char* sql=
+      "UPDATE tlgs_in SET time_parse=system.UTCSYSDATE, time_receive_not_parse=NULL "
+      "WHERE id=:id AND time_parse IS NULL";
+
+    QParams QryParams;
+    QryParams << QParam("id", otInteger, tlg_id);
+
+    TCachedQuery Qry(sql, QryParams);
+    Qry.get().Execute();
+  }
+  catch( std::exception &e)
+  {
+      ProgError(STDLOG, e.what());
+      throw;
+  }
+  catch(...)
+  {
+      ProgError(STDLOG, "parseTypeB: Unknown error");
+      throw;
+  };
+};
+
+void errorTypeB(int tlg_id,
+                int part_no,
+                int &error_no,
+                int error_pos,
+                int error_len,
+                const string &text)
+{
+  try
+  {
+    const char* sql=
+      "INSERT INTO typeb_in_errors(tlg_id, part_no, error_no, lang, error_pos, error_len, text) "
+      "VALUES(:tlg_id, :part_no, :error_no, :lang, :error_pos, :error_len, :text)";
+
+    QParams QryParams;
+    QryParams << QParam("tlg_id", otInteger, tlg_id);
+    if (part_no!=ASTRA::NoExists)
+      QryParams << QParam("part_no", otInteger, part_no);
+    else
+      QryParams << QParam("part_no", otInteger, FNull);
+    if (error_no==ASTRA::NoExists) error_no=1;
+    QryParams << QParam("error_no", otInteger, error_no);
+    QryParams << QParam("error_pos", otInteger, error_pos==ASTRA::NoExists?0:error_pos);
+    QryParams << QParam("error_len", otInteger, error_len==ASTRA::NoExists?0:error_len);
+    QryParams << QParam("lang", otString);
+    QryParams << QParam("text", otString, text);
+
+    TCachedQuery ErrQry(sql, QryParams);
+
+    for(int pass=0; pass<2; pass++)
+    {
+      ErrQry.get().SetVariable("lang", pass==0?AstraLocale::LANG_RU:AstraLocale::LANG_EN);
+      ErrQry.get().Execute();
+    };
+  }
+  catch( std::exception &e)
+  {
+      ProgError(STDLOG, e.what());
+      throw;
+  }
+  catch(...)
+  {
+      ProgError(STDLOG, "errorTypeB: Unknown error");
       throw;
   };
 };

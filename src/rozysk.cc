@@ -103,6 +103,7 @@ struct TRow {
     };
     TRow& fltFromDB(TQuery &Qry);
     TRow& paxFromDB(TQuery &Qry);
+    TRow& setPnr(const vector<TPnrAddrItem> &pnrs);
     TRow& setDoc(const CheckIn::TPaxDocItem &doc);
     TRow& setVisa(const CheckIn::TPaxDocoItem &doc);
     TRow& setTkn(const CheckIn::TPaxTknItem &tkn);
@@ -145,10 +146,17 @@ TRow& TRow::paxFromDB(TQuery &Qry)
   bag_weight=Qry.FieldIsNULL("bag_weight")?NoExists:Qry.FieldAsInteger("bag_weight");
   rk_weight=Qry.FieldIsNULL("rk_weight")?NoExists:Qry.FieldAsInteger("rk_weight");
   tags=Qry.FieldAsString("tags");
-  pnr=Qry.FieldAsString("pnr");
   operation=Qry.FieldAsString("operation");
   reg_no=Qry.FieldIsNULL("reg_no")?NoExists:Qry.FieldAsInteger("reg_no");
   pax_id=Qry.FieldIsNULL("pax_id")?NoExists:Qry.FieldAsInteger("pax_id");
+  return *this;
+};
+
+
+TRow& TRow::setPnr(const vector<TPnrAddrItem> &pnrs)
+{
+  pnr.clear();
+  if (!pnrs.empty()) pnr=pnrs.begin()->addr;
   return *this;
 };
 
@@ -477,19 +485,17 @@ const char* pax_sql=
   "  NVL(ckin.get_bagWeight2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS bag_weight, "
   "  NVL(ckin.get_rkWeight2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS rk_weight, "
   "  ckin.get_birks2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num) AS tags, "
-  "  ckin.get_pax_pnr_addr(pax.pax_id) AS pnr, "
   "  DECODE(pax.refuse,NULL,DECODE(pax.pr_brd,0,DECODE(pax.pr_exam,0,'K1','K2'),'K3'),'K0') AS operation "
   "FROM pax_grp, pax "
   "WHERE pax_grp.grp_id=pax.grp_id";
   
 const char* crs_pax_sql=
   "SELECT "
-  "  crs_pnr.point_id, crs_pnr.airp_arv, "
+  "  crs_pnr.point_id, crs_pnr.airp_arv, crs_pnr.pnr_id, "
   "  crs_pax.pax_id, crs_pax.surname, crs_pax.name, NULL AS reg_no, "
   "  salons.get_crs_seat_no(seat_xname,seat_yname,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS seat_no, "
   "  NULL AS bag_amount, NULL AS bag_weight, NULL AS rk_weight, "
   "  NULL AS tags, "
-  "  ckin.get_pnr_addr(crs_pnr.pnr_id) AS pnr, "
   "  'K0' AS operation "
   "FROM crs_pnr,crs_pax,pax "
   "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND crs_pax.pr_del=0 AND "
@@ -549,6 +555,10 @@ void sync_pax_internal(int id,
       //пассажир
       check_pax(Qry, pax_id);
       row.paxFromDB(Qry);
+      //pnr
+      vector<TPnrAddrItem> pnrs;
+      GetPaxPnrAddr(pax_id, pnrs);
+      row.setPnr(pnrs);
       //документ
       CheckIn::TPaxDocItem doc;
       LoadPaxDoc(pax_id, doc);
@@ -633,6 +643,10 @@ void sync_crs_pax_internal(int id,
   //рейс
   int point_id=Qry.FieldAsInteger("point_id");
   get_crs_flight(point_id, row);
+  //pnr
+  vector<TPnrAddrItem> pnrs;
+  GetPnrAddr(Qry.FieldAsInteger("pnr_id"), pnrs);
+  row.setPnr(pnrs);
 
   bool check_sql=true;
   for(;!Qry.Eof;Qry.Next())

@@ -1584,37 +1584,37 @@ bool createUTGDataFiles( int point_id, const std::string &point_addr, TFileDatas
     fds.clear();
     QParams QryParams;
     QryParams << QParam("point_id", otInteger, point_id);
-    TQuery &fltQry = TQrys::Instance()->get(
+    TCachedQuery fltQry(
             "SELECT point_num,first_point,pr_tranzit,airline, flt_no, suffix,suffix_fmt,airp,scd_out,est_out,act_out,pr_del FROM points "
             " WHERE point_id=:point_id",
             QryParams
             );
-    fltQry.Execute();
+    fltQry.get().Execute();
 
     QryParams.clear();
     QryParams << QParam("id", otInteger);
-    TQuery &TlgQry = TQrys::Instance()->get(
+    TCachedQuery TlgQry(
             "SELECT * FROM tlg_out WHERE id=:id ORDER BY num",
             QryParams
             );
 
     QryParams.clear();
     QryParams << QParam("point_id", otInteger) << QParam("last_flt_change_tid", otInteger);
-    TQuery &updQry = TQrys::Instance()->get(
+    TCachedQuery updQry(
             "UPDATE utg_prl set last_tlg_create_tid = :last_flt_change_tid where point_id = :point_id",
             QryParams
             );
 
     QryParams.clear();
     QryParams << QParam("point_id", otInteger);
-    TQuery &utgQry = TQrys::Instance()->get(
+    TCachedQuery utgQry(
             "select last_flt_change_tid from utg_prl where point_id = :point_id and "
             "(last_tlg_create_tid is null or last_tlg_create_tid <> last_flt_change_tid)",
             QryParams
             );
 
     TTripInfo flt;
-    flt.Init(fltQry);
+    flt.Init(fltQry.get());
     TFileData file;
     TFileQueue::add_sets_params( flt.airp,
             flt.airline,
@@ -1626,33 +1626,33 @@ bool createUTGDataFiles( int point_id, const std::string &point_addr, TFileDatas
     TFlights Flights;
     Flights.Get(point_id, ftTranzit);
     Flights.Lock();
-    utgQry.SetVariable("point_id", point_id);
-    utgQry.Execute();
+    utgQry.get().SetVariable("point_id", point_id);
+    utgQry.get().Execute();
     if(stats) stats->selected++;
-    if(utgQry.Eof) return false;
-    int last_flt_change_tid = utgQry.FieldAsInteger("last_flt_change_tid");
+    if(utgQry.get().Eof) return false;
+    int last_flt_change_tid = utgQry.get().FieldAsInteger("last_flt_change_tid");
     TypeB::TCreateInfo info("PRL");
     info.point_id = point_id;
     TTypeBTypesRow tlgTypeInfo;
     int tlg_id = TelegramInterface::create_tlg(info, tlgTypeInfo, true);
-    TlgQry.SetVariable("id", tlg_id);
-    TlgQry.Execute();
+    TlgQry.get().SetVariable("id", tlg_id);
+    TlgQry.get().Execute();
 
     file.params[NS_PARAM_EVENT_TYPE] = EncodeEventType( ASTRA::evtFlt );
     file.params[NS_PARAM_EVENT_ID1] = IntToString( point_id );
-    for(;!TlgQry.Eof;TlgQry.Next())
+    for(;!TlgQry.get().Eof;TlgQry.get().Next())
     {
       TTlgOutPartInfo tlg;
-      tlg.fromDB(TlgQry);
+      tlg.fromDB(TlgQry.get());
       file.file_data=tlg.heading + tlg.body + tlg.ending;
       file.params[PARAM_FILE_NAME] = UTG_file_name(tlg_id, tlg.num, "PRL", flt, file.params[PARAM_FILE_NAME_ENC]);
       fds.push_back( file );
     };
     OraSession.Rollback();
 
-    updQry.SetVariable("point_id", point_id);
-    updQry.SetVariable("last_flt_change_tid", last_flt_change_tid);
-    updQry.Execute();
+    updQry.get().SetVariable("point_id", point_id);
+    updQry.get().SetVariable("last_flt_change_tid", last_flt_change_tid);
+    updQry.get().Execute();
 
 #ifdef SQL_COUNTERS
     for(map<string, int>::iterator im = sqlCounters.begin(); im != sqlCounters.end(); im++) {

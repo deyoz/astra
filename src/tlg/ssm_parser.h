@@ -3,6 +3,7 @@
 
 #include "tlg_parser.h"
 
+
 namespace TypeB
 {
 enum TTimeMode{tmLT, tmUTC, tmUnknown};
@@ -81,7 +82,7 @@ struct TPeriodOfOper {
         TSSMDate from, to;
         char oper_days[8]; // Day(s) of operation
         TFrequencyRate rate;
-        void parse(char *&ph, TTlgParser &tlg);
+        void parse(const char *&ph, TTlgParser &tlg);
         TPeriodOfOper():
             rate(frW)
     {
@@ -137,6 +138,7 @@ struct TDEI_6:TDEI {
 struct TMealItem {
     std::string cls;
     std::string meal;
+    TElemFmt fmt;
 };
 
 struct TDEI_7:TDEI {
@@ -160,7 +162,7 @@ struct TDEIHolder {
     TDEI_6 dei6;                // Onward Flight
     TDEI_7 dei7;                // Meal Service Note
     TDEI_airline dei9;          // Code Sharing - Shared Airline Designation or
-    void parse(TTlgElement e, char *&ph, TTlgParser &tlg);
+    void parse(TTlgElement e, const char *&ph, TTlgParser &tlg);
     void dump();
     bool empty()
     {
@@ -231,8 +233,13 @@ struct TRouteStation {
     }
 };
 
+struct TLegAirp {
+    TElemFmt fmt;
+    std::string airp;
+};
+
 struct TRouting {
-    std::vector<std::string> leg_airps;
+    std::vector<TLegAirp> leg_airps;
     TRouteStation station_dep;
     TRouteStation station_arv;
     TDEIHolder dei_holder;
@@ -260,6 +267,7 @@ struct TOther {
 
 struct TSegment {
     std::string airp_dep, airp_arv;
+    TElemFmt airp_dep_fmt, airp_arv_fmt;
     TDEI_8 dei8; // Traffic Restriction Note
     TOther other;
     std::string raw_data;
@@ -332,19 +340,9 @@ struct TASMActionInfo {
     TASMActionInfo(): id(aiUnknown) {};
 };
 
-struct TFlightIdentifier {
-    std::string airline;
-    int flt_no;
-    char suffix;
-    BASIC::TDateTime date;
-    void parse(const char *val);
-    void dump();
-    TFlightIdentifier(): flt_no(ASTRA::NoExists), suffix(0), date(ASTRA::NoExists) {};
-};
-
 struct TASMFlightInfo {
     TFlightIdentifier flt;
-    std::vector<std::string> legs;
+    std::vector<TLegAirp> legs;
     TFlightIdentifier new_flt;
     TDEIHolder dei_holder;
     void dump();

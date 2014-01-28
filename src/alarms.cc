@@ -11,6 +11,7 @@
 #include "typeb_utils.h"
 #include "trip_tasks.h"
 #include "salons.h"
+#include "qrys.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -29,6 +30,7 @@ const char *TripAlarmsTypeS[] = {
     "SEANCE",
     "DIFF_COMPS",
     "SPEC_SERVICE",
+    "TLG_IN",
     "TLG_OUT",
     "UNATTACHED_TRFER",
     "CONFLICT_TRFER",
@@ -111,6 +113,7 @@ bool get_alarm( int point_id, TTripAlarmsType alarm_type )
         case atOverload:
         case atDiffComps:
         case atSpecService:
+        case atTlgIn:
         case atTlgOut:
         case atUnattachedTrfer:
         case atConflictTrfer:
@@ -137,6 +140,7 @@ void set_alarm( int point_id, TTripAlarmsType alarm_type, bool alarm_value )
         case atOverload:
         case atDiffComps:
         case atSpecService:
+        case atTlgIn:
         case atTlgOut:
         case atUnattachedTrfer:
         case atConflictTrfer:
@@ -242,6 +246,53 @@ bool check_brd_alarm( int point_id )
 	}
 	set_alarm( point_id, atBrd, brd_alarm );
 	return brd_alarm;
+};
+
+/* есть ошибочные телеграммы, не скорректированные впоследствии */
+bool check_tlg_in_alarm(int point_id_tlg, int point_id_spp) // point_id_spp м.б. NoExists
+{
+  bool result = false;
+  if (point_id_spp!=NoExists)
+  {
+    const char* sql=
+      "SELECT tlg_binding.point_id_tlg "
+      "FROM tlg_binding, tlg_source, typeb_in_history "
+      "WHERE tlg_binding.point_id_tlg=tlg_source.point_id_tlg AND "
+      "      tlg_source.tlg_id=typeb_in_history.prev_tlg_id(+) AND "
+      "      typeb_in_history.prev_tlg_id IS NULL AND "
+      "      tlg_binding.point_id_spp=:point_id_spp AND "
+      "      NVL(tlg_source.has_errors,0)<>0 AND rownum<2 ";
+    QParams QryParams;
+    QryParams << QParam("point_id_spp", otInteger, point_id_spp);
+    TCachedQuery CachedQry(sql, QryParams);
+    TQuery &Qry=CachedQry.get();
+    Qry.Execute();
+    result = !Qry.Eof;
+    set_alarm(point_id_spp, atTlgIn, result);
+  }
+  else
+  {
+    const char* sql=
+      "SELECT tlg_binding.point_id_spp, tlg_source.has_errors "
+      "FROM tlg_binding, "
+      "     (SELECT MAX(DECODE(NVL(tlg_source.has_errors,0), 0, 0, 1)) AS has_errors "
+      "      FROM tlg_source, typeb_in_history "
+      "      WHERE tlg_source.tlg_id=typeb_in_history.prev_tlg_id(+) AND "
+      "            typeb_in_history.prev_tlg_id IS NULL AND "
+      "            tlg_source.point_id_tlg=:point_id_tlg) tlg_source "
+      "WHERE tlg_binding.point_id_tlg=:point_id_tlg";
+    QParams QryParams;
+    QryParams << QParam("point_id_tlg", otInteger, point_id_tlg);
+    TCachedQuery CachedQry(sql, QryParams);
+    TQuery &Qry=CachedQry.get();
+    Qry.Execute();
+    for(;!Qry.Eof;Qry.Next())
+    {
+      result=Qry.FieldAsInteger("has_errors")!=0;
+      set_alarm(Qry.FieldAsInteger("point_id_spp"), atTlgIn, result);
+    };
+  };
+  return result;
 };
 
 /* есть ошибочные или требующие коррекции телеграммы */

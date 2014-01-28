@@ -1185,6 +1185,14 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
             rem = TripAlarmString( alarm ) + SALONS2::getDiffCompsAlarmRoutes( point_id );
           }
           break;
+        case atTlgIn:
+          if (reqInfo->screen.name == "TLG.EXE")
+          	rem = TripAlarmString( alarm );
+          break;
+        case atTlgOut:
+          if (reqInfo->screen.name == "TLG.EXE")
+          	rem = TripAlarmString( alarm );
+          break;
       	default:
           break;
       }
@@ -2316,7 +2324,6 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
 
   sql <<
      "SELECT "
-     "      ckin.get_pnr_addr(crs_pnr.pnr_id) AS pnr_ref, "
      "      crs_pnr.status AS pnr_status, "
      "      crs_pnr.priority AS pnr_priority, "
      "      RTRIM(crs_pax.surname||' '||crs_pax.name) full_name, "
@@ -2443,7 +2450,6 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
 
   int point_id_tlg=-1;
   xmlNodePtr tripNode,paxNode,node;
-  int col_pnr_ref=Qry.FieldIndex("pnr_ref");
   int col_pnr_status=Qry.FieldIndex("pnr_status");
   int col_pnr_priority=Qry.FieldIndex("pnr_priority");
   int col_full_name=Qry.FieldIndex("full_name");
@@ -2470,6 +2476,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   int col_wl_type=Qry.FieldIndex("wl_type");
   int mode; // режим для поиска мест 0 - регистрация иначе список pnl
   int crs_row=1, pax_row=1;
+  vector<TPnrAddrItem> pnrs;
   for(;!Qry.Eof;Qry.Next())
   {
   	mode = -1; // не надо искать место
@@ -2499,7 +2506,11 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     };
     node = NewTextChild(paxNode,"pax");
 
-    NewTextChild( node, "pnr_ref", Qry.FieldAsString( col_pnr_ref ), "" );
+    GetPnrAddr(Qry.FieldAsInteger( col_pnr_id ), pnrs);
+    string pnr_addr;
+    if (!pnrs.empty())
+      pnr_addr.append(pnrs.begin()->addr).append("/").append(pnrs.begin()->airline);
+    NewTextChild( node, "pnr_ref", pnr_addr, "" );
     NewTextChild( node, "pnr_status", Qry.FieldAsString( col_pnr_status ), "" );
     NewTextChild( node, "pnr_priority", Qry.FieldAsString( col_pnr_priority ), "" );
     NewTextChild( node, "full_name", Qry.FieldAsString( col_full_name ) );

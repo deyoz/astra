@@ -26,6 +26,7 @@
 #include "serverlib/test.h"
 
 #include "tlg/ssm_parser.h"
+#include "tlg/lci_parser.h"
 
 /*
 int LocalIsNosir=0;
@@ -52,6 +53,7 @@ const
     {"-create_tlg",             create_tlg,             NULL,                       NULL},
     {"-dst_seasons",            seasons_dst_format,     NULL,                       NULL},
     {"-agent_stat_delta",       STAT::agent_stat_delta, NULL,                       NULL},
+    {"-lci",                    TypeB::lci,             NULL,                       NULL},
     {"-ssm",                    TypeB::ssm,             NULL,                       NULL},
     {"-get_sirena_rozysk_stat", get_sirena_rozysk_stat, NULL,                       NULL},
     {"-get_events_stat",        get_events_stat2,       NULL,                       NULL},
@@ -64,7 +66,8 @@ const
     {"-test_typeb_utils",       test_typeb_utils,       NULL,                       NULL},
     {"-compare_apis",           compare_apis,           NULL,                       NULL},
     {"-test_sopp_sql",          test_sopp_sql,          NULL,                       NULL},
-    {"-test_file_queue",        test_file_queue,        NULL,                       NULL}
+    {"-test_file_queue",        test_file_queue,        NULL,                       NULL},
+    {"-rollback096",            rollback096,            NULL,                       NULL}
   };
 
 int nosir_test(int argc,char **argv)

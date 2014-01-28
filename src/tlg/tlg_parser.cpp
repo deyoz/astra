@@ -5,6 +5,7 @@
 #include <time.h>
 #include <list>
 #include "tlg_parser.h"
+#include "lci_parser.h"
 #include "ssm_parser.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
@@ -90,13 +91,16 @@ const char* TTlgElementS[] =
                "Reject",
                "RejectBody",
                "RepeatOfRejected",
+               //LCI
+               "ActionCode",
+               "LCIData",
                //общие
                "EndOfMessage"};
 
 
 char lexh[MAX_LEXEME_SIZE+1];
 
-void ParseNameElement(char* p, vector<string> &names, TElemPresence num_presence);
+void ParseNameElement(const char* p, vector<string> &names, TElemPresence num_presence);
 void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &pr_prev_rem, bool &pr_bag_info);
 void BindRemarks(TTlgParser &tlg, TNameElement &ne);
 void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
@@ -107,19 +111,19 @@ bool ParseSEATRem(TTlgParser &tlg,string &rem_text,vector<TSeatRange> &seats);
 bool ParseTKNRem(TTlgParser &tlg,string &rem_text,TTKNItem &tkn);
 bool ParseFQTRem(TTlgParser &tlg,string &rem_text,TFQTItem &fqt);
 
-char* TTlgParser::NextLine(char* p)
+const char* TTlgParser::NextLine(const char* p)
 {
   if (p==NULL) return NULL;
   if ((p=strchr(p,'\n'))==NULL) return NULL;
   else return p+1;
 };
 
-char* TTlgParser::GetLexeme(char* p)
+const char* TTlgParser::GetLexeme(const char* p)
 {
   int len;
   if (p==NULL) return NULL;
   for(;*p>0&&*p<=' '&&*p!='\n';p++);
-  for(len=0;*(unsigned char*)(p+len)>' ';len++);
+  for(len=0;*(const unsigned char*)(p+len)>' ';len++);
   if (len>(int)sizeof(lex)-1)
     throw ETlgError("Too long lexeme");
   lex[len]=0;
@@ -128,10 +132,10 @@ char* TTlgParser::GetLexeme(char* p)
   else return p+len;
 };
 
-char* TTlgParser::GetSlashedLexeme(char* p)
+const char* TTlgParser::GetSlashedLexeme(const char* p)
 {
   int len;
-  char *res;
+  const char *res;
   if (p==NULL) return NULL;
   //удалим все предшествующие пробелы
   for(;*p>0&&*p<=' '&&*p!='\n';p++);
@@ -142,7 +146,7 @@ char* TTlgParser::GetSlashedLexeme(char* p)
   else
     if (len==0) res=NULL;
   //удалим все последующие пробелы
-  for(len--;len>=0&&*(unsigned char*)(p+len)<=' ';len--);
+  for(len--;len>=0&&*(const unsigned char*)(p+len)<=' ';len--);
   len++;
   //заполним tlg.lex
   if (len>(int)sizeof(lex)-1)
@@ -152,7 +156,7 @@ char* TTlgParser::GetSlashedLexeme(char* p)
   return res;
 };
 
-char* TTlgParser::GetWord(char* p)
+const char* TTlgParser::GetWord(const char* p)
 {
   int len;
   if (p==NULL) return NULL;
@@ -165,19 +169,19 @@ char* TTlgParser::GetWord(char* p)
   else return p+len;
 };
 
-char* TTlgParser::GetNameElement(char* p, bool trimRight) //до первой точки на строке
+const char* TTlgParser::GetNameElement(const char* p, bool trimRight) //до первой точки на строке
 {
   int len;
   if (p==NULL) return NULL;
   for(;*p>0&&*p<=' '&&*p!='\n';p++);
   for(len=0;*(p+len)!=0&&*(p+len)!='\n';len++)
-    if (*(unsigned char*)(p+len)<=' '&&*(p+len+1)=='.') break;
+    if (*(const unsigned char*)(p+len)<=' '&&*(p+len+1)=='.') break;
   if (trimRight)
     //удаляем пустые символы с конца лексемы
-    for(len--;len>=0&&*(unsigned char*)(p+len)<=' ';len--);
+    for(len--;len>=0&&*(const unsigned char*)(p+len)<=' ';len--);
   else
     //удаляем символы с конца лексемы кроме пробелов
-    for(len--;len>=0&&*(unsigned char*)(p+len)<' ';len--);
+    for(len--;len>=0&&*(const unsigned char*)(p+len)<' ';len--);
 
   len++;
   if (len>(int)sizeof(lex)-1)
@@ -188,13 +192,13 @@ char* TTlgParser::GetNameElement(char* p, bool trimRight) //до первой точки на с
   else return p+len;
 };
 
-char* TTlgParser::GetToEOLLexeme(char* p)
+const char* TTlgParser::GetToEOLLexeme(const char* p)
 {
   int len;
   if (p==NULL) return NULL;
   for(;*p>0&&*p<=' '&&*p!='\n';p++);
   for(len=0;*(p+len)!=0&&*(p+len)!='\n';len++);
-  for(len--;len>=0&&*(unsigned char*)(p+len)<=' ';len--);
+  for(len--;len>=0&&*(const unsigned char*)(p+len)<=' ';len--);
   len++;
   if (len>(int)sizeof(lex)-1)
     throw ETlgError("Too long lexeme");
@@ -204,9 +208,23 @@ char* TTlgParser::GetToEOLLexeme(char* p)
   else return p+len;
 };
 
-char* GetTlgElementName(TTlgElement e)
+const char* GetTlgElementName(TTlgElement e)
 {
-  return (char*)TTlgElementS[e];
+  return TTlgElementS[e];
+};
+
+int CalcEOLCount(const char* p)
+{
+  int i=0;
+  if (p!=NULL)
+  {
+    while ((p=strchr(p,'\n'))!=NULL)
+    {
+      i++;
+      p++;
+    };
+  };
+  return i;
 };
 
 char* TlgElemToElemId(TElemType type, const char* elem, char* id, bool with_icao)
@@ -231,24 +249,52 @@ char* TlgElemToElemId(TElemType type, const char* elem, char* id, bool with_icao
 
 char* GetAirline(char* airline, bool with_icao)
 {
-  return TlgElemToElemId(etAirline,airline,airline,with_icao);
+  try
+  {
+    return TlgElemToElemId(etAirline,airline,airline,with_icao);
+  }
+  catch (EBaseTableError)
+  {
+    throw ETlgError("Unknown airline code '%s'", airline);
+  };
 };
 
 char* GetAirp(char* airp, bool with_icao=false)
 {
-  return TlgElemToElemId(etAirp,airp,airp,with_icao);
+  try
+  {
+    return TlgElemToElemId(etAirp,airp,airp,with_icao);
+  }
+  catch (EBaseTableError)
+  {
+    throw ETlgError("Unknown airport code '%s'", airp);
+  };
 };
 
-TClass GetClass(char* subcl)
+TClass GetClass(const char* subcl)
 {
-  char subclh[2];
-  TlgElemToElemId(etSubcls,subcl,subclh);
-  return DecodeClass(getBaseTable(etSubcls).get_row("code",subclh).AsString("cl").c_str());
+  try
+  {
+    char subclh[2];
+    TlgElemToElemId(etSubcls,subcl,subclh);
+    return DecodeClass(getBaseTable(etSubcls).get_row("code",subclh).AsString("cl").c_str());
+  }
+  catch (EBaseTableError)
+  {
+    throw ETlgError("Unknown subclass '%s'", subcl);
+  };
 };
 
 char* GetSubcl(char* subcl)
 {
-  return TlgElemToElemId(etSubcls,subcl,subcl);
+  try
+  {
+    return TlgElemToElemId(etSubcls,subcl,subcl);
+  }
+  catch (EBaseTableError)
+  {
+    throw ETlgError("Unknown subclass '%s'", subcl);
+  };
 };
 
 char GetSuffix(char &suffix)
@@ -258,7 +304,14 @@ char GetSuffix(char &suffix)
     char suffixh[2];
     suffixh[0]=suffix;
     suffixh[1]=0;
-    TlgElemToElemId(etSuffix,suffixh,suffixh);
+    try
+    {
+      TlgElemToElemId(etSuffix,suffixh,suffixh);
+    }
+    catch (EBaseTableError)
+    {
+      throw ETlgError("Unknown flight number suffix '%c'", suffix);
+    };
     suffix=suffixh[0];
   };
   return suffix;
@@ -268,14 +321,21 @@ void GetPaxDocCountry(const char* elem, char* id)
 {
   try
   {
-    TlgElemToElemId(etPaxDocCountry,elem,id);
+    try
+    {
+      TlgElemToElemId(etPaxDocCountry,elem,id);
+    }
+    catch (EBaseTableError)
+    {
+      char country[3];
+      TlgElemToElemId(etCountry,elem,country);
+      //ищем в pax_doc_countries
+      strcpy(id,getBaseTable(etPaxDocCountry).get_row("country",country).AsString("code").c_str());
+    };
   }
   catch (EBaseTableError)
   {
-    char country[3];
-    TlgElemToElemId(etCountry,elem,country);
-    //ищем в pax_doc_countries
-    strcpy(id,getBaseTable(etPaxDocCountry).get_row("country",country).AsString("code").c_str());
+    throw ETlgError("Unknown country code '%s'", elem);
   };
 };
 
@@ -293,6 +353,7 @@ TTlgCategory GetTlgCategory(char *tlg_type)
       strcmp(tlg_type,"LDM")==0) cat=tcAHM;
   if (strcmp(tlg_type,"SSM")==0) cat=tcSSM;
   if (strcmp(tlg_type,"ASM")==0) cat=tcASM;
+  if (strcmp(tlg_type,"LCI")==0) cat=tcLCI;
   return cat;
 };
 
@@ -382,7 +443,7 @@ class TBSMBagException : public TBSMInfo
     };
 };
 
-char ParseBSMElement(char *p, TTlgParser &tlg, TBSMInfo* &data, TMemoryManager &mem)
+char ParseBSMElement(const char *p, TTlgParser &tlg, TBSMInfo* &data, TMemoryManager &mem)
 {
   char c,id[2];
   int res;
@@ -598,27 +659,64 @@ char ParseBSMElement(char *p, TTlgParser &tlg, TBSMInfo* &data, TMemoryManager &
   };
 };
 
+TTlgPartInfo nextPart(const TTlgPartInfo &curr, const char* line_p)
+{
+  TTlgPartInfo next;
+  next.p=line_p;
+  if (line_p!=NULL)
+  {
+    int EOL_count=0;
+    const char* p=curr.p;
+    for(;*p!=0&&p!=line_p;p++)
+      if (*p=='\n') EOL_count++;
+    if (p!=line_p)
+      throw Exception("nextPart: wrong param line_p");
+    next.EOL_count=curr.EOL_count+EOL_count;
+    next.offset=curr.offset+(line_p-curr.p);
+  }
+  else
+  {
+    next.EOL_count=curr.EOL_count+CalcEOLCount(curr.p);
+    next.offset=curr.offset+strlen(curr.p);
+  };
+  return next;
+};
+
+void throwTlgError(const char* msg, const TTlgPartInfo &curr, const char* line_p)
+{
+  if (line_p==NULL)
+    throw ETlgError(ASTRA::NoExists, ASTRA::NoExists, "", curr.EOL_count+CalcEOLCount(curr.p)+1, msg);
+
+  int EOL_count=0;
+  const char* p=curr.p;
+  for(;*p!=0&&p!=line_p;p++)
+    if (*p=='\n') EOL_count++;
+  if (p!=line_p)
+    throw Exception("throwTlgError: wrong param line_p");
+
+  for(;*p!=0&&*p!='\n';p++);
+
+  throw ETlgError(curr.offset+(line_p-curr.p), p-line_p, string(line_p, p-line_p), curr.EOL_count+EOL_count+1, msg);
+};
+
 TTlgPartInfo ParseBSMHeading(TTlgPartInfo heading, TBSMHeadingInfo &info, TMemoryManager &mem)
 {
-  int line;
-  char c,*line_p;
+  char c;
+  const char* line_p;
   TTlgParser tlg;
-  TTlgPartInfo next;
 
+  line_p=heading.p;
   try
   {
-    line_p=heading.p;
-    line=heading.line-1;
     do
     {
-      line++;
       if (tlg.GetLexeme(line_p)==NULL) continue;
 
       TBSMInfo *data=NULL;
       c=ParseBSMElement(line_p,tlg,data,mem);
       try
       {
-        if (c!='V') throw ("Version and supplementary data not found");
+        if (c!='V') throw ETlgError("Version and supplementary data not found");
         TBSMVersionInfo &verInfo = *(dynamic_cast<TBSMVersionInfo*>(data));
         info.part_no=verInfo.part_no;
         strcpy(info.airp,verInfo.airp);
@@ -632,20 +730,17 @@ TTlgPartInfo ParseBSMHeading(TTlgPartInfo heading, TBSMHeadingInfo &info, TMemor
         if (data!=NULL) delete data;
         throw;
       };
-      next.p=tlg.NextLine(line_p);
-      next.line=line+1;
-      return next;
+      line_p=tlg.NextLine(line_p);
+      return nextPart(heading, line_p);
     }
     while ((line_p=tlg.NextLine(line_p))!=NULL);
   }
   catch(ETlgError E)
   {
-    //вывести ошибку+номер строки
-    throw ETlgError("Line %d: %s",line,E.what());
+    throwTlgError(E.what(), heading, line_p);
   };
-  next.p=line_p;
-  next.line=line;
-  return next;
+
+  return nextPart(heading, line_p);
 };
 
 class TBSMElemOrderRules : public map<char, string>
@@ -723,7 +818,7 @@ void TestBSMElemOrder(const string &s)
   rules.calcCharCombinations(s, true);
 };
 
-void ParseBTMContent(TTlgPartInfo body, TBSMHeadingInfo& info, TBtmContent& con, TMemoryManager &mem)
+void ParseBTMContent(TTlgPartInfo body, const TBSMHeadingInfo& info, TBtmContent& con, TMemoryManager &mem)
 {
   vector<TBtmTransferInfo>::iterator iIn;
   vector<TBtmOutFltInfo>::iterator iOut;
@@ -733,15 +828,14 @@ void ParseBTMContent(TTlgPartInfo body, TBSMHeadingInfo& info, TBtmContent& con,
 
   con.Clear();
 
-  int line;
-  char prior,*line_p;
+  char prior;
+  const char* line_p;
   TTlgParser tlg;
   static TBSMElemOrderRules elemOrderRules;
 
   TBSMInfo *data=NULL;
 
   line_p=body.p;
-  line=body.line-1;
   try
   {
     char airp[4]; //аэропорт в котором происходит трансфер
@@ -751,7 +845,6 @@ void ParseBTMContent(TTlgPartInfo body, TBSMHeadingInfo& info, TBtmContent& con,
 
     do
     {
-      line++;
       if (tlg.GetLexeme(line_p)==NULL) continue;
 
       char e=ParseBSMElement(line_p,tlg,data,mem);
@@ -779,13 +872,13 @@ void ParseBTMContent(TTlgPartInfo body, TBSMHeadingInfo& info, TBtmContent& con,
                 strcpy(trfer.InFlt.subcl,flt.subcl);
                 for(iIn=con.Transfer.begin();iIn!=con.Transfer.end();iIn++)
                   if (strcmp(iIn->InFlt.airline,trfer.InFlt.airline)==0&&
-                    iIn->InFlt.flt_no==trfer.InFlt.flt_no&&
-                    strcmp(iIn->InFlt.suffix,trfer.InFlt.suffix)==0&&
-                    iIn->InFlt.scd==trfer.InFlt.scd&&
-                    iIn->InFlt.pr_utc==trfer.InFlt.pr_utc&&
-                    strcmp(iIn->InFlt.airp_dep,trfer.InFlt.airp_dep)==0&&
-                    strcmp(iIn->InFlt.airp_arv,trfer.InFlt.airp_arv)==0&&
-                    strcmp(iIn->InFlt.subcl,trfer.InFlt.subcl)==0) break;
+                      iIn->InFlt.flt_no==trfer.InFlt.flt_no&&
+                      strcmp(iIn->InFlt.suffix,trfer.InFlt.suffix)==0&&
+                      iIn->InFlt.scd==trfer.InFlt.scd&&
+                      iIn->InFlt.pr_utc==trfer.InFlt.pr_utc&&
+                      strcmp(iIn->InFlt.airp_dep,trfer.InFlt.airp_dep)==0&&
+                      strcmp(iIn->InFlt.airp_arv,trfer.InFlt.airp_arv)==0&&
+                      strcmp(iIn->InFlt.subcl,trfer.InFlt.subcl)==0) break;
 
                 if (iIn==con.Transfer.end())
                   iIn=con.Transfer.insert(con.Transfer.end(),trfer);
@@ -896,35 +989,26 @@ void ParseBTMContent(TTlgPartInfo body, TBSMHeadingInfo& info, TBtmContent& con,
   }
   catch (ETlgError E)
   {
-    if (line_p!=NULL)
-    {
-      if (tlg.GetToEOLLexeme(line_p)!=NULL)
-        throw ETlgError("%s\n>>>>>LINE %d: %s",E.what(),line,tlg.lex);
-      else
-        throw ETlgError("%s\n>>>>>LINE %d",E.what(),line);
-    }
-    else throw ETlgError("%s",E.what());
-
+    throwTlgError(E.what(), body, line_p);
   };
   return;
 };
 
-TTlgPartInfo ParseDCSHeading(TTlgPartInfo heading, TDCSHeadingInfo &info)
+TTlgPartInfo ParseDCSHeading(TTlgPartInfo heading, TDCSHeadingInfo &info, TFlightsForBind &flts)
 {
-  int line,res;
-  char c,*p,*line_p;
+  int res;
+  char c;
+  const char *p, *line_p;
   TTlgParser tlg;
   TTlgElement e;
   TTlgPartInfo next;
 
+  line_p=heading.p;
   try
   {
-    line_p=heading.p;
-    line=heading.line-1;
     e=FlightElement;
     do
     {
-      line++;
       if ((p=tlg.GetLexeme(line_p))==NULL) continue;
       switch (e)
       {
@@ -949,7 +1033,6 @@ TTlgPartInfo ParseDCSHeading(TTlgPartInfo heading, TDCSHeadingInfo &info)
             if (c!=0||res<2||info.flt.flt_no<0) throw ETlgError("Wrong flight");
             if (res==3&&
                 !IsUpperLetter(info.flt.suffix[0])) throw ETlgError("Wrong flight");
-            GetSuffix(info.flt.suffix[0]);
 
             TDateTime today=NowLocal();
             int year,mon,currday;
@@ -980,6 +1063,7 @@ TTlgPartInfo ParseDCSHeading(TTlgPartInfo heading, TDCSHeadingInfo &info)
                 if (c!=0||res!=1) throw ETlgError("Wrong boarding point");
               }
               else throw ETlgError("Wrong boarding point");
+              flts.push_back(make_pair(info.flt, btFirstSeg));
             };
             if (strcmp(info.tlg_type,"PTM")==0)
             {
@@ -990,6 +1074,7 @@ TTlgPartInfo ParseDCSHeading(TTlgPartInfo heading, TDCSHeadingInfo &info)
                 if (c!=0||res!=2) throw ETlgError("Wrong boarding/transfer point");
               }
               else throw ETlgError("Wrong bording/transfer point");
+              flts.push_back(make_pair(info.flt, btLastSeg));
             };
 
             if ((p=tlg.GetLexeme(p))!=NULL)
@@ -1014,15 +1099,9 @@ TTlgPartInfo ParseDCSHeading(TTlgPartInfo heading, TDCSHeadingInfo &info)
                   info.association_number<100||info.association_number>999999)
                 throw ETlgError("Wrong association number");
               if (tlg.GetLexeme(p)!=NULL) throw ETlgError("Unknown lexeme");
-              next.p=tlg.NextLine(line_p);
-              next.line=line+1;
-            }
-            else
-            {
-              next.p=line_p;
-              next.line=line;
+              line_p=tlg.NextLine(line_p);
             };
-            return next;
+            return nextPart(heading, line_p);
           };
         default:;
       };
@@ -1031,12 +1110,9 @@ TTlgPartInfo ParseDCSHeading(TTlgPartInfo heading, TDCSHeadingInfo &info)
   }
   catch(ETlgError E)
   {
-    //вывести ошибку+номер строки
-    throw ETlgError("Line %d: %s",line,E.what());
+    throwTlgError(E.what(), heading, line_p);
   };
-  next.p=line_p;
-  next.line=line;
-  return next;
+  return nextPart(heading, line_p);
 };
 
 TTlgPartInfo ParseAHMHeading(TTlgPartInfo heading, TAHMHeadingInfo &info)
@@ -1051,19 +1127,18 @@ void ParseAHMFltInfo(TTlgPartInfo body, const TAHMHeadingInfo &info, TFltInfo& f
   flt.Clear();
   bind_type=btFirstSeg;
 
-  int line,res;
-  char c,*line_p;
+  int res;
+  char c;
+  const char* line_p;
   TTlgParser tlg;
   TTlgElement e;
 
+  line_p=body.p;
   try
   {
-    line_p=body.p;
-    line=body.line-1;
     e=FlightElement;
     do
     {
-      line++;
       tlg.GetLexeme(line_p);
       switch (e)
       {
@@ -1177,35 +1252,40 @@ void ParseAHMFltInfo(TTlgPartInfo body, const TAHMHeadingInfo &info, TFltInfo& f
   catch(ETlgError E)
   {
     //вывести ошибку+номер строки
-    throw ETlgError("Line %d: %s",line,E.what());
+    throwTlgError(E.what(), body, line_p);
   };
   return;
 };
 
 //возвращает TTlgPartInfo следующей части (body)
-TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo* &info, TMemoryManager &mem)
+TTlgPartInfo ParseHeading(TTlgPartInfo heading,
+                          THeadingInfo* &info,
+                          TFlightsForBind &flts,
+                          TMemoryManager &mem)
 {
-  int line,res;
-  char c,*p,*line_p,*ph;
-  TTlgParser tlg;
-  TTlgElement e;
-  TTlgPartInfo next;
-
   if (info!=NULL)
   {
     mem.destroy(info, STDLOG);
     delete info;
     info = NULL;
   };
+
+  flts.clear();
+
+  int res;
+  char c;
+  const char *p, *line_p, *ph;
+  TTlgParser tlg;
+  TTlgElement e;
+  TTlgPartInfo next;
   THeadingInfo infoh;
+
+  line_p=heading.p;
   try
   {
-    line_p=heading.p;
-    line=heading.line-1;
     e=CommunicationsReference;
     do
     {
-      line++;
       if ((p=tlg.GetLexeme(line_p))==NULL) continue;
       switch (e)
       {
@@ -1290,14 +1370,13 @@ TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo* &info, TMemoryMana
           if (c!=0||res!=1||tlg.GetLexeme(p)!=NULL)
           {
             *(infoh.tlg_type)=0;
-            heading.p=line_p;
-            heading.line=line;
           }
           else
           {
-            heading.p=tlg.NextLine(line_p);
-            heading.line=line+1;
+            line_p=tlg.NextLine(line_p); //проверить line_p=NULL
           };
+
+          heading=nextPart(heading, line_p);
 
           infoh.tlg_cat=GetTlgCategory(infoh.tlg_type);
 
@@ -1306,7 +1385,7 @@ TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo* &info, TMemoryMana
             case tcDCS:
               info = new TDCSHeadingInfo(infoh);
               mem.create(info, STDLOG);
-              next=ParseDCSHeading(heading,*(TDCSHeadingInfo*)info);
+              next=ParseDCSHeading(heading,*(TDCSHeadingInfo*)info,flts);
               break;
             case tcBSM:
               info = new TBSMHeadingInfo(infoh);
@@ -1327,6 +1406,11 @@ TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo* &info, TMemoryMana
               info = new TSSMHeadingInfo(infoh);
               mem.create(info, STDLOG);
               next=ParseSSMHeading(heading,*(TSSMHeadingInfo*)info);
+              break;
+            case tcLCI:
+              info = new TLCIHeadingInfo(infoh);
+              mem.create(info, STDLOG);
+              next=ParseLCIHeading(heading,*(TLCIHeadingInfo*)info,flts);
               break;
             default:
               info = new THeadingInfo(infoh);
@@ -1350,8 +1434,10 @@ TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo* &info, TMemoryMana
     mem.destroy(info, STDLOG);
     if (info!=NULL) delete info;
     info=NULL;
-    //вывести ошибку+номер строки
-    throw ETlgError("Line %d: %s",line,E.what());
+    if (E.error_line()==NoExists)
+      throwTlgError(E.what(), heading, line_p);
+    else
+      throw;
   }
   catch(...)
   {
@@ -1360,22 +1446,20 @@ TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo* &info, TMemoryMana
     info=NULL;
     throw;
   };
-  next.p=line_p;
-  next.line=line;
-  return next;
+  return nextPart(heading, line_p);
 };
 
 
 void ParseDCSEnding(TTlgPartInfo ending, THeadingInfo &headingInfo, TEndingInfo &info)
 {
-  int line,res;
-  char c,*p;
+  int res;
+  char c;
+  const char* p;
   TTlgParser tlg;
   char endtlg[7];
 
   try
   {
-    line=ending.line;
     if ((p=tlg.GetLexeme(ending.p))!=NULL)
     {
       sprintf(endtlg,"END%s",headingInfo.tlg_type);
@@ -1401,21 +1485,20 @@ void ParseDCSEnding(TTlgPartInfo ending, THeadingInfo &headingInfo, TEndingInfo 
   }
   catch(ETlgError E)
   {
-    //вывести ошибку+номер строки
-    throw ETlgError("Line %d: %s",line,E.what());
+    throwTlgError(E.what(), ending, ending.p);
   };
   return;
 };
 
 void ParseAHMEnding(TTlgPartInfo ending, TEndingInfo& info)
 {
-  int line,res;
-  char c,*p;
+  int res;
+  char c;
+  const char* p;
   TTlgParser tlg;
 
   try
   {
-    line=ending.line;
     if ((p=tlg.GetLexeme(ending.p))!=NULL)
     {
       if (strcmp(tlg.lex,"PART")!=0) throw ETlgError("Wrong end of message");
@@ -1439,8 +1522,7 @@ void ParseAHMEnding(TTlgPartInfo ending, TEndingInfo& info)
   }
   catch(ETlgError E)
   {
-    //вывести ошибку+номер строки
-    throw ETlgError("Line %d: %s",line,E.what());
+    throwTlgError(E.what(), ending, ending.p);
   };
   return;
 };
@@ -1484,28 +1566,30 @@ void ParseEnding(TTlgPartInfo ending, THeadingInfo *headingInfo, TEndingInfo* &i
   return;
 };
 
+void NormalizeFltInfo(TFltInfo &flt)
+{
+  if (flt.airline[0]!=0) GetAirline(flt.airline);
+  if (flt.suffix[0]!=0) GetSuffix(flt.suffix[0]);
+  if (flt.airp_dep[0]!=0) GetAirp(flt.airp_dep);
+  if (flt.airp_arv[0]!=0) GetAirp(flt.airp_arv);
+};
+
 void ParseSOMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TSOMContent& con)
 {
   con.Clear();
 
-  int line,res;
-  char c,*p,*line_p;
+  int res;
+  char c;
+  const char *p, *line_p;
   TTlgParser tlg;
   TTlgElement e;
 
   line_p=body.p;
-  line=body.line-1;
   e=FlightElement;
   try
   {
-    strcpy(con.flt.airline,info.flt.airline);
-    GetAirline(con.flt.airline);
-    con.flt.flt_no=info.flt.flt_no;
-    strcpy(con.flt.suffix,info.flt.suffix);
-    con.flt.scd=info.flt.scd;
-    con.flt.pr_utc=info.flt.pr_utc;
-    strcpy(con.flt.airp_dep,info.flt.airp_dep);
-    GetAirp(con.flt.airp_dep);
+    con.flt=info.flt;
+    NormalizeFltInfo(con.flt);
 
     vector<TSeatsByDest>::iterator iSeats;
     char cat[5];
@@ -1516,7 +1600,6 @@ void ParseSOMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TSOMContent& con)
     e=SeatingCategories;
     do
     {
-      line++;
       if (tlg.GetToEOLLexeme(line_p)==NULL) continue;
       strcpy(lexh,tlg.lex);
       switch (e)
@@ -1547,7 +1630,7 @@ void ParseSOMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TSOMContent& con)
             p=strchr(lexh,'.');
             if (p==NULL) throw ETlgError("Wrong seats by destination");
             //делим lexh на две строки
-            *p=0;
+            lexh[p-lexh]=0;
             c=0;
             res=sscanf(lexh,"-%3[A-ZА-ЯЁ]%c",iSeats->airp_arv,&c);
             if (c!=0||res!=1) throw ETlgError("Wrong airport code");
@@ -1596,12 +1679,7 @@ void ParseSOMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TSOMContent& con)
   }
   catch (ETlgError E)
   {
-    if (tlg.GetToEOLLexeme(line_p)!=NULL)
-      throw ETlgError("%s: %s\n>>>>>LINE %d: %s",GetTlgElementName(e),E.what(),line,tlg.lex);
-    else
-      throw ETlgError("%s: %s\n>>>>>LINE %d",GetTlgElementName(e),E.what(),line);
-
-
+    throwTlgError(E.what(), body, line_p);
   };
   return;
 };
@@ -1612,32 +1690,23 @@ void ParsePTMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPtmContent& con)
 
   con.Clear();
 
-  int line,res;
-  char c,*p,*line_p,*ph;
+  int res;
+  char c;
+  const char *p, *line_p, *ph;
   TTlgParser tlg;
   TTlgElement e;
 
   line_p=body.p;
-  line=body.line-1;
   e=FlightElement;
   try
   {
-    strcpy(con.InFlt.airline,info.flt.airline);
-    GetAirline(con.InFlt.airline);
-    con.InFlt.flt_no=info.flt.flt_no;
-    strcpy(con.InFlt.suffix,info.flt.suffix);
-    con.InFlt.scd=info.flt.scd;
-    con.InFlt.pr_utc=info.flt.pr_utc;
-    strcpy(con.InFlt.airp_dep,info.flt.airp_dep);
-    GetAirp(con.InFlt.airp_dep);
-    strcpy(con.InFlt.airp_arv,info.flt.airp_arv);
-    GetAirp(con.InFlt.airp_arv);
+    (TFltInfo)(con.InFlt)=info.flt;
+    NormalizeFltInfo(con.InFlt);
 
     bool NILpossible=true;
     e=TransferPassengerData;
     do
     {
-      line++;
       if ((p=tlg.GetLexeme(line_p))==NULL) continue;
       switch (e)
       {
@@ -1812,10 +1881,7 @@ void ParsePTMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPtmContent& con)
   }
   catch (ETlgError E)
   {
-    if (tlg.GetToEOLLexeme(line_p)!=NULL)
-      throw ETlgError("%s: %s\n>>>>>LINE %d: %s",GetTlgElementName(e),E.what(),line,tlg.lex);
-    else
-      throw ETlgError("%s: %s\n>>>>>LINE %d",GetTlgElementName(e),E.what(),line);
+    throwTlgError(E.what(), body, line_p);
   };
   return;
 };
@@ -1936,8 +2002,9 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
 
   con.Clear();
 
-  int line,res;
-  char c,*p,*line_p,*ph;
+  int res;
+  char c;
+  const char *p, *line_p;
   TTlgParser tlg;
   TTlgElement e;
   TIndicator Indicator;
@@ -1945,18 +2012,11 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
   bool pr_prev_rem;
 
   line_p=body.p;
-  line=body.line-1;
   e=FlightElement;
   try
   {
-    strcpy(con.flt.airline,info.flt.airline);
-    GetAirline(con.flt.airline);
-    con.flt.flt_no=info.flt.flt_no;
-    strcpy(con.flt.suffix,info.flt.suffix);
-    con.flt.scd=info.flt.scd;
-    con.flt.pr_utc=info.flt.pr_utc;
-    strcpy(con.flt.airp_dep,info.flt.airp_dep);
-    GetAirp(con.flt.airp_dep);
+    con.flt=info.flt;
+    NormalizeFltInfo(con.flt);
 
     bool isPRL=strcmp(info.tlg_type,"PRL")==0;
 
@@ -1967,7 +2027,6 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
       e=BonusPrograms;
     do
     {
-      line++;
       if ((p=tlg.GetLexeme(line_p))==NULL) continue;
       switch (e)
       {
@@ -2329,6 +2388,7 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
               *grp_ref=0;
               grp_seats=0;
               iPnrItem=iTotals->pnr.end();
+              char *ph;
               if ((ph=strrchr(tlg.lex,'-'))!=NULL)
               {
                 //попробуем разобрать идентификатор группы
@@ -2522,10 +2582,7 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
   }
   catch (ETlgError E)
   {
-    if (tlg.GetToEOLLexeme(line_p)!=NULL)
-      throw ETlgError("%s: %s\n>>>>>LINE %d: %s",GetTlgElementName(e),E.what(),line,tlg.lex);
-    else
-      throw ETlgError("%s: %s\n>>>>>LINE %d",GetTlgElementName(e),E.what(),line);
+    throwTlgError(E.what(), body, line_p);
   };
   return;
 };
@@ -2571,7 +2628,7 @@ void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &p
   };
 
   //сделаем trimRight если не относится к ремаркам
-  for(int len=strlen(tlg.lex);len>=0&&*(unsigned char*)(tlg.lex+len)<=' ';len--)
+  for(int len=strlen(tlg.lex);len>=0&&*(const unsigned char*)(tlg.lex+len)<=' ';len--)
     *(tlg.lex+len)=0;
 
   pr_prev_rem=false;
@@ -3009,7 +3066,7 @@ void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &p
   };
 };
 
-void ParseNameElement(char* p, vector<string> &names, TElemPresence num_presence)
+void ParseNameElement(const char* p, vector<string> &names, TElemPresence num_presence)
 {
   char c,numh[4];
   int res,num;
@@ -3090,7 +3147,7 @@ void BindRemarks(TTlgParser &tlg, TNameElement &ne)
   string::size_type pos;
   bool pr_parse;
   string strh;
-  char *p;
+  const char *p;
   char rem_code[7],numh[4];
   int num;
   vector<TRemItem>::iterator iRemItem;
@@ -3100,7 +3157,7 @@ void BindRemarks(TTlgParser &tlg, TNameElement &ne)
   {
     TrimString(iRemItem->text);
     if (iRemItem->text.empty()) continue;
-    p=tlg.GetWord((char*)iRemItem->text.c_str());
+    p=tlg.GetWord(iRemItem->text.c_str());
     c=0;
     res=sscanf(tlg.lex,"%6[A-ZА-ЯЁ0-9]%c",rem_code,&c);
     if (c!=0||res!=1) continue;
@@ -3137,7 +3194,7 @@ void BindRemarks(TTlgParser &tlg, TNameElement &ne)
       strh=iRemItem->text.substr(pos+1);
       try
       {
-        ParseNameElement((char*)strh.c_str(),names,epOptional);
+        ParseNameElement(strh.c_str(),names,epOptional);
         if (!names.empty()&&*(names.begin())==ne.surname) break; //нашли
       }
       catch(ETlgError &E) {};
@@ -4009,7 +4066,7 @@ bool ParseSEATRem(TTlgParser &tlg,string &rem_text,vector<TSeatRange> &seats)
   pair<char[4],char[4]> row;
   pair<char,char> line;
 
-  char *p=(char*)rem_text.c_str();
+  const char *p=rem_text.c_str();
 
   seats.clear();
 
@@ -4052,7 +4109,7 @@ bool ParseCHDRem(TTlgParser &tlg,string &rem_text,vector<TChdItem> &chd)
   int res;
   char rem_code[7],numh[4];
 
-  char *p=(char*)rem_text.c_str();
+  const char *p=rem_text.c_str();
 
   chd.clear();
 
@@ -4115,7 +4172,7 @@ bool ParseINFRem(TTlgParser &tlg,string &rem_text,vector<TInfItem> &inf)
   int res;
   char rem_code[7],numh[4];
 
-  char *p=(char*)rem_text.c_str();
+  const char *p=rem_text.c_str();
 
   inf.clear();
 
@@ -4191,7 +4248,7 @@ bool ParseDOCSRem(TTlgParser &tlg, TDateTime scd_local, string &rem_text, TDocIt
   char c;
   int res,k;
 
-  char *p=(char*)rem_text.c_str();
+  const char *p=rem_text.c_str();
 
   doc.Clear();
 
@@ -4428,7 +4485,7 @@ bool ParseDOCORem(TTlgParser &tlg, TDateTime scd_local, string &rem_text, TDocoI
   char c;
   int res,k;
 
-  char *p=(char*)rem_text.c_str();
+  const char *p=rem_text.c_str();
 
   doc.Clear();
 
@@ -4544,7 +4601,7 @@ bool ParseCHKDRem(TTlgParser &tlg, string &rem_text, TCHKDItem &chkd)
   char c;
   int res,k;
 
-  char *p=(char*)rem_text.c_str();
+  const char *p=rem_text.c_str();
 
   chkd.Clear();
 
@@ -4615,7 +4672,7 @@ bool ParseDOCARem(TTlgParser &tlg, string &rem_text, TDocaItem &doca)
   char c;
   int res,k;
 
-  char *p=(char*)rem_text.c_str();
+  const char *p=rem_text.c_str();
 
   doca.Clear();
 
@@ -4742,7 +4799,7 @@ bool ParseOTHSRem(TTlgParser &tlg, string &rem_text, TDocExtraItem &doc)
   char c;
   int res,k;
 
-  char *p=(char*)rem_text.c_str();
+  const char *p=rem_text.c_str();
 
   doc.Clear();
 
@@ -4819,7 +4876,7 @@ bool ParseTKNRem(TTlgParser &tlg,string &rem_text,TTKNItem &tkn)
   char c;
   int res,k;
 
-  char *p=(char*)rem_text.c_str();
+  const char *p=rem_text.c_str();
 
   tkn.Clear();
 
@@ -4901,7 +4958,7 @@ bool ParseFQTRem(TTlgParser &tlg,string &rem_text,TFQTItem &fqt)
   char c;
   int res,k;
 
-  char *p=(char*)rem_text.c_str();
+  const char *p=rem_text.c_str();
 
   fqt.Clear();
 
@@ -4972,59 +5029,62 @@ bool ParseFQTRem(TTlgParser &tlg,string &rem_text,TFQTItem &fqt)
   return false;
 };
 
-TTlgParts GetParts(char* tlg_p, TMemoryManager &mem)
+void GetParts(const char* tlg_p, TTlgPartsText &text, THeadingInfo* &info, TFlightsForBind &flts, TMemoryManager &mem)
 {
-  int line;
-  char *p,*line_p;
+  text.clear();
+  if (info!=NULL)
+  {
+    mem.destroy(info, STDLOG);
+    delete info;
+    info = NULL;
+  };
+  flts.clear();
+
+  const char *p,*line_p;
   TTlgParser tlg;
-  THeadingInfo *HeadingInfo=NULL;
   TTlgParts parts;
   TTlgElement e;
 
   parts.addr.p=tlg_p;
-  parts.addr.line=1;
+  parts.addr.EOL_count=0;
+  parts.addr.offset=0;
+
+  line_p=parts.addr.p;
   try
   {
-    line_p=parts.addr.p;
-    line=parts.addr.line-1;
     e=Address;
     do
     {
-      line++;
       if ((p=tlg.GetLexeme(line_p))==NULL) continue;
       switch (e)
       {
         case Address:
           if (tlg.lex[0]=='.')
           {
-            parts.heading.p=line_p;
-            parts.heading.line=line;
+            parts.heading=nextPart(parts.addr, line_p);
             e=CommunicationsReference;
           }
           else break;
         case CommunicationsReference:
-          parts.body=ParseHeading(parts.heading,HeadingInfo,mem);  //может вернуть NULL
+          parts.body=ParseHeading(parts.heading,info,flts,mem);  //может вернуть NULL
           line_p=parts.body.p;
-          line=parts.body.line;
           e=EndOfMessage;
           if ((p=tlg.GetLexeme(line_p))==NULL) break;
         case EndOfMessage:
-          switch (HeadingInfo->tlg_cat)
+          switch (info->tlg_cat)
           {
             case tcDCS:
             case tcBSM:
               if (strstr(tlg.lex,"END")==tlg.lex)
               {
-                parts.ending.p=line_p;
-                parts.ending.line=line;
+                parts.ending=nextPart(parts.body, line_p);
                 e=EndOfMessage;
               };
               break;
             case tcAHM:
               if (strcmp(tlg.lex,"PART")==0)
               {
-                parts.ending.p=line_p;
-                parts.ending.line=line;
+                parts.ending=nextPart(parts.body, line_p);
                 e=EndOfMessage;
               };
               break;
@@ -5035,27 +5095,36 @@ TTlgParts GetParts(char* tlg_p, TMemoryManager &mem)
       };
     }
     while ((line_p=tlg.NextLine(line_p))!=NULL);
-
-    if (parts.addr.p==NULL) throw ETlgError("Address not found");
-    if (parts.heading.p==NULL) throw ETlgError("Heading not found");
-    if (parts.body.p==NULL) throw ETlgError("Body not found");
-    if (parts.ending.p==NULL&&
-        (HeadingInfo->tlg_cat==tcDCS||
-         HeadingInfo->tlg_cat==tcBSM)) throw ETlgError("End of message not found");
-
-    mem.destroy(HeadingInfo, STDLOG);
-    if (HeadingInfo!=NULL) delete HeadingInfo;
   }
-  catch(...)
+  catch(ETlgError E)
   {
-    mem.destroy(HeadingInfo, STDLOG);
-    if (HeadingInfo!=NULL) delete HeadingInfo;
-    throw;
+    if (E.error_line()==NoExists)
+      throwTlgError(E.what(), parts.addr, line_p);
+    else
+      throw;
   };
-  return parts;
+
+  if (parts.addr.p==NULL) throw ETlgError("Address not found");
+  if (parts.heading.p==NULL) throw ETlgError("Heading not found");
+  if (parts.body.p==NULL) throw ETlgError("Body not found");
+  if (parts.ending.p==NULL&&
+      (info->tlg_cat==tcDCS||
+       info->tlg_cat==tcBSM)) throw ETlgError("End of message not found");
+
+  text.addr.assign(parts.addr.p, parts.heading.p-parts.addr.p);
+  text.heading.assign(parts.heading.p, parts.body.p-parts.heading.p);
+  if (parts.ending.p!=NULL)
+  {
+    text.body.assign(parts.body.p, parts.ending.p-parts.body.p);
+    text.ending.assign(parts.ending.p);
+  }
+  else
+  {
+    text.body.assign(parts.body.p);
+  };
 };
 
-int SaveFlt(int tlg_id, const TFltInfo& flt, TBindType bind_type)
+int SaveFlt(int tlg_id, const TFltInfo& flt, TBindType bind_type, bool has_errors)
 {
   int point_id;
   TQuery Qry(&OraSession);
@@ -5114,10 +5183,11 @@ int SaveFlt(int tlg_id, const TFltInfo& flt, TBindType bind_type)
 
   Qry.Clear();
   Qry.SQLText=
-    "INSERT INTO tlg_source(point_id_tlg,tlg_id) "
-    "VALUES(:point_id_tlg,:tlg_id)";
+    "INSERT INTO tlg_source(point_id_tlg,tlg_id,has_errors) "
+    "VALUES(:point_id_tlg,:tlg_id,:has_errors)";
   Qry.CreateVariable("point_id_tlg",otInteger,point_id);
   Qry.CreateVariable("tlg_id",otInteger,tlg_id);
+  Qry.CreateVariable("has_errors",otInteger,(int)has_errors);
   try
   {
     Qry.Execute();
@@ -5126,6 +5196,7 @@ int SaveFlt(int tlg_id, const TFltInfo& flt, TBindType bind_type)
   {
     if (E.Code!=1) throw;
   };
+  check_tlg_in_alarm(point_id, NoExists);
   return point_id;
 };
 
@@ -5139,7 +5210,9 @@ bool isDeleteTypeBContent(int point_id, const THeadingInfo& info)
       "SELECT MAX(time_create) AS max_time_create "
       "FROM tlgs_in,tlg_source "
       "WHERE tlg_source.tlg_id=tlgs_in.id AND "
-      "      tlg_source.point_id_tlg=:point_id AND tlgs_in.type=:tlg_type";
+      "      tlg_source.point_id_tlg=:point_id AND "
+      "      NVL(tlg_source.has_errors,0)=0 AND "
+      "      tlgs_in.type=:tlg_type";
     Qry.CreateVariable("point_id",otInteger,point_id);
     Qry.CreateVariable("tlg_type",otString,info.tlg_type);
   } else
@@ -5150,7 +5223,9 @@ bool isDeleteTypeBContent(int point_id, const THeadingInfo& info)
       "SELECT MAX(time_create) AS max_time_create "
       "FROM tlgs_in,tlg_source "
       "WHERE tlg_source.tlg_id=tlgs_in.id AND "
-      "      tlg_source.point_id_tlg=:point_id_in AND tlgs_in.type=:tlg_type";
+      "      tlg_source.point_id_tlg=:point_id_in AND "
+      "      NVL(tlg_source.has_errors,0)=0 AND "
+      "      tlgs_in.type=:tlg_type";
     Qry.CreateVariable("point_id_in",otInteger,point_id);
     Qry.CreateVariable("tlg_type",otString,info.tlg_type);
   } else

@@ -308,7 +308,7 @@ BASIC::TDateTime JulianDateToDateTime( int jdate, int year);
 void showBasicInfo(void);
 
 namespace AstraLocale {
-std::string getLocaleText(const LexemaData &lexemaData);
+std::string getLocaleText(const LexemaData &lexemaData, const std::string &lang = "");
 std::string getLocaleText(const std::string &vlexema, const std::string &lang = "");
 std::string getLocaleText(const std::string &vlexema, const LParams &aparams, const std::string &lang = "");
 

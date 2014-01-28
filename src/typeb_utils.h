@@ -1209,10 +1209,78 @@ struct TDraftPart {
     std::string addr, origin, heading, ending, body;
 };
 
-struct TErrLst:std::map<int, std::string> {
-    void dump();
-    void fix(std::vector<TDraftPart> &parts);
-    void fetch_err(std::set<int> &txt_errs, std::string body);
+struct TTypeBOutErrMsg {
+    int err_pos;
+    int err_len;
+    std::map<std::string, std::string> msg;
+    TTypeBOutErrMsg():
+        err_pos(0),
+        err_len(0)
+    {}
+};
+
+struct err_lst_cmp {
+    bool operator()(const std::pair<int, TTypeBOutErrMsg *> &lhs, const std::pair<int, TTypeBOutErrMsg *> &rhs) const
+    {
+        return lhs.second->err_pos < rhs.second->err_pos;
+    }
+};
+
+typedef std::set<std::pair<int, TTypeBOutErrMsg *>, err_lst_cmp> t_sorted_err_lst;
+
+enum TTlgInOut {tioOut, tioIn};
+
+struct TErrLst:std::map<int, TTypeBOutErrMsg> {
+    private:
+        TTlgInOut tio;
+        int tlg_id;
+        int num;
+        bool common_lst; // общий список ошибок для всех частей
+        t_sorted_err_lst sorted_err_lst;
+        int err_no;
+        int endl_offset;
+        xmlNodePtr errLst;
+        int fix_endl(const std::string &val, size_t pos = std::string::npos);
+        int fix_err_len(const std::string &val, size_t curr_pos, int err_len);
+    public:
+        int pos;
+        void dump();
+        void toDB(int tlg_id);
+        void fix(std::vector<TDraftPart> &parts);
+        void fetch_err(std::set<int> &txt_errs, std::string body);
+
+        void pack(TypeB::TDraftPart &part, bool heading_visible, bool ending_visible);
+        void pack(std::string &val, bool visible = true);
+
+        void unpack(TypeB::TDraftPart &draft, bool heading_visible, bool ending_visible);
+        void unpack(std::string &val, bool visible = true);
+
+        void fromDB(int tlg_id, int num);
+        void toXML(xmlNodePtr node, const TypeB::TDraftPart &part, bool is_first_part, bool is_last_part, const std::string &lang);
+        void toXML(const std::string &val, const std::string &lang, bool visible = true);
+
+        std::string add_err(std::string err, const AstraLocale::LexemaData &ld);
+        std::string add_err(std::string err, std::string val);
+        std::string add_err(std::string err, const char *format, ...);
+
+        TErrLst(TTlgInOut atio):
+            tio(atio),
+            tlg_id(ASTRA::NoExists),
+            num(ASTRA::NoExists),
+            common_lst(false),
+            err_no(0),
+            endl_offset(0),
+            pos(0)
+    {};
+        TErrLst(TTlgInOut atio, int tlg_id):
+            tio(atio),
+            tlg_id(ASTRA::NoExists),
+            num(ASTRA::NoExists),
+            common_lst(false),
+            err_no(0),
+            endl_offset(0),
+            pos(0)
+    { fromDB(tlg_id, ASTRA::NoExists); };
 };
 
 class TDetailCreateInfo : public TOptionsInfo
@@ -1251,8 +1319,6 @@ class TDetailCreateInfo : public TOptionsInfo
     std::string lang;
     // список ошибок телеграммы
     TErrLst err_lst;
-    std::string add_err(std::string err, std::string val);
-    std::string add_err(std::string err, const char *format, ...);
 
     std::string TlgElemIdToElem(TElemType type, int id, TElemFmt fmt = efmtUnknown);
     std::string TlgElemIdToElem(TElemType type, std::string id, TElemFmt fmt = efmtUnknown);
@@ -1269,7 +1335,7 @@ class TDetailCreateInfo : public TOptionsInfo
     std::string scd_local_view();
     std::string airline_mark() const;
 
-    TDetailCreateInfo()
+    TDetailCreateInfo(): err_lst(tioOut)
     {
         time_create = ASTRA::NoExists;
         point_id = ASTRA::NoExists;

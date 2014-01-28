@@ -232,7 +232,7 @@ int FuncAfterEdiSend(edi_mes_head *pHead, void *udata, int *err)
         sendTlg(get_canon_name(edi_addr).c_str(),
                 OWN_CANON_NAME(),
                 queuePriority,
-                20, tlg);
+                20, tlg, ASTRA::NoExists, ASTRA::NoExists);
         registerHookAfter(sendCmdTlgSnd);
     }
     catch (std::exception &x){

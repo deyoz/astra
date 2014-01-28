@@ -1,6 +1,7 @@
 #include "ssm_parser.h"
 #include "misc.h"
 
+
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "DEN"
 #include "serverlib/test.h"
@@ -175,9 +176,9 @@ void TDEI_7::insert(bool default_meal, string &meal)
         meal_item.meal = meal;
     } else {
         meal_item.cls.assign(1, meal[0]);
-        TElemFmt fmt;
-        string lang;
-        meal_item.cls = ElemToElemId(etSubcls, meal_item.cls, fmt, lang);
+        meal_item.cls = ElemToElemId(etSubcls, meal_item.cls, meal_item.fmt);
+        if(meal_item.fmt == efmtUnknown)
+            throw EConvertError("");
         meal_item.meal = meal.substr(1);
     }
     meal_service.push_back(meal_item);
@@ -336,7 +337,7 @@ void TSSMFltInfo::parse(const char *val)
     GetSuffix(suffix[0]);
 }
 
-void TPeriodOfOper::parse(char *&ph, TTlgParser &tlg)
+void TPeriodOfOper::parse(const char *&ph, TTlgParser &tlg)
 {
     // Parse Existing period of Operation
     parse(true, tlg.lex);
@@ -429,7 +430,7 @@ void TDEIHolder::dump()
     if(not dei9.empty()) dei9.dump();
 }
 
-void TDEIHolder::parse(TTlgElement e, char *&ph, TTlgParser &tlg)
+void TDEIHolder::parse(TTlgElement e, const char *&ph, TTlgParser &tlg)
 {
     int last_id = NoExists;
     while(true) {
@@ -495,19 +496,24 @@ void TDEIHolder::parse(TTlgElement e, char *&ph, TTlgParser &tlg)
 void TRouting::parse_leg_airps(string buf)
 {
     try {
-        TElemFmt fmt;
-        string lang;
+        TLegAirp leg_airp;
         for(size_t idx = 0; idx != string::npos; idx = buf.find('/')) {
             if(not idx) continue;
-            string airp = buf.substr(0, idx);
-            if(airp.size() != 3)
+            leg_airp.airp = buf.substr(0, idx);
+            if(leg_airp.airp.size() != 3)
                 throw Exception("wrong airp");
-            leg_airps.push_back(ElemToElemId(etAirp, airp, fmt, lang));
+            leg_airp.airp = ElemToElemId(etAirp, leg_airp.airp, leg_airp.fmt);
+            if(leg_airp.fmt == efmtUnknown)
+                throw EConvertError("");
+            leg_airps.push_back(leg_airp);
             buf.erase(0, idx + 1);
         }
         if(buf.size() != 3)
             throw Exception("wrong airp");
-        leg_airps.push_back(ElemToElemId(etAirp, buf, fmt, lang));
+        leg_airp.airp = ElemToElemId(etAirp, buf, leg_airp.fmt);
+        if(leg_airp.fmt == efmtUnknown)
+            throw EConvertError("");
+        leg_airps.push_back(leg_airp);
         if(leg_airps.size() > 12 or
                 leg_airps.size() < 2)
             throw Exception("wrong airp");
@@ -591,10 +597,12 @@ void TSegment::parse(const char *val)
     airp_arv = buf.substr(3, 3);
     if(buf[6] != ' ') throw ETlgError("wrong format");
     buf.erase(0, 7);
-    TElemFmt fmt;
-    string lang;
-    airp_dep = ElemToElemId(etAirp, airp_dep, fmt, lang);
-    airp_arv = ElemToElemId(etAirp, airp_arv, fmt, lang);
+    airp_dep = ElemToElemId(etAirp, airp_dep, airp_dep_fmt);
+    if(airp_dep_fmt == efmtUnknown)
+        throw EConvertError("");
+    airp_arv = ElemToElemId(etAirp, airp_arv, airp_arv_fmt);
+    if(airp_arv_fmt == efmtUnknown)
+        throw EConvertError("");
     try {
         dei8.parse(buf.c_str());
     } catch(...) {
@@ -689,8 +697,10 @@ void TEqtRouting::dump()
             ProgTrace(TRACE5, "    leg #%d", idx);
             if(not iv->leg_airps.empty()) {
                 ProgTrace(TRACE5, "----leg_airps list");
-                for(vector<string>::iterator iv1 = iv->leg_airps.begin(); iv1 != iv->leg_airps.end(); iv1++)
-                    ProgTrace(TRACE5, "%s", iv1->c_str());
+                for(vector<TLegAirp>::iterator iv1 = iv->leg_airps.begin(); iv1 != iv->leg_airps.end(); iv1++) {
+                    ProgTrace(TRACE5, "airp: %s", iv1->airp.c_str());
+                    ProgTrace(TRACE5, "fmt: %d", iv1->fmt);
+                }
             }
             ProgTrace(TRACE5, "    routing.station_dep:");
             iv->station_dep.dump();
@@ -794,9 +804,15 @@ int ssm(int argc,char **argv)
             TSSMContent con;
 
             strcpy(buf, (addr + Qry.FieldAsString("data")).c_str());
-            TTlgParts parts = GetParts(buf, mem);
+            TFlightsForBind bind_flts;
+            TTlgPartsText parts;
+            GetParts(buf,parts,HeadingInfo,bind_flts,mem); //Ден, а очистка HeadingInfo???
 
-            ParseHeading(parts.heading,HeadingInfo,mem);  //может вернуть NULL
+            TTlgPartInfo part;
+            part.p=parts.heading.c_str();
+            part.EOL_count=CalcEOLCount(parts.addr.c_str());
+            part.offset=parts.addr.size();
+            ParseHeading(part,HeadingInfo,bind_flts,mem);  //может вернуть NULL
             if(HeadingInfo == NULL)
                 throw Exception("HeadingInfo is null, id: %d", id);
             if(HeadingInfo->tlg_cat == tcUnknown) {
@@ -809,7 +825,10 @@ int ssm(int argc,char **argv)
             }
 
 
-            ParseSSMContent(parts.body, info, con, mem);
+            part.p=parts.body.c_str();
+            part.EOL_count+=CalcEOLCount(parts.heading.c_str());
+            part.offset+=parts.heading.size();
+            ParseSSMContent(part, info, con, mem);
             con.dump();
             /*
             // Несколько периодов
@@ -867,7 +886,7 @@ void TEquipment::parse(TTlgElement e, const char *val)
     raw_data = val;
     TTlgParser tlg;
     strcpy(lexh, val);
-    char *ph = tlg.GetLexeme(lexh);
+    const char *ph = tlg.GetLexeme(lexh);
     if(
             strlen(tlg.lex) != 1 and
             not IsUpperLetter(tlg.lex[0])
@@ -910,7 +929,7 @@ void TRouting::parse(TTlgElement e, TActionIdentifier aid, const char *val)
 {
     TTlgParser tlg;
     strcpy(lexh, val);
-    char *ph = tlg.GetLexeme(lexh);
+    const char *ph = tlg.GetLexeme(lexh);
     switch(aid) {
         case aiADM:
         case aiCON:
@@ -948,8 +967,7 @@ void ParseSSMContent(TTlgPartInfo body, TSSMHeadingInfo& info, TSSMContent& con,
 {
     con.Clear();
     TTlgParser tlg;
-    char *line_p=body.p, *ph;
-    int line=body.line;
+    const char *line_p=body.p, *ph;
     TTlgElement e = ActionIdentifier;
     TSSMSubMessage *ssm_msg = NULL;
     try
@@ -1193,15 +1211,11 @@ void ParseSSMContent(TTlgPartInfo body, TSSMHeadingInfo& info, TSSMContent& con,
                 default:;
             }
             line_p=tlg.NextLine(line_p);
-            line++;
         } while (line_p and *line_p != 0);
     }
     catch (ETlgError E)
     {
-        if (tlg.GetToEOLLexeme(line_p)!=NULL)
-            throw ETlgError("SSM: %s\n>>>>>LINE %d: %s",E.what(),line,tlg.lex);
-        else
-            throw ETlgError("SSM: %s\n>>>>>LINE %d",E.what(),line);
+        throwTlgError(E.what(), body, line_p);
     };
     return;
 }
@@ -1437,8 +1451,10 @@ void TASMFlightInfo::dump()
     flt.dump();
     if(not legs.empty()) {
         ProgTrace(TRACE5, "----legs----");
-        for(vector<string>::iterator iv = legs.begin(); iv != legs.end(); iv++)
-            ProgTrace(TRACE5, "%s", iv->c_str());
+        for(vector<TLegAirp>::iterator iv = legs.begin(); iv != legs.end(); iv++) {
+            ProgTrace(TRACE5, "%s", iv->airp.c_str());
+            ProgTrace(TRACE5, "%d", iv->fmt);
+        }
         ProgTrace(TRACE5, "----end of legs----");
     }
     if(not new_flt.airline.empty()) {
@@ -1453,7 +1469,7 @@ void TASMFlightInfo::parse(TTlgElement e, TActionIdentifier aid, const char *val
 {
     TTlgParser tlg;
     strcpy(lexh, val);
-    char *p;
+    const char *p;
     p = tlg.GetLexeme(lexh);
     flt.parse(tlg.lex);
     switch(aid) {
@@ -1517,8 +1533,7 @@ void ParseASMContent(TTlgPartInfo body, TSSMHeadingInfo& info, TASMContent& con,
 {
     con.Clear();
     TTlgParser tlg;
-    char *line_p=body.p;
-    int line=body.line;
+    const char *line_p=body.p;
     TTlgElement e = ActionIdentifier;
     TASMSubMessage *ssm_msg = NULL;
     try
@@ -1699,15 +1714,11 @@ void ParseASMContent(TTlgPartInfo body, TSSMHeadingInfo& info, TASMContent& con,
                 default:;
             }
             line_p=tlg.NextLine(line_p);
-            line++;
         } while (line_p and *line_p != 0);
     }
     catch (ETlgError E)
     {
-        if (tlg.GetToEOLLexeme(line_p)!=NULL)
-            throw ETlgError("ASM: %s\n>>>>>LINE %d: %s",E.what(),line,tlg.lex);
-        else
-            throw ETlgError("ASM: %s\n>>>>>LINE %d",E.what(),line);
+        throwTlgError(E.what(), body, line_p);
     };
     con.dump();
     return;
@@ -1820,20 +1831,19 @@ TPeriods &TSchedules::curr_periods()
 
 TTlgPartInfo ParseSSMHeading(TTlgPartInfo heading, TSSMHeadingInfo &info)
 {
-    int line,res;
-    char c, *p,*ph,*line_p;
+    int res;
+    char c;
+    const char *p,*ph,*line_p;
     TTlgParser tlg;
     TTlgElement e;
     TTlgPartInfo next;
 
+    line_p=heading.p;
     try
     {
-        line_p=heading.p;
-        line=heading.line-1;
         e=TimeModeElement;
         do
         {
-            line++;
             if ((p=tlg.GetToEOLLexeme(line_p))==NULL) continue;
             switch (e)
             {
@@ -1880,13 +1890,9 @@ TTlgPartInfo ParseSSMHeading(TTlgPartInfo heading, TSSMHeadingInfo &info)
                         info.msr.creator = tlg.lex;
 
                         if(success) {
-                            next.p=tlg.NextLine(line_p);
-                            next.line=line+1;
-                        } else {
-                            next.p=line_p;
-                            next.line=line;
+                            line_p = tlg.NextLine(line_p);
                         }
-                        return next;
+                        return nextPart(heading, line_p);
                     }
                 default:;
             };
@@ -1895,12 +1901,9 @@ TTlgPartInfo ParseSSMHeading(TTlgPartInfo heading, TSSMHeadingInfo &info)
     }
     catch(ETlgError E)
     {
-        //вывести ошибку+номер строки
-        throw ETlgError("SSM, Line %d: %s",line,E.what());
+        throwTlgError(E.what(), heading, line_p);
     };
-    next.p=line_p;
-    next.line=line;
-    return next;
+    return nextPart(heading, line_p);
 };
 
 void TSSMHeadingInfo::dump()
@@ -1927,3 +1930,4 @@ void TSSMHeadingInfo::dump()
 }
 
 }
+

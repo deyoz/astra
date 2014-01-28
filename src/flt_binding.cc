@@ -71,6 +71,7 @@ void TTlgBinding::after_bind_or_unbind_flt(int point_id_tlg, int point_id_spp, b
     };
   if (!unbind)
     add_trip_task(point_id_spp, SYNC_ALL_CHKD);
+  check_tlg_in_alarm(point_id_tlg, point_id_spp);
 };
 
 void TTlgBinding::unbind_flt_virt(int point_id, int point_id_spp, bool try_bind_again)

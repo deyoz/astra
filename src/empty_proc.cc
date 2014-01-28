@@ -1451,8 +1451,8 @@ void filter(vector<TypeB::TCreateInfo> &createInfo, set<string> tlg_types)
   if ( tlg_types.empty() ) {
     return;
   }
-    vector<TypeB::TCreateInfo>::iterator iv = createInfo.begin();
     while(true) {
+        vector<TypeB::TCreateInfo>::iterator iv = createInfo.begin();
         for(; iv != createInfo.end(); iv++)
             if( tlg_types.find(iv->get_tlg_type()) == tlg_types.end())
                 break;
@@ -1467,8 +1467,8 @@ void filter(vector<TypeB::TCreateInfo> &createInfo, set<string> tlg_types)
 /*
 void filter(vector<TypeB::TCreateInfo> &createInfo, string tlg_type)
 {
-    vector<TypeB::TCreateInfo>::iterator iv = createInfo.begin();
     while(true) {
+        vector<TypeB::TCreateInfo>::iterator iv = createInfo.begin();
         for(; iv != createInfo.end(); iv++)
             if(iv->get_tlg_type() != tlg_type)
                 break;
@@ -2599,4 +2599,41 @@ int test_file_queue(int argc,char **argv)
      }
    }
    return res;
+}
+
+int rollback096(int argc,char **argv)
+{
+  TQuery Qryh(&OraSession);
+
+  TQuery InsQry(&OraSession);
+  InsQry.SQLText = "UPDATE tlgs_in SET body=:body WHERE id=:id AND num=:num AND body IS NULL";
+  InsQry.DeclareVariable("id",otInteger);
+  InsQry.DeclareVariable("num",otInteger);
+  InsQry.DeclareVariable("body",otLong);
+
+  TQuery Qry(&OraSession);
+  Qry.SQLText = "SELECT id, num FROM typeb_in_body ORDER BY id, num";
+  int id=NoExists;
+  int num=NoExists;
+  Qry.Execute();
+  int count=0;
+  for(;!Qry.Eof;Qry.Next())
+  {
+    if (id==Qry.FieldAsInteger("id") && num==Qry.FieldAsInteger("num")) continue;
+    id=Qry.FieldAsInteger("id");
+    num=Qry.FieldAsInteger("num");
+    string text=getTypeBBody(id, num, Qryh);
+
+    InsQry.SetVariable("id", id);
+    InsQry.SetVariable("num", num);
+    InsQry.SetLongVariable("body", (void*)text.c_str(), text.size());
+    InsQry.Execute();
+    OraSession.Commit();
+    count++;
+
+    ProgTrace(TRACE5, "rollback096: id=%d num=%d", id, num);
+  };
+  ProgTrace(TRACE5, "rollback096: count=%d", count);
+
+  return 1;
 }
