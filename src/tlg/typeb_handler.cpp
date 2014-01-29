@@ -10,7 +10,7 @@
 #include "oralib.h"
 #include "tlg.h"
 #include "tlg_parser.h"
-//#include "lci_parser.h"
+#include "lci_parser.h"
 //#include "ssm_parser.h"
 #include "memory_manager.h"
 #include "qrys.h"
@@ -822,7 +822,6 @@ bool parse_tlg(void)
             count++;
             break;
           }
-          /*
           case tcLCI:
           {
             TLCIHeadingInfo &info = *(dynamic_cast<TLCIHeadingInfo*>(HeadingInfo));
@@ -842,7 +841,6 @@ bool parse_tlg(void)
             count++;
             break;
           }
-          */
           /*
           case tcSSM:
           {
