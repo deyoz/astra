@@ -175,7 +175,9 @@ void progError(int tlg_id,
                const TFlightsForBind &flts)
 {
   const ETlgError *tlge=dynamic_cast<const ETlgError*>(&E);
-  bool only_trace=(tlge!=NULL && strcmp(E.what(),"Time limit reached")==0);
+  bool only_trace=(tlge!=NULL && (tlge->error_type()==tlgeNotError ||
+                                  tlge->error_type()==tlgeNotMonitorNotAlarm ||
+                                  tlge->error_type()==tlgeNotMonitorYesAlarm));
 
   if (part_no!=NoExists)
     only_trace?ProgTrace(TRACE0, "Telegram (id=%d, part_no=%d, type=%s): %s", tlg_id, part_no, tlg_type.c_str(), E.what()):
@@ -225,7 +227,7 @@ void progError(int tlg_id,
     errorTypeB(tlg_id, part_no, error_no, NoExists, NoExists, E.what());
 };
 
-void bindTypeB(int typeb_tlg_id, const TFlightsForBind &flts, bool has_errors)
+void bindTypeB(int typeb_tlg_id, const TFlightsForBind &flts, ETlgErrorType error_type)
 {
   for(TFlightsForBind::const_iterator f=flts.begin(); f!=flts.end(); ++f)
   {
@@ -233,10 +235,19 @@ void bindTypeB(int typeb_tlg_id, const TFlightsForBind &flts, bool has_errors)
     {
       TFltInfo normFlt(f->first);
       NormalizeFltInfo(normFlt);
-      SaveFlt(typeb_tlg_id, normFlt, f->second, has_errors);
+      SaveFlt(typeb_tlg_id, normFlt, f->second, error_type);
     }
     catch(...) {};
   };
+};
+
+void bindTypeB(int typeb_tlg_id, const TFlightsForBind &flts, const std::exception &E)
+{
+  const ETlgError *tlge=dynamic_cast<const ETlgError*>(&E);
+  if (tlge!=NULL)
+    bindTypeB(typeb_tlg_id, flts, tlge->error_type());
+  else
+    bindTypeB(typeb_tlg_id, flts, tlgeYesMonitorYesAlarm);
 };
 
 bool handle_tlg(void)
@@ -530,7 +541,7 @@ bool handle_tlg(void)
                 if (!(part_no==1&&EndingInfo->pr_final_part))  //телеграмма не состоит из одной части
                   errors.push_back(ETlgError("Duplicate part number with different text"));
               }
-              else errors.push_back(ETlgError("Telegram duplicated"));
+              else errors.push_back(ETlgError(tlgeNotMonitorNotAlarm, "Telegram duplicated"));
             }
             else throw;
           };
@@ -543,11 +554,15 @@ bool handle_tlg(void)
 
             if (!errors.empty())
             {
+              ETlgErrorType etype=tlgeNotError;
               for(list<ETlgError>::const_iterator e=errors.begin(); e!=errors.end(); ++e)
+              {
                 progError(typeb_tlg_id, typeb_tlg_num, error_no, *e, "", bind_flts);  //хорошо бы доделать, чтобы передавался tlg_type
+                if (etype < e->error_type()) etype=e->error_type();
+              };
               errorTlg(tlg_id,"PARS");
               parseTypeB(typeb_tlg_id);
-              bindTypeB(typeb_tlg_id, bind_flts, true);
+              bindTypeB(typeb_tlg_id, bind_flts, etype);
             };
           };
         };
@@ -692,7 +707,7 @@ bool parse_tlg(void)
       	    (orae->Code==4061||orae->Code==4068)) continue;
         progError(tlg_id, tlg_num, error_no, E, tlg_type, bind_flts);
         parseTypeB(tlg_id);
-        bindTypeB(tlg_id, bind_flts, true);
+        bindTypeB(tlg_id, bind_flts, E);
         OraSession.Commit();
         continue;
       };
@@ -764,7 +779,7 @@ bool parse_tlg(void)
                 	  (utc_date-time_receive) > PARSING_MAX_TIMEOUT)
                   //если телеграммы не хотят принудительно разбираться
                   //по истечении некоторого времени - записать в просроченные
-                  throw ETlgError("Time limit reached");
+                  throw ETlgError(tlgeNotMonitorYesAlarm, "Time limit reached");
               };
             };
             if (strcmp(info.tlg_type,"PRL")==0)
@@ -880,12 +895,12 @@ bool parse_tlg(void)
       	OraSession.Rollback();
       	try
       	{
-        	EOracleError *orae=dynamic_cast<EOracleError*>(&E);
-        	if (orae!=NULL&&
-        	    (orae->Code==4061||orae->Code==4068)) continue;
+          EOracleError *orae=dynamic_cast<EOracleError*>(&E);
+          if (orae!=NULL&&
+             (orae->Code==4061||orae->Code==4068)) continue;
           progError(tlg_id, NoExists, error_no, E, tlg_type, bind_flts);
           parseTypeB(tlg_id);
-          bindTypeB(tlg_id, bind_flts, true);
+          bindTypeB(tlg_id, bind_flts, E);
           OraSession.Commit();
         }
         catch(...) {};

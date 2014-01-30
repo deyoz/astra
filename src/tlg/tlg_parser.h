@@ -15,13 +15,21 @@
 namespace TypeB
 {
 
+enum ETlgErrorType{tlgeNotError,
+                   tlgeNotMonitorNotAlarm,
+                   tlgeYesMonitorNotAlarm,
+                   tlgeNotMonitorYesAlarm,
+                   tlgeYesMonitorYesAlarm};  //порядок enum важен и определяет приоритет
+
 class ETlgError:public EXCEPTIONS::Exception
 {
   private:
+    ETlgErrorType type;
     int pos, len, line;
     std::string text;
   public:
     ETlgError(const char *format, ...):EXCEPTIONS::Exception(""),
+                                       type(tlgeYesMonitorYesAlarm),
                                        pos(ASTRA::NoExists),
                                        len(ASTRA::NoExists),
                                        line(ASTRA::NoExists)
@@ -34,6 +42,15 @@ class ETlgError:public EXCEPTIONS::Exception
     }
 
     ETlgError(const std::string &msg) :EXCEPTIONS::Exception(msg),
+                                       type(tlgeYesMonitorYesAlarm),
+                                       pos(ASTRA::NoExists),
+                                       len(ASTRA::NoExists),
+                                       line(ASTRA::NoExists)
+    {}
+
+    ETlgError(ETlgErrorType t,
+              const std::string &msg) :EXCEPTIONS::Exception(msg),
+                                       type(t),
                                        pos(ASTRA::NoExists),
                                        len(ASTRA::NoExists),
                                        line(ASTRA::NoExists)
@@ -41,6 +58,7 @@ class ETlgError:public EXCEPTIONS::Exception
 
     ETlgError(int p, int l, const std::string &t, int ln,
               const std::string &msg) :EXCEPTIONS::Exception(msg),
+                                       type(tlgeYesMonitorYesAlarm),
                                        pos(p),
                                        len(l),
                                        line(ln),
@@ -49,6 +67,7 @@ class ETlgError:public EXCEPTIONS::Exception
 
     ~ETlgError() throw(){}
 
+    ETlgErrorType error_type() const { return type; }
     int error_pos() const { return pos; }
     int error_len() const { return len; }
     int error_line() const { return line; }
@@ -853,7 +872,7 @@ void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, const TBtmContent& con);
 void SaveSOMContent(int tlg_id, TDCSHeadingInfo& info, TSOMContent& con);
 
 void ParseAHMFltInfo(TTlgPartInfo body, const TAHMHeadingInfo &info, TFltInfo& flt, TBindType &bind_type);
-int SaveFlt(int tlg_id, const TFltInfo& flt, TBindType bind_type, bool has_errors=false);
+int SaveFlt(int tlg_id, const TFltInfo& flt, TBindType bind_type, ETlgErrorType error_type=tlgeNotError);
 
 void ParseSeatRange(std::string str, std::vector<TSeatRange> &ranges, bool usePriorContext);
 

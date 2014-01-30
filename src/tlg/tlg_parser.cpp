@@ -1700,7 +1700,7 @@ void ParsePTMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPtmContent& con)
   e=FlightElement;
   try
   {
-    (TFltInfo)(con.InFlt)=info.flt;
+    dynamic_cast<TFltInfo&>(con.InFlt)=info.flt;
     NormalizeFltInfo(con.InFlt);
 
     bool NILpossible=true;
@@ -5124,7 +5124,7 @@ void GetParts(const char* tlg_p, TTlgPartsText &text, THeadingInfo* &info, TFlig
   };
 };
 
-int SaveFlt(int tlg_id, const TFltInfo& flt, TBindType bind_type, bool has_errors)
+int SaveFlt(int tlg_id, const TFltInfo& flt, TBindType bind_type, ETlgErrorType error_type)
 {
   int point_id;
   TQuery Qry(&OraSession);
@@ -5181,13 +5181,18 @@ int SaveFlt(int tlg_id, const TFltInfo& flt, TBindType bind_type, bool has_error
   }
   else point_id=Qry.FieldAsInteger("point_id");
 
+
+  bool has_errors=error_type!=tlgeNotError;
+  bool has_alarm_errors=error_type==tlgeNotMonitorYesAlarm ||
+                        error_type==tlgeYesMonitorYesAlarm;
   Qry.Clear();
   Qry.SQLText=
-    "INSERT INTO tlg_source(point_id_tlg,tlg_id,has_errors) "
-    "VALUES(:point_id_tlg,:tlg_id,:has_errors)";
+    "INSERT INTO tlg_source(point_id_tlg,tlg_id,has_errors,has_alarm_errors) "
+    "VALUES(:point_id_tlg,:tlg_id,:has_errors,:has_alarm_errors)";
   Qry.CreateVariable("point_id_tlg",otInteger,point_id);
   Qry.CreateVariable("tlg_id",otInteger,tlg_id);
   Qry.CreateVariable("has_errors",otInteger,(int)has_errors);
+  Qry.CreateVariable("has_alarm_errors",otInteger,(int)has_alarm_errors);
   try
   {
     Qry.Execute();
