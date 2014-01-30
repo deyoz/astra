@@ -261,7 +261,7 @@ bool check_tlg_in_alarm(int point_id_tlg, int point_id_spp) // point_id_spp ¬.¡.
       "      tlg_source.tlg_id=typeb_in_history.prev_tlg_id(+) AND "
       "      typeb_in_history.prev_tlg_id IS NULL AND "
       "      tlg_binding.point_id_spp=:point_id_spp AND "
-      "      NVL(tlg_source.has_errors,0)<>0 AND rownum<2 ";
+      "      NVL(tlg_source.has_alarm_errors,0)<>0 AND rownum<2 ";
     QParams QryParams;
     QryParams << QParam("point_id_spp", otInteger, point_id_spp);
     TCachedQuery CachedQry(sql, QryParams);
@@ -273,9 +273,9 @@ bool check_tlg_in_alarm(int point_id_tlg, int point_id_spp) // point_id_spp ¬.¡.
   else
   {
     const char* sql=
-      "SELECT tlg_binding.point_id_spp, tlg_source.has_errors "
+      "SELECT tlg_binding.point_id_spp, tlg_source.has_alarm_errors "
       "FROM tlg_binding, "
-      "     (SELECT MAX(DECODE(NVL(tlg_source.has_errors,0), 0, 0, 1)) AS has_errors "
+      "     (SELECT MAX(DECODE(NVL(tlg_source.has_alarm_errors,0), 0, 0, 1)) AS has_alarm_errors "
       "      FROM tlg_source, typeb_in_history "
       "      WHERE tlg_source.tlg_id=typeb_in_history.prev_tlg_id(+) AND "
       "            typeb_in_history.prev_tlg_id IS NULL AND "
@@ -288,7 +288,7 @@ bool check_tlg_in_alarm(int point_id_tlg, int point_id_spp) // point_id_spp ¬.¡.
     Qry.Execute();
     for(;!Qry.Eof;Qry.Next())
     {
-      result=Qry.FieldAsInteger("has_errors")!=0;
+      result=Qry.FieldAsInteger("has_alarm_errors")!=0;
       set_alarm(Qry.FieldAsInteger("point_id_spp"), atTlgIn, result);
     };
   };
