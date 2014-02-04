@@ -18,6 +18,7 @@
 #include "stl_utils.h"
 #include "term_version.h"
 #include "dev_utils.h"
+#include "qrys.h"
 #include "jxtlib/jxt_cont.h"
 
 #define NICKNAME "VLAD"
@@ -302,46 +303,6 @@ void GetModuleList(xmlNodePtr resNode)
     };
   }
   else AstraLocale::showErrorMessage("MSG.ALL_MODULES_DENIED_FOR_USER");
-};
-
-void GetDeviceAirlines(xmlNodePtr node)
-{
-  if (node==NULL) return;
-  TReqInfo *reqInfo = TReqInfo::Instance();
-//  if (reqInfo->desk.mode!=omCUTE && reqInfo->desk.mode!=omMUSE) return;
-  xmlNodePtr accessNode=NewTextChild(node,"airlines");
-  TAirlines &airlines=(TAirlines&)(base_tables.get("airlines"));
-  if (reqInfo->user.access.airlines_permit) {
-  	vector<string> airlines_params;
-    SeparateString(JxtContext::getJxtContHandler()->sysContext()->read("session_airlines_params"),5,airlines_params);
-
-    for(vector<string>::const_iterator i=reqInfo->user.access.airlines.begin();
-                                       i!=reqInfo->user.access.airlines.end();i++)
-    {
-      try
-      {
-        ProgTrace(TRACE5, "airline=%s", i->c_str() );
-        TAirlinesRow &row=(TAirlinesRow&)(airlines.get_row("code",*i));
-        xmlNodePtr airlineNode=NewTextChild(accessNode,"airline");
-        NewTextChild(airlineNode,"code",row.code);
-        NewTextChild(airlineNode,"code_lat",row.code_lat,"");
-        int aircode;
-        if (BASIC::StrToInt(row.aircode.c_str(),aircode)!=EOF && row.aircode.size()==3)
-          NewTextChild(airlineNode,"aircode",row.aircode,"");
-        else
-          NewTextChild(airlineNode,"aircode",954);
-        for(vector<string>::const_iterator p=airlines_params.begin(); p!=airlines_params.end(); p++) {
-          if ( p->find(row.code) != std::string::npos ||
-               p->find(row.code_lat) != std::string::npos ) {
-            NewTextChild(airlineNode,"run_params",*p);
-            break;
-          }
-        }
-
-      }
-      catch(EBaseTableError) {}
-    };
-  }
 };
 
 struct TDevParam {
@@ -736,6 +697,205 @@ void GetCUSEAddrs( map<TDevOperType, pair<string, string> > &opers, map<string, 
   JxtContext::getJxtContHandler()->sysContext()->write("cuse_device_variables",str_addrs);
 }
 
+void MainDCSInterface::GetEventCmd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  xmlNodePtr devsNode=NodeAsNode("devices",reqNode);
+  xmlNodePtr devNode,node,node2;
+  vector<string> event_names;
+  TCategoryDevParams params;
+  for(devNode=devsNode->children;devNode!=NULL;devNode=devNode->next)
+  {
+    node2=devNode->children;
+    event_names.clear();
+    node=GetNodeFast("events",node2);
+    if (node!=NULL)
+    {
+      for(node=node->children;node!=NULL;node=node->next)
+        event_names.push_back(NodeAsString(node));
+      ::GetEventCmd( event_names,
+                     false,
+                     NodeAsStringFast("dev_model",node2),
+                     NodeAsStringFast("sess_type",node2),
+                     NodeAsStringFast("fmt_type",node2),
+                     params );
+      node=NodeAsNodeFast("events",node2);
+      xmlUnlinkNode(node);
+      xmlFreeNode(node);
+    }
+    else
+    {
+      event_names.push_back("magic_btn_click");
+      event_names.push_back("first_fmt_magic_btn_click");
+      ::GetEventCmd( event_names,
+                     true,
+                     NodeAsStringFast("dev_model",node2),
+                     NodeAsStringFast("sess_type",node2),
+                     NodeAsStringFast("fmt_type",node2),
+                     params );
+    };
+    BuildParams( NewTextChild(devNode,"events"), params, false );
+  };
+  CopyNodeList(resNode,reqNode);
+};
+
+const int run_params_separator=5;
+
+class TSessionAirline
+{
+  public:
+    string code;
+    string code_lat;
+    string aircode;
+    string run_params;
+};
+
+typedef map<string, TSessionAirline> TSessionAirlines;
+
+void WriteSessionParamsContext(const TSessionAirlines &airlines)
+{
+  ostringstream ctxt1, ctxt2;
+  for(TSessionAirlines::const_iterator i=airlines.begin(); i!=airlines.end(); ++i)
+  {
+    ctxt1 << (i==airlines.begin()?"":"/") << i->first;
+    ctxt2 << (i==airlines.begin()?"":string(1,run_params_separator)) << i->second.run_params;
+  };
+  JxtContext::getJxtContHandler()->sysContext()->write("session_airlines", ctxt1.str());
+  JxtContext::getJxtContHandler()->sysContext()->write("session_airlines_params", ctxt2.str());
+
+};
+
+void RemoveSessionParamsContext()
+{
+  JxtContext::getJxtContHandler()->sysContext()->remove("session_airlines");
+  JxtContext::getJxtContHandler()->sysContext()->remove("session_airlines_params");
+};
+
+void SessionParamsFromContext(vector<string> &run_params)
+{
+  run_params.clear();
+  string ctxt=JxtContext::getJxtContHandler()->sysContext()->read("session_airlines_params");
+  SeparateString(ctxt, run_params_separator, run_params);
+};
+
+void SessionParamsFromXML(xmlNodePtr reqNode, vector<string> &run_params)
+{
+  run_params.clear();
+  xmlNodePtr node=GetNode("airlines", reqNode);
+  if (node==NULL) return;
+
+  for(node=node->children;node!=NULL;node=node->next)
+    run_params.push_back(NodeAsString("@run_params", node));
+};
+
+void GetSessionAirlines(const vector<string> &run_params, TSessionAirlines &airlines, string &error_param)
+{
+  airlines.clear();
+  error_param.clear();
+
+  for(vector<string>::const_iterator p=run_params.begin(); p!=run_params.end(); ++p)
+  {
+    TSessionAirline sess;
+    sess.run_params=*p;
+    string code=sess.run_params;
+    TrimString(code);
+    size_t p = code.find( " " );
+  	if ( p != string::npos ) code.erase( p );
+    string airline;
+    for(int pass=0; pass<3; pass++)
+    {
+      if (pass==0)
+      {
+        try
+        {
+          TAirlinesRow &row=(TAirlinesRow&)(base_tables.get("airlines").get_row("code/code_lat",code));
+          airline=row.code;
+          sess.code=row.code;
+          sess.code_lat=row.code_lat;
+          sess.aircode=row.aircode;
+          break;
+        }
+        catch(EBaseTableError) {};
+      };
+      if (pass==1)
+      {
+        try
+        {
+          TAirlinesRow &row=(TAirlinesRow&)(base_tables.get("airlines").get_row("aircode",code));
+          airline=row.code;
+          sess.code=row.code;
+          sess.code_lat=row.code_lat;
+          sess.aircode=row.aircode;
+          break;
+      	}
+      	catch(EBaseTableError) {};
+      };
+      if (pass==2)
+      {
+        QParams QryParams;
+        QryParams << QParam("code", otString, code);
+        TCachedQuery Qry(
+          "SELECT DISTINCT term_param_airlines.airline, "
+          "       NVL(term_param_airlines.code, airlines.code) AS code, "
+          "       NVL(term_param_airlines.code_lat, airlines.code_lat) AS code_lat, "
+          "       NVL(term_param_airlines.aircode, airlines.aircode) AS aircode "
+          "FROM airlines, term_param_airlines "
+          "WHERE term_param_airlines.airline=airlines.code AND airlines.pr_del=0 AND "
+          "      :code IN (term_param_airlines.code, "
+          "                term_param_airlines.code_lat, "
+          "                term_param_airlines.aircode) ", QryParams);
+        Qry.get().Execute();
+        if (!Qry.get().Eof)
+        {
+          airline=Qry.get().FieldAsString("airline");
+          sess.code=Qry.get().FieldAsString("code");
+          sess.code_lat=Qry.get().FieldAsString("code_lat");
+          sess.aircode=Qry.get().FieldAsString("aircode");
+          Qry.get().Next();
+          if (!Qry.get().Eof)
+          {
+            //дублирование в term_param_airlines
+            airline.clear();
+            sess.code.clear();
+            sess.code_lat.clear();
+            sess.aircode.clear();
+          };
+        };
+      };
+    };
+    if (!airline.empty())
+      airlines.insert(make_pair(airline, sess));
+    else
+      if (error_param.empty()) error_param=sess.run_params;
+  };
+};
+
+void PutSessionAirlines(const TSessionAirlines &airlines, xmlNodePtr resNode)
+{
+  if (resNode==NULL) return;
+  TReqInfo *reqInfo = TReqInfo::Instance();
+
+  xmlNodePtr airlinesNode=NewTextChild(resNode,"airlines");
+  ProgTrace(TRACE5, "PutSessionAirlines: ");
+  ProgTrace(TRACE5, "%-10s|%-10s|%-10s|%s", "code", "code_lat", "aircode", "run_params");
+  for(TSessionAirlines::const_iterator i=airlines.begin(); i!=airlines.end(); ++i)
+  {
+    if (!reqInfo->CheckAirline(i->first)) continue;
+    TSessionAirline sess=i->second;
+    int aircode;
+    if (BASIC::StrToInt(sess.aircode.c_str(),aircode)==EOF || sess.aircode.size()!=3)
+      sess.aircode="954";
+
+    xmlNodePtr node=NewTextChild(airlinesNode,"airline");
+    NewTextChild(node, "code", sess.code);
+    NewTextChild(node, "code_lat", sess.code_lat, "");
+    NewTextChild(node, "aircode", sess.aircode, "");
+    NewTextChild(node, "run_params", sess.run_params, "");
+
+    ProgTrace(TRACE5, "%-10s|%-10s|%-10s|%s",
+              sess.code.c_str(), sess.code_lat.c_str(), sess.aircode.c_str(), sess.run_params.c_str());
+  };
+};
+
 void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
 {
 	/*Ограничение на передачу/прием параметров:
@@ -789,7 +949,7 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
   vector<string> paramsList;
   GetTerminalParams(reqNode,paramsList);
   if (reqNode==NULL || resNode==NULL) return;
-  
+
   resNode=NewTextChild(resNode,"devices");
 
   xmlNodePtr devNode = GetNode("devices",reqNode);
@@ -798,7 +958,14 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
 
   ProgTrace( TRACE5, "variants mode=%s, pr_default_sets=%d", variant_model.c_str(), pr_default_sets );
   if ( variant_model.empty() && !pr_default_sets )
-    GetDeviceAirlines(resNode);
+  {
+    vector<string> run_params;
+    SessionParamsFromContext(run_params);
+    TSessionAirlines sess_airlines;
+    string error_param;
+    GetSessionAirlines(run_params, sess_airlines, error_param);
+    PutSessionAirlines(sess_airlines, resNode);
+  };
 
    if (devNode==NULL) return; // если в запросе нет этoго параметра, то не нужно собирать данные по устройствам
   //string VariantsOperation = NodeAsString( "@variants_operation", devNode, "" );
@@ -897,7 +1064,7 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
   if ( !variant_model.empty() || pr_default_sets )
     DefQry.CreateVariable( "op_type", otString, NodeAsString( "operation/@type", devNode ) );
   DefQry.Execute();
-  
+
   vector<TDevModelDefaults> DevModelDefaults;
   for( ;!DefQry.Eof;DefQry.Next() ) { // цикл по типам операций или цикл по возможным вариантам настроек заданной операции
     DevModelDefaults.push_back( TDevModelDefaults( DefQry.FieldAsString( "op_type" ),
@@ -905,7 +1072,7 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
                                                    DefQry.FieldAsString( "sess_type" ),
                                                    DefQry.FieldAsString( "fmt_type" ) ) );
   }
-  
+
   map<TDevOperType, pair<string, string> > opers; //операция, dev_model, addr
   map<string, vector<string> > valid_addrs;
   if ( reqInfo->desk.mode==omRESA ||
@@ -965,7 +1132,7 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
             if (opers[dotScnDoc].second.empty()) opers[dotScnDoc]=make_pair("WGE RESA",*addr);
             if (opers[dotScnCard].second.empty()) opers[dotScnCard]=make_pair("WGE RESA",*addr);
           };
-          
+
           if (opers[dotScnBP1].second==*addr || opers[dotScnBP2].second==*addr) continue;
 
           if (opers[dotScnBP1].second.empty()) opers[dotScnBP1]=make_pair(devName=="RTE"?"SCN RESA":"BCR RESA",*addr);
@@ -987,7 +1154,7 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
     {
       GetCUSEAddrs(opers, valid_addrs, reqNode);
     };
-    
+
     if (variant_model.empty())
     {
       //не идет перевыбор dev_model через "Настройки оборудования" в терминале
@@ -1078,7 +1245,7 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
     	}
     	if ( dev_model.empty() && sess_type.empty() && fmt_type.empty() ) continue;
     	bool pr_parse_client_params = ( client_dev_model == dev_model && client_sess_type == sess_type && client_fmt_type == fmt_type );
-    	
+
     	if ( pr_parse_client_params ) {
     	  if (reqInfo->desk.mode==omCUSE)
         {
@@ -1156,7 +1323,7 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
         ParseParams( GetNode( "sess_params", operNode ), params );
       //for(TCategoryDevParams::iterator p=params.begin();p!=params.end();++p)
       //  ProgTrace( TRACE5, "p->param_name=%s p->param_value=%s", p->param_name.c_str(),  p->param_value.c_str() );
-      
+
       pNode = NewTextChild( newoperNode, "sess_params" );
       SetProp( pNode, "type", sess_type );
       BuildParams( pNode, params, pr_editable );
@@ -1202,123 +1369,6 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
   }
 }
 
-void MainDCSInterface::GetEventCmd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-  xmlNodePtr devsNode=NodeAsNode("devices",reqNode);
-  xmlNodePtr devNode,node,node2;
-  vector<string> event_names;
-  TCategoryDevParams params;
-  for(devNode=devsNode->children;devNode!=NULL;devNode=devNode->next)
-  {
-    node2=devNode->children;
-    event_names.clear();
-    node=GetNodeFast("events",node2);
-    if (node!=NULL)
-    {
-      for(node=node->children;node!=NULL;node=node->next)
-        event_names.push_back(NodeAsString(node));
-      ::GetEventCmd( event_names,
-                     false,
-                     NodeAsStringFast("dev_model",node2),
-                     NodeAsStringFast("sess_type",node2),
-                     NodeAsStringFast("fmt_type",node2),
-                     params );
-      node=NodeAsNodeFast("events",node2);
-      xmlUnlinkNode(node);
-      xmlFreeNode(node);
-    }
-    else
-    {
-      event_names.push_back("magic_btn_click");
-      event_names.push_back("first_fmt_magic_btn_click");
-      ::GetEventCmd( event_names,
-                     true,
-                     NodeAsStringFast("dev_model",node2),
-                     NodeAsStringFast("sess_type",node2),
-                     NodeAsStringFast("fmt_type",node2),
-                     params );
-    };
-    BuildParams( NewTextChild(devNode,"events"), params, false );
-  };
-  CopyNodeList(resNode,reqNode);
-};
-
-void NormalizeAirlines( vector<string> &airlines,
-                        map<string,string> &air_params,
-                        string &str, string &airline_params )
-{
-  if (airlines.empty())
-    return;
-  sort(airlines.begin(),airlines.end());
-  string prior_airline;
-  //удалим одинаковые компании
-  for(vector<string>::iterator i=airlines.begin();i!=airlines.end();i++)
-  {
-    if (*i!=prior_airline)
-    {
-      if (!str.empty()) str.append("/");
-      str.append(*i);
-      if (!airline_params.empty()) airline_params.append( string(1,5) );
-      airline_params.append(air_params[*i]);
-      prior_airline=*i;
-    };
-  };
-  ProgTrace( TRACE5, "airline_params=%s", airline_params.c_str() );
-}
-
-bool MainDCSInterface::GetSessionAirlines(xmlNodePtr reqNode, string &str, std::string &airline_params)
-{
-  str.clear();
-  airline_params.clear();
-  xmlNodePtr node;
-  string value_airline;
-  vector<string> airlines;
-  map<string,string> air_params;
-  
-  node = GetNode("airlines", reqNode);
-  if (node==NULL) return true;
-  xmlNodePtr run_paramNode;
-  string run_param_airline;
-  for(node=node->children;node!=NULL;node=node->next)
-  {
-  	value_airline = NodeAsString(node);
-  	run_paramNode = GetNode( "@run_params", node );
-  	if ( run_paramNode )
-  		run_param_airline = NodeAsString( run_paramNode );
-  	else
-  		run_param_airline.clear();
-  	ProgTrace( TRACE5, "value_airline=%s, run_param_airline=%s", value_airline.c_str(), run_param_airline.c_str() );
-  	size_t p = run_param_airline.find( " " );
-  	if ( p != string::npos ) {
-  		run_param_airline.erase( p );
-  	  ProgTrace( TRACE5, "run_param_airline=|%s|", run_param_airline.c_str() );
-  	}
-  	if ( !run_param_airline.empty() )
-  		value_airline = run_param_airline;
-    try
-    {
-      airlines.push_back(base_tables.get("airlines").get_row("code/code_lat",value_airline).AsString("code"));
-    }
-    catch(EBaseTableError)
-    {
-    	try {
-    		airlines.push_back(base_tables.get("airlines").get_row("aircode",value_airline).AsString("code"));
-    	}
-    	catch(EBaseTableError) {
-        str=value_airline;
-        return false;
-      }
-    };
-       xmlNodePtr paramNode = GetNode( "@run_params", node );
-       if (paramNode) {
-         air_params[ airlines.back() ] = NodeAsString(paramNode);
-       }
-
-  };
-  NormalizeAirlines( airlines, air_params, str, airline_params );
-  return true;
-};
-
 void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
@@ -1361,6 +1411,8 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       "END;";
     Qry.CreateVariable("user_id", otInteger, reqInfo->user.user_id);
     Qry.CreateVariable("desk", otString, reqInfo->desk.code);
+    if (GetNode("term_version", reqNode)==NULL)
+      throw AstraLocale::UserException("MSG.TERM_VERSION.NOT_SUPPORTED");
     Qry.CreateVariable("version", otString, NodeAsString("term_version", reqNode));
     xmlNodePtr propNode;
     if ((propNode = GetNode("/term/query/@term_id",ctxt->reqDoc))!=NULL)
@@ -1369,12 +1421,15 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       Qry.CreateVariable("term_id", otFloat, FNull);
     Qry.Execute();
 
-    string airlines;
-    string airlines_params;
-    if (!GetSessionAirlines(reqNode,airlines,airlines_params))
-      throw AstraLocale::UserException("MSG.AIRLINE_CODE_NOT_FOUND", LParams() << LParam("airline", airlines));
-    JxtContext::getJxtContHandler()->sysContext()->write("session_airlines",airlines);
-    JxtContext::getJxtContHandler()->sysContext()->write("session_airlines_params",airlines_params);
+    vector<string> run_params;
+    SessionParamsFromXML(reqNode, run_params);
+    TSessionAirlines sess_airlines;
+    string error_param;
+    GetSessionAirlines(run_params, sess_airlines, error_param);
+    if (!error_param.empty())
+      throw AstraLocale::UserException("MSG.AIRLINE_CODE_NOT_FOUND", LParams() << LParam("airline", error_param));
+    WriteSessionParamsContext(sess_airlines);
+
     xmlNodePtr node=NodeAsNode("/term/query",ctxt->reqDoc);
     
     TReqInfoInitData reqInfoData;
@@ -1424,8 +1479,7 @@ void MainDCSInterface::UserLogoff(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     Qry.SQLText = "UPDATE users2 SET desk = NULL WHERE user_id = :user_id";
     Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
     Qry.Execute();
-    JxtContext::getJxtContHandler()->sysContext()->remove("session_airlines");
-    JxtContext::getJxtContHandler()->sysContext()->remove("session_airlines_params");
+    RemoveSessionParamsContext();
     AstraLocale::showMessage("MSG.WORK_SEANCE_FINISHED");
     reqInfo->user.clear();
     reqInfo->desk.clear();
@@ -1533,7 +1587,6 @@ void MainDCSInterface::GetDeviceList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
 
 void MainDCSInterface::GetDeviceInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-	//
   GetDevices( reqNode, resNode );
 };
 
