@@ -156,8 +156,7 @@ void TErrLst::pack(string &body, bool visible)
             if(visible) {
                 im->second.err_pos = pos + iv->pos;
                 im->second.err_len = iv->err_data.size();
-            } else
-                erase(iv->err_no);
+            }
         }
         body.replace(iv->pos, iv->del_len, iv->err_data);
     }
