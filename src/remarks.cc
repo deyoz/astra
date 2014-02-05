@@ -323,6 +323,7 @@ void SavePaxRem(int pax_id, const vector<TPaxRemItem> &rems)
   RemQry.DeclareVariable("rem_code",otString);
   for(vector<TPaxRemItem>::const_iterator r=rems.begin(); r!=rems.end(); ++r)
   {
+    if (r->text.empty()) continue; //защита от пустой ремарки (иногда может почему то приходить с терминала)
     r->toDB(RemQry);
     RemQry.Execute();
   };

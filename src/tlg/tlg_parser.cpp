@@ -5200,6 +5200,12 @@ int SaveFlt(int tlg_id, const TFltInfo& flt, TBindType bind_type, ETlgErrorType 
   catch(EOracleError E)
   {
     if (E.Code!=1) throw;
+    Qry.SQLText=
+      "UPDATE tlg_source "
+      "SET has_errors=DECODE(:has_errors,0,has_errors,:has_errors), "
+      "    has_alarm_errors=DECODE(:has_alarm_errors,0,has_alarm_errors,:has_alarm_errors) "
+      "WHERE point_id_tlg=:point_id_tlg AND tlg_id=:tlg_id ";
+    Qry.Execute();
   };
   check_tlg_in_alarm(point_id, NoExists);
   return point_id;
