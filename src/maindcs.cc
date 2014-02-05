@@ -854,6 +854,7 @@ void GetSessionAirlines(const vector<string> &run_params, TSessionAirlines &airl
           if (!Qry.get().Eof)
           {
             //дублирование в term_param_airlines
+            ProgError(STDLOG, "GetSessionAirlines: same code '%s' for different rows in term_param_airlines", code.c_str());
             airline.clear();
             sess.code.clear();
             sess.code_lat.clear();
