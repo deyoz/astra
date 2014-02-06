@@ -916,7 +916,7 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
          		CrsTKNQry.Execute();
          		if (!CrsTKNQry.Eof) pax.tkn.fromDB(CrsTKNQry);
          		//ProgTrace(TRACE5, "getPnr: pax.crs_pax_id=%d pax.tkn.getNotEmptyFieldsMask=%ld", pax.crs_pax_id, pax.tkn.getNotEmptyFieldsMask());
-        		LoadCrsPaxDoc(pax.crs_pax_id, pax.doc);
+        		LoadCrsPaxDoc(pax.crs_pax_id, pax.doc, true);
             //ProgTrace(TRACE5, "getPnr: pax.crs_pax_id=%d pax.doc.getNotEmptyFieldsMask=%ld", pax.crs_pax_id, pax.doc.getNotEmptyFieldsMask());
         	  LoadCrsPaxVisa(pax.crs_pax_id, pax.doco);
         		//ProgTrace(TRACE5, "getPnr: pax.crs_pax_id=%d pax.doco.getNotEmptyFieldsMask=%ld", pax.crs_pax_id, pax.doco.getNotEmptyFieldsMask());
@@ -2198,7 +2198,7 @@ bool CreateEmulCkinDocForCHKD(int crs_pax_id,
     paxForCkin.seats = Qry.FieldAsInteger("seats");
     paxForCkin.eticket = Qry.FieldAsString("eticket");
     paxForCkin.ticket = Qry.FieldAsString("ticket");
-    LoadCrsPaxDoc(paxForCkin.crs_pax_id, paxForCkin.doc);
+    LoadCrsPaxDoc(paxForCkin.crs_pax_id, paxForCkin.doc, true);
     LoadCrsPaxVisa(paxForCkin.crs_pax_id, paxForCkin.doco);
     paxForCkin.subclass = Qry.FieldAsString("subclass");
     paxForCkin.reg_no = Qry.FieldIsNULL("reg_no")?NoExists:Qry.FieldAsInteger("reg_no");
@@ -2470,7 +2470,7 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, const XMLDoc &emulDoc
                   //проверка всех реквизитов документа
                   pax.doc=NormalizeDoc(iPax->doc);
                 else
-                  LoadCrsPaxDoc(pax.crs_pax_id, pax.doc);
+                  LoadCrsPaxDoc(pax.crs_pax_id, pax.doc, true);
                   
                 if (iPax->doco_present)
                   //проверка всех реквизитов визы
