@@ -504,7 +504,7 @@ std::string GetPaxDocStr(TDateTime part_key,
   return result.str();
 };
 
-bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc)
+bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc, bool without_inf_indicator)
 {
   doc.clear();
   const char* sql1=
@@ -528,6 +528,14 @@ bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc)
       doc.no=GetPSPT2Qry.get().FieldAsString("no");
     };
   };
+  if (!doc.gender.empty() && without_inf_indicator)      //!!!потом убрать
+  {
+    int is_female=CheckIn::is_female(doc.gender, "");
+    if (is_female!=ASTRA::NoExists)
+      doc.gender=(is_female==0?"M":"F");
+    else
+      doc.gender.clear();
+  };                                                     //!!!потом убрать
   return !doc.empty();
 };
 

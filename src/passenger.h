@@ -363,7 +363,7 @@ bool LoadPaxDoca(int pax_id, TDocaType type, TPaxDocaItem &doca);
 bool LoadPaxDoca(BASIC::TDateTime part_key, int pax_id, std::list<TPaxDocaItem> &doca);
 bool LoadPaxDoca(BASIC::TDateTime part_key, int pax_id, TDocaType type, TPaxDocaItem &doca);
 
-bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc);
+bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc, bool without_inf_indicator=false);
 bool LoadCrsPaxVisa(int pax_id, TPaxDocoItem &doc);
 bool LoadCrsPaxDoca(int pax_id, std::list<TPaxDocaItem> &doca);
 
