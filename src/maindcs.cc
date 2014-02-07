@@ -895,6 +895,46 @@ void PutSessionAirlines(const TSessionAirlines &airlines, xmlNodePtr resNode)
     ProgTrace(TRACE5, "%-10s|%-10s|%-10s|%s",
               sess.code.c_str(), sess.code_lat.c_str(), sess.aircode.c_str(), sess.run_params.c_str());
   };
+  //Код, написанный ниже очень плох технологически,
+  //так как он связывает доступ пользователя с инициализацией оборудования напрямую
+  //Однозначно поимеем проблемы в тех портах, где в ярлыке запуска не прописаны компании
+  //и при этом кто-то захочет сделать доступ пользователю ко всем а/к
+  if (reqInfo->user.access.airlines_permit)
+  {
+    ostringstream str;
+    for(vector<string>::const_iterator i=reqInfo->user.access.airlines.begin();
+                                       i!=reqInfo->user.access.airlines.end(); ++i)
+    {
+      if (airlines.find(*i)!=airlines.end()) continue;
+
+      TAirlinesRow &row=(TAirlinesRow&)(base_tables.get("airlines").get_row("code",*i));
+      TSessionAirline sess;
+      sess.code=row.code;
+      sess.code_lat=row.code_lat;
+      sess.aircode=row.aircode;
+
+      int aircode;
+      if (BASIC::StrToInt(sess.aircode.c_str(),aircode)==EOF || sess.aircode.size()!=3)
+        sess.aircode="954";
+
+      xmlNodePtr node=NewTextChild(airlinesNode,"airline");
+      NewTextChild(node, "code", sess.code);
+      NewTextChild(node, "code_lat", sess.code_lat, "");
+      NewTextChild(node, "aircode", sess.aircode, "");
+
+      ProgTrace(TRACE5, "%-10s|%-10s|%-10s|%s",
+                sess.code.c_str(), sess.code_lat.c_str(), sess.aircode.c_str(), sess.run_params.c_str());
+      str << " " << sess.code;
+    };
+    if (!str.str().empty() && reqInfo->desk.mode!=omSTAND)
+    {
+      ProgTrace(TRACE5, "PutSessionAirlines WARNING! Some airlines from user access added into session parameters");
+      ProgTrace(TRACE5, "PutSessionAirlines WARNING! Platform: %s; Desk group: %d; Airlines:%s",
+                        EncodeOperMode(reqInfo->desk.mode).c_str(),
+                        reqInfo->desk.grp_id,
+                        str.str().c_str());
+    };
+  };
 };
 
 void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
