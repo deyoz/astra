@@ -38,24 +38,24 @@ class TSeat
       return *this;
     };
 
-    friend bool operator == ( const TSeat& seat1, const TSeat& seat2 )
+    bool operator == ( const TSeat& seat ) const
     {
-      return strcmp(seat1.row,seat2.row)==0 &&
-             strcmp(seat1.line,seat2.line)==0;
+      return strcmp(row,seat.row)==0 &&
+             strcmp(line,seat.line)==0;
     };
 
-    friend bool operator != ( const TSeat& seat1, const TSeat& seat2 )
+    bool operator != ( const TSeat& seat ) const
     {
-      return !(strcmp(seat1.row,seat2.row)==0 &&
-               strcmp(seat1.line,seat2.line)==0);
+      return !(strcmp(row,seat.row)==0 &&
+               strcmp(line,seat.line)==0);
     };
 
-    friend bool operator < ( const TSeat& seat1, const TSeat& seat2 )
+    bool operator < ( const TSeat& seat ) const
     {
       int res;
-      res=strcmp(seat1.row,seat2.row);
+      res=strcmp(row,seat.row);
       if (res==0)
-        res=strcmp(seat1.line,seat2.line);
+        res=strcmp(line,seat.line);
       return res<0;
     };
 };
