@@ -126,7 +126,7 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
                                    VerNum,
                                    paxlst.settings().mesRelNum(),
                                    CntrlAgn,
-                                   "IATA",
+                                   paxlst.settings().mesAssCode(),
                                    partNum,
                                    getSeqFlag( partNum, partsCnt ) ) ) ;
 
