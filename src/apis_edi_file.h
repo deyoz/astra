@@ -520,6 +520,7 @@ class PaxlstSettings
 {
     std::string m_appRef;
     std::string m_mesRelNum;
+    std::string m_mesAssCode;
     std::string m_respAgnCode;
     bool m_viewUNGandUNE;
     
@@ -527,6 +528,7 @@ public:
     PaxlstSettings()
         : m_appRef( "APIS" ),
           m_mesRelNum( "02B" ),
+          m_mesAssCode( "IATA" ),
           m_respAgnCode( "111" ),
           m_viewUNGandUNE(false)
     {}
@@ -536,6 +538,9 @@ public:
 
     const std::string& mesRelNum() const { return m_mesRelNum; }
     void setMesRelNum( const std::string& mesRelNum ) { m_mesRelNum = mesRelNum; }
+
+    const std::string& mesAssCode() const { return m_mesAssCode; }
+    void setMesAssCode( const std::string& mesAssCode ) { m_mesAssCode = mesAssCode; }
 
     const std::string& respAgnCode() const { return m_respAgnCode; }
     void setRespAgnCode( const std::string& respAgnCode ) { m_respAgnCode = respAgnCode; }
