@@ -512,13 +512,14 @@ bool create_apis_file(int point_id, const string& task_name)
 
               if (fmt=="EDI_IN")
                 paxlstInfo.settings().setAppRef("");
-              if (fmt=="EDI_US")
-                paxlstInfo.settings().setAppRef("USADHS");
               if (fmt=="EDI_UK")
                 paxlstInfo.settings().setAppRef("UKBAOP");
 
-              if (fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_UK")
+              if (fmt=="EDI_IN" || fmt=="EDI_UK")
                 paxlstInfo.settings().setMesRelNum("05B");
+
+              if (fmt=="EDI_US")
+                paxlstInfo.settings().setMesAssCode("CBP");
 
               paxlstInfo.settings().setViewUNGandUNE(true/*!(fmt=="EDI_IN" || fmt=="EDI_US")*/);
 
