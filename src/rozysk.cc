@@ -1097,7 +1097,7 @@ void get_pax_list(int point_id,
         pax.departDateTime = ASTRA::NoExists;
       else
         pax.departDateTime = Qry.FieldAsDateTime( idx_takeoff );
-      pax.typePDP = (Qry.FieldIsNULL( idx_reg_no ) || Qry.FieldAsInteger( idx_reg_no )>0)?"пассажир":"член экипажа";
+      pax.typePDP = (Qry.FieldIsNULL( idx_reg_no ) || Qry.FieldAsInteger( idx_reg_no )>0)?"1":"0";
       int is_female=CheckIn::is_female(Qry.FieldAsString( idx_doc_gender ),
                                        Qry.FieldAsString( idx_name ));
       pax.gender = (is_female==ASTRA::NoExists?"":(is_female==0?"M":"F"));
