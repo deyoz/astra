@@ -75,7 +75,7 @@ namespace ChangeStatus
             {
                 tst();
                 SetEdiPointToSegGrG(pMes, SegGrElement(2, j), "PROG_ERR");
-                Coupon_info ci = TickReader::MakeCouponInfo(pMes);
+                Coupon_info ci = TickReader::MakeCouponInfo(pMes, TickStatAction::newtick);
                 lCpn.push_back(Coupon(ci));
 
                 errMap[make_pair(ticketnum, ci.num())] = GetDBFName(pMes,

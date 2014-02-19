@@ -9,9 +9,18 @@ bin_PROGRAMS = astra
 BUILT_SOURCES = SysTarg
 export EDILIB_PATH
 SysTarg:
+	$(srcdir)/autotests.sh $(srcdir)/ts
 	$(MAKE) -f $(srcdir)/systarg.mk
 
 astra_LDFLAGS = @ORACLE_LDFLAGS@ @SHARED_LDFLAGS@
+xp-tests:
+	@if [ -n "$(XP_LIST)" ]; then \
+	        XP_TESTING=1 XP_LIST=$(XP_LIST) ./run -run_tests | tee xp-tests.log 2>&1; \
+	else \
+	        XP_TESTING=1 ./run -run_tests | tee xp-tests.log 2>&1; \
+	fi; \
+	grep "100%: Checks" xp-tests.log > /dev/null 2>&1
+
 
 AM_CXXFLAGS = $(TCLINCLUDE)
 astra_SOURCES = \
@@ -91,15 +100,17 @@ astra_SOURCES = \
   trip_tasks.cc \
   tripinfo.cc \
   typeb_utils.cc \
-  view_edi_elements.cc \
   web_main.cc \
   web_search.cc \
   xml_unit.cc \
-  xp_testing.cc
+  xp_testing.cc \
+  tscript_callbacks.cc \
+  ticket_types.cpp
 
 
 astra_LDADD = $(all_libraries) \
 	tlg/libtlg.a \
+  tests/libtests.a \
 	@ETICKLIB_LIBS@ \
 	@ORACLE_LIBS@ @EDILIB_LIBS@ @EDILIB_LIBLOADING@ \
 	@JXTLIB_LIBS@ @SHARED_LIBS@ \
@@ -112,7 +123,7 @@ astra_LDADD = $(all_libraries) \
 #	-L/usr/lib -lboost_filesystem
 #	-L/home/beta/crypt/locallibs/mespro -lmesprox
 
-SUBDIRS = tlg
+SUBDIRS = tlg tests
 
 EXTRA_DIST = systarg.mk run astra.tcl PS Restart kills \
 	MAKE local_after_example.tcl local_before_example.tcl
@@ -156,7 +167,6 @@ noinst_HEADERS = \
   dev_utils.h \
   develop_dbf.h \
   docs.h \
-  edi_elements.h \
   empty_proc.h \
   etick_change_status.h \
   etick.h \
@@ -195,10 +205,10 @@ noinst_HEADERS = \
   trip_tasks.h \
   tripinfo.h \
   typeb_utils.h \
-  view_edi_elements.h \
   web_main.h \
   web_search.h \
-  xml_unit.h
+  xml_unit.h \
+  ticket_types.h
 
 
 

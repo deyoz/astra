@@ -11,7 +11,7 @@
 //
 #include "apis_edi_file.h"
 #include "exceptions.h"
-#include "view_edi_elements.h"
+#include "tlg/view_edi_elements.h"
 #include "config.h"
 #include "tlg/tlg.h"
 

@@ -94,7 +94,7 @@ int main_typeb_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
       InitLogTime(NULL);
       base_tables.Invalidate();
       bool queue_not_empty=handle_tlg();
-      
+
       waitCmd("CMD_TYPEB_HANDLER",queue_not_empty?HANDLER_PROC_INTERVAL():HANDLER_WAIT_INTERVAL(),buf,sizeof(buf));
     }; // end of loop
   }
@@ -386,7 +386,7 @@ bool handle_tlg(void)
       {
         procTlg(tlg_id);
         OraSession.Commit();
-      
+
         string tlgs_text=getTlgText(tlg_id, TlgQry);
         int typeb_tlg_id=NoExists;
         int typeb_tlg_num=1;
@@ -491,7 +491,7 @@ bool handle_tlg(void)
         if (EndingInfo!=NULL)
           InsQry.get().SetVariable("is_final_part", (int)EndingInfo->pr_final_part);
         else
-          InsQry.get().SetVariable("is_final_part", (int)false);  
+          InsQry.get().SetVariable("is_final_part", (int)false);
 
         InsQry.get().SetVariable("tlgs_id", tlg_id);
 
@@ -619,7 +619,7 @@ bool parse_tlg(void)
   bool queue_not_empty=false;
 
   time_t time_start=time(NULL);
-  
+
   TMemoryManager mem(STDLOG);
 
   TDateTime utc_date=NowUTC();
@@ -925,7 +925,7 @@ bool parse_tlg(void)
   if (time_end-time_start>1)
     ProgTrace(TRACE5,"Attention! handle_tlg execute time: %ld secs, count=%d",
                      time_end-time_start,count);
-                     
+
   return queue_not_empty;
 };
 

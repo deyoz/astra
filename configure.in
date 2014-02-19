@@ -57,7 +57,7 @@ CFLAGS="-Wall -g -O0 $TCH_ETC_FLAGS $ORACLE_CXXFLAGS $EDILIB_CXXFLAGS $JXTLIB_CX
  $ETICKLIB_CXXFLAGS $SHARED_CXXFLAGS $LIBTLG_CXXFLAGS $TCLMON_CXXFLAGS $XML_CPPFLAGS $CHECK_CFLAGSS\
  -I\$(top_builddir)/src -D ASTRA2007"
 CXXFLAGS="$CFLAGS $BOOST_CPPFLAGS"
-AC_OUTPUT(Makefile src/Makefile src/tlg/Makefile)
+AC_OUTPUT(Makefile src/Makefile src/tlg/Makefile src/tests/Makefile)
 
 if ! test -f $srcdir/src/local_after.tcl ; then
 	cp $srcdir/src/local_after.example.tcl $srcdir/src/local_after.tcl
@@ -65,6 +65,8 @@ fi
 if ! test -f $srcdir/src/local_before.tcl ; then
 	cp $srcdir/src/local_before.example.tcl $srcdir/src/local_before.tcl
 fi
+ln -s $LIBROOT/tscriptc/tscriptc ${srcdir}/src/tscriptc
+
 echo "================================="
 echo "Done. Run make"
 echo "================================="

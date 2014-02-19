@@ -154,7 +154,7 @@ namespace TickReader{
 
     // read IFT from EDIFACT
     void readEdiIFT(EDI_REAL_MES_STRUCT *pMes, list<FreeTextInfo> &lIft);
-    Coupon_info MakeCouponInfo(EDI_REAL_MES_STRUCT *pMes);
+    Coupon_info MakeCouponInfo(EDI_REAL_MES_STRUCT *pMes, TickStatAction::TickStatAction_t tickStatAction);
 } // namespace Ticketing
 } // namespace TickReader
 #endif /*_ASTRA_TICK_READ_EDI_H_*/
