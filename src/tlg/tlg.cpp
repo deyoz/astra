@@ -35,17 +35,6 @@ const char* OWN_CANON_NAME()
   return VAR.c_str();
 }
 
-const char* ERR_CANON_NAME()
-{
-  static bool init=false;
-  static string VAR;
-  if ( !init ) {
-    VAR=getTCLParam("ERR_CANON_NAME","");
-    init=true;
-  }
-  return VAR.c_str();
-}
-
 const char* DEF_CANON_NAME()
 {
   static bool init=false;

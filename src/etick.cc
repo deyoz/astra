@@ -88,7 +88,7 @@ void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNod
 
   int req_ctxt=AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc));
 
-  XMLDoc xmlCtxt("UTF-8","context");
+  XMLDoc xmlCtxt("context");
   if (xmlCtxt.docPtr()==NULL)
     throw EXCEPTIONS::Exception("SearchETByTickNo: CreateXMLDoc failed");
   xmlNodePtr rootNode=NodeAsNode("/context",xmlCtxt.docPtr());
@@ -677,7 +677,7 @@ xmlNodePtr TChangeStatusList::addTicket(const TTicketListKey &key,
   TTicketListCtxt &ltick=(*this)[key].back();
   if (ltick.second.docPtr()==NULL)
   {
-    ltick.second.set("UTF-8","context");
+    ltick.second.set("context");
     if (ltick.second.docPtr()==NULL)
       throw EXCEPTIONS::Exception("ETCheckStatus: CreateXMLDoc failed");
     NewTextChild(NodeAsNode("/context",ltick.second.docPtr()),"tickets");

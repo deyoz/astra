@@ -205,8 +205,7 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
                                        it->postalCode(),
                                        it->destCountry() ) );
         // ATT
-        if (!it->sex().empty())
-          viewAttElement( pMes, AttElem( "2", it->sex() ) );
+        viewAttElement( pMes, AttElem( "2", it->sex() ) );
         // DTM
         viewDtmElement( pMes, DtmElem( DtmElem::DateOfBirth, it->birthDate() ) );
 

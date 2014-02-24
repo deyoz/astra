@@ -77,13 +77,12 @@ static const int PARSER_PROC_COUNT()          //кол-во разбираемых телеграмм за 
 static bool handle_tlg(void);
 static bool parse_tlg(void);
 
-int main_typeb_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
+int main_typeb_handler_tcl(int supervisorSocket, int argc, char *argv[])
 {
   try
   {
     sleep(10);
-    InitLogTime(NULL);
-    OpenLogFile("logairimp");
+    InitLogTime(argc>0?argv[0]:NULL);
 
     ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
             ->connect_db();
@@ -91,7 +90,7 @@ int main_typeb_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
     char buf[10];
     for(;;)
     {
-      InitLogTime(NULL);
+      InitLogTime(argc>0?argv[0]:NULL);
       base_tables.Invalidate();
       bool queue_not_empty=handle_tlg();
 
@@ -122,13 +121,12 @@ int main_typeb_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
   return 0;
 };
 
-int main_typeb_parser_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
+int main_typeb_parser_tcl(int supervisorSocket, int argc, char *argv[])
 {
   try
   {
     sleep(15);
-    InitLogTime(NULL);
-    OpenLogFile("logairimp");
+    InitLogTime(argc>0?argv[0]:NULL);
 
     ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
             ->connect_db();
@@ -136,7 +134,7 @@ int main_typeb_parser_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
     char buf[10];
     for(;;)
     {
-      InitLogTime(NULL);
+      InitLogTime(argc>0?argv[0]:NULL);
       base_tables.Invalidate();
       bool queue_not_empty=parse_tlg();
 

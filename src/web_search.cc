@@ -40,9 +40,9 @@ void TPNRFilter::traceToMonitor( TRACE_SIGNATURE, const char *format,  ...)
   va_list ap;
   va_start(ap,format);
   if (tracing())
-    ProgError_lwap(ERROR_PARAMS, format, ap);
+    write_log_message(ERROR_PARAMS, format, ap);
    else
-    ProgTrace_lwap(TRACE_PARAMS, format, ap);
+    write_log_message(TRACE_PARAMS, format, ap);
   va_end(ap);
 };
 
@@ -2035,7 +2035,6 @@ void getTCkinData( const TPnrData &first,
               throw "More than one PNR found";
             pnrData.seg=seg;
           };
-          if (!Qry.Eof) ;
         };
 
         if (pnrData.seg.pnr_id==NoExists)

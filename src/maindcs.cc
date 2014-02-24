@@ -444,7 +444,7 @@ void GetEventCmd( const vector<string> &event_names,
 
     CmdQry.SetVariable("event_name",event_name);
 
-    XMLDoc cmdDoc("UTF-8","commands");
+    XMLDoc cmdDoc("commands");
     xmlNodePtr cmdsNode=NodeAsNode("/commands",cmdDoc.docPtr());
     CmdQry.Execute();
     for(;!CmdQry.Eof;CmdQry.Next())
@@ -1822,8 +1822,7 @@ void MainDCSInterface::DetermineScanParams(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     if (fmt_type==dftSCAN1 || fmt_type==dftBCR)
     {
       //вычисляем prefix с учетом code_id_len
-      if (params.code_id_len<0 ||
-          params.code_id_len>9 ||
+      if (params.code_id_len>9 ||
           params.code_id_len>params.prefix.size())
         throw EConvertError("Wrong params.code_id_len=%lu",params.code_id_len);
       params.prefix.erase(params.prefix.size()-params.code_id_len);

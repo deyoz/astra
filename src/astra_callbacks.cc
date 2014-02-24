@@ -37,6 +37,7 @@
 #include "empty_proc.h"
 #include "tlg/tlg.h"
 #include "jxtlib/jxtlib.h"
+#include "serverlib/msg_const.h"
 #include "serverlib/query_runner.h"
 #include "serverlib/ocilocal.h"
 #include "serverlib/perfom.h"
@@ -403,6 +404,11 @@ void AstraJxtCallbacks::UserAfter()
 	  	RevertWebResDoc( (const char*)xmlRC->reqDoc->children->children->children->name, node );
 	  else
 	    CheckTermResDoc( node );
+   //жестко требуем encoding=UTF-8
+   //ранее, при добавлении в дерево хотя бы одной property не в UTF-8, encoding сбивается
+   //это в свою очередь приводит к ошибке xmlDocDumpFormatMemory
+   //вообще libxml с версии 2.7 хранит и требует работать с деревом в UTF-8, а не в 866
+   SetXMLDocEncoding(xmlRC->resDoc, "UTF-8");
 }
 
 

@@ -10,7 +10,7 @@
 #include "jxtlib/xmllibcpp.h"
 #include "jxtlib/gettext.h"
 #include "jxtlib/xml_tools.h"
-#include "serverlib/date_cast.h"
+#include "serverlib/dates_io.h"
 
 #define NICKNAME "ROMAN"
 #define NICKTRACE ROMAN_TRACE

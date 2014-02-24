@@ -52,13 +52,12 @@ static const int PROC_COUNT()          //кол-во разбираемых телеграмм за одну ит
 
 static bool handle_tlg(void);
 
-int main_edi_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
+int main_edi_handler_tcl(int supervisorSocket, int argc, char *argv[])
 {
   try
   {
     sleep(2);
-    InitLogTime(NULL);
-    OpenLogFile("logairimp");
+    InitLogTime(argc>0?argv[0]:NULL);
 
     ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
             ->connect_db();
@@ -67,7 +66,7 @@ int main_edi_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
     char buf[10];
     for(;;)
     {
-      InitLogTime(NULL);
+      InitLogTime(argc>0?argv[0]:NULL);
       base_tables.Invalidate();
       bool queue_not_empty=handle_tlg();
 
@@ -198,7 +197,7 @@ bool handle_tlg(void)
         tlg_info tlgi = {};
         tlgi.id = TlgQry.FieldAsInteger("id");
 
-        tlgi.text = getTlgText(tlg_id, TlgQry);
+        tlgi.text = getTlgText(tlgi.id, TlgQry);
         ProgTrace(TRACE5,"TLG_IN: <%s>", tlgi.text.c_str());
         tlgi.sender = TlgQry.FieldAsString("sender");
         tlgi.proc_attempt = TlgQry.FieldAsInteger("proc_attempt");

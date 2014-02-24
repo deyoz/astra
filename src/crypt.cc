@@ -3,6 +3,8 @@
 #include "tclmon/mespro_crypt.h"
 #include "tclmon/tclmon.h"
 #include "jxtlib/xml_stuff.h"
+#include "serverlib/msg_const.h"
+#include "serverlib/levc_callbacks.h"
 #include "serverlib/sirena_queue.h"
 #include "serverlib/string_cast.h"
 #include "crypt.h"
@@ -934,7 +936,7 @@ string getPassword( )
   while ( pswd.size() < PASSWORD_LENGTH ) {
 		randt = rand();
 		unsigned int idx = 1 + (int)( strtable.size() * ( randt / ( RAND_MAX + 1.0 ) ) );
-		if ( idx < 0 || idx > strtable.size() ) {
+		if ( idx > strtable.size() ) {
 			ProgError( STDLOG, "getPassword: invalid idx=%d", idx );
 			continue;
 		}
@@ -1072,8 +1074,8 @@ void CryptInterface::CryptValidateServerKey(XMLRequestCtxt *ctxt, xmlNodePtr req
     ProgTrace( TRACE5, "algo=%s", algo.c_str() );
     if ( algo.empty() )
       throw Exception( "Ошибка программы" );
-    bool pr_GOST = ( algo == string( "ECR3410" ) ||
-                     algo == string( "R3410" ) );
+    pr_GOST = ( algo == string( "ECR3410" ) ||
+                algo == string( "R3410" ) );
     ProgTrace( TRACE5, "pr_GOST=%d, algo=%s", pr_GOST, algo.c_str() );
   }
   catch(...) {

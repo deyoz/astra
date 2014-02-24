@@ -21,7 +21,7 @@
 #include "serverlib/cursctl.h"
 #include "serverlib/ocilocal.h"
 #include "serverlib/ehelpsig.h"
-#include "serverlib/date_cast.h"
+#include "serverlib/dates_io.h"
 #include "serverlib/posthooks.h"
 #include "serverlib/testmode.h"
 #include "serverlib/EdiHelpManager.h"
@@ -338,9 +338,10 @@ int init_edifact()
 {
     InitEdiLogger(ProgError,WriteLog,ProgTrace);
 
-    if(CreateTemplateMessagesCur(OciCpp::mainSession().getLd()/*  LD*/,NULL)){
+    if(CreateTemplateMessages(get_connect_string(),NULL)) {
         return -1;
     }
+
     if(InitEdiTypes(edi_msg_proc, edi_proc_sz)){
         ProgError(STDLOG,"InitEdiTypes failed");
         return -2;
@@ -448,7 +449,7 @@ void SendEdiTlgTKCREQ_Disp(TickDisp &TDisp)
 
 xmlDocPtr prepareKickXMLDoc(string iface, int reqCtxtId)
 {
-  xmlDocPtr kickDoc=CreateXMLDoc(/*"CP866"*/"UTF-8","term");
+  xmlDocPtr kickDoc=CreateXMLDoc("term");
   if (kickDoc==NULL)
     throw EXCEPTIONS::Exception("prepareKickXMLDoc failed");
   TReqInfo *reqInfo = TReqInfo::Instance();
@@ -941,7 +942,7 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
       }
       else
       {
-        ediResCtxt.set("UTF-8","context");
+        ediResCtxt.set("context");
         if (ediResCtxt.docPtr()!=NULL)
           NewTextChild(NodeAsNode("/context",ediResCtxt.docPtr()),"tickets");
       };

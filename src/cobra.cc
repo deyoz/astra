@@ -138,37 +138,25 @@ void ToEvents( const string &client_type, int request_file_id, int answer_file_i
   Qry.Execute();
 }
 
-int main_tcp_cobra_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
+int main_tcp_cobra_tcl(int supervisorSocket, int argc, char *argv[])
 {
   try
   {
-    sleep(1);
-    InitLogTime(NULL);
-    OpenLogFile("log1");
+    sleep(5);
+    InitLogTime(argc>0?argv[0]:NULL);
 
-    int p_count;
     int listener_port;
-    if ( TCL_OK != Tcl_ListObjLength( interp, argslist, &p_count ) ) {
+    if ( argc != 2 ) {
     	ProgError( STDLOG,
-                 "ERROR:main_tcpserv_tcl wrong parameters:%s",
-                 Tcl_GetString(Tcl_GetObjResult(interp)) );
-      return 1;
-    }
-    if ( p_count != 2 ) {
-    	ProgError( STDLOG,
-                 "ERROR:main_timer_tcl wrong number of parameters:%d",
-                 p_count );
+                 "ERROR:main_tcp_cobra_tcl wrong number of parameters:%d",
+                 argc );
     }
     else {
-    	 Tcl_Obj *val;
-    	 Tcl_ListObjIndex( interp, argslist, 1, &val );
-    	 StrToInt( Tcl_GetString( val ), listener_port );
+    	 StrToInt( argv[1], listener_port );
     }
 
     ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
         ->connect_db();
-        
-    if (init_edifact()<0) throw Exception("'init_edifact' error");
     
     TReqInfo::Instance()->clear();
     base_tables.Invalidate();
@@ -189,18 +177,15 @@ int main_tcp_cobra_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
 
 bool parseIncommingCobraData();
 
-int main_cobra_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
+int main_cobra_handler_tcl(int supervisorSocket, int argc, char *argv[])
 {
   try
   {
-    sleep(1);
-    InitLogTime(NULL);
-    OpenLogFile("log1");
+    sleep(5);
+    InitLogTime(argc>0?argv[0]:NULL);
 
     ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
             ->connect_db();
-
-     if (init_edifact()<0) throw Exception("'init_edifact' error");
 
     TReqInfo::Instance()->clear();
     char buf[10];
@@ -209,7 +194,7 @@ int main_cobra_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
     {
       emptyHookTables();
       TDateTime execTask = NowUTC();
-      InitLogTime(NULL);
+      InitLogTime(argc>0?argv[0]:NULL);
       base_tables.Invalidate();
       bool queue_empty = parseIncommingCobraData();
       OraSession.Commit();
@@ -686,7 +671,7 @@ void ServSession::Read( void *recvbuf, int recvbuf_len )
 string ServSession::createHeartBeatStr( )
 {
   string res;
-  xmlDocPtr doc = CreateXMLDoc( "UTF-8", STR_HEARTBEAT.c_str() );
+  xmlDocPtr doc = CreateXMLDoc( STR_HEARTBEAT.c_str() );
   try {
     SetProp( doc->children, "time", BASIC::DateTimeToStr( BASIC::NowUTC() ) );
     res = XMLTreeToText( doc );
@@ -703,7 +688,7 @@ string ServSession::createHeartBeatStr( )
 string createInvalidMsg( const string &MsgCodePage )
 {
   string res;
-  xmlDocPtr resDoc = CreateXMLDoc( "UTF-8", SESS_INVALID_MSG.c_str() );
+  xmlDocPtr resDoc = CreateXMLDoc( SESS_INVALID_MSG.c_str() );
   try {
     res = XMLTreeToText( resDoc );
     res = ConvertCodepage( res, "CP866", MsgCodePage );
@@ -725,7 +710,7 @@ struct TCobraError {
 string createCommitStr( const string &MsgCodePage, int code, const vector<TCobraError> &errors )
 {
   string res;
-  xmlDocPtr doc = CreateXMLDoc( "UTF-8", SESS_COMMIT_MSG.c_str() );
+  xmlDocPtr doc = CreateXMLDoc( SESS_COMMIT_MSG.c_str() );
   try {
     for ( vector<TCobraError>::const_iterator i=errors.begin(); i!=errors.end(); i++ ) {
       xmlNodePtr errNode = NewTextChild( doc->children, "error" );
@@ -2075,37 +2060,25 @@ bool parseIncommingCobraData( )
 const
   std::string WB_GARANT_FLIGHT_COMMAND_TAG = "flight";
 
-int main_tcp_wb_garant_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
+int main_tcp_wb_garant_tcl(int supervisorSocket, int argc, char *argv[])
 {
   try
   {
-    sleep(1);
-    InitLogTime(NULL);
-    OpenLogFile("log1");
+    sleep(5);
+    InitLogTime(argc>0?argv[0]:NULL);
 
-    int p_count;
     int listener_port;
-    if ( TCL_OK != Tcl_ListObjLength( interp, argslist, &p_count ) ) {
-    	ProgError( STDLOG,
-                 "ERROR:main_tcpserv_tcl wrong parameters:%s",
-                 Tcl_GetString(Tcl_GetObjResult(interp)) );
-      return 1;
-    }
-    if ( p_count != 2 ) {
+    if ( argc != 2 ) {
     	ProgError( STDLOG,
                  "ERROR:main_timer_tcl wrong number of parameters:%d",
-                 p_count );
+                 argc );
     }
     else {
-    	 Tcl_Obj *val;
-    	 Tcl_ListObjIndex( interp, argslist, 1, &val );
-    	 StrToInt( Tcl_GetString( val ), listener_port );
+    	 StrToInt( argv[1], listener_port );
     }
 
     ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
         ->connect_db();
-
-    if (init_edifact()<0) throw Exception("'init_edifact' error");
 
     TReqInfo::Instance()->clear();
     base_tables.Invalidate();
@@ -2126,18 +2099,15 @@ int main_tcp_wb_garant_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
 
 bool parseIncommingWB_GarantData( );
 
-int main_wb_garant_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
+int main_wb_garant_handler_tcl(int supervisorSocket, int argc, char *argv[])
 {
   try
   {
-    sleep(1);
-    InitLogTime(NULL);
-    OpenLogFile("log1");
+    sleep(5);
+    InitLogTime(argc>0?argv[0]:NULL);
 
     ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
             ->connect_db();
-
-     if (init_edifact()<0) throw Exception("'init_edifact' error");
 
     TReqInfo::Instance()->clear();
     char buf[10];
@@ -2146,7 +2116,7 @@ int main_wb_garant_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argsl
     {
       emptyHookTables();
       TDateTime execTask = NowUTC();
-      InitLogTime(NULL);
+      InitLogTime(argc>0?argv[0]:NULL);
       base_tables.Invalidate();
       bool queue_empty = parseIncommingWB_GarantData( );
       OraSession.Commit();
@@ -2426,7 +2396,7 @@ string AnswerFlight( const xmlNodePtr reqNode )
           throw Exception( "Invalid bort" );
         }
         
-        xmlDocPtr doc = CreateXMLDoc( "UTF-8", "flight" );
+        xmlDocPtr doc = CreateXMLDoc( "flight" );
         xmlNodePtr flightNode = doc->children;
         try {
           NewTextChild( flightNode, "airline", Qry.FieldAsString( "airline" ) );
@@ -2600,7 +2570,7 @@ string AnswerFlight( const xmlNodePtr reqNode )
   }
   catch( Exception &e ) {
     ProgTrace( TRACE5, "exception.what()=%s", e.what() );
-    xmlDocPtr doc = CreateXMLDoc( "UTF-8", "error" );
+    xmlDocPtr doc = CreateXMLDoc( "error" );
     NewTextChild( doc->children, "message", e.what() );
     res = XMLTreeToText( doc );
   }
