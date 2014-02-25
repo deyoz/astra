@@ -1890,6 +1890,7 @@ try {
       ProgError(STDLOG,"aodb write check_trip_tasks (move_id=%d): %s",move_id,E.what());
     };
   }
+  XXX( point_id );
 }
 catch(EOracleError &E)
 {

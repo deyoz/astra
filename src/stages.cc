@@ -709,6 +709,7 @@ void exec_stage( int point_id, int stage_id )
            Takeoff( point_id );
            break;
   }
+  XXX( point_id );
 }
 
 void astra_timer( TDateTime utcdate )

@@ -1209,6 +1209,9 @@ void CreateSPP( BASIC::TDateTime localdate )
           ProgError(STDLOG,"CreateSPP.check_trip_tasks (move_id=%d): %s",move_id,E.what());
         };
       }
+      for ( TDests::iterator d=im->second.dests.begin(); d!=im->second.dests.end(); d++ ) {
+        XXX( d->point_id );
+      };
     }
   }
   TReqInfo::Instance()->MsgToLog( string( "Получение СПП за " ) + DateTimeToStr( localdate, "dd.mm.yy" ), evtSeason );

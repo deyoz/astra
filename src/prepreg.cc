@@ -767,6 +767,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
       ProgError(STDLOG,"CrsDataApplyUpdates.check_trip_tasks (move_id=%d): %s",Qry.FieldAsInteger( "move_id" ),E.what());
     };
   }
+  XXX( point_id );
 
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   if ( GetNode( "tripcounters", reqNode ) ) {
