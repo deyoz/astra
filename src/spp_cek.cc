@@ -416,7 +416,7 @@ bool createSPPCEK( TDateTime sppdate, const string &file_type, const string &poi
 		return false;
 	TFileData fd;
 	string sql_str;
-	xmlDocPtr doc = CreateXMLDoc( "UTF-8", "sqls" );
+	xmlDocPtr doc = CreateXMLDoc( "sqls" );
 	xmlNodePtr rollbackNode;
 	string tablename;
 	try {
@@ -595,7 +595,7 @@ void createXMLTrips( const string &dbf_type, bool pr_remove, TDateTime spp_date,
   int cargo_in=0, cargo_out=0, mail_in=0, mail_out=0;
   lug_in.max_commerce = 0; lug_out.max_commerce = 0; */
   if ( !doc ) {
-    doc = CreateXMLDoc( "UTF-8", "trips" );
+    doc = CreateXMLDoc( "trips" );
 	  SetProp( doc->children, "point_id", tr->point_id );
   }
 
@@ -926,7 +926,7 @@ void createDBF( xmlDocPtr &sqldoc, xmlNodePtr xml_oldtrip, xmlNodePtr xml_newtri
 
   if ( pr_insert || pr_update || pr_delete ) {
   	if ( !sqldoc )
-  	  sqldoc = CreateXMLDoc( "UTF-8", "sqls" );
+  	  sqldoc = CreateXMLDoc( "sqls" );
   }
 
   if ( pr_delete ) {
@@ -1018,7 +1018,7 @@ void createDBF( xmlDocPtr &sqldoc, xmlNodePtr xml_oldtrip, xmlNodePtr xml_newtri
     }
     if ( pr_insert || pr_update || pr_delete ) {
   	  if ( !sqldoc )
-  	    sqldoc = CreateXMLDoc( "UTF-8", "sqls" );
+  	    sqldoc = CreateXMLDoc( "sqls" );
     }
     if ( pr_delete ) {
     	// delete прилет
@@ -1126,8 +1126,8 @@ bool equalTrip( const xmlNodePtr &xml_oldtrip, const xmlNodePtr &xml_newtrip )
 {
   bool res = true;
   xmlDocPtr doc1, doc2;
-  doc1 = CreateXMLDoc( "UTF-8", "trip" );
-  doc2 = CreateXMLDoc( "UTF-8", "trip" );
+  doc1 = CreateXMLDoc( "trip" );
+  doc2 = CreateXMLDoc( "trip" );
   tst();
   try {
     CopyNode( doc1->children, xml_oldtrip  );
@@ -1507,7 +1507,7 @@ bool Sync1C( const string &point_addr, TFileDatas &fds )
     if ( Qry.Eof ) {  // создаем таблицу
     	pr_new_table = true;
     	TFileData fd;
-	    xmlDocPtr doc = CreateXMLDoc( "UTF-8", "sqls" );
+	    xmlDocPtr doc = CreateXMLDoc( "sqls" );
     	try {
 	      xmlNodePtr queryNode = NewTextChild( doc->children, "query" );
         NewTextChild( queryNode, "sql", i->create_sql );
@@ -1539,7 +1539,7 @@ bool Sync1C( const string &point_addr, TFileDatas &fds )
     Qry.Execute();
     if ( Qry.Eof )
     	continue;
-    xmlDocPtr doc = CreateXMLDoc( "UTF-8", "sqls" );
+    xmlDocPtr doc = CreateXMLDoc( "sqls" );
     xmlNodePtr queryNode;
     xmlNodePtr paramsNode;
     try {

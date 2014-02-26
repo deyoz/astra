@@ -11,6 +11,7 @@
 #include "tlg_parser.h"
 #include "edi_tlg.h"
 #include "edi_msg.h"
+#include "edi_handler.h"
 
 #include "serverlib/query_runner.h"
 #include "serverlib/posthooks.h"
@@ -51,13 +52,12 @@ static const int PROC_COUNT()          //кол-во разбираемых телеграмм за одну ит
 
 static bool handle_tlg(void);
 
-int main_edi_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
+int main_edi_handler_tcl(int supervisorSocket, int argc, char *argv[])
 {
   try
   {
     sleep(2);
-    InitLogTime(NULL);
-    OpenLogFile("logairimp");
+    InitLogTime(argc>0?argv[0]:NULL);
 
     ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
             ->connect_db();
@@ -66,10 +66,10 @@ int main_edi_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
     char buf[10];
     for(;;)
     {
-      InitLogTime(NULL);
+      InitLogTime(argc>0?argv[0]:NULL);
       base_tables.Invalidate();
       bool queue_not_empty=handle_tlg();
-      
+
       waitCmd("CMD_EDI_HANDLER",queue_not_empty?PROC_INTERVAL():WAIT_INTERVAL(),buf,sizeof(buf));
     }; // end of loop
   }
@@ -87,7 +87,7 @@ int main_edi_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
   };
   try
   {
-    OraSession.Rollback();
+    rollback();
     OraSession.LogOff();
   }
   catch(...)
@@ -96,6 +96,72 @@ int main_edi_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
   };
   return 0;
 };
+
+void handle_edi_tlg(const tlg_info &tlg)
+{
+    const int tlg_id = tlg.id;
+    ProgTrace(TRACE1,"========= %d TLG: START HANDLE =============",tlg_id);
+    ProgTrace(TRACE1,"========= (sender=%s tlg_num=%d) =============",
+      tlg.sender.c_str(), tlg.id);
+    if (tlg.proc_attempt>=HANDLER_PROC_ATTEMPTS())
+    {
+      ProgTrace(TRACE5, "handle_tlg: tlg_id=%d proc_attempt=%d", tlg_id, tlg.proc_attempt);
+      errorTlg(tlg_id,"PROC");
+      commit();
+    }
+    else
+    try
+    {
+        procTlg(tlg_id);
+        commit();
+
+        proc_edifact(tlg.text);
+        deleteTlg(tlg_id);
+        callPostHooksBefore();
+        commit();
+        callPostHooksAfter();
+        emptyHookTables();
+    }
+    catch(edi_exception &e)
+    {
+        rollback();
+        try
+        {
+          ProgTrace(TRACE0,"EdiExcept: %s:%s", e.errCode().c_str(), e.what());
+          errorTlg(tlg_id,"PARS",e.what());
+          commit();
+        }
+        catch(...) {};
+    }
+    catch(std::exception &e)
+    {
+        rollback();
+        try
+        {
+          ProgError(STDLOG, "std::exception: %s", e.what());
+          errorTlg(tlg_id,"PARS",e.what());
+          commit();
+        }
+        catch(...) {};
+    }
+    catch(...)
+    {
+        rollback();
+        try
+        {
+          ProgError(STDLOG, "Unknown error");
+          errorTlg(tlg_id,"UNKN");
+          commit();
+        }
+        catch(...) {};
+    }
+    ProgTrace(TRACE1,"========= %d TLG: DONE HANDLE =============",tlg_id);
+    ProgTrace(TRACE5, "IN: PUT->DONE (sender=%s, tlg_num=%d, time=%.10f)",
+                      tlg.sender.c_str(),
+                      tlg_id,
+                      NowUTC());
+    monitor_idle_zapr_type(1, QUEPOT_TLG_EDI);
+}
 
 bool handle_tlg(void)
 {
@@ -126,74 +192,17 @@ bool handle_tlg(void)
 //  obr_tlg_queue tlg_obr(1); // Класс - обработчик телеграмм
   try
   {
-      for(;!TlgQry.Eof && (count++)<PROC_COUNT(); TlgQry.Next(), OraSession.Rollback())
+      for(;!TlgQry.Eof && (count++)<PROC_COUNT(); TlgQry.Next(), rollback())
       {
-      	  tlg_id=TlgQry.FieldAsInteger("id");
-          ProgTrace(TRACE1,"========= %d TLG: START HANDLE =============",tlg_id);
-          ProgTrace(TRACE1,"========= (sender=%s tlg_num=%d) =============",
-                    TlgQry.FieldAsString("sender"),
-                    TlgQry.FieldAsInteger("tlg_num"));
-          if (TlgQry.FieldAsInteger("proc_attempt")>=HANDLER_PROC_ATTEMPTS())
-          {
-            ProgTrace(TRACE5, "handle_tlg: tlg_id=%d proc_attempt=%d", tlg_id, TlgQry.FieldAsInteger("proc_attempt"));
-            errorTlg(tlg_id,"PROC");
-            OraSession.Commit();
-          }
-          else
-          try
-          {
-              procTlg(tlg_id);
-              OraSession.Commit();
-              
-              std::string text=getTlgText(tlg_id, TlgQry);
+        tlg_info tlgi = {};
+        tlgi.id = TlgQry.FieldAsInteger("id");
 
-              ProgTrace(TRACE5,"TLG_IN: <%s>", text.c_str());
-              proc_edifact(text);
-              deleteTlg(tlg_id);
-              callPostHooksBefore();
-              OraSession.Commit();
-              callPostHooksAfter();
-              emptyHookTables();
-          }
-          catch(edi_exception &e)
-          {
-              OraSession.Rollback();
-              try
-              {
-                ProgTrace(TRACE0,"EdiExcept: %s:%s", e.errCode().c_str(), e.what());
-                errorTlg(tlg_id,"PARS",e.what());
-                OraSession.Commit();
-              }
-              catch(...) {};
-          }
-          catch(std::exception &e)
-          {
-              OraSession.Rollback();
-              try
-              {
-                ProgError(STDLOG, "std::exception: %s", e.what());
-                errorTlg(tlg_id,"PARS",e.what());
-                OraSession.Commit();
-              }
-              catch(...) {};
-          }
-          catch(...)
-          {
-              OraSession.Rollback();
-              try
-              {
-                ProgError(STDLOG, "Unknown error");
-                errorTlg(tlg_id,"UNKN");
-                OraSession.Commit();
-              }
-              catch(...) {};
-          }
-          ProgTrace(TRACE1,"========= %d TLG: DONE HANDLE =============",tlg_id);
-          ProgTrace(TRACE5, "IN: PUT->DONE (sender=%s, tlg_num=%ld, time=%.10f)",
-                            TlgQry.FieldAsString("sender"),
-                            (unsigned long)TlgQry.FieldAsInteger("tlg_num"),
-                            NowUTC());
-          monitor_idle_zapr_type(1, QUEPOT_TLG_EDI);
+        tlgi.text = getTlgText(tlgi.id, TlgQry);
+        ProgTrace(TRACE5,"TLG_IN: <%s>", tlgi.text.c_str());
+        tlgi.sender = TlgQry.FieldAsString("sender");
+        tlgi.proc_attempt = TlgQry.FieldAsInteger("proc_attempt");
+
+        handle_edi_tlg(tlgi);
       };
       queue_not_empty=!TlgQry.Eof;
   }
@@ -206,7 +215,7 @@ bool handle_tlg(void)
   if (time_end-time_start>1)
     ProgTrace(TRACE5,"Attention! handle_tlg execute time: %ld secs, count=%d",
                      time_end-time_start,count);
-                     
+
   return queue_not_empty;
 }
 

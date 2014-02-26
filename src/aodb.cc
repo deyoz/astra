@@ -2194,18 +2194,15 @@ void parseIncommingAODBData()
   }
 }
 
-int main_aodb_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
+int main_aodb_handler_tcl(int supervisorSocket, int argc, char *argv[])
 {
   try
   {
-    sleep(1);
-    InitLogTime(NULL);
-    OpenLogFile("log1");
+    sleep(5);
+    InitLogTime(argc>0?argv[0]:NULL);
 
     ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
             ->connect_db();
-
-     if (init_edifact()<0) throw Exception("'init_edifact' error");
     
     TReqInfo::Instance()->clear();
     char buf[10];
@@ -2213,7 +2210,7 @@ int main_aodb_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
     {
       emptyHookTables();
       TDateTime execTask = NowUTC();
-      InitLogTime(NULL);
+      InitLogTime(argc>0?argv[0]:NULL);
       base_tables.Invalidate();
       parseIncommingAODBData();
       OraSession.Commit();

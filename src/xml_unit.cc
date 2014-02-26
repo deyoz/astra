@@ -527,13 +527,21 @@ xmlNodePtr CopyNode(xmlNodePtr dest, xmlNodePtr src, bool recursive)
   return res;
 };
 
-xmlDocPtr CreateXMLDoc(const char *encoding, const char *root)
+void SetXMLDocEncoding(xmlDocPtr doc, const char *encoding)
+{
+  if (doc!=NULL)
+  {
+    xmlFree(const_cast<xmlChar *>(doc->encoding));
+    doc->encoding=xmlStrdup(BAD_CAST encoding);
+  };
+};
+
+xmlDocPtr CreateXMLDoc(const char *root)
 {
   xmlDocPtr resDoc=xmlNewDoc(BAD_CAST "1.0");
   if(resDoc==NULL) return NULL;
 
-  xmlFree(const_cast<xmlChar *>(resDoc->encoding));
-  resDoc->encoding=xmlStrdup(BAD_CAST encoding);
+  SetXMLDocEncoding(resDoc, "UTF-8");
   if (resDoc->encoding==NULL)
   {
     xmlFreeDoc(resDoc);
@@ -557,13 +565,18 @@ xmlDocPtr TextToXMLTree( const string& str )
   return res;
 };
 
-string XMLTreeToText( xmlDocPtr doc)
+string XMLTreeToText( xmlDocPtr doc )
 {
   char *data2=NULL;
   int datalen=0;
   string res;
   try
   {
+    //жестко требуем перед xmlDocDumpFormatMemory encoding=UTF-8
+    //ранее, при добавлении в дерево хотя бы одной property не в UTF-8, encoding сбивается
+    //это в свою очередь приводит к ошибке xmlDocDumpFormatMemory
+    //вообще libxml с версии 2.7 хранит и требует работать с деревом в UTF-8, а не в 866
+    SetXMLDocEncoding(doc, "UTF-8");
     xmlDocDumpFormatMemory(doc,(unsigned char**)&data2,&datalen,1);
     res=data2;
     if (data2!=NULL) xmlFree(data2);
@@ -629,9 +642,9 @@ XMLDoc::XMLDoc()
   docPtrCoverPtr.reset(new xmlDocPtrCover(NULL));
 };
 
-XMLDoc::XMLDoc(const char *encoding, const char *root)
+XMLDoc::XMLDoc(const char *root)
 {
-  set(encoding,root);
+  set(root);
 };
 
 XMLDoc::XMLDoc(const std::string &text)
@@ -649,9 +662,9 @@ xmlDocPtr XMLDoc::docPtr() const
   return docPtrCoverPtr->docPtr;
 };
 
-void XMLDoc::set(const char *encoding, const char *root)
+void XMLDoc::set(const char *root)
 {
-  docPtrCoverPtr.reset(new xmlDocPtrCover(CreateXMLDoc(encoding,root)));
+  docPtrCoverPtr.reset(new xmlDocPtrCover(CreateXMLDoc(root)));
 };
 
 void XMLDoc::set(const std::string &text)

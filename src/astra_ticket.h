@@ -7,6 +7,7 @@
 #include "etick/tickmng.h"
 #include "etick/ticket.h"
 #include "astra_utils.h"
+#include "ticket_types.h"
 
 namespace Ticketing{
 // NOTE: See eticklib for realization
@@ -121,11 +122,16 @@ public:
     {
     }
 
+    Coupon(const Coupon_info &ci, const std::string ticknum)
+    :BaseCoupon<Coupon_info, Itin, FrequentPass, FreeTextInfo>(ci, ticknum)
+    {
+    }
 };
 
 // NOTE: See eticklib for realization
 class Ticket : public BaseTicket<Coupon>
 {
+    Ticketing::TicketNum_t ConnectedDocNum;
 public:
     Ticket(const std::string &ticknum,const std::list<Coupon> &lcoup)
     : BaseTicket<Coupon>(ticknum, TickStatAction::newtick, 1, lcoup)
@@ -138,6 +144,9 @@ public:
     : BaseTicket<Coupon>(ticknum, tick_act, num, lcoup)
     {
     }
+    Ticketing::TicketNum_t ticknumt() const { return Ticketing::TicketNum_t(ticknum()); }
+    void setConnectedDocNum(const Ticketing::TicketNum_t &ticknum) { ConnectedDocNum = ticknum; }
+    Ticketing::TicketNum_t connectedDocNum() const { return ConnectedDocNum; }
 };
 
 // NOTE: See eticklib for realization

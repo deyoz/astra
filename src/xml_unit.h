@@ -81,7 +81,8 @@ xmlAttrPtr SetProp(xmlNodePtr node, const char *name, const int value);
 xmlNodePtr CopyNodeList(xmlNodePtr dest, xmlNodePtr src); //Функция с ошибкой libxml2! Не изменяет указатели xmlDocPtr
 xmlNodePtr CopyNode(xmlNodePtr dest, xmlNodePtr src, bool recursive=true);
 
-xmlDocPtr CreateXMLDoc(const char *encoding, const char *root);
+void SetXMLDocEncoding(xmlDocPtr doc, const char *encoding);
+xmlDocPtr CreateXMLDoc(const char *root);
 xmlDocPtr TextToXMLTree( const std::string& str );
 std::string XMLTreeToText( xmlDocPtr doc);
 std::string GetXMLDocText( xmlDocPtr doc);
@@ -100,11 +101,11 @@ class XMLDoc
     boost::shared_ptr<xmlDocPtrCover> docPtrCoverPtr;
   public:
     XMLDoc();
-    XMLDoc(const char *encoding, const char *root);
+    XMLDoc(const char *root);
     XMLDoc(const std::string &text);
     ~XMLDoc();
     xmlDocPtr docPtr() const;
-    void set(const char *encoding, const char *root);
+    void set(const char *root);
     void set(const std::string &text);
 };
 

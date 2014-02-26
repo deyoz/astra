@@ -149,12 +149,11 @@ int exec_grp( int handle, const char *buf, int len )
   return sended;
 }
 
-int main_empty_proc_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
+int main_empty_proc_tcl(int supervisorSocket, int argc, char *argv[])
 {
   try {
-    sleep(1);
-    InitLogTime(NULL);
-    OpenLogFile("log1");
+    sleep(5);
+    InitLogTime(argc>0?argv[0]:NULL);
     
     int handle_grp2 = init_socket_grp( "DUB_ADDR_GRP2", "DUB_PORT_GRP2" );
     int handle_grp3 = init_socket_grp( "DUB_ADDR_GRP3", "DUB_PORT_GRP3" );
@@ -163,7 +162,7 @@ int main_empty_proc_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
     vector<string> bufs;
     for( ;; )
     {
-      InitLogTime(NULL);
+      InitLogTime(argc>0?argv[0]:NULL);
       int len = waitCmd("REQUEST_DUP",10,buf,sizeof(buf));
       if ( len > 0 ) {
         ProgTrace( TRACE5, "incomming msg, size()=%d", len - 1 );
@@ -1096,9 +1095,9 @@ int test_trfer_list(int argc,char **argv)
             for(int pr_bag=0; pr_bag<2; pr_bag++)
             try
             {
-              XMLDoc doc1("UTF-8","answer");
+              XMLDoc doc1("answer");
               xmlNodePtr resNode1=NodeAsNode("/answer",doc1.docPtr());
-              XMLDoc doc2("UTF-8","answer");
+              XMLDoc doc2("answer");
               xmlNodePtr resNode2=NodeAsNode("/answer",doc2.docPtr());
 
               if (pass==0)
@@ -1835,7 +1834,7 @@ int test_sopp_sql(int argc,char **argv)
   boost::posix_time::ptime mcsTime;
   long int delta_exec_old=0, delta_exec_new=0, delta_sql_old=0, delta_sql_new=0;
   long int exec_old=0, exec_new=0, exec_old_sql=0, exec_new_sql=0;
-  InitLogTime(NULL);
+  InitLogTime(argc>0?argv[0]:NULL);
   ofstream f1, f2;
   string file_name;
   file_name="sopp_test_old.txt";
@@ -1952,15 +1951,15 @@ int test_sopp_sql(int argc,char **argv)
                     ResDocOld = NULL;
           stepcount++;
           try {
-            ReqDocNew = CreateXMLDoc( "UTF-8", "requestNew" );
-            ReqDocOld = CreateXMLDoc( "UTF-8", "requestOld" );
+            ReqDocNew = CreateXMLDoc( "requestNew" );
+            ReqDocOld = CreateXMLDoc( "requestOld" );
             xmlNodePtr reqNodeNew = NewTextChild( ReqDocNew->children, "query" );
             xmlNodePtr reqNodeOld = NewTextChild( ReqDocOld->children, "query" );
             NewTextChild( reqNodeNew, "flight_date", DateTimeToStr( day, ServerFormatDateTimeAsString ) );
             NewTextChild( reqNodeNew, "pr_verify_new_select", 1 );
             NewTextChild( reqNodeOld, "flight_date", DateTimeToStr( day, ServerFormatDateTimeAsString ) );
-            ResDocNew = CreateXMLDoc( "UTF-8", "result" );
-            ResDocOld = CreateXMLDoc( "UTF-8", "result" );
+            ResDocNew = CreateXMLDoc( "result" );
+            ResDocOld = CreateXMLDoc( "result" );
             xmlNodePtr resNodeNew = NewTextChild( ResDocNew->children, "term" );
             resNodeNew = NewTextChild( resNodeNew, "answer" );
             xmlNodePtr resNodeOld = NewTextChild( ResDocOld->children, "term" );
@@ -2637,3 +2636,6 @@ int rollback096(int argc,char **argv)
 
   return 1;
 }
+
+
+

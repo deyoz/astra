@@ -34,16 +34,15 @@ static int sockfd=-1;
 void process_tlg(void);
 int h2h_in(char *h2h_tlg, H2H_MSG *h2h);
 
-int main_srv_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
+int main_srv_tcl(int supervisorSocket, int argc, char *argv[])
 {
   try
   {
     sleep(1);
-    InitLogTime(NULL);
-    OpenLogFile("logairimp");
+    InitLogTime(argc>0?argv[0]:NULL);
 
     int SRV_PORT;
-    const char *port_tcl=Tcl_GetVar(interp,"SRV_PORT",TCL_GLOBAL_ONLY);
+    const char *port_tcl=Tcl_GetVar(getTclInterpretator(),"SRV_PORT",TCL_GLOBAL_ONLY);
     if (port_tcl==NULL||StrToInt(port_tcl,SRV_PORT)==EOF)
       throw Exception("Unknown or wrong SRV_PORT");
 
@@ -67,7 +66,7 @@ int main_srv_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
     int res;
     for (;;)
     {
-      InitLogTime(NULL);
+      InitLogTime(argc>0?argv[0]:NULL);
 
       FD_ZERO(&rfds);
       FD_SET(sockfd,&rfds);
@@ -78,7 +77,7 @@ int main_srv_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
         throw Exception("'select' error %d: %s",errno,strerror(errno));
       if (res!=0&&FD_ISSET(sockfd,&rfds))
       {
-        InitLogTime(NULL);
+        InitLogTime(argc>0?argv[0]:NULL);
         process_tlg();
       };
     }; // end of loop

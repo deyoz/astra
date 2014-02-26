@@ -2,10 +2,11 @@
 #include "astra_tick_read_edi.h"
 #include "etick/tick_data.h"
 #include "etick/edi_cast.h"
+#include "tlg/read_edi_elements.h"
 
 #define NICKNAME "ROMAN"
 #define NICKTRACE ROMAN_TRACE
-#include "serverlib/test.h"
+#include "serverlib/slogger.h"
 
 namespace Ticketing{
 namespace TickReader{
@@ -418,8 +419,29 @@ void FormOfPaymentEdiR::operator () (ReaderData &RData, list<FormOfPayment> &lfo
     PopEdiPointG(pMes);
 }
 
+inline std::list<Coupon> getConnectedCoupons(_EDI_REAL_MES_STRUCT_ *pMes, const std::string &ticknum)
+{
+    int numCoup = GetNumSegGr(pMes, 5, "EtsErr::NO_COUPONS");
+    if(numCoup > 4)
+        throw EXCEPTIONS::ExceptionFmt(STDLOG) << "Too many coupons for the ticket: "
+                                        << numCoup;
+    else
+        LogTrace(TRACE3) << "numCoup = " << numCoup;
+
+    std::list<Coupon> lCpn;
+    edilib::EdiPointHolder ph(pMes);
+    for(int i = 0; i < numCoup; i++) {
+        SetEdiPointToSegGrG(pMes, 5, i, "EtErr::PROG_ERR");
+        Coupon_info Ci = MakeCouponInfo(pMes, TickStatAction::inConnectionWith);
+        lCpn.push_back(Coupon(Ci, ticknum));
+        ph.popNoDel();
+    }
+
+    return lCpn;
+}
+
 void TicketEdiR::operator () (ReaderData &RData, list<Ticket> &ltick,
-	               const CouponReader &cpnRead) const
+                   const CouponReader &cpnRead) const
 {
     REdiData &Data = dynamic_cast<REdiData &>(RData);
     EDI_REAL_MES_STRUCT *pMes = Data.EdiMes();
@@ -428,25 +450,32 @@ void TicketEdiR::operator () (ReaderData &RData, list<Ticket> &ltick,
 
     unsigned numTKT=0;
     numTKT = GetNumSegGr(pMes, 4, "INV_TUCKNUM");
-    for(unsigned short itick=0; itick<numTKT; itick++){
-        SetEdiPointToSegGrG(pMes, 4, itick, "PROG_ERR");
+    for(unsigned short itick=0; itick<numTKT; itick++)
+    {
+        edilib::EdiPointHolder ph(pMes);
 
-        PushEdiPointG(pMes);
-        SetEdiPointToSegmentG(pMes, "TKT", 0, "PROG_ERR");
+        SetEdiPointToSegGrG(pMes, 4, itick, "INV_TUCKNUM");
+        boost::optional<ASTRA::edifact::TktElement> tkt = TickReader::readEdiTkt(pMes);
+        if(!tkt)
+            throw Exception("TKT not found");
 
-        SetEdiPointToCompositeG(pMes, "C667",0, "INV_TUCKNUM");
-        std::string ticknum = GetDBNum(pMes, 1004,0, "INV_TUCKNUM");
-        const char *type=GetDBNum(pMes, 1001,0, "INV_DOC_TYPE");
-        if(strcmp(type,"T")){
-            //Странно, прислали вовсе не билет
-            ProgError(STDLOG, "Invalid document type %s", type);
+        std::string ticknum = tkt.get().ticketNum.get();
+        if(tkt.get().docType != Ticketing::DocType::Ticket
+            && tkt.get().docType != Ticketing::DocType::EmdA
+            && tkt.get().docType != Ticketing::DocType::EmdS)
+        {
+            //Странно, прислали вовсе не билет и не EMD
+            ProgError(STDLOG, "Invalid document type %s", tkt.get().docType->code());
             throw Exception("Invalid document type");
         }
         //Общее кол-во билетов на пассажира (до 4х)
-        TickStatAction::TickStatAction_t tick_act_code =
-                GetDBNumCast<TickStatAction::TickStatAction_t>
-                (EdiCast::TickActCast("INV_TICK_ACT"), pMes, 9988);
-        PopEdiPointG(pMes);
+
+        TickStatAction::TickStatAction_t tick_act_code;
+        if(tkt.get().tickStatAction)
+            tick_act_code = tkt.get().tickStatAction.get();
+        else
+            tick_act_code = TickStatAction::newtick;
+
         if(tick_act_code == TickStatAction::newtick)
         {
             // Далее пошли по внутренностям...
@@ -456,8 +485,14 @@ void TicketEdiR::operator () (ReaderData &RData, list<Ticket> &ltick,
             cpnRead(Data, lCpn);
 
             ltick.push_back(Ticket(ticknum, tick_act_code, itick+1, lCpn));
+        } else if(tick_act_code == TickStatAction::inConnectionWith)  {
+            ASSERT(tkt->inConnectionTicketNum);
+            Ticket ticket(tkt->ticketNum.get(), *tkt->tickStatAction,
+                          *tkt->nBooklets, getConnectedCoupons(pMes, Data.currTicket().first));
+            ticket.setConnectedDocNum(*tkt->inConnectionTicketNum);
+            ltick.push_back(ticket);
+
         }
-        PopEdiPoint_wdG(pMes);
     }
 
     if(ltick.size() > 4 || ltick.size() == 0)
@@ -470,49 +505,31 @@ void TicketEdiR::operator () (ReaderData &RData, list<Ticket> &ltick,
     PopEdiPointG(pMes);
 }
 
-Coupon_info MakeCouponInfo(EDI_REAL_MES_STRUCT *pMes)
+Coupon_info MakeCouponInfo(EDI_REAL_MES_STRUCT *pMes, TickStatAction::TickStatAction_t tickStatAction)
 {
-    PushEdiPointG(pMes);
-    SetEdiPointToSegmentG(pMes, "CPN",0, "INV_COUPON");
+    boost::optional<ASTRA::edifact::CpnElement> cpn = readEdiCpn(pMes, 0);
 
-    int numCPN = GetNumComposite(pMes, "C640", "INV_COUPON");
-    if( numCPN >1 ){
-        ProgError(STDLOG,"Bad number of C640 (%d)! (More then 1)", numCPN);
-        throw Exception("Bad number of C640! (More then 1)");
+    if(!cpn)
+        throw Exception("EtsErr::INV_COUPON");
+    if(!cpn->num)
+        throw Exception("EtsErr::INV_COUPON");
+
+    if(!cpn->media) {
+        if(cpn->status == CouponStatus::Paper || cpn->status == CouponStatus::Printed)
+            cpn->media = TicketMedia::Paper;
+        else
+            cpn->media = TicketMedia::Electronic;
     }
 
-    SetEdiPointToCompositeG(pMes, "C640");
-    int num = GetDBNumCast<int>(EdiDigitCast<int>("INV_COUPON"),
-                                pMes, 1050,0, "INV_COUPON");
+    Coupon_info cpnInfo(cpn->num.get(), cpn->status, cpn->media, cpn->sac);
+    if(cpn->connectedNum)
+        cpnInfo.setConnectedCpnNum(cpn->connectedNum.get());
+    if(!cpn->action.empty())
+        cpnInfo.setActionCode(CpnStatAction::GetCpnAction(cpn->action.c_str()));
 
-    TicketMedia media=GetDBNumCast<TicketMedia>(EdiCast::TicketMediaCast("INV_MEDIA"),pMes, 1159);
-    if(!media){
-        media=TicketMedia::Electronic;
-    }
-    if(media != TicketMedia::Electronic &&
-       media != TicketMedia::Paper){
-        LogError(STDLOG) << "Invalid coupon media [" << media << "]";
-        throw Exception("Invalid coupon media");
-       }
-
-       CouponStatus Status;
-       if(GetNumDataElem(pMes, 4405)){
-           Status = GetDBNumCast<CouponStatus>
-                   (EdiCast::CoupStatCast("INV_COUPON"),
-                    pMes, 4405,0, "INV_COUPON");
-       } else {
-           if(media == TicketMedia::Electronic){
-               Status = CouponStatus(CouponStatus::OriginalIssue);
-           } else {
-               Status = CouponStatus(CouponStatus::Paper);
-           }
-       }
-
-       string sac = GetDBNum(pMes, 9887);
-       PopEdiPointG(pMes);
-
-       return Coupon_info(num, Status, media, sac);
+    return cpnInfo;
 }
+
 namespace {
     inline Luggage MakeLuggage(EDI_REAL_MES_STRUCT *pMes)
     {
@@ -872,7 +889,7 @@ void CouponEdiR::operator () (ReaderData &RData, list<Coupon> &lCpn) const
         SetEdiPointToSegGrG(pMes, 5,i, "PROG_ERR");
         //Считываем купоны для текущего буклета
         //Coupon
-        Coupon_info Ci = MakeCouponInfo(pMes);
+        Coupon_info Ci = MakeCouponInfo(pMes, Data.currTicket().second);
 
         if(Data.currTicket().second == TickStatAction::oldtick)
         {
@@ -1034,7 +1051,7 @@ void FreeTextInfoEdiR::operator () (ReaderData &RData, list<FreeTextInfo> &lIft)
 
     unsigned lvl=0;
     if(Data.currTicket().first.size()==0){
-	// Если вызов из Сегм Гр 2 (TIF)
+    // Если вызов из Сегм Гр 2 (TIF)
         PushEdiPointG(pMes);
         ResetEdiPointG(pMes);
         // Переход на самый верх
@@ -1043,10 +1060,10 @@ void FreeTextInfoEdiR::operator () (ReaderData &RData, list<FreeTextInfo> &lIft)
         // Переход туда, где были
         lvl=1;
     } else if(Data.currCoupon()){
-	// Текст к купону
+    // Текст к купону
         lvl=3;
     } else {
-	// Текст к билету
+    // Текст к билету
         lvl=2;
     }
 

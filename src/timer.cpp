@@ -42,31 +42,23 @@ using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace std;
 
-int main_timer_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
+void exec_tasks( const char *proc_name, int argc, char *argv[] );
+
+int main_timer_tcl(int supervisorSocket, int argc, char *argv[])
 {
   try
   {
     sleep(10);
-    InitLogTime(NULL);
-    OpenLogFile("log1");
+    InitLogTime(argc>0?argv[0]:NULL);
 
-    int p_count;
     string num;
-    if ( TCL_OK != Tcl_ListObjLength( interp, argslist, &p_count ) ) {
-    	ProgError( STDLOG,
-                 "ERROR:main_timer_tcl wrong parameters:%s",
-                 Tcl_GetString(Tcl_GetObjResult(interp)) );
-      return 1;
-    }
-    if ( p_count != 2 ) {
+    if ( argc != 2 ) {
     	ProgError( STDLOG,
                  "ERROR:main_timer_tcl wrong number of parameters:%d",
-                 p_count );
+                 argc );
     }
     else {
-    	 Tcl_Obj *val;
-    	 Tcl_ListObjIndex( interp, argslist, 1, &val );
-    	 num = Tcl_GetString( val );
+    	 num = argv[1];
     }
 
     ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
@@ -74,10 +66,10 @@ int main_timer_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
     if (init_edifact()<0) throw Exception("'init_edifact' error");
     for( ;; )
     {
-      InitLogTime(NULL);
+      InitLogTime(argc>0?argv[0]:NULL);
       PerfomInit();
       base_tables.Invalidate();
-      exec_tasks( num.c_str() );
+      exec_tasks( num.c_str(), argc, argv );
       sleep( sleepsec );
     };
   }
@@ -90,7 +82,7 @@ int main_timer_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
   return 0;
 }
 
-void exec_tasks( const char *proc_name )
+void exec_tasks( const char *proc_name, int argc, char *argv[] )
 {
 	TDateTime VTime = 0.0, utcdate = NowUTC();
 	int Hour, Min, Sec;
@@ -115,7 +107,7 @@ void exec_tasks( const char *proc_name )
 	TDateTime execTasks = NowUTC();
 	while ( !Qry.Eof )
 	{
-	  InitLogTime(NULL);
+	  InitLogTime(argc>0?argv[0]:NULL);
 	  bool Result=true;
 
 	  TReqInfo::Instance()->clear();

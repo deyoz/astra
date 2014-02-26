@@ -1360,7 +1360,7 @@ bool createCheckinDataFiles( int point_id, const std::string &point_addr, TFileD
   tst();
   string prior_record, record;
   get_string_into_snapshot_points( point_id, FILE_CHECKINDATA_TYPE, point_addr, prior_record );
-  xmlDocPtr doc = CreateXMLDoc( "UTF-8", "flight" );
+  xmlDocPtr doc = CreateXMLDoc( "flight" );
   tst();
   try {
     xmlNodePtr node = doc->children;
@@ -1791,7 +1791,7 @@ bool createFidsDataFiles( int point_id, const std::string &point_addr, TFileData
   string region = AirpTZRegion( airp );
   string prior_record, record;
   get_string_into_snapshot_points( point_id, FILE_FIDS_TYPE, point_addr, prior_record );
-  xmlDocPtr doc = CreateXMLDoc( "UTF-8", "flight" );
+  xmlDocPtr doc = CreateXMLDoc( "flight" );
   tst();
   try {
     xmlNodePtr node = doc->children;

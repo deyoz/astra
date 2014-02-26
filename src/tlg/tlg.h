@@ -3,6 +3,7 @@
 
 #include "oralib.h"
 #include "serverlib/query_runner.h"
+#include "astra_consts.h"
 
 /* константы задающие максимальные значения для телеграмм */
 #define MAX_TLG_LEN       65536
@@ -55,12 +56,12 @@ typedef struct H2H_MSG
 
 int init_edifact();
 
-int main_http_snd_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
-int main_snd_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
-int main_srv_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
-int main_typeb_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
-int main_typeb_parser_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
-int main_edi_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
+int main_http_snd_tcl(int supervisorSocket, int argc, char *argv[]);
+int main_snd_tcl(int supervisorSocket, int argc, char *argv[]);
+int main_srv_tcl(int supervisorSocket, int argc, char *argv[]);
+int main_typeb_handler_tcl(int supervisorSocket, int argc, char *argv[]);
+int main_typeb_parser_tcl(int supervisorSocket, int argc, char *argv[]);
+int main_edi_handler_tcl(int supervisorSocket, int argc, char *argv[]);
 
 const char* ETS_CANON_NAME();
 const char* OWN_CANON_NAME();
@@ -87,6 +88,15 @@ void errorTypeB(int tlg_id,
                 int error_pos,
                 int error_len,
                 const std::string &text);
+
+int saveTlg(const char * receiver,
+            const char * sender,
+            const char * type,
+            int ttl,
+            const std::string &text,
+            int typeb_tlg_id = ASTRA::NoExists,
+            int typeb_tlg_num = ASTRA::NoExists);
+
 int sendTlg(const char* receiver,
             const char* sender,
             TTlgQueuePriority queuePriority,

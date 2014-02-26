@@ -8,6 +8,9 @@
 #include "qrys.h"
 #include "serverlib/tcl_utils.h"
 #include "serverlib/logger.h"
+#include <serverlib/testmode.h>
+#include <libtlg/tlg_outbox.h>
+#include "xp_testing.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -29,17 +32,6 @@ const char* OWN_CANON_NAME()
   static string VAR;
   if ( VAR.empty() )
     VAR=getTCLParam("OWN_CANON_NAME",NULL);
-  return VAR.c_str();
-}
-
-const char* ERR_CANON_NAME()
-{
-  static bool init=false;
-  static string VAR;
-  if ( !init ) {
-    VAR=getTCLParam("ERR_CANON_NAME","");
-    init=true;
-  }
   return VAR.c_str();
 }
 
@@ -80,6 +72,62 @@ void sendCmdTlgSndStepByStep()
 void sendCmdTypeBHandler()
 {
   sendCmd("CMD_TYPEB_HANDLER","H");
+}
+
+int getNextTlgNum()
+{
+  int tlg_num = 0;
+  TQuery Qry(&OraSession);
+  Qry.SQLText = "SELECT tlgs_id.nextval as tlg_num FROM dual";
+  Qry.Execute();
+
+  tlg_num = Qry.FieldAsInteger("tlg_num");
+
+  Qry.Close();
+
+  return tlg_num;
+}
+
+int saveTlg(const char * receiver,
+            const char * sender,
+            const char * type,
+            int ttl,
+            const std::string &text,
+            int typeb_tlg_id, int typeb_tlg_num)
+{
+  BASIC::TDateTime nowUTC=BASIC::NowUTC();
+
+  int tlg_num = getNextTlgNum();
+
+  TQuery Qry(&OraSession);
+
+  Qry.SQLText=
+    "INSERT INTO tlgs(id,sender,tlg_num,receiver,type,time,error,typeb_tlg_id,typeb_tlg_num) "
+    "VALUES(:tlg_num,:sender,:tlg_num,:receiver,:type,:time,NULL,:typeb_tlg_id,:typeb_tlg_num)";
+
+  Qry.CreateVariable("sender",otString,sender);
+  Qry.CreateVariable("receiver",otString,receiver);
+  Qry.CreateVariable("type",otString,type);
+  Qry.CreateVariable("time",otDate,nowUTC);
+  Qry.CreateVariable("tlg_num",otInteger,tlg_num);
+
+  if (typeb_tlg_id!=ASTRA::NoExists && typeb_tlg_num!=ASTRA::NoExists)
+  {
+    Qry.CreateVariable("typeb_tlg_id", otInteger, typeb_tlg_id);
+    Qry.CreateVariable("typeb_tlg_num", otInteger, typeb_tlg_num);
+  }
+  else
+  {
+    Qry.CreateVariable("typeb_tlg_id", otInteger, FNull);
+    Qry.CreateVariable("typeb_tlg_num", otInteger, FNull);
+  };
+
+  Qry.Execute();
+  Qry.Close();
+
+  putTlgText(tlg_num, text);
+
+  return tlg_num;
 }
 
 void putTypeBBody(int tlg_id, int tlg_num, const string &tlg_body)
@@ -226,69 +274,58 @@ int sendTlg(const char* receiver,
 {
     try
     {
-        BASIC::TDateTime nowUTC=BASIC::NowUTC();
-        TQuery Qry(&OraSession);
-        Qry.SQLText=
-          "BEGIN "
-          "  SELECT tlgs_id.nextval INTO :tlg_num FROM dual; "
-          "  INSERT INTO tlg_queue(id,sender,tlg_num,receiver,type,priority,status,time,ttl,time_msec,last_send) "
-          "  VALUES(:tlg_num,:sender,:tlg_num,:receiver,:type,:priority,'PUT',:time,:ttl,:time_msec,NULL); "
-          "END;";
-        Qry.CreateVariable("sender",otString,sender);
-        Qry.CreateVariable("receiver",otString,receiver);
+        std::string type;
+        int priority;
         switch(queuePriority)
         {
           case qpOutA:
-            Qry.CreateVariable("type",otString,"OUTA");
-            Qry.CreateVariable("priority",otInteger,(int)qpOutA);
+            type = "OUTA";
+            priority = qpOutA;
             break;
           case qpOutAStepByStep:
-            Qry.CreateVariable("type",otString,"OUTA");
-            Qry.CreateVariable("priority",otInteger,(int)qpOutAStepByStep);
+            type = "OUTA";
+            priority = qpOutAStepByStep;
             break;
           default:
-            Qry.CreateVariable("type",otString,"OUTB");
-            Qry.CreateVariable("priority",otInteger,(int)qpOutB);
+            type = "OUTB";
+            priority = qpOutB;
             break;
         };
+
+        int tlg_num = saveTlg(receiver, sender, type.c_str(), ttl, text,
+                              typeb_tlg_id, typeb_tlg_num);
+
+        BASIC::TDateTime nowUTC=BASIC::NowUTC();
+        TQuery Qry(&OraSession);
+        Qry.SQLText=
+          "INSERT INTO tlg_queue(id,sender,tlg_num,receiver,type,priority,status,time,ttl,time_msec,last_send) "
+          "VALUES(:tlg_num,:sender,:tlg_num,:receiver,:type,:priority,'PUT',:time,:ttl,:time_msec,NULL) ";
+        Qry.CreateVariable("sender",otString,sender);
+        Qry.CreateVariable("receiver",otString,receiver);
+        Qry.CreateVariable("type",otString, type.c_str());
+        Qry.CreateVariable("priority",otInteger,priority);
         Qry.CreateVariable("time",otDate,nowUTC);
         if ((queuePriority==qpOutA || queuePriority==qpOutAStepByStep) && ttl>0)
           Qry.CreateVariable("ttl",otInteger,ttl);
         else
           Qry.CreateVariable("ttl",otInteger,FNull);
         Qry.CreateVariable("time_msec",otFloat,nowUTC);
-        Qry.CreateVariable("tlg_num",otInteger,FNull);
+        Qry.CreateVariable("tlg_num",otInteger,tlg_num);
         Qry.Execute();
-
-        int tlg_id=Qry.GetVariableAsInteger("tlg_num");
-
-        Qry.SQLText=
-          "INSERT INTO tlgs(id,sender,tlg_num,receiver,type,time,error,typeb_tlg_id,typeb_tlg_num) "
-          "VALUES(:tlg_num,:sender,:tlg_num,:receiver,:type,:time,NULL,:typeb_tlg_id,:typeb_tlg_num)";
-        if (typeb_tlg_id!=ASTRA::NoExists && typeb_tlg_num!=ASTRA::NoExists)
-        {
-          Qry.CreateVariable("typeb_tlg_id", otInteger, typeb_tlg_id);
-          Qry.CreateVariable("typeb_tlg_num", otInteger, typeb_tlg_num);
-        }
-        else
-        {
-          Qry.CreateVariable("typeb_tlg_id", otInteger, FNull);
-          Qry.CreateVariable("typeb_tlg_num", otInteger, FNull);
-        };
-        Qry.DeleteVariable("ttl");
-        Qry.DeleteVariable("time_msec");
-        Qry.DeleteVariable("priority");
-        Qry.Execute();
-
-        putTlgText(tlg_id, text);
 
         ProgTrace(TRACE5,"OUT: PUT (sender=%s, tlg_num=%d, time=%.10f, priority=%d)",
                          Qry.GetVariableAsString("sender"),
-                         tlg_id,
+                         tlg_num,
                          nowUTC,
                          (int)queuePriority);
         Qry.Close();
-        return tlg_id;
+#ifdef XP_TESTING
+        if (inTestMode()) {
+            xp_testing::TlgOutbox::getInstance().push(tlgnum_t("no tlg num"), text, 0);
+        }
+#endif /* #ifdef XP_TESTING */
+
+        return tlg_num;
     }
     catch( std::exception &e)
     {

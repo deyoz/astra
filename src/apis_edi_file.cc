@@ -11,7 +11,7 @@
 //
 #include "apis_edi_file.h"
 #include "exceptions.h"
-#include "view_edi_elements.h"
+#include "tlg/view_edi_elements.h"
 #include "config.h"
 #include "tlg/tlg.h"
 
@@ -205,8 +205,7 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
                                        it->postalCode(),
                                        it->destCountry() ) );
         // ATT
-        if (!it->sex().empty())
-          viewAttElement( pMes, AttElem( "2", it->sex() ) );
+        viewAttElement( pMes, AttElem( "2", it->sex() ) );
         // DTM
         viewDtmElement( pMes, DtmElem( DtmElem::DateOfBirth, it->birthDate() ) );
 

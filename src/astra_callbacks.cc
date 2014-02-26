@@ -37,6 +37,7 @@
 #include "empty_proc.h"
 #include "tlg/tlg.h"
 #include "jxtlib/jxtlib.h"
+#include "serverlib/msg_const.h"
 #include "serverlib/query_runner.h"
 #include "serverlib/ocilocal.h"
 #include "serverlib/perfom.h"
@@ -267,7 +268,7 @@ void CheckTermResDoc( xmlNodePtr resNode )
       };
 	  };
   };
-  
+
   if (errNode!=NULL)
   {
     for(xmlNodePtr node=resNode->children; node!=NULL; node=node->next)
@@ -315,7 +316,7 @@ void RevertWebResDoc( const char* answer_tag, xmlNodePtr resNode )
       };
 	  };
   };
-  
+
   std::string error_code, error_message;
   if (errNode!=NULL)
   {
@@ -352,7 +353,7 @@ void RevertWebResDoc( const char* answer_tag, xmlNodePtr resNode )
     //отцепляем
     xmlUnlinkNode(errNode);
   };
-    
+
   for(xmlNodePtr node=resNode->children; node!=NULL;)
   {
  	  //отцепляем и удаляем либо все, либо <command> внутри <answer>
@@ -364,11 +365,11 @@ void RevertWebResDoc( const char* answer_tag, xmlNodePtr resNode )
 	  };
 	  node=node2;
   };
-  
+
   if (errNode!=NULL)
   {
     resNode=NewTextChild( resNode, answer_tag );
-    
+
     if (strcmp((const char*)errNode->name,"error")==0 ||
         strcmp((const char*)errNode->name,"checkin_user_error")==0 ||
         strcmp((const char*)errNode->name,"user_error")==0)
@@ -376,7 +377,7 @@ void RevertWebResDoc( const char* answer_tag, xmlNodePtr resNode )
       NewTextChild( resNode, "error_code", error_code );
       NewTextChild( resNode, "error_message", error_message );
     };
-    
+
     if (strcmp((const char*)errNode->name,"checkin_user_error")==0)
     {
       xmlNodePtr segsNode=NodeAsNode("segments",errNode);
@@ -403,12 +404,17 @@ void AstraJxtCallbacks::UserAfter()
 	  	RevertWebResDoc( (const char*)xmlRC->reqDoc->children->children->children->name, node );
 	  else
 	    CheckTermResDoc( node );
+   //жестко требуем encoding=UTF-8
+   //ранее, при добавлении в дерево хотя бы одной property не в UTF-8, encoding сбивается
+   //это в свою очередь приводит к ошибке xmlDocDumpFormatMemory
+   //вообще libxml с версии 2.7 хранит и требует работать с деревом в UTF-8, а не в 866
+   SetXMLDocEncoding(xmlRC->resDoc, "UTF-8");
 }
 
 
 void AstraJxtCallbacks::HandleException(ServerFramework::Exception *e)
 {
-    ProgTrace(TRACE3, "AstraJxtCallbacks::HandleException");
+    ProgTrace(TRACE3, "AstraJxtCallbacks::HandleException: %s", e->what());
 
     XMLRequestCtxt *ctxt = getXmlCtxt();
     xmlNodePtr resNode = ctxt->resDoc->children->children;
@@ -449,13 +455,13 @@ void AstraJxtCallbacks::HandleException(ServerFramework::Exception *e)
           }
           throw 1;
       };
-      
-      
+
+
       AstraLocale::UserException *lue = dynamic_cast<AstraLocale::UserException*>(e);
       if (lue)
       {
           AstraLocale::showError( lue->getLexemaData(), lue->Code() );
-          
+
           CheckIn::UserException *cue = dynamic_cast<CheckIn::UserException*>(e);
           if (cue)
           {
@@ -482,5 +488,5 @@ void AstraJxtCallbacks::HandleException(ServerFramework::Exception *e)
       ProgError(STDLOG,"AstraJxtCallbacks::HandleException: %s", localException.what());
       throw;
     };
-    
+
 }
