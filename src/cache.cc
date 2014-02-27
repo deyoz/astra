@@ -1073,9 +1073,8 @@ void OnLoggingF( TCacheTable &cache, const TRow &row, TCacheUpdateStatus UpdateS
     message.ev_type = evtFlt;
     int point_id;
     if ( UpdateStatus == usInserted ) {
-      TParams p = row.params;
-      TParams::iterator ip = p.find( "POINT_ID" );
-      if ( ip == p.end() )
+      TParams::const_iterator ip = row.params.find( "POINT_ID" );
+      if ( ip == row.params.end() )
         throw Exception( "Can't find variable point_id" );
       point_id = ToInt( ip->second.Value );
     }
@@ -1333,6 +1332,42 @@ void TCacheTable::OnLogging( const TRow &row, TCacheUpdateStatus UpdateStatus )
     TReqInfo::Instance()->MsgToLog( message );
 }
 
+void DeclareVariablesFromParams(const std::vector<string> &vars, const TParams &SQLParams, TQuery &Qry)
+{
+  for ( vector<string>::const_iterator r=vars.begin(); r!=vars.end(); r++ ) {
+    if ( Qry.Variables->FindVariable( r->c_str() ) == -1 ) {
+      map<std::string, TParam>::const_iterator ip = SQLParams.find( *r );
+      if ( ip != SQLParams.end() ) {
+        ProgTrace( TRACE5, "Declare variable from SQLParams r->c_str()=%s", r->c_str() );
+        switch( ip->second.DataType ) {
+          case ctInteger:
+            Qry.DeclareVariable( *r, otInteger );
+            break;
+          case ctDouble:
+            Qry.DeclareVariable( *r, otFloat );
+            break;
+          case ctDateTime:
+            Qry.DeclareVariable( *r, otDate );
+            break;
+          case ctString:
+            Qry.DeclareVariable( *r, otString );
+            break;
+        }
+      }
+    }
+  }
+};
+
+void SetVariablesFromParams(const std::vector<string> &vars, const TParams &SQLParams, TQuery &Qry)
+{
+  for( map<std::string, TParam>::const_iterator iv=SQLParams.begin(); iv!=SQLParams.end(); iv++ ) {
+    if ( Qry.Variables->FindVariable( iv->first.c_str() ) == -1 ) continue;
+    Qry.SetVariable( iv->first, iv->second.Value );
+    ProgTrace( TRACE5, "SetVariable name=%s, value=%s",
+              (char*)iv->first.c_str(),(char *)iv->second.Value.c_str() );
+  }
+};
+
 void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
 {
   parse_updates(GetNode("rows", reqNode));
@@ -1371,16 +1406,23 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
       }
       Qry->Clear();
       Qry->SQLText = sql;
+      DeclareSysVariables(vars, Qry);
       DeclareVariables( vars ); //заранее создаем все переменные
       if ( tidExists ) {
         Qry->DeclareVariable( "tid", otInteger );
         Qry->SetVariable( "tid", NewVerData );
         ProgTrace( TRACE5, "NewVerData=%d", NewVerData );
       }
+      bool firstRow=true;
       for( TTable::iterator iv = table.begin(); iv != table.end(); iv++ )
       {
         //цикл по строчкам
         if ( iv->status != status ) continue;
+        if (firstRow)
+        {
+          DeclareVariablesFromParams(vars, iv->params, *Qry);
+          firstRow=false;
+        };
 
         if(OnBeforeApply)
             try {
@@ -1446,44 +1488,9 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
   }
 }
 
-void TCacheTable::SetVariables(TRow &row, const std::vector<std::string> &vars)
+void TCacheTable::DeclareVariables(const std::vector<string> &vars)
 {
-  string value;
-  int Idx=0;
-  for(vector<TCacheField2>::iterator iv = FFields.begin(); iv != FFields.end(); iv++, Idx++) {
-    for(int i = 0; i < 2; i++) {
-      //ProgTrace(TRACE5, "TCacheTable::SetVariables: i = %d, Name = %s", i, iv->Name.c_str());
-      if(iv->VarIdx[i] >= 0) { /* есть индекс переменной */
-        if(i == 0)
-          value = row.cols[ Idx ]; /* берем из нужного столбца данных, которые пришли */
-        else
-          value = row.old_cols[ Idx ];
-        if ( !value.empty() )
-          Qry->SetVariable( vars[ iv->VarIdx[i] ],(char *)value.c_str());
-        else
-          Qry->SetVariable( vars[ iv->VarIdx[i] ],FNull);
-        ProgTrace( TRACE5, "SetVariable name=%s, value=%s, ind=%d",
-                  (char*)vars[ iv->VarIdx[i] ].c_str(),(char *)value.c_str(), Idx );
-      }
-    }
-  }
-
-
-  /* задаем переменные, которые дополнительно пришли
-     после вызова на клиенте OnSetVariable */
-  for( map<std::string, TParam>::iterator iv=row.params.begin(); iv!=row.params.end(); iv++ ) {
-    Qry->SetVariable( iv->first, iv->second.Value );
-    ProgTrace( TRACE5, "SetVariable name=%s, value=%s",
-              (char*)iv->first.c_str(),(char *)iv->second.Value.c_str() );
-  }
-}
-
-void TCacheTable::DeclareVariables(std::vector<string> &vars)
-{
-
-  DeclareSysVariables(vars,Qry);
-
-  vector<string>::iterator f;
+  vector<string>::const_iterator f;
   for( vector<TCacheField2>::iterator iv = FFields.begin(); iv != FFields.end(); iv++ ) {
     string VarName;
     for( int i = 0; i < 2; i++ ) {
@@ -1523,28 +1530,33 @@ void TCacheTable::DeclareVariables(std::vector<string> &vars)
       }
     }
   }
-  for ( vector<string>::iterator r=vars.begin(); r!=vars.end(); r++ ) {
-    if ( Qry->Variables->FindVariable( r->c_str() ) == -1 ) {
-      map<std::string, TParam>::iterator ip = SQLParams.find( *r );
-      if ( ip != SQLParams.end() ) {
-        ProgTrace( TRACE5, "Declare variable from SQLParams r->c_str()=%s", r->c_str() );
-        switch( ip->second.DataType ) {
-          case ctInteger:
-            Qry->DeclareVariable( *r, otInteger );
-            break;
-          case ctDouble:
-            Qry->DeclareVariable( *r, otFloat );
-            break;
-          case ctDateTime:
-            Qry->DeclareVariable( *r, otDate );
-            break;
-          case ctString:
-            Qry->DeclareVariable( *r, otString );
-            break;
-        }
+  DeclareVariablesFromParams(vars, SQLParams, *Qry);
+}
+
+void TCacheTable::SetVariables(TRow &row, const std::vector<std::string> &vars)
+{
+  string value;
+  int Idx=0;
+  for(vector<TCacheField2>::iterator iv = FFields.begin(); iv != FFields.end(); iv++, Idx++) {
+    for(int i = 0; i < 2; i++) {
+      //ProgTrace(TRACE5, "TCacheTable::SetVariables: i = %d, Name = %s", i, iv->Name.c_str());
+      if(iv->VarIdx[i] >= 0) { /* есть индекс переменной */
+        if(i == 0)
+          value = row.cols[ Idx ]; /* берем из нужного столбца данных, которые пришли */
+        else
+          value = row.old_cols[ Idx ];
+        if ( !value.empty() )
+          Qry->SetVariable( vars[ iv->VarIdx[i] ],(char *)value.c_str());
+        else
+          Qry->SetVariable( vars[ iv->VarIdx[i] ],FNull);
+        ProgTrace( TRACE5, "SetVariable name=%s, value=%s, ind=%d",
+                  (char*)vars[ iv->VarIdx[i] ].c_str(),(char *)value.c_str(), Idx );
       }
     }
   }
+
+  SetVariablesFromParams(vars, SQLParams, *Qry);
+  SetVariablesFromParams(vars, row.params, *Qry);
 }
 
 int TCacheTable::getIfaceVer() {
