@@ -5750,7 +5750,6 @@ struct TWA {
     TWA(): payload(NoExists), underload(NoExists) {};
     void get(TypeB::TDetailCreateInfo &info)
     {
-        const TypeB::TLCIOptions &options = *info.optionsAs<TypeB::TLCIOptions>();
         payload = getCommerceWeight(info.point_id, onlyCheckin, CWTotal);
         TQuery Qry(&OraSession);
         Qry.SQLText=
