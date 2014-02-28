@@ -2383,6 +2383,10 @@ void FilterRoutesProperty::Read( const TFilterRoutesSets &filterRoutesSets )
                               trtWithCurrent,
                               trtNotCancelled ) &&
        !routes.empty() ) {
+    if ( routes.rbegin()->point_id != point_dep ) {
+      ProgTrace( TRACE5, ">>>routes.rbegin()->point_id=%d, point_dep=%d", routes.rbegin()->point_id, point_dep );
+      throw UserException( "MSG.FLIGHT.CANCELED.REFRESH_DATA" );
+    }
     insert( begin(), *routes.rbegin() );
     pointNum[ routes.rbegin()->point_id ] = PointAirpNum( routes.rbegin()->point_num, routes.rbegin()->airp, true );
     for ( std::vector<TTripRouteItem>::reverse_iterator iroute=routes.rbegin() + 1;
@@ -2406,7 +2410,7 @@ void FilterRoutesProperty::Read( const TFilterRoutesSets &filterRoutesSets )
     }
   }
   if ( empty() ) {
-    ProgTrace( TRACE5, "FilterRoutesProperty::Read, point_id=%d", point_dep );
+    ProgTrace( TRACE5, ">>>FilterRoutesProperty::Read, point_id=%d", point_dep );
     throw UserException( "MSG.FLIGHT.CANCELED.REFRESH_DATA" );
   }
   routes.clear();
@@ -2438,7 +2442,9 @@ void FilterRoutesProperty::Read( const TFilterRoutesSets &filterRoutesSets )
       point_arv = routes.begin()->point_id;
     }
   }
-  readNum( point_arv, true );
+  if ( point_arv != ASTRA::NoExists ) {
+    readNum( point_arv, true );
+  }
   //!logProgTrace( TRACE5, "FilterRoutesProperty::Read(): point_dep=%d, point_arv=%d, FilterRoutesProperty.size()=%zu",
 //!log             point_dep, point_arv, size() );
   for ( std::vector<TTripRouteItem>::iterator iroute=begin();
