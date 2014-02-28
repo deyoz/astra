@@ -37,6 +37,7 @@ alter table aodb_bag add pr_cabin NUMBER(1) NOT NULL;
 #include "tlg/tlg.h"
 #include "flt_binding.h"
 #include "astra_misc.h"
+#include "trip_tasks.h"
 
 #define NICKNAME "DJEK"
 #define NICKTRACE DJEK_TRACE
@@ -1890,6 +1891,7 @@ try {
       ProgError(STDLOG,"aodb write check_trip_tasks (move_id=%d): %s",move_id,E.what());
     };
   }
+  on_change_trip( CALL_POINT, point_id );
 }
 catch(EOracleError &E)
 {

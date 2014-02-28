@@ -4000,12 +4000,12 @@ void SyncCHKD(int point_id_spp, bool sync_all)
     SyncCHKD(Qry.FieldAsInteger("point_id_tlg"), point_id_spp, sync_all);
 };
 
-void SyncNewCHKD(int point_id_spp, const string& task_name)
+void SyncNewCHKD(int point_id_spp, const string& task_name, const string& params)
 {
   SyncCHKD(point_id_spp, false);
 };
 
-void SyncAllCHKD(int point_id_spp, const string& task_name)
+void SyncAllCHKD(int point_id_spp, const string& task_name, const string& params)
 {
   SyncCHKD(point_id_spp, true);
 };

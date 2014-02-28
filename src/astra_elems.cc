@@ -82,6 +82,7 @@ const
                          {etDevSessType,           "etDevSessType",           "dev_sess_types"},
                          {etGenderType,            "etGenderType",            "gender_types"},
                          {etGraphStage,            "etGraphStage",            "graph_stages"},
+                         {etGraphStageWOInactive,  "etGraphStageWOInactive",  "graph_stages"},
                          {etGrpStatusType,         "etGrpStatusType",         "grp_status_types"},
                          {etHall,                  "etHall",                  ""},
                          {etLangType,              "etLangType",              "lang_types"},
