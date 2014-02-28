@@ -17,6 +17,7 @@
 #include "rozysk.h"
 #include "points.h"
 #include "trip_tasks.h"
+#include "qrys.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -26,6 +27,46 @@ using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace AstraLocale;
 using namespace ASTRA;
+const struct {
+    const char *name;
+    TStage stage;
+} TStagesS[]={
+    {"NoActive",             sNoActive},
+    {"PrepCheckIn",          sPrepCheckIn},
+    {"OpenCheckIn",          sOpenCheckIn},
+    {"OpenWEBCheckIn",       sOpenWEBCheckIn},
+    {"OpenKIOSKCheckIn",     sOpenKIOSKCheckIn},
+    {"CloseCheckIn",         sCloseCheckIn},
+    {"CloseWEBCancel",       sCloseWEBCancel},
+    {"CloseWEBCheckIn",      sCloseWEBCheckIn},
+    {"CloseKIOSKCheckIn",    sCloseKIOSKCheckIn},
+    {"OpenBoarding",         sOpenBoarding},
+    {"CloseBoarding",        sCloseBoarding},
+    {"RemovalGangWay",       sRemovalGangWay},
+    {"Takeoff",              sTakeoff}
+};
+
+
+TStage DecodeStage(const char* s)
+{
+  unsigned int i;
+  for(i=0;i<sizeof(TStagesS)/sizeof(TStagesS[0]);i+=1) if (strcmp(s,TStagesS[i].name)==0) break;
+  if (i<sizeof(TStagesS)/sizeof(TStagesS[0]))
+    return TStagesS[i].stage;
+  else
+    return sNoActive;
+};
+
+const char* EncodeStage(TStage s)
+{
+  unsigned int i;
+  for(i=0;i<sizeof(TStagesS)/sizeof(TStagesS[0]);i+=1) if (TStagesS[i].stage == s) break;
+  if (i<sizeof(TStagesS)/sizeof(TStagesS[0]))
+    return TStagesS[i].name;
+  else
+    return EncodeStage(sNoActive);
+};
+
 
 bool CompatibleStage( TStage stage )
 {
@@ -67,6 +108,47 @@ TTripStages::TTripStages( int vpoint_id )
   TTripStages::LoadStages( vpoint_id, tripstages );
 }
 
+void TTripStages::LoadStage( int vpoint_id, TStage stage, TTripStage &ts )
+{
+    QParams QryParams;
+    QryParams
+        << QParam("point_id", otInteger, vpoint_id)
+        << QParam("stage", otInteger, stage);
+    string qry;
+    if(stage == sTakeoff)
+        qry =
+            "SELECT :stage stage_id, scd_out scd, est_out est, act_out act, 0 pr_auto, 0 pr_manual "
+            " FROM points WHERE point_id=:point_id";
+    else
+        qry =
+            "SELECT stage_id, scd, est, act, pr_auto, pr_manual "
+            " FROM trip_stages WHERE point_id=:point_id and stage_id = :stage";
+    TCachedQuery Qry(qry, QryParams);
+    Qry.get().Execute();
+    ts.fromDB(Qry.get());
+}
+
+void TTripStage::fromDB(TQuery &Qry)
+{
+    if(Qry.Eof) return;
+    if ( Qry.FieldIsNULL( "scd" ) )
+      scd = NoExists;
+    else
+      scd = Qry.FieldAsDateTime( "scd" );
+    if ( Qry.FieldIsNULL( "est" ) )
+      est = NoExists;
+    else
+      est = Qry.FieldAsDateTime( "est" );
+    old_est = est;
+    if ( Qry.FieldIsNULL( "act" ) )
+      act = NoExists;
+    else
+      act = Qry.FieldAsDateTime( "act" );
+    old_act = act;
+    pr_auto = Qry.FieldAsInteger( "pr_auto" );
+    stage = (TStage)Qry.FieldAsInteger( "stage_id" );
+}
+
 void TTripStages::LoadStages( int vpoint_id, TMapTripStages &ts )
 {
   ts.clear();
@@ -78,23 +160,8 @@ void TTripStages::LoadStages( int vpoint_id, TMapTripStages &ts )
   Qry.Execute();
   while ( !Qry.Eof ) {
     TTripStage  tripStage;
-    if ( Qry.FieldIsNULL( "scd" ) )
-      tripStage.scd = NoExists;
-    else
-      tripStage.scd = Qry.FieldAsDateTime( "scd" );
-    if ( Qry.FieldIsNULL( "est" ) )
-      tripStage.est = NoExists;
-    else
-      tripStage.est = Qry.FieldAsDateTime( "est" );
-    tripStage.old_est = tripStage.est;
-    if ( Qry.FieldIsNULL( "act" ) )
-      tripStage.act = NoExists;
-    else
-      tripStage.act = Qry.FieldAsDateTime( "act" );
-    tripStage.old_act = tripStage.act;
-    tripStage.pr_auto = Qry.FieldAsInteger( "pr_auto" );
-    TStage stage = (TStage)Qry.FieldAsInteger( "stage_id" );
-    ts.insert( make_pair( stage, tripStage ) );
+    tripStage.fromDB(Qry);
+    ts.insert( make_pair( tripStage.stage, tripStage ) );
     Qry.Next();
   }
 }
@@ -709,7 +776,7 @@ void exec_stage( int point_id, int stage_id )
            Takeoff( point_id );
            break;
   }
-  XXX( point_id );
+  on_change_trip( CALL_POINT, point_id );
 }
 
 void astra_timer( TDateTime utcdate )
@@ -897,21 +964,6 @@ void OpenCheckIn( int point_id )
 	tst();
 	SetCraft( point_id, sOpenCheckIn );
   SALONS2::setManualCompChg( point_id );
-  time_t time_start=time(NULL);
-  try
-  {
-    vector<TypeB::TCreateInfo> createInfo;
-    TypeB::TOpenCheckInCreator(point_id).getInfo(createInfo);
-    TelegramInterface::SendTlg(createInfo);
-  }
-  catch(std::exception &E)
-  {
-    ProgError(STDLOG,"OpenCheckIn.SendTlg (point_id=%d): %s",point_id,E.what());
-  };
-  time_t time_end=time(NULL);
-  if (time_end-time_start>1)
-    ProgTrace(TRACE5,"Attention! TelegramInterface::SendTlg execute time: %ld secs, point_id=%d",
-                     time_end-time_start,point_id);
 }
 
 void CloseCheckIn( int point_id )
@@ -984,6 +1036,11 @@ void Takeoff( int point_id )
                      time_end-time_start,point_id);
 
   time_start=time(NULL);
+  try {
+      sync_lci_trip_tasks(point_id);
+  } catch(std::exception &E) {
+      ProgError(STDLOG,"%s.sync_lci_trip_tasks (point_id=%d): %s",__FUNCTION__, point_id,E.what());
+  }
   try
   {
     vector<TypeB::TCreateInfo> createInfo;

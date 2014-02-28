@@ -120,6 +120,8 @@ class TCacheTable;
 typedef void  (*TBeforeRefreshEvent)(TCacheTable &, TQuery &, const TCacheQueryType);
 typedef void  (*TBeforeApplyEvent)(TCacheTable &, const TRow &, TQuery &, const TCacheQueryType);
 typedef void  (*TAfterApplyEvent)(TCacheTable &, const TRow &, TQuery &, const TCacheQueryType);
+typedef void  (*TBeforeApplyAllEvent)(TCacheTable &);
+typedef void  (*TAfterApplyAllEvent)(TCacheTable &);
 
 enum TUpdateDataType {upNone, upExists, upClearAll};
 
@@ -171,6 +173,8 @@ class TCacheTable {
         TBeforeRefreshEvent OnBeforeRefresh;
         TBeforeApplyEvent OnBeforeApply;
         TAfterApplyEvent OnAfterApply;
+        TBeforeApplyAllEvent OnBeforeApplyAll;
+        TAfterApplyAllEvent OnAfterApplyAll;
         void refresh();
         void buildAnswer(xmlNodePtr resNode);
         void ApplyUpdates(xmlNodePtr reqNode);
@@ -181,6 +185,8 @@ class TCacheTable {
         std::string FieldOldValue( const std::string name, const TRow &row );
         TCacheTable()
         {
+          OnBeforeApplyAll = NULL;
+          OnAfterApplyAll = NULL;
           OnBeforeApply = NULL;
           OnBeforeRefresh = NULL;
           OnAfterApply = NULL;

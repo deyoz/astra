@@ -29,6 +29,7 @@
 #include "aodb.h"
 #include "misc.h"
 #include "term_version.h"
+#include "trip_tasks.h"
 
 #include "serverlib/perfom.h"
 
@@ -670,7 +671,7 @@ void TPointsDest::DoEvents( int move_id, const TPointsDest &dest )
          events.isFlag( dmSetDelete ) ) ) {
     SetTripStages_IgnoreAuto( point_id, act_out != NoExists || pr_del != 0 );
   }
-  XXX( point_id );
+  on_change_trip( CALL_POINT, point_id );
 }
 
 ////////////////////////////////////////////////////
@@ -2265,7 +2266,7 @@ void TFlightStages::Save( int point_id )
     }
   }
   TTripStages::WriteStagesUTC( point_id, forSaveStages );
-  XXX( point_id );
+  on_change_trip( CALL_POINT, point_id );
 }
 
 /////////////////////////////////////TFlightStations////////////////////////////

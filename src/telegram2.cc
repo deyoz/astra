@@ -5728,10 +5728,10 @@ struct TLCICFG:TCFG {
     {
         ostringstream cfg;
         if(not empty()) {
-            info.vcompleted = info.vcompleted and not info.bort.empty() and not info.craft.empty();
+            info.vcompleted = info.vcompleted and not info.craft.empty();
             cfg
                 << "EQT."
-                << (info.bort.empty() ? "??" : info.bort) << "."
+                << (info.bort.empty() ? "XXXXX" : info.bort) << "."
                 << (info.craft.empty() ? "??" : info.TlgElemIdToElem(etCraft, info.craft)) << ".";
             for(vector<TCFGItem>::iterator iv = begin(); iv != end(); iv++)
             {
@@ -5750,6 +5750,7 @@ struct TWA {
     TWA(): payload(NoExists), underload(NoExists) {};
     void get(TypeB::TDetailCreateInfo &info)
     {
+        const TypeB::TLCIOptions &options = *info.optionsAs<TypeB::TLCIOptions>();
         payload = getCommerceWeight(info.point_id, onlyCheckin, CWTotal);
         TQuery Qry(&OraSession);
         Qry.SQLText=
@@ -6066,6 +6067,7 @@ struct TLCI {
     TWM wm; // weight mode
     TLCIPaxTotals pax_totals;
     TSeatPlan sp;
+    string get_action_code(const TypeB::TCreatePoint &cp);
     void get(TypeB::TDetailCreateInfo &info);
     void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
 };
@@ -6086,10 +6088,37 @@ void TLCI::get(TypeB::TDetailCreateInfo &info)
     sp.get(info);
 }
 
+string TLCI::get_action_code(const TypeB::TCreatePoint &cp)
+{
+    string result;
+    if(cp.time_offset == 0) {
+        switch(cp.stage_id) {
+            case sOpenCheckIn:
+                result = "O";
+                break;
+            case sCloseCheckIn:
+                result = "C";
+                break;
+            case sCloseBoarding:
+                result = "U";
+                break;
+            case sTakeoff:
+                result = "F";
+                break;
+            default:
+                result = "U";
+                break;
+        }
+    } else {
+        result = "U";
+    }
+    return result;
+}
+
 void TLCI::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 {
     const TypeB::TLCIOptions &options = *info.optionsAs<TypeB::TLCIOptions>();
-    body.push_back("C" + options.action_code);
+    body.push_back("C" + get_action_code(info.create_point));
     eqt.ToTlg(info, body);
     wa.ToTlg(info, body);
     if(options.seating) body.push_back("SM.S"); // Seating method 'By Seat' always
@@ -7002,6 +7031,7 @@ int TelegramInterface::create_tlg(const TypeB::TCreateInfo &createInfo,
 
     TQuery Qry(&OraSession);
     TypeB::TDetailCreateInfo info;
+    info.create_point = createInfo.create_point;
     info.copy(createInfo);
     info.point_id = createInfo.point_id;
     info.lang = AstraLocale::LANG_RU;

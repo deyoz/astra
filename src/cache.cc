@@ -13,6 +13,8 @@
 #include "comp_layers.h"
 #include "astra_misc.h"
 #include "timer.h"
+#include "qrys.h"
+#include "trip_tasks.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -38,6 +40,7 @@ const
                          {"DESK_GRP",                etDeskGrp},
                          {"ENCODING_FMT",            etUserSetType},
                          {"GRAPH_STAGES",            etGraphStage},
+                         {"GRAPH_STAGES_WO_INACTIVE",etGraphStageWOInactive},
                          {"HALLS",                   etHall},
                          {"KIOSK_CKIN_DESK_GRP",     etDeskGrp},
                          {"MISC_SET_TYPES",          etMiscSetType},
@@ -1373,6 +1376,20 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
   parse_updates(GetNode("rows", reqNode));
 
   int NewVerData = -1;
+
+  if(OnBeforeApplyAll)
+      try {
+          (*OnBeforeApplyAll)(*this);
+      } catch(UserException E) {
+          throw;
+      } catch(Exception E) {
+          ProgError(STDLOG, "OnBeforeApplyAll failed: %s", E.what());
+          throw;
+      } catch(...) {
+          ProgError(STDLOG, "OnBeforeApplyAll failed: something unexpected");
+          throw;
+      }
+
   for(int i = 0; i < 3; i++) {
     string sql;
     TCacheUpdateStatus status;
@@ -1474,6 +1491,20 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
       } /* end for */
     } /* end if */
   } /* end for  0..2 */
+
+  if(OnAfterApplyAll)
+      try {
+          (*OnAfterApplyAll)(*this);
+      } catch(UserException E) {
+          throw;
+      } catch(Exception E) {
+          ProgError(STDLOG, "OnAfterApplyAll failed: %s", E.what());
+          throw;
+      } catch(...) {
+          ProgError(STDLOG, "OnAfterApplyAll failed: something unexpected");
+          throw;
+      }
+
   Qry->Clear();
   Qry->SQLText =
     "SELECT tid FROM cache_tables WHERE code=:code";
@@ -1654,6 +1685,37 @@ void BeforeRefresh(TCacheTable &cache, TQuery &refreshQry, const TCacheQueryType
   };
 };
 
+static set<int> lci_point_ids;
+static int lci_typeb_addrs_id;
+
+void BeforeApplyAll(TCacheTable &cache)
+{
+  if (cache.code() == "TYPEB_ADDRS_LCI")
+    lci_point_ids.clear();  
+  if (cache.code() == "TYPEB_CREATE_POINTS")
+      lci_typeb_addrs_id = NoExists;
+};    
+
+void AfterApplyAll(TCacheTable &cache)
+{
+    if (cache.code() == "TYPEB_ADDRS_LCI")
+    {
+        for(set<int>::const_iterator i=lci_point_ids.begin(); i!=lci_point_ids.end(); ++i)
+            sync_lci_trip_tasks(*i);
+        lci_point_ids.clear();
+    };    
+    if (cache.code() == "TYPEB_CREATE_POINTS") 
+    {
+        if(lci_typeb_addrs_id != NoExists) {
+            set<int> point_ids;
+            calc_lci_point_ids(lci_typeb_addrs_id, point_ids);
+            for(set<int>::const_iterator i = point_ids.begin(); i != point_ids.end(); i++)
+                sync_lci_trip_tasks(*i);
+            lci_typeb_addrs_id = NoExists;
+        }
+    };    
+};    
+
 void BeforeApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TCacheQueryType qryType)
 {
   if (cache.code() == "CODESHARE_SETS")
@@ -1671,6 +1733,39 @@ void BeforeApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TC
 
 void AfterApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TCacheQueryType qryType)
 {
+  if (cache.code() == "TYPEB_ADDRS_LCI")
+  {
+      set<int> point_ids;
+      TSimpleFltInfo flt;
+      if(qryType == cqtDelete or qryType == cqtUpdate) {
+          flt.airline = cache.FieldOldValue("airline", row);
+          flt.airp_dep = cache.FieldOldValue("airp_dep", row);
+          flt.airp_arv = cache.FieldOldValue("airp_arv", row);
+          flt.flt_no = ToInt(cache.FieldOldValue("flt_no", row));
+          calc_lci_point_ids(flt, point_ids);
+      }
+      if(qryType == cqtInsert or qryType == cqtUpdate) {
+          flt.airline = cache.FieldValue("airline", row);
+          flt.airp_dep = cache.FieldValue("airp_dep", row);
+          flt.airp_arv = cache.FieldValue("airp_arv", row);
+          flt.flt_no = ToInt(cache.FieldValue("flt_no", row));
+          calc_lci_point_ids(flt, point_ids);
+      }
+      lci_point_ids.insert(point_ids.begin(), point_ids.end());
+  };    
+      
+
+  if (cache.code() == "TYPEB_CREATE_POINTS") {
+      int tmp_id;
+      if (qryType == cqtInsert || qryType == cqtUpdate)
+          tmp_id=ToInt(cache.FieldValue( "id", row ));
+      else
+          tmp_id=ToInt(cache.FieldOldValue( "id", row ));
+      if(lci_typeb_addrs_id != NoExists and lci_typeb_addrs_id != tmp_id)
+          throw Exception("typeb_create_points after apply: id must be same");
+      lci_typeb_addrs_id = tmp_id;
+  }
+
   if (cache.code() == "TRIP_PAID_CKIN")
   {
     if (!( (qryType == cqtDelete || ToInt(cache.FieldValue( "pr_permit", row )) == 0) &&
@@ -1763,6 +1858,8 @@ void CacheInterface::SaveCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   cache.Init(reqNode);
   if ( cache.changeIfaceVer() )
     throw AstraLocale::UserException( "MSG.CACHE.IFACE_VERSION_CHANGED.REFRESH" );
+  cache.OnBeforeApplyAll = BeforeApplyAll;
+  cache.OnAfterApplyAll = AfterApplyAll;
   cache.OnBeforeApply = BeforeApply;
   cache.OnAfterApply = AfterApply;
   cache.ApplyUpdates( reqNode );

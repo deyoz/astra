@@ -2782,7 +2782,7 @@ void SoppInterface::WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   			//проверим максимальную загрузку
 				check_overload_alarm( point_id );
   		}
-      XXX( point_id );
+      on_change_trip( CALL_POINT, point_id );
   	}
 		node = node->next;
 	}
@@ -4407,7 +4407,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     };
   }
   for( TSOPPDests::iterator i=dests.begin(); i!=dests.end(); i++ ) {
-    XXX( i->point_id );
+    on_change_trip( CALL_POINT, i->point_id );
   }
 }
 
@@ -4698,7 +4698,7 @@ void SoppInterface::DropFlightFact(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   catch(std::exception &E) {
     ProgError(STDLOG,"DropFlightFact.check_trip_tasks (move_id=%d): %s",move_id,E.what());
   };
-  XXX( point_id );
+  on_change_trip( CALL_POINT, point_id );
 	SALONS2::check_waitlist_alarm_on_tranzit_routes( point_id );
 	ReadTrips( ctxt, reqNode, resNode );
 }
@@ -5298,7 +5298,7 @@ void SoppInterface::DeleteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     ProgError(STDLOG,"DeleteISGTrips.check_trip_tasks (move_id=%d): %s",move_id,E.what());
   };
   for (TSOPPDests::iterator i=dests_del.begin(); i!=dests_del.end(); i++ ) {
-    XXX( i->point_id );
+    on_change_trip( CALL_POINT, i->point_id );
   }
   TReqInfo::Instance()->MsgToLog( "Рейс " + name + " маршрут(" + dests + ") удален", evtDisp, move_id );
   ReBindTlgs( move_id, dests_del );

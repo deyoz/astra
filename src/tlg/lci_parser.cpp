@@ -1,6 +1,7 @@
 #include "lci_parser.h"
 #include "misc.h"
 #include "salons.h"
+#include "telegram.h"
 #include <sstream>
 
 
@@ -512,8 +513,8 @@ void TWA::parse(const char *val)
             throw ETlgError("multiple WA.P found");
         payload.amount = ToInt(items[2]);
         payload.measur = DecodeMeasur(items[3].c_str());
-    if(payload.measur == mUnknown)
-        throw ETlgError("unknown unit of measurment %s", val);
+        if(payload.measur == mUnknown)
+            throw ETlgError("unknown unit of measurment %s", val);
     } else if(items[1] == "U") {
         if(underload.amount != NoExists)
             throw ETlgError("multiple WA.U found");
@@ -1279,23 +1280,48 @@ void SaveLCIContent(int tlg_id, TLCIHeadingInfo& info, TLCIContent& con)
 
     vector<TSeatRange> ranges_tmp, seatRanges;
     if(con.action_code.action == aRequest) {
+        TCreateInfo createInfo("LCI", TCreatePoint());
+        // !!! приведение константной ссылки к неконстантной. Не хорошо.
+        TypeB::TLCIOptions &options = (TypeB::TLCIOptions&)(*createInfo.optionsAs<TypeB::TLCIOptions>());
+
+        options.equipment=false;
+        options.weight_avail="N";
+        options.seating=false;
+        options.weight_mode=false;
+        options.seat_restrict="S";
+        options.pas_totals = false;
+        options.bag_totals = false;
+        options.pas_distrib = false;
+        options.seat_plan = false;
+
         for(TRequest::iterator i = con.req.begin(); i != con.req.end(); i++) {
             switch(i->first) {
                 case rtSR:
                     if ( !seatRanges.empty() ) {
-                      throw Exception( "SaveLCIContent second rtSR" );
+                        throw Exception( "SaveLCIContent second rtSR" );
                     }
                     for(TSRItems::iterator sr_i = i->second.sr.s.begin(); sr_i != i->second.sr.s.end(); sr_i++) {
-                        ProgTrace(TRACE5, "seat: %s", sr_i->c_str());
                         ParseSeatRange(*sr_i, ranges_tmp, false);
                         seatRanges.insert( seatRanges.end(), ranges_tmp.begin(), ranges_tmp.end() );
                     }
                     SALONS2::resetLayers( point_id_spp, cltProtect, seatRanges, string("разметка мест по телеграмме LCI: ") );
                     break;
+                case rtSP:
+                    options.seat_plan = true;
+                    break;
+                case rtBT:
+                    options.bag_totals = true;
+                    break;
+                case rtWM:
+                    options.weight_mode = true;
+                    break;
                 default:
                     break;
             }
         }
+        createInfo.point_id = point_id_spp;
+        createInfo.set_addrs(info.sender);
+        TelegramInterface::SendTlg(vector<TCreateInfo>(1, createInfo));
     } else {
         //
     }
