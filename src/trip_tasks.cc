@@ -39,50 +39,139 @@ void sync_trip_task(int point_id, const string& task_name, const string &params,
     add_trip_task(point_id, task_name, params, next_exec);  
 };    
 
-void add_trip_task(int point_id, const string& task_name, const string &params, TDateTime next_exec)
-{  
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-	Qry.SQLText =
-    "BEGIN "
-    "  UPDATE trip_tasks "
-    "  SET next_exec=DECODE(last_exec,NULL,:next_exec,DECODE(SIGN(:next_exec-last_exec),1,:next_exec,NULL)) " 
-    "  WHERE point_id=:point_id AND name=:name AND (params = :params OR params IS NULL AND :params IS NULL); "
-    "  IF SQL%NOTFOUND THEN "
-    "    INSERT INTO trip_tasks(id, point_id,name,params,last_exec,next_exec) "
-    "    VALUES(cycle_id__seq.nextval,:point_id,:name,:params,NULL,:next_exec); "
-    "  END IF; "
-    "END;";
-  Qry.CreateVariable("point_id", otInteger, point_id);
-  Qry.CreateVariable("name", otString, task_name);
-  Qry.CreateVariable("params", otString, params);
-  if (next_exec!=ASTRA::NoExists)
-    Qry.CreateVariable("next_exec", otDate, next_exec);
-  else
-    Qry.CreateVariable("next_exec", otDate, NowUTC());
-  Qry.Execute();
+void add_trip_task(int point_id, const string& task_name, const string &params, TDateTime new_next_exec)
+{
+  if (new_next_exec==ASTRA::NoExists) new_next_exec=NowUTC();
+
+  QParams QryParams;
+  QryParams << QParam("point_id", otInteger, point_id);
+  QryParams << QParam("name", otString, task_name);
+  QryParams << QParam("params", otString, params);
+  TCachedQuery CQry(
+    "SELECT id, last_exec, next_exec FROM trip_tasks "
+    "WHERE point_id=:point_id AND name=:name AND "
+    "      (params = :params OR params IS NULL AND :params IS NULL) "
+    "FOR UPDATE", QryParams);
+  for(int pass=0; pass<2; pass++)
+  {
+    CQry.get().Execute();
+    if (CQry.get().Eof)
+    {
+      TQuery Qry(&OraSession);
+	     Qry.SQLText =
+        "BEGIN "
+        "  SELECT cycle_id__seq.nextval INTO :id FROM dual; "
+        "  INSERT INTO trip_tasks(id, point_id, name, params, last_exec, next_exec) "
+        "  VALUES(:id, :point_id, :name, :params, NULL, :next_exec); "
+        "END;";
+      Qry.DeclareVariable("id", otInteger);
+      Qry.CreateVariable("point_id", otInteger, point_id);
+      Qry.CreateVariable("name", otString, task_name);
+      Qry.CreateVariable("params", otString, params);
+      Qry.CreateVariable("next_exec", otDate, new_next_exec);
+      try
+      {
+        Qry.Execute();
+        if (Qry.RowsProcessed()>0)
+        ProgTrace(TRACE5, "trip_tasks: task added (id=%d point_id=%d task_name=%s next_exec=%s)",
+                          Qry.GetVariableAsInteger("id"),
+                          point_id,
+                          task_name.c_str(),
+                          DateTimeToStr(new_next_exec, "dd.mm.yy hh:nn:ss").c_str());
+      }
+      catch(EOracleError E)
+      {
+        if (E.Code!=1 || pass>0) throw;
+      };
+    }
+    else
+    {
+      int task_id=CQry.get().FieldAsInteger("id");
+      TDateTime last_exec=CQry.get().FieldIsNULL("last_exec")?
+                            ASTRA::NoExists:
+                            CQry.get().FieldAsDateTime("last_exec");
+      TDateTime next_exec=CQry.get().FieldIsNULL("next_exec")?
+                          ASTRA::NoExists:
+                          CQry.get().FieldAsDateTime("next_exec");
+      if ((last_exec==ASTRA::NoExists || new_next_exec>last_exec) &&
+          next_exec!=new_next_exec)
+      {
+        TQuery Qry(&OraSession);
+	       Qry.SQLText =
+          "UPDATE trip_tasks SET next_exec=:next_exec WHERE id=:id";
+        Qry.CreateVariable("id", otInteger, task_id);
+        Qry.CreateVariable("next_exec", otDate, new_next_exec);
+        Qry.Execute();
+        if (Qry.RowsProcessed()>0)
+        {
+          if (next_exec!=ASTRA::NoExists)
+            ProgTrace(TRACE5, "trip_tasks: task changed (id=%d next_exec=%s new_next_exec=%s)",
+                              task_id,
+                              DateTimeToStr(next_exec, "dd.mm.yy hh:nn:ss").c_str(),
+                              DateTimeToStr(new_next_exec, "dd.mm.yy hh:nn:ss").c_str());
+          else
+            ProgTrace(TRACE5, "trip_tasks: task added (id=%d next_exec=%s)",
+                              task_id,
+                              DateTimeToStr(new_next_exec, "dd.mm.yy hh:nn:ss").c_str());
+        };
+      };
+      break;
+    };
+  };
 };
 
 void remove_trip_task(int point_id, const string& task_name, const string &params)
 {
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText =
-    "BEGIN "
-    "  UPDATE trip_tasks SET next_exec=NULL "
-    "  WHERE point_id=:point_id AND name=:name AND "
-    "        (params = :params OR params IS NULL AND :params IS NULL) AND "
-    "        last_exec IS NOT NULL; "
-    "  IF SQL%NOTFOUND THEN "
-    "    DELETE trip_tasks "
-    "    WHERE point_id=:point_id AND name=:name AND "
-    "          (params = :params OR params IS NULL AND :params IS NULL); "
-    "  END IF; "
-    "END;";
-  Qry.CreateVariable("point_id", otInteger, point_id);
-  Qry.CreateVariable("name", otString, task_name);
-  Qry.CreateVariable("params", otString, params);
-  Qry.Execute();
+  QParams QryParams;
+  QryParams << QParam("point_id", otInteger, point_id);
+  QryParams << QParam("name", otString, task_name);
+  QryParams << QParam("params", otString, params);
+  TCachedQuery CQry(
+    "SELECT id, last_exec, next_exec FROM trip_tasks "
+    "WHERE point_id=:point_id AND name=:name AND "
+    "      (params = :params OR params IS NULL AND :params IS NULL) "
+    "FOR UPDATE", QryParams);
+  CQry.get().Execute();
+  if (CQry.get().Eof) return;
+  int task_id=CQry.get().FieldAsInteger("id");
+  TDateTime last_exec=CQry.get().FieldIsNULL("last_exec")?
+                        ASTRA::NoExists:
+                        CQry.get().FieldAsDateTime("last_exec");
+  TDateTime next_exec=CQry.get().FieldIsNULL("next_exec")?
+                        ASTRA::NoExists:
+                        CQry.get().FieldAsDateTime("next_exec");
+
+  if (last_exec!=ASTRA::NoExists)
+  {
+    //оставляем строку
+    if (next_exec!=ASTRA::NoExists)
+    {
+      TQuery Qry(&OraSession);
+      Qry.Clear();
+      Qry.SQLText =
+        "UPDATE trip_tasks SET next_exec=NULL WHERE id=:id";
+      Qry.CreateVariable("id", otInteger, task_id);
+      Qry.Execute();
+      if (Qry.RowsProcessed()>0)
+        ProgTrace(TRACE5, "trip_tasks: task deleted (id=%d next_exec=%s)",
+                          task_id,
+                          DateTimeToStr(next_exec, "dd.mm.yy hh:nn:ss").c_str());
+    };
+  }
+  else
+  {
+    //удаляем строку
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    Qry.SQLText =
+      "DELETE FROM trip_tasks WHERE id=:id";
+    Qry.CreateVariable("id", otInteger, task_id);
+    Qry.Execute();
+    if (Qry.RowsProcessed()>0 && next_exec!=ASTRA::NoExists)
+       ProgTrace(TRACE5, "trip_tasks: task deleted (id=%d next_exec=%s)",
+                          task_id,
+                          DateTimeToStr(next_exec, "dd.mm.yy hh:nn:ss").c_str());
+  };
 };
 
 void check_trip_tasks()
@@ -321,7 +410,7 @@ TDateTime TLCITripTask::actual_next_exec(TDateTime curr_next_exec) const
           //ничего не меняем в trip_tasks
           return curr_next_exec;
         else
-          result = NowUTC();            
+          result = ts.act;
     };    
     if(create_point.time_offset > 0) {
         return ASTRA::NoExists; 
