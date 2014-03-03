@@ -14,7 +14,7 @@ extern const char* ClientTypeS[ctTypeNum];
 enum TOperMode { omCUSE, omCUTE, omMUSE, omRESA, omSTAND, omTypeNum };
 extern const char* OperModeS[omTypeNum];
 
-enum TEventType {evtSeason,evtDisp,evtFlt,evtGraph,evtPax,evtPay,evtComp,evtTlg,
+enum TEventType {evtSeason,evtDisp,evtFlt,evtGraph,evtFltTask,evtPax,evtPay,evtComp,evtTlg,
                  evtAccess,evtSystem,evtCodif,evtPeriod,evtProgError,evtUnknown,evtTypeNum};
 extern const char* EventTypeS[evtTypeNum];
 

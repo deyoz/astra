@@ -39,6 +39,63 @@ void sync_trip_task(int point_id, const string& task_name, const string &params,
     add_trip_task(point_id, task_name, params, next_exec);  
 };    
 
+string LCIparamsToLog(const string &params)
+{
+    TypeB::TCreatePoint cp(params);
+    ostringstream result;
+    result
+        << "Этап: " << ElemIdToNameLong(etGraphStage, cp.stage_id) << "; "
+        << "Время до: "
+        << setw(2) << setfill('0') << -cp.time_offset / 60
+        << "-"
+        << setw(2) << setfill('0') << -cp.time_offset % 60;
+    return result.str();
+}
+
+string paramsToLog(const string &task_name, const string &params)
+{
+    if(task_name == LCI)
+        return LCIparamsToLog(params);
+    else
+        return params;
+}
+
+enum TTaskState {tsAdd, tsUpdate, tsDelete, tsDone};
+
+string taskToLog(
+        const string &task_name,
+        const string &params,
+        TTaskState ts,
+        TDateTime next_exec,
+        TDateTime new_next_exec = ASTRA::NoExists)
+{
+    ostringstream result;
+    result << "Задача " << task_name << " <" << paramsToLog(task_name, params) << "> ";
+    switch(ts) {
+        case tsAdd:
+            result << "создана; ";
+            break;
+        case tsUpdate:
+            result << "изменена; ";
+            break;
+        case tsDelete:
+            result << "удалена; ";
+            break;
+        case tsDone:
+            result << "выполнена; ";
+            break;
+    }
+    if(ts == tsUpdate) {
+        result
+            << "стар. план. вр.: " << DateTimeToStr(next_exec, "dd.mm.yy hh:nn") << " (UTC), "
+            << "нов. план. вр.: " << DateTimeToStr(new_next_exec, "dd.mm.yy hh:nn") << " (UTC)";
+    } else {
+        result
+            << "План. вр.: " << DateTimeToStr(next_exec, "dd.mm.yy hh:nn") << " (UTC)";
+    }
+    return result.str();
+}
+
 void add_trip_task(int point_id, const string& task_name, const string &params, TDateTime new_next_exec)
 {
   if (new_next_exec==ASTRA::NoExists) new_next_exec=NowUTC();
@@ -78,6 +135,7 @@ void add_trip_task(int point_id, const string& task_name, const string &params, 
                           point_id,
                           task_name.c_str(),
                           DateTimeToStr(new_next_exec, "dd.mm.yy hh:nn:ss").c_str());
+        TReqInfo::Instance()->MsgToLog( taskToLog(task_name, params, tsAdd, new_next_exec) , ASTRA::evtFltTask, point_id );
       }
       catch(EOracleError E)
       {
@@ -104,15 +162,20 @@ void add_trip_task(int point_id, const string& task_name, const string &params, 
         Qry.Execute();
         if (Qry.RowsProcessed()>0)
         {
-          if (next_exec!=ASTRA::NoExists)
-            ProgTrace(TRACE5, "trip_tasks: task changed (id=%d next_exec=%s new_next_exec=%s)",
-                              task_id,
-                              DateTimeToStr(next_exec, "dd.mm.yy hh:nn:ss").c_str(),
-                              DateTimeToStr(new_next_exec, "dd.mm.yy hh:nn:ss").c_str());
-          else
-            ProgTrace(TRACE5, "trip_tasks: task added (id=%d next_exec=%s)",
-                              task_id,
-                              DateTimeToStr(new_next_exec, "dd.mm.yy hh:nn:ss").c_str());
+            if (next_exec!=ASTRA::NoExists) {
+                ProgTrace(TRACE5, "trip_tasks: task changed (id=%d next_exec=%s new_next_exec=%s)",
+                                   task_id,
+                                   DateTimeToStr(next_exec, "dd.mm.yy hh:nn:ss").c_str(),
+                                   DateTimeToStr(new_next_exec, "dd.mm.yy hh:nn:ss").c_str());
+                TReqInfo::Instance()->MsgToLog(
+                        taskToLog(task_name, params, tsUpdate, next_exec, new_next_exec),
+                        ASTRA::evtFltTask, point_id );
+            } else {
+                ProgTrace(TRACE5, "trip_tasks: task added (id=%d next_exec=%s)",
+                                  task_id,
+                                  DateTimeToStr(new_next_exec, "dd.mm.yy hh:nn:ss").c_str());
+                TReqInfo::Instance()->MsgToLog( taskToLog(task_name, params, tsAdd, new_next_exec), ASTRA::evtFltTask, point_id );
+            }
         };
       };
       break;
@@ -152,10 +215,12 @@ void remove_trip_task(int point_id, const string& task_name, const string &param
         "UPDATE trip_tasks SET next_exec=NULL WHERE id=:id";
       Qry.CreateVariable("id", otInteger, task_id);
       Qry.Execute();
-      if (Qry.RowsProcessed()>0)
-        ProgTrace(TRACE5, "trip_tasks: task deleted (id=%d next_exec=%s)",
-                          task_id,
-                          DateTimeToStr(next_exec, "dd.mm.yy hh:nn:ss").c_str());
+      if (Qry.RowsProcessed()>0) {
+          ProgTrace(TRACE5, "trip_tasks: task deleted (id=%d next_exec=%s)",
+                            task_id,
+                            DateTimeToStr(next_exec, "dd.mm.yy hh:nn:ss").c_str());
+          TReqInfo::Instance()->MsgToLog( taskToLog(task_name, params, tsDelete, next_exec), ASTRA::evtFltTask, point_id );
+      }
     };
   }
   else
@@ -167,10 +232,12 @@ void remove_trip_task(int point_id, const string& task_name, const string &param
       "DELETE FROM trip_tasks WHERE id=:id";
     Qry.CreateVariable("id", otInteger, task_id);
     Qry.Execute();
-    if (Qry.RowsProcessed()>0 && next_exec!=ASTRA::NoExists)
-       ProgTrace(TRACE5, "trip_tasks: task deleted (id=%d next_exec=%s)",
+    if (Qry.RowsProcessed()>0 && next_exec!=ASTRA::NoExists) {
+        ProgTrace(TRACE5, "trip_tasks: task deleted (id=%d next_exec=%s)",
                           task_id,
                           DateTimeToStr(next_exec, "dd.mm.yy hh:nn:ss").c_str());
+        TReqInfo::Instance()->MsgToLog( taskToLog(task_name, params, tsDelete, next_exec), ASTRA::evtFltTask, point_id );
+    }
   };
 };
 
@@ -226,6 +293,7 @@ void check_trip_tasks()
                         last_exec<next_exec)
                 {
                     trip_tasks[i].p(point_id, task_name, params);
+                    TReqInfo::Instance()->MsgToLog( taskToLog(task_name, params, tsDone, next_exec), ASTRA::evtFltTask, point_id );
                 };
             };
             if (task_processed)

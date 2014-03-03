@@ -1034,7 +1034,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         if (j==0) {
             Qry.SQLText =
                 "SELECT msg, time, "
-                "       DECODE(type, :evtFlt, id1, :evtPax, id1, :evtPay, id1, :evtGraph, id1, :evtTlg, id1, "
+                "       DECODE(type, :evtFlt, id1, :evtFltTask, id1, :evtPax, id1, :evtPay, id1, :evtGraph, id1, :evtTlg, id1, "
                 "                    :evtDisp, id2, NULL) AS point_id, "
                 "       screen, "
                 "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no, "
@@ -1050,6 +1050,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                 "  (:station is null or nvl(station, :system_user) = :station) and "
                 "  events.type IN ( "
                 "    :evtFlt, "
+                "    :evtFltTask, "
                 "    :evtPax, "
                 "    :evtPay, "
                 "    :evtGraph, "
@@ -1065,7 +1066,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         } else {
             Qry.SQLText =
                 "SELECT msg, time, "
-                "       DECODE(type, :evtFlt, id1, :evtPax, id1, :evtPay, id1, :evtGraph, id1, :evtTlg, id1, "
+                "       DECODE(type, :evtFlt, id1, :evtFltTask, id1, :evtPax, id1, :evtPay, id1, :evtGraph, id1, :evtTlg, id1, "
                 "                    :evtDisp, id2, NULL) AS point_id, "
                 "       screen, "
                 "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no, "
@@ -1083,6 +1084,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                 "  (:station is null or nvl(station, :system_user) = :station) and "
                 "  arx_events.type IN ( "
                 "    :evtFlt, "
+                "    :evtFltTask, "
                 "    :evtPax, "
                 "    :evtPay, "
                 "    :evtGraph, "
@@ -1100,6 +1102,13 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         Qry.CreateVariable("evtFlt", otString, NodeAsString("evtFlt", reqNode));
         Qry.CreateVariable("evtPax", otString, NodeAsString("evtPax", reqNode));
         Qry.CreateVariable("system_user", otString, SYSTEM_USER);
+        {
+            xmlNodePtr node = GetNode("evtFltTask", reqNode);
+            string evtFltTask;
+            if(node)
+                evtFltTask = NodeAsString(node);
+            Qry.CreateVariable("evtFltTask", otString, evtFltTask);
+        }
         {
             xmlNodePtr node = GetNode("evtPay", reqNode);
             string evtPay;
