@@ -17,8 +17,13 @@ const std::string LCI="LCI";
 const std::string SYNC_NEW_CHKD="SYNC_NEW_CHKD";
 const std::string SYNC_ALL_CHKD="SYNC_ALL_CHKD";
 
-void add_trip_task(int point_id, const std::string& task_name, const std::string &params, BASIC::TDateTime next_exec=ASTRA::NoExists);
-void remove_trip_task(int point_id, const std::string& task_name, const std::string &params);
+void add_trip_task(int point_id,
+                   const std::string& task_name,
+                   const std::string &params,
+                   BASIC::TDateTime new_next_exec=ASTRA::NoExists);
+void remove_trip_task(int point_id,
+                      const std::string& task_name,
+                      const std::string &params);
 
 void check_trip_tasks();
 #define CALL_POINT (string)__FILE__ + ":" +  IntToString(__LINE__)

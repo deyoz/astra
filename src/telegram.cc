@@ -1336,7 +1336,7 @@ void TelegramInterface::SendTlg(const vector<TypeB::TCreateInfo> &info)
         {
             msg << "Ошибка формирования телеграммы "
                 << (tlgTypeInfo.short_name.empty()?i->get_tlg_type():tlgTypeInfo.short_name)
-                << ": " << getLocaleText(E.getLexemaData()) << ", ";
+                << ": " << getLocaleText(E.getLexemaData(), AstraLocale::LANG_RU) << ", ";
         }
 
         TReqInfo::Instance()->MsgToLog(i->get_options().logStr(msg).str(),evtTlg,i->point_id,tlg_id);
@@ -1354,7 +1354,7 @@ void TelegramInterface::SendTlg(const vector<TypeB::TCreateInfo> &info)
                 msg << "Ошибка отправки телеграммы "
                     << (tlgTypeInfo.short_name.empty()?i->get_tlg_type():tlgTypeInfo.short_name)
                     << " (ид=" << tlg_id << ")"
-                    << ": " << getLocaleText(E.getLexemaData());
+                    << ": " << getLocaleText(E.getLexemaData(), AstraLocale::LANG_RU);
                 TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,i->point_id,tlg_id);
             };
             time_t time_end=time(NULL);
