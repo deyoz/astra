@@ -1093,14 +1093,11 @@ bool TCreatePoint::exists(int typeb_addrs_id, const string &tlg_type) const
             QryParams
                 << QParam("id", otInteger, typeb_addrs_id)
                 << QParam("stage_id", otInteger, stage_id);
-            if(time_offset != 0)
-                QryParams << QParam("time_offset", otInteger, time_offset);
-            else
-                QryParams << QParam("time_offset", otInteger, FNull);
+            QryParams << QParam("time_offset", otInteger, time_offset);
             TCachedQuery Qry(
                     "select * from typeb_create_points where "
                     "id = :id and stage_id = :stage_id and "
-                    "(time_offset = :time_offset or time_offset is null and :time_offset is null)", QryParams);
+                    "time_offset = :time_offset ", QryParams);
             Qry.get().Execute();
             return not Qry.get().Eof;
         }
