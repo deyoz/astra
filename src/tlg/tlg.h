@@ -71,6 +71,7 @@ const int HANDLER_PROC_ATTEMPTS();
 
 enum TTlgQueuePriority { qpOutA=1, qpOutAStepByStep=3, qpOutB=2 };
 
+int getNextTlgNum();
 void putTypeBBody(int tlg_id, int tlg_num, const std::string &tlg_body);
 std::string getTypeBBody(int tlg_id, int tlg_num,
                          TQuery &Qry); //!!! потом Qry убрать
