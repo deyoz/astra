@@ -147,6 +147,7 @@ class AstraApplication : public ServerFramework::ApplicationCallbacks
 #ifdef USE_MESPRO
     virtual void getMesProParams(const char *head, int hlen, int *error, MPCryptParams &params)
     {
+      OciCpp::mainSession().set7();
       return ::getMesProParams(head,hlen,error,params);
     }
 #endif // USE_MESPRO
