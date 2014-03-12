@@ -7,10 +7,12 @@
 #include <libxml/tree.h>
 #include "astra_ticket.h"
 #include "astra_tick_view_xml.h"
+#include "term_version.h"
 #include "jxtlib/xmllibcpp.h"
 #include "jxtlib/gettext.h"
 #include "jxtlib/xml_tools.h"
 #include "serverlib/dates_io.h"
+#include "serverlib/testmode.h"
 
 #define NICKNAME "ROMAN"
 #define NICKTRACE ROMAN_TRACE
@@ -323,10 +325,17 @@ void TicketXmlView::operator ()
   for(list<Ticket>::const_iterator i=lTick.begin(); i!=lTick.end();++i,++t)
   {
     const Ticket &Tick = (*i);
-    if(i->actCode() == TickStatAction::oldtick)
+    if(Tick.actCode() == TickStatAction::oldtick)
     {
         continue;
     }
+    if(Tick.actCode() == TickStatAction::inConnectionWith &&
+       !inTestMode() &&
+       !TReqInfo::Instance()->desk.compatible(EMDA_VERSION))
+    {
+        continue;
+    }
+
     string tmp=string("ticket")+HelpCpp::string_cast(++count);
     xmlNodePtr tickNode=newChild(mainNode,tmp.c_str());
     setElemProp(mainNode->parent,(string("gr_")+tmp+"_data").c_str(),"visible","true");
