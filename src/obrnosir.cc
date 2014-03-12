@@ -107,11 +107,9 @@ int main_nosir_user(int argc,char **argv)
         ProgTrace(TRACE1,"nosir func finished: name='%s, id=%i, res=%i", argv[0], i, res);
 
         if(res != 0)
-           //OraSession.Rollback();
-           rollback();
+           ASTRA::rollback();
         else
-           //OraSession.Commit();
-           commit();
+           ASTRA::commit();
         OraSession.LogOff();
       }
       catch(const std::exception &e)
@@ -119,7 +117,7 @@ int main_nosir_user(int argc,char **argv)
         LogError(STDLOG) << e.what();
         try
         {
-          rollback();
+          ASTRA::rollback();
           OraSession.LogOff();
         }
         catch(...) {  ProgError(STDLOG, "OraSession.Rollback or OraSession.LogOff error"); };

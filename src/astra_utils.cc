@@ -14,6 +14,7 @@
 #include "serverlib/tcl_utils.h"
 #include "serverlib/monitor_ctl.h"
 #include "serverlib/sirena_queue.h"
+#include "serverlib/testmode.h"
 #include "jxtlib/JxtInterface.h"
 #include "jxtlib/jxt_cont.h"
 #include "jxtlib/xml_stuff.h"
@@ -1561,4 +1562,17 @@ string get_internal_msgid_hex()
   return hex_msg_id;
 };
 
+namespace ASTRA
+{
 
+void commit()
+{
+  inTestMode()?commit():OraSession.Commit();
+};
+
+void rollback()
+{
+  inTestMode()?rollback():OraSession.Rollback();
+};
+
+};
