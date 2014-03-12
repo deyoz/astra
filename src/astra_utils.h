@@ -449,4 +449,10 @@ void MergeSortedRanges(std::vector< std::pair<T,T> > &ranges, const std::pair<T,
     ranges.push_back( range );
 };
 
+namespace ASTRA
+{
+void commit();
+void rollback();
+};
+
 #endif /*_ASTRA_UTILS_H_*/

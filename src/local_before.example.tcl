@@ -17,4 +17,4 @@ set grp3_Jxt(OBRZAP_NUM) 15
 set grp8_Http(OBRZAP_NUM) 1
 set grp9_HttpSSL(OBRZAP_NUM) 0
 set SOCKDIR ./Sockets
-set CSA_KEY 127
+

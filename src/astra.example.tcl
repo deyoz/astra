@@ -36,6 +36,10 @@ if { ! [ info exists env(OBRZAP_NOSIR) ] } {
 
 load_variables
 
+if { ![ info exists env(XP_TESTING) ] } {
+    set env(XP_TESTING)  0
+}
+
 if {  [ string equal -nocase $env(OBRZAP_NOSIR) YES ]
     && [ info exists env(CONNECT_STRING) ] } {
  set CONNECT_STRING $env(CONNECT_STRING)

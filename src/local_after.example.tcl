@@ -1,4 +1,5 @@
 set_local UNDER_GDB 0
+set CSA_KEY 127
 set_local GROUPS_TO_RUN [list astra_init3 astra_init2 astra_init8]
 set_local TIMER_NUM 6
 set_local REOPENLOGS 1

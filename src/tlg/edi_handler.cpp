@@ -87,7 +87,7 @@ int main_edi_handler_tcl(int supervisorSocket, int argc, char *argv[])
   };
   try
   {
-    rollback();
+    ASTRA::rollback();
     OraSession.LogOff();
   }
   catch(...)
@@ -107,51 +107,51 @@ void handle_edi_tlg(const tlg_info &tlg)
     {
       ProgTrace(TRACE5, "handle_tlg: tlg_id=%d proc_attempt=%d", tlg_id, tlg.proc_attempt);
       errorTlg(tlg_id,"PROC");
-      commit();
+      ASTRA::commit();
     }
     else
     try
     {
         procTlg(tlg_id);
-        commit();
+        ASTRA::commit();
 
         proc_edifact(tlg.text);
         deleteTlg(tlg_id);
         callPostHooksBefore();
-        commit();
+        ASTRA::commit();
         callPostHooksAfter();
         emptyHookTables();
     }
     catch(edi_exception &e)
     {
-        rollback();
+        ASTRA::rollback();
         try
         {
           ProgTrace(TRACE0,"EdiExcept: %s:%s", e.errCode().c_str(), e.what());
           errorTlg(tlg_id,"PARS",e.what());
-          commit();
+          ASTRA::commit();
         }
         catch(...) {};
     }
     catch(std::exception &e)
     {
-        rollback();
+        ASTRA::rollback();
         try
         {
           ProgError(STDLOG, "std::exception: %s", e.what());
           errorTlg(tlg_id,"PARS",e.what());
-          commit();
+          ASTRA::commit();
         }
         catch(...) {};
     }
     catch(...)
     {
-        rollback();
+        ASTRA::rollback();
         try
         {
           ProgError(STDLOG, "Unknown error");
           errorTlg(tlg_id,"UNKN");
-          commit();
+          ASTRA::commit();
         }
         catch(...) {};
     }
@@ -185,14 +185,14 @@ bool handle_tlg(void)
     TlgQry.CreateVariable("receiver",otString,OWN_CANON_NAME());
   };
 
-  int count,tlg_id;
+  int count;
 
   count=0;
   TlgQry.Execute();
 //  obr_tlg_queue tlg_obr(1); // Класс - обработчик телеграмм
   try
   {
-      for(;!TlgQry.Eof && (count++)<PROC_COUNT(); TlgQry.Next(), rollback())
+      for(;!TlgQry.Eof && (count++)<PROC_COUNT(); TlgQry.Next(), ASTRA::rollback())
       {
         tlg_info tlgi = {};
         tlgi.id = TlgQry.FieldAsInteger("id");
