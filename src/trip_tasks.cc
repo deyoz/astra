@@ -661,9 +661,10 @@ void sync_lci_trip_tasks(int point_id)
 
 void on_change_trip(const string &descr, int point_id)
 {
+    ProgTrace(TRACE5, "%s: %s; point_id: %d", __FUNCTION__, descr.c_str(), point_id);
     try {
         sync_lci_trip_tasks(point_id);
     } catch(std::exception &E) {
-        ProgError(STDLOG,"%s (point_id=%d): %s", __FUNCTION__, point_id,E.what());
+        ProgError(STDLOG,"%s: %s (point_id=%d): %s", __FUNCTION__, descr.c_str(), point_id,E.what());
     };
 }
