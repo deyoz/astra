@@ -320,11 +320,19 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
        user.user_type==utAirline)) user.access.airps_permit=false;
 
   //проверим ограничение доступа по сессии
-  vector<string> airlines;
+  vector<string> airlines, airps;
   SeparateString(JxtContext::getJxtContHandler()->sysContext()->read("session_airlines"),'/',airlines);
 
   if (!airlines.empty())
     MergeAccess(user.access.airlines,user.access.airlines_permit,airlines,true);
+
+  //проверим ограничение доступа по фильтрам
+  SeparateString(JxtContext::getJxtContHandler()->sysContext()->read("filter_airlines"),'/',airlines);
+  if (!airlines.empty())
+    MergeAccess(user.access.airlines,user.access.airlines_permit,airlines,true);
+  SeparateString(JxtContext::getJxtContHandler()->sysContext()->read("filter_airps"),'/',airps);
+  if (!airps.empty())
+    MergeAccess(user.access.airps,user.access.airps_permit,airps,true);
 
   //проверим ограничение доступа по собственникам пульта
   Qry.Clear();
