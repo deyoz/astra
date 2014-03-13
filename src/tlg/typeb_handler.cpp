@@ -10,7 +10,7 @@
 #include "oralib.h"
 #include "tlg.h"
 #include "tlg_parser.h"
-//#include "lci_parser.h"
+#include "lci_parser.h"
 //#include "ssm_parser.h"
 #include "memory_manager.h"
 #include "qrys.h"
@@ -632,7 +632,8 @@ bool parse_tlg(void)
       "SELECT id, "
       "       MAX(time_receive) AS time_receive, "
       "       MAX(time_create) AS max_time_create, "
-      "       MIN(time_receive) AS min_time_receive "
+      "       MIN(time_receive) AS min_time_receive, "
+      "       MIN(NVL(proc_attempt,0)) AS proc_attempt "
       "FROM tlgs_in "
       "WHERE time_receive_not_parse>=:time_receive "
       "GROUP BY id "
@@ -669,6 +670,19 @@ bool parse_tlg(void)
     {
       int tlg_id=TlgIdQry.FieldAsInteger("id");
       int error_no=NoExists;
+      if (TlgIdQry.FieldAsInteger("proc_attempt")>=HANDLER_PROC_ATTEMPTS())
+      {
+        ProgTrace(TRACE5, "parse_tlg: tlg_id=%d proc_attempt=%d", tlg_id, TlgIdQry.FieldAsInteger("proc_attempt"));
+        Exception E("%d attempts to parse previously failed", TlgIdQry.FieldAsInteger("proc_attempt"));
+        progError(tlg_id, NoExists, error_no, E, "", TFlightsForBind());
+        parseTypeB(tlg_id);
+        OraSession.Commit();
+        count++;
+        continue;
+      };
+      procTypeB(tlg_id, true);
+      OraSession.Commit();
+
       ProgTrace(TRACE5, "tlg_id: %d", tlg_id);
       time_receive=TlgIdQry.FieldAsDateTime("time_receive");
 
@@ -721,8 +735,9 @@ bool parse_tlg(void)
           //не все еще части собраны
           if (utc_date-time_receive > PARTS_NOT_RECEIVE_TIMEOUT)
             throw ETlgError("Some parts not received");
-          else
-            continue;
+          procTypeB(tlg_id, false);
+          OraSession.Commit();
+          continue;
         };
 
         parts.body.clear();
@@ -741,9 +756,9 @@ bool parse_tlg(void)
           //не все еще части собраны
           if (utc_date-time_receive > PARTS_NOT_RECEIVE_TIMEOUT)
             throw ETlgError("Some parts not received");
-          else
-            continue;
-          // не все части собраны
+          procTypeB(tlg_id, false);
+          OraSession.Commit();
+          continue;
         };
 
         part.p=parts.body.c_str();
@@ -780,6 +795,8 @@ bool parse_tlg(void)
                   //если телеграммы не хотят принудительно разбираться
                   //по истечении некоторого времени - записать в просроченные
                   throw ETlgError(tlgeNotMonitorYesAlarm, "Time limit reached");
+                procTypeB(tlg_id, false);
+                OraSession.Commit();
               };
             };
             if (strcmp(info.tlg_type,"PRL")==0)
@@ -837,7 +854,6 @@ bool parse_tlg(void)
             count++;
             break;
           }
-          /*
           case tcLCI:
           {
             TLCIHeadingInfo &info = *(dynamic_cast<TLCIHeadingInfo*>(HeadingInfo));
@@ -857,7 +873,6 @@ bool parse_tlg(void)
             count++;
             break;
           }
-          */
           /*
           case tcSSM:
           {

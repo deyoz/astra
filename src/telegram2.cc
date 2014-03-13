@@ -5728,10 +5728,10 @@ struct TLCICFG:TCFG {
     {
         ostringstream cfg;
         if(not empty()) {
-            info.vcompleted = info.vcompleted and not info.bort.empty() and not info.craft.empty();
+            info.vcompleted = info.vcompleted and not info.craft.empty();
             cfg
                 << "EQT."
-                << (info.bort.empty() ? "??" : info.bort) << "."
+                << (info.bort.empty() ? "XXXXX" : info.bort) << "."
                 << (info.craft.empty() ? "??" : info.TlgElemIdToElem(etCraft, info.craft)) << ".";
             for(vector<TCFGItem>::iterator iv = begin(); iv != end(); iv++)
             {
@@ -5773,6 +5773,43 @@ struct TWA {
         buf.str("");
         buf << "WA.U." << underload << "." << KG;
         if(options.weight_avail.find('U') != string::npos) body.push_back(buf.str());
+    }
+};
+
+struct TSR_S {
+    TPassSeats layerSeats;
+    void get(TypeB::TDetailCreateInfo &info)
+    {
+        const TypeB::TLCIOptions &options = *info.optionsAs<TypeB::TLCIOptions>();
+        if(options.seat_restrict.find('S') != string::npos) {
+            SALONS2::TSalonList salonList;
+            salonList.ReadFlight( SALONS2::TFilterRoutesSets( info.point_id, ASTRA::NoExists ), SALONS2::rfTranzitVersion, "" );
+            SALONS2::TSectionInfo sectionInfo;
+            SALONS2::TGetPassFlags flags;
+            flags.clearFlags();
+            salonList.getSectionInfo( sectionInfo, flags );
+            sectionInfo.GetTotalLayerSeat( cltProtect, layerSeats );
+        }
+    }
+
+    void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
+    {
+        static const string PREFIX = "SR.S";
+        string buf = PREFIX;
+        for(TPassSeats::iterator i_seat = layerSeats.begin(); i_seat != layerSeats.end(); i_seat++) {
+            if(buf == PREFIX)
+                buf += ".";
+            string seat =
+                denorm_iata_row(i_seat->row, NULL) + // denorm - чтобы избавиться от нулей: 002 -> 2
+                i_seat->line + "/";
+            if(buf.size() + seat.size() > LINE_SIZE) {
+                body.push_back(buf);
+                buf = PREFIX;
+            }
+            buf += seat;
+        }
+        if(buf != PREFIX)
+            body.push_back(buf);
     }
 };
 
@@ -6009,7 +6046,7 @@ void TSeatPlan::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
                 "." + denorm_iata_row(is->yname, NULL) +
                 denorm_iata_line(is->xname, info.is_lat() or info.pr_lat_seat) +
                 "/" + im->second.gender;
-            if(buf.size() + seat.size() > 64) {
+            if(buf.size() + seat.size() > LINE_SIZE) {
                 body.push_back(buf);
                 buf = "SP";
             }
@@ -6025,9 +6062,11 @@ struct TLCI {
     TWA wa;
     TSR_C sr_c;
     TSR_Z sr_z;
+    TSR_S sr_s;
     TWM wm; // weight mode
     TLCIPaxTotals pax_totals;
     TSeatPlan sp;
+    string get_action_code(const TypeB::TCreatePoint &cp);
     void get(TypeB::TDetailCreateInfo &info);
     void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
 };
@@ -6043,19 +6082,48 @@ void TLCI::get(TypeB::TDetailCreateInfo &info)
     if(options.weight_avail != "N") wa.get(info);
     sr_c.get(info);
     sr_z.get(info);
+    sr_s.get(info);
     pax_totals.get(info);
     sp.get(info);
+}
+
+string TLCI::get_action_code(const TypeB::TCreatePoint &cp)
+{
+    string result;
+    if(cp.time_offset == 0) {
+        switch(cp.stage_id) {
+            case sOpenCheckIn:
+                result = "O";
+                break;
+            case sCloseCheckIn:
+                result = "C";
+                break;
+            case sCloseBoarding:
+                result = "U";
+                break;
+            case sTakeoff:
+                result = "F";
+                break;
+            default:
+                result = "U";
+                break;
+        }
+    } else {
+        result = "U";
+    }
+    return result;
 }
 
 void TLCI::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 {
     const TypeB::TLCIOptions &options = *info.optionsAs<TypeB::TLCIOptions>();
-    body.push_back("C" + options.action_code);
+    body.push_back("C" + get_action_code(info.create_point));
     eqt.ToTlg(info, body);
     wa.ToTlg(info, body);
     if(options.seating) body.push_back("SM.S"); // Seating method 'By Seat' always
     if(options.seat_restrict.find('C') != string::npos) sr_c.ToTlg(info, body);
     if(options.seat_restrict.find('Z') != string::npos) sr_z.ToTlg(info, body);
+    if(options.seat_restrict.find('S') != string::npos) sr_s.ToTlg(info, body);
     if(options.weight_mode) wm.ToTlg(info, body);
     pax_totals.ToTlg(info, body);
     sp.ToTlg(info, body);
@@ -6962,6 +7030,7 @@ int TelegramInterface::create_tlg(const TypeB::TCreateInfo &createInfo,
 
     TQuery Qry(&OraSession);
     TypeB::TDetailCreateInfo info;
+    info.create_point = createInfo.create_point;
     info.copy(createInfo);
     info.point_id = createInfo.point_id;
     info.lang = AstraLocale::LANG_RU;
@@ -7138,5 +7207,18 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
         << " (ид=" << tlg_id << ") сформирована: ";
     TReqInfo::Instance()->MsgToLog(createInfo.get_options().logStr(msg).str(),evtTlg,createInfo.point_id,tlg_id);
     NewTextChild( resNode, "tlg_id", tlg_id);
+};
+
+void ccccccccccccccccccccc( int point_dep,  const ASTRA::TCompLayerType &layer_type )
+{
+  //try verify its new code!!!
+  SALONS2::TSalonList salonList;
+  salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_dep, ASTRA::NoExists ), SALONS2::rfTranzitVersion, "" );
+  SALONS2::TSectionInfo sectionInfo;
+  SALONS2::TGetPassFlags flags;
+  flags.clearFlags();
+  salonList.getSectionInfo( sectionInfo, flags );
+  TPassSeats layerSeats;
+  sectionInfo.GetTotalLayerSeat( layer_type, layerSeats );
 };
 

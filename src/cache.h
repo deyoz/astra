@@ -120,6 +120,8 @@ class TCacheTable;
 typedef void  (*TBeforeRefreshEvent)(TCacheTable &, TQuery &, const TCacheQueryType);
 typedef void  (*TBeforeApplyEvent)(TCacheTable &, const TRow &, TQuery &, const TCacheQueryType);
 typedef void  (*TAfterApplyEvent)(TCacheTable &, const TRow &, TQuery &, const TCacheQueryType);
+typedef void  (*TBeforeApplyAllEvent)(TCacheTable &);
+typedef void  (*TAfterApplyAllEvent)(TCacheTable &);
 
 enum TUpdateDataType {upNone, upExists, upClearAll};
 
@@ -161,7 +163,7 @@ class TCacheTable {
         void XMLInterface(const xmlNodePtr resNode);
         void XMLData(const xmlNodePtr resNode);
         void DeclareSysVariables(std::vector<std::string> &vars, TQuery *Qry);
-        void DeclareVariables(std::vector<std::string> &vars);
+        void DeclareVariables(const std::vector<std::string> &vars);
         void SetVariables(TRow &row, const std::vector<std::string> &vars);
         void parse_updates(xmlNodePtr rowsNode);
         int getIfaceVer();
@@ -171,6 +173,8 @@ class TCacheTable {
         TBeforeRefreshEvent OnBeforeRefresh;
         TBeforeApplyEvent OnBeforeApply;
         TAfterApplyEvent OnAfterApply;
+        TBeforeApplyAllEvent OnBeforeApplyAll;
+        TAfterApplyAllEvent OnAfterApplyAll;
         void refresh();
         void buildAnswer(xmlNodePtr resNode);
         void ApplyUpdates(xmlNodePtr reqNode);
@@ -181,6 +185,8 @@ class TCacheTable {
         std::string FieldOldValue( const std::string name, const TRow &row );
         TCacheTable()
         {
+          OnBeforeApplyAll = NULL;
+          OnAfterApplyAll = NULL;
           OnBeforeApply = NULL;
           OnBeforeRefresh = NULL;
           OnAfterApply = NULL;

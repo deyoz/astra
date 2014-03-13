@@ -743,7 +743,6 @@ class TLCIOptions : public TCreateOptions
   private:
     void init()
     {
-      action_code="F";
       equipment=true;
       weight_avail="PU";
       seating=true;
@@ -755,7 +754,6 @@ class TLCIOptions : public TCreateOptions
       seat_plan = true;
     };
   public:
-    std::string action_code;
     bool equipment, seating, weight_mode;
     std::string weight_avail, seat_restrict;
     bool pas_totals, bag_totals, pas_distrib, seat_plan;
@@ -771,7 +769,6 @@ class TLCIOptions : public TCreateOptions
       TCreateOptions::fromXML(node);
       if (node==NULL) return;
       xmlNodePtr node2=node->children;
-      action_code=NodeAsStringFast("action_code", node2, action_code.c_str());
       equipment=NodeAsIntegerFast("equipment", node2, (int)equipment) != 0;
       weight_avail=NodeAsStringFast("weight_avail", node2, weight_avail.c_str());
       seating=NodeAsIntegerFast("seating", node2, (int)seating) != 0;
@@ -791,11 +788,6 @@ class TLCIOptions : public TCreateOptions
       for(;!OptionsQry.Eof;OptionsQry.Next())
       {
         std::string cat=OptionsQry.FieldAsString("category");
-        if (cat=="ACTION_CODE")
-        {
-          action_code=OptionsQry.FieldAsString("value");
-          continue;
-        };
         if (cat=="EQUIPMENT")
         {
           equipment=OptionsQry.FieldAsInteger("value")!=0;
@@ -847,9 +839,6 @@ class TLCIOptions : public TCreateOptions
     {
       TCreateOptions::logStr(s);
       s << ", "
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.ACTION_CODE") << ": "
-        << s.ElemIdToNameShort(etTypeBOptionValue, "LCI+ACTION_CODE+"+action_code)
-        << ", "
         << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.EQUIPMENT") << ": "
         << (equipment ? s.getLocaleText("да"):
                         s.getLocaleText("нет"))
@@ -888,10 +877,7 @@ class TLCIOptions : public TCreateOptions
     virtual localizedstream& extraStr(localizedstream &s) const
     {
       TCreateOptions::extraStr(s);
-      s << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.ACTION_CODE") << ": "
-        << s.ElemIdToNameShort(etTypeBOptionValue, "LCI+ACTION_CODE+"+action_code)
-        << endl
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.EQUIPMENT") << ": "
+      s << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.EQUIPMENT") << ": "
         << (equipment ? s.getLocaleText("да"):
                         s.getLocaleText("нет"))
         << endl
@@ -937,8 +923,7 @@ class TLCIOptions : public TCreateOptions
       try
       {
         const TLCIOptions &opt = dynamic_cast<const TLCIOptions&>(item);
-        return action_code==opt.action_code &&
-               equipment==opt.equipment &&
+        return equipment==opt.equipment &&
                weight_avail==opt.weight_avail &&
                seating==opt.seating &&
                weight_mode==opt.weight_mode &&
@@ -959,8 +944,7 @@ class TLCIOptions : public TCreateOptions
       try
       {
         const TLCIOptions &opt = dynamic_cast<const TLCIOptions&>(item);
-        return action_code==opt.action_code &&
-               equipment==opt.equipment &&
+        return equipment==opt.equipment &&
                weight_avail==opt.weight_avail &&
                seating==opt.seating &&
                weight_mode==opt.weight_mode &&
@@ -981,7 +965,6 @@ class TLCIOptions : public TCreateOptions
       try
       {
         const TLCIOptions &opt = dynamic_cast<const TLCIOptions&>(item);
-        action_code=opt.action_code;
         equipment=opt.equipment;
         weight_avail=opt.weight_avail;
         seating=opt.seating;
@@ -1086,6 +1069,30 @@ class TOptionsInfo
     };
 };
 
+struct TCreatePoint {
+    TStage stage_id;
+    int time_offset;
+    TCreatePoint() { clear(); }
+    TCreatePoint(const std::string &params) { paramsFromString(params); }
+    TCreatePoint(TStage vstage_id, int vtime_offset): stage_id(vstage_id), time_offset(vtime_offset) {}
+    void clear() { stage_id = sNoActive; time_offset = 0; };
+    bool exists(int typeb_addrs_id, const std::string &tlg_type) const;
+    bool operator < (const TCreatePoint &cp) const
+    {
+        if(stage_id != cp.stage_id)
+            return stage_id < cp.stage_id;
+        return time_offset < cp.time_offset;
+    }
+    bool operator == (const TCreatePoint &cp) const
+    {
+        return
+            time_offset == cp.time_offset and
+            stage_id == cp.stage_id;
+    }
+    void paramsFromString(const std::string &params);
+    std::string paramsToString() const;
+};
+
 class TCreateInfo : public TOptionsInfo
 {
   private:
@@ -1093,13 +1100,18 @@ class TCreateInfo : public TOptionsInfo
     {
       point_id=ASTRA::NoExists;
       addrs.clear();
+      create_point.clear();
     };
   public:
     int point_id;
     std::set<std::string> addrs;
+    TCreatePoint create_point;
 
     TCreateInfo() {init();};
-    TCreateInfo(const std::string &tlg_type):TOptionsInfo(tlg_type) {init();};
+    TCreateInfo(const std::string &tlg_type, const TCreatePoint &vcreate_point):TOptionsInfo(tlg_type)
+    {
+        init();
+    };
     virtual ~TCreateInfo() {};
 
     virtual void clear()
@@ -1183,6 +1195,7 @@ class TCreateInfo : public TOptionsInfo
     {
       TOptionsInfo::copy(info);
       point_id=info.point_id;
+      create_point = info.create_point;
       addrs=info.addrs;
     };
 };
@@ -1286,6 +1299,7 @@ struct TErrLst:std::map<int, TTypeBOutErrMsg> {
 class TDetailCreateInfo : public TOptionsInfo
 {
   public:
+    TCreatePoint create_point;
     //адреса получателей
     std::string addrs;
     //адрес отправителя
@@ -1379,9 +1393,10 @@ class TSendInfo
     std::string tlg_type,airline,airp_dep,airp_arv;
     int flt_no,point_id,first_point,point_num;
     bool pr_tranzit;
+    TCreatePoint create_point;
 
     TSendInfo() {clear();};
-    TSendInfo(const std::string &p_tlg_type, const TAdvTripInfo &fltInfo)
+    TSendInfo(const std::string &p_tlg_type, const TAdvTripInfo &fltInfo, const TCreatePoint &vcreate_point)
     {
       clear();
       tlg_type=p_tlg_type;
@@ -1392,6 +1407,7 @@ class TSendInfo
       point_num=fltInfo.point_num;
       first_point=fltInfo.first_point;
       pr_tranzit=fltInfo.pr_tranzit;
+      create_point = vcreate_point;
     };
     TSendInfo(const TDetailCreateInfo &info)
     {
@@ -1417,11 +1433,14 @@ class TSendInfo
       first_point=ASTRA::NoExists;
       point_num=ASTRA::NoExists;
       pr_tranzit=false;
+      create_point.clear();
     };
     bool isSend() const;
     void getCreateInfo(const std::vector<TSimpleMktFlight> &mktFlights,
                        bool onlyOneFlight,
                        std::vector<TCreateInfo> &info) const;
+    void getCreatePoints(const std::vector<TSimpleMktFlight> &mktFlights,
+                         std::set<TCreatePoint> &info) const;
 };
 
 class TAddrInfo : public TOptionsInfo
@@ -1479,6 +1498,8 @@ class TCreator
     const std::set<std::string>& airps();
     const std::vector<std::string>& crs();
     const std::vector<TSimpleMktFlight>& mkt_flights();
+    
+    TCreatePoint create_point;
   public:
     TCreator(const TAdvTripInfo &fltInfo):flt(fltInfo)
     {
@@ -1486,7 +1507,7 @@ class TCreator
       crs_init=false;
       mkt_flights_init=false;
     };
-    TCreator(int point_id);
+    TCreator(int point_id, const TCreatePoint &vcreate_point);
     virtual ~TCreator() {};
 
     TCreator& operator << (const std::string &tlg_type)
@@ -1504,21 +1525,15 @@ class TCreator
 class TCloseCheckInCreator : public TCreator
 {
   public:
-    TCloseCheckInCreator(int point_id) : TCreator(point_id)
+    TCloseCheckInCreator(int point_id) : TCreator(point_id, TCreatePoint(sCloseCheckIn, 0))
     {
       *this << "COM"
             << "COM2"
-            << "PRL"
-            << "LCI";
+            << "PRL";
     };
 
     virtual bool validInfo(const TCreateInfo &info) const {
         if (!TCreator::validInfo(info)) return false;
-
-        if (info.optionsIs<TLCIOptions>())
-        {
-          if (info.optionsAs<TLCIOptions>()->action_code!="C") return false;
-        };    
 
         if (info.optionsIs<TPRLOptions>())
         {
@@ -1529,42 +1544,17 @@ class TCloseCheckInCreator : public TCreator
     };
 };
 
-class TOpenCheckInCreator : public TCreator
-{
-  public:
-    TOpenCheckInCreator(int point_id) : TCreator(point_id)
-    {
-      *this << "LCI";
-    };
-    virtual bool validInfo(const TCreateInfo &info) const {
-        if (!TCreator::validInfo(info)) return false;
-
-        if (info.optionsIs<TLCIOptions>())
-        {
-          if (info.optionsAs<TLCIOptions>()->action_code!="O") return false;
-        };    
-
-        return true;
-    };
-};
-
 class TCloseBoardingCreator : public TCreator
 {
   public:
-    TCloseBoardingCreator(int point_id) : TCreator(point_id)
+    TCloseBoardingCreator(int point_id) : TCreator(point_id, TCreatePoint(sCloseBoarding, 0))
     {
       *this << "COM"
             << "COM2"
-            << "LCI"
             << "PRL";
     };
     virtual bool validInfo(const TCreateInfo &info) const {
         if (!TCreator::validInfo(info)) return false;
-
-        if (info.optionsIs<TLCIOptions>())
-        {
-          if (info.optionsAs<TLCIOptions>()->action_code!="U") return false;
-        };    
 
         if (info.optionsIs<TPRLOptions>())
         {
@@ -1578,7 +1568,7 @@ class TCloseBoardingCreator : public TCreator
 class TTakeoffCreator : public TCreator
 {
   public:
-    TTakeoffCreator(int point_id) : TCreator(point_id)
+    TTakeoffCreator(int point_id) : TCreator(point_id, TCreatePoint(sTakeoff, 0))
     {
       *this << "PTM"
             << "PTMN"
@@ -1594,16 +1584,10 @@ class TTakeoffCreator : public TCreator
         //    << "ETL" формируем по прилету в конечные пункт если не было интерактива с СЭБ
             << "ETLD"
             << "LDM"
-            << "CPM"
-            << "LCI";
+            << "CPM";
     };
     virtual bool validInfo(const TCreateInfo &info) const {
         if (!TCreator::validInfo(info)) return false;
-
-        if (info.optionsIs<TLCIOptions>())
-        {
-          if (info.optionsAs<TLCIOptions>()->action_code!="F") return false;
-        };    
 
         if (info.optionsIs<TPRLOptions>())
         {
@@ -1617,7 +1601,7 @@ class TTakeoffCreator : public TCreator
 class TMVTACreator : public TCreator
 {
   public:
-    TMVTACreator(int point_id) : TCreator(point_id)
+    TMVTACreator(int point_id) : TCreator(point_id, TCreatePoint())
     {
       *this << "MVTA";
     };
@@ -1626,7 +1610,7 @@ class TMVTACreator : public TCreator
 class TMVTBCreator : public TCreator
 {
   public:
-    TMVTBCreator(int point_id) : TCreator(point_id)
+    TMVTBCreator(int point_id) : TCreator(point_id, TCreatePoint())
     {
       *this << "MVTB";
     };
@@ -1635,7 +1619,7 @@ class TMVTBCreator : public TCreator
 class TMVTCCreator : public TCreator
 {
   public:
-    TMVTCCreator(int point_id) : TCreator(point_id)
+    TMVTCCreator(int point_id) : TCreator(point_id, TCreatePoint())
     {
       *this << "MVTC";
     };
@@ -1644,7 +1628,7 @@ class TMVTCCreator : public TCreator
 class TETLCreator : public TCreator
 {
   public:
-    TETLCreator(int point_id) : TCreator(point_id)
+    TETLCreator(int point_id) : TCreator(point_id, TCreatePoint())
     {
       *this << "ETL";
     };

@@ -49,7 +49,7 @@ void check_u_trfer_alarm_for_next_trfer( int id,  //м.б. point_id или grp_id
                                          ASTRA::TIdType id_type );
 bool check_conflict_trfer_alarm(int point_id);
 void check_crew_alarms(int point_id);
-void check_crew_alarms(int point_id, const std::string& task_name);
+void check_crew_alarms(int point_id, const std::string& task_name, const std::string &params);
 
 #endif
 

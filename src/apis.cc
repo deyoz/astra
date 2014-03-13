@@ -1036,7 +1036,7 @@ bool create_apis_file(int point_id, const string& task_name)
   return result;
 };
 
-void create_apis_task(int point_id, const std::string& task_name)
+void create_apis_task(int point_id, const std::string& task_name, const string &params)
 {
   create_apis_file(point_id, task_name);
 };

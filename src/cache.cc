@@ -13,6 +13,8 @@
 #include "comp_layers.h"
 #include "astra_misc.h"
 #include "timer.h"
+#include "qrys.h"
+#include "trip_tasks.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -38,6 +40,7 @@ const
                          {"DESK_GRP",                etDeskGrp},
                          {"ENCODING_FMT",            etUserSetType},
                          {"GRAPH_STAGES",            etGraphStage},
+                         {"GRAPH_STAGES_WO_INACTIVE",etGraphStageWOInactive},
                          {"HALLS",                   etHall},
                          {"KIOSK_CKIN_DESK_GRP",     etDeskGrp},
                          {"MISC_SET_TYPES",          etMiscSetType},
@@ -1073,9 +1076,8 @@ void OnLoggingF( TCacheTable &cache, const TRow &row, TCacheUpdateStatus UpdateS
     message.ev_type = evtFlt;
     int point_id;
     if ( UpdateStatus == usInserted ) {
-      TParams p = row.params;
-      TParams::iterator ip = p.find( "POINT_ID" );
-      if ( ip == p.end() )
+      TParams::const_iterator ip = row.params.find( "POINT_ID" );
+      if ( ip == row.params.end() )
         throw Exception( "Can't find variable point_id" );
       point_id = ToInt( ip->second.Value );
     }
@@ -1333,11 +1335,61 @@ void TCacheTable::OnLogging( const TRow &row, TCacheUpdateStatus UpdateStatus )
     TReqInfo::Instance()->MsgToLog( message );
 }
 
+void DeclareVariablesFromParams(const std::vector<string> &vars, const TParams &SQLParams, TQuery &Qry)
+{
+  for ( vector<string>::const_iterator r=vars.begin(); r!=vars.end(); r++ ) {
+    if ( Qry.Variables->FindVariable( r->c_str() ) == -1 ) {
+      map<std::string, TParam>::const_iterator ip = SQLParams.find( *r );
+      if ( ip != SQLParams.end() ) {
+        ProgTrace( TRACE5, "Declare variable from SQLParams r->c_str()=%s", r->c_str() );
+        switch( ip->second.DataType ) {
+          case ctInteger:
+            Qry.DeclareVariable( *r, otInteger );
+            break;
+          case ctDouble:
+            Qry.DeclareVariable( *r, otFloat );
+            break;
+          case ctDateTime:
+            Qry.DeclareVariable( *r, otDate );
+            break;
+          case ctString:
+            Qry.DeclareVariable( *r, otString );
+            break;
+        }
+      }
+    }
+  }
+};
+
+void SetVariablesFromParams(const std::vector<string> &vars, const TParams &SQLParams, TQuery &Qry)
+{
+  for( map<std::string, TParam>::const_iterator iv=SQLParams.begin(); iv!=SQLParams.end(); iv++ ) {
+    if ( Qry.Variables->FindVariable( iv->first.c_str() ) == -1 ) continue;
+    Qry.SetVariable( iv->first, iv->second.Value );
+    ProgTrace( TRACE5, "SetVariable name=%s, value=%s",
+              (char*)iv->first.c_str(),(char *)iv->second.Value.c_str() );
+  }
+};
+
 void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
 {
   parse_updates(GetNode("rows", reqNode));
 
   int NewVerData = -1;
+
+  if(OnBeforeApplyAll)
+      try {
+          (*OnBeforeApplyAll)(*this);
+      } catch(UserException E) {
+          throw;
+      } catch(Exception E) {
+          ProgError(STDLOG, "OnBeforeApplyAll failed: %s", E.what());
+          throw;
+      } catch(...) {
+          ProgError(STDLOG, "OnBeforeApplyAll failed: something unexpected");
+          throw;
+      }
+
   for(int i = 0; i < 3; i++) {
     string sql;
     TCacheUpdateStatus status;
@@ -1371,16 +1423,23 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
       }
       Qry->Clear();
       Qry->SQLText = sql;
+      DeclareSysVariables(vars, Qry);
       DeclareVariables( vars ); //заранее создаем все переменные
       if ( tidExists ) {
         Qry->DeclareVariable( "tid", otInteger );
         Qry->SetVariable( "tid", NewVerData );
         ProgTrace( TRACE5, "NewVerData=%d", NewVerData );
       }
+      bool firstRow=true;
       for( TTable::iterator iv = table.begin(); iv != table.end(); iv++ )
       {
         //цикл по строчкам
         if ( iv->status != status ) continue;
+        if (firstRow)
+        {
+          DeclareVariablesFromParams(vars, iv->params, *Qry);
+          firstRow=false;
+        };
 
         if(OnBeforeApply)
             try {
@@ -1432,6 +1491,20 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
       } /* end for */
     } /* end if */
   } /* end for  0..2 */
+
+  if(OnAfterApplyAll)
+      try {
+          (*OnAfterApplyAll)(*this);
+      } catch(UserException E) {
+          throw;
+      } catch(Exception E) {
+          ProgError(STDLOG, "OnAfterApplyAll failed: %s", E.what());
+          throw;
+      } catch(...) {
+          ProgError(STDLOG, "OnAfterApplyAll failed: something unexpected");
+          throw;
+      }
+
   Qry->Clear();
   Qry->SQLText =
     "SELECT tid FROM cache_tables WHERE code=:code";
@@ -1446,44 +1519,9 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
   }
 }
 
-void TCacheTable::SetVariables(TRow &row, const std::vector<std::string> &vars)
+void TCacheTable::DeclareVariables(const std::vector<string> &vars)
 {
-  string value;
-  int Idx=0;
-  for(vector<TCacheField2>::iterator iv = FFields.begin(); iv != FFields.end(); iv++, Idx++) {
-    for(int i = 0; i < 2; i++) {
-      //ProgTrace(TRACE5, "TCacheTable::SetVariables: i = %d, Name = %s", i, iv->Name.c_str());
-      if(iv->VarIdx[i] >= 0) { /* есть индекс переменной */
-        if(i == 0)
-          value = row.cols[ Idx ]; /* берем из нужного столбца данных, которые пришли */
-        else
-          value = row.old_cols[ Idx ];
-        if ( !value.empty() )
-          Qry->SetVariable( vars[ iv->VarIdx[i] ],(char *)value.c_str());
-        else
-          Qry->SetVariable( vars[ iv->VarIdx[i] ],FNull);
-        ProgTrace( TRACE5, "SetVariable name=%s, value=%s, ind=%d",
-                  (char*)vars[ iv->VarIdx[i] ].c_str(),(char *)value.c_str(), Idx );
-      }
-    }
-  }
-
-
-  /* задаем переменные, которые дополнительно пришли
-     после вызова на клиенте OnSetVariable */
-  for( map<std::string, TParam>::iterator iv=row.params.begin(); iv!=row.params.end(); iv++ ) {
-    Qry->SetVariable( iv->first, iv->second.Value );
-    ProgTrace( TRACE5, "SetVariable name=%s, value=%s",
-              (char*)iv->first.c_str(),(char *)iv->second.Value.c_str() );
-  }
-}
-
-void TCacheTable::DeclareVariables(std::vector<string> &vars)
-{
-
-  DeclareSysVariables(vars,Qry);
-
-  vector<string>::iterator f;
+  vector<string>::const_iterator f;
   for( vector<TCacheField2>::iterator iv = FFields.begin(); iv != FFields.end(); iv++ ) {
     string VarName;
     for( int i = 0; i < 2; i++ ) {
@@ -1523,28 +1561,33 @@ void TCacheTable::DeclareVariables(std::vector<string> &vars)
       }
     }
   }
-  for ( vector<string>::iterator r=vars.begin(); r!=vars.end(); r++ ) {
-    if ( Qry->Variables->FindVariable( r->c_str() ) == -1 ) {
-      map<std::string, TParam>::iterator ip = SQLParams.find( *r );
-      if ( ip != SQLParams.end() ) {
-        ProgTrace( TRACE5, "Declare variable from SQLParams r->c_str()=%s", r->c_str() );
-        switch( ip->second.DataType ) {
-          case ctInteger:
-            Qry->DeclareVariable( *r, otInteger );
-            break;
-          case ctDouble:
-            Qry->DeclareVariable( *r, otFloat );
-            break;
-          case ctDateTime:
-            Qry->DeclareVariable( *r, otDate );
-            break;
-          case ctString:
-            Qry->DeclareVariable( *r, otString );
-            break;
-        }
+  DeclareVariablesFromParams(vars, SQLParams, *Qry);
+}
+
+void TCacheTable::SetVariables(TRow &row, const std::vector<std::string> &vars)
+{
+  string value;
+  int Idx=0;
+  for(vector<TCacheField2>::iterator iv = FFields.begin(); iv != FFields.end(); iv++, Idx++) {
+    for(int i = 0; i < 2; i++) {
+      //ProgTrace(TRACE5, "TCacheTable::SetVariables: i = %d, Name = %s", i, iv->Name.c_str());
+      if(iv->VarIdx[i] >= 0) { /* есть индекс переменной */
+        if(i == 0)
+          value = row.cols[ Idx ]; /* берем из нужного столбца данных, которые пришли */
+        else
+          value = row.old_cols[ Idx ];
+        if ( !value.empty() )
+          Qry->SetVariable( vars[ iv->VarIdx[i] ],(char *)value.c_str());
+        else
+          Qry->SetVariable( vars[ iv->VarIdx[i] ],FNull);
+        ProgTrace( TRACE5, "SetVariable name=%s, value=%s, ind=%d",
+                  (char*)vars[ iv->VarIdx[i] ].c_str(),(char *)value.c_str(), Idx );
       }
     }
   }
+
+  SetVariablesFromParams(vars, SQLParams, *Qry);
+  SetVariablesFromParams(vars, row.params, *Qry);
 }
 
 int TCacheTable::getIfaceVer() {
@@ -1642,6 +1685,37 @@ void BeforeRefresh(TCacheTable &cache, TQuery &refreshQry, const TCacheQueryType
   };
 };
 
+static set<int> lci_point_ids;
+static int lci_typeb_addrs_id;
+
+void BeforeApplyAll(TCacheTable &cache)
+{
+  if (cache.code() == "TYPEB_ADDRS_LCI")
+    lci_point_ids.clear();  
+  if (cache.code() == "TYPEB_CREATE_POINTS")
+      lci_typeb_addrs_id = NoExists;
+};    
+
+void AfterApplyAll(TCacheTable &cache)
+{
+    if (cache.code() == "TYPEB_ADDRS_LCI")
+    {
+        for(set<int>::const_iterator i=lci_point_ids.begin(); i!=lci_point_ids.end(); ++i)
+            sync_lci_trip_tasks(*i);
+        lci_point_ids.clear();
+    };    
+    if (cache.code() == "TYPEB_CREATE_POINTS") 
+    {
+        if(lci_typeb_addrs_id != NoExists) {
+            set<int> point_ids;
+            calc_lci_point_ids(lci_typeb_addrs_id, point_ids);
+            for(set<int>::const_iterator i = point_ids.begin(); i != point_ids.end(); i++)
+                sync_lci_trip_tasks(*i);
+            lci_typeb_addrs_id = NoExists;
+        }
+    };    
+};    
+
 void BeforeApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TCacheQueryType qryType)
 {
   if (cache.code() == "CODESHARE_SETS")
@@ -1659,6 +1733,39 @@ void BeforeApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TC
 
 void AfterApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TCacheQueryType qryType)
 {
+  if (cache.code() == "TYPEB_ADDRS_LCI")
+  {
+      set<int> point_ids;
+      TSimpleFltInfo flt;
+      if(qryType == cqtDelete or qryType == cqtUpdate) {
+          flt.airline = cache.FieldOldValue("airline", row);
+          flt.airp_dep = cache.FieldOldValue("airp_dep", row);
+          flt.airp_arv = cache.FieldOldValue("airp_arv", row);
+          flt.flt_no = ToInt(cache.FieldOldValue("flt_no", row));
+          calc_lci_point_ids(flt, point_ids);
+      }
+      if(qryType == cqtInsert or qryType == cqtUpdate) {
+          flt.airline = cache.FieldValue("airline", row);
+          flt.airp_dep = cache.FieldValue("airp_dep", row);
+          flt.airp_arv = cache.FieldValue("airp_arv", row);
+          flt.flt_no = ToInt(cache.FieldValue("flt_no", row));
+          calc_lci_point_ids(flt, point_ids);
+      }
+      lci_point_ids.insert(point_ids.begin(), point_ids.end());
+  };    
+      
+
+  if (cache.code() == "TYPEB_CREATE_POINTS") {
+      int tmp_id;
+      if (qryType == cqtInsert || qryType == cqtUpdate)
+          tmp_id=ToInt(cache.FieldValue( "id", row ));
+      else
+          tmp_id=ToInt(cache.FieldOldValue( "id", row ));
+      if(lci_typeb_addrs_id != NoExists and lci_typeb_addrs_id != tmp_id)
+          throw Exception("typeb_create_points after apply: id must be same");
+      lci_typeb_addrs_id = tmp_id;
+  }
+
   if (cache.code() == "TRIP_PAID_CKIN")
   {
     if (!( (qryType == cqtDelete || ToInt(cache.FieldValue( "pr_permit", row )) == 0) &&
@@ -1751,6 +1858,8 @@ void CacheInterface::SaveCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   cache.Init(reqNode);
   if ( cache.changeIfaceVer() )
     throw AstraLocale::UserException( "MSG.CACHE.IFACE_VERSION_CHANGED.REFRESH" );
+  cache.OnBeforeApplyAll = BeforeApplyAll;
+  cache.OnAfterApplyAll = AfterApplyAll;
   cache.OnBeforeApply = BeforeApply;
   cache.OnAfterApply = AfterApply;
   cache.ApplyUpdates( reqNode );

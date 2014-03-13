@@ -11,6 +11,7 @@ namespace TypeB
 struct TLCIFltInfo {
     TFlightIdentifier flt;
     std::string airp;
+    TFltInfo toFltInfo();
     void parse(const char *val, TFlightsForBind &flts);
     void dump();
 };
@@ -273,6 +274,14 @@ enum TDestInfoKey {
     dkUnknown
 };
 
+enum TReqType {
+    rtSP,
+    rtBT,
+    rtSR,
+    rtWM,
+    rtUnknown
+};
+
 enum TDestInfoType {
     dtA,
     dtC,
@@ -327,10 +336,22 @@ struct TDest:public std::map<std::string, TDestInfoMap> {
     void dump();
 };
 
+struct TLCIReqInfo {
+    TReqType req_type;
+    TSR sr;             // filled if SR type
+    TWMType wm_type;    // filled if WM type;
+};
+
+struct TRequest:public std::map<TReqType, TLCIReqInfo> {
+    void parse(const char *val);
+    void dump();
+};
+
 class TLCIContent
 {
     public:
         TActionCode action_code;
+        TRequest req;
         TDest dst;
         TEQT eqt;
         TWA wa;

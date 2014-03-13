@@ -70,7 +70,7 @@ void TTlgBinding::after_bind_or_unbind_flt(int point_id_tlg, int point_id_spp, b
       check_layer_change(point_ids_spp);
     };
   if (!unbind)
-    add_trip_task(point_id_spp, SYNC_ALL_CHKD);
+    add_trip_task(point_id_spp, SYNC_ALL_CHKD, "");
   check_tlg_in_alarm(point_id_tlg, point_id_spp);
 };
 

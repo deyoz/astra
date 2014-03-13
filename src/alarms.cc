@@ -441,7 +441,7 @@ bool need_crew_checkin(const TAdvTripInfo &fltInfo)
   return (r!=route.end());
 };
 
-void check_crew_alarms(int point_id, const string& task_name)
+void check_crew_alarms(int point_id, const string& task_name, const string &params)
 {
   check_crew_alarms(point_id);
 };

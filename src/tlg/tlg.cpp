@@ -513,6 +513,32 @@ void errorTypeB(int tlg_id,
   };
 };
 
+void procTypeB(int tlg_id, bool inc)
+{
+  try
+  {
+    const char* sql=
+      "UPDATE tlgs_in SET proc_attempt=NVL(proc_attempt,0)+:d WHERE id=:id ";
+
+    QParams QryParams;
+    QryParams << QParam("id", otInteger, tlg_id);
+    QryParams << QParam("d", otInteger, inc?1:-1);
+
+    TCachedQuery Qry(sql, QryParams);
+    Qry.get().Execute();
+  }
+  catch( std::exception &e)
+  {
+      ProgError(STDLOG, e.what());
+      throw;
+  }
+  catch(...)
+  {
+      ProgError(STDLOG, "procTypeB: Unknown error");
+      throw;
+  };
+};
+
 bool procTlg(int tlg_id)
 {
   try

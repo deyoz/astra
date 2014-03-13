@@ -422,6 +422,8 @@ class TSectionInfo {
     }
     void GetCurrentLayerSeat( const ASTRA::TCompLayerType &layer_type,
                               std::vector<std::pair<TSeatLayer,TPassSeats> > &layersSeats );
+    void GetTotalLayerSeat( const ASTRA::TCompLayerType &layer_type,
+                            TPassSeats &layerSeats );
     int seatsTotalLayerSeats( const ASTRA::TCompLayerType &layer_type ) {
       if ( totalLayerSeats.find( layer_type ) != totalLayerSeats.end() ) {
         return (int)totalLayerSeats[ layer_type ].size();
@@ -1326,6 +1328,9 @@ class TSalonList: public std::vector<TPlaceList*> {
   void DeleteSalons( int point_id );
   
   bool isUserProtectLayer( ASTRA::TCompLayerType layer_type );
+
+  void resetLayers( int point_id, ASTRA::TCompLayerType layer_type,
+                    const std::vector<TSeatRange> &seatRanges, const std::string &reason );
 
 } // END namespace SALONS2
 

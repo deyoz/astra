@@ -6826,7 +6826,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
           Qry.CreateVariable("point_id", otInteger, point_id);
           Qry.Execute();
           for(;!Qry.Eof;Qry.Next())
-            add_trip_task(Qry.FieldAsInteger("point_id_spp"), SYNC_NEW_CHKD);
+            add_trip_task(Qry.FieldAsInteger("point_id_spp"), SYNC_NEW_CHKD, "");
         };
       };
 

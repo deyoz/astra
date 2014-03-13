@@ -1632,7 +1632,7 @@ bool createUTGDataFiles( int point_id, const std::string &point_addr, TFileDatas
     if(stats) stats->selected++;
     if(utgQry.get().Eof) return false;
     int last_flt_change_tid = utgQry.get().FieldAsInteger("last_flt_change_tid");
-    TypeB::TCreateInfo info("PRL");
+    TypeB::TCreateInfo info("PRL", TypeB::TCreatePoint());
     info.point_id = point_id;
     TTypeBTypesRow tlgTypeInfo;
     int tlg_id = TelegramInterface::create_tlg(info, tlgTypeInfo, true);

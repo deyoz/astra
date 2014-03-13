@@ -18,6 +18,7 @@
 #include "flt_binding.h"
 #include "apis.h"
 #include "sopp.h"
+#include "trip_tasks.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -1081,6 +1082,7 @@ void CreateSPP( BASIC::TDateTime localdate )
       TDateTime scd_out;
       vector<TTripInfo> flts;
       bool pr_check_usa_apis = false;
+      vector<int> points;
       for ( TDests::iterator d=im->second.dests.begin(); d!=im->second.dests.end(); d++ ) {
         PQry.SetVariable( "point_num", d->num );
         airp = ElemToElemId( etAirp, d->airp, fmt );
@@ -1186,6 +1188,7 @@ void CreateSPP( BASIC::TDateTime localdate )
         PersWeightRules weights;
         persWeights.getRules( point_id, weights );
         weights.write( point_id );
+        points.push_back(point_id);
         p = d;
         if ( !airline.empty() &&
               d->trip != NoExists &&
@@ -1209,6 +1212,9 @@ void CreateSPP( BASIC::TDateTime localdate )
           ProgError(STDLOG,"CreateSPP.check_trip_tasks (move_id=%d): %s",move_id,E.what());
         };
       }
+      for ( vector<int>::const_iterator i = points.begin(); i != points.end(); i++) {
+        on_change_trip( CALL_POINT, *i );
+      };
     }
   }
   TReqInfo::Instance()->MsgToLog( string( "Получение СПП за " ) + DateTimeToStr( localdate, "dd.mm.yy" ), evtSeason );

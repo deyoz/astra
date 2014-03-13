@@ -28,6 +28,7 @@ enum TElemType {
                  etDevSessType,
                  etGenderType,
                  etGraphStage,
+                 etGraphStageWOInactive,
                  etGrpStatusType,
                  etHall,
                  etLangType,

@@ -7,6 +7,7 @@
 #include "basic.h"
 #include "astra_consts.h"
 #include <libxml/parser.h>
+#include "oralib.h"
 
 enum TStage { sNoActive = 0, /*не активен*/
               sPrepCheckIn = 10, /*Подготовка к регистрации*/
@@ -22,6 +23,11 @@ enum TStage { sNoActive = 0, /*не активен*/
               sRemovalGangWay = 70, /*Уборка трапа*/
               sTakeoff = 99 /*Вылетел*/ };
 
+extern const char *TStageS[13];
+
+TStage DecodeStage(const char* s);
+const char* EncodeStage(TStage s);
+
 enum TStage_Type { stCheckIn = 1,
                    stBoarding = 2,
                    stCraft = 3,
@@ -31,12 +37,14 @@ enum TStage_Type { stCheckIn = 1,
 enum TStageStep { stPrior, stNext };
 
 struct TTripStage {
+  TStage stage;
   BASIC::TDateTime scd;
   BASIC::TDateTime est;
   BASIC::TDateTime act;
   BASIC::TDateTime old_est;
   BASIC::TDateTime old_act;
   int pr_auto;
+  void fromDB(TQuery &Qry);
   TTripStage() {
     scd = ASTRA::NoExists;
     est = ASTRA::NoExists;
@@ -66,6 +74,7 @@ class TTripStages {
     TTripStages( int vpoint_id );
     void LoadStages( int vpoint_id );
     static void LoadStages( int vpoint_id, TMapTripStages &ts );
+    static void LoadStage( int vpoint_id, TStage stage, TTripStage &ts );
     static void ParseStages( xmlNodePtr tripNode, TMapTripStages&ts );
     static void WriteStages( int point_id, TMapTripStages &t );
     static void WriteStagesUTC( int point_id, TMapTripStages &ts );

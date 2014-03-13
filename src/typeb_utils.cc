@@ -922,103 +922,140 @@ bool TSendInfo::isSend() const
   return true;
 };
 
+void add_filtered_item(const TSendInfo &sendInfo, TQuery &Qry, set<TCreatePoint> &result)
+{
+    QParams QryParams;
+    QryParams << QParam("id", otInteger, Qry.FieldAsInteger("id"));
+    TCachedQuery paramsQry("select stage_id, time_offset from typeb_create_points where id = :id", QryParams);
+    paramsQry.get().Execute();
+    for(; not paramsQry.get().Eof; paramsQry.get().Next())
+        result.insert(TCreatePoint(
+                                   (TStage)paramsQry.get().FieldAsInteger("stage_id"),
+                                   paramsQry.get().FieldAsInteger("time_offset")));
+}
+
+void add_filtered_item(const TSendInfo &sendInfo, TQuery &Qry, vector<TCreateInfo> &result)
+{
+    if(not sendInfo.create_point.exists(Qry.FieldAsInteger("id"), sendInfo.tlg_type))
+        return;
+    TCreateInfo createInfo;
+    TQuery OptionsQry(&OraSession); // !!! vlad
+    createInfo.fromDB(Qry, OptionsQry);
+    createInfo.create_point = sendInfo.create_point; // надо присваивать после fromDB, т.к. в нем clear
+    result.push_back(createInfo);
+};    
+
+template <typename T>
+void filter_typeb_addrs(const TSendInfo &sendInfo,
+                        const vector<TSimpleMktFlight> &mktFlights,
+                        bool onlyOneFlight,
+                        T &result)
+{
+    result.clear();
+    bool pr_dep=false,pr_arv=false;
+    try
+    {
+        const TTypeBTypesRow& row = (TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",sendInfo.tlg_type));
+        pr_dep=row.pr_dep==NoExists || row.pr_dep!=0;
+        pr_arv=row.pr_dep==NoExists || row.pr_dep==0;
+    }
+    catch(EBaseTableError)
+    {
+        return;
+    };
+
+    ostringstream sql;
+    TQuery OptionsQry(&OraSession);
+    TQuery AddrQry(&OraSession);
+    AddrQry.Clear();
+    sql << "SELECT * FROM typeb_addrs "
+        "WHERE pr_mark_flt=:pr_mark_flt AND tlg_type=:tlg_type AND "
+        "      (airline=:airline OR airline IS NULL) AND "
+        "      (flt_no=:flt_no OR flt_no IS NULL) ";
+    AddrQry.CreateVariable("tlg_type",otString,sendInfo.tlg_type);
+    AddrQry.DeclareVariable("pr_mark_flt",otInteger);
+    AddrQry.DeclareVariable("airline",otString);
+    AddrQry.DeclareVariable("flt_no",otInteger);
+
+    if (pr_dep)
+    {
+        //привязывается к вылету
+        sql << " AND "
+            "(airp_dep=:airp_dep OR airp_dep IS NULL) AND "
+            "(airp_arv IN "
+            "  (SELECT airp FROM points "
+            "   WHERE first_point=:first_point AND point_num>:point_num AND pr_del=0) OR airp_arv IS NULL)";
+        AddrQry.CreateVariable("airp_dep",otString,sendInfo.airp_dep);
+    };
+    if (pr_arv)
+    {
+        //привязывается к прилету
+        sql << " AND "
+            "(airp_arv=:airp_arv OR airp_arv IS NULL) AND "
+            "(airp_dep IN "
+            "  (SELECT airp FROM points "
+            "   WHERE :first_point IN (point_id,first_point) AND point_num<=:point_num AND pr_del=0) OR airp_dep IS NULL)";
+        AddrQry.CreateVariable("airp_arv",otString,sendInfo.airp_arv);
+        if (sendInfo.airp_arv.empty())
+        {
+            TTripRoute route;
+            route.GetRouteAfter(NoExists,
+                    sendInfo.point_id,
+                    sendInfo.point_num,
+                    sendInfo.first_point,
+                    sendInfo.pr_tranzit,
+                    trtNotCurrent,trtNotCancelled);
+            if (!route.empty())
+                AddrQry.SetVariable("airp_arv", route.begin()->airp);
+        };
+    };
+    AddrQry.CreateVariable("first_point", otInteger, sendInfo.pr_tranzit ? sendInfo.first_point : sendInfo.point_id);
+    AddrQry.CreateVariable("point_num",otInteger,sendInfo.point_num);
+    AddrQry.SQLText=sql.str();
+
+    for(vector<TSimpleMktFlight>::const_iterator f=mktFlights.begin();;++f)
+    {
+        if (f!=mktFlights.end())
+        {
+            AddrQry.SetVariable("pr_mark_flt", (int)true);
+            AddrQry.SetVariable("airline", f->airline);
+            if (f->flt_no!=NoExists)
+                AddrQry.SetVariable("flt_no", f->flt_no);
+            else
+                AddrQry.SetVariable("flt_no", FNull);
+        }
+        else
+        {
+            AddrQry.SetVariable("pr_mark_flt", (int)false);
+            AddrQry.SetVariable("airline", sendInfo.airline);
+            if (sendInfo.flt_no!=NoExists)
+                AddrQry.SetVariable("flt_no", sendInfo.flt_no);
+            else
+                AddrQry.SetVariable("flt_no", FNull);
+        };
+
+        AddrQry.Execute();
+        for(;!AddrQry.Eof;AddrQry.Next())
+        {
+            add_filtered_item(sendInfo, AddrQry, result);
+        };
+        if (onlyOneFlight) break;
+        if (f==mktFlights.end()) break;
+    };
+
+}
+
+void TSendInfo::getCreatePoints(const vector<TSimpleMktFlight> &mktFlights,
+                                set<TCreatePoint> &info) const
+{
+    filter_typeb_addrs< set<TCreatePoint> >(*this, mktFlights, true, info);
+};    
+
 void TSendInfo::getCreateInfo(const vector<TSimpleMktFlight> &mktFlights,
                               bool onlyOneFlight,
                               vector<TCreateInfo> &info) const
 {
-  info.clear();
-  bool pr_dep=false,pr_arv=false;
-  try
-  {
-    const TTypeBTypesRow& row = (TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",tlg_type));
-    pr_dep=row.pr_dep==NoExists || row.pr_dep!=0;
-    pr_arv=row.pr_dep==NoExists || row.pr_dep==0;
-  }
-  catch(EBaseTableError)
-  {
-    return;
-  };
-
-  ostringstream sql;
-  TQuery OptionsQry(&OraSession);
-  TQuery AddrQry(&OraSession);
-  AddrQry.Clear();
-  sql << "SELECT * FROM typeb_addrs "
-         "WHERE pr_mark_flt=:pr_mark_flt AND tlg_type=:tlg_type AND "
-         "      (airline=:airline OR airline IS NULL) AND "
-         "      (flt_no=:flt_no OR flt_no IS NULL) ";
-  AddrQry.CreateVariable("tlg_type",otString,tlg_type);
-  AddrQry.DeclareVariable("pr_mark_flt",otInteger);
-  AddrQry.DeclareVariable("airline",otString);
-  AddrQry.DeclareVariable("flt_no",otInteger);
-
-  if (pr_dep)
-  {
-    //привязывается к вылету
-    sql << " AND "
-           "(airp_dep=:airp_dep OR airp_dep IS NULL) AND "
-           "(airp_arv IN "
-           "  (SELECT airp FROM points "
-           "   WHERE first_point=:first_point AND point_num>:point_num AND pr_del=0) OR airp_arv IS NULL)";
-    AddrQry.CreateVariable("airp_dep",otString,airp_dep);
-  };
-  if (pr_arv)
-  {
-    //привязывается к прилету
-    sql << " AND "
-           "(airp_arv=:airp_arv OR airp_arv IS NULL) AND "
-           "(airp_dep IN "
-           "  (SELECT airp FROM points "
-           "   WHERE :first_point IN (point_id,first_point) AND point_num<=:point_num AND pr_del=0) OR airp_dep IS NULL)";
-    AddrQry.CreateVariable("airp_arv",otString,airp_arv);
-    if (airp_arv.empty())
-    {
-      TTripRoute route;
-      route.GetRouteAfter(NoExists,
-                          point_id,
-                          point_num,
-                          first_point,
-                          pr_tranzit,
-                          trtNotCurrent,trtNotCancelled);
-      if (!route.empty())
-        AddrQry.SetVariable("airp_arv", route.begin()->airp);
-    };
-  };
-  AddrQry.CreateVariable("first_point", otInteger, pr_tranzit ? first_point : point_id);
-  AddrQry.CreateVariable("point_num",otInteger,point_num);
-  AddrQry.SQLText=sql.str();
-
-  for(vector<TSimpleMktFlight>::const_iterator f=mktFlights.begin();;++f)
-  {
-    if (f!=mktFlights.end())
-    {
-      AddrQry.SetVariable("pr_mark_flt", (int)true);
-      AddrQry.SetVariable("airline", f->airline);
-      if (f->flt_no!=NoExists)
-        AddrQry.SetVariable("flt_no", f->flt_no);
-      else
-        AddrQry.SetVariable("flt_no", FNull);
-    }
-    else
-    {
-      AddrQry.SetVariable("pr_mark_flt", (int)false);
-      AddrQry.SetVariable("airline", airline);
-      if (flt_no!=NoExists)
-        AddrQry.SetVariable("flt_no", flt_no);
-      else
-        AddrQry.SetVariable("flt_no", FNull);
-    };
-
-    AddrQry.Execute();
-    for(;!AddrQry.Eof;AddrQry.Next())
-    {
-      TCreateInfo createInfo;
-      createInfo.fromDB(AddrQry, OptionsQry);
-      info.push_back(createInfo);
-    };
-    if (onlyOneFlight) break;
-    if (f==mktFlights.end()) break;
-  };
+    filter_typeb_addrs< vector<TCreateInfo> >(*this, mktFlights, onlyOneFlight, info);
 };
 
 std::string TAddrInfo::getAddrs() const
@@ -1046,8 +1083,31 @@ std::string TAddrInfo::getAddrs() const
   return ci.get_addrs();
 };
 
-TCreator::TCreator(int point_id)
+bool TCreatePoint::exists(int typeb_addrs_id, const string &tlg_type) const
 {
+    if(tlg_type == "LCI") {
+        if(stage_id == sNoActive)
+            return true;
+        else {
+            QParams QryParams;
+            QryParams
+                << QParam("id", otInteger, typeb_addrs_id)
+                << QParam("stage_id", otInteger, stage_id);
+            QryParams << QParam("time_offset", otInteger, time_offset);
+            TCachedQuery Qry(
+                    "select * from typeb_create_points where "
+                    "id = :id and stage_id = :stage_id and "
+                    "time_offset = :time_offset ", QryParams);
+            Qry.get().Execute();
+            return not Qry.get().Eof;
+        }
+    } else
+        return true;
+}
+
+TCreator::TCreator(int point_id, const TCreatePoint &vcreate_point)
+{
+  create_point = vcreate_point;
   airps_init=false;
   crs_init=false;
   mkt_flights_init=false;
@@ -1124,6 +1184,22 @@ void TCreateInfo::dump() const
   ProgTrace(TRACE5, "     addrs=%s", get_addrs().c_str());
 };
 
+string TCreatePoint::paramsToString() const
+{
+    ostringstream param;
+    param << EncodeStage(stage_id) << " " << time_offset;
+    return param.str();
+}
+
+void TCreatePoint::paramsFromString(const string &params)
+{
+    size_t idx = params.find(" ");
+    if(idx == string::npos)
+        throw EXCEPTIONS::Exception("%s wrong params", __FUNCTION__);
+    stage_id = DecodeStage(params.substr(0, idx).c_str());
+    time_offset = ToInt(params.substr(idx + 1));
+}
+
 void TCreator::getInfo(vector<TCreateInfo> &info)
 {
   info.clear();
@@ -1131,7 +1207,7 @@ void TCreator::getInfo(vector<TCreateInfo> &info)
 
   for(set<string>::const_iterator t=tlg_types.begin(); t!=tlg_types.end(); ++t)
   {
-    TSendInfo si(*t, flt);
+    TSendInfo si(*t, flt, create_point);
     if (!si.isSend()) continue;
 
     vector<TCreateInfo> ci;

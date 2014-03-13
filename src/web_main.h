@@ -155,8 +155,8 @@ bool isOwnerFreePlace( int pax_id, const std::vector<TWebPax> &pnr );
 
 namespace TypeB
 {
-  void SyncNewCHKD(int point_id_spp, const std::string& task_name);
-  void SyncAllCHKD(int point_id_spp, const std::string& task_name);
+  void SyncNewCHKD(int point_id_spp, const std::string& task_name, const std::string& params);
+  void SyncAllCHKD(int point_id_spp, const std::string& task_name, const std::string& params);
 } // namespace TypeB
 
 #endif // __WEB_MAIN_H__

@@ -2655,137 +2655,138 @@ void SoppInterface::DeleteAllPassangers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
 
 void SoppInterface::WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-	xmlNodePtr node = NodeAsNode( "trips", reqNode );
-	node = node->children;
-	TQuery Qry(&OraSession);
-	xmlNodePtr n, stnode;
-	TTripInfo fltInfo;
-	while ( node ) {
-		n = node->children;
-		int point_id = NodeAsIntegerFast( "point_id", n );
-		ProgTrace( TRACE5, "point_id=%d", point_id );
-		xmlNodePtr ddddNode = GetNodeFast( "stations", n );
-		
-		if ( ddddNode ) {
-			ddddNode = ddddNode->children;
-			while ( ddddNode ) {
-				xmlNodePtr x = GetNode( "@mode", ddddNode );
-				string work_mode = NodeAsString( x );
-		    Qry.Clear();
-  	    Qry.SQLText = "DELETE trip_stations	WHERE point_id=:point_id AND work_mode=:work_mode";
-    	  Qry.CreateVariable( "point_id", otInteger, point_id );
-    	  Qry.CreateVariable( "work_mode", otString, work_mode );
-  	    Qry.Execute();
-    	  Qry.Clear();
-    	  Qry.SQLText = "INSERT INTO trip_stations(point_id,desk,work_mode,pr_main) "\
-    	                " SELECT :point_id,desk,:work_mode,:pr_main FROM stations,points "\
-    	                "  WHERE points.point_id=:point_id AND stations.airp=points.airp AND name=:name";
-    	  Qry.CreateVariable( "point_id", otInteger, point_id );
-    	  Qry.DeclareVariable( "name", otString );
-    	  Qry.DeclareVariable( "pr_main", otInteger );
-    	  Qry.CreateVariable( "work_mode", otString, work_mode );
-    	  stnode = ddddNode->children; //tag name
-    	  string tolog;
-    	  string name;
-    	  bool pr_main;
-	      vector<string> terms;
-      	while ( stnode ) {
-      		name = NodeAsString( stnode );
-          if ( find( terms.begin(), terms.end(), name ) == terms.end() ) {
-            terms.push_back( name );
-      		  Qry.SetVariable( "name", name );
-      	  	pr_main = GetNode( "pr_main", stnode );
-        		Qry.SetVariable( "pr_main", pr_main );
-        		Qry.Execute();
-        		if ( !tolog.empty() )
-        				tolog += ", ";
-        			tolog += name;
-        		if ( pr_main )
-        			tolog += " (главная)";
-          }
-    		  stnode = stnode->next;
-      	}
-      	if ( work_mode == "Р" ) {
-      	  if ( tolog.empty() )
-      		  tolog = "Не назначены стойки регистрации";
-      	  else
-      	  	tolog = "Назначены стойки регистрации: " + tolog;
-      	}
-      	if ( work_mode == "П" ) {
-        	if ( tolog.empty() )
-      		  tolog = "Не назначены выходы на посадку";
-      	  else
-      	  	tolog = "Назначены выходы на посадку: " + tolog;
-      	}
-      	TReqInfo::Instance()->MsgToLog( tolog, evtFlt, point_id );
-				ddddNode = ddddNode->next;
-			}
-      check_DesksGates( point_id );
-		}
-  	xmlNodePtr stagesNode = GetNode( "tripstages", node );
-    if ( stagesNode ) {
-  	  TMapTripStages stages;
-  	  TTripStages::ParseStages( stagesNode, stages );
-  	  TTripStages::WriteStages( point_id, stages );
-  	}
-  	xmlNodePtr luggageNode = GetNode( "luggage", node );
-  	TReqInfo *r = TReqInfo::Instance();
-  	if ( luggageNode &&
-	       find( r->user.access.rights.begin(),
-               r->user.access.rights.end(), 370 ) != r->user.access.rights.end() ) {
-  		xmlNodePtr max_cNode = GetNode( "max_commerce", luggageNode );
-  		if ( max_cNode ) {
-  		  TFlightMaxCommerce maxCommerce;
-  		  int mc = NodeAsInteger( max_cNode );
-  		  if ( mc == 0 )
-  			  maxCommerce.SetValue( ASTRA::NoExists );
-        else
-          maxCommerce.SetValue( mc );
-        maxCommerce.Save( point_id );
-  		}
-  		xmlNodePtr trip_loadNode = GetNode( "trip_load", luggageNode );
-  		if ( trip_loadNode ) {
-  			Qry.Clear();
-  			Qry.SQLText =
-  			 "BEGIN "
-  			 " SELECT airp INTO :airp_arv FROM points WHERE point_id=:point_arv; "
-  			 " UPDATE trip_load SET cargo=:cargo,mail=:mail"
-  			 "  WHERE point_dep=:point_id AND point_arv=:point_arv; "
-  			 " IF SQL%NOTFOUND THEN "
-  			 "  INSERT INTO trip_load(point_dep,airp_dep,point_arv,airp_arv,cargo,mail)  "
-  			 "   SELECT point_id,airp,:point_arv,:airp_arv,:cargo,:mail FROM points "
-  			 "    WHERE point_id=:point_id; "
-  			 " END IF;"
-  			 "END;";
-  			Qry.CreateVariable( "point_id", otInteger, point_id );
-  			Qry.DeclareVariable( "point_arv", otInteger );
-  			Qry.DeclareVariable( "airp_arv", otString );
-  			Qry.DeclareVariable( "cargo", otInteger );
-  			Qry.DeclareVariable( "mail", otInteger );
-  			xmlNodePtr load = trip_loadNode->children;
-  			while( load ) {
-  				xmlNodePtr x = load->children;
-  				Qry.SetVariable( "point_arv", NodeAsIntegerFast( "point_arv", x ) );
-  				int cargo = NodeAsIntegerFast( "cargo", x );
-  				Qry.SetVariable( "cargo", cargo );
-  				int mail = NodeAsIntegerFast( "mail", x );
-  				Qry.SetVariable( "mail", mail );
-  				Qry.Execute();
-          TReqInfo::Instance()->MsgToLog(
-          	string( "Направление " ) + Qry.GetVariableAsString( "airp_arv" ) + ": " +
-            "груз " + IntToString( cargo ) + " кг., " +
-            "почта " + IntToString( mail ) + " кг.", evtFlt, point_id );
-  			  load = load->next;
-  			}
-  		}
-  		if ( max_cNode || trip_loadNode ) { // были изменения в весе
-  			//проверим максимальную загрузку
-				check_overload_alarm( point_id );
-  		}
-  	}
-		node = node->next;
-	}
-	AstraLocale::showMessage( "MSG.DATA_SAVED" );
+    xmlNodePtr node = NodeAsNode( "trips", reqNode );
+    node = node->children;
+    TQuery Qry(&OraSession);
+    xmlNodePtr n, stnode;
+    TTripInfo fltInfo;
+    while ( node ) {
+        n = node->children;
+        int point_id = NodeAsIntegerFast( "point_id", n );
+        ProgTrace( TRACE5, "point_id=%d", point_id );
+        xmlNodePtr ddddNode = GetNodeFast( "stations", n );
+
+        if ( ddddNode ) {
+            ddddNode = ddddNode->children;
+            while ( ddddNode ) {
+                xmlNodePtr x = GetNode( "@mode", ddddNode );
+                string work_mode = NodeAsString( x );
+                Qry.Clear();
+                Qry.SQLText = "DELETE trip_stations	WHERE point_id=:point_id AND work_mode=:work_mode";
+                Qry.CreateVariable( "point_id", otInteger, point_id );
+                Qry.CreateVariable( "work_mode", otString, work_mode );
+                Qry.Execute();
+                Qry.Clear();
+                Qry.SQLText = "INSERT INTO trip_stations(point_id,desk,work_mode,pr_main) "\
+                               " SELECT :point_id,desk,:work_mode,:pr_main FROM stations,points "\
+                               "  WHERE points.point_id=:point_id AND stations.airp=points.airp AND name=:name";
+                Qry.CreateVariable( "point_id", otInteger, point_id );
+                Qry.DeclareVariable( "name", otString );
+                Qry.DeclareVariable( "pr_main", otInteger );
+                Qry.CreateVariable( "work_mode", otString, work_mode );
+                stnode = ddddNode->children; //tag name
+                string tolog;
+                string name;
+                bool pr_main;
+                vector<string> terms;
+                while ( stnode ) {
+                    name = NodeAsString( stnode );
+                    if ( find( terms.begin(), terms.end(), name ) == terms.end() ) {
+                        terms.push_back( name );
+                        Qry.SetVariable( "name", name );
+                        pr_main = GetNode( "pr_main", stnode );
+                        Qry.SetVariable( "pr_main", pr_main );
+                        Qry.Execute();
+                        if ( !tolog.empty() )
+                            tolog += ", ";
+                        tolog += name;
+                        if ( pr_main )
+                            tolog += " (главная)";
+                    }
+                    stnode = stnode->next;
+                }
+                if ( work_mode == "Р" ) {
+                    if ( tolog.empty() )
+                        tolog = "Не назначены стойки регистрации";
+                    else
+                        tolog = "Назначены стойки регистрации: " + tolog;
+                }
+                if ( work_mode == "П" ) {
+                    if ( tolog.empty() )
+                        tolog = "Не назначены выходы на посадку";
+                    else
+                        tolog = "Назначены выходы на посадку: " + tolog;
+                }
+                TReqInfo::Instance()->MsgToLog( tolog, evtFlt, point_id );
+                ddddNode = ddddNode->next;
+            }
+            check_DesksGates( point_id );
+        }
+        xmlNodePtr stagesNode = GetNode( "tripstages", node );
+        if ( stagesNode ) {
+            TMapTripStages stages;
+            TTripStages::ParseStages( stagesNode, stages );
+            TTripStages::WriteStages( point_id, stages );
+        }
+        xmlNodePtr luggageNode = GetNode( "luggage", node );
+        TReqInfo *r = TReqInfo::Instance();
+        if ( luggageNode &&
+                find( r->user.access.rights.begin(),
+                    r->user.access.rights.end(), 370 ) != r->user.access.rights.end() ) {
+            xmlNodePtr max_cNode = GetNode( "max_commerce", luggageNode );
+            if ( max_cNode ) {
+                TFlightMaxCommerce maxCommerce;
+                int mc = NodeAsInteger( max_cNode );
+                if ( mc == 0 )
+                    maxCommerce.SetValue( ASTRA::NoExists );
+                else
+                    maxCommerce.SetValue( mc );
+                maxCommerce.Save( point_id );
+            }
+            xmlNodePtr trip_loadNode = GetNode( "trip_load", luggageNode );
+            if ( trip_loadNode ) {
+                Qry.Clear();
+                Qry.SQLText =
+                    "BEGIN "
+                    " SELECT airp INTO :airp_arv FROM points WHERE point_id=:point_arv; "
+                    " UPDATE trip_load SET cargo=:cargo,mail=:mail"
+                    "  WHERE point_dep=:point_id AND point_arv=:point_arv; "
+                    " IF SQL%NOTFOUND THEN "
+                    "  INSERT INTO trip_load(point_dep,airp_dep,point_arv,airp_arv,cargo,mail)  "
+                    "   SELECT point_id,airp,:point_arv,:airp_arv,:cargo,:mail FROM points "
+                    "    WHERE point_id=:point_id; "
+                    " END IF;"
+                    "END;";
+                Qry.CreateVariable( "point_id", otInteger, point_id );
+                Qry.DeclareVariable( "point_arv", otInteger );
+                Qry.DeclareVariable( "airp_arv", otString );
+                Qry.DeclareVariable( "cargo", otInteger );
+                Qry.DeclareVariable( "mail", otInteger );
+                xmlNodePtr load = trip_loadNode->children;
+                while( load ) {
+                    xmlNodePtr x = load->children;
+                    Qry.SetVariable( "point_arv", NodeAsIntegerFast( "point_arv", x ) );
+                    int cargo = NodeAsIntegerFast( "cargo", x );
+                    Qry.SetVariable( "cargo", cargo );
+                    int mail = NodeAsIntegerFast( "mail", x );
+                    Qry.SetVariable( "mail", mail );
+                    Qry.Execute();
+                    TReqInfo::Instance()->MsgToLog(
+                            string( "Направление " ) + Qry.GetVariableAsString( "airp_arv" ) + ": " +
+                            "груз " + IntToString( cargo ) + " кг., " +
+                            "почта " + IntToString( mail ) + " кг.", evtFlt, point_id );
+                    load = load->next;
+                }
+            }
+            if ( max_cNode || trip_loadNode ) { // были изменения в весе
+                //проверим максимальную загрузку
+                check_overload_alarm( point_id );
+            }
+        }
+        on_change_trip( CALL_POINT, point_id );
+        node = node->next;
+    }
+    AstraLocale::showMessage( "MSG.DATA_SAVED" );
 }
 
 void GetBirks( int point_id, xmlNodePtr dataNode )
@@ -3286,8 +3287,8 @@ void check_trip_tasks( const TSOPPDests &dests )
     "   UPDATE trip_tasks SET next_exec=( SELECT NVL(est_out,scd_out)-:before_minutes/(24*60) FROM points WHERE point_id=:point_id)"
     "    WHERE point_id=:point_id AND name=:name; "
     "    IF SQL%ROWCOUNT=0 THEN "
-    "      INSERT INTO trip_tasks(point_id,name,last_exec,next_exec) "
-    "       SELECT point_id,:name,NULL, NVL(est_out,scd_out)-:before_minutes/(24*60) "
+    "      INSERT INTO trip_tasks(id,point_id,name,last_exec,next_exec) "
+    "       SELECT cycle_id__seq.nextval,point_id,:name,NULL, NVL(est_out,scd_out)-:before_minutes/(24*60) "
     "        FROM points WHERE point_id=:point_id; "
     "    END IF;"
     " END IF; "
@@ -4405,6 +4406,9 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
       ProgError(STDLOG,"internal_WriteDests.check_trip_tasks (move_id=%d): %s",move_id,E.what());
     };
   }
+  for( TSOPPDests::iterator i=dests.begin(); i!=dests.end(); i++ ) {
+    on_change_trip( CALL_POINT, i->point_id );
+  }
 }
 
 void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -4694,6 +4698,7 @@ void SoppInterface::DropFlightFact(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   catch(std::exception &E) {
     ProgError(STDLOG,"DropFlightFact.check_trip_tasks (move_id=%d): %s",move_id,E.what());
   };
+  on_change_trip( CALL_POINT, point_id );
 	SALONS2::check_waitlist_alarm_on_tranzit_routes( point_id );
 	ReadTrips( ctxt, reqNode, resNode );
 }
@@ -5292,6 +5297,9 @@ void SoppInterface::DeleteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   catch(std::exception &E) {
     ProgError(STDLOG,"DeleteISGTrips.check_trip_tasks (move_id=%d): %s",move_id,E.what());
   };
+  for (TSOPPDests::iterator i=dests_del.begin(); i!=dests_del.end(); i++ ) {
+    on_change_trip( CALL_POINT, i->point_id );
+  }
   TReqInfo::Instance()->MsgToLog( "Рейс " + name + " маршрут(" + dests + ") удален", evtDisp, move_id );
   ReBindTlgs( move_id, dests_del );
 }
