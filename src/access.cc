@@ -1064,9 +1064,14 @@ void TUserData::initXML(xmlNodePtr node, bool pr_insert)
                 airps.insert(NodeAsString(node2));
         }
 
-        if(pr_insert and airps.empty())
+        if(pr_insert and airps.empty() and info.user.access.airps_permit)
             for(vector<string>::iterator iv = info.user.access.airps.begin(); iv != info.user.access.airps.end(); iv++)
                 airps.insert(*iv);
+        else
+            for(set<string>::iterator iv = airps.begin(); iv != airps.end(); iv++)
+                if(not info.CheckAirp(*iv))
+                    throw AstraLocale::UserException( "MSG.AIRP.ACCESS_DENIED",
+                            LParams() << LParam("airp", ElemIdToCodeNative(etAirp, *iv)));
 
         node2 = GetNodeFast("airlines", node);
         if(node2 != NULL) {
@@ -1075,9 +1080,14 @@ void TUserData::initXML(xmlNodePtr node, bool pr_insert)
                 airlines.insert(NodeAsString(node2));
         }
 
-        if(pr_insert and airlines.empty())
+        if(pr_insert and airlines.empty() and info.user.access.airlines_permit)
             for(vector<string>::iterator iv = info.user.access.airlines.begin(); iv != info.user.access.airlines.end(); iv++)
                 airlines.insert(*iv);
+        else
+            for(set<string>::iterator iv = airlines.begin(); iv != airlines.end(); iv++)
+                if(not info.CheckAirline(*iv))
+                    throw AstraLocale::UserException( "MSG.AIRLINE.ACCESS_DENIED",
+                            LParams() << LParam("airline", ElemIdToCodeNative(etAirline, *iv)));
 
         node2 = GetNodeFast("roles", node);
         if(node2 != NULL) {

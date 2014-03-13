@@ -230,8 +230,12 @@ void process_tlg(void)
           {
             BASIC::TDateTime nowUTC=BASIC::NowUTC();
             ProgTrace(TRACE5,"IN: PUT (sender=%s, tlg_num=%d, time=%.10f)", tlg_in.Sender, tlg_in.num, nowUTC);
+
+            int tlg_id = getNextTlgNum();
+
             TQuery TlgInsQry(&OraSession);
             TlgInsQry.Clear();
+            TlgInsQry.CreateVariable("id",otInteger,tlg_id);
             TlgInsQry.CreateVariable("sender",otString,tlg_in.Sender);
             TlgInsQry.CreateVariable("tlg_num",otInteger,(int)tlg_in.num);
             TlgInsQry.CreateVariable("receiver",otString,tlg_in.Receiver);
@@ -241,17 +245,18 @@ void process_tlg(void)
             else
               TlgInsQry.CreateVariable("type",otString,"INB");
             TlgInsQry.CreateVariable("time",otDate,nowUTC);
+
             // tlgs
             TlgInsQry.SQLText=
               "INSERT INTO tlgs(id,sender,tlg_num,receiver,type,error,time,typeb_tlg_id,typeb_tlg_num) "
-              "VALUES(tlgs_id.nextval,:sender,:tlg_num,:receiver,:type,NULL,:time,NULL,NULL)";
+              "VALUES(:id,:sender,:tlg_num,:receiver,:type,NULL,:time,NULL,NULL)";
             TlgInsQry.Execute();
-            putTlgText(NoExists, string(tlg_body,tlg_len));
+            putTlgText(tlg_id, string(tlg_body,tlg_len));
 
             // tlg_queue
             TlgInsQry.SQLText=
               "INSERT INTO tlg_queue(id,sender,tlg_num,receiver,type,priority,status,time,ttl,time_msec,last_send) "
-              "VALUES(tlgs_id.currval,:sender,:tlg_num,:receiver,:type,1,'PUT',:time,:ttl,:time_msec,NULL)";
+              "VALUES(:id,:sender,:tlg_num,:receiver,:type,1,'PUT',:time,:ttl,:time_msec,NULL)";
             if (tlg_in.TTL>0)
               TlgInsQry.CreateVariable("ttl",otInteger,(int)(tlg_in.TTL-(time(NULL)-start_time)));
             else
@@ -264,8 +269,9 @@ void process_tlg(void)
               char buf[2];
               TlgInsQry.Clear();
               TlgInsQry.SQLText=
-                "INSERT INTO h2h_tlgs(id,type,qri5,qri6,sender,receiver,tpr,err)\
-                 VALUES(tlgs_id.currval,:type,:qri5,:qri6,:sender,:receiver,:tpr,:err)";
+                "INSERT INTO h2h_tlgs(id,type,qri5,qri6,sender,receiver,tpr,err) "
+                "VALUES(:id,:type,:qri5,:qri6,:sender,:receiver,:tpr,:err)";
+              TlgInsQry.CreateVariable("id",otInteger,tlg_id);
               buf[1]=0;
               buf[0]=h2hinf.type;
               TlgInsQry.CreateVariable("type",otString,buf);

@@ -738,6 +738,62 @@ void MainDCSInterface::GetEventCmd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   CopyNodeList(resNode,reqNode);
 };
 
+void WriteFilterParamsContext(const set<string> &airlines,
+                              const set<string> &airps)
+{
+  ostringstream ctxt1, ctxt2;
+  for(set<string>::const_iterator i=airlines.begin(); i!=airlines.end(); ++i)
+    ctxt1 << (i==airlines.begin()?"":"/") << *i;
+  for(set<string>::const_iterator i=airps.begin(); i!=airps.end(); ++i)
+    ctxt2 << (i==airps.begin()?"":"/") << *i;
+  if (!ctxt1.str().empty())
+    JxtContext::getJxtContHandler()->sysContext()->write("filter_airlines", ctxt1.str());
+  if (!ctxt2.str().empty())
+    JxtContext::getJxtContHandler()->sysContext()->write("filter_airps", ctxt2.str());
+};
+
+void RemoveFilterParamsContext()
+{
+  JxtContext::getJxtContHandler()->sysContext()->remove("filter_airlines");
+  JxtContext::getJxtContHandler()->sysContext()->remove("filter_airps");
+};
+
+void GetFilterParams(const string &airlines_str,
+                     const string &airps_str,
+                     set<string> &airlines,
+                     set<string> &airps)
+{
+  airlines.clear();
+  airps.clear();
+  TElemFmt fmt;
+  string str;
+
+  str=airlines_str;
+  TrimString(str);
+  if (!str.empty())
+  {
+    string airline = ElemToElemId( etAirline, upperc(str), fmt );
+    if (fmt==efmtUnknown)
+      throw UserException( "MSG.AIRLINE.INVALID_INPUT_VALUE",
+                           LParams()<<LParam("airline", str ) );
+
+    airlines.insert(airline);
+  };
+
+  str=airps_str;
+  TrimString(str);
+  if (!str.empty())
+  {
+    string airp = ElemToElemId( etAirp, upperc(str), fmt );
+    if (fmt==efmtUnknown)
+      throw UserException( "MSG.AIRP.INVALID_INPUT_VALUE",
+                           LParams()<<LParam("airp", str ) );
+
+    airps.insert(airp);
+  };
+};
+
+
 const int run_params_separator=5;
 
 class TSessionAirline
@@ -1471,6 +1527,15 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       throw AstraLocale::UserException("MSG.AIRLINE_CODE_NOT_FOUND", LParams() << LParam("airline", error_param));
     WriteSessionParamsContext(sess_airlines);
 
+    set<string> filter_airlines;
+    set<string> filter_airps;
+    xmlNodePtr node2=reqNode->children;
+    GetFilterParams(NodeAsStringFast("filter_airlines", node2, ""),
+                    NodeAsStringFast("filter_airps", node2, ""),
+                    filter_airlines,
+                    filter_airps);
+    WriteFilterParamsContext(filter_airlines, filter_airps);
+
     xmlNodePtr node=NodeAsNode("/term/query",ctxt->reqDoc);
     
     TReqInfoInitData reqInfoData;
@@ -1521,6 +1586,7 @@ void MainDCSInterface::UserLogoff(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
     Qry.Execute();
     RemoveSessionParamsContext();
+    RemoveFilterParamsContext();
     AstraLocale::showMessage("MSG.WORK_SEANCE_FINISHED");
     reqInfo->user.clear();
     reqInfo->desk.clear();

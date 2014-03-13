@@ -82,17 +82,34 @@ void sendCmdTypeBHandler()
   sendCmd("CMD_TYPEB_HANDLER","H");
 }
 
+int getNextTlgNum()
+{
+  int tlg_num = 0;
+  TQuery Qry(&OraSession);
+  Qry.SQLText = "SELECT tlgs_id.nextval as tlg_num FROM dual";
+  Qry.Execute();
+
+  tlg_num = Qry.FieldAsInteger("tlg_num");
+
+  Qry.Close();
+
+  return tlg_num;
+}
+
 void putTypeBBody(int tlg_id, int tlg_num, const string &tlg_body)
 {
+  if (tlg_body.empty()) return;
+  if (tlg_id==ASTRA::NoExists)
+    throw Exception("%s: tlg_id=ASTRA::NoExists", __FUNCTION__);
+  if (tlg_num==ASTRA::NoExists)
+    throw Exception("%s: tlg_num=ASTRA::NoExists", __FUNCTION__);
+
   const char* sql=
     "INSERT INTO typeb_in_body(id, num, page_no, text) "
-    "VALUES(NVL(:id,tlg_in_out__seq.currval), :num, :page_no, :text)";
+    "VALUES(:id, :num, :page_no, :text)";
 
   QParams QryParams;
-  if (tlg_id!=ASTRA::NoExists)
-    QryParams << QParam("id", otInteger, tlg_id);
-  else
-    QryParams << QParam("id", otInteger, FNull);
+  QryParams << QParam("id", otInteger, tlg_id);
   QryParams << QParam("num", otInteger, tlg_num);
   QryParams << QParam("page_no", otInteger);
   QryParams << QParam("text", otString);
@@ -152,15 +169,15 @@ string getTypeBBody(int tlg_id, int tlg_num,
 
 void putTlgText(int tlg_id, const string &tlg_text)
 {
+  if (tlg_text.empty()) return;
+  if (tlg_id==ASTRA::NoExists)
+    throw Exception("%s: tlg_id=ASTRA::NoExists", __FUNCTION__);
+
   const char* sql=
-    "INSERT INTO tlgs_text(id, page_no, text) "
-    "VALUES(NVL(:id, tlgs_id.currval), :page_no, :text)";
+    "INSERT INTO tlgs_text(id, page_no, text) VALUES(:id, :page_no, :text)";
 
   QParams QryParams;
-  if (tlg_id!=ASTRA::NoExists)
-    QryParams << QParam("id", otInteger, tlg_id);
-  else
-    QryParams << QParam("id", otInteger, FNull);
+  QryParams << QParam("id", otInteger, tlg_id);
   QryParams << QParam("page_no", otInteger);
   QryParams << QParam("text", otString);
   TCachedQuery TextQry(sql, QryParams);
@@ -307,23 +324,20 @@ void loadTlg(const std::string &text, int prev_typeb_tlg_id)
     try
     {
         BASIC::TDateTime nowUTC=BASIC::NowUTC();
+        int tlg_id = getNextTlgNum();
+
         TQuery Qry(&OraSession);
         Qry.SQLText=
-          "BEGIN "
-          "  SELECT tlgs_id.nextval INTO :tlg_num FROM dual; "
-          "  INSERT INTO tlg_queue(id,sender,tlg_num,receiver,type,priority,status,time,ttl,time_msec,last_send) "
-          "  VALUES(:tlg_num,:sender,:tlg_num,:receiver,:type,1,'PUT',:time,:ttl,:time_msec,NULL); "
-          "END;";
+          "INSERT INTO tlg_queue(id,sender,tlg_num,receiver,type,priority,status,time,ttl,time_msec,last_send) "
+          "VALUES(:tlg_num,:sender,:tlg_num,:receiver,:type,1,'PUT',:time,:ttl,:time_msec,NULL)";
         Qry.CreateVariable("sender",otString,OWN_CANON_NAME());
         Qry.CreateVariable("receiver",otString,OWN_CANON_NAME());
         Qry.CreateVariable("type",otString,"INB");
         Qry.CreateVariable("time",otDate,nowUTC);
         Qry.CreateVariable("ttl",otInteger,FNull);
         Qry.CreateVariable("time_msec",otFloat,nowUTC);
-        Qry.CreateVariable("tlg_num",otInteger,FNull);
+        Qry.CreateVariable("tlg_num",otInteger,tlg_id);
         Qry.Execute();
-
-        int tlg_id=Qry.GetVariableAsInteger("tlg_num");
 
         Qry.SQLText=
           "INSERT INTO tlgs(id,sender,tlg_num,receiver,type,time,error,typeb_tlg_id,typeb_tlg_num) "

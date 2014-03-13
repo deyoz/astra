@@ -962,9 +962,10 @@ void createSofiFileDATA( int receipt_id )
 {
 	TQuery Qry( &OraSession );
 	Qry.SQLText =
-    "SELECT airp_dep as airp, airline, flt_no "
-    " FROM bag_receipts "
-    "WHERE receipt_id=:receipt_id";
+    "SELECT points.airline, points.flt_no, points.airp "
+    "FROM bag_receipts, points "
+    "WHERE bag_receipts.point_id=points.point_id AND "
+    "      bag_receipts.receipt_id=:receipt_id";
   Qry.CreateVariable( "receipt_id", otInteger, receipt_id );
 	Qry.Execute();
   string airline, airp;

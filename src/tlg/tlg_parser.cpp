@@ -4305,12 +4305,16 @@ bool ParseDOCSRem(TTlgParser &tlg, TDateTime scd_local, string &rem_text, TDocIt
           case 6:
             res=sscanf(tlg.lex,"%2[A-Z]%c",doc.gender,&c);
             if (c!=0||res!=1) throw ETlgError("Wrong format");
-            TlgElemToElemId(etGenderType,doc.gender,doc.gender);
-            try
+            doc.pr_inf=false;
             {
-              doc.pr_inf=((TGenderTypesRow&)(getBaseTable(etGenderType).get_row("code/code_lat",doc.gender))).pr_inf;
-            }
-            catch(EBaseTableError) {};
+              int len=strlen(doc.gender);
+              if (len>0 && doc.gender[len-1]=='I')
+              {
+                doc.pr_inf=true;
+                doc.gender[len-1]=0;
+              };
+            };
+            TlgElemToElemId(etGenderType,doc.gender,doc.gender);
             break;
           case 7:
             if (StrToDateTime(tlg.lex,"ddmmmyy",doc.expiry_date,true)==EOF &&
@@ -4430,6 +4434,15 @@ bool ParseDOCSRem(TTlgParser &tlg, TDateTime scd_local, string &rem_text, TDocIt
           case 6:
             res=sscanf(tlg.lex,"%2[A-Z]%c",doc.gender,&c);
             if (c!=0||res!=1) throw ETlgError("Wrong format");
+            doc.pr_inf=false;
+            {
+              int len=strlen(doc.gender);
+              if (len>0 && doc.gender[len-1]=='I')
+              {
+                doc.pr_inf=true;
+                doc.gender[len-1]=0;
+              };
+            }
             TlgElemToElemId(etGenderType,doc.gender,doc.gender);
             break;
           case 7:
