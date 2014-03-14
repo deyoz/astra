@@ -342,10 +342,27 @@ int sendTlg(const char* receiver,
     };
 }
 
-void loadTlg(const std::string &text, int prev_typeb_tlg_id)
+void loadTlg(const std::string &text)
+{
+    bool hist_uniq_error;
+    loadTlg(text, ASTRA::NoExists, hist_uniq_error);
+}
+
+void loadTlg(const std::string &text, int prev_typeb_tlg_id, bool &hist_uniq_error)
 {
     try
     {
+        hist_uniq_error = false;
+        if (prev_typeb_tlg_id != ASTRA::NoExists)
+        {
+            QParams QryParams;
+            QryParams << QParam("prev_typeb_tlg_id", otInteger, prev_typeb_tlg_id);
+            TCachedQuery Qry("select * from typeb_in_history where prev_tlg_id = :prev_typeb_tlg_id", QryParams);
+            Qry.get().Execute();
+            hist_uniq_error = not Qry.get().Eof;
+            if(hist_uniq_error) return;
+        }
+
         BASIC::TDateTime nowUTC=BASIC::NowUTC();
         int tlg_id = getNextTlgNum();
 

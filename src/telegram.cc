@@ -991,7 +991,10 @@ void TelegramInterface::SaveInTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
   int tlg_id = NodeAsInteger("tlg_id", reqNode);
   int num = NodeAsInteger("num", reqNode);
   if(num != 0) throw AstraLocale::UserException("MSG.TLG.CANT_SAVE_SEPARATE_PART");
-  loadTlg(text, tlg_id);
+  bool hist_uniq_error;
+  loadTlg(text, tlg_id, hist_uniq_error);
+  if (hist_uniq_error)
+      throw UserException("MSG.TLG.CHANGED.REFRESH_DATA");
   registerHookAfter(sendCmdTypeBHandler);
   AstraLocale::showMessage("MSG.TLG.LOADED");
 }
@@ -1000,7 +1003,7 @@ void TelegramInterface::LoadTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
 {
   string text = NodeAsString("tlg_text",reqNode);
   if (text.empty()) throw AstraLocale::UserException("MSG.TLG.EMPTY");
-  loadTlg(text, NoExists);
+  loadTlg(text);
   registerHookAfter(sendCmdTypeBHandler);
   AstraLocale::showMessage("MSG.TLG.LOADED");
 };
@@ -1204,7 +1207,7 @@ void TelegramInterface::SendTlg(int tlg_id)
           if (OWN_CANON_NAME()==i->first)
           {
             /* сразу помещаем во входную очередь */
-            loadTlg(tlg_text, NoExists);
+            loadTlg(tlg_text);
             registerHookAfter(sendCmdTypeBHandler);
           }
           else
