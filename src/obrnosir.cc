@@ -70,7 +70,8 @@ const
     {"-test_sopp_sql",          test_sopp_sql,          NULL,                       NULL},
     {"-test_file_queue",        test_file_queue,        NULL,                       NULL},
     {"-tscript",                nosir_tscript,          NULL,                       NULL},
-    {"-rollback096",            rollback096,            NULL,                       NULL}
+    {"-rollback096",            rollback096,            NULL,                       NULL},
+    {"-mobile_stat",            mobile_stat,            NULL,                       NULL}
   };
 
 int nosir_test(int argc,char **argv)
