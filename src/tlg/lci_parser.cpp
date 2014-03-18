@@ -584,8 +584,6 @@ void TSRItems::dump()
 
 void TSRItems::parse(const string &val)
 {
-    if(not empty())
-        throw ETlgError("SR items already exists %s", val.c_str());
     vector<string> result = split(val, '/');
     for(vector<string>::iterator iv = result.begin(); iv != result.end(); iv++)
         if(not iv->empty())
