@@ -5797,8 +5797,6 @@ struct TSR_S {
         static const string PREFIX = "SR.S";
         string buf = PREFIX;
         for(TPassSeats::iterator i_seat = layerSeats.begin(); i_seat != layerSeats.end(); i_seat++) {
-            if(buf == PREFIX)
-                buf += ".";
             string seat =
                 denorm_iata_row(i_seat->row, NULL) + // denorm - чтобы избавиться от нулей: 002 -> 2
                 i_seat->line + "/";
@@ -5806,6 +5804,8 @@ struct TSR_S {
                 body.push_back(buf);
                 buf = PREFIX;
             }
+            if(buf == PREFIX)
+                buf += ".";
             buf += seat;
         }
         if(buf != PREFIX)
