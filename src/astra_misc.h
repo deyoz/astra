@@ -821,9 +821,11 @@ std::string SeparateNames(std::string &names);
 int CalcWeightInKilos(int weight, std::string weight_unit);
 
 struct TCFGItem {
+    int priority;
     std::string cls;
     int cfg, block, prot;
     TCFGItem():
+        priority(ASTRA::NoExists),
         cfg(ASTRA::NoExists),
         block(ASTRA::NoExists),
         prot(ASTRA::NoExists)
