@@ -2016,7 +2016,7 @@ void TCFG::get(int point_id, TDateTime part_key)
     if (point_id == NoExists)
     {
         SQLText =
-            "SELECT code AS class, 0 AS cfg, 0 AS block, 0 AS prot "
+            "SELECT priority, code AS class, 0 AS cfg, 0 AS block, 0 AS prot "
             "FROM classes "
             "ORDER BY priority ";
     }
@@ -2025,7 +2025,7 @@ void TCFG::get(int point_id, TDateTime part_key)
       QryParams << QParam("point_id", otInteger, point_id);
       if(part_key == NoExists)
           SQLText =
-              "SELECT class, cfg, block, prot "
+              "SELECT priority, class, cfg, block, prot "
               "FROM trip_classes, classes "
               "WHERE trip_classes.class=classes.code AND "
               "      point_id=:point_id AND cfg>0 "
@@ -2033,7 +2033,7 @@ void TCFG::get(int point_id, TDateTime part_key)
       else
       {
           SQLText =
-              "SELECT class, cfg, block, prot "
+              "SELECT priority, class, cfg, block, prot "
               "FROM arx_trip_classes, classes "
               "WHERE arx_trip_classes.class=classes.code(+) AND "
               "      part_key=:part_key AND point_id=:point_id AND cfg>0 "
@@ -2045,6 +2045,7 @@ void TCFG::get(int point_id, TDateTime part_key)
     Qry.get().Execute();
     for(; !Qry.get().Eof; Qry.get().Next()) {
         TCFGItem item;
+        item.priority = Qry.get().FieldAsInteger("priority");
         item.cls = Qry.get().FieldAsString("class");
         item.cfg = Qry.get().FieldAsInteger("cfg");
         item.block = Qry.get().FieldAsInteger("block");

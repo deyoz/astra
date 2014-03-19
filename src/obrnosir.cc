@@ -67,7 +67,8 @@ const
     {"-compare_apis",           compare_apis,           NULL,                       NULL},
     {"-test_sopp_sql",          test_sopp_sql,          NULL,                       NULL},
     {"-test_file_queue",        test_file_queue,        NULL,                       NULL},
-    {"-rollback096",            rollback096,            NULL,                       NULL}
+    {"-rollback096",            rollback096,            NULL,                       NULL},
+    {"-mobile_stat",            mobile_stat,            NULL,                       NULL}
   };
 
 int nosir_test(int argc,char **argv)

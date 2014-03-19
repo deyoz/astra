@@ -4785,6 +4785,7 @@ struct TDestList {
     TGRPMap grp_map; // PRL, ETL
     TInfants infants; // PRL
     vector<T> items;
+    void get_subcls_lst(int point_id, list<string> &lst);
     void get(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &complayers);
     void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
 };
@@ -6243,19 +6244,70 @@ int ETL(TypeB::TDetailCreateInfo &info)
     return tlg_row.id;
 }
 
+struct TSubclsItem {
+    int priority;
+    string cls;
+    TSubclsItem(int vpriority, string vcls):
+        priority(vpriority), cls(vcls) {}
+    bool operator < (const TSubclsItem &val) const
+    {
+        if(priority != val.priority)
+            return priority < val.priority;
+        return cls < val.cls;
+    }
+};
+
+template <class T>
+void TDestList<T>::get_subcls_lst(int point_id, list<string> &lst)
+{
+    // достает все возможные классы и подклассы, использующиеся на рейсе
+    TCFG cfg(point_id);
+    if(cfg.empty()) cfg.get(NoExists);
+
+    set<TSubclsItem> subcls_set;
+    for(TCFG::iterator i = cfg.begin(); i != cfg.end(); i++)
+        subcls_set.insert(TSubclsItem(i->priority, i->cls));
+
+    QParams QryParams;
+    QryParams << QParam("point_id", otInteger, point_id);
+    TCachedQuery Qry(
+            "SELECT DISTINCT cls_grp.priority, cls_grp.code AS class "
+            "FROM pax_grp,cls_grp "
+            "WHERE pax_grp.class_grp=cls_grp.id AND "
+            "      pax_grp.point_dep = :point_id AND pax_grp.bag_refuse=0 ",
+            QryParams);
+    Qry.get().Execute();
+    for(; not Qry.get().Eof; Qry.get().Next())
+        subcls_set.insert(
+                TSubclsItem(
+                    Qry.get().FieldAsInteger("priority"),
+                    Qry.get().FieldAsString("class")
+                    )
+                );
+    // Здесь имеем список пар priority, cls
+    // Уберем дубликаты и заполним ответ
+    set<string> used;
+    for(set<TSubclsItem>::iterator i = subcls_set.begin(); i != subcls_set.end(); i++) {
+        if(used.find(i->cls)  == used.end()) {
+            used.insert(i->cls);
+            lst.insert(lst.end(), i->cls);
+        }
+    }
+}
+
 template <class T>
 void TDestList<T>::get(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &complayers)
 {
     infants.get(info);
     TTripRoute route;
     route.GetRouteAfter(NoExists, info.point_id, trtNotCurrent, trtNotCancelled);
-    TCFG cfg(info.point_id);
-    if(cfg.empty()) cfg.get(NoExists);
+    list<string> subcls_lst;
+    get_subcls_lst(info.point_id, subcls_lst);
     for(TTripRoute::iterator i_route = route.begin(); i_route != route.end(); i_route++)
-        for(TCFG::iterator i_cfg = cfg.begin(); i_cfg != cfg.end(); i_cfg++) {
+        for(list<string>::iterator i_cfg = subcls_lst.begin(); i_cfg != subcls_lst.end(); i_cfg++) {
             T dest(&grp_map, &infants);
             dest.airp = i_route->airp;
-            dest.cls = i_cfg->cls;
+            dest.cls = *i_cfg;
             dest.GetPaxList(info,complayers);
             items.push_back(dest);
         }

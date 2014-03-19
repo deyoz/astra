@@ -330,15 +330,6 @@ void loadTlg(const std::string &text, int prev_typeb_tlg_id, bool &hist_uniq_err
     try
     {
         hist_uniq_error = false;
-        if (prev_typeb_tlg_id != ASTRA::NoExists)
-        {
-            QParams QryParams;
-            QryParams << QParam("prev_typeb_tlg_id", otInteger, prev_typeb_tlg_id);
-            TCachedQuery Qry("select * from typeb_in_history where prev_tlg_id = :prev_typeb_tlg_id", QryParams);
-            Qry.get().Execute();
-            hist_uniq_error = not Qry.get().Eof;
-            if(hist_uniq_error) return;
-        }
 
         BASIC::TDateTime nowUTC=BASIC::NowUTC();
         int tlg_id = getNextTlgNum();
@@ -378,7 +369,24 @@ void loadTlg(const std::string &text, int prev_typeb_tlg_id, bool &hist_uniq_err
             "VALUES(:prev_tlg_id, NULL, :id)";
           Qry.CreateVariable("prev_tlg_id", otInteger, prev_typeb_tlg_id);
           Qry.CreateVariable("id", otInteger, tlg_id);
-          Qry.Execute();
+          try
+          {
+            Qry.Execute();
+          }
+          catch(EOracleError E)
+          {
+            if (E.Code==1)
+            {
+              Qry.Clear();
+              Qry.SQLText="SELECT prev_tlg_id FROM typeb_in_history WHERE prev_tlg_id=:prev_tlg_id";
+              Qry.CreateVariable("prev_tlg_id", otInteger, prev_typeb_tlg_id);
+              Qry.Execute();
+              if (Qry.Eof) throw;
+              else hist_uniq_error=true;
+            }
+            else
+              throw;
+          };
         };
 
         Qry.Close();

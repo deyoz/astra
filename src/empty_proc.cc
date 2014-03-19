@@ -2637,3 +2637,87 @@ int rollback096(int argc,char **argv)
 
   return 1;
 }
+
+int mobile_stat(int argc,char **argv)
+{
+  TQuery Qry(&OraSession);
+  Qry.SQLText="SELECT user_id FROM web_clients WHERE desk='WEBCHK'";
+  Qry.Execute();
+  if (Qry.Eof) return 0;
+  int user_id=Qry.FieldAsInteger("user_id");
+
+  TQuery EventQry(&OraSession);
+  EventQry.SQLText="SELECT MIN(time) AS time FROM events WHERE type=:type AND id1=:point_id AND id3=:grp_id";
+  EventQry.CreateVariable("type", otString, EncodeEventType(ASTRA::evtPax));
+  EventQry.DeclareVariable("point_id", otInteger);
+  EventQry.DeclareVariable("grp_id", otInteger);
+
+  TQuery FltQry(&OraSession);
+  FltQry.SQLText="SELECT airline, flt_no, suffix, scd_out, airp FROM points WHERE point_id=:point_id";
+  FltQry.DeclareVariable("point_id", otInteger);
+
+  const char* filename="WEBCHK.csv";
+  ofstream f;
+  f.open(filename);
+  if (!f.is_open()) throw EXCEPTIONS::Exception("Can't open file '%s'",filename);
+  try
+  {
+    f << "Время выполнения регистрации (UTC);"
+         "Рейс;"
+         "Плановая дата вылета (лок);"
+         "Маршрут рейса;"
+         "Кол-во зарег. пассажиров" << endl;
+
+    Qry.Clear();
+    Qry.SQLText=
+      "SELECT pax_grp.grp_id, pax_grp.point_dep, COUNT(*) AS pax_count "
+      "FROM pax_grp, pax "
+      "WHERE pax_grp.grp_id=pax.grp_id AND user_id=:user_id "
+      "GROUP BY pax_grp.grp_id, pax_grp.point_dep";
+    Qry.CreateVariable("user_id", otInteger, user_id);
+    Qry.Execute();
+    for(;!Qry.Eof; Qry.Next())
+    {
+      int point_id=Qry.FieldAsInteger("point_dep");
+      int grp_id=Qry.FieldAsInteger("grp_id");
+
+      EventQry.SetVariable("point_id", point_id);
+      EventQry.SetVariable("grp_id", grp_id);
+      EventQry.Execute();
+      TDateTime event_time=NoExists;
+      if (!EventQry.Eof && !EventQry.FieldIsNULL("time"))
+        event_time=EventQry.FieldAsDateTime("time");
+
+      FltQry.SetVariable("point_id", point_id);
+      FltQry.Execute();
+      if (FltQry.Eof) continue;
+
+      TTripInfo flt(FltQry);
+      TDateTime scd_local=UTCToLocal(flt.scd_out,AirpTZRegion(flt.airp));
+
+      f << (event_time==NoExists?"":DateTimeToStr(event_time, "dd.mm.yyyy hh:nn")) << ";"
+        << flt.airline << setw(3) << setfill('0') << flt.flt_no << flt.suffix << ";"
+        << DateTimeToStr(scd_local, "dd.mm.yyyy") << ";"
+        << GetRouteAfterStr(NoExists, point_id, trtWithCurrent, trtNotCancelled) << ";"
+        << Qry.FieldAsInteger("pax_count") << endl;
+    };
+
+    f.close();
+  }
+  catch(...)
+  {
+    try { f.close(); } catch( ... ) { };
+    try
+    {
+      //в случае ошибки запишем пустой файл
+      f.open(filename);
+      if (f.is_open()) f.close();
+    }
+    catch( ... ) { };
+    throw;
+  };
+
+  return 0;
+};
+
+
