@@ -297,7 +297,7 @@ bool handle_tlg(void)
     "DECLARE"
     "  CURSOR cur(vid tlgs_in.id%TYPE) IS "
     "    SELECT id, time_parse FROM tlgs_in "
-    "    WHERE id=vid ORDER BY num DESC; "  //!!!vlad
+    "    WHERE id=vid ORDER BY num DESC; "
     "  vtime_parse tlgs_in.time_parse%TYPE; "
     "  vtime_receive_not_parse tlgs_in.time_receive_not_parse%TYPE; "
     "  vnow DATE; "
@@ -634,7 +634,7 @@ bool parse_tlg(void)
       "       MAX(time_receive) AS time_receive, "
       "       MAX(time_create) AS max_time_create, "
       "       MIN(time_receive) AS min_time_receive, "
-      "       MIN(NVL(typeb_in.proc_attempt,0)) AS proc_attempt "  //!!!vlad
+      "       MIN(NVL(typeb_in.proc_attempt,0)) AS proc_attempt "
       "FROM tlgs_in, typeb_in "
       "WHERE tlgs_in.id = typeb_in.id(+) AND "   //потом убрать(+)
       "      time_receive_not_parse>=:time_receive "
@@ -651,7 +651,7 @@ bool parse_tlg(void)
       "SELECT id,num,type,addr,heading,body,ending "
       "FROM tlgs_in "
       "WHERE id=:id "
-      "ORDER BY num DESC";  //!!!vlad
+      "ORDER BY num DESC";
     TlgInQry.DeclareVariable("id",otInteger);
   };
 

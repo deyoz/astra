@@ -566,7 +566,7 @@ void procTypeB(int tlg_id, int inc)
   try
   {
     const char* sql=
-      "UPDATE typeb_in SET proc_attempt=NVL(proc_attempt,0)+SIGN(:d) WHERE id=:id "; //!!!vlad
+      "UPDATE typeb_in SET proc_attempt=NVL(proc_attempt,0)+SIGN(:d) WHERE id=:id ";
 
     QParams QryParams;
     QryParams << QParam("id", otInteger, tlg_id);
