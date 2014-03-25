@@ -561,16 +561,16 @@ void errorTypeB(int tlg_id,
   };
 };
 
-void procTypeB(int tlg_id, bool inc)
+void procTypeB(int tlg_id, int inc)
 {
   try
   {
     const char* sql=
-      "UPDATE tlgs_in SET proc_attempt=NVL(proc_attempt,0)+:d WHERE id=:id ";
+      "UPDATE typeb_in SET proc_attempt=NVL(proc_attempt,0)+SIGN(:d) WHERE id=:id "; //!!!vlad
 
     QParams QryParams;
     QryParams << QParam("id", otInteger, tlg_id);
-    QryParams << QParam("d", otInteger, inc?1:-1);
+    QryParams << QParam("d", otInteger, inc);
 
     TCachedQuery Qry(sql, QryParams);
     Qry.get().Execute();

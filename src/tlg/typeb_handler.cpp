@@ -297,7 +297,7 @@ bool handle_tlg(void)
     "DECLARE"
     "  CURSOR cur(vid tlgs_in.id%TYPE) IS "
     "    SELECT id, time_parse FROM tlgs_in "
-    "    WHERE id=vid ORDER BY num DESC FOR UPDATE; "
+    "    WHERE id=vid ORDER BY num DESC; "  //!!!vlad
     "  vtime_parse tlgs_in.time_parse%TYPE; "
     "  vtime_receive_not_parse tlgs_in.time_receive_not_parse%TYPE; "
     "  vnow DATE; "
@@ -307,6 +307,7 @@ bool handle_tlg(void)
     "  vtime_receive_not_parse:=vnow; "
     "  IF :id IS NULL THEN "
     "    SELECT tlg_in_out__seq.nextval INTO :id FROM dual; "
+    "    INSERT INTO typeb_in(id,proc_attempt) VALUES(:id,0); "
     "  ELSE "
     "    FOR curRow IN cur(:id) LOOP "
     "      IF curRow.time_parse IS NOT NULL THEN "
@@ -498,6 +499,8 @@ bool handle_tlg(void)
           bool insert_typeb=false;
           try
           {
+            if (typeb_tlg_id!=NoExists)
+              procTypeB(typeb_tlg_id, 0); //лочка
             InsQry.get().Execute();
             pr_typeb_cmd=true;
             insert_typeb=true;
@@ -627,15 +630,16 @@ bool parse_tlg(void)
   {
     TlgIdQry.Clear();
     TlgIdQry.SQLText=
-      "SELECT id, "
+      "SELECT tlgs_in.id, "
       "       MAX(time_receive) AS time_receive, "
       "       MAX(time_create) AS max_time_create, "
       "       MIN(time_receive) AS min_time_receive, "
-      "       MIN(NVL(proc_attempt,0)) AS proc_attempt "
-      "FROM tlgs_in "
-      "WHERE time_receive_not_parse>=:time_receive "
-      "GROUP BY id "
-      "ORDER BY max_time_create,min_time_receive,id";
+      "       MIN(NVL(typeb_in.proc_attempt,0)) AS proc_attempt "  //!!!vlad
+      "FROM tlgs_in, typeb_in "
+      "WHERE tlgs_in.id = typeb_in.id(+) AND "   //потом убрать(+)
+      "      time_receive_not_parse>=:time_receive "
+      "GROUP BY tlgs_in.id "
+      "ORDER BY max_time_create,min_time_receive,tlgs_in.id";
     TlgIdQry.CreateVariable("time_receive",otDate,utc_date-SCAN_TIMEOUT);
   };
 
@@ -647,7 +651,7 @@ bool parse_tlg(void)
       "SELECT id,num,type,addr,heading,body,ending "
       "FROM tlgs_in "
       "WHERE id=:id "
-      "ORDER BY num DESC FOR UPDATE";
+      "ORDER BY num DESC";  //!!!vlad
     TlgInQry.DeclareVariable("id",otInteger);
   };
 
@@ -678,12 +682,13 @@ bool parse_tlg(void)
         count++;
         continue;
       };
-      procTypeB(tlg_id, true);
+      procTypeB(tlg_id, 1);
       OraSession.Commit();
 
       ProgTrace(TRACE5, "tlg_id: %d", tlg_id);
       time_receive=TlgIdQry.FieldAsDateTime("time_receive");
 
+      procTypeB(tlg_id, 0); //лочка
       TlgInQry.SetVariable("id",tlg_id);
       //читаем все части телеграммы
       TlgInQry.Execute();
@@ -733,7 +738,7 @@ bool parse_tlg(void)
           //не все еще части собраны
           if (utc_date-time_receive > PARTS_NOT_RECEIVE_TIMEOUT)
             throw ETlgError("Some parts not received");
-          procTypeB(tlg_id, false);
+          procTypeB(tlg_id, -1);
           OraSession.Commit();
           continue;
         };
@@ -754,7 +759,7 @@ bool parse_tlg(void)
           //не все еще части собраны
           if (utc_date-time_receive > PARTS_NOT_RECEIVE_TIMEOUT)
             throw ETlgError("Some parts not received");
-          procTypeB(tlg_id, false);
+          procTypeB(tlg_id, -1);
           OraSession.Commit();
           continue;
         };
@@ -793,7 +798,7 @@ bool parse_tlg(void)
                   //если телеграммы не хотят принудительно разбираться
                   //по истечении некоторого времени - записать в просроченные
                   throw ETlgError(tlgeNotMonitorYesAlarm, "Time limit reached");
-                procTypeB(tlg_id, false);
+                procTypeB(tlg_id, -1);
                 OraSession.Commit();
               };
             };
