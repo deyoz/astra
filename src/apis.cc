@@ -78,7 +78,7 @@ string GetCustomsRegulCountry(const string &depend,
 
 bool isValidGender(const string &fmt, const string &pax_doc_gender, const string &pax_name)
 {
-  if (fmt=="CSV_CZ" || fmt=="EDI_CZ" || fmt=="EDI_US")
+  if (fmt=="CSV_CZ" || fmt=="EDI_CZ" || fmt=="EDI_US" || fmt=="EDI_USBACK")
   {
     int is_female=CheckIn::is_female(pax_doc_gender, pax_name);
     if (is_female==NoExists) return false;
@@ -160,7 +160,7 @@ bool isValidDocType(const string &fmt, const TPaxStatus &status, const string &d
           (status==psCrew &&
            (doc_type=="AC")))) return false;
   };
-  if (fmt=="EDI_US")
+  if (fmt=="EDI_US" || fmt=="EDI_USBACK")
   {
     /*
     P - Passport
@@ -499,7 +499,7 @@ bool create_apis_file(int point_id, const string& task_name)
           Paxlst::PaxlstInfo FPM(Paxlst::PaxlstInfo::FlightPassengerManifest, lst_type_extra);
         	Paxlst::PaxlstInfo FCM(Paxlst::PaxlstInfo::FlightCrewManifest, lst_type_extra);
 
-          if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_UK")
+          if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="EDI_UK")
           {
             for(int pass=0; pass<2; pass++)
             {
@@ -518,10 +518,10 @@ bool create_apis_file(int point_id, const string& task_name)
               if (fmt=="EDI_IN" || fmt=="EDI_UK")
                 paxlstInfo.settings().setMesRelNum("05B");
 
-              if (fmt=="EDI_US")
+              if (fmt=="EDI_US" || fmt=="EDI_USBACK")
                 paxlstInfo.settings().setMesAssCode("CBP");
 
-              paxlstInfo.settings().setViewUNGandUNE(true/*!(fmt=="EDI_IN" || fmt=="EDI_US")*/);
+              paxlstInfo.settings().setViewUNGandUNE(true/*!(fmt=="EDI_IN" || fmt=="EDI_US || fmt=="EDI_USBACK"")*/);
 
               //информация о преставительства a/к
               list<TAirlineOfficeInfo> offices;
@@ -563,7 +563,7 @@ bool create_apis_file(int point_id, const string& task_name)
               else
                 iataCode=Paxlst::createIataCode(flight.str(),scd_in_local,"/yymmdd/hhnn");
               paxlstInfo.setIataCode( iataCode );
-              if (fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_UK")
+              if (fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="EDI_UK")
                 paxlstInfo.setCarrier(airline.code_lat);
               paxlstInfo.setFlight(flight.str());
               paxlstInfo.setDepPort(airp_dep.code_lat);
@@ -582,7 +582,7 @@ bool create_apis_file(int point_id, const string& task_name)
             int pax_id=PaxQry.FieldAsInteger("pax_id");
             bool boarded=PaxQry.FieldAsInteger("pr_brd")!=0;
             TPaxStatus status=DecodePaxStatus(PaxQry.FieldAsString("status"));
-            if (status==psCrew && !(fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_UK")) continue;
+            if (status==psCrew && !(fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="EDI_UK")) continue;
             if (status!=psCrew && !boarded && final_apis) continue;
 
       	    Paxlst::PassengerInfo paxInfo;
@@ -607,7 +607,7 @@ bool create_apis_file(int point_id, const string& task_name)
             bool docaD_exists=false;
             bool docaR_exists=false;
             bool docaB_exists=false;
-            if (fmt=="EDI_US")
+            if (fmt=="EDI_US" || fmt=="EDI_USBACK")
             {
               docaD_exists=LoadPaxDoca(pax_id, CheckIn::docaDestination, (CheckIn::TPaxDocaItem&)docaD);
               docaR_exists=LoadPaxDoca(pax_id, CheckIn::docaResidence, (CheckIn::TPaxDocaItem&)docaR);
@@ -649,7 +649,7 @@ bool create_apis_file(int point_id, const string& task_name)
             }
             else
             {
-              if (fmt=="CSV_CZ" || fmt=="EDI_CZ" || fmt=="EDI_US") gender = "M";//gender.clear();
+              if (fmt=="CSV_CZ" || fmt=="EDI_CZ" || fmt=="EDI_US" || fmt=="EDI_USBACK") gender = "M";//gender.clear();
               if (fmt=="CSV_DE" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_UK") gender = "U";
               if (fmt=="TXT_EE") gender = "N";
             };
@@ -695,10 +695,10 @@ bool create_apis_file(int point_id, const string& task_name)
             string doc_no=doc.no;
             if (fmt=="EDI_IN")
               doc_no=NormalizeDocNo(doc.no, true);
-            if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_US" || fmt=="EDI_UK")
+            if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="EDI_UK")
               doc_no=NormalizeDocNo(doc.no, false);
 
-            if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_UK")
+            if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="EDI_UK")
             {
               paxInfo.setSurname(doc_surname);
               paxInfo.setFirstName(doc_first_name);
@@ -708,7 +708,7 @@ bool create_apis_file(int point_id, const string& task_name)
       	      if (doc.birth_date!=NoExists)
       	        paxInfo.setBirthDate(doc.birth_date);
 
-              if (fmt=="EDI_US")
+              if (fmt=="EDI_US" || fmt=="EDI_USBACK")
               {
                 if (country_regul_dep!=US_CUSTOMS_CODE)
                   paxInfo.setCBPPort(airp_cbp.code_lat);
@@ -727,7 +727,7 @@ bool create_apis_file(int point_id, const string& task_name)
               };
 
 
-              if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_UK")
+              if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="EDI_UK")
               {
                 if (!doc_type.empty() && !doc_no.empty())
                 {
@@ -823,9 +823,9 @@ bool create_apis_file(int point_id, const string& task_name)
               };
             };
 
-            if (docaD_exists && (fmt=="EDI_US"))
+            if (docaD_exists && (fmt=="EDI_US" || fmt=="EDI_USBACK"))
             {
-              if (status!=psCrew)
+              if (status!=psCrew && country_regul_dep!=US_CUSTOMS_CODE)
               {
                 paxInfo.setStreet(docaD.address);
                 paxInfo.setCity(docaD.city);
@@ -836,11 +836,15 @@ bool create_apis_file(int point_id, const string& task_name)
               };
             };
 
-            if (docaR_exists && (fmt=="EDI_US"))
+            if (docaR_exists && (fmt=="EDI_US" || fmt=="EDI_USBACK"))
             {
-              paxInfo.setResidCountry(docaR.country);
+              if (status!=psCrew && country_regul_dep!=US_CUSTOMS_CODE)
+              {
+                paxInfo.setResidCountry(docaR.country);
+              };
               if (status==psCrew)
               {
+                paxInfo.setResidCountry(docaR.country);
                 paxInfo.setStreet(docaR.address);
                 paxInfo.setCity(docaR.city);
                 paxInfo.setCountrySubEntityCode(docaR.region);
@@ -849,7 +853,7 @@ bool create_apis_file(int point_id, const string& task_name)
               };
             };
 
-            if (docaB_exists && (fmt=="EDI_US"))
+            if (docaB_exists && (fmt=="EDI_US" || fmt=="EDI_USBACK"))
             {
               if (status==psCrew)
               {
@@ -862,7 +866,7 @@ bool create_apis_file(int point_id, const string& task_name)
             if (fmt=="CSV_CZ" || fmt=="CSV_DE")
               body << ENDL;
 
-            if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_UK")
+            if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="EDI_UK")
             {
               if (status!=psCrew)
       	        FPM.addPassenger( paxInfo );
@@ -873,7 +877,7 @@ bool create_apis_file(int point_id, const string& task_name)
 
           vector< pair<string, string> > files;
 
-          if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_UK")
+          if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="EDI_UK")
           {
             for(int pass=0; pass<2; pass++)
             {
@@ -893,7 +897,7 @@ bool create_apis_file(int point_id, const string& task_name)
                   file_extension="TXT";
                   parts.push_back(paxlstInfo.toEdiString());
                 };
-                if (fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_UK")
+                if (fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="EDI_UK")
                 {
                   file_extension=(pass==0?"FPM":"FCM");
                   for(unsigned maxPaxPerString=MAX_PAX_PER_EDI_PART;maxPaxPerString>0;maxPaxPerString--)
