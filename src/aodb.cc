@@ -2205,7 +2205,8 @@ int main_aodb_handler_tcl(int supervisorSocket, int argc, char *argv[])
 
     ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
             ->connect_db();
-    
+    if (init_edifact()<0) throw Exception("'init_edifact' error");
+
     TReqInfo::Instance()->clear();
     char buf[10];
     for(;;)
