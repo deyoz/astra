@@ -66,16 +66,15 @@ static int sockfd=-1;
 static bool scan_tlg(bool sendOutAStepByStep);
 int h2h_out(H2H_MSG *h2h_msg);
 
-int main_snd_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
+int main_snd_tcl(int supervisorSocket, int argc, char *argv[])
 {
   try
   {
     sleep(2);
-    InitLogTime(NULL);
-    OpenLogFile("logairimp");
+    InitLogTime(argc>0?argv[0]:NULL);
 
     int SND_PORT;
-    const char *port_tcl=Tcl_GetVar(interp,"SND_PORT",TCL_GLOBAL_ONLY);
+    const char *port_tcl=Tcl_GetVar(getTclInterpretator(),"SND_PORT",TCL_GLOBAL_ONLY);
     if (port_tcl==NULL||StrToInt(port_tcl,SND_PORT)==EOF)
       throw Exception("Unknown or wrong SND_PORT");
 
@@ -98,7 +97,7 @@ int main_snd_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
     TDateTime lastSendOutAStepByStep=NoExists;
     for (;;)
     {
-      InitLogTime(NULL);
+      InitLogTime(argc>0?argv[0]:NULL);
       bool sendOutAStepByStep=receivedCmdTlgSndStepByStep ||
                               lastSendOutAStepByStep==NoExists ||
                               (lastSendOutAStepByStep<NowUTC()-((double)TLG_STEP_BY_STEP_TIMEOUT())/BASIC::MSecsPerDay);

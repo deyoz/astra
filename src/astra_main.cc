@@ -13,14 +13,14 @@
 
 #include "jxtlib/jxtlib.h"
 #include "jxtlib/xml_stuff.h"
+#include "serverlib/msg_const.h"
+#include "serverlib/monitor.h"
 #include "serverlib/sirena_queue.h"
 #include "serverlib/cursctl.h"
 #include "tclmon/mespro_crypt.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
-
-using namespace ServerFramework;
 
 int astraMsgControl(int type /* 0 - request, 1 - answer */,
                      const char *head, int hlen, const char *body, int blen)
@@ -67,39 +67,42 @@ int astraMsgControl(int type /* 0 - request, 1 - answer */,
     case 4: // HTTP
       break;
   }
-  return is_mes_control(type,head,hlen,ctrl_body.c_str(),ctrl_body.size());
+  return monitorControl::is_mes_control(type,head,hlen,ctrl_body.c_str(),ctrl_body.size());
 }
 
-class AstraApplication : public ApplicationCallbacks
+class AstraApplication : public ServerFramework::ApplicationCallbacks
 {
   public:
     AstraApplication()
     {
-      Obrzapnik::getInstance()
-              ->add("tlg_http_snd", main_http_snd_tcl)
-              ->add("tlg_snd", main_snd_tcl)
-              ->add("tlg_srv", main_srv_tcl)
-              ->add("typeb_handler", main_typeb_handler_tcl)
-              ->add("typeb_parser", main_typeb_parser_tcl)
-              ->add("edi_handler", main_edi_handler_tcl)
-              ->add("timer",main_timer_tcl)
-              ->add("aodb_handler",main_aodb_handler_tcl)
-              ->add("cobraserv",main_tcp_cobra_tcl)
-              ->add("cobra_handler",main_cobra_handler_tcl)
-              ->add("wb_garantserv",main_tcp_wb_garant_tcl)
-              ->add("wb_garant_handler",main_wb_garant_handler_tcl)
-              ->add("empty_proc",main_empty_proc_tcl)
-              ->setApplicationCallbacks(this);
+        ServerFramework::Obrzapnik::getInstance()
+                ->add("timer", "logdaemon", main_timer_tcl)
+                ->add("tlg_http_snd", "logairimp", main_http_snd_tcl)
+                ->add("tlg_snd", "logairimp", main_snd_tcl)
+                ->add("tlg_srv", "logairimp", main_srv_tcl)
+                ->add("typeb_handler", "logairimp", main_typeb_handler_tcl)
+                ->add("typeb_parser", "logairimp", main_typeb_parser_tcl)
+                ->add("edi_handler", "logairimp", main_edi_handler_tcl)
+                ->add("aodb_handler", "logdaemon", main_aodb_handler_tcl)
+                ->add("cobraserv", "logdaemon", main_tcp_cobra_tcl)
+                ->add("cobra_handler", "logdaemon", main_cobra_handler_tcl)
+                ->add("wb_garantserv", "logdaemon", main_tcp_wb_garant_tcl)
+                ->add("wb_garant_handler", "logdaemon", main_wb_garant_handler_tcl)
+                ->add("empty_proc", "logdaemon", main_empty_proc_tcl);
     }
     virtual int jxt_proc(const char *body, int blen, const char *head, int hlen,
                  char **res, int len)
     {
-        ServerFramework::QueryRunner query_runner (ServerFramework::TextQueryRunner());
+      ServerFramework::QueryRunner query_runner (ServerFramework::TextQueryRunner());
+      query_runner.getEdiHelpManager().multiMsgidMode(true);
+      OciCpp::mainSession().set7(); //переключение в OCI8 не идет, но на всякий случай подстрахуемся!
       return jxtlib::JXTLib::Instance()->GetCallbacks()->Main(body,blen,head,hlen,res,len);
     }
     virtual int internet_proc(const char *body, int blen,
                               const char *head, int hlen, char **res, int len)
     {
+      //ProgError(STDLOG, "OciCpp::mainSession()=%d", OciCpp::mainSession().mode());
+      OciCpp::mainSession().set7(); //это очень плохо что где-то в serverlib постоянно идет переключение на OCI8 !
       return AstraWeb::internet_main(body,blen,head,hlen,res,len);
     }
 
@@ -111,23 +114,23 @@ class AstraApplication : public ApplicationCallbacks
     }
     virtual void connect_db()
     {
-    	ApplicationCallbacks::connect_db();
-    	OraSession.Initialize(OciCpp::mainSession().getLd() );
+    	 ApplicationCallbacks::connect_db();
+      OciCpp::mainSession().set7();
+    	 OraSession.Initialize(OciCpp::mainSession().getLd() );
     }
-/*    virtual void disconnect_db()
-    {
-        return disconnect_oracle();
-    }
-*/
     virtual void on_exit(void)
     {
     }
-    virtual int tcl_init(Tcl_Interp *);
+    virtual int tcl_init(Tcl_Interp *interp)
+    {
+      ApplicationCallbacks::tcl_init(interp);
+      new AstraJxtCallbacks();
+      return 0;
+    }
 
     virtual int tcl_start(Tcl_Interp *interp)
     {
-        return ServerFramework::ApplicationCallbacks::
-            tcl_start(interp);
+      return ApplicationCallbacks::tcl_start(interp);
     }
 
     virtual void levC_app_init();
@@ -135,7 +138,7 @@ class AstraApplication : public ApplicationCallbacks
     virtual int nosir_proc(int argc,char **argv);
     virtual void help_nosir()
     {
-        return help_nosir_user();
+      return help_nosir_user();
     }
     virtual int form_crypt_error(char *res, char *head, int hlen, int error)
     {
@@ -144,6 +147,7 @@ class AstraApplication : public ApplicationCallbacks
 #ifdef USE_MESPRO
     virtual void getMesProParams(const char *head, int hlen, int *error, MPCryptParams &params)
     {
+      OciCpp::mainSession().set7();
       return ::getMesProParams(head,hlen,error,params);
     }
 #endif // USE_MESPRO
@@ -151,41 +155,10 @@ class AstraApplication : public ApplicationCallbacks
 
 };
 
-/*
-void term3(int signo)
-{
-  ProgError(STDLOG,"Killed in action :-( by %d",signo);
-  exit(1);
-}*/
-
 void AstraApplication::levC_app_init()
 {
-  if(init_locale()<0)
-  {
-    // FlushLog(); ???
-    puts("Error retrieving site information");
-    term3(SIGINT);
-  }
   init_edifact();
-}
-
-int AstraApplication::tcl_init(Tcl_Interp *interp)
-{
-    ServerFramework::ApplicationCallbacks::tcl_init(interp);
-#if 0
-    if(!Tcl_CreateObjCommand(interp,"get_csa",get_csa,(ClientData)0,0)){
-        fprintf(stderr,"%s\n",Tcl_GetString(Tcl_GetObjResult(interp)));
-        return -1;
-    }
-    if(!Tcl_CreateObjCommand(interp,"check_context_size",
-                tcl_check_context_size,(ClientData)0,0)){
-        fprintf(stderr,"%s\n",Tcl_GetString(Tcl_GetObjResult(interp)));
-        return -1;
-    }
-#endif /* 0 */
-    /*AstraJxtCallbacks *ajc=*/new AstraJxtCallbacks();
-//    AstraLocaleCallbacks *alc=new AstraLocaleCallbacks();
-    return 0;
+  ServerFramework::getQueryRunner().getEdiHelpManager().multiMsgidMode(true);
 }
 
 int AstraApplication::nosir_proc(int argc, char ** argv)
@@ -196,6 +169,6 @@ int AstraApplication::nosir_proc(int argc, char ** argv)
 
 int main(int argc,char **argv)
 {
-  AstraApplication astra_app;
-  return astra_app.run(argc,argv);
+    ServerFramework::setApplicationCallbacks<AstraApplication>();
+    return ServerFramework::applicationCallbacks()->run(argc,argv);
 }

@@ -7,10 +7,12 @@
 #include <libxml/tree.h>
 #include "astra_ticket.h"
 #include "astra_tick_view_xml.h"
+#include "term_version.h"
 #include "jxtlib/xmllibcpp.h"
 #include "jxtlib/gettext.h"
 #include "jxtlib/xml_tools.h"
-#include "serverlib/date_cast.h"
+#include "serverlib/dates_io.h"
+#include "serverlib/testmode.h"
 
 #define NICKNAME "ROMAN"
 #define NICKTRACE ROMAN_TRACE
@@ -288,6 +290,29 @@ void PassengerXmlListView::operator () (ViewerData &Data, const Passenger &Pass)
   xmlSetProp(xmlNewTextChild(rowNode,NULL,"name",Pass.name()),"index","4");
 }
 
+static void viewConnectedCoupons(XmlViewData &VData, const std::list<Coupon> &lcoupon)
+{
+  xmlNodePtr tickNode = VData.getCurrTickNode();
+  xmlNodePtr coupNode = newChild(tickNode, "coupon");
+
+  int count = 0;
+
+  for(std::list<Coupon>::const_iterator iter = lcoupon.begin();
+      iter != lcoupon.end();
+      ++ iter)
+  {
+    const Coupon cpn = *iter;
+    // xmlNewTextChild(tickNode, NULL, "tick_num", Tick.ticknum()); // номер билета
+    xmlNodePtr rowNode = newChild(coupNode, "row");
+    xmlSetProp(rowNode, "index", count++);
+
+    int col_num = 0;
+    xmlSetProp(xmlNewTextChild(rowNode, NULL, "num", cpn.couponInfo().num()), "index", col_num ++);
+    xmlSetProp(xmlNewTextChild(rowNode, NULL, "connected_num", cpn.couponInfo().connectedCpnNum()), "index", col_num ++);
+    xmlSetProp(xmlNewTextChild(rowNode, NULL, "connection_status", CpnActionStr(cpn.couponInfo().actionCode().get()).c_str()), "index", col_num ++);
+  }
+}
+
 /* Ticket data: single */
 void TicketXmlView::operator ()
 	(ViewerData &Data, const list<Ticket> &lTick, const CouponViewer &cpnView) const
@@ -300,10 +325,17 @@ void TicketXmlView::operator ()
   for(list<Ticket>::const_iterator i=lTick.begin(); i!=lTick.end();++i,++t)
   {
     const Ticket &Tick = (*i);
-    if(i->actCode() == TickStatAction::oldtick)
+    if(Tick.actCode() == TickStatAction::oldtick)
     {
         continue;
     }
+    if(Tick.actCode() == TickStatAction::inConnectionWith &&
+       !inTestMode() &&
+       !TReqInfo::Instance()->desk.compatible(EMDA_VERSION))
+    {
+        continue;
+    }
+
     string tmp=string("ticket")+HelpCpp::string_cast(++count);
     xmlNodePtr tickNode=newChild(mainNode,tmp.c_str());
     setElemProp(mainNode->parent,(string("gr_")+tmp+"_data").c_str(),"visible","true");
@@ -311,7 +343,13 @@ void TicketXmlView::operator ()
     xmlNewTextChild(tickNode,NULL,"tick_num",Tick.ticknum()); // номер билета
 
     VData.setCurrTickNode(tickNode);
-    cpnView(Data, Tick.getCoupon()); //Создаём купоны // мне надо !!!
+    if(Tick.actCode() == TickStatAction::inConnectionWith) {
+      xmlNewTextChild(tickNode, NULL, "connected_doc_num", Tick.connectedDocNum()); // номер билета
+      viewConnectedCoupons(VData, Tick.getCoupon());
+    }
+    else {
+      cpnView(Data, Tick.getCoupon()); //Создаём купоны // мне надо !!!
+    }
   }
   for(count++;count<5;++count)
   {

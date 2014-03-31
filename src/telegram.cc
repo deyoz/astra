@@ -1252,7 +1252,7 @@ void TelegramInterface::SendTlg(int tlg_id)
     TlgQry.CreateVariable( "id", otInteger, tlg_id);
     TlgQry.Execute();
     ostringstream msg;
-    msg << "Телеграмма " << tlg_short_name << " (ид=" << tlg_id << ") создана";
+    msg << "Телеграмма " << tlg_short_name << " (ид=" << tlg_id << ") отправлена";
     TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,tlg.point_id,tlg_id);
   }
   catch(EOracleError &E)

@@ -225,13 +225,12 @@ static const int WAIT_HTTP_TYPEB_INTERVAL()       //миллисекунды
   return VAR;
 };
 
-int main_http_snd_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
+int main_http_snd_tcl(int supervisorSocket, int argc, char *argv[])
 {
     try
     {
-        sleep(2);
-        InitLogTime(NULL);
-        OpenLogFile("logairimp");
+        sleep(5);
+        InitLogTime(argc>0?argv[0]:NULL);
 
         ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
             ->connect_db();
@@ -239,7 +238,7 @@ int main_http_snd_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
         char buf[10];
         for (;;)
         {
-            InitLogTime(NULL);
+            InitLogTime(argc>0?argv[0]:NULL);
 
             scan_tlg();
 

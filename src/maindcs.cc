@@ -70,7 +70,7 @@ int SetTermVersionNotice(int argc,char **argv)
     };
     return 1;
   };
-  
+
   //проверим notice_id на совпадение
   Qry.Clear();
   Qry.SQLText=
@@ -86,7 +86,7 @@ int SetTermVersionNotice(int argc,char **argv)
     printf("Error: version %s has already been introduced\n", version.c_str());
     return 0;
   };
-  
+
   Qry.Clear();
   Qry.SQLText=
     "DECLARE "
@@ -120,7 +120,7 @@ int SetTermVersionNotice(int argc,char **argv)
     text[lang] = getLocaleText("MSG.NOTICE.NEW_TERM_VERSION",
                                LParams() << LParam("version", version) << LParam("term_mode", term_mode), lang);
   };
-  
+
   Qry.Clear();
   Qry.SQLText="INSERT INTO locale_notices(notice_id, lang, text) VALUES(:notice_id, :lang, :text)";
   Qry.CreateVariable("notice_id", otInteger, notice_id);
@@ -147,14 +147,14 @@ void GetNotices(xmlNodePtr resNode)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
   if (!reqInfo->desk.compatible(DESK_NOTICE_VERSION)) return;
-  
+
 /*  ProgTrace(TRACE5,"GetNotices: desk=%s lang=%s desk_grp_id=%d term_mode=%s version=%s",
             reqInfo->desk.code.c_str(),
             reqInfo->desk.lang.c_str(),
             reqInfo->desk.grp_id,
             EncodeOperMode(reqInfo->desk.mode).c_str(),
             reqInfo->desk.version.c_str());*/
-  
+
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
@@ -444,7 +444,7 @@ void GetEventCmd( const vector<string> &event_names,
 
     CmdQry.SetVariable("event_name",event_name);
 
-    XMLDoc cmdDoc("UTF-8","commands");
+    XMLDoc cmdDoc("commands");
     xmlNodePtr cmdsNode=NodeAsNode("/commands",cmdDoc.docPtr());
     CmdQry.Execute();
     for(;!CmdQry.Eof;CmdQry.Next())
@@ -854,8 +854,8 @@ void GetSessionAirlines(const vector<string> &run_params, TSessionAirlines &airl
     sess.run_params=*p;
     string code=sess.run_params;
     TrimString(code);
-    size_t p = code.find( " " );
-  	if ( p != string::npos ) code.erase( p );
+    size_t p1 = code.find( " " );
+  	if ( p1 != string::npos ) code.erase( p1 );
     string airline;
     for(int pass=0; pass<3; pass++)
     {
@@ -1537,7 +1537,7 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     WriteFilterParamsContext(filter_airlines, filter_airps);
 
     xmlNodePtr node=NodeAsNode("/term/query",ctxt->reqDoc);
-    
+
     TReqInfoInitData reqInfoData;
     reqInfoData.screen = NodeAsString("@screen", node);
     reqInfoData.pult = ctxt->pult;
@@ -1554,7 +1554,7 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
     //здесь reqInfo нормально инициализирован
     CheckTermExpireDate();
-    
+
     GetModuleList(resNode);
     GetDevices(reqNode,resNode);
     GetNotices(resNode);
@@ -1819,7 +1819,7 @@ void MainDCSInterface::DetermineScanParams(XMLRequestCtxt *ctxt, xmlNodePtr reqN
         op_type!=dotScnBP2 &&
         op_type!=dotScnDoc &&
         op_type!=dotScnCard) throw EConvertError("op_type=%s not supported",EncodeDevOperType(op_type).c_str());
-  	
+
   	TDevFmtType fmt_type;
     if (TReqInfo::Instance()->desk.compatible(SCAN_DOC_VERSION))
       fmt_type=DecodeDevFmtType(NodeAsString("operation/fmt_params/@type",reqNode));
@@ -1888,8 +1888,7 @@ void MainDCSInterface::DetermineScanParams(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     if (fmt_type==dftSCAN1 || fmt_type==dftBCR)
     {
       //вычисляем prefix с учетом code_id_len
-      if (params.code_id_len<0 ||
-          params.code_id_len>9 ||
+      if (params.code_id_len>9 ||
           params.code_id_len>params.prefix.size())
         throw EConvertError("Wrong params.code_id_len=%lu",params.code_id_len);
       params.prefix.erase(params.prefix.size()-params.code_id_len);

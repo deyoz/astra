@@ -36,7 +36,9 @@
 #define MULTI_BOARDING_VERSION        "201311-0154253"
 #define DOCA_VERSION                  "201312-0154548"
 #define TLG_ERR_BROWSE_VERSION        "201401-0155488"
+
 #define TRANSIT_CRAFT_VERSION         "201600-0000000"
+#define EMDA_VERSION                  "202000-0000000"
 
 #endif
 

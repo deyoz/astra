@@ -88,7 +88,7 @@ extern const char *RptTypeS[rtTypeNum];
 
 #define TRACE_SIGNATURE int Level, const char *nickname, const char *filename, int line
 #define TRACE_PARAMS Level, nickname, filename, line
-#define ERROR_PARAMS nickname, filename, line
+#define ERROR_PARAMS -1, nickname, filename, line
 
 enum TIdType {idFlt, idGrp, idPax};
 

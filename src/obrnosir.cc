@@ -20,6 +20,7 @@
 #include "file_queue.h"
 #include "empty_proc.h"
 #include "serverlib/query_runner.h"
+#include "serverlib/ocilocal.h"
 #include "edilib/edi_loading.h"
 
 #define NICKNAME "VLAD"
@@ -34,6 +35,7 @@ int LocalIsNosir=0;
 int nosir_test(int argc,char **argv);
 void nosir_test_help(const char *name);
 int seasons_dst_format(int argc,char **argv);
+int nosir_tscript(int argc, char** argv);
 
 const
   struct {
@@ -67,6 +69,7 @@ const
     {"-compare_apis",           compare_apis,           NULL,                       NULL},
     {"-test_sopp_sql",          test_sopp_sql,          NULL,                       NULL},
     {"-test_file_queue",        test_file_queue,        NULL,                       NULL},
+    {"-tscript",                nosir_tscript,          NULL,                       NULL},
     {"-rollback096",            rollback096,            NULL,                       NULL},
     {"-mobile_stat",            mobile_stat,            NULL,                       NULL}
   };
@@ -103,18 +106,19 @@ int main_nosir_user(int argc,char **argv)
         ProgTrace(TRACE1,"nosir func started: name='%s, id=%i, argc=%i", argv[0], i, argc);
         int res=obrnosirnick[i].p(argc,argv);
         ProgTrace(TRACE1,"nosir func finished: name='%s, id=%i, res=%i", argv[0], i, res);
-        
+
         if(res != 0)
-          OraSession.Rollback();
+           ASTRA::rollback();
         else
-          OraSession.Commit();
+           ASTRA::commit();
         OraSession.LogOff();
       }
-      catch(...)
+      catch(const std::exception &e)
       {
+        LogError(STDLOG) << e.what();
         try
         {
-          OraSession.Rollback();
+          ASTRA::rollback();
           OraSession.LogOff();
         }
         catch(...) {  ProgError(STDLOG, "OraSession.Rollback or OraSession.LogOff error"); };

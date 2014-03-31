@@ -80,7 +80,7 @@ InetClient getInetClient(int client_id)
 int internet_main(const char *body, int blen, const char *head,
                   int hlen, char **res, int len)
 {
-  InitLogTime(0);
+  InitLogTime(NULL);
   PerfomInit();
   int client_id=readInetClientId(head);
   ProgTrace(TRACE1,"new web request received from client %i",client_id);
@@ -125,6 +125,7 @@ int internet_main(const char *body, int blen, const char *head,
     else
       ProgTrace(TRACE1,"Unable to find <query> tag!");
 
+    InitLogTime(client.pult.c_str());
 
     static ServerFramework::ApplicationCallbacks *ac=
              ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks();
@@ -153,7 +154,7 @@ int internet_main(const char *body, int blen, const char *head,
     memcpy(*res+hlen,answer.data(),answer.size());
   }
 
-  InitLogTime(0);
+  InitLogTime(NULL);
   return newlen;
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1557,7 +1558,7 @@ void WebRequestsIface::ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
 void CreateEmulXMLDoc(xmlNodePtr reqNode, XMLDoc &emulDoc)
 {
-  emulDoc.set("UTF-8","term");
+  emulDoc.set("term");
   if (emulDoc.docPtr()==NULL)
     throw EXCEPTIONS::Exception("CreateEmulXMLDoc: CreateXMLDoc failed");
   CopyNode(NodeAsNode("/term",emulDoc.docPtr()),
@@ -1572,7 +1573,7 @@ void CreateEmulXMLDoc(xmlNodePtr reqNode, XMLDoc &emulDoc)
 
 void CreateEmulXMLDoc(XMLDoc &emulDoc)
 {
-  emulDoc.set("UTF-8","term");
+  emulDoc.set("term");
   if (emulDoc.docPtr()==NULL)
     throw EXCEPTIONS::Exception("CreateEmulXMLDoc: CreateXMLDoc failed");
   /*xmlNodePtr node=*/NewTextChild(NodeAsNode("/term",emulDoc.docPtr()),"query");
@@ -1580,7 +1581,7 @@ void CreateEmulXMLDoc(XMLDoc &emulDoc)
 
 void CopyEmulXMLDoc(const XMLDoc &srcDoc, XMLDoc &destDoc)
 {
-  destDoc.set("UTF-8","term");
+  destDoc.set("term");
   if (destDoc.docPtr()==NULL)
     throw EXCEPTIONS::Exception("CopyEmulXMLDoc: CreateXMLDoc failed");
   xmlNodePtr destNode=NodeAsNode("/term",destDoc.docPtr());
@@ -3807,7 +3808,7 @@ void WebRequestsIface::GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   SetProp( resNode, "time", DateTimeToStr( max_time, ServerFormatDateTimeAsString ) );
   AstraContext::ClearContext( "meridian_sync", 0 );
   if ( !Paxs.empty() ) { // есть пассажиры - сохраняем всех переданных
-    paxsDoc = CreateXMLDoc( "UTF-8", "paxs" );
+    paxsDoc = CreateXMLDoc( "paxs" );
     try {
       node = paxsDoc->children;
       SetProp( node, "time", DateTimeToStr( max_time, ServerFormatDateTimeAsString ) );

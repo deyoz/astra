@@ -22,11 +22,11 @@ const std::string SESS_MSG_FLAGS = "MSG_FLAGS";
 const std::string SESS_INVALID_MSG = "invalid_msg";
 const std::string SESS_COMMIT_MSG = "commit";
 
-int main_tcp_cobra_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
-int main_cobra_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
+int main_tcp_cobra_tcl(int supervisorSocket, int argc, char *argv[]);
+int main_cobra_handler_tcl(int supervisorSocket, int argc, char *argv[]);
 
-int main_tcp_wb_garant_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
-int main_wb_garant_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
+int main_tcp_wb_garant_tcl(int supervisorSocket, int argc, char *argv[]);
+int main_wb_garant_handler_tcl(int supervisorSocket, int argc, char *argv[]);
 
 
 struct sessBuffers {

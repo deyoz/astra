@@ -4,7 +4,7 @@
 
 #ifndef __WIN32__
 #include <tcl.h>
-int main_empty_proc_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
+int main_empty_proc_tcl(int supervisorSocket, int argc, char *argv[]);
 #endif
 int get_events_stat(int argc,char **argv);
 int get_events_stat2(int argc,char **argv);

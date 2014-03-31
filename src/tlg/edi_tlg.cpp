@@ -1,3 +1,4 @@
+#include "config.h"
 #include "edi_tlg.h"
 #include "edilib/edi_func_cpp.h"
 #include "edilib/edi_types.h"
@@ -20,8 +21,10 @@
 #include "serverlib/cursctl.h"
 #include "serverlib/ocilocal.h"
 #include "serverlib/ehelpsig.h"
-#include "serverlib/date_cast.h"
+#include "serverlib/dates_io.h"
 #include "serverlib/posthooks.h"
+#include "serverlib/testmode.h"
+#include "serverlib/EdiHelpManager.h"
 
 #define NICKNAME "ROMAN"
 #define NICKTRACE ROMAN_TRACE
@@ -162,7 +165,7 @@ int FuncAfterEdiProc(edi_mes_head *pHead, void *udata, int *err)
         /*Если обрабатываем ответ*/
         try{
             data->sessData()->ediSession()->CommitEdiSession();
-            
+
             if (data->sessData()->ediSession()->pult()=="SYSTEM")
               registerHookAfter(sendCmdTlgSndStepByStep);
         }
@@ -252,6 +255,7 @@ int FuncAfterEdiSend(edi_mes_head *pHead, void *udata, int *err)
     return ret;
 }
 
+
 void confirm_notify_levb(const int edi_sess_id)
 {
   ProgTrace(TRACE2,"confirm_notify_levb: called with edi_sess_id=%d",edi_sess_id);
@@ -292,6 +296,11 @@ void confirm_notify_levb(const int edi_sess_id)
     sethAfter(EdiHelpSignal((const int*)str_msg_id.c_str(),
                             Qry.GetVariableAsString("address"),
                             txt.c_str()));
+#ifdef XP_TESTING
+    if(inTestMode()) {
+        ServerFramework::setRedisplay(txt);
+    }
+#endif /* XP_TESTING */
   }
   else
   {
@@ -329,9 +338,10 @@ int init_edifact()
 {
     InitEdiLogger(ProgError,WriteLog,ProgTrace);
 
-    if(CreateTemplateMessagesCur(OciCpp::mainSession().getLd()/*  LD*/,NULL)){
+    if(CreateTemplateMessages(get_connect_string(),NULL)) {
         return -1;
     }
+
     if(InitEdiTypes(edi_msg_proc, edi_proc_sz)){
         ProgError(STDLOG,"InitEdiTypes failed");
         return -2;
@@ -439,7 +449,7 @@ void SendEdiTlgTKCREQ_Disp(TickDisp &TDisp)
 
 xmlDocPtr prepareKickXMLDoc(string iface, int reqCtxtId)
 {
-  xmlDocPtr kickDoc=CreateXMLDoc(/*"CP866"*/"UTF-8","term");
+  xmlDocPtr kickDoc=CreateXMLDoc("term");
   if (kickDoc==NULL)
     throw EXCEPTIONS::Exception("prepareKickXMLDoc failed");
   TReqInfo *reqInfo = TReqInfo::Instance();
@@ -766,7 +776,7 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
           msgh << "Ошибка при изменении статуса эл. билета "
                << currTick->ticknum()
                << ": " << err << ". ";
-               
+
           LexemaData err_lexeme;
           err_lexeme.lexema_id="MSG.ETICK.CHANGE_STATUS_ERROR";
           err_lexeme.lparams << LParam("ticknum",currTick->ticknum())
@@ -821,13 +831,13 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
                << currTick->ticknum() << "/"
                << currTick->getCoupon().front().couponInfo().num()
                << ": " << err << ". ";
-               
+
           LexemaData err_lexeme;
           err_lexeme.lexema_id="MSG.ETICK.CHANGE_STATUS_ERROR";
           err_lexeme.lparams << LParam("ticknum",currTick->ticknum()+"/"+
                                                  IntToString(currTick->getCoupon().front().couponInfo().num()))
                              << LParam("error",err);
-               
+
           if (ticketNode!=NULL)
           {
             //поищем все билеты
@@ -932,7 +942,7 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
       }
       else
       {
-        ediResCtxt.set("UTF-8","context");
+        ediResCtxt.set("context");
         if (ediResCtxt.docPtr()!=NULL)
           NewTextChild(NodeAsNode("/context",ediResCtxt.docPtr()),"tickets");
       };
@@ -991,7 +1001,10 @@ void CreateTKCREQdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data 
 
       ServerFramework::getQueryRunner().getEdiHelpManager().
               configForPerespros(STDLOG,prepareKickText("ETSearchForm",TickD.req_ctxt_id()).c_str(),-1,15);
-    };
+      LogTrace(TRACE3) << "get_internal_msgid_hex() = " << get_internal_msgid_hex();
+    } else {
+      LogTrace(TRACE3) << "TickD.req_ctxt_id() = " << TickD.req_ctxt_id();
+    }
 }
 
 void ParseTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *data)
