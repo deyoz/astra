@@ -12,7 +12,6 @@ int get_sirena_rozysk_stat(int argc,char **argv);
 int season_to_schedules(int argc,char **argv);
 int create_tlg(int argc,char **argv);
 int get_basel_aero_stat(int argc,char **argv);
-int test_trfer_list(int argc,char **argv);
 int test_trfer_exists(int argc,char **argv);
 int bind_trfer_trips(int argc,char **argv);
 int unbind_trfer_trips(int argc,char **argv);

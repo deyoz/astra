@@ -69,6 +69,26 @@ namespace TrferList
 
 enum TTrferType { trferIn, trferOut, trferOutForCkin, trferCkin, tckinInbound };
 
+/*
+trferIn
+Информация о трансферных пассажирах, прибывающих рейсом [flight%s][EOL]
+Информация о трансферном багаже, прибывающем рейсом [flight%s][EOL]
+
+trferOut
+Информация о трансферных пассажирах, отправляющихся рейсом [flight%s][EOL]
+Информация о трансферном багаже, отправляющемся рейсом [flight%s][EOL]
+
+trferCkin
+Информация о трансферных пассажирах, отправляющихся рейсом [flight%s][EOL](данные на основе результатов регистрации)
+Информация о трансферном багаже, отправляющемся рейсом [flight%s][EOL](данные на основе результатов регистрации)
+
+tckinInbound
+Стыковочные рейсы, которыми прибывают пассажиры рейса [flight%s][EOL](данные на основе сквозной регистрации)
+
+trferOutForCkin
+Используется в GetNewGrpTags
+*/
+
 class TBagItem
 {
   public:
@@ -138,7 +158,7 @@ class TGrpItem : public TBagItem
     int bag_pool_num;
     bool is_unaccomp;
     std::string airp_arv, subcl;
-    std::string last_airp_arv; //Єюы№ъю Ёрфш InboundTrfer::FilterUnattachedTags
+    std::string last_airp_arv; //только ради InboundTrfer::FilterUnattachedTags
     std::vector<TPaxItem> paxs;
     int seats;
     TGrpItem()
@@ -203,11 +223,55 @@ class TFltInfo : public TTripInfo
     };
 };
 
+class TGrpId : public std::pair<int/*grp_id*/, int/*bag_pool_num*/>
+{
+   public:
+     TGrpId(int grp_id, int bag_pool_num) : std::pair<int, int>(grp_id, bag_pool_num) {};
+     std::string getStr() const
+     {
+       std::ostringstream s;
+       s << std::right << std::setw(10) << first << ":"
+         << std::left << std::setw(3) << (second==ASTRA::NoExists?"-":IntToString(second));
+       return s.str();
+     };
+};
+
+enum TAlarmType { atUnattached,
+                  atInPaxDuplicate,
+                  atOutPaxDuplicate,
+                  atInRouteIncomplete,
+                  atInRouteDiffer,
+                  atOutRouteDiffer, //никогда не возникает на экране подтверждения входящего трансфера
+                  atInOutRouteDiffer,
+                  atWeightNotDefined,
+                  atLength };
+
+typedef std::map<TGrpId, std::set<TAlarmType> > TAlarmTagMap;
+
+class TGrpConfirmItem
+{
+  public:
+    int grp_id;
+    int bag_pool_num;
+    int bag_weight;
+    std::vector<std::string> tag_ranges;
+    int calc_status;
+    int conf_status;
+    TGrpConfirmItem()
+    {
+      grp_id=ASTRA::NoExists;
+      bag_pool_num=ASTRA::NoExists;
+      bag_weight=ASTRA::NoExists;
+      calc_status=ASTRA::NoExists;
+      conf_status=ASTRA::NoExists;
+    };
+};
+
 class TGrpViewItem : public TBagItem
 {
   public:
     int point_id;
-    std::string inbound_trip; //Єюы№ъю фы  tckinInbound
+    std::string inbound_trip; //только для tckinInbound
     int grp_id;
     int bag_pool_num;
     TFltInfo flt_view;
@@ -217,6 +281,8 @@ class TGrpViewItem : public TBagItem
     int subcl_priority;
     std::vector<TPaxItem> paxs;
     int seats;
+    std::set<TAlarmType> alarms;
+    int calc_status;
 
     TGrpViewItem() : TBagItem()
     {
@@ -225,6 +291,7 @@ class TGrpViewItem : public TBagItem
       bag_pool_num=ASTRA::NoExists;
       subcl_priority=ASTRA::NoExists;
       seats=ASTRA::NoExists;
+      calc_status=ASTRA::NoExists;
     };
 
     bool operator < (const TGrpViewItem &grp) const
@@ -253,6 +320,18 @@ void TrferFromDB(TTrferType type,
                  std::vector<TGrpItem> &grps_ckin,
                  std::vector<TGrpItem> &grps_tlg);
 
+void GrpsToGrpsView(TTrferType type,
+                    bool pr_bag,
+                    const std::vector<TGrpItem> &grps_ckin,
+                    const std::vector<TGrpItem> &grps_tlg,
+                    const TAlarmTagMap &alarms,
+                    std::vector<TGrpViewItem> &grps);
+
+void TrferToXML(TTrferType type,
+                bool bag_pool_compatible,
+                const std::vector<TGrpViewItem> &grps,
+                xmlNodePtr trferNode);
+
 void TrferToXML(TTrferType type,
                 int point_id,
                 bool pr_bag,
@@ -261,15 +340,19 @@ void TrferToXML(TTrferType type,
                 const std::vector<TGrpItem> &grps_tlg,
                 xmlNodePtr resNode);
 
+void TrferConfirmFromXML(xmlNodePtr trferNode,
+                         std::map<TGrpId, TGrpConfirmItem> &grps);
+
 bool trferInExists(int point_arv, int prior_point_arv, TQuery& Qry);
 bool trferOutExists(int point_dep, TQuery& Qry);
 bool trferCkinExists(int point_dep, TQuery& Qry);
-
 
 }; //namespace TrferList
 
 namespace InboundTrfer
 {
+
+typedef TrferList::TGrpId TGrpId;
 
 class TPaxItem
 {
@@ -340,19 +423,6 @@ class TGrpItem
     void print() const;
 };
 
-class TGrpId : public std::pair<int/*grp_id*/, int/*bag_pool_num*/>
-{
-   public:
-     TGrpId(int grp_id, int bag_pool_num) : std::pair<int, int>(grp_id, bag_pool_num) {};
-     std::string getStr() const
-     {
-       std::ostringstream s;
-       s << std::right << std::setw(10) << first << ":"
-         << std::left << std::setw(3) << (second==ASTRA::NoExists?"-":IntToString(second));
-       return s.str();
-     };
-};
-
 enum TConflictReason { conflictInPaxDuplicate,
                        conflictOutPaxDuplicate,
                        conflictInRouteIncomplete,
@@ -361,10 +431,30 @@ enum TConflictReason { conflictInPaxDuplicate,
                        conflictInOutRouteDiffer,
                        conflictWeightNotDefined };
 
+bool isGlobalConflict(TConflictReason c);
+TrferList::TAlarmType GetConflictAlarm(TConflictReason c);
+
 typedef std::map<TGrpId, std::vector<TBagTagNumber> > TUnattachedTagMap;
 
 typedef std::map<TGrpId, std::pair<TrferList::TGrpItem, std::set<TConflictReason> > > TNewGrpTagMap;
-typedef std::map<std::pair<std::string, std::string>, std::set<TGrpId> > TNewGrpPaxMap;
+typedef std::map<std::pair<std::string/*surname*/, std::string/*name*/>, std::set<TGrpId> > TNewGrpPaxMap;
+
+class TNewGrpInfo
+{
+  public:
+    TNewGrpTagMap tag_map;
+    TNewGrpPaxMap pax_map;
+    std::set<TConflictReason> conflicts;
+    void clear()
+    {
+      tag_map.clear();
+      pax_map.clear();
+      conflicts.clear();
+    };
+    void erase(const TGrpId &id);
+    int calc_status(const TGrpId &id);
+};
+
 
 void GetUnattachedTags(int point_id,
                        TUnattachedTagMap &result);
@@ -382,23 +472,17 @@ void GetNextTrferCheckedFlts(int id,  //м.б. point_id или grp_id
                              ASTRA::TIdType id_type,
                              std::set<int> &point_ids);
 
-void GetNewGrpTags(int point_id,
+void GetNewGrpInfo(int point_id,
                    const TGrpItem &grp_out,
                    const std::set<int> &pax_out_ids,
-                   TNewGrpTagMap &tag_map,
-                   TNewGrpPaxMap &pax_map,
-                   std::set<TConflictReason> &conflicts);
+                   TNewGrpInfo &info);
+
+void NewGrpInfoToGrpsView(const TNewGrpInfo &inbound_trfer,
+                          std::vector<TrferList::TGrpViewItem> &grps);
 
 void ConflictReasonsToLog(const std::set<TConflictReason> &conflicts,
                           TLogMsg &msg);
 
 }; //namespace InboundTrfer
-
-namespace TrferListOld
-{
-
-void GetTransfer(bool pr_inbound_tckin, bool pr_out, bool pr_tlg, bool pr_bag, int point_id, xmlNodePtr resNode);
-
-};
 
 #endif /*_TRANSFER_H_*/
