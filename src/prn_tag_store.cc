@@ -784,8 +784,10 @@ void TPrnTagStore::TPaxInfo::Init(int apax_id, TTagLang &tag_lang)
     if(pax_id == NoExists) {
         pax_id = apax_id;
         TQuery Qry(&OraSession);
+        CheckIn::TPaxDocItem doc;
         if (!isTestPaxId(pax_id))
         {
+          LoadPaxDoc(pax_id, doc);
           Qry.SQLText =
               "select "
               "   surname, "
@@ -851,8 +853,13 @@ void TPrnTagStore::TPaxInfo::Init(int apax_id, TTagLang &tag_lang)
         Qry.Execute();
         if(Qry.Eof)
             throw Exception("TPrnTagStore::TPaxInfo::Init no data found for pax_id = %d", pax_id);
-        surname = Qry.FieldAsString("surname");
-        name = Qry.FieldAsString("name");
+        if(doc.surname.empty() or doc.first_name.empty()) {
+            surname = Qry.FieldAsString("surname");
+            name = Qry.FieldAsString("name");
+        } else {
+            surname = doc.surname;
+            name = doc.first_name;
+        }
         document = CheckIn::GetPaxDocStr(NoExists, pax_id, false, tag_lang.GetLang());
         ticket_rem = Qry.FieldAsString("ticket_rem");
         ticket_no = Qry.FieldAsString("ticket_no");
