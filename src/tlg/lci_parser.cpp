@@ -1277,21 +1277,23 @@ void SaveLCIContent(int tlg_id, TLCIHeadingInfo& info, TLCIContent& con)
     int point_id_spp = Qry.FieldAsInteger( "point_id_spp" );
 
     vector<TSeatRange> ranges_tmp, seatRanges;
-    if(con.action_code.action == aRequest) {
-        TCreateInfo createInfo("LCI", TCreatePoint());
-        // !!! приведение константной ссылки к неконстантной. Не хорошо.
-        TypeB::TLCIOptions &options = (TypeB::TLCIOptions&)(*createInfo.optionsAs<TypeB::TLCIOptions>());
 
-        options.is_lat = true;
-        options.equipment=false;
-        options.weight_avail="N";
-        options.seating=false;
-        options.weight_mode=false;
-        options.seat_restrict="S";
-        options.pas_totals = false;
-        options.bag_totals = false;
-        options.pas_distrib = false;
-        options.seat_plan = false;
+    TCreateInfo createInfo("LCI", TCreatePoint());
+    // !!! приведение константной ссылки к неконстантной. Не хорошо.
+    TypeB::TLCIOptions &options = (TypeB::TLCIOptions&)(*createInfo.optionsAs<TypeB::TLCIOptions>());
+
+    options.is_lat = true;
+    options.equipment=false;
+    options.weight_avail="N";
+    options.seating=false;
+    options.weight_mode=false;
+    options.seat_restrict="S";
+    options.pas_totals = false;
+    options.bag_totals = false;
+    options.pas_distrib = false;
+    options.seat_plan = false;
+
+    if(con.action_code.action == aRequest) {
 
         for(TRequest::iterator i = con.req.begin(); i != con.req.end(); i++) {
             switch(i->first) {
@@ -1318,6 +1320,11 @@ void SaveLCIContent(int tlg_id, TLCIHeadingInfo& info, TLCIContent& con)
                     break;
             }
         }
+        createInfo.point_id = point_id_spp;
+        createInfo.set_addrs(info.sender);
+        TelegramInterface::SendTlg(vector<TCreateInfo>(1, createInfo));
+    } else if(con.action_code.action == aOpen) {
+        options.seat_plan = true;
         createInfo.point_id = point_id_spp;
         createInfo.set_addrs(info.sender);
         TelegramInterface::SendTlg(vector<TCreateInfo>(1, createInfo));
