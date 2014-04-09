@@ -52,6 +52,8 @@ public:
      AddEvent("PaxSrcRun",evHandle);
      evHandle=JxtHandler<StatInterface>::CreateHandler(&StatInterface::FltLogRun);
      AddEvent("FltLogRun",evHandle);
+     evHandle=JxtHandler<StatInterface>::CreateHandler(&StatInterface::FltTaskLogRun);
+     AddEvent("FltTaskLogRun",evHandle);
      evHandle=JxtHandler<StatInterface>::CreateHandler(&StatInterface::LogRun);
      AddEvent("LogRun",evHandle);
      evHandle=JxtHandler<StatInterface>::CreateHandler(&StatInterface::SystemLogRun);
@@ -72,6 +74,7 @@ public:
   void TestFltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void FltTaskLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
