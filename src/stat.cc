@@ -614,6 +614,154 @@ void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     }
 }
 
+void StatInterface::FltTaskLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    if(find( reqInfo->user.access.rights.begin(),
+                reqInfo->user.access.rights.end(), 651 ) == reqInfo->user.access.rights.end())
+        throw AstraLocale::UserException("MSG.FLT_TASK_LOG.VIEW_DENIED");
+    xmlNodePtr paramNode = reqNode->children;
+    int point_id = NodeAsIntegerFast("point_id", paramNode);
+    TDateTime part_key;
+    xmlNodePtr partKeyNode = GetNodeFast("part_key", paramNode);
+    if(partKeyNode == NULL)
+        part_key = NoExists;
+    else
+        part_key = NodeAsDateTime(partKeyNode);
+    get_compatible_report_form("FltTaskLog", reqNode, resNode);
+    STAT::set_variables(resNode);
+    xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
+    NewTextChild(variablesNode, "report_title", getLocaleText("Журнал задач рейса"));
+    TQuery Qry(&OraSession);
+    int count = 0;
+
+    xmlNodePtr paxLogNode = NewTextChild(resNode, "PaxLog");
+    xmlNodePtr headerNode = NewTextChild(paxLogNode, "header");
+    NewTextChild(headerNode, "col", "Агент"); // для совместимости со старой версией терминала
+
+    Qry.Clear();
+    string SQLQuery;
+    string airline;
+    if (part_key == NoExists) {
+        {
+            TQuery Qry(&OraSession);
+            Qry.SQLText = "select airline from points where point_id = :point_id "; // pr_del>=0 - не надо т.к. можно просматривать удаленные рейсы
+            Qry.CreateVariable("point_id", otInteger, point_id);
+            Qry.Execute();
+            if(Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.MOVED_TO_ARX_OR_DEL.SELECT_AGAIN");
+            airline = Qry.FieldAsString("airline");
+        }
+        SQLQuery =
+            "SELECT msg, time,  "
+            "       id1 AS point_id,  "
+            "       events.screen,  "
+            "       ev_user, station, ev_order  "
+            "FROM events  "
+            "WHERE "
+            "   events.type = :evtFltTask AND  "
+            "   events.id1=:point_id  ";
+    } else {
+        {
+            TQuery Qry(&OraSession);
+            Qry.SQLText =
+                "select airline from arx_points "
+                "where part_key = :part_key and point_id = :point_id "; // pr_del >= 0 - не надо, т.к. в архиве нет удаленных рейсов
+            Qry.CreateVariable("part_key", otDate, part_key);
+            Qry.CreateVariable("point_id", otInteger, point_id);
+            Qry.Execute();
+            if(Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND");
+            airline = Qry.FieldAsString("airline");
+        }
+        SQLQuery =
+            "SELECT msg, time,  "
+            "       id1 AS point_id,  "
+            "       arx_events.screen,  "
+            "       ev_user, station, ev_order  "
+            "FROM arx_events  "
+            "WHERE "
+            "   arx_events.part_key = :part_key and "
+            "   arx_events.type = :evtFltTask AND  "
+            "   arx_events.id1=:point_id  ";
+    }
+    NewTextChild(resNode, "airline", airline);
+
+    TPerfTimer tm;
+    tm.Init();
+    xmlNodePtr rowsNode = NULL;
+    Qry.Clear();
+    Qry.SQLText = SQLQuery;
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.CreateVariable("evtFltTask",otString,EncodeEventType(ASTRA::evtFltTask));
+    if(part_key != NoExists)
+        Qry.CreateVariable("part_key", otDate, part_key);
+    try {
+        Qry.Execute();
+    } catch (EOracleError &E) {
+        if(E.Code == 376)
+            throw AstraLocale::UserException("MSG.ONE_OF_DB_FILES_UNAVAILABLE.CALL_ADMIN");
+        else
+            throw;
+    }
+
+    if(Qry.Eof && part_key == NoExists) {
+        TQuery Qry(&OraSession);
+        Qry.SQLText = "select point_id from points where point_id = :point_id";
+        Qry.CreateVariable("point_id", otInteger, point_id);
+        Qry.Execute();
+        if(Qry.Eof)
+            throw AstraLocale::UserException("MSG.FLIGHT.MOVED_TO_ARX_OR_DEL.SELECT_AGAIN");
+    }
+
+    typedef map<string, string> TScreenMap;
+    TScreenMap screen_map;
+    if(!Qry.Eof) {
+        int col_point_id=Qry.FieldIndex("point_id");
+        int col_ev_user=Qry.FieldIndex("ev_user");
+        int col_station=Qry.FieldIndex("station");
+        int col_time=Qry.FieldIndex("time");
+        int col_msg=Qry.FieldIndex("msg");
+        int col_ev_order=Qry.FieldIndex("ev_order");
+        int col_screen=Qry.FieldIndex("screen");
+
+        if(!rowsNode)
+            rowsNode = NewTextChild(paxLogNode, "rows");
+        for( ; !Qry.Eof; Qry.Next()) {
+            string ev_user = Qry.FieldAsString(col_ev_user);
+            string station = Qry.FieldAsString(col_station);
+
+            xmlNodePtr rowNode = NewTextChild(rowsNode, "row");
+            NewTextChild(rowNode, "point_id", Qry.FieldAsInteger(col_point_id));
+            NewTextChild( rowNode, "time",
+                    DateTimeToStr(
+                        UTCToClient( Qry.FieldAsDateTime(col_time), reqInfo->desk.tz_region),
+                        ServerFormatDateTimeAsString
+                        )
+                    );
+            NewTextChild(rowNode, "msg", Qry.FieldAsString(col_msg));
+            NewTextChild(rowNode, "ev_order", Qry.FieldAsInteger(col_ev_order));
+            NewTextChild(rowNode, "ev_user", ev_user, "");
+            NewTextChild(rowNode, "station", station, "");
+            string screen = Qry.FieldAsString(col_screen);
+            if(screen.size()) {
+                if(screen_map.find(screen) == screen_map.end()) {
+                    TQuery Qry(&OraSession);
+                    Qry.SQLText = "select name from screen where exe = :exe";
+                    Qry.CreateVariable("exe", otString, screen);
+                    Qry.Execute();
+                    if(Qry.Eof) throw Exception("FltLogRun: screen name fetch failed for " + screen);
+                    screen_map[screen] = getLocaleText(Qry.FieldAsString(0));
+                }
+                screen = screen_map[screen];
+            }
+            NewTextChild(rowNode, "screen", screen, "");
+
+            count++;
+        }
+    }
+    if(!count)
+        throw AstraLocale::UserException("MSG.OPERATIONS_NOT_FOUND");
+}
+
 void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
