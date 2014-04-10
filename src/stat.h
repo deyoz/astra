@@ -60,8 +60,6 @@ public:
      AddEvent("SystemLogRun",evHandle);
      evHandle=JxtHandler<StatInterface>::CreateHandler(&StatInterface::FltCBoxDropDown);
      AddEvent("FltCBoxDropDown",evHandle);
-     evHandle=JxtHandler<StatInterface>::CreateHandler(&StatInterface::TestFltCBoxDropDown);
-     AddEvent("TestFltCBoxDropDown",evHandle);
      evHandle=JxtHandler<StatInterface>::CreateHandler(&StatInterface::CommonCBoxDropDown);
      AddEvent("CommonCBoxDropDown",evHandle);
      evHandle=JxtHandler<StatInterface>::CreateHandler(&StatInterface::RunStat);
@@ -71,7 +69,6 @@ public:
   };
 
   void FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  void TestFltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void FltTaskLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
