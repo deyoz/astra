@@ -161,8 +161,18 @@ int internet_main(const char *body, int blen, const char *head,
 
 struct TIdsPnrData {
   int point_id;
+  string airline;
+  int flt_no;
+  string suffix;
   int pnr_id;
   bool pr_paid_ckin;
+  TIdsPnrData()
+  {
+    point_id=NoExists;
+    flt_no=NoExists;
+    pnr_id=NoExists;
+    pr_paid_ckin=false;
+  };
 };
 
 void VerifyPNR( int point_id, int pnr_id )
@@ -1097,6 +1107,11 @@ void IntLoadPnr( const vector<TIdsPnrData> &ids, vector< TWebPnr > &pnrs, xmlNod
 
       xmlNodePtr segNode=NewTextChild(segsNode, "segment");
       NewTextChild( segNode, "point_id", point_id );
+      NewTextChild( segNode, "airline", i->airline );
+      i->flt_no==NoExists?NewTextChild( segNode, "flt_no" ):
+                          NewTextChild( segNode, "flt_no", i->flt_no );
+      NewTextChild( segNode, "suffix", i->suffix );
+
       NewTextChild( segNode, "apis", (int)(!pnr.apis_formats.empty()) );
       checkDocInfoToXML(pnr.checkDocInfo, segNode);
       
@@ -1198,6 +1213,9 @@ void WebRequestsIface::LoadPnr(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     VerifyPNR( point_id, pnr_id );
     TIdsPnrData idsPnrData;
     idsPnrData.point_id=point_id;
+    idsPnrData.airline=flt.oper.airline;
+    idsPnrData.flt_no=flt.oper.flt_no;
+    idsPnrData.suffix=flt.oper.suffix;
     idsPnrData.pnr_id=pnr_id;
     idsPnrData.pr_paid_ckin=flt.pr_paid_ckin;
     ids.push_back( idsPnrData );
@@ -2640,6 +2658,9 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, const XMLDoc &emulDoc
   {
     TIdsPnrData idsPnrData;
     idsPnrData.point_id=iPnrData->flt.point_dep;
+    idsPnrData.airline=iPnrData->flt.oper.airline;
+    idsPnrData.flt_no=iPnrData->flt.oper.flt_no;
+    idsPnrData.suffix=iPnrData->flt.oper.suffix;
     idsPnrData.pnr_id=iPnrData->seg.pnr_id;
     idsPnrData.pr_paid_ckin=iPnrData->flt.pr_paid_ckin;
     ids.push_back( idsPnrData );
