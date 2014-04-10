@@ -89,7 +89,7 @@ void GetSystemLogAgentSQL(TQuery &Qry);
 void GetSystemLogStationSQL(TQuery &Qry);
 void GetSystemLogModuleSQL(TQuery &Qry);
 
-enum TScreenState {ssNone,ssLog,ssPaxList,ssFltLog,ssSystemLog,ssPaxSrc};
+enum TScreenState {ssNone,ssLog,ssPaxList,ssFltLog,ssFltTaskLog,ssSystemLog,ssPaxSrc};
 enum TColumnSortType {sortString,
                       sortInteger,
                       sortFloat,
@@ -242,7 +242,7 @@ void GetFltCBoxList(bool pr_new, TScreenState scr, TDateTime first_date, TDateTi
 
             if(scr == ssPaxList)
               sql << " AND pr_del = 0 \n";
-            if(scr == ssFltLog and !pr_show_del)
+            if((scr == ssFltLog or scr == ssFltTaskLog) and !pr_show_del)
               sql << " AND pr_del >= 0 \n";
             if (!reqInfo.user.access.airlines.empty()) {
                 if (reqInfo.user.access.airlines_permit)
@@ -303,7 +303,7 @@ void GetFltCBoxList(bool pr_new, TScreenState scr, TDateTime first_date, TDateTi
                     "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
                 if(scr == ssPaxList)
                     SQLText += " and points.pr_del = 0 ";
-                if(scr == ssFltLog and !pr_show_del)
+                if((scr == ssFltLog or scr == ssFltTaskLog) and !pr_show_del)
                     SQLText += " and points.pr_del >= 0 ";
                 if (!reqInfo.user.access.airlines.empty()) {
                     if (reqInfo.user.access.airlines_permit)
@@ -346,7 +346,7 @@ void GetFltCBoxList(bool pr_new, TScreenState scr, TDateTime first_date, TDateTi
                 Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
                 if(scr == ssPaxList)
                     SQLText += " and arx_points.pr_del = 0 ";
-                if(scr == ssFltLog and !pr_show_del)
+                if((scr == ssFltLog or scr == ssFltTaskLog) and !pr_show_del)
                     SQLText += " and arx_points.pr_del >= 0 ";
                 if (!reqInfo.user.access.airlines.empty()) {
                     if (reqInfo.user.access.airlines_permit)
@@ -489,69 +489,6 @@ bool EqualCollections(const string &where, const T &c1, const T &c2, const strin
     };
   };
   return true;
-};
-
-void StatInterface::TestFltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-  ProgTrace(TRACE5, "TestFltCBoxDropDown: started");
-  
-  TDateTime min_part_key, max_part_key;
-  GetMinMaxPartKey("TestFltCBoxDropDown", min_part_key, max_part_key);
-  if (min_part_key==NoExists || max_part_key==NoExists) return;
-  
-  vector<TPointsRow> points[2];
-  string error[2];
-  int days=0;
-  for(TDateTime curr_part_key=min_part_key; curr_part_key<=max_part_key; curr_part_key+=1.0)
-  {
-    for(int i=1;i<=1;i++)
-    {
-      TScreenState scr=(i==0)?ssPaxList:ssFltLog;
-      for(int pr_show_del=0;pr_show_del<=0;pr_show_del++)
-      {
-        for(int pr_new=0;pr_new<=1;pr_new++)
-        {
-          points[pr_new].clear();
-          error[pr_new].clear();
-          try
-          {
-            GetFltCBoxList((bool)pr_new, scr, curr_part_key, curr_part_key+1.0, (bool)pr_show_del, points[pr_new]);
-          }
-          catch(Exception &e)
-          {
-            error[pr_new]=e.what();
-          }
-          catch(...)
-          {
-            error[pr_new]="unknown error";
-          };
-        };
-        pair<vector<TPointsRow>::const_iterator, vector<TPointsRow>::const_iterator> diff;
-        if (!EqualCollections("TestFltCBoxDropDown", points[0], points[1], error[0], error[1], diff))
-        {
-          if (diff.first!=points[0].end())
-            ProgError(STDLOG, "TestFltCBoxDropDown: part_key=%s point_id=%d name=%s",
-                              DateTimeToStr(diff.first->part_key, ServerFormatDateTimeAsString).c_str(),
-                              diff.first->point_id,
-                              diff.first->name.c_str());
-          if (diff.second!=points[1].end())
-            ProgError(STDLOG, "TestFltCBoxDropDown: part_key=%s point_id=%d name=%s",
-                              DateTimeToStr(diff.second->part_key, ServerFormatDateTimeAsString).c_str(),
-                              diff.second->point_id,
-                              diff.second->name.c_str());
-          ProgError(STDLOG, "TestFltCBoxDropDown: scr=%s first_date=%s last_date=%s pr_show_del=%s points not equal",
-                            (scr==ssPaxList?"ssPaxList":"ssFltLog"),
-                            DateTimeToStr(curr_part_key, ServerFormatDateTimeAsString).c_str(),
-                            DateTimeToStr(curr_part_key+1.0, ServerFormatDateTimeAsString).c_str(),
-                            (((bool)pr_show_del)?"true":"false"));
-        };
-      };
-    };
-    days++;
-    if (days % 30 == 0) ProgTrace(TRACE5, "TestFltCBoxDropDown: curr_part_key=%s",
-                                          DateTimeToStr(curr_part_key, ServerFormatDateTimeAsString).c_str());
-  };
-  ProgTrace(TRACE5, "TestFltCBoxDropDown: finished");
 };
 
 void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
