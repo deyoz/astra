@@ -1615,7 +1615,7 @@ string GetRouteAfterStr(TDateTime part_key,
   return result.str();
 };
 
-void GetTagRanges(const vector<TBagTagNumber> &tags,
+void GetTagRanges(const multiset<TBagTagNumber> &tags,
                   vector<string> &ranges)
 {
   ranges.clear();
@@ -1627,7 +1627,7 @@ void GetTagRanges(const vector<TBagTagNumber> &tags,
   first_no=fmod(tags.begin()->numeric_part, 1000.0);
   modf(tags.begin()->numeric_part/1000.0,&first_pack);
   int num=0;
-  for(std::vector<TBagTagNumber>::const_iterator iTag=tags.begin();; ++iTag)
+  for(std::multiset<TBagTagNumber>::const_iterator iTag=tags.begin();; ++iTag)
   {
     if (iTag!=tags.end())
     {
@@ -1663,7 +1663,7 @@ void GetTagRanges(const vector<TBagTagNumber> &tags,
 };
 
 
-string GetTagRangesStr(const vector<TBagTagNumber> &tags)
+string GetTagRangesStr(const multiset<TBagTagNumber> &tags)
 {
   vector<string> ranges;
   
@@ -1676,6 +1676,13 @@ string GetTagRangesStr(const vector<TBagTagNumber> &tags)
     result << *r;
   };
   return result.str();
+};
+
+string GetTagRangesStr(const TBagTagNumber &tag)
+{
+  multiset<TBagTagNumber> tags;
+  tags.insert(tag);
+  return GetTagRangesStr(tags);
 };
 
 string GetBagRcptStr(const vector<string> &rcpts)

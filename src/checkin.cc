@@ -35,6 +35,7 @@
 #include "rozysk.h"
 #include "flt_binding.h"
 #include "apis.h"
+#include "qrys.h"
 #include "jxtlib/jxt_cont.h"
 
 #define NICKNAME "VLAD"
@@ -3084,6 +3085,12 @@ struct TPaxListItem
   vector<CheckIn::TPaxRemItem> rems;
   vector<CheckIn::TPaxFQTItem> fqts;
   xmlNodePtr node;
+  bool trferAttachable() const
+  {
+    return pax.seats!=NoExists && pax.seats>0 &&
+           (pax.pers_type==adult || pax.pers_type==child) &&
+           pax.refuse!=refuseAgentError;
+  };
 };
 typedef vector<TPaxListItem> TPaxList;
 
@@ -3096,6 +3103,7 @@ struct TSegListItem
 typedef list<TSegListItem> TSegList;
 
 void GetInboundGroupBag(const InboundTrfer::TNewGrpInfo &inbound_trfer,
+                        bool inbound_confirmation,
                         TSegList &segList,
                         CheckIn::TGroupBagItem &inbound_group_bag)
 {
@@ -3106,19 +3114,24 @@ void GetInboundGroupBag(const InboundTrfer::TNewGrpInfo &inbound_trfer,
   map<InboundTrfer::TGrpId, int/*bag_pool_num*/> bag_pools;
   for(TPaxList::iterator p=segList.begin()->paxs.begin(); p!=segList.begin()->paxs.end(); ++p)
   {
-    if (!(p->pax.seats>0 && (p->pax.pers_type==adult || p->pax.pers_type==child))) continue;
+    if (!p->trferAttachable()) continue;
+
     pair<string, string> pax_key(p->pax.surname, p->pax.name);
     InboundTrfer::TNewGrpPaxMap::const_iterator iPaxMap=inbound_trfer.pax_map.find(pax_key);
     if (iPaxMap!=inbound_trfer.pax_map.end() && !iPaxMap->second.empty())
     {
-      if (iPaxMap->second.size()>1)
+      if (iPaxMap->second.size()>1 && !inbound_confirmation)
         throw EXCEPTIONS::Exception("%s: more than one TrferList::TGrpItem for %s/%s found",
                                     __FUNCTION__,
                                     p->pax.surname.c_str(), p->pax.name.c_str());
 
-      InboundTrfer::TGrpId grp_key=*(iPaxMap->second.begin());
-      if (bag_pools.find(grp_key)==bag_pools.end())
+      set<InboundTrfer::TGrpId>::const_iterator iGrpId=iPaxMap->second.begin();
+      for(;iGrpId!=iPaxMap->second.end(); ++iGrpId)
+        if (bag_pools.find(*iGrpId)==bag_pools.end()) break;
+
+      if (iGrpId!=iPaxMap->second.end())
       {
+        const InboundTrfer::TGrpId &grp_key=*iGrpId;
         //привязываем багаж только к первому пассажиру, которому соответствует grp_key
         //в общем случае нескольким пассажирам может соответствовать единый grp_key
         //и это будущее развитие системы, когда пул содержит несколько пассажиров
@@ -3144,22 +3157,36 @@ void GetInboundGroupBag(const InboundTrfer::TNewGrpInfo &inbound_trfer,
       };
     };
   };
+  //после того как раскидали проверим, а все ли раскидали?
+  InboundTrfer::TNewGrpTagMap::const_iterator i1=inbound_trfer.tag_map.begin();
+  map<InboundTrfer::TGrpId, int/*bag_pool_num*/>::const_iterator i2=bag_pools.begin();
+  for(;i1!=inbound_trfer.tag_map.end() && i2!=bag_pools.end(); ++i1, ++i2)
+    if (i1->first!=i2->first) break;
+  if (i1!=inbound_trfer.tag_map.end() || i2!=bag_pools.end())
+  {
+    if (inbound_confirmation)
+      throw UserException("Кол-во подтвержденного багажа слишком велико для данной группы");   //!!!vlad
+    else
+      throw EXCEPTIONS::Exception("%s: not all tags attached", __FUNCTION__);
+  };
 };
 
 bool FilterInboundConfirmation(xmlNodePtr trferNode,
                                InboundTrfer::TNewGrpInfo &inbound_trfer)
 {
   if (trferNode==NULL) return false;
+
   map<TrferList::TGrpId, TrferList::TGrpConfirmItem> grps;
   TrferConfirmFromXML(trferNode, grps);
   map<TrferList::TGrpId, TrferList::TGrpConfirmItem>::const_iterator i1=grps.begin();
-  InboundTrfer::TNewGrpTagMap::iterator i2=inbound_trfer.tag_map.begin();
+  InboundTrfer::TNewGrpTagMap::const_iterator i2=inbound_trfer.tag_map.begin();
   list<TrferList::TGrpId> notCkinIds;
+  list< pair<TrferList::TGrpId, int> > bagWeightChanges;
   for(;i1!=grps.end() && i2!=inbound_trfer.tag_map.end(); ++i1, ++i2)
   {
     if (i1->first!=i2->first) return false; //проверяем ид группы бирок
     const TrferList::TGrpConfirmItem &grpConfirm=i1->second;
-    TrferList::TGrpItem &grpActual=i2->second.first;
+    const TrferList::TGrpItem &grpActual=i2->second.first;
 
     //проверим идентичность диапазонов бирок
     vector<string> actual_tag_ranges;
@@ -3170,22 +3197,38 @@ bool FilterInboundConfirmation(xmlNodePtr trferNode,
     int actual_status=inbound_trfer.calc_status(i2->first);
     if (grpConfirm.calc_status!=actual_status) return false;
     //проверим вес
-    if (grpConfirm.bag_weight==NoExists) return false; //вес не введен
-    if (grpActual.bag_weight!=NoExists &&
+    if (grpActual.bag_weight!=NoExists && grpActual.bag_weight!=0 &&
         grpActual.bag_weight!=grpConfirm.bag_weight) return false; //вес изменился
-    grpActual.bag_weight=grpConfirm.bag_weight;
     //проверим подтвержденный статус
     if (grpConfirm.conf_status==NoExists) return false; //группа не подтверждена
     if (actual_status!=NoExists &&
         actual_status!=grpConfirm.conf_status) return false;
 
-    if (grpConfirm.conf_status==0) notCkinIds.push_back(i2->first); //нерегистрируемые группы бирок
+    if (grpConfirm.conf_status==0)
+    {
+      //не регистрируем
+      notCkinIds.push_back(i2->first); //нерегистрируемые группы бирок
+    }
+    else
+    {
+      //регистрируем, проверим что введен вес
+      if (grpConfirm.bag_weight==NoExists || grpConfirm.bag_weight<=0) return false; //вес не введен
+      if (grpActual.bag_weight==NoExists || grpActual.bag_weight==0)
+        bagWeightChanges.push_back( make_pair(i2->first, grpConfirm.bag_weight) );
+    };
   };
   if (i1!=grps.end() || i2!=inbound_trfer.tag_map.end()) return false;
 
+  //есди сюда добрались, значит все проверили и можем изменять inbound_trfer
   for(list<TrferList::TGrpId>::const_iterator i=notCkinIds.begin(); i!=notCkinIds.end(); ++i)
     inbound_trfer.erase(*i);
-
+  for(list< pair<TrferList::TGrpId, int> >::const_iterator i=bagWeightChanges.begin();
+                                                           i!=bagWeightChanges.end(); ++i)
+  {
+    InboundTrfer::TNewGrpTagMap::iterator j=inbound_trfer.tag_map.find(i->first);
+    if (j!=inbound_trfer.tag_map.end())
+      j->second.first.bag_weight=i->second;
+  };
   return true;
 };
 
@@ -3215,15 +3258,33 @@ void GetInboundTransferForTerm(const vector<CheckIn::TTransferItem> &trfer,
   for(vector<CheckIn::TTransferItem>::const_iterator t=trfer.begin(); t!=trfer.end(); ++t, seg_no++)
     inbound_trfer_grp_out.trfer.insert(make_pair(seg_no-1, *t));
 
-  for(TPaxList::const_iterator p=segList.begin()->paxs.begin(); p!=segList.begin()->paxs.end(); ++p)
+  for(TPaxList::iterator p=segList.begin()->paxs.begin(); p!=segList.begin()->paxs.end(); ++p)
   {
     if (p->pax.id!=NoExists)
+    {
       inbound_trfer_pax_out_ids.insert(p->pax.id);
+      if (p->pax.seats==NoExists || p->pax.pers_type==NoPerson)
+      {
+        //это после неподтвержденной веб-регистрации
+        QParams QryParams;
+        QryParams << QParam("pax_id", otInteger, p->pax.id);
+        TCachedQuery Qry("SELECT pers_type, seats FROM pax WHERE pax_id=:pax_id", QryParams);
+        Qry.get().Execute();
+        if (!Qry.get().Eof)
+        {
+          if (p->pax.seats==NoExists)
+            p->pax.seats=Qry.get().FieldAsInteger("seats");
+          if (p->pax.pers_type==NoPerson)
+            p->pax.pers_type=DecodePerson(Qry.get().FieldAsString("pers_type"));
+        };
+      };
+    };
 
-    if (!(p->pax.seats>0 && (p->pax.pers_type==adult || p->pax.pers_type==child))) continue;
+    if (!p->trferAttachable()) continue;
     //ВЗ или РБ с местом:
     inbound_trfer_grp_out.paxs.push_back(InboundTrfer::TPaxItem("", p->pax.surname, p->pax.name));
   };
+
   //входящий трансфер
   GetNewGrpInfo(segList.begin()->grp.point_dep,
                 inbound_trfer_grp_out,
@@ -3338,7 +3399,8 @@ void GetInboundTransferForWeb(TSegList &segList,
         };
       };
     };
-    if (!(p->pax.seats>0 && (p->pax.pers_type==adult || p->pax.pers_type==child))) continue;
+
+    if (!p->trferAttachable()) continue;
     //ВЗ или РБ с местом:
     inbound_trfer_grp_out.paxs.push_back(InboundTrfer::TPaxItem("", p->pax.surname, p->pax.name));
   };
@@ -3614,10 +3676,12 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     if (!info.tag_map.empty() && info.conflicts.empty())
     {
       GetInboundGroupBag(info,
+                         false,
                          segList,
                          inbound_group_bag);
     };
 
+    inbound_trfer_conflicts=info.conflicts;
     if (save_trfer && !inbound_group_bag.empty())
     {
       //привязка входящего трансфера для веб и киоск регистрации
@@ -3625,6 +3689,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     };
   };
 
+  bool inbound_confirm=false;
   if (!segList.empty() && save_trfer &&
       reqInfo->client_type == ctTerm &&
       reqInfo->desk.compatible(INBOUND_TRFER_VERSION) &&
@@ -3653,13 +3718,15 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                    reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS),
                    grps,
                    NewTextChild(resNode, "inbound_confirmation"));
-        throw UserException2();
+        throw UserException2();  //это важно, чтобы с одной стороны делать откат ЭБ а с другой стороны не затирать в xml inbound_confirmation
       };
 
       GetInboundGroupBag(info,
+                         true,
                          segList,
                          inbound_group_bag);
     };
+    inbound_confirm=true;
   };
 
   segNode=NodeAsNode("segments/segment",reqNode);
@@ -4401,10 +4468,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           "  SELECT pax_grp__seq.nextval INTO :grp_id FROM dual; "
           "  INSERT INTO pax_grp(grp_id,point_dep,point_arv,airp_dep,airp_arv,class, "
           "                      status,excess,hall,bag_refuse,trfer_confirm,user_id,client_type, "
-          "                      point_id_mark,pr_mark_norms,trfer_conflict,tid) "
+          "                      point_id_mark,pr_mark_norms,trfer_conflict,inbound_confirm,tid) "
           "  VALUES(:grp_id,:point_dep,:point_arv,:airp_dep,:airp_arv,:class, "
           "         :status,:excess,:hall,0,:trfer_confirm,:user_id,:client_type, "
-          "         :point_id_mark,:pr_mark_norms,:trfer_conflict,cycle_tid__seq.nextval); "
+          "         :point_id_mark,:pr_mark_norms,:trfer_conflict,:inbound_confirm,cycle_tid__seq.nextval); "
           "  IF :seg_no IS NOT NULL THEN "
           "    IF :seg_no=1 THEN :tckin_id:=:grp_id; END IF; "
           "    INSERT INTO tckin_pax_grp(tckin_id,seg_no,grp_id,first_reg_no,pr_depend) "
@@ -4427,6 +4494,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         bool trfer_confirm=(reqInfo->client_type==ctTerm || !inbound_group_bag.empty());
         Qry.CreateVariable("trfer_confirm",otInteger,(int)trfer_confirm);
         Qry.CreateVariable("trfer_conflict",otInteger,(int)(!inbound_trfer_conflicts.empty()));
+        Qry.CreateVariable("inbound_confirm",otInteger,(int)inbound_confirm);
         if (reqInfo->client_type!=ctPNL)
           Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
         else
@@ -4780,7 +4848,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           "SET excess=:excess, "
           "    bag_refuse=:bag_refuse, "
           "    trfer_confirm=NVL(:trfer_confirm,trfer_confirm), "
-          "    trfer_conflict=NVL(:trfer_conflict,trfer_conflict),  "
+          "    trfer_conflict=NVL(:trfer_conflict,trfer_conflict), "
+          "    inbound_confirm=NVL(:inbound_confirm,inbound_confirm), "
           "    tid=cycle_tid__seq.nextval "
           "WHERE grp_id=:grp_id AND tid=:tid";
         Qry.DeclareVariable("grp_id",otInteger);
@@ -4798,6 +4867,11 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           Qry.CreateVariable("trfer_confirm",otInteger,FNull);
           Qry.CreateVariable("trfer_conflict",otInteger,FNull);
         };
+        if (inbound_confirm)
+          Qry.CreateVariable("inbound_confirm",otInteger,(int)true);
+        else
+          Qry.CreateVariable("inbound_confirm",otInteger,FNull);
+
         Qry.Execute();
         if (Qry.RowsProcessed()<=0)
           throw UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA"); //WEB
@@ -4934,7 +5008,17 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               else
               {
                 Qry.Clear();
-                Qry.SQLText="UPDATE pax SET tid=cycle_tid__seq.currval WHERE pax_id=:pax_id AND tid=:tid";
+                sql.str("");
+                sql << "UPDATE pax SET ";
+                if (!inbound_group_bag.empty())
+                {
+                  //это может быть подтверждение входящего трансфера после веб-регситрации
+                  sql << "    bag_pool_num=:bag_pool_num, ";
+                  Qry.DeclareVariable("bag_pool_num",otInteger);
+                };
+                sql << "    tid=cycle_tid__seq.currval "
+                       "WHERE pax_id=:pax_id AND tid=:tid";
+                Qry.SQLText=sql.str().c_str();
                 Qry.DeclareVariable("pax_id",otInteger);
                 Qry.DeclareVariable("tid",otInteger);
                 pax.toDB(Qry);
@@ -4988,7 +5072,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
       if (first_segment)
       {
-        if (/*new_checkin && reqInfo->client_type != ctTerm !!!vlad &&*/ !inbound_group_bag.empty())
+        if (!inbound_group_bag.empty())
         {
           for(map<int, CheckIn::TBagItem>::iterator b=inbound_group_bag.bags.begin();
                                                     b!=inbound_group_bag.bags.end(); ++b)

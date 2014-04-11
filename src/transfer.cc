@@ -5,6 +5,7 @@
 #include "exceptions.h"
 #include "term_version.h"
 #include "alarms.h"
+#include "qrys.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -76,7 +77,7 @@ TBagItem& TBagItem::fromDB(TQuery &Qry, TQuery &TagQry, bool fromTlg, bool loadT
     TagQry.SetVariable("grp_id", Qry.FieldAsInteger("grp_id"));
     TagQry.Execute();
     for(;!TagQry.Eof;TagQry.Next())
-      tags.push_back(TBagTagNumber("",TagQry.FieldAsFloat("no")));
+      tags.insert(TBagTagNumber("",TagQry.FieldAsFloat("no")));
   };
   return *this;
 };
@@ -1095,7 +1096,7 @@ TGrpItem::TGrpItem(const TrferList::TGrpItem &grp)
     for(vector<TrferList::TPaxItem>::const_iterator p=grp.paxs.begin(); p!=grp.paxs.end(); ++p)
       paxs.push_back(TPaxItem(*p));
   };
-  tags.assign(grp.tags.begin(), grp.tags.end());
+  tags=grp.tags;
   trfer=grp.trfer;
 };
 
@@ -1157,13 +1158,92 @@ void TGrpItem::print() const
   for(vector<TPaxItem>::const_iterator p=paxs.begin(); p!=paxs.end(); ++p)
     ProgTrace(TRACE5, "  surname=%s name=%s subcl=%s", p->surname.c_str(), p->name.c_str(), p->subcl.c_str());
   ProgTrace(TRACE5, "tags:");
-  for(list<TBagTagNumber>::const_iterator t=tags.begin(); t!=tags.end(); ++t)
+  for(multiset<TBagTagNumber>::const_iterator t=tags.begin(); t!=tags.end(); ++t)
     ProgTrace(TRACE5, "  %15.0f", t->numeric_part);
   ProgTrace(TRACE5, "trfer:");
   for(map<int, CheckIn::TTransferItem>::const_iterator t=trfer.begin(); t!=trfer.end(); ++t)
     ProgTrace(TRACE5, "  %d: %s%d%s/%s %s-%s", t->first,
                       t->second.operFlt.airline.c_str(), t->second.operFlt.flt_no, t->second.operFlt.suffix.c_str(),
                       DateTimeToStr(t->second.operFlt.scd_out, "ddmmm").c_str(), t->second.operFlt.airp.c_str(), t->second.airp_arv.c_str());
+};
+
+bool TGrpItem::alreadyCheckedIn(int point_id) const
+{
+  if (tags.empty()) return false;
+
+  const char *sql=
+    "SELECT pax_grp.grp_id, bag2.bag_pool_num, "
+    "       pax_grp.airp_arv, pax_grp.class, "
+    "       bag2.num AS bag_num "
+    "FROM bag_tags, bag2, pax_grp "
+    "WHERE bag_tags.grp_id=bag2.grp_id AND "
+    "      bag_tags.bag_num=bag2.num AND "
+    "      bag2.grp_id=pax_grp.grp_id AND "
+    "      bag_tags.no=:no AND bag2.is_trfer<>0 AND pax_grp.point_dep=:point_id";
+
+  const char *tags_sql=
+    "SELECT no FROM bag_tags WHERE grp_id=:grp_id AND bag_num=:bag_num";
+  const char *paxs_sql=
+    "SELECT subclass, surname, name "
+    "FROM pax "
+    "WHERE grp_id=:grp_id AND bag_pool_num=:bag_pool_num AND seats>0";
+
+  QParams QryParams;
+  QryParams << QParam("no", otFloat, tags.begin()->numeric_part);
+  QryParams << QParam("point_id", otInteger, point_id);
+  TCachedQuery CachedQry(sql, QryParams);
+  TQuery &Qry=CachedQry.get();
+
+  QParams TagQryParams;
+  TagQryParams << QParam("grp_id", otInteger);
+  TagQryParams << QParam("bag_num", otInteger);
+  TCachedQuery CachedTagQry(tags_sql, TagQryParams);
+  TQuery &TagQry=CachedTagQry.get();
+
+  QParams PaxQryParams;
+  PaxQryParams << QParam("grp_id", otInteger);
+  PaxQryParams << QParam("bag_pool_num", otInteger);
+  TCachedQuery CachedPaxQry(paxs_sql, PaxQryParams);
+  TQuery &PaxQry=CachedPaxQry.get();
+
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+  {
+    TGrpItem grp;
+    grp.airp_arv=Qry.FieldAsString("airp_arv");
+    grp.is_unaccomp=Qry.FieldIsNULL("class");
+    if (airp_arv!=grp.airp_arv) continue;
+    if (is_unaccomp!=grp.is_unaccomp) continue;
+
+    int grp_id=Qry.FieldAsInteger("grp_id");
+    int bag_pool_num=Qry.FieldAsInteger("bag_pool_num");
+    int bag_num=Qry.FieldAsInteger("bag_num");
+
+    TagQry.SetVariable("grp_id", grp_id);
+    TagQry.SetVariable("bag_num", bag_num);
+    TagQry.Execute();
+    for(;!TagQry.Eof;TagQry.Next())
+      grp.tags.insert(TBagTagNumber("", TagQry.FieldAsFloat("no")));
+
+    if (tags!=grp.tags) continue;
+
+    if (!grp.is_unaccomp)
+    {
+      PaxQry.SetVariable("grp_id", grp_id);
+      PaxQry.SetVariable("bag_pool_num", bag_pool_num);
+      PaxQry.Execute();
+      for(;!PaxQry.Eof;PaxQry.Next())
+        grp.paxs.push_back(TPaxItem(PaxQry.FieldAsString("subclass"),
+                                    PaxQry.FieldAsString("surname"),
+                                    PaxQry.FieldAsString("name")));
+      for(vector<TPaxItem>::const_iterator p1=paxs.begin(); p1!=paxs.end(); ++p1)
+        for(vector<TPaxItem>::const_iterator p2=grp.paxs.begin(); p2!=grp.paxs.end(); ++p2)
+          if (p1->equalRate(*p2)>=6) //6 - полное совпадение фамилии и имени
+            return true;
+    }
+    else return true;
+  };
+  return false;
 };
 
 typedef map<TBagTagNumber, pair< list<TGrpId>,
@@ -1227,7 +1307,7 @@ void FilterUnattachedTags(const map<TGrpId, TGrpItem> &grps_in,
     //ProgTrace(TRACE5, "FilterUnattachedTags: started");
     for(TTagMap::iterator t=tags.begin(); t!=tags.end(); ++t)
     {
-      //ProgTrace(TRACE5, "FilterUnattachedTags: no=%s", GetTagRangesStr(vector<TBagTagNumber>(1,t->first)).c_str());
+      //ProgTrace(TRACE5, "FilterUnattachedTags: no=%s", GetTagRangesStr(t->first).c_str());
       if (t->second.second.empty()) continue;
       for(int minPaxEqualRate=7; minPaxEqualRate>=6; minPaxEqualRate--)   //6 - полное совпадение фамилии и имени
       {
@@ -1274,7 +1354,7 @@ void FilterUnattachedTags(const map<TGrpId, TGrpItem> &grps_in,
           if (maxEqualPaxCount>0)
           {
             //ProgTrace(TRACE5, "FilterUnattachedTags: no=%s minPaxEqualRate=%d [%s]<->[%s]",
-            //                  GetTagRangesStr(vector<TBagTagNumber>(1,t->first)).c_str(), minPaxEqualRate,
+            //                  GetTagRangesStr(t->first).c_str(), minPaxEqualRate,
             //                  max.first->getStr().c_str(), max.second->getStr().c_str());
             t->second.first.erase(max.first);
             t->second.second.erase(max.second);
@@ -1371,7 +1451,7 @@ void GetCheckedTags(int id,  //м.б. point_id или grp_id
     };
     if (grp_out==grps_out.end()) throw Exception("GetCheckedTags: grp_out=grps_out.end()");
 
-    grp_out->second.tags.push_back(tag);
+    grp_out->second.tags.insert(tag);
   };
 };
 
@@ -1401,7 +1481,7 @@ void PrepareTagMapIn(const vector<TrferList::TGrpItem> &grps_ckin,
         grp_in=grps_in.insert(make_pair(id, TGrpItem(*g))).first;
       if (grp_in==grps_in.end()) throw Exception("PrepareTagMapIn: grp_in=grps_in.end()");
 
-      for(vector<TBagTagNumber>::const_iterator t=g->tags.begin(); t!=g->tags.end(); ++t)
+      for(multiset<TBagTagNumber>::const_iterator t=g->tags.begin(); t!=g->tags.end(); ++t)
       {
         TTagMap::iterator tag=tags.find(*t);
         if (tag==tags.end())
@@ -1418,7 +1498,7 @@ void AddTagMapOut(const map<TGrpId, TGrpItem> &grps_out,
 {
   for(map<TGrpId, TGrpItem>::const_iterator g=grps_out.begin(); g!=grps_out.end(); ++g)
   {
-    for(list<TBagTagNumber>::const_iterator t=g->second.tags.begin(); t!=g->second.tags.end(); ++t)
+    for(multiset<TBagTagNumber>::const_iterator t=g->second.tags.begin(); t!=g->second.tags.end(); ++t)
     {
       TTagMap::iterator tag=tags.find(*t);
       if (tag==tags.end()) continue;
@@ -1443,7 +1523,7 @@ void LoadPaxLists(int point_id,
     "FROM pax_grp, pax "
     "WHERE pax_grp.grp_id=pax.grp_id AND "
     "      pax_grp.point_dep=:point_id AND airp_arv=:airp_arv AND "
-    "      pax_grp.status NOT IN ('E') ";
+    "      pax_grp.status NOT IN ('E') AND NVL(inbound_confirm,0)=0";
   Qry.CreateVariable("point_id", otInteger, point_id);
   Qry.CreateVariable("airp_arv", otString, grp_out.airp_arv);
   Qry.Execute();
@@ -1536,7 +1616,7 @@ void TNewGrpInfo::erase(const TGrpId &id)
     i->second.erase(id);
 };
 
-int TNewGrpInfo::calc_status(const TGrpId &id)
+int TNewGrpInfo::calc_status(const TGrpId &id) const
 {
   TNewGrpTagMap::const_iterator g=tag_map.find(id);
   if (g==tag_map.end()) return NoExists;
@@ -1581,12 +1661,20 @@ void GetNewGrpInfo(int point_id,
       TGrpItem grp_in(*g);
       if (grp_in.is_unaccomp!=grp_out.is_unaccomp) continue;
       if (grp_in.airp_arv!=grp_out.airp_arv) continue;
+
+      bool grpAlreadyCheckedIn=false;
       for(vector<TPaxItem>::const_iterator paxIn=grp_in.paxs.begin(); paxIn!=grp_in.paxs.end(); ++paxIn)
       {
         for(vector<TPaxItem>::const_iterator paxOut=grp_out.paxs.begin(); paxOut!=grp_out.paxs.end(); ++paxOut)
         {
           if (paxIn->equalRate(*paxOut)>=6) //6 - полное совпадение фамилии и имени
           {
+            if (grp_in.alreadyCheckedIn(point_id))
+            {
+              grpAlreadyCheckedIn=true;
+              break;
+            };
+
             if (info.tag_map.empty())
             {
               first_grp_in=grp_in;
@@ -1673,6 +1761,7 @@ void GetNewGrpInfo(int point_id,
             };
           };
         };
+        if (grpAlreadyCheckedIn) break;
       };
     };
   };
@@ -1807,7 +1896,7 @@ void GetUnattachedTags(int point_id,
     {
       TUnattachedTagMap::iterator r=result.find(*g);
       if (r==result.end())
-        r=result.insert(make_pair(*g, vector<TBagTagNumber>())).first;
+        r=result.insert(make_pair(*g, list<TBagTagNumber>())).first;
       if (r==result.end()) throw Exception("GetUnattachedTags: r==result.end()");
       r->second.push_back(t->first);
     };
@@ -1815,10 +1904,10 @@ void GetUnattachedTags(int point_id,
 /*
   for(TUnattachedTagMap::const_iterator r=result.begin(); r!=result.end(); ++r)
   {
-    for(vector<TBagTagNumber>::const_iterator t=r->second.begin(); t!=r->second.end(); ++t)
+    for(list<TBagTagNumber>::const_iterator t=r->second.begin(); t!=r->second.end(); ++t)
       ProgTrace(TRACE5, "%s: %s",
                         r->first.getStr().c_str(),
-                        GetTagRangesStr(vector<TBagTagNumber>(1,*t)).c_str());
+                        GetTagRangesStr(*t).c_str());
   };
 */
 };

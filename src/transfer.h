@@ -94,7 +94,7 @@ class TBagItem
   public:
     int bag_amount, bag_weight, rk_weight;
     std::string weight_unit;
-    std::vector<TBagTagNumber> tags;
+    std::multiset<TBagTagNumber> tags;
     std::map<int, CheckIn::TTransferItem> trfer;
     TBagItem()
     {
@@ -399,7 +399,7 @@ class TGrpItem
     std::string airp_arv;
     bool is_unaccomp;
     std::vector<TPaxItem> paxs;
-    std::list<TBagTagNumber> tags;
+    std::multiset<TBagTagNumber> tags;
     std::map<int, CheckIn::TTransferItem> trfer;
 
     TGrpItem():is_unaccomp(false) {};
@@ -421,6 +421,7 @@ class TGrpItem
     bool equalTrfer(const TGrpItem &item) const;
     bool similarTrfer(const TGrpItem &item) const;
     void print() const;
+    bool alreadyCheckedIn(int point_id) const;
 };
 
 enum TConflictReason { conflictInPaxDuplicate,
@@ -434,7 +435,7 @@ enum TConflictReason { conflictInPaxDuplicate,
 bool isGlobalConflict(TConflictReason c);
 TrferList::TAlarmType GetConflictAlarm(TConflictReason c);
 
-typedef std::map<TGrpId, std::vector<TBagTagNumber> > TUnattachedTagMap;
+typedef std::map<TGrpId, std::list<TBagTagNumber> > TUnattachedTagMap;
 
 typedef std::map<TGrpId, std::pair<TrferList::TGrpItem, std::set<TConflictReason> > > TNewGrpTagMap;
 typedef std::map<std::pair<std::string/*surname*/, std::string/*name*/>, std::set<TGrpId> > TNewGrpPaxMap;
@@ -452,7 +453,7 @@ class TNewGrpInfo
       conflicts.clear();
     };
     void erase(const TGrpId &id);
-    int calc_status(const TGrpId &id);
+    int calc_status(const TGrpId &id) const;
 };
 
 
