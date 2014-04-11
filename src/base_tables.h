@@ -295,6 +295,22 @@ class TGenderTypesRow: public TCodeBaseTableRow {
     };
 };
 
+class TReportTypesRow: public TCodeBaseTableRow {
+  public:
+    const char *get_row_name() const { return "TReportTypesRow"; };
+};
+
+class TReportTypes: public TCodeBaseTable {
+  protected:
+    const char *get_table_name() { return "TReportTypes"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+    void Invalidate() {}; //всегда актуальна
+  public:
+  	TReportTypes() {
+  		Init( "report_types" );
+  	}
+};
+
 class TGenderTypes: public TCodeBaseTable {
   protected:
     const char *get_table_name() { return "TGenderTypes"; };

@@ -10,7 +10,7 @@ const char * OperModeS[] =
     {"CUSE", "CUTE", "MUSE", "RESA", "STAND"};
 
 const char * EventTypeS[] =
-    {"‘…‡","„ˆ‘","…‰","ƒ”","‡„—","€‘","Ž‹","ŠŒ","’‹ƒ","„‘’","‘ˆ‘","ŠŽ„","„","!","?"};
+    {"‘…‡","„ˆ‘","…‰","ƒ”","‡„—","€‘","Ž‹","ŠŒ","’‹ƒ","„‘’","‘ˆ‘","ŠŽ„","„","—’","!","?"};
 
 const char* TClassS[] = {"","","",""};
 
