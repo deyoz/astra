@@ -3338,6 +3338,22 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     }
 }
 
+void  DocsInterface::LogPrintEvent(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    ostringstream msg;
+    msg << "Печать документации '" << ElemIdToElem(etReportType, NodeAsString("rpt_type", reqNode), efmtNameLong, LANG_RU) << "'";
+    TReqInfo::Instance()->MsgToLog(msg.str(), ASTRA::evtPrn, NodeAsInteger("point_id", reqNode));
+}
+
+void  DocsInterface::LogExportEvent(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    ostringstream msg;
+    msg
+        << "Экспорт документации '" << ElemIdToElem(etReportType, NodeAsString("rpt_type", reqNode), efmtNameLong, LANG_RU)
+        << "'; формат: " << NodeAsString("export_name", reqNode);
+    TReqInfo::Instance()->MsgToLog(msg.str(), ASTRA::evtPrn, NodeAsInteger("point_id", reqNode));
+}
+
 void  DocsInterface::SaveReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TQuery Qry(&OraSession);

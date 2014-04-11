@@ -42,6 +42,8 @@ TBaseTable &TBaseTables::get(string name)
             base_tables[name] = new TCountries();
         else if(name == "PERS_TYPES")
             base_tables[name] = new TPersTypes();
+        else if(name == "REPORT_TYPES")
+            base_tables[name] = new TReportTypes();
         else if(name == "GENDER_TYPES")
             base_tables[name] = new TGenderTypes();
         else if(name == "TAG_COLORS")
@@ -563,6 +565,13 @@ void TGenderTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **
   *row = new TGenderTypesRow;
   mem.create(*row, STDLOG);
   ((TGenderTypesRow*)*row)->pr_inf=Qry.FieldAsInteger("pr_inf")!=0;
+  TCodeBaseTable::create_row(Qry,row,replaced_row);
+};
+
+void TReportTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+{
+  *row = new TReportTypesRow;
+  mem.create(*row, STDLOG);
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 

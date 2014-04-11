@@ -751,7 +751,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "       ev_user, station, ev_order  "
             "FROM events  "
             "WHERE "
-            "   events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg) AND  "
+            "   events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg,:evtPrn) AND  "
             "   events.id1=:point_id  ";
         qry2 =
             "SELECT msg, time,  "
@@ -787,7 +787,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "FROM arx_events  "
             "WHERE "
             "   arx_events.part_key = :part_key and "
-            "   arx_events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg) AND  "
+            "   arx_events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg,:evtPrn) AND  "
             "   arx_events.id1=:point_id  ";
         qry2 =
             "SELECT msg, time,  "
@@ -817,6 +817,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             Qry.CreateVariable("evtPax",otString,EncodeEventType(ASTRA::evtPax));
             Qry.CreateVariable("evtPay",otString,EncodeEventType(ASTRA::evtPay));
             Qry.CreateVariable("evtTlg",otString,EncodeEventType(ASTRA::evtTlg));
+            Qry.CreateVariable("evtPrn",otString,EncodeEventType(ASTRA::evtPrn));
         } else {
             Qry.SQLText = qry2;
             Qry.CreateVariable("move_id", otInteger, move_id);

@@ -93,6 +93,7 @@ const
                          {etPersType,              "etPersType",              "pers_types"},
                          {etRcptDocType,           "etRcptDocType",           "rcpt_doc_types"},
                          {etRefusalType,           "etRefusalType",           "refusal_types"},
+                         {etReportType,            "etReportType",             "report_types"},
                          {etRemGrp,                "etRemGrp",                ""},
                          {etRight,                 "etRight",                 "rights"},
                          {etSalePoint,             "etSalePoint",             ""},
