@@ -3157,23 +3157,31 @@ void GetInboundGroupBag(const InboundTrfer::TNewGrpInfo &inbound_trfer,
       };
     };
   };
+
   //после того как раскидали проверим, а все ли раскидали?
-  InboundTrfer::TNewGrpTagMap::const_iterator i1=inbound_trfer.tag_map.begin();
-  map<InboundTrfer::TGrpId, int/*bag_pool_num*/>::const_iterator i2=bag_pools.begin();
-  for(;i1!=inbound_trfer.tag_map.end() && i2!=bag_pools.end(); ++i1, ++i2)
-    if (i1->first!=i2->first) break;
-  if (i1!=inbound_trfer.tag_map.end() || i2!=bag_pools.end())
+  for(InboundTrfer::TNewGrpPaxMap::const_iterator iPaxMap=inbound_trfer.pax_map.begin();
+                                                  iPaxMap!=inbound_trfer.pax_map.end(); ++iPaxMap)
   {
-    if (inbound_confirmation)
-      throw UserException("Кол-во подтвержденного багажа слишком велико для данной группы");   //!!!vlad
-    else
-      throw EXCEPTIONS::Exception("%s: not all tags attached", __FUNCTION__);
+    for(set<InboundTrfer::TGrpId>::const_iterator iGrpId=iPaxMap->second.begin();
+                                                  iGrpId!=iPaxMap->second.end(); ++iGrpId)
+    {
+      if (bag_pools.find(*iGrpId)==bag_pools.end())
+      {
+        if (inbound_confirmation)
+          throw UserException("MSG.PASSENGER.MORE_THAN_ONE_INBOUND_TRFER_CONFIRMED",
+                              LParams() << LParam("surname", iPaxMap->first.first+(iPaxMap->first.second.empty()?"":" ")+iPaxMap->first.second));
+        else
+          throw EXCEPTIONS::Exception("%s: not all tags attached", __FUNCTION__);
+      };
+    };
   };
 };
 
 bool FilterInboundConfirmation(xmlNodePtr trferNode,
-                               InboundTrfer::TNewGrpInfo &inbound_trfer)
+                               const InboundTrfer::TNewGrpInfo &inbound_trfer,
+                               InboundTrfer::TNewGrpInfo &filtered_trfer)
 {
+  filtered_trfer.clear();
   if (trferNode==NULL) return false;
 
   map<TrferList::TGrpId, TrferList::TGrpConfirmItem> grps;
@@ -3219,14 +3227,15 @@ bool FilterInboundConfirmation(xmlNodePtr trferNode,
   };
   if (i1!=grps.end() || i2!=inbound_trfer.tag_map.end()) return false;
 
-  //есди сюда добрались, значит все проверили и можем изменять inbound_trfer
+  //есди сюда добрались, значит все проверили и можем создать filtered_trfer
+  filtered_trfer=inbound_trfer;
   for(list<TrferList::TGrpId>::const_iterator i=notCkinIds.begin(); i!=notCkinIds.end(); ++i)
-    inbound_trfer.erase(*i);
+    filtered_trfer.erase(*i);
   for(list< pair<TrferList::TGrpId, int> >::const_iterator i=bagWeightChanges.begin();
                                                            i!=bagWeightChanges.end(); ++i)
   {
-    InboundTrfer::TNewGrpTagMap::iterator j=inbound_trfer.tag_map.find(i->first);
-    if (j!=inbound_trfer.tag_map.end())
+    InboundTrfer::TNewGrpTagMap::iterator j=filtered_trfer.tag_map.find(i->first);
+    if (j!=filtered_trfer.tag_map.end())
       j->second.first.bag_weight=i->second;
   };
   return true;
@@ -3235,8 +3244,8 @@ bool FilterInboundConfirmation(xmlNodePtr trferNode,
 bool CompareGrpViewItem( const TrferList::TGrpViewItem &item1,
                          const TrferList::TGrpViewItem &item2 )
 {
-  if (item1.calc_status!=item2.calc_status)
-    return item1.calc_status==false;
+  if ((item1.calc_status==NoExists)!=(item2.calc_status==NoExists))
+    return item1.calc_status==NoExists;
   return item1<item2;
 };
 
@@ -3419,6 +3428,28 @@ void GetInboundTransferForWeb(TSegList &segList,
     for(;t1!=inbound_trfer_grp_out.trfer.end() && t2!=inbound_trfer.tag_map.begin()->second.first.trfer.end(); ++t1,++t2)
       //целостность маршрута проверили в GetNewGrpTags
       inbound_trfer_route.push_back(t1->second); //важно, что берем за основу inbound_trfer_grp_out с заполненными подклассами пассажиров
+  };
+};
+
+void CheckBagChanges(const TGrpToLogInfo &prev, const CheckIn::TGroupBagItem &curr)
+{
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  if (reqInfo->user.access.checkRight(347)) return;
+  //проверим, удалялся ли входящицй трансфер
+  map< int/*id*/, TBagToLogInfo> curr2;
+  for(map<int /*num*/, CheckIn::TBagItem>::const_iterator b=curr.bags.begin(); b!=curr.bags.end(); ++b)
+  {
+    if (b->second.is_trfer)
+      curr2.insert(make_pair(b->second.id, TBagToLogInfo(b->second)));
+  };
+  for(map< int/*id*/, TBagToLogInfo>::const_iterator b1=prev.bag.begin(); b1!=prev.bag.end(); ++b1)
+  {
+    if (b1->second.is_trfer)
+    {
+      map< int/*id*/, TBagToLogInfo>::const_iterator b2=curr2.find(b1->first);
+      if (b2==curr2.end() || !(b1->second==b2->second))
+        throw UserException("MSG.NO_PERM_MODIFY_INBOUND_TRFER");
+    };
   };
 };
 
@@ -3692,7 +3723,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
   bool inbound_confirm=false;
   if (!segList.empty() && save_trfer &&
       reqInfo->client_type == ctTerm &&
-      reqInfo->desk.compatible(INBOUND_TRFER_VERSION) &&
       segList.begin()->grp.status!=psCrew)
   {
     //проверим входящий трансфер
@@ -3704,29 +3734,62 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
     if (!info.tag_map.empty())
     {
-      //есть трансферные бирки
-      if (!FilterInboundConfirmation(GetNode("inbound_confirmation", reqNode), info))
+      if (reqInfo->desk.compatible(INBOUND_TRFER_VERSION))
       {
-        XMLRequestCtxt *xmlRC = getXmlCtxt();
-        if (xmlRC->resDoc==NULL) throw EXCEPTIONS::Exception("CheckInInterface::SavePax: xmlRC->resDoc=NULL;");
-        xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
+        try
+        {
+          InboundTrfer::TNewGrpInfo filtered_info;
+          //есть трансферные бирки
+          xmlNodePtr confirmReqNode=GetNode("inbound_confirmation", reqNode);
+          if (!FilterInboundConfirmation(confirmReqNode, info, filtered_info))
+          {
+            if (confirmReqNode!=NULL)
+              AstraLocale::showErrorMessage( "MSG.CHANGE_INBOUND_TRFER_MUST_REVERIFY" );
+            throw UserException2();
+          };
 
-        vector<TrferList::TGrpViewItem> grps;
-        NewGrpInfoToGrpsView(info, grps);
-        sort(grps.begin(), grps.end(), CompareGrpViewItem);
-        TrferToXML(TrferList::trferOutForCkin,
-                   reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS),
-                   grps,
-                   NewTextChild(resNode, "inbound_confirmation"));
-        throw UserException2();  //это важно, чтобы с одной стороны делать откат ЭБ а с другой стороны не затирать в xml inbound_confirmation
+          try
+          {
+            GetInboundGroupBag(filtered_info,
+                               true,
+                               segList,
+                               inbound_group_bag);
+          }
+          catch(UserException &e)
+          {
+            AstraLocale::showErrorMessage(e.getLexemaData());
+            throw UserException2();
+          };
+        }
+        catch(UserException2)
+        {
+          XMLRequestCtxt *xmlRC = getXmlCtxt();
+          if (xmlRC->resDoc==NULL) throw EXCEPTIONS::Exception("CheckInInterface::SavePax: xmlRC->resDoc=NULL;");
+          xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
+
+          vector<TrferList::TGrpViewItem> grps;
+          NewGrpInfoToGrpsView(info, grps);
+          sort(grps.begin(), grps.end(), CompareGrpViewItem);
+          TrferToXML(TrferList::trferOutForCkin,
+                     reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS),
+                     grps,
+                     NewTextChild(resNode, "inbound_confirmation"));
+          throw; //это важно, чтобы с одной стороны делать откат ЭБ а с другой стороны не затирать в xml inbound_confirmation
+        };
+      }
+      else
+      {
+        if (info.conflicts.empty())
+        {
+          GetInboundGroupBag(info,
+                             false,
+                             segList,
+                             inbound_group_bag);
+        };
+        inbound_trfer_conflicts=info.conflicts;
       };
-
-      GetInboundGroupBag(info,
-                         true,
-                         segList,
-                         inbound_group_bag);
     };
-    inbound_confirm=true;
+    inbound_confirm=reqInfo->desk.compatible(INBOUND_TRFER_VERSION);
   };
 
   segNode=NodeAsNode("segments/segment",reqNode);
@@ -4493,8 +4556,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           Qry.SetVariable("grp_id",NodeAsInteger("generated_grp_id",segNode));
         bool trfer_confirm=(reqInfo->client_type==ctTerm || !inbound_group_bag.empty());
         Qry.CreateVariable("trfer_confirm",otInteger,(int)trfer_confirm);
-        Qry.CreateVariable("trfer_conflict",otInteger,(int)(!inbound_trfer_conflicts.empty()));
-        Qry.CreateVariable("inbound_confirm",otInteger,(int)inbound_confirm);
+        Qry.CreateVariable("trfer_conflict",otInteger,(int)(!inbound_trfer_conflicts.empty() && reqInfo->client_type != ctTerm));  //зажигаем тревогу только для веба и киоска
+        Qry.CreateVariable("inbound_confirm",otInteger,(int)inbound_confirm); //устанавливаем только для терминалов compatible(INBOUND_TRFER_VERSION)
         if (reqInfo->client_type!=ctPNL)
           Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
         else
@@ -5072,6 +5135,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
       if (first_segment)
       {
+        CheckIn::TGroupBagItem group_bag;
+        bool pr_tag_print;
+        bool group_bag_transmitted=group_bag.fromXML(reqNode, pr_tag_print);
+
         if (!inbound_group_bag.empty())
         {
           for(map<int, CheckIn::TBagItem>::iterator b=inbound_group_bag.bags.begin();
@@ -5090,12 +5157,12 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           paidBagItem.bag_type=99;
           paidBagItem.weight=0;
           CheckIn::PaidBagToDB(grp.id, list<CheckIn::TPaidBagItem>(1, paidBagItem));
+          if (group_bag_transmitted)
+            showErrorMessage("MSG.CHECKIN.BAGGAGE_NOT_REGISTERED_DUE_INBOUND_TRFER");
         }
         else
         {
-          CheckIn::TGroupBagItem group_bag;
-          bool pr_tag_print;
-          if (group_bag.fromXML(reqNode, pr_tag_print))
+          if (group_bag_transmitted)
           {
             if (grp.status==psCrew)
             {
@@ -5106,6 +5173,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             };
 
             group_bag.fromXMLadditional(grp.point_dep, grp.id, grp.hall, pr_tag_print);
+            CheckBagChanges(grpInfoBefore, group_bag);
             group_bag.toDB(grp.id);
           };
           CheckIn::SavePaidBag(grp.id,reqNode);

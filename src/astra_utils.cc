@@ -303,7 +303,7 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   Qry.SetVariable( "user_id", user.user_id );
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next())
-    user.access.rights.push_back(Qry.FieldAsInteger("right_id"));
+    user.access.rights.insert(Qry.FieldAsInteger("right_id"));
   Qry.Clear();
   Qry.CreateVariable( "user_id", otInteger, user.user_id );
   Qry.SQLText="SELECT airline FROM aro_airlines WHERE aro_id=:user_id";
@@ -1174,8 +1174,8 @@ void showBasicInfo(void)
     xmlNodePtr accessNode = NewTextChild(node, "access");
     //права доступа к операциям
     node = NewTextChild(accessNode, "rights");
-    for(vector<int>::const_iterator i=reqInfo->user.access.rights.begin();
-                                    i!=reqInfo->user.access.rights.end();i++)
+    for(set<int>::const_iterator i=reqInfo->user.access.rights.begin();
+                                 i!=reqInfo->user.access.rights.end();i++)
       NewTextChild(node,"right",*i);
     //права доступа к авиакомпаниям
     node = NewTextChild(accessNode, "airlines");

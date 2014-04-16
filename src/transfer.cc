@@ -1523,7 +1523,7 @@ void LoadPaxLists(int point_id,
     "FROM pax_grp, pax "
     "WHERE pax_grp.grp_id=pax.grp_id AND "
     "      pax_grp.point_dep=:point_id AND airp_arv=:airp_arv AND "
-    "      pax_grp.status NOT IN ('E') AND NVL(inbound_confirm,0)=0";
+    "      pax_grp.status NOT IN ('E') AND NVL(inbound_confirm,0)=0"; //NVL потом убрать!!!
   Qry.CreateVariable("point_id", otInteger, point_id);
   Qry.CreateVariable("airp_arv", otString, grp_out.airp_arv);
   Qry.Execute();
@@ -1587,8 +1587,7 @@ string GetConflictStr(const set<TConflictReason> &conflicts)
 
 bool isGlobalConflict(TConflictReason c)
 {
-   return c==conflictInPaxDuplicate ||
-          c==conflictInRouteIncomplete ||
+   return c==conflictInRouteIncomplete ||
           c==conflictInRouteDiffer ||
           c==conflictOutRouteDiffer;
 };
@@ -1692,7 +1691,7 @@ void GetNewGrpInfo(int point_id,
               //добавим в tag_map TGrpItem
               iTagMap=info.tag_map.insert( make_pair(grp_in_id, make_pair(*g, set<TConflictReason>()) ) ).first;
               if (iTagMap==info.tag_map.end())
-                throw Exception("GetNewGrpTags: iTagMap==info.tag_map.end()");
+                throw Exception("%s: iTagMap==info.tag_map.end()", __FUNCTION__);
               if (!grp_in.similarTrfer(grp_out) ||
                   grp_in.trfer.size()>grp_out.trfer.size())
               {
@@ -1752,11 +1751,28 @@ void GetNewGrpInfo(int point_id,
             if (iPaxMap==info.pax_map.end())
               iPaxMap=info.pax_map.insert( make_pair(pax_out_id, set<TGrpId>()) ).first;
             if (iPaxMap==info.pax_map.end())
-              throw Exception("GetNewGrpTags: iPaxMap==pax_map.end()");
+              throw Exception("%s: iPaxMap==pax_map.end()", __FUNCTION__);
             iPaxMap->second.insert(grp_in_id);
             if (iPaxMap->second.size()>1)
             {
               //дублирование пассажиров в списке входящего трансфера
+              if (iPaxMap->second.size()==2)
+              {
+                //нужно включить тревогу у обоих
+                for(set<TGrpId>::const_iterator iGrpId=iPaxMap->second.begin();
+                                                iGrpId!=iPaxMap->second.end(); ++iGrpId)
+                {
+                  TNewGrpTagMap::iterator iTagMap2=info.tag_map.find(*iGrpId);
+                  if (iTagMap2==info.tag_map.end())
+                    throw Exception("%s: iTagMap2==info.tag_map.end()", __FUNCTION__);
+                  iTagMap2->second.second.insert(conflictInPaxDuplicate);
+                };
+              }
+              else
+              {
+                //нужно включить тревогу у текущего
+                iTagMap->second.second.insert(conflictInPaxDuplicate);
+              };
               info.conflicts.insert(conflictInPaxDuplicate);
             };
           };
@@ -1768,7 +1784,7 @@ void GetNewGrpInfo(int point_id,
 
   if (!info.conflicts.empty())
   {
-    ProgTrace(TRACE5, "GetNewGrpTags returned conflicts: %s", GetConflictStr(info.conflicts).c_str());
+    ProgTrace(TRACE5, "%s returned conflicts: %s", __FUNCTION__, GetConflictStr(info.conflicts).c_str());
     ProgTrace(TRACE5, "point_id: %d", point_id);
     ProgTrace(TRACE5, "========== grp_out: ==========");
     grp_out.print();

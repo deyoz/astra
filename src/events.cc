@@ -286,7 +286,7 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
 
     Qry.Clear();
     Qry.SQLText=
-      "SELECT id, bag_type, pr_cabin, amount, weight, using_scales, "
+      "SELECT id, bag_type, pr_cabin, amount, weight, using_scales, is_trfer, "
       "       ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse) AS refused "
       "FROM pax_grp,bag2 "
       "WHERE pax_grp.grp_id=bag2.grp_id AND "
@@ -306,6 +306,7 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
         bagInfo.weight=Qry.FieldAsInteger("weight");
         bagInfo.bag_type=Qry.FieldIsNULL("bag_type")?ASTRA::NoExists:Qry.FieldAsInteger("bag_type");
         bagInfo.using_scales=Qry.FieldAsInteger("using_scales")!=0;
+        bagInfo.is_trfer=Qry.FieldAsInteger("is_trfer")!=0;
         grpInfo.bag[bagInfo.id]=bagInfo;
 
         if (Qry.FieldAsInteger("refused")!=0) continue;
