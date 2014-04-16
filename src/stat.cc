@@ -5426,7 +5426,7 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             params.seance == seanceAll and not USE_SEANCES();
 
           if(not pr_pacts and params.statType == statPactShort)
-              throw Exception("statPactShort cannot run under seanses mode");
+              throw UserException("MSG.INSUFFICIENT_RIGHTS.NOT_ACCESS");
         
           TDetailStat DetailStat;
           TDetailStatRow DetailStatTotal;
