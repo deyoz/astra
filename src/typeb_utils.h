@@ -497,10 +497,11 @@ class TLDMOptions : public TCreateOptions
     {
       version = "CEK";
       cabin_baggage=false;
+      gender=false;
     };
   public:
     std::string version;
-    bool cabin_baggage;
+    bool cabin_baggage, gender;
     TLDMOptions() {init();};
     virtual ~TLDMOptions() {};
     virtual void clear()
@@ -515,6 +516,7 @@ class TLDMOptions : public TCreateOptions
       xmlNodePtr node2=node->children;
       version=NodeAsStringFast("version", node2, version.c_str());
       cabin_baggage=NodeAsIntegerFast("cabin_baggage", node2, (int)cabin_baggage) != 0;
+      gender=NodeAsIntegerFast("gender", node2, (int)gender) != 0;
     };
     virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
     {
@@ -535,6 +537,11 @@ class TLDMOptions : public TCreateOptions
           cabin_baggage=OptionsQry.FieldAsInteger("value")!=0;
           continue;
         };
+        if (cat=="GENDER")
+        {
+          gender=OptionsQry.FieldAsInteger("value")!=0;
+          continue;
+        };
       };
     };
     virtual localizedstream& logStr(localizedstream &s) const
@@ -546,7 +553,11 @@ class TLDMOptions : public TCreateOptions
         << ", "
         << s.getLocaleText("CAP.TYPEB_OPTIONS.LDM.CABIN_BAGGAGE") << ": "
         << (cabin_baggage ? s.getLocaleText("да"):
-                            s.getLocaleText("нет"));
+                            s.getLocaleText("нет"))
+        << ", "
+        << s.getLocaleText("CAP.TYPEB_OPTIONS.LDM.GENDER") << ": "
+        << (gender ? s.getLocaleText("да"):
+                     s.getLocaleText("нет"));
       return s;
     };
     virtual localizedstream& extraStr(localizedstream &s) const
@@ -558,6 +569,10 @@ class TLDMOptions : public TCreateOptions
         << s.getLocaleText("CAP.TYPEB_OPTIONS.LDM.CABIN_BAGGAGE") << ": "
         << (cabin_baggage ? s.getLocaleText("да"):
                             s.getLocaleText("нет"))
+        << endl
+        << s.getLocaleText("CAP.TYPEB_OPTIONS.LDM.GENDER") << ": "
+        << (gender ? s.getLocaleText("да"):
+                     s.getLocaleText("нет"))
         << endl;
       return s;
     };
@@ -572,6 +587,7 @@ class TLDMOptions : public TCreateOptions
       {
         const TLDMOptions &opt = dynamic_cast<const TLDMOptions&>(item);
         return cabin_baggage==opt.cabin_baggage &&
+            gender==opt.gender &&
             version == opt.version;
       }
       catch(std::bad_cast)
@@ -586,6 +602,7 @@ class TLDMOptions : public TCreateOptions
       {
         const TLDMOptions &opt = dynamic_cast<const TLDMOptions&>(item);
         return cabin_baggage==opt.cabin_baggage &&
+            gender==opt.gender &&
             version == opt.version;
       }
       catch(std::bad_cast)
@@ -600,6 +617,7 @@ class TLDMOptions : public TCreateOptions
       {
         const TLDMOptions &opt = dynamic_cast<const TLDMOptions&>(item);
         cabin_baggage=opt.cabin_baggage;
+        gender=opt.gender;
         version = opt.version;
       }
       catch(std::bad_cast) {};

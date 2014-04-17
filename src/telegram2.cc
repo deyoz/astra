@@ -4967,6 +4967,8 @@ struct TLDMDest {
     int adl;
     int chd;
     int inf;
+    int female;
+    int male;
     TLDMBag bag;
     TExcess excess;
     TLDMDest():
@@ -4977,7 +4979,9 @@ struct TLDMDest {
         y(NoExists),
         adl(NoExists),
         chd(NoExists),
-        inf(NoExists)
+        inf(NoExists),
+        female(NoExists),
+        male(NoExists)
     {};
 };
 
@@ -5109,7 +5113,11 @@ void TLDMDests::ToTlg(TypeB::TDetailCreateInfo &info, bool &vcompleted, vector<s
         row.str("");
         row
             << "-" << info.TlgElemIdToElem(etAirp, iv->target)
-            << "." << iv->adl << "/" << iv->chd << "/" << iv->inf;
+            << ".";
+        if(options.gender)
+            row << iv->male << "/" << iv->female << "/" << iv->chd << "/" << iv->inf;
+        else
+            row << iv->adl << "/" << iv->chd << "/" << iv->inf;
         if(options.cabin_baggage)
             row << "." << iv->rk_weight;
         row
@@ -5212,7 +5220,9 @@ void TLDMDests::get(TypeB::TDetailCreateInfo &info)
         "       NVL(pax.y,0) AS y, "
         "       NVL(pax.adl,0) AS adl, "
         "       NVL(pax.chd,0) AS chd, "
-        "       NVL(pax.inf,0) AS inf "
+        "       NVL(pax.inf,0) AS inf, "
+        "       NVL(pax.female,0) AS female, "
+        "       NVL(pax.male,0) AS male "
         "FROM points, "
         "     (SELECT point_arv, "
         "             SUM(ckin.get_rkWeight2(pax_grp.grp_id, pax.pax_id, pax.bag_pool_num, rownum)) rk_weight, "
@@ -5221,7 +5231,9 @@ void TLDMDests::get(TypeB::TDetailCreateInfo &info)
         "             SUM(DECODE(class,'ù',DECODE(seats,0,0,1),0)) AS y, "
         "             SUM(DECODE(pers_type,'Çá',1,0)) AS adl, "
         "             SUM(DECODE(pers_type,'êÅ',1,0)) AS chd, "
-        "             SUM(DECODE(pers_type,'êå',1,0)) AS inf "
+        "             SUM(DECODE(pers_type,'êå',1,0)) AS inf, "
+        "             sum(decode(pers_type, 'Çá', decode(is_female, null, 0, 0, 0, 1), 0)) female, "
+        "             sum(decode(pers_type, 'Çá', decode(is_female, null, 1, 0, 1, 0), 0)) male "
         "      FROM pax_grp,pax "
         "      WHERE pax_grp.grp_id=pax.grp_id AND "
         "            point_dep=:point_id AND "
@@ -5245,6 +5257,8 @@ void TLDMDests::get(TypeB::TDetailCreateInfo &info)
         int col_adl = Qry.FieldIndex("adl");
         int col_chd = Qry.FieldIndex("chd");
         int col_inf = Qry.FieldIndex("inf");
+        int col_female = Qry.FieldIndex("female");
+        int col_male = Qry.FieldIndex("male");
         for(; !Qry.Eof; Qry.Next()) {
             TLDMDest item;
             item.point_arv = Qry.FieldAsInteger(col_point_arv);
@@ -5258,6 +5272,8 @@ void TLDMDests::get(TypeB::TDetailCreateInfo &info)
             item.adl = Qry.FieldAsInteger(col_adl);
             item.chd = Qry.FieldAsInteger(col_chd);
             item.inf = Qry.FieldAsInteger(col_inf);
+            item.female = Qry.FieldAsInteger(col_female);
+            item.male = Qry.FieldAsInteger(col_male);
             items.push_back(item);
         }
     }
