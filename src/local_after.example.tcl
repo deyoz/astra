@@ -1,10 +1,10 @@
 set_local UNDER_GDB 0
 set CSA_KEY 127
-set_local GROUPS_TO_RUN [list astra_init3 astra_init2 astra_init8]
+set_local GROUPS_TO_RUN [list astra_init3 astra_init2 astra_init8 astra_init_other]
 set_local TIMER_NUM 6
 set_local REOPENLOGS 1
-set_local grp3_Jxt(APORT) 8005
-set_local grp2_Inet(APORT) 8001
+set_local grp2_Inet(APORT) 8005
+set_local grp3_Jxt(APORT) 8001
 set_local monitor1(TCP_PORT) 7700
 set_local monitor2(TCP_PORT) 7710
 set_local CONNECT_STRING beta/beta

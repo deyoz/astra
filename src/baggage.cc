@@ -110,6 +110,7 @@ const TBagItem& TBagItem::toXML(xmlNodePtr node) const
   NewTextChild(node,"pr_liab_limit",(int)pr_liab_limit);
   NewTextChild(node,"to_ramp",(int)to_ramp);
   NewTextChild(node,"using_scales",(int)using_scales);
+  NewTextChild(node,"is_trfer",(int)is_trfer);
   if (TReqInfo::Instance()->desk.compatible(VERSION_WITH_BAG_POOLS))
     NewTextChild(node,"bag_pool_num",bag_pool_num);
   return *this;
@@ -504,7 +505,7 @@ void TGroupBagItem::setInboundTrfer(const TrferList::TGrpItem &grp)
     bag.weight=bag_weight;
     bags[bag.num]=bag;
     int tag_num=1;
-    for(vector<TBagTagNumber>::const_iterator t=grp.tags.begin(); t!=grp.tags.end(); ++t, tag_num++)
+    for(multiset<TBagTagNumber>::const_iterator t=grp.tags.begin(); t!=grp.tags.end(); ++t, tag_num++)
     {
       TTagItem tag;
       tag.num=tag_num;

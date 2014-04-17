@@ -105,7 +105,7 @@ class TBagToLogInfo
   public:
     int id, pr_cabin, amount, weight;
     int bag_type;
-    bool using_scales;
+    bool using_scales, is_trfer;
     void clear()
     {
       id=ASTRA::NoExists;
@@ -114,6 +114,7 @@ class TBagToLogInfo
       weight=0;
       bag_type=ASTRA::NoExists;
       using_scales=false;
+      is_trfer=false;
     };
     bool operator == (const TBagToLogInfo &item) const
     {
@@ -122,11 +123,22 @@ class TBagToLogInfo
              amount == item.amount &&
              weight == item.weight &&
              bag_type == item.bag_type &&
-             using_scales == item.using_scales;
+             using_scales == item.using_scales &&
+             is_trfer == item.is_trfer;
     };
     TBagToLogInfo()
     {
       clear();
+    };
+    TBagToLogInfo(const CheckIn::TBagItem &bagItem)
+    {
+      id = bagItem.id;
+      pr_cabin = bagItem.pr_cabin;
+      amount = bagItem.amount;
+      weight = bagItem.weight;
+      bag_type = bagItem.bag_type;
+      using_scales = bagItem.using_scales;
+      is_trfer = bagItem.is_trfer;
     };
 };
 
