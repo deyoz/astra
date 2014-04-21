@@ -89,7 +89,7 @@ void GetSystemLogAgentSQL(TQuery &Qry);
 void GetSystemLogStationSQL(TQuery &Qry);
 void GetSystemLogModuleSQL(TQuery &Qry);
 
-enum TScreenState {ssNone,ssLog,ssPaxList,ssFltLog,ssSystemLog,ssPaxSrc};
+enum TScreenState {ssNone,ssLog,ssPaxList,ssFltLog,ssFltTaskLog,ssSystemLog,ssPaxSrc};
 enum TColumnSortType {sortString,
                       sortInteger,
                       sortFloat,
@@ -242,7 +242,7 @@ void GetFltCBoxList(bool pr_new, TScreenState scr, TDateTime first_date, TDateTi
 
             if(scr == ssPaxList)
               sql << " AND pr_del = 0 \n";
-            if(scr == ssFltLog and !pr_show_del)
+            if((scr == ssFltLog or scr == ssFltTaskLog) and !pr_show_del)
               sql << " AND pr_del >= 0 \n";
             if (!reqInfo.user.access.airlines.empty()) {
                 if (reqInfo.user.access.airlines_permit)
@@ -303,7 +303,7 @@ void GetFltCBoxList(bool pr_new, TScreenState scr, TDateTime first_date, TDateTi
                     "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
                 if(scr == ssPaxList)
                     SQLText += " and points.pr_del = 0 ";
-                if(scr == ssFltLog and !pr_show_del)
+                if((scr == ssFltLog or scr == ssFltTaskLog) and !pr_show_del)
                     SQLText += " and points.pr_del >= 0 ";
                 if (!reqInfo.user.access.airlines.empty()) {
                     if (reqInfo.user.access.airlines_permit)
@@ -346,7 +346,7 @@ void GetFltCBoxList(bool pr_new, TScreenState scr, TDateTime first_date, TDateTi
                 Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
                 if(scr == ssPaxList)
                     SQLText += " and arx_points.pr_del = 0 ";
-                if(scr == ssFltLog and !pr_show_del)
+                if((scr == ssFltLog or scr == ssFltTaskLog) and !pr_show_del)
                     SQLText += " and arx_points.pr_del >= 0 ";
                 if (!reqInfo.user.access.airlines.empty()) {
                     if (reqInfo.user.access.airlines_permit)
@@ -491,69 +491,6 @@ bool EqualCollections(const string &where, const T &c1, const T &c2, const strin
   return true;
 };
 
-void StatInterface::TestFltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-  ProgTrace(TRACE5, "TestFltCBoxDropDown: started");
-  
-  TDateTime min_part_key, max_part_key;
-  GetMinMaxPartKey("TestFltCBoxDropDown", min_part_key, max_part_key);
-  if (min_part_key==NoExists || max_part_key==NoExists) return;
-  
-  vector<TPointsRow> points[2];
-  string error[2];
-  int days=0;
-  for(TDateTime curr_part_key=min_part_key; curr_part_key<=max_part_key; curr_part_key+=1.0)
-  {
-    for(int i=1;i<=1;i++)
-    {
-      TScreenState scr=(i==0)?ssPaxList:ssFltLog;
-      for(int pr_show_del=0;pr_show_del<=0;pr_show_del++)
-      {
-        for(int pr_new=0;pr_new<=1;pr_new++)
-        {
-          points[pr_new].clear();
-          error[pr_new].clear();
-          try
-          {
-            GetFltCBoxList((bool)pr_new, scr, curr_part_key, curr_part_key+1.0, (bool)pr_show_del, points[pr_new]);
-          }
-          catch(Exception &e)
-          {
-            error[pr_new]=e.what();
-          }
-          catch(...)
-          {
-            error[pr_new]="unknown error";
-          };
-        };
-        pair<vector<TPointsRow>::const_iterator, vector<TPointsRow>::const_iterator> diff;
-        if (!EqualCollections("TestFltCBoxDropDown", points[0], points[1], error[0], error[1], diff))
-        {
-          if (diff.first!=points[0].end())
-            ProgError(STDLOG, "TestFltCBoxDropDown: part_key=%s point_id=%d name=%s",
-                              DateTimeToStr(diff.first->part_key, ServerFormatDateTimeAsString).c_str(),
-                              diff.first->point_id,
-                              diff.first->name.c_str());
-          if (diff.second!=points[1].end())
-            ProgError(STDLOG, "TestFltCBoxDropDown: part_key=%s point_id=%d name=%s",
-                              DateTimeToStr(diff.second->part_key, ServerFormatDateTimeAsString).c_str(),
-                              diff.second->point_id,
-                              diff.second->name.c_str());
-          ProgError(STDLOG, "TestFltCBoxDropDown: scr=%s first_date=%s last_date=%s pr_show_del=%s points not equal",
-                            (scr==ssPaxList?"ssPaxList":"ssFltLog"),
-                            DateTimeToStr(curr_part_key, ServerFormatDateTimeAsString).c_str(),
-                            DateTimeToStr(curr_part_key+1.0, ServerFormatDateTimeAsString).c_str(),
-                            (((bool)pr_show_del)?"true":"false"));
-        };
-      };
-    };
-    days++;
-    if (days % 30 == 0) ProgTrace(TRACE5, "TestFltCBoxDropDown: curr_part_key=%s",
-                                          DateTimeToStr(curr_part_key, ServerFormatDateTimeAsString).c_str());
-  };
-  ProgTrace(TRACE5, "TestFltCBoxDropDown: finished");
-};
-
 void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     bool pr_show_del = false;
@@ -614,6 +551,154 @@ void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     }
 }
 
+void StatInterface::FltTaskLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    if(find( reqInfo->user.access.rights.begin(),
+                reqInfo->user.access.rights.end(), 651 ) == reqInfo->user.access.rights.end())
+        throw AstraLocale::UserException("MSG.FLT_TASK_LOG.VIEW_DENIED");
+    xmlNodePtr paramNode = reqNode->children;
+    int point_id = NodeAsIntegerFast("point_id", paramNode);
+    TDateTime part_key;
+    xmlNodePtr partKeyNode = GetNodeFast("part_key", paramNode);
+    if(partKeyNode == NULL)
+        part_key = NoExists;
+    else
+        part_key = NodeAsDateTime(partKeyNode);
+    get_compatible_report_form("FltTaskLog", reqNode, resNode);
+    STAT::set_variables(resNode);
+    xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
+    NewTextChild(variablesNode, "report_title", getLocaleText("Журнал задач рейса"));
+    TQuery Qry(&OraSession);
+    int count = 0;
+
+    xmlNodePtr paxLogNode = NewTextChild(resNode, "PaxLog");
+    xmlNodePtr headerNode = NewTextChild(paxLogNode, "header");
+    NewTextChild(headerNode, "col", "Агент"); // для совместимости со старой версией терминала
+
+    Qry.Clear();
+    string SQLQuery;
+    string airline;
+    if (part_key == NoExists) {
+        {
+            TQuery Qry(&OraSession);
+            Qry.SQLText = "select airline from points where point_id = :point_id "; // pr_del>=0 - не надо т.к. можно просматривать удаленные рейсы
+            Qry.CreateVariable("point_id", otInteger, point_id);
+            Qry.Execute();
+            if(Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.MOVED_TO_ARX_OR_DEL.SELECT_AGAIN");
+            airline = Qry.FieldAsString("airline");
+        }
+        SQLQuery =
+            "SELECT msg, time,  "
+            "       id1 AS point_id,  "
+            "       events.screen,  "
+            "       ev_user, station, ev_order  "
+            "FROM events  "
+            "WHERE "
+            "   events.type = :evtFltTask AND  "
+            "   events.id1=:point_id  ";
+    } else {
+        {
+            TQuery Qry(&OraSession);
+            Qry.SQLText =
+                "select airline from arx_points "
+                "where part_key = :part_key and point_id = :point_id "; // pr_del >= 0 - не надо, т.к. в архиве нет удаленных рейсов
+            Qry.CreateVariable("part_key", otDate, part_key);
+            Qry.CreateVariable("point_id", otInteger, point_id);
+            Qry.Execute();
+            if(Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND");
+            airline = Qry.FieldAsString("airline");
+        }
+        SQLQuery =
+            "SELECT msg, time,  "
+            "       id1 AS point_id,  "
+            "       arx_events.screen,  "
+            "       ev_user, station, ev_order  "
+            "FROM arx_events  "
+            "WHERE "
+            "   arx_events.part_key = :part_key and "
+            "   arx_events.type = :evtFltTask AND  "
+            "   arx_events.id1=:point_id  ";
+    }
+    NewTextChild(resNode, "airline", airline);
+
+    TPerfTimer tm;
+    tm.Init();
+    xmlNodePtr rowsNode = NULL;
+    Qry.Clear();
+    Qry.SQLText = SQLQuery;
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.CreateVariable("evtFltTask",otString,EncodeEventType(ASTRA::evtFltTask));
+    if(part_key != NoExists)
+        Qry.CreateVariable("part_key", otDate, part_key);
+    try {
+        Qry.Execute();
+    } catch (EOracleError &E) {
+        if(E.Code == 376)
+            throw AstraLocale::UserException("MSG.ONE_OF_DB_FILES_UNAVAILABLE.CALL_ADMIN");
+        else
+            throw;
+    }
+
+    if(Qry.Eof && part_key == NoExists) {
+        TQuery Qry(&OraSession);
+        Qry.SQLText = "select point_id from points where point_id = :point_id";
+        Qry.CreateVariable("point_id", otInteger, point_id);
+        Qry.Execute();
+        if(Qry.Eof)
+            throw AstraLocale::UserException("MSG.FLIGHT.MOVED_TO_ARX_OR_DEL.SELECT_AGAIN");
+    }
+
+    typedef map<string, string> TScreenMap;
+    TScreenMap screen_map;
+    if(!Qry.Eof) {
+        int col_point_id=Qry.FieldIndex("point_id");
+        int col_ev_user=Qry.FieldIndex("ev_user");
+        int col_station=Qry.FieldIndex("station");
+        int col_time=Qry.FieldIndex("time");
+        int col_msg=Qry.FieldIndex("msg");
+        int col_ev_order=Qry.FieldIndex("ev_order");
+        int col_screen=Qry.FieldIndex("screen");
+
+        if(!rowsNode)
+            rowsNode = NewTextChild(paxLogNode, "rows");
+        for( ; !Qry.Eof; Qry.Next()) {
+            string ev_user = Qry.FieldAsString(col_ev_user);
+            string station = Qry.FieldAsString(col_station);
+
+            xmlNodePtr rowNode = NewTextChild(rowsNode, "row");
+            NewTextChild(rowNode, "point_id", Qry.FieldAsInteger(col_point_id));
+            NewTextChild( rowNode, "time",
+                    DateTimeToStr(
+                        UTCToClient( Qry.FieldAsDateTime(col_time), reqInfo->desk.tz_region),
+                        ServerFormatDateTimeAsString
+                        )
+                    );
+            NewTextChild(rowNode, "msg", Qry.FieldAsString(col_msg));
+            NewTextChild(rowNode, "ev_order", Qry.FieldAsInteger(col_ev_order));
+            NewTextChild(rowNode, "ev_user", ev_user, "");
+            NewTextChild(rowNode, "station", station, "");
+            string screen = Qry.FieldAsString(col_screen);
+            if(screen.size()) {
+                if(screen_map.find(screen) == screen_map.end()) {
+                    TQuery Qry(&OraSession);
+                    Qry.SQLText = "select name from screen where exe = :exe";
+                    Qry.CreateVariable("exe", otString, screen);
+                    Qry.Execute();
+                    if(Qry.Eof) throw Exception("FltLogRun: screen name fetch failed for " + screen);
+                    screen_map[screen] = getLocaleText(Qry.FieldAsString(0));
+                }
+                screen = screen_map[screen];
+            }
+            NewTextChild(rowNode, "screen", screen, "");
+
+            count++;
+        }
+    }
+    if(!count)
+        throw AstraLocale::UserException("MSG.OPERATIONS_NOT_FOUND");
+}
+
 void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
@@ -666,7 +751,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "       ev_user, station, ev_order  "
             "FROM events  "
             "WHERE "
-            "   events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg) AND  "
+            "   events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg,:evtPrn) AND  "
             "   events.id1=:point_id  ";
         qry2 =
             "SELECT msg, time,  "
@@ -702,7 +787,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "FROM arx_events  "
             "WHERE "
             "   arx_events.part_key = :part_key and "
-            "   arx_events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg) AND  "
+            "   arx_events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg,:evtPrn) AND  "
             "   arx_events.id1=:point_id  ";
         qry2 =
             "SELECT msg, time,  "
@@ -732,6 +817,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             Qry.CreateVariable("evtPax",otString,EncodeEventType(ASTRA::evtPax));
             Qry.CreateVariable("evtPay",otString,EncodeEventType(ASTRA::evtPay));
             Qry.CreateVariable("evtTlg",otString,EncodeEventType(ASTRA::evtTlg));
+            Qry.CreateVariable("evtPrn",otString,EncodeEventType(ASTRA::evtPrn));
         } else {
             Qry.SQLText = qry2;
             Qry.CreateVariable("move_id", otInteger, move_id);

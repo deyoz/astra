@@ -139,7 +139,8 @@ void add_trip_task(int point_id, const string& task_name, const string &params, 
       }
       catch(EOracleError E)
       {
-        if (E.Code!=1 || pass>0) throw;
+        if (E.Code==1 && pass==0) continue;
+        throw;
       };
     }
     else
@@ -178,8 +179,8 @@ void add_trip_task(int point_id, const string& task_name, const string &params, 
             }
         };
       };
-      break;
     };
+    break;
   };
 };
 
