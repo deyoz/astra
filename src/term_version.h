@@ -40,6 +40,7 @@
 
 #define TRANSIT_CRAFT_VERSION         "201600-0000000"
 #define EMDA_VERSION                  "202000-0000000"
+#define RCPT_NDS_VERSION              "201404-0159115"
 
 #endif
 
