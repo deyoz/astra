@@ -37,10 +37,10 @@
 #define DOCA_VERSION                  "201312-0154548"
 #define TLG_ERR_BROWSE_VERSION        "201401-0155488"
 #define INBOUND_TRFER_VERSION         "201404-0158840"
+#define RCPT_NDS_VERSION              "201405-0159373"
 
 #define TRANSIT_CRAFT_VERSION         "201600-0000000"
 #define EMDA_VERSION                  "202000-0000000"
-#define RCPT_NDS_VERSION              "201404-0159115"
 
 #endif
 
