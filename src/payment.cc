@@ -95,7 +95,7 @@ namespace RCPT_PAX_DOC {
 
     void check(const string &form_type, const string &pax_doc)
     {
-        if(form_type != "M61") return;
+        if(form_type != FT_M61) return;
         if(not find_doc_type(pax_doc))
             throw UserException("MSG.PAX_NAME", LParams() << LParam("msg", getLocaleText("MSG.PAX_NAME.DOC_TYPE_NOT_FOUND")));
     }
@@ -199,7 +199,7 @@ namespace RCPT_PAX_NAME {
 
     void check_pax_name(const string &form_type, const string &pax_name)
     {
-        if(form_type != "M61") return;
+        if(form_type != FT_M61) return;
 
         try {
             split_pax_name(pax_name, true);
@@ -895,6 +895,14 @@ bool PaymentInterface::GetReceiptFromDB(TQuery &Qry, TBagReceipt &rcpt)
   rcpt.is_inter=Qry.FieldAsInteger("is_inter")!=0;
   rcpt.desk_lang=Qry.FieldAsString("desk_lang");
 
+  if(Qry.FieldIsNULL("nds")) {
+      rcpt.nds = NoExists;
+      rcpt.nds_cur.clear();
+  } else {
+      rcpt.nds = Qry.FieldAsFloat("nds");
+      rcpt.nds_cur = Qry.FieldAsString("nds_cur");
+  }
+
   //формы оплаты
   rcpt.pay_types.clear();
   TQuery PayTypesQry(&OraSession);
@@ -949,11 +957,11 @@ int PaymentInterface::PutReceiptToDB(const TBagReceipt &rcpt, int point_id, int 
     "        (receipt_id,point_id,grp_id,status,is_inter,desk_lang,form_type,no,pax_name,pax_doc,service_type,bag_type,bag_name, "
     "         tickets,prev_no,airline,aircode,flt_no,suffix,scd_local_date,airp_dep,airp_arv,ex_amount,ex_weight,value_tax, "
     "         rate,rate_cur,exch_rate,exch_pay_rate,pay_rate_cur,remarks, "
-    "         issue_date,issue_place,issue_user_id,issue_desk,kit_id,kit_num) "
+    "         issue_date,issue_place,issue_user_id,issue_desk,kit_id,kit_num,nds,nds_cur) "
     "  VALUES(:receipt_id,:point_id,:grp_id,:status,:is_inter,:desk_lang,:form_type,:no,:pax_name,:pax_doc,:service_type,:bag_type,:bag_name, "
     "         :tickets,:prev_no,:airline,:aircode,:flt_no,:suffix,:scd_local_date,:airp_dep,:airp_arv,:ex_amount,:ex_weight,:value_tax, "
     "         :rate,:rate_cur,:exch_rate,:exch_pay_rate,:pay_rate_cur,:remarks, "
-    "         :issue_date,:issue_place,:issue_user_id,:issue_desk,:kit_id,:kit_num); "
+    "         :issue_date,:issue_place,:issue_user_id,:issue_desk,:kit_id,:kit_num,:nds,:nds_cur); "
     "END;";
   Qry.CreateVariable("receipt_id",otInteger,FNull);
   Qry.CreateVariable("point_id",otInteger,point_id);
@@ -1023,6 +1031,13 @@ int PaymentInterface::PutReceiptToDB(const TBagReceipt &rcpt, int point_id, int 
     Qry.CreateVariable("kit_id",otInteger,FNull);
     Qry.CreateVariable("kit_num",otInteger,FNull);
   };
+  if(rcpt.nds == NoExists) {
+      Qry.CreateVariable("nds", otFloat, FNull);
+      Qry.CreateVariable("nds_cur", otString, FNull);
+  } else {
+      Qry.CreateVariable("nds", otFloat, rcpt.nds);
+      Qry.CreateVariable("nds_cur", otString, rcpt.nds_cur);
+  }
   try
   {
     Qry.Execute();
@@ -1240,7 +1255,7 @@ string GetKitPrevNoStr(const vector<TBagReceiptKitItem> &items)
 namespace RCPT_TICKETS {
     void check(const string &form_type, const string &airline_fact, const string &airline_mark, const string &tickets)
     {
-        if(form_type == "M61") {
+        if(form_type == FT_M61) {
             try {
                 string buf;
                 vector<string> lex;
@@ -1276,7 +1291,7 @@ namespace RCPT_TICKETS {
     string get(const string &form_type, const string &tickets)
     {
         string result;
-        if(form_type == "M61") {
+        if(form_type == FT_M61) {
             string buf;
             vector<string> lex;
             for(string::const_iterator is = tickets.begin(); is != tickets.end(); is++) {
@@ -1439,11 +1454,11 @@ void PaymentInterface::GetReceiptFromXML(xmlNodePtr reqNode, TBagReceipt &rcpt)
   {
     TTagLang tag_lang;
     //язык не установлен
-    tag_lang.Init(Qry.FieldAsInteger("point_dep"),
-                  Qry.FieldAsInteger("point_arv"),
-                  route,
+    tag_lang.Init(rcpt.airp_dep,
+                  rcpt.airp_arv,
                   prnParams.pr_lat);
     rcpt.is_inter=tag_lang.IsInter();  //важно, что инициализируем вначале
+    rcpt.route_country = tag_lang.getRouteCountry();
     rcpt.desk_lang=tag_lang.GetLang();
     
     if (NodeIsNULL("no",rcptNode) )
@@ -1503,6 +1518,14 @@ void PaymentInterface::GetReceiptFromXML(xmlNodePtr reqNode, TBagReceipt &rcpt)
       rcpt.exch_rate=-1;
       rcpt.exch_pay_rate=-1.0;
     };
+    // НДС
+    if(rcpt.service_type == 1 and rcpt.route_country == "РФ") {
+        rcpt.nds = rcpt.rate_sum() / 118. * 18.;
+        rcpt.nds_cur = rcpt.rate_cur;
+    } else {
+        rcpt.nds = NoExists;
+        rcpt.nds_cur.clear();
+    }
     //формы оплаты
     rcpt.pay_types.clear();
     unsigned int none_count=0;
@@ -1586,8 +1609,23 @@ void PaymentInterface::PutReceiptFields(const TBagReceipt &rcpt, bool pr_lat, xm
   NewTextChild(fieldsNode,"issue_date",      parser.pts.get_tag_no_err(TAG::ISSUE_DATE, "ddmmmyy"));
   NewTextChild(fieldsNode,"to",              parser.pts.get_tag_no_err(TAG::TO));
   NewTextChild(fieldsNode,"remarks1",        parser.pts.get_tag_no_err(TAG::REMARKS1));
-  NewTextChild(fieldsNode,"remarks2",        parser.pts.get_tag_no_err(TAG::REMARKS2));
-  NewTextChild(fieldsNode,"exchange_rate",   parser.pts.get_tag_no_err(TAG::EXCHANGE_RATE));
+  if(TReqInfo::Instance()->desk.compatible(RCPT_NDS_VERSION)) {
+      NewTextChild(fieldsNode,"remarks2",    parser.pts.get_tag_no_err(TAG::REMARKS2));
+      NewTextChild(fieldsNode,"remarks3",         parser.pts.get_tag_no_err(TAG::REMARKS3));
+      NewTextChild(fieldsNode,"remarks4",         parser.pts.get_tag_no_err(TAG::REMARKS4));
+      NewTextChild(fieldsNode,"remarks5",         parser.pts.get_tag_no_err(TAG::REMARKS5));
+  } else
+      NewTextChild(fieldsNode,"remarks2",    parser.pts.get_tag_no_err(TAG::REMARKS2) +
+                                             "\xd\xa" +
+                                             parser.pts.get_tag_no_err(TAG::NDS)
+                                             );
+  if(not TReqInfo::Instance()->desk.compatible(RCPT_NDS_VERSION) and rcpt.form_type == FT_298_451)
+      NewTextChild(fieldsNode,"exchange_rate",   parser.pts.get_tag_no_err(TAG::EXCHANGE_RATE) +
+                                                 "\xd\xa" +
+                                                 parser.pts.get_tag_no_err(TAG::NDS)
+                                                 );
+  else
+      NewTextChild(fieldsNode,"exchange_rate",   parser.pts.get_tag_no_err(TAG::EXCHANGE_RATE));
   NewTextChild(fieldsNode,"total",           parser.pts.get_tag_no_err(TAG::TOTAL));
   NewTextChild(fieldsNode,"airline",         parser.pts.get_tag_no_err(TAG::AIRLINE));
   NewTextChild(fieldsNode,"airline_code",    parser.pts.get_tag_no_err(TAG::AIRLINE_CODE));
