@@ -1233,6 +1233,8 @@ void ParseLCIContent(TTlgPartInfo body, TLCIHeadingInfo& info, TLCIContent& con,
                         e = LCIData;
                     break;
                 case LCIData:
+                    if(con.action_code.action == aOpen) // Весь контент игнорируем
+                        break;
                     if(tlg.lex[0] == '-')
                         con.dst.parse(tlg.lex);
                     else if(strncmp(tlg.lex, "EQT", 3) == 0)
