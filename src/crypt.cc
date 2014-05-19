@@ -34,8 +34,7 @@ using namespace std;
 
 static time_t randt = time(NULL);
 
-
-int form_crypt_error(char *res, char *head, int hlen, int error)
+size_t form_crypt_error(char* res, size_t res_len, const char* head, size_t hlen, int error)
 {
   int newlen;
   char *utf8txt=NULL;
