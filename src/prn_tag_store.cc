@@ -65,18 +65,18 @@ void TTagLang::Init(bool apr_lat)
     desk_lang = TReqInfo::Instance()->desk.lang;
 }
 
-void TTagLang::Init(int point_dep, int point_arv, const TTrferRoute &aroute, bool apr_lat)
+void TTagLang::Init(const string &airp_dep, const string &airp_arv, bool apr_lat)
 {
-    string route_country;
-    bool route_inter = IsRouteInter(point_dep, point_arv, route_country);
-    if(aroute.size() > 1) { //есть трансфер багажа, список стыковочных сегментов для бирки и для квитанции
-        string trfer_route_country;
-        IsInter(aroute, trfer_route_country);
-        if(not route_inter and route_country != trfer_route_country) {
-            route_inter = true;
-            route_country.clear();
-        }
+    TBaseTable &airps = base_tables.get("AIRPS");
+    TBaseTable &cities = base_tables.get("CITIES");
+    route_country = cities.get_row("code",airps.get_row("code",airp_dep).AsString("city")).AsString("country");
+    string c = cities.get_row("code",airps.get_row("code",airp_arv).AsString("city")).AsString("country");
+    bool route_inter = false;
+    if(route_country != c) {
+        route_inter = true;
+        route_country.clear();
     }
+
     std::string route_country_lang; //язык страны, где выполняется внутренний рейс
     if(route_country == "РФ")
         route_country_lang = AstraLocale::LANG_RU;
@@ -203,6 +203,30 @@ TPrnTagStore::TTagProps::TTagProps(TDevOperType vop): op(dotUnknown)
     Init(vop);
 }
 
+string TPrnTagStore::TRemarksInfo::rem_at(size_t idx)
+{
+    --idx;
+    string result;
+    if(idx < size())
+        result = at(idx);
+    return result;
+}
+
+void TPrnTagStore::TRemarksInfo::add(const string &val)
+{
+    if(not val.empty()) push_back(val);
+}
+
+void TPrnTagStore::TRemarksInfo::Init(TPrnTagStore &pts)
+{
+    add(pts.get_tag_no_err(TAG::REMARKS1));
+    add(pts.get_tag_no_err(TAG::REMARKS2));
+    add(pts.get_tag_no_err(TAG::REMARKS3));
+    add(pts.get_tag_no_err(TAG::REMARKS4));
+    add(pts.get_tag_no_err(TAG::REMARKS5));
+    fexists = true;
+}
+
 // Bag receipts
 TPrnTagStore::TPrnTagStore(const TBagReceipt &arcpt, bool apr_lat):
     rcpt(arcpt),
@@ -237,6 +261,7 @@ TPrnTagStore::TPrnTagStore(const TBagReceipt &arcpt, bool apr_lat):
     tag_list.insert(make_pair(TAG::ISSUE_PLACE3,        TTagListItem(&TPrnTagStore::ISSUE_PLACE3)));
     tag_list.insert(make_pair(TAG::ISSUE_PLACE4,        TTagListItem(&TPrnTagStore::ISSUE_PLACE4)));
     tag_list.insert(make_pair(TAG::ISSUE_PLACE5,        TTagListItem(&TPrnTagStore::ISSUE_PLACE5)));
+    tag_list.insert(make_pair(TAG::NDS,                 TTagListItem(&TPrnTagStore::NDS)));
     tag_list.insert(make_pair(TAG::PAX_DOC,             TTagListItem(&TPrnTagStore::PAX_DOC)));
     tag_list.insert(make_pair(TAG::PAX_NAME,            TTagListItem(&TPrnTagStore::PAX_NAME)));
     tag_list.insert(make_pair(TAG::PAY_FORM,            TTagListItem(&TPrnTagStore::PAY_FORM)));
@@ -246,10 +271,14 @@ TPrnTagStore::TPrnTagStore(const TBagReceipt &arcpt, bool apr_lat):
     tag_list.insert(make_pair(TAG::RATE,                TTagListItem(&TPrnTagStore::RATE)));
     tag_list.insert(make_pair(TAG::REMARKS1,            TTagListItem(&TPrnTagStore::REMARKS1)));
     tag_list.insert(make_pair(TAG::REMARKS2,            TTagListItem(&TPrnTagStore::REMARKS2)));
+    tag_list.insert(make_pair(TAG::REMARKS3,            TTagListItem(&TPrnTagStore::REMARKS3)));
+    tag_list.insert(make_pair(TAG::REMARKS4,            TTagListItem(&TPrnTagStore::REMARKS4)));
+    tag_list.insert(make_pair(TAG::REMARKS5,            TTagListItem(&TPrnTagStore::REMARKS5)));
     tag_list.insert(make_pair(TAG::SERVICE_TYPE,        TTagListItem(&TPrnTagStore::SERVICE_TYPE)));
     tag_list.insert(make_pair(TAG::TICKETS,             TTagListItem(&TPrnTagStore::TICKETS)));
     tag_list.insert(make_pair(TAG::TO,                  TTagListItem(&TPrnTagStore::TO)));
     tag_list.insert(make_pair(TAG::TOTAL,               TTagListItem(&TPrnTagStore::TOTAL)));
+    remarksInfo.Init(*this);
 }
 
 // Test tags
@@ -266,7 +295,10 @@ TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tag
 {
     print_mode = 0;
     grpInfo.Init(agrp_id, apax_id);
-    tag_lang.Init(grpInfo.point_dep, grpInfo.point_arv, aroute, apr_lat != 0);
+    tag_lang.Init(
+            grpInfo.airp_dep,
+            (aroute.empty() ? grpInfo.airp_arv : aroute.back().airp_arv),
+            apr_lat != 0);
     pax_id = apax_id;
     if(prn_tag_props.op == dotPrnBP and pax_id == NoExists)
         throw Exception("TPrnTagStore::TPrnTagStore: pax_id not defined for bp mode");
@@ -2021,7 +2053,7 @@ string RateToString(double rate, string rate_cur, bool pr_lat, int fmt_type)
 string TBagReceipt::get_fmt_rate(int fmt, bool pr_inter)
 {
     ostringstream result;
-    if(form_type == "M61") {
+    if(form_type == FT_M61) {
         result << RateToString(rate_sum(), rate_cur, pr_inter, fmt);
     } else {
         if(pr_exchange())
@@ -2050,7 +2082,7 @@ string TPrnTagStore::AMOUNT_FIGURES(TFieldParams fp)
 string TPrnTagStore::AMOUNT_LETTERS(TFieldParams fp)
 {
     int iptr, fract;
-    fract=separate_double(rcpt.pr_exchange() and rcpt.form_type != "M61" ? rcpt.pay_rate_sum() : rcpt.rate_sum(), 2, &iptr);
+    fract=separate_double(rcpt.pr_exchange() and rcpt.form_type != FT_M61 ? rcpt.pay_rate_sum() : rcpt.rate_sum(), 2, &iptr);
 
     string result = vs_number(iptr, tag_lang.GetLang() != AstraLocale::LANG_RU);
 
@@ -2109,7 +2141,7 @@ string TPrnTagStore::EX_WEIGHT(TFieldParams fp)
     ostringstream result;
     if(rcpt.service_type == 1 || rcpt.service_type == 2) {
         result << rcpt.ex_weight;
-        if (rcpt.form_type == "M61")
+        if (rcpt.form_type == FT_M61)
             result << getLocaleText("MSG.BR.KG", tag_lang.GetLang());
     }
     return result.str();
@@ -2159,10 +2191,10 @@ string TPrnTagStore::EXCHANGE_RATE(TFieldParams fp)
     ostringstream result;
     if (
             rcpt.pay_rate_cur != rcpt.rate_cur &&
-            (not (rcpt.service_type != 3 and rcpt.pr_exchange()) or rcpt.form_type != "M61")
+            (not (rcpt.service_type != 3 and rcpt.pr_exchange()) or rcpt.form_type != FT_M61)
        )
     {
-        if (rcpt.form_type != "M61" and tag_lang.GetLang() != AstraLocale::LANG_RU) result << "RATE ";
+        if (rcpt.form_type != FT_M61 and tag_lang.GetLang() != AstraLocale::LANG_RU) result << "RATE ";
         result << ExchToString(rcpt.exch_rate, rcpt.rate_cur, rcpt.exch_pay_rate, rcpt.pay_rate_cur, tag_lang);
     };
     return result.str();
@@ -2322,20 +2354,29 @@ string TPrnTagStore::RATE(TFieldParams fp)
 string TPrnTagStore::REMARKS1(TFieldParams fp)
 {
     ostringstream result;
-    if(rcpt.service_type == 1 || rcpt.service_type == 2) {
-        result << getLocaleText("MSG.BR.RATE_PER_KG", tag_lang.GetLang()) << RATE(fp);
-        if(rcpt.pr_exchange())
-            result
-                << "("
-                << (tag_lang.GetLang() != AstraLocale::LANG_RU ? "RATE " : "")
-                << ExchToString(rcpt.exch_rate, rcpt.rate_cur, rcpt.exch_pay_rate, rcpt.pay_rate_cur, tag_lang)
-                << ")";
+    if(remarksInfo.exists()) {
+        result << remarksInfo.rem_at(1);
     } else {
-      result
-            << fixed << setprecision(get_value_tax_precision(rcpt.value_tax))
-            << rcpt.value_tax
-            << getLocaleText("MSG.BR.RATE_OF", tag_lang.GetLang())
-            << RateToString(rcpt.rate, rcpt.rate_cur, tag_lang.GetLang() != AstraLocale::LANG_RU, 0);
+        if(rcpt.form_type == FT_M61) {
+            if(rcpt.service_type == 1 || rcpt.service_type == 2) {
+                result << getLocaleText("MSG.BR.RATE_PER_KG", tag_lang.GetLang()) << RATE(fp);
+                if(rcpt.pr_exchange())
+                    result
+                        << "("
+                        << (tag_lang.GetLang() != AstraLocale::LANG_RU ? "RATE " : "")
+                        << ExchToString(rcpt.exch_rate, rcpt.rate_cur, rcpt.exch_pay_rate, rcpt.pay_rate_cur, tag_lang)
+                        << ")";
+            } else {
+                result
+                    << fixed << setprecision(get_value_tax_precision(rcpt.value_tax))
+                    << rcpt.value_tax
+                    << getLocaleText("MSG.BR.RATE_OF", tag_lang.GetLang())
+                    << RateToString(rcpt.rate, rcpt.rate_cur, tag_lang.GetLang() != AstraLocale::LANG_RU, 0);
+            }
+        } else if(rcpt.form_type == FT_298_451) {
+            result << get_tag_no_err(TAG::EXCHANGE_RATE);
+        } else
+            throw Exception("%s: unexpected form_type %s", __FUNCTION__, rcpt.form_type.c_str());
     }
     return result.str();
 }
@@ -2343,10 +2384,52 @@ string TPrnTagStore::REMARKS1(TFieldParams fp)
 string TPrnTagStore::REMARKS2(TFieldParams fp)
 {
     ostringstream result;
-    if(rcpt.service_type == 1 || rcpt.service_type == 2)
-        result
-            << rcpt.ex_weight
-            << getLocaleText("MSG.BR.KG", tag_lang.GetLang());
+    if(remarksInfo.exists()) {
+        result << remarksInfo.rem_at(2);
+    } else {
+        if(rcpt.form_type == FT_M61) {
+            if(rcpt.service_type == 1 || rcpt.service_type == 2)
+                result
+                    << rcpt.ex_weight
+                    << getLocaleText("MSG.BR.KG", tag_lang.GetLang());
+        } else if(rcpt.form_type == FT_298_451) {
+            result << get_tag_no_err(TAG::NDS);
+        } else
+            throw Exception("%s: unexpected form_type %s", __FUNCTION__, rcpt.form_type.c_str());
+    }
+    return result.str();
+}
+
+string TPrnTagStore::REMARKS3(TFieldParams fp)
+{
+    ostringstream result;
+    if(remarksInfo.exists()) {
+        result << remarksInfo.rem_at(3);
+    } else {
+        if(rcpt.form_type == FT_M61) {
+            result << get_tag_no_err(TAG::NDS);
+        } else if(rcpt.form_type == FT_298_451) {
+        } else
+            throw Exception("%s: unexpected form_type %s", __FUNCTION__, rcpt.form_type.c_str());
+    }
+    return result.str();
+}
+
+string TPrnTagStore::REMARKS4(TFieldParams fp)
+{
+    ostringstream result;
+    if(remarksInfo.exists())
+        result << remarksInfo.rem_at(4);
+    else {}
+    return result.str();
+}
+
+string TPrnTagStore::REMARKS5(TFieldParams fp)
+{
+    ostringstream result;
+    if(remarksInfo.exists())
+        result << remarksInfo.rem_at(5);
+    else {}
     return result.str();
 }
 
@@ -2383,6 +2466,14 @@ string TPrnTagStore::TO(TFieldParams fp)
         << DateTimeToStr(rcpt.scd_local_date, "ddmmm", tag_lang.GetLang() != AstraLocale::LANG_RU);
 
     return  s.str();
+}
+
+string TPrnTagStore::NDS(TFieldParams fp)
+{
+    ostringstream result;
+    if(rcpt.nds != NoExists)
+        result << getLocaleText("НДС", tag_lang.GetLang()) << fixed << setprecision(2) << rcpt.nds;
+    return result.str();
 }
 
 string TPrnTagStore::TOTAL(TFieldParams fp)

@@ -42,10 +42,13 @@ struct TBagReceipt
         std::string rate_cur,pay_rate_cur;
         std::vector<TBagPayType> pay_types;
         std::string remarks;
+        double nds;
+        std::string nds_cur;
         BASIC::TDateTime issue_date,annul_date;
         std::string issue_desk,annul_desk,issue_place;
         
         bool is_inter;
+        std::string route_country; // Страна, по которой пролегает маршрут рейса
         std::string desk_lang;
 
         int kit_id, kit_num;

@@ -10,6 +10,9 @@
 #include "dev_utils.h"
 #include "payment.h"
 
+const std::string FT_M61 = "M61"; // form type
+const std::string FT_298_451 = "298 451";
+
 namespace TAG {
     const std::string BCBP_M_2 = "BCBP_M_2";
     const std::string ACT = "ACT";
@@ -120,6 +123,7 @@ namespace TAG {
     const std::string ISSUE_PLACE3 = "ISSUE_PLACE3";
     const std::string ISSUE_PLACE4 = "ISSUE_PLACE4";
     const std::string ISSUE_PLACE5 = "ISSUE_PLACE5";
+    const std::string NDS = "NDS";
     const std::string PAX_DOC = "PAX_DOC";
     const std::string PAX_NAME = "PAX_NAME";
     const std::string PAY_FORM = "PAY_FORM";
@@ -129,6 +133,9 @@ namespace TAG {
     const std::string RATE = "RATE";
     const std::string REMARKS1 = "REMARKS1";
     const std::string REMARKS2 = "REMARKS2";
+    const std::string REMARKS3 = "REMARKS3";
+    const std::string REMARKS4 = "REMARKS4";
+    const std::string REMARKS5 = "REMARKS5";
     const std::string SERVICE_TYPE = "SERVICE_TYPE";
     const std::string TICKETS = "TICKETS";
     const std::string TO = "TO";
@@ -138,6 +145,7 @@ namespace TAG {
 
 class TTagLang {
     private:
+        std::string route_country;
         std::string desk_lang;
         bool is_inter;
         std::string tag_lang; // параметр тега E - лат, R - рус
@@ -145,6 +153,7 @@ class TTagLang {
         std::string GetLang(TElemFmt &fmt, std::string firm_lang) const;
         bool IsInter(const TTrferRoute &aroute, std::string &country);
     public:
+        std::string getRouteCountry() { return route_country; }
         bool get_pr_lat() { return pr_lat; };
         bool english_tag() const { return tag_lang == "E"; }
         bool IsInter() const;
@@ -153,9 +162,9 @@ class TTagLang {
         void set_tag_lang(std::string val) { tag_lang = val; };
         std::string ElemIdToTagElem(TElemType type, const std::string &id, TElemFmt fmt, std::string firm_lang = "") const;
         std::string ElemIdToTagElem(TElemType type, int id, TElemFmt fmt, std::string firm_lang = "") const;
-        void Init(int point_dep, int point_arv, const TTrferRoute &aroute, bool apr_lat); // BT, BR
         void Init(bool apr_lat); // Инициализация для использования в тестовых пектабах.
         void Init(const TBagReceipt &arcpt, bool apr_lat); // Bag receipts
+        void Init(const std::string &airp_dep, const std::string &airp_arv, bool apr_lat); // BT, BR
 };
 
 int separate_double(double d, int precision, int *iptr);
@@ -337,6 +346,19 @@ class TPrnTagStore {
         };
         TPnrInfo pnrInfo;
 
+        struct TRemarksInfo:public std::vector<std::string> {
+            private:
+                bool fexists;
+            public:
+                TRemarksInfo(): fexists(false) {}
+                bool exists() { return fexists; };
+                void Init(TPrnTagStore &pts);
+                void add(const std::string &val);
+                std::string rem_at(size_t idx);
+        };
+        TRemarksInfo remarksInfo;
+
+
         struct TTimePrint {
             BASIC::TDateTime val;
             TTimePrint(BASIC::TDateTime aval): val(aval) {};
@@ -465,6 +487,7 @@ class TPrnTagStore {
         std::string ISSUE_PLACE3(TFieldParams fp);
         std::string ISSUE_PLACE4(TFieldParams fp);
         std::string ISSUE_PLACE5(TFieldParams fp);
+        std::string NDS(TFieldParams fp);
         std::string PAX_DOC(TFieldParams fp);
         std::string PAX_NAME(TFieldParams fp);
         std::string PAY_FORM(TFieldParams fp);
@@ -474,6 +497,9 @@ class TPrnTagStore {
         std::string RATE(TFieldParams fp);
         std::string REMARKS1(TFieldParams fp);
         std::string REMARKS2(TFieldParams fp);
+        std::string REMARKS3(TFieldParams fp);
+        std::string REMARKS4(TFieldParams fp);
+        std::string REMARKS5(TFieldParams fp);
         std::string SERVICE_TYPE(TFieldParams fp);
         std::string TICKETS(TFieldParams fp);
         std::string TO(TFieldParams fp);
