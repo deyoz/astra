@@ -2373,10 +2373,8 @@ string TPrnTagStore::REMARKS1(TFieldParams fp)
                     << getLocaleText("MSG.BR.RATE_OF", tag_lang.GetLang())
                     << RateToString(rcpt.rate, rcpt.rate_cur, tag_lang.GetLang() != AstraLocale::LANG_RU, 0);
             }
-        } else if(rcpt.form_type == FT_298_451) {
+        } else if(rcpt.form_type == FT_298_451)
             result << get_tag_no_err(TAG::EXCHANGE_RATE);
-        } else
-            throw Exception("%s: unexpected form_type %s", __FUNCTION__, rcpt.form_type.c_str());
     }
     return result.str();
 }
@@ -2392,10 +2390,8 @@ string TPrnTagStore::REMARKS2(TFieldParams fp)
                 result
                     << rcpt.ex_weight
                     << getLocaleText("MSG.BR.KG", tag_lang.GetLang());
-        } else if(rcpt.form_type == FT_298_451) {
+        } else if(rcpt.form_type == FT_298_451)
             result << get_tag_no_err(TAG::NDS);
-        } else
-            throw Exception("%s: unexpected form_type %s", __FUNCTION__, rcpt.form_type.c_str());
     }
     return result.str();
 }
@@ -2406,11 +2402,8 @@ string TPrnTagStore::REMARKS3(TFieldParams fp)
     if(remarksInfo.exists()) {
         result << remarksInfo.rem_at(3);
     } else {
-        if(rcpt.form_type == FT_M61) {
+        if(rcpt.form_type == FT_M61)
             result << get_tag_no_err(TAG::NDS);
-        } else if(rcpt.form_type == FT_298_451) {
-        } else
-            throw Exception("%s: unexpected form_type %s", __FUNCTION__, rcpt.form_type.c_str());
     }
     return result.str();
 }
