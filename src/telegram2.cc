@@ -5152,10 +5152,9 @@ void TLDMDests::ToTlg(TypeB::TDetailCreateInfo &info, bool &vcompleted, vector<s
             row
                 << "SI "
                 << info.TlgElemIdToElem(etAirp, iv->target) << " "
-                << "B" << iv->bag.baggage
-                << ".C" << iv->bag.cargo
-                << ".M" << iv->bag.mail
-                << ".E" << iv->excess.excess;
+                << "B/" << iv->bag.baggage
+                << ".C/" << iv->bag.cargo
+                << ".M/" << iv->bag.mail;
             body.push_back(row.str());
         }
         baggage_sum += iv->bag.baggage;
