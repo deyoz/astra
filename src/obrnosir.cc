@@ -61,7 +61,6 @@ const
     {"-get_events_stat",        get_events_stat2,       NULL,                       NULL},
     {"-get_basel_aero_stat",    get_basel_aero_stat,    NULL,                       NULL},
     {"-testsalons",             testsalons,             NULL,                       NULL},
-    {"-test_trfer_list",        test_trfer_list,        NULL,                       NULL},
     {"-test_trfer_exists",      test_trfer_exists,      NULL,                       NULL},
     {"-bind_trfer_trips",       bind_trfer_trips,       NULL,                       NULL},
     {"-unbind_trfer_trips",     unbind_trfer_trips,     NULL,                       NULL},

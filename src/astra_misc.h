@@ -732,10 +732,11 @@ class TBagTagNumber
     };
 };
 
-void GetTagRanges(const std::vector<TBagTagNumber> &tags,
+void GetTagRanges(const std::multiset<TBagTagNumber> &tags,
                   std::vector<std::string> &ranges);   //ranges сортирован
 
-std::string GetTagRangesStr(const std::vector<TBagTagNumber> &tags);
+std::string GetTagRangesStr(const std::multiset<TBagTagNumber> &tags);
+std::string GetTagRangesStr(const TBagTagNumber &tag);
 
 std::string GetBagRcptStr(const std::vector<std::string> &rcpts);
 std::string GetBagRcptStr(int grp_id, int pax_id);

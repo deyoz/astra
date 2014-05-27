@@ -3,6 +3,7 @@
 
 #include <string>
 #include <map>
+#include <set>
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/date_time/local_time/local_time.hpp>
@@ -96,7 +97,7 @@ class BitSet
 
 class TAccess {
   public:
-    std::vector<int> rights;
+    std::set<int> rights;
     std::vector<std::string> airlines;
     std::vector<std::string> airps;
     bool airlines_permit,airps_permit;
@@ -107,6 +108,10 @@ class TAccess {
       airps.clear();
       airlines_permit=true;
       airps_permit=true;
+    };
+    bool checkRight(int r) const
+    {
+      return rights.find(r)!=rights.end();
     };
 };
 

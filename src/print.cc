@@ -1191,8 +1191,8 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
         "                        pax_grp.bag_refuse)=0 AND ";
     if(tag_key.no >= 0.0) {
         SQLText +=
-        "  bag_tags.tag_type = :tag_type AND "
         "  bag_tags.no = :no AND "
+        "  bag_tags.tag_type = :tag_type AND "
         "  NVL(bag_tags.color, ' ') = NVL(:color, ' ') AND "
         "  (tag_types.printable <> 0 OR tag_types.printable IS NULL) ";
         Qry.CreateVariable("tag_type", otString, tag_key.type);
@@ -1399,7 +1399,7 @@ void PrintInterface::ConfirmPrintBT(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
-        "update bag_tags set pr_print = 1 where tag_type = :type and no = :no and "
+        "update bag_tags set pr_print = 1 where no = :no and tag_type = :type and "
         "   (color is null and :color is null or color = :color)";
     Qry.DeclareVariable("type", otString);
     Qry.DeclareVariable("no", otFloat);

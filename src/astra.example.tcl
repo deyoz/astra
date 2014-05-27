@@ -58,8 +58,8 @@ exit 1
 }
 
 namespace import tclmon::*
-set COMMON_SOCKDIR /usr/local/Sockets
-set REQUEST_DUP_SOCKDIR /usr/local/Sockets
+set COMMON_SOCKDIR ./Sockets
+set REQUEST_DUP_SOCKDIR ./Sockets
 
 if { $::env(XP_TESTING) } {
     file mkdir $SOCKDIR
