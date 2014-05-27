@@ -913,70 +913,83 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
             throw 1;
         };
 
-        //============================ вопрос в терминал ============================
-        bool reset=false;
-        for(int pass=1;pass<=3;pass++)
+        bool without_monitor=false;
+        Qry.Clear();
+        Qry.SQLText=
+            "SELECT without_monitor FROM stations "
+            "WHERE desk=:desk AND work_mode=:work_mode";
+        Qry.CreateVariable("desk", otString, reqInfo->desk.code);
+        Qry.CreateVariable("work_mode", otString, "П");
+        Qry.Execute();
+        if (!Qry.Eof) without_monitor=Qry.FieldAsInteger("without_monitor")!=0;
+
+        if (!without_monitor)
         {
-          switch(pass)
+          //============================ вопрос в терминал ============================
+          bool reset=false;
+          for(int pass=1;pass<=3;pass++)
           {
-            case 1: if (screen==sBoarding && set_mark &&
-                        GetNode("confirmations/ssr",reqNode)==NULL)
-                    {
-                      TRemGrp rem_grp;
-                      rem_grp.Load(retBRD_WARN, point_id);
-                      if ((!paxWithSeat.exists() || GetRemarkStr(rem_grp, paxWithSeat.pax_id).empty()) &&
-                          (!paxWithoutSeat.exists() || GetRemarkStr(rem_grp, paxWithoutSeat.pax_id).empty())) break;
+            switch(pass)
+            {
+              case 1: if (screen==sBoarding && set_mark &&
+                          GetNode("confirmations/ssr",reqNode)==NULL)
+                      {
+                        TRemGrp rem_grp;
+                        rem_grp.Load(retBRD_WARN, point_id);
+                        if ((!paxWithSeat.exists() || GetRemarkStr(rem_grp, paxWithSeat.pax_id).empty()) &&
+                            (!paxWithoutSeat.exists() || GetRemarkStr(rem_grp, paxWithoutSeat.pax_id).empty())) break;
 
-                      xmlNodePtr confirmNode=NewTextChild(dataNode,"confirmation");
-                      NewTextChild(confirmNode,"reset",(int)reset);
-                      NewTextChild(confirmNode,"type","ssr");
-                      ostringstream msg;
-                      msg << getLocaleText("MSG.PASSENGER.NEEDS_SPECIAL_SERVICE") << endl
-                          << getLocaleText("QST.CONTINUE_BRD");
-                      NewTextChild(confirmNode,"message",msg.str());
-                      throw 1;
-                    };
-                    break;
-            case 2: if (screen==sBoarding && set_mark &&
-                        GetNode("confirmations/seat_no",reqNode)==NULL)
-                    {
-                      if (free_seating) break;
-                      string curr_seat_no;
-                      if (paxWithSeat.exists() && CheckSeat(paxWithSeat.pax_id, curr_seat_no)) break;
-                      if (paxWithoutSeat.exists() && CheckSeat(paxWithoutSeat.pax_id, curr_seat_no)) break;
+                        xmlNodePtr confirmNode=NewTextChild(dataNode,"confirmation");
+                        NewTextChild(confirmNode,"reset",(int)reset);
+                        NewTextChild(confirmNode,"type","ssr");
+                        ostringstream msg;
+                        msg << getLocaleText("MSG.PASSENGER.NEEDS_SPECIAL_SERVICE") << endl
+                            << getLocaleText("QST.CONTINUE_BRD");
+                        NewTextChild(confirmNode,"message",msg.str());
+                        throw 1;
+                      };
+                      break;
+              case 2: if (screen==sBoarding && set_mark &&
+                          GetNode("confirmations/seat_no",reqNode)==NULL)
+                      {
+                        if (free_seating) break;
+                        string curr_seat_no;
+                        if (paxWithSeat.exists() && CheckSeat(paxWithSeat.pax_id, curr_seat_no)) break;
+                        if (paxWithoutSeat.exists() && CheckSeat(paxWithoutSeat.pax_id, curr_seat_no)) break;
 
-                      xmlNodePtr confirmNode=NewTextChild(dataNode,"confirmation");
-                      NewTextChild(confirmNode,"reset",(int)reset);
-                      NewTextChild(confirmNode,"type","seat_no");
-                      ostringstream msg;
-                      if (curr_seat_no.empty())
-                          msg << AstraLocale::getLocaleText("MSG.PASSENGER.SALON_SEAT_NO_NOT_DEFINED") << endl;
-                      else
-                          msg << AstraLocale::getLocaleText("MSG.PASSENGER.SALON_SEAT_NO_CHANGED_TO", AstraLocale::LParams() << LParam("seat_no", curr_seat_no)) << endl;
+                        xmlNodePtr confirmNode=NewTextChild(dataNode,"confirmation");
+                        NewTextChild(confirmNode,"reset",(int)reset);
+                        NewTextChild(confirmNode,"type","seat_no");
+                        ostringstream msg;
+                        if (curr_seat_no.empty())
+                            msg << AstraLocale::getLocaleText("MSG.PASSENGER.SALON_SEAT_NO_NOT_DEFINED") << endl;
+                        else
+                            msg << AstraLocale::getLocaleText("MSG.PASSENGER.SALON_SEAT_NO_CHANGED_TO", AstraLocale::LParams() << LParam("seat_no", curr_seat_no)) << endl;
 
-                      msg << getLocaleText("MSG.PASSENGER.INVALID_BP_SEAT_NO") << endl
-                          << getLocaleText("QST.CONTINUE_BRD");
-                      NewTextChild(confirmNode,"message",msg.str());
-                      throw 1;
-                    };
-                    break;
-            case 3: if (screen==sSecurity && !set_mark &&
-                        GetNode("confirmations/pr_brd",reqNode)==NULL &&
-                        ((paxWithSeat.exists() && paxWithSeat.pr_brd) ||
-                         (paxWithoutSeat.exists() && paxWithoutSeat.pr_brd)))
-                    {
-                      xmlNodePtr confirmNode=NewTextChild(dataNode,"confirmation");
-                      NewTextChild(confirmNode,"reset",(int)reset);
-                      NewTextChild(confirmNode,"type","pr_brd");
-                      ostringstream msg;
-                      msg << getLocaleText("MSG.PASSENGER.BOARDED_ALREADY") << endl
-                          << getLocaleText("QST.PASSENGER.RETURN_FOR_EXAM");
-                      NewTextChild(confirmNode,"message",msg.str());
-                      throw 1;
-                    };
-                    break;
-          };
-        }; //for(int pass=1;pass<=3;pass++)
+                        msg << getLocaleText("MSG.PASSENGER.INVALID_BP_SEAT_NO") << endl
+                            << getLocaleText("QST.CONTINUE_BRD");
+                        NewTextChild(confirmNode,"message",msg.str());
+                        throw 1;
+                      };
+                      break;
+              case 3: if (screen==sSecurity && !set_mark &&
+                          GetNode("confirmations/pr_brd",reqNode)==NULL &&
+                          ((paxWithSeat.exists() && paxWithSeat.pr_brd) ||
+                           (paxWithoutSeat.exists() && paxWithoutSeat.pr_brd)))
+                      {
+                        xmlNodePtr confirmNode=NewTextChild(dataNode,"confirmation");
+                        NewTextChild(confirmNode,"reset",(int)reset);
+                        NewTextChild(confirmNode,"type","pr_brd");
+                        ostringstream msg;
+                        msg << getLocaleText("MSG.PASSENGER.BOARDED_ALREADY") << endl
+                            << getLocaleText("QST.PASSENGER.RETURN_FOR_EXAM");
+                        NewTextChild(confirmNode,"message",msg.str());
+                        throw 1;
+                      };
+                      break;
+            };
+          }; //for(int pass=1;pass<=3;pass++)
+        };
 
         //============================ собственно посадка пассажира(ов) ============================
         get_new_tid(NoExists, Qry);  //не лочим рейс, так как лочим ранее
@@ -1027,7 +1040,12 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
             if (set_mark)
             {
               if (grp_status==psTCheckin)
-                AstraLocale::showErrorMessage("MSG.ATTENTION_TCKIN_GET_COUPON");
+              {
+                if (!without_monitor)
+                  AstraLocale::showErrorMessage("MSG.ATTENTION_TCKIN_GET_COUPON");
+                else
+                  AstraLocale::showMessage("MSG.ATTENTION_TCKIN_GET_COUPON");
+              }
               else
                 AstraLocale::showMessage("MSG.PASSENGER.BOARDING");
             }
