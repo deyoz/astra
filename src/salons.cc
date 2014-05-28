@@ -3325,6 +3325,90 @@ void TSalonList::getPaxLayer( int point_dep, int pax_id,
   }
 }
 
+void TSectionInfo::clearProps() {
+    firstRowIdx = ASTRA::NoExists;
+    lastRowIdx = ASTRA::NoExists;    
+    salonPoints.clear();
+    totalLayerSeats.clear();
+    currentLayerSeats.clear();
+    layersPaxs.clear();
+    paxs.clear();
+}
+
+void TSectionInfo::operator = (const TSectionInfo &sectionInfo) {
+    firstRowIdx = sectionInfo.firstRowIdx;
+    lastRowIdx = sectionInfo.lastRowIdx;    
+    salonPoints = sectionInfo.salonPoints;
+    totalLayerSeats = sectionInfo.totalLayerSeats;
+    currentLayerSeats = sectionInfo.currentLayerSeats;
+    layersPaxs = sectionInfo.layersPaxs;
+    paxs = sectionInfo.paxs;
+}
+
+bool TSectionInfo::inSection( const TSalonPoint &salonPoint ) const {
+    for ( std::vector<TSalonPointNames>::const_iterator iseat=salonPoints.begin();
+            iseat!=salonPoints.end(); iseat++ ) {
+        if ( iseat->point == salonPoint ) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool TSectionInfo::inSection( const TSeat &aseat ) const {
+    for ( std::vector<TSalonPointNames>::const_iterator iseat=salonPoints.begin();
+            iseat!=salonPoints.end(); iseat++ ) {
+        if ( iseat->seat == aseat ) {
+            return true;
+        }
+    }    
+    return false;
+}                                
+
+bool TSectionInfo::inSection( int row ) const {
+    return ( (row >= firstRowIdx || firstRowIdx == ASTRA::NoExists) && 
+            (row <= lastRowIdx || lastRowIdx == ASTRA::NoExists) ); // внутри секции или нет границ секции    
+}
+
+int TSectionInfo::getFirstRow() const {
+    return firstRowIdx; 
+}
+
+int TSectionInfo::getLastRow() const {
+    return lastRowIdx;
+}
+
+void TSectionInfo::setSectionRows( int ffirstRow, int flastRow ) {
+    firstRowIdx = ffirstRow;
+    lastRowIdx = flastRow;
+}        
+
+void TSectionInfo::AddLayerSeats( const TSeatLayer &seatLayer, const TSeat &seats ) {
+    layersPaxs[ seatLayer ].insert( seats );
+}
+
+void TSectionInfo::GetLayerSeats( TLayersSeats &value ) {
+    value = layersPaxs;
+}
+
+void TSectionInfo::GetPaxs( std::map<int,TSalonPax> &value ) {
+    value = paxs;
+}
+
+int TSectionInfo::seatsTotalLayerSeats( const ASTRA::TCompLayerType &layer_type ) {
+    if ( totalLayerSeats.find( layer_type ) != totalLayerSeats.end() ) {
+        return (int)totalLayerSeats[ layer_type ].size();
+    }
+    return 0;
+}
+
+int TSectionInfo::seatsCurrentLayerSeats( const ASTRA::TCompLayerType &layer_type ) {
+    if ( currentLayerSeats.find( layer_type ) != currentLayerSeats.end() ) {
+        return (int)currentLayerSeats[ layer_type ].size();
+    }
+    return 0;
+}
+
 void TSectionInfo::AddPax( const TSalonPax &pax )
 {
    paxs.insert( make_pair( pax.pax_id, pax ) );

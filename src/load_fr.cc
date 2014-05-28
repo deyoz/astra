@@ -22,6 +22,7 @@ const string FALSE_LOCALE = "0";
 
 void my(const fs::path &full_path, string fname)
 {
+    /*
     fs::path apath = full_path / fname;
     ifstream in(apath.native_file_string().c_str());
     if(!in.good())
@@ -80,6 +81,7 @@ void my(const fs::path &full_path, string fname)
         Qry.SQLText = "insert into fr_forms2(name, version, form, pr_locale) values(:name, :version, :form, :pr_locale)";
         Qry.Execute();
     }
+    */
 }
 
 void load_fr_help(const char *name)
@@ -102,6 +104,7 @@ void usage(string name, string what)
 
 int get_fr(int argc,char **argv)
 {
+    /*
     try {
         fs::path full_path;
         if(argc > 1)
@@ -142,11 +145,13 @@ int get_fr(int argc,char **argv)
         usage(argv[0], E.what());
         return 1;
     }
+    */
     return 0;
 }
 
 int load_fr(int argc,char **argv)
 {
+    /*
     try {
         fs::path full_path;
         if(argc > 1)
@@ -178,6 +183,7 @@ int load_fr(int argc,char **argv)
         usage(argv[0], E.what());
         return 1;
     }
+    */
     return 0;
 }
 

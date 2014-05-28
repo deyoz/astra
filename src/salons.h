@@ -352,57 +352,15 @@ class TSectionInfo {
     TSectionInfo() {
       clearProps();
     }
-    void clearProps() {
-      firstRowIdx = ASTRA::NoExists;
-      lastRowIdx = ASTRA::NoExists;    
-      salonPoints.clear();
-      totalLayerSeats.clear();
-      currentLayerSeats.clear();
-      layersPaxs.clear();
-      paxs.clear();
-    }
-    void operator = (const TSectionInfo &sectionInfo) {
-      firstRowIdx = sectionInfo.firstRowIdx;
-      lastRowIdx = sectionInfo.lastRowIdx;    
-      salonPoints = sectionInfo.salonPoints;
-      totalLayerSeats = sectionInfo.totalLayerSeats;
-      currentLayerSeats = sectionInfo.currentLayerSeats;
-      layersPaxs = sectionInfo.layersPaxs;
-      paxs = sectionInfo.paxs;
-    }
-    bool inSection( const TSalonPoint &salonPoint ) const {
-      for ( std::vector<TSalonPointNames>::const_iterator iseat=salonPoints.begin();
-            iseat!=salonPoints.end(); iseat++ ) {
-        if ( iseat->point == salonPoint ) {
-          return true;
-        }
-      }
-      return false;
-    }
-    bool inSection( const TSeat &aseat ) const {
-      for ( std::vector<TSalonPointNames>::const_iterator iseat=salonPoints.begin();
-            iseat!=salonPoints.end(); iseat++ ) {
-        if ( iseat->seat == aseat ) {
-          return true;
-        }
-      }    
-      return false;
-    }                                
-    bool inSection( int row ) const {
-      return ( (row >= firstRowIdx || firstRowIdx == ASTRA::NoExists) && 
-               (row <= lastRowIdx || lastRowIdx == ASTRA::NoExists) ); // внутри секции или нет границ секции    
-    }
+    void clearProps();
+    void operator = (const TSectionInfo &sectionInfo);
+    bool inSection( const TSalonPoint &salonPoint ) const;
+    bool inSection( const TSeat &aseat ) const;
+    bool inSection( int row ) const;
     bool inSectionPaxId( int pax_id );
-    int getFirstRow() const {
-      return firstRowIdx; 
-    }
-    int getLastRow() const {
-      return lastRowIdx;
-    }
-    void setSectionRows( int ffirstRow, int flastRow ) {
-      firstRowIdx = ffirstRow;
-      lastRowIdx = flastRow;
-    }        
+    int getFirstRow() const;
+    int getLastRow() const;
+    void setSectionRows( int ffirstRow, int flastRow );
     void AddSalonPoints( const TSalonPoint &asalonPoint, const TSeat &aseat ) {
       salonPoints.push_back( TSalonPointNames( asalonPoint, aseat ) );
     }
@@ -410,32 +368,16 @@ class TSectionInfo {
       totalLayerSeats[ layer_type ].push_back( seat );
     }
     void AddCurrentLayerSeat( const TSeatLayer &layer, TPlace* seat );
-    void AddLayerSeats( const TSeatLayer &seatLayer, const TSeat &seats ) {
-      layersPaxs[ seatLayer ].insert( seats );
-    }
+    void AddLayerSeats( const TSeatLayer &seatLayer, const TSeat &seats );
     void AddPax( const TSalonPax &pax );
-    void GetLayerSeats( TLayersSeats &value ) {
-      value = layersPaxs;
-    }
-    void GetPaxs( std::map<int,TSalonPax> &value ) {
-      value = paxs;
-    }
+    void GetLayerSeats( TLayersSeats &value );
+    void GetPaxs( std::map<int,TSalonPax> &value );
     void GetCurrentLayerSeat( const ASTRA::TCompLayerType &layer_type,
                               std::vector<std::pair<TSeatLayer,TPassSeats> > &layersSeats );
     void GetTotalLayerSeat( const ASTRA::TCompLayerType &layer_type,
                             TPassSeats &layerSeats );
-    int seatsTotalLayerSeats( const ASTRA::TCompLayerType &layer_type ) {
-      if ( totalLayerSeats.find( layer_type ) != totalLayerSeats.end() ) {
-        return (int)totalLayerSeats[ layer_type ].size();
-      }
-      return 0;
-    }
-    int seatsCurrentLayerSeats( const ASTRA::TCompLayerType &layer_type ) {
-      if ( currentLayerSeats.find( layer_type ) != currentLayerSeats.end() ) {
-        return (int)currentLayerSeats[ layer_type ].size();
-      }
-      return 0;
-    }
+    int seatsTotalLayerSeats( const ASTRA::TCompLayerType &layer_type );
+    int seatsCurrentLayerSeats( const ASTRA::TCompLayerType &layer_type );
 };
 
 class TCompSection: public TSectionInfo {
