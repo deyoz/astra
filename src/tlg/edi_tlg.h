@@ -5,6 +5,7 @@
 #include "astra_ticket.h"
 #include "serverlib/monitor_ctl.h"
 #include "libtlg/hth.h"
+#include "tlg/edi_tkt_request.h"
 
 bool get_et_addr_set( std::string airline, int flt_no, std::pair<std::string,std::string> &addrs );
 void set_edi_addrs( const std::pair<std::string,std::string> &addrs );
@@ -17,6 +18,7 @@ struct EdiMess
 {
     static const std::string Display;
     static const std::string ChangeStat;
+    static const std::string EmdDisplay;
 };
 
 class AstraEdiSessWR : public edilib::EdiSessWrData
@@ -133,25 +135,6 @@ public:
     const std::string tlgText() const { return TlgText; }
 };
 
-//======================================
-class edi_common_data
-{
-    Ticketing::OrigOfRequest Org;
-    std::string ediSessCtxt;
-    int reqCtxtId;
-public:
-    edi_common_data(const Ticketing::OrigOfRequest &org,
-                    const std::string &ctxt,
-                    const int req_ctxt_id)
-        :Org(org), ediSessCtxt(ctxt)
-    {
-      reqCtxtId = req_ctxt_id;
-    }
-    const Ticketing::OrigOfRequest &org() const { return Org; }
-    const std::string & context() const { return ediSessCtxt; }
-    const int req_ctxt_id() const { return reqCtxtId; }
-    virtual ~edi_common_data(){}
-};
 
 enum TickDispType_t {
     TickDispByTickNo=0,
@@ -264,5 +247,6 @@ public:
 
 // Обработка EDIFACT
 void proc_edifact(const std::string &tlg);
+std::string prepareKickText(std::string iface, int reqCtxtId);
 
 #endif /*_EDI_TLG_H_*/

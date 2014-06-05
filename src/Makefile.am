@@ -120,6 +120,8 @@ astra_LDADD = $(all_libraries) \
 	@BOOST_FILESYSTEM_LIB@\
 	@BOOST_REGEX_LIB@\
         @PION_LDFLAGS@
+
+
 #	-L/usr/lib -lboost_filesystem
 #	-L/home/beta/crypt/locallibs/mespro -lmesprox
 

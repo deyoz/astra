@@ -1,3 +1,5 @@
+# meta: suite eticket
+
 $(defmacro login
   user=PIKE
   passwd=PIKE

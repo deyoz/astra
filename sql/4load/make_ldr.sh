@@ -1,0 +1,1 @@
+for i in cities tz_regions desks desk_grp users2 web_clients user_roles role_rights desk_owners user_sets crypt_sets screen countries points et_addr_set ; do echo et_addr_set; ../sqlldr_exp  beta/beta@beta et_addr_set > et_addr_set.ldr ; done;

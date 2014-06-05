@@ -25,6 +25,7 @@
 #include "serverlib/posthooks.h"
 #include "serverlib/testmode.h"
 #include "serverlib/EdiHelpManager.h"
+#include "emd_disp_request.h"
 
 #define NICKNAME "ROMAN"
 #define NICKTRACE ROMAN_TRACE
@@ -97,6 +98,7 @@ std::string get_canon_name(std::string edi_addr)
 
 const std::string EdiMess::Display = "131";
 const std::string EdiMess::ChangeStat = "142";
+const std::string EdiMess::EmdDisplay = "791";
 static std::string last_session_ref;
 
 std::string get_last_session_ref()
@@ -150,7 +152,7 @@ int FuncBeforeEdiProc(edi_mes_head *pHead, void *udata, int *err)
     }
     catch(edilib::EdiExcept &e)
     {
-        WriteLog(STDLOG, e.what());
+        LogWarning(STDLOG) << e.what();
         ret-=100;
         ProgTrace(TRACE2,"Read EDIFACT message / update EDIFACT session - failed");
     }
@@ -326,6 +328,10 @@ message_funcs_type message_TKCREQ[] =
             ProcTKCRESchange_status,
             CreateTKCREQchange_status,
             "Ticket change of status"},
+    {EdiMess::EmdDisplay.c_str(), ParseTKCRESemdDisplay,
+            ProcTKCRESemdDisplay,
+            CreateTKCREQEmdDisplay,
+            "Emd display"},
 };
 
 message_funcs_str message_funcs[] =
@@ -1122,7 +1128,7 @@ int CreateEDIREQ (edi_mes_head *pHead, void *udata, void *data, int *err)
     }
     catch(std::exception &e)
     {
-        ProgError(STDLOG, e.what());
+        LogError(STDLOG) << e.what();
         *err = 1;
     }
     catch(...)

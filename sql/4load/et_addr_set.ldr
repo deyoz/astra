@@ -1,0 +1,27 @@
+LOAD DATA
+INFILE *
+INTO TABLE et_addr_set
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+id
+,airline
+,flt_no
+,edi_addr
+,edi_own_addr
+)
+BEGINDATA
+38493|"ãÄ"||"ETYC"|"ASTRA"
+42178|"ì6"||"ETU6"|"ASTRA"
+44306|"àÜ"||"ETI8"|"ASTRA"
+39512|"íà"||"ETY7"|"ASTRA"
+40321|"èé"||"ETYQ"|"ASTRA"
+35579|"ûí"||"ETICK"|"ASTRA"
+3|"ûê"||"ETUR"|"ASTRA"
+2|"7ä"||"ET7K"|"ASTRA"
+30142|"ûç"||"ETNLK"|"ASTRA"
+39742|"12"||"2345"|"QWERT"
+39731|"11"||"1122"|"2555"
+39732|"12"|1111|"1111"|"1111"
+41669|"çç"||"ETNN"|"ASTRA"

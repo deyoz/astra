@@ -45,6 +45,8 @@ static void RunAllTests(const std::string& fileName)
 
 #define AUTO_TEST(name, file_name) START_TEST(name) { RunAllTests(file_name); } END_TEST;
 AUTO_TEST(ts_test_ts, "./ts/test.ts");
+AUTO_TEST(ts_et_disp_ts, "./ts/et_disp.ts");
+AUTO_TEST(ts_emd_disp_ts, "./ts/emd_disp.ts");
 
 #undef SUITENAME
 #define SUITENAME "auto"
@@ -52,6 +54,24 @@ TCASEREGISTER(testInitDB, 0)
 {
     SET_TIMEOUT(300)
     ADD_TEST(ts_test_ts);
+}
+TCASEFINISH
+
+#undef SUITENAME
+#define SUITENAME "eticket"
+TCASEREGISTER(testInitDB, 0)
+{
+    SET_TIMEOUT(300)
+    ADD_TEST(ts_et_disp_ts);
+}
+TCASEFINISH
+
+#undef SUITENAME
+#define SUITENAME "emd"
+TCASEREGISTER(testInitDB, 0)
+{
+    SET_TIMEOUT(300)
+    ADD_TEST(ts_emd_disp_ts);
 }
 TCASEFINISH
 
