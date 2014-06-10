@@ -2417,13 +2417,13 @@ void NOTPRESTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     }
 }
 
-bool getPaxRem(const TRptParams &rpt_params, const CheckIn::TPaxTknItem &tkn, CheckIn::TPaxRemItem &rem)
+bool getPaxRem(const TRptParams &rpt_params, const CheckIn::TPaxTknItem &tkn, bool inf_indicator, CheckIn::TPaxRemItem &rem)
 {
   if (tkn.empty() || tkn.rem.empty()) return false;
   rem.clear();
   rem.code=tkn.rem;
   ostringstream text;
-  text << rem.code << " HK1 " << (tkn.pr_inf?"INF":"") << tkn.no;
+  text << rem.code << " HK1 " << (inf_indicator?"INF":"") << tkn.no;
   if (tkn.coupon!=ASTRA::NoExists)
     text << "/" << tkn.coupon;
   rem.text=text.str();
@@ -2431,7 +2431,7 @@ bool getPaxRem(const TRptParams &rpt_params, const CheckIn::TPaxTknItem &tkn, Ch
   return true;
 };
 
-bool getPaxRem(const TRptParams &rpt_params, const CheckIn::TPaxDocItem &doc, CheckIn::TPaxRemItem &rem)
+bool getPaxRem(const TRptParams &rpt_params, const CheckIn::TPaxDocItem &doc, bool inf_indicator, CheckIn::TPaxRemItem &rem)
 {
   if (doc.empty()) return false;
   rem.clear();
@@ -2445,7 +2445,7 @@ bool getPaxRem(const TRptParams &rpt_params, const CheckIn::TPaxDocItem &doc, Ch
        << "/" << doc.no
        << "/" << rpt_params.ElemIdToReportElem(etPaxDocCountry, doc.nationality, efmtCodeNative)
        << "/" << (doc.birth_date!=ASTRA::NoExists?DateTimeToStr(doc.birth_date, "ddmmmyy", pr_lat):"")
-       << "/" << rpt_params.ElemIdToReportElem(etGenderType, doc.gender, efmtCodeNative)
+       << "/" << rpt_params.ElemIdToReportElem(etGenderType, doc.gender, efmtCodeNative) << (inf_indicator?"I":"")
        << "/" << (doc.expiry_date!=ASTRA::NoExists?DateTimeToStr(doc.expiry_date, "ddmmmyy", pr_lat):"")
        << "/" << transliter(doc.surname, 1, pr_lat)
        << "/" << transliter(doc.first_name, 1, pr_lat)
@@ -2462,7 +2462,7 @@ bool getPaxRem(const TRptParams &rpt_params, const CheckIn::TPaxDocItem &doc, Ch
   return true;
 };
 
-bool getPaxRem(const TRptParams &rpt_params, const CheckIn::TPaxDocoItem &doco, CheckIn::TPaxRemItem &rem)
+bool getPaxRem(const TRptParams &rpt_params, const CheckIn::TPaxDocoItem &doco, bool inf_indicator, CheckIn::TPaxRemItem &rem)
 {
   if (doco.empty()) return false;
   rem.clear();
@@ -2477,7 +2477,7 @@ bool getPaxRem(const TRptParams &rpt_params, const CheckIn::TPaxDocoItem &doco, 
        << "/" << transliter(doco.issue_place, 1, pr_lat)
        << "/" << (doco.issue_date!=ASTRA::NoExists?DateTimeToStr(doco.issue_date, "ddmmmyy", pr_lat):"")
        << "/" << rpt_params.ElemIdToReportElem(etPaxDocCountry, doco.applic_country, efmtCodeNative)
-       << "/" << (doco.pr_inf?"I":"");
+       << "/" << (inf_indicator?"I":"");
   rem.text=text.str();
   for(int i=rem.text.size()-1;i>=0;i--)
     if (rem.text[i]!='/')
@@ -2489,7 +2489,7 @@ bool getPaxRem(const TRptParams &rpt_params, const CheckIn::TPaxDocoItem &doco, 
   return true;
 };
 
-bool getPaxRem(const TRptParams &rpt_params, const CheckIn::TPaxDocaItem &doca, CheckIn::TPaxRemItem &rem)
+bool getPaxRem(const TRptParams &rpt_params, const CheckIn::TPaxDocaItem &doca, bool inf_indicator, CheckIn::TPaxRemItem &rem)
 {
   if (doca.empty()) return false;
   rem.clear();
@@ -2504,7 +2504,7 @@ bool getPaxRem(const TRptParams &rpt_params, const CheckIn::TPaxDocaItem &doca, 
        << "/" << transliter(doca.city, 1, pr_lat)
        << "/" << transliter(doca.region, 1, pr_lat)
        << "/" << transliter(doca.postal_code, 1, pr_lat)
-       << "/" << (doca.pr_inf?"I":"");
+       << "/" << (inf_indicator?"I":"");
   rem.text=text.str();
   for(int i=rem.text.size()-1;i>=0;i--)
     if (rem.text[i]!='/')
@@ -2598,6 +2598,7 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       cats[remFQT]=false;
       cats[remUnknown]=false;
       int pax_id=Qry.FieldAsInteger("pax_id");
+      bool inf_indicator=DecodePerson(Qry.FieldAsString("pers_type"))==ASTRA::baby && Qry.FieldAsInteger("seats")==0;
       if (!rpt_params.rems.empty())
       {
         bool pr_find=false;
@@ -2675,17 +2676,17 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       
       //билет
       if (!cats[remTKN]) tkn.fromDB(Qry);
-      if (getPaxRem(rpt_params, tkn, rem)) rems.push_back(rem);
+      if (getPaxRem(rpt_params, tkn, inf_indicator, rem)) rems.push_back(rem);
       //документ
       if (!cats[remDOC]) LoadPaxDoc(pax_id, doc);
-      if (getPaxRem(rpt_params, doc, rem)) rems.push_back(rem);
+      if (getPaxRem(rpt_params, doc, inf_indicator, rem)) rems.push_back(rem);
       //виза
       if (!cats[remDOCO]) LoadPaxDoco(pax_id, doco);
-      if (getPaxRem(rpt_params, doco, rem)) rems.push_back(rem);
+      if (getPaxRem(rpt_params, doco, inf_indicator, rem)) rems.push_back(rem);
       //адреса
       if (!cats[remDOCA]) LoadPaxDoca(pax_id, doca);
       for(list<CheckIn::TPaxDocaItem>::const_iterator d=doca.begin(); d!=doca.end(); ++d)
-        if (getPaxRem(rpt_params, *d, rem)) rems.push_back(rem);
+        if (getPaxRem(rpt_params, *d, inf_indicator, rem)) rems.push_back(rem);
       //бонус-программа
       if (!cats[remFQT]) LoadPaxFQT(pax_id, fqts);
       for(vector<CheckIn::TPaxFQTItem>::const_iterator f=fqts.begin();f!=fqts.end();f++)

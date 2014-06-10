@@ -20,6 +20,7 @@
 #include "points.h"
 #include "salons.h"
 #include "term_version.h"
+#include "events.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -486,7 +487,8 @@ void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
         "    pax.pers_type, "
         "    class, "
         "    pax_grp.status, "
-        "    NVL(report.get_last_trfer_airp(pax_grp.grp_id),pax_grp.airp_arv) AS airp_arv, "
+        "    pax_grp.airp_arv, "
+        "    NVL(report.get_last_trfer_airp(pax_grp.grp_id),pax_grp.airp_arv) AS last_airp_arv, "
         "    salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'_seats',rownum) AS seat_no, "
         "    pax.seats, "
         "    wl_type, "
@@ -584,19 +586,228 @@ void put_exambrd_vars(xmlNodePtr variablesNode)
     NewTextChild(variablesNode, "cap_no_brd", getLocaleText("CAP.DOC.EXAMBRD.NO_BRD.FLIGHT", LParams() << LParam("flight", get_flight(variablesNode))));
 }
 
+void LoadAPIS(const TCheckDocInfo &check_info, const CheckIn::TAPISItem &apis, xmlNodePtr resNode)
+{
+  if (resNode==NULL) return;
+
+  xmlNodePtr infoNode=NewTextChild(resNode, "check_info");
+  check_info.toXML(infoNode);
+  apis.toXML(resNode);
+};
+
+void LoadAPIS(int point_id, const string &airp_arv, int pax_id, xmlNodePtr resNode)
+{
+  if (resNode==NULL) return;
+
+  TCompleteCheckDocInfo checkDocInfo=GetCheckDocInfo(point_id, airp_arv);
+  LoadAPIS(checkDocInfo.pass, CheckIn::TAPISItem().fromDB(pax_id), resNode);
+};
+
+void GetAPISAlarms(int pax_id, bool isCBBG, const TCheckDocInfo &check_info, const CheckIn::TAPISItem &apis, set<APIS::TAlarmType> &alarms)
+{
+  alarms.clear();
+  if (isCBBG) return;
+
+  CheckIn::TPaxDocaItem docaB, docaR, docaD;
+  for(list<CheckIn::TPaxDocaItem>::const_iterator d=apis.doca.begin(); d!=apis.doca.end(); ++d)
+  {
+    if (d->type=="B") docaB=*d;
+    if (d->type=="R") docaR=*d;
+    if (d->type=="D") docaD=*d;
+  };
+  //грузим данные из бронирования
+  CheckIn::TAPISItem crs_apis;
+  LoadCrsPaxDoc(pax_id, crs_apis.doc);
+  if ((crs_apis.doc.getEqualAttrsFieldsMask(apis.doc) & crs_apis.doc.getNotEmptyFieldsMask()) != crs_apis.doc.getNotEmptyFieldsMask())
+    alarms.insert(APIS::atDiffersFromBooking);
+  else
+  {
+    LoadCrsPaxVisa(pax_id, crs_apis.doco);
+    if ((crs_apis.doco.getEqualAttrsFieldsMask(apis.doco) & crs_apis.doco.getNotEmptyFieldsMask()) != crs_apis.doco.getNotEmptyFieldsMask())
+      alarms.insert(APIS::atDiffersFromBooking);
+    else
+    {
+      LoadCrsPaxDoca(pax_id, crs_apis.doca);
+      CheckIn::TPaxDocaItem crs_docaB, crs_docaR, crs_docaD;
+      for(list<CheckIn::TPaxDocaItem>::const_iterator d=crs_apis.doca.begin(); d!=crs_apis.doca.end(); ++d)
+      {
+        if (d->type=="B") crs_docaB=*d;
+        if (d->type=="R") crs_docaR=*d;
+        if (d->type=="D") crs_docaD=*d;
+      };
+      if ((crs_docaB.getEqualAttrsFieldsMask(docaB) & crs_docaB.getNotEmptyFieldsMask()) != crs_docaB.getNotEmptyFieldsMask() ||
+          (crs_docaR.getEqualAttrsFieldsMask(docaR) & crs_docaR.getNotEmptyFieldsMask()) != crs_docaR.getNotEmptyFieldsMask() ||
+          (crs_docaD.getEqualAttrsFieldsMask(docaD) & crs_docaD.getNotEmptyFieldsMask()) != crs_docaD.getNotEmptyFieldsMask())
+        alarms.insert(APIS::atDiffersFromBooking);
+    };
+  };
+
+  if ((apis.doc.getNotEmptyFieldsMask() & check_info.doc.required_fields)!=check_info.doc.required_fields)
+    alarms.insert(APIS::atIncomplete);
+  else
+  {
+    if (apis.doco.getNotEmptyFieldsMask()!=NO_FIELDS && //пришла непустая информация о визе
+        (apis.doco.getNotEmptyFieldsMask() & check_info.doco.required_fields)!=check_info.doco.required_fields)
+      alarms.insert(APIS::atIncomplete);
+    else
+    {
+      if ((docaB.getNotEmptyFieldsMask() & check_info.docaB.required_fields)!=check_info.docaB.required_fields ||
+          (docaR.getNotEmptyFieldsMask() & check_info.docaR.required_fields)!=check_info.docaR.required_fields ||
+          (docaD.getNotEmptyFieldsMask() & check_info.docaD.required_fields)!=check_info.docaD.required_fields)
+        alarms.insert(APIS::atIncomplete);
+    };
+  };
+
+  long int required_not_empty_fields=check_info.doc.required_fields & apis.doc.getNotEmptyFieldsMask();
+  if ((apis.doc.scanned_attrs & required_not_empty_fields) != required_not_empty_fields)
+    alarms.insert(APIS::atManualInput);
+
+};
+
+typedef map<string/*airp_arv*/, pair<TCompleteCheckDocInfo, set<string> > > TAPISMap;
+
+bool GetAPISAlarms(const int pax_id,
+                   const bool isCBBG,
+                   const string &airp_arv,
+                   const bool apis_control,
+                   const bool apis_manual_input,
+                   const TAPISMap &apis_map,
+                   TCheckDocInfo &check_info,
+                   CheckIn::TAPISItem &apis,
+                   set<APIS::TAlarmType> &alarms,
+                   bool &document_alarm)
+{
+  check_info.clear();
+  apis.clear();
+  alarms.clear();
+  document_alarm=false;
+
+  TAPISMap::const_iterator iAPISMap=apis_map.find(airp_arv);
+  if (apis_control &&
+      iAPISMap!=apis_map.end() &&
+      !iAPISMap->second.second.empty())
+  {
+    //по данному направлению формируется APIS и разрешен вывод тревог
+    check_info=iAPISMap->second.first.pass;
+    apis.fromDB(pax_id);
+    GetAPISAlarms(pax_id, isCBBG, check_info, apis, alarms);
+    if (alarms.find(APIS::atIncomplete)!=alarms.end() ||
+        (!apis_manual_input && alarms.find(APIS::atManualInput)!=alarms.end()))
+      document_alarm=true;
+    return true;
+  };
+  return false;
+};
+
+
+void SaveAPIS(int point_id, int pax_id, int tid, xmlNodePtr reqNode)
+{
+  if (reqNode==NULL) return;
+  //берем новый tid
+  TQuery Qry(&OraSession);
+  get_new_tid(NoExists, Qry);
+  bool apis_control=GetAPISControl(point_id);
+
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT pax_grp.grp_id, pax_grp.status, "
+    "       pax.reg_no, pax.surname, pax.name, pax.pers_type "
+    "FROM pax_grp, pax "
+    "WHERE pax_grp.grp_id=pax.grp_id AND "
+    "      pax.pax_id=:pax_id AND pax.tid=:tid FOR UPDATE";
+  Qry.CreateVariable("pax_id", otInteger, pax_id);
+  Qry.CreateVariable("tid", otInteger, tid);
+  Qry.Execute();
+  if (Qry.Eof)
+    throw AstraLocale::UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
+
+  int grp_id=Qry.FieldAsInteger("grp_id");
+  string status=Qry.FieldAsString("status");
+  int reg_no=Qry.FieldAsInteger("reg_no");
+  string surname=Qry.FieldAsString("surname");
+  string name=Qry.FieldAsString("name");
+  string pers_type=Qry.FieldAsString("pers_type");
+
+  CheckIn::TAPISItem prior_apis;
+  prior_apis.fromDB(pax_id);
+
+  Qry.Clear();
+  Qry.SQLText=
+    "UPDATE pax "
+    "SET tid=cycle_tid__seq.currval "
+    "WHERE pax_id=:pax_id AND tid=:tid";
+  Qry.CreateVariable("pax_id", otInteger, pax_id);
+  Qry.CreateVariable("tid", otInteger, tid);
+  Qry.Execute();
+  if (Qry.RowsProcessed()<=0)
+    throw AstraLocale::UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
+
+  CheckIn::TAPISItem apis=prior_apis;
+  xmlNodePtr node2=reqNode->children;
+  xmlNodePtr docNode;
+  docNode=GetNodeFast("document",node2);
+  if (docNode!=NULL)
+    SavePaxDoc(pax_id, apis.doc.fromXML(docNode), Qry);
+  docNode=GetNodeFast("doco",node2);
+  if (docNode!=NULL)
+    SavePaxDoco(pax_id, apis.doco.fromXML(docNode), Qry);
+  xmlNodePtr docaNode=GetNodeFast("addresses",node2);
+  if (docaNode!=NULL)
+  {
+    apis.doca.clear();
+    for(docaNode=docaNode->children; docaNode!=NULL; docaNode=docaNode->next)
+    {
+      CheckIn::TPaxDocaItem docaItem;
+      docaItem.fromXML(docaNode);
+      if (docaItem.empty()) continue;
+      apis.doca.push_back(docaItem);
+    };
+    SavePaxDoca(pax_id, apis.doca, Qry);
+  };
+
+  if (apis_control)
+  {
+    list<string> msgs;
+    GetAPISLogMsgs(prior_apis, apis, msgs);
+    for(list<string>::const_iterator m=msgs.begin(); m!=msgs.end(); ++m)
+    {
+      ostringstream msg;
+      msg << logPaxNameStr(status, surname, name, pers_type) << ". " << *m;
+      TReqInfo::Instance()->MsgToLog(msg.str(), ASTRA::evtPax, point_id, reg_no, grp_id);
+    };
+  }
+  else
+  {
+    if (!(apis.doc.equalAttrs(prior_apis.doc) &&
+          apis.doco.equalAttrs(prior_apis.doco) &&
+          apis.doca==prior_apis.doca))
+    {
+      ostringstream msg;
+      msg << logPaxNameStr(status, surname, name, pers_type) << ". "
+          << "Изменены данные " << (status!=EncodePaxStatus(psCrew)?"пассажира.":"члена экипажа.");
+      TReqInfo::Instance()->MsgToLog(msg.str(), ASTRA::evtPax, point_id, reg_no, grp_id);
+    };
+  };
+};
+
+const int DOCUMENT_ALARM_ERRCODE=128;
+
 void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    enum TSearchType {searchByPaxId,
-                      searchByRegNo,
-                      searchByScanData,
-                      searchWholeFlight};
+    enum TSearchType {updateByPaxId,
+                      updateByRegNo,
+                      updateByScanData,
+                      refreshByPaxId,
+                      refreshWholeFlight};
 
-    TSearchType search_type=searchWholeFlight;
-    if( strcmp((char *)reqNode->name, "PaxByPaxId") == 0) search_type=searchByPaxId;
+    TSearchType search_type=refreshWholeFlight;
+    if( strcmp((char *)reqNode->name, "PaxByPaxId") == 0) search_type=updateByPaxId;
     else
-      if( strcmp((char *)reqNode->name, "PaxByRegNo") == 0) search_type=searchByRegNo;
+      if( strcmp((char *)reqNode->name, "PaxByRegNo") == 0) search_type=updateByRegNo;
       else
-        if( strcmp((char *)reqNode->name, "PaxByScanData") == 0) search_type=searchByScanData;
+        if( strcmp((char *)reqNode->name, "PaxByScanData") == 0) search_type=updateByScanData;
+        else
+          if( strcmp((char *)reqNode->name, "SavePaxAPIS") == 0) search_type=refreshByPaxId;
 
     TReqInfo *reqInfo = TReqInfo::Instance();
 
@@ -635,10 +846,12 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     bool showWholeFlight=false;
 
     TQuery Qry(&OraSession);
-    if(search_type==searchByScanData ||
-       search_type==searchByPaxId)
+    if(search_type==updateByScanData ||
+       search_type==updateByPaxId ||
+       search_type==refreshByPaxId)
     {
-      if(search_type==searchByPaxId)
+      if(search_type==updateByPaxId ||
+         search_type==refreshByPaxId)
       {
         found_pax_id=NodeAsInteger("pax_id",reqNode);
         //получим point_id и reg_no
@@ -650,7 +863,12 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         Qry.CreateVariable("pax_id",otInteger,found_pax_id);
         Qry.Execute();
         if (Qry.Eof)
-          throw AstraLocale::UserException("MSG.WRONG_DATA_RECEIVED");
+        {
+          if (search_type==updateByPaxId)
+            AstraLocale::UserException("MSG.WRONG_DATA_RECEIVED");
+          if (search_type==refreshByPaxId)
+            AstraLocale::UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
+        };
         found_point_id=Qry.FieldAsInteger("point_dep");
         reg_no=Qry.FieldAsInteger("reg_no");
       }
@@ -663,6 +881,9 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 
       if (point_id!=found_point_id)
       {
+        if (search_type==refreshByPaxId)
+          AstraLocale::UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
+
         point_id=found_point_id;
 
         if (screen==sSecurity &&
@@ -694,20 +915,44 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       };
     };
 
-    if(search_type==searchByRegNo)
+    if(search_type==updateByRegNo)
     {
       reg_no=NodeAsInteger("reg_no",reqNode);
     };
 
-    if(search_type==searchWholeFlight)
+    if(search_type==refreshWholeFlight)
     {
       //общий список
       showWholeFlight=true;
     };
 
-    if(search_type==searchByPaxId ||
-       search_type==searchByRegNo ||
-       search_type==searchByScanData)
+    //проверяем настройки APIS по каждому направлению
+    TAPISMap apis_map;
+
+    TTripRoute route;
+    route.GetRouteAfter(NoExists,point_id,trtNotCurrent,trtNotCancelled);
+    for(TTripRoute::iterator r = route.begin(); r != route.end(); ++r)
+    {
+      set<string> apis_formats;
+      TCompleteCheckDocInfo check_info=GetCheckDocInfo(point_id, r->airp, apis_formats);
+      apis_map.insert( make_pair(r->airp, make_pair(check_info, apis_formats)));
+    };
+
+    //признак контроля данных APIS
+    Qry.Clear();
+    Qry.SQLText=
+        "SELECT apis_control, apis_manual_input "
+        "FROM trip_sets WHERE point_id=:point_id";
+    Qry.CreateVariable("point_id",otInteger,point_id);
+    Qry.Execute();
+    if (Qry.Eof)
+      throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
+    bool apis_control=Qry.FieldAsInteger("apis_control")!=0;
+    bool apis_manual_input=Qry.FieldAsInteger("apis_manual_input")!=0;
+
+    if(search_type==updateByPaxId ||
+       search_type==updateByRegNo ||
+       search_type==updateByScanData)
     {
       bool set_mark = NodeAsInteger("boarding", reqNode)!=0;
       int tid=(GetNode("tid",reqNode)==NULL?NoExists:NodeAsInteger("tid",reqNode));
@@ -718,8 +963,9 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 
       Qry.Clear();
       Qry.SQLText=
-        "SELECT pax_grp.grp_id, pax_grp.status, pax.pax_id, pax.surname, pax.name, pax.seats, "
-        "       pax.pr_brd, pax.pr_exam, pax.wl_type, pax.tid "
+        "SELECT pax_grp.grp_id, pax_grp.airp_arv, pax_grp.status, "
+        "       pax.pax_id, pax.surname, pax.name, pax.seats, "
+        "       pax.pr_brd, pax.pr_exam, pax.wl_type, pax.ticket_rem, pax.tid "
         "FROM pax_grp, pax "
         "WHERE pax_grp.grp_id=pax.grp_id AND "
         "      point_dep= :point_id AND pax_grp.status NOT IN ('E') AND pr_brd IS NOT NULL AND "
@@ -730,6 +976,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       if (Qry.Eof)
         throw AstraLocale::UserException("MSG.PASSENGER.NOT_CHECKIN");
       int grp_id=Qry.FieldAsInteger("grp_id");
+      string airp_arv=Qry.FieldAsString("airp_arv");
       TPaxStatus grp_status=DecodePaxStatus(Qry.FieldAsString("status"));
 
       class TPaxItem
@@ -738,6 +985,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           int pax_id;
           string surname, name;
           string wl_type;
+          string ticket_rem;
           bool pr_brd, pr_exam, already_marked;
           int tid;
           bool updated;
@@ -748,6 +996,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
             surname.clear();
             name.clear();
             wl_type.clear();
+            ticket_rem.clear();
             pr_brd=false;
             pr_exam=false;
             already_marked=false;
@@ -775,6 +1024,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         pax.surname=Qry.FieldAsString("surname");
         pax.name=Qry.FieldAsString("name");
         pax.wl_type=Qry.FieldAsString("wl_type");
+        pax.ticket_rem=Qry.FieldAsString("ticket_rem");
         pax.pr_brd=Qry.FieldAsInteger("pr_brd")!=0;
         pax.pr_exam=Qry.FieldAsInteger("pr_exam")!=0;
         pax.already_marked=(screen==sBoarding?pax.pr_brd:pax.pr_exam);
@@ -923,6 +1173,37 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         Qry.Execute();
         if (!Qry.Eof) without_monitor=Qry.FieldAsInteger("without_monitor")!=0;
 
+        //============================ проверим APIS alarms ============================
+        if (screen==sBoarding && set_mark)
+        {
+          for(int pass=0;pass<2;pass++)
+          {
+            TPaxItem &pax=(pass==0?paxWithSeat:paxWithoutSeat);
+            if (!pax.exists()) continue;
+
+            TCheckDocInfo check_info;
+            CheckIn::TAPISItem apis;
+            set<APIS::TAlarmType> alarms;
+            bool document_alarm=false;
+            GetAPISAlarms(pax.pax_id, pax.name=="CBBG", airp_arv, apis_control, apis_manual_input, apis_map,
+                          check_info, apis, alarms, document_alarm);
+            if (document_alarm &&
+                reqInfo->desk.compatible(APIS_CONTROL_VERSION))
+            {
+              if (alarms.find(APIS::atIncomplete)!=alarms.end())
+              {
+                AstraLocale::showErrorMessage("MSG.PASSENGER.APIS_INCOMPLETE", DOCUMENT_ALARM_ERRCODE);
+                throw 1;
+              };
+              if (alarms.find(APIS::atManualInput)!=alarms.end())
+              {
+                AstraLocale::showErrorMessage("MSG.PASSENGER.APIS_MANUAL_INPUT", DOCUMENT_ALARM_ERRCODE);
+                throw 1;
+              };
+            };
+          };
+        };
+
         if (!without_monitor)
         {
           //============================ вопрос в терминал ============================
@@ -1039,7 +1320,9 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         {
             if (set_mark)
             {
-              if (grp_status==psTCheckin)
+              if (grp_status==psTCheckin &&
+                  ((paxWithSeat.exists() && paxWithSeat.ticket_rem!="TKNE") ||
+                   (paxWithoutSeat.exists() && paxWithoutSeat.ticket_rem!="TKNE")))
               {
                 if (!without_monitor)
                   AstraLocale::showErrorMessage("MSG.ATTENTION_TCKIN_GET_COUPON");
@@ -1061,10 +1344,13 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         };
       }
       catch(int) {};
+    }
+    else
+    {
+
     };
 
     //выводим список или измененных пассажиров в терминал
-
     xmlNodePtr listNode = NewTextChild(dataNode, "passengers");
 
     Qry.Clear();
@@ -1101,6 +1387,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       NewTextChild(defNode, "client_name", "");
       NewTextChild(defNode, "inbound_flt", "");
       NewTextChild(defNode, "inbound_delay_alarm", (int)false);
+      NewTextChild(defNode, "document_alarm", (int)false);
 
       int col_pax_id=Qry.FieldIndex("pax_id");
       int col_grp_id=Qry.FieldIndex("grp_id");
@@ -1112,6 +1399,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       int col_pers_type=Qry.FieldIndex("pers_type");
       int col_class=Qry.FieldIndex("class");
       int col_airp_arv=Qry.FieldIndex("airp_arv");
+      int col_last_airp_arv=Qry.FieldIndex("last_airp_arv");
       int col_seat_no=Qry.FieldIndex("seat_no");
       int col_seats=Qry.FieldIndex("seats");
       int col_wl_type=Qry.FieldIndex("wl_type");
@@ -1137,6 +1425,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           int pax_id=Qry.FieldAsInteger(col_pax_id);
           string surname=Qry.FieldAsString(col_surname);
           string name=Qry.FieldAsString(col_name);
+          string airp_arv=Qry.FieldAsString(col_airp_arv);
 
           xmlNodePtr paxNode = NewTextChild(listNode, "pax");
           NewTextChild(paxNode, "pax_id", pax_id);
@@ -1148,7 +1437,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           NewTextChild(paxNode, "name", Qry.FieldAsString(col_name), "");
           NewTextChild(paxNode, "pers_type", ElemIdToCodeNative(etPersType, Qry.FieldAsString(col_pers_type)), def_pers_type);
           NewTextChild(paxNode, "class", ElemIdToCodeNative(etClass, Qry.FieldAsString(col_class)), def_class);
-          NewTextChild(paxNode, "airp_arv", ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp_arv)));
+          NewTextChild(paxNode, "airp_arv", ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_last_airp_arv)));
           NewTextChild(paxNode, "seat_no", Qry.FieldAsString(col_seat_no));
           NewTextChild(paxNode, "seats", Qry.FieldAsInteger(col_seats), 1);
           if (!free_seating)
@@ -1189,6 +1478,54 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           NewTextChild(paxNode, "remarks", GetRemarkStr(rem_grp, pax_id), "");
           if (DecodeClientType(Qry.FieldAsString(col_client_type))!=ctTerm)
             NewTextChild(paxNode, "client_name", ElemIdToNameShort(etClientType, Qry.FieldAsString(col_client_type)));
+
+          TCheckDocInfo check_info;
+          CheckIn::TAPISItem apis;
+          set<APIS::TAlarmType> alarms;
+          bool document_alarm=false;
+
+        /*  ProgTrace(TRACE5, "pax_id=%d name=%s airp_arv=%s apis_control=%d apis_manual_input=%d apis_map.size()=%zu",
+                    pax_id, name.c_str(), airp_arv.c_str(), (int)apis_control, (int)apis_manual_input, apis_map.size());
+        */
+          if (GetAPISAlarms(pax_id, name=="CBBG", airp_arv, apis_control, apis_manual_input, apis_map,
+                            check_info, apis, alarms, document_alarm))
+          {
+            if (document_alarm)
+              NewTextChild(paxNode, "document_alarm", (int)true);
+            if(search_type==updateByPaxId ||
+               search_type==updateByRegNo ||
+               search_type==updateByScanData ||
+               search_type==refreshByPaxId)
+              //для определенных search_type грузим в терминал APIS
+              LoadAPIS(check_info, apis, paxNode);
+          }
+          else
+          {
+            //тревоги не выводим, но для определенных search_type грузим в терминал APIS
+            if(search_type==updateByPaxId ||
+               search_type==updateByRegNo ||
+               search_type==updateByScanData ||
+               search_type==refreshByPaxId)
+            {
+              TCheckDocInfo check_info;
+              TAPISMap::const_iterator iAPISMap=apis_map.find(airp_arv);
+              if (iAPISMap!=apis_map.end()) check_info=iAPISMap->second.first.pass;
+              LoadAPIS(check_info, CheckIn::TAPISItem().fromDB(pax_id), paxNode);
+            };
+          };
+
+          if (!alarms.empty())
+          {
+            if (alarms.size()==1)
+              NewTextChild(paxNode, "alarm", APIS::EncodeAlarmType(*(alarms.begin())));
+            else
+            {
+              xmlNodePtr alarmsNode=NewTextChild(paxNode, "alarms");
+              for(set<APIS::TAlarmType>::const_iterator a=alarms.begin(); a!=alarms.end(); ++a)
+                NewTextChild(alarmsNode, "alarm", APIS::EncodeAlarmType(*a));
+            };
+          };
+
 
           if (!Qry.FieldIsNULL(col_tckin_id))
           {
@@ -1240,6 +1577,44 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     };
     TRptParams rpt_params(reqInfo->desk.lang);
     readTripCounters(point_id, rpt_params, dataNode, rtUnknown, "");
+};
+
+void BrdInterface::LoadPaxAPIS(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  int point_id=NodeAsInteger("point_id",reqNode);
+  int pax_id=NodeAsInteger("pax_id",reqNode);
+  int tid=NodeAsInteger("tid",reqNode);
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT pax_grp.airp_arv "
+    "FROM pax_grp, pax "
+    "WHERE pax_grp.grp_id=pax.grp_id AND pax.pax_id=:pax_id AND pax_grp.point_dep=:point_id AND pax.tid=:tid";
+  Qry.CreateVariable("point_id", otInteger, point_id);
+  Qry.CreateVariable("pax_id", otInteger, pax_id);
+  Qry.CreateVariable("tid", otInteger, tid);
+  Qry.Execute();
+  if (Qry.Eof)
+    throw AstraLocale::UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
+  string airp_arv=Qry.FieldAsString("airp_arv");
+
+  LoadAPIS(point_id, airp_arv, pax_id, resNode);
+};
+
+void BrdInterface::SavePaxAPIS(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  int point_id=NodeAsInteger("point_id",reqNode);
+  int pax_id=NodeAsInteger("pax_id",reqNode);
+  int tid=NodeAsInteger("tid",reqNode);
+  xmlNodePtr apisNode=NodeAsNode("apis", reqNode);
+
+  TFlights flightsForLock;
+  flightsForLock.Get( point_id, ftTranzit );
+  flightsForLock.Lock();
+
+  SaveAPIS(point_id, pax_id, tid, apisNode);
+
+  GetPax(reqNode, resNode);
 };
 
 

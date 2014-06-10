@@ -2025,7 +2025,7 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
             CheckDoc(iPaxForChng->doc, checkDocInfo.doc, now_local);
             CheckIn::TPaxDocItem prior_doc;
             LoadPaxDoc(iPaxForChng->crs_pax_id, prior_doc);
-            DocUpdatesPending=!(prior_doc==iPaxForChng->doc);
+            DocUpdatesPending=!(prior_doc.equal(iPaxForChng->doc)); //реагируем также на изменение scanned_attrs
           };
 
           bool DocoUpdatesPending=false;
@@ -2034,7 +2034,7 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
             CheckDoco(iPaxForChng->doco, checkDocInfo.doco, now_local);
             CheckIn::TPaxDocoItem prior_doco;
             LoadPaxDoco(iPaxForChng->crs_pax_id, prior_doco);
-            DocoUpdatesPending=!(prior_doco==iPaxForChng->doco);
+            DocoUpdatesPending=!(prior_doco.equal(iPaxForChng->doco)); //реагируем также на изменение scanned_attrs
           };
 
           bool FQTRemUpdatesPending=false;

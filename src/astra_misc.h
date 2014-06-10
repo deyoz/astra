@@ -328,7 +328,7 @@ class TCheckDocTknInfo
     {
       clear();
     };
-    void toXML(xmlNodePtr node)
+    void toXML(xmlNodePtr node) const
     {
       if (node==NULL) return;
       NewTextChild(node, "is_inter", (int)is_inter, (int)false);
@@ -351,7 +351,7 @@ class TCheckTknInfo
     {
       tkn.clear();
     };
-    void toXML(xmlNodePtr node)
+    void toXML(xmlNodePtr node) const
     {
       tkn.toXML(NewTextChild(node, "tkn"));
     };
@@ -369,7 +369,7 @@ class TCheckDocInfo
       docaR.clear();
       docaD.clear();
     };
-    void toXML(xmlNodePtr node)
+    void toXML(xmlNodePtr node) const
     {
       doc.toXML(NewTextChild(node, "doc"));
       doco.toXML(NewTextChild(node, "doco"));

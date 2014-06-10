@@ -173,7 +173,10 @@ std::string TPaxToLogInfo::getBagStr() const
   return msg.str();
 };
 
-std::string TPaxToLogInfo::getPaxNameStr() const
+std::string logPaxNameStr(const string &status,
+                          const string &surname,
+                          const string &name,
+                          const string &pers_type)
 {
   std::ostringstream msg;
   if (pers_type.empty())
@@ -184,6 +187,11 @@ std::string TPaxToLogInfo::getPaxNameStr() const
         << (name.empty()?"":" ") << name
         << " (" << pers_type << ")";
   return msg.str();
+};
+
+std::string TPaxToLogInfo::getPaxNameStr() const
+{
+  return logPaxNameStr(status, surname, name, pers_type);
 };
 
 std::string TPaxToLogInfo::getNormStr() const
@@ -252,9 +260,7 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
         paxInfo.tkn.fromDB(Qry);
         paxInfo.pr_brd=paxInfo.refuse.empty() && !Qry.FieldIsNULL("pr_brd") && Qry.FieldAsInteger("pr_brd")!=0;
         paxInfo.pr_exam=paxInfo.refuse.empty() && !Qry.FieldIsNULL("pr_exam") && Qry.FieldAsInteger("pr_exam")!=0;
-        LoadPaxDoc(paxInfoKey.pax_id, paxInfo.doc);
-        LoadPaxDoco(paxInfoKey.pax_id, paxInfo.doco);
-        LoadPaxDoca(paxInfoKey.pax_id, paxInfo.doca);
+        paxInfo.apis.fromDB(paxInfoKey.pax_id);
         LoadPaxRem(paxInfoKey.pax_id, true, paxInfo.rems);
         sort(paxInfo.rems.begin(), paxInfo.rems.end());
       }
@@ -342,6 +348,86 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
   };
 };
 
+void GetAPISLogMsgs(const CheckIn::TAPISItem &apisBefore,
+                    const CheckIn::TAPISItem &apisAfter,
+                    list<string> &msgs)
+{
+  msgs.clear();
+
+  bool manualInputBefore=(apisBefore.doc.scanned_attrs & apisBefore.doc.getNotEmptyFieldsMask()) != apisBefore.doc.getNotEmptyFieldsMask();
+  bool manualInputAfter=(apisAfter.doc.scanned_attrs & apisAfter.doc.getNotEmptyFieldsMask()) != apisAfter.doc.getNotEmptyFieldsMask();
+  if (!(apisAfter.doc.equalAttrs(apisBefore.doc) && manualInputBefore==manualInputAfter))
+  {
+    //изменения по документу
+    ostringstream msg;
+    msg << "DOCS: "
+        << apisAfter.doc.type << "/"
+        << apisAfter.doc.issue_country << "/"
+        << apisAfter.doc.no << "/"
+        << apisAfter.doc.nationality << "/"
+        << (apisAfter.doc.birth_date!=ASTRA::NoExists?DateTimeToStr(apisAfter.doc.birth_date, "ddmmmyy"):"") << "/"
+        << apisAfter.doc.gender << "/"
+        << (apisAfter.doc.expiry_date!=ASTRA::NoExists?DateTimeToStr(apisAfter.doc.expiry_date, "ddmmmyy"):"") << "/"
+        << apisAfter.doc.surname << "/"
+        << apisAfter.doc.first_name << "/"
+        << apisAfter.doc.second_name << ". "
+        << (manualInputAfter?"Ручной ввод":"Сканирование");
+     msgs.push_back(msg.str());
+  };
+
+  manualInputBefore=(apisBefore.doco.scanned_attrs & apisBefore.doco.getNotEmptyFieldsMask()) != apisBefore.doco.getNotEmptyFieldsMask();
+  manualInputAfter=(apisAfter.doco.scanned_attrs & apisAfter.doco.getNotEmptyFieldsMask()) != apisAfter.doco.getNotEmptyFieldsMask();
+  if (!(apisAfter.doco.equalAttrs(apisBefore.doco) && manualInputBefore==manualInputAfter))
+  {
+    //изменения по визе
+    ostringstream msg;
+    msg << "DOCO: "
+        << apisAfter.doco.birth_place << "/"
+        << apisAfter.doco.type << "/"
+        << apisAfter.doco.no << "/"
+        << apisAfter.doco.issue_place << "/"
+        << (apisAfter.doco.issue_date!=ASTRA::NoExists?DateTimeToStr(apisAfter.doco.issue_date, "ddmmmyy"):"") << "/"
+        << apisAfter.doco.applic_country << "/"
+        << (apisAfter.doco.expiry_date!=ASTRA::NoExists?DateTimeToStr(apisAfter.doco.expiry_date, "ddmmmyy"):"") << ". "
+        << (manualInputAfter?"Ручной ввод":"Сканирование");
+     msgs.push_back(msg.str());
+  };
+
+  CheckIn::TPaxDocaItem docaBefore[3];
+  for(list<CheckIn::TPaxDocaItem>::const_iterator d=apisBefore.doca.begin(); d!=apisBefore.doca.end(); ++d)
+  {
+    if (d->type=="B") docaBefore[0]=*d;
+    if (d->type=="R") docaBefore[1]=*d;
+    if (d->type=="D") docaBefore[2]=*d;
+  };
+
+  CheckIn::TPaxDocaItem docaAfter[3];
+  for(list<CheckIn::TPaxDocaItem>::const_iterator d=apisAfter.doca.begin(); d!=apisAfter.doca.end(); ++d)
+  {
+    if (d->type=="B") docaAfter[0]=*d;
+    if (d->type=="R") docaAfter[1]=*d;
+    if (d->type=="D") docaAfter[2]=*d;
+  };
+
+  for(int pass=0; pass<3; pass++)
+  {
+    if (docaAfter[pass]==docaBefore[pass]) continue;
+
+    ostringstream msg;
+    if (pass==0) msg << "DOCA(B): ";
+    if (pass==1) msg << "DOCA(R): ";
+    if (pass==2) msg << "DOCA(D): ";
+    //изменения адреса
+    msg << docaAfter[pass].type << "/"
+        << docaAfter[pass].country << "/"
+        << docaAfter[pass].address << "/"
+        << docaAfter[pass].city << "/"
+        << docaAfter[pass].region << "/"
+        << docaAfter[pass].postal_code;
+    msgs.push_back(msg.str());
+  };
+};
+
 void SaveGrpToLog(int point_id,
                   const TTripInfo &operFlt,
                   const TTripInfo &markFlt,
@@ -352,6 +438,7 @@ void SaveGrpToLog(int point_id,
   bool SyncPaxs=is_sync_paxs(point_id);
   
   bool auto_weighing=GetAutoWeighing(point_id, "Р");
+  bool apis_control=GetAPISControl(point_id);
   
   agentStat.clear();
 
@@ -405,9 +492,10 @@ void SaveGrpToLog(int point_id,
                 aPax->second.subcl==bPax->second.subcl &&
                 aPax->second.seat_no==bPax->second.seat_no &&
                 aPax->second.tkn==bPax->second.tkn &&
-                aPax->second.doc==bPax->second.doc &&
-                aPax->second.doco==bPax->second.doco &&
-                aPax->second.doca==bPax->second.doca &&
+                (apis_control ||
+                 (aPax->second.apis.doc.equalAttrs(bPax->second.apis.doc) &&
+                  aPax->second.apis.doco.equalAttrs(bPax->second.apis.doco) &&
+                  aPax->second.apis.doca==bPax->second.apis.doca)) &&
                 aPax->second.rems==bPax->second.rems))
           {
             //пассажир изменен
@@ -428,6 +516,18 @@ void SaveGrpToLog(int point_id,
             msg << ": " << aPax->second.getNormStr();
             reqInfo->MsgToLog(msg.str(), ASTRA::evtPax, point_id, aPax->first.reg_no, grp_id);
             changed=true;
+          };
+          if (!is_unaccomp && apis_control)
+          {
+            list<string> msgs;
+            GetAPISLogMsgs(bPax->second.apis, aPax->second.apis, msgs);
+            for(list<string>::const_iterator m=msgs.begin(); m!=msgs.end(); ++m)
+            {
+              ostringstream msg;
+              msg << aPax->second.getPaxNameStr() << ". " << *m;
+              reqInfo->MsgToLog(msg.str(), ASTRA::evtPax, point_id, aPax->first.reg_no, grp_id);
+              changed=true;
+            };
           };
         }
         else
@@ -455,6 +555,19 @@ void SaveGrpToLog(int point_id,
             msg << " (" << markFlt.airline << ")";
           msg << ": " << aPax->second.getNormStr();
           reqInfo->MsgToLog(msg.str(), ASTRA::evtPax, point_id, aPax->first.reg_no, grp_id);
+
+          if (!is_unaccomp && apis_control)
+          {
+            list<string> msgs;
+            GetAPISLogMsgs(CheckIn::TAPISItem(), aPax->second.apis, msgs);
+            for(list<string>::const_iterator m=msgs.begin(); m!=msgs.end(); ++m)
+            {
+              ostringstream msg;
+              msg << aPax->second.getPaxNameStr() << ". " << *m;
+              reqInfo->MsgToLog(msg.str(), ASTRA::evtPax, point_id, aPax->first.reg_no, grp_id);
+            };
+          };
+
           changed=true;
         };
       }
@@ -759,4 +872,14 @@ bool GetAutoWeighing(int point_id, const string &work_mode)
   return auto_weighing;
 };
 
-
+bool GetAPISControl(int point_id)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT apis_control FROM trip_sets WHERE point_id=:point_id";
+  Qry.CreateVariable("point_id", otInteger, point_id);
+  Qry.Execute();
+  if (Qry.Eof) return false;
+  return Qry.FieldAsInteger("apis_control")!=0;
+};
