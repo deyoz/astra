@@ -81,6 +81,7 @@ set grp3_Jxt(BOUT) $SOCKDIR/sirena-BOUT3
 set grp3_Jxt(SIGNAL) $SOCKDIR/sirena-BSIG3
 set grp3_Jxt(HEADTYPE) 3
 set grp3_Jxt(REDISPLAY) 1 ;#any value is equivalent to 1 !!! Don't set to 0 or NO
+set grp3_Jxt(MAX_CONNECTIONS) 2500
 
 set grp8_Http(BIN) $SOCKDIR/sirena-BIN8
 set grp8_Http(SIGNAL) $SOCKDIR/sirena-BSIG8
@@ -167,6 +168,7 @@ if { ! [info exists monitor2(UDP_FILE)] } {
 }
 
 set MONITOR_LOG monitor.log
+set MONITOR_PORT_FILE "./monitor.port"
 
 execute
 

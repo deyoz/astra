@@ -16,7 +16,6 @@ class TPaxTknItem
     int coupon;
     std::string rem;
     bool confirm;
-    bool pr_inf;
     TPaxTknItem()
     {
       clear();
@@ -27,7 +26,6 @@ class TPaxTknItem
       coupon=ASTRA::NoExists;
       rem.clear();
       confirm=false;
-      pr_inf=false;
     };
     bool empty() const
     {
@@ -69,6 +67,7 @@ class TPaxDocItem
     std::string second_name;
     bool pr_multi;
     std::string type_rcpt;
+    long int scanned_attrs;
     TPaxDocItem()
     {
       clear();
@@ -87,6 +86,7 @@ class TPaxDocItem
       second_name.clear();
       pr_multi=false;
       type_rcpt.clear();
+      scanned_attrs=NO_FIELDS;
     };
     bool empty() const
     {
@@ -103,7 +103,7 @@ class TPaxDocItem
              pr_multi==false &&
              type_rcpt.empty();
     };
-    bool operator == (const TPaxDocItem &item) const
+    bool equalAttrs(const TPaxDocItem &item) const
     {
       return type == item.type &&
              issue_country == item.issue_country &&
@@ -118,12 +118,18 @@ class TPaxDocItem
              pr_multi == item.pr_multi &&
              type_rcpt == item.type_rcpt;
     };
+    bool equal(const TPaxDocItem &item) const
+    {
+      return equalAttrs(item) &&
+             scanned_attrs == item.scanned_attrs;
+    };
     const TPaxDocItem& toXML(xmlNodePtr node) const;
     TPaxDocItem& fromXML(xmlNodePtr node);
     const TPaxDocItem& toDB(TQuery &Qry) const;
     TPaxDocItem& fromDB(TQuery &Qry);
     
     long int getNotEmptyFieldsMask() const;
+    long int getEqualAttrsFieldsMask(const TPaxDocItem &item) const;
 };
 
 class TPaxDocoItem
@@ -136,7 +142,7 @@ class TPaxDocoItem
     BASIC::TDateTime issue_date;
     BASIC::TDateTime expiry_date;
     std::string applic_country;
-    bool pr_inf;
+    long int scanned_attrs;
     TPaxDocoItem()
     {
       clear();
@@ -150,7 +156,7 @@ class TPaxDocoItem
       issue_date=ASTRA::NoExists;
       expiry_date=ASTRA::NoExists;
       applic_country.clear();
-      pr_inf=false;
+      scanned_attrs=NO_FIELDS;
     };
     bool empty() const
     {
@@ -160,10 +166,9 @@ class TPaxDocoItem
              issue_place.empty() &&
              issue_date==ASTRA::NoExists &&
              expiry_date==ASTRA::NoExists &&
-             applic_country.empty() &&
-             pr_inf==false;
+             applic_country.empty();
     };
-    bool operator == (const TPaxDocoItem &item) const
+    bool equalAttrs(const TPaxDocoItem &item) const
     {
       return birth_place == item.birth_place &&
              type == item.type &&
@@ -171,8 +176,12 @@ class TPaxDocoItem
              issue_place == item.issue_place &&
              issue_date == item.issue_date &&
              expiry_date == item.expiry_date &&
-             applic_country == item.applic_country &&
-             pr_inf == item.pr_inf;
+             applic_country == item.applic_country;
+    };
+    bool equal(const TPaxDocoItem &item) const
+    {
+      return equalAttrs(item) &&
+             scanned_attrs == item.scanned_attrs;
     };
     const TPaxDocoItem& toXML(xmlNodePtr node) const;
     TPaxDocoItem& fromXML(xmlNodePtr node);
@@ -180,6 +189,7 @@ class TPaxDocoItem
     TPaxDocoItem& fromDB(TQuery &Qry);
     
     long int getNotEmptyFieldsMask() const;
+    long int getEqualAttrsFieldsMask(const TPaxDocoItem &item) const;
 };
 
 class TPaxDocaItem
@@ -191,7 +201,6 @@ class TPaxDocaItem
     std::string city;
     std::string region;
     std::string postal_code;
-    bool pr_inf;
     TPaxDocaItem()
     {
       clear();
@@ -204,7 +213,6 @@ class TPaxDocaItem
       city.clear();
       region.clear();
       postal_code.clear();
-      pr_inf=false;
     };
     bool empty() const
     {
@@ -213,8 +221,7 @@ class TPaxDocaItem
              address.empty() &&
              city.empty() &&
              region.empty() &&
-             postal_code.empty() &&
-             pr_inf==false;
+             postal_code.empty();
     };
     bool operator == (const TPaxDocaItem &item) const
     {
@@ -223,8 +230,7 @@ class TPaxDocaItem
              address == item.address &&
              city == item.city &&
              region == item.region &&
-             postal_code == item.postal_code &&
-             pr_inf == item.pr_inf;
+             postal_code == item.postal_code;
     };
     const TPaxDocaItem& toXML(xmlNodePtr node) const;
     TPaxDocaItem& fromXML(xmlNodePtr node);
@@ -232,6 +238,7 @@ class TPaxDocaItem
     TPaxDocaItem& fromDB(TQuery &Qry);
 
     long int getNotEmptyFieldsMask() const;
+    long int getEqualAttrsFieldsMask(const TPaxDocaItem &item) const;
 };
 
 class TPaxItem
@@ -298,6 +305,27 @@ class TPaxItem
     const TPaxItem& toDB(TQuery &Qry) const;
     TPaxItem& fromDB(TQuery &Qry);
     int is_female() const;
+};
+
+class TAPISItem
+{
+  public:
+    TPaxDocItem doc;
+    TPaxDocoItem doco;
+    std::list<TPaxDocaItem> doca;
+    TAPISItem()
+    {
+      clear();
+    };
+    void clear()
+    {
+      doc.clear();
+      doco.clear();
+      doca.clear();
+    };
+
+    const TAPISItem& toXML(xmlNodePtr node) const;
+    TAPISItem& fromDB(int pax_id);
 };
 
 int is_female(const std::string &pax_doc_gender, const std::string &pax_name);
@@ -376,7 +404,17 @@ bool LoadGrpNorms(int grp_id, std::vector< std::pair<TPaxNormItem, TNormItem> > 
 void LoadNorms(xmlNodePtr node, bool pr_unaccomp);
 void SaveNorms(xmlNodePtr node, bool pr_unaccomp);
 
-};
+}; //namespace CheckIn
+
+namespace APIS
+{
+enum TAlarmType { atDiffersFromBooking,
+                  atIncomplete,
+                  atManualInput,
+                  atLength };
+
+std::string EncodeAlarmType(const TAlarmType alarm );
+}; //namespace APIS
 
 #endif
 

@@ -1475,26 +1475,28 @@ namespace PRL_SPACE {
             items.push_back(transliter(Qry.get().FieldAsString("rem"), 1, info.is_lat()));
         };
 
+        bool inf_indicator=false; //сюда попадают только люди не infant и ремарки выводим только для этих людей
+                                  //для infant пока не выводим, а может быть надо?
         CheckIn::TPaxRemItem rem;
         //билет
         CheckIn::TPaxTknItem tkn;
         LoadPaxTkn(pax.pax_id, tkn);
-        if (getPaxRem(info, tkn, rem)) items.push_back(rem.text);
+        if (getPaxRem(info, tkn, inf_indicator, rem)) items.push_back(rem.text);
         //документ
         CheckIn::TPaxDocItem doc;
         LoadPaxDoc(pax.pax_id, doc);
-        if (getPaxRem(info, doc, rem)) items.push_back(rem.text);
+        if (getPaxRem(info, doc, inf_indicator, rem)) items.push_back(rem.text);
         //виза
         CheckIn::TPaxDocoItem doco;
         LoadPaxDoco(pax.pax_id, doco);
-        if (getPaxRem(info, doco, rem)) items.push_back(rem.text);
+        if (getPaxRem(info, doco, inf_indicator, rem)) items.push_back(rem.text);
         //адреса
         list<CheckIn::TPaxDocaItem> doca;
         LoadPaxDoca(pax.pax_id, doca);
         for(list<CheckIn::TPaxDocaItem>::const_iterator d=doca.begin(); d!=doca.end(); ++d)
         {
           if (d->type!="D" && d->type!="R") continue;
-          if (getPaxRem(info, *d, rem)) items.push_back(rem.text);
+          if (getPaxRem(info, *d, inf_indicator, rem)) items.push_back(rem.text);
         };
     }
 
@@ -4230,11 +4232,11 @@ void TRemList::get(TypeB::TDetailCreateInfo &info, TETLPax &pax)
     //билет
     CheckIn::TPaxTknItem tkn;
     LoadPaxTkn(pax.pax_id, tkn);
-    if (tkn.rem == "TKNE" and getPaxRem(info, tkn, rem)) items.push_back(rem.text);
+    if (tkn.rem == "TKNE" and getPaxRem(info, tkn, false, rem)) items.push_back(rem.text);
     for(vector<TInfantsItem>::iterator infRow = infants->items.begin(); infRow != infants->items.end(); infRow++) {
         if(infRow->grp_id == pax.grp_id and infRow->parent_pax_id == pax.pax_id) {
             LoadPaxTkn(infRow->pax_id, tkn);
-            if (tkn.rem == "TKNE" and getPaxRem(info, tkn, rem)) items.push_back(rem.text);
+            if (tkn.rem == "TKNE" and getPaxRem(info, tkn, true, rem)) items.push_back(rem.text);
         }
     }
 }
@@ -4264,13 +4266,13 @@ struct TFTLDest {
     void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
 };
 
-bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxTknItem &tkn, CheckIn::TPaxRemItem &rem)
+bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxTknItem &tkn, bool inf_indicator, CheckIn::TPaxRemItem &rem)
 {
   if (tkn.empty() || tkn.rem.empty()) return false;
   rem.clear();
   rem.code=tkn.rem;
   ostringstream text;
-  text << rem.code << " HK1 " << (tkn.pr_inf?"INF":"")
+  text << rem.code << " HK1 " << (inf_indicator?"INF":"")
        << transliter(convert_char_view(tkn.no, info.is_lat()), 1, info.is_lat());
   if (tkn.coupon!=ASTRA::NoExists)
     text << "/" << tkn.coupon;
@@ -4279,7 +4281,7 @@ bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxTknItem &tkn, 
   return true;
 };
 
-bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxDocItem &doc, CheckIn::TPaxRemItem &rem)
+bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxDocItem &doc, bool inf_indicator, CheckIn::TPaxRemItem &rem)
 {
   if (doc.empty()) return false;
   rem.clear();
@@ -4292,7 +4294,7 @@ bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxDocItem &doc, 
        << "/" << transliter(convert_char_view(doc.no, info.is_lat()), 1, info.is_lat())
        << "/" << (doc.nationality.empty()?"":info.TlgElemIdToElem(etPaxDocCountry, doc.nationality))
        << "/" << (doc.birth_date!=ASTRA::NoExists?DateTimeToStr(doc.birth_date, "ddmmmyy", info.is_lat()):"")
-       << "/" << (doc.gender.empty()?"":info.TlgElemIdToElem(etGenderType, doc.gender))
+       << "/" << (doc.gender.empty()?"":info.TlgElemIdToElem(etGenderType, doc.gender)) << (inf_indicator?"I":"")
        << "/" << (doc.expiry_date!=ASTRA::NoExists?DateTimeToStr(doc.expiry_date, "ddmmmyy", info.is_lat()):"")
        << "/" << transliter(doc.surname, 1, info.is_lat())
        << "/" << transliter(doc.first_name, 1, info.is_lat())
@@ -4309,7 +4311,7 @@ bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxDocItem &doc, 
   return true;
 };
 
-bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxDocoItem &doco, CheckIn::TPaxRemItem &rem)
+bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxDocoItem &doco, bool inf_indicator, CheckIn::TPaxRemItem &rem)
 {
   if (doco.empty()) return false;
   rem.clear();
@@ -4323,7 +4325,7 @@ bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxDocoItem &doco
        << "/" << transliter(doco.issue_place, 1, info.is_lat())
        << "/" << (doco.issue_date!=ASTRA::NoExists?DateTimeToStr(doco.issue_date, "ddmmmyy", info.is_lat()):"")
        << "/" << (doco.applic_country.empty()?"":info.TlgElemIdToElem(etPaxDocCountry, doco.applic_country))
-       << "/" << (doco.pr_inf?"I":"");
+       << "/" << (inf_indicator?"I":"");
   rem.text=text.str();
   for(int i=rem.text.size()-1;i>=0;i--)
     if (rem.text[i]!='/')
@@ -4335,7 +4337,7 @@ bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxDocoItem &doco
   return true;
 };
 
-bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxDocaItem &doca, CheckIn::TPaxRemItem &rem)
+bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxDocaItem &doca, bool inf_indicator, CheckIn::TPaxRemItem &rem)
 {
   if (doca.empty()) return false;
   rem.clear();
@@ -4349,7 +4351,7 @@ bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxDocaItem &doca
        << "/" << transliter(doca.city, 1, info.is_lat())
        << "/" << transliter(doca.region, 1, info.is_lat())
        << "/" << transliter(doca.postal_code, 1, info.is_lat())
-       << "/" << (doca.pr_inf?"I":"");
+       << "/" << (inf_indicator?"I":"");
   rem.text=text.str();
   for(int i=rem.text.size()-1;i>=0;i--)
     if (rem.text[i]!='/')
