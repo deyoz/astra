@@ -5450,6 +5450,7 @@ void TMVTCBody::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 }
 
 struct TMVTABody {
+    TDateTime AD;
     TDateTime act;
     TTripDelays delays;
     vector<TMVTABodyItem> items;
@@ -5512,18 +5513,17 @@ void TMVTABody::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 {
     ostringstream buf;
     if(act != NoExists) {
-        TDateTime off_block = act - 5./1440;
         int year, month, day1, day2;
         string fmt;
         DecodeDate(act, year, month, day1);
-        DecodeDate(off_block, year, month, day2);
+        DecodeDate(AD, year, month, day2);
         if(day1 != day2)
             fmt = "ddhhnn";
         else
             fmt = "hhnn";
         buf
             << "AD"
-            << DateTimeToStr(off_block, fmt)
+            << DateTimeToStr(AD, fmt)
             << "/"
             << DateTimeToStr(act, fmt);
     } else {
@@ -5553,6 +5553,9 @@ void TMVTABody::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 
 void TMVTABody::get(TypeB::TDetailCreateInfo &info)
 {
+    TTripStage ts;
+    TTripStages::LoadStage(info.point_id, sRemovalGangWay, ts);
+    AD = (ts.act != ASTRA::NoExists ? ts.act : (ts.est != ASTRA::NoExists ? ts.est : ts.scd));
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "SELECT NVL(act_out,NVL(est_out,scd_out)) act FROM points WHERE point_id=:point_id";
